@@ -1,0 +1,10 @@
+#!/usr/bin/env osascript
+# Returns the number of unread mails in the INBOX of Apple Mail.
+
+tell application "Mail"
+  if it is running then
+		if unread count of inbox > 0 then
+			set a to " 📧  " & unread count of inbox & " "
+		end if
+  end if
+end tell

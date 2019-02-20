@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+pandoc -o tmp.pdf $1;
+open tmp.pdf;
+sleep 10 && rm tmp.html &

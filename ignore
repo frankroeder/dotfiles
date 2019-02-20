@@ -1,0 +1,7 @@
+# ignore file used by ag
+*.ipynb
+venv/
+.git/
+Applications/
+Library/
+node_modules/

@@ -1,0 +1,29 @@
+#!/bin/bash
+ping -c 1 www.icloud.com
+if [ $? -eq 0 ];
+then
+  printf "\\033[34m"
+  echo -e "\n#######################"
+  printf "# Checkin for updates #\n"
+  echo -e "#######################\n"
+  printf "\\033[0m"
+  printf "\\033[33m## Homebrew #\\033[0m\\n"
+  brew update && brew upgrade && brew cask upgrade && \
+    brew cleanup && brew doctor;
+  printf "\\033[33m## Vim Plug #\\033[0m\\n"
+  vim +PlugUpdate +qall && vim +PlugUpgrade +qall;
+  printf "\\033[33m## Pip #\\033[0m\\n"
+  pip install -U $(pip freeze | cut -d '=' -f 1)
+  printf "\\033[33m## NPM #\\n"
+  # npm install npm -g;
+  npm update -g;
+  printf "\\033[33m## Ruby Gems #\\033[0m\\n"
+  sudo gem update --system;
+  sudo gem update;
+  sudo gem cleanup;
+  printf "\\033[33m## macOS #\\033[0m\\n"
+  softwareupdate -i -a;
+  echo $'\e]9;Updates Completed\007'
+else
+  echo $'\e]9;No Internetconnection\007'
+fi

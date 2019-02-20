@@ -1,0 +1,46 @@
+#global gitignore
+
+jsconfig.json
+
+# Files that might appear on external disks
+.Spotlight-V100
+.Trashes
+
+# Application specific files
+venv
+node_modules
+.sass-cache
+
+# Compiled source
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+*.out
+*.pyc
+
+# Temporary files
+*.swp
+*.swo
+*~
+
+# Packages
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# Logs and databases
+*.log
+
+# OS generated files
+.DS_Store*
+Thumbs.db
+*.lock
+package-lock.json

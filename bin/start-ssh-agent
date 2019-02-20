@@ -1,0 +1,23 @@
+#!/bin/bash
+
+[ "$BASH_VERSION" ] && shopt -s nullglob
+[ "$ZSH_VERSION" ] && setopt null_glob
+
+SSH_ENV="$HOME/.ssh/environment"
+
+start_agent () {
+  eval `ssh-agent`
+}
+
+add_keys () {
+  ssh-add -A &> /dev/null
+}
+
+# Source ssh environment file if it exists.
+[ -f "${SSH_ENV}" ] && . "${SSH_ENV}"
+
+# If ssh-agent is not running, start it.
+ssh-find-agent -a || start_agent
+
+# If there is no key loaded, load them.
+[ -z "$(ssh-add -l)" ] || add_keys
