@@ -6,6 +6,7 @@ SMALL=90
 BIG=134
 BAR=""
 BAR+="#(~/.dotfiles/bin/tmux/mail_count_apple)"
+
 if [ "$WIDTH" -le "$SMALL" ]; then
   BAR+=" #(tmux-mem-cpu-load -a 0 -g 0 -c -i 2 -t 0 -m 0)"
 elif [ "$WIDTH" -ge "$BIG" ]; then
@@ -13,6 +14,7 @@ elif [ "$WIDTH" -ge "$BIG" ]; then
 else
   BAR+="FAIL"
 fi
+
 BAR+="#[default]#(~/.dotfiles/bin/tmux/internet_info)"
 BAR+=" #[fg=colour81]#(~/.dotfiles/bin/tmux/now_playing $WIDTH)"
 

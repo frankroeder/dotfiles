@@ -82,7 +82,6 @@ if [ -n "$K8S_SHORTCUTS" ]; then
   alias kgcmn='k get cm --output=jsonpath={.items..metadata.name} | tr " " "\n"'
 
   # delete
-  # switch case for kdel{p,s,cm,sec,...}
   alias kdelpo='k delete pod $(kgpn | fzf)'
 
   alias kdelcm='k delete cm $(kgcmn | fzf)'
@@ -188,5 +187,5 @@ if [ -n "$K8S_SHORTCUTS" ]; then
         --region $GCREGION \
         --project $GCPROJECT;
     fi
-    }
-  fi
+  }
+fi

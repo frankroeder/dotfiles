@@ -12,7 +12,7 @@ ii() {
   echo -e "\n${LIGHT_BLUE}IP for Local Network:$RESET"; ipconfig getifaddr en0 
   echo -e "\n${LIGHT_BLUE}IP for Inter Connection:$RESET"; curl -4 icanhazip.com
   echo -e "\n${LIGHT_BLUE}HardwareOverview:$RESET";
-  system_profiler SPHardwareDataType | tail -n 14  | tr -d " " | sed 's/:/: /g'
+  system_profiler SPHardwareDataType | tail -n 14  | tr -d " " | sed 's/:/: /g';
 }
 
 # Create directory and cd into it
@@ -27,25 +27,25 @@ c() {
 
 # cd to Finder
 cdf() {
-    TARGET=`osascript -e 'tell application "Finder" to if (count of Finder windows) > 0 then get POSIX path of (target of front Finder window as text)'`
-    if [ "$TARGET" != "" ]; then
-        cd "$TARGET"
-    else
-        echo 'No Finder window found' >&2
-    fi
+  TARGET=`osascript -e 'tell application "Finder" to if (count of Finder windows) > 0 then get POSIX path of (target of front Finder window as text)'`
+  if [ "$TARGET" != "" ]; then
+      cd "$TARGET"
+  else
+      echo 'No Finder window found' >&2
+  fi
 }
 
 # ls with file permissions in octal format
 lla(){
- 	ls -l  "$@" | awk '
-    {
-      k=0;
-      for (i=0;i<=8;i++)
-        k+=((substr($1,i+2,1)~/[rwx]/) *2^(8-i));
-      if (k)
-        printf("%0o ",k);
-      printf(" %9s  %3s %2s %5s  %6s  %s %s %s\n", $3, $6, $7, $8, $5, $9,$10, $11);
-    }'
+  ls -l  "$@" | awk "
+  {
+    k=0;
+    for (i=0;i<=8;i++)
+      k+=((substr($1,i+2,1)~/[rwx]/) *2^(8-i));
+    if (k)
+      printf('%0o ',k);
+    printf(' %9s  %3s %2s %5s  %6s  %s %s %s\n', $3, $6, $7, $8, $5, $9,$10, $11);
+  }"
 }
 
 # Quick-Look files from the command line
@@ -53,7 +53,7 @@ ql () {
   qlmanage -p "$*" >& /dev/null;
 }
 
-# move to macOS trash
+# Move to macos trash
 del () {
   export DEL_FILES="$@"
   export DEL_PWD=$(pwd)
@@ -69,11 +69,11 @@ undo_del () {
 
 # Determine size of a file or total size of a directory
 fs() {
-	if [[ -n "$@" ]]; then
-		du -sh -- "$@";
-	else
-		du -sh .[^.]* ./*;
-	fi;
+  if [[ -n "$@" ]]; then
+    du -sh -- "$@";
+  else
+    du -sh .[^.]* ./*;
+  fi;
 }
 
 # macOS dictionary shortcut
@@ -121,15 +121,15 @@ hidehiddenfiles() {
 
 # Overwrite man with different color
 man() {
-	env \
-		LESS_TERMCAP_mb=$(printf "\e[1;34m") \
-		LESS_TERMCAP_md=$(printf "\e[1;34m") \
-		LESS_TERMCAP_me=$(printf "\e[0m") \
-		LESS_TERMCAP_se=$(printf "\e[0m") \
-		LESS_TERMCAP_so=$(printf "\e[1;44;33m") \
-		LESS_TERMCAP_ue=$(printf "\e[0m") \
-		LESS_TERMCAP_us=$(printf "\e[1;32m") \
-			man "$@"
+  env \
+    LESS_TERMCAP_mb=$(printf "\e[1;34m") \
+    LESS_TERMCAP_md=$(printf "\e[1;34m") \
+    LESS_TERMCAP_me=$(printf "\e[0m") \
+    LESS_TERMCAP_se=$(printf "\e[0m") \
+    LESS_TERMCAP_so=$(printf "\e[1;44;33m") \
+    LESS_TERMCAP_ue=$(printf "\e[0m") \
+    LESS_TERMCAP_us=$(printf "\e[1;32m") \
+    man "$@"
 }
 
 # Use Mac OS Preview to open a man page in a more handsome format
@@ -137,12 +137,12 @@ manp() {
   man -t "$@" | open -f -a /Applications/Preview.app
 }
 
-# set DNS to 1.1.1.1
+# Set DNS to 1.1.1.1
 gooddns(){
   networksetup -setdnsservers Wi-Fi 1.1.1.1 1.0.0.1 2606:4700:4700::1111 \
     2606:4700:4700::1001
 }
-# set Google DNS
+# Set Google DNS
 googledns(){
   networksetup -setdnsservers Wi-Fi 8.8.8.8 8.8.4.4 2001:4860:4860::8888 \
   2001:4860:4860::8844
@@ -200,7 +200,8 @@ codepoint() {
   fi;
 }
 
-# Get cheat sheet of command from cheat.sh. cheat <cmd>
+# Get cheat sheet of command from cheat.sh
+# Usage: cheat <cmd>
 cheat(){
   curl https://cheat.sh/$@
 }

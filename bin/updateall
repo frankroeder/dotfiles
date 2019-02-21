@@ -1,10 +1,10 @@
 #!/bin/bash
-ping -c 1 www.icloud.com
+ping -c 1 duck.com
 if [ $? -eq 0 ];
 then
   printf "\\033[34m"
   echo -e "\n#######################"
-  printf "# Checkin for updates #\n"
+  printf "# Checking for updates #\n"
   echo -e "#######################\n"
   printf "\\033[0m"
   printf "\\033[33m## Homebrew #\\033[0m\\n"
@@ -15,6 +15,7 @@ then
   printf "\\033[33m## Pip #\\033[0m\\n"
   pip install -U $(pip freeze | cut -d '=' -f 1)
   printf "\\033[33m## NPM #\\n"
+  # due to brew node@10
   # npm install npm -g;
   npm update -g;
   printf "\\033[33m## Ruby Gems #\\033[0m\\n"

@@ -3,8 +3,8 @@
 
 tell application "Mail"
   if it is running then
-		if unread count of inbox > 0 then
-			set a to " 📧  " & unread count of inbox & " "
-		end if
+    if unread count of inbox > 0 then
+      set a to " 📧  " & unread count of inbox & " "
+    end if
   end if
 end tell
