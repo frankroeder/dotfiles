@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 INTERNET=' 📶'
-internet_info=`airport -I | grep agrCtlRSSI | awk '{print $2}' | sed 's/-//g'`
+internet_info=$(airport -I | grep agrCtlRSSI | awk '{print $2}' | sed 's/-//g')
 
 if [[ $internet_info -lt 20 ]]; then
     echo -n '#[fg=colour116]'

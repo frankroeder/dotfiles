@@ -1,5 +1,5 @@
-SHELL = /bin/zsh
-DOTFILES_DIR = ~/.dotfiles
+SHELL := /bin/zsh
+DOTFILES_DIR := ~/.dotfiles
 
 .PHONY: all help homebrew xcode misc npm nvim zsh git fonts macos iterm2 
 
