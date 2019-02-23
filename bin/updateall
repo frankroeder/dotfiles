@@ -1,5 +1,5 @@
 #!/bin/bash
-ping -c 1 duck.com
+ping -c 1 google.com
 if [ $? -eq 0 ];
 then
   printf "\\033[34m"
