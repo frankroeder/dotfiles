@@ -2,6 +2,7 @@
 # ------------------------------------------------------------------------------
 
 if [ -n "$K8S_SHORTCUTS" ]; then
+
   # basic
   alias k='kubectl'
   alias ka='k apply'
@@ -74,7 +75,7 @@ if [ -n "$K8S_SHORTCUTS" ]; then
 
   alias kdpv='k describe $(k get events -o persistentvolumes | fzf)'
 
-  # get object names in fzf
+  # get object names for fzf
   alias kgpn='k get pods --output=jsonpath={.items..metadata.name} | tr " " "\n"'
 
   alias kgcjn='k get cronjobs --output=jsonpath={.items..metadata.name} | tr " " "\n"'
@@ -88,11 +89,12 @@ if [ -n "$K8S_SHORTCUTS" ]; then
 
   alias kdelcj='k delete cronjob $(kgcjn | fzf)'
 
-  # edit commands
+  # edit
   alias kecj='k edit cronjob $(kgcjn | fzf)'
 
   alias kecm='k edit cm $(kgcmn | fzf)'
 
+  # show logs of selected pod
   kl(){
     if [ -z $1 ]; then
       kubectl logs -f $(kgpn | fzf);
@@ -101,7 +103,10 @@ if [ -n "$K8S_SHORTCUTS" ]; then
     fi
   }
 
+  # fuzzy pod logs with preview
   alias klz='kgpn | fzf --preview "kubectl logs {}" --height=100%'
+
+  # bash into a pod
   alias kexb='k exec -it $(kgpn | fzf --prompt "/bin/bash > ") -- /bin/bash'
 
   # set the namespace in k8s context
@@ -116,7 +121,9 @@ if [ -n "$K8S_SHORTCUTS" ]; then
       --namespace=$k8snamespace 
     printf "\\033[32mK8S NAMESPACE\\033[0m set to "$k8snamespace"\\n"
   }
+
   # port forward
+  # Usage: kpf 3000
   kpf(){
     if [ -z "${1}" ]; then
       printf "\\033[31mERROR:\\033[0m No port specified.\\n"
@@ -124,6 +131,7 @@ if [ -n "$K8S_SHORTCUTS" ]; then
     fi;
     kubectl port-forward $(kgpn | fzf --exit-0) $1;
   }
+
   # execute command inside of pod
   kex(){
     if [ -z "${1}" ]; then
@@ -132,6 +140,7 @@ if [ -n "$K8S_SHORTCUTS" ]; then
     fi;
     kubectl exec -it $(kgpn | fzf --exit-0) $1;
   }
+
   # port forward all monitoring deployments and open them in default browser
   kprom(){
     nohup $(k port-forward $(kgpn | grep grafana) 3000) > /dev/null 2>&1 &
@@ -142,6 +151,7 @@ if [ -n "$K8S_SHORTCUTS" ]; then
     open http://localhost:{3000,9090,9091,9093}
   }
 
+  # change k8s cluster context
   changeK8SClusterContext(){
     local k8scontext=$(kubectl config get-contexts -o name | fzf --query="$1")
     if [ -z "${k8scontext}" ]; then
@@ -163,7 +173,7 @@ if [ -n "$K8S_SHORTCUTS" ]; then
     [y/N]: " -r copy 
     copy=${copy:-n}
     if [[ "$copy" =~ ^(y|Y)$ ]]; then
-      echo -e "\n\nNow Copy the command from your gcloud web ui\n\n"
+      echo -e "\n\nCopy the command from your gcloud web ui\n\n"
     else
       # read -p "Press any key to choose your region:"
       GCREGION=$(gcloud compute regions list --format="value(name)" | fzf);
@@ -188,4 +198,5 @@ if [ -n "$K8S_SHORTCUTS" ]; then
         --project $GCPROJECT;
     fi
   }
+
 fi
