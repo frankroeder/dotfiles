@@ -36,6 +36,7 @@
 
 [user]
   name = Frank Roeder
+  useConfigOnly = true
 
 [github]
   user = Bassstring
@@ -91,6 +92,7 @@
 	tag = cat
   branch = cat
   status = cat
+  grep = cat
 
 [credential "https://source.developers.google.com"]
 	helper = gcloud.sh
@@ -112,6 +114,12 @@
   added = green reverse
   changed = yellow reverse
   untracked = red reverse
+
+[color "grep"]
+  match = yellow reverse
+  filename = green 
+  function = blue
+  linenumber = yellow
 
 [include]
   path = "~/.local.gitconfig"

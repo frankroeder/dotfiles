@@ -148,15 +148,15 @@ nnoremap <Leader>z z=1<CR><CR>
 ""Close buffer
 noremap <Leader>c :bd<CR>
 " Clear search highlight
-nnoremap <silent> <Leader><space> :noh<cr>
+nnoremap <silent> <Leader><space> :noh<CR>
 " Toggle wrap mode
 nnoremap <Leader>wr :set wrap!<CR>
 " Fast save
-nnoremap <Leader><Leader> :w<cr>
+nnoremap <Leader><Leader> :w<CR>
 
 " spell check
-map <Leader>sce :setlocal spell! spelllang=en_us<cr>
-map <Leader>scd :setlocal spell! spelllang=de<cr>
+map <Leader>sce :setlocal spell! spelllang=en_US<CR>
+map <Leader>scd :setlocal spell! spelllang=de_DE<CR>
 
 " Disable Arrow keys in Escape mode
 map <Up> <nop>
@@ -180,7 +180,7 @@ function! RenameFile()
     redraw!
   endif
 endfunction
-map <Leader>re :call RenameFile()<cr>
+map <Leader>re :call RenameFile()<CR>
 
 " Mark JSON and call function
 function! FormatJSON()
@@ -198,10 +198,13 @@ cnoremap w!! execute 'silent! write !sudo tee % >/dev/null' <bar> edit!
 nnoremap <Leader>pr viw"0p
 
 " Switch CWD to the directory of the open buffer
-map <Leader>cd :cd %:p:h<cr>:pwd<cr>
+map <Leader>cd :cd %:p:h<CR>:pwd<CR>
 
 " Close quickfix window (,qq)
-map <leader>qq :cclose<CR>
+map <Leader>qq :cclose<CR>
+
+" List contents of all registers
+nnoremap <silent> "" :registers<CR>
 
 " ---------------------------------------------------------------------------- "
 " Plugin Configuration                                                         "
