@@ -25,16 +25,6 @@ c() {
   builtin cd "$@";clear; ls;
 }
 
-# cd to Finder
-cdf() {
-  TARGET=`osascript -e 'tell application "Finder" to if (count of Finder windows) > 0 then get POSIX path of (target of front Finder window as text)'`
-  if [ "$TARGET" != "" ]; then
-      cd "$TARGET"
-  else
-      echo 'No Finder window found' >&2
-  fi
-}
-
 # ls with file permissions in octal format
 lla(){
   ls -l  "$@" | awk "
@@ -170,6 +160,7 @@ monitordnsqueries(){
   -e dns.a \
   -Eseparator=,
 }
+
 # Show how much RAM application uses.
 # Usage: ram safari
 ram() {
