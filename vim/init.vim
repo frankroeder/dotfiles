@@ -42,8 +42,9 @@ call plug#end()
 " ---------------------------------------------------------------------------- "
 " General Settings                                                             "
 " ---------------------------------------------------------------------------- "
-
-filetype plugin indent on   " turn on filetype plugins
+if has("autocmd")
+  filetype plugin indent on " turn on filetype plugins
+endif
 set title                   " show file in title bar
 set history=200             " 200 lines command history
 set binary                  " Enable binary support
@@ -53,12 +54,12 @@ set noshowmode              " Don't show current mode
 set showmatch               " Show matching bracket/parenthesis/etc
 set matchtime=2
 set lazyredraw              " redraw only when needed(not in execution of macro)
+set cursorline              " Highlight the current line
 set synmaxcol=2500          " Limit syntax highlighting (this
                             " avoids the very slow redrawing
                             " when files contain long lines).
-                            "
 set clipboard+=unnamedplus  " copy and yank to clipboard
-set splitright             " Vertical split right
+set splitright              " Vertical split right
 
 if has('mouse')
   set mouse=a
