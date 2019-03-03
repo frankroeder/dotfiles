@@ -104,7 +104,7 @@ if [ -n "$K8S_SHORTCUTS" ]; then
   }
 
   # fuzzy pod logs with preview
-  alias klz='kgpn | fzf --preview "kubectl logs {}" --height=100%'
+  alias klz='kgpn | fzf --preview "kubectl logs {}" --no-height'
 
   # bash into a pod
   alias kexb='k exec -it $(kgpn | fzf --prompt "/bin/bash > ") -- /bin/bash'
