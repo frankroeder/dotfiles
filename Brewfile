@@ -10,6 +10,7 @@ brew "tree"
 brew "llvm"
 brew "tmux"
 brew "tmux-mem-cpu-load"
+brew "reattach-to-user-namespace"
 
 brew "node@10"
 brew "go"

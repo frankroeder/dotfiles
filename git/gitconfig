@@ -97,6 +97,12 @@
 [credential "https://source.developers.google.com"]
 	helper = gcloud.sh
 
+[color]
+  ui = true
+  branch = auto
+  diff = auto
+  status = auto
+
 [color "diff"]
   frag = magenta
   meta = yellow

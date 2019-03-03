@@ -29,6 +29,7 @@ alias path='echo -e ${PATH//:/\\n}'
 alias functions="declare -f | grep '^[a-z].* ()' | sed 's/{$//'"
 alias ag="ag --path-to-ignore ${DOTFILES}/ignore" 
 alias localip="ipconfig getifaddr en0"
+alias :q="exit"
 
 # macOS
 alias f='open -a Finder ./'

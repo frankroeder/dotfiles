@@ -156,8 +156,8 @@ nnoremap <Leader>wr :set wrap!<CR>
 nnoremap <Leader><Leader> :w<CR>
 
 " spell check
-map <Leader>sce :setlocal spell! spelllang=en_US<CR>
-map <Leader>scd :setlocal spell! spelllang=de_DE<CR>
+map <Leader>sce :setlocal spell! spelllang=en_us<CR>
+map <Leader>scd :setlocal spell! spelllang=de_de<CR>
 
 " Disable Arrow keys in Escape mode
 map <Up> <nop>
@@ -207,6 +207,9 @@ map <Leader>qq :cclose<CR>
 " List contents of all registers
 nnoremap <silent> "" :registers<CR>
 
+" terminal emulation
+nnoremap <silent> <leader>sh :terminal<CR>
+
 " ---------------------------------------------------------------------------- "
 " Plugin Configuration                                                         "
 " ---------------------------------------------------------------------------- "
@@ -250,7 +253,7 @@ call airline#parts#define('linenr', {'function': 'MyLineNumber', 'accents': 'bol
 let g:airline_section_z = airline#section#create(['%3p%%: ', 'linenr', ':%3v'])
 
 " Polyglot
-let g:polyglot_disabled = ['go', 'markdown', 'latex']
+let g:polyglot_disabled = ['python', 'go', 'markdown', 'latex']
 
 " FZF
 let g:fzf_command_prefix = 'Fzf'
