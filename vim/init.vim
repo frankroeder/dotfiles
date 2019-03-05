@@ -287,7 +287,7 @@ else
 endif
 
 noremap <C-H> :FzfHelptags <CR>
-nnoremap <C-J> :FzfBuffers<Cr>
+nnoremap <C-B> :FzfBuffers<Cr>
 nnoremap <C-F> :FzfAg <CR>
 nnoremap <C-P> :FzfBLines<Cr>
 " [[B]Commits] Customize the options used by 'git log':
@@ -298,7 +298,7 @@ nnoremap <Leader>t :Colors<Cr>
 imap <C-X><C-F> <plug>(fzf-complete-path)
 imap <C-X><C-J> <plug>(fzf-complete-file-ag)
 imap <C-X><C-L> <plug>(fzf-complete-line)
-" Dictionary completion with fzf-based fuzzy completion
+" Dictionary completion
 imap <expr> <C-X><C-K> fzf#vim#complete('cat /usr/share/dict/words')
 
 " Toggle preview with '?' when searching w/ :FzfFiles or :FzfGitFiles
@@ -397,8 +397,8 @@ let g:ycm_semantic_triggers.tex = g:vimtex#re#youcompleteme
 
 au FileType c,cpp,javascript,python nmap <F2> :YcmForceCompileAndDiagnostics<CR>
 au FileType c,cpp,javascript,python nmap <F3> :YcmCompleter GetDoc<CR>
-au FileType c,cpp,javascript nmap <F4> :YcmCompleter GetType<CR>
-au FileType c,cpp,javascript,python,typescript nmap <F5> :YcmCompleter GoTo<CR>
+au FileType c,cpp,javascript,python nmap <F4> :YcmCompleter GetType<CR>
+au FileType c,cpp,javascript,python nmap <F5> :YcmCompleter GoTo<CR>
 
 " UltiSnips
 let g:UltiSnipsSnippetDirectories=[$HOME."/.config/nvim/snips"]
