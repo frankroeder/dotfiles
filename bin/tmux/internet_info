@@ -19,5 +19,5 @@ if [ -n "$internet_info" ]; then
   echo -n "$INTERNET  -[$internet_info]db"
 else
   ping -c 1 google.com &> /dev/null && \
-    echo -n "$INTERNET #[fg=colour148]LAN" || echo -n " ❌ " 
+    echo -n "$INTERNET #[fg=colour148]LAN" || echo -n "" 
 fi

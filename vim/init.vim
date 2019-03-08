@@ -89,7 +89,9 @@ if exists('&colorcolumn')
   set colorcolumn=81
 endif
 
-set termguicolors
+if has('nvim') || has('termguicolors')
+  set termguicolors
+endif
 
 try
   let ayucolor="dark"
