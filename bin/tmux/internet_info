@@ -2,8 +2,6 @@
 
 internet_info=$(airport -I | grep agrCtlRSSI | awk '{print $2}' | sed 's/-//g')
 
-echo -n "#[fg=colour7]"
-
 if [[ $internet_info -lt 20 ]]; then
   echo -n '#[fg=colour101]'
 elif [[ $internet_info -lt 30 ]]; then

@@ -3,26 +3,27 @@
 
 WIDTH=${1}
 SMALL=90
-BAR=""
+
 BAR+="#(~/.dotfiles/bin/tmux/mail_count_apple)"
 
-if [ "$WIDTH" -le "$SMALL" ]; then
+TUNE=$(~/.dotfiles/bin/tmux/now_playing "$WIDTH")
+
+if [[ -n $TUNE ]] && [[ $WIDTH -le $SMALL ]] ; then
   CPUMEM="#(tmux-mem-cpu-load -a 0 -g 0 -i 2 -t 0 -m 0)"
 else
   CPUMEM="#(tmux-mem-cpu-load -a 0 -g 10 -i 2 -t 0 -m 0)"
 fi
 
-if [ "$WIDTH" -ge 120 ]; then
+if [[ $WIDTH -ge 120 ]]; then
   BAR+="#(~/.dotfiles/bin/tmux/ip_info)#[default]"
 fi
 
 BAR+=$CPUMEM
 
 BAR+=" #[fg=colour172]#(~/.dotfiles/bin/tmux/osx-cpu-temp)"
-BAR+="#[default]#(~/.dotfiles/bin/tmux/internet_info)"
+BAR+="#(~/.dotfiles/bin/tmux/internet_info)"
 
-if [ "$WIDTH" -ge "$SMALL" ]; then
+[[ -n $TUNE ]] && \
   BAR+="#[fg=colour74]#(~/.dotfiles/bin/tmux/now_playing $WIDTH)"
-fi
 
-echo "$BAR "
+echo "$BAR"
