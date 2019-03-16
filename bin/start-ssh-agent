@@ -19,5 +19,5 @@ add_keys () {
 # If ssh-agent is not running, start it.
 ssh-find-agent -a || start_agent
 
-# If there is no key loaded, load them.
-[ -z "$(ssh-add -l)" ] || add_keys
+# If there are no keys loaded, load them when executing ssh.
+alias ssh='ssh-add -l >/dev/null || add_keys && unalias ssh; ssh'

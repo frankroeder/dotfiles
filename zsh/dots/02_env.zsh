@@ -14,10 +14,7 @@ export BLOCKSIZE=1k
 export MANPAGER='less -X'
 export TERM=screen-256color
 
-# neovim
-export XDG_CONFIG_HOME="$HOME/.config"
-
-export HISTSIZE=100000
+export HISTSIZE=10000
 export HISTFILESIZE=${HISTSIZE}
 export HISTCONTROL=ignoreboth
 export HISTIGNORE="&:[bf]g:clear:history:exit:q:pwd:wget *:ls:ll:la:cd"

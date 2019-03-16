@@ -32,6 +32,7 @@ brew "kubernetes-cli"
 brew "kubernetes-helm"
 cask "google-cloud-sdk"
 
+cask "alfred"
 cask "docker"
 cask "telegram"
 cask "iterm2"

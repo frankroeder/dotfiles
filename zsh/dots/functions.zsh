@@ -7,8 +7,8 @@ ii() {
   echo -e "\n${LIGHT_BLUE}CPU Info:$RESET"; cpuinfo
   echo -e "\n${LIGHT_BLUE}Additionnal information:$RESET "; uname -a
   echo -e "\n${LIGHT_BLUE}Users logged on:$RESET "; w -h
-  echo -e "\n${LIGHT_BLUE}Current date :$RESET "; date
-  echo -e "\n${LIGHT_BLUE}Machine stats :$RESET "; uptime
+  echo -e "\n${LIGHT_BLUE}Current date:$RESET "; date
+  echo -e "\n${LIGHT_BLUE}Machine stats:$RESET "; uptime
   echo -e "\n${LIGHT_BLUE}IP for Local Network:$RESET"; ipconfig getifaddr en0 
   echo -e "\n${LIGHT_BLUE}IP for Inter Connection:$RESET"; curl -4 icanhazip.com
   echo -e "\n${LIGHT_BLUE}HardwareOverview:$RESET";
@@ -27,15 +27,15 @@ c() {
 
 # ls with file permissions in octal format
 lla(){
-  ls -l  "$@" | awk "
-  {
-    k=0;
-    for (i=0;i<=8;i++)
-      k+=((substr($1,i+2,1)~/[rwx]/) *2^(8-i));
-    if (k)
-      printf('%0o ',k);
-    printf(' %9s  %3s %2s %5s  %6s  %s %s %s\n', $3, $6, $7, $8, $5, $9,$10, $11);
-  }"
+ 	ls -l  "$@" | awk '
+    {
+      k=0;
+      for (i=0;i<=8;i++)
+        k+=((substr($1,i+2,1)~/[rwx]/) *2^(8-i));
+      if (k)
+        printf("%0o ",k);
+      printf(" %9s  %3s %2s %5s  %6s  %s %s %s\n", $3, $6, $7, $8, $5, $9,$10, $11);
+    }'
 }
 
 # Quick-Look files from the command line

@@ -8,7 +8,7 @@ snippet def "#define ..."
 #define $1
 endsnippet
 
-snippet include "#include<...>" b
+snippet incl "#include<...>" b
 #include <$1>
 endsnippet
 
@@ -34,7 +34,7 @@ $0
 endsnippet
 
 snippet main "main() (main)"
-int main(int argc, char *argv[]) {
+int main(int argc, char **argv) {
 	${VISUAL}$0
 	return 0;
 }

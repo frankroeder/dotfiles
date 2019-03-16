@@ -853,7 +853,7 @@ Password Manager</string>
 	<key>NSFontPanelAttributes</key>
 	<string>1, 0</string>
 	<key>NSNavLastRootDirectory</key>
-	<string>~/Desktop</string>
+	<string>~/.dotfiles/iterm</string>
 	<key>NSNavPanelExpandedSizeForOpenMode</key>
 	<string>{712, 459}</string>
 	<key>NSQuotedKeystrokeBinding</key>
@@ -869,6 +869,8 @@ Password Manager</string>
 		<string>0.000000, 0.000000, 224.000000, 263.000000, NO, NO</string>
 		<string>0.000000, 264.000000, 224.000000, 43.000000, NO, NO</string>
 	</array>
+	<key>NSStatusItem Preferred Position Item-0</key>
+	<real>425</real>
 	<key>NSTableView Columns v2 KeyBingingTable</key>
 	<data>
 	YnBsaXN0MDDUAQIDBAUGNjdYJHZlcnNpb25YJG9iamVjdHNZJGFyY2hpdmVyVCR0b3AS
@@ -908,7 +910,7 @@ Password Manager</string>
 	<key>NSWindow Frame SessionsPreferences</key>
 	<string>269 342 609 401 0 0 1280 777 </string>
 	<key>NSWindow Frame SharedPreferences</key>
-	<string>445 1349 796 486 -335 800 1920 1057 </string>
+	<string>105 1314 796 486 -335 800 1920 1057 </string>
 	<key>NSWindow Frame UKCrashReporter</key>
 	<string>80 193 592 584 0 0 1280 777 </string>
 	<key>NSWindow Frame iTerm Window 0</key>
@@ -1599,7 +1601,7 @@ Password Manager</string>
 			<key>Screen</key>
 			<integer>-1</integer>
 			<key>Scrollback Lines</key>
-			<integer>20000</integer>
+			<integer>10000</integer>
 			<key>Scrollback With Status Bar</key>
 			<false/>
 			<key>Selected Text Color</key>
@@ -1882,7 +1884,7 @@ Password Manager</string>
 	<key>SUHasLaunchedBefore</key>
 	<true/>
 	<key>SULastCheckTime</key>
-	<date>2019-02-23T11:56:10Z</date>
+	<date>2019-03-15T18:35:58Z</date>
 	<key>SUSendProfileInfo</key>
 	<false/>
 	<key>SearchCommand</key>

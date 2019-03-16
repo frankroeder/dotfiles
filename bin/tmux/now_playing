@@ -1,5 +1,5 @@
 #!/usr/bin/env osascript
-# Returns the current playing song in iTunes for OSX
+# Returns the current song in iTunes
 
 on run argv
   tell application "iTunes"
@@ -8,7 +8,7 @@ on run argv
       set track_name to name of current track
       set artist_name to artist of current track
       if artist_name > 0
-        set t to track_name & " - " & artist_name
+        set t to " " & track_name & " - " & artist_name
         if argv <= 90
           if length of t > 27
             text 1 thru 27 of t & "..."
@@ -16,7 +16,7 @@ on run argv
             t
           end if
         else
-          track_name & " - " &	artist_name
+          " " & track_name & " - " &	artist_name
         end if
       else
         "~ " & track_name
