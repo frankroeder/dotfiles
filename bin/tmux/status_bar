@@ -8,17 +8,15 @@ BAR+="#(~/.dotfiles/bin/tmux/mail_count_apple)"
 
 TUNE=$(~/.dotfiles/bin/tmux/now_playing "$WIDTH")
 
-if [[ -n $TUNE ]] && [[ $WIDTH -le $SMALL ]] ; then
-  CPUMEM="#(tmux-mem-cpu-load -a 0 -g 0 -i 2 -t 0 -m 0)"
-else
-  CPUMEM="#(tmux-mem-cpu-load -a 0 -g 10 -i 2 -t 0 -m 0)"
-fi
-
 if [[ $WIDTH -ge 120 ]]; then
   BAR+="#(~/.dotfiles/bin/tmux/ip_info)#[default]"
 fi
 
-BAR+=$CPUMEM
+if [[ -n $TUNE ]] && [[ $WIDTH -le $SMALL ]] ; then
+  BAR+="#(tmux-mem-cpu-load -a 0 -g 0 -i 2 -t 0)"
+else
+  BAR+="#(tmux-mem-cpu-load -a 0 -g 10 -i 2 -t 0)"
+fi
 
 BAR+=" #[fg=colour172]#(~/.dotfiles/bin/tmux/osx-cpu-temp)"
 BAR+="#(~/.dotfiles/bin/tmux/internet_info)"
@@ -26,4 +24,4 @@ BAR+="#(~/.dotfiles/bin/tmux/internet_info)"
 [[ -n $TUNE ]] && \
   BAR+="#[fg=colour74]#(~/.dotfiles/bin/tmux/now_playing $WIDTH)"
 
-echo "$BAR"
+printf '%s' "$BAR"

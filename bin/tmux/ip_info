@@ -2,4 +2,4 @@
 
 IP=$(ipconfig getifaddr en0)
 PUB_IP=$(curl --ipv4 icanhazip.com) 
-echo -n "#[fg=colour109]$IP#[default] #[fg=colour143]$PUB_IP#[default] "
+printf '%s' "#[fg=colour109]$IP#[default] #[fg=colour143]$PUB_IP#[default] "
