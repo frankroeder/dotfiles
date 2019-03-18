@@ -10,7 +10,6 @@ export ZSH=$HOME/.oh-my-zsh
 export PLATFORM=$(uname -s)
 
 ZSH_THEME="spaceship"
-# ZSH_THEME="ys"
 
 SPACESHIP_PROMPT_DEFAULT_PREFIX=""
 SPACESHIP_USER_SHOW=false
@@ -39,9 +38,10 @@ SPACESHIP_VENV_SYMBOL="🐍  "
 SPACESHIP_KUBECONTEXT_PREFIX=""
 SPACESHIP_KUBECONTEXT_SHOW=true
 
-CASE_SENSITIVE="true"
+CASE_SENSITIVE=true
 
-DISABLE_AUTO_TITLE="true"
+DISABLE_AUTO_TITLE=true
+DISABLE_AUTO_UPDATE=true
 
 HIST_STAMPS="dd.mm.yyyy"
 
@@ -74,9 +74,6 @@ export LC_ALL=en_US.UTF-8
 
 # remove color-inverter % when output doesn't include trailing newline
 unsetopt prompt_cr prompt_sp
-
-test -e "${HOME}/.iterm2_shell_integration.zsh" && \
-  source "${HOME}/.iterm2_shell_integration.zsh"
 
 # source fuzzy file search - fzf
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh

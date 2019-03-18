@@ -9,7 +9,8 @@ alias l.='ls -d .*'
 alias lsd='ls -l | grep "^d"'
 alias cp='nice cp'
 alias mv='nice mv'
-alias du='du -c -h'
+alias dud='du -d 1 -h'
+alias duf='du -sh *'
 
 alias dotfiles='cd ~/.dotfiles'
 alias vim=$EDITOR

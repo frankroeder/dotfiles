@@ -910,7 +910,7 @@ Password Manager</string>
 	<key>NSWindow Frame SessionsPreferences</key>
 	<string>269 342 609 401 0 0 1280 777 </string>
 	<key>NSWindow Frame SharedPreferences</key>
-	<string>105 1314 796 486 -335 800 1920 1057 </string>
+	<string>104 1359 796 486 -335 800 1920 1057 </string>
 	<key>NSWindow Frame UKCrashReporter</key>
 	<string>80 193 592 584 0 0 1280 777 </string>
 	<key>NSWindow Frame iTerm Window 0</key>
@@ -1884,7 +1884,7 @@ Password Manager</string>
 	<key>SUHasLaunchedBefore</key>
 	<true/>
 	<key>SULastCheckTime</key>
-	<date>2019-03-15T18:35:58Z</date>
+	<date>2019-03-18T18:59:45Z</date>
 	<key>SUSendProfileInfo</key>
 	<false/>
 	<key>SearchCommand</key>

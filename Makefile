@@ -1,9 +1,9 @@
 SHELL := /bin/zsh
 DOTFILES_DIR := ~/.dotfiles
 
-.PHONY: all help homebrew xcode misc npm nvim zsh git fonts macos iterm2 
+.PHONY: all help homebrew xcode misc npm nvim zsh git fonts macos
 
-all: sudo homebrew xcode misc npm nvim bash git fonts macos iterm2
+all: sudo homebrew xcode misc npm nvim bash git fonts macos
 
 .DEFAULT_GOAL := help
 
@@ -74,9 +74,6 @@ misc:
 	ln -sfv $(DOTFILES_DIR)/wgetrc ~/.wgetrc;
 	ln -sfv $(DOTFILES_DIR)/curlrc ~/.curlrc;
 	ln -sfv $(DOTFILES_DIR)/tmux.conf ~/.tmux.conf
-
-iterm2: zsh
-	curl -L https://iterm2.com/shell_integration/zsh -o ~/.iterm2_shell_integration.zsh
 
 fonts:
 	echo -e "\033[1m\033[34m==> Installing fonts\033[0m";

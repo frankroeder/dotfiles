@@ -12,7 +12,6 @@ export BROWSER=/Applications/Safari.app
 export CLICOLOR=1
 export BLOCKSIZE=1k
 export MANPAGER='less -X'
-export TERM=screen-256color
 
 export HISTSIZE=10000
 export HISTFILESIZE=${HISTSIZE}
