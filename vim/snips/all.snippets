@@ -25,6 +25,13 @@ snip += box[3]`
 $0
 endsnippet
 
+snippet abox "Box"
+`!p snip.rv = '┌' + '─' * (len(t[1]) + 2) + '┐'`
+│ $1 │
+`!p snip.rv = '└' + '─' * (len(t[1]) + 2) + '┘'`
+$0
+endsnippet
+
 snippet bbox "A nice box over the full width" b
 `!p
 if not snip.c:

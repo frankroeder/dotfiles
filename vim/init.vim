@@ -160,6 +160,8 @@ nnoremap <Leader><Leader> :w<CR>
 " spell check
 map <Leader>sce :setlocal spell! spelllang=en_us<CR>
 map <Leader>scd :setlocal spell! spelllang=de_de<CR>
+" Fix spelling mistakes the fast way
+inoremap <C-S> <C-G>u<Esc>[s1z=`]a<C-G>u
 
 " Disable Arrow keys in Escape mode
 map <Up> <nop>
@@ -224,6 +226,11 @@ let g:signify_vcs_list = [ 'git' ]
 let g:signify_update_on_bufenter=0
 
 " TeX and Markdown
+let g:tex_flavor = "latex"
+let g:vimtex_view_method='skim'
+let g:vimtex_quickfix_mode=0
+set conceallevel=1
+let g:tex_conceal='abdmg'
 let g:vimtex_compiler_latexmk = {'callback' : 0}
 let g:vim_markdown_folding_disabled = 1
 let g:vim_markdown_new_list_item_indent = 0

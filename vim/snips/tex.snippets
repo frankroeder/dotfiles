@@ -208,6 +208,13 @@ snippet lp "Long parenthesis"
 \left(${1:${VISUAL:contents}}\right)$0
 endsnippet
 
+snippet lst "Code listing" b
+\begin{lstlisting}[caption={$1},captionpos=b]
+	$2
+\end{lstlisting}
+
+endsnippet
+
 snippet "mint(ed)?( (\S+))?" "Minted code typeset" br
 \begin{listing}
 \begin{minted}[linenos,numbersep=5pt,frame=lines,framesep=2mm]{${1:`!p
