@@ -46,6 +46,6 @@ cask "gpg-suite"
 cask "skim"
 
 mas "Xcode", id: 497799835
-mas "Slack", id: 803453959 
+mas "Slack", id: 803453959
 mas "Dapper", id: 903223330
-mas "iReal Pro", 409035833
+mas "iReal Pro", id: 409035833

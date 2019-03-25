@@ -1,6 +1,6 @@
 # Fuzzy Functions
 # ------------------------------------------------------------------------------
- 
+
 # v - fuzzy vim with preview
 v(){
   local files
@@ -40,6 +40,6 @@ flog() {
 
 # flog - fuzzy commit logs with preview
 flogz() {
-  git log --pretty=oneline --abbrev-commit | 
+  git log --pretty=oneline --abbrev-commit |
     fzf --preview 'echo {} | cut -f 1 -d " " | xargs git show --color=always'
 }

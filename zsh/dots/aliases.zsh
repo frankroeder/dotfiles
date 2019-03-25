@@ -1,6 +1,6 @@
 # Alias
 # ------------------------------------------------------------------------------
- 
+
 # Always use colored output for 'ls'
 alias ls="command ls -G"
 alias ll='ls -la'
@@ -28,17 +28,17 @@ alias battery="pmset -g ps"
 alias path='echo -e ${PATH//:/\\n}'
 # Print each function name
 alias functions="declare -f | grep '^[a-z].* ()' | sed 's/{$//'"
-alias ag="ag --path-to-ignore ${DOTFILES}/ignore" 
+alias ag="ag --path-to-ignore ${DOTFILES}/ignore"
 alias localip="ipconfig getifaddr en0"
 alias :q="exit"
 
 # macOS
 alias f='open -a Finder ./'
 alias repos='cd ~/Documents'
-alias des='cd ~/Desktop' 
+alias des='cd ~/Desktop'
 alias dl='cd ~/Downloads'
 alias skim='open -a "Skim"'
-alias des='cd ~/Desktop' 
+alias des='cd ~/Desktop'
 alias dl='cd ~/Downloads'
 alias icloud='cd /Users/'$USER'/Library/Mobile\ Documents/com~apple~CloudDocs'
 # Lock the screen (when going AFK)

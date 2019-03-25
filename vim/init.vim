@@ -133,6 +133,22 @@ autocmd BufReadPost *
 " Set spell in certain cases
 autocmd FileType gitcommit setl spell
 
+function! <SID>StripTrailingWhitespaces()
+  " last cursor and search position
+  let _s=@/
+  let l = line(".")
+  let c = col(".")
+  %s/\s\+$//e
+  let @/=_s
+  call cursor(l, c)
+endfunction
+
+augroup buf_write
+  au!
+  autocmd BufWritePre * :call <SID>StripTrailingWhitespaces()
+  autocmd BufWritePost init.vim source %
+augroup END
+
 " ---------------------------------------------------------------------------- "
 " General Mappings                                                             "
 " ---------------------------------------------------------------------------- "
@@ -212,7 +228,10 @@ map <Leader>qq :cclose<CR>
 nnoremap <silent> "" :registers<CR>
 
 " terminal emulation
-nnoremap <silent> <leader>sh :terminal<CR>
+nnoremap <silent> <Leader>sh :terminal<CR>
+
+" add semicolon at end of line
+map <Leader>; g_a;<Esc>
 
 " ---------------------------------------------------------------------------- "
 " Plugin Configuration                                                         "

@@ -1,5 +1,5 @@
 ################################################################################
-# Keyboard, Input & Trackpad                                                   # 
+# Keyboard, Input & Trackpad                                                   #
 ################################################################################
 
 # Enable full keyboard access (e.g. enable tab in modal dialogs)

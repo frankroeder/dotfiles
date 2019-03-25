@@ -118,7 +118,7 @@ if [ -n "$K8S_SHORTCUTS" ]; then
       return 1;
     fi
     kubectl config set-context $(kubectl config current-context) \
-      --namespace=$k8snamespace 
+      --namespace=$k8snamespace
     printf "\\033[32mK8S NAMESPACE\\033[0m set to "$k8snamespace"\\n"
   }
 
@@ -166,11 +166,11 @@ if [ -n "$K8S_SHORTCUTS" ]; then
 
   # change Google Kubernetes Engine
   changeGKE(){
-    gcloud init 
+    gcloud init
     changeK8SClusterContext
     read -p "
     Copy commandline access from gcloud web ui?
-    [y/N]: " -r copy 
+    [y/N]: " -r copy
     copy=${copy:-n}
     if [[ "$copy" =~ ^(y|Y)$ ]]; then
       echo -e "\n\nCopy the command from your gcloud web ui\n\n"

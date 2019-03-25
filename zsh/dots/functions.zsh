@@ -9,7 +9,7 @@ ii() {
   echo -e "\n${LIGHT_BLUE}Users logged on:$RESET "; w -h
   echo -e "\n${LIGHT_BLUE}Current date:$RESET "; date
   echo -e "\n${LIGHT_BLUE}Machine stats:$RESET "; uptime
-  echo -e "\n${LIGHT_BLUE}IP for Local Network:$RESET"; ipconfig getifaddr en0 
+  echo -e "\n${LIGHT_BLUE}IP for Local Network:$RESET"; ipconfig getifaddr en0
   echo -e "\n${LIGHT_BLUE}IP for Inter Connection:$RESET"; curl -4 icanhazip.com
   echo -e "\n${LIGHT_BLUE}HardwareOverview:$RESET";
   system_profiler SPHardwareDataType | tail -n 14  | tr -d " " | sed 's/:/: /g';

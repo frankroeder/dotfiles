@@ -63,7 +63,7 @@ zsh:
 	git clone https://github.com/denysdovhan/spaceship-prompt.git ~/.oh-my-zsh/custom/themes/spaceship-prompt
 	ln -s ~/.oh-my-zsh/custom/themes/spaceship-prompt/spaceship.zsh-theme ~/.oh-my-zsh/themes/spaceship.zsh-theme
 
-git: 
+git:
 	echo -e "\033[1m\033[34m==> Installing stuff for git\033[0m";
 	curl https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash -o ~/.git-completion.bash;
 	ln -sfv $(DOTFILES_DIR)/git/gitconfig ~/.gitconfig;
