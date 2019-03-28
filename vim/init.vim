@@ -174,8 +174,9 @@ nnoremap <Leader>wr :set wrap!<CR>
 nnoremap <Leader><Leader> :w<CR>
 
 " spell check
-map <Leader>sce :setlocal spell! spelllang=en_us<CR>
-map <Leader>scd :setlocal spell! spelllang=de_de<CR>
+map <silent> <F6> :setlocal spell! spelllang=en_us<CR>
+map <silent> <F7> :setlocal spell! spelllang=de_de<CR>
+
 " Fix spelling mistakes the fast way
 inoremap <C-S> <C-G>u<Esc>[s1z=`]a<C-G>u
 
@@ -254,6 +255,7 @@ let g:vimtex_compiler_latexmk = {'callback' : 0}
 let g:vim_markdown_folding_disabled = 1
 let g:vim_markdown_new_list_item_indent = 0
 let g:vimtex_compiler_enabled = 0
+
 if has('nvim')
   let g:vimtex_compiler_progname = 'nvr'
 endif

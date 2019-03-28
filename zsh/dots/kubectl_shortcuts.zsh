@@ -12,6 +12,7 @@ if [ -n "$K8S_SHORTCUTS" ]; then
 
   # get
   alias kg='k get'
+
   alias kga='k get all'
 
   alias kgpo='k get pods'
@@ -93,6 +94,15 @@ if [ -n "$K8S_SHORTCUTS" ]; then
   alias kecj='k edit cronjob $(kgcjn | fzf)'
 
   alias kecm='k edit cm $(kgcmn | fzf)'
+
+  # config
+  alias kcuc='kubectl config use-context'
+
+  alias kcsc='kubectl config set-context'
+
+  alias kcdc='kubectl config delete-context'
+
+  alias kccc='kubectl config current-context'
 
   # show logs of selected pod
   kl(){

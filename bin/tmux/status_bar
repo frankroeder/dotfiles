@@ -8,6 +8,9 @@ BAR+="#(~/.dotfiles/bin/tmux/mail_count_apple)"
 
 TUNE=$(~/.dotfiles/bin/tmux/now_playing "$WIDTH")
 
+[[ -n $TUNE ]] && \
+  BAR+="#[fg=colour74]#(~/.dotfiles/bin/tmux/now_playing $WIDTH)#[default]"
+
 if [[ $WIDTH -ge 120 ]]; then
   BAR+="#(~/.dotfiles/bin/tmux/ip_info)#[default]"
 fi
@@ -21,7 +24,5 @@ fi
 BAR+=" #[fg=colour172]#(~/.dotfiles/bin/tmux/osx-cpu-temp)"
 BAR+="#(~/.dotfiles/bin/tmux/internet_info)"
 
-[[ -n $TUNE ]] && \
-  BAR+="#[fg=colour74]#(~/.dotfiles/bin/tmux/now_playing $WIDTH)"
 
 printf '%s' "$BAR"

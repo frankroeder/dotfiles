@@ -1,39 +1,5 @@
 #!/usr/bin/env sh
 
-[alias]
-  # Amend the currently staged files to the latest commit
-  amend = commit --amend --reuse-message=HEAD
-
-  # Commit all changes
-  ca = !git add -A && git commit
-
-  co = checkout
-  d = diff
-  f = fetch
-  r = rebase
-	d = difftool
-
-  # Show the diff between the latest commit and the current state
-	di = !"git diff-index --quiet HEAD -- || clear; git --no-pager diff --patch-with-stat"
-
-	root = rev-parse --show-toplevel
-
-  # Start web-based visualizer.
-  w   = instaweb --httpd=webrick
-
-  # List contributors
-  lc  = shortlog --email --numbered --summary
-
-  lg = log --graph --all --format=format:'%C(yellow)%h%C(reset) - \
-    %C(cyan)%ci%C(reset) %C(green)(%cr)%C(reset) %C(bold yellow)%d%C(reset)%n \
-    %C(white)%s%C(reset) %C(bold white)- %cn%C(reset)%n' --abbrev-commit \
-    --date=relative
-
-  # Find commits by source code
-  cc = "!f() { \
-      git log --pretty=custom --decorate --date=short $1; \
-  }; f"
-
 [user]
   name = Frank Roeder
   useConfigOnly = true
@@ -69,19 +35,10 @@
   whitespace = fix,-indent-with-non-tab,trailing-space,cr-at-eol
 	excludesfile = ~/.gitignore
 
-[pretty]
-  custom = "%C(magenta)%h%C(red)%d %C(yellow)%ar %C(green)%s %C(yellow)(%an)"
-  #                     │        │            │            │             └ author name
-  #                     │        │            │            └─ message
-  #                     │        │            └─ date (relative)
-  #                     │        └─ decorations (branch, heads or tags)
-  #                     └─ hash (abbreviated)
-
 [credential]
 	helper = cache --timeout=3600 osxkeychain
 
 [help]
-  # Automatically correct and execute mistyped commands
   autocorrect = 1
 
 [commit]
