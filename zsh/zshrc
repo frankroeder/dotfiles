@@ -31,17 +31,12 @@ plugins=(
   zsh_reload
 )
 
-autoload -U compinit && compinit
-
 source $ZSH/oh-my-zsh.sh
 
 ZSH_TMUX_AUTOSTART='true'
 
 source /usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 source /usr/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh
-
-source $DOTFILES/ssh-find-agent/ssh-find-agent.sh
-set_ssh_agent_socket
 
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
@@ -56,9 +51,6 @@ unsetopt prompt_cr prompt_sp
 if type brew &>/dev/null; then
   FPATH=$(brew --prefix)/share/zsh/site-functions:$FPATH
 fi
-
-# ssh-agent and keys
-source "$DOTFILES/bin/start-ssh-agent"
 
 eval "`pip completion --zsh`"
 
