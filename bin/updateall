@@ -1,4 +1,5 @@
 #!/bin/bash
+
 ping -c 1 google.com
 if [ $? -eq 0 ];
 then
@@ -8,20 +9,23 @@ then
   echo -e "#######################\n"
   printf "\\033[0m"
   printf "\\033[33m## Homebrew #\\033[0m\\n"
-  brew update && brew upgrade && brew cask upgrade && \
-    brew cleanup && brew doctor;
+  brew update && brew upgrade && brew cask upgrade;
+  brew doctor;
   printf "\\033[33m## Vim Plug #\\033[0m\\n"
-  vim +PlugUpdate +qall && vim +PlugUpgrade +qall;
+  $EDITOR +PlugUpdate +qall && $EDITOR +PlugUpgrade +qall;
   printf "\\033[33m## Pip #\\033[0m\\n"
-  pip install -U $(pip freeze | cut -d '=' -f 1)
+  pip list --outdated --format=freeze | grep -v '^\-e' | cut -d = -f 1  \
+    | xargs -n1 pip install -U
   printf "\\033[33m## NPM #\\n"
   # due to brew node@10
   # npm install npm -g;
   npm update -g;
   printf "\\033[33m## Ruby Gems #\\033[0m\\n"
-  sudo gem update --system;
-  sudo gem update;
-  sudo gem cleanup;
+  OPT="-n /usr/local/bin"
+  GBIN=$(which gem)
+  sudo $GBIN update "$OPT" --system;
+  sudo $GBIN update "$OPT";
+  sudo $GBIN cleanup;
   printf "\\033[33m## macOS #\\033[0m\\n"
   softwareupdate -i -a;
   echo $'\e]9;Updates Completed\007'

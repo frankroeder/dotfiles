@@ -53,6 +53,7 @@ nvim:
 	pip install --upgrade pynvim
 	pip2 install --upgrade pynvim
 	gem install neovim
+	pip install unidecode
 
 zsh:
 	echo -e "\033[1m\033[34m==> Installing zsh\033[0m";
