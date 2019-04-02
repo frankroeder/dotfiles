@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+networksetup -setdnsservers Wi-Fi empty

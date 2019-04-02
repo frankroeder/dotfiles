@@ -2,29 +2,26 @@
 # ------------------------------------------------------------------------------
 
 # ruby
-export PATH="/usr/local/lib/ruby/gems/2.6.0/bin:$PATH"
+path=("/usr/local/lib/ruby/gems/2.6.0/bin" $path)
 
 # homebrew
-export PATH="/usr/local/bin:/usr/local/sbin:$PATH"
+path=("/usr/local/bin:/usr/local/sbin" $path)
 
 # python
-export PATH="/usr/local/opt/python/libexec/bin:$PATH"
+path=("/usr/local/opt/python/libexec/bin" $path)
 
 # nodejs 10 LTS
-export PATH="/usr/local/opt/node@10/bin:$PATH"
+path=("/usr/local/opt/node@10/bin" $path)
 
 # for compilers to find openssl
-export PATH="/usr/local/opt/openssl/bin:$PATH"
+path=("/usr/local/opt/openssl/bin" $path)
 export LDFLAGS="-L/usr/local/opt/openssl/lib"
 export CPPFLAGS="-I/usr/local/opt/openssl/include"
 
 # llvm
-export PATH="/usr/local/opt/llvm/bin:$PATH"
+path=("/usr/local/opt/llvm/bin" $path)
 export LDFLAGS="-L/usr/local/opt/llvm/lib"
 export CPPFLAGS="-I/usr/local/opt/llvm/include"
 
 # go
-export PATH="$PATH:${GOPATH}/bin:${GOROOT}/bin"
-
-# custom bin
-export PATH="$HOME/.dotfiles/bin:$PATH"
+path=("${GOPATH}/bin:${GOROOT}/bin" $path)

@@ -1,42 +1,31 @@
+# zmodload zsh/zprof
 # Path to your dotfiles installation.
 export DOTFILES=$HOME/.dotfiles
 
-# If you come from bash you might have to change your $PATH.
-export PATH=$HOME/bin:/usr/local/bin:$PATH
-
-# Path to your oh-my-zsh installation.
-export ZSH=$HOME/.oh-my-zsh
-
-export PLATFORM=$(uname -s)
-
-ZSH_THEME="spaceship"
-
-CASE_SENSITIVE=true
-
-DISABLE_AUTO_TITLE=true
-DISABLE_AUTO_UPDATE=true
-
-HIST_STAMPS="dd.mm.yyyy"
+source <(antibody init)
+antibody bundle < $DOTFILES/antibody/bundles.txt
 
 [ -f ~/.local.zsh ] && source ~/.local.zsh
 
-ZSH_CUSTOM=$DOTFILES/zsh/dots/
+zsh_fpath=$DOTFILES/autoloaded
+fpath=($zsh_fpath $fpath)
 
-plugins=(
-  docker
-  extract
-  fzf
-  git
-  tmux
-  zsh_reload
-)
+if [[ -d "$zsh_fpath" ]]; then
+    for func in $zsh_fpath/*; do
+        autoload -Uz ${func:t}
+    done
+fi
+unset zsh_fpath
 
-source $ZSH/oh-my-zsh.sh
+zsh_fpath=$DOTFILES/zsh/dots
+if [[ -d "$zsh_fpath" ]]; then
+    for file in $zsh_fpath/*; do
+        source $file
+    done
+fi
+unset zsh_fpath
 
 ZSH_TMUX_AUTOSTART='true'
-
-source /usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-source /usr/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
@@ -49,10 +38,8 @@ unsetopt prompt_cr prompt_sp
 
 # zsh completions
 if type brew &>/dev/null; then
-  FPATH=$(brew --prefix)/share/zsh/site-functions:$FPATH
+  fpath=($fpath $(brew --prefix)/share/zsh/site-functions)
 fi
-
-eval "`pip completion --zsh`"
 
 # gcloud
 if type gcloud &>/dev/null; then
@@ -65,3 +52,6 @@ if type terraform &>/dev/null; then
   TF_VERSION=$(terraform --version | perl -pe '($_)=/([0-9]+([.][0-9]+)+)/')
   complete -o nospace -C "$(brew --prefix)/Cellar/terraform/$TF_VERSION/bin/terraform" terraform
 fi
+autoload -Uz compinit
+compinit
+# zprof

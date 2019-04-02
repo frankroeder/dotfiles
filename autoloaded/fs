@@ -1,0 +1,7 @@
+#!/usr/bin/env zsh
+
+if [[ -n "$@" ]]; then
+  du -sh -- "$@";
+else
+  du -sh .[^.]* ./*;
+fi;

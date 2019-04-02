@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+/Applications/VLC.app/Contents/MacOS/VLC -I rc \
+  'https://dg-dradio-https-dus-dtag-cdn.sslcast.addradio.de/dradio/dlf/live/mp3/128/stream.mp3'
+

@@ -1,0 +1,4 @@
+#!/usr/bin/env zsh
+
+file="$(fzf -1 -0 --sort +m)"
+[[ -n "$file" ]] && open $file

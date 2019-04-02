@@ -57,12 +57,10 @@ nvim:
 
 zsh:
 	echo -e "\033[1m\033[34m==> Installing zsh\033[0m";
-	git clone https://github.com/robbyrussell/oh-my-zsh.git ~/.oh-my-zsh
+	curl -sL git.io/antibody | sh -s
 	ln -sfv $(DOTFILES_DIR)/zsh/zshrc ~/.zshrc;
 	bash $(DOTFILES_DIR)/bin/switch_zsh
 	source ~/.zshrc
-	git clone https://github.com/denysdovhan/spaceship-prompt.git ~/.oh-my-zsh/custom/themes/spaceship-prompt
-	ln -s ~/.oh-my-zsh/custom/themes/spaceship-prompt/spaceship.zsh-theme ~/.oh-my-zsh/themes/spaceship.zsh-theme
 
 git:
 	echo -e "\033[1m\033[34m==> Installing stuff for git\033[0m";
@@ -74,7 +72,7 @@ misc:
 	echo -e "\033[1m\033[34m==> Installing misc\033[0m";
 	ln -sfv $(DOTFILES_DIR)/wgetrc ~/.wgetrc;
 	ln -sfv $(DOTFILES_DIR)/curlrc ~/.curlrc;
-	ln -sfv $(DOTFILES_DIR)/tmux.conf ~/.tmux.conf
+	ln -sfv $(DOTFILES_DIR)/tmux/tmux.conf ~/.tmux.conf
 
 fonts:
 	echo -e "\033[1m\033[34m==> Installing fonts\033[0m";

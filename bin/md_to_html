@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-pandoc "$1" -o tmp.html;
-open tmp.html;
-sleep 10 && rm tmp.html &

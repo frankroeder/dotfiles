@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Use Mac OS Preview to open a man page in a more handsome format
+
+man -t "$@" | open -f -a /Applications/Preview.app
