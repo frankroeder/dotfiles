@@ -6,4 +6,3 @@ PURE_GIT_UP_ARROW='↑'
 PURE_PROMPT_VICMD_SYMBOL='❯❯❯'
 
 RPROMPT='%F{white}%*'
-

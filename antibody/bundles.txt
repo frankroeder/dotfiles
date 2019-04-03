@@ -5,4 +5,3 @@ mafredri/zsh-async
 sindresorhus/pure
 zdharma/fast-syntax-highlighting
 zsh-users/zsh-history-substring-search
-

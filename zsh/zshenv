@@ -19,8 +19,6 @@ export LESS='-XFR'
 
 # remove color-inverter % when output doesn't include trailing newline
 unsetopt prompt_cr prompt_sp
-setopt multios
-setopt auto_cd
 
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
