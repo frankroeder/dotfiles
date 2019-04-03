@@ -1,12 +1,13 @@
+#!/usr/bin/env zsh
 # zmodload zsh/zprof
+
 # Path to your dotfiles installation.
 export DOTFILES=$HOME/.dotfiles
 
-source <(antibody init)
-antibody bundle < $DOTFILES/antibody/bundles.txt
+# ensure to only execute on ZSH
+[ ! -n "$ZSH_VERSION" ] && return
 
-[ -f ~/.local.zsh ] && source ~/.local.zsh
-
+# autoloaded functions (lazy loading)
 zsh_fpath=$DOTFILES/autoloaded
 fpath=($zsh_fpath $fpath)
 
@@ -17,41 +18,28 @@ if [[ -d "$zsh_fpath" ]]; then
 fi
 unset zsh_fpath
 
+# Plugins
+export ZSH="$(antibody home)/https-COLON--SLASH--SLASH-github.com-SLASH-robbyrussell-SLASH-oh-my-zsh"
+source ~/.zsh_plugins.sh
+
+# load scripts
 zsh_fpath=$DOTFILES/zsh/dots
 if [[ -d "$zsh_fpath" ]]; then
-    for file in $zsh_fpath/*; do
+    for file in $zsh_fpath/*.zsh; do
         source $file
     done
 fi
 unset zsh_fpath
 
-ZSH_TMUX_AUTOSTART='true'
-
-export LANG=en_US.UTF-8
-export LC_ALL=en_US.UTF-8
-
-# remove color-inverter % when output doesn't include trailing newline
-unsetopt prompt_cr prompt_sp
+[ -f ~/.local.zsh ] && source ~/.local.zsh
 
 # source fuzzy file search - fzf
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
-# zsh completions
-if type brew &>/dev/null; then
-  fpath=($fpath $(brew --prefix)/share/zsh/site-functions)
-fi
-
-# gcloud
-if type gcloud &>/dev/null; then
-  local GCPREFIX='/usr/local/Caskroom/google-cloud-sdk/latest/google-cloud-sdk'
-  source $GCPREFIX'/path.zsh.inc'
-  source $GCPREFIX'/completion.zsh.inc'
-fi
-
-if type terraform &>/dev/null; then
-  TF_VERSION=$(terraform --version | perl -pe '($_)=/([0-9]+([.][0-9]+)+)/')
-  complete -o nospace -C "$(brew --prefix)/Cellar/terraform/$TF_VERSION/bin/terraform" terraform
-fi
 autoload -Uz compinit
-compinit
+if [ $(date +'%j') != $(/usr/bin/stat -f '%Sm' -t '%j' ${ZDOTDIR:-$HOME}/.zcompdump) ]; then
+	compinit;
+else
+	compinit -C;
+fi
 # zprof

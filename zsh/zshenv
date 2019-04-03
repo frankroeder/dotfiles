@@ -1,0 +1,26 @@
+#!/usr/bin/env zsh
+
+if [[ -f "$(command -v nvim)" ]]; then
+  export EDITOR='nvim'
+else
+  export EDITOR='vi'
+fi
+
+export VISUAL=$EDITOR
+export BROWSER=/Applications/Safari.app
+export BLOCKSIZE=1k
+export MANPAGER='less -X'
+export LSCOLORS='exfxcxdxbxegedabagacad'
+export CLICOLOR=true
+
+# remove color-inverter % when output doesn't include trailing newline
+unsetopt prompt_cr prompt_sp
+
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+
+# GO
+export GOPATH="$HOME/Documents/golang"
+export GOROOT="$(brew --prefix golang)/libexec"
+
+export GPG_TTY=$(tty)

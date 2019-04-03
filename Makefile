@@ -59,6 +59,8 @@ zsh:
 	echo -e "\033[1m\033[34m==> Installing zsh\033[0m";
 	curl -sL git.io/antibody | sh -s
 	ln -sfv $(DOTFILES_DIR)/zsh/zshrc ~/.zshrc;
+	ln -sfv $(DOTFILES_DIR)/zsh/zshenv ~/.zshenv;
+	ln -sfv $(DOTFILES_DIR)/zsh/zprofile ~/.zprofile;
 	bash $(DOTFILES_DIR)/bin/switch_zsh
 	source ~/.zshrc
 

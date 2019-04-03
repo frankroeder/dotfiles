@@ -1,8 +1,8 @@
 brew "git"
+brew "zsh"
 brew "mas"
 brew "neovim"
 brew "the_silver_searcher"
-
 brew "wget"
 brew "cmake"
 brew "open-mpi"
@@ -11,27 +11,19 @@ brew "llvm"
 brew "tmux"
 brew "tmux-mem-cpu-load"
 brew "reattach-to-user-namespace"
-
 brew "node@10"
 brew "go"
-
 brew "python"
 brew "ipython"
 brew "libtensorflow"
-
 brew "youtube-dl"
 brew "aspell"
 brew "pandoc"
 brew "gnuplot"
-
-brew "zsh"
-brew "zsh-completions"
-brew "zsh-syntax-highlighting"
-
 brew "kubernetes-cli"
 brew "kubernetes-helm"
-cask "google-cloud-sdk"
 
+cask "google-cloud-sdk"
 cask "alfred"
 cask "docker"
 cask "telegram"
