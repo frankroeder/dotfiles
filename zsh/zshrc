@@ -19,7 +19,6 @@ fi
 unset zsh_fpath
 
 # Plugins
-export ZSH="$(antibody home)/https-COLON--SLASH--SLASH-github.com-SLASH-robbyrussell-SLASH-oh-my-zsh"
 source ~/.zsh_plugins.sh
 
 # load scripts
@@ -35,6 +34,10 @@ unset zsh_fpath
 
 # source fuzzy file search - fzf
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+
+# Prevent duplicates in PATH
+typeset -U path
+export PATH
 
 autoload -Uz compinit
 if [ $(date +'%j') != $(/usr/bin/stat -f '%Sm' -t '%j' ${ZDOTDIR:-$HOME}/.zcompdump) ]; then

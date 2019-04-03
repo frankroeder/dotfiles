@@ -21,7 +21,6 @@ brew "aspell"
 brew "pandoc"
 brew "gnuplot"
 brew "kubernetes-cli"
-brew "kubernetes-helm"
 
 cask "google-cloud-sdk"
 cask "alfred"

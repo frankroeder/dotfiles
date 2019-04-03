@@ -1,10 +1,8 @@
 zsh-users/zsh-completions
 zsh-users/zsh-autosuggestions
-robbyrussell/oh-my-zsh
-robbyrussell/oh-my-zsh path:plugins/git
-robbyrussell/oh-my-zsh path:plugins/docker
-robbyrussell/oh-my-zsh path:plugins/extract
-denysdovhan/spaceship-prompt
+mafredri/zsh-async
+
+sindresorhus/pure
 zdharma/fast-syntax-highlighting
 zsh-users/zsh-history-substring-search
 

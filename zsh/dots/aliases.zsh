@@ -1,11 +1,8 @@
-alias ll='ls -la'
-alias la='ls -a'
-alias l.='ls -d .*'
-alias lsd='ls -l | grep "^d"'
 alias cp='nice cp'
 alias mv='nice mv'
 alias dud='du -d 1 -h'
 alias duf='du -sh *'
+alias grep='grep --color=auto'
 
 alias src='exec "$SHELL" -l'
 alias dotfiles='cd ~/.dotfiles'

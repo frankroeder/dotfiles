@@ -58,6 +58,7 @@ nvim:
 zsh:
 	echo -e "\033[1m\033[34m==> Installing zsh\033[0m";
 	curl -sL git.io/antibody | sh -s
+	antibody bundle < $(DOTFILES_DIR)/antibody/bundles.txt > ~/.zsh_plugins.sh
 	ln -sfv $(DOTFILES_DIR)/zsh/zshrc ~/.zshrc;
 	ln -sfv $(DOTFILES_DIR)/zsh/zshenv ~/.zshenv;
 	ln -sfv $(DOTFILES_DIR)/zsh/zprofile ~/.zprofile;
@@ -93,6 +94,12 @@ macos:
 xcode:
 	echo -e "\033[1m\033[34m==> Installing xcode cli tools\033[0m";
 	xcode-select --install;
+
+uninstall:
+	rm ~/.zshrc
+	rm ~/.zshenv
+	rm ~/.zprofile
+	rm ~/.zsh_plugins.sh
 
 test:
 	which brew && which git && which npm && which nvim && which zsh \
