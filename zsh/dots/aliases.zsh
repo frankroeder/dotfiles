@@ -27,7 +27,7 @@ alias battery="pmset -g ps"
 # Print each PATH entry on a separate line
 alias path='echo -e ${PATH//:/\\n}'
 # Print each function name
-alias functions="declare -f | grep '^[a-z].* ()' | sed 's/{$//'"
+alias showfunctions="declare -f | grep '^[a-z].* ()' | sed 's/{$//'"
 alias ag="ag --path-to-ignore ${DOTFILES}/ignore"
 alias localip="ipconfig getifaddr en0"
 alias :q="exit"
