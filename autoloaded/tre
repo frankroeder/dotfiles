@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# `tre` is a shorthand for `tree` with hidden files and color enabled, ignoring
+# some directories, listing directories first.
+
+if [ -z "${1}" ]; then
+  tree -aC -I '.git|node_modules|venv' --dirsfirst "$@";
+else
+  tree -aC -I '.git|node_modules|venv' -L "$1";
+fi

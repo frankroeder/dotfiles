@@ -1,67 +1,47 @@
-# Path to your dotfiles installation.
+#!/usr/bin/env zsh
+# zmodload zsh/zprof
+
 export DOTFILES=$HOME/.dotfiles
 
-# If you come from bash you might have to change your $PATH.
-export PATH=$HOME/bin:/usr/local/bin:$PATH
+# ensure to only execute on ZSH
+[ ! -n "$ZSH_VERSION" ] && return
 
-# Path to your oh-my-zsh installation.
-export ZSH=$HOME/.oh-my-zsh
+# autoloaded functions (lazy loading)
+zsh_fpath=$DOTFILES/autoloaded
+fpath=($zsh_fpath $fpath)
 
-export PLATFORM=$(uname -s)
+if [[ -d "$zsh_fpath" ]]; then
+    for func in $zsh_fpath/*; do
+        autoload -Uz ${func:t}
+    done
+fi
+unset zsh_fpath
 
-ZSH_THEME="spaceship"
+# Plugins
+source ~/.zsh_plugins.sh
 
-CASE_SENSITIVE=true
-
-DISABLE_AUTO_TITLE=true
-DISABLE_AUTO_UPDATE=true
-
-HIST_STAMPS="dd.mm.yyyy"
+# load scripts
+zsh_fpath=$DOTFILES/zsh/dots
+if [[ -d "$zsh_fpath" ]]; then
+    for file in $zsh_fpath/*.zsh; do
+        source $file
+    done
+fi
+unset zsh_fpath
 
 [ -f ~/.local.zsh ] && source ~/.local.zsh
-
-ZSH_CUSTOM=$DOTFILES/zsh/dots/
-
-plugins=(
-  docker
-  extract
-  fzf
-  git
-  tmux
-  zsh_reload
-)
-
-source $ZSH/oh-my-zsh.sh
-
-ZSH_TMUX_AUTOSTART='true'
-
-source /usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-source /usr/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh
-
-export LANG=en_US.UTF-8
-export LC_ALL=en_US.UTF-8
-
-# remove color-inverter % when output doesn't include trailing newline
-unsetopt prompt_cr prompt_sp
 
 # source fuzzy file search - fzf
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
-# zsh completions
-if type brew &>/dev/null; then
-  FPATH=$(brew --prefix)/share/zsh/site-functions:$FPATH
-fi
+# Prevent duplicates in PATH
+typeset -U path
+export PATH
 
-eval "`pip completion --zsh`"
-
-# gcloud
-if type gcloud &>/dev/null; then
-  local GCPREFIX='/usr/local/Caskroom/google-cloud-sdk/latest/google-cloud-sdk'
-  source $GCPREFIX'/path.zsh.inc'
-  source $GCPREFIX'/completion.zsh.inc'
+autoload -Uz compinit
+if [ $(date +'%j') != $(/usr/bin/stat -f '%Sm' -t '%j' ${ZDOTDIR:-$HOME}/.zcompdump) ]; then
+  compinit;
+else
+  compinit -C;
 fi
-
-if type terraform &>/dev/null; then
-  TF_VERSION=$(terraform --version | head -n 1 | perl -pe '($_)=/([0-9]+([.][0-9]+)+)/')
-  complete -o nospace -C "$(brew --prefix)/Cellar/terraform/$TF_VERSION/bin/terraform" terraform
-fi
+# zprof

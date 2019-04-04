@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Move to macos trash
+
+export DEL_FILES="$@"
+export DEL_PWD=$(pwd)
+command mv -fv "$@" ~/.Trash/

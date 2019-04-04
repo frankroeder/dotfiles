@@ -1,0 +1,5 @@
+#!/usr/bin/env zsh
+# https://goo.gl/9xc1tu
+# Display currently mounted file systems nicely
+
+(echo "DEVICE PATH TYPE FLAGS" && mount | awk '$2="";1') | column -t ;

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# watch all dns queries
+
+tshark -Y "dns.flags.response == 1" -Tfields \
+  -e frame.time_delta \
+  -e dns.qry.name \
+  -e dns.a \
+  -Eseparator=,

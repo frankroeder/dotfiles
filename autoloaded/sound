@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+file=$(ls /System/Library/Sounds/ | sort -R | head -1)
+afplay "/System/Library/Sounds/$file"
