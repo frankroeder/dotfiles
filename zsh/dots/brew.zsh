@@ -3,10 +3,10 @@ export HOMEBREW_NO_ANALYTICS=1
 export HOMEBREW_CASK_OPTS=--require-sha
 
 export GOPATH="$HOME/Documents/golang"
-export GOROOT="$(brew --prefix golang)/libexec"
+export GOROOT="/usr/local/opt/go/libexec"
 
 if (( $+commands[brew] )); then
-  fpath=($(brew --prefix)/share/zsh/site-functions $fpath)
+  fpath=(/usr/local/share/zsh/site-functions $fpath)
 fi
 
 if (( $+commands[gcloud] )); then

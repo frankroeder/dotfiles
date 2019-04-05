@@ -209,6 +209,16 @@ key_bindings:
   - { key: W,      mods: Command, action: Quit             }
   - { key: L,        mods: Control, action: ClearLogNotice                   }
   - { key: L,        mods: Control, chars: "\x0c"                            }
+
+  # General Quality of Life Improvements
+  - { key: Key5,     mods: Alt,        chars: "\x5b"                     }
+  - { key: Key6,     mods: Alt,        chars: "\x5d"                     }
+  - { key: Key7,     mods: Alt|Shift,  chars: "\x5c"                     }
+  - { key: Key7,     mods: Alt,        chars: "\x7c"                     }
+  - { key: Key8,     mods: Alt,        chars: "\x7b"                     }
+  - { key: Key9,     mods: Alt,        chars: "\x7d"                     }
+  - { key: L,        mods: Alt,        chars: "\x40"                     }
+
   - { key: Home,                    chars: "\x1bOH",        mode: AppCursor  }
   - { key: Home,                    chars: "\x1b[H",        mode: ~AppCursor }
   - { key: End,                     chars: "\x1bOF",        mode: AppCursor  }
