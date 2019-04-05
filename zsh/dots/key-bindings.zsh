@@ -21,6 +21,8 @@ bindkey "^B" backward-char               # ctrl-b
 bindkey "[B" history-search-forward      # down arrow
 bindkey "[A" history-search-backward     # up arrow
 
+bindkey '^[[Z' reverse-menu-complete
+
 bindkey ' ' magic-space                  # [Space] - do history expansion
 bindkey '^[[1;5C' forward-word           # [Ctrl-RightArrow] - move forward one word
 bindkey '^[[1;5D' backward-word          # [Ctrl-LeftArrow] - move backward one word

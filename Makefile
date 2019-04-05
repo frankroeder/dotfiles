@@ -62,7 +62,8 @@ zsh:
 	ln -sfv $(DOTFILES_DIR)/zsh/zshrc ~/.zshrc;
 	ln -sfv $(DOTFILES_DIR)/zsh/zshenv ~/.zshenv;
 	ln -sfv $(DOTFILES_DIR)/zsh/zprofile ~/.zprofile;
-	bash $(DOTFILES_DIR)/bin/switch_zsh
+	sudo sh -c "echo $(which zsh) >> /etc/shells"
+	bash $(DOTFILES_DIR)/autoloaded/switch_zsh
 	source ~/.zshrc
 
 git:
