@@ -6,6 +6,8 @@ export DOTFILES=$HOME/.dotfiles
 # ensure to only execute on ZSH
 [ ! -n "$ZSH_VERSION" ] && return
 
+[ -z "$TMUX"  ] && { tmux attach || tmux new-session -s home;}
+
 # autoloaded functions (lazy loading)
 zsh_fpath=$DOTFILES/autoloaded
 fpath=($zsh_fpath $fpath)

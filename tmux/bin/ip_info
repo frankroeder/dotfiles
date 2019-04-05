@@ -2,4 +2,4 @@
 
 LAN_IP=$(ipconfig getifaddr en0)
 WAN_IP=$(curl --ipv4 icanhazip.com)
-printf '%s' " #[fg=colour109]$LAN_IP#[default] #[fg=colour143]$WAN_IP#[default] "
+printf '%s' " #[fg=colour109]$LAN_IP#[default] #[fg=colour143]$WAN_IP#[default]"

@@ -75,6 +75,7 @@ git:
 
 misc:
 	@echo -e "\033[1m\033[34m==> Installing misc\033[0m"
+	ln -sfv $(DOTFILES_DIR)/alacritty.yml ~/.config/alacritty/
 	ln -sfv $(DOTFILES_DIR)/wgetrc ~/.wgetrc
 	ln -sfv $(DOTFILES_DIR)/curlrc ~/.curlrc
 	ln -sfv $(DOTFILES_DIR)/tmux/tmux.conf ~/.tmux.conf
