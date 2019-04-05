@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 ping -c 1 google.com
 if [ $? -eq 0 ];
@@ -28,7 +28,8 @@ then
   sudo $GBIN cleanup;
   printf "\\033[33m## macOS #\\033[0m\\n"
   softwareupdate -i -a;
-  echo $'\e]9;Updates Completed\007'
+  printf "\\033[32m Updates Completed\\n"
 else
-  echo $'\e]9;No Internetconnection\007'
+  echo $'\e]9;\007'
+  printf "\\033[31m No connection to the internet\\n"
 fi

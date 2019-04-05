@@ -34,8 +34,8 @@ unset zsh_fpath
 # source fuzzy file search - fzf
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
-# Prevent duplicates in PATH
-typeset -U path
+# Prevent duplicates in PATH and FPATH
+typeset -U path fpath
 export PATH
 
 autoload -Uz compinit
