@@ -60,10 +60,11 @@ zsh:
 	@echo -e "\033[1m\033[34m==> Installing zsh and tools\033[0m"
 	which antibody || curl -sL git.io/antibody | sh -s
 	antibody bundle < $(DOTFILES_DIR)/antibody/bundles.txt > ~/.zsh_plugins.sh
-	ln -sfv $(DOTFILES_DIR)/zsh/zshrc ~/.zshrc
-	ln -sfv $(DOTFILES_DIR)/zsh/zshenv ~/.zshenv
-	ln -sfv $(DOTFILES_DIR)/zsh/zprofile ~/.zprofile
-	bash $(DOTFILES_DIR)/bin/switch_zsh
+	ln -sfv $(DOTFILES_DIR)/zsh/zshrc ~/.zshrc;
+	ln -sfv $(DOTFILES_DIR)/zsh/zshenv ~/.zshenv;
+	ln -sfv $(DOTFILES_DIR)/zsh/zprofile ~/.zprofile;
+	sudo sh -c "echo $(which zsh) >> /etc/shells"
+	bash $(DOTFILES_DIR)/autoloaded/switch_zsh
 	source ~/.zshrc
 
 git:

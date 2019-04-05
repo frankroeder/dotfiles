@@ -23,8 +23,4 @@ unsetopt prompt_cr prompt_sp
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
 
-# GO
-export GOPATH="$HOME/Documents/golang"
-export GOROOT="$(brew --prefix golang)/libexec"
-
 export GPG_TTY=$(tty)
