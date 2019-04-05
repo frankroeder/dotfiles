@@ -852,6 +852,10 @@ Password Manager</string>
 	<integer>1</integer>
 	<key>NSFontPanelAttributes</key>
 	<string>1, 0</string>
+	<key>NSFontPanelPreviewHeight</key>
+	<real>100</real>
+	<key>NSFontPanelSizeSliderParams</key>
+	<string>2 0 100</string>
 	<key>NSNavLastRootDirectory</key>
 	<string>~/.dotfiles/iterm</string>
 	<key>NSNavPanelExpandedSizeForOpenMode</key>
@@ -900,7 +904,7 @@ Password Manager</string>
 		<integer>1</integer>
 	</dict>
 	<key>NSWindow Frame NSFontPanel</key>
-	<string>151 198 771 319 0 0 1280 778 </string>
+	<string>204 236 771 77 0 0 1280 777 </string>
 	<key>NSWindow Frame Preferences</key>
 	<string>269 319 606 456 0 0 1280 800 </string>
 	<key>NSWindow Frame ProfilesPanel</key>
@@ -910,11 +914,11 @@ Password Manager</string>
 	<key>NSWindow Frame SessionsPreferences</key>
 	<string>269 342 609 401 0 0 1280 777 </string>
 	<key>NSWindow Frame SharedPreferences</key>
-	<string>104 1359 796 486 -335 800 1920 1057 </string>
+	<string>216 230 796 486 0 0 1280 777 </string>
 	<key>NSWindow Frame UKCrashReporter</key>
 	<string>80 193 592 584 0 0 1280 777 </string>
 	<key>NSWindow Frame iTerm Window 0</key>
-	<string>0 0 1280 777 0 0 1280 777 </string>
+	<string>0 0 640 777 0 0 1280 777 </string>
 	<key>NSWindow Frame iTerm Window 1</key>
 	<string>94 359 570 402 0 0 1280 800 </string>
 	<key>NSWindow Frame iTerm Window 2</key>
@@ -1282,7 +1286,7 @@ Password Manager</string>
 			<key>Idle Code</key>
 			<integer>0</integer>
 			<key>Initial Text</key>
-			<string>tmux attach || tmux new-session -s home</string>
+			<string></string>
 			<key>Jobs to Ignore</key>
 			<array>
 				<string>rlogin</string>
@@ -1686,7 +1690,7 @@ Password Manager</string>
 			<key>Use Underline Color</key>
 			<true/>
 			<key>Vertical Spacing</key>
-			<real>1.0482868975903614</real>
+			<real>1</real>
 			<key>Visual Bell</key>
 			<false/>
 			<key>Window Type</key>
@@ -1884,7 +1888,7 @@ Password Manager</string>
 	<key>SUHasLaunchedBefore</key>
 	<true/>
 	<key>SULastCheckTime</key>
-	<date>2019-03-18T18:59:45Z</date>
+	<date>2019-04-05T09:40:53Z</date>
 	<key>SUSendProfileInfo</key>
 	<false/>
 	<key>SearchCommand</key>
@@ -1942,7 +1946,7 @@ Password Manager</string>
 	<key>findRegex_iTerm</key>
 	<false/>
 	<key>iTerm Version</key>
-	<string>3.2.7</string>
+	<string>3.2.8</string>
 	<key>kCPKSelectionViewPreferredModeKey</key>
 	<integer>0</integer>
 	<key>kCPKSelectionViewShowHSBTextFieldsKey</key>
