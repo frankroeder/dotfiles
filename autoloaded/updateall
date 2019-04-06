@@ -28,8 +28,8 @@ then
   sudo $GBIN cleanup;
   printf "\\033[33m## macOS #\\033[0m\\n"
   softwareupdate -i -a;
-  printf "\\033[32m Updates Completed\\n"
+  printf "\\033[32mUpdates Completed\\n"
 else
   echo $'\e]9;\007'
-  printf "\\033[31m No connection to the internet\\n"
+  printf "\\033[31mNo connection to the internet\\n"
 fi

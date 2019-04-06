@@ -10,7 +10,13 @@ if (( $+commands[brew] )); then
 fi
 
 if (( $+commands[gcloud] )); then
-  local GCPREFIX="/usr/local/Caskroom/google-cloud-sdk/latest/google-cloud-sdk"
-  path=("$GCPREFIX/path.zsh.inc" $path)
-  fpath=("$GCPREFIX/completion.zsh.inc" $fpath)
+  GCPREFIX="/usr/local/Caskroom/google-cloud-sdk/latest/google-cloud-sdk"
+  source $GCPREFIX/path.zsh.inc
+  source $GCPREFIX/completion.zsh.inc
+fi
+
+if (( $+commands[terraform] )); then
+  TF_VERSION=$(terraform --version | head -n 1 | perl -pe '($_)=/([0-9]+([.][0-9]+)+)/')
+  complete -o nospace -C \
+    "/usr/local/Cellar/terraform/$TF_VERSION/bin/terraform" terraform
 fi

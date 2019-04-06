@@ -6,7 +6,12 @@ export DOTFILES=$HOME/.dotfiles
 # ensure to only execute on ZSH
 [ ! -n "$ZSH_VERSION" ] && return
 
-[ -z "$TMUX"  ] && { tmux attach || tmux new-session -s home;}
+autoload -Uz compinit
+if [ $(date +'%j') != $(/usr/bin/stat -f '%Sm' -t '%j' ${ZDOTDIR:-$HOME}/.zcompdump) ]; then
+  compinit;
+else
+  compinit -C;
+fi
 
 # autoloaded functions (lazy loading)
 zsh_fpath=$DOTFILES/autoloaded
@@ -21,6 +26,8 @@ unset zsh_fpath
 
 # Plugins
 source ~/.zsh_plugins.sh
+
+ZSH_AUTOSUGGEST_USE_ASYNC=true
 
 # load scripts
 zsh_fpath=$DOTFILES/zsh/dots
@@ -39,19 +46,4 @@ unset zsh_fpath
 # Prevent duplicates in PATH and FPATH
 typeset -U path fpath
 export PATH
-
-autoload -Uz compinit
-if [ $(date +'%j') != $(/usr/bin/stat -f '%Sm' -t '%j' ${ZDOTDIR:-$HOME}/.zcompdump) ]; then
-  compinit;
-else
-  compinit -C;
-fi
-
-if (( $+commands[terraform] )); then
-  TF_VERSION=$(terraform --version | head -n 1 | perl -pe '($_)=/([0-9]+([.][0-9]+)+)/')
-  autoload -U +X bashcompinit && bashcompinit
-  complete -o nospace -C \
-    "/usr/local/Cellar/terraform/$TF_VERSION/bin/terraform" terraform
-fi
-
 # zprof
