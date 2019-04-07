@@ -1,0 +1,16 @@
+#!/usr/bin/env osascript
+
+tell application "Safari"
+  set vURL to URL of current tab of window 1
+end tell
+
+tell application "Google Chrome"
+	if windows ≠ {} then
+		make new tab at the end of window 1 with properties {URL:vURL}
+	else
+		make new window
+		set URL of (active tab of window 1) to vURL
+	end if
+
+	activate
+end tell

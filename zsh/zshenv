@@ -1,4 +1,6 @@
 #!/usr/bin/env zsh
+#
+export DOTFILES=$HOME/.dotfiles
 
 if [[ -f "$(command -v /usr/local/bin/nvim)" ]]; then
   export EDITOR='nvim'

@@ -1,7 +1,4 @@
 #!/usr/bin/env zsh
-# zmodload zsh/zprof
-
-export DOTFILES=$HOME/.dotfiles
 
 # ensure to only execute on ZSH
 [ ! -n "$ZSH_VERSION" ] && return
@@ -46,4 +43,3 @@ unset zsh_fpath
 # Prevent duplicates in PATH and FPATH
 typeset -U path fpath
 export PATH
-# zprof

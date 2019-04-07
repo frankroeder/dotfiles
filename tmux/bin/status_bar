@@ -3,16 +3,17 @@
 
 WIDTH=${1}
 SMALL=90
+TMUX_BIN="$DOTFILES/tmux/bin"
 
-BAR+="#($DOTFILES/tmux/bin/mail_count_apple)"
+BAR+="#($TMUX_BIN/mail_count_apple)"
 
-TUNE=$("$DOTFILES/tmux/bin/now_playing" "$WIDTH")
+TUNE=$("$TMUX_BIN/now_playing" "$WIDTH")
 
 [[ -n $TUNE ]] && \
-  BAR+="#[fg=colour74]#($DOTFILES/tmux/bin/now_playing $WIDTH)#[default]"
+  BAR+="#[fg=colour74]#($TMUX_BIN/now_playing $WIDTH)#[default]"
 
 if [[ $WIDTH -ge 120 ]]; then
-  BAR+="#($DOTFILES/tmux/bin/ip_info)#[default]"
+  BAR+="#($TMUX_BIN/ip_info)#[default]"
 fi
 
 if [[ -n $TUNE ]] && [[ $WIDTH -le $SMALL ]] ; then
@@ -21,8 +22,8 @@ else
   BAR+=" #(tmux-mem-cpu-load -a 0 -g 10 -i 2 -t 0)"
 fi
 
-BAR+=" #[fg=colour172]#($DOTFILES/tmux/bin/osx-cpu-temp)"
-BAR+="#($DOTFILES/tmux/bin/internet_info)"
+BAR+=" #[fg=colour172]#($TMUX_BIN/osx-cpu-temp)"
+BAR+="#($TMUX_BIN/internet_info)"
 
 
 printf '%s' "$BAR"

@@ -2,6 +2,8 @@
 
 path=(/usr/local/{bin,sbin} $path)
 
+path=($DOTFILES/bin $path)
+
 # ruby
 path=("/usr/local/lib/ruby/gems/2.6.0/bin" $path)
 
