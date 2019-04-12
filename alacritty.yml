@@ -1,8 +1,5 @@
 # Configuration for Alacritty, the GPU enhanced terminal emulator.
 
-# Any items in the `env` entry below will be added as
-# environment variables. Some entries may override variables
-# set by alacritty itself.
 env:
   TERM: xterm-256color
 
@@ -199,27 +196,27 @@ alt_send_esc: false
 
 # Key bindings
 key_bindings:
-  - { key: Key0,   mods: Command, action: ResetFontSize    }
-  - { key: Equals, mods: Command, action: IncreaseFontSize }
-  - { key: Minus,  mods: Command, action: DecreaseFontSize }
-  - { key: K,      mods: Command, action: ClearHistory     }
-  - { key: K,      mods: Command, chars: "\x0c"            }
-  - { key: V,      mods: Command, action: Paste            }
-  - { key: C,      mods: Command, action: Copy             }
-  - { key: M,      mods: Command, action: Hide             }
-  - { key: Q,      mods: Command, action: Quit             }
-  - { key: W,      mods: Command, action: Quit             }
-  - { key: L,        mods: Control, action: ClearLogNotice                   }
-  - { key: L,        mods: Control, chars: "\x0c"                            }
+  - { key: Key0,     mods: Command,     action: ResetFontSize     }
+  - { key: Equals,   mods: Command,     action: IncreaseFontSize  }
+  - { key: Minus,    mods: Command,     action: DecreaseFontSize  }
+  - { key: K,        mods: Command,     action: ClearHistory      }
+  - { key: K,        mods: Command,     chars: "\x0c"             }
+  - { key: V,        mods: Command,     action: Paste             }
+  - { key: C,        mods: Command,     action: Copy              }
+  - { key: M,        mods: Command,     action: Hide              }
+  - { key: Q,        mods: Command,     action: Quit              }
+  - { key: W,        mods: Command,     action: Quit              }
+  - { key: L,        mods: Control,     action: ClearLogNotice    }
+  - { key: L,        mods: Control,     chars: "\x0c"             }
+  - { key: Space,    mods: Control,     chars: "\x00"             }
 
-  # General Quality of Life Improvements
-  - { key: Key5,     mods: Alt,        chars: "\x5b"                     }
-  - { key: Key6,     mods: Alt,        chars: "\x5d"                     }
-  - { key: Key7,     mods: Alt|Shift,  chars: "\x5c"                     }
-  - { key: Key7,     mods: Alt,        chars: "\x7c"                     }
-  - { key: Key8,     mods: Alt,        chars: "\x7b"                     }
-  - { key: Key9,     mods: Alt,        chars: "\x7d"                     }
-  - { key: L,        mods: Alt,        chars: "\x40"                     }
+  - { key: Key5,     mods: Alt,         chars: "\x5b"             }
+  - { key: Key6,     mods: Alt,         chars: "\x5d"             }
+  - { key: Key7,     mods: Alt|Shift,   chars: "\x5c"             }
+  - { key: Key7,     mods: Alt,         chars: "\x7c"             }
+  - { key: Key8,     mods: Alt,         chars: "\x7b"             }
+  - { key: Key9,     mods: Alt,         chars: "\x7d"             }
+  - { key: L,        mods: Alt,         chars: "\x40"             }
 
   - { key: Home,                    chars: "\x1bOH",        mode: AppCursor  }
   - { key: Home,                    chars: "\x1b[H",        mode: ~AppCursor }
