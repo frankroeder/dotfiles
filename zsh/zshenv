@@ -12,7 +12,6 @@ export VISUAL=$EDITOR
 export BROWSER=/Applications/Safari.app
 export BLOCKSIZE=1k
 export MANPAGER='less -X'
-export LSCOLORS='exfxcxdxbxegedabagacad'
 export CLICOLOR=true
 autoload -U colors && colors
 

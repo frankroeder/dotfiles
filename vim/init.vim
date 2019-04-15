@@ -35,7 +35,7 @@ Plug 'vim-airline/vim-airline'
 Plug 'vim-airline/vim-airline-themes'
 Plug 'luochen1990/rainbow'
 Plug 'ap/vim-css-color'
-Plug 'ayu-theme/ayu-vim'
+Plug 'arcticicestudio/nord-vim'
 
 call plug#end()
 
@@ -54,7 +54,6 @@ set noshowmode              " Don't show current mode
 set showmatch               " Show matching bracket/parenthesis/etc
 set matchtime=2
 set lazyredraw              " redraw only when needed(not in execution of macro)
-set cursorline              " Highlight the current line
 set synmaxcol=2500          " Limit syntax highlighting (this
                             " avoids the very slow redrawing
                             " when files contain long lines).
@@ -94,8 +93,7 @@ if has('nvim') || has('termguicolors')
 endif
 
 try
-  let ayucolor="dark"
-  colorscheme ayu
+  colorscheme nord
 catch
 endtry
 
@@ -261,7 +259,7 @@ if has('nvim')
 endif
 
 " Airline
-let g:airline_theme='distinguished'
+let g:airline_theme='nord'
 let g:airline_powerline_fonts = 1
 
 if !exists('g:airline_symbols')

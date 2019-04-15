@@ -2,7 +2,7 @@ alias ls='ls -G'
 alias l='ls -lah'
 alias la='ls -a'
 alias l.='ls -d .*'
-alias lsd='ls -l | grep "^d"'
+alias lsd="l | grep --color=never '^d'"
 
 setopt auto_cd
 setopt auto_pushd
