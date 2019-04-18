@@ -1,7 +1,7 @@
 # Kubernetes Shortcuts
 # ------------------------------------------------------------------------------
 
-if [ -n "$K8S_SHORTCUTS" ]; then
+if (( $+commands[kubectl] )); then
 
   # basic
   alias k='kubectl'
@@ -43,6 +43,10 @@ if [ -n "$K8S_SHORTCUTS" ]; then
 
   alias kgpv='k get persistentvolumes'
 
+  alias kgrs='k get replicasets'
+
+  alias kgrc='k get replicationcontrollers'
+
   # describe
   alias kd='k describe'
 
@@ -75,6 +79,10 @@ if [ -n "$K8S_SHORTCUTS" ]; then
   alias kdpvc='k describe $(k get persistentvolumeclaims -o name | fzf)'
 
   alias kdpv='k describe $(k get events -o persistentvolumes | fzf)'
+
+  alias kdrs='k describe $(k get replicaset -o name | fzf)'
+
+  alias kdrc='k describe $(k get replicationcontrollers -o name | fzf)'
 
   # get object names for fzf
   alias kgpn='k get pods --output=jsonpath={.items..metadata.name} | tr " " "\n"'
@@ -159,6 +167,15 @@ if [ -n "$K8S_SHORTCUTS" ]; then
     nohup $(k port-forward $(kgpn | grep alertmanager) 9093) > /dev/null 2>&1 &
     sleep 5
     open http://localhost:{3000,9090,9091,9093}
+  }
+
+  # run a custom "busybox"
+  kubeBusybox(){
+    if [ -z "${1}" ]; then
+      printf "\\033[31mERROR:\\033[0m Please provide an image.\\n"
+      return 1;
+    fi;
+    kubectl run -i --tty busybox --image=$1 --restart=Never -- sh
   }
 
   # change k8s cluster context
