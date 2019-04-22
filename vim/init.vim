@@ -13,7 +13,8 @@ call plug#begin('~/.local/share/nvim/plugged')
 
 " utils
 Plug 'scrooloose/nerdcommenter'
-Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all --no-bash -no-zsh' }
+Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do':
+      \ './install --all --no-bash -no-zsh' }
 Plug 'junegunn/fzf.vim'
 Plug 'SirVer/ultisnips'
 Plug 'rstacruz/vim-closer'
@@ -24,7 +25,8 @@ Plug 'tpope/vim-repeat'
 Plug 'mhinz/vim-signify'
 
 " language support
-Plug 'Valloric/YouCompleteMe', { 'do': './install.py --clang-completer --go-completer' }
+Plug 'Valloric/YouCompleteMe', { 'do':
+      \ './install.py --clang-completer --go-completer' }
 Plug 'fatih/vim-go', { 'do': ':GoUpdateBinaries' }
 Plug 'plasticboy/vim-markdown', {'depends': 'godlygeek/tabular'}
 Plug 'lervag/vim-latex'
@@ -82,12 +84,6 @@ set smartcase               " but change if searched with upper case
 " syntax and style
 set t_Co=256                " Enable full-color support
 
-" 80 chars/line
-set textwidth=0
-if exists('&colorcolumn')
-  set colorcolumn=81
-endif
-
 if has('nvim') || has('termguicolors')
   set termguicolors
 endif
@@ -101,12 +97,16 @@ if !exists("syntax_on")
     syntax enable
 endif
 
-
 set number relativenumber
 augroup numbertoggle
   autocmd!
   autocmd BufEnter,FocusGained,InsertLeave * set relativenumber
   autocmd BufLeave,FocusLost,InsertEnter   * set norelativenumber
+augroup END
+
+augroup columntoggle
+  autocmd BufEnter,FocusGained,InsertLeave * set cc=
+  autocmd BufLeave,FocusLost,InsertEnter   * set cc=81
 augroup END
 
 " Persistent undo
@@ -118,7 +118,6 @@ set nobackup
 " Treat given characters as a word boundary
 set iskeyword-=.           " Make '.' end of word designator
 set iskeyword-=#           " Make '#' end of word designator
-
 
 let mapleader=","
 
@@ -277,7 +276,8 @@ function! MyLineNumber()
     \    substitute(line('$'), '\d\@<=\(\(\d\{3\}\)\+\)$', ',&', 'g')
 endfunction
 
-call airline#parts#define('linenr', {'function': 'MyLineNumber', 'accents': 'bold'})
+call airline#parts#define('linenr',
+  \ {'function': 'MyLineNumber', 'accents': 'bold'})
 let g:airline_section_z = airline#section#create(['%3p%%: ', 'linenr', ':%3v'])
 
 " Polyglot
@@ -319,7 +319,8 @@ nnoremap <C-B> :FzfBuffers<Cr>
 nnoremap <C-F> :FzfAg <CR>
 nnoremap <C-P> :FzfBLines<Cr>
 " [[B]Commits] Customize the options used by 'git log':
-let g:fzf_commits_log_options = '--graph --color=always --format="%C(auto)%h%d %s %C(black)%C(bold)%cr"'
+let g:fzf_commits_log_options =
+ \ '--graph --color=always --format="%C(auto)%h%d %s %C(black)%C(bold)%cr"'
 nnoremap <Leader>g :FzfBCommits<Cr>
 nnoremap <Leader>h :FzfHistory<Cr>
 nnoremap <Leader>t :Colors<Cr>
@@ -345,7 +346,8 @@ command! -bang -nargs=? FzfGitFiles
   \ <bang>0)
 
 command! -bang Colors
-  \ call fzf#vim#colors({'left': '15%', 'options': '--reverse --margin 5%,0'}, <bang>0)<Paste>
+  \ call fzf#vim#colors({'left': '15%', 'options': '--reverse --margin 5%,0'},
+  \ <bang>0)
 
 " NERDComment
 let g:NERDSpaceDelims = 1
@@ -410,7 +412,8 @@ let g:ycm_filetype_blacklist = {}
 let g:ycm_min_num_of_chars_for_completion = 1
 let g:ycm_global_ycm_extra_conf = $DOTFILES.'vim/.ycm_extra_conf.py'
 let g:ycm_confirm_extra_conf = 0
-let g:ycm_path_to_python_interpreter = '/usr/local/opt/python/libexec/bin/python'
+let g:ycm_path_to_python_interpreter =
+  \ '/usr/local/opt/python/libexec/bin/python'
 let g:ycm_python_binary_path= 'python'
 let g:ycm_complete_in_comments=1
 let g:ycm_autoclose_preview_window_after_completion=0

@@ -23,7 +23,6 @@ else
 fi
 
 BAR+=" #[fg=colour172]#($TMUX_BIN/osx-cpu-temp)"
-BAR+="#($TMUX_BIN/internet_info)"
-
+BAR+="#($TMUX_BIN/internet_info)#[default]"
 
 printf '%s' "$BAR"

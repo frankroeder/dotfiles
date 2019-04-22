@@ -51,8 +51,8 @@ nvim:
 	ln -sfv $(DOTFILES_DIR)/vim/spell  ~/.config/nvim/
 	ln -sfv $(DOTFILES_DIR)/vim/colors  ~/.config/nvim/
 	pip install setuptools
-	pip install --upgrade pynvim
-	pip2 install --upgrade pynvim
+	pip install neovim
+	pip2 install neovim
 	gem install neovim
 	pip install unidecode
 
