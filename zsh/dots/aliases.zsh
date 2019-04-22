@@ -1,7 +1,5 @@
 alias cp='nice cp'
 alias mv='nice mv'
-alias dud='du -d 1 -h'
-alias duf='du -sh *'
 alias grep='grep --color=auto'
 
 alias src='exec "$SHELL" -l'

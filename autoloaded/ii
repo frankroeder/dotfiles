@@ -2,7 +2,7 @@
 
 echo -e "\n${ORANGE}You are logged on:$RESET"; hostname
 echo -e "\n${LIGHT_BLUE}Software Version:$RESET"; sw_vers
-echo -e "\n${LIGHT_BLUE}CPU Info:$RESET"; cpuinfo
+echo -e "\n${LIGHT_BLUE}CPU Info:$RESET"; sysctl -n machdep.cpu.brand_string
 echo -e "\n${LIGHT_BLUE}Additionnal information:$RESET "; uname -a
 echo -e "\n${LIGHT_BLUE}Users logged on:$RESET "; w -h
 echo -e "\n${LIGHT_BLUE}Current date:$RESET "; date

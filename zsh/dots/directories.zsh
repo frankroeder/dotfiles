@@ -4,6 +4,9 @@ alias la='ls -a'
 alias l.='ls -d .*'
 alias lsd="l | grep --color=never '^d'"
 
+alias dud='du -d 1 -h'
+alias duf='du -sh *'
+
 setopt auto_cd
 setopt auto_pushd
 setopt pushd_ignore_dups

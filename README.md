@@ -2,10 +2,6 @@
 
 These are my dotfiles highly inspired by various sources.
 
-## Requirements
-
-- zsh, macOS, ...
-
 ## Installation
 - Clone the repository as `~/.dotfiles`
 - Run `make all` and restart your system
@@ -13,4 +9,6 @@ These are my dotfiles highly inspired by various sources.
 
 ## References
 - https://github.com/getantibody/antibody
+- https://github.com/robbyrussell/oh-my-zsh
+- https://github.com/htr3n/zsh-config
 - ...
