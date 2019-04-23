@@ -104,7 +104,11 @@ if (( $+commands[kubectl] )); then
   alias kecm='k edit cm $(kgcmn | fzf)'
 
   # config
+  alias kc='kubectl config'
+
   alias kcuc='kubectl config use-context'
+
+  alias kcgc='kubectl config get-contexts'
 
   alias kcsc='kubectl config set-context'
 

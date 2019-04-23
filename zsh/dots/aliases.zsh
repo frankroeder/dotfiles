@@ -24,5 +24,6 @@ alias :q="exit"
 alias localip="ipconfig getifaddr en0"
 alias ipd="curl -sS ipinfo.io  2>/dev/null | jq ."
 alias npml="npm list -g --depth=0"
+alias -g @="| grep -i"
 
 alias joke="curl https://icanhazdadjoke.com"

@@ -10,11 +10,11 @@ alias afk="open -a /System/Library/CoreServices/ScreenSaverEngine.app"
 alias wifion='networksetup -setairportpower en0 on'
 alias wifioff='networksetup -setairportpower en0 off'
 # Recursively delete all .DS_Store files
-alias cleandsstore="find ~/ -type f -name '*.DS_Store' -ls -delete"
+alias rmds_store="find ~/ -type f -name '*.DS_Store' -ls -delete"
 # Clear DNS cache
-alias cleardnscache="sudo dscacheutil -flushcache;sudo killall -HUP mDNSResponder"
+alias flushdns="sudo dscacheutil -flushcache;sudo killall -HUP mDNSResponder"
 # Clean up LaunchServices to remove duplicates in the "Open With" menu
-alias lscleanup="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -kill -r -domain local -domain system -domain user && killall Finder"
+alias rmls="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -kill -r -domain local -domain system -domain user && killall Finder"
 # Merge PDF files, Usage: `mergepdf -o output.pdf input{1,2,3}.pdf`
 alias mergepdf='/System/Library/Automator/Combine\ PDF\ Pages.action/Contents/Resources/join.py'
 # Show system information
