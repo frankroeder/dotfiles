@@ -11,6 +11,7 @@ setopt extended_glob     # needed for file modification glob modifiers with comp
 setopt path_dirs         # perform path search even on command names with slashes
 setopt globdots          # files beginning with a . be matched without explicitly specifying the dot
 setopt multios
+setopt ignore_eof        # prevent accidental C-d from exiting shell
 
 zstyle ':completion:*:*:*:*:*' menu select
 

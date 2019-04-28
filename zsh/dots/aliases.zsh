@@ -19,7 +19,8 @@ alias battery="pmset -g ps"
 alias path='echo -e ${PATH//:/\\n}'
 # Print each function name
 alias showfunctions="declare -f | grep '^[a-z].* ()' | sed 's/{$//'"
-alias ag="ag --path-to-ignore ${DOTFILES}/ignore"
+alias ag="ag --path-to-ignore ${DOTFILES}/ignore --color --color-line-number \
+  '0;35' --color-match '46;30' --color-path '4;36'"
 alias :q="exit"
 alias localip="ipconfig getifaddr en0"
 alias ipd="curl -sS ipinfo.io  2>/dev/null | jq ."

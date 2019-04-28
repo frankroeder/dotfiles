@@ -128,7 +128,7 @@ autocmd BufReadPost *
   \ endif
 
 " Set spell in certain cases
-autocmd FileType gitcommit setl spell
+autocmd FileType gitcommit setl spell textwidth=72
 
 function! <SID>StripTrailingWhitespaces()
   " last cursor and search position
@@ -201,11 +201,8 @@ function! RenameFile()
 endfunction
 map <Leader>re :call RenameFile()<CR>
 
-" Mark JSON and call function
-function! FormatJSON()
-    :'<,'>!python -m json.tool
-endfunction
-command! -range FormatJSON call FormatJSON()
+" Format JSON with jq
+nnoremap <silent> <Leader>fj :%!jq '.'<CR>
 
 " [,* ] Search and replace the word under the cursor.
 nmap <Leader>* :%s/\<<C-r><C-w>\>//<Left>
