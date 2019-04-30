@@ -9,6 +9,9 @@ if (( $+commands[kubectl] )); then
   alias kdel='k delete'
   alias kci='kubectl cluster-info'
   alias kapi='kubectl api-resources'
+  alias ktno='k top nodes'
+  alias ktpo='k top pods'
+  alias ktpoc='k top pods --containers'
 
   # get
   alias kg='k get'
@@ -37,7 +40,7 @@ if (( $+commands[kubectl] )); then
 
   alias kgsa='k get serviceaccounts'
 
-  alias kgev='k get events'
+  alias kgev='k get events --sort-by=.metadata.creationTimestamp'
 
   alias kgpvc='k get persistentvolumeclaims'
 
@@ -91,6 +94,8 @@ if (( $+commands[kubectl] )); then
 
   alias kgcmn='k get cm --output=jsonpath={.items..metadata.name} | tr " " "\n"'
 
+  alias kgsecn='k get secret --output=jsonpath={.items..metadata.name} | tr " " "\n"'
+
   # delete
   alias kdelpo='k delete pod $(kgpn | fzf)'
 
@@ -102,6 +107,8 @@ if (( $+commands[kubectl] )); then
   alias kecj='k edit cronjob $(kgcjn | fzf)'
 
   alias kecm='k edit cm $(kgcmn | fzf)'
+
+  alias kesec='k edit secret $(kgsecn | fzf)'
 
   # config
   alias kc='kubectl config'
@@ -118,10 +125,10 @@ if (( $+commands[kubectl] )); then
 
   # show logs of selected pod
   kl(){
-    if [ -z $1 ]; then
-      kubectl logs -f $(kgpn | fzf);
+    if [ -n "$1" ]; then
+      kubectl logs --follow $1
     else
-      kubectl logs -f $1
+      pod=$(kgpn | fzf --exit-0) && kubectl logs --follow $pod
     fi
   }
 
@@ -136,19 +143,19 @@ if (( $+commands[kubectl] )); then
     local k8snamespace=$(kgns --output=jsonpath={.items..metadata.name} |
       tr " " "\n" | fzf)
     if [ -z "${k8snamespace}" ]; then
-      printf "\\033[31mERROR:\\033[0m No Namespace specified.\\n"
+      printf "${RED}ERROR$RESET: No namespace specified.\n"
       return 1;
     fi
     kubectl config set-context $(kubectl config current-context) \
       --namespace=$k8snamespace
-    printf "\\033[32mK8S NAMESPACE\\033[0m set to "$k8snamespace"\\n"
+    printf "${GREEN}Namespace$RESET set to "$k8snamespace"\n"
   }
 
   # port forward
   # Usage: kpf 3000
   kpf(){
     if [ -z "${1}" ]; then
-      printf "\\033[31mERROR:\\033[0m No port specified.\\n"
+      printf "${RED}ERROR$RESET: No port specified.\n"
       return 1;
     fi;
     kubectl port-forward $(kgpn | fzf --exit-0) $1;
@@ -157,7 +164,7 @@ if (( $+commands[kubectl] )); then
   # execute command inside of pod
   kex(){
     if [ -z "${1}" ]; then
-      printf "\\033[31mERROR:\\033[0m No command specified.\\n"
+      printf "${RED}ERROR$RESET: No command specified.\n"
       return 1;
     fi;
     kubectl exec -it $(kgpn | fzf --exit-0) $1;
@@ -174,9 +181,9 @@ if (( $+commands[kubectl] )); then
   }
 
   # run a custom "busybox"
-  kubeBusybox(){
+  kbusy(){
     if [ -z "${1}" ]; then
-      printf "\\033[31mERROR:\\033[0m Please provide an image.\\n"
+      printf "${RED}ERROR$RESET: Please provide an image.\n"
       return 1;
     fi;
     kubectl run -i --tty busybox --image=$1 --restart=Never -- sh
@@ -186,22 +193,18 @@ if (( $+commands[kubectl] )); then
   changeK8SClusterContext(){
     local k8scontext=$(kubectl config get-contexts -o name | fzf --query="$1")
     if [ -z "${k8scontext}" ]; then
-      printf "\\033[31mERROR:\\033[0m No context specified.\\n"
+      printf "${RED}ERROR$RESET: No context specified.\n"
       return 1;
     fi;
     kubectl config set-context $k8scontext --namespace=default
     kubectl config use-context $k8scontext
-    echo -e "\nYour current context ☸️  :"
-    kubectl config current-context
   }
 
   # change Google Kubernetes Engine
   changeGKE(){
-    gcloud init
-    changeK8SClusterContext
-    read -p "
-    Copy commandline access from gcloud web ui?
-    [y/N]: " -r copy
+    # gcloud init
+    # changeK8SClusterContext
+    vared -p " Copy commandline access from gcp web ui?  [y/N]: " -c copy
     copy=${copy:-n}
     if [[ "$copy" =~ ^(y|Y)$ ]]; then
       echo -e "\n\nCopy the command from your gcloud web ui\n\n"
@@ -209,19 +212,19 @@ if (( $+commands[kubectl] )); then
       # read -p "Press any key to choose your region:"
       GCREGION=$(gcloud compute regions list --format="value(name)" | fzf);
       if [ -z "${GCREGION}" ]; then
-        printf "\\033[31mERROR:\\033[0m No GCREGION specified.\\n"
+        printf "${RED}ERROR$RESET: No region specified.\n"
         return 1;
       fi;
       # read -p "Press any key to choose your project:"
       GCPROJECT=$(gcloud projects list --format="value(name)" | fzf)
       if [ -z "${GCPROJECT}" ]; then
-        printf "\\033[31mERROR:\\033[0m No GCPROJECT specified.\\n"
+        printf "${RED}ERROR$RESET: No project specified.\n"
         return 1;
       fi;
       # read -p "Press any key to choose your cluster:"
       GCCLUSTER=$(gcloud container clusters list --format="value(name)" | fzf)
       if [ -z "${GCCLUSTER}" ]; then
-        printf "\\033[31mERROR:\\033[0m No GCCLUSTER specified.\\n"
+        printf "${RED}ERROR$RESET: No cluster specified.\n"
         return 1;
       fi;
       gcloud beta container clusters get-credentials $GCCLUSTER \
