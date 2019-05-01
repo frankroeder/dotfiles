@@ -1,3 +1,5 @@
+tap "caskroom/fonts"
+
 brew "git"
 brew "zsh"
 brew "mas"
@@ -36,6 +38,7 @@ cask "musescore"
 cask "wireshark"
 cask "gpg-suite"
 cask "skim"
+cask "font-hack"
 
 mas "Xcode", id: 497799835
 mas "Slack", id: 803453959

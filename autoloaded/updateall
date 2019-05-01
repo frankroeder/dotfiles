@@ -3,33 +3,32 @@
 ping -c 1 google.com
 if [ $? -eq 0 ];
 then
-  printf "\\033[34m"
-  echo -e "\n#######################"
+  printf "$BLUE"
+  echo -e "\n########################"
   printf "# Checking for updates #\n"
-  echo -e "#######################\n"
-  printf "\\033[0m"
-  printf "\\033[33m## Homebrew #\\033[0m\\n"
-  brew update && brew upgrade && brew cask upgrade;
+  echo -e "########################\n"
+  printf "$ORANGE## Homebrew #$RESET\n"
+  brew update;
+  brew upgrade;
+  brew cask upgrade;
   brew doctor;
-  printf "\\033[33m## Vim Plug #\\033[0m\\n"
+  printf "$GREEN## Vim Plug #$RESET\n"
   $EDITOR +PlugUpdate +qall && $EDITOR +PlugUpgrade +qall;
-  printf "\\033[33m## Pip #\\033[0m\\n"
+  printf "$PURPLE## Pip #$RESET\n"
   pip list --outdated --format=freeze | grep -v '^\-e' | cut -d = -f 1  \
-    | xargs -n1 pip install -U
-  printf "\\033[33m## NPM #\\n"
-  # due to brew node@10
-  # npm install npm -g;
+    | xargs -n1 pip install -U --user
+  printf "$LIGHT_GREEN## NPM #$RESET\n"
+  npm install npm -g;
   npm update -g;
-  printf "\\033[33m## Ruby Gems #\\033[0m\\n"
+  printf "$RED## Ruby Gems #$RESET\\n"
   OPT="-n /usr/local/bin"
   GBIN=$(which gem)
   sudo $GBIN update "$OPT" --system;
   sudo $GBIN update "$OPT";
   sudo $GBIN cleanup;
-  printf "\\033[33m## macOS #\\033[0m\\n"
+  printf "$CYAN## macOS #$RESET\\n"
   softwareupdate -i -a;
-  printf "\\033[32mUpdates Completed\\n"
+  printf "${GREEN}Updates Completed$RESET\\n"
 else
-  echo $'\e]9;\007'
-  printf "\\033[31mNo connection to the internet\\n"
+  printf "${RED}No connection to the internet\\n"
 fi

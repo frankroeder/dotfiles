@@ -10,9 +10,6 @@ path=("/usr/local/lib/ruby/gems/2.6.0/bin" $path)
 # python
 path=("/usr/local/opt/python/libexec/bin" $path)
 
-# nodejs 10 LTS
-path=("/usr/local/opt/node@10/bin" $path)
-
 # for compilers to find openssl
 path=("/usr/local/opt/openssl/bin" $path)
 export LDFLAGS="-L/usr/local/opt/openssl/lib $LDFLAGS"

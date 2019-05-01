@@ -80,12 +80,6 @@ misc:
 	ln -sfv $(DOTFILES_DIR)/curlrc ~/.curlrc
 	ln -sfv $(DOTFILES_DIR)/tmux/tmux.conf ~/.tmux.conf
 
-fonts:
-	@echo -e "\033[1m\033[34m==> Installing fonts\033[0m"
-	git clone https://github.com/powerline/fonts.git --depth=1
-	./fonts/install.sh
-	rm -rf fonts
-
 macos:
 	@echo -e "\033[1m\033[34m==> Configure macos and applications\033[0m"
 	mkdir -p $(HOME)/screens
