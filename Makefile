@@ -79,6 +79,7 @@ misc:
 	ln -sfv $(DOTFILES_DIR)/wgetrc ~/.wgetrc
 	ln -sfv $(DOTFILES_DIR)/curlrc ~/.curlrc
 	ln -sfv $(DOTFILES_DIR)/tmux/tmux.conf ~/.tmux.conf
+	ln -sfv $(DOTFILES_DIR)/htoprc ~/.config/htop/htoprc
 
 macos:
 	@echo -e "\033[1m\033[34m==> Configure macos and applications\033[0m"

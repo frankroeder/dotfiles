@@ -2,7 +2,7 @@
 # Responsive tmux status bar
 
 WIDTH=${1}
-SMALL=90
+SMALL=100
 TMUX_BIN="$DOTFILES/tmux/bin"
 
 BAR+="#($TMUX_BIN/mail_count_apple)"

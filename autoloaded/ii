@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-echo -e "\n${ORANGE}You are logged on:$RESET"; hostname
-echo -e "\n${LIGHT_BLUE}Software Version:$RESET"; sw_vers
-echo -e "\n${LIGHT_BLUE}CPU Info:$RESET"; sysctl -n machdep.cpu.brand_string
-echo -e "\n${LIGHT_BLUE}Additionnal information:$RESET "; uname -a
-echo -e "\n${LIGHT_BLUE}Users logged on:$RESET "; w -h
-echo -e "\n${LIGHT_BLUE}Current date:$RESET "; date
-echo -e "\n${LIGHT_BLUE}Machine stats:$RESET "; uptime
-echo -e "\n${LIGHT_BLUE}IP for Local Network:$RESET"; ipconfig getifaddr en0
-echo -e "\n${LIGHT_BLUE}IP for Inter Connection:$RESET"; curl -4 icanhazip.com
-echo -e "\n${LIGHT_BLUE}HardwareOverview:$RESET";
+echo -e "\n${BOLD_CYAN}You are logged on:$RESET"; hostname
+echo -e "\n${BOLD_BLUE}Software Version:$RESET"; sw_vers
+echo -e "\n${BOLD_BLUE}CPU Info:$RESET"; sysctl -n machdep.cpu.brand_string
+echo -e "\n${BOLD_BLUE}Additionnal information:$RESET "; uname -a
+echo -e "\n${BOLD_BLUE}Users logged on:$RESET "; w -h
+echo -e "\n${BOLD_BLUE}Current date:$RESET "; date
+echo -e "\n${BOLD_BLUE}Machine stats:$RESET "; uptime
+echo -e "\n${BOLD_BLUE}IP for Local Network:$RESET"; ipconfig getifaddr en0
+echo -e "\n${BOLD_BLUE}IP for Interconnection:$RESET"; curl -4 icanhazip.com
+echo -e "\n${BOLD_BLUE}Hardware Overview:$RESET";
 system_profiler SPHardwareDataType | tail -n 14  | tr -d " " | sed 's/:/: /g';

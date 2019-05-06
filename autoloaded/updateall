@@ -3,30 +3,30 @@
 ping -c 1 google.com
 if [ $? -eq 0 ];
 then
-  printf "$BLUE"
+  printf "$BOLD_BLUE"
   echo -e "\n########################"
   printf "# Checking for updates #\n"
   echo -e "########################\n"
-  printf "$ORANGE## Homebrew #$RESET\n"
+  printf "$BOLD_YELLOW## Homebrew #$RESET\n"
   brew update;
   brew upgrade;
   brew cask upgrade;
   brew doctor;
-  printf "$GREEN## Vim Plug #$RESET\n"
+  printf "$BOLD_GREEN## Vim Plug #$RESET\n"
   $EDITOR +PlugUpdate +qall && $EDITOR +PlugUpgrade +qall;
-  printf "$PURPLE## Pip #$RESET\n"
+  printf "$BOLD_MAGENTA## Pip #$RESET\n"
   pip list --outdated --format=freeze | grep -v '^\-e' | cut -d = -f 1  \
     | xargs -n1 pip install -U --user
-  printf "$LIGHT_GREEN## NPM #$RESET\n"
+  printf "$BOLD_GREEN## NPM #$RESET\n"
   npm install npm -g;
   npm update -g;
-  printf "$RED## Ruby Gems #$RESET\\n"
+  printf "$BOLD_RED## Ruby Gems #$RESET\\n"
   OPT="-n /usr/local/bin"
   GBIN=$(which gem)
   sudo $GBIN update "$OPT" --system;
   sudo $GBIN update "$OPT";
   sudo $GBIN cleanup;
-  printf "$CYAN## macOS #$RESET\\n"
+  printf "$BOLD_CYAN## macOS #$RESET\\n"
   softwareupdate -i -a;
   printf "${GREEN}Updates Completed$RESET\\n"
 else

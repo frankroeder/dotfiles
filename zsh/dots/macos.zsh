@@ -1,6 +1,5 @@
 alias f='open -a Finder ./'
 alias repos='cd ~/Documents'
-alias des='cd ~/Desktop'
 alias dl='cd ~/Downloads'
 alias skim='open -a "Skim"'
 alias icloud="cd /Users/$USER/Library/Mobile\ Documents/com~apple~CloudDocs"

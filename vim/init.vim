@@ -116,8 +116,8 @@ set noswapfile
 set nobackup
 
 " Treat given characters as a word boundary
-set iskeyword-=.           " Make '.' end of word designator
-set iskeyword-=#           " Make '#' end of word designator
+set iskeyword-=.
+set iskeyword-=#
 
 let mapleader=","
 
