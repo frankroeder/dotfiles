@@ -63,6 +63,7 @@ alias gg='git grep --color=auto --line-number'
 # List contributors
 alias glc='git shortlog --email --numbered --summary'
 alias gl='git pull'
+alias glrs='git pull --recurse-submodules'
 
 alias glg='git log --stat'
 alias glgp='git log --stat -p'

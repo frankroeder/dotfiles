@@ -124,11 +124,19 @@ if (( $+commands[kubectl] )); then
   alias kccc='kubectl config current-context'
 
   # show logs of selected pod
-  kl(){
+  kl() {
     if [ -n "$1" ]; then
       kubectl logs --follow $1
     else
       pod=$(kgpn | fzf --exit-0) && kubectl logs --follow $pod
+    fi
+  }
+
+  klc() {
+    if [[ -z "$1" ]] || ; then
+      pod=$(kgpn| fzf --exit-0) && kubectl logs --all-containers --follow $pod
+    else
+      kubectl logs $1 --all-containers --follow
     fi
   }
 

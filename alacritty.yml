@@ -204,7 +204,6 @@ key_bindings:
   - { key: C,        mods: Command,     action: Copy              }
   - { key: M,        mods: Command,     action: Hide              }
   - { key: Q,        mods: Command,     action: Quit              }
-  - { key: W,        mods: Command,     action: Quit              }
   - { key: L,        mods: Control,     action: ClearLogNotice    }
   - { key: L,        mods: Control,     chars: "\x0c"             }
   - { key: Space,    mods: Control,     chars: "\x00"             }

@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-# create a jsconfig file for ycm (tsserver)
-
-cp ~/.dotfiles/scripts/jsconfig.json .;
-echo "HINT: run npm install --save-dev @types/node to have nodes dev types";
