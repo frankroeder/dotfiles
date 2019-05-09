@@ -80,6 +80,7 @@ misc:
 	ln -sfv $(DOTFILES_DIR)/curlrc ~/.curlrc
 	ln -sfv $(DOTFILES_DIR)/tmux/tmux.conf ~/.tmux.conf
 	ln -sfv $(DOTFILES_DIR)/htoprc ~/.config/htop/htoprc
+	ln -sfv $(DOTFILES_DIR)/latexmkrc ~/.latexmkrc
 
 macos:
 	@echo -e "\033[1m\033[34m==> Configure macos and applications\033[0m"
@@ -101,6 +102,7 @@ uninstall:
 	rm ~/.tmux.conf
 	rm ~/.wgetrc
 	rm ~/.curlrc
+	rm ~/.latexmkrc
 	rm ~/.gitignore
 	rm ~/.gitconfig
 
