@@ -9,6 +9,15 @@ bindkey '\C-x\C-e' edit-command-line
 bindkey -v
 export KEYTIMEOUT=2
 
+# Vim-like behavior
+bindkey -M vicmd "^R" redo
+bindkey -M vicmd "^A" increment-number
+bindkey -M vicmd "ca" change-around
+bindkey -M vicmd "ci" change-in
+bindkey -M vicmd "cc" vi-change-whole-line
+bindkey -M vicmd "di" delete-in
+bindkey -M vicmd "da" delete-around
+
 bindkey '^?' backward-delete-char        # backspace
 bindkey '^h' backward-delete-char        # ctrl-h
 bindkey '^w' backward-kill-word          # ctrl-w

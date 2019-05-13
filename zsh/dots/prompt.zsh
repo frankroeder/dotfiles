@@ -6,3 +6,6 @@ PURE_GIT_UP_ARROW='↑'
 PURE_PROMPT_VICMD_SYMBOL='❯❯❯'
 
 RPROMPT='%F{white}%*'
+
+# remove color-inverter % when output doesn't include trailing newline
+unsetopt prompt_cr prompt_sp

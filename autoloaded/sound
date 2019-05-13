@@ -1,4 +1,5 @@
-#!/usr/bin/env bash
+#!/usr/bin/env zsh
 
+local file
 file=$(ls /System/Library/Sounds/ | sort -R | head -1)
 afplay "/System/Library/Sounds/$file"

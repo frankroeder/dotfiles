@@ -359,12 +359,12 @@ nnoremap <Leader>c<space> NERDComToggleComment
 nnoremap <Leader>cs NERDComSexyComment
 
 " vim fugitives
+noremap <Leader>ga :Gwrite<CR>
 noremap <Leader>gc :Gcommit<CR>
 noremap <Leader>gp :Gpush<CR>
 noremap <Leader>gl :Gpull<CR>
 noremap <Leader>gst :Gstatus<CR>
 noremap <Leader>gd :Gvdiff<CR>
-noremap <Leader>gw :Gwrite<CR>
 
 " vim-go
 let g:go_highlight_fields = 1

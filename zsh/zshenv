@@ -11,15 +11,12 @@ fi
 export VISUAL=$EDITOR
 export BROWSER=/Applications/Safari.app
 export BLOCKSIZE=1k
-export MANPAGER='less -X'
 export CLICOLOR=true
 autoload -U colors && colors
 
-export PAGER='less'
 export LESS='-XFR'
-
-# remove color-inverter % when output doesn't include trailing newline
-unsetopt prompt_cr prompt_sp
+export PAGER='less'
+export MANPAGER='less -X'
 
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
