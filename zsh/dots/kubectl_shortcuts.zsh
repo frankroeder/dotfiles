@@ -190,11 +190,7 @@ if (( $+commands[kubectl] )); then
 
   # run a custom "busybox"
   kbusy(){
-    if [ -z "${1}" ]; then
-      printf "${RED}ERROR$RESET: Please provide an image.\n"
-      return 1;
-    fi;
-    kubectl run -i --tty busybox --image=$1 --restart=Never -- sh
+    kubectl run -i --tty busybox --image=${1:-busybox} --restart=Never -- sh
   }
 
   # change k8s cluster context
