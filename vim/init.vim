@@ -59,7 +59,13 @@ set lazyredraw              " redraw only when needed(not in execution of macro)
 set synmaxcol=2500          " Limit syntax highlighting (this
                             " avoids the very slow redrawing
                             " when files contain long lines).
-set clipboard+=unnamedplus  " copy and yank to clipboard
+if has("clipboard")
+  set clipboard=unnamed     " copy to the system clipboard
+  if has("unnamedplus")     " X11 support
+    set clipboard+=unnamedplus
+  endif
+endif
+
 set splitright              " Vertical split right
 
 if has('mouse')

@@ -1,3 +1,5 @@
 #!/usr/bin/env bash
 
-qlmanage -p "$*" >& /dev/null;
+[[ -z "$*" ]] && \
+  qlmanage -p "$(fzf-tmux --exit-0 --no-mouse --sort)" >& /dev/null \
+  || qlmanage -p "$*" >& /dev/null;

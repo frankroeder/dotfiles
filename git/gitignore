@@ -1,6 +1,7 @@
 #global gitignore
 
 jsconfig.json
+.python-version
 
 # Files that might appear on external disks
 .Spotlight-V100
