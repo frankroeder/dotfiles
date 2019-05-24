@@ -1,5 +1,5 @@
 [ -z "$HISTFILE" ] && HISTFILE="$HOME/.zsh_history"
-HISTSIZE=6000
+HISTSIZE=10000
 SAVEHIST=$HISTSIZE
 HISTCONTROL=ignoreboth
 HISTIGNORE="&:[bf]g:clear:history:exit:q:pwd:wget *:ls:ll:la:cd"

@@ -3,7 +3,7 @@ alias mv='nice mv'
 alias grep='grep --color=auto'
 
 alias src='exec "$SHELL" -l'
-alias dotfiles='cd ~/.dotfiles'
+alias {dotfiles,dots}='cd ~/.dotfiles'
 alias vim=$EDITOR
 alias venv='source ./venv/bin/activate'
 alias speedtest="wget -O /dev/null http://speed.transip.nl/100mb.bin"

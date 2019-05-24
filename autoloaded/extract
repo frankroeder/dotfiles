@@ -16,7 +16,7 @@ if [[ -f "$1" ]]; then
 		*.Z) uncompress "$1";;
 		*.7z) 7z x "$1";;
 		*.dmg) hdiutul mount "$1";; # mount OS X disk images
-		*) echo "'$1' cannot be extracted via >ex<";;
+		*) echo "'$1' cannot be extracted";;
 esac
 else
 	echo "'$1' is not a valid file"

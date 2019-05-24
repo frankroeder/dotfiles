@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# compress - archive wrapper
+# usage: compress <foo.tar.gz> ./foo ./bar
+
+if [[ -n "$1" ]]; then
+  FILE=$1
+  case $FILE in
+    *.tar.bz2) shift && tar cjf "$FILE" "$*" ;;
+    *.tar.gz) shift && tar czf "$FILE" "$*" ;;
+    *.tgz) shift && tar czf "$FILE" "$*" ;;
+    *.zip) shift && zip "$FILE" "$*" ;;
+    *.rar) shift && rar "$FILE" "$*" ;;
+    *.7z)  shift && 7za a "$FILE" "$*" ;;
+		*) echo "'$1' cannot be compressed";;
+  esac
+else
+	echo "'$1' is not a valid file"
+fi
