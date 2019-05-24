@@ -38,6 +38,4 @@ cask "skim"
 cask "font-hack"
 
 mas "Xcode", id: 497799835
-mas "Slack", id: 803453959
-mas "Dapper", id: 903223330
 mas "iReal Pro", id: 409035833
