@@ -1,7 +1,6 @@
 #!/bin/bash
 
-ping -c 1 google.com
-if [ $? -eq 0 ];
+if ping -q -c 1 -W 1 8.8.8.8 >/dev/null;
 then
   printf "$BOLD_BLUE"
   echo -e "\n########################"
@@ -21,11 +20,7 @@ then
   npm install npm -g;
   npm update -g;
   printf "$BOLD_RED## Ruby Gems #$RESET\\n"
-  OPT="-n /usr/local/bin"
-  GBIN=$(which gem)
-  sudo $GBIN update "$OPT" --system;
-  sudo $GBIN update "$OPT";
-  sudo $GBIN cleanup;
+  gem update --system;
   printf "$BOLD_CYAN## macOS #$RESET\\n"
   softwareupdate -i -a;
   printf "${GREEN}Updates Completed$RESET\\n"

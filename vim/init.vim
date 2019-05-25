@@ -279,9 +279,11 @@ function! MyLineNumber()
     \    substitute(line('$'), '\d\@<=\(\(\d\{3\}\)\+\)$', ',&', 'g')
 endfunction
 
-call airline#parts#define('linenr',
-  \ {'function': 'MyLineNumber', 'accents': 'bold'})
-let g:airline_section_z = airline#section#create(['%3p%%: ', 'linenr', ':%3v'])
+if &rtp =~ 'vim-airline'
+  call airline#parts#define('linenr',
+    \ {'function': 'MyLineNumber', 'accents': 'bold'})
+  let g:airline_section_z = airline#section#create(['%3p%%: ', 'linenr', ':%3v'])
+endif
 
 " Polyglot
 let g:polyglot_disabled = ['python', 'go', 'markdown', 'latex']

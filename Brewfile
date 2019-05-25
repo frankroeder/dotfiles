@@ -1,5 +1,3 @@
-tap "caskroom/fonts"
-
 brew "git"
 brew "zsh"
 brew "mas"
@@ -12,6 +10,7 @@ brew "open-mpi"
 brew "tree"
 brew "llvm"
 brew "tmux"
+brew "node"
 brew "tmux-mem-cpu-load"
 brew "reattach-to-user-namespace"
 brew "go"
@@ -20,7 +19,6 @@ brew "python"
 brew "ipython"
 brew "libtensorflow"
 brew "pandoc"
-brew "mactex-no-gui"
 brew "gnuplot"
 brew "kubernetes-cli"
 
@@ -35,7 +33,7 @@ cask "the-unarchiver"
 cask "musescore"
 cask "gpg-suite"
 cask "skim"
-cask "font-hack"
+cask "mactex-no-gui"
+cask "caskroom/fonts/font-hack"
 
-mas "Xcode", id: 497799835
 mas "iReal Pro", id: 409035833
