@@ -167,7 +167,7 @@ xnoremap c "xc
 " Spell error: pick the first result
 nnoremap <Leader>z z=1<CR><CR>
 
-""Close buffer
+" Close buffer
 noremap <Leader>c :bd<CR>
 " Clear search highlight
 nnoremap <silent> <Leader><space> :noh<CR>
@@ -211,7 +211,7 @@ map <Leader>re :call RenameFile()<CR>
 nnoremap <silent> <Leader>fj :%!jq '.'<CR>
 
 " [,* ] Search and replace the word under the cursor.
-nmap <Leader>* :%s/\<<C-r><C-w>\>//<Left>
+nmap <Leader>* :%s/\<<C-r><C-w>\>//g<Left><Left>
 
 " w!! to save with sudo
 cnoremap w!! execute 'silent! write !sudo tee % >/dev/null' <bar> edit!
@@ -233,6 +233,9 @@ nnoremap <silent> <Leader>sh :terminal<CR>
 
 " add semicolon at end of line
 map <Leader>; g_a;<Esc>
+
+nnoremap <C-W>- :split<CR>
+nnoremap <C-W>\| :vsplit<CR>
 
 " ---------------------------------------------------------------------------- "
 " Plugin Configuration                                                         "

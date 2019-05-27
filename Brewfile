@@ -9,6 +9,7 @@ brew "cmake"
 brew "open-mpi"
 brew "tree"
 brew "llvm"
+brew "libomp"
 brew "tmux"
 brew "node"
 brew "tmux-mem-cpu-load"
@@ -37,3 +38,4 @@ cask "mactex-no-gui"
 cask "caskroom/fonts/font-hack"
 
 mas "iReal Pro", id: 409035833
+mas "Wipr", id: 1320666476

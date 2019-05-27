@@ -83,8 +83,6 @@ macos:
 	mkdir -p $(HOME)/screens
 	bash $(DOTFILES_DIR)/macos/main.sh
 	sudo ln -s /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/local/bin/airport
-	wget https://safari-extensions.apple.com/extensions/com.el1t.uBlock-3NU33NW2M3/uBlock0.safariextz ~/Downloads
-	@echo "Please open uBlock manually"
 
 uninstall:
 	rm ~/.zshrc

@@ -2,12 +2,7 @@
 #
 export DOTFILES=$HOME/.dotfiles
 
-if [[ -f "$(command -v /usr/local/bin/nvim)" ]]; then
-  export EDITOR='nvim'
-else
-  export EDITOR='vi'
-fi
-
+export EDITOR="$(command -v nvim)"
 export VISUAL=$EDITOR
 export BROWSER=/Applications/Safari.app
 export BLOCKSIZE=1k
