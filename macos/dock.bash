@@ -18,7 +18,7 @@ defaults write NSGlobalDomain AppleInterfaceStyle -string "Dark"
 # Set the icon size of Dock items to 60 pixels
 defaults write com.apple.dock tilesize -int 60
 
-# lock dock size
+# Lock dock size
 defaults write com.apple.dock size-immutable -bool true
 
 # Change minimize/maximize window effect
@@ -31,4 +31,10 @@ defaults write com.apple.dock minimize-to-application -bool true
 defaults write com.apple.dock launchanim -bool false
 
 # Don’t show recent applications in Dock
-defaults write com.apple.dock show-recents -bool false
+defaults write com.apple.dock show-recents -int 0
+
+# Automatically hide and show the Dock
+defaults write com.apple.dock autohide -int 1
+
+# Make Dock icons of hidden applications translucent
+defaults write com.apple.dock showhidden -int 1

@@ -1,0 +1,14 @@
+#!/usr/bin/env osascript
+# Reopen tab in private mode
+
+tell application "Safari"
+	activate
+	if not (exists document 1) then return
+	set _url to URL of current tab of front window
+	tell application "System Events"
+		tell process "Safari"
+			click menu item "New Private Window" of menu 1 of menu bar item "File" of menu bar 1
+		end tell
+	end tell
+	set URL of current tab of front window to _url
+end tell

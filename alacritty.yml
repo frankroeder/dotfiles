@@ -26,8 +26,7 @@ window:
   # Window decorations
   decorations: none
 
-  # When true, alacritty starts maximized.
-  start_maximized: false
+  startup_mode: Maximized
 
 scrolling:
   # Maximum number of lines in the scrollback buffer.
@@ -51,21 +50,17 @@ tabspaces: 2
 font:
   # Normal (roman) font face
   normal:
-    # Font family
     family: Hack
-    # The `style` can be specified to pick a specific face.
     style: Regular
 
   # Bold font face
   bold:
     family: Hack
-    # The `style` can be specified to pick a specific face.
     style: Bold
 
   # Italic font face
   italic:
     family: Hack
-    # The `style` can be specified to pick a specific face.
     style: Italic
 
   # Point size
@@ -82,12 +77,6 @@ font:
     y: 0
   # Thin stroke font rendering (macOS only)
   use_thin_strokes: true
-
-# Display the time it takes to redraw each frame.
-render_timer: false
-
-# Keep the log file after quitting Alacritty.
-persistent_logging: false
 
 # If `true`, bold text is drawn using the bright color variants.
 draw_bold_text_with_bright_colors: true
@@ -125,7 +114,7 @@ visual_bell:
   color: '0xffffff'
 
 # Background opacity
-background_opacity: 0.9
+background_opacity: 0.95
 
 # Mouse bindings
 #
@@ -192,6 +181,30 @@ shell:
 
 # Send ESC (\x1b) before characters when alt is pressed.
 alt_send_esc: false
+
+debug:
+  # Display the time it takes to redraw each frame.
+  render_timer: false
+
+  # Keep the log file after quitting Alacritty.
+  persistent_logging: false
+
+  # Log level
+  #
+  # Values for `log_level`:
+  #   - None
+  #   - Error
+  #   - Warn
+  #   - Info
+  #   - Debug
+  #   - Trace
+  log_level: Warn
+
+  # Print all received window events.
+  print_events: false
+
+  # Record all characters and escape sequences as test data.
+  ref_test: false
 
 # Key bindings
 key_bindings:

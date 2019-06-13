@@ -5,6 +5,9 @@
 # Increase sound quality for Bluetooth headphones/headsets
 defaults write com.apple.BluetoothAudioAgent "Apple Bitpool Min (editable)" -int 40
 
+# Disable audio feedback when volume is changed
+defaults write com.apple.sound.beep.feedback -bool false
+
 # Set language and text formats
 defaults write NSGlobalDomain AppleLanguages -array "en" "de"
 defaults write NSGlobalDomain AppleLocale -string "de_DE"

@@ -57,15 +57,10 @@ defaults write com.apple.dock expose-animation-duration -float 0.1
 # Set sidebar icon size to medium
 defaults write NSGlobalDomain NSTableViewDefaultSizeMode -int 2
 
-# Disable audio feedback when volume is changed
-defaults write com.apple.sound.beep.feedback -bool false
-
 # Check for software updates daily, not just once per week
 defaults write com.apple.SoftwareUpdate ScheduleFrequency -int 1
 
-for file in $(find ~/.dotfiles/macos -name "*.sh" ! -name "main.sh"); do
-  source $file
-done
+find ~/.dotfiles/macos -name "*.sh" ! -name "main.bash" -exec source {} \;
 
 # Kill affected applications
 

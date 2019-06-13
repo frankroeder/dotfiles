@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
-[[ -z "$*" ]] && \
-  qlmanage -p "$(fzf-tmux --exit-0 --no-mouse --sort)" >& /dev/null \
-  || qlmanage -p "$*" >& /dev/null;
+if [[ -z "$*" ]]; then
+  qlmanage -p "$(fzf-tmux --exit-0 --no-mouse --sort)" >& /dev/null
+else
+  qlmanage -p "$*" >& /dev/null;
+fi

@@ -3,7 +3,7 @@ DOTFILES_DIR := ~/.dotfiles
 
 .PHONY: all help homebrew misc zsh macos nvim git npm uninstall
 
-all: sudo homebrew misc zsh macos nvim git npm
+all: sudo macos homebrew misc zsh nvim git npm
 
 .DEFAULT_GOAL := help
 
@@ -24,7 +24,7 @@ help:
 sudo:
 	@echo -e "\033[1m\033[34m==> Installation with sudo required\033[0m"
 	sudo -v
-	while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+	while true; do sudo -n true; sleep 300; kill -0 "$$" || exit; done 2>/dev/null &
 
 homebrew:
 	@echo -e "\033[1m\033[34m==> Installing brew if not already present\033[0m"
@@ -80,9 +80,10 @@ git:
 
 macos:
 	@echo -e "\033[1m\033[34m==> Configure macos and applications\033[0m"
+	if [ -n "$(xcode-select -p)" ]; then xcode-select --install; xcodebuild -license accept; fi
 	mkdir -p $(HOME)/screens
-	bash $(DOTFILES_DIR)/macos/main.sh
-	sudo ln -s /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/local/bin/airport
+	bash $(DOTFILES_DIR)/macos/main.bash
+	which airport || sudo ln -s /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/local/bin/airport
 
 uninstall:
 	rm ~/.zshrc

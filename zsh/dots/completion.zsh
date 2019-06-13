@@ -24,7 +24,7 @@ fi
 zstyle ':completion:*' completer _oldlist _expand _complete _match _ignored _approximate
 zstyle ':completion:*' list-colors ''
 zstyle ':completion:*:*:kill:*:processes' list-colors '=(#b) #([0-9]#) ([0-9a-z-]#)*=01;34=0=01'
-zstyle ':completion:*:*:*:*:processes' command "ps -u $USER -o pid,user,comm -w -w"
+zstyle ':completion:*:*:*:*:processes' command "ps -u $USER -o pid,%cpu,cputime,user,comm -w -w"
 
 # Group results by category
 zstyle ':completion:*:matches' group yes
