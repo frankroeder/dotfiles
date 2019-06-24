@@ -152,6 +152,9 @@ augroup buf_write
   autocmd BufWritePost init.vim source %
 augroup END
 
+" Make crontab happy
+autocmd filetype crontab setlocal nobackup nowritebackup
+
 " ---------------------------------------------------------------------------- "
 " General Mappings                                                             "
 " ---------------------------------------------------------------------------- "
@@ -163,9 +166,6 @@ map <S-Tab> :bprev<CR>
 " Don't yank to default register when changing something
 nnoremap c "xc
 xnoremap c "xc
-
-" Spell error: pick the first result
-nnoremap <Leader>z z=1<CR><CR>
 
 " Close buffer
 noremap <Leader>c :bd<CR>
@@ -179,6 +179,9 @@ nnoremap <Leader><Leader> :w<CR>
 " spell check
 map <silent> <F6> :setlocal spell! spelllang=en_us<CR>
 map <silent> <F7> :setlocal spell! spelllang=de_de<CR>
+
+" Spell error: pick the first result
+nnoremap <Leader>z z=1<CR><CR>
 
 " Fix spelling mistakes the fast way
 inoremap <C-S> <C-G>u<Esc>[s1z=`]a<C-G>u
@@ -216,7 +219,7 @@ nmap <Leader>* :%s/\<<C-r><C-w>\>//g<Left><Left>
 " w!! to save with sudo
 cnoremap w!! execute 'silent! write !sudo tee % >/dev/null' <bar> edit!
 
-" replace word with last yanked text
+" replace word with text in register "0
 nnoremap <Leader>pr viw"0p
 
 " Switch CWD to the directory of the open buffer
@@ -228,14 +231,15 @@ map <Leader>qq :cclose<CR>
 " List contents of all registers
 nnoremap <silent> "" :registers<CR>
 
-" terminal emulation
-nnoremap <silent> <Leader>sh :terminal<CR>
-
 " add semicolon at end of line
 map <Leader>; g_a;<Esc>
 
 nnoremap <C-W>- :split<CR>
 nnoremap <C-W>\| :vsplit<CR>
+
+" remain in visual mode after code shift
+vnoremap < <gv
+vnoremap > >gv
 
 " ---------------------------------------------------------------------------- "
 " Plugin Configuration                                                         "
@@ -428,6 +432,9 @@ let g:ycm_autoclose_preview_window_after_completion=0
 let g:ycm_autoclose_preview_window_after_insertion=1
 let g:ycm_error_symbol='Y✗'
 let g:ycm_warning_symbol='Y▲'
+let g:ycm_complete_in_comments = 1
+let g:ycm_collect_identifiers_from_comments_and_strings = 1
+let g:ycm_collect_identifiers_from_tags_files = 1
 
 if !exists('g:ycm_semantic_triggers')
   let g:ycm_semantic_triggers = {}

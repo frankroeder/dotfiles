@@ -27,6 +27,9 @@ defaults write -g NSPreferredWebServices '{ NSWebServicesProviderWebSearch =  { 
 # Prevent Safari from opening ‘safe’ files automatically after downloading
 defaults write com.apple.Safari AutoOpenSafeDownloads -int 0
 
+# Set Safari’s home page to `about:blank` for faster loading
+defaults write com.apple.Safari HomePage -string "about:blank"
+
 # Enable the Develop menu and the Web Inspector in Safari
 defaults write com.apple.Safari IncludeDevelopMenu -int 1
 defaults write com.apple.Safari WebKitDeveloperExtrasEnabledPreferenceKey -int 1
@@ -56,3 +59,7 @@ defaults write com.apple.Safari WarnAboutFraudulentWebsites -int 1
 
 # Update extensions automatically
 defaults write com.apple.Safari InstallExtensionUpdatesAutomatically -int 1
+
+# Show status bar
+defaults write com.apple.Safari ShowStatusBar -bool true
+defaults write com.apple.Safari ShowStatusBarInFullScreen -bool true

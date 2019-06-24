@@ -5,3 +5,4 @@ venv/
 Applications/
 Library/
 node_modules/
+__pycache__/

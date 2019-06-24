@@ -2,6 +2,9 @@
 # Dock                                                                         #
 ################################################################################
 
+# Wipe all (default) app icons from the Dock
+defaults write com.apple.dock persistent-apps -array
+
 # Show indicator lights for open applications in the Dock
 defaults write com.apple.dock show-process-indicators -bool true
 

@@ -1,5 +1,5 @@
 ################################################################################
-# Connections, iCal and Location/Language                                      #
+# Location/Language                                                            #
 ################################################################################
 
 # Increase sound quality for Bluetooth headphones/headsets

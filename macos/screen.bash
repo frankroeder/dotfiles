@@ -6,7 +6,10 @@
 defaults write com.apple.screensaver askForPassword -int 1
 defaults write com.apple.screensaver askForPasswordDelay -int 5
 
-# Save screenshots to the desktop
+# Show screensaver with clock
+defaults -currentHost write com.apple.screensaver showClock -bool true
+
+# Save screenshots to custom folder
 defaults write com.apple.screencapture location -string "${HOME}/screens"
 
 # Save screenshots in PNG format (other options: BMP, GIF, JPG, PDF, TIFF)
@@ -24,3 +27,7 @@ defaults write com.apple.notificationcenterui bannerTime 3
 
 # Enable subpixel font rendering on non-Apple LCDs
 defaults write NSGlobalDomain AppleFontSmoothing -int 1
+
+# Disable automatic brightness adjustment
+sudo defaults write /Library/Preferences/com.apple.iokit.AmbientLightSensor "Automatic Display Enabled" -int 0
+
