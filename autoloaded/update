@@ -11,6 +11,9 @@ then
   brew upgrade;
   brew cask upgrade;
   brew doctor;
+  printf "$BOLD_YELLOW## ZSH Antibody #$RESET\n"
+  antibody update;
+  reload_antibody_plugins;
   printf "$BOLD_GREEN## Vim Plug #$RESET\n"
   $EDITOR +PlugUpdate +qall && $EDITOR +PlugUpgrade +qall;
   printf "$BOLD_MAGENTA## Pip #$RESET\n"

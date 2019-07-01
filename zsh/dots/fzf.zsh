@@ -1,7 +1,5 @@
 export FZF_TMUX=1
 
-export FZF_TMUX_HEIGHT="60%"
-
 export FZF_DEFAULT_COMMAND="command ag -g '' --path-to-ignore ${DOTFILES}/ignore"
 
 export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"

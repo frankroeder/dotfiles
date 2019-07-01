@@ -5,7 +5,7 @@ alias grep='grep --color=auto'
 alias src='exec "$SHELL" -l'
 alias {dotfiles,dots}='cd ~/.dotfiles'
 alias vim=$EDITOR
-alias venv='source ./venv/bin/activate'
+alias {activate,venv}='source ./venv/bin/activate'
 alias speedtest="wget -O /dev/null http://speed.transip.nl/100mb.bin"
 alias vimrc="$EDITOR ~/.dotfiles/vim/init.vim"
 alias localrc="if [[ -a ~/.local.zsh ]]; then ${EDITOR} ~/.local.zsh; fi"

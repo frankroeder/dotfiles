@@ -1,6 +1,7 @@
 #!/usr/bin/env zsh
 
-IFS=$'\n' files=($(fzf-tmux --query="$1" -m --no-mouse --select-1 --exit-0 \
+local files
+files=($(fzf-tmux --query="$1" -m --no-mouse --select-1 --exit-0 \
   --preview 'head -100 {}' --preview-window \
   right:hidden --bind '?:toggle-preview'))
   [[ -n "$files" ]] && ${EDITOR:-vim} "${files[@]}"

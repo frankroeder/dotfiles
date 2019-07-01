@@ -2,7 +2,7 @@
 # Open or edit a file with ctrl-o or ctrl-e
 
 local out file key
-IFS=$'\n' out=($(fzf-tmux --query="$1" --exit-0 --no-mouse --sort --expect=ctrl-o,ctrl-e))
+out=($(fzf-tmux --query="$1" --exit-0 --no-mouse --sort --expect=ctrl-o,ctrl-e))
 key=$(head -1 <<< "$out")
 file=$(head -2 <<< "$out" | tail -1)
 if [[ -n "$file" ]]; then
