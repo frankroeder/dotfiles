@@ -13,6 +13,8 @@ if (( $+commands[kubectl] )); then
   alias ktpo='k top pods'
   alias ktpoc='k top pods --containers'
 
+  alias kallpo="kubectl get pods --all-namespaces"
+
   # get
   alias kg='k get'
 
@@ -141,7 +143,7 @@ if (( $+commands[kubectl] )); then
   }
 
   # fuzzy pod logs with preview
-  alias klz='kgpn | fzf --preview "kubectl logs {}" --no-height'
+  alias klz='kgpn | fzf --preview "kubectl logs {}" --bind "f1:execute(kubectl logs {} | less -F)" --no-height'
 
   # bash into a pod
   alias kexb='k exec -it $(kgpn | fzf --prompt "/bin/bash > ") -- /bin/bash'
@@ -188,8 +190,8 @@ if (( $+commands[kubectl] )); then
     open http://localhost:{3000,9090,9091,9093}
   }
 
-  # run a custom "busybox"
-  kbusy(){
+  # start container for debugging
+  kdebug(){
     kubectl run -i --tty busybox --image=${1:-busybox} --restart=Never -- sh
   }
 
