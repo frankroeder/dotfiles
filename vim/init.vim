@@ -29,6 +29,7 @@ Plug 'Valloric/YouCompleteMe', { 'do':
       \ './install.py --clang-completer --go-completer' }
 Plug 'fatih/vim-go', { 'do': ':GoUpdateBinaries' }
 Plug 'plasticboy/vim-markdown', {'depends': 'godlygeek/tabular'}
+Plug 'JamshedVesuna/vim-markdown-preview'
 Plug 'lervag/vim-latex'
 
 " style
@@ -266,6 +267,18 @@ let g:vimtex_compiler_enabled = 0
 if has('nvim')
   let g:vimtex_compiler_progname = 'nvr'
 endif
+
+let g:vim_markdown_preview_hotkey='<Leader>m'
+
+if executable('grip')
+  let vim_markdown_preview_toggle=1
+  let vim_markdown_preview_github=1
+else
+  let vim_markdown_preview_toggle=0
+  let vim_markdown_preview_pandoc=1
+endif
+
+let vim_markdown_preview_temp_file=1
 
 " Airline
 let g:airline_theme='nord'

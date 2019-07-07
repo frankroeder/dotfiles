@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-# execute a given python file in a tf container
-
-docker run -it --rm -v $PWD:/tmp -w /tmp tensorflow/tensorflow python $1

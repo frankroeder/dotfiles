@@ -20,6 +20,7 @@ brew "python"
 brew "ipython"
 brew "libtensorflow"
 brew "pandoc"
+brew "grip"
 brew "gnuplot"
 brew "kubernetes-cli"
 
