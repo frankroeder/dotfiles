@@ -18,20 +18,22 @@ bindkey -M vicmd "cc" vi-change-whole-line
 bindkey -M vicmd "di" delete-in
 bindkey -M vicmd "da" delete-around
 
-bindkey '^?' backward-delete-char        # backspace
-bindkey '^h' backward-delete-char        # ctrl-h
-bindkey '^w' backward-kill-word          # ctrl-w
-bindkey "^K" kill-whole-line             # ctrl-k
-bindkey "^A" beginning-of-line           # ctrl-a
-bindkey "^E" end-of-line                 # ctrl-e
-bindkey "^D" delete-char                 # ctrl-d
-bindkey "^F" forward-char                # ctrl-f
-bindkey "^B" backward-char               # ctrl-b
-bindkey "[B" history-search-forward      # down arrow
-bindkey "[A" history-search-backward     # up arrow
+bindkey '^?' backward-delete-char       # backspace
+bindkey '^h' backward-delete-char       # ctrl-h
+bindkey '^w' backward-kill-word         # ctrl-w
+bindkey "^K" kill-whole-line            # ctrl-k
+bindkey "^A" beginning-of-line          # ctrl-a
+bindkey "^E" end-of-line                # ctrl-e
+bindkey "^D" delete-char                # ctrl-d
+bindkey "^F" forward-char               # ctrl-f
+bindkey "^B" backward-char              # ctrl-b
+bindkey "[B" history-search-forward     # down arrow
+bindkey "[A" history-search-backward    # up arrow
 
 bindkey '^[[Z' reverse-menu-complete
 
-bindkey ' ' magic-space                  # [Space] - do history expansion
-bindkey '^[[1;5C' forward-word           # [Ctrl-RightArrow] - move forward one word
-bindkey '^[[1;5D' backward-word          # [Ctrl-LeftArrow] - move backward one word
+bindkey ' ' magic-space                 # [Space] - do history expansion
+bindkey '^[[1;5C' forward-word          # [Ctrl-RightArrow] - move forward one word
+bindkey '^[[1;5D' backward-word         # [Ctrl-LeftArrow] - move backward one word
+
+bindkey '^ ' autosuggest-accept         # accept the current zsh-autosuggestion

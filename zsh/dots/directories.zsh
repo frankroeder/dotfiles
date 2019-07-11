@@ -7,10 +7,10 @@ alias lsd='ls -d .[a-zA-Z]*'
 alias dud='du -d 1 -h'
 alias duf='du -sh *'
 
-setopt auto_cd
-setopt auto_pushd
-setopt pushd_ignore_dups
-setopt pushdminus
+setopt AUTO_CD
+setopt AUTO_PUSHD
+setopt PUSHD_IGNORE_DUPS
+setopt PUSHDMINUS
 
 # complete . and .. special directories
 zstyle ':completion:*' special-dirs true

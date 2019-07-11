@@ -60,6 +60,8 @@ defaults write NSGlobalDomain NSTableViewDefaultSizeMode -int 2
 # Check for software updates daily, not just once per week
 defaults write com.apple.SoftwareUpdate ScheduleFrequency -int 1
 
+defaults write org.python.python ApplePersistenceIgnoreState
+
 find ~/.dotfiles/macos -name "*.sh" ! -name "main.bash" -exec source {} \;
 
 # Kill affected applications

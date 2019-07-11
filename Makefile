@@ -51,6 +51,7 @@ zsh:
 	sudo sh -c "echo $(which zsh) >> /etc/shells"
 	bash $(DOTFILES_DIR)/autoloaded/switch_zsh
 	source ~/.zshrc
+	fast-theme free
 
 npm:
 	@echo -e "\033[1m\033[34m==> Installing npm packages\033[0m"

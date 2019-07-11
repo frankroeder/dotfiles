@@ -4,13 +4,13 @@ SAVEHIST=$HISTSIZE
 HISTCONTROL=ignoreboth
 HISTIGNORE="&:[bf]g:clear:history:exit:q:pwd:wget *:ls:ll:la:cd"
 
-setopt hist_ignore_all_dups
-setopt extended_history       # record timestamp of command in HISTFILE
-setopt hist_ignore_space      # ignore commands that start with space
-setopt hist_verify            # show command with history expansion to user before running it
-setopt inc_append_history     # add commands to HISTFILE in order of execution
-setopt share_history          # share command history across shells
-setopt hist_reduce_blanks
+setopt HIST_IGNORE_ALL_DUPS
+setopt EXTENDED_HISTORY       # record timestamp of command in HISTFILE
+setopt HIST_IGNORE_SPACE      # ignore commands that start with space
+setopt HIST_VERIFY            # show command with history expansion to user before running it
+setopt INC_APPEND_HISTORY     # add commands to HISTFILE in order of execution
+setopt SHARE_HISTORY          # share command history across shells
+setopt HIST_REDUCE_BLANKS
 
 zstyle ':completion:*:history-words' stop yes
 zstyle ':completion:*:history-words' remove-all-dups yes

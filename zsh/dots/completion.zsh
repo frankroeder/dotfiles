@@ -1,17 +1,20 @@
-unsetopt menu_complete   # do not autoselect the first completion entry
-unsetopt flow_control    # disable start/stop characters in shell editor
-unsetopt case_glob       # makes globbing (filename generation) case-sensitive
+fpath=(~/.zsh/completion $fpath)
 
-setopt auto_menu         # show completion menu on a successive tab press
-setopt always_to_end     # move cursor to the end of a completed word
-setopt auto_list         # automatically list choices on ambiguous completion
-setopt auto_param_slash  # if completed parameter is a directory, add a trailing slash
-setopt complete_in_word  # complete from both ends of a word
-setopt extended_glob     # needed for file modification glob modifiers with compinit
-setopt path_dirs         # perform path search even on command names with slashes
-setopt globdots          # files beginning with a . be matched without explicitly specifying the dot
-setopt multios
-setopt ignore_eof        # prevent accidental C-d from exiting shell
+unsetopt MENU_COMPLETE    # do not autoselect the first completion entry
+unsetopt FLOW_CONTROL     # disable start/stop characters in shell editor
+unsetopt CASE_GLOB        # makes globbing (filename generation) case-sensitive
+
+setopt AUTO_MENU          # show completion menu on a successive tab press
+setopt ALWAYS_TO_END      # move cursor to the end of a completed word
+setopt AUTO_LIST          # automatically list choices on ambiguous completion
+setopt AUTO_PARAM_SLASH   # if completed parameter is a directory, add a trailing slash
+setopt COMPLETE_IN_WORD   # complete from both ends of a word
+setopt EXTENDED_GLOB      # needed for file modification glob modifiers with compinit
+setopt PATH_DIRS          # perform path search even on command names with slashes
+setopt GLOBDOTS           # files beginning with a . be matched without explicitly specifying the dot
+setopt MULTIOS
+setopt IGNORE_EOF         # prevent accidental C-d from exiting shell
+setopt GLOB_COMPLETE      # do not insert all words from expansion
 
 zstyle ':completion:*:*:*:*:*' menu select
 
