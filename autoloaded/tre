@@ -2,8 +2,10 @@
 # `tre` is a shorthand for `tree` with hidden files and color enabled, ignoring
 # some directories, listing directories first.
 
+ignore='.git|node_modules|venv|__pycache__'
+
 if [ -z "${1}" ]; then
-  tree -aC -I '.git|node_modules|venv' --dirsfirst "$@";
+  tree -aC -I $ignore --dirsfirst "$@";
 else
-  tree -aC -I '.git|node_modules|venv' -L "$1";
+  tree -aC -I $ignore -L "$1";
 fi

@@ -393,6 +393,8 @@ noremap <Leader>gp :Gpush<CR>
 noremap <Leader>gl :Gpull<CR>
 noremap <Leader>gst :Gstatus<CR>
 noremap <Leader>gd :Gvdiff<CR>
+noremap gdh :diffget //2<CR>
+noremap gdl :diffget //3<CR>
 
 " vim-go
 let g:go_highlight_fields = 1
