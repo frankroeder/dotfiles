@@ -1,4 +1,6 @@
 # https://github.com/robbyrussell/oh-my-zsh/blob/master/plugins/git/git.plugin.zsh
+[ $+commands[git] -eq 0 ] && return
+
 alias g='git'
 
 alias ga='git add'
@@ -131,6 +133,7 @@ alias gstp='git stash pop'
 alias gsts='git stash show --text'
 alias gstall='git stash --all'
 alias gsu='git submodule update'
+alias gsurr='git submodule update --recursive --remote'
 
 alias gt='git tag'
 alias gts='git tag -s'

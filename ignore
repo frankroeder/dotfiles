@@ -1,8 +1,7 @@
-# ignore file used by ag
+venv
+.git
+Applications
+Library
+node_modules
+__pycache__
 *.ipynb
-venv/
-.git/
-Applications/
-Library/
-node_modules/
-__pycache__/

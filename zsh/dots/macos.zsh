@@ -1,3 +1,5 @@
+[[ $(uname) != 'Darwin' ]] && return
+
 alias f='open -a Finder ./'
 alias repos='cd ~/Documents'
 alias dl='cd ~/Downloads'

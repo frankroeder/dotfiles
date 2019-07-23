@@ -1,3 +1,5 @@
+[ $+commands[docker] -eq 0 ] && return
+
 alias docker-redis='docker run -p 6379:6379 redis'
 alias docker-mongodb='docker run -p 27017:27017 mongo'
 alias docker-mysql="docker run -p 3306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -d mysql"
@@ -45,3 +47,7 @@ drmi() {
   local imgids=$(dimgids)
   [ -n "$imgids" ] && docker rmi "$imgids"
 }
+
+[ $+commands[docker-compose] -eq 0 ] && return
+
+alias dcp='docker-compose'
