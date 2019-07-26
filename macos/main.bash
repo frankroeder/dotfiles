@@ -31,7 +31,7 @@ defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode -bool true
 defaults write NSGlobalDomain PMPrintingExpandedStateForPrint -bool true
 
 # Menu bar: show battery percentage
-defaults write com.apple.menuextra.battery ShowPercent YES
+defaults write com.apple.menuextra.battery ShowPercent -bool true
 
 # Increase window resize speed for Cocoa applications
 defaults write NSGlobalDomain NSWindowResizeTime -float 0.001
@@ -60,9 +60,9 @@ defaults write NSGlobalDomain NSTableViewDefaultSizeMode -int 2
 # Check for software updates daily, not just once per week
 defaults write com.apple.SoftwareUpdate ScheduleFrequency -int 1
 
-defaults write org.python.python ApplePersistenceIgnoreState
+defaults write org.python.python ApplePersistenceIgnoreState -int 0
 
-find ~/.dotfiles/macos -name "*.sh" ! -name "main.bash" -exec source {} \;
+find ~/.dotfiles/macos -name "*.bash" ! -name "main.bash" -exec bash {} \;
 
 # Kill affected applications
 
