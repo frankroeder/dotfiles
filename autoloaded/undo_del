@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-for file in ${DEL_FILES[@]}
+for file in $(echo $DEL_FILES | tr -s " " "\012")
 do
   command mv -fv ~/.Trash/$file $DEL_PWD
 done

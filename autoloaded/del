@@ -1,6 +1,23 @@
-#!/usr/bin/env bash
+#!/usr/bin/env zsh
 # Move to macos trash
 
-export DEL_FILES="$*"
+local path
+declare -a files=()
+
+for path in "$@"; do
+  if [[ "$path" = -* ]]; then :
+  else
+    local dst=${path##*/}
+
+    # Append the time if necessary
+    while [ -e ~/.Trash/"$dst" ]; do
+      dst="${dst}_${RANDOM}"
+    done
+
+    /bin/mv -fv "$path" ~/.Trash/"$dst"
+    files+=("$dst")
+  fi
+done
+
 export DEL_PWD=$(pwd)
-command mv -fv "$@" ~/.Trash/
+export DEL_FILES=${files[@]}
