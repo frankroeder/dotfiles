@@ -1,3 +1,5 @@
+[ $+commands[fzf] -eq 0 ] && return
+
 export FZF_TMUX=1
 
 export FZF_DEFAULT_COMMAND="command ag -g '' --path-to-ignore ${DOTFILES}/ignore"

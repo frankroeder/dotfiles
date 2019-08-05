@@ -21,22 +21,28 @@ alias drmiall='docker rmi $(docker images -a -q)'
 
 dcids() {
   local cids
-  cids=$(docker ps -a --format "table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Names}}" \
-    | sed 1d | fzf --exit-0 --query="$1" | awk '{print $1}')
-  echo $cids
+  if [[ -n $1 ]] then; cmd="docker ps -a"; else cmd="docker ps"; fi
+  cids=$(eval "$cmd --format 'table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Names}}' \
+    | sed 1d | fzf --exit-0 --query='$1'")
+  echo $cids | awk '{print $1}'
 }
 dimgids() {
   local imgids
   imgids=$(docker images -a | sed 1d | fzf --exit-0 --query="$1" | awk '{print $3}')
   echo $imgids
 }
-d{start,stop,attach,restart,kill,rm} () {
+d{start,rm} () {
+  local cid=$(dcids 1)
+  local fn=${funcstack[1]:1}
+  [ -n "$cid" ] && docker $fn "$cid"
+}
+d{stop,attach,restart,kill} () {
   local cid=$(dcids)
   local fn=${funcstack[1]:1}
   [ -n "$cid" ] && docker $fn "$cid"
 }
 dlog() {
-  local cid=$(dcids)
+  local cid=$(dcids 1)
   [ -n "$cid" ] && docker logs -f "$cid"
 }
 dexb() {
