@@ -56,6 +56,7 @@ set scrolloff=3             " Keep at least 3 lines above/below
 set noshowmode              " Don't show current mode
 set showmatch               " Show matching bracket/parenthesis/etc
 set matchtime=2
+set noruler
 set lazyredraw              " redraw only when needed(not in execution of macro)
 set synmaxcol=2500          " Limit syntax highlighting (this
                             " avoids the very slow redrawing
@@ -283,16 +284,14 @@ let vim_markdown_preview_temp_file=1
 " Airline
 let g:airline_theme='nord'
 let g:airline_powerline_fonts = 1
+let g:airline_exclude_preview = 1
 
 if !exists('g:airline_symbols')
   let g:airline_symbols = {}
 endif
 
 let g:airline#extensions#tabline#enabled = 1
-let g:airline#extensions#tabline#show_tabs= 1
-let g:arline#extensions#virtualenv#enabled = 1
-let g:airline#extensions#whitespace#enabled = 1
-let g:airline#extensions#tabline#fnamemod=':t'
+let g:airline#extensions#tabline#formatter = 'unique_tail'
 
 function! MyLineNumber()
   return substitute(line('.'), '\d\@<=\(\(\d\{3\}\)\+\)$', ',&', 'g'). ' | '.

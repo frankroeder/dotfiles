@@ -1,3 +1,6 @@
+# source fuzzy file search - fzf
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+
 [ $+commands[fzf] -eq 0 ] && return
 
 export FZF_TMUX=1

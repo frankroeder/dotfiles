@@ -37,9 +37,6 @@ unset zsh_fpath
 
 [ -f ~/.local.zsh ] && source ~/.local.zsh
 
-# source fuzzy file search - fzf
-[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
-
 # Prevent duplicates in PATH and FPATH
 typeset -U path fpath
 export PATH
