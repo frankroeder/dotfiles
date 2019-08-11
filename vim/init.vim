@@ -60,7 +60,7 @@ set noruler
 set lazyredraw              " redraw only when needed(not in execution of macro)
 set synmaxcol=2500          " Limit syntax highlighting (this
                             " avoids the very slow redrawing
-                            " when files contain long lines).
+                            " when files contain long lines)
 if has("clipboard")
   set clipboard=unnamed     " copy to the system clipboard
   if has("unnamedplus")     " X11 support
@@ -69,6 +69,7 @@ if has("clipboard")
 endif
 
 set splitright              " Vertical split right
+set nojoinspaces            " Use one space after punctuation
 
 if has('mouse')
   set mouse=a

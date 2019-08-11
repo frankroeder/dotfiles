@@ -2,7 +2,7 @@ alias ls='ls -G'
 alias l='ls -lah'
 alias la='ls -a'
 alias l.='ls -d .*'
-alias lsd='ls -d .[a-zA-Z]*'
+alias lsd='ls -d */'
 
 alias dud='du -d 1 -h'
 alias duf='du -sh *'
