@@ -13,11 +13,16 @@ docker-pytorch() {
     -e NVIDIA_VISIBLE_DEVICES=0 anibali/pytorch python3 "$1"
 }
 
-alias dps='docker ps -a'
-alias dimg='docker images -a'
+alias ffmpeg='docker run --rm -i -t -v $PWD:/tmp/workdir jrottenberg/ffmpeg'
+alias youtube-dl='docker run --rm -i -t -v $PWD:/data vimagick/youtube-dl'
+
+alias dps='docker ps'
+alias dimg='docker images'
 alias drmall='docker rm $(docker ps -a -q)'
 alias dkillall='docker kill $(docker ps -a -q)'
 alias drmiall='docker rmi $(docker images -a -q)'
+alias dsdf='docker system df'
+alias dsev='docker system events'
 
 dcids() {
   local cids

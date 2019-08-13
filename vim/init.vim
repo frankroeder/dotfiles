@@ -70,6 +70,7 @@ endif
 
 set splitright              " Vertical split right
 set nojoinspaces            " Use one space after punctuation
+set copyindent              " Copy indent structure when autoindenting
 
 if has('mouse')
   set mouse=a
