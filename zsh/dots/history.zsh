@@ -11,6 +11,7 @@ setopt HIST_VERIFY            # show command with history expansion to user befo
 setopt INC_APPEND_HISTORY     # add commands to HISTFILE in order of execution
 setopt SHARE_HISTORY          # share command history across shells
 setopt HIST_REDUCE_BLANKS
+setopt HIST_FCNTL_LOCK
 
 zstyle ':completion:*:history-words' stop yes
 zstyle ':completion:*:history-words' remove-all-dups yes

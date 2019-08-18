@@ -25,3 +25,5 @@ alias hardwareports='networksetup -listallhardwareports'
 # Mute/Unmute the system volume. Plays nice with all other volume settings.
 alias mute="osascript -e 'set volume output muted true'"
 alias unmute="osascript -e 'set volume output muted false'"
+alias lstcp='lsof -i -n -P | grep TCP'
+alias lsudp='lsof -i -n -P | grep UDP'

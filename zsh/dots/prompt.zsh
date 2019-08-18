@@ -8,4 +8,6 @@ PURE_PROMPT_VICMD_SYMBOL='❯❯❯'
 RPROMPT='%F{white}%*'
 
 # remove color-inverter % when output doesn't include trailing newline
-unsetopt prompt_cr prompt_sp
+unsetopt PROMPT_CR PROMPT_SP
+setopt INTERACTIVECOMMENTS
+

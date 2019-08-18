@@ -26,6 +26,9 @@ source ~/.zsh_plugins.sh
 
 ZSH_AUTOSUGGEST_USE_ASYNC=true
 
+# Disable paste highlighting
+zle_highlight+=(paste:none)
+
 # load scripts
 zsh_fpath=$DOTFILES/zsh/dots
 if [[ -d "$zsh_fpath" ]]; then
