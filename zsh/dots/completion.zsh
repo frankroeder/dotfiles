@@ -3,6 +3,7 @@ fpath=(~/.zsh/completion $fpath)
 unsetopt MENU_COMPLETE    # do not autoselect the first completion entry
 unsetopt FLOW_CONTROL     # disable start/stop characters in shell editor
 unsetopt CASE_GLOB        # makes globbing (filename generation) case-sensitive
+unsetopt NOMATCH          # Allow [ or ]
 
 setopt AUTO_MENU          # show completion menu on a successive tab press
 setopt ALWAYS_TO_END      # move cursor to the end of a completed word
@@ -15,6 +16,7 @@ setopt GLOBDOTS           # files beginning with a . be matched without explicit
 setopt MULTIOS
 setopt IGNORE_EOF         # prevent accidental C-d from exiting shell
 setopt GLOB_COMPLETE      # do not insert all words from expansion
+
 
 zstyle ':completion:*:*:*:*:*' menu select
 

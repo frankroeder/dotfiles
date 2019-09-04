@@ -16,7 +16,6 @@ Plug 'scrooloose/nerdcommenter'
 Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do':
       \ './install --all --no-bash -no-zsh' }
 Plug 'junegunn/fzf.vim'
-Plug 'SirVer/ultisnips'
 Plug 'rstacruz/vim-closer'
 Plug 'tpope/vim-fugitive'
 Plug 'w0rp/ale'
@@ -27,6 +26,7 @@ Plug 'mhinz/vim-signify'
 " language support
 Plug 'Valloric/YouCompleteMe', { 'do':
       \ './install.py --clang-completer --go-completer' }
+Plug 'SirVer/ultisnips'
 Plug 'fatih/vim-go', { 'do': ':GoUpdateBinaries' }
 Plug 'plasticboy/vim-markdown', {'depends': 'godlygeek/tabular'}
 Plug 'JamshedVesuna/vim-markdown-preview'
@@ -83,6 +83,7 @@ set backspace=2             " make vim behave like any other editors
 set cindent                 " Enables automatic C program indenting
 
 set shiftwidth=2            " Preview tabs as 2 spaces
+set shiftround              " Round indent to multiple of 'shiftwidth'
 set tabstop=2               " Tabs are 2 spaces
 set softtabstop=2           " Columns a tab inserts in insert mode
 set expandtab               " Tabs are spaces
@@ -90,6 +91,8 @@ set expandtab               " Tabs are spaces
 " search
 set ignorecase              " Search case insensitive...
 set smartcase               " but change if searched with upper case
+
+let g:python3_host_prog = '/usr/local/bin/python3'
 
 " syntax and style
 set t_Co=256                " Enable full-color support
@@ -139,6 +142,10 @@ autocmd BufReadPost *
 
 " Set spell in certain cases
 autocmd FileType gitcommit setl spell textwidth=72
+
+" Autocomplete with dictionary words when spell check is on
+set complete+=kspell
+
 
 function! <SID>StripTrailingWhitespaces()
   " last cursor and search position
@@ -419,6 +426,7 @@ let g:ale_linters = {
     \   'typescript': ['tslint'],
     \   'c': ['clang-format'],
     \   'cpp': ['clang-format'],
+    \   'python': ['flake8'],
     \}
 let g:ale_fixers = {
     \   'javascript': ['eslint'],
@@ -440,9 +448,8 @@ let g:ycm_filetype_blacklist = {}
 let g:ycm_min_num_of_chars_for_completion = 1
 let g:ycm_global_ycm_extra_conf = $DOTFILES.'vim/.ycm_extra_conf.py'
 let g:ycm_confirm_extra_conf = 0
-let g:ycm_path_to_python_interpreter =
-  \ '/usr/local/opt/python/libexec/bin/python'
-let g:ycm_python_binary_path= 'python'
+let g:ycm_path_to_python_interpreter = '/usr/local/bin/python3'
+let g:ycm_python_binary_path= 'python3'
 let g:ycm_complete_in_comments=1
 let g:ycm_autoclose_preview_window_after_completion=0
 let g:ycm_autoclose_preview_window_after_insertion=1

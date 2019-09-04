@@ -5,3 +5,5 @@ for COLOR in RED GREEN YELLOW BLUE MAGENTA CYAN BLACK WHITE; do
     eval BOLD_$COLOR='$fg_bold[${(L)COLOR}]'
 done
 eval RESET='$reset_color'
+
+export CLICOLOR=1

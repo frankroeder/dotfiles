@@ -39,3 +39,6 @@ defaults write com.apple.finder FXEnableExtensionChangeWarning -int 0
 
 # Allow text selection in Quick Look
 defaults write com.apple.finder QLEnableTextSelection -int 1
+
+# Show the ~/Library folder
+chflags nohidden ~/Library
