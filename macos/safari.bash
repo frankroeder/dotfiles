@@ -36,7 +36,7 @@ defaults write com.apple.Safari WebKitDeveloperExtrasEnabledPreferenceKey -int 1
 defaults write com.apple.Safari com.apple.Safari.ContentPageGroupIdentifier.WebKit2DeveloperExtrasEnabled -int 1
 
 # Block pop-up windows
-defaults write com.apple.Safari WebKitJavaScriptCanOpenWindowsAutomatically -int 1
+defaults write com.apple.Safari WebKitJavaScriptCanOpenWindowsAutomatically -int 0
 defaults write com.apple.Safari com.apple.Safari.ContentPageGroupIdentifier.WebKit2JavaScriptCanOpenWindowsAutomatically -int 0
 
 # Disable AutoFill

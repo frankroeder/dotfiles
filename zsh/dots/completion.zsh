@@ -41,8 +41,9 @@ zstyle ':completion:*:descriptions' format ' %F{yellow}-- %d --%f'
 zstyle ':completion:*:messages' format ' %F{purple} -- %d --%f'
 zstyle ':completion:*:warnings' format ' %F{red}-- no matches found --%f'
 zstyle ':completion:*:default' list-prompt '%S%M matches%s'
-zstyle ':completion:*' format ' %F{yellow}-- %d --%f'
+zstyle ':completion:*' format ' %F{magenta}-- %d --%f'
 zstyle ':completion:*' verbose yes
+
 
 # enable caching to make completion for commands such as dpkg and apt usable
 zstyle ':completion::complete:*' use-cache on
@@ -57,6 +58,9 @@ zstyle ':completion:*:approximate:*' max-errors 1 numeric
 
 # ignores unavailable commands
 zstyle ':completion:*:functions' ignored-patterns '(_*|pre(cmd|exec)|prompt_*)'
+
+# separate man page sections
+zstyle ':completion:*:manuals' separate-sections true
 
 # completion element sorting
 zstyle ':completion:*:*:-subscript-:*' tag-order indexes parameters

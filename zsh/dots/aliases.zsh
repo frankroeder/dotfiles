@@ -14,11 +14,14 @@ alias localgit="if [[ -a ~/.local.gitconfig ]]; then ${EDITOR} ~/.local.gitconfi
 # CPU and MEM Monitoring
 alias cpu="top -F -R -o cpu"
 alias mem="top -F -o rsize"
+
 # List top 5 processes by CPU usage
 alias hogs="ps -acrx -o pid,%cpu,command | awk 'NR<=6'"
 alias battery="pmset -g ps"
+
 # Print each PATH entry on a separate line
 alias path='echo -e ${PATH//:/\\n}'
+
 # Print each function name
 alias showfunctions="declare -f | grep '^[a-z].* ()' | sed 's/{$//'"
 alias ag="ag --path-to-ignore ${DOTFILES}/ignore --color --color-line-number \
@@ -29,3 +32,6 @@ alias ipd="curl -sS ipinfo.io  2>/dev/null | jq ."
 alias npml="npm list -g --depth=0"
 alias -g @="| grep -i"
 alias joke="curl https://icanhazdadjoke.com"
+
+# Get week number
+alias week='date +%V'
