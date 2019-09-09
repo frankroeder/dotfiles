@@ -1,4 +1,8 @@
 #!/usr/bin/env zsh
 
-git log --pretty=oneline --abbrev-commit |
-  fzf-tmux --preview 'echo {} | cut -f 1 -d " " | xargs git show --color=always'
+git log --graph --color=always \
+    --format="%C(auto)%h%d %s %C(black)%C(bold)%cr" "$@" |
+    fzf-tmux --ansi -d 95% --reverse \
+    --preview "echo {} | grep -o '[a-f0-9]\\{7\\}' | head -1 |
+    xargs -I % sh -c 'git show --color=always % | head -200 '" |
+    grep -o '[a-f0-9]\{7\}'

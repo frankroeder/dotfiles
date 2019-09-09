@@ -27,11 +27,12 @@ alias showfunctions="declare -f | grep '^[a-z].* ()' | sed 's/{$//'"
 alias ag="ag --path-to-ignore ${DOTFILES}/ignore --color --color-line-number \
   '0;35' --color-match '46;30' --color-path '4;36'"
 alias :q="exit"
-alias localip="ipconfig getifaddr en0"
 alias ipd="curl -sS ipinfo.io  2>/dev/null | jq ."
-alias npml="npm list -g --depth=0"
 alias -g @="| grep -i"
 alias joke="curl https://icanhazdadjoke.com"
 
 # Get week number
 alias week='date +%V'
+
+alias npmls='npm ls --depth=0'
+alias npmlsg='npm ls --depth=0 -g'

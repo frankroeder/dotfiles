@@ -6,7 +6,6 @@ export EDITOR="$(command -v nvim)"
 export VISUAL=$EDITOR
 export BROWSER=/Applications/Safari.app
 export BLOCKSIZE=1k
-autoload -U colors && colors
 
 export LESS='-XFR'
 export PAGER='less'

@@ -1,7 +1,14 @@
 {
-    "extends": "standard",
-    "rules": {
-      "no-label-var": 0,
-      "max-len": [1,{"code": 80, "tabWidth": 2, "ignoreUrls": true}]
-    }
+  "extends": "standard",
+  "rules": {
+    "no-label-var": 0,
+    "max-len": [
+      1,
+      {
+        "code": 80,
+        "tabWidth": 2,
+        "ignoreUrls": true
+      }
+    ]
+  }
 }

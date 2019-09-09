@@ -1,32 +1,79 @@
 #!/bin/bash
 
-if ping -q -c 1 -W 1 8.8.8.8 >/dev/null;
-then
-  printf "$BOLD_BLUE"
-  echo -e "\n########################"
-  printf "# Checking for updates #\n"
-  echo -e "########################\n"
-  printf "$BOLD_YELLOW## Homebrew #$RESET\n"
+success() {
+  printf "\\r[ ${GREEN}\\u2713${RESET} ] %s\\n" "${1}"
+}
+
+error() {
+  printf "\\r[ ${RED}\\u274C${RESET} ] %s\\n" "${1}"
+}
+
+in_progress() {
+  printf "${YELLOW}Starting${RESET} %s\\n" "${1}"
+}
+
+exec_update() {
+  in_progress "${1}"
+
+  start_time=$(date +%s)
+
+  if $1; then
+    end_time=$(date +%s)
+    total_time="$(( end_time - start_time ))"
+    success "${1} in ${total_time} seconds"
+  else
+    error "${1}"
+  fi
+}
+
+brew_update() {
   brew update;
   brew upgrade;
   brew cask upgrade;
-  brew doctor;
-  printf "$BOLD_YELLOW## ZSH Antibody #$RESET\n"
+}
+
+pip_update() {
+  pip list --outdated --format=freeze | grep -v '^\-e' | cut -d = -f 1  \
+    | xargs -n1 pip install -U --user --no-warn-script-location
+  }
+
+antibody_update() {
   antibody update;
   reload_antibody_plugins;
-  printf "$BOLD_GREEN## Vim Plug #$RESET\n"
-  $EDITOR +PlugUpdate +qall && $EDITOR +PlugUpgrade +qall;
-  printf "$BOLD_MAGENTA## Pip #$RESET\n"
-  pip list --outdated --format=freeze | grep -v '^\-e' | cut -d = -f 1  \
-    | xargs -n1 pip install -U --user
-  printf "$BOLD_GREEN## NPM #$RESET\n"
+}
+
+npm_update() {
   npm install npm -g;
   npm update -g;
-  printf "$BOLD_RED## Ruby Gems #$RESET\\n"
-  gem update --system;
-  printf "$BOLD_CYAN## macOS #$RESET\\n"
-  softwareupdate -i -a;
-  printf "${GREEN}Updates Completed$RESET\\n"
+}
+
+gem_update() {
+  sudo gem update --system;
+  sudo gem update;
+  sudo gem cleanup;
+}
+
+macos_update() {
+  sudo softwareupdate -i -a --restart;
+}
+
+neovim_plug_update() {
+  nvim +PlugUpgrade +PlugInstall +PlugClean! +PlugUpdate +qall!
+}
+
+if ping -c 1 google.com &> /dev/null; then
+  echo -e "$BLUE########################"
+  printf "# Checking for updates #\n"
+  echo -e "########################$RESET\n"
+
+  exec_update brew_update
+  exec_update pip_update
+  exec_update neovim_plug_update
+  exec_update gem_update
+  exec_update antibody_update
+  exec_update macos_update
+
+  success "Updates completed"
 else
-  printf "${RED}No connection to the internet\\n"
+  error "No internet access"
 fi
