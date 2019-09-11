@@ -8,8 +8,11 @@ export BROWSER=/Applications/Safari.app
 export BLOCKSIZE=1k
 
 export LESS='-XFR'
+# -R  color
+# -F  exit if there is less than one page of content
+# -X  keep content on screen after exit
 export PAGER='less'
-export MANPAGER='less -X'
+export MANPAGER='less'
 
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8

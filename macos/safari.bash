@@ -39,9 +39,14 @@ defaults write com.apple.Safari com.apple.Safari.ContentPageGroupIdentifier.WebK
 defaults write com.apple.Safari WebKitJavaScriptCanOpenWindowsAutomatically -int 0
 defaults write com.apple.Safari com.apple.Safari.ContentPageGroupIdentifier.WebKit2JavaScriptCanOpenWindowsAutomatically -int 0
 
+# Disable Java
+defaults write com.apple.Safari WebKitJavaEnabled -bool false
+defaults write com.apple.Safari com.apple.Safari.ContentPageGroupIdentifier.WebKit2JavaEnabled -bool false
+defaults write com.apple.Safari com.apple.Safari.ContentPageGroupIdentifier.WebKit2JavaEnabledForLocalFiles -bool false
+
 # Disable AutoFill
 defaults write com.apple.Safari AutoFillFromAddressBook -int 0
-defaults write com.apple.Safari AutoFillPasswords -int 0
+defaults write com.apple.Safari AutoFillPasswords -int 1
 defaults write com.apple.Safari AutoFillCreditCardData -int 0
 defaults write com.apple.Safari AutoFillMiscellaneousForms -int 0
 
@@ -63,3 +68,6 @@ defaults write com.apple.Safari InstallExtensionUpdatesAutomatically -int 1
 # Show status bar
 defaults write com.apple.Safari ShowStatusBar -bool true
 defaults write com.apple.Safari ShowStatusBarInFullScreen -bool true
+
+defaults write com.apple.Safari AlwaysShowTabBar -int 1
+defaults write com.apple.Safari ReadingListSaveArticlesOfflineAutomatically -int 1

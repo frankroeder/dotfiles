@@ -17,6 +17,9 @@ docker-pytorch() {
 alias ffmpeg='docker run --rm -i -t -v $PWD:/tmp/workdir jrottenberg/ffmpeg'
 alias youtube-dl='docker run --rm -i -t -v $PWD:/data vimagick/youtube-dl'
 
+# https://hub.docker.com/r/dpokidov/imagemagick/
+alias imagemagick='docker run --rm -i -t  -v $PWD:/imgs dpokidov/imagemagick'
+
 alias dps='docker ps'
 alias dimg='docker images'
 alias drmall='docker rm $(docker ps -a -q)'

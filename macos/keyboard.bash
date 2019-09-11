@@ -38,6 +38,11 @@ defaults write NSGlobalDomain ApplePressAndHoldEnabled -int 0
 
 # Enable tap to click
 defaults write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
+defaults -currentHost write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
 
 # Disable automatic keyboard brightness
 sudo defaults write /Library/Preferences/com.apple.iokit.AmbientLightSensor "Automatic Keyboard Enabled" -int 0
+
+# Enable natural scrolling
+defaults write -g com.apple.swipescrolldirection -bool true
+

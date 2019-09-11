@@ -12,15 +12,6 @@ sudo -v
 # Keep-alive: update existing `sudo` time stamp until `macos` has finished
 while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
-# Disable transparency in the menu bar and elsewhere
-# defaults write com.apple.universalaccess reduceTransparency -bool true
-
-# Set standby delay to 24 hours (default is 1 hour)
-sudo pmset -a standbydelay 86400
-
-# Never go into computer sleep mode
-sudo systemsetup -setcomputersleep Off > /dev/null
-
 # Disable opening and closing window animations
 defaults write NSGlobalDomain NSAutomaticWindowAnimationsEnabled -bool false
 
@@ -30,20 +21,11 @@ defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode -bool true
 # Expand print panel by default
 defaults write NSGlobalDomain PMPrintingExpandedStateForPrint -bool true
 
-# Menu bar: show battery percentage
-defaults write com.apple.menuextra.battery ShowPercent -bool true
-
 # Increase window resize speed for Cocoa applications
 defaults write NSGlobalDomain NSWindowResizeTime -float 0.001
 
-# Restart automatically if the computer freezes
-systemsetup -setrestartfreeze on
-
-# enable natural scrolling
-defaults write -g com.apple.swipescrolldirection -bool true
-
 # Disable the crash reporter
-# defaults write com.apple.CrashReporter DialogType -string "none"
+defaults write com.apple.CrashReporter DialogType -string "none"
 
 # crash reporter as pop-up
 defaults write com.apple.CrashReporter UseUNC 1
@@ -62,12 +44,16 @@ defaults write com.apple.SoftwareUpdate ScheduleFrequency -int 1
 
 defaults write org.python.python ApplePersistenceIgnoreState -int 0
 
+# Hide desktop items
+defaults write com.apple.finder CreateDesktop -bool false
+
 find ~/.dotfiles/macos -name "*.bash" ! -name "main.bash" -exec bash {} \;
 
 # Kill affected applications
 
 for app in "Activity Monitor" \
   "Dock" \
+  "cfprefsd" \
   "Finder" \
   "Mail" \
   "Messages" \

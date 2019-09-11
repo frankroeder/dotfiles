@@ -2,6 +2,9 @@
 # Screen                                                                       #
 ################################################################################
 
+# Disable menu bar transparency
+defaults write NSGlobalDomain AppleEnableMenuBarTransparency -bool false
+
 # Require password immediately after sleep or screen saver begins
 defaults write com.apple.screensaver askForPassword -int 1
 defaults write com.apple.screensaver askForPasswordDelay -int 5
@@ -26,8 +29,11 @@ defaults write com.apple.dock ResetLaunchPad -bool true
 defaults write com.apple.notificationcenterui bannerTime 3
 
 # Enable subpixel font rendering on non-Apple LCDs
+# Options: 1 for light smoothing up to 3 for strong smoothing
 defaults write NSGlobalDomain AppleFontSmoothing -int 1
 
 # Disable automatic brightness adjustment
 sudo defaults write /Library/Preferences/com.apple.iokit.AmbientLightSensor "Automatic Display Enabled" -int 0
 
+# Scrollbars visible when scrolling
+defaults write NSGlobalDomain AppleShowScrollBars -string "WhenScrolling"

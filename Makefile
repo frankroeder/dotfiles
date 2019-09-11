@@ -82,7 +82,7 @@ git:
 macos:
 	@echo -e "\033[1m\033[34m==> Configure macos and applications\033[0m"
 	if [ -n "$(xcode-select -p)" ]; then xcode-select --install; xcodebuild -license accept; fi
-	mkdir -p $(HOME)/screens
+	if [ ! -d "$(HOME)/screens" ]; then mkdir -p $(HOME)/screens; fi
 	bash $(DOTFILES_DIR)/macos/main.bash
 	which airport || sudo ln -s /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/local/bin/airport
 
