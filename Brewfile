@@ -37,6 +37,7 @@ cask "gpg-suite"
 cask "skim"
 cask "mactex-no-gui"
 cask "caskroom/fonts/font-hack"
+cask "eloston-chromium"
 
 mas "iReal Pro", id: 409035833
 mas "Wipr", id: 1320666476

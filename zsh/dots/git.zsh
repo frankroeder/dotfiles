@@ -29,6 +29,7 @@ alias gc!='git commit -v --amend'
 alias gcn!='git commit -v --no-edit --amend'
 alias gca='git commit -v -a'
 alias gca!='git commit -v -a --amend'
+
 # Add uncommitted and unstaged changes to the last commit
 alias gcaa='git commit -a --amend -C HEAD'
 alias gcan!='git commit -v -a --no-edit --amend'
@@ -62,6 +63,7 @@ alias gf='git fetch'
 alias gfa='git fetch --all --prune'
 alias gfo='git fetch origin'
 alias gg='git grep --color=auto --line-number'
+
 # List contributors
 alias glc='git shortlog --email --numbered --summary'
 alias gl='git pull'
@@ -147,5 +149,6 @@ alias gupa='git pull --rebase --autostash'
 alias gupav='git pull --rebase --autostash -v'
 alias glum='git pull upstream master'
 alias gwch='git whatchanged -p --abbrev-commit --pretty=medium'
+
 # Start web-based visualizer.
 alias gw='git instaweb --httpd=webrick'

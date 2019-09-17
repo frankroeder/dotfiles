@@ -46,3 +46,7 @@ Duckietown
 perceptron
 PPO
 rollout
+MLP
+LSTM
+RNN
+arXiv

@@ -1,10 +1,5 @@
 fpath=(~/.zsh/completion $fpath)
 
-unsetopt MENU_COMPLETE    # do not autoselect the first completion entry
-unsetopt FLOW_CONTROL     # disable start/stop characters in shell editor
-unsetopt CASE_GLOB        # makes globbing (filename generation) case-sensitive
-unsetopt NOMATCH          # Allow [ or ]
-
 setopt AUTO_MENU          # show completion menu on a successive tab press
 setopt ALWAYS_TO_END      # move cursor to the end of a completed word
 setopt AUTO_LIST          # automatically list choices on ambiguous completion
@@ -13,18 +8,14 @@ setopt COMPLETE_IN_WORD   # complete from both ends of a word
 setopt EXTENDED_GLOB      # needed for file modification glob modifiers with compinit
 setopt PATH_DIRS          # perform path search even on command names with slashes
 setopt GLOBDOTS           # files beginning with a . be matched without explicitly specifying the dot
-setopt MULTIOS
-setopt IGNORE_EOF         # prevent accidental C-d from exiting shell
 setopt GLOB_COMPLETE      # do not insert all words from expansion
 
+unsetopt MENU_COMPLETE    # do not autoselect the first completion entry
+unsetopt CASE_GLOB        # makes globbing (filename generation) case-sensitive
 
 zstyle ':completion:*:*:*:*:*' menu select
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}' 'r:|=*' 'l:|=* r:|=*'
 
-if [[ "$CASE_SENSITIVE" = true ]]; then
-  zstyle ':completion:*' matcher-list 'r:|=*' 'l:|=* r:|=*'
-else
-  zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}' 'r:|=*' 'l:|=* r:|=*'
-fi
 # forces zsh to realize new commands
 zstyle ':completion:*' completer _oldlist _expand _complete _match _ignored _approximate
 zstyle ':completion:*' list-colors ''
@@ -35,15 +26,14 @@ zstyle ':completion:*:*:*:*:processes' command "ps -u $USER -o pid,%cpu,cputime,
 zstyle ':completion:*:matches' group yes
 zstyle ':completion:*' group-name ''
 zstyle ':completion:*:options' description yes
-zstyle ':completion:*:options' auto-description '%d'
+zstyle ':completion:*:options' auto-description '<%d>'
 zstyle ':completion:*:corrections' format ' %F{green}-- %d (errors: %e) --%f'
 zstyle ':completion:*:descriptions' format ' %F{yellow}-- %d --%f'
 zstyle ':completion:*:messages' format ' %F{purple} -- %d --%f'
 zstyle ':completion:*:warnings' format ' %F{red}-- no matches found --%f'
 zstyle ':completion:*:default' list-prompt '%S%M matches%s'
 zstyle ':completion:*' format ' %F{magenta}-- %d --%f'
-zstyle ':completion:*' verbose yes
-
+zstyle ':completion:*' verbose true
 
 # enable caching to make completion for commands such as dpkg and apt usable
 zstyle ':completion::complete:*' use-cache on
@@ -51,7 +41,7 @@ zstyle ':completion::complete:*' cache-path "${ZDOTDIR:-$HOME}/.zcompcache"
 
 # pasting with tabs doesn't perform completion
 zstyle ':completion:*' insert-tab pending
-#
+
 # fuzzy match mistyped completions
 zstyle ':completion:*:match:*' original only
 zstyle ':completion:*:approximate:*' max-errors 1 numeric

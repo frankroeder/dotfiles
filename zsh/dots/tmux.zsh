@@ -25,4 +25,4 @@ fzf-tmux-widget() {
 }
 
 zle     -N    fzf-tmux-widget
-bindkey '^X'  fzf-tmux-widget
+bindkey '^Y'  fzf-tmux-widget
