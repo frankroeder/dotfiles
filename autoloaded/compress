@@ -15,4 +15,6 @@ if [[ -n "$1" ]]; then
   esac
 else
 	echo "'$1' is not a valid file"
+	echo "Usage:   compress <foo.tar.gz> ./foo ./bar"
+	echo "Options: tar.bz2 tar.gz tgz zip rar 7z"
 fi

@@ -39,7 +39,7 @@ pip_update() {
 
 antibody_update() {
   antibody update;
-  reload_antibody_plugins;
+  antibody bundle < "$DOTFILES/antibody/bundles.txt" > ~/.zsh_plugins.sh
 }
 
 npm_update() {

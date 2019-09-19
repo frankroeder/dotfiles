@@ -16,7 +16,7 @@ if (( $+commands[gcloud] )); then
 fi
 
 if (( $+commands[terraform] )); then
-  TF_VERSION=$(terraform --version | head -n 1 | perl -pe '($_)=/([0-9]+([.][0-9]+)+)/')
+  TF_VERSION=${$(terraform --version)[2]:1}
   complete -o nospace -C \
     "/usr/local/Cellar/terraform/$TF_VERSION/bin/terraform" terraform
 fi

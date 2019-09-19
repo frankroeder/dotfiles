@@ -320,6 +320,7 @@ let g:polyglot_disabled = ['python', 'go', 'markdown', 'latex']
 let g:fzf_command_prefix = 'Fzf'
 let g:fzf_layout = { 'up': '~35%' }
 let g:fzf_action = {
+      \ 'ctrl-t': 'tab split',
       \ 'ctrl-h': 'split',
       \ 'ctrl-v': 'vsplit' }
 let g:fzf_colors =

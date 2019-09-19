@@ -4,8 +4,8 @@ alias la='ls -a'
 alias l.='ls -d .*'
 alias lsd='ls -d */'
 
-alias dud='du -d 1 -h'
-alias duf='du -sh *'
+alias dud='du -d 1 -h | sort -hr'
+alias duf='du -sh'
 
 setopt AUTO_CD
 setopt AUTO_PUSHD
