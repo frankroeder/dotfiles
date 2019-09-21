@@ -1,0 +1,32 @@
+{
+  "suggest.autoTrigger": "trigger",
+  "suggest.maxCompleteItemCount": 40,
+  "diagnostic.errorSign": "•",
+  "diagnostic.warningSign": "•",
+  "diagnostic.infoSign": "•",
+  "coc.preferences.currentFunctionSymbolAutoUpdate": true,
+  "coc.preferences.extensionUpdateCheck": "daily",
+
+  "python.jediEnabled": false,
+  "python.linting.flake8Enabled": true,
+  "python.linting.pylintEnabled": false,
+
+  "snippets.ultisnips.directories": [
+    "~/.config/nvim/snips/"
+  ],
+  "snippets.snipmate.author": "Frank Roeder",
+
+  "languageserver": {
+    "golang": {
+      "command": "gopls",
+      "rootPatterns": ["go.mod"],
+      "filetypes": ["go"]
+    },
+    "clangd": {
+      "command": "clangd",
+      "args": ["--background-index"],
+      "rootPatterns": ["compile_flags.txt", "compile_commands.json", ".vim/", ".git/", ".hg/"],
+      "filetypes": ["c", "cpp", "objc", "objcpp"]
+    }
+  }
+}

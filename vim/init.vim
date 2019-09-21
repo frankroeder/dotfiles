@@ -18,15 +18,12 @@ Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do':
 Plug 'junegunn/fzf.vim'
 Plug 'rstacruz/vim-closer'
 Plug 'tpope/vim-fugitive'
-Plug 'w0rp/ale'
 Plug 'tpope/vim-surround'
 Plug 'tpope/vim-repeat'
 Plug 'mhinz/vim-signify'
 
 " language support
-Plug 'Valloric/YouCompleteMe', { 'do':
-      \ './install.py --clang-completer --go-completer' }
-Plug 'SirVer/ultisnips'
+Plug 'neoclide/coc.nvim', {'branch': 'release'}
 Plug 'fatih/vim-go', { 'do': ':GoUpdateBinaries' }
 Plug 'plasticboy/vim-markdown', {'depends': 'godlygeek/tabular'}
 Plug 'JamshedVesuna/vim-markdown-preview'
@@ -37,7 +34,6 @@ Plug 'sheerun/vim-polyglot'
 Plug 'vim-airline/vim-airline'
 Plug 'vim-airline/vim-airline-themes'
 Plug 'luochen1990/rainbow'
-Plug 'ap/vim-css-color'
 Plug 'arcticicestudio/nord-vim'
 
 call plug#end()
@@ -61,6 +57,12 @@ set lazyredraw              " redraw only when needed(not in execution of macro)
 set synmaxcol=2500          " Limit syntax highlighting (this
                             " avoids the very slow redrawing
                             " when files contain long lines)
+set updatetime=300
+set shortmess+=c
+set signcolumn=yes
+set cmdheight=2
+set hidden
+
 if has("clipboard")
   set clipboard=unnamed     " copy to the system clipboard
   if has("unnamedplus")     " X11 support
@@ -169,10 +171,6 @@ autocmd filetype crontab setlocal nobackup nowritebackup
 " ---------------------------------------------------------------------------- "
 " General Mappings                                                             "
 " ---------------------------------------------------------------------------- "
-
-" tab navigation
-map <Tab> :bnext<CR>
-map <S-Tab> :bprev<CR>
 
 " Don't yank to default register when changing something
 nnoremap c "xc
@@ -290,10 +288,14 @@ endif
 
 let vim_markdown_preview_temp_file=1
 
+let g:vim_markdown_fenced_languages = ['css', 'js=javascript', 'c++=cpp',
+      \'viml=vim', 'bash=sh']
+
 " Airline
 let g:airline_theme='nord'
 let g:airline_powerline_fonts = 1
 let g:airline_exclude_preview = 1
+let g:airline#extensions#coc#enabled = 1
 
 if !exists('g:airline_symbols')
   let g:airline_symbols = {}
@@ -418,64 +420,73 @@ au FileType go nmap <Leader>db <Plug>(go-doc-browser)
 au FileType go nmap <Leader>r <Plug>(go-rename)
 au FileType go nmap <Leader>t <Plug>(go-test)
 
-" ALE (Asynchronous Lint Engine)
-let g:ale_set_quickfix = 1
-let g:ale_lint_delay = 500
-let g:ale_lint_on_text_changed = 'normal'
-let g:ale_linters = {
-    \   'javascript': ['eslint'],
-    \   'typescript': ['tslint'],
-    \   'c': ['clang-format'],
-    \   'cpp': ['clang-format'],
-    \   'python': ['flake8'],
-    \}
-let g:ale_fixers = {
-    \   'javascript': ['eslint'],
-    \   'typescript': ['tslint'],
-    \   'python': ['autopep8'],
-    \   'go': ['go build'],
-    \   'c': ['clang-format'],
-    \   'cpp': ['clang-format'],
-    \}
-let g:ale_sign_error = 'A✗'
-let g:ale_sign_warning = 'A▲'
-let g:airline#extensions#ale#enabled = 1
-nnoremap <silent> <Leader>at :ALEToggle<CR>
-nnoremap <silent> <F12> :ALEFix<CR>
+" coc
 
-" YCM
-let g:ycm_max_diagnostics_to_display = 1000
-let g:ycm_filetype_blacklist = {}
-let g:ycm_min_num_of_chars_for_completion = 1
-let g:ycm_global_ycm_extra_conf = $DOTFILES.'vim/.ycm_extra_conf.py'
-let g:ycm_confirm_extra_conf = 0
-let g:ycm_complete_in_comments=1
-let g:ycm_autoclose_preview_window_after_completion=0
-let g:ycm_autoclose_preview_window_after_insertion=1
-let g:ycm_error_symbol='Y✗'
-let g:ycm_warning_symbol='Y▲'
-let g:ycm_complete_in_comments = 1
-let g:ycm_collect_identifiers_from_comments_and_strings = 1
-let g:ycm_collect_identifiers_from_tags_files = 1
+" nord-vim like colors
+hi! CocErrorSign  ctermfg=Red guifg=#BF616A
+hi! CocWarningSign  ctermfg=Brown guifg=#D08770
+hi! CocInfoSign  ctermfg=Yellow guifg=#EBCB8B
 
-if !exists('g:ycm_semantic_triggers')
-  let g:ycm_semantic_triggers = {}
-endif
-let g:ycm_semantic_triggers.tex = g:vimtex#re#youcompleteme
+let g:coc_global_extensions = [
+      \'coc-tsserver', 'coc-python','coc-css',
+      \'coc-json', 'coc-html', 'coc-vimtex', 'coc-emoji'
+      \]
+inoremap <silent><expr> <TAB>
+      \ pumvisible() ? "\<C-n>" :
+      \ <SID>check_back_space() ? "\<TAB>" :
+      \ coc#refresh()
+inoremap <expr><S-TAB> pumvisible() ? "\<C-p>" : "\<C-h>"
 
-au FileType c,cpp,javascript,python nmap <F2> :YcmForceCompileAndDiagnostics<CR>
-au FileType c,cpp,javascript,python nmap <F3> :YcmCompleter GetDoc<CR>
-au FileType c,cpp,javascript,python nmap <F4> :YcmCompleter GetType<CR>
-au FileType c,cpp,javascript,python nmap <F5> :YcmCompleter GoTo<CR>
+function! s:check_back_space() abort
+  let col = col('.') - 1
+  return !col || getline('.')[col - 1]  =~# '\s'
+endfunction
 
-" UltiSnips
-let g:UltiSnipsSnippetDirectories=[$HOME."/.config/nvim/snips"]
-let g:UltiSnipsExpandTrigger="<C-L>"
-let g:UltiSnipsJumpForwardTrigger="<C-J>"
-let g:UltiSnipsJumpBackwardTrigger="<C-K>"
-let g:snips_author = 'Frank Roeder'
-let g:ultisnips_javascript = {
-      \ 'keyword-spacing': 'always',
-      \ 'semi': 'never',
-      \ 'space-before-function-paren': 'always',
-      \ }
+inoremap <silent><expr> <c-space> coc#refresh()
+
+inoremap <expr> <cr> pumvisible() ? "\<C-y>" : "\<C-g>u\<CR>"
+
+" Use <tab> for select selections ranges, needs server support, like: coc-tsserver, coc-python
+nmap <silent> <TAB> <Plug>(coc-range-select)
+xmap <silent> <TAB> <Plug>(coc-range-select)
+xmap <silent> <S-TAB> <Plug>(coc-range-select-backword)
+
+nmap <silent> <F3> <Plug>(coc-implementation)
+nmap <silent> <F4> <Plug>(coc-type-definition)
+nmap <silent> <F5> <Plug>(coc-definition)
+
+" Use K to show documentation in preview window
+nnoremap <silent> K :call <SID>show_documentation()<CR>
+function! s:show_documentation()
+  if &filetype == 'vim'
+    execute 'h '.expand('<cword>')
+  else
+    call CocAction('doHover')
+  endif
+endfunction
+
+" Highlight symbol under cursor on CursorHold
+autocmd CursorHold * silent call CocActionAsync('highlight')
+
+" Remap for rename current word
+nmap <leader>rn <Plug>(coc-rename)
+
+" Use `gn` and `gp` to navigate diagnostics
+nmap <silent> gp <Plug>(coc-diagnostic-prev)
+nmap <silent> gn <Plug>(coc-diagnostic-next)
+
+" Use `:Format` to format current buffer
+command! -nargs=0 Format :call CocAction('format')
+nnoremap <silent> <F12> :call CocAction('format') <CR>
+
+" Use `:Fold` to fold current buffer
+command! -nargs=? Fold :call CocAction('fold', <f-args>)
+
+" use `:OR` for organize import of current buffer
+command! -nargs=0 OR :call CocAction('runCommand', 'editor.action.organizeImport')
+
+" coc-snippets
+" Use <C-l> for trigger snippet expand.
+imap <C-l> <Plug>(coc-snippets-expand)
+" Use <C-j> for both expand and jump (make expand higher priority.)
+imap <C-j> <Plug>(coc-snippets-expand-jump)

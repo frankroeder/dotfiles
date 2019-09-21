@@ -58,6 +58,7 @@ npm:
 	npm i -g npm@latest
 	npm i -g typescript
 	npm i -g eslint
+	npm i -g neovim
 	ln -sfv $(DOTFILES_DIR)/eslintrc ~/.eslintrc
 
 nvim:
@@ -69,9 +70,10 @@ nvim:
 	ln -sfv $(DOTFILES_DIR)/vim/pythonx  ~/.config/nvim/
 	ln -sfv $(DOTFILES_DIR)/vim/spell  ~/.config/nvim/
 	ln -sfv $(DOTFILES_DIR)/vim/colors  ~/.config/nvim/
-	pip install setuptools
-	pip install neovim
-	pip install unidecode
+	ln -sfv $(DOTFILES_DIR)/coc-settings.json ~/.config/nvim/coc-settings.json
+	GO111MODULE=on go get golang.org/x/tools/gopls@latest
+	pip install setuptools neovim unidecode
+	pip install flake8 numpy autopep8
 
 git:
 	@echo -e "\033[1m\033[34m==> Installing stuff for git\033[0m"
