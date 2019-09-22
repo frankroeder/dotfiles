@@ -16,7 +16,6 @@ Plug 'scrooloose/nerdcommenter'
 Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do':
       \ './install --all --no-bash -no-zsh' }
 Plug 'junegunn/fzf.vim'
-Plug 'rstacruz/vim-closer'
 Plug 'tpope/vim-fugitive'
 Plug 'tpope/vim-surround'
 Plug 'tpope/vim-repeat'
@@ -176,12 +175,18 @@ autocmd filetype crontab setlocal nobackup nowritebackup
 nnoremap c "xc
 xnoremap c "xc
 
+map <C-J> :bnext<CR>
+map <C-K> :bprev<CR>
+
 " Close buffer
 noremap <Leader>c :bd<CR>
+
 " Clear search highlight
 nnoremap <silent> <Leader><space> :noh<CR>
+
 " Toggle wrap mode
 nnoremap <Leader>wr :set wrap!<CR>
+
 " Fast save
 nnoremap <Leader><Leader> :w<CR>
 
@@ -442,9 +447,9 @@ function! s:check_back_space() abort
   return !col || getline('.')[col - 1]  =~# '\s'
 endfunction
 
-inoremap <silent><expr> <c-space> coc#refresh()
+inoremap <silent><expr> <C-space> coc#refresh()
 
-inoremap <expr> <cr> pumvisible() ? "\<C-y>" : "\<C-g>u\<CR>"
+inoremap <expr> <CR> pumvisible() ? "\<C-y>" : "\<C-g>u\<CR>"
 
 " Use <tab> for select selections ranges, needs server support, like: coc-tsserver, coc-python
 nmap <silent> <TAB> <Plug>(coc-range-select)
