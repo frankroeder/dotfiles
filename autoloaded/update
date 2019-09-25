@@ -48,6 +48,9 @@ npm_update() {
 }
 
 gem_update() {
+  gem update --system;
+  gem update;
+  gem cleanup;
   sudo gem update --system;
   sudo gem update;
   sudo gem cleanup;

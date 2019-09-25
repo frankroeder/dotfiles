@@ -1,12 +1,12 @@
 ################################################################################
-# Screen                                                                       #
+# Screen and visuals                                                           #
 ################################################################################
 
 # Disable menu bar transparency
 defaults write NSGlobalDomain AppleEnableMenuBarTransparency -bool false
 
 # Require password immediately after sleep or screen saver begins
-defaults write com.apple.screensaver askForPassword -int 1
+defaults write com.apple.screensaver askForPassword -bool true
 defaults write com.apple.screensaver askForPasswordDelay -int 5
 
 # Show screensaver with clock
@@ -33,7 +33,20 @@ defaults write com.apple.notificationcenterui bannerTime 3
 defaults write NSGlobalDomain AppleFontSmoothing -int 1
 
 # Disable automatic brightness adjustment
-sudo defaults write /Library/Preferences/com.apple.iokit.AmbientLightSensor "Automatic Display Enabled" -int 0
+sudo defaults write /Library/Preferences/com.apple.iokit.AmbientLightSensor \
+  "Automatic Display Enabled" -bool false
 
 # Scrollbars visible when scrolling
 defaults write NSGlobalDomain AppleShowScrollBars -string "WhenScrolling"
+
+# Increase window resize speed for Cocoa applications
+defaults write NSGlobalDomain NSWindowResizeTime -float 0.001
+
+# Set sidebar icon size to medium
+defaults write NSGlobalDomain NSTableViewDefaultSizeMode -int 2
+
+# Speed up Mission Control animations
+defaults write com.apple.dock expose-animation-duration -float 0.1
+
+# Disable opening and closing window animations
+defaults write NSGlobalDomain NSAutomaticWindowAnimationsEnabled -bool false

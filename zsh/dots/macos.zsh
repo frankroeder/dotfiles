@@ -16,7 +16,7 @@ alias wifioff='networksetup -setairportpower en0 off'
 alias rmds_store="find ~/ -type f -name '*.DS_Store' -ls -delete"
 
 # Clear DNS cache
-alias flushdns="sudo dscacheutil -flushcache;sudo killall -HUP mDNSResponder"
+alias flushdns='sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder; sudo killall mDNSResponderHelper'
 
 # Clean up LaunchServices to remove duplicates in the "Open With" menu
 alias rmls="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -kill -r -domain local -domain system -domain user && killall Finder"

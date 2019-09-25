@@ -147,7 +147,6 @@ autocmd FileType gitcommit setl spell textwidth=72
 " Autocomplete with dictionary words when spell check is on
 set complete+=kspell
 
-
 function! <SID>StripTrailingWhitespaces()
   " last cursor and search position
   let _s=@/
@@ -175,8 +174,8 @@ autocmd filetype crontab setlocal nobackup nowritebackup
 nnoremap c "xc
 xnoremap c "xc
 
-map <C-J> :bnext<CR>
-map <C-K> :bprev<CR>
+map <C-J> :bprev<CR>
+map <C-K> :bnext<CR>
 
 " Close buffer
 noremap <Leader>c :bd<CR>

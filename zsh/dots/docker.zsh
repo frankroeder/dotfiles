@@ -1,14 +1,15 @@
 [ $+commands[docker] -eq 0 ] && return
 
-alias docker-redis='docker run -p 6379:6379 redis'
-alias docker-mongodb='docker run -p 27017:27017 mongo'
-alias docker-mysql="docker run -p 3306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -d mysql"
-alias docker-notebook='docker run -p 8888:8888 jupyter/scipy-notebook'
+alias dredis='docker run -p 6379:6379 redis'
+alias dmongodb='docker run -p 27017:27017 mongo'
+alias dmysql="docker run -p 3306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -d mysql"
+alias dnotebook='docker run -p 8888:8888 jupyter/scipy-notebook'
+alias dbusybox='docker run -it --rm busybox'
 
-docker-tf() {
+dtf() {
   docker run -it --rm -v "$PWD":/tmp -w /tmp tensorflow/tensorflow python "$1"
 }
-docker-pytorch() {
+dpytorch() {
   docker run --rm -it --init --ipc=host \
     --user="$(id -u):$(id -g)" --volume="$PWD:/app" \
     -e NVIDIA_VISIBLE_DEVICES=0 anibali/pytorch python3 "$1"

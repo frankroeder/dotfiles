@@ -9,10 +9,13 @@
   "python.jediEnabled": false,
   "python.linting.flake8Enabled": true,
   "python.linting.pylintEnabled": false,
+  "python.linting.lintOnSave": false,
+  "python.pipenvPath": "venv",
   "snippets.ultisnips.directories": [
     "~/.config/nvim/snips/"
   ],
   "snippets.snipmate.author": "Frank Roeder",
+
   "languageserver": {
     "golang": {
       "command": "gopls",

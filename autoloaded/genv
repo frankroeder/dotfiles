@@ -4,5 +4,6 @@ if [[ -d ./venv/ ]]; then
   source ./venv/bin/activate;
 else
   printf "Creating$BLUE virutalenv$RESET ...\n"
-  python -m venv venv && source ./venv/bin/activate;
+  python -m venv venv
+  genv && pip install --upgrade pip;
 fi

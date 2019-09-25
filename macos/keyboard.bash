@@ -6,19 +6,19 @@
 defaults write NSGlobalDomain AppleKeyboardUIMode -int 3
 
 # Disable automatic capitalization as it’s annoying when typing code
-defaults write NSGlobalDomain NSAutomaticCapitalizationEnabled -int 0
+defaults write NSGlobalDomain NSAutomaticCapitalizationEnabled -bool false
 
 # Disable smart dashes as they’re annoying when typing code
-defaults write NSGlobalDomain NSAutomaticDashSubstitutionEnabled -int 0
+defaults write NSGlobalDomain NSAutomaticDashSubstitutionEnabled -bool false
 
 # Disable automatic period substitution as it’s annoying when typing code
-defaults write NSGlobalDomain NSAutomaticPeriodSubstitutionEnabled -int 0
+defaults write NSGlobalDomain NSAutomaticPeriodSubstitutionEnabled -bool false
 
 # Disable smart quotes as they’re annoying when typing code
-defaults write NSGlobalDomain NSAutomaticQuoteSubstitutionEnabled -int 0
+defaults write NSGlobalDomain NSAutomaticQuoteSubstitutionEnabled -bool false
 
 # Disable auto-correct
-defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -int 0
+defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -bool false
 
 # Set a fast keyboard repeat rate
 defaults write NSGlobalDomain KeyRepeat -int 3
@@ -34,14 +34,15 @@ defaults write com.apple.BezelServices kDimTime -int 30
 defaults write -g com.apple.mouse.scaling 3.0
 
 # Disable press-and-hold for keys in favor of key repeat
-defaults write NSGlobalDomain ApplePressAndHoldEnabled -int 0
+defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false
 
 # Enable tap to click
-defaults write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
-defaults -currentHost write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
+defaults write NSGlobalDomain com.apple.mouse.tapBehavior -bool true
+defaults -currentHost write NSGlobalDomain com.apple.mouse.tapBehavior -bool true
 
 # Disable automatic keyboard brightness
-sudo defaults write /Library/Preferences/com.apple.iokit.AmbientLightSensor "Automatic Keyboard Enabled" -int 0
+sudo defaults write /Library/Preferences/com.apple.iokit.AmbientLightSensor \
+  "Automatic Keyboard Enabled" -bool false
 
 # Enable natural scrolling
 defaults write -g com.apple.swipescrolldirection -bool true

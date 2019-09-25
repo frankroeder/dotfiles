@@ -6,7 +6,7 @@
 defaults write com.apple.dock persistent-apps -array
 
 # Show indicator lights for open applications in the Dock
-defaults write com.apple.dock show-process-indicators -bool true
+defaults write com.apple.dock show-process-indicators -bool false
 
 # Delete the hiding Dock delay
 defaults write com.apple.dock autohide-delay -float 0
@@ -34,7 +34,7 @@ defaults write com.apple.dock minimize-to-application -bool true
 defaults write com.apple.dock launchanim -bool false
 
 # Don’t show recent applications in Dock
-defaults write com.apple.dock show-recents -int 0
+defaults write com.apple.dock show-recents -bool false
 
 # Automatically hide and show the Dock
 defaults write com.apple.dock autohide -int 1

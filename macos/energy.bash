@@ -2,7 +2,7 @@
 sudo pmset -a standbydelay 86400
 
 # Restart automatically if the computer freezes
-systemsetup -setrestartfreeze on
+sudo systemsetup -setrestartfreeze on
 
 # Sleep the display after 5 minutes
 sudo pmset -a displaysleep 5

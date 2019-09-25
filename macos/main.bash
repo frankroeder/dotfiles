@@ -12,8 +12,17 @@ sudo -v
 # Keep-alive: update existing `sudo` time stamp until `macos` has finished
 while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
-# Disable opening and closing window animations
-defaults write NSGlobalDomain NSAutomaticWindowAnimationsEnabled -bool false
+
+read -p 'Please input computer name or leave empty to keep current name: ' COMPUTER_NAME
+
+if [[ -z $COMPUTER_NAME ]]; then
+  echo 'Computer name will not be changed.'
+else
+  sudo scutil --set ComputerName "$COMPUTER_NAME"
+  sudo scutil --set HostName "$COMPUTER_NAME"
+  sudo scutil --set LocalHostName "$COMPUTER_NAME"
+  sudo defaults write /Library/Preferences/SystemConfiguration/com.apple.smb.server NetBIOSName -string "$COMPUTER_NAME"
+fi
 
 # Expand save panel by default
 defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode -bool true
@@ -21,31 +30,10 @@ defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode -bool true
 # Expand print panel by default
 defaults write NSGlobalDomain PMPrintingExpandedStateForPrint -bool true
 
-# Increase window resize speed for Cocoa applications
-defaults write NSGlobalDomain NSWindowResizeTime -float 0.001
-
-# Disable the crash reporter
-defaults write com.apple.CrashReporter DialogType -string "none"
-
-# crash reporter as pop-up
-defaults write com.apple.CrashReporter UseUNC 1
-
 # Automatically quit printer app once the print jobs complete
 defaults write com.apple.print.PrintingPrefs "Quit When Finished" -bool true
 
-# Speed up Mission Control animations
-defaults write com.apple.dock expose-animation-duration -float 0.1
-
-# Set sidebar icon size to medium
-defaults write NSGlobalDomain NSTableViewDefaultSizeMode -int 2
-
-# Check for software updates daily, not just once per week
-defaults write com.apple.SoftwareUpdate ScheduleFrequency -int 1
-
-defaults write org.python.python ApplePersistenceIgnoreState -int 0
-
-# Hide desktop items
-defaults write com.apple.finder CreateDesktop -bool false
+defaults write org.python.python ApplePersistenceIgnoreState -bool false
 
 find ~/.dotfiles/macos -name "*.bash" ! -name "main.bash" -exec bash {} \;
 
