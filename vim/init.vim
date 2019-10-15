@@ -17,6 +17,7 @@ Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do':
       \ './install --all --no-bash -no-zsh' }
 Plug 'junegunn/fzf.vim'
 Plug 'tpope/vim-fugitive'
+Plug 'tpope/vim-rhubarb'
 Plug 'tpope/vim-surround'
 Plug 'tpope/vim-repeat'
 Plug 'mhinz/vim-signify'
@@ -405,6 +406,7 @@ nnoremap <Leader>cs NERDComSexyComment
 noremap <Leader>ga :Gwrite<CR>
 noremap <Leader>gc :Gcommit<CR>
 noremap <Leader>gp :Gpush<CR>
+noremap <Leader>gb :Gbrowse<CR>
 noremap <Leader>gl :Gpull<CR>
 noremap <Leader>gst :Gstatus<CR>
 noremap <Leader>gd :Gvdiff<CR>

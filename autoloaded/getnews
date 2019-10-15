@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-
-subject="${1-germany}"
-curl -s "getnews.tech/$subject" | less
