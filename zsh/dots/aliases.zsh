@@ -36,3 +36,5 @@ alias week='date +%V'
 
 alias npmls='npm ls --depth=0'
 alias npmlsg='npm ls --depth=0 -g'
+
+alias dfh='df -h'

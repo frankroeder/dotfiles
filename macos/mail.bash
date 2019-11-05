@@ -14,3 +14,7 @@ defaults write com.apple.mail DisableInlineAttachmentViewing -bool true
 
 # prefer plaintext mails
 defaults write com.apple.mail PreferPlainText -bool true
+
+# Automatically check for new message
+defaults write com.apple.mail AutoFetch -bool true
+defaults write com.apple.mail PollTime -string "-1"

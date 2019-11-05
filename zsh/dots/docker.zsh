@@ -3,9 +3,12 @@
 alias dredis='docker run -p 6379:6379 redis'
 alias dmongodb='docker run -p 27017:27017 mongo'
 alias dmysql="docker run -p 3306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -d mysql"
-alias dnotebook='docker run -p 8888:8888 jupyter/scipy-notebook'
 alias dbusybox='docker run -it --rm busybox'
 
+dnotebook() {
+  docker run --rm -p 8888:8888 -e JUPYTER_ENABLE_LAB=yes \
+    -v "$PWD":/home/jovyan/work jupyter/datascience-notebook:latest
+}
 dtf() {
   docker run -it --rm -v "$PWD":/tmp -w /tmp tensorflow/tensorflow python "$1"
 }

@@ -1,5 +1,5 @@
 {
-  "suggest.autoTrigger": "trigger",
+  "suggest.autoTrigger": "always",
   "suggest.maxCompleteItemCount": 40,
   "diagnostic.errorSign": "•",
   "diagnostic.warningSign": "•",

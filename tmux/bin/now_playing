@@ -2,7 +2,7 @@
 # Returns the current song in iTunes
 
 on run argv
-  tell application "iTunes"
+  tell application "Music"
   if it is running then
     if player state is playing then
       set track_name to name of current track

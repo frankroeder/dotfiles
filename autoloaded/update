@@ -34,12 +34,12 @@ brew_update() {
 
 pip_update() {
   pip list --outdated --format=freeze | grep -v '^\-e' | cut -d = -f 1  \
-    | xargs -n1 pip install -U --user --no-warn-script-location
+    | xargs -n1 pip install -U --user --no-warn-script-location;
   }
 
 antibody_update() {
   antibody update;
-  antibody bundle < "$DOTFILES/antibody/bundles.txt" > ~/.zsh_plugins.sh
+  antibody bundle < "$DOTFILES/antibody/bundles.txt" > ~/.zsh_plugins.sh;
 }
 
 npm_update() {

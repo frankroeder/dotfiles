@@ -1,16 +1,12 @@
 priority -50
 
-##############
-# MATH STUFF #
-##############
-
 snippet eq "Equation" b
 \begin{equation}
 	$0
 \end{equation}
 endsnippet
 
-snippet eqnn "Equation without number" b
+snippet eq* "Equation without number" b
 \begin{equation*}
 	$0
 \end{equation*}
@@ -22,7 +18,7 @@ snippet al "Align" b
 \end{align}
 endsnippet
 
-snippet alnn "Align without numbers" b
+snippet al* "Align without numbers" b
 \begin{align*}
 	$0
 \end{align*}
@@ -34,7 +30,7 @@ snippet eqa "Equation array" b
 \end{eqnarray}
 endsnippet
 
-snippet eqann "Equation array without numbers" b
+snippet eqa* "Equation array without numbers" b
 \begin{eqnarray*}
 	$1 & $2 & $0
 \end{eqnarray*}
@@ -42,6 +38,22 @@ endsnippet
 
 snippet frac "Fraction" w
 \frac{${1:${VISUAL}}}{${2}}
+endsnippet
+
+snippet sum "Sum"
+\sum^{${1:n}}_{${2:i=1}} ${0}
+endsnippet
+
+snippet lim "Lim"
+\lim_{${1:n \\to \\infty}} ${0}
+endsnippet
+
+snippet int "Integral"
+\int_{$1}^{$2} ${0} dx
+endsnippet
+
+snippet intinf "Integral from -inf to inf"
+\int_{-\infty}^{\infty} ${0} dx
 endsnippet
 
 snippet mat "Smart Matrix"
@@ -65,10 +77,6 @@ endsnippet
 snippet lr[ "left[ right]" w
 \left[ ${1:${VISUAL}} \right]
 endsnippet
-
-#################
-# PHYSICS STUFF #
-#################
 
 snippet dv "Derivative" w
 \dv[${1:${VISUAL}}]{${2}}{${3}}

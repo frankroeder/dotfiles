@@ -22,11 +22,11 @@ defaults write com.apple.menuextra.battery ShowPercent -bool true
 #    power failure.
 sudo pmset -a hibernatemode 0
 
-# Remove the sleep image file to save disk space
-# sudo rm /private/var/vm/sleepimage
+# Enable lid wakeup
+sudo pmset -a lidwake 1
 
-# Create a zero-byte file instead…
-# sudo touch /private/var/vm/sleepimage
+# Restart automatically on power loss
+sudo pmset -a autorestart 1
 
-# ... and make sure it can’t be rewritten
-# sudo chflags uchg /private/var/vm/sleepimage
+# Disable machine sleep while charging
+sudo pmset -c sleep 0

@@ -45,3 +45,6 @@ chflags nohidden ~/Library
 
 # Hide desktop items
 defaults write com.apple.finder CreateDesktop -bool false
+
+# When performing a search, search the current folder by default
+defaults write com.apple.finder FXDefaultSearchScope -string "SCcf"
