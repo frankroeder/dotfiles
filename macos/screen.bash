@@ -5,6 +5,20 @@
 # Disable menu bar transparency
 defaults write NSGlobalDomain AppleEnableMenuBarTransparency -bool false
 
+# Increase contrast
+defaults write com.apple.universalaccess increaseContrast -bool false
+
+# Set appearance
+# Blue     : 1
+# Graphite : 6
+defaults write NSGlobalDomain AppleAquaColorVariant -int 6
+
+# Highlight color
+# Graphite : `0.780400 0.815700 0.858800`
+# Silver   : `0.776500 0.776500 0.776500`
+# Blue     : `0.709800 0.835300 1.000000`
+defaults write NSGlobalDomain AppleHighlightColor -string '0.780400 0.815700 0.858800'
+
 # Require password immediately after sleep or screen saver begins
 defaults write com.apple.screensaver askForPassword -bool true
 defaults write com.apple.screensaver askForPasswordDelay -int 5
@@ -14,6 +28,9 @@ defaults -currentHost write com.apple.screensaver showClock -bool true
 
 # Save screenshots to custom folder
 defaults write com.apple.screencapture location -string "${HOME}/screens"
+
+# Base name of screenshots
+defaults write com.apple.screencapture name -string "screenshot"
 
 # Save screenshots in PNG format (other options: BMP, GIF, JPG, PDF, TIFF)
 defaults write com.apple.screencapture type -string "png"
@@ -27,6 +44,9 @@ defaults write com.apple.dock ResetLaunchPad -bool true
 
 # Change banner display time (in seconds, default:5)
 defaults write com.apple.notificationcenterui bannerTime 3
+
+# Show mirroring options in the menu bar when available
+defaults write com.apple.airplay showInMenuBarIfPresent -bool true
 
 # Enable subpixel font rendering on non-Apple LCDs
 # Options: 1 for light smoothing up to 3 for strong smoothing
@@ -59,3 +79,6 @@ defaults write com.apple.systemuiserver menuExtras -array \
   "/System/Library/CoreServices/Menu Extras/Bluetooth.menu" \
   "/System/Library/CoreServices/Menu Extras/Volume.menu" \
   "/System/Library/CoreServices/Menu Extras/VPN.menu"
+
+# Show Siri in menu bar
+defaults write com.apple.Siri StatusMenuVisible -bool false

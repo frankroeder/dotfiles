@@ -7,8 +7,6 @@
   "coc.preferences.currentFunctionSymbolAutoUpdate": true,
   "coc.preferences.extensionUpdateCheck": "daily",
   "python.jediEnabled": false,
-  "python.linting.flake8Enabled": true,
-  "python.linting.pylintEnabled": false,
   "python.linting.lintOnSave": false,
   "python.pipenvPath": "venv",
   "snippets.ultisnips.directories": [
