@@ -9,12 +9,9 @@ if [[ -n "$1" ]]; then
     *.tar.gz) shift && tar czf "$FILE" "$*" ;;
     *.tgz) shift && tar czf "$FILE" "$*" ;;
     *.zip) shift && zip "$FILE" "$*" ;;
-    *.rar) shift && rar "$FILE" "$*" ;;
-    *.7z)  shift && 7za a "$FILE" "$*" ;;
 		*) echo "'$1' cannot be compressed";;
   esac
 else
-	echo "'$1' is not a valid file"
 	echo "Usage:   compress <foo.tar.gz> ./foo ./bar"
-	echo "Options: tar.bz2 tar.gz tgz zip rar 7z"
+	echo "Options: tar.bz2 tar.gz tgz zip"
 fi

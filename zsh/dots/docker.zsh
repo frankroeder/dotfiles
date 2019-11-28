@@ -23,6 +23,7 @@ alias youtube-dl='docker run --rm -i -t -v $PWD:/data vimagick/youtube-dl'
 
 # https://hub.docker.com/r/dpokidov/imagemagick/
 alias imagemagick='docker run --rm -i -t  -v $PWD:/imgs dpokidov/imagemagick'
+alias dtqdm='docker run -i --rm tqdm/tqdm'
 
 alias dps='docker ps'
 alias dimg='docker images'

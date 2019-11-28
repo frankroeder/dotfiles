@@ -210,6 +210,10 @@ snippet urlc "Url from clipboard"
 \url{`pbpaste`} ${0}
 endsnippet
 
+snippet urlcp "Url from frontmost tab"
+\url{`echo $(osascript -e 'tell application "Safari" to return URL of front document')`} ${0}
+endsnippet
+
 snippet cite "[p. 199](Ref)" b
 \cite[${1}]{${2}} ${0}
 endsnippet

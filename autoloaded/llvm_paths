@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+export CC="/usr/local/opt/llvm/bin/clang"
+export CXX="/usr/local/opt/llvm/bin/clang++"
+export CXX11="/usr/local/opt/llvm/bin/clang++"
+export CXX14="/usr/local/opt/llvm/bin/clang++"
+export CXX17="/usr/local/opt/llvm/bin/clang++"
+export CXX1X="/usr/local/opt/llvm/bin/clang++"
+export LDFLAGS="-L/usr/local/opt/llvm/lib"
+export CPPFLAGS="-I/usr/local/opt/llvm/include"

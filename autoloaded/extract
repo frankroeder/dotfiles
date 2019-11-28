@@ -1,23 +1,37 @@
 #!/usr/bin/env bash
 
-if [[ -f "$1" ]]; then
-	case "$1" in
-		*.tar.bz2) tar xvjf "$1";;
-		*.tar.gz) tar xvzf "$1";;
-		*.tar.xz) tar xvJf "$1";;
-		*.tar.lzma) tar --lzma xvf "$1";;
-		*.bz2) bunzip "$1";;
-		*.rar) unrar "$1";;
-		*.gz) gunzip "$1";;
-		*.tar) tar xvf "$1";;
-		*.tbz2) tar xvjf "$1";;
-		*.tgz) tar xvzf "$1";;
-		*.zip) unzip "$1";;
-		*.Z) uncompress "$1";;
-		*.7z) 7z x "$1";;
-		*.dmg) hdiutul mount "$1";; # mount OS X disk images
-		*) echo "'$1' cannot be extracted";;
-esac
+if [ -f "$1" ] ; then
+  local filename=$(basename "$1")
+  local foldername="${filename%%.*}"
+  local fullpath=`perl -e 'use Cwd "abs_path";print abs_path(shift)' "$1"`
+  local didfolderexist=false
+
+  if [ -d "$foldername" ]; then
+    didfolderexist=true
+    echo -n "$foldername already exists, do you want to overwrite it? (y/n) "
+    read REPLY
+    if [[ $REPLY =~ ^[Nn]$ ]]; then
+      return
+    fi
+  fi
+
+  case $1 in
+    *.tar.bz2) tar xjf "$fullpath" ;;
+    *.tar.gz) tar xzf "$fullpath" ;;
+    *.tar.xz) tar Jxvf "$fullpath" ;;
+    *.tar.Z) tar xzf "$fullpath" ;;
+    *.tar) tar xf "$fullpath" ;;
+    *.taz) tar xzf "$fullpath" ;;
+    *.tb2) tar xjf "$fullpath" ;;
+    *.tbz) tar xjf "$fullpath" ;;
+    *.tbz2) tar xjf "$fullpath" ;;
+    *.tgz) tar xzf "$fullpath" ;;
+    *.txz) tar Jxvf "$fullpath" ;;
+    *.zip) unzip "$fullpath" ;;
+    *.bz2) bunzip2 "$fullpath" ;;
+    *.gz) gunzip "$fullpath";;
+    *) echo "'$1' cannot be extracted via extract()";;
+  esac
 else
-	echo "'$1' is not a valid file"
+  echo "'$1' is not a valid file"
 fi
