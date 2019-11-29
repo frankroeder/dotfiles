@@ -11,3 +11,5 @@ RPROMPT='%F{white}%*'
 unsetopt PROMPT_CR PROMPT_SP
 setopt INTERACTIVECOMMENTS
 
+# https://github.com/zdharma/fast-syntax-highlighting/issues/135
+export FAST_HIGHLIGHT[whatis_chroma_type]=0
