@@ -6,8 +6,12 @@ alias dmysql="docker run -p 3306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -d mysql"
 alias dbusybox='docker run -it --rm busybox'
 
 dnotebook() {
+  docker run --rm -p 8888:8888 -v "$PWD":/home/jovyan \
+    jupyter/scipy-notebook:latest
+}
+dlab() {
   docker run --rm -p 8888:8888 -e JUPYTER_ENABLE_LAB=yes \
-    -v "$PWD":/home/jovyan/work jupyter/datascience-notebook:latest
+    -v "$PWD":/home/jovyan jupyter/datascience-notebook:latest
 }
 dtf() {
   docker run -it --rm -v "$PWD":/tmp -w /tmp tensorflow/tensorflow python "$1"

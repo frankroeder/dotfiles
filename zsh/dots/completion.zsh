@@ -18,33 +18,25 @@ zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}' 'r:|=*' 'l:|=* r:|=*'
 
 # forces zsh to realize new commands
 zstyle ':completion:*' completer _oldlist _expand _complete _match _ignored _approximate
-zstyle ':completion:*' list-colors ''
-zstyle ':completion:*:*:kill:*:processes' list-colors '=(#b) #([0-9]#) ([0-9a-z-]#)*=01;34=0=01'
-zstyle ':completion:*:*:*:*:processes' command "ps -u $USER -o pid,%cpu,cputime,user,comm -w -w"
+zstyle ':completion:*' list-colors "=*="
 
-# Group results by category
+# group results by category
 zstyle ':completion:*:matches' group yes
 zstyle ':completion:*' group-name ''
 zstyle ':completion:*:options' description yes
 zstyle ':completion:*:options' auto-description '<%d>'
-zstyle ':completion:*:corrections' format ' %F{green}-- %d (errors: %e) --%f'
-zstyle ':completion:*:descriptions' format ' %F{yellow}-- %d --%f'
-zstyle ':completion:*:messages' format ' %F{purple} -- %d --%f'
-zstyle ':completion:*:warnings' format ' %F{red}-- no matches found --%f'
-zstyle ':completion:*:default' list-prompt '%S%M matches%s'
 zstyle ':completion:*' format ' %F{magenta}-- %d --%f'
 zstyle ':completion:*' verbose true
 
-# enable caching to make completion for commands such as dpkg and apt usable
+# completion lists that don’t fit on the screen can be scrolled
+zstyle ':completion:*:default' list-prompt '%S%M matches%s'
+
+# enable caching
 zstyle ':completion::complete:*' use-cache on
 zstyle ':completion::complete:*' cache-path "${ZDOTDIR:-$HOME}/.zcompcache"
 
 # pasting with tabs doesn't perform completion
 zstyle ':completion:*' insert-tab pending
-
-# fuzzy match mistyped completions
-zstyle ':completion:*:match:*' original only
-zstyle ':completion:*:approximate:*' max-errors 1 numeric
 
 # ignores unavailable commands
 zstyle ':completion:*:functions' ignored-patterns '(_*|pre(cmd|exec)|prompt_*)'
