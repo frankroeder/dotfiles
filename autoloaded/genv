@@ -1,9 +1,0 @@
-#!/bin/zsh
-
-if [[ -d ./venv/ ]]; then
-  source ./venv/bin/activate;
-else
-  printf "Creating$BLUE virutalenv$RESET ...\n"
-  python -m venv venv
-  genv && pip install --upgrade pip;
-fi

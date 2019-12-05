@@ -10,9 +10,9 @@ jsconfig.json
 .Trashes
 
 # Application specific files
-venv
-node_modules
-.sass-cache
+venv/
+node_modules/
+.sass-cache/
 
 # Compiled source
 *.com
