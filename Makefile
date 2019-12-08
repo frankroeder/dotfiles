@@ -74,6 +74,7 @@ nvim:
 	GO111MODULE=on go get golang.org/x/tools/gopls@latest
 	pip install setuptools neovim unidecode
 	pip install flake8 numpy autopep8
+	sudo -H pip install jedi
 
 git:
 	@echo -e "\033[1m\033[34m==> Installing stuff for git\033[0m"

@@ -6,9 +6,11 @@
   "diagnostic.infoSign": "•",
   "coc.preferences.currentFunctionSymbolAutoUpdate": true,
   "coc.preferences.extensionUpdateCheck": "daily",
-  "python.jediEnabled": false,
+  "python.jediEnabled": true,
+  "python.jediPath": "/usr/local/lib/python3.7/site-packages/",
   "python.linting.lintOnSave": false,
-  "python.pipenvPath": "venv",
+  "python.venvPath": "~/envs",
+  "python.pythonPath": "~/envs/${workspaceRoot}/bin",
   "snippets.ultisnips.directories": [
     "~/.config/nvim/snips/"
   ],
