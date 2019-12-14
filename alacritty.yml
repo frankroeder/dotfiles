@@ -26,19 +26,16 @@ window:
   # Window decorations
   decorations: none
 
-  startup_mode: Maximized
+  startup_mode: Windowed # Maximized broken since version 0.4.0
 
 scrolling:
   # Maximum number of lines in the scrollback buffer.
   # Specifying '0' will disable scrolling.
-  history: 10000
+  history: 20000
 
   # Number of lines the viewport will move for every line scrolled when
   # scrollback is enabled (history > 0).
   multiplier: 3
-
-  # Faux Scrolling
-  faux_multiplier: 0
 
   # Scroll to the bottom when new text is written to the terminal.
   auto_scroll: false

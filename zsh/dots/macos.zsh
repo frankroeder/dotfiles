@@ -37,3 +37,4 @@ alias lsudp='lsof -i -n -P | grep UDP'
 alias systail='tail -f /var/log/system.log'
 alias cpwd="pwd | pbcopy"
 alias localip="ipconfig getifaddr en0"
+alias showdns='networksetup -getdnsservers Wi-Fi'

@@ -167,6 +167,9 @@ augroup END
 " Make crontab happy
 autocmd filetype crontab setlocal nobackup nowritebackup
 
+"Incrementing and decrementing alphabetical characters
+set nrformats+=alpha
+
 " ---------------------------------------------------------------------------- "
 " General Mappings                                                             "
 " ---------------------------------------------------------------------------- "
@@ -266,21 +269,31 @@ let g:rainbow_active = 1
 let g:signify_vcs_list = [ 'git' ]
 let g:signify_update_on_bufenter=0
 
-" TeX and Markdown
+" TeX
+set conceallevel=1
+let g:tex_conceal='abdmg'
 let g:tex_flavor = "latex"
 let g:vimtex_view_method='skim'
 let g:vimtex_quickfix_mode=0
-set conceallevel=1
-let g:tex_conceal='abdmg'
 let g:vimtex_compiler_latexmk = {'callback' : 0}
-let g:vim_markdown_folding_disabled = 1
-let g:vim_markdown_new_list_item_indent = 0
 let g:vimtex_compiler_enabled = 0
+let g:vimtex_toc_config = {
+      \ 'split_pos': 'full',
+      \ 'layer_status': {'label': 0}
+      \}
+
+au FileType tex nmap <F2> :VimtexTocOpen <CR>
+au FileType tex nmap <F3> :VimtexDocPackage <CR>
+au FileType tex nmap <F4> :VimtexInfo <CR>
+au FileType tex nmap <F5> :VimtexErrors <CR>
 
 if has('nvim')
   let g:vimtex_compiler_progname = 'nvr'
 endif
 
+" Markdown
+let g:vim_markdown_folding_disabled = 1
+let g:vim_markdown_new_list_item_indent = 0
 let g:vim_markdown_preview_hotkey='<Leader>m'
 
 if executable('grip')
@@ -292,7 +305,6 @@ else
 endif
 
 let vim_markdown_preview_temp_file=1
-
 let g:vim_markdown_fenced_languages = ['css', 'js=javascript', 'c++=cpp',
       \'viml=vim', 'bash=sh']
 
@@ -321,7 +333,7 @@ if &rtp =~ 'vim-airline'
 endif
 
 " Polyglot
-let g:polyglot_disabled = ['python', 'go', 'markdown', 'latex']
+let g:polyglot_disabled = ['go', 'markdown', 'latex']
 
 " FZF
 let g:fzf_command_prefix = 'Fzf'
@@ -474,21 +486,13 @@ endfunction
 " Highlight symbol under cursor on CursorHold
 autocmd CursorHold * silent call CocActionAsync('highlight')
 
-" Remap for rename current word
 nmap <leader>rn <Plug>(coc-rename)
-
-" Use `gn` and `gp` to navigate diagnostics
 nmap <silent> gp <Plug>(coc-diagnostic-prev)
 nmap <silent> gn <Plug>(coc-diagnostic-next)
-
-" Use `:Format` to format current buffer
 command! -nargs=0 Format :call CocAction('format')
 nnoremap <silent> <F12> :call CocAction('format') <CR>
-
-" Use `:Fold` to fold current buffer
+command! -nargs=? Lint :call CocAction('runCommand', 'python.enableLinting')
 command! -nargs=? Fold :call CocAction('fold', <f-args>)
-
-" use `:OR` for organize import of current buffer
 command! -nargs=0 OR :call CocAction('runCommand', 'editor.action.organizeImport')
 
 " coc-snippets

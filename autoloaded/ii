@@ -8,6 +8,6 @@ echo -e "\n${BOLD_BLUE}Users logged on:$RESET "; w -h
 echo -e "\n${BOLD_BLUE}Current date:$RESET "; date
 echo -e "\n${BOLD_BLUE}Machine stats:$RESET "; uptime
 echo -e "\n${BOLD_BLUE}IP for Local Network:$RESET"; ipconfig getifaddr en0
-echo -e "\n${BOLD_BLUE}IP for Interconnection:$RESET"; curl -4 icanhazip.com
+echo -e "\n${BOLD_BLUE}IP for Interconnection:$RESET"; curl ifconfig.me
 echo -e "\n${BOLD_BLUE}Hardware Overview:$RESET";
 system_profiler SPHardwareDataType | tail -n 14  | tr -d " " | sed 's/:/: /g';

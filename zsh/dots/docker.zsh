@@ -5,14 +5,21 @@ alias dmongodb='docker run -p 27017:27017 mongo'
 alias dmysql="docker run -p 3306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -d mysql"
 alias dbusybox='docker run -it --rm busybox'
 
-dnotebook() {
-  docker run --rm -p 8888:8888 -v "$PWD":/home/jovyan \
-    jupyter/scipy-notebook:latest
+d{lab,notebook}() {
+  local fn=${funcstack[1]:1}
+  local port=8888
+  local dockerhome="/home/jovyan/work"
+
+  if [[ $fn = "lab" ]]; then
+    docker run --rm -p "$port:$port" -e JUPYTER_ENABLE_LAB=yes \
+      -v "$PWD":$dockerhome  jupyter/datascience-notebook:latest
+  elif [[ $fn = "notebook" ]]; then
+    image="scipy-notebook"
+    docker run --rm -p "$port:$port" -v "$PWD":$dockerhome \
+      jupyter/scipy-notebook:latest
+  fi
 }
-dlab() {
-  docker run --rm -p 8888:8888 -e JUPYTER_ENABLE_LAB=yes \
-    -v "$PWD":/home/jovyan jupyter/datascience-notebook:latest
-}
+
 dtf() {
   docker run -it --rm -v "$PWD":/tmp -w /tmp tensorflow/tensorflow python "$1"
 }
@@ -38,7 +45,7 @@ alias dsdf='docker system df'
 alias dsev='docker system events'
 
 dcids() {
-  local cids
+  local cids cmd
   if [[ -n $1 ]] then; cmd="docker ps -a"; else cmd="docker ps"; fi
   cids=$(eval "$cmd --format 'table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Names}}' \
     | sed 1d | fzf --exit-0 --query='$1'")

@@ -2,7 +2,7 @@
 
 jsconfig.json
 .python-version
-.vim/coc-settings.json
+.vim/
 .ipynb_checkpoints
 
 # Files that might appear on external disks

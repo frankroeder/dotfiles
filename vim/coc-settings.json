@@ -8,6 +8,7 @@
   "coc.preferences.extensionUpdateCheck": "daily",
   "python.jediEnabled": true,
   "python.jediPath": "/usr/local/lib/python3.7/site-packages/",
+  "python.linting.enabled": false,
   "python.linting.lintOnSave": false,
   "python.venvPath": "~/envs",
   "python.pythonPath": "~/envs/${workspaceRoot}/bin",
@@ -15,7 +16,6 @@
     "~/.config/nvim/snips/"
   ],
   "snippets.snipmate.author": "Frank Roeder",
-
   "languageserver": {
     "golang": {
       "command": "gopls",

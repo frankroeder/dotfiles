@@ -152,3 +152,5 @@ alias gwch='git whatchanged -p --abbrev-commit --pretty=medium'
 
 # Start web-based visualizer.
 alias gw='git instaweb --httpd=webrick'
+
+alias glcfg='git config --local --edit'
