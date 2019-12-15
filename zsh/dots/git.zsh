@@ -38,6 +38,7 @@ alias gcam='git commit -a -m'
 alias gcsm='git commit -s -m'
 alias gcb='git checkout -b'
 alias gcf='git config --list'
+alias gcfle='git config --local --edit'
 alias gcl='git clone --recurse-submodules'
 alias gclean='git clean -id'
 alias gpristine='git reset --hard && git clean -dfx'
@@ -152,5 +153,3 @@ alias gwch='git whatchanged -p --abbrev-commit --pretty=medium'
 
 # Start web-based visualizer.
 alias gw='git instaweb --httpd=webrick'
-
-alias glcfg='git config --local --edit'

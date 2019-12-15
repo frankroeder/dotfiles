@@ -64,6 +64,10 @@ neovim_plug_update() {
   nvim +PlugUpgrade +PlugInstall +PlugClean! +PlugUpdate +qall!
 }
 
+mas_update() {
+  mas upgrade
+}
+
 if ping -c 1 google.com &> /dev/null; then
   echo -e "$BLUE########################"
   printf "# Checking for updates #\n"
@@ -74,6 +78,7 @@ if ping -c 1 google.com &> /dev/null; then
   exec_update neovim_plug_update
   exec_update gem_update
   exec_update antibody_update
+  exec_update mas_update
   exec_update macos_update
 
   success "Updates completed"

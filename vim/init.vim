@@ -24,10 +24,11 @@ Plug 'mhinz/vim-signify'
 
 " language support
 Plug 'neoclide/coc.nvim', {'branch': 'release'}
-Plug 'fatih/vim-go', { 'do': ':GoUpdateBinaries' }
-Plug 'plasticboy/vim-markdown', {'depends': 'godlygeek/tabular'}
-Plug 'JamshedVesuna/vim-markdown-preview'
-Plug 'lervag/vim-latex'
+Plug 'fatih/vim-go', { 'do': ':GoUpdateBinaries', 'for': 'go' }
+Plug 'godlygeek/tabular', { 'for': 'markdown' }
+Plug 'plasticboy/vim-markdown', {'depends': 'godlygeek/tabular', 'for': 'markdown'}
+Plug 'JamshedVesuna/vim-markdown-preview', { 'for': 'markdown' }
+Plug 'lervag/vim-latex', { 'for': 'tex' }
 
 " style
 Plug 'sheerun/vim-polyglot'
@@ -270,7 +271,7 @@ let g:signify_vcs_list = [ 'git' ]
 let g:signify_update_on_bufenter=0
 
 " TeX
-set conceallevel=1
+set conceallevel=2
 let g:tex_conceal='abdmg'
 let g:tex_flavor = "latex"
 let g:vimtex_view_method='skim'
@@ -282,10 +283,12 @@ let g:vimtex_toc_config = {
       \ 'layer_status': {'label': 0}
       \}
 
-au FileType tex nmap <F2> :VimtexTocOpen <CR>
-au FileType tex nmap <F3> :VimtexDocPackage <CR>
-au FileType tex nmap <F4> :VimtexInfo <CR>
-au FileType tex nmap <F5> :VimtexErrors <CR>
+augroup tex
+  au FileType tex nmap <F2> :VimtexTocOpen <CR>
+  au FileType tex nmap <F3> :VimtexDocPackage <CR>
+  au FileType tex nmap <F4> :VimtexInfo <CR>
+  au FileType tex nmap <F5> :VimtexErrors <CR>
+augroup END
 
 if has('nvim')
   let g:vimtex_compiler_progname = 'nvr'
@@ -294,6 +297,18 @@ endif
 " Markdown
 let g:vim_markdown_folding_disabled = 1
 let g:vim_markdown_new_list_item_indent = 0
+let g:vim_markdown_fenced_languages = ['css', 'js=javascript', 'c++=cpp',
+      \'viml=vim', 'bash=sh']
+let g:vim_markdown_strikethrough = 1
+
+augroup markdown
+  au FileType markdown nmap <F2> :Toct <CR>
+  au FileType markdown nmap <F3> :HeaderIncrease <CR>
+  au FileType markdown nmap <F4> :HeaderDecrease <CR>
+  au FileType markdown nmap <F5> :TableFormat <CR>
+augroup END
+
+" Markdown Preview
 let g:vim_markdown_preview_hotkey='<Leader>m'
 
 if executable('grip')
@@ -305,8 +320,6 @@ else
 endif
 
 let vim_markdown_preview_temp_file=1
-let g:vim_markdown_fenced_languages = ['css', 'js=javascript', 'c++=cpp',
-      \'viml=vim', 'bash=sh']
 
 " Airline
 let g:airline_theme='nord'
@@ -430,13 +443,15 @@ let g:go_highlight_fields = 1
 let g:go_fmt_fail_silently = 1
 let g:go_def_mapping_enabled = 0
 
-au FileType go nmap <F2> <Plug>(go-run)
-au FileType go nmap <F3> <Plug>(go-doc)
-au FileType go nmap <F4> <Plug>(go-info)
-au FileType go nmap <F5> <Plug>(go-def)
-au FileType go nmap <Leader>db <Plug>(go-doc-browser)
-au FileType go nmap <Leader>r <Plug>(go-rename)
-au FileType go nmap <Leader>t <Plug>(go-test)
+augroup go
+  au FileType go nmap <F2> <Plug>(go-run)
+  au FileType go nmap <F3> <Plug>(go-doc)
+  au FileType go nmap <F4> <Plug>(go-info)
+  au FileType go nmap <F5> <Plug>(go-def)
+  au FileType go nmap <Leader>db <Plug>(go-doc-browser)
+  au FileType go nmap <Leader>r <Plug>(go-rename)
+  au FileType go nmap <Leader>t <Plug>(go-test)
+augroup END
 
 " coc
 

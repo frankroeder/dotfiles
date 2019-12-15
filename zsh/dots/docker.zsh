@@ -9,17 +9,14 @@ d{lab,notebook}() {
   local fn=${funcstack[1]:1}
   local port=8888
   local dockerhome="/home/jovyan/work"
-
   if [[ $fn = "lab" ]]; then
     docker run --rm -p "$port:$port" -e JUPYTER_ENABLE_LAB=yes \
       -v "$PWD":$dockerhome  jupyter/datascience-notebook:latest
   elif [[ $fn = "notebook" ]]; then
-    image="scipy-notebook"
     docker run --rm -p "$port:$port" -v "$PWD":$dockerhome \
       jupyter/scipy-notebook:latest
   fi
 }
-
 dtf() {
   docker run -it --rm -v "$PWD":/tmp -w /tmp tensorflow/tensorflow python "$1"
 }
@@ -30,11 +27,8 @@ dpytorch() {
 }
 
 alias ffmpeg='docker run --rm -i -t -v $PWD:/tmp/workdir jrottenberg/ffmpeg'
-alias youtube-dl='docker run --rm -i -t -v $PWD:/data vimagick/youtube-dl'
-
-# https://hub.docker.com/r/dpokidov/imagemagick/
-alias imagemagick='docker run --rm -i -t  -v $PWD:/imgs dpokidov/imagemagick'
-alias dtqdm='docker run -i --rm tqdm/tqdm'
+alias youtube-dl='docker run --rm -it -v $PWD:/data bassstring/youtube-dl'
+alias imagemagick='docker run --rm -i -t  -v $PWD:/imgs bassstring/imagemagick'
 
 alias dps='docker ps'
 alias dimg='docker images'
