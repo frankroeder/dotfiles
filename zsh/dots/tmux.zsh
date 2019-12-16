@@ -1,4 +1,4 @@
-[ $+commands[tmux] -eq 0 ] && return
+! [ $commands[tmux] ] && return
 
 alias ta='tmux attach -t'
 alias tad='tmux attach -d -t'

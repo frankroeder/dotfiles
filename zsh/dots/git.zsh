@@ -1,5 +1,5 @@
 # https://github.com/robbyrussell/oh-my-zsh/blob/master/plugins/git/git.plugin.zsh
-[ $+commands[git] -eq 0 ] && return
+! [ $commands[git] ] && return
 
 alias g='git'
 

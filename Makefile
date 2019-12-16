@@ -97,7 +97,6 @@ macos:
 	bash $(DOTFILES_DIR)/macos/main.bash
 	which airport || sudo ln -s /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/local/bin/airport
 	which alacritty || sudo ln -s /Applications/Alacritty.app/Contents/MacOS/alacritty /usr/local/bin/alacritty
-	which vlc || sudo ln -s /Applications/VLC.app/Contents/MacOS/VLC /usr/local/bin/vlc
 
 .PHONY: uninstall
 uninstall:

@@ -1,3 +1,5 @@
+autoload -U promptinit; promptinit
+
 PURE_GIT_PULL=1
 PURE_GIT_UNTRACKED_DIRTY=1
 PURE_PROMPT_SYMBOL='➜'

@@ -1,4 +1,4 @@
-[ $+commands[docker] -eq 0 ] && return
+! [ $commands[docker] ] && return
 
 alias dredis='docker run -p 6379:6379 redis'
 alias dmongodb='docker run -p 27017:27017 mongo'
@@ -73,6 +73,6 @@ drmi() {
   [ -n "$imgids" ] && docker rmi "$imgids"
 }
 
-[ $+commands[docker-compose] -eq 0 ] && return
+! [ $commands[docker-compose] ] && return
 
 alias dcp='docker-compose'
