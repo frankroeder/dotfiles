@@ -9,7 +9,7 @@ alias tkss='tmux kill-session -t'
 
 _tmux_pane_words() {
   tmux capture-pane -p |
-    xargs echo |                                # remove all the line breaks
+    tr -d '\n' |                                # remove all the line breaks
     perl -pe 's/[^[:alnum:]\/~.-]|^[\/]/ /g' |  # remove special chars
     perl -pe 's/\s+/\n/g' |                     # split words onto newlines
     sort -u |                                   # sort

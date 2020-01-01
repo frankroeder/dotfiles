@@ -1,3 +1,5 @@
+tap "homebrew/cask-fonts"
+
 brew "git"
 brew "zsh"
 brew "mas"
@@ -21,22 +23,21 @@ brew "ipython"
 brew "pandoc"
 brew "grip"
 brew "gnuplot"
-brew "kubernetes-cli"
 
 cask "google-cloud-sdk"
 cask "alfred"
 cask "docker"
-cask "telegram"
 cask "alacritty"
 cask "vlc"
 cask "spectacle"
-cask "the-unarchiver"
 cask "musescore"
 cask "gpg-suite"
 cask "skim"
 cask "mactex-no-gui"
-cask "caskroom/fonts/font-hack"
+cask "font-hack"
 cask "eloston-chromium"
 
 mas "iReal Pro", id: 409035833
+mas "Telegram", id: 747648890
+mas "The Unarchiver", id: 425424353
 mas "Wipr", id: 1320666476

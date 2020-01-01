@@ -7,15 +7,16 @@ export VISUAL=$EDITOR
 export BROWSER=/Applications/Safari.app
 export BLOCKSIZE=1k
 
-export LESS='-XFR'
 # -R  color
 # -F  exit if there is less than one page of content
 # -X  keep content on screen after exit
+# -x2 tabs are 2 instead of 8
+export LESS='-XFRx2'
 export PAGER='less'
 export MANPAGER='less'
 
 export LANG=en_US.UTF-8
-export LC_ALL=en_US.UTF-8
+export LC_ALL=$LANG
 
 export GPG_TTY=$(tty)
 

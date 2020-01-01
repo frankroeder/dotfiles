@@ -1,7 +1,12 @@
 venv
 .git
-Applications
-Library
 node_modules
 __pycache__
 *.ipynb
+
+# macOS
+Applications
+Library
+Movies
+Music
+Pictures

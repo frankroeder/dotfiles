@@ -13,8 +13,7 @@ call plug#begin('~/.local/share/nvim/plugged')
 
 " utils
 Plug 'scrooloose/nerdcommenter'
-Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do':
-      \ './install --all --no-bash -no-zsh' }
+Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --bin' }
 Plug 'junegunn/fzf.vim'
 Plug 'tpope/vim-fugitive'
 Plug 'tpope/vim-rhubarb'
@@ -162,7 +161,7 @@ endfunction
 augroup buf_write
   au!
   autocmd BufWritePre * :call <SID>StripTrailingWhitespaces()
-  autocmd BufWritePost init.vim source %
+  autocmd BufWritePost init.vim source % | :AirlineRefresh
 augroup END
 
 " Make crontab happy
@@ -232,7 +231,10 @@ map <Leader>re :call RenameFile()<CR>
 nnoremap <silent> <Leader>fj :%!jq '.'<CR>
 
 " [,* ] Search and replace the word under the cursor.
-nmap <Leader>* :%s/\<<C-r><C-w>\>//g<Left><Left>
+" current line
+nmap <Leader>* :s/\<<C-r><C-w>\>//g<Left><Left>
+" all occurrences
+nmap <Leader>** :%s/\<<C-r><C-w>\>//g<Left><Left>
 
 " w!! to save with sudo
 cnoremap w!! execute 'silent! write !sudo tee % >/dev/null' <bar> edit!
@@ -272,6 +274,7 @@ let g:signify_update_on_bufenter=0
 
 " TeX
 set conceallevel=2
+autocmd FileType tex set iskeyword+=:,-
 let g:tex_conceal='abdmg'
 let g:tex_flavor = "latex"
 let g:vimtex_view_method='skim'
@@ -297,8 +300,8 @@ endif
 " Markdown
 let g:vim_markdown_folding_disabled = 1
 let g:vim_markdown_new_list_item_indent = 0
-let g:vim_markdown_fenced_languages = ['css', 'js=javascript', 'c++=cpp',
-      \'viml=vim', 'bash=sh']
+let g:vim_markdown_fenced_languages = ['html', 'css', 'js=javascript',
+      \ 'c++=cpp', 'c', 'go', 'viml=vim', 'bash=sh', 'python']
 let g:vim_markdown_strikethrough = 1
 
 augroup markdown
@@ -381,7 +384,7 @@ else
 endif
 
 noremap <C-H> :FzfHelptags <CR>
-nnoremap <C-B> :FzfBuffers<Cr>
+nnoremap <C-B> :Buffers<Cr>
 nnoremap <C-F> :FzfAg <CR>
 nnoremap <C-P> :FzfBLines<Cr>
 " [[B]Commits] Customize the options used by 'git log':
@@ -390,6 +393,8 @@ let g:fzf_commits_log_options =
 nnoremap <Leader>g :FzfBCommits<Cr>
 nnoremap <Leader>h :FzfHistory<Cr>
 nnoremap <Leader>t :Colors<Cr>
+nnoremap <Leader>: :Commands<Cr>
+nnoremap <Leader>m :Maps<Cr>
 imap <C-X><C-F> <plug>(fzf-complete-path)
 imap <C-X><C-J> <plug>(fzf-complete-file-ag)
 imap <C-X><C-L> <plug>(fzf-complete-line)
@@ -398,22 +403,57 @@ imap <expr> <C-X><C-K> fzf#vim#complete('cat /usr/share/dict/words')
 
 " Toggle preview with '?' when searching w/ :FzfFiles or :FzfGitFiles
 command! -bang -nargs=? -complete=dir FzfFiles
-  \ call fzf#vim#files(
-  \ <q-args>,
-  \   <bang>0 ? fzf#vim#with_preview('up:35%')
-  \           : fzf#vim#with_preview('right:50%:hidden', '?'),
-  \ <bang>0)
+      \ call fzf#vim#files(
+      \ <q-args>,
+      \   <bang>0 ? fzf#vim#with_preview('up:35%')
+      \           : fzf#vim#with_preview('right:50%:hidden', '?'),
+      \ <bang>0)
 
 command! -bang -nargs=? FzfGitFiles
-  \ call fzf#vim#gitfiles(
-  \ <q-args>,
-  \   <bang>0 ? fzf#vim#with_preview('up:35%')
-  \           : fzf#vim#with_preview('right:50%:hidden', '?'),
-  \ <bang>0)
+      \ call fzf#vim#gitfiles(
+      \ <q-args>,
+      \   <bang>0 ? fzf#vim#with_preview('up:35%')
+      \           : fzf#vim#with_preview('right:50%:hidden', '?'),
+      \ <bang>0)
 
 command! -bang Colors
-  \ call fzf#vim#colors({'left': '15%', 'options': '--reverse --margin 5%,0'},
-  \ <bang>0)
+      \ call fzf#vim#colors({'window': 'call CreateCenteredFloatingWindow()'},
+      \ <bang>0)
+
+command! -bang Buffers
+      \ call fzf#vim#buffers({'window': 'call CreateCenteredFloatingWindow()'},
+      \ <bang>0)
+
+command! -bang Commands
+      \ call fzf#vim#commands({'window': 'call CreateCenteredFloatingWindow()'},
+      \ <bang>0)
+
+command! -bang Maps
+      \ call fzf#vim#maps('', {'window': 'call CreateCenteredFloatingWindow()'},
+      \ <bang>0)
+
+function! CreateCenteredFloatingWindow()
+  let width = min([&columns - 4, max([80, &columns - 20])])
+  let height = min([&lines - 4, max([20, &lines - 10])])
+  let top = ((&lines - height) / 2) - 1
+  let left = (&columns - width) / 2
+  let opts = {'relative': 'editor', 'row': top, 'col': left, 'width': width,
+        \'height': height, 'style': 'minimal'}
+  let top = "╭" . repeat("─", width - 2) . "╮"
+  let mid = "│" . repeat(" ", width - 2) . "│"
+  let bot = "╰" . repeat("─", width - 2) . "╯"
+  let lines = [top] + repeat([mid], height - 2) + [bot]
+  let s:buf = nvim_create_buf(v:false, v:true)
+  call nvim_buf_set_lines(s:buf, 0, -1, v:true, lines)
+  call nvim_open_win(s:buf, v:true, opts)
+  set winhl=Normal:Floating
+  let opts.row += 1
+  let opts.height -= 2
+  let opts.col += 2
+  let opts.width -= 4
+  call nvim_open_win(nvim_create_buf(v:false, v:true), v:true, opts)
+  au BufWipeout <buffer> exe 'bw '.s:buf
+endfunction
 
 " NERDComment
 let g:NERDSpaceDelims = 1
@@ -461,7 +501,7 @@ hi! CocWarningSign  ctermfg=Brown guifg=#D08770
 hi! CocInfoSign  ctermfg=Yellow guifg=#EBCB8B
 
 let g:coc_global_extensions = [
-      \'coc-tsserver', 'coc-python','coc-css',
+      \'coc-tsserver', 'coc-python','coc-css', 'coc-snippets',
       \'coc-json', 'coc-html', 'coc-vimtex', 'coc-emoji'
       \]
 inoremap <silent><expr> <TAB>
@@ -490,8 +530,9 @@ nmap <silent> <F5> <Plug>(coc-definition)
 
 " Use K to show documentation in preview window
 nnoremap <silent> K :call <SID>show_documentation()<CR>
+
 function! s:show_documentation()
-  if &filetype == 'vim'
+  if &ft == 'vim' || &ft == 'help'
     execute 'h '.expand('<cword>')
   else
     call CocAction('doHover')
@@ -509,6 +550,7 @@ nnoremap <silent> <F12> :call CocAction('format') <CR>
 command! -nargs=? Lint :call CocAction('runCommand', 'python.enableLinting')
 command! -nargs=? Fold :call CocAction('fold', <f-args>)
 command! -nargs=0 OR :call CocAction('runCommand', 'editor.action.organizeImport')
+nnoremap <silent> <leader>cR  :<C-u>CocRestart<CR>
 
 " coc-snippets
 " Use <C-l> for trigger snippet expand.

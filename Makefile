@@ -32,7 +32,9 @@ homebrew:
 	@echo -e "\033[1m\033[34m==> Installing brew if not already present\033[0m"
 	which brew || curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install | ruby
 	@echo -e "\033[1m\033[34m==> Installing brew formulas\033[0m"
-	brew bundle --file=$(DOTFILES_DIR)/Brewfile
+	brew bundle --file="$(DOTFILES_DIR)/Brewfile"
+	brew cleanup
+	brew doctor
 
 .PHONY: misc
 misc:
@@ -50,6 +52,7 @@ zsh:
 	which antibody || curl -sL git.io/antibody | sh -s
 	antibody bundle < $(DOTFILES_DIR)/antibody/bundles.txt > ~/.zsh_plugins.sh
 	ln -sfv $(DOTFILES_DIR)/zsh/zshrc ~/.zshrc;
+	ln -sfv $(DOTFILES_DIR)/zsh/zlogin ~/.zlogin;
 	ln -sfv $(DOTFILES_DIR)/zsh/zshenv ~/.zshenv;
 	ln -sfv $(DOTFILES_DIR)/zsh/zprofile ~/.zprofile;
 	sudo sh -c "echo $(which zsh) >> /etc/shells"
@@ -79,7 +82,7 @@ nvim:
 	ln -sfv $(DOTFILES_DIR)/coc-settings.json ~/.config/nvim/coc-settings.json
 	GO111MODULE=on go get golang.org/x/tools/gopls@latest
 	pip install setuptools neovim unidecode
-	pip install flake8 numpy autopep8
+	pip install numpy matplotlib
 	sudo -H pip install jedi
 
 .PHONY: git

@@ -30,3 +30,6 @@ sudo pmset -a autorestart 1
 
 # Disable machine sleep while charging
 sudo pmset -c sleep 0
+
+# Automatically reduce brightness before display goes to sleep
+sudo pmset -c halfdim 1

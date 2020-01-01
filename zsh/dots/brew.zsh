@@ -11,8 +11,8 @@ export GOROOT="/usr/local/opt/go/libexec"
 
 (( $+commands[gcloud] )) && {
   GCPREFIX="/usr/local/Caskroom/google-cloud-sdk/latest/google-cloud-sdk"
-  source $GCPREFIX/path.zsh.inc
-  source $GCPREFIX/completion.zsh.inc
+  [ -f $GCPREFIX/path.zsh.inc ] && source $GCPREFIX/path.zsh.inc
+  [ -f $GCPREFIX/completion.zsh.inc ] && source $GCPREFIX/completion.zsh.inc
 }
 
 (( $+commands[terraform] )) && {
