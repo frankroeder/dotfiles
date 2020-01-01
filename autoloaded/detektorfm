@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-
-vlc -I rc 'https://sec-detektorfm.hoerradar.de/detektorfm-musik-mp3-128'

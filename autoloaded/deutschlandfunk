@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-
-vlc -I rc 'https://dg-dradio-https-dus-dtag-cdn.sslcast.addradio.de/dradio/dlf/live/mp3/128/stream.mp3'

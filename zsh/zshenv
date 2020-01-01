@@ -21,10 +21,16 @@ export LC_ALL=$LANG
 export GPG_TTY=$(tty)
 
 # Highlighting inside manpages and elsewhere
-export LESS_TERMCAP_mb=$(printf "\e[1;31m")     # begin blinking
-export LESS_TERMCAP_md=$(printf "\e[1;34m")     # begin bold
-export LESS_TERMCAP_me=$(printf "\e[0m")        # end mode
-export LESS_TERMCAP_se=$(printf "\e[0m")        # end standout-mode
-export LESS_TERMCAP_so=$(printf "\e[1;44;33m")  # begin standout-mode - info box
-export LESS_TERMCAP_ue=$(printf "\e[0m")        # end underline
-export LESS_TERMCAP_us=$(printf "\e[1;32m")     # begin underline
+export LESS_TERMCAP_mb=$(tput setaf 1)
+export LESS_TERMCAP_md=$(tput setaf 4)
+export LESS_TERMCAP_me=$(tput sgr0)
+export LESS_TERMCAP_so=$(tput setab 4; tput bold; tput setaf 7)
+export LESS_TERMCAP_se=$(tput rmso; tput sgr0)
+export LESS_TERMCAP_us=$(tput bold; tput smul; tput setaf 2)
+export LESS_TERMCAP_ue=$(tput rmul; tput sgr0)
+export LESS_TERMCAP_mr=$(tput rev)
+export LESS_TERMCAP_mh=$(tput dim)
+export LESS_TERMCAP_ZN=$(tput ssubm)
+export LESS_TERMCAP_ZV=$(tput rsubm)
+export LESS_TERMCAP_ZO=$(tput ssupm)
+export LESS_TERMCAP_ZW=$(tput rsupm)
