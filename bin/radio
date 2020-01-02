@@ -7,7 +7,7 @@ CHANNELS = {
     'ndrinfo': 'https://ndr-edge-10ac-fra-dtag-cdn.sslcast.addradio.de/ndr/ndrinfo/hamburg/mp3/128/stream.mp3',
     'detektorfm': 'https://sec-detektorfm.hoerradar.de/detektorfm-musik-mp3-128',
     'dlf': 'https://dradio-edge-10af-fra-dtag-cdn.sslcast.addradio.de/dradio/dlf/live/mp3/128/stream.mp3',
-    'jazz': 'http://streaming.radio.co/s774887f7b/listen'
+    'jazz': 'https://streaming.radio.co/s774887f7b/listen'
 }
 
 channel_keys = [key for key, _ in CHANNELS.items()]

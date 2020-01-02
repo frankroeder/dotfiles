@@ -395,6 +395,7 @@ nnoremap <Leader>h :FzfHistory<Cr>
 nnoremap <Leader>t :Colors<Cr>
 nnoremap <Leader>: :Commands<Cr>
 nnoremap <Leader>m :Maps<Cr>
+nnoremap <Leader>k :Marks<Cr>
 imap <C-X><C-F> <plug>(fzf-complete-path)
 imap <C-X><C-J> <plug>(fzf-complete-file-ag)
 imap <C-X><C-L> <plug>(fzf-complete-line)
@@ -430,6 +431,10 @@ command! -bang Commands
 
 command! -bang Maps
       \ call fzf#vim#maps('', {'window': 'call CreateCenteredFloatingWindow()'},
+      \ <bang>0)
+
+command! -bang Marks
+      \ call fzf#vim#marks({'window': 'call CreateCenteredFloatingWindow()'},
       \ <bang>0)
 
 function! CreateCenteredFloatingWindow()

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Highlighting inside manpages and elsewhere
+
+env \
+  LESS_TERMCAP_mb=$(tput setaf 1) \
+  LESS_TERMCAP_md=$(tput setaf 4) \
+  LESS_TERMCAP_me=$(tput sgr0) \
+  LESS_TERMCAP_so=$(tput setab 4; tput bold; tput setaf 7) \
+  LESS_TERMCAP_se=$(tput rmso; tput sgr0) \
+  LESS_TERMCAP_us=$(tput bold; tput smul; tput setaf 2) \
+  LESS_TERMCAP_ue=$(tput rmul; tput sgr0) \
+  LESS_TERMCAP_mr=$(tput rev) \
+  LESS_TERMCAP_mh=$(tput dim) \
+  LESS_TERMCAP_ZN=$(tput ssubm) \
+  LESS_TERMCAP_ZV=$(tput rsubm) \
+  LESS_TERMCAP_ZO=$(tput ssupm) \
+  LESS_TERMCAP_ZW=$(tput rsupm) \
+  man $@

@@ -44,6 +44,36 @@ def add_row(snip):
 
 endglobal
 
+snippet template "Create basic LaTex template" b
+\documentclass[
+12pt,
+a4paper,
+]{article}
+\title{${1}}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[english]{babel}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\author{`!v g:snips_author`}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+${2:This is the abstract \ldots}
+\end{abstract}
+
+\section{Introduction}
+${0:This is the introduction \ldots}
+
+\end{document}
+endsnippet
+
 snippet "b(egin)?" "begin{} / end{}" br
 \begin{${1:something}}
 	${0:${VISUAL}}
