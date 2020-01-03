@@ -254,8 +254,9 @@ nnoremap <silent> "" :registers<CR>
 " add semicolon at end of line
 map <Leader>; g_a;<Esc>
 
-nnoremap <C-W>- :split<CR>
-nnoremap <C-W>\| :vsplit<CR>
+" tmux style shortcuts
+nnoremap <C-W>% :split<CR>
+nnoremap <C-W>" :vsplit<CR>
 
 " remain in visual mode after code shift
 vnoremap < <gv
