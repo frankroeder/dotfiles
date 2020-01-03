@@ -143,7 +143,7 @@ autocmd BufReadPost *
   \ endif
 
 " Set spell in certain cases
-autocmd FileType gitcommit setl spell textwidth=72
+autocmd FileType gitcommit setl spell textwidth=72 | startinsert
 
 " Autocomplete with dictionary words when spell check is on
 set complete+=kspell
