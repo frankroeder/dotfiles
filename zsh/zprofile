@@ -1,21 +1,23 @@
 #!/usr/bin/env zsh
 
-path=(/usr/local/{bin,sbin} $path)
-
-path=($DOTFILES/bin $path)
-
-# ruby
-path=("/usr/local/lib/ruby/gems/2.6.0/bin" $path)
-
-# for compilers to find openssl
-path=("/usr/local/opt/openssl/bin" $path)
-export LDFLAGS="-L/usr/local/opt/openssl/lib $LDFLAGS"
-export CPPFLAGS="-I/usr/local/opt/openssl/include $LDFLAGS"
-
 # llvm
 path=("/usr/local/opt/llvm/bin" $path)
 export LDFLAGS="-L/usr/local/opt/llvm/lib $LDFLAGS"
 export CPPFLAGS="-I/usr/local/opt/llvm/include $LDFLAGS"
 
 # go
-path=("${GOPATH}/bin:${GOROOT}/bin" $path)
+export GOPATH="$HOME/Documents/golang"
+export GOROOT="/usr/local/opt/go/libexec"
+
+path=(
+  /usr/local/{bin,sbin}
+  $DOTFILES/bin
+  $GOPATH/bin
+  $GOROOT/bin
+  $path
+)
+
+# for compilers to find openssl
+path=("/usr/local/opt/openssl/bin" $path)
+export LDFLAGS="-L/usr/local/opt/openssl/lib $LDFLAGS"
+export CPPFLAGS="-I/usr/local/opt/openssl/include $LDFLAGS"
