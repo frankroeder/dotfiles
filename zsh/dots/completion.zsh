@@ -63,6 +63,6 @@ zstyle ':completion:*:*:*:users' ignored-patterns \
         usbmux uucp vcsa wwwrun xfs '_*'
 
 # Media Players
-AUDIO_FILES='wav|WAV|mp3|MP3|ogg|OGG|flac'
+AUDIO_FILES='wav|mp3|ogg|flac|aif|aiff|alac|aac'
 zstyle ':completion:*:*:vlc:*' file-patterns "*.(mkv|avi|wmv|mov|m4a|mpg|mpeg|mp4|$AUDIO_FILES):mp3\ files *(-/):directories"
 zstyle ':completion:*:*:afplay:*' file-patterns "*.($AUDIO_FILES):mp3\ files *(-/):directories"
