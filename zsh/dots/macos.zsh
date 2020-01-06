@@ -24,12 +24,9 @@ alias rmls="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchS
 # Merge PDF files, Usage: `mergepdf -o output.pdf input{1,2,3}.pdf`
 alias mergepdf='/System/Library/Automator/Combine\ PDF\ Pages.action/Contents/Resources/join.py'
 
-# Show system information
 alias displays="system_profiler SPDisplaysDataType"
 alias cpuinfo="sysctl -n machdep.cpu.brand_string"
 alias hardwareports='networksetup -listallhardwareports'
-
-# Mute/Unmute the system volume. Plays nice with all other volume settings.
 alias mute="osascript -e 'set volume output muted true'"
 alias unmute="osascript -e 'set volume output muted false'"
 alias lstcp='lsof -i -n -P | grep TCP'
@@ -39,3 +36,4 @@ alias cpwd="pwd | pbcopy"
 alias localip="ipconfig getifaddr en0"
 alias showdns='networksetup -getdnsservers Wi-Fi'
 alias trimcopy="tr -d '\n' | pbcopy"
+alias afplay='afplay -q 1'

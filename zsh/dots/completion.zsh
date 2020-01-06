@@ -61,3 +61,8 @@ zstyle ':completion:*:*:*:users' ignored-patterns \
         operator pcap polkitd postfix postgres privoxy pulse pvm quagga radvd \
         rpc rpcuser rpm rtkit scard shutdown squid sshd statd svn sync tftp \
         usbmux uucp vcsa wwwrun xfs '_*'
+
+# Media Players
+AUDIO_FILES='wav|WAV|mp3|MP3|ogg|OGG|flac'
+zstyle ':completion:*:*:vlc:*' file-patterns "*.(mkv|avi|wmv|mov|m4a|mpg|mpeg|mp4|$AUDIO_FILES):mp3\ files *(-/):directories"
+zstyle ':completion:*:*:afplay:*' file-patterns "*.($AUDIO_FILES):mp3\ files *(-/):directories"
