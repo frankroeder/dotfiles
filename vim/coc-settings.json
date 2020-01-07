@@ -12,9 +12,6 @@
   "python.linting.lintOnSave": false,
   "python.venvPath": "~/envs",
   "python.pythonPath": "~/envs/${workspaceRoot}/bin",
-  "snippets.ultisnips.directories": [
-    "~/.config/nvim/snips/"
-  ],
   "snippets.snipmate.author": "Frank Roeder",
   "languageserver": {
     "golang": {

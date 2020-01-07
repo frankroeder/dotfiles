@@ -115,7 +115,7 @@ snippet fig "Figure environment" b
 \begin{figure}[${2:htpb}]
 	\centering
 	\includegraphics[width=${3:0.8}\linewidth]{${4:name.ext}}
-	\caption{${4/(\w+)\.\w+/\u$1/}$0}
+	\caption{${4/(\w+)\.\w+/$1/}$0}
 	\label{fig:${4/(\w+)\.\w+/$1/}}
 \end{figure}
 endsnippet
@@ -144,7 +144,7 @@ endsnippet
 
 snippet part "Part" b
 \part{${1:part name}}%
-\label{prt:${2:${1/(\w+)|\W+/(?1:\L$0\E:_)/ga}}}
+\label{prt:${2:${1}}}
 
 $0
 endsnippet
@@ -155,49 +155,49 @@ snippet cha "Chapter" b
 $0
 endsnippet
 
-snippet sec "Section"
+snippet sec "Section" b
 \section{${1:section name}}%
 \label{sec:${2:$1}}
 $0
 endsnippet
 
-snippet sec* "\section*"
+snippet sec* "Section" b
 \section*{${1:section name}}%
 \label{sec:${2:$1}}
 $0
 endsnippet
 
-snippet sub "Subsection"
+snippet sub "Subsection" b
 \subsection{${1:subsection name}}%
 \label{sub:${2:$1}}
 $0
 endsnippet
 
-snippet sub* "Subsection"
+snippet sub* "Subsection" b
 \subsection*{${1:subsection name}}%
 \label{sub:${2:$1}}
 $0
 endsnippet
 
-snippet ssub "Subsubsection"
+snippet ssub "Subsubsection" b
 \subsubsection{${1:subsubsection name}}%
 \label{ssub:${2:$1}}
 $0
 endsnippet
 
-snippet ssub* "Subsubsection"
+snippet ssub* "Subsubsection" b
 \subsubsection*{${1:subsubsection name}}%
 \label{ssub:${2:$1}}
 $0
 endsnippet
 
-snippet par "Paragraph"
+snippet par "Paragraph" b
 \paragraph{${1:paragraph name}}%
 \label{par:${2:$1}}
 $0
 endsnippet
 
-snippet subp "Subparagraph"
+snippet subp "Subparagraph" b
 \subparagraph{${1:subparagraph name}}%
 \label{subp:${2:$1}}
 $0
@@ -236,29 +236,29 @@ snippet lst "Code listing" b
 \end{lstlisting}
 endsnippet
 
-snippet urlc "Url from clipboard"
+snippet urlc "Url from clipboard" w
 \url{`pbpaste`} ${0}
 endsnippet
 
-snippet urlcp "Url from frontmost tab"
+snippet urlcp "Url from frontmost tab" w
 \url{`echo $(osascript -e 'tell application "Safari" to return URL of front document')`} ${0}
 endsnippet
 
-snippet cite "[p. 199](Ref)" b
+snippet cite "[p. 199](Ref)" w
 \cite[${1}]{${2}} ${0}
 endsnippet
 
-snippet foot "Footnote"
+snippet foot "Footnote" w
 \footnote{${1:${VISUAL:text}}}${0}
 endsnippet
 
-snippet txtbox "Box around text"
+snippet txtbox "Box around text" w
+\medskip
 \noindent\fbox{%
 	\parbox{\textwidth}{%
 		${0}
 	}%
 } \newline
 endsnippet
-
 
 # vim:ft=snippets:

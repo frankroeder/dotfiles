@@ -75,11 +75,11 @@ nvim:
 	nvim +PlugInstall +qall
 	nvim +"call mkdir(stdpath('config'), 'p')" +qall
 	ln -sfv $(DOTFILES_DIR)/vim/init.vim ~/.config/nvim/
-	ln -sfv $(DOTFILES_DIR)/vim/snips ~/.config/nvim/
+	ln -sfv $(DOTFILES_DIR)/vim/ultisnips ~/.config/coc/
 	ln -sfv $(DOTFILES_DIR)/vim/pythonx  ~/.config/nvim/
 	ln -sfv $(DOTFILES_DIR)/vim/spell  ~/.config/nvim/
 	ln -sfv $(DOTFILES_DIR)/vim/colors  ~/.config/nvim/
-	ln -sfv $(DOTFILES_DIR)/coc-settings.json ~/.config/nvim/coc-settings.json
+	ln -sfv $(DOTFILES_DIR)/coc-settings.json ~/.config/nvim/
 	GO111MODULE=on go get golang.org/x/tools/gopls@latest
 	pip install setuptools neovim unidecode
 	pip install numpy matplotlib

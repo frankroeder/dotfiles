@@ -1,8 +1,5 @@
 priority -50
 
-###########################################################################
-#                            SnipMate Snippets                            #
-###########################################################################
 snippet gvar "Global / configuration variable" b
 if !exists("g:${1:MyUltraImportantVar}")
 	let g:$1 = ${2:"${3:<tab>}"}

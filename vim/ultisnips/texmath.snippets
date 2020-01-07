@@ -40,20 +40,20 @@ snippet frac "Fraction" w
 \frac{${1:${VISUAL}}}{${2}}
 endsnippet
 
-snippet sum "Sum"
-\sum^{${1:n}}_{${2:i=1}} ${0}
+snippet sum "Sum" w
+\sum_{${1:i=1}}^{${2:n}} ${0}
 endsnippet
 
-snippet lim "Lim"
-\lim_{${1:n \\to \\infty}} ${0}
+snippet prod "Product" w
+\prod_{${1:i=1}}^{${2:N}} ${0}
 endsnippet
 
-snippet int "Integral"
-\int_{$1}^{$2} ${0} dx
+snippet lim "Lim" w
+\lim_{${1:n} \\to ${2:\\infty}}} ${0}
 endsnippet
 
-snippet intinf "Integral from -inf to inf"
-\int_{-\infty}^{\infty} ${0} dx
+snippet int "Integral" w
+\int_{${1:-\\infty}}^{${2:\\infty}} ${0} dx
 endsnippet
 
 snippet mat "Smart Matrix"
