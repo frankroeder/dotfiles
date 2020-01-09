@@ -51,3 +51,5 @@ LSTM
 RNN
 arXiv
 TensorBoard
+R2D2
+flake8

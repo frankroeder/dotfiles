@@ -4,9 +4,9 @@ import argparse
 import subprocess
 
 CHANNELS = {
-    'ndrinfo': 'https://ndr-edge-10ac-fra-dtag-cdn.sslcast.addradio.de/ndr/ndrinfo/hamburg/mp3/128/stream.mp3',
+    'ndrinfo': 'http://ndr-edge-206c.fra-lg.cdn.addradio.net/ndr/ndrinfo/hamburg/mp3/128/stream.mp3',
     'detektorfm': 'https://sec-detektorfm.hoerradar.de/detektorfm-musik-mp3-128',
-    'dlf': 'https://dradio-edge-10af-fra-dtag-cdn.sslcast.addradio.de/dradio/dlf/live/mp3/128/stream.mp3',
+    'dlf': 'https://dradio-edge-1097-dus-dtag-cdn.cast.addradio.de/dradio/dlf/live/mp3/128/stream.mp3',
     'jazz': 'https://streaming.radio.co/s774887f7b/listen'
 }
 
@@ -23,7 +23,7 @@ def get_channel():
     return CHANNELS[args.channel]
 
 def play(chan):
-    output = subprocess.run(['vlc -qI rc {}'.format(chan)], shell=True)
+    output = subprocess.run(['vlc -qI cli {}'.format(chan)], shell=True)
 
 if __name__ == "__main__":
     channel = get_channel()

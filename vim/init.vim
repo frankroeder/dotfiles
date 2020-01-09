@@ -145,9 +145,6 @@ autocmd BufReadPost *
 " Set spell in certain cases
 autocmd FileType gitcommit setl spell textwidth=72 | startinsert
 
-" Autocomplete with dictionary words when spell check is on
-set complete+=kspell
-
 function! <SID>StripTrailingWhitespaces()
   " last cursor and search position
   let _s=@/
