@@ -1,18 +1,26 @@
 {
   "suggest.autoTrigger": "always",
   "suggest.maxCompleteItemCount": 40,
+
+  "diagnostic.messageTarget": "echo",
+  "diagnostic.refreshAfterSave": true,
   "diagnostic.errorSign": "•",
   "diagnostic.warningSign": "•",
   "diagnostic.infoSign": "•",
+
   "coc.preferences.currentFunctionSymbolAutoUpdate": true,
   "coc.preferences.extensionUpdateCheck": "daily",
+  "coc.preferences.hoverTarget" :"float",
+
   "python.jediEnabled": true,
   "python.jediPath": "/usr/local/lib/python3.7/site-packages/",
   "python.linting.enabled": false,
   "python.linting.lintOnSave": false,
   "python.venvPath": "~/envs",
   "python.pythonPath": "~/envs/${workspaceRoot}/bin",
+
   "snippets.snipmate.author": "Frank Roeder",
+
   "languageserver": {
     "golang": {
       "command": "gopls",
