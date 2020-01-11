@@ -35,5 +35,4 @@ else
 fi
 BAR+=" #[fg=colour$CPU_COLOR]#($TMUX_BIN/osx-cpu-temp)"
 BAR+="#($TMUX_BIN/internet_info)#[default]"
-
 printf '%s' "$BAR"

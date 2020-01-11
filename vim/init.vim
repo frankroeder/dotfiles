@@ -286,9 +286,9 @@ let g:vimtex_toc_config = {
 
 augroup tex
   au FileType tex nmap <F2> :VimtexTocOpen <CR>
-  au FileType tex nmap <F3> :VimtexDocPackage <CR>
-  au FileType tex nmap <F4> :VimtexInfo <CR>
-  au FileType tex nmap <F5> :VimtexErrors <CR>
+  au FileType tex nmap <F3> :VimtexInfo <CR>
+  au FileType tex nmap <F4> :VimtexErrors <CR>
+  au FileType tex nmap gd :VimtexDocPackage <CR>
 augroup END
 
 if has('nvim')
@@ -490,7 +490,7 @@ augroup go
   au FileType go nmap <F2> <Plug>(go-run)
   au FileType go nmap <F3> <Plug>(go-doc)
   au FileType go nmap <F4> <Plug>(go-info)
-  au FileType go nmap <F5> <Plug>(go-def)
+  au FileType go nmap gd <Plug>(go-def)
   au FileType go nmap <Leader>db <Plug>(go-doc-browser)
   au FileType go nmap <Leader>r <Plug>(go-rename)
   au FileType go nmap <Leader>t <Plug>(go-test)
@@ -527,15 +527,16 @@ nmap <silent> <TAB> <Plug>(coc-range-select)
 xmap <silent> <TAB> <Plug>(coc-range-select)
 xmap <silent> <S-TAB> <Plug>(coc-range-select-backword)
 
-nmap <silent> <F3> <Plug>(coc-implementation)
-nmap <silent> <F4> <Plug>(coc-type-definition)
-nmap <silent> <F5> <Plug>(coc-definition)
+nmap <silent> <F2> <Plug>(coc-implementation)
+nmap <silent> <F3> <Plug>(coc-type-definition)
+nmap <silent> <F4> <Plug>(coc-references)
+nmap <silent> gd <Plug>(coc-definition)
 
 " Use K to show documentation in preview window
 nnoremap <silent> K :call <SID>show_documentation()<CR>
 
 function! s:show_documentation()
-  if &ft == 'vim' || &ft == 'help'
+  if (index(['vim','help'], &filetype) >= 0)
     execute 'h '.expand('<cword>')
   else
     call CocAction('doHover')

@@ -30,6 +30,7 @@ brew_update() {
   brew update;
   brew upgrade;
   brew cask upgrade;
+  brew cleanup -s && rm -rfv "$(brew --cache)";
 }
 
 pip_update() {
