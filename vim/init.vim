@@ -30,7 +30,6 @@ Plug 'JamshedVesuna/vim-markdown-preview', { 'for': 'markdown' }
 Plug 'lervag/vim-latex', { 'for': 'tex' }
 
 " style
-Plug 'sheerun/vim-polyglot'
 Plug 'vim-airline/vim-airline'
 Plug 'vim-airline/vim-airline-themes'
 Plug 'luochen1990/rainbow'
@@ -145,6 +144,8 @@ autocmd BufReadPost *
 " Set spell in certain cases
 autocmd FileType gitcommit setl spell textwidth=72 | startinsert
 
+autocmd FileType markdown,tex,text set complete+=kspell,k/usr/share/dict/words
+
 function! <SID>StripTrailingWhitespaces()
   " last cursor and search position
   let _s=@/
@@ -166,6 +167,7 @@ autocmd filetype crontab setlocal nobackup nowritebackup
 
 "Incrementing and decrementing alphabetical characters
 set nrformats+=alpha
+
 
 " ---------------------------------------------------------------------------- "
 " General Mappings                                                             "
@@ -191,13 +193,13 @@ nnoremap <Leader>wr :set wrap!<CR>
 nnoremap <Leader><Leader> :w<CR>
 
 " spell check
-map <silent> <F6> :setlocal spell! spelllang=en_us<CR>
-map <silent> <F7> :setlocal spell! spelllang=de_de<CR>
+map <silent> <F6> :setlocal spell! spelllang=en<CR>
+map <silent> <F7> :setlocal spell! spelllang=de<CR>
 
 " Spell error: pick the first result
 nnoremap <Leader>z z=1<CR><CR>
 
-" Fix spelling mistakes the fast way
+" Fix spelling mistakes on the fly
 inoremap <C-S> <C-G>u<Esc>[s1z=`]a<C-G>u
 
 " Disable Arrow keys in Escape mode
@@ -273,9 +275,12 @@ let g:signify_update_on_bufenter=0
 " TeX
 set conceallevel=2
 autocmd FileType tex set iskeyword+=:,-
-let g:tex_conceal='abdmg'
+let g:tex_conceal ='abdmg'
 let g:tex_flavor = "latex"
 let g:vimtex_view_method='skim'
+let g:vimtex_view_general_viewer
+      \ = '/Applications/Skim.app/Contents/SharedSupport/displayline'
+let g:vimtex_view_general_options = '-r @line @pdf @tex'
 let g:vimtex_quickfix_mode=0
 let g:vimtex_compiler_latexmk = {'callback' : 0}
 let g:vimtex_compiler_enabled = 0
@@ -346,8 +351,7 @@ if &rtp =~ 'vim-airline'
   let g:airline_section_z = airline#section#create(['%3p%%: ', 'linenr', ':%3v'])
 endif
 
-" Polyglot
-let g:polyglot_disabled = ['go', 'markdown', 'latex']
+let g:airline#extensions#whitespace#enabled = 0
 
 " FZF
 let g:fzf_command_prefix = 'Fzf'

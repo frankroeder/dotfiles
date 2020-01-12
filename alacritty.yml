@@ -26,7 +26,7 @@ window:
   # Window decorations
   decorations: none
 
-  startup_mode: Windowed # Maximized broken since version 0.4.0
+  startup_mode: Maximized
 
 scrolling:
   # Maximum number of lines in the scrollback buffer.

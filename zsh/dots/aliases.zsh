@@ -4,6 +4,7 @@ alias grep='grep --color=auto'
 
 alias src='exec "$SHELL" -l'
 alias {dotfiles,dots}='cd ~/.dotfiles'
+alias tmp='cd ~/tmp'
 alias vim=$EDITOR
 alias speedtest="wget -O /dev/null http://speed.transip.nl/100mb.bin"
 alias vimrc="$EDITOR ~/.dotfiles/vim/init.vim"
