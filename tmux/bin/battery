@@ -5,9 +5,9 @@ battery_percentage="${battery_info[1]}"
 battery_status="${battery_info[2]}"
 
 battery_color="7"
-if [[ ($battery_status == 'discharging;' && ${battery_percentage%?} -le 20) ]]; then
+if [[ ($battery_status == 'discharging' && ${battery_percentage%?} -le 20) ]]; then
    battery_color="1"
-elif [[ $battery_status == 'charging;' ]]; then
+elif [[ $battery_status == 'charging' ]]; then
    battery_color="11"
 fi
 
