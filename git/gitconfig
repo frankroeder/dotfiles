@@ -40,6 +40,9 @@
 [credential]
   helper = cache --timeout=3600 osxkeychain
 
+[gpg]
+  program = /usr/local/bin/gpg
+
 [commit]
   template = ~/.dotfiles/git/gitmessage
   gpgsign = true

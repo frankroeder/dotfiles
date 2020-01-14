@@ -18,8 +18,8 @@ fi
 
 if [ -n "$airport_info" ]; then
   [[ -n $ssid ]] && echo -n " $ssid"
-  echo -n " -["$rssi"]db"
+  echo -n " -["$rssi"]db#[default]"
 else
-  ping -c 1 google.com &> /dev/null && echo -n " #[fg=colour148]LAN" \
+  ping -c 1 google.com &> /dev/null && echo -n " #[fg=colour148]LAN#[default]" \
     || echo -n ""
 fi

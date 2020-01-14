@@ -45,6 +45,8 @@ misc:
 	ln -sfv $(DOTFILES_DIR)/tmux/tmux.conf ~/.tmux.conf
 	ln -sfv $(DOTFILES_DIR)/htoprc ~/.config/htop/htoprc
 	ln -sfv $(DOTFILES_DIR)/latexmkrc ~/.latexmkrc
+	(cd $(DOTFILES_DIR)/tmux/bin && /usr/bin/swiftc $(DOTFILES_DIR)/scripts/now_playing.swift)
+	which osx-cpu-temp || bash $(DOTFILES_DIR)/scripts/install_osx_cpu_temp.sh
 
 .PHONY: zsh
 zsh:
@@ -81,6 +83,7 @@ nvim:
 	ln -sfv $(DOTFILES_DIR)/vim/colors  ~/.config/nvim/
 	ln -sfv $(DOTFILES_DIR)/coc-settings.json ~/.config/nvim/
 	GO111MODULE=on go get golang.org/x/tools/gopls@latest
+	which sourcekit-lsp || bash $(DOTFILES_DIR)/scripts/install_sourcekit-lsp.sh
 	pip install setuptools neovim unidecode
 	pip install numpy matplotlib
 	sudo -H pip install jedi

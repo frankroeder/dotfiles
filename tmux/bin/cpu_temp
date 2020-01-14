@@ -1,0 +1,15 @@
+#!/usr/bin/env zsh
+
+CPU="$(osx-cpu-temp)"
+CPU_TEMP="${CPU:0:2}"
+if [[ $CPU_TEMP -ge 90 ]]; then
+  CPU_COLOR="160"
+elif [[ $CPU_TEMP -ge 80 ]]; then
+  CPU_COLOR="202"
+elif [[ $CPU_TEMP -ge 70 ]]; then
+  CPU_COLOR="172"
+else
+  CPU_COLOR="178"
+fi
+
+echo -n " #[fg=colour$CPU_COLOR]$CPU"

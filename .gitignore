@@ -1,2 +1,3 @@
 __pycache__
 Brewfile.lock.json
+tmux/bin/now_playing

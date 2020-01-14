@@ -28,6 +28,7 @@ Plug 'godlygeek/tabular', { 'for': 'markdown' }
 Plug 'plasticboy/vim-markdown', {'depends': 'godlygeek/tabular', 'for': 'markdown'}
 Plug 'JamshedVesuna/vim-markdown-preview', { 'for': 'markdown' }
 Plug 'lervag/vim-latex', { 'for': 'tex' }
+Plug 'bassstring/apple-swift'
 
 " style
 Plug 'vim-airline/vim-airline'
@@ -81,8 +82,6 @@ endif
 " indentation
 set smartindent
 set backspace=2             " make vim behave like any other editors
-set cindent                 " Enables automatic C program indenting
-
 set shiftwidth=2            " Preview tabs as 2 spaces
 set shiftround              " Round indent to multiple of 'shiftwidth'
 set tabstop=2               " Tabs are 2 spaces
@@ -94,6 +93,7 @@ set ignorecase              " Search case insensitive...
 set smartcase               " but change if searched with upper case
 
 let g:python3_host_prog = '/usr/local/bin/python3'
+set pyx=3
 
 " syntax and style
 set t_Co=256                " Enable full-color support
@@ -508,8 +508,8 @@ hi! CocWarningSign  ctermfg=Brown guifg=#D08770
 hi! CocInfoSign  ctermfg=Yellow guifg=#EBCB8B
 
 let g:coc_global_extensions = [
-      \'coc-tsserver', 'coc-python','coc-css', 'coc-snippets',
-      \'coc-json', 'coc-html', 'coc-vimtex', 'coc-emoji'
+      \'coc-tsserver', 'coc-python','coc-css', 'coc-snippets', 'coc-json',
+      \'coc-html', 'coc-vimtex'
       \]
 inoremap <silent><expr> <TAB>
       \ pumvisible() ? "\<C-n>" :

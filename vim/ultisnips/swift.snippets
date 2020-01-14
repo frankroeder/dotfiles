@@ -1,0 +1,65 @@
+global !p
+
+def print_unless_empty(text, at):
+	if t[at] == "" or t[at].startswith("\n"):
+		snip.rv = ""
+	else:
+		snip.rv = text
+
+
+snippet swift "#!/usr/bin/env swift"
+#!/usr/bin/env swift
+endsnippet
+
+snippet class "class"
+class ${1:${VISUAL}} {
+	$0
+}
+endsnippet
+
+snippet func "func"
+func ${1:${VISUAL}}(${2:with value: Value}) {
+	$0
+}
+endsnippet
+
+snippet im "import" b
+import ${1:Foundation,Cocoa,UIKit,CoreGraphics,WebKit}
+endsnippet
+
+snippet mark "Mark"
+// MARK:
+endsnippet
+
+snippet sv "static var"
+static var ${1:name}
+endsnippet
+
+snippet st "struct"
+struct ${1:${VISUAL}} {
+	$0
+}
+endsnippet
+
+snippet sw "switch"
+switch ${1:value} {
+case ${2:pattern}:
+	$0
+}
+endsnippet
+
+snippet ca "case" b
+case ${1:pattern}:$0
+endsnippet
+
+snippet if "if"
+if ${1:condition} {
+	$0
+}
+endsnippet
+
+snippet el "else / else if"
+else`!p print_unless_empty(" if ", 1)`${1:condition} {
+	$0
+}
+endsnippet
