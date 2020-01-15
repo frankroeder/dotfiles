@@ -25,7 +25,6 @@ class MediaInfo {
         end if
         end tell
         """
-  let windowLen = 28
   let maxLen = 32
 
   func runScript() -> String {
@@ -48,7 +47,7 @@ class MediaInfo {
     return 0
   }
 
-  func formatTitle(titleStr: String) -> Substring {
+  func formatTitle(titleStr: String, windowLen: Int) -> Substring {
     let strLen = titleStr.count
     let seconds = Calendar.current.component(.second, from: Date())
     let startidx = seconds  % (strLen - windowLen)
@@ -61,10 +60,14 @@ class MediaInfo {
   func getTitleInfo() {
     let scriptOut = self.runScript()
     if self.parseArgs() >= 130 {
-      print(scriptOut)
+      if scriptOut.count > 64 {
+        print(self.formatTitle(titleStr: scriptOut, windowLen: 60))
+      } else {
+        print(scriptOut)
+      }
     } else {
       if scriptOut.count > maxLen {
-        print(self.formatTitle(titleStr: scriptOut))
+        print(self.formatTitle(titleStr: scriptOut, windowLen: 28))
       } else {
         print(scriptOut)
       }
