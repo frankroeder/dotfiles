@@ -82,6 +82,8 @@ endif
 " indentation
 set smartindent
 set backspace=2             " make vim behave like any other editors
+set cindent                 " Enables automatic C program indenting
+
 set shiftwidth=2            " Preview tabs as 2 spaces
 set shiftround              " Round indent to multiple of 'shiftwidth'
 set tabstop=2               " Tabs are 2 spaces
