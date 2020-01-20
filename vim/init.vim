@@ -34,7 +34,7 @@ Plug 'bassstring/apple-swift'
 Plug 'vim-airline/vim-airline'
 Plug 'vim-airline/vim-airline-themes'
 Plug 'luochen1990/rainbow'
-Plug 'arcticicestudio/nord-vim'
+Plug 'joshdick/onedark.vim'
 
 call plug#end()
 
@@ -72,7 +72,6 @@ endif
 
 set splitright              " Vertical split right
 set nojoinspaces            " Use one space after punctuation
-set copyindent              " Copy indent structure when autoindenting
 
 if has('mouse')
   set mouse=a
@@ -80,6 +79,8 @@ if has('mouse')
 endif
 
 " indentation
+set autoindent
+set copyindent              " Copy indent structure when autoindenting
 set smartindent
 set backspace=2             " make vim behave like any other editors
 set cindent                 " Enables automatic C program indenting
@@ -101,11 +102,12 @@ set pyx=3
 set t_Co=256                " Enable full-color support
 
 if has('nvim') || has('termguicolors')
+  let $NVIM_TUI_ENABLE_TRUE_COLOR=1
   set termguicolors
 endif
 
 try
-  colorscheme nord
+  colorscheme onedark
 catch
 endtry
 
@@ -330,7 +332,7 @@ endif
 let vim_markdown_preview_temp_file=1
 
 " Airline
-let g:airline_theme='nord'
+let g:airline_theme='onedark'
 let g:airline_powerline_fonts = 1
 let g:airline_exclude_preview = 1
 let g:airline#extensions#coc#enabled = 1
@@ -505,9 +507,9 @@ augroup END
 " coc
 
 " nord-vim like colors
-hi! CocErrorSign  ctermfg=Red guifg=#BF616A
-hi! CocWarningSign  ctermfg=Brown guifg=#D08770
-hi! CocInfoSign  ctermfg=Yellow guifg=#EBCB8B
+hi! CocErrorSign  ctermfg=Red guifg=#be5046
+hi! CocWarningSign  ctermfg=Brown guifg=#d19a66
+hi! CocInfoSign  ctermfg=Yellow guifg=#e5c07b
 
 let g:coc_global_extensions = [
       \'coc-tsserver', 'coc-python','coc-css', 'coc-snippets', 'coc-json',
