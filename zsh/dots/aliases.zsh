@@ -41,3 +41,5 @@ alias dfh='df -h'
 alias copypubkey='pbcopy < ~/.ssh/id_rsa.pub'
 alias iplab='ipython --pylab'
 alias python='python3'
+# open last edited file
+alias v0="vim -c \"normal '0\""
