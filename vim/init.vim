@@ -79,7 +79,6 @@ if has('mouse')
 endif
 
 " indentation
-set autoindent
 set copyindent              " Copy indent structure when autoindenting
 set smartindent
 set backspace=2             " make vim behave like any other editors
@@ -147,6 +146,10 @@ autocmd BufReadPost *
 
 " Set spell in certain cases
 autocmd FileType gitcommit setl spell textwidth=72 | startinsert
+
+if has("mac")
+  set dictionary=/usr/share/dict/words
+endif
 
 autocmd FileType markdown,tex,text set complete+=kspell,k/usr/share/dict/words
 
