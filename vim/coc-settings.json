@@ -4,6 +4,7 @@
 
   "diagnostic.messageTarget": "echo",
   "diagnostic.refreshAfterSave": true,
+  "diagnostic.refreshOnInsertMode": true,
   "diagnostic.errorSign": "•",
   "diagnostic.warningSign": "•",
   "diagnostic.infoSign": "•",
@@ -13,6 +14,7 @@
   "coc.preferences.hoverTarget" :"float",
 
   "python.autoComplete.addBrackets": true,
+  "python.disableInstallationCheck": true,
   "python.jediEnabled": true,
   "python.jediPath": "/usr/local/lib/python3.7/site-packages/",
   "python.linting.enabled": false,
@@ -22,16 +24,16 @@
   "snippets.snipmate.author": "Frank Roeder",
 
   "languageserver": {
-    "golang": {
-      "command": "gopls",
-      "rootPatterns": [ "go.mod" ],
-      "filetypes": [ "go" ]
-    },
     "clangd": {
       "command": "clangd",
       "args": [ "--background-index" ],
       "rootPatterns": [ "compile_flags.txt", "compile_commands.json", ".vim/", ".git/", ".hg/" ],
       "filetypes": [ "c", "cpp", "objc", "objcpp" ]
+    },
+    "golang": {
+      "command": "gopls",
+      "rootPatterns": [ "go.mod" ],
+      "filetypes": [ "go" ]
     },
     "swift": {
       "command": "sourcekit-lsp",

@@ -131,6 +131,7 @@ set undofile
 
 set noswapfile
 set nobackup
+set nowritebackup
 
 " Treat given characters as a word boundary
 set iskeyword-=.
@@ -221,18 +222,6 @@ imap <Down> <nop>
 imap <Left> <nop>
 imap <Right> <nop>
 
-" Rename current file
-function! RenameFile()
-  let old_name = expand('%')
-  let new_name = input('New file name: ', expand('%'), 'file')
-  if new_name != '' && new_name != old_name
-    exec ':saveas ' . new_name
-    exec ':silent !rm ' . old_name
-    redraw!
-  endif
-endfunction
-map <Leader>re :call RenameFile()<CR>
-
 " Format JSON with jq
 nnoremap <silent> <Leader>fj :%!jq '.'<CR>
 
@@ -282,6 +271,7 @@ let g:signify_update_on_bufenter=0
 " TeX
 set conceallevel=2
 autocmd FileType tex set iskeyword+=:,-
+autocmd FileType tex set indentexpr=
 let g:tex_conceal ='abdmg'
 let g:tex_flavor = "latex"
 let g:vimtex_view_method='skim'
@@ -339,6 +329,7 @@ let g:airline_theme='onedark'
 let g:airline_powerline_fonts = 1
 let g:airline_exclude_preview = 1
 let g:airline#extensions#coc#enabled = 1
+let g:airline#extensions#whitespace#enabled = 0
 
 if !exists('g:airline_symbols')
   let g:airline_symbols = {}
@@ -357,8 +348,6 @@ if &rtp =~ 'vim-airline'
     \ {'function': 'MyLineNumber', 'accents': 'bold'})
   let g:airline_section_z = airline#section#create(['%3p%%: ', 'linenr', ':%3v'])
 endif
-
-let g:airline#extensions#whitespace#enabled = 0
 
 " FZF
 let g:fzf_command_prefix = 'Fzf'
@@ -518,10 +507,12 @@ let g:coc_global_extensions = [
       \'coc-tsserver', 'coc-python','coc-css', 'coc-snippets', 'coc-json',
       \'coc-html', 'coc-vimtex'
       \]
+
 inoremap <silent><expr> <TAB>
       \ pumvisible() ? "\<C-n>" :
       \ <SID>check_back_space() ? "\<TAB>" :
       \ coc#refresh()
+
 inoremap <expr><S-TAB> pumvisible() ? "\<C-p>" : "\<C-h>"
 
 function! s:check_back_space() abort
@@ -533,7 +524,11 @@ inoremap <silent><expr> <C-space> coc#refresh()
 
 inoremap <expr> <CR> pumvisible() ? "\<C-y>" : "\<C-g>u\<CR>"
 
-" Use <tab> for select selections ranges, needs server support, like: coc-tsserver, coc-python
+" Close the preview window when completion is done.
+autocmd! CompleteDone * if pumvisible() == 0 | pclose | endif
+
+" Use <tab> for select selections ranges, needs server
+" support, like: coc-tsserver, coc-python
 nmap <silent> <TAB> <Plug>(coc-range-select)
 xmap <silent> <TAB> <Plug>(coc-range-select)
 xmap <silent> <S-TAB> <Plug>(coc-range-select-backword)
@@ -557,15 +552,19 @@ endfunction
 " Highlight symbol under cursor on CursorHold
 autocmd CursorHold * silent call CocActionAsync('highlight')
 
-nmap <leader>rn <Plug>(coc-rename)
+nmap <Leader>rn <Plug>(coc-rename)
+nmap <Leader>re :call CocAction('runCommand', 'workspace.renameCurrentFile') <CR>
 nmap <silent> gp <Plug>(coc-diagnostic-prev)
 nmap <silent> gn <Plug>(coc-diagnostic-next)
 command! -nargs=0 Format :call CocAction('format')
 nnoremap <silent> <F12> :call CocAction('format') <CR>
-command! -nargs=? Lint :call CocAction('runCommand', 'python.enableLinting')
+command! -nargs=? Lint :call CocAction('runCommand', 'python.runLinting')
 command! -nargs=? Fold :call CocAction('fold', <f-args>)
 command! -nargs=0 OR :call CocAction('runCommand', 'editor.action.organizeImport')
 nnoremap <silent> <leader>cR  :<C-u>CocRestart<CR>
+
+" Fix autofix problem of current line
+nmap <leader>qf  <Plug>(coc-fix-current)
 
 " coc-snippets
 " Use <C-l> for trigger snippet expand.
