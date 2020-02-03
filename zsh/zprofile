@@ -9,7 +9,11 @@ export CPPFLAGS="-I/usr/local/opt/llvm/include $LDFLAGS"
 export GOPATH="$HOME/Documents/golang"
 export GOROOT="/usr/local/opt/go/libexec"
 
+BREW_PREFIX="$(brew --prefix)"
+
 path=(
+  ${BREW_PREFIX}/opt/python3/libexec/bin(N-/)
+  ${HOME}/Library/Python/3.*/bin
   /usr/local/{bin,sbin}
   $DOTFILES/bin
   $GOPATH/bin

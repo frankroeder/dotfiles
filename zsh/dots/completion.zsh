@@ -1,5 +1,7 @@
 fpath=(~/.zsh/completion $fpath)
 
+autoload -Uz compinit && compinit -C -d "${ZDOTDIR:-${HOME}}/${zcompdump_file:-.zcompdump}"
+
 setopt AUTO_MENU          # show completion menu on a successive tab press
 setopt ALWAYS_TO_END      # move cursor to the end of a completed word
 setopt AUTO_LIST          # automatically list choices on ambiguous completion
@@ -33,12 +35,13 @@ zstyle ':completion:*:default' list-prompt '%S%M matches%s'
 
 # enable caching
 zstyle ':completion::complete:*' use-cache on
-zstyle ':completion::complete:*' cache-path "${ZDOTDIR:-$HOME}/.zcompcache"
+zstyle ':completion::complete:*' cache-path "${ZDOTDIR:-${HOME}}/.zcompcache"
 
 # pasting with tabs doesn't perform completion
 zstyle ':completion:*' insert-tab pending
 
-# ignores unavailable commands
+# ignores patterns
+zstyle ':completion:*:*files' ignored-patterns '*?.o' '*?~' '*\#'
 zstyle ':completion:*:functions' ignored-patterns '(_*|pre(cmd|exec)|prompt_*)'
 
 # separate man page sections

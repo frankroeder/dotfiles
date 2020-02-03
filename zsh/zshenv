@@ -1,6 +1,7 @@
 #!/usr/bin/env zsh
-#
+
 export DOTFILES=$HOME/.dotfiles
+export OSNAME=$(uname -s)
 
 export EDITOR="$(command -v nvim)"
 export VISUAL=$EDITOR

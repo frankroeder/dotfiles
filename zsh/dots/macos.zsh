@@ -1,4 +1,4 @@
-[[ $(uname) != 'Darwin' ]] && return
+[[ $OSNAME != 'Darwin' ]] && return
 
 alias f='open -a Finder ./'
 alias repos='cd ~/Documents'

@@ -40,7 +40,6 @@ alias npmlsg='npm ls --depth=0 -g'
 alias dfh='df -h'
 alias copypubkey='pbcopy < ~/.ssh/id_rsa.pub'
 alias iplab='ipython --pylab'
-alias python='python3'
 # open last edited file
 alias v0="vim -c \"normal '0\""
 alias online="ping -c 1 www.example.com &> /dev/null && echo 'Online :)' || echo 'Offline :('"
