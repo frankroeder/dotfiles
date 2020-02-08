@@ -176,7 +176,6 @@ autocmd filetype crontab setlocal nobackup nowritebackup
 "Incrementing and decrementing alphabetical characters
 set nrformats+=alpha
 
-
 " ---------------------------------------------------------------------------- "
 " General Mappings                                                             "
 " ---------------------------------------------------------------------------- "
@@ -221,6 +220,9 @@ imap <Up> <nop>
 imap <Down> <nop>
 imap <Left> <nop>
 imap <Right> <nop>
+
+" Disable ex mode shortcut
+nmap Q <Nop>
 
 " Format JSON with jq
 nnoremap <silent> <Leader>fj :%!jq '.'<CR>
@@ -340,14 +342,24 @@ let g:airline#extensions#tabline#formatter = 'unique_tail'
 
 function! MyLineNumber()
   return substitute(line('.'), '\d\@<=\(\(\d\{3\}\)\+\)$', ',&', 'g'). ' | '.
-    \    substitute(line('$'), '\d\@<=\(\(\d\{3\}\)\+\)$', ',&', 'g')
+        \ substitute(line('$'), '\d\@<=\(\(\d\{3\}\)\+\)$', ',&', 'g')
 endfunction
 
 if &rtp =~ 'vim-airline'
   call airline#parts#define('linenr',
-    \ {'function': 'MyLineNumber', 'accents': 'bold'})
+        \ {'function': 'MyLineNumber', 'accents': 'bold'})
   let g:airline_section_z = airline#section#create(['%3p%%: ', 'linenr', ':%3v'])
 endif
+
+function! GetCocStatus() abort
+	  let l:stat = get(g:, 'coc_status', '')
+	  return ' ' . substitute(l:stat, 'Python \d.\d.\d 64-bit', '', '')
+endfunction
+
+call airline#parts#define_function('coc_status', 'GetCocStatus')
+call airline#parts#define_minwidth('coc_status', 98)
+call airline#parts#define_accent('coc_status', 'orange')
+let g:airline_section_c = airline#section#create(['file', 'readonly', 'coc_status'])
 
 " FZF
 let g:fzf_command_prefix = 'Fzf'
@@ -498,10 +510,9 @@ augroup END
 
 " coc
 
-" nord-vim like colors
-hi! CocErrorSign  ctermfg=Red guifg=#be5046
-hi! CocWarningSign  ctermfg=Brown guifg=#d19a66
-hi! CocInfoSign  ctermfg=Yellow guifg=#e5c07b
+hi! CocErrorSign  ctermfg=Red guifg=#e06c75
+hi! CocWarningSign  ctermfg=Brown guifg=#e5c07b
+hi! CocInfoSign  ctermfg=Yellow guifg=#abb2bf
 
 let g:coc_global_extensions = [
       \'coc-tsserver', 'coc-python','coc-css', 'coc-snippets', 'coc-json',
@@ -552,22 +563,19 @@ endfunction
 " Highlight symbol under cursor on CursorHold
 autocmd CursorHold * silent call CocActionAsync('highlight')
 
-nmap <Leader>rn <Plug>(coc-rename)
-nmap <Leader>re :call CocAction('runCommand', 'workspace.renameCurrentFile') <CR>
-nmap <silent> gp <Plug>(coc-diagnostic-prev)
 nmap <silent> gn <Plug>(coc-diagnostic-next)
-command! -nargs=0 Format :call CocAction('format')
-nnoremap <silent> <F12> :call CocAction('format') <CR>
-command! -nargs=? Lint :call CocAction('runCommand', 'python.runLinting')
+nmap <silent> gp <Plug>(coc-diagnostic-prev)
+nmap <silent> <Leader>rn <Plug>(coc-rename)
+nmap <silent> <Leader>rf :call CocAction('runCommand', 'workspace.renameCurrentFile')<CR>
+nmap <silent> <Leader>d :<C-u>CocList diagnostics<CR>
+nmap <silent> <Leader>i :<C-u>CocInfo<CR>
+nmap <silent> <F12> <Plug>(coc-format)
+
+xmap <leader>f <Plug>(coc-format-selected)
+nmap <leader>f <Plug>(coc-format-selected)
+
 command! -nargs=? Fold :call CocAction('fold', <f-args>)
 command! -nargs=0 OR :call CocAction('runCommand', 'editor.action.organizeImport')
-nnoremap <silent> <leader>cR  :<C-u>CocRestart<CR>
 
-" Fix autofix problem of current line
-nmap <leader>qf  <Plug>(coc-fix-current)
-
-" coc-snippets
-" Use <C-l> for trigger snippet expand.
-imap <C-l> <Plug>(coc-snippets-expand)
-" Use <C-j> for both expand and jump (make expand higher priority.)
-imap <C-j> <Plug>(coc-snippets-expand-jump)
+au FileType python nmap <silent> <Leader>l :call CocAction('runCommand', 'python.runLinting')<CR>
+au FileType python nmap <silent> <Leader>ll :call CocAction('runCommand', 'python.enableLinting')<CR>

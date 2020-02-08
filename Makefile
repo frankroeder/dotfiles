@@ -84,9 +84,8 @@ nvim:
 	ln -sfv $(DOTFILES_DIR)/coc-settings.json ~/.config/nvim/
 	GO111MODULE=on go get golang.org/x/tools/gopls@latest
 	which sourcekit-lsp || bash $(DOTFILES_DIR)/scripts/install_sourcekit-lsp.sh
-	pip install setuptools neovim unidecode
-	pip install numpy matplotlib
-	sudo -H pip install jedi
+	python3 -m pip install setuptools neovim unidecode numpy matplotlib
+	python3 -m pip install --user jedi --upgrade
 
 .PHONY: git
 git:
@@ -100,6 +99,7 @@ macos:
 	@echo -e "\033[1m\033[34m==> Configure macos and applications\033[0m"
 	if [ -n "$(xcode-select -p)" ]; then xcode-select --install; xcodebuild -license accept; fi
 	if [ ! -d "$(HOME)/screens" ]; then mkdir -p $(HOME)/screens; fi
+	if [ ! -d "$(HOME)/tmp" ]; then mkdir -p $(HOME)/tmp; fi
 	bash $(DOTFILES_DIR)/macos/main.bash
 	which airport || sudo ln -s /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/local/bin/airport
 	which alacritty || sudo ln -s /Applications/Alacritty.app/Contents/MacOS/alacritty /usr/local/bin/alacritty
