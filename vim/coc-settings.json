@@ -11,14 +11,14 @@
 
   "python.autoComplete.addBrackets": true,
   "python.jediEnabled": true,
-  "python.jediPath": "${env:HOME}/Library/Python/${env:PY_VERSION}/lib/python/site-packages/jedi",
+  "python.jediPath": "${env:HOME}/Library/Python/${env:PY_VERSION}/lib/python/site-packages",
   "python.autoUpdateLanguageServer": false,
   "python.linting.pylintEnabled": false,
   "python.linting.flake8Enabled": true,
   "python.linting.flake8Path": "${env:HOME}/Library/Python/${env:PY_VERSION}/bin/flake8",
   "python.formatting.autopep8Path": "${env:HOME}/Library/Python/${env:PY_VERSION}/bin/autopep8",
-  "python.pythonPath": "python${env:PY_VERSION}",
-  "python.analysis.downloadChannel": "beta",
+  "python.venvPath": "~/envs",
+  "python.analysis.diagnosticEnabled": false,
 
   "snippets.snipmate.author": "Frank Roeder",
 
