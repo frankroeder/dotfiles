@@ -52,7 +52,7 @@ misc:
 zsh:
 	@echo -e "\033[1m\033[34m==> Installing zsh and tools\033[0m"
 	which antibody || curl -sL git.io/antibody | sh -s
-	antibody bundle < $(DOTFILES_DIR)/antibody/bundles.txt > ~/.zsh_plugins.sh
+	antibody bundle < $(DOTFILES_DIR)/antibody/bundles.txt > ~/.zsh/zsh_plugins.sh
 	ln -sfv $(DOTFILES_DIR)/zsh/zshrc ~/.zshrc;
 	ln -sfv $(DOTFILES_DIR)/zsh/zlogin ~/.zlogin;
 	ln -sfv $(DOTFILES_DIR)/zsh/zshenv ~/.zshenv;
@@ -109,7 +109,7 @@ uninstall:
 	rm ~/.zshrc
 	rm ~/.zshenv
 	rm ~/.zprofile
-	rm ~/.zsh_plugins.sh
+	rm ~/.zsh/zsh_plugins.sh
 	rm ~/.tmux.conf
 	rm ~/.wgetrc
 	rm ~/.curlrc

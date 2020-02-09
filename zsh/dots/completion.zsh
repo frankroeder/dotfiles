@@ -1,6 +1,6 @@
-fpath=(~/.zsh/completion $fpath)
-
 autoload -Uz compinit && compinit -C -d "${ZDOTDIR:-${HOME}}/${zcompdump_file:-.zcompdump}"
+
+fpath=(~/.zsh/completion $fpath)
 
 setopt AUTO_MENU          # show completion menu on a successive tab press
 setopt ALWAYS_TO_END      # move cursor to the end of a completed word

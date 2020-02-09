@@ -22,7 +22,7 @@ fi
 unset zsh_fpath
 
 # Plugins
-source ~/.zsh_plugins.sh
+source ~/.zsh/zsh_plugins.sh
 
 ZSH_AUTOSUGGEST_USE_ASYNC=true
 
