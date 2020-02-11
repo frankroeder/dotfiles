@@ -145,14 +145,9 @@ autocmd BufReadPost *
   \   exe "normal! g`\"" |
   \ endif
 
-" Set spell in certain cases
-autocmd FileType gitcommit setl spell textwidth=72 | startinsert
-
 if has("mac")
   set dictionary=/usr/share/dict/words
 endif
-
-autocmd FileType markdown,tex,text set complete+=kspell,k/usr/share/dict/words
 
 function! <SID>StripTrailingWhitespaces()
   " last cursor and search position
@@ -169,9 +164,6 @@ augroup buf_write
   autocmd BufWritePre * :call <SID>StripTrailingWhitespaces()
   autocmd BufWritePost init.vim source % | :AirlineRefresh
 augroup END
-
-" Make crontab happy
-autocmd filetype crontab setlocal nobackup nowritebackup
 
 "Incrementing and decrementing alphabetical characters
 set nrformats+=alpha
@@ -272,8 +264,6 @@ let g:signify_update_on_bufenter=0
 
 " TeX
 set conceallevel=2
-autocmd FileType tex set iskeyword+=:,-
-autocmd FileType tex set indentexpr=
 let g:tex_conceal ='abdmg'
 let g:tex_flavor = "latex"
 let g:vimtex_view_method='skim'
