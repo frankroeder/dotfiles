@@ -13,9 +13,3 @@ defaults write com.apple.TimeMachine DoNotOfferNewDisksForBackup -bool true
 
 # Prevent Photos from opening automatically when devices are plugged in
 defaults -currentHost write com.apple.ImageCapture disableHotPlug -bool true
-
-# Turn on automatic updates.
-defaults write com.divisiblebyzero.Spectacle SUEnableAutomaticChecks -bool true
-
-# Show Spectacle in the status menu
-defaults write com.divisiblebyzero.Spectacle StatusItemEnabled -bool false

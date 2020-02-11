@@ -26,9 +26,10 @@ dpytorch() {
     -e NVIDIA_VISIBLE_DEVICES=0 anibali/pytorch python3 "$1"
 }
 
+alias drbase='docker run  --rm -it r-base'
 alias ffmpeg='docker run --rm -it -v $PWD:/data bassstring/ffmpeg'
 alias youtube-dl='docker run --rm -it -v $PWD:/data bassstring/youtube-dl'
-alias imagemagick='docker run --rm -i -t  -v $PWD:/data bassstring/imagemagick'
+alias imagemagick='docker run --rm -it  -v $PWD:/data bassstring/imagemagick'
 
 alias dps='docker ps'
 alias dimg='docker images'
