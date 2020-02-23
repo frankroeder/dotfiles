@@ -3,7 +3,7 @@
 HISTSIZE=10000
 SAVEHIST=$HISTSIZE
 HISTCONTROL=ignoreboth
-HISTORY_IGNORE="(clear|history|exit|pwd|wget *|ls|l|la|lsd|lla|cd|ag *|:q)"
+HISTORY_IGNORE="(clear|history|exit|pwd|wget *|ls|l|la|lsd|lla|cd|c|ag *|:q|del *|alias|lstcp|lsudp)"
 
 setopt HIST_IGNORE_ALL_DUPS
 setopt EXTENDED_HISTORY       # record timestamp of command in HISTFILE

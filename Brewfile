@@ -23,6 +23,7 @@ brew "ipython"
 brew "pandoc"
 brew "grip"
 brew "gnuplot"
+brew "ifstat"
 
 cask "google-cloud-sdk"
 cask "alfred"
@@ -33,7 +34,7 @@ cask "musescore"
 cask "gpg-suite"
 cask "skim"
 cask "mactex-no-gui"
-cask "font-hack"
+cask "font-hack-nerd-font"
 cask "eloston-chromium"
 
 mas "iReal Pro", id: 409035833

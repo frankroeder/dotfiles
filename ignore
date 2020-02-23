@@ -3,6 +3,7 @@ venv
 node_modules
 __pycache__
 *.ipynb
+build
 
 # macOS
 Applications

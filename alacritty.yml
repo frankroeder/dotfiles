@@ -24,7 +24,7 @@ window:
   dynamic_padding: true
 
   # Window decorations
-  decorations: none
+  decorations: buttonless
 
   startup_mode: Maximized
 
@@ -47,17 +47,17 @@ tabspaces: 2
 font:
   # Normal (roman) font face
   normal:
-    family: Hack
+    family: Hack Nerd Font
     style: Regular
 
   # Bold font face
   bold:
-    family: Hack
+    family: Hack Nerd Font
     style: Bold
 
   # Italic font face
   italic:
-    family: Hack
+    family: Hack Nerd Font
     style: Italic
 
   # Point size
@@ -217,7 +217,7 @@ key_bindings:
   - { key: K,        mods: Command,     chars: "\x0c"             }
   - { key: V,        mods: Command,     action: Paste             }
   - { key: C,        mods: Command,     action: Copy              }
-  - { key: M,        mods: Command,     action: Hide              }
+  - { key: M,        mods: Command,     action: Minimize          }
   - { key: Q,        mods: Command,     action: Quit              }
   - { key: L,        mods: Control,     action: ClearLogNotice    }
   - { key: L,        mods: Control,     chars: "\x0c"             }

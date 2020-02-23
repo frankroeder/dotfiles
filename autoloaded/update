@@ -63,7 +63,7 @@ macos_update() {
 }
 
 neovim_plug_update() {
-  nvim +PlugUpgrade +PlugInstall +PlugClean! +PlugUpdate +qall!
+  nvim -E +PlugUpgrade +PlugInstall +PlugClean! +PlugUpdate +qall!
 }
 
 mas_update() {

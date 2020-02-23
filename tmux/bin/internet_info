@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
 
-airport_info=( $(airport -I | grep -E "^ *(agrCtlRSSI|SSID):" | awk '{print $2}') )
-rssi=$(echo "${airport_info[0]}" | sed 's/-//g')
-ssid=$(echo "${airport_info[1]}")
+AIRPORT_INFO=( $(airport -I | grep -E "^ *(agrCtlRSSI|SSID):" | awk '{print $2}') )
+RSSI=$(echo "${AIRPORT_INFO[0]}" | sed 's/-//g')
+SSID=$(echo "${AIRPORT_INFO[1]}")
 
-if [[ $rssi -lt 20 ]]; then
+if [[ $RSSI -lt 20 ]]; then
   echo -n '#[fg=colour101]'
-elif [[ $rssi -lt 30 ]]; then
+elif [[ $RSSI -lt 30 ]]; then
   echo -n '#[fg=colour106]'
-elif [[ $rssi -lt 40 ]]; then
+elif [[ $RSSI -lt 40 ]]; then
   echo -n '#[fg=colour107]'
-elif [[ $rssi -lt 50 ]]; then
+elif [[ $RSSI -lt 50 ]]; then
   echo -n '#[fg=colour112]'
 else
   echo -n '#[fg=colour113]'
 fi
 
-if [ -n "$airport_info" ]; then
-  [[ -n $ssid ]] && echo -n " $ssid"
-  echo -n " -["$rssi"]db#[default]"
+if [ -n "$AIRPORT_INFO" ]; then
+  [[ -n $SSID ]] && echo -n " $SSID"
+  echo -n " -["$RSSI"]db#[default]"
 else
   ping -c 1 google.com &> /dev/null && echo -n " #[fg=colour148]LAN#[default]" \
     || echo -n ""

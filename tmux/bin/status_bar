@@ -14,6 +14,7 @@ TUNE=$("$TMUX_BIN/now_playing" "$WIDTH")
 
 if [[ $WIDTH -gt $SMALL ]]; then
   BAR+="#($TMUX_BIN/ip_info)#[default]"
+  BAR+="#($TMUX_BIN/network)"
 fi
 
 if [[ -n $TUNE ]] && [[ $WIDTH -le $SMALL ]]; then

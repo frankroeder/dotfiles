@@ -1,17 +1,12 @@
-#global gitignore
+# global gitignore
 
 jsconfig.json
 .python-version
 .vim/
 .ipynb_checkpoints
-
-# Files that might appear on external disks
-.Spotlight-V100
-.Trashes
-
-# Application specific files
 node_modules/
 .sass-cache/
+package-lock.json
 
 # Compiled source
 *.com
@@ -38,11 +33,11 @@ node_modules/
 *.tar
 *.zip
 
-# Logs and databases
-*.log
-
-# OS generated files
+# OS
 .DS_Store*
 Thumbs.db
 *.lock
-package-lock.json
+.Spotlight-V100
+.Trashes
+
+*.log

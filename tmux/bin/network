@@ -1,0 +1,32 @@
+#!/usr/bin/env zsh
+
+NET_IO=( $(ifstat -wTSq 0.1 1 | tail -n1) )
+DOWNLOAD="${NET_IO[-2]}"
+DOWNLOAD_RATE="KB/s"
+DOWNLOAD_COLOR="${onedark_green}"
+
+UPLOAD="${NET_IO[-1]}"
+UPLOAD_RATE="KB/s"
+UPLOAD_COLOR="${onedark_green}"
+
+if (( $DOWNLOAD >= 100000 )); then
+    DOWNLOAD=$(($DOWNLOAD / 1000000))
+    DOWNLOAD_RATE="GB/s"
+    DOWNLOAD_COLOR="${onedark_red}"
+elif (( $DOWNLOAD >= 100 )); then
+    DOWNLOAD=$(($DOWNLOAD / 1000))
+    DOWNLOAD_RATE="MB/s"
+    DOWNLOAD_COLOR="${onedark_yellow}"
+fi
+
+if (( $UPLOAD >= 100000 )); then
+    UPLOAD=$(($UPLOAD / 1000000))
+    UPLOAD_RATE="GB/s"
+    UPLOAD_COLOR="${onedark_red}"
+elif (( $UPLOAD >= 100 )); then
+    UPLOAD=$(($UPLOAD / 1000))
+    UPLOAD_RATE="MB/s"
+    UPLOAD_COLOR="${onedark_yellow}"
+fi
+
+printf " \uF544 #[fg=${DOWNLOAD_COLOR}]%.1f${DOWNLOAD_RATE}#[default] \uF55C #[fg=${UPLOAD_COLOR}]%.1f${UPLOAD_RATE}#[default]" "${DOWNLOAD}" "${UPLOAD}"
