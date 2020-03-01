@@ -10,6 +10,7 @@ alias speedtest="wget -O /dev/null http://speed.transip.nl/100mb.bin"
 alias vimrc="$EDITOR ~/.dotfiles/vim/init.vim"
 alias localrc="if [[ -a ~/.local.zsh ]]; then ${EDITOR} ~/.local.zsh; fi"
 alias localgit="if [[ -a ~/.local.gitconfig ]]; then ${EDITOR} ~/.local.gitconfig; fi"
+alias localtmux="if [[ -a ~/.local.tmux ]]; then ${EDITOR} ~/.local.tmux; fi"
 
 # CPU and MEM Monitoring
 alias cpu="top -F -R -o cpu"

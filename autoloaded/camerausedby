@@ -1,0 +1,4 @@
+#!/usr/bin/env zsh
+
+local USEDBY=$(lsof | grep -w "AppleCamera\|USBVDC\|iSight" | awk '{printf $2"\n"}' | xargs ps)
+echo -e "iSight camera \uF03D  recently used by:\n${USEDBY}"

@@ -39,6 +39,9 @@ defaults write com.apple.print.PrintingPrefs "Quit When Finished" -bool true
 
 defaults write org.python.python ApplePersistenceIgnoreState -bool false
 
+# Limit ad tracking
+defaults write com.apple.AdLib forceLimitAdTracking -bool false
+
 find ~/.dotfiles/macos -name "*.bash" ! -name "main.bash" -exec bash {} \;
 
 # Kill affected applications

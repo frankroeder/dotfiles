@@ -1,5 +1,5 @@
 # Disable the sound effects on boot
-sudo nvram SystemAudioVolume=%00
+sudo nvram SystemAudioVolume=" "
 
 # Check for software updates daily, not just once per week
 defaults write com.apple.SoftwareUpdate ScheduleFrequency -bool true

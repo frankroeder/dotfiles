@@ -13,3 +13,7 @@ defaults write com.apple.TimeMachine DoNotOfferNewDisksForBackup -bool true
 
 # Prevent Photos from opening automatically when devices are plugged in
 defaults -currentHost write com.apple.ImageCapture disableHotPlug -bool true
+
+# Disable signing emails by default
+defaults write ~/Library/Preferences/org.gpgtools.gpgmail SignNewEmailsByDefault -bool true
+defaults write ~/Library/Preferences/org.gpgtools.gpgmail EncryptNewEmailsByDefault -bool false
