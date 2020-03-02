@@ -3,7 +3,8 @@
 ################################################################################
 
 # Wipe all (default) app icons from the Dock
-defaults write com.apple.dock persistent-apps -array
+defaults delete com.apple.dock persistent-apps
+defaults delete com.apple.dock persistent-others
 
 # Show indicator lights for open applications in the Dock
 defaults write com.apple.dock show-process-indicators -bool false
@@ -41,3 +42,9 @@ defaults write com.apple.dock autohide -int 1
 
 # Make Dock icons of hidden applications translucent
 defaults write com.apple.dock showhidden -int 1
+
+# Disable bounce animation on notification.
+defaults write com.apple.dock no-bouncing -bool true
+
+# Disable iTunes track notifications in the Dock
+defaults write com.apple.dock itunes-notifications -bool false

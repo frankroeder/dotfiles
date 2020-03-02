@@ -47,4 +47,20 @@ chflags nohidden ~/Library
 defaults write com.apple.finder CreateDesktop -bool false
 
 # When performing a search, search the current folder by default
+# Possible values:
+# * SCev: This Mac
+# * SCcf: Current Folder
+# * SCsp: Previous Scope
 defaults write com.apple.finder FXDefaultSearchScope -string "SCcf"
+
+# Set Downloads folder as the default location for new Finder windows.
+# Possible values:
+# * PfCm: Computer
+# * PfVo: Volume
+# * PfHm: $HOME
+# * PfDe: Desktop
+# * PfDo: Documents
+# * PfAF: All My Files
+# * PfLo: Other
+defaults write com.apple.finder NewWindowTarget -string "PfLo"
+defaults write com.apple.finder NewWindowTargetPath -string "file://${HOME}/Downloads/"

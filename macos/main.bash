@@ -9,9 +9,8 @@ osascript -e 'tell application "System Preferences" to quit'
 # Ask for the administrator password upfront
 sudo -v
 
-# Keep-alive: update existing `sudo` time stamp until `macos` has finished
+# Keep-alive: update existing `sudo` time stamp until script has finished
 while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
-
 
 read -p 'Please input computer name or leave empty to keep current name: ' COMPUTER_NAME
 
@@ -39,9 +38,6 @@ defaults write com.apple.print.PrintingPrefs "Quit When Finished" -bool true
 
 defaults write org.python.python ApplePersistenceIgnoreState -bool false
 
-# Limit ad tracking
-defaults write com.apple.AdLib forceLimitAdTracking -bool false
-
 find ~/.dotfiles/macos -name "*.bash" ! -name "main.bash" -exec bash {} \;
 
 # Kill affected applications
@@ -56,6 +52,8 @@ for app in "Activity Monitor" \
   "Safari" \
   "iCal" \
   "cfprefsd" \
+  "VLC" \
+  "Skim" \
   "SystemUIServer"; do
   killall "${app}" &> /dev/null
 done

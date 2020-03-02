@@ -60,3 +60,11 @@ defaults write com.apple.AppleMultitouchTrackpad ActuationStrength -int 0
 defaults write NSGlobalDomain com.apple.trackpad.forceClick -bool true
 defaults write com.apple.AppleMultitouchTrackpad ForceSuppressed -bool false
 defaults write com.apple.AppleMultitouchTrackpad ActuateDetents -bool true
+
+# Enable Tap to click (tap with one finger).
+defaults write com.apple.AppleMultitouchTrackpad Clicking -bool true
+
+# Set keyboard input sources
+defaults write com.apple.HIToolbox AppleEnabledInputSources -array \
+  '{ "InputSourceKind" = "Keyboard Layout"; "KeyboardLayout ID" = 3; "KeyboardLayout Name" = German; }' \
+  '{ "Bundle ID" = "com.apple.CharacterPaletteIM"; "InputSourceKind" = "Non Keyboard Input Method"; }'
