@@ -83,7 +83,7 @@ nvim:
 	@ln -sfv $(DOTFILES_DIR)/vim/spell  ~/.config/nvim/
 	@ln -sfv $(DOTFILES_DIR)/vim/colors  ~/.config/nvim/
 	@ln -sfv $(DOTFILES_DIR)/vim/ftplugin ~/.config/nvim/
-	@ln -sfv $(DOTFILES_DIR)/coc-settings.json ~/.config/nvim/
+	@ln -sfv $(DOTFILES_DIR)/vim/coc-settings.json ~/.config/nvim/
 	GO111MODULE=on go get golang.org/x/tools/gopls@latest
 	@which sourcekit-lsp || bash $(DOTFILES_DIR)/scripts/install_sourcekit-lsp.sh
 	@python3 -m pip install setuptools neovim unidecode numpy matplotlib
