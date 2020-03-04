@@ -1,9 +1,9 @@
 ! [ $commands[docker] ] && return
 
-alias dredis='docker run -p 6379:6379 redis'
-alias dmongodb='docker run -p 27017:27017 mongo'
-alias dmysql="docker run -p 3306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -d mysql"
-alias dbusybox='docker run -it --rm busybox'
+alias dredis='docker run -p 6379:6379 redis:latest'
+alias dmongodb='docker run -p 27017:27017 mongo:latest'
+alias dmysql="docker run -p 3306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -d mysql:latest"
+alias dbusybox='docker run -it --rm busybox:latest'
 
 d{lab,notebook}() {
   local fn=${funcstack[1]:1}
@@ -11,26 +11,28 @@ d{lab,notebook}() {
   local dockerhome="/home/jovyan/work"
   if [[ $fn = "lab" ]]; then
     docker run --rm -p "$port:$port" -e JUPYTER_ENABLE_LAB=yes \
-      -v "$PWD":$dockerhome  jupyter/datascience-notebook:latest
-  elif [[ $fn = "notebook" ]]; then
+      -v "$PWD":$dockerhome  jupyter/datascience-notebook:latest \
+      start-notebook.sh --NotebookApp.port=$port \
+      --NotebookApp.quit_button=False
+  else
     docker run --rm -p "$port:$port" -v "$PWD":$dockerhome \
-      jupyter/scipy-notebook:latest
+      bassstring/notebook:latest start-notebook.sh --NotebookApp.port=$port
   fi
 }
 dtf() {
-  docker run -it --rm -v "$PWD":/tmp -w /tmp tensorflow/tensorflow python "$1"
+  docker run -it --rm -v "$PWD":/tmp -w /tmp tensorflow/tensorflow:latest python "$1"
 }
 dpytorch() {
   docker run --rm -it --init --ipc=host \
     --user="$(id -u):$(id -g)" --volume="$PWD:/app" \
-    -e NVIDIA_VISIBLE_DEVICES=0 anibali/pytorch python3 "$1"
+    -e NVIDIA_VISIBLE_DEVICES=0 anibali/pytorch:latest python3 "$1"
 }
 
-alias drbase='docker run  --rm -it r-base'
-alias ffmpeg='docker run --rm -it -v $PWD:/data bassstring/ffmpeg'
-alias youtube-dl='docker run --rm -it -v $PWD:/data bassstring/youtube-dl'
-alias imagemagick='docker run --rm -it  -v $PWD:/data bassstring/imagemagick'
-alias tldr='docker run --rm -it -v ~/.tldr/:/root/.tldr/ nutellinoit/tldr'
+alias drbase='docker run  --rm -it r-base:latest'
+alias ffmpeg='docker run --rm -it -v $PWD:/data bassstring/ffmpeg:latest'
+alias youtube-dl='docker run --rm -it -v $PWD:/data bassstring/youtube-dl:latest'
+alias imagemagick='docker run --rm -it  -v $PWD:/data bassstring/imagemagick:latest'
+alias tldr='docker run --rm -it -v ~/.tldr/:/root/.tldr/ nutellinoit/tldr:latest'
 
 alias dps='docker ps'
 alias dimg='docker images'
