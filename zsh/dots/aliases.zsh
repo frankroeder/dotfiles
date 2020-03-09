@@ -15,10 +15,7 @@ alias localtmux="if [[ -a ~/.local.tmux ]]; then ${EDITOR} ~/.local.tmux; fi"
 # CPU and MEM Monitoring
 alias cpu="top -F -R -o cpu"
 alias mem="top -F -o rsize"
-
-# List top 5 processes by CPU usage
-alias hogs="ps -acrx -o pid,%cpu,command | awk 'NR<=6'"
-alias battery="pmset -g ps"
+alias hogs="ps wwaxr -o pid,stat,%cpu,time,command | awk 'NR<=10'"
 
 # Print each PATH entry on a separate line
 alias path='echo -e ${PATH//:/\\n}'
@@ -41,6 +38,7 @@ alias npmlsg='npm ls --depth=0 -g'
 alias dfh='df -h'
 alias copypubkey='pbcopy < ~/.ssh/id_rsa.pub'
 alias iplab='ipython --pylab'
+
 # open last edited file
 alias v0="vim -c \"normal '0\""
 alias online="ping -c 1 www.example.com &> /dev/null && echo 'Online :)' || echo 'Offline :('"

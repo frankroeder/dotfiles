@@ -28,7 +28,7 @@ Plug 'godlygeek/tabular', { 'for': 'markdown' }
 Plug 'plasticboy/vim-markdown', {'depends': 'godlygeek/tabular', 'for': 'markdown'}
 Plug 'JamshedVesuna/vim-markdown-preview', { 'for': 'markdown' }
 Plug 'lervag/vim-latex', { 'for': 'tex' }
-Plug 'bassstring/apple-swift'
+Plug 'bassstring/apple-swift' , { 'for': ['swift', 'sil', 'swiftgyb'] }
 
 " style
 Plug 'vim-airline/vim-airline'

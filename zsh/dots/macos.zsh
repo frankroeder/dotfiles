@@ -11,6 +11,7 @@ alias lock='/System/Library/CoreServices/Menu\ Extras/User.menu/Contents/Resourc
 alias afk="open -a /System/Library/CoreServices/ScreenSaverEngine.app"
 alias wifion='networksetup -setairportpower en0 on'
 alias wifioff='networksetup -setairportpower en0 off'
+alias battery="pmset -g ps"
 
 # Recursively delete all .DS_Store files
 alias rmds_store="find ~/ -type f -name '*.DS_Store' -ls -delete"

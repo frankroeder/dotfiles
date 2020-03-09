@@ -41,6 +41,7 @@ alias dkillall='docker kill $(docker ps -a -q)'
 alias drmiall='docker rmi $(docker images -a -q)'
 alias dsdf='docker system df'
 alias dsev='docker system events'
+alias dsprune='docker system prune'
 
 dcids() {
   local cids cmd

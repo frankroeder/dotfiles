@@ -47,12 +47,10 @@ antibody_update() {
 npm_update() {
   npm install npm -g;
   npm update -g;
+  npm cache clean;
 }
 
 gem_update() {
-  gem update --system;
-  gem update;
-  gem cleanup;
   sudo gem update --system;
   sudo gem update;
   sudo gem cleanup;
