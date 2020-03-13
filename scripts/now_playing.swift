@@ -60,14 +60,14 @@ class MediaInfo {
   func getTitleInfo() {
     let scriptOut = self.runScript()
     if self.parseArgs() >= 130 {
-      if scriptOut.count > 64 {
-        print(self.formatTitle(titleStr: scriptOut, windowLen: 60))
+      if scriptOut.count >= 34 {
+        print(self.formatTitle(titleStr: scriptOut, windowLen: 34))
       } else {
         print(scriptOut)
       }
     } else {
       if scriptOut.count > maxLen {
-        print(self.formatTitle(titleStr: scriptOut, windowLen: 28))
+        print(self.formatTitle(titleStr: scriptOut, windowLen: 20))
       } else {
         print(scriptOut)
       }

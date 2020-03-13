@@ -45,7 +45,7 @@ misc:
 	@ln -sfv $(DOTFILES_DIR)/tmux/tmux.conf ~/.tmux.conf
 	@ln -sfv $(DOTFILES_DIR)/htoprc ~/.config/htop/htoprc
 	@ln -sfv $(DOTFILES_DIR)/latexmkrc ~/.latexmkrc
-	(cd $(DOTFILES_DIR)/tmux/bin && /usr/bin/swiftc $(DOTFILES_DIR)/scripts/now_playing.swift)
+	(cd $(DOTFILES_DIR)/bin && /usr/bin/swiftc $(DOTFILES_DIR)/scripts/now_playing.swift)
 	@which osx-cpu-temp || bash $(DOTFILES_DIR)/scripts/install_osx_cpu_temp.sh
 
 .PHONY: zsh

@@ -33,6 +33,7 @@ alias ffmpeg='docker run --rm -it -v $PWD:/data bassstring/ffmpeg:latest'
 alias youtube-dl='docker run --rm -it -v $PWD:/data bassstring/youtube-dl:latest'
 alias imagemagick='docker run --rm -it  -v $PWD:/data bassstring/imagemagick:latest'
 alias tldr='docker run --rm -it -v ~/.tldr/:/root/.tldr/ nutellinoit/tldr:latest'
+alias shellcheck='docker run --rm -v $PWD:/mnt koalaman/shellcheck:latest  -C always -s bash'
 
 alias dps='docker ps'
 alias dimg='docker images'

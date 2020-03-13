@@ -5,12 +5,12 @@ alias grep='grep --color=auto'
 alias src='exec "$SHELL" -l'
 alias {dotfiles,dots}='cd ~/.dotfiles'
 alias tmp='cd ~/tmp'
-alias vim=$EDITOR
+alias vim='$EDITOR'
 alias speedtest="wget -O /dev/null http://speed.transip.nl/100mb.bin"
 alias vimrc="$EDITOR ~/.dotfiles/vim/{init.vim,plugin/*}"
-alias localrc="if [[ -a ~/.local.zsh ]]; then ${EDITOR} ~/.local.zsh; fi"
-alias localgit="if [[ -a ~/.local.gitconfig ]]; then ${EDITOR} ~/.local.gitconfig; fi"
-alias localtmux="if [[ -a ~/.local.tmux ]]; then ${EDITOR} ~/.local.tmux; fi"
+alias localrc="if [[ -a ~/.local.zsh ]]; then $EDITOR ~/.local.zsh; fi"
+alias localgit="if [[ -a ~/.local.gitconfig ]]; then $EDITOR ~/.local.gitconfig; fi"
+alias localtmux="if [[ -a ~/.local.tmux ]]; then $EDITOR ~/.local.tmux; fi"
 
 # CPU and MEM Monitoring
 alias cpu="top -F -R -o cpu"
@@ -22,7 +22,7 @@ alias path='echo -e ${PATH//:/\\n}'
 
 # Print each function name
 alias showfunctions="declare -f | grep '^[a-z].* ()' | sed 's/{$//'"
-alias ag="ag --path-to-ignore ${DOTFILES}/ignore"
+alias ag="ag --path-to-ignore $DOTFILES/ignore"
 alias :q="exit"
 alias ipd="curl -sS ipinfo.io  2>/dev/null | jq ."
 alias -g @="| grep -i"
@@ -39,5 +39,5 @@ alias copypubkey='pbcopy < ~/.ssh/id_rsa.pub'
 alias iplab='ipython --pylab'
 
 # open last edited file
-alias v0="vim -c \"normal '0\""
+alias v0="$EDITOR -c \"normal '0\""
 alias online="ping -c 1 www.example.com &> /dev/null && echo 'Online :)' || echo 'Offline :('"
