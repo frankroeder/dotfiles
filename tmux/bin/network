@@ -3,11 +3,11 @@
 NET_IO=( $(ifstat -wTSq 0.1 1 | tail -n1) )
 DOWNLOAD="${NET_IO[-2]}"
 DOWNLOAD_RATE="KB/s"
-DOWNLOAD_COLOR="${onedark_green}"
+DOWNLOAD_COLOR="${ONEDARK_GREEN}"
 
 UPLOAD="${NET_IO[-1]}"
 UPLOAD_RATE="KB/s"
-UPLOAD_COLOR="${onedark_green}"
+UPLOAD_COLOR="${ONEDARK_GREEN}"
 
 if (( $DOWNLOAD >= 100000 )); then
     DOWNLOAD=$(($DOWNLOAD / 1000000))
@@ -16,17 +16,17 @@ if (( $DOWNLOAD >= 100000 )); then
 elif (( $DOWNLOAD >= 100 )); then
     DOWNLOAD=$(($DOWNLOAD / 1000))
     DOWNLOAD_RATE="MB/s"
-    DOWNLOAD_COLOR="${onedark_yellow}"
+    DOWNLOAD_COLOR="${ONEDARK_GREEN}"
 fi
 
 if (( $UPLOAD >= 100000 )); then
     UPLOAD=$(($UPLOAD / 1000000))
     UPLOAD_RATE="GB/s"
-    UPLOAD_COLOR="${onedark_red}"
+    UPLOAD_COLOR="${ONEDARK_RED}"
 elif (( $UPLOAD >= 100 )); then
     UPLOAD=$(($UPLOAD / 1000))
     UPLOAD_RATE="MB/s"
-    UPLOAD_COLOR="${onedark_yellow}"
+    UPLOAD_COLOR="${ONEDARK_YELLOW}"
 fi
 
 printf " \uF544 #[fg=${DOWNLOAD_COLOR}]%04.1f${DOWNLOAD_RATE}#[default] \uF55C #[fg=${UPLOAD_COLOR}]%04.1f${UPLOAD_RATE}#[default]" "${DOWNLOAD}" "${UPLOAD}"

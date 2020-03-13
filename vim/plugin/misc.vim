@@ -1,13 +1,3 @@
-function StripTrailingWhitespaces()
-  " last cursor and search position
-  let _s=@/
-  let l = line(".")
-  let c = col(".")
-  %s/\s\+$//e
-  let @/=_s
-  call cursor(l, c)
-endfunction
-
 " Rainbow
 let g:rainbow_active = 1
 

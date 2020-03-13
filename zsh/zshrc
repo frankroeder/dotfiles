@@ -11,15 +11,16 @@ else
 fi
 
 # autoloaded functions (lazy loading)
-zsh_fpath=$DOTFILES/autoloaded
-fpath=($zsh_fpath $fpath)
+zsh_functions=$DOTFILES/autoloaded
+fpath=($zsh_functions $fpath)
 
-if [[ -d "$zsh_fpath" ]]; then
-    for func in $zsh_fpath/*; do
+if [[ -d "$zsh_functions" ]]; then
+    for func in $zsh_functions/*; do
         autoload -Uz ${func:t}
     done
+    unset func
 fi
-unset zsh_fpath
+unset zsh_functions
 
 # Plugins
 source ~/.zsh/zsh_plugins.sh
@@ -30,13 +31,14 @@ ZSH_AUTOSUGGEST_USE_ASYNC=true
 zle_highlight+=(paste:none)
 
 # load configs
-zsh_fpath=$DOTFILES/zsh/dots
-if [[ -d "$zsh_fpath" ]]; then
-    for file in $zsh_fpath/*.zsh; do
+zsh_dots=$DOTFILES/zsh/dots
+if [[ -d "$zsh_dots" ]]; then
+    for file in $zsh_dots/*.zsh; do
         source $file
     done
+    unset file
 fi
-unset zsh_fpath
+unset zsh_dots
 
 [ -f ~/.local.zsh ] && source ~/.local.zsh
 
