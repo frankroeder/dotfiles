@@ -21,16 +21,6 @@ nnoremap <Leader>wr :set wrap!<CR>
 " Fast save
 nnoremap <Leader><Leader> :w<CR>
 
-" spell check
-map <silent> <F6> :setlocal spell! spelllang=en<CR>
-map <silent> <F7> :setlocal spell! spelllang=de<CR>
-
-" Spell error: pick the first result
-nnoremap <Leader>z z=1<CR><CR>
-
-" Fix spelling mistakes on the fly
-inoremap <C-S> <C-G>u<Esc>[s1z=`]a<C-G>u
-
 " Disable Arrow keys in Escape mode
 map <Up> <nop>
 map <Down> <nop>

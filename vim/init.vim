@@ -99,8 +99,6 @@ let g:python3_host_prog = '/usr/local/bin/python3'
 set pyx=3
 
 " syntax and style
-set t_Co=256                " Enable full-color support
-
 if has('nvim') || has('termguicolors')
   let $NVIM_TUI_ENABLE_TRUE_COLOR=1
   set termguicolors

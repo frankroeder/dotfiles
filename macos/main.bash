@@ -21,6 +21,7 @@ else
   sudo scutil --set HostName "$COMPUTER_NAME"
   sudo scutil --set LocalHostName "$COMPUTER_NAME"
   sudo defaults write /Library/Preferences/SystemConfiguration/com.apple.smb.server NetBIOSName -string "$COMPUTER_NAME"
+  echo "New name: $COMPUTER_NAME"
 fi
 
 # Expand save panel by default
