@@ -16,7 +16,7 @@ if (( $DOWNLOAD >= 100000 )); then
 elif (( $DOWNLOAD >= 100 )); then
     DOWNLOAD=$(($DOWNLOAD / 1000))
     DOWNLOAD_RATE="MB/s"
-    DOWNLOAD_COLOR="${ONEDARK_GREEN}"
+    DOWNLOAD_COLOR="${ONEDARK_YELLOW}"
 fi
 
 if (( $UPLOAD >= 100000 )); then

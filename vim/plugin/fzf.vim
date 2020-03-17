@@ -68,21 +68,21 @@ command! -bang -nargs=? FzfGitFiles
       \ <bang>0)
 
 command! -bang Colors
-      \ call fzf#vim#colors({'window': 'call CreateCenteredFloatingWindow()'},
+      \ call fzf#vim#colors({'window': { 'width': 0.3, 'height': 0.6 } },
       \ <bang>0)
 
 command! -bang Buffers
-      \ call fzf#vim#buffers({'window': 'call CreateCenteredFloatingWindow()'},
+      \ call fzf#vim#buffers({'window': { 'width': 0.6, 'height': 0.6 } },
       \ <bang>0)
 
 command! -bang Commands
-      \ call fzf#vim#commands({'window': 'call CreateCenteredFloatingWindow()'},
+      \ call fzf#vim#commands({'window': { 'width': 0.9, 'height': 0.6 } },
       \ <bang>0)
 
 command! -bang Maps
-      \ call fzf#vim#maps('', {'window': 'call CreateCenteredFloatingWindow()'},
+      \ call fzf#vim#maps('', {'window': { 'width': 0.9, 'height': 0.6 } },
       \ <bang>0)
 
 command! -bang Marks
-      \ call fzf#vim#marks({'window': 'call CreateCenteredFloatingWindow()'},
+      \ call fzf#vim#marks({'window': { 'width': 0.9, 'height': 0.6 } },
       \ <bang>0)
