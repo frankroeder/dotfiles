@@ -56,6 +56,10 @@ dimgids() {
   imgids=$(docker images -a | sed 1d | fzf --exit-0 --query="$1" | awk '{print $3}')
   echo $imgids
 }
+drun() {
+  local imgids=$(dimgids)
+  [ -n "$imgids" ] && docker run $@ $imgids
+}
 d{start,rm} () {
   local cid=$(dcids 1)
   local fn=${funcstack[1]:1}

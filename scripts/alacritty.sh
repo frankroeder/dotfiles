@@ -2,8 +2,14 @@
 
 ping -c 1 www.google.com
 if [ $? -eq 0 ]; then
-  git clone https://github.com/alacritty/alacritty.git ~/tmp/alacritty
-  cd ~/tmp/alacritty
+  SRC_DIR="$HOME/tmp/alacritty"
+  if [[ -d $SRC_DIR ]]; then
+    cd $SRC_DIR
+    git pull
+  else
+    git clone https://github.com/alacritty/alacritty.git $SRC_DIR
+    cd $SRC_DIR
+  fi
   # install manual page
   gzip -c extra/alacritty.man | sudo tee /usr/local/share/man/man1/alacritty.1.gz > /dev/null
   # install shell completions

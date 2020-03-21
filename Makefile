@@ -46,7 +46,7 @@ misc:
 	@ln -sfv $(DOTFILES_DIR)/htoprc ~/.config/htop/htoprc
 	@ln -sfv $(DOTFILES_DIR)/latexmkrc ~/.latexmkrc
 	(cd $(DOTFILES_DIR)/bin && /usr/bin/swiftc $(DOTFILES_DIR)/scripts/now_playing.swift)
-	@which osx-cpu-temp || bash $(DOTFILES_DIR)/scripts/install_osx_cpu_temp.sh
+	@which osx-cpu-temp || bash $(DOTFILES_DIR)/scripts/osx_cpu_temp.sh
 
 .PHONY: zsh
 zsh:
@@ -86,7 +86,7 @@ nvim:
 	@ln -sfv $(DOTFILES_DIR)/vim/ftdetect ~/.config/nvim/
 	@ln -sfv $(DOTFILES_DIR)/vim/coc-settings.json ~/.config/nvim/
 	GO111MODULE=on go get golang.org/x/tools/gopls@latest
-	@which sourcekit-lsp || bash $(DOTFILES_DIR)/scripts/install_sourcekit-lsp.sh
+	@which sourcekit-lsp || bash $(DOTFILES_DIR)/scripts/sourcekit-lsp.sh
 	@python3 -m pip install setuptools neovim unidecode numpy matplotlib
 	@python3 -m pip install --user jedi --upgrade
 
