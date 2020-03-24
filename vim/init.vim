@@ -164,3 +164,6 @@ augroup END
 
 "Incrementing and decrementing alphabetical characters
 set nrformats+=alpha
+
+set mps+=<:>
+autocmd FileType c,cpp,java set mps+==:;

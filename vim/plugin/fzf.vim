@@ -34,6 +34,7 @@ noremap <C-H> :FzfHelptags <CR>
 nnoremap <C-B> :Buffers<Cr>
 nnoremap <C-F> :FzfAg <CR>
 nnoremap <C-P> :FzfBLines<Cr>
+nnoremap <Leader>s :FzfSnippets<Cr>
 
 " [[B]Commits] Customize the options used by 'git log':
 let g:fzf_commits_log_options =

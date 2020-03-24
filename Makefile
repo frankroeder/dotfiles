@@ -70,8 +70,9 @@ npm:
 	@npm i -g eslint
 	@npm i -g neovim
 	@ln -sfv $(DOTFILES_DIR)/eslintrc ~/.eslintrc
-	@npm i -g bash-language-server
-	@npm i -g typescript-language-server
+	@npm i -g javascript-typescript-langserver
+	@npm i -g vscode-html-languageserver-bin
+	@npm i -g vscode-css-languageserver-bin
 
 .PHONY: nvim
 nvim:
@@ -81,8 +82,8 @@ nvim:
 	@ln -sfv $(DOTFILES_DIR)/vim/* ~/.config/nvim/
 	GO111MODULE=on go get golang.org/x/tools/gopls@latest
 	@which sourcekit-lsp || bash $(DOTFILES_DIR)/scripts/sourcekit-lsp.sh
-	@python3 -m pip install setuptools neovim unidecode numpy matplotlib
-	@python3 -m pip install 'python-language-server[rope,autopep8]'
+	@pip3 install --upgrade setuptools neovim unidecode numpy matplotlib
+	@pip3 install --upgrade pyflakes autopep8 rope python-language-server
 
 .PHONY: git
 git:

@@ -4,13 +4,6 @@ let g:vim_markdown_fenced_languages = ['html', 'css', 'js=javascript',
       \ 'c++=cpp', 'c', 'go', 'viml=vim', 'bash=sh', 'python']
 let g:vim_markdown_strikethrough = 1
 
-augroup markdown
-  au FileType markdown nmap <F2> :Toct <CR>
-  au FileType markdown nmap <F3> :HeaderIncrease <CR>
-  au FileType markdown nmap <F4> :HeaderDecrease <CR>
-  au FileType markdown nmap <F5> :TableFormat <CR>
-augroup END
-
 " Markdown Preview
 let g:vim_markdown_preview_hotkey='<Leader>m'
 

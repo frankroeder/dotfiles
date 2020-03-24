@@ -1,20 +1,6 @@
 {
   "pyls": {
-    "enabled": true,
-    "plugins": {
-      "pyflakes": {
-        "enabled": false
-      },
-      "pydocstyle": {
-        "enabled": false
-      },
-      "pylint": {
-        "enabled": false
-      },
-      "yapf": {
-        "enabled": false
-      }
-    }
+    "plugins": {}
   },
   "gopls": {
     "usePlaceholders": true,

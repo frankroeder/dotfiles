@@ -20,4 +20,3 @@ export LANG=en_US.UTF-8
 export LC_ALL=$LANG
 
 export GPG_TTY=$(tty)
-export PY_VERSION=$(python3 -V | awk -F " " '{print $2}' | cut -d'.' -f1-2)
