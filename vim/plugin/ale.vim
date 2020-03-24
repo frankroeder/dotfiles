@@ -22,6 +22,7 @@ let g:ale_python_autopep8_executable = '/usr/local/bin/autopep8'
 let g:ale_python_pyflakes_executable = '/usr/local/bin/pyflakes'
 let g:ale_c_clangformat_executable = '/usr/local/opt/llvm/bin/clang-format'
 let g:ale_c_clangtidy_executable = '/usr/local/opt/llvm/bin/clang-tidy'
+let g:ale_javascript_eslint_executable = '/usr/local/bin/eslint'
 
 let g:ale_fixers = {
       \ 'python': ['autopep8'],
