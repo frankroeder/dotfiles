@@ -20,10 +20,18 @@ Plug 'tpope/vim-rhubarb'
 Plug 'tpope/vim-surround'
 Plug 'tpope/vim-repeat'
 Plug 'mhinz/vim-signify'
+Plug 'dense-analysis/ale'
+Plug 'SirVer/ultisnips'
 
 " language support
-Plug 'neoclide/coc.nvim', {'branch': 'release'}
-Plug 'fatih/vim-go', { 'do': ':GoUpdateBinaries', 'for': 'go' }
+Plug 'autozimu/LanguageClient-neovim', {
+      \ 'branch': 'next',
+      \ 'do': 'bash install.sh',
+      \ }
+Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
+Plug 'Shougo/echodoc'
+Plug 'ncm2/float-preview'
+
 Plug 'godlygeek/tabular', { 'for': 'markdown' }
 Plug 'plasticboy/vim-markdown', {'depends': 'godlygeek/tabular', 'for': 'markdown'}
 Plug 'JamshedVesuna/vim-markdown-preview', { 'for': 'markdown' }
@@ -60,7 +68,7 @@ set synmaxcol=2500          " Limit syntax highlighting (this
                             " when files contain long lines)
 set updatetime=300
 set shortmess+=c
-set signcolumn=yes
+set signcolumn=yes          " always draw sign column
 set cmdheight=2
 set hidden
 

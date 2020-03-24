@@ -70,25 +70,19 @@ npm:
 	@npm i -g eslint
 	@npm i -g neovim
 	@ln -sfv $(DOTFILES_DIR)/eslintrc ~/.eslintrc
+	@npm i -g bash-language-server
+	@npm i -g typescript-language-server
 
 .PHONY: nvim
 nvim:
 	@echo -e "\033[1m\033[34m==> Installing nvim dependencies\033[0m"
 	@nvim +PlugInstall +qall
 	@nvim +"call mkdir(stdpath('config'), 'p')" +qall
-	@ln -sfv $(DOTFILES_DIR)/vim/init.vim ~/.config/nvim/
-	@ln -sfv $(DOTFILES_DIR)/vim/plugin ~/.config/coc/
-	@ln -sfv $(DOTFILES_DIR)/vim/ultisnips ~/.config/coc/
-	@ln -sfv $(DOTFILES_DIR)/vim/pythonx  ~/.config/nvim/
-	@ln -sfv $(DOTFILES_DIR)/vim/spell  ~/.config/nvim/
-	@ln -sfv $(DOTFILES_DIR)/vim/colors  ~/.config/nvim/
-	@ln -sfv $(DOTFILES_DIR)/vim/ftplugin ~/.config/nvim/
-	@ln -sfv $(DOTFILES_DIR)/vim/ftdetect ~/.config/nvim/
-	@ln -sfv $(DOTFILES_DIR)/vim/coc-settings.json ~/.config/nvim/
+	@ln -sfv $(DOTFILES_DIR)/vim/* ~/.config/nvim/
 	GO111MODULE=on go get golang.org/x/tools/gopls@latest
 	@which sourcekit-lsp || bash $(DOTFILES_DIR)/scripts/sourcekit-lsp.sh
 	@python3 -m pip install setuptools neovim unidecode numpy matplotlib
-	@python3 -m pip install --user jedi --upgrade
+	@python3 -m pip install 'python-language-server[rope,autopep8]'
 
 .PHONY: git
 git:
