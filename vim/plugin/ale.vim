@@ -23,6 +23,8 @@ let g:ale_python_pyflakes_executable = '/usr/local/bin/pyflakes'
 let g:ale_c_clangformat_executable = '/usr/local/opt/llvm/bin/clang-format'
 let g:ale_c_clangtidy_executable = '/usr/local/opt/llvm/bin/clang-tidy'
 let g:ale_javascript_eslint_executable = '/usr/local/bin/eslint'
+let g:ale_javascript_eslint_options = '--no-eslintrc'
+let g:ale_typescript_tsserver_executable = '/usr/local/bin/tsserver'
 
 let g:ale_fixers = {
       \ 'python': ['autopep8'],
@@ -30,14 +32,14 @@ let g:ale_fixers = {
       \ 'cpp': ['clang-format', 'clangtidy'],
       \ 'go': ['gofmt', 'goimport'],
       \ 'javascript': ['eslint'],
-      \ 'typescript': ['tslint', 'eslint'],
+      \ 'typescript': ['tslint'],
       \ }
 
 let g:ale_linters = {
       \ 'python': ['pyflakes'],
       \ 'go': ['gofmt', 'golint', 'golangci-lint', 'gobuild'],
       \ 'javascript': ['eslint'],
-      \ 'typescript': ['eslint'],
+      \ 'typescript': ['tslint', 'tsserver'],
       \ 'c': ['clang', 'clangtidy', 'clangd'],
       \ 'cpp': ['clang', 'clangtidy', 'clangd'],
       \ 'help': [],

@@ -69,7 +69,6 @@ npm:
 	@npm i -g typescript
 	@npm i -g eslint
 	@npm i -g neovim
-	@ln -sfv $(DOTFILES_DIR)/eslintrc ~/.eslintrc
 	@npm i -g javascript-typescript-langserver
 	@npm i -g vscode-html-languageserver-bin
 	@npm i -g vscode-css-languageserver-bin

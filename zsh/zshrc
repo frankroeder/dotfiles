@@ -1,5 +1,8 @@
 #!/usr/bin/env zsh
 
+# Uncomment to profile zsh
+# zmodload zsh/zprof && zprof
+
 # ensure to only execute on ZSH
 [ ! -n "$ZSH_VERSION" ] && return
 
@@ -40,8 +43,18 @@ if [[ -d "$zsh_dots" ]]; then
 fi
 unset zsh_dots
 
+# enable completions
+if [ -d ~/.zsh/completion ]; then
+    fpath=(~/.zsh/completion $fpath)
+    autoload -U ~/.zsh/compeltion/*(:t)
+fi
+
 [ -f ~/.local.zsh ] && source ~/.local.zsh
 
 # Prevent duplicates in PATH and FPATH
 typeset -U path fpath
 export PATH
+
+if ( which zprof > /dev/null ); then
+  zprof | less
+fi
