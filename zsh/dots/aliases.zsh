@@ -7,10 +7,11 @@ alias {dotfiles,dots}='cd ~/.dotfiles'
 alias tmp='cd ~/tmp'
 alias vim='$EDITOR'
 alias speedtest="wget -O /dev/null http://speed.transip.nl/100mb.bin"
-alias vimrc="$EDITOR ~/.dotfiles/vim/{init.vim,plugin/*}"
+alias vimrc="$EDITOR ~/.dotfiles/nvim/{init.vim,plugin/*}"
 alias localrc="if [[ -a ~/.local.zsh ]]; then $EDITOR ~/.local.zsh; fi"
 alias localgit="if [[ -a ~/.local.gitconfig ]]; then $EDITOR ~/.local.gitconfig; fi"
 alias localtmux="if [[ -a ~/.local.tmux ]]; then $EDITOR ~/.local.tmux; fi"
+alias localvim="if [[ -a ~/.local.vim ]]; then $EDITOR ~/.local.vim; fi"
 
 # CPU and MEM Monitoring
 alias cpu="top -F -R -o cpu"

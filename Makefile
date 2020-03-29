@@ -78,7 +78,7 @@ nvim:
 	@echo -e "\033[1m\033[34m==> Installing nvim dependencies\033[0m"
 	@nvim +PlugInstall +qall
 	@nvim +"call mkdir(stdpath('config'), 'p')" +qall
-	@ln -sfv $(DOTFILES_DIR)/vim/* ~/.config/nvim/
+	@ln -sfv $(DOTFILES_DIR)/nvim ~/.config
 	GO111MODULE=on go get golang.org/x/tools/gopls@latest
 	@which sourcekit-lsp || bash $(DOTFILES_DIR)/scripts/sourcekit-lsp.sh
 	@pip3 install --upgrade setuptools neovim unidecode numpy matplotlib

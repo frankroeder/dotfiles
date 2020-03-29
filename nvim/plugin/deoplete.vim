@@ -1,6 +1,7 @@
 " Enable deoplete on first InsertEnter
 let g:deoplete#enable_at_startup = 0
 autocmd InsertEnter * call deoplete#enable()
+
 call deoplete#custom#option('profile', v:true)
 call deoplete#enable_logging('WARNING', '/tmp/deoplete.log')
 call deoplete#custom#source('_', 'matchers', ['matcher_full_fuzzy'])
@@ -11,12 +12,6 @@ set completeopt-=preview
 call deoplete#custom#option({
       \ 'smart_case': v:true,
       \ 'max_list': 30
-      \ })
-
-" UltiSnips settings
-call deoplete#custom#source('ultisnips', {
-      \'matchers': ['matcher_fuzzy'],
-      \ 'min_pattern_length': 1
       \ })
 
 " Add vimtex completion source

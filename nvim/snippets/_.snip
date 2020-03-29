@@ -1,0 +1,63 @@
+snippet     clipboard
+alias       cb
+abbr        Content from clipboard
+options     word
+  `system("pbpaste")`
+
+snippet todo
+abbr  TODO as comment
+options word
+	`split(&commentstring, '%s')[0]` TODO: ${0} `g:snips_author` <`strftime("%Y-%m-%d")`> `split(&commentstring, '%s')[-1]`
+
+snippet fixme
+abbr  FIXME as comment
+options word
+	`split(&commentstring, '%s')[0]` FIXME: ${0} `g:snips_author` <`strftime("%Y-%m-%d")`> `split(&commentstring, '%s')[-1]`
+
+snippet  date
+abbr YYYY-MM-DD
+options  word
+  `strftime("%Y %m %d")`${0}
+
+snippet     ddate
+abbr Month DD, YYYY
+options     word
+  `strftime("%b-%d-%Y")`${0}
+
+snippet     diso
+abbr ISO format datetime
+options     word
+  `strftime("%Y-%m-%dT%H:%M:%S")`${0}
+
+snippet     time
+abbr hh:mm
+options     word
+  `strftime("%H:%M")`${0}
+
+snippet     lastmod
+abbr        Last modified time
+alias       lmod
+  Last Modified: `strftime("%Y-%m-%dT%H:%M:%S")`${0}
+
+snippet uuid
+abbr Random UUID
+options word
+  `system("uuidgen")`
+
+snippet     filename
+alias       fname
+options     word
+    `bufname('%') ==#'[Command Line]' ? expand('#') : expand('%')`${0}
+
+snippet     basename
+alias       bname
+options     word
+    `bufname('%') ==#'[Command Line]' ? expand('#:t:r:r:r') : expand('%:t:r:r:r')`${0}
+
+snippet     path
+options     word
+    `substitute(bufname('%') ==#'[Command Line]' ? expand('#:p') : expand('%:p'), '//\+', '/', 'g')`${0}
+
+snippet     rpath
+options     word
+    `substitute(bufname('%') ==#'[Command Line]' ? expand('#:h') : expand('%:h'), '\(//*\|/*$\)', '/', 'g')`${0}

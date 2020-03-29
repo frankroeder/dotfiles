@@ -44,7 +44,6 @@ let g:LanguageClient_rootMarkers = {
       \ 'swift': s:general_rm,
       \ }
 
-
 let g:LanguageClient_fzfOptions = '$FZF_DEFAULT_OPTS'
 let g:LanguageClient_hasSnippetSupport = 1
 

@@ -21,7 +21,7 @@ Plug 'tpope/vim-surround'
 Plug 'tpope/vim-repeat'
 Plug 'mhinz/vim-signify'
 Plug 'dense-analysis/ale'
-Plug 'SirVer/ultisnips'
+Plug 'Shougo/neosnippet.vim'
 
 " language support
 Plug 'autozimu/LanguageClient-neovim', {
@@ -167,3 +167,7 @@ set nrformats+=alpha
 
 set mps+=<:>
 autocmd FileType c,cpp,java set mps+==:;
+
+if filereadable(expand("~/.local.vim"))
+  exe 'source' "~/.local.vim"
+endif

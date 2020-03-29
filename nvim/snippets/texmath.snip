@@ -1,0 +1,133 @@
+snippet sum
+abbr Sum
+options word
+  \sum_{${1:i=1}}^{${2:n}} ${0}
+
+snippet prod
+abbr Prod
+options word
+  \prod_{${1:i=1}}^{${2:N}} ${0}
+
+snippet int
+abbr Integral
+options word
+  \int_{${1:-\\infty}}^{${2:\\infty}} ${0} dx
+
+snippet lim
+options word
+  \lim_{${1:n} \\to ${2:\\infty}}} ${0}
+
+snippet \frac
+alias   frac \frac{
+	\frac{${1}}{${2}}${0}
+
+snippet \left
+alias   left
+abbr	\left \right
+	\left${1:(} ${3:#:body} \right${2:)}${0}
+
+snippet align
+alias   \begin{align} \align
+	\begin{align}
+		${1:TARGET}
+	\end{align}
+
+snippet align*
+alias   \begin{align*} \align*
+	\begin{align*}
+		${1:TARGET}
+	\end{align*}
+
+snippet aligned
+alias   \begin{aligned} \aligned
+       \begin{aligned}
+               ${1:TARGET}
+       \end{aligned}
+
+snippet eqnarray
+alias   \begin{eqnarray} \eqnarray
+	\begin{eqnarray}
+		${1:TARGET}
+	\end{eqnarray}
+
+snippet eqnarray*
+alias   \begin{eqnarray*} \eqnarray*
+	\begin{eqnarray*}
+		${1:TARGET}
+	\end{eqnarray*}
+
+snippet equation
+alias   \begin{equation} \equation
+	\begin{equation}
+		${1:TARGET}
+	\end{equation}
+
+snippet equation*
+alias   \begin{equation*} \equation*
+	\begin{equation*}
+		${1:TARGET}
+	\end{equation*}
+
+snippet matrix
+alias   \begin{matrix} \matrix
+	\begin{matrix}
+		${1:TARGET}
+	\end{matrix}
+
+snippet bmatrix
+alias   \begin{bmatrix} \bmatrix
+	\begin{bmatrix}
+		${1:TARGET}
+	\end{bmatrix}
+
+snippet pmatrix
+alias   \pegin{bmatrix} \pmatrix
+	\begin{pmatrix}
+		${1:TARGET}
+	\end{pmatrix}
+
+snippet vmatrix
+alias   \begin{vmatrix} \vmatrix
+	\begin{vmatrix}
+		${1:TARGET}
+	\end{vmatrix}
+
+snippet Bmatrix
+alias   \begin{Bmatrix} \Bmatrix
+	\begin{Bmatrix}
+		${1:TARGET}
+	\end{Bmatrix}
+
+snippet Vmatrix
+alias   \begin{Vmatrix} \Vmatrix
+	\begin{Vmatrix}
+		${1:TARGET}
+	\end{Vmatrix}
+
+snippet mathexpression
+alias   $
+abbr	$ expression $
+	$${1:#:expression}$${2}
+
+snippet mathenva
+alias   $$
+abbr    $$ expression $$
+        $$${1:#:expression}$$${2}
+
+snippet mathenvb
+alias   \[
+abbr    \[ expression \]
+        \[${1:#:expression}\]${2}
+
+snippet math
+alias   \begin{math} \math
+	\begin{math}
+		${1:TARGET}
+	\end{math}
+
+snippet displaymath
+alias   \begin{displaymath} \displaymath
+	\begin{displaymath}
+		${1:TARGET}
+	\end{displaymath}
+
