@@ -24,6 +24,7 @@ brew "pandoc"
 brew "grip"
 brew "gnuplot"
 brew "ifstat"
+brew "getantibody/tap/antibody"
 
 cask "google-cloud-sdk"
 cask "alfred"

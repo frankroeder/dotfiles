@@ -47,11 +47,11 @@ misc:
 	@ln -sfv $(DOTFILES_DIR)/latexmkrc ~/.latexmkrc
 	(cd $(DOTFILES_DIR)/bin && /usr/bin/swiftc $(DOTFILES_DIR)/scripts/now_playing.swift)
 	@which osx-cpu-temp || bash $(DOTFILES_DIR)/scripts/osx_cpu_temp.sh
+	@swift package completion-tool generate-zsh-script > ~/.zsh/completion/_swift
 
 .PHONY: zsh
 zsh:
 	@echo -e "\033[1m\033[34m==> Installing zsh and tools\033[0m"
-	@which antibody || curl -sL git.io/antibody | sh -s
 	@antibody bundle < $(DOTFILES_DIR)/antibody/bundles.txt > ~/.zsh/zsh_plugins.sh
 	@ln -sfv $(DOTFILES_DIR)/zsh/zshrc ~/.zshrc;
 	@ln -sfv $(DOTFILES_DIR)/zsh/zlogin ~/.zlogin;
@@ -59,8 +59,8 @@ zsh:
 	@ln -sfv $(DOTFILES_DIR)/zsh/zprofile ~/.zprofile;
 	@sudo sh -c "echo $(which zsh) >> /etc/shells"
 	@bash $(DOTFILES_DIR)/autoloaded/switch_zsh
-	@source ~/.zshrc
 	@zsh -i -c "fast-theme free"
+	@source ~/.zshrc
 
 .PHONY: npm
 npm:
