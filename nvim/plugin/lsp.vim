@@ -47,14 +47,14 @@ let g:LanguageClient_rootMarkers = {
 let g:LanguageClient_fzfOptions = '$FZF_DEFAULT_OPTS'
 let g:LanguageClient_hasSnippetSupport = 1
 
-let b:LSP_hl = 0
+let g:LSP_hl = 0
 function! ToggleHightlight(is_running) abort
-  if a:is_running.result && b:LSP_hl == 0
+  if a:is_running.result && g:LSP_hl == 0
     call LanguageClient#textDocument_documentHighlight()
-    let b:LSP_hl = 1
+    let g:LSP_hl = 1
   elseif a:is_running.result
     call LanguageClient#clearDocumentHighlight()
-    let b:LSP_hl = 0
+    let g:LSP_hl = 0
   endif
 endfunction
 

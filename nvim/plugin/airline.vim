@@ -9,14 +9,3 @@ endif
 
 let g:airline#extensions#tabline#enabled = 1
 let g:airline#extensions#tabline#formatter = 'unique_tail'
-
-function! MyLineNumber()
-  return substitute(line('.'), '\d\@<=\(\(\d\{3\}\)\+\)$', ',&', 'g'). ' | '.
-        \ substitute(line('$'), '\d\@<=\(\(\d\{3\}\)\+\)$', ',&', 'g')
-endfunction
-
-if &rtp =~ 'vim-airline'
-  call airline#parts#define('linenr',
-        \ {'function': 'MyLineNumber', 'accents': 'bold'})
-  let g:airline_section_z = airline#section#create(['%3p%%: ', 'linenr', ':%3v'])
-endif

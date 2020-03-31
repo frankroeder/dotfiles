@@ -42,3 +42,6 @@ alias iplab='ipython --pylab'
 # open last edited file
 alias v0="$EDITOR -c \"normal '0\""
 alias online="ping -c 1 www.example.com &> /dev/null && echo 'Online :)' || echo 'Offline :('"
+
+# start plain vim
+alias pvim="$EDITOR -u NONE -i NONE -n -N -n"
