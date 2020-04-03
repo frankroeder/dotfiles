@@ -37,6 +37,8 @@ cask "skim"
 cask "mactex-no-gui"
 cask "font-hack-nerd-font"
 cask "eloston-chromium"
+cask "oversight"
+cask "knockknock"
 
 mas "iReal Pro", id: 409035833
 mas "Telegram", id: 747648890
