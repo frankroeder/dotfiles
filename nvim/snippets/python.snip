@@ -1,7 +1,8 @@
 snippet     doc
 abbr        Documentation comment
-options     word
-  """${1:TARGET}"""
+options     head
+  """${1:#:TARGET}"""
+  ${0}
 
 snippet     np
 abbr        import numpy
