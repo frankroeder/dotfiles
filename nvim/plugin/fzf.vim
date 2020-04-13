@@ -1,8 +1,7 @@
 let g:fzf_command_prefix = 'Fzf'
 let g:fzf_layout = { 'up': '~35%' }
 let g:fzf_action = {
-      \ 'ctrl-t': 'tab split',
-      \ 'ctrl-h': 'split',
+      \ 'ctrl-s': 'split',
       \ 'ctrl-v': 'vsplit' }
 let g:fzf_colors =
 \ { 'fg':      ['fg', 'Normal'],

@@ -21,17 +21,19 @@ Plug 'tpope/vim-surround'
 Plug 'tpope/vim-repeat'
 Plug 'mhinz/vim-signify'
 Plug 'dense-analysis/ale'
-Plug 'Shougo/neosnippet.vim'
-
-" language support
 Plug 'autozimu/LanguageClient-neovim', {
       \ 'branch': 'next',
       \ 'do': 'bash install.sh',
       \ }
 Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
-Plug 'Shougo/echodoc'
-Plug 'ncm2/float-preview'
+Plug 'Shougo/neosnippet.vim'
+Plug 'Shougo/echodoc.vim'
+Plug 'Shougo/context_filetype.vim'
+Plug 'Shougo/neoinclude.vim'
+Plug 'Shougo/neopairs.vim'
+Plug 'ncm2/float-preview.nvim'
 
+" language support
 Plug 'godlygeek/tabular', { 'for': 'markdown' }
 Plug 'plasticboy/vim-markdown', {'depends': 'godlygeek/tabular', 'for': 'markdown'}
 Plug 'JamshedVesuna/vim-markdown-preview', { 'for': 'markdown' }

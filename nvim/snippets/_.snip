@@ -7,12 +7,12 @@ options     word
 snippet todo
 abbr  TODO as comment
 options word
-	`split(&commentstring, '%s')[0]` TODO: ${0} `g:snips_author` <`strftime("%Y-%m-%d")`> `split(&commentstring, '%s')[-1]`
+	`split(&commentstring, '%s')[0]`TODO: ${0} `g:snips_author` <`strftime("%Y-%m-%d")`> `split(&commentstring, '%s')[-1]`
 
 snippet fixme
 abbr  FIXME as comment
 options word
-	`split(&commentstring, '%s')[0]` FIXME: ${0} `g:snips_author` <`strftime("%Y-%m-%d")`> `split(&commentstring, '%s')[-1]`
+	`split(&commentstring, '%s')[0]`FIXME: ${0} `g:snips_author` <`strftime("%Y-%m-%d")`> `split(&commentstring, '%s')[-1]`
 
 snippet  date
 abbr YYYY-MM-DD
