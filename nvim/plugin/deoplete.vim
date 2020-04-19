@@ -25,8 +25,7 @@ call deoplete#custom#source('LanguageClient', {
       \ 'converters': ['converter_auto_paren', 'converter_remove_overlap']
       \ })
 
-" Disable the candidates in Comment/String syntaxes.
-call deoplete#custom#source('_',
+call deoplete#custom#source('neosnippet',
       \ 'disabled_syntaxes', ['Comment', 'String'])
 
 " SuperTab behavior
@@ -42,3 +41,7 @@ imap <expr><CR>
       \ pumvisible() ? (neosnippet#expandable() ?
       \ "\<Plug>(neosnippet_expand_or_jump)" : "\<C-y>") :
       \ "\<CR>"
+
+" dynamic maximum candidate window length
+autocmd InsertEnter * call deoplete#custom#source('_', 'max_menu_width',
+      \ str2nr(string((winwidth(0) * 0.5))))

@@ -124,16 +124,6 @@ if !exists("syntax_on")
 endif
 
 set number relativenumber
-augroup numbertoggle
-  autocmd!
-  autocmd BufEnter,FocusGained,InsertLeave * set relativenumber
-  autocmd BufLeave,FocusLost,InsertEnter   * set norelativenumber
-augroup END
-
-augroup columntoggle
-  autocmd BufEnter,FocusGained,InsertLeave * set cc=
-  autocmd BufLeave,FocusLost,InsertEnter   * set cc=81
-augroup END
 
 " Persistent undo
 set undofile
@@ -148,16 +138,6 @@ set iskeyword-=#
 
 let mapleader=","
 
-" Return to last edit position when opening files
-autocmd BufReadPost *
-  \ if line("'\"") > 0 && line("'\"") <= line("$") && &filetype != "gitcommit" |
-  \   exe "normal! g`\"" |
-  \ endif
-
-if has("mac")
-  set dictionary=/usr/share/dict/words
-endif
-
 augroup buf_write
   au!
   autocmd BufWritePre * :call StripTrailingWhitespaces()
@@ -169,6 +149,13 @@ set nrformats+=alpha
 
 set mps+=<:>
 autocmd FileType c,cpp,java set mps+==:;
+
+" Ignore certain files and folders when globbing
+set wildignore+=*.o,*.obj,*.bin,*.dll,*.exe
+set wildignore+=*/.git/*,*/.svn/*,*/__pycache__/*,*/build/**
+set wildignore+=*.pyc
+set wildignore+=*.DS_Store
+set wildignore+=*.aux,*.bbl,*.blg,*.brf,*.fls,*.fdb_latexmk,*.synctex.gz
 
 if filereadable(expand("~/.local.vim"))
   exe 'source' "~/.local.vim"
