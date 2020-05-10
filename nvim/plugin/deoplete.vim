@@ -42,6 +42,6 @@ imap <expr><CR>
       \ "\<Plug>(neosnippet_expand_or_jump)" : "\<C-y>") :
       \ "\<CR>"
 
-" dynamic maximum candidate window length
+" dynamic maximum candidate window width
 autocmd InsertEnter * call deoplete#custom#source('_', 'max_menu_width',
       \ str2nr(string((winwidth(0) * 0.5))))

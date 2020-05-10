@@ -1,0 +1,11 @@
+setuptools
+neovim
+unidecode
+numpy
+matplotlib
+ipython
+pyflakes
+autopep8
+yapf
+rope
+python-language-server

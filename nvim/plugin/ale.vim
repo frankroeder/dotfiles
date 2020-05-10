@@ -18,16 +18,20 @@ nmap <silent> <Leader>i :ALEInfo<CR>
 nmap <silent> <Leader>l <Plug>(ale_lint)
 
 let g:ale_use_global_executables = 1
+
 let g:ale_python_autopep8_executable = '/usr/local/bin/autopep8'
+let g:ale_python_yapf_executable = '/usr/local/bin/yapf'
 let g:ale_python_pyflakes_executable = '/usr/local/bin/pyflakes'
+
 let g:ale_c_clangformat_executable = '/usr/local/opt/llvm/bin/clang-format'
 let g:ale_c_clangtidy_executable = '/usr/local/opt/llvm/bin/clang-tidy'
+
 let g:ale_javascript_eslint_executable = '/usr/local/bin/eslint'
 let g:ale_javascript_eslint_options = '--no-eslintrc'
 let g:ale_typescript_tsserver_executable = '/usr/local/bin/tsserver'
 
 let g:ale_fixers = {
-      \ 'python': ['autopep8'],
+      \ 'python': ['yapf', 'autopep8'],
       \ 'c': ['clang-format', 'clangtidy'],
       \ 'cpp': ['clang-format', 'clangtidy'],
       \ 'go': ['gofmt', 'goimport'],
@@ -42,6 +46,7 @@ let g:ale_linters = {
       \ 'typescript': ['tslint', 'tsserver'],
       \ 'c': ['clang', 'clangtidy', 'clangd'],
       \ 'cpp': ['clang', 'clangtidy', 'clangd'],
+      \ 'json': ['jq'],
       \ 'help': [],
       \ 'text': [],
       \ 'spec': [],

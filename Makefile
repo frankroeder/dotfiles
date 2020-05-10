@@ -81,8 +81,7 @@ nvim:
 	@ln -sfv $(DOTFILES_DIR)/nvim ~/.config
 	GO111MODULE=on go get golang.org/x/tools/gopls@latest
 	@which sourcekit-lsp || bash $(DOTFILES_DIR)/scripts/sourcekit-lsp.sh
-	@pip3 install --upgrade setuptools neovim unidecode numpy matplotlib
-	@pip3 install --upgrade pyflakes autopep8 rope python-language-server
+	@pip3 install -r requirements.txt
 
 .PHONY: git
 git:

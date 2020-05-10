@@ -3,6 +3,7 @@ venv
 node_modules
 __pycache__
 *.ipynb
+.pytest_cache
 build
 
 # macOS
