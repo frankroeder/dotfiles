@@ -72,3 +72,6 @@ nnoremap <C-W>" :vsplit<CR>
 " remain in visual mode after code shift
 vnoremap < <gv
 vnoremap > >gv
+
+" Join lines and restore cursor location
+nnoremap J mjJ`j

@@ -1,5 +1,5 @@
 SHELL := /bin/zsh
-DOTFILES_DIR := ~/.dotfiles
+DOTFILES := $(PWD)
 .DEFAULT_GOAL := help
 
 .PHONY: all
@@ -32,35 +32,35 @@ homebrew:
 	@echo -e "\033[1m\033[34m==> Installing brew if not already present\033[0m"
 	@which brew || curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install | ruby
 	@echo -e "\033[1m\033[34m==> Installing brew formulas\033[0m"
-	@brew bundle --file="$(DOTFILES_DIR)/Brewfile"
+	@brew bundle --file="$(DOTFILES)/Brewfile"
 	@brew cleanup
 	-brew doctor
 
 .PHONY: misc
 misc:
 	@echo -e "\033[1m\033[34m==> Installing misc\033[0m"
-	@ln -sfv $(DOTFILES_DIR)/alacritty.yml ~/.config/alacritty/
-	@ln -sfv $(DOTFILES_DIR)/wgetrc ~/.wgetrc
-	@ln -sfv $(DOTFILES_DIR)/curlrc ~/.curlrc
-	@ln -sfv $(DOTFILES_DIR)/tmux/tmux.conf ~/.tmux.conf
-	@ln -sfv $(DOTFILES_DIR)/htoprc ~/.config/htop/htoprc
-	@ln -sfv $(DOTFILES_DIR)/latexmkrc ~/.latexmkrc
-	(cd $(DOTFILES_DIR)/bin && /usr/bin/swiftc $(DOTFILES_DIR)/scripts/now_playing.swift)
-	@which osx-cpu-temp || bash $(DOTFILES_DIR)/scripts/osx_cpu_temp.sh
-	@swift package completion-tool generate-zsh-script > ~/.zsh/completion/_swift
+	@ln -sfv $(DOTFILES)/alacritty.yml $(HOME)/.config/alacritty/
+	@ln -sfv $(DOTFILES)/wgetrc $(HOME)/.wgetrc
+	@ln -sfv $(DOTFILES)/curlrc $(HOME)/.curlrc
+	@ln -sfv $(DOTFILES)/tmux/tmux.conf $(HOME)/.tmux.conf
+	@ln -sfv $(DOTFILES)/htoprc $(HOME)/.config/htop/htoprc
+	@ln -sfv $(DOTFILES)/latexmkrc $(HOME)/.latexmkrc
+	(cd $(DOTFILES)/bin && /usr/bin/swiftc $(DOTFILES)/scripts/now_playing.swift)
+	@which osx-cpu-temp || bash $(DOTFILES)/scripts/osx_cpu_temp.sh
+	@swift package completion-tool generate-zsh-script > $(HOME)/.zsh/completion/_swift
 
 .PHONY: zsh
 zsh:
 	@echo -e "\033[1m\033[34m==> Installing zsh and tools\033[0m"
-	@antibody bundle < $(DOTFILES_DIR)/antibody/bundles.txt > ~/.zsh/zsh_plugins.sh
-	@ln -sfv $(DOTFILES_DIR)/zsh/zshrc ~/.zshrc;
-	@ln -sfv $(DOTFILES_DIR)/zsh/zlogin ~/.zlogin;
-	@ln -sfv $(DOTFILES_DIR)/zsh/zshenv ~/.zshenv;
-	@ln -sfv $(DOTFILES_DIR)/zsh/zprofile ~/.zprofile;
+	@antibody bundle < $(DOTFILES)/antibody/bundles.txt > $(HOME)/.zsh/zsh_plugins.sh
+	@ln -sfv $(DOTFILES)/zsh/zshrc $(HOME)/.zshrc;
+	@ln -sfv $(DOTFILES)/zsh/zlogin $(HOME)/.zlogin;
+	@ln -sfv $(DOTFILES)/zsh/zshenv $(HOME)/.zshenv;
+	@ln -sfv $(DOTFILES)/zsh/zprofile $(HOME)/.zprofile;
 	@sudo sh -c "echo $(which zsh) >> /etc/shells"
-	@bash $(DOTFILES_DIR)/autoloaded/switch_zsh
+	@bash $(DOTFILES)/autoloaded/switch_zsh
 	@zsh -i -c "fast-theme free"
-	@source ~/.zshrc
+	@source $(HOME)/.zshrc
 
 .PHONY: npm
 npm:
@@ -78,17 +78,18 @@ nvim:
 	@echo -e "\033[1m\033[34m==> Installing nvim dependencies\033[0m"
 	@nvim +PlugInstall +qall
 	@nvim +"call mkdir(stdpath('config'), 'p')" +qall
-	@ln -sfv $(DOTFILES_DIR)/nvim ~/.config
+	@ln -sfv $(DOTFILES)/nvim $(HOME)/.config
 	GO111MODULE=on go get golang.org/x/tools/gopls@latest
-	@which sourcekit-lsp || bash $(DOTFILES_DIR)/scripts/sourcekit-lsp.sh
-	@pip3 install -r requirements.txt
+	@which sourcekit-lsp || bash $(DOTFILES)/scripts/sourcekit-lsp.sh
+	@pip3 install -r $(DOTFILES)/python/requirements.txt
+	@ln -sfv $(DOTFILES)/python/ipython_config.py $(HOME)/.ipython/profile_default/
 
 .PHONY: git
 git:
 	@echo -e "\033[1m\033[34m==> Installing stuff for git\033[0m"
-	@curl https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash -o ~/.git-completion.bash
-	@ln -sfv $(DOTFILES_DIR)/git/gitconfig ~/.gitconfig
-	@ln -sfv $(DOTFILES_DIR)/git/gitignore ~/.gitignore
+	@curl https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash -o $(HOME)/.git-completion.bash
+	@ln -sfv $(DOTFILES)/git/gitconfig $(HOME)/.gitconfig
+	@ln -sfv $(DOTFILES)/git/gitignore $(HOME)/.gitignore
 
 .PHONY: macos
 macos:
@@ -96,25 +97,26 @@ macos:
 	if [ -n "$(xcode-select -p)" ]; then xcode-select --install; xcodebuild -license accept; fi
 	if [ ! -d "$(HOME)/screens" ]; then mkdir -p $(HOME)/screens; fi
 	if [ ! -d "$(HOME)/tmp" ]; then mkdir -p $(HOME)/tmp; fi
-	@bash $(DOTFILES_DIR)/macos/main.bash
+	@bash $(DOTFILES)/macos/main.bash
 	@which airport || sudo ln -s /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/local/bin/airport
 	@which alacritty || sudo ln -s /Applications/Alacritty.app/Contents/MacOS/alacritty /usr/local/bin/alacritty
 
 .PHONY: uninstall
 uninstall:
-	rm ~/.zshrc
-	rm ~/.zshenv
-	rm ~/.zprofile
-	rm ~/.zsh/zsh_plugins.sh
-	rm ~/.tmux.conf
-	rm ~/.wgetrc
-	rm ~/.curlrc
-	rm ~/.latexmkrc
-	rm ~/.gitignore
-	rm ~/.gitconfig
+	rm $(HOME)/.zshrc
+	rm $(HOME)/.zshenv
+	rm $(HOME)/.zprofile
+	rm $(HOME)/.zsh/zsh_plugins.sh
+	rm $(HOME)/.tmux.conf
+	rm $(HOME)/.wgetrc
+	rm $(HOME)/.curlrc
+	rm $(HOME)/.latexmkrc
+	rm $(HOME)/.gitignore
+	rm $(HOME)/.gitconfig
 
 .PHONY: test
 test:
+	@echo "Current directory for dotfiles $(DOTFILES)"
 	@echo -e "\033[1m\033[34m==> Check if commands are available\033[0m"
 	@which brew && which git && which npm && which nvim && which zsh \
 		&& which pip && which airport && which antibody && which vlc \

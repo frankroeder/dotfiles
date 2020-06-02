@@ -37,7 +37,7 @@ alias npmlsg='npm ls --depth=0 -g'
 
 alias dfh='df -h'
 alias copypubkey='pbcopy < ~/.ssh/id_rsa.pub'
-alias iplab='ipython --pylab'
+alias ipy='ipython'
 alias ippdb='ipython --pprint --pdb'
 
 # open last edited file

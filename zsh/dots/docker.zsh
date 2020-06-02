@@ -43,6 +43,14 @@ alias drmiall='docker rmi $(docker images -a -q)'
 alias dsdf='docker system df'
 alias dsev='docker system events'
 alias dsprune='docker system prune'
+alias dtop='docker stats $(docker ps --format="{{.Names}}")'
+alias dnet='docker network ls && echo && docker inspect --format "{{\$e := . }}{{with .NetworkSettings}} {{\$e.Name}}
+  {{range \$index, \$net := .Networks}}  - {{\$index}}	{{.IPAddress}}
+  {{end}}{{end}}" $(docker ps -q)'
+alias dtag='docker inspect --format "{{.Name}}
+  {{range \$index, \$label := .Config.Labels}}  - {{\$index}}={{\$label}}
+  {{end}}" $(docker ps -q)'
+
 
 dcids() {
   local cids cmd

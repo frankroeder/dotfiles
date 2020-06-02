@@ -5,7 +5,7 @@ export OSNAME=$(uname -s)
 
 export EDITOR="$(command -v nvim)"
 export VISUAL=$EDITOR
-export BROWSER=/Applications/Safari.app
+export BROWSER="open"
 export BLOCKSIZE=1k
 
 # -R  color
