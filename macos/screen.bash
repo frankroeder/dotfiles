@@ -48,6 +48,9 @@ defaults write com.apple.notificationcenterui bannerTime 3
 # Show mirroring options in the menu bar when available
 defaults write com.apple.airplay showInMenuBarIfPresent -bool true
 
+# Disable font smoothing
+defaults write -g CGFontRenderingFontSmoothingDisabled -bool true
+
 # Enable subpixel font rendering on non-Apple LCDs
 # Options: 1 for light smoothing up to 3 for strong smoothing
 defaults write NSGlobalDomain AppleFontSmoothing -int 1

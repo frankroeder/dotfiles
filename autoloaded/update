@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 success() {
   printf "\\r[ ${GREEN}\\u2713${RESET} ] %s\\n" "${1}"

@@ -23,3 +23,7 @@ defaults write org.videolan.vlc SUSendProfileInfo -bool true
 # Skim
 # turn off auto reload dialog, default to auto reload
 defaults write -app Skim SKAutoReloadFileUpdate -boolean true
+
+# Preview
+# Do not show sidebar
+defaults write com.apple.Preview PVSidebarViewModeForNewDocuments -boolean false

@@ -148,7 +148,7 @@ augroup END
 "Incrementing and decrementing alphabetical characters
 set nrformats+=alpha
 
-set mps+=<:>
+set matchpairs+=<:>
 autocmd FileType c,cpp,java set mps+==:;
 
 " Ignore certain files and folders when globbing
@@ -158,6 +158,7 @@ set wildignore+=*.pyc
 set wildignore+=*.DS_Store
 set wildignore+=*.aux,*.bbl,*.blg,*.brf,*.fls,*.fdb_latexmk,*.synctex.gz
 
-if filereadable(expand("~/.local.vim"))
-  exe 'source' "~/.local.vim"
+let s:local_vimrc = $HOME . '/.local.vim'
+if filereadable(s:local_vimrc)
+  exe 'source' . s:local_vimrc
 endif

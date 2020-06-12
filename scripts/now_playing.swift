@@ -17,7 +17,7 @@ class MediaInfo {
             set artist_name to artist of current track
             if artist_name > 0
               set t to artist_name & " - " & track_name
-              artist_name & " - " &    track_name
+              artist_name & " - " & track_name
             else
               "~ " & track_name
             end if

@@ -25,6 +25,9 @@
   tool = vimdiff
   renames = copies
 
+[pull]
+  rebase = true
+
 [push]
   followTags = true
   default = current
