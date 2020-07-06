@@ -3,7 +3,7 @@
 alias f='open -a Finder ./'
 alias repos='cd ~/Documents'
 alias dl='cd ~/Downloads'
-alias skim='open -a "Skim"'
+test -d "/Applications/Skim.app" && alias skim='open -a "Skim"'
 alias icloud="cd /Users/$USER/Library/Mobile\ Documents/com~apple~CloudDocs"
 
 # Lock the screen (when going AFK)

@@ -18,9 +18,6 @@ alias cpu="top -F -R -o cpu"
 alias mem="top -F -o rsize"
 alias hogs="ps wwaxr -o pid,stat,%cpu,time,command | awk 'NR<=10'"
 
-# Print each PATH entry on a separate line
-alias path='echo -e ${PATH//:/\\n}'
-
 # Print each function name
 alias showfunctions="declare -f | grep '^[a-z].* ()' | sed 's/{$//'"
 alias ag="ag --path-to-ignore $DOTFILES/ignore"

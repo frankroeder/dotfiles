@@ -16,7 +16,7 @@
 
 [mergetool "fugitive"]
   # http://vimcasts.org/episodes/fugitive-vim-resolving-merge-conflicts-with-vimdiff/
-  cmd = nvim -f -c \"Gvdiff!\" \"$MERGED\"
+  cmd = $EDITOR -f -c \"Gvdiff!\" \"$MERGED\"
 
 [mergetool]
   keepBackup = false
@@ -33,12 +33,13 @@
   default = current
 
 [core]
-  editor = nvim
+  editor = $EDITOR
   autocrlf = false
   filemode = false
   whitespace = fix,-indent-with-non-tab,trailing-space,cr-at-eol
   excludesfile = ~/.gitignore
   pager = less -XFR
+	ignorecase = false
 
 [credential]
   helper = cache --timeout=3600 osxkeychain
