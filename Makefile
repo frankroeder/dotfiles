@@ -45,7 +45,7 @@ misc:
 	@ln -sfv $(DOTFILES)/htoprc $(HOME)/.config/htop/htoprc
 	@ln -sfv $(DOTFILES)/latexmkrc $(HOME)/.latexmkrc
 	@pip3 install -r $(DOTFILES)/python/requirements.txt
-	@ln -sfv $(DOTFILES)/python/ipython_config.py $(HOME)/.ipython/profile_default/
+	@whhich ipython && ln -sfv $(DOTFILES)/python/ipython_config.py $(HOME)/.ipython/profile_default/
 
 .PHONY: zsh
 zsh:
@@ -91,7 +91,7 @@ git:
 .PHONY: linux
 linux: sudo git misc zsh nvim
 	@bash $(DOTFILES)/linux/apt.sh
-	@curl -sfL git.io/antibody | sh -s - -b /usr/local/bin
+	@curl -sfL git.io/antibody | sh -s - -b ./local/bin
 	@git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf; ~/.fzf/instal --all --no-bash --no-zsh --no-fish
 
 .PHONY: macos
