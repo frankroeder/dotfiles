@@ -46,6 +46,7 @@ Plug 'vim-airline/vim-airline'
 Plug 'vim-airline/vim-airline-themes'
 Plug 'luochen1990/rainbow'
 Plug 'joshdick/onedark.vim'
+Plug 'ayu-theme/ayu-vim'
 
 call plug#end()
 
@@ -106,7 +107,7 @@ set expandtab               " Tabs are spaces
 set ignorecase              " Search case insensitive...
 set smartcase               " but change if searched with upper case
 
-if $OSTYPE=="Darwin"
+if has('mac')
   let g:python3_host_prog = '/usr/local/bin/python3'
 else
   let g:python3_host_prog = '/usr/bin/python3'
@@ -120,7 +121,12 @@ if has('nvim') || has('termguicolors')
 endif
 
 try
-  colorscheme onedark
+  if has('mac')
+    colorscheme onedark
+  else
+    let ayucolor="mirage"
+    colorscheme ayu
+  endif
 catch
 endtry
 

@@ -1,4 +1,8 @@
-let g:airline_theme='onedark'
+if has('mac')
+  let g:airline_theme='onedark'
+else
+  let g:airline_theme='ayu_mirage'
+endif
 let g:airline_powerline_fonts = 1
 let g:airline_exclude_preview = 1
 let g:airline#extensions#whitespace#enabled = 0

@@ -2,8 +2,13 @@ SHELL := /bin/zsh
 DOTFILES := $(PWD)
 .DEFAULT_GOAL := help
 
-.PHONY: all
-all: sudo macos homebrew misc zsh nvim git npm
+.PHONY: macos
+macos: sudo macos homebrew misc zsh nvim git npm
+	@echo "Full installation for macOS started"
+
+.PHONY: linux
+linux: sudo _linux git zsh misc nvim
+	@echo "Full installation for Linux started"
 
 
 .PHONY: help
@@ -11,14 +16,13 @@ help:
 	@echo "######################################################################"
 	@echo "# Processes might get killed by some routines!                       #"
 	@echo "######################################################################"
-	@echo "all      	-- install all configs"
+	@echo "macos    	-- macos setup"
+	@echo "linux    	-- full linux setup"
 	@echo "nvim     	-- nvim setup with plugins, snippets and runtimes"
 	@echo "homebrew 	-- brew packages and casks of Brewfile"
 	@echo "npm      	-- npm packages"
-	@echo "nvim     	-- neovim stuff"
 	@echo "zsh      	-- symlinks for zsh"
 	@echo "git      	-- gitconfigs, ignore and completion"
-	@echo "macos    	-- default writes"
 	@echo "uninstall	-- remove symlinks"
 
 .PHONY: sudo
@@ -55,7 +59,7 @@ zsh:
 	@ln -sfv $(DOTFILES)/zsh/zlogin $(HOME)/.zlogin;
 	@ln -sfv $(DOTFILES)/zsh/zshenv $(HOME)/.zshenv;
 	@ln -sfv $(DOTFILES)/zsh/zprofile $(HOME)/.zprofile;
-	@sudo sh -c "echo $(which zsh) >> /etc/shells"
+	@sudo bash -c "echo $(which zsh) >> /etc/shells"
 	@bash $(DOTFILES)/autoloaded/switch_zsh
 	@zsh -i -c "fast-theme free"
 	@source $(HOME)/.zshrc
@@ -86,15 +90,16 @@ git:
 	@ln -sfv $(DOTFILES)/git/gitconfig $(HOME)/.gitconfig
 	@ln -sfv $(DOTFILES)/git/gitignore $(HOME)/.gitignore
 
-.PHONY: linux
-linux: sudo git misc zsh nvim
+_linux:
+	if [ ! -d "$(HOME)/bin" ]; then mkdir -p $(HOME)/bin; fi
+	if [ ! -d "$(HOME)/.Trash" ]; then mkdir -p $(HOME)/.Trash; fi
 	@bash $(DOTFILES)/linux/apt.sh
-	@which antibody || curl -sfL git.io/antibody | sh -s - -b $(HOME)/.local/bin
+	@which antibody || curl -sfL git.io/antibody | sh -s - -b $(HOME)/bin
 	@git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf; ~/.fzf/install --all --no-bash --no-zsh --no-fish
 	@ln -sfv $(DOTFILES)/htop/server $(HOME)/.config/htop/htoprc
 
-.PHONY: macos
-macos:
+.PHONY: _macos
+_macos:
 	@echo -e "\033[1m\033[34m==> Configure macos and applications\033[0m"
 	if [ -n "$(xcode-select -p)" ]; then xcode-select --install; xcodebuild -license accept; fi
 	if [ ! -d "$(HOME)/screens" ]; then mkdir -p $(HOME)/screens; fi

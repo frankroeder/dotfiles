@@ -1,8 +1,9 @@
 if [ "$OSTYPE" = "Linux" ]; then
   alias ls='ls --color=auto'
+else
+  alias ls='ls -G'
 fi
 
-alias ls='ls -G'
 alias l='ls -lah'
 alias la='ls -a'
 alias l.='ls -d .*'
