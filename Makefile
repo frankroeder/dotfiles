@@ -1,15 +1,14 @@
-SHELL := /bin/zsh
 DOTFILES := $(PWD)
 .DEFAULT_GOAL := help
 
 .PHONY: macos
 macos: sudo macos homebrew misc zsh nvim git npm
-	@echo "Full installation for macOS started"
 
 .PHONY: linux
 linux: sudo _linux git zsh misc nvim
-	@echo "Full installation for Linux started"
 
+.PHONY: minimal
+minimal: _minimal git misc nvim
 
 .PHONY: help
 help:
@@ -18,6 +17,7 @@ help:
 	@echo "######################################################################"
 	@echo "macos    	-- macos setup"
 	@echo "linux    	-- full linux setup"
+	@echo "minimal   	-- minimal linux setup for servers without root privilege"
 	@echo "nvim     	-- nvim setup with plugins, snippets and runtimes"
 	@echo "homebrew 	-- brew packages and casks of Brewfile"
 	@echo "npm      	-- npm packages"
@@ -59,7 +59,6 @@ zsh:
 	@ln -sfv $(DOTFILES)/zsh/zlogin $(HOME)/.zlogin;
 	@ln -sfv $(DOTFILES)/zsh/zshenv $(HOME)/.zshenv;
 	@ln -sfv $(DOTFILES)/zsh/zprofile $(HOME)/.zprofile;
-	@sudo bash -c "echo $(which zsh) >> /etc/shells"
 	@bash $(DOTFILES)/autoloaded/switch_zsh
 	@zsh -i -c "fast-theme free"
 	@source $(HOME)/.zshrc
@@ -90,6 +89,13 @@ git:
 	@ln -sfv $(DOTFILES)/git/gitconfig $(HOME)/.gitconfig
 	@ln -sfv $(DOTFILES)/git/gitignore $(HOME)/.gitignore
 
+.PHONY: _minimal
+_minimal:
+	ln -sfv $(DOTS)/bash_profile ~/.bash_profile;
+	ln -sfv $(DOTS)/bash_logout ~/.bash_logout;
+	ln -sfv $(DOTS)/bashrc ~/.bashrc;
+
+.PHONY: _linux
 _linux:
 	if [ ! -d "$(HOME)/bin" ]; then mkdir -p $(HOME)/bin; fi
 	if [ ! -d "$(HOME)/.Trash" ]; then mkdir -p $(HOME)/.Trash; fi

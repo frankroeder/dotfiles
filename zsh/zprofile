@@ -5,20 +5,24 @@ path=("/usr/local/opt/llvm/bin" $path)
 export LDFLAGS="-L/usr/local/opt/llvm/lib $LDFLAGS"
 export CPPFLAGS="-I/usr/local/opt/llvm/include $LDFLAGS"
 
-# go
-export GOPATH="$HOME/Documents/golang"
-export GOROOT="/usr/local/opt/go/libexec"
-
-
-path=(
-  /usr/local/{bin,sbin}
-  $DOTFILES/bin
-  $GOPATH/bin
-  $GOROOT/bin
-  $path
-)
-
 # for compilers to find openssl
 path=("/usr/local/opt/openssl/bin" $path)
 export LDFLAGS="-L/usr/local/opt/openssl/lib $LDFLAGS"
 export CPPFLAGS="-I/usr/local/opt/openssl/include $LDFLAGS"
+
+# go
+if [ "$OSTYPE" = "Darwin" ]; then
+  export GOPATH="$HOME/Documents/golang"
+  export GOROOT="/usr/local/opt/go/libexec"
+  path=(
+    $GOPATH/bin
+    $GOROOT/bin
+    $path
+  )
+fi
+
+path=(
+  /usr/local/{bin,sbin}
+  $DOTFILES/bin
+  $path
+)

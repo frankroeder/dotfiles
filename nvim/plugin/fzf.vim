@@ -30,7 +30,6 @@ else
 endif
 
 noremap <C-H> :FzfHelptags <CR>
-nnoremap <C-B> :Buffers<Cr>
 nnoremap <C-F> :FzfAg <CR>
 nnoremap <C-P> :FzfBLines<Cr>
 
@@ -38,6 +37,7 @@ nnoremap <C-P> :FzfBLines<Cr>
 let g:fzf_commits_log_options =
  \ '--graph --color=always --format="%C(auto)%h%d %s %C(black)%C(bold)%cr"'
 
+nnoremap <Leader>b :Buffers<Cr>
 nnoremap <Leader>g :FzfBCommits<Cr>
 nnoremap <Leader>h :FzfHistory<Cr>
 nnoremap <Leader>t :Colors<Cr>
