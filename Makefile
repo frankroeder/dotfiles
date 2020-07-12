@@ -91,7 +91,7 @@ git:
 linux: sudo git misc zsh nvim
 	@bash $(DOTFILES)/linux/apt.sh
 	@which antibody || curl -sfL git.io/antibody | sh -s - -b $(HOME)/.local/bin
-	@git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf; ~/.fzf/instal --all --no-bash --no-zsh --no-fish
+	@git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf; ~/.fzf/install --all --no-bash --no-zsh --no-fish
 
 .PHONY: macos
 macos:
