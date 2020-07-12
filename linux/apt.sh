@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
+sudo add-apt-repository ppa:neovim-ppa/stable
 
 sudo apt-get update -y
 PACKAGES='git curl python3 python3-pip silversearcher-ag neovim zsh tmux htop make jq'
-for PKG in $_PACKAGES
+for PKG in $PACKAGES
 do
   echo "Installing $PKG ..."
-  sudo apt install $PKG -y
+  sudo apt-get install $PKG -y
 done
