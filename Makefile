@@ -129,7 +129,7 @@ test:
 	-which git
 	-which nvim
 	-which zsh
-	-which pip
+	-which pip3
 	-which antibody
 	-which npm
 	-which airport
