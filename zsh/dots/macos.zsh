@@ -5,6 +5,11 @@ alias repos='cd ~/Documents'
 alias dl='cd ~/Downloads'
 test -d "/Applications/Skim.app" && alias skim='open -a "Skim"'
 alias icloud="cd /Users/$USER/Library/Mobile\ Documents/com~apple~CloudDocs"
+alias copypubkey='pbcopy < ~/.ssh/id_rsa.pub'
+
+# CPU and MEM Monitoring
+alias cpu="top -F -R -o cpu"
+alias mem="top -F -o rsize"
 
 # Lock the screen (when going AFK)
 alias lock='/System/Library/CoreServices/Menu\ Extras/User.menu/Contents/Resources/CGSession -suspend'

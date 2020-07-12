@@ -6,16 +6,13 @@ alias src='exec "$SHELL" -l'
 alias {dotfiles,dots}='cd ~/.dotfiles'
 alias tmp='cd ~/tmp'
 alias vim='$EDITOR'
-alias speedtest="wget -O /dev/null http://speed.transip.nl/100mb.bin"
+alias speedtest="wget -O /dev/null http://speed.transip.nl/1gb.bin"
 alias vimrc="$EDITOR ~/.dotfiles/nvim/{init.vim,plugin/*}"
-alias localrc="if [[ -a ~/.local.zsh ]]; then $EDITOR ~/.local.zsh; fi"
-alias localgit="if [[ -a ~/.local.gitconfig ]]; then $EDITOR ~/.local.gitconfig; fi"
-alias localtmux="if [[ -a ~/.local.tmux ]]; then $EDITOR ~/.local.tmux; fi"
-alias localvim="if [[ -a ~/.local.vim ]]; then $EDITOR ~/.local.vim; fi"
+alias localrc="$EDITOR ~/.local.zsh"
+alias localgit="$EDITOR ~/.local.gitconfig"
+alias localtmux="$EDITOR ~/.local.tmux"
+alias localvim="$EDITOR ~/.local.vim"
 
-# CPU and MEM Monitoring
-alias cpu="top -F -R -o cpu"
-alias mem="top -F -o rsize"
 alias hogs="ps wwaxr -o pid,stat,%cpu,time,command | awk 'NR<=10'"
 
 # Print each function name
@@ -33,7 +30,6 @@ alias npmls='npm ls --depth=0'
 alias npmlsg='npm ls --depth=0 -g'
 
 alias dfh='df -h'
-alias copypubkey='pbcopy < ~/.ssh/id_rsa.pub'
 alias ipy='ipython'
 alias ippdb='ipython --pprint --pdb'
 
