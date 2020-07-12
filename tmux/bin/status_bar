@@ -28,7 +28,7 @@ BAR+="#($TMUX_BIN/internet_info)"
 BAR+="#($TMUX_BIN/battery)"
 
 if [[ $WIDTH -gt $SMALL ]]; then
-  BAR+=" #(date '+%a %d. %b %H:%M')"
+  BAR+=" #(date '+%a %d %b %H:%M')"
 else
   BAR+=" #(date '+%H:%M')"
 fi

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+TMUX_BIN="$DOTFILES/tmux/bin"
+
+BAR="#[fg=white]#(tmux-mem-cpu-load -a 0 -g 20 -i 2 -t 1)"
+command -v nvidia-smi >/dev/null 2>&1 && BAR+=" #($TMUX_BIN/gpu_stats)"
+BAR+=" #[default]#(hostname)#[fg=colour143]"
+BAR+="#($TMUX_BIN/ip_info)"
+BAR+=" #(date '+%d %b %H:%M')"
+printf '%s' "$BAR"
