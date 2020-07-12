@@ -1,3 +1,4 @@
+SHELL := /bin/bash
 DOTFILES := $(PWD)
 .DEFAULT_GOAL := help
 
