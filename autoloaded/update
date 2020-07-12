@@ -67,6 +67,11 @@ neovim_plug_update() {
 mas_update() {
   mas upgrade
 }
+apt_update() {
+  sudo apt update -y
+  sudo apt upgrade -y
+  sudo apt autoremove
+}
 
 if ping -c 1 google.com &> /dev/null; then
   echo -e "$BLUE########################"
@@ -77,13 +82,15 @@ if ping -c 1 google.com &> /dev/null; then
   # Keep-alive: update existing `sudo` time stamp until script has finished
   while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
-  exec_update brew_update
-  exec_update pip_update
-  exec_update neovim_plug_update
-  exec_update gem_update
-  exec_update antibody_update
-  exec_update mas_update
-  exec_update macos_update
+  [ $commands[pip] ] && exec_update pip_update
+  [ $commands[nvim] ] && exec_update neovim_plug_update
+  [ $commands[antibody] ] && exec_update antibody_update
+  [ $commands[npm] ] && exec_update npm_update
+  [ $commands[gem] ] && exec_update gem_update
+  [ $commands[mas] ] && exec_update mas_update
+  [ $commands[brew] ] && exec_update brew_update
+  [ "$OSTYPE" = "Darwin" ] &&  exec_update macos_update
+  [ "$OSTYPE" = "Linux" ] && exec_update apt_update
 
   success "Updates completed"
 else

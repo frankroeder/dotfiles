@@ -39,19 +39,18 @@ homebrew:
 .PHONY: misc
 misc:
 	@echo -e "\033[1m\033[34m==> Installing misc\033[0m"
-	@ln -sfv $(DOTFILES)/alacritty.yml $(HOME)/.config/alacritty/
 	@ln -sfv $(DOTFILES)/wgetrc $(HOME)/.wgetrc
 	@ln -sfv $(DOTFILES)/curlrc $(HOME)/.curlrc
 	@ln -sfv $(DOTFILES)/tmux/tmux.conf $(HOME)/.tmux.conf
 	@ln -sfv $(DOTFILES)/htoprc $(HOME)/.config/htop/htoprc
 	@ln -sfv $(DOTFILES)/latexmkrc $(HOME)/.latexmkrc
-	(cd $(DOTFILES)/bin && /usr/bin/swiftc $(DOTFILES)/scripts/now_playing.swift)
-	@which osx-cpu-temp || bash $(DOTFILES)/scripts/osx_cpu_temp.sh
-	@swift package completion-tool generate-zsh-script > $(HOME)/.zsh/completion/_swift
+	@pip3 install -r $(DOTFILES)/python/requirements.txt
+	@ln -sfv $(DOTFILES)/python/ipython_config.py $(HOME)/.ipython/profile_default/
 
 .PHONY: zsh
 zsh:
 	@echo -e "\033[1m\033[34m==> Installing zsh and tools\033[0m"
+	if [ ! -d "$(HOME)/.zsh" ]; then mkdir -p $(HOME)/.zsh; fi
 	@antibody bundle < $(DOTFILES)/antibody/bundles.txt > $(HOME)/.zsh/zsh_plugins.sh
 	@ln -sfv $(DOTFILES)/zsh/zshrc $(HOME)/.zshrc;
 	@ln -sfv $(DOTFILES)/zsh/zlogin $(HOME)/.zlogin;
@@ -79,10 +78,8 @@ nvim:
 	@nvim +PlugInstall +qall
 	@nvim +"call mkdir(stdpath('config'), 'p')" +qall
 	@ln -sfv $(DOTFILES)/nvim $(HOME)/.config
-	GO111MODULE=on go get golang.org/x/tools/gopls@latest
+	@which go && GO111MODULE=on go get golang.org/x/tools/gopls@latest
 	@which sourcekit-lsp || bash $(DOTFILES)/scripts/sourcekit-lsp.sh
-	@pip3 install -r $(DOTFILES)/python/requirements.txt
-	@ln -sfv $(DOTFILES)/python/ipython_config.py $(HOME)/.ipython/profile_default/
 
 .PHONY: git
 git:
@@ -90,6 +87,12 @@ git:
 	@curl https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash -o $(HOME)/.git-completion.bash
 	@ln -sfv $(DOTFILES)/git/gitconfig $(HOME)/.gitconfig
 	@ln -sfv $(DOTFILES)/git/gitignore $(HOME)/.gitignore
+
+.PHONY: linux
+linux: sudo git misc zsh nvim
+	@bash $(DOTFILES)/linux/apt.sh
+	@curl -sfL git.io/antibody | sh -s - -b /usr/local/bin
+	@git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf; ~/.fzf/instal --all --no-bash --no-zsh --no-fish
 
 .PHONY: macos
 macos:
@@ -100,6 +103,10 @@ macos:
 	@bash $(DOTFILES)/macos/main.bash
 	@which airport || sudo ln -s /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/local/bin/airport
 	@which alacritty || sudo ln -s /Applications/Alacritty.app/Contents/MacOS/alacritty /usr/local/bin/alacritty
+	@ln -sfv $(DOTFILES)/alacritty.yml $(HOME)/.config/alacritty/
+	(cd $(DOTFILES)/bin && /usr/bin/swiftc $(DOTFILES)/scripts/now_playing.swift)
+	@which osx-cpu-temp || bash $(DOTFILES)/scripts/osx_cpu_temp.sh
+	@swift package completion-tool generate-zsh-script > $(HOME)/.zsh/completion/_swift
 
 .PHONY: uninstall
 uninstall:
@@ -118,6 +125,13 @@ uninstall:
 test:
 	@echo "Current directory for dotfiles $(DOTFILES)"
 	@echo -e "\033[1m\033[34m==> Check if commands are available\033[0m"
-	@which brew && which git && which npm && which nvim && which zsh \
-		&& which pip && which airport && which antibody && which vlc \
-		&& which alacritty || exit 1
+	-which brew
+	-which git
+	-which nvim
+	-which zsh
+	-which pip
+	-which antibody
+	-which npm
+	-which airport
+	-which vlc
+	-which alacritty
