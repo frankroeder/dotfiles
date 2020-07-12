@@ -42,7 +42,6 @@ misc:
 	@ln -sfv $(DOTFILES)/wgetrc $(HOME)/.wgetrc
 	@ln -sfv $(DOTFILES)/curlrc $(HOME)/.curlrc
 	@ln -sfv $(DOTFILES)/tmux/tmux.conf $(HOME)/.tmux.conf
-	@ln -sfv $(DOTFILES)/htoprc $(HOME)/.config/htop/htoprc
 	@ln -sfv $(DOTFILES)/latexmkrc $(HOME)/.latexmkrc
 	@pip3 install -r $(DOTFILES)/python/requirements.txt
 	@which ipython && ipython -c exit && ln -sfv $(DOTFILES)/python/ipython_config.py $(HOME)/.ipython/profile_default/
@@ -92,6 +91,7 @@ linux: sudo git misc zsh nvim
 	@bash $(DOTFILES)/linux/apt.sh
 	@which antibody || curl -sfL git.io/antibody | sh -s - -b $(HOME)/.local/bin
 	@git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf; ~/.fzf/install --all --no-bash --no-zsh --no-fish
+	@ln -sfv $(DOTFILES)/htop/server $(HOME)/.config/htop/htoprc
 
 .PHONY: macos
 macos:
@@ -107,6 +107,7 @@ macos:
 	-which osx-cpu-temp || bash $(DOTFILES)/scripts/osx_cpu_temp.sh
 	@swift package completion-tool generate-zsh-script > $(HOME)/.zsh/completion/_swift
 	-which sourcekit-lsp || bash $(DOTFILES)/scripts/sourcekit-lsp.sh
+	@ln -sfv $(DOTFILES)/htop/personal $(HOME)/.config/htop/htoprc
 
 .PHONY: uninstall
 uninstall:
