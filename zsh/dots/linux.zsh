@@ -1,3 +1,3 @@
-[[ $OSNAME != 'Linux' ]] && return
+[[ $OSTYPE != 'Linux' ]] && return
 
 path=("$HOME/.local/bin" $path)

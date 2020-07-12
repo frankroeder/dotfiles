@@ -45,7 +45,7 @@ misc:
 	@ln -sfv $(DOTFILES)/htoprc $(HOME)/.config/htop/htoprc
 	@ln -sfv $(DOTFILES)/latexmkrc $(HOME)/.latexmkrc
 	@pip3 install -r $(DOTFILES)/python/requirements.txt
-	@which ipython && ln -sfv $(DOTFILES)/python/ipython_config.py $(HOME)/.ipython/profile_default/
+	@which ipython && ipython -c exit && ln -sfv $(DOTFILES)/python/ipython_config.py $(HOME)/.ipython/profile_default/
 
 .PHONY: zsh
 zsh:
@@ -78,8 +78,7 @@ nvim:
 	@nvim +PlugInstall +qall
 	@nvim +"call mkdir(stdpath('config'), 'p')" +qall
 	@ln -sfv $(DOTFILES)/nvim $(HOME)/.config
-	@which go && GO111MODULE=on go get golang.org/x/tools/gopls@latest
-	@which sourcekit-lsp || bash $(DOTFILES)/scripts/sourcekit-lsp.sh
+	-which go && GO111MODULE=on go get golang.org/x/tools/gopls@latest
 
 .PHONY: git
 git:
@@ -105,8 +104,9 @@ macos:
 	@which alacritty || sudo ln -s /Applications/Alacritty.app/Contents/MacOS/alacritty /usr/local/bin/alacritty
 	@ln -sfv $(DOTFILES)/alacritty.yml $(HOME)/.config/alacritty/
 	(cd $(DOTFILES)/bin && /usr/bin/swiftc $(DOTFILES)/scripts/now_playing.swift)
-	@which osx-cpu-temp || bash $(DOTFILES)/scripts/osx_cpu_temp.sh
+	-which osx-cpu-temp || bash $(DOTFILES)/scripts/osx_cpu_temp.sh
 	@swift package completion-tool generate-zsh-script > $(HOME)/.zsh/completion/_swift
+	-which sourcekit-lsp || bash $(DOTFILES)/scripts/sourcekit-lsp.sh
 
 .PHONY: uninstall
 uninstall:
