@@ -106,7 +106,11 @@ set expandtab               " Tabs are spaces
 set ignorecase              " Search case insensitive...
 set smartcase               " but change if searched with upper case
 
-let g:python3_host_prog = '/usr/local/bin/python3'
+if $OSTYPE=="Darwin"
+  let g:python3_host_prog = '/usr/local/bin/python3'
+else
+  let g:python3_host_prog = '/usr/bin/python3'
+endif
 set pyx=3
 
 " syntax and style
