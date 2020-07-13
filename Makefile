@@ -1,20 +1,21 @@
 SHELL := /bin/bash
 DOTFILES := $(PWD)
+PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(HOME)/bin:/$(HOME)/.local/bin
+
 .DEFAULT_GOAL := help
 
 .PHONY: macos
-macos: sudo macos homebrew misc zsh nvim git npm
+macos: sudo folders macos homebrew misc zsh nvim git npm
+		@zsh -i -c "fast-theme free"
 
 .PHONY: linux
-linux: sudo _linux git zsh misc nvim
+linux: sudo folders _linux git zsh misc nvim
 
 .PHONY: minimal
 minimal: _minimal git misc nvim
 
 .PHONY: help
 help:
-	@echo "######################################################################"
-	@echo "# Processes might get killed by some routines!                       #"
 	@echo "######################################################################"
 	@echo "macos    	-- macos setup"
 	@echo "linux    	-- full linux setup"
@@ -25,6 +26,7 @@ help:
 	@echo "zsh      	-- symlinks for zsh"
 	@echo "git      	-- gitconfigs, ignore and completion"
 	@echo "uninstall	-- remove symlinks"
+	@echo "######################################################################"
 
 .PHONY: sudo
 sudo:
@@ -54,14 +56,12 @@ misc:
 .PHONY: zsh
 zsh:
 	@echo -e "\033[1m\033[34m==> Installing zsh and tools\033[0m"
-	if [ ! -d "$(HOME)/.zsh" ]; then mkdir -p $(HOME)/.zsh; fi
-	@antibody bundle < $(DOTFILES)/antibody/bundles.txt > $(HOME)/.zsh/zsh_plugins.sh
+	@which antibody || antibody bundle < $(DOTFILES)/antibody/bundles.txt > $(HOME)/.zsh/zsh_plugins.sh
 	@ln -sfv $(DOTFILES)/zsh/zshrc $(HOME)/.zshrc;
 	@ln -sfv $(DOTFILES)/zsh/zlogin $(HOME)/.zlogin;
 	@ln -sfv $(DOTFILES)/zsh/zshenv $(HOME)/.zshenv;
 	@ln -sfv $(DOTFILES)/zsh/zprofile $(HOME)/.zprofile;
-	@bash $(DOTFILES)/autoloaded/switch_zsh
-	@zsh -i -c "fast-theme free"
+	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
 	@source $(HOME)/.zshrc
 
 .PHONY: npm
@@ -80,37 +80,42 @@ nvim:
 	@echo -e "\033[1m\033[34m==> Installing nvim dependencies\033[0m"
 	@nvim +PlugInstall +qall
 	@nvim +"call mkdir(stdpath('config'), 'p')" +qall
+	@rm -rfv $(HOME)/.config/nvim
 	@ln -sfv $(DOTFILES)/nvim $(HOME)/.config
-	-which go && GO111MODULE=on go get golang.org/x/tools/gopls@latest
+	@if [ -x "$(command -v go)" ]; then GO111MODULE=on go get golang.org/x/tools/gopls@latest; fi
 
-.PHONY: git
 git:
 	@echo -e "\033[1m\033[34m==> Installing stuff for git\033[0m"
 	@curl https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash -o $(HOME)/.git-completion.bash
 	@ln -sfv $(DOTFILES)/git/gitconfig $(HOME)/.gitconfig
 	@ln -sfv $(DOTFILES)/git/gitignore $(HOME)/.gitignore
 
+folders:
+	@echo -e "\033[1m\033[34m==> Creating directories\033[0m"
+	mkdir -p $(HOME)/.zsh
+	mkdir -p $(HOME)/.config/htop
+	mkdir -p $(HOME)/tmp
+	mkdir -p $(HOME)/.Trash
+
 .PHONY: _minimal
 _minimal:
-	ln -sfv $(DOTS)/bash_profile ~/.bash_profile;
-	ln -sfv $(DOTS)/bash_logout ~/.bash_logout;
-	ln -sfv $(DOTS)/bashrc ~/.bashrc;
+	ln -sfv $(DOTFILES)/bash_profile ~/.bash_profile;
+	ln -sfv $(DOTFILES)/bash_logout ~/.bash_logout;
+	ln -sfv $(DOTFILES)/bashrc ~/.bashrc;
 
 .PHONY: _linux
 _linux:
-	if [ ! -d "$(HOME)/bin" ]; then mkdir -p $(HOME)/bin; fi
-	if [ ! -d "$(HOME)/.Trash" ]; then mkdir -p $(HOME)/.Trash; fi
+	@echo -e "\033[1m\033[34m==> Installing linux packages\033[0m"
 	@bash $(DOTFILES)/linux/apt.sh
-	@which antibody || curl -sfL git.io/antibody | sh -s - -b $(HOME)/bin
 	@git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf; ~/.fzf/install --all --no-bash --no-zsh --no-fish
+	@curl -sfL git.io/antibody | sh -s - -b /usr/local/bin
 	@ln -sfv $(DOTFILES)/htop/server $(HOME)/.config/htop/htoprc
 
 .PHONY: _macos
 _macos:
 	@echo -e "\033[1m\033[34m==> Configure macos and applications\033[0m"
 	if [ -n "$(xcode-select -p)" ]; then xcode-select --install; xcodebuild -license accept; fi
-	if [ ! -d "$(HOME)/screens" ]; then mkdir -p $(HOME)/screens; fi
-	if [ ! -d "$(HOME)/tmp" ]; then mkdir -p $(HOME)/tmp; fi
+	@mkdir -p $(HOME)/screens
 	@bash $(DOTFILES)/macos/main.bash
 	@which airport || sudo ln -s /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/local/bin/airport
 	@which alacritty || sudo ln -s /Applications/Alacritty.app/Contents/MacOS/alacritty /usr/local/bin/alacritty
@@ -136,6 +141,14 @@ uninstall:
 
 .PHONY: test
 test:
+	@echo "Testing linux installation"
+	@docker build --rm -t dotfiles ${PWD}
+	@docker run -it --rm --name maketest -d dotfiles:latest
+	@docker exec -it maketest /bin/bash -c "cd ${PWD}; make linux"
+	@echo "Container can now be shut down"
+
+.PHONY: testbin
+testbin:
 	@echo "Current directory for dotfiles $(DOTFILES)"
 	@echo -e "\033[1m\033[34m==> Check if commands are available\033[0m"
 	-which brew

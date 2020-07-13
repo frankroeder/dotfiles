@@ -7,10 +7,10 @@
 [ ! -n "$ZSH_VERSION" ] && return
 
 autoload -Uz compinit
-if [ "$OSTYPE" = "Darwin" ] && [ $(date +'%j') != $(/usr/bin/stat -f '%Sm' -t '%j' ${ZDOTDIR:-$HOME}/.zcompdump) ]; then
-  compinit;
-else
-  compinit -C;
+if [[ "$OSTYPE" == "Darwin" ]]; then
+  [ $(date +'%j') != $(stat -f '%Sm' -t '%j' ${ZDOTDIR:-$HOME}/.zcompdump) ] && compinit || compinit -C
+elif [[ "$OSTYPE" == "Linux" ]]; then
+  [ $(date +'%F') != $(stat -c '%y' ${ZDOTDIR:-$HOME}/.zcompdump | cut -d' ' -f1) ] && compinit || compinit -C
 fi
 
 # autoloaded functions (lazy loading)
