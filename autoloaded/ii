@@ -1,13 +1,33 @@
 #!/usr/bin/env bash
 
 echo -e "\n${BOLD_CYAN}You are logged on:$RESET"; hostname
-echo -e "\n${BOLD_BLUE}Software Version:$RESET"; sw_vers
-echo -e "\n${BOLD_BLUE}CPU Info:$RESET"; sysctl -n machdep.cpu.brand_string
+echo -e "\n${BOLD_BLUE}Software Version:$RESET";
+if [[ "$OSTYPE" == "Darwin" ]]; then
+  sw_vers
+else
+ lsb_release -a
+fi
+echo -e "\n${BOLD_BLUE}CPU Info:$RESET";
+if [[ "$OSTYPE" == "Darwin" ]]; then
+  sysctl -n machdep.cpu.brand_string
+else
+  cat /proc/cpuinfo | grep 'model name' | uniq
+fi
 echo -e "\n${BOLD_BLUE}Additionnal information:$RESET "; uname -a
 echo -e "\n${BOLD_BLUE}Users logged on:$RESET "; w -h
 echo -e "\n${BOLD_BLUE}Current date:$RESET "; date
 echo -e "\n${BOLD_BLUE}Machine stats:$RESET "; uptime
-echo -e "\n${BOLD_BLUE}IP for Local Network:$RESET"; ipconfig getifaddr en0
+echo -e "\n${BOLD_BLUE}IP for Local Network:$RESET";
+if [[ "$OSTYPE" == "Darwin" ]]; then
+  ipconfig getifaddr en0
+else
+  IPS=( $(hostname -i) )
+  echo ${IPS[0]}
+fi
 echo -e "\n${BOLD_BLUE}IP for Interconnection:$RESET"; curl ifconfig.me
 echo -e "\n${BOLD_BLUE}Hardware Overview:$RESET";
-system_profiler SPHardwareDataType | tail -n 14  | tr -d " " | sed 's/:/: /g';
+if [[ "$OSTYPE" == "Darwin" ]]; then
+  system_profiler SPHardwareDataType | tail -n 14  | tr -d " " | sed 's/:/: /g';
+else
+  lscpu
+fi

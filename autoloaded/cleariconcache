@@ -2,7 +2,7 @@
 # Clear the icon cache
 # Possible solution for invisible app icons
 
-[[ $(uname -s) != 'Darwin' ]] && return
+[[ $OSTYPE != 'Darwin' ]] && return
 
 sudo find /private/var/folders/ -name com.apple.dock.iconcache -exec rm {} \;
 sudo find /private/var/folders/ -name com.apple.iconservices -exec rm -rf {} \;

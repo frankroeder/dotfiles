@@ -6,7 +6,7 @@ PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(HOME)/bin:/$(HOME)/.lo
 
 .PHONY: macos
 macos: sudo folders macos homebrew misc zsh nvim git npm
-		@zsh -i -c "fast-theme free"
+	@zsh -i -c "fast-theme free"
 
 .PHONY: linux
 linux: sudo folders _linux git zsh misc nvim
