@@ -24,7 +24,7 @@ else
   IPS=( $(hostname -i) )
   echo ${IPS[0]}
 fi
-echo -e "\n${BOLD_BLUE}IP for Interconnection:$RESET"; curl ifconfig.me
+echo -e "\n${BOLD_BLUE}IP for Interconnection:$RESET"; curl -4 https://icanhazip.com
 echo -e "\n${BOLD_BLUE}Hardware Overview:$RESET";
 if [[ "$OSTYPE" == "Darwin" ]]; then
   system_profiler SPHardwareDataType | tail -n 14  | tr -d " " | sed 's/:/: /g';

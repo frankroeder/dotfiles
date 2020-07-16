@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+URLS=$(osascript -e 'tell application "Safari" to get the URL of every tab of every window' | sed -E $'s/, ?/\\\n/g')
+SELECTED=$(echo "$URLS" | tr -s " " "\012" | fzf --exit-0);
+if [ -n "$SELECTED" ]; then
+  echo $SELECTED | pbcopy
+  echo  "Copied $SELECTED to clipboard";
+fi
