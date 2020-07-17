@@ -21,8 +21,7 @@ echo -e "\n${BOLD_BLUE}IP for Local Network:$RESET";
 if [[ "$OSTYPE" == "Darwin" ]]; then
   ipconfig getifaddr en0
 else
-  IPS=( $(hostname -i) )
-  echo ${IPS[0]}
+  hostname -i
 fi
 echo -e "\n${BOLD_BLUE}IP for Interconnection:$RESET"; curl -4 https://icanhazip.com
 echo -e "\n${BOLD_BLUE}Hardware Overview:$RESET";
