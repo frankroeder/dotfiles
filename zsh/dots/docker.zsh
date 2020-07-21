@@ -82,9 +82,18 @@ dlog() {
   local cid=$(dcids 1)
   [ -n "$cid" ] && docker logs -f "$cid"
 }
-dexb() {
+dex{b,z,ec}() {
   local cid=$(dcids)
-  [ -n "$cid" ] && docker exec -it "$cid" bash
+  local fn=${funcstack[1]:3}
+  local shell=
+  if [[ "$fn" = "b" ]] then;
+    shell=bash;
+  elif [[ "$fn" = "z" ]] then;
+    shell=zsh;
+  else
+    shell='sh -c "'$1'"'
+  fi
+  [ -n "$cid" ] && eval "docker exec -it $cid $shell"
 }
 drmi() {
   local imgids=$(dimgids)

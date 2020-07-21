@@ -20,7 +20,6 @@ setw -g window-status-activity-style "fg=$ONEDARK_WHITE,bg=$ONEDARK_BLACK"
 set -g window-style "fg=$ONEDARK_COMMENT_GREY"
 set -g window-active-style "fg=$ONEDARK_WHITE"
 
-
 setw -g window-status-format "#[fg=$ONEDARK_BLACK,bg=$ONEDARK_BLACK,nobold,nounderscore,noitalics]#[fg=$ONEDARK_WHITE,bg=$ONEDARK_BLACK]#I  #W#[fg=$ONEDARK_BLACK,bg=$ONEDARK_BLACK,nobold,nounderscore,noitalics]"
 setw -g window-status-current-format "#[fg=$ONEDARK_BLACK,bg=$ONEDARK_VISUAL_GREY,nobold,nounderscore,noitalics]#[fg=$ONEDARK_WHITE,bg=$ONEDARK_VISUAL_GREY,nobold]#I  #W#[fg=$ONEDARK_VISUAL_GREY,bg=$ONEDARK_BLACK,nobold,nounderscore,noitalics]"
 

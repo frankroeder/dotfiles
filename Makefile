@@ -5,11 +5,11 @@ PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(HOME)/bin:/$(HOME)/.lo
 .DEFAULT_GOAL := help
 
 .PHONY: macos
-macos: sudo folders macos homebrew misc zsh nvim git npm
+macos: sudo directories macos homebrew misc zsh nvim git npm
 	@zsh -i -c "fast-theme free"
 
 .PHONY: linux
-linux: sudo folders _linux git zsh misc nvim
+linux: sudo directories _linux git zsh misc nvim
 
 .PHONY: minimal
 minimal: _minimal git misc nvim
@@ -56,7 +56,7 @@ misc:
 .PHONY: zsh
 zsh:
 	@echo -e "\033[1m\033[34m==> Installing zsh and tools\033[0m"
-	@which antibody || antibody bundle < $(DOTFILES)/antibody/bundles.txt > $(HOME)/.zsh/zsh_plugins.sh
+	@antibody bundle < $(DOTFILES)/antibody/bundles.txt > $(HOME)/.zsh/zsh_plugins.sh
 	@ln -sfv $(DOTFILES)/zsh/zshrc $(HOME)/.zshrc;
 	@ln -sfv $(DOTFILES)/zsh/zlogin $(HOME)/.zlogin;
 	@ln -sfv $(DOTFILES)/zsh/zshenv $(HOME)/.zshenv;
@@ -90,7 +90,7 @@ git:
 	@ln -sfv $(DOTFILES)/git/gitconfig $(HOME)/.gitconfig
 	@ln -sfv $(DOTFILES)/git/gitignore $(HOME)/.gitignore
 
-folders:
+directories:
 	@echo -e "\033[1m\033[34m==> Creating directories\033[0m"
 	mkdir -p $(HOME)/.zsh
 	mkdir -p $(HOME)/.config/htop
@@ -140,24 +140,12 @@ uninstall:
 	rm $(HOME)/.gitconfig
 
 .PHONY: test
-test:
+test: maketest
+
+.PHONY: maketest
+maketest:
 	@echo "Testing linux installation"
 	@docker build --rm -t dotfiles ${PWD}
 	@docker run -it --rm --name maketest -d dotfiles:latest
 	@docker exec -it maketest /bin/bash -c "cd ${PWD}; make linux"
 	@echo "Container can now be shut down"
-
-.PHONY: testbin
-testbin:
-	@echo "Current directory for dotfiles $(DOTFILES)"
-	@echo -e "\033[1m\033[34m==> Check if commands are available\033[0m"
-	-which brew
-	-which git
-	-which nvim
-	-which zsh
-	-which pip3
-	-which antibody
-	-which npm
-	-which airport
-	-which vlc
-	-which alacritty
