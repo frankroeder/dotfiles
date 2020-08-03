@@ -45,9 +45,8 @@ antibody_update() {
 }
 
 npm_update() {
-  npm install npm -g;
+  npm install npm@latest -g;
   npm update -g;
-  npm cache clean;
 }
 
 gem_update() {
@@ -85,7 +84,7 @@ if ping -c 1 google.com &> /dev/null; then
   [ $commands[pip3] ] && exec_update pip_update
   [ $commands[nvim] ] && exec_update neovim_plug_update
   [ $commands[antibody] ] && exec_update antibody_update
-  # [ $commands[npm] ] && exec_update npm_update
+  [ $commands[npm] ] && exec_update npm_update
   [ $commands[gem] ] && exec_update gem_update
   [ $commands[mas] ] && exec_update mas_update
   [ $commands[brew] ] && exec_update brew_update
