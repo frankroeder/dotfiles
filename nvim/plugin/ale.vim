@@ -4,7 +4,7 @@ let g:ale_sign_column_always = 1
 let g:ale_sign_error = '●'
 let g:ale_sign_warning = '●'
 let g:ale_disable_lsp = 1
-let g:ale_change_sign_column_color = 1
+let g:ale_change_sign_column_color = 0
 
 highlight! ALEErrorSign ctermfg=Red guifg=#e06c75
 highlight! ALEWarningSign ctermfg=Yellow guifg=#abb2bf
@@ -19,16 +19,16 @@ nmap <silent> <Leader>l <Plug>(ale_lint)
 
 let g:ale_use_global_executables = 1
 
-let g:ale_python_autopep8_executable = '/usr/local/bin/autopep8'
-let g:ale_python_yapf_executable = '/usr/local/bin/yapf'
-let g:ale_python_pyflakes_executable = '/usr/local/bin/pyflakes'
+let g:ale_python_autopep8_executable = exepath('autopep8')
+let g:ale_python_yapf_executable = exepath('yapf')
+let g:ale_python_pyflakes_executable = exepath('pyflakes')
 
-let g:ale_c_clangformat_executable = '/usr/local/opt/llvm/bin/clang-format'
-let g:ale_c_clangtidy_executable = '/usr/local/opt/llvm/bin/clang-tidy'
+let g:ale_c_clangformat_executable = exepath('clang-format')
+let g:ale_c_clangtidy_executable = exepath('clang-tidy')
 
-let g:ale_javascript_eslint_executable = '/usr/local/bin/eslint'
+let g:ale_javascript_eslint_executable = exepath('eslint')
 let g:ale_javascript_eslint_options = '--no-eslintrc'
-let g:ale_typescript_tsserver_executable = '/usr/local/bin/tsserver'
+let g:ale_typescript_tsserver_executable = exepath('tsserver')
 
 let g:ale_fixers = {
       \ 'python': ['yapf', 'autopep8'],

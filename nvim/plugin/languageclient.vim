@@ -1,10 +1,10 @@
-let s:py_lsp = ['/usr/local/bin/pyls', '--log-file', '/tmp/pyls.log']
-let s:js_ts_lsp =  ['/usr/local/bin/javascript-typescript-stdio', '-l', '/tmp/js_ts.log']
-let s:c_cpp_lsp = ['/usr/local/opt/llvm/bin/clangd', '--clang-tidy', '--suggest-missing-includes']
-let s:go_lsp = [$GOPATH.'/bin/gopls', '-logfile', '/tmp/gopls.log']
-let s:swift_lsp = ['/usr/local/sourcekit-lsp']
-let s:html_lsp = ['html-languageserver', '--stdio']
-let s:css_lsp = ['css-languageserver', '--stdio']
+let s:py_lsp = [exepath('pyls'), '--log-file', '/tmp/pyls.log']
+let s:js_ts_lsp =  [exepath('javascript-typescript-stdio'), '-l', '/tmp/js_ts.log']
+let s:c_cpp_lsp = [exepath('clangd'), '--clang-tidy', '--suggest-missing-includes']
+let s:go_lsp = [exepath('gopls'), '-logfile', '/tmp/gopls.log']
+let s:html_lsp = [exepath('html-languageserver'), '--stdio']
+let s:css_lsp = [exepath('css-languageserver'), '--stdio']
+let s:swift_lsp = [exepath('sourcekit-lsp')]
 
 let g:LanguageClient_serverCommands = {
       \ 'python': s:py_lsp,

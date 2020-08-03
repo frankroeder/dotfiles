@@ -1,6 +1,14 @@
 #!/usr/bin/env zsh
 
-CPU="$(osx-cpu-temp)"
+if [[ "$OSTYPE" == "Darwin" ]]; then
+  CPU="$(osx-cpu-temp)"
+elif [[ "$OSTYPE" == "Linux" ]]; then
+  [[ ! -d /sys/class/thermal/ ]] && return
+  CPUS=($(paste <(cat /sys/class/thermal/thermal_zone*/type) <(cat /sys/class/thermal/thermal_zone*/temp) | awk '{print $2}' | sed 's/\(.\)..$//'))
+  MEAN_CPU=$(($((${CPUS[1]} + ${CPUS[2]}))/2))
+  CPU="$MEAN_CPU.0 °C"
+fi
+
 CPU_TEMP="${CPU:0:2}"
 if [[ $CPU_TEMP -ge 90 ]]; then
   CPU_COLOR="160"
