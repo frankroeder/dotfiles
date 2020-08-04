@@ -7,6 +7,14 @@ let g:vimtex_view_general_viewer
 let g:vimtex_view_general_options = '-r @line @pdf @tex'
 let g:vimtex_quickfix_mode = 0
 let g:vimtex_complete_close_braces = 1
+
+function! Callback(msg)
+  let l:m = matchlist(a:msg, '\vRun number (\d+) of rule ''(.*)''')
+  if !empty(l:m)
+    echomsg l:m[2] . ' (' . l:m[1] . ')'
+  endif
+endfunction
+
 let g:vimtex_compiler_latexmk = {
     \ 'backend' : 'nvim',
     \ 'background' : 1,
@@ -14,8 +22,9 @@ let g:vimtex_compiler_latexmk = {
     \ 'callback' : 1,
     \ 'continuous' : 1,
     \ 'executable' : 'latexmk',
-    \ 'hooks' : [],
+    \ 'hooks' : [function('Callback')],
     \ 'options' : [
+    \   '-lualatex',
     \   '-verbose',
     \   '-file-line-error',
     \   '-synctex=1',
@@ -23,28 +32,14 @@ let g:vimtex_compiler_latexmk = {
     \ ],
     \}
 
-let g:vimtex_compiler_callback_hooks = ['UpdateSkim']
-
-function! UpdateSkim(status)
-    if !a:status | return | endif
-    let l:out = b:vimtex.out()
-    let l:tex = expand('%:p')
-    let l:cmd = [g:vimtex_view_general_viewer, '-r']
-    if !empty(system('pgrep Skim'))
-      call extend(l:cmd, ['-g'])
-    endif
-    if has('nvim')
-      call jobstart(l:cmd + [line('.'), l:out, l:tex])
-    elseif has('job')
-      call job_start(l:cmd + [line('.'), l:out, l:tex])
-    else
-      call system(join(l:cmd + [line('.'), shellescape(l:out), shellescape(l:tex)], ' '))
-    endif
-endfunction
-
 let g:vimtex_toc_config = {
       \ 'split_pos': 'full',
       \ 'layer_status': {'label': 0}
+      \}
+
+let g:vimtex_complete_bib ={
+      \ 'simple' : 0,
+      \ 'menu_fmt': '@key @author_short (@year), "@title"'
       \}
 
 augroup tex
