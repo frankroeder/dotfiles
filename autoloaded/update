@@ -36,8 +36,8 @@ brew_update() {
 pip_update() {
   pip3 list --outdated --format=freeze | grep -v '^\-e' | cut -d = -f 1  \
     | xargs -n1 pip3 install -U --user --no-warn-script-location;
-  pip3 install --upgrade pip3;
-  }
+  pip3 install --upgrade pip;
+}
 
 antibody_update() {
   antibody update;
@@ -66,6 +66,7 @@ neovim_plug_update() {
 mas_update() {
   mas upgrade
 }
+
 apt_update() {
   sudo apt update -y
   sudo apt upgrade -y

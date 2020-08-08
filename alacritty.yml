@@ -28,6 +28,10 @@ window:
 
   startup_mode: Maximized
 
+  # Allow terminal applications to change Alacritty's window title.
+  dynamic_title: true
+
+
 scrolling:
   # Maximum number of lines in the scrollback buffer.
   # Specifying '0' will disable scrolling.
@@ -103,12 +107,6 @@ colors:
     cyan:    '0x56b6c2'
     white:   '0xffffff'
 
-# Visual Bell
-visual_bell:
-  animation: EaseOutExpo
-  duration: 0
-  color: '0xffffff'
-
 # Background opacity
 background_opacity: 0.96
 
@@ -152,9 +150,6 @@ selection:
 
   # When set to `true`, selected text will be copied to the primary clipboard.
   save_to_clipboard: false
-
-# Allow terminal applications to change Alacritty's window title.
-dynamic_title: true
 
 cursor:
   # Cursor style
