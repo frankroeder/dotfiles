@@ -1,9 +1,0 @@
-{
-  "pyls": {
-    "plugins": {}
-  },
-  "gopls": {
-    "usePlaceholders": true,
-    "completeUnimported": true
-  }
-}

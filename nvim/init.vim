@@ -21,10 +21,8 @@ Plug 'tpope/vim-surround'
 Plug 'tpope/vim-repeat'
 Plug 'mhinz/vim-signify'
 Plug 'dense-analysis/ale'
-Plug 'autozimu/LanguageClient-neovim', {
-      \ 'branch': 'next',
-      \ 'do': 'bash install.sh',
-      \ }
+Plug 'neovim/nvim-lsp'
+Plug 'Shougo/deoplete-lsp'
 Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
 Plug 'Shougo/neosnippet.vim'
 Plug 'Shougo/echodoc.vim'
@@ -62,6 +60,7 @@ set history=200             " 200 lines command history
 set binary                  " Enable binary support
 set nowrap                  " Don't wrap long lines
 set scrolloff=3             " Keep at least 3 lines above/below
+set sidescrolloff=5         " Show next 5 columns when scrolling sideways
 set noshowmode              " Don't show current mode
 set showmatch               " Show matching bracket/parenthesis/etc
 set matchtime=2

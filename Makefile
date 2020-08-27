@@ -71,7 +71,7 @@ npm:
 	@npm i -g typescript
 	@npm i -g eslint
 	@npm i -g neovim
-	@npm i -g javascript-typescript-langserver
+	@npm i -g typescript-language-server
 	@npm i -g vscode-html-languageserver-bin
 	@npm i -g vscode-css-languageserver-bin
 
@@ -83,6 +83,7 @@ nvim:
 	@rm -rfv $(HOME)/.config/nvim
 	@ln -sfv $(DOTFILES)/nvim $(HOME)/.config
 	@if [ -x "$(command -v go)" ]; then GO111MODULE=on go get golang.org/x/tools/gopls@latest; fi
+	@nvim -es -u $(DOTFILES)/nvim/init.vim -i NONE -c "PlugInstall" -V -c "qa"
 
 git:
 	@echo -e "\033[1m\033[34m==> Installing stuff for git\033[0m"

@@ -43,7 +43,7 @@ call deoplete#custom#var('omni', 'input_patterns', {
       \ 'tex': g:vimtex#re#deoplete
       \ })
 
-call deoplete#custom#source('LanguageClient', {
+call deoplete#custom#source('lsp', {
       \ 'min_pattern_length': 2,
       \ 'converters': ['converter_auto_paren', 'converter_remove_overlap']
       \ })
