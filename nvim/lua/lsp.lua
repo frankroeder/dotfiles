@@ -11,7 +11,6 @@ function table.merge(t1, t2)
   return t1
 end
 
---TODO: Fix root_dir
 general_root = {".root", ".project.*", ".git/", ".gitignore", "README.md"}
 py_root = {'venv/', 'requirements.txt', 'setup.py'}
 ts_js_root = {'jsconfig.json', 'tsconfig.json', 'package.json'}
@@ -30,7 +29,7 @@ nvim_lsp.pyls.setup{
     cmd = { vim.fn.exepath('pyls'), '--log-file' , '/tmp/pyls.log' };
     root_dir = function(fname)
       return util.find_git_ancestor(fname) or util.root_pattern(table.merge(py_root, general_root))
-        or util.path.dirname(fname) or vim.fn.getcwd()
+        or vim.fn.getcwd()
     end;
   };
   settings = {
@@ -50,7 +49,7 @@ nvim_lsp.clangd.setup{
     cmd = { 'clangd', '--clang-tidy', '--suggest-missing-includes' };
     root_dir = function(fname)
       return util.find_git_ancestor(fname) or util.root_pattern(table.merge(c_cpp_root, general_root))
-        or util.path.dirname(fname) or vim.fn.getcwd()
+        or vim.fn.getcwd()
     end;
   };
 }
@@ -59,14 +58,14 @@ nvim_lsp.tsserver.setup{
     cmd = { 'typescript-language-server', '--stdio', '--tsserver-log-file', '/tmp/ts.log' };
     root_dir = function(fname)
       return util.find_git_ancestor(fname) or util.root_pattern(table.merge(ts_js_root, general_root))
-        or util.path.dirname(fname) or vim.fn.getcwd()
+        or vim.fn.getcwd()
     end;
   };
 }
 nvim_lsp.html.setup{
   default_config = {
     root_dir = function(fname)
-      return util.find_git_ancestor(fname) or util.path.dirname(fname) or vim.fn.getcwd()
+      return util.find_git_ancestor(fname) or vim.fn.getcwd()
     end;
   };
 }
@@ -74,7 +73,7 @@ nvim_lsp.cssls.setup{
   default_config = {
     filetypes = {"css", "scss", "sass", "less"};
     root_dir = function(fname)
-      return util.find_git_ancestor(fname) or util.path.dirname(fname) or vim.fn.getcwd()
+      return util.find_git_ancestor(fname) or vim.fn.getcwd()
     end;
   };
 }
@@ -84,7 +83,7 @@ nvim_lsp.gopls.setup{
     cmd = { 'gopls', '-logfile', '/tmp/gopls.log' };
     root_dir = function(fname)
       return util.find_git_ancestor(fname) or util.root_pattern(table.merge(go_root, general_root))
-        or util.path.dirname(fname) or vim.fn.getcwd()
+        or vim.fn.getcwd()
     end;
   };
   init_options = {
@@ -99,7 +98,7 @@ nvim_lsp.gopls.setup{
 nvim_lsp.sourcekit.setup{
   default_config = {
     root_dir = function(fname)
-      return util.find_git_ancestor(fname) or util.path.dirname(fname) or vim.fn.getcwd()
+      return util.find_git_ancestor(fname) or vim.fn.getcwd()
     end;
   };
 }

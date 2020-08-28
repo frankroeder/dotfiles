@@ -78,12 +78,11 @@ npm:
 .PHONY: nvim
 nvim:
 	@echo -e "\033[1m\033[34m==> Installing nvim dependencies\033[0m"
-	@nvim +PlugInstall +qall
 	@nvim +"call mkdir(stdpath('config'), 'p')" +qall
 	@rm -rfv $(HOME)/.config/nvim
 	@ln -sfv $(DOTFILES)/nvim $(HOME)/.config
 	@if [ -x "$(command -v go)" ]; then GO111MODULE=on go get golang.org/x/tools/gopls@latest; fi
-	@nvim -es -u $(DOTFILES)/nvim/init.vim -i NONE -c "PlugInstall" -V -c "qa"
+	-nvim -es -u $(DOTFILES)/nvim/init.vim -i NONE -c "PlugInstall" -c "qa"
 
 git:
 	@echo -e "\033[1m\033[34m==> Installing stuff for git\033[0m"
