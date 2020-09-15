@@ -12,7 +12,8 @@ set completeopt-=preview
 
 call deoplete#custom#option({
       \ 'smart_case': v:true,
-      \ 'max_list': 30
+      \ 'max_list': 30,
+      \ 'ignore_sources': { '_': ['around', 'member'] },
       \ })
 
 "Bug: Cannot access this variable from vimtex, so define it here

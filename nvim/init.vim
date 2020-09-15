@@ -74,6 +74,7 @@ set shortmess+=c
 set signcolumn=yes          " always draw sign column
 set cmdheight=2
 set hidden
+set modeline
 
 if has("clipboard")
   set clipboard=unnamed     " copy to the system clipboard

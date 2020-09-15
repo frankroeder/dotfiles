@@ -8,4 +8,4 @@ pyflakes
 autopep8
 yapf
 rope
-python-language-server
+jedi-language-server

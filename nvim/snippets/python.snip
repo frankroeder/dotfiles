@@ -100,6 +100,17 @@ options     head
 	if __name__ == '__main__':
 		${0:pass}
 
+snippet     skeleton
+abbr        def main() .. if ..
+alias       skel
+options     head
+  def main():
+    ${0:pass}
+
+	if __name__ == '__main__':
+		main()
+
+
 snippet     tryexcept
 abbr        try: ... except ...: ...
 options     head

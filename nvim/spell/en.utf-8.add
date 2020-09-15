@@ -63,3 +63,7 @@ hyperparameters
 PyTorch
 microservices
 Ideomotor
+MDP
+DPG
+DDPG
+UMDP

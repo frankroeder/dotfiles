@@ -2,9 +2,14 @@
 
 export DOTFILES=$HOME/.dotfiles
 export OSTYPE=$(uname -s)
-
-export EDITOR="$(command -v nvim)"
-export VISUAL=$EDITOR
+if (( ${+commands[nvim]} )); then
+    export EDITOR="nvim"
+elif (( ${+commands[vim]} )); then
+    export EDITOR="vim"
+else
+    export EDITOR="vi"
+fi
+export VISUAL="${EDITOR}"
 export BROWSER="open"
 export BLOCKSIZE=1k
 
