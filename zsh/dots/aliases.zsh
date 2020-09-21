@@ -39,3 +39,4 @@ alias online="ping -c 1 www.example.com &> /dev/null && echo 'Online :)' || echo
 
 # start plain vim
 alias pvim="$EDITOR -u NONE -i NONE -n -N -n"
+alias vimlogs='less ~/.local/share/nvim/lsp.log /tmp/*.log'
