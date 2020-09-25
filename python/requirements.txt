@@ -5,7 +5,6 @@ numpy
 matplotlib
 ipython
 pyflakes
-autopep8
 yapf
 rope
-python-language-server[yapf,pyflakes]
+python-language-server

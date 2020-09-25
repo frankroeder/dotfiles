@@ -29,7 +29,7 @@ exec_update() {
 brew_update() {
   brew update;
   brew upgrade --display-times;
-  brew cask upgrade;
+  brew upgrade --cask;
   brew cleanup -s && rm -rfv "$(brew --cache)";
 }
 

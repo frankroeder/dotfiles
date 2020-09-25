@@ -60,6 +60,14 @@ nvim_lsp.pyls.setup{
       or vim.fn.getcwd()
     end;
   };
+  settings = {
+    pyls = {
+      plugins = {
+        preload = { modules = { "numpy", "torch" }; };
+        configurationSources = { "pyflakes" };
+      };
+    };
+  };
 }
 nvim_lsp.clangd.setup{
   default_config = {
@@ -120,7 +128,7 @@ nvim_lsp.sourcekit.setup{
   default_config = {
     filetypes = { "swift", "c", "cpp", "objective-c", "objective-cpp" };
     root_dir = function(fname)
-      return util.find_git_ancestor(fname) or util.root_pattern(table.merge(go_root, general_root))
+      return util.find_git_ancestor(fname) or util.root_pattern(table.merge(swift_root, general_root))
       or vim.fn.getcwd()
     end;
   };
