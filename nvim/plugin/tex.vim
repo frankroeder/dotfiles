@@ -48,7 +48,7 @@ augroup tex
   au FileType tex nmap <buffer> <F2><F2> :call vimtex#fzf#run('cti')<CR>
   au FileType tex nmap <buffer> <F3> <plug>(vimtex-view)
   au FileType tex nmap <buffer> <F4> <plug>(vimtex-compile)
-  au Filetype tex nmap <silent> <buffer> <C-P> :call vimtex#fzf#run('cti', {'window': { 'width': 0.6, 'height': 0.6 } })<CR>
+  au Filetype tex nmap <silent> <buffer> <C-F> :call vimtex#fzf#run('cti', {'window': { 'width': 0.6, 'height': 0.6 } })<CR>
 augroup END
 
 let g:vimtex_doc_handlers = ['ShowTexDoc']

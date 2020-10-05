@@ -6,7 +6,6 @@
 if empty(glob('~/.local/share/nvim/site/autoload/plug.vim'))
   silent !curl -fLo ~/.local/share/nvim/site/autoload/plug.vim --create-dirs
         \ https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
-  autocmd vimEnter * PlugInstall --sync | source $MYVIMRC
 endif
 
 call plug#begin('~/.local/share/nvim/plugged')
@@ -32,12 +31,12 @@ Plug 'Shougo/neopairs.vim'
 Plug 'ncm2/float-preview.nvim'
 
 " language support
-Plug 'godlygeek/tabular', { 'for': 'markdown' }
-Plug 'plasticboy/vim-markdown', {'depends': 'godlygeek/tabular', 'for': 'markdown'}
+Plug 'godlygeek/tabular'
+Plug 'plasticboy/vim-markdown', {'depends': 'godlygeek/tabular'}
 Plug 'JamshedVesuna/vim-markdown-preview', { 'for': 'markdown' }
-Plug 'lervag/vim-latex', { 'for': 'tex' }
-Plug 'bassstring/apple-swift' , { 'for': ['swift', 'sil', 'swiftgyb'] }
-Plug 'cespare/vim-toml', { 'for': 'toml' }
+Plug 'lervag/vim-latex'
+Plug 'bassstring/apple-swift'
+Plug 'cespare/vim-toml'
 
 " style
 Plug 'vim-airline/vim-airline'
@@ -167,6 +166,10 @@ set wildignore+=*/.git/*,*/.svn/*,*/__pycache__/*,*/build/**
 set wildignore+=*.pyc
 set wildignore+=*.DS_Store
 set wildignore+=*.aux,*.bbl,*.blg,*.brf,*.fls,*.fdb_latexmk,*.synctex.gz
+
+if &runtimepath =~ 'nvim-lspconfig'
+  lua require('lsp')
+endif
 
 let s:local_vimrc = $HOME . '/.local.vim'
 if filereadable(s:local_vimrc)

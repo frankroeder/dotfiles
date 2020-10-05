@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# List sorted aliases for a given argument
+
+alias | grep "$1" | sed "s/^\([^=]*\)=\(.*\)/\1 => \2/"| sed "s/['|\']//g" | sort;

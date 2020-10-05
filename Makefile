@@ -147,5 +147,5 @@ maketest:
 	@echo "Testing linux installation"
 	@docker build --rm -t dotfiles ${PWD}
 	@docker run -it --rm --name maketest -d dotfiles:latest
-	@docker exec -it maketest /bin/bash -c "cd ${PWD}; make linux"
+	@docker exec -it maketest /bin/bash -c "make linux"
 	@echo "Container can now be shut down"

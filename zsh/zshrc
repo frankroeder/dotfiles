@@ -55,6 +55,11 @@ fi
 typeset -U path fpath
 export PATH
 
+# stay inside virtualenv
+if [[ -n $VIRTUAL_ENV && -e "${VIRTUAL_ENV}/bin/activate" ]]; then
+  source "${VIRTUAL_ENV}/bin/activate"
+fi
+
 if ( which zprof > /dev/null ); then
   zprof | less
 fi

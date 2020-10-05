@@ -17,28 +17,46 @@ c_cpp_root = {'compile_commands.json', 'build/', 'compile_flags.txt'}
 go_root = {'go.sum', 'go.mod'}
 swift_root = {'Package.swift'}
 
-local function mapluafn(mode, key, cmd)
-  local value = '<cmd>lua '..cmd..'<CR>'
-  vim.api.nvim_buf_set_keymap(0, mode, key, value, { silent= true; noremap= true })
-end
-
 -- buffer-local setup
 local on_attach = function(client, bufnr)
   print("LSP started.");
+
+  local opts = { noremap=true, silent=true }
+  local function mapluafn(mode, key, cmd)
+    local value = '<cmd>lua vim.lsp.buf.'..cmd..'<CR>'
+    vim.api.nvim_buf_set_keymap(bufnr, mode, key, value, opts)
+  end
+
+  vim.api.nvim_buf_set_option(bufnr, 'omnifunc', 'v:lua.vim.lsp.omnifunc')
+
   require'diagnostic'.on_attach(client)
-  vim.api.nvim_buf_set_option(0, 'omnifunc', 'v:lua.vim.lsp.omnifunc')
-  mapluafn("n", "<F2>", "vim.lsp.buf.declaration()")
-  mapluafn("n", "<F3>", "vim.lsp.buf.definition()")
-  mapluafn("n", "<F4>", "vim.lsp.buf.type_definition()")
-  mapluafn("n", "<F5>", "vim.lsp.buf.signature_help()")
-  mapluafn("n", "<F12>", "vim.lsp.buf.formatting()")
-  mapluafn("n", "K", "vim.lsp.buf.hover()")
-  mapluafn("n", "gD", "vim.lsp.buf.implementation()")
-  mapluafn("n", "gr", "vim.lsp.buf.references()")
-  mapluafn("n", "<Leader>rn", "vim.lsp.buf.rename()")
-  mapluafn("n", "gS", "vim.lsp.buf.document_symbol()")
-  mapluafn("n", "gW", "vim.lsp.buf.workspace_symbol()")
-  mapluafn("n",'<Leader>af','vim.lsp.buf.code_action()')
+  vim.cmd("highlight! LspDiagnosticsError cterm=bold guifg=#E06C75")
+  vim.cmd("highlight! LspDiagnosticsWarning cterm=bold guifg=#F5EA95")
+  vim.fn.sign_define("LspDiagnosticsErrorSign", { text = "●", texthl = "LspDiagnosticsError" })
+  vim.fn.sign_define("LspDiagnosticsWarningSign", { text = "●", texthl = "LspDiagnosticsWarning" })
+  vim.fn.sign_define("LspDiagnosticsInformationSign", { text = "●", texthl = "LspDiagnosticsInformation" })
+  vim.fn.sign_define("LspDiagnosticsHintSign", { text = "●", texthl = "LspDiagnosticsHint" })
+  vim.g.diagnostic_enable_underline = 0
+  vim.g.diagnostic_auto_popup_while_jump = 1
+  vim.g.diagnostic_insert_delay = 1
+
+  mapluafn("n", "<F2>", "declaration()")
+  mapluafn("n", "<F3>", "definition()")
+  mapluafn("n", "<F4>", "type_definition()")
+  mapluafn("n", "<F5>", "signature_help()")
+  mapluafn("n", "<F12>", "formatting()")
+  mapluafn("n", "K", "hover()")
+  mapluafn("n", "<Leader>imp", "implementation()")
+  mapluafn("n", "<Leader>ref", "references()")
+  mapluafn("n", "<Leader>rn", "rename()")
+  mapluafn("n", "<Leader>ds", "document_symbol()")
+  mapluafn("n", "<Leader>ws", "workspace_symbol()")
+  mapluafn("n","<Leader>ac",'code_action()')
+  vim.api.nvim_command("autocmd CursorHold * lua vim.lsp.util.show_line_diagnostics()")
+  vim.api.nvim_command("autocmd CursorMoved * lua vim.lsp.util.buf_clear_references()")
+
+  vim.api.nvim_buf_set_keymap(bufnr, 'n', 'gn', ':NextDiagnosticCycle<CR>', opts)
+  vim.api.nvim_buf_set_keymap(bufnr, 'n', 'gp', ':PrevDiagnosticCycle<CR>', opts)
 end
 
 -- override default config

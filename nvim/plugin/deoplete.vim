@@ -16,29 +16,6 @@ call deoplete#custom#option({
       \ 'ignore_sources': { '_': ['around', 'member'] },
       \ })
 
-"Bug: Cannot access this variable from vimtex, so define it here
-let g:vimtex#re#deoplete = '\\(?:'
-      \ .  '(?:\w*cite|Cite)\w*\*?(?:\s*\[[^]]*\]){0,2}\s*{[^}]*'
-      \ . '|(?:\w*cites|Cites)(?:\s*\([^)]*\)){0,2}'
-      \     . '(?:(?:\s*\[[^]]*\]){0,2}\s*\{[^}]*\})*'
-      \     . '(?:\s*\[[^]]*\]){0,2}\s*\{[^}]*'
-      \ . '|(text|block)cquote\*?(?:\s*\[[^]]*\]){0,2}\s*{[^}]*'
-      \ . '|(for|hy)\w*cquote\*?{[^}]*}(?:\s*\[[^]]*\]){0,2}\s*{[^}]*'
-      \ . '|\w*ref(?:\s*\{[^}]*|range\s*\{[^,}]*(?:}{)?)'
-      \ . '|hyperref\s*\[[^]]*'
-      \ . '|includegraphics\*?(?:\s*\[[^]]*\]){0,2}\s*\{[^}]*'
-      \ . '|(?:include(?:only)?|input|subfile)\s*\{[^}]*'
-      \ . '|([cpdr]?(gls|Gls|GLS)|acr|Acr|ACR)[a-zA-Z]*\s*\{[^}]*'
-      \ . '|(ac|Ac|AC)\s*\{[^}]*'
-      \ . '|includepdf(\s*\[[^]]*\])?\s*\{[^}]*'
-      \ . '|includestandalone(\s*\[[^]]*\])?\s*\{[^}]*'
-      \ . '|(usepackage|RequirePackage|PassOptionsToPackage)(\s*\[[^]]*\])?\s*\{[^}]*'
-      \ . '|documentclass(\s*\[[^]]*\])?\s*\{[^}]*'
-      \ . '|begin(\s*\[[^]]*\])?\s*\{[^}]*'
-      \ . '|end(\s*\[[^]]*\])?\s*\{[^}]*'
-      \ . '|\w*'
-      \ .')'
-
 " Add vimtex completion source
 call deoplete#custom#var('omni', 'input_patterns', {
       \ 'tex': g:vimtex#re#deoplete

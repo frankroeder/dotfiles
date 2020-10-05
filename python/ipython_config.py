@@ -28,7 +28,9 @@ import os
 #c.InteractiveShellApp.exec_PYTHONSTARTUP = True
 
 ## List of files to run at IPython startup.
-#c.InteractiveShellApp.exec_files = []
+c.InteractiveShellApp.exec_files = [
+    os.environ['DOTFILES'] + "/python/startup.py"
+]
 
 ## lines of code to run at IPython startup.
 #c.InteractiveShellApp.exec_lines = []
