@@ -36,11 +36,6 @@ imap <Right> <nop>
 " Disable ex mode shortcut
 nmap Q <Nop>
 
-if executable('jq')
-  " Format JSON with jq
-  nnoremap <silent> <Leader>fj :%!jq '.'<CR>
-endif
-
 " [,* ] Search and replace the word under the cursor.
 " current line
 nmap <Leader>* :s/\<<C-r><C-w>\>//g<Left><Left>
