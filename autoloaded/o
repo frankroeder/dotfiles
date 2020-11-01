@@ -2,7 +2,7 @@
 # Open or edit a file with ctrl-o or ctrl-e
 
 local out file key
-local IFS=$'\n' out=($(fzf-tmux --query="$1" --exit-0 --no-mouse \
+local IFS=$'\n' out=($(fzf --query="$1" --exit-0 --no-mouse \
   --header 'Press C-e to edit or C-o to open (default)' --sort \
   --expect=ctrl-o,ctrl-e))
 

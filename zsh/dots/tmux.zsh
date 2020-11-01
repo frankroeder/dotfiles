@@ -18,7 +18,7 @@ _tmux_pane_words() {
 
 fzf-tmux-widget() {
   local selected
-  if selected=$(_tmux_pane_words | fzf-tmux --height="40%" --reverse); then
+  if selected=$(_tmux_pane_words | fzf --height="40%" --reverse); then
     LBUFFER="$LBUFFER$selected"
   fi
   zle redisplay

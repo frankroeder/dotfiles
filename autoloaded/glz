@@ -3,7 +3,7 @@
 if git rev-parse --git-dir > /dev/null 2>&1; then
   git log --graph --color=always \
       --format="%C(auto)%h%d %s %C(black)%C(bold)%cr" "$@" |
-      fzf-tmux --ansi -d 95% --reverse \
+      fzf --ansi -d 95% --reverse \
       --preview "echo {} | grep -o '[a-f0-9]\\{7\\}' | head -1 |
       xargs -I % sh -c 'git show --color=always % | head -200 '" |
       grep -o '[a-f0-9]\{7\}'
