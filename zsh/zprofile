@@ -23,6 +23,6 @@ fi
 
 path=(
   /usr/local/{bin,sbin}
-  $DOTFILES/bin
+  $DOTFILES/bin/$OSTYPE
   $path
 )

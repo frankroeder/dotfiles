@@ -11,8 +11,6 @@ source "$HOME/.fzf/shell/key-bindings.zsh"
 
 ! [ $commands[fzf] ] && return
 
-export FZF_TMUX=1
-
 if [ $commands[ag] ]; then
   export FZF_DEFAULT_COMMAND="command ag -g '' --hidden --path-to-ignore ${DOTFILES}/ignore"
 fi
