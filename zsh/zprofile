@@ -1,4 +1,6 @@
 #!/usr/bin/env zsh
+# python3.8
+path=("/usr/local/opt/python@3.8/bin" $path)
 
 # llvm
 path=("/usr/local/opt/llvm/bin" $path)

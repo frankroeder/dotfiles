@@ -1,4 +1,4 @@
-set conceallevel=2
+set conceallevel=0
 let g:tex_conceal ='abdmg'
 let g:tex_flavor = "latex"
 
@@ -8,6 +8,7 @@ let g:vimtex_view_general_viewer
 let g:vimtex_view_general_options = '-r @line @pdf @tex'
 let g:vimtex_quickfix_mode = 0
 let g:vimtex_complete_close_braces = 1
+let g:vimtex_compiler_progname = 'nvr'
 
 function! Callback(msg)
   let l:m = matchlist(a:msg, '\vRun number (\d+) of rule ''(.*)''')

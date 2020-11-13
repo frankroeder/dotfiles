@@ -29,6 +29,7 @@ Plug 'Shougo/context_filetype.vim'
 Plug 'Shougo/neoinclude.vim'
 Plug 'Shougo/neopairs.vim'
 Plug 'ncm2/float-preview.nvim'
+Plug 'rhysd/git-messenger.vim'
 
 " language support
 Plug 'godlygeek/tabular'
@@ -107,7 +108,7 @@ set ignorecase              " Search case insensitive...
 set smartcase               " but change if searched with upper case
 
 if has('mac')
-  let g:python3_host_prog = '/usr/local/bin/python3'
+  let g:python3_host_prog = exepath("python3.8")
 else
   let g:python3_host_prog = '/usr/bin/python3'
 endif
@@ -166,6 +167,8 @@ set wildignore+=*/.git/*,*/.svn/*,*/__pycache__/*,*/build/**
 set wildignore+=*.pyc
 set wildignore+=*.DS_Store
 set wildignore+=*.aux,*.bbl,*.blg,*.brf,*.fls,*.fdb_latexmk,*.synctex.gz
+
+highlight MatchParen gui=bold,reverse guifg=#413e3d guibg=#f9d39e
 
 if &runtimepath =~ 'nvim-lspconfig'
   lua require('lsp')
