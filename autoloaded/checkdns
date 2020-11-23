@@ -1,5 +1,0 @@
-#!/usr/bin/env zsh
-# Define array DNS_EXCEPTIONS=("a" "b", "c") in ~/.local.zsh
-
-local wifi=$(airport -I | grep " SSID" | awk '{print $2}')
-(( ${DNS_EXCEPTIONS[(I)$wifi]} )) && defaultdns || gooddns

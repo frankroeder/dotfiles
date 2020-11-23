@@ -38,6 +38,9 @@ sudo defaults write /Library/Preferences/com.apple.alf stealthenabled -bool true
 # Disable Siri
 defaults write com.apple.assistant.support "Assistant Enabled" -bool false
 
+# Data sharing status
+defaults write com.apple.assistant.support "Siri Data Sharing Opt-In Status" -int 2
+
 # Disable flashing the screen when an alert sound occurs (accessibility)
 defaults write NSGlobalDomain com.apple.sound.beep.flash -bool false
 

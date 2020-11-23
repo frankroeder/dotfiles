@@ -1,5 +1,5 @@
-local nvim_lsp = require'nvim_lsp'
-local util = require 'nvim_lsp/util'
+local lspconfig = require'lspconfig'
+local util = require 'lspconfig/util'
 
 vim.lsp.set_log_level("error")
 
@@ -21,55 +21,67 @@ swift_root = {'Package.swift'}
 local on_attach = function(client, bufnr)
   print("LSP started.");
 
-  local opts = { noremap=true, silent=true }
   local function mapluafn(mode, key, cmd)
-    local value = '<cmd>lua vim.lsp.buf.'..cmd..'<CR>'
+    local value = '<cmd>lua vim.lsp.'..cmd..'<CR>'
+    local opts = { noremap=true, silent=true }
     vim.api.nvim_buf_set_keymap(bufnr, mode, key, value, opts)
   end
 
   vim.api.nvim_buf_set_option(bufnr, 'omnifunc', 'v:lua.vim.lsp.omnifunc')
 
-  require'diagnostic'.on_attach(client)
-  vim.cmd("highlight! LspDiagnosticsError cterm=bold guifg=#E06C75")
-  vim.cmd("highlight! LspDiagnosticsWarning cterm=bold guifg=#F5EA95")
-  vim.fn.sign_define("LspDiagnosticsErrorSign", { text = "●", texthl = "LspDiagnosticsError" })
-  vim.fn.sign_define("LspDiagnosticsWarningSign", { text = "●", texthl = "LspDiagnosticsWarning" })
-  vim.fn.sign_define("LspDiagnosticsInformationSign", { text = "●", texthl = "LspDiagnosticsInformation" })
-  vim.fn.sign_define("LspDiagnosticsHintSign", { text = "●", texthl = "LspDiagnosticsHint" })
-  vim.g.diagnostic_enable_underline = 0
-  vim.g.diagnostic_auto_popup_while_jump = 1
-  vim.g.diagnostic_insert_delay = 1
+  vim.cmd("highlight! LspDiagnosticsDefaultError cterm=bold guifg=#E06C75")
+  vim.cmd("highlight! LspDiagnosticsDefaultWarning cterm=bold guifg=#F5EA95")
+  vim.fn.sign_define("LspDiagnosticsSignError", { text = "●"})
+  vim.fn.sign_define("LspDiagnosticsSignWarning", { text = "●"})
+  vim.fn.sign_define("LspDiagnosticsSignInformation", { text = "●"})
+  vim.fn.sign_define("LspDiagnosticsSignHint", { text = "●"})
 
-  mapluafn("n", "<F2>", "declaration()")
-  mapluafn("n", "<F3>", "definition()")
-  mapluafn("n", "<F4>", "type_definition()")
-  mapluafn("n", "<F5>", "signature_help()")
-  mapluafn("n", "<F12>", "formatting()")
-  mapluafn("n", "K", "hover()")
-  mapluafn("n", "<Leader>imp", "implementation()")
-  mapluafn("n", "<Leader>ref", "references()")
-  mapluafn("n", "<Leader>rn", "rename()")
-  mapluafn("n", "<Leader>ds", "document_symbol()")
-  mapluafn("n", "<Leader>ws", "workspace_symbol()")
-  mapluafn("n","<Leader>ac",'code_action()')
-  vim.api.nvim_command("autocmd CursorHold * lua vim.lsp.util.show_line_diagnostics()")
-  vim.api.nvim_command("autocmd CursorMoved * lua vim.lsp.util.buf_clear_references()")
+  mapluafn("n", "<F2>", "buf.declaration()")
+  mapluafn("n", "<F3>", "buf.definition()")
+  mapluafn("n", "<F4>", "buf.type_definition()")
+  mapluafn("n", "<F5>", "buf.signature_help()")
+  mapluafn("n", "<F12>", "buf.formatting()")
+  mapluafn("n", "K", "buf.hover()")
+  mapluafn("n", "<Leader>imp", "buf.implementation()")
+  mapluafn("n", "<Leader>ref", "buf.references()")
+  mapluafn("n", "<Leader>rn", "buf.rename()")
+  mapluafn("n", "<Leader>ds", "buf.document_symbol()")
+  mapluafn("n", "<Leader>ws", "buf.workspace_symbol()")
+  mapluafn("n","<Leader>ac",'buf.code_action()')
 
-  vim.api.nvim_buf_set_keymap(bufnr, 'n', 'gn', ':NextDiagnosticCycle<CR>', opts)
-  vim.api.nvim_buf_set_keymap(bufnr, 'n', 'gp', ':PrevDiagnosticCycle<CR>', opts)
+  mapluafn("n", "gn", "diagnostic.goto_next()")
+  mapluafn("n","gp","diagnostic.goto_prev()")
 end
 
 -- override default config
-nvim_lsp.util.default_config = vim.tbl_extend(
+lspconfig.util.default_config = vim.tbl_extend(
   "force",
-  nvim_lsp.util.default_config,
+  lspconfig.util.default_config,
   {
     log_level = vim.lsp.protocol.MessageType.Log;
     message_level = vim.lsp.protocol.MessageType.Log;
     on_attach = on_attach;
   }
 )
-nvim_lsp.pyls.setup{
+
+vim.lsp.handlers["textDocument/publishDiagnostics"] = vim.lsp.with(
+  vim.lsp.diagnostic.on_publish_diagnostics, {
+    underline = false,
+    virtual_text = false,
+    signs = function(bufnr, client_id)
+      local ok, result = pcall(vim.api.nvim_buf_get_var, bufnr, 'show_signs')
+      -- No buffer local variable set, so just enable by default
+      if not ok then
+        return true
+      end
+
+      return result
+    end,
+    update_in_insert = true,
+  }
+)
+
+lspconfig.pyls.setup{
   enable = true;
   default_config = {
     cmd = { vim.fn.exepath('pyls'), '--log-file' , '/tmp/pyls.log' };
@@ -87,7 +99,7 @@ nvim_lsp.pyls.setup{
     };
   };
 }
-nvim_lsp.clangd.setup{
+lspconfig.clangd.setup{
   default_config = {
     cmd = { vim.fn.exepath('clangd'), '--clang-tidy', '--suggest-missing-includes' };
     filetypes = { "c", "cpp", "objc", "objcpp" };
@@ -97,7 +109,7 @@ nvim_lsp.clangd.setup{
     end;
   };
 }
-nvim_lsp.tsserver.setup{
+lspconfig.tsserver.setup{
   default_config = {
     cmd = { vim.fn.exepath('typescript-language-server'), '--stdio', '--tsserver-log-file', '/tmp/ts.log' };
     filetypes = { "javascript", "javascriptreact", "javascript.jsx", "typescript", "typescriptreact", "typescript.tsx" };
@@ -107,7 +119,7 @@ nvim_lsp.tsserver.setup{
     end;
   };
 }
-nvim_lsp.html.setup{
+lspconfig.html.setup{
   default_config = {
     filetypes = { "html" };
     root_dir = function(fname)
@@ -115,7 +127,7 @@ nvim_lsp.html.setup{
     end;
   };
 }
-nvim_lsp.cssls.setup{
+lspconfig.cssls.setup{
   default_config = {
     filetypes = {"css", "scss", "sass", "less"};
     root_dir = function(fname)
@@ -124,7 +136,7 @@ nvim_lsp.cssls.setup{
   };
 }
 
-nvim_lsp.gopls.setup{
+lspconfig.gopls.setup{
   default_config = {
     cmd = { vim.fn.exepath('gopls'), '-logfile', '/tmp/gopls.log' };
     root_dir = function(fname)
@@ -141,7 +153,7 @@ nvim_lsp.gopls.setup{
     fuzzyMatching=true;
   };
 }
-nvim_lsp.sourcekit.setup{
+lspconfig.sourcekit.setup{
   cmd = { "xcrun", vim.fn.exepath('sourcekit-lsp') };
   default_config = {
     filetypes = { "swift", "c", "cpp", "objective-c", "objective-cpp" };

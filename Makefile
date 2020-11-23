@@ -1,5 +1,6 @@
 SHELL := /bin/bash
 DOTFILES := $(PWD)
+OSTYPE ?= uname -s
 PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(HOME)/bin:/$(HOME)/.local/bin
 
 .DEFAULT_GOAL := help
@@ -42,6 +43,7 @@ homebrew:
 	@brew bundle --file="$(DOTFILES)/Brewfile"
 	@brew cleanup
 	-brew doctor
+	@gcloud config set disable_usage_reporting true
 
 .PHONY: misc
 misc:
@@ -82,7 +84,8 @@ nvim:
 	@rm -rfv $(HOME)/.config/nvim
 	@ln -sfv $(DOTFILES)/nvim $(HOME)/.config
 	@if [ -x "$(command -v go)" ]; then GO111MODULE=on go get golang.org/x/tools/gopls@latest; fi
-	-nvim -es -u $(DOTFILES)/nvim/init.vim -i NONE -c "PlugInstall" -c "qa"
+	@curl -fLo $(HOME)/.local/share/nvim/site/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+	@nvim -c PlugInstall -c quitall
 
 git:
 	@echo -e "\033[1m\033[34m==> Installing stuff for git\033[0m"
@@ -120,7 +123,7 @@ _macos:
 	@which airport || sudo ln -s /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/local/bin/airport
 	@which alacritty || sudo ln -s /Applications/Alacritty.app/Contents/MacOS/alacritty /usr/local/bin/alacritty
 	@ln -sfv $(DOTFILES)/alacritty.yml $(HOME)/.config/alacritty/
-	(cd $(DOTFILES)/bin && /usr/bin/swiftc $(DOTFILES)/scripts/now_playing.swift)
+	(cd $(DOTFILES)/bin/$(OSTYPE) && /usr/bin/swiftc $(DOTFILES)/scripts/now_playing.swift)
 	-which osx-cpu-temp || bash $(DOTFILES)/scripts/osx_cpu_temp.sh
 	@swift package completion-tool generate-zsh-script > $(HOME)/.zsh/completion/_swift
 	-which sourcekit-lsp || bash $(DOTFILES)/scripts/sourcekit-lsp.sh
@@ -144,7 +147,7 @@ test: maketest
 
 .PHONY: maketest
 maketest:
-	@echo "Testing linux installation"
+	@echo "Testing linux installation on ${OSTYPE}"
 	@docker build --rm -t dotfiles ${PWD}
 	@docker run -it --rm --name maketest -d dotfiles:latest
 	@docker exec -it maketest /bin/bash -c "make linux"

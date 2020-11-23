@@ -5,6 +5,19 @@
 # Wipe all (default) app icons from the Dock
 defaults delete com.apple.dock persistent-apps
 defaults delete com.apple.dock persistent-others
+defaults write com.apple.dock persistent-others -array \
+  "<dict><key>tile-data</key>
+    <dict><key>file-data</key>
+      <dict>
+        <key>_CFURLString</key><string>/Users/$(whoami)/Downloads</string>
+        <key>_CFURLStringType</key><integer>0</integer>
+      </dict>
+      <key>displayas</key><integer>1</integer>
+      <key>arrangement</key><integer>2</integer>
+      <key>showas</key><integer>3</integer>
+    </dict>
+    <key>tile-type</key><string>directory-tile</string>
+  </dict>"
 
 # Show indicator lights for open applications in the Dock
 defaults write com.apple.dock show-process-indicators -bool false

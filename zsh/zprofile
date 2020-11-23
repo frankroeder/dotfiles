@@ -1,19 +1,21 @@
 #!/usr/bin/env zsh
-# python3.8
-path=("/usr/local/opt/python@3.8/bin" $path)
+# login shell definitions
 
-# llvm
-path=("/usr/local/opt/llvm/bin" $path)
-export LDFLAGS="-L/usr/local/opt/llvm/lib $LDFLAGS"
-export CPPFLAGS="-I/usr/local/opt/llvm/include $LDFLAGS"
-
-# for compilers to find openssl
-path=("/usr/local/opt/openssl/bin" $path)
-export LDFLAGS="-L/usr/local/opt/openssl/lib $LDFLAGS"
-export CPPFLAGS="-I/usr/local/opt/openssl/include $LDFLAGS"
-
-# go
 if [ "$OSTYPE" = "Darwin" ]; then
+  # python3.8
+  path=("/usr/local/opt/python@3.8/bin" $path)
+
+  # llvm
+  path=("/usr/local/opt/llvm/bin" $path)
+  export LDFLAGS="-L/usr/local/opt/llvm/lib $LDFLAGS"
+  export CPPFLAGS="-I/usr/local/opt/llvm/include $LDFLAGS"
+
+  # for compilers to find openssl
+  path=("/usr/local/opt/openssl/bin" $path)
+  export LDFLAGS="-L/usr/local/opt/openssl/lib $LDFLAGS"
+  export CPPFLAGS="-I/usr/local/opt/openssl/include $LDFLAGS"
+
+  # go
   export GOPATH="$HOME/Documents/golang"
   export GOROOT="/usr/local/opt/go/libexec"
   path=(
@@ -22,9 +24,3 @@ if [ "$OSTYPE" = "Darwin" ]; then
     $path
   )
 fi
-
-path=(
-  /usr/local/{bin,sbin}
-  $DOTFILES/bin/$OSTYPE
-  $path
-)

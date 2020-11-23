@@ -1,4 +1,5 @@
 #!/usr/bin/env zsh
+# definitions for all sessions and scripts
 
 export DOTFILES=$HOME/.dotfiles
 export OSTYPE=$(uname -s)
@@ -25,3 +26,9 @@ export LANG=en_US.UTF-8
 export LC_ALL=$LANG
 
 export GPG_TTY=$(tty)
+
+path=(
+  /usr/local/{bin,sbin}
+  $DOTFILES/bin/$OSTYPE
+  $path
+)

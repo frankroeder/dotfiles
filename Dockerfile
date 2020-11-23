@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
 RUN apt-get -y update && apt-get install make sudo software-properties-common locales -y
 COPY . /root/.dotfiles

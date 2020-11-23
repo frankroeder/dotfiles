@@ -18,3 +18,10 @@ defaults write com.apple.mail PreferPlainText -bool true
 # Automatically check for new message
 defaults write com.apple.mail AutoFetch -bool true
 defaults write com.apple.mail PollTime -string "-1"
+
+# Unread messages in bold
+defaults write com.apple.mail ShouldShowUnreadMessagesInBold -bool true
+
+# Play sound "jump" when mail arrives
+defaults write com.apple.mail PlayMailSounds -bool true
+defaults write com.apple.mail NewMessagesSoundName -string "Frog"

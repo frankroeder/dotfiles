@@ -5,9 +5,6 @@
 # Disable menu bar transparency
 defaults write NSGlobalDomain AppleEnableMenuBarTransparency -bool false
 
-# Increase contrast
-defaults write com.apple.universalaccess increaseContrast -bool false
-
 # Set appearance
 # Blue     : 1
 # Graphite : 6
@@ -84,8 +81,8 @@ defaults write com.apple.systemuiserver menuExtras -array \
   "/System/Library/CoreServices/Menu Extras/TimeMachine.menu" \
   "/System/Library/CoreServices/Menu Extras/VPN.menu"
 
-# Show Siri in menu bar
+# Show Siri in menubar
 defaults write com.apple.Siri StatusMenuVisible -bool false
 
-# Hide menu bar
+# Hide menubar
 defaults write NSGlobalDomain _HIHideMenuBar -bool true

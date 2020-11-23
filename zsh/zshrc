@@ -1,4 +1,5 @@
 #!/usr/bin/env zsh
+# definitions for all interactive sessions
 
 # Uncomment to profile zsh
 # zmodload zsh/zprof && zprof

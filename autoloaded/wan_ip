@@ -1,0 +1,28 @@
+#!/usr/bin/env zsh
+
+IP_CACHE="$HOME/.cache/my_ip"
+
+check_file_age() {
+    if [[ "$OSTYPE" == "Darwin" ]]; then
+      DIFF=$(( ($(date +%s ) - ($(stat -f '%Sm' -t '%s' $IP_CACHE))) / 60 ))
+    elif [[ "$OSTYPE" == "Linux" ]]; then
+      DIFF=$(( (($(date +%s) - $(stat -c '%Y' $IP_CACHE | cut -d' ' -f1))) / 60 ))
+    fi
+    if [ $DIFF -gt 15 ]; then
+      return 1
+    fi
+    return 0
+}
+update_file() {
+  curl -4 -s https://icanhazip.com > $IP_CACHE
+}
+read_cached_ip() {
+  if [ -e $IP_CACHE ]; then
+    check_file_age  || update_file
+  else
+    update_file
+  fi
+  echo $(cat $IP_CACHE)
+}
+
+printf "%s" "$(read_cached_ip)"
