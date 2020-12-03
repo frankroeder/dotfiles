@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# idea taken from https://floatingoctothorpe.uk/2016/git-statistics.html
+# NOTE: These are poor statistics to judge quality
+
+NUM_CONTRIUTORS=$(git log --all --format='%aN' | sort -u | wc -l | tr -d ' ')
+echo "top 5 out of $NUM_CONTRIUTORS contributors"
+git log --all --format='%aN' | sort -u | head -n 5
+echo ""
+
+echo "top 5 committers"
+git log --all --format='%aN' | sort | uniq -c | sort -nr | head -n 5
+echo ""
+
+DATE_SINCE=$(date '+%Y-01-01')
+echo "top committers since $DATE_SINCE"
+git log --all --format='%aN' --since=$DATE_SINCE | sort \
+| uniq -c | sort -nr | head -n5
+echo ""
+
+echo "commits over time"
+git log --all --format='%cd' --date='format:%Y' | sort | uniq -c \
+| awk 'BEGIN{print "year","commits"}{print $ 2, " ", $1}'
+echo ""
+
+echo "commits by hour of the day"
+git log --all --format='%cd' --date='format:%H' | sort |uniq -c \
+| awk 'BEGIN{print "hour","commits"}{print $2, " ", $1}'

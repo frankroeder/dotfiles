@@ -61,3 +61,8 @@ options     word
 snippet     rpath
 options     word
     `substitute(bufname('%') ==#'[Command Line]' ? expand('#:h') : expand('%:h'), '\(//*\|/*$\)', '/', 'g')`${0}
+
+snippet     url
+abbr        Link from frontmost tab
+options     word
+  `system("osascript -e 'tell application \"Safari\" to return URL of front document' | tr -d '\n'")`${0}

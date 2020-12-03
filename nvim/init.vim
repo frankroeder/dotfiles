@@ -62,7 +62,7 @@ set lazyredraw              " redraw only when needed(not in execution of macro)
 set synmaxcol=2500          " Limit syntax highlighting (this
                             " avoids the very slow redrawing
                             " when files contain long lines)
-set updatetime=300
+set updatetime=300          " faster updatetime for responsive async plugins like signify
 set shortmess+=c
 set signcolumn=yes          " always draw sign column
 set cmdheight=2

@@ -4,20 +4,28 @@
 local path
 declare -a files=()
 
-for path in "$@"; do
-  if [[ "$path" = -* ]]; then :
-  else
-    local dst=${path##*/}
+echo -n "Do you wish to move the following files to the trash $@ (y/n)? "
+read answer
+  if [ "$answer" != "${answer#[Yy]}" ] ;then
+      echo Yes
 
-    # Append the time if necessary
-    while [ -e ~/.Trash/"$dst" ]; do
-      dst="${dst}_${RANDOM}"
-    done
+  for path in "$@"; do
+    if [[ "$path" = -* ]]; then :
+    else
+      local dst=${path##*/}
 
-    /bin/mv -fv "$path" ~/.Trash/"$dst"
-    files+=("$dst")
-  fi
-done
+      # Append the time if necessary
+      while [ -e ~/.Trash/"$dst" ]; do
+        dst="${dst}_${RANDOM}"
+      done
 
-export DEL_PWD=$(pwd)
-export DEL_FILES=${files[@]}
+      /bin/mv -fv "$path" ~/.Trash/"$dst"
+      files+=("$dst")
+    fi
+  done
+
+  export DEL_PWD=$(pwd)
+  export DEL_FILES=${files[@]}
+else
+    echo "canceled..."
+fi

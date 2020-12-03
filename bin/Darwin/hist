@@ -1,0 +1,3 @@
+#!/bin/bash
+
+_safari_history_dump | $HOME/.fzf/bin/fzf --multi --ansi --reverse --prompt "Safari History> " | sed 's#.*\(https*://\)#\1#' | xargs open

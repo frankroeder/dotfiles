@@ -1,0 +1,60 @@
+#!/usr/bin/env python3
+
+import subprocess
+import re
+import numpy as np
+import matplotlib.pyplot as plt
+
+def get_wifi_data():
+    two_g_data = []
+    five_g_data = []
+    out = subprocess.check_output(["airport -s"], shell=True)
+    entities = out.splitlines()
+    for i in range(1, len(entities)):
+        entity = entities[i].decode('utf-8')
+        #  print(entity)
+        ssid = re.findall(r"(.*\s..:)", entity)[0].strip()[:-3]
+        signalpower = int(re.findall(r"\s-\d+", entity)[0]) * -1
+        #  print(signalpower)
+        channel = int(re.findall(r"\s\s\d+", entity)[0])
+        if channel <= 13:
+            two_g_data.append([channel, signalpower, ssid])
+        else:
+            five_g_data.append([channel, signalpower, ssid])
+    #  print(two_g_data)
+    #  print(five_g_data)
+    return two_g_data, five_g_data
+
+def plot_ssid_power_channel(two_g_data, five_g_data):
+    two_channel = np.array([_d[0] for _d in two_g_data])
+    two_power = np.array([_d[1] for _d in two_g_data])
+    two_ssid = np.array([_d[2] for _d in two_g_data])
+
+    five_channel = np.array([_d[0] for _d in five_g_data])
+    five_power = np.array([_d[1] for _d in five_g_data])
+    five_ssid = np.array([_d[2] for _d in five_g_data])
+
+    fig, ax = plt.subplots(2)
+    plt.xlabel("channel")
+    plt.ylabel("signal power")
+
+    ax[0].grid()
+    ax[0].set_title("2.4 GHz Channels")
+    ax[0].scatter(two_channel, two_power)
+    for i, txt in enumerate(two_ssid):
+        ax[0].annotate(txt, (two_channel[i], two_power[i]), size=8)
+
+    ax[1].grid()
+    ax[1].set_title("5 GHz Channels")
+    ax[1].scatter(five_channel, five_power)
+    for i, txt in enumerate(five_ssid):
+        ax[1].annotate(txt, (five_channel[i], five_power[i]), size=8)
+    plt.tight_layout()
+    plt.show()
+
+def main():
+    two_g_data, five_g_data = get_wifi_data()
+    plot_ssid_power_channel(two_g_data, five_g_data)
+
+if __name__ == "__main__":
+    main()
