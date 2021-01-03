@@ -8,6 +8,6 @@ alias mails="vim /var/mail/$USER"
 alias distro='cat /etc/issue'
 alias whou='who -u | sort -k 3 --reverse'
 alias datehelp='for F in {a..z} {A..Z} :z ::z :::z;do echo $F: $(date +%$F);done|sed "/:[\ \t\n]*$/d;/%[a-zA-Z]/d"'
-alias topswap='whatswap | egrep -v "Swap used: 0" |sort -n -k 10'
+alias swaptop='whatswap | egrep -v "Swap used: 0" |sort -n -k 10'
 
 [ $commands[nvidia-smi] ] && alias wgpu='watch -n 0.1 -d nvidia-smi'

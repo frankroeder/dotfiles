@@ -1,12 +1,12 @@
 #!/usr/bin/env zsh
-# Move to macos trash
+# Move to trash
 
 local path
 declare -a files=()
 
 echo -n "Do you wish to move the following files to the trash $@ (y/n)? "
 read answer
-  if [ "$answer" != "${answer#[Yy]}" ] ;then
+  if [ "$answer" != "${answer#[Yy]}" ]; then
       echo Yes
 
   for path in "$@"; do

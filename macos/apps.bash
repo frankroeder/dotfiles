@@ -27,3 +27,8 @@ defaults write -app Skim SKAutoReloadFileUpdate -boolean true
 # Preview
 # Do not show sidebar
 defaults write com.apple.Preview PVSidebarViewModeForNewDocuments -boolean false
+
+# Rectangle
+defaults write com.knollsoft.Rectangle SUEnableAutomaticChecks -bool true
+defaults write com.knollsoft.Rectangle launchOnLogin -bool true
+defaults write com.knollsoft.Rectangle alternateDefaultShortcuts -bool true

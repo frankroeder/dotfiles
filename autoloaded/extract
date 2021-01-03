@@ -16,20 +16,16 @@ if [ -f "$1" ] ; then
   fi
 
   case $1 in
-    *.tar.bz2) tar xjf "$fullpath" ;;
-    *.tar.gz) tar xzf "$fullpath" ;;
-    *.tar.xz) tar Jxvf "$fullpath" ;;
-    *.tar.Z) tar xzf "$fullpath" ;;
-    *.tar) tar xf "$fullpath" ;;
-    *.taz) tar xzf "$fullpath" ;;
-    *.tb2) tar xjf "$fullpath" ;;
-    *.tbz) tar xjf "$fullpath" ;;
-    *.tbz2) tar xjf "$fullpath" ;;
-    *.tgz) tar xzf "$fullpath" ;;
-    *.txz) tar Jxvf "$fullpath" ;;
-    *.zip) unzip "$fullpath" ;;
-    *.bz2) bunzip2 "$fullpath" ;;
-    *.gz) gunzip "$fullpath";;
+    *.tar.bz2|*.tb2|*.tbz|*.tbz2) tar xjf "$fullpath" -C "$foldername" ;;
+    *.tar.gz|*.tar.Z|*.taz|*.tgz) tar xzf "$fullpath" -C "$foldername" ;;
+    *.tar.xz) tar Jxvf "$fullpath" -C "$foldername";;
+    *.tar) tar xf "$fullpath" -C "$foldername" ;;
+    *.txz) tar Jxvf "$fullpath"  -C "$foldername" ;;
+    *.zip) unzip "$fullpath" -d "$foldername" ;;
+    *.bz2) bunzip2 "$fullpath" > "$foldername" ;;
+    *.gz) gunzip "$fullpath" > "$foldername" ;;
+    *.xz) unxz "$fullpath" ;;
+    *.Z) uncompress "$fullpath" ;;
     *) echo "'$1' cannot be extracted via extract()";;
   esac
 else

@@ -36,9 +36,9 @@ cask "mactex-no-gui"
 cask "font-hack-nerd-font"
 cask "chromium"
 cask "cloudflare-warp"
+cask "rectangle"
 
 mas "iReal Pro", id: 409035833
 mas "Telegram", id: 747648890
 mas "The Unarchiver", id: 425424353
 mas "Wipr", id: 1320666476
-mas "Magnet", id: 441258766

@@ -7,6 +7,8 @@ if [[ "$OSTYPE" == "Darwin" ]]; then
 else
  lsb_release -a
 fi
+echo -e "\n${BOLD_BLUE}Architecture Type:$RESET";
+arch
 echo -e "\n${BOLD_BLUE}CPU Info:$RESET";
 if [[ "$OSTYPE" == "Darwin" ]]; then
   sysctl -n machdep.cpu.brand_string
