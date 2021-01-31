@@ -23,6 +23,10 @@ defaults write org.videolan.vlc SUSendProfileInfo -bool true
 # Skim
 # turn off auto reload dialog, default to auto reload
 defaults write -app Skim SKAutoReloadFileUpdate -boolean true
+# Image Smoothing
+defaults write -app Skim SKInterpolationQuality  -int 2
+defaults write -app Skim SKShowStatusBar -bool true
+defaults write -app Skim SUAutomaticallyUpdate  -bool true
 
 # Preview
 # Do not show sidebar

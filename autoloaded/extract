@@ -5,7 +5,6 @@ if [ -f "$1" ] ; then
   local foldername="${filename%%.*}"
   local fullpath=`perl -e 'use Cwd "abs_path";print abs_path(shift)' "$1"`
   local didfolderexist=false
-
   if [ -d "$foldername" ]; then
     didfolderexist=true
     echo -n "$foldername already exists, do you want to overwrite it? (y/n) "
@@ -14,19 +13,18 @@ if [ -f "$1" ] ; then
       return
     fi
   fi
-
+  mkdir -p "$foldername" && cd "$foldername"
   case $1 in
-    *.tar.bz2|*.tb2|*.tbz|*.tbz2) tar xjf "$fullpath" -C "$foldername" ;;
-    *.tar.gz|*.tar.Z|*.taz|*.tgz) tar xzf "$fullpath" -C "$foldername" ;;
-    *.tar.xz) tar Jxvf "$fullpath" -C "$foldername";;
-    *.tar) tar xf "$fullpath" -C "$foldername" ;;
-    *.txz) tar Jxvf "$fullpath"  -C "$foldername" ;;
-    *.zip) unzip "$fullpath" -d "$foldername" ;;
-    *.bz2) bunzip2 "$fullpath" > "$foldername" ;;
-    *.gz) gunzip "$fullpath" > "$foldername" ;;
+    *.tar.bz2|*.tb2|*.tbz|*.tbz2) tar vxjf "$fullpath" ;;
+    *.tar.gz|*.tar.Z|*.taz|*.tgz) tar vxzf "$fullpath" ;;
+    *.tar.xz|*.txz) tar vJxvf "$fullpath" ;;
+    *.tar) tar vxf "$fullpath" ;;
+    *.zip) unzip "$fullpath" ;;
+    *.bz2) bunzip2 "$fullpath" ;;
+    *.gz) gunzip "$fullpath" ;;
     *.xz) unxz "$fullpath" ;;
     *.Z) uncompress "$fullpath" ;;
-    *) echo "'$1' cannot be extracted via extract()";;
+    *) echo "'$1' cannot be extracted via extract()" && cd .. && ! $didfolderexist && rm -r "$foldername" ;;
   esac
 else
   echo "'$1' is not a valid file"

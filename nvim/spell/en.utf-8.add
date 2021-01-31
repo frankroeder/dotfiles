@@ -80,3 +80,7 @@ underfit
 MSE
 Röder
 aleatoric
+TD3
+Approximators
+UVFA
+HIRO

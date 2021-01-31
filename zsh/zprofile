@@ -4,6 +4,7 @@
 if [ "$OSTYPE" = "Darwin" ]; then
   # python3.9
   path=("/usr/local/opt/python@3.9/bin" $path)
+  path=("/usr/local/opt/python@3.7/bin" $path)
 
   # llvm
   path=("/usr/local/opt/llvm/bin" $path)

@@ -14,7 +14,6 @@ brew "llvm"
 brew "libomp"
 brew "tmux"
 brew "node"
-brew "reattach-to-user-namespace"
 brew "go"
 brew "jq"
 brew "python"
@@ -35,8 +34,9 @@ cask "skim"
 cask "mactex-no-gui"
 cask "font-hack-nerd-font"
 cask "chromium"
-cask "cloudflare-warp"
 cask "rectangle"
+cask "lulu"
+cask "zoom"
 
 mas "iReal Pro", id: 409035833
 mas "Telegram", id: 747648890

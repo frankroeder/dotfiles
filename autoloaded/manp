@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
-# Use Mac OS Preview to open a man page in a more handsome format
+# Use Skim to open a man page in a more handsome format
 
-man -t "$@" | open -f -a /System/Applications/Preview.app
+man -t "$@" | open -f -a /Applications/Skim.app

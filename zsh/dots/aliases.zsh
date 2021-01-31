@@ -14,6 +14,7 @@ alias localtmux="$EDITOR ~/.local.tmux"
 alias localvim="$EDITOR ~/.local.vim"
 
 alias hogs="ps wwaxr -o pid,stat,%cpu,time,command | awk 'NR<=10'"
+alias ttop="top -R -F -s 10 -o rsize"
 
 # Print each function name
 alias showfunctions="declare -f | grep '^[a-z].* ()' | sed 's/{$//'"
