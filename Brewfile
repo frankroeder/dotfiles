@@ -37,6 +37,7 @@ cask "chromium"
 cask "rectangle"
 cask "lulu"
 cask "zoom"
+cask "zotero"
 
 mas "iReal Pro", id: 409035833
 mas "Telegram", id: 747648890

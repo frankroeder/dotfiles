@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Copy content of a file to clipboard
+# Usage: pbcat <file>
+
+cat "$@" | pbcopy

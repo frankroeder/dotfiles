@@ -5,7 +5,7 @@ autocmd InsertEnter * call deoplete#enable()
 autocmd InsertLeave * silent! pclose!
 
 call deoplete#custom#option('profile', v:true)
-call deoplete#enable_logging('WARNING', '/tmp/deoplete.log')
+call deoplete#enable_logging('ERROR', '/tmp/deoplete.log')
 call deoplete#custom#source('_', 'matchers', ['matcher_full_fuzzy',
       \ 'matcher_length'])
 set completeopt-=preview
@@ -46,3 +46,8 @@ imap <expr><CR>
 " dynamic maximum candidate window width
 autocmd InsertEnter * call deoplete#custom#source('_', 'max_menu_width',
       \ str2nr(string((winwidth(0) * 0.5))))
+
+let g:deoplete#lsp#use_icons_for_candidates = v:true
+
+" complete filename after "="
+set isfname-==

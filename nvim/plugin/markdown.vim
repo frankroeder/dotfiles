@@ -5,7 +5,7 @@ let g:vim_markdown_fenced_languages = ['html', 'css', 'js=javascript',
 let g:vim_markdown_strikethrough = 1
 
 " Markdown Preview
-let g:vim_markdown_preview_hotkey='<Leader>m'
+let g:vim_markdown_preview_hotkey='<Leader>mp'
 
 if executable('grip')
   let vim_markdown_preview_toggle=1

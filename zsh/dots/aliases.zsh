@@ -14,7 +14,6 @@ alias localtmux="$EDITOR ~/.local.tmux"
 alias localvim="$EDITOR ~/.local.vim"
 
 alias hogs="ps wwaxr -o pid,stat,%cpu,time,command | awk 'NR<=10'"
-alias ttop="top -R -F -s 10 -o rsize"
 
 # Print each function name
 alias showfunctions="declare -f | grep '^[a-z].* ()' | sed 's/{$//'"
@@ -42,3 +41,5 @@ alias online="ping -c 1 www.example.com &> /dev/null && echo 'Online :)' || echo
 alias pvim="$EDITOR -u NONE -i NONE -n -N -n"
 alias vimlogs='less ~/.local/share/nvim/lsp.log /tmp/*.log'
 alias nman="MANPAGER='nvim +Man!' man"
+
+alias fixjedi='pip install ujson==3.0.0 jedi==0.17.2'

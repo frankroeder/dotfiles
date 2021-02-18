@@ -101,7 +101,7 @@ set ignorecase              " Search case insensitive...
 set smartcase               " but change if searched with upper case
 
 if has('mac')
-  let g:python3_host_prog = exepath("/usr/local/bin/python3")
+  let g:python3_host_prog = exepath("python3")
 else
   let g:python3_host_prog = '/usr/bin/python3'
 endif

@@ -25,3 +25,13 @@ defaults write com.apple.mail ShouldShowUnreadMessagesInBold -bool true
 # Play sound "jump" when mail arrives
 defaults write com.apple.mail PlayMailSounds -bool true
 defaults write com.apple.mail NewMessagesSoundName -string "Frog"
+
+defaults write com.apple.mail BottomPreview -bool false
+defaults write com.apple.mail ColumnLayoutMessageList -bool false
+defaults write com.apple.mail ConversationViewMarkAllAsRead -bool true
+defaults write com.apple.mail ConversationViewSortDescending -bool true
+defaults write com.apple.mail ConversationViewSpansMailboxes -bool true
+defaults write com.apple.mail DisableInlineAttachmentViewing -bool true
+defaults write com.apple.mail DisableReplyAnimations -bool true
+defaults write com.apple.mail DisableSendAnimations -bool true
+defaults write com.apple.mail EnableContactPhotos -bool false

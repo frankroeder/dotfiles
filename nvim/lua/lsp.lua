@@ -40,7 +40,12 @@ local on_attach = function(client, bufnr)
   mapluafn("n", "<F3>", "buf.definition()")
   mapluafn("n", "<F4>", "buf.type_definition()")
   mapluafn("n", "<F5>", "buf.signature_help()")
-  mapluafn("n", "<F12>", "buf.formatting()")
+  -- Set some keybinds conditional on server capabilities
+  if client.resolved_capabilities.document_formatting then
+    mapluafn("n", "<F12>", "buf.formatting()")
+  elseif client.resolved_capabilities.document_range_formatting then
+    mapluafn("n", "<F12>", "buf.range_formatting()")
+  end
   mapluafn("n", "K", "buf.hover()")
   mapluafn("n", "<Leader>imp", "buf.implementation()")
   mapluafn("n", "<Leader>ref", "buf.references()")
@@ -53,7 +58,7 @@ local on_attach = function(client, bufnr)
   mapluafn("n","gp","diagnostic.goto_prev()")
 end
 
--- override default config
+-- override default config for all servers
 lspconfig.util.default_config = vim.tbl_extend(
   "force",
   lspconfig.util.default_config,
