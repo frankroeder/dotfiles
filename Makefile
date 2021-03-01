@@ -112,7 +112,7 @@ _linux:
 	@echo -e "\033[1m\033[34m==> Installing linux packages\033[0m"
 	@bash $(DOTFILES)/linux/apt.sh
 	@git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf; ~/.fzf/install --all --no-bash --no-zsh --no-fish
-	@curl -sfL git.io/antibody | sh -s - -b /usr/local/bin
+	@curl -sfL git.io/antibody | sudo sh -s - -b /usr/local/bin
 	@ln -sfv $(DOTFILES)/htop/server $(HOME)/.config/htop/htoprc
 
 .PHONY: _macos
