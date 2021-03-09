@@ -13,7 +13,7 @@ alias gap='git apply'
 alias gb='git branch'
 alias gba='git branch -a'
 alias gbd='git branch -d'
-alias gbda='git branch --no-color --merged | command grep -vE "^(\*|\s*(master|develop|dev)\s*$)" | command xargs -n 1 git branch -d'
+alias gbda='git branch --no-color --merged | command grep -vE "^(\*|\s*(master|main|develop|dev)\s*$)" | command xargs -n 1 git branch -d'
 alias gbD='git branch -D'
 alias gbl='git blame -b -w'
 alias gbnm='git branch --no-merged'
@@ -153,3 +153,4 @@ alias gwch='git whatchanged -p --abbrev-commit --pretty=medium'
 
 # Start web-based visualizer.
 alias gw='git instaweb --httpd=webrick'
+alias gbrowse="$BROWSER $(git config --get remote.origin.url | sed -e 's/com:/com\//' | sed -e 's/^git@/https:\/\//')"

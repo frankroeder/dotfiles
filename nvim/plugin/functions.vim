@@ -20,3 +20,19 @@ function! ToggleConcealLevel()
 endfunction
 
 nnoremap <silent><Leader>tc :call ToggleConcealLevel()<CR>
+
+if has('mac')
+  " Open Dictionary.app on mac systems
+  function! OpenDictionary(...)
+    let word = ''
+
+    if a:1 !=# ''
+      let word = a:1
+    else
+      let word = shellescape(expand('<cword>'))
+    endif
+
+    call system("open dict://" . word)
+  endfunction
+  command! -nargs=? Dict call OpenDictionary(<q-args>)
+endif
