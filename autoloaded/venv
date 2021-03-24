@@ -44,5 +44,6 @@ echo "Activating ${target}"
 source "${target}/bin/activate"
 
 if [[ $UPGRADE_PIP == 1 ]]; then
-  pip install --upgrade pip 'python-language-server[yapf]' neovim
+  # install additional tools for debugging
+  pip install --upgrade pip 'python-language-server[yapf]' neovim ipdb
 fi

@@ -16,6 +16,9 @@ if [ "$OSTYPE" = "Darwin" ]; then
   export LDFLAGS="-L/usr/local/opt/openssl/lib $LDFLAGS"
   export CPPFLAGS="-I/usr/local/opt/openssl/include $LDFLAGS"
 
+  # ruby + gem
+  path=("$HOME/.gem/ruby/2.6.0/bin" $path)
+
   # go
   export GOPATH="$HOME/Documents/golang"
   export GOROOT="/usr/local/opt/go/libexec"

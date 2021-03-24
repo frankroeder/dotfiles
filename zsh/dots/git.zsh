@@ -153,4 +153,6 @@ alias gwch='git whatchanged -p --abbrev-commit --pretty=medium'
 
 # Start web-based visualizer.
 alias gw='git instaweb --httpd=webrick'
-alias gbrowse="$BROWSER $(git config --get remote.origin.url | sed -e 's/com:/com\//' | sed -e 's/^git@/https:\/\//')"
+gbrowse() {
+  $BROWSER $(git config --get remote.origin.url | sed -e 's/com:/com\//' | sed -e 's/^git@/https:\/\//')
+}

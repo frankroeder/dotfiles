@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
-# List sorted aliases for a given argument
-
-alias | grep "$1" | sed "s/^\([^=]*\)=\(.*\)/\1 => \2/"| sed "s/['|\']//g" | sort;
+# List sorted aliases for a given argument or use fuzzy search
+local ALIASES=$(alias | sed "s/^\([^=]*\)=\(.*\)/\1 => \2/"| sed "s/['|\']//g" | sort)
+if [[ -n "$1" ]]; then
+   echo $ALIASES | grep "$1";
+else
+  echo $ALIASES | fzf;
+fi

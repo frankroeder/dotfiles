@@ -12,7 +12,7 @@ set completeopt-=preview
 
 call deoplete#custom#option({
       \ 'smart_case': v:true,
-      \ 'max_list': 30,
+      \ 'max_list': 20,
       \ 'ignore_sources': { '_': ['around', 'member'] },
       \ })
 
@@ -23,7 +23,7 @@ call deoplete#custom#var('omni', 'input_patterns', {
 
 call deoplete#custom#source('lsp', {
       \ 'min_pattern_length': 2,
-      \ 'converters': ['converter_auto_paren', 'converter_remove_overlap']
+      \ 'converters': ['converter_remove_paren', 'converter_remove_overlap', 'converter_truncate_abbr', 'converter_truncate_menu', 'converter_auto_delimiter'],
       \ })
 
 call deoplete#custom#source('neosnippet',

@@ -84,3 +84,5 @@
 
 [include]
   path = "~/.local.gitconfig"
+[init]
+	defaultBranch = main
