@@ -4,11 +4,11 @@
 sudo add-apt-repository ppa:neovim-ppa/unstable -y
 sudo apt update -y && sudo apt upgrade -y
 PKGS="
+  git
   bash
   cmake
   curl
   ffmpeg
-  git
   htop
   imagemagick
   iputils-ping

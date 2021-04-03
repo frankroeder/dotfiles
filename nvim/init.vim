@@ -14,6 +14,12 @@ Plug 'tpope/vim-surround'
 Plug 'tpope/vim-repeat'
 Plug 'mhinz/vim-signify'
 Plug 'neovim/nvim-lspconfig'
+if executable("tree-sitter") && executable("node")
+  Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
+  Plug 'p00f/nvim-ts-rainbow'
+else
+  Plug 'luochen1990/rainbow'
+endif
 Plug 'Shougo/deoplete-lsp'
 Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
 Plug 'Shougo/neosnippet.vim'
@@ -35,7 +41,6 @@ Plug 'cespare/vim-toml'
 " style
 Plug 'vim-airline/vim-airline'
 Plug 'vim-airline/vim-airline-themes'
-Plug 'luochen1990/rainbow'
 Plug 'joshdick/onedark.vim'
 Plug 'ayu-theme/ayu-vim'
 
@@ -152,7 +157,6 @@ augroup END
 set nrformats+=alpha
 
 set matchpairs+=<:>
-autocmd FileType c,cpp,java set mps+==:;
 
 " Ignore certain files and folders when globbing
 set wildignore+=*.o,*.obj,*.bin,*.dll,*.exe
@@ -164,7 +168,10 @@ set wildignore+=*.aux,*.bbl,*.blg,*.brf,*.fls,*.fdb_latexmk,*.synctex.gz
 highlight MatchParen gui=bold,reverse guifg=#413e3d guibg=#f9d39e
 
 if &runtimepath =~ 'nvim-lspconfig'
-  lua require('lsp')
+  lua require('lsp_config')
+endif
+if executable("tree-sitter") && executable("node")
+  lua require('treesitter')
 endif
 
 let s:local_vimrc = $HOME . '/.local.vim'

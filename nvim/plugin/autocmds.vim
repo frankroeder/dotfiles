@@ -1,16 +1,23 @@
-augroup numbertoggle
+augroup CustomAutoCmds
   autocmd!
-  autocmd BufEnter,FocusGained,InsertLeave * set relativenumber
-  autocmd BufLeave,FocusLost,InsertEnter   * set norelativenumber
-augroup END
 
-augroup columntoggle
+  " toggle line numbers
+  autocmd FocusGained,InsertLeave * set relativenumber
+  autocmd FocusLost,InsertEnter   * set norelativenumber
+
+  " toggle color of column
   autocmd BufEnter,FocusGained,InsertLeave * set cc=
   autocmd BufLeave,FocusLost,InsertEnter   * set cc=81
-augroup END
 
-augroup auto_read
+  " auto read
   autocmd FocusGained,BufEnter,CursorHold,CursorHoldI * if mode() != 'c' | checktime | endif
   autocmd FileChangedShellPost *
         \ echohl WarningMsg | echo "File changed on disk. Buffer reloaded." | echohl None
+
+  " highlight yanks
+  if has('nvim')
+    autocmd TextYankPost *
+          \ silent! lua return (not vim.v.event.visual)
+          \   and vim.highlight.on_yank {higroup='IncSearch', timeout=300}
+  endif
 augroup END

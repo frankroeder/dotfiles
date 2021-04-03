@@ -4,9 +4,15 @@
 if [[ "$(uname)" = "Darwin" ]] && ! fgrep -q "$(brew --prefix)/bin/zsh" /etc/shells
 then
   echo "$(brew --prefix)/bin/zsh" | sudo tee -a /etc/shells
-  chsh -s "$(brew --prefix)/bin/zsh"
 elif ! fgrep -q "/usr/bin/zsh" /etc/shells
 then
 	echo $(which zsh) | sudo tee -a /etc/shells
+fi
+
+if [[ "$(uname)" = "Darwin" ]]
+then
+  chsh -s "$(brew --prefix)/bin/zsh"
+elif [[ "$(uname)" = "Darwin" ]]
+then
   chsh -s "$(command -v zsh)"
 fi

@@ -7,14 +7,16 @@ PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(HOME)/bin:/$(HOME)/.lo
 
 .PHONY: macos
 macos: sudo directories macos homebrew misc zsh nvim git npm
+	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh;\
 	@zsh -i -c "fast-theme free"
 	@compaudit | xargs chmod g-w
 
 .PHONY: linux
-linux: sudo directories _linux git zsh misc nvim
+linux: sudo directories _linux  _linux git zsh misc nvim
 
 .PHONY: minimal
-minimal: _minimal git misc nvim
+minimal: directories _linux git zsh misc nvim
+	@sed -i '/tmux-mem-cpu/d' $(HOME)/.zsh/zsh_plugins.sh
 
 .PHONY: help
 help:
@@ -64,7 +66,7 @@ zsh:
 	@ln -sfv $(DOTFILES)/zsh/zlogin $(HOME)/.zlogin;
 	@ln -sfv $(DOTFILES)/zsh/zshenv $(HOME)/.zshenv;
 	@ln -sfv $(DOTFILES)/zsh/zprofile $(HOME)/.zprofile;
-	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
+	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh;
 	@source $(HOME)/.zshrc
 
 .PHONY: npm
@@ -101,19 +103,30 @@ directories:
 	mkdir -p $(HOME)/tmp
 	mkdir -p $(HOME)/.Trash
 
-.PHONY: _minimal
-_minimal:
+.PHONY: _bash
+_bash:
 	ln -sfv $(DOTFILES)/bash_profile ~/.bash_profile;
 	ln -sfv $(DOTFILES)/bash_logout ~/.bash_logout;
 	ln -sfv $(DOTFILES)/bashrc ~/.bashrc;
 
 .PHONY: _linux
 _linux:
-	@echo -e "\033[1m\033[34m==> Installing linux packages\033[0m"
-	@bash $(DOTFILES)/linux/apt.sh
+	@echo -e "\033[1m\033[34m==> Installing linux basis\033[0m"
+	@mkdir -p $(HOME)/bin
+	@mkdir -p $(HOME)/.local/bin
+	@if [ $(NOSUDO) ]; then\
+		which nvim || bash $(DOTFILES)/scripts/nvim.sh;\
+	else\
+		bash $(DOTFILES)/linux/apt.sh;\
+	fi
 	@git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf; ~/.fzf/install --all --no-bash --no-zsh --no-fish
-	@curl -sfL git.io/antibody | sudo sh -s - -b /usr/local/bin
+	-which tree-sitter || bash $(DOTFILES)/scripts/tree-sitter.sh
 	@ln -sfv $(DOTFILES)/htop/server $(HOME)/.config/htop/htoprc
+	@if [ $(NOSUDO) ]; then\
+		curl -sfL git.io/antibody | bash -s - -b $(HOME)/bin;\
+	else\
+		curl -sfL git.io/antibody | bash -s - -b /usr/local/bin;\
+	fi
 
 .PHONY: _macos
 _macos:
@@ -144,12 +157,16 @@ uninstall:
 	rm $(HOME)/.gitconfig
 
 .PHONY: test
-test: maketest
-
-.PHONY: maketest
-maketest:
+test:
 	@echo "Testing linux installation on ${OSTYPE}"
-	@docker build --rm -t dotfiles ${PWD}
-	@docker run -it --rm --name maketest -d dotfiles:latest
-	@docker exec -it maketest /bin/bash -c "make linux"
+	@if [ $(NOSUDO) ]; then\
+		docker build --rm -t dotfiles ${PWD} -f $(DOTFILES)/docker/Dockerfile;\
+		docker run -it --rm --name maketest -d dotfiles:latest;\
+		docker exec -it maketest /bin/bash -c "make NOSUDO=$(NOSUDO) minimal";\
+	else\
+		docker build --rm -t dotfiles_sudo ${PWD} -f $(DOTFILES)/docker/Dockerfile_sudoer;\
+		docker run -it --rm --name maketest_sudo -d dotfiles_sudo:latest;\
+		docker exec -it maketest_sudo /bin/bash -c "make linux";\
+	fi
 	@echo "Container can now be shut down"
+

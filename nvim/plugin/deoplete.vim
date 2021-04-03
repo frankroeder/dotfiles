@@ -1,7 +1,6 @@
 " Enable deoplete on first InsertEnter
 let g:deoplete#enable_at_startup = 0
 autocmd InsertEnter * call deoplete#enable()
-
 autocmd InsertLeave * silent! pclose!
 
 call deoplete#custom#option('profile', v:true)
@@ -12,7 +11,9 @@ set completeopt-=preview
 
 call deoplete#custom#option({
       \ 'smart_case': v:true,
-      \ 'max_list': 20,
+      \ 'auto_complete_delay': 200,
+      \ 'max_list': 25,
+      \ 'num_process': 2,
       \ 'ignore_sources': { '_': ['around', 'member'] },
       \ })
 
@@ -23,7 +24,14 @@ call deoplete#custom#var('omni', 'input_patterns', {
 
 call deoplete#custom#source('lsp', {
       \ 'min_pattern_length': 2,
-      \ 'converters': ['converter_remove_paren', 'converter_remove_overlap', 'converter_truncate_abbr', 'converter_truncate_menu', 'converter_auto_delimiter'],
+      \ 'converters': [
+      \ 'converter_auto_paren',
+      \ 'converter_remove_paren',
+      \ 'converter_remove_overlap',
+      \ 'converter_truncate_abbr',
+      \ 'converter_truncate_menu',
+      \ 'converter_auto_delimiter'
+      \ ],
       \ })
 
 call deoplete#custom#source('neosnippet',
