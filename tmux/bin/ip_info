@@ -7,6 +7,10 @@ if ping -q -c 1 -W 1 8.8.8.8 >/dev/null; then
     IPS=( $(hostname -i) )
     LAN_IP=${IPS[0]}
   fi
-  WAN_IP=$($DOTFILES/autoloaded/wan_ip)
+  if [ $ALLOW_TMUX_WAN ]; then
+    WAN_IP=$($DOTFILES/autoloaded/wan_ip)
+  else
+    WAN_IP=""
+  fi
   printf '%s' " #[fg=colour109]$LAN_IP#[default] #[fg=colour143]$WAN_IP#[default]"
 fi

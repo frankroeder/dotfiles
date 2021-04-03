@@ -55,7 +55,7 @@ misc:
 	@ln -sfv $(DOTFILES)/curlrc $(HOME)/.curlrc
 	@ln -sfv $(DOTFILES)/tmux/tmux.conf $(HOME)/.tmux.conf
 	@ln -sfv $(DOTFILES)/latexmkrc $(HOME)/.latexmkrc
-	@pip3 install -r $(DOTFILES)/python/requirements.txt
+	@pip3 install --user -r $(DOTFILES)/python/requirements.txt
 	@which ipython && ipython -c exit && ln -sfv $(DOTFILES)/python/ipython_config.py $(HOME)/.ipython/profile_default/
 
 .PHONY: zsh
