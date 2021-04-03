@@ -19,6 +19,7 @@ if executable("tree-sitter") && executable("node")
   Plug 'p00f/nvim-ts-rainbow'
 else
   Plug 'luochen1990/rainbow'
+  let g:rainbow_active = 1
 endif
 Plug 'Shougo/deoplete-lsp'
 Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
