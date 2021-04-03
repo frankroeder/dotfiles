@@ -7,7 +7,7 @@ PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(HOME)/bin:/$(HOME)/.lo
 
 .PHONY: macos
 macos: sudo directories macos homebrew misc zsh nvim git npm
-	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh;\
+	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
 	@zsh -i -c "fast-theme free"
 	@compaudit | xargs chmod g-w
 
@@ -62,11 +62,11 @@ misc:
 zsh:
 	@echo -e "\033[1m\033[34m==> Installing zsh and tools\033[0m"
 	@antibody bundle < $(DOTFILES)/antibody/bundles.txt > $(HOME)/.zsh/zsh_plugins.sh
-	@ln -sfv $(DOTFILES)/zsh/zshrc $(HOME)/.zshrc;
-	@ln -sfv $(DOTFILES)/zsh/zlogin $(HOME)/.zlogin;
-	@ln -sfv $(DOTFILES)/zsh/zshenv $(HOME)/.zshenv;
-	@ln -sfv $(DOTFILES)/zsh/zprofile $(HOME)/.zprofile;
-	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh;
+	@ln -sfv $(DOTFILES)/zsh/zshrc $(HOME)/.zshrc
+	@ln -sfv $(DOTFILES)/zsh/zlogin $(HOME)/.zlogin
+	@ln -sfv $(DOTFILES)/zsh/zshenv $(HOME)/.zshenv
+	@ln -sfv $(DOTFILES)/zsh/zprofile $(HOME)/.zprofile
+	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
 	@source $(HOME)/.zshrc
 
 .PHONY: npm
@@ -105,9 +105,9 @@ directories:
 
 .PHONY: _bash
 _bash:
-	ln -sfv $(DOTFILES)/bash_profile ~/.bash_profile;
-	ln -sfv $(DOTFILES)/bash_logout ~/.bash_logout;
-	ln -sfv $(DOTFILES)/bashrc ~/.bashrc;
+	ln -sfv $(DOTFILES)/bash_profile ~/.bash_profile
+	ln -sfv $(DOTFILES)/bash_logout ~/.bash_logout
+	ln -sfv $(DOTFILES)/bashrc ~/.bashrc
 
 .PHONY: _linux
 _linux:
@@ -119,13 +119,13 @@ _linux:
 	else\
 		bash $(DOTFILES)/linux/apt.sh;\
 	fi
-	@git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf; ~/.fzf/install --all --no-bash --no-zsh --no-fish
+	-which fzf || git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf; ~/.fzf/install --all --no-bash --no-zsh --no-fish
 	-which tree-sitter || bash $(DOTFILES)/scripts/tree-sitter.sh
 	@ln -sfv $(DOTFILES)/htop/server $(HOME)/.config/htop/htoprc
 	@if [ $(NOSUDO) ]; then\
-		curl -sfL git.io/antibody | bash -s - -b $(HOME)/bin;\
+		which antibody || curl -sfL git.io/antibody | bash -s - -b $(HOME)/bin;\
 	else\
-		curl -sfL git.io/antibody | bash -s - -b /usr/local/bin;\
+		which antibody || curl -sfL git.io/antibody | bash -s - -b /usr/local/bin;\
 	fi
 
 .PHONY: _macos
