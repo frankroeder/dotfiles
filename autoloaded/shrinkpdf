@@ -1,21 +1,20 @@
-#!/bin/sh
-# https://github.com/matthiasplappert/dotfiles/blob/master/bin/shrinkpdf
+#!/usr/bin/env bash
 
 usage ()
 {
     echo "Reduces PDF filesize by lossy recompressing with Ghostscript."
-    echo "  Usage: $1 infile outfile [quality (either 'screen', 'ebook' or 'prepress')]"
+    echp "quality options: 'screen', 'ebook' or 'prepress'"
+    echo "Usage: shrinkpdf ebook file.pdf"
 }
 
 if [ -z "$1" ]; then
     usage "$0"
-    exit 1
-fi
-
-if [ -n "$3" ]; then
-    quality="$3"
 else
-    quality="ebook"
-fi
+  local QUALITY="${2-ebook}"
+  local INPUT_FILE="$1"
+  local FNAME=$(basename "$1")
+  local OUTPUT_FILE="${FNAME%.*}_small.${FNAME#*.}"
 
-/usr/local/bin/gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/"$quality"  -dNOPAUSE -dQUIET -dBATCH -sOutputFile="$2" "$1"
+  /usr/local/bin/gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4  -dPDFSETTINGS=/"$QUALITY" -dNOPAUSE \
+    -dQUIET -dBATCH -sOutputFile="$OUTPUT_FILE" "$INPUT_FILE"
+fi

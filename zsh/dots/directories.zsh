@@ -10,6 +10,7 @@ alias l.='ls -d .*'
 alias lsd='ls -d */'
 
 alias dud='du -d 1 -h | sort -hr'
+alias dul='du -hsx * | sort -rh | head -15'
 alias duf='du -sh'
 
 setopt AUTO_CD

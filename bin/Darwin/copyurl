@@ -4,4 +4,5 @@
 tell application "Safari"
   set vURL to URL of current tab of window 1
   set the clipboard to vURL
+  "Copied " & vURL & " to clipboard"
 end tell

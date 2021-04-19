@@ -36,7 +36,7 @@ Plug 'godlygeek/tabular'
 Plug 'plasticboy/vim-markdown', {'depends': 'godlygeek/tabular'}
 Plug 'JamshedVesuna/vim-markdown-preview', { 'for': 'markdown' }
 Plug 'lervag/vim-latex'
-Plug 'bassstring/apple-swift'
+Plug 'frankroeder/apple-swift'
 Plug 'cespare/vim-toml'
 
 " style

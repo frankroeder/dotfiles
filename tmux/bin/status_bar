@@ -3,6 +3,7 @@
 
 WIDTH=${1}
 SMALL=130
+BAR=""
 TMUX_BIN="$DOTFILES/tmux/bin"
 
 BAR+="#($TMUX_BIN/mail_count_apple)"

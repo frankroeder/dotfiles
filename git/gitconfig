@@ -5,7 +5,7 @@
   useConfigOnly = true
 
 [github]
-  user = Bassstring
+  user = frankroeder
 
 [status]
   showUntrackedFiles = all
@@ -82,7 +82,8 @@
   function = blue
   linenumber = yellow
 
+[init]
+  defaultBranch = main
+
 [include]
   path = "~/.local.gitconfig"
-[init]
-	defaultBranch = main

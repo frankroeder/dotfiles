@@ -3,15 +3,15 @@ alias mv='nice mv'
 alias grep='grep --color=auto'
 
 alias src='exec "$SHELL" -l'
-alias {dotfiles,dots}='cd ~/.dotfiles'
-alias tmp='cd ~/tmp'
+alias {dotfiles,dots}='cd $HOME/.dotfiles'
+alias tmp='cd $HOME/tmp'
 alias vim='$EDITOR'
 alias speedtest="wget -O /dev/null http://speed.transip.nl/1gb.bin"
-alias vimrc="$EDITOR ~/.dotfiles/nvim/{init.vim,plugin/*}"
-alias localrc="$EDITOR ~/.local.zsh"
-alias localgit="$EDITOR ~/.local.gitconfig"
-alias localtmux="$EDITOR ~/.local.tmux"
-alias localvim="$EDITOR ~/.local.vim"
+alias vimrc="$EDITOR $HOME/.dotfiles/nvim/{init.vim,plugin/*}"
+alias localrc="$EDITOR $HOME/.local.zsh"
+alias localgit="$EDITOR $HOME/.local.gitconfig"
+alias localtmux="$EDITOR $HOME/.local.tmux"
+alias localvim="$EDITOR $HOME/.local.vim"
 
 alias hogs="ps wwaxr -o pid,stat,%cpu,time,command | awk 'NR<=10'"
 alias mails="$EDITOR /var/mail/$USER"
@@ -40,7 +40,7 @@ alias online="ping -c 1 www.example.com &> /dev/null && echo 'Online :)' || echo
 
 # start plain vim
 alias pvim="$EDITOR -u NONE -i NONE -n -N -n"
-alias vimlogs='less ~/.local/share/nvim/lsp.log /tmp/*.log'
+alias vimlogs='less $HOME/.local/share/nvim/lsp.log /tmp/*.log'
 alias nman="MANPAGER='nvim +Man!' man"
 
 alias fixjedi='pip3 install ujson==3.0.0 jedi==0.17.2'
