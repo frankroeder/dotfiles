@@ -19,7 +19,7 @@ zstyle ':completion:*:*:*:*:*' menu select
 zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}' 'r:|=*' 'l:|=* r:|=*'
 
 # forces zsh to realize new commands
-zstyle ':completion:*' completer _expand _complete _approximate
+zstyle ':completion:*' completer _complete _approximate
 zstyle ':completion:*' list-colors "=*="
 
 # group results by category

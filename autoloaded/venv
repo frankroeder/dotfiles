@@ -2,48 +2,69 @@
 
 UPGRADE_PIP=0
 
-# Deactivate any existing virtualenv
-if [ "$VIRTUAL_ENV" ]; then
-  if [ "$(command -v deactivate)" ]; then
-    echo "Deactivating $VIRTUAL_ENV..."
-    deactivate
+remove_venv() {
+  # delete environment
+  TARGET_DIR="$1";
+  if [ -d "$TARGET_DIR" ]; then
+    echo "Removing $TARGET_DIR";
+    rm -rf $TARGET_DIR;
+    return
   else
-    unset VIRTUAL_ENV;
+    printf "No directory found"
   fi
-fi
-
-# By default, pick $(pwd) as the new env
-target=$(pwd)
-target=${target:1}
-
-# Use first argument instead if it exists
-if [ -n "$1" ]; then
-  target="$1"
-fi
-
-# If the first argument is '-', just quit - ie, only deactivate
-if [ "$target" = "-" ]; then
-  return
-fi
-
-# If the $target doesn't exist in the current dir, use ~/envs/$(target)
-if [ ! -f "${target}/bin/activate" ]; then
-  target=~/envs/"$target"
-fi
-
-# Make the env if it doesn't exist
-if [ ! -f "${target}/bin/activate" ]; then
-  echo "Creating ${target}"
-  mkdir -p "$target"
-  $(which python3) -m venv "$target"
-  UPGRADE_PIP=1
-fi
-
-# Activate the env
-echo "Activating ${target}"
-source "${target}/bin/activate"
-
-if [[ $UPGRADE_PIP == 1 ]]; then
+}
+make_env() {
+  # Make the env if it doesn't exist
+  if [ ! -f "${1}/bin/activate" ]; then
+    echo "Creating ${1}";
+    mkdir -p "$1";
+    $(which python3) -m venv "$1";
+    UPGRADE_PIP=1
+  fi
+}
+_install_pip_dev_tools(){
   # install additional tools for debugging
-  pip install --upgrade pip 'python-language-server[yapf]' neovim ipdb
-fi
+  if [[ $UPGRADE_PIP == 1 ]]; then
+    pip install --upgrade pip 'python-language-server[yapf]' neovim ipdb;
+  fi
+}
+_install_requirements() {
+  pip install -r requirements.txt;
+}
+active_env() {
+  if [ -d $TARGET ]; then
+    # Activate the env
+    echo "Activating ${TARGET}";
+    source "${TARGET}/bin/activate";
+  fi
+}
+main() {
+  # Deactivate any existing virtualenv
+  if [ "$VIRTUAL_ENV" ]; then
+    if [ "$(command -v deactivate)" ]; then
+      echo "Deactivating $VIRTUAL_ENV...";
+      deactivate;
+    else
+      unset VIRTUAL_ENV;
+    fi
+  fi
+  local TARGET="";
+  if [[ "$1" == "local" ]] || [[ -d "$PWD/venv" ]]; then
+    TARGET="$PWD/venv";
+  else
+    TARGET="$HOME/envs/$PWD";
+  fi
+
+  case $1 in
+    "-") return ;;
+    "local") make_env $TARGET ;;
+    "rm"|"remove") remove_venv $TARGET && return ;;
+    "slim") make_env $TARGET ;;
+    "req") active_env && _install_requirements && return ;;
+    "dev") UPGRADE_PIP=1 && active_env &&  _install_pip_dev_tools && return ;;
+    *) make_env $TARGET && _install_pip_dev_tools ;;
+  esac
+  active_env;
+}
+
+main "$@";
