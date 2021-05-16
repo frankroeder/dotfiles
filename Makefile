@@ -96,6 +96,11 @@ git:
 	@ln -sfv $(DOTFILES)/git/gitconfig $(HOME)/.gitconfig
 	@ln -sfv $(DOTFILES)/git/gitignore $(HOME)/.gitignore
 
+.PHONY: after
+after:
+	@bash $(DOTFILES)/git/setup.sh
+	@bash $(DOTFILES)/linux/apt.sh "desktop";\
+
 directories:
 	@echo -e "\033[1m\033[34m==> Creating directories\033[0m"
 	mkdir -p $(HOME)/.zsh
@@ -117,7 +122,7 @@ _linux:
 	@if [ $(NOSUDO) ]; then\
 		which nvim || bash $(DOTFILES)/scripts/nvim.sh;\
 	else\
-		bash $(DOTFILES)/linux/apt.sh;\
+		bash $(DOTFILES)/linux/apt.sh "default";\
 	fi
 	-which fzf || git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf; ~/.fzf/install --all --no-bash --no-zsh --no-fish
 	-which tree-sitter || bash $(DOTFILES)/scripts/tree-sitter.sh
@@ -125,7 +130,7 @@ _linux:
 	@if [ $(NOSUDO) ]; then\
 		which antibody || curl -sfL git.io/antibody | bash -s - -b $(HOME)/bin;\
 	else\
-		which antibody || curl -sfL git.io/antibody | bash -s - -b /usr/local/bin;\
+		which antibody || curl -sfL git.io/antibody | sudo bash -s - -b /usr/local/bin;\
 	fi
 
 .PHONY: _macos

@@ -3,6 +3,7 @@
 
 export DOTFILES=$HOME/.dotfiles
 export OSTYPE=$(uname -s)
+export ARCHITECTURE=$(uname -m)
 if (( ${+commands[nvim]} )); then
     export EDITOR="nvim"
 elif (( ${+commands[vim]} )); then
@@ -13,6 +14,8 @@ fi
 export VISUAL="${EDITOR}"
 if [[ "$OSTYPE" == "Darwin" ]]; then
   export BROWSER="open"
+elif [[ "$OSTYPE" == "Linux" ]]; then
+  [ $commands[chromium] ] && export BROWSER="chromium"
 fi
 export BLOCKSIZE=1k
 

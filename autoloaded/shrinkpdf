@@ -3,8 +3,16 @@
 usage ()
 {
     echo "Reduces PDF filesize by lossy recompressing with Ghostscript."
-    echp "quality options: 'screen', 'ebook' or 'prepress'"
-    echo "Usage: shrinkpdf ebook file.pdf"
+    echo "quality options: 'screen', 'ebook' or 'prepress'"
+    echo "Usage: shrinkpdf file.pdf <option>"
+}
+
+echo_sizes() {
+  if [ ! -f "$1" -o ! -f "$2" ]; then
+    return 0;
+  fi
+  echo "Input file size $(($(stat -f "%z" $1) / 1000)) kB"
+  echo "Ouput file size $(($(stat -f "%z" $2) / 1000)) kB"
 }
 
 if [ -z "$1" ]; then
@@ -12,9 +20,21 @@ if [ -z "$1" ]; then
 else
   local QUALITY="${2-ebook}"
   local INPUT_FILE="$1"
-  local FNAME=$(basename "$1")
-  local OUTPUT_FILE="${FNAME%.*}_small.${FNAME#*.}"
 
-  /usr/local/bin/gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4  -dPDFSETTINGS=/"$QUALITY" -dNOPAUSE \
-    -dQUIET -dBATCH -sOutputFile="$OUTPUT_FILE" "$INPUT_FILE"
+  local FNAME=$(basename "$1")
+  local OUTPUT_FILE="${FNAME%.*}-small.${FNAME#*.}"
+
+  /usr/local/bin/gs \
+    -sDEVICE=pdfwrite \
+    -dCompatibilityLevel=1.4 \
+    -dPDFSETTINGS=/"$QUALITY" \
+    -dNOPAUSE \
+    -dQUIET \
+    -dBATCH \
+    -dEmbedAllFonts=true \
+    -dSubsetFonts=true \
+	  -dAutoRotatePages=/None \
+    -sOutputFile="$OUTPUT_FILE" "$INPUT_FILE"
+
+  echo_sizes $INPUT_FILE $OUTPUT_FILE
 fi

@@ -42,5 +42,4 @@ cask "zotero"
 mas "iReal Pro", id: 409035833
 mas "Telegram", id: 747648890
 mas "The Unarchiver", id: 425424353
-mas "Wipr", id: 1320666476
 mas "AdGuard", id: 1440147259

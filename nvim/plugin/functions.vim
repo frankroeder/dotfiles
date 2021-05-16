@@ -8,7 +8,7 @@ function StripTrailingWhitespaces()
   call cursor(l, c)
 endfunction
 
-function! ToggleConcealLevel()
+function! ToggleConcealLevel() abort
   if &conceallevel == 0
     setlocal conceallevel=1
   elseif &conceallevel == 1
@@ -23,7 +23,7 @@ nnoremap <silent><Leader>tc :call ToggleConcealLevel()<CR>
 
 if has('mac')
   " Open Dictionary.app on mac systems
-  function! OpenDictionary(...)
+  function! OpenDictionary(...) abort
     let word = ''
 
     if a:1 !=# ''

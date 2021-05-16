@@ -92,7 +92,6 @@ endif
 
 " indentation
 set copyindent              " Copy indent structure when autoindenting
-set smartindent
 set backspace=2             " make vim behave like any other editors
 set cindent                 " Enables automatic C program indenting
 
@@ -149,7 +148,7 @@ set iskeyword-=#
 let mapleader=","
 
 augroup buf_write
-  au!
+  autocmd!
   autocmd BufWritePre * :call StripTrailingWhitespaces()
   autocmd BufWritePost init.vim source % | :AirlineRefresh
 augroup END

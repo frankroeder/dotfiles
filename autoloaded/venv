@@ -25,11 +25,11 @@ make_env() {
 _install_pip_dev_tools(){
   # install additional tools for debugging
   if [[ $UPGRADE_PIP == 1 ]]; then
-    pip install --upgrade pip 'python-language-server[yapf]' neovim ipdb;
+    $(which pip) install --upgrade pip 'python-language-server[yapf]' neovim ipdb;
   fi
 }
 _install_requirements() {
-  pip install -r requirements.txt;
+  $(which pip) install -r requirements.txt;
 }
 active_env() {
   if [ -d $TARGET ]; then
@@ -39,6 +39,18 @@ active_env() {
   fi
 }
 main() {
+  if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
+    echo "Usage:"
+    echo "venv <option> (default: slim + dev)"
+    echo ""
+    echo "Options:"
+    echo "-             to deactive"
+    echo "rm or remove  to remove"
+    echo "slim          for minimal setup"
+    echo "req           to active and install packages in requirements.txt"
+    echo "dev           to install tools for development and debugging"
+    return
+  fi
   # Deactivate any existing virtualenv
   if [ "$VIRTUAL_ENV" ]; then
     if [ "$(command -v deactivate)" ]; then
@@ -57,14 +69,13 @@ main() {
 
   case $1 in
     "-") return ;;
-    "local") make_env $TARGET ;;
+    "local") make_env $TARGET && active_env ;;
     "rm"|"remove") remove_venv $TARGET && return ;;
-    "slim") make_env $TARGET ;;
+    "slim") make_env $TARGET && active_env ;;
     "req") active_env && _install_requirements && return ;;
     "dev") UPGRADE_PIP=1 && active_env &&  _install_pip_dev_tools && return ;;
-    *) make_env $TARGET && _install_pip_dev_tools ;;
+    *) make_env $TARGET && active_env && _install_pip_dev_tools ;;
   esac
-  active_env;
 }
 
 main "$@";

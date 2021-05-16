@@ -1,4 +1,4 @@
-declare -a arr=("/Applications/Alfred 4.app" "/Applications/Rectangle.app")
+declare -a arr=("/Applications/Alfred 4.app" "/Applications/Rectangle.app" "/Applications/LuLu.app")
 for app in "${arr[@]}"; do
   if test -e "$app"; then
     osascript - "$app" << EOF > /dev/null

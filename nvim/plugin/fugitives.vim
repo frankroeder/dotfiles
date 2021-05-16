@@ -7,3 +7,4 @@ noremap <Leader>gst :G<CR>
 noremap <Leader>gd :Gvdiff<CR>
 noremap gdh :diffget //2<CR>
 noremap gdl :diffget //3<CR>
+noremap gdu :diffupdate<CR>
