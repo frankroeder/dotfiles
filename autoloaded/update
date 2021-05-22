@@ -69,7 +69,6 @@ mas_update() {
 apt_update() {
   sudo apt update -y;
   sudo apt upgrade -y;
-  sudo apt autoremove -y;
 }
 
 run(){

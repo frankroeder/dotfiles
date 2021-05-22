@@ -1,26 +1,31 @@
 #!/usr/bin/env bash
-# Empty the Trash on all mounted volumes and the main SSD/HDD.
-# Also, clear Apple’s System Logs to improve shell startup speed.
-# Finally, clear download history from quarantine. https://mths.be/bum
 
-TRASH="$HOME/.Trash/*"
+# empty the main trash
+local TRASH="$HOME/.Trash/*"
 if [ "${#TRASH[@]}" -gt 0 ]; then
-  for t in ~/.Trash/*; do sudo rm -rfv "$t"; done;
+  for t in $HOME/.Trash/*; do
+    sudo rm -rfv "$t";
+  done;
 fi
 
 if [ "$OSTYPE" = "Darwin" ]; then
-  VOL_TRASH="/Volumes/*/.Trashes"
+  # empty the trashes on all mounted volumes
+  local VOL_TRASH="/Volumes/*/.Trashes"
   if [ "${#VOL_TRASH[@]}" -gt 0 ] ; then
     sudo rm -rfv /Volumes/*/.Trashes;
   fi
 
+  # clear system logs to improve shell startup speed
   sudo rm -rfv /private/var/log/asl/*.asl;
 
+  # clear download history from quarantine. https://mths.be/bum
   sqlite3 ~/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV* \
     'delete from LSQuarantineEvent';
-fi
+elif [ "$OSTYPE" = "Linux" ]; then
+  sudo apt autoclean -y;
+  sudo apt clean -y;
+  sudo apt autoremove -y;
 
-if [ "$OSTYPE" = "Linux" ]; then
-  sudo apt-get autoremove;
-  sudo apt-get clean;
+  local THUMBNAIL_CACHE="$HOME/.cache/thumbnails";
+  [[ -d $THUMBNAIL_CACHE ]] && rm -rfv "$THUMBNAIL_CACHE/*";
 fi

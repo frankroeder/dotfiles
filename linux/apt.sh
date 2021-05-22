@@ -1,15 +1,19 @@
 #!/usr/bin/env bash
 
+apt_update() {
+  sudo apt update -y && sudo apt upgrade -y;
+}
+
 install_default() {
   # pre-release
   sudo add-apt-repository ppa:neovim-ppa/unstable -y;
-  sudo apt update -y && sudo apt upgrade -y;
+  apt_update;
   local PKGS="
-    git
     bash
     cmake
     curl
     ffmpeg
+    git
     htop
     imagemagick
     iputils-ping
@@ -32,24 +36,30 @@ install_default() {
 }
 
 install_desktop() {
-  sudo apt update -y && sudo apt upgrade -y;
+  apt_update;
   local DESKTOP_PKGS="
-    xclip
     chromium-browser
-    python3-tk
-    sox
-    portaudio19-dev
-    pavucontrol
     network-manager-l2tp
     network-manager-l2tp-gnome
+    pavucontrol
+    portaudio19-dev
+    python3-tk
+    sox
+    vlc
+    xclip
   "
   sudo apt install $DESKTOP_PKGS -y;
 }
 main() {
   case $1 in
-    "default") echo "Installing default applications" && install_default ;;
-    "desktop") echo "Installing desktop applications" && install_desktop ;;
-    *) echo "No valid option found" ;;
+    "default")
+      echo "Installing default applications";
+      install_default;;
+    "desktop")
+      echo "Installing desktop applications";
+      install_desktop;;
+    *)
+      echo "No valid option found";;
   esac
 }
 main "$@";

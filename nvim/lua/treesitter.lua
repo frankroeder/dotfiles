@@ -1,5 +1,9 @@
 require'nvim-treesitter.configs'.setup {
-  ensure_installed = "maintained",
+  ensure_installed = {
+    "bash", "bibtex", "c", "cpp", "css", "dockerfile", "go", "gomod", "html",
+    "javascript", "json", "latex", "lua", "python", "r", "swift", "toml",
+    "typescript", "yaml"
+  },
   highlight = {
     enable = true,
     disable = { "tex", "bibtex", "markdown" }

@@ -68,13 +68,30 @@ main() {
   fi
 
   case $1 in
-    "-") return ;;
-    "local") make_env $TARGET && active_env ;;
-    "rm"|"remove") remove_venv $TARGET && return ;;
-    "slim") make_env $TARGET && active_env ;;
-    "req") active_env && _install_requirements && return ;;
-    "dev") UPGRADE_PIP=1 && active_env &&  _install_pip_dev_tools && return ;;
-    *) make_env $TARGET && active_env && _install_pip_dev_tools ;;
+    "-")
+      return ;;
+    "local")
+      make_env $TARGET ;
+      active_env;;
+    "rm"|"remove")
+      remove_venv $TARGET;
+      return;;
+    "slim")
+      make_env $TARGET;
+      active_env;;
+    "req")
+      active_env;
+      _install_requirements;
+      return;;
+    "dev")
+      UPGRADE_PIP=1;
+      active_env;
+      _install_pip_dev_tools;
+      return;;
+    *)
+      make_env $TARGET;
+      active_env;
+      _install_pip_dev_tools;;
   esac
 }
 
