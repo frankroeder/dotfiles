@@ -1,21 +1,21 @@
 SHELL := /bin/bash
 DOTFILES := $(PWD)
 OSTYPE ?= uname -s
-PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(HOME)/bin:/$(HOME)/.local/bin
+PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(HOME)/bin:/$(HOME)/.local/bin:$(HOME)/bin/njs
 
 .DEFAULT_GOAL := help
 
 .PHONY: macos
-macos: sudo directories macos homebrew misc zsh nvim git npm
+macos: sudo directories macos homebrew misc zsh nvim git node
 	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
 	@zsh -i -c "fast-theme free"
 	@compaudit | xargs chmod g-w
 
 .PHONY: linux
-linux: sudo directories _linux  _linux git zsh misc nvim
+linux: sudo directories _linux git zsh misc node nvim
 
 .PHONY: minimal
-minimal: directories _linux git zsh misc nvim
+minimal: directories _linux git zsh misc node nvim
 	@sed -i '/tmux-mem-cpu/d' $(HOME)/.zsh/zsh_plugins.sh
 
 .PHONY: help
@@ -26,7 +26,7 @@ help:
 	@echo "minimal   	-- minimal linux setup for servers without root privilege"
 	@echo "nvim     	-- nvim setup with plugins, snippets and runtimes"
 	@echo "homebrew 	-- brew packages and casks of Brewfile"
-	@echo "npm      	-- npm packages"
+	@echo "node      	-- node and npm packages"
 	@echo "zsh      	-- symlinks for zsh"
 	@echo "git      	-- gitconfigs, ignore and completion"
 	@echo "uninstall	-- remove symlinks"
@@ -69,9 +69,10 @@ zsh:
 	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
 	@source $(HOME)/.zshrc
 
-.PHONY: npm
-npm:
-	@echo -e "\033[1m\033[34m==> Installing npm packages\033[0m"
+.PHONY: node
+node:
+	@echo -e "\033[1m\033[34m==> Installing node and npm packages\033[0m"
+	-which node || bash $(DOTFILES)/scripts/nodejs.sh
 	@npm i -g npm@latest
 	@npm i -g typescript
 	@npm i -g eslint
@@ -79,6 +80,7 @@ npm:
 	@npm i -g typescript-language-server
 	@npm i -g vscode-html-languageserver-bin
 	@npm i -g vscode-css-languageserver-bin
+	@npm i -g pyright
 
 .PHONY: nvim
 nvim:

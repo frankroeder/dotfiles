@@ -22,6 +22,7 @@ brew "grip"
 brew "gnuplot"
 brew "ifstat"
 brew "getantibody/tap/antibody"
+brew "gcc"
 
 cask "google-cloud-sdk"
 cask "alfred"

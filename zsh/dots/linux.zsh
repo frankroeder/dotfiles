@@ -1,7 +1,11 @@
 [[ $OSTYPE != 'Linux' ]] && return
 
-path=("$HOME/.local/bin" $path)
-path=("$HOME/bin" $path)
+path=(
+  "$HOME/.local/bin"
+  "$HOME/bin"
+  "$HOME/bin/njs"
+  $path
+)
 
 alias varwww='cd /var/www/html/'
 alias distro='cat /etc/issue'

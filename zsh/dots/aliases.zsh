@@ -40,7 +40,7 @@ alias online="ping -c 1 www.example.com &> /dev/null && echo 'Online :)' || echo
 
 # start plain vim
 alias pvim="$EDITOR -u NONE -i NONE -n -N -n"
-alias vimlogs='less $HOME/.local/share/nvim/lsp.log /tmp/*.log'
+alias vimlogs='tail -F $HOME/.local/share/nvim/lsp.log /tmp/*.log $HOME/.cache/nvim/lsp.log'
 alias nman="MANPAGER='nvim +Man!' man"
 
 alias fixjedi='pip3 install ujson==3.0.0 jedi==0.17.2'

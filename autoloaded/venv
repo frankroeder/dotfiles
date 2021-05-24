@@ -22,10 +22,15 @@ make_env() {
     UPGRADE_PIP=1
   fi
 }
-_install_pip_dev_tools(){
+_upgrade_pip(){
+  if [[ $UPGRADE_PIP == 1 ]]; then
+    $(which pip) install --upgrade pip;
+  fi
+}
+_install_dev_tools(){
   # install additional tools for debugging
   if [[ $UPGRADE_PIP == 1 ]]; then
-    $(which pip) install --upgrade pip 'python-language-server[yapf]' neovim ipdb;
+    $(which pip) install --upgrade neovim ipdb;
   fi
 }
 _install_requirements() {
@@ -72,26 +77,28 @@ main() {
       return ;;
     "local")
       make_env $TARGET ;
-      active_env;;
+      active_env;
+      _upgrade_pip;;
     "rm"|"remove")
       remove_venv $TARGET;
       return;;
     "slim")
       make_env $TARGET;
-      active_env;;
+      active_env;
+      _upgrade_pip;;
     "req")
       active_env;
       _install_requirements;
       return;;
     "dev")
-      UPGRADE_PIP=1;
       active_env;
-      _install_pip_dev_tools;
+      _install_dev_tools;
       return;;
     *)
       make_env $TARGET;
       active_env;
-      _install_pip_dev_tools;;
+      _upgrade_pip;
+      _install_dev_tools;;
   esac
 }
 

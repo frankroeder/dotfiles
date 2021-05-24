@@ -4,9 +4,4 @@ unidecode
 numpy
 matplotlib
 ipython
-pyflakes
 yapf
-rope
-python-language-server
-jedi==0.17.2
-ujson==3.0.0

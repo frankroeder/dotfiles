@@ -30,6 +30,7 @@ Plug 'Shougo/neoinclude.vim'
 Plug 'Shougo/neopairs.vim'
 Plug 'ncm2/float-preview.nvim'
 Plug 'rhysd/git-messenger.vim'
+Plug 'mhartington/formatter.nvim'
 
 " language support
 Plug 'godlygeek/tabular'
@@ -169,6 +170,7 @@ highlight MatchParen gui=bold,reverse guifg=#413e3d guibg=#f9d39e
 
 if &runtimepath =~ 'nvim-lspconfig'
   lua require('lsp_config')
+  lua require('formatter_config')
 endif
 if executable("tree-sitter") && executable("node")
   lua require('treesitter')
