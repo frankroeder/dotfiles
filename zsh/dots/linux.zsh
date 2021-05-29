@@ -1,9 +1,9 @@
 [[ $OSTYPE != 'Linux' ]] && return
 
 path=(
-  "$HOME/.local/bin"
   "$HOME/bin"
-  "$HOME/bin/njs"
+  "$HOME/.local/bin"
+  "$HOME/.local/nodejs/bin"
   $path
 )
 

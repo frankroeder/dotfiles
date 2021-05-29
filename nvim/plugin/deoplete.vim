@@ -1,3 +1,6 @@
+if !isdirectory(g:plug_dir . '/deoplete.nvim')
+  finish
+endif
 " Enable deoplete on first InsertEnter
 let g:deoplete#enable_at_startup = 0
 autocmd InsertEnter * call deoplete#enable()
@@ -7,7 +10,8 @@ call deoplete#custom#option('profile', v:true)
 call deoplete#enable_logging('ERROR', '/tmp/deoplete.log')
 call deoplete#custom#source('_', 'matchers', ['matcher_full_fuzzy',
       \ 'matcher_length'])
-set completeopt-=preview
+" set completeopt-=preview
+set completeopt=menuone,noinsert,noselect
 
 call deoplete#custom#option({
       \ 'smart_case': v:true,

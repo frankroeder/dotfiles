@@ -2,7 +2,7 @@
 # login shell definitions
 
 if [ "$OSTYPE" = "Darwin" ]; then
-  # python3.9
+  # python
   path=("/usr/local/opt/python@3.9/bin" $path)
   path=("/usr/local/opt/python@3.7/bin" $path)
 

@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 DOTFILES := $(PWD)
 OSTYPE ?= uname -s
-PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(HOME)/bin:/$(HOME)/.local/bin:$(HOME)/bin/njs
+PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(HOME)/bin:/$(HOME)/.local/bin:$(HOME)/.local/nodejs/bin
 
 .DEFAULT_GOAL := help
 
@@ -90,7 +90,7 @@ nvim:
 	@ln -sfv $(DOTFILES)/nvim $(HOME)/.config
 	@if [ -x "$(command -v go)" ]; then GO111MODULE=on go get golang.org/x/tools/gopls@latest; fi
 	@curl -fLo $(HOME)/.local/share/nvim/site/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
-	@nvim -c PlugInstall -c quitall
+	@nvim -es -i NONE -u $(DOTFILES)/nvim/init.vim -c "PlugInstall" -c "quitall"
 
 git:
 	@echo -e "\033[1m\033[34m==> Installing stuff for git\033[0m"
@@ -167,11 +167,11 @@ uninstall:
 test:
 	@echo "Testing linux installation on ${OSTYPE}"
 	@if [ $(NOSUDO) ]; then\
-		docker build --rm -t dotfiles ${PWD} -f $(DOTFILES)/docker/Dockerfile;\
+		docker build --progress plain --rm -t dotfiles ${PWD} -f $(DOTFILES)/docker/Dockerfile;\
 		docker run -it --rm --name maketest -d dotfiles:latest;\
 		docker exec -it maketest /bin/bash -c "make NOSUDO=$(NOSUDO) minimal";\
 	else\
-		docker build --rm -t dotfiles_sudo ${PWD} -f $(DOTFILES)/docker/Dockerfile_sudoer;\
+		docker build --progress plain --rm -t dotfiles_sudo ${PWD} -f $(DOTFILES)/docker/Dockerfile_sudoer;\
 		docker run -it --rm --name maketest_sudo -d dotfiles_sudo:latest;\
 		docker exec -it maketest_sudo /bin/bash -c "make linux";\
 	fi

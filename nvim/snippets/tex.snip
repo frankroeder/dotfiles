@@ -488,3 +488,15 @@ alias   \ref
 snippet label
 alias   \label
 	\label{${1}}${0}
+
+snippet     skeleton
+alias       skel
+options     head
+  \documentclass[10pt]{article}
+  \usepackage[utf8]{inputenc}
+  \title{${1}}
+  \date{\today}
+  \begin{document}
+  \maketitle
+    ${0}
+  \end{document}

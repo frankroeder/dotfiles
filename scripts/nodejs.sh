@@ -8,6 +8,7 @@ TARGET_DIR="$HOME/tmp/"
 
 curl -L https://nodejs.org/dist/v$LATEST_VERSION/$PKG > "$TARGET_DIR/$PKG";
 cd $TARGET_DIR;
-tar -xJvf "$PKG";
-ln -sfv "$TARGET_DIR$RELEASE/bin" "$HOME/bin/njs";
+tar -xJf "$PKG";
+mkdir -p "$HOME/.local/nodejs"
+ln -sfv "$TARGET_DIR$RELEASE/bin" "$HOME/.local/nodejs/";
 rm -rfv  "$PKG";

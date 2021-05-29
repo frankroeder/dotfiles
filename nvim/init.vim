@@ -1,8 +1,9 @@
 " ---------------------------------------------------------------------------- "
 " Plug                                                                         "
 " ---------------------------------------------------------------------------- "
+let g:plug_dir = expand("$HOME/.local/share/nvim/plugged")
 
-call plug#begin('~/.local/share/nvim/plugged')
+call plug#begin(g:plug_dir)
 
 " utils
 Plug 'scrooloose/nerdcommenter'
@@ -168,11 +169,13 @@ set wildignore+=*.aux,*.bbl,*.blg,*.brf,*.fls,*.fdb_latexmk,*.synctex.gz
 
 highlight MatchParen gui=bold,reverse guifg=#413e3d guibg=#f9d39e
 
-if &runtimepath =~ 'nvim-lspconfig'
+if isdirectory(g:plug_dir . '/nvim-lspconfig')
   lua require('lsp_config')
+endif
+if isdirectory(g:plug_dir . '/formatter.nvim')
   lua require('formatter_config')
 endif
-if executable("tree-sitter") && executable("node")
+if isdirectory(g:plug_dir . '/nvim-treesitter') && executable("tree-sitter") && executable("node")
   lua require('treesitter')
 endif
 

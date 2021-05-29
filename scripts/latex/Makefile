@@ -1,15 +1,17 @@
 FILE := NAME
 OUT := build
 NAME := 'NAME'
+BUILD_OPTIONS := '-interaction=nonstopmode -pdf -halt-on-error'
+MAKE_CMD := latexmk
 
 .PHONY: pdf
 pdf:
-	latexmk -interaction=nonstopmode -outdir=$(OUT) -pdf -halt-on-error $(FILE).tex;
+	$(MAKE_CMD) $(BUILD_OPTIONS) -outdir=$(OUT) $(FILE).tex;
 	mv $(OUT)/$(FILE).pdf $(OUT)/$(NAME).pdf;
 
 .PHONY: watch
 watch:
-	latexmk -interaction=nonstopmode -outdir=$(OUT) -pdf -pvc -halt-on-error $(FILE).tex;
+	$(MAKE_CMD) $(BUILD_OPTIONS) -outdir=$(OUT) -pvc $(FILE).tex;
 
 .PHONY: clean
 clean:
