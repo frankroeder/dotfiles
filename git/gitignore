@@ -1,11 +1,18 @@
 # global gitignore
 
+*.log
+build/
 jsconfig.json
-.python-version
 .vim/
-.ipynb_checkpoints
-node_modules/
 .sass-cache/
+
+# python
+.python-version
+.ipynb_checkpoints
+*__pycache__/
+
+# nodejs
+node_modules/
 package-lock.json
 
 # Compiled source
@@ -40,5 +47,5 @@ Thumbs.db
 .Spotlight-V100
 .Trashes
 
-*.log
-build/
+# pyright config
+pyproject.toml

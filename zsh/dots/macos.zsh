@@ -1,8 +1,6 @@
 [[ $OSTYPE != 'Darwin' ]] && return
 
 alias f='open -a Finder ./'
-alias repos='cd ~/Documents'
-alias dl='cd ~/Downloads'
 alias preview='open -a /System/Applications/Preview.app'
 test -d "/Applications/Skim.app" && alias skim='open -a /Applications/Skim.app'
 alias icloud="cd /Users/$USER/Library/Mobile\ Documents/com~apple~CloudDocs"

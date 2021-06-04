@@ -2,6 +2,9 @@ alias cp='nice cp'
 alias mv='nice mv'
 alias grep='grep --color=auto'
 
+[[ -d "$HOME/Documents" ]] && alias repos='cd $HOME/Documents'
+[[ -d "$HOME/Downloads" ]] && alias dl='cd $HOME/Downloads'
+
 alias src='exec "$SHELL" -l'
 alias {dotfiles,dots}='cd $HOME/.dotfiles'
 alias tmp='cd $HOME/tmp'
@@ -18,21 +21,26 @@ alias mails="$EDITOR /var/mail/$USER"
 
 # Print each function name
 alias showfunctions="declare -f | grep '^[a-z].* ()' | sed 's/{$//'"
-alias ag="ag --path-to-ignore $DOTFILES/ignore"
+[[ $commands[ag] ]] && alias ag="ag --path-to-ignore $DOTFILES/ignore"
 alias :q="exit"
-alias ipd="curl -sS ipinfo.io  2>/dev/null | jq ."
+[[ $commands[jq] ]] && alias ipd="curl -sS ipinfo.io  2>/dev/null | jq ."
 alias -g @="| grep -i"
 alias joke="curl https://icanhazdadjoke.com"
 
 # Get week number
 alias week='date +%V'
 
-alias npmls='npm ls --depth=0'
-alias npmlsg='npm ls --depth=0 -g'
+if [[ $commands[npm] ]]; then
+  alias npmls='npm ls --depth=0'
+  alias npmlsg='npm ls --depth=0 -g'
+fi
 
 alias dfh='df -h'
-alias ipy='ipython'
-alias ippdb='ipython --pprint --pdb'
+
+if [[ $commands[ipython] ]]; then
+  alias ipy='ipython'
+  alias ippdb='ipython --pprint --pdb'
+fi
 
 # open last edited file
 alias v0="$EDITOR -c \"normal '0\""
@@ -42,5 +50,3 @@ alias online="ping -c 1 www.example.com &> /dev/null && echo 'Online :)' || echo
 alias pvim="$EDITOR -u NONE -i NONE -n -N -n"
 alias vimlogs='tail -F $HOME/.local/share/nvim/lsp.log /tmp/*.log $HOME/.cache/nvim/lsp.log'
 alias nman="MANPAGER='nvim +Man!' man"
-
-alias fixjedi='pip3 install ujson==3.0.0 jedi==0.17.2'
