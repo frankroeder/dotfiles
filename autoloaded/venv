@@ -38,9 +38,12 @@ _install_requirements() {
 }
 active_env() {
   if [ -d $TARGET ]; then
-    # Activate the env
     echo "Activating ${TARGET}";
     source "${TARGET}/bin/activate";
+    return 0;
+  else
+    echo "No virtualenv found";
+    return 1;
   fi
 }
 main() {
@@ -77,27 +80,26 @@ main() {
       return ;;
     "local")
       make_env $TARGET ;
-      active_env;
+      active_env &&
       _upgrade_pip;;
     "rm"|"remove")
       remove_venv $TARGET;
       return;;
     "slim")
       make_env $TARGET;
-      active_env;
+      active_env &&
       _upgrade_pip;;
     "req")
-      active_env;
+      active_env &&
       _install_requirements;
       return;;
     "dev")
-      active_env;
+      active_env &&
       _install_dev_tools;
       return;;
     *)
       make_env $TARGET;
-      active_env;
-      _upgrade_pip;
+      active_env && _upgrade_pip;
       _install_dev_tools;;
   esac
 }

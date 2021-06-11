@@ -1,0 +1,19 @@
+#!/usr/bin/env zsh
+# Script to open geofox from the commandline
+[[ "$#" = 0 || "$#" = 1 ]] && {
+    printf '%s\n' "A script to open geofox (HVV) from the commandline"
+    printf '%s\n' "Usage: geofox Jungfernstieg Informatikum";
+    return 1;
+}
+
+local START="$1"
+local DESTINATION="$2"
+local URL="https://geofox.de/jsf/home.seam?execute=true"
+URL+="&date=$(date +'%d.%m.%Y')"
+URL+="&time=$(date +'%H:%M')"
+URL+="&language=de"
+URL+="&start=${START}&startCity=Hamburg&startType=STATION"
+URL+="&destination=${DESTINATION}&destinationCity=Hamburg&destinationType=STATION"
+URL+="&timeIsDeparture=1&wayBy=train"
+
+$BROWSER $URL;
