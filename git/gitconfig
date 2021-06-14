@@ -42,9 +42,6 @@
   ignorecase = false
   attributesfile = ~/.dotfiles/git/gitattributes
 
-[credential]
-  helper = cache --timeout=3600 osxkeychain
-
 [commit]
   template = ~/.dotfiles/git/gitmessage
   gpgsign = true

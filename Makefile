@@ -100,8 +100,9 @@ git:
 
 .PHONY: after
 after:
+	@echo -e "\033[1m\033[34m==> \033[0m"
 	@bash $(DOTFILES)/git/setup.sh
-	@bash $(DOTFILES)/linux/apt.sh "desktop";\
+	@if [ "$(OSTYPE)" == "Linux" ]; then bash $(DOTFILES)/linux/apt.sh "desktop"; fi
 
 directories:
 	@echo -e "\033[1m\033[34m==> Creating directories\033[0m"
