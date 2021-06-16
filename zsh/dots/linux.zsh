@@ -21,4 +21,4 @@ if [ $commands[xclip] ]; then
     alias pbpaste='xclip -selection clipboard -o'
     alias copypubkey='xclip -selection clipboard < ~/.ssh/id_rsa.pub'
 fi
-[ $commands[xdg-open] ] && alias open=xdg-open
+[ $commands[xdg-open] ] && function open() { xdg-open $@; };

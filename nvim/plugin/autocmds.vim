@@ -1,6 +1,9 @@
 augroup CustomAutoCmds
   autocmd!
 
+  " trim whitespaces
+  autocmd BufWritePre * :call StripTrailingWhitespaces()
+
   " toggle line numbers
   autocmd FocusGained,InsertLeave * set relativenumber
   autocmd FocusLost,InsertEnter   * set norelativenumber

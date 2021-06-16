@@ -149,9 +149,8 @@ set iskeyword-=#
 
 let mapleader=","
 
-augroup buf_write
+augroup ReloadInit
   autocmd!
-  autocmd BufWritePre * :call StripTrailingWhitespaces()
   autocmd BufWritePost init.vim source % | :AirlineRefresh
 augroup END
 

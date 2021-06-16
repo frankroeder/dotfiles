@@ -18,7 +18,7 @@ let g:fzf_colors =
   \ 'spinner': ['fg', 'Label'],
   \ 'header':  ['fg', 'Comment'] }
 
-let g:fzf_history_dir = '~/.local/share/fzf-history'
+let g:fzf_history_dir = expand("$HOME/.local/share/fzf-history")
 
 " [Buffers] Jump to the existing window if possible
 let g:fzf_buffers_jump = 1

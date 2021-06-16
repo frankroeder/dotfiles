@@ -1,7 +1,8 @@
 local lspconfig = require 'lspconfig'
 local util = require 'lspconfig/util'
 local sign_def = vim.fn.sign_define
-local u = require 'utils'
+local buf_keymap = require 'utils'.buf_keymap
+local merge_tables = require 'utils'.merge_tables
 
 vim.lsp.set_log_level("error")
 
@@ -14,7 +15,7 @@ go_root = {'go.sum', 'go.mod'}
 swift_root = {'Package.swift'}
 
 
--- buffer-local setup
+-- buffer setup
 local on_attach = function(client, bufnr)
   print('Language Server Protocol started.')
 
@@ -26,20 +27,19 @@ local on_attach = function(client, bufnr)
   sign_def("LspDiagnosticsSignInformation", { text = "●"})
   sign_def("LspDiagnosticsSignHint", { text = "●"})
 
-  u.mapluafn("n", "<F2>", "buf.declaration()")
-  u.mapluafn("n", "<F3>", "buf.definition()")
-  u.mapluafn("n", "<F4>", "buf.type_definition()")
-  u.mapluafn("n", "<F5>", "buf.signature_help()")
-  u.mapluafn("n", "K", "buf.hover()")
-  u.mapluafn("n", "<Leader>imp", "buf.implementation()")
-  u.mapluafn("n", "<Leader>ref", "buf.references()")
-  u.mapluafn("n", "<Leader>rn", "buf.rename()")
-  u.mapluafn("n", "<Leader>ds", "buf.document_symbol()")
-  u.mapluafn("n", "<Leader>ws", "buf.workspace_symbol()")
-  u.mapluafn("n","<Leader>ac",'buf.code_action()')
-
-  u.mapluafn("n", "gn", "diagnostic.goto_next()")
-  u.mapluafn("n","gp","diagnostic.goto_prev()")
+  buf_keymap(bufnr, "n", "<F2>", [[<cmd>lua vim.lsp.buf.declaration()<CR>]])
+  buf_keymap(bufnr, "n", "<F3>", [[<cmd>lua vim.lsp.buf.definition()<CR>]])
+  buf_keymap(bufnr, "n", "<F4>", [[<cmd>lua vim.lsp.buf.type_definition()<CR>]])
+  buf_keymap(bufnr, "n", "<F5>", [[<cmd>lua vim.lsp.buf.signature_help()<CR>]])
+  buf_keymap(bufnr, "n", "K", [[<cmd>lua vim.lsp.buf.hover()<CR>]])
+  buf_keymap(bufnr, "n", "<Leader>imp", [[<cmd>lua vim.lsp.buf.implementation()<CR>]])
+  buf_keymap(bufnr, "n", "<Leader>ref", [[<cmd>lua vim.lsp.buf.references()<CR>]])
+  buf_keymap(bufnr, "n", "<Leader>rn", [[<cmd>lua vim.lsp.buf.rename()<CR>]])
+  buf_keymap(bufnr, "n", "<Leader>ds", [[<cmd>lua vim.lsp.buf.document_symbol()<CR>]])
+  buf_keymap(bufnr, "n", "<Leader>ws", [[<cmd>lua vim.lsp.buf.workspace_symbol()<CR>]])
+  buf_keymap(bufnr, "n","<Leader>ac", [[<cmd>lua vim.lsp.buf.code_action()<CR>]])
+  buf_keymap(bufnr, "n", "gn", [[<cmd>lua vim.lsp.diagnostic.goto_next()<CR>]])
+  buf_keymap(bufnr, "n","gp", [[<cmd>lua vim.lsp.diagnostic.goto_prev()<CR>]])
 end
 
 -- override default config for all servers
@@ -73,7 +73,7 @@ lspconfig.pyright.setup{
     cmd = { vim.fn.exepath("pyright-langserver"), "--stdio" };
     filetypes = { "python" };
     root_dir = function(fname)
-      return util.find_git_ancestor(fname) or util.root_pattern(u.merge_tables(py_root, general_root))
+      return util.find_git_ancestor(fname) or util.root_pattern(merge_tables(py_root, general_root))
         or vim.fn.getcwd()
     end;
   };
@@ -83,7 +83,7 @@ lspconfig.clangd.setup{
     cmd = { vim.fn.exepath('clangd'), '--clang-tidy', '--suggest-missing-includes' };
     filetypes = { "c", "cpp", "objc", "objcpp" };
     root_dir = function(fname)
-      return util.find_git_ancestor(fname) or util.root_pattern(u.merge_tables(c_cpp_root, general_root))
+      return util.find_git_ancestor(fname) or util.root_pattern(merge_tables(c_cpp_root, general_root))
       or vim.fn.getcwd()
     end;
   };
@@ -93,7 +93,7 @@ lspconfig.tsserver.setup{
     cmd = { vim.fn.exepath('typescript-language-server'), '--stdio', '--tsserver-log-file', '/tmp/ts.log' };
     filetypes = { "javascript", "javascriptreact", "javascript.jsx", "typescript", "typescriptreact", "typescript.tsx" };
     root_dir = function(fname)
-      return util.find_git_ancestor(fname) or util.root_pattern(u.merge_tables(ts_js_root, general_root))
+      return util.find_git_ancestor(fname) or util.root_pattern(merge_tables(ts_js_root, general_root))
       or vim.fn.getcwd()
     end;
   };
@@ -119,7 +119,7 @@ lspconfig.gopls.setup{
   default_config = {
     cmd = { vim.fn.exepath('gopls'), '-logfile', '/tmp/gopls.log' };
     root_dir = function(fname)
-      return util.find_git_ancestor(fname) or util.root_pattern(u.merge_tables(go_root, general_root))
+      return util.find_git_ancestor(fname) or util.root_pattern(merge_tables(go_root, general_root))
       or vim.fn.getcwd()
     end;
   };
@@ -137,7 +137,7 @@ lspconfig.sourcekit.setup{
   default_config = {
     filetypes = { "swift", "c", "cpp", "objective-c", "objective-cpp" };
     root_dir = function(fname)
-      return util.find_git_ancestor(fname) or util.root_pattern(u.merge_tables(swift_root, general_root))
+      return util.find_git_ancestor(fname) or util.root_pattern(merge_tables(swift_root, general_root))
       or vim.fn.getcwd()
     end;
   };

@@ -1,16 +1,32 @@
-_G.Util = {}
+local M = {}
+local DEFAULT_OPTS = { noremap = true, silent = true }
 
-Util.mapluafn = function (mode, key, cmd)
-  local value = '<cmd>lua vim.lsp.'..cmd..'<CR>'
-  local opts = { noremap=true, silent=true }
-  vim.api.nvim_buf_set_keymap(bufnr, mode, key, value, opts)
+-- key map
+M.keymap = function (mode, key, value, opts)
+  local has_opts = opts ~= nil and not vim.tbl_isempty(opts)
+  if has_opts then
+    vim.api.nvim_set_keymap(mode, key, value, vim.tbl_extend('force', DEFAULT_OPTS, opts))
+  else
+    vim.api.nvim_set_keymap(mode, key, value, DEFAULT_OPTS)
+  end
 end
 
-Util.merge_tables = function(t1, t2)
+-- buffer key map
+M.buf_keymap = function (bufnr, mode, key, value, opts)
+  local has_opts = opts ~= nil and not vim.tbl_isempty(opts)
+  if has_opts then
+    vim.api.nvim_buf_set_keymap(bufnr, mode, key, value, vim.tbl_extend('force', DEFAULT_OPTS, opts))
+  else
+    vim.api.nvim_buf_set_keymap(bufnr, mode, key, value, DEFAULT_OPTS)
+  end
+end
+
+-- merge two tables
+M.merge_tables = function(t1, t2)
   for k,v in ipairs(t2) do
     table.insert(t1, v)
   end
   return t1
 end
 
-return Util
+return M
