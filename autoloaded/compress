@@ -2,16 +2,20 @@
 # compress - archive wrapper
 # usage: compress <foo.tar.gz> ./foo ./bar
 
-if [[ -n "$1" ]]; then
-  FILE=$1
-  case $FILE in
-    *.tar.bz2) shift && tar cjf "$FILE" "$*" ;;
-    *.tar.gz) shift && tar czf "$FILE" "$*" ;;
-    *.tgz) shift && tar czf "$FILE" "$*" ;;
-    *.zip) shift && zip "$FILE" "$*" ;;
+ARCHIVE_NAME="${1:t}"
+DIR="${2}"
+if [[ -n "$ARCHIVE_NAME" ]]; then
+  case $ARCHIVE_NAME in
+    *.tar.gz|*.tgz) tar -cvf "$ARCHIVE_NAME "--use-compress-program=gzip "$DIR" ;;
+    *.tar.bz2|*.tbz|*.tbz2) tar -cvf "$ARCHIVE_NAME" --use-compress-program=bzip2 "$DIR" ;;
+    *.tar.xz|*.txz) tar -cvJf "$ARCHIVE_NAME" "$DIR" ;;
+    *.zip|*.jar) zip -r "$ARCHIVE_NAME" "$DIR" ;;
+    *.tar) tar -cvf "$ARCHIVE_NAME" "$DIR" ;;
+    *.7z) 7za a "$ARCHIVE_NAME" "$DIR" ;;
+    *.rar) rar a "$ARCHIVE_NAME" "$DIR" ;;
 		*) echo "'$1' cannot be compressed";;
   esac
 else
-	echo "Usage:   compress <foo.tar.gz> ./foo ./bar"
+	echo "Usage: compress <foo.tar.gz> ./foo ./bar"
 	echo "Options: tar.bz2 tar.gz tgz zip"
 fi

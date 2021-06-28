@@ -12,13 +12,13 @@ sudo rosdep init
 rosdep update
 
 # install coppeliasim
-COPPELIA_VERSION="CoppeliaSim_Edu_V4_2_0_Ubuntu20_04"
-wget https://www.coppeliarobotics.com/files/$COPPELIA_VERSION.tar.xz -P /opt/
-tar -xf /opt/$COPPELIA_VERSION.tar.xz -C /opt
-rm /opt/$COPPELIA_VERSION.tar.xz
+COPPELIA_VERSION="CoppeliaSim_Edu_V4_1_0_Ubuntu20_04"
+PKG="$COPPELIA_VERSION.tar.xz"
+curl -L https://www.coppeliarobotics.com/files/$PKG > "$HOME/$PKG"
+tar -xJfv $HOME/$PKG -C $HOME/
+rm -rfv $HOME/$PKG
 
-
-echo "export COPPELIASIM_ROOT=/opt/$COPPELIA_VERSION"'
+echo "export COPPELIASIM_ROOT=$HOME/$COPPELIA_VERSION"'
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$COPPELIASIM_ROOT
 export QT_QPA_PLATFORM_PLUGIN_PATH=$COPPELIASIM_ROOT
 # ROS

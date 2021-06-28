@@ -110,6 +110,7 @@ directories:
 	mkdir -p $(HOME)/.config/htop
 	mkdir -p $(HOME)/tmp
 	mkdir -p $(HOME)/.Trash
+	mkdir -p $(HOME)/Downloads
 
 .PHONY: _bash
 _bash:

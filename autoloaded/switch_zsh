@@ -12,7 +12,7 @@ fi
 if [[ "$(uname)" = "Darwin" ]]
 then
   chsh -s "$(brew --prefix)/bin/zsh"
-elif [[ "$(uname)" = "Darwin" ]]
+elif [[ "$(uname)" = "Linux" ]]
 then
   chsh -s "$(command -v zsh)"
 fi

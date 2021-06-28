@@ -32,6 +32,7 @@ alias week='date +%V'
 alias iso8601='date -u +"%Y-%m-%dT%H:%M:%SZ"'
 alias iso8601-local='date +"%Y-%m-%dT%H:%M:%S%z"'
 alias iso8601-date='date +"%Y-%m-%d"'
+alias unixtime='date +%s'
 
 if [[ $commands[npm] ]]; then
   alias npmls='npm ls --depth=0'

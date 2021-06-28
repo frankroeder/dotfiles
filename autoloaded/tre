@@ -2,6 +2,8 @@
 # `tre` is a shorthand for `tree` with hidden files and color enabled, ignoring
 # some directories, listing directories first.
 
+! [ $commands[tree] ] && echo "tree is not installed" && return
+
 local ignore=$(paste -d\| -s "$DOTFILES/ignore")
 
 if [ -z "${1}" ]; then

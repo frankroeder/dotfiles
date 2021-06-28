@@ -33,6 +33,9 @@ Plug 'ncm2/float-preview.nvim'
 Plug 'rhysd/git-messenger.vim'
 Plug 'mhartington/formatter.nvim'
 
+Plug 'preservim/nerdtree'
+Plug 'liuchengxu/vista.vim'
+
 " language support
 Plug 'godlygeek/tabular'
 Plug 'plasticboy/vim-markdown', {'depends': 'godlygeek/tabular'}
