@@ -24,17 +24,17 @@ make_env() {
 }
 _upgrade_pip(){
   if [[ $UPGRADE_PIP == 1 ]]; then
-    $(which pip) install --upgrade pip;
+    $(which python3) -m pip install --upgrade pip;
   fi
 }
 _install_dev_tools(){
   # install additional tools for debugging
   if [[ $UPGRADE_PIP == 1 ]]; then
-    $(which pip) install --upgrade neovim ipdb unidecode;
+    $(which python3) -m pip install --upgrade neovim ipdb unidecode;
   fi
 }
 _install_requirements() {
-  $(which pip) install -r requirements.txt;
+  $(which python3) -m pip install -r requirements.txt;
 }
 active_env() {
   if [ -d $TARGET ]; then
