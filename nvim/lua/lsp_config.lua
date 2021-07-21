@@ -6,11 +6,10 @@ local merge_tables = require 'utils'.merge_tables
 
 vim.lsp.set_log_level("error")
 
-
 general_root = {".root", ".project.*", ".git/", ".gitignore", "README.md"}
 py_root = {'venv/', 'requirements.txt', 'setup.py', 'pyproject.toml', 'setup.cfg'}
 ts_js_root = {'jsconfig.json', 'tsconfig.json', 'package.json'}
-c_cpp_root = {'compile_commands.json', 'build/', 'compile_flags.txt'}
+c_cpp_root = {'compile_commands.json', 'build/', 'compile_flags.txt', '.clangd'}
 go_root = {'go.sum', 'go.mod'}
 swift_root = {'Package.swift'}
 
@@ -40,6 +39,14 @@ local on_attach = function(client, bufnr)
   buf_keymap(bufnr, "n","<Leader>ac", [[<cmd>lua vim.lsp.buf.code_action()<CR>]])
   buf_keymap(bufnr, "n", "gn", [[<cmd>lua vim.lsp.diagnostic.goto_next()<CR>]])
   buf_keymap(bufnr, "n","gp", [[<cmd>lua vim.lsp.diagnostic.goto_prev()<CR>]])
+
+  require "lsp_signature".on_attach({
+    bind = true,
+    hint_enable = false,
+    handler_opts = {
+      border = "single"   -- double, single, shadow, none
+    },
+  })
 end
 
 -- override default config for all servers

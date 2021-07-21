@@ -16,4 +16,5 @@ URL+="&start=${START}&startCity=Hamburg&startType=STATION"
 URL+="&destination=${DESTINATION}&destinationCity=Hamburg&destinationType=STATION"
 URL+="&timeIsDeparture=1&wayBy=train"
 
-$BROWSER $URL;
+
+$BROWSER "$URL";

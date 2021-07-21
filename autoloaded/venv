@@ -30,7 +30,7 @@ _upgrade_pip(){
 _install_dev_tools(){
   # install additional tools for debugging
   if [[ $UPGRADE_PIP == 1 ]]; then
-    $(which pip) install --upgrade neovim ipdb;
+    $(which pip) install --upgrade neovim ipdb unidecode;
   fi
 }
 _install_requirements() {

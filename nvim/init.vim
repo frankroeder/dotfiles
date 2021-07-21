@@ -22,13 +22,11 @@ else
   Plug 'luochen1990/rainbow'
   let g:rainbow_active = 1
 endif
-Plug 'Shougo/deoplete-lsp'
-Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
-Plug 'Shougo/neosnippet.vim'
-Plug 'Shougo/echodoc.vim'
-Plug 'Shougo/context_filetype.vim'
-Plug 'Shougo/neoinclude.vim'
-Plug 'Shougo/neopairs.vim'
+Plug 'hrsh7th/nvim-compe'
+Plug 'windwp/nvim-autopairs'
+Plug 'SirVer/ultisnips'
+Plug 'ray-x/lsp_signature.nvim'
+
 Plug 'ncm2/float-preview.nvim'
 Plug 'rhysd/git-messenger.vim'
 Plug 'mhartington/formatter.nvim'
@@ -173,6 +171,9 @@ highlight MatchParen gui=bold,reverse guifg=#413e3d guibg=#f9d39e
 
 if isdirectory(g:plug_dir . '/nvim-lspconfig')
   lua require('lsp_config')
+endif
+if isdirectory(g:plug_dir . '/nvim-compe')
+  lua require('nvim_compe')
 endif
 if isdirectory(g:plug_dir . '/formatter.nvim')
   lua require('formatter_config')

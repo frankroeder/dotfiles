@@ -45,6 +45,7 @@ if [[ $commands[ipython] ]]; then
   alias ipy='ipython'
   alias ippdb='ipython --pprint --pdb'
 fi
+alias pipup='$(which python3) -m pip install --upgrade pip'
 
 # open last edited file
 alias v0="$EDITOR -c \"normal '0\""
