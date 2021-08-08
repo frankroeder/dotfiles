@@ -13,7 +13,6 @@ c_cpp_root = {'compile_commands.json', 'build/', 'compile_flags.txt', '.clangd'}
 go_root = {'go.sum', 'go.mod'}
 swift_root = {'Package.swift'}
 
-
 -- buffer setup
 local on_attach = function(client, bufnr)
   print('Language Server Protocol started.')
@@ -26,19 +25,24 @@ local on_attach = function(client, bufnr)
   sign_def("LspDiagnosticsSignInformation", { text = "●"})
   sign_def("LspDiagnosticsSignHint", { text = "●"})
 
-  buf_keymap(bufnr, "n", "<F2>", [[<cmd>lua vim.lsp.buf.declaration()<CR>]])
-  buf_keymap(bufnr, "n", "<F3>", [[<cmd>lua vim.lsp.buf.definition()<CR>]])
-  buf_keymap(bufnr, "n", "<F4>", [[<cmd>lua vim.lsp.buf.type_definition()<CR>]])
-  buf_keymap(bufnr, "n", "<F5>", [[<cmd>lua vim.lsp.buf.signature_help()<CR>]])
   buf_keymap(bufnr, "n", "K", [[<cmd>lua vim.lsp.buf.hover()<CR>]])
-  buf_keymap(bufnr, "n", "<Leader>imp", [[<cmd>lua vim.lsp.buf.implementation()<CR>]])
-  buf_keymap(bufnr, "n", "<Leader>ref", [[<cmd>lua vim.lsp.buf.references()<CR>]])
+  buf_keymap(bufnr, "n", "gD", [[<cmd>lua vim.lsp.buf.declaration()<CR>]])
+  buf_keymap(bufnr, "n", "gd", [[<cmd>lua vim.lsp.buf.definition()<CR>]])
+  buf_keymap(bufnr, "n", "<Space>sh", [[<cmd>lua vim.lsp.buf.signature_help()<CR>]])
   buf_keymap(bufnr, "n", "<Leader>rn", [[<cmd>lua vim.lsp.buf.rename()<CR>]])
-  buf_keymap(bufnr, "n", "<Leader>ds", [[<cmd>lua vim.lsp.buf.document_symbol()<CR>]])
-  buf_keymap(bufnr, "n", "<Leader>ws", [[<cmd>lua vim.lsp.buf.workspace_symbol()<CR>]])
-  buf_keymap(bufnr, "n","<Leader>ac", [[<cmd>lua vim.lsp.buf.code_action()<CR>]])
+  buf_keymap(bufnr, "n", "<Leader>ca", [[<cmd>lua vim.lsp.buf.code_action()<CR>]])
+  buf_keymap(bufnr, "n", "<Space>cf", [[<cmd>lua vim.lsp.buf.formatting()<CR>]])
+  -- buf_keymap(bufnr, "n", "<F4>", [[<cmd>lua vim.lsp.buf.type_definition()<CR>]])
+  -- buf_keymap(bufnr, "n", "<Leader>imp", [[<cmd>lua vim.lsp.buf.implementation()<CR>]])
+  -- buf_keymap(bufnr, "n", "<Leader>ref", [[<cmd>lua vim.lsp.buf.references()<CR>]])
+  -- buf_keymap(bufnr, "n", "<Leader>ds", [[<cmd>lua vim.lsp.buf.document_symbol()<CR>]])
+  -- buf_keymap(bufnr, "n", "<Leader>ws", [[<cmd>lua vim.lsp.buf.workspace_symbol()<CR>]])
+
+  -- diagnostic
   buf_keymap(bufnr, "n", "gn", [[<cmd>lua vim.lsp.diagnostic.goto_next()<CR>]])
-  buf_keymap(bufnr, "n","gp", [[<cmd>lua vim.lsp.diagnostic.goto_prev()<CR>]])
+  buf_keymap(bufnr, "n", "gp", [[<cmd>lua vim.lsp.diagnostic.goto_prev()<CR>]])
+  buf_keymap(bufnr, "n", "<Space>ld", [[<cmd>lua vim.lsp.diagnostic.show_line_diagnostics()<CR>]])
+  buf_keymap(bufnr, "n", "<Space>ll", [[<cmd>lua vim.lsp.diagnostic.set_loclist()<CR>]])
 
   require "lsp_signature".on_attach({
     bind = true,
@@ -49,6 +53,16 @@ local on_attach = function(client, bufnr)
   })
 end
 
+local capabilities = vim.lsp.protocol.make_client_capabilities()
+capabilities.textDocument.completion.completionItem.snippetSupport = true
+capabilities.textDocument.completion.completionItem.resolveSupport = {
+  properties = {
+    'documentation',
+    'detail',
+    'additionalTextEdits',
+  }
+}
+
 -- override default config for all servers
 lspconfig.util.default_config = vim.tbl_extend(
   "force",
@@ -56,7 +70,11 @@ lspconfig.util.default_config = vim.tbl_extend(
   {
     log_level = vim.lsp.protocol.MessageType.Log;
     message_level = vim.lsp.protocol.MessageType.Log;
+    flags = {
+      debounce_text_changes = 500,
+    };
     on_attach = on_attach;
+    capabilities = capabilities;
   }
 )
 vim.lsp.handlers["textDocument/publishDiagnostics"] = vim.lsp.with(
@@ -91,7 +109,7 @@ lspconfig.clangd.setup{
     filetypes = { "c", "cpp", "objc", "objcpp" };
     root_dir = function(fname)
       return util.find_git_ancestor(fname) or util.root_pattern(merge_tables(c_cpp_root, general_root))
-      or vim.fn.getcwd()
+        or vim.fn.getcwd()
     end;
   };
 }
@@ -101,12 +119,13 @@ lspconfig.tsserver.setup{
     filetypes = { "javascript", "javascriptreact", "javascript.jsx", "typescript", "typescriptreact", "typescript.tsx" };
     root_dir = function(fname)
       return util.find_git_ancestor(fname) or util.root_pattern(merge_tables(ts_js_root, general_root))
-      or vim.fn.getcwd()
+        or vim.fn.getcwd()
     end;
   };
 }
 lspconfig.html.setup{
   default_config = {
+    cmd = { vim.fn.exepath('html-languageserver'), '--stdio' };
     filetypes = { "html" };
     root_dir = function(fname)
       return util.find_git_ancestor(fname) or vim.fn.getcwd()
@@ -127,7 +146,7 @@ lspconfig.gopls.setup{
     cmd = { vim.fn.exepath('gopls'), '-logfile', '/tmp/gopls.log' };
     root_dir = function(fname)
       return util.find_git_ancestor(fname) or util.root_pattern(merge_tables(go_root, general_root))
-      or vim.fn.getcwd()
+        or vim.fn.getcwd()
     end;
   };
   init_options = {
@@ -145,7 +164,7 @@ lspconfig.sourcekit.setup{
     filetypes = { "swift", "c", "cpp", "objective-c", "objective-cpp" };
     root_dir = function(fname)
       return util.find_git_ancestor(fname) or util.root_pattern(merge_tables(swift_root, general_root))
-      or vim.fn.getcwd()
+        or vim.fn.getcwd()
     end;
   };
   settings = {

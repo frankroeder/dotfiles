@@ -26,10 +26,11 @@ Plug 'hrsh7th/nvim-compe'
 Plug 'windwp/nvim-autopairs'
 Plug 'SirVer/ultisnips'
 Plug 'ray-x/lsp_signature.nvim'
+Plug 'nvim-lua/plenary.nvim'
+Plug 'jose-elias-alvarez/null-ls.nvim'
 
 Plug 'ncm2/float-preview.nvim'
 Plug 'rhysd/git-messenger.vim'
-Plug 'mhartington/formatter.nvim'
 
 Plug 'preservim/nerdtree'
 Plug 'liuchengxu/vista.vim'
@@ -175,8 +176,8 @@ endif
 if isdirectory(g:plug_dir . '/nvim-compe')
   lua require('nvim_compe')
 endif
-if isdirectory(g:plug_dir . '/formatter.nvim')
-  lua require('formatter_config')
+if isdirectory(g:plug_dir . '/null-ls.nvim')
+  lua require('null_ls_config')
 endif
 if isdirectory(g:plug_dir . '/nvim-treesitter') && executable("tree-sitter") && executable("node")
   lua require('treesitter')

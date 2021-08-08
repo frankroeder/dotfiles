@@ -45,10 +45,9 @@ let g:vimtex_complete_bib ={
       \}
 
 augroup tex
-  au FileType tex nmap <buffer> <F2> <plug>(vimtex-toc-toggle)
-  au FileType tex nmap <buffer> <F2><F2> :call vimtex#fzf#run('cti')<CR>
-  au FileType tex nmap <buffer> <F3> <plug>(vimtex-view)
-  au FileType tex nmap <buffer> <F4> <plug>(vimtex-compile)
+  au FileType tex nmap <buffer> <Space>tt <plug>(vimtex-toc-toggle)
+  au FileType tex nmap <buffer> <Space>tv <plug>(vimtex-view)
+  au FileType tex nmap <buffer> <Space>tc <plug>(vimtex-compile)
   au Filetype tex nmap <silent> <buffer> <C-F> :call vimtex#fzf#run('cti', {'window': { 'width': 0.6, 'height': 0.6 } })<CR>
 augroup END
 

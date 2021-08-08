@@ -19,4 +19,4 @@ function! ToggleSpell()
   echo "spell checking language:" g:myLangList[g:myLang]
 endfunction
 
-nmap <silent> <F6> :call ToggleSpell()<CR>
+nmap <silent> <Space>ts :call ToggleSpell()<CR>

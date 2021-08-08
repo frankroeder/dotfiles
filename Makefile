@@ -152,6 +152,17 @@ _macos:
 	-which sourcekit-lsp || bash $(DOTFILES)/scripts/sourcekit-lsp.sh
 	@ln -sfv $(DOTFILES)/htop/personal $(HOME)/.config/htop/htoprc
 
+.PHONY: check
+check:
+	@nvim -i NONE -c "checkhealth"
+
+.PHONY: benchmark
+benchmark:
+	@echo -e "\033[1m\033[34m==> nvim startuptime\033[0m"
+	@nvim --startuptime startup.log -c ":q" && cat startup.log | sort -k2 && rm -f startup.log
+	@echo -e "\033[1m\033[34m==> zsh startuptime\033[0m"
+	@zsh $(DOTFILES)/autoloaded/bench_zsh
+
 .PHONY: uninstall
 uninstall:
 	rm $(HOME)/.zshrc

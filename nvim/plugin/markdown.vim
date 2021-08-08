@@ -18,8 +18,8 @@ endif
 let vim_markdown_preview_temp_file=1
 
 augroup markdown
-  au Filetype markdown nmap <buffer> <F2> :Toct <CR>
-  au Filetype markdown nmap <buffer> <F3> :HeaderIncrease <CR>
-  au Filetype markdown nmap <buffer> <F4> :HeaderDecrease <CR>
-  au Filetype markdown nmap <buffer> <F5> :TableFormat <CR>
+  au Filetype markdown nmap <buffer> <Space>tt :Toc <CR>
+  au Filetype markdown nmap <buffer> <Space>hi :HeaderIncrease <CR>
+  au Filetype markdown nmap <buffer> <Space>hd :HeaderDecrease <CR>
+  au Filetype markdown nmap <buffer> <Space>tf :TableFormat <CR>
 augroup END

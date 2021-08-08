@@ -6,6 +6,7 @@ require'nvim-treesitter.configs'.setup {
   },
   highlight = {
     enable = true,
+    additional_vim_regex_highlighting = false,
     disable = { "tex", "bibtex", "markdown" }
   },
   indent = {
@@ -23,4 +24,7 @@ require'nvim-treesitter.configs'.setup {
       node_decremental = "grm",
     }
   }
+}
+require('nvim-treesitter.configs').setup {
+  autopairs = {enable = true}
 }
