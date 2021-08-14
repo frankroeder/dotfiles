@@ -29,9 +29,7 @@ Plug 'ray-x/lsp_signature.nvim'
 Plug 'nvim-lua/plenary.nvim'
 Plug 'jose-elias-alvarez/null-ls.nvim'
 
-Plug 'ncm2/float-preview.nvim'
 Plug 'rhysd/git-messenger.vim'
-
 Plug 'preservim/nerdtree'
 Plug 'liuchengxu/vista.vim'
 
