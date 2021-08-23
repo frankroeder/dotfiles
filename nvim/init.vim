@@ -30,8 +30,10 @@ Plug 'nvim-lua/plenary.nvim'
 Plug 'jose-elias-alvarez/null-ls.nvim'
 
 Plug 'rhysd/git-messenger.vim'
-Plug 'preservim/nerdtree'
 Plug 'liuchengxu/vista.vim'
+Plug 'kyazdani42/nvim-web-devicons'
+Plug 'kyazdani42/nvim-tree.lua'
+
 
 " language support
 Plug 'godlygeek/tabular'
@@ -42,10 +44,11 @@ Plug 'frankroeder/apple-swift'
 Plug 'cespare/vim-toml'
 
 " style
-Plug 'vim-airline/vim-airline'
-Plug 'vim-airline/vim-airline-themes'
+Plug 'hoob3rt/lualine.nvim'
+Plug 'romgrk/barbar.nvim'
 Plug 'joshdick/onedark.vim'
-Plug 'ayu-theme/ayu-vim'
+Plug 'Pocco81/Catppuccino.nvim'
+Plug 'lukas-reineke/indent-blankline.nvim'
 
 call plug#end()
 
@@ -120,16 +123,6 @@ if has('nvim') || has('termguicolors')
   set termguicolors
 endif
 
-try
-  if has('mac')
-    colorscheme onedark
-  else
-    let ayucolor="mirage"
-    colorscheme ayu
-  endif
-catch
-endtry
-
 if !exists("syntax_on")
     syntax enable
 endif
@@ -151,7 +144,7 @@ let mapleader=","
 
 augroup ReloadInit
   autocmd!
-  autocmd BufWritePost init.vim source % | :AirlineRefresh
+  autocmd BufWritePost init.vim source % | echo "Reloaded"
 augroup END
 
 "Incrementing and decrementing alphabetical characters
@@ -168,6 +161,23 @@ set wildignore+=*.aux,*.bbl,*.blg,*.brf,*.fls,*.fdb_latexmk,*.synctex.gz
 
 highlight MatchParen gui=bold,reverse guifg=#413e3d guibg=#f9d39e
 
+let g:lua_configs = {
+      \ 'nvim-lspconfig' : 'lsp_config',
+      \ 'nvim-compe' : 'nvim_compe',
+      \ 'null-ls.nvim' : 'null_ls_config',
+      \ 'lualine.nvim' : 'lualine_config',
+      \ 'barbar.nvim' : 'buffers',
+      \ 'indent-blankline.nvim' : 'indent_blankline_config',
+      \ 'Catppuccino.nvim' : 'colorscheme'
+      \}
+
+" for [key, value] in items(g:lua_configs)
+"   if isdirectory(g:plug_dir . '/' . key)
+"     echo key value
+"     lua require(value)
+"   endif
+" endfor
+
 if isdirectory(g:plug_dir . '/nvim-lspconfig')
   lua require('lsp_config')
 endif
@@ -176,6 +186,18 @@ if isdirectory(g:plug_dir . '/nvim-compe')
 endif
 if isdirectory(g:plug_dir . '/null-ls.nvim')
   lua require('null_ls_config')
+endif
+if isdirectory(g:plug_dir . '/lualine.nvim')
+  lua require('lualine_config')
+endif
+if isdirectory(g:plug_dir . '/barbar.nvim')
+  lua require('buffers')
+endif
+if isdirectory(g:plug_dir . '/indent-blankline.nvim')
+  lua require('indent_blankline_config')
+endif
+if isdirectory(g:plug_dir . '/Catppuccino.nvim')
+  lua require('colorscheme')
 endif
 if isdirectory(g:plug_dir . '/nvim-treesitter') && executable("tree-sitter") && executable("node")
   lua require('treesitter')

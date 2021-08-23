@@ -19,7 +19,7 @@ alias wifioff='networksetup -setairportpower en0 off'
 alias battery="pmset -g ps"
 
 # Recursively delete all .DS_Store files
-alias rmds_store="find ~/ -type f -name '*.DS_Store' -ls -delete"
+alias rmds_store="find ~/ -type f -name '*.DS_Store' ! -path '~/Library' -ls -delete"
 
 # Clear DNS cache
 alias flushdns='sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder; sudo killall mDNSResponderHelper'
