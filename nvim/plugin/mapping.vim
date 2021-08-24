@@ -6,9 +6,6 @@
 nnoremap c "xc
 xnoremap c "xc
 
-map <C-J> :bprev<CR>
-map <C-K> :bnext<CR>
-
 " Close buffer
 noremap <Leader>c :bd<CR>
 

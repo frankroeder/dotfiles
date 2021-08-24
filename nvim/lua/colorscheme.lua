@@ -21,21 +21,22 @@ catppuccino.setup({
         information = "italic"
       }
     },
+    gitsigns = true,
+    nvimtree = true,
+    indent_blankline = true,
+    barbar = true,
+    markdown = true,
+
     lsp_trouble = false,
     lsp_saga = false,
-    gitgutter = false,
-    gitsigns = false,
     telescope = false,
-    nvimtree = true,
+    gitgutter = false,
     which_key = false,
-    indent_blankline = false,
-    dashboard = false,
-    neogit = false,
     vim_sneak = false,
+    neogit = false,
+    dashboard = false,
     fern = false,
-    barbar = true,
     bufferline = false,
-    markdown = false,
   }
 })
 

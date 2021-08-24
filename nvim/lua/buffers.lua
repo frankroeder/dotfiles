@@ -1,3 +1,5 @@
+local keymap = require 'utils'.keymap
+
 -- Set barbar's options
 vim.g.bufferline = {
   -- Enable/disable auto-hiding the tab bar when there is a single buffer
@@ -9,7 +11,7 @@ vim.g.bufferline = {
   -- Enables/disable clickable tabs
   --  - left-click: go to buffer
   --  - middle-click: delete buffer
-  clickable = false,
+  clickable = true,
   -- Enable/disable icons
   -- if set to 'numbers', will show buffer index in the tabline
   -- if set to 'both', will show buffer index and icons in the tabline
@@ -26,3 +28,5 @@ vim.g.bufferline = {
   maximum_length = 20,
 }
 
+keymap("n", "<C-K>", ":BufferNext<CR>")
+keymap("n", "<C-J>", ":BufferPrevious<CR>")
