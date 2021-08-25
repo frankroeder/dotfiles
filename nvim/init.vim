@@ -13,7 +13,6 @@ Plug 'tpope/vim-fugitive'
 Plug 'tpope/vim-rhubarb'
 Plug 'tpope/vim-surround'
 Plug 'tpope/vim-repeat'
-Plug 'mhinz/vim-signify'
 Plug 'neovim/nvim-lspconfig'
 if executable("tree-sitter") && executable("node")
   Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
@@ -28,11 +27,11 @@ Plug 'SirVer/ultisnips'
 Plug 'ray-x/lsp_signature.nvim'
 Plug 'nvim-lua/plenary.nvim'
 Plug 'jose-elias-alvarez/null-ls.nvim'
-
 Plug 'rhysd/git-messenger.vim'
 Plug 'liuchengxu/vista.vim'
 Plug 'kyazdani42/nvim-web-devicons'
 Plug 'kyazdani42/nvim-tree.lua'
+Plug 'lewis6991/gitsigns.nvim'
 
 
 " language support
@@ -168,7 +167,8 @@ let g:lua_configs = {
       \ 'lualine.nvim' : 'lualine_config',
       \ 'barbar.nvim' : 'buffers',
       \ 'indent-blankline.nvim' : 'indent_blankline_config',
-      \ 'Catppuccino.nvim' : 'colorscheme'
+      \ 'Catppuccino.nvim' : 'colorscheme',
+      \ 'gitsigns.nvim' : 'gitsigns_config'
       \}
 
 " for [key, value] in items(g:lua_configs)
@@ -198,6 +198,9 @@ if isdirectory(g:plug_dir . '/indent-blankline.nvim')
 endif
 if isdirectory(g:plug_dir . '/Catppuccino.nvim')
   lua require('colorscheme')
+endif
+if isdirectory(g:plug_dir . '/gitsigns.nvim')
+  lua require('gitsigns_config')
 endif
 if isdirectory(g:plug_dir . '/nvim-treesitter') && executable("tree-sitter") && executable("node")
   lua require('treesitter')
