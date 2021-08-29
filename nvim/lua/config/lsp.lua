@@ -14,7 +14,7 @@ go_root = {'go.sum', 'go.mod'}
 swift_root = {'Package.swift'}
 
 -- buffer setup
-local on_attach = function(client, bufnr)
+local custom_on_attach = function(client, bufnr)
   print('Language Server Protocol started.')
 
   vim.api.nvim_buf_set_option(bufnr, 'omnifunc', 'v:lua.vim.lsp.omnifunc')
@@ -71,9 +71,9 @@ lspconfig.util.default_config = vim.tbl_extend(
     log_level = vim.lsp.protocol.MessageType.Log;
     message_level = vim.lsp.protocol.MessageType.Log;
     flags = {
-      debounce_text_changes = 500,
+      debounce_text_changes = 150,
     };
-    on_attach = on_attach;
+    on_attach = custom_on_attach;
     capabilities = capabilities;
   }
 )

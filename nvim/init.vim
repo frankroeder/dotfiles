@@ -160,51 +160,7 @@ set wildignore+=*.aux,*.bbl,*.blg,*.brf,*.fls,*.fdb_latexmk,*.synctex.gz
 
 highlight MatchParen gui=bold,reverse guifg=#413e3d guibg=#f9d39e
 
-let g:lua_configs = {
-      \ 'nvim-lspconfig' : 'lsp_config',
-      \ 'nvim-compe' : 'nvim_compe',
-      \ 'null-ls.nvim' : 'null_ls_config',
-      \ 'lualine.nvim' : 'lualine_config',
-      \ 'barbar.nvim' : 'buffers',
-      \ 'indent-blankline.nvim' : 'indent_blankline_config',
-      \ 'Catppuccino.nvim' : 'colorscheme',
-      \ 'gitsigns.nvim' : 'gitsigns_config'
-      \}
-
-" for [key, value] in items(g:lua_configs)
-"   if isdirectory(g:plug_dir . '/' . key)
-"     echo key value
-"     lua require(value)
-"   endif
-" endfor
-
-if isdirectory(g:plug_dir . '/nvim-lspconfig')
-  lua require('lsp_config')
-endif
-if isdirectory(g:plug_dir . '/nvim-compe')
-  lua require('nvim_compe')
-endif
-if isdirectory(g:plug_dir . '/null-ls.nvim')
-  lua require('null_ls_config')
-endif
-if isdirectory(g:plug_dir . '/lualine.nvim')
-  lua require('lualine_config')
-endif
-if isdirectory(g:plug_dir . '/barbar.nvim')
-  lua require('buffers')
-endif
-if isdirectory(g:plug_dir . '/indent-blankline.nvim')
-  lua require('indent_blankline_config')
-endif
-if isdirectory(g:plug_dir . '/Catppuccino.nvim')
-  lua require('colorscheme')
-endif
-if isdirectory(g:plug_dir . '/gitsigns.nvim')
-  lua require('gitsigns_config')
-endif
-if isdirectory(g:plug_dir . '/nvim-treesitter') && executable("tree-sitter") && executable("node")
-  lua require('treesitter')
-endif
+lua require("config")
 
 let s:local_vimrc = $HOME . '/.local.vim'
 if filereadable(s:local_vimrc)

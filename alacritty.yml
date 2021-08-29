@@ -105,6 +105,15 @@ colors:
     cyan:    '#59f0ff'
     white:   '#fdebc3'
 
+  # Colors the cursor will use if `custom_cursor_colors` is true
+  cursor:
+    text: '#0e171c'
+    cursor: '#abb2bf'
+
+  indexed_colors:
+    - { index: 16, color: '#ffe37e' }
+    - { index: 17, color: '#e06c75' }
+
 # Background opacity
 background_opacity: 0.96
 

@@ -2,7 +2,7 @@ local catppuccino = require("catppuccino")
 
 catppuccino.setup({
   colorscheme = "catppuccino",
-  transparency = false,
+  transparency = true,
   styles = {
     comments = "italic",
     functions = "italic",
@@ -22,7 +22,10 @@ catppuccino.setup({
       }
     },
     gitsigns = true,
-    nvimtree = true,
+    nvimtree = {
+      enabled = false,
+      show_root = false,
+    },
     indent_blankline = true,
     barbar = true,
     markdown = true,
