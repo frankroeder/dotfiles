@@ -50,7 +50,9 @@ local custom_on_attach = function(client, bufnr)
     handler_opts = {
       border = "single"   -- double, single, shadow, none
     },
-  })
+    trigger_on_newline = false,
+    toggle_key = "<C-x>"
+  }, bufnr)
 end
 
 local capabilities = vim.lsp.protocol.make_client_capabilities()

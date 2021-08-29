@@ -17,9 +17,6 @@ Plug 'neovim/nvim-lspconfig'
 if executable("tree-sitter") && executable("node")
   Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
   Plug 'p00f/nvim-ts-rainbow'
-else
-  Plug 'luochen1990/rainbow'
-  let g:rainbow_active = 1
 endif
 Plug 'hrsh7th/nvim-compe'
 Plug 'windwp/nvim-autopairs'
@@ -27,12 +24,8 @@ Plug 'SirVer/ultisnips'
 Plug 'ray-x/lsp_signature.nvim'
 Plug 'nvim-lua/plenary.nvim'
 Plug 'jose-elias-alvarez/null-ls.nvim'
-Plug 'rhysd/git-messenger.vim'
 Plug 'liuchengxu/vista.vim'
-Plug 'kyazdani42/nvim-web-devicons'
 Plug 'kyazdani42/nvim-tree.lua'
-Plug 'lewis6991/gitsigns.nvim'
-
 
 " language support
 Plug 'godlygeek/tabular'
@@ -48,6 +41,8 @@ Plug 'romgrk/barbar.nvim'
 Plug 'joshdick/onedark.vim'
 Plug 'Pocco81/Catppuccino.nvim'
 Plug 'lukas-reineke/indent-blankline.nvim'
+Plug 'lewis6991/gitsigns.nvim'
+Plug 'kyazdani42/nvim-web-devicons'
 
 call plug#end()
 

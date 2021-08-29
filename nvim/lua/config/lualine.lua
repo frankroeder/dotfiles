@@ -24,9 +24,11 @@ custom_color =  {
   command = {a = {bg = colors.green, fg = colors.text, gui = 'bold'}},
   inactive = {a = {bg = colors.bg, fg = colors.inactivegray, gui = 'bold'}}
 }
+
 require('lualine').setup {
   options = {
-    theme = custom_color
+    theme = custom_color,
+    disabled_filetypes = {'help'}
   },
-  extensions = {'nvim-tree', 'fugitive', 'fzf'}
+  extensions = {'nvim-tree', 'fugitive', 'fzf'},
 }

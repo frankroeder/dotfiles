@@ -13,7 +13,8 @@ require'nvim-treesitter.configs'.setup {
     enable = true
   },
   rainbow = {
-    enable = true
+    enable = true,
+    max_file_lines = 2500
   },
   incremental_selection = {
     enable = true,
@@ -23,8 +24,6 @@ require'nvim-treesitter.configs'.setup {
       scope_incremental = "grc",
       node_decremental = "grm",
     }
-  }
-}
-require('nvim-treesitter.configs').setup {
+  },
   autopairs = {enable = true}
 }

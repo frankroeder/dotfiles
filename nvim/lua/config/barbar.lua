@@ -3,7 +3,7 @@ local keymap = require 'utils'.keymap
 -- Set barbar's options
 vim.g.bufferline = {
   -- Enable/disable auto-hiding the tab bar when there is a single buffer
-  auto_hide = true,
+  auto_hide = false,
   -- Enable/disable current/total tabpages indicator (top right corner)
   tabpages = true,
   -- Enable/disable close button
