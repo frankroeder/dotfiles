@@ -44,3 +44,4 @@ mas "iReal Pro", id: 409035833
 mas "Telegram", id: 747648890
 mas "The Unarchiver", id: 425424353
 mas "AdGuard", id: 1440147259
+mas "Vimari", id: 1480933944

@@ -136,6 +136,7 @@ _linux:
 	else\
 		which antibody || curl -sfL git.io/antibody | sudo bash -s - -b /usr/local/bin;\
 	fi
+	-which nvidia-smi && $(which python3) -m pip install --upgrade nvitop
 
 .PHONY: _macos
 _macos:
