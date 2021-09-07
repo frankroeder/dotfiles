@@ -146,6 +146,7 @@ _macos:
 	@bash $(DOTFILES)/macos/main.bash
 	@which airport || sudo ln -s /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/local/bin/airport
 	@which alacritty || sudo ln -s /Applications/Alacritty.app/Contents/MacOS/alacritty /usr/local/bin/alacritty
+	@which firefox || sudo ln -s /Applications/Firefox.app/Contents/MacOS/firefox /usr/local/bin/firefox
 	@ln -sfv $(DOTFILES)/alacritty.yml $(HOME)/.config/alacritty/
 	(cd $(DOTFILES)/bin/$(OSTYPE) && /usr/bin/swiftc $(DOTFILES)/scripts/now_playing.swift)
 	-which osx-cpu-temp || bash $(DOTFILES)/scripts/osx_cpu_temp.sh

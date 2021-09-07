@@ -15,7 +15,7 @@ export VISUAL="${EDITOR}"
 if [[ "$OSTYPE" == "Darwin" ]]; then
   export BROWSER="open"
 elif [[ "$OSTYPE" == "Linux" ]]; then
-  [ $commands[chromium] ] && export BROWSER="chromium"
+  [ $commands[firefox] ] && export BROWSER="firefox"
 fi
 export BLOCKSIZE=1k
 

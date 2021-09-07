@@ -2,7 +2,7 @@
 
 try
   tell application "Safari" to set _url to URL of first document
-  tell application "Chromium"
+  tell application "Firefox"
     activate
     open location _url
   end tell

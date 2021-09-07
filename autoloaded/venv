@@ -71,6 +71,10 @@ main() {
   local TARGET="";
   if [[ "$1" == "local" ]] || [[ -d "$PWD/venv" ]]; then
     TARGET="$PWD/venv";
+  elif [[ $(git rev-parse --is-inside-work-tree 2> /dev/null) ]]; then
+    # If inside git repository, set root of git as virtualenv target
+    # This prevents creating additional virtualenv's by accident
+    TARGET="$HOME/envs/$(git rev-parse --show-toplevel)"
   else
     TARGET="$HOME/envs/$PWD";
   fi

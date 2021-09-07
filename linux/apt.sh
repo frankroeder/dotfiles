@@ -38,7 +38,7 @@ install_default() {
 install_desktop() {
   apt_update;
   local DESKTOP_PKGS="
-    chromium-browser
+    firefox
     network-manager-l2tp
     network-manager-l2tp-gnome
     pavucontrol

@@ -48,7 +48,9 @@ fi
 alias pipup='$(which python3) -m pip install --upgrade pip'
 
 # open last edited file
-alias v0="$EDITOR -c \"normal '0\""
+alias v0="$EDITOR '+execute \"normal 1\<c-o>\"'"
+alias vh{,ist}="$EDITOR '+FzfHistory'"
+alias vhelp="$EDITOR '+FzfHelptags'"
 alias online="ping -c 1 www.example.com &> /dev/null && echo 'Online :)' || echo 'Offline :('"
 
 # start plain vim
