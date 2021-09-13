@@ -12,6 +12,7 @@ catppuccino.setup({
   },
   integrations = {
     treesitter = true,
+    ts_rainbow = true,
     native_lsp = {
       enabled = true,
       styles = {
@@ -26,7 +27,10 @@ catppuccino.setup({
       enabled = false,
       show_root = false,
     },
-    indent_blankline = true,
+    indent_blankline = {
+      enabled = true,
+      colored_indent_levels = true,
+    },
     barbar = true,
     markdown = true,
 
