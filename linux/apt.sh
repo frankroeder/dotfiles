@@ -6,7 +6,7 @@ apt_update() {
 
 install_default() {
   # pre-release
-  sudo add-apt-repository ppa:neovim-ppa/unstable -y;
+  sudo add-apt-repository ppa:neovim-ppa/stable -y;
   apt_update;
   local PKGS="
     bash
