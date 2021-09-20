@@ -2,12 +2,20 @@
 " General Mappings                                                             "
 " ---------------------------------------------------------------------------- "
 
+" Align Y with C and D
+nnoremap Y y$
+
+" :move visual selection around
+vnoremap J :m '>+1<CR>gv=gv
+vnoremap K :m '<-2<CR>gv=gv
+
+" Center search result (zz) and open fold (zv)
+nnoremap n nzzzv
+nnoremap N Nzzzv
+
 " Don't yank to default register when changing something
 nnoremap c "xc
 xnoremap c "xc
-
-" Close buffer
-noremap <Leader>c :bd<CR>
 
 " Clear search highlight
 nnoremap <silent> <Leader><space> :noh<CR>

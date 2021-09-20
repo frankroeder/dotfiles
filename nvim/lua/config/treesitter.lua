@@ -10,10 +10,12 @@ require'nvim-treesitter.configs'.setup {
     disable = { "tex", "bibtex", "markdown" }
   },
   indent = {
-    enable = true
+    enable = true,
+    disable = {"python"}
   },
   rainbow = {
     enable = true,
+    extended_mode = true,
     max_file_lines = 2500
   },
   incremental_selection = {

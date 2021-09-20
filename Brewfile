@@ -4,7 +4,7 @@ brew "git"
 brew "zsh"
 brew "mas"
 brew "htop"
-brew "neovim", args: ['head']
+brew "neovim"
 brew "the_silver_searcher"
 brew "wget"
 brew "cmake"
