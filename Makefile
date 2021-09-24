@@ -90,7 +90,7 @@ nvim:
 	@ln -sfv $(DOTFILES)/nvim $(HOME)/.config
 	@if [ -x "$(command -v go)" ]; then GO111MODULE=on go get golang.org/x/tools/gopls@latest; fi
 	@curl -fLo $(HOME)/.local/share/nvim/site/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
-	@nvim -es -i NONE -u $(DOTFILES)/nvim/init.vim -c "PlugInstall" -c "quitall"
+	@nvim -i NONE -u $(DOTFILES)/nvim/init.vim -c "PlugInstall" -c "quitall"
 
 git:
 	@echo -e "\033[1m\033[34m==> Installing stuff for git\033[0m"
@@ -123,6 +123,7 @@ _linux:
 	@echo -e "\033[1m\033[34m==> Installing linux basis\033[0m"
 	@mkdir -p $(HOME)/bin
 	@mkdir -p $(HOME)/.local/bin
+	@mkdir -p $(HOME)/Uploads
 	@if [ $(NOSUDO) ]; then\
 		which nvim || bash $(DOTFILES)/scripts/nvim.sh;\
 	else\
@@ -141,7 +142,7 @@ _linux:
 .PHONY: _macos
 _macos:
 	@echo -e "\033[1m\033[34m==> Configure macos and applications\033[0m"
-	if [ -n "$(xcode-select -p)" ]; then xcode-select --install; xcodebuild -license accept; fi
+	if [ -n "$(xcode-select -p)" ]; then sudo xcode-select --install; sudo xcodebuild -license accept; fi
 	@mkdir -p $(HOME)/screens
 	@bash $(DOTFILES)/macos/main.bash
 	@which airport || sudo ln -s /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/local/bin/airport
