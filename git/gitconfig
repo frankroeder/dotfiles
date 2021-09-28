@@ -43,7 +43,7 @@
   attributesfile = ~/.dotfiles/git/gitattributes
 
 [commit]
-  verbose = true
+  verbose = false
   template = ~/.dotfiles/git/gitmessage
   gpgsign = true
 

@@ -50,7 +50,7 @@ defaults write -g CGFontRenderingFontSmoothingDisabled -bool true
 
 # Enable subpixel font rendering on non-Apple LCDs
 # Options: 1 for light smoothing up to 3 for strong smoothing
-defaults write NSGlobalDomain AppleFontSmoothing -int 1
+defaults write NSGlobalDomain AppleFontSmoothing -int 0
 
 # Disable automatic brightness adjustment
 sudo defaults write /Library/Preferences/com.apple.iokit.AmbientLightSensor \

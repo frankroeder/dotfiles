@@ -10,9 +10,10 @@ Plug 'scrooloose/nerdcommenter'
 Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --bin' }
 Plug 'junegunn/fzf.vim'
 Plug 'tpope/vim-fugitive'
-Plug 'tpope/vim-rhubarb'
 Plug 'tpope/vim-surround'
 Plug 'tpope/vim-repeat'
+Plug 'kyazdani42/nvim-tree.lua'
+
 Plug 'neovim/nvim-lspconfig'
 if executable("tree-sitter") && executable("node")
   Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
@@ -25,7 +26,6 @@ Plug 'ray-x/lsp_signature.nvim'
 Plug 'nvim-lua/plenary.nvim'
 Plug 'jose-elias-alvarez/null-ls.nvim'
 Plug 'liuchengxu/vista.vim'
-Plug 'kyazdani42/nvim-tree.lua'
 
 " language support
 Plug 'godlygeek/tabular'
