@@ -1,7 +1,9 @@
 local plug_dir = vim.api.nvim_get_var("plug_dir")
+
 if vim.fn.isdirectory(plug_dir .. '/nvim-lspconfig') then
   require("config.lsp")
 end
+
 if vim.fn.isdirectory(plug_dir .. '/nvim-compe') then
   require("config.compe")
 end
@@ -16,6 +18,10 @@ end
 
 if vim.fn.isdirectory(plug_dir .. '/barbar.nvim') then
   require("config.barbar")
+end
+
+if vim.fn.isdirectory(plug_dir .. '/nvim-tree.lua') then
+  require("config.nvim_tree")
 end
 
 if vim.fn.isdirectory(plug_dir .. '/indent-blankline.nvim') then
