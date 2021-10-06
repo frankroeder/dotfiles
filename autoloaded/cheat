@@ -2,4 +2,4 @@
 # Get cheat sheet of command from cheat.sh
 # Usage: cheat <cmd>
 
-curl https://cheat.sh/$@
+curl "https://cheat.sh/$@"

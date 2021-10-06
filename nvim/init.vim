@@ -19,7 +19,15 @@ if executable("tree-sitter") && executable("node")
   Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
   Plug 'p00f/nvim-ts-rainbow'
 endif
-Plug 'hrsh7th/nvim-compe'
+
+Plug 'hrsh7th/nvim-cmp'
+Plug 'hrsh7th/cmp-nvim-lsp'
+Plug 'hrsh7th/cmp-buffer'
+Plug 'hrsh7th/cmp-path'
+Plug 'hrsh7th/cmp-nvim-lua'
+Plug 'hrsh7th/cmp-omni'
+Plug 'ray-x/cmp-treesitter'
+Plug 'quangnguyen30192/cmp-nvim-ultisnips'
 Plug 'windwp/nvim-autopairs'
 Plug 'SirVer/ultisnips'
 Plug 'ray-x/lsp_signature.nvim'
@@ -43,6 +51,7 @@ Plug 'Pocco81/Catppuccino.nvim'
 Plug 'lukas-reineke/indent-blankline.nvim'
 Plug 'lewis6991/gitsigns.nvim'
 Plug 'kyazdani42/nvim-web-devicons'
+Plug 'onsails/lspkind-nvim'
 
 call plug#end()
 

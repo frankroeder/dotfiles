@@ -4,8 +4,8 @@ if vim.fn.isdirectory(plug_dir .. '/nvim-lspconfig') then
   require("config.lsp")
 end
 
-if vim.fn.isdirectory(plug_dir .. '/nvim-compe') then
-  require("config.compe")
+if vim.fn.isdirectory(plug_dir .. '/nvim-cmp') then
+  require("config.nvim_cmp")
 end
 
 if vim.fn.isdirectory(plug_dir .. '/null-ls.nvim') then
