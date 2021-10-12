@@ -12,7 +12,15 @@ require'nvim-tree'.setup {
    -- closes neovim automatically when the tree is the last **WINDOW** in the view
   auto_close = true,
    -- show lsp diagnostics in the signcolumn
-  lsp_diagnostics = true,
+  diagnostics = {
+    enable = false,
+    icons = {
+      hint = "",
+      info = "",
+      warning = "",
+      error = "",
+    }
+  },
 }
 
 keymap("n", "<Leader>n", ":NvimTreeToggle<CR>")
