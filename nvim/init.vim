@@ -5,21 +5,21 @@ let g:plug_dir = expand("$HOME/.local/share/nvim/plugged")
 
 call plug#begin(g:plug_dir)
 
-" utils
+" core
 Plug 'scrooloose/nerdcommenter'
 Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --bin' }
 Plug 'junegunn/fzf.vim'
 Plug 'tpope/vim-fugitive'
 Plug 'tpope/vim-surround'
 Plug 'tpope/vim-repeat'
-Plug 'kyazdani42/nvim-tree.lua'
 
 Plug 'neovim/nvim-lspconfig'
 if executable("tree-sitter") && executable("node")
   Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
   Plug 'p00f/nvim-ts-rainbow'
 endif
-
+Plug 'nvim-lua/plenary.nvim'
+" nvim-cmp
 Plug 'hrsh7th/nvim-cmp'
 Plug 'hrsh7th/cmp-nvim-lsp'
 Plug 'hrsh7th/cmp-buffer'
@@ -27,13 +27,18 @@ Plug 'hrsh7th/cmp-path'
 Plug 'hrsh7th/cmp-nvim-lua'
 Plug 'hrsh7th/cmp-omni'
 Plug 'ray-x/cmp-treesitter'
+" snippet support
 Plug 'quangnguyen30192/cmp-nvim-ultisnips'
-Plug 'windwp/nvim-autopairs'
 Plug 'SirVer/ultisnips'
+" completion utils
+Plug 'windwp/nvim-autopairs'
 Plug 'ray-x/lsp_signature.nvim'
-Plug 'nvim-lua/plenary.nvim'
+" utils
 Plug 'jose-elias-alvarez/null-ls.nvim'
+Plug 'kyazdani42/nvim-tree.lua'
 Plug 'liuchengxu/vista.vim'
+Plug 'lewis6991/gitsigns.nvim'
+Plug 'lukas-reineke/indent-blankline.nvim'
 
 " language support
 Plug 'godlygeek/tabular'
@@ -48,8 +53,6 @@ Plug 'hoob3rt/lualine.nvim'
 Plug 'romgrk/barbar.nvim'
 Plug 'joshdick/onedark.vim'
 Plug 'Pocco81/Catppuccino.nvim'
-Plug 'lukas-reineke/indent-blankline.nvim'
-Plug 'lewis6991/gitsigns.nvim'
 Plug 'kyazdani42/nvim-web-devicons'
 Plug 'onsails/lspkind-nvim'
 

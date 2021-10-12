@@ -50,14 +50,20 @@ local custom_on_attach = function(client, bufnr)
     handler_opts = {
       border = "single"   -- double, single, shadow, none
     },
-    trigger_on_newline = false,
+    always_trigger = false,
     toggle_key = "<C-x>"
   }, bufnr)
 end
 
 local capabilities = vim.lsp.protocol.make_client_capabilities()
+capabilities.textDocument.completion.completionItem.documentationFormat = {"markdown", "plaintext"}
 capabilities.textDocument.completion.completionItem.snippetSupport = true
-capabilities = require('cmp_nvim_lsp').update_capabilities(capabilities)
+capabilities.textDocument.completion.completionItem.preselectSupport = true
+capabilities.textDocument.completion.completionItem.insertReplaceSupport = true
+capabilities.textDocument.completion.completionItem.labelDetailsSupport = true
+capabilities.textDocument.completion.completionItem.deprecatedSupport = true
+capabilities.textDocument.completion.completionItem.commitCharactersSupport = true
+capabilities.textDocument.completion.completionItem.tagSupport = {valueSet = {1}}
 capabilities.textDocument.completion.completionItem.resolveSupport = {
   properties = {
     'documentation',
@@ -65,6 +71,7 @@ capabilities.textDocument.completion.completionItem.resolveSupport = {
     'additionalTextEdits',
   }
 }
+capabilities = require('cmp_nvim_lsp').update_capabilities(capabilities)
 
 -- override default config for all servers
 lspconfig.util.default_config = vim.tbl_extend(

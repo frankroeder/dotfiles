@@ -21,18 +21,29 @@ cmp.setup {
     end,
   },
   formatting = {
-    format = function(_, vim_item)
-      vim_item.kind = lspkind.presets.default[vim_item.kind] .. " " .. vim_item.kind
-      return vim_item
+    format = function(entry, item)
+      item.kind = lspkind.presets.default[item.kind] .. " " .. item.kind
+      -- set a name for each source
+      item.menu =
+        ({
+        nvim_lsp = "[LSP]",
+        path = "[Path]",
+        ultisnips = "[UltiSnips]",
+        buffer = "[Buffer]",
+        nvim_lua = "[Lua]",
+        treesitter = "[treesitter]",
+        latex_symbols = "[Latex]",
+      })[entry.source.name]
+      return item
     end
   },
   sources = {
     { name = 'nvim_lsp' },
     { name = 'path' },
-    { name = 'buffer', max_item_count = 5, },
-    { name = 'treesitter', max_item_count = 5, },
-    { name = 'ultisnips', max_item_count = 5, },
+    { name = 'ultisnips', max_item_count = 5 },
+    { name = 'buffer', max_item_count = 5 },
     { name = 'nvim_lua' },
+    { name = 'treesitter', max_item_count = 5 },
   },
   mapping = {
     ['<C-p>'] = cmp.mapping.select_prev_item(),
@@ -66,7 +77,7 @@ cmp.setup {
   }
 }
 require('nvim-autopairs').setup({
-  disable_filetype = { "vim" },
+  disable_filetype = { "vim", "help" },
 })
 require("nvim-autopairs.completion.cmp").setup({
   map_cr = true, --  map <CR> on insert mode

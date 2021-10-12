@@ -11,12 +11,7 @@ require'nvim-treesitter.configs'.setup {
   },
   indent = {
     enable = true,
-    disable = {"python"}
-  },
-  rainbow = {
-    enable = true,
-    extended_mode = true,
-    max_file_lines = 2500
+    -- disable = {"python"}
   },
   incremental_selection = {
     enable = true,
@@ -28,5 +23,11 @@ require'nvim-treesitter.configs'.setup {
       node_decremental = "grm" -- decrement to the previous node
     }
   },
-  autopairs = {enable = true}
+  -- nvim-ts-rainbow
+  rainbow = {
+    enable = true,
+    -- highlight non-bracket delimiters like html tags, boolean or table
+    extended_mode = true,
+    max_file_lines = 2500
+  }
 }
