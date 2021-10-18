@@ -5,8 +5,8 @@
 # - install mujoco: https://www.roboti.us/index.html
 # - install mujoco_py: https://github.com/openai/mujoco-py
 
-# Define few variables
 ORIGIN_DIR=$PWD
+VERSION="mujoco210"
 
 # install mujoco
 MUJOCO_PATH="$HOME/.mujoco"
@@ -17,28 +17,29 @@ else
   cd $MUJOCO_PATH;
   # check OS
   if [[ "$OSTYPE" == "Linux" ]]; then  # LINUX
-      PACKAGE="mujoco200_linux"
+      PACKAGE="$VERSION-linux-x86_64"
       sudo apt install libosmesa6-dev libgl1-mesa-glx libglfw3 patchelf;
   elif [[ "$OSTYPE" == "Darwin" ]]; then  # Mac OSX
-      PACKAGE="mujoco200_macos"
-  elif [[ "$OSTYPE" == "msys" ]]; then  # Windows
-      PACKAGE="mujoco200_win64"
+      PACKAGE="$VERSION-macos-x86_64"
   else
-      echo "This OS is not supported. Expecting a Linux, Mac OSX, or Windows system.";
+      echo "This OS is not supported. Expecting Linux or macOS";
       exit;
   fi
   # download package and unzip it
-  wget "https://www.roboti.us/download/${PACKAGE}.zip";
-  unzip "${PACKAGE}.zip";
-  ln -sfv "$PACKAGE" "mujoco200";
-
-  if [[ -f "mjkey.txt" ]]; then
-    echo "mjkey exists";
+  wget "https://www.mujoco.org/download/${PACKAGE}.tar.gz";
+  CURRENT_CHECKSUM=$(openssl sha256 "${PACKAGE}.tar.gz" | awk {'print $2'});
+  EXPECTED_CHECKSUM=$(curl "https://www.mujoco.org/download/${PACKAGE}.tar.gz.sha256" | awk {'print $1'});
+  if [[ $CURRENT_CHECKSUM == $EXPECTED_CHECKSUM ]]; then
+    printf '%s matches %s\n' "$CURRENT_CHECKSUM" "$EXPECTED_CHECKSUM";
   else
-    # get free licence
-    echo "getting free licence";
-    wget "https://www.roboti.us/;mjkey.txt";
+    printf '[!] %s is not matching: %s\n' "$CURRENT_CHECKSUM" "$EXPECTED_CHECKSUM";
+    exit;
   fi
+  tar xf "${PACKAGE}.tar.gz"
+
+  # obtain free licence
+  wget "https://www.roboti.us/file/mjkey.txt";
+
   # write variables to export
   if [[ -n "$ZSH_VERSION" ]]; then
     LOCAL_FILE="$HOME/.local.zsh";
@@ -49,19 +50,18 @@ else
     echo "" >> $LOCAL_FILE;
     echo "# MuJoCo" >> $LOCAL_FILE;
     echo "export MUJOCO_PY_MJKEY_PATH=${MUJOCO_PATH}/mjkey.txt" >> $LOCAL_FILE;
-    echo "export MUJOCO_PY_MJPRO_PATH=${MUJOCO_PATH}/${PACKAGE}" >> $LOCAL_FILE;
-    echo "export MUJOCO_PY_MUJOCO_PATH=${MUJOCO_PATH}/${PACKAGE}" >> $LOCAL_FILE;
-    echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${MUJOCO_PATH}/${PACKAGE}/bin" >> $LOCAL_FILE;
+    echo "export MUJOCO_PY_MJPRO_PATH=${MUJOCO_PATH}/${VERSION}" >> $LOCAL_FILE;
+    echo "export MUJOCO_PY_MUJOCO_PATH=${MUJOCO_PATH}/${VERSION}" >> $LOCAL_FILE;
+    echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${MUJOCO_PATH}/${VERSION}/bin" >> $LOCAL_FILE;
     echo "export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/x86_64-linux-gnu/libGL.so" >> $LOCAL_FILE;
   else
     echo "# MuJoCo";
     echo "export MUJOCO_PY_MJKEY_PATH=${MUJOCO_PATH}/mjkey.txt";
-    echo "export MUJOCO_PY_MJPRO_PATH=${MUJOCO_PATH}/${PACKAGE}";
-    echo "export MUJOCO_PY_MUJOCO_PATH=${MUJOCO_PATH}/${PACKAGE}";
-    echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${MUJOCO_PATH}/${PACKAGE}/bin";
+    echo "export MUJOCO_PY_MJPRO_PATH=${MUJOCO_PATH}/${VERSION}";
+    echo "export MUJOCO_PY_MUJOCO_PATH=${MUJOCO_PATH}/${VERSION}";
+    echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${MUJOCO_PATH}/${VERSION}/bin";
     echo "export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/x86_64-linux-gnu/libGL.so";
   fi
-  rm -rfv "${PACKAGE}.zip";
-  # return to the original directory
+  rm -rf "${PACKAGE}.tar.gz";
   cd $ORIGIN_DIR;
 fi
