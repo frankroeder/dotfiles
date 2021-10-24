@@ -49,7 +49,7 @@ Plug 'frankroeder/apple-swift'
 Plug 'cespare/vim-toml'
 
 " style
-Plug 'hoob3rt/lualine.nvim'
+Plug 'nvim-lualine/lualine.nvim'
 Plug 'romgrk/barbar.nvim'
 Plug 'joshdick/onedark.vim'
 Plug 'Pocco81/Catppuccino.nvim'

@@ -24,29 +24,23 @@ cmp.setup {
     end,
   },
   formatting = {
-    format = function(entry, item)
-      item.kind = lspkind.presets.default[item.kind] .. " " .. item.kind
-      -- set a name for each source
-      item.menu =
-        ({
-        nvim_lsp = "[LSP]",
-        path = "[Path]",
-        ultisnips = "[UltiSnips]",
-        buffer = "[Buffer]",
-        nvim_lua = "[Lua]",
-        treesitter = "[treesitter]",
-        latex_symbols = "[Latex]",
-      })[entry.source.name]
-      return item
-    end
+    format = lspkind.cmp_format({with_text = true, menu = ({
+      nvim_lsp = "[LSP]",
+      path = "[Path]",
+      ultisnips = "[UltiSnips]",
+      buffer = "[Buffer]",
+      nvim_lua = "[Lua]",
+      treesitter = "[treesitter]",
+      latex_symbols = "[Latex]",
+    })}),
   },
   sources = {
     { name = 'nvim_lsp' },
     { name = 'path' },
     { name = 'ultisnips', max_item_count = 5 },
-    { name = 'buffer', max_item_count = 5 },
+    { name = 'buffer', max_item_count = 5, keyword_length = 3 },
     { name = 'nvim_lua' },
-    { name = 'treesitter', max_item_count = 5 },
+    { name = 'treesitter', max_item_count = 5, keyword_length = 3 },
   },
   mapping = {
     ['<C-p>'] = cmp.mapping.select_prev_item(),

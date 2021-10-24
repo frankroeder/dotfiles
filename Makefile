@@ -1,6 +1,7 @@
 SHELL := /bin/bash
 DOTFILES := $(PWD)
 OSTYPE ?= uname -s
+ARCHITECTURE ?= uname -m
 PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(HOME)/bin:/$(HOME)/.local/bin:$(HOME)/.local/nodejs/bin
 
 .DEFAULT_GOAL := help
@@ -41,8 +42,9 @@ sudo:
 .PHONY: homebrew
 homebrew:
 	@echo -e "\033[1m\033[34m==> Installing brew if not already present\033[0m"
-	@which brew || curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install | ruby
+	@which brew || $(SHELL) -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 	@echo -e "\033[1m\033[34m==> Installing brew formulas\033[0m"
+	@if [ "$(ARCHITECTURE)" == "arm64" ]; then echo -e "\033[1m\033[32m==> Installing rosetta for non-native apps \033[0m" && softwareupdate --install-rosetta; fi
 	@brew bundle --file="$(DOTFILES)/Brewfile"
 	@brew cleanup
 	-brew doctor
