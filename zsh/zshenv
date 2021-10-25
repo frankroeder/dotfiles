@@ -5,11 +5,11 @@ export DOTFILES=$HOME/.dotfiles
 export OSTYPE=$(uname -s)
 export ARCHITECTURE=$(uname -m)
 if (( ${+commands[nvim]} )); then
-    export EDITOR="nvim"
+  export EDITOR=$(which nvim)
 elif (( ${+commands[vim]} )); then
-    export EDITOR="vim"
+  export EDITOR=$(which vim)
 else
-    export EDITOR="vi"
+  export EDITOR=$(which vi)
 fi
 export VISUAL="${EDITOR}"
 if [[ "$OSTYPE" == "Darwin" ]]; then
