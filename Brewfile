@@ -39,6 +39,8 @@ cask "rectangle"
 cask "lulu"
 cask "zoom"
 cask "zotero"
+cask "signal"
+cask "anki"
 
 mas "iReal Pro", id: 409035833
 mas "Telegram", id: 747648890

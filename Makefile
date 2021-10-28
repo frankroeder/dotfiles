@@ -1,22 +1,28 @@
 SHELL := /bin/bash
 DOTFILES := $(PWD)
-OSTYPE ?= uname -s
-ARCHITECTURE ?= uname -m
-PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(HOME)/bin:/$(HOME)/.local/bin:$(HOME)/.local/nodejs/bin
+OSTYPE := $(shell uname -s)
+ARCHITECTURE := $(shell uname -m)
+PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(HOME)/bin:/$(HOME)/.local/bin:$(HOME)/.local/nodejs/bin:$(HOME)/miniforge3/bin
+ifeq ($(OSTYPE), Darwin)
+PYOS := MacOSX
+else
+PYOS := $(OSTYPE)
+endif
 
 .DEFAULT_GOAL := help
 
 .PHONY: macos
-macos: sudo directories macos homebrew misc zsh nvim git node
+macos: sudo directories macos homebrew zsh python misc nvim git node
 	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
 	@zsh -i -c "fast-theme free"
 	@compaudit | xargs chmod g-w
 
 .PHONY: linux
-linux: sudo directories _linux git zsh misc node nvim
+linux: sudo directories _linux git zsh python misc node nvim
+	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
 
 .PHONY: minimal
-minimal: directories _linux git zsh misc node nvim
+minimal: directories _linux git zsh python misc node nvim
 	@sed -i '/tmux-mem-cpu/d' $(HOME)/.zsh/zsh_plugins.sh
 
 .PHONY: help
@@ -42,13 +48,30 @@ sudo:
 .PHONY: homebrew
 homebrew:
 	@echo -e "\033[1m\033[34m==> Installing brew if not already present\033[0m"
+ifeq ($(ARCHITECTURE), arm64)
+	@echo -e "\033[1m\033[32m==> Installing rosetta for non-native apps \033[0m"
+	@softwareupdate --install-rosetta --agree-to-license
+endif
 	@which brew || $(SHELL) -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 	@echo -e "\033[1m\033[34m==> Installing brew formulas\033[0m"
-	@if [ "$(ARCHITECTURE)" == "arm64" ]; then echo -e "\033[1m\033[32m==> Installing rosetta for non-native apps \033[0m" && softwareupdate --install-rosetta; fi
 	@brew bundle --file="$(DOTFILES)/Brewfile"
 	@brew cleanup
 	-brew doctor
 	@gcloud config set disable_usage_reporting true
+
+.PHONY: python
+CONDA_RELEASE := Miniforge3-$(PYOS)-$(ARCHITECTURE)
+CONDA_HOME := $(HOME)/miniforge3
+python:
+ifeq "$(wildcard $(CONDA_HOME))" ""
+	@echo -e "\033[1m\033[34m==> Downloading $(CONDA_RELEASE) ...\033[0m"
+	@curl -fsSLO https://github.com/conda-forge/miniforge/releases/latest/download/$(CONDA_RELEASE).sh
+	@bash "$(CONDA_RELEASE).sh" -b -p $(CONDA_HOME)
+	@rm "$(CONDA_RELEASE).sh"
+endif
+	@conda init "$(shell basename ${SHELL})"
+	@conda install -y --file $(DOTFILES)/python/requirements.txt
+	@which ipython && ipython -c exit && ln -sfv $(DOTFILES)/python/ipython_config.py $(HOME)/.ipython/profile_default/
 
 .PHONY: misc
 misc:
@@ -57,8 +80,6 @@ misc:
 	@ln -sfv $(DOTFILES)/curlrc $(HOME)/.curlrc
 	@ln -sfv $(DOTFILES)/tmux/tmux.conf $(HOME)/.tmux.conf
 	@ln -sfv $(DOTFILES)/latexmkrc $(HOME)/.latexmkrc
-	@pip3 install --user -r $(DOTFILES)/python/requirements.txt
-	@which ipython && ipython -c exit && ln -sfv $(DOTFILES)/python/ipython_config.py $(HOME)/.ipython/profile_default/
 
 .PHONY: zsh
 zsh:
@@ -68,13 +89,12 @@ zsh:
 	@ln -sfv $(DOTFILES)/zsh/zlogin $(HOME)/.zlogin
 	@ln -sfv $(DOTFILES)/zsh/zshenv $(HOME)/.zshenv
 	@ln -sfv $(DOTFILES)/zsh/zprofile $(HOME)/.zprofile
-	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
-	@source $(HOME)/.zshrc
+	@. $(HOME)/.zshrc
 
 .PHONY: node
 node:
 	@echo -e "\033[1m\033[34m==> Installing node and npm packages\033[0m"
-	-which node || bash $(DOTFILES)/scripts/nodejs.sh
+	@which node || bash $(DOTFILES)/scripts/nodejs.sh
 	@npm i -g npm@latest
 	@npm i -g typescript
 	@npm i -g eslint
@@ -87,7 +107,7 @@ node:
 .PHONY: nvim
 nvim:
 	@echo -e "\033[1m\033[34m==> Installing nvim dependencies\033[0m"
-	@nvim +"call mkdir(stdpath('config'), 'p')" +qall
+	@nvim "+call mkdir(stdpath('config'), 'p')" +qall
 	@rm -rfv $(HOME)/.config/nvim
 	@ln -sfv $(DOTFILES)/nvim $(HOME)/.config
 	@if [ -x "$(command -v go)" ]; then GO111MODULE=on go get golang.org/x/tools/gopls@latest; fi
@@ -126,20 +146,17 @@ _linux:
 	@mkdir -p $(HOME)/bin
 	@mkdir -p $(HOME)/.local/bin
 	@mkdir -p $(HOME)/Uploads
-	@if [ $(NOSUDO) ]; then\
-		which nvim || bash $(DOTFILES)/scripts/nvim.sh;\
-	else\
-		bash $(DOTFILES)/linux/apt.sh "default";\
-	fi
-	-which fzf || git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf; ~/.fzf/install --all --no-bash --no-zsh --no-fish
-	-which tree-sitter || bash $(DOTFILES)/scripts/tree-sitter.sh
+	if [ -z $(NOSUDO) ]; then bash $(DOTFILES)/linux/apt.sh "default"; fi
+	@which nvim || bash $(DOTFILES)/scripts/nvim.sh;
+	@which fzf || git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf; ~/.fzf/install --all --no-bash --no-zsh --no-fish
+	@which tree-sitter || bash $(DOTFILES)/scripts/tree-sitter.sh
 	@ln -sfv $(DOTFILES)/htop/server $(HOME)/.config/htop/htoprc
 	@if [ $(NOSUDO) ]; then\
 		which antibody || curl -sfL git.io/antibody | bash -s - -b $(HOME)/bin;\
 	else\
 		which antibody || curl -sfL git.io/antibody | sudo bash -s - -b /usr/local/bin;\
 	fi
-	-which nvidia-smi && $(which python3) -m pip install --upgrade nvitop
+	-which nvidia-smi && pip install nvitop
 
 .PHONY: _macos
 _macos:
@@ -152,9 +169,9 @@ _macos:
 	@which firefox || sudo ln -s /Applications/Firefox.app/Contents/MacOS/firefox /usr/local/bin/firefox
 	@ln -sfv $(DOTFILES)/alacritty.yml $(HOME)/.config/alacritty/
 	(cd $(DOTFILES)/bin/$(OSTYPE) && /usr/bin/swiftc $(DOTFILES)/scripts/now_playing.swift)
-	-which osx-cpu-temp || bash $(DOTFILES)/scripts/osx_cpu_temp.sh
+	@which osx-cpu-temp || bash $(DOTFILES)/scripts/osx_cpu_temp.sh
 	@swift package completion-tool generate-zsh-script > $(HOME)/.zsh/completion/_swift
-	-which sourcekit-lsp || bash $(DOTFILES)/scripts/sourcekit-lsp.sh
+	@which sourcekit-lsp || bash $(DOTFILES)/scripts/sourcekit-lsp.sh
 	@ln -sfv $(DOTFILES)/htop/personal $(HOME)/.config/htop/htoprc
 
 .PHONY: check
@@ -194,4 +211,3 @@ test:
 		docker exec -it maketest_sudo /bin/bash -c "make linux";\
 	fi
 	@echo "Container can now be shut down"
-

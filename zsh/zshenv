@@ -4,12 +4,22 @@
 export DOTFILES=$HOME/.dotfiles
 export OSTYPE=$(uname -s)
 export ARCHITECTURE=$(uname -m)
+
+path=(
+  /usr/local/{bin,sbin}
+  $DOTFILES/bin/$OSTYPE
+  $HOME/bin
+  $path
+)
+
 if (( ${+commands[nvim]} )); then
   export EDITOR=$(which nvim)
 elif (( ${+commands[vim]} )); then
   export EDITOR=$(which vim)
-else
+elif (( ${+commands[vi]} )); then
   export EDITOR=$(which vi)
+else
+  echo "No EDITOR specified"
 fi
 export VISUAL="${EDITOR}"
 if [[ "$OSTYPE" == "Darwin" ]]; then
@@ -31,9 +41,3 @@ export LANG=en_US.UTF-8
 export LC_ALL=$LANG
 
 export GPG_TTY=$(tty)
-
-path=(
-  /usr/local/{bin,sbin}
-  $DOTFILES/bin/$OSTYPE
-  $path
-)

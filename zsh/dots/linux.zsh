@@ -3,7 +3,6 @@
 path=(
   "$HOME/.local/bin"
   "$HOME/.local/nodejs/bin"
-  "$HOME/bin"
   $path
 )
 

@@ -5,8 +5,6 @@ apt_update() {
 }
 
 install_default() {
-  # pre-release
-  sudo add-apt-repository ppa:neovim-ppa/unstable -y;
   apt_update;
   local PKGS="
     bash
@@ -21,10 +19,8 @@ install_default() {
     lsof
     make
     man
-    neovim
     python3-dev
     python3-pip
-    python3-venv
     silversearcher-ag
     sudo
     tmux

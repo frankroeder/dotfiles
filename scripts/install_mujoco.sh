@@ -25,10 +25,12 @@ else
       echo "This OS is not supported. Expecting Linux or macOS";
       exit;
   fi
+  URI="https://www.mujoco.org/download/${PACKAGE}.tar.gz";
   # download package and unzip it
-  wget "https://www.mujoco.org/download/${PACKAGE}.tar.gz";
+  echo "Downloading ...";
+  curl -LO $URI;
   CURRENT_CHECKSUM=$(openssl sha256 "${PACKAGE}.tar.gz" | awk {'print $2'});
-  EXPECTED_CHECKSUM=$(curl "https://www.mujoco.org/download/${PACKAGE}.tar.gz.sha256" | awk {'print $1'});
+  EXPECTED_CHECKSUM=$(curl -L "$URI.sha256" | awk {'print $1'});
   if [[ $CURRENT_CHECKSUM == $EXPECTED_CHECKSUM ]]; then
     printf '%s matches %s\n' "$CURRENT_CHECKSUM" "$EXPECTED_CHECKSUM";
   else
@@ -38,7 +40,7 @@ else
   tar xf "${PACKAGE}.tar.gz"
 
   # obtain free licence
-  wget "https://www.roboti.us/file/mjkey.txt";
+  curl -LO "https://www.roboti.us/file/mjkey.txt";
 
   # write variables to export
   if [[ -n "$ZSH_VERSION" ]]; then

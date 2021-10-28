@@ -10,4 +10,4 @@ export CXX1X="/usr/local/opt/llvm/bin/clang++"
 export LDFLAGS="-L/usr/local/opt/llvm/lib"
 export CPPFLAGS="-I/usr/local/opt/llvm/include"
 
-export PATH="/usr/local/opt/llvm/bin:$PATH"'
+export PATH="/usr/local/opt/llvm/bin:$PATH"

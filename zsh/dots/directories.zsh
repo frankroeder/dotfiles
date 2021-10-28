@@ -13,7 +13,7 @@ alias dud='du -d 1 -h | sort -hr'
 alias dul='du -hsx * | sort -rh | head -15'
 alias duf='du -sh'
 
-setopt AUTO_CD
+unsetopt AUTO_CD
 setopt AUTO_PUSHD
 setopt PUSHD_IGNORE_DUPS
 setopt PUSHDMINUS

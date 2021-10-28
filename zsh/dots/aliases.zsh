@@ -41,12 +41,6 @@ fi
 
 alias dfh='df -h'
 
-if [[ $commands[ipython] ]]; then
-  alias ipy='ipython'
-  alias ippdb='ipython --pprint --pdb'
-fi
-alias pipup='$(which python3) -m pip install --upgrade pip'
-
 # open last edited file
 alias v0="$EDITOR '+execute \"normal 1\<c-o>\"'"
 alias vh{,ist}="$EDITOR '+FzfHistory'"

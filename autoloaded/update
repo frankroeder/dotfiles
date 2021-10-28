@@ -33,11 +33,10 @@ brew_update() {
   brew cleanup -s && rm -rfv "$(brew --cache)";
 }
 
-pip_update() {
-  python3 -m pip install --upgrade setuptools;
-  python3 -m pip install --upgrade pip;
-  python3 -m pip freeze --local | grep -v '^\-e' | cut -d = -f 1  | xargs -n1 python3 -m pip install -U;
-  python3 -m pip cache purge;
+conda_update() {
+  conda update conda -y;
+  conda update --all -y;
+  conda clean --all -y;
 }
 
 antibody_update() {
@@ -83,7 +82,7 @@ run(){
     # Keep-alive: update existing `sudo` time stamp until script has finished
     while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
-    [ $commands[python3] ] && exec_update pip_update
+    [ $commands[conda] ] && exec_update conda_update
     [ $commands[nvim] ] && exec_update neovim_plug_update
     [ $commands[antibody] ] && exec_update antibody_update
     [ $commands[npm] ] && exec_update npm_update
