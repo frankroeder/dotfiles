@@ -3,7 +3,7 @@ zsh-users/zsh-autosuggestions
 mafredri/zsh-async
 
 sindresorhus/pure branch:main
-zdharma/fast-syntax-highlighting
+zdharma-continuum/fast-syntax-highlighting
 zsh-users/zsh-history-substring-search
 thewtex/tmux-mem-cpu-load
 esc/conda-zsh-completion

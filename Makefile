@@ -9,7 +9,7 @@ else
 PYOS := $(OSTYPE)
 endif
 
-.DEFAULT_GOAL := help
+DEFAULT_GOAL := help
 
 .PHONY: macos
 macos: sudo directories macos homebrew zsh python misc nvim git node
@@ -151,11 +151,11 @@ _linux:
 	@which fzf || git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf; ~/.fzf/install --all --no-bash --no-zsh --no-fish
 	@which tree-sitter || bash $(DOTFILES)/scripts/tree-sitter.sh
 	@ln -sfv $(DOTFILES)/htop/server $(HOME)/.config/htop/htoprc
-	@if [ $(NOSUDO) ]; then\
-		which antibody || curl -sfL git.io/antibody | bash -s - -b $(HOME)/bin;\
-	else\
-		which antibody || curl -sfL git.io/antibody | sudo bash -s - -b /usr/local/bin;\
-	fi
+ifeq ($(NOSUDO), 1)
+	@which antibody || curl -sfL git.io/antibody | bash -s - -b $(HOME)/bin;
+else
+	@which antibody || curl -sfL git.io/antibody | sudo bash -s - -b /usr/local/bin;
+endif
 	-which nvidia-smi && pip install nvitop
 
 .PHONY: _macos
@@ -201,13 +201,13 @@ uninstall:
 .PHONY: test
 test:
 	@echo "Testing linux installation on ${OSTYPE}"
-	@if [ $(NOSUDO) ]; then\
-		docker build --progress plain --rm -t dotfiles ${PWD} -f $(DOTFILES)/docker/Dockerfile;\
-		docker run -it --rm --name maketest -d dotfiles:latest;\
-		docker exec -it maketest /bin/bash -c "make NOSUDO=$(NOSUDO) minimal";\
-	else\
-		docker build --progress plain --rm -t dotfiles_sudo ${PWD} -f $(DOTFILES)/docker/Dockerfile_sudoer;\
-		docker run -it --rm --name maketest_sudo -d dotfiles_sudo:latest;\
-		docker exec -it maketest_sudo /bin/bash -c "make linux";\
-	fi
+ifeq ($(NOSUDO), 1)
+		@docker build --progress plain --rm -t dotfiles ${PWD} -f $(DOTFILES)/docker/Dockerfile;
+		@docker run -it --rm --name maketest -d dotfiles:latest;
+		@docker exec -it maketest /bin/bash -c "make NOSUDO=$(NOSUDO) minimal";
+else
+		@docker build --progress plain --rm -t dotfiles_sudo ${PWD} -f $(DOTFILES)/docker/Dockerfile_sudoer;
+		@docker run -it --rm --name maketest_sudo -d dotfiles_sudo:latest;
+		@docker exec -it maketest_sudo /bin/bash -c "make linux";
+endif
 	@echo "Container can now be shut down"
