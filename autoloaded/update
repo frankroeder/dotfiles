@@ -1,18 +1,22 @@
 #!/usr/bin/env bash
 
 success() {
-  printf "\\r[ ${GREEN}\\u2713${RESET} ] %s\\n" "${1}"
+  printf "\\r[ ${GREEN}\\u2713${RESET} ] %s\\n" "${@}"
 }
 
 error() {
-  printf "\\r[ ${RED}\\u274C${RESET} ] %s\\n" "${1}"
+  printf "\\r[ ${RED}\\u274C${RESET} ] %s\\n" "${@}"
 }
 
 in_progress() {
-  printf "${YELLOW}Starting${RESET} %s\\n" "${1}"
+  printf "${YELLOW}Starting${RESET} %s\\n" "${@}"
 }
 
-exec_update() {
+info() {
+	printf "\033[1m\033[34m==> %s \033\\n\\n[0m\\n" "${@}"
+}
+
+exec_routine() {
   in_progress "${1}"
 
   start_time=$(date +%s)
@@ -27,16 +31,17 @@ exec_update() {
 }
 
 brew_update() {
-  brew update;
-  brew upgrade --display-times;
-  brew upgrade --cask;
-  brew cleanup -s && rm -rfv "$(brew --cache)";
+  brew update --verbose;
+  brew upgrade --display-times --verbose;
+  brew upgrade --casks --display-times --verbose;
+  brew autoremove --verbose;
+  brew cleanup -s --verbose --prune 7;
 }
 
 conda_update() {
-  conda update conda -y;
-  conda update --all -y;
-  conda clean --all -y;
+  conda update conda --name base --yes --verbose;
+  conda update --all --name base --yes --verbose;
+  conda clean --all --yes;
 }
 
 antibody_update() {
@@ -68,29 +73,27 @@ mas_update() {
 }
 
 apt_update() {
-  sudo apt update -y;
-  sudo apt upgrade -y;
+  sudo apt update --yes;
+  sudo apt upgrade --yes;
 }
 
 run(){
   if ping -c 1 google.com &> /dev/null; then
-    echo -e "$BLUE########################"
-    printf "# Checking for updates #\n"
-    echo -e "########################$RESET\n"
+    info "Checking for updates"
 
     sudo -v
     # Keep-alive: update existing `sudo` time stamp until script has finished
     while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
-    [ $commands[conda] ] && exec_update conda_update
-    [ $commands[nvim] ] && exec_update neovim_plug_update
-    [ $commands[antibody] ] && exec_update antibody_update
-    [ $commands[npm] ] && exec_update npm_update
-    [ $commands[gem] ] && exec_update gem_update
-    [ $commands[mas] ] && exec_update mas_update
-    [ $commands[brew] ] && exec_update brew_update
-    [ "$OSTYPE" = "Darwin" ] &&  exec_update macos_update
-    [ "$OSTYPE" = "Linux" ] && exec_update apt_update
+    [ $commands[conda] ] && exec_routine conda_update
+    [ $commands[nvim] ] && exec_routine neovim_plug_update
+    [ $commands[antibody] ] && exec_routine antibody_update
+    [ $commands[npm] ] && exec_routine npm_update
+    [ $commands[gem] ] && exec_routine gem_update
+    [ $commands[mas] ] && exec_routine mas_update
+    [ $commands[brew] ] && exec_routine brew_update
+    [ "$OSTYPE" = "Darwin" ] &&  exec_routine macos_update
+    [ "$OSTYPE" = "Linux" ] && exec_routine apt_update
 
     success "Updates completed"
   else

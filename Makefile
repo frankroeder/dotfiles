@@ -2,7 +2,12 @@ SHELL := /bin/bash
 DOTFILES := $(PWD)
 OSTYPE := $(shell uname -s)
 ARCHITECTURE := $(shell uname -m)
+
 PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(HOME)/bin:/$(HOME)/.local/bin:$(HOME)/.local/nodejs/bin:$(HOME)/miniforge3/bin
+ifeq ($(ARCHITECTURE), arm64)
+PATH = $(PATH):/opt/homebrew/bin:/opt/homebrew/sbin
+endif
+
 ifeq ($(OSTYPE), Darwin)
 PYOS := MacOSX
 else
@@ -70,12 +75,14 @@ ifeq "$(wildcard $(CONDA_HOME))" ""
 	@rm "$(CONDA_RELEASE).sh"
 endif
 	@conda init "$(shell basename ${SHELL})"
-	@conda install -y --file $(DOTFILES)/python/requirements.txt
+	@conda install --yes --name base --file $(DOTFILES)/python/requirements.txt
+	@conda install --yes --name base pytorch scipy
 	@which ipython && ipython -c exit && ln -sfv $(DOTFILES)/python/ipython_config.py $(HOME)/.ipython/profile_default/
 
 .PHONY: misc
 misc:
 	@echo -e "\033[1m\033[34m==> Installing misc\033[0m"
+	@which fzf || git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf; ~/.fzf/install --bin
 	@ln -sfv $(DOTFILES)/wgetrc $(HOME)/.wgetrc
 	@ln -sfv $(DOTFILES)/curlrc $(HOME)/.curlrc
 	@ln -sfv $(DOTFILES)/tmux/tmux.conf $(HOME)/.tmux.conf
@@ -148,7 +155,6 @@ _linux:
 	@mkdir -p $(HOME)/Uploads
 	if [ -z $(NOSUDO) ]; then bash $(DOTFILES)/linux/apt.sh "default"; fi
 	@which nvim || bash $(DOTFILES)/scripts/nvim.sh;
-	@which fzf || git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf; ~/.fzf/install --all --no-bash --no-zsh --no-fish
 	@which tree-sitter || bash $(DOTFILES)/scripts/tree-sitter.sh
 	@ln -sfv $(DOTFILES)/htop/server $(HOME)/.config/htop/htoprc
 ifeq ($(NOSUDO), 1)

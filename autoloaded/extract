@@ -15,11 +15,12 @@ if [ -f "$1" ] ; then
   fi
   mkdir -p "$foldername" && cd "$foldername"
   case $1 in
-    *.tar.bz2|*.tb2|*.tbz|*.tbz2) tar vxjf "$fullpath" ;;
-    *.tar.gz|*.tar.Z|*.taz|*.tgz) tar vxzf "$fullpath" ;;
-    *.tar.xz|*.txz) tar vJxvf "$fullpath" ;;
-    *.tar) tar vxf "$fullpath" ;;
+    *.tar.bz2|*.tb2|*.tbz|*.tbz2) tar -jxvf "$fullpath" ;;
+    *.tar.gz|*.tar.Z|*.taz|*.tgz) tar -zxvf "$fullpath" ;;
+    *.tar.xz|*.txz) tar -Jxvf "$fullpath" ;;
+    *.tar) tar -xvf "$fullpath" ;;
     *.zip) unzip "$fullpath" ;;
+    *.dmg) hdiutil mount "$fullpath" ;;
     *.bz2) bunzip2 "$fullpath" ;;
     *.gz) gunzip "$fullpath" ;;
     *.xz) unxz "$fullpath" ;;

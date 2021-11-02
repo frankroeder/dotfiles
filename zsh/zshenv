@@ -6,8 +6,11 @@ export OSTYPE=$(uname -s)
 export ARCHITECTURE=$(uname -m)
 
 path=(
+  # path to linux and homebrew intel-based binaries
   /usr/local/{bin,sbin}
+  # os-specific dotfile binaries
   $DOTFILES/bin/$OSTYPE
+  # user-specific binaries for linux
   $HOME/bin
   $path
 )

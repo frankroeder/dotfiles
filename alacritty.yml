@@ -162,7 +162,7 @@ live_config_reload: true
 
 # Shell
 shell:
- program: /usr/local/bin/zsh
+ program: zsh
  args:
    - --login
    - -c

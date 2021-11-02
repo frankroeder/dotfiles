@@ -2,22 +2,29 @@
 # login shell definitions
 
 if [ "$OSTYPE" = "Darwin" ]; then
+
+  if [[ $ARCHITECTURE == 'arm64' ]]; then
+    alias abrew='/opt/homebrew/bin/brew'
+    eval $(/opt/homebrew/bin/brew shellenv)
+  else
+    eval $(/usr/local/bin/brew shellenv)
+  fi
   # llvm
-  path=("/usr/local/opt/llvm/bin" $path)
-  export LDFLAGS="-L/usr/local/opt/llvm/lib $LDFLAGS"
-  export CPPFLAGS="-I/usr/local/opt/llvm/include $LDFLAGS"
+  path=("$HOMEBREW_PREFIX/opt/llvm/bin" $path)
+  export LDFLAGS="-L$HOMEBREW_PREFIX/opt/llvm/lib $LDFLAGS"
+  export CPPFLAGS="-I$HOMEBREW_PREFIX/opt/llvm/include $LDFLAGS"
 
   # for compilers to find openssl
-  path=("/usr/local/opt/openssl/bin" $path)
-  export LDFLAGS="-L/usr/local/opt/openssl/lib $LDFLAGS"
-  export CPPFLAGS="-I/usr/local/opt/openssl/include $LDFLAGS"
+  path=("$HOMEBREW_PREFIX/opt/openssl/bin" $path)
+  export LDFLAGS="-L$HOMEBREW_PREFIX/opt/openssl/lib $LDFLAGS"
+  export CPPFLAGS="-I$HOMEBREW_PREFIX/opt/openssl/include $LDFLAGS"
 
   # ruby + gem
   path=("$HOME/.gem/ruby/2.6.0/bin" $path)
 
   # go
   export GOPATH="$HOME/Documents/golang"
-  export GOROOT="/usr/local/opt/go/libexec"
+  export GOROOT="$HOMEBREW_PREFIX/opt/go/libexec"
   path=(
     $GOPATH/bin
     $GOROOT/bin

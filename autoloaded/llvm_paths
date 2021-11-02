@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-export CC="/usr/local/opt/llvm/bin/clang"
-export CXX="/usr/local/opt/llvm/bin/clang++"
-export CXX11="/usr/local/opt/llvm/bin/clang++"
-export CXX14="/usr/local/opt/llvm/bin/clang++"
-export CXX17="/usr/local/opt/llvm/bin/clang++"
-export CXX1X="/usr/local/opt/llvm/bin/clang++"
+export CC="$HOMEBREW_PREFIX/opt/llvm/bin/clang"
+export CXX="$HOMEBREW_PREFIX/opt/llvm/bin/clang++"
+export CXX11="$HOMEBREW_PREFIX/opt/llvm/bin/clang++"
+export CXX14="$HOMEBREW_PREFIX/opt/llvm/bin/clang++"
+export CXX17="$HOMEBREW_PREFIX/opt/llvm/bin/clang++"
+export CXX1X="$HOMEBREW_PREFIX/opt/llvm/bin/clang++"
 
-export LDFLAGS="-L/usr/local/opt/llvm/lib"
-export CPPFLAGS="-I/usr/local/opt/llvm/include"
+export LDFLAGS="-L$HOMEBREW_PREFIX/opt/llvm/lib"
+export CPPFLAGS="-I$HOMEBREW_PREFIX/opt/llvm/include"
 
-export PATH="/usr/local/opt/llvm/bin:$PATH"
+export PATH="$HOMEBREW_PREFIX/opt/llvm/bin:$PATH"

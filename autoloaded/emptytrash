@@ -9,6 +9,9 @@ if [ "${#TRASH[@]}" -gt 0 ]; then
 fi
 
 if [ "$OSTYPE" = "Darwin" ]; then
+  # remove the homewbrew cache
+  rm -rf "$(brew --cache)";
+
   # empty the trashes on all mounted volumes
   local VOL_TRASH="/Volumes/*/.Trashes"
   if [ "${#VOL_TRASH[@]}" -gt 0 ] ; then

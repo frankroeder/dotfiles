@@ -7,8 +7,9 @@ alias pipreq='$(which python3) -m pip install -r $PWD/requirements.txt'
 
 conact() {
   conda activate $(basename $PWD);
-  echo "Current python : $(which python)";
-  echo "Current pip : $(which pip)";
+  echo "Version: $($CONDA_PREFIX/bin/python --version)"
+  echo "Current python: $(which python)";
+  echo "Current pip: $(which pip)";
 }
 concreate() {
   local ENV_NAME=$(basename $PWD);
@@ -18,6 +19,12 @@ concreate() {
 conreq() {
   conda install -y --file "$PWD/requirements.txt";
 }
+condev() {
+ conda install -y neovim ipdb unidecode
+}
 rmcenv() {
   conda remove -n $(basename $PWD) --all;
+}
+cpip() {
+  command $CONDA_PREFIX/bin/pip "$@";
 }
