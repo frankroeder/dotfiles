@@ -3,7 +3,7 @@ if [[ $commands[ipython] ]]; then
   alias ippdb='ipython --pprint --pdb'
 fi
 alias pipup='$(which python3) -m pip install --upgrade pip'
-alias pipreq='$(which python3) -m pip install -r $PWD/requirements.txt'
+alias pipreq='$(which python3) -m pip install -r $PWD/requirements.txt -U'
 
 conact() {
   conda activate $(basename $PWD);
@@ -13,17 +13,17 @@ conact() {
 }
 concreate() {
   local ENV_NAME=$(basename $PWD);
-  conda create --name $ENV_NAME python=3.7 neovim ipdb unidecode -y;
+  conda create --name $ENV_NAME python=3.7 neovim ipdb unidecode --yes;
   conda activate $ENV_NAME;
 }
 conreq() {
-  conda install -y --file "$PWD/requirements.txt";
+  conda install --yes --file "$PWD/requirements.txt";
 }
 condev() {
- conda install -y neovim ipdb unidecode
+ conda install --yes neovim ipdb unidecode
 }
 rmcenv() {
-  conda remove -n $(basename $PWD) --all;
+  conda env remove --name $(basename $PWD) --all;
 }
 cpip() {
   command $CONDA_PREFIX/bin/pip "$@";

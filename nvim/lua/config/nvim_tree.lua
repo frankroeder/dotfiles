@@ -1,7 +1,6 @@
 local keymap = require 'utils'.keymap
 
 -- global options in nvim-tree-options should be done BEFORE the setup call
-vim.g.nvim_tree_ignore = { '.git', '.cache', '.vim', '__pycache__', 'node_modules', '.egg-info' }
 vim.g.nvim_tree_gitignore = 1
 
 require'nvim-tree'.setup {
@@ -21,6 +20,9 @@ require'nvim-tree'.setup {
       error = "",
     }
   },
+  filters = {
+    custom = { '.git', '.cache', '.vim', '__pycache__', 'node_modules', '.egg-info' }
+  }
 }
 
 keymap("n", "<Leader>n", ":NvimTreeToggle<CR>")
