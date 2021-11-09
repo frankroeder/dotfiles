@@ -51,10 +51,12 @@ augroup tex
   au Filetype tex nmap <silent> <buffer> <C-F> :call vimtex#fzf#run('cti', {'window': { 'width': 0.6, 'height': 0.6 } })<CR>
   " additional sources added to the global ones
   autocmd FileType tex lua require'cmp'.setup.buffer {
-        \   sources = {
-        \     { name = 'omni' },
-        \ }
-
+  \   sources = {
+  \     { name = 'omni',
+  \       keyword_pattern = vim.g['vimtex#re#neocomplete']
+  \     },
+  \   }
+  \ }
 augroup END
 
 let g:vimtex_doc_handlers = ['ShowTexDoc']

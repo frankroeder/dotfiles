@@ -91,6 +91,11 @@ misc:
 .PHONY: zsh
 zsh:
 	@echo -e "\033[1m\033[34m==> Installing zsh and tools\033[0m"
+ifeq ($(NOSUDO), 1)
+	@which antibody || curl -sfL git.io/antibody | sh -s - -b $(HOME)/bin;
+else
+	@which antibody || curl -sfL git.io/antibody | sh -s - -b /usr/local/bin
+endif
 	@antibody bundle < $(DOTFILES)/antibody/bundles.txt > $(HOME)/.zsh/zsh_plugins.sh
 	@ln -sfv $(DOTFILES)/zsh/zshrc $(HOME)/.zshrc
 	@ln -sfv $(DOTFILES)/zsh/zlogin $(HOME)/.zlogin
@@ -157,11 +162,6 @@ _linux:
 	@which nvim || bash $(DOTFILES)/scripts/nvim.sh;
 	@which tree-sitter || bash $(DOTFILES)/scripts/tree-sitter.sh
 	@ln -sfv $(DOTFILES)/htop/server $(HOME)/.config/htop/htoprc
-ifeq ($(NOSUDO), 1)
-	@which antibody || curl -sfL git.io/antibody | bash -s - -b $(HOME)/bin;
-else
-	@which antibody || curl -sfL git.io/antibody | sudo bash -s - -b /usr/local/bin;
-endif
 	-which nvidia-smi && pip install nvitop
 
 .PHONY: _macos
@@ -186,8 +186,10 @@ check:
 
 .PHONY: benchmark
 benchmark:
-	@echo -e "\033[1m\033[34m==> nvim startuptime\033[0m"
-	@nvim --startuptime startup.log -c ":q" && cat startup.log | sort -k2 && rm -f startup.log
+	@echo -e "\033[1m\033[34m==> nvim startuptime clean\033[0m"
+	@nvim --startuptime startup.log --clean "+qall" && cat startup.log | sort --key=2 --reverse && rm -f startup.log
+	@echo -e "\033[1m\033[34m==> nvim startuptime with all plugins\033[0m"
+	@nvim --startuptime startup.log "+qall" && cat startup.log | sort --key=2 --reverse && rm -f startup.log
 	@echo -e "\033[1m\033[34m==> zsh startuptime\033[0m"
 	@zsh $(DOTFILES)/autoloaded/bench_zsh
 

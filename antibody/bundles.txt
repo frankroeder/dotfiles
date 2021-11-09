@@ -1,9 +1,10 @@
 zsh-users/zsh-completions
 zsh-users/zsh-autosuggestions
 mafredri/zsh-async
+thewtex/tmux-mem-cpu-load
+esc/conda-zsh-completion
 
+# should be last
 sindresorhus/pure branch:main
 zdharma-continuum/fast-syntax-highlighting
 zsh-users/zsh-history-substring-search
-thewtex/tmux-mem-cpu-load
-esc/conda-zsh-completion

@@ -33,7 +33,7 @@ exec_routine() {
 brew_update() {
   brew update --verbose;
   brew upgrade --display-times --verbose;
-  brew upgrade --casks --display-times --verbose;
+  brew upgrade --casks --verbose;
   brew autoremove --verbose;
   brew cleanup -s --verbose --prune 7;
 }
