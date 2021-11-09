@@ -19,11 +19,9 @@ brew "jq"
 brew "python"
 brew "pandoc"
 brew "grip"
-brew "gnuplot"
 brew "ifstat"
 brew "gcc"
 
-cask "google-cloud-sdk"
 cask "alfred"
 cask "docker"
 cask "alacritty"
@@ -40,10 +38,10 @@ cask "zoom"
 cask "zotero"
 cask "signal"
 cask "anki"
+cask "mattermost"
 
 mas "iReal Pro", id: 409035833
 mas "Telegram", id: 747648890
-mas "The Unarchiver", id: 425424353
 mas "AdGuard", id: 1440147259
 mas "Vimari", id: 1480933944
 mas "Bitwarden", id: 1352778147

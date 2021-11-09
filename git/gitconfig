@@ -47,9 +47,6 @@
   template = ~/.dotfiles/git/gitmessage
   gpgsign = true
 
-[credential "https://source.developers.google.com"]
-  helper = gcloud.sh
-
 [color]
   ui = true
   branch = auto

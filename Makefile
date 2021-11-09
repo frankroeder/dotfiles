@@ -62,7 +62,6 @@ endif
 	@brew bundle --file="$(DOTFILES)/Brewfile"
 	@brew cleanup
 	-brew doctor
-	@gcloud config set disable_usage_reporting true
 
 .PHONY: python
 CONDA_RELEASE := Miniforge3-$(PYOS)-$(ARCHITECTURE)
