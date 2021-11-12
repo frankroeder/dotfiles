@@ -17,7 +17,7 @@ endif
 DEFAULT_GOAL := help
 
 .PHONY: macos
-macos: sudo directories macos homebrew zsh python misc nvim git node
+macos: sudo directories _macos homebrew zsh python misc nvim git node
 	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
 	@zsh -i -c "fast-theme free"
 	@compaudit | xargs chmod g-w

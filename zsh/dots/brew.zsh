@@ -1,13 +1,12 @@
-! [ $commands[brew] ] && return
+! (( $+commands[brew] )) && return
 
 export HOMEBREW_NO_INSECURE_REDIRECT=1
 export HOMEBREW_NO_ANALYTICS=1
 export HOMEBREW_CASK_OPTS=--require-sha
 export HOMEBREW_INSTALL_BADGE="🍵"
 
-(( $+commands[brew] )) && {
-  fpath=($HOMEBREW_PREFIX/share/zsh/site-functions $fpath)
-}
+# shell completion
+fpath=($HOMEBREW_PREFIX/share/zsh/site-functions $fpath)
 
 (( $+commands[gcloud] )) && {
   GCPREFIX="$HOMEBREW_PREFIX/Caskroom/google-cloud-sdk/latest/google-cloud-sdk"
@@ -22,5 +21,9 @@ export HOMEBREW_INSTALL_BADGE="🍵"
 }
 
 [[ $ARCHITECTURE == 'arm64' ]] && {
-  alias abrew='/opt/homebrew/bin/brew'
+  path=(
+    # homebrew arm-based binaries
+    /opt/homebrew/{bin,sbin}
+    $path
+  )
 }

@@ -52,7 +52,7 @@ Plug 'cespare/vim-toml'
 Plug 'nvim-lualine/lualine.nvim'
 Plug 'romgrk/barbar.nvim'
 Plug 'joshdick/onedark.vim'
-Plug 'Pocco81/Catppuccino.nvim'
+Plug 'catppuccin/nvim' , { 'branch': 'dev' }
 Plug 'kyazdani42/nvim-web-devicons'
 Plug 'onsails/lspkind-nvim'
 

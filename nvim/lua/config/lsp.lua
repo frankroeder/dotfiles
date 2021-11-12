@@ -3,6 +3,7 @@ local util = require 'lspconfig/util'
 local sign_def = vim.fn.sign_define
 local buf_keymap = require 'utils'.buf_keymap
 local merge_tables = require 'utils'.merge_tables
+local buf_opt = require 'utils'.buf_opt
 
 vim.lsp.set_log_level("error")
 
@@ -17,7 +18,7 @@ swift_root = {'Package.swift'}
 local custom_on_attach = function(client, bufnr)
   print('Language Server Protocol started.')
 
-  vim.api.nvim_buf_set_option(bufnr, 'omnifunc', 'v:lua.vim.lsp.omnifunc')
+  buf_opt(bufnr, 'omnifunc', 'v:lua.vim.lsp.omnifunc')
   vim.cmd("highlight! LspDiagnosticsDefaultError cterm=bold guifg=#E06C75")
   vim.cmd("highlight! LspDiagnosticsDefaultWarning cterm=bold guifg=#F5EA95")
   sign_def("LspDiagnosticsSignError", { text = "●"})
