@@ -1,11 +1,11 @@
 local plug_dir = vim.api.nvim_get_var("plug_dir")
 
-if vim.fn.isdirectory(plug_dir .. '/nvim-lspconfig') then
-  require("config.lsp")
+if vim.fn.isdirectory(plug_dir .. '/coq_nvim') and vim.fn.isdirectory(plug_dir .. '/nvim-autopairs') then
+  require("config.coq_nvim")
 end
 
-if vim.fn.isdirectory(plug_dir .. '/nvim-cmp') then
-  require("config.nvim_cmp")
+if vim.fn.isdirectory(plug_dir .. '/nvim-lspconfig') then
+  require("config.lsp")
 end
 
 if vim.fn.isdirectory(plug_dir .. '/null-ls.nvim') then

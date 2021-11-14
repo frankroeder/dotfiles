@@ -1,4 +1,5 @@
 local lspconfig = require 'lspconfig'
+local coq = require "coq"
 local util = require 'lspconfig/util'
 local sign_def = vim.fn.sign_define
 local buf_keymap = require 'utils'.buf_keymap
@@ -72,7 +73,6 @@ capabilities.textDocument.completion.completionItem.resolveSupport = {
     'additionalTextEdits',
   }
 }
-capabilities = require('cmp_nvim_lsp').update_capabilities(capabilities)
 
 -- override default config for all servers
 lspconfig.util.default_config = vim.tbl_extend(
@@ -105,81 +105,95 @@ vim.lsp.handlers["textDocument/publishDiagnostics"] = vim.lsp.with(
   }
 )
 lspconfig.pyright.setup{
-  default_config = {
-    cmd = { vim.fn.exepath("pyright-langserver"), "--stdio" };
-    filetypes = { "python" };
-    root_dir = function(fname)
-      return util.find_git_ancestor(fname) or util.root_pattern(merge_tables(py_root, general_root))
-        or vim.fn.getcwd()
-    end;
-  };
+  coq.lsp_ensure_capabilities({
+    default_config = {
+      cmd = { vim.fn.exepath("pyright-langserver"), "--stdio" };
+      filetypes = { "python" };
+      root_dir = function(fname)
+        return util.find_git_ancestor(fname) or util.root_pattern(merge_tables(py_root, general_root))
+          or vim.fn.getcwd()
+      end;
+    };
+  })
 }
 lspconfig.clangd.setup{
-  default_config = {
-    cmd = { vim.fn.exepath('clangd'), '--clang-tidy', '--suggest-missing-includes' };
-    filetypes = { "c", "cpp", "objc", "objcpp" };
-    root_dir = function(fname)
-      return util.find_git_ancestor(fname) or util.root_pattern(merge_tables(c_cpp_root, general_root))
-        or vim.fn.getcwd()
-    end;
-  };
+  coq.lsp_ensure_capabilities({
+    default_config = {
+      cmd = { vim.fn.exepath('clangd'), '--clang-tidy', '--suggest-missing-includes' };
+      filetypes = { "c", "cpp", "objc", "objcpp" };
+      root_dir = function(fname)
+        return util.find_git_ancestor(fname) or util.root_pattern(merge_tables(c_cpp_root, general_root))
+          or vim.fn.getcwd()
+      end;
+    };
+  })
 }
 lspconfig.tsserver.setup{
-  default_config = {
-    cmd = { vim.fn.exepath('typescript-language-server'), '--stdio', '--tsserver-log-file', '/tmp/ts.log' };
-    filetypes = { "javascript", "javascriptreact", "javascript.jsx", "typescript", "typescriptreact", "typescript.tsx" };
-    root_dir = function(fname)
-      return util.find_git_ancestor(fname) or util.root_pattern(merge_tables(ts_js_root, general_root))
-        or vim.fn.getcwd()
-    end;
-  };
+  coq.lsp_ensure_capabilities({
+    default_config = {
+      cmd = { vim.fn.exepath('typescript-language-server'), '--stdio', '--tsserver-log-file', '/tmp/ts.log' };
+      filetypes = { "javascript", "javascriptreact", "javascript.jsx", "typescript", "typescriptreact", "typescript.tsx" };
+      root_dir = function(fname)
+        return util.find_git_ancestor(fname) or util.root_pattern(merge_tables(ts_js_root, general_root))
+          or vim.fn.getcwd()
+      end;
+    };
+  })
 }
 lspconfig.html.setup{
-  default_config = {
-    cmd = { vim.fn.exepath('html-languageserver'), '--stdio' };
-    filetypes = { "html" };
-    root_dir = function(fname)
-      return util.find_git_ancestor(fname) or vim.fn.getcwd()
-    end;
-  };
+  coq.lsp_ensure_capabilities({
+    default_config = {
+      cmd = { vim.fn.exepath('html-languageserver'), '--stdio' };
+      filetypes = { "html" };
+      root_dir = function(fname)
+        return util.find_git_ancestor(fname) or vim.fn.getcwd()
+      end;
+    };
+  })
 }
 lspconfig.cssls.setup{
-  default_config = {
-    filetypes = {"css", "scss", "sass", "less"};
-    root_dir = function(fname)
-      return util.find_git_ancestor(fname) or vim.fn.getcwd()
-    end;
-  };
+  coq.lsp_ensure_capabilities({
+    default_config = {
+      filetypes = {"css", "scss", "sass", "less"};
+      root_dir = function(fname)
+        return util.find_git_ancestor(fname) or vim.fn.getcwd()
+      end;
+    };
+  })
 }
 
 lspconfig.gopls.setup{
-  default_config = {
-    cmd = { vim.fn.exepath('gopls'), '-logfile', '/tmp/gopls.log' };
-    root_dir = function(fname)
-      return util.find_git_ancestor(fname) or util.root_pattern(merge_tables(go_root, general_root))
-        or vim.fn.getcwd()
-    end;
-  };
-  init_options = {
-    usePlaceholders=true;
-    linkTarget="pkg.go.dev";
-    completionDocumentation=true;
-    completeUnimported=true;
-    deepCompletion=true;
-    fuzzyMatching=true;
-  };
+  coq.lsp_ensure_capabilities({
+    default_config = {
+      cmd = { vim.fn.exepath('gopls'), '-logfile', '/tmp/gopls.log' };
+      root_dir = function(fname)
+        return util.find_git_ancestor(fname) or util.root_pattern(merge_tables(go_root, general_root))
+          or vim.fn.getcwd()
+      end;
+    };
+    init_options = {
+      usePlaceholders=true;
+      linkTarget="pkg.go.dev";
+      completionDocumentation=true;
+      completeUnimported=true;
+      deepCompletion=true;
+      fuzzyMatching=true;
+    };
+  })
 }
 lspconfig.sourcekit.setup{
-  cmd = { "xcrun", vim.fn.exepath('sourcekit-lsp') };
-  default_config = {
-    filetypes = { "swift", "c", "cpp", "objective-c", "objective-cpp" };
-    root_dir = function(fname)
-      return util.find_git_ancestor(fname) or util.root_pattern(merge_tables(swift_root, general_root))
-        or vim.fn.getcwd()
-    end;
-  };
-  settings = {
-    serverArguments = { '--log-level', 'debug' };
-    trace = { server = "messages"; };
-  };
+  coq.lsp_ensure_capabilities({
+    cmd = { "xcrun", vim.fn.exepath('sourcekit-lsp') };
+    default_config = {
+      filetypes = { "swift", "c", "cpp", "objective-c", "objective-cpp" };
+      root_dir = function(fname)
+        return util.find_git_ancestor(fname) or util.root_pattern(merge_tables(swift_root, general_root))
+          or vim.fn.getcwd()
+      end;
+    };
+    settings = {
+      serverArguments = { '--log-level', 'debug' };
+      trace = { server = "messages"; };
+    };
+  })
 }

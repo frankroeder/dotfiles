@@ -19,17 +19,10 @@ if executable("tree-sitter") && executable("node")
   Plug 'p00f/nvim-ts-rainbow'
 endif
 Plug 'nvim-lua/plenary.nvim'
-" nvim-cmp
-Plug 'hrsh7th/nvim-cmp'
-Plug 'hrsh7th/cmp-nvim-lsp'
-Plug 'hrsh7th/cmp-buffer'
-Plug 'hrsh7th/cmp-path'
-Plug 'hrsh7th/cmp-nvim-lua'
-Plug 'hrsh7th/cmp-omni'
-Plug 'ray-x/cmp-treesitter'
-" snippet support
-Plug 'quangnguyen30192/cmp-nvim-ultisnips'
-Plug 'SirVer/ultisnips'
+
+Plug 'ms-jpq/coq_nvim', {'branch': 'coq'}
+Plug 'ms-jpq/coq.artifacts', {'branch': 'artifacts'}
+Plug 'ms-jpq/coq.thirdparty', {'branch': '3p'}
 " completion utils
 Plug 'windwp/nvim-autopairs'
 Plug 'ray-x/lsp_signature.nvim'
@@ -54,7 +47,6 @@ Plug 'romgrk/barbar.nvim'
 Plug 'joshdick/onedark.vim'
 Plug 'catppuccin/nvim' , { 'branch': 'dev' }
 Plug 'kyazdani42/nvim-web-devicons'
-Plug 'onsails/lspkind-nvim'
 
 call plug#end()
 
