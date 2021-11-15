@@ -17,8 +17,6 @@ swift_root = {'Package.swift'}
 
 -- buffer setup
 local custom_on_attach = function(client, bufnr)
-  print('Language Server Protocol started.')
-
   buf_opt(bufnr, 'omnifunc', 'v:lua.vim.lsp.omnifunc')
   vim.cmd("highlight! LspDiagnosticsDefaultError cterm=bold guifg=#E06C75")
   vim.cmd("highlight! LspDiagnosticsDefaultWarning cterm=bold guifg=#F5EA95")

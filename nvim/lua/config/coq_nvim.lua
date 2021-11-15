@@ -2,12 +2,55 @@ local remap = vim.api.nvim_set_keymap
 local npairs = require('nvim-autopairs')
 
 vim.g.coq_settings = {
-  ['auto_start'] = "shut-up",
-  ['clients.tmux.enabled'] = true,
-  ['clients.tree_sitter.enabled'] = true,
-  ['clients.tags.enabled'] = false,
-  ['display.ghost_text.enabled'] = true,
+  auto_start = "shut-up",
+  clients = {
+    tmux = { enabled = true },
+    tree_sitter = { enabled = true },
+    tags = { enabled = false },
+  },
+  keymap =  {
+    pre_select = false,
+    bigger_preview = null,
+    jump_to_mark = "<C-L>",
+  },
+  display = {
+    ghost_text = {
+      enabled = true,
+      highlight_group = 'Comment'
+    },
+    icons = {
+      mappings = {
+        -- vscode-like pictograms
+        Text = "",
+        Method = "",
+        Function = "",
+        Constructor = "",
+        Field = "ﰠ",
+        Variable = "",
+        Class = "ﴯ",
+        Interface = "",
+        Module = "",
+        Property = "ﰠ",
+        Unit = "塞",
+        Value = "",
+        Enum = "",
+        Keyword = "",
+        Snippet = "",
+        Color = "",
+        File = "",
+        Reference = "",
+        Folder = "",
+        EnumMember = "",
+        Constant = "",
+        Struct = "פּ",
+        Event = "",
+        Operator = "",
+        TypeParameter = ""
+      },
+    },
+  },
 }
+
 require("coq_3p") {
   { src = "nvimlua", short_name = "Lua" },
   { src = "vimtex", short_name = "Tex" },
