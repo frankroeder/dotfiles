@@ -24,7 +24,6 @@ brew "gcc"
 
 cask "alfred"
 cask "docker"
-cask "alacritty"
 cask "vlc"
 cask "musescore"
 cask "gpg-suite"

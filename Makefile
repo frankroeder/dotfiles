@@ -2,10 +2,12 @@ SHELL := /bin/bash
 DOTFILES := $(PWD)
 OSTYPE := $(shell uname -s)
 ARCHITECTURE := $(shell uname -m)
+DEVNUL := /dev/null
+WHICH := which
 
 PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(HOME)/bin:/$(HOME)/.local/bin:$(HOME)/.local/nodejs/bin:$(HOME)/miniforge3/bin
 ifeq ($(ARCHITECTURE), arm64)
-PATH = $(PATH):/opt/homebrew/bin:/opt/homebrew/sbin
+PATH := $(PATH):/opt/homebrew/bin:/opt/homebrew/sbin
 endif
 
 ifeq ($(OSTYPE), Darwin)
@@ -17,7 +19,7 @@ endif
 DEFAULT_GOAL := help
 
 .PHONY: macos
-macos: sudo directories _macos homebrew zsh python misc nvim git node
+macos: sudo directories homebrew _macos zsh python misc nvim git node
 	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
 	@zsh -i -c "fast-theme free"
 	@compaudit | xargs chmod g-w
@@ -57,7 +59,9 @@ ifeq ($(ARCHITECTURE), arm64)
 	@echo -e "\033[1m\033[32m==> Installing rosetta for non-native apps \033[0m"
 	@softwareupdate --install-rosetta --agree-to-license
 endif
-	@which brew || $(SHELL) -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+ifeq ($(shell ${WHICH} brew 2>${DEVNUL}),)
+	@$(SHELL) -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+endif
 	@echo -e "\033[1m\033[34m==> Installing brew formulas\033[0m"
 	@brew bundle --file="$(DOTFILES)/Brewfile"
 	@brew cleanup
@@ -76,12 +80,16 @@ endif
 	@conda init "$(shell basename ${SHELL})"
 	@conda install --yes --name base --file $(DOTFILES)/python/requirements.txt
 	@conda install --yes --name base pytorch scipy
-	@which ipython && ipython -c exit && ln -sfv $(DOTFILES)/python/ipython_config.py $(HOME)/.ipython/profile_default/
+ifeq ($(shell ${WHICH} ipython 2>${DEVNUL}),)
+	@ipython -c exit && ln -sfv $(DOTFILES)/python/ipython_config.py $(HOME)/.ipython/profile_default/
+endif
 
 .PHONY: misc
 misc:
 	@echo -e "\033[1m\033[34m==> Installing misc\033[0m"
-	@which fzf || git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf; ~/.fzf/install --bin
+ifeq ($(shell ${WHICH} fzf 2>${DEVNUL}),)
+	git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf; ~/.fzf/install --bin
+endif
 	@ln -sfv $(DOTFILES)/wgetrc $(HOME)/.wgetrc
 	@ln -sfv $(DOTFILES)/curlrc $(HOME)/.curlrc
 	@ln -sfv $(DOTFILES)/tmux/tmux.conf $(HOME)/.tmux.conf
@@ -90,11 +98,6 @@ misc:
 .PHONY: zsh
 zsh:
 	@echo -e "\033[1m\033[34m==> Installing zsh and tools\033[0m"
-ifeq ($(NOSUDO), 1)
-	@which antibody || curl -sfL git.io/antibody | sh -s - -b $(HOME)/bin;
-else
-	@which antibody || curl -sfL git.io/antibody | sh -s - -b /usr/local/bin
-endif
 	@antibody bundle < $(DOTFILES)/antibody/bundles.txt > $(HOME)/.zsh/zsh_plugins.sh
 	@ln -sfv $(DOTFILES)/zsh/zshrc $(HOME)/.zshrc
 	@ln -sfv $(DOTFILES)/zsh/zlogin $(HOME)/.zlogin
@@ -105,7 +108,9 @@ endif
 .PHONY: node
 node:
 	@echo -e "\033[1m\033[34m==> Installing node and npm packages\033[0m"
-	@which node || bash $(DOTFILES)/scripts/nodejs.sh
+ifeq ($(shell ${WHICH} node 2>${DEVNUL}),)
+	bash $(DOTFILES)/scripts/nodejs.sh
+endif
 	@npm i -g npm@latest
 	@npm i -g typescript
 	@npm i -g eslint
@@ -158,10 +163,21 @@ _linux:
 	@mkdir -p $(HOME)/.local/bin
 	@mkdir -p $(HOME)/Uploads
 	if [ -z $(NOSUDO) ]; then bash $(DOTFILES)/linux/apt.sh "default"; fi
-	@which nvim || bash $(DOTFILES)/scripts/nvim.sh;
-	@which tree-sitter || bash $(DOTFILES)/scripts/tree-sitter.sh
 	@ln -sfv $(DOTFILES)/htop/server $(HOME)/.config/htop/htoprc
-	-which nvidia-smi && pip install nvitop
+ifeq ($(shell ${WHICH} nvim 2>${DEVNUL}),)
+	@bash $(DOTFILES)/scripts/nvim.sh;
+endif
+ifeq ($(shell ${WHICH} tree-sitter 2>${DEVNUL}),)
+	@bash $(DOTFILES)/scripts/tree-sitter.sh
+endif
+ifeq ($(NOSUDO), 1)
+	@curl -sfL git.io/antibody | sh -s - -b $(HOME)/bin;
+else
+	@curl -sfL git.io/antibody | sh -s - -b /usr/local/bin
+endif
+ifeq ($(shell ${WHICH} nvidia-smi 2>${DEVNUL}),)
+	@pip install nvitop
+endif
 
 .PHONY: _macos
 _macos:
@@ -169,15 +185,30 @@ _macos:
 	if [ -n "$(xcode-select -p)" ]; then sudo xcode-select --install; sudo xcodebuild -license accept; fi
 	@mkdir -p $(HOME)/screens
 	@bash $(DOTFILES)/macos/main.bash
-	@which airport || sudo ln -s /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/local/bin/airport
-	@which alacritty || sudo ln -s /Applications/Alacritty.app/Contents/MacOS/alacritty /usr/local/bin/alacritty
-	@which firefox || sudo ln -s /Applications/Firefox.app/Contents/MacOS/firefox /usr/local/bin/firefox
+	@mkdir -p $(HOME)/.config/alacritty
 	@ln -sfv $(DOTFILES)/alacritty.yml $(HOME)/.config/alacritty/
+ifeq ($(shell ${WHICH} airport 2>${DEVNUL}),)
+	@sudo ln -s /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/local/bin/airport
+endif
+ifeq ($(shell ${WHICH} alacritty 2>${DEVNUL}),)
+	sudo ln -s /Applications/Alacritty.app/Contents/MacOS/alacritty /usr/local/bin/alacritty
+endif
+ifeq ($(shell ${WHICH} firefox 2>${DEVNUL}),)
+	sudo ln -s /Applications/Firefox.app/Contents/MacOS/firefox /usr/local/bin/firefox
+endif
 	(cd $(DOTFILES)/bin/$(OSTYPE) && /usr/bin/swiftc $(DOTFILES)/scripts/now_playing.swift)
-	@which osx-cpu-temp || bash $(DOTFILES)/scripts/osx_cpu_temp.sh
+# ifeq ($(shell ${WHICH} osx-cpu-temp 2>${DEVNUL}),)
+ifeq ($(ARCHITECTURE), x86_64)
+	@bash $(DOTFILES)/scripts/osx_cpu_temp.sh
+endif
 	@swift package completion-tool generate-zsh-script > $(HOME)/.zsh/completion/_swift
-	@which sourcekit-lsp || bash $(DOTFILES)/scripts/sourcekit-lsp.sh
+ifeq ($(shell ${WHICH} sourcekit-lsp 2>${DEVNUL}),)
+	@bash $(DOTFILES)/scripts/sourcekit-lsp.sh
+endif
 	@ln -sfv $(DOTFILES)/htop/personal $(HOME)/.config/htop/htoprc
+ifeq ($(ARCHITECTURE), arm64)
+	@brew install antibody
+endif
 
 .PHONY: check
 check:

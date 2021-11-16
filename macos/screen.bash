@@ -85,4 +85,4 @@ defaults write com.apple.systemuiserver menuExtras -array \
 defaults write com.apple.Siri StatusMenuVisible -bool false
 
 # Hide menubar
-defaults write NSGlobalDomain _HIHideMenuBar -bool true
+defaults write NSGlobalDomain _HIHideMenuBar -bool false

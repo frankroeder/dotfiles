@@ -15,6 +15,13 @@ path=(
   $path
 )
 
+[[ $ARCHITECTURE == 'arm64' ]] && {
+  path=(
+    # homebrew arm-based binaries
+    /opt/homebrew/{bin,sbin}
+    $path
+  )
+}
 if (( ${+commands[nvim]} )); then
   export EDITOR=$(which nvim)
 elif (( ${+commands[vim]} )); then
@@ -44,3 +51,7 @@ export LANG=en_US.UTF-8
 export LC_ALL=$LANG
 
 export GPG_TTY=$(tty)
+
+if [ -d "$HOME/.cargo" ]; then
+  source "$HOME/.cargo/env";
+fi

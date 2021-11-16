@@ -13,7 +13,7 @@ conact() {
 }
 concreate() {
   local ENV_NAME=$(basename $PWD);
-  conda create --name $ENV_NAME python=3.7 neovim ipdb unidecode --yes;
+  conda create --name $ENV_NAME python=3 neovim ipdb unidecode --yes;
   conda activate $ENV_NAME;
 }
 conreq() {

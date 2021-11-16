@@ -19,11 +19,3 @@ fpath=($HOMEBREW_PREFIX/share/zsh/site-functions $fpath)
   complete -o nospace -C \
     "$HOMEBREW_PREFIX/Cellar/terraform/$TF_VERSION/bin/terraform" terraform
 }
-
-[[ $ARCHITECTURE == 'arm64' ]] && {
-  path=(
-    # homebrew arm-based binaries
-    /opt/homebrew/{bin,sbin}
-    $path
-  )
-}

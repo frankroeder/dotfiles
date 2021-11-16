@@ -26,12 +26,5 @@ fi
 
 BAR+="$($TMUX_BIN/cpu_temp)"
 BAR+="$($TMUX_BIN/internet_info)"
-BAR+="$($TMUX_BIN/battery)"
-
-if [[ $WIDTH -gt $SMALL ]]; then
-  BAR+=" $(date '+%a %d %b %H:%M')"
-else
-  BAR+=" $(date '+%H:%M')"
-fi
 
 printf '%s' "$BAR"

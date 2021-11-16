@@ -31,6 +31,8 @@ window:
   # Allow terminal applications to change Alacritty's window title.
   dynamic_title: true
 
+  # Background opacity
+  background_opacity: 0.96
 
 scrolling:
   # Maximum number of lines in the scrollback buffer.
@@ -113,9 +115,6 @@ colors:
   indexed_colors:
     - { index: 16, color: '#ffe37e' }
     - { index: 17, color: '#e06c75' }
-
-# Background opacity
-background_opacity: 0.96
 
 # Mouse bindings
 #
