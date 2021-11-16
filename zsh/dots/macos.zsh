@@ -43,3 +43,4 @@ alias localip="ipconfig getifaddr en0"
 alias showdns='networksetup -getdnsservers Wi-Fi'
 alias trimcopy="tr -d '\n' | pbcopy"
 alias afplay='afplay -q 1'
+alias speedtest='networkQuality'

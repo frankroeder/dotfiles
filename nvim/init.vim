@@ -6,7 +6,7 @@ let g:plug_dir = expand("$HOME/.local/share/nvim/plugged")
 call plug#begin(g:plug_dir)
 
 " core
-Plug 'scrooloose/nerdcommenter'
+Plug 'preservim/nerdcommenter'
 Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --bin' }
 Plug 'junegunn/fzf.vim'
 Plug 'tpope/vim-fugitive'
@@ -18,15 +18,16 @@ if executable("tree-sitter") && executable("node")
   Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
   Plug 'p00f/nvim-ts-rainbow'
 endif
-Plug 'nvim-lua/plenary.nvim'
 
+" completion utils
 Plug 'ms-jpq/coq_nvim', {'branch': 'coq'}
 Plug 'ms-jpq/coq.artifacts', {'branch': 'artifacts'}
 Plug 'ms-jpq/coq.thirdparty', {'branch': '3p'}
-" completion utils
 Plug 'windwp/nvim-autopairs'
 Plug 'ray-x/lsp_signature.nvim'
+
 " utils
+Plug 'nvim-lua/plenary.nvim'
 Plug 'jose-elias-alvarez/null-ls.nvim'
 Plug 'kyazdani42/nvim-tree.lua'
 Plug 'liuchengxu/vista.vim'
@@ -44,9 +45,11 @@ Plug 'cespare/vim-toml'
 " style
 Plug 'nvim-lualine/lualine.nvim'
 Plug 'romgrk/barbar.nvim'
+Plug 'kyazdani42/nvim-web-devicons'
+
+" colorschemes
 Plug 'joshdick/onedark.vim'
 Plug 'catppuccin/nvim' , { 'branch': 'dev' }
-Plug 'kyazdani42/nvim-web-devicons'
 
 call plug#end()
 

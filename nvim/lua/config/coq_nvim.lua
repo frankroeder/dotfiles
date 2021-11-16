@@ -54,7 +54,6 @@ vim.g.coq_settings = {
 require("coq_3p") {
   { src = "nvimlua", short_name = "Lua" },
   { src = "vimtex", short_name = "Tex" },
-  -- { src = "copilot", short_name = "COP", tmp_accept_key = "<c-r>" },
 }
 
 npairs.setup({
