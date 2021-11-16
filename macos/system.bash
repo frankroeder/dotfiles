@@ -48,7 +48,7 @@ defaults write NSGlobalDomain com.apple.sound.beep.flash -bool false
 defaults write NSGlobalDomain com.apple.sound.beep.feedback -bool false
 
 # Disable interface sound effects
-defaults write NSGlobalDomain com.apple.sound..uiaudio.enabled -bool false
+defaults write NSGlobalDomain com.apple.sound.uiaudio.enabled -bool false
 
 # Display login window as: Name and password
 sudo defaults write /Library/Preferences/com.apple.loginwindow "SHOWFULLNAME" -bool false

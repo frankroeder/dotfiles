@@ -86,3 +86,9 @@ defaults write com.apple.Siri StatusMenuVisible -bool false
 
 # Hide menubar
 defaults write NSGlobalDomain _HIHideMenuBar -bool false
+
+# Show volume in the menu bar
+defaults write com.apple.systemuiserver "NSStatusItem Visible com.apple.menuextra.volume" -int 0
+
+# Show Bluetooth in the menu bar
+defaults write com.apple.systemuiserver "NSStatusItem Visible com.apple.menuextra.bluetooth" -int 0

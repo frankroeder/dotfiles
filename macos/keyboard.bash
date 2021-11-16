@@ -50,8 +50,12 @@ defaults write -g com.apple.swipescrolldirection -bool true
 # 2: Firm
 defaults write com.apple.AppleMultitouchTrackpad FirstClickThreshold -int 1
 defaults write com.apple.AppleMultitouchTrackpad SecondClickThreshold -int 1
+
 # Set Trackpad speed
 defaults write -g com.apple.mouse.scaling 3.0
+
+# Disable shake to locate mouse pointer
+defaults write ~/Library/Preferences/.GlobalPreferences CGDisableCursorLocationMagnification -bool true
 
 # Silent clicking
 defaults write com.apple.AppleMultitouchTrackpad ActuationStrength -int 0

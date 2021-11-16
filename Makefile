@@ -19,17 +19,17 @@ endif
 DEFAULT_GOAL := help
 
 .PHONY: macos
-macos: sudo directories homebrew _macos zsh python misc nvim git node
+macos: sudo directories homebrew _macos zsh python misc nvim _git node
 	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
 	@zsh -i -c "fast-theme free"
 	@compaudit | xargs chmod g-w
 
 .PHONY: linux
-linux: sudo directories _linux git zsh python misc node nvim
+linux: sudo directories _linux _git zsh python misc node nvim
 	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
 
 .PHONY: minimal
-minimal: directories _linux git zsh python misc node nvim
+minimal: directories _linux _git zsh python misc node nvim
 	@sed -i '/tmux-mem-cpu/d' $(HOME)/.zsh/zsh_plugins.sh
 
 .PHONY: help
@@ -57,7 +57,7 @@ homebrew:
 	@echo -e "\033[1m\033[34m==> Installing brew if not already present\033[0m"
 ifeq ($(ARCHITECTURE), arm64)
 	@echo -e "\033[1m\033[32m==> Installing rosetta for non-native apps \033[0m"
-	@softwareupdate --install-rosetta --agree-to-license
+	@if [ ! -d "/usr/libexec/rosetta" ]; then softwareupdate --install-rosetta --agree-to-license; fi
 endif
 ifeq ($(shell ${WHICH} brew 2>${DEVNUL}),)
 	@$(SHELL) -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -130,7 +130,7 @@ nvim:
 	@curl -fLo $(HOME)/.local/share/nvim/site/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
 	@nvim -i NONE -u $(DOTFILES)/nvim/init.vim -c "PlugInstall" -c "quitall"
 
-git:
+_git:
 	@echo -e "\033[1m\033[34m==> Installing stuff for git\033[0m"
 	@curl https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash -o $(HOME)/.git-completion.bash
 	@ln -sfv $(DOTFILES)/git/gitconfig $(HOME)/.gitconfig
@@ -141,6 +141,7 @@ after:
 	@echo -e "\033[1m\033[34m==> \033[0m"
 	@bash $(DOTFILES)/git/setup.sh
 	@if [ "$(OSTYPE)" == "Linux" ]; then bash $(DOTFILES)/linux/apt.sh "desktop"; fi
+	@nvim -i NONE -u $(DOTFILES)/nvim/init.vim -c "COQdeps" -c "TSUpdate" -c "quitall"
 
 directories:
 	@echo -e "\033[1m\033[34m==> Creating directories\033[0m"
