@@ -50,7 +50,7 @@ help:
 sudo:
 	@echo -e "\033[1m\033[34m==> Installation with sudo required\033[0m"
 	sudo -v
-	@while true; do sudo -n true; sleep 300; kill -0 "$$" || exit; done 2>/dev/null &
+	@while true; do sudo -n true; sleep 1200; kill -0 "$$" || exit; done 2>/dev/null &
 
 .PHONY: homebrew
 homebrew:
@@ -78,8 +78,11 @@ ifeq "$(wildcard $(CONDA_HOME))" ""
 	@rm "$(CONDA_RELEASE).sh"
 endif
 	@conda init "$(shell basename ${SHELL})"
+ifeq ($(OSTYPE), Darwin)
+	@conda env update --file $(DOTFILES)/python/environment.yaml
+else
 	@conda install --yes --name base --file $(DOTFILES)/python/requirements.txt
-	@conda install --yes --name base pytorch scipy
+endif
 ifeq ($(shell ${WHICH} ipython 2>${DEVNUL}),)
 	@ipython -c exit && ln -sfv $(DOTFILES)/python/ipython_config.py $(HOME)/.ipython/profile_default/
 endif
@@ -141,10 +144,11 @@ after:
 	@echo -e "\033[1m\033[34m==> \033[0m"
 	@bash $(DOTFILES)/git/setup.sh
 	@if [ "$(OSTYPE)" == "Linux" ]; then bash $(DOTFILES)/linux/apt.sh "desktop"; fi
-	@nvim -i NONE -u $(DOTFILES)/nvim/init.vim -c "COQdeps" -c "TSUpdate" -c "quitall"
+	@nvim -i NONE -u $(DOTFILES)/nvim/init.vim -c "TSUpdate" -c "COQdeps" -c "quitall"
 
 directories:
 	@echo -e "\033[1m\033[34m==> Creating directories\033[0m"
+	mkdir -p $(HOME)/config
 	mkdir -p $(HOME)/.zsh
 	mkdir -p $(HOME)/.config/htop
 	mkdir -p $(HOME)/tmp

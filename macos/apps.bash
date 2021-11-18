@@ -37,3 +37,12 @@ defaults write com.apple.Preview PVSidebarViewModeForNewDocuments -boolean false
 defaults write com.knollsoft.Rectangle SUEnableAutomaticChecks -bool true
 defaults write com.knollsoft.Rectangle launchOnLogin -bool true
 defaults write com.knollsoft.Rectangle alternateDefaultShortcuts -bool true
+defaults write com.knollsoft.Rectangle gapSize -int 10
+# subsequentExecutionMode accepts the following values:
+# 0: halves to thirds Spectacle behavior (box unchecked)
+# 1: cycle displays (box checked) for left/right actions
+# 2: disabled
+# 3: cycle displays for left/right actions, halves to thirds for the rest (old Rectangle behavior)
+# 4: repeat same action on next display
+defaults write com.knollsoft.Rectangle subsequentExecutionMode -int 1
+defaults write com.knollsoft.Rectangle moveCursorAcrossDisplays  -bool true
