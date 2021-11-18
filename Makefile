@@ -78,11 +78,7 @@ ifeq "$(wildcard $(CONDA_HOME))" ""
 	@rm "$(CONDA_RELEASE).sh"
 endif
 	@conda init "$(shell basename ${SHELL})"
-ifeq ($(OSTYPE), Darwin)
 	@conda env update --file $(DOTFILES)/python/environment.yaml
-else
-	@conda install --yes --name base --file $(DOTFILES)/python/requirements.txt
-endif
 ifeq ($(shell ${WHICH} ipython 2>${DEVNUL}),)
 	@ipython -c exit && ln -sfv $(DOTFILES)/python/ipython_config.py $(HOME)/.ipython/profile_default/
 endif
