@@ -43,16 +43,6 @@ local custom_on_attach = function(client, bufnr)
   buf_keymap(bufnr, "n", "gp", [[<cmd>lua vim.lsp.diagnostic.goto_prev()<CR>]])
   buf_keymap(bufnr, "n", "<Space>ld", [[<cmd>lua vim.lsp.diagnostic.show_line_diagnostics()<CR>]])
   buf_keymap(bufnr, "n", "<Space>ll", [[<cmd>lua vim.lsp.diagnostic.set_loclist()<CR>]])
-
-  require "lsp_signature".on_attach({
-    bind = true,
-    hint_enable = false,
-    handler_opts = {
-      border = "single"   -- double, single, shadow, none
-    },
-    always_trigger = false,
-    toggle_key = "<C-x>"
-  }, bufnr)
 end
 
 local capabilities = vim.lsp.protocol.make_client_capabilities()
@@ -61,7 +51,6 @@ capabilities.textDocument.completion.completionItem.snippetSupport = true
 capabilities.textDocument.completion.completionItem.preselectSupport = true
 capabilities.textDocument.completion.completionItem.insertReplaceSupport = true
 capabilities.textDocument.completion.completionItem.labelDetailsSupport = true
-capabilities.textDocument.completion.completionItem.deprecatedSupport = true
 capabilities.textDocument.completion.completionItem.commitCharactersSupport = true
 capabilities.textDocument.completion.completionItem.tagSupport = {valueSet = {1}}
 capabilities.textDocument.completion.completionItem.resolveSupport = {

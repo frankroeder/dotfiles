@@ -24,7 +24,6 @@ Plug 'ms-jpq/coq_nvim', {'branch': 'coq'}
 Plug 'ms-jpq/coq.artifacts', {'branch': 'artifacts'}
 Plug 'ms-jpq/coq.thirdparty', {'branch': '3p'}
 Plug 'windwp/nvim-autopairs'
-Plug 'ray-x/lsp_signature.nvim'
 
 " utils
 Plug 'nvim-lua/plenary.nvim'
