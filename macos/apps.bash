@@ -46,4 +46,11 @@ defaults write com.knollsoft.Rectangle gapSize -int 10
 # 3: cycle displays for left/right actions, halves to thirds for the rest (old Rectangle behavior)
 # 4: repeat same action on next display
 defaults write com.knollsoft.Rectangle subsequentExecutionMode -int 1
-defaults write com.knollsoft.Rectangle moveCursorAcrossDisplays  -bool true
+defaults write com.knollsoft.Rectangle moveCursorAcrossDisplays -bool true
+
+# Apple Music
+defaults write com.apple.Music showStatusBar -bool true
+defaults write com.apple.Music losslessEnabled -bool true
+defaults write com.apple.Music encoderName -string "AIFF Encoder"
+defaults write com.apple.Music preferredStreamPlaybackAudioQuality -int 15
+defaults write com.apple.Music preferredDownloadAudioQuality -int 15

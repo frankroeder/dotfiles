@@ -1,0 +1,23 @@
+#!/usr/bin/env zsh
+
+# fkill - kill processes - list only the ones you can kill. Modified the earlier script.
+fkill() {
+    local pid
+    local fzf_selection=""
+    local fzf_kill_opts="-m --reverse --no-mouse --preview 'echo {}' --preview-window down:5:wrap"
+    if [ "$UID" != "0" ]; then
+        fzf_selection=$(ps -f -u $UID | sed 1d | FZF_DEFAULT_OPTS=$fzf_kill_opts $HOME/.fzf/bin/fzf )
+        pid=$(echo $fzf_selection | awk '{print $2}')
+    else
+        fzf_selection=$(echo $all_p | sed 1d | FZF_DEFAULT_OPTS=$fzf_kill_opts $HOME/.fzf/bin/fzf)
+        pid=$(echo $fzf_selection | awk '{print $2}')
+    fi
+
+    if [ "x$pid" != "x" ]
+    then
+        echo $pid | xargs kill -9
+        echo
+        printf "\nKilled\n $fzf_selection" | more;
+    fi
+}
+fkill;

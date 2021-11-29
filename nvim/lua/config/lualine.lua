@@ -30,5 +30,5 @@ require('lualine').setup {
     theme = custom_color,
     disabled_filetypes = {'help'}
   },
-  extensions = {'nvim-tree', 'fugitive', 'fzf'},
+  extensions = {'nvim-tree', 'fzf'},
 }

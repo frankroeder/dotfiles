@@ -26,7 +26,6 @@ let g:vimtex_compiler_latexmk = {
     \ 'executable' : 'latexmk',
     \ 'hooks' : [function('Callback')],
     \ 'options' : [
-    \   '-lualatex',
     \   '-verbose',
     \   '-file-line-error',
     \   '-synctex=1',

@@ -11,15 +11,12 @@
   showUntrackedFiles = all
 
 [merge]
-  tool = fugitive
-  conflictstyle = merge
+	tool = nvimdiff
 
-[mergetool "fugitive"]
-  # http://vimcasts.org/episodes/fugitive-vim-resolving-merge-conflicts-with-vimdiff/
-  cmd = $EDITOR -f -c \"Gvdiff!\" \"$MERGED\"
-
-[mergetool]
-  keepBackup = false
+[mergetool "nvimdiff"]
+	cmd = nvim -d \"$BASE\" \"$LOCAL\" \"$REMOTE\" \"$MERGED\" -c '$wincmd w' -c 'wincmd J'
+	keepBackup = false
+	prompt = false
 
 [diff]
   tool = vimdiff

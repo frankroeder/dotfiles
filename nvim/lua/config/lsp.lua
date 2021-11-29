@@ -170,7 +170,7 @@ lspconfig.gopls.setup{
 }
 lspconfig.sourcekit.setup{
   coq.lsp_ensure_capabilities({
-    cmd = { "xcrun", vim.fn.exepath('sourcekit-lsp') };
+    cmd = { vim.fn.exepath('sourcekit-lsp') };
     default_config = {
       filetypes = { "swift", "c", "cpp", "objective-c", "objective-cpp" };
       root_dir = function(fname)
