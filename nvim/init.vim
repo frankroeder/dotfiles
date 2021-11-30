@@ -23,6 +23,7 @@ Plug 'ms-jpq/coq_nvim', {'branch': 'coq'}
 Plug 'ms-jpq/coq.artifacts', {'branch': 'artifacts'}
 Plug 'ms-jpq/coq.thirdparty', {'branch': '3p'}
 Plug 'windwp/nvim-autopairs'
+Plug 'github/copilot.vim'
 
 " utils
 Plug 'nvim-lua/plenary.nvim'
@@ -76,7 +77,6 @@ set updatetime=300          " faster updatetime for responsive async plugins lik
 set shortmess+=c
 set signcolumn=yes          " always draw sign column
 set cmdheight=2
-set hidden
 set modeline
 
 if has("clipboard")

@@ -18,13 +18,6 @@ swift_root = {'Package.swift'}
 -- buffer setup
 local custom_on_attach = function(client, bufnr)
   buf_opt(bufnr, 'omnifunc', 'v:lua.vim.lsp.omnifunc')
-  vim.cmd("highlight! LspDiagnosticsDefaultError cterm=bold guifg=#E06C75")
-  vim.cmd("highlight! LspDiagnosticsDefaultWarning cterm=bold guifg=#F5EA95")
-  sign_def("LspDiagnosticsSignError", { text = "●"})
-  sign_def("LspDiagnosticsSignWarning", { text = "●"})
-  sign_def("LspDiagnosticsSignInformation", { text = "●"})
-  sign_def("LspDiagnosticsSignHint", { text = "●"})
-
   buf_keymap(bufnr, "n", "K", [[<cmd>lua vim.lsp.buf.hover()<CR>]])
   buf_keymap(bufnr, "n", "gD", [[<cmd>lua vim.lsp.buf.declaration()<CR>]])
   buf_keymap(bufnr, "n", "gd", [[<cmd>lua vim.lsp.buf.definition()<CR>]])
@@ -39,27 +32,11 @@ local custom_on_attach = function(client, bufnr)
   -- buf_keymap(bufnr, "n", "<Leader>ws", [[<cmd>lua vim.lsp.buf.workspace_symbol()<CR>]])
 
   -- diagnostic
-  buf_keymap(bufnr, "n", "gn", [[<cmd>lua vim.lsp.diagnostic.goto_next()<CR>]])
-  buf_keymap(bufnr, "n", "gp", [[<cmd>lua vim.lsp.diagnostic.goto_prev()<CR>]])
-  buf_keymap(bufnr, "n", "<Space>ld", [[<cmd>lua vim.lsp.diagnostic.show_line_diagnostics()<CR>]])
-  buf_keymap(bufnr, "n", "<Space>ll", [[<cmd>lua vim.lsp.diagnostic.set_loclist()<CR>]])
+  buf_keymap(bufnr, "n", "gn", [[<cmd>lua vim.diagnostic.goto_next { float = true }<CR>]])
+  buf_keymap(bufnr, "n", "gp", [[<cmd>lua vim.diagnostic.goto_prev { float = true }<CR>]])
+  buf_keymap(bufnr, "n", "<Space>ld", [[<cmd>lua vim.diagnostic.open_float(0, {scope="line"})<CR>]])
+  buf_keymap(bufnr, "n", "<Space>ll", [[<cmd>lua vim.diagnostic.setloclist()<CR>]])
 end
-
-local capabilities = vim.lsp.protocol.make_client_capabilities()
-capabilities.textDocument.completion.completionItem.documentationFormat = {"markdown", "plaintext"}
-capabilities.textDocument.completion.completionItem.snippetSupport = true
-capabilities.textDocument.completion.completionItem.preselectSupport = true
-capabilities.textDocument.completion.completionItem.insertReplaceSupport = true
-capabilities.textDocument.completion.completionItem.labelDetailsSupport = true
-capabilities.textDocument.completion.completionItem.commitCharactersSupport = true
-capabilities.textDocument.completion.completionItem.tagSupport = {valueSet = {1}}
-capabilities.textDocument.completion.completionItem.resolveSupport = {
-  properties = {
-    'documentation',
-    'detail',
-    'additionalTextEdits',
-  }
-}
 
 -- override default config for all servers
 lspconfig.util.default_config = vim.tbl_extend(
@@ -72,25 +49,22 @@ lspconfig.util.default_config = vim.tbl_extend(
       debounce_text_changes = 150,
     };
     on_attach = custom_on_attach;
-    capabilities = capabilities;
   }
 )
-vim.lsp.handlers["textDocument/publishDiagnostics"] = vim.lsp.with(
-  vim.lsp.diagnostic.on_publish_diagnostics, {
-    underline = false,
-    virtual_text = false,
-    signs = function(bufnr, client_id)
-      local ok, result = pcall(vim.api.nvim_buf_get_var, bufnr, 'show_signs')
-      -- No buffer local variable set, so just enable by default
-      if not ok then
-        return true
-      end
+vim.diagnostic.config({
+  virtual_text = false,
+  signs = true,
+  underline = false,
+  update_in_insert = false,
+  severity_sort = false,
+})
 
-      return result
-    end,
-    update_in_insert = true,
-  }
-)
+local signs = { Error = " ", Warn = " ", Hint = " ", Info = " " }
+for type, icon in pairs(signs) do
+  local hl = "DiagnosticSign" .. type
+  vim.fn.sign_define(hl, { text = icon, texthl = hl, numhl = hl })
+end
+
 lspconfig.pyright.setup{
   coq.lsp_ensure_capabilities({
     default_config = {

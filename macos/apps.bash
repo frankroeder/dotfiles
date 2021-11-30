@@ -54,3 +54,7 @@ defaults write com.apple.Music losslessEnabled -bool true
 defaults write com.apple.Music encoderName -string "AIFF Encoder"
 defaults write com.apple.Music preferredStreamPlaybackAudioQuality -int 15
 defaults write com.apple.Music preferredDownloadAudioQuality -int 15
+
+# zoom.us
+defaults write ZoomChat ZoomEnterMaxWndWhenViewShare -bool false
+defaults write ZoomChat ZMEnableShowUserName -bool true

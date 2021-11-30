@@ -2,13 +2,6 @@
 " General Mappings                                                             "
 " ---------------------------------------------------------------------------- "
 
-" Align Y with C and D
-nnoremap Y y$
-
-" :move visual selection around
-vnoremap J :m '>+1<CR>gv=gv
-vnoremap K :m '<-2<CR>gv=gv
-
 " Center search result (zz) and open fold (zv)
 nnoremap n nzzzv
 nnoremap N Nzzzv
