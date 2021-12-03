@@ -1,5 +1,5 @@
-# Set standby delay to 24 hours (default is 1 hour)
-sudo pmset -a standbydelay 86400
+# Set standby delay to 1 hour
+sudo pmset -a standbydelay 3600
 
 # Restart automatically if the computer freezes
 sudo systemsetup -setrestartfreeze on
@@ -33,3 +33,6 @@ sudo pmset -c sleep 0
 
 # Automatically reduce brightness before display goes to sleep
 sudo pmset -c halfdim 1
+
+# Never dim display when changing to battery
+sudo pmset -b lessbright 0

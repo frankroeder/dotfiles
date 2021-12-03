@@ -7,7 +7,10 @@ WHICH := which
 
 PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(HOME)/bin:/$(HOME)/.local/bin:$(HOME)/.local/nodejs/bin:$(HOME)/miniforge3/bin
 ifeq ($(ARCHITECTURE), arm64)
+DOCKER_BUILD_CMD := build --platform linux/amd64 --progress plain --rm
 PATH := $(PATH):/opt/homebrew/bin:/opt/homebrew/sbin
+else
+DOCKER_BUILD_CMD := build --progress plain --rm
 endif
 
 ifeq ($(OSTYPE), Darwin)
@@ -166,7 +169,7 @@ _linux:
 	if [ -z $(NOSUDO) ]; then bash $(DOTFILES)/linux/apt.sh "default"; fi
 	@ln -sfv $(DOTFILES)/htop/server $(HOME)/.config/htop/htoprc
 ifeq ($(shell ${WHICH} nvim 2>${DEVNUL}),)
-	@bash $(DOTFILES)/scripts/nvim.sh;
+	if [ -z $(NOSUDO) ]; then bash $(DOTFILES)/scripts/nvim.sh "src"; else bash $(DOTFILES)/scripts/nvim.sh "binary"; fi
 endif
 ifeq ($(shell ${WHICH} tree-sitter 2>${DEVNUL}),)
 	@bash $(DOTFILES)/scripts/tree-sitter.sh
@@ -241,11 +244,11 @@ uninstall:
 test:
 	@echo "Testing linux installation on ${OSTYPE}"
 ifeq ($(NOSUDO), 1)
-		@docker build --progress plain --rm -t dotfiles ${PWD} -f $(DOTFILES)/docker/Dockerfile;
+		@docker $(DOCKER_BUILD_CMD) -t dotfiles ${PWD} -f $(DOTFILES)/docker/Dockerfile;
 		@docker run -it --rm --name maketest -d dotfiles:latest;
 		@docker exec -it maketest /bin/bash -c "make NOSUDO=$(NOSUDO) minimal";
 else
-		@docker build --progress plain --rm -t dotfiles_sudo ${PWD} -f $(DOTFILES)/docker/Dockerfile_sudoer;
+		@docker $(DOCKER_BUILD_CMD) -t dotfiles_sudo ${PWD} -f $(DOTFILES)/docker/Dockerfile_sudoer;
 		@docker run -it --rm --name maketest_sudo -d dotfiles_sudo:latest;
 		@docker exec -it maketest_sudo /bin/bash -c "make linux";
 endif
