@@ -47,7 +47,7 @@ conda_update() {
 
 antibody_update() {
   antibody update;
-  antibody bundle < "$DOTFILES/antibody/bundles.txt" > ~/.zsh/zsh_plugins.sh;
+  antibody bundle < "$DOTFILES/antibody/bundles.txt" > "$HOME/.zsh/zsh_plugins.sh";
 }
 
 npm_update() {

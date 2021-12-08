@@ -143,7 +143,7 @@ after:
 	@echo -e "\033[1m\033[34m==> \033[0m"
 	@bash $(DOTFILES)/git/setup.sh
 	@if [ "$(OSTYPE)" == "Linux" ]; then bash $(DOTFILES)/linux/apt.sh "desktop"; fi
-	@nvim -i NONE -u $(DOTFILES)/nvim/init.vim -c "TSUpdate" -c "COQdeps" -c "quitall"
+	@nvim -i NONE -u $(DOTFILES)/nvim/init.vim -c "TSUpdate" -c "quitall"
 
 directories:
 	@echo -e "\033[1m\033[34m==> Creating directories\033[0m"

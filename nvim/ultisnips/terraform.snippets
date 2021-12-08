@@ -1,0 +1,37 @@
+priority -50
+
+snippet var "Variable"
+variable "${1}" {
+	${0}
+}
+endsnippet
+
+snippet vard "Variable with Default"
+variable "${1}" {
+	default = "${2}"
+}
+endsnippet
+
+snippet res "Resource"
+resource "${1}" "${2}" {
+	${0}
+}
+endsnippet
+
+snippet pro "Provider"
+provider "${1}" {
+	${2}
+}
+endsnippet
+
+snippet da "Data source"
+data "${1}" "${2}" {
+	${0}
+}
+endsnippet
+
+snippet mo "Module"
+module "${1}" {
+	${0}
+}
+endsnippet

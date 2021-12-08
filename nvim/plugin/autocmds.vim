@@ -23,4 +23,5 @@ augroup CustomAutoCmds
           \ silent! lua return (not vim.v.event.visual)
           \   and vim.highlight.on_yank {higroup='IncSearch', timeout=300}
   endif
+  autocmd BufWritePost *.snippets :CmpUltisnipsReloadSnippets
 augroup END

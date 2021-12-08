@@ -19,11 +19,20 @@ if executable("tree-sitter") && executable("node")
 endif
 
 " completion utils
-Plug 'ms-jpq/coq_nvim', {'branch': 'coq'}
-Plug 'ms-jpq/coq.artifacts', {'branch': 'artifacts'}
-Plug 'ms-jpq/coq.thirdparty', {'branch': '3p'}
-Plug 'windwp/nvim-autopairs'
+Plug 'hrsh7th/nvim-cmp'
+Plug 'hrsh7th/cmp-nvim-lsp'
+Plug 'hrsh7th/cmp-buffer'
+Plug 'hrsh7th/cmp-path'
+Plug 'hrsh7th/cmp-nvim-lua'
+Plug 'hrsh7th/cmp-omni'
+Plug 'ray-x/cmp-treesitter'
+Plug 'hrsh7th/cmp-copilot'
 Plug 'github/copilot.vim'
+Plug 'windwp/nvim-autopairs'
+
+" snippet support
+Plug 'quangnguyen30192/cmp-nvim-ultisnips'
+Plug 'SirVer/ultisnips'
 
 " utils
 Plug 'nvim-lua/plenary.nvim'
@@ -48,7 +57,7 @@ Plug 'kyazdani42/nvim-web-devicons'
 
 " colorschemes
 Plug 'joshdick/onedark.vim'
-Plug 'catppuccin/nvim' , { 'branch': 'dev' }
+Plug 'catppuccin/nvim' , { 'branch': 'old-catppuccino' }
 
 call plug#end()
 

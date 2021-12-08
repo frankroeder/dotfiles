@@ -21,9 +21,7 @@ install_default() {
     man
     python3-dev
     python3-pip
-    python3-venv
     silversearcher-ag
-    sqlite
     sudo
     tmux
     tree
