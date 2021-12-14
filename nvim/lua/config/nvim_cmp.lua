@@ -10,6 +10,7 @@ vim.o.completeopt = 'menu,menuone,noselect'
 vim.g.copilot_no_tab_map = true
 vim.g.copilot_assume_mapped = true
 
+vim.g.copilot_tab_fallback = ""
 vim.g.copilot_filetypes = {
 	["*"] = false,
 	python = true,
@@ -58,7 +59,7 @@ cmp.setup {
     { name = 'ultisnips', max_item_count = 5 },
     { name = 'buffer', max_item_count = 5, keyword_length = 3 },
     { name = 'treesitter', max_item_count = 5, keyword_length = 3 },
-    { name = "copilot" },
+    { name = 'copilot' },
   },
   formatting = {
     format = function(entry, vim_item)
@@ -97,7 +98,16 @@ cmp.setup {
     end, { "i", "s", }),
     ["<S-Tab>"] = cmp.mapping(function(fallback)
       cmp_ultisnips_mappings.jump_backwards(fallback)
-    end, { "i", "s", })
+    end, { "i", "s", }),
+    ['<C-Y>'] = function(fallback)
+        cmp.mapping.abort()
+        local copilot_keys = vim.fn["copilot#Accept"]()
+        if copilot_keys ~= "" then
+            vim.api.nvim_feedkeys(copilot_keys, "i", true)
+        else
+            fallback()
+        end
+    end
   }
 }
 -- fix jumping through snippet stops

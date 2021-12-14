@@ -28,3 +28,13 @@ rmcenv() {
 cpip() {
   command $CONDA_PREFIX/bin/pip "$@";
 }
+contfm1() {
+  if [[ $OSTYPE == "Darwin" && $ARCHITECURE == "arm64" ]]; then
+    # https://developer.apple.com/metal/tensorflow-plugin/
+    conda install -c apple tensorflow-deps;
+    python3 -m pip install tensorflow-macos;
+    python3 -m pip install tensorflow-metal;
+  else
+    echo "Failed";
+  fi
+}

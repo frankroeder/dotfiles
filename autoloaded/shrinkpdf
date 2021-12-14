@@ -24,7 +24,7 @@ else
   local FNAME=$(basename "$1")
   local OUTPUT_FILE="${FNAME%.*}-small.${FNAME#*.}"
 
-  /usr/local/bin/gs \
+  ${HOMEBREW_PREFIX}/bin/gs \
     -sDEVICE=pdfwrite \
     -dCompatibilityLevel=1.4 \
     -dPDFSETTINGS=/"$QUALITY" \
