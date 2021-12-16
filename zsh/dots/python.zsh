@@ -38,3 +38,10 @@ contfm1() {
     echo "Failed";
   fi
 }
+conspace(){
+  print "The memory consumption per environment:"
+  du -hcs $(conda info --base)/envs/* | sort -hr;
+}
+conup() {
+  conda update --all;
+}
