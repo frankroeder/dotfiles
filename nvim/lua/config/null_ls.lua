@@ -1,4 +1,3 @@
-local lsc = require('lspconfig')
 local nls = require('null-ls')
 
 local fmt = nls.builtins.formatting
@@ -6,7 +5,7 @@ local diagnostics = nls.builtins.diagnostics
 local code_actions = nls.builtins.code_actions
 
 -- Configuring null-ls
-nls.config({
+nls.setup({
   save_after_format = false,
   sources = {
     fmt.yapf.with({
@@ -26,5 +25,3 @@ nls.config({
     code_actions.gitsigns,
   },
 })
-
-require("lspconfig")["null-ls"].setup {}

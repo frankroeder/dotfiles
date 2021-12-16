@@ -2,7 +2,8 @@ augroup CustomAutoCmds
   autocmd!
 
   " trim whitespaces
-  autocmd BufWritePre * :call StripTrailingWhitespaces()
+  let blacklist_striptrail = ['markdown']
+  autocmd BufWritePre * if index(blacklist_striptrail, &ft) < 0 | :call StripTrailingWhitespaces()
 
   " toggle line numbers
   autocmd FocusGained,InsertLeave * set relativenumber

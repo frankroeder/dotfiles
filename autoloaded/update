@@ -31,12 +31,12 @@ exec_routine() {
 }
 
 brew_update() {
-  brew update --verbose;
-  brew upgrade --display-times --verbose;
+  brew update;
+  brew upgrade --display-times;
   brew outdated --cask;
-  brew upgrade --cask --verbose;
-  brew autoremove --verbose;
-  brew cleanup -s --verbose --prune 7;
+  brew upgrade --cask;
+  brew autoremove;
+  brew cleanup -s --prune 7;
 }
 
 conda_update() {
