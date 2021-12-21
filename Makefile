@@ -144,6 +144,20 @@ after:
 	@bash $(DOTFILES)/git/setup.sh
 	@if [ "$(OSTYPE)" == "Linux" ]; then bash $(DOTFILES)/linux/apt.sh "desktop"; fi
 	@nvim -i NONE -u $(DOTFILES)/nvim/init.vim -c "TSUpdate" -c "quitall"
+ifeq ($(OSTYPE), Darwin)
+	@mkdir $(HOME)/.config/yabai
+	@ln -sfv $(DOTFILES)/yabairc $(HOME)/.config/yabai/yabairc
+	@brew install koekeishiya/formulae/yabai --HEAD
+	@sudo yabai --install-sa
+	@brew services start yabai
+	@echo ""
+	@mkdir $(HOME)/.config/skhdrc
+	@ln -sfv $(DOTFILES)/skhdrc $(HOME)/.config/skhd/skhdrc
+	@brew install koekeishiya/formulae/skhd
+	@brew services start skhd
+	@echo ""
+	@git clone https://github.com/Jean-Tinland/simple-bar $(HOME)/Library/Application\ Support/Übersicht/widgets/simple-bar
+endif
 
 directories:
 	@echo -e "\033[1m\033[34m==> Creating directories\033[0m"
@@ -200,7 +214,6 @@ endif
 ifeq ($(shell ${WHICH} firefox 2>${DEVNUL}),)
 	sudo ln -s /Applications/Firefox.app/Contents/MacOS/firefox /usr/local/bin/firefox
 endif
-	(cd $(DOTFILES)/bin/$(OSTYPE) && /usr/bin/swiftc $(DOTFILES)/scripts/now_playing.swift)
 # ifeq ($(shell ${WHICH} osx-cpu-temp 2>${DEVNUL}),)
 ifeq ($(ARCHITECTURE), x86_64)
 	@bash $(DOTFILES)/scripts/osx_cpu_temp.sh

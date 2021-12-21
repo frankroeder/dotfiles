@@ -1,0 +1,78 @@
+# restart yabai and skhd
+ctrl + alt + cmd - r : \
+       launchctl kickstart -k "gui/${UID}/homebrew.mxcl.yabai"; \
+       skhd --reload;
+
+# open alacritty
+alt - space : open /Applications/Alacritty.app
+
+# # change window focus
+fn - h : yabai -m window --focus west
+fn - j : yabai -m window --focus south
+fn - k : yabai -m window --focus north
+fn - l : yabai -m window --focus east
+
+# change monitor focus
+fn - e  : yabai -m display --focus recent
+fn - a  : yabai -m display --focus prev
+fn - d  : yabai -m display --focus next
+
+# shift window in current workspace, possibly also to adjacent display
+fn + ctrl - h : yabai -m window --swap west || $(yabai -m window --display west; yabai -m display --focus west)
+fn + ctrl - j : yabai -m window --swap south || $(yabai -m window --display south; yabai -m display --focus south)
+fn + ctrl - k : yabai -m window --swap north || $(yabai -m window --display north; yabai -m display --focus north)
+fn + ctrl - l : yabai -m window --swap east || $(yabai -m window --display east; yabai -m display --focus east)
+
+# close focused window
+fn - w : yabai -m window --close
+
+# enter fullscreen mode for the focused container
+fn - f : yabai -m window --toggle zoom-fullscreen
+
+# TODO: check if I really need this
+# toggle window native fullscreen
+fn + shift - f : yabai -m window --toggle native-fullscreen
+
+# move focused window to next/prev workspace
+fn + shift - 1 : yabai -m window --space 1
+fn + shift - 2 : yabai -m window --space 2
+fn + shift - 3 : yabai -m window --space 3
+fn + shift - 4 : yabai -m window --space 4
+fn + shift - 5 : yabai -m window --space 5
+fn + shift - 6 : yabai -m window --space 6
+fn + shift - 7 : yabai -m window --space 7
+fn + shift - 8 : yabai -m window --space 8
+fn + shift - 9 : yabai -m window --space 9
+
+# rotate tree
+fn - r : yabai -m space --rotate 90
+
+# # mirror tree x-axis
+fn + shift - x : yabai -m space --mirror x-axis
+
+## # mirror tree y-axis
+fn + shift - y : yabai -m space --mirror y-axis
+
+# balance size of windows
+fn + shift - 0 : yabai -m space --balance
+
+# change layout of desktop
+fn - b : yabai -m space --layout bsp
+fn - o : yabai -m space --layout float
+fn - s : yabai -m space --layout stack
+
+# TODO
+# increase window size
+shift + alt - h : yabai -m window --resize left:-20:0; yabai -m window --resize right:20:0
+shift + alt - j : yabai -m window --resize bottom:0:20
+shift + alt - k : yabai -m window --resize top:0:-20
+shift + alt - l : yabai -m window --resize right:-20:0; yabai -m window --resize left:20:0
+
+# make floating window fill screen
+shift + alt - up     : yabai -m window --grid 1:1:0:0:1:1
+# make floating window fill left-half of screen
+shift + alt - left   : yabai -m window --grid 1:2:0:0:1:1
+# make floating window fill right-half of screen
+shift + alt - right  : yabai -m window --grid 1:2:1:0:1:1
+# float / unfloat window and center on screen
+shift + alt - down : yabai -m window --toggle float; yabai -m window --grid 4:4:1:1:2:2
