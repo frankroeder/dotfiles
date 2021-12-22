@@ -15,7 +15,7 @@ yabai -m config window_opacity_duration      0.0
 
 yabai -m config active_window_opacity        1.0
 yabai -m config normal_window_opacity        0.90
-yabai -m config window_border                on
+yabai -m config window_border                off # NOTE: will be fixed
 yabai -m config window_border_width          6
 
 yabai -m config active_window_border_color   0xff775759
@@ -41,21 +41,15 @@ yabai -m config bottom_padding               20
 yabai -m config left_padding                 20
 yabai -m config right_padding                20
 yabai -m config window_gap                   10
+yabai -m config external_bar all:15:0
 
-# float system preferences
+# window rules
 yabai -m rule --add app='^System Information$' manage=off
 yabai -m rule --add app='^System Preferences$' manage=off
 yabai -m rule --add title='Preferences$' manage=off
-
-# float settings windows
 yabai -m rule --add title='Settings$' manage=off
-yabai -m rule --add app='Bitwarden' manage=off
-yabai -m rule --add app='Anki' manage=off
-yabai -m rule --add app="^Calender$" manage=off
-yabai -m rule --add app="^App Store$" manage=off
-yabai -m rule --add app="^Photos$" manage=off
-yabai -m rule --add app="^Podcasts$" manage=off
-yabai -m rule --add app="^Music$" manage=off
-yabai -m config external_bar all:15:0
+yabai -m rule --add app="^(Dictionary|Music|Podcasts|App Store|Calender|Photos)$" manage=off
+
+yabai -m rule --add app="^(Anki|Bitwarden)$" manage=off
 
 echo "yabai configuration loaded..."

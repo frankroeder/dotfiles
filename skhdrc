@@ -1,4 +1,4 @@
-# restart yabai and skhd
+# reload yabai and skhd
 ctrl + alt + cmd - r : \
        launchctl kickstart -k "gui/${UID}/homebrew.mxcl.yabai"; \
        skhd --reload;
@@ -11,11 +11,25 @@ fn - h : yabai -m window --focus west
 fn - j : yabai -m window --focus south
 fn - k : yabai -m window --focus north
 fn - l : yabai -m window --focus east
+# going up and down inside the stack
+fn - u : yabai -m window --focus stack.prev
+fn - d : yabai -m window --focus stack.next
 
 # change monitor focus
-fn - e  : yabai -m display --focus recent
-fn - a  : yabai -m display --focus prev
-fn - d  : yabai -m display --focus next
+fn - y  : yabai -m display --focus recent
+fn - x  : yabai -m display --focus prev
+fn - c  : yabai -m display --focus next
+fn - 1  : yabai -m display --focus 1
+fn - 2  : yabai -m display --focus 2
+fn - 3  : yabai -m display --focus 3
+
+# move window to display and focus
+fn + ctrl - y  : yabai -m window --display recent && yabai -m display --focus recent
+fn + ctrl - x  : yabai -m window --display prev && yabai -m display --focus prev
+fn + ctrl - c  : yabai -m window --display next && yabai -m display --focus next
+fn + ctrl - 1  : yabai -m window --display 1 && yabai -m display --focus 1
+fn + ctrl - 2  : yabai -m window --display 2 && yabai -m display --focus 2
+fn + ctrl - 3  : yabai -m window --display 3 && yabai -m display --focus 3
 
 # shift window in current workspace, possibly also to adjacent display
 fn + ctrl - h : yabai -m window --swap west || $(yabai -m window --display west; yabai -m display --focus west)
@@ -76,3 +90,6 @@ shift + alt - left   : yabai -m window --grid 1:2:0:0:1:1
 shift + alt - right  : yabai -m window --grid 1:2:1:0:1:1
 # float / unfloat window and center on screen
 shift + alt - down : yabai -m window --toggle float; yabai -m window --grid 4:4:1:1:2:2
+
+# toggle picture-in-picture
+fn - p : yabai -m window --toggle border && yabai -m window --toggle pip
