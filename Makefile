@@ -157,6 +157,7 @@ ifeq ($(OSTYPE), Darwin)
 	@brew services start skhd
 	@echo ""
 	@git clone https://github.com/Jean-Tinland/simple-bar $(HOME)/Library/Application\ Support/Übersicht/widgets/simple-bar
+	@echo "NOTE: Import simplebarc"
 endif
 
 directories:

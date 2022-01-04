@@ -11,7 +11,6 @@ yabai -m config window_shadow                float
 yabai -m config window_opacity               on
 yabai -m config active_window_opacity        1.0
 yabai -m config normal_window_opacity        0.90
-yabai -m config window_opacity_duration      0.0
 
 yabai -m config active_window_opacity        1.0
 yabai -m config normal_window_opacity        0.90
@@ -41,7 +40,7 @@ yabai -m config bottom_padding               20
 yabai -m config left_padding                 20
 yabai -m config right_padding                20
 yabai -m config window_gap                   10
-yabai -m config external_bar all:15:0
+yabai -m config --space 2 top_padding        40
 
 # window rules
 yabai -m rule --add app='^System Information$' manage=off
