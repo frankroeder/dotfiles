@@ -1,8 +1,8 @@
 #!/usr/bin/env osascript
-# Copy url of selected tab in safari
+# Copy url of selected tab in brave
 
-tell application "Safari"
-  set vURL to URL of current tab of window 1
+tell application "Brave Browser"
+  set vURL to URL of active tab of front window
   set the clipboard to vURL
   "Copied " & vURL & " to clipboard"
 end tell

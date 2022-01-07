@@ -1,3 +1,17 @@
 #!/bin/bash
 
-_safari_history_dump | $HOME/.fzf/bin/fzf --multi --ansi --reverse --prompt "Safari History> " | sed 's#.*\(https*://\)#\1#' | xargs open
+bh() {
+	local cols sep BHISTORY OPEN_CMD
+	cols=$((COLUMNS / 3))
+	sep='{::}'
+
+	BHISTORY="$HOME/Library/Application Support/BraveSoftware/Brave-Browser/Default/History"
+	OPEN_CMD=open
+	cp -f "$BHISTORY" /tmp/h;
+  /usr/bin/sqlite3 -separator $sep /tmp/h \
+		"select substr(title, 1, $cols), url
+     from urls order by last_visit_time desc" |
+		awk -F $sep '{printf "%-'$cols's  \x1b[36m%s\x1b[m\n", $1, $2}' |
+		$HOME/.fzf/bin/fzf --ansi --multi | sed 's#.*\(https*://\)#\1#' | xargs $OPEN_CMD >/dev/null 2>/dev/null
+}
+bh;

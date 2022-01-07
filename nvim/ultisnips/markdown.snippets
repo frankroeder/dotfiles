@@ -79,7 +79,7 @@ snippet linkc "Link from clipboard"
 endsnippet
 
 snippet linkcp "Link from frontmost tab"
-[${1}](`echo $(osascript -e 'tell application "Safari" to return URL of front document')`)${0}
+[${1}](`echo $(osascript -e 'tell application "Brave Browser" to return URL of active tab of front window')`)${0}
 endsnippet
 
 snippet img "Image"

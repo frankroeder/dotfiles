@@ -50,7 +50,6 @@ for app in "Activity Monitor" \
   "Mail" \
   "Messages" \
   "Photos" \
-  "Safari" \
   "iCal" \
   "cfprefsd" \
   "VLC" \

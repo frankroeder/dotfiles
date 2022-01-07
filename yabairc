@@ -22,7 +22,7 @@ yabai -m config normal_window_border_color   0xff555555
 yabai -m config insert_feedback_color        0xffd75f5f
 
 # mouse
-yabai -m config mouse_follows_focus          on
+yabai -m config mouse_follows_focus          off
 yabai -m config focus_follows_mouse          off #autoraise
 yabai -m config mouse_modifier               fn
 yabai -m config mouse_action1                move

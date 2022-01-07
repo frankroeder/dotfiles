@@ -31,7 +31,7 @@ cask "gpg-suite"
 cask "skim"
 cask "mactex-no-gui"
 cask "font-hack-nerd-font"
-cask "firefox"
+cask "brave-browser"
 cask "lulu"
 cask "zoom"
 cask "zotero"
@@ -41,6 +41,4 @@ cask "mattermost"
 
 mas "iReal Pro", id: 409035833
 mas "Telegram", id: 747648890
-mas "AdGuard", id: 1440147259
-mas "Vimari", id: 1480933944
 mas "Bitwarden", id: 1352778147
