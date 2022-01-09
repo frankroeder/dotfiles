@@ -49,13 +49,6 @@ augroup tex
   au FileType tex nmap <buffer> <Space>tv <plug>(vimtex-view)
   au FileType tex nmap <buffer> <Space>tc <plug>(vimtex-compile)
   au Filetype tex nmap <silent> <buffer> <C-F> :call vimtex#fzf#run('cti', {'window': { 'width': 0.6, 'height': 0.6 } })<CR>
-  au FileType tex lua require('cmp').setup.buffer {
-  \ sources = {
-  \     { name = 'omni' },
-  \     { name = 'buffer', max_item_count = 5, keyword_length = 3 },
-  \     { name = 'ultisnips', max_item_count = 5 },
-  \   }
-  \ }
 augroup END
 
 let g:vimtex_doc_handlers = ['ShowTexDoc']
