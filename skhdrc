@@ -3,8 +3,9 @@ ctrl + alt + cmd - r : \
        launchctl kickstart -k "gui/${UID}/homebrew.mxcl.yabai"; \
        skhd --reload;
 
-# open alacritty
-alt - space : open /Applications/Alacritty.app
+# toggle alacritty
+alt - space : bash $DOTFILES/scripts/toggle_app.bash "Alacritty"
+alt - b : bash $DOTFILES/scripts/toggle_app.bash "Brave Browser"
 
 # # change window focus
 fn - h : yabai -m window --focus west
