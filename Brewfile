@@ -23,7 +23,6 @@ brew "ifstat"
 brew "gcc"
 
 cask "alfred"
-cask "ubersicht"
 cask "docker"
 cask "vlc"
 cask "musescore"
