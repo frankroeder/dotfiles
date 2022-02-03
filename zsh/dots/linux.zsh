@@ -14,7 +14,7 @@ alias datehelp='for F in {a..z} {A..Z} :z ::z :::z;do echo $F: $(date +%$F);done
 alias swaptop='whatswap | egrep -v "Swap used: 0" |sort -n -k 10'
 
 [ $commands[nvidia-smi] ] && alias wgpu='watch -n 0.1 -d nvidia-smi'
-[ $commands[nvitop] ] && alias nvtop='nvitop --monitor auto --gpu-util-thresh 50 80 --mem-util-thresh 60 90'
+[ $commands[nvitop] ] && alias ntop='nvitop --monitor auto --gpu-util-thresh 50 80 --mem-util-thresh 60 90'
 
 if [ $commands[xclip] ]; then
     alias pbcopy='xclip -selection clipboard'

@@ -43,6 +43,7 @@ install_desktop() {
     sox
     vlc
     xclip
+    i3
   "
   sudo apt install $DESKTOP_PKGS -y;
 }

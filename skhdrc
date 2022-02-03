@@ -4,8 +4,8 @@ ctrl + alt + cmd - r : \
        skhd --reload;
 
 # toggle alacritty
-alt - space : bash $DOTFILES/scripts/toggle_app.bash "Alacritty"
-alt - b : bash $DOTFILES/scripts/toggle_app.bash "Brave Browser"
+fn - space : bash $DOTFILES/scripts/toggle_app.bash "Alacritty"
+fn + ctrl -b  : bash $DOTFILES/scripts/toggle_app.bash "Brave Browser"
 
 # # change window focus
 fn - h : yabai -m window --focus west
@@ -38,13 +38,15 @@ fn + ctrl - j : yabai -m window --swap south || $(yabai -m window --display sout
 fn + ctrl - k : yabai -m window --swap north || $(yabai -m window --display north; yabai -m display --focus north)
 fn + ctrl - l : yabai -m window --swap east || $(yabai -m window --display east; yabai -m display --focus east)
 
-# close focused window
-fn - w : yabai -m window --close
+fn + ctrl - s : open "x-apple.systempreferences:"
+fn + ctrl - a : open -a "About This Mac"
+
+# quit/close focused window
+fn - q : yabai -m window --close
 
 # enter fullscreen mode for the focused container
 fn - f : yabai -m window --toggle zoom-fullscreen
 
-# TODO: check if I really need this
 # toggle window native fullscreen
 fn + shift - f : yabai -m window --toggle native-fullscreen
 
@@ -71,9 +73,9 @@ fn + shift - y : yabai -m space --mirror y-axis
 # balance size of windows
 fn + shift - 0 : yabai -m space --balance
 
-# change layout of desktop
-fn - b : yabai -m space --layout bsp
-fn - o : yabai -m space --layout float
+# change layout of space (i3 defaults)
+fn - e : yabai -m space --layout bsp
+fn - w : yabai -m space --layout float
 fn - s : yabai -m space --layout stack
 
 # TODO
