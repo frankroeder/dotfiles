@@ -50,6 +50,17 @@ fn - f : yabai -m window --toggle zoom-fullscreen
 # toggle window native fullscreen
 fn + shift - f : yabai -m window --toggle native-fullscreen
 
+# toggle stickyness (show on all spaces)
+fn + shift - s : yabai -m window --toggle sticky
+# toggle topmost (keep above other windows)
+fn + shift - t : yabai -m window --toggle topmost
+# toggle window split type
+fn + shift - space: yabai -m window --toggle split
+# toggle desktop offset
+fn + shift - d : yabai -m space --toggle padding && yabai -m space --toggle gap
+# toggle window parent zoom
+fn + shift - z : yabai -m window --toggle zoom-parent
+
 # move focused window to next/prev workspace
 fn + shift - 1 : yabai -m window --space 1
 fn + shift - 2 : yabai -m window --space 2
