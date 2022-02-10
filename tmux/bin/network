@@ -1,5 +1,6 @@
 #!/usr/bin/env zsh
 
+! [ $commands[ifstat] ] && return
 NET_IO=( $(ifstat -wTSq 0.1 1 | tail -n1) )
 DOWNLOAD="${NET_IO[-2]}"
 DOWNLOAD_RATE="KB/s"

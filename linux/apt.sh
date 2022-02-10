@@ -13,6 +13,7 @@ install_default() {
     ffmpeg
     git
     htop
+    ifstat
     imagemagick
     iputils-ping
     jq
