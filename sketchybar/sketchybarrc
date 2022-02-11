@@ -56,9 +56,8 @@ sketchybar -m --add item space_separator left                                   
               --set mail associated_space=1,2,3                                       \
                       update_freq=30                                                           \
                       script="$PLUGIN_DIR/mail.sh"                   \
-                      icon.font="Hack Nerd Font:Bold:20.0"                                     \
-                      icon=                                                                   \
-                      click_script="osascript -e 'tell application \"Mail\" to activate'"
+                      icon.font="Hack Nerd Font:Bold:18.0"                                     \
+                      icon=
 
 # show current VPN connection name
 sketchybar -m --add item vpn left \
