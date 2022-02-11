@@ -145,16 +145,10 @@ after:
 	@if [ "$(OSTYPE)" == "Linux" ]; then bash $(DOTFILES)/linux/apt.sh "desktop"; fi
 	@nvim -i NONE -u $(DOTFILES)/nvim/init.vim -c "TSUpdate" -c "quitall"
 ifeq ($(OSTYPE), Darwin)
-	@mkdir $(HOME)/.config/yabai
-	@ln -sfv $(DOTFILES)/yabairc $(HOME)/.config/yabai/yabairc
-	@brew install koekeishiya/formulae/yabai --HEAD
 	@sudo yabai --install-sa
 	@brew services start yabai
-	@echo ""
-	@mkdir $(HOME)/.config/skhdrc
-	@ln -sfv $(DOTFILES)/skhdrc $(HOME)/.config/skhd/skhdrc
-	@brew install koekeishiya/formulae/skhd
 	@brew services start skhd
+	@brew services start sketchybar
 endif
 
 directories:
@@ -203,6 +197,11 @@ _macos:
 	@bash $(DOTFILES)/macos/main.bash
 	@mkdir -p $(HOME)/.config/alacritty
 	@ln -sfv $(DOTFILES)/alacritty.yml $(HOME)/.config/alacritty/
+	@mkdir $(HOME)/.config/yabai
+	@ln -sfv $(DOTFILES)/yabairc $(HOME)/.config/yabai/yabairc
+	@mkdir $(HOME)/.config/skhdrc
+	@ln -sfv $(DOTFILES)/skhdrc $(HOME)/.config/skhd/skhdrc
+	@ln -sfv $(DOTFILES)/sketchybar $(HOME)/.config/sketchybar
 ifeq ($(shell ${WHICH} airport 2>${DEVNUL}),)
 	@sudo ln -s /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/local/bin/airport
 endif

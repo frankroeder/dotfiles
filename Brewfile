@@ -1,4 +1,6 @@
 tap "homebrew/cask-fonts"
+tap "koekeishiya/formulae"
+tap "Felixkratz/formulae"
 
 brew "git"
 brew "zsh"
@@ -21,6 +23,10 @@ brew "pandoc"
 brew "grip"
 brew "ifstat"
 brew "gcc"
+
+brew "yabai", args: ["head"], restart_service: :changed
+brew "skhd", args: ["with-logging"], restart_service: :changed
+brew "sketchybar", restart_service: :changed
 
 cask "alfred"
 cask "docker"

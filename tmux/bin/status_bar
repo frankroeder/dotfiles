@@ -6,20 +6,7 @@ SMALL=155
 TMUX_BIN="$DOTFILES/tmux/bin"
 BAR=""
 
-BAR+="$($TMUX_BIN/mail_count_apple)"
-
-if [[ $WIDTH -gt $SMALL ]]; then
-  BAR+="$($TMUX_BIN/ip_info)#[default]"
-  BAR+="$($TMUX_BIN/network)"
-fi
-
-if [[ -n $TUNE ]] && [[ $WIDTH -le $SMALL ]]; then
-  BAR+=" $(tmux-mem-cpu-load -a 0 -g 0 -i 2 -t 0)"
-else
-  BAR+=" $(tmux-mem-cpu-load -a 0 -g 10 -i 2 -t 0)"
-fi
-
-BAR+="$($TMUX_BIN/cpu_temp)"
+BAR+="$($TMUX_BIN/ip_info)#[default]"
 BAR+="$($TMUX_BIN/internet_info)"
 
 printf '%s' "$BAR"

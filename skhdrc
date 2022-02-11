@@ -3,6 +3,9 @@ ctrl + alt + cmd - r : \
        launchctl kickstart -k "gui/${UID}/homebrew.mxcl.yabai"; \
        skhd --reload;
 
+# reload sketchybar
+ctrl + alt + cmd - b : brew services restart sketchybar
+
 # toggle alacritty
 fn - space : bash $DOTFILES/scripts/toggle_app.bash "Alacritty"
 fn + ctrl -b  : bash $DOTFILES/scripts/toggle_app.bash "Brave Browser"

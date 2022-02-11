@@ -1,0 +1,128 @@
+PLUGIN_DIR="$HOME/.config/sketchybar/plugins"
+
+############## BAR ##############
+sketchybar -m --bar height=25        \
+                    blur_radius=50   \
+                    position=bottom  \
+                    padding_left=5  \
+                    padding_right=5 \
+                    color=0x44000000
+
+############## GLOBAL DEFAULTS ##############
+sketchybar -m --default updates=when_shown                    \
+                        drawing=on                            \
+                        cache_scripts=on                      \
+                        icon.font="Hack Nerd Font:Bold:17.0"  \
+                        icon.color=0xffffffff                 \
+                        label.font="Hack Nerd Font:Bold:14.0" \
+                        label.color=0xffffffff
+
+############## SPACE DEFAULTS ##############
+sketchybar -m --default label.padding_left=2  \
+                        label.padding_right=2 \
+                        icon.padding_left=8   \
+                        label.padding_right=8
+
+############## ITEM DEFAULTS ###############
+sketchybar -m --default label.padding_left=2  \
+                        icon.padding_right=2  \
+                        icon.padding_left=6   \
+                        label.padding_right=6
+
+
+############## LEFT ITEMS ##############
+# E V E N T S
+sketchybar -m --add event window_focus \
+              --add event title_change \
+              --add event float_change
+
+sketchybar -m --add item yabai_float left                                               \
+              --set yabai_float script="~/.config/sketchybar/plugins/yabai_float.sh"    \
+                    lazy=off                                                            \
+              --subscribe yabai_float front_app_switched window_focus float_change
+
+# W I N D O W  T I T L E
+sketchybar -m --add item title left \
+              --set title script="$PLUGIN_DIR/window_title.sh" \
+              --subscribe title window_focus front_app_switched space_change title_change
+
+sketchybar -m --add item space_separator left                                                  \
+              --set space_separator  icon=                                                    \
+                                     associated_space=1,2,3                                    \
+                                     icon.padding_left=15                                      \
+                                     label.padding_right=15                                    \
+                                     icon.font="Hack Nerd Font:Bold:15.0"                      \
+              --add item mail left                                                    \
+              --set mail associated_space=1,2,3                                       \
+                      update_freq=30                                                           \
+                      script="$PLUGIN_DIR/mail.sh"                   \
+                      icon.font="Hack Nerd Font:Bold:20.0"                                     \
+                      icon=                                                                   \
+                      click_script="osascript -e 'tell application \"Mail\" to activate'"
+
+# show current VPN connection name
+sketchybar -m --add item vpn left \
+              --set vpn icon= \
+                        update_freq=5 \
+                        script="$PLUGIN_DIR/vpn.sh"
+
+
+############## RIGHT ITEMS ##############
+
+# cpu graphs
+sketchybar -m --add graph cpu_user right 200                                  \
+              --set cpu_user     graph.color=0xffffffff                       \
+                                 update_freq=2                                \
+                                 width=0                                      \
+                                 associated_space=1,2,3                       \
+                                 icon.font="Hack Nerd Font:Bold:11"           \
+                                 icon=CPU                                     \
+                                 script="$PLUGIN_DIR/cpu_graph.sh"            \
+                                 lazy=on                                      \
+                                                                              \
+              --add graph cpu_sys right 200                                   \
+              --set cpu_sys associated_space=1,2,3                            \
+                                  graph.color=0xff48aa2a                      \
+                                                                              \
+              --add item topmem right                                         \
+              --set topmem      associated_space=1,2,3                        \
+                                icon.padding_left=5                           \
+                                update_freq=15                                \
+                                script="$PLUGIN_DIR/topmem.sh"                \
+                                                                              \
+              --add item topproc right                                        \
+              --set topproc      associated_space=1,2,3                       \
+                                 label.padding_left=5                         \
+                                 update_freq=15                               \
+                                 script="$PLUGIN_DIR/topproc.sh"
+
+# network stats
+sketchybar -m --add item network_up right                                           \
+            --set network_up label.font="Hack Nerd Font:Bold:9"                     \
+                                  icon.font="Hack Nerd Font:Bold:12"                \
+                                  icon=↑                                            \
+                                  icon.highlight_color=0xff8b0a0d                   \
+                                  y_offset=5                                        \
+                                  width=0                                           \
+                                  update_freq=2                                     \
+                                  script="$PLUGIN_DIR/network.sh"  \
+                                                                                    \
+              --add       item    network_down right                                \
+              --set       network_down label.font="Hack Nerd Font:Bold:9"           \
+                                      icon.font="Hack Nerd Font:Bold:12"            \
+                                      icon=↓                                        \
+                                      icon.highlight_color=0xff10528c               \
+                                      y_offset=-5
+
+###################### CENTER ITEMS ###################
+
+# music
+sketchybar -m --add event song_update com.apple.Music.playerInfo           \
+              --add center music_info center                               \
+              --set music_info  script="$PLUGIN_DIR/music.sh"              \
+              --subscribe music_info song_update
+
+############## FINALIZING THE SETUP ##############
+sketchybar -m --update
+
+echo "sketchybar configuration loaded.."

@@ -39,10 +39,13 @@ yabai -m config split_ratio                  0.50
 # general space settings
 yabai -m config layout                       bsp
 yabai -m config top_padding                  20
-yabai -m config bottom_padding               20
+yabai -m config bottom_padding               40
 yabai -m config left_padding                 20
 yabai -m config right_padding                20
 yabai -m config window_gap                   10
+
+yabai -m signal --add event=window_focused action="sketchybar -m --trigger window_focus &> /dev/null"
+yabai -m signal --add event=window_title_changed action="sketchybar -m --trigger title_change &> /dev/null"
 
 # window rules
 yabai -m rule --add app='^System Information$' manage=off
