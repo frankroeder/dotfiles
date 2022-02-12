@@ -31,24 +31,26 @@ sketchybar -m --default label.padding_left=2  \
 
 
 ############## LEFT ITEMS ##############
-# E V E N T S
+#
 sketchybar -m --add event window_focus \
               --add event title_change \
               --add event float_change
 
-sketchybar -m --add item yabai_float left                                               \
-              --set yabai_float script="~/.config/sketchybar/plugins/yabai_float.sh"    \
-                    lazy=off                                                            \
+# yabai space number
+sketchybar -m --add item yabai_spaces left                                            \
+              --set yabai_spaces drawing=off                                          \
+                                 updates=on                                           \
+                                 script="$PLUGIN_DIR/yabai_spaces.sh"                 \
+              --subscribe yabai_spaces space_change window_created window_destroyed   \
+
+sketchybar -m --add item yabai_float left                                             \
+              --set yabai_float script="$PLUGIN_DIR/yabai_float.sh"                   \
+                    lazy=off                                                          \
               --subscribe yabai_float front_app_switched window_focus float_change
 
-# W I N D O W  T I T L E
-sketchybar -m --add item title left \
-              --set title script="$PLUGIN_DIR/window_title.sh" \
-              --subscribe title window_focus front_app_switched space_change title_change
 
 sketchybar -m --add item space_separator left                                                  \
-              --set space_separator  icon=                                                    \
-                                     associated_space=1,2,3                                    \
+              --set space_separator  icon="|"                                                    \
                                      icon.padding_left=15                                      \
                                      label.padding_right=15                                    \
                                      icon.font="Hack Nerd Font:Bold:15.0"                      \
@@ -60,9 +62,8 @@ sketchybar -m --add item space_separator left                                   
                       icon=
 
 # show current VPN connection name
-sketchybar -m --add item vpn left \
-              --set vpn icon= \
-                        update_freq=5 \
+sketchybar -m --add item vpn left             \
+              --set vpn icon= update_freq=5 \
                         script="$PLUGIN_DIR/vpn.sh"
 
 
@@ -120,6 +121,11 @@ sketchybar -m --add event song_update com.apple.Music.playerInfo           \
               --add center music_info center                               \
               --set music_info  script="$PLUGIN_DIR/music.sh"              \
               --subscribe music_info song_update
+
+# window title
+sketchybar -m --add item title center \
+              --set title script="$PLUGIN_DIR/window_title.sh" \
+              --subscribe title window_focus front_app_switched space_change title_change
 
 ############## FINALIZING THE SETUP ##############
 sketchybar -m --update
