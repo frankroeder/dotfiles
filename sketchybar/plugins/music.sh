@@ -1,4 +1,4 @@
-# #!/bin/bash
+#!/bin/bash
 
 APP_STATE=$(pgrep -x Music)
 if [[ ! $APP_STATE ]]; then
@@ -23,6 +23,6 @@ else
   [[ $PLAYER_STATE == "paused" ]] && ICON= || ICON=
 fi
 
-sketchybar -m --set music_info icon="$ICON" \
+sketchybar -m --set music_info icon="$ICON"          \
                         label="${TITLE} x ${ARTIST}" \
                         drawing=on
