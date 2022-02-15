@@ -1,10 +1,18 @@
 #!/usr/bin/env bash
+WIDTH=${1}
+SMALL=135
 TMUX_BIN="$DOTFILES/tmux/bin"
 
 BAR="#($TMUX_BIN/cpu_temp) "
-BAR+="#[fg=white]#(tmux-mem-cpu-load -a 0 -g 20 -i 2 -t 1)"
+if [[ $WIDTH -gt $SMALL ]]; then
+  BAR+="#[fg=white]#(tmux-mem-cpu-load -a 0 -g 20 -i 2 -t 1)"
+else
+  BAR+="#[fg=white]#(tmux-mem-cpu-load -a 0 -g 5 -i 2 -t 1)"
+fi
 command -v nvidia-smi >/dev/null 2>&1 && BAR+=" #($TMUX_BIN/gpu_stats)"
-BAR+=" #[default]#(hostname)#[fg=colour143]"
-BAR+="#($TMUX_BIN/network)"
-BAR+="#[default]#($TMUX_BIN/ip_info)#[default]"
+if [[ $WIDTH -gt $SMALL ]]; then
+  BAR+=" #[default]#(hostname)#[fg=colour143]"
+  BAR+="#($TMUX_BIN/network)"
+  BAR+="#[default]#($TMUX_BIN/ip_info)#[default]"
+fi
 printf '%s' "$BAR"
