@@ -25,4 +25,4 @@ else
   CPU_COLOR="178"
 fi
 
-echo -n " #[fg=colour$CPU_COLOR]$CPU"
+echo -n "#[fg=colour$CPU_COLOR]$CPU"

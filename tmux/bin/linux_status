@@ -3,7 +3,8 @@ WIDTH=${1}
 SMALL=135
 TMUX_BIN="$DOTFILES/tmux/bin"
 
-BAR="#($TMUX_BIN/cpu_temp) "
+BAR="#($TMUX_BIN/cpu_name) "
+BAR+="#($TMUX_BIN/cpu_temp) "
 if [[ $WIDTH -gt $SMALL ]]; then
   BAR+="#[fg=white]#(tmux-mem-cpu-load -a 0 -g 20 -i 2 -t 1)"
 else
