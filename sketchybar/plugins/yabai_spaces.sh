@@ -2,12 +2,12 @@
 
 STATIC_NAMES=("" "I" "II" "III" "IV" "V" "VI" "VII" "VIII" "IX" "X" "XI" "XII" "XIII" "XIV" "XV") #0 to 15
 args=()
-QUERY="$(yabai -m query --spaces | jq -r '.[] | [.index, .windows[0], .label, .display, .visible] | @sh')"
+QUERY="$(yabai -m query --spaces | jq -r '.[] | [.index, ."windows[0]", .label, .display, ."is-visible"] | @sh')"
 NAMES=""
 COUNT=0
 
 # Read the current spaces from the yabai query
-while read -r index window yabai_name display visible
+while read -r index windows yabai_name display is_visible
 do
   COUNT=$((COUNT+1))
   NAME="$(echo "${yabai_name}" | tr -d "'")"
@@ -25,7 +25,7 @@ do
          --set "$NAME" label="${label}" \
                        label.highlight_color="0xff6ed6e6" \
                        associated_display=${display} \
-                       label.highlight=${visible} \
+                       label.highlight=${is_visible} \
                        drawing=on)
 done <<< "$QUERY"
 

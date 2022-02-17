@@ -10,7 +10,12 @@ sketchybar -m --add item yabai_spaces left                                      
               --set yabai_spaces drawing=off                                          \
                                  updates=on                                           \
                                  script="$PLUGIN_DIR/yabai_spaces.sh"                 \
-              --subscribe yabai_spaces space_change window_created window_destroyed
+              --subscribe yabai_spaces space_change window_created window_destroyed   \
+              --add item space_template left                                          \
+              --set       space_template icon.highlight_color=0xff9dd274              \
+                                 label.font="$FONT:Bold:14"                           \
+                                 drawing=off                                          \
+                                 lazy=off
 
 sketchybar -m --add item yabai_float left                                             \
               --set yabai_float script="$PLUGIN_DIR/yabai_float.sh"                   \
