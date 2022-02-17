@@ -197,8 +197,7 @@ _macos:
 	@bash $(DOTFILES)/macos/main.bash
 	@mkdir -p $(HOME)/.config/alacritty
 	@ln -sfv $(DOTFILES)/alacritty.yml $(HOME)/.config/alacritty/
-	@mkdir $(HOME)/.config/yabai
-	@ln -sfv $(DOTFILES)/yabairc $(HOME)/.config/yabai/yabairc
+	@ln -sfv $(DOTFILES)/yabai $(HOME)/.config/yabai
 	@mkdir $(HOME)/.config/skhdrc
 	@ln -sfv $(DOTFILES)/skhdrc $(HOME)/.config/skhd/skhdrc
 	@ln -sfv $(DOTFILES)/sketchybar $(HOME)/.config/sketchybar

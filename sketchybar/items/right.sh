@@ -7,8 +7,9 @@ sketchybar -m --add graph cpu_user right 200                                  \
                                  update_freq=2                                \
                                  width=0                                      \
                                  associated_space=1,2,3                       \
-                                 icon.font="$FONT:Bold:11"                    \
                                  icon=CPU                                     \
+                                 icon.font="$FONT:Bold:11"                    \
+                                 icon.padding_right=5                         \
                                  script="$PLUGIN_DIR/cpu_graph.sh"            \
                                  lazy=on                                      \
                                                                               \

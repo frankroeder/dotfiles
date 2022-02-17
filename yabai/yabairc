@@ -46,15 +46,9 @@ yabai -m config external_bar                 all:0:25
 yabai -m signal --add event=window_focused action="sketchybar -m --trigger window_focus &> /dev/null"
 yabai -m signal --add event=window_title_changed action="sketchybar -m --trigger title_change &> /dev/null"
 
-# window rules
-yabai -m rule --add app='^System Information$' manage=off border=off
-yabai -m rule --add app='^System Preferences$' manage=off border=off
-yabai -m rule --add title='Preferences$' manage=off border=off
-yabai -m rule --add title='Settings$' manage=off border=off
-yabai -m rule --add app="^(Dictionary|Music|Podcasts|App Store|Calendar|Photos)$" manage=off border=off
-yabai -m rule --add app="^(Anki|Bitwarden)$" manage=off border=off
-
-# always let PiP float around
-yabai -m rule --add title="Picture in Picture" manage=off border=off
+WINDOW_RULES="$HOME/.config/yabai/window_rules"
+if [[ -f $WINDOW_RULES ]]; then
+  source $WINDOW_RULES
+fi
 
 echo "yabai configuration loaded..."
