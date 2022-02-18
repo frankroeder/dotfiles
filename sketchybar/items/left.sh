@@ -11,16 +11,17 @@ sketchybar -m --add item yabai_spaces left                                      
                                  updates=on                                           \
                                  script="$PLUGIN_DIR/yabai_spaces.sh"                 \
               --subscribe yabai_spaces space_change window_created window_destroyed   \
+                                                                                      \
               --add item space_template left                                          \
-              --set       space_template icon.highlight_color=0xff9dd274              \
+              --set      space_template icon.highlight_color=0xff9dd274               \
                                  label.font="$FONT:Bold:14"                           \
                                  drawing=off                                          \
                                  lazy=off
 
-sketchybar -m --add item yabai_float left                                             \
-              --set yabai_float script="$PLUGIN_DIR/yabai_float.sh"                   \
+sketchybar -m --add item yabai_layout left                                            \
+              --set yabai_layout script="$PLUGIN_DIR/yabai_layout.sh"                 \
                     lazy=off                                                          \
-              --subscribe yabai_float front_app_switched window_focus float_change
+              --subscribe yabai_layout front_app_switched window_focus float_change space_change
 
 
 sketchybar -m --add item space_separator left                                         \
