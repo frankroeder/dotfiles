@@ -20,8 +20,8 @@ fn - j : yabai -m window --focus south
 fn - k : yabai -m window --focus north
 fn - l : yabai -m window --focus east
 # going up and down inside the stack
-fn - u : yabai -m window --focus stack.prev
-fn - d : yabai -m window --focus stack.next
+fn - d : yabai -m window --focus stack.prev
+fn - u : yabai -m window --focus stack.next
 
 # change space focus
 fn - y  : yabai -m space --focus recent
