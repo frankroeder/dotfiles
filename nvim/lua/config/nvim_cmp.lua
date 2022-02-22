@@ -99,15 +99,9 @@ cmp.setup {
     ["<S-Tab>"] = cmp.mapping(function(fallback)
       cmp_ultisnips_mappings.jump_backwards(fallback)
     end, { "i", "s", }),
-    ['<C-Y>'] = function(fallback)
-        cmp.mapping.abort()
-        local copilot_keys = vim.fn["copilot#Accept"]()
-        if copilot_keys ~= "" then
-            vim.api.nvim_feedkeys(copilot_keys, "i", true)
-        else
-            fallback()
-        end
-    end
+    ['<C-Y>'] = cmp.mapping(function(fallback)
+      vim.api.nvim_feedkeys(vim.fn['copilot#Accept'](vim.api.nvim_replace_termcodes('<Tab>', true, true, true)), 'n', true)
+    end, { "i", "s", })
   }
 }
 -- fix jumping through snippet stops
