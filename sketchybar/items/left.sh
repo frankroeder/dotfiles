@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 ############## LEFT ITEMS ##############
 
-sketchybar -m --add event window_focus \
-              --add event title_change \
-              --add event float_change
-
 # yabai space number
 sketchybar -m --add item yabai_spaces left                                            \
               --set yabai_spaces drawing=off                                          \
@@ -21,22 +17,20 @@ sketchybar -m --add item yabai_spaces left                                      
 sketchybar -m --add item yabai_layout left                                            \
               --set yabai_layout script="$PLUGIN_DIR/yabai_layout.sh"                 \
                     lazy=off                                                          \
-              --subscribe yabai_layout front_app_switched window_focus float_change space_change
-
+              --subscribe yabai_layout front_app_switched window_focus layout_change
 
 sketchybar -m --add item space_separator left                                         \
               --set space_separator  icon="|"                                         \
                                      icon.padding_left=15                             \
                                      label.padding_right=15                           \
-                                     icon.font="$FONT:Bold:15.0"             \
+                                     icon.font="$FONT:Bold:15.0"                      \
               --add item mail left                                                    \
               --set mail associated_space=1,2,3                                       \
                       update_freq=30                                                  \
                       script="$PLUGIN_DIR/mail.sh"                                    \
-                      icon.font="$FONT:Bold:18.0"                            \
+                      icon.font="$FONT:Bold:18.0"                                     \
                       icon=
 
 # show current VPN connection name
-sketchybar -m --add item vpn left             \
-              --set vpn icon= update_freq=5 \
-                        script="$PLUGIN_DIR/vpn.sh"
+sketchybar -m --add item vpn left \
+              --set vpn icon= update_freq=5 script="$PLUGIN_DIR/vpn.sh"

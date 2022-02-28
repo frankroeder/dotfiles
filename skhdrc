@@ -39,9 +39,9 @@ fn - 8  : yabai -m space --focus 8
 fn - 9  : yabai -m space --focus 9
 
 # change layout of space (i3 defaults)
-fn - e : yabai -m space --layout bsp
-fn - w : yabai -m space --layout float
-fn - s : yabai -m space --layout stack
+fn - e : yabai -m space --layout bsp && sketchybar -m --trigger layout_change
+fn - w : yabai -m space --layout float && sketchybar -m --trigger layout_change
+fn - s : yabai -m space --layout stack && sketchybar -m --trigger layout_change
 
 # quit/close focused window
 fn - q : yabai -m window --close
@@ -104,6 +104,8 @@ fn + shift - space: yabai -m window --toggle split
 fn + shift - d : yabai -m space --toggle padding && yabai -m space --toggle gap
 # toggle window parent zoom
 fn + shift - z : yabai -m window --toggle zoom-parent
+# toggle borders
+fn + shift - b : yabai -m window --toggle border
 # mirror tree x-axis
 fn + shift - x : yabai -m space --mirror x-axis
 # mirror tree y-axis

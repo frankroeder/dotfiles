@@ -8,16 +8,16 @@ yabai -m signal --add event=dock_did_restart action="sudo yabai --load-sa"
 yabai -m config window_origin_display        default
 # New window spawns to the right if vertical split, or bottom if horizontal split
 yabai -m config window_placement             second_child
-
+# Floating windows are always on top
 yabai -m config window_topmost               off
 yabai -m config window_shadow                off
 yabai -m config window_opacity               off
-# yabai -m config normal_window_opacity        0.95
-# yabai -m config active_window_opacity        1.0
+yabai -m config window_opacity_duration      0.0
+yabai -m config normal_window_opacity        0.9
+yabai -m config active_window_opacity        0.95
 
 yabai -m config window_border                on
 yabai -m config window_border_width          8
-
 yabai -m config active_window_border_color   0xff775759
 yabai -m config normal_window_border_color   0xff555555
 yabai -m config insert_feedback_color        0xffd75f5f
@@ -43,8 +43,10 @@ yabai -m config right_padding                20
 yabai -m config window_gap                   10
 yabai -m config external_bar                 all:0:25
 
+# events
+yabai -m signal --add event=window_created action="sketchybar -m --trigger window_created &> /dev/null"
+yabai -m signal --add event=window_destroyed action="sketchybar -m --trigger window_destroyed &> /dev/null"
 yabai -m signal --add event=window_focused action="sketchybar -m --trigger window_focus &> /dev/null"
-yabai -m signal --add event=window_title_changed action="sketchybar -m --trigger title_change &> /dev/null"
 
 WINDOW_RULES="$HOME/.config/yabai/window_rules"
 if [[ -f $WINDOW_RULES ]]; then

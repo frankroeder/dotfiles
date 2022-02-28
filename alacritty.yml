@@ -32,7 +32,7 @@ window:
   dynamic_title: true
 
   # Background opacity
-  background_opacity: 0.96
+  background_opacity: 1.0
 
 scrolling:
   # Maximum number of lines in the scrollback buffer.

@@ -1,12 +1,17 @@
 #!/usr/bin/env sh
 
-# window rules
+# general exceptions
 yabai -m rule --add app='^System Information$' manage=off border=off
 yabai -m rule --add app='^System Preferences$' manage=off border=off
 yabai -m rule --add title='Preferences$' manage=off border=off
 yabai -m rule --add title='Settings$' manage=off border=off
-yabai -m rule --add app="^(Dictionary|Music|Podcasts|App Store|Calendar|Photos)$" manage=off border=off
-yabai -m rule --add app="^(Anki|Bitwarden)$" manage=off border=off
-
-# always let PiP float around
 yabai -m rule --add title="Picture in Picture" manage=off border=off
+
+# app-specific exceptions
+APPS="^(Dictionary|Music|Podcasts|App Store|Calendar|Photos|Anki|Bitwarden)$"
+yabai -m rule --add app="${APPS}" manage=off border=off
+
+if [[ $(yabai -m query --spaces | jq '. | length') -gt 2 ]]; then
+  # app space assignments
+  yabai -m rule --add app="^(Discord|Signal|Telegram|Mattermost)$" space=3
+fi
