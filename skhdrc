@@ -93,17 +93,17 @@ fn + ctrl - b : bash "$DOTFILES/scripts/toggle_app.bash" "Brave Browser"
 # toggle window native fullscreen
 fn + shift - f : yabai -m window --toggle native-fullscreen
 # toggle stickyness (show on all spaces)
-fn + shift - s : yabai -m window --toggle sticky
+fn + shift - s : yabai -m window --toggle sticky && sketchybar -m --trigger property_change
 # toggle float and center on screen
-fn + shift - w : yabai -m window --toggle float && yabai -m window --grid 4:4:1:1:2:2
+fn + shift - w : yabai -m window --toggle float && yabai -m window --grid 4:4:1:1:2:2  && sketchybar -m --trigger property_change
 # toggle topmost (keep above other windows)
-fn + shift - t : yabai -m window --toggle topmost
+fn + shift - t : yabai -m window --toggle topmost && sketchybar -m --trigger property_change
 # toggle window split type
 fn + shift - space: yabai -m window --toggle split
 # toggle desktop offset
 fn + shift - d : yabai -m space --toggle padding && yabai -m space --toggle gap
 # toggle window parent zoom
-fn + shift - z : yabai -m window --toggle zoom-parent
+fn + shift - z : yabai -m window --toggle zoom-parent && sketchybar -m --trigger property_change
 # toggle borders
 fn + shift - b : yabai -m window --toggle border
 # mirror tree x-axis

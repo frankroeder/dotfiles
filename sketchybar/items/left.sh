@@ -17,7 +17,13 @@ sketchybar -m --add item yabai_spaces left                                      
 sketchybar -m --add item yabai_layout left                                            \
               --set yabai_layout script="$PLUGIN_DIR/yabai_layout.sh"                 \
                     lazy=off                                                          \
-              --subscribe yabai_layout front_app_switched window_focus layout_change
+              --subscribe yabai_layout front_app_switched window_focus layout_change  \
+                                                                                      \
+              --add item yabai_property left                                          \
+              --set yabai_property script="$PLUGIN_DIR/yabai_property.sh"             \
+                    label.font="$FONT:Bold:12"                                        \
+                    lazy=off                                                          \
+              --subscribe yabai_property front_app_switched window_focus property_change
 
 sketchybar -m --add item space_separator left                                         \
               --set space_separator  icon="|"                                         \

@@ -273,13 +273,25 @@ snippet foot "Footnote" w
 \footnote{${1:${VISUAL:text}}}${0}
 endsnippet
 
-snippet txtbox "Box around text" w
+snippet txbox "Box around text" w
 \medskip
 \noindent\fbox{%
 	\parbox{\textwidth}{%
 		${0}
 	}%
 } \newline
+endsnippet
+
+snippet txit "italics" w
+\textit{$0}
+endsnippet
+
+snippet txbf "bold" w
+\textbf{$0}
+endsnippet
+
+snippet txtt "typewriter" w
+\texttt{$0}
 endsnippet
 
 # vim:ft=snippets:

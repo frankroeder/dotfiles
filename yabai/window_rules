@@ -8,10 +8,12 @@ yabai -m rule --add title='Settings$' manage=off border=off
 yabai -m rule --add title="Picture in Picture" manage=off border=off
 
 # app-specific exceptions
-APPS="^(Dictionary|Music|Podcasts|App Store|Calendar|Photos|Anki|Bitwarden)$"
+APPS="^(Dictionary|Music|Podcasts|App Store|Calendar|Photos|Bitwarden)$"
 yabai -m rule --add app="${APPS}" manage=off border=off
+CENTER_APPS="^(Anki)$"
+yabai -m rule --add app="${CENTER_APPS}" manage=off border=off grid=4:4:1:0:2:4
 
 if [[ $(yabai -m query --spaces | jq '. | length') -gt 2 ]]; then
   # app space assignments
-  yabai -m rule --add app="^(Discord|Signal|Telegram|Mattermost)$" space=3
+  yabai -m rule --add app="^(Messages|Discord|Signal|Telegram|Mattermost)$" space=3
 fi
