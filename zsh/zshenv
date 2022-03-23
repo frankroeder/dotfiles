@@ -37,6 +37,8 @@ if [[ "$OSTYPE" == "Darwin" ]]; then
 elif [[ "$OSTYPE" == "Linux" ]]; then
   [ $commands[firefox] ] && export BROWSER="firefox"
 fi
+# name of the browser application for various scripts
+export BROWSER_NAME="Brave Browser"
 export BLOCKSIZE=1k
 
 # -R  color

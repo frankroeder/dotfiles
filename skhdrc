@@ -39,9 +39,9 @@ fn - 8  : yabai -m space --focus 8
 fn - 9  : yabai -m space --focus 9
 
 # change layout of space (i3 defaults)
-fn - e : yabai -m space --layout bsp && sketchybar -m --trigger layout_change
-fn - w : yabai -m space --layout float && sketchybar -m --trigger layout_change
-fn - s : yabai -m space --layout stack && sketchybar -m --trigger layout_change
+fn - e : yabai -m space --layout bsp; sketchybar -m --trigger layout_change
+fn - w : yabai -m space --layout float; sketchybar -m --trigger layout_change
+fn - s : yabai -m space --layout stack; sketchybar -m --trigger layout_change
 
 # quit/close focused window
 fn - q : yabai -m window --close
@@ -84,7 +84,7 @@ fn + ctrl - l : yabai -m window --swap east || $(yabai -m window --display east;
 
 fn + ctrl - s : open "x-apple.systempreferences:"
 fn + ctrl - a : open -a "About This Mac"
-fn + ctrl - b : bash "$DOTFILES/scripts/toggle_app.bash" "Brave Browser"
+fn + ctrl - b : bash "$DOTFILES/scripts/toggle_app.bash" "$BROWSER_NAME"
 
 ################
 #  FN + SHIFT  #
@@ -93,17 +93,17 @@ fn + ctrl - b : bash "$DOTFILES/scripts/toggle_app.bash" "Brave Browser"
 # toggle window native fullscreen
 fn + shift - f : yabai -m window --toggle native-fullscreen
 # toggle stickyness (show on all spaces)
-fn + shift - s : yabai -m window --toggle sticky && sketchybar -m --trigger property_change
+fn + shift - s : yabai -m window --toggle sticky; sketchybar -m --trigger property_change
 # toggle float and center on screen
-fn + shift - w : yabai -m window --toggle float && yabai -m window --grid 4:4:1:1:2:2  && sketchybar -m --trigger property_change
+fn + shift - w : yabai -m window --toggle float && yabai -m window --grid 4:4:1:1:2:2; sketchybar -m --trigger property_change
 # toggle topmost (keep above other windows)
-fn + shift - t : yabai -m window --toggle topmost && sketchybar -m --trigger property_change
+fn + shift - t : yabai -m window --toggle topmost; sketchybar -m --trigger property_change
 # toggle window split type
 fn + shift - space: yabai -m window --toggle split
 # toggle desktop offset
 fn + shift - d : yabai -m space --toggle padding && yabai -m space --toggle gap
 # toggle window parent zoom
-fn + shift - z : yabai -m window --toggle zoom-parent && sketchybar -m --trigger property_change
+fn + shift - z : yabai -m window --toggle zoom-parent; sketchybar -m --trigger property_change
 # toggle borders
 fn + shift - b : yabai -m window --toggle border
 # mirror tree x-axis

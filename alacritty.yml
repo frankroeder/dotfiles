@@ -188,11 +188,12 @@ hints:
 
 # Key bindings
 key_bindings:
-  - { key: Key0,     mods: Command,     action: ResetFontSize     }
-  - { key: Equals,   mods: Command,     action: IncreaseFontSize  }
-  - { key: Minus,    mods: Command,     action: DecreaseFontSize  }
-  - { key: Q,        mods: Command,     action: Quit              }
-  - { key: Space,    mods: Control,     chars: "\x00"             }
+  - { key: Key0,   mods: Command,  action: ResetFontSize     }
+  - { key: Equals, mods: Command,  action: IncreaseFontSize  }
+  - { key: Minus,  mods: Command,  action: DecreaseFontSize  }
+  - { key: Q,      mods: Command,  action: Quit              }
+  - { key: Space,  mods: Control,  chars: "\x00"             }
+  - { key: N,      mods: Command,  action: None              }
 
 debug:
   # Display the time it takes to redraw each frame.
