@@ -25,4 +25,6 @@ augroup CustomAutoCmds
           \   and vim.highlight.on_yank {higroup='IncSearch', timeout=300}
   endif
   autocmd BufWritePost *.snippets :CmpUltisnipsReloadSnippets
+  " automatically close the tab/vim when nvim-tree is the last window
+  autocmd BufEnter * ++nested if winnr('$') == 1 && bufname() == 'NvimTree_' . tabpagenr() | quit | endif
 augroup END

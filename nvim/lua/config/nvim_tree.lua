@@ -5,8 +5,6 @@ require'nvim-tree'.setup {
   disable_netrw = false,
   -- open the tree when running this setup function
   open_on_setup = false,
-   -- closes neovim automatically when the tree is the last **WINDOW** in the view
-  auto_close = true,
    -- show lsp diagnostics in the signcolumn
   diagnostics = {
     enable = false,

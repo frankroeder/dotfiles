@@ -71,7 +71,6 @@ cmp.setup {
         buffer = "[Buffer]",
         nvim_lua = "[Lua]",
         treesitter = "[Treesitter]",
-        latex_symbols = "[Latex]", -- FIXME
         copilot = "[Copilot]",
       })[entry.source.name]
       return vim_item
