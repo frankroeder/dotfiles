@@ -124,7 +124,7 @@ endsnippet
 
 snippet url "Link from the frontmost tab" w
 `#!/usr/bin/osascript
-tell application "Brave Browser" to return URL of active tab of front window`
+tell application "System Events" to get value of UI element 1 of combo box 1 of toolbar "Navigation" of first group of front window of application process "Firefox"`
 endsnippet
 
 # vim:ft=snippets:

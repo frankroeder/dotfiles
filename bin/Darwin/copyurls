@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-URLS=$(osascript -e 'tell application "Brave Browser" to get the URL of every tab of every window' | sed -E $'s/, ?/\\\n/g')
+URLS=$(osascript -e 'tell application "'$BROWSER_NAME'" to get the URL of every tab of every window' | sed -E $'s/, ?/\\\n/g')
 SELECTED=$(echo "$URLS" | tr -s " " "\012" | fzf --exit-0 --multi);
 if [ -n "$SELECTED" ]; then
   echo "$SELECTED" | pbcopy

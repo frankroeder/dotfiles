@@ -7,7 +7,7 @@ yabai -m rule --add app='^System Information$' manage=off border=off
 yabai -m rule --add app='^System Preferences$' manage=off border=off
 yabai -m rule --add title='Preferences$' manage=off border=off
 yabai -m rule --add title='Settings$' manage=off border=off
-yabai -m rule --add title="Picture in Picture" manage=off border=off
+yabai -m rule --add title="(Picture in Picture|Picture-in-Picture)" manage=off border=off
 
 # app-specific rules
 APPS="^(Dictionary|Music|Podcasts|App Store|Calendar|Photos)$"

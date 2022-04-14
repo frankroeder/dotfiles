@@ -1,8 +1,8 @@
 #!/usr/bin/env osascript
-# Copy url of selected tab in brave
+# Copy url of selected tab in Firefox
 
-tell application "Brave Browser"
-  set vURL to URL of active tab of front window
+tell application "System Events"
+  set vURL to value of UI element 1 of combo box 1 of toolbar "Navigation" of first group of front window of application process "Firefox"
   set the clipboard to vURL
   "Copied " & vURL & " to clipboard"
 end tell

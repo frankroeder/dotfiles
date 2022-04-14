@@ -79,7 +79,7 @@ snippet linkc "Link from clipboard"
 endsnippet
 
 snippet linkcp "Link from frontmost tab"
-[${1}](`echo $(osascript -e 'tell application "Brave Browser" to return URL of active tab of front window')`)${0}
+[${1}](`echo $(osascript -e 'tell application "System Events" to get value of UI element 1 of combo box 1 of toolbar "Navigation" of first group of front window of application process "Firefox"')`)${0}
 endsnippet
 
 snippet img "Image"
