@@ -1,13 +1,13 @@
 require'nvim-treesitter.configs'.setup {
   ensure_installed = {
-    "bash", "c", "cpp", "css", "dockerfile", "go", "gomod", "html",
-    "javascript", "json", "lua", "python", "r", "swift", "toml",
-    "typescript", "yaml"
+    "bash", "c", "cmake", "cpp", "css", "dockerfile", "go", "gomod", "html",
+    "javascript", "json", "latex", "lua", "make", "python", "r", "swift", "toml",
+    "typescript", "vim", "yaml"
   },
   highlight = {
     enable = true,
     additional_vim_regex_highlighting = false,
-    disable = { "latex", "bibtex", "markdown" }
+    disable = { "bibtex", "markdown" }
   },
   indent = {
     enable = true,

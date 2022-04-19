@@ -27,6 +27,7 @@ custom_color =  {
 
 require('lualine').setup {
   options = {
+    globalstatus = true,
     theme = custom_color,
     disabled_filetypes = {'help'}
   },

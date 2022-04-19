@@ -77,27 +77,21 @@ cmp.setup {
     end
   },
   mapping = {
-    ['<C-p>'] = cmp.mapping.select_prev_item(),
-    ['<C-n>'] = cmp.mapping.select_next_item(),
-    ['<C-Space>'] = cmp.mapping(cmp.mapping.complete(), { 'i', 'c' }),
-    ['<C-d>'] = cmp.mapping(cmp.mapping.scroll_docs(-4), { 'i', 'c' }),
-    ['<C-f>'] = cmp.mapping(cmp.mapping.scroll_docs(4), { 'i', 'c' }),
+    ['<C-Space>'] = cmp.mapping(cmp.mapping.complete()),
+    ['<C-d>'] = cmp.mapping(cmp.mapping.scroll_docs(-4)),
+    ['<C-f>'] = cmp.mapping(cmp.mapping.scroll_docs(4)),
     ['<C-e>'] = cmp.mapping({
       i = cmp.mapping.abort(),
       c = cmp.mapping.close(),
     }),
+    ['<Tab>'] = cmp.mapping.select_next_item(),
+    ['<S-Tab>'] = cmp.mapping.select_prev_item(),
     -- Accept currently selected item. If none selected, `select` first item.
     -- Set `select` to `false` to only confirm explicitly selected items.
     ['<CR>'] = cmp.mapping.confirm({
       behavior = cmp.ConfirmBehavior.Insert,
       select = false,
     }),
-    ["<Tab>"] = cmp.mapping(function(fallback)
-      cmp_ultisnips_mappings.expand_or_jump_forwards(fallback)
-    end, { "i", "s", }),
-    ["<S-Tab>"] = cmp.mapping(function(fallback)
-      cmp_ultisnips_mappings.jump_backwards(fallback)
-    end, { "i", "s", }),
     ['<C-Y>'] = cmp.mapping(function(fallback)
       vim.api.nvim_feedkeys(vim.fn['copilot#Accept'](vim.api.nvim_replace_termcodes('<Tab>', true, true, true)), 'n', true)
     end, { "i", "s", })
