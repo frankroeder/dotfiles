@@ -129,8 +129,9 @@ nvim:
 	@rm -rfv $(HOME)/.config/nvim
 	@ln -sfv $(DOTFILES)/nvim $(HOME)/.config
 	@if [ -x "$(command -v go)" ]; then GO111MODULE=on go get golang.org/x/tools/gopls@latest; fi
-	@curl -fLo $(HOME)/.local/share/nvim/site/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
-	@nvim -i NONE -u $(DOTFILES)/nvim/init.vim -c "PlugInstall" -c "quitall"
+	@git clone --depth 1 https://github.com/wbthomason/packer.nvim $(HOME)/.local/share/nvim/site/pack/packer/start/packer.nvim
+	# TODO: test this
+	@nvim --headless -c 'autocmd User PackerComplete quitall' -c 'PackerSync'
 
 _git:
 	@echo -e "\033[1m\033[34m==> Installing stuff for git\033[0m"

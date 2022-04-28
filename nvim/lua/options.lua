@@ -73,7 +73,7 @@ vim.g.python3_host_prog = vim.fn.exepath("python3")
 opt.pyx = 3
 
 -- syntax and style
-if vim.fn.has('nvim') or vim.fn.has('termguicolors') then
+if vim.fn.has('termguicolors') then
   -- vim.call("let $NVIM_TUI_ENABLE_TRUE_COLOR=1")
   opt.termguicolors = true
 end
@@ -83,15 +83,6 @@ opt.iskeyword:remove({"."})
 opt.iskeyword:remove({"#"})
 
 vim.g.mapleader = ","
-
-vim.api.nvim_create_augroup("ReloadInit", {clear = true})
-vim.api.nvim_create_autocmd("BufWritePost ", {
-  group = "ReloadInit",
-  pattern = "init.vim",
-  callback = function ()
-    vim.cmd("source % | echo 'Reloaded'")
-  end,
-})
 
 -- Incrementing and decrementing alphabetical characters
 opt.nrformats:append({ "alpha" })

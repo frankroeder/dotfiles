@@ -1,3 +1,7 @@
+local cmp_status_ok, cmp = pcall(require, "cmp")
+if not cmp_status_ok then
+  return
+end
 -- nvim-cmp setup
 local cmp = require 'cmp'
 local cmp_autopairs = require('nvim-autopairs.completion.cmp')
@@ -94,10 +98,10 @@ cmp.setup {
 -- fix jumping through snippet stops
 vim.g.UltiSnipsRemoveSelectModeMappings = 0
 
-vim.api.nvim_create_autocmd({"VimEnter"}, {
-  pattern = {"*.py", "*.lua"},
-  callback = function() require("copilot").setup({ plugin_manager_path = vim.g.plug_dir }) end,
-})
+-- vim.api.nvim_create_autocmd({"VimEnter"}, {
+--   pattern = {"*.py", "*.lua"},
+--   callback = function() require("copilot").setup({ plugin_manager_path = vim.g.plug_dir }) end,
+-- })
 
 require('nvim-autopairs').setup({
   disable_filetype = { "vim", "help" },

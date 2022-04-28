@@ -2,3 +2,4 @@ __pycache__
 Brewfile.lock.json
 now_playing
 .netrwhist
+packer_compiled.lua
