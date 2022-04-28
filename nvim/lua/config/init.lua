@@ -1,5 +1,6 @@
 local plug_dir = vim.api.nvim_get_var("plug_dir")
 
+
 if vim.fn.isdirectory(plug_dir .. '/nvim-cmp') and vim.fn.isdirectory(plug_dir .. '/nvim-autopairs') then
    require("config.nvim_cmp")
 end
