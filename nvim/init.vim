@@ -26,9 +26,12 @@ Plug 'hrsh7th/cmp-path'
 Plug 'hrsh7th/cmp-nvim-lua'
 Plug 'hrsh7th/cmp-omni'
 Plug 'ray-x/cmp-treesitter'
-Plug 'hrsh7th/cmp-copilot'
-Plug 'github/copilot.vim'
 Plug 'windwp/nvim-autopairs'
+
+" Plug 'hrsh7th/cmp-copilot'
+" Plug 'github/copilot.vim'
+Plug 'zbirenbaum/copilot.lua'
+Plug 'zbirenbaum/copilot-cmp'
 
 " snippet support
 Plug 'quangnguyen30192/cmp-nvim-ultisnips'

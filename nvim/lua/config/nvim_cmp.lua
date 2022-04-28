@@ -6,17 +6,6 @@ local cmp_autopairs = require('nvim-autopairs.completion.cmp')
 vim.o.completeopt = 'menu,menuone,noselect'
 -- vim.o.pumheight = 35
 
--- https://github.com/hrsh7th/nvim-cmp/issues/602
-vim.g.copilot_no_tab_map = true
-vim.g.copilot_assume_mapped = true
-
-vim.g.copilot_tab_fallback = ""
-vim.g.copilot_filetypes = {
-	["*"] = false,
-	python = true,
-	lua = true,
-}
-
 local kind_icons = {
   Boolean = "",
   Class = "ﴯ",
@@ -84,21 +73,33 @@ cmp.setup {
       i = cmp.mapping.abort(),
       c = cmp.mapping.close(),
     }),
-    ['<Tab>'] = cmp.mapping.select_next_item(),
-    ['<S-Tab>'] = cmp.mapping.select_prev_item(),
+
+    ["<Tab>"] = cmp.mapping(function(fallback)
+      if cmp.visible() then
+        cmp.select_next_item()
+      else
+        fallback() -- The fallback function sends a already mapped key. In this case, it's probably `<Tab>`.
+      end
+    end, { "i", "s" }),
+    ["<S-Tab>"] = cmp.mapping(function(fallback)
+      if cmp.visible() then
+        cmp.select_prev_item()
+      else
+        fallback()
+      end
+    end, { "i", "s" }),
     -- Accept currently selected item. If none selected, `select` first item.
     -- Set `select` to `false` to only confirm explicitly selected items.
-    ['<CR>'] = cmp.mapping.confirm({
-      behavior = cmp.ConfirmBehavior.Insert,
-      select = false,
-    }),
-    ['<C-Y>'] = cmp.mapping(function(fallback)
-      vim.api.nvim_feedkeys(vim.fn['copilot#Accept'](vim.api.nvim_replace_termcodes('<Tab>', true, true, true)), 'n', true)
-    end, { "i", "s", })
+    ['<CR>'] = cmp.mapping.confirm({ select = false }),
   }
 }
 -- fix jumping through snippet stops
 vim.g.UltiSnipsRemoveSelectModeMappings = 0
+
+vim.api.nvim_create_autocmd({"VimEnter"}, {
+  pattern = {"*.py", "*.lua"},
+  callback = function() require("copilot").setup({ plugin_manager_path = vim.g.plug_dir }) end,
+})
 
 require('nvim-autopairs').setup({
   disable_filetype = { "vim", "help" },
