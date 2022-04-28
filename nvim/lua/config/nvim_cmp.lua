@@ -2,8 +2,6 @@
 local cmp = require 'cmp'
 local cmp_autopairs = require('nvim-autopairs.completion.cmp')
 
--- Set completeopt to have a better completion experience
-vim.o.completeopt = 'menu,menuone,noselect'
 -- vim.o.pumheight = 35
 
 local kind_icons = {
