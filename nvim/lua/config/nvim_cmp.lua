@@ -92,16 +92,14 @@ cmp.setup {
     end, { "i", "s" }),
     -- Accept currently selected item. If none selected, `select` first item.
     -- Set `select` to `false` to only confirm explicitly selected items.
-    ['<CR>'] = cmp.mapping.confirm({ select = false }),
+    ["<CR>"] = cmp.mapping.confirm({
+      behavior = cmp.ConfirmBehavior.Replace,
+      select = false,
+    })
   }
 }
 -- fix jumping through snippet stops
 vim.g.UltiSnipsRemoveSelectModeMappings = 0
-
--- vim.api.nvim_create_autocmd({"VimEnter"}, {
---   pattern = {"*.py", "*.lua"},
---   callback = function() require("copilot").setup({ plugin_manager_path = vim.g.plug_dir }) end,
--- })
 
 require('nvim-autopairs').setup({
   disable_filetype = { "vim", "help" },
