@@ -1,9 +1,7 @@
 local lspconfig = require 'lspconfig'
 local util = require 'lspconfig/util'
-local sign_def = vim.fn.sign_define
 local buf_keymap = require 'utils'.buf_keymap
 local merge_tables = require 'utils'.merge_tables
-local buf_opt = require 'utils'.buf_opt
 
 vim.lsp.set_log_level("error")
 
@@ -90,7 +88,8 @@ lspconfig.clangd.setup{
 lspconfig.tsserver.setup{
     default_config = {
       cmd = { vim.fn.exepath('typescript-language-server'), '--stdio', '--tsserver-log-file', '/tmp/ts.log' };
-      filetypes = { "javascript", "javascriptreact", "javascript.jsx", "typescript", "typescriptreact", "typescript.tsx" };
+      filetypes = { "javascript", "javascriptreact", "javascript.jsx", "typescript",
+				"typescriptreact", "typescript.tsx" };
       root_dir = function(fname)
         return util.find_git_ancestor(fname) or util.root_pattern(merge_tables(ts_js_root, general_root))
           or vim.fn.getcwd()
@@ -133,8 +132,8 @@ lspconfig.gopls.setup{
     };
 }
 lspconfig.sourcekit.setup{
-    cmd = { vim.fn.exepath('sourcekit-lsp') };
     default_config = {
+      cmd = { vim.fn.exepath('sourcekit-lsp') };
       filetypes = { "swift", "c", "cpp", "objective-c", "objective-cpp" };
       root_dir = function(fname)
         return util.find_git_ancestor(fname) or util.root_pattern(merge_tables(swift_root, general_root))

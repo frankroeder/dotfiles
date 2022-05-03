@@ -21,11 +21,6 @@ M.buf_keymap = function (bufnr, mode, key, value, opts)
   end
 end
 
--- buffer option
-M.buf_opt = function(bufnr, ...)
-  vim.api.nvim_buf_set_option(bufnr, ...)
-end
-
 -- merge two tables
 M.merge_tables = function(t1, t2)
   for k,v in ipairs(t2) do

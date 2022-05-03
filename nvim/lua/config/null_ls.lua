@@ -4,6 +4,7 @@ local fmt = nls.builtins.formatting
 local diagnostics = nls.builtins.diagnostics
 local code_actions = nls.builtins.code_actions
 
+
 -- Configuring null-ls
 nls.setup({
   save_after_format = false,

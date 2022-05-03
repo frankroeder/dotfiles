@@ -66,7 +66,9 @@ return packer.startup(function(use)
 		event = "InsertEnter",
 		ft = { "python", "lua" },
 		config = function ()
-			vim.schedule(function() require("copilot").setup() end)
+			vim.schedule(function() require("copilot").setup({
+        ft_disable = { "text", "markdown", "latex" },
+      }) end)
 		end,
 		requires = {
 			{"zbirenbaum/copilot-cmp", after = "copilot.lua"}

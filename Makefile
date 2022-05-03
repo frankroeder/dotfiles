@@ -41,6 +41,7 @@ help:
 	@echo "macos    	-- macos setup"
 	@echo "linux    	-- full linux setup"
 	@echo "minimal   	-- minimal linux setup for servers without root privilege"
+	@echo "micro   	  -- micro linux setup with bash for HPC and restricted environments"
 	@echo "nvim     	-- nvim setup with plugins, snippets and runtimes"
 	@echo "homebrew 	-- brew packages and casks of Brewfile"
 	@echo "node      	-- node and npm packages"
@@ -161,11 +162,32 @@ directories:
 	mkdir -p $(HOME)/.Trash
 	mkdir -p $(HOME)/Downloads
 
-.PHONY: _bash
+
+.PHONY: micro
+micro: _backup _bash
+	ln -sfv $(DOTFILES)/bash/bash_profile $(HOME)/.bash_profile;
+	ln -sfv $(DOTFILES)/bash/bashrc $(HOME)/.bashrc;
+	ln -sfv $(DOTFILES)/bash/bash_prompt $(HOME)/.bash_prompt;
+	ln -sfv $(DOTFILES)/bash/bash_logout $(HOME)/.bash_logout;
+	ln -sfv $(DOTFILES)/bash/tmux.conf $(HOME)/.tmux.conf
+	ln -sfv $(DOTFILES)/bash/vimrc $(HOME)/.vimrc
+	ln -sfv $(DOTFILES)/htoprc $(HOME)/.htoprc
+	mkdir -p ~/.Trash
+
 _bash:
 	ln -sfv $(DOTFILES)/bash_profile ~/.bash_profile
 	ln -sfv $(DOTFILES)/bash_logout ~/.bash_logout
+	ln -sfv $(DOTFILES)/bash_aliases ~/.bash_aliases
+	ln -sfv $(DOTFILES)/bash_functions ~/.bash_functions
 	ln -sfv $(DOTFILES)/bashrc ~/.bashrc
+
+_backup:
+	mkdir -p $(HOME)/old_dots
+	mv $(HOME)/.bash* $(HOME)/old_dots/ || echo "No .bash* found"
+	mv $(HOME)/.profile $(HOME)/old_dots/ || echo "No .profile found"
+	mv $(HOME)/.vimrc $(HOME)/old_dots/ || echo "No .vimrc found"
+	mv $(HOME)/.tmux.conf $(HOME)/old_dots/ || echo "No .tmux.conf found"
+	mv $(HOME)/.htoprc $(HOME)/old_dots/ || echo "No .htoprc found"
 
 .PHONY: _linux
 _linux:
