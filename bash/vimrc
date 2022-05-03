@@ -85,9 +85,7 @@ set background=dark
 set encoding=utf-8
 set laststatus=2
 
-set termguicolors
-let ayucolor="mirage"
-colorscheme ayu
+colorscheme default
 
 syntax enable
 

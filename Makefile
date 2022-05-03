@@ -165,21 +165,18 @@ directories:
 
 .PHONY: micro
 micro: _backup _bash
-	ln -sfv $(DOTFILES)/bash/bash_profile $(HOME)/.bash_profile;
-	ln -sfv $(DOTFILES)/bash/bashrc $(HOME)/.bashrc;
-	ln -sfv $(DOTFILES)/bash/bash_prompt $(HOME)/.bash_prompt;
-	ln -sfv $(DOTFILES)/bash/bash_logout $(HOME)/.bash_logout;
 	ln -sfv $(DOTFILES)/bash/tmux.conf $(HOME)/.tmux.conf
 	ln -sfv $(DOTFILES)/bash/vimrc $(HOME)/.vimrc
 	ln -sfv $(DOTFILES)/htoprc $(HOME)/.htoprc
 	mkdir -p ~/.Trash
 
 _bash:
-	ln -sfv $(DOTFILES)/bash_profile ~/.bash_profile
-	ln -sfv $(DOTFILES)/bash_logout ~/.bash_logout
-	ln -sfv $(DOTFILES)/bash_aliases ~/.bash_aliases
-	ln -sfv $(DOTFILES)/bash_functions ~/.bash_functions
-	ln -sfv $(DOTFILES)/bashrc ~/.bashrc
+	ln -sfv $(DOTFILES)/bash/bash_profile $(HOME)/.bash_profile;
+	ln -sfv $(DOTFILES)/bash/bashrc $(HOME)/.bashrc;
+	ln -sfv $(DOTFILES)/bash/bash_prompt $(HOME)/.bash_prompt;
+	ln -sfv $(DOTFILES)/bash/bash_logout $(HOME)/.bash_logout;
+	ln -sfv $(DOTFILES)/bash/bash_aliases ~/.bash_aliases
+	ln -sfv $(DOTFILES)/bash/bash_functions ~/.bash_functions
 
 _backup:
 	mkdir -p $(HOME)/old_dots
