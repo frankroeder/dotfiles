@@ -167,7 +167,7 @@ directories:
 micro: _backup _bash
 	ln -sfv $(DOTFILES)/bash/tmux.conf $(HOME)/.tmux.conf
 	ln -sfv $(DOTFILES)/bash/vimrc $(HOME)/.vimrc
-	ln -sfv $(DOTFILES)/htoprc $(HOME)/.htoprc
+	ln -sfv $(DOTFILES)/htop/server $(HOME)/.htoprc
 	mkdir -p ~/.Trash
 
 _bash:
