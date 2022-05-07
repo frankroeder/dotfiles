@@ -26,7 +26,10 @@ packer.init {
 return packer.startup(function(use)
 	use 'wbthomason/packer.nvim'
 
-	use 'preservim/nerdcommenter'
+	use {
+		'preservim/nerdcommenter',
+		config = [[require('config.nerdcommenter')]]
+	}
 	use {
 		'junegunn/fzf', dir = '~/.fzf', run = './install --bin'
 	}
@@ -51,6 +54,10 @@ return packer.startup(function(use)
 	use {
 		"quangnguyen30192/cmp-nvim-ultisnips",
 		requires = { "hrsh7th/nvim-cmp", "SirVer/ultisnips" },
+	}
+	use {
+		"SirVer/ultisnips",
+		config = [[require('config.ultisnips')]]
 	}
 	use { "hrsh7th/cmp-nvim-lsp", requires = { "hrsh7th/nvim-cmp" } }
 	use { "hrsh7th/cmp-buffer", requires = { "hrsh7th/nvim-cmp" } }
@@ -85,7 +92,10 @@ return packer.startup(function(use)
 		'kyazdani42/nvim-tree.lua',
 		config = [[require('config.nvim_tree')]]
 	}
-	use 'liuchengxu/vista.vim'
+	use {
+		'liuchengxu/vista.vim',
+		config = [[require('config.vista')]]
+	}
 	use { 'lewis6991/gitsigns.nvim',
 		requires = {'nvim-lua/plenary.nvim'},
 		config = [[require('config.gitsigns')]],
@@ -124,10 +134,10 @@ return packer.startup(function(use)
 	-- colorschemes
 	use 'joshdick/onedark.vim'
 	use {
-		'catppuccin/nvim' ,
-		branch = 'old-catppuccino',
+    "catppuccin/nvim",
+    as = "catppuccin",
 		config = [[require('config.colorscheme')]]
-	}
+  }
 
 	if packer_bootstrap then
 		require('packer').sync()
