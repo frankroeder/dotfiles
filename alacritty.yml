@@ -78,43 +78,43 @@ font:
 # If `true`, bold text is drawn using the bright color variants.
 draw_bold_text_with_bright_colors: true
 
-# Catppuccino Colors
+# Catppuccin
 colors:
-    # Default colors
+  # Default colors
   primary:
-   background: '#0e171c'
-   foreground: '#abb2bf'
-
-  # Normal colors
-  normal:
-    black:   '#393b44'
-    red:     '#c94f6d'
-    green:   '#97c374'
-    yellow:  '#dbc074'
-    blue:    '#61afef'
-    magenta: '#c678dd'
-    cyan:    '#63cdcf'
-    white:   '#dfdfe0'
-
-  # Bright colors
-  bright:
-    black:   '#7f8c98'
-    red:     '#e06c75'
-    green:   '#58cd8b'
-    yellow:  '#ffe37e'
-    blue:    '#84cee4'
-    magenta: '#b8a1e3'
-    cyan:    '#59f0ff'
-    white:   '#fdebc3'
+    background: '0x1E1D2F'
+    foreground: '0xD9E0EE'
 
   # Colors the cursor will use if `custom_cursor_colors` is true
   cursor:
-    text: '#0e171c'
-    cursor: '#abb2bf'
+    text: '0x1E1D2F'
+    cursor: '0xF5E0DC'
+
+  # Normal colors
+  normal:
+    black:   '0x6E6C7E'
+    red:     '0xF28FAD'
+    green:   '0xABE9B3'
+    yellow:  '0xFAE3B0'
+    blue:    '0x96CDFB'
+    magenta: '0xF5C2E7'
+    cyan:    '0x89DCEB'
+    white:   '0xD9E0EE'
+
+  # Bright colors
+  bright:
+    black:   '0x988BA2'
+    red:     '0xF28FAD'
+    green:   '0xABE9B3'
+    yellow:  '0xFAE3B0'
+    blue:    '0x96CDFB'
+    magenta: '0xF5C2E7'
+    cyan:    '0x89DCEB'
+    white:   '0xD9E0EE'
 
   indexed_colors:
-    - { index: 16, color: '#ffe37e' }
-    - { index: 17, color: '#e06c75' }
+    - { index: 16, color: '0xF8BD96' }
+    - { index: 17, color: '0xF5E0DC' }
 
 # Mouse bindings
 #
@@ -164,8 +164,8 @@ shell:
  program: zsh
  args:
    - --login
-   - -c
-   - 'tmux new-session -A -s home'
+   # - -c
+   # - 'tmux new-session -A -s home'
 
 # Send ESC (\x1b) before characters when alt is pressed.
 alt_send_esc: false

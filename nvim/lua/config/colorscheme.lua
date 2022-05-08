@@ -1,18 +1,22 @@
-local catppuccino = require("catppuccino")
+if vim.fn.has('termguicolors') then
+	vim.fn.setenv('NVIM_TUI_ENABLE_TRUE_COLOR', 1)
+  vim.opt.termguicolors = true
+end
 
-catppuccino.setup({
-  colorscheme = "dark_catppuccino",
-  transparency = true,
+local catppuccin = require("catppuccin")
+
+catppuccin.setup({
+  transparent_background = true,
+  term_colors = false,
   styles = {
     comments = "italic",
     functions = "italic",
     keywords = "italic",
     strings = "NONE",
-    variables = "NONE",
+    variables = "italic",
   },
   integrations = {
     treesitter = true,
-    ts_rainbow = true,
     native_lsp = {
       enabled = true,
       virtual_text = {
@@ -26,31 +30,42 @@ catppuccino.setup({
         hints = "underline",
         warnings = "underline",
         information = "underline",
-      }
+      },
     },
+    lsp_trouble = false,
+    cmp = true,
+    lsp_saga = false,
+    gitgutter = false,
     gitsigns = true,
+    telescope = false,
     nvimtree = {
+      enabled = true,
+      show_root = false,
+      transparent_panel = false,
+    },
+    neotree = {
       enabled = false,
       show_root = false,
+      transparent_panel = false,
     },
+    which_key = false,
     indent_blankline = {
       enabled = true,
-      colored_indent_levels = true,
+      colored_indent_levels = false,
     },
-    barbar = true,
-    markdown = true,
-
-    lsp_trouble = false,
-    lsp_saga = false,
-    telescope = false,
-    gitgutter = false,
-    which_key = false,
-    vim_sneak = false,
+    dashboard = true,
     neogit = false,
-    dashboard = false,
+    vim_sneak = false,
     fern = false,
-    bufferline = false,
+    barbar = true,
+    bufferline = true,
+    markdown = true,
+    lightspeed = false,
+    ts_rainbow = true,
+    hop = false,
+    notify = true,
+    telekasten = true,
+    symbols_outline = true,
   }
 })
-
-catppuccino.load()
+vim.cmd[[colorscheme catppuccin]]

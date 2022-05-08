@@ -72,12 +72,6 @@ end
 vim.g.python3_host_prog = vim.fn.exepath("python3")
 opt.pyx = 3
 
--- syntax and style
-if vim.fn.has('termguicolors') then
-  -- vim.call("let $NVIM_TUI_ENABLE_TRUE_COLOR=1")
-  opt.termguicolors = true
-end
-
 -- Treat given characters as a word boundary
 opt.iskeyword:remove({"."})
 opt.iskeyword:remove({"#"})
