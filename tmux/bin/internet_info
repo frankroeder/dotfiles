@@ -17,7 +17,8 @@ fi
 if [ -n "$AIRPORT_INFO" ]; then
   [[ -n $SSID ]] && echo -n " $SSID"
   echo -n " -["$RSSI"]db#[default]"
+elif [ $(networksetup -getinfo "USB 10/100/1000 LAN" | grep -m 1 "IP address" | cut -d':' -f2 | xargs) != "none" ]; then
+  echo -n " #[fg=colour148]LAN#[default]"
 else
-  ping -c 1 8.8.8.8 &> /dev/null && echo -n " #[fg=colour148]LAN#[default]" \
-    || echo -n ""
+   echo -n ""
 fi
