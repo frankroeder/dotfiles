@@ -26,9 +26,9 @@ keymap("i", "<Right>", "<nop>")
 keymap("n", "Q", "<nop>")
 -- [,* ] Search and replace the word under the cursor.
 -- current line
-keymap("n", "<Leader>*", [[:s/\<<C-r><C-w>\>//g<Left><Left>]], {})
+keymap("n", "<Leader>*", [[:s/\<<C-r><C-w>\>//g<Left><Left>]], { silent = false })
 -- all occurrences
-keymap("n", "<Leader>**", [[:%s/\<<C-r><C-w>\>//g<Left><Left>]], {})
+keymap("n", "<Leader>**", [[:%s/\<<C-r><C-w>\>//g<Left><Left>]], { silent = false })
 -- w!! to save with sudo
 keymap("c", "w!!", [[execute 'silent! write !sudo tee % >/dev/null' <bar> edit!]], { noremap = true })
 -- replace word with text in register "0
