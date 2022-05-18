@@ -17,7 +17,7 @@ local options = {
   synmaxcol = 2500,       -- Limit syntax highlighting (this
                           -- avoids the very slow redrawing
                           -- when files contain long lines)
-  updatetime = 300,       -- faster updatetime for responsive async plugins like signify
+  updatetime = 300,       -- faster update time for plugins like gitsigns
   signcolumn = "yes",     -- always draw sign column
   cmdheight = 2,
   modeline = true,

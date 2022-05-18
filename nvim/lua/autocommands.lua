@@ -1,5 +1,5 @@
 vim.api.nvim_create_augroup("packer_user_config", {clear = true})
-vim.api.nvim_create_autocmd("BufWritePost ", {
+vim.api.nvim_create_autocmd("BufWritePost", {
   group = "packer_user_config",
   pattern = "plugins.lua",
   callback = function ()
@@ -7,33 +7,67 @@ vim.api.nvim_create_autocmd("BufWritePost ", {
   end,
 })
 
-vim.cmd [[
-  augroup CustomAutoCmds
-    autocmd!
+-- highlight yanks
+vim.api.nvim_create_autocmd('TextYankPost', {
+  callback = function()
+    vim.highlight.on_yank(
+      { higroup="IncSearch", timeout=300, on_visual=true }
+    )
+  end,
+})
 
-    " trim whitespaces
-    let blacklist_striptrail = ['markdown']
-    autocmd BufWritePre * if index(blacklist_striptrail, &ft) < 0 | :call StripTrailingWhitespaces()
+vim.api.nvim_create_autocmd('BufWritePost', {
+  pattern = '*.snippets',
+  command = "CmpUltisnipsReloadSnippets",
+})
 
-    " toggle line numbers
-    autocmd FocusGained,InsertLeave * set relativenumber
-    autocmd FocusLost,InsertEnter   * set norelativenumber
+-- toggle line numbers
+vim.api.nvim_create_augroup("toggle_line_numbers", {clear = true})
+vim.api.nvim_create_autocmd({"FocusGained", "InsertLeave"}, {
+  pattern = '*',
+  command = "set relativenumber",
+  group = "toggle_line_numbers"
+})
+vim.api.nvim_create_autocmd({"FocusLost", "InsertEnter"}, {
+  pattern = '*',
+  command = "set norelativenumber",
+  group = "toggle_line_numbers"
+})
 
-    " toggle color of column
-    autocmd BufEnter,FocusGained,InsertLeave * set cc=
-    autocmd BufLeave,FocusLost,InsertEnter   * set cc=81
+-- toggle color of column
+vim.api.nvim_create_augroup("toggle_color_column", {clear = true})
+vim.api.nvim_create_autocmd({"BufEnter", "FocusGained", "InsertLeave"}, {
+  pattern = '*',
+  command = "set cc=",
+  group = "toggle_color_column"
+})
+vim.api.nvim_create_autocmd({"BufLeave", "FocusLost", "InsertEnter"}, {
+  pattern = '*',
+  command = "set cc=81",
+  group = "toggle_color_column"
+})
 
-    " auto read
-    autocmd FocusGained,BufEnter,CursorHold,CursorHoldI * if mode() != 'c' | checktime | endif
-    autocmd FileChangedShellPost *
-          \ echohl WarningMsg | echo "File changed on disk. Buffer reloaded." | echohl None
+-- detect file change
+vim.api.nvim_create_autocmd("FileChangedShellPost", {
+  pattern = '*',
+  command = [[echohl WarningMsg | echo "File changed on disk. Buffer reloaded." | echohl None]],
+})
 
-    " highlight yanks
-		autocmd TextYankPost *
-					\ silent! lua return (not vim.v.event.visual)
-					\   and vim.highlight.on_yank {higroup='IncSearch', timeout=300}
-    autocmd BufWritePost *.snippets :CmpUltisnipsReloadSnippets
-    " automatically close the tab/vim when nvim-tree is the last window
-    autocmd BufEnter * ++nested if winnr('$') == 1 && bufname() == 'NvimTree_' . tabpagenr() | quit | endif
-  augroup END
-]]
+-- auto read
+vim.api.nvim_create_autocmd({"FocusGained", "BufEnter", "CursorHold", "CursorHoldI"}, {
+  pattern = '*',
+  command = [[if mode() != 'c' | checktime | endif]],
+})
+
+-- automatically close the tab/vim when nvim-tree is the last window
+vim.api.nvim_create_autocmd('BufEnter', {
+  pattern = '*',
+  command = "if winnr('$') == 1 && bufname() == 'NvimTree_' . tabpagenr() | quit | endif",
+  nested = true,
+})
+
+-- trim whitespaces
+vim.api.nvim_create_autocmd('BufWritePre', {
+  pattern = '*',
+  command = [[if index(["markdown"], &ft) < 0 | :call StripTrailingWhitespaces()]],
+})

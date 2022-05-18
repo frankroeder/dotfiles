@@ -164,8 +164,8 @@ shell:
  program: zsh
  args:
    - --login
-   # - -c
-   # - 'tmux new-session -A -s home'
+   - -c
+   - 'tmux new-session -A -s home'
 
 # Send ESC (\x1b) before characters when alt is pressed.
 alt_send_esc: false

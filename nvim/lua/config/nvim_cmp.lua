@@ -2,11 +2,6 @@ local cmp_status_ok, cmp = pcall(require, "cmp")
 if not cmp_status_ok then
   return
 end
--- nvim-cmp setup
-local cmp = require 'cmp'
-local cmp_autopairs = require('nvim-autopairs.completion.cmp')
-
--- vim.o.pumheight = 35
 
 local kind_icons = {
   Boolean = "",
@@ -36,22 +31,25 @@ local kind_icons = {
   Value = "",
   Variable = ""
 }
-local cmp_ultisnips_mappings = require("cmp_nvim_ultisnips.mappings")
 
-cmp.setup {
+cmp.setup({
   snippet = {
     expand = function(args)
       vim.fn["UltiSnips#Anon"](args.body)
     end,
   },
-  sources = {
+	window = {
+		completion = cmp.config.window.bordered(),
+		documentation = cmp.config.window.bordered(),
+	},
+  sources = cmp.config.sources({
     { name = 'nvim_lsp' },
     { name = 'path' },
     { name = 'ultisnips', max_item_count = 5 },
     { name = 'buffer', max_item_count = 5, keyword_length = 3 },
     { name = 'treesitter', max_item_count = 5, keyword_length = 3 },
     { name = 'copilot' },
-  },
+  }),
   formatting = {
     format = function(entry, vim_item)
       vim_item.kind = string.format('%s %s', kind_icons[vim_item.kind], vim_item.kind)
@@ -67,7 +65,7 @@ cmp.setup {
       return vim_item
     end
   },
-  mapping = {
+  mapping = cmp.mapping.preset.insert({
     ['<C-Space>'] = cmp.mapping(cmp.mapping.complete()),
     ['<C-d>'] = cmp.mapping(cmp.mapping.scroll_docs(-4)),
     ['<C-f>'] = cmp.mapping(cmp.mapping.scroll_docs(4)),
@@ -96,10 +94,15 @@ cmp.setup {
       behavior = cmp.ConfirmBehavior.Replace,
       select = false,
     })
-  }
-}
+  })
+})
 -- fix jumping through snippet stops
 vim.g.UltiSnipsRemoveSelectModeMappings = 0
+
+local cmp_autopair_status_ok, cmp_autopairs = pcall(require, 'nvim-autopairs.completion.cmp')
+if not cmp_autopair_status_ok then
+  return
+end
 
 require('nvim-autopairs').setup({
   disable_filetype = { "vim", "help" },
