@@ -101,6 +101,9 @@ endif
 .PHONY: zsh
 zsh:
 	@echo -e "\033[1m\033[34m==> Installing zsh and tools\033[0m"
+ifeq ($(OSTYPE), Linux)
+	@echo "thewtex/tmux-mem-cpu-load" >> $(DOTFILES)/antibody/bundles.txt
+endif
 	@antibody bundle < $(DOTFILES)/antibody/bundles.txt > $(HOME)/.zsh/zsh_plugins.sh
 	@ln -sfv $(DOTFILES)/zsh/zshrc $(HOME)/.zshrc
 	@ln -sfv $(DOTFILES)/zsh/zlogin $(HOME)/.zlogin

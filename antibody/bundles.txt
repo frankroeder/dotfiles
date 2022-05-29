@@ -1,7 +1,6 @@
 zsh-users/zsh-completions
 zsh-users/zsh-autosuggestions
 mafredri/zsh-async
-thewtex/tmux-mem-cpu-load
 esc/conda-zsh-completion
 
 # should be last

@@ -13,7 +13,11 @@ alias whou='who -u | sort -k 3 --reverse'
 alias datehelp='for F in {a..z} {A..Z} :z ::z :::z;do echo $F: $(date +%$F);done|sed "/:[\ \t\n]*$/d;/%[a-zA-Z]/d"'
 alias swaptop='whatswap | egrep -v "Swap used: 0" |sort -n -k 10'
 
-[ $commands[nvidia-smi] ] && alias wgpu='watch -n 0.1 -d nvidia-smi'
+if [ $commands[nvidia-smi] ]; then
+	alias wgpu='watch -n 0.1 -d nvidia-smi'
+	alias nogpu='export CUDA_VISIBLE_DEVICES=-1'
+fi
+
 [ $commands[nvitop] ] && alias ntop='nvitop --monitor auto --gpu-util-thresh 50 80 --mem-util-thresh 60 90'
 
 if [ $commands[xclip] ]; then
