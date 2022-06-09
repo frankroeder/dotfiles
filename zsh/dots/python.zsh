@@ -1,7 +1,10 @@
-if [[ $commands[ipython] ]]; then
-  alias ipy='ipython'
-  alias ippdb='ipython --pprint --pdb'
-fi
+ipy() {
+  (( $+commands[ipython] )) && ipython || echo "ipython not found"
+}
+ippdb() {
+  (( $+commands[ipython] )) && ipython --pprint --pdb || echo "ipython not found"
+}
+
 alias pipup='$(which python3) -m pip install --upgrade pip'
 alias pipreq='$(which python3) -m pip install -r $PWD/requirements.txt -U'
 

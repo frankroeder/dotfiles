@@ -56,7 +56,7 @@ return packer.startup({function(use)
   use { "ray-x/cmp-treesitter", requires = { "hrsh7th/nvim-cmp" } }
   use { "windwp/nvim-autopairs", requires = { "hrsh7th/nvim-cmp" } }
 
-  -- use 'github/copilot.vim'
+  use 'github/copilot.vim'
   use {
     "zbirenbaum/copilot.lua",
     event = "InsertEnter",
