@@ -60,10 +60,9 @@ return packer.startup({function(use)
   use {
     "zbirenbaum/copilot.lua",
     event = "InsertEnter",
-    ft = { "python", "lua" },
     config = function ()
       vim.schedule(function() require("copilot").setup({
-        ft_disable = { "text", "markdown", "latex" },
+				ft_disable = { "text", "markdown", "latex" },
       }) end)
     end,
     requires = {
@@ -79,10 +78,11 @@ return packer.startup({function(use)
   }
   use {
     'kyazdani42/nvim-tree.lua',
-    config = [[require('config.nvim_tree')]]
+    config = [[require('config.nvim_tree')]],
+    requires = { 'kyazdani42/nvim-web-devicons' },
   }
   use {
-    'liuchengxu/vista.vim', config = [[require('config.vista')]]
+    'simrat39/symbols-outline.nvim', config = [[require('config.symbols_outline')]]
   }
   use { 'lewis6991/gitsigns.nvim', requires = {'nvim-lua/plenary.nvim'},
     config = [[require('config.gitsigns')]], event = "BufRead"
@@ -91,24 +91,29 @@ return packer.startup({function(use)
     'lukas-reineke/indent-blankline.nvim',
     config = [[require('config.indent_blankline')]]
   }
-
+	use {
+		"folke/which-key.nvim",
+		config = function()
+			require("which-key").setup {
+				spelling = {
+					enabled = true, -- enabling this will show WhichKey when pressing z= to select spelling suggestions
+					suggestions = 20, -- how many suggestions should be shown in the list?
+				},
+			}
+		end
+	}
   -- language support
   use {
     'plasticboy/vim-markdown', requires = { 'godlygeek/tabular' }
-  }
-  use {
-    'JamshedVesuna/vim-markdown-preview',
-    ft = { 'markdown' }
   }
   use 'lervag/vim-latex'
   use 'frankroeder/apple-swift'
   use 'cespare/vim-toml'
 
-
-  -- UI
+  -- ui
   use {
     'nvim-lualine/lualine.nvim', config = [[require('config.lualine')]],
-    requires = {'kyazdani42/nvim-web-devicons', opt = true}
+    requires = { 'kyazdani42/nvim-web-devicons', opt = true }
   }
   use {
     'romgrk/barbar.nvim', config = [[require('config.barbar')]]

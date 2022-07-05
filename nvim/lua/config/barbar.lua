@@ -30,4 +30,4 @@ vim.g.bufferline = {
 
 keymap("n", "<C-K>", ":BufferNext<CR>")
 keymap("n", "<C-J>", ":BufferPrevious<CR>")
-keymap("n", "<Leader>c", ":BufferClose<CR>")
+keymap("n", "<C-C>", ":BufferClose<CR>")

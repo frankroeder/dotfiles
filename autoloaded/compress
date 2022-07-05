@@ -6,7 +6,7 @@ ARCHIVE_NAME="${1:t}"
 DIR="${2}"
 if [[ -n "$ARCHIVE_NAME" ]]; then
   case $ARCHIVE_NAME in
-    *.tar.gz|*.tgz) tar -cvf "$ARCHIVE_NAME "--use-compress-program=gzip "$DIR" ;;
+    *.tar.gz|*.tgz) tar -cvf "$ARCHIVE_NAME " --use-compress-program=gzip "$DIR" ;;
     *.tar.bz2|*.tbz|*.tbz2) tar -cvf "$ARCHIVE_NAME" --use-compress-program=bzip2 "$DIR" ;;
     *.tar.xz|*.txz) tar -cvJf "$ARCHIVE_NAME" "$DIR" ;;
     *.zip|*.jar) zip -r "$ARCHIVE_NAME" "$DIR" ;;

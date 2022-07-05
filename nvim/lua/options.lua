@@ -12,6 +12,7 @@ local options = {
   showmode  = false,      -- Don't show current mode
   showmatch = true,       -- Show matching bracket/parenthesis/etc
   matchtime = 2,
+  timeoutlen = 500,
   ruler = false,
   lazyredraw = true,      -- redraw only when needed(not in execution of macro)
   synmaxcol = 2500,       -- Limit syntax highlighting (this
@@ -68,15 +69,17 @@ if vim.fn.has('mouse') then
   opt.mousehide = true          -- Hide mouse when typing
 end
 
+g.do_filetype_lua = 1
+g.did_load_filetypes = 0
 
-vim.g.python3_host_prog = vim.fn.exepath("python3")
+g.python3_host_prog = vim.fn.exepath("python3")
 opt.pyx = 3
 
 -- Treat given characters as a word boundary
 opt.iskeyword:remove({"."})
 opt.iskeyword:remove({"#"})
 
-vim.g.mapleader = ","
+g.mapleader = ","
 
 -- Incrementing and decrementing alphabetical characters
 opt.nrformats:append({ "alpha" })

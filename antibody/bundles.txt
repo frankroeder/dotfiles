@@ -2,6 +2,7 @@ zsh-users/zsh-completions
 zsh-users/zsh-autosuggestions
 mafredri/zsh-async
 esc/conda-zsh-completion
+MichaelAquilina/zsh-you-should-use
 
 # should be last
 sindresorhus/pure branch:main

@@ -4,19 +4,6 @@ let g:vim_markdown_fenced_languages = ['html', 'css', 'js=javascript',
       \ 'c++=cpp', 'c', 'go', 'viml=vim', 'bash=sh', 'python']
 let g:vim_markdown_strikethrough = 1
 
-" Markdown Preview
-let g:vim_markdown_preview_hotkey='<Leader>mp'
-
-if executable('grip')
-  let vim_markdown_preview_toggle=1
-  let vim_markdown_preview_github=1
-else
-  let vim_markdown_preview_toggle=0
-  let vim_markdown_preview_pandoc=1
-endif
-
-let vim_markdown_preview_temp_file=1
-
 augroup markdown
   au Filetype markdown nmap <buffer> <Space>tt :Toc <CR>
   au Filetype markdown nmap <buffer> <Space>hi :HeaderIncrease <CR>

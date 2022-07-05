@@ -8,8 +8,11 @@ jsconfig.json
 
 # python
 .python-version
-.ipynb_checkpoints
+.ipynb_checkpoints/
 *__pycache__/
+.condaenv
+.venv*
+*.pyc
 
 # nodejs
 node_modules/
@@ -23,7 +26,6 @@ package-lock.json
 *.o
 *.so
 *.out
-*.pyc
 
 # Temporary files
 *.swp
@@ -49,3 +51,5 @@ Thumbs.db
 
 # pyright config
 pyproject.toml
+
+events.out.tfevents.*
