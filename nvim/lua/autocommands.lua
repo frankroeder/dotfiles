@@ -1,4 +1,6 @@
 local packer_group = vim.api.nvim_create_augroup("packer_user_config", {clear = true})
+local table_find_element = require 'utils'.table_find_element
+
 vim.api.nvim_create_autocmd("BufWritePost", {
   group = packer_group,
   pattern = "plugins.lua",
@@ -69,10 +71,36 @@ vim.api.nvim_create_autocmd('BufEnter', {
   desc = 'Automatically close the tab/vim when nvim-tree is the last window.'
 })
 
+local trim_group = vim.api.nvim_create_augroup("packer_user_config", {clear = true})
+
+local trim = function(pattern)
+  local save = vim.fn.winsaveview()
+  vim.cmd(string.format("keepjumps keeppatterns silent! %s", pattern))
+  vim.fn.winrestview(save)
+end
+
 vim.api.nvim_create_autocmd('BufWritePre', {
   pattern = '*',
-  command = [[if index(["markdown"], &ft) < 0 | :call StripTrailingWhitespaces()]],
-  desc = 'Automatically trim whitespaces on write.'
+  group = trim_group,
+  callback = function()
+    if not table_find_element({ "markdown" }, vim.bo.filetype) then
+      local save = vim.fn.winsaveview()
+      trim [[%s/\s\+$//e]]
+      vim.fn.winrestview(save)
+    end
+  end,
+  desc = 'Automatically trim trailing whitespaces on write.'
+})
+
+vim.api.nvim_create_autocmd('BufWritePre', {
+  pattern = '*',
+  group = trim_group,
+  callback = function()
+		local save = vim.fn.winsaveview()
+		trim [[%s/\($\n\s*\)\+\%$//]]
+		vim.fn.winrestview(save)
+  end,
+  desc = 'Automatically trim trailing lines on write.'
 })
 
 local win_group = vim.api.nvim_create_augroup('window_resized', { clear = true })
@@ -82,4 +110,3 @@ vim.api.nvim_create_autocmd('VimResized', {
   command = 'wincmd =',
   desc = 'Automatically resize windows when the host window size changes.'
 })
-

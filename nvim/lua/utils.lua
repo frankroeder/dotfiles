@@ -29,4 +29,14 @@ M.merge_tables = function(t1, t2)
   return t1
 end
 
+-- find element in table
+M.table_find_element = function(table, element)
+  for k, v in ipairs(table) do
+    if v == element then
+      return true
+    end
+  end
+  return false
+end
+
 return M

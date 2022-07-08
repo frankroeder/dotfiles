@@ -118,14 +118,20 @@ cmp.setup.cmdline(':', {
 -- fix jumping through snippet stops
 vim.g.UltiSnipsRemoveSelectModeMappings = 0
 
+local npairs_status_ok, npairs = pcall(require, "nvim-autopairs")
+if not npairs_status_ok then
+	return
+end
+
+npairs.setup({
+  disable_filetype = { "vim", "help" },
+})
+
 local cmp_autopair_status_ok, cmp_autopairs = pcall(require, 'nvim-autopairs.completion.cmp')
 if not cmp_autopair_status_ok then
   return
 end
 
-require('nvim-autopairs').setup({
-  disable_filetype = { "vim", "help" },
-})
 cmp.event:on('confirm_done',
   cmp_autopairs.on_confirm_done({
     map_char = { tex = '' }

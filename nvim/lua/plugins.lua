@@ -17,20 +17,21 @@ end
 return packer.startup({function(use)
   use 'wbthomason/packer.nvim'
 
-  use {
-    'preservim/nerdcommenter', config = [[require('config.nerdcommenter')]]
-  }
-  use {
-    'junegunn/fzf', dir = '~/.fzf', run = './install --bin'
-  }
+  use { 'numToStr/Comment.nvim', config = [[require('config.comment')]] }
+  use { 'junegunn/fzf', dir = '~/.fzf', run = './install --bin' }
   use 'junegunn/fzf.vim'
-  use 'tpope/vim-surround'
-  use 'tpope/vim-repeat'
+  use {
+    "kylechui/nvim-surround",
+    config = function()
+      require("nvim-surround").setup()
+    end
+  }
 
   use {
     'nvim-treesitter/nvim-treesitter', requires = {'p00f/nvim-ts-rainbow'},
     config = [[require('config.treesitter')]], run = ':TSUpdate',
   }
+  use 'nvim-treesitter/playground'
 
   use {
     'neovim/nvim-lspconfig', config = [[require('config.lsp')]],

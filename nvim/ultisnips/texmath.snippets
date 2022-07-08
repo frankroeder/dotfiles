@@ -1,5 +1,12 @@
 priority -50
 
+global !p
+
+def math():
+	return vim.eval("luaeval('tsutils.in_mathzone()')") == "True"
+
+endglobal
+
 snippet eq "Equation" b
 \begin{equation}
 	$0
@@ -36,22 +43,27 @@ snippet eqa* "Equation array without numbers" b
 \end{eqnarray*}
 endsnippet
 
+context "math()"
 snippet frac "Fraction" w
 \frac{${1:${VISUAL}}}{${2}}
 endsnippet
 
+context "math()"
 snippet sum "Sum" w
 \sum_{${1:i=1}}^{${2:n}} ${0}
 endsnippet
 
+context "math()"
 snippet prod "Product" w
 \prod_{${1:i=1}}^{${2:N}} ${0}
 endsnippet
 
+context "math()"
 snippet lim "Lim" w
 \lim_{${1:n} \\to ${2:\\infty}}} ${0}
 endsnippet
 
+context "math()"
 snippet int "Integral" w
 \int_{${1:-\\infty}}^{${2:\\infty}} ${0} dx
 endsnippet
@@ -62,30 +74,37 @@ snippet mat "Smart Matrix"
 \end{$1matrix}
 endsnippet
 
+context "math()"
 snippet lr( "left( right)" w
 \left( ${1:${VISUAL}} \right)
 endsnippet
 
+context "math()"
 snippet lr| "left| right|" w
 \left| ${1:${VISUAL}} \right|
 endsnippet
 
+context "math()"
 snippet lr{ "left\{ right\}" w
 \left\\{ ${1:${VISUAL}} \right\\}
 endsnippet
 
+context "math()"
 snippet lr[ "left[ right]" w
 \left[ ${1:${VISUAL}} \right]
 endsnippet
 
+context "math()"
 snippet dv "Derivative" w
 \dv[${1:${VISUAL}}]{${2}}{${3}}
 endsnippet
 
+context "math()"
 snippet pdv "Partial Derivative" w
 \pdv[${1:${VISUAL}}]{${2}}{${3}}
 endsnippet
 
+context "math()"
 snippet SI "SI-Unit" w
 \SI{${1:${VISUAL}}}{${2}}
 endsnippet

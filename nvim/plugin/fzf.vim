@@ -37,7 +37,7 @@ nnoremap <C-P> :FzfBLines<Cr>
 let g:fzf_commits_log_options =
  \ '--graph --color=always --format="%C(auto)%h%d %s %C(black)%C(bold)%cr"'
 
-nnoremap <Leader>b :Buffers<Cr>
+nnoremap <C-B> :Buffers<Cr>
 nnoremap <Leader>g :FzfBCommits<Cr>
 nnoremap <Leader>h :FzfHistory<Cr>
 nnoremap <Leader>t :Colors<Cr>
@@ -51,37 +51,21 @@ imap <C-X><C-L> <plug>(fzf-complete-line)
 " Dictionary completion
 imap <expr> <C-X><C-K> fzf#vim#complete('cat /usr/share/dict/words')
 
-" Toggle preview with '?' when searching w/ :FzfFiles or :FzfGitFiles
-command! -bang -nargs=? -complete=dir FzfFiles
-      \ call fzf#vim#files(
-      \ <q-args>,
-      \   <bang>0 ? fzf#vim#with_preview('up:35%')
-      \           : fzf#vim#with_preview('right:50%:hidden', '?'),
-      \ <bang>0)
-
-command! -bang -nargs=? FzfGitFiles
-      \ call fzf#vim#gitfiles(
-      \ <q-args>,
-      \   <bang>0 ? fzf#vim#with_preview('up:35%')
-      \           : fzf#vim#with_preview('right:50%:hidden', '?'),
-      \ <bang>0)
-
-command! -bang Colors
-      \ call fzf#vim#colors({'window': { 'width': 0.3, 'height': 0.6 } },
-      \ <bang>0)
-
-command! -bang Buffers
-      \ call fzf#vim#buffers({'window': { 'width': 0.6, 'height': 0.6 } },
-      \ <bang>0)
-
-command! -bang Commands
-      \ call fzf#vim#commands({'window': { 'width': 0.9, 'height': 0.6 } },
-      \ <bang>0)
-
-command! -bang Maps
-      \ call fzf#vim#maps('', {'window': { 'width': 0.9, 'height': 0.6 } },
-      \ <bang>0)
-
-command! -bang Marks
-      \ call fzf#vim#marks({'window': { 'width': 0.9, 'height': 0.6 } },
-      \ <bang>0)
+lua << EOF
+	-- Toggle preview with '?' when searching w/ :FzfFiles or :FzfGitFiles
+  vim.api.nvim_create_user_command(
+		"FzfFiles",
+		"call fzf#vim#files( <q-args>, <bang>0 ? fzf#vim#with_preview('up:35%') : fzf#vim#with_preview('right:50%:hidden', '?'), <bang>0)",
+		{ nargs = '*', complete = 'dir' }
+	)
+  vim.api.nvim_create_user_command(
+    "FzfGitFiles",
+    "call fzf#vim#gitfiles(<q-args>, <bang>0 ? fzf#vim#with_preview('up:35%') : fzf#vim#with_preview('right:50%:hidden', '?'), <bang>0)",
+		{ nargs = '*' }
+  )
+  vim.api.nvim_create_user_command("Colors", "call fzf#vim#colors({'window': { 'width': 0.3, 'height': 0.6 } }, <bang>0)", {})
+  vim.api.nvim_create_user_command("Buffers", "call fzf#vim#buffers({'window': { 'width': 0.6, 'height': 0.6 } }, <bang>0)", {})
+  vim.api.nvim_create_user_command("Commands", "call fzf#vim#commands({'window': { 'width': 0.9, 'height': 0.6 } }, <bang>0)", {})
+  vim.api.nvim_create_user_command("Maps", "call fzf#vim#maps('', {'window': { 'width': 0.9, 'height': 0.6 } },  <bang>0)", {})
+  vim.api.nvim_create_user_command("Marks", "call fzf#vim#marks({'window': { 'width': 0.9, 'height': 0.6 } }, <bang>0)", {})
+EOF
