@@ -117,14 +117,14 @@ node:
 ifeq ($(shell ${WHICH} node 2>${DEVNUL}),)
 	bash $(DOTFILES)/scripts/nodejs.sh
 endif
-	@npm i -g npm@latest
-	@npm i -g typescript
-	@npm i -g eslint
-	@npm i -g neovim
-	@npm i -g typescript-language-server
-	@npm i -g vscode-html-languageserver-bin
-	@npm i -g vscode-css-languageserver-bin
-	@npm i -g pyright
+	@npm i --location=global npm@latest
+	@npm i --location=global typescript
+	@npm i --location=global eslint
+	@npm i --location=global neovim
+	@npm i --location=global typescript-language-server
+	@npm i --location=global vscode-html-languageserver-bin
+	@npm i --location=global vscode-css-languageserver-bin
+	@npm i --location=global pyright
 
 .PHONY: nvim
 nvim:

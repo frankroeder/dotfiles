@@ -1,3 +1,4 @@
+#!/usr/bin/env sh
 # reload yabai and skhd
 ctrl + alt + cmd - r : \
        launchctl kickstart -k "gui/${UID}/homebrew.mxcl.yabai"; \

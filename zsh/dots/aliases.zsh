@@ -38,7 +38,7 @@ alias unixtime='date +%s'
 
 if [[ $commands[npm] ]]; then
   alias npmls='npm ls --depth=0'
-  alias npmlsg='npm ls --depth=0 -g'
+  alias npmlsg='npm ls --depth=0 --location=global'
 fi
 
 alias dfh='df -h'
