@@ -1,6 +1,11 @@
 local keymap = require 'utils'.keymap
 
-require'nvim-tree'.setup {
+local status_ok, nvim_tree = pcall(require, 'nvim-tree')
+if not status_ok then
+  return
+end
+
+nvim_tree.setup {
   -- disables netrw completely
   disable_netrw = false,
   -- open the tree when running this setup function

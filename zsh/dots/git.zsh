@@ -43,8 +43,24 @@ alias gcfle='git config --local --edit'
 alias gcl='git clone --recurse-submodules'
 alias gclean='git clean -id'
 alias gpristine='git reset --hard && git clean -dfx'
-alias gcm='git checkout master'
-alias gcd='git checkout develop'
+gcm() {
+  if [[ $(git branch | grep 'master') ]]; then
+    git checkout master
+  elif [[ $(git branch | grep 'main') ]]; then
+    git checkout main
+  else
+    echo "No branch named master or main found."
+  fi
+}
+gcd() {
+  if [[ $(git branch | grep 'develop') ]]; then
+    git checkout develop
+  elif [[ $(git branch | grep 'dev') ]]; then
+    git checkout dev;
+  else
+    echo "No branch named develop or dev found."
+  fi
+}
 alias gcmsg='git commit -m'
 alias gco='git checkout'
 alias gcount='git shortlog -sn'

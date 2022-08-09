@@ -1,4 +1,7 @@
-local lspconfig = require 'lspconfig'
+local lsp_status_ok, lspconfig = pcall(require, 'lspconfig')
+if not lsp_status_ok then
+  return
+end
 local util = require 'lspconfig/util'
 local buf_keymap = require 'utils'.buf_keymap
 local merge_tables = require 'utils'.merge_tables
@@ -12,8 +15,8 @@ local c_cpp_root = {'compile_commands.json', 'build/', 'compile_flags.txt', '.cl
 local go_root = {'go.sum', 'go.mod'}
 local swift_root = {'Package.swift'}
 
--- buffer setup
 local custom_on_attach = function(client, bufnr)
+	-- lsp
   buf_keymap(bufnr, "n", "K", [[<cmd>lua vim.lsp.buf.hover()<CR>]])
   buf_keymap(bufnr, "n", "gD", [[<cmd>lua vim.lsp.buf.declaration()<CR>]])
   buf_keymap(bufnr, "n", "gd", [[<cmd>lua vim.lsp.buf.definition()<CR>]])
@@ -29,8 +32,13 @@ local custom_on_attach = function(client, bufnr)
   buf_keymap(bufnr, "n", "<Space>ll", [[<cmd>lua vim.diagnostic.setloclist()<CR>]])
 end
 
+local cmp_status_ok, cmp_nvim_lsp = pcall(require, 'cmp_nvim_lsp')
+if not cmp_status_ok then
+  return
+end
+
 local capabilities = vim.lsp.protocol.make_client_capabilities()
-capabilities = require('cmp_nvim_lsp').update_capabilities(capabilities)
+capabilities = cmp_nvim_lsp.update_capabilities(capabilities)
 
 -- override default config for all servers
 lspconfig.util.default_config = vim.tbl_extend(
@@ -140,3 +148,4 @@ lspconfig.sourcekit.setup{
       trace = { server = "messages"; };
     };
 }
+lspconfig.svelte.setup{}

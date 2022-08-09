@@ -88,7 +88,7 @@ colors:
     dim_foreground: '#CDD6F4' # text
     bright_foreground: '#CDD6F4' # text
 
-  # Cursor colors
+    # Cursor colors
   cursor:
     text: '#1E1E2E' # base
     cursor: '#F5E0DC' # rosewater
@@ -96,7 +96,7 @@ colors:
     text: '#1E1E2E' # base
     cursor: '#B4BEFE' # lavender
 
-  # Search colors
+    # Search colors
   search:
     matches:
       foreground: '#1E1E2E' # base
@@ -104,11 +104,11 @@ colors:
     focused_match:
       foreground: '#1E1E2E' # base
       background: '#A6E3A1' # green
-    bar:
+    footer_bar:
       foreground: '#1E1E2E' # base
       background: '#A6ADC8' # subtext0
 
-  # Keyboard regex hints
+      # Keyboard regex hints
   hints:
     start:
       foreground: '#1E1E2E' # base
@@ -117,12 +117,12 @@ colors:
       foreground: '#1E1E2E' # base
       background: '#A6ADC8' # subtext0
 
-  # Selection colors
+      # Selection colors
   selection:
     text: '#1E1E2E' # base
     background: '#F5E0DC' # rosewater
 
-  # Normal colors
+    # Normal colors
   normal:
     black:   '#45475A' # surface1
     red:     '#F38BA8' # red
@@ -133,18 +133,18 @@ colors:
     cyan:    '#94E2D5' # teal
     white:   '#BAC2DE' # subtext1
 
-  # Bright colors
+    # Bright colors
   bright:
-    black:   '#45475A' # surface1
+    black:   '#585B70' # surface2
     red:     '#F38BA8' # red
     green:   '#A6E3A1' # green
     yellow:  '#F9E2AF' # yellow
     blue:    '#89B4FA' # blue
     magenta: '#F5C2E7' # pink
     cyan:    '#94E2D5' # teal
-    white:   '#BAC2DE' # subtext1
+    white:   '#A6ADC8' # subtext0
 
-  # Dim colors
+    # Dim colors
   dim:
     black:   '#45475A' # surface1
     red:     '#F38BA8' # red
@@ -154,6 +154,10 @@ colors:
     magenta: '#F5C2E7' # pink
     cyan:    '#94E2D5' # teal
     white:   '#BAC2DE' # subtext1
+
+  indexed_colors:
+    - { index: 16, color: '#FAB387' }
+    - { index: 17, color: '#F5E0DC' }
 
 # Mouse bindings
 #
