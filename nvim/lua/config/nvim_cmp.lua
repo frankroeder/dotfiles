@@ -49,12 +49,12 @@ cmp.setup({
     documentation = cmp.config.window.bordered(),
   },
   sources = cmp.config.sources({
-    { name = 'nvim_lsp' },
-    { name = 'path' },
     { name = 'ultisnips', max_item_count = 5 },
+    { name = 'nvim_lsp' },
+    { name = 'copilot' },
     { name = 'buffer', max_item_count = 5, keyword_length = 3 },
     { name = 'treesitter', max_item_count = 5, keyword_length = 3 },
-    { name = 'copilot' },
+    { name = 'path' }
   }),
   formatting = {
     format = function(entry, vim_item)
@@ -142,4 +142,23 @@ cmp.event:on('confirm_done',
   cmp_autopairs.on_confirm_done({
     map_char = { tex = '' }
   })
+)
+
+cmp.event:on('confirm_done',
+	cmp_autopairs.on_confirm_done({
+		filetypes = {
+			["*"] = {
+				["*"] = {
+					kind = {
+						cmp.CmpItemKindCopilot,
+					},
+					handler = function(char, item, bufnr)
+						return
+					end
+				}
+			},
+			-- Disable for tex
+			tex = false
+		}
+	})
 )

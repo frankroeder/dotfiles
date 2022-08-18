@@ -13,8 +13,7 @@ My personal dotfiles for Linux and macOS.
 ## Options
 - macOS Intel and ARM: `make macos`
 - Linux with sudo rights: `make linux`
-- Linux without sudo rights: `make NOSUDO=1 linux`
-- Minimal Linux without sudo rights: `make NOSUDO=1 minimal`
+- Linux without sudo rights: `make NOSUDO=1 minimal`
 
 ## Local configuration files
 The following list of files could be created and used to define local configurations:
