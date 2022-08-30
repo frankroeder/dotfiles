@@ -6,7 +6,7 @@ import subprocess
 CHANNELS = {
     'ndrinfo': 'https://www.ndr.de/resources/metadaten/audio_ssl/m3u/ndrinfo.m3u',
     'detektorfm': 'https://sec-detektorfm.hoerradar.de/detektorfm-musik-mp3-128',
-    'dlf': 'https://dradio-edge-1097-dus-dtag-cdn.cast.addradio.de/dradio/dlf/live/mp3/128/stream.mp3',
+    'dlf': 'https://st01.sslstream.dlf.de/dlf/01/128/mp3/stream.mp3',
     'jazz': 'https://streaming.radio.co/s774887f7b/listen'
 }
 
