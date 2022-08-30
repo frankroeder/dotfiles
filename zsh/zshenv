@@ -22,7 +22,11 @@ path=(
     $path
   )
 }
-if (( ${+commands[nvim]} )); then
+
+if (( ${+commands[neovide]} )); then
+	export EDITOR="/Applications/Neovide.app/Contents/MacOS/neovide"
+  export NEOVIDE_FRAMELESS=1
+elif (( ${+commands[nvim]} )); then
   export EDITOR=$(which nvim)
 elif (( ${+commands[vim]} )); then
   export EDITOR=$(which vim)

@@ -143,22 +143,3 @@ cmp.event:on('confirm_done',
     map_char = { tex = '' }
   })
 )
-
-cmp.event:on('confirm_done',
-	cmp_autopairs.on_confirm_done({
-		filetypes = {
-			["*"] = {
-				["*"] = {
-					kind = {
-						cmp.CmpItemKindCopilot,
-					},
-					handler = function(char, item, bufnr)
-						return
-					end
-				}
-			},
-			-- Disable for tex
-			tex = false
-		}
-	})
-)

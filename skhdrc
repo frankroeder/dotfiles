@@ -86,6 +86,7 @@ fn + ctrl - l : yabai -m window --swap east || $(yabai -m window --display east;
 fn + ctrl - s : open "x-apple.systempreferences:"
 fn + ctrl - a : open -a "About This Mac"
 fn + ctrl - b : bash "$DOTFILES/scripts/toggle_app.bash" "$BROWSER_NAME"
+fn + ctrl - n : bash "$DOTFILES/scripts/toggle_app.bash" "Neovide"
 
 ################
 #  FN + SHIFT  #

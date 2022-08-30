@@ -4,4 +4,4 @@ local files
 files=($(fzf --query="$1" -m --no-mouse --select-1 --exit-0 \
   --preview 'head -100 {}' --preview-window \
   right:hidden --bind '?:toggle-preview'))
-  [[ -n "$files" ]] && ${EDITOR:-vim} "${files[@]}"
+  [[ -n "$files" ]] && ${EDITOR:-vi} "${files[@]}"

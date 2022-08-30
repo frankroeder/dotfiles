@@ -4,6 +4,7 @@ require("options")
 require("keymaps")
 require("plugins")
 require("autocommands")
+require("neovide")
 
 -- make tsutils available for legacy vim
 tsutils = require('tsutils')
