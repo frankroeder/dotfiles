@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 
-AIRPORT_INFO=( $(airport -I | grep -E "^ *(agrCtlRSSI|SSID):" | awk '{print $2}') )
+AIRPORT_INFO=( $(airport -I | grep -E "^ *(agrCtlRSSI|SSID|lastTxRate):" | awk '{print $2}') )
 RSSI=$(echo "${AIRPORT_INFO[0]}" | sed 's/-//g')
-SSID=$(echo "${AIRPORT_INFO[1]}")
+TX=$(echo "${AIRPORT_INFO[1]}" | sed 's/-//g')
+SSID=$(echo "${AIRPORT_INFO[2]}")
 
 if [[ $RSSI -lt 25 ]]; then
   echo -n "#[fg=${thm_red}]"
@@ -16,7 +17,7 @@ fi
 
 if [ -n "$AIRPORT_INFO" ]; then
   [[ -n $SSID ]] && echo -n " $SSID"
-  echo -n " -["$RSSI"]db#[default]"
+  echo -n " -["$RSSI"]db["$TX"]Mbps#[default]"
 elif [ $(networksetup -getinfo "USB 10/100/1000 LAN" | grep -m 1 "IP address" | cut -d':' -f2 | xargs) != "none" ]; then
   echo -n " #[fg=colour148]LAN#[default]"
 else
