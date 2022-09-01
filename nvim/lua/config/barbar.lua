@@ -1,4 +1,4 @@
-local keymap = require 'utils'.keymap
+local keymap = require("utils").keymap
 
 -- Set barbar's options
 vim.g.bufferline = {

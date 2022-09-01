@@ -1,4 +1,4 @@
-local keymap  = require 'utils'.keymap
+local keymap = require("utils").keymap
 
 -- Center search result (zz) and open fold (zv)
 keymap("n", "n", "nzzzv", { noremap = true })
@@ -30,7 +30,12 @@ keymap("n", "<Leader>*", [[:s/\<<C-r><C-w>\>//g<Left><Left>]], { silent = false 
 -- all occurrences
 keymap("n", "<Leader>**", [[:%s/\<<C-r><C-w>\>//g<Left><Left>]], { silent = false })
 -- w!! to save with sudo
-keymap("c", "w!!", [[execute 'silent! write !sudo tee % >/dev/null' <bar> edit!]], { noremap = true })
+keymap(
+  "c",
+  "w!!",
+  [[execute 'silent! write !sudo tee % >/dev/null' <bar> edit!]],
+  { noremap = true }
+)
 -- replace word with text in register "0
 keymap("n", "<Leader>pr", [[viw"0p]], { noremap = true })
 -- Switch CWD to the directory of the open buffer
@@ -40,12 +45,12 @@ keymap("", "<Leader>qq", ":cclose<CR>", {})
 -- List contents of all registers
 keymap("n", '""', ":registers<CR>")
 -- add semicolon at end of line
-keymap("", '<Leader>;', "g_a;<Esc>", {})
+keymap("", "<Leader>;", "g_a;<Esc>", {})
 -- tmux style shortcuts
-keymap("n", '<C-W>%', ":split<CR>", { noremap = true })
+keymap("n", "<C-W>%", ":split<CR>", { noremap = true })
 keymap("n", '<C-W>"', ":vsplit<CR>", { noremap = true })
 -- remain in visual mode after code shift
-keymap("v", '<', "<gv", { noremap = true })
-keymap("v", '>', ">gv", { noremap = true })
+keymap("v", "<", "<gv", { noremap = true })
+keymap("v", ">", ">gv", { noremap = true })
 -- Join lines and restore cursor location
-keymap("n", 'J', "mjJ`j", { noremap = true })
+keymap("n", "J", "mjJ`j", { noremap = true })

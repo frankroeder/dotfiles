@@ -1,2 +1,2 @@
-vim.o.backup = false
-vim.o.writebackup = false
+vim.opt.backup = false
+vim.opt.writebackup = false

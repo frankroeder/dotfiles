@@ -1,1 +1,1 @@
-require('cmp').setup.buffer { sources = { { name = 'nvim_lua' } } }
+require("cmp").setup.buffer { sources = { { name = "nvim_lua" } } }

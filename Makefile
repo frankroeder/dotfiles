@@ -259,6 +259,11 @@ benchmark:
 	@echo -e "\033[1m\033[34m==> zsh startuptime\033[0m"
 	@zsh $(DOTFILES)/autoloaded/bench_zsh
 
+.PHONY: format
+format:
+	@cd $(DOTFILES)/nvim
+	@stylua -f $(DOTFILES)/nvim/.stylua.toml **/*.lua
+
 .PHONY: uninstall
 uninstall:
 	rm $(HOME)/.zshrc

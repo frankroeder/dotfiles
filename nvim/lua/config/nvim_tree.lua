@@ -1,6 +1,6 @@
-local keymap = require 'utils'.keymap
+local keymap = require("utils").keymap
 
-local status_ok, nvim_tree = pcall(require, 'nvim-tree')
+local status_ok, nvim_tree = pcall(require, "nvim-tree")
 if not status_ok then
   return
 end
@@ -10,7 +10,7 @@ nvim_tree.setup {
   disable_netrw = false,
   -- open the tree when running this setup function
   open_on_setup = false,
-   -- show lsp diagnostics in the signcolumn
+  -- show lsp diagnostics in the signcolumn
   diagnostics = {
     enable = false,
     icons = {
@@ -18,11 +18,19 @@ nvim_tree.setup {
       info = "",
       warning = "",
       error = "",
-    }
+    },
   },
   filters = {
-    custom = { '.git', '.cache', '.vim', '__pycache__', 'node_modules', '.egg-info' , '.gitignore' }
-  }
+    custom = {
+      ".git",
+      ".cache",
+      ".vim",
+      "__pycache__",
+      "node_modules",
+      ".egg-info",
+      ".gitignore",
+    },
+  },
 }
 
 keymap("n", "<Leader>n", ":NvimTreeToggle<CR>")

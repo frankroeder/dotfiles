@@ -1,5 +1,5 @@
-require('cmp').setup.buffer {
--- preserve the format as provided by VimTeX
+require("cmp").setup.buffer {
+  -- preserve the format as provided by VimTeX
   formatting = {
     format = function(entry, vim_item)
       vim_item.menu = ({
@@ -11,8 +11,8 @@ require('cmp').setup.buffer {
     end,
   },
   sources = {
-    { name = 'omni' },
-    { name = 'buffer', max_item_count = 5, keyword_length = 3 },
-    { name = 'ultisnips', max_item_count = 5 },
+    { name = "omni" },
+    { name = "buffer", max_item_count = 5, keyword_length = 3 },
+    { name = "ultisnips", max_item_count = 5 },
   },
 }
