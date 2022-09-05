@@ -1,6 +1,11 @@
 local keymap = require("utils").keymap
 
-vim.g.symbols_outline = {
+local status_ok, symbols_outline = pcall(require, "symbols-outline")
+if not status_ok then
+  return
+end
+
+symbols_outline.setup {
   highlight_hovered_item = false,
   show_guides = true,
   auto_preview = false,

@@ -53,7 +53,6 @@ for app in "Activity Monitor" \
   "iCal" \
   "cfprefsd" \
   "VLC" \
-  "Skim" \
   "SystemUIServer"; do
   killall "${app}" &> /dev/null
 done

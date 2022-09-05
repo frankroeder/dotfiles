@@ -228,10 +228,13 @@ ifeq ($(shell ${WHICH} airport 2>${DEVNUL}),)
 	@sudo ln -s /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/local/bin/airport
 endif
 ifeq ($(shell ${WHICH} alacritty 2>${DEVNUL}),)
-	sudo ln -s /Applications/Alacritty.app/Contents/MacOS/alacritty /usr/local/bin/alacritty
+	@sudo ln -s /Applications/Alacritty.app/Contents/MacOS/alacritty /usr/local/bin/alacritty
 endif
 ifeq ($(shell ${WHICH} firefox 2>${DEVNUL}),)
-	sudo ln -s /Applications/Firefox.app/Contents/MacOS/firefox /usr/local/bin/firefox
+	@sudo ln -s /Applications/Firefox.app/Contents/MacOS/firefox /usr/local/bin/firefox
+endif
+ifeq ($(shell ${WHICH} sioyek 2>${DEVNUL}),)
+	@sudo ln -s /Applications/sioyek.app/Contents/MacOS/sioyek /usr/local/bin/sioyek
 endif
 # ifeq ($(shell ${WHICH} osx-cpu-temp 2>${DEVNUL}),)
 ifeq ($(ARCHITECTURE), x86_64)

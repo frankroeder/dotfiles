@@ -20,16 +20,6 @@ defaults write org.videolan.vlc SUEnableAutomaticChecks -bool true
 # Disable checking online for album art and metadata.
 defaults write org.videolan.vlc SUSendProfileInfo -bool false
 
-# Skim
-# turn off auto reload dialog, default to auto reload
-defaults write -app Skim SKAutoReloadFileUpdate -boolean true
-defaults write -app Skim SKAutoCheckFileUpdate -bool true
-# Image Smoothing
-defaults write -app Skim SKInterpolationQuality  -int 2
-defaults write -app Skim SKShowStatusBar -bool true
-defaults write -app Skim SUAutomaticallyUpdate  -bool true
-defaults write -app Skim AppleWindowTabbingMode -string "manual"
-
 # Preview
 # Do not show sidebar
 defaults write com.apple.Preview PVSidebarViewModeForNewDocuments -boolean false

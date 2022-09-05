@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
-# Use Skim to open a man page in a more handsome format
+# Use a PDF viewer to open a man page in a more handsome format
 
-man -t "$@" | open -f -a /Applications/Skim.app
+man -t "$@" | open -f -a /Applications/sioyek.app
