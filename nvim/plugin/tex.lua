@@ -3,9 +3,7 @@ local keymap = require("utils").keymap
 vim.wo.conceallevel = 0
 vim.g.tex_conceal = "abdmg"
 vim.g.tex_flavor = "latex"
-if vim.fn.has "mac" == 1 then
-  vim.g.vimtex_view_method = "sioyek"
-end
+vim.g.vimtex_view_method = "sioyek"
 vim.g.vimtex_view_general_options = "-r @line @pdf @tex"
 vim.g.vimtex_quickfix_mode = 0
 vim.g.vimtex_complete_close_braces = 1
