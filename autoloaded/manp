@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 # Use a PDF viewer to open a man page in a more handsome format
 
-man -t "$@" | open -f -a /Applications/sioyek.app
+man -t $1 | ps2pdf - /tmp/man_$1.pdf && open -a sioyek /tmp/man_$1.pdf

@@ -1,5 +1,6 @@
 setuptools
 neovim
+neovim-remote
 unidecode
 numpy
 matplotlib
