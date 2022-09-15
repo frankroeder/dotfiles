@@ -54,7 +54,6 @@ cmp.setup {
   sources = cmp.config.sources {
     { name = "ultisnips", max_item_count = 5 },
     { name = "nvim_lsp" },
-    { name = "copilot" },
     { name = "buffer", max_item_count = 5, keyword_length = 3 },
     { name = "treesitter", max_item_count = 5, keyword_length = 3 },
     { name = "path" },
@@ -69,7 +68,6 @@ cmp.setup {
         buffer = "[Buffer]",
         nvim_lua = "[Lua]",
         treesitter = "[Treesitter]",
-        copilot = "[Copilot]",
       })[entry.source.name]
       return vim_item
     end,

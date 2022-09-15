@@ -67,22 +67,6 @@ return packer.startup {
     use { "ray-x/cmp-treesitter", requires = { "hrsh7th/nvim-cmp" } }
     use { "windwp/nvim-autopairs", requires = { "hrsh7th/nvim-cmp" } }
 
-    -- use 'github/copilot.vim'
-    use {
-      "zbirenbaum/copilot.lua",
-      event = "InsertEnter",
-      config = function()
-        vim.schedule(function()
-          require("copilot").setup {
-            ft_disable = { "text", "markdown", "latex" },
-          }
-        end)
-      end,
-      requires = {
-        { "zbirenbaum/copilot-cmp", after = "copilot.lua" },
-      },
-    }
-
     -- utils
     use "nvim-lua/plenary.nvim"
     use {
