@@ -41,6 +41,8 @@ local has_words_before = function()
     and vim.api.nvim_buf_get_text(0, line - 1, 0, line - 1, col, {})[1]:match "^%s*$" == nil
 end
 
+vim.opt.completeopt = {'menu', 'menuone', 'noselect'}
+
 cmp.setup {
   snippet = {
     expand = function(args)

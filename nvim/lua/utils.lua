@@ -29,7 +29,7 @@ end
 
 -- merge two tables
 M.merge_tables = function(t1, t2)
-  for k, v in ipairs(t2) do
+  for _, v in ipairs(t2) do
     table.insert(t1, v)
   end
   return t1
@@ -37,7 +37,7 @@ end
 
 -- find element in table
 M.table_find_element = function(table, element)
-  for k, v in ipairs(table) do
+  for _, v in ipairs(table) do
     if v == element then
       return true
     end

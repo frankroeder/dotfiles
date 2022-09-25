@@ -44,7 +44,7 @@ return packer.startup {
 
     use {
       "neovim/nvim-lspconfig",
-      config = [[require('config.lsp')]],
+      config = [[require('config.lsp_config')]],
       after = "cmp-nvim-lsp",
     }
     use {

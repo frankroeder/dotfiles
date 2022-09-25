@@ -3,6 +3,7 @@
 alias f='open -a Finder ./'
 alias preview='open -a /System/Applications/Preview.app'
 test -d "/Applications/Skim.app" && alias skim='open -a /Applications/Skim.app'
+test -d "/Applications/Firefox.app" && alias firefox="/Applications/Firefox.app/Contents/MacOS/firefox"
 alias icloud="cd /Users/$USER/Library/Mobile\ Documents/com~apple~CloudDocs"
 alias copypubkey='pbcopy < ~/.ssh/id_rsa.pub'
 

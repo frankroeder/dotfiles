@@ -6,8 +6,8 @@ require "plugins"
 require "autocommands"
 require "neovide"
 
--- make tsutils available for legacy vim
-tsutils = require "tsutils"
+-- make tsutils globally available for legacy vim
+Tsutils = require "tsutils"
 
 local local_vimrc = os.getenv "HOME" .. "/.local.vim"
 if vim.fn.filereadable(local_vimrc) then

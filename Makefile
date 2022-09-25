@@ -230,9 +230,6 @@ endif
 ifeq ($(shell ${WHICH} alacritty 2>${DEVNUL}),)
 	@sudo ln -s /Applications/Alacritty.app/Contents/MacOS/alacritty /usr/local/bin/alacritty
 endif
-ifeq ($(shell ${WHICH} firefox 2>${DEVNUL}),)
-	@sudo ln -s /Applications/Firefox.app/Contents/MacOS/firefox /usr/local/bin/firefox
-endif
 ifeq ($(shell ${WHICH} sioyek 2>${DEVNUL}),)
 	@sudo ln -s /Applications/sioyek.app/Contents/MacOS/sioyek /usr/local/bin/sioyek
 endif
