@@ -3,6 +3,7 @@ local util = require "lspconfig/util"
 local py_root = { "venv/", "requirements.txt", "setup.py", "pyproject.toml", "setup.cfg" }
 local merge_tables = require("utils").merge_tables
 
+
 return function(lspconfig)
   lspconfig.pyright.setup {
     cmd = { vim.fn.exepath "pyright-langserver", "--stdio" },
@@ -12,6 +13,7 @@ return function(lspconfig)
         or util.find_git_ancestor(fname)
         or util.path.dirname(fname)
     end,
+    single_file_support = true,
     settings = {
       python = {
         analysis = {
@@ -21,6 +23,5 @@ return function(lspconfig)
         },
       },
     },
-    single_file_support = true,
   }
 end

@@ -1,3 +1,3 @@
 local M = {}
-M.general_root = { ".root", ".project.*", ".git/", ".gitignore", "README.md" }
+M.general_root = { ".project.*", ".git/", "README.md" }
 return M
