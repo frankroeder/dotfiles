@@ -9,11 +9,13 @@ alias pipup='$(which python3) -m pip install --upgrade pip'
 alias pipreq='$(which python3) -m pip install -r $PWD/requirements.txt -U'
 
 conact() {
-  if [[  -n "$@" ]]; then
-    conda activate $(basename $PWD);
-  else
-    conda activate $(conda env list | tail -n +3 | awk '{print $1}' | fzf)
-  fi
+  conda activate $(basename $PWD);
+  echo "Version: $($CONDA_PREFIX/bin/python --version)"
+  echo "Current python: $(which python)";
+  echo "Current pip: $(which pip)";
+}
+conactz() {
+  conda activate $(conda env list | tail -n +3 | awk '{print $1}' | fzf)
   echo "Version: $($CONDA_PREFIX/bin/python --version)"
   echo "Current python: $(which python)";
   echo "Current pip: $(which pip)";
