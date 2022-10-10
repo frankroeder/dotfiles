@@ -5,7 +5,7 @@ install_binary(){
   DEST="$HOME/bin/nvim"
   cd $HOME/tmp
   # RELEASE='nightly'
-  RELEASE='v0.7.2'
+  RELEASE='v0.8.0'
   URL="https://github.com/neovim/neovim/releases/download/$RELEASE/nvim.appimage"
   curl -LO  $URL
   CURRENT_CHECKSUM=$(openssl sha256 "nvim.appimage" | awk {'print $2'});

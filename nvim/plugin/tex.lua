@@ -1,5 +1,3 @@
-local keymap = require("utils").keymap
-
 vim.wo.conceallevel = 0
 vim.g.tex_conceal = "abdmg"
 vim.g.tex_flavor = "latex"
@@ -51,14 +49,13 @@ vim.g.vimtex_complete_bib = {
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "tex",
   callback = function()
-    keymap("n", "<Space>tt", "<plug>(vimtex-toc-toggle)", {})
-    keymap("n", "<Space>tv", "<plug>(vimtex-view)", {})
-    keymap("n", "<Space>tc", "<plug>(vimtex-compile)", {})
-    keymap(
-      "n",
-      "<C-F>*",
-      [[:call vimtex#fzf#run('cti', {'window': { 'width': 0.6, 'height': 0.6 } })<CR>]],
-      {}
+    vim.keymap.set("n", "<Space>tt", "<Plug>(vimtex-toc-toggle)")
+    vim.keymap.set("n", "<Space>tv", "<Plug>(vimtex-view)")
+    vim.keymap.set("n", "<Space>tc", "<Plug>(vimtex-compile)")
+    vim.keymap.set("n", "<C-F>",
+       function()
+        vim.cmd [[:call vimtex#fzf#run('cti', {'window': { 'width': 0.6, 'height': 0.6 } })]]
+      end
     )
   end,
   desc = "VimTex key mappings",

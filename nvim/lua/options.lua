@@ -67,9 +67,6 @@ if vim.fn.has "mouse" then
   opt.mousehide = true -- Hide mouse when typing
 end
 
-g.do_filetype_lua = 1
-g.did_load_filetypes = 0
-
 g.python3_host_prog = vim.fn.exepath "python3"
 opt.pyx = 3
 

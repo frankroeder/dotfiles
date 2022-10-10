@@ -1,5 +1,3 @@
-local keymap = require("utils").keymap
-
 local status_ok, nvim_tree = pcall(require, "nvim-tree")
 if not status_ok then
   return
@@ -33,4 +31,4 @@ nvim_tree.setup {
   },
 }
 
-keymap("n", "<Leader>n", ":NvimTreeToggle<CR>")
+vim.keymap.set("n", "<Leader>n", ":NvimTreeToggle<CR>")

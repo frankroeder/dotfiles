@@ -1,5 +1,3 @@
-local keymap = require("utils").keymap
-
 local status_ok, symbols_outline = pcall(require, "symbols-outline")
 if not status_ok then
   return
@@ -19,4 +17,4 @@ symbols_outline.setup {
   preview_bg_highlight = "FocusedSymbol",
 }
 
-keymap("n", "<Leader>s", [[:SymbolsOutline<CR>]])
+vim.keymap.set("n", "<Leader>s", ":SymbolsOutline<CR>")

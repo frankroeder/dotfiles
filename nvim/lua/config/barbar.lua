@@ -1,5 +1,3 @@
-local keymap = require("utils").keymap
-
 -- Set barbar's options
 vim.g.bufferline = {
   -- Enable/disable auto-hiding the tab bar when there is a single buffer
@@ -28,6 +26,6 @@ vim.g.bufferline = {
   maximum_length = 20,
 }
 
-keymap("n", "<C-K>", ":BufferNext<CR>")
-keymap("n", "<C-J>", ":BufferPrevious<CR>")
-keymap("n", "<C-C>", ":BufferClose<CR>")
+vim.keymap.set("n", "<C-K>", ":BufferNext<CR>")
+vim.keymap.set("n", "<C-J>", ":BufferPrevious<CR>")
+vim.keymap.set("n", "<C-C>", ":BufferClose<CR>")
