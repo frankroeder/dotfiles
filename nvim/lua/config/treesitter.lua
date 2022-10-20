@@ -8,6 +8,7 @@ nvim_treesitter.setup {
     "bash",
     "c",
     "cmake",
+    "comment", -- for tags like TODO, FIXME, NOTE, BUG, HACK
     "cpp",
     "css",
     "dockerfile",

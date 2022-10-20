@@ -1,5 +1,3 @@
-local buf_keymap = require("utils").buf_keymap
-
 return function(client, bufnr)
   -- lsp
   vim.keymap.set("n", "K", vim.lsp.buf.hover, { noremap = true, silent = true, buffer = bufnr })
@@ -15,4 +13,20 @@ return function(client, bufnr)
   vim.keymap.set("n", "gp", function() vim.diagnostic.goto_prev { float = true } end, { noremap = true, silent = true, buffer = bufnr })
   vim.keymap.set("n", "<Space>ld", function() vim.diagnostic.open_float(0, {scope="line"}) end, { noremap = true, silent = true, buffer = bufnr })
   vim.keymap.set("n", "<Space>ll", vim.diagnostic.setloclist, { noremap = true, silent = true, buffer = bufnr })
+
+  if client.server_capabilities.codeLensProvider then
+    vim.cmd [[autocmd BufEnter,CursorHold,InsertLeave <buffer> lua vim.lsp.codelens.refresh() ]]
+    vim.lsp.codelens.refresh()
+  end
+
+  -- LSP document highlighting
+  if client.server_capabilities.documentHighlightProvider then
+    vim.api.nvim_exec([[
+      augroup lsp_document_highlight
+      autocmd! * <buffer>
+      autocmd CursorHold,CursorHoldI <buffer> lua vim.lsp.buf.document_highlight()
+      autocmd CursorMoved <buffer> lua vim.lsp.buf.clear_references()
+      augroup END
+      ]], false)
+  end
 end
