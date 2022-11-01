@@ -92,17 +92,6 @@ return packer.startup {
       "lukas-reineke/indent-blankline.nvim",
       config = [[require('config.indent_blankline')]],
     }
-    use {
-      "folke/which-key.nvim",
-      config = function()
-        require("which-key").setup {
-          spelling = {
-            enabled = true, -- enabling this will show WhichKey when pressing z= to select spelling suggestions
-            suggestions = 20, -- how many suggestions should be shown in the list?
-          },
-        }
-      end,
-    }
     -- language support
     use {
       "plasticboy/vim-markdown",
