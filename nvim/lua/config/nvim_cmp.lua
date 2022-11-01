@@ -41,7 +41,7 @@ local has_words_before = function()
     and vim.api.nvim_buf_get_text(0, line - 1, 0, line - 1, col, {})[1]:match "^%s*$" == nil
 end
 
-vim.opt.completeopt = {'menu', 'menuone', 'noselect'}
+vim.opt.completeopt = { "menu", "menuone", "noselect" }
 
 cmp.setup {
   snippet = {
@@ -53,6 +53,9 @@ cmp.setup {
     completion = cmp.config.window.bordered(),
     documentation = cmp.config.window.bordered(),
   },
+	ghost_text = {
+		hl_group = "LspCodeLens",
+	},
   sources = cmp.config.sources {
     { name = "ultisnips", max_item_count = 5 },
     { name = "nvim_lsp" },
@@ -107,7 +110,7 @@ cmp.setup {
 }
 
 -- Use buffer source for `/` (if you enabled `native_menu`, this won't work anymore).
-cmp.setup.cmdline("/", {
+cmp.setup.cmdline({"/", "?"}, {
   mapping = cmp.mapping.preset.cmdline(),
   sources = {
     { name = "buffer" },
@@ -135,6 +138,9 @@ end
 npairs.setup {
   disable_filetype = { "vim", "help" },
   check_ts = true,
+  ts_config = {
+    lua = { "string", "comment" }, -- it will not add a pair on that treesitter node
+  },
 }
 
 local cmp_autopair_status_ok, cmp_autopairs = pcall(require, "nvim-autopairs.completion.cmp")

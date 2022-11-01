@@ -7,8 +7,6 @@ dependencies:
   - neovim
   - numpy
   - pip
-  - pytorch
-  - scipy
   - setuptools
   - unidecode
   - yapf

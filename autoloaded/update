@@ -79,6 +79,11 @@ apt_update() {
   sudo apt upgrade --yes;
 }
 
+mac_misc() {
+	# update alacritty theme
+	(cd $HOME/.config/alacritty/catppuccin; git pull;)
+}
+
 run(){
   if ping -c 1 google.com &> /dev/null; then
     info "Checking for updates"
@@ -94,7 +99,8 @@ run(){
     [ $commands[gem] ] && exec_routine gem_update
     [ $commands[mas] ] && exec_routine mas_update
     [ $commands[brew] ] && exec_routine brew_update
-    [ "$OSTYPE" = "Darwin" ] &&  exec_routine macos_update
+    [ "$OSTYPE" = "Darwin" ] && exec_routine mac_misc
+    [ "$OSTYPE" = "Darwin" ] && exec_routine macos_update
     [ "$OSTYPE" = "Linux" ] && exec_routine apt_update
 
     success "Updates completed"
