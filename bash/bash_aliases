@@ -9,7 +9,7 @@ alias ......='cd ../../../../..'
 alias vi='vim'
 alias cp='nice cp'
 alias mv='nice mv'
-alias src="source ~/.bash_profile"
+alias {src,refresh}="source ~/.bash_profile"
 
 # Lists the top 4 processes by CPU usage
 alias hogs="ps -acrx -o pid,%cpu,command | awk 'NR<=5'"
@@ -90,4 +90,3 @@ alias gt="git tag"
 alias grt='cd "$(git rev-parse --show-toplevel)"'
 alias gg='git grep'
 alias gwch='git whatchanged -p --abbrev-commit --pretty=medium'
-

@@ -32,7 +32,14 @@ condev() {
  conda install --yes neovim ipdb unidecode
 }
 rmcenv() {
-  conda env remove --name $(basename $PWD) --all;
+  conda remove --name $(basename $PWD) --all;
+}
+rmcenvz() {
+  ENV_NAME=$(conda env list | tail -n +3 | awk '{print $1}' | fzf)
+  echo $ENV_NAME
+  if [[ -n "$ENV_NAME" ]]; then
+    conda remove --name $ENV_NAME --all;
+  fi
 }
 cpip() {
   command $CONDA_PREFIX/bin/pip "$@";

@@ -5,7 +5,7 @@ alias grep='grep --color=auto'
 [[ -d "$HOME/Documents" ]] && alias repos='cd $HOME/Documents'
 [[ -d "$HOME/Downloads" ]] && alias dl='cd $HOME/Downloads'
 
-alias src='exec "$SHELL" -l'
+alias {src,refresh}='exec "$SHELL" -l'
 # forcibly rebuild zcompdump
 alias rezcomp='rm -f $HOME/.zcompdump; compinit'
 alias {dotfiles,dots}='cd $HOME/.dotfiles'
