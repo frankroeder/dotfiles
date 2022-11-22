@@ -79,5 +79,8 @@
 [init]
   defaultBranch = main
 
+[submodule]
+	recurse = true
+
 [include]
   path = "~/.local.gitconfig"

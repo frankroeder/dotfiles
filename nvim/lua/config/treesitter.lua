@@ -31,7 +31,7 @@ nvim_treesitter.setup {
   highlight = {
     enable = true,
     additional_vim_regex_highlighting = false,
-    disable = { "bibtex", "markdown" },
+    disable = { "bibtex", "markdown", "help" },
   },
   indent = {
     enable = true,

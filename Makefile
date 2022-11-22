@@ -103,10 +103,6 @@ endif
 .PHONY: zsh
 zsh:
 	@echo -e "\033[1m\033[34m==> Installing zsh and tools\033[0m"
-ifeq ($(OSTYPE), Linux)
-	@echo "thewtex/tmux-mem-cpu-load" >> $(DOTFILES)/antibody/bundles.txt
-endif
-	@antibody bundle < $(DOTFILES)/antibody/bundles.txt > $(HOME)/.zsh/zsh_plugins.sh
 	@ln -sfv $(DOTFILES)/zsh/zshrc $(HOME)/.zshrc
 	@ln -sfv $(DOTFILES)/zsh/zlogin $(HOME)/.zlogin
 	@ln -sfv $(DOTFILES)/zsh/zshenv $(HOME)/.zshenv
@@ -205,11 +201,6 @@ endif
 ifeq ($(shell ${WHICH} tree-sitter 2>${DEVNUL}),)
 	@bash $(DOTFILES)/scripts/tree-sitter.sh
 endif
-ifeq ($(NOSUDO), 1)
-	@curl -sfL git.io/antibody | sh -s - -b $(HOME)/bin;
-else
-	@curl -sfL git.io/antibody | sudo sh -s - -b /usr/local/bin
-endif
 ifeq ($(shell ${WHICH} nvidia-smi 2>${DEVNUL}),)
 	@pip install nvitop
 endif
@@ -223,8 +214,7 @@ _macos:
 	@mkdir -p $(HOME)/.config/alacritty
 	@ln -sfv $(DOTFILES)/alacritty.yml $(HOME)/.config/alacritty/
 	@ln -sfv $(DOTFILES)/yabai $(HOME)/.config/yabai
-	@mkdir $(HOME)/.config/skhdrc
-	@ln -sfv $(DOTFILES)/skhdrc $(HOME)/.config/skhd/skhdrc
+	@ln -sfv $(DOTFILES)/skhd $(HOME)/.config/skhd
 	@ln -sfv $(DOTFILES)/sketchybar $(HOME)/.config/sketchybar
 ifeq ($(shell ${WHICH} airport 2>${DEVNUL}),)
 	@sudo ln -s /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/local/bin/airport
@@ -244,10 +234,7 @@ ifeq ($(shell ${WHICH} sourcekit-lsp 2>${DEVNUL}),)
 	@bash $(DOTFILES)/scripts/sourcekit-lsp.sh
 endif
 	@ln -sfv $(DOTFILES)/htop/personal $(HOME)/.config/htop/htoprc
-ifeq ($(ARCHITECTURE), arm64)
-	@brew install antibody
-endif
-	@git clone https://github.com/catppuccin/alacritty.git $(HOME)/.config/alacritty/catppuccin
+	@if [ ! -d "$(HOME)/.config/alacritty/catppuccin" ]; then git clone https://github.com/catppuccin/alacritty.git $(HOME)/.config/alacritty/catppuccin; fi
 
 .PHONY: check
 check:

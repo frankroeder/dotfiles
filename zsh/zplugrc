@@ -1,0 +1,33 @@
+#!/usr/bin/env zsh
+#
+# Check if zplug is installed
+if [[ ! -d $HOME/.zplug ]]; then
+  git clone https://github.com/zplug/zplug $HOME/.zplug
+  source ~/.zplug/init.zsh && zplug update --self
+fi
+
+source ~/.zplug/init.zsh
+
+zplug "zsh-users/zsh-completions"
+zplug "zsh-users/zsh-autosuggestions"
+zplug "mafredri/zsh-async", from:github
+zplug "esc/conda-zsh-completion"
+zplug "MichaelAquilina/zsh-you-should-use"
+if [ "$OSTYPE" = "Linux" ]; then
+  zplug "thewtex/tmux-mem-cpu-load"
+fi
+
+# should be last
+zplug "sindresorhus/pure", use:pure.zsh, from:github, at:main, as:theme
+zplug "zdharma-continuum/fast-syntax-highlighting"
+zplug "zsh-users/zsh-history-substring-search"
+
+# Install plugins if there are plugins that have not been installed
+if ! zplug check --verbose; then
+    printf "Install? [y/N]: "
+    if read -q; then
+        echo; zplug install
+    fi
+fi
+
+zplug load

@@ -45,9 +45,9 @@ conda_update() {
   conda clean --all --yes;
 }
 
-antibody_update() {
-  antibody update;
-  antibody bundle < "$DOTFILES/antibody/bundles.txt" > "$HOME/.zsh/zsh_plugins.sh";
+zplug_update() {
+  zplug update;
+  zplug clear;
 }
 
 npm_update() {
@@ -94,7 +94,7 @@ run(){
 
     [ $commands[conda] ] && exec_routine conda_update
     [ $commands[nvim] ] && exec_routine neovim_plug_update
-    [ $commands[antibody] ] && exec_routine antibody_update
+    [ $commands[zplug] ] && exec_routine zplug_update
     [ $commands[npm] ] && exec_routine npm_update
     [ $commands[gem] ] && exec_routine gem_update
     [ $commands[mas] ] && exec_routine mas_update

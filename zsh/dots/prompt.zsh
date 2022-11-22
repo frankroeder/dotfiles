@@ -1,5 +1,5 @@
 autoload -U promptinit; promptinit
-prompt pure
+# prompt pure
 
 PURE_GIT_PULL=1
 PURE_GIT_UNTRACKED_DIRTY=1

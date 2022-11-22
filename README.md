@@ -25,7 +25,6 @@ The following list of files could be created and used to define local configurat
 ## References
 
 - https://github.com/neovim/neovim
-- https://github.com/getantibody/antibody
 - https://github.com/robbyrussell/oh-my-zsh
 - https://github.com/htr3n/zsh-config
 - https://github.com/jwilm/alacritty
