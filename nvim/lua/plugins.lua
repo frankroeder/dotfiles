@@ -9,7 +9,7 @@ if vim.fn.empty(vim.fn.glob(install_path)) > 0 then
     "https://github.com/wbthomason/packer.nvim",
     install_path,
   }
-  print "Installing packer close and reopen Neovim..."
+  print "Installing packer, close and reopen Neovim..."
   vim.cmd [[packadd packer.nvim]]
 end
 
@@ -98,7 +98,6 @@ return packer.startup {
       requires = { "godlygeek/tabular" },
     }
     use "lervag/vim-latex"
-    use "frankroeder/apple-swift"
 
     -- ui
     use {

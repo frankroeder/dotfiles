@@ -4,7 +4,7 @@ NUM_SPACES=$(yabai -m query --spaces | jq '. | length')
 
 # general exceptions
 yabai -m rule --add app='^System Information$' manage=off border=off
-yabai -m rule --add app='^System Preferences$' manage=off border=off
+yabai -m rule --add app='^System (Preferences|Settings)$' manage=off border=off
 yabai -m rule --add title='Preferences$' manage=off border=off
 yabai -m rule --add title='Settings$' manage=off border=off
 yabai -m rule --add title='(Picture in Picture|Picture-in-Picture)' manage=off border=off

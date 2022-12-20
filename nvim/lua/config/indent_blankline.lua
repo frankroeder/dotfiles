@@ -11,13 +11,16 @@ indent_blankline.setup {
     "terminal",
   },
   filetype_exclude = {
-    "man",
-    "help",
-    "markdown",
     "NvimTree",
-    "packer",
-    "lspinfo",
-    "text",
     "git",
+    "gitcommit",
+    "help",
+    "lspinfo",
+    "man",
+    "markdown",
+    "packer",
+    "text",
+    "txt",
+    "log"
   },
 }

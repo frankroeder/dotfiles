@@ -1,3 +1,7 @@
+local runtime_path = vim.split(package.path, ";")
+table.insert(runtime_path, "lua/?.lua")
+table.insert(runtime_path, "lua/?/init.lua")
+
 return function(lspconfig)
   lspconfig.sumneko_lua.setup {
     cmd = { vim.fn.exepath "lua-language-server" },
@@ -10,21 +14,19 @@ return function(lspconfig)
           },
           version = "LuaJIT",
           -- Setup your lua path
-          path = vim.split(package.path, ";"),
+          path = runtime_path,
         },
         diagnostics = {
           -- Get the language server to recognize the `vim` global
           globals = { "vim" },
         },
         format = {
-          enable = false
+          enable = false,
         },
+        telemetry = { enable = false },
         workspace = {
-          -- Make the server aware of Neovim runtime files
-          library = {
-            [vim.fn.expand "$VIMRUNTIME/lua"] = true,
-            [vim.fn.expand "$VIMRUNTIME/lua/vim/lsp"] = true,
-          },
+          checkThirdParty = false,
+          library = vim.api.nvim_get_runtime_file("", true),
         },
       },
     },

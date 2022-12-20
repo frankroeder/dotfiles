@@ -134,7 +134,7 @@ kl() {
 }
 
 klc() {
-  if [[ -z "$1" ]] || ; then
+  if [ -z "$1" ]; then
     pod=$(kgpn| fzf --exit-0) && kubectl logs --all-containers --follow $pod
   else
     kubectl logs $1 --all-containers --follow

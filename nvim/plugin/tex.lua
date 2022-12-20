@@ -7,14 +7,12 @@ vim.g.vimtex_quickfix_mode = 0
 vim.g.vimtex_complete_close_braces = 1
 vim.g.vimtex_view_automatic = 0
 
-vim.cmd [[
-	function! Callback(msg)
-	let l:m = matchlist(a:msg, '\vRun number (\d+) of rule ''(.*)''')
-	if !empty(l:m)
-	echomsg l:m[2] . ' (' . l:m[1] . ')'
-	endif
-	endfunction
-	]]
+function Callback(msg)
+  local m = vim.fn.matchlist(msg, "\\vRun number (\\d+) of rule ''(.*)''")
+  if not vim.tbl_isempty(m) then
+    vim.cmd "echomsg ' .. m[2] .. ' (' .. m[1] .. ')"
+  end
+end
 
 vim.g.vimtex_compiler_latexmk = {
   backend = "nvim",
@@ -52,22 +50,9 @@ vim.api.nvim_create_autocmd("FileType", {
     vim.keymap.set("n", "<Space>tt", "<Plug>(vimtex-toc-toggle)")
     vim.keymap.set("n", "<Space>tv", "<Plug>(vimtex-view)")
     vim.keymap.set("n", "<Space>tc", "<Plug>(vimtex-compile)")
-    vim.keymap.set("n", "<C-F>",
-       function()
-        vim.cmd [[:call vimtex#fzf#run('cti', {'window': { 'width': 0.6, 'height': 0.6 } })]]
-      end
-    )
+    vim.keymap.set("n", "<C-F>", function()
+      vim.cmd [[:call vimtex#fzf#run('cti', {'window': { 'width': 0.6, 'height': 0.6 } })]]
+    end)
   end,
   desc = "VimTex key mappings",
 })
-
-vim.cmd [[
-function! ShowTexDoc(context)
-	call vimtex#doc#make_selection(a:context)
-	if !empty(a:context.selected)
-		execute '!texdoc' a:context.selected '&'
-	endif
-	return 1
-endfunction
-]]
-vim.g.vimtex_doc_handlers = { "ShowTexDoc" }

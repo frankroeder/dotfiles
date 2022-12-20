@@ -27,9 +27,10 @@ local options = {
   -- indentation
   -- copyindent = true, -- Copy indent structure when autoindenting
   backspace = "2", -- make vim behave like any other editors
-  -- cindent = true, --  Enables automatic C program indenting
+  cindent = true, --  Enables automatic C program indenting
   smartindent = true,
 
+  autoindent = true,
   shiftwidth = 2, -- Preview tabs as 2 spaces
   shiftround = true,
   tabstop = 2, -- Tabs are 2 spaces
@@ -37,14 +38,13 @@ local options = {
   expandtab = true, -- Tabs are spaces
 
   -- search
-  ignorecase = true, -- Search case insensitive...
+  ignorecase = true, -- Search case insensitive
   smartcase = true, -- but change if searched with upper case
 
-  number = true,
+  number = true, -- Make line numbers default
   relativenumber = true,
 
-  -- Persistent undo
-  undofile = true,
+  undofile = true, -- Persistent undo
   swapfile = false,
   backup = false,
   writebackup = false,

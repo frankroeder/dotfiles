@@ -35,4 +35,5 @@ require("gitsigns").setup {
     noremap = true,
     ["n <Leader>gm"] = '<cmd>lua require"gitsigns".preview_hunk()<CR>',
   },
+  max_file_length = 2000,
 }
