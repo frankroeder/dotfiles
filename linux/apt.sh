@@ -22,7 +22,7 @@ install_default() {
     man
     python3-dev
     python3-pip
-    silversearcher-ag
+    ripgrep
     sudo
     tmux
     tree

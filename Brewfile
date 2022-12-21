@@ -7,7 +7,7 @@ brew "zsh"
 brew "mas"
 brew "htop"
 brew "neovim", args: ['head']
-brew "the_silver_searcher"
+brew "ripgrep"
 brew "wget"
 brew "cmake"
 brew "open-mpi"

@@ -23,7 +23,7 @@ alias mails="$EDITOR /var/mail/$USER"
 
 # Print each function name
 alias showfunctions="declare -f | grep '^[a-z].* ()' | sed 's/{$//'"
-[[ $commands[ag] ]] && alias ag="ag --path-to-ignore $DOTFILES/ignore"
+[[ $commands[rg] ]] && alias rg="rg --pretty --colors 'match:bg:235,220,170' --ignore-file $DOTFILES/ignore"
 alias :q="exit"
 [[ $commands[jq] ]] && alias ipd="curl -sS ipinfo.io  2>/dev/null | jq ."
 alias -g @="| grep -i"

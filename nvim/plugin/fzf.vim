@@ -20,30 +20,42 @@ let g:fzf_colors =
 
 let g:fzf_history_dir = expand("$HOME/.local/share/fzf-history")
 
-" [Buffers] Jump to the existing window if possible
-let g:fzf_buffers_jump = 1
-
 if isdirectory('.git')
   noremap <C-T> :FzfGitFiles --cached --others --exclude-standard<CR>
 else
   noremap <C-T> :FzfFiles <CR>
 endif
 
-noremap <C-H> :FzfHelptags <CR>
-nnoremap <C-F> :FzfAg <CR>
+if executable("rg")
+	command! -bang -nargs=* Rg
+		\ call fzf#vim#grep(
+		\   'rg --column --line-number --no-heading --color=always --smart-case -- '.shellescape(<q-args>), 1,
+		\   fzf#vim#with_preview(), <bang>0)
+  nnoremap <C-F> :FzfRg <CR>
+else
+  nnoremap <C-F> :FzfLines <CR>
+endif
+
 nnoremap <C-P> :FzfBLines<Cr>
 
 " [[B]Commits] Customize the options used by 'git log':
 let g:fzf_commits_log_options =
  \ '--graph --color=always --format="%C(auto)%h%d %s %C(black)%C(bold)%cr"'
-
-nnoremap <C-B> :Buffers<Cr>
 nnoremap <Leader>g :FzfBCommits<Cr>
+
+
+" [Buffers] Jump to the existing window if possible
+let g:fzf_buffers_jump = 1
+nnoremap <C-B> :Buffers<Cr>
+
+noremap <C-H> :FzfHelptags <CR>
 nnoremap <Leader>h :FzfHistory<Cr>
 nnoremap <Leader>t :Colors<Cr>
 nnoremap <Leader>: :Commands<Cr>
 nnoremap <Leader>m :Maps<Cr>
 nnoremap <Leader>k :Marks<Cr>
+nnoremap <Leader>us :FzfSnippets<Cr>
+
 imap <C-X><C-F> <plug>(fzf-complete-path)
 imap <C-X><C-J> <plug>(fzf-complete-file-ag)
 imap <C-X><C-L> <plug>(fzf-complete-line)
