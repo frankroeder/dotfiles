@@ -26,7 +26,10 @@ return packer.startup {
 
     use { "numToStr/Comment.nvim", config = [[require('config.comment')]] }
     use { "junegunn/fzf", dir = "~/.fzf", run = "./install --bin" }
-    use "junegunn/fzf.vim"
+    use {
+      "ibhagwan/fzf-lua",
+      config = [[require('config.fzf_lua')]],
+    }
     use {
       "kylechui/nvim-surround",
       config = function()
