@@ -8,7 +8,7 @@ fzf.setup {
   files = {
     git_icons = false,
     file_icons = false,
-  },
+  }
 }
 
 local is_git_repo = vim.fn.system "git rev-parse --is-inside-work-tree 2>/dev/null" == 0

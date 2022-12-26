@@ -11,13 +11,13 @@ return function(client, bufnr)
   vim.keymap.set("n", "<Space>ca", vim.lsp.buf.code_action, { buffer = bufnr, desc="[c]ode [a]ction" })
   vim.keymap.set("n", "<Space>cf", function() vim.lsp.buf.format {async = true} end, { buffer = bufnr, desc="[c]ode [f]ormat" })
   vim.keymap.set("n", "<Space>rf", vim.lsp.buf.references, { buffer = bufnr, desc="[r]e[f]erence" })
-
+  vim.keymap.set("n", "<Leader>rf", [[<cmd>lua require('fzf-lua').lsp_references()<CR>]], { buffer = bufnr })
   -- diagnostic
   vim.keymap.set("n", "gn", function() vim.diagnostic.goto_next { float = true } end, { buffer = bufnr, desc="[g]oto [n]ext diagnostic" })
   vim.keymap.set("n", "gp", function() vim.diagnostic.goto_prev { float = true } end, { buffer = bufnr, desc="[g]oto [p]revious diagnostic" })
   vim.keymap.set("n", "<Space>ld", function() vim.diagnostic.open_float(0, {scope="line"}) end, { buffer = bufnr, desc="Show [l]ine [d]iagnostic" })
   vim.keymap.set("n", "<Space>ll", vim.diagnostic.setloclist, { buffer = bufnr, desc="Show diagnostic [l]ocation [l]ist" })
-
+  vim.keymap.set("n", "<Leader>ll", [[<cmd>lua require('fzf-lua').lsp_document_diagnostics()<CR>]], { buffer = bufnr })
   if client.server_capabilities.codeLensProvider then
     vim.cmd [[autocmd BufEnter,CursorHold,InsertLeave <buffer> lua vim.lsp.codelens.refresh() ]]
     vim.lsp.codelens.refresh()

@@ -45,8 +45,8 @@ alias dfh='df -h'
 
 # open last edited file
 alias v0="$EDITOR '+execute \"normal 1\<c-o>\"'"
-alias vh{,ist}="$EDITOR '+FzfHistory'"
-alias vhelp="$EDITOR '+FzfHelptags'"
+alias vh{,ist}="$EDITOR '+FzfLua oldfiles'"
+alias vhelp="$EDITOR '+FzfLua help_tags'"
 alias online="ping -c 1 www.example.com &> /dev/null && echo 'Online :)' || echo 'Offline :('"
 
 # start plain vim
