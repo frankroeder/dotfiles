@@ -82,8 +82,8 @@ opt.nrformats:append { "alpha" }
 opt.matchpairs:append { "<:>" }
 
 -- Ignore certain files and folders when globbing
-opt.wildignore = {}
-opt.wildignore:append {
+opt.wildignorecase = true
+opt.wildignore = {
   "*.DS_Store",
   "*.bak",
   "*.class",

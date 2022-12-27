@@ -3,6 +3,7 @@ local table_find_element = require("utils").table_find_element
 local augroup = vim.api.nvim_create_augroup
 local autocmd = vim.api.nvim_create_autocmd
 
+local yank_group = augroup("yank_group", { clear = true })
 autocmd("TextYankPost", {
   callback = function()
     vim.highlight.on_yank {
@@ -11,6 +12,7 @@ autocmd("TextYankPost", {
       on_visual = true,
     }
   end,
+  group = yank_group,
   desc = "Highlight the yanked region of a document.",
 })
 
@@ -67,7 +69,6 @@ autocmd("BufEnter", {
 })
 
 local trim_group = augroup("trim_group", { clear = true })
-
 local trim = function(pattern)
   local save = vim.fn.winsaveview()
   vim.cmd(string.format("keepjumps keeppatterns silent! %s", pattern))
