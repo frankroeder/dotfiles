@@ -18,4 +18,9 @@ M.table_find_element = function(table, element)
   return false
 end
 
+M.is_git_repo = function()
+    local is_repo = vim.fn.system("git rev-parse --is-inside-work-tree")
+    return vim.v.shell_error == 0
+end
+
 return M

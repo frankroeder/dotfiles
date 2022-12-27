@@ -1,6 +1,5 @@
 local M = {}
 
--- theme: nightfox, tokyonight, tundra; default is catppuccin
 -- refer to the themes settings file for different styles
 M.theme = "catppuccin"
 -- treesitter parsers to be installed

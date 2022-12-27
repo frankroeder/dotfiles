@@ -5,7 +5,7 @@ if settings.theme == "onedark" then
     "joshdick/onedark.vim",
 		lazy = false,
     config = function()
-      require("plugins.themes.nightfox")
+      require("plugins.themes.onedark")
     end,
   }
 else

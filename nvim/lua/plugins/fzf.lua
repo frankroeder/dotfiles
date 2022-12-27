@@ -7,6 +7,7 @@ return {
       if not fzf_status_ok then
         return
       end
+      local is_git_repo = require("utils").is_git_repo
       local actions = require "fzf-lua.actions"
 
       fzf.setup {
@@ -22,9 +23,8 @@ return {
         },
       }
 
-      local is_git_repo = vim.fn.system "git rev-parse --is-inside-work-tree 2>/dev/null" == 0
       -- files
-      if is_git_repo then
+      if is_git_repo() then
         vim.keymap.set("n", "<C-T>", [[<cmd>lua require('fzf-lua').git_files()<CR>]])
       else
         vim.keymap.set("n", "<C-T>", [[<cmd>lua require('fzf-lua').files()<CR>]])
