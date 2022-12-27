@@ -7,12 +7,18 @@ return {
       if not fzf_status_ok then
         return
       end
+      local actions = require "fzf-lua.actions"
 
       fzf.setup {
         winopts = { split = "aboveleft new" },
         files = {
           git_icons = false,
           file_icons = false,
+        },
+        actions = {
+          files = {
+            ["default"] = actions.file_edit,
+          },
         },
       }
 
