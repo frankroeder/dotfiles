@@ -1,4 +1,4 @@
-local general_root = require("config.lsp.util").general_root
+local general_root = require("plugins.lsp.util").general_root
 local util = require "lspconfig/util"
 local py_root = { "venv/", "requirements.txt", "setup.py", "pyproject.toml", "setup.cfg" }
 local merge_tables = require("utils").merge_tables

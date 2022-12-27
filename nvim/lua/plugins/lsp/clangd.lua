@@ -1,4 +1,4 @@
-local general_root = require("config.lsp.util").general_root
+local general_root = require("plugins.lsp.util").general_root
 local util = require "lspconfig/util"
 local merge_tables = require("utils").merge_tables
 local c_cpp_root = { "compile_commands.json", "build/", "compile_flags.txt", ".clangd" }

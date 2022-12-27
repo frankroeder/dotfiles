@@ -2,7 +2,7 @@
 
 require "options"
 require "keymaps"
-require "plugins"
+require "plugin_manager"
 require "autocommands"
 require "neovide"
 

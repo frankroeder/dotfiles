@@ -1,4 +1,4 @@
-local general_root = require "config.lsp.util".general_root
+local general_root = require "plugins.lsp.util".general_root
 local ts_js_root = { "jsconfig.json", "tsconfig.json", "package.json" }
 local merge_tables = require("utils").merge_tables
 local util = require "lspconfig/util"

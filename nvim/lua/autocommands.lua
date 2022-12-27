@@ -3,17 +3,6 @@ local table_find_element = require("utils").table_find_element
 local augroup = vim.api.nvim_create_augroup
 local autocmd = vim.api.nvim_create_autocmd
 
-local packer_group = augroup("packer_user_config", { clear = true })
-
-autocmd("BufWritePost", {
-  group = packer_group,
-  pattern = "plugins.lua",
-  callback = function()
-    vim.cmd "source <afile> | PackerCompile"
-  end,
-  desc = "Automatically recompile packer when editing plugin config.",
-})
-
 autocmd("TextYankPost", {
   callback = function()
     vim.highlight.on_yank {
@@ -77,7 +66,7 @@ autocmd("BufEnter", {
   desc = "Automatically close the tab/vim when nvim-tree is the last window.",
 })
 
-local trim_group = augroup("packer_user_config", { clear = true })
+local trim_group = augroup("trim_group", { clear = true })
 
 local trim = function(pattern)
   local save = vim.fn.winsaveview()

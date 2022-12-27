@@ -1,4 +1,4 @@
-local general_root = require "config.lsp.util".general_root
+local general_root = require "plugins.lsp.util".general_root
 local merge_tables = require("utils").merge_tables
 local util = require "lspconfig/util"
 local go_root = { "go.sum", "go.mod" }

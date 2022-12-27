@@ -1,6 +1,6 @@
 local merge_tables = require("utils").merge_tables
 local util = require "lspconfig/util"
-local general_root = require "config.lsp.util".general_root
+local general_root = require "plugins.lsp.util".general_root
 local swift_root = { "Package.swift" }
 
 return function(lspconfig)
