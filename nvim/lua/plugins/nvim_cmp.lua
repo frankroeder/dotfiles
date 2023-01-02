@@ -7,6 +7,7 @@ local M = {
     "hrsh7th/cmp-path",
     "hrsh7th/cmp-nvim-lua",
     "hrsh7th/cmp-omni",
+    "saadparwaiz1/cmp_luasnip",
     "ray-x/cmp-treesitter",
     "windwp/nvim-autopairs",
   }
@@ -61,8 +62,8 @@ function M.config()
   cmp.setup {
     snippet = {
       expand = function(args)
-        vim.fn["UltiSnips#Anon"](args.body)
-      end,
+        require'luasnip'.lsp_expand(args.body)
+      end
     },
     window = {
       completion = cmp.config.window.bordered(),
@@ -72,8 +73,8 @@ function M.config()
       hl_group = "LspCodeLens",
     },
     sources = cmp.config.sources {
-      { name = "ultisnips", max_item_count = 5, keyword_length = 2 },
       { name = "nvim_lsp", max_item_count = 10 },
+      { name = "luasnip" },
       { name = "buffer", max_item_count = 5, keyword_length = 3 },
       { name = "treesitter", max_item_count = 5, keyword_length = 3 },
       { name = "path", max_item_count = 5 },
@@ -84,8 +85,8 @@ function M.config()
         vim_item.menu = ({
           nvim_lsp = "[LSP]",
           path = "[Path]",
-          ultisnips = "[USnips]",
           buffer = "[Buffer]",
+          luasnip = "[LSnip]",
           nvim_lua = "[Lua]",
           treesitter = "[Treesitter]",
         })[entry.source.name]
@@ -141,9 +142,6 @@ function M.config()
       { name = "cmdline" },
     }),
   })
-
-  -- fix jumping through snippet stops
-  vim.g.UltiSnipsRemoveSelectModeMappings = 0
 
   local npairs_status_ok, npairs = pcall(require, "nvim-autopairs")
   if not npairs_status_ok then

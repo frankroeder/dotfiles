@@ -19,8 +19,43 @@ M.table_find_element = function(table, element)
 end
 
 M.is_git_repo = function()
-    local is_repo = vim.fn.system("git rev-parse --is-inside-work-tree")
-    return vim.v.shell_error == 0
+  local is_repo = vim.fn.system "git rev-parse --is-inside-work-tree"
+  return vim.v.shell_error == 0
+end
+
+--- Get the comment string {beg,end} table
+---@param ctype integer 1 for `line`-comment and 2 for `block`-comment
+---@return table comment_strings {begcstring, endcstring}
+M.get_cstring = function(ctype)
+  local calculate_comment_string = require("Comment.ft").calculate
+  local cutils = require "Comment.utils"
+  -- use the `Comments.nvim` API to fetch the comment string for the region (eq. '--%s' or '--[[%s]]' for `lua`)
+  local cstring = calculate_comment_string { ctype = ctype, range = cutils.get_region() }
+    or vim.bo.commentstring
+  -- as we want only the strings themselves and not strings ready for using `format` we want to split the left and right side
+  local left, right = cutils.unwrap_cstr(cstring)
+  -- create a `{left, right}` table for it
+  return { left, right }
+end
+
+M.bash = function(callback, args, user_args)
+  local handle = io.popen(user_args)
+  local result = {}
+  for line in handle:lines() do
+    table.insert(result, line)
+  end
+  handle:close()
+  return result
+end
+
+M.osascript = function(callback, args, user_args)
+  local handle = io.popen("/usr/bin/osascript -e " .. string.format("%q", user_args))
+  local result = {}
+  for line in handle:lines() do
+    table.insert(result, line)
+  end
+  handle:close()
+  return result
 end
 
 return M

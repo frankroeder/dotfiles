@@ -4,8 +4,8 @@ require("cmp").setup.buffer {
     format = function(entry, vim_item)
       vim_item.menu = ({
         omni = (vim.inspect(vim_item.menu):gsub('%"', "")),
+        luasnip = "[LSnip]",
         buffer = "[Buffer]",
-        ultisnips = "[USnips]",
         -- formatting for other sources
       })[entry.source.name]
       return vim_item
@@ -13,7 +13,7 @@ require("cmp").setup.buffer {
   },
   sources = {
     { name = "omni" },
+    { name = "luasnip" },
     { name = "buffer", max_item_count = 5, keyword_length = 3 },
-    { name = "ultisnips", max_item_count = 5 },
   },
 }

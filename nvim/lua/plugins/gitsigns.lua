@@ -1,9 +1,11 @@
+local is_git_repo = require("utils").is_git_repo
+
 local M = {
   "lewis6991/gitsigns.nvim",
   dependencies = { "nvim-lua/plenary.nvim" },
   event = "BufRead",
   cond = function()
-    return vim.loop.fs_stat(".git")
+    return is_git_repo()
   end,
 }
 
