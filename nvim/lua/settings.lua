@@ -8,7 +8,7 @@ M.treesitter_ensure_installed = {
   "bash",
   "c",
   "cmake",
-  "comment", -- for tags like TODO, FIXME, NOTE, BUG, HACK
+  "comment", -- for tags like TODO, FIXME, NOTE, BUG, HACK, XXX
   "cpp",
   "css",
   "dockerfile",

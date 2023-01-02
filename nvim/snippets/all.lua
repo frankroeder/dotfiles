@@ -3,27 +3,36 @@ require("luasnip.loaders.from_lua").lazy_load()
 local utils = require "utils"
 
 local function math()
-    return vim.api.nvim_eval('vimtex#syntax#in_mathzone()') == 1
+  return vim.api.nvim_eval "vimtex#syntax#in_mathzone()" == 1
 end
 
 local function env(name)
-    local is_inside = vim.fn['vimtex#env#is_inside'](name)
-    return (is_inside[1] > 0 and is_inside[2] > 0)
+  local is_inside = vim.fn["vimtex#env#is_inside"](name)
+  return (is_inside[1] > 0 and is_inside[2] > 0)
 end
 
 local function pick_comment_start_and_end()
-	-- because lua block comment is unlike other language's,
-	-- so handle lua ctype
-	local ctype = 2
-	if vim.opt.ft:get() == "lua" then
-		ctype = 1
-	end
-	local cs = utils.get_cstring(ctype)[1]
-	local ce = utils.get_cstring(ctype)[2]
-	if ce == "" or ce == nil then
-		ce = cs
-	end
-	return cs, ce
+  -- because lua block comment is unlike other language's,
+  -- so handle lua ctype
+  local ctype = 2
+  if vim.opt.ft:get() == "lua" then
+    ctype = 1
+  end
+  local cs = utils.get_cstring(ctype)[1]
+  local ce = utils.get_cstring(ctype)[2]
+  if ce == "" or ce == nil then
+    ce = cs
+  end
+  return cs, ce
+end
+
+local get_comment_start = function()
+  local cs, _ = pick_comment_start_and_end()
+  return cs
+end
+local get_comment_end = function()
+  local _, ce = pick_comment_start_and_end()
+  return ce
 end
 
 local function create_box(opts)
@@ -84,27 +93,26 @@ return {
   s("time", p(os.date, "%H:%M")),
   s("datetime", p(os.date, "%Y-%m-%d %H:%M")),
   s("htime", p(os.date, "%Y-%m-%dT%H:%M:%S+10:00")),
+  s({ trig = "todo" }, {
+    p(get_comment_start),
+    c(1, { t("TODO"), t("FIXME"), t("NOTE"), t("BUG"), t("HACK"), t("XXX") }),
+    t " ",
+    i(0),
+    t " ",
+    p(get_comment_end),
+  }),
 
-
-	s(
-		{ trig = "todo" },
-		f(function() return pick_comment_start_and_end()[0] end, {}),
-		t("TODO: ${1}"),
-		f(function() return pick_comment_start_and_end()[1] end, {})
-	),
-  parse("fixme", "FIXME:"),
-  parse("note", "NOTE:"),
-	 s('bang', {
-      t '#!/usr/bin/env ',
-      c(1, {
-        t 'sh',
-        t 'bash',
-        t 'zsh',
-        t 'bash',
-        t 'python3',
-        t 'node',
-      }),
-    }, i(0)),
+  s("bang", {
+    t "#!/usr/bin/env ",
+    c(1, {
+      t "sh",
+      t "bash",
+      t "zsh",
+      t "bash",
+      t "python3",
+      t "node",
+    }),
+  }, i(0)),
 
   s(
     { trig = "url", name = "Frontmost browser tab url" },
