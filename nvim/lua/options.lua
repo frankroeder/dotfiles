@@ -35,13 +35,13 @@ local options = {
   shiftround = true,
   tabstop = 2, -- Tabs are 2 spaces
   softtabstop = 2, -- Columns a tab inserts in insert mode
-  expandtab = true, -- Tabs are spaces
+  expandtab = true, -- expand tab to spaces
 
   -- search
   ignorecase = true, -- Search case insensitive
   smartcase = true, -- but change if searched with upper case
 
-  number = true, -- Make line numbers default
+  number = true, -- Print the line number in front of each line
   relativenumber = true,
 
   undofile = true, -- Persistent undo

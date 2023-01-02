@@ -5,6 +5,7 @@ require("cmp").setup.buffer {
       vim_item.menu = ({
         omni = (vim.inspect(vim_item.menu):gsub('%"', "")),
         buffer = "[Buffer]",
+        ultisnips = "[USnips]",
         -- formatting for other sources
       })[entry.source.name]
       return vim_item

@@ -72,7 +72,7 @@ function M.config()
       hl_group = "LspCodeLens",
     },
     sources = cmp.config.sources {
-      { name = "ultisnips", max_item_count = 5 },
+      { name = "ultisnips", max_item_count = 5, keyword_length = 2 },
       { name = "nvim_lsp", max_item_count = 10 },
       { name = "buffer", max_item_count = 5, keyword_length = 3 },
       { name = "treesitter", max_item_count = 5, keyword_length = 3 },
