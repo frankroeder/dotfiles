@@ -1,6 +1,5 @@
 ---@diagnostic disable: undefined-global
 require("luasnip.loaders.from_lua").lazy_load()
-local tsutils = require "tsutils"
 
 return {
   parse("#!", "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n"),
@@ -20,6 +19,53 @@ return {
     t [["""]],
   }),
 
+  -- class
+  s(
+    "class",
+    fmt(
+      [[class {}({}):
+    def __init__(self{}):
+        {}{}]],
+      { i(1, "FooBar"), i(2), i(3), i(4, "pass"), i(0) }
+    )
+  ),
+  -- dataclass
+  s(
+    "classd",
+    fmt(
+      [[@dataclass
+class {}:
+    {}{}]],
+      { i(1, "FooBar"), i(2, "pass"), i(0) }
+    )
+  ),
+  -- function
+  s(
+    "def",
+    fmt(
+      [[def {}({}) -> {}:
+    {}{}]],
+      { i(1, "foo_bar"), i(2), i(3, "None"), i(4, "pass"), i(0) }
+    )
+  ),
+  -- method
+  s(
+    "defs",
+    fmt(
+      [[def {}(self{}) -> {}:
+    {}{}]],
+      { i(1, "foo_bar"), i(2), i(3, "None"), i(4, "pass"), i(0) }
+    )
+  ),
+
+  -- import ...
+  s("im", fmt("import {}", { i(1, "package/module") })),
+  -- from ... import ...
+  s("fim", fmt("from {} import {}", { i(1, "package/module"), i(2, "name") })),
+  -- from ... import ... as ...
+  s("fima", fmt("from {} import {} as {}", { i(1, "package/module"), i(2, "name"), i(3) })),
+
+  -- if ...
   s(
     { trig = "if", name = "If Statement" },
     fmta(
@@ -128,6 +174,33 @@ return {
 				main()
 			]],
       { i(1) }
+    )
+  ),
+  -- for-loop
+  s(
+    "for",
+    fmt(
+      [[for {} in {}:
+    {}{}]],
+      { i(1, "elem"), i(2, "iterable"), i(3, "pass"), i(0) }
+    )
+  ),
+  -- for-loop in enumerate
+  s(
+    "fore",
+    fmt(
+      [[for i, {} in enumerate({}):
+    {}{}]],
+      { i(1, "elem"), i(2, "iterable"), i(3, "pass"), i(0) }
+    )
+  ),
+  -- for-loop in range
+  s(
+    "forr",
+    fmt(
+      [[for i in range({}):
+    {}{}]],
+      { i(1, "iterable"), i(2, "pass"), i(0) }
     )
   ),
 }
