@@ -10,12 +10,17 @@ local M = {
     "saadparwaiz1/cmp_luasnip",
     "ray-x/cmp-treesitter",
     "windwp/nvim-autopairs",
-  }
+  },
 }
 
 function M.config()
   local cmp_status_ok, cmp = pcall(require, "cmp")
   if not cmp_status_ok then
+    return
+  end
+
+  local status_ok, luasnip = pcall(require, "luasnip")
+  if not status_ok then
     return
   end
 
@@ -62,15 +67,17 @@ function M.config()
   cmp.setup {
     snippet = {
       expand = function(args)
-        require'luasnip'.lsp_expand(args.body)
-      end
+        luasnip.lsp_expand(args.body)
+      end,
     },
     window = {
       completion = cmp.config.window.bordered(),
       documentation = cmp.config.window.bordered(),
     },
-    ghost_text = {
-      hl_group = "LspCodeLens",
+    experimental = {
+      ghost_text = {
+        hl_group = "LspCodeLens"
+      }
     },
     sources = cmp.config.sources {
       { name = "nvim_lsp", max_item_count = 10 },
@@ -105,6 +112,8 @@ function M.config()
       ["<Tab>"] = cmp.mapping(function(fallback)
         if cmp.visible() and has_words_before() then
           cmp.select_next_item()
+        elseif luasnip.choice_active() then
+          luasnip.change_choice(1)
         else
           fallback() -- The fallback function sends a already mapped key. In this case, it's probably `<Tab>`.
         end
@@ -112,6 +121,8 @@ function M.config()
       ["<S-Tab>"] = cmp.mapping(function(fallback)
         if cmp.visible() then
           cmp.select_prev_item()
+        elseif luasnip.choice_active() then
+          luasnip.change_choice(-1)
         else
           fallback()
         end
@@ -126,7 +137,7 @@ function M.config()
   }
 
   -- Use buffer source for `/` (if you enabled `native_menu`, this won't work anymore).
-  cmp.setup.cmdline({"/", "?"}, {
+  cmp.setup.cmdline({ "/", "?" }, {
     mapping = cmp.mapping.preset.cmdline(),
     sources = {
       { name = "buffer" },

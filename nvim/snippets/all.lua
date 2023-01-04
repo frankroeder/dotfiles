@@ -95,7 +95,8 @@ return {
   s("htime", p(os.date, "%Y-%m-%dT%H:%M:%S+10:00")),
   s({ trig = "todo" }, {
     p(get_comment_start),
-    c(1, { t("TODO"), t("FIXME"), t("NOTE"), t("BUG"), t("HACK"), t("XXX") }),
+    t " ",
+    c(1, { t "TODO", t "FIXME", t "NOTE", t "BUG", t "HACK", t "XXX" }),
     t " ",
     i(0),
     t " ",

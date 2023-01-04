@@ -38,7 +38,6 @@ function M.config()
 	vim.keymap.set({ "i", "s" }, "<C-J>", function() luasnip.jump(1) end, { desc = "LuaSnip forward jump" })
 	vim.keymap.set({ "i", "s" }, "<C-K>", function() luasnip.jump(-1) end, { desc = "LuaSnip backward jump" })
 	vim.keymap.set({ "i", "s" }, "<C-L>", function() luasnip.expand() end, { desc = "LuaSnip expand" })
-	vim.keymap.set({ "i", "s" }, "<C-E>", function() if luasnip.choice_active() then luasnip.change_choice(1) end end, {})
 end
 
 return M
