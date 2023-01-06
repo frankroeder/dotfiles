@@ -1,8 +1,17 @@
-local M = { "neovim/nvim-lspconfig", event = "BufReadPre", dependencies = "cmp-nvim-lsp" }
+local M = {
+  "neovim/nvim-lspconfig",
+  event = "BufReadPre",
+  dependencies = { "cmp-nvim-lsp", "williamboman/mason.nvim", "williamboman/mason-lspconfig.nvim" },
+}
 
 function M.config()
   local lsp_status_ok, lspconfig = pcall(require, "lspconfig")
   if not lsp_status_ok then
+    return
+  end
+
+  local mason_status_ok, mason_lspconfig = pcall(require, "mason-lspconfig")
+  if not mason_status_ok then
     return
   end
 
@@ -51,9 +60,20 @@ function M.config()
     "elixirls",
     "sumneko_lua",
   }
-  for _, val in pairs(lsp_server) do
-    require("plugins.lsp." .. val)(lspconfig)
-  end
+  require("mason").setup()
+  mason_lspconfig.setup {
+    ensure_installed = lsp_server,
+  }
+  mason_lspconfig.setup_handlers {
+    function(server)
+      local opts = {}
+      local success, req_opts = pcall(require, "plugins.lsp." .. server)
+      if success then
+        opts = req_opts
+      end
+      lspconfig[server].setup(opts)
+    end
+  }
 end
 
 return M

@@ -28,6 +28,9 @@ function M.config()
       fmt.stylua.with {
         command = vim.fn.exepath "stylua",
       },
+      fmt.jq.with {
+        command = vim.fn.exepath "jq",
+      },
       diagnostics.eslint,
       code_actions.gitsigns,
     },

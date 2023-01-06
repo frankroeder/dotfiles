@@ -52,9 +52,6 @@ vim.keymap.set("", "<Leader>qq", ":cclose<CR>", {})
 vim.keymap.set("n", '""', ":registers<CR>")
 -- add semicolon at end of line
 vim.keymap.set("", "<Leader>;", "g_a;<Esc>", {})
--- tmux style shortcuts
-vim.keymap.set("n", "<C-W>%", ":split<CR>", { noremap = true })
-vim.keymap.set("n", '<C-W>"', ":vsplit<CR>", { noremap = true })
 -- remain in visual mode after code shift
 vim.keymap.set("v", "<", "<gv", { noremap = true })
 vim.keymap.set("v", ">", ">gv", { noremap = true })

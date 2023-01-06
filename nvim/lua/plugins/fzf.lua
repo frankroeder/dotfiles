@@ -12,10 +12,6 @@ return {
 
       fzf.setup {
         winopts = { split = "aboveleft new" },
-        files = {
-          git_icons = false,
-          file_icons = false,
-        },
         actions = {
           files = {
             ["default"] = actions.file_edit,
@@ -25,12 +21,12 @@ return {
 
       -- files
       if is_git_repo() then
-        vim.keymap.set("n", "<C-T>", [[<cmd>lua require('fzf-lua').git_files()<CR>]])
+        vim.keymap.set("n", "<C-T>", [[<cmd>lua require('fzf-lua').git_files({ file_icons=false, git_icons=false })<CR>]])
       else
-        vim.keymap.set("n", "<C-T>", [[<cmd>lua require('fzf-lua').files()<CR>]])
+        vim.keymap.set("n", "<C-T>", [[<cmd>lua require('fzf-lua').files({ file_icons=false, git_icons=false })<CR>]])
       end
       -- file lines
-      vim.keymap.set("n", "<C-F>", [[<cmd>lua require('fzf-lua').grep_project()<CR>]])
+      vim.keymap.set("n", "<C-F>", [[<cmd>lua require('fzf-lua').grep_project({ file_icons=false, git_icons=false })<CR>]])
       -- vim buffers
       vim.keymap.set("n", "<C-B>", [[<cmd>lua require('fzf-lua').buffers()<CR>]])
       -- buffer lines
@@ -53,6 +49,7 @@ return {
         "<Leader>h",
         [[<cmd>lua require('fzf-lua').command_history()<CR>]]
       )
+      vim.keymap.set("n", [[<Leader>"]], [[<cmd>lua require('fzf-lua').registers()<CR>]])
     end,
   },
 }

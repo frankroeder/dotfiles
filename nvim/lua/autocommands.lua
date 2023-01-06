@@ -16,10 +16,15 @@ autocmd("TextYankPost", {
   desc = "Highlight the yanked region of a document.",
 })
 
-autocmd("BufWritePost", {
-  pattern = "*.snippets",
-  command = "CmpUltisnipsReloadSnippets",
-  desc = "Reload ultisnips when saving a snippets file.",
+autocmd("BufReadPost", {
+  callback = function()
+    local mark = vim.api.nvim_buf_get_mark(0, '"')
+    local lcount = vim.api.nvim_buf_line_count(0)
+    if mark[1] > 0 and mark[1] <= lcount then
+      pcall(vim.api.nvim_win_set_cursor, 0, mark)
+    end
+  end,
+  desc = "Go to last loc when opening a buffer",
 })
 
 augroup("toggle_line_numbers", { clear = true })

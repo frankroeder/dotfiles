@@ -1,10 +1,7 @@
 ---@diagnostic disable: undefined-global
 require("luasnip.loaders.from_lua").lazy_load()
-local tsutils = require "tsutils"
-local autosnippet = require("luasnip").extend_decorator.apply(s, { snippetType = "autosnippet" })
 
-local table_node
-table_node = function(args)
+local table_node = function(args)
   local tabs = {}
   local count
   table = args[1][1]:gsub("%s", ""):gsub("|", "")

@@ -97,7 +97,7 @@ return {
     p(get_comment_start),
     t " ",
     c(1, { t "TODO", t "FIXME", t "NOTE", t "BUG", t "HACK", t "XXX" }),
-    t " ",
+    t ": ",
     i(0),
     t " ",
     p(get_comment_end),

@@ -1,6 +1,5 @@
 ---@diagnostic disable: undefined-global
 require("luasnip.loaders.from_lua").lazy_load()
-local tsutils = require "tsutils"
 
 return {
   s({

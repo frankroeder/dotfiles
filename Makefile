@@ -116,13 +116,8 @@ ifeq ($(shell ${WHICH} node 2>${DEVNUL}),)
 	bash $(DOTFILES)/scripts/nodejs.sh
 endif
 	@npm i --location=global npm@latest
-	@npm i --location=global typescript
 	@npm i --location=global eslint
 	@npm i --location=global neovim
-	@npm i --location=global typescript-language-server
-	@npm i --location=global vscode-html-languageserver-bin
-	@npm i --location=global vscode-css-languageserver-bin
-	@npm i --location=global pyright
 
 .PHONY: nvim
 nvim:
@@ -130,7 +125,6 @@ nvim:
 	@nvim "+call mkdir(stdpath('config'), 'p')" +qall
 	@rm -rfv $(HOME)/.config/nvim
 	@ln -sfv $(DOTFILES)/nvim $(HOME)/.config
-	@if [ -x "$(command -v go)" ]; then GO111MODULE=on go get golang.org/x/tools/gopls@latest; fi
 	@nvim --headless "+Lazy! sync" +qa
 
 _git:

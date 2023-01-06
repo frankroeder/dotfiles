@@ -1,6 +1,2 @@
-vim.cmd("set conceallevel=0")
-
-if vim.fn.executable("jq") then
-  -- Format JSON with jq
-  vim.keymap.set("n", "<Leader>fj", ":%!jq '.'<CR>")
-end
+vim.wo.conceallevel = 0
+vim.keymap.set("n", "<Space>cf", function() vim.lsp.buf.format {async = true} end, { desc="[c]ode [f]ormat" })
