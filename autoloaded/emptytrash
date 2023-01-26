@@ -4,7 +4,7 @@
 local TRASH="$HOME/.Trash/*"
 if [ "${#TRASH[@]}" -gt 0 ]; then
   for t in $HOME/.Trash/*; do
-    sudo rm -rfv "$t";
+    sudo rm -rf "$t";
   done;
 fi
 
