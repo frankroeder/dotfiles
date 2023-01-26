@@ -25,12 +25,10 @@ local options = {
   splitright = true, -- Vertical split right
   joinspaces = false, -- Use one space after punctuation
   -- indentation
-  -- copyindent = true, -- Copy indent structure when autoindenting
-  backspace = "2", -- make vim behave like any other editors
-  cindent = true, --  Enables automatic C program indenting
+  -- cindent = true, --  Enables automatic C program indenting
   smartindent = true,
-
   autoindent = true,
+
   shiftwidth = 2, -- Preview tabs as 2 spaces
   shiftround = true,
   tabstop = 2, -- Tabs are 2 spaces

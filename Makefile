@@ -33,7 +33,6 @@ linux: sudo directories _linux _git zsh python misc node nvim
 
 .PHONY: minimal
 minimal: directories _linux _git zsh python misc node nvim
-	@sed -i '/tmux-mem-cpu/d' $(HOME)/.zsh/zsh_plugins.sh
 
 .PHONY: help
 help:
@@ -251,7 +250,6 @@ uninstall:
 	rm $(HOME)/.zshrc
 	rm $(HOME)/.zshenv
 	rm $(HOME)/.zprofile
-	rm $(HOME)/.zsh/zsh_plugins.sh
 	rm $(HOME)/.tmux.conf
 	rm $(HOME)/.wgetrc
 	rm $(HOME)/.curlrc
