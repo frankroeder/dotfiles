@@ -265,7 +265,7 @@ ifeq ($(NOSUDO), 1)
 		@docker run -it --rm --name maketest -d dotfiles:latest;
 		@docker exec -it maketest /bin/bash -c "make NOSUDO=$(NOSUDO) minimal";
 else
-		@docker $(DOCKER_BUILD_CMD) -t dotfiles_sudo ${PWD} -f $(DOTFILES)/docker/Dockerfile_sudoer;
+		@docker $(DOCKER_BUILD_CMD) -t dotfiles_sudo ${PWD} -f $(DOTFILES)/docker/sudoer.Dockerfile;
 		@docker run -it --rm --name maketest_sudo -d dotfiles_sudo:latest;
 		@docker exec -it maketest_sudo /bin/bash -c "make linux";
 endif

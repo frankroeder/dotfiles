@@ -44,6 +44,9 @@ defaults write com.apple.finder QLEnableTextSelection -bool true
 # Show the ~/Library folder
 chflags nohidden ~/Library
 
+# Show Path bar in Finder
+defaults write com.apple.finder ShowPathbar -bool true
+
 # Hide desktop items
 defaults write com.apple.finder CreateDesktop -bool false
 

@@ -1,4 +1,4 @@
-local M = { "L3MON4D3/LuaSnip", tag = "v1.1.0" }
+local M = { "L3MON4D3/LuaSnip", tag = "v1.2.1" }
 
 function M.config()
   local status_ok, luasnip = pcall(require, "luasnip")

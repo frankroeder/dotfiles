@@ -1,48 +1,42 @@
 #!/usr/bin/env sh
 
+# Unload the macOS WindowManager process
+launchctl unload -F /System/Library/LaunchAgents/com.apple.WindowManager.plist > /dev/null 2>&1 &
+
 yabai -m signal --add event=dock_did_restart action="sudo yabai --load-sa"
 sudo yabai --load-sa
 
-yabai -m config window_origin_display        default
-# New window spawns to the right if vertical split, or bottom if horizontal split
-yabai -m config window_placement             second_child
-# Floating windows are always on top
-yabai -m config window_topmost               off
-yabai -m config window_shadow                off
-yabai -m config window_opacity               off
-yabai -m config window_opacity_duration      0.0
-yabai -m config normal_window_opacity        0.9
-yabai -m config active_window_opacity        0.95
-
-yabai -m config window_border                on
-yabai -m config window_border_width          4
-yabai -m config window_hidpi                 off
-yabai -m config window_border_radius         8
-
-yabai -m config active_window_border_color   0xff6e3b9f
-yabai -m config normal_window_border_color   0xff555555
-yabai -m config insert_feedback_color        0xffd75f5f
-
-# mouse
-yabai -m config mouse_follows_focus          off
-yabai -m config focus_follows_mouse          off #autoraise
-yabai -m config mouse_modifier               fn
-yabai -m config mouse_action1                move
-yabai -m config mouse_action2                resize
-yabai -m config mouse_drop_action            swap
-
-# use shortcut to balance myself
-yabai -m config auto_balance                 off
-yabai -m config split_ratio                  0.50
-
-# general space settings
-yabai -m config layout                       stack
-yabai -m config top_padding                  20
-yabai -m config bottom_padding               20
-yabai -m config left_padding                 20
-yabai -m config right_padding                20
-yabai -m config window_gap                   10
-yabai -m config external_bar                 all:0:25
+yabai -m config window_origin_display        default \
+                window_placement             second_child \
+                window_topmost               off \
+                window_shadow                off \
+                window_opacity               off \
+                window_opacity_duration      0.0 \
+                normal_window_opacity        0.9 \
+                active_window_opacity        0.95 \
+                window_border                on \
+                window_gap                   10 \
+                top_padding                  20 \
+                bottom_padding               20 \
+                left_padding                 20 \
+                right_padding                20 \
+                window_border_width          4 \
+                window_hidpi                 off \
+                window_border_radius         8 \
+                window_zoom_persist          off \
+                active_window_border_color   0xff6e3b9f \
+                normal_window_border_color   0xff555555 \
+                insert_feedback_color        0xffd75f5f \
+                mouse_follows_focus          off \
+                focus_follows_mouse          off \
+                mouse_modifier               fn \
+                mouse_action1                move \
+                mouse_action2                resize \
+                mouse_drop_action            swap \
+                auto_balance                 off \
+                split_ratio                  0.50 \
+                layout                       stack \
+                external_bar                 all:0:25
 
 # events
 yabai -m signal --add event=window_created action="sketchybar -m --trigger window_created &> /dev/null"

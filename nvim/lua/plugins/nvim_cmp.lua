@@ -74,11 +74,6 @@ function M.config()
       completion = cmp.config.window.bordered(),
       documentation = cmp.config.window.bordered(),
     },
-    experimental = {
-      ghost_text = {
-        hl_group = "LspCodeLens"
-      }
-    },
     sources = cmp.config.sources {
       { name = "nvim_lsp", max_item_count = 10 },
       { name = "luasnip" },
@@ -145,14 +140,14 @@ function M.config()
   })
 
   -- Use cmdline & path source for ':' (if you enabled `native_menu`, this won't work anymore).
-  cmp.setup.cmdline(":", {
-    mapping = cmp.mapping.preset.cmdline(),
-    sources = cmp.config.sources({
-      { name = "path" },
-    }, {
-      { name = "cmdline" },
-    }),
-  })
+  -- cmp.setup.cmdline(":", {
+  --   mapping = cmp.mapping.preset.cmdline(),
+  --   sources = cmp.config.sources({
+  --     { name = "path" },
+  --   }, {
+  --     { name = "cmdline" },
+  --   }),
+  -- })
 
   local npairs_status_ok, npairs = pcall(require, "nvim-autopairs")
   if not npairs_status_ok then

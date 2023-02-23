@@ -9,6 +9,10 @@ function M.config()
     return
   end
 
+  -- recommended settings by nvim-tree
+  vim.g.loaded_netrw = 1
+  vim.g.loaded_netrwPlugin = 1
+
   nvim_tree.setup {
     -- disables netrw completely
     disable_netrw = false,
@@ -23,6 +27,10 @@ function M.config()
         warning = "",
         error = "",
       },
+    },
+    view = {
+      centralize_selection = true,
+      width = 32,
     },
     filters = {
       custom = {
