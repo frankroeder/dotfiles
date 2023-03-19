@@ -14,8 +14,10 @@ function M.config()
     relative_width = true,
     width = 25,
     auto_close = false,
+    autofold_depth = 1,
+    auto_unfold_hover = true,
     show_numbers = false,
-    show_relative_numbers = true,
+    show_relative_numbers = false,
     show_symbol_details = true,
     preview_bg_highlight = "FocusedSymbol",
   }

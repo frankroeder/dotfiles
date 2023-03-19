@@ -7,6 +7,7 @@ local M = {
     "hrsh7th/cmp-path",
     "hrsh7th/cmp-nvim-lua",
     "hrsh7th/cmp-omni",
+    "hrsh7th/cmp-cmdline",
     "saadparwaiz1/cmp_luasnip",
     "ray-x/cmp-treesitter",
     "windwp/nvim-autopairs",
@@ -140,14 +141,14 @@ function M.config()
   })
 
   -- Use cmdline & path source for ':' (if you enabled `native_menu`, this won't work anymore).
-  -- cmp.setup.cmdline(":", {
-  --   mapping = cmp.mapping.preset.cmdline(),
-  --   sources = cmp.config.sources({
-  --     { name = "path" },
-  --   }, {
-  --     { name = "cmdline" },
-  --   }),
-  -- })
+  cmp.setup.cmdline(":", {
+    mapping = cmp.mapping.preset.cmdline(),
+    sources = cmp.config.sources({
+      { name = "path" },
+    }, {
+      { name = "cmdline" },
+    }),
+  })
 
   local npairs_status_ok, npairs = pcall(require, "nvim-autopairs")
   if not npairs_status_ok then

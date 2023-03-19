@@ -1,8 +1,8 @@
 local M = {
   "nvim-treesitter/nvim-treesitter",
   build = ":TSUpdate",
-  event = "BufReadPost",
-  dependencies = { "p00f/nvim-ts-rainbow", "nvim-treesitter/playground" },
+  event = { "BufReadPost", "BufNewFile" },
+  dependencies = { "nvim-treesitter/playground" },
 }
 
 function M.config()
@@ -32,13 +32,6 @@ function M.config()
         scope_incremental = "grc", -- increment to the upper scope (as defined in locals.scm)
         node_decremental = "grm", -- decrement to the previous node
       },
-    },
-    -- nvim-ts-rainbow
-    rainbow = {
-      enable = true,
-      -- highlight non-bracket delimiters like html tags, boolean or table
-      extended_mode = true,
-      max_file_lines = 2500,
     },
   }
 end

@@ -1,4 +1,4 @@
-local M = { "jose-elias-alvarez/null-ls.nvim" }
+local M = { "jose-elias-alvarez/null-ls.nvim",  event = { "BufReadPre", "BufNewFile" } }
 
 function M.config()
   local status_ok, null_ls = pcall(require, "null-ls")

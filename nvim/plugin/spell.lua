@@ -1,6 +1,6 @@
 -- Spell error: pick the first result
 vim.keymap.set("n", "<Leader>z", [[z=1<CR><CR>]])
---
+
 -- Fix spelling mistakes on the fly
 vim.keymap.set("i", "<C-S>", [[<C-G>u<Esc>[s1z=`]a<C-G>u]])
 
@@ -11,7 +11,7 @@ local function toggle_spell()
     vim.bo.spelllang = "de"
   elseif vim.bo.spelllang == "de" then
     vim.o.spell = false
-    vim.o.spelllang = "nospell"
+    vim.o.spelllang = ""
   else
     vim.o.spell = true
     vim.bo.spelllang = "en"

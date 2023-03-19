@@ -1,4 +1,4 @@
-local M = { "lukas-reineke/indent-blankline.nvim", event = "BufReadPre" }
+local M = { "lukas-reineke/indent-blankline.nvim", event = { "BufReadPost", "BufNewFile" } }
 
 function M.config()
   local status_ok, indent_blankline = pcall(require, "indent_blankline")

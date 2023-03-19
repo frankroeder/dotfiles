@@ -1,6 +1,6 @@
 local M = {
-      "kyazdani42/nvim-tree.lua",
-      dependencies = { "kyazdani42/nvim-web-devicons" },
+      "nvim-tree/nvim-tree.lua",
+      dependencies = { "nvim-tree/nvim-web-devicons" },
     }
 
 function M.config()
@@ -16,8 +16,6 @@ function M.config()
   nvim_tree.setup {
     -- disables netrw completely
     disable_netrw = false,
-    -- open the tree when running this setup function
-    open_on_setup = false,
     -- show lsp diagnostics in the signcolumn
     diagnostics = {
       enable = false,
@@ -34,13 +32,16 @@ function M.config()
     },
     filters = {
       custom = {
-        ".git",
+        "^\\.git$",
         ".cache",
         ".vim",
         "__pycache__",
         "node_modules",
         ".egg-info",
         ".gitignore",
+      },
+      exclude = {
+        "nvim"
       },
     },
   }
