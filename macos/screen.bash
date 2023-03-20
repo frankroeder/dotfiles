@@ -92,3 +92,6 @@ defaults write com.apple.systemuiserver "NSStatusItem Visible com.apple.menuextr
 
 # Show Bluetooth in the menu bar
 defaults write com.apple.systemuiserver "NSStatusItem Visible com.apple.menuextra.bluetooth" -int 0
+
+# Disable screentime
+defaults write com.apple.ScreenTimeAgent ScreenTimeEnabled -bool false

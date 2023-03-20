@@ -1,6 +1,6 @@
 tap "homebrew/cask-fonts"
 tap "koekeishiya/formulae"
-tap "Felixkratz/formulae"
+tap "FelixKratz/formulae"
 
 brew "git"
 brew "zsh"
@@ -29,6 +29,7 @@ brew "skhd", args: ["with-logging"], restart_service: :changed
 brew "sketchybar", args:  ["--head"], restart_service: :changed
 
 cask "alfred"
+cask "alacritty"
 cask "docker"
 cask "vlc"
 cask "musescore"

@@ -14,7 +14,7 @@ yabai -m rule --add app='^(LuLu|Python|Archive Utility|Calculator)$' manage=off
 APPS="^(Dictionary|Music|Podcasts|App Store|Calendar|Photos)$"
 yabai -m rule --add app="${APPS}" manage=off border=off
 
-CENTER_APPS="^(Anki|Bitwarden|Neovide)$"
+CENTER_APPS="^(Anki|Bitwarden)$"
 yabai -m rule --add app="${CENTER_APPS}" manage=off border=off grid=4:4:1:0:2:4
 
 if [[ $NUM_SPACES -gt 2 ]]; then
