@@ -203,7 +203,6 @@ _macos:
 	@mkdir -p $(HOME)/screens
 	@bash $(DOTFILES)/macos/main.bash
 	@mkdir -p $(HOME)/.config/alacritty
-	@ln -sfv $(DOTFILES)/alacritty.yml $(HOME)/.config/alacritty/
 	@ln -sfv $(DOTFILES)/yabai $(HOME)/.config/yabai
 	@ln -sfv $(DOTFILES)/skhd $(HOME)/.config/skhd
 	@ln -sfv $(DOTFILES)/sketchybar $(HOME)/.config/sketchybar
@@ -213,10 +212,11 @@ endif
 ifeq ($(shell ${WHICH} alacritty 2>${DEVNUL}),)
 	@sudo ln -s /Applications/Alacritty.app/Contents/MacOS/alacritty /usr/local/bin/alacritty
 endif
+	@ln -sfv $(DOTFILES)/alacritty.yml $(HOME)/.config/alacritty/
 ifeq ($(shell ${WHICH} sioyek 2>${DEVNUL}),)
 	@sudo ln -s /Applications/sioyek.app/Contents/MacOS/sioyek /usr/local/bin/sioyek
 endif
-# ifeq ($(shell ${WHICH} osx-cpu-temp 2>${DEVNUL}),)
+	@ln -sfv $(DOTFILES)/sioyek $(HOME)/.config/sioyek
 ifeq ($(ARCHITECTURE), x86_64)
 	@bash $(DOTFILES)/scripts/osx_cpu_temp.sh
 endif
