@@ -11,7 +11,6 @@ function M.config()
   local code_actions = null_ls.builtins.code_actions
 
   null_ls.setup {
-    save_after_format = false,
     sources = {
       fmt.yapf.with {
         command = vim.fn.exepath "yapf",

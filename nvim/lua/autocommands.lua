@@ -1,5 +1,4 @@
 local table_find_element = require("utils").table_find_element
-local List = require "plenary.collections.py_list"
 
 local augroup = vim.api.nvim_create_augroup
 local autocmd = vim.api.nvim_create_autocmd
@@ -16,68 +15,6 @@ autocmd("TextYankPost", {
   group = yank_group,
   desc = "Highlight the yanked region of a document.",
 })
-local last_place = augroup("last_place", { clear = true })
-autocmd({ "BufWinEnter", "FileType" }, {
-  group = last_place,
-  desc = "Go to last loc when opening a buffer",
-  callback = function()
-    local bt_ignore_list = List { "quickfix", "nofile", "help" }
-    -- Check if the buffer should be ignored
-    if bt_ignore_list:contains(vim.bo.buftype) then
-      return
-    end
-    local ft_ignore_list = List { "gitcommit", "gitrebase", "svn", "hgcommit" }
-
-    -- Check if the filetype should be ignored
-    if ft_ignore_list:contains(vim.bo.filetype) then
-      -- reset cursor to first line
-      vim.cmd [[normal! gg]]
-      return
-    end
-
-    -- If a line has already been specified on the command line, we are done
-    --   nvim file +num
-    if vim.fn.line "." > 1 then
-      return
-    end
-
-    local last_line = vim.fn.line [['"]]
-    local buff_last_line = vim.fn.line "$"
-    local window_last_line = vim.fn.line "w$"
-    local window_first_line = vim.fn.line "w0"
-    -- If the last line is set and the less than the last line in the buffer
-    if last_line > 0 and last_line <= buff_last_line then
-      -- Check if the last line of the buffer is the same as the window
-      if window_last_line == buff_last_line then
-        -- Set line to last line edited
-        vim.cmd [[normal! g`"]]
-        -- Try to center
-      elseif buff_last_line - last_line > ((window_last_line - window_first_line) / 2) - 1 then
-        vim.cmd [[normal! g`"zz]]
-      else
-        vim.cmd [[normal! G'"<c-e>]]
-      end
-    end
-    -- open fold
-    if vim.fn.foldclosed "." ~= -1 then
-      vim.cmd [[normal! zvzz]]
-    end
-  end,
-})
-augroup("toggle_line_numbers", { clear = true })
-autocmd({ "FocusGained", "InsertLeave" }, {
-  pattern = "*",
-  command = "set relativenumber",
-  group = "toggle_line_numbers",
-  desc = "Show relative line numbers in normal mode or on focus.",
-})
-autocmd({ "FocusLost", "InsertEnter" }, {
-  pattern = "*",
-  command = "set norelativenumber",
-  group = "toggle_line_numbers",
-  desc = "Show line numbers in insert mode or on losing focus.",
-})
-
 augroup("toggle_color_column", { clear = true })
 autocmd({ "BufEnter", "FocusGained", "InsertLeave" }, {
   pattern = "*",
@@ -165,4 +102,83 @@ autocmd({ "FileType" }, {
     vim.keymap.set("n", "q", "<cmd>close<cr>", { buffer = event.buf, silent = true })
   end,
   desc = "Close certain filetypes with <q>",
+})
+
+local status_ok, List = pcall(require, "plenary.collections.py_list")
+if not status_ok then
+  return
+end
+
+local last_place = augroup("last_place", { clear = true })
+autocmd({ "BufWinEnter", "FileType" }, {
+  group = last_place,
+  desc = "Go to last loc when opening a buffer",
+  callback = function()
+    local bt_ignore_list = List { "quickfix", "nofile", "help" }
+    -- Check if the buffer should be ignored
+    if bt_ignore_list:contains(vim.bo.buftype) then
+      return
+    end
+    local ft_ignore_list = List { "gitcommit", "gitrebase", "svn", "hgcommit" }
+
+    -- Check if the filetype should be ignored
+    if ft_ignore_list:contains(vim.bo.filetype) then
+      -- reset cursor to first line
+      vim.cmd [[normal! gg]]
+      return
+    end
+
+    -- If a line has already been specified on the command line, we are done
+    --   nvim file +num
+    if vim.fn.line "." > 1 then
+      return
+    end
+
+    local last_line = vim.fn.line [['"]]
+    local buff_last_line = vim.fn.line "$"
+    local window_last_line = vim.fn.line "w$"
+    local window_first_line = vim.fn.line "w0"
+    -- If the last line is set and the less than the last line in the buffer
+    if last_line > 0 and last_line <= buff_last_line then
+      -- Check if the last line of the buffer is the same as the window
+      if window_last_line == buff_last_line then
+        -- Set line to last line edited
+        vim.cmd [[normal! g`"]]
+        -- Try to center
+      elseif buff_last_line - last_line > ((window_last_line - window_first_line) / 2) - 1 then
+        vim.cmd [[normal! g`"zz]]
+      else
+        vim.cmd [[normal! G'"<c-e>]]
+      end
+    end
+    -- open fold
+    if vim.fn.foldclosed "." ~= -1 then
+      vim.cmd [[normal! zvzz]]
+    end
+  end,
+})
+augroup("toggle_line_numbers", { clear = true })
+autocmd({ "FocusGained", "InsertLeave" }, {
+  pattern = "*",
+  callback = function()
+    local ft_ignore_list = List { "NvimTree" }
+    if ft_ignore_list:contains(vim.bo.filetype) then
+      return
+    end
+    vim.cmd [[set relativenumber]]
+  end,
+  group = "toggle_line_numbers",
+  desc = "Show relative line numbers in normal mode or on focus.",
+})
+autocmd({ "FocusLost", "InsertEnter" }, {
+  pattern = "*",
+  callback = function()
+    local ft_ignore_list = List { "NvimTree" }
+    if ft_ignore_list:contains(vim.bo.filetype) then
+      return
+    end
+    vim.cmd [[set norelativenumber]]
+  end,
+  group = "toggle_line_numbers",
+  desc = "Show line numbers in insert mode or on losing focus.",
 })

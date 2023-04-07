@@ -18,6 +18,10 @@ return function(client, bufnr)
   vim.keymap.set("n", "<Space>ld", function() vim.diagnostic.open_float(0, {scope="line"}) end, { buffer = bufnr, desc="Show [l]ine [d]iagnostic" })
   vim.keymap.set("n", "<Space>ll", vim.diagnostic.setloclist, { buffer = bufnr, desc="Show diagnostic [l]ocation [l]ist" })
   vim.keymap.set("n", "<Leader>ll", [[<cmd>lua require('fzf-lua').lsp_document_diagnostics()<CR>]], { buffer = bufnr })
+
+  vim.keymap.set("n", "<Leader>li", [[:LspInfo<CR>]], { buffer = bufnr, desc="[l]sp[i]nfo" })
+  vim.keymap.set("n", "<Leader>lI", [[:Mason<CR>]], { buffer = bufnr, desc="Open Mason" })
+
   if client.server_capabilities.codeLensProvider then
     vim.cmd [[autocmd BufEnter,CursorHold,InsertLeave <buffer> lua vim.lsp.codelens.refresh() ]]
     vim.lsp.codelens.refresh()

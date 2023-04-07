@@ -11,7 +11,7 @@ function M.config()
     use_treesitter = true,
     show_first_indent_level = false,
     buftype_exclude = {
-      "terminal",
+      "terminal", "nofile"
     },
     filetype_exclude = {
       "NvimTree",

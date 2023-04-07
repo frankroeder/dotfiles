@@ -75,7 +75,7 @@ alias gdcw='git diff --cached --word-diff'
 alias gdct='git describe --tags `git rev-list --tags --max-count=1`'
 alias gds='git diff --staged'
 alias gdt='git diff-tree --no-commit-id --name-only -r'
-alias gdw='git diff --word-diff'
+alias gdw='git diff --word-diff-regex="[A-Za-z0-9. ]|[^[:space:]]"'
 
 alias gf='git fetch'
 alias gfa='git fetch --all --prune'
