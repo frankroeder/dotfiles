@@ -1,6 +1,7 @@
 local M = {
   "nvim-lualine/lualine.nvim",
-  dependencies = { "nvim-tree/nvim-web-devicons" },
+  event = "VeryLazy",
+  dependencies = { "nvim-tree/nvim-web-devicons", lazy = true },
 }
 
 function M.config()

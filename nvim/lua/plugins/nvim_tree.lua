@@ -1,7 +1,12 @@
 local M = {
       "nvim-tree/nvim-tree.lua",
-      dependencies = { "nvim-tree/nvim-web-devicons" },
+      cmd = { "NvimTreeToggle" },
+      dependencies = { "nvim-tree/nvim-web-devicons", lazy = true },
     }
+
+function M.init()
+	vim.keymap.set("n", "<Leader>n", ":NvimTreeToggle<CR>")
+end
 
 function M.config()
   local status_ok, nvim_tree = pcall(require, "nvim-tree")
@@ -46,7 +51,6 @@ function M.config()
     },
   }
 
-  vim.keymap.set("n", "<Leader>n", ":NvimTreeToggle<CR>")
 end
 
 return M

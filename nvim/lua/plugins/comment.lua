@@ -1,4 +1,7 @@
-local M = { "numToStr/Comment.nvim" }
+local M = {
+  "numToStr/Comment.nvim",
+  event = 'VeryLazy'
+}
 
 function M.config()
   local status_ok, comment = pcall(require, "Comment")

@@ -1,5 +1,6 @@
 local M = {
   "romgrk/barbar.nvim",
+  event = "VeryLazy"
 }
 
 function M.config()
