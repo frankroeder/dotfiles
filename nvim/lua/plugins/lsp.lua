@@ -1,7 +1,11 @@
 local M = {
   "neovim/nvim-lspconfig",
   event = { "BufReadPre", "BufNewFile" },
-  dependencies = { "cmp-nvim-lsp", "williamboman/mason.nvim", "williamboman/mason-lspconfig.nvim" },
+  dependencies = {
+    "cmp-nvim-lsp",
+    { "williamboman/mason.nvim", build = ":MasonUpdate" },
+    "williamboman/mason-lspconfig.nvim"
+  },
 }
 
 function M.config()
@@ -54,30 +58,33 @@ function M.config()
   require "plugins.lsp.diagnostics"
 
   local lsp_server = {
-    "pyright",
     "clangd",
-    "tsserver",
-    "html",
     "cssls",
-    "gopls",
-    "sourcekit",
-    "svelte",
     "elixirls",
+    "gopls",
+    "html",
     "lua_ls",
+    "pyright",
+    "svelte",
+    "tsserver",
   }
   mason.setup()
   mason_lspconfig.setup {
     ensure_installed = lsp_server,
   }
   mason_lspconfig.setup_handlers {
-    function(server)
+    -- default handler
+    function(server_name)
       local opts = {}
-      local success, req_opts = pcall(require, "plugins.lsp." .. server)
+      local success, req_opts = pcall(require, "plugins.lsp." .. server_name)
       if success then
         opts = req_opts
       end
-      lspconfig[server].setup(opts)
+      lspconfig[server_name].setup(opts)
     end
+    -- ["sourcekit"] = function ()
+    --   lspconfig["sourcekit"].setup(require "plugins.lsp.sourcekit")
+    -- end
   }
 end
 
