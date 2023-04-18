@@ -17,7 +17,7 @@ function M.config()
     highlight = {
       enable = true,
       additional_vim_regex_highlighting = false,
-      disable = { "bibtex", "markdown", "help" },
+      disable = { "latex", "bibtex", "markdown", "help" },
     },
     indent = {
       enable = true,
