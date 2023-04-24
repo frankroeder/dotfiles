@@ -12,8 +12,8 @@ function M.config()
 
   null_ls.setup {
     sources = {
-      fmt.yapf.with {
-        command = vim.fn.exepath "yapf",
+      fmt.ruff.with {
+        command = vim.fn.exepath "ruff",
       },
       fmt.clang_format.with {
         command = vim.fn.exepath "clang-format",
@@ -31,6 +31,7 @@ function M.config()
         command = vim.fn.exepath "jq",
       },
       diagnostics.eslint,
+      diagnostics.ruff,
       code_actions.gitsigns,
     },
   }

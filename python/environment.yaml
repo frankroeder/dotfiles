@@ -9,5 +9,5 @@ dependencies:
   - pip
   - setuptools
   - unidecode
-  - yapf
+  - ruff
   - toml

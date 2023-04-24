@@ -5,5 +5,5 @@ unidecode
 numpy
 matplotlib
 ipython
-yapf
+ruff
 toml
