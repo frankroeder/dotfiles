@@ -5,6 +5,7 @@ build/
 jsconfig.json
 .vim/
 .sass-cache/
+events.out.tfevents.*
 
 # python
 .python-version
@@ -13,6 +14,8 @@ jsconfig.json
 .condaenv
 .venv*
 *.pyc
+*.egg-info
+pyproject.toml
 
 # nodejs
 node_modules/
@@ -48,8 +51,3 @@ Thumbs.db
 *.lock
 .Spotlight-V100
 .Trashes
-
-# pyright config
-pyproject.toml
-
-events.out.tfevents.*
