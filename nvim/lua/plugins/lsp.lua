@@ -61,7 +61,7 @@ function M.config()
     "clangd",
     "cssls",
     "elixirls",
-    "gopls",
+    -- "gopls",
     "html",
     "lua_ls",
     "pyright",
