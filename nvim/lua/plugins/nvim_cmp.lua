@@ -6,7 +6,6 @@ local M = {
     "hrsh7th/cmp-buffer",
     "hrsh7th/cmp-path",
     "hrsh7th/cmp-nvim-lua",
-    'tzachar/cmp-ai',
     "hrsh7th/cmp-omni",
     "hrsh7th/cmp-cmdline",
     "saadparwaiz1/cmp_luasnip",
@@ -25,22 +24,6 @@ function M.config()
   if not luasnip_status_ok then
     return
   end
-
-  local cmp_ai_status_ok, cmp_ai = pcall(require, "cmp_ai.config")
-  if not cmp_ai_status_ok then
-    return
-  end
-
-	cmp_ai:setup({
-		max_lines = 250,
-    provider = 'HF',
-		run_on_every_keystroke = false,
-		ignored_file_types = {
-			lua = true,
-      gitcommit = true,
-      markdown = true
-		},
-	})
 
   local kind_icons = {
     Boolean = "",
@@ -101,7 +84,6 @@ function M.config()
       documentation = cmp.config.window.bordered(),
     },
     sources = cmp.config.sources {
-			{ name = 'cmp_ai', max_item_count = 3},
       { name = "nvim_lsp", max_item_count = 10 },
       { name = "luasnip" },
       { name = "buffer", max_item_count = 5, keyword_length = 3 },
@@ -112,21 +94,6 @@ function M.config()
       format = function(entry, vim_item)
         vim_item.kind = string.format("%s %s", kind_icons[vim_item.kind], vim_item.kind)
         vim_item.menu = source_mapping[entry.source.name]
-
-				if entry.source.name == "cmp_ai" then
-					local detail = (entry.completion_item.labelDetails or {}).detail
-					vim_item.kind = ""
-					if detail and detail:find('.*%%.*') then
-						vim_item.kind = vim_item.kind .. ' ' .. detail
-					end
-
-					if (entry.completion_item.data or {}).multiline then
-						vim_item.kind = vim_item.kind .. ' ' .. '[ML]'
-					end
-					local maxwidth = 80
-					vim_item.abbr = string.sub(vim_item.abbr, 1, maxwidth)
-        end
-
         return vim_item
       end,
     },
