@@ -36,7 +36,9 @@ function M.config()
     provider = 'HF',
 		run_on_every_keystroke = false,
 		ignored_file_types = {
-			lua = true
+			lua = true,
+      gitcommit = true,
+      markdown = true
 		},
 	})
 
