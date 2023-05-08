@@ -30,11 +30,13 @@ function M.config()
   }
 
 	luasnip.filetype_extend("zsh", { "sh" })
+	luasnip.filetype_extend("typescript", { "javascript" })
 
   -- custom lua snippets
   lua.load({ paths = os.getenv("HOME") .. "/.config/nvim/snippets/" })
 
 	vim.cmd([[command! LuaSnipEdit :lua require("luasnip.loaders.from_lua").edit_snippet_files()]])
+	vim.cmd([[command! LuaSnipReload :lua require("luasnip.loaders.from_lua").load({paths = "~/.config/nvim/snippets/"})]])
 	vim.keymap.set({ "i", "s" }, "<C-J>", function() luasnip.jump(1) end, { desc = "LuaSnip forward jump" })
 	vim.keymap.set({ "i", "s" }, "<C-K>", function() luasnip.jump(-1) end, { desc = "LuaSnip backward jump" })
 	vim.keymap.set({ "i", "s" }, "<C-L>", function() luasnip.expand() end, { desc = "LuaSnip expand" })

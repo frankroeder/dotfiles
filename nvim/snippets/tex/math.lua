@@ -4,8 +4,16 @@ local tsutils = require "tsutils"
 local autosnippet = require("luasnip").extend_decorator.apply(s, { snippetType = "autosnippet" })
 
 return {
-  s("frac", fmta("\\frac{<>}{<>}", { i(1), i(2) }), { condition = tsutils.in_mathzone }),
-  s("prod", fmta("\\prod_{<>}{<>}", { i(1), i(2) }), { condition = tsutils.in_mathzone }),
+  s({trig="frac", dscr="LaTex math fraction"},
+		fmta("\\frac{<>}{<>}",
+			{ i(1, "numerator"), i(2, "denominator") }),
+		{ condition = tsutils.in_mathzone }
+	),
+  s("prod",
+		fmta("\\prod_{<>}{<>}",
+			{ i(1), i(2) }),
+		{ condition = tsutils.in_mathzone }
+	),
   s(
     "int",
     fmta("\\int_{<>}{<>}", { i(1, "-\\infty"), i(2, "\\infty") }),
@@ -41,7 +49,12 @@ return {
   ),
 
   autosnippet(
-    { trig = "(%a)(%d)", regTrig = true, name = "auto subscript", dscr = "hi" },
+    {
+			trig = "(%a)(%d)",
+			regTrig = true,
+			name = "auto subscript single digit",
+			dscr = "Auto subscript: typing x2 -> x_2"
+		},
     fmta([[<>_<>]], {
       f(function(_, snip)
         return snip.captures[1]
@@ -56,8 +69,8 @@ return {
     {
       trig = "(%a)_(%d%d)",
       regTrig = true,
-      name = "auto subscript 2",
-      dscr = "auto subscript for 2+ digits",
+      name = "auto subscript two digits",
+			dscr = "Auto subscript: typing x12 -> x_{12}"
     },
     fmta([[<>_{<>}]], {
       f(function(_, snip)
@@ -70,7 +83,11 @@ return {
     { condition = tsutils.in_mathzone }
   ),
   autosnippet(
-    { trig = "(%a)+hat", regTrig = true, name = "hats", dscr = "Replaces x+hat with \\hat{x}" },
+    {
+			trig = "(%a)+hat",
+			regTrig = true,
+			name = "hats",
+			dscr = "Replaces x+hat with \\hat{x}" },
     fmt(
       [[\hat{<>}]],
       { f(function(_, snip)

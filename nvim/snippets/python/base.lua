@@ -1,17 +1,9 @@
 ---@diagnostic disable: undefined-global
 require("luasnip.loaders.from_lua").lazy_load()
+local utils = require "utils"
 
 return {
   parse("#!", "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n"),
-  parse("plt", "import matplotlib.pyplot as plt"),
-  parse("np", "import numpy as np"),
-  parse("pd", "import pandas as pd"),
-  parse("jnp", "import jax.numpy as jnp"),
-  parse("fnn", "import flax.linen as nn"),
-  parse("tnn", "import torch.nn as nn"),
-  parse("tF", "import torch.nn.functional as F"),
-  parse({ trig = "ipdb", name = "ipdb breakpoint" }, "import ipdb; ipdb.set_trace()"),
-
   s({ trig = "pr", name = "print" }, {
     t "print(",
     i(1),
@@ -22,10 +14,8 @@ return {
     i(1),
     t [["""]],
   }),
-
-  -- class
   s(
-    "class",
+    {trig="class", name="Class"},
     fmt(
       [[class {}({}):
     def __init__(self{}):
@@ -33,9 +23,8 @@ return {
       { i(1, "FooBar"), i(2), i(3), i(4, "pass"), i(0) }
     )
   ),
-  -- dataclass
   s(
-    "classd",
+    {trig="classd", name="Dataclass"},
     fmt(
       [[@dataclass
 class {}:
@@ -43,35 +32,68 @@ class {}:
       { i(1, "FooBar"), i(2, "pass"), i(0) }
     )
   ),
-  -- function
   s(
-    "def",
+    {trig="def", name="Function", desr="def fn()"},
     fmt(
       [[def {}({}) -> {}:
     {}{}]],
       { i(1, "foo_bar"), i(2), i(3, "None"), i(4, "pass"), i(0) }
     )
   ),
-  -- method
   s(
-    "defs",
+    {trig="defm", name="Class method", desr="def fn(self)"},
     fmt(
       [[def {}(self{}) -> {}:
     {}{}]],
       { i(1, "foo_bar"), i(2), i(3, "None"), i(4, "pass"), i(0) }
     )
   ),
-
-  -- import ...
-  s("im", fmt("import {}", { i(1, "package/module") })),
-  -- import ... as ..
-  s("ima", fmt("import {} as {}", { i(1, "package/module"), i(2, "alias") })),
-  -- from ... import ...
-  s("fim", fmt("from {} import {}", { i(1, "package/module"), i(2, "name") })),
-  -- from ... import ... as ...
-  s("fima", fmt("from {} import {} as {}", { i(1, "package/module"), i(2, "name"), i(3) })),
-
-  -- if ...
+  s(
+    {trig="with", dscr="with ... as ..."},
+    fmt([[with {} as {}:
+    ]],
+      {
+        i(1, "expression"),
+        i(2, "target")
+      }
+    )
+  ),
+  s(
+    {trig="im", dscr="import ..."},
+    fmt("import {}",
+      {
+        i(1, "package/module")
+      }
+    )
+  ),
+  s(
+    {trig="ima", dscr="import ... as .."},
+    fmt("import {} as {}",
+      {
+        i(1, "package/module"),
+        i(2, "alias")
+      }
+    )
+  ),
+  s(
+    { trig="fim", dscr="from ... import ..."},
+      fmt("from {} import {}",
+      {
+        i(1, "package/module"),
+        i(2, "name")
+      }
+    )
+  ),
+  s(
+    { trig="fima", dscr= "from ... import ... as ..."},
+    fmt(
+      "from {} import {} as {}",
+      {
+        i(1, "package/module"),
+        i(2, "name"),
+        i(3) }
+    )
+  ),
   s(
     { trig = "if", name = "If Statement" },
     fmta(
@@ -123,6 +145,20 @@ class {}:
 				<>
 			]],
       { i(1), i(2, "Exception"), i(3, "e"), i(4, "raise") }
+    )
+  ),
+  s(
+    { trig = "ipdbtry", name = "Try/Except" },
+    fmta(
+      [[
+			try:
+				<>
+			except:
+        import ipdb; ipdb.set_trace()
+			]],
+      {
+        d(1, utils.get_visual),
+      }
     )
   ),
   s(
@@ -182,27 +218,24 @@ class {}:
       { i(1) }
     )
   ),
-  -- for-loop
   s(
-    "for",
+    {trig="for", name="for-loop", dscr="for e in Iter"},
     fmt(
       [[for {} in {}:
     {}{}]],
       { i(1, "elem"), i(2, "iterable"), i(3, "pass"), i(0) }
     )
   ),
-  -- for-loop in enumerate
   s(
-    "fore",
+    {trig="fore", name="for-loop enumerate", dscr="for i, e in enumerate(Iter)"},
     fmt(
       [[for i, {} in enumerate({}):
     {}{}]],
       { i(1, "elem"), i(2, "iterable"), i(3, "pass"), i(0) }
     )
   ),
-  -- for-loop in range
   s(
-    "forr",
+    {trig="forr", name="for-loop range", dscr="for i in range(...)"},
     fmt(
       [[for i in range({}):
     {}{}]],

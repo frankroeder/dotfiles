@@ -2,15 +2,6 @@
 require("luasnip.loaders.from_lua").lazy_load()
 local utils = require "utils"
 
-local function math()
-  return vim.api.nvim_eval "vimtex#syntax#in_mathzone()" == 1
-end
-
-local function env(name)
-  local is_inside = vim.fn["vimtex#env#is_inside"](name)
-  return (is_inside[1] > 0 and is_inside[2] > 0)
-end
-
 local function pick_comment_start_and_end()
   -- because lua block comment is unlike other language's,
   -- so handle lua ctype
@@ -71,7 +62,6 @@ return {
   s("modeline", {
     d(1, function()
       local str = vim.split(vim.bo.commentstring, "%s", true)
-
       return sn(nil, {
         t(str[1]),
         t " vim:ft=",
@@ -82,28 +72,49 @@ return {
     end, {}),
   }),
   s({ trig = "box", name = "Comment box" }, create_box { padding_length = 8 }),
-  s({ trig = "bbox", name = "Bug comment box" }, create_box { padding_length = 20 }),
+  s({ trig = "bbox", name = "Big comment box" }, create_box { padding_length = 20 }),
 
   s(
-    { trig = "date", name = "Current date", dscr = "Date ion format Y-m-d" },
+    { trig = "date", name = "Current date", dscr = "Date in format Y-m-d" },
     p(os.date, "%Y-%m-%d")
   ),
-  s("ddate", p(os.date, "%b-%d-%Y")),
-  s({ trig = "diso", name = "Current date, ISO format" }, p(os.date, "%Y-%m-%d %H:%M:%S%z")),
-  s("time", p(os.date, "%H:%M")),
-  s("datetime", p(os.date, "%Y-%m-%d %H:%M")),
-  s("htime", p(os.date, "%Y-%m-%dT%H:%M:%S+10:00")),
-  s({ trig = "todo" }, {
+  s(
+    {trig = "ddate", dscr = "Current date in format b-d-Y"},
+    p(os.date, "%b-%d-%Y")
+  ),
+  s(
+    { trig = "diso", dscr = "Current date, ISO format" },
+    p(os.date, "%Y-%m-%d %H:%M:%S%z")
+  ),
+  s(
+    { trig= "time", dscr = "Current time in format H:M"},
+    p(os.date, "%H:%M")
+  ),
+  s(
+    {trig="datetime",dscr="Current date time in format Y-m-d H:M"},
+    p(os.date, "%Y-%m-%d %H:%M")
+  ),
+  s(
+    {trig="htime"},
+    p(os.date, "%Y-%m-%dT%H:%M:%S+10:00")
+  ),
+  s(
+    {trig="timestamp",dscr="Current timestamp in miliseconds"},
+    f(function()
+      return tostring(vim.loop.now())
+    end)
+  ),
+  s({ trig = "todo", dscr="Selection of comments" }, {
     p(get_comment_start),
     t " ",
-    c(1, { t "TODO", t "FIXME", t "NOTE", t "BUG", t "HACK", t "XXX" }),
+    c(1, { t "TODO", t "FIXME", t "NOTE", t "BUG", t "HACK", t "WARNING", t "PERF", t "XXX" }),
     t ": ",
     i(0),
     t " ",
     p(get_comment_end),
   }),
 
-  s("bang", {
+  s({trig="bang", dscr="Selection of shebang sequences"}, {
     t "#!/usr/bin/env ",
     c(1, {
       t "sh",
@@ -124,7 +135,13 @@ return {
     })
   ),
   s(
-    { trig = "uuid", name = "Generatre uuid", dscr = "Output of " .. vim.fn.exepath "uuidgen" },
+    { trig = "uuid", name = "Generate uuid", dscr = "Output of " .. vim.fn.exepath "uuidgen" },
     f(utils.bash, {}, { user_args = { "uuidgen" } })
+  ),
+  s(
+    { trig = "pwd", name = "PWD", dscr = "Returns current working directory" },
+    f(function()
+      return vim.fn.getcwd()
+    end)
   ),
 }

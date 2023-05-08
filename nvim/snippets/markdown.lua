@@ -1,5 +1,6 @@
 ---@diagnostic disable: undefined-global
 require("luasnip.loaders.from_lua").lazy_load()
+local utils = require "utils"
 
 return {
   s({
@@ -8,11 +9,9 @@ return {
     dscr = "Create markdown link [txt](url)",
   }, {
     t "[",
-    i(1),
+    i(1, "txt"),
     t "](",
-    f(function(_, snip)
-      return snip.env.TM_SELECTED_TEXT[1] or {}
-    end, {}),
+    d(2, utils.get_visual),
     t ")",
     i(0),
   }),
@@ -21,21 +20,50 @@ return {
   parse({ trig = "ssub", name = "Subsubsection" }, "### ${1:${TM_SELECTED_TEXT}} ###\n$0", {}),
   parse({ trig = "par", name = "Paragraph" }, "#### ${1:${TM_SELECTED_TEXT}} ####\n$0", {}),
   parse({ trig = "spar", name = "Subparagraph" }, "##### ${1:${TM_SELECTED_TEXT}} #####\n$0", {}),
-
-  parse({ trig = "bold", name = "Inline code" }, "**${1:${TM_SELECTED_TEXT}}**$0", {}),
-  parse({ trig = "italics", name = "Inline code" }, "*${1:${TM_SELECTED_TEXT}}*$0", {}),
-  parse({ trig = "bolditalics", name = "Inline code" }, "***${1:${TM_SELECTED_TEXT}}***$0", {}),
-  parse({ trig = "code", name = "Inline code" }, "`${1:${TM_SELECTED_TEXT}}`$0", {}),
+	s({ trig = "bold"},
+		fmta(
+			[[**<>**]],
+			{
+				d(1, utils.get_visual),
+			}
+		)
+	),
+	s({ trig = "italics"},
+		fmta(
+			[[*<>*]],
+			{
+				d(1, utils.get_visual),
+			}
+		)
+	),
+	s({ trig = "bolditalics"},
+		fmta(
+			[[***<>***]],
+			{
+				d(1, utils.get_visual),
+			}
+		)
+	),
+	s({ trig = "code", name = "Inline code" },
+		fmta(
+			[[`<>`]],
+			{
+				d(1, utils.get_visual),
+			}
+		)
+	),
   s(
     { trig = "codeblock", name = "Codeblock" },
     fmt(
       [[
-			```{}
-			{}
-			```
-			{}
-			]],
-      { i(2), i(1), i(0) }
+      ```{}
+      {}
+      ```
+      ]],
+      {
+        i(1),
+        d(2, utils.get_visual),
+      }
     )
   ),
   s(

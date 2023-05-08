@@ -3,6 +3,7 @@
   "LuaSnip": { "branch": "master", "commit": "500981ff6cefc7343e3959ef0f939bd0bfd49ba9" },
   "barbar.nvim": { "branch": "master", "commit": "de37647f05a5b556b6426b78c4608bbd40a8089f" },
   "catppuccin": { "branch": "main", "commit": "af8390217cb0b3b714dfd30ebd09264cf33a37be" },
+  "cmp-ai": { "branch": "main", "commit": "3f43821805d0170d13e2e3c93d561b77c913c03f" },
   "cmp-buffer": { "branch": "main", "commit": "3022dbc9166796b644a841a02de8dd1cc1d311fa" },
   "cmp-cmdline": { "branch": "main", "commit": "5af1bb7d722ef8a96658f01d6eb219c4cf746b32" },
   "cmp-nvim-lsp": { "branch": "main", "commit": "0e6b2ed705ddcff9738ec4ea838141654f12eeef" },
