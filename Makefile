@@ -36,18 +36,13 @@ minimal: directories _linux _git zsh python misc node nvim
 
 .PHONY: help
 help:
-	@echo "######################################################################"
-	@echo "macos    	-- macos setup"
-	@echo "linux    	-- full linux setup"
-	@echo "minimal   	-- minimal linux setup for servers without root privilege"
-	@echo "micro   	  -- micro linux setup with bash for HPC and restricted environments"
-	@echo "nvim     	-- nvim setup with plugins, snippets and runtimes"
-	@echo "homebrew 	-- brew packages and casks of Brewfile"
-	@echo "node      	-- node and npm packages"
-	@echo "zsh      	-- symlinks for zsh"
-	@echo "git      	-- gitconfigs, ignore and completion"
-	@echo "uninstall	-- remove symlinks"
-	@echo "######################################################################"
+	@echo "#######################################################################"
+	@printf "%s\n" "Targets:"
+	@grep -E '^[a-zA-Z0-9_-]+:.*' Makefile \
+	| grep -v 'help:' \
+	| awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m  %-15s\033[0m %s\n", $$1, $$2}' \
+	| sed 's/:$///g'
+	@echo "#######################################################################"
 
 .PHONY: sudo
 sudo:

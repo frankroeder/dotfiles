@@ -6,6 +6,15 @@ return {
     "#!/usr/bin/env bash\nset -euo pipefail\nIFS=$'\\n\\t'",
     {}
   ),
+	s({ trig='func', name='function', dscr='Define a function'},
+		fmta([[
+		<>() {
+				<>
+		}
+		]],
+			{ i(1), i(0) }
+		)
+	),
   s(
     { trig = "for", name = "For Loop" },
     fmt(

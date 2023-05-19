@@ -18,7 +18,6 @@ return {
           },
         },
       }
-
       -- files
       if is_git_repo() then
         vim.keymap.set(

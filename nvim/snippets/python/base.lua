@@ -32,22 +32,49 @@ class {}:
       { i(1, "FooBar"), i(2, "pass"), i(0) }
     )
   ),
-  s(
-    {trig="def", name="Function", desr="def fn()"},
-    fmt(
-      [[def {}({}) -> {}:
-    {}{}]],
-      { i(1, "foo_bar"), i(2), i(3, "None"), i(4, "pass"), i(0) }
-    )
-  ),
-  s(
-    {trig="defm", name="Class method", desr="def fn(self)"},
-    fmt(
-      [[def {}(self{}) -> {}:
-    {}{}]],
-      { i(1, "foo_bar"), i(2), i(3, "None"), i(4, "pass"), i(0) }
-    )
-  ),
+	s(
+		{ trig = "def", name = "Different function types" },
+		c(1, {
+			sn(nil,
+				fmt(
+					[[
+					def {}({}) -> {}:
+						{}{}
+					]],
+					{ i(1, "name"), i(2, "params"), i(3, "None"), i(4, "pass"), i(0) }),
+				{ name = "Regular function", desr="def fn()" }
+			),
+			sn(nil,
+				fmt(
+					[[
+					def {}(self, {}) -> {}:
+						{}{}
+					]],
+					{ i(1, "name"), i(2, "params"), i(3, "None"), i(4, "pass"), i(0) }),
+				{ name = "Class method", desr="def fn(self)" }
+			),
+			sn(nil,
+				fmt(
+					[[
+					@staticmethod
+					def {}({}) -> {}:
+						{}{}
+					]],
+					{ i(1, "name"), i(2, "params"), i(3, "None"), i(4, "pass"), i(0) }),
+				{ name = "Staticmethod" }
+			),
+			sn(nil,
+				fmt(
+					[[
+					@classmethod
+					def {}({}) -> {}:
+						{}{}
+					]],
+					{ i(1, "name"), i(2, "cls"), i(3, "None"), i(4, "pass"), i(0) }),
+				{ name = "Classmethod" }
+			),
+		})
+	),
   s(
     {trig="with", dscr="with ... as ..."},
     fmt([[with {} as {}:

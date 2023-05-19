@@ -11,6 +11,24 @@ return {
     })
   ),
   s(
+    { trig = "ci", name = "console info" },
+    fmt("console.info({})", {
+      d(1, utils.get_visual),
+    })
+  ),
+  s(
+    { trig = "cd", name = "console debug" },
+    fmt("console.debug({})", {
+      d(1, utils.get_visual),
+    })
+  ),
+  s(
+    { trig = "ce", name = "console error" },
+    fmt("console.error({})", {
+      d(1, utils.get_visual),
+    })
+  ),
+  s(
     { trig = "for", name = "for-loop", dscr = "" },
     fmt([[for (let {} = 0; {} < {}.length; {}++)]], {
       i(1, "iter"),

@@ -1,5 +1,6 @@
 ---@diagnostic disable: undefined-global
 require("luasnip.loaders.from_lua").lazy_load()
+local tsutils = require "tsutils"
 
 return {
   s(
@@ -18,9 +19,21 @@ return {
       { i(1, "Title"), i(0) }
     )
   ),
-  parse({ trig = "tbf", name = "Bold text" }, "\\textbf{${1:${TM_SELECTED_TEXT}}} $0", {}),
-  parse({ trig = "tit", name = "Italics text" }, "\\textit{${1:${TM_SELECTED_TEXT}}} $0", {}),
-  parse({ trig = "ttt", name = "Typewriter text" }, "\\texttt{${1:${TM_SELECTED_TEXT}}} $0", {}),
+  parse(
+		{ trig = "tbf", name = "Bold text" },
+		"\\textbf{${1:${TM_SELECTED_TEXT}}} $0",
+    { condition = tsutils.in_text }
+	),
+  parse(
+		{ trig = "tit", name = "Italics text" },
+		"\\textit{${1:${TM_SELECTED_TEXT}}} $0",
+    { condition = tsutils.in_text }
+	),
+  parse(
+		{ trig = "ttt", name = "Typewriter text" },
+		"\\texttt{${1:${TM_SELECTED_TEXT}}} $0",
+    { condition = tsutils.in_text }
+	),
   s({ trig = "foot", name = "Footnote" }, fmta("\\footnote{<>}<>", { i(1), i(0) })),
   s(
     { trig = "tbox", name = "Box around text" },

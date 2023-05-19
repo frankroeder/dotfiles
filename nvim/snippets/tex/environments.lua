@@ -57,7 +57,7 @@ return {
     )
   ),
   s(
-    "enum",
+    "enumerate",
     fmta(
       [[
     \begin{enumerate}
@@ -180,6 +180,21 @@ return {
 		<>
 		]],
       { i(1), i(2), i(0) }
+    )
+  ),
+  s(
+    { trig = "cases", name = "Cases environment" },
+    fmta(
+      [[
+    \begin{cases}
+       <> \\
+       <> \\
+    \end{cases}
+    ]],
+      {
+        i(1, "case a"),
+        i(2, "case b"),
+      }
     )
   ),
 }

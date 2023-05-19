@@ -29,12 +29,22 @@ return {
   ),
   s(
     { trig = "lr(", name = "left right", dsc = "Left right with round brackets/parentheses" },
-    fmta("\\left\\( <> \\right\\)", { i(1) }),
+    fmta([[\left( <> \right)]], { i(1) }),
     { condition = tsutils.in_mathzone }
   ),
   s(
     { trig = "lr[", name = "left right", dsc = "Left right with square brackets/brackets" },
-    fmta("\\left\\[ <> \\right\\]", { i(1) }),
+    fmta("\\left[ <> \\right]", { i(1) }),
+    { condition = tsutils.in_mathzone }
+  ),
+  s(
+    { trig = "lr|", name = "left right", dsc = "Left right with bars" },
+    fmta("\\left\\| <> \\right\\|", { i(1) }),
+    { condition = tsutils.in_mathzone }
+  ),
+  s(
+    { trig = "lra", name = "leftangle rightangle", dsc = "Left and right angle" },
+    fmt("\\left< {} \\right>", { i(1) }),
     { condition = tsutils.in_mathzone }
   ),
   s(
@@ -47,7 +57,31 @@ return {
     fmta("\\pdv[<>]{<>}{<>}", { i(1), i(2), i(3) }),
     { condition = tsutils.in_mathzone }
   ),
-
+  autosnippet(
+    { trig = "NN", name = "Natural numbers" },
+		t("\\mathbb{N}"),
+    { condition = tsutils.in_mathzone }
+  ),
+  autosnippet(
+    { trig = "ZZ", name = "Integers" },
+		t("\\mathbb{Z}"),
+    { condition = tsutils.in_mathzone }
+  ),
+  autosnippet(
+    { trig = "QQ", name = "Rational numbers" },
+		t("\\mathbb{Q}"),
+    { condition = tsutils.in_mathzone }
+  ),
+  autosnippet(
+    { trig = "RR", name = "Real numbers" },
+		t("\\mathbb{R}"),
+    { condition = tsutils.in_mathzone }
+  ),
+  autosnippet(
+    { trig = "CC", name = "Complex numbers" },
+		t("\\mathbb{C}"),
+    { condition = tsutils.in_mathzone }
+  ),
   autosnippet(
     {
 			trig = "(%a)(%d)",
@@ -86,7 +120,7 @@ return {
     {
 			trig = "(%a)+hat",
 			regTrig = true,
-			name = "hats",
+			name = "hat",
 			dscr = "Replaces x+hat with \\hat{x}" },
     fmt(
       [[\hat{<>}]],
@@ -94,6 +128,52 @@ return {
         return snip.captures[1]
       end) },
       { delimiters = "<>" }
-    )
+    ),
+    { condition = tsutils.in_mathzone }
+  ),
+  autosnippet(
+    {
+			trig = "(%a)+bar",
+			regTrig = true,
+			name = "bar",
+			dscr = "Replaces x+bar with \\overline{x}" },
+    fmt(
+      [[\overline{<>}]],
+      { f(function(_, snip)
+        return snip.captures[1]
+      end) },
+      { delimiters = "<>" }
+    ),
+    { condition = tsutils.in_mathzone }
+  ),
+  autosnippet(
+    { trig = "<=", name = "Less equal" },
+		t("\\le"),
+    { condition = tsutils.in_mathzone }
+  ),
+  autosnippet(
+    { trig = ">=", name = "Greater equal" },
+		t("\\ge"),
+    { condition = tsutils.in_mathzone }
+  ),
+  autosnippet(
+    { trig = "->", name = "Right arrow" },
+		t("\\rightarrow"),
+    { condition = tsutils.in_mathzone }
+  ),
+  s(
+    { trig = "<-", name = "Left arrow" },
+		t("\\leftarrow"),
+    { condition = tsutils.in_mathzone }
+  ),
+  s(
+    { trig = "<->", name = "Left-right arrow" },
+		t("\\leftrightarrow"),
+    { condition = tsutils.in_mathzone }
+  ),
+  autosnippet(
+    { trig = "inf", name = "Infinity" },
+		t("\\infty"),
+    { condition = tsutils.in_mathzone }
   ),
 }
