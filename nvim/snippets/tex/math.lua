@@ -43,7 +43,7 @@ return {
     { condition = tsutils.in_mathzone }
   ),
   s(
-    { trig = "lra", name = "leftangle rightangle", dsc = "Left and right angle" },
+    { trig = "lr<", name = "leftangle rightangle", dsc = "Left and right angle" },
     fmt("\\left< {} \\right>", { i(1) }),
     { condition = tsutils.in_mathzone }
   ),

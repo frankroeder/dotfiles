@@ -21,6 +21,9 @@ function M.config()
       fmt.ruff.with {
         command = vim.fn.exepath "ruff",
       },
+      fmt.black.with {
+        command = vim.fn.exepath "black",
+      },
       fmt.clang_format.with {
         command = vim.fn.exepath "clang-format",
       },

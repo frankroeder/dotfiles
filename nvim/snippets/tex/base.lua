@@ -34,6 +34,11 @@ return {
 		"\\texttt{${1:${TM_SELECTED_TEXT}}} $0",
     { condition = tsutils.in_text }
 	),
+  parse(
+		{ trig = "emph", name = "Emphasize text" },
+		"\\emph{${1:${TM_SELECTED_TEXT}}} $0",
+		{ condition = tsutils.in_text }
+	),
   s({ trig = "foot", name = "Footnote" }, fmta("\\footnote{<>}<>", { i(1), i(0) })),
   s(
     { trig = "tbox", name = "Box around text" },
