@@ -167,6 +167,29 @@ function M.config()
     },
   }
 
+  local Rule = require("nvim-autopairs.rule")
+  local cond = require('nvim-autopairs.conds')
+
+  npairs.add_rules({
+    Rule("$", "$",{"tex", "latex"})
+      -- don't add a pair if the next character is %
+      :with_pair(cond.not_after_regex("%%"))
+      -- don't move right when repeat character
+      :with_move(cond.none())
+      -- disable adding a newline when you press <cr>
+      :with_cr(cond.none())
+  })
+
+  npairs.add_rules({
+    Rule("$$","$$","tex")
+      :with_pair(function(opts)
+        if opts.line=="aa $$" then
+          -- don't add pair on that line
+          return false
+        end
+      end)
+  })
+
   local cmp_autopair_status_ok, cmp_autopairs = pcall(require, "nvim-autopairs.completion.cmp")
   if not cmp_autopair_status_ok then
     return

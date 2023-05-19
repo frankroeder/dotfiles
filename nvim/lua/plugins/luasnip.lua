@@ -31,6 +31,7 @@ function M.config()
 
 	luasnip.filetype_extend("zsh", { "sh" })
 	luasnip.filetype_extend("typescript", { "javascript" })
+	luasnip.filetype_extend("svelte", { "javascript" })
 
   -- custom lua snippets
   lua.load({ paths = os.getenv("HOME") .. "/.config/nvim/snippets/" })

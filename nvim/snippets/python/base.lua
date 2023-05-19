@@ -101,7 +101,7 @@ class {}:
 			if <>:
 				<>
 			]],
-      { i(1), i(2, "pass") }
+      { i(1, "condition"), i(2, "pass") }
     )
   ),
   s(
@@ -113,7 +113,7 @@ class {}:
 			else:
 				<>
 			]],
-      { i(1), i(2, "pass"), i(3, "pass") }
+      { i(1, "condition"), i(2, "pass"), i(3, "pass") }
     )
   ),
   s(
@@ -127,7 +127,7 @@ class {}:
 			else:
 				<>
 			]],
-      { i(1, "cond"), i(2, "pass"), i(3, "cond"), i(4, "pass"), i(5, "pass") }
+      { i(1, "condition"), i(2, "pass"), i(3, "condition"), i(4, "pass"), i(5, "pass") }
     )
   ),
 

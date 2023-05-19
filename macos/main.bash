@@ -56,5 +56,6 @@ for app in "Activity Monitor" \
   "SystemUIServer"; do
   killall "${app}" &> /dev/null
 done
+dscacheutil -flushcache
 
 echo "Done. Note that some of these changes require a logout/restart to take effect."
