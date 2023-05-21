@@ -5,7 +5,7 @@ local c_cpp_root = { "compile_commands.json", "build/", "compile_flags.txt", ".c
 
 return {
   cmd = {
-    vim.fn.exepath "clangd",
+    "clangd",
     "--clang-tidy",
     "--suggest-missing-includes",
   },

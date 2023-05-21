@@ -1,4 +1,7 @@
-local M = { "lukas-reineke/indent-blankline.nvim", event = { "BufReadPost", "BufNewFile" } }
+local M = {
+  "lukas-reineke/indent-blankline.nvim",
+  event = { "BufReadPre", "BufNewFile" },
+}
 
 function M.config()
   local status_ok, indent_blankline = pcall(require, "indent_blankline")
@@ -11,7 +14,8 @@ function M.config()
     use_treesitter = true,
     show_first_indent_level = false,
     buftype_exclude = {
-      "terminal", "nofile"
+      "terminal",
+      "nofile",
     },
     filetype_exclude = {
       "NvimTree",

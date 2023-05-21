@@ -3,7 +3,6 @@ local table_find_element = require("utils").table_find_element
 local augroup = vim.api.nvim_create_augroup
 local autocmd = vim.api.nvim_create_autocmd
 
-local yank_group = augroup("yank_group", { clear = true })
 autocmd("TextYankPost", {
   callback = function()
     vim.highlight.on_yank {
@@ -12,7 +11,7 @@ autocmd("TextYankPost", {
       on_visual = true,
     }
   end,
-  group = yank_group,
+  group = augroup("highlight_yank", { clear = true }),
   desc = "Highlight the yanked region of a document.",
 })
 augroup("toggle_color_column", { clear = true })
@@ -28,6 +27,7 @@ autocmd({ "BufLeave", "FocusLost", "InsertEnter" }, {
   desc = "Show a colored column for the 80 character boundary.",
 })
 
+-- TODO: Merge with the autocmd below --
 autocmd("FileChangedShellPost", {
   pattern = "*",
   command = [[echohl WarningMsg | echo "File changed on disk. Buffer reloaded." | echohl None]],
@@ -35,6 +35,7 @@ autocmd("FileChangedShellPost", {
 })
 
 autocmd({ "FocusGained", "BufEnter", "CursorHold", "CursorHoldI" }, {
+  group = augroup("check_time", { clear = true }),
   pattern = "*",
   command = [[if mode() != 'c' | checktime | endif]],
   desc = "Automatically read file changes.",
@@ -78,9 +79,8 @@ autocmd("BufWritePre", {
   desc = "Automatically trim trailing lines on write.",
 })
 
-local win_group = augroup("window_resized", { clear = true })
 autocmd("VimResized", {
-  group = win_group,
+  group = augroup("window_resized", { clear = true }),
   pattern = "*",
   command = "wincmd =",
   desc = "Automatically resize windows when the host window size changes.",
@@ -109,9 +109,8 @@ if not status_ok then
   return
 end
 
-local last_place = augroup("last_place", { clear = true })
 autocmd({ "BufWinEnter", "FileType" }, {
-  group = last_place,
+  group = augroup("last_place", { clear = true }),
   desc = "Go to last loc when opening a buffer",
   callback = function()
     local bt_ignore_list = List { "quickfix", "nofile", "help" }
@@ -157,7 +156,7 @@ autocmd({ "BufWinEnter", "FileType" }, {
     end
   end,
 })
-augroup("toggle_line_numbers", { clear = true })
+local toggle_line_numbers_group = augroup("toggle_line_numbers", { clear = true })
 autocmd({ "FocusGained", "InsertLeave" }, {
   pattern = "*",
   callback = function()
@@ -167,7 +166,7 @@ autocmd({ "FocusGained", "InsertLeave" }, {
     end
     vim.cmd [[set relativenumber]]
   end,
-  group = "toggle_line_numbers",
+  group = toggle_line_numbers_group,
   desc = "Show relative line numbers in normal mode or on focus.",
 })
 autocmd({ "FocusLost", "InsertEnter" }, {
@@ -179,6 +178,6 @@ autocmd({ "FocusLost", "InsertEnter" }, {
     end
     vim.cmd [[set norelativenumber]]
   end,
-  group = "toggle_line_numbers",
+  group = toggle_line_numbers_group,
   desc = "Show line numbers in insert mode or on losing focus.",
 })

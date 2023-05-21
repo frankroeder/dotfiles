@@ -1,7 +1,7 @@
 local M = {
-	"jose-elias-alvarez/null-ls.nvim",
-	event = { "BufReadPre", "BufNewFile" },
-	dependencies = {
+  "jose-elias-alvarez/null-ls.nvim",
+  event = { "BufReadPre", "BufNewFile" },
+  dependencies = {
     "nvim-lua/plenary.nvim",
   },
 }
@@ -18,27 +18,13 @@ function M.config()
 
   null_ls.setup {
     sources = {
-      fmt.ruff.with {
-        command = vim.fn.exepath "ruff",
-      },
-      fmt.black.with {
-        command = vim.fn.exepath "black",
-      },
-      fmt.clang_format.with {
-        command = vim.fn.exepath "clang-format",
-      },
-      fmt.eslint.with {
-        command = vim.fn.exepath "eslint",
-      },
-      fmt.gofmt.with {
-        command = vim.fn.exepath "gofmt",
-      },
-      fmt.stylua.with {
-        command = vim.fn.exepath "stylua",
-      },
-      fmt.jq.with {
-        command = vim.fn.exepath "jq",
-      },
+      fmt.ruff,
+      fmt.black,
+      fmt.clang_format,
+      fmt.eslint,
+      fmt.gofmt,
+      fmt.stylua,
+      fmt.jq,
       diagnostics.eslint,
       diagnostics.ruff,
       code_actions.gitsigns,

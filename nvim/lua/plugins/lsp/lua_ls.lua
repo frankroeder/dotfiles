@@ -3,7 +3,6 @@ table.insert(runtime_path, "lua/?.lua")
 table.insert(runtime_path, "lua/?/init.lua")
 
 return {
-  cmd = { vim.fn.exepath "lua-language-server" },
   settings = {
     Lua = {
       runtime = {

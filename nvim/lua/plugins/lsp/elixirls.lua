@@ -1,5 +1,5 @@
 return {
-  cmd = { vim.fn.exepath "elixir-ls" },
+  cmd = { "elixir-ls" },
   settings = {
     elixirLS = {
       dialyzerEnabled = false,

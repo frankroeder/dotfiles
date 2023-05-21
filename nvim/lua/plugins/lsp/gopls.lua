@@ -4,7 +4,7 @@ local util = require "lspconfig/util"
 local go_root = { "go.sum", "go.mod" }
 
 return {
-  cmd = { vim.fn.exepath "gopls", "-logfile", "/tmp/gopls.log" },
+  cmd = { "gopls", "-logfile", "/tmp/gopls.log" },
   root_dir = function(fname)
     return util.root_pattern(unpack(merge_tables(go_root, general_root)))(fname)
       or util.find_git_ancestor(fname)

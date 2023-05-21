@@ -4,7 +4,7 @@
 -- local merge_tables = require("utils").merge_tables
 --
 -- return {
---   cmd = { vim.fn.exepath "pylyzer", "--server" },
+--   cmd = { "pylyzer", "--server" },
 --   filetypes = { "python" },
 --   root_dir = function(fname)
 --     return util.root_pattern(unpack(merge_tables(py_root, general_root)))(fname)

@@ -5,7 +5,7 @@ local util = require "lspconfig/util"
 
 return {
   cmd = {
-    vim.fn.exepath "typescript-language-server",
+    "typescript-language-server",
     "--stdio",
     "--tsserver-log-file",
     "/tmp/ts.log",

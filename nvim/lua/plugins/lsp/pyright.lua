@@ -4,7 +4,7 @@ local py_root = { "venv/", "requirements.txt", "setup.py", "pyproject.toml", "se
 local merge_tables = require("utils").merge_tables
 
 return {
-  cmd = { vim.fn.exepath "pyright-langserver", "--stdio" },
+  cmd = { "pyright-langserver", "--stdio" },
   filetypes = { "python" },
   root_dir = function(fname)
     return util.root_pattern(unpack(merge_tables(py_root, general_root)))(fname)
