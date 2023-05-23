@@ -21,8 +21,9 @@ conactz() {
   echo "Current pip: $(which pip)";
 }
 concreate() {
+  local PY_VERSION=$(python3 --version 2>&1 | cut -d ' ' -f 2 | cut -d '.' -f 1,2)
   local ENV_NAME=$(basename $PWD);
-  conda create --name $ENV_NAME python=3 neovim ipdb unidecode --yes;
+  conda create --name $ENV_NAME python=$PY_VERSION neovim ipdb unidecode --yes;
   conda activate $ENV_NAME;
 }
 conreq() {
