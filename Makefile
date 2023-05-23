@@ -135,7 +135,7 @@ after:
 	@nvim -i NONE -u $(DOTFILES)/nvim/init.vim -c "TSUpdate" -c "quitall"
 ifeq ($(OSTYPE), Darwin)
 	@sudo yabai --install-sa
-	@brew services start yabai
+	@yabai --start-service
 	@brew services start skhd
 	@brew services start sketchybar
 endif

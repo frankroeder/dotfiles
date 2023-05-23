@@ -24,7 +24,7 @@ brew "grip"
 brew "ifstat"
 brew "gcc"
 
-brew "yabai", args: ["head"], restart_service: :changed
+brew "yabai", args: ["head"]
 brew "skhd", args: ["with-logging"], restart_service: :changed
 brew "sketchybar", args:  ["--head"], restart_service: :changed
 
