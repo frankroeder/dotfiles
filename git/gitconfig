@@ -44,7 +44,7 @@
 [commit]
   verbose = false
   template = ~/.dotfiles/git/gitmessage
-  gpgsign = true
+  gpgsign = false
 
 [color]
   ui = true

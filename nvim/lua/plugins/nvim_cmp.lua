@@ -1,17 +1,17 @@
 local M = {
-	"hrsh7th/nvim-cmp",
-	event = { "InsertEnter", "CmdlineEnter" },
-	dependencies = {
-		"hrsh7th/cmp-nvim-lsp",
-		"hrsh7th/cmp-buffer",
-		"hrsh7th/cmp-path",
-		"hrsh7th/cmp-nvim-lua",
-		"hrsh7th/cmp-omni",
-		"hrsh7th/cmp-cmdline",
-		"saadparwaiz1/cmp_luasnip",
-		"ray-x/cmp-treesitter",
-		"windwp/nvim-autopairs",
-	},
+  "hrsh7th/nvim-cmp",
+  event = { "InsertEnter", "CmdlineEnter" },
+  dependencies = {
+    "hrsh7th/cmp-nvim-lsp",
+    "hrsh7th/cmp-buffer",
+    "hrsh7th/cmp-path",
+    "hrsh7th/cmp-nvim-lua",
+    "hrsh7th/cmp-omni",
+    "hrsh7th/cmp-cmdline",
+    "saadparwaiz1/cmp_luasnip",
+    "ray-x/cmp-treesitter",
+    "windwp/nvim-autopairs",
+  },
 }
 
 function M.config()
@@ -27,31 +27,32 @@ function M.config()
 
   local kind_icons = {
     Boolean = "",
-    Class = "ﴯ",
-    Color = "",
-    Constant = "",
+    Class = "󰠱",
+    Color = "󰏘",
+    Constant = "󰏿",
     Constructor = "",
     Enum = "",
     EnumMember = "",
     Event = "",
-    Field = "",
-    File = "",
-    Folder = "",
-    Function = "",
+    Field = "󰜢",
+    File = "󰈙",
+    Folder = "󰉋",
+    Function = "󰡱",
     Interface = "",
-    Keyword = "",
-    Method = "",
-    Module = "",
-    Operator = "",
-    Property = "ﰠ",
-    Reference = "",
+    Keyword = "󰌋",
+    Method = "󰆧",
+    Module = "",
+    Namespace = "",
+    Operator = "󰆕",
+    Property = "󰜢",
+    Reference = "󰈇",
     Snippet = "",
-    Struct = "ﯟ",
-    Text = "",
-    TypeParameter = "",
-    Unit = "塞",
-    Value = "",
-    Variable = "",
+    Struct = "󰙅",
+    Text = "󰉿",
+    TypeParameter = "",
+    Unit = "󰑭",
+    Value = "󰎠",
+    Variable = "󰀫",
   }
 
   local source_mapping = {
@@ -99,9 +100,12 @@ function M.config()
     },
     mapping = cmp.mapping.preset.insert {
       -- ["<C-Space>"] = cmp.mapping(cmp.mapping.complete()),
-      ["<C-Space>"] = cmp.mapping(cmp.mapping.complete({
-        reason = cmp.ContextReason.Auto,
-      }), {"i", "c"}),
+      ["<C-Space>"] = cmp.mapping(
+        cmp.mapping.complete {
+          reason = cmp.ContextReason.Auto,
+        },
+        { "i", "c" }
+      ),
       ["<C-d>"] = cmp.mapping(cmp.mapping.scroll_docs(-4)),
       ["<C-f>"] = cmp.mapping(cmp.mapping.scroll_docs(4)),
       ["<C-e>"] = cmp.mapping {
@@ -167,28 +171,27 @@ function M.config()
     },
   }
 
-  local Rule = require("nvim-autopairs.rule")
-  local cond = require('nvim-autopairs.conds')
+  local Rule = require "nvim-autopairs.rule"
+  local cond = require "nvim-autopairs.conds"
 
-  npairs.add_rules({
-    Rule("$", "$",{"tex", "latex"})
+  npairs.add_rules {
+    Rule("$", "$", { "tex", "latex" })
       -- don't add a pair if the next character is %
-      :with_pair(cond.not_after_regex("%%"))
+      :with_pair(cond.not_after_regex "%%")
       -- don't move right when repeat character
       :with_move(cond.none())
       -- disable adding a newline when you press <cr>
-      :with_cr(cond.none())
-  })
+      :with_cr(cond.none()),
+  }
 
-  npairs.add_rules({
-    Rule("$$","$$","tex")
-      :with_pair(function(opts)
-        if opts.line=="aa $$" then
-          -- don't add pair on that line
-          return false
-        end
-      end)
-  })
+  npairs.add_rules {
+    Rule("$$", "$$", "tex"):with_pair(function(opts)
+      if opts.line == "aa $$" then
+        -- don't add pair on that line
+        return false
+      end
+    end),
+  }
 
   local cmp_autopair_status_ok, cmp_autopairs = pcall(require, "nvim-autopairs.completion.cmp")
   if not cmp_autopair_status_ok then
