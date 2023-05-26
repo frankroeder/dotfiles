@@ -6,7 +6,7 @@ return {
   parse("#!", "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n"),
   s({ trig = "pr", name = "print" }, {
     t "print(",
-    i(1),
+    d(1, utils.get_visual),
     t ")",
   }),
   s({ trig = "doc", name = "Documentation block" }, {

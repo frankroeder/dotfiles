@@ -8,4 +8,3 @@ if [ $RUNNING == 0 ]; then
 else
   sketchybar -m --set mail drawing=off
 fi
-

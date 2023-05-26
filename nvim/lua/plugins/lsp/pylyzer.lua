@@ -11,11 +11,14 @@
 --       or util.find_git_ancestor(fname)
 --       or util.path.dirname(fname)
 --   end,
+--   handlers = {
+--     ["textDocument/publishDiagnostics"] = function() end,
+--   },
 --   settings = {
 --     python = {
 --       checkOnType = false,
---       diagnostics = true,
---       inlayHints = true,
+--       diagnostics = false,
+--       inlayHints = false,
 --       smartCompletion = false
 --     }
 --   }

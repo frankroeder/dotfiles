@@ -65,6 +65,7 @@ function M.config()
     "html",
     "lua_ls",
     "pyright",
+		-- "pylyzer",
     "svelte",
     "tsserver",
   }

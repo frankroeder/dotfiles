@@ -35,7 +35,7 @@ sketchybar -m --add item space_separator left                                   
                       update_freq=30                                                  \
                       script="$PLUGIN_DIR/mail.sh"                                    \
                       icon.font="$FONT:Bold:18.0"                                     \
-                      icon=
+                      icon=
 
 # show current VPN connection name
 sketchybar -m --add item vpn left \
