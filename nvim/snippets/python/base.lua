@@ -39,18 +39,18 @@ class {}:
 				fmt(
 					[[
 					def {}({}) -> {}:
-						{}{}
+						{}
 					]],
-					{ i(1, "name"), i(2, "params"), i(3, "None"), i(4, "pass"), i(0) }),
+					{ i(1, "name"), i(2, "params"), i(3, "None"), i(4, "pass") }),
 				{ name = "Regular function", desr="def fn()" }
 			),
 			sn(nil,
 				fmt(
 					[[
 					def {}(self, {}) -> {}:
-						{}{}
+						{}
 					]],
-					{ i(1, "name"), i(2, "params"), i(3, "None"), i(4, "pass"), i(0) }),
+					{ i(1, "name"), i(2, "params"), i(3, "None"), i(4, "pass") }),
 				{ name = "Class method", desr="def fn(self)" }
 			),
 			sn(nil,
@@ -58,9 +58,9 @@ class {}:
 					[[
 					@staticmethod
 					def {}({}) -> {}:
-						{}{}
+						{}
 					]],
-					{ i(1, "name"), i(2, "params"), i(3, "None"), i(4, "pass"), i(0) }),
+					{ i(1, "name"), i(2, "params"), i(3, "None"), i(4, "pass") }),
 				{ name = "Staticmethod" }
 			),
 			sn(nil,
@@ -68,9 +68,9 @@ class {}:
 					[[
 					@classmethod
 					def {}({}) -> {}:
-						{}{}
+						{}
 					]],
-					{ i(1, "name"), i(2, "cls"), i(3, "None"), i(4, "pass"), i(0) }),
+					{ i(1, "name"), i(2, "cls"), i(3, "None"), i(4, "pass") }),
 				{ name = "Classmethod" }
 			),
 		})
