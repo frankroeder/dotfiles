@@ -136,7 +136,7 @@ after:
 ifeq ($(OSTYPE), Darwin)
 	@sudo yabai --install-sa
 	@yabai --start-service
-	@brew services start skhd
+	@skhd --start-service
 	@brew services start sketchybar
 endif
 

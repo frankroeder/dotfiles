@@ -6,7 +6,7 @@ brew "git"
 brew "zsh"
 brew "mas"
 brew "htop"
-brew "neovim", args: ['head']
+brew "neovim"
 brew "ripgrep"
 brew "wget"
 brew "cmake"
@@ -24,9 +24,9 @@ brew "grip"
 brew "ifstat"
 brew "gcc"
 
-brew "yabai", args: ["head"]
-brew "skhd", args: ["with-logging"], restart_service: :changed
-brew "sketchybar", args:  ["--head"], restart_service: :changed
+brew "yabai", args: ["HEAD"]
+brew "skhd", args: ["with-logging"]
+brew "sketchybar", args:  ["HEAD"], restart_service: :changed
 
 cask "alfred"
 cask "alacritty"

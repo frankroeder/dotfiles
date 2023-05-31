@@ -1,8 +1,8 @@
 #!/usr/bin/env sh
 # reload yabai and skhd
 ctrl + alt + cmd - r : \
-       yabai --restart-service; \
-       skhd --reload;
+	yabai --restart-service; \
+	skhd --restart-service;
 
 # reload sketchybar
 ctrl + alt + cmd - b : brew services restart sketchybar
