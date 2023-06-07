@@ -77,7 +77,7 @@ ifeq "$(wildcard $(CONDA_HOME))" ""
 endif
 	@conda init "$(shell basename ${SHELL})"
 	@conda env update --file $(DOTFILES)/python/environment.yaml
-	@conda install pytorch -n base -c pytorch -y
+	@conda install flax -n base -y
 	@conda install scipy -n base -y
 ifeq ($(shell ${WHICH} ipython 2>${DEVNUL}),)
 	@ipython -c exit && ln -sfv $(DOTFILES)/python/ipython_config.py $(HOME)/.ipython/profile_default/

@@ -1,7 +1,6 @@
 # global gitignore
 
 *.log
-build/
 jsconfig.json
 .vim/
 .sass-cache/

@@ -3,8 +3,9 @@ try:
     import numpy as np
     import matplotlib.pyplot as plt
 
-    import torch
-    import torch.nn as nn
-    import torch.nn.functional as F
+    import jax
+    import jax.numpy as jnp
+    import flax.linen as nn
+    import optax
 except ImportError:
     pass
