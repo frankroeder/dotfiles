@@ -62,7 +62,6 @@ function M.config()
     luasnip = "[LSnip]",
     nvim_lua = "[Lua]",
     treesitter = "[Treesitter]",
-    cmp_ai = "[AI]",
   }
 
   local has_words_before = function()
