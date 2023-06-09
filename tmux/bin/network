@@ -30,4 +30,4 @@ elif (( $UPLOAD >= 100 )); then
     UPLOAD_COLOR="${ONEDARK_YELLOW}"
 fi
 
-printf " \uF544 #[fg=${DOWNLOAD_COLOR}]%04.1f${DOWNLOAD_RATE}#[default] \uF55C #[fg=${UPLOAD_COLOR}]%04.1f${UPLOAD_RATE}#[default]" "${DOWNLOAD}" "${UPLOAD}"
+printf " \uF433 #[fg=${DOWNLOAD_COLOR}]%04.1f${DOWNLOAD_RATE}#[default] \uF431 #[fg=${UPLOAD_COLOR}]%04.1f${UPLOAD_RATE}#[default]" "${DOWNLOAD}" "${UPLOAD}"

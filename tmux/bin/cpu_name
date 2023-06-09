@@ -1,3 +1,4 @@
 #!/usr/bin/env zsh
-CPU_NAME=$(cat /proc/cpuinfo | grep 'name'| uniq | awk '{$1=$2=$3=$5=$7=""; print $0}' | tr -d ' ')
+#
+CPU_NAME=$(cat /proc/cpuinfo | grep 'name'| uniq | cut -d" " -f3-)
 echo -n "#[fg=default]$CPU_NAME"
