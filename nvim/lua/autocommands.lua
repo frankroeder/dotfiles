@@ -160,7 +160,7 @@ local toggle_line_numbers_group = augroup("toggle_line_numbers", { clear = true 
 autocmd({ "FocusGained", "InsertLeave" }, {
   pattern = "*",
   callback = function()
-    local ft_ignore_list = List { "NvimTree" }
+    local ft_ignore_list = List { "NvimTree", "Telescope" }
     if ft_ignore_list:contains(vim.bo.filetype) then
       return
     end
@@ -172,7 +172,7 @@ autocmd({ "FocusGained", "InsertLeave" }, {
 autocmd({ "FocusLost", "InsertEnter" }, {
   pattern = "*",
   callback = function()
-    local ft_ignore_list = List { "NvimTree" }
+    local ft_ignore_list = List { "NvimTree", "Telescope" }
     if ft_ignore_list:contains(vim.bo.filetype) then
       return
     end
