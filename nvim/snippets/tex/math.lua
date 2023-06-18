@@ -22,6 +22,11 @@ return {
   s("sqrt", fmta("\\sqrt{<>}<>", { i(1), i(0) }), { condition = tsutils.in_mathzone }),
   s("lim", fmta("\\lim_{<>}^{<>}", { i(1), i(2, "\\infty") }), { condition = tsutils.in_mathzone }),
   s("sum", fmta("\\sum_{<>}^{<>}<>", { i(1), i(2), i(0) }), { condition = tsutils.in_mathzone }),
+  s({trig="eu", dscr="Euler's number"},
+		fmta("e^{<>}",
+			{ i(1) }),
+		{ condition = tsutils.in_mathzone }
+	),
   s(
     { trig = "lr{", name = "left right", dsc = "Left right with curly brackets/braces" },
     fmta("\\left\\{ <> \\right\\}", { i(1) }),
@@ -55,31 +60,6 @@ return {
   s(
     { trig = "pdv", name = "Partial Derivative" },
     fmta("\\pdv[<>]{<>}{<>}", { i(1), i(2), i(3) }),
-    { condition = tsutils.in_mathzone }
-  ),
-  autosnippet(
-    { trig = "NN", name = "Natural numbers" },
-		t("\\mathbb{N}"),
-    { condition = tsutils.in_mathzone }
-  ),
-  autosnippet(
-    { trig = "ZZ", name = "Integers" },
-		t("\\mathbb{Z}"),
-    { condition = tsutils.in_mathzone }
-  ),
-  autosnippet(
-    { trig = "QQ", name = "Rational numbers" },
-		t("\\mathbb{Q}"),
-    { condition = tsutils.in_mathzone }
-  ),
-  autosnippet(
-    { trig = "RR", name = "Real numbers" },
-		t("\\mathbb{R}"),
-    { condition = tsutils.in_mathzone }
-  ),
-  autosnippet(
-    { trig = "CC", name = "Complex numbers" },
-		t("\\mathbb{C}"),
     { condition = tsutils.in_mathzone }
   ),
   autosnippet(

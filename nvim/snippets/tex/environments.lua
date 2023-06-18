@@ -41,7 +41,8 @@ return {
         i(0),
         rep(1),
       }
-    )
+    ),
+    { condition = line_begin }
   ),
   s(
     "itemize",

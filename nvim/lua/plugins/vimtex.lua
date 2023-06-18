@@ -1,4 +1,7 @@
-local M = { "lervag/vim-latex" }
+local M = {
+  "lervag/vim-latex",
+  ft = { "tex", "bib" },
+}
 
 function M.config()
   vim.wo.conceallevel = 0
@@ -20,7 +23,7 @@ function M.config()
   vim.g.vimtex_compiler_latexmk = {
     backend = "nvim",
     background = 1,
-    build_dir = "build/",
+    out_dir = "build/",
     callback = 1,
     continuous = 1,
     executable = "latexmk",
@@ -59,6 +62,13 @@ function M.config()
     end,
     desc = "VimTex key mappings",
   })
+
+  -- Example: adding `\big` to VimTeX's delimiter toggle list
+  -- shortcut: tsd
+  vim.g.vimtex_delim_toggle_mod_list = {
+    { [[\left]], [[\right]] },
+    { [[\big]], [[\big]] },
+  }
 end
 
 return M

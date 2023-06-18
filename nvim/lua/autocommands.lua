@@ -157,11 +157,11 @@ autocmd({ "BufWinEnter", "FileType" }, {
   end,
 })
 local toggle_line_numbers_group = augroup("toggle_line_numbers", { clear = true })
+local line_numbers_ft_ignore_list = List { "NvimTree", "Telescope" }
 autocmd({ "FocusGained", "InsertLeave" }, {
   pattern = "*",
   callback = function()
-    local ft_ignore_list = List { "NvimTree", "Telescope" }
-    if ft_ignore_list:contains(vim.bo.filetype) then
+    if line_numbers_ft_ignore_list:contains(vim.bo.filetype) or vim.bo.filetype == "" then
       return
     end
     vim.cmd [[set relativenumber]]
@@ -172,8 +172,7 @@ autocmd({ "FocusGained", "InsertLeave" }, {
 autocmd({ "FocusLost", "InsertEnter" }, {
   pattern = "*",
   callback = function()
-    local ft_ignore_list = List { "NvimTree", "Telescope" }
-    if ft_ignore_list:contains(vim.bo.filetype) then
+    if line_numbers_ft_ignore_list:contains(vim.bo.filetype) or vim.bo.filetype == "" then
       return
     end
     vim.cmd [[set norelativenumber]]

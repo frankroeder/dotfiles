@@ -66,6 +66,10 @@ macos_update() {
 }
 
 neovim_plug_update() {
+  # Check if the directory exists
+  if [[ -d "$HOME/.fzf/" ]]; then
+    (cd $HOME/.fzf && git pull && ./install --bin)
+  fi
   nvim -E "+Lazy sync" +TSUpdateSync +qall!;
 }
 

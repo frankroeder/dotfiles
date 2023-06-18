@@ -6,8 +6,13 @@ end
 local catppuccin = require "catppuccin"
 
 catppuccin.setup {
-  -- general
+  flavour = "mocha", -- latte, frappe, macchiato, mocha
+  background = { -- :h background
+    light = "latte",
+    dark = "mocha",
+  },
   transparent_background = true,
+  show_end_of_buffer = false, -- shows the '~' characters after the end of buffers
   term_colors = false,
   styles = {
     comments = { "italic" },
@@ -76,5 +81,4 @@ catppuccin.setup {
     symbols_outline = true,
   },
 }
-vim.g.catppuccin_flavour = "mocha" -- latte, frappe, macchiato, mocha
 vim.cmd [[colorscheme catppuccin]]

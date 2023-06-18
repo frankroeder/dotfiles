@@ -1,20 +1,17 @@
-# NOTE: you can use vars with $<var> and ${<var>} as long as the str is double quoted: ""
-# WARNING: hex colors can't contain capital letters
-
-# Catppuccin
-thm_bg="#1e1e28"
-thm_fg="#dadae8"
-thm_cyan="#c2e7f0"
-thm_black="#15121c"
-thm_gray="#332e41"
-thm_magenta="#c6aae8"
-thm_pink="#e5b4e2"
-thm_red="#e38c8f"
-thm_green="#b1e3ad"
-thm_yellow="#ebddaa"
-thm_blue="#a4b9ef"
-thm_orange="#f9c096"
-thm_black4="#575268"
+# Catppuccin (Mocha)
+thm_bg="#1e1e2e"
+thm_fg="#cdd6f4"
+thm_cyan="#89dceb"
+thm_black="#181825"
+thm_gray="#313244"
+thm_magenta="#cba6f7"
+thm_pink="#f5c2e7"
+thm_red="#f38ba8"
+thm_green="#a6e3a1"
+thm_yellow="#f9e2af"
+thm_blue="#89b4fa"
+thm_orange="#fab387"
+thm_black4="#585b70"
 
 # ----------------------------=== Theme ===--------------------------
 
@@ -40,10 +37,6 @@ setw -g window-status-style fg="${thm_fg}",bg="${thm_bg}",none
 # current_dir
 setw -g window-status-format "#[fg=$thm_bg,bg=$thm_blue] #I #[fg=$thm_fg,bg=$thm_gray] #W #[default]"
 setw -g window-status-current-format "#[fg=$thm_bg,bg=$thm_orange] #I #[fg=$thm_fg,bg=$thm_bg] #W #[default]"
-
-# parent_dir/current_dir
-# setw -g window-status-format "#[fg=colour232,bg=colour111] #I #[fg=colour222,bg=colour235] #(echo '#{pane_current_path}' | rev | cut -d'/' -f-2 | rev) "
-# setw -g window-status-current-format "#[fg=colour232,bg=colour208] #I #[fg=colour255,bg=colour237] #(echo '#{pane_current_path}' | rev | cut -d'/' -f-2 | rev) "
 
 # --------=== Modes
 setw -g clock-mode-colour "${thm_blue}"
