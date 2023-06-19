@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 WIDTH=${1}
-SMALL=155
+SMALL=185
 TMUX_BIN="$DOTFILES/tmux/bin"
 
 BAR=""
