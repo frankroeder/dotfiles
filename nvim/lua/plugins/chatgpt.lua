@@ -38,7 +38,7 @@ end
 
 function M.config()
   require("chatgpt").setup {
-    api_key_cmd = "security find-generic-password -s openai-api-key -w",
+    api_key_cmd = "command -v security >/dev/null 2>&1 || { echo $(security find-generic-password -s openai-api-key -w) }",
     openai_params = {
       -- model = "gpt-3.5-turbo",
       model = "gpt-4",

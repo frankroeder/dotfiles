@@ -118,6 +118,7 @@ nvim:
 	@echo -e "\033[1m\033[34m==> Installing nvim dependencies\033[0m"
 	@nvim "+call mkdir(stdpath('config'), 'p')" +qall
 	@rm -rfv $(HOME)/.config/nvim
+	@touch $(HOME)/.local.vim
 	@ln -sfv $(DOTFILES)/nvim $(HOME)/.config
 	@nvim --headless "+Lazy! sync" +qa
 
