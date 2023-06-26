@@ -43,7 +43,7 @@ autocmd({ "FocusGained", "BufEnter", "CursorHold", "CursorHoldI" }, {
 
 autocmd("BufEnter", {
   pattern = "*",
-  command = "if winnr('$') == 1 && bufname() == 'NvimTree_' . tabpagenr() | quit | endif",
+  command = "if winnr('$') == 1 && bufname() == 'neo-tree' . tabpagenr() | quit | endif",
   nested = true,
   desc = "Automatically close the tab/vim when nvim-tree is the last window.",
 })
@@ -157,7 +157,7 @@ autocmd({ "BufWinEnter", "FileType" }, {
   end,
 })
 local toggle_line_numbers_group = augroup("toggle_line_numbers", { clear = true })
-local line_numbers_ft_ignore_list = List { "NvimTree", "Telescope" }
+local line_numbers_ft_ignore_list = List { "neo-tree", "Telescope" }
 autocmd({ "FocusGained", "InsertLeave" }, {
   pattern = "*",
   callback = function()

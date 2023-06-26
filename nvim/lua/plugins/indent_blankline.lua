@@ -18,7 +18,7 @@ function M.config()
       "nofile",
     },
     filetype_exclude = {
-      "NvimTree",
+      "neo-tree",
       "git",
       "gitcommit",
       "help",
