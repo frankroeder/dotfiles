@@ -1,3 +1,4 @@
+local utils = require("utils")
 local M = {
   "jackMort/ChatGPT.nvim",
   event = "VeryLazy",
@@ -38,7 +39,7 @@ end
 
 function M.config()
   require("chatgpt").setup {
-    api_key_cmd = "command -v security >/dev/null 2>&1 && { echo $(security find-generic-password -s openai-api-key -w) }",
+    api_key_cmd = "echo " .. utils.get_openai_token(),
     openai_params = {
       -- model = "gpt-3.5-turbo",
       model = "gpt-4",

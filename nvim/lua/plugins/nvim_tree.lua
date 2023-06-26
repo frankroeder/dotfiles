@@ -8,6 +8,15 @@ function M.init()
 	vim.keymap.set("n", "<Leader>n", ":NvimTreeToggle<CR>")
 end
 
+function M.on_attach(bufnr)
+  local api = require("nvim-tree.api")
+  local function opts(desc)
+    return { desc = 'nvim-tree: ' .. desc, buffer = bufnr, noremap = true, silent = true, nowait = true }
+  end
+  api.config.mappings.default_on_attach(bufnr)
+  vim.keymap.set('n', 'i', api.tree.change_root_to_node, opts('CD'))
+end
+
 function M.config()
   local status_ok, nvim_tree = pcall(require, "nvim-tree")
   if not status_ok then
@@ -19,6 +28,7 @@ function M.config()
   vim.g.loaded_netrwPlugin = 1
 
   nvim_tree.setup {
+    on_attach = M.on_attach,
     -- disables netrw completely
     disable_netrw = false,
     -- show lsp diagnostics in the signcolumn

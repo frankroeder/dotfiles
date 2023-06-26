@@ -6,6 +6,7 @@ local M = {
     "nvim-tree/nvim-web-devicons",
   },
   version = "^1.6.5",
+  init = function() vim.g.barbar_auto_setup = false end,
 }
 
 function M.config()

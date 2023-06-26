@@ -69,4 +69,21 @@ M.get_visual = function(args, parent)
   end
 end
 
+M.get_openai_token = function()
+	local result = ""
+	-- check if security executable is available and OS is macos
+	if vim.fn.executable("security") == 1 or vim.fn.has("macunix") == 1 then
+		local handle = io.popen("security find-generic-password -s openai-api-key -w")
+		result = handle:read("*a")
+		handle:close()
+	end
+	-- -- check if on Linux
+	-- if vim.fn.has("unix") == 1 then
+	-- 	local handle = io.popen("pass OpenAI")
+	-- 	result = handle:read("*a")
+	-- 	handle:close()
+	-- end
+	return result
+end
+
 return M
