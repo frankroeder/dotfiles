@@ -198,17 +198,13 @@ _macos:
 	if [ -n "$(xcode-select -p)" ]; then sudo xcode-select --install; sudo xcodebuild -license accept; fi
 	@mkdir -p $(HOME)/screens
 	@bash $(DOTFILES)/macos/main.bash
-	@mkdir -p $(HOME)/.config/alacritty
 	@ln -sfv $(DOTFILES)/yabai $(HOME)/.config/yabai
 	@ln -sfv $(DOTFILES)/skhd $(HOME)/.config/skhd
 	@ln -sfv $(DOTFILES)/sketchybar $(HOME)/.config/sketchybar
+	@ln -sfv $(DOTFILES)/wezterm $(HOME)/.config/wezterm
 ifeq ($(shell ${WHICH} airport 2>${DEVNUL}),)
 	@sudo ln -s /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/local/bin/airport
 endif
-ifeq ($(shell ${WHICH} alacritty 2>${DEVNUL}),)
-	@sudo ln -s /Applications/Alacritty.app/Contents/MacOS/alacritty /usr/local/bin/alacritty
-endif
-	@ln -sfv $(DOTFILES)/alacritty.yml $(HOME)/.config/alacritty/
 ifeq ($(shell ${WHICH} sioyek 2>${DEVNUL}),)
 	@sudo ln -s /Applications/sioyek.app/Contents/MacOS/sioyek /usr/local/bin/sioyek
 endif
@@ -221,7 +217,6 @@ ifeq ($(shell ${WHICH} sourcekit-lsp 2>${DEVNUL}),)
 	@bash $(DOTFILES)/scripts/sourcekit-lsp.sh
 endif
 	@ln -sfv $(DOTFILES)/htop/personal $(HOME)/.config/htop/htoprc
-	@if [ ! -d "$(HOME)/.config/alacritty/catppuccin" ]; then git clone https://github.com/catppuccin/alacritty.git $(HOME)/.config/alacritty/catppuccin; fi
 
 .PHONY: check
 check:

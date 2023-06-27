@@ -29,7 +29,7 @@ brew "skhd", args: ["with-logging"]
 brew "sketchybar", args:  ["HEAD"], restart_service: :changed
 
 cask "alfred"
-cask "alacritty"
+cask "wezterm"
 cask "docker"
 cask "vlc"
 cask "musescore"

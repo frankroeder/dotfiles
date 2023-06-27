@@ -7,8 +7,8 @@ ctrl + alt + cmd - r : \
 # reload sketchybar
 ctrl + alt + cmd - b : brew services restart sketchybar
 
-# toggle alacritty
-fn - space : bash "$DOTFILES/scripts/toggle_app.bash" "Alacritty"
+# toggle WezTerm
+fn - space : bash "$DOTFILES/scripts/toggle_app.bash" "WezTerm"
 
 ########
 #  FN  #
