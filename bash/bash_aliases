@@ -17,7 +17,7 @@ alias hogs="ps -acrx -o pid,%cpu,command | awk 'NR<=5'"
 alias speedtest="wget -O /dev/null http://speed.transip.nl/100mb.bin"
 
 # Print each PATH entry on a separate line
-alias path='echo -e ${PATH//:/\\n}'
+alias lpath='echo -e ${PATH//:/\\n}'
 
 # Print each function name
 alias showfunctions="declare -f | grep '^[a-z].* ()' | sed 's/{$//'"
