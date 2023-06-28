@@ -18,16 +18,33 @@ config.native_macos_fullscreen_mode = true
 config.window_close_confirmation = "NeverPrompt"
 config.automatically_reload_config = true
 config.audible_bell = "Disabled"
+config.scrollback_lines = 10000
 config.keys = {
-	{
-		key = "n",
-		mods = "SHIFT|CTRL",
-		action = wezterm.action.ToggleFullScreen,
-	},
 	{
 		key = "t",
 		mods = "ALT",
 		action = wezterm.action.ShowTabNavigator,
+	},
+	{
+		key = "/",
+		mods = "SHIFT|CTRL",
+		action = wezterm.action({ SendString = "\\" }),
+	},
+	{
+		key = "+",
+		mods = "CMD",
+		action = "IncreaseFontSize",
+	},
+	{ key = "-", mods = "CMD", action = "DecreaseFontSize" },
+	{
+		key = "f",
+		mods = "CMD",
+		action = wezterm.action.Search({ CaseSensitiveString = "" }),
+	},
+	{
+		key = "V",
+		mods = "CTRL|SHIFT",
+		action = wezterm.action.ActivateCopyMode,
 	},
 }
 
@@ -79,5 +96,17 @@ config.background = {
 		},
 	},
 }
+
+wezterm.on("update-right-status", function(window, pane)
+	local success, stdout, stderr = wezterm.run_child_process({ "bash", "wezterm_status" })
+	if not success then
+		wezterm.log_error("Could not create child", stdout, stderr)
+	end
+	window:set_right_status(wezterm.format({
+		{ Background = { Color = "#313244" } },
+		{ Foreground = { Color = "#74c7ec" } },
+		{ Text = stdout },
+	}))
+end)
 
 return config

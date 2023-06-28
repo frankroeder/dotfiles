@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+AIRPORT_INFO=( $(airport -I | grep -E "^ *(agrCtlRSSI|SSID|lastTxRate):" | awk '{print $2}') )
+RSSI=$(echo "${AIRPORT_INFO[0]}" | sed 's/-//g')
+TX=$(echo "${AIRPORT_INFO[1]}" | sed 's/-//g')
+SSID=$(echo "${AIRPORT_INFO[2]}")
+
+INET=""
+if [ -n "$AIRPORT_INFO" ]; then
+  [[ -n $SSID ]] && INET+=" $SSID"
+  INET+=" -[$RSSI]db["$TX"]Mbps"
+elif [ $(networksetup -getinfo "USB 10/100/1000 LAN" | grep -m 1 "IP address" | cut -d':' -f2 | xargs) != "none" ]; then
+  INET+=" LAN"
+fi
+
+if ping -q -c 1 -W 1 8.8.8.8 >/dev/null; then
+	WAN_IP=$($DOTFILES/autoloaded/wan_ip)
+fi
+echo "$WAN_IP $INET   "
