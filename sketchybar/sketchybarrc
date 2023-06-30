@@ -5,37 +5,37 @@ PLUGIN_DIR="$HOME/.config/sketchybar/plugins"
 FONT="Hack Nerd Font"
 
 ############## BAR ##############
-sketchybar -m --bar height=25                             \
-                    blur_radius=50                        \
-                    position=bottom                       \
-                    padding_left=5                        \
-                    padding_right=5                       \
-                    color=0x44000000                      \
-                                                          \
-              --default updates=when_shown                \
-                        drawing=on                        \
-                        cache_scripts=on                  \
-                        icon.font="$FONT:Bold:17.0"       \
-                        icon.color=0xffffffff             \
-                        label.font="$FONT:Bold:14.0"      \
-                        label.color=0xffffffff            \
-                                                          \
-              --default label.padding_left=2              \
-                        label.padding_right=2             \
-                        icon.padding_left=8               \
-                        label.padding_right=8             \
-                                                          \
-              --add event window_focus                    \
-              --add event window_created                  \
-              --add event window_destroyed                \
-              --add event layout_change                   \
+bar=(
+  height=25
+  blur_radius=50
+  position=bottom
+  padding_left=5
+  padding_right=5
+  color=0x44000000
+)
+defaults=(
+  updates=when_shown
+  drawing=on
+  cache_scripts=on
+  icon.font="$FONT:Bold:17.0"
+  icon.color=0xffffffff
+  label.font="$FONT:Bold:14.0"
+  label.color=0xffffffff
+  label.padding_left=2
+  label.padding_right=2
+  icon.padding_left=8
+  label.padding_right=8
+)
+sketchybar -m --bar "${bar[@]}" --default "${defaults[@]}" \
+              --add event window_focus \
+              --add event window_created \
+              --add event window_destroyed \
+              --add event layout_change \
               --add event property_change
-
 
 source "$ITEM_DIR/left.sh"
 source "$ITEM_DIR/right.sh"
 source "$ITEM_DIR/center.sh"
 ############## FINALIZING THE SETUP ##############
-sketchybar -m --update
-
+sketchybar --update
 echo "sketchybar configuration loaded.."
