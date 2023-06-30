@@ -27,7 +27,7 @@ config.keys = {
 	},
 	{
 		key = "/",
-		mods = "SHIFT|CTRL",
+		mods = "SHIFT|ALT",
 		action = wezterm.action({ SendString = "\\" }),
 	},
 	{
@@ -46,6 +46,11 @@ config.keys = {
 		mods = "CTRL|SHIFT",
 		action = wezterm.action.ActivateCopyMode,
 	},
+	{ key = "k", mods = "CTRL|SHIFT|ALT", action = wezterm.action({ ActivatePaneDirection = "Up" }) },
+	{ key = "j", mods = "CTRL|SHIFT|ALT", action = wezterm.action({ ActivatePaneDirection = "Down" }) },
+	{ key = "h", mods = "CTRL|SHIFT|ALT", action = wezterm.action({ ActivatePaneDirection = "Left" }) },
+	{ key = "l", mods = "CTRL|SHIFT|ALT", action = wezterm.action({ ActivatePaneDirection = "Right" }) },
+	{ key = "f", mods = "CTRL|SHIFT|ALT", action = wezterm.action.ShowLauncher },
 }
 
 config.color_scheme = "Catppuccin Mocha"
