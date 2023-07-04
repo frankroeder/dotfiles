@@ -10,43 +10,67 @@ local M = {
 }
 
 function M.config()
-  require("gitsigns").setup {
+  local gs = require "gitsigns"
+
+  gs.setup {
     signs = {
-      add = {
-        hl = "GitSignsAdd",
-        text = "+",
-        numhl = "GitSignsAddNr",
-        linehl = "GitSignsAddLn",
-      },
-      change = {
-        hl = "GitSignsChange",
-        text = "~",
-        numhl = "GitSignsChangeNr",
-        linehl = "GitSignsChangeLn",
-      },
-      delete = {
-        hl = "GitSignsDelete",
-        text = "_",
-        numhl = "GitSignsDeleteNr",
-        linehl = "GitSignsDeleteLn",
-      },
-      topdelete = {
-        hl = "GitSignsDelete",
-        text = "‾",
-        numhl = "GitSignsDeleteNr",
-        linehl = "GitSignsDeleteLn",
-      },
-      changedelete = {
-        hl = "GitSignsChange",
-        text = "~",
-        numhl = "GitSignsChangeNr",
-        linehl = "GitSignsChangeLn",
-      },
+      add = { text = "+" },
+      change = { text = "~" },
+      delete = { text = "_" },
+      topdelete = { text = "‾" },
+      changedelete = { text = "~" },
+      untracked = { text = "┆" },
     },
-    keymaps = {
-      noremap = true,
-      ["n <Leader>gm"] = '<cmd>lua require"gitsigns".preview_hunk()<CR>',
-    },
+    on_attach = function(bufnr)
+      local function map(mode, l, r, opts)
+        opts = opts or {}
+        opts.buffer = bufnr
+        vim.keymap.set(mode, l, r, opts)
+      end
+
+      -- Navigation
+      map("n", "<Leader>gnh", function()
+        if vim.wo.diff then
+          return "<Leader>gph"
+        end
+        vim.schedule(function()
+          gs.next_hunk()
+        end)
+        return "<Ignore>"
+      end, { expr = true })
+
+      map("n", "<Leader>gph", function()
+        if vim.wo.diff then
+          return "<Leader>gnh"
+        end
+        vim.schedule(function()
+          gs.prev_hunk()
+        end)
+        return "<Ignore>"
+      end, { expr = true })
+
+      -- Actions
+      map("n", "<Leader>gsh", gs.stage_hunk)
+      map("n", "<Leader>grh", gs.reset_hunk)
+      map("v", "<Leader>gsh", function()
+        gs.stage_hunk { vim.fn.line ".", vim.fn.line "v" }
+      end)
+      map("v", "<Leader>grh", function()
+        gs.reset_hunk { vim.fn.line ".", vim.fn.line "v" }
+      end)
+
+      map("n", "<Leader>gsb", gs.stage_buffer)
+      map("n", "<Leader>guh", gs.undo_stage_hunk)
+      map("n", "<Leader>grb", gs.reset_buffer)
+      map("n", "<Leader>gb", function()
+        gs.blame_line { full = true }
+      end)
+
+      map("n", "<Leader>gp", gs.preview_hunk)
+      map("n", "<Leader>gd", gs.diffthis)
+      map("n", "<Leader>gtd", gs.toggle_deleted)
+      map("n", "<Leader>gtb", gs.toggle_current_line_blame)
+    end,
     max_file_length = 2000,
   }
 end
