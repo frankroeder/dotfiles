@@ -29,7 +29,15 @@ catppuccin.setup {
     operators = {},
   },
   integrations = {
-    treesitter = true,
+    barbar = true,
+    cmp = true,
+    gitsigns = true,
+    indent_blankline = {
+      enabled = true,
+      colored_indent_levels = false
+    },
+    markdown = true,
+    mason = true,
     native_lsp = {
       enabled = true,
       virtual_text = {
@@ -44,41 +52,17 @@ catppuccin.setup {
         warnings = { "underline" },
         information = { "underline" },
       },
-    },
-    lsp_trouble = false,
-    cmp = true,
-    lsp_saga = false,
-    gitgutter = false,
-    gitsigns = true,
-    telescope = false,
-    nvimtree = {
-      enabled = true,
-      show_root = false,
-      transparent_panel = false,
+      inlay_hints = {
+        background = true,
+      },
     },
     neotree = {
-      enabled = false,
-      show_root = false,
-      transparent_panel = false,
-    },
-    which_key = true,
-    indent_blankline = {
       enabled = true,
-      colored_indent_levels = false,
+      show_root = false,
+      transparent_panel = false
     },
-    dashboard = false,
-    neogit = false,
-    vim_sneak = false,
-    fern = false,
-    barbar = true,
-    bufferline = false,
-    markdown = true,
-    lightspeed = false,
-    ts_rainbow = true,
-    hop = false,
-    notify = false,
-    telekasten = false,
     symbols_outline = true,
+    treesitter = true,
   },
 }
 vim.cmd [[colorscheme catppuccin]]

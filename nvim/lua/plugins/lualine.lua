@@ -44,7 +44,7 @@ function M.config()
        "filetype",
      },
    },
-   extensions = { "nvim-tree", "fzf" },
+   extensions = { "neo-tree", "fzf", "lazy", "symbols-outline" },
  }
 end
 

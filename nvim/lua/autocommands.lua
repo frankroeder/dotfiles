@@ -45,7 +45,7 @@ autocmd("BufEnter", {
   pattern = "*",
   command = "if winnr('$') == 1 && bufname() == 'neo-tree' . tabpagenr() | quit | endif",
   nested = true,
-  desc = "Automatically close the tab/vim when nvim-tree is the last window.",
+  desc = "Automatically close the tab/vim when neo-tree is the last window.",
 })
 
 local trim_group = augroup("trim_group", { clear = true })
