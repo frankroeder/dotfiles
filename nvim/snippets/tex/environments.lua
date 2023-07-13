@@ -163,12 +163,12 @@ return {
       [[
 			\begin{figure}[<>]
 				\centering
-				\includegraphics[width=<>}\linewidth]{<>}
-				\caption{${4} <>}
-				\label{fig:${4}}
+				\includegraphics[width=<>\linewidth]{<>}
+				\caption{<>}
+				\label{fig:<>}
 			\end{figure}
 			]],
-      { i(1, "htpb"), i(2, "0.8"), i(3), i(0) }
+      { i(1, "htpb"), i(2, "0.8"), i(3), i(4), i(0) }
     )
   ),
   s(

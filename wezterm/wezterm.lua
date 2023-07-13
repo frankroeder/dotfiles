@@ -15,6 +15,7 @@ config.font = wezterm.font "Hack Nerd Font"
 config.font_size = 16
 config.adjust_window_size_when_changing_font_size = false
 config.native_macos_fullscreen_mode = true
+config.hide_tab_bar_if_only_one_tab = false
 config.window_close_confirmation = "NeverPrompt"
 config.automatically_reload_config = true
 config.audible_bell = "Disabled"
