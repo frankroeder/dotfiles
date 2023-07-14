@@ -89,30 +89,17 @@ config.background = {
   },
   {
     source = {
-      File = { path = wezdir .. "/4.gif", speed = 0.4 },
+      File = { path = wezdir .. "/stars.gif", speed = 0.4 },
     },
     repeat_y = "Mirror",
-    width = "100%",
+    width = "Contain",
     opacity = 0.10,
     hsb = {
       hue = 0.6,
       saturation = 0.9,
       brightness = 0.1,
     },
-  },
-  {
-    source = {
-      File = { path = wezdir .. "/pulsing.gif", speed = 0.4 },
-    },
-    repeat_y = "Mirror",
-    width = "100%",
-    opacity = 0.05,
-    hsb = {
-      hue = 0.6,
-      saturation = 0.9,
-      brightness = 0.1,
-    },
-  },
+  }
 }
 
 wezterm.on("update-right-status", function(window, pane)
