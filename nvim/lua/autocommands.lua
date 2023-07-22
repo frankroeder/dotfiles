@@ -41,13 +41,6 @@ autocmd({ "FocusGained", "BufEnter", "CursorHold", "CursorHoldI" }, {
   desc = "Automatically read file changes.",
 })
 
-autocmd("BufEnter", {
-  pattern = "*",
-  command = "if winnr('$') == 1 && bufname() == 'neo-tree' . tabpagenr() | quit | endif",
-  nested = true,
-  desc = "Automatically close the tab/vim when neo-tree is the last window.",
-})
-
 local trim_group = augroup("trim_group", { clear = true })
 local trim = function(pattern)
   local save = vim.fn.winsaveview()

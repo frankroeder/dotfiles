@@ -1,6 +1,6 @@
 local M = {
   "nvim-neo-tree/neo-tree.nvim",
-  branch = "v2.x",
+  branch = "v3.x",
   dependencies = {
     "nvim-lua/plenary.nvim",
     "nvim-tree/nvim-web-devicons",
@@ -9,7 +9,18 @@ local M = {
 }
 
 function M.init()
-  vim.keymap.set("n", "<Leader>n", ":NeoTreeShowToggle<CR>")
+  vim.keymap.set("n", "<Leader>n", ":Neotree toggle<CR>")
+
+  vim.api.nvim_create_augroup("neotree", {})
+  vim.api.nvim_create_autocmd("UiEnter", {
+    desc = "Open Neotree automatically",
+    group = "neotree",
+    callback = function()
+      if vim.fn.argc() == 0 then
+        vim.cmd "Neotree toggle"
+      end
+    end,
+  })
 end
 
 function M.config()
@@ -19,7 +30,7 @@ function M.config()
   end
 
   neo_tree.setup {
-		close_if_last_window = true,
+    close_if_last_window = true,
     enable_diagnostics = false,
     filesystem = {
       filtered_items = {

@@ -99,7 +99,7 @@ config.background = {
       saturation = 0.9,
       brightness = 0.1,
     },
-  }
+  },
 }
 
 wezterm.on("update-right-status", function(window, pane)
