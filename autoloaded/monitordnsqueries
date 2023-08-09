@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # watch all dns queries
+# check of tshark is available otherwise print error
+! [ $commands[tshark] ] && echo "tshark is not installed" && return
 
 tshark -Y "dns.flags.response == 1" -Tfields \
   -e frame.time_delta \

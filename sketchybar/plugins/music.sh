@@ -23,6 +23,6 @@ else
   [[ $PLAYER_STATE == "paused" ]] && ICON= || ICON=
 fi
 
-sketchybar -m --set music_info icon="$ICON"          \
-                        label="${TITLE} x ${ARTIST}" \
+sketchybar -m --set music_info icon="$ICON" \
+                        label=" ${TITLE} x ${ARTIST}" \
                         drawing=on

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+# Show time machine log
+# https://discussions.apple.com/thread/250226175
+set -o pipefail
+
+log stream --color always --predicate 'subsystem == "com.apple.TimeMachine"' --info | grep -v ' SmCp'

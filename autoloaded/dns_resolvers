@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+case $(uname) in
+  Darwin)
+    scutil --dns | awk '/^(DNS|resolver|  (search|nameserver|domain))/'
+    ;;
+  Linux)
+    exec cat /etc/resolv.conf
+    ;;
+esac

@@ -10,17 +10,6 @@ local M = {
 
 function M.init()
   vim.keymap.set("n", "<Leader>n", ":Neotree toggle<CR>")
-
-  vim.api.nvim_create_augroup("neotree", {})
-  vim.api.nvim_create_autocmd("UiEnter", {
-    desc = "Open Neotree automatically",
-    group = "neotree",
-    callback = function()
-      if vim.fn.argc() == 0 then
-        vim.cmd "Neotree toggle"
-      end
-    end,
-  })
 end
 
 function M.config()

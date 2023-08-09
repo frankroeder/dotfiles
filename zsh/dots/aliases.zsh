@@ -54,3 +54,8 @@ alias pvim="$EDITOR -u NONE -i NONE -n -N -n"
 alias vimlogs='tail -F $HOME/.local/share/nvim/lsp.log /tmp/*.log $HOME/.cache/nvim/lsp.log'
 alias nman="MANPAGER='nvim +Man!' man"
 alias userlist="cut -d: -f1 /etc/passwd | sort"
+
+# check if wezterm is installed
+if [[ $commands[wezterm] ]]; then
+  alias imgcat="wezterm imgcat"
+fi
