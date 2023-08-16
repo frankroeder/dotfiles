@@ -51,7 +51,7 @@ function M.opts()
 
         gp.Prompt(
           params,
-          gp.Target.rewrite,
+          gp.Target.popup,
           nil, -- command will run directly without any prompting for user input
           gp.config.command_model,
           template,
