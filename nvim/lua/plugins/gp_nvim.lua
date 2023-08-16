@@ -1,10 +1,11 @@
 local M = {
   "robitx/gp.nvim",
   event = "VeryLazy",
+  cond = os.getenv("OPENAI_API_KEY") ~= nil
 }
 
-function M.config()
-  require("gp").setup {
+function M.opts()
+  return {
     openai_api_key = os.getenv "OPENAI_API_KEY",
     chat_topic_gen_model = "gpt-3.5-turbo-16k",
     hooks = {
@@ -29,13 +30,28 @@ function M.config()
         )
       end,
       Explain = function(gp, params)
-        local template = "I have the following code from {{filename}}:\n\n"
+        local template = "Explain the following code from {{filename}}:\n\n"
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
-          .. "Please explain the code above step by step."
+          .. "Use markdown format\n"
+					.. "Explanation of what the code above is doing:\n"
 
         gp.Prompt(
           params,
           gp.Target.popup,
+          nil, -- command will run directly without any prompting for user input
+          gp.config.command_model,
+          template,
+          gp.config.chat_system_prompt
+        )
+      end,
+      FixBugs = function(gp, params)
+        local template = "Fix bugs in the below code from {{filename}}:\n\n"
+          .. "```{{filetype}}\n{{selection}}\n```\n\n"
+          .. "Fixed code:\n"
+
+        gp.Prompt(
+          params,
+          gp.Target.rewrite,
           nil, -- command will run directly without any prompting for user input
           gp.config.command_model,
           template,
@@ -114,4 +130,5 @@ function M.keys()
     },
   }
 end
+
 return M

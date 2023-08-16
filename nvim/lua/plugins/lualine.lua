@@ -42,6 +42,11 @@ function M.config()
          end,
        },
        "filetype",
+      {
+        require("lazy.status").updates,
+        cond = require("lazy.status").has_updates,
+        color = { fg = "#ff9e64" },
+      },
      },
    },
    extensions = { "neo-tree", "fzf", "lazy", "symbols-outline" },
