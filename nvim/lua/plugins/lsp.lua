@@ -4,7 +4,7 @@ local M = {
   dependencies = {
     "cmp-nvim-lsp",
     { "williamboman/mason.nvim", build = ":MasonUpdate" },
-    "williamboman/mason-lspconfig.nvim"
+    "williamboman/mason-lspconfig.nvim",
   },
 }
 
@@ -65,7 +65,7 @@ function M.config()
     "html",
     "lua_ls",
     "pyright",
-		-- "pylyzer",
+    -- "pylyzer",
     "svelte",
     "tsserver",
   }
@@ -82,7 +82,7 @@ function M.config()
         opts = req_opts
       end
       lspconfig[server_name].setup(opts)
-    end
+    end,
     -- ["sourcekit"] = function ()
     --   lspconfig["sourcekit"].setup(require "plugins.lsp.sourcekit")
     -- end

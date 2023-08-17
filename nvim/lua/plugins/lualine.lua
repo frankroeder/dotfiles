@@ -5,52 +5,56 @@ local M = {
 }
 
 function M.config()
- local compile_status = function()
-   local vimtex = vim.b.vimtex
-   local compiler_status = vimtex.compiler.status
-   -- not started or stopped
-   if compiler_status == -1 or compiler_status == 0 then
-     return ""
-   end
-   if vim.b.vimtex["compiler"]["continuous"] == 1 then
-     -- running
-     if compiler_status == 1 then
-       return "{⋯}"
-     -- success
-     elseif compiler_status == 2 then
-       return "{✓}"
-     -- failed
-     elseif compiler_status == 3 then
-       return "{✗}"
-     end
-   end
-   return ""
- end
+  local compile_status = function()
+    local vimtex = vim.b.vimtex
+    local compiler_status = vimtex.compiler.status
+    -- not started or stopped
+    if compiler_status == -1 or compiler_status == 0 then
+      return ""
+    end
+    if vim.b.vimtex["compiler"]["continuous"] == 1 then
+      -- running
+      if compiler_status == 1 then
+        return "{⋯}"
+      -- success
+      elseif compiler_status == 2 then
+        return "{✓}"
+      -- failed
+      elseif compiler_status == 3 then
+        return "{✗}"
+      end
+    end
+    return ""
+  end
 
- require("lualine").setup {
-   options = {
-     globalstatus = true,
-     theme = "catppuccin",
-     disabled_filetypes = { "help", "Outline" },
-   },
-   sections = {
-     lualine_x = {
-       {
-         compile_status,
-         cond = function()
-           return vim.bo.filetype == "tex"
-         end,
-       },
-       "filetype",
-      {
-        require("lazy.status").updates,
-        cond = require("lazy.status").has_updates,
-        color = { fg = "#ff9e64" },
+  local vimtex_compile_status = {
+    compile_status,
+    cond = function()
+      return vim.bo.filetype == "tex"
+    end,
+  }
+
+  local lazy_plugin_status = {
+    require("lazy.status").updates,
+    cond = require("lazy.status").has_updates,
+    color = { fg = "#ff9e64" },
+  }
+
+  require("lualine").setup {
+    options = {
+      globalstatus = true,
+      theme = "catppuccin",
+      disabled_filetypes = { "help", "Outline" },
+    },
+    sections = {
+      lualine_x = {
+        vimtex_compile_status,
+        "filetype",
+        lazy_plugin_status,
       },
-     },
-   },
-   extensions = { "neo-tree", "fzf", "lazy", "symbols-outline" },
- }
+    },
+    extensions = { "neo-tree", "fzf", "lazy", "symbols-outline" },
+  }
 end
 
 return M

@@ -34,7 +34,7 @@ catppuccin.setup {
     gitsigns = true,
     indent_blankline = {
       enabled = true,
-      colored_indent_levels = false
+      colored_indent_levels = false,
     },
     markdown = true,
     mason = true,
@@ -59,7 +59,7 @@ catppuccin.setup {
     neotree = {
       enabled = true,
       show_root = false,
-      transparent_panel = false
+      transparent_panel = false,
     },
     symbols_outline = true,
     treesitter = true,

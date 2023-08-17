@@ -5,19 +5,24 @@ local utils = require "utils"
 
 return {
   -- header
-  s({trig="h([123456])", regTrig=true, wordTrig=false, snippetType="autosnippet"},
+  s(
+    { trig = "h([123456])", regTrig = true, wordTrig = false, snippetType = "autosnippet" },
     fmt(
       [[
           <h{} class="{}">{}</h{}>
         ]],
       {
-        f( function(_, snip) return snip.captures[1] end ),
+        f(function(_, snip)
+          return snip.captures[1]
+        end),
         i(2),
         d(1, utils.get_visual),
-        f( function(_, snip) return snip.captures[1] end ),
+        f(function(_, snip)
+          return snip.captures[1]
+        end),
       }
     ),
-    {condition = line_begin}
+    { condition = line_begin }
   ),
   -- unordered list
   s(
@@ -48,7 +53,7 @@ return {
             </li>
         ]],
       {
-				d(1, utils.get_visual),
+        d(1, utils.get_visual),
       }
     ),
     { condition = line_begin }
@@ -88,7 +93,7 @@ return {
         ]],
       {
         i(1),
-				d(2, utils.get_visual),
+        d(2, utils.get_visual),
         i(0),
       }
     ),
@@ -111,20 +116,21 @@ return {
     ),
     { condition = line_begin }
   ),
-   -- button
-    s({trig = "bb", snippetType="autosnippet"},
-      fmt(
-        [[
+  -- button
+  s(
+    { trig = "bb", snippetType = "autosnippet" },
+    fmt(
+      [[
           <button type="{}" {}>
             {}
           </button>
         ]],
-        {
-          i(1),
-          i(2),
-					d(3, utils.get_visual),
-        }
-      ),
-      {condition = line_begin}
+      {
+        i(1),
+        i(2),
+        d(3, utils.get_visual),
+      }
     ),
+    { condition = line_begin }
+  ),
 }

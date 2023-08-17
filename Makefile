@@ -233,8 +233,7 @@ benchmark:
 
 .PHONY: format
 format:
-	@cd $(DOTFILES)/nvim
-	@stylua -f $(DOTFILES)/nvim/.stylua.toml **/*.lua
+	@stylua -v -f $(DOTFILES)/nvim/.stylua.toml $$(find $(DOTFILES) -type f -name '*.lua')
 
 .PHONY: uninstall
 uninstall:

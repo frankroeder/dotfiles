@@ -6,15 +6,17 @@ return {
     "#!/usr/bin/env bash\nset -euo pipefail\nIFS=$'\\n\\t'",
     {}
   ),
-	s({ trig='func', name='function', dscr='Define a function'},
-		fmta([[
+  s(
+    { trig = "func", name = "function", dscr = "Define a function" },
+    fmta(
+      [[
 		<>() {
 				<>
 		}
 		]],
-			{ i(1), i(0) }
-		)
-	),
+      { i(1), i(0) }
+    )
+  ),
   s(
     { trig = "for", name = "For Loop" },
     fmt(
@@ -54,26 +56,18 @@ return {
   ),
   s(
     { trig = "if", name = "If Statment" },
-    fmta("if [[ <> ]]; then\n  <>\nfi",
-      { i(1, "condition"), i(0) }
-    )
+    fmta("if [[ <> ]]; then\n  <>\nfi", { i(1, "condition"), i(0) })
   ),
   s(
     { trig = "elif", name = "Elif Statment" },
-    fmta("elif [[ <> ]]; then\n  <>",
-      { i(1, "condition"), i(0) }
-    )
+    fmta("elif [[ <> ]]; then\n  <>", { i(1, "condition"), i(0) })
   ),
   s(
     { trig = "until", name = "Until Loop" },
-    fmta("until [[ <> ]]; do\n  <>\ndone",
-      { i(1, "condition"), i(0) }
-    )
+    fmta("until [[ <> ]]; do\n  <>\ndone", { i(1, "condition"), i(0) })
   ),
   s(
     { trig = "while", name = "While Loop" },
-    fmta("while [[ <> ]]; do\n  <>\ndone",
-      { i(1, "condition"), i(0) }
-    )
+    fmta("while [[ <> ]]; do\n  <>\ndone", { i(1, "condition"), i(0) })
   ),
 }

@@ -78,33 +78,21 @@ return {
     { trig = "date", name = "Current date", dscr = "Date in format Y-m-d" },
     p(os.date, "%Y-%m-%d")
   ),
+  s({ trig = "ddate", dscr = "Current date in format b-d-Y" }, p(os.date, "%b-%d-%Y")),
+  s({ trig = "diso", dscr = "Current date, ISO format" }, p(os.date, "%Y-%m-%d %H:%M:%S%z")),
+  s({ trig = "time", dscr = "Current time in format H:M" }, p(os.date, "%H:%M")),
   s(
-    {trig = "ddate", dscr = "Current date in format b-d-Y"},
-    p(os.date, "%b-%d-%Y")
-  ),
-  s(
-    { trig = "diso", dscr = "Current date, ISO format" },
-    p(os.date, "%Y-%m-%d %H:%M:%S%z")
-  ),
-  s(
-    { trig= "time", dscr = "Current time in format H:M"},
-    p(os.date, "%H:%M")
-  ),
-  s(
-    {trig="datetime",dscr="Current date time in format Y-m-d H:M"},
+    { trig = "datetime", dscr = "Current date time in format Y-m-d H:M" },
     p(os.date, "%Y-%m-%d %H:%M")
   ),
+  s({ trig = "htime" }, p(os.date, "%Y-%m-%dT%H:%M:%S+10:00")),
   s(
-    {trig="htime"},
-    p(os.date, "%Y-%m-%dT%H:%M:%S+10:00")
-  ),
-  s(
-    {trig="timestamp",dscr="Current timestamp in miliseconds"},
+    { trig = "timestamp", dscr = "Current timestamp in miliseconds" },
     f(function()
       return tostring(vim.loop.now())
     end)
   ),
-  s({ trig = "todo", dscr="Selection of comments" }, {
+  s({ trig = "todo", dscr = "Selection of comments" }, {
     p(get_comment_start),
     t " ",
     c(1, { t "TODO", t "FIXME", t "NOTE", t "BUG", t "HACK", t "WARNING", t "PERF", t "XXX" }),
@@ -114,7 +102,7 @@ return {
     p(get_comment_end),
   }),
 
-  s({trig="bang", dscr="Selection of shebang sequences"}, {
+  s({ trig = "bang", dscr = "Selection of shebang sequences" }, {
     t "#!/usr/bin/env ",
     c(1, {
       t "sh",

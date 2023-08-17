@@ -89,8 +89,7 @@ end
 -- end
 
 function M.in_text()
-	return not M.in_mathzone() and not M.in_comment()
+  return not M.in_mathzone() and not M.in_comment()
 end
-
 
 return M

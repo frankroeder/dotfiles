@@ -20,38 +20,30 @@ return {
   parse({ trig = "ssub", name = "Subsubsection" }, "### ${1:${TM_SELECTED_TEXT}} ###\n$0", {}),
   parse({ trig = "par", name = "Paragraph" }, "#### ${1:${TM_SELECTED_TEXT}} ####\n$0", {}),
   parse({ trig = "spar", name = "Subparagraph" }, "##### ${1:${TM_SELECTED_TEXT}} #####\n$0", {}),
-	s({ trig = "bold"},
-		fmta(
-			[[**<>**]],
-			{
-				d(1, utils.get_visual),
-			}
-		)
-	),
-	s({ trig = "italics"},
-		fmta(
-			[[*<>*]],
-			{
-				d(1, utils.get_visual),
-			}
-		)
-	),
-	s({ trig = "bolditalics"},
-		fmta(
-			[[***<>***]],
-			{
-				d(1, utils.get_visual),
-			}
-		)
-	),
-	s({ trig = "code", name = "Inline code" },
-		fmta(
-			[[`<>`]],
-			{
-				d(1, utils.get_visual),
-			}
-		)
-	),
+  s(
+    { trig = "bold" },
+    fmta([[**<>**]], {
+      d(1, utils.get_visual),
+    })
+  ),
+  s(
+    { trig = "italics" },
+    fmta([[*<>*]], {
+      d(1, utils.get_visual),
+    })
+  ),
+  s(
+    { trig = "bolditalics" },
+    fmta([[***<>***]], {
+      d(1, utils.get_visual),
+    })
+  ),
+  s(
+    { trig = "code", name = "Inline code" },
+    fmta([[`<>`]], {
+      d(1, utils.get_visual),
+    })
+  ),
   s(
     { trig = "codeblock", name = "Codeblock" },
     fmt(

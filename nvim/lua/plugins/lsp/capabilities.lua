@@ -6,8 +6,8 @@ return function(cmp_nvim_lsp)
     documentationFormat = { "markdown", "plaintext" },
     commitCharactersSupport = true,
     resolveSupport = {
-      properties = { 'documentation', 'detail', 'additionalTextEdits' },
-    }
+      properties = { "documentation", "detail", "additionalTextEdits" },
+    },
   }
   return capabilities
 end

@@ -1,22 +1,22 @@
-local settings = require("settings")
+local settings = require "settings"
 
 if settings.theme == "onedark" then
   return {
     "joshdick/onedark.vim",
-		lazy = false,
+    lazy = false,
     priority = 1000,
     config = function()
-      require("plugins.themes.onedark")
+      require "plugins.themes.onedark"
     end,
   }
 else
   return {
     "catppuccin/nvim",
     name = "catppuccin",
-		lazy = false,
+    lazy = false,
     priority = 1000,
     config = function()
-      require("plugins.themes.catppuccin")
+      require "plugins.themes.catppuccin"
     end,
   }
 end

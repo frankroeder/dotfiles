@@ -15,7 +15,7 @@ return {
     t [["""]],
   }),
   s(
-    {trig="class", name="Class"},
+    { trig = "class", name = "Class" },
     fmt(
       [[class {}({}):
     def __init__(self{}):
@@ -24,7 +24,7 @@ return {
     )
   ),
   s(
-    {trig="classd", name="Dataclass"},
+    { trig = "classd", name = "Dataclass" },
     fmt(
       [[@dataclass
 class {}:
@@ -32,94 +32,95 @@ class {}:
       { i(1, "FooBar"), i(2, "pass"), i(0) }
     )
   ),
-	s(
-		{ trig = "def", name = "Different function types" },
-		c(1, {
-			sn(nil,
-				fmt(
-					[[
+  s(
+    { trig = "def", name = "Different function types" },
+    c(1, {
+      sn(
+        nil,
+        fmt(
+          [[
 					def {}({}) -> {}:
 						{}
 					]],
-					{ i(1, "name"), i(2, "params"), i(3, "None"), i(4, "pass") }),
-				{ name = "Regular function", desr="def fn()" }
-			),
-			sn(nil,
-				fmt(
-					[[
+          { i(1, "name"), i(2, "params"), i(3, "None"), i(4, "pass") }
+        ),
+        { name = "Regular function", desr = "def fn()" }
+      ),
+      sn(
+        nil,
+        fmt(
+          [[
 					def {}(self, {}) -> {}:
 						{}
 					]],
-					{ i(1, "name"), i(2, "params"), i(3, "None"), i(4, "pass") }),
-				{ name = "Class method", desr="def fn(self)" }
-			),
-			sn(nil,
-				fmt(
-					[[
+          { i(1, "name"), i(2, "params"), i(3, "None"), i(4, "pass") }
+        ),
+        { name = "Class method", desr = "def fn(self)" }
+      ),
+      sn(
+        nil,
+        fmt(
+          [[
 					@staticmethod
 					def {}({}) -> {}:
 						{}
 					]],
-					{ i(1, "name"), i(2, "params"), i(3, "None"), i(4, "pass") }),
-				{ name = "Staticmethod" }
-			),
-			sn(nil,
-				fmt(
-					[[
+          { i(1, "name"), i(2, "params"), i(3, "None"), i(4, "pass") }
+        ),
+        { name = "Staticmethod" }
+      ),
+      sn(
+        nil,
+        fmt(
+          [[
 					@classmethod
 					def {}({}) -> {}:
 						{}
 					]],
-					{ i(1, "name"), i(2, "cls"), i(3, "None"), i(4, "pass") }),
-				{ name = "Classmethod" }
-			),
-		})
-	),
+          { i(1, "name"), i(2, "cls"), i(3, "None"), i(4, "pass") }
+        ),
+        { name = "Classmethod" }
+      ),
+    })
+  ),
   s(
-    {trig="with", dscr="with ... as ..."},
-    fmt([[with {} as {}:
+    { trig = "with", dscr = "with ... as ..." },
+    fmt(
+      [[with {} as {}:
     ]],
       {
         i(1, "expression"),
-        i(2, "target")
+        i(2, "target"),
       }
     )
   ),
   s(
-    {trig="im", dscr="import ..."},
-    fmt("import {}",
-      {
-        i(1, "package/module")
-      }
-    )
+    { trig = "im", dscr = "import ..." },
+    fmt("import {}", {
+      i(1, "package/module"),
+    })
   ),
   s(
-    {trig="ima", dscr="import ... as .."},
-    fmt("import {} as {}",
-      {
-        i(1, "package/module"),
-        i(2, "alias")
-      }
-    )
+    { trig = "ima", dscr = "import ... as .." },
+    fmt("import {} as {}", {
+      i(1, "package/module"),
+      i(2, "alias"),
+    })
   ),
   s(
-    { trig="fim", dscr="from ... import ..."},
-      fmt("from {} import {}",
-      {
-        i(1, "package/module"),
-        i(2, "name")
-      }
-    )
+    { trig = "fim", dscr = "from ... import ..." },
+    fmt("from {} import {}", {
+      i(1, "package/module"),
+      i(2, "name"),
+    })
   ),
   s(
-    { trig="fima", dscr= "from ... import ... as ..."},
-    fmt(
-      "from {} import {} as {}",
-      {
-        i(1, "package/module"),
-        i(2, "name"),
-        i(3) }
-    )
+    { trig = "fima", dscr = "from ... import ... as ..." },
+    fmt("from {} import {} as {}", {
+      i(1, "package/module"),
+      i(2, "name"),
+      i(3),
+    })
   ),
   s(
     { trig = "if", name = "If Statement" },
@@ -246,7 +247,7 @@ class {}:
     )
   ),
   s(
-    {trig="for", name="for-loop", dscr="for e in Iter"},
+    { trig = "for", name = "for-loop", dscr = "for e in Iter" },
     fmt(
       [[for {} in {}:
     {}{}]],
@@ -254,7 +255,7 @@ class {}:
     )
   ),
   s(
-    {trig="fore", name="for-loop enumerate", dscr="for i, e in enumerate(Iter)"},
+    { trig = "fore", name = "for-loop enumerate", dscr = "for i, e in enumerate(Iter)" },
     fmt(
       [[for i, {} in enumerate({}):
     {}{}]],
@@ -262,7 +263,7 @@ class {}:
     )
   ),
   s(
-    {trig="forr", name="for-loop range", dscr="for i in range(...)"},
+    { trig = "forr", name = "for-loop range", dscr = "for i in range(...)" },
     fmt(
       [[for i in range({}):
     {}{}]],

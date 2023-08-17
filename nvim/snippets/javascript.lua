@@ -54,18 +54,13 @@ return {
     }),
     { condition = line_begin }
   ),
+  s({ trig = "req", dscr = "require('module')" }, fmt("require({})", { i(1, "module") })),
   s(
-    {trig="req", dscr="require('module')"},
-    fmt("require({})", { i(1, "module"), })
-  ),
-  s(
-    {trig="ima", dscr="import ... from .."},
-    fmt("import {} from {}",
-      {
-        i(2, "alias"),
-        i(1, "module"),
-      }
-    )
+    { trig = "ima", dscr = "import ... from .." },
+    fmt("import {} from {}", {
+      i(2, "alias"),
+      i(1, "module"),
+    })
   ),
   s(
     { trig = "if", name = "If Statement" },
@@ -113,7 +108,7 @@ return {
     )
   ),
   s(
-    {trig="map", dscr="Array prototype map"},
+    { trig = "map", dscr = "Array prototype map" },
     fmt("{}.map({} => {})", {
       i(1, "iterable"),
       i(2, "item"),
@@ -121,7 +116,7 @@ return {
     })
   ),
   s(
-    {trig="reduce", dscr="Array prototype reduce"},
+    { trig = "reduce", dscr = "Array prototype reduce" },
     fmt("{}.reduce(({}, {}) => {} + {}, {})", {
       i(1, "iterable"),
       i(2, "accumulator"),
@@ -132,7 +127,7 @@ return {
     })
   ),
   s(
-    {trig="find", dscr="Array prototype find"},
+    { trig = "find", dscr = "Array prototype find" },
     fmt("{}.map({} => {})", {
       i(1, "iterable"),
       i(2, "element"),

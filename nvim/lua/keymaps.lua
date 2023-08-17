@@ -8,13 +8,13 @@ vim.keymap.set("x", "c", [["xc]], { noremap = true })
 vim.keymap.set("n", "<Leader><Space>", ":noh<CR>")
 -- Toggle wrap mode
 vim.keymap.set("n", "<Leader>wr", "", {
-	silent = true,
-	desc = "toggle wrap mode",
-	callback = function()
-		vim.cmd([[
+  silent = true,
+  desc = "toggle wrap mode",
+  callback = function()
+    vim.cmd [[
 			set wrap!
-		]])
-	end
+		]]
+  end,
 })
 -- Fast save
 vim.keymap.set("n", "<Leader><Leader>", ":w<CR>", { noremap = true })
