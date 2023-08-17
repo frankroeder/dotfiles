@@ -7,6 +7,7 @@ local M = {
 function M.opts()
   return {
     openai_api_key = os.getenv "OPENAI_API_KEY",
+    cmd_prefix = "GPT",
     chat_topic_gen_model = "gpt-3.5-turbo-16k",
     hooks = {
       InspectPlugin = function(plugin, params)
