@@ -24,5 +24,5 @@ else
 fi
 
 sketchybar -m --set music_info icon="$ICON" \
-                        label=" ${TITLE} x ${ARTIST}" \
+                        label=" ${TITLE}  ${ARTIST}" \
                         drawing=on
