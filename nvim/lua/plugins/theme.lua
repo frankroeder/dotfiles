@@ -9,6 +9,15 @@ if settings.theme == "onedark" then
       require "plugins.themes.onedark"
     end,
   }
+elseif settings.theme == "kanagawa" then
+	return {
+    "rebelot/kanagawa.nvim",
+    lazy = false,
+    priority = 1000,
+    config = function()
+      require "plugins.themes.kanagawa"
+    end,
+  }
 else
   return {
     "catppuccin/nvim",
