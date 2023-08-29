@@ -34,13 +34,13 @@ function M.opts()
       Explain = function(gp, params)
         local template = "Explain the following code from {{filename}}:\n\n"
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
-          .. "Use markdown format\n"
-          .. "Explanation of what the code above is doing, think carefully and logically:\n"
+          .. "Use markdown format.\n"
+          .. "A brief explanation of what the code above is doing:\n"
 
         gp.Prompt(
           params,
           gp.Target.popup,
-          nil, -- command will run directly without any prompting for user input
+          nil,
           gp.config.command_model,
           template,
           gp.config.chat_system_prompt
@@ -54,10 +54,61 @@ function M.opts()
         gp.Prompt(
           params,
           gp.Target.popup,
-          nil, -- command will run directly without any prompting for user input
+          nil,
           gp.config.command_model,
           template,
           gp.config.chat_system_prompt
+        )
+      end,
+      Optimize = function(gp, params)
+        local template = "Optimize the following code from {{filename}}:\n\n"
+          .. "```{{filetype}}\n{{selection}}\n```\n\n"
+          .. "Optimized code:\n"
+
+        gp.Prompt(
+          params,
+          gp.Target.popup,
+          nil,
+          gp.config.command_model,
+          template,
+          gp.config.chat_system_prompt
+        )
+      end,
+      UnitTests = function(gp, params)
+        local template = "I have the following code from {{filename}}:\n\n"
+          .. "```{{filetype}}\n{{selection}}\n```\n\n"
+          .. "Please respond by writing table driven unit tests for the code above."
+        gp.Prompt(
+          params,
+          gp.Target.enew,
+          nil,
+          gp.config.command_model,
+          template,
+          gp.config.command_system_prompt
+        )
+      end,
+      ProofReader = function(gp, params)
+        local chat_model = { model = "gpt-4", temperature = 0.7, top_p = 1 }
+        local chat_system_prompt = "I want you act as a proofreader. I will"
+          .. "provide you texts and I would like you to review them for any"
+          .. "spelling, grammar, or punctuation errors. Once you have finished"
+          .. "reviewing the text, provide me with any necessary corrections or"
+          .. "suggestions for improve the text. Highlight the corrections with"
+          .. "markdown bold or italics style."
+        gp.cmd.ChatNew(params, chat_model, chat_system_prompt)
+      end,
+      Debug = function(gp, params)
+        local template = "Imagine you are an expert in {{filetype}}.\n"
+          .. "Review the following code, carefully examine it and report"
+          .. "potential bugs and edge cases alongside solutions to resolve them:"
+          .. "```{{filetype}}{{selection}}\n```\n\n"
+        gp.Prompt(
+          params,
+          gp.Target.enew,
+          nil,
+          gp.config.command_model,
+          template,
+          gp.config.command_system_prompt
         )
       end,
     },

@@ -1,4 +1,5 @@
-require('kanagawa').setup({
-	theme = "dragon",
-})
+require("kanagawa").setup {
+  compile = false,
+  theme = "wave",
+}
 vim.cmd [[colorscheme kanagawa]]

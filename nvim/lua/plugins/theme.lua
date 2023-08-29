@@ -10,7 +10,7 @@ if settings.theme == "onedark" then
     end,
   }
 elseif settings.theme == "kanagawa" then
-	return {
+  return {
     "rebelot/kanagawa.nvim",
     lazy = false,
     priority = 1000,

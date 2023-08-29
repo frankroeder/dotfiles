@@ -1,3 +1,5 @@
+local settings = require "settings"
+
 local M = {
   "nvim-lualine/lualine.nvim",
   event = "VeryLazy",
@@ -43,7 +45,7 @@ function M.config()
   require("lualine").setup {
     options = {
       globalstatus = true,
-      theme = "catppuccin",
+      theme = settings.theme,
       disabled_filetypes = { "help", "Outline" },
     },
     sections = {
