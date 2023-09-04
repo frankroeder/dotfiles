@@ -42,11 +42,6 @@ config.keys = {
     mods = "CMD",
     action = wezterm.action.Search { CaseSensitiveString = "" },
   },
-  {
-    key = "V",
-    mods = "CTRL|SHIFT",
-    action = wezterm.action.ActivateCopyMode,
-  },
   { key = "k", mods = "CTRL|SHIFT|ALT", action = wezterm.action { ActivatePaneDirection = "Up" } },
   {
     key = "j",
@@ -64,6 +59,20 @@ config.keys = {
     action = wezterm.action { ActivatePaneDirection = "Right" },
   },
   { key = "f", mods = "CTRL|SHIFT|ALT", action = wezterm.action.ShowLauncher },
+  {
+		key = "p",
+		mods = "CMD|SHIFT",
+		action = wezterm.action.SpawnCommandInNewWindow(
+      { cwd = "~", args = { "/opt/homebrew/bin/htop" }}
+    )
+	},
+  {
+		key = "i",
+		mods = "CMD|SHIFT",
+		action = wezterm.action.SpawnCommandInNewWindow(
+      { cwd = "~/tmp", args = { "ipython" }}
+    )
+	},
 }
 
 config.color_scheme = "Catppuccin Mocha"

@@ -67,3 +67,25 @@ sketchybar -m --add item topmem right \
                     icon=↓ \
                     icon.highlight_color=0xff10528c \
                     y_offset=-5
+
+sketchybar --add item  swap right \
+           --set       swap script="$PLUGIN_DIR/swap.sh" \
+                            update_freq=60 \
+                            padding_left=2 \
+                            padding_right=8 \
+                            background.border_width=0 \
+                            background.height=24 \
+                            icon= \
+                            icon.color=0xff89dceb \
+                            label.color=0xff89dceb \
+           \
+           --add item  ram right \
+           --set       ram script="$PLUGIN_DIR/ram.sh" \
+                           update_freq=60 \
+                           padding_left=2 \
+                           padding_right=2 \
+                           background.border_width=0 \
+                           background.height=24 \
+                           icon= \
+                           icon.color=0xffa6e3a1 \
+                           label.color=0xffa6e3a1
