@@ -4,26 +4,38 @@ import argparse
 import subprocess
 
 CHANNELS = {
-    'ndrinfo': 'https://www.ndr.de/resources/metadaten/audio_ssl/m3u/ndrinfo.m3u',
-    'detektorfm': 'https://sec-detektorfm.hoerradar.de/detektorfm-musik-mp3-128',
-    'dlf': 'https://st01.sslstream.dlf.de/dlf/01/128/mp3/stream.mp3',
-    'jazz': 'https://streaming.radio.co/s774887f7b/listen'
+    "ndrinfo": "https://www.ndr.de/resources/metadaten/audio_ssl/m3u/ndrinfo.m3u",
+    "detektorfm": "https://sec-detektorfm.hoerradar.de/detektorfm-musik-mp3-128",
+    "dlf": "https://st01.sslstream.dlf.de/dlf/01/128/mp3/stream.mp3",
+    "jazz": "https://streaming.radio.co/s774887f7b/listen",
+    "wdr3": "https://wdr-wdr3-live.icecastssl.wdr.de/wdr/wdr3/live/mp3/256/stream.mp3",
+    "wacken": "https://regiocast.streamabc.net/regc-radiobobwacken2377952-mp3-192-7315957",
+    "klassik": "https://live.streams.klassikradio.de/klassikradio-deutschland",
+    "ndrkultur": "https://icecast.ndr.de/ndr/ndrkultur/live/mp3/128/stream.mp3",
 }
 
 channel_keys = [key for key, _ in CHANNELS.items()]
 
-parser = argparse.ArgumentParser(description='Python Radio Script')
-parser.add_argument('-c', '--channel', type=str, default='dlf',
-                    help='Specify channel:{}'.format(' '.join(channel_keys)))
+parser = argparse.ArgumentParser(description="Python Radio Script")
+parser.add_argument(
+    "-c",
+    "--channel",
+    type=str,
+    default="dlf",
+    help="Specify channel:{}".format(" ".join(channel_keys)),
+)
 args = parser.parse_args()
 
 assert args.channel in channel_keys
 
+
 def get_channel():
     return CHANNELS[args.channel]
 
+
 def play(chan):
-    _  = subprocess.run(['vlc -qI cli {}'.format(chan)], shell=True)
+    _ = subprocess.run(["vlc -qI cli {}".format(chan)], shell=True)
+
 
 if __name__ == "__main__":
     channel = get_channel()
