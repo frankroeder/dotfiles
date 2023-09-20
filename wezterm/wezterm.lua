@@ -60,19 +60,18 @@ config.keys = {
   },
   { key = "f", mods = "CTRL|SHIFT|ALT", action = wezterm.action.ShowLauncher },
   {
-		key = "p",
-		mods = "CMD|SHIFT",
-		action = wezterm.action.SpawnCommandInNewWindow(
-      { cwd = "~", args = { "/opt/homebrew/bin/htop" }}
-    )
-	},
+    key = "p",
+    mods = "CMD|SHIFT",
+    action = wezterm.action.SpawnCommandInNewWindow {
+      cwd = "~",
+      args = { "/opt/homebrew/bin/htop" },
+    },
+  },
   {
-		key = "i",
-		mods = "CMD|SHIFT",
-		action = wezterm.action.SpawnCommandInNewWindow(
-      { cwd = "~/tmp", args = { "ipython" }}
-    )
-	},
+    key = "i",
+    mods = "CMD|SHIFT",
+    action = wezterm.action.SpawnCommandInNewWindow { cwd = "~/tmp", args = { "ipython" } },
+  },
 }
 
 config.color_scheme = "Catppuccin Mocha"

@@ -189,7 +189,7 @@ ifeq ($(shell ${WHICH} tree-sitter 2>${DEVNUL}),)
 	@bash $(DOTFILES)/scripts/tree-sitter.sh
 endif
 ifeq ($(shell ${WHICH} nvidia-smi 2>${DEVNUL}),)
-	@pip install nvitop
+	@conda install nvitop -n base -y
 endif
 
 .PHONY: _macos
