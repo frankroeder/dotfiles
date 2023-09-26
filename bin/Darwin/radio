@@ -22,7 +22,7 @@ parser.add_argument(
     "--channel",
     type=str,
     default="dlf",
-    help="Specify channel:{}".format(" ".join(channel_keys)),
+    help="Specify channel: {}".format(" ".join(channel_keys)),
 )
 args = parser.parse_args()
 
