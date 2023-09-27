@@ -3,20 +3,21 @@
 NUM_SPACES=$(yabai -m query --spaces | jq '. | length')
 
 # general exceptions
-yabai -m rule --add app='^System Information$' manage=off border=off
+yabai -m rule --add app='^System Information$' manage=off border=off layer=above
 yabai -m rule --add app='^System (Preferences|Settings)$' manage=off border=off
 yabai -m rule --add title='Preferences$' manage=off border=off
 yabai -m rule --add title='Settings$' manage=off border=off
 yabai -m rule --add title='(Picture in Picture|Picture-in-Picture)' manage=off border=off
 yabai -m rule --add app='^(LuLu|Python|Archive Utility|Calculator)$' manage=off
-yabai -m rule --add app="^Orion$" title="^(General|Appearance|Browsing|Sync|(Password|Website|Extension)s|Privacy|Advanced)$" manage=off
+yabai -m rule --add app="^Orion$" title="^(General|Appearance|Browsing|Sync|(Password|Website|Extension)s|Privacy|Advanced|Completions)$" manage=off
 
 # app-specific rules
 APPS="^(Dictionary|Music|Podcasts|App Store|Calendar|Photos)$"
 yabai -m rule --add app="${APPS}" manage=off border=off
+yabai -m rule --add app="^Music$" title="MiniPlayer" manage=off border=off
 
 CENTER_APPS="^(Anki|Bitwarden)$"
-yabai -m rule --add app="${CENTER_APPS}" manage=off border=off grid=4:4:1:0:2:4
+yabai -m rule --add app="${CENTER_APPS}" manage=off border=off grid=16:9:2:2:5:12
 
 if [[ $NUM_SPACES -gt 2 ]]; then
   # "social" apps should always be inside the last space
