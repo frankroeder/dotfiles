@@ -9,6 +9,7 @@ function M.opts()
     openai_api_key = os.getenv "OPENAI_API_KEY",
     cmd_prefix = "GPT",
     chat_topic_gen_model = "gpt-3.5-turbo-16k",
+    chat_conceal_model_params = false,
     hooks = {
       InspectPlugin = function(plugin, params)
         print(string.format("Plugin structure:\n%s", vim.inspect(plugin)))
