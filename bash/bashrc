@@ -102,12 +102,14 @@ if [ -x $(which sacct) ]; then
 		watch -n 5 -d 'sacct | tail -n 40'
 	}
 
+  unique_hosts() {
+    sacct | grep RUNNING | cut -d ' ' -f50 | uniq | sort
+  }
 
 	sii() {
 		echo "CURRENT TRIALS RUNNING: $(sacct | grep RUNNING | wc -l)"
 		echo "CURRENT TRIALS PENDING $(sacct | grep PENDING | wc -l)"
 	}
-
 
 	# cancel all jobs
 	killallslurm() {

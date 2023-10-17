@@ -29,7 +29,7 @@
 
 [push]
   followTags = true
-  default = current
+  default = simple
 
 [core]
   editor = $EDITOR

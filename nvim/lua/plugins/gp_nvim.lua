@@ -8,7 +8,9 @@ function M.opts()
   return {
     openai_api_key = os.getenv "OPENAI_API_KEY",
     cmd_prefix = "GPT",
-    chat_topic_gen_model = "gpt-3.5-turbo-16k",
+    chat_model = { model = "gpt-4", temperature = 1.1, top_p = 1 },
+    chat_topic_gen_model = "gpt-4",
+    command_model = { model = "gpt-4", temperature = 1.1, top_p = 1 },
     chat_conceal_model_params = false,
     hooks = {
       InspectPlugin = function(plugin, params)

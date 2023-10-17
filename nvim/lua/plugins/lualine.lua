@@ -50,6 +50,7 @@ function M.config()
     },
     sections = {
       lualine_x = {
+        "aerial",
         vimtex_compile_status,
         "filetype",
         lazy_plugin_status,

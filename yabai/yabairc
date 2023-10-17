@@ -9,19 +9,20 @@ sudo yabai --load-sa
 yabai -m config window_origin_display        default \
                 window_placement             second_child \
                 window_topmost               off \
-                window_shadow                off \
+                window_shadow                on \
                 window_opacity               off \
                 window_opacity_duration      0.0 \
                 normal_window_opacity        0.9 \
                 active_window_opacity        0.95 \
-                window_border                on \
                 window_gap                   10 \
                 top_padding                  20 \
                 bottom_padding               20 \
                 left_padding                 20 \
                 right_padding                20 \
+                window_border                on \
                 window_border_width          4 \
-                window_hidpi                 off \
+                window_border_hidpi          off \
+                window_border_blur           off \
                 window_border_radius         8 \
                 window_zoom_persist          off \
                 active_window_border_color   0xff6e3b9f \
@@ -35,6 +36,7 @@ yabai -m config window_origin_display        default \
                 mouse_drop_action            swap \
                 auto_balance                 off \
                 split_ratio                  0.50 \
+                split_type                   auto \
                 layout                       stack \
                 external_bar                 all:0:25
 

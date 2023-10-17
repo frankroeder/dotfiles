@@ -118,7 +118,7 @@ return {
     { trig = "url", name = "Frontmost browser tab url" },
     f(utils.osascript, {}, {
       user_args = {
-        'tell application "System Events" to get value of UI element 1 of combo box 1 of toolbar "Navigation" of first group of front window of application process "Firefox"',
+        'tell application id "com.kagi.kagimacOS" to get URL of current tab of first window',
       },
     })
   ),

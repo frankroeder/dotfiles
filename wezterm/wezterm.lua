@@ -11,7 +11,11 @@ config.window_background_opacity = 0.85
 -- config.enable_tab_bar = false
 config.front_end = "WebGpu"
 config.window_decorations = "RESIZE"
-config.font = wezterm.font "Hack Nerd Font"
+config.font = wezterm.font_with_fallback {
+  "Hack Nerd Font",
+  "Menlo",
+  "Apple Color Emoji",
+}
 config.font_size = 16
 config.adjust_window_size_when_changing_font_size = false
 config.native_macos_fullscreen_mode = true
@@ -64,7 +68,7 @@ config.keys = {
     mods = "CMD|SHIFT",
     action = wezterm.action.SpawnCommandInNewWindow {
       cwd = "~",
-      args = { "/opt/homebrew/bin/htop" },
+      args = { "/opt/homebrew/bin/btop" },
     },
   },
   {

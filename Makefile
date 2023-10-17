@@ -93,6 +93,8 @@ endif
 	@ln -sfv $(DOTFILES)/curlrc $(HOME)/.curlrc
 	@ln -sfv $(DOTFILES)/tmux/tmux.conf $(HOME)/.tmux.conf
 	@ln -sfv $(DOTFILES)/latexmkrc $(HOME)/.latexmkrc
+	@ln -sfv $(DOTFILES)/btop $(HOME)/.config/
+
 
 .PHONY: zsh
 zsh:
@@ -217,6 +219,10 @@ ifeq ($(shell ${WHICH} sourcekit-lsp 2>${DEVNUL}),)
 	@bash $(DOTFILES)/scripts/sourcekit-lsp.sh
 endif
 	@ln -sfv $(DOTFILES)/htop/personal $(HOME)/.config/htop/htoprc
+ifeq ($(shell ${WHICH} battery 2>${DEVNUL}),)
+	@curl -s https://raw.githubusercontent.com/actuallymentor/battery/main/setup.sh | bash
+	@battery maintain 80
+endif
 
 .PHONY: check
 check:
