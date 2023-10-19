@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+networksetup -setnetworkserviceenabled "USB 10/100/1000 LAN" off
+sleep 3
+networksetup -setnetworkserviceenabled "USB 10/100/1000 LAN" on

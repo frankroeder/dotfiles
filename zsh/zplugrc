@@ -9,7 +9,6 @@ fi
 source ~/.zplug/init.zsh
 
 zplug "zsh-users/zsh-completions"
-zplug "zsh-users/zsh-autosuggestions"
 zplug "mafredri/zsh-async", from:github
 zplug "esc/conda-zsh-completion"
 zplug "MichaelAquilina/zsh-you-should-use"
@@ -20,6 +19,7 @@ fi
 
 # should be last
 zplug "sindresorhus/pure", use:pure.zsh, from:github, at:main, as:theme
+zplug "zsh-users/zsh-autosuggestions"
 zplug "zdharma-continuum/fast-syntax-highlighting"
 zplug "zsh-users/zsh-history-substring-search"
 
