@@ -118,7 +118,7 @@ return {
     { trig = "url", name = "Frontmost browser tab url" },
     f(utils.osascript, {}, {
       user_args = {
-        'tell application id "com.kagi.kagimacOS" to get URL of current tab of first window',
+        'tell application id "com.kagi.kagimacOS.RC" to get URL of current tab of first window',
       },
     })
   ),

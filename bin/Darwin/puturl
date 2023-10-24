@@ -1,7 +1,7 @@
 #!/usr/bin/env osascript
 # Return url of selected tab in Orion
 
-tell application id "com.kagi.kagimacOS"
+tell application id "com.kagi.kagimacOS.RC"
   set theTab to current tab of first window
   set vURL to URL of theTab
 	vURL

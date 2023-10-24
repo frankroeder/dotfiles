@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-URLS=$(plutil -convert json -o - ~/Library/Application\ Support/Orion/Defaults/.local_named_windows.plist | jq -r '.[].tabsInfo.[].url')
+URLS=$(plutil -convert json -o - ~/Library/Application\ Support/Orion\ RC/Defaults/.local_named_windows.plist | jq -r '.[].tabsInfo[].url')
 SELECTED=$(echo "$URLS" | tr -s " " "\012" | fzf --exit-0 --multi);
 if [ -n "$SELECTED" ]; then
   echo "$SELECTED" | pbcopy
