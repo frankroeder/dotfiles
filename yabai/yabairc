@@ -51,5 +51,6 @@ WINDOW_RULES="$HOME/.config/yabai/window_rules"
 if [[ -f $WINDOW_RULES ]]; then
   source $WINDOW_RULES
 fi
+borders active_color=0xff6e3b9f inactive_color=0xff555555 width=7.5 2>/dev/null 1>&2 &
 
 echo "yabai configuration loaded..."

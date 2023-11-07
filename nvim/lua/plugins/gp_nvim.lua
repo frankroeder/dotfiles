@@ -8,9 +8,9 @@ function M.opts()
   return {
     openai_api_key = os.getenv "OPENAI_API_KEY",
     cmd_prefix = "GPT",
-    chat_model = { model = "gpt-4", temperature = 1.1, top_p = 1 },
-    chat_topic_gen_model = "gpt-4",
-    command_model = { model = "gpt-4", temperature = 1.1, top_p = 1 },
+    chat_model = { model = "gpt-4-1106-preview", temperature = 1.1, top_p = 1 },
+    chat_topic_gen_model = "gpt-4-1106-preview",
+    command_model = { model = "gpt-4-1106-preview", temperature = 1.1, top_p = 1 },
     chat_conceal_model_params = false,
     hooks = {
       InspectPlugin = function(plugin, params)
@@ -91,7 +91,7 @@ function M.opts()
         )
       end,
       ProofReader = function(gp, params)
-        local chat_model = { model = "gpt-4", temperature = 0.7, top_p = 1 }
+        local chat_model = { model = "gpt-4-1106-preview", temperature = 0.7, top_p = 1 }
         local chat_system_prompt = "I want you act as a proofreader. I will"
           .. "provide you texts and I would like you to review them for any"
           .. "spelling, grammar, or punctuation errors. Once you have finished"

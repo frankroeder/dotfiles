@@ -25,19 +25,19 @@ fn - d : yabai -m window --focus stack.prev
 fn - u : yabai -m window --focus stack.next
 
 # change space focus
-fn - y  : yabai -m space --focus recent
-fn - x  : yabai -m space --focus prev
-fn - c  : yabai -m space --focus next
+fn - y : yabai -m space --focus recent
+fn - x : yabai -m space --focus prev
+fn - c : yabai -m space --focus next
 
-fn - 1  : yabai -m space --focus 1
-fn - 2  : yabai -m space --focus 2
-fn - 3  : yabai -m space --focus 3
-fn - 4  : yabai -m space --focus 4
-fn - 5  : yabai -m space --focus 5
-fn - 6  : yabai -m space --focus 6
-fn - 7  : yabai -m space --focus 7
-fn - 8  : yabai -m space --focus 8
-fn - 9  : yabai -m space --focus 9
+fn - 1 : yabai -m space --focus 1 | skhd -k "ctrl + alt + cmd - 1"
+fn - 2 : yabai -m space --focus 2 | skhd -k "ctrl + alt + cmd - 2"
+fn - 3 : yabai -m space --focus 3 | skhd -k "ctrl + alt + cmd - 3"
+fn - 4 : yabai -m space --focus 4 | skhd -k "ctrl + alt + cmd - 4"
+fn - 5 : yabai -m space --focus 5
+fn - 6 : yabai -m space --focus 6
+fn - 7 : yabai -m space --focus 7
+fn - 8 : yabai -m space --focus 8
+fn - 9 : yabai -m space --focus 9
 
 # change layout of space (i3 defaults)
 fn - e : yabai -m space --layout bsp; sketchybar -m --trigger layout_change
