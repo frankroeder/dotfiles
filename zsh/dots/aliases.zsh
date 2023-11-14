@@ -51,7 +51,7 @@ alias online="ping -c 1 www.example.com &> /dev/null && echo 'Online :)' || echo
 
 # start plain vim
 alias pvim="$EDITOR -u NONE -i NONE -n -N -n"
-alias vimlogs='tail -F $HOME/.local/share/nvim/lsp.log /tmp/*.log $HOME/.cache/nvim/lsp.log'
+alias vimlogs='tail -F $HOME/.local/state/nvim/{luasnip.log,lsp.log} /tmp/*.log $HOME/.cache/nvim/lsp.log'
 alias nman="MANPAGER='nvim +Man!' man"
 alias userlist="cut -d: -f1 /etc/passwd | sort"
 

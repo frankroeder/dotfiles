@@ -11,9 +11,6 @@ return {
       or util.find_git_ancestor(fname)
       or util.path.dirname(fname)
   end,
-  handlers = {
-    ["textDocument/publishDiagnostics"] = function() end,
-  },
   single_file_support = true,
   settings = {
     pyright = {

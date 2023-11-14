@@ -4,6 +4,7 @@ return function(cmp_nvim_lsp)
     snippetSupport = true,
     labelDetailsSupport = true,
     documentationFormat = { "markdown", "plaintext" },
+    insertReplaceSupport = true,
     commitCharactersSupport = true,
     resolveSupport = {
       properties = { "documentation", "detail", "additionalTextEdits" },

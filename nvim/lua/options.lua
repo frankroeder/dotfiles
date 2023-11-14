@@ -7,6 +7,7 @@ local options = {
   history = 200, -- 200 lines command history
   binary = true, -- Enable binary support
   wrap = false, -- Don't wrap long lines
+  breakindent = true, -- wrap indent to match  line start
   scrolloff = 3, -- Keep at least 3 lines above/below
   sidescrolloff = 5, -- Show next 5 columns when scrolling sideways
   showmode = false, -- Don't show current mode
@@ -25,6 +26,7 @@ local options = {
   splitright = true, -- Vertical split right
   joinspaces = false, -- Use one space after punctuation
   -- indentation
+  preserveindent = true, -- preserve indent structure as much as possible
   -- cindent = true, --  Enables automatic C program indenting
   smartindent = true,
   autoindent = true,
@@ -37,7 +39,7 @@ local options = {
 
   -- search
   ignorecase = true, -- Search case insensitive
-  smartcase = true, -- but change if searched with upper case
+  smartcase = true, -- but changed if searched with upper case
 
   number = true, -- Print the line number in front of each line
   relativenumber = true,

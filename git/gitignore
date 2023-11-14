@@ -16,6 +16,9 @@ events.out.tfevents.*
 *.egg-info
 pyproject.toml
 
+# nvim
+.gp.md
+
 # nodejs
 node_modules/
 package-lock.json

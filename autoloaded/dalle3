@@ -1,0 +1,32 @@
+#!/usr/bin/env zsh
+# Get an image from DALL·E 3 based on a prompt
+# Usage: dalle3 <prompt>
+
+if [[ -z "$@" ]]; then
+  echo "Usage: $0 \"<prompt>\""
+  return 1
+fi
+
+if [[ -z "$OPENAI_API_KEY" ]]; then
+  echo "The environment variable OPENAI_API_KEY is not set."
+  return 1
+fi
+
+RESPONSE=$(curl -sS https://api.openai.com/v1/images/generations \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -d "{\"model\": \"dall-e-3\", \"prompt\": \"$@\", \"n\": 1, \"size\": \"1024x1024\"}")
+
+echo $RESPONSE | jq
+URL=$(echo "$RESPONSE" | jq -r '.data[0].url')
+REV_PROMPT=$(echo "$RESPONSE" | jq -r '.data[0].revised_prompt')
+
+if [[ -z "$URL" ]]; then
+  echo "Failed to extract the image URL from the response."
+  return 1
+fi
+
+open -a $BROWSER_NAME "${URL}"
+
+FILE_SAVE_PATH="$HOME/Library/Mobile Documents/com~apple~CloudDocs/dalle3/$(date +'%Y-%m-%dT%H:%M:%S%Z')_${REV_PROMPT:0:200}.png"
+wget --output-document="${FILE_SAVE_PATH}" "${URL}"

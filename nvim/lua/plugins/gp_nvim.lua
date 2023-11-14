@@ -4,20 +4,23 @@ local M = {
   cond = os.getenv "OPENAI_API_KEY" ~= nil,
 }
 
-function M.opts()
-  return {
+function M.config()
+  local model = "gpt-4-1106-preview"
+	local cmd_prefix = "GPT"
+
+  require("gp").setup {
     openai_api_key = os.getenv "OPENAI_API_KEY",
-    cmd_prefix = "GPT",
-    chat_model = { model = "gpt-4-1106-preview", temperature = 1.1, top_p = 1 },
-    chat_topic_gen_model = "gpt-4-1106-preview",
-    command_model = { model = "gpt-4-1106-preview", temperature = 1.1, top_p = 1 },
+    cmd_prefix = cmd_prefix,
+    chat_model = { model = model, temperature = 1.1, top_p = 1 },
+    chat_topic_gen_model = model,
+    command_model = { model = model, temperature = 1.1, top_p = 1 },
     chat_conceal_model_params = false,
     hooks = {
       InspectPlugin = function(plugin, params)
         print(string.format("Plugin structure:\n%s", vim.inspect(plugin)))
         print(string.format("Command params:\n%s", vim.inspect(params)))
       end,
-      -- GPTCompelte finishes the provided selection/range of code
+      -- GPTComplete finishes the provided selection/range of code
       -- and appends the result.
       Complete = function(gp, params)
         local template = "I have the following code from {{filename}}:\n\n"
@@ -91,7 +94,7 @@ function M.opts()
         )
       end,
       ProofReader = function(gp, params)
-        local chat_model = { model = "gpt-4-1106-preview", temperature = 0.7, top_p = 1 }
+        local chat_model = { model = model, temperature = 0.7, top_p = 1 }
         local chat_system_prompt = "I want you act as a proofreader. I will"
           .. "provide you texts and I would like you to review them for any"
           .. "spelling, grammar, or punctuation errors. Once you have finished"
@@ -116,6 +119,17 @@ function M.opts()
       end,
     },
   }
+  local unused_commands = {
+    "Whisper",
+    "WhisperRewrite",
+    "WhisperAppend",
+    "WhisperPrepend",
+    "WhisperEnew",
+    "WhisperPopup",
+  }
+  for _, command in ipairs(unused_commands) do
+    vim.api.nvim_del_user_command(cmd_prefix .. command)
+  end
 end
 
 function M.keys()
