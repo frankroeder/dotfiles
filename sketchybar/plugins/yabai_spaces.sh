@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-STATIC_NAMES=("" "I" "II" "III" "IV" "V" "VI" "VII" "VIII" "IX" "X" "XI" "XII" "XIII" "XIV" "XV") #0 to 15
+STATIC_NAMES=("" "I" "II" "III" "IV" "V" "VI" "VII" "VIII" "IX" "X" "XI" "XII" "XIII" "XIV" "XV") # 0 to 15
 args=()
 QUERY="$(yabai -m query --spaces | jq -r '.[] | [.index, ."windows[0]", .label, .display, ."is-visible"] | @sh')"
 NAMES=""

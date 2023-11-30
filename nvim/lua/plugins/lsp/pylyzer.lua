@@ -11,9 +11,6 @@
 --       or util.find_git_ancestor(fname)
 --       or util.path.dirname(fname)
 --   end,
---   handlers = {
---     ["textDocument/publishDiagnostics"] = function() end,
---   },
 --   settings = {
 --     python = {
 --       checkOnType = false,
@@ -23,3 +20,4 @@
 --     }
 --   }
 -- }
+return {}
