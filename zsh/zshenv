@@ -12,6 +12,7 @@ path=(
   $DOTFILES/bin/$OSTYPE
   # user-specific binaries for linux
   $HOME/bin
+  $HOME/.local/bin
   $path
 )
 

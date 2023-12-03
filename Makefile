@@ -199,6 +199,7 @@ _macos:
 	@bash $(DOTFILES)/macos/main.bash
 	@ln -sfv $(DOTFILES)/sketchybar $(HOME)/.config/sketchybar
 	@ln -sfv $(DOTFILES)/aerospace.toml $(HOME)/.aerospace.toml
+	@ln -sfv $(DOTFILES)/skhd $(HOME)/.config/skhd
 	@ln -sfv $(DOTFILES)/wezterm $(HOME)/.config/wezterm
 ifeq ($(shell ${WHICH} airport 2>${DEVNUL}),)
 	@sudo ln -s /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/local/bin/airport

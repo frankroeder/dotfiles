@@ -1,0 +1,83 @@
+#!/usr/bin/env sh
+# reload skhd
+ctrl + alt + cmd - r :  skhd --restart-service
+# reload sketchybar
+ctrl + alt + cmd - b : brew services restart sketchybar
+
+# toggle WezTerm
+fn - space : bash "$DOTFILES/scripts/toggle_app.bash" "WezTerm"
+
+fn + ctrl - s : open "x-apple.systempreferences:"
+fn + ctrl - a : open -a "About This Mac"
+fn + ctrl - b : bash "$DOTFILES/scripts/toggle_app.bash" "$BROWSER_NAME"
+
+fn - h : aerospace focus left
+fn - j : aerospace focus down
+fn - k : aerospace focus up
+fn - l : aerospace focus right
+
+fn - 0 : aerospace workspace 0
+fn - 1 : aerospace workspace 1
+fn - 2 : aerospace workspace 2
+fn - 3 : aerospace workspace 3
+fn - 4 : aerospace workspace 4
+fn - 5 : aerospace workspace 5
+fn - 6 : aerospace workspace 6
+fn - 7 : aerospace workspace 7
+fn - 8 : aerospace workspace 8
+fn - 9 : aerospace workspace 9
+fn - a : aerospace workspace A
+fn - b : aerospace workspace B
+fn - c : aerospace workspace C
+fn - d : aerospace workspace D
+fn - e : aerospace workspace E
+fn - f : aerospace workspace F
+fn - g : aerospace workspace G
+fn - i : aerospace workspace I
+fn - m : aerospace workspace M
+fn - n : aerospace workspace N
+fn - o : aerospace workspace O
+fn - p : aerospace workspace P
+fn - q : aerospace workspace Q
+fn - r : aerospace workspace R
+fn - s : aerospace workspace S
+fn - t : aerospace workspace T
+fn - u : aerospace workspace U
+fn - v : aerospace workspace V
+fn - w : aerospace workspace W
+fn - x : aerospace workspace X
+fn - y : aerospace workspace Y
+fn - z : aerospace workspace Z
+
+fn + ctrl - 0 : aerospace move-node-to-workspace 0
+fn + ctrl - 1 : aerospace move-node-to-workspace 1
+fn + ctrl - 2 : aerospace move-node-to-workspace 2
+fn + ctrl - 3 : aerospace move-node-to-workspace 3
+fn + ctrl - 4 : aerospace move-node-to-workspace 4
+fn + ctrl - 5 : aerospace move-node-to-workspace 5
+fn + ctrl - 6 : aerospace move-node-to-workspace 6
+fn + ctrl - 7 : aerospace move-node-to-workspace 7
+fn + ctrl - 8 : aerospace move-node-to-workspace 8
+fn + ctrl - 9 : aerospace move-node-to-workspace 9
+fn + ctrl - a : aerospace move-node-to-workspace A
+fn + ctrl - b : aerospace move-node-to-workspace B
+fn + ctrl - c : aerospace move-node-to-workspace C
+fn + ctrl - d : aerospace move-node-to-workspace D
+fn + ctrl - e : aerospace move-node-to-workspace E
+fn + ctrl - f : aerospace move-node-to-workspace F
+fn + ctrl - g : aerospace move-node-to-workspace G
+fn + ctrl - i : aerospace move-node-to-workspace I
+fn + ctrl - m : aerospace move-node-to-workspace M
+fn + ctrl - n : aerospace move-node-to-workspace N
+fn + ctrl - o : aerospace move-node-to-workspace O
+fn + ctrl - p : aerospace move-node-to-workspace P
+fn + ctrl - q : aerospace move-node-to-workspace Q
+fn + ctrl - r : aerospace move-node-to-workspace R
+fn + ctrl - s : aerospace move-node-to-workspace S
+fn + ctrl - t : aerospace move-node-to-workspace T
+fn + ctrl - u : aerospace move-node-to-workspace U
+fn + ctrl - v : aerospace move-node-to-workspace V
+fn + ctrl - w : aerospace move-node-to-workspace W
+fn + ctrl - x : aerospace move-node-to-workspace X
+fn + ctrl - y : aerospace move-node-to-workspace Y
+fn + ctrl - z : aerospace move-node-to-workspace Z

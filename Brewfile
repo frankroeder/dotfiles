@@ -25,6 +25,7 @@ brew "grip"
 brew "ifstat"
 brew "gcc"
 
+brew "skhd", args: ["with-logging"]
 brew "sketchybar", args:  ["HEAD"], restart_service: :changed
 brew "borders", restart_service: :changed
 
