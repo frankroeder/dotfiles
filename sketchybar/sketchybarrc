@@ -27,11 +27,6 @@ defaults=(
   label.padding_right=8
 )
 sketchybar -m --bar "${bar[@]}" --default "${defaults[@]}" \
-              --add event window_focus \
-              --add event window_created \
-              --add event window_destroyed \
-              --add event layout_change \
-              --add event property_change
 
 source "$ITEM_DIR/left.sh"
 source "$ITEM_DIR/right.sh"

@@ -136,10 +136,8 @@ after:
 	@if [ "$(OSTYPE)" == "Linux" ]; then bash $(DOTFILES)/linux/apt.sh "desktop"; fi
 	@nvim -i NONE -u $(DOTFILES)/nvim/init.vim -c "TSUpdate" -c "quitall"
 ifeq ($(OSTYPE), Darwin)
-	@sudo yabai --install-sa
-	@yabai --start-service
-	@skhd --start-service
 	@brew services start sketchybar
+	@brew services start borders
 endif
 
 directories:
@@ -199,8 +197,6 @@ _macos:
 	if [ -n "$(xcode-select -p)" ]; then sudo xcode-select --install; sudo xcodebuild -license accept; fi
 	@mkdir -p $(HOME)/screens
 	@bash $(DOTFILES)/macos/main.bash
-	@ln -sfv $(DOTFILES)/yabai $(HOME)/.config/yabai
-	@ln -sfv $(DOTFILES)/skhd $(HOME)/.config/skhd
 	@ln -sfv $(DOTFILES)/sketchybar $(HOME)/.config/sketchybar
 	@ln -sfv $(DOTFILES)/wezterm $(HOME)/.config/wezterm
 ifeq ($(shell ${WHICH} airport 2>${DEVNUL}),)

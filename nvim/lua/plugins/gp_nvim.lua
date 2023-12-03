@@ -6,14 +6,12 @@ local M = {
 
 function M.config()
   local model = "gpt-4-1106-preview"
-	local cmd_prefix = "GPT"
+  local cmd_prefix = "GPT"
 
   require("gp").setup {
     openai_api_key = os.getenv "OPENAI_API_KEY",
     cmd_prefix = cmd_prefix,
-    chat_model = { model = model, temperature = 1.1, top_p = 1 },
-    chat_topic_gen_model = model,
-    command_model = { model = model, temperature = 1.1, top_p = 1 },
+    chat_topic_gen_model = "gpt-3.5-turbo-16k",
     chat_conceal_model_params = false,
     hooks = {
       InspectPlugin = function(plugin, params)

@@ -1,4 +1,4 @@
-local M = { "L3MON4D3/LuaSnip", tag = "v2.0.0" }
+local M = { "L3MON4D3/LuaSnip", tag = "v2.1.1" }
 
 function M.config()
   local status_ok, luasnip = pcall(require, "luasnip")
@@ -9,7 +9,6 @@ function M.config()
   local lua = require "luasnip.loaders.from_lua"
 
   luasnip.setup {
-    history = true,
     update_events = "TextChanged,TextChangedI",
     delete_check_events = "TextChanged",
     ext_opts = {
