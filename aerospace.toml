@@ -43,7 +43,7 @@ run = ['move-node-to-workspace S']
 if.app-id = 'ZoomChat'
 run = ['move-node-to-workspace S']
 [[on-window-detected]]
-if.app-id = 'Signal'
+if.app-id = 'org.whispersystems.signal-desktop'
 run = ['move-node-to-workspace S']
 [[on-window-detected]]
 if.app-id = 'com.hnc.Discord'
