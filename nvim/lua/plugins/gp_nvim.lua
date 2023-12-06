@@ -25,14 +25,14 @@ function M.config()
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
           .. "Please finish the code above carefully and logically."
           .. "\n\nRespond just with the snippet of code that should be inserted."
-
+        local agent = gp.get_command_agent()
         gp.Prompt(
           params,
           gp.Target.append,
           nil, -- command will run directly without any prompting for user input
-          gp.config.command_model,
+          agent.model,
           template,
-          gp.config.command_system_prompt
+          agent.system_prompt
         )
       end,
       Explain = function(gp, params)
@@ -40,55 +40,56 @@ function M.config()
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
           .. "Use markdown format.\n"
           .. "A brief explanation of what the code above is doing:\n"
-
+        local agent = gp.get_chat_agent()
         gp.Prompt(
           params,
           gp.Target.popup,
           nil,
-          gp.config.command_model,
+          agent.model,
           template,
-          gp.config.chat_system_prompt
+          agent.system_prompt
         )
       end,
       FixBugs = function(gp, params)
         local template = "Fix bugs in the below code from {{filename}} carefully and logically:\n\n"
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
           .. "Fixed code:\n"
-
+        local agent = gp.get_chat_agent()
         gp.Prompt(
           params,
           gp.Target.popup,
           nil,
-          gp.config.command_model,
+          agent.model,
           template,
-          gp.config.chat_system_prompt
+          agent.system_prompt
         )
       end,
       Optimize = function(gp, params)
         local template = "Optimize the following code from {{filename}}:\n\n"
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
           .. "Optimized code:\n"
-
+        local agent = gp.get_chat_agent()
         gp.Prompt(
           params,
           gp.Target.popup,
           nil,
-          gp.config.command_model,
+          agent.model,
           template,
-          gp.config.chat_system_prompt
+          agent.system_prompt
         )
       end,
       UnitTests = function(gp, params)
         local template = "I have the following code from {{filename}}:\n\n"
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
           .. "Please respond by writing table driven unit tests for the code above."
+        local agent = gp.get_command_agent()
         gp.Prompt(
           params,
           gp.Target.enew,
           nil,
-          gp.config.command_model,
+          agent.model,
           template,
-          gp.config.command_system_prompt
+          agent.system_prompt
         )
       end,
       ProofReader = function(gp, params)
@@ -106,13 +107,14 @@ function M.config()
           .. "Review the following code, carefully examine it and report"
           .. "potential bugs and edge cases alongside solutions to resolve them:"
           .. "```{{filetype}}{{selection}}\n```\n\n"
+        local agent = gp.get_command_agent()
         gp.Prompt(
           params,
           gp.Target.enew,
           nil,
-          gp.config.command_model,
+          agent.model,
           template,
-          gp.config.command_system_prompt
+          agent.system_prompt
         )
       end,
     },
