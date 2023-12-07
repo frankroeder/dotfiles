@@ -4,10 +4,9 @@ local M = {
   cond = os.getenv "OPENAI_API_KEY" ~= nil,
 }
 
-function M.config()
-  local model = "gpt-4-1106-preview"
-  local cmd_prefix = "GPT"
+local cmd_prefix = "GPT"
 
+function M.config()
   require("gp").setup {
     openai_api_key = os.getenv "OPENAI_API_KEY",
     cmd_prefix = cmd_prefix,
@@ -26,13 +25,14 @@ function M.config()
           .. "Please finish the code above carefully and logically."
           .. "\n\nRespond just with the snippet of code that should be inserted."
 
+        local agent = gp.get_command_agent()
         gp.Prompt(
           params,
           gp.Target.append,
           nil, -- command will run directly without any prompting for user input
-          gp.config.command_model,
+          agent.model,
           template,
-          gp.config.command_system_prompt
+          agent.system_prompt
         )
       end,
       Explain = function(gp, params)
@@ -40,80 +40,48 @@ function M.config()
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
           .. "Use markdown format.\n"
           .. "A brief explanation of what the code above is doing:\n"
-
-        gp.Prompt(
-          params,
-          gp.Target.popup,
-          nil,
-          gp.config.command_model,
-          template,
-          gp.config.chat_system_prompt
-        )
+        local agent = gp.get_chat_agent()
+        gp.Prompt(params, gp.Target.popup, nil, agent.model, template, agent.system_prompt)
       end,
       FixBugs = function(gp, params)
         local template = "Fix bugs in the below code from {{filename}} carefully and logically:\n\n"
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
           .. "Fixed code:\n"
-
-        gp.Prompt(
-          params,
-          gp.Target.popup,
-          nil,
-          gp.config.command_model,
-          template,
-          gp.config.chat_system_prompt
-        )
+        local agent = gp.get_command_agent()
+        gp.Prompt(params, gp.Target.popup, nil, agent.model, template, agent.system_prompt)
       end,
       Optimize = function(gp, params)
         local template = "Optimize the following code from {{filename}}:\n\n"
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
           .. "Optimized code:\n"
-
-        gp.Prompt(
-          params,
-          gp.Target.popup,
-          nil,
-          gp.config.command_model,
-          template,
-          gp.config.chat_system_prompt
-        )
+        local agent = gp.get_command_agent()
+        gp.Prompt(params, gp.Target.popup, nil, agent.model, template, agent.system_prompt)
       end,
       UnitTests = function(gp, params)
         local template = "I have the following code from {{filename}}:\n\n"
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
           .. "Please respond by writing table driven unit tests for the code above."
-        gp.Prompt(
-          params,
-          gp.Target.enew,
-          nil,
-          gp.config.command_model,
-          template,
-          gp.config.command_system_prompt
-        )
+        local agent = gp.get_command_agent()
+        gp.Prompt(params, gp.Target.enew, nil, agent.model, template, agent.system_prompt)
       end,
       ProofReader = function(gp, params)
-        local chat_model = { model = model, temperature = 0.7, top_p = 1 }
-        local chat_system_prompt = "I want you act as a proofreader. I will"
-          .. "provide you texts and I would like you to review them for any"
+        local chat_system_prompt = "I want you to act as a proofreader. I will"
+          .. "provide you with texts and I would like you to review them for any"
           .. "spelling, grammar, or punctuation errors. Once you have finished"
           .. "reviewing the text, provide me with any necessary corrections or"
-          .. "suggestions for improve the text. Highlight the corrections with"
+          .. "suggestions to improve the text. Highlight the corrections with"
           .. "markdown bold or italics style."
-        gp.cmd.ChatNew(params, chat_model, chat_system_prompt)
+        local agent = gp.get_chat_agent()
+        gp.cmd.ChatNew(params, agent.model, chat_system_prompt)
       end,
       Debug = function(gp, params)
-        local template = "Imagine you are an expert in {{filetype}}.\n"
+        local template = "I want you to act as {{filetype}} expert.\n"
           .. "Review the following code, carefully examine it and report"
-          .. "potential bugs and edge cases alongside solutions to resolve them:"
+          .. "potential bugs and edge cases alongside solutions to resolve them."
+          .. "Keep your explanation short and to the point:"
           .. "```{{filetype}}{{selection}}\n```\n\n"
-        gp.Prompt(
-          params,
-          gp.Target.enew,
-          nil,
-          gp.config.command_model,
-          template,
-          gp.config.command_system_prompt
-        )
+        local agent = gp.get_chat_agent()
+        gp.Prompt(params, gp.Target.enew, nil, agent.model, template, agent.system_prompt)
       end,
     },
   }
@@ -123,6 +91,9 @@ function M.config()
     "WhisperAppend",
     "WhisperPrepend",
     "WhisperEnew",
+    "WhisperNew",
+    "WhisperVnew",
+    "WhisperTabnew",
     "WhisperPopup",
   }
   for _, command in ipairs(unused_commands) do
@@ -131,108 +102,128 @@ function M.config()
 end
 
 function M.keys()
+  local function kmopts(desc)
+    return {
+      noremap = true,
+      silent = true,
+      nowait = true,
+      desc = desc,
+    }
+  end
   return {
     {
       "<C-g>c",
-      "<cmd>GPTChatNew<cr>",
+      "<cmd>" .. cmd_prefix .. "ChatNew<cr>",
       mode = { "n", "i" },
-      desc = "New Chat",
+      kmopts "New Chat",
     },
     {
       "<C-g>t",
-      "<cmd>GPTChatToggle<cr>",
+      "<cmd>" .. cmd_prefix .. "ChatToggle<cr>",
       mode = { "n", "i" },
-      desc = "Toggle Popup Chat",
+      kmopts "Toggle Popup Chat",
     },
     {
       "<C-g>f",
-      "<cmd>GPTChatFinder<cr>",
+      "<cmd>" .. cmd_prefix .. "ChatFinder<cr>",
       mode = { "n", "i" },
-      desc = "Chat Finder",
+      kmopts "Chat Finder",
     },
     {
       "<C-g>r",
-      "<cmd>GPTRewrite<cr>",
+      "<cmd>" .. cmd_prefix .. "Rewrite<cr>",
       mode = { "n", "i" },
-      desc = "Inline Rewrite",
+      kmopts "Inline Rewrite",
     },
     {
       "<C-g>a",
-      "<cmd>GPTAppend<cr>",
+      "<cmd>" .. cmd_prefix .. "Append<cr>",
       mode = { "n", "i" },
-      desc = "Append",
+      kmopts "Append",
     },
     {
       "<C-g>o",
-      "<cmd>GPTPrepend<cr>",
+      "<cmd>" .. cmd_prefix .. "Prepend<cr>",
       mode = { "n", "i" },
-      desc = "Prepend",
+      kmopts "Prepend",
     },
     {
       "<C-g>e",
-      "<cmd>GPTEnew<cr>",
+      "<cmd>" .. cmd_prefix .. "Enew<cr>",
       mode = { "n", "i" },
-      desc = "Enew",
+      kmopts "Enew",
     },
     {
       "<C-g>p",
-      "<cmd>GPTPopup<cr>",
+      "<cmd>" .. cmd_prefix .. "Popup<cr>",
       mode = { "n", "i" },
-      desc = "Popup",
+      kmopts "Popup",
     },
     {
       "<C-g>c",
-      ":<C-u>'<,'>GPTChatNew<cr>",
+      ":<C-u>'<,'>" .. cmd_prefix .. "ChatNew<cr>",
       mode = { "v" },
-      desc = "Visual Chat New",
+      kmopts "Visual Chat New",
     },
     {
       "<C-g>t",
-      ":<C-u>'<,'>GPTChatToggle<cr>",
+      ":<C-u>'<,'>" .. cmd_prefix .. "ChatToggle<cr>",
       mode = { "v" },
-      desc = "Visual Popup Chat",
+      kmopts "Visual Popup Chat",
     },
     {
       "<C-g>r",
-      ":<C-u>'<,'>GPTRewrite<cr>",
+      ":<C-u>'<,'>" .. cmd_prefix .. "Rewrite<cr>",
       mode = { "v" },
-      desc = "Visual Rewrite",
+      kmopts "Visual Rewrite",
     },
     {
       "<C-g>a",
-      ":<C-u>'<,'>GPTAppend<cr>",
+      ":<C-u>'<,'>" .. cmd_prefix .. "Append<cr>",
       mode = { "v" },
-      desc = "Visual Append",
+      kmopts "Visual Append",
     },
     {
       "<C-g>o",
-      ":<C-u>'<,'>GPTPrepend<cr>",
+      ":<C-u>'<,'>" .. cmd_prefix .. "Prepend<cr>",
       mode = { "v" },
-      desc = "Visual Prepend",
+      kmopts "Visual Prepend",
     },
     {
       "<C-g>e",
-      ":<C-u>'<,'>GPTEnew<cr>",
+      ":<C-u>'<,'>" .. cmd_prefix .. "Enew<cr>",
       mode = { "v" },
-      desc = "Visual Enew",
+      kmopts "Visual Enew",
     },
     {
       "<C-g>p",
-      ":<C-u>'<,'>GPTPopup<cr>",
+      ":<C-u>'<,'>" .. cmd_prefix .. "Popup<cr>",
       mode = { "v" },
-      desc = "Visual Popup",
+      kmopts "Visual Popup",
     },
     {
       "<C-g>s",
-      "<cmd>GPTStop<cr>",
+      "<cmd>" .. cmd_prefix .. "Stop<cr>",
       mode = { "n", "i", "v", "x" },
-      desc = "Stop",
+      kmopts "Stop",
     },
     {
       "<C-g>i",
-      ":<C-u>'<,'>GPTComplete<cr>",
+      ":<C-u>'<,'>" .. cmd_prefix .. "Complete<cr>",
       mode = { "n", "i", "v", "x" },
-      desc = "Complete the visual selection",
+      kmopts "Complete the visual selection",
+    },
+    {
+      "<C-g>n",
+      "<cmd>" .. cmd_prefix .. "NextAgent<cr>",
+      mode = { "n" },
+      kmopts "Cycle through available agents",
+    },
+    {
+      "<C-g>x",
+      "<cmd>" .. cmd_prefix .. "Context<cr>",
+      mode = { "n" },
+      kmopts "Open file with custom context",
     },
   }
 end

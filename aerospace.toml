@@ -28,6 +28,12 @@ run = 'layout floating'
 [[on-window-detected]]
 if.app-id = 'net.ankiweb.dtop'
 run = 'layout floating'
+[[on-window-detected]]
+if.app-id = 'com.apple.iCal'
+run = 'layout floating'
+[[on-window-detected]]
+if.app-id = 'com.apple.Photos'
+run = 'layout floating'
 
 ## move to (s)ocial workspace
 [[on-window-detected]]
@@ -58,6 +64,9 @@ if.app-id = 'com.apple.podcasts'
 run = ['move-node-to-workspace M']
 [[on-window-detected]]
 if.app-id = 'org.videolan.vlc'
+run = ['move-node-to-workspace M']
+[[on-window-detected]]
+if.app-id = 'com.apple.QuickTimePlayerX'
 run = ['move-node-to-workspace M']
 
 [mode.main.binding]

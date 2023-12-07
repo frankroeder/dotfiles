@@ -1,6 +1,8 @@
 tap "homebrew/cask-fonts"
 tap "koekeishiya/formulae"
 tap "FelixKratz/formulae"
+tap "nikitabobko/tap/aerospace"
+cask_args appdir: "~/Applications", require_sha: true
 
 brew "git"
 brew "zsh"
@@ -25,6 +27,7 @@ brew "grip"
 brew "ifstat"
 brew "gcc"
 
+brew "aerospace"
 brew "skhd", args: ["with-logging"]
 brew "sketchybar", args:  ["HEAD"], restart_service: :changed
 brew "borders", restart_service: :changed

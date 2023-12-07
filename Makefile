@@ -61,7 +61,7 @@ ifeq ($(shell ${WHICH} brew 2>${DEVNUL}),)
 	@$(SHELL) -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 endif
 	@echo -e "\033[1m\033[34m==> Installing brew formulas\033[0m"
-	@brew bundle --file="$(DOTFILES)/Brewfile"
+	@brew bundle --file="$(DOTFILES)/Brewfile --no-lock"
 	@brew cleanup
 	-brew doctor
 
