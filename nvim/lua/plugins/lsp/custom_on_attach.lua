@@ -29,9 +29,6 @@ return function(client, bufnr)
     vim.lsp.buf.code_action,
     { buffer = bufnr, desc = "[c]ode [a]ction" }
   )
-  vim.keymap.set("n", "<Space>cf", function()
-    vim.lsp.buf.format { async = true }
-  end, { buffer = bufnr, desc = "[c]ode [f]ormat" })
   vim.keymap.set(
     "n",
     "<Space>rf",

@@ -17,6 +17,8 @@ gaps.outer.right = 10
 [workspace-to-monitor-force-assignment]
 0 = 'built-in'
 1 = ['secondary', 'built-in']
+2 = ['secondary', 'built-in']
+S = ['secondary', 'built-in']
 
 ## windows that should float
 [[on-window-detected]]

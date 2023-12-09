@@ -7,9 +7,9 @@ ctrl + alt + cmd - b : brew services restart sketchybar
 # toggle WezTerm
 fn - space : bash "$DOTFILES/scripts/toggle_app.bash" "WezTerm"
 
-fn + ctrl - s : open "x-apple.systempreferences:"
-fn + ctrl - a : open -a "About This Mac"
-fn + ctrl - b : bash "$DOTFILES/scripts/toggle_app.bash" "$BROWSER_NAME"
+fn + shift - s : open "x-apple.systempreferences:"
+fn + shift - a : open -a "About This Mac"
+fn + shift - b : bash "$DOTFILES/scripts/toggle_app.bash" "$BROWSER_NAME"
 
 fn - h : aerospace focus left
 fn - j : aerospace focus down
