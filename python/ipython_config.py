@@ -274,7 +274,7 @@ c.InteractiveShell.colors = 'Neutral'
 #------------------------------------------------------------------------------
 
 ## Autoformatter to reformat Terminal code. Can be `'black'` or `None`
-c.TerminalInteractiveShell.autoformatter = "ruff"
+#c.TerminalInteractiveShell.autoformatter = None
 
 ## Set to confirm when you try to exit IPython with an EOF (Control-D in Unix,
 #  Control-Z/Enter in Windows). By typing 'exit' or 'quit', you can force a

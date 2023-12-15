@@ -71,6 +71,10 @@ run = ['move-node-to-workspace M']
 if.app-id = 'com.apple.QuickTimePlayerX'
 run = ['move-node-to-workspace M']
 
+[[on-window-detected]]
+if.app-name-regex-substring = 'python'
+run = 'layout floating'
+
 [mode.main.binding]
 alt-period = 'layout tiles horizontal vertical'
 alt-comma = 'layout accordion horizontal vertical'

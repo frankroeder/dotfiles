@@ -45,3 +45,4 @@ alias showdns='networksetup -getdnsservers Wi-Fi'
 alias trimcopy="tr -d '\n' | pbcopy"
 alias afplay='afplay -q 1'
 alias speedtest='networkQuality'
+alias stayawake='caffeinate -u -t 5400'
