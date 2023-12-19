@@ -198,6 +198,7 @@ _macos:
 	@mkdir -p $(HOME)/screens
 	@bash $(DOTFILES)/macos/main.bash
 	@ln -sfv $(DOTFILES)/sketchybar $(HOME)/.config/sketchybar
+	@ln -sfv $(DOTFILES)/borders $(HOME)/.config/borders
 	@ln -sfv $(DOTFILES)/aerospace.toml $(HOME)/.aerospace.toml
 	@ln -sfv $(DOTFILES)/skhd $(HOME)/.config/skhd
 	@ln -sfv $(DOTFILES)/wezterm $(HOME)/.config/wezterm

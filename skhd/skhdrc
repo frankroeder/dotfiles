@@ -2,7 +2,7 @@
 # reload skhd
 ctrl + alt + cmd - r :  skhd --restart-service
 # reload sketchybar
-ctrl + alt + cmd - b : brew services restart sketchybar
+ctrl + alt + cmd - b : sketchybar --reload
 
 # toggle WezTerm
 fn - space : bash "$DOTFILES/scripts/toggle_app.bash" "WezTerm"
