@@ -39,7 +39,7 @@ run = 'layout floating'
 
 ## move to (s)ocial workspace
 [[on-window-detected]]
-if.app-id = 'com.tdesktop.Telegram'
+if.app-id = 'ru.keepcoder.Telegram'
 run = ['move-node-to-workspace S']
 [[on-window-detected]]
 if.app-id = 'com.apple.MobileSMS'
