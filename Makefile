@@ -22,7 +22,7 @@ endif
 DEFAULT_GOAL := help
 
 .PHONY: macos
-macos: sudo directories homebrew _macos zsh python misc nvim _git node
+macos: sudo directories homebrew _macos _terminal zsh python misc nvim _git node
 	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
 	@zsh -i -c "fast-theme free"
 	@compaudit | xargs chmod g-w
@@ -130,7 +130,7 @@ _git:
 	@ln -sfv $(DOTFILES)/git/gitignore $(HOME)/.gitignore
 
 .PHONY: after
-after:
+after: _terminal
 	@echo -e "\033[1m\033[34m==> \033[0m"
 	@bash $(DOTFILES)/git/setup.sh
 	@if [ "$(OSTYPE)" == "Linux" ]; then bash $(DOTFILES)/linux/apt.sh "desktop"; fi
@@ -201,7 +201,6 @@ _macos:
 	@ln -sfv $(DOTFILES)/borders $(HOME)/.config/borders
 	@ln -sfv $(DOTFILES)/aerospace.toml $(HOME)/.aerospace.toml
 	@ln -sfv $(DOTFILES)/skhd $(HOME)/.config/skhd
-	@ln -sfv $(DOTFILES)/wezterm $(HOME)/.config/wezterm
 ifeq ($(shell ${WHICH} airport 2>${DEVNUL}),)
 	@sudo ln -s /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/local/bin/airport
 endif
@@ -209,17 +208,26 @@ ifeq ($(shell ${WHICH} sioyek 2>${DEVNUL}),)
 	@sudo ln -s /Applications/sioyek.app/Contents/MacOS/sioyek /usr/local/bin/sioyek
 endif
 	@ln -sfv $(DOTFILES)/sioyek $(HOME)/.config/sioyek
-ifeq ($(ARCHITECTURE), x86_64)
-	@bash $(DOTFILES)/scripts/osx_cpu_temp.sh
-endif
 	@swift package completion-tool generate-zsh-script > $(HOME)/.zsh/completion/_swift
 ifeq ($(shell ${WHICH} sourcekit-lsp 2>${DEVNUL}),)
 	@bash $(DOTFILES)/scripts/sourcekit-lsp.sh
 endif
-	@ln -sfv $(DOTFILES)/htop/personal $(HOME)/.config/htop/htoprc
 ifeq ($(shell ${WHICH} battery 2>${DEVNUL}),)
 	@curl -s https://raw.githubusercontent.com/actuallymentor/battery/main/setup.sh | bash
 	@battery maintain 80
+endif
+
+.PHONY: _terminal
+_terminal:
+	@mkdir -p $(HOME)/.config/alacritty
+ifeq ($(shell ${WHICH} alacritty 2>${DEVNUL}),)
+	@sudo ln -s /Applications/Alacritty.app/Contents/MacOS/alacritty /usr/local/bin/alacritty
+endif
+	@ln -sfv $(DOTFILES)/alacritty/alacritty.toml $(HOME)/.config/alacritty/
+	@if [ ! -d "$(HOME)/.config/alacritty/catppuccin" ]; then git clone https://github.com/catppuccin/alacritty.git $(HOME)/.config/alacritty/catppuccin; fi
+	@ln -sfv $(DOTFILES)/htop/personal $(HOME)/.config/htop/htoprc
+ifeq ($(ARCHITECTURE), x86_64)
+	@bash $(DOTFILES)/scripts/osx_cpu_temp.sh
 endif
 
 .PHONY: check

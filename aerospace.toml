@@ -36,6 +36,9 @@ run = 'layout floating'
 [[on-window-detected]]
 if.app-id = 'com.apple.Photos'
 run = 'layout floating'
+[[on-window-detected]]
+if.app-id = 'com.objective-see.lulu.app'
+run = 'layout floating'
 
 ## move to (s)ocial workspace
 [[on-window-detected]]
@@ -85,8 +88,8 @@ alt-shift-h = 'move-through left'
 alt-shift-j = 'move-through down'
 alt-shift-k = 'move-through up'
 alt-shift-l = 'move-through right'
-# alt-shift-n = 'workspace next'
-# alt-shift-p = 'workspace prev'
+alt-shift-n = 'workspace next'
+alt-shift-p = 'workspace prev'
 
 alt-right = 'resize smart -50'
 alt-left = 'resize smart +50'

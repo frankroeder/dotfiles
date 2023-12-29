@@ -26,6 +26,7 @@ brew "pandoc"
 brew "grip"
 brew "ifstat"
 brew "gcc"
+brew "newsboat"
 
 brew "aerospace"
 brew "skhd", args: ["with-logging"]
@@ -33,7 +34,7 @@ brew "sketchybar", args:  ["HEAD"], restart_service: :changed
 brew "borders", restart_service: :changed
 
 cask "alfred"
-cask "wezterm"
+cask "alacritty"
 cask "docker"
 cask "vlc"
 cask "musescore"

@@ -95,6 +95,8 @@ function M.config()
     "WhisperVnew",
     "WhisperTabnew",
     "WhisperPopup",
+    "Image",
+    "ImageAgent",
   }
   for _, command in ipairs(unused_commands) do
     vim.api.nvim_del_user_command(cmd_prefix .. command)
@@ -119,7 +121,7 @@ function M.keys()
     },
     {
       "<C-g>t",
-      "<cmd>" .. cmd_prefix .. "ChatToggle<cr>",
+      "<cmd>" .. cmd_prefix .. "ChatToggle tabnew<cr>",
       mode = { "n", "i" },
       kmopts "Toggle Popup Chat",
     },
@@ -167,7 +169,7 @@ function M.keys()
     },
     {
       "<C-g>t",
-      ":<C-u>'<,'>" .. cmd_prefix .. "ChatToggle<cr>",
+      ":<C-u>'<,'>" .. cmd_prefix .. "ChatToggle tabnew<cr>",
       mode = { "v" },
       kmopts "Visual Popup Chat",
     },
