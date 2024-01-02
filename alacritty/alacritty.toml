@@ -12,29 +12,29 @@ TERM = "xterm-256color"
 
 # WINDOW
 [window]
-opacity = 0.85
-decorations = "None"
-dynamic_padding = true
-dynamic_title = true
-startup_mode = "Maximized"
-option_as_alt = "OnlyLeft"
-padding = { x = 5, y = 5 }
 dimensions = { columns = 0, lines = 0}
+padding = { x = 5, y = 5 }
+dynamic_padding = true
+decorations = "None"
+opacity = 0.85
+startup_mode = "Maximized"
+dynamic_title = true
+option_as_alt = "OnlyLeft"
 
 # SCROLLING
 [scrolling]
-history = 30000
+history = 50000
 multiplier = 3
 
 # FONT
 [font]
-size = 16.0
 normal = { family = "Hack Nerd Font", style = "Regular" }
 bold = { family = "Hack Nerd Font", style = "Bold" }
 italic = { family = "Hack Nerd Font", style = "Italic" }
 bold_italic = { family = "Hack Nerd Font", style = "Bold Italic" }
-glyph_offset = { x = 0, y = 0}
+size = 16.0
 offset = { x = 0, y = 0}
+glyph_offset = { x = 0, y = 0}
 
 # COLORS
 [colors]
@@ -42,12 +42,12 @@ draw_bold_text_with_bright_colors = true
 
 # SELECTION
 [selection]
-save_to_clipboard = true
 semantic_escape_chars = ",│`|:\"' ()[]{}<>t"
+save_to_clipboard = true
 
 # CURSOR
 [cursor]
-style = "Block"
+style = { shape = "Block", blinking = "Off" }
 unfocused_hollow = true
 
 # MOUSE
@@ -68,49 +68,20 @@ regex = "(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:
 mouse = { mods = "Control|Shift", enabled = true }
 
 # KEYBOARD
-[[keyboard.bindings]]
-action = "ResetFontSize"
-key = "Key0"
-mods = "Command"
-
-[[keyboard.bindings]]
-action = "IncreaseFontSize"
-key = "Equals"
-mods = "Command"
-
-[[keyboard.bindings]]
-action = "DecreaseFontSize"
-key = "Minus"
-mods = "Command"
-
-[[keyboard.bindings]]
-action = "Quit"
-key = "Q"
-mods = "Command"
-
-[[keyboard.bindings]]
-chars = "\u0000"
-key = "Space"
-mods = "Control"
-
-[[keyboard.bindings]]
-action = "CreateNewWindow"
-key = "N"
-mods = "Command"
-
-[[keyboard.bindings]]
-chars = "alacritty -e 'htop' & \r"
-key = "P"
-mods = "Command|Shift"
-
-[[keyboard.bindings]]
-chars = "alacritty -e 'ipython' & \r"
-key = "I"
-mods = "Command|Shift"
+[keyboard]
+bindings = [
+  {key = "Equals", mods = "Command", action = "IncreaseFontSize"},
+  {key = "Minus", mods = "Command", action = "DecreaseFontSize"},
+  {key = "Q", mods = "Command", action = "Quit"},
+  {key = "Space", mods = "Control", chars = "\u0000"},
+  {key = "P", mods = "Command|Shift", chars = "alacritty -e 'htop' & \r"},
+  {key = "I", mods = "Command|Shift", chars = "alacritty -e 'ipython' & \r"},
+  {key = "N", mods = "Command", action = "CreateNewWindow"},
+]
 
 # DEBUG
 [debug]
-log_level = "Warn"
-persistent_logging = false
-print_events = false
 render_timer = false
+persistent_logging = false
+log_level = "Warn"
+print_events = false
