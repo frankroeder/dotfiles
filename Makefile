@@ -148,6 +148,7 @@ directories:
 	mkdir -p $(HOME)/tmp
 	mkdir -p $(HOME)/.Trash
 	mkdir -p $(HOME)/Downloads
+	mkdir -p $(HOME)/bin
 
 
 .PHONY: micro

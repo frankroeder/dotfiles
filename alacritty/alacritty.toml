@@ -4,8 +4,6 @@ import = ["~/.config/alacritty/catppuccin/catppuccin-mocha.toml"]
 [shell]
 program = "zsh"
 args = ["--login"]
-# args = ["--login", "-c", "tmux new-session -A -s home"]
-
 # ENV
 [env]
 TERM = "xterm-256color"
@@ -19,7 +17,7 @@ decorations = "None"
 opacity = 0.85
 startup_mode = "Maximized"
 dynamic_title = true
-option_as_alt = "OnlyLeft"
+option_as_alt = "None"
 
 # SCROLLING
 [scrolling]
