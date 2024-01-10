@@ -19,6 +19,7 @@ gaps.outer.right = 10
 1 = ['secondary', 'built-in']
 2 = ['secondary', 'built-in']
 S = ['secondary', 'built-in']
+T = ['secondary', 'built-in']
 
 ## windows that should float
 [[on-window-detected]]
@@ -38,6 +39,9 @@ if.app-id = 'com.apple.Photos'
 run = 'layout floating'
 [[on-window-detected]]
 if.app-id = 'com.objective-see.lulu.app'
+run = 'layout floating'
+[[on-window-detected]]
+if.app-id = 'com.raycast.macos'
 run = 'layout floating'
 
 ## move to (s)ocial workspace
@@ -90,6 +94,7 @@ alt-shift-k = 'move-through up'
 alt-shift-l = 'move-through right'
 alt-shift-n = 'workspace next'
 alt-shift-p = 'workspace prev'
+alt-shift-c = 'reload-config'
 
 alt-right = 'resize smart -50'
 alt-left = 'resize smart +50'
@@ -98,6 +103,8 @@ alt-tab = 'workspace-back-and-forth'
 alt-shift-tab = 'move-workspace-to-monitor next'
 
 alt-shift-backspace = 'mode service'
+alt-shift-comma = 'mode join'
+
 [mode.service.binding]
 r = ['flatten-workspace-tree', 'mode main'] # reset layout
 #s = ['layout sticky tiling', 'mode main'] # sticky is not yet supported https://github.com/nikitabobko/AeroSpace/issues/2
@@ -105,7 +112,6 @@ f = ['layout floating tiling', 'mode main'] # Toggle between floating and tiling
 backspace = ['close-all-windows-but-current', 'mode main']
 esc = 'mode main'
 
-alt-shift-comma = 'mode join'
 [mode.join.binding]
 alt-shift-h = ['join-with left', 'mode main']
 alt-shift-j = ['join-with down', 'mode main']

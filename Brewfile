@@ -33,7 +33,7 @@ brew "skhd", args: ["with-logging"]
 brew "sketchybar", args:  ["HEAD"], restart_service: :changed
 brew "borders", restart_service: :changed
 
-cask "alfred"
+cask "raycast"
 cask "alacritty"
 cask "docker"
 cask "vlc"
