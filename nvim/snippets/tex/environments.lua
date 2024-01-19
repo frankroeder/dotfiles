@@ -33,7 +33,7 @@ return {
     fmta(
       [[
     \begin{<>}
-      \item <>
+      <>
     \end{<>}
     ]],
       {

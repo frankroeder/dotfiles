@@ -5,7 +5,6 @@ alias preview='open -a /System/Applications/Preview.app'
 test -d "/Applications/Skim.app" && alias skim='open -a /Applications/Skim.app'
 test -d "/Applications/Firefox.app" && alias firefox="/Applications/Firefox.app/Contents/MacOS/firefox"
 alias icloud="cd /Users/$USER/Library/Mobile\ Documents/com~apple~CloudDocs"
-alias copypubkey='pbcopy < ~/.ssh/id_rsa.pub'
 
 # CPU and MEM Monitoring
 alias cpu="top -F -R -o cpu"
@@ -39,10 +38,24 @@ alias unmute="osascript -e 'set volume output muted false'"
 alias lstcp='lsof -i -n -P | grep TCP'
 alias lsudp='lsof -i -n -P | grep UDP'
 alias systail='tail -f /var/log/system.log'
-alias cpwd="pwd | tr -d '\n' | pbcopy"
 alias localip="ipconfig getifaddr en0"
 alias showdns='networksetup -getdnsservers Wi-Fi'
-alias trimcopy="tr -d '\n' | pbcopy"
 alias afplay='afplay -q 1'
 alias speedtest='networkQuality'
 alias stayawake='caffeinate -u -t 5400'
+
+alias pbpubkey='pbcopy < ~/.ssh/id_rsa.pub'
+alias pbtrim="tr -d '\n' | pbcopy"
+alias pbpwd="pwd | tr -d '\n' | pbcopy"
+pbcat() {
+  cat "$@" | pbcopy
+}
+pbcurl() {
+  if [ -z "$1" ]; then
+    URL=$(puturl)
+  else
+    URL=${1}
+  fi
+  curl -s "$URL" | pbcopy
+  echo "Copied the content from $URL to the clipboard."
+}

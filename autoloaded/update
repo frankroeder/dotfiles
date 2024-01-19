@@ -84,8 +84,13 @@ apt_update() {
 }
 
 misc() {
-	# update alacritty theme
-	(cd $HOME/.config/alacritty/catppuccin; git pull;)
+  if [ $commands[alacritty] ]; then
+	  # update alacritty theme
+	  (cd $HOME/.config/alacritty/catppuccin; git pull;)
+  fi
+  if [ $commands[battery] ]; then
+    battery update;
+  fi
 }
 
 run(){
@@ -103,10 +108,9 @@ run(){
     [ $commands[gem] ] && exec_routine gem_update
     [ $commands[mas] ] && exec_routine mas_update
     [ $commands[brew] ] && exec_routine brew_update
-    [ $commands[alacritty] ] && exec_routine misc
+    exec_routine misc
     [ "$OSTYPE" = "Darwin" ] && exec_routine macos_update
     [ "$OSTYPE" = "Linux" ] && exec_routine apt_update
-
     success "Updates completed"
   else
     error "No internet access"

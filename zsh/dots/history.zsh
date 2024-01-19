@@ -3,7 +3,29 @@
 HISTSIZE=2000                 # lines of history to keep in memory
 SAVEHIST=10000                # lines of history to save to disk
 HISTCONTROL=ignoreboth
-HISTORY_IGNORE="(clear|history|exit|pwd|wget *|ls|l|la|lsd|lla|cd|c|rg *|:q|del *|alias|lstcp|lsudp|gcmsg)"
+HISTORY_IGNORE=(
+  "clear"
+  "history"
+  "exit"
+  "pwd"
+  "wget *"
+  "ls"
+  "l"
+  "la"
+  "lsd"
+  "lla"
+  "cd"
+  "c"
+  "rg *"
+  ":q"
+  "del *"
+  "alias"
+  "lstcp"
+  "lsudp"
+  "gcmsg"
+  "dalle3"
+  "gptvision"
+)
 
 setopt HIST_IGNORE_ALL_DUPS
 setopt EXTENDED_HISTORY       # record timestamp of command in HISTFILE

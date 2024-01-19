@@ -84,11 +84,11 @@ function M.config()
       documentation = cmp.config.window.bordered(),
     },
     sources = cmp.config.sources {
-      { name = "nvim_lsp", max_item_count = 10 },
+      { name = "nvim_lsp" },
       { name = "luasnip" },
-      { name = "buffer", max_item_count = 5, keyword_length = 3 },
-      { name = "treesitter", max_item_count = 5, keyword_length = 3 },
-      { name = "path", max_item_count = 5 },
+      { name = "buffer", keyword_length = 3 },
+      { name = "treesitter", keyword_length = 3 },
+      { name = "path" },
     },
     formatting = {
       format = function(entry, vim_item)

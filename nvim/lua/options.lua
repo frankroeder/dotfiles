@@ -27,9 +27,9 @@ local options = {
   joinspaces = false, -- Use one space after punctuation
   -- indentation
   preserveindent = true, -- preserve indent structure as much as possible
-  -- cindent = true, --  Enables automatic C program indenting
   smartindent = true,
   autoindent = true,
+  smartindent = true,
 
   shiftwidth = 2, -- Preview tabs as 2 spaces
   shiftround = true,
