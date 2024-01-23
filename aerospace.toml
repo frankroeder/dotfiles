@@ -10,9 +10,14 @@ default-root-container-orientation = 'auto'
 gaps.inner.horizontal = 10
 gaps.inner.vertical = 10
 gaps.outer.left = 10
-gaps.outer.bottom = 30
+gaps.outer.bottom = 35
 gaps.outer.top = 10
 gaps.outer.right = 10
+
+# notify Sketchybar about workspace change
+exec-on-workspace-change = ['/bin/bash', '-c',
+    '/opt/homebrew/opt/sketchybar/bin/sketchybar --trigger aerospace_workspace_change FOCUSED=$AEROSPACE_FOCUSED_WORKSPACE'
+]
 
 [workspace-to-monitor-force-assignment]
 0 = 'built-in'
@@ -88,10 +93,10 @@ alt-comma = 'layout accordion horizontal vertical'
 alt-f = 'fullscreen'
 alt-r = 'reload-config'
 
-alt-shift-h = 'move-through left'
-alt-shift-j = 'move-through down'
-alt-shift-k = 'move-through up'
-alt-shift-l = 'move-through right'
+alt-shift-h = 'move left'
+alt-shift-j = 'move down'
+alt-shift-k = 'move up'
+alt-shift-l = 'move right'
 alt-shift-n = 'workspace next'
 alt-shift-p = 'workspace prev'
 alt-shift-c = 'reload-config'
@@ -100,7 +105,7 @@ alt-right = 'resize smart -50'
 alt-left = 'resize smart +50'
 
 alt-tab = 'workspace-back-and-forth'
-alt-shift-tab = 'move-workspace-to-monitor next'
+alt-shift-tab = 'move-workspace-to-monitor --wrap-around next'
 
 alt-shift-backspace = 'mode service'
 alt-shift-comma = 'mode join'

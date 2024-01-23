@@ -1,16 +1,15 @@
 local M = {
-  "robitx/gp.nvim",
+  "frankroeder/gp.nvim",
   event = "VeryLazy",
-  cond = os.getenv "OPENAI_API_KEY" ~= nil,
+  cond = os.getenv "PERPLEXITY_API_KEY" ~= nil,
 }
 
 local cmd_prefix = "GPT"
 
 function M.config()
   require("gp").setup {
-    openai_api_key = os.getenv "OPENAI_API_KEY",
+    api_key = os.getenv "PERPLEXITY_API_KEY",
     cmd_prefix = cmd_prefix,
-    chat_topic_gen_model = "gpt-3.5-turbo-16k",
     chat_conceal_model_params = false,
     hooks = {
       InspectPlugin = function(plugin, params)

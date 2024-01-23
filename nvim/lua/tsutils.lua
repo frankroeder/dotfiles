@@ -69,7 +69,7 @@ function M.in_mathzone()
         if
           names
           and names[1]
-          and MATH_ENVIRONMENTS[query.get_node_text(names[1], buf):match "[A-Za-z]+"]
+          and MATH_ENVIRONMENTS[vim.treesitter.get_node_text(names[1], buf):match "[A-Za-z]+"]
         then
           return true
         end
