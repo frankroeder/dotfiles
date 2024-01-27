@@ -19,6 +19,7 @@ def encode_image(image_path):
 
 # Path to your image
 image_path = sys.argv[1]
+prompt = sys.argv[2] if len(sys.argv) > 2 else "What’s in this image?"
 
 # Getting the base64 string
 base64_image = encode_image(image_path)
@@ -31,7 +32,7 @@ payload = {
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": "What’s in this image?"},
+                {"type": "text", "text": prompt},
                 {
                     "type": "image_url",
                     "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
