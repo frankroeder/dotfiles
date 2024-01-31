@@ -205,9 +205,7 @@ _macos:
 ifeq ($(shell ${WHICH} airport 2>${DEVNUL}),)
 	@sudo ln -s /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/local/bin/airport
 endif
-ifeq ($(shell ${WHICH} sioyek 2>${DEVNUL}),)
-	@sudo ln -s /Applications/sioyek.app/Contents/MacOS/sioyek /usr/local/bin/sioyek
-endif
+	@zsh $(DOTFILES)/scripts/sioyek.sh
 	@ln -sfv $(DOTFILES)/sioyek $(HOME)/.config/sioyek
 	@swift package completion-tool generate-zsh-script > $(HOME)/.zsh/completion/_swift
 ifeq ($(shell ${WHICH} sourcekit-lsp 2>${DEVNUL}),)
@@ -259,6 +257,16 @@ uninstall:
 	rm $(HOME)/.latexmkrc
 	rm $(HOME)/.gitignore
 	rm $(HOME)/.gitconfig
+	rm $(HOME)/.config/htop
+	rm $(HOME)/.config/btop
+	rm $(HOME)/.config/nvim
+ifeq ($(OSTYPE), Darwin)
+	rm $(HOME)/.aerospace.toml
+	rm $(HOME)/.config/borders
+	rm $(HOME)/.config/skhd
+	rm $(HOME)/.config/sketchybar
+	rm $(HOME)/.config/sioyek
+endif
 
 .PHONY: test
 test:

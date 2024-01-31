@@ -27,7 +27,7 @@ M.treesitter_ensure_installed = {
   "typescript",
   "vim",
   "vimdoc",
-  "yaml"
+  "yaml",
 }
 
 return M

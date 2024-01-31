@@ -2,10 +2,11 @@
 # -*- coding: utf-8 -*-
 
 import base64
-import requests
+import json
 import os
 import sys
-import json
+
+import requests
 
 api_key = os.environ.get("OPENAI_API_KEY")
 assert api_key, "Invalid API key"
@@ -19,6 +20,7 @@ def encode_image(image_path):
 
 # Path to your image
 image_path = sys.argv[1]
+# Prompt as single string
 prompt = sys.argv[2] if len(sys.argv) > 2 else "What’s in this image?"
 
 # Getting the base64 string

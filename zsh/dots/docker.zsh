@@ -1,5 +1,8 @@
 ! [ $commands[docker] ] && return
 
+dsgpt(){
+  docker run --rm --env OPENAI_API_KEY --volume gpt-cache:/tmp/shell_gpt ghcr.io/ther1d/shell_gpt "$*"
+}
 alias dredis='docker run -p 6379:6379 redis:latest'
 alias dmongodb='docker run -p 27017:27017 mongo:latest'
 alias dmysql="docker run -p 3306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -d mysql:latest"

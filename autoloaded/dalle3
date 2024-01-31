@@ -15,7 +15,7 @@ fi
 RESPONSE=$(curl -sS https://api.openai.com/v1/images/generations \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $OPENAI_API_KEY" \
-  -d "{\"model\": \"dall-e-3\", \"prompt\": \"$@\", \"n\": 1, \"size\": \"1024x1024\"}")
+  -d "{\"model\": \"dall-e-3\", \"prompt\": \"$*\", \"n\": 1, \"size\": \"1024x1024\"}")
 
 echo $RESPONSE | jq
 URL=$(echo "$RESPONSE" | jq -r '.data[0].url')
