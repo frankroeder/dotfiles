@@ -18,6 +18,7 @@ pyproject.toml
 
 # nvim
 .gp.md
+.pplx.md
 
 # nodejs
 node_modules/

@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 ############## RIGHT ITEMS ##############
 
+# placeholder for the right corner occupied by aerospace windows
+# https://nikitabobko.github.io/AeroSpace/guide.html#emulation-of-virtual-workspaces
+sketchybar -m --add item aerospace_placeholder right \
+              --set aerospace_placeholder width=40
+
 sketchybar -m --add item topproc right \
               --set topproc update_freq=5 \
                     icon.drawing=off \

@@ -48,6 +48,12 @@ run = 'layout floating'
 [[on-window-detected]]
 if.app-id = 'com.raycast.macos'
 run = 'layout floating'
+[[on-window-detected]]
+if.window-title-regex-substring = '^(Bullet Physics).*$'
+run = 'layout floating'
+[[on-window-detected]]
+if.app-name-regex-substring = 'python'
+run = 'layout floating'
 
 ## move to (s)ocial workspace
 [[on-window-detected]]
@@ -82,10 +88,6 @@ run = ['move-node-to-workspace M']
 [[on-window-detected]]
 if.app-id = 'com.apple.QuickTimePlayerX'
 run = ['move-node-to-workspace M']
-
-[[on-window-detected]]
-if.app-name-regex-substring = 'python'
-run = 'layout floating'
 
 [mode.main.binding]
 alt-period = 'layout tiles horizontal vertical'

@@ -1,6 +1,6 @@
 local M = {
-  "frankroeder/pplx.nvim",
-  -- dir = os.getenv "HOME" .. "/Documents/luapos/pplx.nvim",
+  -- "frankroeder/pplx.nvim",
+  dir = os.getenv "HOME" .. "/Documents/luapos/pplx.nvim",
   event = "VeryLazy",
   cond = os.getenv "PERPLEXITY_API_KEY" ~= nil,
 }
@@ -13,12 +13,6 @@ function M.config()
     cmd_prefix = cmd_prefix,
     chat_conceal_model_params = false,
     hooks = {
-      InspectPlugin = function(plugin, params)
-        print(string.format("Plugin structure:\n%s", vim.inspect(plugin)))
-        print(string.format("Command params:\n%s", vim.inspect(params)))
-      end,
-      -- PPLXComplete finishes the provided selection/range of code
-      -- and appends the result.
       Complete = function(pplx, params)
         local template = "I have the following code from {{filename}}:\n\n"
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
@@ -26,26 +20,20 @@ function M.config()
           .. "\n\nRespond just with the snippet of code that should be inserted."
 
         local agent = pplx.get_command_agent()
-        pplx.Prompt(
-          params,
-          pplx.Target.append,
-          nil, -- command will run directly without any prompting for user input
-          agent.model,
-          template,
-          agent.system_prompt
-        )
+        pplx.Prompt(params, pplx.Target.append, nil, agent.model, template, agent.system_prompt)
       end,
       Explain = function(pplx, params)
         local template = "Explain the following code from {{filename}}:\n\n"
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
-          .. "Use markdown format.\n"
+          .. "Use the markdown format with codeblocks.\n"
           .. "A brief explanation of what the code above is doing:\n"
         local agent = pplx.get_chat_agent()
         pplx.info("Explaining selection with agent: " .. agent.name)
         pplx.Prompt(params, pplx.Target.popup, nil, agent.model, template, agent.system_prompt)
       end,
       FixBugs = function(pplx, params)
-        local template = "Fix bugs in the below code from {{filename}} carefully and logically:\n\n"
+        local template = "You are an expert in {{filetype}}.\n"
+          .. "Fix bugs in the below code from {{filename}} carefully and logically:\n\n"
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
           .. "Fixed code:\n"
         local agent = pplx.get_command_agent()
@@ -53,7 +41,8 @@ function M.config()
         pplx.Prompt(params, pplx.Target.popup, nil, agent.model, template, agent.system_prompt)
       end,
       Optimize = function(pplx, params)
-        local template = "Optimize the following code from {{filename}}:\n\n"
+        local template = "You are an expert in {{filetype}}.\n"
+          .. "Optimize the following code from {{filename}}:\n\n"
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
           .. "Optimized code:\n"
         local agent = pplx.get_command_agent()
@@ -84,7 +73,7 @@ function M.config()
           .. "Review the following code, carefully examine it and report"
           .. "potential bugs and edge cases alongside solutions to resolve them."
           .. "Keep your explanation short and to the point:"
-          .. "```{{filetype}}{{selection}}\n```\n\n"
+          .. "```{{filetype}}\n{{selection}}\n```\n\n"
         local agent = pplx.get_chat_agent()
         pplx.info("Debugging selection with agent: " .. agent.name)
         pplx.Prompt(params, pplx.Target.enew, nil, agent.model, template, agent.system_prompt)
