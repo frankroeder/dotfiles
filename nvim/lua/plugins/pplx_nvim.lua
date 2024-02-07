@@ -1,15 +1,22 @@
 local M = {
-  -- "frankroeder/pplx.nvim",
-  dir = os.getenv "HOME" .. "/Documents/luapos/pplx.nvim",
+  "frankroeder/pplx.nvim",
+  -- dir = os.getenv "HOME" .. "/Documents/luapos/pplx.nvim",
   event = "VeryLazy",
-  cond = os.getenv "PERPLEXITY_API_KEY" ~= nil,
+  cond = os.getenv "OPENAI_API_KEY" ~= nil or os.getenv "PERPLEXITY_API_KEY" ~= nil,
 }
 
 local cmd_prefix = "Pplx"
 
 function M.config()
   require("pplx").setup {
-    api_key = os.getenv "PERPLEXITY_API_KEY",
+    providers = {
+      pplx = {
+        api_key = os.getenv "PERPLEXITY_API_KEY",
+      },
+      openai = {
+        api_key = os.getenv "OPENAI_API_KEY",
+      },
+    },
     cmd_prefix = cmd_prefix,
     chat_conceal_model_params = false,
     hooks = {
@@ -28,7 +35,7 @@ function M.config()
           .. "Use the markdown format with codeblocks.\n"
           .. "A brief explanation of what the code above is doing:\n"
         local agent = pplx.get_chat_agent()
-        pplx.info("Explaining selection with agent: " .. agent.name)
+        pplx.logger.info("Explaining selection with agent: " .. agent.name)
         pplx.Prompt(params, pplx.Target.popup, nil, agent.model, template, agent.system_prompt)
       end,
       FixBugs = function(pplx, params)
@@ -37,7 +44,7 @@ function M.config()
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
           .. "Fixed code:\n"
         local agent = pplx.get_command_agent()
-        pplx.info("Fixing bugs in selection with agent: " .. agent.name)
+        pplx.logger.info("Fixing bugs in selection with agent: " .. agent.name)
         pplx.Prompt(params, pplx.Target.popup, nil, agent.model, template, agent.system_prompt)
       end,
       Optimize = function(pplx, params)
@@ -46,7 +53,7 @@ function M.config()
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
           .. "Optimized code:\n"
         local agent = pplx.get_command_agent()
-        pplx.info("Optimizing selection with agent: " .. agent.name)
+        pplx.logger.info("Optimizing selection with agent: " .. agent.name)
         pplx.Prompt(params, pplx.Target.popup, nil, agent.model, template, agent.system_prompt)
       end,
       UnitTests = function(pplx, params)
@@ -54,7 +61,7 @@ function M.config()
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
           .. "Please respond by writing table driven unit tests for the code above."
         local agent = pplx.get_command_agent()
-        pplx.info("Creating unit tests for selection with agent: " .. agent.name)
+        pplx.logger.info("Creating unit tests for selection with agent: " .. agent.name)
         pplx.Prompt(params, pplx.Target.enew, nil, agent.model, template, agent.system_prompt)
       end,
       ProofReader = function(pplx, params)
@@ -65,7 +72,7 @@ function M.config()
           .. "suggestions to improve the text. Highlight the corrections with"
           .. "markdown bold or italics style."
         local agent = pplx.get_chat_agent()
-        pplx.info("Proofreading selection with agent: " .. agent.name)
+        pplx.logger.info("Proofreading selection with agent: " .. agent.name)
         pplx.cmd.ChatNew(params, agent.model, chat_system_prompt)
       end,
       Debug = function(pplx, params)
@@ -75,7 +82,7 @@ function M.config()
           .. "Keep your explanation short and to the point:"
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
         local agent = pplx.get_chat_agent()
-        pplx.info("Debugging selection with agent: " .. agent.name)
+        pplx.logger.info("Debugging selection with agent: " .. agent.name)
         pplx.Prompt(params, pplx.Target.enew, nil, agent.model, template, agent.system_prompt)
       end,
     },
