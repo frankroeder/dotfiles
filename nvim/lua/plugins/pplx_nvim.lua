@@ -1,6 +1,6 @@
 local M = {
-  "frankroeder/pplx.nvim",
-  -- dir = os.getenv "HOME" .. "/Documents/luapos/pplx.nvim",
+  -- "frankroeder/pplx.nvim",
+  dir = os.getenv "HOME" .. "/Documents/luapos/pplx.nvim",
   event = "VeryLazy",
   cond = os.getenv "OPENAI_API_KEY" ~= nil or os.getenv "PERPLEXITY_API_KEY" ~= nil,
 }
@@ -11,10 +11,10 @@ function M.config()
   require("pplx").setup {
     providers = {
       pplx = {
-        api_key = os.getenv "PERPLEXITY_API_KEY",
+        api_key = { "/usr/bin/security", "find-generic-password", "-s perplexity-api-key", "-w" },
       },
       openai = {
-        api_key = os.getenv "OPENAI_API_KEY",
+        api_key = { "/usr/bin/security", "find-generic-password", "-s openai-api-key", "-w" },
       },
     },
     cmd_prefix = cmd_prefix,

@@ -1,7 +1,13 @@
 ---@diagnostic disable: undefined-global
 require("luasnip.loaders.from_lua").lazy_load()
+local utils = require "utils"
 
 return {
+  s({ trig = "pr", name = "print" }, {
+    t "print(",
+    d(1, utils.get_visual),
+    t ")",
+  }),
   s(
     {
       trig = "req",
