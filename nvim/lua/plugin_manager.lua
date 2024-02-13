@@ -26,4 +26,7 @@ lazy.setup("plugins", {
     notify = true, -- get a notification when changes are found
   },
   debug = false,
+  dev = {
+    path = "~/Documents/luapos",
+  },
 })

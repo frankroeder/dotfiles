@@ -1,7 +1,7 @@
 local M = {
   "frankroeder/parrot.nvim",
-  -- dir = os.getenv "HOME" .. "/Documents/luapos/parrot.nvim",
   event = "VeryLazy",
+  dev = true,
   cond = os.getenv "OPENAI_API_KEY" ~= nil or os.getenv "PERPLEXITY_API_KEY" ~= nil,
 }
 
@@ -27,7 +27,15 @@ function M.config()
           .. "\n\nRespond just with the snippet of code that should be inserted."
 
         local agent = pplx.get_command_agent()
-        pplx.Prompt(params, pplx.Target.append, nil, agent.model, template, agent.system_prompt, agent.provider)
+        pplx.Prompt(
+          params,
+          pplx.Target.append,
+          nil,
+          agent.model,
+          template,
+          agent.system_prompt,
+          agent.provider
+        )
       end,
       Explain = function(pplx, params)
         local template = "Explain the following code from {{filename}}:\n\n"
@@ -36,7 +44,15 @@ function M.config()
           .. "A brief explanation of what the code above is doing:\n"
         local agent = pplx.get_chat_agent()
         pplx.logger.info("Explaining selection with agent: " .. agent.name)
-        pplx.Prompt(params, pplx.Target.popup, nil, agent.model, template, agent.system_prompt, agent.provider)
+        pplx.Prompt(
+          params,
+          pplx.Target.popup,
+          nil,
+          agent.model,
+          template,
+          agent.system_prompt,
+          agent.provider
+        )
       end,
       FixBugs = function(pplx, params)
         local template = "You are an expert in {{filetype}}.\n"
@@ -45,7 +61,15 @@ function M.config()
           .. "Fixed code:\n"
         local agent = pplx.get_command_agent()
         pplx.logger.info("Fixing bugs in selection with agent: " .. agent.name)
-        pplx.Prompt(params, pplx.Target.popup, nil, agent.model, template, agent.system_prompt, agent.provider)
+        pplx.Prompt(
+          params,
+          pplx.Target.popup,
+          nil,
+          agent.model,
+          template,
+          agent.system_prompt,
+          agent.provider
+        )
       end,
       Optimize = function(pplx, params)
         local template = "You are an expert in {{filetype}}.\n"
@@ -54,7 +78,15 @@ function M.config()
           .. "Optimized code:\n"
         local agent = pplx.get_command_agent()
         pplx.logger.info("Optimizing selection with agent: " .. agent.name)
-        pplx.Prompt(params, pplx.Target.popup, nil, agent.model, template, agent.system_prompt, agent.provider)
+        pplx.Prompt(
+          params,
+          pplx.Target.popup,
+          nil,
+          agent.model,
+          template,
+          agent.system_prompt,
+          agent.provider
+        )
       end,
       UnitTests = function(pplx, params)
         local template = "I have the following code from {{filename}}:\n\n"
@@ -62,7 +94,15 @@ function M.config()
           .. "Please respond by writing table driven unit tests for the code above."
         local agent = pplx.get_command_agent()
         pplx.logger.info("Creating unit tests for selection with agent: " .. agent.name)
-        pplx.Prompt(params, pplx.Target.enew, nil, agent.model, template, agent.system_prompt, agent.provider)
+        pplx.Prompt(
+          params,
+          pplx.Target.enew,
+          nil,
+          agent.model,
+          template,
+          agent.system_prompt,
+          agent.provider
+        )
       end,
       ProofReader = function(pplx, params)
         local chat_system_prompt = "I want you to act as a proofreader. I will"
@@ -83,7 +123,15 @@ function M.config()
           .. "```{{filetype}}\n{{selection}}\n```\n\n"
         local agent = pplx.get_chat_agent()
         pplx.logger.info("Debugging selection with agent: " .. agent.name)
-        pplx.Prompt(params, pplx.Target.enew, nil, agent.model, template, agent.system_prompt, agent.provider)
+        pplx.Prompt(
+          params,
+          pplx.Target.enew,
+          nil,
+          agent.model,
+          template,
+          agent.system_prompt,
+          agent.provider
+        )
       end,
     },
   }
