@@ -32,7 +32,8 @@ if.app-id = 'com.apple.systempreferences'
 run = 'layout floating'
 [[on-window-detected]]
 if.app-id = 'com.bitwarden.desktop'
-run = 'layout floating'
+run = ['layout floating', 'move-node-to-workspace 0']
+
 [[on-window-detected]]
 if.app-id = 'net.ankiweb.dtop'
 run = 'layout floating'

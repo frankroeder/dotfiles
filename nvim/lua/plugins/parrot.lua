@@ -1,14 +1,14 @@
 local M = {
-  "frankroeder/pplx.nvim",
-  -- dir = os.getenv "HOME" .. "/Documents/luapos/pplx.nvim",
+  "frankroeder/parrot.nvim",
+  -- dir = os.getenv "HOME" .. "/Documents/luapos/parrot.nvim",
   event = "VeryLazy",
   cond = os.getenv "OPENAI_API_KEY" ~= nil or os.getenv "PERPLEXITY_API_KEY" ~= nil,
 }
 
-local cmd_prefix = "Pplx"
+local cmd_prefix = "Prt"
 
 function M.config()
-  require("pplx").setup {
+  require("parrot").setup {
     providers = {
       pplx = {
         api_key = { "/usr/bin/security", "find-generic-password", "-s perplexity-api-key", "-w" },
@@ -137,28 +137,10 @@ function M.keys()
       kmopts "Prepend",
     },
     {
-      kmprfx .. "e",
-      "<cmd>" .. cmd_prefix .. "Enew<cr>",
-      mode = { "n", "i" },
-      kmopts "Enew",
-    },
-    {
-      kmprfx .. "p",
-      "<cmd>" .. cmd_prefix .. "Popup<cr>",
-      mode = { "n", "i" },
-      kmopts "Popup",
-    },
-    {
       kmprfx .. "c",
       ":<C-u>'<,'>" .. cmd_prefix .. "ChatNew<cr>",
       mode = { "v" },
       kmopts "Visual Chat New",
-    },
-    {
-      kmprfx .. "t",
-      ":<C-u>'<,'>" .. cmd_prefix .. "ChatToggle tabnew<cr>",
-      mode = { "v" },
-      kmopts "Visual Popup Chat",
     },
     {
       kmprfx .. "r",
@@ -185,12 +167,6 @@ function M.keys()
       kmopts "Visual Enew",
     },
     {
-      kmprfx .. "p",
-      ":<C-u>'<,'>" .. cmd_prefix .. "Popup<cr>",
-      mode = { "v" },
-      kmopts "Visual Popup",
-    },
-    {
       kmprfx .. "s",
       "<cmd>" .. cmd_prefix .. "Stop<cr>",
       mode = { "n", "i", "v", "x" },
@@ -213,6 +189,12 @@ function M.keys()
       "<cmd>" .. cmd_prefix .. "Context<cr>",
       mode = { "n" },
       kmopts "Open file with custom context",
+    },
+    {
+      kmprfx .. "p",
+      "<cmd>" .. cmd_prefix .. "NextProvider<cr>",
+      mode = { "n" },
+      kmopts "Cycle through available providers",
     },
   }
 end

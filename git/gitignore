@@ -18,7 +18,7 @@ pyproject.toml
 
 # nvim
 .gp.md
-.pplx.md
+.parrot.md
 
 # nodejs
 node_modules/
