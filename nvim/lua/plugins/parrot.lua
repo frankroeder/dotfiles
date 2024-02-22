@@ -1,6 +1,7 @@
 local M = {
   "frankroeder/parrot.nvim",
   event = "VeryLazy",
+  dependencies = { "fzf-lua" },
   dev = true,
   cond = os.getenv "OPENAI_API_KEY" ~= nil or os.getenv "PERPLEXITY_API_KEY" ~= nil,
 }
@@ -21,11 +22,16 @@ function M.config()
     chat_conceal_model_params = false,
     hooks = {
       Complete = function(prt, params)
-        local template = "I have the following code from {{filename}}:\n\n"
-          .. "```{{filetype}}\n{{selection}}\n```\n\n"
-          .. "Please finish the code above carefully and logically."
-          .. "\n\nRespond just with the snippet of code that should be inserted."
+        local template = [[
+        I have the following code from {{filename}}:
 
+        ```{{filetype}}
+        {{selection}}
+        ```
+
+        Please finish the code above carefully and logically.
+        Respond just with the snippet of code that should be inserted."
+        ]]
         local agent = prt.get_command_agent()
         prt.Prompt(
           params,
@@ -38,10 +44,16 @@ function M.config()
         )
       end,
       Explain = function(prt, params)
-        local template = "Explain the following code from {{filename}}:\n\n"
-          .. "```{{filetype}}\n{{selection}}\n```\n\n"
-          .. "Use the markdown format with codeblocks.\n"
-          .. "A brief explanation of what the code above is doing:\n"
+        local template = [[
+        Explain the following code from {{filename}}:
+
+        ```{{filetype}}
+        {{selection}}
+        ```
+
+        Use the markdown format with codeblocks.
+        A brief explanation of what the code above is doing:
+        ]]
         local agent = prt.get_chat_agent()
         prt.logger.info("Explaining selection with agent: " .. agent.name)
         prt.Prompt(
@@ -55,10 +67,16 @@ function M.config()
         )
       end,
       FixBugs = function(prt, params)
-        local template = "You are an expert in {{filetype}}.\n"
-          .. "Fix bugs in the below code from {{filename}} carefully and logically:\n\n"
-          .. "```{{filetype}}\n{{selection}}\n```\n\n"
-          .. "Fixed code:\n"
+        local template = [[
+        You are an expert in {{filetype}}.
+        Fix bugs in the below code from {{filename}} carefully and logically:
+
+        ```{{filetype}}
+        {{selection}}
+        ```
+
+        Fixed code:
+        ]]
         local agent = prt.get_command_agent()
         prt.logger.info("Fixing bugs in selection with agent: " .. agent.name)
         prt.Prompt(
@@ -72,10 +90,16 @@ function M.config()
         )
       end,
       Optimize = function(prt, params)
-        local template = "You are an expert in {{filetype}}.\n"
-          .. "Optimize the following code from {{filename}}:\n\n"
-          .. "```{{filetype}}\n{{selection}}\n```\n\n"
-          .. "Optimized code:\n"
+        local template = [[
+        You are an expert in {{filetype}}.
+        Optimize the following code from {{filename}}:
+
+        ```{{filetype}}
+        {{selection}}
+        ```
+
+        Optimized code:
+        ]]
         local agent = prt.get_command_agent()
         prt.logger.info("Optimizing selection with agent: " .. agent.name)
         prt.Prompt(
@@ -89,9 +113,15 @@ function M.config()
         )
       end,
       UnitTests = function(prt, params)
-        local template = "I have the following code from {{filename}}:\n\n"
-          .. "```{{filetype}}\n{{selection}}\n```\n\n"
-          .. "Please respond by writing table driven unit tests for the code above."
+        local template = [[
+        I have the following code from {{filename}}:
+
+        ```{{filetype}}
+        {{selection}}
+        ```
+
+        Please respond by writing table driven unit tests for the code above.
+        ]]
         local agent = prt.get_command_agent()
         prt.logger.info("Creating unit tests for selection with agent: " .. agent.name)
         prt.Prompt(
@@ -105,22 +135,28 @@ function M.config()
         )
       end,
       ProofReader = function(prt, params)
-        local chat_system_prompt = "I want you to act as a proofreader. I will"
-          .. "provide you with texts and I would like you to review them for any"
-          .. "spelling, grammar, or punctuation errors. Once you have finished"
-          .. "reviewing the text, provide me with any necessary corrections or"
-          .. "suggestions to improve the text. Highlight the corrections with"
-          .. "markdown bold or italics style."
+        local chat_system_prompt = [[
+        I want you to act as a proofreader. I will provide you with texts and
+        I would like you to review them for any spelling, grammar, or
+        punctuation errors. Once you have finished reviewing the text,
+        provide me with any necessary corrections or suggestions to improve the
+        text. Highlight the corrections with markdown bold or italics style.
+        ]]
         local agent = prt.get_chat_agent()
         prt.logger.info("Proofreading selection with agent: " .. agent.name)
         prt.cmd.ChatNew(params, agent.model, chat_system_prompt)
       end,
       Debug = function(prt, params)
-        local template = "I want you to act as {{filetype}} expert.\n"
-          .. "Review the following code, carefully examine it and report"
-          .. "potential bugs and edge cases alongside solutions to resolve them."
-          .. "Keep your explanation short and to the point:"
-          .. "```{{filetype}}\n{{selection}}\n```\n\n"
+        local template = [[
+        I want you to act as {{filetype}} expert.
+        Review the following code, carefully examine it, and report potential
+        bugs and edge cases alongside solutions to resolve them.
+        Keep your explanation short and to the point:
+
+        ```{{filetype}}
+        {{selection}}
+        ```
+        ]]
         local agent = prt.get_chat_agent()
         prt.logger.info("Debugging selection with agent: " .. agent.name)
         prt.Prompt(
@@ -227,22 +263,22 @@ function M.keys()
       kmopts "Complete the visual selection",
     },
     {
-      kmprfx .. "n",
-      "<cmd>" .. cmd_prefix .. "NextAgent<cr>",
-      mode = { "n" },
-      kmopts "Cycle through available agents",
-    },
-    {
       kmprfx .. "x",
       "<cmd>" .. cmd_prefix .. "Context<cr>",
       mode = { "n" },
       kmopts "Open file with custom context",
     },
     {
-      kmprfx .. "p",
-      "<cmd>" .. cmd_prefix .. "NextProvider<cr>",
+      kmprfx .. "n",
+      "<cmd>" .. cmd_prefix .. "Agent<cr>",
       mode = { "n" },
-      kmopts "Cycle through available providers",
+      kmopts "Select agent or show info",
+    },
+    {
+      kmprfx .. "p",
+      "<cmd>" .. cmd_prefix .. "Provider<cr>",
+      mode = { "n" },
+      kmopts "Select provider or show info",
     },
   }
 end
