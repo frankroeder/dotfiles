@@ -10,7 +10,9 @@ alias f='xdg-open ./'
 alias varwww='cd /var/www/html/'
 alias distro='cat /etc/issue'
 alias whou='who -u | sort -k 3 --reverse'
-alias realusers="awk -F: '$3 >= 1000 && $3 != 65534 {print $1}' /etc/passwd"
+realusers(){
+  awk -F: '$3 >= 1000 && $3 != 65534 {print $1}' /etc/passwd
+}
 alias datehelp='for F in {a..z} {A..Z} :z ::z :::z;do echo $F: $(date +%$F);done|sed "/:[\ \t\n]*$/d;/%[a-zA-Z]/d"'
 alias swaptop='whatswap | egrep -v "Swap used: 0" |sort -n -k 10'
 
