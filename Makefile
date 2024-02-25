@@ -138,6 +138,7 @@ after: _terminal
 ifeq ($(OSTYPE), Darwin)
 	@brew services start sketchybar
 	@brew services start borders
+	@brew services start svim
 endif
 
 directories:
@@ -200,6 +201,7 @@ _macos:
 	@bash $(DOTFILES)/macos/main.bash
 	@ln -sfv $(DOTFILES)/sketchybar $(HOME)/.config/sketchybar
 	@ln -sfv $(DOTFILES)/borders $(HOME)/.config/borders
+	@ln -sfv $(DOTFILES)/svim $(HOME)/.config/svim
 	@ln -sfv $(DOTFILES)/aerospace.toml $(HOME)/.aerospace.toml
 	@ln -sfv $(DOTFILES)/skhd $(HOME)/.config/skhd
 ifeq ($(shell ${WHICH} airport 2>${DEVNUL}),)
@@ -266,6 +268,7 @@ ifeq ($(OSTYPE), Darwin)
 	rm $(HOME)/.config/skhd
 	rm $(HOME)/.config/sketchybar
 	rm $(HOME)/.config/sioyek
+	rm $(HOME)/.config/svim
 endif
 
 .PHONY: test

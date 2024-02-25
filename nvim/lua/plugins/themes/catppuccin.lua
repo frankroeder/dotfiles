@@ -61,7 +61,6 @@ catppuccin.setup {
       show_root = false,
       transparent_panel = false,
     },
-    symbols_outline = true,
     treesitter = true,
   },
 }

@@ -56,7 +56,7 @@ function M.config()
         lazy_plugin_status,
       },
     },
-    extensions = { "neo-tree", "fzf", "lazy", "symbols-outline" },
+    extensions = { "neo-tree", "fzf", "lazy" },
   }
 end
 
