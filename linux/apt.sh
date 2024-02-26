@@ -7,6 +7,7 @@ apt_update() {
 install_default() {
   apt_update;
   local PKGS="
+    smem
     bash
     cmake
     curl

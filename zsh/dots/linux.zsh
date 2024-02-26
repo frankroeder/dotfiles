@@ -15,6 +15,9 @@ realusers(){
 }
 alias datehelp='for F in {a..z} {A..Z} :z ::z :::z;do echo $F: $(date +%$F);done|sed "/:[\ \t\n]*$/d;/%[a-zA-Z]/d"'
 alias swaptop='whatswap | egrep -v "Swap used: 0" |sort -n -k 10'
+if [ $commands[smem ]; then
+	alias swaphogs='smem --sort swap --reverse --autosize'
+fi
 
 if [ $commands[nvidia-smi] ]; then
 	alias wgpu='watch -n 0.1 -d nvidia-smi'
@@ -24,8 +27,8 @@ fi
 [ $commands[nvitop] ] && alias ntop='nvitop --monitor auto --gpu-util-thresh 50 80 --mem-util-thresh 60 90'
 
 if [ $commands[xclip] ]; then
-    alias pbcopy='xclip -selection clipboard'
-    alias pbpaste='xclip -selection clipboard -o'
-    alias copypubkey='xclip -selection clipboard < ~/.ssh/id_rsa.pub'
+	alias pbcopy='xclip -selection clipboard'
+	alias pbpaste='xclip -selection clipboard -o'
+	alias copypubkey='xclip -selection clipboard < ~/.ssh/id_rsa.pub'
 fi
 [ $commands[xdg-open] ] && function open() { xdg-open $@; };
