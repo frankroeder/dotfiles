@@ -172,6 +172,19 @@ return {
     )
   ),
   s(
+    "wfig",
+    fmta(
+      [[
+			\begin{wrapfigure}{<>}{<>\textwidth}
+				\includegraphics[width=<>\linewidth]{<>}
+				\caption{<>}
+				\label{fig:<>}
+			\end{wrapfigure}
+			]],
+      { i(1, "pos"), i(2, "0.2"), i(3, "0.8"), i(4), i(5), i(0) }
+    )
+  ),
+  s(
     "lst",
     fmta(
       [[

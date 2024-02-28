@@ -25,6 +25,7 @@ exec-on-workspace-change = ['/bin/bash', '-c',
 2 = ['secondary', 'built-in']
 S = ['secondary', 'built-in']
 T = ['secondary', 'built-in']
+W = ['secondary', 'built-in']
 
 ## windows that should float
 [[on-window-detected]]
