@@ -17,6 +17,9 @@ function M.config()
       openai = {
         api_key = { "/usr/bin/security", "find-generic-password", "-s openai-api-key", "-w" },
       },
+      anthropic = {
+        api_key = { "/usr/bin/security", "find-generic-password", "-s anthropic-api-key", "-w" },
+      },
     },
     cmd_prefix = cmd_prefix,
     chat_conceal_model_params = false,
@@ -279,6 +282,12 @@ function M.keys()
       "<cmd>" .. cmd_prefix .. "Provider<cr>",
       mode = { "n" },
       kmopts "Select provider or show info",
+    },
+    {
+      kmprfx .. "q",
+      "<cmd>" .. cmd_prefix .. "Ask<cr>",
+      mode = { "n" },
+      kmopts "Ask a question",
     },
   }
 end
