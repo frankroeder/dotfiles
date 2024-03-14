@@ -38,7 +38,7 @@ function M.config()
         local agent = prt.get_command_agent()
         prt.Prompt(
           params,
-          prt.Target.append,
+          prt.ui.Target.append,
           nil,
           agent.model,
           template,
@@ -61,7 +61,7 @@ function M.config()
         prt.logger.info("Explaining selection with agent: " .. agent.name)
         prt.Prompt(
           params,
-          prt.Target.popup,
+          prt.ui.Target.popup,
           nil,
           agent.model,
           template,
@@ -84,7 +84,7 @@ function M.config()
         prt.logger.info("Fixing bugs in selection with agent: " .. agent.name)
         prt.Prompt(
           params,
-          prt.Target.popup,
+          prt.ui.Target.popup,
           nil,
           agent.model,
           template,
@@ -107,7 +107,7 @@ function M.config()
         prt.logger.info("Optimizing selection with agent: " .. agent.name)
         prt.Prompt(
           params,
-          prt.Target.popup,
+          prt.ui.Target.popup,
           nil,
           agent.model,
           template,
@@ -129,7 +129,7 @@ function M.config()
         prt.logger.info("Creating unit tests for selection with agent: " .. agent.name)
         prt.Prompt(
           params,
-          prt.Target.enew,
+          prt.ui.Target.enew,
           nil,
           agent.model,
           template,
@@ -164,7 +164,7 @@ function M.config()
         prt.logger.info("Debugging selection with agent: " .. agent.name)
         prt.Prompt(
           params,
-          prt.Target.enew,
+          prt.ui.Target.enew,
           nil,
           agent.model,
           template,
