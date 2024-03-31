@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+# @raycast.title Copy Last Screenshot
+# @raycast.author Frank Röder
+# @raycast.authorURL https://github.com/frankroeder
+# @raycast.mode silent
+# @raycast.packageName System
+# @raycast.icon 📸
+# @raycast.description Copies the last screenshot to the clipboard.
+# @raycast.schemaVersion 1
+
+DIR=$(defaults read com.apple.screencapture location)
+FILE=$(ls -t "$DIR" | head -n 1)
+FILELOC="$DIR/$FILE"
+
+osascript -e "set the clipboard to (read (POSIX file \"$FILELOC\") as JPEG picture)"

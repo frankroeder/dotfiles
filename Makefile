@@ -102,6 +102,7 @@ zsh:
 	@ln -sfv $(DOTFILES)/zsh/zlogin $(HOME)/.zlogin
 	@ln -sfv $(DOTFILES)/zsh/zshenv $(HOME)/.zshenv
 	@ln -sfv $(DOTFILES)/zsh/zprofile $(HOME)/.zprofile
+	@mkdir -p $(HOME)/.zsh-complete && rg --generate complete-zsh > $(HOME)/.zsh-complete/_rg
 	@. $(HOME)/.zshrc
 
 .PHONY: node

@@ -71,7 +71,6 @@ function M.config()
       map("n", "<Leader>gtd", gs.toggle_deleted)
       map("n", "<Leader>gtb", gs.toggle_current_line_blame)
     end,
-    max_file_length = 2000,
   }
 end
 

@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+
+# @raycast.title Akku Health
+# @raycast.author Frank Röder
+# @raycast.authorURL https://github.com/frankroeder
+# @raycast.description Displays useful information of the battery
+# @raycast.icon 🔋
+# @raycast.mode inline
+# @raycast.refreshTime 3m
+# @raycast.packageName System
+# @raycast.schemaVersion 1
+
+BATT_PERCENTAGE=$(pmset -g batt | grep "InternalBattery-0" |  awk '{print $3}')
+CHARGE_STATUS=$(pmset -g batt | grep "InternalBattery-0" |  awk '{print $4}')
+TIME_REMAINING=$(pmset -g batt | grep "InternalBattery-0" |  awk '{print $5}')
+CYCLE_COUNT=$(system_profiler SPPowerDataType | grep "Cycle Count" | awk '{print $3}')
+CHARGE_WATT=$(pmset -g ac | grep "Wattage" | awk '{print $3}')
+
+BATT=${BATT_PERCENTAGE%??}
+
+format_time_remaining() {
+    RE_MIN=${1##*:}
+    RE_HOUR=${1%:*}
+    if [[ "$RE_HOUR" == "0" ]]; then
+        echo "${RE_MIN}m"
+    else
+        echo "${RE_HOUR}h ${RE_MIN}m"
+    fi
+}
+case "$CHARGE_STATUS" in
+    charging)
+        TIME_REMAINING_FORMATTED=$([ "$TIME_REMAINING" != "(no" ] && format_time_remaining "$TIME_REMAINING")
+        TO_SHOW="⚡${BATT}% - ${TIME_REMAINING_FORMATTED:-No Estimation Yet} to Full (Charging at ${CHARGE_WATT}) - ${CYCLE_COUNT} Cycles"
+        ;;
+    finishing)
+        TIME_REMAINING_FORMATTED=$(format_time_remaining "$TIME_REMAINING")
+        [[ "$TIME_REMAINING_FORMATTED" == "00m" ]] && TO_SHOW="⚡${BATT}% - Fully Charged (Power Connected at ${CHARGE_WATT}) - ${CYCLE_COUNT} Cycles" || TO_SHOW="⚡${BATT}% - ${TIME_REMAINING_FORMATTED} to Full (Charging at ${CHARGE_WATT}) - ${CYCLE_COUNT} Cycles"
+        ;;
+    charged)
+        TO_SHOW="⚡${BATT}% - Fully Charged (Power Connected at ${CHARGE_WATT}) - ${CYCLE_COUNT} Cycles"
+        ;;
+    "discharging;")
+        TIME_REMAINING_FORMATTED=$([ "$TIME_REMAINING" != "(no" ] && format_time_remaining "$TIME_REMAINING")
+        TO_SHOW="${BATT}% - ${TIME_REMAINING_FORMATTED:-No Estimation Yet} Remaining - ${CYCLE_COUNT} Cycles"
+        ;;
+    AC)
+        TO_SHOW="Connected to AC - ${BATT}% - ${CYCLE_COUNT} Cycles"
+        ;;
+esac
+
+echo $TO_SHOW

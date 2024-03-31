@@ -1,17 +1,48 @@
 local M = {
   "lervag/vim-latex",
-  ft = { "tex", "bib" },
 }
 
-function M.config()
-  vim.wo.conceallevel = 0
-  vim.g.tex_conceal = "abdmg"
-  vim.g.tex_flavor = "latex"
-  vim.g.vimtex_view_method = "sioyek"
-  vim.g.vimtex_view_general_options = "-r @line @pdf @tex"
-  vim.g.vimtex_quickfix_mode = 0
+function M.init()
+  -- conceal stuff
+  vim.wo.conceallevel = 1
+  -- vim.g.vimtex_syntax_conceal_disable = 1
+  vim.g.vimtex_syntax_conceal = {
+    accents = 1,
+    ligatures = 1,
+    cites = 1,
+    fancy = 1,
+    spacing = 1,
+    greek = 1,
+    math_bounds = 1,
+    math_delimiters = 1,
+    math_fracs = 1,
+    math_super_sub = 0,
+    math_symbols = 1,
+    sections = 1,
+    styles = 1,
+  }
+
+  -- completion
+  vim.g.vimtex_complete_enabled = 1
   vim.g.vimtex_complete_close_braces = 1
-  vim.g.vimtex_view_automatic = 0
+
+  -- fold options
+  vim.g.vimtex_fold_enabled = 0
+  vim.g.vimtex_format_enabled = 1
+
+  -- quickfix options
+  vim.g.vimtex_quickfix_mode = 2
+  vim.g.vimtex_quickfix_autoclose_after_keystrokes = 0
+  vim.g.vimtex_quickfix_open_on_warning = 0
+
+  -- view options
+  vim.g.vimtex_view_automatic = 1
+  vim.g.vimtex_view_method = "sioyek"
+  vim.g.vimtex_view_sioyek_options = "--reuse-window --execute-command toggle_synctex"
+  vim.g.vimtex_general_viewer = "sioyek"
+  vim.g.vimtex_view_general_options = "-r @line @pdf @tex"
+
+  vim.g.vimtex_parser_bib_backend = "lua"
 
   function Callback(msg)
     local m = vim.fn.matchlist(msg, "\\vRun number (\\d+) of rule ''(.*)''")
@@ -35,8 +66,12 @@ function M.config()
       "-file-line-error",
       "-synctex=1",
       "-interaction=nonstopmode",
-      "-pdflua",
     },
+  }
+
+  vim.g.vimtex_complete_bib = {
+    simple = 1,
+    menu_fmt = '@key @author_short (@year), "@title"',
   }
 
   vim.g.vimtex_toc_config = {
@@ -45,24 +80,13 @@ function M.config()
       label = 0,
     },
   }
-
-  vim.g.vimtex_complete_bib = {
-    simple = 0,
-    menu_fmt = '@key @author_short (@year), "@title"',
-  }
-
-  vim.api.nvim_create_autocmd("FileType", {
-    pattern = "tex",
-    callback = function()
-      vim.keymap.set("n", "<Space>tt", "<Plug>(vimtex-toc-toggle)")
-      vim.keymap.set("n", "<Space>tv", "<Plug>(vimtex-view)")
-      vim.keymap.set("n", "<Space>tc", "<Plug>(vimtex-compile)")
-      vim.keymap.set("n", "<C-F>", function()
-        vim.cmd [[:call vimtex#fzf#run('cti', {'window': { 'width': 0.6, 'height': 0.6 } })]]
-      end)
-    end,
-    desc = "VimTex key mappings",
-  })
+  vim.keymap.set("n", "<Space>tt", "<Plug>(vimtex-toc-toggle)")
+  vim.keymap.set("n", "<Space>tv", "<Plug>(vimtex-view)")
+  vim.keymap.set("n", "<Space>tc", "<Plug>(vimtex-compile)")
+  -- FZF search for content, todos and labels
+  vim.keymap.set("n", "<Space>ctl", function()
+    vim.cmd [[call vimtex#fzf#run('ctl')]]
+  end)
 
   -- Example: adding `\big` to VimTeX's delimiter toggle list
   -- shortcut: tsd

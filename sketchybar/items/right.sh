@@ -77,7 +77,7 @@ sketchybar --add item  swap right \
            --set       swap script="$PLUGIN_DIR/swap.sh" \
                             update_freq=60 \
                             padding_left=2 \
-                            padding_right=8 \
+                            padding_right=2 \
                             background.border_width=0 \
                             background.height=24 \
                             icon= \

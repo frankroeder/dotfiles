@@ -14,6 +14,7 @@ function M.config()
 
   nvim_treesitter.setup {
     ensure_installed = settings.treesitter_ensure_installed,
+    ignore_install = { "latex", "bibtex" },
     highlight = {
       enable = true,
       additional_vim_regex_highlighting = false,

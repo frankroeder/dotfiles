@@ -12,7 +12,7 @@ require("cmp").setup.buffer {
     end,
   },
   sources = {
-    { name = "omni" },
+    { name = "omni", trigger_characters = { "{", "\\" } },
     { name = "luasnip" },
     { name = "buffer", max_item_count = 5, keyword_length = 3 },
   },

@@ -7,17 +7,18 @@ non-empty-workspaces-root-containers-layout-on-startup = 'smart'
 default-root-container-layout = 'tiles'
 default-root-container-orientation = 'auto'
 
-gaps.inner.horizontal = 10
-gaps.inner.vertical = 10
-gaps.outer.left = 10
-gaps.outer.bottom = 35
-gaps.outer.top = 10
-gaps.outer.right = 10
-
 # notify Sketchybar about workspace change
 exec-on-workspace-change = ['/bin/bash', '-c',
     '/opt/homebrew/opt/sketchybar/bin/sketchybar --trigger aerospace_workspace_change FOCUSED=$AEROSPACE_FOCUSED_WORKSPACE'
 ]
+
+[gaps]
+inner.horizontal = 10
+inner.vertical = 10
+outer.left = 10
+outer.bottom = 35
+outer.top = 10
+outer.right = 10
 
 [workspace-to-monitor-force-assignment]
 0 = 'built-in'

@@ -24,8 +24,8 @@ else
 fi
 
 MUSIC_LABEL="${TITLE}  ${ARTIST}"
-MUSIC_LABEL=${MUSIC_LABEL:0:70}
-if [ ${#MUSIC_LABEL} -ge 70 ]; then
+MUSIC_LABEL=${MUSIC_LABEL:0:40}
+if [ ${#MUSIC_LABEL} -ge 40 ]; then
     MUSIC_LABEL+="..."
 fi
 sketchybar -m --set music_info icon="$ICON" \

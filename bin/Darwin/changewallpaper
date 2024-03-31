@@ -1,5 +1,15 @@
 #!/usr/bin/env osascript
 
+# @raycast.title Change Wallpaper
+# @raycast.author Frank Röder
+# @raycast.authorURL https://github.com/frankroeder
+# @raycast.description tba
+
+# @raycast.icon 🖼️
+# @raycast.mode silent
+# @raycast.packageName System
+# @raycast.schemaVersion 1
+
 tell application "System Events"
     tell current desktop
         set initInterval to get change interval

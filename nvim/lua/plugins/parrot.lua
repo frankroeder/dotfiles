@@ -23,6 +23,16 @@ function M.config()
     },
     cmd_prefix = cmd_prefix,
     chat_conceal_model_params = false,
+    agents = {
+        chat = {
+          {
+              name = "CodeLlama",
+              model = { model = "codellama", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
+              system_prompt = "Help me!",
+              provider = "ollama",
+          }
+        }
+    },
     hooks = {
       Complete = function(prt, params)
         local template = [[
