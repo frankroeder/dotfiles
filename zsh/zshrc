@@ -33,6 +33,10 @@ ZSH_AUTOSUGGEST_USE_ASYNC=true
 # Disable paste highlighting
 zle_highlight+=(paste:none)
 
+if [[ -d "$HOME/.fzf/" ]]; then
+  eval "$(fzf --zsh)"
+fi
+
 # load configs
 zsh_dots=$DOTFILES/zsh/dots
 if [[ -d "$zsh_dots" ]]; then
