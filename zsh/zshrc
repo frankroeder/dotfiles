@@ -34,6 +34,7 @@ ZSH_AUTOSUGGEST_USE_ASYNC=true
 zle_highlight+=(paste:none)
 
 if [[ -d "$HOME/.fzf/" ]]; then
+  path=($HOME/.fzf/bin $path)
   eval "$(fzf --zsh)"
 fi
 
