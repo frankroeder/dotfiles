@@ -71,7 +71,7 @@ function M.config()
         prt.logger.info("Explaining selection with agent: " .. agent.name)
         prt.Prompt(
           params,
-          prt.ui.Target.popup,
+          prt.ui.Target.new,
           nil,
           agent.model,
           template,
@@ -94,7 +94,7 @@ function M.config()
         prt.logger.info("Fixing bugs in selection with agent: " .. agent.name)
         prt.Prompt(
           params,
-          prt.ui.Target.popup,
+          prt.ui.Target.new,
           nil,
           agent.model,
           template,
@@ -117,7 +117,7 @@ function M.config()
         prt.logger.info("Optimizing selection with agent: " .. agent.name)
         prt.Prompt(
           params,
-          prt.ui.Target.popup,
+          prt.ui.Target.new,
           nil,
           agent.model,
           template,
