@@ -95,7 +95,16 @@ return {
   s({ trig = "todo", dscr = "Selection of comments" }, {
     p(get_comment_start),
     t " ",
-    c(1, { t "TODO", t "FIXME", t "NOTE", t "BUG", t "HACK", t "WARNING", t "PERF", t "XXX" }),
+    c(1, {
+      t "TODO",
+      t "FIXME",
+      t "NOTE",
+      t "BUG",
+      t "HACK",
+      t "WARNING",
+      t "PERF",
+      t "XXX",
+    }),
     t ": ",
     i(0),
     t " ",

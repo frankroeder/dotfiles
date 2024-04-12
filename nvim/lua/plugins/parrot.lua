@@ -24,14 +24,20 @@ function M.config()
     cmd_prefix = cmd_prefix,
     chat_conceal_model_params = false,
     agents = {
-        chat = {
-          {
-              name = "CodeLlama",
-              model = { model = "codellama", temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
-              system_prompt = "Help me!",
-              provider = "ollama",
-          }
-        }
+      chat = {
+        {
+          name = "CodeLlama",
+          model = {
+            model = "codellama",
+            temperature = 1.5,
+            top_p = 1,
+            num_ctx = 8192,
+            min_p = 0.05,
+          },
+          system_prompt = "Help me!",
+          provider = "ollama",
+        },
+      },
     },
     hooks = {
       Complete = function(prt, params)
@@ -58,14 +64,16 @@ function M.config()
       end,
       Explain = function(prt, params)
         local template = [[
-        Explain the following code from {{filename}}:
+        Your task is to take the code snippet from {{filename}} and explain it.
+        Break down the code's functionality, purpose, and key components.
+        The goal is to help the reader understand what the code does and how it works.
 
         ```{{filetype}}
         {{selection}}
         ```
 
-        Use the markdown format with codeblocks.
-        A brief explanation of what the code above is doing:
+        Use the markdown format with codeblocks and inline code.
+        Explanation of the code above:
         ]]
         local agent = prt.get_chat_agent()
         prt.logger.info("Explaining selection with agent: " .. agent.name)
@@ -83,6 +91,12 @@ function M.config()
         local template = [[
         You are an expert in {{filetype}}.
         Fix bugs in the below code from {{filename}} carefully and logically:
+        Your task is to analyze the provided {{filetype}} code snippet, identify
+        any bugs or errors present, and provide a corrected version of the code
+        that resolves these issues. Explain the problems you found in the
+        original code and how your fixes address them. The corrected code should
+        be functional, efficient, and adhere to best practices in
+        {{filetype}} programming.
 
         ```{{filetype}}
         {{selection}}
@@ -105,7 +119,13 @@ function M.config()
       Optimize = function(prt, params)
         local template = [[
         You are an expert in {{filetype}}.
-        Optimize the following code from {{filename}}:
+        Your task is to analyze the provided {{filetype}} code snippet and
+        suggest improvements to optimize its performance. Identify areas
+        where the code can be made more efficient, faster, or less
+        resource-intensive. Provide specific suggestions for optimization,
+        along with explanations of how these changes can enhance the code's
+        performance. The optimized code should maintain the same functionality
+        as the original code while demonstrating improved efficiency.
 
         ```{{filetype}}
         {{selection}}

@@ -136,7 +136,7 @@ autocmd({ "BufWinEnter", "FileType" }, {
       if window_last_line == buff_last_line then
         -- Set line to last line edited
         vim.cmd [[normal! g`"]]
-        -- Try to center
+      -- Try to center
       elseif buff_last_line - last_line > ((window_last_line - window_first_line) / 2) - 1 then
         vim.cmd [[normal! g`"zz]]
       else
