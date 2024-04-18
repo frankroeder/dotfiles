@@ -7,7 +7,7 @@ vim.keymap.set("i", "<C-S>", [[<C-G>u<Esc>[s1z=`]a<C-G>u]])
 -- Toggle between languages
 local function toggle_spell()
   if vim.o.spell then
-    if vim.bo.spelllang == "en" then
+    if vim.bo.spelllang == "en_us" then
       vim.bo.spelllang = "de"
     elseif vim.bo.spelllang == "de" then
       vim.o.spell = false
@@ -15,7 +15,7 @@ local function toggle_spell()
     end
   else
     vim.o.spell = true
-    vim.bo.spelllang = "en"
+    vim.bo.spelllang = "en_us"
   end
   print(string.format("spell checking language: %s", vim.bo.spelllang))
 end

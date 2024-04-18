@@ -1,0 +1,16 @@
+#!/usr/bin/env zsh
+# open localhost on given port
+
+# @raycast.title Localhost
+# @raycast.mode silent
+# @raycast.schemaVersion 1
+# @raycast.argument1 { "type": "text", "placeholder": "port"}
+
+if [[ -z "$1" ]]; then
+  echo "Please specify a port."
+  exit 1
+fi
+
+location="http://localhost:${1}"
+open $location
+echo "Opening $location"

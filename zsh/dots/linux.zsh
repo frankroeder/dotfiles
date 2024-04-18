@@ -16,7 +16,7 @@ realusers(){
 alias datehelp='for F in {a..z} {A..Z} :z ::z :::z;do echo $F: $(date +%$F);done|sed "/:[\ \t\n]*$/d;/%[a-zA-Z]/d"'
 alias swaptop='whatswap | egrep -v "Swap used: 0" |sort -n -k 10'
 if [ $commands[smem] ]; then
-	alias swaphogs='smem --sort swap --reverse --autosize'
+	alias swaphogs='smem --totals --autosize --abbreviate'
 fi
 
 if [ $commands[nvidia-smi] ]; then

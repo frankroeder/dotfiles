@@ -26,8 +26,14 @@ alias flushdns='sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder; s
 # Clean up LaunchServices to remove duplicates in the "Open With" menu
 alias rmls="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -kill -r -domain local -domain system -domain user && killall Finder"
 
-# Merge PDF files, Usage: `mergepdf -o output.pdf input{1,2,3}.pdf`
-alias mergepdf='/System/Library/Automator/Combine\ PDF\ Pages.action/Contents/Resources/join.py'
+mergepdf(){
+	if [ $# -eq 0 ]; then
+  	echo "# Merge PDF files, Usage: \`mergepdf -o output.pdf input{1,2,3}.pdf\`"
+  	return
+	fi
+	"/System/Library/Automator/Combine PDF Pages.action/Contents/MacOS/join" $@
+}
+
 
 alias displays="system_profiler SPDisplaysDataType"
 alias cpuinfo="sysctl -n machdep.cpu.brand_string"
