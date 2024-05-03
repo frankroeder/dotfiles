@@ -26,7 +26,7 @@ local options = {
   splitright = true, -- Vertical split right
   joinspaces = false, -- Use one space after punctuation
   -- indentation
-  preserveindent = true, -- preserve indent structure as much as possible
+  copyindent = true,
   smartindent = true,
   autoindent = true,
   smartindent = true,

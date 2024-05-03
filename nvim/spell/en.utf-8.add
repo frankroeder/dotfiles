@@ -145,3 +145,10 @@ sigmoid
 ReLU
 tanh
 foundational
+datasets
+dimensionality
+nonlinearity
+logits
+softmax
+minima
+iteratively

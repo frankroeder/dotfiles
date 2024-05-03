@@ -1,4 +1,3 @@
-indent-for-nested-containers-with-the-same-orientation = 30
 start-at-login = true
 enable-normalization-flatten-containers = true
 enable-normalization-opposite-orientation-for-nested-containers = true

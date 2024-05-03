@@ -3,6 +3,7 @@ local M = {
   event = "VeryLazy",
   dependencies = { "fzf-lua" },
   dev = true,
+  lazy = false,
   cond = os.getenv "OPENAI_API_KEY" ~= nil or os.getenv "PERPLEXITY_API_KEY" ~= nil,
 }
 
@@ -305,13 +306,13 @@ function M.keys()
       kmprfx .. "n",
       "<cmd>" .. cmd_prefix .. "Agent<cr>",
       mode = { "n" },
-      kmopts "Select agent or show info",
+      kmopts "Select agent",
     },
     {
       kmprfx .. "p",
       "<cmd>" .. cmd_prefix .. "Provider<cr>",
       mode = { "n" },
-      kmopts "Select provider or show info",
+      kmopts "Select provider",
     },
     {
       kmprfx .. "q",
