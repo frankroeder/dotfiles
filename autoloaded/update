@@ -70,7 +70,7 @@ neovim_plug_update() {
   if [[ -d "$HOME/.fzf/" ]]; then
     (cd $HOME/.fzf && git pull && ./install --bin)
   fi
-  nvim -E "+Lazy sync" +TSUpdateSync +qall!;
+  nvim --headless "+Lazy! sync" +TSUpdateSync +qa;
 }
 
 mas_update() {

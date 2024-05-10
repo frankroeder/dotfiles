@@ -8,9 +8,13 @@ if [ "${#TRASH[@]}" -gt 0 ]; then
   done;
 fi
 
+pip cache purge;
+conda clean --all -y;
+
 if [ "$OSTYPE" = "Darwin" ]; then
   # remove the homewbrew cache
   rm -rf "$(brew --cache)";
+
 
   # empty the trashes on all mounted volumes
   local VOL_TRASH="/Volumes/*/.Trashes"
