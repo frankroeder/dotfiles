@@ -91,6 +91,14 @@ run = ['move-node-to-workspace M']
 if.app-id = 'com.apple.QuickTimePlayerX'
 run = ['move-node-to-workspace M']
 
+# move to (i)llustrator workspace
+[[on-window-detected]]
+if.app-id = 'com.jgraph.drawio.desktop'
+run = ['move-node-to-workspace I']
+[[on-window-detected]]
+if.app-id = 'org.inkscape.Inkscape'
+run = ['move-node-to-workspace I']
+
 [mode.main.binding]
 alt-period = 'layout tiles horizontal vertical'
 alt-comma = 'layout accordion horizontal vertical'

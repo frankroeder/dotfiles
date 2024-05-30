@@ -1,0 +1,8 @@
+#!/bin/bash
+# Troubleshooting iCloud drive according to this nice blog post
+# https://tidbits.com/2023/10/12/cloudy-with-a-chance-of-insanity-unsticking-icloud-drive/
+
+killall bird;
+killall cloudd;
+
+sudo renice -10 -p $(pgrep bird);

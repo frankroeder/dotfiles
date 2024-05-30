@@ -32,7 +32,6 @@ brew "aerospace"
 brew "skhd", args: ["with-logging"]
 brew "sketchybar", args:  ["HEAD"], restart_service: :changed
 brew "borders", restart_service: :changed
-brew "svim", restart_service: :changed
 
 cask "raycast"
 cask "alacritty"
