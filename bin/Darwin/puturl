@@ -1,6 +1,10 @@
 #!/usr/bin/env osascript
 # Return url of selected tab in Orion
 
+# @raycast.title Put URL
+# @raycast.mode compact
+# @raycast.schemaVersion 1
+
 tell application id "com.kagi.kagimacOS.RC"
   set theTab to current tab of first window
   set vURL to URL of theTab

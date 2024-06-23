@@ -43,7 +43,7 @@ payload = {
             ],
         }
     ],
-    "max_tokens": 300,
+    "max_tokens": 2048,
 }
 
 response = requests.post(

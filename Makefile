@@ -267,6 +267,7 @@ ifeq ($(OSTYPE), Darwin)
 	rm $(HOME)/.config/skhd
 	rm $(HOME)/.config/sketchybar
 	rm $(HOME)/.config/sioyek
+	sudo battery uninstall
 endif
 
 .PHONY: test

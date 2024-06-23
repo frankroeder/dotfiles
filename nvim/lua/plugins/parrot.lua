@@ -1,7 +1,7 @@
 local M = {
   "frankroeder/parrot.nvim",
   event = "VeryLazy",
-  dependencies = { "fzf-lua" },
+  dependencies = { 'ibhagwan/fzf-lua', 'nvim-lua/plenary.nvim' },
   dev = true,
   lazy = false,
   cond = os.getenv "OPENAI_API_KEY" ~= nil or os.getenv "PERPLEXITY_API_KEY" ~= nil,
@@ -24,6 +24,7 @@ function M.config()
     },
     cmd_prefix = cmd_prefix,
     chat_conceal_model_params = false,
+    user_input_ui = "custom",
     agents = {
       chat = {
         {
