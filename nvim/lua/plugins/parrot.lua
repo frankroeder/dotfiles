@@ -1,7 +1,7 @@
 local M = {
   "frankroeder/parrot.nvim",
   event = "VeryLazy",
-  dependencies = { 'ibhagwan/fzf-lua', 'nvim-lua/plenary.nvim' },
+  dependencies = { "ibhagwan/fzf-lua", "nvim-lua/plenary.nvim" },
   dev = true,
   lazy = false,
   cond = os.getenv "OPENAI_API_KEY" ~= nil or os.getenv "PERPLEXITY_API_KEY" ~= nil,
@@ -25,6 +25,7 @@ function M.config()
     cmd_prefix = cmd_prefix,
     chat_conceal_model_params = false,
     user_input_ui = "custom",
+    toggle_target = "tabnew",
     agents = {
       chat = {
         {
@@ -46,6 +47,33 @@ function M.config()
         local template = [[
         I have the following code from {{filename}}:
 
+        ```{{filetype}}
+        {{selection}}
+        ```
+
+        Please finish the code above carefully and logically.
+        Respond just with the snippet of code that should be inserted."
+        ]]
+        local agent = prt.get_command_agent()
+        prt.Prompt(
+          params,
+          prt.ui.Target.append,
+          nil,
+          agent.model,
+          template,
+          agent.system_prompt,
+          agent.provider
+        )
+      end,
+      CompleteFullContext = function(prt, params)
+        local template = [[
+        I have the following code from {{filename}}:
+
+				```{{filetype}}
+				{{filecontent}}
+				```
+
+				Please look at the following section specifically:
         ```{{filetype}}
         {{selection}}
         ```
@@ -227,7 +255,7 @@ function M.keys()
     },
     {
       kmprfx .. "t",
-      "<cmd>" .. cmd_prefix .. "ChatToggle tabnew<cr>",
+      "<cmd>" .. cmd_prefix .. "ChatToggle<cr>",
       mode = { "n", "i" },
       kmopts "Toggle Popup Chat",
     },
