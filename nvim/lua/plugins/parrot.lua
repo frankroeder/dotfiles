@@ -21,6 +21,9 @@ function M.config()
       anthropic = {
         api_key = { "/usr/bin/security", "find-generic-password", "-s anthropic-api-key", "-w" },
       },
+      mistral = {
+        api_key = os.getenv "MISTRAL_API_KEY",
+      },
     },
     cmd_prefix = cmd_prefix,
     chat_conceal_model_params = false,
@@ -67,10 +70,10 @@ function M.config()
       end,
       CompleteFullContext = function(prt, params)
         local template = [[
-        I have the following code from {{filename}}:
+        I have the following code from {{filename}} and other realted files:
 
 				```{{filetype}}
-				{{filecontent}}
+				{{multifilecontent}}
 				```
 
 				Please look at the following section specifically:
@@ -94,7 +97,7 @@ function M.config()
       end,
       Explain = function(prt, params)
         local template = [[
-        Your task is to take the code snippet from {{filename}} and explain it.
+        Your task is to take the code snippet from {{filename}} and explain it with gradually increasing complexity.
         Break down the code's functionality, purpose, and key components.
         The goal is to help the reader understand what the code does and how it works.
 
@@ -196,18 +199,6 @@ function M.config()
           agent.system_prompt,
           agent.provider
         )
-      end,
-      ProofReader = function(prt, params)
-        local chat_system_prompt = [[
-        I want you to act as a proofreader. I will provide you with texts and
-        I would like you to review them for any spelling, grammar, or
-        punctuation errors. Once you have finished reviewing the text,
-        provide me with any necessary corrections or suggestions to improve the
-        text. Highlight the corrections with markdown bold or italics style.
-        ]]
-        local agent = prt.get_chat_agent()
-        prt.logger.info("Proofreading selection with agent: " .. agent.name)
-        prt.cmd.ChatNew(params, agent.model, chat_system_prompt)
       end,
       Debug = function(prt, params)
         local template = [[
