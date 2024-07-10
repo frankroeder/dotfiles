@@ -12,18 +12,22 @@ local cmd_prefix = "Prt"
 function M.config()
   require("parrot").setup {
     providers = {
-      pplx = {
-        api_key = { "/usr/bin/security", "find-generic-password", "-s perplexity-api-key", "-w" },
-      },
       openai = {
         api_key = { "/usr/bin/security", "find-generic-password", "-s openai-api-key", "-w" },
       },
       anthropic = {
         api_key = { "/usr/bin/security", "find-generic-password", "-s anthropic-api-key", "-w" },
       },
-      mistral = {
-        api_key = os.getenv "MISTRAL_API_KEY",
+      ollama = {},
+      gemini = {
+        api_key = os.getenv "GEMINI_API_KEY",
       },
+      -- pplx = {
+      --   api_key = { "/usr/bin/security", "find-generic-password", "-s perplexity-api-key", "-w" },
+      -- },
+      -- mistral = {
+      --   api_key = os.getenv "MISTRAL_API_KEY",
+      -- },
     },
     cmd_prefix = cmd_prefix,
     chat_conceal_model_params = false,
@@ -222,6 +226,35 @@ function M.config()
           agent.system_prompt,
           agent.provider
         )
+      end,
+      CommitMsg = function(prt, params)
+        local futils = require "parrot.file_utils"
+        if futils.find_git_root() == "" then
+          prt.logger.warning "Not in a git repository"
+          return
+        else
+          local template = [[
+					I want you to act as a commit message generator. I will provide you
+					with information about the task and the prefix for the task code, and
+					I would like you to generate an appropriate commit message using the
+					conventional commit format. Do not write any explanations or other
+					words, just reply with the commit message.
+					Start with a short headline as summary but then list the individual
+					changes in more detail.
+
+					Here are the changes that should be considered by this message:
+					]] .. vim.fn.system "git diff --no-color --no-ext-diff --staged"
+          local agent = prt.get_command_agent()
+          prt.Prompt(
+            params,
+            prt.ui.Target.append,
+            nil,
+            agent.model,
+            template,
+            agent.system_prompt,
+            agent.provider
+          )
+        end
       end,
     },
   }
