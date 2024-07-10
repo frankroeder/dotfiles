@@ -8,10 +8,13 @@ M.treesitter_ensure_installed = {
   "bash",
   "c",
   "cmake",
+  -- NOTE: this should be slowing down TS? --
   "comment", -- for tags like TODO, FIXME, NOTE, BUG, HACK, XXX
   "cpp",
   "css",
   "dockerfile",
+  "gitcommit",
+  "gitignore",
   "go",
   "gomod",
   "html",
@@ -23,6 +26,7 @@ M.treesitter_ensure_installed = {
   "python",
   "r",
   "swift",
+  "svelte",
   "toml",
   "typescript",
   "vim",

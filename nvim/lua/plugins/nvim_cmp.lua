@@ -191,6 +191,8 @@ function M.config()
       end
     end),
   }
+  npairs.get_rules("`")[1].not_filetypes = { "tex", "latex" }
+  npairs.get_rules("'")[1].not_filetypes = { "tex", "latex" }
 
   local cmp_autopair_status_ok, cmp_autopairs = pcall(require, "nvim-autopairs.completion.cmp")
   if not cmp_autopair_status_ok then

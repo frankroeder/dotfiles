@@ -1,6 +1,5 @@
 local M = {
   "plasticboy/vim-markdown",
-  dependencies = { "godlygeek/tabular" },
 }
 
 function M.config()

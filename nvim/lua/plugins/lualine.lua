@@ -36,6 +36,14 @@ function M.config()
     end,
   }
 
+  local function spell()
+    if vim.opt_local.spell:get() then
+      local lang = vim.opt_local.spelllang:get()[1]
+      return ("[%s]"):format(lang)
+    end
+    return ""
+  end
+
   local lazy_plugin_status = {
     require("lazy.status").updates,
     cond = require("lazy.status").has_updates,
@@ -49,6 +57,7 @@ function M.config()
       disabled_filetypes = { "help", "Outline" },
     },
     sections = {
+      lualine_c = { "filename", spell },
       lualine_x = {
         "aerial",
         vimtex_compile_status,
@@ -56,7 +65,7 @@ function M.config()
         lazy_plugin_status,
       },
     },
-    extensions = { "neo-tree", "fzf", "lazy" },
+    extensions = { "neo-tree", "fzf", "lazy", "oil", "aerial", "mason", "man" },
   }
 end
 
