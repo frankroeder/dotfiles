@@ -13,7 +13,7 @@ M.treesitter_ensure_installed = {
   "cpp",
   "css",
   "dockerfile",
-  "gitcommit",
+  -- "gitcommit",
   "gitignore",
   "go",
   "gomod",

@@ -1,7 +1,7 @@
 local M = {
   "frankroeder/parrot.nvim",
   event = "VeryLazy",
-  dependencies = { "ibhagwan/fzf-lua", "nvim-lua/plenary.nvim" },
+  dependencies = { "ibhagwan/fzf-lua", "nvim-lua/plenary.nvim", "rcarriga/nvim-notify" },
   dev = true,
   lazy = false,
   cond = os.getenv "OPENAI_API_KEY" ~= nil or os.getenv "PERPLEXITY_API_KEY" ~= nil,
@@ -10,6 +10,11 @@ local M = {
 local cmd_prefix = "Prt"
 
 function M.config()
+  require("notify").setup {
+    background_colour = "#000000",
+    render = "compact",
+    top_down = true,
+  }
   require("parrot").setup {
     providers = {
       openai = {
@@ -26,7 +31,7 @@ function M.config()
       --   api_key = { "/usr/bin/security", "find-generic-password", "-s perplexity-api-key", "-w" },
       -- },
       -- mistral = {
-      --   api_key = os.getenv "MISTRAL_API_KEY",
+      --   api_key = os.getenv "MISTRAL_API_KEY" .. "dasdas",
       -- },
     },
     cmd_prefix = cmd_prefix,

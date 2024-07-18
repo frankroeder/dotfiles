@@ -3,7 +3,7 @@ require "keymaps"
 require "plugin_manager"
 require "autocommands"
 
-local local_vimrc = os.getenv "HOME" .. "/.local.vim"
-if vim.fn.filereadable(local_vimrc) then
-  vim.cmd("source " .. local_vimrc)
+local localnvim = os.getenv "HOME" .. "/.localnvim.lua"
+if vim.fn.filereadable(localnvim) then
+  vim.cmd("source " .. localnvim)
 end

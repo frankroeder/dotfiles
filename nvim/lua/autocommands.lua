@@ -3,6 +3,13 @@ local table_find_element = require("utils").table_find_element
 local augroup = vim.api.nvim_create_augroup
 local autocmd = vim.api.nvim_create_autocmd
 
+-- Disable undo file creation for specific files or patterns
+autocmd("BufWritePre", {
+  group = group,
+  pattern = { "/tmp/*", "COMMIT_EDITMSG", "MERGE_MSG", "*.tmp", "*.bak" },
+  command = "setlocal noundofile",
+})
+
 autocmd("TextYankPost", {
   callback = function()
     vim.highlight.on_yank {

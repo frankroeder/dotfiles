@@ -16,7 +16,7 @@ alias vimrc="$EDITOR $HOME/.dotfiles/nvim/{init.vim,plugin/*,lua/*}"
 alias localrc="$EDITOR $HOME/.local.zsh"
 alias localgit="$EDITOR $HOME/.local.gitconfig"
 alias localtmux="$EDITOR $HOME/.local.tmux"
-alias localvim="$EDITOR $HOME/.local.vim"
+alias localnvim="$EDITOR $HOME/.localnvim.lua"
 
 alias hogs="ps wwaxr -o pid,stat,%cpu,time,command | awk 'NR<=10'"
 alias mails="$EDITOR /var/mail/$USER"

@@ -20,7 +20,7 @@ The following list of files could be created and used to define local configurat
 - `~/.local.gitconfig`
 - `~/.local.zsh`
 - `~/.local.tmux`
-- `~/.local.vim`
+- `~/.localnvim.lua`
 
 ## References
 
