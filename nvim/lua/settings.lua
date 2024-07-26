@@ -6,14 +6,14 @@ M.theme = "catppuccin"
 -- one of "all", "maintained" (parsers with maintainers), or a list of languages
 M.treesitter_ensure_installed = {
   "bash",
+  "bibtex",
   "c",
   "cmake",
-  -- NOTE: this should be slowing down TS? --
-  "comment", -- for tags like TODO, FIXME, NOTE, BUG, HACK, XXX
+  -- "comment", -- for tags like TODO, FIXME, NOTE, BUG, HACK, XXX -- see #5057
   "cpp",
   "css",
+  "csv",
   "dockerfile",
-  -- "gitcommit",
   "gitignore",
   "go",
   "gomod",
@@ -23,6 +23,8 @@ M.treesitter_ensure_installed = {
   "latex",
   "lua",
   "make",
+  "markdown",
+  "markdown_inline",
   "python",
   "r",
   "swift",

@@ -71,6 +71,7 @@ neovim_plug_update() {
     (cd $HOME/.fzf && git pull && ./install --bin)
   fi
   nvim --headless "+Lazy! sync" +TSUpdateSync +qa;
+  nvim --headless foo "+MasonUpdate" +qa;
 }
 
 mas_update() {

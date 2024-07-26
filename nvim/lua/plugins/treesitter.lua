@@ -13,15 +13,14 @@ function M.config()
 
   nvim_treesitter.setup {
     ensure_installed = settings.treesitter_ensure_installed,
-    ignore_install = { "latex", "bibtex" },
     highlight = {
       enable = true,
       additional_vim_regex_highlighting = false,
-      disable = { "latex", "bibtex", "markdown", "help" },
+      disable = { "latex" },
     },
     indent = {
       enable = true,
-      disable = { "python" }, -- still unstable
+      -- disable = { "python" }, -- still unstable
     },
     incremental_selection = {
       enable = true,

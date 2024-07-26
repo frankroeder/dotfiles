@@ -15,6 +15,7 @@ function M.config()
     render = "compact",
     top_down = true,
   }
+
   require("parrot").setup {
     providers = {
       openai = {

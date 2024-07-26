@@ -7,8 +7,6 @@ return {
   cmd = {
     "typescript-language-server",
     "--stdio",
-    "--tsserver-log-file",
-    "/tmp/ts.log",
   },
   filetypes = {
     "javascript",
