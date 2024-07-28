@@ -68,15 +68,7 @@ function M.config()
         Respond just with the snippet of code that should be inserted."
         ]]
         local agent = prt.get_command_agent()
-        prt.Prompt(
-          params,
-          prt.ui.Target.append,
-          nil,
-          agent.model,
-          template,
-          agent.system_prompt,
-          agent.provider
-        )
+        prt.Prompt(params, prt.ui.Target.append, agent, nil, template)
       end,
       CompleteFullContext = function(prt, params)
         local template = [[
@@ -95,15 +87,7 @@ function M.config()
         Respond just with the snippet of code that should be inserted."
         ]]
         local agent = prt.get_command_agent()
-        prt.Prompt(
-          params,
-          prt.ui.Target.append,
-          nil,
-          agent.model,
-          template,
-          agent.system_prompt,
-          agent.provider
-        )
+        prt.Prompt(params, prt.ui.Target.append, agent, nil, template)
       end,
       Explain = function(prt, params)
         local template = [[
@@ -120,15 +104,7 @@ function M.config()
         ]]
         local agent = prt.get_chat_agent()
         prt.logger.info("Explaining selection with agent: " .. agent.name)
-        prt.Prompt(
-          params,
-          prt.ui.Target.new,
-          nil,
-          agent.model,
-          template,
-          agent.system_prompt,
-          agent.provider
-        )
+        prt.Prompt(params, prt.ui.Target.new, agent, nil, template)
       end,
       FixBugs = function(prt, params)
         local template = [[
@@ -149,15 +125,7 @@ function M.config()
         ]]
         local agent = prt.get_command_agent()
         prt.logger.info("Fixing bugs in selection with agent: " .. agent.name)
-        prt.Prompt(
-          params,
-          prt.ui.Target.new,
-          nil,
-          agent.model,
-          template,
-          agent.system_prompt,
-          agent.provider
-        )
+        prt.Prompt(params, prt.ui.Target.new, agent, nil, template)
       end,
       Optimize = function(prt, params)
         local template = [[
@@ -178,15 +146,7 @@ function M.config()
         ]]
         local agent = prt.get_command_agent()
         prt.logger.info("Optimizing selection with agent: " .. agent.name)
-        prt.Prompt(
-          params,
-          prt.ui.Target.new,
-          nil,
-          agent.model,
-          template,
-          agent.system_prompt,
-          agent.provider
-        )
+        prt.Prompt(params, prt.ui.Target.new, agent, nil, template)
       end,
       UnitTests = function(prt, params)
         local template = [[
@@ -200,15 +160,7 @@ function M.config()
         ]]
         local agent = prt.get_command_agent()
         prt.logger.info("Creating unit tests for selection with agent: " .. agent.name)
-        prt.Prompt(
-          params,
-          prt.ui.Target.enew,
-          nil,
-          agent.model,
-          template,
-          agent.system_prompt,
-          agent.provider
-        )
+        prt.Prompt(params, prt.ui.Target.enew, agent, nil, template)
       end,
       Debug = function(prt, params)
         local template = [[
@@ -223,15 +175,7 @@ function M.config()
         ]]
         local agent = prt.get_chat_agent()
         prt.logger.info("Debugging selection with agent: " .. agent.name)
-        prt.Prompt(
-          params,
-          prt.ui.Target.enew,
-          nil,
-          agent.model,
-          template,
-          agent.system_prompt,
-          agent.provider
-        )
+        prt.Prompt(params, prt.ui.Target.enew, agent, nil, template)
       end,
       CommitMsg = function(prt, params)
         local futils = require "parrot.file_utils"
@@ -251,16 +195,64 @@ function M.config()
 					Here are the changes that should be considered by this message:
 					]] .. vim.fn.system "git diff --no-color --no-ext-diff --staged"
           local agent = prt.get_command_agent()
-          prt.Prompt(
-            params,
-            prt.ui.Target.append,
-            nil,
-            agent.model,
-            template,
-            agent.system_prompt,
-            agent.provider
-          )
+          prt.Prompt(params, prt.ui.Target.append, agent, nil, template)
         end
+      end,
+      SpellCheck = function(prt, params)
+        local chat_prompt = [[
+				Your task is to take the text provided and rewrite it into a clear,
+				grammatically correct version while preserving the original meaning
+				as closely as possible. Correct any spelling mistakes, punctuation
+				errors, verb tense issues, word choice problems, and other
+				grammatical mistakes.
+				]]
+        prt.cmd.ChatNew(params, chat_prompt)
+      end,
+      CodeConsultant = function(prt, params)
+        local chat_prompt = [[
+          Your task is to analyze the provided {{filetype}} code and suggest
+          improvements to optimize its performance. Identify areas where the
+          code can be made more efficient, faster, or less resource-intensive.
+          Provide specific suggestions for optimization, along with explanations
+          of how these changes can enhance the code's performance. The optimized
+          code should maintain the same functionality as the original code while
+          demonstrating improved efficiency.
+
+          Here is the code
+          ```{{filetype}}
+          {{filecontent}}
+          ```
+				]]
+        prt.cmd.ChatNew(params, chat_prompt)
+      end,
+      ProofReader = function(prt, params)
+        local chat_prompt = [[
+				I want you to act as a proofreader. I will provide you with texts and
+				I would like you to review them for any spelling, grammar, or
+				punctuation errors. Once you have finished reviewing the text,
+				provide me with any necessary corrections or suggestions to improve the
+				text. Highlight the corrected fragments (if any) using markdown backticks.
+
+				When you have done that subsequently provide me with a slightly better
+				version of the text, but keep close to the original text.
+
+				Finally provide me with an ideal version of the text.
+
+				Whenever I provide you with text, you reply in this format directly:
+
+				## Corrected text:
+
+				{corrected text, or say "NO_CORRECTIONS_NEEDED" instead if there are no corrections made}
+
+				## Slightly better text
+
+				{slightly better text}
+
+				## Ideal text
+
+				{ideal text}
+				]]
+        prt.cmd.ChatNew(params, chat_prompt)
       end,
     },
   }
