@@ -5,7 +5,6 @@ local M = {
     "lewis6991/gitsigns.nvim",
     "nvim-tree/nvim-web-devicons",
   },
-  version = "^1.8.0",
   init = function()
     vim.g.barbar_auto_setup = false
   end,
