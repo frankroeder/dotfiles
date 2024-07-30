@@ -1,18 +1,13 @@
 local is_git_repo = require("utils").is_git_repo
 
-local M = {
+return {
   "lewis6991/gitsigns.nvim",
   dependencies = { "nvim-lua/plenary.nvim" },
   event = { "BufReadPre", "BufNewFile" },
   cond = function()
     return is_git_repo()
   end,
-}
-
-function M.config()
-  local gs = require "gitsigns"
-
-  gs.setup {
+  opts = {
     signs = {
       add = { text = "+" },
       change = { text = "~" },
@@ -22,6 +17,7 @@ function M.config()
       untracked = { text = "┆" },
     },
     on_attach = function(bufnr)
+      local gs = require "gitsigns"
       local function map(mode, l, r, opts)
         opts = opts or {}
         opts.buffer = bufnr
@@ -71,7 +67,5 @@ function M.config()
       map("n", "<Leader>gtd", gs.toggle_deleted)
       map("n", "<Leader>gtb", gs.toggle_current_line_blame)
     end,
-  }
-end
-
-return M
+  },
+}

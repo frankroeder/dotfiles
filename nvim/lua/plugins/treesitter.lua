@@ -1,18 +1,14 @@
-local M = {
+return {
   "nvim-treesitter/nvim-treesitter",
   build = ":TSUpdate",
   event = { "BufReadPost", "BufNewFile" },
-}
-
-function M.config()
-  local status_ok, nvim_treesitter = pcall(require, "nvim-treesitter.configs")
-  if not status_ok then
-    return
-  end
-  local settings = require "settings"
-
-  nvim_treesitter.setup {
-    ensure_installed = settings.treesitter_ensure_installed,
+  cmd = { "TSUpdateSync", "TSUpdate", "TSInstall" },
+  keys = {
+    { "<C-Space>", desc = "Increment Selection" },
+    { "<BS>", desc = "Decrement Selection", mode = "x" },
+  },
+  opts = {
+    ensure_installed = require("settings").treesitter_ensure_installed,
     highlight = {
       enable = true,
       additional_vim_regex_highlighting = false,
@@ -26,13 +22,11 @@ function M.config()
       enable = true,
       keymaps = {
         -- mappings for incremental selection (visual mappings)
-        init_selection = "gnn", -- maps in normal mode to init the node/scope selection
-        node_incremental = "grn", -- increment to the upper named parent
-        scope_incremental = "grc", -- increment to the upper scope (as defined in locals.scm)
-        node_decremental = "grm", -- decrement to the previous node
+        init_selection = "<C-Space>", -- maps in normal mode to init the node/scope selection
+        node_incremental = "<C-Space>", -- increment to the upper named parent
+        scope_incremental = false, -- increment to the upper scope (as defined in locals.scm)
+        node_decremental = "<BS>", -- decrement to the previous node
       },
     },
-  }
-end
-
-return M
+  },
+}

@@ -34,7 +34,6 @@ autocmd({ "BufLeave", "FocusLost", "InsertEnter" }, {
   desc = "Show a colored column for the 80 character boundary.",
 })
 
--- TODO: Merge with the autocmd below --
 autocmd("FileChangedShellPost", {
   pattern = "*",
   command = [[echohl WarningMsg | echo "File changed on disk. Buffer reloaded." | echohl None]],
@@ -44,7 +43,11 @@ autocmd("FileChangedShellPost", {
 autocmd({ "FocusGained", "BufEnter", "CursorHold", "CursorHoldI" }, {
   group = augroup("check_time", { clear = true }),
   pattern = "*",
-  command = [[if mode() != 'c' | checktime | endif]],
+  callback = function()
+    if vim.o.buftype ~= "nofile" then
+      vim.cmd "checktime"
+    end
+  end,
   desc = "Automatically read file changes.",
 })
 
@@ -82,7 +85,11 @@ autocmd("BufWritePre", {
 autocmd("VimResized", {
   group = augroup("window_resized", { clear = true }),
   pattern = "*",
-  command = "wincmd =",
+  callback = function()
+    local current_tab = vim.fn.tabpagenr()
+    vim.cmd "tabdo wincmd ="
+    vim.cmd("tabnext " .. current_tab)
+  end,
   desc = "Automatically resize windows when the host window size changes.",
 })
 autocmd({ "FileType" }, {

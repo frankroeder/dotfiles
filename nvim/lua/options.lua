@@ -7,6 +7,7 @@ local options = {
   history = 200, -- 200 lines command history
   binary = true, -- Enable binary support
   wrap = false, -- Don't wrap long lines
+  linebreak = true, -- wrap lines at convenient points
   breakindent = true, -- wrap indent to match  line start
   scrolloff = 3, -- Keep at least 3 lines above/below
   sidescrolloff = 5, -- Show next 5 columns when scrolling sideways
@@ -26,9 +27,9 @@ local options = {
   splitright = true, -- Vertical split right
   joinspaces = false, -- Use one space after punctuation
   -- indentation
-  copyindent = true,
-  smartindent = true,
-  autoindent = true,
+  -- copyindent = true,
+  -- smartindent = true,
+  -- autoindent = true,
   smartindent = true,
 
   shiftwidth = 2, -- Preview tabs as 2 spaces
@@ -48,6 +49,11 @@ local options = {
   swapfile = false,
   backup = false,
   writebackup = false,
+
+  pumblend = 10, -- Popup blend
+  pumheight = 10, -- Maximum number of entries in a popup
+  list = true,
+  laststatus = 3, -- global statusline
 }
 
 for k, v in pairs(options) do

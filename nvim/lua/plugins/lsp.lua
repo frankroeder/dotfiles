@@ -63,7 +63,6 @@ function M.config()
     "elixirls",
     -- "gopls",
     "html",
-    "lua_ls",
     "pyright",
     -- "pylyzer",
     "svelte",

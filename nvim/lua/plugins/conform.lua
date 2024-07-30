@@ -1,11 +1,13 @@
-local M = {
+return {
   "stevearc/conform.nvim",
-  event = "BufEnter",
-}
-M.config = function()
-  local conform = require "conform"
-  conform.formatters.jq = { args = { "--indent", "4" } }
-  conform.setup {
+  event = { "BufWritePre" },
+  cmd = { "ConformInfo" },
+  opts = {
+    formatters = {
+      jq = {
+        args = { "--indent", "4" },
+      },
+    },
     formatters_by_ft = {
       c = { "clang-tidy", "clang-format" },
       cpp = { "clang-tidy", "clang-format" },
@@ -14,12 +16,8 @@ M.config = function()
       python = { "isort", "ruff" },
       json = { "jq" },
     },
-  }
-  vim.o.formatexpr = "v:lua.require'conform'.formatexpr()"
-end
-
-M.keys = function()
-  return {
+  },
+  keys = {
     {
       "<Space>cf",
       function()
@@ -28,7 +26,8 @@ M.keys = function()
       mode = { "n", "v" },
       desc = "[c]ode [f]ormat",
     },
-  }
-end
-
-return M
+  },
+  init = function()
+    vim.o.formatexpr = "v:lua.require'conform'.formatexpr()"
+  end,
+}

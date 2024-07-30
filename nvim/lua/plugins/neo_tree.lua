@@ -1,4 +1,4 @@
-local M = {
+return {
   "nvim-neo-tree/neo-tree.nvim",
   branch = "v3.x",
   dependencies = {
@@ -6,19 +6,7 @@ local M = {
     "nvim-tree/nvim-web-devicons",
     "MunifTanjim/nui.nvim",
   },
-}
-
-function M.init()
-  vim.keymap.set("n", "<Leader>n", ":Neotree toggle reveal<CR>")
-end
-
-function M.config()
-  local status_ok, neo_tree = pcall(require, "neo-tree")
-  if not status_ok then
-    return
-  end
-
-  neo_tree.setup {
+  opts = {
     close_if_last_window = true,
     enable_diagnostics = false,
     filesystem = {
@@ -39,7 +27,8 @@ function M.config()
         },
       },
     },
-  }
-end
-
-return M
+  },
+  keys = {
+    { [[<Leader>n]], ":Neotree toggle reveal<CR>", desc = "Toggle Neotree" },
+  },
+}

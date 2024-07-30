@@ -1,31 +1,78 @@
-local settings = require "settings"
-
-if settings.theme == "onedark" then
-  return {
-    "joshdick/onedark.vim",
-    lazy = false,
-    priority = 1000,
-    config = function()
-      require "plugins.themes.onedark"
-    end,
-  }
-elseif settings.theme == "kanagawa" then
-  return {
+return {
+  {
     "rebelot/kanagawa.nvim",
-    lazy = false,
-    priority = 1000,
-    config = function()
-      require "plugins.themes.kanagawa"
-    end,
-  }
-else
-  return {
+    lazy = true,
+    opts = {
+      compile = false,
+      theme = "wave",
+      background = {
+        dark = "wave",
+        light = "lotus",
+      },
+    },
+  },
+  {
     "catppuccin/nvim",
     name = "catppuccin",
-    lazy = false,
-    priority = 1000,
-    config = function()
-      require "plugins.themes.catppuccin"
-    end,
-  }
-end
+    lazy = true,
+    opts = {
+      flavour = "mocha", -- latte, frappe, macchiato, mocha
+      background = { -- :h background
+        light = "latte",
+        dark = "mocha",
+      },
+      transparent_background = true,
+      show_end_of_buffer = false, -- shows the '~' characters after the end of buffers
+      term_colors = false,
+      styles = {
+        comments = { "italic" },
+        conditionals = { "italic" },
+        loops = {},
+        functions = {},
+        keywords = {},
+        strings = {},
+        variables = { "italic" },
+        numbers = {},
+        booleans = {},
+        properties = {},
+        types = {},
+        operators = {},
+      },
+      integrations = {
+        barbar = true,
+        cmp = true,
+        gitsigns = true,
+        indent_blankline = {
+          enabled = true,
+          colored_indent_levels = false,
+        },
+        markdown = true,
+        mason = true,
+        native_lsp = {
+          enabled = true,
+          virtual_text = {
+            errors = { "italic" },
+            hints = { "italic" },
+            warnings = { "italic" },
+            information = { "italic" },
+          },
+          underlines = {
+            errors = { "underline" },
+            hints = { "underline" },
+            warnings = { "underline" },
+            information = { "underline" },
+          },
+          inlay_hints = {
+            background = true,
+          },
+        },
+        neotree = {
+          enabled = true,
+          show_root = false,
+          transparent_panel = false,
+        },
+        treesitter = true,
+      },
+    },
+  },
+}

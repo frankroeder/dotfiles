@@ -6,7 +6,7 @@ local M = {
   dependencies = { "nvim-tree/nvim-web-devicons", lazy = true },
 }
 
-function M.config()
+function M.opts()
   local compile_status = function()
     local vimtex = vim.b.vimtex
     local compiler_status = vimtex.compiler.status
@@ -50,7 +50,7 @@ function M.config()
     color = { fg = "#ff9e64" },
   }
 
-  require("lualine").setup {
+  local opts = {
     options = {
       globalstatus = true,
       theme = settings.theme,
@@ -67,6 +67,7 @@ function M.config()
     },
     extensions = { "neo-tree", "fzf", "lazy", "oil", "aerial", "mason", "man" },
   }
+  return opts
 end
 
 return M

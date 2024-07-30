@@ -1,4 +1,4 @@
-local M = {
+return {
   "romgrk/barbar.nvim",
   event = "VeryLazy",
   dependencies = {
@@ -8,11 +8,7 @@ local M = {
   init = function()
     vim.g.barbar_auto_setup = false
   end,
-}
-
-function M.config()
-  -- Set barbar's options
-  require("barbar").setup {
+  opts = {
     -- Enable/disable animations
     animation = false,
     -- Enable/disable auto-hiding the tab bar when there is a single buffer
@@ -47,11 +43,10 @@ function M.config()
 
     -- Sets the maximum buffer name length.
     maximum_length = 20,
-  }
-
-  vim.keymap.set("n", "<C-K>", ":BufferNext<CR>")
-  vim.keymap.set("n", "<C-J>", ":BufferPrevious<CR>")
-  vim.keymap.set("n", "<C-C>", ":BufferClose<CR>")
-end
-
-return M
+  },
+  keys = {
+    { "<C-K>", ":BufferNext<CR>" },
+    { "<C-J>", ":BufferPrevious<CR>" },
+    { "<C-C>", ":BufferClose<CR>" },
+  },
+}

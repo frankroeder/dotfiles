@@ -1,4 +1,39 @@
-local M = { "L3MON4D3/LuaSnip", tag = "v2.3.0" }
+local M = {
+  "L3MON4D3/LuaSnip",
+  tag = "v2.3.0",
+  keys = {
+    {
+      "<C-T>",
+      function()
+        local is_git_repo = require("utils").is_git_repo
+        if is_git_repo() then
+          require("fzf-lua").git_files { file_icons = false, git_icons = false }
+        else
+          require("fzf-lua").files { file_icons = false, git_icons = false }
+        end
+      end,
+      desc = "files / git files",
+    },
+    {
+      "<C-J>",
+      [[<cmd>lua require("luasnip").jump(1)<CR>]],
+      mode = { "i", "s" },
+      desc = "LuaSnip forward jump",
+    },
+    {
+      "<C-K>",
+      [[<cmd>lua require("luasnip").jump(-1)<CR>]],
+      mode = { "i", "s" },
+      desc = "LuaSnip backward jump",
+    },
+    {
+      "<C-L>",
+      [[<cmd>lua require("luasnip").expand()<CR>]],
+      mode = { "i", "s" },
+      desc = "LuaSnip expand",
+    },
+  },
+}
 
 function M.config()
   local status_ok, luasnip = pcall(require, "luasnip")
@@ -37,15 +72,6 @@ function M.config()
 
   vim.cmd [[command! LuaSnipEdit :lua require("luasnip.loaders.from_lua").edit_snippet_files()]]
   vim.cmd [[command! LuaSnipReload :lua require("luasnip.loaders.from_lua").load({paths = "~/.config/nvim/snippets/"})]]
-  vim.keymap.set({ "i", "s" }, "<C-J>", function()
-    luasnip.jump(1)
-  end, { desc = "LuaSnip forward jump" })
-  vim.keymap.set({ "i", "s" }, "<C-K>", function()
-    luasnip.jump(-1)
-  end, { desc = "LuaSnip backward jump" })
-  vim.keymap.set({ "i", "s" }, "<C-L>", function()
-    luasnip.expand()
-  end, { desc = "LuaSnip expand" })
 end
 
 return M
