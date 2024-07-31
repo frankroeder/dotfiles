@@ -72,6 +72,25 @@ function M.config()
       end,
       CompleteFullContext = function(prt, params)
         local template = [[
+        I have the following code from {{filename}}:
+
+				```{{filetype}}
+				{filecontent}}
+				```
+
+				Please look at the following section specifically:
+        ```{{filetype}}
+        {{selection}}
+        ```
+
+        Please finish the code above carefully and logically.
+        Respond just with the snippet of code that should be inserted."
+        ]]
+        local agent = prt.get_command_agent()
+        prt.Prompt(params, prt.ui.Target.append, agent, nil, template)
+      end,
+      CompleteMultiContext = function(prt, params)
+        local template = [[
         I have the following code from {{filename}} and other realted files:
 
 				```{{filetype}}
