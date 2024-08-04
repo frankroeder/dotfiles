@@ -12,7 +12,10 @@ return {
     highlight = {
       enable = true,
       additional_vim_regex_highlighting = false,
-      disable = { "latex" },
+      disable = {
+        "latex",
+        -- "python" -- semantic highlighting via lsp
+      },
     },
     indent = {
       enable = true,

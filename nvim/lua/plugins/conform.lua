@@ -13,7 +13,6 @@ return {
       cpp = { "clang-tidy", "clang-format" },
       go = { "goimports", "gofmt" },
       lua = { "stylua" },
-      python = { "isort", "ruff" },
       json = { "jq" },
     },
   },

@@ -5,7 +5,6 @@ return {
       c = { "clangtidy" },
       javascript = { "eslint" },
       typescript = { "eslint" },
-      python = { "ruff" },
     }
   end,
   init = function()

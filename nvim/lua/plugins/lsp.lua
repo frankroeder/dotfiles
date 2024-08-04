@@ -60,11 +60,10 @@ function M.config()
   local lsp_server = {
     "clangd",
     "cssls",
-    "elixirls",
-    -- "gopls",
+    "ruff",
+    -- "basedpyright",
     "html",
-    "pyright",
-    -- "pylyzer",
+    "jedi_language_server",
     "svelte",
     "tsserver",
   }
