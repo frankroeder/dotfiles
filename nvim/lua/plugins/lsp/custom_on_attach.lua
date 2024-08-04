@@ -87,7 +87,7 @@ return function(client, bufnr)
       group = group,
     })
   end
-  if client.name == 'ruff' then
+  if client.name == "ruff" then
     -- Disable hover in favor of jedi
     client.server_capabilities.hoverProvider = false
   end
