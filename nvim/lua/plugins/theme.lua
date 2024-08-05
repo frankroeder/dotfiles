@@ -40,6 +40,7 @@ return {
         operators = {},
       },
       integrations = {
+        aerial = true,
         barbar = true,
         cmp = true,
         gitsigns = true,
@@ -47,8 +48,11 @@ return {
           enabled = true,
           colored_indent_levels = false,
         },
+        gitsigns = true,
         markdown = true,
+        render_markdown = true,
         mason = true,
+        notify = true,
         native_lsp = {
           enabled = true,
           virtual_text = {
@@ -67,11 +71,7 @@ return {
             background = true,
           },
         },
-        neotree = {
-          enabled = true,
-          show_root = false,
-          transparent_panel = false,
-        },
+        neotree = true,
         treesitter = true,
       },
     },
