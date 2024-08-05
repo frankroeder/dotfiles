@@ -1,7 +1,6 @@
 return {
   {
     "rebelot/kanagawa.nvim",
-    lazy = true,
     opts = {
       compile = false,
       theme = "wave",
@@ -14,7 +13,9 @@ return {
   {
     "catppuccin/nvim",
     name = "catppuccin",
-    lazy = true,
+    init = function()
+      vim.cmd.colorscheme "catppuccin-mocha"
+    end,
     opts = {
       flavour = "mocha", -- latte, frappe, macchiato, mocha
       background = { -- :h background

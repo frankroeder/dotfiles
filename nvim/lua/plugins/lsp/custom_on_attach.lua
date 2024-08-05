@@ -86,6 +86,13 @@ return function(client, bufnr)
       buffer = vim.api.nvim_get_current_buf(),
       group = group,
     })
+    vim.api.nvim_create_autocmd("LspDetach", {
+      group = vim.api.nvim_create_augroup("lsp_highlight_detach", { clear = true }),
+      callback = function(event2)
+        vim.lsp.buf.clear_references()
+        vim.api.nvim_clear_autocmds { group = "lsp_document_highlight", buffer = event2.buf }
+      end,
+    })
   end
   if client.name == "ruff" then
     -- Disable hover in favor of jedi

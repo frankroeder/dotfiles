@@ -1,8 +1,22 @@
 return {
-  "MeanderingProgrammer/markdown.nvim",
-  name = "render-markdown",
+  "MeanderingProgrammer/render-markdown.nvim",
   lazy = false,
-  opts = {},
+  opts = {
+    anti_conceal = {
+      enabled = true,
+    },
+    win_options = {
+      conceallevel = {
+        default = 0,
+        -- default = vim.api.nvim_get_option_value('conceallevel', {}),
+        rendered = 3,
+      },
+      concealcursor = {
+        default = vim.api.nvim_get_option_value("concealcursor", {}),
+        rendered = "",
+      },
+    },
+  },
   dependencies = { "nvim-treesitter/nvim-treesitter", "nvim-tree/nvim-web-devicons" },
   keys = {
     { "<Space>tt", "<cmd>RenderMarkdown toggle<CR>" },

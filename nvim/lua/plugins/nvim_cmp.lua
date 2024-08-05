@@ -88,6 +88,11 @@ function M.config()
       { name = "buffer", keyword_length = 3 },
       { name = "treesitter", keyword_length = 3 },
       { name = "path" },
+      {
+        name = "lazydev",
+        -- set group index to 0 to skip loading LuaLS completions as lazydev recommends it
+        group_index = 0,
+      },
     },
     formatting = {
       format = function(entry, vim_item)

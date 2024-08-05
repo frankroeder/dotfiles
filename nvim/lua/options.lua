@@ -2,13 +2,14 @@ local g = vim.g
 local opt = vim.opt
 
 local options = {
+  cursorline = true,
   completeopt = { "menu", "menuone", "noselect" },
   title = true, -- show file in title bar
   history = 200, -- 200 lines command history
   binary = true, -- Enable binary support
   wrap = false, -- Don't wrap long lines
   linebreak = true, -- wrap lines at convenient points
-  breakindent = true, -- wrap indent to match  line start
+  breakindent = true, -- wrap indent to match line start
   scrolloff = 3, -- Keep at least 3 lines above/below
   sidescrolloff = 5, -- Show next 5 columns when scrolling sideways
   showmode = false, -- Don't show current mode
@@ -65,7 +66,10 @@ opt.shortmess:append { c }
 if vim.fn.has "clipboard" then
   opt.clipboard = "unnamed" -- copy to the system clipboard
   if vim.fn.has "unnamedplus" then -- X11 support
-    opt.clipboard:append { unnamedplus = true }
+    -- async to improve startup time
+    vim.schedule(function()
+      opt.clipboard:append { unnamedplus = true }
+    end)
   end
 end
 

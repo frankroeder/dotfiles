@@ -89,7 +89,7 @@ return {
   s(
     { trig = "timestamp", dscr = "Current timestamp in miliseconds" },
     f(function()
-      return tostring(vim.loop.now())
+      return tostring(vim.uv.now())
     end)
   ),
   s({ trig = "todo", dscr = "Selection of comments" }, {

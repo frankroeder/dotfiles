@@ -64,6 +64,7 @@ function M.config()
     -- "basedpyright",
     "html",
     "jedi_language_server",
+    "lua_ls",
     "svelte",
     "tsserver",
   }
@@ -79,6 +80,7 @@ function M.config()
       if success then
         opts = req_opts
       end
+      opts.capabilities = vim.tbl_deep_extend("force", {}, capabilities, opts.capabilities or {})
       lspconfig[server_name].setup(opts)
     end,
     -- ["sourcekit"] = function ()
