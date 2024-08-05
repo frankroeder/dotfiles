@@ -1,7 +1,7 @@
--- Spell error: pick the first result
+-- Resolve spell error by picking the first suggestion
 vim.keymap.set("n", "<Leader>z", [[z=1<CR><CR>]])
 
--- Fix spelling mistakes on the fly
+-- Fix spelling mistakes on the fly (insert mode)
 vim.keymap.set("i", "<C-S>", [[<C-G>u<Esc>[s1z=`]a<C-G>u]])
 
 -- Toggle between languages
@@ -20,6 +20,7 @@ local function toggle_spell()
   print(string.format("spell checking language: %s", vim.opt_local.spelllang:get()[1]))
 end
 
+vim.opt.spelloptions:append "camel"
 vim.keymap.set("n", "<Space>ts", function()
   toggle_spell()
 end, { silent = true })

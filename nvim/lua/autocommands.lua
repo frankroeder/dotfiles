@@ -3,11 +3,16 @@ local table_find_element = require("utils").table_find_element
 local augroup = vim.api.nvim_create_augroup
 local autocmd = vim.api.nvim_create_autocmd
 
--- Disable undo file creation for specific files or patterns
 autocmd("BufWritePre", {
-  group = group,
+  group = augroup("disable undo", { clear = true }),
+  desc = "Prevent creation of swap/undo/backup files for specific patterns",
   pattern = { "/tmp/*", "COMMIT_EDITMSG", "MERGE_MSG", "*.tmp", "*.bak" },
-  command = "setlocal noundofile",
+  callback = function()
+    vim.opt_local.undofile = false
+    vim.opt_local.swapfile = false
+    vim.opt_global.backup = false
+    vim.opt_global.writebackup = false
+  end,
 })
 
 autocmd("TextYankPost", {
@@ -116,53 +121,24 @@ if not status_ok then
   return
 end
 
-autocmd({ "BufWinEnter", "FileType" }, {
-  group = augroup("last_place", { clear = true }),
-  desc = "Go to last loc when opening a buffer",
-  callback = function()
-    local bt_ignore_list = List { "quickfix", "nofile", "help" }
-    -- Check if the buffer should be ignored
-    if bt_ignore_list:contains(vim.bo.buftype) then
+vim.api.nvim_create_autocmd("BufReadPost", {
+  group = augroup("last_loc", { clear = true }),
+  desc = "Go to last loc when opening a buffer, see ':h last-position-jump'",
+  callback = function(event)
+    local exclude = { "gitcommit", "commit", "gitrebase", "svn", "hgcommit" }
+    local buf = event.buf
+    if vim.tbl_contains(exclude, vim.bo[buf].filetype) or vim.b[buf].lazyvim_last_loc then
       return
     end
-    local ft_ignore_list = List { "gitcommit", "gitrebase", "svn", "hgcommit" }
-
-    -- Check if the filetype should be ignored
-    if ft_ignore_list:contains(vim.bo.filetype) then
-      -- reset cursor to first line
-      vim.cmd [[normal! gg]]
-      return
-    end
-
-    -- If a line has already been specified on the command line, we are done
-    --   nvim file +num
-    if vim.fn.line "." > 1 then
-      return
-    end
-
-    local last_line = vim.fn.line [['"]]
-    local buff_last_line = vim.fn.line "$"
-    local window_last_line = vim.fn.line "w$"
-    local window_first_line = vim.fn.line "w0"
-    -- If the last line is set and the less than the last line in the buffer
-    if last_line > 0 and last_line <= buff_last_line then
-      -- Check if the last line of the buffer is the same as the window
-      if window_last_line == buff_last_line then
-        -- Set line to last line edited
-        vim.cmd [[normal! g`"]]
-      -- Try to center
-      elseif buff_last_line - last_line > ((window_last_line - window_first_line) / 2) - 1 then
-        vim.cmd [[normal! g`"zz]]
-      else
-        vim.cmd [[normal! G'"<c-e>]]
-      end
-    end
-    -- open fold
-    if vim.fn.foldclosed "." ~= -1 then
-      vim.cmd [[normal! zvzz]]
+    vim.b[buf].lazyvim_last_loc = true
+    local mark = vim.api.nvim_buf_get_mark(buf, '"')
+    local lcount = vim.api.nvim_buf_line_count(buf)
+    if mark[1] > 0 and mark[1] <= lcount then
+      pcall(vim.api.nvim_win_set_cursor, 0, mark)
     end
   end,
 })
+
 local toggle_line_numbers_group = augroup("toggle_line_numbers", { clear = true })
 local line_numbers_ft_ignore_list = List { "neo-tree", "Telescope" }
 autocmd({ "FocusGained", "InsertLeave" }, {

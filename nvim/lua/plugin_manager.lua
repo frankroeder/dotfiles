@@ -31,4 +31,8 @@ lazy.setup("plugins", {
   dev = {
     path = "~/Documents/luapos",
   },
+  ui = {
+    border = "rounded",
+    wrap = true,
+  },
 })
