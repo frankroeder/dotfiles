@@ -225,7 +225,7 @@ function M.config()
 				errors, verb tense issues, word choice problems, and other
 				grammatical mistakes.
 				]]
-        prt.cmd.ChatNew(params, chat_prompt)
+        prt.ChatNew(params, chat_prompt)
       end,
       CodeConsultant = function(prt, params)
         local chat_prompt = [[
@@ -242,7 +242,7 @@ function M.config()
           {{filecontent}}
           ```
 				]]
-        prt.cmd.ChatNew(params, chat_prompt)
+        prt.ChatNew(params, chat_prompt)
       end,
       ProofReader = function(prt, params)
         local chat_prompt = [[
@@ -271,7 +271,7 @@ function M.config()
 
 				{ideal text}
 				]]
-        prt.cmd.ChatNew(params, chat_prompt)
+        prt.ChatNew(params, chat_prompt)
       end,
     },
   }
