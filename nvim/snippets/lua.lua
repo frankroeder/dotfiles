@@ -8,6 +8,11 @@ return {
     d(1, utils.get_visual),
     t ")",
   }),
+  s({ trig = "pri", name = "print vim.inspect" }, {
+    t "print(vim.inspect(",
+    d(1, utils.get_visual),
+    t "))",
+  }),
   s(
     {
       trig = "req",

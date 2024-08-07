@@ -32,29 +32,16 @@ function M.config()
       --   api_key = { "/usr/bin/security", "find-generic-password", "-s perplexity-api-key", "-w" },
       -- },
       -- mistral = {
-      --   api_key = os.getenv "MISTRAL_API_KEY" .. "dasdas",
+      --   api_key = os.getenv "MISTRAL_API_KEY",
       -- },
+      groq = {
+        api_key = os.getenv "GROQ_API_KEY",
+      },
     },
     cmd_prefix = cmd_prefix,
     chat_conceal_model_params = false,
     user_input_ui = "custom",
     toggle_target = "tabnew",
-    agents = {
-      chat = {
-        {
-          name = "CodeLlama",
-          model = {
-            model = "codellama",
-            temperature = 1.5,
-            top_p = 1,
-            num_ctx = 8192,
-            min_p = 0.05,
-          },
-          system_prompt = "Help me!",
-          provider = "ollama",
-        },
-      },
-    },
     hooks = {
       Complete = function(prt, params)
         local template = [[
@@ -67,8 +54,8 @@ function M.config()
         Please finish the code above carefully and logically.
         Respond just with the snippet of code that should be inserted."
         ]]
-        local agent = prt.get_command_agent()
-        prt.Prompt(params, prt.ui.Target.append, agent, nil, template)
+        local model_obj = prt.get_model "command"
+        prt.Prompt(params, prt.ui.Target.append, model_obj, nil, template)
       end,
       CompleteFullContext = function(prt, params)
         local template = [[
@@ -86,8 +73,8 @@ function M.config()
         Please finish the code above carefully and logically.
         Respond just with the snippet of code that should be inserted."
         ]]
-        local agent = prt.get_command_agent()
-        prt.Prompt(params, prt.ui.Target.append, agent, nil, template)
+        local model_obj = prt.get_model "command"
+        prt.Prompt(params, prt.ui.Target.append, model_obj, nil, template)
       end,
       CompleteMultiContext = function(prt, params)
         local template = [[
@@ -105,8 +92,8 @@ function M.config()
         Please finish the code above carefully and logically.
         Respond just with the snippet of code that should be inserted."
         ]]
-        local agent = prt.get_command_agent()
-        prt.Prompt(params, prt.ui.Target.append, agent, nil, template)
+        local model_obj = prt.get_model "command"
+        prt.Prompt(params, prt.ui.Target.append, model_obj, nil, template)
       end,
       Explain = function(prt, params)
         local template = [[
@@ -121,9 +108,9 @@ function M.config()
         Use the markdown format with codeblocks and inline code.
         Explanation of the code above:
         ]]
-        local agent = prt.get_chat_agent()
-        prt.logger.info("Explaining selection with agent: " .. agent.name)
-        prt.Prompt(params, prt.ui.Target.new, agent, nil, template)
+        local model = prt.get_model "chat"
+        prt.logger.info("Explaining selection with model: " .. model.name)
+        prt.Prompt(params, prt.ui.Target.new, model, nil, template)
       end,
       FixBugs = function(prt, params)
         local template = [[
@@ -142,9 +129,9 @@ function M.config()
 
         Fixed code:
         ]]
-        local agent = prt.get_command_agent()
-        prt.logger.info("Fixing bugs in selection with agent: " .. agent.name)
-        prt.Prompt(params, prt.ui.Target.new, agent, nil, template)
+        local model_obj = prt.get_model "command"
+        prt.logger.info("Fixing bugs in selection with model: " .. model_obj.name)
+        prt.Prompt(params, prt.ui.Target.new, model_obj, nil, template)
       end,
       Optimize = function(prt, params)
         local template = [[
@@ -163,9 +150,9 @@ function M.config()
 
         Optimized code:
         ]]
-        local agent = prt.get_command_agent()
-        prt.logger.info("Optimizing selection with agent: " .. agent.name)
-        prt.Prompt(params, prt.ui.Target.new, agent, nil, template)
+        local model_obj = prt.get_model "command"
+        prt.logger.info("Optimizing selection with model: " .. model_obj.name)
+        prt.Prompt(params, prt.ui.Target.new, model_obj, nil, template)
       end,
       UnitTests = function(prt, params)
         local template = [[
@@ -177,9 +164,9 @@ function M.config()
 
         Please respond by writing table driven unit tests for the code above.
         ]]
-        local agent = prt.get_command_agent()
-        prt.logger.info("Creating unit tests for selection with agent: " .. agent.name)
-        prt.Prompt(params, prt.ui.Target.enew, agent, nil, template)
+        local model_obj = prt.get_model "command"
+        prt.logger.info("Creating unit tests for selection with model: " .. model_obj.name)
+        prt.Prompt(params, prt.ui.Target.enew, model_obj, nil, template)
       end,
       Debug = function(prt, params)
         local template = [[
@@ -192,9 +179,9 @@ function M.config()
         {{selection}}
         ```
         ]]
-        local agent = prt.get_chat_agent()
-        prt.logger.info("Debugging selection with agent: " .. agent.name)
-        prt.Prompt(params, prt.ui.Target.enew, agent, nil, template)
+        local model_obj = prt.get_model "command"
+        prt.logger.info("Debugging selection with model: " .. model_obj.name)
+        prt.Prompt(params, prt.ui.Target.enew, model_obj, nil, template)
       end,
       CommitMsg = function(prt, params)
         local futils = require "parrot.file_utils"
@@ -213,8 +200,8 @@ function M.config()
 
 					Here are the changes that should be considered by this message:
 					]] .. vim.fn.system "git diff --no-color --no-ext-diff --staged"
-          local agent = prt.get_command_agent()
-          prt.Prompt(params, prt.ui.Target.append, agent, nil, template)
+          local model_obj = prt.get_model "command"
+          prt.Prompt(params, prt.ui.Target.append, model_obj, nil, template)
         end
       end,
       SpellCheck = function(prt, params)
@@ -374,9 +361,9 @@ function M.keys()
     },
     {
       kmprfx .. "n",
-      "<cmd>" .. cmd_prefix .. "Agent<cr>",
+      "<cmd>" .. cmd_prefix .. "Model<cr>",
       mode = { "n" },
-      kmopts "Select agent",
+      kmopts "Select model",
     },
     {
       kmprfx .. "p",
