@@ -2,9 +2,8 @@ local M = {
   "frankroeder/parrot.nvim",
   event = "VeryLazy",
   dependencies = { "ibhagwan/fzf-lua", "nvim-lua/plenary.nvim", "rcarriga/nvim-notify" },
-  dev = true,
+  dev = true, -- for local development
   lazy = false,
-  cond = os.getenv "OPENAI_API_KEY" ~= nil or os.getenv "PERPLEXITY_API_KEY" ~= nil,
 }
 
 local cmd_prefix = "Prt"
