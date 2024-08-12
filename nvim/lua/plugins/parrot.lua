@@ -41,6 +41,7 @@ function M.config()
     chat_conceal_model_params = false,
     user_input_ui = "custom",
     toggle_target = "tabnew",
+    online_model_selection = true,
     hooks = {
       Complete = function(prt, params)
         local template = [[
