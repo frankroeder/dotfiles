@@ -39,7 +39,7 @@ function M.config()
     },
     cmd_prefix = cmd_prefix,
     chat_conceal_model_params = false,
-    user_input_ui = "custom",
+    user_input_ui = "buffer",
     toggle_target = "tabnew",
     online_model_selection = true,
     hooks = {
