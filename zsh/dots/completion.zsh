@@ -68,8 +68,8 @@ zstyle ':completion:*:*:*:users' ignored-patterns \
 
 # Media Players
 AUDIO_FILES='wav|mp3|ogg|flac|aif|aiff|alac|aac'
-if [ $commands[vlc] ]; then
-  zstyle ':completion:*:*:vlc:*' file-patterns "*.(mkv|avi|wmv|mov|m4a|mpg|mpeg|mp4|webm|$AUDIO_FILES):mp3\ files *(-/):directories"
+if [ $commands[mpv] ]; then
+	zstyle ':completion:*:*:mpv:*' file-patterns "*.(#i)(flv|mp4|webm|mkv|wmv|mov|avi|$AUDIO_FILES|wma|m4a|m4b|m4v|gif|ifo)(-.) *(-/):directories" '*:all-files'
 fi
 if [ $commands[ffplay] ]; then
   zstyle ':completion:*:*:ffplay:*' file-patterns "*.(mkv|avi|wmv|mov|m4a|mpg|mpeg|mp4|webm|$AUDIO_FILES):mp3\ files *(-/):directories"

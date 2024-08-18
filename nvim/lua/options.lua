@@ -76,6 +76,7 @@ end
 if vim.fn.has "mouse" then
   opt.mouse = "a"
   opt.mousehide = true -- Hide mouse when typing
+  opt.mousemodel = "extend"
 end
 
 g.python3_host_prog = vim.fn.exepath "python3"

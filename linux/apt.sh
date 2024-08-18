@@ -43,7 +43,7 @@ install_desktop() {
     portaudio19-dev
     python3-tk
     sox
-    vlc
+    mpv
     xclip
     i3
   "

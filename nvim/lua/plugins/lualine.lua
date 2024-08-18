@@ -50,6 +50,17 @@ function M.opts()
     color = { fg = "#ff9e64" },
   }
 
+  local function parrot_status()
+    local status_info = require("parrot.config").get_status_info()
+    local status = ""
+    if status_info.is_chat then
+      status = status_info.prov.chat.name
+    else
+      status = status_info.prov.command.name
+    end
+    return string.format("🦜%s(%s)", status, status_info.model)
+  end
+
   local opts = {
     options = {
       globalstatus = true,
@@ -57,7 +68,7 @@ function M.opts()
       disabled_filetypes = { "help", "Outline" },
     },
     sections = {
-      lualine_c = { "filename", spell },
+      lualine_c = { "filename", spell, parrot_status },
       lualine_x = {
         "aerial",
         vimtex_compile_status,

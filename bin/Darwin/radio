@@ -34,7 +34,7 @@ def get_channel():
 
 
 def play(chan):
-    _ = subprocess.run(["vlc -qI cli {}".format(chan)], shell=True)
+    _ = subprocess.run(["mpv {}".format(chan)], shell=True)
 
 
 if __name__ == "__main__":

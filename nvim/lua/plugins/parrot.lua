@@ -4,18 +4,15 @@ local M = {
   dependencies = { "ibhagwan/fzf-lua", "nvim-lua/plenary.nvim", "rcarriga/nvim-notify" },
   dev = true, -- for local development
   lazy = false,
-}
-
-local cmd_prefix = "Prt"
-
-function M.config()
-  require("notify").setup {
-    background_colour = "#000000",
-    render = "compact",
-    top_down = true,
-  }
-
-  require("parrot").setup {
+  config = function(_, opts)
+    require("notify").setup {
+      background_colour = "#000000",
+      render = "compact",
+      top_down = false,
+    }
+    require("parrot").setup(opts)
+  end,
+  opts = {
     providers = {
       openai = {
         api_key = { "/usr/bin/security", "find-generic-password", "-s openai-api-key", "-w" },
@@ -37,11 +34,12 @@ function M.config()
         api_key = os.getenv "GROQ_API_KEY",
       },
     },
-    cmd_prefix = cmd_prefix,
+    cmd_prefix = "Prt",
     chat_conceal_model_params = false,
     user_input_ui = "buffer",
     toggle_target = "tabnew",
     online_model_selection = true,
+    command_auto_select_response = true,
     hooks = {
       Complete = function(prt, params)
         local template = [[
@@ -61,11 +59,11 @@ function M.config()
         local template = [[
         I have the following code from {{filename}}:
 
-				```{{filetype}}
-				{filecontent}}
-				```
+        ```{{filetype}}
+        {filecontent}}
+        ```
 
-				Please look at the following section specifically:
+        Please look at the following section specifically:
         ```{{filetype}}
         {{selection}}
         ```
@@ -80,11 +78,11 @@ function M.config()
         local template = [[
         I have the following code from {{filename}} and other realted files:
 
-				```{{filetype}}
-				{{multifilecontent}}
-				```
+        ```{{filetype}}
+        {{multifilecontent}}
+        ```
 
-				Please look at the following section specifically:
+        Please look at the following section specifically:
         ```{{filetype}}
         {{selection}}
         ```
@@ -108,7 +106,7 @@ function M.config()
         Use the markdown format with codeblocks and inline code.
         Explanation of the code above:
         ]]
-        local model = prt.get_model "chat"
+        local model = prt.get_model "command"
         prt.logger.info("Explaining selection with model: " .. model.name)
         prt.Prompt(params, prt.ui.Target.new, model, nil, template)
       end,
@@ -190,28 +188,28 @@ function M.config()
           return
         else
           local template = [[
-					I want you to act as a commit message generator. I will provide you
-					with information about the task and the prefix for the task code, and
-					I would like you to generate an appropriate commit message using the
-					conventional commit format. Do not write any explanations or other
-					words, just reply with the commit message.
-					Start with a short headline as summary but then list the individual
-					changes in more detail.
+          I want you to act as a commit message generator. I will provide you
+          with information about the task and the prefix for the task code, and
+          I would like you to generate an appropriate commit message using the
+          conventional commit format. Do not write any explanations or other
+          words, just reply with the commit message.
+          Start with a short headline as summary but then list the individual
+          changes in more detail.
 
-					Here are the changes that should be considered by this message:
-					]] .. vim.fn.system "git diff --no-color --no-ext-diff --staged"
+          Here are the changes that should be considered by this message:
+          ]] .. vim.fn.system "git diff --no-color --no-ext-diff --staged"
           local model_obj = prt.get_model "command"
           prt.Prompt(params, prt.ui.Target.append, model_obj, nil, template)
         end
       end,
       SpellCheck = function(prt, params)
         local chat_prompt = [[
-				Your task is to take the text provided and rewrite it into a clear,
-				grammatically correct version while preserving the original meaning
-				as closely as possible. Correct any spelling mistakes, punctuation
-				errors, verb tense issues, word choice problems, and other
-				grammatical mistakes.
-				]]
+        Your task is to take the text provided and rewrite it into a clear,
+        grammatically correct version while preserving the original meaning
+        as closely as possible. Correct any spelling mistakes, punctuation
+        errors, verb tense issues, word choice problems, and other
+        grammatical mistakes.
+        ]]
         prt.ChatNew(params, chat_prompt)
       end,
       CodeConsultant = function(prt, params)
@@ -228,156 +226,70 @@ function M.config()
           ```{{filetype}}
           {{filecontent}}
           ```
-				]]
+        ]]
         prt.ChatNew(params, chat_prompt)
       end,
       ProofReader = function(prt, params)
         local chat_prompt = [[
-				I want you to act as a proofreader. I will provide you with texts and
-				I would like you to review them for any spelling, grammar, or
-				punctuation errors. Once you have finished reviewing the text,
-				provide me with any necessary corrections or suggestions to improve the
-				text. Highlight the corrected fragments (if any) using markdown backticks.
+        I want you to act as a proofreader. I will provide you with texts and
+        I would like you to review them for any spelling, grammar, or
+        punctuation errors. Once you have finished reviewing the text,
+        provide me with any necessary corrections or suggestions to improve the
+        text. Highlight the corrected fragments (if any) using markdown backticks.
 
-				When you have done that subsequently provide me with a slightly better
-				version of the text, but keep close to the original text.
+        When you have done that subsequently provide me with a slightly better
+        version of the text, but keep close to the original text.
 
-				Finally provide me with an ideal version of the text.
+        Finally provide me with an ideal version of the text.
 
-				Whenever I provide you with text, you reply in this format directly:
+        Whenever I provide you with text, you reply in this format directly:
 
-				## Corrected text:
+        ## Corrected text:
 
-				{corrected text, or say "NO_CORRECTIONS_NEEDED" instead if there are no corrections made}
+        {corrected text, or say "NO_CORRECTIONS_NEEDED" instead if there are no corrections made}
 
-				## Slightly better text
+        ## Slightly better text
 
-				{slightly better text}
+        {slightly better text}
 
-				## Ideal text
+        ## Ideal text
 
-				{ideal text}
-				]]
+        {ideal text}
+        ]]
         prt.ChatNew(params, chat_prompt)
       end,
     },
-  }
-end
-
-function M.keys()
-  local kmprfx = "<C-g>"
-  local function kmopts(desc)
-    return {
-      noremap = true,
-      silent = true,
-      nowait = true,
-      desc = desc,
-    }
-  end
-  return {
+  },
+  keys = {
+    { "<C-g>c", "<cmd>PrtChatNew<cr>", mode = { "n", "i" }, desc = "New Chat" },
+    { "<C-g>c", ":<C-u>'<,'>PrtChatNew<cr>", mode = { "v" }, desc = "Visual Chat New" },
+    { "<C-g>t", "<cmd>PrtChatToggle<cr>", mode = { "n", "i" }, desc = "Toggle Popup Chat" },
+    { "<C-g>f", "<cmd>PrtChatFinder<cr>", mode = { "n", "i" }, desc = "Chat Finder" },
+    { "<C-g>r", "<cmd>PrtRewrite<cr>", mode = { "n", "i" }, desc = "Inline Rewrite" },
+    { "<C-g>r", ":<C-u>'<,'>PrtRewrite<cr>", mode = { "v" }, desc = "Visual Rewrite" },
     {
-      kmprfx .. "c",
-      "<cmd>" .. cmd_prefix .. "ChatNew<cr>",
-      mode = { "n", "i" },
-      kmopts "New Chat",
+      "<C-g>j",
+      "<cmd>PrtRetry<cr>",
+      mode = { "n" },
+      desc = "Retry rewrite/append/prepend command",
     },
+    { "<C-g>a", "<cmd>PrtAppend<cr>", mode = { "n", "i" }, desc = "Append" },
+    { "<C-g>a", ":<C-u>'<,'>PrtAppend<cr>", mode = { "v" }, desc = "Visual Append" },
+    { "<C-g>o", "<cmd>PrtPrepend<cr>", mode = { "n", "i" }, desc = "Prepend" },
+    { "<C-g>o", ":<C-u>'<,'>PrtPrepend<cr>", mode = { "v" }, desc = "Visual Prepend" },
+    { "<C-g>e", ":<C-u>'<,'>PrtEnew<cr>", mode = { "v" }, desc = "Visual Enew" },
+    { "<C-g>s", "<cmd>PrtStop<cr>", mode = { "n", "i", "v", "x" }, desc = "Stop" },
     {
-      kmprfx .. "t",
-      "<cmd>" .. cmd_prefix .. "ChatToggle<cr>",
-      mode = { "n", "i" },
-      kmopts "Toggle Popup Chat",
-    },
-    {
-      kmprfx .. "f",
-      "<cmd>" .. cmd_prefix .. "ChatFinder<cr>",
-      mode = { "n", "i" },
-      kmopts "Chat Finder",
-    },
-    {
-      kmprfx .. "r",
-      "<cmd>" .. cmd_prefix .. "Rewrite<cr>",
-      mode = { "n", "i" },
-      kmopts "Inline Rewrite",
-    },
-    {
-      kmprfx .. "a",
-      "<cmd>" .. cmd_prefix .. "Append<cr>",
-      mode = { "n", "i" },
-      kmopts "Append",
-    },
-    {
-      kmprfx .. "o",
-      "<cmd>" .. cmd_prefix .. "Prepend<cr>",
-      mode = { "n", "i" },
-      kmopts "Prepend",
-    },
-    {
-      kmprfx .. "c",
-      ":<C-u>'<,'>" .. cmd_prefix .. "ChatNew<cr>",
-      mode = { "v" },
-      kmopts "Visual Chat New",
-    },
-    {
-      kmprfx .. "r",
-      ":<C-u>'<,'>" .. cmd_prefix .. "Rewrite<cr>",
-      mode = { "v" },
-      kmopts "Visual Rewrite",
-    },
-    {
-      kmprfx .. "a",
-      ":<C-u>'<,'>" .. cmd_prefix .. "Append<cr>",
-      mode = { "v" },
-      kmopts "Visual Append",
-    },
-    {
-      kmprfx .. "o",
-      ":<C-u>'<,'>" .. cmd_prefix .. "Prepend<cr>",
-      mode = { "v" },
-      kmopts "Visual Prepend",
-    },
-    {
-      kmprfx .. "e",
-      ":<C-u>'<,'>" .. cmd_prefix .. "Enew<cr>",
-      mode = { "v" },
-      kmopts "Visual Enew",
-    },
-    {
-      kmprfx .. "s",
-      "<cmd>" .. cmd_prefix .. "Stop<cr>",
+      "<C-g>i",
+      ":<C-u>'<,'>PrtComplete<cr>",
       mode = { "n", "i", "v", "x" },
-      kmopts "Stop",
+      desc = "Complete visual selection",
     },
-    {
-      kmprfx .. "i",
-      ":<C-u>'<,'>" .. cmd_prefix .. "Complete<cr>",
-      mode = { "n", "i", "v", "x" },
-      kmopts "Complete the visual selection",
-    },
-    {
-      kmprfx .. "x",
-      "<cmd>" .. cmd_prefix .. "Context<cr>",
-      mode = { "n" },
-      kmopts "Open file with custom context",
-    },
-    {
-      kmprfx .. "n",
-      "<cmd>" .. cmd_prefix .. "Model<cr>",
-      mode = { "n" },
-      kmopts "Select model",
-    },
-    {
-      kmprfx .. "p",
-      "<cmd>" .. cmd_prefix .. "Provider<cr>",
-      mode = { "n" },
-      kmopts "Select provider",
-    },
-    {
-      kmprfx .. "q",
-      "<cmd>" .. cmd_prefix .. "Ask<cr>",
-      mode = { "n" },
-      kmopts "Ask a question",
-    },
-  }
-end
+    { "<C-g>x", "<cmd>PrtContext<cr>", mode = { "n" }, desc = "Open context file" },
+    { "<C-g>n", "<cmd>PrtModel<cr>", mode = { "n" }, desc = "Select model" },
+    { "<C-g>p", "<cmd>PrtProvider<cr>", mode = { "n" }, desc = "Select provider" },
+    { "<C-g>q", "<cmd>PrtAsk<cr>", mode = { "n" }, desc = "Ask a question" },
+  },
+}
 
 return M

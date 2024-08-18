@@ -27,6 +27,7 @@ brew "grip"
 brew "ifstat"
 brew "gcc"
 brew "newsboat"
+brew "mpv"
 
 brew "aerospace"
 brew "skhd", args: ["with-logging"]
@@ -36,7 +37,6 @@ brew "borders", restart_service: :changed
 cask "raycast"
 cask "alacritty"
 cask "docker"
-cask "vlc"
 cask "musescore"
 cask "sioyek"
 cask "mactex-no-gui"

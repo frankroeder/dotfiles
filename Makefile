@@ -216,6 +216,7 @@ ifeq ($(shell ${WHICH} battery 2>${DEVNUL}),)
 	@curl -s https://raw.githubusercontent.com/actuallymentor/battery/main/setup.sh | bash
 	@battery maintain 80
 endif
+	@ln -sfv $(DOTFILES)/mpv $(HOME)/.config/mpv
 
 .PHONY: _terminal
 _terminal:
