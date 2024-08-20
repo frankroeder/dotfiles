@@ -4,5 +4,5 @@
 if [[ -z "$@" ]]; then
   command nvim -c "PrtChatNew"
 else
-	echo "$@" | command nvim - -c "normal ggVG" -c ":%PrtChatToggle" -c "w"
+  echo "$@" | command nvim - -c "normal ggVGy" -c ":PrtChatNew" -c "normal p"
 fi
