@@ -140,7 +140,7 @@ vim.api.nvim_create_autocmd("BufReadPost", {
 })
 
 local toggle_line_numbers_group = augroup("toggle_line_numbers", { clear = true })
-local line_numbers_ft_ignore_list = List { "neo-tree", "Telescope" }
+local line_numbers_ft_ignore_list = List { "Telescope" }
 autocmd({ "FocusGained", "InsertLeave" }, {
   pattern = "*",
   callback = function()

@@ -32,6 +32,11 @@ return {
       { "<Leader>m", [[<cmd>lua require('fzf-lua').keymaps()<CR>]], desc = "keymaps" },
       { "<Leader>k", [[<cmd>lua require('fzf-lua').marks()<CR>]], desc = "marks" },
       {
+        "<Leader>p",
+        [[<cmd>lua require('fzf-lua').lsp_document_symbols()<CR>]],
+        desc = "document symbols",
+      },
+      {
         "<Leader>h",
         [[<cmd>lua require('fzf-lua').command_history()<CR>]],
         desc = "command history",

@@ -33,6 +33,9 @@ local M = {
       groq = {
         api_key = os.getenv "GROQ_API_KEY",
       },
+      github = {
+        api_key = os.getenv "GITHUB_TOKEN",
+      },
     },
     cmd_prefix = "Prt",
     chat_conceal_model_params = false,

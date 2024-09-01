@@ -70,13 +70,12 @@ function M.opts()
     sections = {
       lualine_c = { "filename", spell, parrot_status },
       lualine_x = {
-        "aerial",
         vimtex_compile_status,
         "filetype",
         lazy_plugin_status,
       },
     },
-    extensions = { "neo-tree", "fzf", "lazy", "oil", "aerial", "mason", "man" },
+    extensions = { "fzf", "lazy", "oil", "mason", "man" },
   }
   return opts
 end

@@ -40,14 +40,9 @@ return {
         operators = {},
       },
       integrations = {
-        aerial = true,
+        aerial = false,
         barbar = true,
         cmp = true,
-        gitsigns = true,
-        indent_blankline = {
-          enabled = true,
-          colored_indent_levels = false,
-        },
         gitsigns = true,
         markdown = true,
         render_markdown = true,
