@@ -10,6 +10,7 @@ return {
   opts = {
     ensure_installed = require("settings").treesitter_ensure_installed,
     auto_install = true,
+    ignore_install = { "latex" },
     highlight = {
       enable = true,
       additional_vim_regex_highlighting = false,
@@ -26,10 +27,10 @@ return {
       enable = true,
       keymaps = {
         -- mappings for incremental selection (visual mappings)
-        init_selection = "<C-Space>", -- maps in normal mode to init the node/scope selection
-        node_incremental = "<C-Space>", -- increment to the upper named parent
+        init_selection = "<C-n>", -- maps in normal mode to init the node/scope selection
+        node_incremental = "<C-n>", -- increment to the upper named parent
         scope_incremental = false, -- increment to the upper scope (as defined in locals.scm)
-        node_decremental = "<BS>", -- decrement to the previous node
+        node_decremental = "<C-p>", -- decrement to the previous node
       },
     },
   },

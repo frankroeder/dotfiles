@@ -9,7 +9,6 @@ local M = {
     "hrsh7th/cmp-cmdline",
     "saadparwaiz1/cmp_luasnip",
     "ray-x/cmp-treesitter",
-    "windwp/nvim-autopairs",
   },
 }
 
@@ -159,56 +158,6 @@ function M.config()
       { name = "cmdline" },
     }),
   })
-
-  local npairs_status_ok, npairs = pcall(require, "nvim-autopairs")
-  if not npairs_status_ok then
-    return
-  end
-
-  npairs.setup {
-    disable_filetype = { "vim", "help" },
-    check_ts = true,
-    ts_config = {
-      lua = { "string", "comment", "source" }, -- it will not add a pair on that treesitter node
-      javascript = { "string", "template_string" },
-    },
-  }
-
-  local Rule = require "nvim-autopairs.rule"
-  local cond = require "nvim-autopairs.conds"
-
-  npairs.add_rules {
-    Rule("$", "$", { "tex", "latex" })
-      -- don't add a pair if the next character is %
-      :with_pair(cond.not_after_regex "%%")
-      -- don't move right when repeat character
-      :with_move(cond.none())
-      -- disable adding a newline when you press <cr>
-      :with_cr(cond.none()),
-  }
-
-  npairs.add_rules {
-    Rule("$$", "$$", "tex"):with_pair(function(opts)
-      if opts.line == "aa $$" then
-        -- don't add pair on that line
-        return false
-      end
-    end),
-  }
-  npairs.get_rules("`")[1].not_filetypes = { "tex", "latex" }
-  npairs.get_rules("'")[1].not_filetypes = { "tex", "latex" }
-
-  local cmp_autopair_status_ok, cmp_autopairs = pcall(require, "nvim-autopairs.completion.cmp")
-  if not cmp_autopair_status_ok then
-    return
-  end
-
-  cmp.event:on(
-    "confirm_done",
-    cmp_autopairs.on_confirm_done {
-      map_char = { tex = "" },
-    }
-  )
 end
 
 return M

@@ -41,6 +41,12 @@ return {
     vim.g.vimtex_view_general_options = "-r @line @pdf @tex"
 
     vim.g.vimtex_parser_bib_backend = "lua"
+    vim.g.vimtex_log_ignore = {
+      "Underfull",
+      "Overfull",
+      "specifier changed to",
+      "Token not allowed in a PDF string",
+    }
 
     function Callback(msg)
       local m = vim.fn.matchlist(msg, "\\vRun number (\\d+) of rule ''(.*)''")
