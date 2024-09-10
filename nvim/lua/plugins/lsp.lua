@@ -66,7 +66,7 @@ function M.config()
     "jedi_language_server",
     "lua_ls",
     "svelte",
-    "tsserver",
+    "ts_ls",
   }
   mason.setup()
   mason_lspconfig.setup {

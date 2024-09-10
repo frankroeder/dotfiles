@@ -10,7 +10,7 @@ return {
   end,
   opts = {
     -- Enable/disable animations
-    animation = false,
+    animation = true,
     -- Enable/disable auto-hiding the tab bar when there is a single buffer
     auto_hide = false,
     -- Enable/disable current/total tabpages indicator (top right corner)
