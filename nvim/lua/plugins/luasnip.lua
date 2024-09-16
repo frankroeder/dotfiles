@@ -1,19 +1,7 @@
 local M = {
   "L3MON4D3/LuaSnip",
-  tag = "v2.3.0",
+  version = "v2.*",
   keys = {
-    {
-      "<C-T>",
-      function()
-        local is_git_repo = require("utils").is_git_repo
-        if is_git_repo() then
-          require("fzf-lua").git_files { file_icons = false, git_icons = false }
-        else
-          require("fzf-lua").files { file_icons = false, git_icons = false }
-        end
-      end,
-      desc = "files / git files",
-    },
     {
       "<C-J>",
       [[<cmd>lua require("luasnip").jump(1)<CR>]],

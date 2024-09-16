@@ -73,7 +73,6 @@ return {
   }),
   s({ trig = "box", name = "Comment box" }, create_box { padding_length = 8 }),
   s({ trig = "bbox", name = "Big comment box" }, create_box { padding_length = 20 }),
-
   s(
     { trig = "date", name = "Current date", dscr = "Date in format Y-m-d" },
     p(os.date, "%Y-%m-%d")

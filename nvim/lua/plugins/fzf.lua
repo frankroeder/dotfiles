@@ -5,6 +5,14 @@ return {
     opts = {
       winopts = { split = "aboveleft new" },
     },
+    init = function()
+      vim.keymap.set({ "i" }, "<C-x><C-f>", function()
+        require("fzf-lua").complete_file {
+          cmd = "rg --files",
+          winopts = { preview = { hidden = "nohidden" } },
+        }
+      end, { silent = true, desc = "Fuzzy complete file" })
+    end,
     keys = {
       {
         "<C-T>",
@@ -42,6 +50,7 @@ return {
         desc = "command history",
       },
       { [[<Leader>"]], [[<cmd>lua require('fzf-lua').registers()<CR>]], desc = "registers" },
+      { [[<Leader>tb]], [[<cmd>lua require('fzf-lua').tmux_buffers()<CR>]], desc = "tmux buffers" },
     },
   },
 }

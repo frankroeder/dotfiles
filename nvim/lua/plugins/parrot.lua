@@ -72,7 +72,7 @@ local M = {
         ```
 
         Please finish the code above carefully and logically.
-        Respond just with the snippet of code that should be inserted."
+        Respond just with the snippet of code that should be inserted.
         ]]
         local model_obj = prt.get_model "command"
         prt.Prompt(params, prt.ui.Target.append, model_obj, nil, template)
@@ -91,7 +91,7 @@ local M = {
         ```
 
         Please finish the code above carefully and logically.
-        Respond just with the snippet of code that should be inserted."
+        Respond just with the snippet of code that should be inserted.
         ]]
         local model_obj = prt.get_model "command"
         prt.Prompt(params, prt.ui.Target.append, model_obj, nil, template)
