@@ -30,9 +30,9 @@ local M = {
       -- mistral = {
       --   api_key = os.getenv "MISTRAL_API_KEY",
       -- },
-      groq = {
-        api_key = os.getenv "GROQ_API_KEY",
-      },
+      -- groq = {
+      --   api_key = os.getenv "GROQ_API_KEY",
+      -- },
       github = {
         api_key = os.getenv "GITHUB_TOKEN",
       },
