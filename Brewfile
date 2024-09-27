@@ -36,7 +36,7 @@ brew "borders", restart_service: :changed
 
 cask "raycast"
 cask "alacritty"
-cask "docker"
+cask "orbstack"
 cask "musescore"
 cask "sioyek"
 cask "mactex-no-gui"

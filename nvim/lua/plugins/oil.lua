@@ -1,5 +1,8 @@
 return {
   "stevearc/oil.nvim",
+  dependencies = { "nvim-tree/nvim-web-devicons" },
+  lazy = false,
+  cmd = "Oil",
   opts = {
     default_file_explorer = true,
     delete_to_trash = true,
@@ -8,9 +11,6 @@ return {
       show_hidden = true,
     },
   },
-  lazy = false,
-  dependencies = { "nvim-tree/nvim-web-devicons" },
-  cmd = "Oil",
   keys = {
     {
       "<Leader>o",
