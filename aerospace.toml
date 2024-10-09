@@ -85,7 +85,7 @@ run = ['move-node-to-workspace M']
 if.app-id = 'com.apple.podcasts'
 run = ['move-node-to-workspace M']
 [[on-window-detected]]
-if.app-name-regex-substring = "^mpv$"
+if.app-name-regex-substring = "^mpv$|^Updating Orion RC$"
 run = 'layout floating'
 [[on-window-detected]]
 if.app-id = 'com.apple.QuickTimePlayerX'
@@ -98,6 +98,10 @@ run = ['move-node-to-workspace I']
 [[on-window-detected]]
 if.app-id = 'org.inkscape.Inkscape'
 run = ['move-node-to-workspace I']
+
+[[on-window-detected]]
+if.app-id = 'org.zotero.zotero'
+run = ['move-node-to-workspace Z']
 
 [mode.main.binding]
 alt-period = 'layout tiles horizontal vertical'

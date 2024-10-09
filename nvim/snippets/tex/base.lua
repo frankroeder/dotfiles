@@ -9,7 +9,7 @@ return {
       [[
 			\documentclass[10pt]{article}
 			\usepackage[utf8]{inputenc}
-			\title{<>}}
+			\title{<>}
 			\date{\today}
 			\begin{document}
 			\maketitle
