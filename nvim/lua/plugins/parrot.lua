@@ -63,7 +63,7 @@ local M = {
         I have the following code from {{filename}}:
 
         ```{{filetype}}
-        {filecontent}}
+        {{filecontent}}
         ```
 
         Please look at the following section specifically:
