@@ -14,7 +14,7 @@ HISTORY_IGNORE=(
   "la"
   "lsd"
   "lla"
-  "cd"
+  "cd *"
   "c"
   "rg *"
   ":q"
@@ -22,9 +22,10 @@ HISTORY_IGNORE=(
   "alias"
   "lstcp"
   "lsudp"
-  "gcmsg"
-  "dalle3"
-  "gptvision"
+  "gcmsg *"
+  "dalle3 *"
+  "gptvision *"
+  "mpv *"
 )
 
 setopt HIST_IGNORE_ALL_DUPS

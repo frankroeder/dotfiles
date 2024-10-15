@@ -21,22 +21,22 @@ return {
   ),
   parse(
     { trig = "tbf", name = "Bold text" },
-    "\\textbf{${1:${TM_SELECTED_TEXT}}} $0",
+    "\\textbf{${1:${TM_SELECTED_TEXT}}}$0",
     { condition = tsutils.in_text }
   ),
   parse(
     { trig = "tit", name = "Italics text" },
-    "\\textit{${1:${TM_SELECTED_TEXT}}} $0",
+    "\\textit{${1:${TM_SELECTED_TEXT}}}$0",
     { condition = tsutils.in_text }
   ),
   parse(
     { trig = "ttt", name = "Typewriter text" },
-    "\\texttt{${1:${TM_SELECTED_TEXT}}} $0",
+    "\\texttt{${1:${TM_SELECTED_TEXT}}}$0",
     { condition = tsutils.in_text }
   ),
   parse(
     { trig = "emph", name = "Emphasize text" },
-    "\\emph{${1:${TM_SELECTED_TEXT}}} $0",
+    "\\emph{${1:${TM_SELECTED_TEXT}}}$0",
     { condition = tsutils.in_text }
   ),
   s({ trig = "foot", name = "Footnote" }, fmta("\\footnote{<>}<>", { i(1), i(0) })),
