@@ -24,17 +24,11 @@ local M = {
       gemini = {
         api_key = os.getenv "GEMINI_API_KEY",
       },
-      -- pplx = {
-      --   api_key = { "/usr/bin/security", "find-generic-password", "-s perplexity-api-key", "-w" },
-      -- },
-      -- mistral = {
-      --   api_key = os.getenv "MISTRAL_API_KEY",
-      -- },
-      -- groq = {
-      --   api_key = os.getenv "GROQ_API_KEY",
-      -- },
-      github = {
-        api_key = os.getenv "GITHUB_TOKEN",
+      pplx = {
+        api_key = { "/usr/bin/security", "find-generic-password", "-s perplexity-api-key", "-w" },
+      },
+      xai = {
+        api_key = os.getenv "XAI_API_KEY",
       },
     },
     cmd_prefix = "Prt",

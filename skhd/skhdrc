@@ -40,7 +40,6 @@ fn - o : aerospace workspace O
 fn - p : aerospace workspace P
 fn - q : aerospace workspace Q
 fn - r : aerospace workspace R
-fn - s : aerospace workspace S
 fn - t : aerospace workspace T
 fn - u : aerospace workspace U
 fn - v : aerospace workspace V
@@ -73,7 +72,6 @@ fn + ctrl - o : aerospace move-node-to-workspace O
 fn + ctrl - p : aerospace move-node-to-workspace P
 fn + ctrl - q : aerospace move-node-to-workspace Q
 fn + ctrl - r : aerospace move-node-to-workspace R
-fn + ctrl - s : aerospace move-node-to-workspace S
 fn + ctrl - t : aerospace move-node-to-workspace T
 fn + ctrl - u : aerospace move-node-to-workspace U
 fn + ctrl - v : aerospace move-node-to-workspace V
@@ -106,7 +104,6 @@ fn + ctrl + alt - o : aerospace move-node-to-workspace O; aerospace workspace O
 fn + ctrl + alt - p : aerospace move-node-to-workspace P; aerospace workspace P
 fn + ctrl + alt - q : aerospace move-node-to-workspace Q; aerospace workspace Q
 fn + ctrl + alt - r : aerospace move-node-to-workspace R; aerospace workspace R
-fn + ctrl + alt - s : aerospace move-node-to-workspace S; aerospace workspace S
 fn + ctrl + alt - t : aerospace move-node-to-workspace T; aerospace workspace T
 fn + ctrl + alt - u : aerospace move-node-to-workspace U; aerospace workspace U
 fn + ctrl + alt - v : aerospace move-node-to-workspace V; aerospace workspace V

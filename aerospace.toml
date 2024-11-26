@@ -23,7 +23,7 @@ outer.right = 10
 0 = 'built-in'
 1 = ['secondary', 'built-in']
 2 = ['secondary', 'built-in']
-S = ['secondary', 'built-in']
+C = ['secondary', 'built-in']
 T = ['secondary', 'built-in']
 W = ['secondary', 'built-in']
 
@@ -51,31 +51,31 @@ run = 'layout floating'
 if.app-id = 'com.raycast.macos'
 run = 'layout floating'
 [[on-window-detected]]
-if.window-title-regex-substring = '^(Bullet Physics|Orion Preview).*$'
+if.window-title-regex-substring = '^(Bullet Physics|Orion Preview|Picture-in-Picture).*$'
 run = 'layout floating'
 [[on-window-detected]]
 if.app-name-regex-substring = 'python'
 run = 'layout floating'
 
-## move to (s)ocial workspace
+## move to (c)ommunicaton workspace
 [[on-window-detected]]
 if.app-id = 'ru.keepcoder.Telegram'
-run = ['move-node-to-workspace S']
+run = ['move-node-to-workspace C']
 [[on-window-detected]]
 if.app-id = 'com.apple.MobileSMS'
-run = ['move-node-to-workspace S']
+run = ['move-node-to-workspace C']
 [[on-window-detected]]
 if.app-id = 'Mattermost.Desktop'
-run = ['move-node-to-workspace S']
+run = ['move-node-to-workspace C']
 [[on-window-detected]]
 if.app-id = 'ZoomChat'
-run = ['move-node-to-workspace S']
+run = ['move-node-to-workspace C']
 [[on-window-detected]]
 if.app-id = 'org.whispersystems.signal-desktop'
-run = ['move-node-to-workspace S']
+run = ['move-node-to-workspace C']
 [[on-window-detected]]
 if.app-id = 'com.hnc.Discord'
-run = ['move-node-to-workspace S']
+run = ['move-node-to-workspace C']
 
 ## move to (m)ultimedia workspace
 [[on-window-detected]]

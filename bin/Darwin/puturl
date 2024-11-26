@@ -1,12 +1,37 @@
-#!/usr/bin/env osascript
-# Return url of selected tab in Orion
+#!/usr/bin/env bash
+# Return url of selected browser tab
 
 # @raycast.title Put URL
 # @raycast.mode compact
 # @raycast.schemaVersion 1
 
-tell application id "com.kagi.kagimacOS.RC"
-  set theTab to current tab of first window
-  set vURL to URL of theTab
-	vURL
-end tell
+if [[ $BROWSER_NAME == "Safari" ]]; then
+  osascript -e '
+  tell application "Safari"
+    set theTab to current tab of window 1
+    set vURL to URL of theTab
+    vURL
+  end tell'
+elif [[ $BROWSER_NAME == "Orion RC" ]]; then
+  osascript -e '
+  tell application id "com.kagi.kagimacOS.RC"
+    set theTab to current tab of first window
+    set vURL to URL of theTab
+    vURL
+  end tell'
+elif [[ $BROWSER_NAME == "Zen Browser" ]]; then
+  osascript -e 'tell application "System Events"
+    keystroke "l" using command down
+    delay 0.05
+    keystroke "c" using command down
+    key code 97
+  end tell
+  delay 0.05
+  return the clipboard'
+elif [[ $BROWSER_NAME == "Brave Browser" ]]; then
+  osascript -e '
+  tell application "Brave Browser"
+    set vURL to URL of active tab of front window
+    vURL
+  end tell'
+fi

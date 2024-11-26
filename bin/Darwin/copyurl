@@ -1,9 +1,51 @@
-#!/usr/bin/env osascript
-# Copy url of selected tab in Orion
+#!/usr/bin/env bash
+# Copy url of selected tab in Safari
 
-tell application id "com.kagi.kagimacOS.RC"
-  set theTab to current tab of first window
-  set vURL to URL of theTab
-  set the clipboard to vURL
-  "Copied " & vURL & " to clipboard"
+if [[ "$BROWSER_NAME" = "Safari" ]]; then
+URL=$(osascript <<'END'
+  tell application "Safari"
+    tell front window
+      set currentTab to current tab
+      set theURL to URL of currentTab
+    end tell
+    set the clipboard to theURL
+    "Copied " & theURL & " to clipboard"
+  end tell
+END
+)
+elif [[ "$BROWSER_NAME" = "Orion RC" ]]; then
+URL=$(osascript <<'END'
+  tell application "Safari"
+    tell front window
+      set currentTab to current tab
+      set theURL to URL of currentTab
+    end tell
+    set the clipboard to theURL
+    "Copied " & theURL & " to clipboard"
+  end tell
+END
+)
+elif [[ "$BROWSER_NAME" = "Zen Browser" ]]; then
+# FIXME
+URL=$(osascript <<'END'
+tell application "System Events"
+    tell application process "Zen Browser"
+      set vURL to value of attribute "AXTitle" of front window
+      set the clipboard to vURL
+      return "Copied " & vURL & " to clipboard"
+    end tell
 end tell
+END
+)
+elif [[ "$BROWSER_NAME" = "Brave Browser" ]]; then
+URL=$(osascript <<'END'
+  tell application "Brave Browser"
+    set vURL to URL of active tab of front window
+    set the clipboard to vURL
+    "Copied " & vURL & " to clipboard"
+  end tell
+END
+)
+fi
+
+echo $URL

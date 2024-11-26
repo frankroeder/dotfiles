@@ -1,9 +1,9 @@
 # GENERAL
+ [general]
 import = ["~/.config/alacritty/catppuccin/catppuccin-mocha.toml"]
 
-[shell]
-program = "zsh"
-args = ["--login"]
+live_config_reload = true
+
 # ENV
 [env]
 TERM = "xterm-256color"
@@ -15,6 +15,7 @@ padding = { x = 5, y = 5 }
 dynamic_padding = true
 decorations = "None"
 opacity = 0.85
+blur = true
 startup_mode = "Maximized"
 dynamic_title = true
 option_as_alt = "None"
@@ -48,6 +49,11 @@ save_to_clipboard = true
 style = { shape = "Block", blinking = "Off" }
 unfocused_hollow = true
 
+# TERMINAL
+[terminal.shell]
+program = "zsh"
+args = ["--login"]
+
 # MOUSE
 [mouse]
 hide_when_typing = true
@@ -68,7 +74,7 @@ mouse = { mods = "Control|Shift", enabled = true }
 # KEYBOARD
 [keyboard]
 bindings = [
-  {key = "Equals", mods = "Command", action = "IncreaseFontSize"},
+  {key = "Plus", mods = "Command", action = "IncreaseFontSize"},
   {key = "Minus", mods = "Command", action = "DecreaseFontSize"},
   {key = "Q", mods = "Command", action = "Quit"},
   {key = "Space", mods = "Control", chars = "\u0000"},

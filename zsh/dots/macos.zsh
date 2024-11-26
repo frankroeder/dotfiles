@@ -27,11 +27,12 @@ alias flushdns='sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder; s
 alias rmls="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -kill -r -domain local -domain system -domain user && killall Finder"
 
 mergepdf(){
-	if [ $# -eq 0 ]; then
-  	echo "# Merge PDF files, Usage: \`mergepdf -o output.pdf input{1,2,3}.pdf\`"
-  	return
-	fi
-	"/System/Library/Automator/Combine PDF Pages.action/Contents/MacOS/join" $@
+  if [ $# -eq 0 ]; then
+    echo "# Merge PDF files, Usage: \`mergepdf input{1,2,3}.pdf\`"
+    return
+  fi
+  gs -dQUIET -dBATCH -dNOPAUSE -sDEVICE=pdfwrite -sOutputFile=merged.pdf $@
+  echo "Merged as merged.pdf"
 }
 
 

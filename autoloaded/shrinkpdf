@@ -18,7 +18,7 @@ echo_sizes() {
 if [ -z "$1" ]; then
     usage "$0"
 else
-  local QUALITY="${2-ebook}"
+  local QUALITY="${2-prepress}"
   local INPUT_FILE="$1"
 
   local FNAME=$(basename "$1")
@@ -31,9 +31,10 @@ else
     -dNOPAUSE \
     -dQUIET \
     -dBATCH \
+    -dFIXEDMEDIA \
     -dEmbedAllFonts=true \
     -dSubsetFonts=true \
-	  -dAutoRotatePages=/None \
+    -dAutoRotatePages=/None \
     -sOutputFile="$OUTPUT_FILE" "$INPUT_FILE"
 
   echo_sizes $INPUT_FILE $OUTPUT_FILE

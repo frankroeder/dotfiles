@@ -4,7 +4,7 @@ local M = {
   dependencies = {
     "hrsh7th/cmp-nvim-lsp",
     "hrsh7th/cmp-buffer",
-    "hrsh7th/cmp-path",
+    "https://codeberg.org/FelipeLema/cmp-async-path",
     "hrsh7th/cmp-omni",
     "hrsh7th/cmp-cmdline",
     "saadparwaiz1/cmp_luasnip",
@@ -86,7 +86,7 @@ function M.config()
       { name = "luasnip" },
       { name = "buffer", keyword_length = 3 },
       { name = "treesitter", keyword_length = 3 },
-      { name = "path" },
+      { name = "async_path" },
       {
         name = "lazydev",
         -- set group index to 0 to skip loading LuaLS completions as lazydev recommends it
