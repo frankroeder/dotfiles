@@ -26,13 +26,7 @@ function M.config()
 
   vim.lsp.set_log_level "error"
 
-  local cmp_status_ok, cmp_nvim_lsp = pcall(require, "cmp_nvim_lsp")
-  if not cmp_status_ok then
-    return
-  end
-
-  local capabilities = require "plugins.lsp.capabilities"(cmp_nvim_lsp)
-
+  local capabilities = require "plugins.lsp.capabilities"()
   local lsp_defaults = {
     log_level = vim.lsp.protocol.MessageType.Log,
     message_level = vim.lsp.protocol.MessageType.Log,

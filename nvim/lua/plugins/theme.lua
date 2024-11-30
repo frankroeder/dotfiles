@@ -42,7 +42,8 @@ return {
       integrations = {
         aerial = false,
         barbar = true,
-        cmp = true,
+        blink_cmp = true,
+        cmp = false,
         gitsigns = true,
         markdown = true,
         render_markdown = true,
@@ -66,7 +67,7 @@ return {
             background = true,
           },
         },
-        neotree = true,
+        neotree = false,
         treesitter = true,
       },
     },

@@ -1,26 +1,6 @@
 local M = {
   "L3MON4D3/LuaSnip",
   version = "v2.*",
-  keys = {
-    {
-      "<C-J>",
-      [[<cmd>lua require("luasnip").jump(1)<CR>]],
-      mode = { "i", "s" },
-      desc = "LuaSnip forward jump",
-    },
-    {
-      "<C-K>",
-      [[<cmd>lua require("luasnip").jump(-1)<CR>]],
-      mode = { "i", "s" },
-      desc = "LuaSnip backward jump",
-    },
-    {
-      "<C-L>",
-      [[<cmd>lua require("luasnip").expand()<CR>]],
-      mode = { "i", "s" },
-      desc = "LuaSnip expand",
-    },
-  },
 }
 
 function M.config()
