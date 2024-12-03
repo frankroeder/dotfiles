@@ -22,10 +22,13 @@ return {
     snippets = {
       -- Function to use when expanding LSP provided snippets
       expand = function(snippet)
-        require("luasnip").expand(snippet)
+        require("luasnip").lsp_expand(snippet)
       end,
       -- -- Function to use when checking if a snippet is active
-      active = function()
+      active = function(filter)
+        if filter and filter.direction then
+          return require("luasnip").jumpable(filter.direction)
+        end
         return require("luasnip").in_snippet()
       end,
       -- Function to use when jumping between tab stops in a snippet, where direction can be negative or positive
@@ -72,10 +75,12 @@ return {
         },
       },
       menu = {
+        border = "rounded",
         draw = {
           columns = { { "label", "label_description", gap = 1 }, { "kind_icon", "kind" } },
         },
       },
+
       documentation = {
         -- Controls whether the documentation window will automatically show when selecting a completion item
         auto_show = true,
@@ -96,6 +101,7 @@ return {
       -- when enabled, allows for a number of typos relative to the length of the query
       -- disabling this matches the behavior of fzf
       use_typo_resistance = false,
+      max_items = 100,
     },
 
     sources = {
@@ -126,7 +132,10 @@ return {
             show_autosnippets = true,
           },
         },
-        lsp = { fallback_for = { "lazydev" } },
+        lsp = {
+          min_keyword_length = 2,
+          fallback_for = { "lazydev" },
+        },
         lazydev = {
           name = "LazyDev",
           module = "lazydev.integrations.blink",
