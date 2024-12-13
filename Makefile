@@ -138,7 +138,6 @@ after: _terminal
 	@nvim -i NONE -u $(DOTFILES)/nvim/init.vim -c "TSUpdate" -c "quitall"
 ifeq ($(OSTYPE), Darwin)
 	@brew services start sketchybar
-	@brew services start borders
 endif
 
 directories:
@@ -200,7 +199,6 @@ _macos:
 	@mkdir -p $(HOME)/screens
 	@bash $(DOTFILES)/macos/main.bash
 	@ln -sfv $(DOTFILES)/sketchybar $(HOME)/.config/sketchybar
-	@ln -sfv $(DOTFILES)/borders $(HOME)/.config/borders
 	@ln -sfv $(DOTFILES)/aerospace.toml $(HOME)/.aerospace.toml
 	@ln -sfv $(DOTFILES)/skhd $(HOME)/.config/skhd
 ifeq ($(shell ${WHICH} airport 2>${DEVNUL}),)
@@ -264,7 +262,6 @@ uninstall:
 	rm $(HOME)/.config/nvim
 ifeq ($(OSTYPE), Darwin)
 	rm $(HOME)/.aerospace.toml
-	rm $(HOME)/.config/borders
 	rm $(HOME)/.config/skhd
 	rm $(HOME)/.config/sketchybar
 	rm $(HOME)/.config/sioyek
