@@ -63,7 +63,7 @@ return {
     },
 
     signature = {
-      enabled = true,
+      enabled = false,
       window = {
         border = "rounded",
       },
@@ -75,7 +75,10 @@ return {
 
     sources = {
       default = function()
-        local node = vim.treesitter.get_node()
+        local node = nil
+        if not vim.bo.filetype == "oil" then
+          node = vim.treesitter.get_node()
+        end
         if vim.bo.filetype == "tex" then
           return { "buffer", "vimtex", "luasnip" }
         elseif
