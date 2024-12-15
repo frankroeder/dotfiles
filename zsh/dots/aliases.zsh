@@ -59,3 +59,14 @@ alias userlist="cut -d: -f1 /etc/passwd | sort"
 if [[ $commands[wezterm] ]]; then
   alias imgcat="wezterm imgcat"
 fi
+
+# Copies the contents of all files in the current directory to clipboard
+llmcopy() {
+  (
+  find . -type f | while read -r file; do
+      echo "--- Content of $file ---"
+      cat "$file"
+      echo
+  done
+  ) | pbcopy
+}
