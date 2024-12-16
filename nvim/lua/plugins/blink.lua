@@ -38,6 +38,9 @@ return {
       keyword = {
         range = "full",
       },
+      trigger = {
+        show_on_insert_on_trigger_character = false,
+      },
       list = {
         max_items = 100,
         selection = "auto_insert",
