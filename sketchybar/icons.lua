@@ -2,6 +2,7 @@ local settings = require "settings"
 
 local icons = {
   sf_symbols = {
+    ram = "􀫦",
     plus = "􀅼",
     loading = "􀖇",
     apple = "􀣺",

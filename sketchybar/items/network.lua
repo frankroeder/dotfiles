@@ -7,6 +7,7 @@ local network_down = sbar.add("item", { "network_down" }, {
   icon = {
     string = icons.wifi.download,
     font = {
+      family = settings.font.text,
       style = settings.font.style_map["Bold"],
       size = 10.0,
     },
