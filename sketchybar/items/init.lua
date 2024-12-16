@@ -1,5 +1,5 @@
 require "items.spaces"
-require("items.mails")
+require "items.mails"
 require "items.vpn"
 require "items.music"
 require "items.ram"

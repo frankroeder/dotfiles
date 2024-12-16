@@ -1,6 +1,6 @@
 local vpn_item = sbar.add("item", { "vpn" }, {
   position = "center",
-	update_freq = 2,
+  update_freq = 2,
   icon = {
     string = "",
     font = {
@@ -23,11 +23,11 @@ local function update()
     scutil --nc list | grep Connected | sed -E 's/.*"(.*)".*/\1/'
   ]]
   sbar.exec(cmd, function(output)
-    local vpn_name = output:match("^%s*(.-)%s*$")
+    local vpn_name = output:match "^%s*(.-)%s*$"
     if vpn_name and vpn_name:len() > 0 then
-			sbar.animate("sin", 10, function()
-				vpn_item:set({ label = vpn_name, drawing = true })
-			end)
+      sbar.animate("sin", 10, function()
+        vpn_item:set { label = vpn_name, drawing = true }
+      end)
     else
       vpn_item:set {
         drawing = false,
@@ -37,6 +37,6 @@ local function update()
 end
 
 vpn_item:subscribe("routine", "system_woke", function(_)
-	update()
+  update()
 end)
 update()
