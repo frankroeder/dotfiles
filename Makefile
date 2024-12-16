@@ -199,6 +199,7 @@ _macos:
 	@mkdir -p $(HOME)/screens
 	@bash $(DOTFILES)/macos/main.bash
 	@ln -sfv $(DOTFILES)/sketchybar $(HOME)/.config/sketchybar
+	@curl -L https://github.com/kvndrsslr/sketchybar-app-font/releases/download/latest/sketchybar-app-font.ttf -o $(HOME)/Library/Fonts/sketchybar-app-font.ttf
 	@ln -sfv $(DOTFILES)/aerospace.toml $(HOME)/.aerospace.toml
 	@ln -sfv $(DOTFILES)/skhd $(HOME)/.config/skhd
 ifeq ($(shell ${WHICH} airport 2>${DEVNUL}),)
