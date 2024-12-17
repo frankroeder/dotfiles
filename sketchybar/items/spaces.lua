@@ -119,7 +119,7 @@ sbar.exec("aerospace list-workspaces --all", function(space_names)
           },
           background = {
             drawing = true,
-          }
+          },
         }
       end
     end) -- end subscribe

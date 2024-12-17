@@ -7,7 +7,7 @@ local swap = sbar.add("item", "widgets.swap1", {
   drawing = false,
   icon = {
     font = {
-			family = settings.font.text,
+      family = settings.font.text,
       style = settings.font.style_map["Bold"],
       size = 10.0,
     },
@@ -26,8 +26,8 @@ local swap = sbar.add("item", "widgets.swap1", {
   padding_right = -4,
   update_freq = 180,
   background = {
-    color= colors.lightblack
-  }
+    color = colors.lightblack,
+  },
 })
 
 swap:subscribe({ "routine", "forced" }, function(env)

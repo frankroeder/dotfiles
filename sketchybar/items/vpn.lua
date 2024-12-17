@@ -1,5 +1,5 @@
 local settings = require "settings"
-local colors = require("colors")
+local colors = require "colors"
 local icons = require "icons"
 
 local vpn_item = sbar.add("item", { "vpn" }, {
@@ -24,8 +24,8 @@ local vpn_item = sbar.add("item", { "vpn" }, {
   },
   drawing = false,
   background = {
-    color = colors.lightblack
-  }
+    color = colors.lightblack,
+  },
 })
 
 local function update()

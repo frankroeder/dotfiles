@@ -25,8 +25,8 @@ local ram = sbar.add("item", "widgets.ram1", {
   },
   update_freq = 180,
   background = {
-    color= colors.lightblack
-  }
+    color = colors.lightblack,
+  },
 })
 
 ram:subscribe({ "routine", "forced", "system_woke" }, function(env)

@@ -20,8 +20,8 @@ local mail = sbar.add("item", "widgets.mail", 20, {
   },
   update_freq = 180,
   background = {
-    color= colors.lightblack
-  }
+    color = colors.lightblack,
+  },
 })
 
 local function update_mail_count()

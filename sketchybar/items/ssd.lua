@@ -21,8 +21,8 @@ local ssd_volume = sbar.add("item", "widgets.ssd.volume", {
   },
   update_freq = 180,
   background = {
-    color= colors.lightblack
-  }
+    color = colors.lightblack,
+  },
 })
 
 ssd_volume:subscribe({ "routine", "forced" }, function(env)
