@@ -1,6 +1,7 @@
 return {
   paddings = 2,
   group_paddings = 5,
+  animation_duration = 15,
   -- icons = "NerdFont",
   icons = "sf-symbols",
 

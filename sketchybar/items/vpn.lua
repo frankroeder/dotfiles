@@ -34,7 +34,7 @@ local function update()
   sbar.exec(cmd, function(output)
     local vpn_name = output:match "^%s*(.-)%s*$"
     if vpn_name and vpn_name:len() > 0 then
-      sbar.animate("sin", 20, function()
+      sbar.animate("sin", settings.animation_duration, function()
         vpn_item:set { label = vpn_name, drawing = true }
       end)
     else
