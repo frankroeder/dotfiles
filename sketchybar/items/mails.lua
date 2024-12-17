@@ -11,7 +11,7 @@ local mail = sbar.add("item", "widgets.mail", 20, {
   },
   label = {
     string = "0",
-    padding_right = 4,
+    padding_right = 8,
   },
   update_freq = 180,
   background = {
