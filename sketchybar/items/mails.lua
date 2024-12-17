@@ -1,6 +1,5 @@
 local icons = require "icons"
 local colors = require "colors"
-local settings = require "settings"
 
 local mail = sbar.add("item", "widgets.mail", 20, {
   position = "center",
@@ -12,10 +11,6 @@ local mail = sbar.add("item", "widgets.mail", 20, {
   },
   label = {
     string = "0",
-    font = {
-      family = settings.font.numbers,
-      style = settings.font.style_map["Bold"],
-    },
     padding_right = 4,
   },
   update_freq = 180,

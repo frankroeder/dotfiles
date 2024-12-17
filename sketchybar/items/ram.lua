@@ -1,5 +1,4 @@
 local colors = require "colors"
-local settings = require "settings"
 local icons = require "icons"
 
 local ram = sbar.add("item", "widgets.ram1", {
@@ -7,8 +6,6 @@ local ram = sbar.add("item", "widgets.ram1", {
   width = 60,
   icon = {
     font = {
-      family = settings.font.text,
-      style = settings.font.style_map["Bold"],
       size = 18.0,
     },
     string = icons.ram,
@@ -16,7 +13,6 @@ local ram = sbar.add("item", "widgets.ram1", {
   },
   label = {
     font = {
-      family = settings.font.text,
       style = "Bold",
       size = 12.0,
     },
@@ -29,7 +25,7 @@ local ram = sbar.add("item", "widgets.ram1", {
   },
 })
 
-ram:subscribe({ "routine", "forced", "system_woke" }, function(env)
+ram:subscribe({ "routine", "forced", "system_woke" }, function(_)
   sbar.exec(
     "memory_pressure | grep -o 'System-wide memory free percentage: [0-9]*' | awk '{print $5}'",
     function(freeram)

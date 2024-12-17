@@ -1,5 +1,4 @@
 local colors = require "colors"
-local settings = require "settings"
 
 local ssd_volume = sbar.add("item", "widgets.ssd.volume", {
   position = "right",
@@ -12,7 +11,6 @@ local ssd_volume = sbar.add("item", "widgets.ssd.volume", {
   },
   label = {
     font = {
-      family = settings.font.text,
       style = "Bold",
       size = 12.0,
     },
@@ -25,7 +23,7 @@ local ssd_volume = sbar.add("item", "widgets.ssd.volume", {
   },
 })
 
-ssd_volume:subscribe({ "routine", "forced" }, function(env)
+ssd_volume:subscribe({ "routine", "forced" }, function(_)
   sbar.exec("df -H /System/Volumes/Data | awk 'END {print $5}' | sed 's/%//'", function(usedstorage)
     if usedstorage then
       local storage = tonumber(usedstorage)

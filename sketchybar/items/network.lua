@@ -1,14 +1,11 @@
 local icons = require "icons"
 local colors = require "colors"
-local settings = require "settings"
 
 local network_down = sbar.add("item", { "network_down" }, {
   position = "right",
   icon = {
     string = icons.wifi.download,
     font = {
-      family = settings.font.text,
-      style = settings.font.style_map["Bold"],
       size = 10.0,
     },
     highlight_color = colors.blue,
@@ -16,7 +13,6 @@ local network_down = sbar.add("item", { "network_down" }, {
   label = {
     string = "",
     font = {
-      style = settings.font.style_map["Bold"],
       size = 10.0,
     },
     padding_right = 8,
@@ -32,7 +28,6 @@ local network_up = sbar.add("item", { "network_up" }, {
   icon = {
     string = icons.wifi.upload,
     font = {
-      style = settings.font.style_map["Bold"],
       size = 10.0,
     },
     highlight_color = colors.red,
@@ -40,7 +35,6 @@ local network_up = sbar.add("item", { "network_up" }, {
   label = {
     string = "",
     font = {
-      style = settings.font.style_map["Bold"],
       size = 10.0,
     },
     padding_right = 8,

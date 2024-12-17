@@ -1,6 +1,5 @@
 local whitelist = { ["Spotify"] = true, ["Music"] = true }
 local colors = require "colors"
-local settings = require "settings"
 
 local media = sbar.add("item", {
   icon = {
@@ -11,8 +10,6 @@ local media = sbar.add("item", {
   label = {
     padding_right = 8,
     font = {
-      family = settings.font.text,
-      style = settings.font.style_map["Bold"],
       size = 14.0,
     },
   },
