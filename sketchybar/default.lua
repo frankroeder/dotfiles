@@ -21,8 +21,8 @@ sbar.default {
       size = 14.0,
     },
     color = colors.white,
-    padding_left = 8,
-    padding_right = 8,
+    padding_left = settings.paddings,
+    padding_right = settings.paddings,
   },
   background = {
     height = 26,

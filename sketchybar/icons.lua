@@ -2,6 +2,8 @@ local settings = require "settings"
 
 local icons = {
   sf_symbols = {
+    mail = "􀍕",
+    vpn = "􁅏",
     ram = "􀫦",
     plus = "􀅼",
     loading = "􀖇",
@@ -103,9 +105,8 @@ local icons = {
   },
 }
 
--- if not (settings.icons == "NerdFont") then
---   return icons.sf_symbols
--- else
---   return icons.nerdfont
--- end
-return icons.sf_symbols
+if not (settings.icons == "NerdFont") then
+  return icons.sf_symbols
+else
+  return icons.nerdfont
+end

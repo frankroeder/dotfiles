@@ -1,28 +1,9 @@
-local icons = require "icons"
 local colors = require "colors"
 local settings = require "settings"
 
-local ssd = sbar.add("item", "widgets.ssd", {
-  position = "right",
-  width = 80,
-  icon = {
-    drawing = false,
-  },
-  label = {
-    font = {
-      style = settings.font.style_map["Bold"],
-      size = 10.0,
-    },
-    padding_left = 0,
-    padding_right = 90,
-    color = colors.grey,
-    string = "SSD",
-    y_offset = 6,
-  },
-})
-
 local ssd_volume = sbar.add("item", "widgets.ssd.volume", {
   position = "right",
+  width = 55,
   icon = {
     font = {
       size = 16.0,
@@ -35,33 +16,20 @@ local ssd_volume = sbar.add("item", "widgets.ssd.volume", {
       style = "Bold",
       size = 12.0,
     },
+    padding_right = 8,
     string = "...%",
-    y_offset = -5,
   },
   update_freq = 180,
-})
-
-local ssd_padding = sbar.add("item", "widgets.ssd.padding", {
-  position = "right",
-  width = 40,
-})
-
-local ssd_bracket = sbar.add("bracket", "widgets.ssd.bracket", {
-  ssd.name,
-  ssd_volume.name,
-}, {
   background = {
-    color = colors.bg2,
-    border_color = colors.bg1,
-    border_width = 2,
-  },
-  popup = { align = "center", height = 30 },
+    color= colors.lightblack
+  }
 })
 
 ssd_volume:subscribe({ "routine", "forced" }, function(env)
   sbar.exec("df -H /System/Volumes/Data | awk 'END {print $5}' | sed 's/%//'", function(usedstorage)
     if usedstorage then
       local storage = tonumber(usedstorage)
+      local Color = colors.white
       if storage >= 98 then
         Label = storage .. "%"
         Icon = "󰪥"

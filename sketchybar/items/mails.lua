@@ -2,18 +2,13 @@ local icons = require "icons"
 local colors = require "colors"
 local settings = require "settings"
 
-local mail = sbar.add("item", "widgets.mail", 42, {
+local mail = sbar.add("item", "widgets.mail", 20, {
   position = "center",
-  background = {
-    height = 22,
-    color = { alpha = 0 },
-    border_width = 0,
-    drawing = true,
-  },
   icon = {
-    string = ":mail:",
+    string = icons.mail,
     color = colors.green,
-    font = "sketchybar-app-font:Regular:18.0",
+    padding_left = 8,
+    y_offset = 1,
   },
   label = {
     string = "0",
@@ -21,11 +16,12 @@ local mail = sbar.add("item", "widgets.mail", 42, {
       family = settings.font.numbers,
       style = settings.font.style_map["Bold"],
     },
-    align = "right",
-    padding_right = 0,
+    padding_right = 4,
   },
-  update_freq = 5,
-  padding_right = settings.paddings,
+  update_freq = 180,
+  background = {
+    color= colors.lightblack
+  }
 })
 
 local function update_mail_count()

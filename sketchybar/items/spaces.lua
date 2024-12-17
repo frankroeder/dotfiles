@@ -1,4 +1,3 @@
--- spaces.lua
 local colors = require "colors"
 local settings = require "settings"
 local app_icons = require "helpers.app_icons"
@@ -12,8 +11,8 @@ sbar.exec("aerospace list-workspaces --all", function(space_names)
         font = { family = settings.font.numbers },
         drawing = false,
         string = space_name,
-        padding_left = 10,
-        padding_right = 5,
+        padding_left = 8,
+        padding_right = 8,
       },
       label = {
         font = "sketchybar-app-font:Regular:16.0",
@@ -21,17 +20,16 @@ sbar.exec("aerospace list-workspaces --all", function(space_names)
         color = colors.grey,
         highlight_color = colors.blue,
         drawing = false,
-        padding_right = 12,
+        padding_right = 8,
         y_offset = -1,
       },
       background = {
         color = colors.bg1,
+        -- color = colors.lightblack,
         border_width = 1,
         height = 24,
         border_color = colors.black,
       },
-      padding_left = settings.paddings,
-      padding_right = settings.paddings,
       click_script = "aerospace workspace " .. space_name,
     })
 
@@ -83,7 +81,7 @@ sbar.exec("aerospace list-workspaces --all", function(space_names)
                   },
                   label = {
                     drawing = true,
-                    string = icon_line, -- puts the icons in the 'icon' property
+                    string = icon_line,
                   },
                   background = {
                     drawing = true,
@@ -92,7 +90,6 @@ sbar.exec("aerospace list-workspaces --all", function(space_names)
                   padding_left = settings.paddings,
                 }
               else
-                -- If no apps, hide icon & restore label to just the space name
                 space:set {
                   icon = {
                     drawing = true,
@@ -105,15 +102,12 @@ sbar.exec("aerospace list-workspaces --all", function(space_names)
                   background = {
                     drawing = true,
                   },
-                  padding_right = settings.paddings,
-                  padding_left = settings.paddings,
                 }
               end
             end)
           end
         )
       else
-        -- If not selected, hide icons & revert to original label
         space:set {
           icon = {
             drawing = true,
@@ -125,9 +119,7 @@ sbar.exec("aerospace list-workspaces --all", function(space_names)
           },
           background = {
             drawing = true,
-          },
-          padding_right = settings.paddings,
-          padding_left = settings.paddings,
+          }
         }
       end
     end) -- end subscribe

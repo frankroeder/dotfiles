@@ -8,14 +8,14 @@ sbar.exec "killall cpu_load >/dev/null; $CONFIG_DIR/helpers/event_providers/cpu_
 
 local cpu = sbar.add("graph", "widgets.cpu", 80, {
   position = "right",
-  graph = { color = colors.green },
   background = {
-    height = 22,
-    color = { alpha = 0 },
-    border_color = { alpha = 0 },
-    drawing = true,
+    height = 10,
+    color = { alpha = 10 },
   },
-  icon = { string = icons.cpu },
+  icon = {
+    string = icons.cpu,
+    padding_left = 4,
+  },
   label = {
     string = "CPU ??%",
     font = {
@@ -24,11 +24,13 @@ local cpu = sbar.add("graph", "widgets.cpu", 80, {
       size = 12.0,
     },
     align = "right",
-    padding_right = 10,
     width = 0,
+    padding_right = 18,
     y_offset = 4,
   },
-  padding_right = settings.paddings + 6,
+  -- background = {
+  --   color= colors.lightblack
+  -- }
 })
 
 cpu:subscribe("cpu_update", function(env)
@@ -56,9 +58,3 @@ end)
 cpu:subscribe("mouse.clicked", function(env)
   sbar.exec "open -a 'Activity Monitor'"
 end)
-
--- Background around the cpu item
-sbar.add("item", "widgets.cpu.padding", {
-  position = "right",
-  width = settings.group_paddings,
-})

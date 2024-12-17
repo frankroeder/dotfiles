@@ -19,10 +19,12 @@ local network_down = sbar.add("item", { "network_down" }, {
       style = settings.font.style_map["Bold"],
       size = 10.0,
     },
+    padding_right = 8,
   },
+  padding_right = -4,
   y_offset = -5,
   width = 0,
-  update_freq = 2, -- match your old config's frequency
+  update_freq = 10,
 })
 
 local network_up = sbar.add("item", { "network_up" }, {
@@ -41,18 +43,23 @@ local network_up = sbar.add("item", { "network_up" }, {
       style = settings.font.style_map["Bold"],
       size = 10.0,
     },
+    padding_right = 8,
   },
   y_offset = 5,
-  width = 0,
   update_freq = 2,
+  width = 70,
+  padding_right = -4,
+  -- background = {
+  --   color= colors.lightblack
+  -- }
 })
 
 local function format_speed_kbps(value_kbps)
   -- value_kbps is an integer (kilobits per second)
   if value_kbps > 999 then
-    return string.format("%.0f Mbps", value_kbps / 1000)
+    return string.format("%03.0f Mbps", math.floor(tonumber(value_kbps) / 1000))
   else
-    return string.format("%d kbps", value_kbps)
+    return string.format("%03.0f kbps", math.floor(tonumber(value_kbps)))
   end
 end
 
@@ -95,8 +102,4 @@ end
 
 network_down:subscribe("routine", network_update)
 network_up:subscribe("routine", network_update)
-
-return {
-  network_down,
-  network_up,
-}
+network_update()
