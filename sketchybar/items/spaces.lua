@@ -21,22 +21,22 @@ for _, space_name in ipairs(parse_string_to_table(result)) do
       highlight_color = colors.blue,
       string = space_name,
       padding_left = 8,
-      padding_right = 8,
+      padding_right = 4,
     },
     label = {
       font = "sketchybar-app-font:Regular:16.0",
       string = "",
       color = colors.grey,
       highlight_color = colors.blue,
-      padding_right = 8,
       y_offset = -1,
     },
     background = {
-      color = colors.lightblack,
+      color = colors.bg2,
       border_width = 1,
       height = 24,
       border_color = colors.black,
     },
+    padding_right = -4,
     click_script = "aerospace workspace " .. space_name,
   })
 
@@ -64,6 +64,14 @@ for _, space_name in ipairs(parse_string_to_table(result)) do
               space:set {
                 label = {
                   string = icon_line,
+                  padding_right = 8,
+                },
+              }
+            else
+              space:set {
+                label = {
+                  string = "",
+                  padding_right = 2,
                 },
               }
             end
@@ -74,6 +82,7 @@ for _, space_name in ipairs(parse_string_to_table(result)) do
       space:set {
         label = {
           string = "",
+          padding_right = 2,
         },
       }
     end
