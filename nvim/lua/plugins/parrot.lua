@@ -1,8 +1,10 @@
+local utils = require "utils"
+
 local M = {
   "frankroeder/parrot.nvim",
   event = "VeryLazy",
   dependencies = { "ibhagwan/fzf-lua", "nvim-lua/plenary.nvim", "rcarriga/nvim-notify" },
-  dev = true, -- for local development
+  dev = vim.fn.has "macunix" == 1 and vim.fn.expand "$USER" == "frankroeder",
   lazy = false,
   config = function(_, opts)
     require("notify").setup {
@@ -10,22 +12,25 @@ local M = {
       render = "compact",
       top_down = false,
     }
+    -- add ollama if executable found
+    if vim.fn.executable "ollama" == 1 then
+      opts.providers["ollama"] = {}
+    end
     require("parrot").setup(opts)
   end,
   opts = {
     providers = {
       openai = {
-        api_key = { "/usr/bin/security", "find-generic-password", "-s openai-api-key", "-w" },
+        api_key = utils.get_api_key("openai-api-key", "OPENAI_API_KEY"),
       },
       anthropic = {
-        api_key = { "/usr/bin/security", "find-generic-password", "-s anthropic-api-key", "-w" },
+        api_key = utils.get_api_key("anthropic-api-key", "ANTHROPIC_API_KEY"),
       },
-      ollama = {},
       gemini = {
         api_key = os.getenv "GEMINI_API_KEY",
       },
       pplx = {
-        api_key = { "/usr/bin/security", "find-generic-password", "-s perplexity-api-key", "-w" },
+        api_key = utils.get_api_key("perplexity-api-key", "PPLX_API_KEY"),
       },
       xai = {
         api_key = os.getenv "XAI_API_KEY",

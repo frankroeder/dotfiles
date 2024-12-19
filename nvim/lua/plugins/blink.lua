@@ -3,7 +3,6 @@ return {
   build = "cargo build --release",
   dependencies = {
     "L3MON4D3/LuaSnip",
-    "saadparwaiz1/cmp_luasnip",
     "micangl/cmp-vimtex",
     { "saghen/blink.compat", opts = { impersonate_nvim_cmp = true } },
   },
@@ -18,6 +17,10 @@ return {
       ["<C-K>"] = { "snippet_backward", "fallback" },
       ["<C-L>"] = { "select_and_accept" },
     },
+
+    enabled = function()
+      return vim.bo.buftype ~= "prompt" and vim.bo.buftype ~= "oil" and vim.b.completion ~= false
+    end,
 
     snippets = {
       expand = function(snippet)
@@ -93,26 +96,21 @@ return {
         end
       end,
       cmdline = {},
-      min_keyword_length = function()
-        return vim.tbl_contains({ "markdown", "tex", "text" }, vim.bo.filetype) and 2 or 0
-      end,
       providers = {
+        buffer = {
+          max_items = 5,
+          min_keyword_length = 3,
+        },
+        path = {
+          opts = {
+            show_hidden_files_by_default = true,
+          },
+        },
         vimtex = {
           name = "vimtex",
           module = "blink.compat.source",
           score_offset = -3,
           opts = {},
-        },
-        luasnip = {
-          name = "luasnip",
-          module = "blink.compat.source",
-
-          score_offset = -3,
-
-          opts = {
-            use_show_condition = false,
-            show_autosnippets = true,
-          },
         },
         lsp = {
           min_keyword_length = 2,
