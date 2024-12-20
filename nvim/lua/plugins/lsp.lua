@@ -54,7 +54,6 @@ function M.config()
     "clangd",
     "cssls",
     "ruff",
-    -- "basedpyright",
     "html",
     "jedi_language_server",
     "lua_ls",
@@ -64,6 +63,7 @@ function M.config()
   mason.setup()
   mason_lspconfig.setup {
     ensure_installed = lsp_server,
+    automatic_installation = false,
   }
   mason_lspconfig.setup_handlers {
     -- default handler

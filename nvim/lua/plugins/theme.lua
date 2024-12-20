@@ -43,7 +43,7 @@ return {
         aerial = false,
         barbar = true,
         blink_cmp = true,
-        cmp = false,
+        cmp = true,
         gitsigns = true,
         markdown = true,
         render_markdown = true,
