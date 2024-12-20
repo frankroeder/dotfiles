@@ -4,7 +4,7 @@ local icons = require "icons"
 
 local vpn_item = sbar.add("item", { "vpn" }, {
   position = "center",
-  update_freq = 2,
+  update_freq = 180,
   icon = {
     string = icons.vpn,
     padding_left = 8,
@@ -24,6 +24,8 @@ local vpn_item = sbar.add("item", { "vpn" }, {
   drawing = false,
   background = {
     color = colors.lightblack,
+    padding_left = 2,
+    padding_right = 2,
   },
 })
 
@@ -45,7 +47,7 @@ local function update()
   end)
 end
 
-vpn_item:subscribe("routine", "system_woke", function(_)
+vpn_item:subscribe({ "routine", "system_woke", "forced" }, function(_)
   update()
 end)
 update()

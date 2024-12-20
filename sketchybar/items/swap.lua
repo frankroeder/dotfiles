@@ -4,27 +4,28 @@ local icons = require "icons"
 
 local swap = sbar.add("item", "widgets.swap1", {
   position = "right",
-  width = 80,
   drawing = false,
   icon = {
     font = {
       size = 14.0,
     },
     string = icons.swap,
+    padding_left = 8,
   },
   label = {
     font = {
       style = settings.font.style_map["Bold"],
       size = 12.0,
     },
-    padding_right = 10,
+    padding_right = 8,
     color = colors.grey,
     string = "??.? Mb",
   },
-  padding_right = -4,
   update_freq = 180,
   background = {
     color = colors.lightblack,
+    padding_left = 2,
+    padding_right = 2,
   },
 })
 

@@ -19,14 +19,14 @@ return {
   try4 = 0xff1e1e2e,
 
   bar = {
-    bg = 0xf111111b,
+    bg = 0xff181825,
     border = 0xff45475a,
   },
   popup = {
-    bg = 0xc045475a,
+    bg = 0xff1e1e2e,
     border = 0xffcba6f7,
   },
-  bg1 = 0xd3181825,
+  bg1 = 0xff181825,
   bg2 = 0xff11111b,
   with_alpha = function(color, alpha)
     if alpha > 1.0 or alpha < 0.0 then

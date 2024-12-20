@@ -3,13 +3,13 @@ local icons = require "icons"
 
 local ram = sbar.add("item", "widgets.ram1", {
   position = "right",
-  width = 60,
   icon = {
     font = {
       size = 18.0,
     },
     string = icons.ram,
     y_offset = 1,
+    padding_left = 8,
   },
   label = {
     font = {
@@ -22,6 +22,8 @@ local ram = sbar.add("item", "widgets.ram1", {
   update_freq = 180,
   background = {
     color = colors.lightblack,
+    padding_left = 2,
+    padding_right = 2,
   },
 })
 

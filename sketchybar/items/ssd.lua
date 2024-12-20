@@ -2,12 +2,12 @@ local colors = require "colors"
 
 local ssd_volume = sbar.add("item", "widgets.ssd.volume", {
   position = "right",
-  width = 55,
   icon = {
     font = {
       size = 16.0,
     },
     string = "󰅚",
+    padding_left = 8,
   },
   label = {
     font = {
@@ -20,6 +20,8 @@ local ssd_volume = sbar.add("item", "widgets.ssd.volume", {
   update_freq = 180,
   background = {
     color = colors.lightblack,
+    padding_left = 2,
+    padding_right = 2,
   },
 })
 

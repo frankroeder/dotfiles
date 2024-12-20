@@ -1,7 +1,7 @@
 local icons = require "icons"
 local colors = require "colors"
 
-local mail = sbar.add("item", "widgets.mail", 20, {
+local mail = sbar.add("item", "widgets.mail", {
   position = "center",
   icon = {
     string = icons.mail,
@@ -16,6 +16,8 @@ local mail = sbar.add("item", "widgets.mail", 20, {
   update_freq = 180,
   background = {
     color = colors.lightblack,
+    padding_left = 2,
+    padding_right = 2,
   },
 })
 

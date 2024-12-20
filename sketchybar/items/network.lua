@@ -1,7 +1,7 @@
 local icons = require "icons"
 local colors = require "colors"
 
-local network_down = sbar.add("item", { "network_down" }, {
+local network_down = sbar.add("item", { "widgets.network_down" }, {
   position = "right",
   icon = {
     string = icons.wifi.download,
@@ -23,7 +23,7 @@ local network_down = sbar.add("item", { "network_down" }, {
   update_freq = 10,
 })
 
-local network_up = sbar.add("item", { "network_up" }, {
+local network_up = sbar.add("item", { "widgets.network_up" }, {
   position = "right",
   icon = {
     string = icons.wifi.upload,
