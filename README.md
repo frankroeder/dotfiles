@@ -28,4 +28,5 @@ The following list of files could be created and used to define local configurat
 - https://github.com/robbyrussell/oh-my-zsh
 - https://github.com/htr3n/zsh-config
 - https://github.com/sindresorhus/pure
-- https://github.com/jwilm/alacritty
+- https://github.com/nikitabobko/AeroSpace
+- https://github.com/ghostty-org/ghostty

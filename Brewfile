@@ -34,7 +34,6 @@ brew "skhd", args: ["with-logging"]
 brew "sketchybar", args:  ["HEAD"], restart_service: :changed
 
 cask "raycast"
-cask "alacritty"
 cask "orbstack"
 cask "musescore"
 cask "sioyek"

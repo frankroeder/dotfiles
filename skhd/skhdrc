@@ -5,7 +5,7 @@ ctrl + alt + cmd - r :  skhd --restart-service
 ctrl + alt + cmd - b : sketchybar --reload
 
 # toggle main terminal application
-fn - space : bash "$DOTFILES/scripts/toggle_app.bash" "Alacritty"
+fn - space : bash "$DOTFILES/scripts/toggle_app.bash" "Ghostty"
 
 fn + shift - s : open "x-apple.systempreferences:"
 fn + shift - a : open -a "About This Mac"

@@ -13,26 +13,6 @@ local icons = {
     cpu = "􀫥",
     clipboard = "􀉄",
     calendar = "􀧞",
-
-    switch = {
-      on = "􁏮",
-      off = "􁏯",
-    },
-    volume = {
-      _100 = "􀊩",
-      _66 = "􀊧",
-      _33 = "􀊥",
-      _10 = "􀊡",
-      _0 = "􀊣",
-    },
-    battery = {
-      _100 = "􀛨",
-      _75 = "􀺸",
-      _50 = "􀺶",
-      _25 = "􀛩",
-      _0 = "􀛪",
-      charging = "􀢋",
-    },
     wifi = {
       upload = "􀄨",
       download = "􀄩",
@@ -45,21 +25,6 @@ local icons = {
       forward = "􀊌",
       play_pause = "􀊈",
     },
-    weather = {
-      sunny = "􀆮",
-      partlycloudy = "􀇕",
-      rainwiththunderstorm = "􀇟",
-      rainshower = "􀇇",
-      lightrain = "􀇇",
-      lightrainshower = "􀇗",
-      lightdizzle = "􀇅",
-      patchylightdrizzle = "􀇗",
-      rainthunderstorminvicinityheavyrainwiththunderstorm = "􀇟",
-      patchyrainnearby = "􀇇",
-      thunderyoutbreaksinnearby = "􀇙",
-      patchylightrain = "􀇅",
-      heavyrain = "􀇉",
-    },
   },
 
   -- Alternative NerdFont icons
@@ -71,26 +36,10 @@ local icons = {
     cpu = "",
     clipboard = "Missing Icon",
     calendar = "",
-
-    switch = {
-      on = "󱨥",
-      off = "󱨦",
-    },
-    volume = {
-      _100 = "",
-      _66 = "",
-      _33 = "",
-      _10 = "",
-      _0 = "",
-    },
-    battery = {
-      _100 = "",
-      _75 = "",
-      _50 = "",
-      _25 = "",
-      _0 = "",
-      charging = "",
-    },
+    swap = "󰍛",
+    mail = "􀍕",
+    vpn = "󰦝",
+    ram = "",
     wifi = {
       upload = "",
       download = "",

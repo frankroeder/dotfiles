@@ -55,7 +55,7 @@ for _, space_name in ipairs(parse_string_to_table(result)) do
           local has_app = false
           for app in windows:gmatch "[^\r\n]+" do
             has_app = true
-            local lookup = app_icons[app] or app_icons["default"]
+            local lookup = app_icons[app] or app_icons["Default"]
             icon_line = icon_line .. " " .. lookup
           end
 

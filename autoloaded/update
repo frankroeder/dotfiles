@@ -85,10 +85,6 @@ apt_update() {
 }
 
 misc() {
-  if [ $commands[alacritty] ]; then
-	  # update alacritty theme
-	  (cd $HOME/.config/alacritty/catppuccin; git pull;)
-  fi
   if [ $commands[battery] ]; then
     battery update;
   fi

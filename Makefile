@@ -219,12 +219,10 @@ endif
 
 .PHONY: _terminal
 _terminal:
-	@mkdir -p $(HOME)/.config/alacritty
-ifeq ($(shell ${WHICH} alacritty 2>${DEVNUL}),)
-	@sudo ln -s /Applications/Alacritty.app/Contents/MacOS/alacritty /usr/local/bin/alacritty
+ifeq ($(shell ${WHICH} ghostty 2>${DEVNUL}),)
+	@wget https://github.com/ghostty-org/ghostty/releases/download/tip/Ghostty.dmg && open Ghostty.dmg
 endif
-	@ln -sfv $(DOTFILES)/alacritty/alacritty.toml $(HOME)/.config/alacritty/
-	@if [ ! -d "$(HOME)/.config/alacritty/catppuccin" ]; then git clone https://github.com/catppuccin/alacritty.git $(HOME)/.config/alacritty/catppuccin; fi
+	@ln -sfv $(DOTFILES)/ghostty $(HOME)/.config/ghostty
 	@ln -sfv $(DOTFILES)/htop/personal $(HOME)/.config/htop/htoprc
 ifeq ($(ARCHITECTURE), x86_64)
 	@bash $(DOTFILES)/scripts/osx_cpu_temp.sh
@@ -245,7 +243,7 @@ benchmark:
 
 .PHONY: format
 format:
-	@stylua -v -f $(DOTFILES)/nvim/.stylua.toml $$(find $(DOTFILES) -type f -name '*.lua')
+	@stylua -v -f $(DOTFILES)/.stylua.toml $$(find $(DOTFILES) -type f -name '*.lua')
 
 .PHONY: uninstall
 uninstall:

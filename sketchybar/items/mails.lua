@@ -3,6 +3,7 @@ local colors = require "colors"
 
 local mail = sbar.add("item", "widgets.mail", {
   position = "center",
+  drawing = false,
   icon = {
     string = icons.mail,
     color = colors.green,
@@ -24,16 +25,25 @@ local mail = sbar.add("item", "widgets.mail", {
 local function update_mail_count()
   sbar.exec(
     [[
-        osascript -e 'tell application "Mail" to count of (messages of inbox whose read status is false)'
-    ]],
-    function(count)
-      local mail_count = tonumber(count) or 0
+    osascript -e 'tell application "Mail"
+      if it is running then
+        return count of (messages of inbox whose read status is false)
+      else
+        return 0
+      end if
+    end tell'
+		]],
+    function(result)
+      local mail_count = tonumber(result) or 0
+
+      -- Set label and icon color
       mail:set {
+        drawing = mail_count > 0,
         label = {
           string = tostring(mail_count),
         },
         icon = {
-          color = colors.green,
+          color = (mail_count > 0) and colors.green or colors.lightblack,
         },
       }
     end
