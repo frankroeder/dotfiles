@@ -1,11 +1,15 @@
 theme = dark:catppuccin-mocha,light:catppuccin-latte
 font-family = "Hack Nerd Font"
-font-size = 16
-background-opacity = 0.85
+font-size = 20
+background-opacity = 0.9
 # window-decoration = false
 macos-titlebar-style = "hidden"
 window-padding-x = 5
 window-padding-y = 5
 auto-update-channel = tip
+bold-is-bright = true
+mouse-hide-while-typing = true
+mouse-scroll-multiplier = 0.5
 
-#keybind = ctrl+t=
+keybind =super+comma=ignore
+keybind =cmd+t=ignore
