@@ -62,11 +62,18 @@ fi
 
 # Copies the contents of all files in the current directory to clipboard
 llmcopy() {
-  (
-  find . -type f | while read -r file; do
-      echo "--- Content of $file ---"
-      cat "$file"
-      echo
-  done
-  ) | pbcopy
+ # Exclude common image/video file extensions (case-insensitive)
+  find . -type f \
+    -not \( \
+      -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" \
+      -o -iname "*.gif" -o -iname "*.bmp" -o -iname "*.tiff" \
+      -o -iname "*.mp4" -o -iname "*.mov" -o -iname "*.avi" \
+      -o -iname "*.wmv" -o -iname "*.mkv" \
+    \) \
+    -print0 | \
+  while IFS= read -r -d '' file; do
+    echo "=== $file ==="
+    cat "$file"
+    echo
+  done | pbcopy
 }
