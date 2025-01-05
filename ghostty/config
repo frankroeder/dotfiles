@@ -1,15 +1,30 @@
 theme = dark:catppuccin-mocha,light:catppuccin-latte
+background-opacity = 0.9
+
+auto-update-channel = tip
+
 font-family = "Hack Nerd Font"
 font-size = 20
-background-opacity = 0.9
+font-thicken = true
+bold-is-bright = true
+font-thicken = true
+
 # window-decoration = false
 macos-titlebar-style = "hidden"
 window-padding-x = 5
 window-padding-y = 5
-auto-update-channel = tip
-bold-is-bright = true
+
 mouse-hide-while-typing = true
 mouse-scroll-multiplier = 0.5
+cursor-style = "block"
+
+copy-on-select= true
+clipboard-read = allow
+clipboard-write = allow
+clipboard-trim-trailing-spaces = true
+
+shell-integration = zsh
+shell-integration-features = no-cursor,sudo
 
 keybind =super+comma=ignore
 keybind =cmd+t=ignore
