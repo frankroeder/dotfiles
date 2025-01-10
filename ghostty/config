@@ -4,7 +4,7 @@ background-opacity = 0.9
 auto-update-channel = tip
 
 font-family = "Hack Nerd Font"
-font-size = 20
+font-size = 18
 font-thicken = true
 bold-is-bright = true
 font-thicken = true
@@ -26,5 +26,6 @@ clipboard-trim-trailing-spaces = true
 shell-integration = zsh
 shell-integration-features = no-cursor,sudo
 
-keybind =super+comma=ignore
-keybind =cmd+t=ignore
+keybind = super+comma=ignore
+keybind = cmd+t=ignore
+keybind = cmd+s=toggle_quick_terminal

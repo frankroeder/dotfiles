@@ -1,12 +1,8 @@
 #!/usr/bin/env zsh
 
 if [[ "$OSTYPE" == "Darwin" ]]; then
-  if [[ $commands[osx-cpu-temp] ]]; then
-    CPU="$(osx-cpu-temp)"
-  else
-    # TODO: Get M1 temperature
-    return
-  fi
+  # TODO: Get M1 temperature
+  return
 elif [[ "$OSTYPE" == "Linux" ]]; then
   [[ ! -d /sys/class/thermal/ ]] && return
 	CPU=$(paste <(cat /sys/class/thermal/thermal_zone*/type) <(cat /sys/class/thermal/thermal_zone*/temp) | awk '{print $2}' | sed 's/\(.\)..$/.\1°C/')

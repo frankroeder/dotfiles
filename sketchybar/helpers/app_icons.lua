@@ -107,7 +107,7 @@ return {
   ["Google Chrome"] = ":google_chrome:",
   ["Google Chrome Canary"] = ":google_chrome:",
   ["Grammarly Editor"] = ":grammarly:",
-  ["Ghostty"] = ":terminal:",
+  ["Ghostty"] = ":ghostty:",
   ["Home Assistant"] = ":home_assistant:",
   ["Hyper"] = ":hyper:",
   ["IntelliJ IDEA"] = ":idea:",
