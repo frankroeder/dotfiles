@@ -1,7 +1,7 @@
 theme = dark:catppuccin-mocha,light:catppuccin-latte
 background-opacity = 0.9
 
-auto-update-channel = tip
+auto-update-channel = stable
 
 font-family = "Hack Nerd Font"
 font-size = 18

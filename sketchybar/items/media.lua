@@ -1,6 +1,13 @@
-local whitelist = { ["Spotify"] = true, ["Music"] = true }
 local colors = require "colors"
 local settings = require "settings"
+local app_icons = require "helpers.app_icons"
+
+local whitelist = {
+  ["Spotify"] = true,
+  ["Music"] = true,
+  ["Podcasts"] = true,
+  ["Zen Browser"] = true,
+}
 
 sbar.exec("aerospace list-monitors --count", function(num_spaces)
   local media = sbar.add("item", {
@@ -8,7 +15,7 @@ sbar.exec("aerospace list-monitors --count", function(num_spaces)
     display = num_spaces,
     icon = {
       font = "sketchybar-app-font:Regular:16.0",
-      string = ":music:",
+      string = "",
       padding_left = 8,
     },
     label = {
@@ -30,12 +37,18 @@ sbar.exec("aerospace list-monitors --count", function(num_spaces)
 
   media:subscribe("media_change", function(env)
     if whitelist[env.INFO.app] then
-      local display_text = env.INFO.artist .. " - " .. env.INFO.title
+      local artist = env.INFO.artist or ""
+      local title = env.INFO.title or ""
+      local display_text = artist .. " - " .. title
+
       sbar.animate("tanh", settings.animation_duration * 2, function()
         media:set {
           drawing = (env.INFO.state == "playing"),
           label = {
             string = display_text,
+          },
+          icon = {
+            string = app_icons[env.INFO.app] or app_icons["Default"],
           },
         }
       end)
