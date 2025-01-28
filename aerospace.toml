@@ -51,7 +51,7 @@ run = 'layout floating'
 if.app-id = 'com.raycast.macos'
 run = 'layout floating'
 [[on-window-detected]]
-if.window-title-regex-substring = '^(Bullet Physics|Orion Preview|Picture-in-Picture|Updating).*$'
+if.window-title-regex-substring = '^(Bullet Physics|Orion Preview|Picture-in-Picture|Updating|Virtual).*$'
 run = 'layout floating'
 [[on-window-detected]]
 if.app-name-regex-substring = 'python'

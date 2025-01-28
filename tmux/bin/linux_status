@@ -5,13 +5,15 @@ TMUX_BIN="$DOTFILES/tmux/bin"
 
 BAR=""
 if [[ $WIDTH -gt 200 ]]; then
-	BAR="$(bash $TMUX_BIN/cpu_name) "
+  BAR+="$(bash $TMUX_BIN/cpu_name) "
+else
+  BAR+="CPU "
 fi
 BAR+="$(bash $TMUX_BIN/cpu_temp) "
 if [[ $WIDTH -gt $SMALL ]]; then
-  BAR+="#[fg=white]$(tmux-mem-cpu-load -a 0 -g 20 -i 2 -t 1)"
+  BAR+="#[fg=white]$(tmux-mem-cpu-load -a 0 -g 8 -i 2 -t 1)"
 else
-  BAR+="#[fg=white]$(tmux-mem-cpu-load -a 0 -g 5 -i 2 -t 1)"
+  BAR+="#[fg=white]$(tmux-mem-cpu-load -a 0 -g 2 -i 2 -t 1)"
 fi
 command -v nvidia-smi >/dev/null 2>&1 && BAR+=" $($TMUX_BIN/gpu_stats)"
 if [[ $WIDTH -gt 200 ]]; then

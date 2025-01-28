@@ -6,7 +6,7 @@ local autocmd = vim.api.nvim_create_autocmd
 autocmd("BufWritePre", {
   group = augroup("disable undo", { clear = true }),
   desc = "Prevent creation of swap/undo/backup files for specific patterns",
-  pattern = { "/tmp/*", "COMMIT_EDITMSG", "MERGE_MSG", "*.tmp", "*.bak" },
+  pattern = { "/tmp/*", "COMMIT_EDITMSG", "MERGE_MSG", "*.tmp", "*.bak", "oil" },
   callback = function()
     vim.opt_local.undofile = false
     vim.opt_local.swapfile = false

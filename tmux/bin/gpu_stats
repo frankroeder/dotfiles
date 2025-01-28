@@ -1,24 +1,26 @@
 #!/usr/bin/env python3
-import numpy as np
 import subprocess
 
-output = subprocess.run(['nvidia-smi', '--query-gpu=name,temperature.gpu,memory.used,memory.total,utilization.gpu', '--format=csv,noheader,nounits'], stdout=subprocess.PIPE)
-result = output.stdout.decode('utf-8')
-gpu_info = result.split('\n')
+output = subprocess.run(
+    [
+        "nvidia-smi",
+        "--query-gpu=temperature.gpu,memory.used,memory.total,utilization.gpu",
+        "--format=csv,noheader,nounits",
+    ],
+    stdout=subprocess.PIPE,
+)
+result = output.stdout.decode("utf-8").split("\n")[:-1]
 
-name = []
-temp = []
-mem_used = []
-mem_total = []
-util = []
+temps = []
+mem_used = mem_total = util = 0
 
-for idx in range(len(gpu_info) -1):
-    info = gpu_info[idx].split(', ')
-    name += [info[0]]
-    temp += [float(info[1])]
-    mem_used += [int(info[2])]
-    mem_total += [int(info[3])]
-    util += [int(info[4])]
+for line in result:
+    t, u, tot, ut = map(float, line.split(","))
+    temps.append(t)
+    mem_used += u
+    mem_total += tot
+    util += ut
 
-print('#[default]#[fg=colour7]{} #[fg=colour172]{} °C #[fg=green]{}/{}MB {}%#[default]'.format(
-    ''.join(set(name)), np.mean(temp), np.sum(mem_used), np.sum(mem_total), np.sum(util)))
+print(
+    f"#[fg=colour7]GPU #[fg=colour172]{sum(temps) / len(temps):.0f}° #[fg=green]{int(mem_used)}/{int(mem_total)}M {int(util)}%"
+)

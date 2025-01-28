@@ -39,6 +39,9 @@ defaults write com.apple.print.PrintingPrefs "Quit When Finished" -bool true
 
 defaults write org.python.python ApplePersistenceIgnoreState -bool false
 
+# Drag a window by pressing Control ⌃ Commmand ⌘ + click anywhere in the window
+defaults write -g NSWindowShouldDragOnGesture -bool true
+
 find ~/.dotfiles/macos -name "*.bash" ! -name "main.bash" -exec bash {} \;
 
 # Kill affected applications

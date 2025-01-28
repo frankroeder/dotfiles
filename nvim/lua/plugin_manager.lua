@@ -21,7 +21,7 @@ if not status_ok then
 end
 
 lazy.setup("plugins", {
-  install = { colorscheme = { "catppuccin" } },
+  install = { colorscheme = { require("settings").theme } },
   change_detection = {
     -- automatically check for config file changes and reload the ui
     enabled = false,

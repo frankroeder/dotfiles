@@ -10,7 +10,6 @@ source ~/.zplug/init.zsh
 
 zplug "zsh-users/zsh-completions"
 zplug "mafredri/zsh-async", from:github
-zplug "esc/conda-zsh-completion"
 zplug "MichaelAquilina/zsh-you-should-use"
 zplug "conda-incubator/conda-zsh-completion"
 if [ "$OSTYPE" = "Linux" ]; then

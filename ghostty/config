@@ -4,7 +4,7 @@ background-opacity = 0.9
 auto-update-channel = stable
 
 font-family = "Hack Nerd Font"
-font-size = 18
+font-size = 16
 font-thicken = true
 bold-is-bright = true
 font-thicken = true
