@@ -29,8 +29,8 @@ local M = {
       gemini = {
         api_key = os.getenv "GEMINI_API_KEY",
       },
-      pplx = {
-        api_key = utils.get_api_key("perplexity-api-key", "PPLX_API_KEY"),
+      github = {
+        api_key = os.getenv "GITHUB_TOKEN",
       },
       xai = {
         api_key = os.getenv "XAI_API_KEY",

@@ -121,7 +121,7 @@ if not status_ok then
   return
 end
 
-vim.api.nvim_create_autocmd("BufReadPost", {
+autocmd("BufReadPost", {
   group = augroup("last_loc", { clear = true }),
   desc = "Go to last loc when opening a buffer, see ':h last-position-jump'",
   callback = function(event)
