@@ -30,6 +30,7 @@ brew "newsboat"
 brew "mpv"
 
 brew "aerospace"
+brew "flashspace"
 brew "skhd", args: ["with-logging"]
 brew "sketchybar", args:  ["HEAD"], restart_service: :changed
 

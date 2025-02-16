@@ -1,0 +1,169 @@
+{
+  "profiles" : [
+    {
+      "id" : "34F3B249-8C96-42DD-8964-17C7D5BBF742",
+      "name" : "Default",
+      "workspaces" : [
+        {
+          "apps" : [
+            {
+              "bundleIdentifier" : "ch.protonmail.desktop",
+              "iconPath" : "/Applications/Proton Mail.app/Contents/Resources/electron.icns",
+              "name" : "Proton Mail"
+            },
+            {
+              "bundleIdentifier" : "com.apple.mail",
+              "iconPath" : "/System/Applications/Mail.app/Contents/Resources/ApplicationIcon.icns",
+              "name" : "Mail"
+            },
+            {
+              "bundleIdentifier" : "net.ankiweb.dtop",
+              "iconPath" : "/Applications/Anki.app/Contents/Resources/AppIcon.icns",
+              "name" : "Anki"
+            }
+          ],
+          "assignAppShortcut" : "ctrl+opt+0",
+          "display" : "Built-in Retina Display",
+          "id" : "2DF9E227-0399-4BE9-9B3B-4A5A20712B8E",
+          "name" : "0",
+          "shortcut" : "ctrl+0",
+          "symbolIconName" : "homekit"
+        },
+        {
+          "apps" : [
+            {
+              "bundleIdentifier" : "com.apple.Safari",
+              "iconPath" : "/System/Volumes/Preboot/Cryptexes/App/System/Applications/Safari.app/Contents/Resources/AppIcon.icns",
+              "name" : "Safari"
+            },
+            {
+              "bundleIdentifier" : "com.kagi.kagimacOS.RC",
+              "iconPath" : "/Applications/Orion RC.app/Contents/Resources/AppIcon-RC.icns",
+              "name" : "Orion RC"
+            },
+            {
+              "bundleIdentifier" : "app.zen-browser.zen",
+              "iconPath" : "/Applications/Zen Browser.app/Contents/Resources/firefox.icns",
+              "name" : "Zen Browser"
+            },
+            {
+              "bundleIdentifier" : "com.mitchellh.ghostty",
+              "iconPath" : "/Applications/Ghostty.app/Contents/Resources/AppIcon.icns",
+              "name" : "Ghostty"
+            }
+          ],
+          "assignAppShortcut" : "ctrl+opt+1",
+          "display" : "LG ULTRAFINE",
+          "id" : "5CC53345-2A99-49D6-A184-D29973D9F35D",
+          "name" : "1",
+          "shortcut" : "ctrl+1",
+          "symbolIconName" : "cursorarrow.motionlines"
+        },
+        {
+          "apps" : [
+            {
+              "bundleIdentifier" : "info.sioyek.sioyek",
+              "iconPath" : "/Applications/sioyek.app/Contents/Resources/icon2.ico.icns",
+              "name" : "sioyek"
+            },
+            {
+              "bundleIdentifier" : "com.apple.finder",
+              "iconPath" : "/System/Library/CoreServices/Finder.app/Contents/Resources/Finder.icns",
+              "name" : "Finder"
+            },
+            {
+              "bundleIdentifier" : "com.apple.Notes",
+              "iconPath" : "/System/Applications/Notes.app/Contents/Resources/AppIcon.icns",
+              "name" : "Notes"
+            }
+          ],
+          "assignAppShortcut" : "ctrl+opt+2",
+          "display" : "LG ULTRAFINE",
+          "id" : "A028D4CD-268B-4678-863D-1DC88F73D30E",
+          "name" : "2",
+          "shortcut" : "ctrl+2"
+        },
+        {
+          "apps" : [
+            {
+              "bundleIdentifier" : "com.anthropic.claudefordesktop",
+              "iconPath" : "/Applications/Claude.app/Contents/Resources/electron.icns",
+              "name" : "Claude"
+            },
+            {
+              "bundleIdentifier" : "com.openai.chat",
+              "iconPath" : "/Applications/ChatGPT.app/Contents/Resources/AppIcon.icns",
+              "name" : "ChatGPT"
+            }
+          ],
+          "assignAppShortcut" : "ctrl+opt+3",
+          "display" : "Built-in Retina Display",
+          "id" : "B0CD060D-2D0A-4230-A31F-263E04936C8B",
+          "name" : "3",
+          "shortcut" : "ctrl+3"
+        },
+        {
+          "apps" : [
+            {
+              "bundleIdentifier" : "com.hnc.Discord",
+              "iconPath" : "/Applications/Discord.app/Contents/Resources/electron.icns",
+              "name" : "Discord"
+            },
+            {
+              "bundleIdentifier" : "org.whispersystems.signal-desktop",
+              "iconPath" : "/Applications/Signal.app/Contents/Resources/icon.icns",
+              "name" : "Signal"
+            },
+            {
+              "bundleIdentifier" : "com.apple.MobileSMS",
+              "iconPath" : "/System/Applications/Messages.app/Contents/Resources/AppIcon.icns",
+              "name" : "Messages"
+            },
+            {
+              "bundleIdentifier" : "Mattermost.Desktop",
+              "iconPath" : "/Applications/Mattermost.app/Contents/Resources/icon.icns",
+              "name" : "Mattermost"
+            },
+            {
+              "bundleIdentifier" : "ru.keepcoder.Telegram",
+              "iconPath" : "/Applications/Telegram.app/Contents/Resources/AppIcon.icns",
+              "name" : "Telegram"
+            }
+          ],
+          "assignAppShortcut" : "ctrl+opt+4",
+          "display" : "LG ULTRAFINE",
+          "id" : "B15DC82A-30B6-4278-BEB4-883D72219657",
+          "name" : "4",
+          "shortcut" : "ctrl+4",
+          "symbolIconName" : "message"
+        },
+        {
+          "apps" : [
+            {
+              "bundleIdentifier" : "com.apple.podcasts",
+              "iconPath" : "/System/Applications/Podcasts.app/Contents/Resources/AppIcon.icns",
+              "name" : "Podcasts"
+            },
+            {
+              "bundleIdentifier" : "com.apple.QuickTimePlayerX",
+              "iconPath" : "/System/Applications/QuickTime Player.app/Contents/Resources/AppIcon.icns",
+              "name" : "QuickTime Player"
+            },
+            {
+              "bundleIdentifier" : "com.apple.Music",
+              "iconPath" : "/System/Applications/Music.app/Contents/Resources/AppIcon.icns",
+              "name" : "Music"
+            }
+          ],
+          "assignAppShortcut" : "ctrl+opt+5",
+          "display" : "Built-in Retina Display",
+          "id" : "0AF0332F-C771-4B3A-8A47-427F35A68811",
+          "name" : "5",
+          "shortcut" : "ctrl+5",
+          "symbolIconName" : "music.note.tv"
+        }
+      ]
+    }
+  ],
+  "selectedProfileId" : "34F3B249-8C96-42DD-8964-17C7D5BBF742"
+}
