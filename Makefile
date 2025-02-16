@@ -201,6 +201,7 @@ _macos:
 	@ln -sfv $(DOTFILES)/sketchybar $(HOME)/.config/sketchybar
 	@curl -L https://github.com/kvndrsslr/sketchybar-app-font/releases/download/v2.0.29/sketchybar-app-font.ttf -o $(HOME)/Library/Fonts/sketchybar-app-font.ttf
 	@ln -sfv $(DOTFILES)/aerospace.toml $(HOME)/.aerospace.toml
+	@ln -sfv $(DOTFILES)/flashspace $(HOME)/.config/flashspace
 	@ln -sfv $(DOTFILES)/skhd $(HOME)/.config/skhd
 ifeq ($(shell ${WHICH} airport 2>${DEVNUL}),)
 	@sudo ln -s /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/local/bin/airport

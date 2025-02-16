@@ -1,0 +1,60 @@
+{
+  "centerCursorOnFocusChange" : false,
+  "centerCursorOnWorkspaceChange" : false,
+  "changeWorkspaceOnAppAssign" : true,
+  "checkForUpdatesAutomatically" : false,
+  "enableFocusManagement" : false,
+  "enableIntegrations" : true,
+  "enablePictureInPictureSupport" : true,
+  "enableSpaceControl" : true,
+  "enableSpaceControlAnimations" : true,
+  "floatingApps" : [
+    {
+      "bundleIdentifier" : "com.bitwarden.desktop",
+      "iconPath" : "/Applications/Bitwarden.app/Contents/Resources/icon.icns",
+      "name" : "Bitwarden"
+    },
+    {
+      "bundleIdentifier" : "com.apple.iCal",
+      "iconPath" : "/System/Applications/Calendar.app/Contents/Resources/AppIcon.icns",
+      "name" : "Calendar"
+    },
+    {
+      "bundleIdentifier" : "us.zoom.xos",
+      "iconPath" : "/Applications/zoom.us.app/Contents/Resources/ZPLogo.icns",
+      "name" : "zoom.us"
+    },
+    {
+      "bundleIdentifier" : "com.apple.systempreferences",
+      "iconPath" : "/System/Applications/System Settings.app/Contents/Resources/PrefApp.icns",
+      "name" : "System Settings"
+    },
+    {
+      "bundleIdentifier" : "com.apple.calculator",
+      "iconPath" : "/System/Applications/Calculator.app/Contents/Resources/AppIcon.icns",
+      "name" : "Calculator"
+    },
+    {
+      "bundleIdentifier" : "pl.wojciechkulik.FlashSpace",
+      "iconPath" : "/Applications/FlashSpace.app/Contents/Resources/AppIcon.icns",
+      "name" : "FlashSpace"
+    }
+  ],
+  "focusDown" : "cmd+opt+j",
+  "focusLeft" : "cmd+opt+h",
+  "focusRight" : "cmd+opt+l",
+  "focusUp" : "cmd+opt+k",
+  "menuBarDisplayAliases" : "",
+  "menuBarTitleTemplate" : "$WORKSPACE",
+  "runScriptOnLaunch" : "/opt/homebrew/opt/sketchybar/bin/sketchybar",
+  "runScriptOnProfileChange" : "/opt/homebrew/bin/sketchybar --reload",
+  "runScriptOnWorkspaceChange" : "/opt/homebrew/bin/sketchybar --trigger flashspace_workspace_change  WORKSPACE=$WORKSPACE",
+  "showFlashSpace" : "cmd+ctrl+opt+f",
+  "showFloatingNotifications" : true,
+  "showMenuBarTitle" : true,
+  "showSpaceControl" : "cmd+ctrl+opt+s",
+  "spaceControlCurrentDisplayWorkspaces" : false,
+  "switchToNextWorkspace" : "ctrl+opt+n",
+  "switchToPreviousWorkspace" : "ctrl+opt+p",
+  "switchToRecentWorkspace" : "ctrl+tab"
+}
