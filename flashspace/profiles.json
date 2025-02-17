@@ -15,11 +15,6 @@
               "bundleIdentifier" : "com.apple.mail",
               "iconPath" : "/System/Applications/Mail.app/Contents/Resources/ApplicationIcon.icns",
               "name" : "Mail"
-            },
-            {
-              "bundleIdentifier" : "net.ankiweb.dtop",
-              "iconPath" : "/Applications/Anki.app/Contents/Resources/AppIcon.icns",
-              "name" : "Anki"
             }
           ],
           "assignAppShortcut" : "ctrl+opt+0",
@@ -45,11 +40,6 @@
               "bundleIdentifier" : "app.zen-browser.zen",
               "iconPath" : "/Applications/Zen Browser.app/Contents/Resources/firefox.icns",
               "name" : "Zen Browser"
-            },
-            {
-              "bundleIdentifier" : "com.mitchellh.ghostty",
-              "iconPath" : "/Applications/Ghostty.app/Contents/Resources/AppIcon.icns",
-              "name" : "Ghostty"
             }
           ],
           "assignAppShortcut" : "ctrl+opt+1",
@@ -62,19 +52,9 @@
         {
           "apps" : [
             {
-              "bundleIdentifier" : "info.sioyek.sioyek",
-              "iconPath" : "/Applications/sioyek.app/Contents/Resources/icon2.ico.icns",
-              "name" : "sioyek"
-            },
-            {
-              "bundleIdentifier" : "com.apple.finder",
-              "iconPath" : "/System/Library/CoreServices/Finder.app/Contents/Resources/Finder.icns",
-              "name" : "Finder"
-            },
-            {
-              "bundleIdentifier" : "com.apple.Notes",
-              "iconPath" : "/System/Applications/Notes.app/Contents/Resources/AppIcon.icns",
-              "name" : "Notes"
+              "bundleIdentifier" : "com.mitchellh.ghostty",
+              "iconPath" : "/Applications/Ghostty.app/Contents/Resources/AppIcon.icns",
+              "name" : "Ghostty"
             }
           ],
           "assignAppShortcut" : "ctrl+opt+2",
@@ -110,11 +90,6 @@
               "name" : "Discord"
             },
             {
-              "bundleIdentifier" : "org.whispersystems.signal-desktop",
-              "iconPath" : "/Applications/Signal.app/Contents/Resources/icon.icns",
-              "name" : "Signal"
-            },
-            {
               "bundleIdentifier" : "com.apple.MobileSMS",
               "iconPath" : "/System/Applications/Messages.app/Contents/Resources/AppIcon.icns",
               "name" : "Messages"
@@ -128,6 +103,11 @@
               "bundleIdentifier" : "ru.keepcoder.Telegram",
               "iconPath" : "/Applications/Telegram.app/Contents/Resources/AppIcon.icns",
               "name" : "Telegram"
+            },
+            {
+              "bundleIdentifier" : "org.whispersystems.signal-desktop",
+              "iconPath" : "/Applications/Signal.app/Contents/Resources/icon.icns",
+              "name" : "Signal"
             }
           ],
           "assignAppShortcut" : "ctrl+opt+4",

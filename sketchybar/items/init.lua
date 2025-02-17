@@ -1,5 +1,4 @@
--- require "items.spaces"
-require "items.flash"
+require "items.spaces"
 
 require "items.mails"
 require "items.vpn"

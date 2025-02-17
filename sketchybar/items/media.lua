@@ -9,10 +9,8 @@ local whitelist = {
   ["Zen Browser"] = true,
 }
 
--- sbar.exec("aerospace list-monitors --count", function(num_spaces)
 local media = sbar.add("item", {
   drawing = false,
-  -- display = num_spaces,
   icon = {
     font = "sketchybar-app-font:Regular:16.0",
     string = "",
@@ -54,4 +52,3 @@ media:subscribe("media_change", function(env)
     end)
   end
 end)
--- end)
