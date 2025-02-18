@@ -30,5 +30,6 @@
   "plenary.nvim": { "branch": "master", "commit": "3707cdb1e43f5cea73afb6037e6494e7ce847a66" },
   "render-markdown.nvim": { "branch": "main", "commit": "17a77463f945c4b9e4f371c752efd90e3e1bf604" },
   "smear-cursor.nvim": { "branch": "main", "commit": "2dd773c40ed3dea46a7b08bf21e477dd3efc3dcb" },
+  "snacks.nvim": { "branch": "main", "commit": "2b52d89508a448a1ca0c500afbd325e77023afc1" },
   "vim-latex": { "branch": "master", "commit": "dfaf26c2cafddf61963ebeff28437352002691ac" }
 }

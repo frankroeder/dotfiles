@@ -10,3 +10,37 @@ fn - space : bash "$DOTFILES/scripts/toggle_app.bash" "Ghostty"
 fn + shift - s : open "x-apple.systempreferences:"
 fn + shift - a : open -a "About This Mac"
 fn + shift - b : bash "$DOTFILES/scripts/toggle_app.bash" "$BROWSER_NAME"
+
+fn + alt - f : flashspace open
+fn + ctrl - f : flashspace open-space-control
+
+fn - h : flashspace focus --direction left
+fn - j : flashspace focus --direction down
+fn - k : flashspace focus --direction up
+fn - l : flashspace focus --direction right
+
+# experimental
+fn + alt - n : flashspace focus --next-window
+fn + alt - p : flashspace focus --prev-window
+
+fn - 0 : flashspace workspace --name a
+fn - 1 : flashspace workspace --name b
+fn - 2 : flashspace workspace --name c
+fn - 3 : flashspace workspace --name d
+fn - 4 : flashspace workspace --name e
+fn - 5 : flashspace workspace --name f
+fn - 6 : flashspace workspace --name g
+fn - 7 : flashspace workspace --name h
+fn - 8 : flashspace workspace --name i
+fn - 9 : flashspace workspace --name j
+
+fn + ctrl - 0 : flashspace assign-app --name $(osascript -e "id of app \"$(flashspace get-app)\"") --show-notification --workspace a
+fn + ctrl - 1 : flashspace assign-app --name $(osascript -e "id of app \"$(flashspace get-app)\"") --show-notification --workspace b
+fn + ctrl - 2 : flashspace assign-app --name $(osascript -e "id of app \"$(flashspace get-app)\"") --show-notification --workspace c
+fn + ctrl - 3 : flashspace assign-app --name $(osascript -e "id of app \"$(flashspace get-app)\"") --show-notification --workspace d
+fn + ctrl - 4 : flashspace assign-app --name $(osascript -e "id of app \"$(flashspace get-app)\"") --show-notification --workspace e
+fn + ctrl - 5 : flashspace assign-app --name $(osascript -e "id of app \"$(flashspace get-app)\"") --show-notification --workspace f
+fn + ctrl - 6 : flashspace assign-app --name $(osascript -e "id of app \"$(flashspace get-app)\"") --show-notification --workspace g
+fn + ctrl - 7 : flashspace assign-app --name $(osascript -e "id of app \"$(flashspace get-app)\"") --show-notification --workspace h
+fn + ctrl - 8 : flashspace assign-app --name $(osascript -e "id of app \"$(flashspace get-app)\"") --show-notification --workspace i
+fn + ctrl - 9 : flashspace assign-app --name $(osascript -e "id of app \"$(flashspace get-app)\"") --show-notification --workspace j

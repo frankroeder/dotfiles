@@ -7,83 +7,70 @@ local map_monitor = { ["LG ULTRAFINE"] = 2, ["Built-in Retina Display"] = 1 }
 
 local workspaces = {}
 
-local function updateWindows(workspace_index)
-  local get_windows = string.format(
-    "jq -c '.profiles[].workspaces[] | select(.name == \"%s\") | {apps: [.apps[].name]}' ~/.config/flashspace/profiles.json",
-    workspace_index
-  )
+local function updateWindows(workspace_name)
+  local get_windows = string.format("~/bin/flashspace list-apps %s --only-running", workspace_name)
   sbar.exec(get_windows, function(open_windows)
-    local apps = open_windows.apps or {}
-
     local icon_line = ""
-    local no_app = (#apps == 0)
-
-    for _, app_name in ipairs(apps) do
-      local lookup = app_icons[app_name]
-      local icon = lookup or app_icons["Default"]
-      icon_line = icon_line .. " " .. icon
+    local has_app = false
+    for app in open_windows:gmatch "[^\r\n]+" do
+      has_app = true
+      local lookup = app_icons[app] or app_icons["Default"]
+      icon_line = icon_line .. " " .. lookup
     end
 
     sbar.animate("tanh", settings.animation_duration, function()
-      if no_app then
-        workspaces[workspace_index]:set {
-          icon = { drawing = true },
-          label = { drawing = true, string = "" },
-          background = { drawing = true },
-          padding_right = 1,
-          padding_left = 1,
+      if has_app then
+        workspaces[workspace_name]:set {
+          label = { string = icon_line },
         }
       else
-        workspaces[workspace_index]:set {
-          icon = { drawing = true },
-          label = { drawing = true, string = icon_line },
-          background = { drawing = true },
-          padding_right = 1,
-          padding_left = 1,
+        workspaces[workspace_name]:set {
+          label = { string = "" },
         }
       end
     end)
   end)
 end
 
-local function updateWorkspaceMonitor(workspace_index)
-  local query_workspaces = string.format(
-    "jq -r --arg name \"%s\" '.profiles[].workspaces[] | select(.name == $name) | .display' ~/.config/flashspace/profiles.json",
-    workspace_index
-  )
-  sbar.exec(query_workspaces, function(workspaces_and_monitors)
-    workspaces_and_monitors = string.gsub(workspaces_and_monitors, "\n", "")
-    local index = map_monitor[workspaces_and_monitors]
-    workspaces[workspace_index]:set {
+local function updateWorkspaceMonitor(workspace_name)
+  sbar.exec("~/bin/flashspace get-display", function(display)
+    display = string.gsub(display, "\n", "")
+    local index = map_monitor[display]
+    workspaces[workspace_name]:set {
       display = tonumber(index),
     }
   end)
 end
 
-local file =
-  io.popen [[jq -r --arg id "$(jq -r ".selectedProfileId" ~/.config/flashspace/profiles.json)" 'first(.profiles[] | select(.id == $id)) | .workspaces | length' ~/.config/flashspace/profiles.json]]
-local ws_count = file:read "*a"
+local function parse_string_to_table(s)
+  local result = {}
+  for line in s:gmatch "([^\n]+)" do
+    table.insert(result, line)
+  end
+  return result
+end
+
+local file = io.popen [[~/bin/flashspace list-workspaces]]
+local wspaces = file:read "*a"
 file:close()
 
-for workspace_index = 0, tonumber(ws_count) - 1 do
-  workspace_index = tonumber(workspace_index)
-
-  local workspace = sbar.add("item", "workspace_" .. workspace_index, {
+for workspace_index, workspace_name in ipairs(parse_string_to_table(wspaces)) do
+  local workspace = sbar.add("item", "workspace_" .. workspace_name, {
     icon = {
       color = colors.white,
       highlight_color = colors.blue,
-      drawing = false,
       font = { family = settings.font.numbers },
-      string = workspace_index,
+      string = workspace_index - 1,
       padding_left = 8,
       padding_right = 4,
     },
     label = {
-      padding_right = 10,
+      font = "sketchybar-app-font:Regular:16.0",
+      string = "",
       color = colors.grey,
       highlight_color = colors.blue,
-      font = "sketchybar-app-font:Regular:16.0",
       y_offset = -1,
+      padding_right = 10,
     },
     background = {
       color = colors.bg2,
@@ -92,15 +79,16 @@ for workspace_index = 0, tonumber(ws_count) - 1 do
       border_color = colors.black,
     },
     padding_right = -4,
+    click_script = "~/bin/flashspace workspace --name " .. workspace_name,
   })
 
-  workspaces[workspace_index] = workspace
-  updateWindows(workspace_index)
-  updateWorkspaceMonitor(workspace_index)
+  workspaces[workspace_name] = workspace
+  updateWindows(workspace_name)
+  -- updateWorkspaceMonitor(workspace_name)
 
   workspace:subscribe("flashspace_workspace_change", function(env)
-    local focused_workspace = tonumber(env.WORKSPACE)
-    local is_focused = focused_workspace == workspace_index
+    local focused_workspace = env.WORKSPACE
+    local is_focused = focused_workspace == workspace_name
     updateWindows(focused_workspace)
     sbar.animate("tanh", settings.animation_duration, function()
       workspace:set {

@@ -17,11 +17,9 @@
               "name" : "Mail"
             }
           ],
-          "assignAppShortcut" : "ctrl+opt+0",
           "display" : "Built-in Retina Display",
           "id" : "2DF9E227-0399-4BE9-9B3B-4A5A20712B8E",
-          "name" : "0",
-          "shortcut" : "ctrl+0",
+          "name" : "a",
           "symbolIconName" : "homekit"
         },
         {
@@ -42,11 +40,9 @@
               "name" : "Zen Browser"
             }
           ],
-          "assignAppShortcut" : "ctrl+opt+1",
           "display" : "LG ULTRAFINE",
           "id" : "5CC53345-2A99-49D6-A184-D29973D9F35D",
-          "name" : "1",
-          "shortcut" : "ctrl+1",
+          "name" : "b",
           "symbolIconName" : "cursorarrow.motionlines"
         },
         {
@@ -57,11 +53,10 @@
               "name" : "Ghostty"
             }
           ],
-          "assignAppShortcut" : "ctrl+opt+2",
           "display" : "LG ULTRAFINE",
           "id" : "A028D4CD-268B-4678-863D-1DC88F73D30E",
-          "name" : "2",
-          "shortcut" : "ctrl+2"
+          "name" : "c",
+          "symbolIconName" : "apple.terminal"
         },
         {
           "apps" : [
@@ -76,11 +71,10 @@
               "name" : "ChatGPT"
             }
           ],
-          "assignAppShortcut" : "ctrl+opt+3",
           "display" : "Built-in Retina Display",
           "id" : "B0CD060D-2D0A-4230-A31F-263E04936C8B",
-          "name" : "3",
-          "shortcut" : "ctrl+3"
+          "name" : "d",
+          "symbolIconName" : "person"
         },
         {
           "apps" : [
@@ -110,11 +104,9 @@
               "name" : "Signal"
             }
           ],
-          "assignAppShortcut" : "ctrl+opt+4",
           "display" : "LG ULTRAFINE",
           "id" : "B15DC82A-30B6-4278-BEB4-883D72219657",
-          "name" : "4",
-          "shortcut" : "ctrl+4",
+          "name" : "e",
           "symbolIconName" : "message"
         },
         {
@@ -135,12 +127,10 @@
               "name" : "Music"
             }
           ],
-          "assignAppShortcut" : "ctrl+opt+5",
           "display" : "Built-in Retina Display",
           "id" : "0AF0332F-C771-4B3A-8A47-427F35A68811",
-          "name" : "5",
-          "shortcut" : "ctrl+5",
-          "symbolIconName" : "music.note.tv"
+          "name" : "f",
+          "symbolIconName" : "music.note"
         }
       ]
     }

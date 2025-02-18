@@ -258,3 +258,6 @@ BabyAI
 timesteps
 timestep
 latents
+reparameterized
+ELBO
+Variational
