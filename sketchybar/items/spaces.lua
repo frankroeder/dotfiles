@@ -32,13 +32,17 @@ local function updateWindows(workspace_name)
   end)
 end
 
-local function updateWorkspaceMonitor(workspace_name)
-  sbar.exec("~/bin/flashspace get-display", function(display)
-    display = string.gsub(display, "\n", "")
-    local index = map_monitor[display]
-    workspaces[workspace_name]:set {
-      display = tonumber(index),
-    }
+local function updatcWorkspaceDisplays()
+  sbar.exec("~/bin/flashspace list-workspaces --with-display", function(output)
+    for line in output:gmatch "[^\n]+" do
+      local ws_name, display_name = line:match "([^,]+),%s*(.+)"
+      if ws_name and display_name then
+        local display_index = map_monitor[display_name]
+        workspaces[ws_name]:set {
+          display = display_index,
+        }
+      end
+    end
   end)
 end
 
@@ -84,7 +88,7 @@ for workspace_index, workspace_name in ipairs(parse_string_to_table(wspaces)) do
 
   workspaces[workspace_name] = workspace
   updateWindows(workspace_name)
-  -- updateWorkspaceMonitor(workspace_name)
+  updatcWorkspaceDisplays()
 
   workspace:subscribe("flashspace_workspace_change", function(env)
     local focused_workspace = env.WORKSPACE
@@ -98,11 +102,6 @@ for workspace_index, workspace_name in ipairs(parse_string_to_table(wspaces)) do
       }
     end)
   end)
-
-  -- workspace:subscribe("front_app_switched", function(env)
-  --   local ws_index = tonumber(env.NAME:match "%d+")
-  --   updateWindows(ws_index, env.INFO)
-  -- end)
 end
 
 return workspaces

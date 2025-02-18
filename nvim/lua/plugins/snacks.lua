@@ -5,11 +5,11 @@ return {
     image = { enabled = true },
     gitbrowse = { enabled = true },
     -- statuscolumn = { enabled = true },
-   --  indent = {
-   --    enabled = true,
-   --    char = "╎",
-			-- only_current = true,
-   --  },
+    --  indent = {
+    --    enabled = true,
+    --    char = "╎",
+    -- only_current = true,
+    --  },
   },
   -- keys = {
   --   {
@@ -30,10 +30,9 @@ return {
   --   },
   -- },
   init = function()
-		require("snacks")
+    require "snacks"
     vim.api.nvim_create_user_command("GitBrowse", function()
       Snacks.gitbrowse()
-    end
-, {})
+    end, {})
   end,
 }
