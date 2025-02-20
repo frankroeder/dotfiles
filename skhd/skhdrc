@@ -23,6 +23,8 @@ fn - l : flashspace focus --direction right
 fn + alt - n : flashspace focus --next-window
 fn + alt - p : flashspace focus --prev-window
 
+fn - tab : flashspace workspace --recent
+
 fn - 0 : flashspace workspace --name a
 fn - 1 : flashspace workspace --name b
 fn - 2 : flashspace workspace --name c

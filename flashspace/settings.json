@@ -52,8 +52,5 @@
   "runScriptOnWorkspaceChange" : "/opt/homebrew/bin/sketchybar --trigger flashspace_workspace_change  WORKSPACE=$WORKSPACE",
   "showFloatingNotifications" : true,
   "showMenuBarTitle" : true,
-  "spaceControlCurrentDisplayWorkspaces" : false,
-  "switchToNextWorkspace" : "ctrl+opt+n",
-  "switchToPreviousWorkspace" : "ctrl+opt+p",
-  "switchToRecentWorkspace" : "ctrl+tab"
+  "spaceControlCurrentDisplayWorkspaces" : false
 }

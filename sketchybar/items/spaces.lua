@@ -3,12 +3,12 @@ local settings = require "settings"
 local app_icons = require "helpers.app_icons"
 
 sbar.add("event", "flashspace_workspace_change")
-local map_monitor = { ["LG ULTRAFINE"] = 2, ["Built-in Retina Display"] = 1 }
+local map_monitor = { ["LG ULTRAFINE"] = 2, ["DELL S2722DZ"] = 2, ["Built-in Retina Display"] = 1 }
 
 local workspaces = {}
 
 local function updateWindows(workspace_name)
-  local get_windows = string.format("~/bin/flashspace list-apps %s --only-running", workspace_name)
+  local get_windows = string.format("/usr/local/bin/flashspace list-apps %s --only-running", workspace_name)
   sbar.exec(get_windows, function(open_windows)
     local icon_line = ""
     local has_app = false
@@ -33,7 +33,7 @@ local function updateWindows(workspace_name)
 end
 
 local function updatcWorkspaceDisplays()
-  sbar.exec("~/bin/flashspace list-workspaces --with-display", function(output)
+  sbar.exec("/usr/local/bin/flashspace list-workspaces --with-display", function(output)
     for line in output:gmatch "[^\n]+" do
       local ws_name, display_name = line:match "([^,]+),%s*(.+)"
       if ws_name and display_name then
@@ -54,7 +54,7 @@ local function parse_string_to_table(s)
   return result
 end
 
-local file = io.popen [[~/bin/flashspace list-workspaces]]
+local file = io.popen [[/usr/local/bin/flashspace list-workspaces]]
 local wspaces = file:read "*a"
 file:close()
 
@@ -83,7 +83,7 @@ for workspace_index, workspace_name in ipairs(parse_string_to_table(wspaces)) do
       border_color = colors.black,
     },
     padding_right = -4,
-    click_script = "~/bin/flashspace workspace --name " .. workspace_name,
+    click_script = "/usr/local/bin/flashspace workspace --name " .. workspace_name,
   })
 
   workspaces[workspace_name] = workspace
