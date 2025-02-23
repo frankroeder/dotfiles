@@ -3,6 +3,7 @@ local utils = require "utils"
 return {
   "frankroeder/prt.nvim",
   event = "VeryLazy",
+  enable = vim.fn.has "macunix" == 1 and vim.fn.expand "$USER" == "frankroeder",
   dev = vim.fn.has "macunix" == 1 and vim.fn.expand "$USER" == "frankroeder",
   lazy = false,
   opts = {

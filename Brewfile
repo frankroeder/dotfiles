@@ -49,3 +49,4 @@ cask "mattermost"
 mas "iReal Pro", id: 409035833
 mas "Telegram", id: 747648890
 mas "Bitwarden", id: 1352778147
+mas "Magnet", id:  441258766

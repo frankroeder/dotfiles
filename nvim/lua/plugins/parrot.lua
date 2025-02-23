@@ -3,15 +3,10 @@ local utils = require "utils"
 local M = {
   "frankroeder/parrot.nvim",
   event = "VeryLazy",
-  dependencies = { "ibhagwan/fzf-lua", "nvim-lua/plenary.nvim", "rcarriga/nvim-notify" },
+  dependencies = { "ibhagwan/fzf-lua", "nvim-lua/plenary.nvim" },
   dev = vim.fn.has "macunix" == 1 and vim.fn.expand "$USER" == "frankroeder",
   lazy = false,
   config = function(_, opts)
-    require("notify").setup {
-      background_colour = "#000000",
-      render = "compact",
-      top_down = false,
-    }
     -- add ollama if executable found
     if vim.fn.executable "ollama" == 1 then
       opts.providers["ollama"] = {}

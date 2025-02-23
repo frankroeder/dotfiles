@@ -8,7 +8,8 @@ local map_monitor = { ["LG ULTRAFINE"] = 2, ["DELL S2722DZ"] = 2, ["Built-in Ret
 local workspaces = {}
 
 local function updateWindows(workspace_name)
-  local get_windows = string.format("/usr/local/bin/flashspace list-apps %s --only-running", workspace_name)
+  local get_windows =
+    string.format("/usr/local/bin/flashspace list-apps %s --only-running", workspace_name)
   sbar.exec(get_windows, function(open_windows)
     local icon_line = ""
     local has_app = false
