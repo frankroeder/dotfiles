@@ -6,7 +6,6 @@ local whitelist = {
   ["Spotify"] = true,
   ["Music"] = true,
   ["Podcasts"] = true,
-  ["Zen Browser"] = true,
 }
 
 local media = sbar.add("item", {

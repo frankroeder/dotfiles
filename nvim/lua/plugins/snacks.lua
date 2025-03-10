@@ -22,5 +22,8 @@ return {
     vim.api.nvim_create_user_command("GitBrowse", function()
       Snacks.gitbrowse()
     end, {})
+    vim.api.nvim_create_user_command("Notifications", function()
+      Snacks.notifier.show_history {}
+    end, {})
   end,
 }

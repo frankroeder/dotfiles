@@ -59,6 +59,8 @@ function M.config()
     "lua_ls",
     "svelte",
     "ts_ls",
+    "harper_ls",
+    "basedpyright",
   }
   mason.setup()
   mason_lspconfig.setup {

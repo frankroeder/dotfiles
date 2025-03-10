@@ -57,6 +57,7 @@ function M.config()
     luasnip = "[LSnip]",
     nvim_lua = "[Lua]",
     treesitter = "[Treesitter]",
+    parrot_completion = "[🦜]",
   }
   local has_words_before = function()
     if vim.api.nvim_buf_get_option(0, "buftype") == "prompt" then
@@ -82,6 +83,7 @@ function M.config()
       { name = "buffer", keyword_length = 3 },
       { name = "treesitter", keyword_length = 3 },
       { name = "async_path" },
+      { name = "parrot_completion" },
       {
         name = "lazydev",
         -- set group index to 0 to skip loading LuaLS completions as lazydev recommends it

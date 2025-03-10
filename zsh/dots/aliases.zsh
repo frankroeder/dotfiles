@@ -54,6 +54,7 @@ alias pvim="$EDITOR -u NONE -i NONE -n -N -n"
 alias vimlogs='tail -F $HOME/.local/state/nvim/{luasnip.log,lsp.log} /tmp/*.log $HOME/.cache/nvim/lsp.log'
 alias nman="MANPAGER='nvim +Man!' man"
 alias userlist="cut -d: -f1 /etc/passwd | sort"
+alias sshconfig="$EDITOR $HOME/.ssh/config"
 
 # check if wezterm is installed
 if [[ $commands[wezterm] ]]; then

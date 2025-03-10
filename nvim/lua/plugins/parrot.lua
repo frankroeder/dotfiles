@@ -20,6 +20,16 @@ local M = {
       },
       anthropic = {
         api_key = utils.get_api_key("anthropic-api-key", "ANTHROPIC_API_KEY"),
+        params = {
+          chat = {
+            max_tokens = 4096,
+            thinking = {
+              budget_tokens = 1024,
+              type = "enabled",
+            },
+          },
+          command = { max_tokens = 4096 },
+        },
       },
       gemini = {
         api_key = os.getenv "GEMINI_API_KEY",
