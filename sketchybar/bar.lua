@@ -7,4 +7,5 @@ sbar.bar {
   padding_left = 10,
   color = colors.bar.bg,
   border_color = colors.bar.border,
+  topmost = "window",
 }
