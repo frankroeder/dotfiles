@@ -16,6 +16,11 @@ return {
     },
     notifier = { enabled = true },
     rename = { enabled = true },
+    styles = {
+      notification = {
+        wo = { wrap = true },
+      },
+    },
   },
   init = function()
     require "snacks"

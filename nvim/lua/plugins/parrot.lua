@@ -47,6 +47,7 @@ local M = {
     toggle_target = "tabnew",
     online_model_selection = true,
     command_auto_select_response = true,
+    show_context_hints = true,
     hooks = {
       Complete = function(prt, params)
         local template = [[
