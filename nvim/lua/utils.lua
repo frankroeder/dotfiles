@@ -19,6 +19,8 @@ M.browser_args = function()
     return 'tell application "System Events" to tell application process "Zen Browser" to get value of attribute "AXTitle" of front window'
   elseif browser == "Brave Browser" then
     return 'tell application "Brave Browser" to return URL of active tab of front window'
+  elseif browser == "Vivaldi" then
+    return 'tell application "Vivaldi" to return URL of active tab of front window'
   else
     return 'display notification "No active tab in Browser" with title "Alert"'
   end

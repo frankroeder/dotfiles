@@ -46,6 +46,15 @@ URL=$(osascript <<'END'
   end tell
 END
 )
+elif [[ "$BROWSER_NAME" = "Vivaldi" ]]; then
+URL=$(osascript <<'END'
+  tell application "Vivaldi"
+    set vURL to URL of active tab of front window
+    set the clipboard to vURL
+    "Copied " & vURL & " to clipboard"
+  end tell
+END
+)
 fi
 
 echo $URL

@@ -34,4 +34,10 @@ elif [[ $BROWSER_NAME == "Brave Browser" ]]; then
     set vURL to URL of active tab of front window
     vURL
   end tell'
+elif [[ $BROWSER_NAME == "Vivaldi" ]]; then
+  osascript -e '
+  tell application "Vivaldi"
+    set vURL to URL of active tab of front window
+    vURL
+  end tell'
 fi
