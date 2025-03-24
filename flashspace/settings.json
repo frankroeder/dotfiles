@@ -1,4 +1,5 @@
 {
+  "alternativeDisplays" : "LG ULTRAFINE=DELL S2722DZ",
   "centerCursorOnFocusChange" : false,
   "centerCursorOnWorkspaceChange" : false,
   "changeWorkspaceOnAppAssign" : true,
@@ -45,6 +46,7 @@
       "name" : "sioyek"
     }
   ],
+  "focusFrontmostWindow" : true,
   "menuBarDisplayAliases" : "",
   "menuBarTitleTemplate" : "$WORKSPACE",
   "runScriptOnLaunch" : "/opt/homebrew/opt/sketchybar/bin/sketchybar",
@@ -52,5 +54,6 @@
   "runScriptOnWorkspaceChange" : "/opt/homebrew/bin/sketchybar --trigger flashspace_workspace_change  WORKSPACE=$WORKSPACE",
   "showFloatingNotifications" : true,
   "showMenuBarTitle" : true,
-  "spaceControlCurrentDisplayWorkspaces" : false
+  "spaceControlCurrentDisplayWorkspaces" : false,
+  "spaceControlMaxColumns" : 6
 }

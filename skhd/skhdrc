@@ -19,10 +19,8 @@ fn - j : flashspace focus --direction down
 fn - k : flashspace focus --direction up
 fn - l : flashspace focus --direction right
 
-# experimental
-fn + alt - n : flashspace focus --next-window
-fn + alt - p : flashspace focus --prev-window
-
+fn + alt - n : flashspace focus --next-app
+fn + alt - p : flashspace focus --prev-app
 fn - tab : flashspace workspace --recent
 
 fn - 0 : flashspace workspace --name a

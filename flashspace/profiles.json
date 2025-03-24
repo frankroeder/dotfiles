@@ -33,6 +33,11 @@
               "bundleIdentifier" : "com.vivaldi.Vivaldi",
               "iconPath" : "/Applications/Vivaldi.app/Contents/Resources/app.icns",
               "name" : "Vivaldi"
+            },
+            {
+              "bundleIdentifier" : "com.mitchellh.ghostty",
+              "iconPath" : "/Applications/Ghostty.app/Contents/Resources/AppIcon.icns",
+              "name" : "Ghostty"
             }
           ],
           "display" : "LG ULTRAFINE",
@@ -59,6 +64,11 @@
               "bundleIdentifier" : "com.anthropic.claudefordesktop",
               "iconPath" : "/Applications/Claude.app/Contents/Resources/electron.icns",
               "name" : "Claude"
+            },
+            {
+              "bundleIdentifier" : "com.vivaldi.Vivaldi.app.ggjocahimgaohmigbfhghnlfcnjemagj",
+              "iconPath" : "/Users/frankroeder/Applications/Chrome Apps.localized/Grok.app/Contents/Resources/app.icns",
+              "name" : "Grok"
             }
           ],
           "display" : "Built-in Retina Display",
@@ -119,130 +129,6 @@
           ],
           "display" : "Built-in Retina Display",
           "id" : "0AF0332F-C771-4B3A-8A47-427F35A68811",
-          "name" : "f",
-          "symbolIconName" : "music.note"
-        }
-      ]
-    },
-    {
-      "id" : "1AC520A8-8D97-4F31-9D33-AB73846B3309",
-      "name" : "Work",
-      "workspaces" : [
-        {
-          "apps" : [
-            {
-              "bundleIdentifier" : "ch.protonmail.desktop",
-              "iconPath" : "/Applications/Proton Mail.app/Contents/Resources/electron.icns",
-              "name" : "Proton Mail"
-            },
-            {
-              "bundleIdentifier" : "com.apple.mail",
-              "iconPath" : "/System/Applications/Mail.app/Contents/Resources/ApplicationIcon.icns",
-              "name" : "Mail"
-            }
-          ],
-          "display" : "Built-in Retina Display",
-          "id" : "EAF56BED-223F-49E9-90D5-BC25EF4DC833",
-          "name" : "a",
-          "symbolIconName" : "homekit"
-        },
-        {
-          "apps" : [
-            {
-              "bundleIdentifier" : "com.apple.Safari",
-              "iconPath" : "/System/Volumes/Preboot/Cryptexes/App/System/Applications/Safari.app/Contents/Resources/AppIcon.icns",
-              "name" : "Safari"
-            },
-            {
-              "bundleIdentifier" : "com.vivaldi.Vivaldi",
-              "iconPath" : "/Applications/Vivaldi.app/Contents/Resources/app.icns",
-              "name" : "Vivaldi"
-            }
-          ],
-          "display" : "DELL S2722DZ",
-          "id" : "F5E50FC9-4D7D-4ABD-BC22-AB43C9C6F8FF",
-          "name" : "b",
-          "symbolIconName" : "cursorarrow.motionlines"
-        },
-        {
-          "apps" : [
-            {
-              "bundleIdentifier" : "com.mitchellh.ghostty",
-              "iconPath" : "/Applications/Ghostty.app/Contents/Resources/AppIcon.icns",
-              "name" : "Ghostty"
-            }
-          ],
-          "display" : "DELL S2722DZ",
-          "id" : "ECD7A3C6-C7F1-4F67-9768-6998D77B377C",
-          "name" : "c",
-          "symbolIconName" : "apple.terminal"
-        },
-        {
-          "apps" : [
-            {
-              "bundleIdentifier" : "com.anthropic.claudefordesktop",
-              "iconPath" : "/Applications/Claude.app/Contents/Resources/electron.icns",
-              "name" : "Claude"
-            }
-          ],
-          "display" : "Built-in Retina Display",
-          "id" : "E712DC8F-4B57-4C53-8AA6-7AE3FF364B45",
-          "name" : "d",
-          "symbolIconName" : "person"
-        },
-        {
-          "apps" : [
-            {
-              "bundleIdentifier" : "com.hnc.Discord",
-              "iconPath" : "/Applications/Discord.app/Contents/Resources/electron.icns",
-              "name" : "Discord"
-            },
-            {
-              "bundleIdentifier" : "com.apple.MobileSMS",
-              "iconPath" : "/System/Applications/Messages.app/Contents/Resources/AppIcon.icns",
-              "name" : "Messages"
-            },
-            {
-              "bundleIdentifier" : "Mattermost.Desktop",
-              "iconPath" : "/Applications/Mattermost.app/Contents/Resources/icon.icns",
-              "name" : "Mattermost"
-            },
-            {
-              "bundleIdentifier" : "ru.keepcoder.Telegram",
-              "iconPath" : "/Applications/Telegram.app/Contents/Resources/AppIcon.icns",
-              "name" : "Telegram"
-            },
-            {
-              "bundleIdentifier" : "org.whispersystems.signal-desktop",
-              "iconPath" : "/Applications/Signal.app/Contents/Resources/icon.icns",
-              "name" : "Signal"
-            }
-          ],
-          "display" : "DELL S2722DZ",
-          "id" : "0C65642F-C9FB-4EB7-9677-BCC5F6BE45B9",
-          "name" : "e",
-          "symbolIconName" : "message"
-        },
-        {
-          "apps" : [
-            {
-              "bundleIdentifier" : "com.apple.podcasts",
-              "iconPath" : "/System/Applications/Podcasts.app/Contents/Resources/AppIcon.icns",
-              "name" : "Podcasts"
-            },
-            {
-              "bundleIdentifier" : "com.apple.QuickTimePlayerX",
-              "iconPath" : "/System/Applications/QuickTime Player.app/Contents/Resources/AppIcon.icns",
-              "name" : "QuickTime Player"
-            },
-            {
-              "bundleIdentifier" : "com.apple.Music",
-              "iconPath" : "/System/Applications/Music.app/Contents/Resources/AppIcon.icns",
-              "name" : "Music"
-            }
-          ],
-          "display" : "Built-in Retina Display",
-          "id" : "1D537FBD-01C1-4F7D-8BB8-73AE0BEBA9C7",
           "name" : "f",
           "symbolIconName" : "music.note"
         }

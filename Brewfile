@@ -27,6 +27,7 @@ brew "ifstat"
 brew "gcc"
 brew "newsboat"
 brew "mpv"
+brew "imagemagick"
 
 brew "flashspace"
 brew "skhd", args: ["with-logging"]
