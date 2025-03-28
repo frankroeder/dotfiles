@@ -1,5 +1,13 @@
-return function(client, bufnr)
-  vim.api.nvim_set_option_value("omnifunc", "v:lua.vim.lsp.omnifunc", { buf = bufnr })
+local function on_attach(client, bufnr)
+  if not client then
+    return
+  end
+  -- if client:supports_method "textDocument/completion" then
+  --   vim.lsp.completion.enable(true, client.id, bufnr, { autotrigger = true })
+  -- end
+  if client.server_capabilities.completionProvider then
+    vim.api.nvim_set_option_value("omnifunc", "v:lua.vim.lsp.omnifunc", { buf = bufnr })
+  end
   -- lsp
   vim.keymap.set("n", "K", vim.lsp.buf.hover, { buffer = bufnr, desc = "Hover documentation" })
   vim.keymap.set(
@@ -65,37 +73,74 @@ return function(client, bufnr)
   )
 
   vim.keymap.set("n", "<Leader>li", [[:LspInfo<CR>]], { buffer = bufnr, desc = "[l]sp[i]nfo" })
-  vim.keymap.set("n", "<Leader>lI", [[:Mason<CR>]], { buffer = bufnr, desc = "Open Mason" })
-
-  if client.server_capabilities.codeLensProvider then
-    vim.cmd [[autocmd BufEnter,CursorHold,InsertLeave <buffer> lua vim.lsp.codelens.refresh() ]]
-    vim.lsp.codelens.refresh()
-  end
-
-  -- LSP document highlighting
-  if client.server_capabilities.documentHighlightProvider then
-    local group = "lsp_document_highlight"
-    vim.api.nvim_create_augroup(group, { clear = true })
-    vim.api.nvim_create_autocmd("CursorHold", {
+  if client and client.server_capabilities.documentHighlightProvider then
+    vim.api.nvim_create_autocmd({ "CursorHold", "CursorHoldI" }, {
+      buffer = bufnr,
       callback = vim.lsp.buf.document_highlight,
-      buffer = vim.api.nvim_get_current_buf(),
-      group = group,
     })
-    vim.api.nvim_create_autocmd("CursorMoved", {
+
+    vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" }, {
+      buffer = bufnr,
       callback = vim.lsp.buf.clear_references,
-      buffer = vim.api.nvim_get_current_buf(),
-      group = group,
-    })
-    vim.api.nvim_create_autocmd("LspDetach", {
-      group = vim.api.nvim_create_augroup("lsp_highlight_detach", { clear = true }),
-      callback = function(event2)
-        vim.lsp.buf.clear_references()
-        vim.api.nvim_clear_autocmds { group = "lsp_document_highlight", buffer = event2.buf }
-      end,
     })
   end
+
   if client.name == "ruff" then
     -- Disable hover in favor of jedi
     client.server_capabilities.hoverProvider = false
   end
 end
+
+local capabilities = vim.lsp.protocol.make_client_capabilities()
+capabilities =
+  vim.tbl_deep_extend("force", capabilities, require("blink.cmp").get_lsp_capabilities({}, false))
+capabilities = vim.tbl_deep_extend("force", capabilities, {
+  textDocument = {
+    foldingRange = {
+      dynamicRegistration = false,
+      lineFoldingOnly = true,
+    },
+  },
+})
+
+vim.lsp.config("*", {
+  capabilities = capabilities,
+  on_attach = on_attach,
+})
+vim.lsp.enable {
+  "clangd",
+  "cssls",
+  "ruff",
+  "html_ls",
+  "jedi_language_server",
+  "lua_ls",
+  "svelte_ls",
+  "ts_ls",
+  "basedpyright",
+}
+
+vim.lsp.set_log_level "error"
+
+vim.diagnostic.config {
+  virtual_text = false,
+  underline = false,
+  update_in_insert = false,
+  severity_sort = true,
+  signs = {
+    [vim.diagnostic.severity.ERROR] = "",
+    [vim.diagnostic.severity.WARN] = "",
+    [vim.diagnostic.severity.HINT] = "",
+    [vim.diagnostic.severity.INFO] = "",
+  },
+}
+
+vim.api.nvim_create_user_command("LspLog", function()
+  vim.cmd.split(vim.lsp.log.get_filename())
+end, {
+  desc = "Get all the lsp logs",
+})
+vim.api.nvim_create_user_command("LspInfo", function()
+  vim.cmd "silent checkhealth vim.lsp"
+end, {
+  desc = "Get all the information about all LSP attached",
+})

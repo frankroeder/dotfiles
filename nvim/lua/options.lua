@@ -55,6 +55,7 @@ local options = {
   pumheight = 10, -- Maximum number of entries in a popup
   list = true,
   laststatus = 3, -- global statusline
+  winborder = 'rounded'
 }
 
 for k, v in pairs(options) do

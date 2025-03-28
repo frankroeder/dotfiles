@@ -1,10 +1,9 @@
-local util = require "lspconfig/util"
-
+---@type vim.lsp.Config
 return {
-  root_dir = function(fname)
-    return util.find_git_ancestor(fname) or util.path.dirname(fname)
-  end,
+  cmd = { "vscode-html-language-server", "--stdio" },
+  filetypes = { "html", "templ" },
   init_options = {
+    provideFormatter = true,
     configurationSection = { "html", "css", "javascript" },
     embeddedLanguages = {
       css = true,

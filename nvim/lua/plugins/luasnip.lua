@@ -14,12 +14,6 @@ local M = {
       mode = { "i", "s" },
       desc = "LuaSnip backward jump",
     },
-    {
-      "<C-L>",
-      [[<cmd>lua require("luasnip").expand()<CR>]],
-      mode = { "i", "s" },
-      desc = "LuaSnip expand",
-    },
   },
 }
 
