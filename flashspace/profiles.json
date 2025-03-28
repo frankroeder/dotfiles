@@ -20,7 +20,7 @@
           "display" : "Built-in Retina Display",
           "id" : "2DF9E227-0399-4BE9-9B3B-4A5A20712B8E",
           "name" : "a",
-          "symbolIconName" : "homekit"
+          "symbolIconName" : "0.circle.fill"
         },
         {
           "apps" : [
@@ -43,7 +43,7 @@
           "display" : "LG ULTRAFINE",
           "id" : "5CC53345-2A99-49D6-A184-D29973D9F35D",
           "name" : "b",
-          "symbolIconName" : "cursorarrow.motionlines"
+          "symbolIconName" : "1.circle.fill"
         },
         {
           "apps" : [
@@ -56,7 +56,7 @@
           "display" : "LG ULTRAFINE",
           "id" : "A028D4CD-268B-4678-863D-1DC88F73D30E",
           "name" : "c",
-          "symbolIconName" : "apple.terminal"
+          "symbolIconName" : "2.circle.fill"
         },
         {
           "apps" : [
@@ -74,7 +74,7 @@
           "display" : "Built-in Retina Display",
           "id" : "B0CD060D-2D0A-4230-A31F-263E04936C8B",
           "name" : "d",
-          "symbolIconName" : "person"
+          "symbolIconName" : "3.circle.fill"
         },
         {
           "apps" : [
@@ -107,7 +107,7 @@
           "display" : "LG ULTRAFINE",
           "id" : "B15DC82A-30B6-4278-BEB4-883D72219657",
           "name" : "e",
-          "symbolIconName" : "message"
+          "symbolIconName" : "4.alt.circle.fill"
         },
         {
           "apps" : [

@@ -5,27 +5,27 @@
 # Check for dependencies
 if ! command -v curl &> /dev/null; then
   echo "curl could not be found, please install it."
-  exit 1
+  return 1
 fi
 
 if ! command -v jq &> /dev/null; then
   echo "jq could not be found, please install it."
-  exit 1
+  return 1
 fi
 
 if ! command -v afplay &> /dev/null; then
   echo "afplay could not be found, please ensure this script is run on macOS."
-  exit 1
+  return 1
 fi
 
 if [[ -z "$1" ]]; then
   echo "Usage: $0 \"<text>\""
-  exit 1
+  return 1
 fi
 
 if [[ -z "$OPENAI_API_KEY" ]]; then
   echo "The environment variable OPENAI_API_KEY is not set."
-  exit 1
+  return 1
 fi
 
 OUTFILE="/tmp/speech.mp3"
@@ -40,5 +40,5 @@ if [[ $? -eq 0 ]]; then
   afplay "$OUTFILE"
 else
   echo "Failed to generate speech."
-  exit 1
+  return 1
 fi
