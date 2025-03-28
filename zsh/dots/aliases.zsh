@@ -12,7 +12,7 @@ alias {dotfiles,dots}='cd $HOME/.dotfiles'
 alias tmp='cd $HOME/tmp'
 alias vim=${EDITOR}
 alias speedtest="wget -O /dev/null http://speed.transip.nl/1gb.bin"
-alias vimrc="$EDITOR $HOME/.dotfiles/nvim/{init.vim,plugin/*,lua/*}"
+alias vimrc="$EDITOR $HOME/.dotfiles/nvim/{init.lua,plugin/*,lua/*}"
 alias localrc="$EDITOR $HOME/.local.zsh"
 alias localgit="$EDITOR $HOME/.local.gitconfig"
 alias localtmux="$EDITOR $HOME/.local.tmux"
@@ -63,14 +63,16 @@ fi
 
 # Copies the contents of all files in the current directory to clipboard
 llmcopy() {
- # Exclude common image/video file extensions (case-insensitive)
-  find . -type f \
-    -not \( \
-      -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" \
-      -o -iname "*.gif" -o -iname "*.bmp" -o -iname "*.tiff" \
-      -o -iname "*.mp4" -o -iname "*.mov" -o -iname "*.avi" \
-      -o -iname "*.wmv" -o -iname "*.mkv" \
-    \) \
+  # Define excluded directories
+  excluded_dirs=(".git" "build" "node_modules" "dist" "venv" "__pycache__")
+
+  # Construct find command to exclude directories
+  find . -type f \( \! -path "*/.git/*" \! -path "*/build/*" \! -path "*/node_modules/*" \
+                 \! -path "*/dist/*" \! -path "*/venv/*" \! -path "*/__pycache__/*" \) \
+    \! -name "*.jpg" \! -name "*.jpeg" \! -name "*.png" \
+    \! -name "*.gif" \! -name "*.bmp" \! -name "*.tiff" \
+    \! -name "*.mp4" \! -name "*.mov" \! -name "*.avi" \
+    \! -name "*.wmv" \! -name "*.mkv" \
     -print0 | \
   while IFS= read -r -d '' file; do
     echo "=== $file ==="

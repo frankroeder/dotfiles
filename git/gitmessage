@@ -1,24 +1,33 @@
 
-# Title: Summary, imperative, start upper case, don't end with a period
-# No more than 50 chars. #### 50 chars is here:  #
-
-# Remember blank line between title and body.
-
-# Body: Explain *what* and *why* (not *how*). Include task ID (Jira issue).
-# Wrap at 72 chars. ################################## which is here:  #
-
-
-# At the end: Include Co-authored-by for all contributors.
-# Include at least one empty line before it. Format:
-# Co-authored-by: name <user@users.noreply.github.com>
+# [commit message]
+# Conventional commits: <type>[optional scope]: <description>
+#   - type: lowercase, e.g., fix, feat, docs
+#   - scope: optional, in ( ), e.g., (auth)
+#   - description: typically starts with lowercase, imperative, no period, ≤50 chars
+# Example: feat(auth): add OAuth2 login
+# General commits: <Summary>
+#   - Summary: starts with uppercase, imperative, no period, ≤50 chars
+# Example: Add OAuth2 login
 #
-# How to Write a Git Commit Message:
-# https://chris.beams.io/posts/git-commit/
+# [blank line]
 #
-# 1. Separate subject from body with a blank line
-# 2. Limit the subject line to 50 characters
-# 3. Capitalize the subject line
-# 4. Do not end the subject line with a period
-# 5. Use the imperative mood in the subject line
-# 6. Wrap the body at 72 characters
-# 7. Use the body to explain what and why vs. how
+# [body]
+# - Explain what and why (not how)
+# - Wrap at 72 chars
+# - Include task IDs (e.g., Jira: JIRA-123)
+#
+# [optional footers]
+# - Co-authored-by: Name <email@example.com>
+# - [For conventional commits] BREAKING CHANGE: description
+#
+# ---
+# Conventional Commits Reference:
+# - Types:
+#   - fix: Bug fix for users (PATCH in SemVer)
+#   - feat: New feature for users (MINOR in SemVer)
+#   - docs: Documentation changes
+#   - style: Code style updates (e.g., formatting)
+#   - refactor: Code refactoring (no feature/bug change)
+#   - test: Adding or updating tests
+#   - chore: Routine tasks (e.g., build updates)
+# - Breaking changes: append ! to type/scope or use BREAKING CHANGE footer
