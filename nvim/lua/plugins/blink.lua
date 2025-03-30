@@ -4,8 +4,6 @@ return {
   dependencies = {
     "L3MON4D3/LuaSnip",
     dependencies = { "L3MON4D3/LuaSnip", version = "v2.*" },
-    "micangl/cmp-vimtex",
-    { "saghen/blink.compat", opts = { impersonate_nvim_cmp = true } },
   },
   opts = {
     keymap = {
@@ -26,7 +24,6 @@ return {
         require("luasnip").change_choice(direction)
       end,
     },
-
     completion = {
       keyword = {
         range = "full",
@@ -42,10 +39,6 @@ return {
           enabled = true,
         },
       },
-
-      -- trigger = {
-      --   show_on_insert_on_trigger_character = false,
-      -- },
       menu = {
         auto_show = true,
         draw = {
@@ -79,13 +72,17 @@ return {
           node = vim.treesitter.get_node()
         end
         if vim.bo.filetype == "tex" or vim.bo.filetype == "bib" then
-          return { "buffer", "vimtex", "snippets" }
+          return { "buffer", "omni", "snippets" }
         elseif
           node and vim.tbl_contains({ "comment", "line_comment", "block_comment" }, node:type())
         then
           return { "buffer" }
         else
-          return { "lsp", "snippets", "path", "buffer", "lazydev" }
+          local prov = { "lsp", "snippets", "path", "buffer", "parrot" }
+          if vim.bo.filetype == "lua" then
+            table.insert(prov, "lazydev")
+          end
+          return prov
         end
       end,
 
@@ -95,15 +92,9 @@ return {
             show_hidden_files_by_default = true,
           },
         },
-        -- buffer = {
-        --   min_keyword_length = 0,
-        --   max_items = 5,
-        -- },
-        vimtex = {
-          name = "vimtex",
-          module = "blink.compat.source",
-          score_offset = 100,
-          opts = {},
+        buffer = {
+          min_keyword_length = 2,
+          max_items = 5,
         },
         lsp = {
           min_keyword_length = 2,
@@ -113,6 +104,12 @@ return {
           name = "LazyDev",
           module = "lazydev.integrations.blink",
           score_offset = 100,
+        },
+        parrot = {
+          module = "parrot.completion.blink",
+          name = "parrot",
+          score_offset = 20,
+          opts = {},
         },
       },
     },
@@ -156,5 +153,4 @@ return {
       menu = { auto_show = true },
     },
   },
-  opts_extend = { "sources.default" },
 }
