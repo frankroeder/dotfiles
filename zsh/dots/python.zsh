@@ -6,6 +6,24 @@ fi
 alias pipup='$(which python3) -m pip install --upgrade pip'
 alias pipreq='$(which python3) -m pip install -r $PWD/requirements.txt -U'
 
+
+if [[ $+commands[uv] ]]; then
+	eval "$(uv generate-shell-completion zsh)"
+	alias uvreq='uv add --requirements $PWD/requirements.txt -U'
+	uvact(){
+		if git rev-parse --git-dir > /dev/null 2>&1; then
+			cd $(git rev-parse --show-toplevel)
+		fi
+		source .venv/bin/activate
+		echo "Current python: $(which python)";
+		echo "Version: $(.venv/bin/python --version)"
+	}
+	uvspace(){
+		print "The memory consumption per environment:"
+		du -hcs $HOME/Documents/python/*/.venv | sort -hr;
+	}
+fi
+
 if [[ $+commands[conda] ]]; then
 	conact() {
 		if git rev-parse --git-dir > /dev/null 2>&1; then

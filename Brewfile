@@ -28,6 +28,7 @@ brew "gcc"
 brew "newsboat"
 brew "mpv"
 brew "imagemagick"
+brew "uv"
 
 brew "flashspace"
 brew "skhd", args: ["with-logging"]

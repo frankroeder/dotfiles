@@ -5,7 +5,7 @@ ARCHITECTURE := $(shell uname -m)
 DEVNUL := /dev/null
 WHICH := which
 
-PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(HOME)/bin:/$(HOME)/.local/bin:$(HOME)/.local/nodejs/bin:$(HOME)/miniforge3/bin
+PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(HOME)/bin:/$(HOME)/.local/bin:$(HOME)/.local/nodejs/bin
 ifeq ($(ARCHITECTURE), arm64)
 DOCKER_BUILD_CMD := build --platform linux/amd64 --progress plain --rm
 PATH := $(PATH):/opt/homebrew/bin:/opt/homebrew/sbin
@@ -66,18 +66,9 @@ endif
 	-brew doctor
 
 .PHONY: python
-CONDA_RELEASE := Miniforge3-$(PYOS)-$(ARCHITECTURE)
-CONDA_HOME := $(HOME)/miniforge3
 python:
-ifeq "$(wildcard $(CONDA_HOME))" ""
-	@echo -e "\033[1m\033[34m==> Downloading $(CONDA_RELEASE) ...\033[0m"
-	@curl -fsSLO https://github.com/conda-forge/miniforge/releases/latest/download/$(CONDA_RELEASE).sh
-	@bash "$(CONDA_RELEASE).sh" -b -p $(CONDA_HOME)
-	@rm "$(CONDA_RELEASE).sh"
-endif
-	@conda init "$(shell basename ${SHELL})"
-	@conda env update --file $(DOTFILES)/python/environment.yaml
-	@$(HOME)/miniforge3/bin/pip install flax scipy
+	@if [ "$(OSTYPE)" == "Linux" ]; then curl -LsSf https://astral.sh/uv/install.sh | sh; fi
+	@pip3 install ipython
 ifeq ($(shell ${WHICH} ipython 2>${DEVNUL}),)
 	@ipython -c exit && ln -sfv $(DOTFILES)/python/ipython_config.py $(HOME)/.ipython/profile_default/
 endif
@@ -187,9 +178,6 @@ ifeq ($(shell ${WHICH} nvim 2>${DEVNUL}),)
 endif
 ifeq ($(shell ${WHICH} tree-sitter 2>${DEVNUL}),)
 	@bash $(DOTFILES)/scripts/tree-sitter.sh
-endif
-ifeq ($(shell ${WHICH} nvidia-smi 2>${DEVNUL}),)
-	@conda install nvitop -n base -y
 endif
 
 .PHONY: _macos

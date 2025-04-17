@@ -11,7 +11,6 @@ source ~/.zplug/init.zsh
 zplug "zsh-users/zsh-completions"
 zplug "mafredri/zsh-async", from:github
 zplug "MichaelAquilina/zsh-you-should-use"
-zplug "conda-incubator/conda-zsh-completion"
 if [ "$OSTYPE" = "Linux" ]; then
   zplug "thewtex/tmux-mem-cpu-load"
 fi

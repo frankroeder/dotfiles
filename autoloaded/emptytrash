@@ -8,8 +8,15 @@ if [ "${#TRASH[@]}" -gt 0 ]; then
   done;
 fi
 
-pip cache purge;
-conda clean --all -y;
+if [[ $+commands[pip] ]]; then
+  pip cache purge;
+fi
+if [[ $+commands[conda] ]]; then
+  conda clean --all -y;
+fi
+if [[ $+commands[uv] ]]; then
+  uv cache prune
+fi
 
 if [ "$OSTYPE" = "Darwin" ]; then
   # remove the homewbrew cache
