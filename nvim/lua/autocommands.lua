@@ -100,6 +100,7 @@ autocmd("VimResized", {
 autocmd({ "FileType" }, {
   pattern = {
     "qf",
+    "checkhealth",
     "help",
     "man",
     "notify",

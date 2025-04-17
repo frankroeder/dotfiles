@@ -3,9 +3,8 @@ return {
   cmd = {
     "clangd",
     "--clang-tidy",
-    "--suggest-missing-includes",
   },
-  filetypes = { "c", "cpp", "objc", "objcpp" },
+  filetypes = { "c", "cpp", "objc", "objcpp", "cuda", "proto" },
   root_markers = {
     "Makefile",
     "CMakefile.txt",
@@ -13,6 +12,10 @@ return {
     "build/",
     "compile_flags.txt",
     ".clangd",
+    ".clang-tidy",
+    ".clang-format",
+    "compile_flags.txt",
+    "configure.ac",
   },
   single_file_support = true,
   capabilities = {

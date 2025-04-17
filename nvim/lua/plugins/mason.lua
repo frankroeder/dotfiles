@@ -30,8 +30,6 @@ return {
         "css-lsp",
         "ruff",
         "html-lsp",
-        "jedi-language-server",
-        -- "lua_ls",
         "lua-language-server",
         "svelte-language-server",
         "typescript-language-server",

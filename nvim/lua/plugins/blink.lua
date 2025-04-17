@@ -1,15 +1,14 @@
 return {
   "saghen/blink.cmp",
   build = "cargo build --release",
-  dependencies = {
-    "L3MON4D3/LuaSnip",
-    dependencies = { "L3MON4D3/LuaSnip", version = "v2.*" },
-  },
+  dependencies = { "L3MON4D3/LuaSnip", version = "v2.*" },
   opts = {
     keymap = {
-      preset = "default",
-      ["<C-p>"] = { "select_prev", "snippet_backward", "fallback" },
-      ["<C-n>"] = { "select_next", "snippet_forward", "fallback" },
+      preset = "enter",
+      ["<Tab>"] = { "select_next", "snippet_forward", "fallback" },
+      ["<S-Tab>"] = { "select_prev", "snippet_backward", "fallback" },
+      ["<Up>"] = {},
+      ["<Down>"] = {},
     },
 
     enabled = function()
@@ -41,7 +40,6 @@ return {
         auto_show = true,
         draw = {
           treesitter = { "lsp" },
-          columns = { { "label", "label_description", gap = 1 }, { "kind_icon", "kind" } },
         },
       },
 
@@ -53,23 +51,21 @@ return {
     },
 
     signature = {
-      enabled = false,
-      trigger = {
-        enabled = true,
-        show_on_keyword = true,
-        show_on_insert = true,
-      },
+      enabled = true,
     },
 
     fuzzy = { implementation = "prefer_rust_with_warning" },
 
     sources = {
       default = function()
-        local node = nil
-        if not vim.bo.filetype == "oil" then
-          node = vim.treesitter.get_node()
-        end
-        if vim.bo.filetype == "tex" or vim.bo.filetype == "bib" then
+        local success, node = pcall(vim.treesitter.get_node)
+        if
+          success
+          and node
+          and vim.tbl_contains({ "comment", "line_comment", "block_comment" }, node:type())
+        then
+          return { "buffer" }
+        elseif vim.bo.filetype == "tex" or vim.bo.filetype == "bib" then
           return { "buffer", "omni", "snippets" }
         elseif
           node and vim.tbl_contains({ "comment", "line_comment", "block_comment" }, node:type())
@@ -107,6 +103,13 @@ return {
           module = "parrot.completion.blink",
           name = "parrot",
           score_offset = 20,
+          transform_items = function(ctx, items)
+            for _, item in ipairs(items) do
+              item.kind_icon = "🦜"
+              item.kind_name = "parrot"
+            end
+            return items
+          end,
         },
       },
     },

@@ -62,8 +62,6 @@ for k, v in pairs(options) do
   vim.opt[k] = v
 end
 
-opt.shortmess:append { c }
-
 if vim.fn.has "clipboard" then
   opt.clipboard = "unnamed" -- copy to the system clipboard
   if vim.fn.has "unnamedplus" then -- X11 support
@@ -133,6 +131,7 @@ opt.wildignore = {
   "*/node_modules/*",
   "*/target/*",
   "*/venv/*",
+  "*/.venv/*",
   "*~",
 }
 

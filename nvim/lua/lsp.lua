@@ -2,13 +2,9 @@ local function on_attach(client, bufnr)
   if not client then
     return
   end
-  -- if client:supports_method "textDocument/completion" then
-  --   vim.lsp.completion.enable(true, client.id, bufnr, { autotrigger = true })
-  -- end
   if client.server_capabilities.completionProvider then
     vim.api.nvim_set_option_value("omnifunc", "v:lua.vim.lsp.omnifunc", { buf = bufnr })
   end
-  -- lsp
   vim.keymap.set("n", "K", vim.lsp.buf.hover, { buffer = bufnr, desc = "Hover documentation" })
   vim.keymap.set(
     "n",
@@ -112,7 +108,6 @@ vim.lsp.enable {
   "cssls",
   "ruff",
   "html_ls",
-  "jedi_language_server",
   "lua_ls",
   "svelte_ls",
   "ts_ls",

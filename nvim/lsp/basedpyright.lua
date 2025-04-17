@@ -9,12 +9,14 @@ return {
     "requirements.txt",
     "Pipfile",
     "pyrightconfig.json",
+    "venv",
+    ".venv",
   },
   settings = {
     basedpyright = {
       disableOrganizeImports = true,
       analysis = {
-        typeCheckingMode = "standard", -- off, basic, standard, strict, all
+        typeCheckingMode = "basic", -- off, basic, standard, strict, all
         autoImportCompletions = true,
         autoSearchPaths = true,
         useLibraryCodeForTypes = true,
@@ -26,4 +28,5 @@ return {
       },
     },
   },
+  single_file_support = true,
 }
