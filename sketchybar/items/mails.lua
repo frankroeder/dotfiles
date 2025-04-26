@@ -35,8 +35,6 @@ local function update_mail_count()
 		]],
     function(result)
       local mail_count = tonumber(result) or 0
-
-      -- Set label and icon color
       mail:set {
         drawing = mail_count > 0,
         label = {
@@ -50,13 +48,11 @@ local function update_mail_count()
   )
 end
 
-mail:subscribe("mouse.clicked", function(_)
+mail:subscribe("mouse.clicked", function()
   sbar.exec "open -a Mail"
 end)
 
-sbar.add("event", "mail_check")
-
-mail:subscribe("mail_check", "routine", "system_woke", function(_)
+mail:subscribe("routine", function()
   update_mail_count()
 end)
 

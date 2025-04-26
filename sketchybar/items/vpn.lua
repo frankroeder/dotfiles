@@ -2,7 +2,9 @@ local settings = require "settings"
 local colors = require "colors"
 local icons = require "icons"
 
-local vpn_item = sbar.add("item", { "vpn" }, {
+sbar.add("event", "network_change", "com.apple.networkConnect")
+
+local vpn_item = sbar.add("item", "widgets.vpn", {
   position = "center",
   update_freq = 180,
   icon = {
@@ -40,14 +42,13 @@ local function update()
         vpn_item:set { label = vpn_name, drawing = true }
       end)
     else
-      vpn_item:set {
-        drawing = false,
-      }
+      vpn_item:set { drawing = false }
     end
   end)
 end
 
-vpn_item:subscribe({ "routine", "system_woke", "forced" }, function(_)
+vpn_item:subscribe({ "network_change", "routine", "system_woke" }, function(_)
   update()
 end)
+
 update()

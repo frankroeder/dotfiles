@@ -1,7 +1,7 @@
 local colors = require "colors"
 local icons = require "icons"
 
-local ram = sbar.add("item", "widgets.ram1", {
+local ram = sbar.add("item", "widgets.ram", {
   position = "right",
   icon = {
     font = {

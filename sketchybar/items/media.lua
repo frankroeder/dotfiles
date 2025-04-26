@@ -2,13 +2,9 @@ local colors = require "colors"
 local settings = require "settings"
 local app_icons = require "helpers.app_icons"
 
-local whitelist = {
-  ["Spotify"] = true,
-  ["Music"] = true,
-  ["Podcasts"] = true,
-}
+sbar.add("event", "music_change", "com.apple.Music.playerInfo")
 
-local media = sbar.add("item", {
+local media = sbar.add("item", "widgets.media", {
   drawing = false,
   icon = {
     font = "sketchybar-app-font:Regular:16.0",
@@ -32,20 +28,19 @@ local media = sbar.add("item", {
   },
 })
 
-media:subscribe("media_change", function(env)
-  if whitelist[env.INFO.app] then
-    local artist = env.INFO.artist or ""
-    local title = env.INFO.title or ""
+media:subscribe("music_change", function(env)
+  if env.INFO then
+    local artist = env.INFO.Artist or ""
+    local title = env.INFO.Name or ""
     local display_text = artist .. " - " .. title
-
     sbar.animate("tanh", settings.animation_duration * 2, function()
       media:set {
-        drawing = (env.INFO.state == "playing"),
+        drawing = (artist .. title ~= ""),
         label = {
           string = display_text,
         },
         icon = {
-          string = app_icons[env.INFO.app] or app_icons["Default"],
+          string = app_icons["Music"] or app_icons["Default"],
         },
       }
     end)

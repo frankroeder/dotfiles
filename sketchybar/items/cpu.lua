@@ -7,10 +7,6 @@ sbar.exec "pgrep -x cpu_load > /dev/null && killall cpu_load; $CONFIG_DIR/helper
 
 local cpu = sbar.add("graph", "widgets.cpu", 80, {
   position = "right",
-  background = {
-    height = 10,
-    color = { alpha = 10 },
-  },
   icon = {
     string = icons.cpu,
     padding_left = 4,
@@ -25,31 +21,32 @@ local cpu = sbar.add("graph", "widgets.cpu", 80, {
     padding_right = 18,
     y_offset = 4,
   },
-  -- background = {
-  --   color= colors.lightblack
-  -- }
+  background = {
+    color = colors.transparent,
+  },
 })
 
 cpu:subscribe("cpu_update", function(env)
-  -- Also available: env.user_load, env.sys_load
   local load = tonumber(env.total_load)
-  cpu:push { load / 100. }
+  if load <= 100 then
+    cpu:push { load / 100. }
 
-  local color = colors.blue
-  if load > 30 then
-    if load < 60 then
-      color = colors.yellow
-    elseif load < 80 then
-      color = colors.orange
-    else
-      color = colors.red
+    local color = colors.blue
+    if load > 30 then
+      if load < 60 then
+        color = colors.yellow
+      elseif load < 80 then
+        color = colors.orange
+      else
+        color = colors.red
+      end
     end
-  end
 
-  cpu:set {
-    graph = { color = color, line_width = 1 },
-    label = "CPU " .. env.total_load .. "%",
-  }
+    cpu:set {
+      graph = { color = color, line_width = 1 },
+      label = "CPU " .. env.total_load .. "%",
+    }
+  end
 end)
 
 cpu:subscribe("mouse.clicked", function(_)

@@ -2,7 +2,7 @@ local colors = require "colors"
 local settings = require "settings"
 local icons = require "icons"
 
-local swap = sbar.add("item", "widgets.swap1", {
+local swap = sbar.add("item", "widgets.swap", {
   position = "right",
   drawing = false,
   icon = {
@@ -29,41 +29,57 @@ local swap = sbar.add("item", "widgets.swap1", {
   },
 })
 
-local function formatSwapUsage(swapuse)
-  if swapuse < 1 then
-    return "", colors.grey
-  elseif swapuse < 100 then
-    return string.format("%03d MB", math.floor(swapuse)), colors.dirtywhite
-  elseif swapuse < 1000 then
-    return string.format("%03d MB", math.floor(swapuse)), colors.yellow
-  elseif swapuse < 2000 then
-    return string.format("%.2f GB", swapuse / 1000), colors.orange
-  elseif swapuse < 10000 then
-    return string.format("%.2f GB", swapuse / 1000), colors.red
+local function formatUsedSwap(used)
+  if used < 1 then
+    return ""
+  elseif used < 1000 then
+    return string.format("%03d MB", math.floor(used))
   else
-    return string.format("%.1f GB", swapuse / 1000), colors.red
+    local gb = used / 1000
+    if used < 10000 then
+      return string.format("%.2f GB", gb)
+    else
+      return string.format("%.1f GB", gb)
+    end
+  end
+end
+
+local function getColorByPercentage(percentage)
+  if percentage < 25 then
+    return colors.dirtywhite
+  elseif percentage < 50 then
+    return colors.yellow
+  elseif percentage < 75 then
+    return colors.orange
+  else
+    return colors.red
   end
 end
 
 swap:subscribe({ "routine", "forced" }, function(_)
-  sbar.exec("sysctl -n vm.swapusage | awk '{print $6}' | sed 's/M//'", function(swapstore_untrimmed)
-    if swapstore_untrimmed then
-      local swapstore = swapstore_untrimmed:gsub("%s*$", "")
-      swapstore = swapstore:gsub(",", ".")
-      local swapLabel, swapColor = formatSwapUsage(tonumber(swapstore))
-      if swapLabel == "" then
-        swap:set { drawing = false }
-      else
-        swap:set {
-          drawing = true,
-          label = {
-            string = swapLabel,
-            color = swapColor,
-          },
-          icon = {
-            color = swapColor,
-          },
-        }
+  sbar.exec("sysctl -n vm.swapusage | awk '{print $3, $6}' | sed 's/M//g'", function(output)
+    local total_str, used_str = output:match "(%S+)%s+(%S+)"
+    if total_str and used_str then
+      local total = tonumber(total_str)
+      local used = tonumber(used_str)
+      if total and used then
+        if used < 1 then
+          swap:set { drawing = false }
+        else
+          local percentage = (used / total) * 100
+          local swapLabel = formatUsedSwap(used)
+          local swapColor = getColorByPercentage(percentage)
+          swap:set {
+            drawing = true,
+            label = {
+              string = swapLabel .. " (" .. math.floor(percentage) .. "%)",
+              color = swapColor,
+            },
+            icon = {
+              color = swapColor,
+            },
+          }
+        end
       end
     end
   end)
