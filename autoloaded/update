@@ -88,6 +88,9 @@ misc() {
   if [ $commands[battery] ]; then
     battery update;
   fi
+  if [ $commands[uv] ] && [ "$OSTYPE" = "Linux" ]; then
+    uv self update;
+  fi
 }
 
 run(){
