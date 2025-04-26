@@ -52,27 +52,22 @@ alias online="ping -c 1 www.example.com &> /dev/null && echo 'Online :)' || echo
 # start plain vim
 alias pvim="$EDITOR -u NONE -i NONE -n -N -n"
 alias vimlogs='tail -F $HOME/.local/state/nvim/{luasnip.log,lsp.log} /tmp/*.log $HOME/.cache/nvim/lsp.log'
-alias nman="MANPAGER='nvim +Man!' man"
+alias nman="MANPAGER='nvim --cmd \"set laststatus=0 \" +\"set statuscolumn= nowrap laststatus=0\" +Man!' man"
+
 alias userlist="cut -d: -f1 /etc/passwd | sort"
 alias sshconfig="$EDITOR $HOME/.ssh/config"
 
-# check if wezterm is installed
-if [[ $commands[wezterm] ]]; then
-  alias imgcat="wezterm imgcat"
-fi
-
 # Copies the contents of all files in the current directory to clipboard
 llmcopy() {
-  # Define excluded directories
-  excluded_dirs=(".git" "build" "node_modules" "dist" "venv" "__pycache__")
 
   # Construct find command to exclude directories
   find . -type f \( \! -path "*/.git/*" \! -path "*/build/*" \! -path "*/node_modules/*" \
-                 \! -path "*/dist/*" \! -path "*/venv/*" \! -path "*/__pycache__/*" \) \
+                 \! -path "*/dist/*" \! -path "*/.venv/*" \! -path "*/__pycache__/*" \) \
     \! -name "*.jpg" \! -name "*.jpeg" \! -name "*.png" \
     \! -name "*.gif" \! -name "*.bmp" \! -name "*.tiff" \
     \! -name "*.mp4" \! -name "*.mov" \! -name "*.avi" \
-    \! -name "*.wmv" \! -name "*.mkv" \
+    \! -name "*.wmv" \! -name "*.mkv" \! -name ".DS_Store" \
+    \! -name "uv.lock" \
     -print0 | \
   while IFS= read -r -d '' file; do
     echo "=== $file ==="

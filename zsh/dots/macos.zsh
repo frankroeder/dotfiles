@@ -65,3 +65,6 @@ pbcurl() {
   curl -s "$URL" | pbcopy
   echo "Copied the content from $URL to the clipboard."
 }
+applenotifications(){
+  log show --predicate 'eventMessage contains[c] "register name"' --last 1h | awk '{ print $12 }' | sort | uniq -c | sort | less
+}
