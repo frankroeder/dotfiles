@@ -2,7 +2,7 @@ local icons = require "icons"
 local colors = require "colors"
 
 local mail = sbar.add("item", "widgets.mail", {
-  position = "center",
+  position = "left",
   drawing = false,
   icon = {
     string = icons.mail,

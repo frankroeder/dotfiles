@@ -5,7 +5,7 @@ local icons = require "icons"
 sbar.add("event", "network_change", "com.apple.networkConnect")
 
 local vpn_item = sbar.add("item", "widgets.vpn", {
-  position = "center",
+  position = "left",
   update_freq = 180,
   icon = {
     string = icons.vpn,
