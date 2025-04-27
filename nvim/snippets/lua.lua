@@ -14,6 +14,17 @@ return {
     t "))",
   }),
   s(
+    { trig = "prilst", name = "print the content of a table" },
+    fmt(
+      [[
+      for k, v in pairs({}) do
+        print(k, v)
+      end
+      ]],
+      i(0)
+    )
+  ),
+  s(
     {
       trig = "req",
       name = "Import statement",

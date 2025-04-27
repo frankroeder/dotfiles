@@ -9,41 +9,39 @@ local function on_attach(client, bufnr)
   vim.keymap.set(
     "n",
     "gD",
-    vim.lsp.buf.declaration,
+    [[<cmd>lua require('fzf-lua').lsp_declarations()<CR>]],
     { buffer = bufnr, desc = "[g]oto [D]eclaration" }
   )
-  vim.keymap.set("n", "gd", vim.lsp.buf.definition, { buffer = bufnr, desc = "[g]oto [d]efintion" })
+  vim.keymap.set(
+    "n",
+    "gd",
+    [[<cmd>lua require('fzf-lua').lsp_definitions()<CR>]],
+    { buffer = bufnr, desc = "[g]oto [d]efintion" }
+  )
   vim.keymap.set(
     "i",
     "<C-H>",
     vim.lsp.buf.signature_help,
     { buffer = bufnr, desc = "Signature [H]elp" }
   )
-
   vim.keymap.set(
     "n",
     "<Space>gI",
-    vim.lsp.buf.implementation,
+    [[<cmd>lua require('fzf-lua').lsp_implementations()<CR>]],
     { buffer = bufnr, desc = "[g]oto [i]mplementation" }
   )
   vim.keymap.set("n", "<Space>rn", vim.lsp.buf.rename, { buffer = bufnr, desc = "[r]e[n]ame" })
   vim.keymap.set(
     "n",
     "<Space>ca",
-    vim.lsp.buf.code_action,
+    [[<cmd>lua require('fzf-lua').lsp_code_actions()<CR>]],
     { buffer = bufnr, desc = "[c]ode [a]ction" }
   )
   vim.keymap.set(
     "n",
     "<Space>rf",
-    vim.lsp.buf.references,
-    { buffer = bufnr, desc = "[r]e[f]erence" }
-  )
-  vim.keymap.set(
-    "n",
-    "<Leader>rf",
     [[<cmd>lua require('fzf-lua').lsp_references()<CR>]],
-    { buffer = bufnr }
+    { buffer = bufnr, desc = "[r]e[f]erence" }
   )
   -- diagnostic
   vim.keymap.set("n", "gn", function()
@@ -58,17 +56,23 @@ local function on_attach(client, bufnr)
   vim.keymap.set(
     "n",
     "<Space>ll",
-    vim.diagnostic.setloclist,
-    { buffer = bufnr, desc = "Show diagnostic [l]ocation [l]ist" }
+    [[<cmd>lua require('fzf-lua').lsp_document_diagnostics()<CR>]],
+    { buffer = bufnr, desc = "Show diagnostics" }
   )
   vim.keymap.set(
     "n",
     "<Leader>ll",
-    [[<cmd>lua require('fzf-lua').lsp_document_diagnostics()<CR>]],
-    { buffer = bufnr }
+    vim.diagnostic.setloclist,
+    { buffer = bufnr, desc = "Show diagnostic [l]ocation [l]ist" }
   )
 
   vim.keymap.set("n", "<Leader>li", [[:LspInfo<CR>]], { buffer = bufnr, desc = "[l]sp[i]nfo" })
+
+  vim.lsp.inlay_hint.enable(true, { bufnr = bufnr })
+  vim.keymap.set("n", "<leader>ti", function()
+    vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled())
+  end)
+
   if client and client.server_capabilities.documentHighlightProvider then
     vim.api.nvim_create_autocmd({ "CursorHold", "CursorHoldI" }, {
       buffer = bufnr,

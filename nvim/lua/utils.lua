@@ -110,4 +110,17 @@ M.get_api_key = function(key, fallback)
   return os.getenv(fallback)
 end
 
+M.root_markers = {
+  python = {
+    "pyproject.toml",
+    "setup.py",
+    "setup.cfg",
+    "requirements.txt",
+    "Pipfile",
+    "pyrightconfig.json",
+    "venv",
+    ".venv",
+  },
+}
+
 return M

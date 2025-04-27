@@ -17,6 +17,10 @@ return {
       },
     },
     file_types = { "markdown", "Avante" },
+    completions = {
+      blink = { enabled = true },
+      lsp = { enabled = true },
+    },
   },
   ft = { "markdown", "Avante" },
   dependencies = { "nvim-treesitter/nvim-treesitter", "nvim-tree/nvim-web-devicons" },

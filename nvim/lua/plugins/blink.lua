@@ -76,6 +76,9 @@ return {
           if vim.bo.filetype == "lua" then
             table.insert(prov, "lazydev")
           end
+          if vim.bo.filetype == "markdown" then
+            table.insert(prov, "markdown")
+          end
           return prov
         end
       end,
@@ -93,6 +96,11 @@ return {
         lsp = {
           min_keyword_length = 2,
           fallbacks = { "lazydev" },
+        },
+        markdown = {
+          name = "RenderMarkdown",
+          module = "render-markdown.integ.blink",
+          fallbacks = { "lsp" },
         },
         lazydev = {
           name = "LazyDev",
