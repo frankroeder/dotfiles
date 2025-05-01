@@ -70,7 +70,8 @@ swap:subscribe({ "routine", "forced" }, function(_)
           local swapLabel = formatUsedSwap(used)
           local swapColor = getColorByPercentage(percentage)
           swap:set {
-            drawing = true,
+            -- displays when more than 30% of swap is used
+            drawing = percentage > 30,
             label = {
               string = swapLabel .. " (" .. math.floor(percentage) .. "%)",
               color = swapColor,

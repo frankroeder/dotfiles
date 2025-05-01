@@ -50,7 +50,7 @@ local network_down = sbar.add("item", { "widgets.network_down" }, {
   padding_right = -4,
   y_offset = -5,
   width = 0,
-  update_freq = 10,
+  updates = true,
 })
 
 local network_up = sbar.add("item", { "widgets.network_up" }, {
@@ -70,9 +70,9 @@ local network_up = sbar.add("item", { "widgets.network_up" }, {
     padding_right = 8,
   },
   y_offset = 5,
-  update_freq = 2,
   width = 70,
   padding_right = -4,
+  updates = true,
 })
 
 network_up:subscribe("network_update", function(env)
@@ -98,7 +98,7 @@ local function network_update()
     ipconfig getifaddr en0
   ]]
   sbar.exec(ip_cmd, function(output)
-    if output then
+    if output ~= "" then
       sbar.animate("sin", settings.animation_duration, function()
         ip_item:set { label = output, drawing = true }
       end)

@@ -72,7 +72,7 @@ ssd_volume:subscribe({ "routine", "forced" }, function(_)
 
         ssd_volume:set {
           label = {
-            string = Label,
+            string = "SSD " .. Label,
             color = Color,
           },
           icon = {
