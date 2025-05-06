@@ -210,8 +210,20 @@ _terminal:
 ifeq ($(shell ${WHICH} ghostty 2>${DEVNUL}),)
 	@wget https://github.com/ghostty-org/ghostty/releases/download/tip/Ghostty.dmg && open Ghostty.dmg
 endif
-	@ln -sfv $(DOTFILES)/ghostty $(HOME)/.config/ghostty
+	@ln -sfv $(DOTFILES)/ghostty $(HOME)/.config
 	@ln -sfv $(DOTFILES)/htop/personal $(HOME)/.config/htop/htoprc
+
+
+.PHONY: asahi
+asahi: sudo directories _git zsh python misc nvim
+	bash $(DOTFILES)/asahi/dnf.sh
+	@ln -sfvn $(DOTFILES)/asahi/hypr $(HOME)/.config
+	@ln -sfvn $(DOTFILES)/asahi/rofi $(HOME)/.config
+	@ln -sfvn $(DOTFILES)/asahi/waybar $(HOME)/.config
+	@ln -sfvn $(DOTFILES)/ghostty $(HOME)/.config
+	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
+	@mkdir -p $(HOME)/bin
+	@mkdir -p $(HOME)/.local/bin
 
 .PHONY: check
 check:

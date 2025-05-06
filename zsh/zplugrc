@@ -11,9 +11,9 @@ source ~/.zplug/init.zsh
 zplug "zsh-users/zsh-completions"
 zplug "mafredri/zsh-async", from:github
 zplug "MichaelAquilina/zsh-you-should-use"
-if [ "$OSTYPE" = "Linux" ]; then
-  zplug "thewtex/tmux-mem-cpu-load"
-fi
+# if [ "$OSTYPE" = "Linux" ]; then
+#   zplug "thewtex/tmux-mem-cpu-load"
+# fi
 
 # should be last
 zplug "sindresorhus/pure", use:pure.zsh, from:github, at:main, as:theme

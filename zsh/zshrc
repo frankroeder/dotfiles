@@ -60,6 +60,8 @@ fi
 typeset -U path fpath
 export PATH
 
-if ( which zprof > /dev/null ); then
-  zprof | less
+if [[ "$OSTYPE" == "Darwin" ]]; then
+    if ( which zprof > /dev/null ); then
+    zprof | less
+    fi
 fi

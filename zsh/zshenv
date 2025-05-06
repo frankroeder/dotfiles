@@ -38,6 +38,7 @@ if [[ "$OSTYPE" == "Darwin" ]]; then
   export BROWSER="open"
 elif [[ "$OSTYPE" == "Linux" ]]; then
   [ $commands[firefox] ] && export BROWSER="firefox"
+  export TERM=xterm-256color
 fi
 # name of the browser application for various scripts
 if [ -z "$BROWSER_NAME" ]; then
@@ -58,7 +59,9 @@ export LC_ALL=$LANG
 export GPG_TTY=$(tty)
 
 if [ -d "$HOME/.cargo" ]; then
-  source "$HOME/.cargo/env";
+  if [ -d "$HOME/.cargo/env" ]; then
+    source "$HOME/.cargo/env";
+  fi
   path=(
     $HOME/.cargo/bin
     $path

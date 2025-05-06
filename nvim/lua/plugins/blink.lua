@@ -1,6 +1,7 @@
 return {
   "saghen/blink.cmp",
-  build = "cargo build --release",
+  version = '1.*',
+  -- build = "cargo build --release",
   dependencies = { "L3MON4D3/LuaSnip", version = "v2.*" },
   opts = {
     keymap = {

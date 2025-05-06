@@ -29,3 +29,6 @@ shell-integration-features = no-cursor,sudo
 keybind = super+comma=ignore
 keybind = cmd+t=ignore
 keybind = cmd+s=toggle_quick_terminal
+
+keybind = super+alt+c=copy_to_clipboard
+keybind = super+alt+v=paste_from_clipboard

@@ -3,6 +3,8 @@
 [user]
   name = Frank Roeder
   useConfigOnly = true
+	email = fr.coding@proton.me
+	nam = Frank Röder
 
 [github]
   user = frankroeder
