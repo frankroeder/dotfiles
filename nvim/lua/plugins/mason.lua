@@ -1,5 +1,5 @@
 return {
-  "williamboman/mason.nvim",
+  "mason-org/mason.nvim",
   build = ":MasonUpdate",
   cmd = "Mason",
   event = { "BufReadPre", "BufNewFile" },
