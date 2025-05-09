@@ -27,22 +27,21 @@ local ram_g = sbar.add("graph", "widgets.ram", 80, {
 
 ram_g:subscribe("memory_update", function(env)
   local usedram = tonumber(env.memory_load:match "(%d+)")
-  ram_g:push { usedram / 100. }
+  -- update graph with normalized usage
+  ram_g:push { usedram / 100 }
 
-  local Label = "RAM"
-  local Color = colors.white
+  -- color-code memory usage levels
+  local color = colors.white
   if usedram >= 80 then
-    Color = colors.red
-    Label = "KILL ME"
+    color = colors.red
   elseif usedram >= 60 then
-    Color = colors.red
+    color = colors.orange
   elseif usedram >= 30 then
-    Color = colors.orange
-  elseif usedram >= 20 then
-    Color = colors.yellow
+    color = colors.yellow
   end
+  -- display percentage with consistent label
   ram_g:set {
-    graph = { color = Color, line_width = 1 },
-    label = Label .. " " .. env.memory_load,
+    graph = { color = color, line_width = 1 },
+    label = "RAM " .. env.memory_load,
   }
 end)
