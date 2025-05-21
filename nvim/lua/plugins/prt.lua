@@ -25,6 +25,9 @@ return {
         headers = {
           ["Content-Type"] = "application/json",
         },
+        resolve_api_key = function()
+          return true
+        end,
         process_stdout = function(response)
           if response:match "message" and response:match "content" then
             local success, content = pcall(vim.json.decode, response)

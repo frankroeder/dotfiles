@@ -261,3 +261,5 @@ latents
 reparameterized
 ELBO
 Variational
+Featurized
+featurized

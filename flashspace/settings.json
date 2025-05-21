@@ -9,12 +9,9 @@
   "enablePictureInPictureSupport" : true,
   "enableSpaceControl" : true,
   "enableSpaceControlAnimations" : true,
+  "enableSwipeGestures" : false,
+  "enableWorkspaceTransitions" : false,
   "floatingApps" : [
-    {
-      "bundleIdentifier" : "com.bitwarden.desktop",
-      "iconPath" : "/Applications/Bitwarden.app/Contents/Resources/icon.icns",
-      "name" : "Bitwarden"
-    },
     {
       "bundleIdentifier" : "com.apple.iCal",
       "iconPath" : "/System/Applications/Calendar.app/Contents/Resources/AppIcon.icns",
@@ -44,16 +41,40 @@
       "bundleIdentifier" : "info.sioyek.sioyek",
       "iconPath" : "/Applications/sioyek.app/Contents/Resources/icon2.ico.icns",
       "name" : "sioyek"
+    },
+    {
+      "bundleIdentifier" : "me.proton.pass.electron",
+      "iconPath" : "/Applications/Proton Pass.app/Contents/Resources/electron.icns",
+      "name" : "Proton Pass"
     }
   ],
   "focusFrontmostWindow" : true,
+  "keepUnassignedAppsOnSwitch" : false,
   "menuBarDisplayAliases" : "",
   "menuBarTitleTemplate" : "$WORKSPACE",
+  "pipApps" : [
+
+  ],
+  "pipScreenCornerOffset" : 15,
+  "restoreHiddenAppsOnSwitch" : true,
   "runScriptOnLaunch" : "/opt/homebrew/opt/sketchybar/bin/sketchybar",
   "runScriptOnProfileChange" : "/opt/homebrew/bin/sketchybar --reload",
   "runScriptOnWorkspaceChange" : "/opt/homebrew/bin/sketchybar --trigger flashspace_workspace_change  WORKSPACE=$WORKSPACE",
   "showFloatingNotifications" : true,
+  "showMenuBarIcon" : true,
   "showMenuBarTitle" : true,
+  "skipEmptyWorkspacesOnSwitch" : false,
   "spaceControlCurrentDisplayWorkspaces" : false,
-  "spaceControlMaxColumns" : 6
+  "spaceControlMaxColumns" : 6,
+  "swipeDown3FingerAction" : "none",
+  "swipeDown4FingerAction" : "none",
+  "swipeLeft3FingerAction" : "previousWorkspace",
+  "swipeLeft4FingerAction" : "none",
+  "swipeRight3FingerAction" : "nextWorkspace",
+  "swipeRight4FingerAction" : "none",
+  "swipeThreshold" : 0.2,
+  "swipeUp3FingerAction" : "none",
+  "swipeUp4FingerAction" : "none",
+  "workspaceTransitionDimming" : 0.3,
+  "workspaceTransitionDuration" : 0.30000000000000004
 }

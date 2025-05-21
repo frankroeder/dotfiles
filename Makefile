@@ -68,7 +68,8 @@ endif
 .PHONY: python
 python:
 	@if [ "$(OSTYPE)" == "Linux" ]; then curl -LsSf https://astral.sh/uv/install.sh | sh; fi
-	@pip3 install ipython
+	@uv tool install ty@latest
+	@uv tool install ipython
 ifeq ($(shell ${WHICH} ipython 2>${DEVNUL}),)
 	@ipython -c exit && ln -sfv $(DOTFILES)/python/ipython_config.py $(HOME)/.ipython/profile_default/
 endif

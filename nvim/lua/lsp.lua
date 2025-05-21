@@ -4,6 +4,7 @@ local function on_attach(client, bufnr)
   end
   if client.server_capabilities.completionProvider then
     vim.api.nvim_set_option_value("omnifunc", "v:lua.vim.lsp.omnifunc", { buf = bufnr })
+    vim.api.nvim_set_option_value("formatexpr", "v:lua.vim.lsp.formatexpr()", { buf = bufnr })
   end
   vim.keymap.set("n", "K", vim.lsp.buf.hover, { buffer = bufnr, desc = "Hover documentation" })
   vim.keymap.set(
@@ -92,8 +93,7 @@ local function on_attach(client, bufnr)
 end
 
 local capabilities = vim.lsp.protocol.make_client_capabilities()
-capabilities =
-  vim.tbl_deep_extend("force", capabilities, require("blink.cmp").get_lsp_capabilities({}, false))
+capabilities = require("blink.cmp").get_lsp_capabilities(capabilities)
 capabilities = vim.tbl_deep_extend("force", capabilities, {
   textDocument = {
     foldingRange = {
@@ -116,6 +116,7 @@ vim.lsp.enable {
   "svelte_ls",
   "ts_ls",
   "basedpyright",
+  -- "ty",
 }
 
 vim.lsp.set_log_level "error"
