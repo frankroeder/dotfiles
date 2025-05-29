@@ -1,4 +1,5 @@
 local utils = require "utils"
+local Job = require "plenary.job"
 
 local M = {
   "frankroeder/parrot.nvim",
@@ -9,36 +10,241 @@ local M = {
   config = function(_, opts)
     -- add ollama if executable found
     if vim.fn.executable "ollama" == 1 then
-      opts.providers["ollama"] = {}
+      opts.providers["ollama"] = {
+        name = "ollama",
+        endpoint = "http://localhost:11434/api/chat",
+        api_key = "", -- not required for local Ollama
+        params = {
+          chat = { temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
+          command = { temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
+        },
+        topic_prompt = [[
+        Summarize the chat above and only provide a short headline of 2 to 3
+        words without any opening phrase like "Sure, here is the summary",
+        "Sure! Here's a shortheadline summarizing the chat" or anything similar.
+        ]],
+        topic = {
+          model = "llama3.2",
+          params = { max_tokens = 32 },
+        },
+        headers = {
+          ["Content-Type"] = "application/json",
+        },
+        models = {
+          "codestral",
+          "llama3.2",
+          "gemma3",
+        },
+        resolve_api_key = function()
+          return true
+        end,
+        process_stdout = function(response)
+          if response:match "message" and response:match "content" then
+            local ok, data = pcall(vim.json.decode, response)
+            if ok and data.message and data.message.content then
+              return data.message.content
+            end
+          end
+        end,
+        get_available_models = function(self)
+          local url = self.endpoint:gsub("chat", "")
+          local logger = require "parrot.logger"
+          local job = Job:new({
+            command = "curl",
+            args = { "-H", "Content-Type: application/json", url .. "tags" },
+          }):sync()
+          local parsed_response = require("parrot.utils").parse_raw_response(job)
+          self:process_onexit(parsed_response)
+          if parsed_response == "" then
+            logger.debug("Ollama server not running on " .. endpoint_api)
+            return {}
+          end
+
+          local success, parsed_data = pcall(vim.json.decode, parsed_response)
+          if not success then
+            logger.error("Ollama - Error parsing JSON: " .. vim.inspect(parsed_data))
+            return {}
+          end
+
+          if not parsed_data.models then
+            logger.error "Ollama - No models found. Please use 'ollama pull' to download one."
+            return {}
+          end
+
+          local names = {}
+          for _, model in ipairs(parsed_data.models) do
+            table.insert(names, model.name)
+          end
+
+          return names
+        end,
+      }
     end
     require("parrot").setup(opts)
   end,
   opts = {
     providers = {
-      openai = {
-        api_key = utils.get_api_key("openai-api-key", "OPENAI_API_KEY"),
-      },
-      anthropic = {
-        api_key = utils.get_api_key("anthropic-api-key", "ANTHROPIC_API_KEY"),
+      xai = {
+        name = "xai",
+        endpoint = "https://api.x.ai/v1/chat/completions",
+        model_endpoint = "https://api.x.ai/v1/language-models",
+        api_key = os.getenv "XAI_API_KEY",
         params = {
-          chat = {
-            max_tokens = 4096,
-            thinking = {
-              budget_tokens = 1024,
-              type = "enabled",
-            },
-          },
-          command = { max_tokens = 4096 },
+          chat = { temperature = 1.1, top_p = 1 },
+          command = { temperature = 1.1, top_p = 1 },
+        },
+        topic = {
+          model = "grok-3-mini-beta",
+          params = { max_completion_tokens = 64 },
+        },
+        models = {
+          "grok-3-beta",
+          "grok-3-mini-beta",
         },
       },
+      openai = {
+        name = "openai",
+        endpoint = "https://api.openai.com/v1/chat/completions",
+        model_endpoint = "https://api.openai.com/v1/models",
+        api_key = utils.get_api_key("openai-api-key", "OPENAI_API_KEY"),
+        params = {
+          chat = { temperature = 1.1, top_p = 1 },
+          command = { temperature = 1.1, top_p = 1 },
+        },
+        topic = {
+          model = "gpt-4.1-nano",
+          params = { max_completion_tokens = 64 },
+        },
+        models = {
+          "gpt-4.1",
+          "gpt-4.1-nano-2025-04-14",
+          "o4-mini",
+          "gpt-4",
+          "gpt-4o-mini-search-preview",
+          "gpt-4o-search-preview",
+          "gpt-4.5-preview",
+          "gpt-4.1-mini",
+          "gpt-4.1-nano",
+        },
+      },
+      anthropic = {
+        name = "anthropic",
+        endpoint = "https://api.anthropic.com/v1/messages",
+        model_endpoint = "https://api.anthropic.com/v1/models",
+        api_key = utils.get_api_key("anthropic-api-key", "ANTHROPIC_API_KEY"),
+        params = {
+          chat = { max_tokens = 4096 },
+          command = { max_tokens = 4096 },
+        },
+        topic = {
+          model = "claude-3-5-haiku-latest",
+          params = { max_tokens = 32 },
+        },
+        headers = function(self)
+          return {
+            ["Content-Type"] = "application/json",
+            ["x-api-key"] = self.api_key,
+            ["anthropic-version"] = "2023-06-01",
+          }
+        end,
+        models = {
+          "claude-sonnet-4-20250514",
+          "claude-3-7-sonnet-20250219",
+          "claude-3-5-sonnet-20241022",
+          "claude-3-5-haiku-20241022",
+        },
+        preprocess_payload = function(payload)
+          for _, message in ipairs(payload.messages) do
+            message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
+          end
+          if payload.messages[1] and payload.messages[1].role == "system" then
+            -- remove the first message that serves as the system prompt as anthropic
+            -- expects the system prompt to be part of the API call body and not the messages
+            payload.system = payload.messages[1].content
+            table.remove(payload.messages, 1)
+          end
+          return payload
+        end,
+      },
       gemini = {
+        name = "gemini",
+        endpoint = function(self)
+          return "https://generativelanguage.googleapis.com/v1beta/models/"
+            .. self._model
+            .. ":streamGenerateContent?alt=sse"
+        end,
+        model_endpoint = function(self)
+          return { "https://generativelanguage.googleapis.com/v1beta/models?key=" .. self.api_key }
+        end,
         api_key = os.getenv "GEMINI_API_KEY",
-      },
-      github = {
-        api_key = os.getenv "GITHUB_TOKEN",
-      },
-      xai = {
-        api_key = os.getenv "XAI_API_KEY",
+        params = {
+          chat = { temperature = 1.1, topP = 1, topK = 10, maxOutputTokens = 8192 },
+          command = { temperature = 0.8, topP = 1, topK = 10, maxOutputTokens = 8192 },
+        },
+        topic = {
+          model = "gemini-1.5-flash",
+          params = { maxOutputTokens = 64 },
+        },
+        headers = function(self)
+          return {
+            ["Content-Type"] = "application/json",
+            ["x-goog-api-key"] = self.api_key,
+          }
+        end,
+        models = {
+          "gemini-2.5-flash-preview-05-20",
+          "gemini-2.5-pro-preview-05-06",
+          "gemini-1.5-pro-latest",
+          "gemini-1.5-flash-latest",
+          "gemini-2.5-pro-exp-03-25",
+          "gemini-2.0-flash-lite",
+          "gemini-2.0-flash-thinking-exp",
+          "gemma-3-27b-it",
+        },
+        preprocess_payload = function(payload)
+          local contents = {}
+          local system_instruction = nil
+          for _, message in ipairs(payload.messages) do
+            if message.role == "system" then
+              system_instruction = { parts = { { text = message.content } } }
+            else
+              local role = message.role == "assistant" and "model" or "user"
+              table.insert(
+                contents,
+                { role = role, parts = { { text = message.content:gsub("^%s*(.-)%s*$", "%1") } } }
+              )
+            end
+          end
+          local gemini_payload = {
+            contents = contents,
+            generationConfig = {
+              temperature = payload.temperature,
+              topP = payload.topP or payload.top_p,
+              maxOutputTokens = payload.max_tokens or payload.maxOutputTokens,
+            },
+          }
+          if system_instruction then
+            gemini_payload.systemInstruction = system_instruction
+          end
+          return gemini_payload
+        end,
+        process_stdout = function(response)
+          if not response or response == "" then
+            return nil
+          end
+          local success, decoded = pcall(vim.json.decode, response)
+          if
+            success
+            and decoded.candidates
+            and decoded.candidates[1]
+            and decoded.candidates[1].content
+            and decoded.candidates[1].content.parts
+            and decoded.candidates[1].content.parts[1]
+          then
+            return decoded.candidates[1].content.parts[1].text
+          end
+          return nil
+        end,
       },
     },
     cmd_prefix = "Prt",
