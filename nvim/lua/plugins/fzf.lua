@@ -1,13 +1,21 @@
+local actions
 return {
   { "junegunn/fzf", dir = "~/.fzf", build = "./install --bin" },
   {
     "ibhagwan/fzf-lua",
-    opts = {
-      winopts = { split = "aboveleft new" },
-    },
-    init = function()
+    config = function()
+      local fzf = require "fzf-lua"
+      fzf.setup {
+        winopts = { split = "aboveleft new" },
+        actions = {
+          files = {
+            ["enter"] = fzf.actions.file_edit,
+          },
+        },
+      }
+
       vim.keymap.set({ "i" }, "<C-x><C-f>", function()
-        require("fzf-lua").complete_file {
+        fzf.complete_file {
           cmd = "rg --files",
           winopts = { preview = { hidden = "nohidden" } },
         }

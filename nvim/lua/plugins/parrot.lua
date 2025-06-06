@@ -254,7 +254,11 @@ local M = {
     online_model_selection = true,
     command_auto_select_response = true,
     show_context_hints = true,
-    per_symbol_delay = 20,
+    model_cache_expiry_hours = 72,
+    prompts = {
+      ["git commit message"] = [[Given the following git diff, I want you to compose a short git commit message ]]
+        .. vim.fn.system "git diff --no-color --no-ext-diff --staged",
+    },
     hooks = {
       Complete = function(prt, params)
         local template = [[

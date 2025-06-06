@@ -144,3 +144,12 @@ vim.api.nvim_create_user_command("LspInfo", function()
 end, {
   desc = "Get all the information about all LSP attached",
 })
+
+-- Stop all lsp clients when quitting vim
+vim.api.nvim_create_autocmd("VimLeavePre", {
+  callback = function()
+    vim.iter(vim.lsp.get_clients()):each(function(client)
+      client:stop()
+    end)
+  end,
+})
