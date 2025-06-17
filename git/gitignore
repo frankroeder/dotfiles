@@ -5,6 +5,8 @@ jsconfig.json
 .vim/
 .sass-cache/
 events.out.tfevents.*
+.claude/
+build/
 
 # python
 .python-version
