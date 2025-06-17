@@ -1,6 +1,48 @@
 local utils = require "utils"
 local Job = require "plenary.job"
 
+local _anthropic = {
+  name = "anthropic",
+  endpoint = "https://api.anthropic.com/v1/messages",
+  model_endpoint = "https://api.anthropic.com/v1/models",
+  api_key = utils.get_api_key("anthropic-api-key", "ANTHROPIC_API_KEY"),
+  params = {
+    chat = { max_tokens = 4096 },
+    command = { max_tokens = 4096 },
+  },
+  topic = {
+    model = "claude-3-5-haiku-latest",
+    params = { max_tokens = 32 },
+  },
+  headers = function(self)
+    return {
+      ["Content-Type"] = "application/json",
+      ["x-api-key"] = self.api_key,
+      ["anthropic-version"] = "2023-06-01",
+    }
+  end,
+  -- Using model aliases (https://docs.anthropic.com/en/docs/about-claude/models/overview#model-aliases)
+  models = {
+    "claude-opus-4-0",
+    "claude-sonnet-4-0",
+    "claude-3-7-sonnet-latest",
+    "claude-3-5-sonnet-latest",
+    "claude-3-5-haiku-latest",
+  },
+  preprocess_payload = function(payload)
+    for _, message in ipairs(payload.messages) do
+      message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
+    end
+    if payload.messages[1] and payload.messages[1].role == "system" then
+      -- remove the first message that serves as the system prompt as anthropic
+      -- expects the system prompt to be part of the API call body and not the messages
+      payload.system = payload.messages[1].content
+      table.remove(payload.messages, 1)
+    end
+    return payload
+  end,
+}
+
 local M = {
   "frankroeder/parrot.nvim",
   event = "VeryLazy",
@@ -108,8 +150,16 @@ local M = {
         model_endpoint = "https://api.openai.com/v1/models",
         api_key = utils.get_api_key("openai-api-key", "OPENAI_API_KEY"),
         params = {
-          chat = { temperature = 1.1, top_p = 1 },
-          command = { temperature = 1.1, top_p = 1 },
+          chat = {
+            temperature = 1.1,
+            top_p = 1,
+            stream_options = { include_usage = true },
+          },
+          command = {
+            temperature = 1.1,
+            top_p = 1,
+            stream_options = { include_usage = true },
+          },
         },
         topic = {
           model = "gpt-4.1-nano",
@@ -127,45 +177,58 @@ local M = {
           "gpt-4.1-nano",
         },
       },
-      anthropic = {
-        name = "anthropic",
-        endpoint = "https://api.anthropic.com/v1/messages",
-        model_endpoint = "https://api.anthropic.com/v1/models",
-        api_key = utils.get_api_key("anthropic-api-key", "ANTHROPIC_API_KEY"),
+      anthropic = _anthropic,
+      -- use models with web search
+      anthropic_web = vim.tbl_extend("force", _anthropic, {
+        name = "anthropic_web",
         params = {
-          chat = { max_tokens = 4096 },
-          command = { max_tokens = 4096 },
+          chat = {
+            max_tokens = 4096,
+            tools = {
+              {
+                ["type"] = "web_search_20250305",
+                ["name"] = "web_search",
+                ["max_uses"] = 5,
+              },
+            },
+          },
+          command = {
+            max_tokens = 4096,
+            tools = {
+              {
+                ["type"] = "web_search_20250305",
+                ["name"] = "web_search",
+                ["max_uses"] = 5,
+              },
+            },
+          },
         },
-        topic = {
-          model = "claude-3-5-haiku-latest",
-          params = { max_tokens = 32 },
+      }),
+      -- use models with hard-coded thinking parameters
+      anthropic_thinking = vim.tbl_extend("force", _anthropic, {
+        name = "anthropic_thinking",
+        params = {
+          chat = {
+            max_tokens = 4096,
+            thinking = {
+              type = "enabled",
+              budget_tokens = 2048,
+            },
+          },
+          command = {
+            max_tokens = 4096,
+            thinking = {
+              type = "enabled",
+              budget_tokens = 2048,
+            },
+          },
         },
-        headers = function(self)
-          return {
-            ["Content-Type"] = "application/json",
-            ["x-api-key"] = self.api_key,
-            ["anthropic-version"] = "2023-06-01",
-          }
-        end,
         models = {
-          "claude-sonnet-4-20250514",
-          "claude-3-7-sonnet-20250219",
-          "claude-3-5-sonnet-20241022",
-          "claude-3-5-haiku-20241022",
+          "claude-opus-4-0",
+          "claude-sonnet-4-0",
+          "claude-3-7-sonnet-latest",
         },
-        preprocess_payload = function(payload)
-          for _, message in ipairs(payload.messages) do
-            message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
-          end
-          if payload.messages[1] and payload.messages[1].role == "system" then
-            -- remove the first message that serves as the system prompt as anthropic
-            -- expects the system prompt to be part of the API call body and not the messages
-            payload.system = payload.messages[1].content
-            table.remove(payload.messages, 1)
-          end
-          return payload
-        end,
-      },
+      }),
       gemini = {
         name = "gemini",
         endpoint = function(self)

@@ -75,3 +75,5 @@ llmcopy() {
     echo
   done | pbcopy
 }
+# plain nvim
+alias pnvim="nvim -u $DOTFILES/nvim/vanilla.lua"
