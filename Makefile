@@ -37,6 +37,8 @@ CONTAINER_CMD := docker
 ifeq ($(ARCHITECTURE), arm64)
 CONTAINER_BUILD_CMD := build --platform linux/amd64 --progress plain --rm
 PATH := $(PATH):/opt/homebrew/bin:/opt/homebrew/sbin
+else
+CONTAINER_BUILD_CMD := build --progress plain --rm
 endif
 else
 CONTAINER_CMD := container
@@ -96,7 +98,7 @@ endif
 python: ## Install Python tools and configure IPython
 	$(call print_step,Installing python tools)
 ifeq ($(OSTYPE), Linux)
-	@if command -v uv >/dev/null 2>&1; then curl -LsSf https://astral.sh/uv/install.sh | sh; fi
+	@command -v uv >/dev/null 2>&1 || curl -LsSf https://astral.sh/uv/install.sh | sh
 endif
 	@uv tool install ty@latest
 	@uv tool install ipython
