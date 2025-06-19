@@ -15,12 +15,17 @@ WHICH := which
 PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(HOME)/bin:$(HOME)/.local/bin:$(HOME)/.local/nodejs/bin
 
 # Validation targets
-.PHONY: validate-macos validate-linux
+.PHONY: validate-macos validate-linux validate-tools
 validate-macos: ## Validate macOS environment
 	@if [ "$(OSTYPE)" != "Darwin" ]; then echo "Error: This target requires macOS" && exit 1; fi
 
 validate-linux: ## Validate Linux environment
 	@if [ "$(OSTYPE)" = "Darwin" ]; then echo "Error: This target requires Linux" && exit 1; fi
+
+validate-tools: ## Validate that minimal required tools are available
+	@$(call print_step,Validating required tools)
+	@command -v curl >/dev/null 2>&1 || { $(call print_error,curl is required); exit 1; }
+	@command -v git >/dev/null 2>&1 || { $(call print_error,git is required); exit 1; }
 
 # Common functions
 define create_symlink
@@ -32,36 +37,47 @@ define print_step
 	@echo -e "\033[1m\033[34m==> $(1)\033[0m"
 endef
 
-ifeq ($(shell ${WHICH} container 2>${DEVNUL}),)
-CONTAINER_CMD := docker
+define print_error
+	@echo -e "\033[1m\033[31mError: $(1)\033[0m" >&2
+endef
+
+define print_warning
+	@echo -e "\033[1m\033[33mWarning: $(1)\033[0m"
+endef
+
+# and homebrew available
 ifeq ($(ARCHITECTURE), arm64)
+	PATH := $(PATH):/opt/homebrew/bin:/opt/homebrew/sbin
+endif
+
+CONTAINER_CMD := $(shell if command -v podman >/dev/null 2>&1; then echo "podman"; elif command -v docker >/dev/null 2>&1; then echo "docker"; else echo "container"; fi)
+ifeq ($(CONTAINER_CMD), docker)
 CONTAINER_BUILD_CMD := build --platform linux/amd64 --progress plain --rm
-PATH := $(PATH):/opt/homebrew/bin:/opt/homebrew/sbin
+else ifeq ($(CONTAINER_CMD), container)
+CONTAINER_BUILD_CMD := build --progress plain --arch $(ARCHITECTURE)
 else
 CONTAINER_BUILD_CMD := build --progress plain --rm
-endif
-else
-CONTAINER_CMD := container
-CONTAINER_BUILD_CMD := build --progress plain --arch $(ARCHITECTURE)
 endif
 
 .DEFAULT_GOAL := help
 
 .PHONY: macos
 macos: ## Complete macOS setup with all components
-macos: validate-macos sudo directories homebrew _macos zsh python misc nvim _git node
+macos: validate-macos validate-tools sudo directories homebrew _macos zsh python misc nvim _git node
+	@$(call print_step,Finalizing macOS setup)
 	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
 	@zsh -i -c "fast-theme free"
 	@compaudit | xargs chmod g-w
 
 .PHONY: linux
 linux: ## Complete Linux setup with all components
-linux: validate-linux sudo directories _linux _git zsh python misc node nvim
+linux: validate-linux validate-tools sudo directories _linux _git zsh python misc node nvim
+	@$(call print_step,Finalizing Linux setup)
 	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
 
 .PHONY: minimal
 minimal: ## Minimal Linux setup without sudo requirements
-minimal: directories _linux _git zsh python misc node nvim
+minimal: validate-linux validate-tools directories _linux _git zsh python misc node nvim
 
 .PHONY: help
 help: ## Show this help message
@@ -87,9 +103,11 @@ ifeq ($(ARCHITECTURE), arm64)
 	@if [ ! -d "/usr/libexec/rosetta" ]; then softwareupdate --install-rosetta --agree-to-license; fi
 endif
 ifeq ($(shell ${WHICH} brew 2>${DEVNUL}),)
-	@$(SHELL) -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+	@$(SHELL) -c $(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+else
+	$(call print_warning,Homebrew is already installed)
 endif
-	@echo -e "\033[1m\033[34m==> Installing brew formulas\033[0m"
+	$(call print_step,Installing brew formulas)
 	@brew bundle --file="$(DOTFILES)/Brewfile --no-lock"
 	@brew cleanup
 	-brew doctor
