@@ -40,15 +40,15 @@ define create_symlink
 endef
 
 define print_step
-	@echo -e "\033[1m\033[34m==> $(1)\033[0m"
+	echo -e "\033[1m\033[34m==> $(1)\033[0m"
 endef
 
 define print_error
-	@echo -e "\033[1m\033[31mError: $(1)\033[0m" >&2
+	echo -e "\033[1m\033[31mError: $(1)\033[0m" >&2
 endef
 
 define print_warning
-	@echo -e "\033[1m\033[33mWarning: $(1)\033[0m"
+	echo -e "\033[1m\033[33mWarning: $(1)\033[0m"
 endef
 
 # and homebrew available
@@ -74,13 +74,13 @@ macos: validate-macos validate-tools sudo directories homebrew _macos zsh python
 	$(call print_step,Switching to Zsh); \
 	$(SHELL) $(DOTFILES)/autoloaded/switch_zsh; \
 	zsh -i -c "fast-theme free" 2>/dev/null || $(call print_warning,Failed to set fast-theme); \
-	@compaudit 2>/dev/null | xargs chmod g-w 2>/dev/null || true
+	compaudit 2>/dev/null | xargs chmod g-w 2>/dev/null || true
 
 .PHONY: linux
 linux: ## Complete Linux setup with all components
 linux: validate-linux validate-tools sudo directories _linux _git zsh python misc node nvim
 	@$(call print_step,Finalizing Linux setup)
-	$(SHELL) $(DOTFILES)/autoloaded/switch_zsh; \
+	$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
 
 .PHONY: minimal
 minimal: ## Minimal Linux setup without sudo requirements
@@ -119,7 +119,7 @@ else
 	$(call print_warning,Homebrew is already installed)
 endif
 	$(call print_step,Installing brew formulas)
-	@brew bundle --file="$(DOTFILES)/Brewfile --no-lock"
+	@brew bundle --file="$(DOTFILES)/Brewfile" --no-lock
 	@brew cleanup
 	-brew doctor
 
