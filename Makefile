@@ -246,6 +246,12 @@ after: _terminal
 		nvim -i NONE -u $(DOTFILES)/nvim/init.vim -c "TSUpdate" -c "quitall"; \
 	fi
 ifeq ($(OSTYPE), Darwin)
+	@if command -v yabai >/dev/null 2>&1; then \
+		$(call print_step,Starting yabai and skhd service); \
+		@sudo yabai --install-sa
+		@yabai --start-service
+		@skhd --start-service
+	fi
 	@if command -v brew >/dev/null 2>&1; then \
 		$(call print_step,Starting sketchybar service); \
 		brew services start sketchybar; \
@@ -334,7 +340,6 @@ _macos: ## macOS-specific configuration and applications
 		$(call print_step,Downloading sketchybar font); \
 		curl -fsSL https://github.com/kvndrsslr/sketchybar-app-font/releases/download/v2.0.29/sketchybar-app-font.ttf -o $(HOME)/Library/Fonts/sketchybar-app-font.ttf; \
 	fi
-	@ln -sfv $(DOTFILES)/flashspace $(HOME)/.config/flashspace
 	@ln -sfv $(DOTFILES)/skhd $(HOME)/.config/skhd
 	$(call print_step,Running Sioyek setup); \
 	@zsh $(DOTFILES)/scripts/sioyek.sh; \
@@ -353,6 +358,7 @@ _macos: ## macOS-specific configuration and applications
 		battery maintain 80; \
 	fi
 	@ln -sfv $(DOTFILES)/mpv $(HOME)/.config/mpv
+	@ln -sfv $(DOTFILES)/yabai $(HOME)/.config/yabai
 
 .PHONY: _terminal
 _terminal: ## Install and configure terminal emulator
@@ -402,11 +408,10 @@ benchmark: ## Benchmark Neovim and Zsh startup times
 format: ## Format Lua files with stylua
 	@if command -v stylua >/dev/null 2>&1; then \
 		$(call print_step,Formatting Lua files with stylua); \
-		stylua -v -f $(DOTFILES)/.stylua.toml $$(find $(DOTFILES) -type f -name '*.lua' 2>/dev/null) 2>/dev/null || true; \
+		stylua -v -f $(DOTFILES)/.stylua.toml $$(find $(DOTFILES) -type f -name '*.lua' 2>/dev/null) || true; \
 	else \
 		$(call print_warning,stylua not installed); \
 	fi
-
 .PHONY: uninstall
 uninstall: ## Remove installed dotfiles and configurations
 	-@rm -f $(HOME)/.zshrc
@@ -425,6 +430,7 @@ ifeq ($(OSTYPE), Darwin)
 	-@rm -rf $(HOME)/.config/skhd
 	-@rm -rf $(HOME)/.config/sketchybar
 	-@rm -rf $(HOME)/.config/sioyek
+	-@rm -rf $(HOME)/.config/yabai
 	-@sudo battery uninstall 2>/dev/null || true
 endif
 

@@ -28,7 +28,7 @@ brew "mpv"
 brew "imagemagick"
 brew "uv"
 
-brew "flashspace"
+brew "yabai" #, args: ["HEAD"]
 brew "skhd", args: ["with-logging"]
 brew "sketchybar", args:  ["HEAD"], restart_service: :changed
 

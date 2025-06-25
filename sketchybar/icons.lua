@@ -26,6 +26,11 @@ local icons = {
       forward = "􀊌",
       play_pause = "􀊈",
     },
+    yabai = {
+      float = "􀏜",
+      stack = "􀢌",
+      bsp = "􀏝",
+    },
   },
 
   -- Alternative NerdFont icons

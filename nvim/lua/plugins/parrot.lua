@@ -55,6 +55,7 @@ local M = {
       opts.providers["ollama"] = {
         name = "ollama",
         endpoint = "http://localhost:11434/api/chat",
+        model_endpoint = "http://localhost:11434/api/models",
         api_key = "", -- not required for local Ollama
         params = {
           chat = { temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },

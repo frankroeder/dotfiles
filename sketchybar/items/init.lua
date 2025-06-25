@@ -1,4 +1,5 @@
-require "items.spaces"
+-- require "items.flashspaces"
+require "items.yabai_spaces"
 -- require "items.placeholder"
 require "items.mails"
 require "items.vpn"
