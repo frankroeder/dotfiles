@@ -108,42 +108,50 @@ local function updateLayout()
   sbar.exec(
     [[yabai -m query --spaces --display | jq -r 'map(select(."has-focus" == true))[-1] | "\(.type) \(.display)"']],
     function(out)
+      if not out or out == "" then
+        return
+      end
       local layout, display = out:match "(%S+)%s+(%S+)"
       local stack_info = ""
+      if not layout or not display then
+        return
+      end
 
       if layout == "stack" then
-        local file =
-          io.popen [[yabai -m query --windows --space | jq -r 'map(select(."is-visible" == true)) | length']]
-        if file == nil then
-          return
-        end
-        local stack_total = file:read("*a"):match "(%S+)"
-        file:close()
-
-        local file =
-          io.popen [[yabai -m query --windows --space | jq -r 'map(select(."has-focus" == true))[-1]."stack-index"']]
-        if file == nil then
-          return
-        end
-        local stack_position = file:read("*a"):match "(%S+)"
-        file:close()
-        if stack_position == "null" then
-          stack_info = "[NA]"
-        else
-          stack_info = "[" .. tostring(stack_position) .. "/" .. tostring(stack_total) .. "]"
-        end
+        sbar.exec(
+          [[yabai -m query --windows --space | jq -r '[map(select(."is-visible" == true)) | length, (map(select(."has-focus" == true))[-1]."stack-index" // "null")] | @tsv']],
+          function(stack_info)
+            if not stack_info or stack_info == "" then
+              return
+            end
+            local stack_total, stack_position = stack_info:match "(%S+)%s+(%S+)"
+            if stack_position == "null" then
+              stack_info = "[NA]"
+            else
+              stack_info = "[" .. tostring(stack_position) .. "/" .. tostring(stack_total) .. "]"
+            end
+            space_layout:set {
+              icon = {
+                string = icons.yabai[layout],
+              },
+              label = {
+                string = stack_info,
+              },
+              display = tonumber(display),
+            }
+          end
+        )
       else
-        stack_info = ""
+        space_layout:set {
+          icon = {
+            string = icons.yabai[layout],
+          },
+          label = {
+            string = stack_info,
+          },
+          display = tonumber(display),
+        }
       end
-      space_layout:set {
-        icon = {
-          string = icons.yabai[layout],
-        },
-        label = {
-          string = stack_info,
-        },
-        display = tonumber(display),
-      }
     end
   )
 end
@@ -159,9 +167,7 @@ local window_properties = sbar.add("item", {
     color = colors.bg2,
     border_width = 1,
     height = 24,
-    -- border_color = colors.black,
     border_color = colors.bg2,
-    -- color = colors.red,
     color = colors.bg1,
   },
   drawing = false,
@@ -171,29 +177,24 @@ local function getWindowProperties()
   sbar.exec(
     [[yabai -m query --windows --space | jq -r 'map(select(."has-focus" == true))[-1] | "\(."is-sticky") \(."is-topmost") \(."is-floating") \(."has-parent-zoom")"']],
     function(out)
+      if not out or out == "" then
+        window_properties:set { drawing = false }
+        return
+      end
       local _is_sticky, _is_topmost, _is_floating, _has_parent_zoom =
         out:match "(%S+)%s+(%S+)%s+(%S+)%s+(%S+)"
-      local is_sticky = _is_sticky == "true" or false
-      local is_topmost = _is_topmost ~= "null" or false
-      local is_floating = _is_floating == "true" or false
-      local has_parent_zoom = _has_parent_zoom == "true" or false
+      local is_sticky = _is_sticky == "true"
+      local is_topmost = _is_topmost ~= "null"
+      local is_floating = _is_floating == "true"
+      local has_parent_zoom = _has_parent_zoom == "true"
       local label = ""
-      print("PROP", out, is_sticky, is_topmost, is_floating, has_parent_zoom)
-      if is_sticky then
-        label = label .. "S"
-      end
-      if is_topmost then
-        label = label .. "T"
-      end
-      if is_floating then
-        label = label .. "W"
-      end
-      if has_parent_zoom then
-        label = label .. "Z"
-      end
+      -- print("PROP", out, is_sticky, is_topmost, is_floating, has_parent_zoom)
+      if is_sticky then label = label .. "S" end
+      if is_topmost then label = label .. "T" end
+      if is_floating then label = label .. "W" end
+      if has_parent_zoom then label = label .. "Z" end
       window_properties:set {
         label = { string = label },
-        -- drawing = label ~= "",
         drawing = label ~= "",
       }
     end
@@ -206,11 +207,14 @@ local space_window_observer = sbar.add("item", {
 })
 
 local updateSpace = function(space_idx)
+  if not space_idx or not spaces[tonumber(space_idx)] then
+    return
+  end
   sbar.exec(
     "yabai -m query --windows --space " .. space_idx .. " | jq -r 'map(.app)'",
     function(apps)
-      print("APPS SPACE IDX", apps, space_idx)
-      settings.print_table(apps)
+      -- print("APPS SPACE IDX", apps, space_idx)
+      -- settings.print_table(apps)
       if apps == "null" then
         return
       end
@@ -223,7 +227,7 @@ local updateSpace = function(space_idx)
         icon_line = icon_line .. icon
       end
       if no_app then
-        icon_line = " —"
+        icon_line = "—"
       end
       sbar.animate("tanh", settings.animation_duration, function()
         spaces[tonumber(space_idx)]:set { label = icon_line }
@@ -237,15 +241,15 @@ end
 space_window_observer:subscribe("space_change", "window_created", "window_destroyed", function(env)
   sbar.exec("yabai -m query --spaces", function(spaces_info)
     for idx, space_info in ipairs(spaces_info) do
-      print("Space " .. idx .. ":", space_info["uuid"])
+      -- print("Space " .. idx .. ":", space_info["uuid"])
       updateSpace(idx)
     end
   end)
 end)
 
 space_window_observer:subscribe("space_windows_change", function(env)
-  print "FRONT APP"
-  settings.print_table(env)
+  -- print "FRONT APP"
+  -- settings.print_table(env)
   updateSpace(env.INFO.space)
 end)
 
@@ -260,7 +264,7 @@ end)
 --   updateLayout()
 -- end)
 
-space_layout:subscribe("layout_change", "front_app_switched", "window_focus", updateLayout)
+space_layout:subscribe("front_app_switched", "layout_change",  "window_focus", updateLayout)
 window_properties:subscribe(
   "property_change",
   "front_app_switched",
