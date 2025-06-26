@@ -156,7 +156,7 @@ local function updateLayout()
   )
 end
 
-local window_properties = sbar.add("item", {
+local window_properties = sbar.add("item", "yabai_property", {
   label = {
     font = { family = settings.font.text, size = 12 },
     color = colors.white,
