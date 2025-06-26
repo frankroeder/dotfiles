@@ -259,12 +259,7 @@ end)
 --   -- updateSpace(env.INFO.space)
 -- end)
 
--- TODO: Not working --
--- space_layout:subscribe("front_app_switched", "window_focus", "layout_change", function()
---   updateLayout()
--- end)
-
-space_layout:subscribe("front_app_switched", "layout_change",  "window_focus", updateLayout)
+space_layout:subscribe("layout_change", "front_app_switched", "window_focus", updateLayout)
 window_properties:subscribe(
   "property_change",
   "front_app_switched",
