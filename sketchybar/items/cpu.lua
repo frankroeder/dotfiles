@@ -29,6 +29,11 @@ local cpu = sbar.add("graph", "widgets.cpu", 80, {
 
 cpu:subscribe("cpu_update", function(env)
   local load = tonumber(env.total_load)
+  local status_load = env.total_load
+  if load < 0 then
+    status_load = "0"
+    load = 0
+  end
   if load <= 100 then
     cpu:push { load / 100. }
 
@@ -45,7 +50,7 @@ cpu:subscribe("cpu_update", function(env)
 
     cpu:set {
       graph = { color = color, line_width = 1 },
-      label = "CPU " .. env.total_load .. "%",
+      label = "CPU " .. status_load .. "%",
     }
   end
 end)

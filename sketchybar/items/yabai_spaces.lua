@@ -264,6 +264,7 @@ window_properties:subscribe(
   "property_change",
   "front_app_switched",
   "display_change",
+  "window_focused",
   getWindowProperties
 )
 
