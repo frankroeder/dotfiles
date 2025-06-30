@@ -23,3 +23,7 @@ if [[ $NUM_SPACES -gt 2 ]]; then
   # "social" apps should always be inside the last space
   yabai -m rule --add app="^(Messages|Discord|Signal|Telegram|Mattermost|Zoom)$" space=$NUM_SPACES
 fi
+
+yabai -m rule --add app="^(Mail|Proton Mail)$" space=1
+yabai -m rule --add app="^Ghostty$" space=2
+yabai -m rule --add app="^Claude$" space=3

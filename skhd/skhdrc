@@ -4,6 +4,7 @@
 ctrl + alt + cmd - r : \
 	yabai --restart-service; \
 	skhd --restart-service;
+
 # reload sketchybar
 ctrl + alt + cmd - b : sketchybar --reload
 
@@ -102,8 +103,6 @@ fn + shift - f : yabai -m window --toggle native-fullscreen
 fn + shift - s : yabai -m window --toggle sticky; sketchybar -m --trigger property_change
 # toggle float and center on screen
 fn + shift - w : yabai -m window --toggle float && yabai -m window --grid 4:4:1:1:2:2; sketchybar -m --trigger property_change
-# toggle topmost (keep above other windows)
-fn + shift - t : yabai -m window --toggle topmost; sketchybar -m --trigger property_change
 # toggle window split type
 fn + shift - space: yabai -m window --toggle split
 # toggle desktop offset
@@ -160,3 +159,7 @@ shift + alt - left : yabai -m window --grid 1:2:0:0:1:1
 shift + alt - right : yabai -m window --grid 1:2:1:0:1:1
 # center floating window
 shift + alt - down : yabai -m window --grid 4:4:1:1:2:2
+
+# Move space to next display
+shift + alt - 1 : yabai -m space --display 1
+shift + alt - 2 : yabai -m space --display 2

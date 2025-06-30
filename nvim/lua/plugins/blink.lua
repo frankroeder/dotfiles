@@ -12,6 +12,8 @@ return {
       ["<S-Tab>"] = { "select_prev", "snippet_backward", "fallback" },
       ["<Up>"] = {},
       ["<Down>"] = {},
+      ["<C-J>"] = {},
+      ["<C-K>"] = {},
     },
 
     enabled = function()

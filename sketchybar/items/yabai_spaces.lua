@@ -5,7 +5,7 @@ local app_icons = require "helpers.app_icons"
 
 sbar.add("event", "layout_change")
 sbar.add("event", "property_change")
-sbar.add("event", "window_focused")
+sbar.add("event", "window_focus")
 sbar.add("event", "window_created")
 sbar.add("event", "window_destroyed")
 
@@ -170,32 +170,40 @@ local window_properties = sbar.add("item", "yabai_property", {
     border_color = colors.bg2,
     color = colors.bg1,
   },
-  drawing = false,
+  -- drawing = false,
 })
 
 local function getWindowProperties()
   sbar.exec(
-    [[yabai -m query --windows --space | jq -r 'map(select(."has-focus" == true))[-1] | "\(."is-sticky") \(."is-topmost") \(."is-floating") \(."has-parent-zoom")"']],
+    [[yabai -m query --windows --space | jq -r 'map(select(."has-focus" == true))[-1] | "\(."is-sticky") \(."is-grabbed") \(."is-floating") \(."has-parent-zoom")"']],
     function(out)
       if not out or out == "" then
         window_properties:set { drawing = false }
         return
       end
-      local _is_sticky, _is_topmost, _is_floating, _has_parent_zoom =
+      local _is_sticky, _is_grabbed, _is_floating, _has_parent_zoom =
         out:match "(%S+)%s+(%S+)%s+(%S+)%s+(%S+)"
       local is_sticky = _is_sticky == "true"
-      local is_topmost = _is_topmost ~= "null"
+      local is_grabbed = _is_grabbed == "true"
       local is_floating = _is_floating == "true"
       local has_parent_zoom = _has_parent_zoom == "true"
       local label = ""
-      -- print("PROP", out, is_sticky, is_topmost, is_floating, has_parent_zoom)
-      if is_sticky then label = label .. "S" end
-      if is_topmost then label = label .. "T" end
-      if is_floating then label = label .. "W" end
-      if has_parent_zoom then label = label .. "Z" end
+      -- print("PROP", out, is_sticky, is_grabbed, is_floating, has_parent_zoom)
+      if is_sticky then
+        label = label .. "S"
+      end
+      if is_grabbed then
+        label = label .. "G"
+      end
+      if is_floating then
+        label = label .. "W"
+      end
+      if has_parent_zoom then
+        label = label .. "Z"
+      end
       window_properties:set {
         label = { string = label },
-        drawing = label ~= "",
+        -- drawing = label ~= "",
       }
     end
   )
@@ -259,12 +267,13 @@ end)
 --   -- updateSpace(env.INFO.space)
 -- end)
 
-space_layout:subscribe("layout_change", "front_app_switched", "window_focus", updateLayout)
+space_layout:subscribe("layout_change", updateLayout)
+space_layout:subscribe("front_app_switched", "window_focus", updateLayout)
+window_properties:subscribe("property_change", getWindowProperties)
 window_properties:subscribe(
-  "property_change",
   "front_app_switched",
   "display_change",
-  "window_focused",
+  "window_focus",
   getWindowProperties
 )
 
