@@ -8,7 +8,6 @@ sudo yabai --load-sa
 
 yabai -m config window_origin_display        default \
                 window_placement             second_child \
-                window_topmost               off \
                 window_shadow                on \
                 window_opacity               off \
                 window_opacity_duration      0.0 \
@@ -19,14 +18,7 @@ yabai -m config window_origin_display        default \
                 bottom_padding               20 \
                 left_padding                 20 \
                 right_padding                20 \
-                window_border                on \
-                window_border_width          4 \
-                window_border_hidpi          off \
-                window_border_blur           off \
-                window_border_radius         8 \
                 window_zoom_persist          off \
-                active_window_border_color   0xff6e3b9f \
-                normal_window_border_color   0xff555555 \
                 insert_feedback_color        0xffd75f5f \
                 mouse_follows_focus          off \
                 focus_follows_mouse          off \
@@ -52,4 +44,5 @@ if [[ -f $WINDOW_RULES ]]; then
   source $WINDOW_RULES
 fi
 
+yabai -m rule --apply
 echo "yabai configuration loaded..."
