@@ -5,6 +5,10 @@ export DOTFILES=$HOME/.dotfiles
 export OSTYPE=$(uname -s)
 export ARCHITECTURE=$(uname -m)
 
+if [[ "$TERM_PROGRAM" == "ghostty" ]]; then
+    export TERM=xterm-256color
+fi
+
 path=(
   # path to linux and homebrew intel-based binaries
   /usr/local/{bin,sbin}
