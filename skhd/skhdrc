@@ -14,6 +14,12 @@ fn - space : bash "$DOTFILES/scripts/toggle_app.bash" "Ghostty"
 # fn + shift - s : open "x-apple.systempreferences:"
 # fn + shift - a : open -a "About This Mac"
 # fn + shift - b : bash "$DOTFILES/scripts/toggle_app.bash" "$BROWSER_NAME"
+fn + alt - m : yabai -m window --toggle music || open -a Music
+fn + alt - n : yabai -m window --toggle notes || open -a Notes
+
+# Move space to next display
+fn + alt - 1 : yabai -m space --display 1
+fn + alt - 2 : yabai -m space --display 2
 
 ########
 #  FN  #
@@ -34,11 +40,11 @@ fn - y : yabai -m space --focus recent
 fn - x : yabai -m space --focus prev
 fn - c : yabai -m space --focus next
 
-fn - 1 : yabai -m space --focus 1 | skhd -k "ctrl + alt + cmd - 1"
-fn - 2 : yabai -m space --focus 2 | skhd -k "ctrl + alt + cmd - 2"
-fn - 3 : yabai -m space --focus 3 | skhd -k "ctrl + alt + cmd - 3"
-fn - 4 : yabai -m space --focus 4 | skhd -k "ctrl + alt + cmd - 4"
-fn - 5 : yabai -m space --focus 5
+fn - 1 : yabai -m space --focus 1 || skhd -k "ctrl + alt + cmd - 1"
+fn - 2 : yabai -m space --focus 2 || skhd -k "ctrl + alt + cmd - 2"
+fn - 3 : yabai -m space --focus 3 || skhd -k "ctrl + alt + cmd - 3"
+fn - 4 : yabai -m space --focus 4 || skhd -k "ctrl + alt + cmd - 4"
+fn - 5 : yabai -m space --focus 5 || skhd -k "ctrl + alt + cmd - 5"
 fn - 6 : yabai -m space --focus 6
 fn - 7 : yabai -m space --focus 7
 fn - 8 : yabai -m space --focus 8
@@ -159,7 +165,3 @@ shift + alt - left : yabai -m window --grid 1:2:0:0:1:1
 shift + alt - right : yabai -m window --grid 1:2:1:0:1:1
 # center floating window
 shift + alt - down : yabai -m window --grid 4:4:1:1:2:2
-
-# Move space to next display
-shift + alt - 1 : yabai -m space --display 1
-shift + alt - 2 : yabai -m space --display 2

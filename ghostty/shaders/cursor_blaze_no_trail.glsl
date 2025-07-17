@@ -117,7 +117,7 @@ const vec4 TRAIL_COLOR_ACCENT = vec4(0.533, 0.224, 0.93, 1.0); // Mauve
 
 const vec4 CURRENT_CURSOR_COLOR = TRAIL_COLOR;
 const vec4 PREVIOUS_CURSOR_COLOR = TRAIL_COLOR;
-const float DURATION = 0.3;
+const float DURATION = 0.25;
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {

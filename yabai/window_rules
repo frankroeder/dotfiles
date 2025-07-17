@@ -7,17 +7,24 @@ yabai -m rule --add app='^System Information$' manage=off
 yabai -m rule --add app='^System (Preferences|Settings)$' manage=off
 yabai -m rule --add title='Preferences$' manage=off
 yabai -m rule --add title='Settings$' manage=off
+yabai -m rule --add title='^Updating' manage=off
+
 yabai -m rule --add title='(Picture in Picture|Picture-in-Picture)' manage=off
-yabai -m rule --add app='^(LuLu|Python|Archive Utility|Calculator)$' manage=off
 yabai -m rule --add app="^Orion( RC)?$" title="^(General|Appearance|Browsing|Sync|(Password|Website|Extension)s|Privacy|Advanced|Completions)$" manage=off
 
-# app-specific rules
-APPS="^(Dictionary|Music|Podcasts|App Store|Calendar|Photos|Stickies)"
-yabai -m rule --add app="${APPS}" manage=off
-yabai -m rule --add app="^Music$" title="MiniPlayer" manage=off
+FLOAT_APPS="^(Dictionary|Music|Podcasts|App Store|Calendar|Photos|Stickies|Raycast|LuLu|Python|Archive Utility|Calculator)"
+yabai -m rule --add app="${FLOAT_APPS}" manage=off sub-layer=auto
 
-CENTER_APPS="^(Anki|Bitwarden|Proton Pass)$"
+CENTER_APPS="^(Anki|Bitwarden)$"
 yabai -m rule --add app="${CENTER_APPS}" manage=off grid=16:9:2:2:5:12
+
+TRANSPARENT_APPS="(Music)"
+yabai -m signal --add event=window_focused app="^${TRANSPARENT_APPS}$" action="yabai -m config active_window_opacity 0.9"
+yabai -m signal --add event=window_focused app="^${TRANSPARENT_APPS}$" action="yabai -m config normal_window_opacity 0.00001"
+yabai -m signal --add event=window_focused app="Ghostty" action="yabai -m config active_window_opacity 1"
+# When any other app gains focus, reset both active and background window opacity to fully visible
+yabai -m signal --add event=window_focused app!="^${TRANSPARENT_APPS}$" action="yabai -m config active_window_opacity 1.0"
+yabai -m signal --add event=window_focused app!="^${TRANSPARENT_APPS}$" action="yabai -m config normal_window_opacity 1.0"
 
 while [ $NUM_SPACES -lt 3 ]; do
   yabai -m space --create
@@ -28,7 +35,23 @@ if [[ $NUM_SPACES -gt 2 ]]; then
   yabai -m rule --add app="^(Messages|Discord|Signal|Telegram|Mattermost|Zoom)$" space=$NUM_SPACES
 fi
 
+yabai -m rule --add app="^Notes$" scratchpad=notes grid=11:11:1:1:9:9
+yabai -m rule --add app="^Music$" scratchpad=music grid=1:1:0:0:1:1
+yabai -m rule --add app="^Proton Pass$" scratchpad=pw grid=11:11:1:1:9:9
+
 
 yabai -m rule --add app="^(Mail|Proton Mail)$" space=1
 yabai -m rule --add app="^Ghostty$" space=2
 yabai -m rule --add app="^Claude$" space=3
+yabai -m rule --add app=".*" sub-layer=normal
+
+# Make all non-resizeable windows float (#1317)
+yabai -m signal --add event=window_created action='yabai -m query --windows --window $YABAI_WINDOW_ID | jq -er ".\"can-resize\" or .\"is-floating\"" || yabai -m window $YABAI_WINDOW_ID --toggle float'
+
+# This focuses the previous window if a window is not currently focused, such as when a floating window is minimized
+# https://github.com/koekeishiya/yabai/issues/1212#issuecomment-1107854658
+# yabai -m signal --add event=window_minimized active=yes action="if \$(yabai -m query --windows --window \$YABAI_WINDOW_ID | jq -r '.\"is-floating\"'); then yabai -m query --windows --window &> /dev/null || yabai -m window --focus mouse &> /dev/null || yabai -m window --focus \$(yabai -m query --windows --space | jq .[0].id) &> /dev/null; fi"
+
+# Workaround tab creation in Ghostty and Finder
+yabai -m signal --add app='^(Ghostty|Finder)$' event=window_created action='yabai -m space --focus next; sleep 0.01; yabai -m space --focus prev'
+yabai -m signal --add app='^(Ghostty|Finder)$' event=window_destroyed action='yabai -m space --focus next; sleep 0.01; yabai -m space --focus prev'

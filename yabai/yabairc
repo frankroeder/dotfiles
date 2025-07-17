@@ -9,11 +9,14 @@ sudo yabai --load-sa
 yabai -m config window_origin_display        default \
                 window_placement             second_child \
                 window_shadow                on \
-                window_opacity               off \
+                window_opacity               on \
                 window_opacity_duration      0.0 \
+                window_insertion_point       focused \
                 normal_window_opacity        0.9 \
                 active_window_opacity        0.92 \
                 window_gap                   10 \
+                window_animation_duration    0.1 \
+                window_animation_easing      ease_in_out_circ \
                 top_padding                  20 \
                 bottom_padding               20 \
                 left_padding                 20 \
