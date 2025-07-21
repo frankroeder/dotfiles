@@ -3,11 +3,11 @@
 NUM_SPACES=$(yabai -m query --spaces | jq '. | length')
 
 # general exceptions
-yabai -m rule --add app='^System Information$' manage=off
-yabai -m rule --add app='^System (Preferences|Settings)$' manage=off
-yabai -m rule --add title='Preferences$' manage=off
-yabai -m rule --add title='Settings$' manage=off
-yabai -m rule --add title='^Updating' manage=off
+yabai -m rule --add app='^System Information$' manage=off sub-layer=above
+yabai -m rule --add app='^System (Preferences|Settings)$' manage=off sub-layer=above
+yabai -m rule --add title='Preferences$' manage=off sub-layer=above
+yabai -m rule --add title='Settings$' manage=off sub-layer=above
+yabai -m rule --add title='^Updating' manage=off sub-layer=above
 
 yabai -m rule --add title='(Picture in Picture|Picture-in-Picture)' manage=off
 yabai -m rule --add app="^Orion( RC)?$" title="^(General|Appearance|Browsing|Sync|(Password|Website|Extension)s|Privacy|Advanced|Completions)$" manage=off
@@ -18,7 +18,7 @@ yabai -m rule --add app="${FLOAT_APPS}" manage=off sub-layer=auto
 CENTER_APPS="^(Anki|Bitwarden)$"
 yabai -m rule --add app="${CENTER_APPS}" manage=off grid=16:9:2:2:5:12
 
-TRANSPARENT_APPS="(Music)"
+TRANSPARENT_APPS="(Music|Notes|Claude)"
 yabai -m signal --add event=window_focused app="^${TRANSPARENT_APPS}$" action="yabai -m config active_window_opacity 0.9"
 yabai -m signal --add event=window_focused app="^${TRANSPARENT_APPS}$" action="yabai -m config normal_window_opacity 0.00001"
 yabai -m signal --add event=window_focused app="Ghostty" action="yabai -m config active_window_opacity 1"
