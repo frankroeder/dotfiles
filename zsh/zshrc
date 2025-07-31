@@ -28,7 +28,6 @@ unset zsh_functions
 
 # Plugins
 source $DOTFILES/zsh/zplugrc
-ZSH_AUTOSUGGEST_USE_ASYNC=true
 
 # Disable paste highlighting
 zle_highlight+=(paste:none)

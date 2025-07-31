@@ -106,6 +106,10 @@ if [ -x $(which sacct) ]; then
     sacct | grep RUNNING | cut -d ' ' -f50 | uniq | sort
   }
 
+	sacct30days() {
+		sacct --starttime $(date -d '30 days ago' +%F)
+	}
+
 	sii() {
 		echo "CURRENT TRIALS RUNNING: $(sacct | grep RUNNING | wc -l)"
 		echo "CURRENT TRIALS PENDING $(sacct | grep PENDING | wc -l)"

@@ -18,7 +18,7 @@ yabai -m rule --add app="${FLOAT_APPS}" manage=off sub-layer=auto
 CENTER_APPS="^(Anki|Bitwarden)$"
 yabai -m rule --add app="${CENTER_APPS}" manage=off grid=16:9:2:2:5:12
 
-TRANSPARENT_APPS="(Music|Notes|Claude)"
+TRANSPARENT_APPS="(Music|Notes|Claude|Grok)"
 yabai -m signal --add event=window_focused app="^${TRANSPARENT_APPS}$" action="yabai -m config active_window_opacity 0.9"
 yabai -m signal --add event=window_focused app="^${TRANSPARENT_APPS}$" action="yabai -m config normal_window_opacity 0.00001"
 yabai -m signal --add event=window_focused app="Ghostty" action="yabai -m config active_window_opacity 1"
@@ -42,7 +42,7 @@ yabai -m rule --add app="^Proton Pass$" scratchpad=pw grid=11:11:1:1:9:9
 
 yabai -m rule --add app="^(Mail|Proton Mail)$" space=1
 yabai -m rule --add app="^Ghostty$" space=2
-yabai -m rule --add app="^Claude$" space=3
+yabai -m rule --add app="^(Claude|Grok)$" space=3
 yabai -m rule --add app=".*" sub-layer=normal
 
 # Make all non-resizeable windows float (#1317)

@@ -40,3 +40,4 @@ keybind = super+comma=ignore
 keybind = cmd+s=toggle_quick_terminal
 # keybind = super+space=equalize_splits
 # keybind=cmd+plus=increase_font_size:1
+keybind = shift+enter=text:\n

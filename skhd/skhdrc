@@ -59,14 +59,14 @@ fn - s : yabai -m space --layout stack; sketchybar -m --trigger layout_change
 fn - q : yabai -m window --close
 
 # enter fullscreen mode for the focused container
-fn - f : yabai -m window --toggle zoom-fullscreen
+fn - f : yabai -m window --toggle zoom-fullscreen; sketchybar -m --trigger layout_change
 
 # toggle picture-in-picture
-# fn - p : yabai -m window --toggle border && yabai -m window --toggle pip
 fn - p : yabai -m window --toggle pip
 
 # rotate tree
 fn - r : yabai -m space --rotate 90
+# fn + shift - r : yabai -m space --rotate 180
 
 ###############
 #  FN + CTRL  #
