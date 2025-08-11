@@ -23,6 +23,9 @@ macos-window-shadow = false
 unfocused-split-fill = "#444444"
 window-new-tab-position = "end"
 
+working-directory = inherit
+window-inherit-working-directory = true
+
 mouse-hide-while-typing = true
 mouse-scroll-multiplier = 0.5
 cursor-style = "block"

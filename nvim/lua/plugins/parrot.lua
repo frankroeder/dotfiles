@@ -23,6 +23,7 @@ local _anthropic = {
   end,
   -- Using model aliases (https://docs.anthropic.com/en/docs/about-claude/models/overview#model-aliases)
   models = {
+    "claude-opus-4-1",
     "claude-opus-4-0",
     "claude-sonnet-4-0",
     "claude-3-7-sonnet-latest",
@@ -137,12 +138,13 @@ local M = {
           command = { temperature = 1.1, top_p = 1 },
         },
         topic = {
-          model = "grok-3-mini-beta",
+          model = "grok-3-mini",
           params = { max_completion_tokens = 64 },
         },
         models = {
-          "grok-3-beta",
-          "grok-3-mini-beta",
+          "grok-3",
+          "grok-3-mini",
+          "grok-4-0709",
         },
       },
       openai = {
@@ -163,19 +165,14 @@ local M = {
           },
         },
         topic = {
-          model = "gpt-4.1-nano",
+          model = "gpt-5-nano",
           params = { max_completion_tokens = 64 },
         },
         models = {
-          "gpt-4.1",
-          "gpt-4.1-nano-2025-04-14",
-          "o4-mini",
-          "gpt-4",
-          "gpt-4o-mini-search-preview",
-          "gpt-4o-search-preview",
-          "gpt-4.5-preview",
-          "gpt-4.1-mini",
-          "gpt-4.1-nano",
+          "gpt-5",
+          "gpt-5-nano",
+          "gpt-5-mini",
+          "gpt-5-chat-latest",
         },
       },
       anthropic = _anthropic,
