@@ -22,6 +22,8 @@ return {
         path = runtime_path,
       },
       diagnostics = {
+        enable = true,
+
         globals = { "vim" },
       },
       workspace = {
@@ -37,7 +39,10 @@ return {
       telemetry = {
         enable = false,
       },
-      completion = { callSnippet = "Replace" },
+      completion = {
+        enable = true,
+        callSnippet = "Replace",
+      },
     },
   },
 }
