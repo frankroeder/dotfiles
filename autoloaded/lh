@@ -8,7 +8,7 @@
 
 if [[ -z "$1" ]]; then
   echo "Please specify a port."
-  exit 1
+  return 1
 fi
 
 location="http://localhost:${1}"

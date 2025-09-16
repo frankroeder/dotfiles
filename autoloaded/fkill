@@ -1,6 +1,6 @@
 #!/usr/bin/env zsh
-
 # fkill - kill processes - list only the ones you can kill. Modified the earlier script.
+
 fkill() {
     local pid
     local fzf_selection=""

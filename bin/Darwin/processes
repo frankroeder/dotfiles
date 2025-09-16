@@ -1,0 +1,112 @@
+#!/usr/bin/env -S uv run --script
+#
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["psutil", "tqdm", "rich", "tabulate"]
+# ///
+
+import psutil
+import time
+from collections import defaultdict
+from tqdm import tqdm
+from rich.console import Console
+from rich.table import Table
+from rich.text import Text
+
+def get_process_metrics(duration=60, interval=10):
+    """
+    Collect metrics for running processes over time.
+    duration: total time in seconds
+    interval: sampling interval in seconds
+    """
+    cpu_agg = defaultdict(float)
+    mem_agg = defaultdict(float)
+
+    with tqdm(total=duration, desc="Monitoring processes", unit="s") as pbar:
+        start_time = time.time()
+        while time.time() - start_time < duration:
+            # Aggregate CPU usage
+            for proc in psutil.process_iter(['pid', 'name', 'cpu_percent']):
+                try:
+                    cpu_percent = proc.info['cpu_percent']
+                    if cpu_percent is not None:
+                        cpu_agg[proc.info['name']] += cpu_percent
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
+
+            # Aggregate memory usage
+            for proc in psutil.process_iter(['pid', 'name', 'memory_percent']):
+                try:
+                    mem_percent = proc.info['memory_percent']
+                    if mem_percent is not None:
+                        mem_agg[proc.info['name']] += mem_percent
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
+
+            time.sleep(interval)
+            pbar.update(interval)
+
+    # Get top 20 CPU processes
+    top_cpu = sorted(cpu_agg.items(), key=lambda x: x[1], reverse=True)[:20]
+
+    # Get top 20 memory processes
+    top_mem = sorted(mem_agg.items(), key=lambda x: x[1], reverse=True)[:20]
+
+    return top_cpu, top_mem
+
+def print_process_metrics(top_cpu, top_mem):
+    """
+    Print the top processes by CPU and memory usage as formatted tables with bars.
+    """
+    console = Console()
+    terminal_width = console.size.width
+
+    def create_bar(value, max_value, width):
+        if max_value == 0:
+            return ""
+        filled = int((value / max_value) * width)
+        return "█" * filled + "░" * (width - filled)
+
+    # Calculate max name lengths
+    all_names = [name for name, _ in top_cpu] + [name for name, _ in top_mem]
+    max_name_len = max(len(name) for name in all_names) if all_names else 20
+    process_width = min(max_name_len + 3, int(0.3 * terminal_width))  # 30% of width, but not more than needed +3 for ...
+    value_width = 10  # For CPU % or Memory %
+    padding = 10  # For margins
+    bar_width = terminal_width - process_width - value_width - padding
+
+    # CPU Table
+    cpu_table = Table(title="Top 20 CPU Processes", show_header=True, header_style="bold magenta")
+    cpu_table.add_column("Process", style="cyan", no_wrap=True, width=process_width)
+    cpu_table.add_column("CPU %", style="green", justify="right", width=value_width)
+    cpu_table.add_column("Bar", style="yellow", width=bar_width)
+
+    max_cpu = max((v for _, v in top_cpu), default=1)
+    for name, value in top_cpu:
+        short_name = name[:process_width-3] + "..." if len(name) > process_width-3 else name
+        bar = create_bar(value, max_cpu, bar_width)
+        cpu_table.add_row(short_name, f"{value:.1f}", bar)
+
+    console.print(cpu_table)
+
+    # Memory Table
+    mem_table = Table(title="Top 20 Memory Processes", show_header=True, header_style="bold magenta")
+    mem_table.add_column("Process", style="cyan", no_wrap=True, width=process_width)
+    mem_table.add_column("Memory %", style="green", justify="right", width=value_width)
+    mem_table.add_column("Bar", style="yellow", width=bar_width)
+
+    max_mem = max((v for _, v in top_mem), default=1)
+    for name, value in top_mem:
+        short_name = name[:process_width-3] + "..." if len(name) > process_width-3 else name
+        bar = create_bar(value, max_mem, bar_width)
+        mem_table.add_row(short_name, f"{value:.2f}", bar)
+
+    console.print(mem_table)
+
+def main():
+    print("Monitoring running processes for 30 seconds...")
+    cpu_procs, mem_procs = get_process_metrics(duration=30, interval=2)
+    print_process_metrics(cpu_procs, mem_procs)
+
+if __name__ == "__main__":
+    main()
