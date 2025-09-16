@@ -1,8 +1,7 @@
-theme = dark:catppuccin-mocha,light:catppuccin-latte
-background-opacity = 0.9
+auto-update-channel = stable
 
-auto-update-channel = tip
-#auto-update-channel = stable
+theme = dark:Catppuccin Mocha,light:Catppuccin Latte
+background-opacity = 0.9
 
 font-family = "Hack Nerd Font"
 font-size = 16
@@ -40,7 +39,20 @@ shell-integration-features = no-cursor,sudo
 window-save-state = always
 
 keybind = super+comma=ignore
-keybind = cmd+s=toggle_quick_terminal
-# keybind = super+space=equalize_splits
-# keybind=cmd+plus=increase_font_size:1
-keybind = shift+enter=text:\n
+keybind = super+s=toggle_quick_terminal
+keybind = global:super+plus=increase_font_size:1
+
+# keybind = shift+enter=text:\n
+keybind = super+ö=increase_font_size:1
+keybind = super+ä=decrease_font_size:1
+
+keybind = super+alt+j=goto_split:down
+keybind = super+alt+h=goto_split:left
+keybind = super+alt+l=goto_split:right
+keybind = super+alt+k=goto_split:up
+
+keybind = super+ctrl+0=equalize_splits
+keybind = super+ctrl+j=resize_split:down,10
+keybind = super+ctrl+l=resize_split:left,10
+keybind = super+ctrl+h=resize_split:right,10
+keybind = super+ctrl+k=resize_split:up,10
