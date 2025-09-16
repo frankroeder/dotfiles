@@ -21,6 +21,7 @@ return {
       "typescript-language-server",
       "basedpyright",
       "stylua",
+      "tinymist",
     },
   },
   config = function(_, opts)

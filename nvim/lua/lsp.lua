@@ -116,6 +116,7 @@ vim.lsp.enable {
   "svelte_ls",
   "ts_ls",
   "basedpyright",
+  "typst_ls",
   -- "ty",
 }
 

@@ -131,7 +131,7 @@ return {
           module = "blink-cmp-words.thesaurus",
           opts = {
             score_offset = 0,
-            pointer_symbols = { "!", "&", "^" },
+            definition_pointers = { "!", "&", "^" },
           },
         },
       },

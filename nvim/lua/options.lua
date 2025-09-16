@@ -5,7 +5,6 @@ local options = {
   cursorline = true,
   completeopt = { "menu", "menuone", "noselect" },
   title = true, -- show file in title bar
-  history = 200, -- 200 lines command history
   binary = true, -- Enable binary support
   wrap = false, -- Don't wrap long lines
   linebreak = true, -- wrap lines at convenient points

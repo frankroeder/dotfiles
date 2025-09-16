@@ -28,6 +28,7 @@ return {
     "swift",
     "svelte",
     "toml",
+    "typst",
     "typescript",
     "vim",
     "vimdoc",
