@@ -33,7 +33,7 @@ yabai -m config window_origin_display        default \
                 split_ratio                  0.50 \
                 split_type                   auto \
                 layout                       stack \
-                external_bar                 all:0:25
+                external_bar                 all:0:$(sketchybar --query bar | jq .height)
 
 # events
 yabai -m signal --add event=window_created action="sketchybar -m --trigger window_created &> /dev/null"

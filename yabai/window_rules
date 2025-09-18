@@ -8,6 +8,7 @@ yabai -m rule --add app='^System (Preferences|Settings)$' manage=off sub-layer=a
 yabai -m rule --add title='Preferences$' manage=off sub-layer=above
 yabai -m rule --add title='Settings$' manage=off sub-layer=above
 yabai -m rule --add title='^Updating' manage=off sub-layer=above
+yabai -m rule --add app='Zotero' title='Find Full Text' manage=off sub-layer=above
 
 yabai -m rule --add title='(Picture in Picture|Picture-in-Picture)' manage=off
 yabai -m rule --add app="^Orion( RC)?$" title="^(General|Appearance|Browsing|Sync|(Password|Website|Extension)s|Privacy|Advanced|Completions)$" manage=off

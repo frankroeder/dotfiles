@@ -8,14 +8,17 @@ ctrl + alt + cmd - r : \
 # reload sketchybar
 ctrl + alt + cmd - b : sketchybar --reload
 
-
 # toggle main terminal application
 fn - space : bash "$DOTFILES/scripts/toggle_app.bash" "Ghostty"
+
 # fn + shift - s : open "x-apple.systempreferences:"
 # fn + shift - a : open -a "About This Mac"
 # fn + shift - b : bash "$DOTFILES/scripts/toggle_app.bash" "$BROWSER_NAME"
+
+# yabai scratchpads
 fn + alt - m : yabai -m window --toggle music || open -a Music
 fn + alt - n : yabai -m window --toggle notes || open -a Notes
+fn + alt - p : yabai -m window --toggle pw || open -a "Proton Pass"
 
 # Move space to next display
 fn + alt - 1 : yabai -m space --display 1
