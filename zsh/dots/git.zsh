@@ -166,7 +166,7 @@ alias gupv='git pull --rebase -v'
 alias gupa='git pull --rebase --autostash'
 alias gupav='git pull --rebase --autostash -v'
 alias glum='git pull upstream master'
-alias gwch='git whatchanged -p --abbrev-commit --pretty=medium'
+alias gwch='echo "PLEASE USE glgp"'
 
 # Start web-based visualizer.
 alias gw='git instaweb --httpd=webrick'

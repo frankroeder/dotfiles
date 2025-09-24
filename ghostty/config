@@ -38,6 +38,8 @@ shell-integration = zsh
 shell-integration-features = no-cursor,sudo
 window-save-state = always
 
+macos-option-as-alt = left
+
 keybind = super+comma=ignore
 keybind = super+s=toggle_quick_terminal
 keybind = global:super+plus=increase_font_size:1

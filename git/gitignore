@@ -16,7 +16,6 @@ build/
 .venv*
 *.pyc
 *.egg-info
-pyproject.toml
 
 # nvim
 .gp.md
@@ -53,6 +52,5 @@ package-lock.json
 # OS
 .DS_Store*
 Thumbs.db
-*.lock
 .Spotlight-V100
 .Trashes
