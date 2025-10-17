@@ -248,6 +248,7 @@ after: _terminal
 ifeq ($(OSTYPE), Darwin)
 	@if command -v yabai >/dev/null 2>&1; then \
 		$(call print_step,Starting yabai and skhd service); \
+		@echo "$(whoami) ALL=(root) NOPASSWD: sha256:$(shasum -a 256 $(which yabai) | cut -d " " -f 1) $(which yabai) --load-sa" | sudo tee /private/etc/sudoers.d/yabai
 		@sudo yabai --install-sa
 		@yabai --start-service
 		@skhd --start-service
@@ -256,6 +257,10 @@ ifeq ($(OSTYPE), Darwin)
 		$(call print_step,Starting sketchybar service); \
 		brew services start sketchybar; \
 	fi
+	# private configs
+	ln -sfv $(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/claude_settings.json $(HOME)/.claude/settings.json;
+	ln -sfv $(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/CLAUDE.md $(HOME)/.claude/;
+	ln -sfv $(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/opencode.jsonc $(HOME)/.config/opencode/;
 endif
 
 .PHONY: directories

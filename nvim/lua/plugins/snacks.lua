@@ -22,6 +22,45 @@ return {
         wo = { wrap = true },
       },
     },
+		-- TODO
+    -- statuscolumn = { enabled = true },
+  },
+  keys = {
+    {
+      "<C-C>",
+      function()
+        Snacks.bufdelete()
+      end,
+      desc = "Delete Buffer",
+    },
+    {
+      "<leader>.",
+      function()
+        Snacks.scratch()
+      end,
+      desc = "Toggle Scratch Buffer",
+    },
+    {
+      "<Leader>..",
+      function()
+        Snacks.scratch.select()
+      end,
+      desc = "Select Scratch Buffer",
+    },
+    {
+      "<Leader>ä",
+      function()
+        Snacks.terminal()
+      end,
+      desc = "Toggle Terminal",
+    },
+    {
+      "<leader>e",
+      function()
+        Snacks.explorer()
+      end,
+      desc = "File Explorer",
+    },
   },
   init = function()
     require "snacks"

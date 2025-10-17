@@ -32,7 +32,9 @@ local function create_box(opts)
     -- top line
     f(function(args)
       local cs, ce = pick_comment_start_and_end()
-      return cs .. string.rep(string.sub(cs, #cs, #cs), string.len(args[1][1]) + 2 * pl) .. ce
+      local box_width = string.len(args[1][1]) + 2 * pl
+      local fill_char = ce ~= "" and string.sub(ce, 1, 1) or string.sub(cs, #cs, #cs)
+      return cs .. string.rep(fill_char, box_width) .. ce
     end, { 1 }),
     t { "", "" },
     f(function()
@@ -48,7 +50,9 @@ local function create_box(opts)
     -- bottom line
     f(function(args)
       local cs, ce = pick_comment_start_and_end()
-      return cs .. string.rep(string.sub(ce, 1, 1), string.len(args[1][1]) + 2 * pl) .. ce
+      local box_width = string.len(args[1][1]) + 2 * pl
+      local fill_char = ce ~= "" and string.sub(ce, 1, 1) or string.sub(cs, #cs, #cs)
+      return cs .. string.rep(fill_char, box_width) .. ce
     end, { 1 }),
   }
 end
@@ -93,7 +97,6 @@ return {
   ),
   s({ trig = "todo", dscr = "Selection of comments" }, {
     p(get_comment_start),
-    t " ",
     c(1, {
       t "TODO",
       t "FIXME",
@@ -109,7 +112,6 @@ return {
     t " ",
     p(get_comment_end),
   }),
-
   s({ trig = "bang", dscr = "Selection of shebang sequences" }, {
     t "#!/usr/bin/env ",
     c(1, {
