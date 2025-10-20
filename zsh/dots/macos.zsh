@@ -18,15 +18,24 @@ alias wifion='networksetup -setairportpower en0 on'
 alias wifioff='networksetup -setairportpower en0 off'
 
 # Recursively delete all .DS_Store files
-alias rmds_store="find ~/ -type f -name '*.DS_Store' ! -path '~/Library' -ls -delete"
+rmds_store() {
+  find ~/ -type f -name '*.DS_Store' ! -path '~/Library' -ls -delete
+}
 
 # Clear DNS cache
-alias flushdns='sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder; sudo killall mDNSResponderHelper'
+flushdns() {
+  sudo dscacheutil -flushcache
+  sudo killall -HUP mDNSResponder
+  sudo killall mDNSResponderHelper
+}
 
 # Clean up LaunchServices to remove duplicates in the "Open With" menu
-alias rmls="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -kill -r -domain local -domain system -domain user && killall Finder"
+rmls() {
+  /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -kill -r -domain local -domain system -domain user
+  killall Finder
+}
 
-mergepdf(){
+mergepdf() {
   if [ $# -eq 0 ]; then
     echo "# Merge PDF files, Usage: \`mergepdf input{1,2,3}.pdf\`"
     return
