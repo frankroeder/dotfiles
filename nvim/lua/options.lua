@@ -26,12 +26,7 @@ local options = {
   modeline = true,
   splitright = true, -- Vertical split right
   joinspaces = false, -- Use one space after punctuation
-  -- indentation
-  -- copyindent = true,
-  -- smartindent = true,
-  -- autoindent = true,
   smartindent = true,
-
   shiftwidth = 2, -- Preview tabs as 2 spaces
   shiftround = true,
   tabstop = 2, -- Tabs are 2 spaces
