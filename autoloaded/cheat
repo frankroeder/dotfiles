@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-# Get cheat sheet of command from cheat.sh
-# Usage: cheat <cmd>
-
-curl "https://cheat.sh/$@"
