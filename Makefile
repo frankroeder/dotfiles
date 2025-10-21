@@ -9,8 +9,6 @@ MAKEFLAGS += --no-builtin-rules
 DOTFILES := $(PWD)
 OSTYPE := $(shell uname -s)
 ARCHITECTURE := $(shell uname -m)
-DEVNUL := /dev/null
-WHICH := which
 
 PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(HOME)/bin:$(HOME)/.local/bin:$(HOME)/.local/nodejs/bin
 
@@ -40,15 +38,15 @@ define create_symlink
 endef
 
 define print_step
-	echo -e "\033[1m\033[34m==> $(1)\033[0m"
+	@echo -e "\033[1m\033[34m==> $(1)\033[0m"
 endef
 
 define print_error
-	echo -e "\033[1m\033[31mError: $(1)\033[0m" >&2
+	@echo -e "\033[1m\033[31mError: $(1)\033[0m" >&2
 endef
 
 define print_warning
-	echo -e "\033[1m\033[33mWarning: $(1)\033[0m"
+	@echo -e "\033[1m\033[33mWarning: $(1)\033[0m"
 endef
 
 # and homebrew available
@@ -113,7 +111,7 @@ ifeq ($(ARCHITECTURE), arm64)
 	$(call print_step,Installing rosetta for non-native apps)
 	@if [ ! -d "/usr/libexec/rosetta" ]; then softwareupdate --install-rosetta --agree-to-license; fi
 endif
-ifeq ($(shell ${WHICH} brew 2>${DEVNUL}),)
+ifeq ($(shell command -v brew 2>/dev/null),)
 	@$(SHELL) -c "$$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 else
 	$(call print_warning,Homebrew is already installed)
@@ -452,3 +450,38 @@ else
 	$(CONTAINER_CMD) exec -it maketest_sudo /bin/bash -c "make linux";
 endif
 	$(call print_step,Container can now be shut down)
+
+.PHONY: update
+update: ## Update all packages and tools
+	@$(DOTFILES)/autoloaded/update
+
+.PHONY: clean
+clean: ## Clean caches and temporary files
+	@$(DOTFILES)/autoloaded/emptytrash
+
+.PHONY: doctor
+doctor: ## Health check for dotfiles installation
+	$(call print_step,Running dotfiles health check)
+	@echo "Checking critical tools..."
+	@command -v git >/dev/null 2>&1 && echo "✓ git installed" || echo "✗ git missing"
+	@command -v zsh >/dev/null 2>&1 && echo "✓ zsh installed" || echo "✗ zsh missing"
+	@command -v nvim >/dev/null 2>&1 && echo "✓ nvim installed" || echo "✗ nvim missing"
+	@command -v fzf >/dev/null 2>&1 && echo "✓ fzf installed" || echo "✗ fzf missing"
+	@echo ""
+	@echo "Checking symlinks..."
+	@[ -L "$(HOME)/.zshrc" ] && echo "✓ .zshrc symlinked" || echo "✗ .zshrc not symlinked"
+	@[ -L "$(HOME)/.config/nvim" ] && echo "✓ nvim config symlinked" || echo "✗ nvim config not symlinked"
+	@[ -L "$(HOME)/.gitconfig" ] && echo "✓ .gitconfig symlinked" || echo "✗ .gitconfig not symlinked"
+	@[ -L "$(HOME)/.tmux.conf" ] && echo "✓ .tmux.conf symlinked" || echo "✗ .tmux.conf not symlinked"
+ifeq ($(OSTYPE), Darwin)
+	@[ -L "$(HOME)/.config/yabai" ] && echo "✓ yabai config symlinked" || echo "✗ yabai config not symlinked"
+	@[ -L "$(HOME)/.config/skhd" ] && echo "✓ skhd config symlinked" || echo "✗ skhd config not symlinked"
+endif
+	@echo ""
+	@command -v nvim >/dev/null 2>&1 && nvim --version | head -1 || true
+	@command -v zsh >/dev/null 2>&1 && zsh --version || true
+	$(call print_step,Health check complete)
+
+.PHONY: clean-deep
+clean-deep: ## Deep clean including Python, Node, and system caches
+	@$(DOTFILES)/autoloaded/emptytrash --deep

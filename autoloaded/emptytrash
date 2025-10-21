@@ -1,45 +1,66 @@
 #!/usr/bin/env bash
 
-# empty the main trash
-local TRASH="$HOME/.Trash/*"
-if [ "${#TRASH[@]}" -gt 0 ]; then
-  for t in $HOME/.Trash/*; do
-    sudo rm -rf "$t";
-  done;
-fi
+GREEN='\033[0;32m'
+BLUE='\033[1;34m'
+RESET='\033[0m'
 
-if [[ $+commands[pip] ]]; then
-  pip cache purge;
-fi
-if [[ $+commands[conda] ]]; then
-  conda clean --all -y;
-fi
-if [[ $+commands[uv] ]]; then
-  uv cache prune
-fi
+info() {
+  printf "${BLUE}==>${RESET} %s\n" "${@}"
+}
+
+success() {
+  printf "${GREEN}✓${RESET} %s\n" "${@}"
+}
+
+DEEP="${1:-}"
+
+info "Emptying trash"
+for t in "$HOME/.Trash"/*; do
+  [ -e "$t" ] && sudo rm -rf "$t"
+done
+
+info "Cleaning package caches"
+command -v pip >/dev/null 2>&1 && pip cache purge
+command -v uv >/dev/null 2>&1 && uv cache prune
+command -v npm >/dev/null 2>&1 && npm cache clean --force
 
 if [ "$OSTYPE" = "Darwin" ]; then
-  # remove the homewbrew cache
-  rm -rf "$(brew --cache)";
+  info "Cleaning macOS caches"
+  command -v brew >/dev/null 2>&1 && rm -rf "$(brew --cache)"
+  sudo rm -rfv /Volumes/*/.Trashes 2>/dev/null || true
+  sudo rm -rfv /private/var/log/asl/*.asl 2>/dev/null || true
+  sqlite3 ~/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV* 'delete from LSQuarantineEvent' 2>/dev/null || true
+  find "$HOME" -type f -name '*.DS_Store' ! -path "$HOME/Library/*" -delete 2>/dev/null || true
+  sudo dscacheutil -flushcache 2>/dev/null || true
+  sudo killall -HUP mDNSResponder 2>/dev/null || true
+  sudo killall mDNSResponderHelper 2>/dev/null || true
 
-
-  # empty the trashes on all mounted volumes
-  local VOL_TRASH="/Volumes/*/.Trashes"
-  if [ "${#VOL_TRASH[@]}" -gt 0 ] ; then
-    sudo rm -rfv /Volumes/*/.Trashes;
+  if [ "$DEEP" = "--deep" ]; then
+    info "Deep cleaning macOS"
+    rm -rf "$HOME/Library/Developer/Xcode/DerivedData"/* 2>/dev/null || true
+    /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -kill -r -domain local -domain system -domain user && killall Finder 2>/dev/null || true
+    sudo mdutil -E / 2>/dev/null || true
   fi
 
-  # clear system logs to improve shell startup speed
-  sudo rm -rfv /private/var/log/asl/*.asl;
+  success "macOS cleanup complete"
+elif [[ "$OSTYPE" == "Linux" ]]; then
+  info "Cleaning Linux caches"
+  sudo apt autoclean -y
+  sudo apt clean -y
+  sudo apt autoremove -y
+  [ -d "$HOME/.cache/thumbnails" ] && rm -rfv "$HOME/.cache/thumbnails"/*
 
-  # clear download history from quarantine. https://mths.be/bum
-  sqlite3 ~/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV* \
-    'delete from LSQuarantineEvent';
-elif [ "$OSTYPE" = "Linux" ]; then
-  sudo apt autoclean -y;
-  sudo apt clean -y;
-  sudo apt autoremove -y;
+  if [ "$DEEP" = "--deep" ]; then
+    info "Deep cleaning Linux"
+    sudo journalctl --vacuum-time=7d 2>/dev/null || true
+  fi
 
-  local THUMBNAIL_CACHE="$HOME/.cache/thumbnails";
-  [[ -d $THUMBNAIL_CACHE ]] && rm -rfv "$THUMBNAIL_CACHE/*";
+  success "Linux cleanup complete"
+fi
+
+if [ "$DEEP" = "--deep" ]; then
+  info "Cleaning development caches"
+  find "$HOME" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+  find "$HOME" -type f -name "*.py[cod]" -delete 2>/dev/null || true
+  success "Development caches cleaned"
 fi
