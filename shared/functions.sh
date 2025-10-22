@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 # General functions shared between bash and zsh
 # No external dependencies required
 

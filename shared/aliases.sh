@@ -1,13 +1,6 @@
 #!/usr/bin/env sh
 # Common aliases shared between bash and zsh
 
-# Navigation
-alias ..='cd ..'
-alias ...='cd ../..'
-alias ....='cd ../../..'
-alias .....='cd ../../../..'
-alias ......='cd ../../../../..'
-
 # File operations
 alias cp='nice cp'
 alias mv='nice mv'
@@ -43,6 +36,14 @@ alias duh='du -h'
 
 # System info
 alias userlist="cut -d: -f1 /etc/passwd | sort"
+alias whou='who -u | sort -k 3 --reverse'
+
+# Linux server shortcuts
+alias varwww='cd /var/www/html/'
+alias distro='cat /etc/issue'
+
+# GPU monitoring (only if nvidia-smi is available)
+command -v nvidia-smi >/dev/null 2>&1 && alias wgpu='watch -n 0.1 -d nvidia-smi'
 
 # Print each function name
 alias showfunctions="declare -f | grep '^[a-z].* ()' | sed 's/{\$//'"

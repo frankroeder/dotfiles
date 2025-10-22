@@ -22,9 +22,4 @@ alias vimrc="vim ~/.vimrc"
 alias vimup="vim +PlugUpdate +qall && vim +PlugUpgrade +qall"
 alias localrc="vim ~/.bash_local"
 
-alias varwww='cd /var/www/html/'
-alias distro='cat /etc/issue'
-
 alias v0="vim -c \"normal '0\""
-alias wgpu='watch -n 0.1 -d nvidia-smi'
-alias whou='who -u | sort -k 3 --reverse'

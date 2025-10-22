@@ -7,9 +7,7 @@ path=(
 )
 
 alias f='xdg-open ./'
-alias varwww='cd /var/www/html/'
-alias distro='cat /etc/issue'
-alias whou='who -u | sort -k 3 --reverse'
+
 realusers(){
   awk -F: '$3 >= 1000 && $3 != 65534 {print $1}' /etc/passwd
 }

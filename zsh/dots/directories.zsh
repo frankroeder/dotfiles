@@ -1,17 +1,5 @@
-if [ "$OSTYPE" = "Linux" ]; then
-  alias ls='ls --color=auto'
-else
-  alias ls='ls -G'
-fi
-
-alias l='ls -lah'
-alias la='ls -a'
-alias l.='ls -d .*'
-alias lsd='ls -d */'
-
-alias dud='du -d 1 -h | sort -hr'
-alias dul='du -hsx * | sort -rh | head -15'
-alias duf='du -sh'
+# ZSH-specific directory configuration and aliases
+# Common directory aliases are in shared/directories.sh
 
 unsetopt AUTO_CD
 setopt AUTO_PUSHD
@@ -26,12 +14,12 @@ zstyle ':completion:*:*:cd:*:directory-stack' menu yes select
 zstyle ':completion:*:-tilde-:*' group-order 'named-directories' 'path-directories' 'users' 'expand'
 zstyle ':completion:*' squeeze-slashes true
 
-alias ..='cd ../'
+# ZSH global aliases for directory navigation (can be used anywhere in command)
 alias -g ...='../..'
 alias -g ....='../../..'
 alias -g .....='../../../..'
 
-alias -- -='cd -'
+# Directory stack shortcuts (zsh-specific)
 alias 1='cd -'
 alias 2='cd -2'
 alias 3='cd -3'
@@ -42,6 +30,5 @@ alias 7='cd -7'
 alias 8='cd -8'
 alias 9='cd -9'
 
-alias md='mkdir -p'
-alias rd='rmdir'
+# Show directory stack
 alias d='dirs -v | head -10'
