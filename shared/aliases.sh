@@ -46,8 +46,7 @@ alias userlist="cut -d: -f1 /etc/passwd | sort"
 # Print each function name
 alias showfunctions="declare -f | grep '^[a-z].* ()' | sed 's/{\$//'"
 
-# Print each PATH entry on a separate line
-alias lpath='echo -e ${PATH//:/\\n}'
+# lpath function is in functions.sh for better formatting
 
 # Online check
 alias online="ping -c 1 www.example.com &> /dev/null && echo 'Online :)' || echo 'Offline :('"

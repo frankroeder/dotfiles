@@ -20,10 +20,12 @@ frm() {
 # Fuzzy file search and edit with vim
 v() {
   local files
+  # fzf with -m returns multiple files separated by newlines
   files=$(fzf --query="$1" -m --no-mouse --select-1 --exit-0 \
     --preview 'head -100 {}' --preview-window \
     right:hidden --bind '?:toggle-preview')
-  [ -n "$files" ] && ${EDITOR:-vi} $files
+  # Open all selected files in a single editor instance
+  [ -n "$files" ] && ${EDITOR:-vi} $(echo "$files")
 }
 
 # Fuzzy git log (requires git and fzf)
@@ -38,8 +40,8 @@ glz() {
   fi
   git log --graph --color=always \
       --format="%C(auto)%h%d %s %C(black)%C(bold)%cr" "$@" |
-      fzf --ansi --reverse \
-      --preview "echo {} | grep -o '[a-f0-9]\{7\}' | head -1 |
+      fzf --ansi -d 95% --reverse \
+      --preview "echo {} | grep -o '[a-f0-9]\\{7\\}' | head -1 |
       xargs -I % sh -c 'git show --color=always % | head -200 '" |
       grep -o '[a-f0-9]\{7\}'
 }
