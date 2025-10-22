@@ -72,57 +72,6 @@ del() {
   fi
 }
 
-# Empty trash and clean caches
-emptytrash() {
-  # Empty the main trash
-  local TRASH="$HOME/.Trash/*"
-  if [ "${#TRASH[@]}" -gt 0 ]; then
-    for t in $HOME/.Trash/*; do
-      sudo rm -rf "$t"
-    done
-  fi
-
-  # Clean package manager caches
-  if command -v pip >/dev/null 2>&1; then
-    pip cache purge
-  fi
-  if command -v conda >/dev/null 2>&1; then
-    conda clean --all -y
-  fi
-  if command -v uv >/dev/null 2>&1; then
-    uv cache prune
-  fi
-
-  # OS-specific cleanup
-  if [ "$OSTYPE" = "Darwin" ]; then
-    # Remove homebrew cache
-    rm -rf "$(brew --cache)"
-
-    # Empty trashes on all mounted volumes
-    local VOL_TRASH="/Volumes/*/.Trashes"
-    if [ "${#VOL_TRASH[@]}" -gt 0 ]; then
-      sudo rm -rfv /Volumes/*/.Trashes
-    fi
-
-    # Clear system logs to improve shell startup speed
-    sudo rm -rfv /private/var/log/asl/*.asl
-
-    # Clear download history from quarantine
-    sqlite3 ~/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV* \
-      'delete from LSQuarantineEvent'
-
-  elif [ "$OSTYPE" = "Linux" ]; then
-    # APT cleanup
-    sudo apt autoclean -y
-    sudo apt clean -y
-    sudo apt autoremove -y
-
-    # Clear thumbnail cache
-    local THUMBNAIL_CACHE="$HOME/.cache/thumbnails"
-    [ -d "$THUMBNAIL_CACHE" ] && rm -rfv "$THUMBNAIL_CACHE"/*
-  fi
-}
-
 # Extract archives
 extract() {
   # Check if a file was provided as an argument
@@ -198,41 +147,6 @@ extract() {
   fi
 
   cd "$current_dir" || return 1
-}
-
-# System information
-ii() {
-  echo -e "\nYou are logged on:"; hostname
-  echo -e "\nSoftware Version:";
-  if [ "$OSTYPE" = "Darwin" ]; then
-    sw_vers
-  else
-    lsb_release -a
-  fi
-  echo -e "\nArchitecture Type:"; arch
-  echo -e "\nCPU Info:";
-  if [ "$OSTYPE" = "Darwin" ]; then
-    sysctl -n machdep.cpu.brand_string
-  else
-    cat /proc/cpuinfo | grep 'model name' | uniq
-  fi
-  echo -e "\nAdditional information:"; uname -a
-  echo -e "\nUsers logged on:"; w -h
-  echo -e "\nCurrent date:"; date
-  echo -e "\nMachine stats:"; uptime
-  echo -e "\nIP for Local Network:";
-  if [ "$OSTYPE" = "Darwin" ]; then
-    ipconfig getifaddr en0
-  else
-    hostname -i
-  fi
-  echo -e "\nIP for Interconnection:"; curl -4 https://icanhazip.com
-  echo -e "\nHardware Overview:";
-  if [ "$OSTYPE" = "Darwin" ]; then
-    system_profiler SPHardwareDataType | tail -n 14 | tr -d " " | sed 's/:/: /g'
-  else
-    lscpu
-  fi
 }
 
 # Overwrite man with different colors

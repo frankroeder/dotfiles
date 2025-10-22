@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Empty trash and clean caches (Linux version)
+
+# Empty the main trash
+if [ -d "$HOME/.Trash" ] && [ "$(ls -A $HOME/.Trash 2>/dev/null)" ]; then
+  for t in $HOME/.Trash/*; do
+    sudo rm -rf "$t"
+  done
+fi
+
+# Clean package manager caches
+if command -v pip >/dev/null 2>&1; then
+  pip cache purge
+fi
+if command -v conda >/dev/null 2>&1; then
+  conda clean --all -y
+fi
+if command -v uv >/dev/null 2>&1; then
+  uv cache prune
+fi
+
+# Linux-specific cleanup (APT)
+if command -v apt >/dev/null 2>&1; then
+  sudo apt autoclean -y
+  sudo apt clean -y
+  sudo apt autoremove -y
+fi
+
+# Clear thumbnail cache
+if [ -d "$HOME/.cache/thumbnails" ]; then
+  rm -rfv "$HOME/.cache/thumbnails"/*
+fi
+
+echo "Trash emptied and caches cleaned (Linux)"

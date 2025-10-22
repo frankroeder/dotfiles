@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# System information (macOS version)
+
+echo -e "\nYou are logged on:"; hostname
+echo -e "\nSoftware Version:"; sw_vers
+echo -e "\nArchitecture Type:"; arch
+echo -e "\nCPU Info:"; sysctl -n machdep.cpu.brand_string
+echo -e "\nAdditional information:"; uname -a
+echo -e "\nUsers logged on:"; w -h
+echo -e "\nCurrent date:"; date
+echo -e "\nMachine stats:"; uptime
+echo -e "\nIP for Local Network:"; ipconfig getifaddr en0
+echo -e "\nIP for Interconnection:"; curl -4 https://icanhazip.com
+echo -e "\nHardware Overview:"
+system_profiler SPHardwareDataType | tail -n 14 | tr -d " " | sed 's/:/: /g'
