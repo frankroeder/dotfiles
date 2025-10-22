@@ -35,6 +35,11 @@ del() {
   local path
   local files=""
   local dst
+  local trash_dir
+
+  # Use ~/.Trash for both macOS and Linux
+  trash_dir="$HOME/.Trash"
+  mkdir -p "$trash_dir"
 
   echo -n "Do you wish to move the following files to the trash: $@ (y/n)? "
   read answer
@@ -51,11 +56,11 @@ del() {
       dst="${path##*/}"
 
       # Append random suffix if file exists in trash
-      while [ -e ~/.Trash/"$dst" ]; do
+      while [ -e "$trash_dir/$dst" ]; do
         dst="${dst}_${RANDOM}"
       done
 
-      /bin/mv -fv "$path" ~/.Trash/"$dst"
+      /bin/mv -fv "$path" "$trash_dir/$dst"
 
       # Build space-separated list of files
       if [ -z "$files" ]; then
@@ -67,6 +72,7 @@ del() {
 
     export DEL_PWD=$(pwd)
     export DEL_FILES="$files"
+    export DEL_TRASH_DIR="$trash_dir"
   else
     echo "canceled..."
   fi
@@ -182,8 +188,17 @@ rndpassword() {
 # Undo del (restore from trash)
 undo_del() {
   if [ -n "$DEL_FILES" ] && [ -n "$DEL_PWD" ]; then
+    local trash_dir
+
+    # Use the trash directory from del() if set, otherwise use ~/.Trash
+    if [ -n "$DEL_TRASH_DIR" ]; then
+      trash_dir="$DEL_TRASH_DIR"
+    else
+      trash_dir="$HOME/.Trash"
+    fi
+
     for file in $(echo $DEL_FILES | tr -s " " "\012"); do
-      command mv -fv ~/.Trash/"$file" "$DEL_PWD"
+      command mv -fv "$trash_dir/$file" "$DEL_PWD"
     done
   else
     echo "No files to restore. Use 'del' first."
