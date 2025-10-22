@@ -39,14 +39,13 @@ alias unixtime='date +%s'
 
 # Disk usage
 alias dfh='df -h'
+alias duh='du -h'
 
 # System info
 alias userlist="cut -d: -f1 /etc/passwd | sort"
 
 # Print each function name
 alias showfunctions="declare -f | grep '^[a-z].* ()' | sed 's/{\$//'"
-
-# lpath function is in functions.sh for better formatting
 
 # Online check
 alias online="ping -c 1 www.example.com &> /dev/null && echo 'Online :)' || echo 'Offline :('"

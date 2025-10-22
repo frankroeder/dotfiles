@@ -131,3 +131,107 @@ alias gupa='git pull --rebase --autostash'
 
 # Navigate to git root
 alias grt='cd "$(git rev-parse --show-toplevel || echo .)"'
+
+# Bisect
+alias gbs='git bisect'
+alias gbsb='git bisect bad'
+alias gbsg='git bisect good'
+alias gbsr='git bisect reset'
+alias gbss='git bisect start'
+
+# Branch management
+alias gbda='git branch --no-color --merged | command grep -vE "^(\\*|\\s*(master|main|develop|dev)\\s*$)" | command xargs -n 1 git branch -d'
+
+# Commit variations
+alias gcn!='git commit -v --no-edit --amend'
+alias gcan!='git commit -v -a --no-edit --amend'
+alias gcans!='git commit -v -a -s --no-edit --amend'
+alias gcfle='git config --local --edit'
+alias gcs='git commit -S'
+
+# Cherry-pick
+alias gcp='git cherry-pick'
+alias gcpa='git cherry-pick --abort'
+alias gcpc='git cherry-pick --continue'
+
+# Count and contributors
+alias gcount='git shortlog -sn'
+alias glc='git shortlog --email --numbered --summary'
+
+# Describe and diff-tree
+alias gdct='git describe --tags `git rev-list --tags --max-count=1`'
+alias gdt='git diff-tree --no-commit-id --name-only -r'
+
+# Log
+alias glgm='git log --graph --max-count=10'
+alias glol="git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset'"
+alias glols="git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --stat"
+alias glod="git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ad) %C(bold blue)<%an>%Creset'"
+alias glods="git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ad) %C(bold blue)%Creset' --date=short"
+alias glola="git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --all"
+
+# Merge
+alias gmom='git merge origin/master'
+alias gmt='git mergetool --no-prompt'
+alias gmtvim='git mergetool --no-prompt --tool=vimdiff'
+alias gmum='git merge upstream/master'
+
+# Push
+alias gpoat='git push origin --all && git push origin --tags'
+alias gpu='git push upstream'
+
+# Rebase
+alias grbd='git rebase develop'
+alias grbm='git rebase master'
+
+# Remote
+alias groh='git reset origin/$(git rev-parse --abbrev-ref HEAD) --hard'
+alias grmv='git remote rename'
+alias grset='git remote set-url'
+alias grup='git remote update'
+
+# SVN
+alias gsd='git svn dcommit'
+alias gsr='git svn rebase'
+
+# Show
+alias gsh='git show'
+alias gsps='git show --pretty=short --show-signature'
+
+# Submodule
+alias gsi='git submodule init'
+alias gsu='git submodule update'
+alias gsurr='git submodule update --recursive --remote'
+
+# Tag
+alias gts='git tag -s'
+
+# Update index
+alias gunignore='git update-index --no-assume-unchanged'
+alias gunwip='git log -n 1 | grep -q -c "\\-\\-wip\\-\\-" && git reset HEAD~1'
+
+# Pull
+alias gupv='git pull --rebase -v'
+alias gupav='git pull --rebase --autostash -v'
+alias glum='git pull upstream master'
+
+# Checkout main/master or develop/dev branch functions
+gcm() {
+  if git branch | grep -q 'master'; then
+    git checkout master
+  elif git branch | grep -q 'main'; then
+    git checkout main
+  else
+    echo "No branch named master or main found."
+  fi
+}
+
+gcd() {
+  if git branch | grep -q 'develop'; then
+    git checkout develop
+  elif git branch | grep -q 'dev'; then
+    git checkout dev
+  else
+    echo "No branch named develop or dev found."
+  fi
+}
