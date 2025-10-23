@@ -246,7 +246,16 @@ tre() {
   fi
 }
 
-# Print PATH entries on separate lines
+# Print PATH entries on separate lines with colors
 lpath() {
-  echo "$PATH" | tr ":" "\n"
+  echo "$PATH" | tr ":" "\n" | \
+    awk '{
+      gsub(/\/usr/, "\033[32m/usr\033[0m");
+      gsub(/\/bin/, "\033[34m/bin\033[0m");
+      gsub(/\/opt/, "\033[36m/opt\033[0m");
+      gsub(/\/sbin/, "\033[35m/sbin\033[0m");
+      gsub(/\/local/, "\033[33m/local\033[0m");
+      gsub(/\/'$USER'/, "\033[31m/'$USER'\033[0m");
+      print
+    }'
 }

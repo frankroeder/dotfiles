@@ -73,5 +73,3 @@ shopt -s nocaseglob
 
 # recursive globbing like cd **/foo
 shopt -s globstar
-
-# SLURM configuration is now in shared/slurm.sh

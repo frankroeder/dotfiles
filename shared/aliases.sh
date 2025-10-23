@@ -37,6 +37,7 @@ alias duh='du -h'
 # System info
 alias userlist="cut -d: -f1 /etc/passwd | sort"
 alias whou='who -u | sort -k 3 --reverse'
+command -v jq >/dev/null 2>&1 && alias ipd="curl -sS ipinfo.io 2>/dev/null | jq ."
 
 # Linux server shortcuts
 alias varwww='cd /var/www/html/'

@@ -10,7 +10,6 @@ alias localtmux="$EDITOR $HOME/.local.tmux"
 alias localnvim="$EDITOR $HOME/.localnvim.lua"
 
 [[ $commands[rg] ]] && alias rg="rg --pretty --colors 'match:bg:235,220,170' --ignore-file $DOTFILES/ignore"
-[[ $commands[jq] ]] && alias ipd="curl -sS ipinfo.io  2>/dev/null | jq ."
 alias -g @="| grep -i"
 
 if [[ $commands[npm] ]]; then
