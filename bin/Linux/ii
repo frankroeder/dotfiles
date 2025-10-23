@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# System information (Linux version)
+
+echo -e "\nYou are logged on:"; hostname
+echo -e "\nSoftware Version:"; lsb_release -a
+echo -e "\nArchitecture Type:"; arch
+echo -e "\nCPU Info:"; cat /proc/cpuinfo | grep 'model name' | uniq
+echo -e "\nAdditional information:"; uname -a
+echo -e "\nUsers logged on:"; w -h
+echo -e "\nCurrent date:"; date
+echo -e "\nMachine stats:"; uptime
+echo -e "\nIP for Local Network:"; hostname -i
+echo -e "\nIP for Interconnection:"; curl -4 https://icanhazip.com
+echo -e "\nHardware Overview:"; lscpu

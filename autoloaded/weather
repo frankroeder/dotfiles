@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-
-request="v2.wttr.in/${1-Hamburg}"
-[ "$COLUMNS" -lt 125 ] && request+='?n'
-curl -s -H "Accept-Language: ${LANG%_*}" --compressed "$request"

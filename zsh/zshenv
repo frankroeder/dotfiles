@@ -28,36 +28,19 @@ path=(
   )
 }
 
-if (( ${+commands[nvim]} )); then
-  export EDITOR=$(which nvim)
-elif (( ${+commands[vim]} )); then
-  export EDITOR=$(which vim)
-elif (( ${+commands[vi]} )); then
-  export EDITOR=$(which vi)
-else
-  echo "No EDITOR specified"
-fi
-export VISUAL="${EDITOR}"
+# Zsh-specific environment variables (common ones are in shared/env.sh)
+# Note: EDITOR, VISUAL, LESS, PAGER, MANPAGER, LANG, LC_ALL are set in shared/env.sh
+
 if [[ "$OSTYPE" == "Darwin" ]]; then
   export BROWSER="open"
 elif [[ "$OSTYPE" == "Linux" ]]; then
   [ $commands[firefox] ] && export BROWSER="firefox"
 fi
+
 # name of the browser application for various scripts
 if [[ -z "$BROWSER_NAME" ]] && [[ "$OSTYPE" == "Darwin" ]]; then
   echo "Warning: Set BROWSER_NAME for browser command functions."
 fi
-
-# -R  color
-# -F  exit if there is less than one page of content
-# -X  keep content on screen after exit
-# -x2 tabs are 2 instead of 8
-export LESS='-XFRx2'
-export PAGER='less'
-export MANPAGER='less'
-
-export LANG=en_US.UTF-8
-export LC_ALL=$LANG
 
 export GPG_TTY=$(tty)
 

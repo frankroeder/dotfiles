@@ -1,6 +1,0 @@
-#!/usr/bin/env zsh
-# get env value with fzf
-
-local out
-out=$(env | fzf)
-echo $(echo $out | cut -d= -f2)

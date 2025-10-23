@@ -1,5 +1,0 @@
-#!/usr/bin/env zsh
-# rm with fzf
-
-local file
-file=$(fzf --cycle +m) && rm -rfi "$file"

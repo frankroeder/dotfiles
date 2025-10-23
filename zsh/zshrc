@@ -37,7 +37,15 @@ if [[ -d "$HOME/.fzf/" ]]; then
   eval "$(fzf --zsh)"
 fi
 
-# load configs
+# Source shared configurations (used by both bash and zsh)
+if [[ -d "$DOTFILES/shared" ]]; then
+    for file in $DOTFILES/shared/*.sh; do
+        source $file
+    done
+    unset file
+fi
+
+# load zsh-specific configs
 zsh_dots=$DOTFILES/zsh/dots
 if [[ -d "$zsh_dots" ]]; then
     for file in $zsh_dots/*.zsh; do

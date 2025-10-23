@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-# compare up to 4 files with neovim's diff mode
-
-[[ "$#" = 0 ]] && {
-    printf '%s\n' "Usage: ndiff <file1> <file2> ...";
-    return 1;
-}
-nvim -d "$@";
