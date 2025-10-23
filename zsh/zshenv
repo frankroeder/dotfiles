@@ -28,8 +28,8 @@ path=(
   )
 }
 
-# Zsh-specific environment variables (common ones are in shared/env.sh)
-# Note: EDITOR, VISUAL, LESS, PAGER, MANPAGER, LANG, LC_ALL are set in shared/env.sh
+# Zsh-specific environment variables (common ones are in shared/00-env.sh)
+# Note: EDITOR, VISUAL, LESS, PAGER, MANPAGER, LANG, LC_ALL are set in shared/00-env.sh
 
 if [[ "$OSTYPE" == "Darwin" ]]; then
   export BROWSER="open"

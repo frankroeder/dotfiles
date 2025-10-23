@@ -9,6 +9,7 @@ export SACCT_FORMAT="jobid,jobname,user,account,alloccpus,elapsed,partition,node
 # Aliases
 alias gpuq='squeue --partition=gpu -o "%.18i %Q %.9q %.8j %.8u %.10a %.2t %.10M %.10L %.6C %R" | more'
 alias myq='squeue -u $USER --start -a'
+alias sacct2='sacct --format="JobID,JobName%30,elapsed"'
 
 # Functions
 wmyq() {
@@ -51,3 +52,6 @@ killallslurm() {
     scancel $SLURMID
   done
 }
+
+export UV_LINK_MODE=copy
+export UV_CACHE_DIR="$HOME/wt"
