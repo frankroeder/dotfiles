@@ -1,13 +1,14 @@
-# Edit the current command line in $EDITOR
-autoload -U edit-command-line
-zle -N edit-command-line
-bindkey '\C-x\C-e' edit-command-line
-
 # vim mode keybindings
 # https://dougblack.io/words/zsh-vi-mode.html
 # press <ESC> to switch to NORMAL mode
 bindkey -v
 export KEYTIMEOUT=2
+
+# Edit the current command line in $EDITOR
+# IMPORTANT: Must be set AFTER bindkey -v to avoid being reset
+autoload -U edit-command-line
+zle -N edit-command-line
+bindkey '\C-x\C-e' edit-command-line
 
 # Vim-like behavior
 bindkey -M vicmd "^R" redo
