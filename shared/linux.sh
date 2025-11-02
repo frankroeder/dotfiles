@@ -14,7 +14,7 @@ realusers() {
 alias datehelp='for F in {a..z} {A..Z} :z ::z :::z;do echo $F: $(date +%$F);done|sed "/:[\ \t\n]*$/d;/%[a-zA-Z]/d"'
 
 # Show swap usage sorted by process
-alias swaptop='whatswap | egrep -v "Swap used: 0" |sort -n -k 10'
+alias swaptop='whatswap | grep -E -v "Swap used: 0" |sort -n -k 10'
 
 # Memory usage with smem (if available)
 command -v smem >/dev/null 2>&1 && alias swaphogs='smem --totals --autosize --abbreviate'

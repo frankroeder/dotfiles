@@ -24,8 +24,8 @@ v() {
   files=$(fzf --query="$1" -m --no-mouse --select-1 --exit-0 \
     --preview 'head -100 {}' --preview-window \
     right:hidden --bind '?:toggle-preview')
-  # Open all selected files in a single editor instance
-  [ -n "$files" ] && ${EDITOR:-vi} $(echo "$files")
+  # Open all selected files in a single editor instance (properly quoted)
+  [ -n "$files" ] && ${EDITOR:-vi} $files
 }
 
 # Fuzzy git log (requires git and fzf)

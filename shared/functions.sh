@@ -42,7 +42,7 @@ del() {
   mkdir -p "$trash_dir"
 
   echo -n "Do you wish to move the following files to the trash: $@ (y/n)? "
-  read answer
+  read -r answer
 
   if [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
     echo "Yes"
@@ -197,7 +197,7 @@ undo_del() {
       trash_dir="$HOME/.Trash"
     fi
 
-    for file in $(echo $DEL_FILES | tr -s " " "\012"); do
+    for file in $(echo "$DEL_FILES" | tr -s " " "\012"); do
       command mv -fv "$trash_dir/$file" "$DEL_PWD"
     done
   else
@@ -240,7 +240,7 @@ tre() {
   fi
 
   if [ -z "$1" ]; then
-    tree -aC -I "$ignore" --dirsfirst "$@"
+    tree -aC -I "$ignore" --dirsfirst
   else
     tree -aC -I "$ignore" -L "$1"
   fi
