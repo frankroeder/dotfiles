@@ -45,6 +45,8 @@ if [[ -d "$DOTFILES/shared" ]]; then
     unset file
 fi
 
+[ -f ~/.local.zsh ] && source ~/.local.zsh
+
 # load zsh-specific configs
 zsh_dots=$DOTFILES/zsh/dots
 if [[ -d "$zsh_dots" ]]; then
@@ -61,7 +63,6 @@ if [ -d ~/.zsh/completion ]; then
     autoload -U ~/.zsh/compeltion/*(:t)
 fi
 
-[ -f ~/.local.zsh ] && source ~/.local.zsh
 
 # Prevent duplicates in PATH and FPATH
 typeset -U path fpath
