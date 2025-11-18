@@ -27,9 +27,11 @@ yabai -m signal --add event=window_focused app="Ghostty" action="yabai -m config
 yabai -m signal --add event=window_focused app!="^${TRANSPARENT_APPS}$" action="yabai -m config active_window_opacity 1.0"
 yabai -m signal --add event=window_focused app!="^${TRANSPARENT_APPS}$" action="yabai -m config normal_window_opacity 1.0"
 
-while [ $NUM_SPACES -lt 3 ]; do
-  yabai -m space --create
-done
+if [[ -n "$NUM_SPACES" ]] && [[ "$NUM_SPACES" =~ ^[0-9]+$ ]]; then
+  for ((i=NUM_SPACES; i<3; i++)); do
+    yabai -m space --create
+  done
+fi
 
 if [[ $NUM_SPACES -gt 2 ]]; then
   # "social" apps should always be inside the last space
