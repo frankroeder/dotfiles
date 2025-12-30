@@ -88,6 +88,7 @@ return {
     { trig = "datetime", dscr = "Current date time in format Y-m-d H:M" },
     p(os.date, "%Y-%m-%d %H:%M")
   ),
+  s({ trig = "heute", dscr = "German date format: Monday, 12 December 2025" }, p(os.date, "**%A, %d %B %Y**")),
   s({ trig = "htime" }, p(os.date, "%Y-%m-%dT%H:%M:%S+10:00")),
   s(
     { trig = "timestamp", dscr = "Current timestamp in miliseconds" },

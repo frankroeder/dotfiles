@@ -1,6 +1,7 @@
 tap "homebrew/cask-fonts"
 tap "koekeishiya/formulae"
 tap "FelixKratz/formulae"
+tap "tw93/formulae"
 cask_args appdir: "~/Applications", require_sha: true
 
 brew "git"
@@ -31,6 +32,7 @@ brew "uv"
 brew "yabai" #, args: ["HEAD"]
 brew "skhd", args: ["with-logging"]
 brew "sketchybar", args:  ["HEAD"], restart_service: :changed
+brew "mole"
 
 cask "raycast"
 cask "ghostty"
