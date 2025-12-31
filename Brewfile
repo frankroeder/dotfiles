@@ -1,4 +1,3 @@
-tap "homebrew/cask-fonts"
 tap "koekeishiya/formulae"
 tap "FelixKratz/formulae"
 tap "tw93/formulae"

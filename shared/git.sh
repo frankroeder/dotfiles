@@ -32,6 +32,9 @@ alias gcaa='git commit -a --amend -C HEAD'
 alias gcam='git commit -a -m'
 alias gcsm='git commit -s -m'
 alias gcmsg='git commit -m'
+alias gfixup='git commit --fixup'
+# Undo last commit but keep changes
+alias gundo='git reset --soft HEAD~1'
 
 # Checkout
 alias gco='git checkout'
@@ -157,6 +160,7 @@ alias gcpc='git cherry-pick --continue'
 # Count and contributors
 alias gcount='git shortlog -sn'
 alias glc='git shortlog --email --numbered --summary'
+alias gcontrib='git shortlog -sn --no-merges'
 
 # Describe and diff-tree
 alias gdct='git describe --tags `git rev-list --tags --max-count=1`'

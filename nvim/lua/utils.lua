@@ -49,10 +49,10 @@ M.get_cstring = function(ctype)
   local cstring = vim.filetype.get_option(vim.bo.filetype, "commentstring")
 
   -- Parse the comment string to extract left and right parts
-  local left, right = cstring:match("^(.-)%%s(.-)$")
+  local left, right = cstring:match "^(.-)%%s(.-)$"
 
   if not right then
-    left = cstring:match("^(.-)%%s") or cstring
+    left = cstring:match "^(.-)%%s" or cstring
     right = ""
   end
 
@@ -101,7 +101,7 @@ M.get_api_key = function(key, fallback)
       handle:close()
     end
   end
-	-- TODO: Fix this --
+  -- TODO: Fix this --
   -- check if on Linux
   -- if vim.fn.has("unix") == 1 then
   -- 	local handle = io.popen("pass OpenAI")

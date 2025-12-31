@@ -22,7 +22,7 @@ return {
         wo = { wrap = true },
       },
     },
-		-- TODO
+    -- TODO
     -- statuscolumn = { enabled = true },
   },
   keys = {

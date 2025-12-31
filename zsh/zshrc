@@ -60,7 +60,7 @@ unset zsh_dots
 # enable completions
 if [ -d ~/.zsh/completion ]; then
     fpath=(~/.zsh/completion $fpath)
-    autoload -U ~/.zsh/compeltion/*(:t)
+    autoload -U ~/.zsh/completion/*(:t)
 fi
 
 

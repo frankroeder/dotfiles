@@ -19,8 +19,10 @@ if [ "$OSTYPE" = "Darwin" ]; then
   export LDFLAGS="-L$HOMEBREW_PREFIX/opt/openssl/lib $LDFLAGS"
   export CPPFLAGS="-I$HOMEBREW_PREFIX/opt/openssl/include $LDFLAGS"
 
-  # ruby + gem
-  path=("$HOME/.gem/ruby/2.6.0/bin" $path)
+# ruby + gem
+if [ -d "$HOME/.gem/ruby" ]; then
+  path=("$HOME/.gem/ruby/"*/bin(N[-1]) $path)
+fi
 
   # go
   export GOPATH="$HOME/Documents/golang"

@@ -134,6 +134,8 @@ extract() {
     *.xz) unxz -c "$fullpath" > "${filename%.xz}" ;;
     *.Z) uncompress -c "$fullpath" > "${filename%.Z}" ;;
     *.7z) 7z x "$fullpath" ;;
+    *.zst) zstd -d "$fullpath" ;;
+    *.tar.zst) tar --zstd -xf "$fullpath" ;;
     *.rar) unrar x "$fullpath" ;;
     *)
       echo "'$FILE' cannot be extracted via extract()"
