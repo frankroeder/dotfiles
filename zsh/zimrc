@@ -1,0 +1,10 @@
+zmodule zsh-users/zsh-completions
+zmodule mafredri/zsh-async
+zmodule MichaelAquilina/zsh-you-should-use
+zmodule zsh-users/zsh-autosuggestions
+zmodule zsh-users/zsh-syntax-highlighting
+zmodule zsh-users/zsh-history-substring-search
+if [ "$OSTYPE" = "Linux" ]; then
+  zmodule thewtex/tmux-mem-cpu-load
+fi
+zmodule sindresorhus/pure --source async.zsh --source pure.zsh

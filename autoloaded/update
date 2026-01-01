@@ -39,15 +39,10 @@ brew_update() {
   brew cleanup -s --prune 7;
 }
 
-conda_update() {
-  conda update conda --name base --yes --verbose;
-  conda update --all --name base --yes --verbose;
-  conda clean --all --yes;
-}
-
-zplug_update() {
-  zplug update;
-  zplug clear;
+zsh_update() {
+  zimfw update;
+  zimfw upgrade;
+  zimfw clean;
 }
 
 npm_update() {
@@ -101,9 +96,8 @@ run(){
     # Keep-alive: update existing `sudo` time stamp until script has finished
     while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
-    [ $commands[conda] ] && exec_routine conda_update
     [ $commands[nvim] ] && exec_routine neovim_plug_update
-    [ $commands[zplug] ] && exec_routine zplug_update
+    [ $commands[zimfw] ] && exec_routine zsh_update
     [ $commands[npm] ] && exec_routine npm_update
     [ $commands[gem] ] && exec_routine gem_update
     [ $commands[mas] ] && exec_routine mas_update
