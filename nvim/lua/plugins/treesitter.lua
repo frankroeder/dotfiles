@@ -16,7 +16,7 @@ return {
       additional_vim_regex_highlighting = false,
       disable = {
         "latex",
-				"csv",
+        "csv",
         -- "python" -- semantic highlighting via lsp
       },
     },

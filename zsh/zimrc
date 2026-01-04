@@ -4,7 +4,6 @@ zmodule MichaelAquilina/zsh-you-should-use
 zmodule zsh-users/zsh-autosuggestions
 zmodule zsh-users/zsh-syntax-highlighting
 zmodule zsh-users/zsh-history-substring-search
-if [ "$OSTYPE" = "Linux" ]; then
-  zmodule thewtex/tmux-mem-cpu-load
-fi
+[[ -d /opt/homebrew/share/zsh ]] && zmodule /opt/homebrew/share/zsh --fpath site-functions
+[ "$OSTYPE" = "Linux" ] && [ "$ARCHITECTURE" = "x86_64" ] && zmodule thewtex/tmux-mem-cpu-load
 zmodule sindresorhus/pure --source async.zsh --source pure.zsh
