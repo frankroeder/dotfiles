@@ -42,7 +42,7 @@ yabai -m signal --add event=window_focused action="sketchybar -m --trigger windo
 yabai -m signal --add event=display_removed action="launchctl kickstart -k \"gui/${UID}/homebrew.mxcl.yabai\""
 yabai -m signal --add event=display_added action="launchctl kickstart -k \"gui/${UID}/homebrew.mxcl.yabai\""
 
-WINDOW_RULES="$HOME/.config/yabai/window_rules"
+WINDOW_RULES="${DOTFILES:-$HOME/.dotfiles}/yabai/window_rules"
 if [[ -f $WINDOW_RULES ]]; then
   source $WINDOW_RULES
 fi

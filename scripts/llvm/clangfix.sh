@@ -3,7 +3,7 @@
 ping -c 1 www.google.com
 if [ $? -eq 0 ]; then
     branch=master
-    address='http://llvm.org/git'
+    address='https://llvm.org/git'
 
     tools='llvm/tools'
     git clone -b $branch $address/clang $tools/clang

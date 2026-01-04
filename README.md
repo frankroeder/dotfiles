@@ -8,7 +8,7 @@ My personal dotfiles for Linux and macOS.
 
 ## Installation
 - Clone the repository as `~/.dotfiles`
-- Consider to test these dotfiles in a docker container by executing `make test` or `NOSUDO=1 make test`.
+- Consider testing these dotfiles in a Docker container by executing `make test` or `NOSUDO=1 make test`.
 
 ## Options
 - macOS Intel and ARM: `make macos`

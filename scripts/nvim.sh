@@ -78,7 +78,7 @@ install_binary() {
 
   # Prepare temporary directory
   mkdir -p "$NVIM_TMP_DIR"
-  cd "$NVIM_TMP_DIR"
+  cd "$NVIM_TMP_DIR" || error "Failed to enter directory $NVIM_TMP_DIR"
 
   # Download the asset and checksum file
   info "Downloading $asset_name from $download_url"
@@ -120,7 +120,7 @@ install_from_source() {
 
   local src_dir="$NVIM_TMP_DIR/neovim_src"
   mkdir -p "$src_dir"
-  cd "$src_dir"
+  cd "$src_dir" || error "Failed to enter directory $src_dir"
 
   if [[ -d ".git" ]]; then
     git fetch --all

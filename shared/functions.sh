@@ -178,7 +178,8 @@ man() {
 
 # Clean Python cache files
 pyclean() {
-  find . | grep -E "(__pycache__|\.py[cod]$)" | xargs rm -rvf
+  find . -type f -name "*.py[cod]" -exec rm -v {} \;
+  find . -type d -name "__pycache__" -exec rm -rfv {} +
 }
 
 # Generate random password
@@ -260,4 +261,8 @@ lpath() {
       gsub("/"user, "\033[31m/"user"\033[0m");
       print
     }'
+}
+
+catcsv() {
+  cat "$1"  | column -t -s,
 }

@@ -35,7 +35,7 @@ elif [ "$BROWSER_NAME" = "Orion RC" ]; then
   END
   )
 elif [[ "$BROWSER_NAME" = "Zen Browser" ]]; then
-  # FIXME: not a nice solution
+  # FIXME: Zen Browser lacks AppleScript support, using UI scripting (simulating keystrokes)
   URLS=$(osascript <<'END'
   tell application "Zen Browser" to activate
   delay 0.5 -- Allow time for the browser to come to the foreground

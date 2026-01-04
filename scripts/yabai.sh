@@ -1,8 +1,8 @@
-#!/bin/zsh
+#!/usr/bin/env zsh
 
 # scripting-addition;
 # function to update sudoers file
-function suyabai () {
+suyabai() {
     SHA256=$(shasum -a 256 $(which yabai) | awk "{print \$1;}")
     if [ -f "/private/etc/sudoers.d/yabai" ]; then
         sudo sed -i '' -e 's/sha256:[[:alnum:]]*/sha256:'${SHA256}'/' /private/etc/sudoers.d/yabai

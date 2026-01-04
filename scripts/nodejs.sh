@@ -18,7 +18,7 @@ PKG="$RELEASE.tar.xz"
 TARGET_DIR="$HOME/tmp/"
 
 curl -L https://nodejs.org/dist/$LATEST_VERSION/$PKG > "$TARGET_DIR/$PKG";
-cd $TARGET_DIR;
+cd "$TARGET_DIR" || exit 1;
 tar -xJf "$PKG";
 mkdir -p "$HOME/.local/nodejs"
 ln -sfv "$TARGET_DIR$RELEASE/bin" "$HOME/.local/nodejs/";

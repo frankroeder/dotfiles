@@ -26,7 +26,7 @@ URL=$(osascript <<'END'
 END
 )
 elif [[ "$BROWSER_NAME" = "Zen Browser" ]]; then
-# FIXME
+# FIXME: Zen Browser lacks AppleScript support, using UI scripting
 URL=$(osascript <<'END'
 tell application "System Events"
     tell application process "Zen Browser"

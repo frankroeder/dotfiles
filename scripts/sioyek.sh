@@ -3,13 +3,13 @@
 setopt PIPE_FAIL PRINT_EXIT_VALUE ERR_RETURN SOURCE_TRACE XTRACE
 
 if [ ! -d "$HOME/tmp/sioyek" ]; then
-	git clone --recursive https://github.com/ahrm/sioyek $HOME/tmp/sioyek
-  cd $HOME/tmp/sioyek
+	git clone --recursive https://github.com/ahrm/sioyek "$HOME/tmp/sioyek"
+  cd "$HOME/tmp/sioyek" || exit 1
   if [[ ! -x build_mac.sh ]]; then
 		chmod +x build_mac.sh
   fi
 else
-  cd $HOME/tmp/sioyek
+  cd "$HOME/tmp/sioyek" || exit 1
   git pull
   if [[ ! -x delete_build.sh ]]; then
     chmod +x delete_build.sh

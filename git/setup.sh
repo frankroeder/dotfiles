@@ -4,7 +4,7 @@ main() {
   local git_username
   local git_email
   local LOCAL_GIT_CONF=$HOME/.local.gitconfig
-  cd $HOME;
+  cd "$HOME" || exit 1
 
   if [ -z "$(git config --get user.email)" ]; then
       read -p "Please input your git email: " -r git_email

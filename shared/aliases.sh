@@ -18,7 +18,7 @@ alias vi='vim'
 alias vim="${EDITOR:-vim}"
 
 # Utilities
-alias speedtest="wget -O /dev/null http://speed.transip.nl/100mb.bin"
+alias speedtest="wget -O /dev/null https://speed.transip.nl/100mb.bin"
 alias hogs="ps wwaxr -o pid,stat,%cpu,time,command | awk 'NR<=10'"
 alias mails="${EDITOR:-vim} /var/mail/$USER"
 alias :q="exit"

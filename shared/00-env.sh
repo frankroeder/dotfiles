@@ -23,8 +23,3 @@ export MANPAGER='less'
 # History settings (bash will override some of these)
 export HISTSIZE=10000
 export SAVEHIST=10000
-
-# FZF default options (if fzf is available)
-if command -v fzf >/dev/null 2>&1; then
-  export FZF_DEFAULT_OPTS="--reverse --inline-info --cycle"
-fi

@@ -11,7 +11,7 @@ local _anthropic = {
     command = { max_tokens = 4096 },
   },
   topic = {
-    model = "claude-3-5-haiku-latest",
+    model = "claude-4-5-haiku",
     params = { max_tokens = 32 },
   },
   headers = function(self)
@@ -21,14 +21,10 @@ local _anthropic = {
       ["anthropic-version"] = "2023-06-01",
     }
   end,
-  -- Using model aliases (https://docs.anthropic.com/en/docs/about-claude/models/overview#model-aliases)
   models = {
-    "claude-opus-4-1",
-    "claude-opus-4-0",
-    "claude-sonnet-4-0",
-    "claude-3-7-sonnet-latest",
-    "claude-3-5-sonnet-latest",
-    "claude-3-5-haiku-latest",
+    "claude-haiku-4-5",
+    "claude-opus-4-5",
+    "claude-sonnet-4-5",
   },
   preprocess_payload = function(payload)
     for _, message in ipairs(payload.messages) do
@@ -142,9 +138,10 @@ local M = {
           params = { max_completion_tokens = 64 },
         },
         models = {
-          "grok-3",
           "grok-3-mini",
-          "grok-4-0709",
+          "grok-code-fast-1",
+          "grok-4-1-fast-non-reasoning",
+          "grok-4-1-fast-reasoning",
         },
       },
       openai = {
@@ -172,7 +169,10 @@ local M = {
           "gpt-5",
           "gpt-5-nano",
           "gpt-5-mini",
-          "gpt-5-chat-latest",
+          "gpt-5.1-codex",
+          "gpt-5.1-codex-max",
+          "gpt-5.2",
+          "gpt-5.2-pro",
         },
       },
       anthropic = _anthropic,
@@ -222,9 +222,9 @@ local M = {
           },
         },
         models = {
-          "claude-opus-4-0",
-          "claude-sonnet-4-0",
-          "claude-3-7-sonnet-latest",
+          "claude-haiku-4-5",
+          "claude-opus-4-5",
+          "claude-sonnet-4-5",
         },
       }),
       gemini = {
@@ -243,7 +243,7 @@ local M = {
           command = { temperature = 0.8, topP = 1, topK = 10, maxOutputTokens = 8192 },
         },
         topic = {
-          model = "gemini-1.5-flash",
+          model = "gemini-flash-lite-latest",
           params = { maxOutputTokens = 64 },
         },
         headers = function(self)
@@ -253,14 +253,9 @@ local M = {
           }
         end,
         models = {
-          "gemini-2.5-flash-preview-05-20",
-          "gemini-2.5-pro-preview-05-06",
-          "gemini-1.5-pro-latest",
-          "gemini-1.5-flash-latest",
-          "gemini-2.5-pro-exp-03-25",
-          "gemini-2.0-flash-lite",
-          "gemini-2.0-flash-thinking-exp",
-          "gemma-3-27b-it",
+          "gemini-3-pro-preview",
+          "gemini-3-flash-preview",
+          "gemini-flash-lite-latest",
         },
         preprocess_payload = function(payload)
           local contents = {}
@@ -309,7 +304,6 @@ local M = {
       },
     },
     cmd_prefix = "Prt",
-    chat_conceal_model_params = false,
     user_input_ui = "buffer",
     toggle_target = "",
     online_model_selection = true,
