@@ -17,7 +17,7 @@ local mode = sbar.add("item", "widgets.mode", {
 })
 
 mode:subscribe({"routine", "system_woke", "forced"}, function()
-  sbar.exec("defaults read -g AppleInterfaceStyle", function(style)
+  sbar.exec("defaults read -g AppleInterfaceStyle 2>/dev/null", function(style)
     local is_dark = style == "Dark\n" or style == "Dark"
     mode:set({
       icon = {
