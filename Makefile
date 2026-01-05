@@ -342,6 +342,7 @@ _macos: ## macOS-specific configuration and applications
 	bash $(DOTFILES)/macos/main.bash; \
 	@ln -sfv $(DOTFILES)/sketchybar/bottom $(HOME)/.config/sketchybar
 	@ln -sfv $(DOTFILES)/sketchybar/top $(HOME)/.config/sketchybar-top
+	$(MAKE) sketchybar-top
 	@if ! [ -f "$(HOME)/Library/Fonts/sketchybar-app-font.ttf" ]; then \
 		$(call print_step,Downloading sketchybar font); \
 		curl -fsSL https://github.com/kvndrsslr/sketchybar-app-font/releases/download/v2.0.29/sketchybar-app-font.ttf -o $(HOME)/Library/Fonts/sketchybar-app-font.ttf; \
@@ -453,3 +454,11 @@ else
 	$(CONTAINER_CMD) exec -it maketest_sudo /bin/bash -c "make linux";
 endif
 	$(call print_step,Container can now be shut down)
+
+.PHONY: sketchybar-top
+sketchybar-top: ## Install and start SketchyBar Top LaunchAgent
+	$(call print_step,Installing sketchybar-top LaunchAgent)
+	@mkdir -p $(HOME)/Library/LaunchAgents
+	@ln -sfv $(DOTFILES)/sketchybar/top/git.frank.sketchybar-top.plist $(HOME)/Library/LaunchAgents/git.frank.sketchybar-top.plist
+	@launchctl bootout gui/$(shell id -u) $(HOME)/Library/LaunchAgents/git.frank.sketchybar-top.plist 2>/dev/null || true
+	@launchctl bootstrap gui/$(shell id -u) $(HOME)/Library/LaunchAgents/git.frank.sketchybar-top.plist

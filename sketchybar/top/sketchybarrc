@@ -5,4 +5,4 @@ export BAR_NAME=sketchybar-top
 export CONFIG_DIR="$HOME/.config/sketchybar-top"
 
 # Execute the init.lua script
-exec lua $CONFIG_DIR/init.lua
+exec /opt/homebrew/bin/lua $CONFIG_DIR/init.lua
