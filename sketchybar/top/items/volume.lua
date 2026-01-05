@@ -31,12 +31,17 @@ local volume = sbar.add("item", "top.widgets.volume", {
 })
 
 volume:subscribe({"routine", "volume_change", "system_woke"}, function()
-  sbar.exec("osascript -e 'output volume of (get volume settings)'", function(vol)
-    local volume_level = tonumber(vol)
+  sbar.exec("osascript -e 'get volume settings'", function(settings)
+    local volume_level = tonumber(settings:match("output volume:(%d+)"))
+    local is_muted = settings:match("output muted:(%a+)") == "true"
+    
     local icon = icons.volume[0]
     local color = colors.grey
 
-    if volume_level > 66 then
+    if is_muted then
+      icon = icons.volume[0]
+      color = colors.red
+    elseif volume_level > 66 then
       icon = icons.volume[100]
       color = colors.white
     elseif volume_level > 33 then
@@ -52,14 +57,15 @@ volume:subscribe({"routine", "volume_change", "system_woke"}, function()
 
     volume:set({
       icon = { string = icon, color = color },
-      label = { string = volume_level .. "%" }
+      label = { string = is_muted and "Muted" or volume_level .. "%" }
     })
   end)
 end)
 
 volume:subscribe("mouse.clicked", function()
-  sbar.exec("osascript -e 'set volume output muted not (output muted of (get volume settings))'")
-  -- TODO: Also change the symbol --
+  sbar.exec("osascript -e 'set volume output muted not (output muted of (get volume settings))'", function()
+    sbar.trigger("volume_change")
+  end)
 end)
 -- volume:subscribe("mouse.scrolled", function(env)
 --   local delta = env.SCROLL_DELTA

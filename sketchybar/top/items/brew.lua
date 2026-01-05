@@ -1,0 +1,27 @@
+local colors = require("colors")
+local icons = require("icons")
+
+local brew = sbar.add("item", "widgets.brew", {
+  position = "right",
+  icon = {
+    string = icons.brew,
+    color = colors.white,
+  },
+  label = {
+    string = "?",
+  },
+  update_freq = 3600,
+})
+
+local function update_brew()
+  sbar.exec("HOMEBREW_NO_AUTO_UPDATE=1 brew outdated | wc -l | tr -d ' '", function(count)
+    local outdated = tonumber(count) or 0
+    brew:set({
+      label = { string = tostring(outdated) },
+      drawing = outdated > 0,
+    })
+  end)
+end
+
+brew:subscribe({"routine", "system_woke"}, update_brew)
+update_brew()

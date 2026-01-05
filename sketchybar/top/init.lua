@@ -20,6 +20,7 @@ sbar.set_bar_name("sketchybar-top")
 
 -- Bundle the entire initial configuration into a single message to sketchybar
 sbar.begin_config()
+require "default"
 require "bar"
 require "items.init"
 sbar.end_config()

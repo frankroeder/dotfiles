@@ -22,9 +22,10 @@ local media = sbar.add("item", "widgets.media", {
   position = "center",
   updates = true,
   background = {
-    color = colors.lightblack,
-    padding_left = 2,
-    padding_right = 2,
+    color = colors.bg1,
+    border_color = colors.bg2,
+    border_width = 1,
+    drawing = true,
   },
 })
 

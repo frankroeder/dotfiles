@@ -21,6 +21,12 @@ local front_app = sbar.add("item", "top.front_app", {
       size = 16.0,
     },
   },
+  background = {
+    color = colors.bg1,
+    border_color = colors.bg2,
+    border_width = 1,
+    drawing = true,
+  },
   updates = true,
 })
 
@@ -38,6 +44,12 @@ end)
 local window_title = sbar.add("item", "top.window_title", {
   display = "active",
   position = "left",
+  background = {
+    color = colors.bg1,
+    border_color = colors.bg2,
+    border_width = 1,
+    drawing = true,
+  },
   label = {
     font = {
       size = 14.0,

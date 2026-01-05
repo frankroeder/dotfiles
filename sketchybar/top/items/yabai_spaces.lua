@@ -38,6 +38,7 @@ for i, space_name in ipairs(static_names) do
       border_width = 1,
       height = 24,
       border_color = colors.black,
+      drawing = true,
     },
     click_script = "yabai -m space --focus " .. i,
   })
@@ -51,6 +52,7 @@ for i, space_name in ipairs(static_names) do
       border_color = colors.bg2,
       height = 28,
       border_width = 2,
+      drawing = true,
     },
   })
 
@@ -173,6 +175,7 @@ local window_properties = sbar.add("item", "top.yabai_property", {
     height = 24,
     border_color = colors.bg2,
     color = colors.bg1,
+    drawing = true,
   },
   -- drawing = false,
 })

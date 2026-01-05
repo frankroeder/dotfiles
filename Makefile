@@ -345,7 +345,7 @@ _macos: ## macOS-specific configuration and applications
 	$(MAKE) sketchybar-top
 	@if ! [ -f "$(HOME)/Library/Fonts/sketchybar-app-font.ttf" ]; then \
 		$(call print_step,Downloading sketchybar font); \
-		curl -fsSL https://github.com/kvndrsslr/sketchybar-app-font/releases/download/v2.0.29/sketchybar-app-font.ttf -o $(HOME)/Library/Fonts/sketchybar-app-font.ttf; \
+		curl -fsSL https://github.com/kvndrsslr/sketchybar-app-font/releases/download/v2.0.51/sketchybar-app-font.ttf -o $(HOME)/Library/Fonts/sketchybar-app-font.ttf; \
 	fi
 	@ln -sfv $(DOTFILES)/skhd $(HOME)/.config/skhd
 	$(call print_step,Running Sioyek setup); \

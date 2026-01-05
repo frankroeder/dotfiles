@@ -4,37 +4,50 @@ local settings = require("settings")
 
 local wifi = sbar.add("item", "top.widgets.wifi", {
   position = "right",
-  update_freq = 60,
+  update_freq = 30,
   icon = {
-    string = icons.wifi.connected,
-    color = colors.blue,
-    padding_left = 8,
     font = {
       style = "Regular",
       size = 16.0,
     },
   },
   label = {
-    string = "Wifi",
     font = {
       style = settings.font.style_map["Bold"],
-      size = 14.0,
+      size = 12.0,
     },
-    padding_right = 8,
-    color = colors.white,
   },
 })
 
-wifi:subscribe({"routine", "system_woke", "wifi_change"}, function()
-  sbar.exec("ipconfig getsummary en0 | awk -F ' SSID : '  '/ SSID : / {print $2}'", function(ssid)
-    if ssid ~= "" then
-      wifi:set({ label = { string = ssid } })
+local function update_network()
+  sbar.exec("ipconfig getsummary en0", function(summary)
+    local ssid = summary:match("SSID : ([^\n]+)")
+    if ssid then
+      wifi:set({
+        icon = { string = icons.wifi.connected, color = colors.blue },
+        label = { string = ssid, drawing = true }
+      })
     else
-      wifi:set({ label = { string = "Disconnected" } })
+      sbar.exec("ifconfig -u | grep -E 'inet ' | grep -v '127.0.0.1' | grep -v 'en0'", function(lan)
+        if lan ~= "" then
+          wifi:set({
+            icon = { string = "􁓤", color = colors.green },
+            label = { string = "LAN", drawing = true }
+          })
+        else
+          wifi:set({
+            icon = { string = icons.wifi.disconnected, color = colors.grey },
+            label = { drawing = false }
+          })
+        end
+      end)
     end
   end)
-end)
+end
+wifi:subscribe({"routine", "system_woke", "wifi_change"}, update_network)
 
 wifi:subscribe("mouse.clicked", function()
   sbar.exec("open 'x-apple.systempreferences:com.apple.preference.network?id=wifi'")
 end)
+
+update_network()
