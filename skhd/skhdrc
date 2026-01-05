@@ -6,7 +6,7 @@ ctrl + alt + cmd - r : \
 	skhd --restart-service;
 
 # reload sketchybar
-ctrl + alt + cmd - b : sketchybar --reload
+ctrl + alt + cmd - b : sketchybar --reload && sketchybar-top --reload
 
 # toggle main terminal application
 fn - space : bash "$DOTFILES/scripts/toggle_app.bash" "Ghostty"

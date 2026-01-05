@@ -69,7 +69,6 @@ local icons = {
     python = "􀏋",
     ssh = "􀀰",
     hackernews = "􀢞",
-    arxiv = "􀫊",
   },
 
   -- Alternative NerdFont icons
@@ -136,7 +135,6 @@ local icons = {
     python = "",
     ssh = "󰣀",
     hackernews = "",
-    arxiv = "󰑔",
   },
 }
 

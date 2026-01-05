@@ -25,23 +25,23 @@ local ram_g = sbar.add("graph", "widgets.ram", 80, {
   },
 })
 
-ram_g:subscribe("memory_update", function(env)
-  local usedram = tonumber(env.memory_load:match "(%d+)")
-  -- update graph with normalized usage
-  ram_g:push { usedram / 100 }
-
-  -- color-code memory usage levels
-  local color = colors.white
-  if usedram >= 80 then
-    color = colors.red
-  elseif usedram >= 60 then
-    color = colors.orange
-  elseif usedram >= 30 then
-    color = colors.yellow
-  end
-  -- display percentage with consistent label
-  ram_g:set {
-    graph = { color = color, line_width = 1 },
-    label = "RAM " .. env.memory_load,
+local ram_popup = sbar.add("item", {
+  position = "popup." .. ram_g.name,
+  label = {
+    font = { size = 12.0 },
+    string = "Checking memory pressure..."
+  },
+  background = {
+    color = colors.bg1,
+    border_color = colors.black,
+    border_width = 1,
+    corner_radius = 5,
   }
+})
+
+ram_g:subscribe("mouse.clicked", function()
+  ram_g:set({ popup = { drawing = "toggle" } })
+  sbar.exec("memory_pressure | tail -n 3", function(pressure)
+    ram_popup:set({ label = { string = pressure } })
+  end)
 end)
