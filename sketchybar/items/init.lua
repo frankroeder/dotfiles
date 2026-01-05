@@ -11,3 +11,6 @@ require "items.ram"
 require "items.cpu"
 require "items.network"
 require "items.swap"
+
+require "items.mode"
+require "items.coffee"

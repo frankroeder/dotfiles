@@ -56,14 +56,11 @@ for i, space_name in ipairs(static_names) do
 
   local space_popup = sbar.add("item", {
     position = "popup." .. space.name,
-    padding_left = 5,
-    padding_right = 0,
-    background = {
-      drawing = true,
-      image = {
-        corner_radius = 9,
-        scale = 0.2,
-      },
+    padding_left = 10,
+    padding_right = 10,
+    label = {
+      font = { size = 12.0 },
+      max_chars = 30,
     },
   })
 
@@ -81,8 +78,14 @@ for i, space_name in ipairs(static_names) do
 
   space:subscribe("mouse.clicked", function(env)
     if env.BUTTON == "other" then
-      space_popup:set { background = { image = "space." .. env.SID } }
-      space:set { popup = { drawing = "toggle" } }
+      sbar.exec("yabai -m query --windows --space " .. env.SID .. " | jq -r '.[].app + \" - \" + .title'", function(windows)
+        local window_list = ""
+        for line in windows:gmatch("[^\r\n]+") do
+          window_list = window_list .. "• " .. line .. "\n"
+        end
+        space_popup:set({ label = { string = window_list } })
+        space:set { popup = { drawing = "toggle" } }
+      end)
     else
       local op = (env.BUTTON == "right") and "--destroy" or "--focus"
       sbar.exec("yabai -m space " .. op .. " " .. env.SID)
