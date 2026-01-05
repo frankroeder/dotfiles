@@ -340,7 +340,8 @@ _macos: ## macOS-specific configuration and applications
 	@mkdir -p $(HOME)/screens $(HOME)/.config $(HOME)/Library/Fonts
 	$(call print_step,Running macOS setup script); \
 	bash $(DOTFILES)/macos/main.bash; \
-	@ln -sfv $(DOTFILES)/sketchybar $(HOME)/.config/sketchybar
+	@ln -sfv $(DOTFILES)/sketchybar/bottom $(HOME)/.config/sketchybar
+	@ln -sfv $(DOTFILES)/sketchybar/top $(HOME)/.config/sketchybar-top
 	@if ! [ -f "$(HOME)/Library/Fonts/sketchybar-app-font.ttf" ]; then \
 		$(call print_step,Downloading sketchybar font); \
 		curl -fsSL https://github.com/kvndrsslr/sketchybar-app-font/releases/download/v2.0.29/sketchybar-app-font.ttf -o $(HOME)/Library/Fonts/sketchybar-app-font.ttf; \

@@ -70,6 +70,10 @@ local icons = {
     ssh = "􀀰",
     hackernews = "􀢞",
     arxiv = "􀫊",
+    bluetooth = {
+      on = "􀟥",
+      off = "􀟛",
+    },
   },
 
   -- Alternative NerdFont icons
@@ -137,6 +141,10 @@ local icons = {
     ssh = "󰣀",
     hackernews = "",
     arxiv = "󰑔",
+    bluetooth = {
+      on = "󰂱",
+      off = "󰂲",
+    },
   },
 }
 

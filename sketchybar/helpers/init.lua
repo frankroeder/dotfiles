@@ -7,4 +7,4 @@ package.cpath = package.cpath
   .. os.getenv "USER"
   .. "/.local/share/sketchybar_lua/?.so"
 
-os.execute "(cd helpers && make)"
+os.execute "(cd /Users/frankroeder/.dotfiles/sketchybar/helpers && make)"
