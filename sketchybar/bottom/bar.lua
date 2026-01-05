@@ -1,4 +1,4 @@
-local colors = require("colors")
+local colors = require "colors"
 
 sbar.bar {
   height = 40,
@@ -9,5 +9,5 @@ sbar.bar {
   border_color = colors.transparent,
   margin = 10,
   corner_radius = 12,
-  topmost = "on",
+  topmost = "off",
 }

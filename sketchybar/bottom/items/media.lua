@@ -5,6 +5,7 @@ local app_icons = require "helpers.app_icons"
 sbar.add("event", "music_change", "com.apple.Music.playerInfo")
 
 local media = sbar.add("item", "widgets.media", {
+  position = "center",
   drawing = false,
   icon = {
     font = "sketchybar-app-font:Regular:16.0",
@@ -19,12 +20,8 @@ local media = sbar.add("item", "widgets.media", {
       size = 14.0,
     },
   },
-  position = "center",
   updates = true,
   background = {
-    color = colors.bg1,
-    border_color = colors.bg2,
-    border_width = 1,
     drawing = true,
   },
 })

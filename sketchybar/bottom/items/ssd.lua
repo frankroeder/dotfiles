@@ -36,41 +36,20 @@ local ssd_volume = sbar.add("item", "widgets.ssd.volume", {
   },
 })
 
-local ssd_popup = sbar.add("item", {
-  position = "popup." .. ssd_volume.name,
-  label = {
-    font = { family = "Hack Nerd Font Mono", size = 12.0 },
-    string = "Checking disk usage..."
-  },
-})
-
-ssd_volume:subscribe("mouse.clicked", function()
-  ssd_volume:set({ popup = { drawing = "toggle" } })
-  sbar.exec("df -h / | tail -1 | awk '{print \"Used: \" $3 \" / \" $2 \" (\" $5 \")\"}'", function(info)
-    ssd_popup:set({ label = { string = info } })
-  end)
-end)
-
-ssd_volume:subscribe("mouse.exited.global", function()
-  ssd_volume:set({ popup = { drawing = false } })
-end)
-
-ssd_volume:subscribe({ "routine", "forced" }, function(_)
+ssd_volume:subscribe({ "routine", "forced", "system_woke" }, function(_)
   sbar.exec(
     [[
-    osascript -e'
+    osascript -e '
     tell application "Finder"
-        set drive_name to "Macintosh HD"
-        set free_bytes to free space of disk drive_name
-        set total_bytes to capacity of disk drive_name
+        set free_bytes to free space of startup disk
+        set total_bytes to capacity of startup disk
         set occupied_percent to (((total_bytes - free_bytes) / total_bytes) * 100) as integer
         return occupied_percent
     end tell'
   ]],
     function(usedstorage)
       if usedstorage then
-        local storage = tonumber(usedstorage)
-        local Label = storage .. "%"
+        local storage = tonumber(usedstorage) or 0
         local Icon = "󰅚"
         local Color = colors.white
         for _, threshold in ipairs(icon_thresholds) do
@@ -89,7 +68,7 @@ ssd_volume:subscribe({ "routine", "forced" }, function(_)
 
         ssd_volume:set {
           label = {
-            string = "SSD " .. Label,
+            string = "SSD " .. storage .. "%",
             color = Color,
           },
           icon = {

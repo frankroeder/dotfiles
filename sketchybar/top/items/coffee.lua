@@ -1,5 +1,5 @@
-local colors = require("colors")
-local icons = require("icons")
+local colors = require "colors"
+local icons = require "icons"
 
 local coffee = sbar.add("item", "widgets.coffee", {
   position = "right",
@@ -18,32 +18,32 @@ local coffee = sbar.add("item", "widgets.coffee", {
 local function update_coffee()
   sbar.exec("pgrep -x caffeinate", function(pid)
     if pid ~= "" then
-      coffee:set({
+      coffee:set {
         icon = {
-            string = icons.coffee.on,
-            color = colors.yellow,
-        }
-      })
+          string = icons.coffee.on,
+          color = colors.yellow,
+        },
+      }
     else
-      coffee:set({
+      coffee:set {
         icon = {
-            string = icons.coffee.off,
-            color = colors.grey,
-        }
-      })
+          string = icons.coffee.off,
+          color = colors.grey,
+        },
+      }
     end
   end)
 end
 
-coffee:subscribe({"routine", "system_woke"}, update_coffee)
+coffee:subscribe({ "routine", "system_woke" }, update_coffee)
 update_coffee()
 
 coffee:subscribe("mouse.clicked", function()
   sbar.exec("pgrep -x caffeinate", function(pid)
     if pid ~= "" then
-      sbar.exec("killall caffeinate")
+      sbar.exec "killall caffeinate"
     else
-      sbar.exec("caffeinate -d -i &")
+      sbar.exec "caffeinate -d -i &"
     end
     sbar.delay(0.5, update_coffee)
   end)

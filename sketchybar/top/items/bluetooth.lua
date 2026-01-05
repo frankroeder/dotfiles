@@ -1,6 +1,6 @@
-local colors = require("colors")
-local icons = require("icons")
-local settings = require("settings")
+local colors = require "colors"
+local icons = require "icons"
+local settings = require "settings"
 
 local bluetooth = sbar.add("item", "top.widgets.bluetooth", {
   position = "right",
@@ -30,38 +30,46 @@ local bluetooth_popup = sbar.add("item", {
   label = {
     font = { size = 12.0 },
     max_chars = 40,
-    string = "Checking..."
+    string = "Checking...",
   },
 })
 
-bluetooth:subscribe({"routine", "system_woke"}, function()
-  sbar.exec([[system_profiler SPBluetoothDataType | grep -E "Connected: Yes" -B 10 | grep -E "^[ ]{8}[^:]+" | sed 's/^[ ]*//' | sed 's/:$//' | wc -l | tr -d ' ']], function(count)
-    local dev_count = tonumber(count) or 0
-    local icon = icons.bluetooth.off
-    local color = colors.grey
-    local label = ""
+bluetooth:subscribe({ "routine", "system_woke" }, function()
+  sbar.exec(
+    [[system_profiler SPBluetoothDataType | grep -E "Connected: Yes" -B 10 | grep -E "^[ ]{8}[^:]+" | sed 's/^[ ]*//' | sed 's/:$//' | wc -l | tr -d ' ']],
+    function(count)
+      local dev_count = tonumber(count) or 0
+      local icon = icons.bluetooth.off
+      local color = colors.grey
+      local label = ""
 
-    if dev_count > 0 then
-      icon = icons.bluetooth.on
-      color = colors.blue
-      label = tostring(dev_count)
+      if dev_count > 0 then
+        icon = icons.bluetooth.on
+        color = colors.blue
+        label = tostring(dev_count)
+      end
+
+      bluetooth:set {
+        icon = { string = icon, color = color },
+        label = { string = label, drawing = (dev_count > 0) },
+      }
     end
-
-    bluetooth:set({
-      icon = { string = icon, color = color },
-      label = { string = label, drawing = (dev_count > 0) }
-    })
-  end)
+  )
 end)
 
 bluetooth:subscribe("mouse.clicked", function()
-  bluetooth:set({ popup = { drawing = "toggle" } })
-  sbar.exec([[system_profiler SPBluetoothDataType | grep -E "Connected: Yes" -B 10 | grep -E "^[ ]{8}[^:]+" | sed 's/^[ ]*//' | sed 's/:$//' | xargs -I {} sh -c 'echo -n "{}: "; ioreg -rn "{}" | grep "BatteryPercent" | sed "s/.*= //" || echo "N/A"']], function(info)
-    if info == "" then info = "No devices connected" end
-    bluetooth_popup:set({ label = { string = info } })
-  end)
+  bluetooth:set { popup = { drawing = "toggle" } }
+  sbar.exec(
+    [[system_profiler SPBluetoothDataType | grep -E "Connected: Yes" -B 10 | grep -E "^[ ]{8}[^:]+" | sed 's/^[ ]*//' | sed 's/:$//' | xargs -I {} sh -c 'echo -n "{}: "; ioreg -rn "{}" | grep "BatteryPercent" | sed "s/.*= //" || echo "N/A"']],
+    function(info)
+      if info == "" then
+        info = "No devices connected"
+      end
+      bluetooth_popup:set { label = { string = info } }
+    end
+  )
 end)
 
 bluetooth:subscribe("mouse.exited.global", function()
-  bluetooth:set({ popup = { drawing = false } })
+  bluetooth:set { popup = { drawing = false } }
 end)

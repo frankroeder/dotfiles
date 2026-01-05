@@ -20,31 +20,31 @@ require "items.front_app"
 -- Grouping items into brackets
 sbar.add("bracket", "top.group.connectivity", {
   "top.widgets.vpn",
-  "top.widgets.bluetooth"
+  "top.widgets.bluetooth",
 }, {
   background = {
     drawing = false,
-  }
+  },
 })
 
 sbar.add("bracket", "top.group.network", {
   "widgets.ip",
   "widgets.network_down",
-  "widgets.network_up"
+  "widgets.network_up",
 }, {
   background = {
     drawing = false,
-  }
+  },
 })
 
 sbar.add("bracket", "top.group.system", {
   "top.widgets.volume",
   "top.widgets.battery",
-  "widgets.mic"
+  "widgets.mic",
 }, {
   background = {
     drawing = false,
-  }
+  },
 })
 
 sbar.add("bracket", "top.group.tools", {
@@ -54,13 +54,13 @@ sbar.add("bracket", "top.group.tools", {
 }, {
   background = {
     drawing = false,
-  }
+  },
 })
 
 sbar.add("bracket", "top.group.time", {
-  "top.widgets.weather"
+  "top.widgets.weather",
 }, {
   background = {
     drawing = false,
-  }
+  },
 })

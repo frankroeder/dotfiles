@@ -78,14 +78,17 @@ for i, space_name in ipairs(static_names) do
 
   space:subscribe("mouse.clicked", function(env)
     if env.BUTTON == "other" then
-      sbar.exec("yabai -m query --windows --space " .. env.SID .. " | jq -r '.[].app + \" - \" + .title'", function(windows)
-        local window_list = ""
-        for line in windows:gmatch("[^\r\n]+") do
-          window_list = window_list .. "• " .. line .. "\n"
+      sbar.exec(
+        "yabai -m query --windows --space " .. env.SID .. " | jq -r '.[].app + \" - \" + .title'",
+        function(windows)
+          local window_list = ""
+          for line in windows:gmatch "[^\r\n]+" do
+            window_list = window_list .. "• " .. line .. "\n"
+          end
+          space_popup:set { label = { string = window_list } }
+          space:set { popup = { drawing = "toggle" } }
         end
-        space_popup:set({ label = { string = window_list } })
-        space:set { popup = { drawing = "toggle" } }
-      end)
+      )
     else
       local op = (env.BUTTON == "right") and "--destroy" or "--focus"
       sbar.exec("yabai -m space " .. op .. " " .. env.SID)
@@ -98,7 +101,7 @@ for i, space_name in ipairs(static_names) do
 end
 
 local space_layout = sbar.add("item", "top.yabai_layout", {
-	padding_left = 10,
+  padding_left = 10,
   icon = {
     font = { family = settings.font.numbers },
     string = icons.yabai.bsp,

@@ -16,20 +16,20 @@ sbar.add("bracket", "bottom.group.hw", {
   "widgets.ssd.volume",
   "widgets.cpu",
   "widgets.ram",
-  "widgets.swap"
+  "widgets.swap",
 }, {
   background = {
     drawing = false,
-  }
+  },
 })
 
 sbar.add("bracket", "bottom.group.utils", {
   "widgets.mail",
   "widgets.timer",
   "widgets.keyboard",
-  "widgets.messages"
+  "widgets.messages",
 }, {
   background = {
     drawing = false,
-  }
+  },
 })

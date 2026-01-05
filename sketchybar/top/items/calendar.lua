@@ -1,5 +1,5 @@
-local settings = require("settings")
-local colors = require("colors")
+local settings = require "settings"
+local colors = require "colors"
 
 local cal = sbar.add("item", "top.widgets.calendar", {
   position = "right",
@@ -17,11 +17,13 @@ local cal = sbar.add("item", "top.widgets.calendar", {
     padding_right = 8,
     width = 49,
     align = "right",
-    font = { family = settings.font.numbers },
+    font = {
+      family = settings.font.numbers,
+    },
   },
-  click_script = "open -a 'Calendar'"
+  click_script = "open -a 'Calendar'",
 })
 
 cal:subscribe({ "forced", "routine", "system_woke" }, function(env)
-  cal:set({ icon = os.date("%a. %d %b."), label = os.date("%H:%M") })
+  cal:set { icon = os.date "%a. %d %b.", label = os.date "%H:%M" }
 end)

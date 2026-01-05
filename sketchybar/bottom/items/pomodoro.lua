@@ -1,11 +1,12 @@
-local colors = require("colors")
-local icons = require("icons")
-local settings = require("settings")
+local colors = require "colors"
+local icons = require "icons"
+local settings = require "settings"
 
 local timer_active = false
 local remaining_time = 0
 local default_duration = 25 * 60
-local sounds_path = "/System/Library/PrivateFrameworks/ScreenReader.framework/Versions/A/Resources/Sounds/"
+local sounds_path =
+  "/System/Library/PrivateFrameworks/ScreenReader.framework/Versions/A/Resources/Sounds/"
 
 local timer = sbar.add("item", "widgets.timer", {
   position = "left",
@@ -21,13 +22,13 @@ local timer = sbar.add("item", "widgets.timer", {
   },
   popup = {
     align = "center",
-  }
+  },
 })
 
 local function stop_timer()
   timer_active = false
   remaining_time = 0
-  timer:set({ label = { string = "No Timer" } })
+  timer:set { label = { string = "No Timer" } }
   sbar.exec("afplay " .. sounds_path .. "TrackingOff.aiff")
 end
 
@@ -42,15 +43,15 @@ timer:subscribe("routine", function()
     if remaining_time > 0 then
       local minutes = math.floor(remaining_time / 60)
       local seconds = remaining_time % 60
-      timer:set({
-        label = { string = string.format("%02d:%02d", minutes, seconds) }
-      })
+      timer:set {
+        label = { string = string.format("%02d:%02d", minutes, seconds) },
+      }
       remaining_time = remaining_time - 1
     else
       timer_active = false
-      timer:set({ label = { string = "Done" } })
+      timer:set { label = { string = "Done" } }
       sbar.exec("afplay " .. sounds_path .. "GuideSuccess.aiff")
-      sbar.exec("osascript -e 'display notification \"Timer Finished\" with title \"Sketchybar Timer\"'")
+      sbar.exec 'osascript -e \'display notification "Timer Finished" with title "Sketchybar Timer"\''
     end
   end
 end)
@@ -60,14 +61,14 @@ timer:subscribe("mouse.clicked", function(env)
     if timer_active then
       stop_timer()
     end
-    timer:set({ popup = { drawing = "toggle" } })
+    timer:set { popup = { drawing = "toggle" } }
   elseif env.BUTTON == "right" then
     stop_timer()
   end
 end)
 
 timer:subscribe("mouse.exited.global", function()
-  timer:set({ popup = { drawing = false } })
+  timer:set { popup = { drawing = false } }
 end)
 
 local function create_timer_option(minutes)
@@ -83,7 +84,7 @@ local function create_timer_option(minutes)
 
   option:subscribe("mouse.clicked", function()
     start_timer(duration)
-    timer:set({ popup = { drawing = false } })
+    timer:set { popup = { drawing = false } }
   end)
 end
 

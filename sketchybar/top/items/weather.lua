@@ -1,6 +1,6 @@
-local colors = require("colors")
-local icons = require("icons")
-local settings = require("settings")
+local colors = require "colors"
+local icons = require "icons"
+local settings = require "settings"
 
 local weather = sbar.add("item", "top.widgets.weather", {
   position = "right",
@@ -26,16 +26,16 @@ local weather = sbar.add("item", "top.widgets.weather", {
   },
 })
 
-weather:subscribe({"routine", "system_woke"}, function()
+weather:subscribe({ "routine", "system_woke" }, function()
   sbar.exec("curl -s 'wttr.in/?format=%t'", function(temp)
-    if temp and temp:match("%S") then
-      weather:set({
+    if temp and temp:match "%S" then
+      weather:set {
         label = { string = temp:gsub("\n", "") },
-      })
+      }
     end
   end)
 end)
 
 weather:subscribe("mouse.clicked", function()
-  sbar.exec("open -a Weather")
+  sbar.exec "open -a Weather"
 end)

@@ -1,6 +1,6 @@
-local colors = require("colors")
-local icons = require("icons")
-local settings = require("settings")
+local colors = require "colors"
+local icons = require "icons"
+local settings = require "settings"
 
 local volume = sbar.add("item", "top.widgets.volume", {
   position = "right",
@@ -23,14 +23,13 @@ local volume = sbar.add("item", "top.widgets.volume", {
     padding_right = 8,
     color = colors.white,
   },
-  background = {
-  },
+  background = {},
 })
 
-volume:subscribe({"routine", "volume_change", "system_woke"}, function()
+volume:subscribe({ "routine", "volume_change", "system_woke" }, function()
   sbar.exec("osascript -e 'get volume settings'", function(settings)
-    local volume_level = tonumber(settings:match("output volume:(%d+)"))
-    local is_muted = settings:match("output muted:(%a+)") == "true"
+    local volume_level = tonumber(settings:match "output volume:(%d+)")
+    local is_muted = settings:match "output muted:(%a+)" == "true"
 
     local icon = icons.volume[0]
     local color = colors.grey
@@ -52,17 +51,20 @@ volume:subscribe({"routine", "volume_change", "system_woke"}, function()
       color = colors.white
     end
 
-    volume:set({
+    volume:set {
       icon = { string = icon, color = color },
-      label = { string = is_muted and "Muted" or volume_level .. "%" }
-    })
+      label = { string = is_muted and "Muted" or volume_level .. "%" },
+    }
   end)
 end)
 
 volume:subscribe("mouse.clicked", function()
-  sbar.exec("osascript -e 'set volume output muted not (output muted of (get volume settings))'", function()
-    sbar.trigger("volume_change")
-  end)
+  sbar.exec(
+    "osascript -e 'set volume output muted not (output muted of (get volume settings))'",
+    function()
+      sbar.trigger "volume_change"
+    end
+  )
 end)
 -- volume:subscribe("mouse.scrolled", function(env)
 --   local delta = env.SCROLL_DELTA

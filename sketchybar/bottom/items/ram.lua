@@ -29,17 +29,17 @@ local ram_popup = sbar.add("item", {
   position = "popup." .. ram_g.name,
   label = {
     font = { size = 12.0 },
-    string = "Checking memory pressure..."
+    string = "Checking memory pressure...",
   },
 })
 
 ram_g:subscribe("mouse.clicked", function()
-  ram_g:set({ popup = { drawing = "toggle" } })
+  ram_g:set { popup = { drawing = "toggle" } }
   sbar.exec("memory_pressure | tail -n 3", function(pressure)
-    ram_popup:set({ label = { string = pressure } })
+    ram_popup:set { label = { string = pressure } }
   end)
 end)
 
 ram_g:subscribe("mouse.exited.global", function()
-  ram_g:set({ popup = { drawing = false } })
+  ram_g:set { popup = { drawing = false } }
 end)

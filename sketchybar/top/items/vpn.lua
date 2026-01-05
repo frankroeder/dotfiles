@@ -24,8 +24,7 @@ local vpn_item = sbar.add("item", "top.widgets.vpn", {
     },
   },
   drawing = false,
-  background = {
-  },
+  background = {},
   click_script = "open 'x-apple.systempreferences:com.apple.preference.vpn'",
 })
 
@@ -49,5 +48,5 @@ vpn_item:subscribe({ "network_change", "routine", "system_woke" }, function(_)
   update()
 end)
 
-vpn_item:set({ update_freq = 60 })
+vpn_item:set { update_freq = 60 }
 update()

@@ -1,5 +1,5 @@
-local colors = require("colors")
-local icons = require("icons")
+local colors = require "colors"
+local icons = require "icons"
 
 local mode = sbar.add("item", "widgets.mode", {
   position = "right",
@@ -16,19 +16,21 @@ local mode = sbar.add("item", "widgets.mode", {
   label = { drawing = false },
 })
 
-mode:subscribe({"routine", "system_woke", "forced"}, function()
+mode:subscribe({ "routine", "system_woke", "forced" }, function()
   sbar.exec("defaults read -g AppleInterfaceStyle 2>/dev/null", function(style)
     local is_dark = style == "Dark\n" or style == "Dark"
-    mode:set({
+    mode:set {
       icon = {
         string = is_dark and icons.mode.dark or icons.mode.light,
         color = is_dark and colors.yellow or colors.blue,
-      }
-    })
+      },
+    }
   end)
 end)
 
 mode:subscribe("mouse.clicked", function()
-  sbar.exec("osascript -e 'tell application \"System Events\" to tell appearance preferences to set dark mode to not dark mode'")
-  sbar.delay(0.1, function() sbar.trigger("forced") end)
+  sbar.exec "osascript -e 'tell application \"System Events\" to tell appearance preferences to set dark mode to not dark mode'"
+  sbar.delay(0.1, function()
+    sbar.trigger "forced"
+  end)
 end)
