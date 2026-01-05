@@ -21,7 +21,6 @@ local wifi = sbar.add("item", "widgets.wifi", {
 local wifi_bracket = sbar.add("bracket", "widgets.wifi.bracket", {
   wifi.name,
 }, {
-  background = { color = colors.bg1 },
   popup = { align = "center", height = 30 }
 })
 
@@ -106,8 +105,6 @@ local router = sbar.add("item", {
     align = "right",
   },
 })
-
-sbar.add("item", { position = "right", width = settings.group_paddings })
 
 wifi:subscribe({"wifi_change", "system_woke"}, function(env)
   sbar.exec("ipconfig getifaddr en0", function(ip_addr)

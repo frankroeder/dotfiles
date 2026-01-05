@@ -32,11 +32,28 @@ local ssd_volume = sbar.add("item", "widgets.ssd.volume", {
   },
   update_freq = 180,
   background = {
-    color = colors.lightblack,
-    padding_left = 2,
-    padding_right = 2,
+    drawing = true,
   },
 })
+
+local ssd_popup = sbar.add("item", {
+  position = "popup." .. ssd_volume.name,
+  label = {
+    font = { family = "Hack Nerd Font Mono", size = 12.0 },
+    string = "Checking disk usage..."
+  },
+})
+
+ssd_volume:subscribe("mouse.clicked", function()
+  ssd_volume:set({ popup = { drawing = "toggle" } })
+  sbar.exec("df -h / | tail -1 | awk '{print \"Used: \" $3 \" / \" $2 \" (\" $5 \")\"}'", function(info)
+    ssd_popup:set({ label = { string = info } })
+  end)
+end)
+
+ssd_volume:subscribe("mouse.exited.global", function()
+  ssd_volume:set({ popup = { drawing = false } })
+end)
 
 ssd_volume:subscribe({ "routine", "forced" }, function(_)
   sbar.exec(

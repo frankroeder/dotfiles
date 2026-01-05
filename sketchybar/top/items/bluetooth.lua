@@ -56,9 +56,9 @@ end)
 
 bluetooth:subscribe("mouse.clicked", function()
   bluetooth:set({ popup = { drawing = "toggle" } })
-  sbar.exec([[system_profiler SPBluetoothDataType | grep -E "Connected: Yes" -B 10 | grep -E "^[ ]{8}[^:]+" | sed 's/^[ ]*//' | sed 's/:$//']], function(devices)
-    if devices == "" then devices = "No devices connected" end
-    bluetooth_popup:set({ label = { string = devices } })
+  sbar.exec([[system_profiler SPBluetoothDataType | grep -E "Connected: Yes" -B 10 | grep -E "^[ ]{8}[^:]+" | sed 's/^[ ]*//' | sed 's/:$//' | xargs -I {} sh -c 'echo -n "{}: "; ioreg -rn "{}" | grep "BatteryPercent" | sed "s/.*= //" || echo "N/A"']], function(info)
+    if info == "" then info = "No devices connected" end
+    bluetooth_popup:set({ label = { string = info } })
   end)
 end)
 

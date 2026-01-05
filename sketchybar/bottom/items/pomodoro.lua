@@ -8,7 +8,7 @@ local default_duration = 25 * 60
 local sounds_path = "/System/Library/PrivateFrameworks/ScreenReader.framework/Versions/A/Resources/Sounds/"
 
 local timer = sbar.add("item", "widgets.timer", {
-  position = "right",
+  position = "left",
   update_freq = 1,
   icon = {
     string = "􀐱",

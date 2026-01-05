@@ -4,6 +4,7 @@ require "items.yabai_spaces"
 
 require "items.calendar"
 require "items.battery"
+require "items.network"
 require "items.wifi"
 require "items.volume"
 require "items.vpn"
@@ -22,9 +23,17 @@ sbar.add("bracket", "top.group.connectivity", {
   "top.widgets.bluetooth"
 }, {
   background = {
-    color = colors.bg1,
-    border_color = colors.bg2,
-    border_width = 1,
+    drawing = false,
+  }
+})
+
+sbar.add("bracket", "top.group.network", {
+  "widgets.ip",
+  "widgets.network_down",
+  "widgets.network_up"
+}, {
+  background = {
+    drawing = false,
   }
 })
 
@@ -34,9 +43,7 @@ sbar.add("bracket", "top.group.system", {
   "widgets.mic"
 }, {
   background = {
-    color = colors.bg1,
-    border_color = colors.bg2,
-    border_width = 1,
+    drawing = false,
   }
 })
 
@@ -46,9 +53,7 @@ sbar.add("bracket", "top.group.tools", {
   "widgets.brew",
 }, {
   background = {
-    color = colors.bg1,
-    border_color = colors.bg2,
-    border_width = 1,
+    drawing = false,
   }
 })
 
@@ -56,8 +61,6 @@ sbar.add("bracket", "top.group.time", {
   "top.widgets.weather"
 }, {
   background = {
-    color = colors.bg1,
-    border_color = colors.bg2,
-    border_width = 1,
+    drawing = false,
   }
 })

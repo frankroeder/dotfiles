@@ -21,7 +21,7 @@ local ram_g = sbar.add("graph", "widgets.ram", 80, {
     y_offset = 8,
   },
   background = {
-    color = colors.transparent,
+    drawing = true,
   },
 })
 

@@ -27,13 +27,10 @@ sbar.default {
   background = {
     height = 26,
     corner_radius = 9,
-    border_width = 2,
+    border_width = 1,
     border_color = colors.bg2,
-    image = {
-      corner_radius = 9,
-      border_color = colors.grey,
-      border_width = 1,
-    },
+    color = colors.pill_bg,
+    drawing = true,
   },
   popup = {
     background = {

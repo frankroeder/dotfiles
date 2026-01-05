@@ -12,20 +12,19 @@ local front_app = sbar.add("item", "top.front_app", {
         scale = 0.5,
       },
     },
-    font = "sketchybar-app-font:Regular:20.0",
+    font = "sketchybar-app-font:Regular:22.0",
   },
   label = {
     padding_left = 4,
     font = {
       style = settings.font.style_map["Bold"],
-      size = 16.0,
+      size = 18.0,
     },
   },
   background = {
     color = colors.bg1,
     border_color = colors.bg2,
     border_width = 1,
-    drawing = true,
   },
   updates = true,
 })
@@ -33,7 +32,7 @@ local front_app = sbar.add("item", "top.front_app", {
 front_app:subscribe("front_app_switched", function(env)
   local lookup = app_icons[env.INFO]
   local icon = ((lookup == nil) and app_icons["Default"] or lookup)
-  sbar.animate("tanh", 10, function()
+  sbar.animate("tanh", 20, function()
     front_app:set({
       label = { string = env.INFO },
       icon = { string = icon },
@@ -48,7 +47,6 @@ local window_title = sbar.add("item", "top.window_title", {
     color = colors.bg1,
     border_color = colors.bg2,
     border_width = 1,
-    drawing = true,
   },
   label = {
     font = {

@@ -28,8 +28,8 @@ sbar.default {
     corner_radius = 9,
     border_width = 1,
     border_color = colors.bg2,
-    color = colors.bg1,
-    drawing = false,
+    color = colors.pill_bg,
+    drawing = true,
   },
   popup = {
     background = {

@@ -28,6 +28,7 @@ return {
   },
   bg1 = 0xff181825,
   bg2 = 0xff11111b,
+  pill_bg = 0xee0a0a0f,
   with_alpha = function(color, alpha)
     if alpha > 1.0 or alpha < 0.0 then
       return color

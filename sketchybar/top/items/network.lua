@@ -25,9 +25,31 @@ local ip_item = sbar.add("item", "widgets.ip", {
   },
   drawing = false,
   background = {
-    color = colors.lightblack,
-    padding_left = 2,
-    padding_right = 2,
+    drawing = false,
+  },
+})
+
+local network_up = sbar.add("item", "widgets.network_up", {
+  position = "left",
+  icon = {
+    string = icons.wifi.upload,
+    font = {
+      size = 10.0,
+    },
+    highlight_color = colors.red,
+  },
+  label = {
+    string = "",
+    font = {
+      size = 10.0,
+    },
+    padding_right = 8,
+  },
+  y_offset = 5,
+  width = 0,
+  updates = true,
+  background = {
+    drawing = false,
   },
 })
 
@@ -49,30 +71,11 @@ local network_down = sbar.add("item", "widgets.network_down", {
   },
   padding_right = -4,
   y_offset = -5,
-  width = 0,
-  updates = true,
-})
-
-local network_up = sbar.add("item", "widgets.network_up", {
-  position = "left",
-  icon = {
-    string = icons.wifi.upload,
-    font = {
-      size = 10.0,
-    },
-    highlight_color = colors.red,
-  },
-  label = {
-    string = "",
-    font = {
-      size = 10.0,
-    },
-    padding_right = 8,
-  },
-  y_offset = 5,
   width = 70,
-  padding_right = -4,
   updates = true,
+  background = {
+    drawing = false,
+  },
 })
 
 network_up:subscribe("network_update", function(env)

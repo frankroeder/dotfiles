@@ -23,7 +23,7 @@ local cpu = sbar.add("graph", "widgets.cpu", 80, {
     y_offset = 8,
   },
   background = {
-    color = colors.transparent,
+    drawing = true,
   },
 })
 

@@ -27,7 +27,7 @@ end
 mic:subscribe({"routine", "system_woke"}, update_mic)
 
 mic:subscribe("mouse.clicked", function()
-  sbar.exec([[osascript -e "set current_volume to input volume of (get volume settings)" -e "if current_volume is 0 then" -e "set volume input volume 75" -e "else" -e "set volume input volume 0" -e "end if"]], function()
+  sbar.exec("osascript -e 'set volume input volume (if input volume of (get volume settings) is 0 then 75 else 0)'", function()
     sbar.delay(0.1, update_mic)
   end)
 end)

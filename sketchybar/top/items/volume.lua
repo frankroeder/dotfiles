@@ -24,9 +24,6 @@ local volume = sbar.add("item", "top.widgets.volume", {
     color = colors.white,
   },
   background = {
-    color = colors.lightblack,
-    padding_left = 2,
-    padding_right = 2,
   },
 })
 
