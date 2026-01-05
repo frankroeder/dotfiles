@@ -34,7 +34,7 @@ volume:subscribe({"routine", "volume_change", "system_woke"}, function()
   sbar.exec("osascript -e 'get volume settings'", function(settings)
     local volume_level = tonumber(settings:match("output volume:(%d+)"))
     local is_muted = settings:match("output muted:(%a+)") == "true"
-    
+
     local icon = icons.volume[0]
     local color = colors.grey
 

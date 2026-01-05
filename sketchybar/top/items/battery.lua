@@ -82,3 +82,7 @@ battery:subscribe("mouse.clicked", function()
     end)
   end
 end)
+
+battery:subscribe("mouse.exited.global", function()
+  battery:set({ popup = { drawing = false } })
+end)

@@ -21,7 +21,7 @@ local function update_coffee()
       coffee:set({
         icon = {
             string = icons.coffee.on,
-            color = colors.blue,
+            color = colors.yellow,
         }
       })
     else

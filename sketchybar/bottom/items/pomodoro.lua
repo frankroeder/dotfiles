@@ -59,19 +59,14 @@ timer:subscribe("mouse.clicked", function(env)
   if env.BUTTON == "left" then
     if timer_active then
       stop_timer()
-    else
-      start_timer(default_duration)
     end
+    timer:set({ popup = { drawing = "toggle" } })
   elseif env.BUTTON == "right" then
     stop_timer()
   end
 end)
 
-timer:subscribe("mouse.entered", function()
-  timer:set({ popup = { drawing = true } })
-end)
-
-timer:subscribe("mouse.exited", function()
+timer:subscribe("mouse.exited.global", function()
   timer:set({ popup = { drawing = false } })
 end)
 

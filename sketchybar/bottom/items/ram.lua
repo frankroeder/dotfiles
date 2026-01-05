@@ -31,12 +31,6 @@ local ram_popup = sbar.add("item", {
     font = { size = 12.0 },
     string = "Checking memory pressure..."
   },
-  background = {
-    color = colors.bg1,
-    border_color = colors.black,
-    border_width = 1,
-    corner_radius = 5,
-  }
 })
 
 ram_g:subscribe("mouse.clicked", function()
@@ -44,4 +38,8 @@ ram_g:subscribe("mouse.clicked", function()
   sbar.exec("memory_pressure | tail -n 3", function(pressure)
     ram_popup:set({ label = { string = pressure } })
   end)
+end)
+
+ram_g:subscribe("mouse.exited.global", function()
+  ram_g:set({ popup = { drawing = false } })
 end)

@@ -32,12 +32,6 @@ local bluetooth_popup = sbar.add("item", {
     max_chars = 40,
     string = "Checking..."
   },
-  background = {
-    color = colors.bg1,
-    border_color = colors.black,
-    border_width = 1,
-    corner_radius = 5,
-  }
 })
 
 bluetooth:subscribe({"routine", "system_woke"}, function()
@@ -66,4 +60,8 @@ bluetooth:subscribe("mouse.clicked", function()
     if devices == "" then devices = "No devices connected" end
     bluetooth_popup:set({ label = { string = devices } })
   end)
+end)
+
+bluetooth:subscribe("mouse.exited.global", function()
+  bluetooth:set({ popup = { drawing = false } })
 end)

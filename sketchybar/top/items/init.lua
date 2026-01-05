@@ -18,7 +18,6 @@ require "items.front_app"
 
 -- Grouping items into brackets
 sbar.add("bracket", "top.group.connectivity", {
-  "top.widgets.wifi",
   "top.widgets.vpn",
   "top.widgets.bluetooth"
 }, {
@@ -54,7 +53,6 @@ sbar.add("bracket", "top.group.tools", {
 })
 
 sbar.add("bracket", "top.group.time", {
-  "top.widgets.calendar",
   "top.widgets.weather"
 }, {
   background = {
