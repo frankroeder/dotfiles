@@ -45,7 +45,7 @@ local network_up = sbar.add("item", "widgets.network_up", {
     },
     padding_right = 8,
   },
-  y_offset = 5,
+  y_offset = 6,
   width = 0,
   updates = true,
   background = {
@@ -69,9 +69,7 @@ local network_down = sbar.add("item", "widgets.network_down", {
     },
     padding_right = 8,
   },
-  padding_right = 2,
-  y_offset = -8,
-  width = 70,
+  y_offset = -6,
   updates = true,
   background = {
     drawing = false,
