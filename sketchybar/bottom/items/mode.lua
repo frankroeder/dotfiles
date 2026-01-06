@@ -2,7 +2,7 @@ local colors = require "colors"
 local icons = require "icons"
 
 local mode = sbar.add("item", "widgets.mode", {
-  position = "right",
+  position = "left",
   icon = {
     string = icons.mode.dark,
     color = colors.yellow,
@@ -34,3 +34,4 @@ mode:subscribe("mouse.clicked", function()
     sbar.trigger "forced"
   end)
 end)
+

@@ -2,7 +2,7 @@ local colors = require "colors"
 local icons = require "icons"
 
 local coffee = sbar.add("item", "widgets.coffee", {
-  position = "right",
+  position = "left",
   icon = {
     string = icons.coffee.off,
     color = colors.grey,

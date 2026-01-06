@@ -68,73 +68,76 @@ local function update()
       icon = { string = icon, color = color },
     }
 
-    -- 2. Parse Connected Devices
-    local connected_start = info:find("%sConnected:\n")
-    local not_connected_start = info:find("%sNot Connected:\n")
-    
-    local connected_block = nil
-    if connected_start then
-        if not_connected_start and not_connected_start > connected_start then
-            connected_block = info:sub(connected_start, not_connected_start - 1)
-        else
-            -- "Not Connected" section might be missing or before (unlikely)
-            connected_block = info:sub(connected_start)
-        end
-    end
-
+    -- 2. Parse Connected Devices (Line-by-Line state machine)
     local device_lines = {}
-    
-    if connected_block then
-      local current_device = nil
-      local current_stats = {}
+    local parsing_connected = false
+    local current_device = nil
+    local current_stats = {}
 
-      for line in connected_block:gmatch("[^\r\n]+") do
-        -- Skip the "Connected:" header line itself
-        if not line:match("^%s*Connected:$") and line:match("%S") then
-            -- Identify device name
-            local device_name = line:match("^%s+([^:]+):$")
-
-            if device_name then
-                -- Save previous device
-                if current_device then
-                    local stats_str = format_device_stats(current_stats)
-                    if stats_str ~= "" then
-                        table.insert(device_lines, current_device .. " " .. stats_str)
-                    else
-                        table.insert(device_lines, current_device)
-                    end
-                end
-                
-                current_device = device_name
-                current_stats = {}
-            else
-                -- It's a property line
-                if current_device then
-                    local l = line:match("Left Battery Level:%s*(%d+)")
-                    if l then current_stats.left = l end
-                    
-                    local r = line:match("Right Battery Level:%s*(%d+)")
-                    if r then current_stats.right = r end
-                    
-                    local c = line:match("Case Battery Level:%s*(%d+)")
-                    if c then current_stats.case = c end
-                    
-                    local m = line:match("Battery Level:%s*(%d+)")
-                    if m then current_stats.main = m end
-                end
-            end
+    for line in info:gmatch("[^\r\n]+") do
+      -- Detect Section Headers
+      if line:match("^%s*Connected:$") then
+        parsing_connected = true
+      elseif line:match("^%s*Not Connected:$") then
+        parsing_connected = false
+        -- End of connected section, save last device if exists
+        if current_device then
+           local stats_str = format_device_stats(current_stats)
+           if stats_str ~= "" then
+              table.insert(device_lines, current_device .. " " .. stats_str)
+           else
+              table.insert(device_lines, current_device)
+           end
+           current_device = nil
+           current_stats = {}
+        end
+      elseif parsing_connected then
+        -- We are strictly inside the "Connected:" block
+        
+        -- Check if line is a Device Name (ends in colon, no value)
+        local device_name = line:match("^%s+([^:]+):$")
+        
+        if device_name then
+           -- If we were processing a device, save it
+           if current_device then
+              local stats_str = format_device_stats(current_stats)
+              if stats_str ~= "" then
+                 table.insert(device_lines, current_device .. " " .. stats_str)
+              else
+                 table.insert(device_lines, current_device)
+              end
+           end
+           
+           -- Start new device
+           current_device = device_name
+           current_stats = {}
+        else
+           -- It's a property line for the current device
+           if current_device then
+              local l = line:match("Left Battery Level:%s*(%d+)")
+              if l then current_stats.left = l end
+              
+              local r = line:match("Right Battery Level:%s*(%d+)")
+              if r then current_stats.right = r end
+              
+              local c = line:match("Case Battery Level:%s*(%d+)")
+              if c then current_stats.case = c end
+              
+              local m = line:match("Battery Level:%s*(%d+)")
+              if m then current_stats.main = m end
+           end
         end
       end
-      
-      -- Push last device
-      if current_device then
+    end
+    
+    -- Handle case where "Not Connected" was not found (end of file)
+    if parsing_connected and current_device then
         local stats_str = format_device_stats(current_stats)
         if stats_str ~= "" then
-          table.insert(device_lines, current_device .. " " .. stats_str)
+           table.insert(device_lines, current_device .. " " .. stats_str)
         else
-          table.insert(device_lines, current_device)
+           table.insert(device_lines, current_device)
         end
-      end
     end
 
     if #device_lines > 0 then

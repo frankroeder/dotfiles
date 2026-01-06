@@ -5,19 +5,14 @@ require "items.yabai_spaces"
 
 require "items.calendar"
 require "items.battery"
-require "items.volume"
-require "items.mic"
 require "items.network"
 require "items.wifi"
-require "items.vpn"
+require "items.volume"
+require "items.mic"
 require "items.bluetooth"
 
 require "items.front_app"
 
-require "items.mode"
-require "items.coffee"
-
--- Grouping items into brackets
 sbar.add("bracket", "top.group.network", {
   "widgets.wifi",
   "widgets.network_down",
@@ -26,6 +21,5 @@ sbar.add("bracket", "top.group.network", {
   background = {
     drawing = true,
     color = colors.bg,
-    height = 34,
   },
 })
