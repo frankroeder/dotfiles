@@ -26,10 +26,27 @@ local volume = sbar.add("item", "top.widgets.volume", {
   background = {},
 })
 
-volume:subscribe({ "routine", "volume_change", "system_woke" }, function()
-  sbar.exec("osascript -e 'get volume settings'", function(settings)
-    local volume_level = tonumber(settings:match "output volume:(%d+)")
-    local is_muted = settings:match "output muted:(%a+)" == "true"
+local volume_slider = sbar.add("slider", "widgets.volume.slider", 100, {
+  position = "popup.top.widgets.volume",
+  slider = {
+    highlight_color = colors.blue,
+    width = 120,
+    background = {
+      height = 6,
+      corner_radius = 3,
+      color = colors.bg2,
+    },
+    knob = {
+      drawing = true,
+      string = "●",
+    },
+  },
+})
+
+local function update()
+  sbar.exec("osascript -e 'get volume settings'", function(settings_str)
+    local volume_level = tonumber(settings_str:match "output volume:(%d+)")
+    local is_muted = settings_str:match "output muted:(%a+)" == "true"
 
     local icon = icons.volume[0]
     local color = colors.grey
@@ -55,8 +72,12 @@ volume:subscribe({ "routine", "volume_change", "system_woke" }, function()
       icon = { string = icon, color = color },
       label = { string = is_muted and "Muted" or volume_level .. "%" },
     }
+    
+    volume_slider:set { slider = { percentage = volume_level } }
   end)
-end)
+end
+
+volume:subscribe({ "routine", "volume_change", "system_woke" }, update)
 
 volume:subscribe("mouse.clicked", function()
   sbar.exec(
@@ -66,7 +87,17 @@ volume:subscribe("mouse.clicked", function()
     end
   )
 end)
--- volume:subscribe("mouse.scrolled", function(env)
---   local delta = env.SCROLL_DELTA
---   sbar.exec('osascript -e "set volume output volume (output volume of (get volume settings) + ' .. delta .. ')"')
--- end)
+
+volume:subscribe("mouse.entered", function()
+  volume:set { popup = { drawing = true } }
+end)
+
+volume:subscribe("mouse.exited.global", function()
+  volume:set { popup = { drawing = false } }
+end)
+
+volume_slider:subscribe("mouse.clicked", function(env)
+  sbar.exec("osascript -e 'set volume output volume " .. env["PERCENTAGE"] .. "'", function()
+    sbar.trigger "volume_change"
+  end)
+end)
