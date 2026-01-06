@@ -3,6 +3,8 @@ local settings = require "settings"
 
 require "items.yabai_spaces"
 
+require "items.front_app"
+
 require "items.calendar"
 require "items.battery"
 require "items.network"
@@ -10,8 +12,6 @@ require "items.wifi"
 require "items.volume"
 require "items.mic"
 require "items.bluetooth"
-
-require "items.front_app"
 
 sbar.add("bracket", "top.group.network", {
   "widgets.wifi",

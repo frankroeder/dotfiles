@@ -57,7 +57,7 @@ local function update()
         string = icon,
         color = is_muted and colors.red or colors.purple,
       },
-      label = { string = is_muted and "Muted" or volume .. "%" }
+      label = { string = is_muted and "Muted" or volume .. "%" },
     }
     mic_slider:set { slider = { percentage = volume } }
   end)

@@ -64,16 +64,16 @@ timer:subscribe("routine", function()
       -- But afplay is blocking or we can just ring every routine tick if we want it annoying
       -- Let's ring every 3 seconds
       if alert_rings < max_rings then
-         -- wait 2 more routine ticks before next ring
-         timer_state = "alerting"
+        -- wait 2 more routine ticks before next ring
+        timer_state = "alerting"
       end
     end
   elseif timer_state == "alerting" then
-      remaining_time = remaining_time + 1
-      if remaining_time >= 3 then
-          remaining_time = 0
-          timer_state = "finished"
-      end
+    remaining_time = remaining_time + 1
+    if remaining_time >= 3 then
+      remaining_time = 0
+      timer_state = "finished"
+    end
   end
 end)
 

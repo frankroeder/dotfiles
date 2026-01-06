@@ -34,4 +34,3 @@ mode:subscribe("mouse.clicked", function()
     sbar.trigger "forced"
   end)
 end)
-

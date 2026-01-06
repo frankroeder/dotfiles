@@ -72,7 +72,7 @@ local function update()
       icon = { string = icon, color = color },
       label = { string = is_muted and "Muted" or volume_level .. "%" },
     }
-    
+
     volume_slider:set { slider = { percentage = volume_level } }
   end)
 end
