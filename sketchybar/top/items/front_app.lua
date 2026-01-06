@@ -1,41 +1,42 @@
 local colors = require "colors"
 local settings = require "settings"
-local app_icons = require "helpers.app_icons"
 
 local front_app = sbar.add("item", "top.front_app", {
   display = "active",
   position = "center",
   icon = {
     background = {
+      drawing = true,
       image = {
         corner_radius = 5,
-        scale = 0.5,
+        padding_left = 4,
+        scale = 0.8,
       },
     },
     font = "sketchybar-app-font:Regular:22.0",
   },
   label = {
-    padding_left = 4,
+    padding_left = 10,
+    padding_right = 10,
     font = {
       style = settings.font.style_map["Bold"],
-      size = 18.0,
+      size = 16.0,
     },
   },
   background = {
     color = colors.bg1,
-    border_color = colors.bg2,
-    border_width = 1,
+    border_color = colors.purple,
+    border_width = 0,
   },
+  click_script = "open -a 'Mission Control'",
   updates = true,
 })
 
 front_app:subscribe("front_app_switched", function(env)
-  local lookup = app_icons[env.INFO]
-  local icon = ((lookup == nil) and app_icons["Default"] or lookup)
   sbar.animate("tanh", 20, function()
     front_app:set {
       label = { string = env.INFO },
-      icon = { string = icon },
+      icon = { background = { image = { string = "app." .. env.INFO } } },
     }
   end)
 end)
