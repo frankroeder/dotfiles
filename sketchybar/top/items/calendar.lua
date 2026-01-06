@@ -9,7 +9,7 @@ local cal = sbar.add("item", "top.widgets.calendar", {
     padding_left = 8,
     font = {
       style = settings.font.style_map["Black"],
-      size = 12.0,
+      size = 14.0,
     },
   },
   label = {
@@ -19,6 +19,7 @@ local cal = sbar.add("item", "top.widgets.calendar", {
     align = "right",
     font = {
       family = settings.font.numbers,
+      size = 14,
     },
   },
   click_script = "open -a 'Calendar'",

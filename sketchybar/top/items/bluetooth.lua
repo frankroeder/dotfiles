@@ -9,6 +9,7 @@ local bluetooth = sbar.add("item", "top.widgets.bluetooth", {
     string = icons.bluetooth.on,
     color = colors.blue,
     padding_left = 8,
+    padding_right = 8,
     font = {
       style = "Regular",
       size = 16.0,

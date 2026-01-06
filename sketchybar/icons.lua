@@ -58,21 +58,15 @@ local icons = {
       on = "􀊰",
       off = "􀊲",
     },
-    reminder = "􀌂",
     weather = "􀇞",
     downloads = "􀈖",
     mode = {
       light = "􀆮",
       dark = "􀆺",
     },
-    github = "􀉽",
-    python = "􀏋",
-    ssh = "􀀰",
-    hackernews = "􀢞",
-    arxiv = "􀫊",
     bluetooth = {
       on = "􀟥",
-      off = "􀟛",
+      off = "􁅒",
     },
   },
 
