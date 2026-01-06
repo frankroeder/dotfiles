@@ -36,6 +36,7 @@ weather:subscribe({ "routine", "system_woke" }, function()
   end)
 end)
 
+-- local weather = sbar.add("alias", "WeatherMenu,Item-0", "right")
 weather:subscribe("mouse.clicked", function()
   sbar.exec "open -a Weather"
 end)

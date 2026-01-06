@@ -7,6 +7,7 @@ local coffee = sbar.add("item", "widgets.coffee", {
     string = icons.coffee.off,
     color = colors.grey,
     padding_left = 8,
+    padding_right = 8,
     font = {
       style = "Regular",
       size = 16.0,

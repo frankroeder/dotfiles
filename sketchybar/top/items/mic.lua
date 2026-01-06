@@ -6,6 +6,7 @@ local mic = sbar.add("item", "widgets.mic", {
   icon = {
     string = icons.mic.on,
     color = colors.white,
+    padding_right = 6,
   },
   label = { drawing = false },
   update_freq = 10,

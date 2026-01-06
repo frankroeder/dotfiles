@@ -4,31 +4,6 @@ local settings = require "settings"
 
 sbar.exec "killall network_load >/dev/null; /Users/frankroeder/.dotfiles/sketchybar/helpers/event_providers/network_load/bin/network_load en0 network_update 2.0"
 
-local ip_item = sbar.add("item", "widgets.ip", {
-  position = "right",
-  update_freq = 180,
-  icon = {
-    string = icons.ip,
-    padding_left = 8,
-    font = {
-      style = "Regular",
-      size = 16.0,
-    },
-  },
-  label = {
-    padding_right = 8,
-    string = "???.???.???.???",
-    font = {
-      style = settings.font.style_map["Bold"],
-      size = 14.0,
-    },
-  },
-  drawing = false,
-  background = {
-    drawing = true,
-  },
-})
-
 local network_up = sbar.add("item", "widgets.network_up", {
   position = "right",
   icon = {
@@ -93,21 +68,3 @@ network_up:subscribe("network_update", function(env)
     },
   }
 end)
-
-local function network_update_ip()
-  local ip_cmd = [[
-    ipconfig getifaddr en0
-  ]]
-  sbar.exec(ip_cmd, function(output)
-    if output ~= "" then
-      sbar.animate("sin", settings.animation_duration, function()
-        ip_item:set { label = output, drawing = true }
-      end)
-    else
-      ip_item:set { drawing = false }
-    end
-  end)
-end
-
-network_up:subscribe("routine", network_update_ip)
-network_update_ip()

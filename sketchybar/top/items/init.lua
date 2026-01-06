@@ -26,16 +26,20 @@ sbar.add("bracket", "top.group.connectivity", {
 }, {
   background = {
     drawing = true,
+    color = colors.purple,
+    height = 34,
   },
 })
 
 sbar.add("bracket", "top.group.network", {
+  "widgets.wifi",
   "widgets.network_down",
   "widgets.network_up",
 }, {
-	-- TODO: add group padding --
   background = {
     drawing = true,
+    color = colors.bg,
+    height = 34,
   },
 })
 
@@ -46,5 +50,7 @@ sbar.add("bracket", "top.group.tools", {
 }, {
   background = {
     drawing = true,
+    color = colors.purple,
+    height = 34,
   },
 })
