@@ -163,6 +163,7 @@ local function updateLayout()
   )
 end
 
+-- TODO: Fix, not working --
 local window_properties = sbar.add("item", "top.yabai_property", {
   label = {
     font = { family = settings.font.text, size = 12 },
@@ -177,7 +178,7 @@ local window_properties = sbar.add("item", "top.yabai_property", {
     border_color = colors.bg2,
     color = colors.bg1,
   },
-  -- drawing = false,
+  drawing = false,
 })
 
 local function getWindowProperties()

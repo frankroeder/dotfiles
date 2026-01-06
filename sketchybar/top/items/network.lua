@@ -5,7 +5,7 @@ local settings = require "settings"
 sbar.exec "killall network_load >/dev/null; /Users/frankroeder/.dotfiles/sketchybar/helpers/event_providers/network_load/bin/network_load en0 network_update 2.0"
 
 local ip_item = sbar.add("item", "widgets.ip", {
-  position = "left",
+  position = "right",
   update_freq = 180,
   icon = {
     string = icons.ip,
@@ -25,12 +25,12 @@ local ip_item = sbar.add("item", "widgets.ip", {
   },
   drawing = false,
   background = {
-    drawing = false,
+    drawing = true,
   },
 })
 
 local network_up = sbar.add("item", "widgets.network_up", {
-  position = "left",
+  position = "right",
   icon = {
     string = icons.wifi.upload,
     font = {
@@ -54,7 +54,7 @@ local network_up = sbar.add("item", "widgets.network_up", {
 })
 
 local network_down = sbar.add("item", "widgets.network_down", {
-  position = "left",
+  position = "right",
   icon = {
     string = icons.wifi.download,
     font = {
@@ -69,8 +69,8 @@ local network_down = sbar.add("item", "widgets.network_down", {
     },
     padding_right = 8,
   },
-  padding_right = -4,
-  y_offset = -5,
+  padding_right = 2,
+  y_offset = -8,
   width = 70,
   updates = true,
   background = {

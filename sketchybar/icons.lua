@@ -44,8 +44,8 @@ local icons = {
     brew = "􀐛",
     zen = "􀋲",
     coffee = {
-      on = "􀐶",
-      off = "􀐵",
+      on = "􁞵",
+      off = "􁞴",
     },
     volume = {
       [100] = "􀊩",

@@ -20,16 +20,19 @@ local print_table = function(t, indent)
 end
 
 return {
-  paddings = 2,
-  group_paddings = 5,
+  paddings = 4,
   animation_duration = 15,
+  bar_height = 40,
+  bar_padding = 10,
+  bar_margin = 10,
+  bar_corner_radius = 12,
+  bar_color = require("colors").transparent,
+  bar_border_color = require("colors").transparent,
   -- icons = "NerdFont",
   icons = "sf-symbols",
-
   font = {
     text = "Hack Nerd Font",
     numbers = "Hack Nerd Font Mono",
-
     style_map = {
       ["Regular"] = "Regular",
       ["Semibold"] = "Medium",

@@ -24,7 +24,9 @@ sbar.default {
     padding_right = settings.paddings,
   },
   background = {
-    height = 26,
+    padding_left = 4,
+    padding_right = 4,
+    height = 30,
     corner_radius = 9,
     border_width = 1,
     border_color = colors.bg2,
