@@ -5,26 +5,21 @@ local cal = sbar.add("item", "top.widgets.calendar", {
   position = "right",
   update_freq = 30,
   icon = {
-    color = colors.white,
-    padding_left = 8,
-    font = {
-      style = settings.font.style_map["Black"],
-      size = 14.0,
-    },
+    drawing = false,
   },
   label = {
     color = colors.white,
     padding_right = 8,
-    width = 49,
-    align = "right",
+    padding_left = 8,
     font = {
       family = settings.font.numbers,
-      size = 14,
+      style = settings.font.style_map["Bold"],
+      size = 14.0,
     },
   },
   click_script = "open -a 'Calendar'",
 })
 
 cal:subscribe({ "forced", "routine", "system_woke" }, function(env)
-  cal:set { icon = os.date "%a. %d %b.", label = os.date "%H:%M" }
+  cal:set { label = os.date "%a. %d %b. %H:%M" }
 end)
