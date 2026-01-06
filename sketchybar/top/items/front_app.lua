@@ -10,7 +10,7 @@ local front_app = sbar.add("item", "top.front_app", {
       image = {
         corner_radius = 5,
         padding_left = 4,
-        scale = 0.8,
+        scale = 1.0,
       },
     },
     font = "sketchybar-app-font:Regular:22.0",
@@ -24,9 +24,7 @@ local front_app = sbar.add("item", "top.front_app", {
     },
   },
   background = {
-    color = colors.bg1,
-    border_color = colors.purple,
-    border_width = 0,
+    drawing = false
   },
   click_script = "open -a 'Mission Control'",
   updates = true,
