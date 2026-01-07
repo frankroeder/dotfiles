@@ -80,16 +80,26 @@ end
 volume:subscribe({ "routine", "volume_change", "system_woke" }, update)
 
 volume:subscribe("mouse.clicked", function()
+  volume:set { popup = { drawing = "toggle" } }
+end)
+
+local volume_mute = sbar.add("item", {
+  position = "popup.top.widgets.volume",
+  align = "center",
+  label = { string = "Toggle Mute", align = "center" },
+  width = 120,
+  background = {
+    corner_radius = 5,
+  }
+})
+
+volume_mute:subscribe("mouse.clicked", function()
   sbar.exec(
     "osascript -e 'set volume output muted not (output muted of (get volume settings))'",
     function()
       sbar.trigger "volume_change"
     end
   )
-end)
-
-volume:subscribe("mouse.entered", function()
-  volume:set { popup = { drawing = true } }
 end)
 
 volume:subscribe("mouse.exited.global", function()

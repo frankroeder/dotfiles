@@ -64,6 +64,20 @@ local function update()
 end
 
 mic:subscribe("mouse.clicked", function()
+  mic:set { popup = { drawing = "toggle" } }
+end)
+
+local mic_mute = sbar.add("item", {
+  position = "popup.widgets.mic",
+  align = "center",
+  label = { string = "Toggle Mute", align = "center" },
+  width = 120,
+  background = {
+    corner_radius = 5,
+  }
+})
+
+mic_mute:subscribe("mouse.clicked", function()
   sbar.exec([[osascript -e "input volume of (get volume settings)"]], function(value)
     local volume = tonumber(value) or 0
     if volume > 0 then
@@ -72,10 +86,6 @@ mic:subscribe("mouse.clicked", function()
       sbar.exec([[osascript -e "set volume input volume ]] .. last_volume .. [["]], update)
     end
   end)
-end)
-
-mic:subscribe("mouse.entered", function()
-  mic:set { popup = { drawing = true } }
 end)
 
 mic:subscribe("mouse.exited.global", function()
