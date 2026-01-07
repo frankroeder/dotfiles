@@ -2,7 +2,7 @@ local icons = require "icons"
 local colors = require "colors"
 local settings = require "settings"
 
-sbar.exec "killall network_load >/dev/null; /Users/frankroeder/.dotfiles/sketchybar/helpers/event_providers/network_load/bin/network_load en0 network_update 2.0"
+sbar.exec("killall network_load >/dev/null; " .. os.getenv("HOME") .. "/.dotfiles/sketchybar/helpers/event_providers/network_load/bin/network_load en0 network_update 2.0")
 
 local network_up = sbar.add("item", "widgets.network_up", {
   position = "right",

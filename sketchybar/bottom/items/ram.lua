@@ -1,7 +1,7 @@
 local colors = require "colors"
 local icons = require "icons"
 
-sbar.exec "killall memory_load >/dev/null; /Users/frankroeder/.dotfiles/sketchybar/helpers/event_providers/memory_load/bin/memory_load memory_update 2.0"
+sbar.exec("killall memory_load >/dev/null; " .. os.getenv("HOME") .. "/.dotfiles/sketchybar/helpers/event_providers/memory_load/bin/memory_load memory_update 2.0")
 
 local ram_g = sbar.add("graph", "widgets.ram", 80, {
   position = "right",

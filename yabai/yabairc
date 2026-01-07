@@ -8,7 +8,7 @@ sudo yabai --load-sa
 
 yabai -m config window_origin_display        default \
                 window_placement             second_child \
-                window_shadow                on \
+                window_shadow                off \
                 window_opacity               on \
                 window_opacity_duration      0.0 \
                 window_insertion_point       focused \
