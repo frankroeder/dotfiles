@@ -133,8 +133,11 @@ local function toggle_details()
       ip:set { label = result }
     end)
     sbar.exec(
-      "ipconfig getsummary en0 | awk -F ' SSID : '  '/ SSID : / {print $2}'",
-      function(result)
+      [[
+          en="$(networksetup -listallhardwareports | awk '/Wi-Fi|AirPort/{getline; print $NF}')";
+          ipconfig getsummary "$en" | grep -Fxq "  Active : FALSE" || \
+              networksetup -listpreferredwirelessnetworks "$en" | sed -n '2s/^\t//p'
+      ]], function(result)
         ssid:set { label = result }
       end
     )
