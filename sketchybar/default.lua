@@ -27,7 +27,7 @@ sbar.default {
     padding_left = 4,
     padding_right = 4,
     height = 30,
-    corner_radius = 9,
+    corner_radius = 10,
     border_width = 1,
     border_color = colors.bg2,
     color = colors.pill_bg,

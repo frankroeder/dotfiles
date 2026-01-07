@@ -15,17 +15,11 @@ local wifi = sbar.add("item", "widgets.wifi", {
     color = colors.red,
   },
   label = { drawing = false },
-})
-
--- Background around the item
-local wifi_bracket = sbar.add("bracket", "widgets.wifi.bracket", {
-  wifi.name,
-}, {
-  popup = { align = "center", height = 30 },
+  background = { drawing = false },
 })
 
 local ssid = sbar.add("item", {
-  position = "popup." .. wifi_bracket.name,
+  position = "popup." .. wifi.name,
   icon = {
     font = {
       style = settings.font.style_map["Bold"],
@@ -50,7 +44,7 @@ local ssid = sbar.add("item", {
 })
 
 local hostname = sbar.add("item", {
-  position = "popup." .. wifi_bracket.name,
+  position = "popup." .. wifi.name,
   icon = {
     align = "left",
     string = "Hostname:",
@@ -65,7 +59,7 @@ local hostname = sbar.add("item", {
 })
 
 local ip = sbar.add("item", {
-  position = "popup." .. wifi_bracket.name,
+  position = "popup." .. wifi.name,
   icon = {
     align = "left",
     string = "IP:",
@@ -79,7 +73,7 @@ local ip = sbar.add("item", {
 })
 
 local mask = sbar.add("item", {
-  position = "popup." .. wifi_bracket.name,
+  position = "popup." .. wifi.name,
   icon = {
     align = "left",
     string = "Subnet mask:",
@@ -93,7 +87,7 @@ local mask = sbar.add("item", {
 })
 
 local router = sbar.add("item", {
-  position = "popup." .. wifi_bracket.name,
+  position = "popup." .. wifi.name,
   icon = {
     align = "left",
     string = "Router:",
@@ -119,13 +113,13 @@ wifi:subscribe({ "wifi_change", "system_woke" }, function(env)
 end)
 
 local function hide_details()
-  wifi_bracket:set { popup = { drawing = false } }
+  wifi:set { popup = { drawing = false } }
 end
 
 local function toggle_details()
-  local should_draw = wifi_bracket:query().popup.drawing == "off"
+  local should_draw = wifi:query().popup.drawing == "off"
   if should_draw then
-    wifi_bracket:set { popup = { drawing = true } }
+    wifi:set { popup = { drawing = true } }
     sbar.exec("networksetup -getcomputername", function(result)
       hostname:set { label = result }
     end)

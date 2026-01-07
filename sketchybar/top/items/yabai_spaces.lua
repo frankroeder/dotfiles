@@ -34,10 +34,10 @@ for i, space_name in ipairs(static_names) do
     padding_right = 1,
     padding_left = 1,
     background = {
-      color = colors.bg1,
+      color = colors.pill_bg,
       border_width = 1,
       height = 24,
-      border_color = colors.black,
+      border_color = colors.bg2,
     },
     click_script = "yabai -m space --focus " .. i,
   })
@@ -48,7 +48,7 @@ for i, space_name in ipairs(static_names) do
   local space_bracket = sbar.add("bracket", { "top.space." .. i }, {
     background = {
       color = colors.transparent,
-      border_color = colors.bg2,
+      border_color = colors.transparent,
       height = 28,
       border_width = 2,
     },
@@ -69,10 +69,10 @@ for i, space_name in ipairs(static_names) do
     space:set {
       icon = { highlight = selected },
       label = { highlight = selected },
-      background = { border_color = selected and colors.black or colors.bg2 },
+      background = { border_color = selected and colors.grey or colors.bg2 },
     }
     space_bracket:set {
-      background = { border_color = selected and colors.grey or colors.bg2 },
+      background = { border_color = selected and colors.blue or colors.transparent },
     }
   end)
 
@@ -171,11 +171,10 @@ local window_properties = sbar.add("item", "top.yabai_property", {
     padding_right = 4,
   },
   background = {
-    color = colors.bg2,
+    color = colors.pill_bg,
     border_width = 1,
     height = 24,
     border_color = colors.bg2,
-    color = colors.bg1,
   },
   drawing = false,
 })

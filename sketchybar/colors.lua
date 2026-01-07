@@ -28,7 +28,7 @@ return {
   },
   bg1 = 0xff181825,
   bg2 = 0xff11111b,
-  pill_bg = 0xee0a0a0f,
+  pill_bg = 0xff313244,
   bar_color = 0x00000000,
   bar_border_color = 0x00000000,
   with_alpha = function(color, alpha)
