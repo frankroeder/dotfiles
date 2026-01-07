@@ -25,6 +25,29 @@ local ram_g = sbar.add("graph", "widgets.ram", 80, {
   },
 })
 
+ram_g:subscribe("memory_update", function(env)
+  local load = tonumber(env.memory_load:match("(%d+)"))
+  if load then
+    ram_g:push { load / 100. }
+
+    local color = colors.blue
+    if load > 30 then
+      if load < 60 then
+        color = colors.yellow
+      elseif load < 80 then
+        color = colors.orange
+      else
+        color = colors.red
+      end
+    end
+
+    ram_g:set {
+      graph = { color = color, line_width = 1 },
+      label = "RAM " .. env.memory_load,
+    }
+  end
+end)
+
 local ram_popup = sbar.add("item", {
   position = "popup." .. ram_g.name,
   label = {
