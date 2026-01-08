@@ -1,6 +1,8 @@
 local colors = require "colors"
 local settings = require "settings"
 
+local LARGE_SCREEN_WIDTH = 2000
+
 local front_app = sbar.add("item", "top.front_app", {
   display = "active",
   position = "left", -- Default to left
@@ -37,7 +39,7 @@ local function update_position()
     -- display is a table, accessing frame.w directly
     local w = display.frame and display.frame.w
     if w then
-      if w > 2000 then
+      if w > LARGE_SCREEN_WIDTH then
         front_app:set { position = "center" }
       else
         front_app:set { position = "left" }
