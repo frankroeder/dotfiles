@@ -25,6 +25,8 @@ local icons = {
       back = "􀊊",
       forward = "􀊌",
       play_pause = "􀊈",
+      play = "􀊃",
+      pause = "􀊆",
     },
     yabai = {
       float = "􀏜",
@@ -95,6 +97,8 @@ local icons = {
       back = "",
       forward = "",
       play_pause = "",
+      play = "",
+      pause = "",
     },
     battery = {
       ["100"] = "",

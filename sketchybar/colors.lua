@@ -12,11 +12,6 @@ return {
   dirty_white = 0xffbac2de,
   lightblack = 0xff313244,
   transparent = 0x00000000,
-  try = 0xff11111b,
-  try2 = 0xff181825,
-  try3 = 0xff1e1e2e,
-  try_border = 0xff585b70,
-  try4 = 0xff1e1e2e,
 
   bar = {
     bg = 0xff181825,
@@ -26,6 +21,7 @@ return {
     bg = 0xff1e1e2e,
     border = 0xffcba6f7,
   },
+  bg = 0xff1e1e2e,
   bg1 = 0xff181825,
   bg2 = 0xff11111b,
   pill_bg = 0xff313244,
