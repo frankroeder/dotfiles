@@ -18,158 +18,112 @@ local bluetooth = sbar.add("item", "top.widgets.bluetooth", {
   label = {
     drawing = false,
   },
+  popup = {
+    align = "right",
+  }
 })
 
-local bluetooth_popup = sbar.add("item", {
-  position = "popup." .. bluetooth.name,
-  label = {
-    string = "Checking...",
-    font = {
-      family = settings.font.numbers,
-      style = settings.font.style_map["Bold"],
-      size = 12.0,
-    },
-    padding_left = 10,
-    padding_right = 10,
-  },
-  background = {
-    drawing = true,
-    corner_radius = 5,
-    border_width = 1,
-    border_color = colors.bg2,
-  },
-})
+local popup_items = {}
 
-local popup_info = "No Devices"
+local function clear_popup()
+  for _, item in ipairs(popup_items) do
+    sbar.remove(item.name)
+  end
+  popup_items = {}
+end
 
-local function format_device_stats(stats)
-  local parts = {}
-  if stats.left then
-    table.insert(parts, "L:" .. stats.left .. "%")
+local function get_device_icon(minor_type)
+  if not minor_type then return "•" end
+  local type = minor_type:lower()
+
+  if type:find("head") or type:find("airpods") then
+    return icons.device.headphone
+  elseif type:find("speaker") then
+    return icons.device.speaker
+  elseif type:find("keyboard") then
+    return icons.device.keyboard
+  elseif type:find("mouse") or type:find("trackpad") then
+    return icons.device.mouse
   end
-  if stats.right then
-    table.insert(parts, "R:" .. stats.right .. "%")
-  end
-  if stats.case then
-    table.insert(parts, "C:" .. stats.case .. "%")
-  end
-  if stats.main then
-    table.insert(parts, stats.main .. "%")
-  end
-  return table.concat(parts, " ")
+
+  return "•"
 end
 
 local function update()
-  sbar.exec("system_profiler SPBluetoothDataType", function(info)
-    -- 1. Update Icon State
-    local powered_on = info:match "State: On" or info:match "Bluetooth Power: On"
+  sbar.exec("system_profiler SPBluetoothDataType -json", function(data)
+    clear_popup()
+    local count = 0
 
-    local icon = icons.bluetooth.off
-    local color = colors.grey
+    if data and data.SPBluetoothDataType then
+      for _, controller in pairs(data.SPBluetoothDataType) do
+        if controller.device_connected then
+          for _, device_entry in pairs(controller.device_connected) do
+            for name, info in pairs(device_entry) do
+              count = count + 1
 
-    if powered_on then
-      icon = icons.bluetooth.on
-      color = colors.blue
-    end
+              local battery_level = info.device_batteryLevelMain or info.device_batteryLevelLeft
+              local minor_type = info.device_minorType or "Unknown"
+              local address = info.device_address or "??"
+              
+              -- Desired format: Name - MinorType @Address (Battery)
+              local display_label = string.format("%s - %s @%s", name, minor_type, address)
+              if battery_level then
+                display_label = display_label .. " (" .. battery_level .. ")"
+              end
 
-    bluetooth:set {
-      icon = { string = icon, color = color },
-    }
+              local icon = get_device_icon(info.device_minorType)
 
-    -- 2. Parse Connected Devices (Line-by-Line state machine)
-    local device_lines = {}
-    local parsing_connected = false
-    local current_device = nil
-    local current_stats = {}
-
-    for line in info:gmatch "[^\r\n]+" do
-      -- Detect Section Headers
-      if line:match "^%s*Connected:$" then
-        parsing_connected = true
-      elseif line:match "^%s*Not Connected:$" then
-        parsing_connected = false
-        -- End of connected section, save last device if exists
-        if current_device then
-          local stats_str = format_device_stats(current_stats)
-          if stats_str ~= "" then
-            table.insert(device_lines, current_device .. " " .. stats_str)
-          else
-            table.insert(device_lines, current_device)
-          end
-          current_device = nil
-          current_stats = {}
-        end
-      elseif parsing_connected then
-        -- We are strictly inside the "Connected:" block
-
-        -- Check if line is a Device Name (ends in colon, no value)
-        local device_name = line:match "^%s+([^:]+):$"
-
-        if device_name then
-          -- If we were processing a device, save it
-          if current_device then
-            local stats_str = format_device_stats(current_stats)
-            if stats_str ~= "" then
-              table.insert(device_lines, current_device .. " " .. stats_str)
-            else
-              table.insert(device_lines, current_device)
-            end
-          end
-
-          -- Start new device
-          current_device = device_name
-          current_stats = {}
-        else
-          -- It's a property line for the current device
-          if current_device then
-            local l = line:match "Left Battery Level:%s*(%d+)"
-            if l then
-              current_stats.left = l
-            end
-
-            local r = line:match "Right Battery Level:%s*(%d+)"
-            if r then
-              current_stats.right = r
-            end
-
-            local c = line:match "Case Battery Level:%s*(%d+)"
-            if c then
-              current_stats.case = c
-            end
-
-            local m = line:match "Battery Level:%s*(%d+)"
-            if m then
-              current_stats.main = m
+              local item = sbar.add("item", {
+                position = "popup." .. bluetooth.name,
+                label = {
+                  string = display_label,
+                  font = {
+                    family = settings.font.text,
+                    style = settings.font.style_map["Regular"],
+                    size = 12.0,
+                  },
+                  padding_left = 8,
+                  padding_right = 10,
+                },
+                icon = {
+                  string = icon,
+                  padding_left = 10,
+                  padding_right = 4,
+                  color = colors.white,
+                  font = { size = 14.0 }, -- Larger for SF Symbols
+                },
+                background = {
+                  height = 24,
+                }
+              })
+              table.insert(popup_items, item)
             end
           end
         end
       end
     end
 
-    -- Handle case where "Not Connected" was not found (end of file)
-    if parsing_connected and current_device then
-      local stats_str = format_device_stats(current_stats)
-      if stats_str ~= "" then
-        table.insert(device_lines, current_device .. " " .. stats_str)
-      else
-        table.insert(device_lines, current_device)
-      end
-    end
-
-    if #device_lines > 0 then
-      popup_info = table.concat(device_lines, "\n")
+    if count == 0 then
+      bluetooth:set { icon = { color = colors.grey } }
+      local item = sbar.add("item", {
+        position = "popup." .. bluetooth.name,
+        label = {
+          string = "No Devices Connected",
+          padding_left = 10,
+          padding_right = 10,
+        },
+        icon = { drawing = false }
+      })
+      table.insert(popup_items, item)
     else
-      popup_info = "No Devices Connected"
+      bluetooth:set { icon = { color = colors.blue } }
     end
-
-    bluetooth_popup:set { label = { string = popup_info } }
   end)
 end
 
 bluetooth:subscribe({ "routine", "system_woke" }, update)
 
 bluetooth:subscribe("mouse.clicked", function()
-  bluetooth_popup:set { label = { string = popup_info } }
   bluetooth:set { popup = { drawing = "toggle" } }
 end)
 
