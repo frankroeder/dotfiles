@@ -61,14 +61,39 @@ local function update()
             for name, info in pairs(device_entry) do
               count = count + 1
 
-              local battery_level = info.device_batteryLevelMain or info.device_batteryLevelLeft
+              local battery_main = info.device_batteryLevelMain
+              local battery_left = info.device_batteryLevelLeft
+              local battery_right = info.device_batteryLevelRight
+              local rssi = info.device_rssi
               local minor_type = info.device_minorType or "Unknown"
               local address = info.device_address or "??"
+              local firmware = info.device_firmwareVersion
               
-              -- Desired format: Name - MinorType @Address (Battery)
-              local display_label = string.format("%s - %s @%s", name, minor_type, address)
-              if battery_level then
-                display_label = display_label .. " (" .. battery_level .. ")"
+              -- Start with Name
+              local display_label = name
+
+              -- Battery Logic
+              local battery_info = ""
+              if battery_left and battery_right then
+                battery_info = string.format(" (L %s, R %s)", battery_left, battery_right)
+              elseif battery_main then
+                battery_info = string.format(" (%s)", battery_main)
+              elseif battery_left then
+                 battery_info = string.format(" (L %s)", battery_left)
+              end
+              display_label = display_label .. battery_info
+
+              -- RSSI
+              if rssi then
+                display_label = display_label .. " (" .. rssi .. " dBm)"
+              end
+
+              -- Type and Address
+              display_label = display_label .. string.format(" - %s @%s", minor_type, address)
+
+              -- Firmware
+              if firmware then
+                display_label = display_label .. ' Version: "' .. firmware .. '"'
               end
 
               local icon = get_device_icon(info.device_minorType)

@@ -70,6 +70,12 @@ local icons = {
       on = "􀟥",
       off = "􁅒",
     },
+    device = {
+      headphone = "􀑈",
+      speaker = "􀝏",
+      keyboard = "􀇳",
+      mouse = "􀌏",
+    },
   },
 
   -- Alternative NerdFont icons
