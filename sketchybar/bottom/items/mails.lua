@@ -21,29 +21,23 @@ local mail = sbar.add("item", "widgets.mail", {
 })
 
 local function update_mail_count()
-  sbar.exec(
-    [[
-    osascript -e 'tell application "Mail"
-      if it is running then
-        return count of (messages of inbox whose read status is false)
-      else
-        return 0
-      end if
-    end tell'
-		]],
-    function(result)
-      local mail_count = tonumber(result) or 0
-      mail:set {
-        drawing = mail_count > 0,
-        label = {
-          string = tostring(mail_count),
-        },
-        icon = {
-          color = (mail_count > 0) and colors.green or colors.lightblack,
-        },
-      }
+  sbar.exec("lsappinfo info -only StatusLabel 'Mail'", function(info)
+    local count = 0
+    if info then
+      local label = info:match('"label"="([^"]+)"')
+      if label then
+        count = tonumber(label) or 0
+      end
     end
-  )
+
+    mail:set {
+      drawing = count > 0,
+      label = { string = tostring(count) },
+      icon = {
+        color = (count > 0) and colors.green or colors.lightblack,
+      },
+    }
+  end)
 end
 
 mail:subscribe("routine", function()
