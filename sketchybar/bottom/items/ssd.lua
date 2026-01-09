@@ -1,16 +1,18 @@
 local colors = require "colors"
+local settings = require "settings"
+local icons = require "icons"
 
 local icon_thresholds = {
-  { min = 98, icon = "󰪥" },
-  { min = 88, icon = "󰪤" },
-  { min = 76, icon = "󰪣" },
-  { min = 64, icon = "󰪢" },
-  { min = 52, icon = "󰪡" },
-  { min = 40, icon = "󰪠" },
-  { min = 28, icon = "󰪟" },
-  { min = 16, icon = "󰪞" },
-  { min = 1, icon = "󰝦" },
-  { min = 0, icon = "󰅚" },
+  { min = 98, icon = icons.disk["98"] },
+  { min = 88, icon = icons.disk["88"] },
+  { min = 76, icon = icons.disk["76"] },
+  { min = 64, icon = icons.disk["64"] },
+  { min = 52, icon = icons.disk["52"] },
+  { min = 40, icon = icons.disk["40"] },
+  { min = 28, icon = icons.disk["28"] },
+  { min = 16, icon = icons.disk["16"] },
+  { min = 1, icon = icons.disk["1"] },
+  { min = 0, icon = icons.disk["0"] },
 }
 
 local ssd_volume = sbar.add("item", "widgets.ssd.volume", {
@@ -19,7 +21,7 @@ local ssd_volume = sbar.add("item", "widgets.ssd.volume", {
     font = {
       size = 16.0,
     },
-    string = "󰅚",
+    string = icons.disk["0"],
     padding_left = 8,
   },
   label = {

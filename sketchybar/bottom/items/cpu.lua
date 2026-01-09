@@ -3,7 +3,11 @@ local colors = require "colors"
 
 -- Execute the event provider binary which provides the event "cpu_update" for
 -- the cpu load data, which is fired every 2.0 seconds.
-sbar.exec("pgrep -x cpu_load > /dev/null && killall cpu_load; " .. os.getenv("HOME") .. "/.dotfiles/sketchybar/helpers/event_providers/cpu_load/bin/cpu_load cpu_update 2.0")
+sbar.exec(
+  "pgrep -x cpu_load > /dev/null && killall cpu_load; "
+    .. os.getenv "HOME"
+    .. "/.dotfiles/sketchybar/helpers/event_providers/cpu_load/bin/cpu_load cpu_update 2.0"
+)
 
 local cpu = sbar.add("graph", "widgets.cpu", 80, {
   position = "right",

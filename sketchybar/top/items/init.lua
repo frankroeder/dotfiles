@@ -7,8 +7,8 @@ sbar.add("item", {
   position = "left",
   width = 50,
   background = {
-    drawing = false
-  }
+    drawing = false,
+  },
 })
 require "items.front_app"
 

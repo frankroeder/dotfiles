@@ -20,7 +20,7 @@ local bluetooth = sbar.add("item", "top.widgets.bluetooth", {
   },
   popup = {
     align = "right",
-  }
+  },
 })
 
 local popup_items = {}
@@ -33,16 +33,18 @@ local function clear_popup()
 end
 
 local function get_device_icon(minor_type)
-  if not minor_type then return "•" end
+  if not minor_type then
+    return "•"
+  end
   local type = minor_type:lower()
 
-  if type:find("head") or type:find("airpods") then
+  if type:find "head" or type:find "airpods" then
     return icons.device.headphone
-  elseif type:find("speaker") then
+  elseif type:find "speaker" then
     return icons.device.speaker
-  elseif type:find("keyboard") then
+  elseif type:find "keyboard" then
     return icons.device.keyboard
-  elseif type:find("mouse") or type:find("trackpad") then
+  elseif type:find "mouse" or type:find "trackpad" then
     return icons.device.mouse
   end
 
@@ -68,7 +70,7 @@ local function update()
               local minor_type = info.device_minorType or "Unknown"
               local address = info.device_address or "??"
               local firmware = info.device_firmwareVersion
-              
+
               -- Start with Name
               local display_label = name
 
@@ -79,7 +81,7 @@ local function update()
               elseif battery_main then
                 battery_info = string.format(" (%s)", battery_main)
               elseif battery_left then
-                 battery_info = string.format(" (L %s)", battery_left)
+                battery_info = string.format(" (L %s)", battery_left)
               end
               display_label = display_label .. battery_info
 
@@ -119,7 +121,7 @@ local function update()
                 },
                 background = {
                   height = 24,
-                }
+                },
               })
               table.insert(popup_items, item)
             end
@@ -137,7 +139,7 @@ local function update()
           padding_left = 10,
           padding_right = 10,
         },
-        icon = { drawing = false }
+        icon = { drawing = false },
       })
       table.insert(popup_items, item)
     else

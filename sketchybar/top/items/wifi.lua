@@ -131,7 +131,8 @@ local function toggle_details()
           en="$(networksetup -listallhardwareports | awk '/Wi-Fi|AirPort/{getline; print $NF}')";
           ipconfig getsummary "$en" | grep -Fxq "  Active : FALSE" || \
               networksetup -listpreferredwirelessnetworks "$en" | sed -n '2s/^\t//p'
-      ]], function(result)
+      ]],
+      function(result)
         ssid:set { label = result }
       end
     )

@@ -1,12 +1,13 @@
 local colors = require "colors"
 local settings = require "settings"
+local icons = require "icons"
 
 sbar.add("event", "keyboard_change", "AppleSelectedInputSourcesChangedNotification")
 
 local keyboard = sbar.add("item", "widgets.keyboard", {
   position = "left",
   icon = {
-    string = "􀇳",
+    string = icons.keyboard,
     padding_left = 8,
   },
   label = {

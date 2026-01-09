@@ -24,7 +24,7 @@ local function update_mail_count()
   sbar.exec("lsappinfo info -only StatusLabel 'Mail'", function(info)
     local count = 0
     if info then
-      local label = info:match('"label"="([^"]+)"')
+      local label = info:match '"label"="([^"]+)"'
       if label then
         count = tonumber(label) or 0
       end

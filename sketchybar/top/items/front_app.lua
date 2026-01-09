@@ -26,7 +26,7 @@ local front_app = sbar.add("item", "top.front_app", {
     },
   },
   background = {
-    drawing = false
+    drawing = false,
   },
   click_script = "open -a 'Mission Control'",
   updates = true,
@@ -35,7 +35,9 @@ local front_app = sbar.add("item", "top.front_app", {
 -- State to track if the built-in display is the primary (Main) display
 local function update_position()
   sbar.exec("yabai -m query --displays --display", function(display)
-    if not display then return end
+    if not display then
+      return
+    end
     -- display is a table, accessing frame.w directly
     local w = display.frame and display.frame.w
     if w then

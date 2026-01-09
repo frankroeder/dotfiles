@@ -31,7 +31,7 @@ local media = sbar.add("item", "widgets.media", {
 })
 
 local function media_control(cmd)
-  sbar.exec("osascript -e 'tell application \"Music\" to " .. cmd .. "'")
+  sbar.exec('osascript -e \'tell application "Music" to ' .. cmd .. "'")
 end
 
 local back = sbar.add("item", "widgets.media.back", {
@@ -46,7 +46,7 @@ local back = sbar.add("item", "widgets.media.back", {
 })
 
 back:subscribe("mouse.clicked", function()
-  media_control("previous track")
+  media_control "previous track"
 end)
 
 local play = sbar.add("item", "widgets.media.play", {
@@ -61,7 +61,7 @@ local play = sbar.add("item", "widgets.media.play", {
 })
 
 play:subscribe("mouse.clicked", function()
-  media_control("playpause")
+  media_control "playpause"
 end)
 
 local forward = sbar.add("item", "widgets.media.forward", {
@@ -76,7 +76,7 @@ local forward = sbar.add("item", "widgets.media.forward", {
 })
 
 forward:subscribe("mouse.clicked", function()
-  media_control("next track")
+  media_control "next track"
 end)
 
 media:subscribe("music_change", function(env)
@@ -86,7 +86,7 @@ media:subscribe("music_change", function(env)
     -- Access "Player State" key and handle capitalization
     local state = env.INFO["Player State"] or "Stopped"
     local display_text = artist .. " - " .. title
-    
+
     sbar.animate("tanh", settings.animation_duration * 2, function()
       media:set {
         drawing = (artist .. title ~= ""),
@@ -97,12 +97,12 @@ media:subscribe("music_change", function(env)
           string = app_icons["Music"] or app_icons["Default"],
         },
       }
-      
+
       -- Update play/pause icon based on state
       play:set {
         icon = {
-          string = (state == "Playing") and icons.media.pause or icons.media.play
-        }
+          string = (state == "Playing") and icons.media.pause or icons.media.play,
+        },
       }
     end)
   end

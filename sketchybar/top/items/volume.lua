@@ -90,7 +90,7 @@ local volume_mute = sbar.add("item", {
   width = 120,
   background = {
     corner_radius = 5,
-  }
+  },
 })
 
 volume_mute:subscribe("mouse.clicked", function()

@@ -74,7 +74,7 @@ local mic_mute = sbar.add("item", {
   width = 120,
   background = {
     corner_radius = 5,
-  }
+  },
 })
 
 mic_mute:subscribe("mouse.clicked", function()

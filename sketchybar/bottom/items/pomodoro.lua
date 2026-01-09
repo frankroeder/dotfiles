@@ -13,7 +13,7 @@ local timer = sbar.add("item", "widgets.timer", {
   position = "left",
   update_freq = 1,
   icon = {
-    string = "􀐱",
+    string = icons.timer,
     color = colors.yellow,
     padding_left = 8,
   },
@@ -54,7 +54,7 @@ timer:subscribe("routine", function()
     else
       timer_state = "finished"
       timer:set { label = { string = "Done!" }, icon = { color = colors.red } }
-      sbar.exec 'osascript -e \'display notification "Timer Finished" with title "Sketchybar Timer"\''
+      sbar.exec 'osascript -e "display notification "Timer Finished" with title "Sketchybar Timer""'
     end
   elseif timer_state == "finished" then
     if alert_rings < max_rings then
