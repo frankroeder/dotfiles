@@ -18,7 +18,7 @@ local timer = sbar.add("item", "widgets.timer", {
     padding_left = 8,
   },
   label = {
-    string = "No Timer",
+    string = "-",
     padding_right = 8,
   },
   popup = {

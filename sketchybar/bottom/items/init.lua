@@ -5,7 +5,6 @@ require "items.ram"
 require "items.cpu"
 require "items.swap"
 require "items.ssd"
-require "items.ip"
 
 require "items.mails"
 require "items.keyboard"
