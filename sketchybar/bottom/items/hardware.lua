@@ -148,7 +148,7 @@ cpu:subscribe('routine', function(env)
       -- Update GPU
       local color_gpu = colors.blue
       if gpu_used > 30 then
-        if gpu < 60 then
+        if gpu_used < 60 then
           color_gpu = colors.yellow
         elseif gpu_used < 80 then
           color_gpu = colors.orange
