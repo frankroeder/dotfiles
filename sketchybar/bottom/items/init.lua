@@ -1,9 +1,6 @@
 require "items.media"
 
-require "items.gpu"
-require "items.ram"
-require "items.cpu"
-require "items.swap"
+require "items.hardware"
 require "items.ssd"
 
 require "items.mails"
@@ -20,18 +17,6 @@ require "items.vpn"
 -- sbar.add("alias", "SystemUIServer,AppleVPNExtra", "left")
 -- sbar.add("alias", "WeatherMenu,Item-0", "left")
 
-local colors = require "colors"
-
-sbar.add("bracket", "bottom.group.hw", {
-  "widgets.ssd.volume",
-  "widgets.cpu",
-  "widgets.ram",
-  "widgets.swap",
-}, {
-  background = {
-    drawing = false,
-  },
-})
 
 sbar.add("bracket", "bottom.group.utils", {
   "widgets.mail",
