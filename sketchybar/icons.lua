@@ -12,6 +12,7 @@ local icons = {
     gear = "􀍟",
     cpu = "􀫥",
 		gpu = "􀧓",
+		power = "􀋦",
     clipboard = "􀉄",
     calendar = "􀧞",
     ip = "􀤆",

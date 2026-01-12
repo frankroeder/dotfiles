@@ -6,8 +6,8 @@ local gpu = sbar.add('graph', 'widgets.gpu', 80, {
   position = "right",
   graph = { color = colors.blue },
   icon = {
- 		string = icons.gpu,
- 		color = colors.teal,
+  		string = icons.gpu,
+  		color = colors.teal,
      padding_left = 4,
      y_offset = 0,
  	},
@@ -73,6 +73,23 @@ local ram_popup = sbar.add("item", {
   label = {
     font = { size = 12.0 },
     string = "Checking memory pressure...",
+  },
+})
+
+local power = sbar.add('item', 'widgets.power', {
+  position = "right",
+  icon = {
+    string = icons.power,
+    color = colors.yellow,
+    padding_left = 0,
+    padding_right = -1,
+  },
+  label = {
+    string = '?? W',
+    font = {
+      size = 10.0,
+    },
+    padding_right = 2,
   },
 })
 
@@ -144,6 +161,12 @@ cpu:subscribe('routine', function(env)
         label = "GPU " .. gpu_used .. '% ' .. math.floor(gpu_temp) .. '°C',
       })
       gpu:push({ gpu_used / 100. })
+
+      -- Update Power
+      local power_val = output.all_power
+      power:set({
+        label = math.floor(power_val) .. " W",
+      })
     end
   end)
 end)
