@@ -1,5 +1,6 @@
 require "items.media"
 
+require "items.gpu"
 require "items.ram"
 require "items.cpu"
 require "items.swap"
