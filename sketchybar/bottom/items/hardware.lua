@@ -91,7 +91,7 @@ local power = sbar.add('item', 'widgets.power', {
   icon = {
     string = icons.power,
     color = colors.yellow,
-    padding_left = 0,
+    padding_left = 2,
     padding_right = -1,
   },
   label = {
@@ -99,9 +99,9 @@ local power = sbar.add('item', 'widgets.power', {
     font = {
       size = 10.0,
     },
-    padding_right = 2,
+    padding_right = 3,
   },
-  padding_right = 20,
+  padding_right = 23,
 })
 
 cpu:subscribe('routine', function(env)
