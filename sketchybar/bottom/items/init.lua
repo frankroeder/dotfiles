@@ -17,7 +17,6 @@ require "items.vpn"
 -- sbar.add("alias", "SystemUIServer,AppleVPNExtra", "left")
 -- sbar.add("alias", "WeatherMenu,Item-0", "left")
 
-
 sbar.add("bracket", "bottom.group.utils", {
   "widgets.mail",
   "widgets.timer",

@@ -7,12 +7,12 @@ local gpu = sbar.add('graph', 'widgets.gpu', 80, {
   graph = { color = colors.blue },
   icon = {
   		string = icons.gpu,
-  		color = colors.teal,
+  		color = colors.blue,
      padding_left = 4,
      y_offset = 0,
  	},
   label = {
-    string = 'GPU ??% ??°C',
+    string = 'GPU --% --°C',
     font = {
       size = 10.0,
     },
@@ -20,7 +20,7 @@ local gpu = sbar.add('graph', 'widgets.gpu', 80, {
     width = 0,
     padding_right = 6,
     y_offset = 8,
- 	},
+ 	}
 })
 
 local ram_g = sbar.add("graph", "widgets.ram", 108, {
@@ -31,7 +31,7 @@ local ram_g = sbar.add("graph", "widgets.ram", 108, {
     y_offset = 0,
   },
   label = {
-    string = "RAM ??% SWAP ??%",
+    string = "RAM --% SWAP --%",
     font = {
       size = 10.0,
     },
@@ -53,7 +53,7 @@ local cpu = sbar.add("graph", "widgets.cpu", 138, {
     y_offset = 0,
   },
   label = {
-    string = "eCPU ??% pCPU ??% ??°C",
+    string = "eCPU --% pCPU --% --°C",
     font = {
       size = 10.0,
     },
@@ -95,7 +95,7 @@ local power = sbar.add('item', 'widgets.power', {
     padding_right = -1,
   },
   label = {
-    string = '?? W',
+    string = '-- W',
     font = {
       size = 10.0,
     },

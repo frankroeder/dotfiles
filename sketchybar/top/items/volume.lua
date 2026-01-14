@@ -45,8 +45,10 @@ local volume_slider = sbar.add("slider", "widgets.volume.slider", 100, {
 
 local function update()
   sbar.exec("osascript -e 'get volume settings'", function(settings_str)
+		if not settings_str then return end
     local volume_level = tonumber(settings_str:match "output volume:(%d+)")
     local is_muted = settings_str:match "output muted:(%a+)" == "true"
+		if not volume_level then return end
 
     local icon = icons.volume[0]
     local color = colors.grey
