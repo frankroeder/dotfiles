@@ -258,9 +258,12 @@ ifeq ($(OSTYPE), Darwin)
 		brew services start sketchybar; \
 	fi
 	# private configs
+	# https://agents.md
+	ln -sfv $(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/AGENTS.md $(HOME)/.claude/CLAUDE.md;
+	ln -sfv $(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/AGENTS.md $(HOME)/.gemini/GEMINI.md;
 	ln -sfv $(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/claude_settings.json $(HOME)/.claude/settings.json;
-	ln -sfv $(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/CLAUDE.md $(HOME)/.claude/;
 	ln -sfv $(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/opencode.jsonc $(HOME)/.config/opencode/;
+	ln -sfv $(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/gemini_settings.json $(HOME)/.gemini/settings.json;
 endif
 
 .PHONY: directories
