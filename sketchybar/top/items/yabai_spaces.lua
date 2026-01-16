@@ -108,7 +108,13 @@ local space_layout = sbar.add("item", "top.yabai_layout", {
   },
   label = {
     string = "",
+		padding_right = 10,
   },
+	background = {
+		color = colors.bg1,
+		border_width = 2,
+		border_color = colors.magenta ,
+	},
 })
 
 local function updateLayout()
@@ -119,7 +125,7 @@ local function updateLayout()
         return
       end
       local layout, display = out:match "(%S+)%s+(%S+)"
-      local stack_info = ""
+      local stack_info = "-"
       if not layout or not display then
         return
       end
