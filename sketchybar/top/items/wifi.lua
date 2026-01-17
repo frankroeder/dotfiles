@@ -1,7 +1,9 @@
 local icons = require "icons"
 local colors = require "colors"
 local settings = require "settings"
+local utils = require "utils"
 
+local interface = utils.get_wifi_interface()
 local popup_width = 250
 
 local wifi = sbar.add("item", "widgets.wifi", {
@@ -101,7 +103,7 @@ local router = sbar.add("item", {
 })
 
 wifi:subscribe({ "wifi_change", "system_woke" }, function(env)
-  sbar.exec("ipconfig getifaddr en0", function(ip_addr)
+  sbar.exec("ipconfig getifaddr " .. interface, function(ip_addr)
     local connected = not (ip_addr == "")
     wifi:set {
       icon = {
@@ -123,7 +125,7 @@ local function toggle_details()
     sbar.exec("networksetup -getcomputername", function(result)
       hostname:set { label = result }
     end)
-    sbar.exec("ipconfig getifaddr en0", function(result)
+    sbar.exec("ipconfig getifaddr " .. interface, function(result)
       ip:set { label = result }
     end)
     sbar.exec(

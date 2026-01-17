@@ -21,12 +21,15 @@ local keyboard = sbar.add("item", "widgets.keyboard", {
 })
 
 local function update_keyboard()
-  sbar.exec(
-    [[defaults read ~/Library/Preferences/com.apple.HIToolbox.plist AppleSelectedInputSources | grep "KeyboardLayout Name" | cut -c 33- | rev | cut -c 2- | rev]],
-    function(layout)
-      keyboard:set { label = { string = layout:gsub("\n", "") } }
+  sbar.exec("plutil -convert json -o - " .. os.getenv "HOME" .. "/Library/Preferences/com.apple.HIToolbox.plist", function(data)
+    if not data or not data.AppleSelectedInputSources then return end
+    for _, source in ipairs(data.AppleSelectedInputSources) do
+      if source["KeyboardLayout Name"] then
+        keyboard:set { label = { string = source["KeyboardLayout Name"] } }
+        return
+      end
     end
-  )
+  end)
 end
 
 keyboard:subscribe("keyboard_change", update_keyboard)

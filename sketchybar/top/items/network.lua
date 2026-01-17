@@ -1,11 +1,16 @@
 local icons = require "icons"
 local colors = require "colors"
 local settings = require "settings"
+local utils = require "utils"
+
+local interface = utils.get_primary_interface()
 
 sbar.exec(
   "killall network_load >/dev/null; "
     .. os.getenv "HOME"
-    .. "/.dotfiles/sketchybar/helpers/event_providers/network_load/bin/network_load en0 network_update 2.0"
+    .. "/.dotfiles/sketchybar/helpers/event_providers/network_load/bin/network_load "
+    .. interface
+    .. " network_update 2.0"
 )
 
 local rate_font = {
