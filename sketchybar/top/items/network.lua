@@ -22,15 +22,19 @@ local rate_font = {
 local network_up = sbar.add("item", "widgets.network_up", {
   position = "right",
   width = 0,
-  padding_left = 0,
+  padding_left = 2,
   padding_right = 0,
-  icon = { drawing = false },
+  icon = {
+    string = icons.wifi.upload,
+    drawing = true,
+    font = rate_font,
+  },
   label = {
     font = rate_font,
     padding_left = 2,
     padding_right = 6,
     align = "right",
-    string = "0 B/s",
+    string = "??? Bps",
     color = colors.red,
   },
   y_offset = 5,
@@ -41,53 +45,37 @@ local network_down = sbar.add("item", "widgets.network_down", {
   position = "right",
   padding_left = 0,
   padding_right = 0,
-  icon = { drawing = false },
+  icon = {
+    string = icons.wifi.download,
+    drawing = true,
+    font = rate_font,
+  },
   label = {
     font = rate_font,
-    width = rate_label_width,
     padding_left = 2,
     padding_right = 6,
     align = "right",
-    string = "0 B/s",
+    string = "??? Bps",
     color = colors.blue,
   },
   y_offset = -5,
   background = { drawing = false },
 })
 
-local function convert_rate(rate)
-  local formatted = rate or "0 Bps"
-  -- Convert Bps to KB/s if needed
-  if formatted:match " Bps$" then
-    local value = tonumber(formatted:match "^%d+")
-    if value then
-      if value < 1000 then
-        formatted = value .. " B/s"
-      else
-        formatted = string.format("%d KB/s", math.floor(value / 1000))
-      end
-    end
-  end
-  return formatted:gsub("Bps$", "B/s"):gsub("ps$", "/s")
-end
-
 network_up:subscribe("network_update", function(env)
-  local up = convert_rate(env.upload)
-  local up_color = (env.upload == "000 Bps" or up == "0 B/s") and colors.grey or colors.red
+  local up_color = (env.upload == "000 Bps") and colors.grey or colors.red
+  local down_color = (env.download == "000 Bps") and colors.grey or colors.blue
   network_up:set {
+    icon = { color = up_color },
     label = {
-      string = icons.wifi.upload .. " " .. up,
+      string = env.upload,
       color = up_color,
     },
   }
-end)
-
-network_down:subscribe("network_update", function(env)
-  local down = convert_rate(env.download)
-  local down_color = (env.download == "000 Bps" or down == "0 B/s") and colors.grey or colors.blue
   network_down:set {
+    icon = { color = down_color },
     label = {
-      string = icons.wifi.download .. " " .. down,
+      string = env.download,
       color = down_color,
     },
   }

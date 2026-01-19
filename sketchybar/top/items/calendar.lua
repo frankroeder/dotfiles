@@ -4,9 +4,7 @@ local colors = require "colors"
 local cal = sbar.add("item", "top.widgets.calendar", {
   position = "right",
   update_freq = 30,
-  icon = {
-    drawing = false,
-  },
+  icon = { drawing = false },
   label = {
     color = colors.white,
     padding_right = 8,

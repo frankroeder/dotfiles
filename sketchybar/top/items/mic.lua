@@ -15,6 +15,7 @@ local mic = sbar.add("item", "widgets.mic", {
     },
   },
   label = {
+    string = "??%",
     font = {
       style = settings.font.style_map["Bold"],
       size = 14.0,
@@ -28,7 +29,6 @@ local mic_slider = sbar.add("slider", "widgets.mic.slider", 100, {
   position = "popup.widgets.mic",
   slider = {
     highlight_color = colors.purple,
-    width = 120,
     background = {
       height = 6,
       corner_radius = 3,
@@ -36,9 +36,11 @@ local mic_slider = sbar.add("slider", "widgets.mic.slider", 100, {
     },
     knob = {
       drawing = true,
-      string = "●",
+      string = " ",
     },
   },
+  background = { color = colors.bg1, height = 2, y_offset = -20 },
+  -- click_script = 'osascript -e "set volume input volume $PERCENTAGE"',
 })
 
 local last_volume = 100
@@ -63,8 +65,12 @@ local function update()
   end)
 end
 
-mic:subscribe("mouse.clicked", function()
-  mic:set { popup = { drawing = "toggle" } }
+mic:subscribe("mouse.clicked", function(env)
+  if env.BUTTON == "left" then
+    mic:set { popup = { drawing = "toggle" } }
+  elseif env.BUTTON == "right" then
+    sbar.exec "open /System/Library/PreferencePanes/Sound.prefpane"
+  end
 end)
 
 local mic_mute = sbar.add("item", {

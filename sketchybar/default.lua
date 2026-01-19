@@ -32,6 +32,11 @@ sbar.default {
     border_color = colors.bg2,
     color = colors.pill_bg,
     drawing = true,
+    image = {
+      corner_radius = 9,
+      border_color = colors.grey,
+      border_width = 1,
+    },
   },
   popup = {
     background = {
@@ -45,4 +50,5 @@ sbar.default {
   },
   padding_left = 2,
   padding_right = 2,
+  scroll_texts = true,
 }

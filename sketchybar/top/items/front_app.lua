@@ -5,19 +5,20 @@ local LARGE_SCREEN_WIDTH = 2000
 
 local front_app = sbar.add("item", "top.front_app", {
   display = "active",
-  position = "left", -- Default to left
+  position = "left",
   icon = {
     background = {
       drawing = true,
       image = {
-        corner_radius = 5,
-        padding_left = 4,
-        scale = 1.0,
+        -- corner_radius = 5,
+        -- padding_left = 4,
+        scale = 1.1,
       },
     },
-    font = "sketchybar-app-font:Regular:22.0",
+    -- font = "sketchybar-app-font:Regular:22.0",
   },
   label = {
+    -- align = "center",
     padding_left = 10,
     padding_right = 10,
     font = {
@@ -51,21 +52,11 @@ local function update_position()
 end
 
 front_app:subscribe("front_app_switched", function(env)
-  update_position() -- Check position whenever app switches (often implies display focus change)
-  sbar.animate("tanh", 20, function()
+  update_position()
+  sbar.animate("tanh", 30, function()
     front_app:set {
       label = { string = env.INFO },
       icon = { background = { image = { string = "app." .. env.INFO } } },
     }
   end)
 end)
-
-front_app:subscribe({ "display_change" }, function()
-  update_position()
-end)
-
-front_app:subscribe({ "window_focus" }, function()
-  update_position()
-end)
-
-update_position()

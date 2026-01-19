@@ -23,14 +23,12 @@ local volume = sbar.add("item", "top.widgets.volume", {
     padding_right = 8,
     color = colors.white,
   },
-  background = {},
 })
 
 local volume_slider = sbar.add("slider", "widgets.volume.slider", 100, {
   position = "popup.top.widgets.volume",
   slider = {
     highlight_color = colors.blue,
-    width = 120,
     background = {
       height = 6,
       corner_radius = 3,
@@ -38,25 +36,19 @@ local volume_slider = sbar.add("slider", "widgets.volume.slider", 100, {
     },
     knob = {
       drawing = true,
-      string = "●",
+      string = " ",
     },
   },
+  background = { color = colors.bg1, height = 2, y_offset = -20 },
+  click_script = 'osascript -e "set volume output volume $PERCENTAGE"',
 })
 
-local function update()
-  sbar.exec("osascript -e 'get volume settings'", function(settings_str)
-		if not settings_str then return end
-    local volume_level = tonumber(settings_str:match "output volume:(%d+)")
-    local is_muted = settings_str:match "output muted:(%a+)" == "true"
-		if not volume_level then return end
-
+volume:subscribe("volume_change", function(env)
+    local volume_level = tonumber(env.INFO)
     local icon = icons.volume[0]
-    local color = colors.grey
+    local color = colors.red
 
-    if is_muted then
-      icon = icons.volume[0]
-      color = colors.red
-    elseif volume_level > 66 then
+    if volume_level > 66 then
       icon = icons.volume[100]
       color = colors.white
     elseif volume_level > 33 then
@@ -72,17 +64,18 @@ local function update()
 
     volume:set {
       icon = { string = icon, color = color },
-      label = { string = is_muted and "Muted" or volume_level .. "%" },
+      label = { string = volume_level .. "%" },
     }
 
     volume_slider:set { slider = { percentage = volume_level } }
-  end)
-end
+end)
 
-volume:subscribe({ "routine", "volume_change", "system_woke" }, update)
-
-volume:subscribe("mouse.clicked", function()
-  volume:set { popup = { drawing = "toggle" } }
+volume:subscribe("mouse.clicked", function(env)
+  if env.BUTTON == "left" then
+    volume:set({ popup = { drawing = "toggle" } })
+  elseif env.BUTTON == "right" then
+    sbar.exec('open /System/Library/PreferencePanes/Sound.prefpane')
+  end
 end)
 
 local volume_mute = sbar.add("item", {
@@ -106,10 +99,4 @@ end)
 
 volume:subscribe("mouse.exited.global", function()
   volume:set { popup = { drawing = false } }
-end)
-
-volume_slider:subscribe("mouse.clicked", function(env)
-  sbar.exec("osascript -e 'set volume output volume " .. env["PERCENTAGE"] .. "'", function()
-    sbar.trigger "volume_change"
-  end)
 end)
