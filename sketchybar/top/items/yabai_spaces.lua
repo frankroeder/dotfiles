@@ -65,6 +65,7 @@ for i, space_name in ipairs(static_names) do
   })
 
   space:subscribe("space_change", function(env)
+    -- print("SPACE CHANGE")
     local selected = env.SELECTED == "true"
     space:set {
       icon = { highlight = selected },
@@ -77,18 +78,17 @@ for i, space_name in ipairs(static_names) do
   end)
 
   space:subscribe("mouse.clicked", function(env)
-    if env.BUTTON == "other" then
-      sbar.exec(
-        "yabai -m query --windows --space " .. env.SID .. " | jq -r '.[].app + \" - \" + .title'",
-        function(windows)
-          local window_list = ""
-          for line in windows:gmatch "[^\r\n]+" do
-            window_list = window_list .. "• " .. line .. "\n"
-          end
-          space_popup:set { label = { string = window_list } }
-          space:set { popup = { drawing = "toggle" } }
-        end
-      )
+    if env.BUTTON == "left" then
+    --   sbar.exec("yabai -m query --windows --space " .. env.SID, function(windows)
+    --     local window_list = ""
+    --     for _, w in ipairs(windows) do
+    --       local app = w.app or ""
+    --       local title = w.title or ""
+    --       window_list = window_list .. "• " .. app .. " - " .. title .. "\n"
+    --     end
+    --     space_popup:set { label = { string = window_list } }
+    --     space:set { popup = { drawing = "toggle" } }
+    --   end)
     else
       local op = (env.BUTTON == "right") and "--destroy" or "--focus"
       sbar.exec("yabai -m space " .. op .. " " .. env.SID)
@@ -108,65 +108,68 @@ local space_layout = sbar.add("item", "top.yabai_layout", {
   },
   label = {
     string = "",
-		padding_right = 10,
+    padding_right = 10,
   },
-	background = {
-		color = colors.bg1,
-		border_width = 2,
-		border_color = colors.magenta ,
-	},
+  background = {
+    color = colors.bg1,
+    border_width = 2,
+    border_color = colors.magenta,
+  },
 })
 
 local function updateLayout()
-  sbar.exec(
-    [[yabai -m query --spaces --display | jq -r 'map(select(."has-focus" == true))[-1] | "\(.type) \(.display)"']],
-    function(out)
-      if not out or out == "" then
-        return
-      end
-      local layout, display = out:match "(%S+)%s+(%S+)"
-      local stack_info = "-"
-      if not layout or not display then
-        return
-      end
+  -- print("UPDATE LAYOUT")
+  sbar.exec("yabai -m query --spaces --display", function(spaces_data)
+    if not spaces_data then return end
 
-      if layout == "stack" then
-        sbar.exec(
-          [[yabai -m query --windows --space | jq -r '[map(select(."is-visible" == true)) | length, (map(select(."has-focus" == true))[-1]."stack-index" // "null")] | @tsv']],
-          function(stack_info)
-            if not stack_info or stack_info == "" then
-              return
-            end
-            local stack_total, stack_position = stack_info:match "(%S+)%s+(%S+)"
-            if stack_position == "null" then
-              stack_info = "[NA]"
-            else
-              stack_info = "[" .. tostring(stack_position) .. "/" .. tostring(stack_total) .. "]"
-            end
-            space_layout:set {
-              icon = {
-                string = icons.yabai[layout],
-              },
-              label = {
-                string = stack_info,
-              },
-              display = tonumber(display),
-            }
-          end
-        )
-      else
-        space_layout:set {
-          icon = {
-            string = icons.yabai[layout],
-          },
-          label = {
-            string = stack_info,
-          },
-          display = tonumber(display),
-        }
+    local focused_space
+    for _, s in ipairs(spaces_data) do
+      if s["has-focus"] then
+        focused_space = s
+        break
       end
     end
-  )
+
+    if not focused_space then return end
+
+    local layout = focused_space.type
+    local display = focused_space.display
+    local stack_info = "-"
+
+    if layout == "stack" then
+      sbar.exec("yabai -m query --windows --space", function(windows)
+        if not windows then return end
+        local visible_count = 0
+        local stack_index = nil
+        for _, w in ipairs(windows) do
+          if w["is-visible"] then
+            visible_count = visible_count + 1
+          end
+          if w["has-focus"] then
+            stack_index = w["stack-index"]
+          end
+        end
+
+        if not stack_index or stack_index == 0 then
+          stack_info = "[NA]"
+        else
+          stack_info = "[" .. tostring(stack_index) .. "/" .. tostring(visible_count) .. "]"
+        end
+
+        space_layout:set {
+          icon = { string = icons.yabai[layout] },
+          label = { string = stack_info },
+          display = tonumber(display),
+        }
+      end)
+    else
+      space_layout:set {
+        icon = { string = icons.yabai[layout] },
+        label = { string = stack_info },
+        display = tonumber(display),
+      }
+    end
+  end)
 end
 
 local window_properties = sbar.add("item", "top.yabai_property", {
@@ -185,40 +188,45 @@ local window_properties = sbar.add("item", "top.yabai_property", {
   drawing = false,
 })
 
+-- TODO: Not fully working, either property changes are not detected or
+-- correctly triggered by skhd . --
 local function getWindowProperties()
-  sbar.exec(
-    [[yabai -m query --windows --space | jq -r 'map(select(."has-focus" == true))[-1] | "\(."is-sticky") \(."is-grabbed") \(."is-floating") \(."has-parent-zoom")"']],
-    function(out)
-      if not out or out == "" then
-        window_properties:set { drawing = false }
-        return
-      end
-      local _is_sticky, _is_grabbed, _is_floating, _has_parent_zoom =
-        out:match "(%S+)%s+(%S+)%s+(%S+)%s+(%S+)"
-      local is_sticky = _is_sticky == "true"
-      local is_grabbed = _is_grabbed == "true"
-      local is_floating = _is_floating == "true"
-      local has_parent_zoom = _has_parent_zoom == "true"
-      local label = ""
-      -- print("PROP", out, is_sticky, is_grabbed, is_floating, has_parent_zoom)
-      if is_sticky then
-        label = label .. "S"
-      end
-      if is_grabbed then
-        label = label .. "G"
-      end
-      if is_floating then
-        label = label .. "W"
-      end
-      if has_parent_zoom then
-        label = label .. "Z"
-      end
-      window_properties:set {
-        label = { string = label },
-        drawing = label ~= "",
-      }
+  -- print("GET WINDOW PROPS")
+  sbar.exec("yabai -m query --windows --space", function(windows)
+    if not windows then
+      window_properties:set { drawing = false }
+      return
     end
-  )
+
+    local focused_window
+    for _, w in ipairs(windows) do
+      if w["has-focus"] then
+        focused_window = w
+        break
+      end
+    end
+
+    if not focused_window then
+      window_properties:set { drawing = false }
+      return
+    end
+
+    local is_sticky = focused_window["is-sticky"]
+    local is_grabbed = focused_window["is-grabbed"]
+    local is_floating = focused_window["is-floating"]
+    local has_parent_zoom = focused_window["has-parent-zoom"]
+
+    local label = ""
+    if is_sticky then label = label .. "S" end
+    if is_grabbed then label = label .. "G" end
+    if is_floating then label = label .. "W" end
+    if has_parent_zoom then label = label .. "Z" end
+
+    window_properties:set {
+      label = { string = label },
+      drawing = label ~= "",
+    }
+  end)
 end
 
 local space_window_observer = sbar.add("item", "top.space_window_observer", {
@@ -226,51 +234,39 @@ local space_window_observer = sbar.add("item", "top.space_window_observer", {
   updates = true,
 })
 
-local updateSpace = function(space_idx)
-  if not space_idx or not spaces[tonumber(space_idx)] then
-    return
-  end
-  sbar.exec(
-    "yabai -m query --windows --space " .. space_idx .. " | jq -r 'map(.app)'",
-    function(apps)
-      -- print("APPS SPACE IDX", apps, space_idx)
-      -- settings.print_table(apps)
-      if apps == "null" then
-        return
-      end
+local function updateWindows()
+  -- print("UPDATE WINDOWS")
+  sbar.exec("yabai -m query --windows", function(windows)
+    if not windows then return end
+
+    local space_apps = {}
+    for _, window in ipairs(windows) do
+      local s = window.space
+      if not space_apps[s] then space_apps[s] = {} end
+      table.insert(space_apps[s], window.app)
+    end
+
+    for i, space in ipairs(spaces) do
+      local apps = space_apps[i]
       local icon_line = ""
-      local no_app = true
-      for idx, app in pairs(apps) do
-        no_app = false
-        local lookup = app_icons[app]
-        local icon = ((lookup == nil) and app_icons["Default"] or lookup)
-        icon_line = icon_line .. icon
-      end
-      if no_app then
+      if apps then
+        for _, app in ipairs(apps) do
+          local lookup = app_icons[app]
+          local icon = ((lookup == nil) and app_icons["Default"] or lookup)
+          icon_line = icon_line .. icon
+        end
+      else
         icon_line = "—"
       end
       sbar.animate("tanh", settings.animation_duration, function()
-        spaces[tonumber(space_idx)]:set { label = icon_line }
+        space:set { label = icon_line }
       end)
     end
-  )
+  end)
 end
 
--- space_window_observer:subscribe("front_app_switched", "space_change", "window_created", "window_destroyed", function(env)
--- update all spaces
-space_window_observer:subscribe("space_change", "window_created", "window_destroyed", function(env)
-  sbar.exec("yabai -m query --spaces", function(spaces_info)
-    for idx, space_info in ipairs(spaces_info) do
-      -- print("Space " .. idx .. ":", space_info["uuid"])
-      updateSpace(idx)
-    end
-  end)
-end)
-
-space_window_observer:subscribe("space_windows_change", function(env)
-  -- print "FRONT APP"
-  -- settings.print_table(env)
-  updateSpace(env.INFO.space)
+space_window_observer:subscribe("space_change", "window_created", "window_destroyed", "space_windows_change", function(env)
+  updateWindows()
 end)
 
 -- space_window_observer:subscribe("display_change", function(env)
