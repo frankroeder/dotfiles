@@ -7,6 +7,7 @@ sbar.add("item", {
     drawing = false,
   },
 })
+require "lock"
 require "items.front_app"
 
 require "items.calendar"
