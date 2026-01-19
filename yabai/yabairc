@@ -8,7 +8,7 @@ sudo yabai --load-sa
 
 yabai -m config window_origin_display        default \
                 window_placement             second_child \
-                window_shadow                on \
+                window_shadow                off \
                 window_opacity               on \
                 window_opacity_duration      0.0 \
                 window_insertion_point       focused \
@@ -17,8 +17,8 @@ yabai -m config window_origin_display        default \
                 window_gap                   10 \
                 window_animation_duration    0.15 \
                 window_animation_easing      ease_in_out_circ \
-                top_padding                  20 \
-                bottom_padding               20 \
+                top_padding                  10 \
+                bottom_padding               10 \
                 left_padding                 20 \
                 right_padding                20 \
                 window_zoom_persist          off \
@@ -33,7 +33,7 @@ yabai -m config window_origin_display        default \
                 split_ratio                  0.50 \
                 split_type                   auto \
                 layout                       stack \
-                external_bar                 all:0:$(sketchybar --query bar | jq .height)
+                external_bar                 all:$(sketchybar-top --query bar | jq .height):$(sketchybar --query bar | jq .height)
 
 # events
 yabai -m signal --add event=window_created action="sketchybar -m --trigger window_created &> /dev/null"

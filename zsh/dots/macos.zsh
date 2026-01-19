@@ -78,6 +78,6 @@ applenotifications(){
   log show --predicate 'eventMessage contains[c] "register name"' --last 1h | awk '{ print $12 }' | sort | uniq -c | sort | less
 }
 alias yabailogs="tail -f $HOMEBREW_PREFIX/var/log/yabai/*.log"
-alias watchsketchybar="tail -F /opt/homebrew/var/log/sketchybar/sketchybar.out.log"
+alias watchsketchybar="tail -F /opt/homebrew/var/log/sketchybar/sketchybar.out.log /tmp/sketchybar-top.*"
 alias screensaver="open /System/Library/CoreServices/ScreenSaverEngine.app"
 alias agents="$EDITOR $HOME/Library/Mobile\ Documents/com~apple~CloudDocs/configs/AGENTS.md"

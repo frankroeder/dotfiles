@@ -20,22 +20,25 @@ local print_table = function(t, indent)
 end
 
 return {
-  paddings = 2,
-  group_paddings = 5,
+  paddings = 4,
   animation_duration = 15,
+  bar_height = 40,
+  bar_padding = 10,
+  bar_margin = 10,
+  bar_corner_radius = 12,
+  bar_color = require("colors").transparent,
+  bar_border_color = require("colors").transparent,
   -- icons = "NerdFont",
   icons = "sf-symbols",
-
   font = {
-    text = "Hack Nerd Font",
-    numbers = "Hack Nerd Font Mono",
-
+    text = "SF Pro",
+    numbers = "SF Pro",
     style_map = {
       ["Regular"] = "Regular",
-      ["Semibold"] = "Medium",
-      ["Bold"] = "SemiBold",
-      ["Heavy"] = "Bold",
-      ["Black"] = "ExtraBold",
+      ["Semibold"] = "Semibold",
+      ["Bold"] = "Bold",
+      ["Heavy"] = "Heavy",
+      ["Black"] = "Black",
     },
   },
   print_table = print_table,

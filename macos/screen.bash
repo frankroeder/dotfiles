@@ -85,7 +85,7 @@ defaults write com.apple.systemuiserver menuExtras -array \
 defaults write com.apple.Siri StatusMenuVisible -bool false
 
 # Hide menubar
-defaults write NSGlobalDomain _HIHideMenuBar -bool false
+defaults write NSGlobalDomain _HIHideMenuBar -bool true
 
 # Show volume in the menu bar
 defaults write com.apple.systemuiserver "NSStatusItem Visible com.apple.menuextra.volume" -int 0

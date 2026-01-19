@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+
+# Export the BAR_NAME to be used by the lua module
+export BAR_NAME=sketchybar-top
+export CONFIG_DIR="$HOME/.config/sketchybar-top"
+
+# Execute the init.lua script
+exec /opt/homebrew/bin/lua $CONFIG_DIR/init.lua

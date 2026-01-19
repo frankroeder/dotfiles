@@ -2,11 +2,11 @@
 
 # reload skhd and yabai
 ctrl + alt + cmd - r : \
-	yabai --restart-service; \
-	skhd --restart-service;
+  yabai --restart-service; \
+  skhd --restart-service;
 
 # reload sketchybar
-ctrl + alt + cmd - b : sketchybar --reload
+ctrl + alt + cmd - b : sketchybar --reload && sketchybar-top --reload
 
 # toggle main terminal application
 fn - space : bash "$DOTFILES/scripts/toggle_app.bash" "Ghostty"
@@ -54,15 +54,15 @@ fn - 8 : yabai -m space --focus 8
 fn - 9 : yabai -m space --focus 9
 
 # change layout of space (i3 defaults)
-fn - e : yabai -m space --layout bsp; sketchybar -m --trigger layout_change
-fn - w : yabai -m space --layout float; sketchybar -m --trigger layout_change
-fn - s : yabai -m space --layout stack; sketchybar -m --trigger layout_change
+fn - e : yabai -m space --layout bsp; sketchybar-top --trigger layout_change
+fn - w : yabai -m space --layout float; sketchybar-top --trigger layout_change
+fn - s : yabai -m space --layout stack; sketchybar-top --trigger layout_change
 
 # quit/close focused window
 fn - q : yabai -m window --close
 
 # enter fullscreen mode for the focused container
-fn - f : yabai -m window --toggle zoom-fullscreen; sketchybar -m --trigger layout_change
+fn - f : yabai -m window --toggle zoom-fullscreen; sketchybar-top --trigger layout_change
 
 # toggle picture-in-picture
 fn - p : yabai -m window --toggle pip
@@ -109,15 +109,15 @@ fn + ctrl - l : yabai -m window --swap east || $(yabai -m window --display east;
 # toggle window native fullscreen
 fn + shift - f : yabai -m window --toggle native-fullscreen
 # toggle stickyness (show on all spaces)
-fn + shift - s : yabai -m window --toggle sticky; sketchybar -m --trigger property_change
+fn + shift - s : yabai -m window --toggle sticky; sketchybar-top --trigger property_change
 # toggle float and center on screen
-fn + shift - w : yabai -m window --toggle float && yabai -m window --grid 4:4:1:1:2:2; sketchybar -m --trigger property_change
+fn + shift - w : yabai -m window --toggle float && yabai -m window --grid 4:4:1:1:2:2; sketchybar-top --trigger property_change
 # toggle window split type
 fn + shift - space: yabai -m window --toggle split
 # toggle desktop offset
 fn + shift - d : yabai -m space --toggle padding && yabai -m space --toggle gap
 # toggle window parent zoom
-fn + shift - z : yabai -m window --toggle zoom-parent; sketchybar -m --trigger property_change
+fn + shift - z : yabai -m window --toggle zoom-parent; sketchybar-top --trigger property_change
 # mirror tree x-axis
 fn + shift - x : yabai -m space --mirror x-axis
 # mirror tree y-axis

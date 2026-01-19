@@ -4,7 +4,7 @@ local icons = require "icons"
 
 sbar.add("event", "network_change", "com.apple.networkConnect")
 
-local vpn_item = sbar.add("item", "widgets.vpn", {
+local vpn_item = sbar.add("item", "bottom.widgets.vpn", {
   position = "left",
   update_freq = 180,
   icon = {
@@ -24,11 +24,8 @@ local vpn_item = sbar.add("item", "widgets.vpn", {
     },
   },
   drawing = false,
-  background = {
-    color = colors.lightblack,
-    padding_left = 2,
-    padding_right = 2,
-  },
+  background = {},
+  click_script = "open 'x-apple.systempreferences:com.apple.preference.vpn'",
 })
 
 local function update()
@@ -51,4 +48,5 @@ vpn_item:subscribe({ "network_change", "routine", "system_woke" }, function(_)
   update()
 end)
 
+vpn_item:set { update_freq = 60 }
 update()
