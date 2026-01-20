@@ -1,4 +1,3 @@
-require "lock"
 require "items.media"
 
 require "items.hardware"

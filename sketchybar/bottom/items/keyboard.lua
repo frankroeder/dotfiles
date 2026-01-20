@@ -21,15 +21,22 @@ local keyboard = sbar.add("item", "widgets.keyboard", {
 })
 
 local function update_keyboard()
-  sbar.exec("plutil -convert json -o - " .. os.getenv "HOME" .. "/Library/Preferences/com.apple.HIToolbox.plist", function(data)
-    if not data or not data.AppleSelectedInputSources then return end
-    for _, source in ipairs(data.AppleSelectedInputSources) do
-      if source["KeyboardLayout Name"] then
-        keyboard:set { label = { string = source["KeyboardLayout Name"] } }
+  sbar.exec(
+    "plutil -convert json -o - "
+      .. os.getenv "HOME"
+      .. "/Library/Preferences/com.apple.HIToolbox.plist",
+    function(data)
+      if not data or not data.AppleSelectedInputSources then
         return
       end
+      for _, source in ipairs(data.AppleSelectedInputSources) do
+        if source["KeyboardLayout Name"] then
+          keyboard:set { label = { string = source["KeyboardLayout Name"] } }
+          return
+        end
+      end
     end
-  end)
+  )
 end
 
 keyboard:subscribe("keyboard_change", update_keyboard)

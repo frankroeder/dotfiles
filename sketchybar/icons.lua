@@ -11,8 +11,8 @@ local icons = {
     apple = "􀣺",
     gear = "􀍟",
     cpu = "􀫥",
-		gpu = "􀧓",
-		power = "􀋦",
+    gpu = "􀧓",
+    power = "􀋦",
     clipboard = "􀉄",
     calendar = "􀧞",
     ip = "􀤆",
@@ -76,8 +76,8 @@ local icons = {
       [0] = "􀊣",
     },
     mic = {
-      on = "􀊰",
-      off = "􀊲",
+      on = "􀊱",
+      off = "􀊳",
     },
     weather = "􀇞",
     downloads = "􀈖",
@@ -86,7 +86,7 @@ local icons = {
       dark = "􀆺",
     },
     bluetooth = {
-      on = "􀟥",
+      on = "􀖀",
       off = "􁅒",
     },
     device = {

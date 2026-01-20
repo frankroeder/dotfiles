@@ -44,37 +44,37 @@ local volume_slider = sbar.add("slider", "widgets.volume.slider", 100, {
 })
 
 volume:subscribe("volume_change", function(env)
-    local volume_level = tonumber(env.INFO)
-    local icon = icons.volume[0]
-    local color = colors.red
+  local volume_level = tonumber(env.INFO)
+  local icon = icons.volume[0]
+  local color = colors.red
 
-    if volume_level > 66 then
-      icon = icons.volume[100]
-      color = colors.white
-    elseif volume_level > 33 then
-      icon = icons.volume[66]
-      color = colors.white
-    elseif volume_level > 10 then
-      icon = icons.volume[33]
-      color = colors.white
-    elseif volume_level > 0 then
-      icon = icons.volume[10]
-      color = colors.white
-    end
+  if volume_level > 66 then
+    icon = icons.volume[100]
+    color = colors.white
+  elseif volume_level > 33 then
+    icon = icons.volume[66]
+    color = colors.white
+  elseif volume_level > 10 then
+    icon = icons.volume[33]
+    color = colors.white
+  elseif volume_level > 0 then
+    icon = icons.volume[10]
+    color = colors.white
+  end
 
-    volume:set {
-      icon = { string = icon, color = color },
-      label = { string = volume_level .. "%" },
-    }
+  volume:set {
+    icon = { string = icon, color = color },
+    label = { string = volume_level .. "%" },
+  }
 
-    volume_slider:set { slider = { percentage = volume_level } }
+  volume_slider:set { slider = { percentage = volume_level } }
 end)
 
 volume:subscribe("mouse.clicked", function(env)
   if env.BUTTON == "left" then
-    volume:set({ popup = { drawing = "toggle" } })
+    volume:set { popup = { drawing = "toggle" } }
   elseif env.BUTTON == "right" then
-    sbar.exec('open /System/Library/PreferencePanes/Sound.prefpane')
+    sbar.exec "open /System/Library/PreferencePanes/Sound.prefpane"
   end
 end)
 

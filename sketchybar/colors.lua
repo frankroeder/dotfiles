@@ -24,6 +24,7 @@ return {
   bg = 0xff1e1e2e,
   bg1 = 0xff181825,
   bg2 = 0xff11111b,
+  bg3 = 0xff45475a,
   pill_bg = 0xff313244,
   bar_color = 0x00000000,
   bar_border_color = 0x00000000,
@@ -31,6 +32,6 @@ return {
     if alpha > 1.0 or alpha < 0.0 then
       return color
     end
-    return bit.bor(bit.band(color, 0x00ffffff), bit.lshift(math.floor(alpha * 255.0), 24))
+    return (color & 0x00ffffff) | (math.floor(alpha * 255.0) << 24)
   end,
 }

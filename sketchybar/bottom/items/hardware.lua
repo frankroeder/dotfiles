@@ -1,18 +1,17 @@
-local icons = require('icons')
-local colors = require('colors')
+local icons = require "icons"
+local colors = require "colors"
 
-
-local gpu = sbar.add('graph', 'widgets.gpu', 80, {
+local gpu = sbar.add("graph", "widgets.gpu", 80, {
   position = "right",
   graph = { color = colors.blue },
   icon = {
-  		string = icons.gpu,
-  		color = colors.blue,
-     padding_left = 4,
-     y_offset = 0,
- 	},
+    string = icons.gpu,
+    color = colors.blue,
+    padding_left = 4,
+    y_offset = 0,
+  },
   label = {
-    string = 'GPU --% --°C',
+    string = "GPU --% --°C",
     font = {
       size = 10.0,
     },
@@ -20,7 +19,7 @@ local gpu = sbar.add('graph', 'widgets.gpu', 80, {
     width = 0,
     padding_right = 6,
     y_offset = 8,
- 	}
+  },
 })
 
 local ram_g = sbar.add("graph", "widgets.ram", 108, {
@@ -86,7 +85,7 @@ local ram_popup = sbar.add("item", {
   },
 })
 
-local power = sbar.add('item', 'widgets.power', {
+local power = sbar.add("item", "widgets.power", {
   position = "right",
   icon = {
     string = icons.power,
@@ -95,7 +94,7 @@ local power = sbar.add('item', 'widgets.power', {
     padding_right = -1,
   },
   label = {
-    string = '-- W',
+    string = "-- W",
     font = {
       size = 10.0,
     },
@@ -104,9 +103,18 @@ local power = sbar.add('item', 'widgets.power', {
   padding_right = 23,
 })
 
-cpu:subscribe('routine', function(env)
-  sbar.exec('/opt/homebrew/bin/macmon pipe -s 1', function(output)
-    if not output or not output.ecpu_usage or not output.pcpu_usage or not output.temp or not output.memory or not output.gpu_usage then return end
+cpu:subscribe("routine", function(env)
+  sbar.exec("/opt/homebrew/bin/macmon pipe -s 1", function(output)
+    if
+      not output
+      or not output.ecpu_usage
+      or not output.pcpu_usage
+      or not output.temp
+      or not output.memory
+      or not output.gpu_usage
+    then
+      return
+    end
     local ecpu_val = math.floor(output.ecpu_usage[2] * 100)
     local pcpu_val = math.floor(output.pcpu_usage[2] * 100)
     local cpu_temp = output.temp.cpu_temp_avg
@@ -117,15 +125,30 @@ cpu:subscribe('routine', function(env)
     local gpu_used = math.floor(output.gpu_usage[2] * 100)
     local gpu_temp = output.temp.gpu_temp_avg
 
-    if ecpu_val and pcpu_val and cpu_temp and ram_total and ram_used and swap_total and swap_used and gpu_used and gpu_temp then
-
+    if
+      ecpu_val
+      and pcpu_val
+      and cpu_temp
+      and ram_total
+      and ram_used
+      and swap_total
+      and swap_used
+      and gpu_used
+      and gpu_temp
+    then
       -- Update CPU
-      cpu:set({
+      cpu:set {
         graph = { color = colors.blue },
-        label = "eCPU " .. ecpu_val .. "% pCPU " .. pcpu_val .. "% " .. math.floor(cpu_temp) .. "°C",
-      })
-      cpu:push({ pcpu_val / 100. })
-      ecpu:push({ ecpu_val / 100. })
+        label = "eCPU "
+          .. ecpu_val
+          .. "% pCPU "
+          .. pcpu_val
+          .. "% "
+          .. math.floor(cpu_temp)
+          .. "°C",
+      }
+      cpu:push { pcpu_val / 100. }
+      ecpu:push { ecpu_val / 100. }
 
       -- Update RAM
       local ram_pct = (ram_used / ram_total) * 100
@@ -140,11 +163,11 @@ cpu:subscribe('routine', function(env)
           color_ram = colors.red
         end
       end
-      ram_g:set({
+      ram_g:set {
         graph = { color = color_ram },
         label = "RAM " .. math.floor(ram_pct) .. "% SWAP " .. math.floor(swap_pct) .. "%",
-      })
-      ram_g:push({ ram_pct / 100. })
+      }
+      ram_g:push { ram_pct / 100. }
 
       -- Update GPU
       local color_gpu = colors.blue
@@ -157,17 +180,17 @@ cpu:subscribe('routine', function(env)
           color_gpu = colors.red
         end
       end
-      gpu:set({
+      gpu:set {
         graph = { color = color_gpu },
-        label = "GPU " .. gpu_used .. '% ' .. math.floor(gpu_temp) .. '°C',
-      })
-      gpu:push({ gpu_used / 100. })
+        label = "GPU " .. gpu_used .. "% " .. math.floor(gpu_temp) .. "°C",
+      }
+      gpu:push { gpu_used / 100. }
 
       -- Update Power
       local power_val = output.all_power
-      power:set({
+      power:set {
         label = math.floor(power_val) .. " W",
-      })
+      }
     end
   end)
 end)

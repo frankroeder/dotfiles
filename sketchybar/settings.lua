@@ -30,6 +30,10 @@ return {
   bar_border_color = require("colors").transparent,
   -- icons = "NerdFont",
   icons = "sf-symbols",
+  wallpaper = {
+    path = os.getenv "HOME" .. "/Library/Mobile Documents/com~apple~CloudDocs/wallpapers",
+    scale = 1.0,
+  },
   font = {
     text = "SF Pro",
     numbers = "SF Pro",

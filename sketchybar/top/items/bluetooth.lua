@@ -2,6 +2,8 @@ local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
 
+sbar.add("event", "bt_device", "com.apple.bluetooth.status")
+
 local bluetooth = sbar.add("item", "top.widgets.bluetooth", {
   position = "right",
   update_freq = 30,
@@ -142,13 +144,18 @@ local function update()
         icon = { drawing = false },
       })
       table.insert(popup_items, item)
-    else
-      bluetooth:set { icon = { color = colors.blue } }
     end
   end)
 end
 
-bluetooth:subscribe({ "routine", "system_woke" }, update)
+bluetooth:subscribe("bt_device", function(env)
+  if env.INFO.POWER_STATE == 0 then
+    bluetooth:set { icon = { string = icons.bluetooth.off, color = colors.grey } }
+  elseif env.INFO.POWER_STATE > 0 then
+    bluetooth:set { icon = { string = icons.bluetooth.on, color = colors.blue } }
+  end
+  update()
+end)
 
 bluetooth:subscribe("mouse.clicked", function()
   bluetooth:set { popup = { drawing = "toggle" } }

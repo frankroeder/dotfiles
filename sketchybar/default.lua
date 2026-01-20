@@ -1,5 +1,7 @@
 local settings = require "settings"
 local colors = require "colors"
+require "siri"
+require "lock"
 
 sbar.default {
   updates = "when_shown",
