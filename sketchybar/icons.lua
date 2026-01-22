@@ -48,6 +48,7 @@ local icons = {
     },
     clock = "􀐫",
     timer = "􀐱",
+    uptime = "􀐫",
     keyboard = "􀇳",
     date = "􀉉",
     disk = {
@@ -146,6 +147,7 @@ local icons = {
     },
     reminder = "",
     clock = "",
+    uptime = "",
     date = "󰃭",
     brew = "",
     zen = "",

@@ -39,7 +39,6 @@ local function update_position()
     if not display then
       return
     end
-    -- display is a table, accessing frame.w directly
     local w = display.frame and display.frame.w
     if w then
       if w > LARGE_SCREEN_WIDTH then

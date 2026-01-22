@@ -19,7 +19,7 @@ local print_table = function(t, indent)
   end
 end
 
-return {
+local settings = {
   paddings = 4,
   animation_duration = 15,
   bar_height = 40,
@@ -28,7 +28,6 @@ return {
   bar_corner_radius = 12,
   bar_color = require("colors").transparent,
   bar_border_color = require("colors").transparent,
-  -- icons = "NerdFont",
   icons = "sf-symbols",
   wallpaper = {
     path = os.getenv "HOME" .. "/Library/Mobile Documents/com~apple~CloudDocs/wallpapers",
@@ -47,3 +46,5 @@ return {
   },
   print_table = print_table,
 }
+
+return settings

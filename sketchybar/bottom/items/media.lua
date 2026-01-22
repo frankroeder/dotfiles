@@ -98,7 +98,6 @@ media:subscribe("music_change", function(env)
         },
       }
 
-      -- Update play/pause icon based on state
       play:set {
         icon = {
           string = (state == "Playing") and icons.media.pause or icons.media.play,
