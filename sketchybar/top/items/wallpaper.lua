@@ -152,6 +152,17 @@ local function update_page()
 
       -- Lazy load dimensions async if not cached
       if not wallpaper_entry.width or not wallpaper_entry.height then
+        -- Conservative scale for placeholder (works for both landscape/portrait)
+        local safe_scale = THUMB_HEIGHT / 2560
+        item:set {
+          drawing = true,
+          label = { string = wallpaper_entry.file },
+          background = {
+            image = { string = full_path, scale = safe_scale },
+            color = colors.with_alpha(colors.grey, 0.1),
+          },
+        }
+
         local sips_cmd = [[sips -g pixelWidth -g pixelHeight "]]
           .. full_path
           .. [[" | awk '/pixelWidth/ {w=$2} /pixelHeight/ {h=$2} END {print w, h}']]
@@ -161,12 +172,6 @@ local function update_page()
           wallpaper_entry.height = tonumber(h) or 1125
           set_item_with_dimensions(item, wallpaper_entry)
         end)
-        -- Show placeholder while loading
-        item:set {
-          drawing = true,
-          label = { string = wallpaper_entry.file },
-          background = { image = { string = full_path, scale = 0.05 } },
-        }
       else
         set_item_with_dimensions(item, wallpaper_entry)
       end
