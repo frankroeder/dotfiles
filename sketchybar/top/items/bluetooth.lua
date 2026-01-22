@@ -6,7 +6,6 @@ sbar.add("event", "bt_device", "com.apple.bluetooth.status")
 
 local bluetooth = sbar.add("item", "top.widgets.bluetooth", {
   position = "right",
-  update_freq = 30,
   icon = {
     string = icons.bluetooth.on,
     color = colors.blue,

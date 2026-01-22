@@ -2,6 +2,10 @@ local icons = require "icons"
 local colors = require "colors"
 local settings = require "settings"
 
+-- Cache for expensive system_profiler calls
+local profiler_cache = { data = nil, timestamp = 0 }
+local CACHE_TTL = 300 -- 5 minutes
+
 local battery = sbar.add("item", "top.widgets.battery", {
   position = "right",
   icon = {
@@ -111,6 +115,31 @@ battery:subscribe({ "routine", "power_source_change", "system_woke" }, function(
   end)
 end)
 
+local function apply_profiler_data(data)
+  if not data or not data.SPPowerDataType then return end
+
+  power_wattage:set { drawing = false }
+
+  for _, info in pairs(data.SPPowerDataType) do
+    if info.sppower_battery_health_info then
+      local health = info.sppower_battery_health_info
+      local max_cap = health.sppower_battery_health_maximum_capacity or "??"
+      local cycles = health.sppower_battery_cycle_count or "??"
+      local condition = health.sppower_battery_health or "Good"
+
+      battery_health:set { label = "Health: " .. max_cap .. " (" .. condition .. ")" }
+      battery_cycles:set { label = "Cycles: " .. cycles }
+    end
+
+    if info.sppower_ac_charger_watts then
+      power_wattage:set {
+        drawing = true,
+        label = "Input: " .. info.sppower_ac_charger_watts .. "W",
+      }
+    end
+  end
+end
+
 local function update_details()
   sbar.exec("pmset -g batt", function(batt_info)
     local found, _, remaining = batt_info:find " (%d+:%d+) remaining"
@@ -118,31 +147,16 @@ local function update_details()
     remaining_time:set { label = label }
   end)
 
+  local now = os.time()
+  if profiler_cache.data and (now - profiler_cache.timestamp) < CACHE_TTL then
+    apply_profiler_data(profiler_cache.data)
+    return
+  end
+
   sbar.exec("system_profiler SPPowerDataType -json", function(data)
-    if not data or not data.SPPowerDataType then
-      return
-    end
-
-    power_wattage:set { drawing = false }
-
-    for _, info in pairs(data.SPPowerDataType) do
-      if info.sppower_battery_health_info then
-        local health = info.sppower_battery_health_info
-        local max_cap = health.sppower_battery_health_maximum_capacity or "??"
-        local cycles = health.sppower_battery_cycle_count or "??"
-        local condition = health.sppower_battery_health or "Good"
-
-        battery_health:set { label = "Health: " .. max_cap .. " (" .. condition .. ")" }
-        battery_cycles:set { label = "Cycles: " .. cycles }
-      end
-
-      if info.sppower_ac_charger_watts then
-        power_wattage:set {
-          drawing = true,
-          label = "Input: " .. info.sppower_ac_charger_watts .. "W",
-        }
-      end
-    end
+    profiler_cache.data = data
+    profiler_cache.timestamp = os.time()
+    apply_profiler_data(data)
   end)
 end
 

@@ -33,7 +33,7 @@ local function updateWindows(workspace_name)
   end)
 end
 
-local function updatcWorkspaceDisplays()
+local function updateWorkspaceDisplays()
   sbar.exec("/usr/local/bin/flashspace list-workspaces --with-display", function(output)
     for line in output:gmatch "[^\n]+" do
       local ws_name, display_name = line:match "([^,]+),%s*(.+)"
@@ -89,7 +89,7 @@ for workspace_index, workspace_name in ipairs(parse_string_to_table(wspaces)) do
 
   workspaces[workspace_name] = workspace
   updateWindows(workspace_name)
-  updatcWorkspaceDisplays()
+  updateWorkspaceDisplays()
 
   workspace:subscribe("flashspace_workspace_change", function(env)
     local focused_workspace = env.WORKSPACE

@@ -125,73 +125,59 @@ cpu:subscribe("routine", function(env)
     local gpu_used = math.floor(output.gpu_usage[2] * 100)
     local gpu_temp = output.temp.gpu_temp_avg
 
-    if
-      ecpu_val
-      and pcpu_val
-      and cpu_temp
-      and ram_total
-      and ram_used
-      and swap_total
-      and swap_used
-      and gpu_used
-      and gpu_temp
-    then
-      -- Update CPU
-      cpu:set {
-        graph = { color = colors.blue },
-        label = "eCPU "
-          .. ecpu_val
-          .. "% pCPU "
-          .. pcpu_val
-          .. "% "
-          .. math.floor(cpu_temp)
-          .. "°C",
-      }
-      cpu:push { pcpu_val / 100. }
-      ecpu:push { ecpu_val / 100. }
-
-      -- Update RAM
-      local ram_pct = (ram_used / ram_total) * 100
-      local swap_pct = (swap_used / swap_total) * 100
-      local color_ram = colors.blue
-      if ram_pct > 30 then
-        if ram_pct < 60 then
-          color_ram = colors.yellow
-        elseif ram_pct < 80 then
-          color_ram = colors.orange
-        else
-          color_ram = colors.red
-        end
-      end
-      ram_g:set {
-        graph = { color = color_ram },
-        label = "RAM " .. math.floor(ram_pct) .. "% SWAP " .. math.floor(swap_pct) .. "%",
-      }
-      ram_g:push { ram_pct / 100. }
-
-      -- Update GPU
-      local color_gpu = colors.blue
-      if gpu_used > 30 then
-        if gpu_used < 60 then
-          color_gpu = colors.yellow
-        elseif gpu_used < 80 then
-          color_gpu = colors.orange
-        else
-          color_gpu = colors.red
-        end
-      end
-      gpu:set {
-        graph = { color = color_gpu },
-        label = "GPU " .. gpu_used .. "% " .. math.floor(gpu_temp) .. "°C",
-      }
-      gpu:push { gpu_used / 100. }
-
-      -- Update Power
-      local power_val = output.all_power
-      power:set {
-        label = math.floor(power_val) .. " W",
-      }
+    if not (ecpu_val and pcpu_val and cpu_temp and ram_total and ram_used
+        and swap_total and swap_used and gpu_used and gpu_temp) then
+      return
     end
+
+    -- Update CPU
+    cpu:set {
+      graph = { color = colors.blue },
+      label = "eCPU " .. ecpu_val .. "% pCPU " .. pcpu_val .. "% " .. math.floor(cpu_temp) .. "°C",
+    }
+    cpu:push { pcpu_val / 100. }
+    ecpu:push { ecpu_val / 100. }
+
+    -- Update RAM
+    local ram_pct = (ram_used / ram_total) * 100
+    local swap_pct = (swap_total > 0) and ((swap_used / swap_total) * 100) or 0
+    local color_ram = colors.blue
+    if ram_pct > 30 then
+      if ram_pct < 60 then
+        color_ram = colors.yellow
+      elseif ram_pct < 80 then
+        color_ram = colors.orange
+      else
+        color_ram = colors.red
+      end
+    end
+    ram_g:set {
+      graph = { color = color_ram },
+      label = "RAM " .. math.floor(ram_pct) .. "% SWAP " .. math.floor(swap_pct) .. "%",
+    }
+    ram_g:push { ram_pct / 100. }
+
+    -- Update GPU
+    local color_gpu = colors.blue
+    if gpu_used > 30 then
+      if gpu_used < 60 then
+        color_gpu = colors.yellow
+      elseif gpu_used < 80 then
+        color_gpu = colors.orange
+      else
+        color_gpu = colors.red
+      end
+    end
+    gpu:set {
+      graph = { color = color_gpu },
+      label = "GPU " .. gpu_used .. "% " .. math.floor(gpu_temp) .. "°C",
+    }
+    gpu:push { gpu_used / 100. }
+
+    -- Update Power
+    power:set {
+      label = math.floor(output.all_power or 0) .. " W",
+    }
   end)
 end)
 

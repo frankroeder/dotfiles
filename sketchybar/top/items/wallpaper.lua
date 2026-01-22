@@ -120,6 +120,25 @@ local nav_next = sbar.add("item", "wallpaper.nav.next", {
   align = "center",
 })
 
+local function set_item_with_dimensions(item, wallpaper_entry)
+  local img_w = wallpaper_entry.width
+  local img_h = wallpaper_entry.height
+  local scale_w = THUMB_WIDTH / img_w
+  local scale_h = THUMB_HEIGHT / img_h
+  local scale = math.min(scale_w, scale_h)
+
+  item:set {
+    drawing = true,
+    label = { string = wallpaper_entry.file },
+    background = {
+      image = {
+        string = wallpaper_entry.path,
+        scale = scale,
+      },
+    },
+  }
+end
+
 local function update_page()
   local start_idx = (current_page - 1) * PAGE_SIZE + 1
 
@@ -128,44 +147,29 @@ local function update_page()
     local item = items[i]
 
     if idx <= #all_wallpapers then
-      local file = all_wallpapers[idx].file
-      local full_path = all_wallpapers[idx].path
+      local wallpaper_entry = all_wallpapers[idx]
+      local full_path = wallpaper_entry.path
 
-      -- Lazy load dimensions if not already cached
-      if not all_wallpapers[idx].width or not all_wallpapers[idx].height then
-        -- Get both width and height in one go
-        -- sips -g pixelWidth -g pixelHeight file
+      -- Lazy load dimensions async if not cached
+      if not wallpaper_entry.width or not wallpaper_entry.height then
         local sips_cmd = [[sips -g pixelWidth -g pixelHeight "]]
           .. full_path
           .. [[" | awk '/pixelWidth/ {w=$2} /pixelHeight/ {h=$2} END {print w, h}']]
-        local sips_handle = io.popen(sips_cmd)
-        local result = sips_handle:read "*a"
-        sips_handle:close()
-
-        local w, h = result:match "(%d+)%s+(%d+)"
-        all_wallpapers[idx].width = tonumber(w) or 2000
-        all_wallpapers[idx].height = tonumber(h) or 1125
+        sbar.exec(sips_cmd, function(result)
+          local w, h = result:match "(%d+)%s+(%d+)"
+          wallpaper_entry.width = tonumber(w) or 2000
+          wallpaper_entry.height = tonumber(h) or 1125
+          set_item_with_dimensions(item, wallpaper_entry)
+        end)
+        -- Show placeholder while loading
+        item:set {
+          drawing = true,
+          label = { string = wallpaper_entry.file },
+          background = { image = { string = full_path, scale = 0.05 } },
+        }
+      else
+        set_item_with_dimensions(item, wallpaper_entry)
       end
-
-      local img_w = all_wallpapers[idx].width
-      local img_h = all_wallpapers[idx].height
-
-      -- Calculate scale to fit inside the bounding box (THUMB_WIDTH x THUMB_HEIGHT)
-      -- while preserving aspect ratio (contain)
-      local scale_w = THUMB_WIDTH / img_w
-      local scale_h = THUMB_HEIGHT / img_h
-      local scale = math.min(scale_w, scale_h)
-
-      item:set {
-        drawing = true,
-        label = { string = file },
-        background = {
-          image = {
-            string = full_path,
-            scale = scale,
-          },
-        },
-      }
 
       item:subscribe("mouse.clicked", function()
         set_wallpaper(full_path)
