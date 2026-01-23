@@ -4,7 +4,7 @@ local settings = require "settings"
 
 sbar.add("event", "bt_device", "com.apple.bluetooth.status")
 
-local bluetooth = sbar.add("item", "top.widgets.bluetooth", {
+local bluetooth = sbar.add("item", "widgets.bluetooth", {
   position = "right",
   icon = {
     string = icons.bluetooth.on,

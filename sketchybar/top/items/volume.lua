@@ -2,7 +2,7 @@ local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
 
-local volume = sbar.add("item", "top.widgets.volume", {
+local volume = sbar.add("item", "widgets.volume", {
   position = "right",
   icon = {
     string = icons.volume[100],
@@ -26,7 +26,7 @@ local volume = sbar.add("item", "top.widgets.volume", {
 })
 
 local volume_slider = sbar.add("slider", "widgets.volume.slider", 100, {
-  position = "popup.top.widgets.volume",
+  position = "popup.widgets.volume",
   slider = {
     highlight_color = colors.blue,
     background = {
@@ -79,7 +79,7 @@ volume:subscribe("mouse.clicked", function(env)
 end)
 
 local volume_mute = sbar.add("item", {
-  position = "popup.top.widgets.volume",
+  position = "popup.widgets.volume",
   align = "center",
   label = { string = "Toggle Mute", align = "center" },
   width = 120,

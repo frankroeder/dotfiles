@@ -6,8 +6,7 @@ local timer_state = "stopped" -- stopped, running, finished
 local remaining_time = 0
 local alert_rings = 0
 local max_rings = 5
-local sounds_path =
-  "/System/Library/PrivateFrameworks/ScreenReader.framework/Versions/A/Resources/Sounds/"
+local sounds_path = settings.sounds.path
 
 local timer = sbar.add("item", "widgets.timer", {
   position = "left",

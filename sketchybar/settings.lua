@@ -19,6 +19,8 @@ local print_table = function(t, indent)
   end
 end
 
+local home = os.getenv "HOME"
+
 local settings = {
   paddings = 4,
   animation_duration = 15,
@@ -30,8 +32,18 @@ local settings = {
   bar_border_color = require("colors").transparent,
   icons = "sf-symbols",
   wallpaper = {
-    path = os.getenv "HOME" .. "/Library/Mobile Documents/com~apple~CloudDocs/wallpapers",
+    path = home .. "/Library/Mobile Documents/com~apple~CloudDocs/wallpapers",
     scale = 1.0,
+  },
+  hardware = {
+    update_freq = 2,
+    macmon_path = "/opt/homebrew/bin/macmon",
+  },
+  sounds = {
+    path = "/System/Library/PrivateFrameworks/ScreenReader.framework/Versions/A/Resources/Sounds/",
+  },
+  network = {
+    provider_path = home .. "/.dotfiles/sketchybar/helpers/event_providers/network_load/bin/network_load",
   },
   font = {
     text = "SF Pro",

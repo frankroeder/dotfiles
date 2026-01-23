@@ -1,5 +1,6 @@
 local icons = require "icons"
 local colors = require "colors"
+local settings = require "settings"
 
 local gpu = sbar.add("graph", "widgets.gpu", 80, {
   position = "right",
@@ -64,7 +65,7 @@ local cpu = sbar.add("graph", "widgets.cpu", 138, {
   background = {
     drawing = true,
   },
-  update_freq = 2,
+  update_freq = settings.hardware.update_freq,
 })
 
 local ecpu = sbar.add("graph", "widgets.ecpu", 138, {
@@ -104,7 +105,7 @@ local power = sbar.add("item", "widgets.power", {
 })
 
 cpu:subscribe("routine", function(env)
-  sbar.exec("/opt/homebrew/bin/macmon pipe -s 1", function(output)
+  sbar.exec(settings.hardware.macmon_path .. " pipe -s 1", function(output)
     if
       not output
       or not output.ecpu_usage

@@ -7,8 +7,8 @@ local interface = utils.get_primary_interface()
 
 sbar.exec(
   "killall network_load >/dev/null; "
-    .. os.getenv "HOME"
-    .. "/.dotfiles/sketchybar/helpers/event_providers/network_load/bin/network_load "
+    .. settings.network.provider_path
+    .. " "
     .. interface
     .. " network_update 2.0"
 )

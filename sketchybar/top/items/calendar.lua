@@ -1,7 +1,7 @@
 local settings = require "settings"
 local colors = require "colors"
 
-local cal = sbar.add("item", "top.widgets.calendar", {
+local cal = sbar.add("item", "widgets.calendar", {
   position = "right",
   update_freq = 30,
   icon = { drawing = false },

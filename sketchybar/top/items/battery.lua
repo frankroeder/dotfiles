@@ -6,7 +6,7 @@ local settings = require "settings"
 local profiler_cache = { data = nil, timestamp = 0 }
 local CACHE_TTL = 300 -- 5 minutes
 
-local battery = sbar.add("item", "top.widgets.battery", {
+local battery = sbar.add("item", "widgets.battery", {
   position = "right",
   icon = {
     font = {

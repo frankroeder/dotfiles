@@ -3,7 +3,7 @@ local settings = require "settings"
 
 local LARGE_SCREEN_WIDTH = 2000
 
-local front_app = sbar.add("item", "top.front_app", {
+local front_app = sbar.add("item", "widgets.front_app", {
   display = "active",
   position = "left",
   padding_left = 60,

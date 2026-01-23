@@ -11,7 +11,7 @@ local spaces = {}
 local static_names = { "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X" }
 
 for i, space_name in ipairs(static_names) do
-  local space = sbar.add("space", "top.space." .. i, {
+  local space = sbar.add("space", "widgets.space." .. i, {
     space = i,
     icon = {
       font = { family = settings.font.numbers },
@@ -41,7 +41,7 @@ for i, space_name in ipairs(static_names) do
   spaces[i] = space
 
   -- Single item bracket for space items to achieve double border on highlight
-  local space_bracket = sbar.add("bracket", { "top.space." .. i }, {
+  local space_bracket = sbar.add("bracket", { "widgets.space." .. i }, {
     background = {
       color = colors.transparent,
       border_color = colors.transparent,
@@ -100,7 +100,7 @@ for i, space_name in ipairs(static_names) do
   end)
 end
 
-local space_layout = sbar.add("item", "top.yabai_layout", {
+local space_layout = sbar.add("item", "widgets.yabai_layout", {
   padding_left = 10,
   icon = {
     font = { family = settings.font.numbers },
@@ -177,7 +177,7 @@ local function updateLayout()
   end)
 end
 
-local window_properties = sbar.add("item", "top.yabai_property", {
+local window_properties = sbar.add("item", "widgets.yabai_property", {
   label = {
     font = { family = settings.font.text, size = 12 },
     color = colors.white,
@@ -241,7 +241,7 @@ local function getWindowProperties()
   end)
 end
 
-local space_window_observer = sbar.add("item", "top.space_window_observer", {
+local space_window_observer = sbar.add("item", "widgets.space_window_observer", {
   drawing = false,
   updates = true,
 })
