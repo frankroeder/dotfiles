@@ -7,6 +7,7 @@ sbar.add("event", "layout_change")
 sbar.add("event", "property_change")
 
 local spaces = {}
+local space_window_counts = {}
 
 local static_names = { "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X" }
 
@@ -40,8 +41,30 @@ for i, space_name in ipairs(static_names) do
 
   spaces[i] = space
 
+  -- window count indicator
+  local window_count = sbar.add("item", "widgets.space.count." .. i, {
+    icon = {
+      drawing = false,
+    },
+    padding_left = -2,
+    label = {
+      string = "",
+      font = { family = settings.font.numbers, size = 9.0 },
+      color = colors.red,
+      padding_left = 0,
+      padding_right = 4,
+      y_offset = 5,
+    },
+    background = {
+      drawing = false,
+    },
+    drawing = false,
+  })
+
+  space_window_counts[i] = window_count
+
   -- Single item bracket for space items to achieve double border on highlight
-  local space_bracket = sbar.add("bracket", { "widgets.space." .. i }, {
+  local space_bracket = sbar.add("bracket", { "widgets.space." .. i, "widgets.space.count." .. i }, {
     background = {
       color = colors.transparent,
       border_color = colors.transparent,
@@ -249,8 +272,11 @@ local space_window_observer = sbar.add("item", "widgets.space_window_observer", 
 space_window_observer:subscribe("space_windows_change", function(env)
   local icon_line = ""
   local no_app = true
-  for app, _ in pairs(env.INFO.apps) do
+  local window_count = 0
+
+  for app, count in pairs(env.INFO.apps) do
     no_app = false
+    window_count = window_count + count
     local lookup = app_icons[app]
     local icon = ((lookup == nil) and app_icons["Default"] or lookup)
     icon_line = icon_line .. icon
@@ -259,8 +285,21 @@ space_window_observer:subscribe("space_windows_change", function(env)
   if no_app then
     icon_line = "—"
   end
+
   sbar.animate("tanh", settings.animation_duration, function()
     spaces[env.INFO.space]:set { label = icon_line }
+
+    -- Update window count
+    if space_window_counts[env.INFO.space] then
+      if window_count > 0 then
+        space_window_counts[env.INFO.space]:set {
+          label = { string = tostring(window_count) },
+          drawing = true,
+        }
+      else
+        space_window_counts[env.INFO.space]:set { drawing = false }
+      end
+    end
   end)
 end)
 
