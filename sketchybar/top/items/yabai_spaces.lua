@@ -19,7 +19,7 @@ for i, space_name in ipairs(static_names) do
       padding_left = 6,
       padding_right = 6,
       color = colors.white,
-      highlight_color = colors.blue,
+      highlight_color = settings.spaces.highlight_color,
     },
     label = {
       padding_right = 6,
@@ -68,10 +68,10 @@ for i, space_name in ipairs(static_names) do
     space:set {
       icon = { highlight = selected },
       label = { highlight = selected },
-      background = { border_color = selected and colors.grey or colors.bg2 },
+      background = { border_color = selected and colors.transparent or colors.bg2 },
     }
     space_bracket:set {
-      background = { border_color = selected and colors.blue or colors.transparent },
+      background = { border_color = selected and settings.spaces.highlight_color or colors.transparent },
     }
   end)
 

@@ -49,6 +49,7 @@ local settings = {
   },
   spaces = {
     padding = 3,
+    highlight_color = require("colors").blue,
   },
   font = {
     text = "SF Pro",
