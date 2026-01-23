@@ -6,6 +6,7 @@ local LARGE_SCREEN_WIDTH = 2000
 local front_app = sbar.add("item", "top.front_app", {
   display = "active",
   position = "left",
+  padding_left = 60,
   icon = {
     background = {
       drawing = true,

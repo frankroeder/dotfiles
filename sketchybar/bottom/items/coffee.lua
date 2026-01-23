@@ -37,7 +37,6 @@ local function update_coffee()
 end
 
 coffee:subscribe({ "routine", "system_woke" }, update_coffee)
-update_coffee()
 
 coffee:subscribe("mouse.clicked", function()
   sbar.exec("pgrep -x caffeinate", function(pid)
