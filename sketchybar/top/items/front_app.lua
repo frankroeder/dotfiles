@@ -1,5 +1,6 @@
 local colors = require "colors"
 local settings = require "settings"
+local app_icons = require "helpers.app_icons"
 
 local LARGE_SCREEN_WIDTH = 2000
 
@@ -53,10 +54,18 @@ end
 
 front_app:subscribe("front_app_switched", function(env)
   update_position()
+
+  local lookup = app_icons[env.INFO]
+  local icon = lookup or app_icons["Default"] or "󰣆"
+
   sbar.animate("tanh", 30, function()
     front_app:set {
       label = { string = env.INFO },
-      icon = { background = { image = { string = "app." .. env.INFO } } },
+      icon = {
+        string = icon,
+        background = { drawing = false },
+        font = "sketchybar-app-font:Regular:22.0",
+      },
     }
   end)
 end)
