@@ -1,5 +1,6 @@
 local colors = require "colors"
 local icons = require "icons"
+local settings = require "settings"
 
 local uptime = sbar.add("item", "widgets.uptime", {
   position = "right",

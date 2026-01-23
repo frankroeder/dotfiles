@@ -27,8 +27,8 @@ for i, space_name in ipairs(static_names) do
       highlight_color = colors.white,
       font = "sketchybar-app-font:Regular:16.0",
     },
-    padding_right = 1,
-    padding_left = 1,
+    padding_right = settings.spaces.padding,
+    padding_left = settings.spaces.padding,
     background = {
       color = colors.pill_bg,
       border_width = 1,

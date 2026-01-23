@@ -38,12 +38,17 @@ local settings = {
   hardware = {
     update_freq = 2,
     macmon_path = "/opt/homebrew/bin/macmon",
+    label_width = 130,
+    compact_labels = true,
   },
   sounds = {
     path = "/System/Library/PrivateFrameworks/ScreenReader.framework/Versions/A/Resources/Sounds/",
   },
   network = {
     provider_path = home .. "/.dotfiles/sketchybar/helpers/event_providers/network_load/bin/network_load",
+  },
+  spaces = {
+    padding = 3,
   },
   font = {
     text = "SF Pro",

@@ -26,7 +26,7 @@ local ssd_volume = sbar.add("item", "widgets.ssd.volume", {
   },
   label = {
     font = {
-      style = "Bold",
+      style = settings.font.style_map["Bold"],
       size = 12.0,
     },
     padding_right = 8,

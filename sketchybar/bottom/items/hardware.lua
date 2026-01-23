@@ -4,7 +4,7 @@ local settings = require "settings"
 
 local gpu = sbar.add("graph", "widgets.gpu", 80, {
   position = "right",
-  graph = { color = colors.blue },
+  graph = { color = colors.with_alpha(colors.blue, 0.5) },
   icon = {
     string = icons.gpu,
     color = colors.blue,
@@ -14,11 +14,11 @@ local gpu = sbar.add("graph", "widgets.gpu", 80, {
   label = {
     string = "GPU --% --°C",
     font = {
-      size = 10.0,
+      size = 9.0,
     },
     align = "right",
     width = 0,
-    padding_right = 6,
+    padding_right = 4,
     y_offset = 8,
   },
 })
@@ -33,11 +33,11 @@ local ram_g = sbar.add("graph", "widgets.ram", 108, {
   label = {
     string = "RAM --% SWAP --%",
     font = {
-      size = 10.0,
+      size = 9.0,
     },
     align = "right",
     width = 0,
-    padding_right = 6,
+    padding_right = 4,
     y_offset = 8,
   },
   background = {
@@ -55,11 +55,11 @@ local cpu = sbar.add("graph", "widgets.cpu", 138, {
   label = {
     string = "eCPU --% pCPU --% --°C",
     font = {
-      size = 10.0,
+      size = 9.0,
     },
     align = "right",
     width = 0,
-    padding_right = 6,
+    padding_right = 4,
     y_offset = 8,
   },
   background = {
@@ -70,7 +70,7 @@ local cpu = sbar.add("graph", "widgets.cpu", 138, {
 
 local ecpu = sbar.add("graph", "widgets.ecpu", 138, {
   position = "right",
-  graph = { color = colors.green },
+  graph = { color = colors.with_alpha(colors.green, 0.5) },
   background = { drawing = false },
   icon = { drawing = false },
   label = { drawing = false },
@@ -97,7 +97,7 @@ local power = sbar.add("item", "widgets.power", {
   label = {
     string = "-- W",
     font = {
-      size = 10.0,
+      size = 9.0,
     },
     padding_right = 3,
   },
@@ -133,7 +133,7 @@ cpu:subscribe("routine", function(env)
 
     -- Update CPU
     cpu:set {
-      graph = { color = colors.blue },
+      graph = { color = colors.with_alpha(colors.blue, 0.5) },
       label = "eCPU " .. ecpu_val .. "% pCPU " .. pcpu_val .. "% " .. math.floor(cpu_temp) .. "°C",
     }
     cpu:push { pcpu_val / 100. }
@@ -153,7 +153,7 @@ cpu:subscribe("routine", function(env)
       end
     end
     ram_g:set {
-      graph = { color = color_ram },
+      graph = { color = colors.with_alpha(color_ram, 0.5) },
       label = "RAM " .. math.floor(ram_pct) .. "% SWAP " .. math.floor(swap_pct) .. "%",
     }
     ram_g:push { ram_pct / 100. }
@@ -170,7 +170,7 @@ cpu:subscribe("routine", function(env)
       end
     end
     gpu:set {
-      graph = { color = color_gpu },
+      graph = { color = colors.with_alpha(color_gpu, 0.5) },
       label = "GPU " .. gpu_used .. "% " .. math.floor(gpu_temp) .. "°C",
     }
     gpu:push { gpu_used / 100. }
