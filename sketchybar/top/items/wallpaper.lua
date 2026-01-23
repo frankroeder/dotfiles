@@ -49,8 +49,9 @@ local function set_wallpaper(path)
   os.execute(cmd)
 end
 
--- Pool of items
+-- Pool of items with their current wallpaper paths
 local items = {}
+local item_paths = {}
 
 -- Create fixed pool of items
 for i = 1, PAGE_SIZE do
@@ -96,6 +97,13 @@ for i = 1, PAGE_SIZE do
     item:set {
       background = { border_width = 0 },
     }
+  end)
+
+  item:subscribe("mouse.clicked", function()
+    if item_paths[i] then
+      set_wallpaper(item_paths[i])
+      wallpaper:set { popup = { drawing = false } }
+    end
   end)
 
   items[i] = item
@@ -149,6 +157,7 @@ local function update_page()
     if idx <= #all_wallpapers then
       local wallpaper_entry = all_wallpapers[idx]
       local full_path = wallpaper_entry.path
+      item_paths[i] = full_path
 
       -- Lazy load dimensions async if not cached
       if not wallpaper_entry.width or not wallpaper_entry.height then
@@ -175,12 +184,8 @@ local function update_page()
       else
         set_item_with_dimensions(item, wallpaper_entry)
       end
-
-      item:subscribe("mouse.clicked", function()
-        set_wallpaper(full_path)
-        wallpaper:set { popup = { drawing = false } }
-      end)
     else
+      item_paths[i] = nil
       item:set { drawing = false }
     end
   end

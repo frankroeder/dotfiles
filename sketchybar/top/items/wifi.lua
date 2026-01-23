@@ -10,7 +10,7 @@ local wifi = sbar.add("item", "widgets.wifi", {
   position = "right",
   icon = {
     font = {
-      style = "Regular",
+      style = settings.font.style_map["Regular"],
       size = 16.0,
     },
     string = icons.wifi.disconnected,

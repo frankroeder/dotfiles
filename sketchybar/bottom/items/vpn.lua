@@ -6,12 +6,12 @@ sbar.add("event", "network_change", "com.apple.networkConnect")
 
 local vpn_item = sbar.add("item", "widgets.vpn", {
   position = "left",
-  update_freq = 180,
+  update_freq = 60,
   icon = {
     string = icons.vpn,
     padding_left = 8,
     font = {
-      style = "Regular",
+      style = settings.font.style_map["Regular"],
       size = 16.0,
     },
   },
@@ -48,5 +48,4 @@ vpn_item:subscribe({ "network_change", "routine", "system_woke" }, function(_)
   update()
 end)
 
-vpn_item:set { update_freq = 60 }
 update()

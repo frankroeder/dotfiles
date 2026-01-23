@@ -12,7 +12,7 @@ local bluetooth = sbar.add("item", "widgets.bluetooth", {
     padding_left = 8,
     padding_right = 8,
     font = {
-      style = "Regular",
+      style = settings.font.style_map["Regular"],
       size = 16.0,
     },
   },
@@ -101,7 +101,7 @@ local function update()
 
               local icon = get_device_icon(info.device_minorType)
 
-              local item = sbar.add("item", {
+              local item = sbar.add("item", "widgets.bluetooth.device." .. count, {
                 position = "popup." .. bluetooth.name,
                 label = {
                   string = display_label,
@@ -133,7 +133,7 @@ local function update()
 
     if count == 0 then
       bluetooth:set { icon = { color = colors.grey } }
-      local item = sbar.add("item", {
+      local item = sbar.add("item", "widgets.bluetooth.empty", {
         position = "popup." .. bluetooth.name,
         label = {
           string = "No Devices Connected",

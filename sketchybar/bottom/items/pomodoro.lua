@@ -2,9 +2,10 @@ local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
 
-local timer_state = "stopped" -- stopped, running, finished
+local timer_state = "stopped" -- stopped, running, finished, alerting
 local remaining_time = 0
 local alert_rings = 0
+local alert_delay = 0
 local max_rings = 5
 local sounds_path = settings.sounds.path
 
@@ -29,6 +30,7 @@ local function stop_timer()
   timer_state = "stopped"
   remaining_time = 0
   alert_rings = 0
+  alert_delay = 0
   timer:set { label = { string = "No Timer" }, icon = { color = colors.yellow } }
   sbar.exec("afplay " .. sounds_path .. "TrackingOff.aiff")
 end
@@ -37,6 +39,7 @@ local function start_timer(duration)
   timer_state = "running"
   remaining_time = duration
   alert_rings = 0
+  alert_delay = 0
   timer:set { icon = { color = colors.green } }
   sbar.exec("afplay " .. sounds_path .. "TrackingOn.aiff")
 end
@@ -68,9 +71,9 @@ timer:subscribe("routine", function()
       end
     end
   elseif timer_state == "alerting" then
-    remaining_time = remaining_time + 1
-    if remaining_time >= 3 then
-      remaining_time = 0
+    alert_delay = alert_delay + 1
+    if alert_delay >= 3 then
+      alert_delay = 0
       timer_state = "finished"
     end
   end

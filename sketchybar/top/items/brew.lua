@@ -98,7 +98,7 @@ local function populate_popup()
   clear_popup()
 
   if #cached_packages == 0 then
-    local no_updates = sbar.add("item", {
+    local no_updates = sbar.add("item", "widgets.brew.empty", {
       position = "popup." .. brew.name,
       label = {
         string = "No outdated packages",
@@ -114,8 +114,8 @@ local function populate_popup()
     })
     table.insert(popup_items, no_updates)
   else
-    for _, package in ipairs(cached_packages) do
-      local pkg_item = sbar.add("item", {
+    for idx, package in ipairs(cached_packages) do
+      local pkg_item = sbar.add("item", "widgets.brew.pkg." .. idx, {
         position = "popup." .. brew.name,
         label = {
           string = package,

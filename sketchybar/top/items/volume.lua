@@ -10,7 +10,7 @@ local volume = sbar.add("item", "widgets.volume", {
     padding_left = 8,
     padding_right = 8,
     font = {
-      style = "Regular",
+      style = settings.font.style_map["Regular"],
       size = 16.0,
     },
   },

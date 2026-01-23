@@ -1,5 +1,6 @@
 local colors = require "colors"
 local icons = require "icons"
+local settings = require "settings"
 
 local coffee = sbar.add("item", "widgets.coffee", {
   position = "left",
@@ -9,7 +10,7 @@ local coffee = sbar.add("item", "widgets.coffee", {
     padding_left = 8,
     padding_right = 8,
     font = {
-      style = "Regular",
+      style = settings.font.style_map["Regular"],
       size = 16.0,
     },
   },
