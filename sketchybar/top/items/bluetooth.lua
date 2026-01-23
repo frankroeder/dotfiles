@@ -25,6 +25,7 @@ local bluetooth = sbar.add("item", "widgets.bluetooth", {
 })
 
 local popup_items = {}
+local empty_item = nil
 
 local function clear_popup()
   for _, item in ipairs(popup_items) do
@@ -133,16 +134,23 @@ local function update()
 
     if count == 0 then
       bluetooth:set { icon = { color = colors.grey } }
-      local item = sbar.add("item", "widgets.bluetooth.empty", {
-        position = "popup." .. bluetooth.name,
-        label = {
-          string = "No Devices Connected",
-          padding_left = 10,
-          padding_right = 10,
-        },
-        icon = { drawing = false },
-      })
-      table.insert(popup_items, item)
+      if not empty_item then
+        empty_item = sbar.add("item", "widgets.bluetooth.empty", {
+          position = "popup." .. bluetooth.name,
+          label = {
+            string = "No Devices Connected",
+            padding_left = 10,
+            padding_right = 10,
+          },
+          icon = { drawing = false },
+        })
+      end
+      empty_item:set { drawing = true }
+    else
+      if empty_item then
+        empty_item:set { drawing = false }
+      end
+      bluetooth:set { icon = { color = colors.blue } }
     end
   end)
 end
