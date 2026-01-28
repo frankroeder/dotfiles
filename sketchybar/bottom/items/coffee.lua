@@ -49,3 +49,5 @@ coffee:subscribe("mouse.clicked", function()
     sbar.delay(0.5, update_coffee)
   end)
 end)
+
+update_coffee()

@@ -2,12 +2,11 @@ require "items.yabai_spaces"
 -- Add padding between spaces and front app
 sbar.add("item", {
   position = "left",
-  width = 50,
+  width = 30,
   background = {
     drawing = false,
   },
 })
-require "items.wallpaper"
 require "items.front_app"
 
 require "items.calendar"
@@ -18,6 +17,7 @@ require "items.brew"
 require "items.volume"
 require "items.mic"
 require "items.bluetooth"
+require "items.wallpaper"
 
 sbar.add("bracket", "top.group.network", {
   "widgets.wifi",

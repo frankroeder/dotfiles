@@ -3,7 +3,7 @@ local icons = require "icons"
 local settings = require "settings"
 
 local uptime = sbar.add("item", "widgets.uptime", {
-  position = "right",
+  position = "left",
   icon = {
     string = icons.uptime,
     color = colors.white,

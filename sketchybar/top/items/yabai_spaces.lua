@@ -52,7 +52,7 @@ for i, space_name in ipairs(static_names) do
       font = { family = settings.font.numbers, size = 9.0 },
       color = colors.red,
       padding_left = 0,
-      padding_right = 4,
+      padding_right = 2,
       y_offset = 5,
     },
     background = {
@@ -131,7 +131,7 @@ local space_layout = sbar.add("item", "widgets.yabai_layout", {
   },
   label = {
     string = "",
-    padding_right = 10,
+    padding_right = 8,
   },
   background = {
     color = colors.bg1,

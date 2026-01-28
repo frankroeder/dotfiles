@@ -17,7 +17,7 @@ local dimensions_cache = {}
 
 -- Main Item
 local wallpaper = sbar.add("item", "widgets.wallpaper", {
-  position = "left",
+  position = "right",
   icon = {
     string = "􀵪 ",
     font = {

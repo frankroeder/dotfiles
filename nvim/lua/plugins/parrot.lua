@@ -124,6 +124,15 @@ local M = {
   end,
   opts = {
     providers = {
+      claude_cli = {
+        name = "claude_cli",
+        command = "claude",
+        models = {
+          "claude-sonnet-4-5",
+          "claude-opus-4-5",
+          "claude-haiku-4",
+        },
+      },
       xai = {
         name = "xai",
         endpoint = "https://api.x.ai/v1/chat/completions",

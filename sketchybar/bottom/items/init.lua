@@ -2,16 +2,13 @@ require "items.media"
 
 require "items.hardware"
 require "items.ssd"
+
 require "items.uptime"
-
-require "items.mails"
-require "items.keyboard"
+require "items.vpn"
 require "items.pomodoro"
-
--- New items moved from top bar
 require "items.mode"
 require "items.coffee"
-require "items.vpn"
+require "items.claude"
 
 -- sbar.add("alias", "Control Center,FocusModes", "left")
 -- sbar.add("alias", "Proton VPN,Item-0", "left")
