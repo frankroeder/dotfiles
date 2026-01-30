@@ -227,32 +227,17 @@ local window_properties = sbar.add("item", "widgets.yabai_property", {
   drawing = false,
 })
 
--- TODO: Not fully working, either property changes are not detected or
--- correctly triggered by skhd . --
 local function getWindowProperties()
-  sbar.exec("yabai -m query --windows --space", function(windows)
-    if not windows then
+  sbar.exec("yabai -m query --windows --window", function(window)
+    if not window then
       window_properties:set { drawing = false }
       return
     end
 
-    local focused_window
-    for _, w in ipairs(windows) do
-      if w["has-focus"] then
-        focused_window = w
-        break
-      end
-    end
-
-    if not focused_window then
-      window_properties:set { drawing = false }
-      return
-    end
-
-    local is_sticky = focused_window["is-sticky"]
-    local is_grabbed = focused_window["is-grabbed"]
-    local is_floating = focused_window["is-floating"]
-    local has_parent_zoom = focused_window["has-parent-zoom"]
+    local is_sticky = window["is-sticky"]
+    local is_grabbed = window["is-grabbed"]
+    local is_floating = window["is-floating"]
+    local has_parent_zoom = window["has-parent-zoom"]
 
     local label = ""
     if is_sticky then
@@ -300,6 +285,15 @@ space_window_observer:subscribe("space_windows_change", function(env)
   sbar.animate("tanh", settings.animation_duration, function()
     spaces[env.INFO.space]:set { label = icon_line }
 
+    -- Dim empty spaces
+    if spaces[env.INFO.space] then
+      local is_empty = no_app
+      spaces[env.INFO.space]:set {
+        icon = { color = is_empty and colors.grey or colors.white },
+        background = { color = is_empty and colors.bg1 or colors.pill_bg },
+      }
+    end
+
     -- Update window count
     if space_window_counts[env.INFO.space] then
       if window_count > 0 then
@@ -323,8 +317,12 @@ end)
 space_layout:subscribe("layout_change", updateLayout)
 space_layout:subscribe("front_app_switched", updateLayout)
 space_layout:subscribe("display_change", updateLayout)
+
 window_properties:subscribe("property_change", getWindowProperties)
+window_properties:subscribe("space_change", getWindowProperties)
+window_properties:subscribe("front_app_switched", getWindowProperties)
 
 updateLayout()
+getWindowProperties()
 
 return spaces
