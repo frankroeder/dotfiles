@@ -141,11 +141,22 @@ local space_layout = sbar.add("item", "widgets.yabai_layout", {
 })
 
 local function updateLayout()
-  sbar.exec("yabai -m query --spaces --display", function(spaces_data)
+  sbar.exec("yabai -m query --spaces", function(spaces_data)
     if not spaces_data then
       return
     end
 
+    -- Update display for all spaces
+    for _, s in ipairs(spaces_data) do
+      local idx = s.index
+      local disp = tonumber(s.display)
+      if spaces[idx] and space_window_counts[idx] then
+        spaces[idx]:set { display = disp }
+        space_window_counts[idx]:set { display = disp }
+      end
+    end
+
+    -- Find focused space for layout indicator
     local focused_space
     for _, s in ipairs(spaces_data) do
       if s["has-focus"] then
@@ -311,6 +322,9 @@ end)
 
 space_layout:subscribe("layout_change", updateLayout)
 space_layout:subscribe("front_app_switched", updateLayout)
+space_layout:subscribe("display_change", updateLayout)
 window_properties:subscribe("property_change", getWindowProperties)
+
+updateLayout()
 
 return spaces
