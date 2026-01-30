@@ -50,4 +50,8 @@ coffee:subscribe("mouse.clicked", function()
   end)
 end)
 
+coffee:subscribe("exit", function()
+  sbar.exec "killall caffeinate 2>/dev/null"
+end)
+
 update_coffee()

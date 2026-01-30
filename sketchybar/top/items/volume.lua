@@ -43,8 +43,7 @@ local volume_slider = sbar.add("slider", "widgets.volume.slider", 100, {
   click_script = 'osascript -e "set volume output volume $PERCENTAGE"',
 })
 
-volume:subscribe("volume_change", function(env)
-  local volume_level = tonumber(env.INFO)
+local function update_volume(volume_level)
   local icon = icons.volume[0]
   local color = colors.red
 
@@ -68,6 +67,10 @@ volume:subscribe("volume_change", function(env)
   }
 
   volume_slider:set { slider = { percentage = volume_level } }
+end
+
+volume:subscribe("volume_change", function(env)
+  update_volume(tonumber(env.INFO))
 end)
 
 volume:subscribe("mouse.clicked", function(env)

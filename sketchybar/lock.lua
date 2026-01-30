@@ -19,7 +19,7 @@ animator:subscribe("lock", function()
     margin = -200,
     notch_width = 0,
     blur_radius = 0,
-    color = 0x00000000, -- Fully transparent
+    color = colors.transparent,
   }
 end)
 

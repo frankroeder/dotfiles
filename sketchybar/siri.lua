@@ -18,7 +18,7 @@ siri:subscribe({ "siri_appear", "siri_disappear" }, function(env)
   elseif env.SENDER == "siri_disappear" then
     sbar.animate("tanh", 20, function()
       sbar.bar {
-        color = colors.pill_bg,
+        color = require("settings").bar_color,
       }
     end)
   end
