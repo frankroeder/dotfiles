@@ -73,19 +73,6 @@ for i, space_name in ipairs(static_names) do
     },
   })
 
-  local space_popup = sbar.add("item", {
-    position = "popup." .. space.name,
-    padding_left = 0,
-    padding_right = 0,
-    background = {
-      drawing = true,
-      image = {
-        corner_radius = 9,
-        scale = 0.2,
-      },
-    },
-  })
-
   space:subscribe("space_change", function(env)
     local selected = env.SELECTED == "true"
     space:set {
@@ -99,27 +86,11 @@ for i, space_name in ipairs(static_names) do
   end)
 
   space:subscribe("mouse.clicked", function(env)
-    if env.BUTTON == "left" then
-      space_popup:set { background = { image = "space." .. env.SID } }
-      space:set { popup = { drawing = "toggle" } }
-      -- sbar.exec("yabai -m query --windows --space " .. env.SID, function(windows)
-      --   local window_list = ""
-      --   for _, w in ipairs(windows) do
-      --     local app = w.app or ""
-      --     local title = w.title or ""
-      --     window_list = window_list .. "• " .. app .. " - " .. title .. "\n"
-      --   end
-      --   space_popup:set { label = { string = window_list } }
-      --   space:set { popup = { drawing = "toggle" } }
-      -- end)
+    if env.BUTTON == "right" then
+      sbar.exec("yabai -m space --destroy " .. i)
     else
-      local op = (env.BUTTON == "right") and "--destroy" or "--focus"
-      sbar.exec("yabai -m space " .. op .. " " .. env.SID)
+      sbar.exec("yabai -m space --focus " .. i)
     end
-  end)
-
-  space:subscribe("mouse.exited", function(_)
-    space:set { popup = { drawing = false } }
   end)
 end
 
