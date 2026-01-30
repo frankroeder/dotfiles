@@ -130,7 +130,7 @@ local M = {
         models = {
           "claude-sonnet-4-5",
           "claude-opus-4-5",
-          "claude-haiku-4",
+          "claude-haiku-4-5",
         },
       },
       xai = {
