@@ -1,6 +1,7 @@
 local icons = require "icons"
 local colors = require "colors"
 local settings = require "settings"
+local utils = require "utils"
 
 -- Cache for expensive system_profiler calls
 local profiler_cache = { data = nil, timestamp = 0 }
@@ -161,14 +162,9 @@ local function update_details()
 end
 
 battery:subscribe("mouse.clicked", function()
-  local drawing = battery:query().popup.drawing
-  battery:set { popup = { drawing = "toggle" } }
-
-  if drawing == "off" then
-    update_details()
-  end
+  utils.popup_toggle(battery, update_details)
 end)
 
 battery:subscribe("mouse.exited.global", function()
-  battery:set { popup = { drawing = false } }
+  utils.popup_hide(battery)
 end)

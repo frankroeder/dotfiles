@@ -1,6 +1,7 @@
 local icons = require "icons"
 local colors = require "colors"
 local settings = require "settings"
+local utils = require "utils"
 
 local gpu = sbar.add("graph", "widgets.gpu", 80, {
   position = "right",
@@ -78,14 +79,6 @@ local ecpu = sbar.add("graph", "widgets.ecpu", 138, {
   y_offset = 4,
 })
 
-local ram_popup = sbar.add("item", {
-  position = "popup." .. ram_g.name,
-  label = {
-    font = { size = 12.0 },
-    string = "Checking memory pressure...",
-  },
-})
-
 local power = sbar.add("item", "widgets.power", {
   position = "right",
   icon = {
@@ -142,16 +135,7 @@ cpu:subscribe("routine", function(env)
     -- Update RAM
     local ram_pct = (ram_used / ram_total) * 100
     local swap_pct = (swap_total > 0) and ((swap_used / swap_total) * 100) or 0
-    local color_ram = colors.blue
-    if ram_pct > 30 then
-      if ram_pct < 60 then
-        color_ram = colors.yellow
-      elseif ram_pct < 80 then
-        color_ram = colors.orange
-      else
-        color_ram = colors.red
-      end
-    end
+    local color_ram = utils.color_gradient(ram_pct)
     ram_g:set {
       graph = { color = colors.with_alpha(color_ram, 0.5) },
       label = "RAM " .. math.floor(ram_pct) .. "% SWAP " .. math.floor(swap_pct) .. "%",
@@ -159,16 +143,7 @@ cpu:subscribe("routine", function(env)
     ram_g:push { ram_pct / 100. }
 
     -- Update GPU
-    local color_gpu = colors.blue
-    if gpu_used > 30 then
-      if gpu_used < 60 then
-        color_gpu = colors.yellow
-      elseif gpu_used < 80 then
-        color_gpu = colors.orange
-      else
-        color_gpu = colors.red
-      end
-    end
+    local color_gpu = utils.color_gradient(gpu_used)
     gpu:set {
       graph = { color = colors.with_alpha(color_gpu, 0.5) },
       label = "GPU " .. gpu_used .. "% " .. math.floor(gpu_temp) .. "°C",
@@ -184,15 +159,4 @@ end)
 
 cpu:subscribe("mouse.clicked", function(_)
   sbar.exec "open -a 'Activity Monitor'"
-end)
-
-ram_g:subscribe("mouse.clicked", function()
-  ram_g:set { popup = { drawing = "toggle" } }
-  sbar.exec("memory_pressure | tail -n 3", function(pressure)
-    ram_popup:set { label = { string = pressure } }
-  end)
-end)
-
-ram_g:subscribe("mouse.exited.global", function()
-  ram_g:set { popup = { drawing = false } }
 end)

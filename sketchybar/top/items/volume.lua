@@ -1,6 +1,7 @@
 local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
+local utils = require "utils"
 
 local volume = sbar.add("item", "widgets.volume", {
   position = "right",
@@ -73,14 +74,6 @@ volume:subscribe("volume_change", function(env)
   update_volume(tonumber(env.INFO))
 end)
 
-volume:subscribe("mouse.clicked", function(env)
-  if env.BUTTON == "left" then
-    volume:set { popup = { drawing = "toggle" } }
-  elseif env.BUTTON == "right" then
-    sbar.exec "open /System/Library/PreferencePanes/Sound.prefpane"
-  end
-end)
-
 local volume_mute = sbar.add("item", {
   position = "popup.widgets.volume",
   align = "center",
@@ -100,6 +93,14 @@ volume_mute:subscribe("mouse.clicked", function()
   )
 end)
 
+volume:subscribe("mouse.clicked", function(env)
+  if env.BUTTON == "left" then
+    utils.popup_toggle(volume)
+  elseif env.BUTTON == "right" then
+    sbar.exec "open /System/Library/PreferencePanes/Sound.prefpane"
+  end
+end)
+
 volume:subscribe("mouse.exited.global", function()
-  volume:set { popup = { drawing = false } }
+  utils.popup_hide(volume)
 end)

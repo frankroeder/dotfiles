@@ -1,6 +1,7 @@
 local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
+local utils = require "utils"
 
 sbar.add("event", "bt_device", "com.apple.bluetooth.status")
 
@@ -165,11 +166,11 @@ bluetooth:subscribe("bt_device", function(env)
 end)
 
 bluetooth:subscribe("mouse.clicked", function()
-  bluetooth:set { popup = { drawing = "toggle" } }
+  utils.popup_toggle(bluetooth)
 end)
 
 bluetooth:subscribe("mouse.exited.global", function()
-  bluetooth:set { popup = { drawing = false } }
+  utils.popup_hide(bluetooth)
 end)
 
 update()

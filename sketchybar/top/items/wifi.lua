@@ -114,61 +114,51 @@ wifi:subscribe({ "wifi_change", "system_woke" }, function(env)
   end)
 end)
 
-local function hide_details()
-  wifi:set { popup = { drawing = false } }
-end
-
-local function toggle_details()
-  local should_draw = wifi:query().popup.drawing == "off"
-  if should_draw then
-    wifi:set { popup = { drawing = true } }
-    sbar.exec("networksetup -getcomputername", function(result)
-      hostname:set { label = result }
-    end)
-    sbar.exec("ipconfig getifaddr " .. interface, function(result)
-      ip:set { label = result }
-    end)
-    sbar.exec(
-      [[
-          en="$(networksetup -listallhardwareports | awk '/Wi-Fi|AirPort/{getline; print $NF}')";
-          ipconfig getsummary "$en" | grep -Fxq "  Active : FALSE" || \
-              networksetup -listpreferredwirelessnetworks "$en" | sed -n '2s/^\t//p'
-      ]],
-      function(result)
-        ssid:set { label = result }
-      end
-    )
-    sbar.exec(
-      "networksetup -getinfo Wi-Fi | awk -F 'Subnet mask: ' '/^Subnet mask: / {print $2}'",
-      function(result)
-        mask:set { label = result }
-      end
-    )
-    sbar.exec(
-      "networksetup -getinfo Wi-Fi | awk -F 'Router: ' '/^Router: / {print $2}'",
-      function(result)
-        router:set { label = result }
-      end
-    )
-  else
-    hide_details()
-  end
-end
-
-wifi:subscribe("mouse.clicked", toggle_details)
-wifi:subscribe("mouse.exited.global", hide_details)
-
-local function copy_label_to_clipboard(env)
-  local label = sbar.query(env.NAME).label.value
-  sbar.exec('echo "' .. label .. '" | pbcopy')
-  sbar.set(env.NAME, { label = { string = icons.clipboard, align = "center" } })
-  sbar.delay(1, function()
-    sbar.set(env.NAME, { label = { string = label, align = "right" } })
+local function update_details()
+  sbar.exec("networksetup -getcomputername", function(result)
+    hostname:set { label = result }
   end)
+  sbar.exec("ipconfig getifaddr " .. interface, function(result)
+    ip:set { label = result }
+  end)
+  sbar.exec(
+    [[
+        en="$(networksetup -listallhardwareports | awk '/Wi-Fi|AirPort/{getline; print $NF}')";
+        ipconfig getsummary "$en" | grep -Fxq "  Active : FALSE" || \
+            networksetup -listpreferredwirelessnetworks "$en" | sed -n '2s/^\t//p'
+    ]],
+    function(result)
+      ssid:set { label = result }
+    end
+  )
+  sbar.exec(
+    "networksetup -getinfo Wi-Fi | awk -F 'Subnet mask: ' '/^Subnet mask: / {print $2}'",
+    function(result)
+      mask:set { label = result }
+    end
+  )
+  sbar.exec(
+    "networksetup -getinfo Wi-Fi | awk -F 'Router: ' '/^Router: / {print $2}'",
+    function(result)
+      router:set { label = result }
+    end
+  )
 end
 
-ssid:subscribe("mouse.clicked", copy_label_to_clipboard)
-hostname:subscribe("mouse.clicked", copy_label_to_clipboard)
-ip:subscribe("mouse.clicked", copy_label_to_clipboard)
-mask:subscribe("mouse.clicked", copy_label_to_clipboard)
-router:subscribe("mouse.clicked", copy_label_to_clipboard)
+wifi:subscribe("mouse.clicked", function()
+  utils.popup_toggle(wifi, update_details)
+end)
+
+wifi:subscribe("mouse.exited.global", function()
+  utils.popup_hide(wifi)
+end)
+
+local function copy_label(env)
+  utils.clipboard_copy(env.NAME, icons)
+end
+
+ssid:subscribe("mouse.clicked", copy_label)
+hostname:subscribe("mouse.clicked", copy_label)
+ip:subscribe("mouse.clicked", copy_label)
+mask:subscribe("mouse.clicked", copy_label)
+router:subscribe("mouse.clicked", copy_label)

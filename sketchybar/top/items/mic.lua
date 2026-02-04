@@ -1,6 +1,7 @@
 local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
+local utils = require "utils"
 
 local mic = sbar.add("item", "widgets.mic", {
   position = "right",
@@ -65,14 +66,6 @@ local function update()
   end)
 end
 
-mic:subscribe("mouse.clicked", function(env)
-  if env.BUTTON == "left" then
-    mic:set { popup = { drawing = "toggle" } }
-  elseif env.BUTTON == "right" then
-    sbar.exec "open /System/Library/PreferencePanes/Sound.prefpane"
-  end
-end)
-
 local mic_mute = sbar.add("item", {
   position = "popup.widgets.mic",
   align = "center",
@@ -94,8 +87,16 @@ mic_mute:subscribe("mouse.clicked", function()
   end)
 end)
 
+mic:subscribe("mouse.clicked", function(env)
+  if env.BUTTON == "left" then
+    utils.popup_toggle(mic)
+  elseif env.BUTTON == "right" then
+    sbar.exec "open /System/Library/PreferencePanes/Sound.prefpane"
+  end
+end)
+
 mic:subscribe("mouse.exited.global", function()
-  mic:set { popup = { drawing = false } }
+  utils.popup_hide(mic)
 end)
 
 mic_slider:subscribe("mouse.clicked", function(env)
