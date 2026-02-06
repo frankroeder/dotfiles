@@ -12,17 +12,17 @@ if [ "$OSTYPE" = "Darwin" ]; then
   # llvm
   path=("$HOMEBREW_PREFIX/opt/llvm/bin" $path)
   export LDFLAGS="-L$HOMEBREW_PREFIX/opt/llvm/lib $LDFLAGS"
-  export CPPFLAGS="-I$HOMEBREW_PREFIX/opt/llvm/include $LDFLAGS"
+  export CPPFLAGS="-I$HOMEBREW_PREFIX/opt/llvm/include $CPPFLAGS"
 
   # for compilers to find openssl
   path=("$HOMEBREW_PREFIX/opt/openssl/bin" $path)
   export LDFLAGS="-L$HOMEBREW_PREFIX/opt/openssl/lib $LDFLAGS"
-  export CPPFLAGS="-I$HOMEBREW_PREFIX/opt/openssl/include $LDFLAGS"
+  export CPPFLAGS="-I$HOMEBREW_PREFIX/opt/openssl/include $CPPFLAGS"
 
-# ruby + gem
-if [ -d "$HOME/.gem/ruby" ]; then
-  path=("$HOME/.gem/ruby/"*/bin(N[-1]) $path)
-fi
+  # ruby + gem
+  if [ -d "$HOME/.gem/ruby" ]; then
+    path=("$HOME/.gem/ruby/"*/bin(N[-1]) $path)
+  fi
 
   # go
   export GOPATH="$HOME/Documents/golang"

@@ -36,7 +36,7 @@ c{start,rm} () {
 c{stop,inspect,kill,delete} () {
   local cn=$(cname)
   local fn=${funcstack[1]:1}
-  [ -n "$cid" ] && container $fn "$cn"
+  [ -n "$cn" ] && container $fn "$cn"
 }
 clogs() {
   local cn=$(cname)

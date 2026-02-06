@@ -2,7 +2,6 @@
 
 HISTSIZE=10000                # lines of history to keep in memory
 SAVEHIST=10000                # lines of history to save to disk
-HISTCONTROL=ignoreboth
 HISTORY_IGNORE=(
   "clear"
   "history"

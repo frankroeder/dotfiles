@@ -235,23 +235,23 @@ _git: ## Configure Git with completion and dotfiles
 after: ## Post-installation setup and service start
 after: _terminal
 	$(call print_step,Post-installation setup)
-	$(call print_step,Running git setup); \
-	bash $(DOTFILES)/git/setup.sh; \
+	$(call print_step,Running git setup)
+	@bash $(DOTFILES)/git/setup.sh
 	@if [ "$(OSTYPE)" = "Linux" ] && [ -f "$(DOTFILES)/linux/apt.sh" ]; then \
 		$(call print_step,Installing Linux desktop packages); \
 		bash $(DOTFILES)/linux/apt.sh "desktop"; \
 	fi
 	@if command -v nvim >/dev/null 2>&1 ; then \
 		$(call print_step,Updating Treesitter parsers); \
-		nvim -i NONE -u $(DOTFILES)/nvim/init.vim -c "TSUpdate" -c "quitall"; \
+		nvim -i NONE -u $(DOTFILES)/nvim/init.lua -c "TSUpdate" -c "quitall"; \
 	fi
 ifeq ($(OSTYPE), Darwin)
 	@if command -v yabai >/dev/null 2>&1; then \
 		$(call print_step,Starting yabai and skhd service); \
-		@echo "$(whoami) ALL=(root) NOPASSWD: sha256:$(shasum -a 256 $(which yabai) | cut -d " " -f 1) $(which yabai) --load-sa" | sudo tee /private/etc/sudoers.d/yabai
-		@sudo yabai --install-sa
-		@yabai --start-service
-		@skhd --start-service
+		echo "$$(whoami) ALL=(root) NOPASSWD: sha256:$$(shasum -a 256 $$(which yabai) | cut -d ' ' -f 1) $$(which yabai) --load-sa" | sudo tee /private/etc/sudoers.d/yabai; \
+		sudo yabai --install-sa; \
+		yabai --start-service; \
+		skhd --start-service; \
 	fi
 	@if command -v brew >/dev/null 2>&1; then \
 		$(call print_step,Starting sketchybar service); \
@@ -341,18 +341,16 @@ _macos: ## macOS-specific configuration and applications
 		$(call print_warning,Xcode command line tools already installed); \
 	fi
 	@mkdir -p $(HOME)/screens $(HOME)/.config $(HOME)/Library/Fonts
-	$(call print_step,Running macOS setup script); \
-	bash $(DOTFILES)/macos/main.bash; \
+	$(call print_step,Running macOS setup script)
+	@bash $(DOTFILES)/macos/main.bash
 	@ln -sfv $(DOTFILES)/sketchybar/bottom $(HOME)/.config/sketchybar
 	@ln -sfv $(DOTFILES)/sketchybar/top $(HOME)/.config/sketchybar-top
 	$(MAKE) sketchybar-top
-	@if ! [ -f "$(HOME)/Library/Fonts/sketchybar-app-font.ttf" ]; then \
-		$(call print_step,Downloading sketchybar font); \
-		curl -fsSL https://github.com/kvndrsslr/sketchybar-app-font/releases/download/v2.0.51/sketchybar-app-font.ttf -o $(HOME)/Library/Fonts/sketchybar-app-font.ttf; \
-	fi
+	$(call print_step,Downloading sketchybar font)
+	@bash $(DOTFILES)/scripts/sketchybar_app_font.sh
 	@ln -sfv $(DOTFILES)/skhd $(HOME)/.config/skhd
-	$(call print_step,Running Sioyek setup); \
-	@zsh $(DOTFILES)/scripts/sioyek.sh; \
+	$(call print_step,Running Sioyek setup)
+	@zsh $(DOTFILES)/scripts/sioyek.sh
 	@ln -sfv $(DOTFILES)/sioyek $(HOME)/.config/sioyek
 	@if command -v swift >/dev/null 2>&1; then \
 		mkdir -p $(HOME)/.zsh/completion; \
