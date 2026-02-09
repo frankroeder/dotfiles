@@ -62,16 +62,24 @@ local function update_volume(volume_level)
     color = colors.white
   end
 
-  volume:set {
-    icon = { string = icon, color = color },
-    label = { string = volume_level .. "%" },
-  }
+  sbar.animate("tanh", settings.animation_duration, function()
+    volume:set {
+      icon = { string = icon, color = color },
+      label = { string = volume_level .. "%" },
+    }
+  end)
 
   volume_slider:set { slider = { percentage = volume_level } }
 end
 
 volume:subscribe("volume_change", function(env)
   update_volume(tonumber(env.INFO))
+end)
+
+volume:subscribe("system_woke", function()
+  sbar.exec("osascript -e 'output volume of (get volume settings)'", function(vol)
+    update_volume(tonumber(vol) or 0)
+  end)
 end)
 
 local volume_mute = sbar.add("item", {

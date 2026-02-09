@@ -279,11 +279,6 @@ space_window_observer:subscribe("space_windows_change", function(env)
   end)
 end)
 
--- space_window_observer:subscribe("display_change", function(env)
--- print("DISPLAY APP")
--- settings.print_table(env)
---   -- updateSpace(env.INFO.space)
--- end)
 
 space_layout:subscribe("layout_change", updateLayout)
 space_layout:subscribe("front_app_switched", updateLayout)

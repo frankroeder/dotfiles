@@ -11,15 +11,11 @@ local front_app = sbar.add("item", "widgets.front_app", {
     background = {
       drawing = true,
       image = {
-        -- corner_radius = 5,
-        -- padding_left = 4,
         scale = 1.1,
       },
     },
-    -- font = "sketchybar-app-font:Regular:22.0",
   },
   label = {
-    -- align = "center",
     padding_left = 10,
     padding_right = 10,
     font = {

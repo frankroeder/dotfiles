@@ -55,13 +55,16 @@ local function update()
     local is_muted = volume == 0
     local icon = is_muted and icons.mic.off or icons.mic.on
 
-    mic:set {
-      icon = {
-        string = icon,
-        color = is_muted and colors.red or colors.purple,
-      },
-      label = { string = is_muted and "Muted" or volume .. "%" },
-    }
+    sbar.animate("tanh", settings.animation_duration, function()
+      mic:set {
+        icon = {
+          string = icon,
+          color = is_muted and colors.red or colors.purple,
+        },
+        label = { string = is_muted and "Muted" or volume .. "%" },
+      }
+    end)
+
     mic_slider:set { slider = { percentage = volume } }
   end)
 end

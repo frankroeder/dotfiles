@@ -1,6 +1,7 @@
 local colors = require "colors"
-local settings = require "settings"
 local icons = require "icons"
+local settings = require "settings"
+local utils = require "utils"
 
 local icon_thresholds = {
   { min = 98, icon = icons.disk["98"] },
@@ -32,7 +33,7 @@ local ssd_volume = sbar.add("item", "widgets.ssd.volume", {
     padding_right = 8,
     string = "...%",
   },
-  update_freq = 180,
+  update_freq = 600,
   background = {
     drawing = true,
   },
@@ -60,13 +61,12 @@ ssd_volume:subscribe({ "routine", "forced", "system_woke" }, function(_)
             break
           end
         end
-        if storage >= 90 then
-          Color = colors.red
-        elseif storage >= 80 then
-          Color = colors.orange
-        elseif storage >= 65 then
-          Color = colors.yellow
-        end
+        Color = utils.color_gradient(storage, {
+          { min = 90, color = colors.red },
+          { min = 80, color = colors.orange },
+          { min = 65, color = colors.yellow },
+          { min = 0, color = colors.white },
+        })
 
         ssd_volume:set {
           label = {

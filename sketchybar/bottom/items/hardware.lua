@@ -124,36 +124,31 @@ cpu:subscribe("routine", function(env)
       return
     end
 
-    -- Update CPU
+    local ram_pct = (ram_used / ram_total) * 100
+    local swap_pct = (swap_total > 0) and ((swap_used / swap_total) * 100) or 0
+    local color_ram = utils.color_gradient(ram_pct)
+    local color_gpu = utils.color_gradient(gpu_used)
+
     cpu:set {
       graph = { color = colors.with_alpha(colors.blue, 0.5) },
       label = "eCPU " .. ecpu_val .. "% pCPU " .. pcpu_val .. "% " .. math.floor(cpu_temp) .. "°C",
     }
-    cpu:push { pcpu_val / 100. }
-    ecpu:push { ecpu_val / 100. }
-
-    -- Update RAM
-    local ram_pct = (ram_used / ram_total) * 100
-    local swap_pct = (swap_total > 0) and ((swap_used / swap_total) * 100) or 0
-    local color_ram = utils.color_gradient(ram_pct)
     ram_g:set {
       graph = { color = colors.with_alpha(color_ram, 0.5) },
       label = "RAM " .. math.floor(ram_pct) .. "% SWAP " .. math.floor(swap_pct) .. "%",
     }
-    ram_g:push { ram_pct / 100. }
-
-    -- Update GPU
-    local color_gpu = utils.color_gradient(gpu_used)
     gpu:set {
       graph = { color = colors.with_alpha(color_gpu, 0.5) },
       label = "GPU " .. gpu_used .. "% " .. math.floor(gpu_temp) .. "°C",
     }
-    gpu:push { gpu_used / 100. }
-
-    -- Update Power
     power:set {
       label = math.floor(output.all_power or 0) .. " W",
     }
+
+    cpu:push { pcpu_val / 100. }
+    ecpu:push { ecpu_val / 100. }
+    ram_g:push { ram_pct / 100. }
+    gpu:push { gpu_used / 100. }
   end)
 end)
 

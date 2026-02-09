@@ -80,3 +80,7 @@ network_up:subscribe("network_update", function(env)
     },
   }
 end)
+
+network_up:subscribe("system_woke", function()
+  interface = utils.get_primary_interface()
+end)

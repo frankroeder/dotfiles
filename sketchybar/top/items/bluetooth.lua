@@ -120,7 +120,7 @@ local function update()
                   padding_left = 10,
                   padding_right = 4,
                   color = colors.white,
-                  font = { size = 14.0 }, -- Larger for SF Symbols
+                  font = { size = 16.0 },
                 },
                 background = {
                   height = 24,
