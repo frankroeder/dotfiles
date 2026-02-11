@@ -81,3 +81,6 @@ alias yabailogs="tail -f $HOMEBREW_PREFIX/var/log/yabai/*.log"
 alias watchsketchybar="tail -F /opt/homebrew/var/log/sketchybar/sketchybar.out.log /tmp/sketchybar-top.*"
 alias screensaver="open /System/Library/CoreServices/ScreenSaverEngine.app"
 alias agents="$EDITOR $HOME/Library/Mobile\ Documents/com~apple~CloudDocs/configs/AGENTS.md"
+heic2jpg(){
+  sips -s format jpeg "$1" --out "${2:-${1%.*}.jpg}"
+}

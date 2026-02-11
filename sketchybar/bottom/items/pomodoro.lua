@@ -2,11 +2,10 @@ local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
 
-local timer_state = "stopped" -- stopped, running, finished, alerting
+local timer_state = "stopped" -- stopped, running, finished
 local remaining_time = 0
-local alert_rings = 0
-local alert_delay = 0
-local max_rings = 5
+local remaining_rings = 0
+local ring_cooldown = 0
 local sounds_path = settings.sounds.path
 
 local timer = sbar.add("item", "widgets.timer", {
@@ -29,8 +28,8 @@ local timer = sbar.add("item", "widgets.timer", {
 local function stop_timer()
   timer_state = "stopped"
   remaining_time = 0
-  alert_rings = 0
-  alert_delay = 0
+  remaining_rings = 0
+  ring_cooldown = 0
   timer:set { label = { string = "No Timer" }, icon = { color = colors.yellow } }
   sbar.exec("afplay " .. sounds_path .. "TrackingOff.aiff")
 end
@@ -38,8 +37,8 @@ end
 local function start_timer(duration)
   timer_state = "running"
   remaining_time = duration
-  alert_rings = 0
-  alert_delay = 0
+  remaining_rings = 0
+  ring_cooldown = 0
   timer:set { icon = { color = colors.green } }
   sbar.exec("afplay " .. sounds_path .. "TrackingOn.aiff")
 end
@@ -55,26 +54,17 @@ timer:subscribe("routine", function()
       remaining_time = remaining_time - 1
     else
       timer_state = "finished"
+      remaining_rings = 5
+      ring_cooldown = 0
       timer:set { label = { string = "Done!" }, icon = { color = colors.red } }
-      sbar.exec 'osascript -e "display notification "Timer Finished" with title "Sketchybar Timer""'
+      sbar.exec 'osascript -e "display notification \"Timer Finished\" with title \"Sketchybar Timer\""'
     end
-  elseif timer_state == "finished" then
-    if alert_rings < max_rings then
+  elseif timer_state == "finished" and remaining_rings > 0 then
+    ring_cooldown = ring_cooldown + 1
+    if ring_cooldown >= 3 then
+      ring_cooldown = 0
+      remaining_rings = remaining_rings - 1
       sbar.exec("afplay " .. sounds_path .. "GuideSuccess.aiff")
-      alert_rings = alert_rings + 1
-      -- We use routine frequency (1s) to ring every couple of seconds
-      -- But afplay is blocking or we can just ring every routine tick if we want it annoying
-      -- Let's ring every 3 seconds
-      if alert_rings < max_rings then
-        -- wait 2 more routine ticks before next ring
-        timer_state = "alerting"
-      end
-    end
-  elseif timer_state == "alerting" then
-    alert_delay = alert_delay + 1
-    if alert_delay >= 3 then
-      alert_delay = 0
-      timer_state = "finished"
     end
   end
 end)

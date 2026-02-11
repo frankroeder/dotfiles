@@ -2,7 +2,7 @@ local colors = require "colors"
 local settings = require "settings"
 local app_icons = require "helpers.app_icons"
 
-local LARGE_SCREEN_WIDTH = 2000
+local LARGE_SCREEN_WIDTH = settings.large_screen_width
 
 local front_app = sbar.add("item", "widgets.front_app", {
   display = "active",

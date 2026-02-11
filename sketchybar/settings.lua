@@ -47,6 +47,8 @@ local settings = {
   network = {
     provider_path = home .. "/.dotfiles/sketchybar/helpers/event_providers/network_load/bin/network_load",
   },
+  large_screen_width = 2000,
+  monitor_map = { ["LG ULTRAFINE"] = 2, ["DELL S2722DZ"] = 2, ["Built-in Retina Display"] = 1 },
   spaces = {
     padding = 3,
     highlight_color = require("colors").blue,

@@ -3,7 +3,7 @@ local settings = require "settings"
 local app_icons = require "helpers.app_icons"
 
 sbar.add("event", "flashspace_workspace_change")
-local map_monitor = { ["LG ULTRAFINE"] = 2, ["DELL S2722DZ"] = 2, ["Built-in Retina Display"] = 1 }
+local map_monitor = settings.monitor_map
 
 local workspaces = {}
 

@@ -41,7 +41,6 @@ local mic_slider = sbar.add("slider", "widgets.mic.slider", 100, {
     },
   },
   background = { color = colors.bg1, height = 2, y_offset = -20 },
-  -- click_script = 'osascript -e "set volume input volume $PERCENTAGE"',
 })
 
 local last_volume = 100

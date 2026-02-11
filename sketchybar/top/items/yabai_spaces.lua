@@ -183,53 +183,45 @@ local function updateLayout()
 end
 
 local window_properties = sbar.add("item", "widgets.yabai_property", {
+  updates = true,
   label = {
-    font = { family = settings.font.text, size = 12 },
-    color = colors.white,
-    padding_left = 4,
-    padding_right = 4,
+    font = {
+      family = settings.font.text,
+      style = settings.font.style_map["Bold"],
+      size = 11,
+    },
+    color = colors.orange,
+    padding_left = 2,
+    padding_right = 0,
   },
-  background = {
-    color = colors.pill_bg,
-    border_width = 1,
-    height = 24,
-    border_color = colors.bg2,
-  },
+  background = { drawing = false },
+  padding_left = 0,
   drawing = false,
 })
 
-local function getWindowProperties()
+local function updateWindowProperties()
   sbar.exec("yabai -m query --windows --window", function(window)
     if not window then
       window_properties:set { drawing = false }
       return
     end
 
-    local is_sticky = window["is-sticky"]
-    local is_grabbed = window["is-grabbed"]
-    local is_floating = window["is-floating"]
-    local has_parent_zoom = window["has-parent-zoom"]
+    local flags = {}
+    if window["is-sticky"] then table.insert(flags, "S") end
+    if window["is-floating"] then table.insert(flags, "F") end
+    if window["has-parent-zoom"] then table.insert(flags, "Z") end
 
-    local label = ""
-    if is_sticky then
-      label = label .. "S"
-    end
-    if is_grabbed then
-      label = label .. "G"
-    end
-    if is_floating then
-      label = label .. "W"
-    end
-    if has_parent_zoom then
-      label = label .. "Z"
-    end
-
+    local label = table.concat(flags, " ")
     window_properties:set {
       label = { string = label },
       drawing = label ~= "",
     }
   end)
 end
+
+window_properties:subscribe("property_change", updateWindowProperties)
+window_properties:subscribe("front_app_switched", updateWindowProperties)
+window_properties:subscribe("window_focus", updateWindowProperties)
 
 local space_window_observer = sbar.add("item", "widgets.space_window_observer", {
   drawing = false,
@@ -284,11 +276,7 @@ space_layout:subscribe("layout_change", updateLayout)
 space_layout:subscribe("front_app_switched", updateLayout)
 space_layout:subscribe("display_change", updateLayout)
 
-window_properties:subscribe("property_change", getWindowProperties)
-window_properties:subscribe("space_change", getWindowProperties)
-window_properties:subscribe("front_app_switched", getWindowProperties)
-
 updateLayout()
-getWindowProperties()
+updateWindowProperties()
 
 return spaces

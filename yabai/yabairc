@@ -38,7 +38,7 @@ yabai -m config window_origin_display        default \
 # events
 yabai -m signal --add event=window_created action="sketchybar -m --trigger window_created &> /dev/null"
 yabai -m signal --add event=window_destroyed action="sketchybar -m --trigger window_destroyed &> /dev/null"
-yabai -m signal --add event=window_focused action="sketchybar -m --trigger window_focus &> /dev/null"
+yabai -m signal --add event=window_focused action="sketchybar -m --trigger window_focus &> /dev/null; sketchybar-top -m --trigger window_focus &> /dev/null"
 yabai -m signal --add event=display_removed action="launchctl kickstart -k \"gui/${UID}/homebrew.mxcl.yabai\""
 yabai -m signal --add event=display_added action="launchctl kickstart -k \"gui/${UID}/homebrew.mxcl.yabai\""
 

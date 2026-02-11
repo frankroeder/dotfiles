@@ -143,6 +143,12 @@ local function populate_popup()
 end
 
 brew:subscribe("mouse.clicked", function(env)
+  if env.BUTTON == "right" then
+    brew:set { label = { string = "..." } }
+    update_brew()
+    return
+  end
+
   local query = brew:query()
   local should_draw = query and query.popup and query.popup.drawing == "off" or true
 
