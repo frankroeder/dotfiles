@@ -46,10 +46,10 @@ local function on_attach(client, bufnr)
   )
   -- diagnostic
   vim.keymap.set("n", "gn", function()
-    vim.diagnostic.goto_next { float = true }
+    vim.diagnostic.jump { count = 1, float = true }
   end, { buffer = bufnr, desc = "[g]oto [n]ext diagnostic" })
   vim.keymap.set("n", "gp", function()
-    vim.diagnostic.goto_prev { float = true }
+    vim.diagnostic.jump { count = -1, float = true }
   end, { buffer = bufnr, desc = "[g]oto [p]revious diagnostic" })
   vim.keymap.set("n", "<Space>ld", function()
     vim.diagnostic.open_float(0, { scope = "line" })
@@ -57,7 +57,7 @@ local function on_attach(client, bufnr)
   vim.keymap.set(
     "n",
     "<Space>ll",
-    [[<cmd>lua require('fzf-lua').lsp_document_diagnostics()<CR>]],
+    [[<cmd>lua require('fzf-lua').diagnostics_document()<CR>]],
     { buffer = bufnr, desc = "Show diagnostics" }
   )
   vim.keymap.set(
@@ -128,10 +128,12 @@ vim.diagnostic.config {
   update_in_insert = false,
   severity_sort = true,
   signs = {
-    [vim.diagnostic.severity.ERROR] = "",
-    [vim.diagnostic.severity.WARN] = "",
-    [vim.diagnostic.severity.HINT] = "",
-    [vim.diagnostic.severity.INFO] = "",
+    text = {
+      [vim.diagnostic.severity.ERROR] = "",
+      [vim.diagnostic.severity.WARN] = "",
+      [vim.diagnostic.severity.HINT] = "",
+      [vim.diagnostic.severity.INFO] = "",
+    },
   },
 }
 

@@ -46,8 +46,4 @@ export GPG_TTY=$(tty)
 
 if [ -d "$HOME/.cargo" ]; then
   source "$HOME/.cargo/env";
-  path=(
-    $HOME/.cargo/bin
-    $path
-  )
 fi

@@ -50,4 +50,4 @@ cask "proton-pass"
 
 mas "iReal Pro", id: 409035833
 mas "Telegram", id: 747648890
-mas "Magnet", id:  441258766
+
