@@ -59,6 +59,7 @@ alias gdw='git diff --word-diff'
 alias gf='git fetch'
 alias gfa='git fetch --all --prune'
 alias gfo='git fetch origin'
+alias gfp='git fetch --prune'
 
 # Grep
 alias gg='git grep --color=auto --line-number'

@@ -276,6 +276,7 @@ directories: ## Create necessary directories
 	@mkdir -p $(HOME)/.Trash
 	@mkdir -p $(HOME)/Downloads
 	@mkdir -p $(HOME)/bin
+	@mkdir -p $(HOME)/.zcompcache
 
 
 .PHONY: micro

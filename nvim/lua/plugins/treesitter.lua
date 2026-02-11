@@ -10,12 +10,11 @@ return {
   opts = {
     ensure_installed = require("settings").treesitter_ensure_installed,
     auto_install = true,
-    ignore_install = { "latex" },
+    ignore_install = {},
     highlight = {
       enable = true,
       additional_vim_regex_highlighting = false,
       disable = {
-        "latex",
         "csv",
         -- "python" -- semantic highlighting via lsp
       },

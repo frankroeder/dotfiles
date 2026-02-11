@@ -1,7 +1,7 @@
 ---@type vim.lsp.Config
 return {
   cmd = { "elixir-ls" },
-  filetypes = { "css", "scss", "less" },
+  filetypes = { "elixir", "heex", "eex" },
   settings = {
     elixirLS = {
       dialyzerEnabled = false,
