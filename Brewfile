@@ -27,6 +27,7 @@ brew "gcc"
 brew "mpv"
 brew "imagemagick"
 brew "uv"
+brew "tree-sitter"
 
 brew "yabai"
 brew "skhd", args: ["with-logging"]
@@ -50,4 +51,3 @@ cask "proton-pass"
 
 mas "iReal Pro", id: 409035833
 mas "Telegram", id: 747648890
-

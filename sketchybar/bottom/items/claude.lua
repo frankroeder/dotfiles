@@ -3,7 +3,7 @@ local settings = require "settings"
 
 local claude = sbar.add("item", "widgets.claude", {
   position = "left",
-  update_freq = 3600,
+  update_freq = 900,
   icon = {
     string = ":claude:",
     color = colors.white,
