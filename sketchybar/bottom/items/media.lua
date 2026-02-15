@@ -27,12 +27,30 @@ local media = sbar.add("item", "widgets.media", {
   },
   popup = {
     align = "center",
+    horizontal = true,
   },
 })
 
 local function media_control(cmd)
   sbar.exec('osascript -e \'tell application "Music" to ' .. cmd .. "'")
 end
+
+local POPUP_WIDTH = 130
+
+local album_art = sbar.add("item", "widgets.media.art", {
+  position = "popup.widgets.media",
+  icon = {
+    drawing = false,
+  },
+  label = { drawing = false },
+  width = POPUP_WIDTH,
+  background = {
+    drawing = false,
+    height = 120,
+    corner_radius = 8,
+    color = colors.bg,
+  },
+})
 
 local back = sbar.add("item", "widgets.media.back", {
   position = "popup.widgets.media",
@@ -41,7 +59,7 @@ local back = sbar.add("item", "widgets.media.back", {
     font = { size = 16.0 },
   },
   label = { drawing = false },
-  width = 40,
+  width = 120,
   align = "center",
 })
 
@@ -56,7 +74,7 @@ local play = sbar.add("item", "widgets.media.play", {
     font = { size = 16.0 },
   },
   label = { drawing = false },
-  width = 40,
+  width = 120,
   align = "center",
 })
 
@@ -71,7 +89,7 @@ local forward = sbar.add("item", "widgets.media.forward", {
     font = { size = 16.0 },
   },
   label = { drawing = false },
-  width = 40,
+  width = 120,
   align = "center",
 })
 
@@ -107,8 +125,50 @@ media:subscribe("music_change", function(env)
   end
 end)
 
+local ART_SIZE = 120
+
+local function calculate_art_scale(width, height)
+  local scale_w = ART_SIZE / width
+  local scale_h = ART_SIZE / height
+  return math.min(scale_w, scale_h)
+end
+
 media:subscribe("mouse.clicked", function()
   media:set { popup = { drawing = "toggle" } }
+
+  sbar.exec("$CONFIG_DIR/helpers/get_album_art.sh", function(album_art_path)
+    local art_path = album_art_path and album_art_path:gsub("%s+$", "") or ""
+
+    if art_path ~= "" then
+      -- Get image dimensions
+      local sips_cmd = [[sips -g pixelWidth -g pixelHeight "]]
+        .. art_path
+        .. [[" | awk '/pixelWidth/ {w=$2} /pixelHeight/ {h=$2} END {print w, h}']]
+      sbar.exec(sips_cmd, function(result)
+        local w, h = result:match "(%d+)%s+(%d+)"
+        local width = tonumber(w) or 600
+        local height = tonumber(h) or 600
+        local scale = calculate_art_scale(width, height)
+
+        album_art:set {
+          background = {
+            image = {
+              padding_left = 5,
+              string = art_path,
+              scale = scale,
+            },
+            drawing = true,
+          },
+        }
+      end)
+    else
+      album_art:set {
+        background = {
+          drawing = false,
+        },
+      }
+    end
+  end)
 end)
 
 media:subscribe("mouse.exited.global", function()

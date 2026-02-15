@@ -109,7 +109,7 @@ fn + ctrl - l : yabai -m window --swap east || $(yabai -m window --display east;
 # toggle window native fullscreen
 fn + shift - f : yabai -m window --toggle native-fullscreen
 # toggle stickyness (show on all spaces)
-fn + shift - s : yabai -m window --toggle sticky; sketchybar-top --trigger property_change
+fn + shift - s : yabai -m window --toggle sticky --sub-layer above; sketchybar-top --trigger property_change
 # toggle float and center on screen
 fn + shift - w : yabai -m window --toggle float && yabai -m window --grid 4:4:1:1:2:2; sketchybar-top --trigger property_change
 # toggle window split type
