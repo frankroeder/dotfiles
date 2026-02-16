@@ -57,7 +57,7 @@ timer:subscribe("routine", function()
       remaining_rings = 5
       ring_cooldown = 0
       timer:set { label = { string = "Done!" }, icon = { color = colors.red } }
-      sbar.exec 'osascript -e "display notification \"Timer Finished\" with title \"Sketchybar Timer\""'
+      sbar.exec 'osascript -e "display notification "Timer Finished" with title "Sketchybar Timer""'
     end
   elseif timer_state == "finished" and remaining_rings > 0 then
     ring_cooldown = ring_cooldown + 1

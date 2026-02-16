@@ -417,7 +417,7 @@ benchmark: ## Benchmark Neovim and Zsh startup times
 format: ## Format Lua files with stylua
 	@if command -v stylua >/dev/null 2>&1; then \
 		$(call print_step,Formatting Lua files with stylua); \
-		stylua -v -f $(DOTFILES)/.stylua.toml $$(find $(DOTFILES) -type f -name '*.lua' 2>/dev/null) || true; \
+		stylua -v -f $(DOTFILES)/.stylua.toml $$(find $(DOTFILES) -type f -name '*.lua' ! -name 'colors.lua' 2>/dev/null) || true; \
 	else \
 		$(call print_warning,stylua not installed); \
 	fi

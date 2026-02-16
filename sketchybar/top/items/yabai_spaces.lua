@@ -64,14 +64,18 @@ for i, space_name in ipairs(static_names) do
   space_window_counts[i] = window_count
 
   -- Single item bracket for space items to achieve double border on highlight
-  local space_bracket = sbar.add("bracket", { "widgets.space." .. i, "widgets.space.count." .. i }, {
-    background = {
-      color = colors.transparent,
-      border_color = colors.transparent,
-      height = 28,
-      border_width = 2,
-    },
-  })
+  local space_bracket = sbar.add(
+    "bracket",
+    { "widgets.space." .. i, "widgets.space.count." .. i },
+    {
+      background = {
+        color = colors.transparent,
+        border_color = colors.transparent,
+        height = 28,
+        border_width = 2,
+      },
+    }
+  )
 
   space:subscribe("space_change", function(env)
     local selected = env.SELECTED == "true"
@@ -81,7 +85,9 @@ for i, space_name in ipairs(static_names) do
       background = { border_color = selected and colors.transparent or colors.bg2 },
     }
     space_bracket:set {
-      background = { border_color = selected and settings.spaces.highlight_color or colors.transparent },
+      background = {
+        border_color = selected and settings.spaces.highlight_color or colors.transparent,
+      },
     }
   end)
 
@@ -207,9 +213,15 @@ local function updateWindowProperties()
     end
 
     local flags = {}
-    if window["is-sticky"] then table.insert(flags, "S") end
-    if window["is-floating"] then table.insert(flags, "F") end
-    if window["has-parent-zoom"] then table.insert(flags, "Z") end
+    if window["is-sticky"] then
+      table.insert(flags, "S")
+    end
+    if window["is-floating"] then
+      table.insert(flags, "F")
+    end
+    if window["has-parent-zoom"] then
+      table.insert(flags, "Z")
+    end
 
     local label = table.concat(flags, " ")
     window_properties:set {
@@ -270,7 +282,6 @@ space_window_observer:subscribe("space_windows_change", function(env)
     end
   end)
 end)
-
 
 space_layout:subscribe("layout_change", updateLayout)
 space_layout:subscribe("front_app_switched", updateLayout)

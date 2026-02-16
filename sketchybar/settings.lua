@@ -45,7 +45,7 @@ local settings = {
     path = "/System/Library/PrivateFrameworks/ScreenReader.framework/Versions/A/Resources/Sounds/",
   },
   network = {
-    provider_path = home .. "/.dotfiles/sketchybar/helpers/event_providers/network_load/bin/network_load",
+    provider_path = "$CONFIG_DIR/../helpers/event_providers/network_load/bin/network_load",
   },
   large_screen_width = 2000,
   monitor_map = { ["LG ULTRAFINE"] = 2, ["DELL S2722DZ"] = 2, ["Built-in Retina Display"] = 1 },

@@ -42,12 +42,13 @@ end
 
 function utils.color_gradient(value, thresholds)
   local colors = require "colors"
-  thresholds = thresholds or {
-    { min = 80, color = colors.red },
-    { min = 60, color = colors.orange },
-    { min = 30, color = colors.yellow },
-    { min = 0, color = colors.blue },
-  }
+  thresholds = thresholds
+    or {
+      { min = 80, color = colors.red },
+      { min = 60, color = colors.orange },
+      { min = 30, color = colors.yellow },
+      { min = 0, color = colors.blue },
+    }
   for _, t in ipairs(thresholds) do
     if value >= t.min then
       return t.color

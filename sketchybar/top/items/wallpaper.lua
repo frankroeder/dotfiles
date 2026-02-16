@@ -111,7 +111,6 @@ local nav_next = sbar.add("item", "wallpaper.nav.next", {
   background = { color = colors.transparent, corner_radius = 6, height = 28 },
 })
 
-
 local page_indicator = sbar.add("item", "wallpaper.page_indicator", {
   position = "popup." .. wallpaper.name,
   drawing = false,
@@ -146,17 +145,24 @@ local function load_dimensions_async(wallpaper_entry, callback)
   if dimensions_cache[wallpaper_entry.path] then
     wallpaper_entry.width = dimensions_cache[wallpaper_entry.path].width
     wallpaper_entry.height = dimensions_cache[wallpaper_entry.path].height
-    if callback then callback(wallpaper_entry) end
+    if callback then
+      callback(wallpaper_entry)
+    end
     return
   end
 
-  local sips_cmd = [[sips -g pixelWidth -g pixelHeight "]] .. wallpaper_entry.path .. [[" | awk '/pixelWidth/ {w=$2} /pixelHeight/ {h=$2} END {print w, h}']]
+  local sips_cmd = [[sips -g pixelWidth -g pixelHeight "]]
+    .. wallpaper_entry.path
+    .. [[" | awk '/pixelWidth/ {w=$2} /pixelHeight/ {h=$2} END {print w, h}']]
   sbar.exec(sips_cmd, function(result)
     local w, h = result:match "(%d+)%s+(%d+)"
     wallpaper_entry.width = tonumber(w) or 2000
     wallpaper_entry.height = tonumber(h) or 1125
-    dimensions_cache[wallpaper_entry.path] = { width = wallpaper_entry.width, height = wallpaper_entry.height }
-    if callback then callback(wallpaper_entry) end
+    dimensions_cache[wallpaper_entry.path] =
+      { width = wallpaper_entry.width, height = wallpaper_entry.height }
+    if callback then
+      callback(wallpaper_entry)
+    end
   end)
 end
 

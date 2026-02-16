@@ -119,8 +119,19 @@ cpu:subscribe("routine", function(env)
     local gpu_used = math.floor(output.gpu_usage[2] * 100)
     local gpu_temp = output.temp.gpu_temp_avg
 
-    if not (ecpu_val and pcpu_val and cpu_temp and ram_total and ram_used
-        and swap_total and swap_used and gpu_used and gpu_temp) then
+    if
+      not (
+        ecpu_val
+        and pcpu_val
+        and cpu_temp
+        and ram_total
+        and ram_used
+        and swap_total
+        and swap_used
+        and gpu_used
+        and gpu_temp
+      )
+    then
       return
     end
 

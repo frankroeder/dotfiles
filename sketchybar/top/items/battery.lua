@@ -117,7 +117,9 @@ battery:subscribe({ "routine", "power_source_change", "system_woke" }, function(
 end)
 
 local function apply_profiler_data(data)
-  if not data or not data.SPPowerDataType then return end
+  if not data or not data.SPPowerDataType then
+    return
+  end
 
   power_wattage:set { drawing = false }
 
