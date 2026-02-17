@@ -34,7 +34,6 @@
   default = simple
 
 [core]
-  editor = $EDITOR
   autocrlf = false
   filemode = false
   whitespace = fix,-indent-with-non-tab,trailing-space,cr-at-eol

@@ -1,8 +1,10 @@
 return {
   "saghen/blink.cmp",
-  version = '1.*',
-  -- build = "cargo build --release",
-  dependencies = { "L3MON4D3/LuaSnip", version = "v2.*" },
+  build = "cargo build --release",
+  dependencies = {
+    { "L3MON4D3/LuaSnip", version = "v2.*" },
+    "archie-judd/blink-cmp-words",
+  },
   opts = {
     keymap = {
       preset = "enter",
@@ -10,6 +12,8 @@ return {
       ["<S-Tab>"] = { "select_prev", "snippet_backward", "fallback" },
       ["<Up>"] = {},
       ["<Down>"] = {},
+      ["<C-J>"] = {},
+      ["<C-K>"] = {},
     },
 
     enabled = function()
@@ -67,7 +71,7 @@ return {
         then
           return { "buffer" }
         elseif vim.bo.filetype == "tex" or vim.bo.filetype == "bib" then
-          return { "buffer", "omni", "snippets" }
+          return { "buffer", "omni", "snippets", "thesaurus" }
         elseif
           node and vim.tbl_contains({ "comment", "line_comment", "block_comment" }, node:type())
         then
@@ -79,6 +83,7 @@ return {
           end
           if vim.bo.filetype == "markdown" then
             table.insert(prov, "markdown")
+            table.insert(prov, "thesaurus")
           end
           return prov
         end
@@ -119,6 +124,15 @@ return {
             end
             return items
           end,
+        },
+        -- Use the thesaurus source
+        thesaurus = {
+          name = "blink-cmp-words",
+          module = "blink-cmp-words.thesaurus",
+          opts = {
+            score_offset = 0,
+            definition_pointers = { "!", "&", "^" },
+          },
         },
       },
     },

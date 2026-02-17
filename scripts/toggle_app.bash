@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # toggle the visibility of an application
 main(){
   if [[ $(osascript -e 'set front_app to (path to frontmost application as Unicode text)' | grep "$@") ]]; then

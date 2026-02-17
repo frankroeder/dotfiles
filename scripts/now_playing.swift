@@ -52,7 +52,7 @@ class MediaInfo {
     let seconds = Calendar.current.component(.second, from: Date())
     let startidx = seconds  % (strLen - windowLen)
     let start = titleStr.index(titleStr.startIndex, offsetBy: startidx)
-    let end = titleStr.index(titleStr.startIndex, offsetBy: startidx + windowLen + 1)
+    let end = titleStr.index(titleStr.startIndex, offsetBy: startidx + windowLen)
     let range = start..<end
     return titleStr[range]
   }

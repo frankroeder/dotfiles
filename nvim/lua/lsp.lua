@@ -4,6 +4,7 @@ local function on_attach(client, bufnr)
   end
   if client.server_capabilities.completionProvider then
     vim.api.nvim_set_option_value("omnifunc", "v:lua.vim.lsp.omnifunc", { buf = bufnr })
+    vim.api.nvim_set_option_value("formatexpr", "v:lua.vim.lsp.formatexpr()", { buf = bufnr })
   end
   vim.keymap.set("n", "K", vim.lsp.buf.hover, { buffer = bufnr, desc = "Hover documentation" })
   vim.keymap.set(
@@ -45,10 +46,10 @@ local function on_attach(client, bufnr)
   )
   -- diagnostic
   vim.keymap.set("n", "gn", function()
-    vim.diagnostic.goto_next { float = true }
+    vim.diagnostic.jump { count = 1, float = true }
   end, { buffer = bufnr, desc = "[g]oto [n]ext diagnostic" })
   vim.keymap.set("n", "gp", function()
-    vim.diagnostic.goto_prev { float = true }
+    vim.diagnostic.jump { count = -1, float = true }
   end, { buffer = bufnr, desc = "[g]oto [p]revious diagnostic" })
   vim.keymap.set("n", "<Space>ld", function()
     vim.diagnostic.open_float(0, { scope = "line" })
@@ -56,7 +57,7 @@ local function on_attach(client, bufnr)
   vim.keymap.set(
     "n",
     "<Space>ll",
-    [[<cmd>lua require('fzf-lua').lsp_document_diagnostics()<CR>]],
+    [[<cmd>lua require('fzf-lua').diagnostics_document()<CR>]],
     { buffer = bufnr, desc = "Show diagnostics" }
   )
   vim.keymap.set(
@@ -92,8 +93,7 @@ local function on_attach(client, bufnr)
 end
 
 local capabilities = vim.lsp.protocol.make_client_capabilities()
-capabilities =
-  vim.tbl_deep_extend("force", capabilities, require("blink.cmp").get_lsp_capabilities({}, false))
+capabilities = require("blink.cmp").get_lsp_capabilities(capabilities)
 capabilities = vim.tbl_deep_extend("force", capabilities, {
   textDocument = {
     foldingRange = {
@@ -116,6 +116,8 @@ vim.lsp.enable {
   "svelte_ls",
   "ts_ls",
   "basedpyright",
+  "typst_ls",
+  -- "ty",
 }
 
 vim.lsp.set_log_level "error"
@@ -126,10 +128,12 @@ vim.diagnostic.config {
   update_in_insert = false,
   severity_sort = true,
   signs = {
-    [vim.diagnostic.severity.ERROR] = "",
-    [vim.diagnostic.severity.WARN] = "",
-    [vim.diagnostic.severity.HINT] = "",
-    [vim.diagnostic.severity.INFO] = "",
+    text = {
+      [vim.diagnostic.severity.ERROR] = "",
+      [vim.diagnostic.severity.WARN] = "",
+      [vim.diagnostic.severity.HINT] = "",
+      [vim.diagnostic.severity.INFO] = "",
+    },
   },
 }
 
@@ -142,4 +146,13 @@ vim.api.nvim_create_user_command("LspInfo", function()
   vim.cmd "silent checkhealth vim.lsp"
 end, {
   desc = "Get all the information about all LSP attached",
+})
+
+-- Stop all lsp clients when quitting vim
+vim.api.nvim_create_autocmd("VimLeavePre", {
+  callback = function()
+    vim.iter(vim.lsp.get_clients()):each(function(client)
+      client:stop()
+    end)
+  end,
 })

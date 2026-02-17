@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Empty trash and clean caches (macOS version)
+
+# Empty the main trash
+if [ -d "$HOME/.Trash" ] && [ "$(ls -A $HOME/.Trash 2>/dev/null)" ]; then
+  for t in $HOME/.Trash/*; do
+    sudo rm -rf "$t"
+  done
+fi
+
+# Clean package manager caches
+if command -v pip >/dev/null 2>&1; then
+  pip cache purge
+fi
+if command -v conda >/dev/null 2>&1; then
+  conda clean --all -y
+fi
+if command -v uv >/dev/null 2>&1; then
+  uv cache prune
+fi
+
+# macOS-specific cleanup
+if command -v brew >/dev/null 2>&1; then
+  rm -rf "$(brew --cache)"
+fi
+
+# Empty trashes on all mounted volumes
+if ls /Volumes/*/.Trashes 2>/dev/null | grep -q .; then
+  sudo rm -rfv /Volumes/*/.Trashes
+fi
+
+# Clear system logs to improve shell startup speed
+sudo rm -rfv /private/var/log/asl/*.asl 2>/dev/null
+
+# Clear download history from quarantine
+sqlite3 ~/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV* \
+  'delete from LSQuarantineEvent' 2>/dev/null
+
+echo "Trash emptied and caches cleaned (macOS)"

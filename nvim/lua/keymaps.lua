@@ -55,3 +55,8 @@ vim.keymap.set("", "<Leader>;", "g_a;<Esc>", {})
 -- remain in visual mode after code shift
 vim.keymap.set("v", "<", "<gv", { noremap = true })
 vim.keymap.set("v", ">", ">gv", { noremap = true })
+
+-- buffers
+vim.keymap.set("n", "<C-K>", [[:bnext<CR>]], { silent = false })
+vim.keymap.set("n", "<C-J>", [[:bprevious<CR>]], { silent = false })
+-- vim.keymap.set("n", "<C-C>", [[:bdelete<CR>]], { silent = false })

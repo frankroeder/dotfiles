@@ -1,8 +1,7 @@
 [ -z "$HISTFILE" ] && HISTFILE="$HOME/.zsh_history"
 
-HISTSIZE=2000                 # lines of history to keep in memory
+HISTSIZE=10000                # lines of history to keep in memory
 SAVEHIST=10000                # lines of history to save to disk
-HISTCONTROL=ignoreboth
 HISTORY_IGNORE=(
   "clear"
   "history"

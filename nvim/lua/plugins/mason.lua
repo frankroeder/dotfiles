@@ -1,5 +1,5 @@
 return {
-  "williamboman/mason.nvim",
+  "mason-org/mason.nvim",
   build = ":MasonUpdate",
   cmd = "Mason",
   event = { "BufReadPre", "BufNewFile" },
@@ -21,6 +21,7 @@ return {
       "typescript-language-server",
       "basedpyright",
       "stylua",
+      "tinymist",
     },
   },
   config = function(_, opts)

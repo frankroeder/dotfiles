@@ -2,29 +2,30 @@
 # If not running interactively, don't do anything
 [ -z "$PS1" ] && return
 
+# Source shared configurations (used by both bash and zsh)
+if [ -n "$DOTFILES" ] && [ -d "$DOTFILES/shared" ]; then
+  for file in "$DOTFILES"/shared/*.sh; do
+    [ -r "$file" ] && source "$file"
+  done
+  unset file
+fi
+
 [ -r "$HOME/.bash_prompt" ] && [ -f "$HOME/.bash_prompt" ] && source $HOME/.bash_prompt;
 [ -r "$HOME/.bash_local" ] && [ -f "$HOME/.bash_local" ] && source $HOME/.bash_local;
 [ -r "$HOME/.bash_aliases" ] && [ -f "$HOME/.bash_aliases" ] && source $HOME/.bash_aliases;
 [ -r "$HOME/.bash_functions" ] && [ -f "$HOME/.bash_functions" ] && source $HOME/.bash_functions;
 
-# Exports
+# Bash-specific exports (common exports are in shared/env.sh)
 # ------------------------------------------------------------------------------
-export EDITOR="vim"
-
-export LANG="en_US.UTF-8"
-export LC_ALL="en_US.UTF-8"
-
 export BLOCKSIZE=1k
 
+# Bash history settings (override shared defaults)
 export HISTSIZE=2000
 export HISTFILESIZE=${HISTSIZE}
 export HISTIGNORE="&:[bf]g:c:clear:history:exit:q:pwd:wget *:ls \
   :ll:la:cd:exit:clear:history"
 export HISTCONTROL=ignoreboth
 
-export LESS='-XFRx2'
-export PAGER='less'
-export MANPAGER='less'
 export HTOPRC=~/.htoprc
 
 # make less more friendly for non-text input files, see lesspipe(1)
@@ -37,7 +38,6 @@ fi
 
 ## source fuzzy file search - fzf
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash
-export FZF_DEFAULT_OPTS="--reverse --inline-info --cycle"
 
 # Options
 # ------------------------------------------------------------------------------
@@ -73,50 +73,3 @@ shopt -s nocaseglob
 
 # recursive globbing like cd **/foo
 shopt -s globstar
-
-### SLURM
-# ------------------------------------------------------------------------------
-if [ -x $(which sacct) ]; then
-	export SACCT_FORMAT="jobid,jobname,user,account,alloccpus,elapsed,partition,nodelist,state,exitcode"
-
-	alias gpuq='squeue --partition=gpu -o "%.18i %Q %.9q %.8j %.8u %.10a %.2t %.10M %.10L %.6C %R" | more'
-	alias myq='squeue -u $USER --start -a'
-
-	wmyq() {
-		watch -n 10 -d 'squeue -u $USER --start'
-	}
-
-	wq() {
-		watch -n 10 -d 'squeue --start --format="%.7i %.7Q %.7q %.15j %.12u %.10a %.20S %.6D %.5C %R" --sort=S --states=PENDING | egrep -v "N/A" | head -20';
-	}
-
-	wgpuq() {
-		watch -n 10 -d 'squeue --start --partition=gpu --format="%.7i %.7Q %.7q %.15j %.12u %.10a %.20S %.6D %.5C %R" --sort=S --states=PENDING | egrep -v "N/A" | head -20';
-	}
-
-	wacct() {
-		watch -n 5 -d 'sacct'
-	}
-
-	tacct() {
-		watch -n 5 -d 'sacct | tail -n 40'
-	}
-
-  unique_hosts() {
-    sacct | grep RUNNING | cut -d ' ' -f50 | uniq | sort
-  }
-
-	sii() {
-		echo "CURRENT TRIALS RUNNING: $(sacct | grep RUNNING | wc -l)"
-		echo "CURRENT TRIALS PENDING $(sacct | grep PENDING | wc -l)"
-	}
-
-	# cancel all jobs
-	killallslurm() {
-		for SLURMID in $(sacct -n | awk '{print $1}'); do
-			echo "Canceling $SLURMID";
-			scancel $SLURMID;
-		done
-	}
-
-fi

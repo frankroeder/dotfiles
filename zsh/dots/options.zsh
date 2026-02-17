@@ -7,7 +7,7 @@ unsetopt NOMATCH
 # Write to multiple descriptors
 setopt MULTIOS
 
-# prevent accidental C-d from exiting shell
+# Prevent Ctrl-D from exiting the shell
 setopt IGNORE_EOF
 
 # Report status of background jobs immediately.

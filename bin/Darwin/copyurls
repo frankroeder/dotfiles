@@ -35,31 +35,31 @@ elif [ "$BROWSER_NAME" = "Orion RC" ]; then
   END
   )
 elif [[ "$BROWSER_NAME" = "Zen Browser" ]]; then
-	# FIXME: not a nice solution
+  # FIXME: Zen Browser lacks AppleScript support, using UI scripting (simulating keystrokes)
   URLS=$(osascript <<'END'
-	tell application "Zen Browser" to activate
-	delay 0.5 -- Allow time for the browser to come to the foreground
+  tell application "Zen Browser" to activate
+  delay 0.5 -- Allow time for the browser to come to the foreground
 
-	tell application "System Events"
-			set tabURLs to {} -- Initialize an empty list to store URLs
-			set maxTabs to 20 -- Set a reasonable maximum number of tabs to iterate through
-			repeat with i from 1 to maxTabs
-					try
-							keystroke (i as string) using {command down}
-							delay 0.2 -- Wait for the tab to activate
-							keystroke "l" using {command down}
-							delay 0.1
-							keystroke "c" using {command down}
-							delay 0.1
-							set currentURL to the clipboard
-							set end of tabURLs to currentURL
-					on error
-							exit repeat
-					end try
-			end repeat
-	end tell
-	return tabURLs
-	END
+  tell application "System Events"
+      set tabURLs to {} -- Initialize an empty list to store URLs
+      set maxTabs to 20 -- Set a reasonable maximum number of tabs to iterate through
+      repeat with i from 1 to maxTabs
+          try
+              keystroke (i as string) using {command down}
+              delay 0.2 -- Wait for the tab to activate
+              keystroke "l" using {command down}
+              delay 0.1
+              keystroke "c" using {command down}
+              delay 0.1
+              set currentURL to the clipboard
+              set end of tabURLs to currentURL
+          on error
+              exit repeat
+          end try
+      end repeat
+  end tell
+  return tabURLs
+  END
   )
 elif [ "$BROWSER_NAME" = "Brave Browser" ]; then
   URLS=$(osascript -e 'tell application "Brave Browser" to get the URL of every tab of every window' | sed -E $'s/, ?/\\\n/g')

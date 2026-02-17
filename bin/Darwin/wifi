@@ -1,60 +1,282 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+#
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["numpy", "matplotlib", "pyobjc-framework-CoreWLAN", "tqdm"]
+# ///
 
-import subprocess
-import re
+import objc
+from CoreWLAN import *
 import numpy as np
 import matplotlib.pyplot as plt
+from collections import defaultdict
+import time
+from tqdm import tqdm
 
 def get_wifi_data():
     two_g_data = []
     five_g_data = []
-    out = subprocess.check_output(["airport -s"], shell=True)
-    entities = out.splitlines()
-    for i in range(1, len(entities)):
-        entity = entities[i].decode('utf-8')
-        #  print(entity)
-        ssid = re.findall(r"(.*\s..:)", entity)[0].strip()[:-3]
-        signalpower = int(re.findall(r"\s-\d+", entity)[0]) * -1
-        #  print(signalpower)
-        channel = int(re.findall(r"\s\s\d+", entity)[0])
-        if channel <= 13:
-            two_g_data.append([channel, signalpower, ssid])
+    all_networks = []
+
+    # Use CoreWLAN to scan Wi-Fi networks
+    wifi_client = CWWiFiClient.sharedWiFiClient()
+    interfaces = wifi_client.interfaces()
+
+    if not interfaces:
+        print("Error: No Wi-Fi interfaces found.")
+        return [], [], []
+
+    interface = interfaces[0]
+
+    # Ensure the interface is powered on
+    if not interface.powerOn():
+        try:
+            interface.setPower_error_(True, None)
+        except Exception as e:
+            print(f"Error powering on interface: {e}")
+            return [], [], []
+
+    try:
+        result = interface.scanForNetworksWithSSID_error_(None, None)
+        if isinstance(result, tuple):
+            networks = result[0]
         else:
-            five_g_data.append([channel, signalpower, ssid])
-    #  print(two_g_data)
-    #  print(five_g_data)
-    return two_g_data, five_g_data
+            networks = result
+    except Exception as e:
+        print(f"Error scanning networks: {e}")
+        return [], [], []
+
+    if not networks:
+        print("No networks found")
+        return [], [], []
+
+    for network in networks.allObjects():
+        try:
+            ssid = network.ssid()
+            bssid = network.bssid()
+            rssi = network.rssiValue()
+            channel_info = network.wlanChannel()
+            channel = channel_info.channelNumber() if channel_info else 0
+            security = network.securityMode()
+            # Note: HT and CC not directly available in CWNetwork, approximate
+            ht = "Y" if network.supportsPHYMode_(1) else "N"  # Rough approximation
+            cc = "US"  # Default, as it's not easily accessible
+
+            network_dict = {
+                'ssid': ssid,
+                'bssid': bssid,
+                'rssi': rssi,
+                'channel': channel,
+                'ht': ht,
+                'cc': cc,
+                'security': str(security)
+            }
+            all_networks.append(network_dict)
+            if channel <= 14:  # 2.4 GHz channels (1-14)
+                two_g_data.append([channel, rssi, ssid])
+            else:  # 5 GHz channels
+                five_g_data.append([channel, rssi, ssid])
+        except Exception as e:
+            print(f"Error processing network: {e}")
+            continue
+
+    return two_g_data, five_g_data, all_networks
+
+def get_connected_info():
+    wifi_client = CWWiFiClient.sharedWiFiClient()
+    interfaces = wifi_client.interfaces()
+
+    if not interfaces:
+        return None
+
+    interface = interfaces[0]
+
+    info = {}
+    try:
+        info['SSID'] = interface.ssid()
+        info['BSSID'] = interface.bssid()
+        channel_info = interface.wlanChannel()
+        info['channel'] = str(channel_info.channelNumber()) if channel_info else 'N/A'
+        info['lastTxRate'] = str(interface.transmitRate())
+        info['agrCtlRSSI'] = str(interface.rssiValue())
+        info['agrCtlNoise'] = str(interface.noiseMeasurement()) if hasattr(interface, 'noiseMeasurement') else 'N/A'
+    except Exception as e:
+        print(f"Error getting connected info: {e}")
+        return None
+
+    return info
+
+def print_wifi_stats(all_networks, connected_info):
+    if not all_networks:
+        print("No networks to analyze.")
+        return
+
+    print("=== Wi-Fi Statistics ===")
+    print(f"Total networks found: {len(all_networks)}")
+
+    # Band breakdown
+    two_g = [n for n in all_networks if n['channel'] <= 14]
+    five_g = [n for n in all_networks if n['channel'] > 14]
+    print(f"2.4 GHz networks: {len(two_g)}")
+    print(f"5 GHz networks: {len(five_g)}")
+
+    # Average RSSI
+    avg_rssi_2g = np.mean([n['rssi'] for n in two_g]) if two_g else 0
+    avg_rssi_5g = np.mean([n['rssi'] for n in five_g]) if five_g else 0
+    print(f"Average RSSI 2.4 GHz: {avg_rssi_2g:.1f} dBm")
+    print(f"Average RSSI 5 GHz: {avg_rssi_5g:.1f} dBm")
+
+    # Channel congestion
+    channel_count = defaultdict(int)
+    for n in all_networks:
+        channel_count[n['channel']] += 1
+    most_congested = max(channel_count.items(), key=lambda x: x[1]) if channel_count else (0, 0)
+    print(f"Most congested channel: {most_congested[0]} ({most_congested[1]} networks)")
+
+    # Security types
+    security_count = defaultdict(int)
+    for n in all_networks:
+        security_count[n['security']] += 1
+    print("Security types:")
+    for sec, count in security_count.items():
+        print(f"  {sec}: {count}")
+
+    # Connected network info
+    if connected_info:
+        print("\n=== Connected Network ===")
+        print(f"SSID: {connected_info.get('SSID', 'N/A')}")
+        print(f"BSSID: {connected_info.get('BSSID', 'N/A')}")
+        print(f"Channel: {connected_info.get('channel', 'N/A')}")
+        print(f"Rate: {connected_info.get('lastTxRate', 'N/A')} Mbps")
+        print(f"RSSI: {connected_info.get('agrCtlRSSI', 'N/A')} dBm")
+        noise = connected_info.get('agrCtlNoise', 'N/A')
+        if noise != 'N/A':
+            snr = int(connected_info.get('agrCtlRSSI', 0)) - int(noise)
+            print(f"Noise: {noise} dBm")
+            print(f"SNR: {snr} dB")
+        else:
+            print("Noise: N/A")
+            print("SNR: N/A")
+    else:
+        print("\nNo connected network information available.")
 
 def plot_ssid_power_channel(two_g_data, five_g_data):
-    two_channel = np.array([_d[0] for _d in two_g_data])
-    two_power = np.array([_d[1] for _d in two_g_data])
-    two_ssid = np.array([_d[2] for _d in two_g_data])
+    two_channel = np.array([d[0] for d in two_g_data])
+    two_power = np.array([d[1] for d in two_g_data])
+    two_ssid = np.array([d[2] for d in two_g_data])
 
-    five_channel = np.array([_d[0] for _d in five_g_data])
-    five_power = np.array([_d[1] for _d in five_g_data])
-    five_ssid = np.array([_d[2] for _d in five_g_data])
+    five_channel = np.array([d[0] for d in five_g_data])
+    five_power = np.array([d[1] for d in five_g_data])
+    five_ssid = np.array([d[2] for d in five_g_data])
 
-    fig, ax = plt.subplots(2)
-    plt.xlabel("channel")
-    plt.ylabel("signal power")
+    fig, ax = plt.subplots(2, figsize=(8, 6))
+    fig.supxlabel("Channel")
+    fig.supylabel("Signal Power (dBm)")
 
-    ax[0].grid()
+    ax[0].grid(True)
     ax[0].set_title("2.4 GHz Channels")
     ax[0].scatter(two_channel, two_power)
     for i, txt in enumerate(two_ssid):
         ax[0].annotate(txt, (two_channel[i], two_power[i]), size=8)
 
-    ax[1].grid()
+    ax[1].grid(True)
     ax[1].set_title("5 GHz Channels")
     ax[1].scatter(five_channel, five_power)
     for i, txt in enumerate(five_ssid):
         ax[1].annotate(txt, (five_channel[i], five_power[i]), size=8)
+
+    plt.tight_layout()
+    plt.show()
+
+def monitor_wifi(duration=60, interval=5):
+    """
+    Monitor Wi-Fi metrics over time.
+    """
+    times = []
+    rssi_values = []
+    tx_rates = []
+    network_counts = []
+    avg_rssi_2g = []
+    avg_rssi_5g = []
+
+    start_time = time.time()
+
+    with tqdm(total=duration, desc="Monitoring Wi-Fi", unit="s") as pbar:
+        for i in range(duration // interval):
+            current_time = time.time()
+            times.append(current_time - start_time)
+
+            # Get connected info
+            connected_info = get_connected_info()
+            if connected_info:
+                rssi_values.append(int(connected_info.get('agrCtlRSSI', -100)))
+                tx_rates.append(float(connected_info.get('lastTxRate', 0)))
+            else:
+                rssi_values.append(-100)
+                tx_rates.append(0)
+
+            # Get network data
+            two_g_data, five_g_data, all_networks = get_wifi_data()
+            network_counts.append(len(all_networks))
+
+            # Calculate average RSSI per band
+            two_g_rssi = [d[1] for d in two_g_data] if two_g_data else []
+            five_g_rssi = [d[1] for d in five_g_data] if five_g_data else []
+            avg_rssi_2g.append(np.mean(two_g_rssi) if two_g_rssi else -100)
+            avg_rssi_5g.append(np.mean(five_g_rssi) if five_g_rssi else -100)
+
+            time.sleep(interval)
+            pbar.update(interval)
+
+    return times, rssi_values, tx_rates, network_counts, avg_rssi_2g, avg_rssi_5g
+
+def plot_monitoring_data(times, rssi_values, tx_rates, network_counts, avg_rssi_2g, avg_rssi_5g):
+    """
+    Plot the monitoring data.
+    """
+    fig, ax = plt.subplots(3, 2, figsize=(12, 10))
+
+    # Connected RSSI
+    ax[0, 0].plot(times, rssi_values, label='Connected RSSI (dBm)', color='blue')
+    ax[0, 0].set_title('Connected Network RSSI Over Time')
+    ax[0, 0].set_ylabel('RSSI (dBm)')
+    ax[0, 0].grid(True)
+
+    # Transmit Rate
+    ax[0, 1].plot(times, tx_rates, label='Transmit Rate (Mbps)', color='green')
+    ax[0, 1].set_title('Connected Network Speed Over Time')
+    ax[0, 1].set_ylabel('Speed (Mbps)')
+    ax[0, 1].grid(True)
+
+    # Network Count
+    ax[1, 0].plot(times, network_counts, label='Total Networks', color='red')
+    ax[1, 0].set_title('Total Networks Over Time')
+    ax[1, 0].set_ylabel('Count')
+    ax[1, 0].grid(True)
+
+    # Average 2.4 GHz RSSI
+    ax[1, 1].plot(times, avg_rssi_2g, label='Avg 2.4 GHz RSSI (dBm)', color='orange')
+    ax[1, 1].set_title('Average 2.4 GHz RSSI Over Time')
+    ax[1, 1].set_ylabel('RSSI (dBm)')
+    ax[1, 1].grid(True)
+
+    # Average 5 GHz RSSI
+    ax[2, 0].plot(times, avg_rssi_5g, label='Avg 5 GHz RSSI (dBm)', color='purple')
+    ax[2, 0].set_title('Average 5 GHz RSSI Over Time')
+    ax[2, 0].set_ylabel('RSSI (dBm)')
+    ax[2, 0].set_xlabel('Time (s)')
+    ax[2, 0].grid(True)
+
+    # Placeholder for 6th subplot
+    ax[2, 1].axis('off')
+
     plt.tight_layout()
     plt.show()
 
 def main():
-    two_g_data, five_g_data = get_wifi_data()
-    plot_ssid_power_channel(two_g_data, five_g_data)
+    print("Monitoring Wi-Fi for 60 seconds...")
+    times, rssi, tx, counts, avg2g, avg5g = monitor_wifi(duration=60, interval=5)
+    plot_monitoring_data(times, rssi, tx, counts, avg2g, avg5g)
 
 if __name__ == "__main__":
     main()

@@ -1,5 +1,5 @@
 # install gazebo
-curl -sSL http://get.gazebosim.org | sh
+curl -sSL https://get.gazebosim.org | sh
 
 # install ros noetic
 # http://wiki.ros.org/noetic/Installation/Ubuntu

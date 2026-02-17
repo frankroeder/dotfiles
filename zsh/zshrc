@@ -26,9 +26,20 @@ if [[ -d "$zsh_functions" ]]; then
 fi
 unset zsh_functions
 
-# Plugins
-source $DOTFILES/zsh/zplugrc
-ZSH_AUTOSUGGEST_USE_ASYNC=true
+# plugin manager
+ZIM_CONFIG_FILE=$DOTFILES/zsh/zimrc
+ZIM_HOME=${ZDOTDIR:-${HOME}}/.zim
+# Download zimfw plugin manager if missing.
+if [[ ! -e ${ZIM_HOME}/zimfw.zsh ]]; then
+  curl -fsSL --create-dirs -o ${ZIM_HOME}/zimfw.zsh \
+      https://github.com/zimfw/zimfw/releases/latest/download/zimfw.zsh
+fi
+# Install missing modules and update ${ZIM_HOME}/init.zsh if missing or outdated.
+if [[ ! ${ZIM_HOME}/init.zsh -nt ${ZIM_CONFIG_FILE:-${ZDOTDIR:-${HOME}}/.zimrc} ]]; then
+  source ${ZIM_HOME}/zimfw.zsh init
+fi
+# Initialize modules.
+source ${ZIM_HOME}/init.zsh
 
 # Disable paste highlighting
 zle_highlight+=(paste:none)
@@ -38,7 +49,17 @@ if [[ -d "$HOME/.fzf/" ]]; then
   eval "$(fzf --zsh)"
 fi
 
-# load configs
+# Source shared configurations (used by both bash and zsh)
+if [[ -d "$DOTFILES/shared" ]]; then
+    for file in $DOTFILES/shared/*.sh; do
+        source $file
+    done
+    unset file
+fi
+
+[ -f ~/.local.zsh ] && source ~/.local.zsh
+
+# load zsh-specific configs
 zsh_dots=$DOTFILES/zsh/dots
 if [[ -d "$zsh_dots" ]]; then
     for file in $zsh_dots/*.zsh; do
@@ -51,10 +72,9 @@ unset zsh_dots
 # enable completions
 if [ -d ~/.zsh/completion ]; then
     fpath=(~/.zsh/completion $fpath)
-    autoload -U ~/.zsh/compeltion/*(:t)
+    autoload -U ~/.zsh/completion/*(:t)
 fi
 
-[ -f ~/.local.zsh ] && source ~/.local.zsh
 
 # Prevent duplicates in PATH and FPATH
 typeset -U path fpath

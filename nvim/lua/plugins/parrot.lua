@@ -1,4 +1,44 @@
 local utils = require "utils"
+local Job = require "plenary.job"
+
+local _anthropic = {
+  name = "anthropic",
+  endpoint = "https://api.anthropic.com/v1/messages",
+  model_endpoint = "https://api.anthropic.com/v1/models",
+  api_key = utils.get_api_key("anthropic-api-key", "ANTHROPIC_API_KEY"),
+  params = {
+    chat = { max_tokens = 4096 },
+    command = { max_tokens = 4096 },
+  },
+  topic = {
+    model = "claude-4-5-haiku",
+    params = { max_tokens = 32 },
+  },
+  headers = function(self)
+    return {
+      ["Content-Type"] = "application/json",
+      ["x-api-key"] = self.api_key,
+      ["anthropic-version"] = "2023-06-01",
+    }
+  end,
+  models = {
+    "claude-haiku-4-5",
+    "claude-opus-4-5",
+    "claude-sonnet-4-5",
+  },
+  preprocess_payload = function(payload)
+    for _, message in ipairs(payload.messages) do
+      message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
+    end
+    if payload.messages[1] and payload.messages[1].role == "system" then
+      -- remove the first message that serves as the system prompt as anthropic
+      -- expects the system prompt to be part of the API call body and not the messages
+      payload.system = payload.messages[1].content
+      table.remove(payload.messages, 1)
+    end
+    return payload
+  end,
+}
 
 local M = {
   "frankroeder/parrot.nvim",
@@ -9,46 +49,280 @@ local M = {
   config = function(_, opts)
     -- add ollama if executable found
     if vim.fn.executable "ollama" == 1 then
-      opts.providers["ollama"] = {}
+      opts.providers["ollama"] = {
+        name = "ollama",
+        endpoint = "http://localhost:11434/api/chat",
+        model_endpoint = "http://localhost:11434/api/models",
+        api_key = "", -- not required for local Ollama
+        params = {
+          chat = { temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
+          command = { temperature = 1.5, top_p = 1, num_ctx = 8192, min_p = 0.05 },
+        },
+        topic_prompt = [[
+        Summarize the chat above and only provide a short headline of 2 to 3
+        words without any opening phrase like "Sure, here is the summary",
+        "Sure! Here's a shortheadline summarizing the chat" or anything similar.
+        ]],
+        topic = {
+          model = "llama3.2",
+          params = { max_tokens = 32 },
+        },
+        headers = {
+          ["Content-Type"] = "application/json",
+        },
+        models = {
+          "codestral",
+          "llama3.2",
+          "gemma3",
+        },
+        resolve_api_key = function()
+          return true
+        end,
+        process_stdout = function(response)
+          if response:match "message" and response:match "content" then
+            local ok, data = pcall(vim.json.decode, response)
+            if ok and data.message and data.message.content then
+              return data.message.content
+            end
+          end
+        end,
+        get_available_models = function(self)
+          local url = self.endpoint:gsub("chat", "")
+          local logger = require "parrot.logger"
+          local job = Job:new({
+            command = "curl",
+            args = { "-H", "Content-Type: application/json", url .. "tags" },
+          }):sync()
+          local parsed_response = require("parrot.utils").parse_raw_response(job)
+          self:process_onexit(parsed_response)
+          if parsed_response == "" then
+            logger.debug("Ollama server not running on " .. endpoint_api)
+            return {}
+          end
+
+          local success, parsed_data = pcall(vim.json.decode, parsed_response)
+          if not success then
+            logger.error("Ollama - Error parsing JSON: " .. vim.inspect(parsed_data))
+            return {}
+          end
+
+          if not parsed_data.models then
+            logger.error "Ollama - No models found. Please use 'ollama pull' to download one."
+            return {}
+          end
+
+          local names = {}
+          for _, model in ipairs(parsed_data.models) do
+            table.insert(names, model.name)
+          end
+
+          return names
+        end,
+      }
     end
     require("parrot").setup(opts)
   end,
   opts = {
     providers = {
-      openai = {
-        api_key = utils.get_api_key("openai-api-key", "OPENAI_API_KEY"),
+      claude_cli = {
+        name = "claude_cli",
+        command = "claude",
+        models = {
+          "claude-sonnet-4-5",
+          "claude-opus-4-5",
+          "claude-haiku-4-5",
+        },
       },
-      anthropic = {
-        api_key = utils.get_api_key("anthropic-api-key", "ANTHROPIC_API_KEY"),
+      xai = {
+        name = "xai",
+        endpoint = "https://api.x.ai/v1/chat/completions",
+        model_endpoint = "https://api.x.ai/v1/language-models",
+        api_key = os.getenv "XAI_API_KEY",
+        params = {
+          chat = { temperature = 1.1, top_p = 1 },
+          command = { temperature = 1.1, top_p = 1 },
+        },
+        topic = {
+          model = "grok-3-mini",
+          params = { max_completion_tokens = 64 },
+        },
+        models = {
+          "grok-3-mini",
+          "grok-code-fast-1",
+          "grok-4-1-fast-non-reasoning",
+          "grok-4-1-fast-reasoning",
+        },
+      },
+      openai = {
+        name = "openai",
+        endpoint = "https://api.openai.com/v1/chat/completions",
+        model_endpoint = "https://api.openai.com/v1/models",
+        api_key = utils.get_api_key("openai-api-key", "OPENAI_API_KEY"),
+        params = {
+          chat = {
+            temperature = 1.1,
+            top_p = 1,
+            stream_options = { include_usage = true },
+          },
+          command = {
+            temperature = 1.1,
+            top_p = 1,
+            stream_options = { include_usage = true },
+          },
+        },
+        topic = {
+          model = "gpt-5-nano",
+          params = { max_completion_tokens = 64 },
+        },
+        models = {
+          "gpt-5",
+          "gpt-5-nano",
+          "gpt-5-mini",
+          "gpt-5.1-codex",
+          "gpt-5.1-codex-max",
+          "gpt-5.2",
+          "gpt-5.2-pro",
+        },
+      },
+      anthropic = _anthropic,
+      -- use models with web search
+      anthropic_web = vim.tbl_extend("force", _anthropic, {
+        name = "anthropic_web",
+        params = {
+          chat = {
+            max_tokens = 4096,
+            tools = {
+              {
+                ["type"] = "web_search_20250305",
+                ["name"] = "web_search",
+                ["max_uses"] = 5,
+              },
+            },
+          },
+          command = {
+            max_tokens = 4096,
+            tools = {
+              {
+                ["type"] = "web_search_20250305",
+                ["name"] = "web_search",
+                ["max_uses"] = 5,
+              },
+            },
+          },
+        },
+      }),
+      -- use models with hard-coded thinking parameters
+      anthropic_thinking = vim.tbl_extend("force", _anthropic, {
+        name = "anthropic_thinking",
         params = {
           chat = {
             max_tokens = 4096,
             thinking = {
-              budget_tokens = 1024,
               type = "enabled",
+              budget_tokens = 2048,
             },
           },
-          command = { max_tokens = 4096 },
+          command = {
+            max_tokens = 4096,
+            thinking = {
+              type = "enabled",
+              budget_tokens = 2048,
+            },
+          },
         },
-      },
+        models = {
+          "claude-haiku-4-5",
+          "claude-opus-4-5",
+          "claude-sonnet-4-5",
+        },
+      }),
       gemini = {
+        name = "gemini",
+        endpoint = function(self)
+          return "https://generativelanguage.googleapis.com/v1beta/models/"
+            .. self._model
+            .. ":streamGenerateContent?alt=sse"
+        end,
+        model_endpoint = function(self)
+          return { "https://generativelanguage.googleapis.com/v1beta/models?key=" .. self.api_key }
+        end,
         api_key = os.getenv "GEMINI_API_KEY",
-      },
-      github = {
-        api_key = os.getenv "GITHUB_TOKEN",
-      },
-      xai = {
-        api_key = os.getenv "XAI_API_KEY",
+        params = {
+          chat = { temperature = 1.1, topP = 1, topK = 10, maxOutputTokens = 8192 },
+          command = { temperature = 0.8, topP = 1, topK = 10, maxOutputTokens = 8192 },
+        },
+        topic = {
+          model = "gemini-flash-lite-latest",
+          params = { maxOutputTokens = 64 },
+        },
+        headers = function(self)
+          return {
+            ["Content-Type"] = "application/json",
+            ["x-goog-api-key"] = self.api_key,
+          }
+        end,
+        models = {
+          "gemini-3-pro-preview",
+          "gemini-3-flash-preview",
+          "gemini-flash-lite-latest",
+        },
+        preprocess_payload = function(payload)
+          local contents = {}
+          local system_instruction = nil
+          for _, message in ipairs(payload.messages) do
+            if message.role == "system" then
+              system_instruction = { parts = { { text = message.content } } }
+            else
+              local role = message.role == "assistant" and "model" or "user"
+              table.insert(
+                contents,
+                { role = role, parts = { { text = message.content:gsub("^%s*(.-)%s*$", "%1") } } }
+              )
+            end
+          end
+          local gemini_payload = {
+            contents = contents,
+            generationConfig = {
+              temperature = payload.temperature,
+              topP = payload.topP or payload.top_p,
+              maxOutputTokens = payload.max_tokens or payload.maxOutputTokens,
+            },
+          }
+          if system_instruction then
+            gemini_payload.systemInstruction = system_instruction
+          end
+          return gemini_payload
+        end,
+        process_stdout = function(response)
+          if not response or response == "" then
+            return nil
+          end
+          local success, decoded = pcall(vim.json.decode, response)
+          if
+            success
+            and decoded.candidates
+            and decoded.candidates[1]
+            and decoded.candidates[1].content
+            and decoded.candidates[1].content.parts
+            and decoded.candidates[1].content.parts[1]
+          then
+            return decoded.candidates[1].content.parts[1].text
+          end
+          return nil
+        end,
       },
     },
     cmd_prefix = "Prt",
-    chat_conceal_model_params = false,
     user_input_ui = "buffer",
     toggle_target = "",
     online_model_selection = true,
     command_auto_select_response = true,
     show_context_hints = true,
-    per_symbol_delay = 20,
+    model_cache_expiry_hours = 0,
+    prompts = {
+      ["git commit message"] = [[Given the following git diff, I want you to compose a short git commit message ]]
+        .. vim.fn.system "git diff --no-color --no-ext-diff --staged",
+    },
     hooks = {
       Complete = function(prt, params)
         local template = [[

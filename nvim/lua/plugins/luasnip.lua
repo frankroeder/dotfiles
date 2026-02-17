@@ -56,10 +56,10 @@ function M.config()
   luasnip.filetype_extend("svelte", { "javascript" })
 
   -- custom lua snippets
-  lua.load { paths = os.getenv "HOME" .. "/.config/nvim/snippets/" }
+  lua.load { paths = vim.fn.stdpath "config" .. "/snippets/" }
 
   vim.cmd [[command! LuaSnipEdit :lua require("luasnip.loaders").edit_snippet_files()]]
-  vim.cmd [[command! LuaSnipReload :lua require("luasnip.loaders.from_lua").load({paths = "~/.config/nvim/snippets/"})]]
+  vim.cmd [[command! LuaSnipReload :lua require("luasnip.loaders.from_lua").load({paths = vim.fn.stdpath("config") .. "/snippets/"})]]
 end
 
 return M

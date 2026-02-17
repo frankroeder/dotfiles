@@ -3,7 +3,7 @@
 ping -c 1 www.google.com
 if [ $? -eq 0 ]; then
     branch=master
-    address='http://llvm.org/git'
+    address='https://llvm.org/git'
 
     mkdir llvm-top && cd llvm-top
     git clone -b $branch $address/llvm llvm

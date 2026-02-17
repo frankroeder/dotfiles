@@ -1,13 +1,14 @@
-# Edit the current command line in $EDITOR
-autoload -U edit-command-line
-zle -N edit-command-line
-bindkey '\C-x\C-e' edit-command-line
-
 # vim mode keybindings
 # https://dougblack.io/words/zsh-vi-mode.html
 # press <ESC> to switch to NORMAL mode
 bindkey -v
 export KEYTIMEOUT=2
+
+# Edit the current command line in $EDITOR
+# IMPORTANT: Must be set AFTER bindkey -v to avoid being reset
+autoload -U edit-command-line
+zle -N edit-command-line
+bindkey '\C-x\C-e' edit-command-line
 
 # Vim-like behavior
 bindkey -M vicmd "^R" redo
@@ -24,7 +25,7 @@ bindkey '^w' backward-kill-word         # ctrl-w
 bindkey "^K" kill-whole-line            # ctrl-k
 bindkey "^A" beginning-of-line          # ctrl-a
 bindkey "^E" end-of-line                # ctrl-e
-bindkey "^D" delete-char                # ctrl-d
+# Ctrl-D binding removed - IGNORE_EOF option prevents shell exit
 bindkey "^F" forward-char               # ctrl-f
 bindkey "^B" backward-char              # ctrl-b
 bindkey "[B" history-search-forward     # down arrow

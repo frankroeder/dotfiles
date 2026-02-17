@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-
-find . | grep -E "(__pycache__|\.py[cod]$)" | xargs rm -rvf

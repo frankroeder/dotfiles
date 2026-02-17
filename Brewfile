@@ -1,6 +1,6 @@
-tap "homebrew/cask-fonts"
 tap "koekeishiya/formulae"
 tap "FelixKratz/formulae"
+tap "tw93/formulae"
 cask_args appdir: "~/Applications", require_sha: true
 
 brew "git"
@@ -23,20 +23,20 @@ brew "jq"
 brew "python"
 brew "pandoc"
 brew "grip"
-brew "ifstat"
 brew "gcc"
-brew "newsboat"
 brew "mpv"
 brew "imagemagick"
 brew "uv"
+brew "tree-sitter"
 
-brew "flashspace"
+brew "yabai"
 brew "skhd", args: ["with-logging"]
 brew "sketchybar", args:  ["HEAD"], restart_service: :changed
+brew "mole"
+brew "macmon"
 
 cask "raycast"
 cask "ghostty"
-cask "orbstack"
 cask "musescore"
 cask "sioyek"
 cask "mactex-no-gui"
@@ -47,8 +47,7 @@ cask "zotero"
 cask "signal"
 cask "anki"
 cask "mattermost"
+cask "proton-pass"
 
 mas "iReal Pro", id: 409035833
 mas "Telegram", id: 747648890
-mas "Bitwarden", id: 1352778147
-mas "Magnet", id:  441258766

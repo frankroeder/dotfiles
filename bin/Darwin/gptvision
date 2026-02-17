@@ -22,7 +22,7 @@ def encode_image(image_path):
 # Path to your image
 image_path = sys.argv[1]
 prompt = sys.argv[2] if len(sys.argv) > 2 else "What’s in this image?"
-print("prompt", prompt)
+print("prompt:", prompt, file=sys.stderr)
 
 # Getting the base64 string
 base64_image = encode_image(image_path)

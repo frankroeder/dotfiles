@@ -9,6 +9,15 @@ return {
     settings = {
       organizeImports = true,
       lineLength = 100,
+      showSyntaxErrors = true,
+      logLevel = "info",
+      fixAll = true,
+      codeAction = {
+        lint = {
+          enable = true,
+          preview = true,
+        },
+      },
       lint = {
         select = {
           "E",

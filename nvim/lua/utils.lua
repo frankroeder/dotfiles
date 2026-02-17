@@ -42,17 +42,20 @@ M.is_git_repo = function()
 end
 
 --- Get the comment string {beg,end} table
----@param ctype integer 1 for `line`-comment and 2 for `block`-comment
+---@param ctype integer 1 for `line`-comment and 2 for `block`-comment (ignored, uses Neovim's commentstring)
 ---@return table comment_strings {begcstring, endcstring}
 M.get_cstring = function(ctype)
-  local calculate_comment_string = require("Comment.ft").calculate
-  local cutils = require "Comment.utils"
-  -- use the `Comments.nvim` API to fetch the comment string for the region (eq. '--%s' or '--[[%s]]' for `lua`)
-  local cstring = calculate_comment_string { ctype = ctype, range = cutils.get_region() }
-    or vim.bo.commentstring
-  -- as we want only the strings themselves and not strings ready for using `format` we want to split the left and right side
-  local left, right = cutils.unwrap_cstr(cstring)
-  -- create a `{left, right}` table for it
+  -- Use Neovim's built-in commentstring detection
+  local cstring = vim.filetype.get_option(vim.bo.filetype, "commentstring")
+
+  -- Parse the comment string to extract left and right parts
+  local left, right = cstring:match "^(.-)%%s(.-)$"
+
+  if not right then
+    left = cstring:match "^(.-)%%s" or cstring
+    right = ""
+  end
+
   return { left, right }
 end
 
@@ -98,7 +101,8 @@ M.get_api_key = function(key, fallback)
       handle:close()
     end
   end
-  -- -- check if on Linux
+  -- TODO: Fix this --
+  -- check if on Linux
   -- if vim.fn.has("unix") == 1 then
   -- 	local handle = io.popen("pass OpenAI")
   -- 	result = handle:read("*a")
