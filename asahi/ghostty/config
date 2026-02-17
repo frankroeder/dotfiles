@@ -1,0 +1,37 @@
+theme = dark:Catppuccin Mocha,light:Catppuccin Latte
+window-theme = system
+
+font-family = "Hack Nerd Font"
+font-size = 14
+font-thicken = true
+bold-is-bright = false
+
+window-decoration = auto
+
+window-padding-x = 5
+window-padding-y = 5
+unfocused-split-fill = "#444444"
+window-new-tab-position = "end"
+
+working-directory = inherit
+window-inherit-working-directory = true
+
+mouse-hide-while-typing = true
+mouse-scroll-multiplier = 0.5
+cursor-style = "block"
+
+copy-on-select= true
+clipboard-read = allow
+clipboard-write = allow
+clipboard-trim-trailing-spaces = true
+
+shell-integration = zsh
+shell-integration-features = no-cursor,sudo
+window-save-state = always
+
+keybind = super+s=toggle_quick_terminal
+
+keybind = super+alt+j=goto_split:down
+keybind = super+alt+h=goto_split:left
+keybind = super+alt+l=goto_split:right
+keybind = super+alt+k=goto_split:up

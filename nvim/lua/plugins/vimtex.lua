@@ -35,10 +35,12 @@ return {
 
     -- view options
     vim.g.vimtex_view_automatic = 1
-    vim.g.vimtex_view_method = "sioyek"
-    vim.g.vimtex_view_sioyek_options = "--reuse-window --execute-command toggle_synctex"
-    vim.g.vimtex_general_viewer = "sioyek"
-    vim.g.vimtex_view_general_options = "-r @line @pdf @tex"
+    if vim.fn.has("mac") == 1 then
+      vim.g.vimtex_view_method = "sioyek"
+      vim.g.vimtex_view_sioyek_options = "--reuse-window --execute-command toggle_synctex"
+    else
+      vim.g.vimtex_view_method = "zathura"
+    end
 
     vim.g.vimtex_parser_bib_backend = "lua"
     vim.g.vimtex_log_ignore = {

@@ -1,0 +1,15 @@
+{
+  "calculator": {
+    "enabled": true,
+    "trigger": "="
+  },
+  "webSearch": {
+    "enabled": true,
+    "searchEngines": [],
+    "disabledEngines": [],
+    "defaultEngine": "kagi"
+  },
+  "powerUsagePlugin": {
+    "enabled": true
+  }
+}

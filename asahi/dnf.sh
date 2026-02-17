@@ -1,32 +1,30 @@
-dnf_update() {
-  sudo dnf upgrade && dnf update
-}
+#!/usr/bin/env bash
+# Install packages for Asahi Linux (Fedora)
 
-install_default() {
-  dnf_update;
-  local PKGS="
-    bash
-    cmake
-    curl
-    ffmpeg
-    git
-    htop
-    imagemagick
-    iputils-ping
-    jq
-    lsof
-    make
-    man
-    python3-dev
-    python3-pip
-    ripgrep
-    sudo
-    tmux
-    tree
-    wget
-    zsh
-  "
-  sudo dnf install $PKGS -y;
-}
+set -euo pipefail
 
-install_default;
+sudo dnf upgrade -y
+
+sudo dnf install -y \
+  cargo \
+  cmake \
+  ffmpeg \
+  htop \
+  imagemagick \
+  jq \
+  lsof \
+  neovim \
+  nextcloud-client \
+  python3-devel \
+  python3-pip \
+  ripgrep \
+  tmux \
+  tree \
+  latexmk \
+  texlive-scheme-medium \
+  texlive-luahbtex \
+  uv \
+  wget \
+  zathura \
+  zathura-pdf-poppler \
+  zsh

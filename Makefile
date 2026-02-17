@@ -382,15 +382,27 @@ _terminal: ## Install and configure terminal emulator
 
 
 .PHONY: asahi
-asahi: sudo directories _git zsh python misc nvim
-	bash $(DOTFILES)/asahi/dnf.sh
-	@ln -sfvn $(DOTFILES)/asahi/hypr $(HOME)/.config
-	@ln -sfvn $(DOTFILES)/asahi/rofi $(HOME)/.config
-	@ln -sfvn $(DOTFILES)/asahi/waybar $(HOME)/.config
-	@ln -sfvn $(DOTFILES)/ghostty $(HOME)/.config
+asahi: ## Asahi Linux (Fedora) setup with Dank Linux / Hyprland
+asahi: validate-linux validate-tools sudo directories _git zsh python nvim
+	@rm -rf $(HOME)/.config/hypr
+	@ln -sfv $(DOTFILES)/asahi/hypr $(HOME)/.config/hypr
+	@rm -rf $(HOME)/.config/DankMaterialShell
+	@ln -sfv $(DOTFILES)/asahi/dms $(HOME)/.config/DankMaterialShell
+	@rm -rf $(HOME)/.config/ghostty
+	@ln -sfv $(DOTFILES)/asahi/ghostty $(HOME)/.config/ghostty
+	@ln -sfv $(DOTFILES)/asahi/kxkbrc $(HOME)/.config/kxkbrc
+	@ln -sfv $(DOTFILES)/asahi/kwinrc $(HOME)/.config/kwinrc
+	@ln -sfv $(DOTFILES)/asahi/plasma-localerc $(HOME)/.config/plasma-localerc
+	@mkdir -p $(HOME)/.config/environment.d
+	@echo 'ELECTRON_OZONE_PLATFORM_HINT=auto' > $(HOME)/.config/environment.d/90-dms.conf
+	@echo 'TERMINAL=ghostty' >> $(HOME)/.config/environment.d/90-dms.conf
+	$(call create_symlink,$(DOTFILES)/wgetrc,$(HOME)/.wgetrc)
+	$(call create_symlink,$(DOTFILES)/curlrc,$(HOME)/.curlrc)
+	$(call create_symlink,$(DOTFILES)/tmux/tmux.conf,$(HOME)/.tmux.conf)
+	@mkdir -p $(HOME)/.claude
+	@ln -sfv $(HOME)/Nextcloud/Sync/AGENTS.md $(HOME)/.claude/CLAUDE.md
+	@ln -sfv $(HOME)/Nextcloud/Sync/claude_settings.json $(HOME)/.claude/settings.json
 	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
-	@mkdir -p $(HOME)/bin
-	@mkdir -p $(HOME)/.local/bin
 
 .PHONY: check
 check: ## Run Neovim health check

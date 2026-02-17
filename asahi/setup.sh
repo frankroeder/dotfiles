@@ -1,25 +1,25 @@
+#!/usr/bin/env bash
+# Bootstrap script for Asahi Linux (Fedora) with Dank Linux
+# Dank Linux provides: hyprland, DMS (Dank Material Shell), and desktop components
+
+set -euo pipefail
+
 DOTFILES="$HOME/.dotfiles"
-sudo dnf upgrade;
-curl -fsSL https://install.danklinux.com | sh;
-ln -sfv $DOTFILES/hypr $HOME/.config;
 
-mkdir -p $HOME/config
-mkdir -p $HOME/.zsh
-mkdir -p $HOME/tmp
-mkdir -p $HOME/.Trash
-mkdir -p $HOME/Downloads
-mkdir -p $HOME/bin
+# Install Dank Linux (Hyprland + DMS desktop)
+curl -fsSL https://install.danklinux.com | sh
 
-git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf && ~/.fzf/install --bin;
-sudo dnf install neovim uv cargo jq ffmpeg zsh ripgrep;
-touch $HOME/.localnvim.lua;
-ln -sfv $DOTFILES/nvim $HOME/.config;
+# Install system packages (must run before make targets that need zsh, neovim, uv)
+bash "$DOTFILES/asahi/dnf.sh"
 
-ln -sfv $DOTFILES/zsh/zshrc $HOME/.zshrc;
-ln -sfv $DOTFILES/zsh/zlogin $HOME/.zlogin;
-ln -sfv $DOTFILES/zsh/zshenv $HOME/.zshenv;
-ln -sfv $DOTFILES/zsh/zprofile $HOME/.zprofile;
-chsh -s "$(command -v zsh)"
-source $HOME/.zshrc
+# Install fzf
+if ! command -v fzf >/dev/null 2>&1; then
+  git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf && ~/.fzf/install --bin
+fi
 
+# Install Claude Code
 curl -fsSL https://claude.ai/install.sh | bash
+
+# Apply dotfiles
+cd "$DOTFILES"
+make asahi
