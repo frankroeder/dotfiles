@@ -140,15 +140,17 @@ fn + shift - 9  : yabai -m window --space 9
 fn + shift - n : yabai -m space --create && \
                   index="$(yabai -m query --spaces --display | jq 'map(select(."is-native-fullscreen" == false))[-1].index')" && \
                   yabai -m window --space "${index}" && \
-                  yabai -m space --focus "${index}"
+                  yabai -m space --focus "${index}"; \
+                  sketchybar-top --trigger layout_change
 
 # create space in background
 fn + shift + ctrl - n : yabai -m space --create && \
                 index="$(yabai -m query --spaces --display | jq 'map(select(."is-native-fullscreen" == false))[-1].index')" && \
-                yabai -m space --focus "${index}"
+                yabai -m space --focus "${index}"; \
+                sketchybar-top --trigger layout_change
 
 # destroy space
-fn + shift - q : yabai -m space --destroy
+fn + shift - q : yabai -m space --destroy; sketchybar-top --trigger layout_change
 
 #################
 #  SHIFT + ALT  #
