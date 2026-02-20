@@ -1,6 +1,8 @@
 local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
+local utils = require "utils"
+local popup_row_height = 24
 
 local timer_state = "stopped" -- stopped, running, finished
 local remaining_time = 0
@@ -71,17 +73,14 @@ end)
 
 timer:subscribe("mouse.clicked", function(env)
   if env.BUTTON == "left" then
-    if timer_state ~= "stopped" then
-      stop_timer()
-    end
-    timer:set { popup = { drawing = "toggle" } }
+    utils.popup_toggle(timer)
   elseif env.BUTTON == "right" then
     stop_timer()
   end
 end)
 
 timer:subscribe("mouse.exited.global", function()
-  timer:set { popup = { drawing = false } }
+  utils.popup_hide(timer)
 end)
 
 local function create_timer_option(minutes)
@@ -93,6 +92,7 @@ local function create_timer_option(minutes)
       padding_left = 10,
       padding_right = 10,
     },
+    background = { height = popup_row_height },
   })
 
   option:subscribe("mouse.clicked", function()

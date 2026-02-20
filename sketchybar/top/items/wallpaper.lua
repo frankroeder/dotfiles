@@ -1,5 +1,6 @@
 local colors = require "colors"
 local settings = require "settings"
+local utils = require "utils"
 
 -- Configuration
 local PAGE_SIZE = 6
@@ -30,14 +31,15 @@ local wallpaper = sbar.add("item", "widgets.wallpaper", {
   },
   label = { drawing = false },
   background = {
-    color = colors.with_alpha(colors.purple, 0.4),
-    border_width = 0,
+    color = colors.with_alpha(colors.blue, 0.28),
+    border_width = 1,
+    border_color = colors.bg3,
   },
   popup = {
     align = "left",
     background = {
       border_width = 2,
-      border_color = colors.with_alpha(colors.purple, 0.5),
+      border_color = colors.with_alpha(colors.blue, 0.6),
       color = colors.bg1,
       corner_radius = 10,
       shadow = { drawing = true },
@@ -298,11 +300,11 @@ end
 
 wallpaper:subscribe("mouse.clicked", function(env)
   scan_wallpapers()
-  wallpaper:set { popup = { drawing = "toggle" } }
+  utils.popup_toggle(wallpaper)
 end)
 
 wallpaper:subscribe("mouse.exited.global", function(env)
-  wallpaper:set { popup = { drawing = false } }
+  utils.popup_hide(wallpaper)
 end)
 
 return wallpaper

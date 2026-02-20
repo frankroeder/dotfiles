@@ -2,6 +2,7 @@ local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
 local utils = require "utils"
+local popup_row_height = 24
 
 local mic = sbar.add("item", "widgets.mic", {
   position = "right",
@@ -40,7 +41,7 @@ local mic_slider = sbar.add("slider", "widgets.mic.slider", 100, {
       string = " ",
     },
   },
-  background = { color = colors.bg1, height = 2, y_offset = -20 },
+  background = { color = colors.bg1, height = popup_row_height, corner_radius = 6 },
 })
 
 local last_volume = 100
@@ -72,9 +73,10 @@ local mic_mute = sbar.add("item", {
   position = "popup.widgets.mic",
   align = "center",
   label = { string = "Toggle Mute", align = "center" },
-  width = 120,
+  width = 160,
   background = {
-    corner_radius = 5,
+    corner_radius = 6,
+    height = popup_row_height,
   },
 })
 

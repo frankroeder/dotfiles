@@ -2,6 +2,7 @@ local icons = require "icons"
 local colors = require "colors"
 local settings = require "settings"
 local utils = require "utils"
+local popup_row_height = 24
 
 -- Cache for expensive system_profiler calls
 local profiler_cache = { data = nil, timestamp = 0 }
@@ -31,6 +32,7 @@ local remaining_time = sbar.add("item", {
     string = "??:??h",
     padding_right = 11,
   },
+  background = { height = popup_row_height },
 })
 
 local battery_health = sbar.add("item", {
@@ -44,6 +46,7 @@ local battery_health = sbar.add("item", {
     string = "Health: ???%",
     padding_right = 11,
   },
+  background = { height = popup_row_height },
 })
 
 local battery_cycles = sbar.add("item", {
@@ -57,6 +60,7 @@ local battery_cycles = sbar.add("item", {
     string = "Cycles: ???",
     padding_right = 11,
   },
+  background = { height = popup_row_height },
 })
 
 local power_wattage = sbar.add("item", {
@@ -70,6 +74,7 @@ local power_wattage = sbar.add("item", {
     string = "Watts: ???W",
     padding_right = 11,
   },
+  background = { height = popup_row_height },
   drawing = false,
 })
 

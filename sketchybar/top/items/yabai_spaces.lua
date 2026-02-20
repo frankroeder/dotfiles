@@ -49,10 +49,10 @@ for i, space_name in ipairs(static_names) do
     padding_left = -2,
     label = {
       string = "",
-      font = { family = settings.font.numbers, size = 9.0 },
-      color = colors.red,
+      font = { family = settings.font.numbers, size = 10.0 },
+      color = colors.orange,
       padding_left = 0,
-      padding_right = 2,
+      padding_right = 3,
       y_offset = 5,
     },
     background = {
@@ -81,8 +81,11 @@ for i, space_name in ipairs(static_names) do
     local selected = env.SELECTED == "true"
     space:set {
       icon = { highlight = selected },
-      label = { highlight = selected },
-      background = { border_color = selected and colors.transparent or colors.bg2 },
+      label = { highlight = selected, color = selected and colors.white or colors.grey },
+      background = {
+        border_color = selected and colors.transparent or colors.bg2,
+        color = selected and colors.bg2 or colors.pill_bg,
+      },
     }
     space_bracket:set {
       background = {
@@ -258,26 +261,31 @@ space_window_observer:subscribe("space_windows_change", function(env)
   end
 
   sbar.animate("tanh", settings.animation_duration, function()
-    spaces[env.INFO.space]:set { label = icon_line }
+    local space_index = env.INFO and env.INFO.space
+    if not space_index or not spaces[space_index] then
+      return
+    end
+
+    spaces[space_index]:set { label = icon_line }
 
     -- Dim empty spaces
-    if spaces[env.INFO.space] then
+    if spaces[space_index] then
       local is_empty = no_app
-      spaces[env.INFO.space]:set {
+      spaces[space_index]:set {
         icon = { color = is_empty and colors.grey or colors.white },
-        background = { color = is_empty and colors.bg1 or colors.pill_bg },
+        background = { color = is_empty and colors.with_alpha(colors.bg1, 0.9) or colors.pill_bg },
       }
     end
 
     -- Update window count
-    if space_window_counts[env.INFO.space] then
+    if space_window_counts[space_index] then
       if window_count > 0 then
-        space_window_counts[env.INFO.space]:set {
+        space_window_counts[space_index]:set {
           label = { string = tostring(window_count) },
           drawing = true,
         }
       else
-        space_window_counts[env.INFO.space]:set { drawing = false }
+        space_window_counts[space_index]:set { drawing = false }
       end
     end
   end)

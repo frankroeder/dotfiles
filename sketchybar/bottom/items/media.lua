@@ -2,6 +2,8 @@ local colors = require "colors"
 local settings = require "settings"
 local icons = require "icons"
 local app_icons = require "helpers.app_icons"
+local utils = require "utils"
+local popup_row_height = 24
 
 sbar.add("event", "music_change", "com.apple.Music.playerInfo")
 
@@ -59,8 +61,11 @@ local back = sbar.add("item", "widgets.media.back", {
     font = { size = 16.0 },
   },
   label = { drawing = false },
-  width = 120,
+  width = 90,
   align = "center",
+  background = {
+    height = popup_row_height,
+  },
 })
 
 back:subscribe("mouse.clicked", function()
@@ -74,8 +79,11 @@ local play = sbar.add("item", "widgets.media.play", {
     font = { size = 16.0 },
   },
   label = { drawing = false },
-  width = 120,
+  width = 90,
   align = "center",
+  background = {
+    height = popup_row_height,
+  },
 })
 
 play:subscribe("mouse.clicked", function()
@@ -89,8 +97,11 @@ local forward = sbar.add("item", "widgets.media.forward", {
     font = { size = 16.0 },
   },
   label = { drawing = false },
-  width = 120,
+  width = 90,
   align = "center",
+  background = {
+    height = popup_row_height,
+  },
 })
 
 forward:subscribe("mouse.clicked", function()
@@ -134,7 +145,11 @@ local function calculate_art_scale(width, height)
 end
 
 media:subscribe("mouse.clicked", function()
-  media:set { popup = { drawing = "toggle" } }
+  local should_draw = media:query().popup.drawing == "off"
+  media:set { popup = { drawing = should_draw } }
+  if not should_draw then
+    return
+  end
 
   sbar.exec("$CONFIG_DIR/helpers/get_album_art.sh", function(album_art_path)
     local art_path = album_art_path and album_art_path:gsub("%s+$", "") or ""
@@ -172,5 +187,5 @@ media:subscribe("mouse.clicked", function()
 end)
 
 media:subscribe("mouse.exited.global", function()
-  media:set { popup = { drawing = false } }
+  utils.popup_hide(media)
 end)

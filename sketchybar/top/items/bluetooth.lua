@@ -4,6 +4,7 @@ local settings = require "settings"
 local utils = require "utils"
 
 sbar.add("event", "bt_device", "com.apple.bluetooth.status")
+local popup_row_height = 24
 
 local bluetooth = sbar.add("item", "widgets.bluetooth", {
   position = "right",
@@ -74,10 +75,8 @@ local function update()
               local address = info.device_address or "??"
               local firmware = info.device_firmwareVersion
 
-              -- Start with Name
               local display_label = name
 
-              -- Battery Logic
               local battery_info = ""
               if battery_left and battery_right then
                 battery_info = string.format(" (L %s, R %s)", battery_left, battery_right)
@@ -88,15 +87,12 @@ local function update()
               end
               display_label = display_label .. battery_info
 
-              -- RSSI
               if rssi then
                 display_label = display_label .. " (" .. rssi .. " dBm)"
               end
 
-              -- Type and Address
               display_label = display_label .. string.format(" - %s @%s", minor_type, address)
 
-              -- Firmware
               if firmware then
                 display_label = display_label .. ' Version: "' .. firmware .. '"'
               end
@@ -123,7 +119,7 @@ local function update()
                   font = { size = 16.0 },
                 },
                 background = {
-                  height = 24,
+                  height = popup_row_height,
                 },
               })
               table.insert(popup_items, item)
