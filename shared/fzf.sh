@@ -124,7 +124,7 @@ fkill() {
         --reverse \
         --header-lines=1 \
         --preview 'ps -p {2} -ww -f' \
-        --preview-window='right:50%:wrap' \
+        --preview-window='down:50%:wrap' \
         | awk '{print $2}')
 
     # 3. Kill Logic
