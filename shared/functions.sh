@@ -266,3 +266,20 @@ lpath() {
 catcsv() {
   cat "$1"  | column -t -s,
 }
+
+topllm() {
+  URL="https://api.zeroeval.com/leaderboard/models/full?justCanonicals=true"
+  DATA=$(curl -s "$URL")
+  SCORES=("hle_score" "gpqa_score" "swe_bench_verified_score" "mmmlu_score")
+  for field in "${SCORES[@]}"; do
+    echo "Top 10 by $field:"
+    echo "$DATA" | jq -r --arg field "$field" '
+    sort_by( .[$field] // -1e9 )
+    | reverse
+    | .[:10]
+    | to_entries[]
+    | "\(.key+1). \(.value.name // .value.model_id) (\(.value.organization // "N/A")) — \($field): \(.value[$field] // "null")"
+    '
+    echo ""
+  done
+}

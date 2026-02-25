@@ -92,6 +92,9 @@ misc() {
   if [ $commands[uv] ] && [ "$OSTYPE" = "Linux" ]; then
     uv self update;
   fi
+  if [ $commands[sketchybar] ]; then
+    bash $DOTFILES/scripts/sketchybar_app_font.sh;
+  fi
 }
 
 run(){
