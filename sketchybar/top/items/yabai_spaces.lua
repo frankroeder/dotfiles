@@ -232,17 +232,26 @@ space_window_observer:subscribe("space_windows_change", function(env)
   local icon_line = ""
   local no_app = true
   local window_count = 0
+  local app_names = {}
+  local app_icon_list = {}
 
-  for app, count in pairs(env.INFO.apps) do
+  for app, count in pairs(env.INFO.apps or {}) do
     no_app = false
     window_count = window_count + count
+    table.insert(app_names, app)
+  end
+
+  table.sort(app_names)
+  for _, app in ipairs(app_names) do
     local lookup = app_icons[app]
     local icon = ((lookup == nil) and app_icons["Default"] or lookup)
-    icon_line = icon_line .. icon
+    table.insert(app_icon_list, icon)
   end
 
   if no_app then
     icon_line = "—"
+  else
+    icon_line = table.concat(app_icon_list, " ")
   end
 
   sbar.animate("tanh", settings.animation_duration, function()
@@ -251,7 +260,7 @@ space_window_observer:subscribe("space_windows_change", function(env)
       return
     end
 
-    spaces[space_index]:set { label = icon_line }
+    spaces[space_index]:set { label = { string = icon_line } }
 
     -- Dim empty spaces
     if spaces[space_index] then
