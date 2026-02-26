@@ -2,6 +2,7 @@ local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
 local app_icons = require "helpers.app_icons"
+local ui = require "ui"
 
 sbar.add("event", "layout_change")
 sbar.add("event", "property_change")
@@ -19,22 +20,22 @@ for i, space_name in ipairs(static_names) do
       string = space_name,
       padding_left = 6,
       padding_right = 6,
-      color = colors.white,
-      highlight_color = settings.spaces.highlight_color,
+      color = settings.theme.text_primary,
+      highlight_color = settings.theme.accent,
     },
     label = {
       padding_right = 6,
-      color = colors.grey,
-      highlight_color = colors.white,
+      color = settings.theme.text_muted,
+      highlight_color = settings.theme.text_primary,
       font = "sketchybar-app-font:Regular:16.0",
     },
     padding_right = settings.spaces.padding,
     padding_left = settings.spaces.padding,
-    background = {
-      color = colors.pill_bg,
-      border_width = 1,
-      height = 26,
-      border_color = colors.bg2,
+    background = ui.capsule {
+      color = settings.theme.surface_alt,
+      border_color = settings.theme.border,
+      height = 28,
+      corner_radius = 8,
     },
     -- click_script = "yabai -m space --focus " .. i,
   })
@@ -50,7 +51,7 @@ for i, space_name in ipairs(static_names) do
     label = {
       string = "",
       font = { family = settings.font.numbers, size = 10.0 },
-      color = colors.orange,
+      color = settings.theme.warn,
       padding_left = 0,
       padding_right = 3,
       y_offset = 5,
@@ -63,33 +64,17 @@ for i, space_name in ipairs(static_names) do
 
   space_window_counts[i] = window_count
 
-  -- Single item bracket for space items to achieve double border on highlight
-  local space_bracket = sbar.add(
-    "bracket",
-    { "widgets.space." .. i, "widgets.space.count." .. i },
-    {
-      background = {
-        color = colors.transparent,
-        border_color = colors.transparent,
-        height = 28,
-        border_width = 2,
-      },
-    }
-  )
-
   space:subscribe("space_change", function(env)
     local selected = env.SELECTED == "true"
     space:set {
       icon = { highlight = selected },
-      label = { highlight = selected, color = selected and colors.white or colors.grey },
-      background = {
-        border_color = selected and colors.transparent or colors.bg2,
-        color = selected and colors.bg2 or colors.pill_bg,
+      label = {
+        highlight = selected,
+        color = selected and settings.theme.text_primary or settings.theme.text_muted,
       },
-    }
-    space_bracket:set {
       background = {
-        border_color = selected and settings.spaces.highlight_color or colors.transparent,
+        border_color = selected and colors.with_alpha(settings.theme.accent, 0.55) or settings.theme.border,
+        color = selected and settings.theme.surface_active or settings.theme.surface_alt,
       },
     }
   end)
@@ -112,11 +97,11 @@ local space_layout = sbar.add("item", "widgets.yabai_layout", {
   label = {
     string = "",
     padding_right = 8,
+    color = settings.theme.text_muted,
   },
-  background = {
-    color = colors.bg1,
-    border_width = 2,
-    border_color = colors.magenta,
+  background = ui.capsule {
+    color = settings.theme.surface_alt,
+    border_color = colors.with_alpha(settings.theme.accent_alt, 0.45),
   },
 })
 
@@ -272,8 +257,8 @@ space_window_observer:subscribe("space_windows_change", function(env)
     if spaces[space_index] then
       local is_empty = no_app
       spaces[space_index]:set {
-        icon = { color = is_empty and colors.grey or colors.white },
-        background = { color = is_empty and colors.with_alpha(colors.bg1, 0.9) or colors.pill_bg },
+        icon = { color = is_empty and settings.theme.text_muted or settings.theme.text_primary },
+        background = { color = is_empty and colors.with_alpha(settings.theme.surface, 0.42) or settings.theme.surface_alt },
       }
     end
 

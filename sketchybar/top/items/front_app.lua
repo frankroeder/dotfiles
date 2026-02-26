@@ -1,6 +1,7 @@
 local colors = require "colors"
 local settings = require "settings"
 local app_icons = require "helpers.app_icons"
+local ui = require "ui"
 
 local LARGE_SCREEN_WIDTH = settings.large_screen_width
 
@@ -8,23 +9,21 @@ local front_app = sbar.add("item", "widgets.front_app", {
   display = "active",
   position = "left",
   icon = {
-    background = {
-      drawing = true,
-      image = {
-        scale = 1.1,
-      },
-    },
+    color = settings.theme.text_primary,
+    padding_left = 10,
+    padding_right = 2,
   },
   label = {
-    padding_left = 10,
+    padding_left = 8,
     padding_right = 10,
     font = {
-      style = settings.font.style_map["Bold"],
-      size = 16.0,
+      style = settings.font.style_map["Semibold"],
+      size = 15.0,
     },
   },
-  background = {
-    drawing = false,
+  background = ui.capsule {
+    color = settings.theme.surface_alt,
+    border_color = colors.with_alpha(settings.theme.accent, 0.42),
   },
   click_script = "open -a 'Mission Control'",
   updates = true,
@@ -58,7 +57,7 @@ front_app:subscribe("front_app_switched", function(env)
       label = { string = env.INFO },
       icon = {
         string = icon,
-        background = { drawing = false },
+        color = settings.theme.text_primary,
         font = "sketchybar-app-font:Regular:22.0",
       },
     }

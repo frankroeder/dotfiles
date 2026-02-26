@@ -1,5 +1,5 @@
 local settings = require "settings"
-local colors = require "colors"
+local ui = require "ui"
 require "siri"
 require "lock"
 
@@ -9,9 +9,9 @@ sbar.default {
     font = {
       family = settings.font.text,
       style = settings.font.style_map["Bold"],
-      size = 14.0,
+      size = settings.ui.icon_size,
     },
-    color = colors.white,
+    color = settings.theme.text_primary,
     padding_left = settings.paddings,
     padding_right = settings.paddings,
   },
@@ -19,35 +19,18 @@ sbar.default {
     font = {
       family = settings.font.text,
       style = settings.font.style_map["Regular"],
-      size = 13.0,
+      size = settings.ui.label_size,
     },
-    color = colors.white,
-    padding_left = settings.paddings,
-    padding_right = settings.paddings,
+    color = settings.theme.text_primary,
+    padding_left = settings.ui.label_padding,
+    padding_right = settings.ui.label_padding,
   },
-  background = {
-    padding_left = 4,
-    padding_right = 4,
-    height = 30,
-    corner_radius = 10,
-    border_width = 1,
-    border_color = colors.bg2,
-    color = colors.pill_bg,
-    drawing = true,
-    image = {
-      corner_radius = 9,
-      border_color = colors.grey,
-      border_width = 1,
-    },
+  background = ui.capsule {
+    color = settings.theme.surface,
+    border_color = settings.theme.border,
   },
   popup = {
-    background = {
-      border_width = 1,
-      corner_radius = 9,
-      border_color = colors.popup.border,
-      color = colors.popup.bg,
-      shadow = { drawing = true },
-    },
+    background = ui.popup(settings.theme.popup_border),
     blur_radius = 20,
   },
   padding_left = 2,

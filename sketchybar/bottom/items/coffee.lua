@@ -1,6 +1,7 @@
 local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
+local ui = require "ui"
 
 local coffee = sbar.add("item", "widgets.coffee", {
   position = "left",
@@ -15,6 +16,10 @@ local coffee = sbar.add("item", "widgets.coffee", {
     },
   },
   label = { drawing = false },
+  background = ui.capsule {
+    color = settings.theme.surface_alt,
+    border_color = settings.theme.border,
+  },
 })
 
 local function update_coffee()

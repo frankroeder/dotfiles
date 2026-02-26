@@ -1,6 +1,7 @@
 local colors = require "colors"
 local settings = require "settings"
 local utils = require "utils"
+local ui = require "ui"
 
 -- Configuration
 local PAGE_SIZE = 6
@@ -23,27 +24,20 @@ local wallpaper = sbar.add("item", "widgets.wallpaper", {
     string = "􀵪 ",
     font = {
       style = settings.font.style_map["Regular"],
-      size = 20.0,
+      size = 18.0,
     },
-    color = colors.white,
+    color = settings.theme.text_primary,
     drawing = true,
     padding_right = 8,
   },
   label = { drawing = false },
-  background = {
-    color = colors.with_alpha(colors.blue, 0.28),
-    border_width = 1,
-    border_color = colors.bg3,
+  background = ui.capsule {
+    color = settings.theme.surface_alt,
+    border_color = colors.with_alpha(settings.theme.accent, 0.45),
   },
   popup = {
     align = "left",
-    background = {
-      border_width = 2,
-      border_color = colors.with_alpha(colors.blue, 0.6),
-      color = colors.bg1,
-      corner_radius = 10,
-      shadow = { drawing = true },
-    },
+    background = ui.popup(settings.theme.accent),
   },
 })
 
@@ -100,7 +94,11 @@ local nav_prev = sbar.add("item", "wallpaper.nav.prev", {
   label = { string = "Prev", color = colors.white, font = { size = 12.0 } },
   width = POPUP_WIDTH / 2,
   align = "center",
-  background = { color = colors.transparent, corner_radius = 6, height = 28 },
+  background = {
+    color = colors.with_alpha(settings.theme.surface_alt, 0.56),
+    corner_radius = 6,
+    height = 28,
+  },
 })
 
 local nav_next = sbar.add("item", "wallpaper.nav.next", {
@@ -110,7 +108,11 @@ local nav_next = sbar.add("item", "wallpaper.nav.next", {
   label = { string = "Next", color = colors.white, font = { size = 12.0 } },
   width = POPUP_WIDTH / 2,
   align = "center",
-  background = { color = colors.transparent, corner_radius = 6, height = 28 },
+  background = {
+    color = colors.with_alpha(settings.theme.surface_alt, 0.56),
+    corner_radius = 6,
+    height = 28,
+  },
 })
 
 local page_indicator = sbar.add("item", "wallpaper.page_indicator", {

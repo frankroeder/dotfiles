@@ -2,13 +2,14 @@ local icons = require "icons"
 local colors = require "colors"
 local settings = require "settings"
 local utils = require "utils"
+local ui = require "ui"
 
 local gpu = sbar.add("graph", "widgets.gpu", 80, {
   position = "right",
-  graph = { color = colors.with_alpha(colors.blue, 0.5) },
+  graph = { color = colors.with_alpha(settings.theme.accent, 0.40) },
   icon = {
     string = icons.gpu,
-    color = colors.blue,
+    color = settings.theme.accent,
     padding_left = 4,
     y_offset = 0,
   },
@@ -22,12 +23,17 @@ local gpu = sbar.add("graph", "widgets.gpu", 80, {
     padding_right = 4,
     y_offset = 8,
   },
+  background = ui.capsule {
+    color = settings.theme.surface_alt,
+    border_color = colors.with_alpha(settings.theme.accent, 0.42),
+  },
 })
 
 local ram_g = sbar.add("graph", "widgets.ram", 108, {
   position = "right",
   icon = {
     string = icons.ram,
+    color = settings.theme.warn,
     padding_left = 4,
     y_offset = 0,
   },
@@ -43,6 +49,10 @@ local ram_g = sbar.add("graph", "widgets.ram", 108, {
   },
   background = {
     drawing = true,
+    color = settings.theme.surface_alt,
+    border_width = 0,
+    corner_radius = settings.ui.item_corner_radius,
+    height = settings.ui.item_height,
   },
 })
 
@@ -50,6 +60,7 @@ local cpu = sbar.add("graph", "widgets.cpu", 138, {
   position = "right",
   icon = {
     string = icons.cpu,
+    color = settings.theme.accent_alt,
     padding_left = 4,
     y_offset = 0,
   },
@@ -65,6 +76,10 @@ local cpu = sbar.add("graph", "widgets.cpu", 138, {
   },
   background = {
     drawing = true,
+    color = settings.theme.surface_alt,
+    border_width = 0,
+    corner_radius = settings.ui.item_corner_radius,
+    height = settings.ui.item_height,
   },
   update_freq = settings.hardware.update_freq,
 })
@@ -83,7 +98,7 @@ local power = sbar.add("item", "widgets.power", {
   position = "right",
   icon = {
     string = icons.power,
-    color = colors.yellow,
+    color = settings.theme.warn,
     padding_left = 2,
     padding_right = -1,
   },
@@ -95,6 +110,10 @@ local power = sbar.add("item", "widgets.power", {
     padding_right = 3,
   },
   padding_right = 23,
+  background = ui.capsule {
+    color = settings.theme.surface_alt,
+    border_color = colors.with_alpha(settings.theme.warn, 0.45),
+  },
 })
 
 cpu:subscribe("routine", function(env)

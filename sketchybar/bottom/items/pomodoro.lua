@@ -2,7 +2,8 @@ local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
 local utils = require "utils"
-local popup_row_height = 24
+local ui = require "ui"
+local popup_row_height = settings.ui.popup_row_height
 
 local timer_state = "stopped" -- stopped, running, finished
 local remaining_time = 0
@@ -24,6 +25,10 @@ local timer = sbar.add("item", "widgets.timer", {
   },
   popup = {
     align = "center",
+  },
+  background = ui.capsule {
+    color = settings.theme.surface_alt,
+    border_color = colors.with_alpha(settings.theme.warn, 0.42),
   },
 })
 
@@ -92,7 +97,12 @@ local function create_timer_option(minutes)
       padding_left = 10,
       padding_right = 10,
     },
-    background = { height = popup_row_height },
+    background = {
+      height = popup_row_height,
+      color = colors.with_alpha(settings.theme.surface_alt, 0.60),
+      border_width = 0,
+      corner_radius = 6,
+    },
   })
 
   option:subscribe("mouse.clicked", function()

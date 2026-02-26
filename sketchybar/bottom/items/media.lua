@@ -3,7 +3,7 @@ local settings = require "settings"
 local icons = require "icons"
 local app_icons = require "helpers.app_icons"
 local utils = require "utils"
-local popup_row_height = 24
+local popup_row_height = settings.ui.popup_row_height
 
 sbar.add("event", "music_change", "com.apple.Music.playerInfo")
 
@@ -26,6 +26,8 @@ local media = sbar.add("item", "widgets.media", {
   updates = true,
   background = {
     drawing = true,
+    color = settings.theme.surface_alt,
+    border_width = 0,
   },
   popup = {
     align = "center",
@@ -50,7 +52,7 @@ local album_art = sbar.add("item", "widgets.media.art", {
     drawing = false,
     height = 120,
     corner_radius = 8,
-    color = colors.bg,
+    color = settings.theme.surface_alt,
   },
 })
 
@@ -65,6 +67,9 @@ local back = sbar.add("item", "widgets.media.back", {
   align = "center",
   background = {
     height = popup_row_height,
+    color = colors.with_alpha(settings.theme.surface_alt, 0.60),
+    border_width = 0,
+    corner_radius = 6,
   },
 })
 
@@ -83,6 +88,9 @@ local play = sbar.add("item", "widgets.media.play", {
   align = "center",
   background = {
     height = popup_row_height,
+    color = colors.with_alpha(settings.theme.surface_alt, 0.60),
+    border_width = 0,
+    corner_radius = 6,
   },
 })
 
@@ -101,6 +109,9 @@ local forward = sbar.add("item", "widgets.media.forward", {
   align = "center",
   background = {
     height = popup_row_height,
+    color = colors.with_alpha(settings.theme.surface_alt, 0.60),
+    border_width = 0,
+    corner_radius = 6,
   },
 })
 

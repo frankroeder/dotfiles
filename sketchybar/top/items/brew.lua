@@ -1,7 +1,8 @@
 local icons = require "icons"
 local colors = require "colors"
 local settings = require "settings"
-local popup_row_height = 24
+local ui = require "ui"
+local popup_row_height = settings.ui.popup_row_height
 
 local brew = sbar.add("item", "widgets.brew", {
   position = "right",
@@ -26,6 +27,10 @@ local brew = sbar.add("item", "widgets.brew", {
   popup = {
     align = "right",
     height = 30,
+  },
+  background = ui.capsule {
+    color = settings.theme.surface_alt,
+    border_color = colors.with_alpha(settings.theme.warn, 0.42),
   },
 })
 

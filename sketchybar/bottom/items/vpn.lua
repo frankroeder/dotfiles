@@ -1,6 +1,7 @@
 local settings = require "settings"
 local colors = require "colors"
 local icons = require "icons"
+local ui = require "ui"
 
 sbar.add("event", "network_change", "com.apple.networkConnect")
 
@@ -24,7 +25,10 @@ local vpn_item = sbar.add("item", "widgets.vpn", {
     },
   },
   drawing = false,
-  background = {},
+  background = ui.capsule {
+    color = settings.theme.surface_alt,
+    border_color = colors.with_alpha(settings.theme.accent_alt, 0.42),
+  },
   click_script = "open 'x-apple.systempreferences:com.apple.preference.vpn'",
 })
 

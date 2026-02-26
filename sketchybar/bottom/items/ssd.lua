@@ -2,6 +2,7 @@ local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
 local utils = require "utils"
+local ui = require "ui"
 
 local icon_thresholds = {
   { min = 98, icon = icons.disk["98"] },
@@ -34,8 +35,9 @@ local ssd_volume = sbar.add("item", "widgets.ssd.volume", {
     string = "...%",
   },
   update_freq = 600,
-  background = {
-    drawing = true,
+  background = ui.capsule {
+    color = settings.theme.surface_alt,
+    border_color = colors.with_alpha(settings.theme.warn, 0.45),
   },
 })
 

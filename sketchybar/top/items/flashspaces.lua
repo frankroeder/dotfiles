@@ -79,9 +79,8 @@ for workspace_index, workspace_name in ipairs(parse_string_to_table(wspaces)) do
     },
     background = {
       color = colors.bg2,
-      border_width = 1,
+      border_width = 0,
       height = 24,
-      border_color = colors.black,
     },
     padding_right = -4,
     click_script = "/usr/local/bin/flashspace workspace --name " .. workspace_name,
@@ -99,7 +98,7 @@ for workspace_index, workspace_name in ipairs(parse_string_to_table(wspaces)) do
       workspace:set {
         icon = { highlight = is_focused },
         label = { highlight = is_focused },
-        background = { border_color = is_focused and colors.orange or colors.bg2 },
+        background = { color = is_focused and colors.with_alpha(colors.orange, 0.18) or colors.bg2 },
       }
     end)
   end)

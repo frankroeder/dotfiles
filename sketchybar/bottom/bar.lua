@@ -1,4 +1,3 @@
-local colors = require "colors"
 local settings = require "settings"
 
 sbar.bar {
@@ -6,8 +5,10 @@ sbar.bar {
   position = "bottom",
   padding_right = settings.bar_padding,
   padding_left = settings.bar_padding,
-  color = settings.bar_color,
-  border_color = settings.bar_border_color,
+  color = settings.theme.bar,
+  border_color = settings.theme.bar_border,
+  border_width = settings.bar_border_width,
+  blur_radius = settings.bar_blur_radius,
   margin = settings.bar_margin,
   corner_radius = settings.bar_corner_radius,
   topmost = "off",

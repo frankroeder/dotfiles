@@ -2,13 +2,14 @@ local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
 local utils = require "utils"
-local popup_row_height = 24
+local ui = require "ui"
+local popup_row_height = settings.ui.popup_row_height
 
 local mic = sbar.add("item", "widgets.mic", {
   position = "right",
   icon = {
     string = icons.mic.off,
-    color = colors.purple,
+    color = settings.theme.accent_alt,
     padding_left = 8,
     padding_right = 8,
     font = {
@@ -19,18 +20,22 @@ local mic = sbar.add("item", "widgets.mic", {
   label = {
     string = "??%",
     font = {
-      style = settings.font.style_map["Bold"],
-      size = 14.0,
+      style = settings.font.style_map["Semibold"],
+      size = 13.0,
     },
     padding_right = 8,
-    color = colors.white,
+    color = settings.theme.text_primary,
+  },
+  background = ui.capsule {
+    color = settings.theme.surface_alt,
+    border_color = colors.with_alpha(settings.theme.accent_alt, 0.45),
   },
 })
 
 local mic_slider = sbar.add("slider", "widgets.mic.slider", 100, {
   position = "popup.widgets.mic",
   slider = {
-    highlight_color = colors.purple,
+    highlight_color = settings.theme.accent_alt,
     background = {
       height = 6,
       corner_radius = 3,
@@ -41,7 +46,12 @@ local mic_slider = sbar.add("slider", "widgets.mic.slider", 100, {
       string = " ",
     },
   },
-  background = { color = colors.bg1, height = popup_row_height, corner_radius = 6 },
+  background = {
+    color = settings.theme.surface_alt,
+    height = popup_row_height,
+    corner_radius = 6,
+    border_width = 0,
+  },
 })
 
 local last_volume = 100
@@ -59,7 +69,7 @@ local function update()
       mic:set {
         icon = {
           string = icon,
-          color = is_muted and colors.red or colors.purple,
+          color = is_muted and settings.theme.critical or settings.theme.accent_alt,
         },
         label = { string = is_muted and "Muted" or volume .. "%" },
       }
@@ -75,6 +85,8 @@ local mic_mute = sbar.add("item", {
   label = { string = "Toggle Mute", align = "center" },
   width = 160,
   background = {
+    color = colors.with_alpha(settings.theme.surface_alt, 0.60),
+    border_width = 0,
     corner_radius = 6,
     height = popup_row_height,
   },

@@ -2,11 +2,12 @@ local icons = require "icons"
 local colors = require "colors"
 local settings = require "settings"
 local utils = require "utils"
+local ui = require "ui"
 
 local interface = utils.get_wifi_interface()
 local popup_width = 280
 local row_width = popup_width / 2
-local popup_row_height = 24
+local popup_row_height = settings.ui.popup_row_height
 
 local wifi = sbar.add("item", "widgets.wifi", {
   position = "right",
@@ -43,7 +44,7 @@ local ssid = sbar.add("item", {
   },
   background = {
     height = 2,
-    color = colors.grey,
+    color = settings.theme.border,
     y_offset = -15,
   },
 })
@@ -61,7 +62,7 @@ local hostname = sbar.add("item", {
     width = row_width,
     align = "right",
   },
-  background = { height = popup_row_height },
+  background = ui.popup_row(popup_row_height),
 })
 
 local ip = sbar.add("item", {
@@ -76,7 +77,7 @@ local ip = sbar.add("item", {
     width = row_width,
     align = "right",
   },
-  background = { height = popup_row_height },
+  background = ui.popup_row(popup_row_height),
 })
 
 local mask = sbar.add("item", {
@@ -91,7 +92,7 @@ local mask = sbar.add("item", {
     width = row_width,
     align = "right",
   },
-  background = { height = popup_row_height },
+  background = ui.popup_row(popup_row_height),
 })
 
 local router = sbar.add("item", {
@@ -106,7 +107,7 @@ local router = sbar.add("item", {
     width = row_width,
     align = "right",
   },
-  background = { height = popup_row_height },
+  background = ui.popup_row(popup_row_height),
 })
 
 wifi:subscribe({ "wifi_change", "system_woke" }, function(env)

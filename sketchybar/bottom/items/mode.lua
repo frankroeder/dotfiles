@@ -1,6 +1,7 @@
 local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
+local ui = require "ui"
 
 local mode = sbar.add("item", "widgets.mode", {
   position = "left",
@@ -15,6 +16,10 @@ local mode = sbar.add("item", "widgets.mode", {
     },
   },
   label = { drawing = false },
+  background = ui.capsule {
+    color = settings.theme.surface_alt,
+    border_color = colors.with_alpha(settings.theme.warn, 0.42),
+  },
 })
 
 mode:subscribe({ "routine", "system_woke", "forced" }, function()

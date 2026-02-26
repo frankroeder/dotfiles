@@ -2,9 +2,10 @@ local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
 local utils = require "utils"
+local ui = require "ui"
 
 sbar.add("event", "bt_device", "com.apple.bluetooth.status")
-local popup_row_height = 24
+local popup_row_height = settings.ui.popup_row_height
 
 local bluetooth = sbar.add("item", "widgets.bluetooth", {
   position = "right",
@@ -23,6 +24,10 @@ local bluetooth = sbar.add("item", "widgets.bluetooth", {
   },
   popup = {
     align = "right",
+  },
+  background = ui.capsule {
+    color = settings.theme.surface_alt,
+    border_color = colors.with_alpha(settings.theme.accent, 0.42),
   },
 })
 
