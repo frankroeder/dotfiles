@@ -6,12 +6,6 @@ local ui = require "ui"
 local cal = sbar.add("item", "widgets.calendar", {
   position = "right",
   update_freq = 30,
-  icon = {
-    string = icons.calendar,
-    color = settings.theme.text_muted,
-    padding_left = 8,
-    padding_right = 4,
-  },
   label = {
     color = settings.theme.text_primary,
     padding_right = 8,
