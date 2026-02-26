@@ -42,7 +42,6 @@ for i, space_name in ipairs(static_names) do
 
   spaces[i] = space
 
-  -- window count indicator
   local window_count = sbar.add("item", "widgets.space.count." .. i, {
     icon = {
       drawing = false,
@@ -64,6 +63,19 @@ for i, space_name in ipairs(static_names) do
 
   space_window_counts[i] = window_count
 
+  local space_bracket = sbar.add(
+    "bracket",
+    { "widgets.space." .. i, "widgets.space.count." .. i },
+    {
+      background = {
+        color = colors.transparent,
+        border_color = colors.transparent,
+        height = 32,
+        border_width = 2,
+      },
+    }
+  )
+
   space:subscribe("space_change", function(env)
     local selected = env.SELECTED == "true"
     space:set {
@@ -73,8 +85,13 @@ for i, space_name in ipairs(static_names) do
         color = selected and settings.theme.text_primary or settings.theme.text_muted,
       },
       background = {
-        border_color = selected and colors.with_alpha(settings.theme.accent, 0.55) or settings.theme.border,
+        border_color = selected and colors.transparent or settings.theme.border,
         color = selected and settings.theme.surface_active or settings.theme.surface_alt,
+      },
+    }
+    space_bracket:set {
+      background = {
+        border_color = selected and settings.theme.accent or colors.transparent,
       },
     }
   end)
@@ -111,7 +128,6 @@ local function updateLayout()
       return
     end
 
-    -- Update display for all spaces
     for _, s in ipairs(spaces_data) do
       local idx = s.index
       local disp = tonumber(s.display)
@@ -121,7 +137,6 @@ local function updateLayout()
       end
     end
 
-    -- Find focused space for layout indicator
     local focused_space
     for _, s in ipairs(spaces_data) do
       if s["has-focus"] then
@@ -255,23 +270,16 @@ space_window_observer:subscribe("space_windows_change", function(env)
   end
 
   sbar.animate("tanh", settings.animation_duration, function()
-    local space_index = env.INFO and env.INFO.space
+    local space_index = tonumber(env.INFO and env.INFO.space)
     if not space_index or not spaces[space_index] then
       return
     end
 
-    spaces[space_index]:set { label = { string = icon_line } }
+    spaces[space_index]:set {
+      label = { string = icon_line },
+      icon = { color = no_app and settings.theme.text_muted or settings.theme.text_primary },
+    }
 
-    -- Dim empty spaces
-    if spaces[space_index] then
-      local is_empty = no_app
-      spaces[space_index]:set {
-        icon = { color = is_empty and settings.theme.text_muted or settings.theme.text_primary },
-        background = { color = is_empty and colors.with_alpha(settings.theme.surface, 0.42) or settings.theme.surface_alt },
-      }
-    end
-
-    -- Update window count
     if space_window_counts[space_index] then
       if window_count > 0 then
         space_window_counts[space_index]:set {

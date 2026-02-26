@@ -1,5 +1,5 @@
 require "items.yabai_spaces"
-local settings = require("settings")
+local settings = require "settings"
 -- Add padding between spaces and front app
 sbar.add("item", {
   position = "left",

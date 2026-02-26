@@ -68,8 +68,10 @@ local network_down = sbar.add("item", "widgets.network_down", {
 })
 
 network_up:subscribe("network_update", function(env)
-  local up_color = (env.upload == "000 Bps") and settings.theme.text_muted or settings.theme.critical
-  local down_color = (env.download == "000 Bps") and settings.theme.text_muted or settings.theme.accent
+  local up_color = (env.upload == "000 Bps") and settings.theme.text_muted
+    or settings.theme.critical
+  local down_color = (env.download == "000 Bps") and settings.theme.text_muted
+    or settings.theme.accent
   network_up:set {
     icon = { color = up_color },
     label = {
