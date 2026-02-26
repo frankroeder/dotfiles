@@ -39,7 +39,7 @@ del() {
 
   # Use ~/.Trash for both macOS and Linux
   trash_dir="$HOME/.Trash"
-  mkdir -p "$trash_dir"
+  command mkdir -p "$trash_dir" || return 1
 
   echo -n "Do you wish to move the following files to the trash: $@ (y/n)? "
   read -r answer

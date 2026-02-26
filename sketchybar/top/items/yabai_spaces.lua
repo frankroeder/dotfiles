@@ -209,7 +209,7 @@ local window_properties = sbar.add("item", "widgets.yabai_property", {
 })
 
 local function updateWindowProperties()
-  sbar.exec("yabai -m query --windows --window", function(window)
+  sbar.exec("yabai -m query --windows --window 2>/dev/null", function(window)
     if not window then
       window_properties:set { drawing = false }
       return
