@@ -32,7 +32,7 @@ retry() {
 
 # Move to trash with confirmation and undo support
 del() {
-  local path
+  local item
   local files=""
   local dst
   local trash_dir
@@ -47,20 +47,20 @@ del() {
   if [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
     echo "Yes"
 
-    for path in "$@"; do
+    for item in "$@"; do
       # Skip if it's a flag
-      if [ "${path#-}" != "$path" ]; then
+      if [ "${item#-}" != "$item" ]; then
         continue
       fi
 
-      dst="${path##*/}"
+      dst="${item##*/}"
 
       # Append random suffix if file exists in trash
       while [ -e "$trash_dir/$dst" ]; do
         dst="${dst}_${RANDOM}"
       done
 
-      /bin/mv -fv "$path" "$trash_dir/$dst"
+      /bin/mv -fv "$item" "$trash_dir/$dst"
 
       # Build space-separated list of files
       if [ -z "$files" ]; then
