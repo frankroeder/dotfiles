@@ -117,26 +117,37 @@ local power = sbar.add("item", "widgets.power", {
 })
 
 cpu:subscribe("routine", function(env)
-  sbar.exec(settings.hardware.macmon_path .. " pipe -s 1", function(output)
+  sbar.exec(settings.hardware.silistats_path .. " --once", function(output)
     if
       not output
-      or not output.ecpu_usage
-      or not output.pcpu_usage
-      or not output.temp
+      or not output.usage.ecpu.active_percent
+      or not output.usage.pcpu.active_percent
+      or not output.temperature
       or not output.memory
-      or not output.gpu_usage
+      or not output.usage.gpu.active_percent
     then
       return
     end
-    local ecpu_val = math.floor(output.ecpu_usage[2] * 100)
-    local pcpu_val = math.floor(output.pcpu_usage[2] * 100)
-    local cpu_temp = output.temp.cpu_temp_avg
-    local ram_total = output.memory.ram_total
-    local ram_used = output.memory.ram_usage
-    local swap_total = output.memory.swap_total
-    local swap_used = output.memory.swap_usage
-    local gpu_used = math.floor(output.gpu_usage[2] * 100)
-    local gpu_temp = output.temp.gpu_temp_avg
+    local ecpu_val = math.floor(output.usage.ecpu.active_percent)
+    local pcpu_val = math.floor(output.usage.pcpu.active_percent)
+    local cpu_temp = output.temperature.cpu_avg_c
+    local ram_total = output.memory.ram_gb_total
+    local ram_used = output.memory.ram_gb_used
+    local swap_total = output.memory.swap_gb_total
+    local swap_used = output.memory.swap_gb_used
+    local gpu_used = math.floor(output.usage.gpu.active_percent)
+    local gpu_temp = output.temperature.gpu_avg_c
+    print(
+      ecpu_val,
+      pcpu_val,
+      cpu_temp,
+      ram_total,
+      ram_used,
+      swap_total,
+      swap_used,
+      gpu_used,
+      gpu_temp
+    )
 
     if
       not (
@@ -172,7 +183,7 @@ cpu:subscribe("routine", function(env)
       label = "GPU " .. gpu_used .. "% " .. math.floor(gpu_temp) .. "°C",
     }
     power:set {
-      label = math.floor(output.all_power or 0) .. " W",
+      label = math.floor(output.power.all_watts or 0) .. " W",
     }
 
     cpu:push { pcpu_val / 100. }

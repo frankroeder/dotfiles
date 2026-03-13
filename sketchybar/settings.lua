@@ -76,6 +76,7 @@ local settings = {
   hardware = {
     update_freq = 2,
     macmon_path = "/opt/homebrew/bin/macmon",
+    silistats_path = "/usr/local/bin/silistats",
     label_width = 130,
     compact_labels = true,
   },
