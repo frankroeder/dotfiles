@@ -2,7 +2,7 @@ return {
   "saghen/blink.cmp",
   build = "cargo build --release",
   dependencies = {
-    { "L3MON4D3/LuaSnip", version = "v2.*" },
+    { "L3MON4D3/LuaSnip", version = "v1.*" },
     "archie-judd/blink-cmp-words",
   },
   opts = {

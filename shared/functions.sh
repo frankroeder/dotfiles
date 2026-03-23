@@ -4,7 +4,7 @@
 
 # Create directory and cd into it
 mcd() {
-  builtin mkdir -p "$@" && cd "$_"
+  command mkdir -p "$@" && cd "$_"
 }
 
 # ls with file permissions in octal format
