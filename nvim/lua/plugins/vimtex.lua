@@ -1,8 +1,15 @@
 return {
-  "lervag/vim-latex",
-  config = function()
-    -- conceal stuff
-    vim.wo.conceallevel = 1
+  "lervag/vimtex",
+  name = "vim-latex",
+  lazy = false,
+  init = function()
+    vim.api.nvim_create_autocmd("FileType", {
+      pattern = { "tex", "plaintex", "bib" },
+      callback = function()
+        vim.opt_local.conceallevel = 1
+      end,
+    })
+
     -- vim.g.vimtex_syntax_conceal_disable = 1
     vim.g.vimtex_syntax_conceal = {
       accents = 1,
@@ -35,11 +42,24 @@ return {
 
     -- view options
     vim.g.vimtex_view_automatic = 1
+    vim.g.vimtex_callback_progpath = vim.v.progpath
     if vim.fn.has("mac") == 1 then
       vim.g.vimtex_view_method = "sioyek"
       vim.g.vimtex_view_sioyek_options = "--reuse-window --execute-command toggle_synctex"
-    else
+    elseif vim.fn.executable("okular") == 1 then
+      vim.g.vimtex_view_method = "general"
+      vim.g.vimtex_view_general_viewer = "okular"
+      vim.g.vimtex_view_general_options = [[--unique file:@pdf\#src:@line@tex]]
+    elseif vim.fn.executable("zathura") == 1 and vim.fn.executable("xdotool") == 1 then
       vim.g.vimtex_view_method = "zathura"
+    elseif vim.fn.executable("zathura") == 1 then
+      vim.g.vimtex_view_method = "zathura_simple"
+    elseif vim.fn.executable("xdg-open") == 1 then
+      vim.g.vimtex_view_method = "general"
+      vim.g.vimtex_view_general_viewer = "xdg-open"
+      vim.g.vimtex_view_general_options = "@pdf"
+    else
+      vim.g.vimtex_view_method = "general"
     end
 
     vim.g.vimtex_parser_bib_backend = "lua"
@@ -50,22 +70,21 @@ return {
       "Token not allowed in a PDF string",
     }
 
-    function Callback(msg)
+    local function compiler_callback(msg)
       local m = vim.fn.matchlist(msg, "\\vRun number (\\d+) of rule ''(.*)''")
       if not vim.tbl_isempty(m) then
-        vim.cmd "echomsg ' .. m[2] .. ' (' .. m[1] .. ')"
+        vim.notify(string.format("%s (%s)", m[2], m[1]), vim.log.levels.INFO, { title = "VimTeX" })
       end
     end
 
     vim.g.vimtex_compiler_latexmk = {
       backend = "nvim",
       background = 1,
-      out_dir = "build/",
       callback = 1,
       continuous = 1,
       executable = "latexmk",
       hooks = {
-        Callback,
+        compiler_callback,
       },
       options = {
         "-verbose",

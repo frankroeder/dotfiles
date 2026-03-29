@@ -1,6 +1,6 @@
 return {
   "saghen/blink.cmp",
-  build = "cargo build --release",
+  version = "1.*",
   dependencies = {
     { "L3MON4D3/LuaSnip", version = "v2.*" },
     "archie-judd/blink-cmp-words",
@@ -59,7 +59,15 @@ return {
       enabled = true,
     },
 
-    fuzzy = { implementation = "prefer_rust_with_warning" },
+    fuzzy = {
+      implementation = (function()
+        local uname = vim.uv.os_uname()
+        if uname.sysname == "Linux" and (uname.machine == "aarch64" or uname.machine == "arm64") then
+          return "lua"
+        end
+        return "prefer_rust_with_warning"
+      end)(),
+    },
 
     sources = {
       default = function()
@@ -138,7 +146,7 @@ return {
     },
   },
 
-  apperance = {
+  appearance = {
     use_nvim_cmp_as_default = true,
     kind_icon = {
       Boolean = "",
@@ -176,4 +184,5 @@ return {
       menu = { auto_show = true },
     },
   },
+  opts_extend = { "sources.default" },
 }

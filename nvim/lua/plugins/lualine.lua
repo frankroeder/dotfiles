@@ -9,6 +9,9 @@ local M = {
 function M.opts()
   local compile_status = function()
     local vimtex = vim.b.vimtex
+    if type(vimtex) ~= "table" or type(vimtex.compiler) ~= "table" then
+      return ""
+    end
     local compiler_status = vimtex.compiler.status
     -- not started or stopped
     if compiler_status == -1 or compiler_status == 0 then

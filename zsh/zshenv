@@ -20,7 +20,7 @@ path=(
   $path
 )
 
-[[ $ARCHITECTURE == 'arm64' ]] && {
+[[ $ARCHITECTURE == 'arm64' || $ARCHITECTURE == 'aarch64' ]] && {
   path=(
     # homebrew arm-based binaries
     /opt/homebrew/{bin,sbin}
@@ -34,7 +34,14 @@ path=(
 if [[ "$OSTYPE" == "Darwin" ]]; then
   export BROWSER="open"
 elif [[ "$OSTYPE" == "Linux" ]]; then
-  [ $commands[firefox] ] && export BROWSER="firefox"
+  if (( $+commands[librewolf] )); then
+    export BROWSER="librewolf"
+  elif (( $+commands[firefox] )); then
+    export BROWSER="firefox"
+  fi
+  if [[ -z "${SSH_AUTH_SOCK:-}" ]] && [[ -n "${XDG_RUNTIME_DIR:-}" ]] && [[ -S "${XDG_RUNTIME_DIR}/ssh-agent.socket" ]]; then
+    export SSH_AUTH_SOCK="${XDG_RUNTIME_DIR}/ssh-agent.socket"
+  fi
   export TERM=xterm-256color
 fi
 
@@ -45,6 +52,6 @@ fi
 
 export GPG_TTY=$(tty)
 
-if [ -d "$HOME/.cargo" ]; then
-  source "$HOME/.cargo/env";
+if [ -r "$HOME/.cargo/env" ]; then
+  source "$HOME/.cargo/env"
 fi

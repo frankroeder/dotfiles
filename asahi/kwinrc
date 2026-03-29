@@ -10,8 +10,16 @@ NightTemperature=4700
 [Tiling]
 padding=4
 
+[Tiling][b948fefa-e357-4e99-af17-00d60151eed9][24196ef6-5abf-4847-b9fe-1c2cb2229da6]
+tiles={"layoutDirection":"horizontal","tiles":[{"width":0.25},{"width":0.5},{"width":0.25}]}
+
 [Tiling][c8a4a66d-bbca-5e7f-8a37-ce3b4a705568]
 tiles={"layoutDirection":"horizontal","tiles":[{"width":0.25},{"width":0.5},{"width":0.25}]}
 
+[Windows]
+AutoRaise=true
+AutoRaiseInterval=100
+DelayFocusInterval=100
+
 [Xwayland]
-Scale=1.7
+Scale=1.5

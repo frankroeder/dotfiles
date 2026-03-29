@@ -7,7 +7,7 @@ if [ "$OSTYPE" = "Darwin" ]; then
 else
   DISTRO=linux
 fi
-if [[ $(uname -m) == 'arm64' ]]; then
+if [[ $(uname -m) == 'arm64' || $(uname -m) == 'aarch64' ]]; then
   DISTRO+="-arm64"
 else
   DISTRO+="-x64"

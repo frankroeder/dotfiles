@@ -176,10 +176,10 @@ zsh: | directories
 	$(call create_symlink,$(DOTFILES)/zsh/zlogin,$(HOME)/.zlogin)
 	$(call create_symlink,$(DOTFILES)/zsh/zshenv,$(HOME)/.zshenv)
 	$(call create_symlink,$(DOTFILES)/zsh/zprofile,$(HOME)/.zprofile)
-	@mkdir -p $(HOME)/.zsh-complete
+	@mkdir -p $(HOME)/.zsh/completion
 	@if command -v rg >/dev/null 2>&1; then \
 		$(call print_step,Generating ripgrep completions); \
-		rg --generate complete-zsh > $(HOME)/.zsh-complete/_rg; \
+		rg --generate complete-zsh > $(HOME)/.zsh/completion/_rg; \
 	fi
 	@if [ -f "$(HOME)/.zshrc" ]; then \
 		$(call print_step,Sourcing zshrc); \
@@ -381,28 +381,65 @@ _terminal: ## Install and configure terminal emulator
 	ln -sfv $(DOTFILES)/htop/personal $(HOME)/.config/htop/htoprc; \
 
 
-.PHONY: asahi
-asahi: ## Asahi Linux (Fedora) setup with Dank Linux / Hyprland
-asahi: validate-linux validate-tools sudo directories _git zsh python nvim
+.PHONY: asahi asahi-common asahi-plasma asahi-danklinux asahi-shell check-asahi
+asahi: ## Asahi Linux (Fedora): Plasma base + DankLinux Hyprland overlay
+asahi: validate-linux validate-tools sudo asahi-plasma asahi-danklinux check-asahi
+	@mkdir -p $(HOME)/.claude
+	@ln -sfv $(HOME)/Nextcloud/Sync/AGENTS.md $(HOME)/.claude/CLAUDE.md
+	@ln -sfv $(HOME)/Nextcloud/Sync/AGENTS.md $(HOME)/.codex/AGENTS.md
+	@ln -sfv $(HOME)/Nextcloud/Sync/claude_settings.json $(HOME)/.claude/settings.json
+	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
+
+asahi-common: directories _git zsh python misc nvim
+	@mkdir -p $(HOME)/.config/environment.d
+
+asahi-plasma: ## Apply KDE Plasma session config for Asahi Linux
+asahi-plasma: asahi-common
+	@ln -sfv $(DOTFILES)/asahi/kxkbrc $(HOME)/.config/kxkbrc
+	@ln -sfv $(DOTFILES)/asahi/kwinrc $(HOME)/.config/kwinrc
+	@ln -sfv $(DOTFILES)/asahi/plasma-localerc $(HOME)/.config/plasma-localerc
+	@ln -sfv $(DOTFILES)/asahi/environment.d/90-dms.conf $(HOME)/.config/environment.d/90-dms.conf
+	@mkdir -p $(HOME)/.config/librewolf/librewolf
+	@mkdir -p $(HOME)/.config/plasma-workspace/env
+	@mkdir -p $(HOME)/.config/autostart-scripts
+	@ln -sfv $(DOTFILES)/asahi/plasma-workspace/env/10-ssh-agent.sh $(HOME)/.config/plasma-workspace/env/10-ssh-agent.sh
+	@ln -sfv $(DOTFILES)/asahi/autostart-scripts/ssh-add-kde.sh $(HOME)/.config/autostart-scripts/ssh-add-kde.sh
+
+asahi-danklinux: ## Layer DankLinux user config on top of the Plasma base
+asahi-danklinux: asahi-common
 	@rm -rf $(HOME)/.config/hypr
 	@ln -sfv $(DOTFILES)/asahi/hypr $(HOME)/.config/hypr
 	@rm -rf $(HOME)/.config/DankMaterialShell
 	@ln -sfv $(DOTFILES)/asahi/dms $(HOME)/.config/DankMaterialShell
 	@rm -rf $(HOME)/.config/ghostty
 	@ln -sfv $(DOTFILES)/asahi/ghostty $(HOME)/.config/ghostty
-	@ln -sfv $(DOTFILES)/asahi/kxkbrc $(HOME)/.config/kxkbrc
-	@ln -sfv $(DOTFILES)/asahi/kwinrc $(HOME)/.config/kwinrc
-	@ln -sfv $(DOTFILES)/asahi/plasma-localerc $(HOME)/.config/plasma-localerc
-	@mkdir -p $(HOME)/.config/environment.d
-	@echo 'ELECTRON_OZONE_PLATFORM_HINT=auto' > $(HOME)/.config/environment.d/90-dms.conf
-	@echo 'TERMINAL=ghostty' >> $(HOME)/.config/environment.d/90-dms.conf
-	$(call create_symlink,$(DOTFILES)/wgetrc,$(HOME)/.wgetrc)
-	$(call create_symlink,$(DOTFILES)/curlrc,$(HOME)/.curlrc)
-	$(call create_symlink,$(DOTFILES)/tmux/tmux.conf,$(HOME)/.tmux.conf)
-	@mkdir -p $(HOME)/.claude
-	@ln -sfv $(HOME)/Nextcloud/Sync/AGENTS.md $(HOME)/.claude/CLAUDE.md
-	@ln -sfv $(HOME)/Nextcloud/Sync/claude_settings.json $(HOME)/.claude/settings.json
-	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
+	@mkdir -p $(HOME)/.config/librewolf/librewolf
+	@ln -sfv $(DOTFILES)/asahi/librewolf/librewolf.overrides.cfg $(HOME)/.config/librewolf/librewolf/librewolf.overrides.cfg
+	@if [ -d "$(HOME)/.config/librewolf/librewolf" ]; then \
+		profile_dir=$$(find "$(HOME)/.config/librewolf/librewolf" -maxdepth 1 -type d -name '*.default*' | head -n 1); \
+		if [ -n "$$profile_dir" ]; then \
+			mkdir -p "$$profile_dir/chrome"; \
+			ln -sfv "$(DOTFILES)/asahi/dms/firefox.css" "$$profile_dir/chrome/userChrome.css"; \
+		else \
+			$(call print_warning,LibreWolf profile not found yet; skipping userChrome.css link); \
+		fi; \
+	fi
+	@$(MAKE) asahi-shell
+
+asahi-shell: ## Generate optional shell integrations for DMS and dgop
+	@mkdir -p $(HOME)/.zsh/completion
+	@if command -v dms >/dev/null 2>&1; then \
+		$(call print_step,Generating DMS zsh completions); \
+		dms completion zsh > $(HOME)/.zsh/completion/_dms; \
+	else \
+		$(call print_warning,dms not installed; skipping DMS completions); \
+	fi
+	@if command -v dgop >/dev/null 2>&1; then \
+		$(call print_step,Generating dgop zsh completions); \
+		dgop completion zsh | sed -e '1s/.*/#compdef dgop dankgop/' -e '2s/.*/compdef _dankgop dgop dankgop/' > $(HOME)/.zsh/completion/_dgop; \
+	else \
+		$(call print_warning,dgop not installed; skipping dgop completions); \
+	fi
 
 .PHONY: check
 check: ## Run Neovim health check
@@ -412,6 +449,14 @@ check: ## Run Neovim health check
 	else \
 		$(call print_error,Neovim is not installed); \
 		exit 1; \
+	fi
+
+check-asahi: ## Run optional DankLinux checks for the Asahi setup
+	@if command -v dms >/dev/null 2>&1 && [ -d "$(HOME)/.config/DankMaterialShell" ]; then \
+		$(call print_step,Running DMS doctor); \
+		dms --config "$(HOME)/.config/DankMaterialShell" doctor -v; \
+	else \
+		$(call print_warning,DMS config not available; skipping dms doctor); \
 	fi
 
 .PHONY: benchmark
