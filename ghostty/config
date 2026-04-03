@@ -42,11 +42,8 @@ window-save-state = always
 
 keybind = super+comma=ignore
 keybind = super+s=toggle_quick_terminal
-keybind = global:super+plus=increase_font_size:1
 
 # keybind = shift+enter=text:\n
-keybind = super+ö=increase_font_size:1
-keybind = super+ä=decrease_font_size:1
 
 keybind = super+alt+j=goto_split:down
 keybind = super+alt+h=goto_split:left
