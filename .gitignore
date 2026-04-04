@@ -1,3 +1,6 @@
 __pycache__
 Brewfile.lock.json
 .netrwhist
+.codex
+asahi/dms/.firstlaunch
+asahi/dms/.changelog-*

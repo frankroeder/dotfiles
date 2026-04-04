@@ -1,12 +1,13 @@
 local settings = require "settings"
 local colors = require "colors"
 local icons = require "icons"
+local ui = require "ui"
 
 local uptime = sbar.add("item", "widgets.uptime", {
   position = "left",
   icon = {
     string = icons.uptime,
-    color = colors.white,
+    color = settings.theme.accent,
     padding_left = 8,
   },
   label = {
@@ -17,8 +18,9 @@ local uptime = sbar.add("item", "widgets.uptime", {
     padding_right = 8,
   },
   update_freq = 600,
-  background = {
-    drawing = true,
+  background = ui.capsule {
+    color = settings.theme.surface_alt,
+    border_color = colors.with_alpha(settings.theme.accent, 0.45),
   },
 })
 

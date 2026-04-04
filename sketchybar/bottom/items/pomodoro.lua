@@ -1,6 +1,9 @@
 local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
+local utils = require "utils"
+local ui = require "ui"
+local popup_row_height = settings.ui.popup_row_height
 
 local timer_state = "stopped" -- stopped, running, finished
 local remaining_time = 0
@@ -22,6 +25,10 @@ local timer = sbar.add("item", "widgets.timer", {
   },
   popup = {
     align = "center",
+  },
+  background = ui.capsule {
+    color = settings.theme.surface_alt,
+    border_color = colors.with_alpha(settings.theme.warn, 0.42),
   },
 })
 
@@ -71,17 +78,14 @@ end)
 
 timer:subscribe("mouse.clicked", function(env)
   if env.BUTTON == "left" then
-    if timer_state ~= "stopped" then
-      stop_timer()
-    end
-    timer:set { popup = { drawing = "toggle" } }
+    utils.popup_toggle(timer)
   elseif env.BUTTON == "right" then
     stop_timer()
   end
 end)
 
 timer:subscribe("mouse.exited.global", function()
-  timer:set { popup = { drawing = false } }
+  utils.popup_hide(timer)
 end)
 
 local function create_timer_option(minutes)
@@ -92,6 +96,12 @@ local function create_timer_option(minutes)
       string = minutes .. " Minutes",
       padding_left = 10,
       padding_right = 10,
+    },
+    background = {
+      height = popup_row_height,
+      color = colors.with_alpha(settings.theme.surface_alt, 0.60),
+      border_width = 0,
+      corner_radius = 6,
     },
   })
 

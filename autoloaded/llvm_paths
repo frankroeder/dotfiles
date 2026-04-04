@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 
-export CC="$HOMEBREW_PREFIX/opt/llvm/bin/clang"
-export CXX="$HOMEBREW_PREFIX/opt/llvm/bin/clang++"
-export CXX11="$HOMEBREW_PREFIX/opt/llvm/bin/clang++"
-export CXX14="$HOMEBREW_PREFIX/opt/llvm/bin/clang++"
-export CXX17="$HOMEBREW_PREFIX/opt/llvm/bin/clang++"
-export CXX1X="$HOMEBREW_PREFIX/opt/llvm/bin/clang++"
+# export CC="$HOMEBREW_PREFIX/opt/llvm/bin/clang"
+# export CXX="$HOMEBREW_PREFIX/opt/llvm/bin/clang++"
+# export CXX11="$HOMEBREW_PREFIX/opt/llvm/bin/clang++"
+# export CXX14="$HOMEBREW_PREFIX/opt/llvm/bin/clang++"
+# export CXX17="$HOMEBREW_PREFIX/opt/llvm/bin/clang++"
+# export CXX1X="$HOMEBREW_PREFIX/opt/llvm/bin/clang++"
 
-export LDFLAGS="-L$HOMEBREW_PREFIX/opt/llvm/lib"
-export CPPFLAGS="-I$HOMEBREW_PREFIX/opt/llvm/include"
+export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
+# For compilers to find llvm you may need to set:
+export LDFLAGS="-L/opt/homebrew/opt/llvm/lib"
+export CPPFLAGS="-I/opt/homebrew/opt/llvm/include"
 
-export PATH="$HOMEBREW_PREFIX/opt/llvm/bin:$PATH"
+# For cmake to find llvm you may need to set:
+export CMAKE_PREFIX_PATH="/opt/homebrew/opt/llvm"

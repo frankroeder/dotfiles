@@ -39,7 +39,7 @@ if [[ $NUM_SPACES -gt 2 ]]; then
   yabai -m rule --add app="^(Messages|Discord|Signal|Telegram|Mattermost|Zoom)$" space=$NUM_SPACES
 fi
 
-yabai -m rule --add app="^Notes$" scratchpad=notes grid=11:11:1:1:9:9
+# yabai -m rule --add app="^Notes$" scratchpad=notes grid=11:11:1:1:9:9
 yabai -m rule --add app="^Music$" scratchpad=music grid=1:1:0:0:1:1
 yabai -m rule --add app="^Proton Pass$" scratchpad=pw grid=11:11:1:1:9:9
 

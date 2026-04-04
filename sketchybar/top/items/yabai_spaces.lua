@@ -2,6 +2,7 @@ local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
 local app_icons = require "helpers.app_icons"
+local ui = require "ui"
 
 sbar.add("event", "layout_change")
 sbar.add("event", "property_change")
@@ -19,29 +20,28 @@ for i, space_name in ipairs(static_names) do
       string = space_name,
       padding_left = 6,
       padding_right = 6,
-      color = colors.white,
-      highlight_color = settings.spaces.highlight_color,
+      color = settings.theme.text_primary,
+      highlight_color = settings.theme.accent,
     },
     label = {
       padding_right = 6,
-      color = colors.grey,
-      highlight_color = colors.white,
+      color = settings.theme.text_muted,
+      highlight_color = settings.theme.text_primary,
       font = "sketchybar-app-font:Regular:16.0",
     },
     padding_right = settings.spaces.padding,
     padding_left = settings.spaces.padding,
-    background = {
-      color = colors.pill_bg,
-      border_width = 1,
-      height = 26,
-      border_color = colors.bg2,
+    background = ui.capsule {
+      color = settings.theme.surface_alt,
+      border_color = settings.theme.border,
+      height = 28,
+      corner_radius = 8,
     },
     -- click_script = "yabai -m space --focus " .. i,
   })
 
   spaces[i] = space
 
-  -- window count indicator
   local window_count = sbar.add("item", "widgets.space.count." .. i, {
     icon = {
       drawing = false,
@@ -49,10 +49,10 @@ for i, space_name in ipairs(static_names) do
     padding_left = -2,
     label = {
       string = "",
-      font = { family = settings.font.numbers, size = 9.0 },
-      color = colors.red,
+      font = { family = settings.font.numbers, size = 10.0 },
+      color = settings.theme.warn,
       padding_left = 0,
-      padding_right = 2,
+      padding_right = 3,
       y_offset = 5,
     },
     background = {
@@ -63,7 +63,6 @@ for i, space_name in ipairs(static_names) do
 
   space_window_counts[i] = window_count
 
-  -- Single item bracket for space items to achieve double border on highlight
   local space_bracket = sbar.add(
     "bracket",
     { "widgets.space." .. i, "widgets.space.count." .. i },
@@ -71,7 +70,7 @@ for i, space_name in ipairs(static_names) do
       background = {
         color = colors.transparent,
         border_color = colors.transparent,
-        height = 28,
+        height = 32,
         border_width = 2,
       },
     }
@@ -81,12 +80,18 @@ for i, space_name in ipairs(static_names) do
     local selected = env.SELECTED == "true"
     space:set {
       icon = { highlight = selected },
-      label = { highlight = selected },
-      background = { border_color = selected and colors.transparent or colors.bg2 },
+      label = {
+        highlight = selected,
+        color = selected and settings.theme.text_primary or settings.theme.text_muted,
+      },
+      background = {
+        border_color = selected and colors.transparent or settings.theme.border,
+        color = selected and settings.theme.surface_active or settings.theme.surface_alt,
+      },
     }
     space_bracket:set {
       background = {
-        border_color = selected and settings.spaces.highlight_color or colors.transparent,
+        border_color = selected and settings.theme.accent or colors.transparent,
       },
     }
   end)
@@ -109,11 +114,11 @@ local space_layout = sbar.add("item", "widgets.yabai_layout", {
   label = {
     string = "",
     padding_right = 8,
+    color = settings.theme.text_muted,
   },
-  background = {
-    color = colors.bg1,
-    border_width = 2,
-    border_color = colors.magenta,
+  background = ui.capsule {
+    color = settings.theme.surface_alt,
+    border_color = colors.with_alpha(settings.theme.accent_alt, 0.45),
   },
 })
 
@@ -123,7 +128,6 @@ local function updateLayout()
       return
     end
 
-    -- Update display for all spaces
     for _, s in ipairs(spaces_data) do
       local idx = s.index
       local disp = tonumber(s.display)
@@ -133,7 +137,6 @@ local function updateLayout()
       end
     end
 
-    -- Find focused space for layout indicator
     local focused_space
     for _, s in ipairs(spaces_data) do
       if s["has-focus"] then
@@ -206,7 +209,7 @@ local window_properties = sbar.add("item", "widgets.yabai_property", {
 })
 
 local function updateWindowProperties()
-  sbar.exec("yabai -m query --windows --window", function(window)
+  sbar.exec("yabai -m query --windows --window 2>/dev/null", function(window)
     if not window then
       window_properties:set { drawing = false }
       return
@@ -244,40 +247,47 @@ space_window_observer:subscribe("space_windows_change", function(env)
   local icon_line = ""
   local no_app = true
   local window_count = 0
+  local app_names = {}
+  local app_icon_list = {}
 
-  for app, count in pairs(env.INFO.apps) do
+  for app, count in pairs(env.INFO.apps or {}) do
     no_app = false
     window_count = window_count + count
+    table.insert(app_names, app)
+  end
+
+  table.sort(app_names)
+  for _, app in ipairs(app_names) do
     local lookup = app_icons[app]
     local icon = ((lookup == nil) and app_icons["Default"] or lookup)
-    icon_line = icon_line .. icon
+    table.insert(app_icon_list, icon)
   end
 
   if no_app then
     icon_line = "—"
+  else
+    icon_line = table.concat(app_icon_list, " ")
   end
 
   sbar.animate("tanh", settings.animation_duration, function()
-    spaces[env.INFO.space]:set { label = icon_line }
-
-    -- Dim empty spaces
-    if spaces[env.INFO.space] then
-      local is_empty = no_app
-      spaces[env.INFO.space]:set {
-        icon = { color = is_empty and colors.grey or colors.white },
-        background = { color = is_empty and colors.bg1 or colors.pill_bg },
-      }
+    local space_index = tonumber(env.INFO and env.INFO.space)
+    if not space_index or not spaces[space_index] then
+      return
     end
 
-    -- Update window count
-    if space_window_counts[env.INFO.space] then
+    spaces[space_index]:set {
+      label = { string = icon_line },
+      icon = { color = no_app and settings.theme.text_muted or settings.theme.text_primary },
+    }
+
+    if space_window_counts[space_index] then
       if window_count > 0 then
-        space_window_counts[env.INFO.space]:set {
+        space_window_counts[space_index]:set {
           label = { string = tostring(window_count) },
           drawing = true,
         }
       else
-        space_window_counts[env.INFO.space]:set { drawing = false }
+        space_window_counts[space_index]:set { drawing = false }
       end
     end
   end)

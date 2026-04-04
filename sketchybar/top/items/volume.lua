@@ -2,12 +2,14 @@ local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
 local utils = require "utils"
+local ui = require "ui"
+local popup_row_height = settings.ui.popup_row_height
 
 local volume = sbar.add("item", "widgets.volume", {
   position = "right",
   icon = {
     string = icons.volume[100],
-    color = colors.blue,
+    color = settings.theme.accent,
     padding_left = 8,
     padding_right = 8,
     font = {
@@ -18,18 +20,22 @@ local volume = sbar.add("item", "widgets.volume", {
   label = {
     string = "??%",
     font = {
-      style = settings.font.style_map["Bold"],
-      size = 14.0,
+      style = settings.font.style_map["Semibold"],
+      size = 13.0,
     },
     padding_right = 8,
-    color = colors.white,
+    color = settings.theme.text_primary,
+  },
+  background = ui.capsule {
+    color = settings.theme.surface_alt,
+    border_color = colors.with_alpha(settings.theme.accent, 0.45),
   },
 })
 
 local volume_slider = sbar.add("slider", "widgets.volume.slider", 100, {
   position = "popup.widgets.volume",
   slider = {
-    highlight_color = colors.blue,
+    highlight_color = settings.theme.accent,
     background = {
       height = 6,
       corner_radius = 3,
@@ -40,26 +46,31 @@ local volume_slider = sbar.add("slider", "widgets.volume.slider", 100, {
       string = " ",
     },
   },
-  background = { color = colors.bg1, height = 2, y_offset = -20 },
+  background = {
+    color = settings.theme.surface_alt,
+    height = popup_row_height,
+    corner_radius = 6,
+    border_width = 0,
+  },
   click_script = 'osascript -e "set volume output volume $PERCENTAGE"',
 })
 
 local function update_volume(volume_level)
   local icon = icons.volume[0]
-  local color = colors.red
+  local color = settings.theme.critical
 
   if volume_level > 66 then
     icon = icons.volume[100]
-    color = colors.white
+    color = settings.theme.text_primary
   elseif volume_level > 33 then
     icon = icons.volume[66]
-    color = colors.white
+    color = settings.theme.text_primary
   elseif volume_level > 10 then
     icon = icons.volume[33]
-    color = colors.white
+    color = settings.theme.text_primary
   elseif volume_level > 0 then
     icon = icons.volume[10]
-    color = colors.white
+    color = settings.theme.text_primary
   end
 
   sbar.animate("tanh", settings.animation_duration, function()
@@ -86,9 +97,12 @@ local volume_mute = sbar.add("item", {
   position = "popup.widgets.volume",
   align = "center",
   label = { string = "Toggle Mute", align = "center" },
-  width = 120,
+  width = 160,
   background = {
-    corner_radius = 5,
+    color = colors.with_alpha(settings.theme.surface_alt, 0.60),
+    border_width = 0,
+    corner_radius = 6,
+    height = popup_row_height,
   },
 })
 

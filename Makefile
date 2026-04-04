@@ -242,7 +242,7 @@ nvim: | directories
 	touch $(HOME)/.localnvim.lua; \
 	ln -sfv $(DOTFILES)/nvim $(HOME)/.config; \
 	$(call print_step,Syncing Neovim plugins); \
-	nvim --headless "+Lazy! sync" +qa; \
+	nvim --headless "+lua vim.pack.update()" "+qa" \
 
 .PHONY: _git
 _git: ## Configure Git with completion and dotfiles

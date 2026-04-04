@@ -1,74 +1,12 @@
 #!/usr/bin/env bash
 
-if [[ "$BROWSER_NAME" = "Safari" ]]; then
-  URLS=$(osascript <<'END'
-  set output to ""
-  tell application "Safari"
-    set numWindows to count of windows
-    repeat with w from 1 to numWindows
-      set numTabs to count of tabs of window w
-      repeat with t from 1 to numTabs
-        set tabName to name of tab t of window w
-        set tabURL to URL of tab t of window w
-        set output to output & tabURL & linefeed
-      end repeat
-    end repeat
-  end tell
-  return output
-  END
-  )
-elif [ "$BROWSER_NAME" = "Orion RC" ]; then
-  URLS=$(osascript <<'END'
-  set output to ""
-  tell application "Orion RC"
-    set numWindows to count of windows
-    repeat with w from 1 to numWindows
-      set numTabs to count of tabs of window w
-      repeat with t from 1 to numTabs
-        set tabName to name of tab t of window w
-        set tabURL to URL of tab t of window w
-        set output to output & tabURL & linefeed
-      end repeat
-    end repeat
-  end tell
-  return output
-  END
-  )
-elif [[ "$BROWSER_NAME" = "Zen Browser" ]]; then
-  # FIXME: Zen Browser lacks AppleScript support, using UI scripting (simulating keystrokes)
-  URLS=$(osascript <<'END'
-  tell application "Zen Browser" to activate
-  delay 0.5 -- Allow time for the browser to come to the foreground
+set -euo pipefail
 
-  tell application "System Events"
-      set tabURLs to {} -- Initialize an empty list to store URLs
-      set maxTabs to 20 -- Set a reasonable maximum number of tabs to iterate through
-      repeat with i from 1 to maxTabs
-          try
-              keystroke (i as string) using {command down}
-              delay 0.2 -- Wait for the tab to activate
-              keystroke "l" using {command down}
-              delay 0.1
-              keystroke "c" using {command down}
-              delay 0.1
-              set currentURL to the clipboard
-              set end of tabURLs to currentURL
-          on error
-              exit repeat
-          end try
-      end repeat
-  end tell
-  return tabURLs
-  END
-  )
-elif [ "$BROWSER_NAME" = "Brave Browser" ]; then
-  URLS=$(osascript -e 'tell application "Brave Browser" to get the URL of every tab of every window' | sed -E $'s/, ?/\\\n/g')
-elif [ "$BROWSER_NAME" = "Vivaldi" ]; then
-  URLS=$(osascript -e 'tell application "Vivaldi" to get the URL of every tab of every window' | sed -E $'s/, ?/\\\n/g')
-fi
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+urls="$("$script_dir/browser" urls)"
+selected="$(printf '%s\n' "$urls" | awk 'NF' | fzf --exit-0 --multi)"
 
-SELECTED=$(echo "$URLS" | tr -s " " "\012" | fzf --exit-0 --multi);
-if [ -n "$SELECTED" ]; then
-  echo "$SELECTED" | pbcopy
-  echo "Copied $SELECTED to clipboard";
+if [[ -n "$selected" ]]; then
+  printf '%s' "$selected" | pbcopy
+  echo "Copied selected URLs to clipboard."
 fi

@@ -2,9 +2,12 @@ local icons = require "icons"
 local colors = require "colors"
 local settings = require "settings"
 local utils = require "utils"
+local ui = require "ui"
 
 local interface = utils.get_wifi_interface()
-local popup_width = 250
+local popup_width = 280
+local row_width = popup_width / 2
+local popup_row_height = settings.ui.popup_row_height
 
 local wifi = sbar.add("item", "widgets.wifi", {
   position = "right",
@@ -32,15 +35,16 @@ local ssid = sbar.add("item", {
   align = "center",
   label = {
     font = {
-      size = 15,
+      size = 14,
       style = settings.font.style_map["Bold"],
     },
-    max_chars = 18,
+    max_chars = 24,
     string = "????????????",
+    align = "center",
   },
   background = {
     height = 2,
-    color = colors.grey,
+    color = settings.theme.border,
     y_offset = -15,
   },
 })
@@ -50,14 +54,15 @@ local hostname = sbar.add("item", {
   icon = {
     align = "left",
     string = "Hostname:",
-    width = popup_width / 2,
+    width = row_width,
   },
   label = {
-    max_chars = 20,
+    max_chars = 26,
     string = "????????????",
-    width = popup_width / 2,
+    width = row_width,
     align = "right",
   },
+  background = ui.popup_row(popup_row_height),
 })
 
 local ip = sbar.add("item", {
@@ -65,13 +70,14 @@ local ip = sbar.add("item", {
   icon = {
     align = "left",
     string = "IP:",
-    width = popup_width / 2,
+    width = row_width,
   },
   label = {
     string = "???.???.???.???",
-    width = popup_width / 2,
+    width = row_width,
     align = "right",
   },
+  background = ui.popup_row(popup_row_height),
 })
 
 local mask = sbar.add("item", {
@@ -79,13 +85,14 @@ local mask = sbar.add("item", {
   icon = {
     align = "left",
     string = "Subnet mask:",
-    width = popup_width / 2,
+    width = row_width,
   },
   label = {
     string = "???.???.???.???",
-    width = popup_width / 2,
+    width = row_width,
     align = "right",
   },
+  background = ui.popup_row(popup_row_height),
 })
 
 local router = sbar.add("item", {
@@ -93,13 +100,14 @@ local router = sbar.add("item", {
   icon = {
     align = "left",
     string = "Router:",
-    width = popup_width / 2,
+    width = row_width,
   },
   label = {
     string = "???.???.???.???",
-    width = popup_width / 2,
+    width = row_width,
     align = "right",
   },
+  background = ui.popup_row(popup_row_height),
 })
 
 wifi:subscribe({ "wifi_change", "system_woke" }, function(env)
@@ -145,7 +153,7 @@ local function update_details()
   )
 end
 
-wifi:subscribe("mouse.clicked", function()
+wifi:subscribe("mouse.clicked", function(env)
   utils.popup_toggle(wifi, update_details)
 end)
 

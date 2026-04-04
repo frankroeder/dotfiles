@@ -72,6 +72,16 @@ v() {
   [ -n "$files" ] && ${EDITOR:-vi} $(echo "$files")
 }
 
+pv() {
+  local files
+  # fzf with -m returns multiple files separated by newlines
+  files=$(fzf --query="$1" -m --no-mouse --select-1 --exit-0 \
+    --preview 'head -100 {}' --preview-window \
+    right:hidden --bind '?:toggle-preview')
+  # Open all selected files in a single editor instance
+  [ -n "$files" ] && nvim -u $DOTFILES/nvim/vanilla.lua $(echo "$files")
+}
+
 # Fuzzy git log (requires git and fzf)
 glz() {
   if ! command -v git >/dev/null 2>&1; then
@@ -124,7 +134,7 @@ fkill() {
         --reverse \
         --header-lines=1 \
         --preview 'ps -p {2} -ww -f' \
-        --preview-window='right:50%:wrap' \
+        --preview-window='down:50%:wrap' \
         | awk '{print $2}')
 
     # 3. Kill Logic

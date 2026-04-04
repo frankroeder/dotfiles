@@ -1,6 +1,8 @@
 local icons = require "icons"
 local colors = require "colors"
 local settings = require "settings"
+local ui = require "ui"
+local popup_row_height = settings.ui.popup_row_height
 
 local brew = sbar.add("item", "widgets.brew", {
   position = "right",
@@ -25,6 +27,10 @@ local brew = sbar.add("item", "widgets.brew", {
   popup = {
     align = "right",
     height = 30,
+  },
+  background = ui.capsule {
+    color = settings.theme.surface_alt,
+    border_color = colors.with_alpha(settings.theme.warn, 0.42),
   },
 })
 
@@ -111,6 +117,9 @@ local function populate_popup()
         padding_right = 10,
       },
       icon = { drawing = false },
+      background = {
+        height = popup_row_height,
+      },
     })
     table.insert(popup_items, no_updates)
   else
@@ -134,7 +143,7 @@ local function populate_popup()
           color = colors.white,
         },
         background = {
-          height = 20,
+          height = popup_row_height,
         },
       })
       table.insert(popup_items, pkg_item)

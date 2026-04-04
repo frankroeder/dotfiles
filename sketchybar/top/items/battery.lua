@@ -2,6 +2,8 @@ local icons = require "icons"
 local colors = require "colors"
 local settings = require "settings"
 local utils = require "utils"
+local ui = require "ui"
+local popup_row_height = settings.ui.popup_row_height
 
 -- Cache for expensive system_profiler calls
 local profiler_cache = { data = nil, timestamp = 0 }
@@ -18,6 +20,10 @@ local battery = sbar.add("item", "widgets.battery", {
   label = { font = { family = settings.font.numbers } },
   update_freq = 120,
   popup = { align = "center" },
+  background = ui.capsule {
+    color = settings.theme.surface_alt,
+    border_color = colors.with_alpha(settings.theme.success, 0.42),
+  },
 })
 
 local remaining_time = sbar.add("item", {
@@ -31,6 +37,7 @@ local remaining_time = sbar.add("item", {
     string = "??:??h",
     padding_right = 11,
   },
+  background = ui.popup_row(popup_row_height),
 })
 
 local battery_health = sbar.add("item", {
@@ -44,6 +51,7 @@ local battery_health = sbar.add("item", {
     string = "Health: ???%",
     padding_right = 11,
   },
+  background = ui.popup_row(popup_row_height),
 })
 
 local battery_cycles = sbar.add("item", {
@@ -57,6 +65,7 @@ local battery_cycles = sbar.add("item", {
     string = "Cycles: ???",
     padding_right = 11,
   },
+  background = ui.popup_row(popup_row_height),
 })
 
 local power_wattage = sbar.add("item", {
@@ -70,6 +79,7 @@ local power_wattage = sbar.add("item", {
     string = "Watts: ???W",
     padding_right = 11,
   },
+  background = ui.popup_row(popup_row_height),
   drawing = false,
 })
 

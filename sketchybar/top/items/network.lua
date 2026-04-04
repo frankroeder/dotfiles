@@ -3,15 +3,20 @@ local colors = require "colors"
 local settings = require "settings"
 local utils = require "utils"
 
-local interface = utils.get_primary_interface()
-
-sbar.exec(
-  "killall network_load >/dev/null; "
+local function start_provider(interface)
+  if not interface or interface == "" then
+    return
+  end
+  local cmd = "killall network_load >/dev/null 2>&1; "
     .. settings.network.provider_path
     .. " "
     .. interface
     .. " network_update 2.0"
-)
+  sbar.exec(cmd)
+end
+
+local interface = utils.get_primary_interface()
+start_provider(interface)
 
 local rate_font = {
   family = settings.font.numbers,
@@ -35,7 +40,7 @@ local network_up = sbar.add("item", "widgets.network_up", {
     padding_right = 6,
     align = "right",
     string = "??? Bps",
-    color = colors.red,
+    color = settings.theme.critical,
   },
   y_offset = 5,
   background = { drawing = false },
@@ -56,15 +61,17 @@ local network_down = sbar.add("item", "widgets.network_down", {
     padding_right = 6,
     align = "right",
     string = "??? Bps",
-    color = colors.blue,
+    color = settings.theme.accent,
   },
   y_offset = -5,
   background = { drawing = false },
 })
 
 network_up:subscribe("network_update", function(env)
-  local up_color = (env.upload == "000 Bps") and colors.grey or colors.red
-  local down_color = (env.download == "000 Bps") and colors.grey or colors.blue
+  local up_color = (env.upload == "000 Bps") and settings.theme.text_muted
+    or settings.theme.critical
+  local down_color = (env.download == "000 Bps") and settings.theme.text_muted
+    or settings.theme.accent
   network_up:set {
     icon = { color = up_color },
     label = {
@@ -81,6 +88,7 @@ network_up:subscribe("network_update", function(env)
   }
 end)
 
-network_up:subscribe("system_woke", function()
+network_up:subscribe({ "system_woke", "wifi_change" }, function()
   interface = utils.get_primary_interface()
+  start_provider(interface)
 end)

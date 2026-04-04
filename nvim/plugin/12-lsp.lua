@@ -44,7 +44,6 @@ local function on_attach(client, bufnr)
     [[<cmd>lua require('fzf-lua').lsp_references()<CR>]],
     { buffer = bufnr, desc = "[r]e[f]erence" }
   )
-  -- diagnostic
   vim.keymap.set("n", "gn", function()
     vim.diagnostic.jump { count = 1, float = true }
   end, { buffer = bufnr, desc = "[g]oto [n]ext diagnostic" })
@@ -71,10 +70,11 @@ local function on_attach(client, bufnr)
 
   vim.lsp.inlay_hint.enable(true, { bufnr = bufnr })
   vim.keymap.set("n", "<leader>ti", function()
-    vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled())
-  end)
+    local enabled = vim.lsp.inlay_hint.is_enabled { bufnr = bufnr }
+    vim.lsp.inlay_hint.enable(not enabled, { bufnr = bufnr })
+  end, { buffer = bufnr, desc = "[t]oggle [i]nlay hints" })
 
-  if client and client.server_capabilities.documentHighlightProvider then
+  if client.server_capabilities.documentHighlightProvider then
     vim.api.nvim_create_autocmd({ "CursorHold", "CursorHoldI" }, {
       buffer = bufnr,
       callback = vim.lsp.buf.document_highlight,
@@ -87,7 +87,6 @@ local function on_attach(client, bufnr)
   end
 
   if client.name == "ruff" then
-    -- Disable hover in favor of jedi
     client.server_capabilities.hoverProvider = false
   end
 end
@@ -117,10 +116,9 @@ vim.lsp.enable {
   "ts_ls",
   "basedpyright",
   "typst_ls",
-  -- "ty",
 }
 
-vim.lsp.set_log_level "error"
+vim.lsp.log.set_level "error"
 
 vim.diagnostic.config {
   virtual_text = false,
@@ -137,22 +135,46 @@ vim.diagnostic.config {
   },
 }
 
-vim.api.nvim_create_user_command("LspLog", function()
-  vim.cmd.split(vim.lsp.log.get_filename())
-end, {
-  desc = "Get all the lsp logs",
-})
-vim.api.nvim_create_user_command("LspInfo", function()
-  vim.cmd "silent checkhealth vim.lsp"
-end, {
-  desc = "Get all the information about all LSP attached",
+vim.api.nvim_create_user_command("LspInfo", "checkhealth vim.lsp", {
+  desc = "Show LSP Info",
 })
 
--- Stop all lsp clients when quitting vim
+vim.api.nvim_create_user_command("LspLog", function()
+  local state_path = vim.fn.stdpath "state"
+  local log_path = vim.fs.joinpath(state_path, "lsp.log")
+
+  vim.cmd.edit(vim.fn.fnameescape(log_path))
+end, {
+  desc = "Show LSP log",
+})
+
+vim.api.nvim_create_user_command("LspRestart", "lsp restart", {
+  desc = "Restart LSP",
+})
+
+vim.api.nvim_create_user_command("LspStop", "lsp stop", {
+  desc = "Stop LSP",
+})
+
 vim.api.nvim_create_autocmd("VimLeavePre", {
   callback = function()
     vim.iter(vim.lsp.get_clients()):each(function(client)
       client:stop()
     end)
   end,
+})
+
+vim.api.nvim_create_autocmd("LspProgress", {
+    callback = function(ev)
+        local value = ev.data.params.value or {}
+        if not value.kind then return end
+        local status = value.kind == "end" and 0 or 1
+        local percent = value.percentage or 0
+        local osc_seq = string.format("\27]9;4;%d;%d\a", status, percent)
+        if os.getenv("TMUX") then
+            osc_seq = string.format("\27Ptmux;\27%s\27\\", osc_seq)
+        end
+        io.stdout:write(osc_seq)
+        io.stdout:flush()
+    end,
 })

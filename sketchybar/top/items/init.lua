@@ -1,4 +1,5 @@
 require "items.yabai_spaces"
+local settings = require "settings"
 -- Add padding between spaces and front app
 sbar.add("item", {
   position = "left",
@@ -26,5 +27,6 @@ sbar.add("bracket", "top.group.network", {
 }, {
   background = {
     drawing = true,
+    color = settings.theme.surface_alt,
   },
 })

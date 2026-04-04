@@ -1,5 +1,5 @@
 return {
-  theme = "catppuccin",
+  theme = "catppuccin-mocha",
   -- treesitter parsers to be installed
   -- one of "all", "maintained" (parsers with maintainers), or a list of languages
   treesitter_ensure_installed = {
@@ -18,7 +18,7 @@ return {
     "html",
     "javascript",
     "json",
-    -- "latex",
+    "latex",
     "lua",
     "make",
     "markdown",

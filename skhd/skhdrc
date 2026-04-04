@@ -17,7 +17,7 @@ fn - space : bash "$DOTFILES/scripts/toggle_app.bash" "Ghostty"
 
 # yabai scratchpads
 fn + alt - m : yabai -m window --toggle music || open -a Music
-fn + alt - n : yabai -m window --toggle notes || open -a Notes
+# fn + alt - n : yabai -m window --toggle notes || open -a Notes
 fn + alt - p : yabai -m window --toggle pw || open -a "Proton Pass"
 
 # Move space to next display

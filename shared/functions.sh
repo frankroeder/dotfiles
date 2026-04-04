@@ -4,7 +4,7 @@
 
 # Create directory and cd into it
 mcd() {
-  mkdir -p "$@" && cd "$_"
+  command mkdir -p "$@" && cd "$_"
 }
 
 # ls with file permissions in octal format
@@ -32,14 +32,14 @@ retry() {
 
 # Move to trash with confirmation and undo support
 del() {
-  local path
+  local item
   local files=""
   local dst
   local trash_dir
 
   # Use ~/.Trash for both macOS and Linux
   trash_dir="$HOME/.Trash"
-  mkdir -p "$trash_dir"
+  command mkdir -p "$trash_dir" || return 1
 
   echo -n "Do you wish to move the following files to the trash: $@ (y/n)? "
   read -r answer
@@ -47,20 +47,20 @@ del() {
   if [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
     echo "Yes"
 
-    for path in "$@"; do
+    for item in "$@"; do
       # Skip if it's a flag
-      if [ "${path#-}" != "$path" ]; then
+      if [ "${item#-}" != "$item" ]; then
         continue
       fi
 
-      dst="${path##*/}"
+      dst="${item##*/}"
 
       # Append random suffix if file exists in trash
       while [ -e "$trash_dir/$dst" ]; do
         dst="${dst}_${RANDOM}"
       done
 
-      /bin/mv -fv "$path" "$trash_dir/$dst"
+      /bin/mv -fv "$item" "$trash_dir/$dst"
 
       # Build space-separated list of files
       if [ -z "$files" ]; then
@@ -265,4 +265,21 @@ lpath() {
 
 catcsv() {
   cat "$1"  | column -t -s,
+}
+
+topllm() {
+  URL="https://api.zeroeval.com/leaderboard/models/full?justCanonicals=true"
+  DATA=$(curl -s "$URL")
+  SCORES=("hle_score" "gpqa_score" "swe_bench_verified_score" "mmmlu_score")
+  for field in "${SCORES[@]}"; do
+    echo "Top 10 by $field:"
+    echo "$DATA" | jq -r --arg field "$field" '
+    sort_by( .[$field] // -1e9 )
+    | reverse
+    | .[:10]
+    | to_entries[]
+    | "\(.key+1). \(.value.name // .value.model_id) (\(.value.organization // "N/A")) — \($field): \(.value[$field] // "null")"
+    '
+    echo ""
+  done
 }

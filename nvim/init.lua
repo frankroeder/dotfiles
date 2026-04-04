@@ -1,8 +1,9 @@
+pcall(vim.loader.enable)
+
 require "options"
 require "keymaps"
-require "plugin_manager"
 require "autocommands"
-require "lsp"
+vim.cmd.packadd "nvim.undotree"
 
 local localnvim = os.getenv "HOME" .. "/.localnvim.lua"
 if vim.fn.filereadable(localnvim) then

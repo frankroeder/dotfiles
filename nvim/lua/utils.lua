@@ -9,21 +9,9 @@ M.merge_tables = function(t1, t2)
 end
 
 M.browser_args = function()
-  local browser = os.getenv "BROWSER_NAME"
-  if browser == "Safari" then
-    return 'tell application "Safari" to return URL of front document'
-  elseif browser == "Orion RC" then
-    return 'tell application id "com.kagi.kagimacOS.RC" to get URL of current tab of first window'
-  elseif browser == "Zen Browser" then
-    -- FIXME
-    return 'tell application "System Events" to tell application process "Zen Browser" to get value of attribute "AXTitle" of front window'
-  elseif browser == "Brave Browser" then
-    return 'tell application "Brave Browser" to return URL of active tab of front window'
-  elseif browser == "Vivaldi" then
-    return 'tell application "Vivaldi" to return URL of active tab of front window'
-  else
-    return 'display notification "No active tab in Browser" with title "Alert"'
-  end
+  local dotfiles = os.getenv "DOTFILES" or (os.getenv "HOME" .. "/.dotfiles")
+  local puturl = dotfiles .. "/bin/Darwin/puturl"
+  return string.format('do shell script "exec " & quoted form of %q', puturl)
 end
 
 -- find element in table
@@ -94,7 +82,7 @@ M.get_api_key = function(key, fallback)
   local result = ""
   -- check if security executable is available and OS is macos
   if vim.fn.executable "security" == 1 and vim.fn.has "macunix" == 1 then
-    local cmd = "security find-generic-password -s " .. key .. " -w"
+    local cmd = "security find-generic-password -s " .. key .. " -w 2>/dev/null"
     local handle = io.popen(cmd)
     if handle ~= nil then
       result = handle:read "*a"

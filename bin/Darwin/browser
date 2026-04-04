@@ -1,0 +1,605 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+launch_services_plist="$HOME/Library/Preferences/com.apple.LaunchServices/com.apple.launchservices.secure.plist"
+
+usage() {
+  echo "Usage: $0 {name|url|urls}" >&2
+  exit 1
+}
+
+die() {
+  echo "$*" >&2
+  exit 1
+}
+
+default_browser_bundle_id() {
+  if [[ -r "$launch_services_plist" ]] && command -v plutil >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+    plutil -convert json -o - "$launch_services_plist" 2>/dev/null \
+      | jq -r '.LSHandlers[]
+        | select(.LSHandlerContentType == "com.apple.default-app.web-browser" or .LSHandlerURLScheme == "https")
+        | .LSHandlerRoleAll' 2>/dev/null \
+      | awk 'NF { print; exit }'
+    return
+  fi
+
+  defaults read com.apple.LaunchServices/com.apple.launchservices.secure LSHandlers 2>/dev/null \
+    | awk '
+      /^[[:space:]]*{/ { in_dict = 1; wants_role = 0 }
+      in_dict && /LSHandlerContentType = "com.apple.default-app.web-browser";/ { wants_role = 1 }
+      in_dict && /LSHandlerURLScheme = https;/ { wants_role = 1 }
+      in_dict && wants_role && /LSHandlerRoleAll = / {
+        gsub(/^.*LSHandlerRoleAll = "?/, "")
+        gsub(/";?$/, "")
+        print
+        exit
+      }
+      /^[[:space:]]*}/ { in_dict = 0; wants_role = 0 }
+    '
+}
+
+browser_name_from_bundle_id() {
+  case "$1" in
+    com.apple.Safari) echo "Safari" ;;
+    com.kagi.kagimacOS) echo "Orion" ;;
+    com.kagi.kagimacOS.RC) echo "Orion RC" ;;
+    org.mozilla.firefox) echo "Firefox" ;;
+    org.mozilla.librewolf) echo "LibreWolf" ;;
+    app.zen-browser.zen) echo "Zen Browser" ;;
+    com.google.Chrome) echo "Google Chrome" ;;
+    org.chromium.Chromium) echo "Chromium" ;;
+    company.thebrowser.Browser) echo "Arc" ;;
+    com.microsoft.edgemac) echo "Microsoft Edge" ;;
+    com.brave.Browser) echo "Brave Browser" ;;
+    com.vivaldi.Vivaldi) echo "Vivaldi" ;;
+    *) return 1 ;;
+  esac
+}
+
+default_browser_name() {
+  local bundle_id
+
+  bundle_id="$(default_browser_bundle_id)"
+  [[ -n "$bundle_id" ]] || return 1
+
+  browser_name_from_bundle_id "$bundle_id"
+}
+
+is_webkit_browser() {
+  case "$1" in
+    Safari|Orion|"Orion RC") return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+is_chromium_browser() {
+  case "$1" in
+    "Arc"|"Brave Browser"|"Chromium"|"Google Chrome"|"Microsoft Edge"|"Vivaldi") return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+is_firefox_browser() {
+  case "$1" in
+    "Firefox"|"LibreWolf"|"Zen Browser") return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+is_supported_browser() {
+  is_webkit_browser "$1" || is_chromium_browser "$1" || is_firefox_browser "$1"
+}
+
+resolved_browser_name() {
+  local browser_name=""
+
+  browser_name="$(default_browser_name 2>/dev/null || true)"
+  if [[ -n "$browser_name" ]]; then
+    printf '%s\n' "$browser_name"
+    return 0
+  fi
+
+  if [[ -n "${BROWSER_NAME:-}" ]] && is_supported_browser "$BROWSER_NAME"; then
+    printf '%s\n' "$BROWSER_NAME"
+    return 0
+  fi
+
+  return 1
+}
+
+current_browser_name() {
+  local browser_name=""
+
+  if command -v yabai >/dev/null 2>&1; then
+    browser_name="$(
+      yabai -m query --windows --window 2>/dev/null \
+        | awk -F'"' '/"app":/ { print $4; exit }'
+    )"
+    if [[ -n "$browser_name" ]] && is_supported_browser "$browser_name"; then
+      printf '%s\n' "$browser_name"
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
+query_browser_name() {
+  local browser_name=""
+
+  browser_name="$(current_browser_name 2>/dev/null || true)"
+  if [[ -n "$browser_name" ]]; then
+    printf '%s\n' "$browser_name"
+    return 0
+  fi
+
+  if [[ -n "${BROWSER_NAME:-}" ]] && is_supported_browser "$BROWSER_NAME"; then
+    printf '%s\n' "$BROWSER_NAME"
+    return 0
+  fi
+
+  browser_name="$(default_browser_name 2>/dev/null || true)"
+  if [[ -n "$browser_name" ]]; then
+    printf '%s\n' "$browser_name"
+    return 0
+  fi
+
+  return 1
+}
+
+firefox_support_dir() {
+  case "$1" in
+    Firefox) printf '%s\n' "$HOME/Library/Application Support/Firefox" ;;
+    LibreWolf) printf '%s\n' "$HOME/Library/Application Support/LibreWolf" ;;
+    "Zen Browser") printf '%s\n' "$HOME/Library/Application Support/zen" ;;
+    *) return 1 ;;
+  esac
+}
+
+resolve_support_path() {
+  local support_dir="$1"
+  local path="$2"
+
+  if [[ "$path" == /* ]]; then
+    printf '%s\n' "$path"
+  else
+    printf '%s/%s\n' "$support_dir" "$path"
+  fi
+}
+
+firefox_profile_dir() {
+  local browser_name="$1"
+  local support_dir=""
+  local profile_dir=""
+  local profile_path=""
+
+  support_dir="$(firefox_support_dir "$browser_name")" || return 1
+  [[ -d "$support_dir/Profiles" ]] || return 1
+
+  profile_dir="$(
+    find "$support_dir/Profiles" -mindepth 1 -maxdepth 1 -type d \
+      -exec test -e "{}/.parentlock" ';' -print -quit 2>/dev/null
+  )"
+  if [[ -n "$profile_dir" ]]; then
+    printf '%s\n' "$profile_dir"
+    return 0
+  fi
+
+  if [[ -r "$support_dir/installs.ini" ]]; then
+    profile_path="$(awk -F= '/^Default=/{ print $2; exit }' "$support_dir/installs.ini")"
+    if [[ -n "$profile_path" ]]; then
+      resolve_support_path "$support_dir" "$profile_path"
+      return 0
+    fi
+  fi
+
+  if [[ -r "$support_dir/profiles.ini" ]]; then
+    profile_path="$(
+      awk -F= '
+        /^\[Profile/ {
+          in_profile = 1
+          path = ""
+          is_default = 0
+          next
+        }
+        /^\[/ {
+          if (in_profile && is_default && path != "") {
+            print path
+            exit
+          }
+          in_profile = 0
+        }
+        in_profile && /^Path=/ { path = $2 }
+        in_profile && /^Default=1$/ { is_default = 1 }
+        END {
+          if (in_profile && is_default && path != "") {
+            print path
+          }
+        }
+      ' "$support_dir/profiles.ini"
+    )"
+    if [[ -n "$profile_path" ]]; then
+      resolve_support_path "$support_dir" "$profile_path"
+      return 0
+    fi
+  fi
+
+  profile_dir="$(
+    find "$support_dir/Profiles" -mindepth 2 -maxdepth 2 -type f \
+      -path '*/sessionstore-backups/recovery.jsonlz4' -print -quit 2>/dev/null \
+      | while IFS= read -r session_file; do
+          dirname "$session_file"
+        done \
+      | while IFS= read -r session_dir; do
+          dirname "$session_dir"
+        done \
+      | awk 'NF { print; exit }'
+  )"
+  [[ -n "$profile_dir" ]] || return 1
+
+  printf '%s\n' "$profile_dir"
+}
+
+firefox_session_file() {
+  local browser_name="$1"
+  local profile_dir=""
+  local candidate=""
+
+  profile_dir="$(firefox_profile_dir "$browser_name")" || return 1
+
+  for candidate in recovery.jsonlz4 recovery.baklz4 previous.jsonlz4; do
+    if [[ -r "$profile_dir/sessionstore-backups/$candidate" ]]; then
+      printf '%s\n' "$profile_dir/sessionstore-backups/$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+firefox_session_value() {
+  local browser_name="$1"
+  local mode="$2"
+  local session_file=""
+
+  session_file="$(firefox_session_file "$browser_name")" || return 1
+  command -v python3 >/dev/null 2>&1 || return 1
+
+  python3 - "$session_file" "$mode" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+
+def decode_mozlz4(path: Path) -> bytes:
+    data = path.read_bytes()
+    if data[:8] != b"mozLz40\0":
+        raise ValueError("unsupported mozlz4 header")
+
+    expected_size = int.from_bytes(data[8:12], "little")
+    block = memoryview(data)[12:]
+    out = bytearray()
+    i = 0
+
+    while i < len(block):
+        token = block[i]
+        i += 1
+
+        literal_length = token >> 4
+        if literal_length == 15:
+            while True:
+                extra = block[i]
+                i += 1
+                literal_length += extra
+                if extra != 255:
+                    break
+
+        out.extend(block[i : i + literal_length])
+        i += literal_length
+        if i >= len(block):
+            break
+
+        offset = block[i] | (block[i + 1] << 8)
+        i += 2
+
+        match_length = token & 0x0F
+        if match_length == 15:
+            while True:
+                extra = block[i]
+                i += 1
+                match_length += extra
+                if extra != 255:
+                    break
+
+        match_length += 4
+        start = len(out) - offset
+        if start < 0:
+            raise ValueError("invalid lz4 offset")
+
+        for _ in range(match_length):
+            out.append(out[start])
+            start += 1
+
+    if len(out) != expected_size:
+        raise ValueError("invalid lz4 output size")
+
+    return bytes(out)
+
+
+def current_tab_url(tab: dict) -> str:
+    entries = tab.get("entries") or []
+    if not entries:
+        return ""
+
+    index = tab.get("index", len(entries))
+    if not isinstance(index, int):
+        index = len(entries)
+    index = max(1, min(index, len(entries))) - 1
+
+    entry = entries[index] or {}
+    return entry.get("url", "")
+
+
+session_file = Path(sys.argv[1])
+mode = sys.argv[2]
+session = json.loads(decode_mozlz4(session_file).decode("utf-8"))
+windows = session.get("windows") or []
+
+if mode == "url":
+    if not windows:
+        print("")
+        raise SystemExit(0)
+
+    selected_window = session.get("selectedWindow", 1)
+    if not isinstance(selected_window, int):
+        selected_window = 1
+    selected_window = max(1, min(selected_window, len(windows))) - 1
+
+    window = windows[selected_window]
+    tabs = window.get("tabs") or []
+    if not tabs:
+        print("")
+        raise SystemExit(0)
+
+    selected_tab = window.get("selected", 1)
+    if not isinstance(selected_tab, int):
+        selected_tab = 1
+    selected_tab = max(1, min(selected_tab, len(tabs))) - 1
+
+    print(current_tab_url(tabs[selected_tab]))
+elif mode == "urls":
+    for window in windows:
+      for tab in window.get("tabs") or []:
+          url = current_tab_url(tab)
+          if url:
+              print(url)
+else:
+    raise SystemExit(f"unsupported mode: {mode}")
+PY
+}
+
+firefox_url_via_ui() {
+  local browser_name="$1"
+
+  osascript - "$browser_name" <<'END'
+on readCurrentURL(browserName)
+  tell application browserName to activate
+  delay 0.2
+
+  tell application "System Events"
+    tell application process browserName
+      set frontmost to true
+      keystroke "l" using {command down}
+      delay 0.1
+      keystroke "c" using {command down}
+      delay 0.1
+      key code 53
+    end tell
+  end tell
+
+  delay 0.05
+  return the clipboard
+end readCurrentURL
+
+on run argv
+  set browserName to item 1 of argv
+  set savedClipboard to ""
+
+  try
+    set savedClipboard to the clipboard
+  end try
+
+  set currentURL to my readCurrentURL(browserName)
+  set the clipboard to savedClipboard
+
+  return currentURL
+end run
+END
+}
+
+firefox_urls_via_ui() {
+  local browser_name="$1"
+
+  osascript - "$browser_name" <<'END'
+on readCurrentURL(browserName)
+  tell application browserName to activate
+  delay 0.2
+
+  tell application "System Events"
+    tell application process browserName
+      set frontmost to true
+      keystroke "l" using {command down}
+      delay 0.1
+      keystroke "c" using {command down}
+      delay 0.1
+      key code 53
+    end tell
+  end tell
+
+  delay 0.05
+  return the clipboard
+end readCurrentURL
+
+on readCurrentTitle(browserName)
+  tell application "System Events"
+    tell application process browserName
+      return name of front window
+    end tell
+  end tell
+end readCurrentTitle
+
+on nextTab(browserName)
+  tell application "System Events"
+    tell application process browserName
+      key code 48 using {control down}
+    end tell
+  end tell
+
+  delay 0.15
+end nextTab
+
+on run argv
+  set browserName to item 1 of argv
+  set savedClipboard to ""
+
+  try
+    set savedClipboard to the clipboard
+  end try
+
+  tell application browserName to activate
+  delay 0.2
+
+  set firstURL to my readCurrentURL(browserName)
+  if firstURL is "" then
+    set the clipboard to savedClipboard
+    return ""
+  end if
+
+  set firstTitle to my readCurrentTitle(browserName)
+  set output to firstURL
+
+  repeat with i from 1 to 199
+    my nextTab(browserName)
+    set currentURL to my readCurrentURL(browserName)
+    set currentTitle to my readCurrentTitle(browserName)
+
+    if currentURL is firstURL and currentTitle is firstTitle then
+      exit repeat
+    end if
+
+    set output to output & linefeed & currentURL
+  end repeat
+
+  set the clipboard to savedClipboard
+  return output
+end run
+END
+}
+
+browser_url() {
+  local browser_name="$1"
+
+  if is_webkit_browser "$browser_name"; then
+    osascript - "$browser_name" <<'END'
+on run argv
+  set browserName to item 1 of argv
+
+  tell application browserName
+    if (count of windows) is 0 then
+      return ""
+    end if
+
+    return URL of current tab of front window
+  end tell
+end run
+END
+    return
+  fi
+
+  if is_chromium_browser "$browser_name"; then
+    osascript - "$browser_name" <<'END'
+on run argv
+  set browserName to item 1 of argv
+
+  tell application browserName
+    if (count of windows) is 0 then
+      return ""
+    end if
+
+    return URL of active tab of front window
+  end tell
+end run
+END
+    return
+  fi
+
+  if is_firefox_browser "$browser_name"; then
+    firefox_session_value "$browser_name" url 2>/dev/null || firefox_url_via_ui "$browser_name"
+    return
+  fi
+
+  die "Unsupported browser: $browser_name"
+}
+
+browser_urls() {
+  local browser_name="$1"
+
+  if is_webkit_browser "$browser_name" || is_chromium_browser "$browser_name"; then
+    osascript - "$browser_name" <<'END'
+on run argv
+  set browserName to item 1 of argv
+  set output to ""
+
+  tell application browserName
+    if (count of windows) is 0 then
+      return ""
+    end if
+
+    repeat with w in every window
+      repeat with t in every tab of w
+        set output to output & (URL of t) & linefeed
+      end repeat
+    end repeat
+  end tell
+
+  return output
+end run
+END
+    return
+  fi
+
+  if is_firefox_browser "$browser_name"; then
+    firefox_session_value "$browser_name" urls 2>/dev/null || firefox_urls_via_ui "$browser_name"
+    return
+  fi
+
+  die "Unsupported browser: $browser_name"
+}
+
+main() {
+  local command="${1:-}"
+  local browser_name=""
+
+  [[ -n "$command" ]] || usage
+
+  case "$command" in
+    name)
+      browser_name="$(resolved_browser_name)" || die "Could not resolve the default browser."
+      printf '%s\n' "$browser_name"
+      ;;
+    url)
+      browser_name="$(query_browser_name)" || die "Could not resolve the browser to query."
+      browser_url "$browser_name"
+      ;;
+    urls)
+      browser_name="$(query_browser_name)" || die "Could not resolve the browser to query."
+      browser_urls "$browser_name"
+      ;;
+    *)
+      usage
+      ;;
+  esac
+}
+
+main "$@"

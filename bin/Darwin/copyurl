@@ -1,60 +1,9 @@
 #!/usr/bin/env bash
-# Copy url of selected tab in Safari
 
-if [[ "$BROWSER_NAME" = "Safari" ]]; then
-URL=$(osascript <<'END'
-  tell application "Safari"
-    tell front window
-      set currentTab to current tab
-      set theURL to URL of currentTab
-    end tell
-    set the clipboard to theURL
-    "Copied " & theURL & " to clipboard"
-  end tell
-END
-)
-elif [[ "$BROWSER_NAME" = "Orion RC" ]]; then
-URL=$(osascript <<'END'
-  tell application "Safari"
-    tell front window
-      set currentTab to current tab
-      set theURL to URL of currentTab
-    end tell
-    set the clipboard to theURL
-    "Copied " & theURL & " to clipboard"
-  end tell
-END
-)
-elif [[ "$BROWSER_NAME" = "Zen Browser" ]]; then
-# FIXME: Zen Browser lacks AppleScript support, using UI scripting
-URL=$(osascript <<'END'
-tell application "System Events"
-    tell application process "Zen Browser"
-      set vURL to value of attribute "AXTitle" of front window
-      set the clipboard to vURL
-      return "Copied " & vURL & " to clipboard"
-    end tell
-end tell
-END
-)
-elif [[ "$BROWSER_NAME" = "Brave Browser" ]]; then
-URL=$(osascript <<'END'
-  tell application "Brave Browser"
-    set vURL to URL of active tab of front window
-    set the clipboard to vURL
-    "Copied " & vURL & " to clipboard"
-  end tell
-END
-)
-elif [[ "$BROWSER_NAME" = "Vivaldi" ]]; then
-URL=$(osascript <<'END'
-  tell application "Vivaldi"
-    set vURL to URL of active tab of front window
-    set the clipboard to vURL
-    "Copied " & vURL & " to clipboard"
-  end tell
-END
-)
-fi
+set -euo pipefail
 
-echo $URL
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+url="$("$script_dir/browser" url)"
+
+printf '%s' "$url" | pbcopy
+printf 'Copied %s to clipboard\n' "$url"
