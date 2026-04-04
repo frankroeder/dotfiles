@@ -71,8 +71,8 @@ neovim_plug_update() {
   if [[ -d "$HOME/.fzf/" ]]; then
     (cd $HOME/.fzf && git pull && ./install --bin)
   fi
-  nvim --headless "+Lazy! sync" +TSUpdateSync +qa;
-  nvim --headless foo "+MasonUpdate" +qa;
+  nvim --headless "+lua vim.pack.update()" "+qa"
+  nvim --headless foo "+MasonUpdate" "+qa";
 }
 
 mas_update() {
