@@ -13,6 +13,7 @@ My personal dotfiles for Linux and macOS.
 ## Options
 - macOS Intel and ARM: `make macos`
 - Linux with sudo rights: `make linux`
+- Asahi Linux (Fedora + Plasma + DankLinux overlay): `make asahi`
 - Linux without sudo rights: `make NOSUDO=1 minimal`
 
 ## Local configuration files

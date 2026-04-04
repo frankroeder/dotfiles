@@ -6,6 +6,7 @@ SHELL := /bin/bash
 MAKEFLAGS += --warn-undefined-variables
 MAKEFLAGS += --no-builtin-rules
 
+NOSUDO ?=
 DOTFILES := $(PWD)
 OSTYPE := $(shell uname -s)
 ARCHITECTURE := $(shell uname -m)
@@ -36,6 +37,30 @@ define create_symlink
 		ln -sfv $(1) $(2); \
 	else \
 		echo "\033[1m\033[33mWarning: Source $(1) does not exist, skipping symlink\033[0m"; \
+	fi
+endef
+
+define replace_with_symlink
+	@mkdir -p "$$(dirname "$(2)")"
+	@if [ -L "$(2)" ] && [ "$$(readlink -f "$(2)")" = "$$(readlink -f "$(1)")" ]; then \
+		echo "Link already correct: $(2) -> $(1)"; \
+	else \
+		if [ -e "$(2)" ] || [ -L "$(2)" ]; then \
+			echo "Removing existing $(2)"; \
+			rm -rf "$(2)"; \
+		fi; \
+		echo "Linking $(2) -> $(1)"; \
+		ln -sfn "$(1)" "$(2)"; \
+	fi
+endef
+
+define link_if_exists
+	@mkdir -p "$$(dirname "$(2)")"
+	@if [ -e "$(1)" ] || [ -L "$(1)" ]; then \
+		echo "Linking $(2) -> $(1)"; \
+		ln -sfn "$(1)" "$(2)"; \
+	else \
+		$(call print_warning,Optional source $(1) does not exist, skipping symlink); \
 	fi
 endef
 
@@ -259,11 +284,11 @@ ifeq ($(OSTYPE), Darwin)
 	fi
 	# private configs
 	# https://agents.md
-	ln -sfv $(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/AGENTS.md $(HOME)/.claude/CLAUDE.md;
-	ln -sfv $(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/AGENTS.md $(HOME)/.gemini/GEMINI.md;
-	ln -sfv $(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/claude_settings.json $(HOME)/.claude/settings.json;
-	ln -sfv $(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/opencode.jsonc $(HOME)/.config/opencode/;
-	ln -sfv $(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/gemini_settings.json $(HOME)/.gemini/settings.json;
+	$(call link_if_exists,$(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/AGENTS.md,$(HOME)/.claude/CLAUDE.md)
+	$(call link_if_exists,$(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/AGENTS.md,$(HOME)/.gemini/GEMINI.md)
+	$(call link_if_exists,$(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/claude_settings.json,$(HOME)/.claude/settings.json)
+	$(call link_if_exists,$(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/opencode.jsonc,$(HOME)/.config/opencode/opencode.jsonc)
+	$(call link_if_exists,$(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/gemini_settings.json,$(HOME)/.gemini/settings.json)
 endif
 
 .PHONY: directories
@@ -384,10 +409,10 @@ _terminal: ## Install and configure terminal emulator
 .PHONY: asahi asahi-common asahi-plasma asahi-danklinux asahi-shell check-asahi
 asahi: ## Asahi Linux (Fedora): Plasma base + DankLinux Hyprland overlay
 asahi: validate-linux validate-tools sudo asahi-plasma asahi-danklinux check-asahi
-	@mkdir -p $(HOME)/.claude
-	@ln -sfv $(HOME)/Nextcloud/Sync/AGENTS.md $(HOME)/.claude/CLAUDE.md
-	@ln -sfv $(HOME)/Nextcloud/Sync/AGENTS.md $(HOME)/.codex/AGENTS.md
-	@ln -sfv $(HOME)/Nextcloud/Sync/claude_settings.json $(HOME)/.claude/settings.json
+	@mkdir -p $(HOME)/.claude $(HOME)/.codex
+	$(call link_if_exists,$(HOME)/Nextcloud/Sync/AGENTS.md,$(HOME)/.claude/CLAUDE.md)
+	$(call link_if_exists,$(HOME)/Nextcloud/Sync/AGENTS.md,$(HOME)/.codex/AGENTS.md)
+	$(call link_if_exists,$(HOME)/Nextcloud/Sync/claude_settings.json,$(HOME)/.claude/settings.json)
 	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
 
 asahi-common: directories _git zsh python misc nvim
@@ -407,12 +432,9 @@ asahi-plasma: asahi-common
 
 asahi-danklinux: ## Layer DankLinux user config on top of the Plasma base
 asahi-danklinux: asahi-common
-	@rm -rf $(HOME)/.config/hypr
-	@ln -sfv $(DOTFILES)/asahi/hypr $(HOME)/.config/hypr
-	@rm -rf $(HOME)/.config/DankMaterialShell
-	@ln -sfv $(DOTFILES)/asahi/dms $(HOME)/.config/DankMaterialShell
-	@rm -rf $(HOME)/.config/ghostty
-	@ln -sfv $(DOTFILES)/asahi/ghostty $(HOME)/.config/ghostty
+	$(call replace_with_symlink,$(DOTFILES)/asahi/hypr,$(HOME)/.config/hypr)
+	$(call replace_with_symlink,$(DOTFILES)/asahi/dms,$(HOME)/.config/DankMaterialShell)
+	$(call replace_with_symlink,$(DOTFILES)/asahi/ghostty,$(HOME)/.config/ghostty)
 	@mkdir -p $(HOME)/.config/librewolf/librewolf
 	@ln -sfv $(DOTFILES)/asahi/librewolf/librewolf.overrides.cfg $(HOME)/.config/librewolf/librewolf/librewolf.overrides.cfg
 	@if [ -d "$(HOME)/.config/librewolf/librewolf" ]; then \

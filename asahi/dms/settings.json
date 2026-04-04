@@ -157,7 +157,48 @@
   "runningAppsCurrentWorkspace": false,
   "runningAppsGroupByApp": false,
   "runningAppsCurrentMonitor": false,
-  "appIdSubstitutions": [],
+  "appIdSubstitutions": [
+    {
+      "pattern": "Spotify",
+      "replacement": "spotify",
+      "type": "exact"
+    },
+    {
+      "pattern": "beepertexts",
+      "replacement": "beeper",
+      "type": "exact"
+    },
+    {
+      "pattern": "home assistant desktop",
+      "replacement": "homeassistant-desktop",
+      "type": "exact"
+    },
+    {
+      "pattern": "com.transmissionbt.transmission",
+      "replacement": "transmission-gtk",
+      "type": "contains"
+    },
+    {
+      "pattern": "^steam_app_(\\d+)$",
+      "replacement": "steam_icon_$1",
+      "type": "regex"
+    },
+    {
+      "pattern": "firefox",
+      "replacement": "librewolf",
+      "type": "exact"
+    },
+    {
+      "pattern": "org.mozilla.firefox",
+      "replacement": "librewolf",
+      "type": "exact"
+    },
+    {
+      "pattern": "LibreWolf",
+      "replacement": "librewolf",
+      "type": "exact"
+    }
+  ],
   "centeringMode": "index",
   "clockDateFormat": "",
   "lockDateFormat": "",

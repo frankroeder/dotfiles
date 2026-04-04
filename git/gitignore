@@ -6,6 +6,7 @@ jsconfig.json
 .sass-cache/
 events.out.tfevents.*
 .claude/
+.codex/
 build/
 
 # python
