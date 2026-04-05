@@ -8,6 +8,7 @@ DEFAULT_RELEASE="stable"
 # --- Helper Functions ---
 info() { printf "\033[1;34m[INFO]\033[0m %s\n" "$1"; }
 success() { printf "\033[1;32m[SUCCESS]\033[0m %s\n" "$1"; }
+warn() { printf "\033[1;33m[WARN]\033[0m %s\n" "$1"; }
 error() { printf "\033[1;31m[ERROR]\033[0m %s\n" >&2; exit 1; }
 check_command() { command -v "$1" >/dev/null 2>&1 || error "Required command '$1' not installed."; }
 
@@ -71,27 +72,37 @@ install_binary() {
   fi
   info "Selected asset: $asset_name"
 
-  # Download URLs
+  # Download URL and checksum metadata
   local download_url="https://github.com/neovim/neovim/releases/download/$tag/$asset_name"
-  local checksum_file="shasum.txt"
-  local checksum_url="https://github.com/neovim/neovim/releases/download/$tag/$checksum_file"
+  local checksum_asset
+  checksum_asset="$(echo "$assets_json" | jq -r '.assets[].name | select(test("(?i)(sha256|sha)sum"))' | head -n 1)"
+  local expected_checksum
+  expected_checksum="$(echo "$assets_json" | jq -r ".assets[] | select(.name == \"$asset_name\") | (.digest // empty)" | sed 's/^sha256://')"
 
   # Prepare temporary directory
   mkdir -p "$NVIM_TMP_DIR"
   cd "$NVIM_TMP_DIR" || error "Failed to enter directory $NVIM_TMP_DIR"
 
-  # Download the asset and checksum file
+  # Download the asset
   info "Downloading $asset_name from $download_url"
   curl -fSLO "$download_url" || error "Failed to download $download_url"
-  info "Downloading checksum file from $checksum_url"
-  curl -fSLO "$checksum_url" || error "Failed to download $checksum_url"
 
-  # Verify checksum
-  info "Verifying checksum"
-  local expected_checksum=$(grep "$asset_name" "$checksum_file" | awk '{print $1}')
-  [[ -z "$expected_checksum" ]] && error "Checksum not found for $asset_name"
-  local computed_checksum=$(sha256sum "$asset_name" | awk '{print $1}')
-  [[ "$computed_checksum" != "$expected_checksum" ]] && error "Checksum mismatch"
+  # Verify checksum. Prefer the digest shipped in the release API.
+  if [[ -z "$expected_checksum" && -n "$checksum_asset" ]]; then
+    local checksum_url="https://github.com/neovim/neovim/releases/download/$tag/$checksum_asset"
+    info "Downloading checksum file from $checksum_url"
+    curl -fSLo "$checksum_asset" "$checksum_url" || error "Failed to download $checksum_url"
+    expected_checksum="$(grep " $asset_name\$" "$checksum_asset" | awk '{print $1}')"
+  fi
+
+  if [[ -n "$expected_checksum" ]]; then
+    info "Verifying checksum"
+    local computed_checksum
+    computed_checksum=$(sha256sum "$asset_name" | awk '{print $1}')
+    [[ "$computed_checksum" != "$expected_checksum" ]] && error "Checksum mismatch"
+  else
+    warn "No checksum metadata found for $asset_name; skipping checksum verification."
+  fi
 
   # Extract and install
   info "Extracting $asset_name to $install_prefix"
@@ -108,7 +119,8 @@ install_binary() {
 
   # Clean up
   info "Cleaning up"
-  rm -f "$asset_name" "$checksum_file"
+  rm -f "$asset_name"
+  [[ -n "${checksum_asset:-}" ]] && rm -f "$checksum_asset"
 }
 
 install_from_source() {

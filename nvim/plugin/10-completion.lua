@@ -1,6 +1,43 @@
 local pack = require "pack_helpers"
 local gh = pack.gh
 
+local function blink_fuzzy_lib_extension()
+  if jit.os:lower() == "mac" or jit.os:lower() == "osx" then
+    return ".dylib"
+  end
+  if jit.os:lower() == "windows" then
+    return ".dll"
+  end
+  return ".so"
+end
+
+local function build_blink_fuzzy(path)
+  if vim.fn.executable "cargo" ~= 1 then
+    pack.notify("cargo is not available, skipping blink.cmp build", vim.log.levels.WARN)
+    return false
+  end
+
+  local result = vim
+    .system({ "cargo", "build", "--release" }, { cwd = path, text = true })
+    :wait()
+  if result.code ~= 0 then
+    local output = result.stderr ~= "" and result.stderr or result.stdout
+    pack.notify(("blink.cmp build failed:\n%s"):format(output))
+    return false
+  end
+
+  return true
+end
+
+local function ensure_blink_fuzzy(path)
+  local lib = vim.fs.joinpath(path, "target", "release", "libblink_cmp_fuzzy" .. blink_fuzzy_lib_extension())
+  if vim.uv.fs_stat(lib) then
+    return
+  end
+
+  build_blink_fuzzy(path)
+end
+
 vim.api.nvim_create_autocmd("PackChanged", {
   desc = "Handle blink.cmp installs and updates",
   group = vim.api.nvim_create_augroup("blink-cmp-pack-changed-handler", { clear = true }),
@@ -13,32 +50,30 @@ vim.api.nvim_create_autocmd("PackChanged", {
       return
     end
 
-    if vim.fn.executable "cargo" ~= 1 then
-      pack.notify("cargo is not available, skipping blink.cmp build", vim.log.levels.WARN)
-      return
-    end
-
-    local result = vim.system({ "cargo", "build", "--release" }, { cwd = event.data.path, text = true }):wait()
-    if result.code ~= 0 then
-      local output = result.stderr ~= "" and result.stderr or result.stdout
-      pack.notify(("blink.cmp build failed:\n%s"):format(output))
-    end
+    build_blink_fuzzy(event.data.path)
   end,
 })
 
-vim.pack.add({
-  { src = gh("L3MON4D3/LuaSnip"), version = vim.version.range "2.x" },
-  gh("archie-judd/blink-cmp-words"),
-  gh("folke/lazydev.nvim"),
-  gh("saghen/blink.cmp"),
-})
+vim.pack.add {
+  { src = gh "L3MON4D3/LuaSnip", version = vim.version.range "2.x" },
+  gh "archie-judd/blink-cmp-words",
+  gh "folke/lazydev.nvim",
+  { src = gh "saghen/blink.cmp", version = vim.version.range "1.*" },
+}
+
+do
+  local blink = vim.pack.get({ "blink.cmp" }, { info = false })[1]
+  if blink then
+    ensure_blink_fuzzy(blink.path)
+  end
+end
 
 do
   local status_ok, luasnip = pcall(require, "luasnip")
   if status_ok then
     local lua = require "luasnip.loaders.from_lua"
 
-    luasnip.setup({
+    luasnip.setup {
       update_events = "TextChanged,TextChangedI",
       delete_check_events = "TextChanged",
       ext_opts = {
@@ -52,13 +87,13 @@ do
       enable_autosnippets = true,
       store_selection_keys = "<Tab>",
       ft_func = require("luasnip.extras.filetype_functions").from_cursor,
-    })
+    }
 
     luasnip.filetype_extend("zsh", { "sh" })
     luasnip.filetype_extend("typescript", { "javascript" })
     luasnip.filetype_extend("svelte", { "javascript" })
 
-    lua.load({ paths = vim.fn.stdpath "config" .. "/snippets/" })
+    lua.load { paths = vim.fn.stdpath "config" .. "/snippets/" }
 
     vim.cmd [[command! LuaSnipEdit :lua require("luasnip.loaders").edit_snippet_files()]]
     vim.cmd [[command! LuaSnipReload :lua require("luasnip.loaders.from_lua").load({paths = vim.fn.stdpath("config") .. "/snippets/"})]]
@@ -77,15 +112,17 @@ do
   end
 end
 
-require("lazydev").setup({
+require("lazydev").setup {
   library = {
-    vim.fs.normalize(vim.fn.expand "~/Documents/luapos/parrot.nvim"),
+    -- vim.fs.normalize(vim.fn.expand "~/Documents/luapos/parrot.nvim"),
     { path = "${3rd}/luv/library", words = { "vim%.uv" } },
     { path = "snacks.nvim", words = { "Snacks" } },
   },
-})
+}
 
-require("blink.cmp").setup({
+local blink_fuzzy_implementation = vim.fn.executable "cargo" == 1 and "prefer_rust" or "lua"
+
+require("blink.cmp").setup {
   keymap = {
     preset = "enter",
     ["<Tab>"] = { "select_next", "snippet_forward", "fallback" },
@@ -171,11 +208,15 @@ require("blink.cmp").setup({
       menu = { auto_show = true },
     },
   },
-  fuzzy = { implementation = "prefer_rust_with_warning" },
+  fuzzy = { implementation = blink_fuzzy_implementation },
   sources = {
     default = function()
       local success, node = pcall(vim.treesitter.get_node)
-      if success and node and vim.tbl_contains({ "comment", "line_comment", "block_comment" }, node:type()) then
+      if
+        success
+        and node
+        and vim.tbl_contains({ "comment", "line_comment", "block_comment" }, node:type())
+      then
         return { "buffer" }
       end
 
@@ -183,7 +224,8 @@ require("blink.cmp").setup({
         return { "buffer", "omni", "snippets", "thesaurus" }
       end
 
-      local providers = { "lsp", "snippets", "path", "buffer", "parrot" }
+      -- local providers = { "lsp", "snippets", "path", "buffer", "parrot" }
+      local providers = { "lsp", "snippets", "path", "buffer" }
       if vim.bo.filetype == "lua" then
         table.insert(providers, "lazydev")
       end
@@ -217,18 +259,18 @@ require("blink.cmp").setup({
         module = "lazydev.integrations.blink",
         score_offset = 100,
       },
-      parrot = {
-        module = "parrot.completion.blink",
-        name = "parrot",
-        score_offset = 20,
-        transform_items = function(_, items)
-          for _, item in ipairs(items) do
-            item.kind_icon = "🦜"
-            item.kind_name = "parrot"
-          end
-          return items
-        end,
-      },
+      -- parrot = {
+      --   module = "parrot.completion.blink",
+      --   name = "parrot",
+      --   score_offset = 20,
+      --   transform_items = function(_, items)
+      --     for _, item in ipairs(items) do
+      --       item.kind_icon = "🦜"
+      --       item.kind_name = "parrot"
+      --     end
+      --     return items
+      --   end,
+      -- },
       thesaurus = {
         name = "blink-cmp-words",
         module = "blink-cmp-words.thesaurus",
@@ -239,4 +281,4 @@ require("blink.cmp").setup({
       },
     },
   },
-})
+}
