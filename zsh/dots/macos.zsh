@@ -84,3 +84,6 @@ alias agents="$EDITOR $HOME/Library/Mobile\ Documents/com~apple~CloudDocs/config
 heic2jpg(){
   sips -s format jpeg "$1" --out "${2:-${1%.*}.jpg}"
 }
+[ $commands[mpv] ] && mpvyt() {
+  mpv --ytdl-raw-options=cookies-from-browser=firefox:~/Library/Application\ Support/librewolf/Profiles/*.default-default "$1"
+}

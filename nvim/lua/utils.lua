@@ -82,7 +82,7 @@ M.get_api_key = function(key, fallback)
   local result = ""
   -- check if security executable is available and OS is macos
   if vim.fn.executable "security" == 1 and vim.fn.has "macunix" == 1 then
-    local cmd = "security find-generic-password -s " .. key .. " -w"
+    local cmd = "security find-generic-password -s " .. key .. " -w 2>/dev/null"
     local handle = io.popen(cmd)
     if handle ~= nil then
       result = handle:read "*a"

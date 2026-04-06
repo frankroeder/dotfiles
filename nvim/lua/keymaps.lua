@@ -44,6 +44,11 @@ vim.keymap.set(
 
 -- replace word with text in register "0
 vim.keymap.set("n", "<Leader>pr", [[viw"0p]], { noremap = true })
+vim.keymap.set("n", "<Leader>Pu", ":PackUpdate<CR>", { silent = true, desc = "pack update" })
+vim.keymap.set("n", "<Leader>PU", ":PackUpdate!<CR>", { silent = true, desc = "pack update now" })
+vim.keymap.set("n", "<Leader>Ps", ":PackStatus<CR>", { silent = true, desc = "pack status" })
+vim.keymap.set("n", "<Leader>PS", ":PackSync<CR>", { silent = true, desc = "pack sync lockfile" })
+vim.keymap.set("n", "<Leader>Pc", ":PackClean<CR>", { silent = true, desc = "pack clean" })
 -- Switch CWD to the directory of the open buffer
 vim.keymap.set("", "<Leader>cd", ":cd %:p:h<CR>:pwd<CR>", {})
 -- Close quickfix window (,qq)
