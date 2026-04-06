@@ -15,6 +15,10 @@ WHICH := which
 
 PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(HOME)/bin:$(HOME)/.local/bin:$(HOME)/.local/nodejs/bin
 
+ASAHI_XKB_LAYOUT ?= de
+ASAHI_XKB_MODEL ?= pc105
+ASAHI_XKB_VARIANT ?= mac
+
 # Validation targets
 .PHONY: validate-macos validate-linux validate-tools
 validate-macos: ## Validate macOS environment
@@ -262,7 +266,7 @@ after: _terminal
 	$(call print_step,Post-installation setup)
 	$(call print_step,Running git setup)
 	@bash $(DOTFILES)/git/setup.sh
-	@if [ "$(OSTYPE)" = "Linux" ] && [ -f "$(DOTFILES)/linux/apt.sh" ]; then \
+	@if [ "$(OSTYPE)" = "Linux" ] && [ -f "$(DOTFILES)/linux/apt.sh" ] && command -v apt-get >/dev/null 2>&1; then \
 		$(call print_step,Installing Linux desktop packages); \
 		bash $(DOTFILES)/linux/apt.sh "desktop"; \
 	fi
@@ -418,6 +422,16 @@ asahi: validate-linux validate-tools sudo asahi-plasma asahi-danklinux check-asa
 
 asahi-common: directories _git zsh python misc nvim
 	@mkdir -p $(HOME)/.config/environment.d
+	@mkdir -p $(HOME)/.local/share/applications
+	@if [ -f "/usr/share/applications/librewolf.desktop" ]; then \
+		$(call print_step,Fixing LibreWolf desktop icon name); \
+		sed 's/^Icon=librewolf\.png$$/Icon=librewolf/' /usr/share/applications/librewolf.desktop > $(HOME)/.local/share/applications/librewolf.desktop; \
+		if command -v update-desktop-database >/dev/null 2>&1; then update-desktop-database $(HOME)/.local/share/applications >/dev/null 2>&1 || true; fi; \
+	fi
+	@if ! command -v tree-sitter >/dev/null 2>&1; then \
+		$(call print_step,Installing tree-sitter CLI); \
+		bash $(DOTFILES)/scripts/tree-sitter.sh; \
+	fi
 
 asahi-plasma: ## Apply KDE Plasma session config for Asahi Linux
 asahi-plasma: asahi-common
@@ -439,11 +453,15 @@ asahi-danklinux: asahi-common
 	@mkdir -p $(HOME)/.config/librewolf/librewolf
 	@ln -sfv $(DOTFILES)/asahi/librewolf/librewolf.overrides.cfg $(HOME)/.config/librewolf/librewolf/librewolf.overrides.cfg
 	@if [ -d "$(HOME)/.config/librewolf/librewolf" ]; then \
-		profile_dir=$$(find "$(HOME)/.config/librewolf/librewolf" -maxdepth 1 -type d -name '*.default*' | head -n 1); \
-		if [ -n "$$profile_dir" ]; then \
-			mkdir -p "$$profile_dir/chrome"; \
-			ln -sfv "$(DOTFILES)/asahi/dms/firefox.css" "$$profile_dir/chrome/userChrome.css"; \
-		else \
+		profiles_linked=0; \
+		for profile_dir in "$(HOME)"/.config/librewolf/librewolf/*.default*; do \
+			if [ -d "$$profile_dir" ]; then \
+				mkdir -p "$$profile_dir/chrome"; \
+				ln -sfv "$(DOTFILES)/asahi/dms/firefox.css" "$$profile_dir/chrome/userChrome.css"; \
+				profiles_linked=1; \
+			fi; \
+		done; \
+		if [ "$$profiles_linked" -eq 0 ]; then \
 			$(call print_warning,LibreWolf profile not found yet; skipping userChrome.css link); \
 		fi; \
 	fi

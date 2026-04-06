@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 LATEST_VERSION=$(curl -sL https://api.github.com/repos/tree-sitter/tree-sitter/releases/latest | jq -r '.name')
 DEST="$HOME/bin/tree-sitter"
+mkdir -p "$(dirname "$DEST")"
 
 ARCH=$(uname -m)
 if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
@@ -9,5 +11,6 @@ if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
 else
   PLATFORM="linux-x64"
 fi
+
 curl -sL "https://github.com/tree-sitter/tree-sitter/releases/download/$LATEST_VERSION/tree-sitter-$PLATFORM.gz" | gunzip > "$DEST"
-chmod +x $DEST
+chmod +x "$DEST"

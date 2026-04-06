@@ -38,6 +38,7 @@ sudo dnf install -y \
   tmux \
   tree \
   latexmk \
+  nextcloud-client \
   texlive \
   texlive-scheme-medium \
   texlive-luahbtex \

@@ -121,6 +121,21 @@ require("lazydev").setup {
 }
 
 local blink_fuzzy_implementation = vim.fn.executable "cargo" == 1 and "prefer_rust" or "lua"
+local function ensure_blink_frecency_state()
+  local state_root = vim.fn.stdpath "state"
+  local base_dir = vim.fs.joinpath(state_root, "blink", "cmp")
+  local frecency_path = vim.fs.joinpath(base_dir, "frecency.db")
+  local legacy_path = vim.fs.joinpath(base_dir, "frecency.dat")
+
+  vim.fn.mkdir(base_dir, "p")
+  if vim.fn.isdirectory(legacy_path) == 1 then
+    vim.fn.delete(legacy_path, "rf")
+  end
+
+  return frecency_path
+end
+
+local blink_frecency_path = ensure_blink_frecency_state()
 
 require("blink.cmp").setup {
   keymap = {
@@ -208,7 +223,10 @@ require("blink.cmp").setup {
       menu = { auto_show = true },
     },
   },
-  fuzzy = { implementation = blink_fuzzy_implementation },
+  fuzzy = {
+    implementation = blink_fuzzy_implementation,
+    frecency = { path = blink_frecency_path },
+  },
   sources = {
     default = function()
       local success, node = pcall(vim.treesitter.get_node)
