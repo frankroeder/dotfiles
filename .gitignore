@@ -4,3 +4,4 @@ Brewfile.lock.json
 .codex
 asahi/dms/.firstlaunch
 asahi/dms/.changelog-*
+asahi/dms/plugins
