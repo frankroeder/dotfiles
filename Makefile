@@ -284,11 +284,12 @@ ifeq ($(OSTYPE), Darwin)
 	fi
 	# private configs
 	# https://agents.md
-	$(call link_if_exists,$(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/AGENTS.md,$(HOME)/.claude/CLAUDE.md)
-	$(call link_if_exists,$(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/AGENTS.md,$(HOME)/.gemini/GEMINI.md)
-	$(call link_if_exists,$(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/claude_settings.json,$(HOME)/.claude/settings.json)
-	$(call link_if_exists,$(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/opencode.jsonc,$(HOME)/.config/opencode/opencode.jsonc)
-	$(call link_if_exists,$(HOME)/Library/Mobile\ Documents/com\~apple\~CloudDocs/configs/gemini_settings.json,$(HOME)/.gemini/settings.json)
+	$(call link_if_exists,$(HOME)/Nextcloud/portal/AGENTS.md,$(HOME)/.claude/CLAUDE.md)
+	$(call link_if_exists,$(HOME)/Nextcloud/portal/AGENTS.md,$(HOME)/.gemini/GEMINI.md)
+	$(call link_if_exists,$(HOME)/Nextcloud/portal/AGENTS.md,$(HOME)/.codex/AGENTS.md)
+	$(call link_if_exists,$(HOME)/Nextcloud/portal/claude_settings.json,$(HOME)/.claude/settings.json)
+	$(call link_if_exists,$(HOME)/Nextcloud/portal/opencode.jsonc,$(HOME)/.config/opencode/opencode.jsonc)
+	$(call link_if_exists,$(HOME)/Nextcloud/portal/gemini_settings.json,$(HOME)/.gemini/settings.json)
 endif
 
 .PHONY: directories
