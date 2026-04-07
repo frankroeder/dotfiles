@@ -295,6 +295,7 @@
   "brightnessDevicePins": {},
   "wifiNetworkPins": {
     "preferredWifi": [
+      "eduroam",
       "Segmentation Fault"
     ]
   },
