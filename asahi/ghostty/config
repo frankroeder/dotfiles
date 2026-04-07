@@ -1,37 +1,46 @@
-theme = dark:Catppuccin Mocha,light:Catppuccin Latte
-window-theme = system
+# Font Configuration
+font-size = 12
 
-font-family = "Hack Nerd Font"
-font-size = 14
-font-thicken = true
-bold-is-bright = false
+# Window Configuration
+window-decoration = false
+window-padding-x = 12
+window-padding-y = 12
+background-opacity = 0.8
+background-blur-radius = 32
 
-window-decoration = auto
+# Cursor Configuration
+cursor-style = block
 
-window-padding-x = 5
-window-padding-y = 5
-unfocused-split-fill = "#444444"
-window-new-tab-position = "end"
+# Scrollback
+scrollback-limit = 100000
 
-working-directory = inherit
-window-inherit-working-directory = true
-
+# Terminal features
 mouse-hide-while-typing = true
-mouse-scroll-multiplier = 0.5
-cursor-style = "block"
+copy-on-select = false
+confirm-close-surface = false
 
-copy-on-select= true
-clipboard-read = allow
-clipboard-write = allow
-clipboard-trim-trailing-spaces = true
+# Disable annoying copied to clipboard
+app-notifications = no-clipboard-copy,no-config-reload
 
+# Key bindings for common actions
+# keybind = ctrl+c=copy_to_clipboard
+# keybind = ctrl+v=paste_from_clipboard
+# keybind = ctrl+shift+n=new_window
+
+# Material 3 UI elements
+unfocused-split-opacity = 0.7
+unfocused-split-fill = #44464f
+
+# Tab configuration
+gtk-titlebar = false
+
+# Shell integration
 shell-integration = zsh
-shell-integration-features = no-cursor,sudo
-window-save-state = always
+shell-integration-features = cursor,sudo,title,no-cursor
+keybind = shift+enter=text:\n
 
-keybind = super+s=toggle_quick_terminal
+# Rando stuff
+gtk-single-instance = true
 
-keybind = super+alt+j=goto_split:down
-keybind = super+alt+h=goto_split:left
-keybind = super+alt+l=goto_split:right
-keybind = super+alt+k=goto_split:up
+# theme = dark:dankcolors,light:Catppuccin Latte
+theme = dankcolors

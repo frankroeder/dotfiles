@@ -419,6 +419,7 @@ asahi: validate-linux validate-tools sudo asahi-plasma asahi-danklinux check-asa
 	$(call link_if_exists,$(HOME)/Nextcloud/Sync/AGENTS.md,$(HOME)/.codex/AGENTS.md)
 	$(call link_if_exists,$(HOME)/Nextcloud/Sync/claude_settings.json,$(HOME)/.claude/settings.json)
 	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
+	@git clone https://github.com/mylinuxforwork/wallpaper.git $(HOME)/Pictures/wallpaper
 
 asahi-common: directories _git zsh python misc nvim
 	@mkdir -p $(HOME)/.config/environment.d
