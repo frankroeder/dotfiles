@@ -8,3 +8,6 @@ asahi/dms/plugins
 asahi/ghostty/themes/dankcolors
 asahi/hypr/dms/colors.conf
 nvim/lua/plugins/dankcolors.lua
+asahi/dms/firefox.css
+asahi/hypr/dms/outputs.conf
+asahi/hypr/dms/layout.conf
