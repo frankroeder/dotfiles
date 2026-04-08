@@ -1,26 +1,68 @@
 #!/usr/bin/env sh
 # Shared terminal palette for shell tooling on all platforms.
-# Keep these values aligned with the active Ghostty theme.
 
-export DANK_TERM_BACKGROUND="#f7f9ff"
-export DANK_TERM_FOREGROUND="#151c24"
-export DANK_TERM_SELECTION_BG="#cde5ff"
-export DANK_TERM_CURSOR="#006399"
+dank_term_mode="light"
+dank_term_os="$(uname -s 2>/dev/null || printf '%s' "")"
 
-export DANK_TERM_BLACK="#0d141b"
-export DANK_TERM_RED="#91002e"
-export DANK_TERM_GREEN="#00720d"
-export DANK_TERM_YELLOW="#b7ac00"
-export DANK_TERM_BLUE="#0067a0"
-export DANK_TERM_MAGENTA="#ade2ff"
-export DANK_TERM_CYAN="#006399"
-export DANK_TERM_WHITE="#27292a"
+if [ "$dank_term_os" = "Darwin" ] && command -v defaults >/dev/null 2>&1; then
+  if defaults read -g AppleInterfaceStyle 2>/dev/null | grep -qi dark; then
+    dank_term_mode="dark"
+  fi
+elif [ "$dank_term_os" = "Linux" ] && command -v gsettings >/dev/null 2>&1; then
+  if gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null | grep -q "prefer-dark"; then
+    dank_term_mode="dark"
+  elif gsettings get org.gnome.desktop.interface gtk-theme 2>/dev/null | grep -qi dark; then
+    dank_term_mode="dark"
+  fi
+fi
 
-export DANK_TERM_BRIGHT_BLACK="#7b7f82"
-export DANK_TERM_BRIGHT_RED="#d12c4d"
-export DANK_TERM_BRIGHT_GREEN="#00a813"
-export DANK_TERM_BRIGHT_YELLOW="#c6bb00"
-export DANK_TERM_BRIGHT_BLUE="#0f75b3"
-export DANK_TERM_BRIGHT_MAGENTA="#ade2ff"
-export DANK_TERM_BRIGHT_CYAN="#63a3c6"
-export DANK_TERM_BRIGHT_WHITE="#dce2e5"
+if [ "$dank_term_mode" = "dark" ]; then
+  export DANK_TERM_BACKGROUND="#1e1e2e"
+  export DANK_TERM_FOREGROUND="#cdd6f4"
+  export DANK_TERM_SELECTION_BG="#45475a"
+  export DANK_TERM_CURSOR="#89b4fa"
+
+  export DANK_TERM_BLACK="#45475a"
+  export DANK_TERM_RED="#f38ba8"
+  export DANK_TERM_GREEN="#a6e3a1"
+  export DANK_TERM_YELLOW="#f9e2af"
+  export DANK_TERM_BLUE="#89b4fa"
+  export DANK_TERM_MAGENTA="#f5c2e7"
+  export DANK_TERM_CYAN="#94e2d5"
+  export DANK_TERM_WHITE="#bac2de"
+
+  export DANK_TERM_BRIGHT_BLACK="#585b70"
+  export DANK_TERM_BRIGHT_RED="#f38ba8"
+  export DANK_TERM_BRIGHT_GREEN="#a6e3a1"
+  export DANK_TERM_BRIGHT_YELLOW="#f9e2af"
+  export DANK_TERM_BRIGHT_BLUE="#89b4fa"
+  export DANK_TERM_BRIGHT_MAGENTA="#f5c2e7"
+  export DANK_TERM_BRIGHT_CYAN="#94e2d5"
+  export DANK_TERM_BRIGHT_WHITE="#cdd6f4"
+else
+  export DANK_TERM_BACKGROUND="#eff1f5"
+  export DANK_TERM_FOREGROUND="#4c4f69"
+  export DANK_TERM_SELECTION_BG="#bcc0cc"
+  export DANK_TERM_CURSOR="#1e66f5"
+
+  export DANK_TERM_BLACK="#5c5f77"
+  export DANK_TERM_RED="#d20f39"
+  export DANK_TERM_GREEN="#40a02b"
+  export DANK_TERM_YELLOW="#df8e1d"
+  export DANK_TERM_BLUE="#1e66f5"
+  export DANK_TERM_MAGENTA="#ea76cb"
+  export DANK_TERM_CYAN="#179299"
+  export DANK_TERM_WHITE="#acb0be"
+
+  export DANK_TERM_BRIGHT_BLACK="#7c7f93"
+  export DANK_TERM_BRIGHT_RED="#d20f39"
+  export DANK_TERM_BRIGHT_GREEN="#40a02b"
+  export DANK_TERM_BRIGHT_YELLOW="#df8e1d"
+  export DANK_TERM_BRIGHT_BLUE="#1e66f5"
+  export DANK_TERM_BRIGHT_MAGENTA="#ea76cb"
+  export DANK_TERM_BRIGHT_CYAN="#179299"
+  export DANK_TERM_BRIGHT_WHITE="#bcc0cc"
+fi
+
+unset dank_term_mode
+unset dank_term_os

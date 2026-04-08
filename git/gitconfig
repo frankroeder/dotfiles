@@ -63,13 +63,13 @@
 
 [color "branch"]
   current = 12 bold
-  local = 11
+  local = 12
   remote = 14
 
 [color "status"]
   header = 8
   added = 10
-  changed = 11
+  changed = 12
   untracked = 9
   branch = 12 bold
   nobranch = 9 bold

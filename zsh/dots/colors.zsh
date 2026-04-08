@@ -30,11 +30,4 @@ ZSH_HIGHLIGHT_STYLES[dollar-quoted-argument]='fg=10'
 ZSH_HIGHLIGHT_STYLES[comment]='fg=8'
 ZSH_HIGHLIGHT_STYLES[history-expansion]='fg=13'
 
-export FZF_DEFAULT_OPTS="\
---no-mouse
---reverse
---inline-info
---cycle
---color=fg:${DANK_TERM_FOREGROUND:-#151c24},bg:${DANK_TERM_BACKGROUND:-#f7f9ff},hl:${DANK_TERM_BRIGHT_BLUE:-#0f75b3},fg+:${DANK_TERM_FOREGROUND:-#151c24},bg+:${DANK_TERM_SELECTION_BG:-#cde5ff},hl+:${DANK_TERM_CURSOR:-#006399},info:${DANK_TERM_BRIGHT_BLACK:-#7b7f82},prompt:${DANK_TERM_CURSOR:-#006399},pointer:${DANK_TERM_BRIGHT_RED:-#d12c4d},marker:${DANK_TERM_BRIGHT_GREEN:-#00a813},spinner:${DANK_TERM_CURSOR:-#006399},header:${DANK_TERM_BRIGHT_BLACK:-#7b7f82},border:${DANK_TERM_BRIGHT_BLUE:-#0f75b3}"
-
 export CLICOLOR=1

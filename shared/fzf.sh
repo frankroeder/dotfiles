@@ -4,6 +4,10 @@
 
 ! command -v fzf >/dev/null 2>&1 && return
 
+if [ -z "${DANK_TERM_BACKGROUND:-}" ] && [ -n "${DOTFILES:-}" ] && [ -r "${DOTFILES}/shared/terminal-theme.sh" ]; then
+  . "${DOTFILES}/shared/terminal-theme.sh"
+fi
+
 # FZF settings
 if command -v rg >/dev/null 2>&1; then
   export FZF_DEFAULT_COMMAND="command rg --files --hidden --color=never --follow --ignore-file ${DOTFILES}/ignore"
@@ -14,7 +18,8 @@ export FZF_DEFAULT_OPTS="
 --no-mouse
 --reverse
 --inline-info
---cycle"
+--cycle
+--color=fg:${DANK_TERM_FOREGROUND:-#4c4f69},bg:${DANK_TERM_BACKGROUND:-#eff1f5},hl:${DANK_TERM_BRIGHT_BLUE:-#1e66f5},fg+:${DANK_TERM_FOREGROUND:-#4c4f69},bg+:${DANK_TERM_SELECTION_BG:-#bcc0cc},hl+:${DANK_TERM_CURSOR:-#1e66f5},info:${DANK_TERM_BRIGHT_BLACK:-#7c7f93},prompt:${DANK_TERM_CURSOR:-#1e66f5},pointer:${DANK_TERM_BRIGHT_RED:-#d20f39},marker:${DANK_TERM_BRIGHT_GREEN:-#40a02b},spinner:${DANK_TERM_CURSOR:-#1e66f5},header:${DANK_TERM_BRIGHT_BLACK:-#7c7f93},border:${DANK_TERM_BRIGHT_BLUE:-#1e66f5}"
 
 export FZF_CTRL_T_OPTS="
 --preview 'file {}'
