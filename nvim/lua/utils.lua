@@ -1,5 +1,26 @@
 local M = {}
 
+M.os_name = function()
+  return vim.uv.os_uname().sysname
+end
+
+M.is_asahi_linux = function()
+  if M.os_name() ~= "Linux" then
+    return false
+  end
+
+  local release = vim.uv.os_uname().release:lower()
+  if release:find("asahi", 1, true) then
+    return true
+  end
+
+  if vim.fn.filereadable("/etc/os-release") == 0 then
+    return false
+  end
+
+  return table.concat(vim.fn.readfile("/etc/os-release"), "\n"):lower():find("asahi", 1, true) ~= nil
+end
+
 -- merge two tables
 M.merge_tables = function(t1, t2)
   for _, v in ipairs(t2) do

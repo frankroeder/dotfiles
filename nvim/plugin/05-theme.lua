@@ -1,4 +1,5 @@
 local gh = require("pack_helpers").gh
+local utils = require "utils"
 
 vim.pack.add({
   { src = gh("catppuccin/nvim"), name = "catppuccin" },
@@ -62,7 +63,7 @@ require("catppuccin").setup({
 vim.cmd.colorscheme "catppuccin"
 
 local function detect_background()
-  local os_name = vim.uv.os_uname().sysname
+  local os_name = utils.os_name()
 
   if os_name == "Darwin" and vim.fn.executable("defaults") == 1 then
     local result = vim.fn.system({ "defaults", "read", "-g", "AppleInterfaceStyle" })

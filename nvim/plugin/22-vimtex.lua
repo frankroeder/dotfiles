@@ -1,4 +1,5 @@
 local gh = require("pack_helpers").gh
+local utils = require "utils"
 
 vim.pack.add({
   gh("lervag/vim-latex"),
@@ -35,10 +36,20 @@ vim.g.vimtex_quickfix_mode = 2
 vim.g.vimtex_quickfix_autoclose_after_keystrokes = 0
 vim.g.vimtex_quickfix_open_on_warning = 0
 vim.g.vimtex_view_automatic = 1
-vim.g.vimtex_view_method = "sioyek"
-vim.g.vimtex_view_sioyek_options = "--reuse-window --execute-command toggle_synctex"
-vim.g.vimtex_general_viewer = "sioyek"
-vim.g.vimtex_view_general_options = "-r @line @pdf @tex"
+if utils.is_asahi_linux() then
+  if vim.fn.executable 'okular' then
+    vim.g.vimtex_view_general_viewer = 'okular'
+    vim.g.vimtex_view_general_options = [[--unique file:@pdf\#src:@line@tex]]
+    vim.g.vimtex_view_general_options_latexmk = '--unique'
+  else
+    print("No viewer for vimtex found.")
+  end
+else
+  vim.g.vimtex_view_method = "sioyek"
+  vim.g.vimtex_view_sioyek_options = "--reuse-window --execute-command toggle_synctex"
+  vim.g.vimtex_general_viewer = "sioyek"
+  vim.g.vimtex_view_general_options = "-r @line @pdf @tex"
+end
 vim.g.vimtex_parser_bib_backend = "lua"
 vim.g.vimtex_log_ignore = {
   "Underfull",

@@ -39,9 +39,7 @@ sudo dnf install -y \
   tree \
   latexmk \
   nextcloud-client \
-  texlive \
-  texlive-scheme-medium \
-  texlive-luahbtex \
+  texlive-scheme-full \
   uv \
   wget \
   zathura \
