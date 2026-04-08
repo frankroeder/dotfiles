@@ -54,28 +54,34 @@
   status = auto
 
 [color "diff"]
-  frag = magenta
-  meta = yellow
-  new = green
-  old = red
-  newMoved = cyan
-  oldMoved = blue
+  frag = 12 bold
+  meta = 8
+  new = 10
+  old = 9
+  newMoved = 14
+  oldMoved = 12
 
 [color "branch"]
-  current = green bold
-  local = yellow
-  remote = blue
+  current = 12 bold
+  local = 11
+  remote = 14
 
 [color "status"]
-  added = green reverse
-  changed = yellow reverse
-  untracked = red reverse
+  header = 8
+  added = 10
+  changed = 11
+  untracked = 9
+  branch = 12 bold
+  nobranch = 9 bold
+  localBranch = 12 bold
+  remoteBranch = 14
+  upstream = 8
 
 [color "grep"]
-  match = yellow reverse
-  filename = green
-  function = blue
-  linenumber = yellow
+  match = black 12
+  filename = 12
+  function = 14
+  linenumber = 8
 
 [init]
   defaultBranch = main

@@ -5,10 +5,6 @@
       "src": "https://github.com/L3MON4D3/LuaSnip",
       "version": "2.0.0 - 3.0.0"
     },
-    "auto-dark-mode.nvim": {
-      "rev": "e300259ec777a40b4b9e3c8e6ade203e78d15881",
-      "src": "https://github.com/f-person/auto-dark-mode.nvim"
-    },
     "blink-cmp-words": {
       "rev": "d6a56f532a1826b4f3aeed4d5e2fe7b8743a9244",
       "src": "https://github.com/archie-judd/blink-cmp-words"

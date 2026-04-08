@@ -21,14 +21,14 @@ zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}' 'r:|=*' 'l:|=* r:|=*'
 
 # forces zsh to realize new commands
 zstyle ':completion:*' completer _complete _approximate
-zstyle ':completion:*' list-colors "=*="
+zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
 
 # group results by category
 zstyle ':completion:*:matches' group yes
 zstyle ':completion:*' group-name ''
 zstyle ':completion:*:options' description yes
 zstyle ':completion:*:options' auto-description '<%d>'
-zstyle ':completion:*' format ' %F{magenta}-- %d --%f'
+zstyle ':completion:*' format ' %F{12}-- %d --%f'
 zstyle ':completion:*' verbose true
 
 # completion lists that don’t fit on the screen can be scrolled

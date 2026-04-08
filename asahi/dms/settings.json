@@ -295,8 +295,7 @@
   "brightnessDevicePins": {},
   "wifiNetworkPins": {
     "preferredWifi": [
-      "eduroam",
-      "Segmentation Fault"
+      "eduroam"
     ]
   },
   "bluetoothDevicePins": {},
@@ -431,7 +430,14 @@
   },
   "showOnLastDisplay": {},
   "niriOutputSettings": {},
-  "hyprlandOutputSettings": {},
+  "hyprlandOutputSettings": {
+    "eDP-1": {
+      "disabled": false
+    },
+    "HDMI-A-1": {
+      "disabled": false
+    }
+  },
   "displayProfiles": {},
   "activeDisplayProfile": {},
   "displayProfileAutoSelect": false,

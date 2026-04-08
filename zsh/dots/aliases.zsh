@@ -9,7 +9,7 @@ alias localgit="$EDITOR $HOME/.local.gitconfig"
 alias localtmux="$EDITOR $HOME/.local.tmux"
 alias localnvim="$EDITOR $HOME/.localnvim.lua"
 
-[[ $commands[rg] ]] && alias rg="rg --pretty --colors 'match:bg:235,220,170' --ignore-file $DOTFILES/ignore"
+[[ $commands[rg] ]] && alias rg="rg --pretty --colors 'match:fg:0' --colors 'match:bg:12' --colors 'path:fg:12' --colors 'line:fg:8' --colors 'column:fg:11' --ignore-file $DOTFILES/ignore"
 alias -g @="| grep -i"
 
 if [[ $commands[npm] ]]; then

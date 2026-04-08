@@ -2,7 +2,6 @@ local gh = require("pack_helpers").gh
 
 vim.pack.add({
   { src = gh("catppuccin/nvim"), name = "catppuccin" },
-  gh("f-person/auto-dark-mode.nvim"),
 })
 
 require("catppuccin").setup({
@@ -62,12 +61,39 @@ require("catppuccin").setup({
 })
 vim.cmd.colorscheme "catppuccin"
 
-require("auto-dark-mode").setup({
-  update_interval = 1000,
-  set_dark_mode = function()
-    vim.api.nvim_set_option_value("background", "dark", { scope = "global" })
-  end,
-  set_light_mode = function()
-    vim.api.nvim_set_option_value("background", "light", { scope = "global" })
-  end,
+local function detect_background()
+  local os_name = vim.uv.os_uname().sysname
+
+  if os_name == "Darwin" and vim.fn.executable("defaults") == 1 then
+    local result = vim.fn.system({ "defaults", "read", "-g", "AppleInterfaceStyle" })
+    return vim.v.shell_error == 0 and result:match("Dark") and "dark" or "light"
+  end
+
+  if os_name == "Linux" and vim.fn.executable("gsettings") == 1 then
+    local color_scheme = vim.fn.system({ "gsettings", "get", "org.gnome.desktop.interface", "color-scheme" })
+    if vim.v.shell_error == 0 and color_scheme:match("prefer%-dark") then
+      return "dark"
+    end
+
+    local gtk_theme = vim.fn.system({ "gsettings", "get", "org.gnome.desktop.interface", "gtk-theme" })
+    if vim.v.shell_error == 0 and gtk_theme:lower():match("dark") then
+      return "dark"
+    end
+
+    return "light"
+  end
+end
+
+local function refresh_background()
+  local mode = detect_background()
+  if mode and vim.o.background ~= mode then
+    vim.o.background = mode
+  end
+end
+
+local theme_switch_group = vim.api.nvim_create_augroup("danklinux_theme_switch", { clear = true })
+
+vim.api.nvim_create_autocmd({ "VimEnter", "FocusGained" }, {
+  group = theme_switch_group,
+  callback = refresh_background,
 })

@@ -44,3 +44,4 @@ gtk-single-instance = true
 
 # theme = dark:dankcolors,light:Catppuccin Latte
 theme = dankcolors
+app-notifications = no-clipboard-copy,no-config-reload
