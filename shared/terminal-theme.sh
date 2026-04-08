@@ -16,6 +16,8 @@ elif [ "$dank_term_os" = "Linux" ] && command -v gsettings >/dev/null 2>&1; then
   fi
 fi
 
+export DANK_TERM_MODE="$dank_term_mode"
+
 if [ "$dank_term_mode" = "dark" ]; then
   export DANK_TERM_BACKGROUND="#1e1e2e"
   export DANK_TERM_FOREGROUND="#cdd6f4"
