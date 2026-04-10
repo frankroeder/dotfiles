@@ -30,18 +30,15 @@ sudo dnf install -y \
   librewolf \
   lsof \
   neovim \
+  chromium \
   nextcloud-client \
   okular \
-  python3-devel \
-  python3-pip \
   ripgrep \
   tmux \
   tree \
   latexmk \
-  nextcloud-client \
   texlive-scheme-full \
   uv \
   wget \
-  zathura \
-  zathura-pdf-poppler \
+  fastfetch \
   zsh

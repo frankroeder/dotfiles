@@ -1,5 +1,6 @@
 local g = vim.g
 local opt = vim.opt
+local utils = require "utils"
 
 local options = {
   cursorline = true,
@@ -56,13 +57,26 @@ for k, v in pairs(options) do
   vim.opt[k] = v
 end
 
+local function has_linux_desktop_clipboard()
+  if utils.os_name() ~= "Linux" then
+    return false
+  end
+
+  local has_display = vim.env.WAYLAND_DISPLAY or vim.env.DISPLAY
+  if not has_display then
+    return false
+  end
+
+  return vim.fn.executable "wl-copy" == 1
+    or vim.fn.executable "xclip" == 1
+    or vim.fn.executable "xsel" == 1
+end
+
 if vim.fn.has "clipboard" then
-  opt.clipboard = "unnamed" -- copy to the system clipboard
-  if vim.fn.has "unnamedplus" then -- X11 support
-    -- async to improve startup time
-    vim.schedule(function()
-      opt.clipboard:append { unnamedplus = true }
-    end)
+  if utils.os_name() == "Darwin" then
+    opt.clipboard = { "unnamedplus" }
+  elseif has_linux_desktop_clipboard() and vim.fn.has "unnamedplus" then
+    opt.clipboard = { "unnamedplus" }
   end
 end
 

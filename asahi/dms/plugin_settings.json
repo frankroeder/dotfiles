@@ -5,8 +5,65 @@
   },
   "webSearch": {
     "enabled": true,
-    "searchEngines": [],
-    "disabledEngines": [],
+    "searchEngines": [
+      {
+        "id": "jaxdoc",
+        "name": "Jax Documentation",
+        "icon": "unicode:🔍",
+        "url": "https://docs.jax.dev/en/latest/search.html?q=%s",
+        "keywords": [
+          "jaxdoc"
+        ]
+      },
+      {
+        "id": "flaxdoc",
+        "name": "Flax Documentation",
+        "icon": "unicode:🔍",
+        "url": "https://flax.readthedocs.io/en/stable/search.html?q=%s",
+        "keywords": [
+          "flaxdoc"
+        ]
+      },
+      {
+        "id": "dict.cc",
+        "name": "dict.cc",
+        "icon": "unicode:🔍",
+        "url": "https://www.dict.cc/?s=%s",
+        "keywords": [
+          "dcc"
+        ]
+      },
+      {
+        "id": "npdoc",
+        "name": "NumPy Documentation",
+        "icon": "unicode:🔍",
+        "url": "https://numpy.org/doc/stable/search.html?q=%s",
+        "keywords": [
+          "npdoc"
+        ]
+      }
+    ],
+    "disabledEngines": [
+      "mdn",
+      "crates",
+      "pypi",
+      "nixopts",
+      "nixpkgs",
+      "npmjs",
+      "aur",
+      "archlinux",
+      "imdb",
+      "linkedin",
+      "images",
+      "ebay",
+      "amazon",
+      "reddit",
+      "stackoverflow",
+      "bing",
+      "brave",
+      "duckduckgo",
+      "google"
+    ],
     "defaultEngine": "kagi"
   },
   "powerUsagePlugin": {

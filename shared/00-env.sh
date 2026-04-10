@@ -10,6 +10,7 @@ else
   export EDITOR="vi"
 fi
 export VISUAL="${EDITOR}"
+export SUDO_EDITOR="$EDITOR"
 
 # Locale settings
 export LANG="en_US.UTF-8"
