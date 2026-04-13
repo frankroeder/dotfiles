@@ -1,0 +1,5 @@
+[config]
+
+[templates.dmszsh]
+input_path = '/home/frankroeder/.dotfiles/asahi/matugen/templates/zsh-colors.zsh'
+output_path = '/home/frankroeder/.cache/DankMaterialShell/zsh-colors.zsh'

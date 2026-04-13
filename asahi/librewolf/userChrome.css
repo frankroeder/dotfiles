@@ -1,0 +1,33 @@
+@import url("theme-material-blue.css");
+
+:root {
+  --toolbar-bgcolor: var(--md-sys-color-surface) !important;
+  --toolbar-color: var(--md-sys-color-on-surface) !important;
+  --lwt-accent-color: var(--md-sys-color-surface) !important;
+  --lwt-text-color: var(--md-sys-color-on-surface) !important;
+  --lwt-selected-tab-background-color: var(--md-sys-color-surface-container-high) !important;
+  --tab-selected-bgcolor: var(--md-sys-color-surface-container-high) !important;
+  --tab-selected-color: var(--md-sys-color-on-surface) !important;
+  --urlbar-box-bgcolor: var(--md-sys-color-surface-container) !important;
+  --urlbar-box-text-color: var(--md-sys-color-on-surface) !important;
+}
+
+#navigator-toolbox {
+  background-color: var(--md-sys-color-surface) !important;
+  color: var(--md-sys-color-on-surface) !important;
+  border-bottom-color: var(--md-sys-color-outline-variant) !important;
+}
+
+#urlbar-background,
+#searchbar {
+  background-color: var(--md-sys-color-surface-container) !important;
+  border-color: var(--md-sys-color-outline-variant) !important;
+}
+
+.tab-background[selected] {
+  background-color: var(--md-sys-color-surface-container-high) !important;
+}
+
+.tabbrowser-tab:not([selected]):hover .tab-background {
+  background-color: var(--state-hover) !important;
+}

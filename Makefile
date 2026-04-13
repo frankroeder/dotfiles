@@ -13,7 +13,7 @@ ARCHITECTURE := $(shell uname -m)
 DEVNUL := /dev/null
 WHICH := which
 
-PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(HOME)/bin:$(HOME)/.local/bin:$(HOME)/.local/nodejs/bin
+PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(DOTFILES)/bin/Linux:$(HOME)/bin:$(HOME)/.local/bin:$(HOME)/.local/nodejs/bin
 
 ASAHI_XKB_LAYOUT ?= de
 ASAHI_XKB_MODEL ?= pc105
@@ -452,6 +452,7 @@ asahi-danklinux: asahi-common
 	$(call replace_with_symlink,$(DOTFILES)/asahi/hypr,$(HOME)/.config/hypr)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/dms,$(HOME)/.config/DankMaterialShell)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/ghostty,$(HOME)/.config/ghostty)
+	$(call replace_with_symlink,$(DOTFILES)/asahi/matugen,$(HOME)/.config/matugen)
 	@mkdir -p $(HOME)/.config/librewolf/librewolf
 	@ln -sfv $(DOTFILES)/asahi/librewolf/librewolf.overrides.cfg $(HOME)/.config/librewolf/librewolf/librewolf.overrides.cfg
 	@if [ -d "$(HOME)/.config/librewolf/librewolf" ]; then \
@@ -459,7 +460,8 @@ asahi-danklinux: asahi-common
 		for profile_dir in "$(HOME)"/.config/librewolf/librewolf/*.default*; do \
 			if [ -d "$$profile_dir" ]; then \
 				mkdir -p "$$profile_dir/chrome"; \
-				ln -sfv "$(HOME)/.config/DankMaterialShell/firefox.css" "$$profile_dir/chrome/userChrome.css"; \
+				ln -sfv "$(DOTFILES)/asahi/librewolf/userChrome.css" "$$profile_dir/chrome/userChrome.css"; \
+				ln -sfv "$(HOME)/.config/DankMaterialShell/firefox.css" "$$profile_dir/chrome/theme-material-blue.css"; \
 				profiles_linked=1; \
 			fi; \
 		done; \
