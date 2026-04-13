@@ -461,7 +461,7 @@ asahi-danklinux: asahi-common
 			if [ -d "$$profile_dir" ]; then \
 				mkdir -p "$$profile_dir/chrome"; \
 				ln -sfv "$(DOTFILES)/asahi/librewolf/userChrome.css" "$$profile_dir/chrome/userChrome.css"; \
-				ln -sfv "$(HOME)/.config/DankMaterialShell/firefox.css" "$$profile_dir/chrome/theme-material-blue.css"; \
+				ln -sfv "$(HOME)/.config/DankMaterialShell/librewolf.css" "$$profile_dir/chrome/librewolf.css"; \
 				profiles_linked=1; \
 			fi; \
 		done; \

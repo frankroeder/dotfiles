@@ -33,25 +33,6 @@ local vimtex_compile_status = {
   end,
 }
 
-local function lualine_options()
-  local theme = vim.o.background == "light" and "catppuccin-latte" or "catppuccin-mocha"
-  return {
-    options = {
-      globalstatus = true,
-      theme = theme,
-      disabled_filetypes = { "help", "Outline" },
-    },
-    sections = {
-      lualine_c = { "filename", spell, parrot_status },
-      lualine_x = {
-        vimtex_compile_status,
-        "filetype",
-      },
-    },
-    extensions = { "fzf", "oil", "mason", "man" },
-  }
-end
-
 local function spell()
   if vim.opt_local.spell:get() then
     local lang = vim.opt_local.spelllang:get()[1]
@@ -81,10 +62,38 @@ local function parrot_status()
   return string.format("🦜%s(%s)", status, status_info.model)
 end
 
+local function lualine_options()
+  local theme = vim.g.dankcolors_active and "auto"
+    or (vim.o.background == "light" and "catppuccin-latte" or "catppuccin-mocha")
+
+  return {
+    options = {
+      globalstatus = true,
+      theme = theme,
+      disabled_filetypes = { "help", "Outline" },
+    },
+    sections = {
+      lualine_c = { "filename", spell, parrot_status },
+      lualine_x = {
+        vimtex_compile_status,
+        "filetype",
+      },
+    },
+    extensions = { "fzf", "oil", "mason", "man" },
+  }
+end
+
 require("lualine").setup(lualine_options())
 
 vim.api.nvim_create_autocmd("OptionSet", {
   pattern = "background",
+  callback = function()
+    require("lualine").setup(lualine_options())
+  end,
+})
+
+vim.api.nvim_create_autocmd("User", {
+  pattern = "DankcolorsReloaded",
   callback = function()
     require("lualine").setup(lualine_options())
   end,

@@ -3,9 +3,11 @@ font-size = 12
 font-family = "Hack Nerd Font"
 
 # Window Configuration
+window-decoration = false
 window-padding-x = 12
 window-padding-y = 12
 background-opacity = 0.8
+background-blur-radius = 32
 
 # Cursor Configuration
 cursor-style = block
@@ -15,6 +17,9 @@ scrollback-limit = 1000000
 
 # Terminal features
 mouse-hide-while-typing = true
+copy-on-select = true
+clipboard-read = allow
+clipboard-write = allow
 clipboard-trim-trailing-spaces = true
 confirm-close-surface = false
 
@@ -32,16 +37,15 @@ app-notifications = no-clipboard-copy,no-config-reload
 # keybind = ctrl+shift+n=new_window
 
 # Material 3 UI elements
-# unfocused-split-opacity = 0.7
-# unfocused-split-fill = #44464f
+unfocused-split-opacity = 0.7
+unfocused-split-fill = #44464f
 
 # Tab configuration
 gtk-titlebar = false
-gtk-toolbar-style = flat
 
 # Shell integration
 shell-integration = zsh
-shell-integration-features = cursor,sudo,ssh-env,title,no-cursor
+shell-integration-features = cursor,sudo,title,no-cursor
 keybind = shift+enter=text:\n
 
 # Rando stuff

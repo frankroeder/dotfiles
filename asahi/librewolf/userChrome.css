@@ -1,4 +1,4 @@
-@import url("theme-material-blue.css");
+@import url("librewolf.css");
 
 :root {
   --toolbar-bgcolor: var(--md-sys-color-surface) !important;
