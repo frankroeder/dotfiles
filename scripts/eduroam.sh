@@ -1,19 +1,27 @@
 #!/usr/bin/env sh
 
+set -eu
+
 # setup script for eduroam
 
-UN="$1"
+CON_NAME="eduroam"
 
-if [ -z "$UN" ]; then
-  echo "Usage: $0 <username>"
+if [ "$#" -ne 1 ]; then
+  echo "Usage: $0 <username>" >&2
   exit 1
 fi
+
+UN="$1"
 
 sudo wget -O /etc/ssl/certs/dfn-verein_community_root_ca_2022.pem \
   https://doku.tid.dfn.de/_media/de:dfnpki:ca:dfn-verein_community_root_ca_2022.pem
 
+if nmcli connection show "$CON_NAME" >/dev/null 2>&1; then
+  nmcli connection delete "$CON_NAME"
+fi
+
 nmcli connection add type wifi \
-  con-name "eduroam" \
+  con-name "$CON_NAME" \
   ifname "*" \
   ssid "eduroam" \
   wifi-sec.key-mgmt wpa-eap \

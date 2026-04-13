@@ -3,9 +3,12 @@ Id_1=07678453-3811-4fdd-ad6d-9f3c9ca8d9be
 Number=1
 Rows=1
 
+[Effect-overview]
+BorderActivate=9
+
 [NightColor]
 Active=true
-NightTemperature=4700
+NightTemperature=2500
 
 [Tiling]
 padding=4

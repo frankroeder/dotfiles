@@ -437,6 +437,7 @@ asahi-common: directories _git zsh python misc nvim
 asahi-plasma: ## Apply KDE Plasma session config for Asahi Linux
 asahi-plasma: asahi-common
 	@ln -sfv $(DOTFILES)/asahi/kxkbrc $(HOME)/.config/kxkbrc
+	@ln -sfv $(DOTFILES)/asahi/kcminputrc $(HOME)/.config/kcminputrc
 	@ln -sfv $(DOTFILES)/asahi/kwinrc $(HOME)/.config/kwinrc
 	@ln -sfv $(DOTFILES)/asahi/plasma-localerc $(HOME)/.config/plasma-localerc
 	@ln -sfv $(DOTFILES)/asahi/environment.d/90-dms.conf $(HOME)/.config/environment.d/90-dms.conf
