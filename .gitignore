@@ -2,6 +2,8 @@ __pycache__
 Brewfile.lock.json
 .netrwhist
 .codex
+
+# DankLinux/DMS runtime outputs. The portable baseline lives in tracked config files.
 asahi/dms/.firstlaunch
 asahi/dms/.changelog-*
 asahi/dms/plugins

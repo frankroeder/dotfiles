@@ -18,6 +18,7 @@ PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(DOTFILES)/bin/Linux:$(
 ASAHI_XKB_LAYOUT ?= de
 ASAHI_XKB_MODEL ?= pc105
 ASAHI_XKB_VARIANT ?= mac
+ASAHI_DMS_PLUGINS ?= calculator webSearch powerUsagePlugin
 
 # Validation targets
 .PHONY: validate-macos validate-linux validate-tools
@@ -411,7 +412,7 @@ _terminal: ## Install and configure terminal emulator
 	ln -sfv $(DOTFILES)/htop/personal $(HOME)/.config/htop/htoprc; \
 
 
-.PHONY: asahi asahi-common asahi-plasma asahi-danklinux asahi-shell check-asahi
+.PHONY: asahi asahi-common asahi-plasma asahi-danklinux asahi-dms-plugins asahi-shell check-asahi
 asahi: ## Asahi Linux (Fedora): Plasma base + DankLinux Hyprland overlay
 asahi: validate-linux validate-tools sudo asahi-plasma asahi-danklinux check-asahi
 	@mkdir -p $(HOME)/.claude $(HOME)/.codex
@@ -453,6 +454,7 @@ asahi-danklinux: asahi-common
 	$(call replace_with_symlink,$(DOTFILES)/asahi/dms,$(HOME)/.config/DankMaterialShell)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/ghostty,$(HOME)/.config/ghostty)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/matugen,$(HOME)/.config/matugen)
+	@$(MAKE) asahi-dms-plugins
 	@mkdir -p $(HOME)/.config/librewolf/librewolf
 	@ln -sfv $(DOTFILES)/asahi/librewolf/librewolf.overrides.cfg $(HOME)/.config/librewolf/librewolf/librewolf.overrides.cfg
 	@if [ -d "$(HOME)/.config/librewolf/librewolf" ]; then \
@@ -470,6 +472,20 @@ asahi-danklinux: asahi-common
 		fi; \
 	fi
 	@$(MAKE) asahi-shell
+
+asahi-dms-plugins: ## Install DMS plugins declared by ASAHI_DMS_PLUGINS
+	@if command -v dms >/dev/null 2>&1; then \
+		for plugin in $(ASAHI_DMS_PLUGINS); do \
+			if [ -d "$(HOME)/.config/DankMaterialShell/plugins/$$plugin" ]; then \
+				$(call print_step,DMS plugin $$plugin already installed); \
+			else \
+				$(call print_step,Installing DMS plugin $$plugin); \
+				dms plugins install "$$plugin" || $(call print_warning,Failed to install DMS plugin $$plugin); \
+			fi; \
+		done; \
+	else \
+		$(call print_warning,dms not installed; skipping DMS plugins); \
+	fi
 
 asahi-shell: ## Generate optional shell integrations for DMS and dgop
 	@mkdir -p $(HOME)/.zsh/completion
