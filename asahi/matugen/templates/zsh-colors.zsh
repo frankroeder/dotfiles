@@ -4,6 +4,7 @@ export DANK_TERM_BACKGROUND='{{colors.background.default.hex}}'
 export DANK_TERM_FOREGROUND='{{colors.on_surface.default.hex}}'
 export DANK_TERM_SELECTION_BG='{{colors.primary_container.default.hex}}'
 export DANK_TERM_CURSOR='{{colors.primary.default.hex}}'
+export DANK_TERM_MODE='{{mode}}'
 
 export DANK_TERM_BLACK='{{dank16.color0.default.hex}}'
 export DANK_TERM_RED='{{dank16.color1.default.hex}}'
