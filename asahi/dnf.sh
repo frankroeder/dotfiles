@@ -6,6 +6,7 @@ set -euo pipefail
 LIBREWOLF_REPO_URL="https://repo.librewolf.net/librewolf.repo"
 
 sudo dnf upgrade -y
+sudo dnf remove -y kitty kitty-terminfo || true
 
 if ! sudo dnf repolist --all | grep -q '^librewolf'; then
   sudo dnf config-manager addrepo --add-or-replace --overwrite --from-repofile="$LIBREWOLF_REPO_URL"
@@ -19,26 +20,25 @@ if ! sudo dnf list --available librewolf >/dev/null 2>&1; then
 fi
 
 sudo dnf install -y \
-  biber \
   cargo \
   cmake \
+  curl \
   ffmpeg \
-  htop \
-  imagemagick \
+  git \
+  ImageMagick \
   jq \
-  ksshaskpass \
   librewolf \
   lsof \
+  make \
   neovim \
+  NetworkManager-wifi \
   chromium \
   nextcloud-client \
-  okular \
   ripgrep \
-  tmux \
   tree \
-  latexmk \
   texlive-scheme-full \
   uv \
+  okular \
   wget \
   fastfetch \
   zsh

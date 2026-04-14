@@ -1,9 +1,9 @@
 [config]
 
 [templates.dmszsh]
-input_path = '/home/frankroeder/.dotfiles/asahi/matugen/templates/zsh-colors.zsh'
-output_path = '/home/frankroeder/.cache/DankMaterialShell/zsh-colors.zsh'
+input_path = '/home/froeder/.dotfiles/asahi/matugen/templates/zsh-colors.zsh'
+output_path = '/home/froeder/.cache/DankMaterialShell/zsh-colors.zsh'
 
 [templates.dmslibrewolf]
 input_path = '/usr/share/quickshell/dms/matugen/templates/firefox-userchrome.css'
-output_path = '/home/frankroeder/.config/DankMaterialShell/librewolf.css'
+output_path = '/home/froeder/.config/DankMaterialShell/librewolf.css'

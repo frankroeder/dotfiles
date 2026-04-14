@@ -13,8 +13,20 @@ My personal dotfiles for Linux and macOS.
 ## Options
 - macOS Intel and ARM: `make macos`
 - Linux with sudo rights: `make linux`
-- Asahi Linux (Fedora + Plasma + DankLinux overlay): `make asahi`
+- Asahi Linux (Fedora Minimal + DankLinux/Hyprland): `make asahi`
 - Linux without sudo rights: `make NOSUDO=1 minimal`
+
+## Asahi install
+Start from Fedora Minimal and configure the Wi-Fi and install DankLinux.
+
+From the tty, follow the setup and the following commands:
+```sh
+# Connect to WIFI
+nmcli device wifi connect "SSID" --ask
+curl -fsSL https://install.danklinux.com | sh
+sudo reboot
+```
+
 
 ## Local configuration files
 The following list of files could be created and used to define local configurations:

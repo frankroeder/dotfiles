@@ -1,18 +1,34 @@
 #!/usr/bin/env bash
 # Make ZSH the default shell environment
 
-if [[ "$(uname)" = "Darwin" ]] && ! fgrep -q "$(brew --prefix)/bin/zsh" /etc/shells
-then
-  echo "$(brew --prefix)/bin/zsh" | sudo tee -a /etc/shells
-elif ! fgrep -q "/usr/bin/zsh" /etc/shells
-then
-	echo $(which zsh) | sudo tee -a /etc/shells
+set -euo pipefail
+
+user_name="${SUDO_USER:-${USER:-$(id -un)}}"
+
+if [[ "$(uname)" = "Darwin" ]]; then
+  desired_shell="$(brew --prefix)/bin/zsh"
+  current_shell="$(dscl . -read "/Users/$user_name" UserShell 2>/dev/null | awk '{print $2}')"
+else
+  desired_shell="$(command -v zsh || true)"
+  current_shell="$(getent passwd "$user_name" | cut -d: -f7)"
 fi
 
-if [[ "$(uname)" = "Darwin" ]]
-then
-  chsh -s "$(brew --prefix)/bin/zsh"
-elif [[ "$(uname)" = "Linux" ]]
-then
-  chsh -s "$(command -v zsh)"
+if [[ -z "$desired_shell" ]]; then
+  echo "zsh not found in PATH" >&2
+  exit 1
+fi
+
+if ! grep -Fxq "$desired_shell" /etc/shells; then
+  echo "$desired_shell" | sudo tee -a /etc/shells >/dev/null
+fi
+
+if [[ "$current_shell" == "$desired_shell" ]]; then
+  echo "Default shell already set to $desired_shell"
+  exit 0
+fi
+
+if [[ "$(uname)" = "Darwin" ]]; then
+  chsh -s "$desired_shell" "$user_name"
+else
+  sudo usermod --shell "$desired_shell" "$user_name"
 fi

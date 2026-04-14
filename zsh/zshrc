@@ -8,11 +8,21 @@
 [ ! -n "$ZSH_VERSION" ] && return
 
 autoload -Uz compinit
+zcompdump="${ZDOTDIR:-$HOME}/.zcompdump"
 if [[ "$OSTYPE" == "Darwin" ]]; then
-  [ $(date +'%j') != $(stat -f '%Sm' -t '%j' ${ZDOTDIR:-$HOME}/.zcompdump) ] && compinit || compinit -C
+  if [[ ! -f "$zcompdump" ]] || [[ "$(date +'%j')" != "$(stat -f '%Sm' -t '%j' "$zcompdump")" ]]; then
+    compinit
+  else
+    compinit -C
+  fi
 elif [[ "$OSTYPE" == "Linux" ]]; then
-  [ $(date +'%F') != $(stat -c '%y' ${ZDOTDIR:-$HOME}/.zcompdump | cut -d' ' -f1) ] && compinit || compinit -C
+  if [[ ! -f "$zcompdump" ]] || [[ "$(date +'%F')" != "$(stat -c '%y' "$zcompdump" | cut -d' ' -f1)" ]]; then
+    compinit
+  else
+    compinit -C
+  fi
 fi
+unset zcompdump
 
 # autoloaded functions (lazy loading)
 zsh_functions=$DOTFILES/autoloaded

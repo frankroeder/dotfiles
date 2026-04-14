@@ -49,4 +49,3 @@ keybind = shift+enter=text:\n
 gtk-single-instance = true
 
 theme = dankcolors
-app-notifications = no-clipboard-copy,no-config-reload

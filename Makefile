@@ -15,9 +15,6 @@ WHICH := which
 
 PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(DOTFILES)/bin/Linux:$(HOME)/bin:$(HOME)/.local/bin:$(HOME)/.local/nodejs/bin
 
-ASAHI_XKB_LAYOUT ?= de
-ASAHI_XKB_MODEL ?= pc105
-ASAHI_XKB_VARIANT ?= mac
 ASAHI_DMS_PLUGINS ?= calculator webSearch powerUsagePlugin
 
 # Validation targets
@@ -133,7 +130,7 @@ sudo: ## Authenticate and keep sudo session alive
 	else \
 		sudo -v; \
 	fi
-	@while true; do sudo -n true; sleep 1200; kill -0 "$$" || exit; done 2>/dev/null &
+	@while true; do sudo -n true; sleep 1200; kill -0 "$$$$" || exit; done 2>/dev/null &
 
 .PHONY: homebrew
 homebrew: ## Install Homebrew and bundle packages
@@ -165,15 +162,14 @@ ifeq ($(OSTYPE), Linux)
 	fi
 endif
 	@if command -v uv >/dev/null 2>&1; then \
-		uv tool install ty@latest; \
-		uv tool install ipython; \
+		uv tool install --upgrade ty@latest; \
+		uv tool install --upgrade ipython --with matplotlib --with numpy; \
 	else \
 		$(call print_error,uv not available for Python tool installation); \
 	fi
-	# TODO: Search in uv tools
 	@if command -v ipython >/dev/null 2>&1; then \
 		mkdir -p $(HOME)/.ipython/profile_default; \
-		ipython -c "exit()" && ln -sfv $(DOTFILES)/python/ipython_config.py $(HOME)/.ipython/profile_default/; \
+		ln -sfv $(DOTFILES)/python/ipython_config.py $(HOME)/.ipython/profile_default/; \
 	else \
 		$(call print_warning,IPython not available for configuration); \
 	fi
@@ -182,8 +178,17 @@ endif
 misc: ## Install miscellaneous tools and configurations
 	$(call print_step,Installing misc)
 	@if ! command -v fzf >/dev/null 2>&1; then \
-		$(call print_step,Installing fzf); \
-		git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf && ~/.fzf/install --bin; \
+		if [ -d "$(HOME)/.fzf/.git" ]; then \
+			$(call print_step,Updating existing fzf checkout); \
+			git -C "$(HOME)/.fzf" pull --ff-only; \
+			"$(HOME)/.fzf/install" --bin; \
+		elif [ -e "$(HOME)/.fzf" ]; then \
+			$(call print_warning,$(HOME)/.fzf already exists but is not a git checkout; skipping fzf clone); \
+		else \
+			$(call print_step,Installing fzf); \
+			git clone --depth 1 https://github.com/junegunn/fzf.git "$(HOME)/.fzf"; \
+			"$(HOME)/.fzf/install" --bin; \
+		fi; \
 	else \
 		$(call print_warning,fzf is already installed); \
 	fi
@@ -212,8 +217,8 @@ zsh: | directories
 		rg --generate complete-zsh > $(HOME)/.zsh/completion/_rg; \
 	fi
 	@if [ -f "$(HOME)/.zshrc" ]; then \
-		$(call print_step,Sourcing zshrc); \
-		. $(HOME)/.zshrc || $(call print_warning,Failed to source .zshrc); \
+		$(call print_step,Checking zshrc); \
+		zsh -n $(HOME)/.zshrc || $(call print_warning,zshrc syntax check failed); \
 	fi
 
 .PHONY: node
@@ -247,7 +252,7 @@ nvim: | directories
 	touch $(HOME)/.localnvim.lua; \
 	ln -sfv $(DOTFILES)/nvim $(HOME)/.config; \
 	$(call print_step,Syncing Neovim plugins); \
-	nvim --headless "+lua vim.pack.update()" "+qa" \
+	nvim --headless "+lua vim.pack.update()" "+qa"
 
 .PHONY: _git
 _git: ## Configure Git with completion and dotfiles
@@ -412,15 +417,32 @@ _terminal: ## Install and configure terminal emulator
 	ln -sfv $(DOTFILES)/htop/personal $(HOME)/.config/htop/htoprc; \
 
 
-.PHONY: asahi asahi-common asahi-plasma asahi-danklinux asahi-dms-plugins asahi-shell check-asahi
-asahi: ## Asahi Linux (Fedora): Plasma base + DankLinux Hyprland overlay
-asahi: validate-linux validate-tools sudo asahi-plasma asahi-danklinux check-asahi
+.PHONY: asahi asahi-system asahi-require-danklinux asahi-common asahi-danklinux asahi-dms-plugins asahi-shell asahi-default-shell check-asahi
+asahi: ## Asahi Linux (Fedora Minimal): apply DankLinux Hyprland and Ghostty config
+asahi: validate-linux validate-tools sudo asahi-system asahi-require-danklinux asahi-danklinux asahi-default-shell check-asahi
 	@mkdir -p $(HOME)/.claude $(HOME)/.codex
 	$(call link_if_exists,$(HOME)/Nextcloud/Sync/AGENTS.md,$(HOME)/.claude/CLAUDE.md)
 	$(call link_if_exists,$(HOME)/Nextcloud/Sync/AGENTS.md,$(HOME)/.codex/AGENTS.md)
 	$(call link_if_exists,$(HOME)/Nextcloud/Sync/claude_settings.json,$(HOME)/.claude/settings.json)
-	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
-	@git clone https://github.com/mylinuxforwork/wallpaper.git $(HOME)/Pictures/wallpaper
+	@if [ -d "$(HOME)/Pictures/wallpaper/.git" ]; then \
+		$(call print_step,Updating wallpapers); \
+		git -C "$(HOME)/Pictures/wallpaper" pull --ff-only || $(call print_warning,Failed to update wallpapers); \
+	elif [ -e "$(HOME)/Pictures/wallpaper" ]; then \
+		$(call print_warning,$(HOME)/Pictures/wallpaper already exists and is not a git checkout; skipping wallpaper clone); \
+	else \
+		$(call print_step,Downloading wallpapers); \
+		mkdir -p "$(HOME)/Pictures"; \
+		git clone https://github.com/mylinuxforwork/wallpaper.git "$(HOME)/Pictures/wallpaper"; \
+	fi
+
+asahi-system: ## Update Fedora and install base packages for Asahi
+	@bash $(DOTFILES)/asahi/dnf.sh
+
+asahi-require-danklinux: ## Verify DankLinux is already installed
+	@if ! command -v dms >/dev/null 2>&1; then \
+		$(call print_error,DankLinux is not installed. Install DankLinux first, then rerun make asahi); \
+		exit 1; \
+	fi
 
 asahi-common: directories _git zsh python misc nvim
 	@mkdir -p $(HOME)/.config/environment.d
@@ -435,25 +457,14 @@ asahi-common: directories _git zsh python misc nvim
 		bash $(DOTFILES)/scripts/tree-sitter.sh; \
 	fi
 
-asahi-plasma: ## Apply KDE Plasma session config for Asahi Linux
-asahi-plasma: asahi-common
-	@ln -sfv $(DOTFILES)/asahi/kxkbrc $(HOME)/.config/kxkbrc
-	@ln -sfv $(DOTFILES)/asahi/kcminputrc $(HOME)/.config/kcminputrc
-	@ln -sfv $(DOTFILES)/asahi/kwinrc $(HOME)/.config/kwinrc
-	@ln -sfv $(DOTFILES)/asahi/plasma-localerc $(HOME)/.config/plasma-localerc
-	@ln -sfv $(DOTFILES)/asahi/environment.d/90-dms.conf $(HOME)/.config/environment.d/90-dms.conf
-	@mkdir -p $(HOME)/.config/librewolf/librewolf
-	@mkdir -p $(HOME)/.config/plasma-workspace/env
-	@mkdir -p $(HOME)/.config/autostart-scripts
-	@ln -sfv $(DOTFILES)/asahi/plasma-workspace/env/10-ssh-agent.sh $(HOME)/.config/plasma-workspace/env/10-ssh-agent.sh
-	@ln -sfv $(DOTFILES)/asahi/autostart-scripts/ssh-add-kde.sh $(HOME)/.config/autostart-scripts/ssh-add-kde.sh
-
-asahi-danklinux: ## Layer DankLinux user config on top of the Plasma base
+asahi-danklinux: ## Apply DankLinux Hyprland user config
 asahi-danklinux: asahi-common
+	@mkdir -p $(HOME)/.cache/DankMaterialShell
 	$(call replace_with_symlink,$(DOTFILES)/asahi/hypr,$(HOME)/.config/hypr)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/dms,$(HOME)/.config/DankMaterialShell)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/ghostty,$(HOME)/.config/ghostty)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/matugen,$(HOME)/.config/matugen)
+	@ln -sfv $(DOTFILES)/asahi/environment.d/90-dms.conf $(HOME)/.config/environment.d/90-dms.conf
 	@$(MAKE) asahi-dms-plugins
 	@mkdir -p $(HOME)/.config/librewolf/librewolf
 	@ln -sfv $(DOTFILES)/asahi/librewolf/librewolf.overrides.cfg $(HOME)/.config/librewolf/librewolf/librewolf.overrides.cfg
@@ -501,6 +512,9 @@ asahi-shell: ## Generate optional shell integrations for DMS and dgop
 	else \
 		$(call print_warning,dgop not installed; skipping dgop completions); \
 	fi
+
+asahi-default-shell: ## Make Zsh the default login shell for Asahi
+	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
 
 .PHONY: check
 check: ## Run Neovim health check
