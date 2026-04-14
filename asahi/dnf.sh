@@ -41,4 +41,5 @@ sudo dnf install -y \
   okular \
   wget \
   fastfetch \
+  light \
   zsh

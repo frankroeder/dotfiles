@@ -437,6 +437,7 @@ asahi: validate-linux validate-tools sudo asahi-system asahi-require-danklinux a
 
 asahi-system: ## Update Fedora and install base packages for Asahi
 	@bash $(DOTFILES)/asahi/dnf.sh
+	@light -s sysfs/leds/kbd_backlight -S 30
 
 asahi-require-danklinux: ## Verify DankLinux is already installed
 	@if ! command -v dms >/dev/null 2>&1; then \
