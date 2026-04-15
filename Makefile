@@ -448,6 +448,7 @@ asahi-require-danklinux: ## Verify DankLinux is already installed
 asahi-common: directories _git zsh python misc nvim
 	@mkdir -p $(HOME)/.config/environment.d
 	@mkdir -p $(HOME)/.local/share/applications
+	@ln -sfv $(DOTFILES)/asahi/mimeapps.list $(HOME)/.config/mimeapps.list
 	@if [ -f "/usr/share/applications/librewolf.desktop" ]; then \
 		$(call print_step,Fixing LibreWolf desktop icon name); \
 		sed 's/^Icon=librewolf\.png$$/Icon=librewolf/' /usr/share/applications/librewolf.desktop > $(HOME)/.local/share/applications/librewolf.desktop; \

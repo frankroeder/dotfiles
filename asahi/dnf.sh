@@ -35,6 +35,8 @@ sudo dnf install -y \
   chromium \
   nextcloud-client \
   ripgrep \
+  gwenview \
+  mpv \
   tree \
   texlive-scheme-full \
   uv \

@@ -1,0 +1,30 @@
+[Default Applications]
+application/pdf=org.kde.okular.desktop
+
+# Video + animated GIF
+video/mp4=mpv.desktop
+video/x-matroska=mpv.desktop
+video/webm=mpv.desktop
+video/x-msvideo=mpv.desktop
+video/quicktime=mpv.desktop
+video/mpeg=mpv.desktop
+image/gif=mpv.desktop
+
+# Images
+image/png=org.kde.gwenview.desktop
+image/jpeg=org.kde.gwenview.desktop
+image/webp=org.kde.gwenview.desktop
+image/heif=org.kde.gwenview.desktop
+image/heic=org.kde.gwenview.desktop
+image/bmp=org.kde.gwenview.desktop
+image/tiff=org.kde.gwenview.desktop
+image/x-xpixmap=org.kde.gwenview.desktop
+image/x-portable-pixmap=org.kde.gwenview.desktop
+image/x-portable-bitmap=org.kde.gwenview.desktop
+image/x-portable-graymap=org.kde.gwenview.desktop
+image/x-xbitmap=org.kde.gwenview.desktop
+image/svg+xml=org.kde.gwenview.desktop
+
+# Directories
+inode/directory=org.kde.dolphin.desktop
+x-scheme-handler/file=org.kde.dolphin.desktop

@@ -41,6 +41,15 @@
         "keywords": [
           "npdoc"
         ]
+      },
+      {
+        "id": "kagit",
+        "name": "Kagi Translate",
+        "icon": "unicode:🔍",
+        "url": "https://translate.kagi.com/?from=auto&to=en_us&text=%s",
+        "keywords": [
+          "kt"
+        ]
       }
     ],
     "disabledEngines": [
@@ -51,7 +60,6 @@
       "nixpkgs",
       "npmjs",
       "aur",
-      "archlinux",
       "imdb",
       "linkedin",
       "images",
@@ -62,11 +70,15 @@
       "bing",
       "brave",
       "duckduckgo",
-      "google"
+      "google",
+      "youtube",
+      "github",
+      "wikipedia",
+      "maps",
+      "twitter",
+      "archlinux",
+      "translate"
     ],
-    "defaultEngine": "kagi"
-  },
-  "powerUsagePlugin": {
-    "enabled": true
+    "defaultEngine": "kagi",
   }
 }
