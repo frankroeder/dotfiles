@@ -34,6 +34,8 @@ if [ "$OSTYPE" = "Darwin" ]; then
   )
 fi
 
-if [ -z "${DISPLAY}" ] && [ "${XDG_VTNR}" -eq 1 ]; then
-  Hyprland
+if [ "$(tty)" = "/dev/tty1" ];then
+  if (( $+commands[start-hyprland] )); then
+    exec start-hyprland
+  fi
 fi
