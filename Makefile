@@ -417,9 +417,9 @@ _terminal: ## Install and configure terminal emulator
 	ln -sfv $(DOTFILES)/htop/personal $(HOME)/.config/htop/htoprc; \
 
 
-.PHONY: asahi asahi-system asahi-require-danklinux asahi-common asahi-danklinux asahi-dms-plugins asahi-shell asahi-default-shell check-asahi
+.PHONY: asahi asahi-system asahi-zotero asahi-require-danklinux asahi-common asahi-danklinux asahi-dms-plugins asahi-shell asahi-default-shell check-asahi
 asahi: ## Asahi Linux (Fedora Minimal): apply DankLinux Hyprland and Ghostty config
-asahi: validate-linux validate-tools sudo asahi-system asahi-require-danklinux asahi-danklinux asahi-default-shell check-asahi
+asahi: validate-linux validate-tools sudo asahi-system asahi-zotero asahi-require-danklinux asahi-danklinux asahi-default-shell check-asahi
 	@mkdir -p $(HOME)/.claude $(HOME)/.codex
 	$(call link_if_exists,$(HOME)/Nextcloud/Sync/AGENTS.md,$(HOME)/.claude/CLAUDE.md)
 	$(call link_if_exists,$(HOME)/Nextcloud/Sync/AGENTS.md,$(HOME)/.codex/AGENTS.md)
@@ -438,6 +438,14 @@ asahi: validate-linux validate-tools sudo asahi-system asahi-require-danklinux a
 asahi-system: ## Update Fedora and install base packages for Asahi
 	@bash $(DOTFILES)/asahi/dnf.sh
 	@light -s sysfs/leds/kbd_backlight -S 30
+
+asahi-zotero: ## Install Zotero ARM64 on Asahi Linux
+	@if [ -x "/opt/zotero/zotero" ]; then \
+		$(call print_warning,Zotero already installed at /opt/zotero; skipping setup script); \
+	else \
+		$(call print_step,Installing Zotero ARM64); \
+		bash $(DOTFILES)/scripts/setup_zotero.sh; \
+	fi
 
 asahi-require-danklinux: ## Verify DankLinux is already installed
 	@if ! command -v dms >/dev/null 2>&1; then \
