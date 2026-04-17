@@ -200,7 +200,7 @@
     }
   ],
   "centeringMode": "index",
-  "clockDateFormat": "",
+  "clockDateFormat": "ddd MMM d",
   "lockDateFormat": "",
   "greeterRememberLastSession": true,
   "greeterRememberLastUser": true,
@@ -465,7 +465,7 @@
     }
   },
   "activeDisplayProfile": {
-    "hyprland": "profile_1775770010620_rti8e6"
+    "hyprland": "profile_1775766961135_uy8zr2"
   },
   "displayProfileAutoSelect": false,
   "displayShowDisconnected": false,
@@ -487,7 +487,8 @@
         },
         {
           "id": "focusedWindow",
-          "enabled": true
+          "enabled": true,
+          "focusedWindowCompactMode": true
         }
       ],
       "centerWidgets": [

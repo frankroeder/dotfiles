@@ -16,6 +16,7 @@ WHICH := which
 PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(DOTFILES)/bin/Linux:$(HOME)/bin:$(HOME)/.local/bin:$(HOME)/.local/nodejs/bin
 
 ASAHI_DMS_PLUGINS ?= calculator webSearch powerUsagePlugin
+AGENTS_NEXTCLOUD_DIR ?= $(HOME)/Nextcloud/portal
 
 # Validation targets
 .PHONY: validate-macos validate-linux validate-tools
@@ -63,6 +64,22 @@ define link_if_exists
 		ln -sfn "$(1)" "$(2)"; \
 	else \
 		$(call print_warning,Optional source $(1) does not exist, skipping symlink); \
+	fi
+endef
+
+define link_first_exists
+	@mkdir -p "$$(dirname "$(2)")"
+	@linked=0; \
+	for source in $(1); do \
+		if [ -e "$$source" ] || [ -L "$$source" ]; then \
+			echo "Linking $(2) -> $$source"; \
+			ln -sfn "$$source" "$(2)"; \
+			linked=1; \
+			break; \
+		fi; \
+	done; \
+	if [ "$$linked" -eq 0 ]; then \
+		$(call print_warning,Optional sources not found for $(2): $(1)); \
 	fi
 endef
 
@@ -266,6 +283,35 @@ _git: ## Configure Git with completion and dotfiles
 	@if [ -f "$(DOTFILES)/git/gitconfig" ]; then ln -sfv $(DOTFILES)/git/gitconfig $(HOME)/.gitconfig; fi
 	@if [ -f "$(DOTFILES)/git/gitignore" ]; then ln -sfv $(DOTFILES)/git/gitignore $(HOME)/.gitignore; fi
 
+.PHONY: agents
+agents: ## Sync coding agent instructions and settings from Nextcloud
+	# Codex
+	$(call print_step,Syncing Codex agent configuration)
+	@mkdir -p $(HOME)/.codex
+	$(call link_if_exists,$(AGENTS_NEXTCLOUD_DIR)/AGENTS.md,$(HOME)/.codex/AGENTS.md)
+	$(call link_first_exists,$(AGENTS_NEXTCLOUD_DIR)/codex_config.toml $(AGENTS_NEXTCLOUD_DIR)/codex_settings.toml,$(HOME)/.codex/config.toml)
+	# Claude
+ifneq ($(shell command -v claude 2>/dev/null),)
+	$(call print_step,Syncing Claude agent configuration)
+	@mkdir -p $(HOME)/.claude
+	$(call link_if_exists,$(AGENTS_NEXTCLOUD_DIR)/AGENTS.md,$(HOME)/.claude/CLAUDE.md)
+	$(call link_if_exists,$(AGENTS_NEXTCLOUD_DIR)/claude_settings.json,$(HOME)/.claude/settings.json)
+else
+	$(call print_warning,Claude CLI not installed; skipping Claude agent configuration)
+endif
+	# Gemini
+ifneq ($(shell command -v gemini 2>/dev/null),)
+	$(call print_step,Syncing Gemini agent configuration)
+	@mkdir -p $(HOME)/.gemini
+	$(call link_if_exists,$(AGENTS_NEXTCLOUD_DIR)/AGENTS.md,$(HOME)/.gemini/GEMINI.md)
+	$(call link_if_exists,$(AGENTS_NEXTCLOUD_DIR)/gemini_settings.json,$(HOME)/.gemini/settings.json)
+else
+	$(call print_warning,Gemini CLI not installed; skipping Gemini agent configuration)
+endif
+	# OpenCode
+	$(call print_step,Syncing OpenCode agent configuration)
+	$(call link_if_exists,$(AGENTS_NEXTCLOUD_DIR)/opencode.jsonc,$(HOME)/.config/opencode/opencode.jsonc)
+
 .PHONY: after
 after: ## Post-installation setup and service start
 after: _terminal
@@ -292,14 +338,7 @@ ifeq ($(OSTYPE), Darwin)
 		$(call print_step,Starting sketchybar service); \
 		brew services start sketchybar; \
 	fi
-	# private configs
-	# https://agents.md
-	$(call link_if_exists,$(HOME)/Nextcloud/portal/AGENTS.md,$(HOME)/.claude/CLAUDE.md)
-	$(call link_if_exists,$(HOME)/Nextcloud/portal/AGENTS.md,$(HOME)/.gemini/GEMINI.md)
-	$(call link_if_exists,$(HOME)/Nextcloud/portal/AGENTS.md,$(HOME)/.codex/AGENTS.md)
-	$(call link_if_exists,$(HOME)/Nextcloud/portal/claude_settings.json,$(HOME)/.claude/settings.json)
-	$(call link_if_exists,$(HOME)/Nextcloud/portal/opencode.jsonc,$(HOME)/.config/opencode/opencode.jsonc)
-	$(call link_if_exists,$(HOME)/Nextcloud/portal/gemini_settings.json,$(HOME)/.gemini/settings.json)
+	@$(MAKE) agents
 endif
 
 .PHONY: directories
@@ -420,10 +459,7 @@ _terminal: ## Install and configure terminal emulator
 .PHONY: asahi asahi-system asahi-zotero asahi-require-danklinux asahi-common asahi-danklinux asahi-dms-plugins asahi-shell asahi-default-shell check-asahi
 asahi: ## Asahi Linux (Fedora Minimal): apply DankLinux Hyprland and Ghostty config
 asahi: validate-linux validate-tools sudo asahi-system asahi-zotero asahi-require-danklinux asahi-danklinux asahi-default-shell check-asahi
-	@mkdir -p $(HOME)/.claude $(HOME)/.codex
-	$(call link_if_exists,$(HOME)/Nextcloud/Sync/AGENTS.md,$(HOME)/.claude/CLAUDE.md)
-	$(call link_if_exists,$(HOME)/Nextcloud/Sync/AGENTS.md,$(HOME)/.codex/AGENTS.md)
-	$(call link_if_exists,$(HOME)/Nextcloud/Sync/claude_settings.json,$(HOME)/.claude/settings.json)
+	@$(MAKE) agents
 	@if [ -d "$(HOME)/Pictures/wallpaper/.git" ]; then \
 		$(call print_step,Updating wallpapers); \
 		git -C "$(HOME)/Pictures/wallpaper" pull --ff-only || $(call print_warning,Failed to update wallpapers); \
