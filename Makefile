@@ -15,7 +15,7 @@ WHICH := which
 
 PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(DOTFILES)/bin/Linux:$(HOME)/bin:$(HOME)/.local/bin:$(HOME)/.local/nodejs/bin
 
-ASAHI_DMS_PLUGINS ?= calculator webSearch powerUsagePlugin
+ASAHI_DMS_PLUGINS ?= calculator webSearch
 AGENTS_NEXTCLOUD_DIR ?= $(HOME)/Nextcloud/portal
 
 # Validation targets
@@ -506,6 +506,7 @@ asahi-common: directories _git zsh python misc nvim
 asahi-danklinux: ## Apply DankLinux Hyprland user config
 asahi-danklinux: asahi-common
 	@mkdir -p $(HOME)/.cache/DankMaterialShell
+	@mkdir -p $(HOME)/screenshots
 	$(call replace_with_symlink,$(DOTFILES)/asahi/hypr,$(HOME)/.config/hypr)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/dms,$(HOME)/.config/DankMaterialShell)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/ghostty,$(HOME)/.config/ghostty)
