@@ -452,20 +452,20 @@
         "createdAt": 1775766961135,
         "updatedAt": 1775766961135
       },
-      "profile_1775770010620_rti8e6": {
-        "id": "profile_1775770010620_rti8e6",
+      "profile_1776430069269_3yjleq": {
+        "id": "profile_1776430069269_3yjleq",
         "name": "Default",
         "outputSet": [
           "HDMI-A-1",
           "eDP-1"
         ],
-        "createdAt": 1775770010621,
-        "updatedAt": 1775770010621
+        "createdAt": 1776430069269,
+        "updatedAt": 1776430069269
       }
     }
   },
   "activeDisplayProfile": {
-    "hyprland": "profile_1775766961135_uy8zr2"
+    "hyprland": "profile_1776430069269_3yjleq"
   },
   "displayProfileAutoSelect": false,
   "displayShowDisconnected": false,
