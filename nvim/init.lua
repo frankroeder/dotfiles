@@ -3,6 +3,7 @@ pcall(vim.loader.enable)
 require "options"
 require "keymaps"
 require "autocommands"
+require "statusline"
 vim.cmd.packadd "nvim.undotree"
 
 local localnvim = os.getenv "HOME" .. "/.localnvim.lua"
