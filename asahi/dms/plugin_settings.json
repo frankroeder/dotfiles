@@ -80,5 +80,13 @@
       "translate"
     ],
     "defaultEngine": "kagi"
+  },
+  "dankBatteryAlerts": {
+    "enabled": true,
+    "criticalThreshold": 10
+  },
+  "dankLauncherKeys": {
+    "enabled": true,
+    "noTrigger": false
   }
 }

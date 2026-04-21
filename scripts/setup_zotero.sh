@@ -78,7 +78,7 @@ extract_zotero() {
   tar -xf "$archive" -C "$extract_dir"
 
   local top_dir
-  top_dir="$(find "$extract_dir" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+  top_dir="$(find "$extract_dir" -mindepth 1 -maxdepth 1 -type d -print -quit)"
   [[ -n "$top_dir" ]] || fail "Could not find extracted Zotero directory"
   echo "$top_dir"
 }

@@ -1,0 +1,3 @@
+#!/usr/bin/env zsh
+
+uv run "$DOTFILES/scripts/radio.py" "$@"

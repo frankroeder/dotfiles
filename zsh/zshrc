@@ -54,8 +54,10 @@ source ${ZIM_HOME}/init.zsh
 # Disable paste highlighting
 zle_highlight+=(paste:none)
 
-if [[ -d "$HOME/.fzf/" ]]; then
+if [[ -d "$HOME/.fzf/bin" ]]; then
   path=($HOME/.fzf/bin $path)
+fi
+if (( $+commands[fzf] )); then
   eval "$(fzf --zsh)"
 fi
 

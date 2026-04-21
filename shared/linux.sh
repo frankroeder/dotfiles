@@ -30,3 +30,5 @@ if command -v dgop >/dev/null 2>&1; then
   alias top='dgop top'
   alias htop='dgop top'
 fi
+
+command -v dms >/dev/null 2>&1 && alias open='dms open'

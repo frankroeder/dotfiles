@@ -24,6 +24,7 @@ sudo dnf install -y \
   cmake \
   curl \
   ffmpeg \
+  gwenview \
   git \
   ImageMagick \
   jq \
@@ -34,14 +35,15 @@ sudo dnf install -y \
   NetworkManager-wifi \
   chromium \
   nextcloud-client \
-  ripgrep \
-  gwenview \
   mpv \
-  tree \
-  texlive-scheme-full \
-  uv \
   okular \
+  ripgrep \
+  texlive-scheme-full \
+  tree \
+  uv \
+  wl-clipboard \
   wget \
   fastfetch \
-  light \
+  xclip \
+  xdg-utils \
   zsh

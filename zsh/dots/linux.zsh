@@ -12,9 +12,12 @@ path=(
 # Open current directory in file manager (GUI)
 alias f='xdg-open ./'
 
-if [ $commands[xclip] ]; then
-	alias pbcopy='xclip -selection clipboard'
-	alias pbpaste='xclip -selection clipboard -o'
-	alias copypubkey='xclip -selection clipboard < ~/.ssh/id_rsa.pub'
+if [ $commands[wl-copy] ] && [ $commands[wl-paste] ]; then
+  pbcopy() { command wl-copy "$@"; }
+  pbpaste() { command wl-paste --no-newline "$@"; }
+  copypubkey() { pbcopy < ~/.ssh/id_rsa.pub; }
+elif [ $commands[xclip] ]; then
+  pbcopy() { command xclip -selection clipboard "$@"; }
+  pbpaste() { command xclip -selection clipboard -o "$@"; }
+  copypubkey() { pbcopy < ~/.ssh/id_rsa.pub; }
 fi
-[ $commands[xdg-open] ] && function open() { xdg-open $@; };

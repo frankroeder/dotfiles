@@ -27,6 +27,13 @@ curl -fsSL https://install.danklinux.com | sh
 sudo reboot
 ```
 
+After reboot:
+```sh
+git clone https://github.com/frankroeder/dotfiles.git ~/.dotfiles
+cd ~/.dotfiles
+make asahi
+```
+
 
 ## Local configuration files
 The following list of files could be created and used to define local configurations:

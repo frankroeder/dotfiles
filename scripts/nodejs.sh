@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 LATEST_VERSION=$(curl -sL https://api.github.com/repos/nodejs/node/releases/latest | jq -r '.tag_name')
 
 if [ "$OSTYPE" = "Darwin" ]; then
@@ -17,9 +19,9 @@ echo "RELEASE: $RELEASE"
 PKG="$RELEASE.tar.xz"
 TARGET_DIR="$HOME/tmp/"
 
-curl -L https://nodejs.org/dist/$LATEST_VERSION/$PKG > "$TARGET_DIR/$PKG";
-cd "$TARGET_DIR" || exit 1;
-tar -xJf "$PKG";
-mkdir -p "$HOME/.local/nodejs"
-ln -sfv "$TARGET_DIR$RELEASE/bin" "$HOME/.local/nodejs/";
-rm -rfv  "$PKG";
+mkdir -p "$TARGET_DIR" "$HOME/.local/nodejs"
+curl -fL "https://nodejs.org/dist/$LATEST_VERSION/$PKG" -o "$TARGET_DIR/$PKG"
+cd "$TARGET_DIR" || exit 1
+tar -xJf "$PKG"
+ln -sfv "$TARGET_DIR$RELEASE/bin" "$HOME/.local/nodejs/"
+rm -fv "$PKG"
