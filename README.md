@@ -32,6 +32,9 @@ After reboot:
 git clone https://github.com/frankroeder/dotfiles.git ~/.dotfiles
 cd ~/.dotfiles
 make asahi
+
+# optionally fix Asahi not asking for password
+echo 'Defaults rootpw' | sudo tee /etc/sudoers.d/99-rootpw
 ```
 
 
