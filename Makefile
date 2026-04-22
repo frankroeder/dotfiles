@@ -511,6 +511,8 @@ asahi-danklinux: asahi-common
 	$(call replace_with_symlink,$(DOTFILES)/asahi/dms,$(HOME)/.config/DankMaterialShell)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/ghostty,$(HOME)/.config/ghostty)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/matugen,$(HOME)/.config/matugen)
+	@mkdir -p $(HOME)/.config/mpv
+	@ln -sfv $(DOTFILES)/mpv/mpv_asahi.conf $(HOME)/.config/mpv/mpv.conf
 	@ln -sfv $(DOTFILES)/asahi/environment.d/90-dms.conf $(HOME)/.config/environment.d/90-dms.conf
 	@$(MAKE) asahi-dms-plugins
 	@mkdir -p $(HOME)/.config/librewolf/librewolf
