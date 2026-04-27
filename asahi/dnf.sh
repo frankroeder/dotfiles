@@ -27,6 +27,7 @@ sudo dnf install -y \
   gwenview \
   git \
   ImageMagick \
+  keychain \
   jq \
   librewolf \
   lsof \

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+script_dir="$HOME/.dotfiles/asahi/autostart-scripts"
+
+[ -d "$script_dir" ] || exit 0
+
+for script in "$script_dir"/*; do
+  [ -f "$script" ] && [ -x "$script" ] && "$script" &
+done

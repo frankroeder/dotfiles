@@ -13,7 +13,9 @@ ARCHITECTURE := $(shell uname -m)
 DEVNUL := /dev/null
 WHICH := which
 
-PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin:$(DOTFILES)/bin/Linux:$(HOME)/bin:$(HOME)/.local/bin:$(HOME)/.local/nodejs/bin
+PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin
+PATH := $(PATH):$(DOTFILES)/bin/$(OSTYPE)/$(ARCHITECTURE):$(DOTFILES)/bin/$(OSTYPE)
+PATH := $(PATH):$(HOME)/bin:$(HOME)/.local/bin:$(HOME)/.local/nodejs/bin
 
 ASAHI_DMS_PLUGINS ?= calculator webSearch
 NEXTCLOUD_DIR ?= $(HOME)/Nextcloud/portal
@@ -456,9 +458,12 @@ _terminal: ## Install and configure terminal emulator
 	ln -sfv $(DOTFILES)/htop/personal $(HOME)/.config/htop/htoprc; \
 
 
-.PHONY: asahi asahi-system asahi-zotero asahi-require-danklinux asahi-common asahi-danklinux asahi-dms-plugins asahi-shell asahi-battery-alerts asahi-default-shell check-asahi
+.PHONY: asahi asahi-system asahi-zotero asahi-require-danklinux asahi-common
+.PHONY: asahi-danklinux asahi-dms-plugins
+.PHONY: asahi-shell asahi-battery-alerts asahi-default-shell check-asahi
 asahi: ## Asahi Linux (Fedora Minimal): apply DankLinux Hyprland and Ghostty config
-asahi: validate-linux validate-tools sudo asahi-system asahi-zotero asahi-require-danklinux asahi-danklinux asahi-battery-alerts asahi-default-shell check-asahi
+asahi: validate-linux validate-tools sudo asahi-system asahi-zotero asahi-require-danklinux
+asahi: asahi-danklinux asahi-battery-alerts asahi-default-shell check-asahi
 	@$(MAKE) agents
 	@if [ -d "$(HOME)/Pictures/wallpaper/.git" ]; then \
 		$(call print_step,Updating wallpapers); \

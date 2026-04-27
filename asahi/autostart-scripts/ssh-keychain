@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+eval "$(keychain --quiet --quick --noask --eval --systemd "$HOME/.ssh/id_ed25519")"

@@ -12,6 +12,8 @@ fi
 path=(
   # path to linux and homebrew intel-based binaries
   /usr/local/{bin,sbin}
+  # os/architecture-specific dotfile binaries
+  $DOTFILES/bin/$OSTYPE/$ARCHITECTURE
   # os-specific dotfile binaries
   $DOTFILES/bin/$OSTYPE
   # user-specific binaries for linux

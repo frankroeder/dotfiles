@@ -3,6 +3,5 @@
   "maxEntrySize": 5242880,
   "autoClearDays": 1,
   "clearAtStartup": true,
-  "disabled": true,
-  "maxPinned": 10
+  "disabled": false
 }
