@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+interval="${ASAHI_BATTERY_ALERT_INTERVAL:-30}"
+warning_threshold="${ASAHI_BATTERY_WARNING_THRESHOLD:-20}"
+critical_threshold="${ASAHI_BATTERY_CRITICAL_THRESHOLD:-10}"
+
+battery_path="${ASAHI_BATTERY_PATH:-}"
+ac_path="${ASAHI_AC_PATH:-}"
+warning_sent=0
+critical_sent=0
+
+find_power_supply() {
+  local wanted="$1"
+  local preferred="$2"
+  local supply
+
+  if [ -d "/sys/class/power_supply/$preferred" ]; then
+    printf '%s\n' "/sys/class/power_supply/$preferred"
+    return
+  fi
+
+  for supply in /sys/class/power_supply/*; do
+    if [ -r "$supply/type" ] && [ "$(cat "$supply/type")" = "$wanted" ]; then
+      printf '%s\n' "$supply"
+      return
+    fi
+  done
+}
+
+notify_battery() {
+  local title="$1"
+  local body="$2"
+  local timeout="$3"
+
+  if command -v dms >/dev/null 2>&1; then
+    dms notify "$title" "$body" --icon battery_alert --timeout "$timeout" && return
+  elif command -v notify-send >/dev/null 2>&1; then
+    notify-send -a "Asahi Battery" -i battery-alert "$title" "$body" && return
+  fi
+
+  true
+}
+
+while true; do
+  if [ -z "$battery_path" ]; then
+    battery_path="$(find_power_supply Battery macsmc-battery || true)"
+  fi
+  if [ -z "$ac_path" ]; then
+    ac_path="$(find_power_supply Mains macsmc-ac || true)"
+  fi
+
+  if [ -n "$battery_path" ] && [ -r "$battery_path/capacity" ] && [ -r "$battery_path/status" ]; then
+    capacity="$(cat "$battery_path/capacity")"
+    status="$(cat "$battery_path/status")"
+    ac_online=0
+
+    if [ -n "$ac_path" ] && [ -r "$ac_path/online" ]; then
+      ac_online="$(cat "$ac_path/online")"
+    fi
+
+    if [ "$status" != "Discharging" ] || [ "$ac_online" = "1" ] || [ "$capacity" -gt "$warning_threshold" ]; then
+      warning_sent=0
+      critical_sent=0
+    elif [ "$capacity" -le "$critical_threshold" ] && [ "$critical_sent" -eq 0 ]; then
+      notify_battery "Critical battery" "Battery at ${capacity}%. Connect charger." 30000
+      warning_sent=1
+      critical_sent=1
+    elif [ "$capacity" -le "$warning_threshold" ] && [ "$warning_sent" -eq 0 ]; then
+      notify_battery "Low battery" "Battery at ${capacity}%." 10000
+      warning_sent=1
+    fi
+  fi
+
+  sleep "$interval"
+done

@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+class="$(hyprctl activewindow -j | jq -r '.class // ""')"
+
+case "$class" in
+  com.mitchellh.ghostty|librewolf)
+    exit 0
+    ;;
+esac
+
+hyprctl dispatch killactive

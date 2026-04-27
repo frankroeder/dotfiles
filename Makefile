@@ -456,9 +456,9 @@ _terminal: ## Install and configure terminal emulator
 	ln -sfv $(DOTFILES)/htop/personal $(HOME)/.config/htop/htoprc; \
 
 
-.PHONY: asahi asahi-system asahi-zotero asahi-require-danklinux asahi-common asahi-danklinux asahi-dms-plugins asahi-shell asahi-default-shell check-asahi
+.PHONY: asahi asahi-system asahi-zotero asahi-require-danklinux asahi-common asahi-danklinux asahi-dms-plugins asahi-shell asahi-battery-alerts asahi-default-shell check-asahi
 asahi: ## Asahi Linux (Fedora Minimal): apply DankLinux Hyprland and Ghostty config
-asahi: validate-linux validate-tools sudo asahi-system asahi-zotero asahi-require-danklinux asahi-danklinux asahi-default-shell check-asahi
+asahi: validate-linux validate-tools sudo asahi-system asahi-zotero asahi-require-danklinux asahi-danklinux asahi-battery-alerts asahi-default-shell check-asahi
 	@$(MAKE) agents
 	@if [ -d "$(HOME)/Pictures/wallpaper/.git" ]; then \
 		$(call print_step,Updating wallpapers); \
@@ -493,11 +493,8 @@ asahi-common: directories _git zsh python misc nvim
 	@mkdir -p $(HOME)/.config/environment.d
 	@mkdir -p $(HOME)/.local/share/applications
 	@ln -sfv $(DOTFILES)/asahi/mimeapps.list $(HOME)/.config/mimeapps.list
-	@if [ -f "/usr/share/applications/librewolf.desktop" ]; then \
-		$(call print_step,Fixing LibreWolf desktop icon name); \
-		sed 's/^Icon=librewolf\.png$$/Icon=librewolf/' /usr/share/applications/librewolf.desktop > $(HOME)/.local/share/applications/librewolf.desktop; \
-		if command -v update-desktop-database >/dev/null 2>&1; then update-desktop-database $(HOME)/.local/share/applications >/dev/null 2>&1 || true; fi; \
-	fi
+	@$(call print_step,Fixing Linux desktop icons); \
+	bash $(DOTFILES)/scripts/fix_linux_desktop_icons.sh
 	@if ! command -v tree-sitter >/dev/null 2>&1; then \
 		$(call print_step,Installing tree-sitter CLI); \
 		bash $(DOTFILES)/scripts/tree-sitter.sh; \
@@ -561,6 +558,10 @@ asahi-shell: ## Generate optional shell integrations for DMS and dgop
 	else \
 		$(call print_warning,dgop not installed; skipping dgop completions); \
 	fi
+
+asahi-battery-alerts: ## Install and start Asahi battery alert daemon
+	@$(call print_step,Installing Asahi battery alerts)
+	@DOTFILES="$(DOTFILES)" bash $(DOTFILES)/scripts/asahi-battery-alerts.sh
 
 asahi-default-shell: ## Make Zsh the default login shell for Asahi
 	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh

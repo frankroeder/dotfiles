@@ -1,0 +1,10 @@
+[Unit]
+Description=Asahi battery alert daemon
+
+[Service]
+ExecStart=%h/.local/bin/asahi-battery-alertd
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

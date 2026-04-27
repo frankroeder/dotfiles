@@ -3,7 +3,7 @@
   "currentThemeCategory": "dynamic",
   "customThemeFile": "",
   "registryThemeVariants": {},
-  "matugenScheme": "scheme-tonal-spot",
+  "matugenScheme": "scheme-neutral",
   "runUserMatugenTemplates": true,
   "matugenTargetMonitor": "",
   "popupTransparency": 1,
@@ -197,6 +197,11 @@
       "pattern": "LibreWolf",
       "replacement": "librewolf",
       "type": "exact"
+    },
+    {
+      "pattern": "Thunderbird",
+      "replacement": "thunderbird",
+      "type": "exact"
     }
   ],
   "centeringMode": "index",
@@ -219,7 +224,18 @@
   "browserPickerViewMode": "grid",
   "browserUsageHistory": {},
   "appPickerViewMode": "grid",
-  "filePickerUsageHistory": {},
+  "filePickerUsageHistory": {
+    "org.kde.gwenview": {
+      "count": 15,
+      "lastUsed": 1777237828423,
+      "name": "Gwenview"
+    },
+    "org.gnome.Evince": {
+      "count": 1,
+      "lastUsed": 1776947140568,
+      "name": "Document Viewer"
+    }
+  },
   "sortAppsAlphabetically": false,
   "appLauncherGridColumns": 4,
   "spotlightCloseNiriOverview": true,
@@ -465,7 +481,7 @@
     }
   },
   "activeDisplayProfile": {
-    "hyprland": "profile_1776430069269_3yjleq"
+    "hyprland": "profile_1775766961135_uy8zr2"
   },
   "displayProfileAutoSelect": false,
   "displayShowDisconnected": false,

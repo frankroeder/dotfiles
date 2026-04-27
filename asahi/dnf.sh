@@ -39,6 +39,7 @@ sudo dnf install -y \
   okular \
   ripgrep \
   texlive-scheme-full \
+  thunderbird \
   tree \
   uv \
   wl-clipboard \
