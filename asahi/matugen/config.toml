@@ -9,6 +9,6 @@ input_path = '/usr/share/quickshell/dms/matugen/templates/firefox-userchrome.css
 output_path = '~/.config/DankMaterialShell/librewolf.css'
 
 [templates.nvim]
-input_path = '~/.dotfiles/asahi/matugen/templates/neovim.lua'
+input_path = '/usr/share/quickshell/dms/matugen/templates/neovim.lua'
 output_path = '~/.config/nvim/lua/plugins/dankcolors.lua'
 post_hook = 'pkill -SIGUSR1 nvim'

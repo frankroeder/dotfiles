@@ -7,7 +7,7 @@ Brewfile.lock.json
 asahi/dms/.firstlaunch
 asahi/dms/.changelog-*
 asahi/dms/plugins
-asahi/ghostty/themes/dankcolors
+nvim/lua/plugins/dankcolors.lua
 asahi/hypr/dms/colors.conf
 nvim/lua/plugins/dankcolors.lua
 asahi/dms/firefox.css
