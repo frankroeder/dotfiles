@@ -9,6 +9,7 @@ asahi/dms/.changelog-*
 asahi/dms/plugins
 nvim/lua/plugins/dankcolors.lua
 asahi/hypr/dms/colors.conf
+asahi/ghostty/themes/dankcolors
 nvim/lua/plugins/dankcolors.lua
 asahi/dms/firefox.css
 asahi/dms/librewolf.css
