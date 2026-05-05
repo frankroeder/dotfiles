@@ -85,6 +85,12 @@ apt_update() {
   sudo apt upgrade --yes;
 }
 
+dnf_update() {
+  sudo dnf upgrade --refresh -y;
+  sudo dnf autoremove -y;
+  sudo dnf clean all;
+}
+
 misc() {
   if [ $commands[battery] ]; then
     battery update;
@@ -113,7 +119,8 @@ run(){
     [ $commands[brew] ] && exec_routine brew_update
     exec_routine misc
     [ "$OSTYPE" = "Darwin" ] && exec_routine macos_update
-    [ "$OSTYPE" = "Linux" ] && exec_routine apt_update
+    [ $commands[apt] ] && exec_routine apt_update
+    [ $commands[dnf] ] && exec_routine dnf_update
     success "Updates completed"
   else
     error "No internet access"

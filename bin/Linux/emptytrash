@@ -19,11 +19,15 @@ if command -v uv >/dev/null 2>&1; then
   uv cache prune
 fi
 
-# Linux-specific cleanup (APT)
+# Linux-specific cleanup (APT/DNF)
 if command -v apt >/dev/null 2>&1; then
   sudo apt autoclean -y
   sudo apt clean -y
   sudo apt autoremove -y
+fi
+if command -v dnf >/dev/null 2>&1; then
+  sudo dnf autoremove -y
+  sudo dnf clean all
 fi
 
 # Clear thumbnail cache
