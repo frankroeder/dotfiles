@@ -18,9 +18,7 @@
   color: @text;
   font-family:
     "Noto Sans",
-    "CaskaydiaCove Nerd Font",
-    "CaskaydiaMono Nerd Font",
-    "Symbols Nerd Font",
+    "Cascadia Mono NF",
     sans-serif;
   font-size: 14px;
 }

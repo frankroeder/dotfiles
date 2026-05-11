@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if [ "$#" -eq 0 ]; then
+  echo "usage: $0 <command> [args...]" >&2
+  exit 2
+fi
+
+app_id="org.asahi.$(basename "$1")"
+width="${ASAHI_TUI_WIDTH:-120}"
+height="${ASAHI_TUI_HEIGHT:-34}"
+
+if command -v ghostty >/dev/null 2>&1; then
+  if command -v uwsm-app >/dev/null 2>&1; then
+    exec setsid uwsm-app -- ghostty --class="$app_id" --window-width="$width" --window-height="$height" -e "$@"
+  fi
+
+  exec setsid ghostty --class="$app_id" --window-width="$width" --window-height="$height" -e "$@"
+fi
+
+notify-send "Terminal launcher" "Ghostty is not installed."
+exit 1
+

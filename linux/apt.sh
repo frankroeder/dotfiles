@@ -44,7 +44,7 @@ install_desktop() {
     python3-tk
     sox
     mpv
-    xclip
+    wl-clipboard
     i3
   "
   sudo apt install $DESKTOP_PKGS -y;

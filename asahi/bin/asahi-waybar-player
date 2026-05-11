@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+empty() {
+  jq -cn --arg text "" --arg tooltip "" --arg class "stopped" '{text: $text, tooltip: $tooltip, class: $class}'
+}
+
+state_dir="${XDG_RUNTIME_DIR:-/tmp}/asahi-waybar"
+if ! mkdir -p "$state_dir" || [ ! -w "$state_dir" ]; then
+  state_dir="/tmp/asahi-waybar-${UID:-$(id -u)}"
+  mkdir -p "$state_dir"
+fi
+
+scroll_label() {
+  local label="$1"
+  local limit=30
+  local gap="   "
+  local state_file="$state_dir/player.scroll"
+  local previous=""
+  local offset=0
+  local cycle double shown
+
+  if [ "${#label}" -le "$limit" ]; then
+    printf "%s\n" "$label"
+    return
+  fi
+
+  if [ -r "$state_file" ]; then
+    read -r previous < "$state_file"
+    offset="$(awk 'NR == 2 { print; exit }' "$state_file")"
+  fi
+
+  if [ "$previous" = "$label" ]; then
+    offset=$(( (offset + 1) % (${#label} + ${#gap}) ))
+  else
+    offset=0
+  fi
+
+  printf "%s\n%s\n" "$label" "$offset" > "$state_file"
+
+  cycle="${label}${gap}"
+  double="${cycle}${cycle}"
+  shown="${double:offset:limit}"
+  printf "%s\n" "$shown"
+}
+
+if ! command -v playerctl >/dev/null 2>&1; then
+  empty
+  exit 0
+fi
+
+status="$(playerctl status 2>/dev/null || true)"
+if [ -z "$status" ]; then
+  empty
+  exit 0
+fi
+
+player="$(playerctl metadata --format '{{playerName}}' 2>/dev/null || true)"
+artist="$(playerctl metadata --format '{{artist}}' 2>/dev/null || true)"
+title="$(playerctl metadata --format '{{title}}' 2>/dev/null || true)"
+album="$(playerctl metadata --format '{{album}}' 2>/dev/null || true)"
+player="${player//$'\n'/ }"
+artist="${artist//$'\n'/ }"
+title="${title//$'\n'/ }"
+album="${album//$'\n'/ }"
+
+case "$status" in
+  Playing) icon="󰎆" ;;
+  Paused) icon="󰏤" ;;
+  *) icon="󰓛" ;;
+esac
+
+if [ -n "$artist" ] && [ -n "$title" ]; then
+  label="$artist - $title"
+elif [ -n "$title" ]; then
+  label="$title"
+else
+  label="${player:-Media}"
+fi
+
+display_label="$(scroll_label "$label")"
+
+tooltip="Status: $status"
+[ -n "$player" ] && tooltip="${tooltip}\nPlayer: $player"
+[ -n "$artist" ] && tooltip="${tooltip}\nArtist: $artist"
+[ -n "$title" ] && tooltip="${tooltip}\nTitle: $title"
+[ -n "$album" ] && tooltip="${tooltip}\nAlbum: $album"
+
+jq -cn \
+  --arg text "$icon $display_label" \
+  --arg tooltip "$tooltip" \
+  --arg class "$(printf "%s" "$status" | tr '[:upper:]' '[:lower:]')" \
+  '{text: $text, tooltip: $tooltip, class: $class}'

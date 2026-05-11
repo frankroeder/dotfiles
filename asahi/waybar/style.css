@@ -28,13 +28,10 @@
   border-radius: 0;
   font-family:
     "Noto Sans",
-    "CaskaydiaCove Nerd Font",
-    "CaskaydiaMono Nerd Font",
-    "Symbols Nerd Font",
-    "Noto Sans Symbols 2",
+    "Cascadia Mono NF",
     "Noto Color Emoji",
     sans-serif;
-  font-size: 13px;
+  font-size: 16px;
   letter-spacing: 0;
   min-height: 0;
 }
@@ -45,45 +42,41 @@ window#waybar {
 }
 
 window#waybar > box {
-  background: rgba(30, 30, 46, 0.92);
-  border: 1px solid rgba(137, 180, 250, 0.32);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(17, 17, 27, 0.35);
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 #workspaces,
-#window,
+#custom-player,
 #clock,
 #tray,
-#cpu,
-#memory,
+#custom-cpu,
+#custom-memory,
 #network,
 #bluetooth,
-#battery {
-  padding: 0 8px;
-  margin: 3px 0;
+#custom-battery {
+  padding: 0 10px;
+  margin: 0;
 }
 
+#workspaces,
+#custom-player,
 #tray,
 #clock,
-#cpu,
-#memory,
+#custom-cpu,
+#custom-memory,
 #network,
 #bluetooth,
-#battery {
+#custom-battery {
   background: @surface0;
   border-radius: 6px;
-}
-
-#window {
-  color: @subtext1;
-  padding: 0 12px;
 }
 
 #workspaces button {
   color: @subtext0;
   padding: 0 5px;
-  margin: 3px 1px;
+  margin: 0 1px;
   border-radius: 6px;
   background: transparent;
 }
@@ -122,7 +115,7 @@ window#waybar > box {
 }
 
 #workspaces button.urgent,
-#battery.critical:not(.charging) {
+#custom-battery.critical:not(.charging) {
   color: @red;
 }
 
@@ -134,49 +127,74 @@ window#waybar > box {
 
 #network {
   color: @sapphire;
+  font-size: 23px;
 }
 
-#cpu {
+#custom-cpu {
   color: @peach;
+  font-size: 14px;
 }
 
-#memory {
+#custom-memory {
   color: @lavender;
+  font-size: 14px;
+}
+
+#custom-player {
+  color: @teal;
+  font-size: 15px;
+}
+
+#custom-player.paused {
+  color: @subtext0;
 }
 
 #bluetooth {
   color: @blue;
+  font-size: 23px;
 }
 
-#battery {
+#custom-battery {
   color: @green;
+  font-size: 23px;
 }
 
-#battery.warning:not(.charging) {
+#custom-battery.warning:not(.charging) {
   color: @peach;
 }
 
-#cpu.warning,
-#memory.warning {
+#custom-cpu.warning,
+#custom-memory.warning {
   color: @yellow;
 }
 
-#cpu.critical,
-#memory.critical {
+#custom-cpu.critical,
+#custom-memory.critical {
   color: @red;
 }
 
 #clock {
   color: @mauve;
+  font-size: 17px;
 }
 
-tooltip {
-  background: @mantle;
+tooltip,
+tooltip.background {
+  background-color: @mantle;
   border: 1px solid @surface1;
   border-radius: 8px;
+  color: @text;
+  opacity: 1;
+}
+
+tooltip box {
+  background-color: @mantle;
+  border-radius: 8px;
+  padding: 4px 8px;
 }
 
 tooltip label {
   color: @text;
-  padding: 6px;
+  font-size: 14px;
+  padding: 0;
 }

@@ -1,4 +1,4 @@
-font=CaskaydiaCove Nerd Font 10
+font=Cascadia Mono NF 10
 width=360
 height=140
 margin=12
@@ -12,7 +12,7 @@ progress-color=over #313244
 default-timeout=6000
 ignore-timeout=0
 anchor=top-right
-on-notify=exec mpv /usr/share/sounds/freedesktop/stereo/message.oga
+on-notify=exec /home/froeder/.dotfiles/asahi/bin/asahi-notification-sound
 
 [urgency=high]
 border-color=#f38ba8

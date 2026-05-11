@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if command -v blueman-manager >/dev/null 2>&1; then
+  if command -v uwsm-app >/dev/null 2>&1; then
+    exec setsid uwsm-app -- blueman-manager
+  fi
+
+  exec setsid blueman-manager
+fi
+
+notify-send "Bluetooth" "blueman-manager is not installed."
+exit 1

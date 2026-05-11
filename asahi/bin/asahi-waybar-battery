@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+bat_path="/sys/class/power_supply/${ASAHI_BATTERY_DEVICE:-macsmc-battery}"
+ac_path="/sys/class/power_supply/${ASAHI_AC_DEVICE:-macsmc-ac}"
+
+read_value() {
+  local path="$1"
+
+  if [ -r "$path" ]; then
+    tr -d '\n' < "$path"
+  else
+    printf "n/a"
+  fi
+}
+
+read_number() {
+  local value
+
+  value="$(read_value "$1")"
+  case "$value" in
+    '' | n/a) printf "0\n" ;;
+    *) printf "%s\n" "$value" ;;
+  esac
+}
+
+format_wh() {
+  awk -v value="$1" 'BEGIN { printf "%.1f Wh", value / 1000000 }'
+}
+
+format_w() {
+  awk -v value="$1" 'BEGIN { if (value < 0) value = -value; printf "%.1f W", value / 1000000 }'
+}
+
+format_v() {
+  awk -v value="$1" 'BEGIN { printf "%.2f V", value / 1000000 }'
+}
+
+format_a() {
+  awk -v value="$1" 'BEGIN { if (value < 0) value = -value; printf "%.2f A", value / 1000000 }'
+}
+
+format_c() {
+  awk -v value="$1" 'BEGIN { printf "%.1f C", value / 10 }'
+}
+
+format_time() {
+  local seconds="$1"
+  local hours minutes
+
+  if [ "$seconds" -le 0 ]; then
+    printf "n/a"
+    return
+  fi
+
+  hours=$((seconds / 3600))
+  minutes=$(((seconds % 3600) / 60))
+  printf "%dh %02dm" "$hours" "$minutes"
+}
+
+if [ ! -d "$bat_path" ]; then
+  jq -cn '{text: "", tooltip: "", class: ["missing"], percentage: 0}'
+  exit 0
+fi
+
+capacity="$(read_number "$bat_path/capacity")"
+status="$(read_value "$bat_path/status")"
+capacity_level="$(read_value "$bat_path/capacity_level")"
+cycle_count="$(read_value "$bat_path/cycle_count")"
+health="$(read_value "$bat_path/health")"
+model="$(read_value "$bat_path/model_name")"
+charge_behaviour="$(read_value "$bat_path/charge_behaviour")"
+start_threshold="$(read_value "$bat_path/charge_control_start_threshold")"
+end_threshold="$(read_value "$bat_path/charge_control_end_threshold")"
+energy_now="$(read_number "$bat_path/energy_now")"
+energy_full="$(read_number "$bat_path/energy_full")"
+energy_design="$(read_number "$bat_path/energy_full_design")"
+power_now="$(read_number "$bat_path/power_now")"
+voltage_now="$(read_number "$bat_path/voltage_now")"
+current_now="$(read_number "$bat_path/current_now")"
+temp="$(read_number "$bat_path/temp")"
+time_empty="$(read_number "$bat_path/time_to_empty_now")"
+time_full="$(read_number "$bat_path/time_to_full_now")"
+manufacture_year="$(read_value "$bat_path/manufacture_year")"
+manufacture_month="$(read_value "$bat_path/manufacture_month")"
+manufacture_day="$(read_value "$bat_path/manufacture_day")"
+ac_online="$(read_value "$ac_path/online")"
+input_power_limit="$(read_number "$ac_path/input_power_limit")"
+
+default_icons=("󰁺" "󰁻" "󰁼" "󰁽" "󰁾" "󰁿" "󰂀" "󰂁" "󰂂" "󰁹")
+charging_icons=("󰢜" "󰂆" "󰂇" "󰂈" "󰢝" "󰂉" "󰢞" "󰂊" "󰂋" "󰂅")
+index=$((capacity / 10))
+[ "$index" -gt 9 ] && index=9
+
+case "$status" in
+  Charging) text="${charging_icons[$index]}" ;;
+  Full) text="󰂅" ;;
+  Not\ charging) text="" ;;
+  *) text="${default_icons[$index]}" ;;
+esac
+
+status_class="$(printf "%s" "$status" | tr '[:upper:] ' '[:lower:]-')"
+classes_json="[\"$status_class\"]"
+[ "$capacity" -le 20 ] && classes_json="[\"$status_class\",\"warning\"]"
+[ "$capacity" -le 10 ] && classes_json="[\"$status_class\",\"critical\"]"
+
+if [ "$energy_design" -gt 0 ]; then
+  health_percent="$(awk -v full="$energy_full" -v design="$energy_design" 'BEGIN { printf "%.0f%%", 100 * full / design }')"
+else
+  health_percent="n/a"
+fi
+
+if [ "$status" = "Charging" ]; then
+  time_line="Time to full: $(format_time "$time_full")"
+  power_line="Power: $(format_w "$power_now") ↑"
+elif [ "$status" = "Discharging" ]; then
+  time_line="Time to empty: $(format_time "$time_empty")"
+  power_line="Power: $(format_w "$power_now") ↓"
+else
+  time_line="Time: n/a"
+  power_line="Power: $(format_w "$power_now")"
+fi
+
+tooltip_format="Battery %s%% (%s)\n%s\n%s\nEnergy: %s / %s\n"
+tooltip_format="${tooltip_format}Design: %s | Health: %s (%s)\nCycles: %s | Temp: %s\n"
+tooltip_format="${tooltip_format}Voltage: %s | Current: %s\nCharge limits: %s-%s%% | Mode: %s\n"
+tooltip_format="${tooltip_format}AC online: %s | Input limit: %s\nModel: %s | Mfg: %s-%02d-%02d"
+
+tooltip="$(printf "$tooltip_format" \
+  "$capacity" "$status" \
+  "$power_line" "$time_line" \
+  "$(format_wh "$energy_now")" "$(format_wh "$energy_full")" \
+  "$(format_wh "$energy_design")" "$health_percent" "$health" \
+  "$cycle_count" "$(format_c "$temp")" \
+  "$(format_v "$voltage_now")" "$(format_a "$current_now")" \
+  "$start_threshold" "$end_threshold" "$charge_behaviour" \
+  "$ac_online" "$(format_w "$input_power_limit")" \
+  "$model" "$manufacture_year" "$manufacture_month" "$manufacture_day")"
+
+jq -cn \
+  --arg text "$text" \
+  --arg tooltip "$tooltip" \
+  --argjson class "$classes_json" \
+  --argjson percentage "$capacity" \
+  '{text: $text, tooltip: $tooltip, class: $class, percentage: $percentage}'

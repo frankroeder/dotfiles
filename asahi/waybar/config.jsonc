@@ -2,14 +2,14 @@
   "reload_style_on_change": true,
   "layer": "top",
   "position": "top",
-  "height": 38,
+  "height": 26,
   "spacing": 4,
-  "margin-top": 6,
+  "margin-top": 2,
   "margin-left": 8,
   "margin-right": 8,
   "modules-left": ["hyprland/workspaces"],
-  "modules-center": ["hyprland/window"],
-  "modules-right": ["tray", "cpu", "memory", "network", "bluetooth", "battery", "clock"],
+  "modules-center": ["custom/player"],
+  "modules-right": ["tray", "custom/cpu", "custom/memory", "network", "bluetooth", "custom/battery", "clock"],
   "hyprland/workspaces": {
     "all-outputs": true,
     "move-to-monitor": true,
@@ -25,84 +25,72 @@
       "update-active-window": true,
       "active-window-position": "first",
       "format": "{icon}",
-      "icon-size": 18,
+      "icon-size": 28,
       "icon-theme": ["Papirus-Dark", "Papirus", "Adwaita"],
       "ignore-list": ["walker"],
       "on-click-window": "hyprctl dispatch focuswindow address:{address}"
     }
   },
-  "hyprland/window": {
-    "format": "{}",
-    "max-length": 70,
-    "separate-outputs": true,
-    "icon": true,
-    "icon-size": 16,
-    "rewrite": {
-      "(.*) - LibreWolf": "$1",
-      "(.*) - Chromium": "$1",
-      "(.*) - Mozilla Firefox": "$1",
-      "(.*) - Ghostty": "$1"
-    }
-  },
   "clock": {
-    "format": "󰥔 {:%a %d %b %H:%M}",
-    "tooltip-format": "{:%Y-%m-%d %H:%M}"
+    "format": "{:%a %d %b %H:%M}",
+    "tooltip": false
   },
-  "cpu": {
+  "custom/cpu": {
+    "exec": "/home/froeder/.dotfiles/asahi/bin/asahi-waybar-cpu",
+    "return-type": "json",
+    "interval": 2,
+    "on-click": "/home/froeder/.dotfiles/asahi/bin/asahi-launch-or-focus-tui htop",
+    "tooltip": true
+  },
+  "custom/memory": {
+    "exec": "/home/froeder/.dotfiles/asahi/bin/asahi-waybar-memory",
+    "return-type": "json",
     "interval": 3,
-    "format": "{usage}%",
-    "format-icons": ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"],
-    "states": {
-      "warning": 60,
-      "critical": 80
-    }
+    "tooltip": true
   },
-  "memory": {
-    "interval": 5,
-    "format": "{percentage}%",
-    "states": {
-      "warning": 75,
-      "critical": 90
-    }
+  "custom/player": {
+    "exec": "/home/froeder/.dotfiles/asahi/bin/asahi-waybar-player",
+    "return-type": "json",
+    "interval": 1,
+    "hide-empty-text": true,
+    "max-length": 34,
+    "on-click": "/home/froeder/.dotfiles/asahi/bin/asahi-media-control playerctl play-pause",
+    "on-click-right": "/home/froeder/.dotfiles/asahi/bin/asahi-media-control playerctl next",
+    "on-click-middle": "/home/froeder/.dotfiles/asahi/bin/asahi-media-control playerctl previous",
+    "tooltip": true
   },
   "network": {
     "format-icons": ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"],
-    "format-wifi": "{icon}⇣{bandwidthDownBytes} ⇡{bandwidthUpBytes}",
-    "format-ethernet": "󰀂⇣{bandwidthDownBytes} ⇡{bandwidthUpBytes}",
-    "format-disconnected": "󰤮off",
-    "on-click": "/home/froeder/.dotfiles/asahi/bin/asahi-nmtui",
-    "tooltip-format-wifi": "{essid} {frequency} GHz\n⇣ {bandwidthDownBytes}  ⇡ {bandwidthUpBytes}",
-    "tooltip-format-ethernet": "{ipaddr}\n⇣ {bandwidthDownBytes}  ⇡ {bandwidthUpBytes}",
+    "format": "{icon}",
+    "format-wifi": "{icon}",
+    "format-ethernet": "󰀂",
+    "format-disconnected": "󰤮",
+    "tooltip-format-wifi": "{essid} ({frequency} GHz)",
+    "tooltip-format-ethernet": "Connected",
     "tooltip-format-disconnected": "Disconnected",
-    "interval": 1
+    "tooltip": true,
+    "interval": 3,
+    "spacing": 1,
+    "on-click": "/home/froeder/.dotfiles/asahi/bin/asahi-launch-wifi"
   },
   "bluetooth": {
     "format": "",
     "format-connected": "{num_connections}",
-    "format-disabled": "󰂲",
     "format-off": "󰂲",
+    "format-disabled": "󰂲",
     "format-no-controller": "",
-    "on-click": "blueman-manager",
-    "tooltip-format": "{controller_alias}\n{num_connections} connected"
+    "tooltip": true,
+    "tooltip-format": "{controller_alias}\n{num_connections} connected",
+    "on-click": "/home/froeder/.dotfiles/asahi/bin/asahi-launch-bluetooth"
   },
-  "battery": {
-    "bat": "macsmc-battery",
-    "adapter": "macsmc-ac",
-    "states": {
-      "warning": 20,
-      "critical": 10
-    },
-    "format": "{icon}{capacity}%",
-    "format-charging": "󰂄{capacity}%",
-    "format-plugged": "{capacity}%",
-    "format-critical": "󰂃{capacity}%",
-    "format-icons": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
-    "on-click": "/home/froeder/.dotfiles/asahi/bin/asahi-powerprofiles-menu",
-    "tooltip-format-discharging": "{power:>1.1f}W  {capacity}%",
-    "tooltip-format-charging": "{power:>1.1f}W  {capacity}%"
+  "custom/battery": {
+    "exec": "/home/froeder/.dotfiles/asahi/bin/asahi-waybar-battery",
+    "return-type": "json",
+    "interval": 5,
+    "tooltip": true
   },
   "tray": {
-    "icon-size": 18,
+    "icon-size": 28,
     "spacing": 8
   }
 }

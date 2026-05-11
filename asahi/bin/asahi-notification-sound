@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+sound="/usr/share/sounds/freedesktop/stereo/message.oga"
+
+[ -r "$sound" ] || exit 0
+
+if command -v mpv >/dev/null 2>&1; then
+  timeout 3s mpv \
+    --no-config \
+    --no-video \
+    --audio-display=no \
+    --force-window=no \
+    --keep-open=no \
+    --idle=no \
+    --loop-file=no \
+    --length=2 \
+    --really-quiet \
+    --no-terminal \
+    "$sound" >/dev/null 2>&1 && exit 0
+fi
+
+if command -v paplay >/dev/null 2>&1; then
+  timeout --kill-after=1s 3s paplay "$sound" >/dev/null 2>&1 && exit 0
+fi
+
+exit 0

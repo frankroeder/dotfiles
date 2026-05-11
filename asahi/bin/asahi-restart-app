@@ -27,5 +27,5 @@ else
 fi
 
 if command -v notify-send >/dev/null 2>&1; then
-  notify-send -a asahi-restart -t 1500 "${app_name} restarted"
+  notify-send -a asahi-restart -t 1500 "${app_name} restarted" 2>/dev/null || true
 fi

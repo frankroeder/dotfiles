@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if [ "$#" -eq 0 ]; then
+  echo "usage: $0 <command> [args...]" >&2
+  exit 2
+fi
+
+app_id="org.asahi.$(basename "$1")"
+
+if ! command -v "$1" >/dev/null 2>&1 && [ ! -x "$1" ]; then
+  notify-send "TUI launcher" "$1 is not installed."
+  exit 1
+fi
+
+address="$(
+  hyprctl clients -j 2>/dev/null |
+    jq -r --arg class "$app_id" 'map(select(.class == $class or .initialClass == $class))[0].address // empty' 2>/dev/null || true
+)"
+
+if [ -n "$address" ]; then
+  hyprctl dispatch focuswindow "address:$address" >/dev/null
+  exit 0
+fi
+
+exec "$HOME/.dotfiles/asahi/bin/asahi-launch-tui" "$@"

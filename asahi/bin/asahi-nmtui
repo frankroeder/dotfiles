@@ -2,5 +2,4 @@
 
 set -euo pipefail
 
-exec ghostty --window-width=120 --window-height=34 -e nmtui
-
+exec "$HOME/.dotfiles/asahi/bin/asahi-launch-or-focus-tui" nmtui

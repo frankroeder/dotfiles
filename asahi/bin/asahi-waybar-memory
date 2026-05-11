@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+chars=("▁" "▂" "▃" "▄" "▅" "▆" "▇" "█")
+
+state_dir="${XDG_RUNTIME_DIR:-/tmp}/asahi-waybar"
+if ! mkdir -p "$state_dir" || [ ! -w "$state_dir" ]; then
+  state_dir="/tmp/asahi-waybar-${UID:-$(id -u)}"
+  mkdir -p "$state_dir"
+fi
+
+history_file="$state_dir/memory.history"
+
+mem_total=0
+mem_available=0
+swap_total=0
+swap_free=0
+
+while read -r key value _; do
+  case "$key" in
+    MemTotal:) mem_total="$value" ;;
+    MemAvailable:) mem_available="$value" ;;
+    SwapTotal:) swap_total="$value" ;;
+    SwapFree:) swap_free="$value" ;;
+  esac
+done < /proc/meminfo
+
+mem_used=$((mem_total - mem_available))
+mem_percentage=$((100 * mem_used / mem_total))
+
+if [ "$swap_total" -gt 0 ]; then
+  swap_used=$((swap_total - swap_free))
+  swap_percentage=$((100 * swap_used / swap_total))
+else
+  swap_used=0
+  swap_percentage=0
+fi
+
+index=$((mem_percentage * 8 / 101))
+[ "$index" -gt 7 ] && index=7
+
+if [ -r "$history_file" ]; then
+  history="$(tr -d '\n' < "$history_file")"
+else
+  history=""
+fi
+history="${history}${chars[$index]}"
+[ "${#history}" -gt 8 ] && history="${history: -8}"
+printf "%s\n" "$history" > "$history_file"
+
+mem_used_gib="$(awk -v value="$mem_used" 'BEGIN { printf "%.1f", value / 1048576 }')"
+mem_total_gib="$(awk -v value="$mem_total" 'BEGIN { printf "%.1f", value / 1048576 }')"
+swap_used_gib="$(awk -v value="$swap_used" 'BEGIN { printf "%.1f", value / 1048576 }')"
+swap_total_gib="$(awk -v value="$swap_total" 'BEGIN { printf "%.1f", value / 1048576 }')"
+
+class="normal"
+[ "$mem_percentage" -ge 75 ] && class="warning"
+[ "$mem_percentage" -ge 90 ] && class="critical"
+
+tooltip="RAM ${mem_used_gib}/${mem_total_gib} GiB (${mem_percentage}%)\\n"
+tooltip="${tooltip}Swap ${swap_used_gib}/${swap_total_gib} GiB (${swap_percentage}%)"
+
+printf '{"text":"RAM %s %d%%","tooltip":"%s","class":"%s","percentage":%d}\n' \
+  "$history" "$mem_percentage" "$tooltip" "$class" "$mem_percentage"

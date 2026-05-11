@@ -2,9 +2,6 @@
 
 set -euo pipefail
 
-if command -v powerprofilesctl >/dev/null 2>&1; then
-  powerprofilesctl list | awk '/^[[:space:]*]*[[:alnum:]-]+:$/ { gsub(/^[*[:space:]]+|:$/, ""); print }'
-else
-  printf "balanced\n"
-fi
+command -v powerprofilesctl >/dev/null 2>&1
 
+powerprofilesctl list | awk '/^[[:space:]*]*[[:alnum:]-]+:$/ { gsub(/^[*[:space:]]+|:$/, ""); print }'

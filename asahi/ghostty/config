@@ -1,5 +1,5 @@
 font-size = 12
-font-family = "Hack Nerd Font"
+font-family = "Cascadia Mono NF"
 
 # Window Configuration
 window-decoration = false

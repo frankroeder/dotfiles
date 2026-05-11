@@ -518,12 +518,16 @@ asahi-desktop: asahi-common
 	@chmod +x $(DOTFILES)/asahi/bin/asahi-caps-lock-osd
 	@chmod +x $(DOTFILES)/asahi/bin/asahi-cmd-screenshot
 	@chmod +x $(DOTFILES)/asahi/bin/asahi-kbd-backlight-osd
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-launch-bluetooth
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-launch-or-focus-tui
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-launch-tui
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-launch-wifi
 	@chmod +x $(DOTFILES)/asahi/bin/asahi-media-control
 	@chmod +x $(DOTFILES)/asahi/bin/asahi-network-menu
 	@chmod +x $(DOTFILES)/asahi/bin/asahi-nmtui
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-notification-sound
 	@chmod +x $(DOTFILES)/asahi/bin/asahi-powerprofiles-get
 	@chmod +x $(DOTFILES)/asahi/bin/asahi-powerprofiles-list
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-powerprofiles-menu
 	@chmod +x $(DOTFILES)/asahi/bin/asahi-powerprofiles-set
 	@chmod +x $(DOTFILES)/asahi/bin/asahi-reload-hyprland
 	@chmod +x $(DOTFILES)/asahi/bin/asahi-reload-hyprlock
@@ -534,6 +538,10 @@ asahi-desktop: asahi-common
 	@chmod +x $(DOTFILES)/asahi/bin/asahi-restart-walker
 	@chmod +x $(DOTFILES)/asahi/bin/asahi-restart-waybar
 	@chmod +x $(DOTFILES)/asahi/bin/asahi-swayosd
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-waybar-battery
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-waybar-cpu
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-waybar-memory
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-waybar-player
 	@chmod +x $(DOTFILES)/asahi/bin/hypr-killactive
 	@rm -rf $(HOME)/.config/wofi
 	$(call replace_with_symlink,$(DOTFILES)/asahi/elephant,$(HOME)/.config/elephant)

@@ -22,6 +22,7 @@ fi
 
 sudo dnf copr enable -y erikreider/swayosd "$SWAYOSD_COPR_CHROOT"
 sudo dnf copr enable -y errornointernet/walker
+sudo dnf copr enable -y avengemedia/danklinux
 
 sudo dnf makecache --refresh
 
@@ -33,26 +34,21 @@ sudo dnf makecache --refresh
 sudo dnf install -y \
   brightnessctl \
   blueman \
-  bluez-tools \
   cargo \
-  cmake \
-  cascadia-code-nf-fonts \
   cascadia-mono-nf-fonts \
+  chromium \
+  cmake \
   curl \
   elephant \
-  elephant-calc \
-  elephant-desktopapplications \
-  elephant-files \
-  elephant-providerlist \
-  elephant-websearch \
   fd-find \
   ffmpeg \
+  fastfetch \
+  ghostty \
   google-noto-color-emoji-fonts \
-  google-noto-sans-symbols-2-fonts \
-  google-noto-sans-symbols-fonts \
   grim \
   gwenview \
   git \
+  htop \
   hypridle \
   hyprland \
   hyprlock \
@@ -62,18 +58,15 @@ sudo dnf install -y \
   jq \
   libnotify \
   librewolf \
-  lsof \
   make \
   mako \
+  mpv \
   neovim \
+  nextcloud-client \
   NetworkManager-wifi \
   NetworkManager-tui \
   nm-connection-editor \
-  chromium \
-  nextcloud-client \
-  mpv \
   okular \
-  papirus-icon-theme \
   playerctl \
   power-profiles-daemon \
   ripgrep \
@@ -88,9 +81,6 @@ sudo dnf install -y \
   walker \
   wireplumber \
   wl-clipboard \
-  wget \
-  fastfetch \
-  xclip \
   xdg-utils \
   xdg-desktop-portal-hyprland \
   zsh

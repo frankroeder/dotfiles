@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+chars=("▁" "▂" "▃" "▄" "▅" "▆" "▇" "█")
+
+state_dir="${XDG_RUNTIME_DIR:-/tmp}/asahi-waybar"
+if ! mkdir -p "$state_dir" || [ ! -w "$state_dir" ]; then
+  state_dir="/tmp/asahi-waybar-${UID:-$(id -u)}"
+  mkdir -p "$state_dir"
+fi
+
+state_file="$state_dir/cpu.stat"
+history_file="$state_dir/cpu.history"
+
+read -r _ user nice system idle iowait irq softirq steal _ < /proc/stat
+
+idle_all=$((idle + iowait))
+total=$((user + nice + system + idle + iowait + irq + softirq + steal))
+
+if [ -r "$state_file" ]; then
+  read -r previous_total previous_idle < "$state_file"
+else
+  previous_total="$total"
+  previous_idle="$idle_all"
+fi
+
+printf "%s %s\n" "$total" "$idle_all" > "$state_file"
+
+delta_total=$((total - previous_total))
+delta_idle=$((idle_all - previous_idle))
+
+if [ "$delta_total" -gt 0 ]; then
+  percentage=$((100 * (delta_total - delta_idle) / delta_total))
+else
+  percentage=0
+fi
+
+index=$((percentage * 8 / 101))
+[ "$index" -gt 7 ] && index=7
+
+if [ -r "$history_file" ]; then
+  history="$(tr -d '\n' < "$history_file")"
+else
+  history=""
+fi
+history="${history}${chars[$index]}"
+[ "${#history}" -gt 8 ] && history="${history: -8}"
+printf "%s\n" "$history" > "$history_file"
+
+class="normal"
+[ "$percentage" -ge 60 ] && class="warning"
+[ "$percentage" -ge 80 ] && class="critical"
+
+read -r load1 load5 load15 _ < /proc/loadavg
+cores="$(getconf _NPROCESSORS_ONLN 2>/dev/null || awk '/^processor/ { count++ } END { print count + 0 }' /proc/cpuinfo)"
+
+freq_paths=()
+for path in /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq; do
+  [ -r "$path" ] || continue
+  freq_paths+=("$path")
+done
+
+if [ "${#freq_paths[@]}" -gt 0 ]; then
+  freq_line="$(
+    awk '
+      BEGIN { min = -1 }
+      {
+        value = $1
+        sum += value
+        if (value > max) max = value
+        if (min < 0 || value < min) min = value
+        count++
+      }
+      END {
+        printf "Freq avg %.2f GHz, min %.2f, max %.2f", sum / count / 1000000, min / 1000000, max / 1000000
+      }
+    ' "${freq_paths[@]}"
+  )"
+else
+  freq_line="Freq n/a"
+fi
+
+temp_paths=()
+for path in /sys/class/thermal/thermal_zone*/temp; do
+  [ -r "$path" ] || continue
+  temp_paths+=("$path")
+done
+
+if [ "${#temp_paths[@]}" -gt 0 ]; then
+  temp_line="$(
+    awk '
+      {
+        value = $1
+        if (value > 1000) value = value / 1000
+        if (max == "" || value > max) max = value
+      }
+      END { printf "Thermal max %.1f C", max }
+    ' "${temp_paths[@]}"
+  )"
+else
+  temp_line="Thermal n/a"
+fi
+
+tooltip="$(printf "CPU %d%%\nLoad 1/5/15: %s %s %s\nCores: %s\n%s\n%s\nClick: htop" \
+  "$percentage" "$load1" "$load5" "$load15" "$cores" "$freq_line" "$temp_line")"
+
+jq -cn \
+  --arg text "CPU $history $percentage%" \
+  --arg tooltip "$tooltip" \
+  --arg class "$class" \
+  --argjson percentage "$percentage" \
+  '{text: $text, tooltip: $tooltip, class: $class, percentage: $percentage}'

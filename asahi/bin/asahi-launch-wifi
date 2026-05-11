@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+rfkill unblock wifi >/dev/null 2>&1 || true
+
+find_impala() {
+  local candidate
+
+  for candidate in "$(command -v impala 2>/dev/null || true)" "$HOME/.local/bin/impala" "$HOME/.cargo/bin/impala"; do
+    if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+      printf "%s\n" "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+iwd_active() {
+  if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet iwd; then
+    return 0
+  fi
+
+  pgrep -x iwd >/dev/null 2>&1
+}
+
+if iwd_active && impala_bin="$(find_impala)"; then
+  exec "$HOME/.dotfiles/asahi/bin/asahi-launch-or-focus-tui" "$impala_bin"
+fi
+
+if command -v nmtui >/dev/null 2>&1; then
+  exec "$HOME/.dotfiles/asahi/bin/asahi-launch-or-focus-tui" nmtui
+fi
+
+if command -v nm-connection-editor >/dev/null 2>&1; then
+  if command -v uwsm-app >/dev/null 2>&1; then
+    exec setsid uwsm-app -- nm-connection-editor
+  fi
+
+  exec setsid nm-connection-editor
+fi
+
+if command -v nmcli >/dev/null 2>&1; then
+  exec "$HOME/.dotfiles/asahi/bin/asahi-launch-or-focus-tui" nmcli device wifi
+fi
+
+if iwd_active && command -v iwctl >/dev/null 2>&1; then
+  exec "$HOME/.dotfiles/asahi/bin/asahi-launch-or-focus-tui" iwctl
+fi
+
+notify-send "Wi-Fi" "No supported Wi-Fi UI found."
+exit 1
+

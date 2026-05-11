@@ -28,8 +28,6 @@ if command -v pbcopy >/dev/null 2>&1; then
   _fzf_clip="pbcopy"
 elif command -v wl-copy >/dev/null 2>&1; then
   _fzf_clip="wl-copy"
-elif command -v xclip >/dev/null 2>&1; then
-  _fzf_clip="xclip -selection clipboard"
 else
   _fzf_clip="cat >/dev/null"
 fi

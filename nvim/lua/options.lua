@@ -62,14 +62,11 @@ local function has_linux_desktop_clipboard()
     return false
   end
 
-  local has_display = vim.env.WAYLAND_DISPLAY or vim.env.DISPLAY
-  if not has_display then
+  if not vim.env.WAYLAND_DISPLAY then
     return false
   end
 
-  return vim.fn.executable "wl-copy" == 1
-    or vim.fn.executable "xclip" == 1
-    or vim.fn.executable "xsel" == 1
+  return vim.fn.executable "wl-copy" == 1 and vim.fn.executable "wl-paste" == 1
 end
 
 if vim.fn.has "clipboard" then
