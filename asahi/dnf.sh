@@ -12,10 +12,8 @@ if [ "$FEDORA_VERSION" -ge 44 ]; then
   SWAYOSD_COPR_CHROOT="fedora-43-${ARCHITECTURE}"
 fi
 
-sudo dnf copr remove -y avengemedia/danklinux || true
 sudo dnf upgrade -y
 sudo dnf remove -y kitty kitty-terminfo wofi || true
-sudo dnf remove -y dms dms-cli dms-greeter DankMaterialShell dgop || true
 
 if ! sudo dnf repolist --all | grep -q '^librewolf'; then
   sudo dnf config-manager addrepo --add-or-replace --overwrite --from-repofile="$LIBREWOLF_REPO_URL"
@@ -69,6 +67,7 @@ sudo dnf install -y \
   NetworkManager-tui \
   nm-connection-editor \
   okular \
+  papirus-icon-theme \
   playerctl \
   power-profiles-daemon \
   ripgrep \

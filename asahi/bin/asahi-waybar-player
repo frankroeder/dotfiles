@@ -6,6 +6,15 @@ empty() {
   jq -cn --arg text "" --arg tooltip "" --arg class "stopped" '{text: $text, tooltip: $tooltip, class: $class}'
 }
 
+escape_markup() {
+  local value="$1"
+
+  value="${value//&/&amp;}"
+  value="${value//</&lt;}"
+  value="${value//>/&gt;}"
+  printf "%s" "$value"
+}
+
 state_dir="${XDG_RUNTIME_DIR:-/tmp}/asahi-waybar"
 if ! mkdir -p "$state_dir" || [ ! -w "$state_dir" ]; then
   state_dir="/tmp/asahi-waybar-${UID:-$(id -u)}"
@@ -110,13 +119,14 @@ else
   label="${player:-Media}"
 fi
 
-display_label="$(scroll_label "$label")"
+display_label="$(escape_markup "$(scroll_label "$label")")"
 
 tooltip="Status: $status"
 [ -n "$player" ] && tooltip="${tooltip}\nPlayer: $player"
 [ -n "$artist" ] && tooltip="${tooltip}\nArtist: $artist"
 [ -n "$title" ] && tooltip="${tooltip}\nTitle: $title"
 [ -n "$album" ] && tooltip="${tooltip}\nAlbum: $album"
+tooltip="$(escape_markup "$tooltip")"
 
 jq -cn \
   --arg text "$icon $display_label" \
