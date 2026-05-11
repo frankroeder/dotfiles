@@ -85,5 +85,3 @@ sudo dnf install -y \
   xdg-desktop-portal-gtk \
   xdg-desktop-portal-hyprland \
   zsh
-
-sudo dnf reinstall -y ghostty || true

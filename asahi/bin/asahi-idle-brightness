@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+action="${1:-}"
+state_dir="${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-brightness"
+
+usage() {
+  echo "usage: $0 <dim|off|restore>" >&2
+  exit 2
+}
+
+brightness_device() {
+  local device="${ASAHI_BACKLIGHT_DEVICE:-apple-panel-bl}"
+
+  if brightnessctl --device="$device" info >/dev/null 2>&1; then
+    printf "%s\n" "$device"
+    return 0
+  fi
+
+  for path in /sys/class/backlight/*; do
+    [ -e "$path" ] || continue
+    basename "$path"
+    return 0
+  done
+
+  return 1
+}
+
+keyboard_device() {
+  local device="${ASAHI_KEYBOARD_BACKLIGHT_DEVICE:-kbd_backlight}"
+
+  if brightnessctl --device="$device" info >/dev/null 2>&1; then
+    printf "%s\n" "$device"
+    return 0
+  fi
+
+  for path in /sys/class/leds/*kbd_backlight*; do
+    [ -e "$path" ] || continue
+    basename "$path"
+    return 0
+  done
+
+  return 1
+}
+
+save_device() {
+  local name="$1"
+  local device="$2"
+  local state="$state_dir/$name"
+
+  mkdir -p "$state_dir"
+  [ -s "$state" ] && return 0
+  brightnessctl --device="$device" get > "$state"
+}
+
+set_device() {
+  local device="$1"
+  local value="$2"
+
+  brightnessctl --quiet --device="$device" set "$value" >/dev/null 2>&1 || true
+}
+
+restore_device() {
+  local name="$1"
+  local device="$2"
+  local state="$state_dir/$name"
+  local value
+
+  [ -s "$state" ] || return 0
+  value="$(<"$state")"
+  set_device "$device" "$value"
+  rm -f "$state"
+}
+
+case "$action" in
+  dim)
+    if device="$(brightness_device)"; then
+      save_device display "$device"
+      set_device "$device" 10%
+    fi
+
+    if device="$(keyboard_device)"; then
+      save_device keyboard "$device"
+      set_device "$device" 10%
+    fi
+    ;;
+  off)
+    if device="$(keyboard_device)"; then
+      save_device keyboard "$device"
+      set_device "$device" 0
+    fi
+    ;;
+  restore)
+    if device="$(brightness_device)"; then
+      restore_device display "$device"
+    fi
+
+    if device="$(keyboard_device)"; then
+      restore_device keyboard "$device"
+    fi
+    ;;
+  *)
+    usage
+    ;;
+esac

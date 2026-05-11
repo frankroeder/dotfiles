@@ -7,10 +7,7 @@
   "margin-top": 2,
   "margin-left": 8,
   "margin-right": 8,
-  "modules-left": [
-    "custom/control",
-    "hyprland/workspaces"
-  ],
+  "modules-left": ["hyprland/workspaces"],
   "modules-center": ["custom/player"],
   "modules-right": [
     "tray",
@@ -124,12 +121,6 @@
     "interval": 5,
     "on-click": "/home/froeder/.dotfiles/asahi/bin/asahi-battery-menu",
     "tooltip": true
-  },
-  "custom/control": {
-    "format": "",
-    "on-click": "/home/froeder/.dotfiles/asahi/bin/asahi-control-menu",
-    "on-click-right": "/home/froeder/.dotfiles/asahi/bin/asahi-hyprlock",
-    "tooltip-format": "System menu\nRight click: lock"
   },
   "tray": {
     "icon-size": 22,
