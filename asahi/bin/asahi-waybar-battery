@@ -45,6 +45,13 @@ format_c() {
   awk -v value="$1" 'BEGIN { printf "%.1f C", value / 10 }'
 }
 
+format_date_part() {
+  case "$1" in
+    '' | *[!0-9]*) printf "%s" "$1" ;;
+    *) printf "%02d" "$((10#$1))" ;;
+  esac
+}
+
 format_time() {
   local seconds="$1"
   local hours minutes
@@ -126,7 +133,7 @@ fi
 tooltip_format="Battery %s%% (%s)\n%s\n%s\nEnergy: %s / %s\n"
 tooltip_format="${tooltip_format}Design: %s | Health: %s (%s)\nCycles: %s | Temp: %s\n"
 tooltip_format="${tooltip_format}Voltage: %s | Current: %s\nCharge limits: %s-%s%% | Mode: %s\n"
-tooltip_format="${tooltip_format}AC online: %s | Input limit: %s\nModel: %s | Mfg: %s-%02d-%02d"
+tooltip_format="${tooltip_format}AC online: %s | Input limit: %s\nModel: %s | Mfg: %s-%s-%s"
 
 tooltip="$(printf "$tooltip_format" \
   "$capacity" "$status" \
@@ -137,7 +144,7 @@ tooltip="$(printf "$tooltip_format" \
   "$(format_v "$voltage_now")" "$(format_a "$current_now")" \
   "$start_threshold" "$end_threshold" "$charge_behaviour" \
   "$ac_online" "$(format_w "$input_power_limit")" \
-  "$model" "$manufacture_year" "$manufacture_month" "$manufacture_day")"
+  "$model" "$manufacture_year" "$(format_date_part "$manufacture_month")" "$(format_date_part "$manufacture_day")")"
 
 jq -cn \
   --arg text "$battery_text" \

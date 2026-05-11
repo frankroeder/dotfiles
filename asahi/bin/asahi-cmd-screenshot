@@ -58,4 +58,3 @@ grim -g "$selection" "$file"
 wl-copy < "$file"
 
 notify-send -a screenshot -t 2500 -i "$file" "Screenshot saved" "$file"
-

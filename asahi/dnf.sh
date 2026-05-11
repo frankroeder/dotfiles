@@ -12,6 +12,7 @@ if [ "$FEDORA_VERSION" -ge 44 ]; then
   SWAYOSD_COPR_CHROOT="fedora-43-${ARCHITECTURE}"
 fi
 
+sudo dnf copr remove -y avengemedia/danklinux || true
 sudo dnf upgrade -y
 sudo dnf remove -y kitty kitty-terminfo wofi || true
 sudo dnf remove -y dms dms-cli dms-greeter DankMaterialShell dgop || true
@@ -22,7 +23,7 @@ fi
 
 sudo dnf copr enable -y erikreider/swayosd "$SWAYOSD_COPR_CHROOT"
 sudo dnf copr enable -y errornointernet/walker
-sudo dnf copr enable -y avengemedia/danklinux
+sudo dnf copr enable -y scottames/ghostty
 
 sudo dnf makecache --refresh
 
@@ -32,6 +33,7 @@ sudo dnf makecache --refresh
 # fi
 
 sudo dnf install -y \
+  adw-gtk3-theme \
   brightnessctl \
   blueman \
   cargo \
@@ -82,5 +84,8 @@ sudo dnf install -y \
   wireplumber \
   wl-clipboard \
   xdg-utils \
+  xdg-desktop-portal-gtk \
   xdg-desktop-portal-hyprland \
   zsh
+
+sudo dnf reinstall -y ghostty || true

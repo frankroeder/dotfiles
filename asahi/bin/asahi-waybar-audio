@@ -5,7 +5,7 @@ set -euo pipefail
 device="${1:-output}"
 
 missing() {
-  jq -cn --arg text "" --arg class "missing" '{text: $text, class: $class}'
+  jq -cn --arg text "" --arg tooltip "${1:-}" --arg class "missing" '{text: $text, tooltip: $tooltip, class: $class}'
 }
 
 case "$device" in

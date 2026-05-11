@@ -33,7 +33,7 @@ cd ~/.dotfiles
 make asahi
 ```
 
-This applies a minimal Hyprland desktop with Ghostty, Waybar, Wofi, Mako, Hypridle, and Hyprlock.
+This applies a minimal Hyprland desktop with Ghostty, Waybar, Walker, Mako, Hypridle, and Hyprlock.
 
 
 ## Local configuration files

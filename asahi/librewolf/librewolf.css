@@ -1,4 +1,6 @@
 :root {
+  color-scheme: dark;
+  --asahi-color-scheme: dark;
   --ctp-rosewater: #f5e0dc;
   --ctp-flamingo: #f2cdcd;
   --ctp-pink: #f5c2e7;
@@ -25,6 +27,8 @@
 
 @media (prefers-color-scheme: light) {
   :root {
+    color-scheme: light;
+    --asahi-color-scheme: light;
     --ctp-rosewater: #dc8a78;
     --ctp-flamingo: #dd7878;
     --ctp-pink: #ea76cb;

@@ -51,4 +51,3 @@ fi
 
 notify-send "Wi-Fi" "No supported Wi-Fi UI found."
 exit 1
-

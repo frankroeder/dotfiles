@@ -16,6 +16,9 @@ WHICH := which
 PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin
 PATH := $(PATH):$(DOTFILES)/bin/$(OSTYPE)/$(ARCHITECTURE):$(DOTFILES)/bin/$(OSTYPE)
 PATH := $(PATH):$(HOME)/bin:$(HOME)/.local/bin:$(HOME)/.local/nodejs/bin
+ifeq ($(OSTYPE),Linux)
+PATH := $(PATH):$(DOTFILES)/asahi/bin
+endif
 
 NEXTCLOUD_DIR ?= $(HOME)/Nextcloud/portal
 ASAHI_WALLPAPERS_DIR ?= $(HOME)/Pictures/wallpaper
@@ -462,22 +465,22 @@ _terminal: ## Install and configure terminal emulator
 	ln -sfv $(DOTFILES)/htop/personal $(HOME)/.config/htop/htoprc; \
 
 
-.PHONY: asahi asahi-system asahi-zotero asahi-common
+.PHONY: asahi asahi-system asahi-zotero asahi-common asahi-user
 .PHONY: asahi-desktop asahi-battery-alerts asahi-default-shell check-asahi
-asahi: ## Asahi Linux (Fedora Minimal): apply minimal Hyprland desktop config
-asahi: validate-linux validate-tools sudo asahi-system asahi-zotero
-asahi: asahi-desktop asahi-battery-alerts asahi-default-shell check-asahi
+asahi: validate-linux validate-tools sudo asahi-system asahi-zotero asahi-user ## Asahi Linux: apply minimal Hyprland desktop config
 	@$(MAKE) agents
-		@if [ -d "$(ASAHI_WALLPAPERS_DIR)/.git" ]; then \
-			$(call print_step,Updating wallpapers); \
-			git -C "$(ASAHI_WALLPAPERS_DIR)" pull --ff-only || $(call print_warning,Failed to update wallpapers); \
-		elif [ -e "$(ASAHI_WALLPAPERS_DIR)" ]; then \
-			$(call print_warning,$(ASAHI_WALLPAPERS_DIR) already exists and is not a git checkout; skipping wallpaper clone); \
-		else \
-			$(call print_step,Downloading wallpapers); \
-			mkdir -p "$(HOME)/Pictures"; \
-			git clone https://github.com/mylinuxforwork/wallpaper.git "$(ASAHI_WALLPAPERS_DIR)"; \
-		fi
+	@if [ -d "$(ASAHI_WALLPAPERS_DIR)/.git" ]; then \
+		$(call print_step,Updating wallpapers); \
+		git -C "$(ASAHI_WALLPAPERS_DIR)" pull --ff-only || $(call print_warning,Failed to update wallpapers); \
+	elif [ -e "$(ASAHI_WALLPAPERS_DIR)" ]; then \
+		$(call print_warning,$(ASAHI_WALLPAPERS_DIR) already exists and is not a git checkout; skipping wallpaper clone); \
+	else \
+		$(call print_step,Downloading wallpapers); \
+		mkdir -p "$(HOME)/Pictures"; \
+		git clone https://github.com/mylinuxforwork/wallpaper.git "$(ASAHI_WALLPAPERS_DIR)"; \
+	fi
+
+asahi-user: asahi-desktop asahi-battery-alerts asahi-default-shell check-asahi
 
 asahi-system: ## Update Fedora and install base packages for Asahi
 	@bash $(DOTFILES)/asahi/dnf.sh
@@ -513,36 +516,9 @@ asahi-common: directories _git zsh python misc nvim
 asahi-desktop: ## Apply minimal Hyprland desktop user config
 asahi-desktop: asahi-common
 	@mkdir -p $(HOME)/screenshots
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-autostart
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-bluetooth-menu
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-caps-lock-osd
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-cmd-screenshot
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-kbd-backlight-osd
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-launch-bluetooth
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-launch-or-focus-tui
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-launch-tui
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-launch-wifi
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-media-control
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-network-menu
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-nmtui
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-notification-sound
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-powerprofiles-get
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-powerprofiles-list
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-powerprofiles-set
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-reload-hyprland
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-reload-hyprlock
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-restart-app
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-restart-hypridle
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-restart-hyprpaper
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-restart-mako
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-restart-walker
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-restart-waybar
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-swayosd
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-waybar-battery
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-waybar-cpu
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-waybar-memory
-	@chmod +x $(DOTFILES)/asahi/bin/asahi-waybar-player
-	@chmod +x $(DOTFILES)/asahi/bin/hypr-killactive
+	@for script in $(DOTFILES)/asahi/bin/*; do \
+		[ -f "$$script" ] && chmod +x "$$script"; \
+	done
 	@rm -rf $(HOME)/.config/wofi
 	$(call replace_with_symlink,$(DOTFILES)/asahi/elephant,$(HOME)/.config/elephant)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/hypr,$(HOME)/.config/hypr)
@@ -556,20 +532,7 @@ asahi-desktop: asahi-common
 	@ln -sfv $(DOTFILES)/asahi/environment.d/90-asahi.conf $(HOME)/.config/environment.d/90-asahi.conf
 	@mkdir -p $(HOME)/.config/librewolf/librewolf
 	@ln -sfv $(DOTFILES)/asahi/librewolf/librewolf.overrides.cfg $(HOME)/.config/librewolf/librewolf/librewolf.overrides.cfg
-	@if [ -d "$(HOME)/.config/librewolf/librewolf" ]; then \
-		profiles_linked=0; \
-		for profile_dir in "$(HOME)"/.config/librewolf/librewolf/*.default*; do \
-			if [ -d "$$profile_dir" ]; then \
-				mkdir -p "$$profile_dir/chrome"; \
-				ln -sfv "$(DOTFILES)/asahi/librewolf/userChrome.css" "$$profile_dir/chrome/userChrome.css"; \
-				ln -sfv "$(DOTFILES)/asahi/librewolf/librewolf.css" "$$profile_dir/chrome/librewolf.css"; \
-				profiles_linked=1; \
-			fi; \
-		done; \
-		if [ "$$profiles_linked" -eq 0 ]; then \
-			$(call print_warning,LibreWolf profile not found yet; skipping userChrome.css link); \
-		fi; \
-	fi
+	@$(DOTFILES)/asahi/bin/asahi-theme auto --no-restart
 
 asahi-battery-alerts: ## Install and start Asahi battery alert daemon
 	@$(call print_step,Installing Asahi battery alerts)

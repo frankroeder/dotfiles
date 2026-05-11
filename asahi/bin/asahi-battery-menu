@@ -7,4 +7,4 @@ tooltip="$(jq -r .tooltip <<< "$status")"
 
 [ -n "$tooltip" ] && [ "$tooltip" != "null" ] || exit 0
 
-walker --dmenu --placeholder Battery --width 560 --height 360 --exit <<< "$tooltip" >/dev/null || true
+"$HOME/.dotfiles/asahi/bin/asahi-walker" --dmenu --placeholder Battery --width 560 --height 360 --exit <<< "$tooltip" >/dev/null || true

@@ -36,7 +36,7 @@ choice="$(
     else
       printf "󰂯 Enable Bluetooth\n"
     fi
-  } | walker --dmenu --placeholder Bluetooth --width 520 --height 360 --exit || true
+  } | "$HOME/.dotfiles/asahi/bin/asahi-walker" --dmenu --placeholder Bluetooth --width 520 --height 360 --exit || true
 )"
 
 [ -n "$choice" ] || exit 0

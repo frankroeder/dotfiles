@@ -35,8 +35,8 @@ shell-integration = zsh
 shell-integration-features = cursor,sudo,title,no-cursor
 keybind = shift+enter=text:\n
 
-# theme = dark:Catppuccin Mocha,light:Catppuccin Latte
-theme = Catppuccin Mocha
+# window-theme = dark
+config-file = ?/home/froeder/.cache/asahi-theme/ghostty/config
 
 # Fix general slowness on hyprland (https://github.com/ghostty-org/ghostty/discussions/3224)
 async-backend = epoll

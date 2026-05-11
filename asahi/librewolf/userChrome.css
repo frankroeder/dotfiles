@@ -1,6 +1,7 @@
 @import url("librewolf.css");
 
 :root {
+  color-scheme: var(--asahi-color-scheme) !important;
   --toolbar-bgcolor: var(--ctp-base) !important;
   --toolbar-color: var(--ctp-text) !important;
   --toolbarbutton-icon-fill: var(--ctp-text) !important;

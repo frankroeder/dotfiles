@@ -81,7 +81,8 @@
     "tooltip": true,
     "interval": 3,
     "spacing": 1,
-    "on-click": "/home/froeder/.dotfiles/asahi/bin/asahi-launch-wifi"
+    "on-click": "/home/froeder/.dotfiles/asahi/bin/asahi-launch-wifi",
+    "on-click-right": "/home/froeder/.dotfiles/asahi/bin/asahi-network-menu"
   },
   "bluetooth": {
     "format": "",
@@ -91,7 +92,8 @@
     "format-no-controller": "",
     "tooltip": true,
     "tooltip-format": "{controller_alias}\n{num_connections} connected",
-    "on-click": "/home/froeder/.dotfiles/asahi/bin/asahi-launch-bluetooth"
+    "on-click": "/home/froeder/.dotfiles/asahi/bin/asahi-launch-bluetooth",
+    "on-click-right": "/home/froeder/.dotfiles/asahi/bin/asahi-bluetooth-menu"
   },
   "custom/audio": {
     "exec": "/home/froeder/.dotfiles/asahi/bin/asahi-waybar-audio output",

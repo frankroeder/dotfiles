@@ -2,6 +2,22 @@
 
 set -euo pipefail
 
-systemctl --user restart elephant.service 2>/dev/null || true
-exec "$HOME/.dotfiles/asahi/bin/asahi-restart-app" walker --gapplication-service
+cache="${XDG_CACHE_HOME:-$HOME/.cache}/asahi-theme"
 
+"$HOME/.dotfiles/asahi/bin/asahi-theme" auto --no-restart
+systemctl --user restart elephant.service 2>/dev/null || true
+
+pkill -x walker 2>/dev/null || true
+
+for _ in {1..30}; do
+  if ! pgrep -x walker >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.1
+done
+
+if command -v uwsm-app >/dev/null 2>&1; then
+  XDG_CONFIG_HOME="$cache/xdg" setsid uwsm-app -- walker --gapplication-service >/dev/null 2>&1 &
+else
+  XDG_CONFIG_HOME="$cache/xdg" setsid walker --gapplication-service >/dev/null 2>&1 &
+fi

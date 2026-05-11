@@ -1,6 +1,7 @@
 [[ $OSTYPE != 'Linux' ]] && return
 
 path=(
+  "$DOTFILES/asahi/bin"
   "$HOME/.local/bin"
   "$HOME/.local/nodejs/bin"
   $path

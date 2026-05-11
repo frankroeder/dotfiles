@@ -51,4 +51,4 @@ switcher_only = true
 
 [[emergencies]]
 text = "Restart Walker"
-command = "pkill -x walker; walker --gapplication-service"
+command = "/home/froeder/.dotfiles/asahi/bin/asahi-restart-walker"

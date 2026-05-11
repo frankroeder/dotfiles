@@ -2,7 +2,10 @@
 
 set -euo pipefail
 
-config="$HOME/.config/hypr/hyprlock.conf"
+cache="${XDG_CACHE_HOME:-$HOME/.cache}/asahi-theme"
+config="$cache/hypr/hyprlock.conf"
+
+"$HOME/.dotfiles/asahi/bin/asahi-theme" auto --no-restart
 
 if [ ! -r "$config" ]; then
   notify-send -a Hyprlock -t 2500 "Hyprlock config missing" "$config"
@@ -10,4 +13,3 @@ if [ ! -r "$config" ]; then
 fi
 
 notify-send -a Hyprlock -t 1500 "Hyprlock config ready" "Hyprlock reads it on next lock"
-

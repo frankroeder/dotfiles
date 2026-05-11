@@ -21,4 +21,3 @@ fi
 
 notify-send "Terminal launcher" "Ghostty is not installed."
 exit 1
-

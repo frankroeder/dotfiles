@@ -4,4 +4,3 @@ set -euo pipefail
 
 hyprctl reload
 notify-send -a Hyprland -t 1500 "Hyprland reloaded"
-

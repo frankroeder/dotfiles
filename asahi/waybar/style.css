@@ -111,7 +111,7 @@ window#waybar > box {
 }
 
 #workspaces .taskbar-window.active {
-  background: rgba(30, 30, 46, 0.28);
+  background: alpha(@base, 0.28);
 }
 
 #workspaces .taskbar-window image {

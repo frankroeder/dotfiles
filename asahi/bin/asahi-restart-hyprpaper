@@ -3,4 +3,3 @@
 set -euo pipefail
 
 exec "$HOME/.dotfiles/asahi/bin/asahi-restart-app" hyprpaper
-
