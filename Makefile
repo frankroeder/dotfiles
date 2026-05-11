@@ -519,7 +519,6 @@ asahi-desktop: asahi-common
 	@for script in $(DOTFILES)/asahi/bin/*; do \
 		[ -f "$$script" ] && chmod +x "$$script"; \
 	done
-	@rm -rf $(HOME)/.config/wofi
 	$(call replace_with_symlink,$(DOTFILES)/asahi/elephant,$(HOME)/.config/elephant)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/hypr,$(HOME)/.config/hypr)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/swayosd,$(HOME)/.config/swayosd)
@@ -532,7 +531,11 @@ asahi-desktop: asahi-common
 	@ln -sfv $(DOTFILES)/asahi/environment.d/90-asahi.conf $(HOME)/.config/environment.d/90-asahi.conf
 	@mkdir -p $(HOME)/.config/librewolf/librewolf
 	@ln -sfv $(DOTFILES)/asahi/librewolf/librewolf.overrides.cfg $(HOME)/.config/librewolf/librewolf/librewolf.overrides.cfg
-	@$(DOTFILES)/asahi/bin/asahi-theme auto --no-restart
+	@for profile in $(HOME)/.librewolf/*.default*; do \
+		[ -d "$$profile" ] || continue; \
+		mkdir -p "$$profile/chrome"; \
+		ln -sfn "$(DOTFILES)/asahi/librewolf/userChrome.css" "$$profile/chrome/userChrome.css"; \
+	done
 
 asahi-battery-alerts: ## Install and start Asahi battery alert daemon
 	@$(call print_step,Installing Asahi battery alerts)
@@ -555,7 +558,7 @@ check-asahi: ## Check minimal Asahi desktop commands
 	@for command in Hyprland walker elephant; do \
 		command -v "$$command" >/dev/null 2>&1 || $(call print_warning,$$command not installed); \
 	done
-	@for command in waybar mako hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl swayosd-client powerprofilesctl; do \
+	@for command in waybar mako hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl swayosd-client; do \
 		command -v "$$command" >/dev/null 2>&1 || $(call print_warning,$$command not installed); \
 	done
 	@for command in nm-connection-editor nmtui blueman-manager; do \

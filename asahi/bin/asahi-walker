@@ -2,8 +2,4 @@
 
 set -euo pipefail
 
-cache="${XDG_CACHE_HOME:-$HOME/.cache}/asahi-theme"
-
-"$HOME/.dotfiles/asahi/bin/asahi-theme" auto --no-restart
-export XDG_CONFIG_HOME="$cache/xdg"
 exec walker "$@"

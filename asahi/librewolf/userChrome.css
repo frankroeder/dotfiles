@@ -1,78 +1,59 @@
-@import url("librewolf.css");
-
 :root {
-  color-scheme: var(--asahi-color-scheme) !important;
-  --toolbar-bgcolor: var(--ctp-base) !important;
-  --toolbar-color: var(--ctp-text) !important;
-  --toolbarbutton-icon-fill: var(--ctp-text) !important;
-  --toolbarbutton-hover-background: var(--ctp-surface0) !important;
-  --toolbarbutton-active-background: var(--ctp-surface1) !important;
-  --lwt-accent-color: var(--ctp-base) !important;
-  --lwt-accent-color-inactive: var(--ctp-mantle) !important;
-  --lwt-text-color: var(--ctp-text) !important;
-  --lwt-toolbar-field-background-color: var(--ctp-surface0) !important;
-  --lwt-toolbar-field-color: var(--ctp-text) !important;
-  --lwt-toolbar-field-border-color: var(--ctp-surface1) !important;
-  --lwt-toolbar-field-focus: var(--ctp-surface0) !important;
-  --lwt-toolbar-field-focus-color: var(--ctp-text) !important;
-  --lwt-selected-tab-background-color: var(--ctp-surface0) !important;
-  --tab-selected-bgcolor: var(--ctp-surface0) !important;
-  --tab-selected-color: var(--ctp-text) !important;
-  --urlbar-box-bgcolor: var(--ctp-surface0) !important;
-  --urlbar-box-text-color: var(--ctp-text) !important;
-  --urlbarView-highlight-background: var(--ctp-surface1) !important;
-  --urlbarView-highlight-color: var(--ctp-text) !important;
-  --arrowpanel-background: var(--ctp-mantle) !important;
-  --arrowpanel-color: var(--ctp-text) !important;
-  --arrowpanel-border-color: var(--ctp-surface1) !important;
-  --sidebar-background-color: var(--ctp-base) !important;
-  --sidebar-text-color: var(--ctp-text) !important;
+  color-scheme: dark !important;
+  --toolbar-bgcolor: #1e1e2e !important;
+  --toolbar-color: #cdd6f4 !important;
+  --toolbarbutton-icon-fill: #cdd6f4 !important;
+  --toolbarbutton-hover-background: #313244 !important;
+  --toolbarbutton-active-background: #45475a !important;
+  --lwt-accent-color: #1e1e2e !important;
+  --lwt-accent-color-inactive: #181825 !important;
+  --lwt-text-color: #cdd6f4 !important;
+  --lwt-toolbar-field-background-color: #313244 !important;
+  --lwt-toolbar-field-color: #cdd6f4 !important;
+  --lwt-toolbar-field-border-color: #45475a !important;
+  --lwt-selected-tab-background-color: #313244 !important;
+  --tab-selected-bgcolor: #313244 !important;
+  --tab-selected-color: #cdd6f4 !important;
+  --urlbar-box-bgcolor: #313244 !important;
+  --urlbar-box-text-color: #cdd6f4 !important;
+  --urlbarView-highlight-background: #45475a !important;
+  --urlbarView-highlight-color: #cdd6f4 !important;
+  --arrowpanel-background: #181825 !important;
+  --arrowpanel-color: #cdd6f4 !important;
+  --arrowpanel-border-color: #45475a !important;
+  --sidebar-background-color: #1e1e2e !important;
+  --sidebar-text-color: #cdd6f4 !important;
 }
 
 #navigator-toolbox,
 #sidebar-main,
 #sidebar-box {
-  background-color: var(--ctp-base) !important;
-  color: var(--ctp-text) !important;
+  background-color: #1e1e2e !important;
+  color: #cdd6f4 !important;
 }
 
 #navigator-toolbox {
-  border-bottom: 1px solid var(--ctp-surface1) !important;
+  border-bottom: 1px solid #45475a !important;
 }
 
 #urlbar-background,
 #searchbar {
-  background-color: var(--ctp-surface0) !important;
-  border-color: var(--ctp-surface1) !important;
+  background-color: #313244 !important;
+  border-color: #45475a !important;
 }
 
 #urlbar[focused] #urlbar-background {
-  border-color: var(--ctp-blue) !important;
+  border-color: #89b4fa !important;
 }
 
-.tab-background[selected] {
-  background-color: var(--ctp-surface0) !important;
-}
-
+.tab-background[selected],
 .tabbrowser-tab:not([selected]):hover .tab-background {
-  background-color: var(--ctp-surface1) !important;
-}
-
-#tabbrowser-tabs[orient="vertical"] .tabbrowser-tab {
-  color: var(--ctp-subtext1) !important;
-}
-
-#tabbrowser-tabs[orient="vertical"] .tabbrowser-tab[selected] {
-  color: var(--ctp-text) !important;
-}
-
-#TabsToolbar {
-  background-color: var(--ctp-base) !important;
+  background-color: #313244 !important;
 }
 
 menupopup,
 panel {
-  --panel-background: var(--ctp-mantle) !important;
-  --panel-color: var(--ctp-text) !important;
-  --panel-border-color: var(--ctp-surface1) !important;
+  --panel-background: #181825 !important;
+  --panel-color: #cdd6f4 !important;
+  --panel-border-color: #45475a !important;
 }

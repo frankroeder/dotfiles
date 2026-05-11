@@ -2,9 +2,7 @@
 
 set -euo pipefail
 
-[ -f "$HOME/.config/user-dirs.dirs" ] && source "$HOME/.config/user-dirs.dirs"
-
-output_dir="${ASAHI_SCREENSHOT_DIR:-${XDG_PICTURES_DIR:-$HOME/Pictures}}"
+output_dir="${ASAHI_SCREENSHOT_DIR:-$HOME/screenshots}"
 mode="${1:-smart}"
 
 mkdir -p "$output_dir"

@@ -2,7 +2,4 @@
 
 set -euo pipefail
 
-cache="${XDG_CACHE_HOME:-$HOME/.cache}/asahi-theme"
-
-"$HOME/.dotfiles/asahi/bin/asahi-theme" auto --no-restart
-exec hyprlock --config "$cache/hypr/hyprlock.conf" "$@"
+exec hyprlock --config "$HOME/.config/hypr/hyprlock.conf" "$@"

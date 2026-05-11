@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+walker="$HOME/.dotfiles/asahi/bin/asahi-walker"
+
+pick() {
+  "$walker" --dmenu --placeholder "$1" --width 360 --height 260 --exit || true
+}
+
+confirm() {
+  local action="$1"
+  local choice
+
+  choice="$(printf '%s\n' "No" "Yes, $action" | pick "$action?")"
+  [ "$choice" = "Yes, $action" ]
+}
+
+choice="$(printf '%s\n' "Lock" "Suspend" "Reboot" "Shutdown" | pick System)"
+
+case "$choice" in
+  Lock)
+    loginctl lock-session
+    ;;
+  Suspend)
+    loginctl lock-session
+    systemctl suspend
+    ;;
+  Reboot)
+    confirm Reboot && systemctl reboot
+    ;;
+  Shutdown)
+    confirm Shutdown && systemctl poweroff
+    ;;
+esac

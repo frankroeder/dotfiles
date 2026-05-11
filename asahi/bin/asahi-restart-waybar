@@ -2,9 +2,6 @@
 
 set -euo pipefail
 
-cache="${XDG_CACHE_HOME:-$HOME/.cache}/asahi-theme"
-
-"$HOME/.dotfiles/asahi/bin/asahi-theme" auto --no-restart
 exec "$HOME/.dotfiles/asahi/bin/asahi-restart-app" waybar \
   -c "$HOME/.config/waybar/config.jsonc" \
-  -s "$cache/waybar/style.css"
+  -s "$HOME/.config/waybar/style.css"

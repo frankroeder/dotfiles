@@ -2,7 +2,4 @@
 
 set -euo pipefail
 
-cache="${XDG_CACHE_HOME:-$HOME/.cache}/asahi-theme"
-
-"$HOME/.dotfiles/asahi/bin/asahi-theme" auto --no-restart
-exec mako --config "$cache/mako/config"
+exec mako --config "$HOME/.config/mako/config"

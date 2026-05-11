@@ -1,8 +1,13 @@
+@define-color text #cdd6f4;
+@define-color base #1e1e2e;
+@define-color crust #11111b;
+@define-color blue #89b4fa;
+
 window#osd {
-  border: 1px solid rgba(137, 180, 250, 0.35);
+  border: 1px solid alpha(@blue, 0.35);
   border-radius: 999px;
-  background: rgba(30, 30, 46, 0.94);
-  box-shadow: 0 12px 28px rgba(17, 17, 27, 0.45);
+  background: alpha(@base, 0.94);
+  box-shadow: 0 12px 28px alpha(@crust, 0.45);
 }
 
 window#osd #container {
@@ -11,7 +16,7 @@ window#osd #container {
 
 window#osd image,
 window#osd label {
-  color: #cdd6f4;
+  color: @text;
 }
 
 window#osd progressbar:disabled,
@@ -32,7 +37,7 @@ window#osd segment {
   min-height: inherit;
   border: none;
   border-radius: inherit;
-  background: rgba(205, 214, 244, 0.35);
+  background: alpha(@text, 0.35);
 }
 
 window#osd progress,
@@ -40,7 +45,7 @@ window#osd segment.active {
   min-height: inherit;
   border: none;
   border-radius: inherit;
-  background: #89b4fa;
+  background: @blue;
 }
 
 window#osd segment {
