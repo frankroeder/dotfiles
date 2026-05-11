@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+systemctl --user restart elephant.service 2>/dev/null || true
+exec "$HOME/.dotfiles/asahi/bin/asahi-restart-app" walker --gapplication-service
+

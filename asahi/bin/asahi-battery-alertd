@@ -33,14 +33,13 @@ notify_battery() {
   local title="$1"
   local body="$2"
   local timeout="$3"
+  local urgency="${4:-normal}"
 
-  if command -v dms >/dev/null 2>&1; then
-    dms notify "$title" "$body" --icon battery_alert --timeout "$timeout" && return
-  elif command -v notify-send >/dev/null 2>&1; then
-    notify-send -a "Asahi Battery" -i battery-alert "$title" "$body" && return
+  if ! command -v notify-send >/dev/null 2>&1; then
+    return 1
   fi
 
-  true
+  notify-send -a "Asahi Battery" -u "$urgency" -t "$timeout" -i battery-alert "$title" "$body"
 }
 
 while true; do
@@ -64,12 +63,14 @@ while true; do
       warning_sent=0
       critical_sent=0
     elif [ "$capacity" -le "$critical_threshold" ] && [ "$critical_sent" -eq 0 ]; then
-      notify_battery "Critical battery" "Battery at ${capacity}%. Connect charger." 30000
-      warning_sent=1
-      critical_sent=1
+      if notify_battery "Critical battery" "Battery at ${capacity}%. Connect charger." 30000 critical; then
+        warning_sent=1
+        critical_sent=1
+      fi
     elif [ "$capacity" -le "$warning_threshold" ] && [ "$warning_sent" -eq 0 ]; then
-      notify_battery "Low battery" "Battery at ${capacity}%." 10000
-      warning_sent=1
+      if notify_battery "Low battery" "Battery at ${capacity}%." 10000 normal; then
+        warning_sent=1
+      fi
     fi
   fi
 

@@ -35,10 +35,4 @@ command -v nvidia-smi >/dev/null 2>&1 && alias nogpu='export CUDA_VISIBLE_DEVICE
 # Advanced GPU monitoring (if nvitop is installed)
 command -v nvitop >/dev/null 2>&1 && alias ntop='nvitop --monitor auto --gpu-util-thresh 50 80 --mem-util-thresh 60 90'
 
-# Prefer dgop as the default interactive process viewer on Linux when available.
-if command -v dgop >/dev/null 2>&1; then
-  alias top='dgop top'
-  alias htop='dgop top'
-fi
-
-command -v dms >/dev/null 2>&1 && alias open='dms open'
+command -v xdg-open >/dev/null 2>&1 && alias open='xdg-open'

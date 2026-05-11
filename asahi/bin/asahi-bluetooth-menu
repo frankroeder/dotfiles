@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+notify() {
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send "$@"
+  fi
+}
+
+open_bluetooth_manager() {
+  if command -v blueman-manager >/dev/null 2>&1; then
+    blueman-manager &
+  else
+    notify "Bluetooth" "Install blueman for the GUI manager"
+  fi
+}
+
+powered="$(bluetoothctl show | awk -F': ' '$1 ~ /Powered/ { print $2; exit }')"
+
+choice="$(
+  {
+    printf " Bluetooth\t%s\n" "${powered:-unknown}"
+    command -v blueman-manager >/dev/null 2>&1 && printf "󰂯 Open Bluetooth manager\n"
+
+    if [ "$powered" = "yes" ]; then
+      printf "󰂲 Disable Bluetooth\n"
+      bluetoothctl devices Paired | while read -r _ mac name; do
+        connected="$(bluetoothctl info "$mac" | awk -F': ' '$1 ~ /Connected/ { print $2; exit }')"
+        if [ "$connected" = "yes" ]; then
+          printf "󰂱 Disconnect\t%s\t%s\n" "$mac" "$name"
+        else
+          printf "󰂯 Connect\t%s\t%s\n" "$mac" "$name"
+        fi
+      done
+    else
+      printf "󰂯 Enable Bluetooth\n"
+    fi
+  } | walker --dmenu --placeholder Bluetooth --width 520 --height 360 --exit || true
+)"
+
+[ -n "$choice" ] || exit 0
+
+IFS=$'\t' read -r action mac name <<< "$choice"
+
+case "$action" in
+  "󰂯 Open Bluetooth manager")
+    open_bluetooth_manager
+    ;;
+  "󰂲 Disable Bluetooth")
+    bluetoothctl power off
+    ;;
+  "󰂯 Enable Bluetooth")
+    bluetoothctl power on
+    ;;
+  "󰂱 Disconnect")
+    bluetoothctl disconnect "$mac"
+    notify "Bluetooth" "Disconnected $name"
+    ;;
+  "󰂯 Connect")
+    if bluetoothctl connect "$mac"; then
+      notify "Bluetooth" "Connected $name"
+    else
+      notify "Bluetooth" "Could not connect $name"
+      open_bluetooth_manager
+    fi
+    ;;
+esac

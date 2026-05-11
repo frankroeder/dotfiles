@@ -1,0 +1,54 @@
+force_keyboard_focus = true
+selection_wrap = true
+theme = "asahi"
+autoplay_videos = true
+actions_as_menu = true
+# hide_action_hints = true
+
+[placeholders]
+default = { input = "Search...", list = "No results" }
+
+[keybinds]
+quick_activate = []
+
+[providers]
+max_results = 128
+default = [
+  "desktopapplications",
+  "websearch",
+]
+
+[[providers.prefixes]]
+prefix = "/"
+provider = "files"
+
+[[providers.prefixes]]
+prefix = "@"
+provider = "websearch"
+
+[builtins.applications.actions]
+enabled = false
+hide_category = true
+
+[builtins.bookmarks]
+hidden = true
+
+[builtins.calc]
+name = "Calculator"
+icon = "accessories-calculator"
+min_chars = 3
+prefix = "="
+
+[builtins.commands]
+hidden = true
+
+[builtins.custom_commands]
+hidden = true
+
+[builtins.windows]
+hidden = true
+switcher_only = true
+
+[[emergencies]]
+text = "Restart Walker"
+command = "pkill -x walker; walker --gapplication-service"

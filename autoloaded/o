@@ -13,7 +13,7 @@ if [[ -n "$file" ]]; then
   if [[ "$key" == ctrl-e ]]; then
     ${EDITOR:-vim} "$file"
   elif [[ "$OSTYPE" == "Linux" ]]; then
-    dms open "$file"
+    xdg-open "$file"
   else
     open "$file"
   fi

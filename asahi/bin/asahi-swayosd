@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+monitor="$(hyprctl monitors -j 2>/dev/null | jq -r 'map(select(.focused == true).name)[0] // empty' 2>/dev/null || true)"
+
+if [ -n "$monitor" ]; then
+  exec swayosd-client --monitor "$monitor" "$@"
+fi
+
+exec swayosd-client "$@"

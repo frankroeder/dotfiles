@@ -1,0 +1,19 @@
+font=CaskaydiaCove Nerd Font 10
+width=360
+height=140
+margin=12
+padding=12
+border-size=2
+border-radius=8
+background-color=#1e1e2eee
+text-color=#cdd6f4
+border-color=#89b4fa
+progress-color=over #313244
+default-timeout=6000
+ignore-timeout=0
+anchor=top-right
+on-notify=exec mpv /usr/share/sounds/freedesktop/stereo/message.oga
+
+[urgency=high]
+border-color=#f38ba8
+default-timeout=0

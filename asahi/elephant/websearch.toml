@@ -1,0 +1,49 @@
+always_show_default = true
+command = 'xdg-open'
+engines_as_actions = false
+history = true
+history_when_empty = false
+text_prefix = 'Search: '
+
+[Config]
+hide_from_providerlist = false
+icon = 'applications-internet'
+min_score = 20
+name_pretty = ''
+
+[[entries]]
+default = true
+name = 'Kagi'
+prefix = 'kagi'
+url = 'https://kagi.com/search?q=%TERM%'
+icon = 'applications-internet'
+
+[[entries]]
+name = 'Jax Documentation'
+prefix = 'jaxdoc'
+url = 'https://docs.jax.dev/en/latest/search.html?q=%TERM%'
+icon = 'applications-science'
+
+[[entries]]
+name = 'Flax Documentation'
+prefix = 'flaxdoc'
+url = 'https://flax.readthedocs.io/en/stable/search.html?q=%TERM%'
+icon = 'applications-science'
+
+[[entries]]
+name = 'dict.cc'
+prefix = 'dcc'
+url = 'https://www.dict.cc/?s=%TERM%'
+icon = 'accessories-dictionary'
+
+[[entries]]
+name = 'NumPy Documentation'
+prefix = 'npdoc'
+url = 'https://numpy.org/doc/stable/search.html?q=%TERM%'
+icon = 'applications-science'
+
+[[entries]]
+name = 'Kagi Translate'
+prefix = 'kt'
+url = 'https://translate.kagi.com/?from=auto&to=en_us&text=%TERM%'
+icon = 'accessories-dictionary'

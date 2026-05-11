@@ -1,4 +1,3 @@
-# Font Configuration
 font-size = 12
 font-family = "Hack Nerd Font"
 
@@ -7,10 +6,9 @@ window-decoration = false
 window-padding-x = 12
 window-padding-y = 12
 background-opacity = 0.9
-background-blur-radius = 32
 
 # Cursor Configuration
-cursor-style = block
+# cursor-style = block
 
 # Scrollback in bytes
 scrollback-limit = 104857600
@@ -26,29 +24,19 @@ window-inherit-working-directory = true
 window-save-state = always
 
 # Disable annoying copied to clipboard
-app-notifications = no-clipboard-copy,no-config-reload
+# app-notifications = no-clipboard-copy,no-config-reload
 
-# Key bindings for common actions
-# keybind = ctrl+c=copy_to_clipboard
-# keybind = ctrl+v=paste_from_clipboard
-# keybind = ctrl+shift+n=new_window
-
-# Material 3 UI elements
-unfocused-split-opacity = 0.7
-unfocused-split-fill = #44464f
-
-# Tab configuration
-gtk-titlebar = false
+# Rando stuff
+# gtk-titlebar = false
+# gtk-single-instance = true
 
 # Shell integration
 shell-integration = zsh
 shell-integration-features = cursor,sudo,title,no-cursor
 keybind = shift+enter=text:\n
 
-# Rando stuff
-gtk-single-instance = true
-
-theme = dankcolors
+# theme = dark:Catppuccin Mocha,light:Catppuccin Latte
+theme = Catppuccin Mocha
 
 # Fix general slowness on hyprland (https://github.com/ghostty-org/ghostty/discussions/3224)
 async-backend = epoll

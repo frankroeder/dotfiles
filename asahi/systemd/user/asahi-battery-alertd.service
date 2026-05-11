@@ -2,6 +2,7 @@
 Description=Asahi battery alert daemon
 
 [Service]
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=%t/bus
 ExecStart=%h/.local/bin/asahi-battery-alertd
 Restart=always
 RestartSec=5

@@ -1,0 +1,96 @@
+@define-color rosewater #f5e0dc;
+@define-color red #f38ba8;
+@define-color peach #fab387;
+@define-color yellow #f9e2af;
+@define-color green #a6e3a1;
+@define-color teal #94e2d5;
+@define-color blue #89b4fa;
+@define-color lavender #b4befe;
+@define-color text #cdd6f4;
+@define-color subtext0 #a6adc8;
+@define-color surface1 #45475a;
+@define-color surface0 #313244;
+@define-color base #1e1e2e;
+@define-color mantle #181825;
+
+* {
+  all: unset;
+  color: @text;
+  font-family:
+    "Noto Sans",
+    "CaskaydiaCove Nerd Font",
+    "CaskaydiaMono Nerd Font",
+    "Symbols Nerd Font",
+    sans-serif;
+  font-size: 14px;
+}
+
+scrollbar {
+  opacity: 0;
+}
+
+.normal-icons {
+  -gtk-icon-size: 18px;
+}
+
+.large-icons {
+  -gtk-icon-size: 30px;
+}
+
+.box-wrapper {
+  background: alpha(@base, 0.96);
+  border: 1px solid alpha(@blue, 0.42);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px alpha(@mantle, 0.55);
+  padding: 16px;
+}
+
+.search-container {
+  background: @surface0;
+  border: 1px solid @surface1;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.input placeholder {
+  color: @subtext0;
+}
+
+.input:focus,
+.input:active {
+  box-shadow: none;
+  outline: none;
+}
+
+.item-box {
+  border-radius: 8px;
+  padding: 0 10px;
+}
+
+.item-text-box {
+  padding: 10px 0;
+}
+
+.item-subtext {
+  color: @subtext0;
+  font-size: 11px;
+}
+
+.item-image {
+  margin-right: 12px;
+}
+
+child:selected .item-box {
+  background: @blue;
+}
+
+child:selected .item-box * {
+  color: @base;
+}
+
+.keybind-hints {
+  background: @surface0;
+  border-radius: 8px;
+  margin-top: 10px;
+  padding: 8px;
+}

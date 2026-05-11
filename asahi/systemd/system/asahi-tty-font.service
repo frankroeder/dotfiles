@@ -1,0 +1,14 @@
+[Unit]
+Description=Set console font for TTY
+DefaultDependencies=no
+ConditionPathExists=/dev/tty1
+After=systemd-udev-trigger.service
+Before=systemd-logind.service getty@tty1.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/setfont -C /dev/tty1 ter-v22n
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

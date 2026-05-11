@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+notify() {
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send "$@"
+  fi
+}
+
+open_network_editor() {
+  if command -v nm-connection-editor >/dev/null 2>&1; then
+    nm-connection-editor &
+  else
+    notify "Network" "Install nm-connection-editor for the GUI editor"
+  fi
+}
+
+open_nmtui() {
+  if command -v nmtui >/dev/null 2>&1; then
+    ghostty -e nmtui &
+  else
+    notify "Network" "Install NetworkManager-tui for nmtui"
+  fi
+}
+
+wifi_state="$(nmcli radio wifi)"
+wifi_device="$(nmcli -t -f DEVICE,TYPE device status | awk -F: '$2 == "wifi" { print $1; exit }')"
+ethernet_device="$(nmcli -t -f DEVICE,TYPE device status | awk -F: '$2 == "ethernet" { print $1; exit }')"
+ethernet_state="$(nmcli -t -f DEVICE,TYPE,STATE device status | awk -F: '$2 == "ethernet" { print $3; exit }')"
+
+choice="$(
+  {
+    nmcli -t -f TYPE,NAME,DEVICE connection show --active | awk -F: '{ printf "󰒢 Active\t%s\t%s\t%s\n", $1, $2, $3 }'
+    command -v nm-connection-editor >/dev/null 2>&1 && printf "󰈀 Open network editor\n"
+    command -v nmtui >/dev/null 2>&1 && printf "󱘖 Open nmtui\n"
+
+    if [ -n "$ethernet_device" ]; then
+      if [ "$ethernet_state" = "connected" ]; then
+        printf "󰈀 Disconnect LAN\t%s\n" "$ethernet_device"
+      else
+        printf "󰈀 Connect LAN\t%s\n" "$ethernet_device"
+      fi
+    fi
+
+    if [ "$wifi_state" = "enabled" ]; then
+      printf "󰖪 Disable Wi-Fi\n"
+      printf "󰤭 Rescan Wi-Fi\n"
+      printf "󰤮 Disconnect Wi-Fi\t%s\n" "$wifi_device"
+      nmcli -t -f SSID,SIGNAL,SECURITY device wifi list --rescan no \
+        | awk -F: 'length($1) && !seen[$1]++ { printf "󰤨 Connect\t%s\t%s%%\t%s\n", $1, $2, $3 }'
+    else
+      printf "󰖩 Enable Wi-Fi\n"
+    fi
+  } | walker --dmenu --placeholder Network --width 560 --height 420 --exit || true
+)"
+
+[ -n "$choice" ] || exit 0
+
+IFS=$'\t' read -r action value _ <<< "$choice"
+
+case "$action" in
+  "󰈀 Open network editor")
+    open_network_editor
+    ;;
+  "󱘖 Open nmtui")
+    open_nmtui
+    ;;
+  "󰈀 Disconnect LAN")
+    nmcli device disconnect "$value"
+    ;;
+  "󰈀 Connect LAN")
+    nmcli device connect "$value"
+    ;;
+  "󰖪 Disable Wi-Fi")
+    nmcli radio wifi off
+    ;;
+  "󰖩 Enable Wi-Fi")
+    nmcli radio wifi on
+    ;;
+  "󰤭 Rescan Wi-Fi")
+    nmcli device wifi rescan
+    exec "$0"
+    ;;
+  "󰤮 Disconnect Wi-Fi")
+    [ -n "$value" ] && nmcli device disconnect "$value"
+    ;;
+  "󰤨 Connect")
+    if nmcli device wifi connect "$value"; then
+      notify "Network" "Connected to $value"
+    else
+      notify "Network" "Could not connect to $value"
+      open_network_editor
+    fi
+    ;;
+esac

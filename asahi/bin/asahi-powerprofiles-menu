@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+current="$("$HOME/.dotfiles/asahi/bin/asahi-powerprofiles-get")"
+
+selection="$(
+  while IFS= read -r profile; do
+    if [ "$profile" = "$current" ]; then
+      printf "* %s\n" "$profile"
+    else
+      printf "  %s\n" "$profile"
+    fi
+  done < <("$HOME/.dotfiles/asahi/bin/asahi-powerprofiles-list") |
+    walker --dmenu --placeholder "Power profile" --width 360 --height 220 --exit || true
+)"
+
+[ -n "$selection" ] || exit 0
+
+profile="${selection#\* }"
+profile="${profile#  }"
+
+"$HOME/.dotfiles/asahi/bin/asahi-powerprofiles-set" "$profile"
+notify-send -a powerprofiles -t 1200 "Power profile" "$profile"

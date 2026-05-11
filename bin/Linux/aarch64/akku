@@ -1,1 +1,5 @@
-../../../asahi/bin/akku
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+upower -i /org/freedesktop/UPower/devices/battery_macsmc_battery

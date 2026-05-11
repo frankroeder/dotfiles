@@ -1,0 +1,12 @@
+search_dirs = ["/home/froeder"]
+
+ignored_dirs = [
+  "/\\.cache/",
+  "/\\.git/",
+  "/\\.local/share/Trash/",
+  "/node_modules/",
+  "/target/",
+]
+
+fd_flags = ["--ignore-vcs", "--type", "file", "--type", "directory"]
+watch = false

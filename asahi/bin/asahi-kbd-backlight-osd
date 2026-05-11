@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+case "${1:-}" in
+  up)
+    brightnessctl --quiet --device='kbd_backlight' set +5%
+    ;;
+  down)
+    brightnessctl --quiet --device='kbd_backlight' set 5%-
+    ;;
+  *)
+    echo "usage: $0 up|down" >&2
+    exit 2
+    ;;
+esac
+
+current="$(brightnessctl --device='kbd_backlight' get)"
+max="$(brightnessctl --device='kbd_backlight' max)"
+percent="$(( (current * 100 + max / 2) / max ))"
+progress="$(awk -v current="$current" -v max="$max" 'BEGIN { printf "%.2f", current / max }')"
+
+exec "$HOME/.dotfiles/asahi/bin/asahi-swayosd" \
+  --custom-icon input-keyboard-symbolic \
+  --custom-progress "$progress" \
+  --custom-progress-text "${percent}%"

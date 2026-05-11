@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+[ -f "$HOME/.config/user-dirs.dirs" ] && source "$HOME/.config/user-dirs.dirs"
+
+output_dir="${ASAHI_SCREENSHOT_DIR:-${XDG_PICTURES_DIR:-$HOME/Pictures}}"
+mode="${1:-smart}"
+
+mkdir -p "$output_dir"
+
+if pkill -x slurp 2>/dev/null; then
+  exit 0
+fi
+
+focused_monitor_geo() {
+  hyprctl monitors -j | jq -r '
+    map(select(.focused == true) |
+      .x as $x |
+      .y as $y |
+      (.width / .scale | floor) as $w |
+      (.height / .scale | floor) as $h |
+      "\($x),\($y) \($w)x\($h)"
+    )[0] // empty
+  '
+}
+
+workspace_rectangles() {
+  local workspace
+  workspace="$(hyprctl monitors -j | jq -r 'map(select(.focused == true).activeWorkspace.id)[0] // empty')"
+  [ -n "$workspace" ] || return 0
+
+  focused_monitor_geo
+  hyprctl clients -j | jq -r --arg workspace "$workspace" '
+    .[] |
+    select(.workspace.id == ($workspace | tonumber)) |
+    "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"
+  '
+}
+
+case "$mode" in
+  fullscreen)
+    selection="$(focused_monitor_geo)"
+    ;;
+  windows)
+    selection="$(workspace_rectangles | slurp -r 2>/dev/null || true)"
+    ;;
+  region | smart | *)
+    selection="$(workspace_rectangles | slurp 2>/dev/null || true)"
+    ;;
+esac
+
+[ -n "$selection" ] || exit 0
+
+file="$output_dir/screenshot-$(date +'%Y-%m-%d_%H-%M-%S').png"
+
+grim -g "$selection" "$file"
+wl-copy < "$file"
+
+notify-send -a screenshot -t 2500 -i "$file" "Screenshot saved" "$file"
+

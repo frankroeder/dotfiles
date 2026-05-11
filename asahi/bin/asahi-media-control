@@ -1,0 +1,133 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+target="${1:-}"
+action="${2:-}"
+dotfiles="${DOTFILES:-$HOME/.dotfiles}"
+osd="$dotfiles/asahi/bin/asahi-swayosd"
+
+if [ -z "$target" ] || [ -z "$action" ]; then
+  echo "usage: $0 <output-volume|input-volume|brightness|keyboard-brightness|playerctl> <action>" >&2
+  exit 2
+fi
+
+display_device() {
+  local device="${ASAHI_BACKLIGHT_DEVICE:-apple-panel-bl}"
+
+  if brightnessctl --device="$device" info >/dev/null 2>&1; then
+    printf "%s\n" "$device"
+    return 0
+  fi
+
+  for path in /sys/class/backlight/*; do
+    [ -e "$path" ] || continue
+    basename "$path"
+    return 0
+  done
+
+  return 1
+}
+
+keyboard_device() {
+  local device="${ASAHI_KEYBOARD_BACKLIGHT_DEVICE:-kbd_backlight}"
+
+  if brightnessctl --device="$device" info >/dev/null 2>&1; then
+    printf "%s\n" "$device"
+    return 0
+  fi
+
+  for path in /sys/class/leds/*kbd_backlight*; do
+    [ -e "$path" ] || continue
+    basename "$path"
+    return 0
+  done
+
+  return 1
+}
+
+brightness_step() {
+  case "$1" in
+    raise) printf "+5%%\n" ;;
+    lower) printf "5%%-\n" ;;
+    +1) printf "+1%%\n" ;;
+    -1) printf "1%%-\n" ;;
+    *)
+      echo "unsupported brightness action: $1" >&2
+      exit 2
+      ;;
+  esac
+}
+
+brightness_metrics() {
+  local device="$1"
+  local current max progress percent
+
+  current="$(brightnessctl --device="$device" get)"
+  max="$(brightnessctl --device="$device" max)"
+  [ -n "$max" ] && [ "$max" != "0" ] || return 1
+
+  progress="$(awk -v current="$current" -v max="$max" 'BEGIN { printf "%.2f", current / max }')"
+  percent="$(( (current * 100 + max / 2) / max ))"
+  printf "%s %s\n" "$progress" "$percent"
+}
+
+show_custom_osd() {
+  local icon="$1"
+  local progress="$2"
+  local percent="$3"
+
+  "$osd" --custom-icon "$icon" --custom-progress "$progress" --custom-progress-text "${percent}%" >/dev/null 2>&1 || true
+}
+
+case "$target" in
+  output-volume)
+    if command -v swayosd-client >/dev/null 2>&1; then
+      exec "$osd" --output-volume "$action" --max-volume 100
+    fi
+
+    case "$action" in
+      raise) exec wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+ ;;
+      lower) exec wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%- ;;
+      mute-toggle) exec wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle ;;
+      +1) exec wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 1%+ ;;
+      -1) exec wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 1%- ;;
+    esac
+    ;;
+  input-volume)
+    if command -v swayosd-client >/dev/null 2>&1; then
+      exec "$osd" --input-volume "$action"
+    fi
+
+    [ "$action" = "mute-toggle" ] || exit 2
+    exec wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
+    ;;
+  playerctl)
+    if command -v swayosd-client >/dev/null 2>&1; then
+      "$osd" --playerctl "$action" >/dev/null 2>&1 && exit 0
+    fi
+
+    exec playerctl "$action"
+    ;;
+  brightness)
+    device="$(display_device)"
+    brightnessctl --quiet --device="$device" set "$(brightness_step "$action")"
+
+    if read -r progress percent < <(brightness_metrics "$device"); then
+      show_custom_osd display-brightness-symbolic "$progress" "$percent"
+    fi
+    ;;
+  keyboard-brightness)
+    device="$(keyboard_device)"
+    brightnessctl --quiet --device="$device" set "$(brightness_step "$action")"
+
+    if read -r progress percent < <(brightness_metrics "$device"); then
+      show_custom_osd input-keyboard-symbolic "$progress" "$percent"
+    fi
+    ;;
+  *)
+    echo "unknown target: $target" >&2
+    exit 2
+    ;;
+esac
+

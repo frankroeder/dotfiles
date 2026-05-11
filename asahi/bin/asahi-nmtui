@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+exec ghostty --window-width=120 --window-height=34 -e nmtui
+

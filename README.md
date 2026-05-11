@@ -13,17 +13,16 @@ My personal dotfiles for Linux and macOS.
 ## Options
 - macOS Intel and ARM: `make macos`
 - Linux with sudo rights: `make linux`
-- Asahi Linux (Fedora Minimal + DankLinux/Hyprland): `make asahi`
+- Asahi Linux (Fedora Minimal + Hyprland): `make asahi`
 - Linux without sudo rights: `make NOSUDO=1 minimal`
 
 ## Asahi install
-Start from Fedora Minimal and configure the Wi-Fi and install DankLinux.
+Start from Fedora Minimal and configure Wi-Fi.
 
 From the tty, follow the setup and the following commands:
 ```sh
 # Connect to WIFI
 nmcli device wifi connect "SSID" --ask
-curl -fsSL https://install.danklinux.com | sh
 sudo reboot
 ```
 
@@ -33,6 +32,8 @@ git clone https://github.com/frankroeder/dotfiles.git ~/.dotfiles
 cd ~/.dotfiles
 make asahi
 ```
+
+This applies a minimal Hyprland desktop with Ghostty, Waybar, Wofi, Mako, Hypridle, and Hyprlock.
 
 
 ## Local configuration files

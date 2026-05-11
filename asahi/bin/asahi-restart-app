@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+app_name="${1:-}"
+
+if [ -z "$app_name" ]; then
+  echo "usage: $0 <app-name> [args...]" >&2
+  exit 2
+fi
+
+shift
+
+pkill -x "$app_name" 2>/dev/null || true
+
+for _ in {1..30}; do
+  if ! pgrep -x "$app_name" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.1
+done
+
+if command -v uwsm-app >/dev/null 2>&1; then
+  setsid uwsm-app -- "$app_name" "$@" >/dev/null 2>&1 &
+else
+  setsid "$app_name" "$@" >/dev/null 2>&1 &
+fi
+
+if command -v notify-send >/dev/null 2>&1; then
+  notify-send -a asahi-restart -t 1500 "${app_name} restarted"
+fi

@@ -17,8 +17,8 @@ PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin
 PATH := $(PATH):$(DOTFILES)/bin/$(OSTYPE)/$(ARCHITECTURE):$(DOTFILES)/bin/$(OSTYPE)
 PATH := $(PATH):$(HOME)/bin:$(HOME)/.local/bin:$(HOME)/.local/nodejs/bin
 
-ASAHI_DMS_PLUGINS ?= calculator webSearch
 NEXTCLOUD_DIR ?= $(HOME)/Nextcloud/portal
+ASAHI_WALLPAPERS_DIR ?= $(HOME)/Pictures/wallpaper
 
 # Validation targets
 .PHONY: validate-macos validate-linux validate-tools
@@ -311,8 +311,12 @@ else
 	$(call print_warning,Gemini CLI not installed; skipping Gemini agent configuration)
 endif
 	# OpenCode
+ifneq ($(shell command -v opencode 2>/dev/null),)
 	$(call print_step,Syncing OpenCode agent configuration)
 	$(call link_if_exists,$(NEXTCLOUD_DIR)/opencode.jsonc,$(HOME)/.config/opencode/opencode.jsonc)
+else
+	$(call print_warning,OpenCode CLI not installed; skipping OpenCode agent configuration)
+endif
 
 .PHONY: after
 after: ## Post-installation setup and service start
@@ -458,27 +462,34 @@ _terminal: ## Install and configure terminal emulator
 	ln -sfv $(DOTFILES)/htop/personal $(HOME)/.config/htop/htoprc; \
 
 
-.PHONY: asahi asahi-system asahi-zotero asahi-require-danklinux asahi-common
-.PHONY: asahi-danklinux asahi-dms-plugins
-.PHONY: asahi-shell asahi-battery-alerts asahi-default-shell check-asahi
-asahi: ## Asahi Linux (Fedora Minimal): apply DankLinux Hyprland and Ghostty config
-asahi: validate-linux validate-tools sudo asahi-system asahi-zotero asahi-require-danklinux
-asahi: asahi-danklinux asahi-battery-alerts asahi-default-shell check-asahi
+.PHONY: asahi asahi-system asahi-zotero asahi-common
+.PHONY: asahi-desktop asahi-battery-alerts asahi-default-shell check-asahi
+asahi: ## Asahi Linux (Fedora Minimal): apply minimal Hyprland desktop config
+asahi: validate-linux validate-tools sudo asahi-system asahi-zotero
+asahi: asahi-desktop asahi-battery-alerts asahi-default-shell check-asahi
 	@$(MAKE) agents
-	@if [ -d "$(HOME)/Pictures/wallpaper/.git" ]; then \
-		$(call print_step,Updating wallpapers); \
-		git -C "$(HOME)/Pictures/wallpaper" pull --ff-only || $(call print_warning,Failed to update wallpapers); \
-	elif [ -e "$(HOME)/Pictures/wallpaper" ]; then \
-		$(call print_warning,$(HOME)/Pictures/wallpaper already exists and is not a git checkout; skipping wallpaper clone); \
-	else \
-		$(call print_step,Downloading wallpapers); \
-		mkdir -p "$(HOME)/Pictures"; \
-		git clone https://github.com/mylinuxforwork/wallpaper.git "$(HOME)/Pictures/wallpaper"; \
-	fi
+		@if [ -d "$(ASAHI_WALLPAPERS_DIR)/.git" ]; then \
+			$(call print_step,Updating wallpapers); \
+			git -C "$(ASAHI_WALLPAPERS_DIR)" pull --ff-only || $(call print_warning,Failed to update wallpapers); \
+		elif [ -e "$(ASAHI_WALLPAPERS_DIR)" ]; then \
+			$(call print_warning,$(ASAHI_WALLPAPERS_DIR) already exists and is not a git checkout; skipping wallpaper clone); \
+		else \
+			$(call print_step,Downloading wallpapers); \
+			mkdir -p "$(HOME)/Pictures"; \
+			git clone https://github.com/mylinuxforwork/wallpaper.git "$(ASAHI_WALLPAPERS_DIR)"; \
+		fi
 
 asahi-system: ## Update Fedora and install base packages for Asahi
 	@bash $(DOTFILES)/asahi/dnf.sh
-	@light -s sysfs/leds/kbd_backlight -S 30
+	@sudo install -Dm644 $(DOTFILES)/asahi/systemd/system/asahi-tty-font.service /etc/systemd/system/asahi-tty-font.service
+	@sudo systemctl daemon-reload
+	@sudo systemctl enable asahi-tty-font.service
+	@sudo systemctl restart asahi-tty-font.service
+	@if command -v brightnessctl >/dev/null 2>&1; then \
+		brightnessctl --device='kbd_backlight' set 30% || true; \
+	elif command -v light >/dev/null 2>&1; then \
+		light -s sysfs/leds/kbd_backlight -S 30 || true; \
+	fi
 
 asahi-zotero: ## Install Zotero ARM64 on Asahi Linux
 	@if [ -x "/opt/zotero/zotero" ]; then \
@@ -486,12 +497,6 @@ asahi-zotero: ## Install Zotero ARM64 on Asahi Linux
 	else \
 		$(call print_step,Installing Zotero ARM64); \
 		bash $(DOTFILES)/scripts/setup_zotero.sh; \
-	fi
-
-asahi-require-danklinux: ## Verify DankLinux is already installed
-	@if ! command -v dms >/dev/null 2>&1; then \
-		$(call print_error,DankLinux is not installed. Install DankLinux first, then rerun make asahi); \
-		exit 1; \
 	fi
 
 asahi-common: directories _git zsh python misc nvim
@@ -505,18 +510,42 @@ asahi-common: directories _git zsh python misc nvim
 		bash $(DOTFILES)/scripts/tree-sitter.sh; \
 	fi
 
-asahi-danklinux: ## Apply DankLinux Hyprland user config
-asahi-danklinux: asahi-common
-	@mkdir -p $(HOME)/.cache/DankMaterialShell
+asahi-desktop: ## Apply minimal Hyprland desktop user config
+asahi-desktop: asahi-common
 	@mkdir -p $(HOME)/screenshots
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-autostart
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-bluetooth-menu
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-caps-lock-osd
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-cmd-screenshot
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-kbd-backlight-osd
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-media-control
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-network-menu
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-nmtui
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-powerprofiles-get
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-powerprofiles-list
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-powerprofiles-menu
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-powerprofiles-set
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-reload-hyprland
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-reload-hyprlock
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-restart-app
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-restart-hypridle
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-restart-hyprpaper
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-restart-mako
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-restart-walker
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-restart-waybar
+	@chmod +x $(DOTFILES)/asahi/bin/asahi-swayosd
+	@chmod +x $(DOTFILES)/asahi/bin/hypr-killactive
+	@rm -rf $(HOME)/.config/wofi
+	$(call replace_with_symlink,$(DOTFILES)/asahi/elephant,$(HOME)/.config/elephant)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/hypr,$(HOME)/.config/hypr)
-	$(call replace_with_symlink,$(DOTFILES)/asahi/dms,$(HOME)/.config/DankMaterialShell)
+	$(call replace_with_symlink,$(DOTFILES)/asahi/swayosd,$(HOME)/.config/swayosd)
+	$(call replace_with_symlink,$(DOTFILES)/asahi/waybar,$(HOME)/.config/waybar)
+	$(call replace_with_symlink,$(DOTFILES)/asahi/walker,$(HOME)/.config/walker)
+	$(call replace_with_symlink,$(DOTFILES)/asahi/mako,$(HOME)/.config/mako)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/ghostty,$(HOME)/.config/ghostty)
-	$(call replace_with_symlink,$(DOTFILES)/asahi/matugen,$(HOME)/.config/matugen)
 	@mkdir -p $(HOME)/.config/mpv
 	@ln -sfv $(DOTFILES)/mpv/mpv_asahi.conf $(HOME)/.config/mpv/mpv.conf
-	@ln -sfv $(DOTFILES)/asahi/environment.d/90-dms.conf $(HOME)/.config/environment.d/90-dms.conf
-	@$(MAKE) asahi-dms-plugins
+	@ln -sfv $(DOTFILES)/asahi/environment.d/90-asahi.conf $(HOME)/.config/environment.d/90-asahi.conf
 	@mkdir -p $(HOME)/.config/librewolf/librewolf
 	@ln -sfv $(DOTFILES)/asahi/librewolf/librewolf.overrides.cfg $(HOME)/.config/librewolf/librewolf/librewolf.overrides.cfg
 	@if [ -d "$(HOME)/.config/librewolf/librewolf" ]; then \
@@ -525,43 +554,13 @@ asahi-danklinux: asahi-common
 			if [ -d "$$profile_dir" ]; then \
 				mkdir -p "$$profile_dir/chrome"; \
 				ln -sfv "$(DOTFILES)/asahi/librewolf/userChrome.css" "$$profile_dir/chrome/userChrome.css"; \
-				ln -sfv "$(HOME)/.config/DankMaterialShell/librewolf.css" "$$profile_dir/chrome/librewolf.css"; \
+				ln -sfv "$(DOTFILES)/asahi/librewolf/librewolf.css" "$$profile_dir/chrome/librewolf.css"; \
 				profiles_linked=1; \
 			fi; \
 		done; \
 		if [ "$$profiles_linked" -eq 0 ]; then \
 			$(call print_warning,LibreWolf profile not found yet; skipping userChrome.css link); \
 		fi; \
-	fi
-	@$(MAKE) asahi-shell
-
-asahi-dms-plugins: ## Install DMS plugins declared by ASAHI_DMS_PLUGINS
-	@if command -v dms >/dev/null 2>&1; then \
-		for plugin in $(ASAHI_DMS_PLUGINS); do \
-			if [ -d "$(HOME)/.config/DankMaterialShell/plugins/$$plugin" ]; then \
-				$(call print_step,DMS plugin $$plugin already installed); \
-			else \
-				$(call print_step,Installing DMS plugin $$plugin); \
-				dms plugins install "$$plugin" || $(call print_warning,Failed to install DMS plugin $$plugin); \
-			fi; \
-		done; \
-	else \
-		$(call print_warning,dms not installed; skipping DMS plugins); \
-	fi
-
-asahi-shell: ## Generate optional shell integrations for DMS and dgop
-	@mkdir -p $(HOME)/.zsh/completion
-	@if command -v dms >/dev/null 2>&1; then \
-		$(call print_step,Generating DMS zsh completions); \
-		dms completion zsh > $(HOME)/.zsh/completion/_dms; \
-	else \
-		$(call print_warning,dms not installed; skipping DMS completions); \
-	fi
-	@if command -v dgop >/dev/null 2>&1; then \
-		$(call print_step,Generating dgop zsh completions); \
-		dgop completion zsh | sed -e '1s/.*/#compdef dgop dankgop/' -e '2s/.*/compdef _dankgop dgop dankgop/' > $(HOME)/.zsh/completion/_dgop; \
-	else \
-		$(call print_warning,dgop not installed; skipping dgop completions); \
 	fi
 
 asahi-battery-alerts: ## Install and start Asahi battery alert daemon
@@ -581,13 +580,16 @@ check: ## Run Neovim health check
 		exit 1; \
 	fi
 
-check-asahi: ## Run optional DankLinux checks for the Asahi setup
-	@if command -v dms >/dev/null 2>&1 && [ -d "$(HOME)/.config/DankMaterialShell" ]; then \
-		$(call print_step,Running DMS doctor); \
-		dms --config "$(HOME)/.config/DankMaterialShell" doctor -v; \
-	else \
-		$(call print_warning,DMS config not available; skipping dms doctor); \
-	fi
+check-asahi: ## Check minimal Asahi desktop commands
+	@for command in Hyprland walker elephant; do \
+		command -v "$$command" >/dev/null 2>&1 || $(call print_warning,$$command not installed); \
+	done
+	@for command in waybar mako hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl swayosd-client powerprofilesctl; do \
+		command -v "$$command" >/dev/null 2>&1 || $(call print_warning,$$command not installed); \
+	done
+	@for command in nm-connection-editor nmtui blueman-manager; do \
+		command -v "$$command" >/dev/null 2>&1 || $(call print_warning,$$command not installed); \
+	done
 
 .PHONY: benchmark
 benchmark: ## Benchmark Neovim and Zsh startup times

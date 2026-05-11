@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if command -v powerprofilesctl >/dev/null 2>&1; then
+  exec powerprofilesctl get
+fi
+
+printf "balanced\n"
+

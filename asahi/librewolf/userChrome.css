@@ -1,33 +1,77 @@
 @import url("librewolf.css");
 
 :root {
-  --toolbar-bgcolor: var(--md-sys-color-surface) !important;
-  --toolbar-color: var(--md-sys-color-on-surface) !important;
-  --lwt-accent-color: var(--md-sys-color-surface) !important;
-  --lwt-text-color: var(--md-sys-color-on-surface) !important;
-  --lwt-selected-tab-background-color: var(--md-sys-color-surface-container-high) !important;
-  --tab-selected-bgcolor: var(--md-sys-color-surface-container-high) !important;
-  --tab-selected-color: var(--md-sys-color-on-surface) !important;
-  --urlbar-box-bgcolor: var(--md-sys-color-surface-container) !important;
-  --urlbar-box-text-color: var(--md-sys-color-on-surface) !important;
+  --toolbar-bgcolor: var(--ctp-base) !important;
+  --toolbar-color: var(--ctp-text) !important;
+  --toolbarbutton-icon-fill: var(--ctp-text) !important;
+  --toolbarbutton-hover-background: var(--ctp-surface0) !important;
+  --toolbarbutton-active-background: var(--ctp-surface1) !important;
+  --lwt-accent-color: var(--ctp-base) !important;
+  --lwt-accent-color-inactive: var(--ctp-mantle) !important;
+  --lwt-text-color: var(--ctp-text) !important;
+  --lwt-toolbar-field-background-color: var(--ctp-surface0) !important;
+  --lwt-toolbar-field-color: var(--ctp-text) !important;
+  --lwt-toolbar-field-border-color: var(--ctp-surface1) !important;
+  --lwt-toolbar-field-focus: var(--ctp-surface0) !important;
+  --lwt-toolbar-field-focus-color: var(--ctp-text) !important;
+  --lwt-selected-tab-background-color: var(--ctp-surface0) !important;
+  --tab-selected-bgcolor: var(--ctp-surface0) !important;
+  --tab-selected-color: var(--ctp-text) !important;
+  --urlbar-box-bgcolor: var(--ctp-surface0) !important;
+  --urlbar-box-text-color: var(--ctp-text) !important;
+  --urlbarView-highlight-background: var(--ctp-surface1) !important;
+  --urlbarView-highlight-color: var(--ctp-text) !important;
+  --arrowpanel-background: var(--ctp-mantle) !important;
+  --arrowpanel-color: var(--ctp-text) !important;
+  --arrowpanel-border-color: var(--ctp-surface1) !important;
+  --sidebar-background-color: var(--ctp-base) !important;
+  --sidebar-text-color: var(--ctp-text) !important;
+}
+
+#navigator-toolbox,
+#sidebar-main,
+#sidebar-box {
+  background-color: var(--ctp-base) !important;
+  color: var(--ctp-text) !important;
 }
 
 #navigator-toolbox {
-  background-color: var(--md-sys-color-surface) !important;
-  color: var(--md-sys-color-on-surface) !important;
-  border-bottom-color: var(--md-sys-color-outline-variant) !important;
+  border-bottom: 1px solid var(--ctp-surface1) !important;
 }
 
 #urlbar-background,
 #searchbar {
-  background-color: var(--md-sys-color-surface-container) !important;
-  border-color: var(--md-sys-color-outline-variant) !important;
+  background-color: var(--ctp-surface0) !important;
+  border-color: var(--ctp-surface1) !important;
+}
+
+#urlbar[focused] #urlbar-background {
+  border-color: var(--ctp-blue) !important;
 }
 
 .tab-background[selected] {
-  background-color: var(--md-sys-color-surface-container-high) !important;
+  background-color: var(--ctp-surface0) !important;
 }
 
 .tabbrowser-tab:not([selected]):hover .tab-background {
-  background-color: var(--state-hover) !important;
+  background-color: var(--ctp-surface1) !important;
+}
+
+#tabbrowser-tabs[orient="vertical"] .tabbrowser-tab {
+  color: var(--ctp-subtext1) !important;
+}
+
+#tabbrowser-tabs[orient="vertical"] .tabbrowser-tab[selected] {
+  color: var(--ctp-text) !important;
+}
+
+#TabsToolbar {
+  background-color: var(--ctp-base) !important;
+}
+
+menupopup,
+panel {
+  --panel-background: var(--ctp-mantle) !important;
+  --panel-color: var(--ctp-text) !important;
+  --panel-border-color: var(--ctp-surface1) !important;
 }

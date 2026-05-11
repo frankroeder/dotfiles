@@ -177,7 +177,6 @@ set_hl()
 local group = vim.api.nvim_create_augroup("jscott/statusline", { clear = true })
 vim.api.nvim_create_autocmd("ColorScheme", { group = group, callback = set_hl })
 vim.api.nvim_create_autocmd("OptionSet", { group = group, pattern = "background", callback = set_hl })
-vim.api.nvim_create_autocmd("User", { group = group, pattern = "DankcolorsReloaded", callback = set_hl })
 vim.api.nvim_create_autocmd("User", { group = group, pattern = "GitSignsUpdate", callback = redraw })
 
 vim.o.statusline = "%!v:lua.require'statusline'.render()"
