@@ -13,6 +13,65 @@ fi
 state_file="$state_dir/cpu.stat"
 history_file="$state_dir/cpu.history"
 
+sensor_matches_cpu() {
+  local label="${1,,}"
+
+  case "$label" in
+    *cpu* | *core* | *soc* | *die* | *package* | *tdie* | *tctl*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+read_temp_c() {
+  local path="$1"
+  local value
+
+  [ -r "$path" ] || return 1
+  value="$(tr -d '\n' < "$path")"
+
+  case "$value" in
+    '' | *[!0-9-]*) return 1 ;;
+  esac
+
+  awk -v value="$value" 'BEGIN { if (value > 1000) value = value / 1000; printf "%.0f", value }'
+}
+
+cpu_temp_c() {
+  local label_path input_path label name_path hwmon_dir value best=""
+
+  if [ -n "${ASAHI_CPU_TEMP_PATH:-}" ]; then
+    read_temp_c "$ASAHI_CPU_TEMP_PATH"
+    return
+  fi
+
+  for label_path in /sys/class/hwmon/hwmon*/temp*_label; do
+    [ -r "$label_path" ] || continue
+    label="$(tr -d '\n' < "$label_path")"
+    sensor_matches_cpu "$label" || continue
+
+    input_path="${label_path%_label}_input"
+    value="$(read_temp_c "$input_path" || true)"
+    [ -n "$value" ] || continue
+    [ -z "$best" ] || [ "$value" -gt "$best" ] && best="$value"
+  done
+
+  for name_path in /sys/class/hwmon/hwmon*/name; do
+    [ -r "$name_path" ] || continue
+    label="$(tr -d '\n' < "$name_path")"
+    sensor_matches_cpu "$label" || continue
+
+    hwmon_dir="${name_path%/name}"
+    for input_path in "$hwmon_dir"/temp*_input; do
+      [ -r "$input_path" ] || continue
+      value="$(read_temp_c "$input_path" || true)"
+      [ -n "$value" ] || continue
+      [ -z "$best" ] || [ "$value" -gt "$best" ] && best="$value"
+    done
+  done
+
+  [ -n "$best" ] && printf "%s\n" "$best"
+}
+
 read -r _ user nice system idle iowait irq softirq steal _ < /proc/stat
 
 idle_all=$((idle + iowait))
@@ -81,32 +140,20 @@ else
   freq_line="Freq n/a"
 fi
 
-temp_paths=()
-for path in /sys/class/thermal/thermal_zone*/temp; do
-  [ -r "$path" ] || continue
-  temp_paths+=("$path")
-done
-
-if [ "${#temp_paths[@]}" -gt 0 ]; then
-  temp_line="$(
-    awk '
-      {
-        value = $1
-        if (value > 1000) value = value / 1000
-        if (max == "" || value > max) max = value
-      }
-      END { printf "Thermal max %.1f C", max }
-    ' "${temp_paths[@]}"
-  )"
+temp_c="$(cpu_temp_c || true)"
+if [ -n "$temp_c" ]; then
+  temp_text=" ${temp_c}C"
+  temp_line="CPU temp ${temp_c} C"
 else
-  temp_line="Thermal n/a"
+  temp_text=""
+  temp_line="CPU temp n/a"
 fi
 
 tooltip="$(printf "CPU %d%%\nLoad 1/5/15: %s %s %s\nCores: %s\n%s\n%s\nClick: htop" \
   "$percentage" "$load1" "$load5" "$load15" "$cores" "$freq_line" "$temp_line")"
 
 jq -cn \
-  --arg text "CPU $history $percentage%" \
+  --arg text "CPU $history $percentage%$temp_text" \
   --arg tooltip "$tooltip" \
   --arg class "$class" \
   --argjson percentage "$percentage" \

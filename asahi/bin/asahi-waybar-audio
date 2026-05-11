@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+device="${1:-output}"
+
+missing() {
+  jq -cn --arg text "" --arg class "missing" '{text: $text, class: $class}'
+}
+
+case "$device" in
+  output | sink)
+    target="@DEFAULT_AUDIO_SINK@"
+    name="Volume"
+    kind="output"
+    ;;
+  input | source | mic | microphone)
+    target="@DEFAULT_AUDIO_SOURCE@"
+    name="Microphone"
+    kind="input"
+    ;;
+  *)
+    echo "usage: $0 <output|input>" >&2
+    exit 2
+    ;;
+esac
+
+if ! command -v wpctl >/dev/null 2>&1; then
+  missing
+  exit 0
+fi
+
+line="$(wpctl get-volume "$target" 2>/dev/null || true)"
+if [ -z "$line" ]; then
+  missing "$name unavailable"
+  exit 0
+fi
+
+volume="$(awk '{ printf "%.0f", $2 * 100 }' <<< "$line")"
+state="unmuted"
+case "$line" in
+  *MUTED*) state="muted" ;;
+esac
+
+if [ "$kind" = "input" ]; then
+  if [ "$state" = "muted" ]; then
+    icon="󰍭"
+  else
+    icon="󰍬"
+  fi
+else
+  if [ "$state" = "muted" ]; then
+    icon="󰖁"
+  elif [ "$volume" -le 30 ]; then
+    icon="󰕿"
+  elif [ "$volume" -le 60 ]; then
+    icon="󰖀"
+  else
+    icon="󰕾"
+  fi
+fi
+
+jq -cn \
+  --arg text "$icon ${volume}%" \
+  --arg class1 "$kind" \
+  --arg class2 "$state" \
+  --argjson percentage "$volume" \
+  '{text: $text, class: [$class1, $class2], percentage: $percentage}'

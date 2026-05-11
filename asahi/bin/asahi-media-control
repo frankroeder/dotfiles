@@ -95,12 +95,26 @@ case "$target" in
     esac
     ;;
   input-volume)
+    if [ "$action" = "mute-toggle" ]; then
+      wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
+
+      if command -v swayosd-client >/dev/null 2>&1; then
+        "$osd" --input-volume +0 >/dev/null 2>&1 || true
+      fi
+
+      exit 0
+    fi
+
     if command -v swayosd-client >/dev/null 2>&1; then
       exec "$osd" --input-volume "$action"
     fi
 
-    [ "$action" = "mute-toggle" ] || exit 2
-    exec wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
+    case "$action" in
+      raise) exec wpctl set-volume -l 1 @DEFAULT_AUDIO_SOURCE@ 5%+ ;;
+      lower) exec wpctl set-volume -l 1 @DEFAULT_AUDIO_SOURCE@ 5%- ;;
+      +1) exec wpctl set-volume -l 1 @DEFAULT_AUDIO_SOURCE@ 1%+ ;;
+      -1) exec wpctl set-volume -l 1 @DEFAULT_AUDIO_SOURCE@ 1%- ;;
+    esac
     ;;
   playerctl)
     if command -v swayosd-client >/dev/null 2>&1; then
@@ -130,4 +144,3 @@ case "$target" in
     exit 2
     ;;
 esac
-

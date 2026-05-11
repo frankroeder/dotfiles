@@ -50,24 +50,55 @@ if ! command -v playerctl >/dev/null 2>&1; then
   exit 0
 fi
 
-status="$(playerctl status 2>/dev/null || true)"
+active_player() {
+  local players first_paused player status
+
+  players="$(playerctl -l 2>/dev/null || true)"
+  [ -n "$players" ] || return 1
+
+  first_paused=""
+  while IFS= read -r player; do
+    [ -n "$player" ] || continue
+    status="$(playerctl -p "$player" status 2>/dev/null || true)"
+
+    case "$status" in
+      Playing)
+        printf "%s\n" "$player"
+        return 0
+        ;;
+      Paused)
+        [ -z "$first_paused" ] && first_paused="$player"
+        ;;
+    esac
+  done <<< "$players"
+
+  [ -n "$first_paused" ] && printf "%s\n" "$first_paused"
+}
+
+active="$(active_player || true)"
+if [ -z "$active" ]; then
+  empty
+  exit 0
+fi
+
+status="$(playerctl -p "$active" status 2>/dev/null || true)"
 if [ -z "$status" ]; then
   empty
   exit 0
 fi
 
-player="$(playerctl metadata --format '{{playerName}}' 2>/dev/null || true)"
-artist="$(playerctl metadata --format '{{artist}}' 2>/dev/null || true)"
-title="$(playerctl metadata --format '{{title}}' 2>/dev/null || true)"
-album="$(playerctl metadata --format '{{album}}' 2>/dev/null || true)"
+player="$(playerctl -p "$active" metadata --format '{{playerName}}' 2>/dev/null || true)"
+artist="$(playerctl -p "$active" metadata --format '{{artist}}' 2>/dev/null || true)"
+title="$(playerctl -p "$active" metadata --format '{{title}}' 2>/dev/null || true)"
+album="$(playerctl -p "$active" metadata --format '{{album}}' 2>/dev/null || true)"
 player="${player//$'\n'/ }"
 artist="${artist//$'\n'/ }"
 title="${title//$'\n'/ }"
 album="${album//$'\n'/ }"
 
 case "$status" in
-  Playing) icon="󰎆" ;;
-  Paused) icon="󰏤" ;;
+  Playing) icon="" ;;
+  Paused) icon="" ;;
   *) icon="󰓛" ;;
 esac
 

@@ -55,6 +55,8 @@ window#waybar > box {
 #custom-memory,
 #network,
 #bluetooth,
+#custom-audio,
+#custom-microphone,
 #custom-battery {
   padding: 0 10px;
   margin: 0;
@@ -68,6 +70,8 @@ window#waybar > box {
 #custom-memory,
 #network,
 #bluetooth,
+#custom-audio,
+#custom-microphone,
 #custom-battery {
   background: @surface0;
   border-radius: 6px;
@@ -133,6 +137,7 @@ window#waybar > box {
 #custom-cpu {
   color: @peach;
   font-size: 14px;
+  padding: 0 14px;
 }
 
 #custom-memory {
@@ -143,6 +148,7 @@ window#waybar > box {
 #custom-player {
   color: @teal;
   font-size: 15px;
+  padding: 0 16px;
 }
 
 #custom-player.paused {
@@ -154,9 +160,24 @@ window#waybar > box {
   font-size: 23px;
 }
 
+#custom-audio,
+#custom-microphone {
+  color: @green;
+  font-size: 15px;
+}
+
+#custom-microphone {
+  color: @sky;
+}
+
+#custom-audio.muted,
+#custom-microphone.muted {
+  color: @red;
+}
+
 #custom-battery {
   color: @green;
-  font-size: 23px;
+  font-size: 15px;
 }
 
 #custom-battery.warning:not(.charging) {

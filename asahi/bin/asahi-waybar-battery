@@ -99,6 +99,7 @@ case "$status" in
   Not\ charging) text="" ;;
   *) text="${default_icons[$index]}" ;;
 esac
+battery_text="$text ${capacity}%"
 
 status_class="$(printf "%s" "$status" | tr '[:upper:] ' '[:lower:]-')"
 classes_json="[\"$status_class\"]"
@@ -139,7 +140,7 @@ tooltip="$(printf "$tooltip_format" \
   "$model" "$manufacture_year" "$manufacture_month" "$manufacture_day")"
 
 jq -cn \
-  --arg text "$text" \
+  --arg text "$battery_text" \
   --arg tooltip "$tooltip" \
   --argjson class "$classes_json" \
   --argjson percentage "$capacity" \

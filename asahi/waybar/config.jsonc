@@ -3,13 +3,23 @@
   "layer": "top",
   "position": "top",
   "height": 26,
-  "spacing": 4,
+  "spacing": 8,
   "margin-top": 2,
   "margin-left": 8,
   "margin-right": 8,
   "modules-left": ["hyprland/workspaces"],
   "modules-center": ["custom/player"],
-  "modules-right": ["tray", "custom/cpu", "custom/memory", "network", "bluetooth", "custom/battery", "clock"],
+  "modules-right": [
+    "tray",
+    "custom/cpu",
+    "custom/memory",
+    "network",
+    "bluetooth",
+    "custom/audio",
+    "custom/microphone",
+    "custom/battery",
+    "clock"
+  ],
   "hyprland/workspaces": {
     "all-outputs": true,
     "move-to-monitor": true,
@@ -65,8 +75,8 @@
     "format-wifi": "{icon}",
     "format-ethernet": "󰀂",
     "format-disconnected": "󰤮",
-    "tooltip-format-wifi": "{essid} ({frequency} GHz)",
-    "tooltip-format-ethernet": "Connected",
+    "tooltip-format-wifi": "{essid} {signalStrength}% {signaldBm}dBm\n{ifname} {ipaddr}/{cidr}\ngw {gwaddr}\n{frequency}GHz {bssid}",
+    "tooltip-format-ethernet": "{ifname} {ipaddr}/{cidr} gw {gwaddr}\n↓ {bandwidthDownBytes}/s ↑ {bandwidthUpBytes}/s",
     "tooltip-format-disconnected": "Disconnected",
     "tooltip": true,
     "interval": 3,
@@ -83,10 +93,31 @@
     "tooltip-format": "{controller_alias}\n{num_connections} connected",
     "on-click": "/home/froeder/.dotfiles/asahi/bin/asahi-launch-bluetooth"
   },
+  "custom/audio": {
+    "exec": "/home/froeder/.dotfiles/asahi/bin/asahi-waybar-audio output",
+    "return-type": "json",
+    "interval": 1,
+    "hide-empty-text": true,
+    "on-click": "/home/froeder/.dotfiles/asahi/bin/asahi-media-control output-volume mute-toggle",
+    "on-scroll-up": "/home/froeder/.dotfiles/asahi/bin/asahi-media-control output-volume raise",
+    "on-scroll-down": "/home/froeder/.dotfiles/asahi/bin/asahi-media-control output-volume lower",
+    "tooltip": false
+  },
+  "custom/microphone": {
+    "exec": "/home/froeder/.dotfiles/asahi/bin/asahi-waybar-audio input",
+    "return-type": "json",
+    "interval": 1,
+    "hide-empty-text": true,
+    "on-click": "/home/froeder/.dotfiles/asahi/bin/asahi-media-control input-volume mute-toggle",
+    "on-scroll-up": "/home/froeder/.dotfiles/asahi/bin/asahi-media-control input-volume raise",
+    "on-scroll-down": "/home/froeder/.dotfiles/asahi/bin/asahi-media-control input-volume lower",
+    "tooltip": false
+  },
   "custom/battery": {
     "exec": "/home/froeder/.dotfiles/asahi/bin/asahi-waybar-battery",
     "return-type": "json",
     "interval": 5,
+    "on-click": "/home/froeder/.dotfiles/asahi/bin/asahi-battery-menu",
     "tooltip": true
   },
   "tray": {
