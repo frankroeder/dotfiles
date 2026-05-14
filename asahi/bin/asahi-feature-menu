@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+dotfiles="$HOME/.dotfiles"
+walker="walker"
+
+choice="$(
+  printf '%s\n' \
+    "󰀻 Launcher" \
+    "󱂬 Terminal scratchpad" \
+    "󰏗 Toggle scratchpad" \
+    "󰍺 Send to scratchpad" \
+    "󰤨 Network" \
+    " Bluetooth" \
+    "󰸉 Wallpaper" \
+    "󰄄 Screenshot region" \
+    "󰹑 Screenshot full" \
+    "󰑓 Reload Hyprland" \
+    "󰑐 Restart Waybar" \
+    "󰑓 Restart Mako" \
+    "󰑓 Restart Hyprpaper" \
+    "󰑓 Restart Hypridle" \
+    "󰌾 Lock" \
+    "󰐥 Power" |
+    "$walker" --dmenu --placeholder Features --width 420 --height 480 --exit || true
+)"
+
+case "$choice" in
+  "󰀻 Launcher")
+    exec "$walker"
+    ;;
+  "󱂬 Terminal scratchpad")
+    exec "$dotfiles/asahi/bin/asahi-special-terminal"
+    ;;
+  "󰏗 Toggle scratchpad")
+    hyprctl dispatch togglespecialworkspace scratch
+    ;;
+  "󰍺 Send to scratchpad")
+    hyprctl dispatch movetoworkspacesilent special:scratch
+    ;;
+  "󰤨 Network")
+    exec "$dotfiles/asahi/bin/asahi-network-menu"
+    ;;
+  " Bluetooth")
+    exec "$dotfiles/asahi/bin/asahi-bluetooth-menu"
+    ;;
+  "󰸉 Wallpaper")
+    exec "$dotfiles/asahi/bin/asahi-wallpaper-menu"
+    ;;
+  "󰄄 Screenshot region")
+    exec "$dotfiles/asahi/bin/asahi-cmd-screenshot" region
+    ;;
+  "󰹑 Screenshot full")
+    exec "$dotfiles/asahi/bin/asahi-cmd-screenshot" fullscreen
+    ;;
+  "󰑓 Reload Hyprland")
+    exec "$dotfiles/asahi/bin/asahi-reload-hyprland"
+    ;;
+  "󰑐 Restart Waybar")
+    exec "$dotfiles/asahi/bin/asahi-restart-app" waybar -c "$HOME/.config/waybar/config.jsonc" -s "$HOME/.config/waybar/style.css"
+    ;;
+  "󰑓 Restart Mako")
+    exec "$dotfiles/asahi/bin/asahi-restart-app" mako --config "$HOME/.config/mako/config"
+    ;;
+  "󰑓 Restart Hyprpaper")
+    exec "$dotfiles/asahi/bin/asahi-restart-app" hyprpaper
+    ;;
+  "󰑓 Restart Hypridle")
+    exec "$dotfiles/asahi/bin/asahi-restart-app" hypridle
+    ;;
+  "󰌾 Lock")
+    loginctl lock-session
+    ;;
+  "󰐥 Power")
+    exec "$dotfiles/asahi/bin/asahi-control-menu"
+    ;;
+esac

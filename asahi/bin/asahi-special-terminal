@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+terminal="${TERMINAL:-ghostty}"
+workspace="special:term"
+
+if hyprctl clients -j | jq -e --arg workspace "$workspace" '.[] | select(.workspace.name == $workspace)' >/dev/null; then
+  exec hyprctl dispatch togglespecialworkspace term
+fi
+
+hyprctl dispatch exec "[workspace $workspace silent] $terminal"
+sleep 0.2
+hyprctl dispatch togglespecialworkspace term

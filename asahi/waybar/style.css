@@ -41,13 +41,16 @@ window#waybar > box {
 }
 
 #workspaces,
+#custom-features,
 #custom-player,
 #clock,
 #tray,
+#privacy,
 #custom-cpu,
 #custom-memory,
 #network,
 #bluetooth,
+#idle_inhibitor,
 #custom-audio,
 #custom-microphone,
 #custom-battery,
@@ -57,26 +60,29 @@ window#waybar > box {
 }
 
 #workspaces,
+#custom-features,
 #custom-player,
 #tray,
 #clock,
+#privacy,
 #custom-cpu,
 #custom-memory,
 #network,
 #bluetooth,
+#idle_inhibitor,
 #custom-audio,
 #custom-microphone,
 #custom-battery,
 #custom-control {
   background: @surface0;
-  border-radius: 6px;
+  border-radius: 4px;
 }
 
 #workspaces button {
   color: @subtext0;
   padding: 0 5px;
   margin: 0 1px;
-  border-radius: 6px;
+  border-radius: 4px;
   background: transparent;
 }
 
@@ -102,7 +108,7 @@ window#waybar > box {
 #workspaces .taskbar-window {
   padding: 0 3px;
   margin: 0;
-  border-radius: 5px;
+  border-radius: 4px;
 }
 
 #workspaces .taskbar-window.active {
@@ -153,6 +159,32 @@ window#waybar > box {
 #bluetooth {
   color: @blue;
   font-size: 23px;
+}
+
+#custom-features {
+  color: @lavender;
+  font-size: 18px;
+}
+
+#idle_inhibitor {
+  color: @overlay0;
+  font-size: 17px;
+}
+
+#idle_inhibitor.activated {
+  color: @green;
+}
+
+#privacy-item.screenshare {
+  color: @red;
+}
+
+#privacy-item.audio-in {
+  color: @sky;
+}
+
+#privacy-item.audio-out {
+  color: @teal;
 }
 
 #custom-audio,

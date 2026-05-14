@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-walker="$HOME/.dotfiles/asahi/bin/asahi-walker"
+walker="walker"
 
 pick() {
   "$walker" --dmenu --placeholder "$1" --width 360 --height 260 --exit || true

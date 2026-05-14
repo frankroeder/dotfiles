@@ -2,21 +2,23 @@
   "reload_style_on_change": true,
   "layer": "top",
   "position": "top",
-  "height": 28,
-  "spacing": 8,
-  "margin-top": 2,
+  "height": 30,
+  "spacing": 6,
+  "margin-top": 4,
   "margin-left": 8,
   "margin-right": 8,
-  "modules-left": ["hyprland/workspaces"],
+  "modules-left": ["custom/features", "hyprland/workspaces"],
   "modules-center": ["custom/player"],
   "modules-right": [
     "tray",
+    "privacy",
+    "idle_inhibitor",
+    "custom/audio",
+    "custom/microphone",
     "custom/cpu",
     "custom/memory",
     "network",
     "bluetooth",
-    "custom/audio",
-    "custom/microphone",
     "custom/battery",
     "clock"
   ],
@@ -44,6 +46,42 @@
   "clock": {
     "format": "{:%a %d %b %H:%M}",
     "tooltip": false
+  },
+  "custom/features": {
+    "format": "󰒓",
+    "tooltip": true,
+    "tooltip-format": "Features",
+    "on-click": "/home/froeder/.dotfiles/asahi/bin/asahi-feature-menu",
+    "on-click-right": "/home/froeder/.dotfiles/asahi/bin/asahi-control-menu"
+  },
+  "idle_inhibitor": {
+    "format": "{icon}",
+    "format-icons": {
+      "activated": "󰅶",
+      "deactivated": "󰾪"
+    },
+    "tooltip-format-activated": "Idle inhibited",
+    "tooltip-format-deactivated": "Idle allowed"
+  },
+  "privacy": {
+    "icon-size": 18,
+    "icon-spacing": 4,
+    "transition-duration": 150,
+    "modules": [
+      {
+        "type": "screenshare",
+        "tooltip": true
+      },
+      {
+        "type": "audio-in",
+        "tooltip": true
+      },
+      {
+        "type": "audio-out",
+        "tooltip": true
+      }
+    ],
+    "ignore-monitor": true
   },
   "custom/cpu": {
     "exec": "/home/froeder/.dotfiles/asahi/bin/asahi-waybar-cpu",

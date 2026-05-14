@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-
-set -euo pipefail
-
-sleep 0.08
-exec "$HOME/.dotfiles/asahi/bin/asahi-swayosd" --caps-lock

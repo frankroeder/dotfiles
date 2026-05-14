@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+wallpaper_dir="${ASAHI_WALLPAPERS_DIR:-$HOME/Pictures/wallpaper}"
+walker="walker"
+
+notify() {
+  command -v notify-send >/dev/null 2>&1 || return 0
+  notify-send "$@"
+}
+
+[ -d "$wallpaper_dir" ] || {
+  notify "Wallpaper" "$wallpaper_dir not found"
+  exit 0
+}
+
+if ! command -v fd >/dev/null 2>&1; then
+  notify "Wallpaper" "Install fd"
+  exit 0
+fi
+
+wallpaper="$(
+  fd --absolute-path -t f -e jpg -e jpeg -e png -e webp . "$wallpaper_dir" |
+    "$walker" --dmenu --placeholder Wallpaper --width 760 --height 520 --exit || true
+)"
+
+[ -n "$wallpaper" ] || exit 0
+[ -f "$wallpaper" ] || exit 0
+
+hyprctl hyprpaper preload "$wallpaper" >/dev/null 2>&1 || true
+hyprctl hyprpaper wallpaper ",$wallpaper"
+hyprctl hyprpaper unload unused >/dev/null 2>&1 || true
+
+notify "Wallpaper" "$(basename "$wallpaper")"

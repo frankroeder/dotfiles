@@ -17,11 +17,7 @@ open_network_editor() {
 }
 
 open_nmtui() {
-  if command -v nmtui >/dev/null 2>&1; then
-    ghostty -e nmtui &
-  else
-    notify "Network" "Install NetworkManager-tui for nmtui"
-  fi
+  "$HOME/.dotfiles/asahi/bin/asahi-launch-or-focus-tui" nmtui &
 }
 
 wifi_state="$(nmcli radio wifi)"
@@ -52,7 +48,7 @@ choice="$(
     else
       printf "󰖩 Enable Wi-Fi\n"
     fi
-  } | "$HOME/.dotfiles/asahi/bin/asahi-walker" --dmenu --placeholder Network --width 560 --height 420 --exit || true
+  } | walker --dmenu --placeholder Network --width 560 --height 420 --exit || true
 )"
 
 [ -n "$choice" ] || exit 0

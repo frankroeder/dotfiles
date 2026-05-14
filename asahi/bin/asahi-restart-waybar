@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-
-set -euo pipefail
-
-exec "$HOME/.dotfiles/asahi/bin/asahi-restart-app" waybar \
-  -c "$HOME/.config/waybar/config.jsonc" \
-  -s "$HOME/.config/waybar/style.css"
