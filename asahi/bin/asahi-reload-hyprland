@@ -2,5 +2,11 @@
 
 set -euo pipefail
 
+systeminfo="$(hyprctl systeminfo)"
+if [[ "$systeminfo" == *"configProvider: hyprlang"* ]]; then
+  notify-send -a Hyprland -t 3000 "Restart Hyprland to switch to Lua config"
+  exit 1
+fi
+
 hyprctl reload
 notify-send -a Hyprland -t 1500 "Hyprland reloaded"

@@ -1,0 +1,18 @@
+local terminal = "ghostty"
+
+hl.on("hyprland.start", function()
+  hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE")
+  hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE")
+  hl.exec_cmd("~/.dotfiles/asahi/autostart-scripts/ssh-keychain")
+  hl.exec_cmd("elephant service enable")
+  hl.exec_cmd("systemctl --user start elephant.service")
+  hl.exec_cmd("playerctld")
+  hl.exec_cmd("walker --gapplication-service")
+  hl.exec_cmd("hyprpaper")
+  hl.exec_cmd("swayosd-server")
+  hl.exec_cmd("waybar -c ~/.config/waybar/config.jsonc -s ~/.config/waybar/style.css")
+  hl.exec_cmd("mako --config ~/.config/mako/config")
+  hl.exec_cmd("hypridle")
+  hl.exec_cmd("hyprdynamicmonitors run")
+  hl.exec_cmd(terminal, { workspace = "1 silent" })
+end)
