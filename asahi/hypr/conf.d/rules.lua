@@ -22,3 +22,9 @@ window_rule({ class = "^(blueman-manager|nm-connection-editor)$" }, { float = tr
 layer_rule("^(volume_osd)$", { no_anim = true })
 layer_rule("^(brightness_osd)$", { no_anim = true })
 layer_rule("waybar", { blur = true, ignore_alpha = 0.35 })
+
+window_rule({ class = "^(pavucontrol|easyeffects|gnome-control-center|nm-applet)$" }, { float = true, center = true })
+window_rule({ class = "^(org.pwmt.zathura|sioyek|evince|okular)$" }, { opacity = "0.98 0.92", pseudo = false })
+window_rule({ class = ".*", title = ".*(Open File|Save As|Choose|Preferences|Properties|Dialog).*" }, { float = true, center = true })
+
+layer_rule("^(gtk-layer-shell|notifications|swayosd)$", { blur = true, ignore_alpha = 0.3 })

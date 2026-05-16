@@ -47,3 +47,9 @@ name = 'Kagi Translate'
 prefix = 'kt'
 url = 'https://translate.kagi.com/?from=auto&to=en_us&text=%TERM%'
 icon = 'accessories-dictionary'
+
+[[entries]]
+name = 'PyTorch Documentation'
+prefix = 'ptdoc'
+url = 'https://docs.pytorch.org/docs/stable/search.html?q=%TERM%'
+icon = 'applications-science'

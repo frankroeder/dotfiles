@@ -13,15 +13,6 @@ fi
 state_file="$state_dir/cpu.stat"
 history_file="$state_dir/cpu.history"
 
-sensor_matches_cpu() {
-  local label="${1,,}"
-
-  case "$label" in
-    *cpu* | *core* | *soc* | *die* | *package* | *tdie* | *tctl*) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
 read_temp_c() {
   local path="$1"
   local value
@@ -37,35 +28,22 @@ read_temp_c() {
 }
 
 cpu_temp_c() {
-  local label_path input_path label name_path hwmon_dir value best=""
-
+  # Allow user to force a specific sensor
   if [ -n "${ASAHI_CPU_TEMP_PATH:-}" ]; then
-    read_temp_c "$ASAHI_CPU_TEMP_PATH"
-    return
+    read_temp_c "$ASAHI_CPU_TEMP_PATH" && return
   fi
 
-  for label_path in /sys/class/hwmon/hwmon*/temp*_label; do
-    [ -r "$label_path" ] || continue
-    label="$(tr -d '\n' < "$label_path")"
-    sensor_matches_cpu "$label" || continue
+  # Best "system-like" temperature currently available:
+  # Highest value from the main Apple SMC hwmon (macsmc_hwmon)
+  local best=""
+  for d in /sys/class/hwmon/hwmon*; do
+    [ -d "$d" ] || continue
+    name=$(cat "$d/name" 2>/dev/null || echo "")
+    [ "$name" = "macsmc_hwmon" ] || continue
 
-    input_path="${label_path%_label}_input"
-    value="$(read_temp_c "$input_path" || true)"
-    [ -n "$value" ] || continue
-    [ -z "$best" ] || [ "$value" -gt "$best" ] && best="$value"
-  done
-
-  for name_path in /sys/class/hwmon/hwmon*/name; do
-    [ -r "$name_path" ] || continue
-    label="$(tr -d '\n' < "$name_path")"
-    sensor_matches_cpu "$label" || continue
-
-    hwmon_dir="${name_path%/name}"
-    for input_path in "$hwmon_dir"/temp*_input; do
-      [ -r "$input_path" ] || continue
-      value="$(read_temp_c "$input_path" || true)"
-      [ -n "$value" ] || continue
-      [ -z "$best" ] || [ "$value" -gt "$best" ] && best="$value"
+    for inp in "$d"/temp*_input; do
+      val=$(read_temp_c "$inp" || true)
+      [ -n "$val" ] && { [ -z "$best" ] || [ "$val" -gt "$best" ]; } && best="$val"
     done
   done
 
@@ -149,7 +127,7 @@ else
   temp_line="CPU temp n/a"
 fi
 
-tooltip="$(printf "CPU %d%%\nLoad 1/5/15: %s %s %s\nCores: %s\n%s\n%s\nClick: htop" \
+tooltip="$(printf "CPU %d%%\nLoad 1/5/15: %s %s %s\nCores: %s\n%s\n%s" \
   "$percentage" "$load1" "$load5" "$load15" "$cores" "$freq_line" "$temp_line")"
 
 jq -cn \

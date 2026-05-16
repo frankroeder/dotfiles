@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+#
+# asahi-temperature
+#
+# Lists all available temperature sensors on this Asahi Linux machine
+# with explanations of what each sensor represents.
+#
+
+set -euo pipefail
+
+echo "============================================"
+echo "     Asahi Linux Temperature Sensors"
+echo "============================================"
+echo ""
+
+# Helper to print a sensor nicely
+print_sensor() {
+  local label="$1"
+  local path="$2"
+  local desc="$3"
+
+  if [ -r "$path" ]; then
+    local raw
+    raw=$(cat "$path")
+    local celsius
+    celsius=$(awk -v v="$raw" 'BEGIN { printf "%.1f", v/1000 }')
+    printf "  %-28s %6.1f°C   (%s)\n" "$label:" "$celsius" "$path"
+    printf "    → %s\n\n" "$desc"
+  fi
+}
+
+echo ">>> Apple SMC - Main System Sensors (hwmon3: macsmc_hwmon)"
+echo "    These are the most relevant sensors for overall system temperature."
+echo ""
+
+print_sensor "NAND Flash Temperature" \
+  "/sys/class/hwmon/hwmon3/temp1_input" \
+  "Temperature of the internal NVMe SSD (NAND memory). Usually runs cooler than the SoC."
+
+print_sensor "Battery Hotspot" \
+  "/sys/class/hwmon/hwmon3/temp2_input" \
+  "Temperature near the battery. Often very close to battery temperature."
+
+print_sensor "Charge Regulator Temp" \
+  "/sys/class/hwmon/hwmon3/temp3_input" \
+  "Power management / battery charging circuitry. One of the better proxies for system load heat."
+
+print_sensor "WiFi/BT Module Temp" \
+  "/sys/class/hwmon/hwmon3/temp4_input" \
+  "Temperature of the WiFi + Bluetooth chip. Currently the warmest sensor in the SMC group on idle."
+
+echo ">>> Apple SMC - Battery"
+print_sensor "Battery Temperature" \
+  "/sys/class/hwmon/hwmon1/temp1_input" \
+  "Direct battery temperature sensor."
+
+echo ">>> NVMe SSD"
+print_sensor "NVMe Composite" \
+  "/sys/class/hwmon/hwmon0/temp1_input" \
+  "Temperature reported by the NVMe SSD controller."
+
+echo ">>> Audio Amplifiers (tas2764)"
+echo "    These are the speaker amplifier chips. They can get warm under audio load."
+echo ""
+
+for hw in 8 9 10 11 12 13; do
+  path="/sys/class/hwmon/hwmon${hw}/temp1_input"
+  if [ -r "$path" ]; then
+    name=$(cat "/sys/class/hwmon/hwmon${hw}/name" 2>/dev/null || echo "tas2764")
+    raw=$(cat "$path")
+    celsius=$(awk -v v="$raw" 'BEGIN { printf "%.1f", v/1000 }')
+    printf "  %s (hwmon%d):  %5.1f°C\n" "$name" "$hw" "$celsius"
+  fi
+done
