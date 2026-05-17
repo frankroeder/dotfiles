@@ -2,73 +2,117 @@
 #
 # asahi-temperature
 #
-# Lists all available temperature sensors on this Asahi Linux machine
-# with explanations of what each sensor represents.
+# Lists available temperature sensors using stable hwmon names/labels instead
+# of volatile hwmonN indices.
 #
 
 set -euo pipefail
+
+best_raw=""
+best_name=""
+best_label=""
+best_path=""
+
+read_value() {
+  local path="$1"
+
+  [ -r "$path" ] || return 1
+  tr -d '\n' < "$path"
+}
+
+sensor_label() {
+  local input="$1"
+  local sensor="${input##*/}"
+  local label
+
+  sensor="${sensor%_input}"
+  label="$(read_value "${input%_input}_label" 2>/dev/null || true)"
+  printf "%s\n" "${label:-$sensor}"
+}
+
+sensor_desc() {
+  local name="$1"
+  local label="$2"
+
+  case "$name:$label" in
+    macsmc_hwmon:NAND\ Flash\ Temperature)
+      printf "SMC storage/NAND area sensor."
+      ;;
+    macsmc_hwmon:Battery\ Hotspot)
+      printf "SMC battery-near hotspot; useful chassis heat proxy."
+      ;;
+    macsmc_hwmon:Charge\ Regulator\ Temp)
+      printf "SMC charge/power regulation; often the hottest system sensor."
+      ;;
+    macsmc_hwmon:WiFi/BT\ Module\ Temp)
+      printf "SMC Wi-Fi/Bluetooth module temperature."
+      ;;
+    macsmc_battery:*)
+      printf "Battery pack temperature from the SMC battery driver."
+      ;;
+    nvme:Composite)
+      printf "NVMe SSD controller composite temperature."
+      ;;
+    tas2764:*)
+      printf "Speaker amplifier chip; rises under audio load."
+      ;;
+  esac
+}
+
+print_sensor() {
+  local hwmon="$1"
+  local input="$2"
+  local name label raw celsius desc
+
+  raw="$(read_value "$input" 2>/dev/null || true)"
+  case "$raw" in
+    '' | *[!0-9-]*) return ;;
+  esac
+
+  name="$(read_value "$hwmon/name" 2>/dev/null || printf "unknown")"
+  label="$(sensor_label "$input")"
+  celsius="$(awk -v value="$raw" 'BEGIN { printf "%.2f", value / 1000 }')"
+  desc="$(sensor_desc "$name" "$label")"
+
+  printf "  %-18s %-28s %7s°C   %s\n" "$name" "$label" "$celsius" "$input"
+  [ -n "$desc" ] && printf "    %s\n" "$desc"
+
+  if [ -z "$best_raw" ] || [ "$raw" -gt "$best_raw" ]; then
+    best_raw="$raw"
+    best_name="$name"
+    best_label="$label"
+    best_path="$input"
+  fi
+}
 
 echo "============================================"
 echo "     Asahi Linux Temperature Sensors"
 echo "============================================"
 echo ""
-
-# Helper to print a sensor nicely
-print_sensor() {
-  local label="$1"
-  local path="$2"
-  local desc="$3"
-
-  if [ -r "$path" ]; then
-    local raw
-    raw=$(cat "$path")
-    local celsius
-    celsius=$(awk -v v="$raw" 'BEGIN { printf "%.1f", v/1000 }')
-    printf "  %-28s %6.1f°C   (%s)\n" "$label:" "$celsius" "$path"
-    printf "    → %s\n\n" "$desc"
-  fi
-}
-
-echo ">>> Apple SMC - Main System Sensors (hwmon3: macsmc_hwmon)"
-echo "    These are the most relevant sensors for overall system temperature."
+echo "Values are read from /sys/class/hwmon by device name and temp label."
 echo ""
 
-print_sensor "NAND Flash Temperature" \
-  "/sys/class/hwmon/hwmon3/temp1_input" \
-  "Temperature of the internal NVMe SSD (NAND memory). Usually runs cooler than the SoC."
+for hwmon in /sys/class/hwmon/hwmon{0..99}; do
+  [ -d "$hwmon" ] || continue
 
-print_sensor "Battery Hotspot" \
-  "/sys/class/hwmon/hwmon3/temp2_input" \
-  "Temperature near the battery. Often very close to battery temperature."
+  printed_header=0
+  for input in "$hwmon"/temp*_input; do
+    [ -r "$input" ] || continue
 
-print_sensor "Charge Regulator Temp" \
-  "/sys/class/hwmon/hwmon3/temp3_input" \
-  "Power management / battery charging circuitry. One of the better proxies for system load heat."
+    if [ "$printed_header" -eq 0 ]; then
+      name="$(read_value "$hwmon/name" 2>/dev/null || printf "unknown")"
+      printf ">>> %s (%s)\n" "$name" "$hwmon"
+      printed_header=1
+    fi
 
-print_sensor "WiFi/BT Module Temp" \
-  "/sys/class/hwmon/hwmon3/temp4_input" \
-  "Temperature of the WiFi + Bluetooth chip. Currently the warmest sensor in the SMC group on idle."
+    print_sensor "$hwmon" "$input"
+  done
 
-echo ">>> Apple SMC - Battery"
-print_sensor "Battery Temperature" \
-  "/sys/class/hwmon/hwmon1/temp1_input" \
-  "Direct battery temperature sensor."
-
-echo ">>> NVMe SSD"
-print_sensor "NVMe Composite" \
-  "/sys/class/hwmon/hwmon0/temp1_input" \
-  "Temperature reported by the NVMe SSD controller."
-
-echo ">>> Audio Amplifiers (tas2764)"
-echo "    These are the speaker amplifier chips. They can get warm under audio load."
-echo ""
-
-for hw in 8 9 10 11 12 13; do
-  path="/sys/class/hwmon/hwmon${hw}/temp1_input"
-  if [ -r "$path" ]; then
-    name=$(cat "/sys/class/hwmon/hwmon${hw}/name" 2>/dev/null || echo "tas2764")
-    raw=$(cat "$path")
-    celsius=$(awk -v v="$raw" 'BEGIN { printf "%.1f", v/1000 }')
-    printf "  %s (hwmon%d):  %5.1f°C\n" "$name" "$hw" "$celsius"
-  fi
+  [ "$printed_header" -eq 1 ] && echo ""
 done
+
+if [ -n "$best_raw" ]; then
+  best_celsius="$(awk -v value="$best_raw" 'BEGIN { printf "%.2f", value / 1000 }')"
+  echo "Hottest:"
+  printf "  %s / %s: %s°C   %s\n" "$best_name" "$best_label" "$best_celsius" "$best_path"
+fi

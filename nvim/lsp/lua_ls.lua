@@ -24,7 +24,7 @@ return {
       diagnostics = {
         enable = true,
 
-        globals = { "vim" },
+        globals = { "vim", "hl" },
       },
       workspace = {
         checkThirdParty = false,

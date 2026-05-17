@@ -13,41 +13,86 @@ fi
 state_file="$state_dir/cpu.stat"
 history_file="$state_dir/cpu.history"
 
-read_temp_c() {
+read_temp_raw() {
   local path="$1"
   local value
 
   [ -r "$path" ] || return 1
   value="$(tr -d '\n' < "$path")"
 
-  case "$value" in
-    '' | *[!0-9-]*) return 1 ;;
-  esac
+  [[ "$value" =~ ^-?[0-9]+$ ]] || return 1
 
-  awk -v value="$value" 'BEGIN { if (value > 1000) value = value / 1000; printf "%.0f", value }'
+  printf "%s\n" "$value"
 }
 
-cpu_temp_c() {
-  # Allow user to force a specific sensor
-  if [ -n "${ASAHI_CPU_TEMP_PATH:-}" ]; then
-    read_temp_c "$ASAHI_CPU_TEMP_PATH" && return
-  fi
+sensor_label() {
+  local input="$1"
+  local sensor="${input##*/}"
+  local label
 
-  # Best "system-like" temperature currently available:
-  # Highest value from the main Apple SMC hwmon (macsmc_hwmon)
-  local best=""
-  for d in /sys/class/hwmon/hwmon*; do
+  sensor="${sensor%_input}"
+  label="$(tr -d '\n' < "${input%_input}_label" 2>/dev/null || true)"
+  printf "%s\n" "${label:-$sensor}"
+}
+
+best_temp_sensor() {
+  local only_name="${1:-}"
+  local best_raw=""
+  local best_label=""
+  local best_path=""
+  local d name inp val label
+
+  for d in /sys/class/hwmon/hwmon{0..99}; do
     [ -d "$d" ] || continue
-    name=$(cat "$d/name" 2>/dev/null || echo "")
-    [ "$name" = "macsmc_hwmon" ] || continue
+    name="$(cat "$d/name" 2>/dev/null || true)"
+    [ -z "$only_name" ] || [ "$name" = "$only_name" ] || continue
 
     for inp in "$d"/temp*_input; do
-      val=$(read_temp_c "$inp" || true)
-      [ -n "$val" ] && { [ -z "$best" ] || [ "$val" -gt "$best" ]; } && best="$val"
+      [ -r "$inp" ] || continue
+      val="$(read_temp_raw "$inp" || true)"
+      [ -n "$val" ] || continue
+
+      if [ -z "$best_raw" ] || [ "$val" -gt "$best_raw" ]; then
+        label="$(sensor_label "$inp")"
+        best_raw="$val"
+        best_label="${name:-unknown} / $label"
+        best_path="$inp"
+      fi
     done
   done
 
-  [ -n "$best" ] && printf "%s\n" "$best"
+  [ -n "$best_raw" ] && printf "%s\t%s\t%s\n" "$best_raw" "$best_label" "$best_path"
+}
+
+thermal_sensor() {
+  if [ -n "${ASAHI_CPU_TEMP_PATH:-}" ]; then
+    local raw label
+
+    raw="$(read_temp_raw "$ASAHI_CPU_TEMP_PATH")"
+    label="${ASAHI_CPU_TEMP_LABEL:-$(sensor_label "$ASAHI_CPU_TEMP_PATH")}"
+    printf "%s\t%s\t%s\n" "$raw" "$label" "$ASAHI_CPU_TEMP_PATH"
+    return
+  fi
+
+  best_temp_sensor macsmc_hwmon && return
+  best_temp_sensor
+}
+
+format_temp() {
+  awk -v value="$1" -v decimals="$2" 'BEGIN { printf "%.*f", decimals, value / 1000 }'
+}
+
+class_for_temp() {
+  local current="$1"
+  local value="$2"
+
+  if [ "$value" -ge 80000 ]; then
+    printf "critical\n"
+  elif [ "$value" -ge 65000 ] && [ "$current" = "normal" ]; then
+    printf "warning\n"
+  else
+    printf "%s\n" "$current"
+  fi
 }
 
 read -r _ user nice system idle iowait irq softirq steal _ < /proc/stat
@@ -118,17 +163,28 @@ else
   freq_line="Freq n/a"
 fi
 
-temp_c="$(cpu_temp_c || true)"
-if [ -n "$temp_c" ]; then
-  temp_text=" ${temp_c}C"
-  temp_line="CPU temp ${temp_c} C"
-else
-  temp_text=""
-  temp_line="CPU temp n/a"
+thermal="$(thermal_sensor || true)"
+temp_raw=""
+temp_label=""
+temp_path=""
+
+if [ -n "$thermal" ]; then
+  IFS=$'\t' read -r temp_raw temp_label temp_path <<< "$thermal"
 fi
 
-tooltip="$(printf "CPU %d%%\nLoad 1/5/15: %s %s %s\nCores: %s\n%s\n%s" \
-  "$percentage" "$load1" "$load5" "$load15" "$cores" "$freq_line" "$temp_line")"
+if [ -n "$temp_raw" ]; then
+  temp_text=" $(format_temp "$temp_raw" 0)C"
+  temp_line="Thermal $(format_temp "$temp_raw" 1) C (${temp_label})"
+  temp_path_line="Sensor: $temp_path"
+  class="$(class_for_temp "$class" "$temp_raw")"
+else
+  temp_text=""
+  temp_line="Thermal n/a"
+  temp_path_line="Sensor: n/a"
+fi
+
+tooltip="$(printf "CPU %d%%\nLoad 1/5/15: %s %s %s\nCores: %s\n%s\n%s\n%s" \
+  "$percentage" "$load1" "$load5" "$load15" "$cores" "$freq_line" "$temp_line" "$temp_path_line")"
 
 jq -cn \
   --arg text "CPU $history $percentage%$temp_text" \

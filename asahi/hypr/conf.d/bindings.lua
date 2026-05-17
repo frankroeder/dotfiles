@@ -26,7 +26,8 @@ hl.bind(mod .. " + SHIFT + Escape", hl.dsp.exec_cmd(scripts .. "/asahi-control-m
 hl.bind(mod .. " + CONTROL + ALT + S", hl.dsp.exec_cmd("loginctl lock-session && systemctl suspend"), { desc = "Suspend" })
 hl.bind(mod .. " + ALT + CONTROL + 2", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot smart"), { desc = "Screenshot smart" })
 hl.bind(mod .. " + ALT + CONTROL + 3", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot fullscreen"), { desc = "Screenshot fullscreen" })
-hl.bind(mod .. " + ALT + CONTROL + 4", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot region"), { desc = "Screenshot region" })
+hl.bind(mod .. " + ALT + CONTROL + 5", hl.dsp.exec_cmd("hyprpicker -a"), { desc = "Color picker" })
+
 
 -- Reloads
 hl.bind(mod .. " + CONTROL + ALT + R", hl.dsp.exec_cmd(scripts .. "/asahi-reload-hyprland"), { desc = "Reload Hyprland" })
