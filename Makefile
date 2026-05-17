@@ -536,6 +536,10 @@ asahi-desktop: asahi-common
 		mkdir -p "$$profile/chrome"; \
 		ln -sfn "$(DOTFILES)/asahi/librewolf/userChrome.css" "$$profile/chrome/userChrome.css"; \
 	done
+	@for profile in $(HOME)/.thunderbird/*.default*; do \
+		[ -d "$$profile" ] || continue; \
+		ln -sfn "$(DOTFILES)/asahi/thunderbird/user.js" "$$profile/user.js"; \
+	done
 
 asahi-battery-alerts: ## Install and start Asahi battery alert daemon
 	@$(call print_step,Installing Asahi battery alerts)
