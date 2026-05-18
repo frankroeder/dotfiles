@@ -20,3 +20,6 @@ hl.monitor({
   scale = 1.5,
   vrr = 0,
 })
+
+hl.workspace_rule({ workspace = "1", monitor = "HDMI-A-1" })
+hl.workspace_rule({ workspace = "2", monitor = "HDMI-A-1" })
