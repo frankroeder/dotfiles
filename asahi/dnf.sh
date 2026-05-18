@@ -68,6 +68,9 @@ sudo dnf install -y \
   nm-connection-editor \
   okular \
   papirus-icon-theme \
+  pipewire \
+  pipewire-pulseaudio \
+  pipewire-utils \
   playerctl \
   ripgrep \
   slurp \
@@ -82,6 +85,10 @@ sudo dnf install -y \
   wireplumber \
   wl-clipboard \
   xdg-utils \
+  xdg-desktop-portal \
   xdg-desktop-portal-gtk \
   xdg-desktop-portal-hyprland \
   zsh
+
+systemctl --user daemon-reload
+systemctl --user enable --now pipewire.socket pipewire-pulse.socket wireplumber.service

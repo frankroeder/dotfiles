@@ -291,10 +291,13 @@ _git: ## Configure Git with completion and dotfiles
 .PHONY: agents
 agents: ## Sync coding agent instructions and settings from Nextcloud
 	# Codex
+ifneq ($(shell command -v codex 2>/dev/null),)
 	$(call print_step,Syncing Codex agent configuration)
-	@mkdir -p $(HOME)/.codex
 	$(call link_if_exists,$(NEXTCLOUD_DIR)/AGENTS.md,$(HOME)/.codex/AGENTS.md)
 	$(call link_first_exists,$(NEXTCLOUD_DIR)/codex_config.toml $(NEXTCLOUD_DIR)/codex_settings.toml,$(HOME)/.codex/config.toml)
+else
+	$(call print_warning,Codex CLI not installed; skipping Codex agent configuration)
+endif
 	# Claude
 ifneq ($(shell command -v claude 2>/dev/null),)
 	$(call print_step,Syncing Claude agent configuration)
@@ -319,6 +322,13 @@ ifneq ($(shell command -v opencode 2>/dev/null),)
 	$(call link_if_exists,$(NEXTCLOUD_DIR)/opencode.jsonc,$(HOME)/.config/opencode/opencode.jsonc)
 else
 	$(call print_warning,OpenCode CLI not installed; skipping OpenCode agent configuration)
+endif
+	# Grok
+ifneq ($(shell command -v grok 2>/dev/null),)
+	$(call print_step,Syncing Grok build configuration)
+	$(call link_if_exists,$(NEXTCLOUD_DIR)/AGENTS.md,$(HOME)/.grok/AGENTS.md)
+else
+	$(call print_warning,Grok Build CLI not installed; skipping Grok configuration)
 endif
 
 .PHONY: after
