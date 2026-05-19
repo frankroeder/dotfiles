@@ -16,7 +16,7 @@ cleanup() {
 trap cleanup EXIT
 
 log() {
-  printf '[zotero-setup] %s\n' "$*"
+  printf '[zotero-setup] %s\n' "$*" >&2
 }
 
 fail() {
@@ -103,7 +103,9 @@ fix_desktop_entry() {
 
   log "Fixing desktop entry paths..."
   sudo sed -i "s|^Icon=.*|Icon=$INSTALL_DIR/icons/icon128.png|" "$desktop_path"
-  sudo sed -i "s|^Exec=.*|Exec=$INSTALL_DIR/zotero -url %U|" "$desktop_path"
+  # Point the desktop entry at our Asahi wrapper so the launcher gets the correct
+  # environment (X11 + no hardware acceleration).
+  sudo sed -i "s|^Exec=.*|Exec=$HOME/.dotfiles/asahi/bin/zotero -url %U|" "$desktop_path"
 
   mkdir -p "$LOCAL_APPS_DIR"
   ln -sfn "$desktop_path" "$LOCAL_APPS_DIR/$DESKTOP_FILE_NAME"
@@ -111,6 +113,29 @@ fix_desktop_entry() {
   if command -v update-desktop-database >/dev/null 2>&1; then
     update-desktop-database "$LOCAL_APPS_DIR" || true
   fi
+}
+
+# Minimal patch for the linux-arm64 tarball: it is missing the "white"
+# loading icon variant that the modern Zotero UI expects.
+# Without this the app crashes shortly after launch with the
+# "Missing chrome ... white/loading.svg" error.
+patch_omni_jar() {
+  [[ -f "$INSTALL_DIR/app/omni.ja" ]] || return 0
+
+  local zip_cmd="zip -r -u"
+  if [[ ! -w "$INSTALL_DIR/app/omni.ja" ]]; then
+    zip_cmd="sudo zip -r -u"
+  fi
+
+  local tmp
+  tmp="$(mktemp -d)"
+  mkdir -p "$tmp/chrome/skin/default/zotero/16/white"
+  if unzip -p "$INSTALL_DIR/app/omni.ja" 'chrome/skin/default/zotero/16/light/loading.svg' \
+       > "$tmp/chrome/skin/default/zotero/16/white/loading.svg" 2>/dev/null; then
+    (cd "$tmp" && $zip_cmd "$INSTALL_DIR/app/omni.ja" chrome/ >/dev/null 2>&1) || true
+    log "Patched omni.ja with missing white skin variant"
+  fi
+  rm -rf "$tmp"
 }
 
 main() {
@@ -124,6 +149,7 @@ main() {
   extracted="$(extract_zotero "$archive")"
 
   install_zotero "$extracted"
+  patch_omni_jar
   fix_desktop_entry
 
   log "Done. Zotero is installed at $INSTALL_DIR"

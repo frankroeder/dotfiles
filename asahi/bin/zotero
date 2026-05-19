@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+#
+# Minimal Asahi wrapper for Zotero linux-arm64.
+# - Replicates ulimit from the stock launcher
+# - Forces X11 + disables all hardware acceleration (required on Asahi)
+# - Calls zotero-bin directly so the stock launcher cannot override MOZ_ENABLE_WAYLAND
+
+ulimit -n 4096 2>/dev/null || true
+
+exec env \
+  MOZ_ALLOW_DOWNGRADE=1 \
+  MOZ_LEGACY_PROFILES=1 \
+  GDK_BACKEND=x11 \
+  MOZ_ENABLE_WAYLAND=0 \
+  MOZ_DISABLE_HWACCEL=1 \
+  MOZ_DISABLE_RDD_SANDBOX=1 \
+  LIBGL_ALWAYS_SOFTWARE=1 \
+  GDK_SCALE=1 \
+  GDK_DPI_SCALE=1.25 \
+  /opt/zotero/zotero-bin -app /opt/zotero/app/application.ini "$@"
