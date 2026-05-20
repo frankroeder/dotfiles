@@ -16,5 +16,5 @@ exec env \
   MOZ_DISABLE_RDD_SANDBOX=1 \
   LIBGL_ALWAYS_SOFTWARE=1 \
   GDK_SCALE=1 \
-  GDK_DPI_SCALE=1.25 \
+  GDK_DPI_SCALE=2 \
   /opt/zotero/zotero-bin -app /opt/zotero/app/application.ini "$@"

@@ -1,5 +1,11 @@
 #!/usr/bin/env zsh
 
-local file
-file=$(ls /System/Library/Sounds/ | sort -R | head -1)
-afplay "/System/Library/Sounds/$file"
+if [[ $OSTYPE == Darwin ]]; then
+  local file
+  file=$(ls /System/Library/Sounds/ | sort -R | head -1)
+  afplay "/System/Library/Sounds/$file"
+else
+  local file
+  file=$(ls /usr/share/sounds/freedesktop/stereo/*.oga | sort -R | head -1)
+  paplay "$file"
+fi

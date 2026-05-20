@@ -24,8 +24,8 @@ hl.bind(mod .. " + ALT + Return", hl.dsp.exec_cmd(scripts .. "/asahi-special-ter
 hl.bind(mod .. " + Escape", hl.dsp.exec_cmd("hyprlock --config " .. configDir .. "/hyprlock.conf"), { desc = "Lock" })
 hl.bind(mod .. " + SHIFT + Escape", hl.dsp.exec_cmd(scripts .. "/asahi-control-menu"), { desc = "Control menu" })
 hl.bind(mod .. " + CONTROL + ALT + S", hl.dsp.exec_cmd("loginctl lock-session && systemctl suspend"), { desc = "Suspend" })
-hl.bind(mod .. " + ALT + CONTROL + 2", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot smart"), { desc = "Screenshot smart" })
-hl.bind(mod .. " + ALT + CONTROL + 3", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot fullscreen"), { desc = "Screenshot fullscreen" })
+hl.bind(mod .. " + ALT + CONTROL + 3", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot smart"), { desc = "Screenshot smart" })
+hl.bind(mod .. " + ALT + CONTROL + 4", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot fullscreen"), { desc = "Screenshot fullscreen" })
 hl.bind(mod .. " + ALT + CONTROL + 5", hl.dsp.exec_cmd("hyprpicker -a"), { desc = "Color picker" })
 
 
