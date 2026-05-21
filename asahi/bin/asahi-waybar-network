@@ -41,18 +41,20 @@ fi
 IFS=: read -r dev type state conn <<<"$line"
 
 if [ "$type" = "wifi" ]; then
-  icon="󰤨"
-  # crude signal icon
-  sig=$(nmcli -g 802-11-wireless.strength dev show "$dev" 2>/dev/null || echo 0)
-  if [ "$sig" -lt 20 ]; then icon="󰤯"
-  elif [ "$sig" -lt 40 ]; then icon="󰤟"
-  elif [ "$sig" -lt 60 ]; then icon="󰤢"
-  elif [ "$sig" -lt 80 ]; then icon="󰤥"
+  # Try to get signal strength more reliably
+  sig=$(nmcli -t -f IN-USE,SIGNAL dev wifi list --rescan no 2>/dev/null | awk -F: '/^\*/ {print $2; exit}' || echo 0)
+  [ -z "$sig" ] && sig=50
+
+  if [ "$sig" -ge 75 ]; then icon="󰤨"
+  elif [ "$sig" -ge 50 ]; then icon="󰤥"
+  elif [ "$sig" -ge 25 ]; then icon="󰤢"
+  else icon="󰤟"
   fi
+
   tooltip=$(build_wifi_tooltip "$dev" "$conn")
   class="connected"
   pct=$sig
-  # Bar only shows the wifi/ethernet symbol (no text label on the pill)
+  # Bar only shows the wifi symbol (no text label)
   text="$icon"
 elif [ "$type" = "ethernet" ]; then
   icon="󰀂"
@@ -61,9 +63,10 @@ elif [ "$type" = "ethernet" ]; then
   pct=100
   text="$icon"
 else
-  icon="󰛳"
-  tooltip="$conn ($type)"
-  class="normal"
+  # Disconnected or no active connection → proper wifi disconnected symbol
+  icon="󰤮"
+  tooltip="Disconnected"
+  class="disconnected"
   pct=0
   text="$icon"
 fi

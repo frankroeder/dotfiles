@@ -3,18 +3,21 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 
-Item {
+Rectangle {
     id: root
 
-    implicitWidth: row.implicitWidth
-    // implicitHeight: 30
+    color: "#313244"   // dark background like waybar @surface0 modules
+    radius: 6
+
+    implicitWidth: content.implicitWidth + 14
+    implicitHeight: 26
 
     property string icon: "󰤨"
     property string text: "WiFi"
     property string tooltip: ""
 
     RowLayout {
-        id: row
+        id: content
         anchors.centerIn: parent
         spacing: 2
 
@@ -34,10 +37,8 @@ Item {
             onStreamFinished: {
                 try {
                     const data = JSON.parse(text.trim())
-                    root.text = data.text || "WiFi"
+                    root.text = data.text || "󰤮"
                     root.tooltip = data.tooltip || ""
-                    if (data.text && data.text.includes("down")) root.icon = "󰤭"
-                    else root.icon = "󰤨"
                 } catch (e) {}
             }
         }
@@ -50,24 +51,18 @@ Item {
         onTriggered: netProc.running = true
     }
 
+    Component.onCompleted: netProc.running = true
+
     MouseArea {
         id: ma
         anchors.fill: parent
+        anchors.margins: -12   // much larger hit area so hover and click are reliable
         hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
 
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
-        property var netPopup: null
-
-        onClicked: (mouse) => {
-            if (mouse.button === Qt.RightButton) {
-                Quickshell.execDetached(["nmtui"])
-            } else {
-                // Left click: rich floating popup
-                if (!netPopup) {
-                    netPopup = Qt.createComponent("NetworkPopupWindow.qml").createObject(root)
-                }
-                netPopup.shouldShow = !netPopup.shouldShow
-            }
+        onClicked: {
+            // Click on Wifi symbol → open nmtui (in terminal)
+            Quickshell.execDetached(["foot", "-e", "nmtui"])
         }
     }
 

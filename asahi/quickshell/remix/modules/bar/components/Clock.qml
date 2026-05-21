@@ -3,13 +3,16 @@ import QtQuick.Layouts
 
 // Improved Clock component inspired by the reference Clock.qml
 // Bigger, nicer formatting, subtle animation, click to open launcher (via parent IPC if wired)
-Item {
+Rectangle {
   id: root
+
+  color: "#313244"
+  radius: 6
 
   property var launcher: null   // can be wired later for click-to-launcher
 
-  implicitWidth: clockRow.implicitWidth
-  implicitHeight: clockRow.implicitHeight
+  implicitWidth: clockRow.implicitWidth + 14
+  implicitHeight: 26
 
   RowLayout {
     id: clockRow

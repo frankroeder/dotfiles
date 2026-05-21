@@ -3,18 +3,21 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 
-Item {
+Rectangle {
     id: root
 
-    implicitWidth: row.implicitWidth
-    implicitHeight: 30
+    color: "#313244"   // dark background like waybar @surface0 modules
+    radius: 6
+
+    implicitWidth: content.implicitWidth + 14
+    implicitHeight: 26
 
     property string icon: "󰕾"
     property string text: "--%"
     property bool muted: false
 
     RowLayout {
-        id: row
+        id: content
         anchors.centerIn: parent
         spacing: 2
 
@@ -35,9 +38,12 @@ Item {
             onStreamFinished: {
                 try {
                     const data = JSON.parse(text.trim())
-                    root.text = data.text || "--%"
+                    // Prefer the script's text (it already includes the correct icon for muted state, like waybar)
+                    root.text = data.text || (root.muted ? "󰖁 --%" : "󰕾 --%")
                     root.muted = (data.class || []).includes("muted") || (data.text || "").includes("muted")
-                } catch (e) {}
+                } catch (e) {
+                    root.text = root.muted ? "󰖁 --%" : "󰕾 --%"
+                }
             }
         }
     }
@@ -49,26 +55,20 @@ Item {
         onTriggered: audioProc.running = true
     }
 
+    Component.onCompleted: audioProc.running = true
+
     MouseArea {
         id: volMa
         anchors.fill: parent
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
 
-        property var volPopup: null
-
-        onClicked: (mouse) => {
-            if (mouse.button === Qt.RightButton) {
-                // Right click: quick mute
-                Quickshell.execDetached(["bash", "-c", "$HOME/.dotfiles/asahi/bin/asahi-media-control output mute-toggle"])
-            } else {
-                // Left click: rich popup
-                if (!volPopup) {
-                    volPopup = Qt.createComponent("VolumePopupWindow.qml").createObject(root)
-                }
-                volPopup.shouldShow = !volPopup.shouldShow
-            }
+        // Left click: toggle mute
+        onClicked: {
+            Quickshell.execDetached(["bash", "-c", "$HOME/.dotfiles/asahi/bin/asahi-media-control output mute-toggle"])
         }
 
+        // Scroll wheel: adjust volume
         onWheel: (wheel) => {
             const direction = wheel.angleDelta.y > 0 ? "raise" : "lower"
             Quickshell.execDetached(["bash", "-c", "$HOME/.dotfiles/asahi/bin/asahi-media-control output-volume " + direction])

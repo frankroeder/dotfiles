@@ -3,11 +3,14 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 
-Item {
+Rectangle {
     id: root
 
-    implicitWidth: row.implicitWidth
-    implicitHeight: 30
+    color: "#313244"   // dark background like waybar @surface0 modules
+    radius: 6
+
+    implicitWidth: row.implicitWidth + 14
+    implicitHeight: 26
 
     property string icon: ""
     property string text: "BT"
@@ -54,6 +57,7 @@ Item {
         id: ma
         anchors.fill: parent
         hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
         acceptedButtons: Qt.LeftButton | Qt.RightButton
 
         property var btPopup: null

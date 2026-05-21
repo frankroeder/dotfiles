@@ -3,17 +3,26 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 
-Item {
+Rectangle {
     id: root
 
-    implicitWidth: row.implicitWidth
-    implicitHeight: 30
+    color: "#313244"   // dark background like waybar @surface0 modules
+    radius: 6
 
-    property string text: "--%"
+    implicitWidth: content.implicitWidth + 14
+    implicitHeight: 26
+
+    property string text: "󰍬 --%"
     property bool muted: false
+    property string level: "--"   // current volume percentage as string
+
+    onMutedChanged: {
+        const icon = muted ? "󰍭" : "󰍬"
+        text = icon + " " + level + "%"
+    }
 
     RowLayout {
-        id: row
+        id: content
         anchors.centerIn: parent
         spacing: 2
 
@@ -33,7 +42,6 @@ Item {
             onStreamFinished: {
                 try {
                     const data = JSON.parse(text.trim())
-                    root.text = data.text || "--%"
                     root.muted = (data.class || []).includes("muted") || (data.text || "").includes("muted")
                 } catch (e) {}
             }
@@ -44,12 +52,42 @@ Item {
         interval: 2000
         running: true
         repeat: true
-        onTriggered: micProc.running = true
+        onTriggered: {
+            micProc.running = true
+            micLevelProc.running = true
+        }
+    }
+
+    // Separate process to always get real mic volume percentage
+    Process {
+        id: micLevelProc
+        command: ["bash", "-c", "wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null | awk '{gsub(/[^0-9.]/, \"\", $2); printf \"%.0f\", $2*100}'"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const perc = text.trim()
+                root.level = perc.length > 0 ? perc : "--"
+                const icon = root.muted ? "󰍭" : "󰍬"
+                root.text = icon + " " + root.level + "%"
+            }
+        }
+    }
+
+    Component.onCompleted: {
+        micProc.running = true
+        micLevelProc.running = true
     }
 
     MouseArea {
         anchors.fill: parent
-        onClicked: Quickshell.execDetached(["bash", "-c", "$HOME/.dotfiles/asahi/bin/asahi-media-control input mute-toggle"])
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+
+        // Left click: toggle mute
+        onClicked: {
+            Quickshell.execDetached(["bash", "-c", "$HOME/.dotfiles/asahi/bin/asahi-media-control input mute-toggle"])
+        }
+
+        // Scroll wheel: adjust microphone volume
         onWheel: (wheel) => {
             const direction = wheel.angleDelta.y > 0 ? "raise" : "lower"
             Quickshell.execDetached(["bash", "-c", "$HOME/.dotfiles/asahi/bin/asahi-media-control input-volume " + direction])

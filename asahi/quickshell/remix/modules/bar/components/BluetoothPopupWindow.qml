@@ -107,6 +107,7 @@ PanelWindow {
               anchors.leftMargin: 8
               anchors.rightMargin: 8
               spacing: 8
+              // Note: anchors are allowed here because this RowLayout is inside a Rectangle (not a Layout)
 
               Text {
                 text: modelData.connected ? "󰂱" : "󰂯"
@@ -128,7 +129,7 @@ PanelWindow {
                 id: actionBtn
                 width: 60
                 height: 22
-                anchors.verticalCenter: parent.verticalCenter
+                Layout.alignment: Qt.AlignVCenter
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
                   if (modelData.connected) {

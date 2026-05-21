@@ -32,7 +32,7 @@ PanelWindow {
   anchors.left: true
   anchors.right: true
   implicitHeight: 36   // thicker bar, closer to waybar with 16px font + padding
-  color: root.colBg
+  color: "transparent"   // overall bar transparent, widgets provide their own dark background like waybar
 
   // CPU script (usage + temperature)
   Process {
@@ -72,8 +72,6 @@ PanelWindow {
     running: true
     repeat: true
     onTriggered: {
-      cpuProc.running = true
-      memProc.running = true
       cpuScriptProc.running = true
       memScriptProc.running = true
     }
@@ -84,7 +82,7 @@ PanelWindow {
     anchors.margins: 6
     spacing: 10
 
-    // Workspaces
+    // Workspaces (left)
     Repeater {
       model: 9
       Text {
@@ -100,21 +98,31 @@ PanelWindow {
       }
     }
 
+    // Power and Control Center on the left
+    BarComponents.PowerButton {}
+    BarComponents.ControlCenterToggle {
+      id: ccToggle
+    }
+
+    // Spacer to push Media to center
+    Item { Layout.fillWidth: true }
     Item { Layout.fillWidth: true }
 
-    // New widgets from remix (inspired by tripathiji1312 style)
-    BarComponents.Volume {}
-    BarComponents.Brightness {}
+    // Media in the middle
+    BarComponents.MediaPlayer {}
+
+    // Spacer to push right group to the right
+    Item { Layout.fillWidth: true }
+
+    // Right side (as specified): mic, vol, CPU, RAM, Wifi, bluetooth, battery, clock
     BarComponents.Microphone {}
-    BarComponents.SystemTray {}
+    BarComponents.Volume {}
 
-    Rectangle { width: 1; height: 16; color: root.colMuted }
-
-    // CPU — fixed width so the graph bar never changes the pill size (matches waybar #custom-cpu behavior)
+    // CPU — fixed width
     Rectangle {
-      color: "#313244"   // surface0
+      color: "#313244"
       radius: 4
-      implicitWidth: 168
+      implicitWidth: 178
       implicitHeight: 24
 
       Text {
@@ -122,19 +130,18 @@ PanelWindow {
         anchors.centerIn: parent
         text: root.cpuText || "CPU --%"
         color: root.colYellow
-        font { family: root.fontFamily; pixelSize: 14; bold: true }
+        font { family: root.fontFamily; pixelSize: 12 }
       }
 
       MouseArea {
         id: cpuMa
         anchors.fill: parent
         hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
       }
     }
 
-    Rectangle { width: 1; height: 16; color: root.colMuted }
-
-    // Memory — fixed width pill like CPU
+    // Memory (RAM) — fixed width
     Rectangle {
       color: "#313244"
       radius: 4
@@ -146,13 +153,14 @@ PanelWindow {
         anchors.centerIn: parent
         text: root.memText || "Mem --%"
         color: root.colCyan
-        font { family: root.fontFamily; pixelSize: 14; bold: true }
+        font { family: root.fontFamily; pixelSize: 12 }
       }
 
       MouseArea {
         id: memMa
         anchors.fill: parent
         hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
       }
     }
 
@@ -161,9 +169,7 @@ PanelWindow {
 
     BarComponents.Battery {}
 
-    // Rectangle { width: 2; height: 16; color: root.colBg }
-
-    // Clock - improved via reference Clock.qml inspiration
+    // Clock last on the right
     BarComponents.Clock {}
   }
 
@@ -182,5 +188,18 @@ PanelWindow {
     text: root.memTooltip
     show: memMa.containsMouse
     maxWidth: 380
+  }
+
+  // === Real Control Center ===
+  BarComponents.ControlCenterWindow {
+    id: controlCenter
+    shouldShow: false
+  }
+
+  // Connect the toggle in the bar to the real window
+  Binding {
+    target: ccToggle
+    property: "controlCenter"
+    value: controlCenter
   }
 }
