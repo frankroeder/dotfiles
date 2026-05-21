@@ -290,45 +290,40 @@ _git: ## Configure Git with completion and dotfiles
 
 .PHONY: agents
 agents: ## Sync coding agent instructions and settings from Nextcloud
-	# Codex
 ifneq ($(shell command -v codex 2>/dev/null),)
-	$(call print_step,Syncing Codex agent configuration)
+	@$(call print_step,Syncing Codex agent configuration)
 	$(call link_if_exists,$(NEXTCLOUD_DIR)/AGENTS.md,$(HOME)/.codex/AGENTS.md)
 	$(call link_first_exists,$(NEXTCLOUD_DIR)/codex_config.toml $(NEXTCLOUD_DIR)/codex_settings.toml,$(HOME)/.codex/config.toml)
 else
-	$(call print_warning,Codex CLI not installed; skipping Codex agent configuration)
+	@$(call print_warning,Codex CLI not installed; skipping Codex agent configuration)
 endif
-	# Claude
 ifneq ($(shell command -v claude 2>/dev/null),)
-	$(call print_step,Syncing Claude agent configuration)
+	@$(call print_step,Syncing Claude agent configuration)
 	@mkdir -p $(HOME)/.claude
 	$(call link_if_exists,$(NEXTCLOUD_DIR)/AGENTS.md,$(HOME)/.claude/CLAUDE.md)
 	$(call link_if_exists,$(NEXTCLOUD_DIR)/claude_settings.json,$(HOME)/.claude/settings.json)
 else
-	$(call print_warning,Claude CLI not installed; skipping Claude agent configuration)
+	@$(call print_warning,Claude CLI not installed; skipping Claude agent configuration)
 endif
-	# Gemini
 ifneq ($(shell command -v gemini 2>/dev/null),)
-	$(call print_step,Syncing Gemini agent configuration)
+	@$(call print_step,Syncing Gemini agent configuration)
 	@mkdir -p $(HOME)/.gemini
 	$(call link_if_exists,$(NEXTCLOUD_DIR)/AGENTS.md,$(HOME)/.gemini/GEMINI.md)
 	$(call link_if_exists,$(NEXTCLOUD_DIR)/gemini_settings.json,$(HOME)/.gemini/settings.json)
 else
-	$(call print_warning,Gemini CLI not installed; skipping Gemini agent configuration)
+	@$(call print_warning,Gemini CLI not installed; skipping Gemini agent configuration)
 endif
-	# OpenCode
 ifneq ($(shell command -v opencode 2>/dev/null),)
-	$(call print_step,Syncing OpenCode agent configuration)
+	@$(call print_step,Syncing OpenCode agent configuration)
 	$(call link_if_exists,$(NEXTCLOUD_DIR)/opencode.jsonc,$(HOME)/.config/opencode/opencode.jsonc)
 else
-	$(call print_warning,OpenCode CLI not installed; skipping OpenCode agent configuration)
+	@$(call print_warning,OpenCode CLI not installed; skipping OpenCode agent configuration)
 endif
-	# Grok
 ifneq ($(shell command -v grok 2>/dev/null),)
-	$(call print_step,Syncing Grok build configuration)
+	@$(call print_step,Syncing Grok build configuration)
 	$(call link_if_exists,$(NEXTCLOUD_DIR)/AGENTS.md,$(HOME)/.grok/AGENTS.md)
 else
-	$(call print_warning,Grok Build CLI not installed; skipping Grok configuration)
+	@$(call print_warning,Grok Build CLI not installed; skipping Grok configuration)
 endif
 
 .PHONY: after
