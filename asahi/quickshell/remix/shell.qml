@@ -4,6 +4,9 @@ import Quickshell.Io
 import Quickshell.Hyprland
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls
+
+import "modules/bar/components" as BarComponents
 
 PanelWindow {
   id: root
@@ -23,6 +26,12 @@ PanelWindow {
   property int memUsage: 0
   property var lastCpuIdle: 0
   property var lastCpuTotal: 0
+
+  property string cpuText: ""
+  property string cpuTooltip: ""
+
+  property string memText: ""
+  property string memTooltip: ""
 
   // Processes and timers here...
 
@@ -67,6 +76,36 @@ PanelWindow {
     Component.onCompleted: running = true
   }
 
+  // CPU script (usage + temperature)
+  Process {
+    id: cpuScriptProc
+    command: ["bash", "/home/froeder/.dotfiles/asahi/bin/asahi-waybar-cpu"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const data = JSON.parse(text.trim())
+          root.cpuText = data.text || "CPU --%"
+          root.cpuTooltip = data.tooltip || ""
+        } catch (e) {}
+      }
+    }
+  }
+
+  // Memory script (usage + history bars like CPU)
+  Process {
+    id: memScriptProc
+    command: ["bash", "/home/froeder/.dotfiles/asahi/bin/asahi-waybar-memory"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const data = JSON.parse(text.trim())
+          root.memText = data.text || "Mem --%"
+          root.memTooltip = data.tooltip || ""
+        } catch (e) {}
+      }
+    }
+  }
+
   // Update your timer to run both processes
   Timer {
     interval: 2000
@@ -75,6 +114,8 @@ PanelWindow {
     onTriggered: {
       cpuProc.running = true
       memProc.running = true
+      cpuScriptProc.running = true
+      memScriptProc.running = true
     }
   }
 
@@ -101,20 +142,43 @@ PanelWindow {
 
     Item { Layout.fillWidth: true }
 
-    // CPU
+    // New widgets from remix (inspired by tripathiji1312 style)
+    BarComponents.Volume {}
+    BarComponents.Microphone {}
+    BarComponents.Network {}
+    BarComponents.Bluetooth {}
+    BarComponents.Battery {}
+
+    Rectangle { width: 1; height: 16; color: root.colMuted }
+
+    // CPU (from script - usage + temperature)
     Text {
-      text: "CPU: " + cpuUsage + "%"
+      id: cpuDisplay
+      text: root.cpuText || "CPU --%"
       color: root.colYellow
       font { family: root.fontFamily; pixelSize: root.fontSize; bold: true }
+
+      MouseArea {
+        id: cpuMa
+        anchors.fill: parent
+        hoverEnabled: true
+      }
     }
 
     Rectangle { width: 1; height: 16; color: root.colMuted }
 
-    // Memory
+    // Memory (from script - with history bars like CPU)
     Text {
-      text: "Mem: " + memUsage + "%"
+      id: memDisplay
+      text: root.memText || "Mem --%"
       color: root.colCyan
       font { family: root.fontFamily; pixelSize: root.fontSize; bold: true }
+
+      MouseArea {
+        id: memMa
+        anchors.fill: parent
+        hoverEnabled: true
+      }
     }
 
     Rectangle { width: 1; height: 16; color: root.colMuted }
@@ -132,5 +196,22 @@ PanelWindow {
         onTriggered: clock.text = Qt.formatDateTime(new Date(), "ddd, MMM dd - HH:mm")
       }
     }
+  }
+
+  // Custom tooltips sized to full multi-line content (PopupWindow + paintedHeight)
+  BarComponents.TooltipWindow {
+    id: cpuTip
+    target: cpuDisplay
+    text: root.cpuTooltip
+    show: cpuMa.containsMouse
+    maxWidth: 380
+  }
+
+  BarComponents.TooltipWindow {
+    id: memTip
+    target: memDisplay
+    text: root.memTooltip
+    show: memMa.containsMouse
+    maxWidth: 380
   }
 }
