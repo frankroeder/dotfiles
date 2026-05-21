@@ -243,7 +243,7 @@ PanelWindow {
         cursorShape: Qt.PointingHandCursor
         onClicked: {
           root.shouldShow = false
-          Quickshell.execDetached(["$HOME/.dotfiles/asahi/bin/asahi-network-menu"])
+          Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-network-menu"])
         }
 
         Text {

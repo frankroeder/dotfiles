@@ -10,7 +10,7 @@ Item {
   implicitWidth: 28
   implicitHeight: 28
 
-  property string powerMenuCommand: "$HOME/.dotfiles/asahi/bin/asahi-control-menu"
+  property string powerMenuCommand: "~/.dotfiles/asahi/bin/asahi-control-menu"
 
   Rectangle {
     id: bg

@@ -65,13 +65,13 @@ Rectangle {
 
         // Left click: toggle mute
         onClicked: {
-            Quickshell.execDetached(["bash", "-c", "$HOME/.dotfiles/asahi/bin/asahi-media-control output mute-toggle"])
+            Quickshell.execDetached(["bash", "-c", "/home/froeder/.dotfiles/asahi/bin/asahi-media-control output-volume mute-toggle"])
         }
 
         // Scroll wheel: adjust volume
         onWheel: (wheel) => {
             const direction = wheel.angleDelta.y > 0 ? "raise" : "lower"
-            Quickshell.execDetached(["bash", "-c", "$HOME/.dotfiles/asahi/bin/asahi-media-control output-volume " + direction])
+            Quickshell.execDetached(["bash", "-c", "/home/froeder/.dotfiles/asahi/bin/asahi-media-control output-volume " + direction])
         }
     }
 }

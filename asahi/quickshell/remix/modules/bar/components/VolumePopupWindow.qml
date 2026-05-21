@@ -121,7 +121,7 @@ PanelWindow {
           height: 22
           cursorShape: Qt.PointingHandCursor
           onClicked: {
-            Quickshell.execDetached(["$HOME/.dotfiles/asahi/bin/asahi-media-control", "output", "mute-toggle"])
+            Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-media-control", "output-volume", "mute-toggle"])
             refresh()
           }
           Text {
@@ -159,7 +159,7 @@ PanelWindow {
           height: 22
           cursorShape: Qt.PointingHandCursor
           onClicked: {
-            Quickshell.execDetached(["$HOME/.dotfiles/asahi/bin/asahi-media-control", "input", "mute-toggle"])
+            Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-media-control", "input-volume", "mute-toggle"])
             refresh()
           }
           Text {
@@ -184,7 +184,7 @@ PanelWindow {
           height: 26
           cursorShape: Qt.PointingHandCursor
           onClicked: {
-            Quickshell.execDetached(["$HOME/.dotfiles/asahi/bin/asahi-media-control", "output-volume", "raise"])
+            Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-media-control", "output-volume", "raise"])
             refresh()
           }
           Text {
@@ -201,7 +201,7 @@ PanelWindow {
           height: 26
           cursorShape: Qt.PointingHandCursor
           onClicked: {
-            Quickshell.execDetached(["$HOME/.dotfiles/asahi/bin/asahi-media-control", "output-volume", "lower"])
+            Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-media-control", "output-volume", "lower"])
             refresh()
           }
           Text {

@@ -167,7 +167,7 @@ FocusScope {
           cursorShape: Qt.PointingHandCursor
           onClicked: {
             root.closeRequested()
-            Quickshell.execDetached(["$HOME/.dotfiles/asahi/bin/asahi-bluetooth-menu"])
+            Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-bluetooth-menu"])
           }
 
           Text {

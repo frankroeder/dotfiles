@@ -6,7 +6,7 @@ import Quickshell.Io
 Rectangle {
     id: root
 
-    color: "#313244"   // dark background like waybar @surface0 modules
+    color: "#313244"
     radius: 6
 
     implicitWidth: row.implicitWidth + 14
@@ -21,18 +21,17 @@ Rectangle {
         anchors.centerIn: parent
         spacing: 2
 
-        // Script already provides the symbol (󰂲 or 󰂱N)
         Text {
             text: root.text
             font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 22   // matches waybar #bluetooth { font-size: 23px }
+            font.pixelSize: 24
             color: "#cba6f7"
         }
     }
 
     Process {
         id: btProc
-        command: ["bash", "/home/froeder/.dotfiles/asahi/bin/asahi-waybar-bluetooth"]
+        command: ["/home/froeder/.dotfiles/asahi/bin/asahi-waybar-bluetooth"]
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
@@ -64,9 +63,8 @@ Rectangle {
 
         onClicked: (mouse) => {
             if (mouse.button === Qt.RightButton) {
-                Quickshell.execDetached(["blueman-manager"])
+                Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-bluetooth-menu"])
             } else {
-                // Left click: toggle the rich floating popup
                 if (!btPopup) {
                     btPopup = Qt.createComponent("BluetoothPopupWindow.qml").createObject(root)
                 }

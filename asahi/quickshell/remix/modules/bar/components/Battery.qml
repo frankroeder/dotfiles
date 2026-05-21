@@ -18,13 +18,12 @@ Rectangle {
     RowLayout {
         id: row
         anchors.centerIn: parent
-        spacing: 20
+        spacing: 10
 
-        // Script already includes the battery symbol (e.g. "󰂋 87%")
         Text {
             text: root.text
             font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 17   // consistent with other widgets after waybar alignment
+            font.pixelSize: 18
             color: "#a6e3a1"
         }
     }
@@ -55,10 +54,9 @@ Rectangle {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: Quickshell.execDetached(["$HOME/.dotfiles/asahi/bin/asahi-battery-menu"])
+        onClicked: Quickshell.execDetached(["bash", "-c", "/home/froeder/.dotfiles/asahi/bin/asahi-battery-menu"])
     }
 
-    // Full rich tooltip on hover (same pattern as CPU/Memory)
     TooltipWindow {
         target: root
         text: root.tooltip

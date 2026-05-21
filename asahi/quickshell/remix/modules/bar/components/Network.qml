@@ -6,7 +6,7 @@ import Quickshell.Io
 Rectangle {
     id: root
 
-    color: "#313244"   // dark background like waybar @surface0 modules
+    color: "#313244"
     radius: 6
 
     implicitWidth: content.implicitWidth + 14
@@ -21,11 +21,10 @@ Rectangle {
         anchors.centerIn: parent
         spacing: 2
 
-        // Use only the script-provided text (already contains nice icon)
         Text {
             text: root.text
             font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 22   // matches waybar #network { font-size: 23px }
+            font.pixelSize: 30
             color: "#89b4fa"
         }
     }
@@ -59,10 +58,14 @@ Rectangle {
         anchors.margins: -12   // much larger hit area so hover and click are reliable
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
 
-        onClicked: {
-            // Click on Wifi symbol → open nmtui (in terminal)
-            Quickshell.execDetached(["foot", "-e", "nmtui"])
+        onClicked: (mouse) => {
+            if (mouse.button === Qt.RightButton) {
+                Quickshell.execDetached(["bash", "-c", "~/.dotfiles/asahi/bin/asahi-network-menu"])
+            } else {
+                Quickshell.execDetached(["bash", "-c", "~/.dotfiles/asahi/bin/asahi-launch-wifi"])
+            }
         }
     }
 

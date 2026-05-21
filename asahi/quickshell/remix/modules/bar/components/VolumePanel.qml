@@ -88,7 +88,7 @@ FocusScope {
         Text { text: outText || "Output"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13; color: cText; Layout.fillWidth: true }
         MouseArea {
           width: 50; height: 22; cursorShape: Qt.PointingHandCursor
-          onClicked: { Quickshell.execDetached(["$HOME/.dotfiles/asahi/bin/asahi-media-control", "output", "mute-toggle"]); refresh() }
+          onClicked: { Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-media-control", "output-volume", "mute-toggle"]); refresh() }
           Text { anchors.centerIn: parent; text: outMuted ? "Unmute" : "Mute"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10; color: cSub }
         }
       }
@@ -100,7 +100,7 @@ FocusScope {
         Text { text: inText || "Input"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13; color: cText; Layout.fillWidth: true }
         MouseArea {
           width: 50; height: 22; cursorShape: Qt.PointingHandCursor
-          onClicked: { Quickshell.execDetached(["$HOME/.dotfiles/asahi/bin/asahi-media-control", "input", "mute-toggle"]); refresh() }
+          onClicked: { Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-media-control", "input-volume", "mute-toggle"]); refresh() }
           Text { anchors.centerIn: parent; text: inMuted ? "Unmute" : "Mute"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10; color: cSub }
         }
       }
@@ -110,8 +110,8 @@ FocusScope {
       RowLayout {
         Layout.fillWidth: true
         spacing: 12
-        MouseArea { Layout.fillWidth: true; height: 26; cursorShape: Qt.PointingHandCursor; onClicked: { Quickshell.execDetached(["$HOME/.dotfiles/asahi/bin/asahi-media-control", "output-volume", "raise"]); refresh() }; Text { anchors.centerIn: parent; text: "Raise"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: cPrimary } }
-        MouseArea { Layout.fillWidth: true; height: 26; cursorShape: Qt.PointingHandCursor; onClicked: { Quickshell.execDetached(["$HOME/.dotfiles/asahi/bin/asahi-media-control", "output-volume", "lower"]); refresh() }; Text { anchors.centerIn: parent; text: "Lower"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: cPrimary } }
+        MouseArea { Layout.fillWidth: true; height: 26; cursorShape: Qt.PointingHandCursor; onClicked: { Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-media-control", "output-volume", "raise"]); refresh() }; Text { anchors.centerIn: parent; text: "Raise"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: cPrimary } }
+        MouseArea { Layout.fillWidth: true; height: 26; cursorShape: Qt.PointingHandCursor; onClicked: { Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-media-control", "output-volume", "lower"]); refresh() }; Text { anchors.centerIn: parent; text: "Lower"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: cPrimary } }
         MouseArea { Layout.fillWidth: true; height: 26; cursorShape: Qt.PointingHandCursor; onClicked: { root.closeRequested(); Quickshell.execDetached(["pavucontrol"]) }; Text { anchors.centerIn: parent; text: "Mixer →"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: cPrimary } }
       }
     }

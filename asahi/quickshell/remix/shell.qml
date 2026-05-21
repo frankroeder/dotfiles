@@ -82,6 +82,9 @@ PanelWindow {
     anchors.margins: 6
     spacing: 10
 
+    // Power and Control Center on the left
+    BarComponents.PowerButton {}
+
     // Workspaces (left)
     Repeater {
       model: 9
@@ -98,13 +101,9 @@ PanelWindow {
       }
     }
 
-    // Power and Control Center on the left
-    BarComponents.PowerButton {}
-    BarComponents.ControlCenterToggle {
-      id: ccToggle
-    }
 
     // Spacer to push Media to center
+    Item { Layout.fillWidth: true }
     Item { Layout.fillWidth: true }
     Item { Layout.fillWidth: true }
 
@@ -112,8 +111,8 @@ PanelWindow {
     BarComponents.MediaPlayer {}
 
     // Spacer to push right group to the right
-    Item { Layout.fillWidth: true }
 
+    BarComponents.StatusIndicators {}
     // Right side (as specified): mic, vol, CPU, RAM, Wifi, bluetooth, battery, clock
     BarComponents.Microphone {}
     BarComponents.Volume {}
@@ -138,6 +137,7 @@ PanelWindow {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
+        onClicked: Quickshell.execDetached(["bash", "-c", "/home/froeder/.dotfiles/asahi/bin/asahi-launch-or-focus-tui htop"])
       }
     }
 
@@ -188,18 +188,5 @@ PanelWindow {
     text: root.memTooltip
     show: memMa.containsMouse
     maxWidth: 380
-  }
-
-  // === Real Control Center ===
-  BarComponents.ControlCenterWindow {
-    id: controlCenter
-    shouldShow: false
-  }
-
-  // Connect the toggle in the bar to the real window
-  Binding {
-    target: ccToggle
-    property: "controlCenter"
-    value: controlCenter
   }
 }

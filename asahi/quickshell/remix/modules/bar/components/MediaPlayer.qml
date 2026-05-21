@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import Quickshell.Io
 
 // Media Player pill for the bar
@@ -10,7 +11,7 @@ Rectangle {
   color: "#313244"
   radius: 6
 
-  implicitWidth: Math.max(180, contentRow.implicitWidth + 14)
+  implicitWidth: Math.max(280, contentRow.implicitWidth + 14)
   implicitHeight: 26
 
   property string text: ""
@@ -44,18 +45,10 @@ Rectangle {
     id: contentRow
     anchors.centerIn: parent
     spacing: 6
-
-    Text {
-      text: "󰎇"
-      font.family: "JetBrainsMono Nerd Font"
-      font.pixelSize: 15
-      color: hasMedia ? "#94e2d5" : "#6c7086"
-    }
-
     Text {
       text: hasMedia ? root.text : "No media"
       font.family: "JetBrainsMono Nerd Font"
-      font.pixelSize: 13
+      font.pixelSize: 18
       color: hasMedia ? "#cdd6f4" : "#6c7086"
       elide: Text.ElideRight
       Layout.maximumWidth: 140
@@ -66,21 +59,17 @@ Rectangle {
     anchors.fill: parent
     hoverEnabled: true
     cursorShape: Qt.PointingHandCursor
+    acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
 
-    onClicked: {
-      if (!root.playerPopup) {
-        const comp = Qt.createComponent("MediaPlayerPopupWindow.qml", Component.PreferSynchronous)
-        if (comp.status === Component.Ready) {
-          root.playerPopup = comp.createObject(root)
-        } else if (comp.status === Component.Error) {
-          console.warn("Failed to load MediaPlayerPopupWindow.qml:", comp.errorString())
-        }
-      }
-      if (root.playerPopup) {
-        root.playerPopup.shouldShow = !root.playerPopup.shouldShow
+    onClicked: (mouse) => {
+      if (mouse.button === Qt.RightButton) {
+        Quickshell.execDetached(["bash", "-c", "~/.dotfiles/asahi/bin/asahi-media-control playerctl next"])
+      } else if (mouse.button === Qt.MiddleButton) {
+        Quickshell.execDetached(["bash", "-c", "~/.dotfiles/asahi/bin/asahi-media-control playerctl previous"])
+      } else {
+        Quickshell.execDetached(["bash", "-c", "~/.dotfiles/asahi/bin/asahi-media-control playerctl play-pause"])
       }
     }
   }
 
-  property var playerPopup: null
 }

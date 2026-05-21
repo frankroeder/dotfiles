@@ -100,7 +100,7 @@ PanelWindow {
           height: 28
           cursorShape: Qt.PointingHandCursor
           onClicked: {
-            Quickshell.execDetached(["$HOME/.dotfiles/asahi/bin/asahi-media-control", "previous"])
+            Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-media-control", "playerctl", "previous"])
             refresh()
           }
           Text { anchors.centerIn: parent; text: "󰒮"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 18; color: cText }
@@ -111,7 +111,7 @@ PanelWindow {
           height: 28
           cursorShape: Qt.PointingHandCursor
           onClicked: {
-            Quickshell.execDetached(["$HOME/.dotfiles/asahi/bin/asahi-media-control", "play-pause"])
+            Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-media-control", "playerctl", "play-pause"])
             refresh()
           }
           Text { anchors.centerIn: parent; text: "󰐊"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 20; color: cPrimary }
@@ -122,7 +122,7 @@ PanelWindow {
           height: 28
           cursorShape: Qt.PointingHandCursor
           onClicked: {
-            Quickshell.execDetached(["$HOME/.dotfiles/asahi/bin/asahi-media-control", "stop"])
+            Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-media-control", "playerctl", "stop"])
             refresh()
           }
           Text { anchors.centerIn: parent; text: "󰓛"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 18; color: cText }
@@ -133,7 +133,7 @@ PanelWindow {
           height: 28
           cursorShape: Qt.PointingHandCursor
           onClicked: {
-            Quickshell.execDetached(["$HOME/.dotfiles/asahi/bin/asahi-media-control", "next"])
+            Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-media-control", "playerctl", "next"])
             refresh()
           }
           Text { anchors.centerIn: parent; text: "󰒭"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 18; color: cText }
