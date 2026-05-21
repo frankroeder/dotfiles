@@ -15,20 +15,14 @@ Item {
     RowLayout {
         id: row
         anchors.centerIn: parent
-        spacing: 4
+        spacing: 2
 
-        Text {
-            text: root.muted ? "󰍭" : "󰍬"
-            font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 16
-            color: root.muted ? "#f38ba8" : "#89b4fa"
-        }
-
+        // Script provides icon + level (e.g. "󰍬 60%")
         Text {
             text: root.text
             font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 13
-            color: "#cdd6f4"
+            font.pixelSize: 17
+            color: root.muted ? "#f38ba8" : "#89b4fa"
         }
     }
 
@@ -40,7 +34,7 @@ Item {
                 try {
                     const data = JSON.parse(text.trim())
                     root.text = data.text || "--%"
-                    root.muted = data.text && data.text.includes("muted")
+                    root.muted = (data.class || []).includes("muted") || (data.text || "").includes("muted")
                 } catch (e) {}
             }
         }

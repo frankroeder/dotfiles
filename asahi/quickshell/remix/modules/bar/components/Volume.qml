@@ -16,20 +16,15 @@ Item {
     RowLayout {
         id: row
         anchors.centerIn: parent
-        spacing: 4
+        spacing: 2
 
-        Text {
-            text: root.muted ? "󰖁" : root.icon
-            font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 16
-            color: root.muted ? "#f38ba8" : "#a6e3a1"
-        }
-
+        // Script already provides icon + percentage (e.g. "󰕿 15%")
+        // Show only one symbol, bigger
         Text {
             text: root.text
             font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 13
-            color: "#cdd6f4"
+            font.pixelSize: 17
+            color: root.muted ? "#f38ba8" : "#a6e3a1"
         }
     }
 
@@ -41,7 +36,7 @@ Item {
                 try {
                     const data = JSON.parse(text.trim())
                     root.text = data.text || "--%"
-                    root.muted = data.text && data.text.includes("muted")
+                    root.muted = (data.class || []).includes("muted") || (data.text || "").includes("muted")
                 } catch (e) {}
             }
         }
@@ -55,8 +50,25 @@ Item {
     }
 
     MouseArea {
+        id: volMa
         anchors.fill: parent
-        onClicked: Quickshell.execDetached(["bash", "-c", "$HOME/.dotfiles/asahi/bin/asahi-media-control output mute-toggle"])
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+
+        property var volPopup: null
+
+        onClicked: (mouse) => {
+            if (mouse.button === Qt.RightButton) {
+                // Right click: quick mute
+                Quickshell.execDetached(["bash", "-c", "$HOME/.dotfiles/asahi/bin/asahi-media-control output mute-toggle"])
+            } else {
+                // Left click: rich popup
+                if (!volPopup) {
+                    volPopup = Qt.createComponent("VolumePopupWindow.qml").createObject(root)
+                }
+                volPopup.shouldShow = !volPopup.shouldShow
+            }
+        }
+
         onWheel: (wheel) => {
             const direction = wheel.angleDelta.y > 0 ? "raise" : "lower"
             Quickshell.execDetached(["bash", "-c", "$HOME/.dotfiles/asahi/bin/asahi-media-control output-volume " + direction])

@@ -19,13 +19,8 @@ PanelWindow {
   property color colBlue: "#7aa2f7"
   property color colYellow: "#e0af68"
   property string fontFamily: "JetBrainsMono Nerd Font"
-  property int fontSize: 14
+  property int fontSize: 16   // bigger symbols / text overall
 
-  // System data
-  property int cpuUsage: 0
-  property int memUsage: 0
-  property var lastCpuIdle: 0
-  property var lastCpuTotal: 0
 
   property string cpuText: ""
   property string cpuTooltip: ""
@@ -33,48 +28,11 @@ PanelWindow {
   property string memText: ""
   property string memTooltip: ""
 
-  // Processes and timers here...
-
   anchors.top: true
   anchors.left: true
   anchors.right: true
-  implicitHeight: 30
+  implicitHeight: 36   // thicker bar, closer to waybar with 16px font + padding
   color: root.colBg
-
-  Process {
-    id: cpuProc
-    command: ["sh", "-c", "head -1 /proc/stat"]
-    stdout: SplitParser {
-      onRead: data => {
-        if (!data) return
-        var p = data.trim().split(/\s+/)
-        var idle = parseInt(p[4]) + parseInt(p[5])
-        var total = p.slice(1, 8).reduce((a, b) => a + parseInt(b), 0)
-        if (lastCpuTotal > 0) {
-          cpuUsage = Math.round(100 * (1 - (idle - lastCpuIdle) / (total - lastCpuTotal)))
-        }
-        lastCpuTotal = total
-        lastCpuIdle = idle
-      }
-    }
-    Component.onCompleted: running = true
-  }
-
-  // Memory process
-  Process {
-    id: memProc
-    command: ["sh", "-c", "free | grep Mem"]
-    stdout: SplitParser {
-      onRead: data => {
-        if (!data) return
-        var parts = data.trim().split(/\s+/)
-        var total = parseInt(parts[1]) || 1
-        var used = parseInt(parts[2]) || 0
-        memUsage = Math.round(100 * used / total)
-      }
-    }
-    Component.onCompleted: running = true
-  }
 
   // CPU script (usage + temperature)
   Process {
@@ -89,6 +47,7 @@ PanelWindow {
         } catch (e) {}
       }
     }
+    Component.onCompleted: running = true
   }
 
   // Memory script (usage + history bars like CPU)
@@ -104,6 +63,7 @@ PanelWindow {
         } catch (e) {}
       }
     }
+    Component.onCompleted: running = true
   }
 
   // Update your timer to run both processes
@@ -121,8 +81,8 @@ PanelWindow {
 
   RowLayout {
     anchors.fill: parent
-    anchors.margins: 8
-    spacing: 8
+    anchors.margins: 6
+    spacing: 10
 
     // Workspaces
     Repeater {
@@ -144,19 +104,26 @@ PanelWindow {
 
     // New widgets from remix (inspired by tripathiji1312 style)
     BarComponents.Volume {}
+    BarComponents.Brightness {}
     BarComponents.Microphone {}
-    BarComponents.Network {}
-    BarComponents.Bluetooth {}
-    BarComponents.Battery {}
+    BarComponents.SystemTray {}
 
     Rectangle { width: 1; height: 16; color: root.colMuted }
 
-    // CPU (from script - usage + temperature)
-    Text {
-      id: cpuDisplay
-      text: root.cpuText || "CPU --%"
-      color: root.colYellow
-      font { family: root.fontFamily; pixelSize: root.fontSize; bold: true }
+    // CPU — fixed width so the graph bar never changes the pill size (matches waybar #custom-cpu behavior)
+    Rectangle {
+      color: "#313244"   // surface0
+      radius: 4
+      implicitWidth: 168
+      implicitHeight: 24
+
+      Text {
+        id: cpuDisplay
+        anchors.centerIn: parent
+        text: root.cpuText || "CPU --%"
+        color: root.colYellow
+        font { family: root.fontFamily; pixelSize: 14; bold: true }
+      }
 
       MouseArea {
         id: cpuMa
@@ -167,12 +134,20 @@ PanelWindow {
 
     Rectangle { width: 1; height: 16; color: root.colMuted }
 
-    // Memory (from script - with history bars like CPU)
-    Text {
-      id: memDisplay
-      text: root.memText || "Mem --%"
-      color: root.colCyan
-      font { family: root.fontFamily; pixelSize: root.fontSize; bold: true }
+    // Memory — fixed width pill like CPU
+    Rectangle {
+      color: "#313244"
+      radius: 4
+      implicitWidth: 160
+      implicitHeight: 24
+
+      Text {
+        id: memDisplay
+        anchors.centerIn: parent
+        text: root.memText || "Mem --%"
+        color: root.colCyan
+        font { family: root.fontFamily; pixelSize: 14; bold: true }
+      }
 
       MouseArea {
         id: memMa
@@ -181,21 +156,15 @@ PanelWindow {
       }
     }
 
-    Rectangle { width: 1; height: 16; color: root.colMuted }
+    BarComponents.Network {}
+    BarComponents.Bluetooth {}
 
-    // Clock
-    Text {
-      id: clock
-      color: root.colBlue
-      font { family: root.fontFamily; pixelSize: root.fontSize; bold: true }
-      text: Qt.formatDateTime(new Date(), "ddd, MMM dd - HH:mm")
-      Timer {
-        interval: 1000
-        running: true
-        repeat: true
-        onTriggered: clock.text = Qt.formatDateTime(new Date(), "ddd, MMM dd - HH:mm")
-      }
-    }
+    BarComponents.Battery {}
+
+    // Rectangle { width: 2; height: 16; color: root.colBg }
+
+    // Clock - improved via reference Clock.qml inspiration
+    BarComponents.Clock {}
   }
 
   // Custom tooltips sized to full multi-line content (PopupWindow + paintedHeight)

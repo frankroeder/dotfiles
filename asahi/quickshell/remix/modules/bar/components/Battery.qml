@@ -14,20 +14,14 @@ Item {
     RowLayout {
         id: row
         anchors.centerIn: parent
-        spacing: 4
+        spacing: 20
 
-        Text {
-            text: "󰁹"
-            font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 16
-            color: "#a6e3a1"
-        }
-
+        // Script already includes the battery symbol (e.g. "󰂋 87%")
         Text {
             text: root.text
             font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 13
-            color: "#cdd6f4"
+            font.pixelSize: 18
+            color: "#a6e3a1"
         }
     }
 
