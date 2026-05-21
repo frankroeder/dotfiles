@@ -22,6 +22,7 @@ fi
 sudo dnf copr enable -y erikreider/swayosd "$SWAYOSD_COPR_CHROOT"
 sudo dnf copr enable -y errornointernet/walker
 sudo dnf copr enable -y scottames/ghostty
+sudo dnf copr enable errornointernet/quickshell
 
 sudo dnf makecache --refresh
 
@@ -80,6 +81,7 @@ sudo dnf install -y \
   thunderbird \
   tree \
   uv \
+  quickshell-git \
   waybar \
   walker \
   wireplumber \
