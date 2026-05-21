@@ -11,7 +11,7 @@ border-color=#89b4fa
 progress-color=over #313244
 default-timeout=6000
 ignore-timeout=0
-anchor=top-right
+anchor=bottom-right
 on-notify=exec /home/froeder/.dotfiles/asahi/bin/asahi-notification-sound
 
 [urgency=high]
