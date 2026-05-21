@@ -57,8 +57,8 @@ case "$choice" in
   "󰑓 Reload Hyprland")
     exec "$dotfiles/asahi/bin/asahi-reload-hyprland"
     ;;
-  "󰑐 Restart Waybar")
-    exec "$dotfiles/asahi/bin/asahi-restart-app" waybar -c "$HOME/.config/waybar/config.jsonc" -s "$HOME/.config/waybar/style.css"
+  "󰑐 Restart Bar (Quickshell)")
+    exec "$dotfiles/asahi/bin/asahi-restart-app" quickshell -c asahi
     ;;
   "󰑓 Restart Mako")
     exec "$dotfiles/asahi/bin/asahi-restart-app" mako --config "$HOME/.config/mako/config"

@@ -8,11 +8,17 @@ import QtQuick.Controls
 
 import "modules/bar/components" as BarComponents
 
-PanelWindow {
-  id: root
+ShellRoot {
+Variants {
+    model: Quickshell.screens
 
-  // Theme
-  property color colBg: "#1a1b26"
+    PanelWindow {
+        required property var modelData
+        screen: modelData
+        id: root
+
+        // Theme
+        property color colBg: "#1a1b26"
   property color colFg: "#a9b1d6"
   property color colMuted: "#444b6a"
   property color colCyan: "#0db9d7"
@@ -28,10 +34,28 @@ PanelWindow {
   property string memText: ""
   property string memTooltip: ""
 
+  // Windows on the currently focused workspace — used to show app icons
+  // next to the active workspace (only when it contains apps)
+  property int wsWindowVersion: 0
+
+  // Only workspaces that contain at least one window (+ always the focused one)
+  readonly property var occupiedWorkspaces: {
+    wsWindowVersion
+    const ids = new Set()
+    for (const t of Hyprland.toplevels.values) {
+      const id = t.workspace?.id ?? t.lastIpcObject?.workspace?.id
+      if (id != null) ids.add(id)
+    }
+    const focused = Hyprland.focusedWorkspace?.id
+    if (focused != null) ids.add(focused)
+    return Array.from(ids).sort((a, b) => a - b)
+  }
+
   anchors.top: true
   anchors.left: true
   anchors.right: true
-  implicitHeight: 36   // thicker bar, closer to waybar with 16px font + padding
+  implicitHeight: 44   // room for large focused-workspace app icons
+  exclusiveZone: 44    // reserve space so windows don't go under the bar (like waybar)
   color: "transparent"   // overall bar transparent, widgets provide their own dark background like waybar
 
   // CPU script (usage + temperature)
@@ -77,30 +101,158 @@ PanelWindow {
     }
   }
 
+  // Keep window icons fresh (Hyprland events + periodic refresh)
+  Connections {
+    target: Hyprland
+    function onRawEvent(event) {
+      const n = event.name || ""
+      if (["openwindow", "closewindow", "movewindow", "workspace", "focusedmon", "activewindow"].some(x => n.includes(x))) {
+        root.wsWindowVersion = (root.wsWindowVersion + 1) % 10000
+      }
+    }
+  }
+
+  Timer {
+    interval: 800
+    running: true
+    repeat: true
+    onTriggered: root.wsWindowVersion = (root.wsWindowVersion + 1) % 10000
+  }
+
   RowLayout {
     anchors.fill: parent
-    anchors.margins: 6
+    anchors.margins: 4
     spacing: 10
 
     // Power and Control Center on the left
     BarComponents.PowerButton {}
 
-    // Workspaces (left)
-    Repeater {
-      model: 9
-      Text {
-        property var ws: Hyprland.workspaces.values.find(w => w.id === index + 1)
-        property bool isActive: Hyprland.focusedWorkspace?.id === (index + 1)
-        text: index + 1
-        color: isActive ? root.colCyan : (ws ? root.colBlue : root.colMuted)
-        font { family: root.fontFamily; pixelSize: root.fontSize; bold: true }
-        MouseArea {
-          anchors.fill: parent
-          onClicked: Hyprland.dispatch("workspace " + (index + 1))
+    // Workspaces: only those that contain running apps.
+    // Each occupied workspace shows its number + its app icons.
+    Rectangle {
+      color: "#313244"
+      radius: 6
+      implicitHeight: 38
+      implicitWidth: wsContent.implicitWidth + 14
+
+      Row {
+        id: wsContent
+        anchors.centerIn: parent
+        spacing: 8
+
+        Repeater {
+          model: root.occupiedWorkspaces
+          Row {
+            spacing: 6
+            // Workspace number (only occupied + focused)
+            Rectangle {
+              width: 22
+              height: 22
+              radius: 4
+              color: (Hyprland.focusedWorkspace?.id === modelData) ? "#45475a" : "#2a2a3a"
+              border.color: (Hyprland.focusedWorkspace?.id === modelData) ? root.colCyan : "transparent"
+              border.width: 1
+
+              Text {
+                anchors.centerIn: parent
+                text: modelData
+                color: (Hyprland.focusedWorkspace?.id === modelData) ? root.colCyan : root.colBlue
+                font { family: root.fontFamily; pixelSize: 14; bold: true }
+              }
+
+              MouseArea {
+                anchors.fill: parent
+                onClicked: Hyprland.dispatch("workspace " + modelData)
+              }
+            }
+
+            // App icons for every workspace that has running apps
+            Row {
+              spacing: 4
+              anchors.verticalCenter: parent.verticalCenter
+              Repeater {
+                model: {
+                  root.wsWindowVersion  // force refresh on window events
+                  const wsId = modelData
+                  return Hyprland.toplevels.values.filter(function(t) {
+                    const w = t.workspace || t.lastIpcObject?.workspace
+                    return (w && w.id === wsId) || (t.lastIpcObject?.workspace?.id === wsId)
+                  })
+                }
+                Rectangle {
+                  width: 30
+                  height: 30
+                  radius: 6
+                  color: "#313244"
+                  border.color: "#585b70"
+                  border.width: 1
+
+                  Image {
+                    id: winIcon
+                    anchors.centerIn: parent
+                    width: 26
+                    height: 26
+                    fillMode: Image.PreserveAspectFit
+                    source: {
+                      const appId = (modelData.appId || modelData.lastIpcObject?.class || "").toLowerCase().trim()
+                      if (!appId) return ""
+
+                      const candidates = []
+
+                      // 1. Full cleaned name (best for modern Papirus)
+                      candidates.push(appId.replace(/\./g, "-"))
+
+                      // 2. Last meaningful segment
+                      const last = appId.split(/[\.-]/).pop()
+                      if (last && !["com", "org", "net"].includes(last)) {
+                          candidates.push(last)
+                      }
+
+                      // 3. Known renames
+                      const map = {
+                          "google-chrome": "google-chrome",
+                          "chrome": "google-chrome",
+                          "code": "visual-studio-code",
+                          "vscodium": "vscodium",
+                          "ghostty": "com.mitchellh.ghostty",
+                          "com": "application",
+                          "org": "application",
+                          "net": "application",
+                      }
+
+                      for (const c of candidates) {
+                          const name = map[c] || c
+                          return `/usr/share/icons/Papirus/24x24/apps/${name}.svg`
+                      }
+
+                      return "/usr/share/icons/Papirus/24x24/apps/application.svg"
+                    }
+                    visible: status === Image.Ready
+                  }
+                  Text {
+                    anchors.centerIn: parent
+                    visible: !winIcon.visible
+                    text: (modelData.appId || modelData.lastIpcObject?.class || "?").charAt(0).toUpperCase()
+                    font.pixelSize: 16
+                    font.bold: true
+                    color: "#cdd6f4"
+                  }
+                  MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                      const addr = modelData.address || modelData.lastIpcObject?.address
+                      if (addr) Hyprland.dispatch("focuswindow address:" + addr)
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }
-
 
     // Spacer to push Media to center
     Item { Layout.fillWidth: true }
@@ -190,3 +342,5 @@ PanelWindow {
     maxWidth: 380
   }
 }
+}  // close Variants
+}  // close ShellRoot

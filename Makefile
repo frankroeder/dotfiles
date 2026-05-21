@@ -527,7 +527,7 @@ asahi-desktop: asahi-common
 	$(call replace_with_symlink,$(DOTFILES)/asahi/elephant,$(HOME)/.config/elephant)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/hypr,$(HOME)/.config/hypr)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/swayosd,$(HOME)/.config/swayosd)
-	$(call replace_with_symlink,$(DOTFILES)/asahi/waybar,$(HOME)/.config/waybar)
+	$(call replace_with_symlink,$(DOTFILES)/asahi/quickshell/remix,$(HOME)/.config/quickshell/asahi)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/walker,$(HOME)/.config/walker)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/mako,$(HOME)/.config/mako)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/ghostty,$(HOME)/.config/ghostty)
@@ -567,7 +567,7 @@ check-asahi: ## Check minimal Asahi desktop commands
 	@for command in Hyprland walker elephant; do \
 		command -v "$$command" >/dev/null 2>&1 || $(call print_warning,$$command not installed); \
 	done
-	@for command in waybar mako hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl swayosd-client; do \
+	@for command in quickshell qs mako hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl swayosd-client; do \
 		command -v "$$command" >/dev/null 2>&1 || $(call print_warning,$$command not installed); \
 	done
 	@for command in nm-connection-editor nmtui blueman-manager; do \

@@ -34,8 +34,8 @@ hl.bind(mod .. " + CONTROL + ALT + R", hl.dsp.exec_cmd(scripts .. "/asahi-reload
 hl.bind(mod .. " + CONTROL + ALT + SPACE", hl.dsp.exec_cmd(scripts .. "/asahi-restart-walker"), { desc = "Restart walker" })
 hl.bind(
   mod .. " + CONTROL + ALT + W",
-  hl.dsp.exec_cmd(scripts .. "/asahi-restart-app waybar -c ~/.config/waybar/config.jsonc -s ~/.config/waybar/style.css"),
-  { desc = "Restart waybar" }
+  hl.dsp.exec_cmd(scripts .. "/asahi-restart-app quickshell -c asahi"),
+  { desc = "Restart quickshell bar (qs -c asahi)" }
 )
 hl.bind(
   mod .. " + CONTROL + ALT + M",

@@ -82,7 +82,6 @@ sudo dnf install -y \
   tree \
   uv \
   quickshell-git \
-  waybar \
   walker \
   wireplumber \
   wl-clipboard \

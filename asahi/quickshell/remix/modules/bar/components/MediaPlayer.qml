@@ -11,7 +11,7 @@ Rectangle {
   color: "#313244"
   radius: 6
 
-  implicitWidth: Math.max(280, contentRow.implicitWidth + 14)
+  implicitWidth: Math.min(300, contentRow.implicitWidth + 14)
   implicitHeight: 26
 
   property string text: ""
