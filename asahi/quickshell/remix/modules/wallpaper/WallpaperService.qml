@@ -64,9 +64,9 @@ Singleton {
     saveProcess.command = ["sh", "-c", "printf \"%s\" \"$1\" > \"$HOME/.config/quickshell/wallpaper.conf\"", "sh", path]
     saveProcess.running = true
 
-    // Try to apply live via hyprpaper
-    preloadProc.command = ["sh", "-c", "hyprctl hyprpaper unload all; hyprctl hyprpaper preload \"$1\"", "sh", path]
-    preloadProc.running = true
+    // Apply directly (hyprpaper preload IPC returns invalid+exit1 here; wallpaper= cmd works and changes it, matching asahi-wallpaper-menu)
+    applyProc.command = ["hyprctl", "hyprpaper", "wallpaper", "," + path + "," + root.defaultFit]
+    applyProc.running = true
   }
 
   // Preload step
@@ -96,7 +96,7 @@ Singleton {
       }
       // Simple global apply (no jq dependency)
       // Format: hyprctl hyprpaper wallpaper ",<path>,<fit_mode>"
-      applyProc.command = ["hyprctl", "hyprpaper", "wallpaper", "," + path + "," + root.defaultFit]
+      applyProc.command = ["hyprctl", "hyprpaper", "wallpaper", "," + root.currentWallpaper + "," + root.defaultFit]
       applyProc.running = true
     }
   }
@@ -125,7 +125,7 @@ Singleton {
         const msg = err || "code " + code
         Quickshell.execDetached(["notify-send", "-a", "Wallpaper", "Hyprpaper apply failed", msg])
       } else {
-        Quickshell.execDetached(["notify-send", "-a", "Wallpaper", "Wallpaper changed", path.split("/").pop()])
+        Quickshell.execDetached(["notify-send", "-a", "Wallpaper", "Wallpaper changed", root.currentWallpaper.split("/").pop()])
       }
     }
   }
