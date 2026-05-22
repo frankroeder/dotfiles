@@ -58,7 +58,7 @@ case "$choice" in
     exec "$dotfiles/asahi/bin/asahi-reload-hyprland"
     ;;
   "󰑐 Restart Bar (Quickshell)")
-    exec "$dotfiles/asahi/bin/asahi-restart-app" quickshell -c asahi
+    exec "$dotfiles/asahi/bin/asahi-restart-app" quickshell -c remix
     ;;
   "󰑓 Restart Mako")
     exec "$dotfiles/asahi/bin/asahi-restart-app" mako --config "$HOME/.config/mako/config"

@@ -2,11 +2,13 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
 import Quickshell.Hyprland
+import Quickshell.Widgets
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
 
 import "modules/bar/components" as BarComponents
+import "modules/wallpaper"
 
 ShellRoot {
 Variants {
@@ -189,54 +191,17 @@ Variants {
                   border.color: "#585b70"
                   border.width: 1
 
-                  Image {
+                  IconImage {
                     id: winIcon
                     anchors.centerIn: parent
                     width: 26
                     height: 26
-                    fillMode: Image.PreserveAspectFit
                     source: {
-                      const raw = (modelData.appId || modelData.lastIpcObject?.class || "").toLowerCase().trim()
-                      if (!raw) return ""
-
-                      const candidates = []
-
-                      // Try the original app ID first (best chance for Papirus)
-                      candidates.push(raw)
-
-                      // Then dashed version
-                      const dashed = raw.replace(/\./g, "-")
-                      if (dashed !== raw) candidates.push(dashed)
-
-                      // Last segment (e.g. "evince", "ghostty")
-                      const last = raw.split(/[\.-]/).pop()
-                      if (last && last.length > 2 && !["com", "org", "net", "io"].includes(last)) {
-                          candidates.push(last)
-                      }
-
-                      // Strong explicit mappings to actual existing Papirus filenames
-                      const map = {
-                          "org.gnome.evince": "evince",
-                          "org-gnome-evince": "evince",
-                          "evince": "evince",
-                          "com.mitchellh.ghostty": "com.mitchellh.ghostty",
-                          "ghostty": "com.mitchellh.ghostty",
-                          "google-chrome": "google-chrome",
-                          "chrome": "google-chrome",
-                          "code": "code",
-                          "visual-studio-code": "visual-studio-code",
-                          "vscodium": "vscodium",
-                          "firefox": "firefox",
-                          "discord": "discord",
-                      }
-
-                      for (const c of candidates) {
-                          const name = map[c] || c
-                          return `/usr/share/icons/Papirus/24x24/apps/${name}.svg`
-                      }
-                      return "/usr/share/icons/Papirus/24x24/apps/application.svg"
+                      const raw = modelData.appId || modelData.lastIpcObject?.class || ""
+                      const entry = DesktopEntries.heuristicLookup(raw)
+                      return Quickshell.iconPath(entry?.icon || raw, true)
                     }
-                    visible: status === Image.Ready
+                    visible: source !== ""
                   }
                   Text {
                     anchors.centerIn: parent
@@ -363,5 +328,22 @@ Variants {
         source: "modules/launcher/LauncherWindow.qml"
         active: true
     }
+
+    IpcHandler {
+      target: "launcher"
+      function toggle() {
+        const l = launcherLoader.item
+        if (!l) return
+        if (l.shouldShow) {
+          if (l.closeLauncher) l.closeLauncher()
+          else l.shouldShow = false
+        } else {
+          if (l.openLauncher) l.openLauncher()
+          else l.shouldShow = true
+        }
+      }
+    }
+
+    WallpaperManager {}
 
 }  // close ShellRoot

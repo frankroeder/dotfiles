@@ -527,7 +527,7 @@ asahi-desktop: asahi-common
 	$(call replace_with_symlink,$(DOTFILES)/asahi/elephant,$(HOME)/.config/elephant)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/hypr,$(HOME)/.config/hypr)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/swayosd,$(HOME)/.config/swayosd)
-	$(call replace_with_symlink,$(DOTFILES)/asahi/quickshell/remix,$(HOME)/.config/quickshell/asahi)
+	$(call replace_with_symlink,$(DOTFILES)/asahi/quickshell,$(HOME)/.config/quickshell)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/walker,$(HOME)/.config/walker)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/mako,$(HOME)/.config/mako)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/ghostty,$(HOME)/.config/ghostty)

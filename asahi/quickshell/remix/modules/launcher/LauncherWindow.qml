@@ -1,238 +1,388 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Controls as QQC
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Wayland
-import Quickshell.Hyprland as Hypr
-import ".." as Remix
+import Quickshell.Widgets
+import "../wallpaper" as Wallpaper
 
-PanelWindow {
-    id: root
+Scope {
+  id: root
 
-    property bool shouldShow: false
-    property string query: ""
-    property int selectedIndex: 0
+  property var theme: Wallpaper.DefaultTheme {}
+  property bool shouldShow: false
+  property string query: ""
+  property int selectedIndex: 0
+  property var launcherScreen: null
+  property int resultCount: 0
 
-    readonly property color cSurface: "#1a1b26"
-    readonly property color cSurfaceContainer: "#313244"
-    readonly property color cPrimary: "#7aa2f7"
-    readonly property color cText: "#a9b1d6"
-    readonly property color cSubText: "#6c7086"
-    readonly property color cBorder: "#45475a"
-
-    readonly property var terminalCommand: ["foot"]
-
-    readonly property var actionEntries: [
-        { id: "action-terminal", name: "Open Terminal", comment: "Launch foot", glyph: "󰆍", type: "action", onTriggered: () => Quickshell.execDetached(terminalCommand) },
-        { id: "action-files", name: "Open Files", comment: "Home directory", glyph: "󰉋", type: "action", onTriggered: () => Quickshell.execDetached(["xdg-open", Quickshell.env("HOME")]) },
-        { id: "action-screenshots", name: "Screenshots", comment: "Open captures folder", glyph: "󰄄", type: "action", onTriggered: () => {} },
-        { id: "action-network", name: "Network", comment: "nm-connection-editor", glyph: "󰖩", type: "action", onTriggered: () => Quickshell.execDetached(["nm-connection-editor"]) }
-    ]
-
-    readonly property var favoriteApps: []
-
-    readonly property var appEntries: {
-        const apps = DesktopEntries.applications.values ?? []
-        const q = query.trim().toLowerCase()
-
-        function score(entry) {
-            const name = (entry.name ?? "").toLowerCase()
-            if (!q.length) return 100
-            if (name === q) return 1000
-            if (name.startsWith(q)) return 900
-            if (name.includes(q)) return 680
-            return 0
-        }
-
-        return apps
-            .map(entry => ({ entry, rank: score(entry) }))
-            .filter(item => item.rank > 0)
-            .sort((a, b) => b.rank - a.rank || a.entry.name.localeCompare(b.entry.name))
-            .slice(0, 12)
-            .map(item => item.entry)
+  onResultCountChanged: {
+    const max = Math.max(0, root.resultCount - 1)
+    if (resultsList && resultsList.currentIndex > max && max >= 0) {
+      resultsList.currentIndex = max
     }
+  }
 
-    readonly property var visibleEntries: {
-        const q = query.trim()
-        if (q.startsWith(">")) {
-            const aq = q.slice(1).trim().toLowerCase()
-            return actionEntries.filter(e => !aq.length || e.name.toLowerCase().includes(aq) || e.comment.toLowerCase().includes(aq))
-        }
-        return appEntries.length > 0 ? appEntries : (DesktopEntries.applications.values ?? []).slice(0, 12)
+  function launchCurrent() {
+    let entry = null
+    if (resultsList && resultsList.currentItem && resultsList.currentItem.modelData) {
+      entry = resultsList.currentItem.modelData
+    } else if (filteredApps && filteredApps.values && resultsList.currentIndex < filteredApps.values.length) {
+      entry = filteredApps.values[resultsList.currentIndex]
     }
+    if (entry) root.launchApp(entry)
+  }
 
-    function closeLauncher() {
-        shouldShow = false
-        query = ""
-        selectedIndex = 0
-    }
+  function openLauncher() {
+    const mon = Hyprland.focusedMonitor
+    launcherScreen = mon ? (Quickshell.screens.find(s => s.name === mon.name) ?? Quickshell.screens[0]) : (Quickshell.screens[0] ?? null)
+    shouldShow = true
+    searchInput.text = ""
+    if (resultsList) resultsList.currentIndex = 0
+    Qt.callLater(() => { if (searchInput) searchInput.forceActiveFocus() })
+  }
 
-    function launchEntry(entry) {
-        if (!entry) return
-        if (entry.type === "action") {
-            entry.onTriggered()
-            closeLauncher()
-            return
-        }
-        Quickshell.execDetached(entry.command ?? [entry.execString])
-        closeLauncher()
-    }
+  function closeLauncher() {
+    shouldShow = false
+  }
 
-    // Show launcher on the currently focused monitor
-    screen: {
-        const mon = Hypr.Hyprland.focusedMonitor
-        if (!mon) return Quickshell.screens[0]
-        return Quickshell.screens.find(s => s.name === mon.name) ?? Quickshell.screens[0]
+  function launchApp(entry) {
+    if (entry && entry.execute) entry.execute()
+    shouldShow = false
+  }
+
+  ScriptModel {
+    id: filteredApps
+    objectProp: "id"
+    values: {
+      let all = [...DesktopEntries.applications.values]
+      all = all.filter(d => !d.noDisplay)
+      const q = root.query.trim().toLowerCase()
+      if (q === "") {
+        return all.sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+      }
+      const filtered = all.filter(d =>
+        (d.name && d.name.toLowerCase().includes(q)) ||
+        (d.genericName && d.genericName.toLowerCase().includes(q)) ||
+        (d.keywords && d.keywords.some(k => k.toLowerCase().includes(q))) ||
+        (d.categories && d.categories.some(c => c.toLowerCase().includes(q)))
+      )
+      return filtered.sort((a, b) => {
+        const an = (a.name || "").toLowerCase()
+        const bn = (b.name || "").toLowerCase()
+        const aStarts = an.startsWith(q)
+        const bStarts = bn.startsWith(q)
+        if (aStarts && !bStarts) return -1
+        if (!aStarts && bStarts) return 1
+        return an.localeCompare(bn)
+      })
     }
+  }
+
+  PanelWindow {
+    id: launcherPanel
+    visible: root.shouldShow
+    focusable: true
+    color: "transparent"
+
+    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+    WlrLayershell.namespace: "quickshell-launcher"
+    exclusionMode: ExclusionMode.Ignore
+
+    screen: root.launcherScreen
 
     anchors {
-        top: true
-        left: true
+      top: true
+      bottom: true
+      left: true
+      right: true
     }
-    margins {
-        top: 60
-        left: Math.max(0, Math.round((screen.width - 420) / 2))
-    }
-    implicitWidth: 420
-    implicitHeight: shouldShow ? contentColumn.implicitHeight + 32 : 0
-    color: "transparent"
-    visible: shouldShow || (content.opacity > 0)
 
-    WlrLayershell.keyboardFocus: shouldShow ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    // Dark overlay backdrop
+    MouseArea {
+      anchors.fill: parent
+      onClicked: root.shouldShow = false
 
-    FocusScope {
-        id: content
+      Rectangle {
         anchors.fill: parent
-        opacity: shouldShow ? 1 : 0
-        scale: shouldShow ? 1 : 0.96
-        focus: shouldShow
+        color: root.theme.bgOverlay
+      }
+    }
 
-        Keys.onEscapePressed: closeLauncher()
-        Keys.onDownPressed: selectedIndex = Math.min(selectedIndex + 1, visibleEntries.length - 1)
-        Keys.onUpPressed: selectedIndex = Math.max(selectedIndex - 1, 0)
-        Keys.onReturnPressed: launchEntry(visibleEntries[selectedIndex])
+    // Centered launcher box
+    Rectangle {
+      id: launcherBox
+      anchors.centerIn: parent
+      width: 580
+      height: 480
+      radius: 16
+      color: root.theme.bgBase
+      border.color: root.theme.bgBorder
+      border.width: 1
 
-        Behavior on opacity { NumberAnimation { duration: 150 } }
-        Behavior on scale { NumberAnimation { duration: 200 } }
+      ColumnLayout {
+        anchors.fill: parent
+        anchors.margins: 16
+        spacing: 12
 
-        Rectangle {
-            anchors.fill: parent
-            color: cSurface
-            radius: 16
-            border.color: cBorder
-            border.width: 1
-
-            ColumnLayout {
-                id: contentColumn
-                anchors.fill: parent
-                anchors.margins: 16
-                spacing: 12
-
-                // Search bar
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 48
-                    radius: 12
-                    color: cSurfaceContainer
-                    border.color: cBorder
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.margins: 12
-                        spacing: 10
-
-                        Text {
-                            text: query.startsWith(">") ? "󰘳" : "󰍉"
-                            font.family: "Material Design Icons"
-                            font.pixelSize: 18
-                            color: cPrimary
-                        }
-
-                        QQC.TextField {
-                            id: searchField
-                            Layout.fillWidth: true
-                            color: cText
-                            font.pixelSize: 14
-                            placeholderText: "Search or type > for actions"
-                            placeholderTextColor: cSubText
-                            background: Item {}
-                            onTextChanged: {
-                                root.query = text
-                                selectedIndex = 0
-                            }
-                        }
-                    }
-                }
-
-                // Results
-                Flickable {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: Math.min(400, list.implicitHeight)
-                    clip: true
-                    contentHeight: list.implicitHeight
-
-                    Column {
-                        id: list
-                        width: parent.width
-                        spacing: 4
-
-                        Repeater {
-                            model: visibleEntries
-
-                            Rectangle {
-                                required property var modelData
-                                required property int index
-
-                                width: list.width
-                                height: 48
-                                radius: 10
-                                color: selectedIndex === index ? Qt.rgba(cPrimary.r, cPrimary.g, cPrimary.b, 0.15) : "transparent"
-
-                                RowLayout {
-                                    anchors.fill: parent
-                                    anchors.margins: 8
-                                    spacing: 10
-
-                                    Text {
-                                        text: modelData.type === "action" ? (modelData.glyph ?? "󰣆") : (modelData.name ?? "?").charAt(0)
-                                        font.pixelSize: 16
-                                        color: cPrimary
-                                    }
-
-                                    ColumnLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 1
-                                        Text {
-                                            text: modelData.name ?? "Unknown"
-                                            color: cText
-                                            font.pixelSize: 13
-                                            elide: Text.ElideRight
-                                        }
-                                        Text {
-                                            text: modelData.comment || ""
-                                            color: cSubText
-                                            font.pixelSize: 11
-                                            elide: Text.ElideRight
-                                        }
-                                    }
-                                }
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onClicked: launchEntry(modelData)
-                                    onEntered: selectedIndex = index
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+        // Header
+        Text {
+          text: "Applications"
+          color: root.theme.accentPrimary
+          font.pixelSize: 14
+          font.family: "Hack Nerd Font"
+          font.bold: true
         }
-    }
 
-    function openLauncher() {
-        shouldShow = true
-        selectedIndex = 0
-        Qt.callLater(() => searchField.forceActiveFocus())
+        // Search bar
+        Rectangle {
+          Layout.fillWidth: true
+          height: 44
+          radius: 10
+          color: root.theme.bgSurface
+          border.color: searchInput.activeFocus ? root.theme.accentPrimary : root.theme.bgBorder
+          border.width: 1
+
+          Behavior on border.color {
+            ColorAnimation { duration: 150 }
+          }
+
+          RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 14
+            anchors.rightMargin: 14
+            spacing: 10
+
+            Text {
+              text: "󰍉"
+              color: root.theme.textMuted
+              font.pixelSize: 18
+              font.family: "Hack Nerd Font"
+              Layout.alignment: Qt.AlignVCenter
+            }
+
+            TextInput {
+              id: searchInput
+              Layout.fillWidth: true
+              Layout.alignment: Qt.AlignVCenter
+              color: root.theme.textPrimary
+              font.pixelSize: 15
+              font.family: "Hack Nerd Font"
+              clip: true
+              focus: true
+              Accessible.role: Accessible.EditableText
+              Accessible.name: "Search applications"
+
+              Text {
+                anchors.fill: parent
+                text: "Type to search..."
+                color: root.theme.textMuted
+                font: parent.font
+                visible: !parent.text && !parent.activeFocus
+                verticalAlignment: Text.AlignVCenter
+              }
+
+              onTextChanged: {
+                root.query = text
+                if (resultsList) resultsList.currentIndex = 0
+              }
+
+              Keys.onEscapePressed: root.shouldShow = false
+              Keys.onReturnPressed: root.launchCurrent()
+              Keys.onEnterPressed: root.launchCurrent()
+
+              Keys.onPressed: event => {
+                const max = Math.max(0, root.resultCount - 1)
+                if (event.key === Qt.Key_Down) {
+                  event.accepted = true
+                  resultsList.currentIndex = Math.min(resultsList.currentIndex + 1, max)
+                  resultsList.positionViewAtIndex(resultsList.currentIndex, ListView.Contain)
+                } else if (event.key === Qt.Key_Up) {
+                  event.accepted = true
+                  resultsList.currentIndex = Math.max(resultsList.currentIndex - 1, 0)
+                  resultsList.positionViewAtIndex(resultsList.currentIndex, ListView.Contain)
+                } else if (event.key === Qt.Key_Tab) {
+                  event.accepted = true
+                  resultsList.currentIndex = Math.min(resultsList.currentIndex + 1, max)
+                  resultsList.positionViewAtIndex(resultsList.currentIndex, ListView.Contain)
+                }
+              }
+            }
+          }
+        }
+
+        // Results count
+        Text {
+          text: root.resultCount + " application" + (root.resultCount !== 1 ? "s" : "")
+          color: root.theme.textMuted
+          font.pixelSize: 11
+          font.family: "Hack Nerd Font"
+        }
+
+        // App list
+        ListView {
+          id: resultsList
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          model: filteredApps
+          clip: true
+          spacing: 2
+          boundsBehavior: Flickable.StopAtBounds
+          currentIndex: 0
+          highlightMoveDuration: 150
+          highlightMoveVelocity: -1
+
+          onCountChanged: root.resultCount = count
+          onCurrentIndexChanged: if (currentIndex >= 0) root.selectedIndex = currentIndex
+
+          highlight: Rectangle {
+            radius: 8
+            color: root.theme.bgSelected
+
+            Rectangle {
+              width: 3
+              height: 24
+              radius: 2
+              color: root.theme.accentPrimary
+              anchors.left: parent.left
+              anchors.leftMargin: 2
+              anchors.verticalCenter: parent.verticalCenter
+            }
+          }
+
+          delegate: Rectangle {
+            id: delegateRoot
+            required property var modelData
+            required property int index
+
+            Accessible.role: Accessible.Button
+            Accessible.name: (modelData.name ?? "Application") + (modelData.genericName ? " - " + modelData.genericName : "")
+
+            width: resultsList.width
+            height: 44
+            radius: 8
+            color: hoverArea.containsMouse && resultsList.currentIndex !== index ? root.theme.bgHover : "transparent"
+
+            Behavior on color {
+              ColorAnimation { duration: 100 }
+            }
+
+            RowLayout {
+              anchors.fill: parent
+              anchors.leftMargin: 12
+              anchors.rightMargin: 12
+              spacing: 12
+
+              // App icon
+              Item {
+                width: 28
+                height: 28
+                Layout.alignment: Qt.AlignVCenter
+
+                IconImage {
+                  anchors.fill: parent
+                  source: Quickshell.iconPath(delegateRoot.modelData.icon ?? "", true)
+                  visible: (delegateRoot.modelData.icon ?? "") !== ""
+                }
+
+                // Fallback letter icon
+                Text {
+                  anchors.centerIn: parent
+                  text: (delegateRoot.modelData.name ?? "?").charAt(0).toUpperCase()
+                  color: root.theme.accentPrimary
+                  font.pixelSize: 16
+                  font.family: "Hack Nerd Font"
+                  font.bold: true
+                  visible: (delegateRoot.modelData.icon ?? "") === ""
+                }
+              }
+
+              // App info
+              ColumnLayout {
+                Layout.fillWidth: true
+                Layout.alignment: Qt.AlignVCenter
+                spacing: 1
+
+                Text {
+                  text: delegateRoot.modelData.name ?? ""
+                  color: resultsList.currentIndex === delegateRoot.index ? root.theme.textPrimary : root.theme.textSecondary
+                  font.pixelSize: 13
+                  font.family: "Hack Nerd Font"
+                  font.bold: resultsList.currentIndex === delegateRoot.index
+                  elide: Text.ElideRight
+                  Layout.fillWidth: true
+                }
+
+                Text {
+                  text: delegateRoot.modelData.genericName ?? delegateRoot.modelData.comment ?? ""
+                  color: root.theme.textMuted
+                  font.pixelSize: 11
+                  font.family: "Hack Nerd Font"
+                  elide: Text.ElideRight
+                  Layout.fillWidth: true
+                  visible: text !== ""
+                }
+              }
+            }
+
+            MouseArea {
+              id: hoverArea
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.launchApp(delegateRoot.modelData)
+              onEntered: resultsList.currentIndex = delegateRoot.index
+            }
+          }
+
+          // Empty state
+          Text {
+            anchors.centerIn: parent
+            text: "No applications found"
+            color: root.theme.textMuted
+            font.pixelSize: 14
+            font.family: "Hack Nerd Font"
+            visible: root.resultCount === 0 && searchInput.text !== ""
+          }
+        }
+
+        // Footer hint
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 16
+
+          Row {
+            spacing: 4
+            Rectangle {
+              width: hintUp.width + 8; height: 18; radius: 4; color: root.theme.bgSurface
+              Text { id: hintUp; anchors.centerIn: parent; text: "↑↓"; color: root.theme.textMuted; font.pixelSize: 10; font.family: "Hack Nerd Font" }
+            }
+            Text { text: "navigate"; color: root.theme.textMuted; font.pixelSize: 10; font.family: "Hack Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
+          }
+
+          Row {
+            spacing: 4
+            Rectangle {
+              width: hintEnter.width + 8; height: 18; radius: 4; color: root.theme.bgSurface
+              Text { id: hintEnter; anchors.centerIn: parent; text: "⏎"; color: root.theme.textMuted; font.pixelSize: 10; font.family: "Hack Nerd Font" }
+            }
+            Text { text: "launch"; color: root.theme.textMuted; font.pixelSize: 10; font.family: "Hack Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
+          }
+
+          Row {
+            spacing: 4
+            Rectangle {
+              width: hintEsc.width + 8; height: 18; radius: 4; color: root.theme.bgSurface
+              Text { id: hintEsc; anchors.centerIn: parent; text: "esc"; color: root.theme.textMuted; font.pixelSize: 10; font.family: "Hack Nerd Font" }
+            }
+            Text { text: "close"; color: root.theme.textMuted; font.pixelSize: 10; font.family: "Hack Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
+          }
+
+          Item { Layout.fillWidth: true }
+        }
+      }
     }
+  }
 }

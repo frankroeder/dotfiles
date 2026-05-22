@@ -3,7 +3,8 @@ local scripts = dotfilesDir .. "/asahi/bin"
 
 -- Apps and windows
 hl.bind(mod .. " + T", hl.dsp.exec_cmd(terminal), { desc = "Terminal" })
-hl.bind(mod .. " + SPACE", hl.dsp.exec_cmd(launcher), { desc = "Launcher" })
+hl.bind(mod .. " + SPACE", hl.dsp.exec_cmd("qs -c remix ipc call launcher toggle"), { desc = "Launcher" })
+hl.bind(mod .. " + SHIFT + W", hl.dsp.exec_cmd("qs -c remix ipc call wallpaper toggle"), { desc = "Wallpaper picker" })
 hl.bind(mod .. " + B", hl.dsp.exec_cmd(browser), { desc = "Browser" })
 hl.bind(mod .. " + Q", hl.dsp.window.close(), { desc = "Close window" })
 hl.bind(mod .. " + F", hl.dsp.window.fullscreen({ mode = 1 }), { desc = "Toggle maximized" })
@@ -34,8 +35,8 @@ hl.bind(mod .. " + CONTROL + ALT + R", hl.dsp.exec_cmd(scripts .. "/asahi-reload
 hl.bind(mod .. " + CONTROL + ALT + SPACE", hl.dsp.exec_cmd(scripts .. "/asahi-restart-walker"), { desc = "Restart walker" })
 hl.bind(
   mod .. " + CONTROL + ALT + W",
-  hl.dsp.exec_cmd(scripts .. "/asahi-restart-app quickshell -c asahi"),
-  { desc = "Restart quickshell bar (qs -c asahi)" }
+  hl.dsp.exec_cmd(scripts .. "/asahi-restart-app quickshell -c remix"),
+  { desc = "Restart quickshell bar (qs -c remix)" }
 )
 hl.bind(
   mod .. " + CONTROL + ALT + M",
