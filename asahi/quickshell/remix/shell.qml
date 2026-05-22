@@ -146,12 +146,12 @@ Variants {
             spacing: 6
             // Workspace number (only occupied + focused)
             Rectangle {
-              width: 22
-              height: 22
-              radius: 4
+              width: 24
+              height: 30
+              radius: 8
               color: (Hyprland.focusedWorkspace?.id === modelData) ? "#45475a" : "#2a2a3a"
               border.color: (Hyprland.focusedWorkspace?.id === modelData) ? root.colCyan : "transparent"
-              border.width: 1
+              border.width: 2
 
               Text {
                 anchors.centerIn: parent
@@ -162,6 +162,8 @@ Variants {
 
               MouseArea {
                 anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                // TODO: This is not working. //
                 onClicked: Hyprland.dispatch("workspace " + modelData)
               }
             }
@@ -182,7 +184,7 @@ Variants {
                 Rectangle {
                   width: 30
                   height: 30
-                  radius: 6
+                  radius: 8
                   color: "#313244"
                   border.color: "#585b70"
                   border.width: 1
@@ -194,37 +196,44 @@ Variants {
                     height: 26
                     fillMode: Image.PreserveAspectFit
                     source: {
-                      const appId = (modelData.appId || modelData.lastIpcObject?.class || "").toLowerCase().trim()
-                      if (!appId) return ""
+                      const raw = (modelData.appId || modelData.lastIpcObject?.class || "").toLowerCase().trim()
+                      if (!raw) return ""
 
                       const candidates = []
 
-                      // 1. Full cleaned name (best for modern Papirus)
-                      candidates.push(appId.replace(/\./g, "-"))
+                      // Try the original app ID first (best chance for Papirus)
+                      candidates.push(raw)
 
-                      // 2. Last meaningful segment
-                      const last = appId.split(/[\.-]/).pop()
-                      if (last && !["com", "org", "net"].includes(last)) {
+                      // Then dashed version
+                      const dashed = raw.replace(/\./g, "-")
+                      if (dashed !== raw) candidates.push(dashed)
+
+                      // Last segment (e.g. "evince", "ghostty")
+                      const last = raw.split(/[\.-]/).pop()
+                      if (last && last.length > 2 && !["com", "org", "net", "io"].includes(last)) {
                           candidates.push(last)
                       }
 
-                      // 3. Known renames
+                      // Strong explicit mappings to actual existing Papirus filenames
                       const map = {
+                          "org.gnome.evince": "evince",
+                          "org-gnome-evince": "evince",
+                          "evince": "evince",
+                          "com.mitchellh.ghostty": "com.mitchellh.ghostty",
+                          "ghostty": "com.mitchellh.ghostty",
                           "google-chrome": "google-chrome",
                           "chrome": "google-chrome",
-                          "code": "visual-studio-code",
+                          "code": "code",
+                          "visual-studio-code": "visual-studio-code",
                           "vscodium": "vscodium",
-                          "ghostty": "com.mitchellh.ghostty",
-                          "com": "application",
-                          "org": "application",
-                          "net": "application",
+                          "firefox": "firefox",
+                          "discord": "discord",
                       }
 
                       for (const c of candidates) {
                           const name = map[c] || c
                           return `/usr/share/icons/Papirus/24x24/apps/${name}.svg`
                       }
-
                       return "/usr/share/icons/Papirus/24x24/apps/application.svg"
                     }
                     visible: status === Image.Ready
@@ -237,15 +246,18 @@ Variants {
                     font.bold: true
                     color: "#cdd6f4"
                   }
-                  MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                      const addr = modelData.address || modelData.lastIpcObject?.address
-                      if (addr) Hyprland.dispatch("focuswindow address:" + addr)
-                    }
-                  }
+                  // MouseArea {
+                  //   anchors.fill: parent
+                  //   hoverEnabled: true
+                  //   cursorShape: Qt.PointingHandCursor
+                  //   onClicked: {
+                  //     const addr = modelData.address || modelData.lastIpcObject?.address
+                  //     if (addr) {
+                  //       const a = addr.startsWith("0x") ? addr : "0x" + addr
+                  //       Hyprland.dispatch("focuswindow", "address:" + a)
+                  //     }
+                  //   }
+                  // }
                 }
               }
             }
@@ -321,8 +333,10 @@ Variants {
 
     BarComponents.Battery {}
 
-    // Clock last on the right
-    BarComponents.Clock {}
+    // Clock last on the right - click to open launcher
+    BarComponents.Clock {
+      launcher: launcherLoader.item
+    }
   }
 
   // Custom tooltips sized to full multi-line content (PopupWindow + paintedHeight)
@@ -343,4 +357,11 @@ Variants {
   }
 }
 }  // close Variants
+
+    Loader {
+        id: launcherLoader
+        source: "modules/launcher/LauncherWindow.qml"
+        active: true
+    }
+
 }  // close ShellRoot

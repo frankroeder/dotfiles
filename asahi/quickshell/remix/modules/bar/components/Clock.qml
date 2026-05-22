@@ -8,7 +8,7 @@ Rectangle {
   color: "#313244"
   radius: 6
 
-  property var launcher: null   // can be wired later for click-to-launcher
+  property var launcher: null
 
   implicitWidth: clockRow.implicitWidth + 14
   implicitHeight: 26
@@ -35,6 +35,17 @@ Rectangle {
         running: true
         repeat: true
         onTriggered: timeText.text = Qt.formatDateTime(new Date(), "HH:mm")
+      }
+    }
+  }
+
+  MouseArea {
+    anchors.fill: parent
+    hoverEnabled: true
+    cursorShape: Qt.PointingHandCursor
+    onClicked: {
+      if (root.launcher && root.launcher.openLauncher) {
+        root.launcher.openLauncher()
       }
     }
   }

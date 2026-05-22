@@ -62,9 +62,9 @@ Rectangle {
 
         onClicked: (mouse) => {
             if (mouse.button === Qt.RightButton) {
-                Quickshell.execDetached(["bash", "-c", "~/.dotfiles/asahi/bin/asahi-network-menu"])
+                Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-network-menu"])
             } else {
-                Quickshell.execDetached(["bash", "-c", "~/.dotfiles/asahi/bin/asahi-launch-wifi"])
+                Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-launch-wifi"])
             }
         }
     }

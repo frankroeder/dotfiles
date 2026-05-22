@@ -17,7 +17,7 @@ choice="$(
     "󰄄 Screenshot region" \
     "󰹑 Screenshot full" \
     "󰑓 Reload Hyprland" \
-    "󰑐 Restart Waybar" \
+    "󰑐 Restart Bar (Quickshell)" \
     "󰑓 Restart Mako" \
     "󰑓 Restart Hyprpaper" \
     "󰑓 Restart Hypridle" \

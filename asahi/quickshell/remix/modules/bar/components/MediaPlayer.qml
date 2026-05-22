@@ -16,6 +16,7 @@ Rectangle {
 
   property string text: ""
   property bool hasMedia: text.length > 0
+  visible: hasMedia
 
   Process {
     id: playerProc
@@ -63,11 +64,11 @@ Rectangle {
 
     onClicked: (mouse) => {
       if (mouse.button === Qt.RightButton) {
-        Quickshell.execDetached(["bash", "-c", "~/.dotfiles/asahi/bin/asahi-media-control playerctl next"])
+        Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-media-control", "playerctl", "next"])
       } else if (mouse.button === Qt.MiddleButton) {
-        Quickshell.execDetached(["bash", "-c", "~/.dotfiles/asahi/bin/asahi-media-control playerctl previous"])
+        Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-media-control", "playerctl", "previous"])
       } else {
-        Quickshell.execDetached(["bash", "-c", "~/.dotfiles/asahi/bin/asahi-media-control playerctl play-pause"])
+        Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-media-control", "playerctl", "play-pause"])
       }
     }
   }
