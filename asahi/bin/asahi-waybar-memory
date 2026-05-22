@@ -2,16 +2,6 @@
 
 set -euo pipefail
 
-chars=("▁" "▂" "▃" "▄" "▅" "▆" "▇" "█")
-
-state_dir="${XDG_RUNTIME_DIR:-/tmp}/asahi-waybar"
-if ! mkdir -p "$state_dir" || [ ! -w "$state_dir" ]; then
-  state_dir="/tmp/asahi-waybar-${UID:-$(id -u)}"
-  mkdir -p "$state_dir"
-fi
-
-history_file="$state_dir/memory.history"
-
 mem_total=0
 mem_available=0
 swap_total=0
@@ -37,18 +27,6 @@ else
   swap_percentage=0
 fi
 
-index=$((mem_percentage * 8 / 101))
-[ "$index" -gt 7 ] && index=7
-
-if [ -r "$history_file" ]; then
-  history="$(tr -d '\n' < "$history_file")"
-else
-  history=""
-fi
-history="${history}${chars[$index]}"
-[ "${#history}" -gt 8 ] && history="${history: -8}"
-printf "%s\n" "$history" > "$history_file"
-
 mem_used_gib="$(awk -v value="$mem_used" 'BEGIN { printf "%.1f", value / 1048576 }')"
 mem_total_gib="$(awk -v value="$mem_total" 'BEGIN { printf "%.1f", value / 1048576 }')"
 swap_used_gib="$(awk -v value="$swap_used" 'BEGIN { printf "%.1f", value / 1048576 }')"
@@ -61,5 +39,5 @@ class="normal"
 tooltip="RAM ${mem_used_gib}/${mem_total_gib} GiB (${mem_percentage}%)\\n"
 tooltip="${tooltip}Swap ${swap_used_gib}/${swap_total_gib} GiB (${swap_percentage}%)"
 
-printf '{"text":"RAM %s %d%%","tooltip":"%s","class":"%s","percentage":%d}\n' \
-  "$history" "$mem_percentage" "$tooltip" "$class" "$mem_percentage"
+printf '{"text":"RAM %d%%","tooltip":"%s","class":"%s","percentage":%d}\n' \
+  "$mem_percentage" "$tooltip" "$class" "$mem_percentage"

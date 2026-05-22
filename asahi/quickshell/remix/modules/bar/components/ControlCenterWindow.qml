@@ -160,7 +160,6 @@ PanelWindow {
         color: cPrimary
       }
 
-      // We can embed a simple version of SystemUsage here later
       Text {
         text: "CPU / Memory / Disk stats available in bar"
         font.family: "JetBrainsMono Nerd Font"

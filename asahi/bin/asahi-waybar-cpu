@@ -2,8 +2,6 @@
 
 set -euo pipefail
 
-chars=("▁" "▂" "▃" "▄" "▅" "▆" "▇" "█")
-
 state_dir="${XDG_RUNTIME_DIR:-/tmp}/asahi-waybar"
 if ! mkdir -p "$state_dir" || [ ! -w "$state_dir" ]; then
   state_dir="/tmp/asahi-waybar-${UID:-$(id -u)}"
@@ -11,7 +9,6 @@ if ! mkdir -p "$state_dir" || [ ! -w "$state_dir" ]; then
 fi
 
 state_file="$state_dir/cpu.stat"
-history_file="$state_dir/cpu.history"
 
 read_temp_raw() {
   local path="$1"
@@ -118,18 +115,6 @@ else
   percentage=0
 fi
 
-index=$((percentage * 8 / 101))
-[ "$index" -gt 7 ] && index=7
-
-if [ -r "$history_file" ]; then
-  history="$(tr -d '\n' < "$history_file")"
-else
-  history=""
-fi
-history="${history}${chars[$index]}"
-[ "${#history}" -gt 8 ] && history="${history: -8}"
-printf "%s\n" "$history" > "$history_file"
-
 class="normal"
 [ "$percentage" -ge 60 ] && class="warning"
 [ "$percentage" -ge 80 ] && class="critical"
@@ -187,7 +172,7 @@ tooltip="$(printf "CPU %d%%\nLoad 1/5/15: %s %s %s\nCores: %s\n%s\n%s\n%s" \
   "$percentage" "$load1" "$load5" "$load15" "$cores" "$freq_line" "$temp_line" "$temp_path_line")"
 
 jq -cn \
-  --arg text "CPU $history $percentage%$temp_text" \
+  --arg text "CPU $percentage%$temp_text" \
   --arg tooltip "$tooltip" \
   --arg class "$class" \
   --argjson percentage "$percentage" \

@@ -36,11 +36,27 @@ Variants {
   property string memText: ""
   property string memTooltip: ""
 
+  // For the new graphical short history graphs (replaces old unicode blocks)
+  property real cpuPerc: 0
+  property real memPerc: 0
+  property string cpuTempText: ""
+  property var cpuHistory: []
+  property var memHistory: []
+  readonly property int maxGraphHist: 22
+
+  function fmt2(n) {
+    n = Math.round(n)
+    if (n > 99) n = 99
+    if (n < 0) n = 0
+    return n < 10 ? "0" + n : "" + n
+  }
+
   // Windows on the currently focused workspace — used to show app icons
   // next to the active workspace (only when it contains apps)
   property int wsWindowVersion: 0
 
-  // Only workspaces that contain at least one window (+ always the focused one)
+  // Workspaces that contain windows (or the focused one), in stable numeric order.
+  // Active workspace is highlighted with color/border on its pill; order never changes to avoid jumping.
   readonly property var occupiedWorkspaces: {
     wsWindowVersion
     const ids = new Set()
@@ -70,6 +86,16 @@ Variants {
           const data = JSON.parse(text.trim())
           root.cpuText = data.text || "CPU --%"
           root.cpuTooltip = data.tooltip || ""
+          root.cpuPerc = data.percentage || 0
+
+          const txt = data.text || ""
+          const m = txt.match(/(\d+)C/)
+          root.cpuTempText = m ? m[1] : ""
+
+          root.cpuHistory.push(root.cpuPerc)
+          if (root.cpuHistory.length > root.maxGraphHist) root.cpuHistory.shift()
+
+          if (cpuBarGraph) cpuBarGraph.requestPaint()
         } catch (e) {}
       }
     }
@@ -86,6 +112,12 @@ Variants {
           const data = JSON.parse(text.trim())
           root.memText = data.text || "Mem --%"
           root.memTooltip = data.tooltip || ""
+          root.memPerc = data.percentage || 0
+
+          root.memHistory.push(root.memPerc)
+          if (root.memHistory.length > root.maxGraphHist) root.memHistory.shift()
+
+          if (memBarGraph) memBarGraph.requestPaint()
         } catch (e) {}
       }
     }
@@ -94,7 +126,7 @@ Variants {
 
   // Update your timer to run both processes
   Timer {
-    interval: 2000
+    interval: 800
     running: true
     repeat: true
     onTriggered: {
@@ -144,86 +176,101 @@ Variants {
 
         Repeater {
           model: root.occupiedWorkspaces
-          Row {
-            spacing: 6
-            // Workspace number (only occupied + focused)
-            Rectangle {
-              width: 24
-              height: 30
-              radius: 8
-              color: (Hyprland.focusedWorkspace?.id === modelData) ? "#45475a" : "#2a2a3a"
-              border.color: (Hyprland.focusedWorkspace?.id === modelData) ? root.colCyan : "transparent"
-              border.width: 2
+          // Per-workspace pill: highlighted rectangle containing the number + all its app icons (the bar's workspace overview)
+          Rectangle {
+            radius: 6
+            color: isFocused ? "#3a3f4a" : "#2a2a3a"
+            border.color: isFocused ? root.colCyan : "#3a3a4a"
+            border.width: 1
+            implicitHeight: 32
+            implicitWidth: wsInner.implicitWidth + 8
 
-              Text {
-                anchors.centerIn: parent
-                text: modelData
-                color: (Hyprland.focusedWorkspace?.id === modelData) ? root.colCyan : root.colBlue
-                font { family: root.fontFamily; pixelSize: 14; bold: true }
+            property bool isFocused: Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.id === modelData
+
+            Row {
+              id: wsInner
+              anchors.centerIn: parent
+              spacing: 4
+
+              // Workspace number label (plain, no own MouseArea).
+              Rectangle {
+                width: 22
+                height: 26
+                radius: 5
+                color: "#25252f"
+                border.width: 0
+
+                Text {
+                  anchors.centerIn: parent
+                  text: modelData
+                  color: isFocused ? root.colCyan : root.colBlue
+                  font { family: root.fontFamily; pixelSize: 13; bold: true }
+                }
               }
 
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                // TODO: This is not working. //
-                onClicked: Hyprland.dispatch("workspace " + modelData)
+              // App icons (the apps "inside" this workspace's overview rect)
+              Row {
+                spacing: 3
+                anchors.verticalCenter: parent.verticalCenter
+                Repeater {
+                  model: {
+                    root.wsWindowVersion
+                    const wsId = modelData
+                    return Hyprland.toplevels.values.filter(function(t) {
+                      const w = t.workspace || t.lastIpcObject?.workspace
+                      return (w && w.id === wsId) || (t.lastIpcObject?.workspace?.id === wsId)
+                    })
+                  }
+                  Rectangle {
+                    width: 24
+                    height: 24
+                    radius: 4
+                    color: "#313244"
+                    border.color: "#585b70"
+                    border.width: 1
+
+                    IconImage {
+                      id: winIcon
+                      anchors.centerIn: parent
+                      width: 20
+                      height: 20
+                      source: {
+                        const raw = modelData.appId || modelData.lastIpcObject?.class || ""
+                        const entry = DesktopEntries.heuristicLookup(raw)
+                        return Quickshell.iconPath(entry?.icon || raw, true)
+                      }
+                      visible: source !== ""
+                    }
+                    Text {
+                      anchors.centerIn: parent
+                      visible: !winIcon.visible
+                      text: (modelData.appId || modelData.lastIpcObject?.class || "?").charAt(0).toUpperCase()
+                      font.pixelSize: 12
+                      font.bold: true
+                      color: "#cdd6f4"
+                    }
+
+                    MouseArea {
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: modelData.activate()
+                    }
+                  }
+                }
               }
             }
 
-            // App icons for every workspace that has running apps
-            Row {
-              spacing: 4
-              anchors.verticalCenter: parent.verticalCenter
-              Repeater {
-                model: {
-                  root.wsWindowVersion  // force refresh on window events
-                  const wsId = modelData
-                  return Hyprland.toplevels.values.filter(function(t) {
-                    const w = t.workspace || t.lastIpcObject?.workspace
-                    return (w && w.id === wsId) || (t.lastIpcObject?.workspace?.id === wsId)
-                  })
-                }
-                Rectangle {
-                  width: 30
-                  height: 30
-                  radius: 8
-                  color: "#313244"
-                  border.color: "#585b70"
-                  border.width: 1
-
-                  IconImage {
-                    id: winIcon
-                    anchors.centerIn: parent
-                    width: 26
-                    height: 26
-                    source: {
-                      const raw = modelData.appId || modelData.lastIpcObject?.class || ""
-                      const entry = DesktopEntries.heuristicLookup(raw)
-                      return Quickshell.iconPath(entry?.icon || raw, true)
-                    }
-                    visible: source !== ""
-                  }
-                  Text {
-                    anchors.centerIn: parent
-                    visible: !winIcon.visible
-                    text: (modelData.appId || modelData.lastIpcObject?.class || "?").charAt(0).toUpperCase()
-                    font.pixelSize: 16
-                    font.bold: true
-                    color: "#cdd6f4"
-                  }
-                  // MouseArea {
-                  //   anchors.fill: parent
-                  //   hoverEnabled: true
-                  //   cursorShape: Qt.PointingHandCursor
-                  //   onClicked: {
-                  //     const addr = modelData.address || modelData.lastIpcObject?.address
-                  //     if (addr) {
-                  //       const a = addr.startsWith("0x") ? addr : "0x" + addr
-                  //       Hyprland.dispatch("focuswindow", "address:" + a)
-                  //     }
-                  //   }
-                  // }
-                }
+            // Whole pill is clickable to switch workspace.
+            // Uses the proper Quickshell Hyprland API (.activate()) instead of string dispatch
+            // to avoid the broken Lua dispatch handler in the user's Hyprland config.
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              acceptedButtons: Qt.LeftButton
+              onClicked: {
+                const ws = Hyprland.workspaces.values.find(w => w.id === modelData)
+                if (ws) ws.activate()
               }
             }
           }
@@ -242,23 +289,91 @@ Variants {
     // Spacer to push right group to the right
 
     BarComponents.StatusIndicators {}
-    // Right side (as specified): mic, vol, CPU, RAM, Wifi, bluetooth, battery, clock
+    // Right side (as specified): mic, vol, CPU widget (graph left/middle + % + temp right), RAM widget (graph left/middle + % right), net, bt, battery, clock
     BarComponents.Microphone {}
     BarComponents.Volume {}
 
-    // CPU — fixed width
+    // CPU widget: graph occupies left + middle of the widget, percentage (2 digits, leading zero) and temp on the very right of the widget.
+    // Temp combined with CPU as requested.
     Rectangle {
       color: "#313244"
       radius: 4
-      implicitWidth: 178
+      implicitWidth: 170
       implicitHeight: 24
 
-      Text {
-        id: cpuDisplay
-        anchors.centerIn: parent
-        text: root.cpuText || "CPU --%"
-        color: root.colYellow
-        font { family: root.fontFamily; pixelSize: 12 }
+      RowLayout {
+        anchors.fill: parent
+        anchors.margins: 3
+        spacing: 4
+
+        Canvas {
+          id: cpuBarGraph
+          Layout.fillWidth: true
+          Layout.preferredWidth: 120
+          Layout.preferredHeight: 12
+          Layout.alignment: Qt.AlignVCenter
+          onPaint: {
+            const ctx = getContext("2d"); ctx.reset()
+            const h = height; const w = width
+            const hist = root.cpuHistory
+            if (!hist || hist.length < 2) return
+            const n = hist.length
+            const step = w / (n - 1)
+            const color = "#fab387"
+            ctx.lineJoin = "round"; ctx.lineCap = "round"
+
+            const grad = ctx.createLinearGradient(0, 0, 0, h)
+            grad.addColorStop(0, Qt.alpha(color, 0.35))
+            grad.addColorStop(1, "transparent")
+            ctx.fillStyle = grad
+            ctx.beginPath()
+            ctx.moveTo(0, h)
+            for (let i = 0; i < n; i++) {
+              const x = i * step
+              const y = h - (hist[i] / 100) * h
+              ctx.lineTo(x, y)
+            }
+            ctx.lineTo(w, h)
+            ctx.closePath()
+            ctx.fill()
+
+            ctx.beginPath()
+            for (let j = 0; j < n; j++) {
+              const x = j * step
+              const y = h - (hist[j] / 100) * h
+              if (j === 0) ctx.moveTo(x, y)
+              else ctx.lineTo(x, y)
+            }
+            ctx.strokeStyle = color
+            ctx.lineWidth = 1.4
+            ctx.stroke()
+
+            const lx = (n - 1) * step
+            const ly = h - (hist[n - 1] / 100) * h
+            ctx.fillStyle = color
+            ctx.beginPath()
+            ctx.arc(lx, ly, 1.2, 0, 6.28)
+            ctx.fill()
+          }
+        }
+
+        // Right of CPU widget: percentage with % symbol, temperature right next to it (combined as requested)
+        Row {
+          Layout.preferredWidth: 94
+          spacing: 4
+          Text {
+            text: "CPU " + fmt2(root.cpuPerc) + "%"
+            color: root.colYellow
+            font { family: root.fontFamily; pixelSize: 14 }
+            horizontalAlignment: Text.AlignRight
+          }
+          Text {
+            text: fmt2(root.cpuTempText) + "°C"
+            color: "#a9b1d6"
+            font { family: root.fontFamily; pixelSize: 14 }
+            horizontalAlignment: Text.AlignRight
+          }
+        }
       }
 
       MouseArea {
@@ -270,19 +385,78 @@ Variants {
       }
     }
 
-    // Memory (RAM) — fixed width
+    // RAM widget: graph occupies left + middle of the widget, percentage (2 digits) on the very right of the widget.
     Rectangle {
       color: "#313244"
       radius: 4
-      implicitWidth: 160
+      implicitWidth: 130
       implicitHeight: 24
 
-      Text {
-        id: memDisplay
-        anchors.centerIn: parent
-        text: root.memText || "Mem --%"
-        color: root.colCyan
-        font { family: root.fontFamily; pixelSize: 12 }
+      RowLayout {
+        anchors.fill: parent
+        anchors.margins: 3
+        spacing: 4
+
+        Canvas {
+          id: memBarGraph
+          Layout.fillWidth: true
+          Layout.preferredWidth: 100
+          Layout.preferredHeight: 12
+          Layout.alignment: Qt.AlignVCenter
+          onPaint: {
+            const ctx = getContext("2d"); ctx.reset()
+            const h = height; const w = width
+            const hist = root.memHistory
+            if (!hist || hist.length < 2) return
+            const n = hist.length
+            const step = w / (n - 1)
+            const color = "#b4befe"
+            ctx.lineJoin = "round"; ctx.lineCap = "round"
+
+            const grad = ctx.createLinearGradient(0, 0, 0, h)
+            grad.addColorStop(0, Qt.alpha(color, 0.35))
+            grad.addColorStop(1, "transparent")
+            ctx.fillStyle = grad
+            ctx.beginPath()
+            ctx.moveTo(0, h)
+            for (let i = 0; i < n; i++) {
+              const x = i * step
+              const y = h - (hist[i] / 100) * h
+              ctx.lineTo(x, y)
+            }
+            ctx.lineTo(w, h)
+            ctx.closePath()
+            ctx.fill()
+
+            ctx.beginPath()
+            for (let j = 0; j < n; j++) {
+              const x = j * step
+              const y = h - (hist[j] / 100) * h
+              if (j === 0) ctx.moveTo(x, y)
+              else ctx.lineTo(x, y)
+            }
+            ctx.strokeStyle = color
+            ctx.lineWidth = 1.4
+            ctx.stroke()
+
+            const lx = (n - 1) * step
+            const ly = h - (hist[n - 1] / 100) * h
+            ctx.fillStyle = color
+            ctx.beginPath()
+            ctx.arc(lx, ly, 1.2, 0, 6.28)
+            ctx.fill()
+          }
+        }
+
+        // Right of RAM widget: percentage with % symbol
+        Text {
+          text: "RAM " + fmt2(root.memPerc) + "%"
+          color: root.colCyan
+          font { family: root.fontFamily; pixelSize: 13 }
+          Layout.preferredWidth: 60
+          horizontalAlignment: Text.AlignRight
+          Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+        }
       }
 
       MouseArea {
@@ -304,10 +478,10 @@ Variants {
     }
   }
 
-  // Custom tooltips sized to full multi-line content (PopupWindow + paintedHeight)
+  // Custom tooltips attached to each widget's MouseArea
   BarComponents.TooltipWindow {
     id: cpuTip
-    target: cpuDisplay
+    target: cpuMa
     text: root.cpuTooltip
     show: cpuMa.containsMouse
     maxWidth: 380
@@ -315,7 +489,7 @@ Variants {
 
   BarComponents.TooltipWindow {
     id: memTip
-    target: memDisplay
+    target: memMa
     text: root.memTooltip
     show: memMa.containsMouse
     maxWidth: 380
