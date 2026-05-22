@@ -17,6 +17,22 @@ Scope {
   property var launcherScreen: null
   property int resultCount: 0
 
+  readonly property string headerText: {
+    const q = root.query.trim()
+    if (q.startsWith("=")) return "Calculator"
+    if (q.startsWith("!")) return "Web Search"
+    if (q.startsWith("@")) return "Documentation"
+    return "Applications"
+  }
+
+  readonly property string resultText: {
+    const c = root.resultCount
+    const s = c !== 1 ? "s" : ""
+    const qq = root.query.trim()
+    if (qq.startsWith("=") || qq.startsWith("!") || qq.startsWith("@")) return c + " result" + s
+    return c + " application" + s
+  }
+
   onResultCountChanged: {
     const max = Math.max(0, root.resultCount - 1)
     if (resultsList && resultsList.currentIndex > max && max >= 0) {
@@ -48,14 +64,138 @@ Scope {
   }
 
   function launchApp(entry) {
-    if (entry && entry.execute) entry.execute()
+    if (!entry) { shouldShow = false; return }
+    if (entry.special === "calc") {
+      const res = entry.result || ""
+      if (res) Quickshell.execDetached(["bash", "-c", "echo -n '" + res.replace(/'/g, "'\\''") + "' | wl-copy"])
+    } else if ((entry.special === "web" || entry.special === "doc") && entry.url) {
+      let u = entry.url
+      if (u.includes("%TERM%")) u = u.replace("%TERM%", "")
+      u = u.replace(/\?q=$/, "").replace(/\?s=$/, "").replace(/&text=$/, "").replace(/search\?q=$/, "")
+      Quickshell.execDetached(["xdg-open", u])
+    } else if (entry.execute) {
+      entry.execute()
+    }
     shouldShow = false
+  }
+
+  property var webEngines: [
+    { name: "Kagi", prefix: "kagi", url: "https://kagi.com/search?q=%TERM%", icon: "󰖟" },
+    { name: "Jax Documentation", prefix: "jaxdoc", url: "https://docs.jax.dev/en/latest/search.html?q=%TERM%", icon: "󰈙" },
+    { name: "Flax Documentation", prefix: "flaxdoc", url: "https://flax.readthedocs.io/en/stable/search.html?q=%TERM%", icon: "󰈙" },
+    { name: "dict.cc", prefix: "dcc", url: "https://www.dict.cc/?s=%TERM%", icon: "󰗊" },
+    { name: "NumPy Documentation", prefix: "npdoc", url: "https://numpy.org/doc/stable/search.html?q=%TERM%", icon: "󰈙" },
+    { name: "Kagi Translate", prefix: "kt", url: "https://translate.kagi.com/?from=auto&to=en_us&text=%TERM%", icon: "󰗊" },
+    { name: "PyTorch Documentation", prefix: "ptdoc", url: "https://docs.pytorch.org/docs/stable/search.html?q=%TERM%", icon: "󰈙" }
+  ]
+
+  function calculate(expr) {
+    expr = (expr || "").trim()
+    if (!expr) return null
+    try {
+      let e = expr.replace(/π/g, "Math.PI").replace(/pi/gi, "Math.PI")
+      e = e.replace(/e\b/g, "Math.E")
+      e = e.replace(/sqrt\(/gi, "Math.sqrt(")
+      e = e.replace(/\^/g, "**")
+      const val = eval(e)
+      if (typeof val === "number" && isFinite(val)) {
+        return Number.isInteger(val) ? val.toString() : parseFloat(val.toFixed(8)).toString()
+      }
+      return null
+    } catch (_) { return null }
+  }
+
+  function getSpecialResults(qq) {
+    const q = (qq || "").trim()
+    if (!q) return null
+    if (q.startsWith("=")) {
+      const res = calculate(q.substring(1))
+      if (res !== null) {
+        return [{ id: "calc-" + res, name: "= " + res, comment: "Calculator — Enter to copy", icon: "󰃀", special: "calc", result: res }]
+      }
+      return null
+    }
+    if (q.startsWith("!")) {
+      const m = q.match(/^!([a-z0-9]+)\s*(.*)$/i)
+      if (m) {
+        const b = m[1].toLowerCase()
+        const t = (m[2] || "").trim()
+        let tpl = ""
+        if (b === "yt" || b === "y") tpl = "https://www.youtube.com/results?search_query=%s"
+        else if (b === "w") tpl = "https://en.wikipedia.org/wiki/Special:Search?search=%s"
+        else if (b === "r") tpl = "https://www.reddit.com/search/?q=%s"
+        else if (b === "g") tpl = "https://www.google.com/search?q=%s"
+        if (tpl && t) {
+          return [{
+            id: "bang-" + b,
+            name: "!" + b + " " + t,
+            comment: "Bang search — Enter to open",
+            icon: "󰖟",
+            special: "web",
+            url: tpl.replace("%s", encodeURIComponent(t))
+          }]
+        }
+      }
+      const t = q.substring(1).trim()
+      if (t) {
+        return [{
+          id: "web",
+          name: "Search: " + t,
+          comment: "Web search (Kagi) — Enter to open",
+          icon: "󰖟",
+          special: "web",
+          url: "https://kagi.com/search?q=" + encodeURIComponent(t)
+        }]
+      }
+      return null
+    }
+    if (q.startsWith("@")) {
+      const after = q.substring(1).trim()
+      const la = after.toLowerCase()
+      // exact prefix match for direct search
+      for (const e of root.webEngines) {
+        const p = e.prefix
+        if (la === p || la.startsWith(p + " ")) {
+          const term = la.startsWith(p + " ") ? after.substring(p.length + 1).trim() : after.substring(p.length).trim()
+          let u = e.url
+          if (term) u = u.replace("%TERM%", encodeURIComponent(term))
+          else u = u.replace("%TERM%", "").replace(/\?q=$/, "")
+          return [{
+            id: "doc-" + p,
+            name: e.name + (term ? " — " + term : ""),
+            comment: "Docs search — Enter to open",
+            icon: e.icon,
+            special: "doc",
+            url: u
+          }]
+        }
+      }
+      // partial: filter list of engines
+      const f = root.webEngines.filter(e => e.prefix.toLowerCase().startsWith(la) || e.name.toLowerCase().includes(la) || la === "")
+      if (f.length > 0) {
+        return f.map(e => ({
+          id: "doclist-" + e.prefix,
+          name: e.name,
+          comment: "@" + e.prefix + " — select to search",
+          icon: e.icon,
+          special: "doc",
+          url: e.url.replace("%TERM%", "")
+        }))
+      }
+      // fallback kagi
+      const t = after || ""
+      const u = "https://kagi.com/search?q=" + encodeURIComponent(t)
+      return [{ id: "docdef", name: "Kagi — " + t, comment: "Enter to search", icon: "󰖟", special: "doc", url: u }]
+    }
+    return null
   }
 
   ScriptModel {
     id: filteredApps
     objectProp: "id"
     values: {
+      const specials = root.getSpecialResults(root.query)
+      if (specials && specials.length > 0) return specials
       let all = [...DesktopEntries.applications.values]
       all = all.filter(d => !d.noDisplay)
       const q = root.query.trim().toLowerCase()
@@ -129,7 +269,7 @@ Scope {
 
         // Header
         Text {
-          text: "Applications"
+          text: root.headerText
           color: root.theme.accentPrimary
           font.pixelSize: 14
           font.family: "Hack Nerd Font"
@@ -215,7 +355,7 @@ Scope {
 
         // Results count
         Text {
-          text: root.resultCount + " application" + (root.resultCount !== 1 ? "s" : "")
+          text: root.resultText
           color: root.theme.textMuted
           font.pixelSize: 11
           font.family: "Hack Nerd Font"
@@ -340,7 +480,7 @@ Scope {
           // Empty state
           Text {
             anchors.centerIn: parent
-            text: "No applications found"
+            text: "No results found"
             color: root.theme.textMuted
             font.pixelSize: 14
             font.family: "Hack Nerd Font"
