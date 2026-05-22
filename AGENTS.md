@@ -6,9 +6,9 @@ Makefile defines 5 profiles (micro, minimal, linux, macos, asahi) using symlinks
 brew/dnf installs, services. macOS WM: yabai+skhd or aerospace/flashspace +
 sketchybar (lua configs for top/bottom bars in sketchybar/{top,bottom}/).
 Asahi: Hyprland (modular lua: asahi/hypr/hyprland.lua + conf.d/*.lua),
-quickshell migration (QML in asahi/quickshell/remix/ for bar/launcher/wallpaper
-on quicks branch, replacing waybar/walker) + hyprpaper/hyprlock/hypridle +
-mako, walker, ghostty, custom asahi/bin scripts. Shared: nvim (full lua/),
+quickshell (QML in asahi/quickshell/remix/ for bar/launcher/wallpaper on quicks branch)
++ hyprpaper/hyprlock/hypridle +
+mako, ghostty, custom asahi/bin scripts. Shared: nvim (full lua/),
 zsh (zim+dots), mpv, ghostty. Always differentiate Linux by arch. Profiles:
 
 - `micro` setup with bash, tmux, and htop where there are almost no rights for the user
@@ -43,7 +43,6 @@ We need to always differentiate between the different Linux settings with respec
 - hyprlock (screen locker): https://wiki.hypr.land/Hypr-Ecosystem/hyprlock/
 - hypridle (idle daemon): https://wiki.hypr.land/Hypr-Ecosystem/hypridle/
 - Quickshell (QML toolkit, bar/launcher): https://quickshell.org/docs/
-- Walker (launcher): https://github.com/abenz1267/walker
 - Mako (Wayland notifications): https://github.com/emersion/mako
 
 ## Shared

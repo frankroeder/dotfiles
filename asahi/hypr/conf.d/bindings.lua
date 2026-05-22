@@ -32,7 +32,6 @@ hl.bind(mod .. " + ALT + CONTROL + 5", hl.dsp.exec_cmd("hyprpicker -a"), { desc 
 
 -- Reloads
 hl.bind(mod .. " + CONTROL + ALT + R", hl.dsp.exec_cmd(scripts .. "/asahi-reload-hyprland"), { desc = "Reload Hyprland" })
-hl.bind(mod .. " + CONTROL + ALT + SPACE", hl.dsp.exec_cmd(scripts .. "/asahi-restart-walker"), { desc = "Restart walker" })
 hl.bind(
   mod .. " + CONTROL + ALT + W",
   hl.dsp.exec_cmd(scripts .. "/asahi-restart-app quickshell -c remix"),

@@ -20,7 +20,6 @@ if ! sudo dnf repolist --all | grep -q '^librewolf'; then
 fi
 
 sudo dnf copr enable -y erikreider/swayosd "$SWAYOSD_COPR_CHROOT"
-sudo dnf copr enable -y errornointernet/walker
 sudo dnf copr enable -y scottames/ghostty
 sudo dnf copr enable errornointernet/quickshell
 
@@ -40,10 +39,10 @@ sudo dnf install -y \
   chromium \
   cmake \
   curl \
-  elephant \
   fd-find \
   ffmpeg \
   fastfetch \
+  fuzzel \
   ghostty \
   google-noto-color-emoji-fonts \
   grim \
@@ -82,7 +81,6 @@ sudo dnf install -y \
   tree \
   uv \
   quickshell-git \
-  walker \
   wireplumber \
   wl-clipboard \
   xdg-utils \

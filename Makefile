@@ -524,11 +524,9 @@ asahi-desktop: asahi-common
 	@for script in $(DOTFILES)/asahi/bin/*; do \
 		[ -f "$$script" ] && chmod +x "$$script"; \
 	done
-	$(call replace_with_symlink,$(DOTFILES)/asahi/elephant,$(HOME)/.config/elephant)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/hypr,$(HOME)/.config/hypr)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/swayosd,$(HOME)/.config/swayosd)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/quickshell,$(HOME)/.config/quickshell)
-	$(call replace_with_symlink,$(DOTFILES)/asahi/walker,$(HOME)/.config/walker)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/mako,$(HOME)/.config/mako)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/ghostty,$(HOME)/.config/ghostty)
 	@mkdir -p $(HOME)/.config/mpv
@@ -564,7 +562,7 @@ check: ## Run Neovim health check
 	fi
 
 check-asahi: ## Check minimal Asahi desktop commands
-	@for command in Hyprland walker elephant; do \
+	@for command in Hyprland fuzzel; do \
 		command -v "$$command" >/dev/null 2>&1 || $(call print_warning,$$command not installed); \
 	done
 	@for command in quickshell qs mako hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl swayosd-client; do \

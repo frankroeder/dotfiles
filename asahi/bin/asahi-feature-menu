@@ -3,7 +3,7 @@
 set -euo pipefail
 
 dotfiles="$HOME/.dotfiles"
-walker="walker"
+fuzzel_cmd="fuzzel --dmenu"
 
 choice="$(
   printf '%s\n' \
@@ -23,12 +23,12 @@ choice="$(
     "󰑓 Restart Hypridle" \
     "󰌾 Lock" \
     "󰐥 Power" |
-    "$walker" --dmenu --placeholder Features --width 420 --height 480 --exit || true
+    $fuzzel_cmd --placeholder Features || true
 )"
 
 case "$choice" in
   "󰀻 Launcher")
-    exec "$walker"
+    exec qs -c remix ipc call launcher toggle
     ;;
   "󱂬 Terminal scratchpad")
     exec "$dotfiles/asahi/bin/asahi-special-terminal"

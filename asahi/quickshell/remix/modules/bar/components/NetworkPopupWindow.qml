@@ -4,14 +4,11 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
 
-// Floating Network (WiFi) popup - standalone version
 PanelWindow {
   id: root
-
   property bool shouldShow: false
   visible: shouldShow
   color: "transparent"
-
   anchors {
     top: true
     right: true
@@ -20,24 +17,16 @@ PanelWindow {
     top: 38
     right: 12
   }
-
   implicitWidth: 340
   implicitHeight: contentColumn.implicitHeight + 24
-
   readonly property color cSurface: "#1e1e2e"
   readonly property color cBorder: "#45475a"
   readonly property color cText: "#cdd6f4"
   readonly property color cSub: "#a6adc8"
   readonly property color cPrimary: "#89b4fa"
-
-  // Current status (from our script or direct)
   property string currentText: ""
   property string currentTooltip: ""
-
-  // Scanned networks model (simple array of objects)
   property var networks: []
-
-  // Enhanced state (dart-inspired + our tools)
   property bool isEnabled: true
   property string currentSsid: ""
   property bool isScanning: false
@@ -62,11 +51,12 @@ PanelWindow {
             seen[ssid] = true
             const signal = parseInt(parts[2]) || 0
             const security = parts[3] || ""
-            list.push({ ssid, signal, security, active: inUse })
-            if (inUse) currentSsid = ssid
+            // mark active if IN-USE or if it matches the currentSsid we already learned from status (before/during list creation)
+            const isCurrent = inUse || (ssid === currentSsid)
+            list.push({ ssid, signal, security, active: isCurrent })
+            if (isCurrent) currentSsid = ssid
           }
         }
-        // put the connected network first so the highlight is obvious
         const ai = list.findIndex(n => n.active)
         if (ai > 0) {
           const a = list.splice(ai, 1)[0]
@@ -76,8 +66,6 @@ PanelWindow {
       }
     }
   }
-
-  // Refresh current status using our existing script
   Process {
     id: statusProc
     command: ["bash", "/home/froeder/.dotfiles/asahi/bin/asahi-waybar-network"]
@@ -87,11 +75,13 @@ PanelWindow {
           const d = JSON.parse(text.trim())
           root.currentText = d.text || ""
           root.currentTooltip = d.tooltip || ""
+          // reliably determine the current connected SSID from the authoritative status script
+          const m = (d.tooltip || "").match(/^Connected to (.+)$/m)
+          if (m) root.currentSsid = m[1].trim()
         } catch (e) {}
       }
     }
   }
-
   Process {
     id: powerCheckProc
     command: ["nmcli", "radio", "wifi"]
@@ -99,7 +89,6 @@ PanelWindow {
       onStreamFinished: { root.isEnabled = text.trim().indexOf("enabled") !== -1 }
     }
   }
-
   Process {
     id: savedCheckProc
     property string targetSsid: ""
@@ -115,21 +104,18 @@ PanelWindow {
       }
     }
   }
-
   function refresh() {
     statusProc.running = true
     powerCheckProc.running = true
     isScanning = true
     scanProc.running = true
   }
-
   function togglePower() {
     const tgt = isEnabled ? "off" : "on"
     Quickshell.execDetached(["nmcli", "radio", "wifi", tgt])
     isEnabled = !isEnabled
     delayedRefresh.start()
   }
-
   function doConnect(ssid, pass) {
     let args = ["nmcli", "dev", "wifi", "connect", ssid]
     if (pass && pass.length > 0) args = args.concat(["password", pass])
@@ -137,21 +123,18 @@ PanelWindow {
     showPasswordPrompt = false
     shouldShow = false
   }
-
   Timer {
     id: delayedRefresh
     interval: 700
     repeat: false
     onTriggered: refresh()
   }
-
   Timer {
     interval: 15000
     running: shouldShow
     repeat: true
     onTriggered: refresh()
   }
-
   Component.onCompleted: refresh()
 
   Rectangle {
@@ -160,14 +143,11 @@ PanelWindow {
     color: cSurface
     border.color: cBorder
     border.width: 1
-
     ColumnLayout {
       id: contentColumn
       anchors.fill: parent
       anchors.margins: 14
       spacing: 10
-
-      // Header with power toggle (dart style switch)
       RowLayout {
         Layout.fillWidth: true
         Text { text: "󰖩"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 18; color: cPrimary }
@@ -180,7 +160,6 @@ PanelWindow {
         MouseArea { width:24; height:24; cursorShape: Qt.PointingHandCursor; onClicked: refresh()
           Text { anchors.centerIn:parent; text:"󰑐"; font.family:"JetBrainsMono Nerd Font"; font.pixelSize:13; color:cSub }
         }
-        // Animated power switch
         Rectangle {
           width: 38; height: 20; radius: 10
           color: isEnabled ? cPrimary : Qt.rgba(1,1,1,0.12)
@@ -194,8 +173,6 @@ PanelWindow {
           MouseArea { anchors.fill:parent; cursorShape: Qt.PointingHandCursor; onClicked: togglePower() }
         }
       }
-
-      // Current info (reuse our tool's tooltip)
       Rectangle {
         Layout.fillWidth: true; radius: 6; color: Qt.rgba(0,0,0,0.2); border.color: cBorder; border.width: 1
         implicitHeight: infoText.height + 14
@@ -205,24 +182,24 @@ PanelWindow {
           wrapMode: Text.Wrap; width: parent.width - 18
         }
       }
-
       Rectangle { Layout.fillWidth: true; height: 1; color: cBorder; opacity: 0.5 }
-
-      // Networks header
       RowLayout {
         Layout.fillWidth: true
         Text { text: "Available networks"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; font.bold: true; color: cSub }
         Text { visible: isScanning; text: " (scanning...)"; font.pixelSize: 10; color: cSub }
       }
-
-      // Rich list (dart-inspired delegates)
       ColumnLayout {
         Layout.fillWidth: true; spacing: 2
         Repeater {
           model: root.networks
           delegate: Rectangle {
             Layout.fillWidth: true; height: 30; radius: 5
-            color: modelData.active ? Qt.rgba(0.25,0.55,0.35,0.25) : (netMa.containsMouse ? Qt.rgba(1,1,1,0.05) : "transparent")
+            // ── highlighted connected network (moved to top + stronger tint + border + bold SSID + primary "Connected") ──
+            color: modelData.active
+                   ? Qt.rgba(0.537, 0.706, 0.980, 0.22)
+                   : (netMa.containsMouse ? Qt.rgba(1,1,1,0.06) : "transparent")
+            border.color: modelData.active ? cPrimary : "transparent"
+            border.width: modelData.active ? 1.5 : 0
             RowLayout {
               anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 6; spacing: 8
               Text {
@@ -232,15 +209,24 @@ PanelWindow {
               }
               ColumnLayout {
                 spacing: -1; Layout.fillWidth: true
-                Text { text: modelData.ssid; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: modelData.active ? cPrimary : cText; elide: Text.ElideRight; Layout.fillWidth: true }
+                Text {
+                  text: modelData.ssid;
+                  font.family: "JetBrainsMono Nerd Font";
+                  font.pixelSize: 11;
+                  font.bold: modelData.active
+                  color: modelData.active ? cPrimary : cText;
+                  elide: Text.ElideRight;
+                  Layout.fillWidth: true
+                }
                 Text {
                   text: modelData.active ? "Connected" : (modelData.security ? "Secure" : "Open")
-                  font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 9; color: cSub
+                  font.family: "JetBrainsMono Nerd Font";
+                  font.pixelSize: 9;
+                  color: modelData.active ? cPrimary : cSub
                 }
               }
               Text { text: modelData.security ? "󰌾" : ""; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; color: Qt.rgba(1,1,1,0.25) }
               Text { text: modelData.signal + "%"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 9; color: cSub }
-              // Active disconnect
               MouseArea {
                 visible: modelData.active; width: 18; height: 18
                 onClicked: { Quickshell.execDetached(["nmcli", "con", "down", "id", modelData.ssid]); refresh() }
@@ -273,18 +259,13 @@ PanelWindow {
           font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10; color: cSub; Layout.alignment: Qt.AlignHCenter
         }
       }
-
       Rectangle { Layout.fillWidth: true; height: 1; color: cBorder; opacity: 0.5 }
-
-      // Footer uses our tool
       MouseArea {
         Layout.fillWidth: true; height: 24; cursorShape: Qt.PointingHandCursor
         onClicked: { shouldShow = false; Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-network-menu"]) }
         Text { anchors.centerIn: parent; text: "Advanced Network Menu →"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: cPrimary }
       }
     }
-
-    // Password prompt overlay (dart-inspired, minimal)
     Rectangle {
       anchors.fill: parent; radius: 12; color: Qt.rgba(0,0,0,0.78); visible: showPasswordPrompt; z: 20
       ColumnLayout {

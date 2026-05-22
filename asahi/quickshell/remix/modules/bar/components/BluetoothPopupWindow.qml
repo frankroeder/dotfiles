@@ -46,7 +46,7 @@ PanelWindow {
       anchors.margins: 14
       spacing: 10
 
-      // Header (power + scan like dart)
+      // Header — informative only (power handled via blueman-manager)
       RowLayout {
         Layout.fillWidth: true
         Text { text: "󰂯"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 18; color: cPrimary }
@@ -56,37 +56,11 @@ PanelWindow {
           color: cSub; font.pixelSize: 10; font.family: "JetBrainsMono Nerd Font"; Layout.fillWidth: true
         }
         Item { Layout.fillWidth: true }
-        // Scan toggle
+        // Scan toggle (useful for discovering new devices)
         MouseArea {
           width: 22; height: 22; cursorShape: Qt.PointingHandCursor
           onClicked: { if (Bluetooth.defaultAdapter) Bluetooth.defaultAdapter.discovering = !Bluetooth.defaultAdapter.discovering }
           Text { anchors.centerIn:parent; text: Bluetooth.defaultAdapter?.discovering ? "󰓛" : "󰂰"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14; color: cPrimary }
-        }
-        // Power toggle switch — MouseArea is direct layout child for reliable clicks (visuals inside)
-        MouseArea {
-          width: 38
-          height: 20
-          Layout.preferredWidth: 38
-          Layout.preferredHeight: 20
-          Layout.alignment: Qt.AlignVCenter
-          hoverEnabled: true
-          cursorShape: Qt.PointingHandCursor
-          onClicked: { if (Bluetooth.defaultAdapter) Bluetooth.defaultAdapter.enabled = !Bluetooth.defaultAdapter.enabled }
-
-          Rectangle {
-            anchors.fill: parent
-            radius: 10
-            color: (Bluetooth.defaultAdapter?.enabled ?? false) ? cPrimary : Qt.rgba(1,1,1,0.12)
-            border.width: parent.containsMouse ? 1 : 0
-            border.color: Qt.rgba(1,1,1,0.3)
-            Behavior on color { ColorAnimation { duration: 150 } }
-          }
-          Rectangle {
-            width: 14; height: 14; radius: 7; color: "#1e1e2e"
-            anchors.verticalCenter: parent.verticalCenter
-            x: (Bluetooth.defaultAdapter?.enabled ?? false) ? 20 : 4
-            Behavior on x { NumberAnimation { duration: 160; easing.type: Easing.OutQuad } }
-          }
         }
       }
 
