@@ -79,15 +79,39 @@ Scope {
     shouldShow = false
   }
 
-  property var webEngines: [
-    { name: "Kagi", prefix: "kagi", url: "https://kagi.com/search?q=%TERM%", icon: "󰖟" },
-    { name: "Jax Documentation", prefix: "jaxdoc", url: "https://docs.jax.dev/en/latest/search.html?q=%TERM%", icon: "󰈙" },
-    { name: "Flax Documentation", prefix: "flaxdoc", url: "https://flax.readthedocs.io/en/stable/search.html?q=%TERM%", icon: "󰈙" },
-    { name: "dict.cc", prefix: "dcc", url: "https://www.dict.cc/?s=%TERM%", icon: "󰗊" },
-    { name: "NumPy Documentation", prefix: "npdoc", url: "https://numpy.org/doc/stable/search.html?q=%TERM%", icon: "󰈙" },
-    { name: "Kagi Translate", prefix: "kt", url: "https://translate.kagi.com/?from=auto&to=en_us&text=%TERM%", icon: "󰗊" },
-    { name: "PyTorch Documentation", prefix: "ptdoc", url: "https://docs.pytorch.org/docs/stable/search.html?q=%TERM%", icon: "󰈙" }
-  ]
+  // websearch config loaded from json (edit websearch.json to customize @ docs + default; ! bangs are built-in for direct trigger)
+  property var webEngines: []
+  property var bangMap: ({
+    yt: "https://www.youtube.com/results?search_query=%s",
+    y: "https://www.youtube.com/results?search_query=%s",
+    w: "https://en.wikipedia.org/wiki/Special:Search?search=%s",
+    r: "https://www.reddit.com/search/?q=%s",
+    g: "https://www.google.com/search?q=%s"
+  })
+  property string defaultSearchUrl: "https://kagi.com/search?q=%s"
+
+  function loadWebsearchConfig() {
+    var xhr = new XMLHttpRequest()
+    var url = Qt.resolvedUrl("./websearch.json")
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === XMLHttpRequest.DONE) {
+        if (xhr.status === 200 || xhr.status === 0) {
+          try {
+            var data = JSON.parse(xhr.responseText)
+            if (data.engines && data.engines.length > 0) webEngines = data.engines
+            if (data.bangs) bangMap = data.bangs
+            if (data.defaultSearchUrl) defaultSearchUrl = data.defaultSearchUrl
+          } catch (e) {
+            console.warn("websearch.json parse failed")
+          }
+        }
+      }
+    }
+    xhr.open("GET", url)
+    xhr.send()
+  }
+
+  Component.onCompleted: loadWebsearchConfig()
 
   function calculate(expr) {
     expr = (expr || "").trim()
@@ -120,11 +144,7 @@ Scope {
       if (m) {
         const b = m[1].toLowerCase()
         const t = (m[2] || "").trim()
-        let tpl = ""
-        if (b === "yt" || b === "y") tpl = "https://www.youtube.com/results?search_query=%s"
-        else if (b === "w") tpl = "https://en.wikipedia.org/wiki/Special:Search?search=%s"
-        else if (b === "r") tpl = "https://www.reddit.com/search/?q=%s"
-        else if (b === "g") tpl = "https://www.google.com/search?q=%s"
+        const tpl = root.bangMap[b]
         if (tpl && t) {
           return [{
             id: "bang-" + b,
@@ -138,13 +158,14 @@ Scope {
       }
       const t = q.substring(1).trim()
       if (t) {
+        const tpl = root.defaultSearchUrl
         return [{
           id: "web",
           name: "Search: " + t,
-          comment: "Web search (Kagi) — Enter to open",
+          comment: "Web search — Enter to open",
           icon: "󰖟",
           special: "web",
-          url: "https://kagi.com/search?q=" + encodeURIComponent(t)
+          url: tpl.replace("%s", encodeURIComponent(t))
         }]
       }
       return null
@@ -152,8 +173,11 @@ Scope {
     if (q.startsWith("@")) {
       const after = q.substring(1).trim()
       const la = after.toLowerCase()
+      const engines = root.webEngines.length > 0 ? root.webEngines : [{
+        name: "Kagi", prefix: "kagi", url: "https://kagi.com/search?q=%TERM%", icon: "󰖟"
+      }]
       // exact prefix match for direct search
-      for (const e of root.webEngines) {
+      for (const e of engines) {
         const p = e.prefix
         if (la === p || la.startsWith(p + " ")) {
           const term = la.startsWith(p + " ") ? after.substring(p.length + 1).trim() : after.substring(p.length).trim()
@@ -171,7 +195,7 @@ Scope {
         }
       }
       // partial: filter list of engines
-      const f = root.webEngines.filter(e => e.prefix.toLowerCase().startsWith(la) || e.name.toLowerCase().includes(la) || la === "")
+      const f = engines.filter(e => e.prefix.toLowerCase().startsWith(la) || e.name.toLowerCase().includes(la) || la === "")
       if (f.length > 0) {
         return f.map(e => ({
           id: "doclist-" + e.prefix,
@@ -182,9 +206,9 @@ Scope {
           url: e.url.replace("%TERM%", "")
         }))
       }
-      // fallback kagi
+      // fallback
       const t = after || ""
-      const u = "https://kagi.com/search?q=" + encodeURIComponent(t)
+      const u = root.defaultSearchUrl.replace("%s", encodeURIComponent(t))
       return [{ id: "docdef", name: "Kagi — " + t, comment: "Enter to search", icon: "󰖟", special: "doc", url: u }]
     }
     return null
@@ -496,30 +520,31 @@ Scope {
           Row {
             spacing: 4
             Rectangle {
-              width: hintUp.width + 8; height: 18; radius: 4; color: root.theme.bgSurface
-              Text { id: hintUp; anchors.centerIn: parent; text: "↑↓"; color: root.theme.textMuted; font.pixelSize: 10; font.family: "Hack Nerd Font" }
+              width: hintUp.width + 8; height: 18; radius: 4; color: "#313244"
+              Text { id: hintUp; anchors.centerIn: parent; text: "↑↓"; color: "#cdd6f4"; font.pixelSize: 10; font.family: "Hack Nerd Font" }
             }
-            Text { text: "navigate"; color: root.theme.textMuted; font.pixelSize: 10; font.family: "Hack Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
+            Text { text: "navigate"; color: "#cdd6f4"; font.pixelSize: 10; font.family: "Hack Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
           }
 
           Row {
             spacing: 4
             Rectangle {
-              width: hintEnter.width + 8; height: 18; radius: 4; color: root.theme.bgSurface
-              Text { id: hintEnter; anchors.centerIn: parent; text: "⏎"; color: root.theme.textMuted; font.pixelSize: 10; font.family: "Hack Nerd Font" }
+              width: hintEnter.width + 8; height: 18; radius: 4; color: "#313244"
+              Text { id: hintEnter; anchors.centerIn: parent; text: "⏎"; color: "#cdd6f4"; font.pixelSize: 10; font.family: "Hack Nerd Font" }
             }
-            Text { text: "launch"; color: root.theme.textMuted; font.pixelSize: 10; font.family: "Hack Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
+            Text { text: "launch"; color: "#cdd6f4"; font.pixelSize: 10; font.family: "Hack Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
           }
 
           Row {
             spacing: 4
             Rectangle {
-              width: hintEsc.width + 8; height: 18; radius: 4; color: root.theme.bgSurface
-              Text { id: hintEsc; anchors.centerIn: parent; text: "esc"; color: root.theme.textMuted; font.pixelSize: 10; font.family: "Hack Nerd Font" }
+              width: hintEsc.width + 8; height: 18; radius: 4; color: "#313244"
+              Text { id: hintEsc; anchors.centerIn: parent; text: "esc"; color: "#cdd6f4"; font.pixelSize: 10; font.family: "Hack Nerd Font" }
             }
-            Text { text: "close"; color: root.theme.textMuted; font.pixelSize: 10; font.family: "Hack Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
+            Text { text: "close"; color: "#cdd6f4"; font.pixelSize: 10; font.family: "Hack Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
           }
 
+          Text { text: "=:calc  !:web  @:docs"; color: "#cdd6f4"; font.pixelSize: 10; font.family: "Hack Nerd Font"; Layout.alignment: Qt.AlignVCenter }
           Item { Layout.fillWidth: true }
         }
       }

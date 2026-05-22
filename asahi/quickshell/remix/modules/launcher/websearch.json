@@ -1,0 +1,47 @@
+{
+  "engines": [
+    {
+      "name": "Kagi",
+      "prefix": "kagi",
+      "url": "https://kagi.com/search?q=%TERM%",
+      "icon": "󰖟"
+    },
+    {
+      "name": "Jax Documentation",
+      "prefix": "jaxdoc",
+      "url": "https://docs.jax.dev/en/latest/search.html?q=%TERM%",
+      "icon": "󰈙"
+    },
+    {
+      "name": "Flax Documentation",
+      "prefix": "flaxdoc",
+      "url": "https://flax.readthedocs.io/en/stable/search.html?q=%TERM%",
+      "icon": "󰈙"
+    },
+    {
+      "name": "dict.cc",
+      "prefix": "dcc",
+      "url": "https://www.dict.cc/?s=%TERM%",
+      "icon": "󰗊"
+    },
+    {
+      "name": "NumPy Documentation",
+      "prefix": "npdoc",
+      "url": "https://numpy.org/doc/stable/search.html?q=%TERM%",
+      "icon": "󰈙"
+    },
+    {
+      "name": "Kagi Translate",
+      "prefix": "kt",
+      "url": "https://translate.kagi.com/?from=auto&to=en_us&text=%TERM%",
+      "icon": "󰗊"
+    },
+    {
+      "name": "PyTorch Documentation",
+      "prefix": "ptdoc",
+      "url": "https://docs.pytorch.org/docs/stable/search.html?q=%TERM%",
+      "icon": "󰈙"
+    }
+  ],
+  "defaultSearchUrl": "https://kagi.com/search?q=%s"
+}

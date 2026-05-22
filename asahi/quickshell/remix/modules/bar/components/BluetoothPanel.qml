@@ -44,29 +44,40 @@ FocusScope {
           color: cPrimary
         }
 
+        Text { text: "Bluetooth"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14; font.bold: true; color: cText }
         Text {
-          text: "Bluetooth"
-          font.family: "JetBrainsMono Nerd Font"
-          font.pixelSize: 14
-          font.bold: true
-          color: cText
-          Layout.fillWidth: true
+          text: (Bluetooth.defaultAdapter?.discovering ? "Scan..." : (Bluetooth.defaultAdapter?.enabled ?? false ? "Ready" : "Off"))
+          color: cSub; font.pixelSize: 9; font.family: "JetBrainsMono Nerd Font"; Layout.fillWidth: true
         }
-
         MouseArea {
-          width: 24
-          height: 24
-          onClicked: {
-            if (Bluetooth.defaultAdapter) Bluetooth.defaultAdapter.enabled = !Bluetooth.defaultAdapter.enabled
-          }
+          width: 20; height: 20; cursorShape: Qt.PointingHandCursor
+          onClicked: { if (Bluetooth.defaultAdapter) Bluetooth.defaultAdapter.discovering = !Bluetooth.defaultAdapter.discovering }
+          Text { anchors.centerIn:parent; text: Bluetooth.defaultAdapter?.discovering ? "󰓛" : "󰂰"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13; color: cPrimary }
+        }
+        // Power toggle switch — MouseArea is direct layout child for reliable clicks (visuals inside)
+        MouseArea {
+          width: 36
+          height: 18
+          Layout.preferredWidth: 36
+          Layout.preferredHeight: 18
+          Layout.alignment: Qt.AlignVCenter
+          hoverEnabled: true
           cursorShape: Qt.PointingHandCursor
+          onClicked: { if (Bluetooth.defaultAdapter) Bluetooth.defaultAdapter.enabled = !Bluetooth.defaultAdapter.enabled }
 
-          Text {
-            anchors.centerIn: parent
-            text: (Bluetooth.defaultAdapter?.enabled ?? false) ? "󰂯" : "󰂲"
-            font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 16
-            color: (Bluetooth.defaultAdapter?.enabled ?? false) ? cPrimary : cSub
+          Rectangle {
+            anchors.fill: parent
+            radius: 9
+            color: (Bluetooth.defaultAdapter?.enabled ?? false) ? cPrimary : Qt.rgba(1,1,1,0.12)
+            border.width: parent.containsMouse ? 1 : 0
+            border.color: Qt.rgba(1,1,1,0.3)
+            Behavior on color { ColorAnimation { duration: 150 } }
+          }
+          Rectangle {
+            width: 12; height: 12; radius: 6; color: "#1e1e2e"
+            anchors.verticalCenter: parent.verticalCenter
+            x: (Bluetooth.defaultAdapter?.enabled ?? false) ? 20 : 4
+            Behavior on x { NumberAnimation { duration: 160 } }
           }
         }
       }
@@ -93,46 +104,25 @@ FocusScope {
 
               Text {
                 text: modelData.connected ? "󰂱" : "󰂯"
-                font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 14
+                font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13
                 color: modelData.connected ? "#a6e3a1" : cSub
               }
-
-              Text {
-                text: modelData.name || modelData.alias || modelData.address
-                font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 12
-                color: cText
-                Layout.fillWidth: true
-                elide: Text.ElideRight
+              ColumnLayout {
+                spacing: -1; Layout.fillWidth: true
+                Text { text: modelData.name || modelData.alias || modelData.address; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10; color: cText; elide: Text.ElideRight; Layout.fillWidth: true }
+                Text { text: (modelData.batteryAvailable ? modelData.battery+"%" : (modelData.paired?"Paired":"")); font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 8; color: cSub }
               }
-
               MouseArea {
-                id: actionBtn
-                width: 60
-                height: 22
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                  if (modelData.connected) modelData.disconnect()
-                  else if (modelData.paired) modelData.connect()
-                  else modelData.pair()
-                }
-
+                id: actionBtn; width: 64; height: 18; cursorShape: Qt.PointingHandCursor
+                onClicked: { if (modelData.connected) modelData.disconnect(); else if (modelData.paired) modelData.connect(); else modelData.pair() }
                 Rectangle {
-                  anchors.fill: parent
-                  radius: 4
-                  color: actionBtn.containsMouse ? cPrimary : "transparent"
-                  border.color: cPrimary
-                  border.width: 1
-                  opacity: actionBtn.containsMouse ? 0.2 : 0.8
+                  anchors.fill: parent; radius: 3
+                  color: actionBtn.containsMouse ? cPrimary : "transparent"; border.color: cPrimary; border.width: 1; opacity: actionBtn.containsMouse ? 0.18 : 0.7
                 }
-
                 Text {
                   anchors.centerIn: parent
                   text: modelData.connected ? "Disconnect" : (modelData.paired ? "Connect" : "Pair")
-                  font.family: "JetBrainsMono Nerd Font"
-                  font.pixelSize: 10
-                  color: cText
+                  font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 8; color: cText
                 }
               }
             }
@@ -148,11 +138,8 @@ FocusScope {
 
         Text {
           visible: Bluetooth.devices.values.length === 0
-          text: (Bluetooth.defaultAdapter?.enabled ?? false) ? "No paired devices" : "Bluetooth is off"
-          font.family: "JetBrainsMono Nerd Font"
-          font.pixelSize: 11
-          color: cSub
-          Layout.alignment: Qt.AlignHCenter
+          text: (Bluetooth.defaultAdapter?.discovering ? "Scanning..." : (Bluetooth.defaultAdapter?.enabled ?? false ? "No paired devices" : "Bluetooth is off"))
+          font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10; color: cSub; Layout.alignment: Qt.AlignHCenter
         }
       }
 
@@ -167,7 +154,7 @@ FocusScope {
           cursorShape: Qt.PointingHandCursor
           onClicked: {
             root.closeRequested()
-            Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-bluetooth-menu"])
+            Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-launch-bluetooth"])
           }
 
           Text {

@@ -60,11 +60,16 @@ Rectangle {
         cursorShape: Qt.PointingHandCursor
         acceptedButtons: Qt.LeftButton | Qt.RightButton
 
+        property var networkPopup: null
+
         onClicked: (mouse) => {
             if (mouse.button === Qt.RightButton) {
                 Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-network-menu"])
             } else {
-                Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-launch-wifi"])
+                if (!networkPopup) {
+                    networkPopup = Qt.createComponent("NetworkPopupWindow.qml").createObject(root)
+                }
+                networkPopup.shouldShow = !networkPopup.shouldShow
             }
         }
     }
