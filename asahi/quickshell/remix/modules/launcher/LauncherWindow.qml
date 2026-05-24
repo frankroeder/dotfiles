@@ -6,11 +6,12 @@ import Quickshell.Hyprland
 import Quickshell.Wayland
 import Quickshell.Widgets
 import "../wallpaper" as Wallpaper
+import "../../"
 
 Scope {
   id: root
 
-  property var theme: Wallpaper.DefaultTheme {}
+  property var theme: Wallpaper.DefaultTheme
   property bool shouldShow: false
   property string query: ""
   property int selectedIndex: 0
@@ -520,31 +521,31 @@ Scope {
           Row {
             spacing: 4
             Rectangle {
-              width: hintUp.width + 8; height: 18; radius: 4; color: "#313244"
-              Text { id: hintUp; anchors.centerIn: parent; text: "↑↓"; color: "#cdd6f4"; font.pixelSize: 10; font.family: "Hack Nerd Font" }
+              width: hintUp.width + 8; height: 18; radius: 4; color: Style.moduleBg
+              Text { id: hintUp; anchors.centerIn: parent; text: "↑↓"; color: Style.text; font.pixelSize: 10; font.family: "Hack Nerd Font" }
             }
-            Text { text: "navigate"; color: "#cdd6f4"; font.pixelSize: 10; font.family: "Hack Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
+            Text { text: "navigate"; color: Style.text; font.pixelSize: 10; font.family: "Hack Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
           }
 
           Row {
             spacing: 4
             Rectangle {
-              width: hintEnter.width + 8; height: 18; radius: 4; color: "#313244"
-              Text { id: hintEnter; anchors.centerIn: parent; text: "⏎"; color: "#cdd6f4"; font.pixelSize: 10; font.family: "Hack Nerd Font" }
+              width: hintEnter.width + 8; height: 18; radius: 4; color: Style.moduleBg
+              Text { id: hintEnter; anchors.centerIn: parent; text: "⏎"; color: Style.text; font.pixelSize: 10; font.family: "Hack Nerd Font" }
             }
-            Text { text: "launch"; color: "#cdd6f4"; font.pixelSize: 10; font.family: "Hack Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
+            Text { text: "launch"; color: Style.text; font.pixelSize: 10; font.family: "Hack Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
           }
 
           Row {
             spacing: 4
             Rectangle {
-              width: hintEsc.width + 8; height: 18; radius: 4; color: "#313244"
-              Text { id: hintEsc; anchors.centerIn: parent; text: "esc"; color: "#cdd6f4"; font.pixelSize: 10; font.family: "Hack Nerd Font" }
+              width: hintEsc.width + 8; height: 18; radius: 4; color: Style.moduleBg
+              Text { id: hintEsc; anchors.centerIn: parent; text: "esc"; color: Style.text; font.pixelSize: 10; font.family: "Hack Nerd Font" }
             }
-            Text { text: "close"; color: "#cdd6f4"; font.pixelSize: 10; font.family: "Hack Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
+            Text { text: "close"; color: Style.text; font.pixelSize: 10; font.family: "Hack Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
           }
 
-          Text { text: "=:calc  !:web  @:docs"; color: "#cdd6f4"; font.pixelSize: 10; font.family: "Hack Nerd Font"; Layout.alignment: Qt.AlignVCenter }
+          Text { text: "=:calc  !:web  @:docs"; color: Style.text; font.pixelSize: 10; font.family: "Hack Nerd Font"; Layout.alignment: Qt.AlignVCenter }
           Item { Layout.fillWidth: true }
         }
       }

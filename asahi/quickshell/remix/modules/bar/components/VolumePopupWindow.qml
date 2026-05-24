@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
+import "../../../"
 
 // Floating Volume popup (output + input)
 // Matches our remix dark theme + the split pattern (PopupWindow + Panel)
@@ -25,11 +26,7 @@ PanelWindow {
   implicitWidth: 320
   implicitHeight: contentColumn.implicitHeight + 24
 
-  readonly property color cSurface: "#1e1e2e"
-  readonly property color cBorder: "#45475a"
-  readonly property color cText: "#cdd6f4"
-  readonly property color cSub: "#a6adc8"
-  readonly property color cPrimary: "#a6e3a1"
+  readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
 
   // Current data
   property string outText: ""
@@ -39,7 +36,7 @@ PanelWindow {
 
   Process {
     id: outProc
-    command: ["bash", "/home/froeder/.dotfiles/asahi/bin/asahi-waybar-audio", "output"]
+    command: ["bash", binDir + "/asahi-audio", "output"]
     stdout: StdioCollector {
       onStreamFinished: {
         try {
@@ -53,7 +50,7 @@ PanelWindow {
 
   Process {
     id: inProc
-    command: ["bash", "/home/froeder/.dotfiles/asahi/bin/asahi-waybar-audio", "input"]
+    command: ["bash", binDir + "/asahi-audio", "input"]
     stdout: StdioCollector {
       onStreamFinished: {
         try {
@@ -75,8 +72,8 @@ PanelWindow {
   Rectangle {
     anchors.fill: parent
     radius: 12
-    color: cSurface
-    border.color: cBorder
+    color: Style.surface
+    border.color: Style.border
     border.width: 1
 
     ColumnLayout {
@@ -91,10 +88,10 @@ PanelWindow {
         font.family: "JetBrainsMono Nerd Font"
         font.pixelSize: 14
         font.bold: true
-        color: cText
+        color: Style.text
       }
 
-      Rectangle { Layout.fillWidth: true; height: 1; color: cBorder; opacity: 0.5 }
+      Rectangle { Layout.fillWidth: true; height: 1; color: Style.border; opacity: 0.5 }
 
       // Output
       RowLayout {
@@ -105,14 +102,14 @@ PanelWindow {
           text: "󰕾"
           font.family: "JetBrainsMono Nerd Font"
           font.pixelSize: 18
-          color: outMuted ? "#f38ba8" : cPrimary
+          color: outMuted ? Style.red : Style.green
         }
 
         Text {
           text: outText || "Output"
           font.family: "JetBrainsMono Nerd Font"
           font.pixelSize: 13
-          color: cText
+          color: Style.text
           Layout.fillWidth: true
         }
 
@@ -121,7 +118,7 @@ PanelWindow {
           height: 22
           cursorShape: Qt.PointingHandCursor
           onClicked: {
-            Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-media-control", "output-volume", "mute-toggle"])
+            Quickshell.execDetached([binDir + "/asahi-media-control", "output-volume", "mute-toggle"])
             refresh()
           }
           Text {
@@ -129,7 +126,7 @@ PanelWindow {
             text: outMuted ? "Unmute" : "Mute"
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 10
-            color: cSub
+            color: Style.textMuted
           }
         }
       }
@@ -143,14 +140,14 @@ PanelWindow {
           text: "󰍬"
           font.family: "JetBrainsMono Nerd Font"
           font.pixelSize: 18
-          color: inMuted ? "#f38ba8" : "#89b4fa"
+          color: inMuted ? Style.red : Style.blueAlt
         }
 
         Text {
           text: inText || "Input"
           font.family: "JetBrainsMono Nerd Font"
           font.pixelSize: 13
-          color: cText
+          color: Style.text
           Layout.fillWidth: true
         }
 
@@ -159,7 +156,7 @@ PanelWindow {
           height: 22
           cursorShape: Qt.PointingHandCursor
           onClicked: {
-            Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-media-control", "input-volume", "mute-toggle"])
+            Quickshell.execDetached([binDir + "/asahi-media-control", "input-volume", "mute-toggle"])
             refresh()
           }
           Text {
@@ -167,12 +164,12 @@ PanelWindow {
             text: inMuted ? "Unmute" : "Mute"
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 10
-            color: cSub
+            color: Style.textMuted
           }
         }
       }
 
-      Rectangle { Layout.fillWidth: true; height: 1; color: cBorder; opacity: 0.5 }
+      Rectangle { Layout.fillWidth: true; height: 1; color: Style.border; opacity: 0.5 }
 
       // Quick actions
       RowLayout {
@@ -184,7 +181,7 @@ PanelWindow {
           height: 26
           cursorShape: Qt.PointingHandCursor
           onClicked: {
-            Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-media-control", "output-volume", "raise"])
+            Quickshell.execDetached([binDir + "/asahi-media-control", "output-volume", "raise"])
             refresh()
           }
           Text {
@@ -192,7 +189,7 @@ PanelWindow {
             text: "Raise"
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 11
-            color: cPrimary
+            color: Style.green
           }
         }
 
@@ -201,7 +198,7 @@ PanelWindow {
           height: 26
           cursorShape: Qt.PointingHandCursor
           onClicked: {
-            Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-media-control", "output-volume", "lower"])
+            Quickshell.execDetached([binDir + "/asahi-media-control", "output-volume", "lower"])
             refresh()
           }
           Text {
@@ -209,7 +206,7 @@ PanelWindow {
             text: "Lower"
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 11
-            color: cPrimary
+            color: Style.green
           }
         }
 
@@ -226,7 +223,7 @@ PanelWindow {
             text: "Mixer →"
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 11
-            color: cPrimary
+            color: Style.green
           }
         }
       }

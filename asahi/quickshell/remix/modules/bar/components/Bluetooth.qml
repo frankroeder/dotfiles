@@ -2,11 +2,15 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
+import "../../../"
 
 Rectangle {
     id: root
 
-    color: "#313244"
+    readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
+
+    color: Style.moduleBg
     radius: 6
 
     implicitWidth: row.implicitWidth + 14
@@ -25,13 +29,13 @@ Rectangle {
             text: root.text
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 24
-            color: "#cba6f7"
+            color: Style.magenta
         }
     }
 
     Process {
         id: btProc
-        command: ["/home/froeder/.dotfiles/asahi/bin/asahi-waybar-bluetooth"]
+        command: [binDir + "/asahi-bluetooth"]
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
@@ -63,10 +67,12 @@ Rectangle {
 
         onClicked: (mouse) => {
             if (mouse.button === Qt.RightButton) {
-                Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-bluetooth-menu"])
+                Quickshell.execDetached([binDir + "/asahi-bluetooth-menu"])
             } else {
                 if (!btPopup) {
-                    btPopup = Qt.createComponent("BluetoothPopupWindow.qml").createObject(root)
+                    const mon = Hyprland.focusedMonitor
+                    const scr = mon ? (Quickshell.screens.find(s => s.name === mon.name) ?? Quickshell.screens[0]) : (Quickshell.screens[0] ?? null)
+                    btPopup = Qt.createComponent("BluetoothPopupWindow.qml").createObject(root, {screen: scr})
                 }
                 btPopup.shouldShow = !btPopup.shouldShow
             }

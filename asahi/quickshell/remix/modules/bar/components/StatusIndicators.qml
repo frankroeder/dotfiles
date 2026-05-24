@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import "../../../"
 
 // Simple Status Indicators (caffeine, DND, etc.)
 // Placeholder that can be expanded with real IdleInhibitor / Notifs logic later
@@ -11,16 +12,16 @@ RowLayout {
     Rectangle {
         width: 18
         height: 18
-        radius: 4
-        color: "#313244"
+        radius: Style.radiusSm
+        color: Style.moduleBg
         visible: false   // enable when we wire real logic
 
         Text {
             anchors.centerIn: parent
             text: "󰅶"
-            font.family: "JetBrainsMono Nerd Font"
+            font.family: Style.fontFamily
             font.pixelSize: 14
-            color: "#a6e3a1"
+            color: Style.green
         }
     }
 
@@ -28,16 +29,16 @@ RowLayout {
     Rectangle {
         width: 18
         height: 18
-        radius: 4
-        color: "#313244"
+        radius: Style.radiusSm
+        color: Style.moduleBg
         visible: false
 
         Text {
             anchors.centerIn: parent
             text: "󰂛"
-            font.family: "JetBrainsMono Nerd Font"
+            font.family: Style.fontFamily
             font.pixelSize: 14
-            color: "#f9e2af"
+            color: Style.yellow
         }
     }
 }

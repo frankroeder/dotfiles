@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Io
+import "../../../"
 
 // Inline Network Panel (for future popupHost inside a proper Bar)
 // Same UI as the PopupWindow version
@@ -14,11 +15,7 @@ FocusScope {
   implicitWidth: 340
   implicitHeight: contentColumn.implicitHeight + 24
 
-  readonly property color cSurface: "#1e1e2e"
-  readonly property color cBorder: "#45475a"
-  readonly property color cText: "#cdd6f4"
-  readonly property color cSub: "#a6adc8"
-  readonly property color cPrimary: "#89b4fa"
+  readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
 
   property string currentText: ""
   property string currentTooltip: ""
@@ -66,7 +63,7 @@ FocusScope {
 
   Process {
     id: statusProc
-    command: ["bash", "/home/froeder/.dotfiles/asahi/bin/asahi-waybar-network"]
+    command: ["bash", binDir + "/asahi-network"]
     stdout: StdioCollector {
       onStreamFinished: {
         try {
@@ -126,8 +123,8 @@ FocusScope {
   Rectangle {
     anchors.fill: parent
     radius: 12
-    color: cSurface
-    border.color: cBorder
+    color: Style.surface
+    border.color: Style.border
     border.width: 1
 
     ColumnLayout {
@@ -139,22 +136,22 @@ FocusScope {
       // Header + switch
       RowLayout {
         Layout.fillWidth: true
-        Text { text: "󰖩"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 18; color: cPrimary }
-        Text { text: "Network"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14; font.bold: true; color: cText }
+        Text { text: "󰖩"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 18; color: Style.blueAlt }
+        Text { text: "Network"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14; font.bold: true; color: Style.text }
         Text {
           text: isEnabled ? (currentSsid || (currentTooltip ? currentTooltip.split("\n")[0] : "Ready") || "Ready") : "Disabled"
-          color: isEnabled ? cPrimary : cSub; font.pixelSize: 10; font.family: "JetBrainsMono Nerd Font"; Layout.fillWidth: true; elide: Text.ElideRight
+          color: isEnabled ? Style.blueAlt : Style.textMuted; font.pixelSize: 10; font.family: "JetBrainsMono Nerd Font"; Layout.fillWidth: true; elide: Text.ElideRight
         }
         Item { Layout.fillWidth: true }
         MouseArea { width:22; height:22; cursorShape: Qt.PointingHandCursor; onClicked: refresh()
-          Text { anchors.centerIn:parent; text:"󰑐"; font.family:"JetBrainsMono Nerd Font"; font.pixelSize:12; color:cSub }
+          Text { anchors.centerIn:parent; text:"󰑐"; font.family:"JetBrainsMono Nerd Font"; font.pixelSize:12; color:Style.textMuted }
         }
         Rectangle {
           width: 36; height: 18; radius: 9
-          color: isEnabled ? cPrimary : Qt.rgba(1,1,1,0.12)
+          color: isEnabled ? Style.blueAlt : Qt.rgba(0.2,0.2,0.25,0.3)
           Behavior on color { ColorAnimation { duration: 150 } }
           Rectangle {
-            width: 12; height: 12; radius: 6; color: "#1e1e2e"
+            width: 12; height: 12; radius: 6; color: Style.surface
             anchors.verticalCenter: parent.verticalCenter
             x: isEnabled ? 20 : 4
             Behavior on x { NumberAnimation { duration: 160 } }
@@ -164,20 +161,20 @@ FocusScope {
       }
 
       Rectangle {
-        Layout.fillWidth: true; radius: 6; color: Qt.rgba(0,0,0,0.2); border.color: cBorder; border.width: 1
+        Layout.fillWidth: true; radius: 6; color: Qt.rgba(0,0,0,0.2); border.color: Style.border; border.width: 1
         Text {
           anchors.centerIn: parent; anchors.margins: 7
-          text: currentTooltip || "No connection info"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10; color: cText
+          text: currentTooltip || "No connection info"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10; color: Style.text
           wrapMode: Text.Wrap; width: parent.width - 18
         }
       }
 
-      Rectangle { Layout.fillWidth: true; height: 1; color: cBorder; opacity: 0.5 }
+      Rectangle { Layout.fillWidth: true; height: 1; color: Style.border; opacity: 0.5 }
 
       RowLayout {
         Layout.fillWidth: true
-        Text { text: "Available networks"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10; font.bold: true; color: cSub }
-        Text { visible: isScanning; text: "(scan)"; font.pixelSize: 9; color: cSub }
+        Text { text: "Available networks"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10; font.bold: true; color: Style.textMuted }
+        Text { visible: isScanning; text: "(scan)"; font.pixelSize: 9; color: Style.textMuted }
       }
 
       ColumnLayout {
@@ -186,24 +183,24 @@ FocusScope {
           model: root.networks
           delegate: Rectangle {
             Layout.fillWidth: true; height: 28; radius: 4
-            color: modelData.active ? Qt.rgba(0.25,0.55,0.35,0.25) : (netMa.containsMouse ? Qt.rgba(1,1,1,0.05) : "transparent")
+            color: modelData.active ? Qt.rgba(0.25,0.55,0.35,0.25) : (netMa.containsMouse ? Qt.rgba(0.2,0.2,0.25,0.2) : "transparent")
             RowLayout {
               anchors.fill: parent; anchors.leftMargin: 5; anchors.rightMargin: 5; spacing: 6
               Text {
                 text: modelData.signal > 75 ? "󰤨" : (modelData.signal > 50 ? "󰤥" : (modelData.signal > 25 ? "󰤢" : "󰤟"))
-                font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14; color: modelData.active ? cPrimary : cSub
+                font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14; color: modelData.active ? Style.blueAlt : Style.textMuted
               }
               ColumnLayout {
                 spacing: -1; Layout.fillWidth: true
-                Text { text: modelData.ssid; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10; color: modelData.active ? cPrimary : cText; elide: Text.ElideRight; Layout.fillWidth: true }
-                Text { text: modelData.active ? "Connected" : (modelData.security ? "Secure" : "Open"); font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 8; color: cSub }
+                Text { text: modelData.ssid; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10; color: modelData.active ? Style.blueAlt : Style.text; elide: Text.ElideRight; Layout.fillWidth: true }
+                Text { text: modelData.active ? "Connected" : (modelData.security ? "Secure" : "Open"); font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 8; color: Style.textMuted }
               }
-              Text { text: modelData.security ? "󰌾" : ""; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: Qt.rgba(1,1,1,0.2) }
-              Text { text: modelData.signal+"%"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 9; color: cSub }
+              Text { text: modelData.security ? "󰌾" : ""; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: Style.textMuted }
+              Text { text: modelData.signal+"%"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 9; color: Style.textMuted }
               MouseArea {
                 visible: modelData.active; width:16; height:16
                 onClicked: { Quickshell.execDetached(["nmcli","con","down","id",modelData.ssid]); refresh() }
-                Text { anchors.centerIn:parent; text:"󰅙"; font.family:"JetBrainsMono Nerd Font"; font.pixelSize:13; color:"#f38ba8" }
+                Text { anchors.centerIn:parent; text:"󰅙"; font.family:"JetBrainsMono Nerd Font"; font.pixelSize:13; color: Style.red }
               }
             }
             MouseArea {
@@ -227,16 +224,16 @@ FocusScope {
         Text {
           visible: networks.length===0
           text: isScanning ? "Scanning..." : "No networks"
-          font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 9; color: cSub; Layout.alignment: Qt.AlignHCenter
+          font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 9; color: Style.textMuted; Layout.alignment: Qt.AlignHCenter
         }
       }
 
-      Rectangle { Layout.fillWidth: true; height: 1; color: cBorder; opacity: 0.5 }
+      Rectangle { Layout.fillWidth: true; height: 1; color: Style.border; opacity: 0.5 }
 
       MouseArea {
         Layout.fillWidth: true; height: 22; cursorShape: Qt.PointingHandCursor
-        onClicked: { closeRequested(); Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-network-menu"]) }
-        Text { anchors.centerIn:parent; text: "Advanced Network Menu →"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10; color: cPrimary }
+        onClicked: { closeRequested(); Quickshell.execDetached([binDir + "/asahi-network-menu"]) }
+        Text { anchors.centerIn:parent; text: "Advanced Network Menu →"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10; color: Style.blueAlt }
       }
     }
 
@@ -245,24 +242,24 @@ FocusScope {
       anchors.fill: parent; radius: 12; color: Qt.rgba(0,0,0,0.78); visible: showPasswordPrompt; z: 10
       ColumnLayout {
         anchors.centerIn: parent; width: parent.width-30; spacing: 8
-        Text { text: "Connect to "+pendingSsid; color: cText; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; font.bold:true; Layout.alignment: Qt.AlignHCenter }
+        Text { text: "Connect to "+pendingSsid; color: Style.text; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; font.bold:true; Layout.alignment: Qt.AlignHCenter }
         Rectangle {
-          Layout.fillWidth: true; height: 30; radius: 5; color: Qt.rgba(1,1,1,0.05); border.color: cBorder
+          Layout.fillWidth: true; height: 30; radius: 5; color: Qt.rgba(0.2,0.2,0.25,0.2); border.color: Style.border
           TextInput {
-            id: passInput; anchors.fill:parent; anchors.margins:6; color: cText; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; echoMode: TextInput.Password; verticalAlignment: TextInput.AlignVCenter
+            id: passInput; anchors.fill:parent; anchors.margins:6; color: Style.text; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; echoMode: TextInput.Password; verticalAlignment: TextInput.AlignVCenter
             onAccepted: doConnect(pendingSsid, text)
           }
         }
         RowLayout {
           Layout.fillWidth: true; spacing: 6
-          Rectangle { Layout.fillWidth:true; height:26; radius:5; color: Qt.rgba(1,1,1,0.1)
+          Rectangle { Layout.fillWidth:true; height:26; radius:5; color: Qt.rgba(0.2,0.2,0.25,0.3)
             MouseArea { anchors.fill:parent; onClicked: showPasswordPrompt=false
-              Text { anchors.centerIn:parent; text:"Cancel"; font.family:"JetBrainsMono Nerd Font"; font.pixelSize:10; color:cText }
+              Text { anchors.centerIn:parent; text:"Cancel"; font.family:"JetBrainsMono Nerd Font"; font.pixelSize:10; color:Style.text }
             }
           }
-          Rectangle { Layout.fillWidth:true; height:26; radius:5; color: cPrimary
+          Rectangle { Layout.fillWidth:true; height:26; radius:5; color: Style.blueAlt
             MouseArea { anchors.fill:parent; onClicked: doConnect(pendingSsid, passInput.text)
-              Text { anchors.centerIn:parent; text:"Connect"; font.family:"JetBrainsMono Nerd Font"; font.pixelSize:10; font.bold:true; color:"#1e1e2e" }
+              Text { anchors.centerIn:parent; text:"Connect"; font.family:"JetBrainsMono Nerd Font"; font.pixelSize:10; font.bold:true; color: Style.bg }
             }
           }
         }

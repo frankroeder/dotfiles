@@ -6,11 +6,34 @@ import Quickshell.Widgets
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
+import Quickshell.Services.Notifications
 
 import "modules/bar/components" as BarComponents
 import "modules/wallpaper"
+import "."
 
 ShellRoot {
+
+  // QS native notifications (full mako replacement) - hoisted here so toast PanelWindow can bind to activeNotif
+  property var activeNotif: null
+  property var toastScreen: null
+  Timer {
+    id: notifTimer
+    interval: 6000
+    onTriggered: { if (activeNotif) { activeNotif.expire(); activeNotif = null } }
+  }
+  NotificationServer {
+    id: notifServer
+    onNotification: (n) => {
+      activeNotif = n
+      n.tracked = true
+      const mon = Hyprland.focusedMonitor
+      toastScreen = mon ? (Quickshell.screens.find(s => s.name === mon.name) ?? Quickshell.screens[0]) : (Quickshell.screens[0] ?? null)
+      Quickshell.execDetached(["bash", "-c", Quickshell.env("HOME") + "/.dotfiles/asahi/bin/asahi-notification-sound"])
+      notifTimer.restart()
+    }
+  }
+
 Variants {
     model: Quickshell.screens
 
@@ -19,16 +42,9 @@ Variants {
         screen: modelData
         id: root
 
-        // Theme
-        property color colBg: "#1a1b26"
-  property color colFg: "#a9b1d6"
-  property color colMuted: "#444b6a"
-  property color colCyan: "#0db9d7"
-  property color colBlue: "#7aa2f7"
-  property color colYellow: "#e0af68"
-  property string fontFamily: "JetBrainsMono Nerd Font"
-  property int fontSize: 16   // bigger symbols / text overall
-
+        // Theme centralized in Style.qml (Catppuccin Mocha)
+        // Reliable bin path (short names don't resolve reliably in QS Process env on this setup)
+        readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
 
   property string cpuText: ""
   property string cpuTooltip: ""
@@ -79,7 +95,7 @@ Variants {
   // CPU script (usage + temperature)
   Process {
     id: cpuScriptProc
-    command: ["bash", "/home/froeder/.dotfiles/asahi/bin/asahi-waybar-cpu"]
+    command: [binDir + "/asahi-cpu"]
     stdout: StdioCollector {
       onStreamFinished: {
         try {
@@ -105,7 +121,7 @@ Variants {
   // Memory script (usage + history bars like CPU)
   Process {
     id: memScriptProc
-    command: ["bash", "/home/froeder/.dotfiles/asahi/bin/asahi-waybar-memory"]
+    command: [binDir + "/asahi-memory"]
     stdout: StdioCollector {
       onStreamFinished: {
         try {
@@ -158,13 +174,13 @@ Variants {
     anchors.margins: 4
     spacing: 10
 
-    // Power and Control Center on the left
+    // Power on the left
     BarComponents.PowerButton {}
 
     // Workspaces: only those that contain running apps.
     // Each occupied workspace shows its number + its app icons.
     Rectangle {
-      color: "#313244"
+      color: Style.moduleBg
       radius: 6
       implicitHeight: 38
       implicitWidth: wsContent.implicitWidth + 14
@@ -179,8 +195,8 @@ Variants {
           // Per-workspace pill: highlighted rectangle containing the number + all its app icons (the bar's workspace overview)
           Rectangle {
             radius: 6
-            color: isFocused ? "#3a3f4a" : "#2a2a3a"
-            border.color: isFocused ? root.colCyan : "#3a3a4a"
+            color: isFocused ? Style.hoverBg : Style.controlBg
+            border.color: isFocused ? Style.cyan : Style.border
             border.width: 1
             implicitHeight: 32
             implicitWidth: wsInner.implicitWidth + 8
@@ -197,14 +213,14 @@ Variants {
                 width: 22
                 height: 26
                 radius: 5
-                color: "#25252f"
+                color: Style.wsNumBg
                 border.width: 0
 
                 Text {
                   anchors.centerIn: parent
                   text: modelData
-                  color: isFocused ? root.colCyan : root.colBlue
-                  font { family: root.fontFamily; pixelSize: 13; bold: true }
+                  color: isFocused ? Style.cyan : Style.blue
+                  font { family: Style.fontFamily; pixelSize: 13; bold: true }
                 }
               }
 
@@ -225,8 +241,8 @@ Variants {
                     width: 24
                     height: 24
                     radius: 4
-                    color: "#313244"
-                    border.color: "#585b70"
+                    color: Style.moduleBg
+                    border.color: Style.border
                     border.width: 1
 
                     IconImage {
@@ -247,7 +263,7 @@ Variants {
                       text: (modelData.appId || modelData.lastIpcObject?.class || "?").charAt(0).toUpperCase()
                       font.pixelSize: 12
                       font.bold: true
-                      color: "#cdd6f4"
+                      color: Style.text
                     }
 
                     MouseArea {
@@ -296,7 +312,7 @@ Variants {
     // CPU widget: graph occupies left + middle of the widget, percentage (2 digits, leading zero) and temp on the very right of the widget.
     // Temp combined with CPU as requested.
     Rectangle {
-      color: "#313244"
+      color: Style.moduleBg
       radius: 4
       implicitWidth: 170
       implicitHeight: 24
@@ -319,7 +335,7 @@ Variants {
             if (!hist || hist.length < 2) return
             const n = hist.length
             const step = w / (n - 1)
-            const color = "#fab387"
+            const color = Style.orange
             ctx.lineJoin = "round"; ctx.lineCap = "round"
 
             const grad = ctx.createLinearGradient(0, 0, 0, h)
@@ -363,14 +379,14 @@ Variants {
           spacing: 4
           Text {
             text: "CPU " + fmt2(root.cpuPerc) + "%"
-            color: root.colYellow
-            font { family: root.fontFamily; pixelSize: 14 }
+            color: Style.yellow
+            font { family: Style.fontFamily; pixelSize: 14 }
             horizontalAlignment: Text.AlignRight
           }
           Text {
             text: fmt2(root.cpuTempText) + "°C"
-            color: "#a9b1d6"
-            font { family: root.fontFamily; pixelSize: 14 }
+            color: Style.textAlt
+            font { family: Style.fontFamily; pixelSize: 14 }
             horizontalAlignment: Text.AlignRight
           }
         }
@@ -381,13 +397,13 @@ Variants {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: Quickshell.execDetached(["bash", "-c", "/home/froeder/.dotfiles/asahi/bin/asahi-launch-or-focus-tui htop"])
+        onClicked: Quickshell.execDetached(["bash", "-c", binDir + "/asahi-launch-or-focus-tui htop"])
       }
     }
 
     // RAM widget: graph occupies left + middle of the widget, percentage (2 digits) on the very right of the widget.
     Rectangle {
-      color: "#313244"
+      color: Style.moduleBg
       radius: 4
       implicitWidth: 130
       implicitHeight: 24
@@ -410,7 +426,7 @@ Variants {
             if (!hist || hist.length < 2) return
             const n = hist.length
             const step = w / (n - 1)
-            const color = "#b4befe"
+            const color = Style.lavender
             ctx.lineJoin = "round"; ctx.lineCap = "round"
 
             const grad = ctx.createLinearGradient(0, 0, 0, h)
@@ -451,8 +467,8 @@ Variants {
         // Right of RAM widget: percentage with % symbol
         Text {
           text: "RAM " + fmt2(root.memPerc) + "%"
-          color: root.colCyan
-          font { family: root.fontFamily; pixelSize: 13 }
+          color: Style.cyan
+          font { family: Style.fontFamily; pixelSize: 13 }
           Layout.preferredWidth: 60
           horizontalAlignment: Text.AlignRight
           Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
@@ -472,10 +488,8 @@ Variants {
 
     BarComponents.Battery {}
 
-    // Clock last on the right - click to open launcher
-    BarComponents.Clock {
-      launcher: launcherLoader.item
-    }
+    // Clock / date (display only)
+    BarComponents.Clock {}
   }
 
   // Custom tooltips attached to each widget's MouseArea
@@ -496,6 +510,28 @@ Variants {
   }
 }
 }  // close Variants
+
+  // Global notif toast (QS native, full mako replacement). Bottom-right, urgency border, click dismiss, auto expire.
+  PanelWindow {
+    id: notifToast
+    visible: !!activeNotif
+    color: "transparent"
+    screen: toastScreen
+    anchors { bottom: true; right: true }
+    margins { bottom: 12; right: 12 }
+    implicitWidth: 360
+    implicitHeight: 70
+    Rectangle {
+      anchors.fill: parent
+      radius: 8
+      color: DefaultTheme.bgSurface
+      border.color: (activeNotif && activeNotif.urgency === 2) ? DefaultTheme.urgencyCritical : DefaultTheme.bgBorder
+      border.width: 1
+      Text { x: 8; y: 6; text: activeNotif ? (activeNotif.appName || "") + ": " + (activeNotif.summary || "") : ""; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; color: DefaultTheme.textPrimary; font.bold: true }
+      Text { x: 8; y: 24; text: activeNotif ? (activeNotif.body || "") : ""; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: DefaultTheme.textSecondary; width: 340; wrapMode: Text.Wrap; maximumLineCount: 2 }
+      MouseArea { anchors.fill: parent; onClicked: { if (activeNotif) { activeNotif.dismiss(); activeNotif = null } } }
+    }
+  }
 
     Loader {
         id: launcherLoader

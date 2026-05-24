@@ -2,11 +2,15 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
+import "../../../"
 
 Rectangle {
     id: root
 
-    color: "#313244"
+    readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
+
+    color: Style.moduleBg
     radius: 6
 
     implicitWidth: content.implicitWidth + 14
@@ -25,13 +29,13 @@ Rectangle {
             text: root.text
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 30
-            color: "#89b4fa"
+            color: Style.blueAlt
         }
     }
 
     Process {
         id: netProc
-        command: ["bash", "/home/froeder/.dotfiles/asahi/bin/asahi-waybar-network"]
+        command: ["bash", binDir + "/asahi-network"]
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
@@ -64,10 +68,12 @@ Rectangle {
 
         onClicked: (mouse) => {
             if (mouse.button === Qt.RightButton) {
-                Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-network-menu"])
+                Quickshell.execDetached([binDir + "/asahi-network-menu"])
             } else {
                 if (!networkPopup) {
-                    networkPopup = Qt.createComponent("NetworkPopupWindow.qml").createObject(root)
+                    const mon = Hyprland.focusedMonitor
+                    const scr = mon ? (Quickshell.screens.find(s => s.name === mon.name) ?? Quickshell.screens[0]) : (Quickshell.screens[0] ?? null)
+                    networkPopup = Qt.createComponent("NetworkPopupWindow.qml").createObject(root, {screen: scr})
                 }
                 networkPopup.shouldShow = !networkPopup.shouldShow
             }

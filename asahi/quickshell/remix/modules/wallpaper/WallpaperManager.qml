@@ -4,9 +4,26 @@ import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 
+import "../../"
+
 Scope {
   id: root
-  property var theme: DefaultTheme {}
+
+  // Safe adapter so the wallpaper picker keeps working with Mocha colors
+  // without triggering singleton instantiation parser errors
+  property var theme: ({
+    bgOverlay: "#88000000",
+    bgBase: Style.bg,
+    bgSurface: Style.surface,
+    bgBorder: Style.border,
+    bgHover: Style.hoverBg,
+    textPrimary: Style.text,
+    textSecondary: Style.textMuted,
+    textMuted: Style.textMuted,
+    accentPrimary: Style.blue,
+    accentGreen: Style.green,
+    accentRed: Style.red
+  })
 
   property string searchText: ""
   property string previewPath: ""
@@ -245,7 +262,7 @@ Scope {
                 Text {
                   anchors.centerIn: parent
                   text: modelData.split("/").pop()
-                  color: "#ffffff"
+                  color: Style.text
                   font.pixelSize: 9
                   font.family: "JetBrainsMono Nerd Font"
                   elide: Text.ElideMiddle

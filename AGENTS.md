@@ -8,7 +8,7 @@ sketchybar (lua configs for top/bottom bars in sketchybar/{top,bottom}/).
 Asahi: Hyprland (modular lua: asahi/hypr/hyprland.lua + conf.d/*.lua),
 quickshell (QML in asahi/quickshell/remix/ for bar/launcher/wallpaper on quicks branch)
 + hyprpaper/hyprlock/hypridle +
-mako, ghostty, custom asahi/bin scripts. Shared: nvim (full lua/),
+ghostty, custom asahi/bin scripts. Shared: nvim (full lua/),
 zsh (zim+dots), mpv, ghostty. Always differentiate Linux by arch. Profiles:
 
 - `micro` setup with bash, tmux, and htop where there are almost no rights for the user
@@ -42,8 +42,7 @@ We need to always differentiate between the different Linux settings with respec
 - hyprpaper (wallpaper daemon): https://wiki.hypr.land/Hypr-Ecosystem/hyprpaper/
 - hyprlock (screen locker): https://wiki.hypr.land/Hypr-Ecosystem/hyprlock/
 - hypridle (idle daemon): https://wiki.hypr.land/Hypr-Ecosystem/hypridle/
-- Quickshell (QML toolkit, bar/launcher): https://quickshell.org/docs/
-- Mako (Wayland notifications): https://github.com/emersion/mako
+- Quickshell (QML toolkit, bar/launcher + native notifications): https://quickshell.org/docs/
 
 ## Shared
 - Neovim: https://neovim.io/doc/

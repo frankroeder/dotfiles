@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Services.SystemTray
+import "../../../"
 
 // Improved SystemTray - based on reference, better icon handling
 RowLayout {
@@ -14,7 +15,7 @@ RowLayout {
       Layout.preferredWidth: 22
       Layout.preferredHeight: 22
       radius: 4
-      color: trayMouse.containsMouse ? Qt.rgba(1,1,1,0.06) : "transparent"
+      color: trayMouse.containsMouse ? Style.hoverBg : "transparent"  // use theme hover (dark Mocha)
 
       Image {
         anchors.centerIn: parent

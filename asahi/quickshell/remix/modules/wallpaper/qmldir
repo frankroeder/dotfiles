@@ -1,0 +1,3 @@
+singleton DefaultTheme 1.0 DefaultTheme.qml
+singleton WallpaperService 1.0 WallpaperService.qml
+WallpaperManager 1.0 WallpaperManager.qml

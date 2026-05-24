@@ -2,11 +2,14 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
+import "../../../"
 
 Rectangle {
     id: root
 
-    color: "#313244"   // dark background like waybar @surface0 modules
+    readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
+
+    color: Style.moduleBg
     radius: 6
 
     implicitWidth: row.implicitWidth + 14
@@ -24,13 +27,13 @@ Rectangle {
             text: root.text
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 18
-            color: "#a6e3a1"
+            color: Style.green
         }
     }
 
     Process {
         id: batProc
-        command: ["bash", "/home/froeder/.dotfiles/asahi/bin/asahi-waybar-battery"]
+        command: ["bash", binDir + "/asahi-battery"]
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
@@ -54,7 +57,7 @@ Rectangle {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: Quickshell.execDetached(["bash", "-c", "/home/froeder/.dotfiles/asahi/bin/asahi-battery-menu"])
+        // Hover + pointer cursor for tooltip (click action removed)
     }
 
     TooltipWindow {

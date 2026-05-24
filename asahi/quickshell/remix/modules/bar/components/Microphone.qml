@@ -2,11 +2,14 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
+import "../../../"
 
 Rectangle {
     id: root
 
-    color: "#313244"   // dark background like waybar @surface0 modules
+    readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
+
+    color: Style.moduleBg
     radius: 6
 
     implicitWidth: content.implicitWidth + 14
@@ -31,13 +34,13 @@ Rectangle {
             text: root.text
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 17
-            color: root.muted ? "#f38ba8" : "#89b4fa"
+            color: root.muted ? Style.red : Style.blueAlt
         }
     }
 
     Process {
         id: micProc
-        command: ["bash", "/home/froeder/.dotfiles/asahi/bin/asahi-waybar-audio", "input"]
+        command: ["bash", binDir + "/asahi-audio", "input"]
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
@@ -84,13 +87,13 @@ Rectangle {
 
         // Left click: toggle mute
         onClicked: {
-            Quickshell.execDetached(["bash", "-c", "/home/froeder/.dotfiles/asahi/bin/asahi-media-control input-volume mute-toggle"])
+            Quickshell.execDetached(["bash", "-c", binDir + "/asahi-media-control input-volume mute-toggle"])
         }
 
         // Scroll wheel: adjust microphone volume
         onWheel: (wheel) => {
             const direction = wheel.angleDelta.y > 0 ? "raise" : "lower"
-            Quickshell.execDetached(["bash", "-c", "/home/froeder/.dotfiles/asahi/bin/asahi-media-control input-volume " + direction])
+            Quickshell.execDetached(["bash", "-c", binDir + "/asahi-media-control input-volume " + direction])
         }
     }
 }

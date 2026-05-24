@@ -59,7 +59,6 @@ sudo dnf install -y \
   libnotify \
   librewolf \
   make \
-  mako \
   mpv \
   neovim \
   nextcloud-client \
@@ -88,6 +87,10 @@ sudo dnf install -y \
   xdg-desktop-portal-gtk \
   xdg-desktop-portal-hyprland \
   zsh
+
+# Optional Asahi extras (not in minimal dnf to avoid bloat):
+# - hyprdynamicmonitors (Go tool for dynamic monitor profiles/lid/hotplug on Mac hw): go install github.com/fiffeek/hyprdynamicmonitors@latest
+# - matugen (theming, per DankMaterialShell patterns): dnf or cargo install; integrate with QS for wallpaper-driven colors if chosen
 
 systemctl --user daemon-reload
 systemctl --user enable --now pipewire.socket pipewire-pulse.socket wireplumber.service

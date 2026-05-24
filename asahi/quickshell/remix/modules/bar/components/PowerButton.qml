@@ -1,18 +1,19 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import "../../../"
 
 // Power button - inspired by reference, styled for remix
 // Click opens user's power menu (asahi-battery-menu or similar)
 Rectangle {
   id: root
 
-  color: "#313244"
+  color: Style.moduleBg
   radius: 6
   implicitWidth: 28
   implicitHeight: 28
 
-  property string powerMenuCommand: "/home/froeder/.dotfiles/asahi/bin/asahi-control-menu"
+  property string powerMenuCommand: Quickshell.env("HOME") + "/.dotfiles/asahi/bin/asahi-control-menu"
 
   Text {
     anchors.centerIn: parent
@@ -20,7 +21,7 @@ Rectangle {
     font.family: "JetBrainsMono Nerd Font"
     font.pixelSize: 16
     font.bold: true
-    color: mouseArea.containsMouse ? "#f38ba8" : "#cdd6f4"
+    color: mouseArea.containsMouse ? Style.red : Style.text
 
     Behavior on color { ColorAnimation { duration: 120 } }
   }

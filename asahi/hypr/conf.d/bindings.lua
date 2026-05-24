@@ -37,11 +37,6 @@ hl.bind(
   hl.dsp.exec_cmd(scripts .. "/asahi-restart-app quickshell -c remix"),
   { desc = "Restart quickshell bar (qs -c remix)" }
 )
-hl.bind(
-  mod .. " + CONTROL + ALT + M",
-  hl.dsp.exec_cmd(scripts .. "/asahi-restart-app mako --config ~/.config/mako/config"),
-  { desc = "Restart mako" }
-)
 hl.bind(mod .. " + CONTROL + ALT + P", hl.dsp.exec_cmd(scripts .. "/asahi-restart-app hyprpaper"), { desc = "Restart hyprpaper" })
 hl.bind(mod .. " + CONTROL + ALT + I", hl.dsp.exec_cmd(scripts .. "/asahi-restart-app hypridle"), { desc = "Restart hypridle" })
 

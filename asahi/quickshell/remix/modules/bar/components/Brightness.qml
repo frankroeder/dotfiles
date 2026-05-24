@@ -2,8 +2,9 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
+import "../../../"
 
-// Simple Brightness pill - reuses waybar-like data approach
+// Simple Brightness pill - reuses asahi data approach
 Item {
   id: root
 
@@ -19,9 +20,9 @@ Item {
 
     Text {
       text: root.text
-      font.family: "JetBrainsMono Nerd Font"
+      font.family: Style.fontFamily
       font.pixelSize: 17
-      color: "#fab387"
+      color: Style.orange
     }
   }
 

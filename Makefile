@@ -527,7 +527,6 @@ asahi-desktop: asahi-common
 	$(call replace_with_symlink,$(DOTFILES)/asahi/hypr,$(HOME)/.config/hypr)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/swayosd,$(HOME)/.config/swayosd)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/quickshell,$(HOME)/.config/quickshell)
-	$(call replace_with_symlink,$(DOTFILES)/asahi/mako,$(HOME)/.config/mako)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/ghostty,$(HOME)/.config/ghostty)
 	@mkdir -p $(HOME)/.config/mpv
 	@ln -sfv $(DOTFILES)/mpv/mpv_asahi.conf $(HOME)/.config/mpv/mpv.conf
@@ -565,7 +564,7 @@ check-asahi: ## Check minimal Asahi desktop commands
 	@for command in Hyprland fuzzel; do \
 		command -v "$$command" >/dev/null 2>&1 || $(call print_warning,$$command not installed); \
 	done
-	@for command in quickshell qs mako hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl swayosd-client; do \
+	@for command in quickshell qs hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl swayosd-client; do \
 		command -v "$$command" >/dev/null 2>&1 || $(call print_warning,$$command not installed); \
 	done
 	@for command in nm-connection-editor nmtui blueman-manager; do \

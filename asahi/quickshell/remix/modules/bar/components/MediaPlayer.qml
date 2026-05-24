@@ -2,13 +2,16 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
+import "../../../"
 
 // Media Player pill for the bar
-// Uses asahi-waybar-player script for data (consistent with waybar)
+// Uses asahi-player script for data (Asahi tuned json)
 Rectangle {
   id: root
 
-  color: "#313244"
+  readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
+
+  color: Style.moduleBg
   radius: 6
 
   implicitWidth: Math.min(300, contentRow.implicitWidth + 14)
@@ -20,7 +23,7 @@ Rectangle {
 
   Process {
     id: playerProc
-    command: ["bash", "/home/froeder/.dotfiles/asahi/bin/asahi-waybar-player"]
+    command: ["bash", binDir + "/asahi-player"]
     stdout: StdioCollector {
       onStreamFinished: {
         try {
@@ -50,7 +53,7 @@ Rectangle {
       text: hasMedia ? root.text : "No media"
       font.family: "JetBrainsMono Nerd Font"
       font.pixelSize: 18
-      color: hasMedia ? "#cdd6f4" : "#6c7086"
+      color: hasMedia ? Style.text : Style.textMuted
       elide: Text.ElideRight
       Layout.maximumWidth: 140
     }
@@ -64,11 +67,11 @@ Rectangle {
 
     onClicked: (mouse) => {
       if (mouse.button === Qt.RightButton) {
-        Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-media-control", "playerctl", "next"])
+        Quickshell.execDetached([binDir + "/asahi-media-control", "playerctl", "next"])
       } else if (mouse.button === Qt.MiddleButton) {
-        Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-media-control", "playerctl", "previous"])
+        Quickshell.execDetached([binDir + "/asahi-media-control", "playerctl", "previous"])
       } else {
-        Quickshell.execDetached(["/home/froeder/.dotfiles/asahi/bin/asahi-media-control", "playerctl", "play-pause"])
+        Quickshell.execDetached([binDir + "/asahi-media-control", "playerctl", "play-pause"])
       }
     }
   }

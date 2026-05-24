@@ -1,6 +1,7 @@
 import Quickshell
 import Quickshell.Wayland
 import QtQuick
+import "../../../"
 
 PopupWindow {
   id: root
@@ -22,9 +23,9 @@ PopupWindow {
 
   Rectangle {
     anchors.fill: parent
-    color: "#1e1e2e"
-    border.color: "#45475a"
-    radius: 6
+    color: Style.surface
+    border.color: Style.border
+    radius: Style.radius
   }
 
   Text {
@@ -32,9 +33,9 @@ PopupWindow {
     x: root.pad
     y: root.pad
     text: root.text
-    font.family: "JetBrainsMono Nerd Font"
-    font.pixelSize: 12
-    color: "#cdd6f4"
+    font.family: Style.fontFamily
+    font.pixelSize: Style.fontSizeTiny
+    color: Style.text
     wrapMode: Text.Wrap
     width: root.maxWidth - root.pad * 2
   }
