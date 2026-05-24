@@ -721,6 +721,27 @@ Variants {
       }
     }
 
+    Loader {
+      id: featureLoader
+      source: "modules/featuremenu/FeatureMenuWindow.qml"
+      active: true
+    }
+
+    IpcHandler {
+      target: "feature"
+      function toggle() {
+        const f = featureLoader.item
+        if (!f) return
+        if (f.shouldShow) {
+          if (f.closeFeature) f.closeFeature()
+          else f.shouldShow = false
+        } else {
+          if (f.openFeature) f.openFeature()
+          else f.shouldShow = true
+        }
+      }
+    }
+
     WallpaperManager {}
 
 }  // close ShellRoot
