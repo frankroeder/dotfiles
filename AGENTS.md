@@ -43,6 +43,7 @@ We need to always differentiate between the different Linux settings with respec
 - hyprlock (screen locker): https://wiki.hypr.land/Hypr-Ecosystem/hyprlock/
 - hypridle (idle daemon): https://wiki.hypr.land/Hypr-Ecosystem/hypridle/
 - Quickshell (QML toolkit, bar/launcher + native notifications): https://quickshell.org/docs/
+- **QML singletons (Quickshell/Qt6)**: `pragma Singleton` is ignored without `qmldir` registration. `import "File.qml" as X` silently falls back to white/black defaults. Create `qmldir` in module dirs (`singleton Name File.qml`), use module imports (`import "../foo"`), reference by registered name (`Foo.bar`). Prefer Quickshell `Singleton` root type (reloadable) over QtObject. Never `Foo {}` construct singletons.
 
 ## Shared
 - Neovim: https://neovim.io/doc/

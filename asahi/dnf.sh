@@ -5,12 +5,6 @@ set -euo pipefail
 
 LIBREWOLF_REPO_URL="https://repo.librewolf.net/librewolf.repo"
 FEDORA_VERSION="$(rpm -E %fedora)"
-ARCHITECTURE="$(uname -m)"
-SWAYOSD_COPR_CHROOT="fedora-${FEDORA_VERSION}-${ARCHITECTURE}"
-
-if [ "$FEDORA_VERSION" -ge 44 ]; then
-  SWAYOSD_COPR_CHROOT="fedora-43-${ARCHITECTURE}"
-fi
 
 sudo dnf upgrade -y
 sudo dnf remove -y kitty kitty-terminfo || true
@@ -19,7 +13,6 @@ if ! sudo dnf repolist --all | grep -q '^librewolf'; then
   sudo dnf config-manager addrepo --add-or-replace --overwrite --from-repofile="$LIBREWOLF_REPO_URL"
 fi
 
-sudo dnf copr enable -y erikreider/swayosd "$SWAYOSD_COPR_CHROOT"
 sudo dnf copr enable -y scottames/ghostty
 sudo dnf copr enable errornointernet/quickshell
 
@@ -73,7 +66,6 @@ sudo dnf install -y \
   playerctl \
   ripgrep \
   slurp \
-  swayosd \
   texlive-scheme-full \
   terminus-fonts-console \
   thunderbird \

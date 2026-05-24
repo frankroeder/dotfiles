@@ -8,10 +8,8 @@ import "../../../"
 PanelWindow {
   id: root
   property bool shouldShow: false
-  property var screen: null
   visible: shouldShow
   color: "transparent"
-  screen: root.screen
   anchors {
     top: true
     right: true

@@ -4,11 +4,9 @@ set -euo pipefail
 
 target="${1:-}"
 action="${2:-}"
-dotfiles="${DOTFILES:-$HOME/.dotfiles}"
-osd="$dotfiles/asahi/bin/asahi-swayosd"
 
 if [ -z "$target" ] || [ -z "$action" ]; then
-  echo "usage: $0 <output-volume|input-volume|brightness|keyboard-brightness|playerctl> <action>" >&2
+  echo "usage: $0 <output-volume|input-volume|brightness|keyboard-brightness|caps-lock|playerctl> <action>" >&2
   exit 2
 fi
 
@@ -59,85 +57,55 @@ brightness_step() {
   esac
 }
 
-brightness_metrics() {
-  local device="$1"
-  local current max progress percent
+show_osd() {
+  local function="$1"
 
-  current="$(brightnessctl --device="$device" get)"
-  max="$(brightnessctl --device="$device" max)"
-  [ -n "$max" ] && [ "$max" != "0" ] || return 1
-
-  progress="$(awk -v current="$current" -v max="$max" 'BEGIN { printf "%.2f", current / max }')"
-  percent="$(( (current * 100 + max / 2) / max ))"
-  printf "%s %s\n" "$progress" "$percent"
-}
-
-show_custom_osd() {
-  local icon="$1"
-  local progress="$2"
-  local percent="$3"
-
-  "$osd" --custom-icon "$icon" --custom-progress "$progress" --custom-progress-text "${percent}%" >/dev/null 2>&1 || true
+  qs -c remix ipc call osd "$function" >/dev/null 2>&1 || true
 }
 
 case "$target" in
   output-volume)
-    if command -v swayosd-client >/dev/null 2>&1; then
-      exec "$osd" --output-volume "$action" --max-volume 100
-    fi
-
     case "$action" in
-      raise) exec wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+ ;;
-      lower) exec wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%- ;;
-      mute-toggle) exec wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle ;;
-      +1) exec wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 1%+ ;;
-      -1) exec wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 1%- ;;
+      raise) wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+ ;;
+      lower) wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%- ;;
+      mute-toggle) wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle ;;
+      +1) wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 1%+ ;;
+      -1) wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 1%- ;;
     esac
+    show_osd volume
     ;;
   input-volume)
     if [ "$action" = "mute-toggle" ]; then
       wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
-
-      if command -v swayosd-client >/dev/null 2>&1; then
-        "$osd" --input-volume +0 >/dev/null 2>&1 || true
-      fi
-
+      show_osd mic
       exit 0
     fi
 
-    if command -v swayosd-client >/dev/null 2>&1; then
-      exec "$osd" --input-volume "$action"
-    fi
-
     case "$action" in
-      raise) exec wpctl set-volume -l 1 @DEFAULT_AUDIO_SOURCE@ 5%+ ;;
-      lower) exec wpctl set-volume -l 1 @DEFAULT_AUDIO_SOURCE@ 5%- ;;
-      +1) exec wpctl set-volume -l 1 @DEFAULT_AUDIO_SOURCE@ 1%+ ;;
-      -1) exec wpctl set-volume -l 1 @DEFAULT_AUDIO_SOURCE@ 1%- ;;
+      raise) wpctl set-volume -l 1 @DEFAULT_AUDIO_SOURCE@ 5%+ ;;
+      lower) wpctl set-volume -l 1 @DEFAULT_AUDIO_SOURCE@ 5%- ;;
+      +1) wpctl set-volume -l 1 @DEFAULT_AUDIO_SOURCE@ 1%+ ;;
+      -1) wpctl set-volume -l 1 @DEFAULT_AUDIO_SOURCE@ 1%- ;;
     esac
+    show_osd mic
     ;;
   playerctl)
-    if command -v swayosd-client >/dev/null 2>&1; then
-      "$osd" --playerctl "$action" >/dev/null 2>&1 && exit 0
-    fi
-
     exec playerctl "$action"
     ;;
   brightness)
     device="$(display_device)"
     brightnessctl --quiet --device="$device" set "$(brightness_step "$action")"
 
-    if read -r progress percent < <(brightness_metrics "$device"); then
-      show_custom_osd display-brightness-symbolic "$progress" "$percent"
-    fi
+    show_osd brightness
     ;;
   keyboard-brightness)
     device="$(keyboard_device)"
     brightnessctl --quiet --device="$device" set "$(brightness_step "$action")"
 
-    if read -r progress percent < <(brightness_metrics "$device"); then
-      show_custom_osd input-keyboard-symbolic "$progress" "$percent"
-    fi
+    show_osd keyboard
+    ;;
+  caps-lock)
+    show_osd caps
     ;;
   *)
     echo "unknown target: $target" >&2
