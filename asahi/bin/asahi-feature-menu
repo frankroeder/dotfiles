@@ -18,7 +18,6 @@ choice="$(
     "󰹑 Screenshot full" \
     "󰑓 Reload Hyprland" \
     "󰑐 Restart Bar (Quickshell)" \
-    "󰑓 Restart Mako" \
     "󰑓 Restart Hyprpaper" \
     "󰑓 Restart Hypridle" \
     "󰌾 Lock" \
@@ -59,9 +58,6 @@ case "$choice" in
     ;;
   "󰑐 Restart Bar (Quickshell)")
     exec "$dotfiles/asahi/bin/asahi-restart-app" quickshell -c remix
-    ;;
-  "󰑓 Restart Mako")
-    exec "$dotfiles/asahi/bin/asahi-restart-app" mako --config "$HOME/.config/mako/config"
     ;;
   "󰑓 Restart Hyprpaper")
     exec "$dotfiles/asahi/bin/asahi-restart-app" hyprpaper

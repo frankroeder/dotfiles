@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-status="$("$HOME/.dotfiles/asahi/bin/asahi-waybar-battery")"
+status="$("$HOME/.dotfiles/asahi/bin/asahi-battery")"
 tooltip="$(jq -r .tooltip <<< "$status")"
 
 [ -n "$tooltip" ] && [ "$tooltip" != "null" ] || exit 0
