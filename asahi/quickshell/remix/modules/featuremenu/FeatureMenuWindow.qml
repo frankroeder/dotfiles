@@ -1,9 +1,11 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
 import Quickshell.Io
+import Quickshell.Widgets
 import Quickshell.Bluetooth
 import Quickshell.Services.Mpris
 import "../../"
@@ -18,6 +20,9 @@ Scope {
   property var featureScreen: null
   property string mode: "hub"  // hub | wallpaper | screenshots | media | network | monitors | temp | bluetooth | power
   property string pendingConfirm: ""
+  property bool bluetoothPowered: Bluetooth.defaultAdapter && Bluetooth.defaultAdapter.enabled
+  // Manual Media page Cava panel height.
+  property int mediaCavaHeight: 220
   readonly property int uiFontBump: 2
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
@@ -253,6 +258,19 @@ Scope {
     monitorActionProc.command = ["hyprctl", "reload"]
     monitorActionProc.running = true
   }
+  function externalOnlyMonitors() {
+    const external = (root.monitorList || []).find(m => m && m.name !== "eDP-1")
+    if (!external) {
+      root.monitorStatus = "No external monitor found"
+      return
+    }
+    root.monitorStatus = "Switching to external only..."
+    monitorActionProc.command = ["hyprctl", "eval",
+      "hl.monitor({ output = " + luaString(external.name) + ", mode = \"preferred\", position = \"0x0\", scale = " + (external.scale || 1) + " })\n" +
+      "hl.monitor({ output = \"eDP-1\", disabled = true })"
+    ]
+    monitorActionProc.running = true
+  }
   function rescanMonitors() {
     root.monitorStatus = "Refreshing monitor list..."
     if (!monitorsProc.running) monitorsProc.running = true
@@ -325,6 +343,32 @@ Scope {
     return Math.max(0, Math.min(1, (value - 25) / 55))
   }
 
+  Process {
+    id: bluetoothStatusProc
+    command: ["sh", "-c", "bluetoothctl show 2>/dev/null || true"]
+    stdout: StdioCollector {
+      onStreamFinished: root.bluetoothPowered = text.indexOf("Powered: yes") !== -1
+    }
+  }
+  Timer {
+    id: bluetoothRefreshDelay
+    interval: 500
+    onTriggered: root.refreshBluetoothPower()
+  }
+  function refreshBluetoothPower() {
+    if (!bluetoothStatusProc.running) bluetoothStatusProc.running = true
+  }
+  function toggleBluetoothPower() {
+    const next = root.bluetoothPowered ? "off" : "on"
+    Quickshell.execDetached([
+      "sh", "-c",
+      "if [ \"$1\" = on ]; then rfkill unblock bluetooth 2>/dev/null || true; fi; bluetoothctl power \"$1\"",
+      "sh", next
+    ])
+    root.bluetoothPowered = !root.bluetoothPowered
+    bluetoothRefreshDelay.restart()
+  }
+
   // Media mode state (players via Mpris, audio via wpctl, cava viz)
   property var cavaValues: []
   property bool cavaRunning: false
@@ -338,6 +382,7 @@ Scope {
   function enterMedia() {
     startCavaIfNeeded()
     pollAudioDefaults()
+    refreshAudioMixer()
   }
   function startCavaIfNeeded() {
     if (cavaRunning) return
@@ -354,11 +399,11 @@ Scope {
       "echo 'method=pulse' >> ~/.config/cava/config; " +
       "echo '[output]' >> ~/.config/cava/config; " +
       "echo 'method=raw' >> ~/.config/cava/config; " +
-      "echo 'raw_target=/tmp/quickshell_cava' >> ~/.config/cava/config; " +
+      "echo 'raw_target=/dev/stdout' >> ~/.config/cava/config; " +
       "echo 'data_format=ascii' >> ~/.config/cava/config; " +
       "echo 'ascii_max_range=100' >> ~/.config/cava/config; " +
       "rm -f /tmp/quickshell_cava; " +
-      "nohup bash -c 'cava -p ~/.config/cava/config 2>/dev/null | while IFS= read -r line; do echo \"$line\" | tr \" \" \";\" > /tmp/quickshell_cava; done' >/dev/null 2>&1 & disown"
+      "nohup bash -c 'cava -p ~/.config/cava/config 2>/dev/null | while IFS= read -r line; do printf \"%s\" \"$line\" > /tmp/quickshell_cava; done' >/dev/null 2>&1 & disown"
     ])
     cavaWatcher.path = ""
     Qt.callLater(function(){ cavaWatcher.path = "/tmp/quickshell_cava" })
@@ -374,7 +419,7 @@ Scope {
     onTextChanged: {
       const line = (text() || "").trim()
       if (!line) return
-      const parts = line.split(";")
+      const parts = line.split(/[;,\t ]+/)
       const vals = []
       for (let i=0; i<parts.length && i<24; i++) {
         const v = parseInt(parts[i]) || 0
@@ -388,6 +433,10 @@ Scope {
   // Simple default sink/source volume (wpctl based, like asahi-audio)
   property string defaultSinkVol: "—"
   property string defaultSourceVol: "—"
+  property var audioSinks: []
+  property var audioSources: []
+  property var audioStreams: []
+
   function pollAudioDefaults() {
     audioPollProc.command = [
       "sh", "-c",
@@ -409,6 +458,69 @@ Scope {
   function volAdjust(target, delta) {
     Quickshell.execDetached(["wpctl", "set-volume", target, (delta > 0 ? "+" : "") + "5%"])
     Qt.callLater(pollAudioDefaults)
+    audioRefreshDelay.restart()
+  }
+  function refreshAudioMixer() {
+    if (!audioMixerProc.running) audioMixerProc.running = true
+  }
+  function setAudioDefault(id) {
+    Quickshell.execDetached(["wpctl", "set-default", String(id)])
+    audioRefreshDelay.restart()
+  }
+  function parseAudioNode(line) {
+    const m = line.match(/^\s*[│├└]?\s*(\*)?\s*(\d+)\.\s+(.+?)(?:\s+\[([^\]]+)\])?\s*$/)
+    if (!m) return null
+    return { active: m[1] === "*", id: m[2], name: m[3].trim(), meta: m[4] || "" }
+  }
+  function parseAudioStatus(out) {
+    const sinks = []
+    const sources = []
+    const streams = []
+    let inAudio = false
+    let section = ""
+
+    for (const line of (out || "").split("\n")) {
+      const trimmed = line.trim()
+      if (trimmed === "Audio") {
+        inAudio = true
+        section = ""
+        continue
+      }
+      if (trimmed === "Video" || trimmed === "Settings") {
+        inAudio = false
+        section = ""
+        continue
+      }
+      if (!inAudio) continue
+      if (trimmed.indexOf("Sinks:") !== -1) { section = "sink"; continue }
+      if (trimmed.indexOf("Sources:") !== -1) { section = "source"; continue }
+      if (trimmed.indexOf("Streams:") !== -1) { section = "stream"; continue }
+      if (trimmed.indexOf("Filters:") !== -1) { section = "filter"; continue }
+      if (trimmed.indexOf("Devices:") !== -1) { section = ""; continue }
+
+      const item = parseAudioNode(line)
+      if (!item) continue
+      if (section === "sink" || (section === "filter" && item.meta.indexOf("Audio/Sink") !== -1)) sinks.push(item)
+      else if (section === "source" || (section === "filter" && item.meta.indexOf("Audio/Source") !== -1)) sources.push(item)
+      else if (section === "stream" || (section === "filter" && item.meta.indexOf("Stream/") !== -1)) streams.push(item)
+    }
+
+    root.audioSinks = sinks
+    root.audioSources = sources
+    root.audioStreams = streams
+  }
+  Process {
+    id: audioMixerProc
+    command: ["wpctl", "status"]
+    stdout: StdioCollector { onStreamFinished: root.parseAudioStatus(text) }
+  }
+  Timer {
+    id: audioRefreshDelay
+    interval: 350
+    onTriggered: {
+      root.pollAudioDefaults()
+      root.refreshAudioMixer()
+    }
   }
 
   // Screenshots
@@ -582,7 +694,7 @@ Scope {
             RowLayout {
               spacing: 10
               Layout.fillWidth: true
-              
+
               Rectangle {
                 width: 38
                 height: 38
@@ -590,9 +702,17 @@ Scope {
                 color: Style.moduleBg || "#313244"
                 Text {
                   anchors.centerIn: parent
+                  visible: distroIcon.source === ""
                   text: ""
                   font.pixelSize: 20 + root.uiFontBump
                   color: Style.blue || "#89b4fa"
+                }
+                IconImage {
+                  id: distroIcon
+                  anchors.centerIn: parent
+                  width: 24
+                  height: 24
+                  source: Quickshell.iconPath("fedora-logo-icon", true)
                 }
               }
               Column {
@@ -630,7 +750,7 @@ Scope {
                   { key: "hub", icon: "󰕮", label: "Dashboard" },
                   { key: "wallpaper", icon: "󰸉", label: "Wallpapers" },
                   { key: "screenshots", icon: "󰹑", label: "Screenshots" },
-                  { key: "media", icon: "󰝚", label: "Media & Sound" },
+                  { key: "media", icon: "󰝚", label: "Media" },
                   { key: "network", icon: "󰈀", label: "Network" },
                   { key: "monitors", icon: "󰍹", label: "Monitors" },
                   { key: "temp", icon: "󰔄", label: "Temperatures" },
@@ -643,7 +763,7 @@ Scope {
                   height: 34
                   radius: 8
                   color: root.mode === modelData.key ? (Style.moduleBg || "#313244") : (navMa.containsMouse ? (Style.hoverBg || "#45475a") : "transparent")
-                  
+
                   Rectangle {
                     anchors.left: parent.left
                     anchors.top: parent.top
@@ -659,7 +779,7 @@ Scope {
                     anchors.leftMargin: 12
                     anchors.rightMargin: 12
                     spacing: 10
-                    
+
                     Text {
                       text: modelData.icon
                       font.pixelSize: 14 + root.uiFontBump
@@ -686,10 +806,11 @@ Scope {
                       root.mode = modelData.key
                       root.pendingConfirm = ""
                       if (modelData.key === "screenshots") root.scanShots()
-                      else if (modelData.key === "network") { root.scanWifi(); root.ethCheck.running = true }
+                      else if (modelData.key === "network") { root.scanWifi(); ethCheck.running = true }
                       else if (modelData.key === "media") root.enterMedia()
-                      else if (modelData.key === "monitors") root.monitorsProc.running = true
-                      else if (modelData.key === "temp") root.tempProc.running = true
+                      else if (modelData.key === "monitors") monitorsProc.running = true
+                      else if (modelData.key === "temp") tempProc.running = true
+                      else if (modelData.key === "bluetooth") root.refreshBluetoothPower()
                     }
                   }
                 }
@@ -770,13 +891,13 @@ Scope {
             // Header Row
             RowLayout {
               Layout.fillWidth: true
-              
+
               Text {
                 text: {
                   if (root.mode === "hub") return "󰕮  Dashboard"
                   if (root.mode === "wallpaper") return "󰸉  Wallpapers"
                   if (root.mode === "screenshots") return "󰹑  Screenshots Gallery"
-                  if (root.mode === "media") return "󰝚  Media & Sound"
+                  if (root.mode === "media") return "󰝚  Media"
                   if (root.mode === "network") return "󰈀  Network"
                   if (root.mode === "monitors") return "󰍹  Monitors"
                   if (root.mode === "temp") return "󰔄  Temperatures"
@@ -789,7 +910,7 @@ Scope {
                 font.family: "JetBrainsMono Nerd Font"
                 font.bold: true
               }
-              
+
               Item { Layout.fillWidth: true }
 
               Text {
@@ -799,7 +920,7 @@ Scope {
                 font.pixelSize: 11 + root.uiFontBump
                 font.family: "JetBrainsMono Nerd Font"
               }
-              
+
               Rectangle {
                 visible: root.mode !== "hub"
                 Layout.preferredWidth: 26; Layout.preferredHeight: 26; radius: 13
@@ -850,12 +971,12 @@ Scope {
                     color: Style.moduleBg || "#313244"
                     border.color: Style.border || "#45475a"
                     border.width: 1
-                    
+
                     ColumnLayout {
                       anchors.fill: parent
                       anchors.margins: 14
                       spacing: 10
-                      
+
                       Text {
                         text: "󰌢  System Information"
                         color: Style.blue
@@ -863,7 +984,7 @@ Scope {
                         font.bold: true
                         font.family: "JetBrainsMono Nerd Font"
                       }
-                      
+
                       // fastfetch pane (compact no-logo system overview)
                       Rectangle {
                         Layout.fillWidth: true
@@ -903,12 +1024,12 @@ Scope {
                       color: Style.moduleBg || "#313244"
                       border.color: Style.border || "#45475a"
                       border.width: 1
-                      
+
                       ColumnLayout {
                         anchors.fill: parent
                         anchors.margins: 14
                         spacing: 8
-                        
+
                         Text {
                           text: "󰎈  Now Playing"
                           color: Style.blue
@@ -916,11 +1037,11 @@ Scope {
                           font.bold: true
                           font.family: "JetBrainsMono Nerd Font"
                         }
-                        
+
                         RowLayout {
                           Layout.fillWidth: true
                           spacing: 10
-                          
+
                           Rectangle {
                             width: 36
                             height: 36
@@ -969,7 +1090,7 @@ Scope {
                         RowLayout {
                           Layout.alignment: Qt.AlignHCenter
                           spacing: 16
-                          
+
                           MouseArea {
                             width: 24; height: 24; cursorShape: Qt.PointingHandCursor
                             onClicked: {
@@ -978,12 +1099,12 @@ Scope {
                             }
                             Text { anchors.centerIn: parent; text: "󰒮"; font.pixelSize: 18 + root.uiFontBump; color: Style.textMuted; font.family: "JetBrainsMono Nerd Font" }
                           }
-                          
+
                           Rectangle {
                             width: 32; height: 32; radius: 16
                             color: Style.green
                             opacity: 0.15
-                            
+
                             Text {
                               anchors.centerIn: parent
                               text: {
@@ -1024,22 +1145,22 @@ Scope {
                       color: Style.moduleBg || "#313244"
                       border.color: Style.border || "#45475a"
                       border.width: 1
-                      
+
                       Image {
                         anchors.fill: parent
                         source: WallpaperModule.WallpaperService.currentWallpaper ? "file://" + WallpaperModule.WallpaperService.currentWallpaper : ""
                         fillMode: Image.PreserveAspectCrop
                         asynchronous: true
                         opacity: 0.8
-                        
+
                         Rectangle { anchors.fill: parent; color: Qt.rgba(0,0,0,0.4) }
                       }
-                      
+
                       ColumnLayout {
                         anchors.fill: parent
                         anchors.margins: 14
                         spacing: 4
-                        
+
                         Text {
                           text: "󰸉  Active Wallpaper"
                           color: Style.text
@@ -1060,7 +1181,7 @@ Scope {
                           style: Text.Outline; styleColor: "#000000"
                         }
                       }
-                      
+
                       MouseArea {
                         anchors.fill: parent
                         hoverEnabled: true
@@ -1076,7 +1197,7 @@ Scope {
                   Layout.fillWidth: true
                   Layout.preferredHeight: 74
                   visible: root.shots.length > 0
-                  
+
                   ColumnLayout {
                     anchors.fill: parent
                     spacing: 4
@@ -1102,11 +1223,11 @@ Scope {
                           color: Style.surface || "#313244"
                           border.color: root.copiedShot === modelData.path ? Style.green : (dashShotMa.containsMouse ? Style.blue : "transparent")
                           border.width: 1
-                          
+
                           Image { anchors.fill: parent; anchors.margins: 1; source: "file://" + modelData.path; fillMode: Image.PreserveAspectCrop; asynchronous: true; sourceSize: Qt.size(150, 90) }
-                          
+
                           Rectangle { anchors.fill: parent; color: Qt.rgba(0.4, 0.8, 0.5, 0.35); visible: root.copiedShot === modelData.path; Text { anchors.centerIn: parent; text: "COPIED"; color: "#cdd6f4"; font.pixelSize: 9 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true } }
-                          
+
                           MouseArea {
                             id: dashShotMa
                             anchors.fill: parent
@@ -1140,7 +1261,7 @@ Scope {
                       color: Style.surface || "#313244"
                       border.color: reloadMa.containsMouse ? Style.blue : Style.border || "transparent"
                       border.width: 1
-                      
+
                       Row { anchors.centerIn: parent; spacing: 6; Text { text: modelData.icon; font.pixelSize: 13 + root.uiFontBump; color: Style.blue; font.family: "JetBrainsMono Nerd Font" } Text { text: modelData.label; font.pixelSize: 11 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font" } }
                       MouseArea { id: reloadMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: modelData.act() }
                     }
@@ -1288,11 +1409,11 @@ Scope {
                 anchors.fill: parent
                 visible: root.mode === "screenshots"
                 spacing: 8
-                
+
                 RowLayout {
                   Layout.fillWidth: true
                   spacing: 8
-                  
+
                   Repeater {
                     model: [
                       { label: "󰄄  Region", k: "region" },
@@ -1334,7 +1455,7 @@ Scope {
                       color: Style.surface || "#313244"
                       border.color: root.copiedShot === modelData.path ? Style.green : (hma.containsMouse ? Style.blue : Style.border || "transparent")
                       border.width: root.copiedShot === modelData.path ? 2 : 1
-                      
+
                       Image {
                         anchors.fill: parent; anchors.margins: 1
                         source: "file://" + modelData.path
@@ -1343,7 +1464,7 @@ Scope {
                         sourceSize.width: 200
                         sourceSize.height: 120
                       }
-                      
+
                       Rectangle {
                         anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.right: parent.right; height: 18; color: Qt.rgba(0,0,0,0.55)
                         Text { anchors.centerIn: parent; text: modelData.label; color: "#ffffff"; font.pixelSize: 9 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; elide: Text.ElideRight; width: parent.width-6; horizontalAlignment: Text.AlignHCenter }
@@ -1365,7 +1486,7 @@ Scope {
               }
 
               // ----------------------------------------------------
-              // MEDIA & AUDIO VIEW
+              // MEDIA VIEW
               // ----------------------------------------------------
               ColumnLayout {
                 anchors.fill: parent
@@ -1379,7 +1500,8 @@ Scope {
                   color: Style.moduleBg || "#313244"
                   border.color: Style.border || "#45475a"
                   border.width: 1
-                  Layout.preferredHeight: 90
+                  Layout.preferredHeight: 76
+                  Layout.maximumHeight: 76
 
                   ColumnLayout {
                     anchors.fill: parent
@@ -1421,7 +1543,7 @@ Scope {
                           }
                           Text { text: "󰒮"; font.pixelSize: 16 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font" }
                         }
-                        
+
                         Rectangle {
                           width: 28; height: 28; radius: 14
                           color: Style.green
@@ -1459,19 +1581,21 @@ Scope {
                 // Volume Controls
                 RowLayout {
                   Layout.fillWidth: true
+                  Layout.preferredHeight: 36
+                  Layout.maximumHeight: 36
                   spacing: 12
-                  
+
                   // Output Vol
                   Rectangle {
-                    Layout.fillWidth: true; height: 44; radius: 10; color: Style.moduleBg || "#313244"
+                    Layout.fillWidth: true; height: 36; radius: 8; color: Style.moduleBg || "#313244"
                     border.color: Style.border || "#45475a"; border.width: 1
-                    
+
                     RowLayout {
                       anchors.fill: parent; anchors.margins: 10
                       Text { text: "󰕾  Speakers"; font.pixelSize: 11 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
                       Item { Layout.fillWidth: true }
                       Text { text: root.defaultSinkVol; font.pixelSize: 11 + root.uiFontBump; color: Style.blue; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
-                      
+
                       Rectangle {
                         width: 20; height: 20; radius: 4; color: Style.surface
                         Text { anchors.centerIn: parent; text: "−"; font.pixelSize: 12 + root.uiFontBump; color: Style.text }
@@ -1487,15 +1611,15 @@ Scope {
 
                   // Mic Vol
                   Rectangle {
-                    Layout.fillWidth: true; height: 44; radius: 10; color: Style.moduleBg || "#313244"
+                    Layout.fillWidth: true; height: 36; radius: 8; color: Style.moduleBg || "#313244"
                     border.color: Style.border || "#45475a"; border.width: 1
-                    
+
                     RowLayout {
                       anchors.fill: parent; anchors.margins: 10
                       Text { text: "󰍬  Microphone"; font.pixelSize: 11 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
                       Item { Layout.fillWidth: true }
                       Text { text: root.defaultSourceVol; font.pixelSize: 11 + root.uiFontBump; color: Style.blue; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
-                      
+
                       Rectangle {
                         width: 20; height: 20; radius: 4; color: Style.surface
                         Text { anchors.centerIn: parent; text: "−"; font.pixelSize: 12 + root.uiFontBump; color: Style.text }
@@ -1510,31 +1634,259 @@ Scope {
                   }
                 }
 
+                RowLayout {
+                  Layout.fillWidth: true
+                  Layout.preferredHeight: 52
+                  Layout.maximumHeight: 52
+                  spacing: 12
+
+                  Rectangle {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    radius: 10
+                    color: Style.moduleBg || "#313244"
+                    border.color: Style.border || "#45475a"
+                    border.width: 1
+
+                    ColumnLayout {
+                      anchors.fill: parent
+                      anchors.margins: 8
+                      spacing: 3
+
+                      Text {
+                        text: "󰕾  Output"
+                        font.pixelSize: 10 + root.uiFontBump
+                        color: Style.textMuted
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.bold: true
+                      }
+                      Flickable {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        clip: true
+                        contentHeight: outputDeviceColumn.height
+                        Column {
+                          id: outputDeviceColumn
+                          width: parent.width
+                          spacing: 2
+                          Text {
+                            visible: root.audioSinks.length === 0
+                            text: "No outputs"
+                            color: Style.textMuted
+                            font.pixelSize: 9 + root.uiFontBump
+                            font.family: "JetBrainsMono Nerd Font"
+                          }
+                          Repeater {
+                            model: root.audioSinks
+                            delegate: Rectangle {
+                              required property var modelData
+                              width: parent.width
+                              height: 18
+                              radius: 5
+                              color: modelData.active
+                                ? Qt.rgba(Style.blue.r, Style.blue.g, Style.blue.b, 0.18)
+                                : (outMa.containsMouse ? Style.surface : "transparent")
+                              border.color: modelData.active ? Style.blue : "transparent"
+                              border.width: 1
+                              RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 7
+                                anchors.rightMargin: 7
+                                spacing: 6
+                                Text {
+                                  text: modelData.active ? "●" : "○"
+                                  color: modelData.active ? Style.green : Style.textMuted
+                                  font.pixelSize: 7 + root.uiFontBump
+                                }
+                                Text {
+                                  text: modelData.name
+                                  color: Style.text
+                                  font.pixelSize: 8 + root.uiFontBump
+                                  font.family: "JetBrainsMono Nerd Font"
+                                  elide: Text.ElideRight
+                                  Layout.fillWidth: true
+                                }
+                              }
+                              MouseArea {
+                                id: outMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.setAudioDefault(modelData.id)
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+
+                  Rectangle {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    radius: 10
+                    color: Style.moduleBg || "#313244"
+                    border.color: Style.border || "#45475a"
+                    border.width: 1
+
+                    ColumnLayout {
+                      anchors.fill: parent
+                      anchors.margins: 8
+                      spacing: 3
+
+                      Text {
+                        text: "󰍬  Input"
+                        font.pixelSize: 10 + root.uiFontBump
+                        color: Style.textMuted
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.bold: true
+                      }
+                      Flickable {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        clip: true
+                        contentHeight: inputDeviceColumn.height
+                        Column {
+                          id: inputDeviceColumn
+                          width: parent.width
+                          spacing: 2
+                          Text {
+                            visible: root.audioSources.length === 0
+                            text: "No inputs"
+                            color: Style.textMuted
+                            font.pixelSize: 9 + root.uiFontBump
+                            font.family: "JetBrainsMono Nerd Font"
+                          }
+                          Repeater {
+                            model: root.audioSources
+                            delegate: Rectangle {
+                              required property var modelData
+                              width: parent.width
+                              height: 18
+                              radius: 5
+                              color: modelData.active
+                                ? Qt.rgba(Style.blue.r, Style.blue.g, Style.blue.b, 0.18)
+                                : (inMa.containsMouse ? Style.surface : "transparent")
+                              border.color: modelData.active ? Style.blue : "transparent"
+                              border.width: 1
+                              RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 7
+                                anchors.rightMargin: 7
+                                spacing: 6
+                                Text {
+                                  text: modelData.active ? "●" : "○"
+                                  color: modelData.active ? Style.green : Style.textMuted
+                                  font.pixelSize: 7 + root.uiFontBump
+                                }
+                                Text {
+                                  text: modelData.name
+                                  color: Style.text
+                                  font.pixelSize: 8 + root.uiFontBump
+                                  font.family: "JetBrainsMono Nerd Font"
+                                  elide: Text.ElideRight
+                                  Layout.fillWidth: true
+                                }
+                              }
+                              MouseArea {
+                                id: inMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.setAudioDefault(modelData.id)
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+
+                Rectangle {
+                  Layout.fillWidth: true
+                  Layout.preferredHeight: 88
+                  Layout.maximumHeight: 88
+                  radius: 10
+                  color: Style.moduleBg || "#313244"
+                  border.color: Style.border || "#45475a"
+                  border.width: 1
+
+                  ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    spacing: 3
+
+                    Text {
+                      text: "󰝚  Stream mixer"
+                      font.pixelSize: 10 + root.uiFontBump
+                      color: Style.textMuted
+                      font.family: "JetBrainsMono Nerd Font"
+                      font.bold: true
+                    }
+                    Flickable {
+                      Layout.fillWidth: true
+                      Layout.fillHeight: true
+                      clip: true
+                      contentHeight: streamMixerColumn.height
+                      Column {
+                        id: streamMixerColumn
+                        width: parent.width
+                        spacing: 4
+                        Text {
+                          visible: root.audioStreams.length === 0
+                          text: "No active streams"
+                          color: Style.textMuted
+                          font.pixelSize: 9 + root.uiFontBump
+                          font.family: "JetBrainsMono Nerd Font"
+                        }
+                        Repeater {
+                          model: root.audioStreams
+                          delegate: RowLayout {
+                            required property var modelData
+                            width: parent.width
+                            height: 22
+                            Text {
+                              text: modelData.name
+                              color: Style.text
+                              font.pixelSize: 9 + root.uiFontBump
+                              font.family: "JetBrainsMono Nerd Font"
+                              elide: Text.ElideRight
+                              Layout.fillWidth: true
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+
                 // Cava Spectrum visualization
                 Rectangle {
                   Layout.fillWidth: true
-                  Layout.fillHeight: true
+                  Layout.preferredHeight: root.mediaCavaHeight
+                  Layout.maximumHeight: root.mediaCavaHeight
                   radius: 12
                   color: Style.moduleBg || "#313244"
                   border.color: Style.border || "#45475a"
                   border.width: 1
-                  
+
                   ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: 14
                     spacing: 8
-                    
+
                     Text { text: "󰎈  Live Cava Audio Spectrum"; color: Style.textMuted; font.pixelSize: 10 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
-                    
+
                     Item {
                       Layout.fillWidth: true
                       Layout.fillHeight: true
-                      
+
                       Row {
                         anchors.fill: parent
                         anchors.margins: 4
                         spacing: 4
-                        
+
                         Repeater {
                           model: 24
                           delegate: Rectangle {
@@ -1585,10 +1937,10 @@ Scope {
                   spacing: 10
 
                   Rectangle {
-                    Layout.fillWidth: true; Layout.preferredHeight: 106
+                    Layout.fillWidth: true; Layout.preferredHeight: 146
                     radius: 6; color: Qt.rgba(0,0,0,0.15); border.color: Style.border; border.width: 1
                     ColumnLayout {
-                      anchors.fill: parent; anchors.margins: 10; spacing: 6
+                      anchors.fill: parent; anchors.margins: 12; spacing: 6
                       RowLayout {
                         Layout.fillWidth: true
                         Text { text: "󰤨 Wi-Fi"; color: Style.blueAlt; font.pixelSize: 12 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
@@ -1629,18 +1981,22 @@ Scope {
                       }
                       Text {
                         Layout.fillWidth: true
+                        Layout.fillHeight: true
                         text: root.wifiTooltip || "No Wi-Fi connection details"
                         color: Style.textMuted; font.pixelSize: 9 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"
-                        wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight
+                        wrapMode: Text.Wrap
+                        maximumLineCount: 4
+                        elide: Text.ElideRight
+                        verticalAlignment: Text.AlignTop
                       }
                     }
                   }
 
                   Rectangle {
-                    Layout.fillWidth: true; Layout.preferredHeight: 106
+                    Layout.fillWidth: true; Layout.preferredHeight: 146
                     radius: 6; color: Qt.rgba(0,0,0,0.15); border.color: Style.border; border.width: 1
                     ColumnLayout {
-                      anchors.fill: parent; anchors.margins: 10; spacing: 6
+                      anchors.fill: parent; anchors.margins: 12; spacing: 6
                       RowLayout {
                         Layout.fillWidth: true
                         Text { text: "󰈀 LAN"; color: Style.cyan; font.pixelSize: 12 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
@@ -1707,28 +2063,29 @@ Scope {
                   Layout.fillWidth: true; Layout.fillHeight: true; clip: true
                   contentHeight: wifiCol.height
                   boundsBehavior: Flickable.StopAtBounds
+                  ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
                   Column {
                     id: wifiCol; width: parent.width; spacing: 4
                     Repeater {
                       model: root.wifiNetworks
                       delegate: Rectangle {
                         required property var modelData
-                        width: parent.width; height: 30; radius: 5
+                        width: parent.width - 8; x: 4; height: 34; radius: 6
                         color: modelData.active
-                          ? Qt.rgba(Style.blue.r, Style.blue.g, Style.blue.b, 0.22)
+                          ? Qt.rgba(Style.blue.r, Style.blue.g, Style.blue.b, 0.16)
                           : (netMa.containsMouse ? Qt.rgba(Style.surface.r, Style.surface.g, Style.surface.b, 0.25) : "transparent")
                         border.color: modelData.active ? Style.blueAlt : "transparent"
-                        border.width: modelData.active ? 1.5 : 0
+                        border.width: modelData.active ? 1 : 0
 
                         RowLayout {
-                          anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 6; spacing: 8
+                          anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10; spacing: 8
                           Text {
                             text: modelData.signal > 75 ? "󰤨" : (modelData.signal > 50 ? "󰤥" : (modelData.signal > 25 ? "󰤢" : "󰤟"))
                             font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14 + root.uiFontBump
                             color: modelData.active ? Style.blueAlt : Style.textMuted
                           }
                           ColumnLayout {
-                            spacing: -1; Layout.fillWidth: true
+                            spacing: 0; Layout.fillWidth: true
                             Text {
                               text: modelData.ssid;
                               font.family: "JetBrainsMono Nerd Font";
@@ -1814,6 +2171,15 @@ Scope {
                     MouseArea {
                       id: extendMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                       onClicked: root.extendMonitors()
+                    }
+                  }
+                  Rectangle {
+                    width: 76; height: 26; radius: 5; color: externalMouse.containsMouse ? Style.hoverBg : (Style.moduleBg || "#313244")
+                    border.color: Style.border; border.width: 1
+                    Text { anchors.centerIn: parent; text: "External"; font.pixelSize: 9 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font" }
+                    MouseArea {
+                      id: externalMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                      onClicked: root.externalOnlyMonitors()
                     }
                   }
                   Rectangle {
@@ -2007,18 +2373,24 @@ Scope {
                 RowLayout {
                   Layout.fillWidth: true
                   Text {
-                    text: "Bluetooth Radio: " + (Bluetooth.defaultAdapter && Bluetooth.defaultAdapter.enabled ? "Active" : "Off")
-                    color: (Bluetooth.defaultAdapter && Bluetooth.defaultAdapter.enabled ? Style.green : Style.textMuted)
+                    text: "Bluetooth Radio: " + (root.bluetoothPowered ? "Active" : "Off")
+                    color: root.bluetoothPowered ? Style.green : Style.textMuted
                     font.pixelSize: 11 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true
                   }
                   Item { Layout.fillWidth: true }
                   Rectangle {
                     width: 70; height: 24; radius: 6; color: Style.moduleBg || "#313244"
                     border.color: Style.border; border.width: 1
-                    Text { anchors.centerIn: parent; text: (Bluetooth.defaultAdapter && Bluetooth.defaultAdapter.enabled ? "Turn Off" : "Turn On"); font.pixelSize: 10 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font" }
+                    Text {
+                      anchors.centerIn: parent
+                      text: root.bluetoothPowered ? "Turn Off" : "Turn On"
+                      font.pixelSize: 10 + root.uiFontBump
+                      color: Style.text
+                      font.family: "JetBrainsMono Nerd Font"
+                    }
                     MouseArea {
                       anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                      onClicked: { if (Bluetooth.defaultAdapter) Bluetooth.defaultAdapter.enabled = !Bluetooth.defaultAdapter.enabled }
+                      onClicked: root.toggleBluetoothPower()
                     }
                   }
                 }
@@ -2037,11 +2409,11 @@ Scope {
                         required property var modelData
                         width: parent.width; height: 36; radius: 6
                         color: bth.containsMouse ? Style.moduleBg : "transparent"
-                        
+
                         RowLayout {
                           anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 8
                           Text { text: modelData.connected ? "󰂱" : "󰂯"; font.pixelSize: 14 + root.uiFontBump; color: modelData.connected ? Style.green : Style.textMuted }
-                          
+
                           ColumnLayout {
                             Layout.fillWidth: true; spacing: 0
                             Text { text: modelData.name || modelData.alias || modelData.address; font.pixelSize: 11 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font"; elide: Text.ElideRight; font.bold: modelData.connected }
@@ -2076,7 +2448,7 @@ Scope {
                 spacing: 12
 
                 Text { text: root.pendingConfirm ? "Confirm action: " + root.pendingConfirm + "?" : "Select Power Action"; color: Style.textMuted; font.pixelSize: 12 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; Layout.alignment: Qt.AlignHCenter }
-                
+
                 GridLayout {
                   Layout.fillWidth: true
                   columns: 2
@@ -2095,7 +2467,7 @@ Scope {
                       color: modelData.danger ? (Style.red ? Qt.rgba(0.95,0.55,0.65,0.1) : "#2a1e1e") : (Style.moduleBg || "#313244")
                       border.color: pma.containsMouse ? (modelData.danger ? Style.red : Style.blue) : Style.border || "transparent"
                       border.width: 1
-                      
+
                       Row { anchors.centerIn: parent; spacing: 8; Text { text: modelData.icon; font.pixelSize: 20 + root.uiFontBump; color: modelData.danger ? Style.red : Style.blue; font.family: "JetBrainsMono Nerd Font" } Text { text: modelData.label; font.pixelSize: 12 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font"; font.bold: true } }
                       MouseArea { id: pma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: modelData.act() }
                     }
@@ -2106,7 +2478,7 @@ Scope {
                   visible: !!root.pendingConfirm
                   Layout.alignment: Qt.AlignHCenter
                   spacing: 12
-                  
+
                   Rectangle { width: 90; height: 30; radius: 6; color: Style.green ? Qt.rgba(0.6,0.8,0.5,0.2) : "#1e2a1e"
                     Text { anchors.centerIn: parent; text: "Confirm"; color: Style.green; font.pixelSize: 12 + root.uiFontBump; font.bold: true }
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { if (root.pendingConfirm === "reboot") root.doReboot(); else if (root.pendingConfirm === "shutdown") root.doShutdown() } }
@@ -2129,7 +2501,7 @@ Scope {
       color: Qt.rgba(0, 0, 0, 0.85)
       visible: root.wallpaperPreviewPath !== ""
       radius: 16
-      
+
       MouseArea { anchors.fill: parent; onClicked: root.wallpaperPreviewPath = "" }
 
       Image {
@@ -2167,7 +2539,7 @@ Scope {
           }
         }
       }
-      
+
       Text {
         anchors.top: parent.top
         anchors.right: parent.right

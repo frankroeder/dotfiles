@@ -46,3 +46,5 @@ llmcopy() {
     echo
   done | pbcopy
 }
+
+alias notes="$EDITOR $HOME/Nextcloud/notes/"

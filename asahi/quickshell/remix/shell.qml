@@ -53,6 +53,20 @@ Variants {
   // Windows on the currently focused workspace — used to show app icons
   // next to the active workspace (only when it contains apps)
   property int wsWindowVersion: 0
+  property int wsIconRefreshes: 0
+
+  function refreshWorkspaceIcons(retries) {
+    root.wsWindowVersion = (root.wsWindowVersion + 1) % 10000
+    if (retries > root.wsIconRefreshes) root.wsIconRefreshes = retries
+    if (root.wsIconRefreshes > 0 && !wsIconRefreshTimer.running) wsIconRefreshTimer.restart()
+  }
+
+  function appIconSource(t) {
+    const raw = String(t.appId || t.lastIpcObject?.class || t.lastIpcObject?.initialClass || "").trim()
+    if (raw === "") return ""
+    const entry = DesktopEntries.heuristicLookup(raw)
+    return Quickshell.iconPath(entry?.icon || raw, true)
+  }
 
   // Workspaces that contain windows (or the focused one), in stable numeric order.
   // Active workspace is highlighted with color/border on its pill; order never changes to avoid jumping.
@@ -139,9 +153,19 @@ Variants {
     target: Hyprland
     function onRawEvent(event) {
       const n = event.name || ""
-      if (["openwindow", "closewindow", "movewindow", "workspace", "focusedmon", "activewindow"].some(x => n.includes(x))) {
-        root.wsWindowVersion = (root.wsWindowVersion + 1) % 10000
-      }
+      if (["openwindow", "closewindow", "movewindow", "workspace", "focusedmon", "activewindow"].some(x => n.includes(x)))
+        root.refreshWorkspaceIcons(n.includes("openwindow") ? 8 : 0)
+    }
+  }
+
+  Timer {
+    id: wsIconRefreshTimer
+    interval: 180
+    repeat: true
+    onTriggered: {
+      root.wsIconRefreshes--
+      root.refreshWorkspaceIcons(0)
+      if (root.wsIconRefreshes <= 0) stop()
     }
   }
 
@@ -149,7 +173,7 @@ Variants {
     interval: 800
     running: true
     repeat: true
-    onTriggered: root.wsWindowVersion = (root.wsWindowVersion + 1) % 10000
+    onTriggered: root.refreshWorkspaceIcons(0)
   }
 
   RowLayout {
@@ -231,9 +255,8 @@ Variants {
                       width: 20
                       height: 20
                       source: {
-                        const raw = modelData.appId || modelData.lastIpcObject?.class || ""
-                        const entry = DesktopEntries.heuristicLookup(raw)
-                        return Quickshell.iconPath(entry?.icon || raw, true)
+                        root.wsWindowVersion
+                        return root.appIconSource(modelData)
                       }
                       visible: source !== ""
                     }
