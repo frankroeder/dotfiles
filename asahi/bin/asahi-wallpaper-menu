@@ -3,7 +3,7 @@
 set -euo pipefail
 
 wallpaper_dir="${ASAHI_WALLPAPERS_DIR:-$HOME/Pictures/wallpaper}"
-walker="walker"
+fuzzel_cmd="fuzzel --dmenu"
 
 notify() {
   command -v notify-send >/dev/null 2>&1 || return 0
@@ -22,7 +22,7 @@ fi
 
 wallpaper="$(
   fd --absolute-path -t f -e jpg -e jpeg -e png -e webp . "$wallpaper_dir" |
-    "$walker" --dmenu --placeholder Wallpaper --width 760 --height 520 --exit || true
+    $fuzzel_cmd --placeholder Wallpaper || true
 )"
 
 [ -n "$wallpaper" ] || exit 0

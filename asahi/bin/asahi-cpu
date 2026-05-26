@@ -1,0 +1,179 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+state_dir="${XDG_RUNTIME_DIR:-/tmp}/asahi-waybar"
+if ! mkdir -p "$state_dir" || [ ! -w "$state_dir" ]; then
+  state_dir="/tmp/asahi-waybar-${UID:-$(id -u)}"
+  mkdir -p "$state_dir"
+fi
+
+state_file="$state_dir/cpu.stat"
+
+read_temp_raw() {
+  local path="$1"
+  local value
+
+  [ -r "$path" ] || return 1
+  value="$(tr -d '\n' < "$path")"
+
+  [[ "$value" =~ ^-?[0-9]+$ ]] || return 1
+
+  printf "%s\n" "$value"
+}
+
+sensor_label() {
+  local input="$1"
+  local sensor="${input##*/}"
+  local label
+
+  sensor="${sensor%_input}"
+  label="$(tr -d '\n' < "${input%_input}_label" 2>/dev/null || true)"
+  printf "%s\n" "${label:-$sensor}"
+}
+
+best_temp_sensor() {
+  local only_name="${1:-}"
+  local best_raw=""
+  local best_label=""
+  local best_path=""
+  local d name inp val label
+
+  for d in /sys/class/hwmon/hwmon{0..99}; do
+    [ -d "$d" ] || continue
+    name="$(cat "$d/name" 2>/dev/null || true)"
+    [ -z "$only_name" ] || [ "$name" = "$only_name" ] || continue
+
+    for inp in "$d"/temp*_input; do
+      [ -r "$inp" ] || continue
+      val="$(read_temp_raw "$inp" || true)"
+      [ -n "$val" ] || continue
+
+      if [ -z "$best_raw" ] || [ "$val" -gt "$best_raw" ]; then
+        label="$(sensor_label "$inp")"
+        best_raw="$val"
+        best_label="${name:-unknown} / $label"
+        best_path="$inp"
+      fi
+    done
+  done
+
+  [ -n "$best_raw" ] && printf "%s\t%s\t%s\n" "$best_raw" "$best_label" "$best_path"
+}
+
+thermal_sensor() {
+  if [ -n "${ASAHI_CPU_TEMP_PATH:-}" ]; then
+    local raw label
+
+    raw="$(read_temp_raw "$ASAHI_CPU_TEMP_PATH")"
+    label="${ASAHI_CPU_TEMP_LABEL:-$(sensor_label "$ASAHI_CPU_TEMP_PATH")}"
+    printf "%s\t%s\t%s\n" "$raw" "$label" "$ASAHI_CPU_TEMP_PATH"
+    return
+  fi
+
+  best_temp_sensor macsmc_hwmon && return
+  best_temp_sensor
+}
+
+format_temp() {
+  awk -v value="$1" -v decimals="$2" 'BEGIN { printf "%.*f", decimals, value / 1000 }'
+}
+
+class_for_temp() {
+  local current="$1"
+  local value="$2"
+
+  if [ "$value" -ge 80000 ]; then
+    printf "critical\n"
+  elif [ "$value" -ge 65000 ] && [ "$current" = "normal" ]; then
+    printf "warning\n"
+  else
+    printf "%s\n" "$current"
+  fi
+}
+
+read -r _ user nice system idle iowait irq softirq steal _ < /proc/stat
+
+idle_all=$((idle + iowait))
+total=$((user + nice + system + idle + iowait + irq + softirq + steal))
+
+if [ -r "$state_file" ]; then
+  read -r previous_total previous_idle < "$state_file"
+else
+  previous_total="$total"
+  previous_idle="$idle_all"
+fi
+
+printf "%s %s\n" "$total" "$idle_all" > "$state_file"
+
+delta_total=$((total - previous_total))
+delta_idle=$((idle_all - previous_idle))
+
+if [ "$delta_total" -gt 0 ]; then
+  percentage=$((100 * (delta_total - delta_idle) / delta_total))
+else
+  percentage=0
+fi
+
+class="normal"
+[ "$percentage" -ge 60 ] && class="warning"
+[ "$percentage" -ge 80 ] && class="critical"
+
+read -r load1 load5 load15 _ < /proc/loadavg
+cores="$(getconf _NPROCESSORS_ONLN 2>/dev/null || awk '/^processor/ { count++ } END { print count + 0 }' /proc/cpuinfo)"
+
+freq_paths=()
+for path in /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq; do
+  [ -r "$path" ] || continue
+  freq_paths+=("$path")
+done
+
+if [ "${#freq_paths[@]}" -gt 0 ]; then
+  freq_line="$(
+    awk '
+      BEGIN { min = -1 }
+      {
+        value = $1
+        sum += value
+        if (value > max) max = value
+        if (min < 0 || value < min) min = value
+        count++
+      }
+      END {
+        printf "Freq avg %.2f GHz, min %.2f, max %.2f", sum / count / 1000000, min / 1000000, max / 1000000
+      }
+    ' "${freq_paths[@]}"
+  )"
+else
+  freq_line="Freq n/a"
+fi
+
+thermal="$(thermal_sensor || true)"
+temp_raw=""
+temp_label=""
+temp_path=""
+
+if [ -n "$thermal" ]; then
+  IFS=$'\t' read -r temp_raw temp_label temp_path <<< "$thermal"
+fi
+
+if [ -n "$temp_raw" ]; then
+  temp_text=" $(format_temp "$temp_raw" 0)C"
+  temp_line="Thermal $(format_temp "$temp_raw" 1) C (${temp_label})"
+  temp_path_line="Sensor: $temp_path"
+  class="$(class_for_temp "$class" "$temp_raw")"
+else
+  temp_text=""
+  temp_line="Thermal n/a"
+  temp_path_line="Sensor: n/a"
+fi
+
+tooltip="$(printf "CPU %d%%\nLoad 1/5/15: %s %s %s\nCores: %s\n%s\n%s\n%s" \
+  "$percentage" "$load1" "$load5" "$load15" "$cores" "$freq_line" "$temp_line" "$temp_path_line")"
+
+jq -cn \
+  --arg text "CPU $percentage%$temp_text" \
+  --arg tooltip "$tooltip" \
+  --arg class "$class" \
+  --argjson percentage "$percentage" \
+  '{text: $text, tooltip: $tooltip, class: $class, percentage: $percentage}'

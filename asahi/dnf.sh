@@ -5,12 +5,6 @@ set -euo pipefail
 
 LIBREWOLF_REPO_URL="https://repo.librewolf.net/librewolf.repo"
 FEDORA_VERSION="$(rpm -E %fedora)"
-ARCHITECTURE="$(uname -m)"
-SWAYOSD_COPR_CHROOT="fedora-${FEDORA_VERSION}-${ARCHITECTURE}"
-
-if [ "$FEDORA_VERSION" -ge 44 ]; then
-  SWAYOSD_COPR_CHROOT="fedora-43-${ARCHITECTURE}"
-fi
 
 sudo dnf upgrade -y
 sudo dnf remove -y kitty kitty-terminfo || true
@@ -19,9 +13,8 @@ if ! sudo dnf repolist --all | grep -q '^librewolf'; then
   sudo dnf config-manager addrepo --add-or-replace --overwrite --from-repofile="$LIBREWOLF_REPO_URL"
 fi
 
-sudo dnf copr enable -y erikreider/swayosd "$SWAYOSD_COPR_CHROOT"
-sudo dnf copr enable -y errornointernet/walker
 sudo dnf copr enable -y scottames/ghostty
+sudo dnf copr enable errornointernet/quickshell
 
 sudo dnf makecache --refresh
 
@@ -39,10 +32,10 @@ sudo dnf install -y \
   chromium \
   cmake \
   curl \
-  elephant \
   fd-find \
   ffmpeg \
   fastfetch \
+  fuzzel \
   ghostty \
   google-noto-color-emoji-fonts \
   grim \
@@ -59,7 +52,6 @@ sudo dnf install -y \
   libnotify \
   librewolf \
   make \
-  mako \
   mpv \
   neovim \
   nextcloud-client \
@@ -74,14 +66,12 @@ sudo dnf install -y \
   playerctl \
   ripgrep \
   slurp \
-  swayosd \
   texlive-scheme-full \
   terminus-fonts-console \
   thunderbird \
   tree \
   uv \
-  waybar \
-  walker \
+  quickshell-git \
   wireplumber \
   wl-clipboard \
   xdg-utils \
@@ -89,6 +79,10 @@ sudo dnf install -y \
   xdg-desktop-portal-gtk \
   xdg-desktop-portal-hyprland \
   zsh
+
+# Optional Asahi extras (not in minimal dnf to avoid bloat):
+# - hyprdynamicmonitors (Go tool for dynamic monitor profiles/lid/hotplug on Mac hw): go install github.com/fiffeek/hyprdynamicmonitors@latest
+# - matugen (theming, per DankMaterialShell patterns): dnf or cargo install; integrate with QS for wallpaper-driven colors if chosen
 
 systemctl --user daemon-reload
 systemctl --user enable --now pipewire.socket pipewire-pulse.socket wireplumber.service

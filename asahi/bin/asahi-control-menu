@@ -2,10 +2,10 @@
 
 set -euo pipefail
 
-walker="walker"
+fuzzel_cmd="fuzzel --dmenu"
 
 pick() {
-  "$walker" --dmenu --placeholder "$1" --width 360 --height 260 --exit || true
+  $fuzzel_cmd --placeholder "$1" || true
 }
 
 confirm() {

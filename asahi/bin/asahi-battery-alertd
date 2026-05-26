@@ -5,11 +5,13 @@ set -euo pipefail
 interval="${ASAHI_BATTERY_ALERT_INTERVAL:-30}"
 warning_threshold="${ASAHI_BATTERY_WARNING_THRESHOLD:-20}"
 critical_threshold="${ASAHI_BATTERY_CRITICAL_THRESHOLD:-10}"
+critical_repeat_interval="${ASAHI_BATTERY_CRITICAL_REPEAT_INTERVAL:-60}"
 
 battery_path="${ASAHI_BATTERY_PATH:-}"
 ac_path="${ASAHI_AC_PATH:-}"
 warning_sent=0
 critical_sent=0
+critical_last=0
 
 find_power_supply() {
   local wanted="$1"
@@ -62,10 +64,15 @@ while true; do
     if [ "$status" != "Discharging" ] || [ "$ac_online" = "1" ] || [ "$capacity" -gt "$warning_threshold" ]; then
       warning_sent=0
       critical_sent=0
-    elif [ "$capacity" -le "$critical_threshold" ] && [ "$critical_sent" -eq 0 ]; then
-      if notify_battery "Critical battery" "Battery at ${capacity}%. Connect charger." 30000 critical; then
-        warning_sent=1
-        critical_sent=1
+      critical_last=0
+    elif [ "$capacity" -le "$critical_threshold" ]; then
+      now="$(date +%s)"
+      if [ "$critical_sent" -eq 0 ] || [ $((now - critical_last)) -ge "$critical_repeat_interval" ]; then
+        if notify_battery "Critical battery" "Battery at ${capacity}%. Connect charger." 30000 critical; then
+          warning_sent=1
+          critical_sent=1
+          critical_last="$now"
+        fi
       fi
     elif [ "$capacity" -le "$warning_threshold" ] && [ "$warning_sent" -eq 0 ]; then
       if notify_battery "Low battery" "Battery at ${capacity}%." 10000 normal; then

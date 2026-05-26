@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+mem_total=0
+mem_available=0
+swap_total=0
+swap_free=0
+
+while read -r key value _; do
+  case "$key" in
+    MemTotal:) mem_total="$value" ;;
+    MemAvailable:) mem_available="$value" ;;
+    SwapTotal:) swap_total="$value" ;;
+    SwapFree:) swap_free="$value" ;;
+  esac
+done < /proc/meminfo
+
+mem_used=$((mem_total - mem_available))
+mem_percentage=$((100 * mem_used / mem_total))
+
+if [ "$swap_total" -gt 0 ]; then
+  swap_used=$((swap_total - swap_free))
+  swap_percentage=$((100 * swap_used / swap_total))
+else
+  swap_used=0
+  swap_percentage=0
+fi
+
+mem_used_gib="$(awk -v value="$mem_used" 'BEGIN { printf "%.1f", value / 1048576 }')"
+mem_total_gib="$(awk -v value="$mem_total" 'BEGIN { printf "%.1f", value / 1048576 }')"
+swap_used_gib="$(awk -v value="$swap_used" 'BEGIN { printf "%.1f", value / 1048576 }')"
+swap_total_gib="$(awk -v value="$swap_total" 'BEGIN { printf "%.1f", value / 1048576 }')"
+
+class="normal"
+[ "$mem_percentage" -ge 75 ] && class="warning"
+[ "$mem_percentage" -ge 90 ] && class="critical"
+
+tooltip="RAM ${mem_used_gib}/${mem_total_gib} GiB (${mem_percentage}%)\\n"
+tooltip="${tooltip}Swap ${swap_used_gib}/${swap_total_gib} GiB (${swap_percentage}%)"
+
+printf '{"text":"RAM %d%%","tooltip":"%s","class":"%s","percentage":%d}\n' \
+  "$mem_percentage" "$tooltip" "$class" "$mem_percentage"

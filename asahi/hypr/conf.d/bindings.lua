@@ -3,22 +3,28 @@ local scripts = dotfilesDir .. "/asahi/bin"
 
 -- Apps and windows
 hl.bind(mod .. " + T", hl.dsp.exec_cmd(terminal), { desc = "Terminal" })
-hl.bind(mod .. " + SPACE", hl.dsp.exec_cmd(launcher), { desc = "Launcher" })
-hl.bind(mod .. " + B", hl.dsp.exec_cmd(browser), { desc = "Browser" })
+hl.bind(mod .. " + SPACE", hl.dsp.exec_cmd("qs -c remix ipc call launcher toggle"), { desc = "Launcher" })
+hl.bind(mod .. " + SHIFT + W", hl.dsp.exec_cmd("qs -c remix ipc call wallpaper toggle"), { desc = "Wallpaper picker" })
+-- hl.bind(mod .. " + B", hl.dsp.exec_cmd(browser), { desc = "Browser" })
 hl.bind(mod .. " + Q", hl.dsp.window.close(), { desc = "Close window" })
 hl.bind(mod .. " + F", hl.dsp.window.fullscreen({ mode = 1 }), { desc = "Toggle maximized" })
 hl.bind(mod .. " + SHIFT + F", hl.dsp.window.fullscreen(), { desc = "Toggle fullscreen" })
-hl.bind(mod .. " + SHIFT + T", hl.dsp.window.float(), { desc = "Toggle floating" })
 hl.bind(mod .. " + P", hl.dsp.window.pseudo(), { desc = "Toggle pseudo" })
 hl.bind(mod .. " + R", hl.dsp.layout("togglesplit"), { desc = "Toggle split" })
 hl.bind(mod .. " + SHIFT + P", hl.dsp.window.pin(), { desc = "Toggle pin window (always on top)" })
-hl.bind(mod .. " + C", hl.dsp.window.center(), { desc = "Center floating window" })
 hl.bind(mod .. " + W", hl.dsp.group.toggle(), { desc = "Toggle group" })
 hl.bind(mod .. " + ALT + SPACE", hl.dsp.exec_cmd(scripts .. "/asahi-feature-menu"), { desc = "Feature menu" })
+hl.bind(mod .. " + SHIFT + N", hl.dsp.exec_cmd("qs -c remix ipc call notifications toggleHistory"), { desc = "Notification history" })
+hl.bind(mod .. " + SHIFT + D", hl.dsp.exec_cmd("qs -c remix ipc call notifications toggleDnd"), { desc = "Toggle notification DND" })
 hl.bind(mod .. " + N", hl.dsp.exec_cmd(scripts .. "/asahi-network-menu"), { desc = "Network menu" })
+hl.bind(mod .. " + B", hl.dsp.exec_cmd(scripts .. "/asahi-bluetooth-menu"), { desc = "Bluetooth menu" })
 hl.bind(mod .. " + S", hl.dsp.workspace.toggle_special("scratch"), { desc = "Toggle scratchpad" })
 hl.bind(mod .. " + SHIFT + S", hl.dsp.window.move({ workspace = "special:scratch", silent = true }), { desc = "Move to scratchpad" })
 hl.bind(mod .. " + ALT + Return", hl.dsp.exec_cmd(scripts .. "/asahi-special-terminal"), { desc = "Special terminal" })
+
+-- Floating
+hl.bind(mod .. " + SHIFT + T", hl.dsp.window.float(), { desc = "Toggle floating" })
+hl.bind(mod .. " + C", hl.dsp.window.center(), { desc = "Center floating window" })
 
 -- Session and screenshots
 hl.bind(mod .. " + Escape", hl.dsp.exec_cmd("hyprlock --config " .. configDir .. "/hyprlock.conf"), { desc = "Lock" })
@@ -31,16 +37,10 @@ hl.bind(mod .. " + ALT + CONTROL + 5", hl.dsp.exec_cmd("hyprpicker -a"), { desc 
 
 -- Reloads
 hl.bind(mod .. " + CONTROL + ALT + R", hl.dsp.exec_cmd(scripts .. "/asahi-reload-hyprland"), { desc = "Reload Hyprland" })
-hl.bind(mod .. " + CONTROL + ALT + SPACE", hl.dsp.exec_cmd(scripts .. "/asahi-restart-walker"), { desc = "Restart walker" })
 hl.bind(
   mod .. " + CONTROL + ALT + W",
-  hl.dsp.exec_cmd(scripts .. "/asahi-restart-app waybar -c ~/.config/waybar/config.jsonc -s ~/.config/waybar/style.css"),
-  { desc = "Restart waybar" }
-)
-hl.bind(
-  mod .. " + CONTROL + ALT + M",
-  hl.dsp.exec_cmd(scripts .. "/asahi-restart-app mako --config ~/.config/mako/config"),
-  { desc = "Restart mako" }
+  hl.dsp.exec_cmd(scripts .. "/asahi-restart-app quickshell -c remix"),
+  { desc = "Restart quickshell bar (qs -c remix)" }
 )
 hl.bind(mod .. " + CONTROL + ALT + P", hl.dsp.exec_cmd(scripts .. "/asahi-restart-app hyprpaper"), { desc = "Restart hyprpaper" })
 hl.bind(mod .. " + CONTROL + ALT + I", hl.dsp.exec_cmd(scripts .. "/asahi-restart-app hypridle"), { desc = "Restart hypridle" })
@@ -73,6 +73,8 @@ for i = 1, 10 do
   hl.bind(mod .. " + " .. key, hl.dsp.focus({ workspace = i }), { desc = "Workspace " .. i })
   hl.bind(mod .. " + CONTROL + " .. key, hl.dsp.window.move({ workspace = i }), { desc = "Move to workspace " .. i })
 end
+hl.bind(mod .. " + TAB", hl.dsp.focus({ workspace = "e+1" }))
+hl.bind(mod .. " + SHIFT + TAB", hl.dsp.focus({ workspace = "e-1" }))
 
 hl.bind(mod .. " + I", hl.dsp.focus({ workspace = "e-1" }), { desc = "Previous workspace" })
 hl.bind(mod .. " + U", hl.dsp.focus({ workspace = "e+1" }), { desc = "Next workspace" })
@@ -105,7 +107,7 @@ media_bind("XF86AudioPlay", "playerctl play-pause", { desc = "Play pause" })
 media_bind("XF86AudioPause", "playerctl play-pause", { desc = "Play pause" })
 media_bind("XF86AudioNext", "playerctl next", { desc = "Next track" })
 media_bind("XF86AudioPrev", "playerctl previous", { desc = "Previous track" })
-hl.bind("Caps_Lock", hl.dsp.exec_cmd("sleep 0.08; " .. scripts .. "/asahi-swayosd --caps-lock"), { locked = true, desc = "Caps lock OSD" })
+hl.bind("Caps_Lock", hl.dsp.exec_cmd("sleep 0.08; " .. scripts .. "/asahi-media-control caps-lock show"), { locked = true, desc = "Caps lock OSD" })
 
 -- Brightness
 media_bind("XF86MonBrightnessUp", "brightness raise", { repeating = true, desc = "Brightness up" })

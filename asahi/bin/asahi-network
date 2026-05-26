@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Output JSON { "text": short display, "tooltip": multi-line details, "class": ..., "percentage": 0-100 }
+
+get_active() {
+  nmcli -t -f DEVICE,TYPE,STATE,CONNECTION dev status 2>/dev/null | grep -E ':connected:' | head -1 || true
+}
+
+build_wifi_tooltip() {
+  local dev="$1" conn="$2"
+  local ssid sig ip gw bssid
+  ssid=$(nmcli -g GENERAL.CONNECTION dev show "$dev" 2>/dev/null || echo "$conn")
+  sig=$(nmcli -f IN-USE,SIGNAL dev wifi list --rescan no 2>/dev/null | awk '/^\*/ {print $2}' | head -1 || echo "0")
+  [ -z "$sig" ] && sig=50
+  ip=$(nmcli -g IP4.ADDRESS dev show "$dev" 2>/dev/null | head -1 || echo "")
+  gw=$(nmcli -g IP4.GATEWAY dev show "$dev" 2>/dev/null | head -1 || echo "")
+  bssid=$(nmcli -g 802-11-wireless.bssid dev show "$dev" 2>/dev/null || echo "")
+  printf "Connected to %s\nSignal: %s%%\nInterface: %s\nIP: %s\nGateway: %s" "$ssid" "$sig" "$dev" "$ip" "$gw"
+}
+
+build_ethernet_tooltip() {
+  local dev="$1" conn="$2"
+  local ip gw
+  ip=$(nmcli -g IP4.ADDRESS dev show "$dev" 2>/dev/null | head -1 || echo "")
+  gw=$(nmcli -g IP4.GATEWAY dev show "$dev" 2>/dev/null | head -1 || echo "")
+  printf "%s %s\n gw %s" "$dev" "${ip}" "${gw}"
+}
+
+line=$(get_active)
+if [ -z "$line" ]; then
+  jq -cn \
+    --arg text "󰤮" \
+    --arg tooltip "Disconnected" \
+    --arg class "disconnected" \
+    --argjson percentage 0 \
+    '{text:$text, tooltip:$tooltip, class:$class, percentage:$percentage}'
+  exit 0
+fi
+
+IFS=: read -r dev type state conn <<<"$line"
+
+if [ "$type" = "wifi" ]; then
+  # Try to get signal strength more reliably
+  sig=$(nmcli -t -f IN-USE,SIGNAL dev wifi list --rescan no 2>/dev/null | awk -F: '/^\*/ {print $2; exit}' || echo 0)
+  [ -z "$sig" ] && sig=50
+
+  if [ "$sig" -ge 75 ]; then icon="󰤨"
+  elif [ "$sig" -ge 50 ]; then icon="󰤥"
+  elif [ "$sig" -ge 25 ]; then icon="󰤢"
+  else icon="󰤟"
+  fi
+
+  tooltip=$(build_wifi_tooltip "$dev" "$conn")
+  class="connected"
+  pct=$sig
+  # Bar only shows the wifi symbol (no text label)
+  text="$icon"
+elif [ "$type" = "ethernet" ]; then
+  icon="󰀂"
+  tooltip=$(build_ethernet_tooltip "$dev" "$conn")
+  class="connected"
+  pct=100
+  text="$icon"
+else
+  # Disconnected or no active connection → proper wifi disconnected symbol
+  icon="󰤮"
+  tooltip="Disconnected"
+  class="disconnected"
+  pct=0
+  text="$icon"
+fi
+
+jq -cn \
+  --arg text "$text" \
+  --arg tooltip "$tooltip" \
+  --arg class "$class" \
+  --argjson percentage "${pct:-0}" \
+  '{text:$text, tooltip:$tooltip, class:$class, percentage:$percentage}'

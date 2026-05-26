@@ -40,6 +40,7 @@ hl.config({
     key_press_enables_dpms = true,
     mouse_move_enables_dpms = true,
   },
+  -- Asahi note: blur + animations tuned; test perf on Apple GPU (reverse-eng driver limits, aquamarine history)
 })
 
 hl.gesture({

@@ -48,7 +48,7 @@ choice="$(
     else
       printf "󰖩 Enable Wi-Fi\n"
     fi
-  } | walker --dmenu --placeholder Network --width 560 --height 420 --exit || true
+  } | fuzzel --dmenu --placeholder Network || true
 )"
 
 [ -n "$choice" ] || exit 0
