@@ -2,43 +2,55 @@ import QtQuick
 import QtQuick.Layouts
 import "../../../"
 
-// Simple Status Indicators (caffeine, DND, etc.)
-// Placeholder that can be expanded with real IdleInhibitor / Notifs logic later
 RowLayout {
-    id: root
-    spacing: 6
+  id: root
 
-    // Example: Caffeine indicator
-    Rectangle {
-        width: 18
-        height: 18
-        radius: Style.radiusSm
-        color: Style.moduleBg
-        visible: false   // enable when we wire real logic
+  property var notificationCenter: null
 
-        Text {
-            anchors.centerIn: parent
-            text: "󰅶"
-            font.family: Style.fontFamily
-            font.pixelSize: 14
-            color: Style.green
-        }
+  spacing: 6
+
+  SystemTray {}
+
+  Rectangle {
+    width: notifRow.implicitWidth + 12
+    height: 24
+    radius: Style.radiusSm
+    color: notifMouse.containsMouse ? Style.hoverBg : Style.moduleBg
+    visible: root.notificationCenter !== null
+
+    RowLayout {
+      id: notifRow
+      anchors.centerIn: parent
+      spacing: 5
+
+      Text {
+        text: root.notificationCenter && root.notificationCenter.dndEnabled ? "󰂛" : "󰂚"
+        font.family: Style.fontFamily
+        font.pixelSize: 13
+        color: root.notificationCenter && root.notificationCenter.dndEnabled ? Style.yellow : Style.blueAlt
+      }
+
+      Text {
+        text: root.notificationCenter ? root.notificationCenter.historyCount : 0
+        font.family: Style.fontFamily
+        font.pixelSize: 11
+        color: Style.textMuted
+        visible: root.notificationCenter && root.notificationCenter.historyCount > 0
+      }
     }
 
-    // Example: DND indicator
-    Rectangle {
-        width: 18
-        height: 18
-        radius: Style.radiusSm
-        color: Style.moduleBg
-        visible: false
+    MouseArea {
+      id: notifMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      acceptedButtons: Qt.LeftButton | Qt.RightButton
 
-        Text {
-            anchors.centerIn: parent
-            text: "󰂛"
-            font.family: Style.fontFamily
-            font.pixelSize: 14
-            color: Style.yellow
-        }
+      onClicked: (mouse) => {
+        if (!root.notificationCenter) return
+        if (mouse.button === Qt.RightButton) root.notificationCenter.toggleDnd()
+        else root.notificationCenter.toggleHistory()
+      }
     }
+  }
 }

@@ -302,6 +302,7 @@ Scope {
                     root.previewPath = modelData
                   } else {
                     WallpaperService.setWallpaper(modelData)
+                    wallpaperPanel.visible = false
                   }
                 }
               }

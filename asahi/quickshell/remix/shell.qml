@@ -5,126 +5,17 @@ import Quickshell.Hyprland
 import Quickshell.Widgets
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Controls
-import Quickshell.Services.Notifications
 
 import "modules/bar/components" as BarComponents
+import "modules/system" as System
 import "modules/wallpaper"
 import "."
 
 ShellRoot {
   id: shell
 
-  // QS native notifications (full mako replacement) - hoisted here so toast PanelWindow can bind to activeNotif
-  property var activeNotif: null
-  property var toastScreen: null
-  property bool osdVisible: false
-  property var osdScreen: null
-  property string osdIcon: ""
-  property string osdLabel: ""
-  property string osdValue: ""
-  property real osdPercent: 0
-  property color osdColor: Style.blueAlt
-  property string osdPending: ""
-  readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
-
-  function focusedScreen() {
-    const mon = Hyprland.focusedMonitor
-    return mon ? (Quickshell.screens.find(s => s.name === mon.name) ?? Quickshell.screens[0]) : (Quickshell.screens[0] ?? null)
-  }
-
-  function showOsd(kind, icon, label, percent, value) {
-    osdScreen = focusedScreen()
-    osdIcon = icon
-    osdLabel = label
-    osdPercent = Math.max(0, Math.min(100, Number(percent) || 0))
-    osdValue = value
-    osdColor = kind === "volume" ? Style.green : (kind === "brightness" ? Style.orange : Style.blueAlt)
-    osdVisible = true
-    osdTimer.restart()
-  }
-
-  function queryOsd(kind, command) {
-    osdPending = kind
-    osdProc.command = command
-    osdProc.running = true
-  }
-
-  Timer {
-    id: osdTimer
-    interval: 1000
-    onTriggered: osdVisible = false
-  }
-
-  Timer {
-    id: notifTimer
-    interval: 6000
-    onTriggered: { if (activeNotif) { activeNotif.expire(); activeNotif = null } }
-  }
-  NotificationServer {
-    id: notifServer
-    onNotification: (n) => {
-      activeNotif = n
-      n.tracked = true
-      const mon = Hyprland.focusedMonitor
-      toastScreen = mon ? (Quickshell.screens.find(s => s.name === mon.name) ?? Quickshell.screens[0]) : (Quickshell.screens[0] ?? null)
-      Quickshell.execDetached(["bash", "-c", Quickshell.env("HOME") + "/.dotfiles/asahi/bin/asahi-notification-sound"])
-      notifTimer.restart()
-    }
-  }
-
-  Process {
-    id: osdProc
-    stdout: StdioCollector {
-      onStreamFinished: {
-        const t = text.trim()
-        if (osdPending === "volume" || osdPending === "mic") {
-          const data = JSON.parse(t)
-          const muted = (data.class || []).includes("muted")
-          const percent = data.percentage || 0
-          if (osdPending === "volume") {
-            showOsd("volume", muted ? "󰖁" : "󰕾", "Volume", percent, muted ? "Muted" : percent + "%")
-          } else {
-            showOsd("volume", muted ? "󰍭" : "󰍬", "Microphone", percent, muted ? "Muted" : percent + "%")
-          }
-        } else if (osdPending === "brightness") {
-          showOsd("brightness", "󰃠", "Brightness", Number(t) || 0, t + "%")
-        } else if (osdPending === "keyboard") {
-          showOsd("brightness", "󰌌", "Keyboard", Number(t) || 0, t + "%")
-        } else if (osdPending === "caps") {
-          const on = t === "true"
-          showOsd("caps", on ? "󰪛" : "󰪚", "Caps Lock", on ? 100 : 0, on ? "On" : "Off")
-        }
-      }
-    }
-  }
-
-  IpcHandler {
-    target: "osd"
-    function volume(): void {
-      shell.queryOsd("volume", ["bash", shell.binDir + "/asahi-audio", "output"])
-    }
-    function mic(): void {
-      shell.queryOsd("mic", ["bash", shell.binDir + "/asahi-audio", "input"])
-    }
-    function brightness(): void {
-      shell.queryOsd("brightness", ["bash", "-c", "brightnessctl -m | awk -F, '{gsub(/%/, \"\", $4); print $4}'"])
-    }
-    function keyboard(): void {
-      shell.queryOsd("keyboard", [
-        "bash",
-        "-c",
-        "brightnessctl --device=kbd_backlight -m | awk -F, '{gsub(/%/, \"\", $4); print $4}'"
-      ])
-    }
-    function caps(): void {
-      shell.queryOsd("caps", [
-        "bash",
-        "-c",
-        "hyprctl devices -j | jq -r '[.keyboards[] | select(.main == true) | .capsLock][0] // [.keyboards[] | .capsLock][0] // false'"
-      ])
-    }
-  }
+  System.Osd { id: osd }
+  System.NotificationCenter { id: notificationCenter }
 
 Variants {
     model: Quickshell.screens
@@ -266,9 +157,6 @@ Variants {
     anchors.margins: 4
     spacing: 10
 
-    // Power on the left
-    BarComponents.PowerButton {}
-
     // Workspaces: only those that contain running apps.
     // Each occupied workspace shows its number + its app icons.
     Rectangle {
@@ -396,7 +284,9 @@ Variants {
 
     // Spacer to push right group to the right
 
-    BarComponents.StatusIndicators {}
+    BarComponents.StatusIndicators {
+      notificationCenter: notificationCenter
+    }
     // Right side (as specified): mic, vol, CPU widget (graph left/middle + % + temp right), RAM widget (graph left/middle + % right), net, bt, battery, clock
     BarComponents.Microphone {}
     BarComponents.Volume {}
@@ -602,103 +492,6 @@ Variants {
   }
 }
 }  // close Variants
-
-  // Global notif toast (QS native, full mako replacement). Bottom-right, urgency border, click dismiss, auto expire.
-  PanelWindow {
-    id: nativeOsd
-    visible: osdVisible
-    focusable: false
-    color: "transparent"
-    screen: osdScreen
-    exclusionMode: ExclusionMode.Ignore
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.namespace: "quickshell-osd"
-    anchors { bottom: true }
-    margins { bottom: 90 }
-    implicitWidth: 300
-    implicitHeight: 72
-
-    Rectangle {
-      anchors.fill: parent
-      radius: 8
-      color: Style.surface
-      border.color: osdColor
-      border.width: 1
-
-      RowLayout {
-        anchors.fill: parent
-        anchors.margins: 12
-        spacing: 12
-
-        Text {
-          text: osdIcon
-          font.family: Style.fontFamily
-          font.pixelSize: 26
-          color: osdColor
-          Layout.preferredWidth: 34
-          horizontalAlignment: Text.AlignHCenter
-        }
-
-        ColumnLayout {
-          Layout.fillWidth: true
-          spacing: 6
-
-          RowLayout {
-            Layout.fillWidth: true
-            Text {
-              text: osdLabel
-              font.family: Style.fontFamily
-              font.pixelSize: 13
-              font.bold: true
-              color: Style.text
-              Layout.fillWidth: true
-            }
-            Text {
-              text: osdValue
-              font.family: Style.fontFamily
-              font.pixelSize: 12
-              color: Style.textMuted
-            }
-          }
-
-          Rectangle {
-            Layout.fillWidth: true
-            height: 8
-            radius: 4
-            color: Style.moduleBg
-
-            Rectangle {
-              width: parent.width * osdPercent / 100
-              height: parent.height
-              radius: 4
-              color: osdColor
-            }
-          }
-        }
-      }
-    }
-  }
-
-  PanelWindow {
-    id: notifToast
-    visible: !!activeNotif
-    color: "transparent"
-    screen: toastScreen
-    anchors { bottom: true; right: true }
-    margins { bottom: 12; right: 12 }
-    implicitWidth: 360
-    implicitHeight: 70
-    Rectangle {
-      anchors.fill: parent
-      radius: 8
-      color: DefaultTheme.bgSurface
-      border.color: (activeNotif && activeNotif.urgency === 2) ? DefaultTheme.urgencyCritical : DefaultTheme.bgBorder
-      border.width: 1
-      Text { x: 8; y: 6; text: activeNotif ? (activeNotif.appName || "") + ": " + (activeNotif.summary || "") : ""; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; color: DefaultTheme.textPrimary; font.bold: true }
-      Text { x: 8; y: 24; text: activeNotif ? (activeNotif.body || "") : ""; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: DefaultTheme.textSecondary; width: 340; wrapMode: Text.Wrap; maximumLineCount: 2 }
-      MouseArea { anchors.fill: parent; onClicked: { if (activeNotif) { activeNotif.dismiss(); activeNotif = null } } }
-    }
-  }
 
     Loader {
         id: launcherLoader

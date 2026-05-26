@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 import "../../../"
 
 Rectangle {
@@ -61,23 +60,6 @@ Rectangle {
         anchors.fill: parent
         anchors.margins: -12   // much larger hit area so hover and click are reliable
         hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
-
-        property var networkPopup: null
-
-        onClicked: (mouse) => {
-            if (mouse.button === Qt.RightButton) {
-                Quickshell.execDetached([binDir + "/asahi-network-menu"])
-            } else {
-                if (!networkPopup) {
-                    const mon = Hyprland.focusedMonitor
-                    const scr = mon ? (Quickshell.screens.find(s => s.name === mon.name) ?? Quickshell.screens[0]) : (Quickshell.screens[0] ?? null)
-                    networkPopup = Qt.createComponent("NetworkPopupWindow.qml").createObject(root, {screen: scr})
-                }
-                networkPopup.shouldShow = !networkPopup.shouldShow
-            }
-        }
     }
 
     TooltipWindow {

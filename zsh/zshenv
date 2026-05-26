@@ -41,9 +41,14 @@ elif [[ "$OSTYPE" == "Linux" ]]; then
   elif (( $+commands[firefox] )); then
     export BROWSER="firefox"
   fi
+  keychain_env="$HOME/.keychain/${HOST:-$HOSTNAME}-sh"
+  if [[ -z "${SSH_CONNECTION:-}" && -r "$keychain_env" ]]; then
+    source "$keychain_env"
+  fi
   if [[ -z "${SSH_AUTH_SOCK:-}" ]] && [[ -n "${XDG_RUNTIME_DIR:-}" ]] && [[ -S "${XDG_RUNTIME_DIR}/ssh-agent.socket" ]]; then
     export SSH_AUTH_SOCK="${XDG_RUNTIME_DIR}/ssh-agent.socket"
   fi
+  unset keychain_env
   export TERM=xterm-256color
 fi
 

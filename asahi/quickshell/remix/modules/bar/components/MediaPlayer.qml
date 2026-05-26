@@ -1,61 +1,58 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Io
 import "../../../"
+import "../../../services" as Services
 
-// Media Player pill for the bar
-// Uses asahi-player script for data (Asahi tuned json)
 Rectangle {
   id: root
-
-  readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
 
   color: Style.moduleBg
   radius: 6
 
-  implicitWidth: Math.min(300, contentRow.implicitWidth + 14)
+  implicitWidth: Math.min(320, contentRow.implicitWidth + 16)
   implicitHeight: 26
 
-  property string text: ""
-  property bool hasMedia: text.length > 0
+  property bool hasMedia: Services.Players.hasPlayer
+  property string mediaText: {
+    if (!hasMedia) return ""
+    const title = Services.Players.title || "Media"
+    const artist = Services.Players.artist || ""
+    return (Services.Players.isPlaying ? " " : " ") + (artist ? artist + " - " + title : title)
+  }
+
   visible: hasMedia
-
-  Process {
-    id: playerProc
-    command: ["bash", binDir + "/asahi-player"]
-    stdout: StdioCollector {
-      onStreamFinished: {
-        try {
-          const data = JSON.parse(text.trim())
-          root.text = data.text || ""
-        } catch (e) {
-          root.text = ""
-        }
-      }
-    }
-  }
-
-  Timer {
-    interval: 3000
-    running: true
-    repeat: true
-    onTriggered: playerProc.running = true
-  }
-
-  Component.onCompleted: playerProc.running = true
 
   RowLayout {
     id: contentRow
     anchors.centerIn: parent
     spacing: 6
+
     Text {
-      text: hasMedia ? root.text : "No media"
-      font.family: "JetBrainsMono Nerd Font"
-      font.pixelSize: 18
-      color: hasMedia ? Style.text : Style.textMuted
+      text: root.mediaText
+      font.family: Style.fontFamily
+      font.pixelSize: 14
+      color: Style.text
       elide: Text.ElideRight
-      Layout.maximumWidth: 140
+      Layout.maximumWidth: 230
+    }
+  }
+
+  Rectangle {
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    anchors.margins: 3
+    height: 2
+    radius: 1
+    color: Qt.rgba(0, 0, 0, 0.22)
+    visible: Services.Players.progress > 0
+
+    Rectangle {
+      width: parent.width * Math.max(0, Math.min(1, Services.Players.progress))
+      height: parent.height
+      radius: parent.radius
+      color: Style.green
     }
   }
 
@@ -66,14 +63,9 @@ Rectangle {
     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
 
     onClicked: (mouse) => {
-      if (mouse.button === Qt.RightButton) {
-        Quickshell.execDetached([binDir + "/asahi-media-control", "playerctl", "next"])
-      } else if (mouse.button === Qt.MiddleButton) {
-        Quickshell.execDetached([binDir + "/asahi-media-control", "playerctl", "previous"])
-      } else {
-        Quickshell.execDetached([binDir + "/asahi-media-control", "playerctl", "play-pause"])
-      }
+      if (mouse.button === Qt.RightButton) Services.Players.next()
+      else if (mouse.button === Qt.MiddleButton) Services.Players.previous()
+      else Services.Players.playPause()
     }
   }
-
 }

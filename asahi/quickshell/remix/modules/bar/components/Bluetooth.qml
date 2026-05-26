@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 import "../../../"
 
 Rectangle {
@@ -60,23 +59,6 @@ Rectangle {
         id: ma
         anchors.fill: parent
         hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
-
-        property var btPopup: null
-
-        onClicked: (mouse) => {
-            if (mouse.button === Qt.RightButton) {
-                Quickshell.execDetached([binDir + "/asahi-bluetooth-menu"])
-            } else {
-                if (!btPopup) {
-                    const mon = Hyprland.focusedMonitor
-                    const scr = mon ? (Quickshell.screens.find(s => s.name === mon.name) ?? Quickshell.screens[0]) : (Quickshell.screens[0] ?? null)
-                    btPopup = Qt.createComponent("BluetoothPopupWindow.qml").createObject(root, {screen: scr})
-                }
-                btPopup.shouldShow = !btPopup.shouldShow
-            }
-        }
     }
 
     TooltipWindow {
