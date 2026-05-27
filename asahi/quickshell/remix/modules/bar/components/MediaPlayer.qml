@@ -7,8 +7,10 @@ import "../../../services" as Services
 Rectangle {
   id: root
 
-  color: Style.moduleBg
-  radius: 6
+  color: mediaMouse.containsMouse ? Style.hoverBg : Style.moduleBg
+  radius: Style.radius
+  border.width: 1
+  border.color: Style.border
 
   implicitWidth: Math.min(320, contentRow.implicitWidth + 16)
   implicitHeight: 26
@@ -57,6 +59,7 @@ Rectangle {
   }
 
   MouseArea {
+    id: mediaMouse
     anchors.fill: parent
     hoverEnabled: true
     cursorShape: Qt.PointingHandCursor

@@ -9,8 +9,10 @@ Rectangle {
 
     readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
 
-    color: Style.moduleBg
-    radius: 6
+    color: batMa.containsMouse ? Style.hoverBg : Style.moduleBg
+    radius: Style.radius
+    border.width: 1
+    border.color: Style.border
 
     implicitWidth: row.implicitWidth + 14
     implicitHeight: 26

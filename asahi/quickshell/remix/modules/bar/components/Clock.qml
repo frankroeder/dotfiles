@@ -7,7 +7,9 @@ Rectangle {
   id: root
 
   color: Style.moduleBg
-  radius: 6
+  radius: Style.radius
+  border.width: 1
+  border.color: Style.border
 
   implicitWidth: clockRow.implicitWidth + 14
   implicitHeight: 26

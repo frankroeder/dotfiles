@@ -75,8 +75,17 @@ Variants {
     if (!memScriptProc.running) memScriptProc.running = true
   }
 
-  // Windows on the currently focused workspace — used to show app icons
-  // next to the active workspace (only when it contains apps)
+  function toggleCpuPopup() {
+    showRamPopup = false
+    showCpuPopup = !showCpuPopup
+  }
+
+  function toggleRamPopup() {
+    showCpuPopup = false
+    showRamPopup = !showRamPopup
+  }
+
+  // Bump bindings that derive workspace occupancy/icons from Hyprland toplevel state.
   property int wsWindowVersion: 0
   property int wsIconRefreshes: 0
 
@@ -129,8 +138,7 @@ Variants {
     return candidates.length > 0 ? candidates[0].charAt(0).toUpperCase() : "?"
   }
 
-  // Workspaces that contain windows (or the focused one), in stable numeric order.
-  // Active workspace is highlighted with color/border on its pill; order never changes to avoid jumping.
+  readonly property int focusedWorkspaceId: Hyprland.focusedWorkspace?.id ?? 1
   readonly property var occupiedWorkspaces: {
     wsWindowVersion
     const ids = new Set()
@@ -138,9 +146,15 @@ Variants {
       const id = t.workspace?.id ?? t.lastIpcObject?.workspace?.id
       if (id != null) ids.add(id)
     }
-    const focused = Hyprland.focusedWorkspace?.id
-    if (focused != null) ids.add(focused)
     return Array.from(ids).sort((a, b) => a - b)
+  }
+
+  function workspaceWindows(wsId) {
+    root.wsWindowVersion
+    return Hyprland.toplevels.values.filter(function(t) {
+      const w = t.workspace || t.lastIpcObject?.workspace
+      return (w && w.id === wsId) || (t.lastIpcObject?.workspace?.id === wsId)
+    })
   }
 
   anchors.top: true
@@ -238,6 +252,18 @@ Variants {
     }
   }
 
+  Connections {
+    target: Hyprland.toplevels
+    ignoreUnknownSignals: true
+    function onValuesChanged() { root.refreshWorkspaceIcons(4) }
+  }
+
+  Connections {
+    target: Hyprland.workspaces
+    ignoreUnknownSignals: true
+    function onValuesChanged() { root.refreshWorkspaceIcons(0) }
+  }
+
   Timer {
     id: wsIconRefreshTimer
     interval: 180
@@ -269,104 +295,14 @@ Variants {
       spacing: 8
       BarComponents.MediaPlayer {}
       BarComponents.StatusIndicators { notificationCenter: notificationCenter }
-    }
 
-    // Exactly centered workspaces (true geometric center, independent of left/right widths)
-    Rectangle {
-      id: workspacesBlock
-      anchors.horizontalCenter: parent.horizontalCenter
-      anchors.verticalCenter: parent.verticalCenter
-      color: Style.moduleBg
-      radius: 6
-      implicitHeight: 38
-      implicitWidth: wsContent.implicitWidth + 14
-
-      Row {
-        id: wsContent
-        anchors.centerIn: parent
-        spacing: 8
-
-        Repeater {
-          model: root.occupiedWorkspaces
-          Rectangle {
-            radius: 6
-            border.width: 1
-            implicitHeight: 32
-            implicitWidth: wsInner.implicitWidth + 8
-
-            property bool isFocused: Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.id === modelData
-
-            color: isFocused ? Qt.alpha(Style.primary, 0.15) : Style.controlBg
-            border.color: isFocused ? Style.primary : Style.border
-
-            Row {
-              id: wsInner
-              anchors.centerIn: parent
-              spacing: 4
-
-              Rectangle {
-                width: 22; height: 26; radius: 5; color: Style.wsNumBg; border.width: 0
-                Text {
-                  anchors.centerIn: parent; text: modelData
-                  color: isFocused ? Style.primary : Style.blue
-                  font { family: Style.fontFamily; pixelSize: 13; bold: true }
-                }
-              }
-
-              Row {
-                spacing: 3; anchors.verticalCenter: parent.verticalCenter
-                Repeater {
-                  model: {
-                    root.wsWindowVersion
-                    const wsId = modelData
-                    return Hyprland.toplevels.values.filter(function(t) {
-                      const w = t.workspace || t.lastIpcObject?.workspace
-                      return (w && w.id === wsId) || (t.lastIpcObject?.workspace?.id === wsId)
-                    })
-                  }
-                  Rectangle {
-                    width: 24; height: 24; radius: 4; color: Style.moduleBg; border { color: Style.border; width: 1 }
-                    IconImage {
-                      id: winIcon; anchors.centerIn: parent; width: 20; height: 20
-                      source: { root.wsWindowVersion; return root.appIconSource(modelData) }
-                      visible: status === Image.Ready
-                    }
-                    Text {
-                      anchors.centerIn: parent; visible: !winIcon.visible
-                      text: root.appFallbackText(modelData)
-                      font.pixelSize: 12; font.bold: true; color: Style.text
-                    }
-                    MouseArea {
-                      anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                      onClicked: modelData.activate()
-                    }
-                  }
-                }
-              }
-            }
-
-            MouseArea {
-              anchors.fill: parent; cursorShape: Qt.PointingHandCursor; acceptedButtons: Qt.LeftButton
-              onClicked: Quickshell.execDetached(["/usr/bin/hyprctl", "dispatch", "workspace", String(modelData)])
-            }
-          }
-        }
-      }
-    }
-
-    // Far right (minimal strip)
-    Row {
-      id: rightSection
-      anchors.right: parent.right
-      anchors.verticalCenter: parent.verticalCenter
-      spacing: 6
-      BarComponents.Microphone {}
-      BarComponents.Volume {}
-
-      // Compact CPU (icon + % + temp, click for graph popup) - match Vol/Mic sizes
+      // Compact CPU (icon + % + temp, click for graph popup)
       Rectangle {
-        color: Style.moduleBg
-        radius: 6
+        id: cpuWidget
+        color: cpuMouse.containsMouse ? Style.hoverBg : Style.moduleBg
+        radius: Style.radius
+        border.width: 1
+        border.color: Style.border
         implicitWidth: 96
         implicitHeight: 26
         RowLayout {
@@ -395,17 +331,21 @@ Variants {
           }
         }
         MouseArea {
+          id: cpuMouse
           anchors.fill: parent
           hoverEnabled: true
           cursorShape: Qt.PointingHandCursor
-          onClicked: root.showCpuPopup = !root.showCpuPopup
+          onClicked: root.toggleCpuPopup()
         }
       }
 
-      // Compact RAM (% only, click for graph popup) - match Vol/Mic sizes
+      // Compact RAM (% only, click for graph popup)
       Rectangle {
-        color: Style.moduleBg
-        radius: 6
+        id: ramWidget
+        color: ramMouse.containsMouse ? Style.hoverBg : Style.moduleBg
+        radius: Style.radius
+        border.width: 1
+        border.color: Style.border
         implicitWidth: 68
         implicitHeight: 26
         RowLayout {
@@ -427,12 +367,120 @@ Variants {
           }
         }
         MouseArea {
+          id: ramMouse
           anchors.fill: parent
           hoverEnabled: true
           cursorShape: Qt.PointingHandCursor
-          onClicked: root.showRamPopup = !root.showRamPopup
+          onClicked: root.toggleRamPopup()
         }
       }
+    }
+
+    // Exactly centered workspaces (true geometric center, independent of left/right widths)
+    Rectangle {
+      id: workspacesBlock
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.verticalCenter: parent.verticalCenter
+      color: Style.moduleBg
+      radius: Style.radius
+      border.width: 1
+      border.color: Style.border
+      implicitHeight: 38
+      implicitWidth: wsContent.implicitWidth + 12
+
+      Row {
+        id: wsContent
+        anchors.centerIn: parent
+        spacing: 4
+
+        Repeater {
+          model: root.occupiedWorkspaces
+          Rectangle {
+            id: wsButton
+            required property int modelData
+            readonly property int wsId: modelData
+            readonly property bool isFocused: root.focusedWorkspaceId === wsId
+            readonly property var windows: root.workspaceWindows(wsId)
+
+            implicitWidth: wsInner.implicitWidth + 10
+            implicitHeight: 30
+            radius: 15
+            color: isFocused ? Qt.alpha(Style.primary, 0.18) : Style.controlBg
+            border.width: 1
+            border.color: isFocused ? Style.primary : Style.border
+
+            Behavior on color { ColorAnimation { duration: 120 } }
+            Behavior on border.color { ColorAnimation { duration: 120 } }
+
+            Row {
+              id: wsInner
+              anchors.centerIn: parent
+              spacing: 4
+
+              Rectangle {
+                width: 22
+                height: 22
+                radius: 11
+                color: isFocused ? Style.primary : Style.wsNumBg
+
+                Text {
+                  anchors.fill: parent
+                  text: wsButton.wsId
+                  horizontalAlignment: Text.AlignHCenter
+                  verticalAlignment: Text.AlignVCenter
+                  color: isFocused ? Style.onPrimary : Style.text
+                  font { family: Style.fontFamily; pixelSize: wsButton.wsId >= 10 ? 10 : 11; bold: true }
+                }
+              }
+
+              Repeater {
+                model: wsButton.windows
+
+                Item {
+                  width: 22
+                  height: 22
+
+                  IconImage {
+                    id: appIcon
+                    anchors.centerIn: parent
+                    width: 18
+                    height: 18
+                    source: root.appIconSource(modelData)
+                    visible: status === Image.Ready
+                  }
+
+                  Text {
+                    anchors.fill: parent
+                    visible: !appIcon.visible
+                    text: root.appFallbackText(modelData)
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    color: Style.text
+                    font { family: Style.fontFamily; pixelSize: 10; bold: true }
+                  }
+                }
+              }
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              acceptedButtons: Qt.LeftButton
+              onClicked: Hyprland.dispatch("hl.dsp.focus({ workspace = " + wsButton.wsId + " })")
+            }
+          }
+        }
+      }
+    }
+
+    // Far right (minimal strip)
+    Row {
+      id: rightSection
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      spacing: 6
+      BarComponents.Microphone {}
+      BarComponents.Volume {}
 
       BarComponents.Network {}
       BarComponents.Bluetooth {}
@@ -447,8 +495,8 @@ Variants {
   // Graph popups (ref-style minimal: icons in bar, click for full canvas detail)
   PanelWindow {
     visible: root.showCpuPopup; color: "transparent"
-    anchors { top: true; right: true }
-    margins { top: 48; right: 8 }
+    anchors { top: true; left: true }
+    margins { top: 48; left: barContent.x + leftSection.x + cpuWidget.x }
     implicitWidth: 420; implicitHeight: 110
     Rectangle { anchors.fill: parent; color: Style.moduleBg; radius: 8; border { color: Style.primary; width: 1 }
       Column { anchors { fill: parent; margins: 8 }
@@ -470,8 +518,8 @@ Variants {
   }
   PanelWindow {
     visible: root.showRamPopup; color: "transparent"
-    anchors { top: true; right: true }
-    margins { top: 48; right: 8 }
+    anchors { top: true; left: true }
+    margins { top: 48; left: barContent.x + leftSection.x + ramWidget.x }
     implicitWidth: 420; implicitHeight: 110
     Rectangle { anchors.fill: parent; color: Style.moduleBg; radius: 8; border { color: Style.primary; width: 1 }
       Column { anchors { fill: parent; margins: 8 }

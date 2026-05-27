@@ -5,11 +5,15 @@ import Quickshell.Io
 import "../../../"
 
 // Simple Brightness pill - reuses asahi data approach
-Item {
+Rectangle {
   id: root
 
-  implicitWidth: row.implicitWidth
-  implicitHeight: 30
+  implicitWidth: row.implicitWidth + 14
+  implicitHeight: 26
+  color: brightnessMouse.containsMouse ? Style.hoverBg : Style.moduleBg
+  radius: Style.radius
+  border.width: 1
+  border.color: Style.border
 
   property string text: "☀ --%"
 
@@ -44,7 +48,9 @@ Item {
   }
 
   MouseArea {
+    id: brightnessMouse
     anchors.fill: parent
+    hoverEnabled: true
     onWheel: (wheel) => {
       const dir = wheel.angleDelta.y > 0 ? " -A 5" : " -U 5"
       Quickshell.execDetached(["bash", "-c", "brightnessctl" + dir])

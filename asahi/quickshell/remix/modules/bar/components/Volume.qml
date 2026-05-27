@@ -9,8 +9,10 @@ Rectangle {
 
     readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
 
-    color: Style.moduleBg
-    radius: 6
+    color: volumeMouse.containsMouse ? Style.hoverBg : Style.moduleBg
+    radius: Style.radius
+    border.width: 1
+    border.color: Style.border
 
     implicitWidth: content.implicitWidth + 14
     implicitHeight: 26
@@ -66,6 +68,7 @@ Rectangle {
     }
 
     MouseArea {
+        id: volumeMouse
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor

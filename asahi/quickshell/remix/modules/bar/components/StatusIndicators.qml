@@ -13,8 +13,10 @@ RowLayout {
 
   Rectangle {
     width: notifRow.implicitWidth + 12
-    height: 24
-    radius: Style.radiusSm
+    height: 26
+    radius: Style.radius
+    border.width: 1
+    border.color: Style.border
     color: notifMouse.containsMouse ? Style.hoverBg : Style.moduleBg
     visible: root.notificationCenter !== null
 
