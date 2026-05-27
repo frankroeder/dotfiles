@@ -54,6 +54,8 @@ Singleton {
   readonly property color accentGreen:   Wallpaper.DefaultTheme.accentGreen
   readonly property color accentOrange:  Wallpaper.DefaultTheme.accentOrange
   readonly property color accentRed:     Wallpaper.DefaultTheme.accentRed
+  readonly property color primary:         Wallpaper.DefaultTheme.primary
+  readonly property color onPrimary:       Wallpaper.DefaultTheme.onPrimary
   readonly property color urgencyLow:      Wallpaper.DefaultTheme.urgencyLow
   readonly property color urgencyNormal:   Wallpaper.DefaultTheme.urgencyNormal
   readonly property color urgencyCritical: Wallpaper.DefaultTheme.urgencyCritical

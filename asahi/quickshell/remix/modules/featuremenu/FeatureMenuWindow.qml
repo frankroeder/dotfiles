@@ -391,19 +391,9 @@ Scope {
       "sh", "-c",
       "pkill -x cava 2>/dev/null || true; " +
       "mkdir -p ~/.config/cava; " +
-      "echo '[general]' > ~/.config/cava/config; " +
-      "echo 'bars=24' >> ~/.config/cava/config; " +
-      "echo 'framerate=30' >> ~/.config/cava/config; " +
-      "echo 'sensitivity=180' >> ~/.config/cava/config; " +
-      "echo '[input]' >> ~/.config/cava/config; " +
-      "echo 'method=pulse' >> ~/.config/cava/config; " +
-      "echo '[output]' >> ~/.config/cava/config; " +
-      "echo 'method=raw' >> ~/.config/cava/config; " +
-      "echo 'raw_target=/dev/stdout' >> ~/.config/cava/config; " +
-      "echo 'data_format=ascii' >> ~/.config/cava/config; " +
-      "echo 'ascii_max_range=100' >> ~/.config/cava/config; " +
+      "printf '[general]\nbars=24\nframerate=30\nsensitivity=180\n\n[input]\nmethod=pulse\nsource=auto\n\n[output]\nmethod=raw\nraw_target=/dev/stdout\ndata_format=ascii\nascii_max_range=100\nbar_delimiter=59\nframe_delimiter=10\n' > ~/.config/cava/config; " +
       "rm -f /tmp/quickshell_cava; " +
-      "nohup bash -c 'cava -p ~/.config/cava/config 2>/dev/null | while IFS= read -r line; do printf \"%s\" \"$line\" > /tmp/quickshell_cava; done' >/dev/null 2>&1 & disown"
+      "stdbuf -oL cava -p ~/.config/cava/config 2>/dev/null | while IFS= read -r line; do printf '%s\n' \"$line\" > /tmp/quickshell_cava; done &"
     ])
     cavaWatcher.path = ""
     Qt.callLater(function(){ cavaWatcher.path = "/tmp/quickshell_cava" })
@@ -433,15 +423,21 @@ Scope {
   // Simple default sink/source volume (wpctl based, like asahi-audio)
   property string defaultSinkVol: "—"
   property string defaultSourceVol: "—"
+  property bool defaultSinkMuted: false
+  property bool defaultSourceMuted: false
   property var audioSinks: []
   property var audioSources: []
   property var audioStreams: []
 
+  function parseWpVolume(line) {
+    const value = (line || "").match(/[0-9.]+/)
+    return value ? Math.round(parseFloat(value[0]) * 100) + "%" : "—"
+  }
   function pollAudioDefaults() {
     audioPollProc.command = [
       "sh", "-c",
-      "wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | awk '{print $2*100}' ; " +
-      "wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null | awk '{print $2*100}'"
+      "wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null ; " +
+      "wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null"
     ]
     audioPollProc.running = true
   }
@@ -450,14 +446,25 @@ Scope {
     stdout: StdioCollector {
       onStreamFinished: {
         const lines = text.trim().split("\n")
-        root.defaultSinkVol = lines[0] ? (Math.round(parseFloat(lines[0])) + "%") : "—"
-        root.defaultSourceVol = lines[1] ? (Math.round(parseFloat(lines[1])) + "%") : "—"
+        root.defaultSinkVol = root.parseWpVolume(lines[0])
+        root.defaultSourceVol = root.parseWpVolume(lines[1])
+        root.defaultSinkMuted = (lines[0] || "").indexOf("MUTED") !== -1
+        root.defaultSourceMuted = (lines[1] || "").indexOf("MUTED") !== -1
       }
     }
   }
   function volAdjust(target, delta) {
-    Quickshell.execDetached(["wpctl", "set-volume", target, (delta > 0 ? "+" : "") + "5%"])
-    Qt.callLater(pollAudioDefaults)
+    const targets = Array.isArray(target) ? target : [target]
+    for (let i = 0; i < targets.length; i++) {
+      Quickshell.execDetached(["wpctl", "set-volume", String(targets[i]), delta > 0 ? "5%+" : "5%-"])
+    }
+    audioRefreshDelay.restart()
+  }
+  function toggleMute(target) {
+    const targets = Array.isArray(target) ? target : [target]
+    for (let i = 0; i < targets.length; i++) {
+      Quickshell.execDetached(["wpctl", "set-mute", String(targets[i]), "toggle"])
+    }
     audioRefreshDelay.restart()
   }
   function refreshAudioMixer() {
@@ -470,12 +477,22 @@ Scope {
   function parseAudioNode(line) {
     const m = line.match(/^\s*[│├└]?\s*(\*)?\s*(\d+)\.\s+(.+?)(?:\s+\[([^\]]+)\])?\s*$/)
     if (!m) return null
-    return { active: m[1] === "*", id: m[2], name: m[3].trim(), meta: m[4] || "" }
+    const meta = m[4] || ""
+    const vol = meta.match(/vol:\s*([0-9.]+)/)
+    return {
+      active: m[1] === "*",
+      id: m[2],
+      name: m[3].trim(),
+      meta: meta,
+      targets: [],
+      volume: vol ? Math.round(parseFloat(vol[1]) * 100) + "%" : ""
+    }
   }
   function parseAudioStatus(out) {
     const sinks = []
     const sources = []
     const streams = []
+    let lastStream = null
     let inAudio = false
     let section = ""
 
@@ -492,17 +509,24 @@ Scope {
         continue
       }
       if (!inAudio) continue
-      if (trimmed.indexOf("Sinks:") !== -1) { section = "sink"; continue }
-      if (trimmed.indexOf("Sources:") !== -1) { section = "source"; continue }
-      if (trimmed.indexOf("Streams:") !== -1) { section = "stream"; continue }
-      if (trimmed.indexOf("Filters:") !== -1) { section = "filter"; continue }
-      if (trimmed.indexOf("Devices:") !== -1) { section = ""; continue }
+      if (trimmed.indexOf("Sinks:") !== -1) { section = "sink"; lastStream = null; continue }
+      if (trimmed.indexOf("Sources:") !== -1) { section = "source"; lastStream = null; continue }
+      if (trimmed.indexOf("Streams:") !== -1) { section = "stream"; lastStream = null; continue }
+      if (trimmed.indexOf("Filters:") !== -1) { section = "filter"; lastStream = null; continue }
+      if (trimmed.indexOf("Devices:") !== -1) { section = ""; lastStream = null; continue }
 
       const item = parseAudioNode(line)
       if (!item) continue
       if (section === "sink" || (section === "filter" && item.meta.indexOf("Audio/Sink") !== -1)) sinks.push(item)
       else if (section === "source" || (section === "filter" && item.meta.indexOf("Audio/Source") !== -1)) sources.push(item)
-      else if (section === "stream" || (section === "filter" && item.meta.indexOf("Stream/") !== -1)) streams.push(item)
+      else if (section === "stream" || (section === "filter" && item.meta.indexOf("Stream/") !== -1)) {
+        if (item.name.indexOf(">") === -1) {
+          lastStream = item
+          streams.push(item)
+        } else if (lastStream) {
+          lastStream.targets.push(item.id)
+        }
+      }
     }
 
     root.audioSinks = sinks
@@ -1592,9 +1616,36 @@ Scope {
 
                     RowLayout {
                       anchors.fill: parent; anchors.margins: 10
-                      Text { text: "󰕾  Speakers"; font.pixelSize: 11 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
+                      Text {
+                        text: root.defaultSinkMuted ? "󰖁  Speakers" : "󰕾  Speakers"
+                        font.pixelSize: 11 + root.uiFontBump
+                        color: root.defaultSinkMuted ? Style.red : Style.text
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.bold: true
+                      }
                       Item { Layout.fillWidth: true }
-                      Text { text: root.defaultSinkVol; font.pixelSize: 11 + root.uiFontBump; color: Style.blue; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
+                      Text {
+                        text: root.defaultSinkVol
+                        font.pixelSize: 11 + root.uiFontBump
+                        color: root.defaultSinkMuted ? Style.red : Style.blue
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.bold: true
+                      }
+
+                      Rectangle {
+                        width: 20; height: 20; radius: 4; color: Style.surface
+                        Text {
+                          anchors.centerIn: parent
+                          text: root.defaultSinkMuted ? "󰖁" : "󰕾"
+                          font.pixelSize: 12 + root.uiFontBump
+                          color: Style.text
+                        }
+                        MouseArea {
+                          anchors.fill: parent
+                          cursorShape: Qt.PointingHandCursor
+                          onClicked: root.toggleMute("@DEFAULT_AUDIO_SINK@")
+                        }
+                      }
 
                       Rectangle {
                         width: 20; height: 20; radius: 4; color: Style.surface
@@ -1616,14 +1667,45 @@ Scope {
 
                     RowLayout {
                       anchors.fill: parent; anchors.margins: 10
-                      Text { text: "󰍬  Microphone"; font.pixelSize: 11 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
+                      Text {
+                        text: root.defaultSourceMuted ? "󰍭  Microphone" : "󰍬  Microphone"
+                        font.pixelSize: 11 + root.uiFontBump
+                        color: root.defaultSourceMuted ? Style.red : Style.text
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.bold: true
+                      }
                       Item { Layout.fillWidth: true }
-                      Text { text: root.defaultSourceVol; font.pixelSize: 11 + root.uiFontBump; color: Style.blue; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
+                      Text {
+                        text: root.defaultSourceVol
+                        font.pixelSize: 11 + root.uiFontBump
+                        color: root.defaultSourceMuted ? Style.red : Style.blue
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.bold: true
+                      }
+
+                      Rectangle {
+                        width: 20; height: 20; radius: 4; color: Style.surface
+                        Text {
+                          anchors.centerIn: parent
+                          text: root.defaultSourceMuted ? "󰍭" : "󰍬"
+                          font.pixelSize: 12 + root.uiFontBump
+                          color: Style.text
+                        }
+                        MouseArea {
+                          anchors.fill: parent
+                          cursorShape: Qt.PointingHandCursor
+                          onClicked: root.toggleMute("@DEFAULT_AUDIO_SOURCE@")
+                        }
+                      }
 
                       Rectangle {
                         width: 20; height: 20; radius: 4; color: Style.surface
                         Text { anchors.centerIn: parent; text: "−"; font.pixelSize: 12 + root.uiFontBump; color: Style.text }
-                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.volAdjust("@DEFAULT_AUDIO_SOURCE@", -5) }
+                        MouseArea {
+                          anchors.fill: parent
+                          cursorShape: Qt.PointingHandCursor
+                          onClicked: root.volAdjust("@DEFAULT_AUDIO_SOURCE@", -5)
+                        }
                       }
                       Rectangle {
                         width: 20; height: 20; radius: 4; color: Style.surface
@@ -1636,8 +1718,8 @@ Scope {
 
                 RowLayout {
                   Layout.fillWidth: true
-                  Layout.preferredHeight: 52
-                  Layout.maximumHeight: 52
+                  Layout.preferredHeight: 96
+                  Layout.maximumHeight: 96
                   spacing: 12
 
                   Rectangle {
@@ -1654,7 +1736,7 @@ Scope {
                       spacing: 3
 
                       Text {
-                        text: "󰕾  Output"
+                        text: "󰕾  Output devices"
                         font.pixelSize: 10 + root.uiFontBump
                         color: Style.textMuted
                         font.family: "JetBrainsMono Nerd Font"
@@ -1681,7 +1763,7 @@ Scope {
                             delegate: Rectangle {
                               required property var modelData
                               width: parent.width
-                              height: 18
+                              height: 22
                               radius: 5
                               color: modelData.active
                                 ? Qt.rgba(Style.blue.r, Style.blue.g, Style.blue.b, 0.18)
@@ -1705,6 +1787,12 @@ Scope {
                                   font.family: "JetBrainsMono Nerd Font"
                                   elide: Text.ElideRight
                                   Layout.fillWidth: true
+                                }
+                                Text {
+                                  text: "#" + modelData.id
+                                  color: Style.textMuted
+                                  font.pixelSize: 8 + root.uiFontBump
+                                  font.family: "JetBrainsMono Nerd Font"
                                 }
                               }
                               MouseArea {
@@ -1735,7 +1823,7 @@ Scope {
                       spacing: 3
 
                       Text {
-                        text: "󰍬  Input"
+                        text: "󰍬  Input sources"
                         font.pixelSize: 10 + root.uiFontBump
                         color: Style.textMuted
                         font.family: "JetBrainsMono Nerd Font"
@@ -1762,7 +1850,7 @@ Scope {
                             delegate: Rectangle {
                               required property var modelData
                               width: parent.width
-                              height: 18
+                              height: 22
                               radius: 5
                               color: modelData.active
                                 ? Qt.rgba(Style.blue.r, Style.blue.g, Style.blue.b, 0.18)
@@ -1787,6 +1875,12 @@ Scope {
                                   elide: Text.ElideRight
                                   Layout.fillWidth: true
                                 }
+                                Text {
+                                  text: "#" + modelData.id
+                                  color: Style.textMuted
+                                  font.pixelSize: 8 + root.uiFontBump
+                                  font.family: "JetBrainsMono Nerd Font"
+                                }
                               }
                               MouseArea {
                                 id: inMa
@@ -1805,8 +1899,8 @@ Scope {
 
                 Rectangle {
                   Layout.fillWidth: true
-                  Layout.preferredHeight: 88
-                  Layout.maximumHeight: 88
+                  Layout.preferredHeight: 116
+                  Layout.maximumHeight: 116
                   radius: 10
                   color: Style.moduleBg || "#313244"
                   border.color: Style.border || "#45475a"
@@ -1842,17 +1936,89 @@ Scope {
                         }
                         Repeater {
                           model: root.audioStreams
-                          delegate: RowLayout {
+                          delegate: Rectangle {
+                            id: streamRow
                             required property var modelData
                             width: parent.width
-                            height: 22
-                            Text {
-                              text: modelData.name
-                              color: Style.text
-                              font.pixelSize: 9 + root.uiFontBump
-                              font.family: "JetBrainsMono Nerd Font"
-                              elide: Text.ElideRight
-                              Layout.fillWidth: true
+                            height: 26
+                            radius: 6
+                            color: Style.surface
+
+                            RowLayout {
+                              anchors.fill: parent
+                              anchors.leftMargin: 7
+                              anchors.rightMargin: 7
+                              spacing: 6
+
+                              Text {
+                                text: "󰝚"
+                                color: Style.green
+                                font.pixelSize: 10 + root.uiFontBump
+                                font.family: "JetBrainsMono Nerd Font"
+                              }
+                              Text {
+                                text: modelData.name
+                                color: Style.text
+                                font.pixelSize: 9 + root.uiFontBump
+                                font.family: "JetBrainsMono Nerd Font"
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                              }
+                              Text {
+                                text: modelData.volume || "#" + modelData.id
+                                color: Style.blue
+                                font.pixelSize: 9 + root.uiFontBump
+                                font.family: "JetBrainsMono Nerd Font"
+                                font.bold: true
+                              }
+                              Rectangle {
+                                width: 18; height: 18; radius: 4; color: Style.controlBg
+                                Text {
+                                  anchors.centerIn: parent
+                                  text: "󰖁"
+                                  font.pixelSize: 10 + root.uiFontBump
+                                  color: Style.text
+                                }
+                                MouseArea {
+                                  anchors.fill: parent
+                                  cursorShape: Qt.PointingHandCursor
+                                  onClicked: {
+                                    root.toggleMute(streamRow.modelData.targets.length ? streamRow.modelData.targets : streamRow.modelData.id)
+                                  }
+                                }
+                              }
+                              Rectangle {
+                                width: 18; height: 18; radius: 4; color: Style.controlBg
+                                Text {
+                                  anchors.centerIn: parent
+                                  text: "−"
+                                  font.pixelSize: 10 + root.uiFontBump
+                                  color: Style.text
+                                }
+                                MouseArea {
+                                  anchors.fill: parent
+                                  cursorShape: Qt.PointingHandCursor
+                                  onClicked: {
+                                    root.volAdjust(streamRow.modelData.targets.length ? streamRow.modelData.targets : streamRow.modelData.id, -5)
+                                  }
+                                }
+                              }
+                              Rectangle {
+                                width: 18; height: 18; radius: 4; color: Style.controlBg
+                                Text {
+                                  anchors.centerIn: parent
+                                  text: "+"
+                                  font.pixelSize: 10 + root.uiFontBump
+                                  color: Style.text
+                                }
+                                MouseArea {
+                                  anchors.fill: parent
+                                  cursorShape: Qt.PointingHandCursor
+                                  onClicked: {
+                                    root.volAdjust(streamRow.modelData.targets.length ? streamRow.modelData.targets : streamRow.modelData.id, 5)
+                                  }
+                                }
+                              }
                             }
                           }
                         }

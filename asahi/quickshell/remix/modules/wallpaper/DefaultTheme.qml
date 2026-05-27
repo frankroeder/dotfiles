@@ -49,6 +49,8 @@ Singleton {
   readonly property color accentGreen: green
   readonly property color accentOrange: peach
   readonly property color accentRed: red
+  readonly property color primary: blue
+  readonly property color onPrimary: crust
 
   // Notification / status colors (Mocha)
   readonly property color urgencyLow: subtext0

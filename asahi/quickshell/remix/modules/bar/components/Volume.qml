@@ -15,7 +15,6 @@ Rectangle {
     implicitWidth: content.implicitWidth + 14
     implicitHeight: 26
 
-    property string icon: "󰕾"
     property string text: "--%"
     property bool muted: false
 
@@ -60,21 +59,26 @@ Rectangle {
 
     Component.onCompleted: audioProc.running = true
 
+    Timer {
+        id: refreshDelay
+        interval: 250
+        onTriggered: audioProc.running = true
+    }
+
     MouseArea {
-        id: volMa
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
 
-        // Left click: toggle mute
         onClicked: {
             Quickshell.execDetached(["bash", "-c", binDir + "/asahi-media-control output-volume mute-toggle"])
+            refreshDelay.restart()
         }
 
-        // Scroll wheel: adjust volume
         onWheel: (wheel) => {
             const direction = wheel.angleDelta.y > 0 ? "raise" : "lower"
             Quickshell.execDetached(["bash", "-c", binDir + "/asahi-media-control output-volume " + direction])
+            refreshDelay.restart()
         }
     }
 }

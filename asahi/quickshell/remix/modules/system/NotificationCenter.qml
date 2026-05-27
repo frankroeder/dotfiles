@@ -123,7 +123,7 @@ Scope {
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "quickshell-notifications"
     anchors { bottom: true; right: true }
-    margins { bottom: 12; right: 12 }
+    margins { bottom: 56; right: 36 }
     implicitWidth: 380
     implicitHeight: toastColumn.implicitHeight
 
@@ -252,12 +252,13 @@ Scope {
     property var entry: null
     property bool compact: false
     property bool timeout: false
+    readonly property color accent: root.urgencyColor(entry ? entry.urgency : 1)
     signal dismiss()
 
-    color: Style.moduleBg
+    color: Style.surface2
     radius: 8
-    border.color: root.urgencyColor(entry ? entry.urgency : 1)
-    border.width: entry && entry.urgency === 2 ? 1 : 0
+    border.color: card.accent
+    border.width: 2
     implicitHeight: cardBody.implicitHeight + 18
 
     Timer {
@@ -267,10 +268,23 @@ Scope {
       onTriggered: card.dismiss()
     }
 
+    Rectangle {
+      anchors {
+        left: parent.left
+        top: parent.top
+        bottom: parent.bottom
+        margins: 2
+      }
+      width: 5
+      radius: 2
+      color: card.accent
+    }
+
     RowLayout {
       id: cardBody
       anchors.fill: parent
       anchors.margins: 9
+      anchors.leftMargin: 14
       spacing: 10
 
       Rectangle {
@@ -294,7 +308,7 @@ Scope {
           text: "󰂚"
           font.family: Style.fontFamily
           font.pixelSize: 16
-          color: root.urgencyColor(card.entry ? card.entry.urgency : 1)
+          color: card.accent
         }
       }
 

@@ -43,11 +43,36 @@ Variants {
   property var memHistory: []
   readonly property int maxGraphHist: 22
 
+  // For ref-like popups (icons in bar, detail on click)
+  property bool showCpuPopup: false
+  property bool showRamPopup: false
+
+  onShowCpuPopupChanged: {
+    if (!showCpuPopup) return
+    cpuHistory = []
+    root.refreshCpu()
+    cpuPopupTimer.restart()
+  }
+  onShowRamPopupChanged: {
+    if (!showRamPopup) return
+    memHistory = []
+    root.refreshMem()
+    memPopupTimer.restart()
+  }
+
   function fmt2(n) {
     n = Math.round(n)
     if (n > 99) n = 99
     if (n < 0) n = 0
     return n < 10 ? "0" + n : "" + n
+  }
+
+  function refreshCpu() {
+    if (!cpuScriptProc.running) cpuScriptProc.running = true
+  }
+
+  function refreshMem() {
+    if (!memScriptProc.running) memScriptProc.running = true
   }
 
   // Windows on the currently focused workspace — used to show app icons
@@ -105,14 +130,16 @@ Variants {
           const m = txt.match(/(\d+)C/)
           root.cpuTempText = m ? m[1] : ""
 
-          root.cpuHistory.push(root.cpuPerc)
-          if (root.cpuHistory.length > root.maxGraphHist) root.cpuHistory.shift()
+          if (root.showCpuPopup) {
+            root.cpuHistory.push(root.cpuPerc)
+            if (root.cpuHistory.length > root.maxGraphHist) root.cpuHistory.shift()
 
-          if (cpuBarGraph) cpuBarGraph.requestPaint()
+            cpuPopupGraph.requestPaint()
+          }
         } catch (e) {}
       }
     }
-    Component.onCompleted: running = true
+    Component.onCompleted: root.refreshCpu()
   }
 
   // Memory script (usage + history bars like CPU)
@@ -127,25 +154,42 @@ Variants {
           root.memTooltip = data.tooltip || ""
           root.memPerc = data.percentage || 0
 
-          root.memHistory.push(root.memPerc)
-          if (root.memHistory.length > root.maxGraphHist) root.memHistory.shift()
+          if (root.showRamPopup) {
+            root.memHistory.push(root.memPerc)
+            if (root.memHistory.length > root.maxGraphHist) root.memHistory.shift()
 
-          if (memBarGraph) memBarGraph.requestPaint()
+            memPopupGraph.requestPaint()
+          }
         } catch (e) {}
       }
     }
-    Component.onCompleted: running = true
+    Component.onCompleted: root.refreshMem()
   }
 
-  // Update your timer to run both processes
   Timer {
-    interval: 800
+    interval: 3000
     running: true
     repeat: true
     onTriggered: {
-      cpuScriptProc.running = true
-      memScriptProc.running = true
+      root.refreshCpu()
+      root.refreshMem()
     }
+  }
+
+  Timer {
+    id: cpuPopupTimer
+    interval: 800
+    running: root.showCpuPopup
+    repeat: true
+    onTriggered: root.refreshCpu()
+  }
+
+  Timer {
+    id: memPopupTimer
+    interval: 800
+    running: root.showRamPopup
+    repeat: true
+    onTriggered: root.refreshMem()
   }
 
   // Keep window icons fresh (Hyprland events + periodic refresh)
@@ -176,14 +220,26 @@ Variants {
     onTriggered: root.refreshWorkspaceIcons(0)
   }
 
-  RowLayout {
+  Item {
+    id: barContent
     anchors.fill: parent
     anchors.margins: 4
-    spacing: 10
 
-    // Workspaces: only those that contain running apps.
-    // Each occupied workspace shows its number + its app icons.
+    // Far left (minimal)
+    Row {
+      id: leftSection
+      anchors.left: parent.left
+      anchors.verticalCenter: parent.verticalCenter
+      spacing: 8
+      BarComponents.MediaPlayer {}
+      BarComponents.StatusIndicators { notificationCenter: notificationCenter }
+    }
+
+    // Exactly centered workspaces (true geometric center, independent of left/right widths)
     Rectangle {
+      id: workspacesBlock
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.verticalCenter: parent.verticalCenter
       color: Style.moduleBg
       radius: 6
       implicitHeight: 38
@@ -196,42 +252,33 @@ Variants {
 
         Repeater {
           model: root.occupiedWorkspaces
-          // Per-workspace pill: highlighted rectangle containing the number + all its app icons (the bar's workspace overview)
           Rectangle {
             radius: 6
-            color: isFocused ? Style.hoverBg : Style.controlBg
-            border.color: isFocused ? Style.cyan : Style.border
             border.width: 1
             implicitHeight: 32
             implicitWidth: wsInner.implicitWidth + 8
 
             property bool isFocused: Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.id === modelData
 
+            color: isFocused ? Qt.alpha(Style.primary, 0.15) : Style.controlBg
+            border.color: isFocused ? Style.primary : Style.border
+
             Row {
               id: wsInner
               anchors.centerIn: parent
               spacing: 4
 
-              // Workspace number label (plain, no own MouseArea).
               Rectangle {
-                width: 22
-                height: 26
-                radius: 5
-                color: Style.wsNumBg
-                border.width: 0
-
+                width: 22; height: 26; radius: 5; color: Style.wsNumBg; border.width: 0
                 Text {
-                  anchors.centerIn: parent
-                  text: modelData
-                  color: isFocused ? Style.cyan : Style.blue
+                  anchors.centerIn: parent; text: modelData
+                  color: isFocused ? Style.primary : Style.blue
                   font { family: Style.fontFamily; pixelSize: 13; bold: true }
                 }
               }
 
-              // App icons (the apps "inside" this workspace's overview rect)
               Row {
-                spacing: 3
-                anchors.verticalCenter: parent.verticalCenter
+                spacing: 3; anchors.verticalCenter: parent.verticalCenter
                 Repeater {
                   model: {
                     root.wsWindowVersion
@@ -242,37 +289,19 @@ Variants {
                     })
                   }
                   Rectangle {
-                    width: 24
-                    height: 24
-                    radius: 4
-                    color: Style.moduleBg
-                    border.color: Style.border
-                    border.width: 1
-
+                    width: 24; height: 24; radius: 4; color: Style.moduleBg; border { color: Style.border; width: 1 }
                     IconImage {
-                      id: winIcon
-                      anchors.centerIn: parent
-                      width: 20
-                      height: 20
-                      source: {
-                        root.wsWindowVersion
-                        return root.appIconSource(modelData)
-                      }
+                      id: winIcon; anchors.centerIn: parent; width: 20; height: 20
+                      source: { root.wsWindowVersion; return root.appIconSource(modelData) }
                       visible: source !== ""
                     }
                     Text {
-                      anchors.centerIn: parent
-                      visible: !winIcon.visible
+                      anchors.centerIn: parent; visible: !winIcon.visible
                       text: (modelData.appId || modelData.lastIpcObject?.class || "?").charAt(0).toUpperCase()
-                      font.pixelSize: 12
-                      font.bold: true
-                      color: Style.text
+                      font.pixelSize: 12; font.bold: true; color: Style.text
                     }
-
                     MouseArea {
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      cursorShape: Qt.PointingHandCursor
+                      anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                       onClicked: modelData.activate()
                     }
                   }
@@ -280,13 +309,8 @@ Variants {
               }
             }
 
-            // Whole pill is clickable to switch workspace.
-            // Uses the proper Quickshell Hyprland API (.activate()) instead of string dispatch
-            // to avoid the broken Lua dispatch handler in the user's Hyprland config.
             MouseArea {
-              anchors.fill: parent
-              cursorShape: Qt.PointingHandCursor
-              acceptedButtons: Qt.LeftButton
+              anchors.fill: parent; cursorShape: Qt.PointingHandCursor; acceptedButtons: Qt.LeftButton
               onClicked: {
                 const ws = Hyprland.workspaces.values.find(w => w.id === modelData)
                 if (ws) ws.activate()
@@ -297,222 +321,143 @@ Variants {
       }
     }
 
-    // Spacer to push Media to center
-    Item { Layout.fillWidth: true }
-    Item { Layout.fillWidth: true }
-    Item { Layout.fillWidth: true }
+    // Far right (minimal strip)
+    Row {
+      id: rightSection
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      spacing: 6
+      BarComponents.Microphone {}
+      BarComponents.Volume {}
 
-    // Media in the middle
-    BarComponents.MediaPlayer {}
-
-    // Spacer to push right group to the right
-
-    BarComponents.StatusIndicators {
-      notificationCenter: notificationCenter
-    }
-    // Right side (as specified): mic, vol, CPU widget (graph left/middle + % + temp right), RAM widget (graph left/middle + % right), net, bt, battery, clock
-    BarComponents.Microphone {}
-    BarComponents.Volume {}
-
-    // CPU widget: graph occupies left + middle of the widget, percentage (2 digits, leading zero) and temp on the very right of the widget.
-    // Temp combined with CPU as requested.
-    Rectangle {
-      color: Style.moduleBg
-      radius: 4
-      implicitWidth: 170
-      implicitHeight: 24
-
-      RowLayout {
-        anchors.fill: parent
-        anchors.margins: 3
-        spacing: 4
-
-        Canvas {
-          id: cpuBarGraph
-          Layout.fillWidth: true
-          Layout.preferredWidth: 120
-          Layout.preferredHeight: 12
-          Layout.alignment: Qt.AlignVCenter
-          onPaint: {
-            const ctx = getContext("2d"); ctx.reset()
-            const h = height; const w = width
-            const hist = root.cpuHistory
-            if (!hist || hist.length < 2) return
-            const n = hist.length
-            const step = w / (n - 1)
-            const color = Style.orange
-            ctx.lineJoin = "round"; ctx.lineCap = "round"
-
-            const grad = ctx.createLinearGradient(0, 0, 0, h)
-            grad.addColorStop(0, Qt.alpha(color, 0.35))
-            grad.addColorStop(1, "transparent")
-            ctx.fillStyle = grad
-            ctx.beginPath()
-            ctx.moveTo(0, h)
-            for (let i = 0; i < n; i++) {
-              const x = i * step
-              const y = h - (hist[i] / 100) * h
-              ctx.lineTo(x, y)
-            }
-            ctx.lineTo(w, h)
-            ctx.closePath()
-            ctx.fill()
-
-            ctx.beginPath()
-            for (let j = 0; j < n; j++) {
-              const x = j * step
-              const y = h - (hist[j] / 100) * h
-              if (j === 0) ctx.moveTo(x, y)
-              else ctx.lineTo(x, y)
-            }
-            ctx.strokeStyle = color
-            ctx.lineWidth = 1.4
-            ctx.stroke()
-
-            const lx = (n - 1) * step
-            const ly = h - (hist[n - 1] / 100) * h
-            ctx.fillStyle = color
-            ctx.beginPath()
-            ctx.arc(lx, ly, 1.2, 0, 6.28)
-            ctx.fill()
-          }
-        }
-
-        // Right of CPU widget: percentage with % symbol, temperature right next to it (combined as requested)
-        Row {
-          Layout.preferredWidth: 94
+      // Compact CPU (icon + % + temp, click for graph popup) - match Vol/Mic sizes
+      Rectangle {
+        color: Style.moduleBg
+        radius: 6
+        implicitWidth: 96
+        implicitHeight: 26
+        RowLayout {
+          anchors.centerIn: parent
           spacing: 4
           Text {
-            text: "CPU " + fmt2(root.cpuPerc) + "%"
-            color: Style.yellow
-            font { family: Style.fontFamily; pixelSize: 14 }
-            horizontalAlignment: Text.AlignRight
+            text: "󰍛"
+            font { family: Style.fontFamily; pixelSize: 22 }
+            color: Style.orange
+            verticalAlignment: Text.AlignVCenter
+            Layout.alignment: Qt.AlignVCenter
           }
           Text {
-            text: fmt2(root.cpuTempText) + "°C"
-            color: Style.textAlt
+            text: root.fmt2(root.cpuPerc) + "%"
+            font { family: Style.fontFamily; pixelSize: 17 }
+            color: Style.yellow
+            verticalAlignment: Text.AlignVCenter
+            Layout.alignment: Qt.AlignVCenter
+          }
+          Text {
+            text: root.cpuTempText + "°"
             font { family: Style.fontFamily; pixelSize: 14 }
-            horizontalAlignment: Text.AlignRight
+            color: Style.textAlt
+            verticalAlignment: Text.AlignVCenter
+            Layout.alignment: Qt.AlignVCenter
           }
+        }
+        MouseArea {
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.showCpuPopup = !root.showCpuPopup
         }
       }
 
-      MouseArea {
-        id: cpuMa
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        onClicked: Quickshell.execDetached(["bash", "-c", binDir + "/asahi-launch-or-focus-tui htop"])
+      // Compact RAM (% only, click for graph popup) - match Vol/Mic sizes
+      Rectangle {
+        color: Style.moduleBg
+        radius: 6
+        implicitWidth: 68
+        implicitHeight: 26
+        RowLayout {
+          anchors.centerIn: parent
+          spacing: 4
+          Text {
+            text: "󰘚"
+            font { family: Style.fontFamily; pixelSize: 22 }
+            color: Style.lavender
+            verticalAlignment: Text.AlignVCenter
+            Layout.alignment: Qt.AlignVCenter
+          }
+          Text {
+            text: root.fmt2(root.memPerc) + "%"
+            font { family: Style.fontFamily; pixelSize: 17 }
+            color: Style.cyan
+            verticalAlignment: Text.AlignVCenter
+            Layout.alignment: Qt.AlignVCenter
+          }
+        }
+        MouseArea {
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.showRamPopup = !root.showRamPopup
+        }
       }
+
+      BarComponents.Network {}
+      BarComponents.Bluetooth {}
+
+      BarComponents.Battery {}
+
+      // Clock / date (display only)
+      BarComponents.Clock {}
     }
+  }
 
-    // RAM widget: graph occupies left + middle of the widget, percentage (2 digits) on the very right of the widget.
-    Rectangle {
-      color: Style.moduleBg
-      radius: 4
-      implicitWidth: 130
-      implicitHeight: 24
-
-      RowLayout {
-        anchors.fill: parent
-        anchors.margins: 3
-        spacing: 4
-
-        Canvas {
-          id: memBarGraph
-          Layout.fillWidth: true
-          Layout.preferredWidth: 100
-          Layout.preferredHeight: 12
-          Layout.alignment: Qt.AlignVCenter
-          onPaint: {
-            const ctx = getContext("2d"); ctx.reset()
-            const h = height; const w = width
-            const hist = root.memHistory
-            if (!hist || hist.length < 2) return
-            const n = hist.length
-            const step = w / (n - 1)
-            const color = Style.lavender
-            ctx.lineJoin = "round"; ctx.lineCap = "round"
-
-            const grad = ctx.createLinearGradient(0, 0, 0, h)
-            grad.addColorStop(0, Qt.alpha(color, 0.35))
-            grad.addColorStop(1, "transparent")
-            ctx.fillStyle = grad
-            ctx.beginPath()
-            ctx.moveTo(0, h)
-            for (let i = 0; i < n; i++) {
-              const x = i * step
-              const y = h - (hist[i] / 100) * h
-              ctx.lineTo(x, y)
-            }
-            ctx.lineTo(w, h)
-            ctx.closePath()
-            ctx.fill()
-
-            ctx.beginPath()
-            for (let j = 0; j < n; j++) {
-              const x = j * step
-              const y = h - (hist[j] / 100) * h
-              if (j === 0) ctx.moveTo(x, y)
-              else ctx.lineTo(x, y)
-            }
-            ctx.strokeStyle = color
-            ctx.lineWidth = 1.4
-            ctx.stroke()
-
-            const lx = (n - 1) * step
-            const ly = h - (hist[n - 1] / 100) * h
-            ctx.fillStyle = color
-            ctx.beginPath()
-            ctx.arc(lx, ly, 1.2, 0, 6.28)
-            ctx.fill()
-          }
-        }
-
-        // Right of RAM widget: percentage with % symbol
+  // Graph popups (ref-style minimal: icons in bar, click for full canvas detail)
+  PanelWindow {
+    visible: root.showCpuPopup; color: "transparent"
+    anchors { top: true; right: true }
+    margins { top: 48; right: 8 }
+    implicitWidth: 420; implicitHeight: 110
+    Rectangle { anchors.fill: parent; color: Style.moduleBg; radius: 8; border { color: Style.primary; width: 1 }
+      Column { anchors { fill: parent; margins: 8 }
         Text {
-          text: "RAM " + fmt2(root.memPerc) + "%"
-          color: Style.cyan
-          font { family: Style.fontFamily; pixelSize: 13 }
-          Layout.preferredWidth: 60
-          horizontalAlignment: Text.AlignRight
-          Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+          text: root.cpuText
+          color: Style.orange; font { family: Style.fontFamily; pixelSize: 12; bold: true }
         }
+        Canvas { id: cpuPopupGraph; width: parent.width - 16; height: 60; onPaint: {
+          const ctx = getContext("2d"); ctx.reset(); const h = height; const w = width; const hist = root.cpuHistory
+          if (!hist || hist.length < 2) return; const n = hist.length; const step = w / (n - 1); const c = Style.orange
+          ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.beginPath()
+          for (let j = 0; j < n; j++) { const x = j * step; const y = h - (hist[j] / 100) * h; j ? ctx.lineTo(x, y) : ctx.moveTo(x, y) }
+          ctx.stroke()
+        } }
+        Text { text: "click icon to close"; color: Style.textMuted; font.pixelSize: 10 }
       }
-
-      MouseArea {
-        id: memMa
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-      }
+      MouseArea { anchors.fill: parent; onClicked: root.showCpuPopup = false }
     }
-
-    BarComponents.Network {}
-    BarComponents.Bluetooth {}
-
-    BarComponents.Battery {}
-
-    // Clock / date (display only)
-    BarComponents.Clock {}
   }
-
-  // Custom tooltips attached to each widget's MouseArea
-  BarComponents.TooltipWindow {
-    id: cpuTip
-    target: cpuMa
-    text: root.cpuTooltip
-    show: cpuMa.containsMouse
-    maxWidth: 380
+  PanelWindow {
+    visible: root.showRamPopup; color: "transparent"
+    anchors { top: true; right: true }
+    margins { top: 48; right: 8 }
+    implicitWidth: 420; implicitHeight: 110
+    Rectangle { anchors.fill: parent; color: Style.moduleBg; radius: 8; border { color: Style.primary; width: 1 }
+      Column { anchors { fill: parent; margins: 8 }
+        Text { text: "RAM " + root.memText; color: Style.lavender; font { family: Style.fontFamily; pixelSize: 12; bold: true } }
+        Canvas { id: memPopupGraph; width: parent.width - 16; height: 60; onPaint: {
+          const ctx = getContext("2d"); ctx.reset(); const h = height; const w = width; const hist = root.memHistory
+          if (!hist || hist.length < 2) return; const n = hist.length; const step = w / (n - 1); const c = Style.lavender
+          ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.beginPath()
+          for (let j = 0; j < n; j++) { const x = j * step; const y = h - (hist[j] / 100) * h; j ? ctx.lineTo(x, y) : ctx.moveTo(x, y) }
+          ctx.stroke()
+        } }
+        Text { text: "click icon to close"; color: Style.textMuted; font.pixelSize: 10 }
+      }
+      MouseArea { anchors.fill: parent; onClicked: root.showRamPopup = false }
+    }
   }
+  // (old cpu/mem tooltips removed - ids gone after compacting)
 
-  BarComponents.TooltipWindow {
-    id: memTip
-    target: memMa
-    text: root.memTooltip
-    show: memMa.containsMouse
-    maxWidth: 380
-  }
+
 }
 }  // close Variants
 
