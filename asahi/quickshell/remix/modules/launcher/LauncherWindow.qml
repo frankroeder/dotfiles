@@ -17,6 +17,7 @@ Scope {
   property int selectedIndex: 0
   property var launcherScreen: null
   property int resultCount: 0
+  property int deVersion: 0
 
   readonly property string headerText: {
     const q = root.query.trim()
@@ -80,15 +81,16 @@ Scope {
     shouldShow = false
   }
 
-  // websearch config loaded from json (edit websearch.json to customize @ docs + default; ! bangs are built-in for direct trigger)
-  property var webEngines: []
-  property var bangMap: ({
-    yt: "https://www.youtube.com/results?search_query=%s",
-    y: "https://www.youtube.com/results?search_query=%s",
-    w: "https://en.wikipedia.org/wiki/Special:Search?search=%s",
-    r: "https://www.reddit.com/search/?q=%s",
-    g: "https://www.google.com/search?q=%s"
-  })
+  // websearch: @ uses engines[] from json (fuzzy lists + prefix direct). ! passes the literal text (e.g. "!yt hello") to Kagi via defaultSearchUrl.
+  property var webEngines: [
+    { name: "Kagi", prefix: "kagi", url: "https://kagi.com/search?q=%TERM%", icon: "󰖟" },
+    { name: "Jax Documentation", prefix: "jaxdoc", url: "https://docs.jax.dev/en/latest/search.html?q=%TERM%", icon: "󰈙" },
+    { name: "Flax Documentation", prefix: "flaxdoc", url: "https://flax.readthedocs.io/en/stable/search.html?q=%TERM%", icon: "󰈙" },
+    { name: "dict.cc", prefix: "dcc", url: "https://www.dict.cc/?s=%TERM%", icon: "󰗊" },
+    { name: "NumPy Documentation", prefix: "npdoc", url: "https://numpy.org/doc/stable/search.html?q=%TERM%", icon: "󰈙" },
+    { name: "Kagi Translate", prefix: "kt", url: "https://translate.kagi.com/?from=auto&to=en_us&text=%TERM%", icon: "󰗊" },
+    { name: "PyTorch Documentation", prefix: "ptdoc", url: "https://docs.pytorch.org/docs/stable/search.html?q=%TERM%", icon: "󰈙" }
+  ]
   property string defaultSearchUrl: "https://kagi.com/search?q=%s"
 
   function loadWebsearchConfig() {
@@ -100,7 +102,6 @@ Scope {
           try {
             var data = JSON.parse(xhr.responseText)
             if (data.engines && data.engines.length > 0) webEngines = data.engines
-            if (data.bangs) bangMap = data.bangs
             if (data.defaultSearchUrl) defaultSearchUrl = data.defaultSearchUrl
           } catch (e) {
             console.warn("websearch.json parse failed")
@@ -113,6 +114,11 @@ Scope {
   }
 
   Component.onCompleted: loadWebsearchConfig()
+
+  Connections {
+    target: DesktopEntries
+    function onApplicationsChanged() { root.deVersion++ }
+  }
 
   function calculate(expr) {
     expr = (expr || "").trim()
@@ -141,29 +147,14 @@ Scope {
       return null
     }
     if (q.startsWith("!")) {
-      const m = q.match(/^!([a-z0-9]+)\s*(.*)$/i)
-      if (m) {
-        const b = m[1].toLowerCase()
-        const t = (m[2] || "").trim()
-        const tpl = root.bangMap[b]
-        if (tpl && t) {
-          return [{
-            id: "bang-" + b,
-            name: "!" + b + " " + t,
-            comment: "Bang search — Enter to open",
-            icon: "󰖟",
-            special: "web",
-            url: tpl.replace("%s", encodeURIComponent(t))
-          }]
-        }
-      }
-      const t = q.substring(1).trim()
+      // Literal pass-through to Kagi (defaultSearchUrl). Whatever you type after ! is sent as the query string.
+      const t = q.trim()
       if (t) {
         const tpl = root.defaultSearchUrl
         return [{
           id: "web",
-          name: "Search: " + t,
-          comment: "Web search — Enter to open",
+          name: t,
+          comment: "Kagi — Enter to search",
           icon: "󰖟",
           special: "web",
           url: tpl.replace("%s", encodeURIComponent(t))
@@ -174,17 +165,29 @@ Scope {
     if (q.startsWith("@")) {
       const after = q.substring(1).trim()
       const la = after.toLowerCase()
+
       const engines = root.webEngines.length > 0 ? root.webEngines : [{
         name: "Kagi", prefix: "kagi", url: "https://kagi.com/search?q=%TERM%", icon: "󰖟"
       }]
-      // exact prefix match for direct search
+
+      // tiny subsequence fuzzy (for suggestion lists when typing partial @)
+      const fuzzy = (hay, ned) => {
+        if (!ned) return true
+        hay = hay.toLowerCase(); ned = ned.toLowerCase()
+        let i = 0
+        for (const c of hay) { if (c === ned[i]) i++; if (i === ned.length) return true }
+        return false
+      }
+
+      // exact prefix match for direct search (e.g. @ptdoc hello → PyTorch docs with the term)
       for (const e of engines) {
         const p = e.prefix
         if (la === p || la.startsWith(p + " ")) {
-          const term = la.startsWith(p + " ") ? after.substring(p.length + 1).trim() : after.substring(p.length).trim()
+          let raw = after.substring(p.length).trim()
+          const term = raw.replace(/^["'\s]+|["'\s]+$/g, "")
           let u = e.url
           if (term) u = u.replace("%TERM%", encodeURIComponent(term))
-          else u = u.replace("%TERM%", "").replace(/\?q=$/, "")
+          else u = u.replace("%TERM%", "").replace(/\?q=$/, "").replace(/\?s=$/, "").replace(/&text=$/, "").replace(/search\?q=$/, "")
           return [{
             id: "doc-" + p,
             name: e.name + (term ? " — " + term : ""),
@@ -195,8 +198,9 @@ Scope {
           }]
         }
       }
-      // partial: filter list of engines
-      const f = engines.filter(e => e.prefix.toLowerCase().startsWith(la) || e.name.toLowerCase().includes(la) || la === "")
+
+      // fuzzy list (matches prefix or name via subsequence) for @partial
+      const f = engines.filter(e => fuzzy(e.prefix, la) || fuzzy(e.name, la) || la === "")
       if (f.length > 0) {
         return f.map(e => ({
           id: "doclist-" + e.prefix,
@@ -207,6 +211,7 @@ Scope {
           url: e.url.replace("%TERM%", "")
         }))
       }
+
       // fallback
       const t = after || ""
       const u = root.defaultSearchUrl.replace("%s", encodeURIComponent(t))
@@ -219,6 +224,7 @@ Scope {
     id: filteredApps
     objectProp: "id"
     values: {
+      root.deVersion
       const specials = root.getSpecialResults(root.query)
       if (specials && specials.length > 0) return specials
       let all = [...DesktopEntries.applications.values]
@@ -545,7 +551,7 @@ Scope {
             Text { text: "close"; color: Style.text; font.pixelSize: 10; font.family: "Hack Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
           }
 
-          Text { text: "=:calc  !:web  @:docs"; color: Style.text; font.pixelSize: 10; font.family: "Hack Nerd Font"; Layout.alignment: Qt.AlignVCenter }
+          Text { text: "=:calc  !:kagi  @:docs"; color: Style.text; font.pixelSize: 10; font.family: "Hack Nerd Font"; Layout.alignment: Qt.AlignVCenter }
           Item { Layout.fillWidth: true }
         }
       }

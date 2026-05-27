@@ -87,10 +87,46 @@ Variants {
   }
 
   function appIconSource(t) {
-    const raw = String(t.appId || t.lastIpcObject?.class || t.lastIpcObject?.initialClass || "").trim()
-    if (raw === "") return ""
-    const entry = DesktopEntries.heuristicLookup(raw)
-    return Quickshell.iconPath(entry?.icon || raw, true)
+    const candidates = root.appCandidates(t)
+    if (candidates.length === 0) return ""
+
+    for (let i = 0; i < candidates.length; i++) {
+      const name = candidates[i]
+      const entry = DesktopEntries.heuristicLookup(name)
+      const source = Quickshell.iconPath(entry?.icon || name, true)
+      if (source !== "") return source
+    }
+
+    return ""
+  }
+
+  function appCandidates(t) {
+    const values = [
+      t.appId,
+      t.lastIpcObject?.class,
+      t.lastIpcObject?.initialClass,
+      t.title,
+      t.lastIpcObject?.title,
+      t.lastIpcObject?.initialTitle
+    ]
+    const candidates = []
+
+    for (let i = 0; i < values.length; i++) {
+      const raw = String(values[i] || "").trim()
+      if (raw === "") continue
+      const lower = raw.toLowerCase()
+      candidates.push(raw, lower)
+      if (lower.includes(".")) candidates.push(lower.split(".").pop())
+      const words = lower.split(/[^a-z0-9]+/).filter(w => w.length > 2)
+      for (let j = words.length - 1; j >= 0; j--) candidates.push(words[j])
+    }
+
+    return [...new Set(candidates)]
+  }
+
+  function appFallbackText(t) {
+    const candidates = root.appCandidates(t)
+    return candidates.length > 0 ? candidates[0].charAt(0).toUpperCase() : "?"
   }
 
   // Workspaces that contain windows (or the focused one), in stable numeric order.
@@ -293,11 +329,11 @@ Variants {
                     IconImage {
                       id: winIcon; anchors.centerIn: parent; width: 20; height: 20
                       source: { root.wsWindowVersion; return root.appIconSource(modelData) }
-                      visible: source !== ""
+                      visible: status === Image.Ready
                     }
                     Text {
                       anchors.centerIn: parent; visible: !winIcon.visible
-                      text: (modelData.appId || modelData.lastIpcObject?.class || "?").charAt(0).toUpperCase()
+                      text: root.appFallbackText(modelData)
                       font.pixelSize: 12; font.bold: true; color: Style.text
                     }
                     MouseArea {
@@ -311,10 +347,7 @@ Variants {
 
             MouseArea {
               anchors.fill: parent; cursorShape: Qt.PointingHandCursor; acceptedButtons: Qt.LeftButton
-              onClicked: {
-                const ws = Hyprland.workspaces.values.find(w => w.id === modelData)
-                if (ws) ws.activate()
-              }
+              onClicked: Quickshell.execDetached(["/usr/bin/hyprctl", "dispatch", "workspace", String(modelData)])
             }
           }
         }

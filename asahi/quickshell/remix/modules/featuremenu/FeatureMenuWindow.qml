@@ -456,7 +456,7 @@ Scope {
   function volAdjust(target, delta) {
     const targets = Array.isArray(target) ? target : [target]
     for (let i = 0; i < targets.length; i++) {
-      Quickshell.execDetached(["wpctl", "set-volume", String(targets[i]), delta > 0 ? "5%+" : "5%-"])
+      Quickshell.execDetached(["wpctl", "set-volume", "-l", "1", String(targets[i]), delta > 0 ? "5%+" : "5%-"])
     }
     audioRefreshDelay.restart()
   }
@@ -485,8 +485,46 @@ Scope {
       name: m[3].trim(),
       meta: meta,
       targets: [],
-      volume: vol ? Math.round(parseFloat(vol[1]) * 100) + "%" : ""
+      volume: vol ? Math.round(parseFloat(vol[1]) * 100) + "%" : "",
+      muted: meta.indexOf("MUTED") !== -1
     }
+  }
+  function refreshAudioStreamVolumes() {
+    if (audioStreamVolumeProc.running || root.audioStreams.length === 0) return
+    const cmds = []
+    for (let i = 0; i < root.audioStreams.length; i++) {
+      const id = String(root.audioStreams[i].id)
+      cmds.push("printf '" + id + " '; wpctl get-volume " + id + " 2>/dev/null || printf 'Volume: ?\\n'")
+    }
+    audioStreamVolumeProc.command = ["sh", "-c", cmds.join("; ")]
+    audioStreamVolumeProc.running = true
+  }
+  function applyAudioStreamVolumes(out) {
+    const volumes = {}
+    for (const line of (out || "").split("\n")) {
+      const m = line.match(/^(\d+)\s+Volume:\s+([0-9.]+)(.*)$/)
+      if (!m) continue
+      volumes[m[1]] = {
+        volume: Math.round(parseFloat(m[2]) * 100) + "%",
+        muted: m[3].indexOf("MUTED") !== -1
+      }
+    }
+
+    const streams = []
+    for (let i = 0; i < root.audioStreams.length; i++) {
+      const item = root.audioStreams[i]
+      const state = volumes[item.id]
+      streams.push({
+        active: item.active,
+        id: item.id,
+        name: item.name,
+        meta: item.meta,
+        targets: item.targets,
+        volume: state ? state.volume : item.volume,
+        muted: state ? state.muted : item.muted
+      })
+    }
+    root.audioStreams = streams
   }
   function parseAudioStatus(out) {
     const sinks = []
@@ -532,11 +570,16 @@ Scope {
     root.audioSinks = sinks
     root.audioSources = sources
     root.audioStreams = streams
+    root.refreshAudioStreamVolumes()
   }
   Process {
     id: audioMixerProc
     command: ["wpctl", "status"]
     stdout: StdioCollector { onStreamFinished: root.parseAudioStatus(text) }
+  }
+  Process {
+    id: audioStreamVolumeProc
+    stdout: StdioCollector { onStreamFinished: root.applyAudioStreamVolumes(text) }
   }
   Timer {
     id: audioRefreshDelay
@@ -623,7 +666,7 @@ Scope {
 
   // Power actions
   function doLock() { Quickshell.execDetached(["loginctl", "lock-session"]); closeFeature() }
-  function doSuspend() { Quickshell.execDetached(["sh", "-c", "loginctl lock-session && systemctl suspend"]); closeFeature() }
+  function doSuspend() { Quickshell.execDetached(["sh", "-c", "loginctl lock-session && systemctl suspend"]); closeFeature() }  // s2idle (Asahi: hibernation not supported)
   function doReboot() {
     if (pendingConfirm === "reboot") { Quickshell.execDetached(["systemctl", "reboot"]); closeFeature() }
     else pendingConfirm = "reboot"
@@ -1958,7 +2001,7 @@ Scope {
                               }
                               Text {
                                 text: modelData.name
-                                color: Style.text
+                                color: modelData.muted ? Style.textMuted : Style.text
                                 font.pixelSize: 9 + root.uiFontBump
                                 font.family: "JetBrainsMono Nerd Font"
                                 elide: Text.ElideRight
@@ -1966,7 +2009,7 @@ Scope {
                               }
                               Text {
                                 text: modelData.volume || "#" + modelData.id
-                                color: Style.blue
+                                color: modelData.muted ? Style.red : Style.blue
                                 font.pixelSize: 9 + root.uiFontBump
                                 font.family: "JetBrainsMono Nerd Font"
                                 font.bold: true
@@ -1975,15 +2018,15 @@ Scope {
                                 width: 18; height: 18; radius: 4; color: Style.controlBg
                                 Text {
                                   anchors.centerIn: parent
-                                  text: "󰖁"
+                                  text: modelData.muted ? "󰖁" : "󰕾"
                                   font.pixelSize: 10 + root.uiFontBump
-                                  color: Style.text
+                                  color: modelData.muted ? Style.red : Style.text
                                 }
                                 MouseArea {
                                   anchors.fill: parent
                                   cursorShape: Qt.PointingHandCursor
                                   onClicked: {
-                                    root.toggleMute(streamRow.modelData.targets.length ? streamRow.modelData.targets : streamRow.modelData.id)
+                                    root.toggleMute(streamRow.modelData.id)
                                   }
                                 }
                               }
@@ -1999,7 +2042,7 @@ Scope {
                                   anchors.fill: parent
                                   cursorShape: Qt.PointingHandCursor
                                   onClicked: {
-                                    root.volAdjust(streamRow.modelData.targets.length ? streamRow.modelData.targets : streamRow.modelData.id, -5)
+                                    root.volAdjust(streamRow.modelData.id, -5)
                                   }
                                 }
                               }
@@ -2015,7 +2058,7 @@ Scope {
                                   anchors.fill: parent
                                   cursorShape: Qt.PointingHandCursor
                                   onClicked: {
-                                    root.volAdjust(streamRow.modelData.targets.length ? streamRow.modelData.targets : streamRow.modelData.id, 5)
+                                    root.volAdjust(streamRow.modelData.id, 5)
                                   }
                                 }
                               }

@@ -4,6 +4,9 @@
 set -euo pipefail
 
 LIBREWOLF_REPO_URL="https://repo.librewolf.net/librewolf.repo"
+FLATHUB_REPO_URL="https://dl.flathub.org/repo/flathub.flatpakrepo"
+FLATPAK_EXPORT_DIR="${HOME}/.local/share/flatpak/exports/share"
+DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FEDORA_VERSION="$(rpm -E %fedora)"
 
 sudo dnf upgrade -y
@@ -33,8 +36,9 @@ sudo dnf install -y \
   cmake \
   curl \
   fd-find \
-  ffmpeg \
   fastfetch \
+  ffmpeg \
+  flatpak \
   fuzzel \
   ghostty \
   google-noto-color-emoji-fonts \
@@ -79,6 +83,29 @@ sudo dnf install -y \
   xdg-desktop-portal-gtk \
   xdg-desktop-portal-hyprland \
   zsh
+
+flatpak remote-add --user --if-not-exists flathub "$FLATHUB_REPO_URL"
+
+FLATPAK_APPS=(
+  com.protonvpn.www
+  org.zotero.Zotero
+)
+
+if [[ "$(uname -m)" == "x86_64" ]]; then
+  FLATPAK_APPS+=(org.signal.Signal)
+else
+  echo "Skipping Signal Flatpak: Flathub does not ship aarch64 builds."
+fi
+
+flatpak install --user -y flathub "${FLATPAK_APPS[@]}"
+
+bash "${DOTFILES_DIR}/scripts/fix_linux_desktop_icons.sh"
+
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+  gtk-update-icon-cache -q "${FLATPAK_EXPORT_DIR}/icons/hicolor" >/dev/null 2>&1 || true
+fi
+
+systemctl --user import-environment XDG_DATA_DIRS || true
 
 # Optional Asahi extras (not in minimal dnf to avoid bloat):
 # - hyprdynamicmonitors (Go tool for dynamic monitor profiles/lid/hotplug on Mac hw): go install github.com/fiffeek/hyprdynamicmonitors@latest

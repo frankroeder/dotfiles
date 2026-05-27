@@ -24,7 +24,7 @@ case "$choice" in
     ;;
   Suspend)
     loginctl lock-session
-    systemctl suspend
+    systemctl suspend  # s2idle only (Asahi: no hibernation/disk support)
     ;;
   Reboot)
     confirm Reboot && systemctl reboot

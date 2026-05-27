@@ -6,7 +6,7 @@ hl.monitor({
 })
 
 hl.monitor({
-  output = "HDMI-A-1",
+  output = "desc:LG Electronics LG ULTRAFINE 112NTMX6B267",
   mode = "3840x2160@60.000",
   position = "-2560x-360",
   scale = 1.5,
@@ -29,3 +29,4 @@ hl.monitor({
 hl.workspace_rule({ workspace = "1", monitor = "HDMI-A-1" })
 hl.workspace_rule({ workspace = "2", monitor = "HDMI-A-1" })
 hl.workspace_rule({ workspace = "3", monitor = "HDMI-A-1" })
+hl.workspace_rule({ workspace = "4", monitor = "HDMI-A-1" })

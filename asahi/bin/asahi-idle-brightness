@@ -86,6 +86,10 @@ case "$action" in
     fi
     ;;
   off)
+    if device="$(brightness_device)"; then
+      save_device display "$device"
+      set_device "$device" 0
+    fi
     if device="$(keyboard_device)"; then
       save_device keyboard "$device"
       set_device "$device" 0
