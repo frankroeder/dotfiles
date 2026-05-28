@@ -3,6 +3,7 @@
 set -euo pipefail
 
 wallpaper_dir="${ASAHI_WALLPAPERS_DIR:-$HOME/Pictures/wallpaper}"
+wallpaper_conf="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/wallpaper.conf"
 fuzzel_cmd="fuzzel --dmenu"
 
 notify() {
@@ -31,5 +32,7 @@ wallpaper="$(
 hyprctl hyprpaper preload "$wallpaper" >/dev/null 2>&1 || true
 hyprctl hyprpaper wallpaper ",$wallpaper"
 hyprctl hyprpaper unload unused >/dev/null 2>&1 || true
+mkdir -p "$(dirname "$wallpaper_conf")"
+printf "%s" "$wallpaper" > "$wallpaper_conf"
 
 notify "Wallpaper" "$(basename "$wallpaper")"
