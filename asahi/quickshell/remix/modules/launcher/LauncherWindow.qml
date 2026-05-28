@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Widgets
 import "../wallpaper" as Wallpaper
@@ -18,12 +19,22 @@ Scope {
   property var launcherScreen: null
   property int resultCount: 0
   property int deVersion: 0
+  property int dictVersion: 0
+  property string dictStatus: ""
+  property string dictPendingTerm: ""
+  property string dictRunningTerm: ""
+  property string dictCopyLang: ""
+  property var dictItems: []
+
+  readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
+  readonly property string dictIcon: "file://" + Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/assets/dict-cc.png"
 
   readonly property string headerText: {
     const q = root.query.trim()
     if (q.startsWith("=")) return "Calculator"
     if (q.startsWith("!")) return "Web Search"
     if (q.startsWith("@")) return "Documentation"
+    if (root.dictTerm(q)) return "Dictionary"
     return "Applications"
   }
 
@@ -31,6 +42,13 @@ Scope {
     const c = root.resultCount
     const s = c !== 1 ? "s" : ""
     const qq = root.query.trim()
+    if (root.dictTerm(qq)) {
+      if (root.dictStatus === "loading") return "Loading dict.cc"
+      if (root.dictStatus === "error") return "dict.cc lookup failed"
+      if (root.dictStatus === "no-results") return "No translations"
+      const lang = root.dictCopyLang === "en" ? "English" : (root.dictCopyLang === "de" ? "German" : "translation")
+      return c + " result" + s + " · Return copies " + lang
+    }
     if (qq.startsWith("=") || qq.startsWith("!") || qq.startsWith("@")) return c + " result" + s
     return c + " application" + s
   }
@@ -41,6 +59,7 @@ Scope {
       resultsList.currentIndex = max
     }
   }
+  onDictVersionChanged: root.resetDictSelection()
 
   function launchCurrent() {
     let entry = null
@@ -67,9 +86,14 @@ Scope {
 
   function launchApp(entry) {
     if (!entry) { shouldShow = false; return }
-    if (entry.special === "calc") {
+    if (entry.special === "noop") {
+      return
+    } else if (entry.special === "calc") {
       const res = entry.result || ""
       if (res) Quickshell.execDetached(["bash", "-c", "echo -n '" + res.replace(/'/g, "'\\''") + "' | wl-copy"])
+    } else if (entry.special === "dict") {
+      const copy = entry.copy || ""
+      if (copy) Quickshell.execDetached(["sh", "-c", "printf %s \"$1\" | wl-copy", "sh", copy])
     } else if ((entry.special === "web" || entry.special === "doc") && entry.url) {
       let u = entry.url
       if (u.includes("%TERM%")) u = u.replace("%TERM%", "")
@@ -79,6 +103,98 @@ Scope {
       entry.execute()
     }
     shouldShow = false
+  }
+
+  function dictTerm(q) {
+    const m = (q || "").trim().match(/^dict\s+(.+)$/i)
+    return m ? m[1].trim() : ""
+  }
+
+  function resetDictSelection() {
+    if (!resultsList || !dictTerm(root.query)) return
+    resultsList.currentIndex = 0
+    resultsList.positionViewAtBeginning()
+  }
+
+  function scheduleDictLookup() {
+    const term = dictTerm(root.query)
+    root.dictPendingTerm = term
+    if (!term) {
+      dictDebounce.stop()
+      root.dictStatus = ""
+      root.dictCopyLang = ""
+      root.dictItems = []
+      root.dictVersion++
+      return
+    }
+    root.dictStatus = "loading"
+    root.dictCopyLang = ""
+    root.dictVersion++
+    dictDebounce.restart()
+  }
+
+  function startDictLookup() {
+    const term = root.dictPendingTerm
+    if (!term || dictProc.running) return
+    root.dictRunningTerm = term
+    root.dictStatus = "loading"
+    root.dictVersion++
+    dictProc.running = true
+  }
+
+  function finishDictLookup(text) {
+    const term = root.dictRunningTerm
+    if (term === root.dictPendingTerm && term === dictTerm(root.query)) {
+      try {
+        const data = JSON.parse((text || "").trim())
+        root.dictStatus = data.status || "error"
+        root.dictCopyLang = data.copyLang || ""
+        root.dictItems = data.items || []
+      } catch (_) {
+        root.dictStatus = "error"
+        root.dictCopyLang = ""
+        root.dictItems = []
+      }
+      root.dictVersion++
+    }
+    if (root.dictPendingTerm && root.dictPendingTerm !== term) dictDebounce.restart()
+  }
+
+  function getDictResults(q) {
+    const term = dictTerm(q)
+    if (!term) return null
+    if (root.dictStatus === "loading") {
+      return [{ id: "dict-loading", name: "Looking up " + term, comment: "dict.cc DE↔EN", icon: root.dictIcon, special: "noop" }]
+    }
+    if (root.dictStatus === "error") {
+      return [{ id: "dict-error", name: "dict.cc lookup failed", comment: "Network or parser error", icon: root.dictIcon, special: "noop" }]
+    }
+    if (root.dictItems.length === 0) {
+      return [{ id: "dict-empty", name: "No dict.cc results", comment: term, icon: root.dictIcon, special: "noop" }]
+    }
+    return root.dictItems.map((it, i) => ({
+      id: "dict-" + i + "-" + it.source + "-" + it.target,
+      name: it.target || it.copy || it.to,
+      comment: (it.source || it.from) + (it.meta ? " · " + it.meta : ""),
+      accessory: (it.copyLang || root.dictCopyLang || "").toUpperCase(),
+      icon: root.dictIcon,
+      special: "dict",
+      copy: it.copy || it.target || it.to
+    }))
+  }
+
+  Timer {
+    id: dictDebounce
+    interval: 250
+    onTriggered: root.startDictLookup()
+  }
+
+  Process {
+    id: dictProc
+    command: [Quickshell.env("HOME") + "/.local/bin/uv", "run", "python", root.binDir + "/asahi-dictcc.py", root.dictRunningTerm]
+    stdout: StdioCollector {
+      onStreamFinished: root.finishDictLookup(text)
+    }
   }
 
   // websearch: @ uses engines[] from json (fuzzy lists + prefix direct). ! passes the literal text (e.g. "!yt hello") to Kagi via defaultSearchUrl.
@@ -139,6 +255,8 @@ Scope {
   function getSpecialResults(qq) {
     const q = (qq || "").trim()
     if (!q) return null
+    const dictResults = getDictResults(q)
+    if (dictResults) return dictResults
     if (q.startsWith("=")) {
       const res = calculate(q.substring(1))
       if (res !== null) {
@@ -225,6 +343,7 @@ Scope {
     objectProp: "id"
     values: {
       root.deVersion
+      root.dictVersion
       const specials = root.getSpecialResults(root.query)
       if (specials && specials.length > 0) return specials
       let all = [...DesktopEntries.applications.values]
@@ -357,6 +476,7 @@ Scope {
 
               onTextChanged: {
                 root.query = text
+                root.scheduleDictLookup()
                 if (resultsList) resultsList.currentIndex = 0
               }
 
@@ -455,7 +575,14 @@ Scope {
                 IconImage {
                   anchors.fill: parent
                   source: Quickshell.iconPath(delegateRoot.modelData.icon ?? "", true)
-                  visible: (delegateRoot.modelData.icon ?? "") !== ""
+                  visible: (delegateRoot.modelData.icon ?? "") !== "" && !(delegateRoot.modelData.icon ?? "").startsWith("file://")
+                }
+
+                Image {
+                  anchors.fill: parent
+                  source: delegateRoot.modelData.icon ?? ""
+                  fillMode: Image.PreserveAspectFit
+                  visible: (delegateRoot.modelData.icon ?? "").startsWith("file://")
                 }
 
                 // Fallback letter icon
@@ -496,6 +623,28 @@ Scope {
                   visible: text !== ""
                 }
               }
+
+              Rectangle {
+                Layout.alignment: Qt.AlignVCenter
+                width: accessoryText.visible ? accessoryText.width + 12 : 0
+                height: accessoryText.visible ? 20 : 0
+                radius: 5
+                color: root.theme.bgSurface
+                border.color: root.theme.bgBorder
+                border.width: accessoryText.visible ? 1 : 0
+                visible: accessoryText.visible
+
+                Text {
+                  id: accessoryText
+                  anchors.centerIn: parent
+                  text: delegateRoot.modelData.accessory ?? ""
+                  color: root.theme.textMuted
+                  font.pixelSize: 10
+                  font.family: "Hack Nerd Font"
+                  font.bold: true
+                  visible: text !== ""
+                }
+              }
             }
 
             MouseArea {
@@ -530,7 +679,13 @@ Scope {
               width: hintUp.width + 8; height: 18; radius: 4; color: Style.moduleBg
               Text { id: hintUp; anchors.centerIn: parent; text: "↑↓"; color: Style.text; font.pixelSize: 10; font.family: "Hack Nerd Font" }
             }
-            Text { text: "navigate"; color: Style.text; font.pixelSize: 10; font.family: "Hack Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
+            Text {
+              text: "navigate"
+              color: Style.text
+              font.pixelSize: 10
+              font.family: "Hack Nerd Font"
+              anchors.verticalCenter: parent.verticalCenter
+            }
           }
 
           Row {
@@ -539,7 +694,13 @@ Scope {
               width: hintEnter.width + 8; height: 18; radius: 4; color: Style.moduleBg
               Text { id: hintEnter; anchors.centerIn: parent; text: "⏎"; color: Style.text; font.pixelSize: 10; font.family: "Hack Nerd Font" }
             }
-            Text { text: "launch"; color: Style.text; font.pixelSize: 10; font.family: "Hack Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
+            Text {
+              text: "launch"
+              color: Style.text
+              font.pixelSize: 10
+              font.family: "Hack Nerd Font"
+              anchors.verticalCenter: parent.verticalCenter
+            }
           }
 
           Row {
@@ -548,10 +709,22 @@ Scope {
               width: hintEsc.width + 8; height: 18; radius: 4; color: Style.moduleBg
               Text { id: hintEsc; anchors.centerIn: parent; text: "esc"; color: Style.text; font.pixelSize: 10; font.family: "Hack Nerd Font" }
             }
-            Text { text: "close"; color: Style.text; font.pixelSize: 10; font.family: "Hack Nerd Font"; anchors.verticalCenter: parent.verticalCenter }
+            Text {
+              text: "close"
+              color: Style.text
+              font.pixelSize: 10
+              font.family: "Hack Nerd Font"
+              anchors.verticalCenter: parent.verticalCenter
+            }
           }
 
-          Text { text: "=:calc  !:kagi  @:docs"; color: Style.text; font.pixelSize: 10; font.family: "Hack Nerd Font"; Layout.alignment: Qt.AlignVCenter }
+          Text {
+            text: "=:calc  !:kagi  @:docs  dict:translate"
+            color: Style.text
+            font.pixelSize: 10
+            font.family: "Hack Nerd Font"
+            Layout.alignment: Qt.AlignVCenter
+          }
           Item { Layout.fillWidth: true }
         }
       }
