@@ -17,6 +17,7 @@ Scope {
   property string query: ""
   property int selectedIndex: 0
   property var launcherScreen: null
+  property int launcherWorkspaceId: 1
   property int resultCount: 0
   property int deVersion: 0
   property int dictVersion: 0
@@ -77,6 +78,7 @@ Scope {
   function openLauncher() {
     const mon = Hyprland.focusedMonitor
     launcherScreen = mon ? (Quickshell.screens.find(s => s.name === mon.name) ?? Quickshell.screens[0]) : (Quickshell.screens[0] ?? null)
+    launcherWorkspaceId = Hyprland.focusedWorkspace?.id ?? 1
     shouldShow = true
     searchInput.text = ""
     if (resultsList) resultsList.currentIndex = 0
@@ -85,6 +87,27 @@ Scope {
 
   function closeLauncher() {
     shouldShow = false
+  }
+
+  function shQuote(s) {
+    return "'" + String(s).replace(/'/g, "'\\''") + "'"
+  }
+
+  function luaQuote(s) {
+    return JSON.stringify(String(s))
+  }
+
+  function launchDesktopEntry(entry) {
+    const command = Array.from(entry.command || [])
+    const exec = command.length > 0 ? command.map(root.shQuote).join(" ") : String(entry.execString || "")
+    if (exec === "") {
+      entry.execute()
+      return
+    }
+
+    const ws = root.launcherWorkspaceId || Hyprland.focusedWorkspace?.id || 1
+    Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({ workspace = " + ws + " })"])
+    Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.exec_cmd(" + root.luaQuote("[workspace " + ws + "] " + exec) + ")"])
   }
 
   function launchApp(entry) {
@@ -103,7 +126,9 @@ Scope {
       u = u.replace(/\?q=$/, "").replace(/\?s=$/, "").replace(/&text=$/, "").replace(/search\?q=$/, "")
       Quickshell.execDetached(["xdg-open", u])
     } else if (entry.execute) {
-      entry.execute()
+      shouldShow = false
+      Qt.callLater(() => root.launchDesktopEntry(entry))
+      return
     }
     shouldShow = false
   }

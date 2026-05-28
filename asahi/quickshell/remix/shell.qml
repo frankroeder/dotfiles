@@ -60,11 +60,17 @@ Variants {
   // Bump bindings that derive workspace occupancy/icons from Hyprland toplevel state.
   property int wsWindowVersion: 0
   property int wsIconRefreshes: 0
+  property var hyprClients: []
 
   function refreshWorkspaceIcons(retries) {
     root.wsWindowVersion = (root.wsWindowVersion + 1) % 10000
+    root.refreshHyprClients()
     if (retries > root.wsIconRefreshes) root.wsIconRefreshes = retries
     if (root.wsIconRefreshes > 0 && !wsIconRefreshTimer.running) wsIconRefreshTimer.restart()
+  }
+
+  function refreshHyprClients() {
+    if (!hyprClientsProc.running) hyprClientsProc.running = true
   }
 
   function appIconSource(t) {
@@ -83,6 +89,10 @@ Variants {
 
   function appCandidates(t) {
     const values = [
+      t.class,
+      t.initialClass,
+      t.title,
+      t.initialTitle,
       t.appId,
       t.lastIpcObject?.class,
       t.lastIpcObject?.initialClass,
@@ -110,12 +120,21 @@ Variants {
     return candidates.length > 0 ? candidates[0].charAt(0).toUpperCase() : "?"
   }
 
-  readonly property int focusedWorkspaceId: Hyprland.focusedWorkspace?.id ?? 1
-  readonly property var occupiedWorkspaces: {
-    wsWindowVersion
+  function activateWorkspace(wsId) {
+    const ws = Hyprland.workspaces.values.find(w => w.id === wsId)
+    if (ws) ws.activate()
+    else Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({ workspace = " + wsId + " })"])
+    root.refreshWorkspaceIcons(2)
+  }
+
+  readonly property int focusedWorkspaceId: (root.wsWindowVersion, Hyprland.focusedWorkspace?.id ?? 1)
+  readonly property var visibleWorkspaces: {
+    root.wsWindowVersion
     const ids = new Set()
-    for (const t of Hyprland.toplevels.values) {
-      const id = t.workspace?.id ?? t.lastIpcObject?.workspace?.id
+    const focused = Hyprland.focusedWorkspace?.id
+    if (focused != null) ids.add(focused)
+    for (const t of root.hyprClients) {
+      const id = t.workspace?.id
       if (id != null) ids.add(id)
     }
     return Array.from(ids).sort((a, b) => a - b)
@@ -123,10 +142,7 @@ Variants {
 
   function workspaceWindows(wsId) {
     root.wsWindowVersion
-    return Hyprland.toplevels.values.filter(function(t) {
-      const w = t.workspace || t.lastIpcObject?.workspace
-      return (w && w.id === wsId) || (t.lastIpcObject?.workspace?.id === wsId)
-    })
+    return root.hyprClients.filter(t => t.workspace?.id === wsId)
   }
 
   anchors.top: true
@@ -177,6 +193,20 @@ Variants {
       }
     }
     Component.onCompleted: root.refreshMem()
+  }
+
+  Process {
+    id: hyprClientsProc
+    command: ["hyprctl", "clients", "-j"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          root.hyprClients = JSON.parse(text.trim())
+          root.wsWindowVersion = (root.wsWindowVersion + 1) % 10000
+        } catch (e) {}
+      }
+    }
+    Component.onCompleted: root.refreshHyprClients()
   }
 
   Timer {
@@ -361,7 +391,7 @@ Variants {
         spacing: 4
 
         Repeater {
-          model: root.occupiedWorkspaces
+          model: root.visibleWorkspaces
           Rectangle {
             id: wsButton
             required property int modelData
@@ -412,14 +442,14 @@ Variants {
                     anchors.centerIn: parent
                     width: 18
                     height: 18
-                    source: root.appIconSource(modelData)
+                    source: { root.wsWindowVersion; return root.appIconSource(modelData) }
                     visible: status === Image.Ready
                   }
 
                   Text {
                     anchors.fill: parent
                     visible: !appIcon.visible
-                    text: root.appFallbackText(modelData)
+                    text: { root.wsWindowVersion; return root.appFallbackText(modelData) }
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     color: Style.text
@@ -433,7 +463,7 @@ Variants {
               anchors.fill: parent
               cursorShape: Qt.PointingHandCursor
               acceptedButtons: Qt.LeftButton
-              onClicked: Hyprland.dispatch("hl.dsp.focus({ workspace = " + wsButton.wsId + " })")
+              onClicked: root.activateWorkspace(wsButton.wsId)
             }
           }
         }
