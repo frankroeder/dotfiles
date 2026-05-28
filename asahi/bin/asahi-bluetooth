@@ -20,19 +20,19 @@ num=$(bluetoothctl devices Connected 2>/dev/null | wc -l || echo 0)
 
 tooltip="$alias"
 if [ "$num" -gt 0 ]; then
-  tooltip="$tooltip\n$num connected"
+  tooltip+=$'\n'"$num connected"
   # list a few
   while read -r _ mac name; do
     [ -z "$mac" ] && continue
     bat=$(bluetoothctl info "$mac" 2>/dev/null | awk -F': ' '/Battery Percentage:/ {print $2; exit}' || echo "")
     if [ -n "$bat" ]; then
-      tooltip="$tooltip\n  $name ${bat}%"
+      tooltip+=$'\n'"  $name ${bat}%"
     else
-      tooltip="$tooltip\n  $name"
+      tooltip+=$'\n'"  $name"
     fi
   done < <(bluetoothctl devices Connected 2>/dev/null | head -5)
 else
-  tooltip="$tooltip\n0 connected"
+  tooltip+=$'\n'"0 connected"
 fi
 
 # Bar text = single clean symbol only

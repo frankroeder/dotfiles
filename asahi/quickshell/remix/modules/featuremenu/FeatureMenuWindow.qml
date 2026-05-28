@@ -372,6 +372,9 @@ Scope {
   // Media mode state (players via Mpris, audio via wpctl, cava viz)
   property var cavaValues: []
   property bool cavaRunning: false
+  readonly property string cavaDir: "/tmp/quickshell-remix-" + (Quickshell.env("USER") || "user")
+  readonly property string cavaConfigPath: cavaDir + "/cava.conf"
+  readonly property string cavaFramePath: cavaDir + "/cava-frame"
 
   // Active MPRIS player (playing preferred)
   readonly property var activePlayer: {
@@ -387,36 +390,55 @@ Scope {
   function startCavaIfNeeded() {
     if (cavaRunning) return
     cavaRunning = true
+    root.cavaValues = []
     Quickshell.execDetached([
       "sh", "-c",
-      "pkill -x cava 2>/dev/null || true; " +
-      "mkdir -p ~/.config/cava; " +
-      "printf '[general]\nbars=24\nframerate=30\nsensitivity=180\n\n[input]\nmethod=pulse\nsource=auto\n\n[output]\nmethod=raw\nraw_target=/dev/stdout\ndata_format=ascii\nascii_max_range=100\nbar_delimiter=59\nframe_delimiter=10\n' > ~/.config/cava/config; " +
-      "rm -f /tmp/quickshell_cava; " +
-      "stdbuf -oL cava -p ~/.config/cava/config 2>/dev/null | while IFS= read -r line; do printf '%s\n' \"$line\" > /tmp/quickshell_cava; done &"
+      "dir=$1; conf=$2; frame=$3; " +
+      "pkill -f \"cava -p $conf\" 2>/dev/null || true; " +
+      "mkdir -p \"$dir\"; " +
+      "printf '%s\n' " +
+      "'[general]' 'bars=24' 'framerate=30' 'sensitivity=180' '' " +
+      "'[input]' 'method=pulse' 'source=auto' '' " +
+      "'[output]' 'method=raw' 'raw_target=/dev/stdout' 'data_format=ascii' 'ascii_max_range=100' " +
+      "'bar_delimiter=59' 'frame_delimiter=10' > \"$conf\"; " +
+      ": > \"$frame\"; " +
+      "(stdbuf -oL cava -p \"$conf\" 2>/tmp/quickshell-cava.err | while IFS= read -r line; do printf '%s\n' \"$line\" > \"$frame\"; done) &",
+      "sh", cavaDir, cavaConfigPath, cavaFramePath
     ])
-    cavaWatcher.path = ""
-    Qt.callLater(function(){ cavaWatcher.path = "/tmp/quickshell_cava" })
   }
   function stopCava() {
     if (!cavaRunning) return
     cavaRunning = false
-    Quickshell.execDetached(["pkill", "-x", "cava"])
+    Quickshell.execDetached(["pkill", "-f", "cava -p " + cavaConfigPath])
   }
-  FileView {
-    id: cavaWatcher
-    watchChanges: true
-    onTextChanged: {
-      const line = (text() || "").trim()
-      if (!line) return
-      const parts = line.split(/[;,\t ]+/)
-      const vals = []
-      for (let i=0; i<parts.length && i<24; i++) {
-        const v = parseInt(parts[i]) || 0
-        vals.push(Math.max(0, Math.min(100, v)))
-      }
-      while (vals.length < 24) vals.push(0)
-      root.cavaValues = vals
+  function updateCavaFrame(line) {
+    line = (line || "").trim()
+    if (!line) return
+    const parts = line.split(/[;,\t ]+/)
+    const vals = []
+    for (let i=0; i<parts.length && i<24; i++) {
+      const v = parseInt(parts[i]) || 0
+      vals.push(Math.max(0, Math.min(100, v)))
+    }
+    while (vals.length < 24) vals.push(0)
+    root.cavaValues = vals
+  }
+
+  Process {
+    id: cavaReadProc
+    command: ["sh", "-c", "cat \"$1\" 2>/dev/null || true", "sh", root.cavaFramePath]
+    stdout: StdioCollector {
+      onStreamFinished: root.updateCavaFrame(text)
+    }
+  }
+  Timer {
+    interval: 80
+    running: root.shouldShow && root.mode === "media"
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: {
+      if (!root.cavaRunning) root.startCavaIfNeeded()
+      if (!cavaReadProc.running) cavaReadProc.running = true
     }
   }
 

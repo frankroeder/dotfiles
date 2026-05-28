@@ -40,25 +40,7 @@ Variants {
   property real memPerc: 0
   property string cpuTempText: ""
   property var cpuHistory: []
-  property var memHistory: []
   readonly property int maxGraphHist: 22
-
-  // For ref-like popups (icons in bar, detail on click)
-  property bool showCpuPopup: false
-  property bool showRamPopup: false
-
-  onShowCpuPopupChanged: {
-    if (!showCpuPopup) return
-    cpuHistory = []
-    root.refreshCpu()
-    cpuPopupTimer.restart()
-  }
-  onShowRamPopupChanged: {
-    if (!showRamPopup) return
-    memHistory = []
-    root.refreshMem()
-    memPopupTimer.restart()
-  }
 
   function fmt2(n) {
     n = Math.round(n)
@@ -73,16 +55,6 @@ Variants {
 
   function refreshMem() {
     if (!memScriptProc.running) memScriptProc.running = true
-  }
-
-  function toggleCpuPopup() {
-    showRamPopup = false
-    showCpuPopup = !showCpuPopup
-  }
-
-  function toggleRamPopup() {
-    showCpuPopup = false
-    showRamPopup = !showRamPopup
   }
 
   // Bump bindings that derive workspace occupancy/icons from Hyprland toplevel state.
@@ -180,12 +152,9 @@ Variants {
           const m = txt.match(/(\d+)C/)
           root.cpuTempText = m ? m[1] : ""
 
-          if (root.showCpuPopup) {
-            root.cpuHistory.push(root.cpuPerc)
-            if (root.cpuHistory.length > root.maxGraphHist) root.cpuHistory.shift()
-
-            cpuPopupGraph.requestPaint()
-          }
+          root.cpuHistory.push(root.cpuPerc)
+          if (root.cpuHistory.length > root.maxGraphHist) root.cpuHistory.shift()
+          cpuInlineGraph.requestPaint()
         } catch (e) {}
       }
     }
@@ -204,12 +173,6 @@ Variants {
           root.memTooltip = data.tooltip || ""
           root.memPerc = data.percentage || 0
 
-          if (root.showRamPopup) {
-            root.memHistory.push(root.memPerc)
-            if (root.memHistory.length > root.maxGraphHist) root.memHistory.shift()
-
-            memPopupGraph.requestPaint()
-          }
         } catch (e) {}
       }
     }
@@ -224,22 +187,6 @@ Variants {
       root.refreshCpu()
       root.refreshMem()
     }
-  }
-
-  Timer {
-    id: cpuPopupTimer
-    interval: 800
-    running: root.showCpuPopup
-    repeat: true
-    onTriggered: root.refreshCpu()
-  }
-
-  Timer {
-    id: memPopupTimer
-    interval: 800
-    running: root.showRamPopup
-    repeat: true
-    onTriggered: root.refreshMem()
   }
 
   // Keep window icons fresh (Hyprland events + periodic refresh)
@@ -296,14 +243,14 @@ Variants {
       BarComponents.MediaPlayer {}
       BarComponents.StatusIndicators { notificationCenter: notificationCenter }
 
-      // Compact CPU (icon + % + temp, click for graph popup)
+      // Compact CPU (icon + % + temp + inline graph)
       Rectangle {
         id: cpuWidget
         color: cpuMouse.containsMouse ? Style.hoverBg : Style.moduleBg
         radius: Style.radius
         border.width: 1
         border.color: Style.border
-        implicitWidth: 96
+        implicitWidth: 140
         implicitHeight: 26
         RowLayout {
           anchors.centerIn: parent
@@ -329,17 +276,38 @@ Variants {
             verticalAlignment: Text.AlignVCenter
             Layout.alignment: Qt.AlignVCenter
           }
+          Canvas {
+            id: cpuInlineGraph
+            Layout.preferredWidth: 62
+            Layout.preferredHeight: 14
+            onPaint: {
+              const ctx = getContext("2d")
+              ctx.reset()
+              const hist = root.cpuHistory
+              if (!hist || hist.length < 2) return
+              const w = width
+              const h = height
+              const step = w / (hist.length - 1)
+              ctx.strokeStyle = Style.orange
+              ctx.lineWidth = 1.4
+              ctx.beginPath()
+              for (let i = 0; i < hist.length; i++) {
+                const x = i * step
+                const y = h - (hist[i] / 100) * h
+                i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)
+              }
+              ctx.stroke()
+            }
+          }
         }
         MouseArea {
           id: cpuMouse
           anchors.fill: parent
           hoverEnabled: true
-          cursorShape: Qt.PointingHandCursor
-          onClicked: root.toggleCpuPopup()
         }
       }
 
-      // Compact RAM (% only, click for graph popup)
+      // Compact RAM (% only)
       Rectangle {
         id: ramWidget
         color: ramMouse.containsMouse ? Style.hoverBg : Style.moduleBg
@@ -370,8 +338,6 @@ Variants {
           id: ramMouse
           anchors.fill: parent
           hoverEnabled: true
-          cursorShape: Qt.PointingHandCursor
-          onClicked: root.toggleRamPopup()
         }
       }
     }
@@ -492,51 +458,7 @@ Variants {
     }
   }
 
-  // Graph popups (ref-style minimal: icons in bar, click for full canvas detail)
-  PanelWindow {
-    visible: root.showCpuPopup; color: "transparent"
-    anchors { top: true; left: true }
-    margins { top: 48; left: barContent.x + leftSection.x + cpuWidget.x }
-    implicitWidth: 420; implicitHeight: 110
-    Rectangle { anchors.fill: parent; color: Style.moduleBg; radius: 8; border { color: Style.primary; width: 1 }
-      Column { anchors { fill: parent; margins: 8 }
-        Text {
-          text: root.cpuText
-          color: Style.orange; font { family: Style.fontFamily; pixelSize: 12; bold: true }
-        }
-        Canvas { id: cpuPopupGraph; width: parent.width - 16; height: 60; onPaint: {
-          const ctx = getContext("2d"); ctx.reset(); const h = height; const w = width; const hist = root.cpuHistory
-          if (!hist || hist.length < 2) return; const n = hist.length; const step = w / (n - 1); const c = Style.orange
-          ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.beginPath()
-          for (let j = 0; j < n; j++) { const x = j * step; const y = h - (hist[j] / 100) * h; j ? ctx.lineTo(x, y) : ctx.moveTo(x, y) }
-          ctx.stroke()
-        } }
-        Text { text: "click icon to close"; color: Style.textMuted; font.pixelSize: 10 }
-      }
-      MouseArea { anchors.fill: parent; onClicked: root.showCpuPopup = false }
-    }
-  }
-  PanelWindow {
-    visible: root.showRamPopup; color: "transparent"
-    anchors { top: true; left: true }
-    margins { top: 48; left: barContent.x + leftSection.x + ramWidget.x }
-    implicitWidth: 420; implicitHeight: 110
-    Rectangle { anchors.fill: parent; color: Style.moduleBg; radius: 8; border { color: Style.primary; width: 1 }
-      Column { anchors { fill: parent; margins: 8 }
-        Text { text: "RAM " + root.memText; color: Style.lavender; font { family: Style.fontFamily; pixelSize: 12; bold: true } }
-        Canvas { id: memPopupGraph; width: parent.width - 16; height: 60; onPaint: {
-          const ctx = getContext("2d"); ctx.reset(); const h = height; const w = width; const hist = root.memHistory
-          if (!hist || hist.length < 2) return; const n = hist.length; const step = w / (n - 1); const c = Style.lavender
-          ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.beginPath()
-          for (let j = 0; j < n; j++) { const x = j * step; const y = h - (hist[j] / 100) * h; j ? ctx.lineTo(x, y) : ctx.moveTo(x, y) }
-          ctx.stroke()
-        } }
-        Text { text: "click icon to close"; color: Style.textMuted; font.pixelSize: 10 }
-      }
-      MouseArea { anchors.fill: parent; onClicked: root.showRamPopup = false }
-    }
-  }
-  // (old cpu/mem tooltips removed - ids gone after compacting)
+  // (old cpu/mem popups removed - ids gone after compacting)
 
 
 }
