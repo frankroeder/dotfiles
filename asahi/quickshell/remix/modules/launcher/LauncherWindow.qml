@@ -29,6 +29,8 @@ Scope {
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
   readonly property string dictIcon: "file://" + Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/assets/dict-cc.png"
   readonly property string webIconBase: "file://" + Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/assets/"
+  readonly property string websearchJsonPath: Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/modules/launcher/websearch.json"
+  property int webVersion: 0
 
   readonly property string headerText: {
     const q = root.query.trim()
@@ -213,6 +215,17 @@ Scope {
   ]
   property string defaultSearchUrl: "https://kagi.com/search?q=%s"
 
+  // Robust loading of websearch engines + icons from json (better than XHR).
+  // Edit the json to add/remove engines; put matching PNGs in assets/.
+  // Icons resolved at load time using the same base as dictIcon.
+  FileView {
+    id: websearchConfig
+    path: root.websearchJsonPath
+    watchChanges: true
+    onLoaded: root.parseWebsearchConfig(text)
+    onTextChanged: if (root) root.parseWebsearchConfig(text)
+  }
+
   Connections {
     target: DesktopEntries
     function onApplicationsChanged() { root.deVersion++ }
@@ -232,6 +245,29 @@ Scope {
       }
       return null
     } catch (_) { return null }
+  }
+
+  function parseWebsearchConfig(text) {
+    try {
+      var data = JSON.parse(text || "{}")
+      if (data.engines && data.engines.length > 0) {
+        var base = root.webIconBase
+        webEngines = data.engines.map(function(e) {
+          var ic = e.icon || ""
+          var iconPath = ic
+          if (ic && ic.indexOf(".") > 0 && !ic.startsWith("file://")) {
+            iconPath = base + ic
+          }
+          var r = { name: e.name, prefix: e.prefix, url: e.url, icon: iconPath }
+          if (e.description) r.description = e.description
+          return r
+        })
+      }
+      if (data.defaultSearchUrl) defaultSearchUrl = data.defaultSearchUrl
+      webVersion++
+    } catch (e) {
+      console.warn("websearch.json parse failed")
+    }
   }
 
   function getSpecialResults(qq) {
@@ -305,7 +341,7 @@ Scope {
         return f.map(e => ({
           id: "doclist-" + e.prefix,
           name: e.name,
-          comment: "@" + e.prefix + " — select to search",
+          comment: e.description || ("@" + e.prefix + " — select to search"),
           icon: e.icon,
           special: "doc",
           url: e.url.replace("%TERM%", "")
@@ -326,6 +362,7 @@ Scope {
     values: {
       root.deVersion
       root.dictVersion
+      root.webVersion
       const specials = root.getSpecialResults(root.query)
       if (specials && specials.length > 0) return specials
       let all = [...DesktopEntries.applications.values]

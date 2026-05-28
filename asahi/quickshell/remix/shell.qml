@@ -250,7 +250,7 @@ Variants {
         radius: Style.radius
         border.width: 1
         border.color: Style.border
-        implicitWidth: 140
+        implicitWidth: 152
         implicitHeight: 26
         RowLayout {
           anchors.centerIn: parent
@@ -261,6 +261,7 @@ Variants {
             color: Style.orange
             verticalAlignment: Text.AlignVCenter
             Layout.alignment: Qt.AlignVCenter
+            Layout.leftMargin: 4
           }
           Text {
             text: root.fmt2(root.cpuPerc) + "%"

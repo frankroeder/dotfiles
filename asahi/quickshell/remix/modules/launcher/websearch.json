@@ -4,55 +4,64 @@
       "name": "Kagi",
       "prefix": "kagi",
       "url": "https://kagi.com/search?q=%TERM%",
-      "icon": "kagi.png"
+      "icon": "kagi.png",
+      "description": "Web search"
     },
     {
       "name": "Jax Documentation",
       "prefix": "jaxdoc",
       "url": "https://docs.jax.dev/en/latest/search.html?q=%TERM%",
-      "icon": "jax.png"
+      "icon": "jax.png",
+      "description": "JAX docs"
     },
     {
       "name": "Flax Documentation",
       "prefix": "flaxdoc",
       "url": "https://flax.readthedocs.io/en/stable/search.html?q=%TERM%",
-      "icon": "flax.png"
+      "icon": "flax.png",
+      "description": "Flax docs"
     },
     {
       "name": "dict.cc",
       "prefix": "dcc",
       "url": "https://www.dict.cc/?s=%TERM%",
-      "icon": "dict-cc.png"
+      "icon": "dict-cc.png",
+      "description": "German ↔ English"
     },
     {
       "name": "NumPy Documentation",
       "prefix": "npdoc",
       "url": "https://numpy.org/doc/stable/search.html?q=%TERM%",
-      "icon": "numpy.png"
+      "icon": "numpy.png",
+      "description": "NumPy docs"
     },
     {
       "name": "Kagi Translate",
       "prefix": "kt",
       "url": "https://translate.kagi.com/?from=auto&to=en_us&text=%TERM%",
-      "icon": "kagi.png"
+      "icon": "kagi.png",
+      "description": "Translate (Kagi)"
     },
     {
       "name": "PyTorch Documentation",
       "prefix": "ptdoc",
       "url": "https://docs.pytorch.org/docs/stable/search.html?q=%TERM%",
-      "icon": "pytorch.png"
+      "icon": "pytorch.png",
+      "description": "PyTorch docs"
     },
     {
       "name": "Optax Documentation",
       "prefix": "optax",
       "url": "https://optax.readthedocs.io/en/latest/search.html?q=%TERM%",
-      "icon": "optax.png"
+      "icon": "optax.png",
+      "description": "Optax docs"
     },
     {
       "name": "Grokipedia",
       "prefix": "grokip",
       "url": "https://grokipedia.com/search?q=%TERM%",
-      "icon": "grokipedia.png"
+      "icon": "grokipedia.png",
+      "description": "Grokipedia"
     }
   ],
   "defaultSearchUrl": "https://kagi.com/search?q=%s"
