@@ -89,13 +89,8 @@ flatpak remote-add --user --if-not-exists flathub "$FLATHUB_REPO_URL"
 FLATPAK_APPS=(
   com.protonvpn.www
   org.zotero.Zotero
+  net.ankiweb.Anki
 )
-
-if [[ "$(uname -m)" == "x86_64" ]]; then
-  FLATPAK_APPS+=(org.signal.Signal)
-else
-  echo "Skipping Signal Flatpak: Flathub does not ship aarch64 builds."
-fi
 
 flatpak install --user -y flathub "${FLATPAK_APPS[@]}"
 

@@ -271,7 +271,6 @@ Variants {
       anchors.verticalCenter: parent.verticalCenter
       spacing: 8
       BarComponents.MediaPlayer {}
-      BarComponents.StatusIndicators { notificationCenter: notificationCenter }
 
       // Compact CPU (icon + % + temp + inline graph)
       Rectangle {
@@ -476,6 +475,7 @@ Variants {
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
       spacing: 6
+      BarComponents.StatusIndicators { notificationCenter: notificationCenter }
       BarComponents.Microphone {}
       BarComponents.Volume {}
 

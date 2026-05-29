@@ -524,6 +524,8 @@ asahi-desktop: asahi-common
 	@for script in $(DOTFILES)/asahi/bin/*; do \
 		[ -f "$$script" ] && chmod +x "$$script"; \
 	done
+	@mkdir -p $(HOME)/.config/systemd/user
+	@ln -sfv $(DOTFILES)/asahi/systemd/user/hyprland-session.target $(HOME)/.config/systemd/user/hyprland-session.target
 	$(call replace_with_symlink,$(DOTFILES)/asahi/hypr,$(HOME)/.config/hypr)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/quickshell,$(HOME)/.config/quickshell)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/ghostty,$(HOME)/.config/ghostty)
