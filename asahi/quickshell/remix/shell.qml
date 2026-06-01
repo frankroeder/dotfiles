@@ -514,6 +514,10 @@ Variants {
           else l.shouldShow = true
         }
       }
+      function files(query: string) {
+        const l = launcherLoader.item
+        if (l && l.openFileSearch) l.openFileSearch(query || "")
+      }
     }
 
     Loader {

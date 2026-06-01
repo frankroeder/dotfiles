@@ -33,8 +33,9 @@ if [ -z "$line" ]; then
     --arg text "󰤮" \
     --arg tooltip "Disconnected" \
     --arg class "disconnected" \
+    --arg device "" \
     --argjson percentage 0 \
-    '{text:$text, tooltip:$tooltip, class:$class, percentage:$percentage}'
+    '{text:$text, tooltip:$tooltip, class:$class, device:$device, percentage:$percentage}'
   exit 0
 fi
 
@@ -75,5 +76,6 @@ jq -cn \
   --arg text "$text" \
   --arg tooltip "$tooltip" \
   --arg class "$class" \
+  --arg device "$dev" \
   --argjson percentage "${pct:-0}" \
-  '{text:$text, tooltip:$tooltip, class:$class, percentage:$percentage}'
+  '{text:$text, tooltip:$tooltip, class:$class, device:$device, percentage:$percentage}'

@@ -26,6 +26,11 @@ Scope {
   property string dictRunningTerm: ""
   property string dictCopyLang: ""
   property var dictItems: []
+  property int fileVersion: 0
+  property string fileStatus: ""
+  property string filePendingTerm: ""
+  property string fileRunningTerm: ""
+  property var fileItems: []
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
   readonly property string dictIcon: "file://" + Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/assets/dict-cc.png"
@@ -38,6 +43,7 @@ Scope {
     if (q.startsWith("=")) return "Calculator"
     if (q.startsWith("!")) return "Web Search"
     if (q.startsWith("@")) return "Documentation"
+    if (root.fileTerm(q) !== null) return "File Search"
     if (root.dictTerm(q)) return "Dictionary"
     return "Applications"
   }
@@ -46,6 +52,14 @@ Scope {
     const c = root.resultCount
     const s = c !== 1 ? "s" : ""
     const qq = root.query.trim()
+    if (root.fileTerm(qq) !== null) {
+      if (root.fileStatus === "loading") return "Searching files..."
+      if (root.fileStatus === "error") return "fd search failed"
+      if (root.fileStatus === "prompt") return "Type after > to search ~"
+      if (root.fileStatus === "no-results") return "No files found"
+      const count = root.fileItems.length
+      return count + (count === 200 ? "+" : "") + " match" + (count !== 1 ? "es" : "") + " · Enter opens"
+    }
     if (root.dictTerm(qq)) {
       if (root.dictStatus === "loading") return "Loading dict.cc"
       if (root.dictStatus === "error") return "dict.cc lookup failed"
@@ -64,6 +78,7 @@ Scope {
     }
   }
   onDictVersionChanged: root.resetDictSelection()
+  onFileVersionChanged: root.resetFileSelection()
 
   function launchCurrent() {
     let entry = null
@@ -83,6 +98,11 @@ Scope {
     searchInput.text = ""
     if (resultsList) resultsList.currentIndex = 0
     Qt.callLater(() => { if (searchInput) searchInput.forceActiveFocus() })
+  }
+
+  function openFileSearch(term) {
+    root.openLauncher()
+    searchInput.text = ">" + (term || "")
   }
 
   function closeLauncher() {
@@ -120,6 +140,8 @@ Scope {
     } else if (entry.special === "dict") {
       const copy = entry.copy || ""
       if (copy) Quickshell.execDetached(["sh", "-c", "printf %s \"$1\" | wl-copy", "sh", copy])
+    } else if (entry.special === "file" && entry.path) {
+      Quickshell.execDetached(["xdg-open", entry.path])
     } else if ((entry.special === "web" || entry.special === "doc") && entry.url) {
       let u = entry.url
       if (u.includes("%TERM%")) u = u.replace("%TERM%", "")
@@ -136,6 +158,164 @@ Scope {
   function dictTerm(q) {
     const m = (q || "").trim().match(/^dict\s+(.+)$/i)
     return m ? m[1].trim() : ""
+  }
+
+  function fileTerm(q) {
+    const value = (q || "").trim()
+    return value.startsWith(">") ? value.substring(1).trim() : null
+  }
+
+  function resetFileSelection() {
+    if (!resultsList || fileTerm(root.query) === null) return
+    resultsList.currentIndex = 0
+    resultsList.positionViewAtBeginning()
+  }
+
+  function scheduleFileLookup() {
+    const term = fileTerm(root.query)
+    fileDebounce.stop()
+    if (term === null) {
+      root.filePendingTerm = ""
+      root.fileStatus = ""
+      root.fileItems = []
+      root.fileVersion++
+      return
+    }
+    root.filePendingTerm = term
+    if (!term) {
+      root.fileStatus = "prompt"
+      root.fileItems = []
+      root.fileVersion++
+      return
+    }
+    root.fileStatus = "loading"
+    root.fileVersion++
+    fileDebounce.restart()
+  }
+
+  function startFileLookup() {
+    const term = root.filePendingTerm
+    if (!term || fileProc.running) return
+    root.fileRunningTerm = term
+    root.fileStatus = "loading"
+    root.fileVersion++
+    fileProc.command = [
+      "fd",
+      "--type", "f",
+      "--type", "d",
+      "--max-results", "200",
+      "--absolute-path",
+      "--color", "never",
+      "--fixed-strings",
+      "--", term, Quickshell.env("HOME")
+    ]
+    fileProc.running = true
+  }
+
+  function finishFileLookup(exitCode, stdoutText, stderrText) {
+    const term = root.fileRunningTerm
+    if (term === root.filePendingTerm && term === fileTerm(root.query)) {
+      if (exitCode !== 0) {
+        root.fileStatus = "error"
+        root.fileItems = [{
+          id: "file-error",
+          name: "File search failed",
+          comment: stderrText.trim() || ("fd exited " + exitCode),
+          icon: "",
+          glyph: "󰅙",
+          special: "noop"
+        }]
+      } else {
+        const paths = stdoutText.split("\n").filter(line => line.length > 0)
+        root.fileItems = root.sortFileResults(paths.map(root.formatFileResult), term)
+        root.fileStatus = root.fileItems.length > 0 ? "ready" : "no-results"
+      }
+      root.fileVersion++
+    }
+    if (root.filePendingTerm && root.filePendingTerm !== term) fileDebounce.restart()
+  }
+
+  function getFileResults(q) {
+    const term = fileTerm(q)
+    if (term === null) return null
+    if (!term) {
+      return [{ id: "file-prompt", name: "Search files and folders", comment: "Type > followed by a filename", icon: "", glyph: "󰍉", special: "noop" }]
+    }
+    if (root.fileStatus === "loading") {
+      return [{ id: "file-loading", name: "Searching " + term, comment: "Searching ~ with fd", icon: "", glyph: "󰍉", special: "noop" }]
+    }
+    if (root.fileStatus === "error") return root.fileItems
+    if (root.fileItems.length === 0) {
+      return [{ id: "file-empty", name: "No files found", comment: term, icon: "", glyph: "󰍉", special: "noop" }]
+    }
+    return root.fileItems
+  }
+
+  function formatFileResult(rawPath) {
+    const isDirectory = rawPath.length > 1 && rawPath.endsWith("/")
+    const path = isDirectory ? rawPath.substring(0, rawPath.length - 1) : rawPath
+    const parts = path.split("/")
+    const name = parts.pop() || path
+    const parent = parts.join("/") || "/"
+    return {
+      id: "file-" + path,
+      name: name,
+      comment: root.displayFilePath(parent),
+      accessory: isDirectory ? "DIR" : "",
+      icon: "",
+      glyph: root.fileGlyph(name, isDirectory),
+      special: "file",
+      path: path,
+      isDirectory: isDirectory
+    }
+  }
+
+  function displayFilePath(path) {
+    const home = Quickshell.env("HOME")
+    if (path === home) return "~"
+    return path.startsWith(home + "/") ? "~" + path.substring(home.length) : path
+  }
+
+  function sortFileResults(items, term) {
+    const query = term.toLowerCase()
+    return items.sort((a, b) => {
+      const ar = root.fileRank(a.name.toLowerCase(), query)
+      const br = root.fileRank(b.name.toLowerCase(), query)
+      if (ar !== br) return ar - br
+      if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1
+      if (a.name.toLowerCase() !== b.name.toLowerCase()) return a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+      return a.path.length - b.path.length
+    })
+  }
+
+  function fileRank(name, query) {
+    if (name === query) return 0
+    if (name.startsWith(query)) return 1
+    if (name.includes(query)) return 2
+    return 3
+  }
+
+  function fileGlyph(name, isDirectory) {
+    if (isDirectory) return "󰉋"
+    const ext = name.includes(".") ? name.split(".").pop().toLowerCase() : ""
+    if (["jpg", "jpeg", "png", "gif", "svg", "webp", "bmp", "ico"].includes(ext)) return "󰋩"
+    if (["mp3", "wav", "flac", "ogg", "m4a", "aac"].includes(ext)) return "󰎆"
+    if (["mp4", "mkv", "avi", "mov", "webm"].includes(ext)) return "󰎁"
+    if (["zip", "tar", "gz", "bz2", "xz", "7z", "rar"].includes(ext)) return "󰀼"
+    return "󰈔"
+  }
+
+  Timer {
+    id: fileDebounce
+    interval: 250
+    onTriggered: root.startFileLookup()
+  }
+
+  Process {
+    id: fileProc
+    stdout: StdioCollector { id: fileStdout }
+    stderr: StdioCollector { id: fileStderr }
+    onExited: code => root.finishFileLookup(code, fileStdout.text, fileStderr.text)
   }
 
   function resetDictSelection() {
@@ -298,6 +478,8 @@ Scope {
   function getSpecialResults(qq) {
     const q = (qq || "").trim()
     if (!q) return null
+    const fileResults = getFileResults(q)
+    if (fileResults) return fileResults
     const dictResults = getDictResults(q)
     if (dictResults) return dictResults
     if (q.startsWith("=")) {
@@ -387,6 +569,7 @@ Scope {
     values: {
       root.deVersion
       root.dictVersion
+      root.fileVersion
       root.webVersion
       const specials = root.getSpecialResults(root.query)
       if (specials && specials.length > 0) return specials
@@ -521,6 +704,7 @@ Scope {
               onTextChanged: {
                 root.query = text
                 root.scheduleDictLookup()
+                root.scheduleFileLookup()
                 if (resultsList) resultsList.currentIndex = 0
               }
 
@@ -632,7 +816,7 @@ Scope {
                 // Fallback letter icon
                 Text {
                   anchors.centerIn: parent
-                  text: (delegateRoot.modelData.name ?? "?").charAt(0).toUpperCase()
+                  text: delegateRoot.modelData.glyph ?? (delegateRoot.modelData.name ?? "?").charAt(0).toUpperCase()
                   color: root.theme.accentPrimary
                   font.pixelSize: 16
                   font.family: "Hack Nerd Font"
@@ -763,7 +947,7 @@ Scope {
           }
 
           Text {
-            text: "=:calc  !:kagi  @:docs  dict:translate"
+            text: "=:calc  !:kagi  @:docs  dict:translate  >:files"
             color: Style.text
             font.pixelSize: 10
             font.family: "Hack Nerd Font"
