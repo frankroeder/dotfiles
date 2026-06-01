@@ -30,8 +30,8 @@ Rectangle {
 
         Image {
           anchors.centerIn: parent
-          width: 16
-          height: 16
+          width: 20
+          height: 20
           source: {
             const icon = modelData.icon ?? ""
             if (typeof icon === "string" && icon.includes("?path=")) {

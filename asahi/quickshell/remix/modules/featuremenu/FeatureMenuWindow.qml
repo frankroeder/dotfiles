@@ -1406,10 +1406,12 @@ Scope {
                   id: wallpaperGrid
                   Layout.fillWidth: true
                   Layout.fillHeight: true
-                  cellWidth: Math.floor(width / 3)
+                  cellWidth: Math.floor((width - 10) / 3)
                   cellHeight: cellWidth * 0.6 + 6
                   clip: true
                   boundsBehavior: Flickable.StopAtBounds
+                  ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                  cacheBuffer: 200
                   model: root.filteredWallpapers
 
                   delegate: Item {
@@ -1525,10 +1527,11 @@ Scope {
                 GridView {
                   id: shotGrid
                   Layout.fillWidth: true; Layout.fillHeight: true
-                  cellWidth: Math.floor(width / 3)
+                  cellWidth: Math.floor((width - 10) / 3)
                   cellHeight: cellWidth * 0.6 + 6
                   clip: true
                   boundsBehavior: Flickable.StopAtBounds
+                  ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
                   model: root.shots
 
                   delegate: Item {
