@@ -12,8 +12,8 @@ hl.config({
       tap_to_click = true,
       disable_while_typing = true,
       clickfinger_behavior = true,
-      drag_lock = true,
-      scroll_factor = 0.75,
+      -- drag_lock = true,
+      scroll_factor = 0.5,
     },
 
     -- Power-user: slightly higher sensitivity for precise keyboard-driven workflows
