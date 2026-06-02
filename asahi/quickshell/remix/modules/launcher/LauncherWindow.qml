@@ -25,6 +25,7 @@ Scope {
   property string dictPendingTerm: ""
   property string dictRunningTerm: ""
   property string dictCopyLang: ""
+  property string dictError: ""
   property var dictItems: []
   property int fileVersion: 0
   property string fileStatus: ""
@@ -44,7 +45,7 @@ Scope {
     if (q.startsWith("!")) return "Web Search"
     if (q.startsWith("@")) return "Documentation"
     if (root.fileTerm(q) !== null) return "File Search"
-    if (root.dictTerm(q)) return "Dictionary"
+    if (root.dictTerm(q) !== null) return "Dictionary"
     return "Applications"
   }
 
@@ -60,9 +61,10 @@ Scope {
       const count = root.fileItems.length
       return count + (count === 200 ? "+" : "") + " match" + (count !== 1 ? "es" : "") + " · Enter opens"
     }
-    if (root.dictTerm(qq)) {
+    if (root.dictTerm(qq) !== null) {
       if (root.dictStatus === "loading") return "Loading dict.cc"
       if (root.dictStatus === "error") return "dict.cc lookup failed"
+      if (root.dictStatus === "prompt") return "Type after dict to translate"
       if (root.dictStatus === "no-results") return "No translations"
       const lang = root.dictCopyLang === "en" ? "English" : (root.dictCopyLang === "de" ? "German" : "translation")
       return c + " result" + s + " · Return copies " + lang
@@ -156,8 +158,9 @@ Scope {
   }
 
   function dictTerm(q) {
-    const m = (q || "").trim().match(/^dict\s+(.+)$/i)
-    return m ? m[1].trim() : ""
+    const value = (q || "").trim()
+    const m = value.match(/^dict(?:\s+(.*))?$/i)
+    return m ? (m[1] || "").trim() : null
   }
 
   function fileTerm(q) {
@@ -319,24 +322,36 @@ Scope {
   }
 
   function resetDictSelection() {
-    if (!resultsList || !dictTerm(root.query)) return
+    if (!resultsList || dictTerm(root.query) === null) return
     resultsList.currentIndex = 0
     resultsList.positionViewAtBeginning()
   }
 
   function scheduleDictLookup() {
     const term = dictTerm(root.query)
-    root.dictPendingTerm = term
-    if (!term) {
-      dictDebounce.stop()
+    dictDebounce.stop()
+    if (term === null) {
+      root.dictPendingTerm = ""
       root.dictStatus = ""
       root.dictCopyLang = ""
+      root.dictError = ""
+      root.dictItems = []
+      root.dictVersion++
+      return
+    }
+    root.dictPendingTerm = term
+    if (!term) {
+      root.dictStatus = "prompt"
+      root.dictCopyLang = ""
+      root.dictError = ""
       root.dictItems = []
       root.dictVersion++
       return
     }
     root.dictStatus = "loading"
     root.dictCopyLang = ""
+    root.dictError = ""
+    root.dictItems = []
     root.dictVersion++
     dictDebounce.restart()
   }
@@ -357,10 +372,12 @@ Scope {
         const data = JSON.parse((text || "").trim())
         root.dictStatus = data.status || "error"
         root.dictCopyLang = data.copyLang || ""
+        root.dictError = data.error || ""
         root.dictItems = data.items || []
       } catch (_) {
         root.dictStatus = "error"
         root.dictCopyLang = ""
+        root.dictError = "Invalid lookup response"
         root.dictItems = []
       }
       root.dictVersion++
@@ -368,27 +385,56 @@ Scope {
     if (root.dictPendingTerm && root.dictPendingTerm !== term) dictDebounce.restart()
   }
 
+  function formatDictMeta(meta) {
+    if (!meta || typeof meta !== "object") return ""
+    const join = parts => (parts || []).filter(Boolean).join(", ")
+    return [
+      join(meta.abbreviations),
+      join(meta.wordClassDefinitions),
+      join(meta.comments),
+      join(meta.optionalData)
+    ].filter(s => s.length > 0).join(" · ")
+  }
+
   function getDictResults(q) {
     const term = dictTerm(q)
-    if (!term) return null
+    if (term === null) return null
+    if (!term) {
+      return [{
+        id: "dict-prompt",
+        name: "Translate with dict.cc",
+        comment: "Type dict followed by a word · en de Term for language override",
+        icon: root.dictIcon,
+        special: "noop"
+      }]
+    }
     if (root.dictStatus === "loading") {
       return [{ id: "dict-loading", name: "Looking up " + term, comment: "dict.cc DE↔EN", icon: root.dictIcon, special: "noop" }]
     }
     if (root.dictStatus === "error") {
-      return [{ id: "dict-error", name: "dict.cc lookup failed", comment: "Network or parser error", icon: root.dictIcon, special: "noop" }]
+      return [{
+        id: "dict-error",
+        name: "dict.cc lookup failed",
+        comment: root.dictError || "Network or parser error",
+        icon: root.dictIcon,
+        special: "noop"
+      }]
     }
-    if (root.dictItems.length === 0) {
+    if (root.dictStatus === "no-results" || root.dictItems.length === 0) {
       return [{ id: "dict-empty", name: "No dict.cc results", comment: term, icon: root.dictIcon, special: "noop" }]
     }
-    return root.dictItems.map((it, i) => ({
-      id: "dict-" + i + "-" + it.source + "-" + it.target,
-      name: it.target || it.copy || it.to,
-      comment: (it.source || it.from) + (it.meta ? " · " + it.meta : ""),
-      accessory: (it.copyLang || root.dictCopyLang || "").toUpperCase(),
-      icon: root.dictIcon,
-      special: "dict",
-      copy: it.copy || it.target || it.to
-    }))
+    return root.dictItems.map((it, i) => {
+      const metaLine = root.formatDictMeta(it.meta)
+      return {
+        id: "dict-" + i,
+        name: it.target || it.copy || "",
+        comment: (it.source || "") + (metaLine ? " · " + metaLine : ""),
+        accessory: (it.copyLang || root.dictCopyLang || "").toUpperCase(),
+        icon: root.dictIcon,
+        special: "dict",
+        copy: it.copy || it.target || ""
+      }
+    })
   }
 
   Timer {
@@ -399,10 +445,9 @@ Scope {
 
   Process {
     id: dictProc
-    command: [Quickshell.env("HOME") + "/.local/bin/uv", "run", "python", root.binDir + "/asahi-dictcc.py", root.dictRunningTerm]
-    stdout: StdioCollector {
-      onStreamFinished: root.finishDictLookup(text)
-    }
+    command: ["python3", root.binDir + "/asahi-dictcc.py", root.dictRunningTerm]
+    stdout: StdioCollector { id: dictStdout }
+    onExited: () => root.finishDictLookup(dictStdout.text)
   }
 
   // websearch: @ uses engines[] (fuzzy lists + prefix direct). ! passes the literal text to Kagi via defaultSearchUrl.
