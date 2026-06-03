@@ -377,10 +377,10 @@ Variants {
       id: workspacesBlock
       anchors.horizontalCenter: parent.horizontalCenter
       anchors.verticalCenter: parent.verticalCenter
-      color: Style.moduleBg
+      color: Style.wsBg
       radius: Style.radius
       border.width: 1
-      border.color: Style.border
+      border.color: Style.wsBorder
       implicitHeight: 38
       implicitWidth: wsContent.implicitWidth + 12
 
@@ -397,13 +397,15 @@ Variants {
             readonly property int wsId: modelData
             readonly property bool isFocused: root.focusedWorkspaceId === wsId
             readonly property var windows: root.workspaceWindows(wsId)
+            readonly property bool isOccupied: windows.length > 0
+            readonly property bool isHovered: wsMouse.containsMouse
 
             implicitWidth: wsInner.implicitWidth + 10
             implicitHeight: 30
             radius: 15
-            color: isFocused ? Qt.alpha(Style.primary, 0.18) : Style.controlBg
-            border.width: 1
-            border.color: isFocused ? Style.primary : Style.border
+            color: isFocused ? Style.wsActiveBg : (isHovered ? Style.wsHoverBg : (isOccupied ? Style.wsOccupiedBg : "transparent"))
+            border.width: 1.5
+            border.color: isFocused ? Style.wsActive : Style.wsInactiveBorder
 
             Behavior on color { ColorAnimation { duration: 120 } }
             Behavior on border.color { ColorAnimation { duration: 120 } }
@@ -417,14 +419,14 @@ Variants {
                 width: 22
                 height: 22
                 radius: 11
-                color: isFocused ? Style.primary : Style.wsNumBg
+                color: isFocused ? Style.wsActive : (wsButton.isOccupied ? Style.wsOccupiedBg : "transparent")
 
                 Text {
                   anchors.fill: parent
                   text: wsButton.wsId
                   horizontalAlignment: Text.AlignHCenter
                   verticalAlignment: Text.AlignVCenter
-                  color: isFocused ? Style.onPrimary : Style.text
+                  color: isFocused ? Style.crust : (wsButton.isOccupied ? Style.wsOccupiedText : Style.wsEmptyText)
                   font { family: Style.fontFamily; pixelSize: wsButton.wsId >= 10 ? 10 : 11; bold: true }
                 }
               }
@@ -451,7 +453,7 @@ Variants {
                     text: { root.wsWindowVersion; return root.appFallbackText(modelData) }
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
-                    color: Style.text
+                    color: wsButton.isFocused ? Style.text : Style.textAlt
                     font { family: Style.fontFamily; pixelSize: 10; bold: true }
                   }
                 }
@@ -459,7 +461,9 @@ Variants {
             }
 
             MouseArea {
+              id: wsMouse
               anchors.fill: parent
+              hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
               acceptedButtons: Qt.LeftButton
               onClicked: root.activateWorkspace(wsButton.wsId)
