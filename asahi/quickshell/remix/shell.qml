@@ -388,19 +388,55 @@ Variants {
         id: activeWsHighlight
         readonly property int activeIndex: root.visibleWorkspaces.indexOf(root.focusedWorkspaceId)
         readonly property var activeItem: (wsRepeater.count, activeIndex >= 0 ? wsRepeater.itemAt(activeIndex) : null)
+        readonly property real targetLeft: activeItem ? wsContent.x + activeItem.x : wsContent.x
+        readonly property real targetRight: targetLeft + (activeItem ? activeItem.width : 0)
+        property real actualLeft: targetLeft
+        property real actualRight: targetRight
+        property int prevIndex: activeIndex
+        property int leftDuration: 180
+        property int rightDuration: 180
 
-        x: activeItem ? wsContent.x + activeItem.x : wsContent.x
+        function tuneEdgeMotion() {
+          if (activeIndex > prevIndex) {
+            leftDuration = 260
+            rightDuration = 135
+          } else if (activeIndex < prevIndex) {
+            leftDuration = 135
+            rightDuration = 260
+          } else {
+            leftDuration = 180
+            rightDuration = 180
+          }
+          prevIndex = activeIndex
+        }
+
+        onTargetLeftChanged: {
+          tuneEdgeMotion()
+          actualLeft = targetLeft
+        }
+        onTargetRightChanged: actualRight = targetRight
+
+        x: actualLeft
         y: (workspacesBlock.height - height) / 2
-        width: activeItem ? activeItem.width : 0
+        width: Math.max(0, actualRight - actualLeft)
         height: 30
         radius: 15
         color: Style.wsActive
+        border.width: 1
+        border.color: Style.wsActiveBorder
         visible: activeItem !== null
         z: 0
 
-        Behavior on x { NumberAnimation { duration: 180; easing.type: Easing.OutExpo } }
-        Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutExpo } }
+        gradient: Gradient {
+          orientation: Gradient.Horizontal
+          GradientStop { position: 0.0; color: Style.wsActive }
+          GradientStop { position: 1.0; color: Style.wsActiveAlt }
+        }
+
+        Behavior on actualLeft { NumberAnimation { duration: activeWsHighlight.leftDuration; easing.type: Easing.OutCubic } }
+        Behavior on actualRight { NumberAnimation { duration: activeWsHighlight.rightDuration; easing.type: Easing.OutCubic } }
         Behavior on color { ColorAnimation { duration: 120 } }
+        Behavior on border.color { ColorAnimation { duration: 120 } }
       }
 
       Row {
@@ -424,7 +460,7 @@ Variants {
             implicitWidth: wsInner.implicitWidth + 10
             implicitHeight: 30
             radius: 15
-            color: isFocused ? "transparent" : (isHovered ? Style.wsHoverBg : (isOccupied ? Style.wsOccupiedBg : "transparent"))
+            color: isFocused ? "transparent" : (isHovered ? Style.wsHoverBg : (isOccupied ? Style.wsOccupiedBg : Style.wsEmptyBg))
             border.width: 1.5
             border.color: isFocused ? "transparent" : Style.wsInactiveBorder
 
@@ -440,14 +476,21 @@ Variants {
                 width: 22
                 height: 22
                 radius: 11
-                color: isFocused ? "transparent" : (wsButton.isOccupied ? Style.wsOccupiedBg : "transparent")
+                color: isFocused
+                  ? Style.wsBadgeActiveBg
+                  : (wsButton.isHovered ? Style.wsBadgeHoverBg : (wsButton.isOccupied ? Style.wsBadgeOccupiedBg : Style.wsBadgeEmptyBg))
+                border.width: 1
+                border.color: isFocused ? Style.wsBadgeActiveBorder : Style.wsBadgeBorder
+
+                Behavior on color { ColorAnimation { duration: 120 } }
+                Behavior on border.color { ColorAnimation { duration: 120 } }
 
                 Text {
                   anchors.fill: parent
                   text: wsButton.wsId
                   horizontalAlignment: Text.AlignHCenter
                   verticalAlignment: Text.AlignVCenter
-                  color: isFocused ? Style.crust : (wsButton.isOccupied ? Style.wsOccupiedText : Style.wsEmptyText)
+                  color: isFocused ? Style.wsBadgeActiveText : (wsButton.isOccupied ? Style.wsOccupiedText : Style.wsEmptyText)
                   font { family: Style.fontFamily; pixelSize: wsButton.wsId >= 10 ? 10 : 11; bold: true }
                 }
               }

@@ -31,13 +31,23 @@ Singleton {
 
   readonly property color wsBg:             Qt.alpha(Wallpaper.DefaultTheme.base, 0.72)
   readonly property color wsBorder:         Qt.alpha(Wallpaper.DefaultTheme.text, 0.07)
-  readonly property color wsActive:         Wallpaper.DefaultTheme.mauve
+  readonly property color wsActive:         Wallpaper.DefaultTheme.teal
+  readonly property color wsActiveAlt:      Qt.lighter(Wallpaper.DefaultTheme.mauve, 1.16)
+  readonly property color wsActiveBorder:   Qt.alpha(Wallpaper.DefaultTheme.rosewater, 0.45)
   readonly property color wsActiveBg:       Qt.alpha(Wallpaper.DefaultTheme.mauve, 0.20)
   readonly property color wsHoverBg:        Qt.alpha(Wallpaper.DefaultTheme.text, 0.10)
-  readonly property color wsOccupiedBg:     Qt.alpha(Wallpaper.DefaultTheme.text, 0.08)
-  readonly property color wsInactiveBorder: Qt.alpha(Wallpaper.DefaultTheme.text, 0.05)
+  readonly property color wsOccupiedBg:     Qt.alpha(Wallpaper.DefaultTheme.text, 0.10)
+  readonly property color wsEmptyBg:        Qt.alpha(Wallpaper.DefaultTheme.text, 0.04)
+  readonly property color wsInactiveBorder: Qt.alpha(Wallpaper.DefaultTheme.text, 0.14)
+  readonly property color wsBadgeActiveBg:     Qt.alpha(Wallpaper.DefaultTheme.crust, 0.30)
+  readonly property color wsBadgeHoverBg:      Qt.alpha(Wallpaper.DefaultTheme.mauve, 0.24)
+  readonly property color wsBadgeOccupiedBg:   Qt.alpha(Wallpaper.DefaultTheme.text, 0.16)
+  readonly property color wsBadgeEmptyBg:      Qt.alpha(Wallpaper.DefaultTheme.text, 0.08)
+  readonly property color wsBadgeBorder:       Qt.alpha(Wallpaper.DefaultTheme.text, 0.24)
+  readonly property color wsBadgeActiveBorder: Qt.alpha(Wallpaper.DefaultTheme.rosewater, 0.36)
+  readonly property color wsBadgeActiveText:   "#ffffff"
   readonly property color wsOccupiedText:   Wallpaper.DefaultTheme.text
-  readonly property color wsEmptyText:      Wallpaper.DefaultTheme.overlay0
+  readonly property color wsEmptyText:      Wallpaper.DefaultTheme.overlay1
 
   // Full re-export for complete delegation (no hex dups; enables Style. for all DefaultTheme names)
   readonly property color crust:      Wallpaper.DefaultTheme.crust
