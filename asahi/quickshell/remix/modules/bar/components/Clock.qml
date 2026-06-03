@@ -6,10 +6,12 @@ import "../../../"
 Rectangle {
   id: root
 
-  color: Style.moduleBg
+  color: Style.barBg
   radius: Style.radius
   border.width: 1
-  border.color: Style.border
+  border.color: Style.barBorder
+    Behavior on color { ColorAnimation { duration: 140 } }
+    Behavior on border.color { ColorAnimation { duration: 140 } }
 
   implicitWidth: clockRow.implicitWidth + 14
   implicitHeight: 26

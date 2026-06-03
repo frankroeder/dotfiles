@@ -9,10 +9,14 @@ Rectangle {
 
     readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
 
-    color: ma.containsMouse ? Style.hoverBg : Style.moduleBg
+    color: ma.containsMouse ? Style.barHoverBg : Style.barBg
     radius: Style.radius
     border.width: 1
-    border.color: Style.border
+    border.color: Style.barBorder
+    Behavior on color { ColorAnimation { duration: 140 } }
+    Behavior on border.color { ColorAnimation { duration: 140 } }
+    scale: ma.containsMouse ? 1.018 : 1.0
+    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
     implicitWidth: row.implicitWidth + 14
     implicitHeight: 26

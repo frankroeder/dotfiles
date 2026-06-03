@@ -9,9 +9,11 @@ Rectangle {
   implicitWidth: trayRow.implicitWidth + 10
   implicitHeight: 26
   radius: Style.radius
-  color: Style.moduleBg
+  color: Style.barBg
   border.width: 1
-  border.color: Style.border
+  border.color: Style.barBorder
+    Behavior on color { ColorAnimation { duration: 140 } }
+    Behavior on border.color { ColorAnimation { duration: 140 } }
   visible: trayRow.implicitWidth > 0
 
   RowLayout {
@@ -26,7 +28,7 @@ Rectangle {
         Layout.preferredWidth: 22
         Layout.preferredHeight: 22
         radius: 4
-        color: trayMouse.containsMouse ? Style.hoverBg : "transparent"
+        color: trayMouse.containsMouse ? Style.barHoverBg : "transparent"
 
         Image {
           anchors.centerIn: parent

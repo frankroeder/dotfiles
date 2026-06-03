@@ -7,10 +7,14 @@ import "../../../services" as Services
 Rectangle {
   id: root
 
-  color: mediaMouse.containsMouse ? Style.hoverBg : Style.moduleBg
+  color: mediaMouse.containsMouse ? Style.barHoverBg : Style.barBg
   radius: Style.radius
   border.width: 1
-  border.color: Style.border
+  border.color: Style.barBorder
+    Behavior on color { ColorAnimation { duration: 140 } }
+    Behavior on border.color { ColorAnimation { duration: 140 } }
+  scale: mediaMouse.containsMouse ? 1.018 : 1.0
+  Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
   implicitWidth: Math.min(320, contentRow.implicitWidth + 16)
   implicitHeight: 26

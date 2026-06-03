@@ -60,7 +60,9 @@ FocusScope {
     anchors.fill: parent
     radius: 12
     color: Style.surface
-    border.color: Style.border
+    border.color: Style.barBorder
+    Behavior on color { ColorAnimation { duration: 140 } }
+    Behavior on border.color { ColorAnimation { duration: 140 } }
     border.width: 1
 
     ColumnLayout {
@@ -77,7 +79,7 @@ FocusScope {
         color: Style.text
       }
 
-      Rectangle { Layout.fillWidth: true; height: 1; color: Style.border; opacity: 0.5 }
+      Rectangle { Layout.fillWidth: true; height: 1; color: Style.barBorder; opacity: 0.5 }
 
       RowLayout {
         Layout.fillWidth: true
@@ -103,7 +105,7 @@ FocusScope {
         }
       }
 
-      Rectangle { Layout.fillWidth: true; height: 1; color: Style.border; opacity: 0.5 }
+      Rectangle { Layout.fillWidth: true; height: 1; color: Style.barBorder; opacity: 0.5 }
 
       RowLayout {
         Layout.fillWidth: true

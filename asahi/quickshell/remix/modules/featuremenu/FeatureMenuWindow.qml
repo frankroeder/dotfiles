@@ -724,19 +724,25 @@ Scope {
     MouseArea {
       anchors.fill: parent
       onClicked: root.closeFeature()
-      Rectangle { anchors.fill: parent; color: Style.bgOverlay || "#88000000" }
+      Rectangle { anchors.fill: parent; color: Style.panelOverlay }
     }
 
-      // Centered console box
+    // Centered console box
     Rectangle {
       id: box
       anchors.centerIn: parent
       width: Math.min(1080, parent.width * 0.86)
       height: Math.min(720, parent.height * 0.86)
-      radius: 12
-      color: Style.bgBase || Style.surface || "#1e1e2e"
-      border.color: Style.bgBorder || Style.border || "#45475a"
+      radius: 16
+      color: Style.panelBg
+      border.color: Style.panelCardBorderHover
       border.width: 1
+      clip: true
+      opacity: root.shouldShow ? 1 : 0
+      scale: root.shouldShow ? 1 : 0.98
+
+      Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+      Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
 
       MouseArea { anchors.fill: parent; onClicked: event => event.accepted = true }
 
@@ -761,9 +767,9 @@ Scope {
           id: sidebar
           Layout.preferredWidth: 220
           Layout.fillHeight: true
-          color: Style.crust || "#11111b"
-          topLeftRadius: 12
-          bottomLeftRadius: 12
+          color: Style.panelSidebarBg
+          topLeftRadius: 16
+          bottomLeftRadius: 16
 
           // Right border divider
           Rectangle {
@@ -771,7 +777,7 @@ Scope {
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             width: 1
-            color: Style.border || "#45475a"
+            color: Style.panelDivider
           }
 
           ColumnLayout {
@@ -788,7 +794,9 @@ Scope {
                 width: 38
                 height: 38
                 radius: 19
-                color: Style.moduleBg || "#313244"
+                color: Style.panelCardBg
+                border.width: 1
+                border.color: Style.panelCardBorder
                 Text {
                   anchors.centerIn: parent
                   visible: distroIcon.source === ""
@@ -824,8 +832,7 @@ Scope {
             Rectangle {
               Layout.fillWidth: true
               height: 1
-              color: Style.border || "#45475a"
-              opacity: 0.4
+              color: Style.panelDivider
             }
 
             // Navigation menu list
@@ -847,11 +854,22 @@ Scope {
                   { key: "power", icon: "󰐥", label: "Power" }
                 ]
                 delegate: Rectangle {
+                  id: navRow
                   required property var modelData
+                  readonly property bool isActive: root.mode === modelData.key
+                  readonly property bool isHovered: navMa.containsMouse
+
                   Layout.fillWidth: true
                   height: 34
                   radius: 8
-                  color: root.mode === modelData.key ? (Style.moduleBg || "#313244") : (navMa.containsMouse ? (Style.hoverBg || "#45475a") : "transparent")
+                  color: isActive ? Style.panelCardActive : (isHovered ? Style.panelCardHover : "transparent")
+                  border.width: 1
+                  border.color: isActive ? Style.panelAccentBorder : (isHovered ? Style.panelCardBorderHover : "transparent")
+                  scale: isHovered && !isActive ? 1.015 : 1.0
+
+                  Behavior on color { ColorAnimation { duration: 150 } }
+                  Behavior on border.color { ColorAnimation { duration: 150 } }
+                  Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
                   Rectangle {
                     anchors.left: parent.left
@@ -859,8 +877,10 @@ Scope {
                     anchors.bottom: parent.bottom
                     width: 3
                     radius: 1.5
-                    color: Style.blue || "#89b4fa"
-                    visible: root.mode === modelData.key
+                    color: Style.sky
+                    opacity: navRow.isActive ? 1 : 0
+
+                    Behavior on opacity { NumberAnimation { duration: 150 } }
                   }
 
                   RowLayout {
@@ -872,17 +892,19 @@ Scope {
                     Text {
                       text: modelData.icon
                       font.pixelSize: 14 + root.uiFontBump
-                      color: root.mode === modelData.key ? (Style.blue || "#89b4fa") : (Style.textMuted || "#a6adc8")
+                      color: navRow.isActive ? Style.sky : (navRow.isHovered ? Style.text : Style.textMuted)
                       font.family: "JetBrainsMono Nerd Font"
                       Layout.preferredWidth: 18
                       horizontalAlignment: Text.AlignHCenter
+                      Behavior on color { ColorAnimation { duration: 150 } }
                     }
                     Text {
                       text: modelData.label
                       font.pixelSize: 11 + root.uiFontBump
-                      font.bold: root.mode === modelData.key
-                      color: root.mode === modelData.key ? (Style.text || "#cdd6f4") : (Style.textAlt || "#bac2de")
+                      font.bold: navRow.isActive
+                      color: navRow.isActive ? Style.text : Style.textAlt
                       font.family: "JetBrainsMono Nerd Font"
+                      Behavior on color { ColorAnimation { duration: 150 } }
                     }
                   }
 
@@ -910,8 +932,7 @@ Scope {
             Rectangle {
               Layout.fillWidth: true
               height: 1
-              color: Style.border || "#45475a"
-              opacity: 0.4
+              color: Style.panelDivider
             }
 
             // Quick stats telemetry in sidebar
@@ -928,7 +949,7 @@ Scope {
                   Text { text: root.sidebarCpu + "%"; font.pixelSize: 10 + root.uiFontBump; color: Style.orange || "#fab387"; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
                 }
                 Rectangle {
-                  Layout.fillWidth: true; height: 5; radius: 2.5; color: Style.moduleBg || "#313244"
+                  Layout.fillWidth: true; height: 5; radius: 2.5; color: Style.panelControlBg
                   Rectangle { width: parent.width * root.sidebarCpu / 100; height: parent.height; radius: 2.5; color: Style.orange || "#fab387" }
                 }
               }
@@ -942,7 +963,7 @@ Scope {
                   Text { text: root.sidebarMem + "%"; font.pixelSize: 10 + root.uiFontBump; color: Style.lavender || "#b4befe"; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
                 }
                 Rectangle {
-                  Layout.fillWidth: true; height: 5; radius: 2.5; color: Style.moduleBg || "#313244"
+                  Layout.fillWidth: true; height: 5; radius: 2.5; color: Style.panelControlBg
                   Rectangle { width: parent.width * root.sidebarMem / 100; height: parent.height; radius: 2.5; color: Style.lavender || "#b4befe" }
                 }
               }
@@ -956,7 +977,7 @@ Scope {
                   Text { text: root.sidebarBat + "%"; font.pixelSize: 10 + root.uiFontBump; color: Style.green || "#a6e3a1"; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
                 }
                 Rectangle {
-                  Layout.fillWidth: true; height: 5; radius: 2.5; color: Style.moduleBg || "#313244"
+                  Layout.fillWidth: true; height: 5; radius: 2.5; color: Style.panelControlBg
                   Rectangle { width: parent.width * root.sidebarBat / 100; height: parent.height; radius: 2.5; color: root.sidebarBatStatus === "Charging" ? Style.yellow : (root.sidebarBat < 20 ? Style.red : Style.green) }
                 }
               }
@@ -968,9 +989,9 @@ Scope {
         Rectangle {
           Layout.fillWidth: true
           Layout.fillHeight: true
-          color: Style.base || "#1e1e2e"
-          topRightRadius: 12
-          bottomRightRadius: 12
+          color: Style.panelMainBg
+          topRightRadius: 16
+          bottomRightRadius: 16
 
           ColumnLayout {
             anchors.fill: parent
@@ -994,7 +1015,7 @@ Scope {
                   if (root.mode === "power") return "󰐥  Power Actions"
                   return "Features"
                 }
-                color: Style.blue || "#89b4fa"
+                color: Style.sky
                 font.pixelSize: 16 + root.uiFontBump
                 font.family: "JetBrainsMono Nerd Font"
                 font.bold: true
@@ -1011,26 +1032,22 @@ Scope {
               }
 
               Rectangle {
-                visible: root.mode !== "hub"
+                id: closeButton
                 Layout.preferredWidth: 26; Layout.preferredHeight: 26; radius: 13
-                color: "transparent"
-                Text { anchors.centerIn: parent; text: "←"; color: Style.textMuted; font.pixelSize: 16 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font" }
-                MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { root.mode = "hub"; root.pendingConfirm = "" } }
-              }
-
-              Rectangle {
-                Layout.preferredWidth: 26; Layout.preferredHeight: 26; radius: 13
-                color: "transparent"
-                Text { anchors.centerIn: parent; text: "󰅖"; color: Style.textMuted; font.pixelSize: 16 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font" }
-                MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.closeFeature() }
+                color: closeMa.containsMouse ? Style.panelDangerBg : Style.panelControlBg
+                border.width: 1
+                border.color: closeMa.containsMouse ? Style.red : Style.panelCardBorder
+                Text { anchors.centerIn: parent; text: "󰅖"; color: closeMa.containsMouse ? Style.red : Style.textMuted; font.pixelSize: 16 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font" }
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on border.color { ColorAnimation { duration: 150 } }
+                MouseArea { id: closeMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.closeFeature() }
               }
             }
 
             Rectangle {
               Layout.fillWidth: true
               height: 1
-              color: Style.border || "#45475a"
-              opacity: 0.3
+              color: Style.panelDivider
             }
 
             // DYNAMIC VIEWS CONTAINER
@@ -1057,8 +1074,8 @@ Scope {
                     Layout.fillHeight: true
                     Layout.preferredWidth: 1.2
                     radius: 12
-                    color: Style.moduleBg || "#313244"
-                    border.color: Style.border || "#45475a"
+                    color: Style.panelCardBg
+                    border.color: Style.panelCardBorder
                     border.width: 1
 
                     ColumnLayout {
@@ -1079,8 +1096,8 @@ Scope {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 320
                         radius: 6
-                        color: Style.surface || "#313244"
-                        border.color: Style.border || "#45475a"
+                        color: Style.panelControlBg
+                        border.color: Style.panelCardBorder
                         border.width: 1
                         clip: true
                         Flickable {
@@ -1095,7 +1112,116 @@ Scope {
                         }
                       }
 
-                      Item { Layout.fillHeight: true }
+                      ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        spacing: 6
+
+                        RowLayout {
+                          Layout.fillWidth: true
+                          Text {
+                            text: "󰹑  Recent Screenshots"
+                            color: Style.textMuted
+                            font.pixelSize: 11 + root.uiFontBump
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.bold: true
+                          }
+                          Item { Layout.fillWidth: true }
+                          Text {
+                            visible: root.shots.length > 0
+                            text: "view all →"
+                            color: Style.sky
+                            font.pixelSize: 10 + root.uiFontBump
+                            font.family: "JetBrainsMono Nerd Font"
+                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.mode = "screenshots" }
+                          }
+                        }
+
+                        GridView {
+                          id: dashShotGrid
+                          Layout.fillWidth: true
+                          Layout.fillHeight: true
+                          cellWidth: Math.floor(width / 2)
+                          cellHeight: Math.min(104, Math.max(76, height / 2))
+                          clip: true
+                          interactive: false
+                          model: root.shots.slice(0, 4)
+
+                          delegate: Item {
+                            required property var modelData
+                            width: dashShotGrid.cellWidth
+                            height: dashShotGrid.cellHeight
+
+                            Rectangle {
+                              anchors.fill: parent
+                              anchors.margins: 4
+                              radius: 8
+                              clip: true
+                              color: dashShotMa.containsMouse ? Style.panelControlHover : Style.panelControlBg
+                              border.color: root.copiedShot === modelData.path ? Style.green : (dashShotMa.containsMouse ? Style.panelCardBorderHover : Style.panelCardBorder)
+                              border.width: root.copiedShot === modelData.path ? 2 : 1
+                              scale: dashShotMa.containsMouse ? 1.025 : 1.0
+
+                              Behavior on color { ColorAnimation { duration: 140 } }
+                              Behavior on border.color { ColorAnimation { duration: 140 } }
+                              Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+
+                              Image {
+                                anchors.fill: parent
+                                anchors.margins: 1
+                                source: "file://" + modelData.path
+                                fillMode: Image.PreserveAspectCrop
+                                asynchronous: true
+                                sourceSize.width: 260
+                                sourceSize.height: 150
+                              }
+
+                              Rectangle {
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.bottom: parent.bottom
+                                height: 20
+                                color: Qt.rgba(0, 0, 0, 0.55)
+                                Text {
+                                  anchors.centerIn: parent
+                                  width: parent.width - 8
+                                  text: modelData.label
+                                  color: "#ffffff"
+                                  font.pixelSize: 9 + root.uiFontBump
+                                  font.family: "JetBrainsMono Nerd Font"
+                                  elide: Text.ElideRight
+                                  horizontalAlignment: Text.AlignHCenter
+                                }
+                              }
+
+                              Rectangle {
+                                anchors.fill: parent
+                                color: Qt.rgba(0.4, 0.8, 0.5, 0.32)
+                                visible: root.copiedShot === modelData.path
+                                Text { anchors.centerIn: parent; text: "COPIED"; color: "#ffffff"; font.pixelSize: 11 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
+                              }
+
+                              MouseArea {
+                                id: dashShotMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                onClicked: (e) => { if (e.button === Qt.RightButton) root.openShot(modelData.path); else root.copyShot(modelData.path) }
+                              }
+                            }
+                          }
+                        }
+
+                        Text {
+                          visible: root.shots.length === 0
+                          text: "No screenshots yet"
+                          color: Style.textMuted
+                          font.pixelSize: 10 + root.uiFontBump
+                          font.family: "JetBrainsMono Nerd Font"
+                          Layout.alignment: Qt.AlignHCenter
+                        }
+                      }
                     }
                   }
 
@@ -1110,8 +1236,8 @@ Scope {
                       Layout.fillWidth: true
                       Layout.fillHeight: true
                       radius: 12
-                      color: Style.moduleBg || "#313244"
-                      border.color: Style.border || "#45475a"
+                      color: Style.panelCardBg
+                      border.color: Style.panelCardBorder
                       border.width: 1
 
                       ColumnLayout {
@@ -1135,7 +1261,7 @@ Scope {
                             width: 36
                             height: 36
                             radius: 8
-                            color: Style.surface || "#1e1e2e"
+                            color: Style.panelControlBg
                             Text {
                               anchors.centerIn: parent
                               text: "󰎆"
@@ -1231,8 +1357,8 @@ Scope {
                       Layout.fillHeight: true
                       radius: 12
                       clip: true
-                      color: Style.moduleBg || "#313244"
-                      border.color: Style.border || "#45475a"
+                      color: Style.panelCardBg
+                      border.color: Style.panelCardBorder
                       border.width: 1
 
                       Image {
@@ -1281,56 +1407,6 @@ Scope {
                   }
                 }
 
-                // Recent Screenshots strip
-                Item {
-                  Layout.fillWidth: true
-                  Layout.preferredHeight: 74
-                  visible: root.shots.length > 0
-
-                  ColumnLayout {
-                    anchors.fill: parent
-                    spacing: 4
-                    RowLayout {
-                      Layout.fillWidth: true
-                      Text { text: "󰹑  Recent Screenshots"; color: Style.textMuted; font.pixelSize: 11 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
-                      Item { Layout.fillWidth: true }
-                      Text {
-                        text: "view all →"
-                        color: Style.blue
-                        font.pixelSize: 10 + root.uiFontBump
-                        font.family: "JetBrainsMono Nerd Font"
-                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.mode = "screenshots" }
-                      }
-                    }
-                    Row {
-                      spacing: 8
-                      Repeater {
-                        model: root.shots.slice(0, 4)
-                        delegate: Rectangle {
-                          required property var modelData
-                          width: 106; height: 50; radius: 8; clip: true
-                          color: Style.surface || "#313244"
-                          border.color: root.copiedShot === modelData.path ? Style.green : (dashShotMa.containsMouse ? Style.blue : "transparent")
-                          border.width: 1
-
-                          Image { anchors.fill: parent; anchors.margins: 1; source: "file://" + modelData.path; fillMode: Image.PreserveAspectCrop; asynchronous: true; sourceSize: Qt.size(150, 90) }
-
-                          Rectangle { anchors.fill: parent; color: Qt.rgba(0.4, 0.8, 0.5, 0.35); visible: root.copiedShot === modelData.path; Text { anchors.centerIn: parent; text: "COPIED"; color: "#cdd6f4"; font.pixelSize: 9 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true } }
-
-                          MouseArea {
-                            id: dashShotMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            acceptedButtons: Qt.LeftButton | Qt.RightButton
-                            onClicked: (e) => { if (e.button === Qt.RightButton) root.openShot(modelData.path); else root.copyShot(modelData.path) }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-
                 // Bottom row: reload tools
                 RowLayout {
                   Layout.fillWidth: true
@@ -1347,9 +1423,14 @@ Scope {
                     delegate: Rectangle {
                       required property var modelData
                       Layout.fillWidth: true; height: 32; radius: 8
-                      color: Style.surface || "#313244"
-                      border.color: reloadMa.containsMouse ? Style.blue : Style.border || "transparent"
+                      color: reloadMa.containsMouse ? Style.panelControlHover : Style.panelControlBg
+                      border.color: reloadMa.containsMouse ? Style.panelCardBorderHover : Style.panelCardBorder
                       border.width: 1
+                      scale: reloadMa.containsMouse ? 1.02 : 1.0
+
+                      Behavior on color { ColorAnimation { duration: 140 } }
+                      Behavior on border.color { ColorAnimation { duration: 140 } }
+                      Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
                       Row { anchors.centerIn: parent; spacing: 6; Text { text: modelData.icon; font.pixelSize: 13 + root.uiFontBump; color: Style.blue; font.family: "JetBrainsMono Nerd Font" } Text { text: modelData.label; font.pixelSize: 11 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font" } }
                       MouseArea { id: reloadMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: modelData.act() }
@@ -1370,9 +1451,10 @@ Scope {
                   Layout.fillWidth: true
                   height: 36
                   radius: 8
-                  color: Style.surface || "#313244"
-                  border.color: searchInput.activeFocus ? Style.blue : Style.border || "#45475a"
+                  color: Style.panelControlBg
+                  border.color: searchInput.activeFocus ? Style.panelCardBorderHover : Style.panelCardBorder
                   border.width: 1
+                  Behavior on border.color { ColorAnimation { duration: 140 } }
 
                   RowLayout {
                     anchors.fill: parent
@@ -1424,10 +1506,15 @@ Scope {
                       anchors.fill: parent
                       anchors.margins: 4
                       radius: 8
-                      color: Style.surface || "#313244"
-                      border.color: WallpaperModule.WallpaperService.currentWallpaper === modelData ? Style.green : (wallGridMa.containsMouse ? Style.blue : Style.border || "transparent")
+                      color: wallGridMa.containsMouse ? Style.panelControlHover : Style.panelControlBg
+                      border.color: WallpaperModule.WallpaperService.currentWallpaper === modelData ? Style.green : (wallGridMa.containsMouse ? Style.panelCardBorderHover : Style.panelCardBorder)
                       border.width: WallpaperModule.WallpaperService.currentWallpaper === modelData ? 2 : 1
                       clip: true
+                      scale: wallGridMa.containsMouse ? 1.025 : 1.0
+
+                      Behavior on color { ColorAnimation { duration: 140 } }
+                      Behavior on border.color { ColorAnimation { duration: 140 } }
+                      Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
                       Image {
                         anchors.fill: parent
@@ -1440,7 +1527,7 @@ Scope {
 
                         Rectangle {
                           anchors.fill: parent
-                          color: Style.surface
+                          color: Style.panelControlBg
                           visible: parent.status !== Image.Ready
                           Text { anchors.centerIn: parent; text: "󰋩"; color: Style.textMuted; font.pixelSize: 22 + root.uiFontBump }
                         }
@@ -1501,29 +1588,6 @@ Scope {
                 visible: root.mode === "screenshots"
                 spacing: 8
 
-                RowLayout {
-                  Layout.fillWidth: true
-                  spacing: 8
-
-                  Repeater {
-                    model: [
-                      { label: "󰄄  Region", k: "region" },
-                      { label: "󰹑  Fullscreen", k: "fullscreen" }
-                    ]
-                    delegate: Rectangle {
-                      required property var modelData
-                      width: 110; height: 28; radius: 8
-                      color: Style.moduleBg || "#313244"
-                      border.color: ca.containsMouse ? Style.green : "transparent"
-                      border.width: 1
-                      Text { anchors.centerIn: parent; text: modelData.label; font.pixelSize: 11 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font" }
-                      MouseArea { id: ca; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.capture(modelData.k) }
-                    }
-                  }
-                  Item { Layout.fillWidth: true }
-                  Text { text: "Click to copy • Right-click to open"; color: Style.textMuted; font.pixelSize: 10 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font" }
-                }
-
                 GridView {
                   id: shotGrid
                   Layout.fillWidth: true; Layout.fillHeight: true
@@ -1544,9 +1608,14 @@ Scope {
                       anchors.fill: parent
                       anchors.margins: 4
                       radius: 8; clip: true
-                      color: Style.surface || "#313244"
-                      border.color: root.copiedShot === modelData.path ? Style.green : (hma.containsMouse ? Style.blue : Style.border || "transparent")
+                      color: hma.containsMouse ? Style.panelControlHover : Style.panelControlBg
+                      border.color: root.copiedShot === modelData.path ? Style.green : (hma.containsMouse ? Style.panelCardBorderHover : Style.panelCardBorder)
                       border.width: root.copiedShot === modelData.path ? 2 : 1
+                      scale: hma.containsMouse ? 1.025 : 1.0
+
+                      Behavior on color { ColorAnimation { duration: 140 } }
+                      Behavior on border.color { ColorAnimation { duration: 140 } }
+                      Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
                       Image {
                         anchors.fill: parent; anchors.margins: 1
@@ -1589,8 +1658,8 @@ Scope {
                 Rectangle {
                   Layout.fillWidth: true
                   radius: 12
-                  color: Style.moduleBg || "#313244"
-                  border.color: Style.border || "#45475a"
+                  color: Style.panelCardBg
+                  border.color: Style.panelCardBorder
                   border.width: 1
                   Layout.preferredHeight: 76
                   Layout.maximumHeight: 76
@@ -1679,8 +1748,8 @@ Scope {
 
                   // Output Vol
                   Rectangle {
-                    Layout.fillWidth: true; height: 36; radius: 8; color: Style.moduleBg || "#313244"
-                    border.color: Style.border || "#45475a"; border.width: 1
+                    Layout.fillWidth: true; height: 36; radius: 8; color: Style.panelCardBg
+                    border.color: Style.panelCardBorder; border.width: 1
 
                     RowLayout {
                       anchors.fill: parent; anchors.margins: 10
@@ -1701,7 +1770,7 @@ Scope {
                       }
 
                       Rectangle {
-                        width: 20; height: 20; radius: 4; color: Style.surface
+                        width: 20; height: 20; radius: 4; color: Style.panelControlBg
                         Text {
                           anchors.centerIn: parent
                           text: root.defaultSinkMuted ? "󰖁" : "󰕾"
@@ -1716,12 +1785,12 @@ Scope {
                       }
 
                       Rectangle {
-                        width: 20; height: 20; radius: 4; color: Style.surface
+                        width: 20; height: 20; radius: 4; color: Style.panelControlBg
                         Text { anchors.centerIn: parent; text: "−"; font.pixelSize: 12 + root.uiFontBump; color: Style.text }
                         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.volAdjust("@DEFAULT_AUDIO_SINK@", -5) }
                       }
                       Rectangle {
-                        width: 20; height: 20; radius: 4; color: Style.surface
+                        width: 20; height: 20; radius: 4; color: Style.panelControlBg
                         Text { anchors.centerIn: parent; text: "+"; font.pixelSize: 12 + root.uiFontBump; color: Style.text }
                         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.volAdjust("@DEFAULT_AUDIO_SINK@", 5) }
                       }
@@ -1730,8 +1799,8 @@ Scope {
 
                   // Mic Vol
                   Rectangle {
-                    Layout.fillWidth: true; height: 36; radius: 8; color: Style.moduleBg || "#313244"
-                    border.color: Style.border || "#45475a"; border.width: 1
+                    Layout.fillWidth: true; height: 36; radius: 8; color: Style.panelCardBg
+                    border.color: Style.panelCardBorder; border.width: 1
 
                     RowLayout {
                       anchors.fill: parent; anchors.margins: 10
@@ -1752,7 +1821,7 @@ Scope {
                       }
 
                       Rectangle {
-                        width: 20; height: 20; radius: 4; color: Style.surface
+                        width: 20; height: 20; radius: 4; color: Style.panelControlBg
                         Text {
                           anchors.centerIn: parent
                           text: root.defaultSourceMuted ? "󰍭" : "󰍬"
@@ -1767,7 +1836,7 @@ Scope {
                       }
 
                       Rectangle {
-                        width: 20; height: 20; radius: 4; color: Style.surface
+                        width: 20; height: 20; radius: 4; color: Style.panelControlBg
                         Text { anchors.centerIn: parent; text: "−"; font.pixelSize: 12 + root.uiFontBump; color: Style.text }
                         MouseArea {
                           anchors.fill: parent
@@ -1776,7 +1845,7 @@ Scope {
                         }
                       }
                       Rectangle {
-                        width: 20; height: 20; radius: 4; color: Style.surface
+                        width: 20; height: 20; radius: 4; color: Style.panelControlBg
                         Text { anchors.centerIn: parent; text: "+"; font.pixelSize: 12 + root.uiFontBump; color: Style.text }
                         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.volAdjust("@DEFAULT_AUDIO_SOURCE@", 5) }
                       }
@@ -1794,8 +1863,8 @@ Scope {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     radius: 10
-                    color: Style.moduleBg || "#313244"
-                    border.color: Style.border || "#45475a"
+                    color: Style.panelCardBg
+                    border.color: Style.panelCardBorder
                     border.width: 1
 
                     ColumnLayout {
@@ -1835,9 +1904,11 @@ Scope {
                               radius: 5
                               color: modelData.active
                                 ? Qt.rgba(Style.blue.r, Style.blue.g, Style.blue.b, 0.18)
-                                : (outMa.containsMouse ? Style.surface : "transparent")
-                              border.color: modelData.active ? Style.blue : "transparent"
+                                : (outMa.containsMouse ? Style.panelControlHover : "transparent")
+                              border.color: modelData.active ? Style.blue : (outMa.containsMouse ? Style.panelCardBorderHover : "transparent")
                               border.width: 1
+                              Behavior on color { ColorAnimation { duration: 140 } }
+                              Behavior on border.color { ColorAnimation { duration: 140 } }
                               RowLayout {
                                 anchors.fill: parent
                                 anchors.leftMargin: 7
@@ -1881,8 +1952,8 @@ Scope {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     radius: 10
-                    color: Style.moduleBg || "#313244"
-                    border.color: Style.border || "#45475a"
+                    color: Style.panelCardBg
+                    border.color: Style.panelCardBorder
                     border.width: 1
 
                     ColumnLayout {
@@ -1922,9 +1993,11 @@ Scope {
                               radius: 5
                               color: modelData.active
                                 ? Qt.rgba(Style.blue.r, Style.blue.g, Style.blue.b, 0.18)
-                                : (inMa.containsMouse ? Style.surface : "transparent")
-                              border.color: modelData.active ? Style.blue : "transparent"
+                                : (inMa.containsMouse ? Style.panelControlHover : "transparent")
+                              border.color: modelData.active ? Style.blue : (inMa.containsMouse ? Style.panelCardBorderHover : "transparent")
                               border.width: 1
+                              Behavior on color { ColorAnimation { duration: 140 } }
+                              Behavior on border.color { ColorAnimation { duration: 140 } }
                               RowLayout {
                                 anchors.fill: parent
                                 anchors.leftMargin: 7
@@ -1970,8 +2043,8 @@ Scope {
                   Layout.preferredHeight: 116
                   Layout.maximumHeight: 116
                   radius: 10
-                  color: Style.moduleBg || "#313244"
-                  border.color: Style.border || "#45475a"
+                  color: Style.panelCardBg
+                  border.color: Style.panelCardBorder
                   border.width: 1
 
                   ColumnLayout {
@@ -2010,7 +2083,11 @@ Scope {
                             width: parent.width
                             height: 26
                             radius: 6
-                            color: Style.surface
+                            color: modelData.muted ? Style.panelDangerBg : Style.panelControlBg
+                            border.width: 1
+                            border.color: modelData.muted ? Style.red : Style.panelCardBorder
+                            Behavior on color { ColorAnimation { duration: 140 } }
+                            Behavior on border.color { ColorAnimation { duration: 140 } }
 
                             RowLayout {
                               anchors.fill: parent
@@ -2101,8 +2178,8 @@ Scope {
                   Layout.preferredHeight: root.mediaCavaHeight
                   Layout.maximumHeight: root.mediaCavaHeight
                   radius: 12
-                  color: Style.moduleBg || "#313244"
-                  border.color: Style.border || "#45475a"
+                  color: Style.panelCardBg
+                  border.color: Style.panelCardBorder
                   border.width: 1
 
                   ColumnLayout {
@@ -2156,11 +2233,13 @@ Scope {
                   }
                   Item { Layout.fillWidth: true }
                   Rectangle {
-                    width: 70; height: 24; radius: 6; color: Style.moduleBg || "#313244"
-                    border.color: Style.border; border.width: 1
+                    width: 70; height: 24; radius: 6; color: refreshNetMa.containsMouse ? Style.panelControlHover : Style.panelCardBg
+                    border.color: refreshNetMa.containsMouse ? Style.panelCardBorderHover : Style.panelCardBorder; border.width: 1
                     Text { anchors.centerIn: parent; text: "Refresh"; font.pixelSize: 10 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font" }
+                    Behavior on color { ColorAnimation { duration: 140 } }
+                    Behavior on border.color { ColorAnimation { duration: 140 } }
                     MouseArea {
-                      anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                      id: refreshNetMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                       onClicked: { root.scanWifi(); root.ethCheck.running = true }
                     }
                   }
@@ -2172,7 +2251,8 @@ Scope {
 
                   Rectangle {
                     Layout.fillWidth: true; Layout.preferredHeight: 146
-                    radius: 6; color: Qt.rgba(0,0,0,0.15); border.color: Style.border; border.width: 1
+                    radius: 8; color: Style.panelCardBg; border.color: root.wifiEnabled ? Style.panelCardBorderHover : Style.panelCardBorder; border.width: 1
+                    Behavior on border.color { ColorAnimation { duration: 140 } }
                     ColumnLayout {
                       anchors.fill: parent; anchors.margins: 12; spacing: 6
                       RowLayout {
@@ -2228,7 +2308,8 @@ Scope {
 
                   Rectangle {
                     Layout.fillWidth: true; Layout.preferredHeight: 146
-                    radius: 6; color: Qt.rgba(0,0,0,0.15); border.color: Style.border; border.width: 1
+                    radius: 8; color: Style.panelCardBg; border.color: root.ethConnected ? Style.panelCardBorderHover : Style.panelCardBorder; border.width: 1
+                    Behavior on border.color { ColorAnimation { duration: 140 } }
                     ColumnLayout {
                       anchors.fill: parent; anchors.margins: 12; spacing: 6
                       RowLayout {
@@ -2291,7 +2372,7 @@ Scope {
                   Item { Layout.fillWidth: true }
                 }
 
-                Rectangle { Layout.fillWidth: true; height: 1; color: Style.border; opacity: 0.4 }
+                Rectangle { Layout.fillWidth: true; height: 1; color: Style.panelDivider }
 
                 Flickable {
                   Layout.fillWidth: true; Layout.fillHeight: true; clip: true
@@ -2307,9 +2388,13 @@ Scope {
                         width: parent.width - 8; x: 4; height: 34; radius: 6
                         color: modelData.active
                           ? Qt.rgba(Style.blue.r, Style.blue.g, Style.blue.b, 0.16)
-                          : (netMa.containsMouse ? Qt.rgba(Style.surface.r, Style.surface.g, Style.surface.b, 0.25) : "transparent")
-                        border.color: modelData.active ? Style.blueAlt : "transparent"
-                        border.width: modelData.active ? 1 : 0
+                          : (netMa.containsMouse ? Style.panelControlHover : "transparent")
+                        border.color: modelData.active ? Style.blueAlt : (netMa.containsMouse ? Style.panelCardBorderHover : "transparent")
+                        border.width: 1
+                        scale: netMa.containsMouse && !modelData.active ? 1.01 : 1.0
+                        Behavior on color { ColorAnimation { duration: 140 } }
+                        Behavior on border.color { ColorAnimation { duration: 140 } }
+                        Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
                         RowLayout {
                           anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10; spacing: 8
@@ -2390,36 +2475,44 @@ Scope {
                     Layout.fillWidth: true; elide: Text.ElideRight
                   }
                   Rectangle {
-                    width: 76; height: 26; radius: 5; color: mirrorMouse.containsMouse ? Style.hoverBg : (Style.moduleBg || "#313244")
-                    border.color: Style.border; border.width: 1
+                    width: 76; height: 26; radius: 5; color: mirrorMouse.containsMouse ? Style.panelControlHover : Style.panelCardBg
+                    border.color: mirrorMouse.containsMouse ? Style.panelCardBorderHover : Style.panelCardBorder; border.width: 1
                     Text { anchors.centerIn: parent; text: "Mirror"; font.pixelSize: 9 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font" }
+                    Behavior on color { ColorAnimation { duration: 140 } }
+                    Behavior on border.color { ColorAnimation { duration: 140 } }
                     MouseArea {
                       id: mirrorMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                       onClicked: root.mirrorMonitors()
                     }
                   }
                   Rectangle {
-                    width: 76; height: 26; radius: 5; color: extendMouse.containsMouse ? Style.hoverBg : (Style.moduleBg || "#313244")
-                    border.color: Style.border; border.width: 1
+                    width: 76; height: 26; radius: 5; color: extendMouse.containsMouse ? Style.panelControlHover : Style.panelCardBg
+                    border.color: extendMouse.containsMouse ? Style.panelCardBorderHover : Style.panelCardBorder; border.width: 1
                     Text { anchors.centerIn: parent; text: "Extend"; font.pixelSize: 9 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font" }
+                    Behavior on color { ColorAnimation { duration: 140 } }
+                    Behavior on border.color { ColorAnimation { duration: 140 } }
                     MouseArea {
                       id: extendMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                       onClicked: root.extendMonitors()
                     }
                   }
                   Rectangle {
-                    width: 76; height: 26; radius: 5; color: externalMouse.containsMouse ? Style.hoverBg : (Style.moduleBg || "#313244")
-                    border.color: Style.border; border.width: 1
+                    width: 76; height: 26; radius: 5; color: externalMouse.containsMouse ? Style.panelControlHover : Style.panelCardBg
+                    border.color: externalMouse.containsMouse ? Style.panelCardBorderHover : Style.panelCardBorder; border.width: 1
                     Text { anchors.centerIn: parent; text: "External"; font.pixelSize: 9 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font" }
+                    Behavior on color { ColorAnimation { duration: 140 } }
+                    Behavior on border.color { ColorAnimation { duration: 140 } }
                     MouseArea {
                       id: externalMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                       onClicked: root.externalOnlyMonitors()
                     }
                   }
                   Rectangle {
-                    width: 76; height: 26; radius: 5; color: rescanMouse.containsMouse ? Style.hoverBg : (Style.moduleBg || "#313244")
-                    border.color: Style.border; border.width: 1
+                    width: 76; height: 26; radius: 5; color: rescanMouse.containsMouse ? Style.panelControlHover : Style.panelCardBg
+                    border.color: rescanMouse.containsMouse ? Style.panelCardBorderHover : Style.panelCardBorder; border.width: 1
                     Text { anchors.centerIn: parent; text: "Rescan"; font.pixelSize: 9 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font" }
+                    Behavior on color { ColorAnimation { duration: 140 } }
+                    Behavior on border.color { ColorAnimation { duration: 140 } }
                     MouseArea {
                       id: rescanMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                       onClicked: root.rescanMonitors()
@@ -2429,7 +2522,7 @@ Scope {
                 // Layout visualization (normalized rects from hyprctl coords)
                 Rectangle {
                   Layout.fillWidth: true; Layout.preferredHeight: 360
-                  radius: 6; color: Style.surface || "#313244"; border.color: Style.border; border.width: 1
+                  radius: 6; color: Style.panelControlBg; border.color: Style.panelCardBorder; border.width: 1
                   Canvas {
                     anchors.fill: parent; anchors.margins: 10
                     property int v: root.monitorVersion
@@ -2482,8 +2575,10 @@ Scope {
                       delegate: Rectangle {
                         required property var modelData
                         width: parent.width; height: 44; radius: 6
-                        color: modelData.focused ? Qt.rgba(Style.blue.r, Style.blue.g, Style.blue.b, 0.16) : Qt.rgba(0,0,0,0.12)
-                        border.color: modelData.focused ? Style.blueAlt : Style.border; border.width: 1
+                        color: modelData.focused ? Qt.rgba(Style.blue.r, Style.blue.g, Style.blue.b, 0.16) : Style.panelCardBg
+                        border.color: modelData.focused ? Style.blueAlt : Style.panelCardBorder; border.width: 1
+                        Behavior on color { ColorAnimation { duration: 140 } }
+                        Behavior on border.color { ColorAnimation { duration: 140 } }
                         RowLayout {
                           anchors.fill: parent; anchors.leftMargin: 9; anchors.rightMargin: 9; spacing: 10
                           Text {
@@ -2522,7 +2617,7 @@ Scope {
                 spacing: 8
                 Rectangle {
                   Layout.fillWidth: true; Layout.fillHeight: true
-                  radius: 6; color: Style.surface || "#313244"; border.color: Style.border; border.width: 1
+                  radius: 6; color: Style.panelControlBg; border.color: Style.panelCardBorder; border.width: 1
                   Flickable {
                     anchors.fill: parent; anchors.margins: 8; clip: true
                     contentHeight: tempCol.height; boundsBehavior: Flickable.StopAtBounds
@@ -2540,7 +2635,7 @@ Scope {
                         delegate: Rectangle {
                           required property var modelData
                           width: parent.width; height: groupCol.height + 14; radius: 6
-                          color: Qt.rgba(0,0,0,0.12); border.color: Style.border; border.width: 1
+                          color: Style.panelCardBg; border.color: Style.panelCardBorder; border.width: 1
                           Column {
                             id: groupCol
                             width: parent.width - 16; x: 8; y: 7; spacing: 5
@@ -2613,8 +2708,10 @@ Scope {
                   }
                   Item { Layout.fillWidth: true }
                   Rectangle {
-                    width: 70; height: 24; radius: 6; color: Style.moduleBg || "#313244"
-                    border.color: Style.border; border.width: 1
+                    width: 70; height: 24; radius: 6; color: btPowerMa.containsMouse ? Style.panelControlHover : Style.panelCardBg
+                    border.color: btPowerMa.containsMouse ? Style.panelCardBorderHover : Style.panelCardBorder; border.width: 1
+                    Behavior on color { ColorAnimation { duration: 140 } }
+                    Behavior on border.color { ColorAnimation { duration: 140 } }
                     Text {
                       anchors.centerIn: parent
                       text: root.bluetoothPowered ? "Turn Off" : "Turn On"
@@ -2623,13 +2720,13 @@ Scope {
                       font.family: "JetBrainsMono Nerd Font"
                     }
                     MouseArea {
-                      anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                      id: btPowerMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                       onClicked: root.toggleBluetoothPower()
                     }
                   }
                 }
 
-                Rectangle { Layout.fillWidth: true; height: 1; color: Style.border; opacity: 0.4 }
+                Rectangle { Layout.fillWidth: true; height: 1; color: Style.panelDivider }
 
                 Flickable {
                   Layout.fillWidth: true; Layout.fillHeight: true; clip: true
@@ -2642,7 +2739,11 @@ Scope {
                       delegate: Rectangle {
                         required property var modelData
                         width: parent.width; height: 36; radius: 6
-                        color: bth.containsMouse ? Style.moduleBg : "transparent"
+                        color: modelData.connected ? Style.panelAccentBg : (bth.containsMouse ? Style.panelControlHover : "transparent")
+                        border.width: 1
+                        border.color: modelData.connected ? Style.panelAccentBorder : (bth.containsMouse ? Style.panelCardBorderHover : "transparent")
+                        Behavior on color { ColorAnimation { duration: 140 } }
+                        Behavior on border.color { ColorAnimation { duration: 140 } }
 
                         RowLayout {
                           anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 8
@@ -2656,8 +2757,8 @@ Scope {
                           Item { Layout.fillWidth: true }
                           Rectangle {
                             width: 64; height: 20; radius: 4
-                            color: Style.surface
-                            border.color: Style.border; border.width: 1
+                            color: Style.panelControlBg
+                            border.color: Style.panelCardBorder; border.width: 1
                             Text { anchors.centerIn: parent; text: modelData.connected ? "󰂲" : (modelData.paired ? "󰂱" : "󰂯"); font.pixelSize: 14 + root.uiFontBump; color: Style.blue; font.family: "JetBrainsMono Nerd Font" }
                             MouseArea {
                               anchors.fill: parent; cursorShape: Qt.PointingHandCursor
@@ -2698,9 +2799,14 @@ Scope {
                     delegate: Rectangle {
                       required property var modelData
                       Layout.fillWidth: true; height: 50; radius: 10
-                      color: modelData.danger ? (Style.red ? Qt.rgba(0.95,0.55,0.65,0.1) : "#2a1e1e") : (Style.moduleBg || "#313244")
-                      border.color: pma.containsMouse ? (modelData.danger ? Style.red : Style.blue) : Style.border || "transparent"
+                      color: modelData.danger ? Style.panelDangerBg : (pma.containsMouse ? Style.panelControlHover : Style.panelCardBg)
+                      border.color: pma.containsMouse ? (modelData.danger ? Style.red : Style.panelCardBorderHover) : Style.panelCardBorder
                       border.width: 1
+                      scale: pma.containsMouse ? 1.02 : 1.0
+
+                      Behavior on color { ColorAnimation { duration: 140 } }
+                      Behavior on border.color { ColorAnimation { duration: 140 } }
+                      Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
                       Row { anchors.centerIn: parent; spacing: 8; Text { text: modelData.icon; font.pixelSize: 20 + root.uiFontBump; color: modelData.danger ? Style.red : Style.blue; font.family: "JetBrainsMono Nerd Font" } Text { text: modelData.label; font.pixelSize: 12 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font"; font.bold: true } }
                       MouseArea { id: pma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: modelData.act() }
@@ -2713,11 +2819,11 @@ Scope {
                   Layout.alignment: Qt.AlignHCenter
                   spacing: 12
 
-                  Rectangle { width: 90; height: 30; radius: 6; color: Style.green ? Qt.rgba(0.6,0.8,0.5,0.2) : "#1e2a1e"
+                  Rectangle { width: 90; height: 30; radius: 6; color: Style.panelSuccessBg; border.width: 1; border.color: Style.green
                     Text { anchors.centerIn: parent; text: "Confirm"; color: Style.green; font.pixelSize: 12 + root.uiFontBump; font.bold: true }
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { if (root.pendingConfirm === "reboot") root.doReboot(); else if (root.pendingConfirm === "shutdown") root.doShutdown() } }
                   }
-                  Rectangle { width: 90; height: 30; radius: 6; color: Style.surface || "#313244"
+                  Rectangle { width: 90; height: 30; radius: 6; color: Style.panelControlBg; border.width: 1; border.color: Style.panelCardBorder
                     Text { anchors.centerIn: parent; text: "Cancel"; color: Style.textMuted; font.pixelSize: 12 + root.uiFontBump }
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.cancelConfirm() }
                   }
@@ -2732,7 +2838,7 @@ Scope {
     // WIDESCREEN WALLPAPER PICKER PREVIEW OVERLAY
     Rectangle {
       anchors.fill: parent
-      color: Qt.rgba(0, 0, 0, 0.85)
+      color: Style.panelOverlay
       visible: root.wallpaperPreviewPath !== ""
       radius: 16
 
@@ -2754,7 +2860,9 @@ Scope {
         width: applyRow.width + 36
         height: 40
         radius: 20
-        color: Style.blue || "#89b4fa"
+        color: Style.sky
+        border.width: 1
+        border.color: Style.panelAccentBorder
 
         RowLayout {
           id: applyRow

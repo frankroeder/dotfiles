@@ -124,7 +124,9 @@ FocusScope {
     anchors.fill: parent
     radius: 12
     color: Style.surface
-    border.color: Style.border
+    border.color: Style.barBorder
+    Behavior on color { ColorAnimation { duration: 140 } }
+    Behavior on border.color { ColorAnimation { duration: 140 } }
     border.width: 1
 
     ColumnLayout {
@@ -161,7 +163,7 @@ FocusScope {
       }
 
       Rectangle {
-        Layout.fillWidth: true; radius: 6; color: Qt.rgba(0,0,0,0.2); border.color: Style.border; border.width: 1
+        Layout.fillWidth: true; radius: 6; color: Qt.rgba(0,0,0,0.2); border.color: Style.barBorder; border.width: 1
         Text {
           anchors.centerIn: parent; anchors.margins: 7
           text: currentTooltip || "No connection info"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10; color: Style.text
@@ -169,7 +171,7 @@ FocusScope {
         }
       }
 
-      Rectangle { Layout.fillWidth: true; height: 1; color: Style.border; opacity: 0.5 }
+      Rectangle { Layout.fillWidth: true; height: 1; color: Style.barBorder; opacity: 0.5 }
 
       RowLayout {
         Layout.fillWidth: true
@@ -228,7 +230,7 @@ FocusScope {
         }
       }
 
-      Rectangle { Layout.fillWidth: true; height: 1; color: Style.border; opacity: 0.5 }
+      Rectangle { Layout.fillWidth: true; height: 1; color: Style.barBorder; opacity: 0.5 }
 
       MouseArea {
         Layout.fillWidth: true; height: 22; cursorShape: Qt.PointingHandCursor
@@ -244,7 +246,9 @@ FocusScope {
         anchors.centerIn: parent; width: parent.width-30; spacing: 8
         Text { text: "Connect to "+pendingSsid; color: Style.text; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; font.bold:true; Layout.alignment: Qt.AlignHCenter }
         Rectangle {
-          Layout.fillWidth: true; height: 30; radius: 5; color: Qt.rgba(0.2,0.2,0.25,0.2); border.color: Style.border
+          Layout.fillWidth: true; height: 30; radius: 5; color: Qt.rgba(0.2,0.2,0.25,0.2); border.color: Style.barBorder
+    Behavior on color { ColorAnimation { duration: 140 } }
+    Behavior on border.color { ColorAnimation { duration: 140 } }
           TextInput {
             id: passInput; anchors.fill:parent; anchors.margins:6; color: Style.text; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; echoMode: TextInput.Password; verticalAlignment: TextInput.AlignVCenter
             onAccepted: doConnect(pendingSsid, text)

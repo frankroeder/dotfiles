@@ -10,10 +10,14 @@ Rectangle {
 
   implicitWidth: row.implicitWidth + 14
   implicitHeight: 26
-  color: brightnessMouse.containsMouse ? Style.hoverBg : Style.moduleBg
+  color: brightnessMouse.containsMouse ? Style.barHoverBg : Style.barBg
   radius: Style.radius
   border.width: 1
-  border.color: Style.border
+    border.color: Style.barBorder
+    Behavior on color { ColorAnimation { duration: 140 } }
+    Behavior on border.color { ColorAnimation { duration: 140 } }
+    scale: brightnessMouse.containsMouse ? 1.018 : 1.0
+    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
   property string text: "☀ --%"
 

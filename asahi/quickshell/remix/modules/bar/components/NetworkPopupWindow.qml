@@ -138,7 +138,9 @@ PanelWindow {
     anchors.fill: parent
     radius: 12
     color: Style.surface
-    border.color: Style.border
+    border.color: Style.barBorder
+    Behavior on color { ColorAnimation { duration: 140 } }
+    Behavior on border.color { ColorAnimation { duration: 140 } }
     border.width: 1
     ColumnLayout {
       id: contentColumn
@@ -171,7 +173,7 @@ PanelWindow {
         }
       }
       Rectangle {
-        Layout.fillWidth: true; radius: 6; color: Qt.rgba(0,0,0,0.2); border.color: Style.border; border.width: 1
+        Layout.fillWidth: true; radius: 6; color: Qt.rgba(0,0,0,0.2); border.color: Style.barBorder; border.width: 1
         implicitHeight: infoText.height + 14
         Text {
           id: infoText; anchors.centerIn: parent; anchors.margins: 8
@@ -179,7 +181,7 @@ PanelWindow {
           wrapMode: Text.Wrap; width: parent.width - 18
         }
       }
-      Rectangle { Layout.fillWidth: true; height: 1; color: Style.border; opacity: 0.5 }
+      Rectangle { Layout.fillWidth: true; height: 1; color: Style.barBorder; opacity: 0.5 }
       RowLayout {
         Layout.fillWidth: true
         Text { text: "Available networks"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; font.bold: true; color: Style.textMuted }
@@ -256,7 +258,7 @@ PanelWindow {
           font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10; color: Style.textMuted; Layout.alignment: Qt.AlignHCenter
         }
       }
-      Rectangle { Layout.fillWidth: true; height: 1; color: Style.border; opacity: 0.5 }
+      Rectangle { Layout.fillWidth: true; height: 1; color: Style.barBorder; opacity: 0.5 }
       MouseArea {
         Layout.fillWidth: true; height: 24; cursorShape: Qt.PointingHandCursor
         onClicked: { shouldShow = false; Quickshell.execDetached([binDir + "/asahi-network-menu"]) }
@@ -270,7 +272,7 @@ PanelWindow {
         Text { text: "Connect to network"; color: Style.text; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13; font.bold: true; Layout.alignment: Qt.AlignHCenter }
         Text { text: pendingSsid; color: Style.blueAlt; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; Layout.alignment: Qt.AlignHCenter; elide: Text.ElideRight }
         Rectangle {
-          Layout.fillWidth: true; height: 34; radius: 6; color: Qt.rgba(Style.surface.r, Style.surface.g, Style.surface.b, 0.2); border.color: Style.border; border.width: 1
+          Layout.fillWidth: true; height: 34; radius: 6; color: Qt.rgba(Style.surface.r, Style.surface.g, Style.surface.b, 0.2); border.color: Style.barBorder; border.width: 1
           TextInput {
             id: passInput; anchors.fill: parent; anchors.margins: 8; color: Style.text; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13; echoMode: TextInput.Password; verticalAlignment: TextInput.AlignVCenter
             onAccepted: doConnect(pendingSsid, text)

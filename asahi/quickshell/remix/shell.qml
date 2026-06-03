@@ -275,12 +275,16 @@ Variants {
       // Compact CPU (icon + % + temp + inline graph)
       Rectangle {
         id: cpuWidget
-        color: cpuMouse.containsMouse ? Style.hoverBg : Style.moduleBg
+        color: cpuMouse.containsMouse ? Style.barHoverBg : Style.barBg
         radius: Style.radius
         border.width: 1
-        border.color: Style.border
+        border.color: Style.barBorder
+        scale: cpuMouse.containsMouse ? 1.018 : 1.0
         implicitWidth: 152
         implicitHeight: 26
+        Behavior on color { ColorAnimation { duration: 140 } }
+        Behavior on border.color { ColorAnimation { duration: 140 } }
+        Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
         RowLayout {
           anchors.centerIn: parent
           spacing: 4
@@ -340,12 +344,16 @@ Variants {
       // Compact RAM (% only)
       Rectangle {
         id: ramWidget
-        color: ramMouse.containsMouse ? Style.hoverBg : Style.moduleBg
+        color: ramMouse.containsMouse ? Style.barHoverBg : Style.barBg
         radius: Style.radius
         border.width: 1
-        border.color: Style.border
+        border.color: Style.barBorder
+        scale: ramMouse.containsMouse ? 1.018 : 1.0
         implicitWidth: 68
         implicitHeight: 26
+        Behavior on color { ColorAnimation { duration: 140 } }
+        Behavior on border.color { ColorAnimation { duration: 140 } }
+        Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
         RowLayout {
           anchors.centerIn: parent
           spacing: 4

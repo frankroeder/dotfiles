@@ -24,7 +24,9 @@ PopupWindow {
   Rectangle {
     anchors.fill: parent
     color: Style.surface
-    border.color: Style.border
+    border.color: Style.barBorder
+    Behavior on color { ColorAnimation { duration: 140 } }
+    Behavior on border.color { ColorAnimation { duration: 140 } }
     radius: Style.radius
   }
 

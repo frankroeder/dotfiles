@@ -32,32 +32,61 @@ Singleton {
   readonly property color wsBg:             Qt.alpha(Wallpaper.DefaultTheme.base, 0.72)
   readonly property color wsBorder:         Qt.alpha(Wallpaper.DefaultTheme.text, 0.07)
   readonly property color wsActive:         Wallpaper.DefaultTheme.teal
-  readonly property color wsActiveAlt:      Qt.lighter(Wallpaper.DefaultTheme.mauve, 1.16)
-  readonly property color wsActiveBorder:   Qt.alpha(Wallpaper.DefaultTheme.rosewater, 0.45)
-  readonly property color wsActiveBg:       Qt.alpha(Wallpaper.DefaultTheme.mauve, 0.20)
+  readonly property color wsActiveAlt:      Qt.lighter(Wallpaper.DefaultTheme.sky, 1.08)
+  readonly property color wsActiveBorder:   Qt.alpha(Wallpaper.DefaultTheme.sky, 0.45)
+  readonly property color wsActiveBg:       Qt.alpha(Wallpaper.DefaultTheme.sky, 0.20)
   readonly property color wsHoverBg:        Qt.alpha(Wallpaper.DefaultTheme.text, 0.10)
   readonly property color wsOccupiedBg:     Qt.alpha(Wallpaper.DefaultTheme.text, 0.10)
   readonly property color wsEmptyBg:        Qt.alpha(Wallpaper.DefaultTheme.text, 0.04)
   readonly property color wsInactiveBorder: Qt.alpha(Wallpaper.DefaultTheme.text, 0.14)
   readonly property color wsBadgeActiveBg:     Qt.alpha(Wallpaper.DefaultTheme.crust, 0.30)
-  readonly property color wsBadgeHoverBg:      Qt.alpha(Wallpaper.DefaultTheme.mauve, 0.24)
+  readonly property color wsBadgeHoverBg:      Qt.alpha(Wallpaper.DefaultTheme.sky, 0.24)
   readonly property color wsBadgeOccupiedBg:   Qt.alpha(Wallpaper.DefaultTheme.text, 0.16)
   readonly property color wsBadgeEmptyBg:      Qt.alpha(Wallpaper.DefaultTheme.text, 0.08)
   readonly property color wsBadgeBorder:       Qt.alpha(Wallpaper.DefaultTheme.text, 0.24)
-  readonly property color wsBadgeActiveBorder: Qt.alpha(Wallpaper.DefaultTheme.rosewater, 0.36)
+  readonly property color wsBadgeActiveBorder: Qt.alpha(Wallpaper.DefaultTheme.sky, 0.36)
   readonly property color wsBadgeActiveText:   "#ffffff"
   readonly property color wsOccupiedText:   Wallpaper.DefaultTheme.text
   readonly property color wsEmptyText:      Wallpaper.DefaultTheme.overlay1
 
+  readonly property color barBg:          Qt.alpha(Wallpaper.DefaultTheme.surface0, 0.86)
+  readonly property color barHoverBg:     Qt.alpha(Wallpaper.DefaultTheme.surface1, 0.92)
+  readonly property color barBorder:      Qt.alpha(Wallpaper.DefaultTheme.text, 0.10)
+  readonly property color barHoverBorder: Qt.alpha(Wallpaper.DefaultTheme.sky, 0.34)
+
+  readonly property color panelOverlay:         Qt.alpha(Wallpaper.DefaultTheme.crust, 0.76)
+  readonly property color panelBg:              Qt.alpha(Wallpaper.DefaultTheme.base, 0.98)
+  readonly property color panelSidebarBg:       Qt.alpha(Wallpaper.DefaultTheme.crust, 0.96)
+  readonly property color panelMainBg:          Wallpaper.DefaultTheme.base
+  readonly property color panelCardBg:          Qt.alpha(Wallpaper.DefaultTheme.surface0, 0.74)
+  readonly property color panelCardHover:       Qt.alpha(Wallpaper.DefaultTheme.surface1, 0.82)
+  readonly property color panelCardActive:      Qt.alpha(Wallpaper.DefaultTheme.sky, 0.18)
+  readonly property color panelCardBorder:      Qt.alpha(Wallpaper.DefaultTheme.text, 0.09)
+  readonly property color panelCardBorderHover: Qt.alpha(Wallpaper.DefaultTheme.sky, 0.32)
+  readonly property color panelInputBg:         Qt.alpha(Wallpaper.DefaultTheme.surface0, 0.92)
+  readonly property color panelControlBg:       Qt.alpha(Wallpaper.DefaultTheme.surface1, 0.54)
+  readonly property color panelControlHover:    Qt.alpha(Wallpaper.DefaultTheme.surface2, 0.62)
+  readonly property color panelAccentBg:        Qt.alpha(Wallpaper.DefaultTheme.sky, 0.20)
+  readonly property color panelAccentBorder:    Qt.alpha(Wallpaper.DefaultTheme.sky, 0.40)
+  readonly property color panelSuccessBg:       Qt.alpha(Wallpaper.DefaultTheme.green, 0.16)
+  readonly property color panelDangerBg:        Qt.alpha(Wallpaper.DefaultTheme.red, 0.15)
+  readonly property color panelWarningBg:       Qt.alpha(Wallpaper.DefaultTheme.peach, 0.16)
+  readonly property color panelDivider:         Qt.alpha(Wallpaper.DefaultTheme.text, 0.10)
+
   // Full re-export for complete delegation (no hex dups; enables Style. for all DefaultTheme names)
   readonly property color crust:      Wallpaper.DefaultTheme.crust
   readonly property color mantle:     Wallpaper.DefaultTheme.mantle
+  readonly property color base:       Wallpaper.DefaultTheme.base
+  readonly property color surface0:   Wallpaper.DefaultTheme.surface0
+  readonly property color surface1:   Wallpaper.DefaultTheme.surface1
   readonly property color surface2:   Wallpaper.DefaultTheme.surface2
   readonly property color overlay1:   Wallpaper.DefaultTheme.overlay1
   readonly property color overlay2:   Wallpaper.DefaultTheme.overlay2
   readonly property color rosewater:  Wallpaper.DefaultTheme.rosewater
   readonly property color flamingo:   Wallpaper.DefaultTheme.flamingo
   readonly property color pink:       Wallpaper.DefaultTheme.pink
+  readonly property color mauve:      Wallpaper.DefaultTheme.mauve
+  readonly property color sky:        Wallpaper.DefaultTheme.sky
   readonly property color maroon:     Wallpaper.DefaultTheme.maroon
   readonly property color teal:       Wallpaper.DefaultTheme.teal
   readonly property color sapphire:   Wallpaper.DefaultTheme.sapphire
