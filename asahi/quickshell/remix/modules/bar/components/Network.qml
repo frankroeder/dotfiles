@@ -26,6 +26,7 @@ Rectangle {
     property real previousRxBytes: -1
     property real previousTxBytes: -1
     property real previousSampleMs: 0
+    readonly property int speedTextWidth: Math.ceil(speedMetrics.advanceWidth)
 
     function formatSpeed(bytes) {
         let unit = "K"
@@ -96,6 +97,7 @@ Rectangle {
                 text: "↑ " + root.formatSpeed(root.txSpeed)
                 font.family: Style.fontFamily
                 font.pixelSize: 11
+                width: root.speedTextWidth
                 color: root.txSpeed >= 1024 ? Style.green : Style.textMuted
             }
 
@@ -103,9 +105,17 @@ Rectangle {
                 text: "↓ " + root.formatSpeed(root.rxSpeed)
                 font.family: Style.fontFamily
                 font.pixelSize: 11
+                width: root.speedTextWidth
                 color: root.rxSpeed >= 1024 ? Style.blueAlt : Style.textMuted
             }
         }
+    }
+
+    TextMetrics {
+        id: speedMetrics
+        font.family: Style.fontFamily
+        font.pixelSize: 11
+        text: "↓ 999 M"
     }
 
     Process {

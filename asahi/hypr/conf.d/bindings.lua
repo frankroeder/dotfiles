@@ -30,9 +30,9 @@ hl.bind(mod .. " + C", hl.dsp.window.center(), { desc = "Center floating window"
 hl.bind(mod .. " + Escape", hl.dsp.exec_cmd("hyprlock --config " .. configDir .. "/hyprlock.conf"), { desc = "Lock" })
 hl.bind(mod .. " + SHIFT + Escape", hl.dsp.exec_cmd(scripts .. "/asahi-control-menu"), { desc = "Control menu" })
 hl.bind(mod .. " + CONTROL + ALT + S", hl.dsp.exec_cmd("loginctl lock-session && systemctl suspend"), { desc = "Suspend" })  -- s2idle only (Asahi: no disk hibernation)
-hl.bind(mod .. " + ALT + CONTROL + 3", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot smart"), { desc = "Screenshot smart" })
-hl.bind(mod .. " + ALT + CONTROL + 4", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot fullscreen"), { desc = "Screenshot fullscreen" })
-hl.bind(mod .. " + ALT + CONTROL + 5", hl.dsp.exec_cmd("hyprpicker -a"), { desc = "Color picker" })
+hl.bind(mod .. " + ALT + CONTROL + 4", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot smart"), { desc = "Screenshot smart" })
+hl.bind(mod .. " + ALT + CONTROL + 5", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot fullscreen"), { desc = "Screenshot fullscreen" })
+hl.bind(mod .. " + ALT + CONTROL + 6", hl.dsp.exec_cmd("hyprpicker -a"), { desc = "Color picker" })
 
 
 -- Reloads
@@ -101,22 +101,27 @@ end
 
 media_bind("XF86AudioRaiseVolume", "output-volume raise", { repeating = true, desc = "Volume up" })
 media_bind("XF86AudioLowerVolume", "output-volume lower", { repeating = true, desc = "Volume down" })
+media_bind("SHIFT + XF86AudioRaiseVolume", "output-volume +1", { repeating = true, desc = "Volume up 1%" })
+media_bind("SHIFT + XF86AudioLowerVolume", "output-volume -1", { repeating = true, desc = "Volume down 1%" })
+
 media_bind("XF86AudioMute", "output-volume mute-toggle", { desc = "Mute" })
 media_bind("XF86AudioMicMute", "input-volume mute-toggle", { desc = "Mic mute" })
+
 media_bind("XF86AudioPlay", "playerctl play-pause", { desc = "Play pause" })
 media_bind("XF86AudioPause", "playerctl play-pause", { desc = "Play pause" })
 media_bind("XF86AudioNext", "playerctl next", { desc = "Next track" })
 media_bind("XF86AudioPrev", "playerctl previous", { desc = "Previous track" })
+
 hl.bind("Caps_Lock", hl.dsp.exec_cmd("sleep 0.08; " .. scripts .. "/asahi-media-control caps-lock show"), { locked = true, desc = "Caps lock OSD" })
 
--- Brightness
+-- Display Brightness
 media_bind("XF86MonBrightnessUp", "brightness raise", { repeating = true, desc = "Brightness up" })
 media_bind("XF86MonBrightnessDown", "brightness lower", { repeating = true, desc = "Brightness down" })
 media_bind("SHIFT + XF86MonBrightnessUp", "brightness +1", { repeating = true, desc = "Brightness fine up" })
 media_bind("SHIFT + XF86MonBrightnessDown", "brightness -1", { repeating = true, desc = "Brightness fine down" })
-media_bind("XF86KbdBrightnessUp", "keyboard-brightness raise", { repeating = true, desc = "Keyboard brightness up" })
-media_bind("XF86KbdBrightnessDown", "keyboard-brightness lower", { repeating = true, desc = "Keyboard brightness down" })
-media_bind("F4", "keyboard-brightness raise", { repeating = true, desc = "Keyboard brightness up" })
-media_bind("F3", "keyboard-brightness lower", { repeating = true, desc = "Keyboard brightness down" })
-media_bind("SHIFT + F4", "keyboard-brightness +1", { repeating = true, desc = "Keyboard brightness fine up" })
-media_bind("SHIFT + F3", "keyboard-brightness -1", { repeating = true, desc = "Keyboard brightness fine down" })
+
+-- Keyboard Brightness
+media_bind("XF86Search", "keyboard-brightness raise", { repeating = true, desc = "Keyboard brightness up" })
+media_bind("XF86LaunchA", "keyboard-brightness lower", { repeating = true, desc = "Keyboard brightness down" })
+media_bind("SHIFT + XF86Search", "keyboard-brightness +1", { repeating = true, desc = "Keyboard brightness fine up" })
+media_bind("SHIFT + XF86LaunchA", "keyboard-brightness -1", { repeating = true, desc = "Keyboard brightness fine down" })
