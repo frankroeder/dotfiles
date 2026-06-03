@@ -384,12 +384,33 @@ Variants {
       implicitHeight: 38
       implicitWidth: wsContent.implicitWidth + 12
 
+      Rectangle {
+        id: activeWsHighlight
+        readonly property int activeIndex: root.visibleWorkspaces.indexOf(root.focusedWorkspaceId)
+        readonly property var activeItem: (wsRepeater.count, activeIndex >= 0 ? wsRepeater.itemAt(activeIndex) : null)
+
+        x: activeItem ? wsContent.x + activeItem.x : wsContent.x
+        y: (workspacesBlock.height - height) / 2
+        width: activeItem ? activeItem.width : 0
+        height: 30
+        radius: 15
+        color: Style.wsActive
+        visible: activeItem !== null
+        z: 0
+
+        Behavior on x { NumberAnimation { duration: 180; easing.type: Easing.OutExpo } }
+        Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutExpo } }
+        Behavior on color { ColorAnimation { duration: 120 } }
+      }
+
       Row {
         id: wsContent
         anchors.centerIn: parent
         spacing: 4
+        z: 1
 
         Repeater {
+          id: wsRepeater
           model: root.visibleWorkspaces
           Rectangle {
             id: wsButton
@@ -403,9 +424,9 @@ Variants {
             implicitWidth: wsInner.implicitWidth + 10
             implicitHeight: 30
             radius: 15
-            color: isFocused ? Style.wsActiveBg : (isHovered ? Style.wsHoverBg : (isOccupied ? Style.wsOccupiedBg : "transparent"))
+            color: isFocused ? "transparent" : (isHovered ? Style.wsHoverBg : (isOccupied ? Style.wsOccupiedBg : "transparent"))
             border.width: 1.5
-            border.color: isFocused ? Style.wsActive : Style.wsInactiveBorder
+            border.color: isFocused ? "transparent" : Style.wsInactiveBorder
 
             Behavior on color { ColorAnimation { duration: 120 } }
             Behavior on border.color { ColorAnimation { duration: 120 } }
@@ -419,7 +440,7 @@ Variants {
                 width: 22
                 height: 22
                 radius: 11
-                color: isFocused ? Style.wsActive : (wsButton.isOccupied ? Style.wsOccupiedBg : "transparent")
+                color: isFocused ? "transparent" : (wsButton.isOccupied ? Style.wsOccupiedBg : "transparent")
 
                 Text {
                   anchors.fill: parent
@@ -453,7 +474,7 @@ Variants {
                     text: { root.wsWindowVersion; return root.appFallbackText(modelData) }
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
-                    color: wsButton.isFocused ? Style.text : Style.textAlt
+                    color: wsButton.isFocused ? Style.crust : Style.textAlt
                     font { family: Style.fontFamily; pixelSize: 10; bold: true }
                   }
                 }
