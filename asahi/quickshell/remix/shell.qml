@@ -34,6 +34,8 @@ Variants {
 
   property string memText: ""
   property string memTooltip: ""
+  property bool isRecording: false
+  property bool updatesAvailable: false
 
   // For the new graphical short history graphs (replaces old unicode blocks)
   property real cpuPerc: 0
@@ -127,6 +129,11 @@ Variants {
     root.refreshWorkspaceIcons(2)
   }
 
+  function cycleWorkspace(next) {
+    Quickshell.execDetached(["hyprctl", "dispatch", "workspace", next ? "e+1" : "e-1"])
+    root.refreshWorkspaceIcons(2)
+  }
+
   readonly property int focusedWorkspaceId: (root.wsWindowVersion, Hyprland.focusedWorkspace?.id ?? 1)
   readonly property var visibleWorkspaces: {
     root.wsWindowVersion
@@ -135,7 +142,7 @@ Variants {
     if (focused != null) ids.add(focused)
     for (const t of root.hyprClients) {
       const id = t.workspace?.id
-      if (id != null) ids.add(id)
+      if (id != null && id > 0) ids.add(id)
     }
     return Array.from(ids).sort((a, b) => a - b)
   }
@@ -143,6 +150,16 @@ Variants {
   function workspaceWindows(wsId) {
     root.wsWindowVersion
     return root.hyprClients.filter(t => t.workspace?.id === wsId)
+  }
+
+  function workspaceVisibleElsewhere(wsId) {
+    const monitors = Hyprland.monitors?.values || []
+    return monitors.some(m => (m.activeWorkspace?.id === wsId) && wsId !== root.focusedWorkspaceId)
+  }
+
+  readonly property bool hasSpecialWorkspace: {
+    root.wsWindowVersion
+    return root.hyprClients.some(t => String(t.workspace?.name || "").startsWith("special:"))
   }
 
   anchors.top: true
@@ -209,6 +226,19 @@ Variants {
     Component.onCompleted: root.refreshHyprClients()
   }
 
+  Process {
+    id: recordingProc
+    command: ["pgrep", "-x", "wf-recorder"]
+    stdout: StdioCollector { onStreamFinished: root.isRecording = text.trim().length > 0 }
+    onExited: code => { if (code !== 0) root.isRecording = false }
+  }
+
+  Process {
+    id: updatesProc
+    command: ["sh", "-c", "dnf check-update --cacheonly -q >/dev/null 2>&1; c=$?; [ \"$c\" = 100 ] && echo 1 || echo 0"]
+    stdout: StdioCollector { onStreamFinished: root.updatesAvailable = text.trim() === "1" }
+  }
+
   Timer {
     interval: 3000
     running: true
@@ -217,6 +247,24 @@ Variants {
       root.refreshCpu()
       root.refreshMem()
     }
+  }
+
+  Timer {
+    interval: 10000
+    running: true
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: {
+      if (!recordingProc.running) recordingProc.running = true
+    }
+  }
+
+  Timer {
+    interval: 1800000
+    running: true
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: if (!updatesProc.running) updatesProc.running = true
   }
 
   // Keep window icons fresh (Hyprland events + periodic refresh)
@@ -278,7 +326,7 @@ Variants {
         color: cpuMouse.containsMouse ? Style.barHoverBg : Style.barBg
         radius: Style.radius
         border.width: 1
-        border.color: Style.barBorder
+        border.color: cpuMouse.containsMouse ? Style.barHoverBorder : Style.barBorder
         scale: cpuMouse.containsMouse ? 1.018 : 1.0
         implicitWidth: 152
         implicitHeight: 26
@@ -347,7 +395,7 @@ Variants {
         color: ramMouse.containsMouse ? Style.barHoverBg : Style.barBg
         radius: Style.radius
         border.width: 1
-        border.color: Style.barBorder
+        border.color: ramMouse.containsMouse ? Style.barHoverBorder : Style.barBorder
         scale: ramMouse.containsMouse ? 1.018 : 1.0
         implicitWidth: 68
         implicitHeight: 26
@@ -390,7 +438,7 @@ Variants {
       border.width: 1
       border.color: Style.wsBorder
       implicitHeight: 38
-      implicitWidth: wsContent.implicitWidth + 12
+      implicitWidth: wsContent.implicitWidth + 12 + (specialBadge.visible ? 30 : 0)
 
       Rectangle {
         id: activeWsHighlight
@@ -449,7 +497,9 @@ Variants {
 
       Row {
         id: wsContent
-        anchors.centerIn: parent
+        anchors.left: parent.left
+        anchors.leftMargin: 6
+        anchors.verticalCenter: parent.verticalCenter
         spacing: 4
         z: 1
 
@@ -464,13 +514,17 @@ Variants {
             readonly property var windows: root.workspaceWindows(wsId)
             readonly property bool isOccupied: windows.length > 0
             readonly property bool isHovered: wsMouse.containsMouse
+            readonly property bool isVisibleElsewhere: root.workspaceVisibleElsewhere(wsId)
+            readonly property int iconLimit: isFocused ? 4 : 3
+            readonly property var shownWindows: windows.slice(0, iconLimit)
+            readonly property int overflowCount: Math.max(0, windows.length - shownWindows.length)
 
             implicitWidth: wsInner.implicitWidth + 10
             implicitHeight: 30
             radius: 15
-            color: isFocused ? "transparent" : (isHovered ? Style.wsHoverBg : (isOccupied ? Style.wsOccupiedBg : Style.wsEmptyBg))
+            color: isFocused ? "transparent" : (isHovered ? Style.wsHoverBg : (isVisibleElsewhere ? Style.wsVisibleBg : (isOccupied ? Style.wsOccupiedBg : Style.wsEmptyBg)))
             border.width: 1.5
-            border.color: isFocused ? "transparent" : Style.wsInactiveBorder
+            border.color: isFocused ? "transparent" : (isVisibleElsewhere ? Style.wsVisibleBorder : Style.wsInactiveBorder)
 
             Behavior on color { ColorAnimation { duration: 120 } }
             Behavior on border.color { ColorAnimation { duration: 120 } }
@@ -486,7 +540,7 @@ Variants {
                 radius: 11
                 color: isFocused
                   ? Style.wsBadgeActiveBg
-                  : (wsButton.isHovered ? Style.wsBadgeHoverBg : (wsButton.isOccupied ? Style.wsBadgeOccupiedBg : Style.wsBadgeEmptyBg))
+                  : (wsButton.isHovered ? Style.wsBadgeHoverBg : (wsButton.isVisibleElsewhere ? Style.wsBadgeVisibleBg : (wsButton.isOccupied ? Style.wsBadgeOccupiedBg : Style.wsBadgeEmptyBg)))
                 border.width: 1
                 border.color: isFocused ? Style.wsBadgeActiveBorder : Style.wsBadgeBorder
 
@@ -498,13 +552,13 @@ Variants {
                   text: wsButton.wsId
                   horizontalAlignment: Text.AlignHCenter
                   verticalAlignment: Text.AlignVCenter
-                  color: isFocused ? Style.wsBadgeActiveText : (wsButton.isOccupied ? Style.wsOccupiedText : Style.wsEmptyText)
+                  color: isFocused ? Style.wsBadgeActiveText : (wsButton.isVisibleElsewhere ? Style.sky : (wsButton.isOccupied ? Style.wsOccupiedText : Style.wsEmptyText))
                   font { family: Style.fontFamily; pixelSize: wsButton.wsId >= 10 ? 10 : 11; bold: true }
                 }
               }
 
               Repeater {
-                model: wsButton.windows
+                model: wsButton.shownWindows
 
                 Item {
                   width: 22
@@ -530,6 +584,22 @@ Variants {
                   }
                 }
               }
+
+              Rectangle {
+                visible: wsButton.overflowCount > 0
+                width: visible ? 22 : 0
+                height: 22
+                radius: 11
+                color: Qt.alpha(Style.text, 0.10)
+                border.width: 1
+                border.color: Qt.alpha(Style.text, 0.18)
+                Text {
+                  anchors.centerIn: parent
+                  text: "+" + wsButton.overflowCount
+                  color: wsButton.isFocused ? Style.crust : Style.textMuted
+                  font { family: Style.fontFamily; pixelSize: 9; bold: true }
+                }
+              }
             }
 
             MouseArea {
@@ -539,8 +609,39 @@ Variants {
               cursorShape: Qt.PointingHandCursor
               acceptedButtons: Qt.LeftButton
               onClicked: root.activateWorkspace(wsButton.wsId)
+              onWheel: wheel => root.cycleWorkspace(wheel.angleDelta.y < 0)
             }
           }
+        }
+      }
+
+      Rectangle {
+        id: specialBadge
+        anchors.right: parent.right
+        anchors.rightMargin: 6
+        anchors.verticalCenter: parent.verticalCenter
+        width: 24
+        height: 24
+        radius: 12
+        visible: root.hasSpecialWorkspace
+        color: Style.panelAccentBg
+        border.width: 1
+        border.color: Style.panelAccentBorder
+        z: 2
+
+        Text {
+          anchors.centerIn: parent
+          text: "S"
+          color: Style.sky
+          font { family: Style.fontFamily; pixelSize: 10; bold: true }
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: Quickshell.execDetached(["hyprctl", "dispatch", "togglespecialworkspace", "scratch"])
+          onWheel: wheel => root.cycleWorkspace(wheel.angleDelta.y < 0)
         }
       }
     }
@@ -551,7 +652,11 @@ Variants {
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
       spacing: 6
-      BarComponents.StatusIndicators { notificationCenter: notificationCenter }
+      BarComponents.StatusIndicators {
+        notificationCenter: notificationCenter
+        isRecording: root.isRecording
+        updatesAvailable: root.updatesAvailable
+      }
       BarComponents.Microphone {}
       BarComponents.Volume {}
 
@@ -614,6 +719,11 @@ Variants {
           if (f.openFeature) f.openFeature()
           else f.shouldShow = true
         }
+      }
+      function open(mode: string) {
+        const f = featureLoader.item
+        if (!f) return
+        if (f.openFeatureMode) f.openFeatureMode(mode || "hub")
       }
     }
 

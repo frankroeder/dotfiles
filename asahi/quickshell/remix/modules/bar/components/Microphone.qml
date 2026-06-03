@@ -12,7 +12,7 @@ Rectangle {
     color: micMouse.containsMouse ? Style.barHoverBg : Style.barBg
     radius: Style.radius
     border.width: 1
-    border.color: Style.barBorder
+    border.color: micMouse.containsMouse ? Style.barHoverBorder : Style.barBorder
     Behavior on color { ColorAnimation { duration: 140 } }
     Behavior on border.color { ColorAnimation { duration: 140 } }
     scale: micMouse.containsMouse ? 1.018 : 1.0
@@ -102,5 +102,11 @@ Rectangle {
             const direction = wheel.angleDelta.y > 0 ? "raise" : "lower"
             Quickshell.execDetached(["bash", "-c", binDir + "/asahi-media-control input-volume " + direction])
         }
+    }
+
+    TooltipWindow {
+        target: root
+        text: "Microphone\nClick: mute\nScroll: adjust"
+        show: micMouse.containsMouse
     }
 }

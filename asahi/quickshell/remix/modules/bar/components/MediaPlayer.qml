@@ -10,9 +10,9 @@ Rectangle {
   color: mediaMouse.containsMouse ? Style.barHoverBg : Style.barBg
   radius: Style.radius
   border.width: 1
-  border.color: Style.barBorder
-    Behavior on color { ColorAnimation { duration: 140 } }
-    Behavior on border.color { ColorAnimation { duration: 140 } }
+  border.color: mediaMouse.containsMouse ? Style.barHoverBorder : Style.barBorder
+  Behavior on color { ColorAnimation { duration: 140 } }
+  Behavior on border.color { ColorAnimation { duration: 140 } }
   scale: mediaMouse.containsMouse ? 1.018 : 1.0
   Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 

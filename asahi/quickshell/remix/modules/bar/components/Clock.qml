@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Layouts
-import Quickshell
 import "../../../"
 
 Rectangle {
@@ -10,8 +9,8 @@ Rectangle {
   radius: Style.radius
   border.width: 1
   border.color: Style.barBorder
-    Behavior on color { ColorAnimation { duration: 140 } }
-    Behavior on border.color { ColorAnimation { duration: 140 } }
+  Behavior on color { ColorAnimation { duration: 140 } }
+  Behavior on border.color { ColorAnimation { duration: 140 } }
 
   implicitWidth: clockRow.implicitWidth + 14
   implicitHeight: 26
@@ -41,4 +40,5 @@ Rectangle {
       }
     }
   }
+
 }

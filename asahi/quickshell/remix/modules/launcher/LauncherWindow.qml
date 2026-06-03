@@ -32,18 +32,36 @@ Scope {
   property string filePendingTerm: ""
   property string fileRunningTerm: ""
   property var fileItems: []
+  property var appUsage: ({})
+  property int appUsageVersion: 0
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
   readonly property string dictIcon: "file://" + Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/assets/dict-cc.png"
   readonly property string webIconBase: "file://" + Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/assets/"
   readonly property string websearchJsonPath: Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/modules/launcher/websearch.json"
   property int webVersion: 0
+  readonly property var quickActions: [
+    { key: "dashboard", aliases: ["dash", "hub"], icon: "󰕮", name: "Dashboard", comment: "Open feature dashboard", mode: "hub" },
+    { key: "wallpaper", aliases: ["wall", "paper"], icon: "󰸉", name: "Wallpapers", comment: "Open wallpaper picker", mode: "wallpaper" },
+    { key: "screenshots", aliases: ["shots", "ss"], icon: "󰹑", name: "Screenshots", comment: "Open screenshot gallery", mode: "screenshots" },
+    { key: "media", aliases: ["music", "audio"], icon: "󰝚", name: "Media", comment: "Open media and mixer", mode: "media" },
+    { key: "network", aliases: ["wifi", "net"], icon: "󰈀", name: "Network", comment: "Open network controls", mode: "network" },
+    { key: "monitors", aliases: ["display", "screen"], icon: "󰍹", name: "Monitors", comment: "Open monitor layout", mode: "monitors" },
+    { key: "temp", aliases: ["temps", "temperature"], icon: "󰔄", name: "Temperatures", comment: "Open sensor view", mode: "temp" },
+    { key: "bluetooth", aliases: ["bt"], icon: "󰂯", name: "Bluetooth", comment: "Open Bluetooth devices", mode: "bluetooth" },
+    { key: "power", aliases: ["session"], icon: "󰐥", name: "Power", comment: "Open session controls", mode: "power" },
+    { key: "reload", aliases: ["qs"], icon: "󰑐", name: "Reload Quickshell", comment: "Restart QS Remix", command: [root.binDir + "/asahi-restart-app", "qs", "-c", "remix"] },
+    { key: "hypr", aliases: ["hyprland"], icon: "󰑓", name: "Reload Hyprland", comment: "Reload Hyprland config", command: [root.binDir + "/asahi-reload-hyprland"] },
+    { key: "lock", aliases: ["lockscreen"], icon: "󰌾", name: "Lock", comment: "Lock session", command: ["loginctl", "lock-session"] },
+    { key: "scratch", aliases: ["scratchpad"], icon: "󱂬", name: "Scratchpad", comment: "Toggle scratch workspace", command: ["hyprctl", "dispatch", "togglespecialworkspace", "scratch"] }
+  ]
 
   readonly property string headerText: {
     const q = root.query.trim()
     if (q.startsWith("=")) return "Calculator"
     if (q.startsWith("!")) return "Web Search"
     if (q.startsWith("@")) return "Documentation"
+    if (q.startsWith(":")) return "Actions"
     if (root.fileTerm(q) !== null) return "File Search"
     if (root.dictTerm(q) !== null) return "Dictionary"
     return "Applications"
@@ -69,6 +87,7 @@ Scope {
       const lang = root.dictCopyLang === "en" ? "English" : (root.dictCopyLang === "de" ? "German" : "translation")
       return c + " result" + s + " · Return copies " + lang
     }
+    if (qq.startsWith(":")) return c + " action" + s
     if (qq.startsWith("=") || qq.startsWith("!") || qq.startsWith("@")) return c + " result" + s
     return c + " application" + s
   }
@@ -119,7 +138,56 @@ Scope {
     return JSON.stringify(String(s))
   }
 
+  function appKey(entry) {
+    return String(entry?.id || entry?.name || entry?.execString || "")
+  }
+
+  function appScore(entry) {
+    root.appUsageVersion
+    return root.appUsage[root.appKey(entry)] || 0
+  }
+
+  function bumpAppUsage(entry) {
+    const key = root.appKey(entry)
+    if (!key) return
+    const next = Object.assign({}, root.appUsage)
+    next[key] = (next[key] || 0) + 1
+    root.appUsage = next
+    root.appUsageVersion++
+  }
+
+  function featureCommand(mode) {
+    return ["qs", "-c", "remix", "ipc", "call", "feature", "open", mode || "hub"]
+  }
+
+  function actionMatches(action, term) {
+    if (!term) return true
+    const values = [action.key, action.name].concat(action.aliases || [])
+    return values.some(v => String(v || "").toLowerCase().includes(term))
+  }
+
+  function getActionResults(q) {
+    const value = (q || "").trim()
+    if (!value.startsWith(":")) return null
+    const term = value.substring(1).trim().toLowerCase()
+    const actions = root.quickActions.filter(a => root.actionMatches(a, term))
+    if (actions.length === 0) {
+      return [{ id: "action-empty", name: "No action found", comment: term, glyph: "󰅙", special: "noop" }]
+    }
+    return actions.map(a => ({
+      id: "action-" + a.key,
+      name: a.name,
+      comment: ":" + a.key + " · " + a.comment,
+      glyph: a.icon,
+      accessory: a.mode ? "MENU" : "RUN",
+      special: "action",
+      mode: a.mode || "",
+      command: a.command || []
+    }))
+  }
+
   function launchDesktopEntry(entry) {
+    root.bumpAppUsage(entry)
     const command = Array.from(entry.command || [])
     const exec = command.length > 0 ? command.map(root.shQuote).join(" ") : String(entry.execString || "")
     if (exec === "") {
@@ -144,6 +212,9 @@ Scope {
       if (copy) Quickshell.execDetached(["sh", "-c", "printf %s \"$1\" | wl-copy", "sh", copy])
     } else if (entry.special === "file" && entry.path) {
       Quickshell.execDetached(["xdg-open", entry.path])
+    } else if (entry.special === "action") {
+      if (entry.mode) Quickshell.execDetached(root.featureCommand(entry.mode))
+      else if (entry.command && entry.command.length > 0) Quickshell.execDetached(entry.command)
     } else if ((entry.special === "web" || entry.special === "doc") && entry.url) {
       let u = entry.url
       if (u.includes("%TERM%")) u = u.replace("%TERM%", "")
@@ -445,7 +516,7 @@ Scope {
 
   Process {
     id: dictProc
-    command: ["python3", root.binDir + "/asahi-dictcc.py", root.dictRunningTerm]
+    command: ["uv", "run", "python", root.binDir + "/asahi-dictcc.py", root.dictRunningTerm]
     stdout: StdioCollector { id: dictStdout }
     onExited: () => root.finishDictLookup(dictStdout.text)
   }
@@ -499,7 +570,9 @@ Scope {
 
   function parseWebsearchConfig(text) {
     try {
-      var data = JSON.parse(text || "{}")
+      const body = (text || "").trim()
+      if (!body) return
+      var data = JSON.parse(body)
       if (data.engines && data.engines.length > 0) {
         var base = root.webIconBase
         webEngines = data.engines.map(function(e) {
@@ -516,13 +589,15 @@ Scope {
       if (data.defaultSearchUrl) defaultSearchUrl = data.defaultSearchUrl
       webVersion++
     } catch (e) {
-      console.warn("websearch.json parse failed")
+      webVersion++
     }
   }
 
   function getSpecialResults(qq) {
     const q = (qq || "").trim()
     if (!q) return null
+    const actionResults = getActionResults(q)
+    if (actionResults) return actionResults
     const fileResults = getFileResults(q)
     if (fileResults) return fileResults
     const dictResults = getDictResults(q)
@@ -616,13 +691,19 @@ Scope {
       root.dictVersion
       root.fileVersion
       root.webVersion
+      root.appUsageVersion
       const specials = root.getSpecialResults(root.query)
       if (specials && specials.length > 0) return specials
       let all = [...DesktopEntries.applications.values]
       all = all.filter(d => !d.noDisplay)
       const q = root.query.trim().toLowerCase()
       if (q === "") {
-        return all.sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+        return all.sort((a, b) => {
+          const au = root.appScore(a)
+          const bu = root.appScore(b)
+          if (au !== bu) return bu - au
+          return (a.name || "").localeCompare(b.name || "")
+        })
       }
       const filtered = all.filter(d =>
         (d.name && d.name.toLowerCase().includes(q)) ||
@@ -637,6 +718,9 @@ Scope {
         const bStarts = bn.startsWith(q)
         if (aStarts && !bStarts) return -1
         if (!aStarts && bStarts) return 1
+        const au = root.appScore(a)
+        const bu = root.appScore(b)
+        if (au !== bu) return bu - au
         return an.localeCompare(bn)
       })
     }
@@ -669,7 +753,7 @@ Scope {
 
       Rectangle {
         anchors.fill: parent
-        color: root.theme.bgOverlay
+        color: Style.panelOverlay
       }
     }
 
@@ -680,8 +764,8 @@ Scope {
       width: 580
       height: 480
       radius: 16
-      color: root.theme.bgBase
-      border.color: root.theme.bgBorder
+      color: Style.panelBg
+      border.color: Style.panelAccentBorder
       border.width: 1
 
       ColumnLayout {
@@ -692,7 +776,7 @@ Scope {
         // Header
         Text {
           text: root.headerText
-          color: root.theme.accentPrimary
+          color: Style.sky
           font.pixelSize: 14
           font.family: "Hack Nerd Font"
           font.bold: true
@@ -703,8 +787,8 @@ Scope {
           Layout.fillWidth: true
           height: 44
           radius: 10
-          color: root.theme.bgSurface
-          border.color: searchInput.activeFocus ? root.theme.accentPrimary : root.theme.bgBorder
+          color: Style.panelInputBg
+          border.color: searchInput.activeFocus ? Style.panelAccentBorder : Style.panelCardBorder
           border.width: 1
 
           Behavior on border.color {
@@ -719,7 +803,7 @@ Scope {
 
             Text {
               text: "󰍉"
-              color: root.theme.textMuted
+              color: searchInput.activeFocus ? Style.sky : Style.textMuted
               font.pixelSize: 18
               font.family: "Hack Nerd Font"
               Layout.alignment: Qt.AlignVCenter
@@ -729,7 +813,7 @@ Scope {
               id: searchInput
               Layout.fillWidth: true
               Layout.alignment: Qt.AlignVCenter
-              color: root.theme.textPrimary
+              color: Style.text
               font.pixelSize: 15
               font.family: "Hack Nerd Font"
               clip: true
@@ -740,7 +824,7 @@ Scope {
               Text {
                 anchors.fill: parent
                 text: "Type to search..."
-                color: root.theme.textMuted
+                color: Style.textMuted
                 font: parent.font
                 visible: !parent.text && !parent.activeFocus
                 verticalAlignment: Text.AlignVCenter
@@ -780,7 +864,7 @@ Scope {
         // Results count
         Text {
           text: root.resultText
-          color: root.theme.textMuted
+          color: Style.textMuted
           font.pixelSize: 11
           font.family: "Hack Nerd Font"
         }
@@ -803,13 +887,21 @@ Scope {
 
           highlight: Rectangle {
             radius: 8
-            color: root.theme.bgSelected
+            color: Style.panelAccentBg
+            border.width: 1
+            border.color: Style.panelAccentBorder
+
+            gradient: Gradient {
+              orientation: Gradient.Horizontal
+              GradientStop { position: 0.0; color: Style.panelAccentBg }
+              GradientStop { position: 1.0; color: Qt.alpha(Style.sky, 0.10) }
+            }
 
             Rectangle {
               width: 3
               height: 24
               radius: 2
-              color: root.theme.accentPrimary
+              color: Style.sky
               anchors.left: parent.left
               anchors.leftMargin: 2
               anchors.verticalCenter: parent.verticalCenter
@@ -827,7 +919,7 @@ Scope {
             width: resultsList.width
             height: 44
             radius: 8
-            color: hoverArea.containsMouse && resultsList.currentIndex !== index ? root.theme.bgHover : "transparent"
+            color: hoverArea.containsMouse && resultsList.currentIndex !== index ? Style.panelCardHover : "transparent"
 
             Behavior on color {
               ColorAnimation { duration: 100 }
@@ -862,7 +954,7 @@ Scope {
                 Text {
                   anchors.centerIn: parent
                   text: delegateRoot.modelData.glyph ?? (delegateRoot.modelData.name ?? "?").charAt(0).toUpperCase()
-                  color: root.theme.accentPrimary
+                  color: Style.sky
                   font.pixelSize: 16
                   font.family: "Hack Nerd Font"
                   font.bold: true
@@ -878,7 +970,7 @@ Scope {
 
                 Text {
                   text: delegateRoot.modelData.name ?? ""
-                  color: resultsList.currentIndex === delegateRoot.index ? root.theme.textPrimary : root.theme.textSecondary
+                  color: resultsList.currentIndex === delegateRoot.index ? Style.text : Style.textAlt
                   font.pixelSize: 13
                   font.family: "Hack Nerd Font"
                   font.bold: resultsList.currentIndex === delegateRoot.index
@@ -888,7 +980,7 @@ Scope {
 
                 Text {
                   text: delegateRoot.modelData.genericName ?? delegateRoot.modelData.comment ?? ""
-                  color: root.theme.textMuted
+                  color: Style.textMuted
                   font.pixelSize: 11
                   font.family: "Hack Nerd Font"
                   elide: Text.ElideRight
@@ -902,8 +994,8 @@ Scope {
                 width: accessoryText.visible ? accessoryText.width + 12 : 0
                 height: accessoryText.visible ? 20 : 0
                 radius: 5
-                color: root.theme.bgSurface
-                border.color: root.theme.bgBorder
+                color: Style.panelControlBg
+                border.color: Style.panelCardBorder
                 border.width: accessoryText.visible ? 1 : 0
                 visible: accessoryText.visible
 
@@ -911,7 +1003,7 @@ Scope {
                   id: accessoryText
                   anchors.centerIn: parent
                   text: delegateRoot.modelData.accessory ?? ""
-                  color: root.theme.textMuted
+                  color: Style.textMuted
                   font.pixelSize: 10
                   font.family: "Hack Nerd Font"
                   font.bold: true
@@ -934,7 +1026,7 @@ Scope {
           Text {
             anchors.centerIn: parent
             text: "No results found"
-            color: root.theme.textMuted
+            color: Style.textMuted
             font.pixelSize: 14
             font.family: "Hack Nerd Font"
             visible: root.resultCount === 0 && searchInput.text !== ""
@@ -949,7 +1041,7 @@ Scope {
           Row {
             spacing: 4
             Rectangle {
-              width: hintUp.width + 8; height: 18; radius: 4; color: Style.moduleBg
+              width: hintUp.width + 8; height: 18; radius: 4; color: Style.panelControlBg
               Text { id: hintUp; anchors.centerIn: parent; text: "↑↓"; color: Style.text; font.pixelSize: 10; font.family: "Hack Nerd Font" }
             }
             Text {
@@ -964,7 +1056,7 @@ Scope {
           Row {
             spacing: 4
             Rectangle {
-              width: hintEnter.width + 8; height: 18; radius: 4; color: Style.moduleBg
+              width: hintEnter.width + 8; height: 18; radius: 4; color: Style.panelControlBg
               Text { id: hintEnter; anchors.centerIn: parent; text: "⏎"; color: Style.text; font.pixelSize: 10; font.family: "Hack Nerd Font" }
             }
             Text {
@@ -979,7 +1071,7 @@ Scope {
           Row {
             spacing: 4
             Rectangle {
-              width: hintEsc.width + 8; height: 18; radius: 4; color: Style.moduleBg
+              width: hintEsc.width + 8; height: 18; radius: 4; color: Style.panelControlBg
               Text { id: hintEsc; anchors.centerIn: parent; text: "esc"; color: Style.text; font.pixelSize: 10; font.family: "Hack Nerd Font" }
             }
             Text {
@@ -992,7 +1084,7 @@ Scope {
           }
 
           Text {
-            text: "=:calc  !:kagi  @:docs  dict:translate  >:files"
+            text: "=:calc  !:kagi  @:docs  dict:translate  >:files  :actions"
             color: Style.text
             font.pixelSize: 10
             font.family: "Hack Nerd Font"

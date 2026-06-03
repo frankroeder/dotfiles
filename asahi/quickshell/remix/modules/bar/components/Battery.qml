@@ -12,7 +12,7 @@ Rectangle {
     color: batMa.containsMouse ? Style.barHoverBg : Style.barBg
     radius: Style.radius
     border.width: 1
-    border.color: Style.barBorder
+    border.color: batMa.containsMouse ? Style.barHoverBorder : Style.barBorder
     Behavior on color { ColorAnimation { duration: 140 } }
     Behavior on border.color { ColorAnimation { duration: 140 } }
     scale: batMa.containsMouse ? 1.018 : 1.0
@@ -63,7 +63,7 @@ Rectangle {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        // Hover + pointer cursor for tooltip (click action removed)
+        onClicked: Quickshell.execDetached(["qs", "-c", "remix", "ipc", "call", "feature", "open", "power"])
     }
 
     TooltipWindow {

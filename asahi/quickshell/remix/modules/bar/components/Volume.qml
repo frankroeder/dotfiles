@@ -12,7 +12,7 @@ Rectangle {
     color: volumeMouse.containsMouse ? Style.barHoverBg : Style.barBg
     radius: Style.radius
     border.width: 1
-    border.color: Style.barBorder
+    border.color: volumeMouse.containsMouse ? Style.barHoverBorder : Style.barBorder
     Behavior on color { ColorAnimation { duration: 140 } }
     Behavior on border.color { ColorAnimation { duration: 140 } }
     scale: volumeMouse.containsMouse ? 1.018 : 1.0

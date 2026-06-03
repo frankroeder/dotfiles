@@ -615,6 +615,7 @@ Scope {
   // Screenshots
   property var shots: []
   property string copiedShot: ""
+  property string shotPreviewPath: ""
   Timer { id: copyClear; interval: 1200; onTriggered: copiedShot = "" }
 
   function scanShots() {
@@ -647,6 +648,7 @@ Scope {
     ])
   }
   function openShot(p) { if (p) Quickshell.execDetached(["xdg-open", p]) }
+  function previewShot(p) { if (p) root.shotPreviewPath = p }
   function capture(kind) {
     Quickshell.execDetached([binDir + "/asahi-cmd-screenshot", kind || "smart"])
     Qt.callLater(function() { Qt.callLater(scanShots) })
@@ -664,12 +666,21 @@ Scope {
     })
   }
 
-  function openFeature() {
+  function activateMode(nextMode) {
+    root.mode = nextMode || "hub"
+    root.pendingConfirm = ""
+    if (root.mode === "screenshots" || root.mode === "hub") root.scanShots()
+    else if (root.mode === "network") { root.scanWifi(); ethCheck.running = true }
+    else if (root.mode === "media") root.enterMedia()
+    else if (root.mode === "monitors") monitorsProc.running = true
+    else if (root.mode === "temp") tempProc.running = true
+    else if (root.mode === "bluetooth") root.refreshBluetoothPower()
+  }
+
+  function openFeatureMode(nextMode) {
     const mon = Hyprland.focusedMonitor
     featureScreen = mon ? (Quickshell.screens.find(s => s.name === mon.name) ?? Quickshell.screens[0]) : (Quickshell.screens[0] ?? null)
     shouldShow = true
-    mode = "hub"
-    pendingConfirm = ""
     monitorStatus = ""
     wifiProc.running = true
     wifiPowerCheck.running = true
@@ -677,12 +688,16 @@ Scope {
     ethCheck.running = true
     monitorsProc.running = true
     tempProc.running = true
-    scanShots()
+    root.activateMode(nextMode || "hub")
+  }
+  function openFeature() {
+    root.openFeatureMode("hub")
   }
   function closeFeature() {
     shouldShow = false
     mode = "hub"
     pendingConfirm = ""
+    shotPreviewPath = ""
     stopCava()
   }
 
@@ -747,7 +762,9 @@ Scope {
       MouseArea { anchors.fill: parent; onClicked: event => event.accepted = true }
 
       Keys.onEscapePressed: {
-        if (root.wallpaperPreviewPath !== "") {
+        if (root.shotPreviewPath !== "") {
+          root.shotPreviewPath = ""
+        } else if (root.wallpaperPreviewPath !== "") {
           root.wallpaperPreviewPath = ""
         } else if (root.mode !== "hub") {
           root.mode = "hub"
@@ -914,14 +931,7 @@ Scope {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
-                      root.mode = modelData.key
-                      root.pendingConfirm = ""
-                      if (modelData.key === "screenshots") root.scanShots()
-                      else if (modelData.key === "network") { root.scanWifi(); ethCheck.running = true }
-                      else if (modelData.key === "media") root.enterMedia()
-                      else if (modelData.key === "monitors") monitorsProc.running = true
-                      else if (modelData.key === "temp") tempProc.running = true
-                      else if (modelData.key === "bluetooth") root.refreshBluetoothPower()
+                      root.activateMode(modelData.key)
                     }
                   }
                 }
@@ -1208,6 +1218,22 @@ Scope {
                                 cursorShape: Qt.PointingHandCursor
                                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                                 onClicked: (e) => { if (e.button === Qt.RightButton) root.openShot(modelData.path); else root.copyShot(modelData.path) }
+                              }
+
+                              Rectangle {
+                                anchors.top: parent.top
+                                anchors.right: parent.right
+                                anchors.margins: 7
+                                width: 24
+                                height: 24
+                                radius: 12
+                                z: 4
+                                visible: dashShotMa.containsMouse
+                                color: Style.panelControlBg
+                                border.width: 1
+                                border.color: Style.panelCardBorderHover
+                                Text { anchors.centerIn: parent; text: "󰋲"; color: Style.sky; font.pixelSize: 12 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font" }
+                                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.previewShot(modelData.path) }
                               }
                             }
                           }
@@ -1639,6 +1665,22 @@ Scope {
                       MouseArea {
                         id: hma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; acceptedButtons: Qt.LeftButton | Qt.RightButton
                         onClicked: (e) => { if (e.button === Qt.RightButton) root.openShot(modelData.path); else root.copyShot(modelData.path) }
+                      }
+
+                      Rectangle {
+                        anchors.top: parent.top
+                        anchors.right: parent.right
+                        anchors.margins: 7
+                        width: 24
+                        height: 24
+                        radius: 12
+                        z: 4
+                        visible: hma.containsMouse
+                        color: Style.panelControlBg
+                        border.width: 1
+                        border.color: Style.panelCardBorderHover
+                        Text { anchors.centerIn: parent; text: "󰋲"; color: Style.sky; font.pixelSize: 12 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font" }
+                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.previewShot(modelData.path) }
                       }
                     }
                   }
@@ -2831,6 +2873,51 @@ Scope {
               }
             }
           }
+        }
+      }
+    }
+
+    // SCREENSHOT PREVIEW OVERLAY
+    Rectangle {
+      anchors.fill: parent
+      color: Style.panelOverlay
+      visible: root.shotPreviewPath !== ""
+      radius: 16
+      z: 30
+
+      MouseArea { anchors.fill: parent; onClicked: root.shotPreviewPath = "" }
+
+      Image {
+        anchors.centerIn: parent
+        width: parent.width * 0.86
+        height: parent.height * 0.82
+        source: root.shotPreviewPath !== "" ? "file://" + root.shotPreviewPath : ""
+        fillMode: Image.PreserveAspectFit
+        asynchronous: true
+      }
+
+      RowLayout {
+        anchors.bottom: parent.bottom
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottomMargin: 28
+        spacing: 10
+
+        Rectangle {
+          width: 96; height: 34; radius: 17
+          color: copyShotPreviewMa.containsMouse ? Style.panelSuccessBg : Style.panelControlBg
+          border.width: 1
+          border.color: copyShotPreviewMa.containsMouse ? Style.green : Style.panelCardBorder
+          Text { anchors.centerIn: parent; text: "Copy"; color: copyShotPreviewMa.containsMouse ? Style.green : Style.text; font.pixelSize: 11 + root.uiFontBump; font.bold: true; font.family: "JetBrainsMono Nerd Font" }
+          MouseArea { id: copyShotPreviewMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.copyShot(root.shotPreviewPath) }
+        }
+
+        Rectangle {
+          width: 96; height: 34; radius: 17
+          color: openShotPreviewMa.containsMouse ? Style.panelAccentBg : Style.panelControlBg
+          border.width: 1
+          border.color: openShotPreviewMa.containsMouse ? Style.panelAccentBorder : Style.panelCardBorder
+          Text { anchors.centerIn: parent; text: "Open"; color: openShotPreviewMa.containsMouse ? Style.sky : Style.text; font.pixelSize: 11 + root.uiFontBump; font.bold: true; font.family: "JetBrainsMono Nerd Font" }
+          MouseArea { id: openShotPreviewMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.openShot(root.shotPreviewPath) }
         }
       }
     }
