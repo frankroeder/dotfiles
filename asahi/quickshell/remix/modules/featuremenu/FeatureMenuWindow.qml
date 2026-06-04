@@ -643,7 +643,7 @@ Scope {
     copyClear.restart()
     Quickshell.execDetached([
       "sh", "-c",
-      "wl-copy < \"$1\" && notify-send -a screenshot -t 900 'Copied' \"$(basename \"$1\")\"",
+      "notify-send -a screenshot -t 900 'Copied' \"$(basename \"$1\")\"; exec wl-copy --foreground -t image/png < \"$1\"",
       "sh", p
     ])
   }
@@ -1217,7 +1217,7 @@ Scope {
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                onClicked: (e) => { if (e.button === Qt.RightButton) root.openShot(modelData.path); else root.copyShot(modelData.path) }
+                                onClicked: mouse => { if (mouse.button === Qt.RightButton) root.openShot(modelData.path); else root.copyShot(modelData.path) }
                               }
 
                               Rectangle {
@@ -1664,7 +1664,7 @@ Scope {
 
                       MouseArea {
                         id: hma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; acceptedButtons: Qt.LeftButton | Qt.RightButton
-                        onClicked: (e) => { if (e.button === Qt.RightButton) root.openShot(modelData.path); else root.copyShot(modelData.path) }
+                        onClicked: mouse => { if (mouse.button === Qt.RightButton) root.openShot(modelData.path); else root.copyShot(modelData.path) }
                       }
 
                       Rectangle {
@@ -2908,7 +2908,13 @@ Scope {
           border.width: 1
           border.color: copyShotPreviewMa.containsMouse ? Style.green : Style.panelCardBorder
           Text { anchors.centerIn: parent; text: "Copy"; color: copyShotPreviewMa.containsMouse ? Style.green : Style.text; font.pixelSize: 11 + root.uiFontBump; font.bold: true; font.family: "JetBrainsMono Nerd Font" }
-          MouseArea { id: copyShotPreviewMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.copyShot(root.shotPreviewPath) }
+          MouseArea {
+            id: copyShotPreviewMa
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: mouse => { mouse.accepted = true; root.copyShot(root.shotPreviewPath) }
+          }
         }
 
         Rectangle {
