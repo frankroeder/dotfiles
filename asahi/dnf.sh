@@ -34,6 +34,8 @@ sudo dnf install -y \
   cascadia-mono-nf-fonts \
   chromium \
   cmake \
+  cups \
+  cups-browsed \
   curl \
   fd-find \
   fastfetch \
@@ -101,6 +103,8 @@ if command -v gtk-update-icon-cache >/dev/null 2>&1; then
 fi
 
 systemctl --user import-environment XDG_DATA_DIRS || true
+
+sudo systemctl enable --now cups cups-browsed
 
 # Optional Asahi extras (not in minimal dnf to avoid bloat):
 # - hyprdynamicmonitors (Go tool for dynamic monitor profiles/lid/hotplug on Mac hw): go install github.com/fiffeek/hyprdynamicmonitors@latest
