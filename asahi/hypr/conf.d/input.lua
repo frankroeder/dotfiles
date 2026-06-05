@@ -1,7 +1,8 @@
-hl.config({
+hl.config {
   input = {
     kb_layout = "de",
     kb_variant = "mac_nodeadkeys",
+    kb_model = apple,
     repeat_delay = 300,
     repeat_rate = 40,
     accel_profile = "adaptive",
@@ -19,4 +20,4 @@ hl.config({
     -- Power-user: slightly higher sensitivity for precise keyboard-driven workflows
     sensitivity = 0.1,
   },
-})
+}
