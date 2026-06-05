@@ -17,9 +17,8 @@ end
 
 require "items.calendar"
 require "items.battery"
-local network = require "items.network"
+require "items.network"
 require "items.wifi"
-network.add_download()
 require "items.brew"
 require "items.volume"
 require "items.mic"
@@ -28,7 +27,6 @@ require "items.wallpaper"
 
 sbar.add("bracket", "top.group.network", {
   "widgets.wifi",
-  "widgets.network_down",
   "widgets.network_up",
 }, {
   background = {
