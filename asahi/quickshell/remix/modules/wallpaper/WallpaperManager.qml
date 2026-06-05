@@ -3,40 +3,24 @@ import Quickshell.Io
 import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
-
+import "../menu" as Menu
 import "../../"
 
 Scope {
   id: root
 
-  // Safe adapter so the wallpaper picker keeps working with Mocha colors
-  // without triggering singleton instantiation parser errors
-  property var theme: ({
-    bgOverlay: "#88000000",
-    bgBase: Style.bg,
-    bgSurface: Style.surface,
-    bgBorder: Style.border,
-    bgHover: Style.hoverBg,
-    textPrimary: Style.text,
-    textSecondary: Style.textMuted,
-    textMuted: Style.textMuted,
-    accentPrimary: Style.blue,
-    accentGreen: Style.green,
-    accentRed: Style.red
-  })
-
   property string searchText: ""
   property string previewPath: ""
+  readonly property string uiFont: "Hack Nerd Font"
 
   IpcHandler {
     target: "wallpaper"
-
     function toggle(): void {
       wallpaperPanel.visible = !wallpaperPanel.visible
       if (wallpaperPanel.visible) {
         root.searchText = ""
         root.previewPath = ""
-        searchInput.forceActiveFocus()
+        wallSearchInput.forceActiveFocus()
         if (WallpaperService.wallpapers.length === 0) WallpaperService.rescan()
       }
     }
@@ -45,10 +29,7 @@ Scope {
   property var filteredWallpapers: {
     const q = searchText.toLowerCase()
     if (q === "") return WallpaperService.wallpapers
-    return WallpaperService.wallpapers.filter(p => {
-      const name = p.split("/").pop().toLowerCase()
-      return name.includes(q)
-    })
+    return WallpaperService.wallpapers.filter(p => p.split("/").pop().toLowerCase().includes(q))
   }
 
   PanelWindow {
@@ -60,88 +41,57 @@ Scope {
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
     WlrLayershell.namespace: "quickshell-wallpaper"
-
     exclusionMode: ExclusionMode.Ignore
 
-    anchors {
-      top: true
-      bottom: true
-      left: true
-      right: true
-    }
+    anchors { top: true; bottom: true; left: true; right: true }
 
-    // Dark overlay backdrop
+    Menu.MenuBackdrop { reveal: wallpaperPanel.visible ? 1 : 0 }
+
     MouseArea {
       anchors.fill: parent
       onClicked: wallpaperPanel.visible = false
-
-      Rectangle {
-        anchors.fill: parent
-        color: root.theme.bgOverlay
-      }
     }
 
-    // Main wallpaper picker box
-    Rectangle {
-      anchors.centerIn: parent
-      width: 720
-      height: 560
-      radius: 16
-      color: root.theme.bgBase
-      border.color: root.theme.bgBorder
-      border.width: 1
+    Menu.MenuCard {
+      id: wallBox
+      anchors.horizontalCenter: parent.horizontalCenter
+      y: parent.height * 0.12
+      width: Math.min(720, parent.width * 0.88)
+      height: Math.min(560, parent.height * 0.76)
+      cardMargin: 17
 
-      MouseArea {
-        anchors.fill: parent
-        onClicked: event => event.accepted = true
-      }
-
-      ColumnLayout {
-        anchors.fill: parent
-        anchors.margins: 16
+      Column {
+        id: wallCol
+        width: parent.width - 34
         spacing: 12
 
-        // Header
-        RowLayout {
-          Layout.fillWidth: true
-          spacing: 12
-
-          Text {
-            text: "󰸉  Wallpaper"
-            color: root.theme.accentPrimary
-            font.pixelSize: 14
-            font.family: "JetBrainsMono Nerd Font"
-            font.bold: true
+        Row {
+          width: parent.width
+          height: 28
+          Menu.MenuHeader {
+            width: parent.width - 70
+            fontFamily: root.uiFont
+            title: "ASAHI"
+            subtitle: "WALLPAPERS  ·  " + root.filteredWallpapers.length + " IMAGES"
           }
-
-          Item { Layout.fillWidth: true }
-
-          Text {
-            text: root.filteredWallpapers.length + " images"
-            color: root.theme.textMuted
-            font.pixelSize: 11
-            font.family: "JetBrainsMono Nerd Font"
-          }
-
-          // Refresh button
           Rectangle {
-            width: 28
-            height: 28
-            radius: 14
-            color: refreshHover.containsMouse ? root.theme.bgHover : "transparent"
-            Accessible.role: Accessible.Button
-            Accessible.name: "Refresh wallpaper list"
-
+            width: 26
+            height: 26
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            radius: Style.menuRadius
+            color: refreshMa.containsMouse ? Style.menuRowSel : Style.menuControlBg
+            border.width: 1
+            border.color: Style.menuSep
             Text {
               anchors.centerIn: parent
               text: "󰑐"
-              color: root.theme.textMuted
+              color: refreshMa.containsMouse ? Style.menuSeal : Style.menuInkDeep
               font.pixelSize: 14
-              font.family: "JetBrainsMono Nerd Font"
+              font.family: root.uiFont
             }
-
             MouseArea {
-              id: refreshHover
+              id: refreshMa
               anchors.fill: parent
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
@@ -150,304 +100,227 @@ Scope {
           }
         }
 
-        // Search
-        Rectangle {
-          Layout.fillWidth: true
+        Menu.MenuDivider { width: parent.width }
+
+        Item {
+          width: parent.width
           height: 36
-          radius: 8
-          color: root.theme.bgSurface
-          border.color: searchInput.activeFocus ? root.theme.accentPrimary : root.theme.bgBorder
-          border.width: 1
-
-          RowLayout {
-            anchors.fill: parent
+          Text {
+            id: wallSearchGlyph
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            text: "󰍉"
+            color: wallSearchInput.activeFocus ? Style.menuSeal : Style.menuInkDeep
+            font.family: root.uiFont
+            font.pixelSize: 16
+          }
+          TextInput {
+            id: wallSearchInput
+            anchors.left: wallSearchGlyph.right
             anchors.leftMargin: 10
-            anchors.rightMargin: 10
-            spacing: 8
-
-            TextInput {
-              id: searchInput
-              Layout.fillWidth: true
-              Layout.alignment: Qt.AlignVCenter
-              color: root.theme.textPrimary
-              font.pixelSize: 13
-              font.family: "JetBrainsMono Nerd Font"
-              clip: true
-              selectByMouse: true
-              Accessible.role: Accessible.EditableText
-              Accessible.name: "Search wallpapers"
-              onTextChanged: root.searchText = text
-
-              Keys.onEscapePressed: {
-                if (root.previewPath !== "") {
-                  root.previewPath = ""
-                } else {
-                  wallpaperPanel.visible = false
-                }
-              }
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            color: text.length > 0 ? Style.menuInk : Style.menuInkDeep
+            opacity: text.length > 0 ? 1 : 0.55
+            font.family: root.uiFont
+            font.pixelSize: 14
+            font.letterSpacing: 1
+            clip: true
+            selectByMouse: true
+            onTextChanged: root.searchText = text
+            Keys.onEscapePressed: {
+              if (root.previewPath !== "") root.previewPath = ""
+              else wallpaperPanel.visible = false
             }
-
             Text {
-              text: "Search wallpapers..."
-              color: root.theme.textMuted
-              font.pixelSize: 13
-              font.family: "JetBrainsMono Nerd Font"
-              visible: searchInput.text === "" && !searchInput.activeFocus
+              anchors.fill: parent
+              text: "Search wallpapers…"
+              color: Style.menuInkDeep
+              font: parent.font
+              opacity: 0.5
+              visible: !parent.text && !parent.activeFocus
+              verticalAlignment: Text.AlignVCenter
             }
           }
         }
 
-        // Wallpaper grid
-        GridView {
-          id: wallpaperGrid
-          Layout.fillWidth: true
-          Layout.fillHeight: true
-          cellWidth: Math.floor(width / 4)
-          cellHeight: cellWidth * 0.6 + 8
+        Menu.MenuDivider { width: parent.width }
+
+        Item {
+          width: parent.width
+          height: Math.max(280, wallBox.height - 200)
           clip: true
-          boundsBehavior: Flickable.StopAtBounds
-          model: root.filteredWallpapers
 
-          delegate: Item {
-            required property string modelData
-            required property int index
+          GridView {
+            id: wallpaperGrid
+            anchors.fill: parent
+            cellWidth: Math.floor(width / 3)
+            cellHeight: cellWidth * 0.62 + 8
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            model: root.filteredWallpapers
 
-            Accessible.role: Accessible.Button
-            Accessible.name: modelData.split("/").pop() + (WallpaperService.currentWallpaper === modelData ? ", current wallpaper" : "")
+            delegate: Item {
+              required property string modelData
+              width: wallpaperGrid.cellWidth
+              height: wallpaperGrid.cellHeight
 
-            width: wallpaperGrid.cellWidth
-            height: wallpaperGrid.cellHeight
-
-            Rectangle {
-              anchors.fill: parent
-              anchors.margins: 4
-              radius: 8
-              color: root.theme.bgSurface
-              border.color: WallpaperService.currentWallpaper === modelData ? root.theme.accentPrimary : (imgHover.containsMouse ? root.theme.bgBorder : "transparent")
-              border.width: WallpaperService.currentWallpaper === modelData ? 2 : 1
-              clip: true
-
-              Image {
+              Rectangle {
                 anchors.fill: parent
-                anchors.margins: 2
-                source: "file://" + modelData
-                fillMode: Image.PreserveAspectCrop
-                sourceSize.width: 200
-                sourceSize.height: 120
-                asynchronous: true
+                anchors.margins: 4
+                radius: Style.menuRadius
+                clip: true
+                color: wallMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
+                border.color: WallpaperService.currentWallpaper === modelData
+                  ? Style.green : Style.menuSep
+                border.width: WallpaperService.currentWallpaper === modelData ? 2 : 1
+
+                Image {
+                  anchors.fill: parent
+                  anchors.margins: 1
+                  source: "file://" + modelData
+                  fillMode: Image.PreserveAspectCrop
+                  sourceSize.width: 200
+                  sourceSize.height: 120
+                  asynchronous: true
+                  Rectangle {
+                    anchors.fill: parent
+                    color: Style.menuControlBg
+                    visible: parent.status !== Image.Ready
+                    Text {
+                      anchors.centerIn: parent
+                      text: "󰋩"
+                      color: Style.menuInkDeep
+                      font.pixelSize: 22
+                      font.family: root.uiFont
+                    }
+                  }
+                }
 
                 Rectangle {
-                  anchors.fill: parent
-                  color: root.theme.bgSurface
-                  visible: parent.status !== Image.Ready
-
+                  anchors.left: parent.left
+                  anchors.right: parent.right
+                  anchors.bottom: parent.bottom
+                  height: 20
+                  color: Qt.rgba(0, 0, 0, 0.6)
                   Text {
                     anchors.centerIn: parent
-                    text: "󰋩"
-                    color: root.theme.textMuted
-                    font.pixelSize: 24
-                    font.family: "JetBrainsMono Nerd Font"
+                    text: modelData.split("/").pop()
+                    color: Style.menuInk
+                    font.pixelSize: 9
+                    font.family: root.uiFont
+                    elide: Text.ElideMiddle
+                    width: parent.width - 8
+                    horizontalAlignment: Text.AlignHCenter
                   }
                 }
-              }
 
-              // Filename label
-              Rectangle {
-                anchors.bottom: parent.bottom
-                anchors.left: parent.left
-                anchors.right: parent.right
-                height: 22
-                color: Qt.rgba(0, 0, 0, 0.6)
-
-                Text {
-                  anchors.centerIn: parent
-                  text: modelData.split("/").pop()
-                  color: Style.text
-                  font.pixelSize: 9
-                  font.family: "JetBrainsMono Nerd Font"
-                  elide: Text.ElideMiddle
-                  width: parent.width - 8
-                  horizontalAlignment: Text.AlignHCenter
+                Rectangle {
+                  anchors.top: parent.top
+                  anchors.right: parent.right
+                  anchors.margins: 6
+                  width: 18
+                  height: 18
+                  radius: 9
+                  color: Style.green
+                  visible: WallpaperService.currentWallpaper === modelData
+                  Text {
+                    anchors.centerIn: parent
+                    text: "✓"
+                    color: Style.menuBg
+                    font.pixelSize: 11
+                    font.bold: true
+                  }
                 }
-              }
 
-              // Active indicator
-              Rectangle {
-                anchors.top: parent.top
-                anchors.right: parent.right
-                anchors.margins: 6
-                width: 20
-                height: 20
-                radius: 10
-                color: root.theme.accentGreen
-                visible: WallpaperService.currentWallpaper === modelData
-
-                Text {
-                  anchors.centerIn: parent
-                  text: "✓"
-                  color: root.theme.bgBase
-                  font.pixelSize: 12
-                  font.family: "JetBrainsMono Nerd Font"
-                }
-              }
-
-              MouseArea {
-                id: imgHover
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                acceptedButtons: Qt.LeftButton | Qt.RightButton
-                onClicked: mouse => {
-                  if (mouse.button === Qt.RightButton) {
-                    root.previewPath = modelData
-                  } else {
-                    WallpaperService.setWallpaper(modelData)
-                    wallpaperPanel.visible = false
+                MouseArea {
+                  id: wallMa
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  acceptedButtons: Qt.LeftButton | Qt.RightButton
+                  onClicked: mouse => {
+                    if (mouse.button === Qt.RightButton) root.previewPath = modelData
+                    else {
+                      WallpaperService.setWallpaper(modelData)
+                      wallpaperPanel.visible = false
+                    }
                   }
                 }
               }
             }
-          }
 
-          // Empty state
-          Text {
-            anchors.centerIn: parent
-            text: "󰋩  No wallpapers found\nAdd images to ~/Pictures/wallpaper/"
-            color: root.theme.textMuted
-            font.pixelSize: 13
-            font.family: "JetBrainsMono Nerd Font"
-            horizontalAlignment: Text.AlignHCenter
-            visible: wallpaperGrid.count === 0
+            Text {
+              anchors.centerIn: parent
+              visible: wallpaperGrid.count === 0
+              text: "NO WALLPAPERS FOUND"
+              color: Style.menuInkDeep
+              font.family: root.uiFont
+              font.pixelSize: 11
+              font.letterSpacing: 3
+              opacity: 0.6
+            }
           }
         }
 
-        // Footer
-        RowLayout {
-          Layout.fillWidth: true
-          spacing: 16
+        Menu.MenuDivider { width: parent.width }
 
-          Row {
-            spacing: 4
-            Rectangle {
-              width: hintClick.width + 8
-              height: 18
-              radius: 4
-              color: root.theme.bgSurface
-              Text {
-                id: hintClick
-                anchors.centerIn: parent
-                text: "click"
-                color: root.theme.textMuted
-                font.pixelSize: 10
-                font.family: "JetBrainsMono Nerd Font"
-              }
-            }
-            Text {
-              text: "apply"
-              color: root.theme.textMuted
-              font.pixelSize: 10
-              font.family: "JetBrainsMono Nerd Font"
-              anchors.verticalCenter: parent.verticalCenter
-            }
-          }
-
-          Row {
-            spacing: 4
-            Rectangle {
-              width: hintRight.width + 8
-              height: 18
-              radius: 4
-              color: root.theme.bgSurface
-              Text {
-                id: hintRight
-                anchors.centerIn: parent
-                text: "right-click"
-                color: root.theme.textMuted
-                font.pixelSize: 10
-                font.family: "JetBrainsMono Nerd Font"
-              }
-            }
-            Text {
-              text: "preview"
-              color: root.theme.textMuted
-              font.pixelSize: 10
-              font.family: "JetBrainsMono Nerd Font"
-              anchors.verticalCenter: parent.verticalCenter
-            }
-          }
-
-          Row {
-            spacing: 4
-            Text {
-              text: "Backend: " + WallpaperService.backend
-              color: root.theme.textMuted
-              font.pixelSize: 10
-              font.family: "JetBrainsMono Nerd Font"
-              anchors.verticalCenter: parent.verticalCenter
-            }
-          }
-
-          Item { Layout.fillWidth: true }
+        Menu.MenuHintRow {
+          width: parent.width
+          fontFamily: root.uiFont
+          hints: "click apply · right-click preview · " + WallpaperService.backend
         }
       }
+
+      focus: true
     }
 
-    // Preview overlay
     Rectangle {
       anchors.fill: parent
-      color: Qt.rgba(0, 0, 0, 0.85)
+      color: Style.menuDim
       visible: root.previewPath !== ""
-
-      MouseArea {
-        anchors.fill: parent
-        onClicked: root.previewPath = ""
-      }
-
+      z: 30
+      MouseArea { anchors.fill: parent; onClicked: root.previewPath = "" }
       Image {
         anchors.centerIn: parent
-        width: parent.width * 0.8
-        height: parent.height * 0.8
+        width: parent.width * 0.86
+        height: parent.height * 0.82
         source: root.previewPath !== "" ? "file://" + root.previewPath : ""
         fillMode: Image.PreserveAspectFit
         asynchronous: true
       }
-
-      // Apply button
       Rectangle {
         anchors.bottom: parent.bottom
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottomMargin: 40
-        width: applyRow.width + 32
-        height: 40
-        radius: 20
-        color: root.theme.accentPrimary
-        Accessible.role: Accessible.Button
-        Accessible.name: "Apply wallpaper"
-
+        anchors.bottomMargin: 36
+        width: applyLbl.width + 32
+        height: 38
+        radius: Style.menuRadius
+        color: applyMa.containsMouse ? Style.menuRowSel : Style.menuControlBg
+        border.color: Style.menuSep
+        border.width: 1
         Row {
-          id: applyRow
+          id: applyLbl
           anchors.centerIn: parent
           spacing: 8
-
           Text {
-            text: "✓"
-            color: root.theme.bgBase
+            text: "󰄬"
+            color: Style.menuSeal
             font.pixelSize: 14
-            font.family: "JetBrainsMono Nerd Font"
-            anchors.verticalCenter: parent.verticalCenter
+            font.family: root.uiFont
           }
           Text {
-            text: "Apply Wallpaper"
-            color: root.theme.bgBase
-            font.pixelSize: 13
-            font.family: "JetBrainsMono Nerd Font"
-            font.bold: true
-            anchors.verticalCenter: parent.verticalCenter
+            text: "Apply wallpaper"
+            color: Style.menuInk
+            font.pixelSize: 12
+            font.family: root.uiFont
+            font.letterSpacing: 1
           }
         }
-
         MouseArea {
+          id: applyMa
           anchors.fill: parent
+          hoverEnabled: true
           cursorShape: Qt.PointingHandCursor
           onClicked: {
             WallpaperService.setWallpaper(root.previewPath)
