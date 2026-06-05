@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Wake or start the shader screensaver module, then invoke saver IPC.
+set -u
+
+action="${1:-toggle}"
+case "$action" in
+  start|stop|toggle|next) ;;
+  *)
+    echo "usage: asahi-screensaver {start|stop|toggle|next}" >&2
+    exit 2
+    ;;
+esac
+
+qs -n -d -c screensaver >/dev/null 2>&1 || true
+sleep 0.08
+exec qs -c screensaver ipc call saver "$action"

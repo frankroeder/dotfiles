@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+set -u
+
+for name in qs quickshell; do
+  pkill -x "$name" 2>/dev/null || true
+done
+
+for _ in {1..30}; do
+  if ! pgrep -x qs >/dev/null 2>&1 && ! pgrep -x quickshell >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.1
+done
+
+"$HOME/.dotfiles/asahi/bin/asahi-start-quickshell"
+
+if command -v notify-send >/dev/null 2>&1; then
+  notify-send -a asahi-restart -t 1500 "quickshell restarted" 2>/dev/null || true
+fi

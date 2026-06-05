@@ -39,8 +39,8 @@ hl.bind(mod .. " + ALT + CONTROL + 6", hl.dsp.exec_cmd("hyprpicker -a"), { desc 
 hl.bind(mod .. " + CONTROL + ALT + R", hl.dsp.exec_cmd(scripts .. "/asahi-reload-hyprland"), { desc = "Reload Hyprland" })
 hl.bind(
   mod .. " + CONTROL + ALT + W",
-  hl.dsp.exec_cmd(scripts .. "/asahi-restart-app quickshell -c remix"),
-  { desc = "Restart quickshell bar (qs -c remix)" }
+  hl.dsp.exec_cmd(scripts .. "/asahi-restart-quickshell"),
+  { desc = "Restart Quickshell" }
 )
 hl.bind(mod .. " + CONTROL + ALT + P", hl.dsp.exec_cmd(scripts .. "/asahi-restart-app hyprpaper"), { desc = "Restart hyprpaper" })
 hl.bind(mod .. " + CONTROL + ALT + I", hl.dsp.exec_cmd(scripts .. "/asahi-restart-app hypridle"), { desc = "Restart hypridle" })

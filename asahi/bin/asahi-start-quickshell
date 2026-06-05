@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+set -u
+
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell"
+log="$state_dir/asahi-start.log"
+modules=(
+  remix
+  screensaver
+  expose
+)
+
+mkdir -p "$state_dir"
+: > "$log"
+
+for module in "${modules[@]}"; do
+  qs -n -d -c "$module" >>"$log" 2>&1
+done
