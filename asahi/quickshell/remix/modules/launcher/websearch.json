@@ -62,6 +62,18 @@
       "url": "https://grokipedia.com/search?q=%TERM%",
       "icon": "grokipedia.png",
       "description": "Grokipedia"
+    },
+    {
+      "name": "Hyprland Wiki",
+      "prefix": "hypr",
+      "url": "https://wiki.hypr.land/",
+      "description": "Hyprland documentation"
+    },
+    {
+      "name": "Arch Wiki",
+      "prefix": "arch",
+      "url": "https://wiki.archlinux.org/index.php?search=%TERM%",
+      "description": "Arch Linux wiki"
     }
   ],
   "defaultSearchUrl": "https://kagi.com/search?q=%s"

@@ -699,34 +699,15 @@ Variants {
         const l = launcherLoader.item
         if (l && l.openFileSearch) l.openFileSearch(query || "")
       }
-    }
-
-    Loader {
-      id: featureLoader
-      source: "modules/featuremenu/FeatureMenuWindow.qml"
-      active: true
-    }
-
-    IpcHandler {
-      target: "feature"
-      function toggle() {
-        const f = featureLoader.item
-        if (!f) return
-        if (f.shouldShow) {
-          if (f.closeFeature) f.closeFeature()
-          else f.shouldShow = false
-        } else {
-          if (f.openFeature) f.openFeature()
-          else f.shouldShow = true
-        }
-      }
-      function open(mode: string) {
-        const f = featureLoader.item
-        if (!f) return
-        if (f.openFeatureMode) f.openFeatureMode(mode || "hub")
+      function openCategory(cat: string) {
+        const l = launcherLoader.item
+        if (!l) return
+        if (l.openLauncher) l.openLauncher()
+        Qt.callLater(() => { if (l) l.categoryFilter = cat || "" })
       }
     }
 
+    // featuremodule fully integrated into launcher Quick side popups (exact windows, ref style, symbols, autofill); removed per task
     WallpaperManager {}
 
 }  // close ShellRoot

@@ -8,7 +8,10 @@ import Quickshell.Wayland
 import Quickshell.Widgets
 import "../wallpaper" as Wallpaper
 import "../menu" as Menu
+import Quickshell.Bluetooth
+import Quickshell.Services.Mpris
 import "../../"
+import "Data.js" as Data
 
 Scope {
   id: root
@@ -36,12 +39,35 @@ Scope {
   property var appUsage: ({})
   property int appUsageVersion: 0
 
+  // Launcher palette state (category overview + drills + query shapes)
+  property string categoryFilter: ""
+  readonly property bool fileMode: root.categoryFilter === Data.fileCategory || root.fileTerm(root.query) !== null
+  readonly property bool previewActive: root.fileMode
+  readonly property bool quickMode: root.categoryFilter === "Quick"
+  property string expandedQuickKey: ""
+  readonly property bool quickDetailActive: root.quickMode && root.expandedQuickKey !== ""
+  readonly property bool sideActive: root.previewActive || root.quickDetailActive
+  readonly property int quickGridCols: root.quickDetailActive ? 1 : 3
+
+  // Scoring (ported from launcher ref, tuned for small set)
+  readonly property int scPrefix: 100
+  readonly property int scTitle: 60
+  readonly property int scKw: 20
+  readonly property int scCat: 10
+  readonly property int maxResults: 200
+
+  readonly property string homeDir: Quickshell.env("HOME")
+
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
   readonly property string uiFont: "Hack Nerd Font"
   readonly property string dictIcon: "file://" + Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/assets/dict-cc.png"
   readonly property string webIconBase: "file://" + Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/assets/"
   readonly property string websearchJsonPath: Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/modules/launcher/websearch.json"
   property int webVersion: 0
+
+  // Launcher-style data (nav + local items for categories + prefix specials for files/web/docs/calc/actions)
+  readonly property var launcherItems: Data.annotate(Data.localItems)
+
   readonly property var quickActions: [
     { key: "dashboard", aliases: ["dash", "hub"], icon: "󰕮", name: "Dashboard", comment: "Open feature dashboard", mode: "hub" },
     { key: "wallpaper", aliases: ["wall", "paper"], icon: "󰸉", name: "Wallpapers", comment: "Open wallpaper picker", mode: "wallpaper" },
@@ -59,15 +85,1539 @@ Scope {
     { key: "scratch", aliases: ["scratchpad"], icon: "󱂬", name: "Scratchpad", comment: "Toggle scratch workspace", command: ["hyprctl", "dispatch", "togglespecialworkspace", "scratch"] }
   ]
 
+  readonly property var quickTiles: root.quickActions.map(function(a) {
+    return { key: a.key, glyph: a.icon, label: a.name, sub: a.comment, mode: a.mode || "", command: a.command || [] }
+  })
+
+  // --- live data + exact hub/lower + side windows (ported from old featuremenu; now the only place, module removed)
+  readonly property real uiFontScale: 1.2
+  function fontPx(size) { return Math.round(size * root.uiFontScale) }
+  // menu* from old feature for exact tile colors/behaviors in quick ports
+  readonly property color menuTileBg: Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.03)
+  readonly property color menuDangerBg: Qt.rgba(Style.red.r, Style.red.g, Style.red.b, 0.16)
+  readonly property color menuSuccessBg: Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.16)
+  property int sidebarCpu: 0
+  property int sidebarMem: 0
+  property int sidebarBat: 100
+  property string sidebarBatStatus: "Discharging"
+  property real sidebarCpuPrevIdle: -1
+  property real sidebarCpuPrevTotal: -1
+  property var shots: []
+  property string copiedShot: ""
+  property string shotPreviewPath: ""
+  Timer { id: copyClear; interval: 1200; onTriggered: copiedShot = "" }
+
+  Process {
+    id: sidebarProc
+    command: [
+      "sh", "-c",
+      "awk '/^cpu / { idle=$5+$6; total=0; for (i=2; i<=NF; i++) total+=$i; print idle; print total }' /proc/stat; " +
+      "awk '/MemTotal:/ { total=$2 } /MemAvailable:/ { available=$2 } END { if (total > 0) print (total - available) * 100 / total; else print 0 }' /proc/meminfo; " +
+      "for p in /sys/class/power_supply/macsmc-battery /sys/class/power_supply/BAT0 /sys/class/power_supply/BAT1 /sys/class/power_supply/*; do " +
+      "[ -r \"$p/type\" ] || continue; [ \"$(cat \"$p/type\")\" = Battery ] || continue; " +
+      "case \"$p\" in *hid-*) continue;; esac; [ -r \"$p/capacity\" ] || continue; " +
+      "cat \"$p/capacity\"; cat \"$p/status\" 2>/dev/null || echo Unknown; exit; done; echo 100; echo Unknown"
+    ]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const lines = text.trim().split("\n")
+          if (lines.length >= 5) {
+            const idle = parseFloat(lines[0])
+            const total = parseFloat(lines[1])
+            if (root.sidebarCpuPrevTotal >= 0 && total > root.sidebarCpuPrevTotal) {
+              const totalDelta = total - root.sidebarCpuPrevTotal
+              const idleDelta = idle - root.sidebarCpuPrevIdle
+              root.sidebarCpu = Math.max(0, Math.min(100, Math.round(100 * (totalDelta - idleDelta) / totalDelta)))
+            }
+            root.sidebarCpuPrevIdle = idle
+            root.sidebarCpuPrevTotal = total
+            root.sidebarMem = Math.round(parseFloat(lines[2]) || 0)
+            const bat = parseFloat(lines[3])
+            root.sidebarBat = Number.isFinite(bat) ? Math.max(0, Math.min(100, Math.round(bat))) : 100
+            root.sidebarBatStatus = lines[4].trim()
+          }
+        } catch (_) {}
+      }
+    }
+  }
+  Timer {
+    interval: 2000; running: true; repeat: true; triggeredOnStart: true
+    onTriggered: if (!sidebarProc.running) sidebarProc.running = true
+  }
+
+  function scanShots() {
+    shotScan.command = [
+      "sh", "-c",
+      "find \"" + (Quickshell.env("HOME") + "/screenshots") + "\" -maxdepth 1 -type f -name 'screenshot-*.png' 2>/dev/null | " +
+      "sort -r | head -200"
+    ]
+    shotScan.running = true
+  }
+  Process {
+    id: shotScan
+    running: false
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const lines = text.trim().split("\n").filter(l => l.length > 0)
+        root.shots = lines.map(p => ({ path: p, label: p.split("/").pop().replace("screenshot-", "").replace(".png", "") }))
+      }
+    }
+  }
+
+  function copyShot(p) {
+    if (!p) return
+    copiedShot = p
+    copyClear.restart()
+    Quickshell.execDetached([
+      "sh", "-c",
+      "notify-send -a screenshot -t 900 'Copied' \"$(basename \"$1\")\"; exec wl-copy --foreground -t image/png < \"$1\"",
+      "sh", p
+    ])
+  }
+  function openShot(p) { if (p) Quickshell.execDetached(["xdg-open", p]) }
+  function previewShot(p) { if (p) root.shotPreviewPath = p }
+  function deleteShot(p) {
+    if (!p) return
+    if (root.shotPreviewPath === p) root.shotPreviewPath = ""
+    if (root.copiedShot === p) root.copiedShot = ""
+    root.shots = (root.shots || []).filter(s => s.path !== p)
+    Quickshell.execDetached([
+      "sh", "-c",
+      "rm -f -- \"$1\" && notify-send -a screenshot -t 900 'Deleted' \"$(basename \"$1\")\"",
+      "sh", p
+    ])
+    Qt.callLater(root.scanShots)
+  }
+  // end duplicated procs/data
+
+  // Components for side detail "feature popups" (show exactly the feature windows content in launcher side, per task)
+  Component { id: quickHubComp; Item {
+    // exact copy of feature's hub overview grid + lower telemetry/shots (for side popup in launcher; uses duplicated data)
+    anchors.fill: parent
+    // OVERVIEW GRID (hub) - 3x3 feature tiles (exact from feature)
+    Grid {
+      id: featureGrid
+      anchors.top: parent.top
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.margins: 6
+      readonly property int tileHeight: Math.max(70, Math.min(90, Math.floor((parent.height - 160) / 3)))
+      height: 3 * tileHeight + 2 * 8
+      columns: 3
+      rowSpacing: 8
+      columnSpacing: 8
+      Repeater {
+        model: [
+          { key: "hub", icon: "󰕮", label: "Dashboard", sub: "System & quick" },
+          { key: "wallpaper", icon: "󰸉", label: "Wallpapers", sub: "Browse & set" },
+          { key: "screenshots", icon: "󰹑", label: "Screenshots", sub: "Recent & capture" },
+          { key: "media", icon: "󰝚", label: "Media", sub: "Players & mixer" },
+          { key: "network", icon: "󰈀", label: "Network", sub: "WiFi & LAN" },
+          { key: "monitors", icon: "󰍹", label: "Monitors", sub: "Layout & control" },
+          { key: "temp", icon: "󰔄", label: "Temperatures", sub: "Sensors" },
+          { key: "bluetooth", icon: "󰂯", label: "Bluetooth", sub: "Devices" },
+          { key: "power", icon: "󰐥", label: "Power", sub: "Session" }
+        ]
+        delegate: Item {
+          required property var modelData
+          required property int index
+          readonly property bool selected: false // in side, no mode switch
+          width: (featureGrid.width - 2 * 8) / 3
+          height: featureGrid.tileHeight
+          Rectangle {
+            anchors.fill: parent
+            anchors.margins: 1
+            radius: Style.menuRadius
+            color: selected
+              ? Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.08)
+              : tileMouse.containsMouse
+                ? Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.05)
+                : Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.03)
+            border.color: selected ? Style.menuSeal : Style.menuSep
+            border.width: selected ? 2 : 1
+            Behavior on color { ColorAnimation { duration: 50 } }
+            Behavior on border.color { ColorAnimation { duration: 50 } }
+            Behavior on border.width { NumberAnimation { duration: 50 } }
+          }
+          Column {
+            anchors.centerIn: parent
+            width: parent.width - 12
+            spacing: 2
+            Text {
+              anchors.horizontalCenter: parent.horizontalCenter
+              text: modelData.icon
+              color: selected ? Style.menuSeal : Style.menuInk
+              font.family: root.uiFont
+              font.pixelSize: root.fontPx(16)
+            }
+            Text {
+              anchors.horizontalCenter: parent.horizontalCenter
+              width: parent.width
+              text: modelData.label.toUpperCase()
+              color: Style.menuInk
+              font.family: root.uiFont
+              font.pixelSize: root.fontPx(8)
+              font.letterSpacing: 1.2
+              font.weight: Font.Medium
+              elide: Text.ElideRight
+              horizontalAlignment: Text.AlignHCenter
+            }
+            Text {
+              anchors.horizontalCenter: parent.horizontalCenter
+              width: parent.width
+              text: modelData.sub
+              color: Style.menuInkDeep
+              font.family: root.uiFont
+              font.pixelSize: root.fontPx(7)
+              font.letterSpacing: 1
+              opacity: 0.85
+              elide: Text.ElideRight
+              horizontalAlignment: Text.AlignHCenter
+            }
+          }
+          MouseArea {
+            id: tileMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+              // clicking hub tile expands that feature window content in the side popup (exact integration, no full open)
+              root.expandQuick(modelData.key)
+            }
+          }
+        }
+      }
+    }
+
+    // LOWER of grid (hub only): CPU/RAM/Battery + latest 4 shots (exact from feature)
+    Item {
+      anchors.top: featureGrid.bottom
+      anchors.topMargin: 8
+      anchors.left: featureGrid.left
+      anchors.right: featureGrid.right
+      anchors.bottom: parent.bottom
+      anchors.bottomMargin: 4
+
+      RowLayout {
+        anchors.fill: parent
+        spacing: 8
+
+        // left: telemetry bars (CPU / RAM / Battery) exact
+        Rectangle {
+          Layout.preferredWidth: 160
+          Layout.fillHeight: true
+          radius: Style.menuRadius
+          color: Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.03)
+          border.color: Style.menuSep
+          border.width: 1
+
+          ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 6
+            spacing: 4
+
+            Repeater {
+              model: [
+                { label: "CPU", key: "cpu" },
+                { label: "RAM", key: "ram" },
+                { label: "BAT", key: "bat" }
+              ]
+              delegate: Item {
+                required property var modelData
+                readonly property int meterValue: modelData.key === "cpu"
+                  ? root.sidebarCpu
+                  : (modelData.key === "ram" ? root.sidebarMem : root.sidebarBat)
+                readonly property color meterColor: modelData.key === "cpu"
+                  ? Style.orange
+                  : (modelData.key === "ram"
+                    ? Style.lavender
+                    : (root.sidebarBatStatus === "Charging" ? Style.yellow : (root.sidebarBat < 20 ? Style.red : Style.green)))
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                RowLayout {
+                  anchors.left: parent.left
+                  anchors.right: parent.right
+                  anchors.top: parent.top
+                  anchors.topMargin: 1
+                  spacing: 4
+
+                  Text {
+                    text: modelData.label
+                    color: Style.menuInkDeep
+                    font.pixelSize: root.fontPx(8)
+                    font.family: root.uiFont
+                    font.letterSpacing: 1
+                  }
+                  Item { Layout.fillWidth: true }
+                  Text {
+                    text: meterValue + "%"
+                    color: meterColor
+                    font.pixelSize: root.fontPx(9)
+                    font.family: root.uiFont
+                    font.weight: Font.Medium
+                  }
+                }
+
+                Rectangle {
+                  anchors.left: parent.left
+                  anchors.right: parent.right
+                  anchors.bottom: parent.bottom
+                  anchors.bottomMargin: 1
+                  height: 5
+                  radius: 2
+                  color: Style.menuControlBg
+                  Rectangle {
+                    width: parent.width * Math.max(0, Math.min(1, meterValue / 100))
+                    height: parent.height
+                    radius: 2
+                    color: meterColor
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // right: latest screenshots strip (4, click copy, right open; exact)
+        Rectangle {
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          radius: Style.menuRadius
+          color: Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.03)
+          border.color: Style.menuSep
+          border.width: 1
+
+          ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 6
+            spacing: 4
+
+            Text {
+              text: "SCREENSHOTS"
+              color: Style.menuInk
+              font.pixelSize: root.fontPx(8)
+              font.family: root.uiFont
+              font.letterSpacing: 1.2
+              font.weight: Font.Medium
+            }
+
+            Grid {
+              id: lowerShots
+              Layout.fillWidth: true
+              Layout.fillHeight: true
+              columns: 4
+              columnSpacing: 4
+              rowSpacing: 4
+              Repeater {
+                model: (root.shots || []).slice(0, 4)
+                delegate: Item {
+                  required property var modelData
+                  width: (lowerShots.width - 3 * 4) / 4
+                  height: lowerShots.height
+                  Rectangle {
+                    anchors.fill: parent
+                    radius: Style.menuRadius
+                    clip: true
+                    color: shotMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
+                    border.color: root.copiedShot === modelData.path ? Style.green : Style.menuSep
+                    border.width: root.copiedShot === modelData.path ? 2 : 1
+                    Behavior on color { ColorAnimation { duration: 80 } }
+                    Behavior on border.color { ColorAnimation { duration: 80 } }
+
+                    Image {
+                      anchors.fill: parent
+                      anchors.margins: 1
+                      source: (modelData && modelData.path) ? ("file://" + modelData.path) : ""
+                      fillMode: Image.PreserveAspectCrop
+                      asynchronous: true
+                      sourceSize.width: 120
+                      sourceSize.height: 80
+                    }
+
+                    Rectangle {
+                      anchors.left: parent.left
+                      anchors.right: parent.right
+                      anchors.bottom: parent.bottom
+                      height: 12
+                      color: Qt.rgba(0, 0, 0, 0.62)
+                      Text {
+                        anchors.centerIn: parent
+                        text: modelData.label
+                        color: Style.menuInk
+                        font.pixelSize: root.fontPx(6)
+                        font.family: root.uiFont
+                        elide: Text.ElideRight
+                        width: parent.width - 4
+                        horizontalAlignment: Text.AlignHCenter
+                      }
+                    }
+
+                    Rectangle {
+                      anchors.fill: parent
+                      color: Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.35)
+                      visible: root.copiedShot === modelData.path
+                      Text {
+                        anchors.centerIn: parent
+                        text: "COPIED"
+                        color: Style.menuInk
+                        font.pixelSize: root.fontPx(7)
+                        font.family: root.uiFont
+                        font.weight: Font.Medium
+                        font.letterSpacing: 1
+                      }
+                    }
+
+                    MouseArea {
+                      id: shotMa
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      cursorShape: Qt.PointingHandCursor
+                      acceptedButtons: Qt.LeftButton | Qt.RightButton
+                      onClicked: (mouse) => {
+                        if (mouse.button === Qt.RightButton) root.openShot(modelData.path)
+                        else root.copyShot(modelData.path)
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  } }
+  Component { id: quickWallpaperComp; Item {
+    id: quickWallpaperRoot
+    anchors.fill: parent
+    // full port of wallpaper from old (grid/search/apply service/current 2px border/160 OutCubic scale/hover/ready/filename/L apply/R preview/count)
+    property string wpSearch: ""
+    readonly property var wps: (Wallpaper.WallpaperService && Wallpaper.WallpaperService.wallpapers) || []
+    readonly property var filtered: {
+      const q = (wpSearch || "").toLowerCase().trim()
+      const list = wps || []
+      if (!q) return list
+      return list.filter(function(p){ const n = ((p || "").split("/").pop() || "").toLowerCase(); return n.indexOf(q) >= 0 })
+    }
+    Component.onCompleted: {
+      try { if (Wallpaper.WallpaperService && (Wallpaper.WallpaperService.wallpapers || []).length < 1) Wallpaper.WallpaperService.rescan() } catch(_) {}
+    }
+    ColumnLayout {
+      anchors.fill: parent
+      spacing: 6
+      Item {
+        Layout.fillWidth: true; Layout.preferredHeight: 22
+        Rectangle {
+          anchors.fill: parent; radius: 4; color: Style.menuControlBg; border.color: Style.menuSep; border.width: 1
+          TextInput {
+            id: wpIn; anchors.fill: parent; anchors.margins: 3
+            color: Style.menuInk; font.pixelSize: root.fontPx(10); font.family: root.uiFont
+            text: quickWallpaperRoot.wpSearch
+            onTextChanged: quickWallpaperRoot.wpSearch = text
+            Keys.onEscapePressed: { quickWallpaperRoot.wpSearch = ""; wpIn.text = "" }
+          }
+          Text { anchors.centerIn: parent; text: "search wallpapers..."; color: Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont; visible: wpIn.text === "" && !wpIn.activeFocus }
+        }
+      }
+      Text {
+        visible: (quickWallpaperRoot.filtered || []).length === 0
+        text: quickWallpaperRoot.wpSearch ? "No matching wallpapers" : "No wallpapers (rescan in bg)"
+        color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont
+        Layout.alignment: Qt.AlignHCenter; Layout.preferredHeight: 20
+      }
+      GridView {
+        Layout.fillWidth: true; Layout.fillHeight: (quickWallpaperRoot.filtered || []).length > 0
+        cellWidth: Math.floor((width - 6) / 3); cellHeight: cellWidth * 0.62 + 4
+        clip: true; model: quickWallpaperRoot.filtered
+        delegate: Item {
+          required property string modelData; required property int index
+          width: GridView.view.cellWidth; height: GridView.view.cellHeight
+          Rectangle {
+            anchors.fill: parent; anchors.margins: 2; radius: 6; clip: true
+            color: wma.containsMouse ? Style.menuRowHi : Style.menuControlBg
+            border.color: (Wallpaper.WallpaperService.currentWallpaper === modelData) ? Style.green : (wma.containsMouse ? Style.menuSep : Style.menuSep)
+            border.width: (Wallpaper.WallpaperService.currentWallpaper === modelData) ? 2 : 1
+            scale: wma.containsMouse ? 1.025 : 1.0
+            Behavior on color { ColorAnimation { duration: 140 } }
+            Behavior on border.color { ColorAnimation { duration: 140 } }
+            Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+            Image {
+              anchors.fill: parent; anchors.margins: (Wallpaper.WallpaperService.currentWallpaper === modelData) ? 2 : 1; source: modelData ? ("file://" + modelData) : ""
+              fillMode: Image.PreserveAspectCrop
+              sourceSize.width: 160; sourceSize.height: 96; asynchronous: true
+              Rectangle {
+                anchors.fill: parent; color: Style.menuControlBg; visible: parent.status !== Image.Ready
+                Text { anchors.centerIn: parent; text: "󰋩"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(18); font.family: root.uiFont }
+              }
+            }
+            Rectangle { anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.right: parent.right; height: 14; color: Qt.rgba(0,0,0,0.55)
+              Text {
+                anchors.centerIn: parent
+                text: (modelData || "").split("/").pop()
+                color: "#fff"; font.pixelSize: root.fontPx(7); font.family: root.uiFont
+                elide: Text.ElideMiddle; width: parent.width-4; horizontalAlignment: Text.AlignHCenter
+              }
+            }
+            Rectangle {
+              anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 3
+              width: 14; height: 14; radius: 7; color: Style.green
+              visible: Wallpaper.WallpaperService.currentWallpaper === modelData
+              Text { anchors.centerIn: parent; text: "✓"; color: "#fff"; font.pixelSize: 9; font.bold: true }
+            }
+            MouseArea {
+              id: wma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+              acceptedButtons: Qt.LeftButton | Qt.RightButton
+              onClicked: function(e) {
+                if (e.button === Qt.RightButton) {
+                  if (modelData) Quickshell.execDetached(["xdg-open", modelData])  // preview action
+                } else {
+                  if (modelData) Wallpaper.WallpaperService.setWallpaper(modelData)
+                  root.expandedQuickKey = ""
+                }
+              }
+            }
+          }
+        }
+      }
+      RowLayout {
+        Layout.fillWidth: true; spacing: 8
+        Text { text: "L: apply • R: preview"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
+        Item { Layout.fillWidth: true }
+        Text { text: ((quickWallpaperRoot.wps || []).length || 0) + " wallpapers"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
+      }
+    }
+  } }
+  Component { id: quickScreenshotsComp; Item {
+    // exact shots window (uses launcher root.shots + copy/open/delete; + capture actions)
+    anchors.fill: parent
+    ColumnLayout {
+      anchors.fill: parent; spacing: 6
+      RowLayout {
+        Layout.fillWidth: true; spacing: 6
+        Text { text: "SCREENSHOTS"; color: Style.menuInk; font.pixelSize: 9; font.family: root.uiFont; font.letterSpacing: 1.2; font.weight: Font.Medium }
+        Item { Layout.fillWidth: true }
+        Text { text: (root.shots || []).length + " recent"; color: Style.menuInkDeep; font.pixelSize: 8; font.family: root.uiFont }
+      }
+      Text {
+        visible: (root.shots || []).length === 0
+        text: "No screenshots in ~/screenshots"
+        color: Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont
+        Layout.alignment: Qt.AlignHCenter
+      }
+      Grid {
+        Layout.fillWidth: true; Layout.fillHeight: true
+        columns: 3; columnSpacing: 4; rowSpacing: 4
+        Repeater {
+          model: (root.shots || []).slice(0, 9)
+          delegate: Item {
+            required property var modelData
+            width: (parent.width - 2*4)/3 ; height: width * 0.62 + 4
+            Rectangle {
+              anchors.fill: parent; radius: 4; clip: true
+              color: sma.containsMouse ? Style.menuRowHi : Style.menuControlBg
+              border.color: root.copiedShot === modelData.path ? Style.green : Style.menuSep
+              border.width: root.copiedShot === modelData.path ? 2 : 1
+              Behavior on color { ColorAnimation { duration: 80 } }
+              Image { anchors.fill: parent; anchors.margins: 1; source: (modelData && modelData.path) ? ("file://" + modelData.path) : ""; fillMode: Image.PreserveAspectCrop; asynchronous: true; sourceSize.width: 120; sourceSize.height: 72 }
+              Rectangle { anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.right: parent.right; height: 11; color: Qt.rgba(0,0,0,0.6)
+                Text { anchors.centerIn: parent; text: modelData.label; color: "#fff"; font.pixelSize: 6; font.family: root.uiFont; elide: Text.ElideRight; horizontalAlignment: Text.AlignHCenter }
+              }
+              Rectangle { anchors.fill: parent; color: Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.3); visible: root.copiedShot === modelData.path
+                Text { anchors.centerIn: parent; text: "COPIED"; color: "#fff"; font.pixelSize: 7; font.family: root.uiFont; font.weight: Font.Medium }
+              }
+              MouseArea {
+                id: sma
+                anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                acceptedButtons: Qt.LeftButton|Qt.RightButton
+                onClicked: function(e){ if (e.button===Qt.RightButton) root.openShot(modelData.path); else root.copyShot(modelData.path) }
+              }
+              Rectangle {
+                anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 2
+                width: 12; height: 12; radius: 2
+                color: Qt.rgba(Style.red.r, 0, 0, 0.7); visible: sma.containsMouse; z: 2
+                Text { anchors.centerIn: parent; text: "x"; color: "#fff"; font.pixelSize: 8; font.family: root.uiFont }
+                MouseArea { anchors.fill: parent; onClicked: root.deleteShot(modelData.path); z: 2 }
+              }
+            }
+          }
+        }
+      }
+      RowLayout {
+        Layout.fillWidth: true; spacing: 6
+        Rectangle { Layout.fillWidth: true; height: 18; radius: 3; color: Style.menuControlBg; border.color: Style.menuSep
+          Text { anchors.centerIn: parent; text: "󰄀 smart"; font.pixelSize: 9; font.family: root.uiFont; color: Style.menuInk }
+          MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: function(){ Quickshell.execDetached([root.binDir+"/asahi-cmd-screenshot","smart"]); root.shouldShow=false } }
+        }
+        Rectangle { Layout.fillWidth: true; height: 18; radius: 3; color: Style.menuControlBg; border.color: Style.menuSep
+          Text { anchors.centerIn: parent; text: "󰹑 area"; font.pixelSize: 9; font.family: root.uiFont; color: Style.menuInk }
+          MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: function(){ Quickshell.execDetached([root.binDir+"/asahi-cmd-screenshot","area"]); root.shouldShow=false } }
+        }
+      }
+    }
+  } }
+  Component { id: quickMediaComp; Item {
+    id: quickMediaRoot
+    anchors.fill: parent
+    // fuller media port (Mpris+controls+active, wpctl, cava, streams; procs/timers/guards)
+    property var cavaValues: []
+    property bool cavaRunning: false
+    property real cavaLast: 0
+    readonly property string cavaDir: "/tmp/quickshell-remix-" + (Quickshell.env("USER") || "user")
+    readonly property string cavaCfg: quickMediaRoot.cavaDir + "/cava.conf"
+    readonly property string cavaFrame: quickMediaRoot.cavaDir + "/cava-frame"
+    readonly property var activeP: {
+      const list = (Mpris.players && Mpris.players.values) ? Mpris.players.values : []
+      for (let i=0; i<list.length; i++) if (list[i] && list[i].isPlaying) return list[i]
+      return list.length > 0 ? list[0] : null
+    }
+    property string sinkVol: "—"; property string srcVol: "—"; property bool sinkM: false; property bool srcM: false
+    property var audioSinks: []
+    property var audioSources: []
+    property var audioStreams: []
+
+    function parseVol(l) { const v = (l||"").match(/[0-9.]+/); return v ? Math.round(parseFloat(v[0])*100)+"%" : "—" }
+    function pollVol() {
+      volProc.command = ["sh", "-c", "wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null ; wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null"]
+      volProc.running = true
+    }
+    function volAdj(tgt, up) {
+      const ts = Array.isArray(tgt)?tgt:[tgt]
+      for (let i=0;i<ts.length;i++) Quickshell.execDetached(["wpctl","set-volume","-l","1",String(ts[i]), up?"5%+":"5%-"])
+      volDelay.restart()
+    }
+    function togMute(tgt) {
+      const ts = Array.isArray(tgt)?tgt:[tgt]
+      for (let i=0;i<ts.length;i++) Quickshell.execDetached(["wpctl","set-mute",String(ts[i]),"toggle"])
+      volDelay.restart()
+    }
+    function startCava() {
+      if (quickMediaRoot.cavaRunning) return
+      quickMediaRoot.cavaRunning = true; quickMediaRoot.cavaLast=0; quickMediaRoot.cavaValues=[]
+      Quickshell.execDetached([
+        "sh", "-c",
+        "dir=$1;cfg=$2;frm=$3; pkill -f \"cava -p $cfg\" 2>/dev/null||true; mkdir -p \"$dir\"; " +
+        "printf '%s\n' '[general]' 'bars=16' 'framerate=20' 'autosens=1' '' '[input]' 'method=pulse' 'source=auto' '' " +
+        "'[output]' 'method=raw' 'raw_target=/dev/stdout' 'data_format=ascii' 'ascii_max_range=100' 'bar_delimiter=59' > \"$cfg\"; " +
+        ": > \"$frm\"; (stdbuf -oL cava -p \"$cfg\" 2>/dev/null | while IFS= read -r ln; do printf '%s\n' \"$ln\" > \"$frm\"; done) &",
+        "sh", quickMediaRoot.cavaDir, quickMediaRoot.cavaCfg, quickMediaRoot.cavaFrame
+      ])
+    }
+    function stopCava() {
+      if (!quickMediaRoot.cavaRunning) return
+      quickMediaRoot.cavaRunning=false
+      Quickshell.execDetached(["pkill","-f","cava -p "+quickMediaRoot.cavaCfg])
+    }
+    function updCava(ln) {
+      ln=(ln||"").trim(); if(!ln) return
+      const ps = ln.split(/[; ]+/); const vs=[]
+      for (let i=0; i<ps.length && i<16; i++) vs.push( Math.max(0,Math.min(100, parseInt(ps[i])||0 )) )
+      while(vs.length<16) vs.push(0)
+      quickMediaRoot.cavaValues=vs; quickMediaRoot.cavaLast=Date.now()
+    }
+    function refreshAudioMixer() { if (!mixerProc.running) mixerProc.running = true }
+    function parseAudioSimple(out) {
+      const ls = (out||'').split('\n').filter(l=>l.trim())
+      quickMediaRoot.audioSinks = ls.filter(l => /Sink/i.test(l) || l.match(/^\s*├.*Sink/)).slice(0,3).map(l => ({name: l.trim().slice(0,40)}))
+      quickMediaRoot.audioSources = ls.filter(l => /Source/i.test(l) || l.match(/^\s*├.*Source/)).slice(0,2).map(l => ({name: l.trim().slice(0,40)}))
+      quickMediaRoot.audioStreams = ls.filter(l =>
+        /Stream/i.test(l) || /^\s*├─/.test(l) || l.match(/^\s*\d+\.\s/)
+      ).slice(0,4).map(l => ({name: l.trim().slice(0,30)}))
+    }
+
+    Process { id: volProc; stdout: StdioCollector { onStreamFinished: { const ls=(text||"").trim().split("\n"); quickMediaRoot.sinkVol=quickMediaRoot.parseVol(ls[0]); quickMediaRoot.srcVol=quickMediaRoot.parseVol(ls[1]); quickMediaRoot.sinkM=(ls[0]||"").indexOf("MUTED")!==-1; quickMediaRoot.srcM=(ls[1]||"").indexOf("MUTED")!==-1 } } }
+    Timer { id: volDelay; interval: 400; onTriggered: quickMediaRoot.pollVol() }
+    Process {
+      id: mixerProc
+      command: ["sh", "-c", "wpctl status 2>/dev/null | cat || true"]
+      stdout: StdioCollector { onStreamFinished: quickMediaRoot.parseAudioSimple(text) }
+    }
+    Process {
+      id: cavaRd
+      command: ["sh","-c","cat \"$1\" 2>/dev/null || true", "sh", quickMediaRoot.cavaFrame]
+      stdout: StdioCollector { onStreamFinished: quickMediaRoot.updCava(text) }
+    }
+    Timer {
+      interval: 90; running: root.quickDetailActive && root.expandedQuickKey === "media"; repeat: true; triggeredOnStart: true
+      onTriggered: {
+        if (quickMediaRoot.cavaRunning && quickMediaRoot.cavaLast>0 && Date.now()-quickMediaRoot.cavaLast > 2500) quickMediaRoot.cavaRunning=false
+        if (!quickMediaRoot.cavaRunning) quickMediaRoot.startCava()
+        if (!cavaRd.running) cavaRd.running = true
+      }
+    }
+    Component.onCompleted: { quickMediaRoot.pollVol(); quickMediaRoot.startCava(); quickMediaRoot.refreshAudioMixer() }
+    Component.onDestruction: quickMediaRoot.stopCava()
+
+    ColumnLayout {
+      anchors.fill: parent; spacing: 4
+      Text { text: "MEDIA · MPRIS"; color: Style.menuInk; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.letterSpacing: 1 }
+      // players
+      Repeater {
+        model: ((Mpris.players && Mpris.players.values) || []).slice(0, 3)
+        delegate: Rectangle {
+          required property var modelData
+          Layout.fillWidth: true; height: 26; radius: 3; color: Style.menuControlBg; border.color: Style.menuSep
+          RowLayout {
+            anchors.fill: parent; anchors.margins: 4; spacing: 4
+            Text { text: "󰝚"; font.pixelSize: 10; color: Style.menuSeal; font.family: root.uiFont }
+            Text { Layout.fillWidth: true; text: (modelData.identity || modelData.name || "player"); color: Style.menuInk; font.pixelSize: root.fontPx(9); font.family: root.uiFont; elide: Text.ElideRight }
+            Text {
+              text: (modelData.trackArtist ? modelData.trackArtist+" — " : "") + (modelData.trackTitle || "")
+              color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont
+              elide: Text.ElideRight; Layout.fillWidth: true
+            }
+            Text { text: modelData.isPlaying ? "▶" : (modelData.playbackState === Mpris.Paused ? "⏸" : ""); color: Style.menuInkDeep; font.pixelSize: root.fontPx(8) }
+            MouseArea {
+              width:14; height:14
+              onClicked: if (modelData.canTogglePlaying) modelData.togglePlaying()
+              Text { anchors.centerIn: parent; text: "⏯"; font.pixelSize: root.fontPx(10); color: Style.menuIndigo }
+            }
+          }
+        }
+      }
+      // vol
+      RowLayout {
+        Layout.fillWidth: true; spacing: 4
+        Text { text: "Vol"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
+        Rectangle { width: 42; height: 16; radius: 2; color: Style.menuControlBg; border.color: Style.menuSep
+          Text { anchors.centerIn: parent; text: "sink " + quickMediaRoot.sinkVol; font.pixelSize: root.fontPx(7); color: quickMediaRoot.sinkM ? Style.red : Style.menuInk; font.family: root.uiFont }
+          MouseArea { anchors.fill: parent; onClicked: quickMediaRoot.togMute("@DEFAULT_AUDIO_SINK@"); onWheel: quickMediaRoot.volAdj("@DEFAULT_AUDIO_SINK@", wheel.angleDelta.y > 0) }
+        }
+        Rectangle { width: 42; height: 16; radius: 2; color: Style.menuControlBg; border.color: Style.menuSep
+          Text { anchors.centerIn: parent; text: "src " + quickMediaRoot.srcVol; font.pixelSize: root.fontPx(7); color: quickMediaRoot.srcM ? Style.red : Style.menuInk; font.family: root.uiFont }
+          MouseArea { anchors.fill: parent; onClicked: quickMediaRoot.togMute("@DEFAULT_AUDIO_SOURCE@"); onWheel: quickMediaRoot.volAdj("@DEFAULT_AUDIO_SOURCE@", wheel.angleDelta.y > 0) }
+        }
+        Item { Layout.fillWidth: true }
+        Text { text: "cava"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont }
+      }
+      // cava bars compact (live via values[index])
+      Rectangle {
+        Layout.fillWidth: true; Layout.preferredHeight: 28; radius: 3; color: Qt.rgba(0,0,0,0.2); border.color: Style.menuSep; border.width: 1
+        Row {
+          anchors.fill: parent; anchors.margins: 2; spacing: 1
+          Repeater {
+            model: 16
+            delegate: Item {
+              width: (parent.width - 15) / 16; height: parent.height
+              Rectangle {
+                anchors.bottom: parent.bottom; width: parent.width; height: parent.height * (((quickMediaRoot.cavaValues && quickMediaRoot.cavaValues[index]) || 0) / 100)
+                color: Style.menuIndigo; radius: 1
+              }
+            }
+          }
+        }
+      }
+      // extended mixer from old (sinks/sources streams compact)
+      RowLayout {
+        Layout.fillWidth: true
+        Text { text: "Mixer"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont }
+        Repeater {
+          model: (quickMediaRoot.audioSinks || []).slice(0,2)
+          delegate: Text { required property var modelData; text: "sink:" + (modelData.name||"").slice(0,20); color: Style.menuInkDeep; font.pixelSize: root.fontPx(6); font.family: root.uiFont; elide: Text.ElideRight }
+        }
+        Repeater {
+          model: (quickMediaRoot.audioStreams || []).slice(0,2)
+          delegate: Text { required property var modelData; text: "str:" + (modelData.name||"").slice(0,18); color: Style.menuInkDeep; font.pixelSize: root.fontPx(6); font.family: root.uiFont; elide: Text.ElideRight }
+        }
+      }
+      Text { text: "pavucontrol for full mixer"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont }
+    }
+  } }
+  Component { id: quickNetworkComp; Item {
+    id: quickNetworkRoot
+    anchors.fill: parent
+    // full port of network from old (wifi enable/scan/list/conn + tooltip/ssid, eth toggle, refresh, traffic, state/procs; compressed)
+    property var wifiNetworks: []
+    property bool wifiEnabled: true
+    property string currentWifiSsid: ""
+    property bool wifiScanning: false
+    property string wifiDevice: ""
+    property string wifiLabel: "WiFi"
+    property string wifiTooltip: ""
+    property string netDevice: ""
+    property string ethDevice: ""
+    property string ethState: ""
+    property string ethConnection: ""
+    property bool ethConnected: false
+    property var ethDevices: []
+    property real netRxSpeed: 0
+    property real netTxSpeed: 0
+    property real netPreviousRxBytes: -1
+    property real netPreviousTxBytes: -1
+    property real netPreviousSampleMs: 0
+    property string netSpeedDevice: ""
+    property var netRxHistory: []
+    property var netTxHistory: []
+    readonly property int netHistoryLimit: 60
+
+    function formatNetSpeed(bytes) {
+      let unit = "K"; let value = bytes / 1024
+      if (value >= 1024) { unit = "M"; value /= 1024 }
+      if (value >= 1024) { unit = "G"; value /= 1024 }
+      return Math.min(999, Math.round(value)).toString().padStart(3, "0") + " " + unit + "/s"
+    }
+    function resetNetSpeed(device) {
+      quickNetworkRoot.netSpeedDevice = device || ""
+      quickNetworkRoot.netRxSpeed = 0; quickNetworkRoot.netTxSpeed = 0
+      quickNetworkRoot.netPreviousRxBytes = -1; quickNetworkRoot.netPreviousTxBytes = -1
+      quickNetworkRoot.netPreviousSampleMs = 0
+      quickNetworkRoot.netRxHistory = []; quickNetworkRoot.netTxHistory = []
+    }
+    function activeNetDevice() { return quickNetworkRoot.netDevice || quickNetworkRoot.wifiDevice || quickNetworkRoot.ethDevice || "" }
+    function refreshNetSpeed() {
+      const dev = quickNetworkRoot.activeNetDevice()
+      if (!dev || netSpeedProc.running) return
+      if (dev !== quickNetworkRoot.netSpeedDevice) quickNetworkRoot.resetNetSpeed(dev)
+      netSpeedProc.command = ["cat", "/sys/class/net/" + dev + "/statistics/rx_bytes", "/sys/class/net/" + dev + "/statistics/tx_bytes"]
+      netSpeedProc.running = true
+    }
+    function updateNetSpeed(out) {
+      const values = (out || "").trim().split(/\s+/)
+      if (values.length < 2) return
+      const now = Date.now()
+      const rxBytes = Number(values[0]); const txBytes = Number(values[1])
+      const seconds = (now - quickNetworkRoot.netPreviousSampleMs) / 1000
+      if (quickNetworkRoot.netPreviousSampleMs > 0 && seconds > 0) {
+        quickNetworkRoot.netRxSpeed = Math.max(0, (rxBytes - quickNetworkRoot.netPreviousRxBytes) / seconds)
+        quickNetworkRoot.netTxSpeed = Math.max(0, (txBytes - quickNetworkRoot.netPreviousTxBytes) / seconds)
+        const rx = quickNetworkRoot.netRxHistory.slice(-quickNetworkRoot.netHistoryLimit + 1)
+        const tx = quickNetworkRoot.netTxHistory.slice(-quickNetworkRoot.netHistoryLimit + 1)
+        rx.push(quickNetworkRoot.netRxSpeed); tx.push(quickNetworkRoot.netTxSpeed)
+        quickNetworkRoot.netRxHistory = rx; quickNetworkRoot.netTxHistory = tx
+      }
+      quickNetworkRoot.netPreviousRxBytes = rxBytes; quickNetworkRoot.netPreviousTxBytes = txBytes
+      quickNetworkRoot.netPreviousSampleMs = now
+    }
+    function scanWifi() {
+      quickNetworkRoot.wifiScanning = true
+      wifiListProc.command = quickNetworkRoot.wifiDevice
+        ? ["nmcli", "-w", "8", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "dev", "wifi", "list", "ifname", quickNetworkRoot.wifiDevice, "--rescan", "yes"]
+        : ["nmcli", "-w", "8", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "dev", "wifi", "list", "--rescan", "yes"]
+      if (typeof wifiProc !== 'undefined' && wifiProc) wifiProc.running = true
+      if (!wifiListProc.running) wifiListProc.running = true
+      if (typeof wifiPowerCheck !== 'undefined' && wifiPowerCheck) wifiPowerCheck.running = true
+      if (typeof ethCheck !== 'undefined' && ethCheck) ethCheck.running = true
+    }
+
+    Process {
+      id: wifiProc
+      command: [root.binDir + "/asahi-network"]
+      stdout: StdioCollector {
+        onStreamFinished: {
+          try {
+            const d = JSON.parse((text || "").trim() || "{}")
+            quickNetworkRoot.wifiLabel = (d.text || "WiFi").replace(/<[^>]*>/g, "")
+            quickNetworkRoot.wifiTooltip = d.tooltip || ""
+            quickNetworkRoot.netDevice = d.device || ""
+            const m = (d.tooltip || "").match(/^Connected to (.+)$/m)
+            if (m) quickNetworkRoot.currentWifiSsid = m[1].trim()
+          } catch (_) {}
+        }
+      }
+    }
+    Process {
+      id: wifiListProc
+      command: ["true"]  // set dynamically in scanWifi before .running (avoids init-time wifiDevice + ensures reactive)
+      stdout: StdioCollector { onStreamFinished: {
+          quickNetworkRoot.wifiScanning = false
+          const lines = (text || "").trim().split("\n").filter(l => l)
+          const out = []; const seen = {}
+          for (const line of lines) {
+            const p = line.split(":")
+            if (p.length < 3) continue
+            const ssid = p[1] || ""
+            if (!ssid || seen[ssid]) continue
+            seen[ssid] = true
+            const inUse = p[0] === "*"
+            const isCurrent = inUse || (ssid === quickNetworkRoot.currentWifiSsid)
+            out.push({ ssid: ssid, signal: parseInt(p[2])||0, sec: p[3]||"", active: isCurrent })
+          }
+          const ai = out.findIndex(n => n.active)
+          if (ai > 0) { const a = out.splice(ai, 1)[0]; out.unshift(a) }
+          const next = out.slice(0, 12)
+          if (next.length === 1 && next[0].active && (quickNetworkRoot.wifiNetworks || []).length > 1) {
+            quickNetworkRoot.wifiNetworks = [next[0]].concat( (quickNetworkRoot.wifiNetworks || []).filter(n => n.ssid !== next[0].ssid) ).slice(0, 12)
+          } else {
+            quickNetworkRoot.wifiNetworks = next
+          }
+        }
+      }
+      stderr: StdioCollector {}
+      onExited: (code) => { if (code !== 0) quickNetworkRoot.wifiScanning = false }
+    }
+    Process {
+      id: wifiPowerCheck
+      command: ["nmcli", "radio", "wifi"]
+      stdout: StdioCollector {
+        onStreamFinished: { quickNetworkRoot.wifiEnabled = (text || "").trim().indexOf("enabled") !== -1 }
+      }
+    }
+    Process {
+      id: netSpeedProc
+      command: ["true"]
+      stdout: StdioCollector { onStreamFinished: quickNetworkRoot.updateNetSpeed(text) }
+    }
+    Process {
+      id: ethCheck
+      command: ["nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device", "status"]
+      stdout: StdioCollector {
+        onStreamFinished: {
+          const devices = []
+          const lines = (text || "").trim().split("\n").filter(l => l)
+          for (const line of lines) {
+            const p = line.split(":")
+            if (p[1] === "wifi" && !quickNetworkRoot.wifiDevice) quickNetworkRoot.wifiDevice = p[0] || ""
+            if (p[1] !== "ethernet") continue
+            devices.push({ device: p[0] || "", state: p[2] || "", connection: p.slice(3).join(":") || "" })
+          }
+          quickNetworkRoot.ethDevices = devices
+          const active = devices.find(d => d.state === "connected") || devices[0] || null
+          quickNetworkRoot.ethDevice = active ? active.device : ""
+          quickNetworkRoot.ethState = active ? active.state : ""
+          quickNetworkRoot.ethConnection = active ? active.connection : ""
+          quickNetworkRoot.ethConnected = active ? active.state === "connected" : false
+        }
+      }
+    }
+
+    Timer { interval: 6000; running: root.quickDetailActive && root.expandedQuickKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: quickNetworkRoot.scanWifi() }
+    Timer { interval: 1000; running: root.quickDetailActive && root.expandedQuickKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: quickNetworkRoot.refreshNetSpeed() }
+
+    Component.onCompleted: Qt.callLater(quickNetworkRoot.scanWifi)
+
+    ColumnLayout {
+      anchors.fill: parent; spacing: 6
+      RowLayout {
+        Layout.fillWidth: true
+        Text { text: "󰈀 Network"; font.pixelSize: root.fontPx(11); color: Style.green; font.family: root.uiFont; font.bold: true }
+        Text { text: (quickNetworkRoot.wifiNetworks || []).length + " Wi-Fi"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont }
+        Item { Layout.fillWidth: true }
+        Rectangle {
+          width: 58; height: 20; radius: 4; color: refreshMa.containsMouse ? Style.menuRowHi : root.menuTileBg
+          border.color: Style.menuSep; border.width: 1
+          Text { anchors.centerIn: parent; text: "Refresh"; font.pixelSize: root.fontPx(9); color: Style.menuInk; font.family: root.uiFont }
+          Behavior on color { ColorAnimation { duration: 140 } }
+          MouseArea { id: refreshMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { quickNetworkRoot.scanWifi(); if (typeof ethCheck !== 'undefined' && ethCheck) ethCheck.running = true } }
+        }
+      }
+
+      RowLayout {
+        Layout.fillWidth: true; spacing: 6
+        Rectangle {
+          Layout.fillWidth: true; Layout.preferredHeight: 118
+          radius: 6; color: root.menuTileBg; border.color: Style.menuSep; border.width: 1
+          ColumnLayout {
+            anchors.fill: parent; anchors.margins: 8; spacing: 4
+            RowLayout {
+              Layout.fillWidth: true
+              Text { text: "󰤨 Wi-Fi"; color: Style.menuIndigo; font.pixelSize: root.fontPx(10); font.family: root.uiFont; font.bold: true }
+              Text { text: quickNetworkRoot.wifiEnabled ? "enabled" : "disabled"; color: quickNetworkRoot.wifiEnabled ? Style.green : Style.red; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true }
+              Item { Layout.fillWidth: true }
+              Rectangle {
+                width: 58; height: 18; radius: 4
+                color: quickNetworkRoot.wifiEnabled ? Qt.rgba(Style.red.r, Style.red.g, Style.red.b, 0.18) : Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.18)
+                border.color: quickNetworkRoot.wifiEnabled ? Style.red : Style.green; border.width: 1
+                Text { anchors.centerIn: parent; text: quickNetworkRoot.wifiEnabled ? "Disable" : "Enable"; color: quickNetworkRoot.wifiEnabled ? Style.red : Style.green; font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true }
+                MouseArea {
+                  anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                  onClicked: {
+                    const tgt = quickNetworkRoot.wifiEnabled ? "off" : "on"
+                    Quickshell.execDetached(["nmcli", "radio", "wifi", tgt])
+                    quickNetworkRoot.wifiEnabled = !quickNetworkRoot.wifiEnabled
+                    Qt.callLater(quickNetworkRoot.scanWifi)
+                  }
+                }
+              }
+            }
+            Text {
+              Layout.fillWidth: true
+              text: quickNetworkRoot.currentWifiSsid ? quickNetworkRoot.currentWifiSsid : quickNetworkRoot.wifiLabel
+              color: Style.menuInk; font.pixelSize: root.fontPx(10); font.family: root.uiFont; font.bold: true; elide: Text.ElideRight
+            }
+            Text {
+              Layout.fillWidth: true
+              text: {
+                let t = quickNetworkRoot.wifiTooltip || "No Wi-Fi details"
+                t = t.replace(/^Connected to [^\n]*\n?/, "")
+                return t.trim() || "No Wi-Fi connection details"
+              }
+              color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont; wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight; verticalAlignment: Text.AlignTop
+            }
+          }
+        }
+        Rectangle {
+          Layout.fillWidth: true; Layout.preferredHeight: 118
+          radius: 6; color: root.menuTileBg; border.color: Style.menuSep; border.width: 1
+          ColumnLayout {
+            anchors.fill: parent; anchors.margins: 8; spacing: 4
+            RowLayout {
+              Layout.fillWidth: true
+              Text { text: "󰈀 LAN"; color: Style.menuIndigo; font.pixelSize: root.fontPx(10); font.family: root.uiFont; font.bold: true }
+              Text { text: quickNetworkRoot.ethDevice ? quickNetworkRoot.ethState : "missing"; color: quickNetworkRoot.ethConnected ? Style.green : Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true }
+              Item { Layout.fillWidth: true }
+              Rectangle {
+                visible: !!quickNetworkRoot.ethDevice
+                width: 58; height: 18; radius: 4
+                color: quickNetworkRoot.ethConnected ? Qt.rgba(Style.red.r, Style.red.g, Style.red.b, 0.18) : Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.18)
+                border.color: quickNetworkRoot.ethConnected ? Style.red : Style.green; border.width: 1
+                Text { anchors.centerIn: parent; text: quickNetworkRoot.ethConnected ? "Disable" : "Enable"; color: quickNetworkRoot.ethConnected ? Style.red : Style.green; font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true }
+                MouseArea {
+                  anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                  onClicked: {
+                    if (quickNetworkRoot.ethConnected) Quickshell.execDetached(["nmcli", "device", "disconnect", quickNetworkRoot.ethDevice])
+                    else Quickshell.execDetached(["nmcli", "device", "connect", quickNetworkRoot.ethDevice])
+                    Qt.callLater(function(){ if (typeof ethCheck !== 'undefined' && ethCheck) ethCheck.running = true })
+                  }
+                }
+              }
+            }
+            Text { Layout.fillWidth: true; text: quickNetworkRoot.ethDevice ? quickNetworkRoot.ethDevice : "No ethernet device"; color: Style.menuInk; font.pixelSize: root.fontPx(10); font.family: root.uiFont; font.bold: true; elide: Text.ElideRight }
+            Text { Layout.fillWidth: true; text: quickNetworkRoot.ethConnection || ((quickNetworkRoot.ethDevices || []).length > 1 ? ((quickNetworkRoot.ethDevices || []).length + " ethernet") : "No active LAN"); color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont; elide: Text.ElideRight }
+          }
+        }
+      }
+
+      // traffic compact
+      Rectangle {
+        Layout.fillWidth: true; Layout.preferredHeight: 72
+        radius: 6; color: root.menuTileBg; border.color: Style.menuSep; border.width: 1
+        ColumnLayout {
+          anchors.fill: parent; anchors.margins: 6; spacing: 2
+          RowLayout {
+            Layout.fillWidth: true
+            Text { text: "Traffic"; color: Style.menuInk; font.pixelSize: root.fontPx(9); font.family: root.uiFont }
+            Item { Layout.fillWidth: true }
+            Text { text: "↑ " + quickNetworkRoot.formatNetSpeed(quickNetworkRoot.netTxSpeed); color: quickNetworkRoot.netTxSpeed >= 1024 ? Style.green : Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
+            Text { text: "↓ " + quickNetworkRoot.formatNetSpeed(quickNetworkRoot.netRxSpeed); color: quickNetworkRoot.netRxSpeed >= 1024 ? Style.menuIndigo : Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
+          }
+          Canvas {
+            id: netCanvas
+            Layout.fillWidth: true; Layout.fillHeight: true
+            Connections {
+              target: quickNetworkRoot
+              function onNetRxHistoryChanged() { netCanvas.requestPaint() }
+              function onNetTxHistoryChanged() { netCanvas.requestPaint() }
+            }
+            onPaint: {
+              const ctx = getContext("2d"); ctx.reset()
+              const w = width; const h = height
+              const rx = quickNetworkRoot.netRxHistory || []; const tx = quickNetworkRoot.netTxHistory || []
+              const n = Math.max(rx.length, tx.length); let maxValue = 1024
+              for (let i=0; i<rx.length; i++) maxValue = Math.max(maxValue, rx[i])
+              for (let i=0; i<tx.length; i++) maxValue = Math.max(maxValue, tx[i])
+              ctx.strokeStyle = Qt.rgba(Style.menuInkDeep.r, Style.menuInkDeep.g, Style.menuInkDeep.b, 0.22); ctx.lineWidth = 1
+              for (let i=1; i<4; i++) { const y = Math.round(h * i / 4) + 0.5; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke() }
+              function drawLine(vals, color) {
+                if (vals.length < 2) return
+                ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath()
+                for (let i=0; i<vals.length; i++) {
+                  const x = vals.length === 1 ? w : i * w / (vals.length - 1)
+                  const y = h - Math.max(0, Math.min(1, vals[i] / maxValue)) * h
+                  if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y)
+                }
+                ctx.stroke()
+              }
+              if (n === 0) { ctx.fillStyle = Style.menuInkDeep; ctx.font = root.fontPx(8) + "px sans-serif"; ctx.fillText("waiting for traffic", 4, Math.round(h/2)) }
+              else { drawLine(tx, Style.green); drawLine(rx, Style.menuIndigo) }
+            }
+          }
+        }
+      }
+
+      Text { text: "Available networks" + (quickNetworkRoot.wifiScanning ? " (scanning...)" : ""); font.pixelSize: root.fontPx(9); color: Style.menuInkDeep; font.family: root.uiFont }
+
+      Rectangle { Layout.fillWidth: true; height: 1; color: Style.menuSep }
+
+      Flickable {
+        Layout.fillWidth: true; Layout.fillHeight: true; clip: true
+        contentHeight: wifiCol.height; boundsBehavior: Flickable.StopAtBounds
+        Column {
+          id: wifiCol; width: parent.width; spacing: 3
+          Repeater {
+            model: quickNetworkRoot.wifiNetworks || []
+            delegate: Rectangle {
+              required property var modelData
+              width: parent.width - 4; x: 2; height: 36; radius: 4
+              color: modelData.active ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.14) : (netMa.containsMouse ? Style.menuRowHi : "transparent")
+              border.color: modelData.active ? Style.menuIndigo : (netMa.containsMouse ? Style.menuSep : "transparent"); border.width: 1
+              scale: netMa.containsMouse && !modelData.active ? 1.01 : 1.0
+              Behavior on color { ColorAnimation { duration: 140 } }
+              Behavior on border.color { ColorAnimation { duration: 140 } }
+              Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+              RowLayout {
+                anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 8; anchors.topMargin: 4; anchors.bottomMargin: 4; spacing: 6
+                Text { text: modelData.signal > 75 ? "󰤨" : (modelData.signal > 50 ? "󰤥" : (modelData.signal > 25 ? "󰤢" : "󰤟")); font.family: root.uiFont; font.pixelSize: root.fontPx(12); color: modelData.active ? Style.menuIndigo : Style.menuInkDeep }
+                ColumnLayout { spacing: 1; Layout.fillWidth: true
+                  Text { text: modelData.ssid; font.family: root.uiFont; font.pixelSize: root.fontPx(9); font.bold: modelData.active; color: modelData.active ? Style.menuIndigo : Style.menuInk; elide: Text.ElideRight; Layout.fillWidth: true }
+                  Text { text: modelData.active ? "Connected" : (modelData.sec ? "Secure" : "Open"); font.family: root.uiFont; font.pixelSize: root.fontPx(7); color: modelData.active ? Style.menuIndigo : Style.menuInkDeep }
+                }
+                Text { text: modelData.sec ? "󰌾" : ""; font.family: root.uiFont; font.pixelSize: root.fontPx(10); color: Style.menuInkDeep }
+                Text { text: modelData.signal + "%"; font.family: root.uiFont; font.pixelSize: root.fontPx(8); color: Style.menuInkDeep }
+                MouseArea {
+                  visible: modelData.active; width: 16; height: 16
+                  onClicked: { Quickshell.execDetached(["nmcli", "con", "down", "id", modelData.ssid]); quickNetworkRoot.scanWifi() }
+                  Text { anchors.centerIn: parent; text: "󰅙"; font.family: root.uiFont; font.pixelSize: root.fontPx(12); color: Style.red }
+                }
+              }
+              MouseArea {
+                id: netMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; z: -1
+                onClicked: {
+                  if (modelData.active) { Quickshell.execDetached(["nmcli", "con", "down", "id", modelData.ssid]); quickNetworkRoot.scanWifi(); return }
+                  Quickshell.execDetached(["nmcli", "dev", "wifi", "connect", modelData.ssid])
+                  Qt.callLater(quickNetworkRoot.scanWifi)
+                }
+              }
+            }
+          }
+          Text {
+            visible: (quickNetworkRoot.wifiNetworks || []).length === 0
+            text: quickNetworkRoot.wifiScanning ? "Scanning..." : "No networks. Tap Refresh."
+            color: Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont; horizontalAlignment: Text.AlignHCenter
+          }
+        }
+      }
+    }
+  } }
+  Component { id: quickMonitorsComp; Item {
+    id: quickMonitorsRoot
+    anchors.fill: parent
+    // full port monitors (hypr all-j, list, mirror/extend/external/rescan, status, canvas, procs, guards; exact)
+    property var mons: []
+    property int monVersion: 0
+    property string monStatus: ""
+
+    function luaString(value) { return "\"" + String(value || "").replace(/\\/g, "\\\\").replace(/"/g, "\\\"") + "\"" }
+    function monitorMode(m) {
+      if (!m) return "preferred"
+      const rr = m.refreshRate ? "@" + Number(m.refreshRate).toFixed(3) : ""
+      return (m.width || 0) + "x" + (m.height || 0) + rr
+    }
+    function monitorPrimary() {
+      const list = quickMonitorsRoot.mons || []
+      return list.find(m => m.name === "eDP-1") || list.find(m => m.focused) || list[0] || null
+    }
+    function monitorLogicalWidth(m) { return (m.width || 1920) / Math.max(0.25, m.scale || 1) }
+    function monitorLogicalHeight(m) { return (m.height || 1080) / Math.max(0.25, m.scale || 1) }
+    function mirrorMonitors() {
+      const primary = quickMonitorsRoot.monitorPrimary()
+      if (!primary) { quickMonitorsRoot.monStatus = "No primary"; return }
+      const calls = []
+      for (const m of (quickMonitorsRoot.mons || [])) {
+        if (!m || m.name === primary.name || m.disabled) continue
+        calls.push("hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name) + ", mode = \"preferred\", position = \"0x0\", scale = " + (m.scale || 1) + ", mirror = " + quickMonitorsRoot.luaString(primary.name) + " })")
+      }
+      if (!calls.length) { quickMonitorsRoot.monStatus = "No external to mirror"; return }
+      quickMonitorsRoot.monStatus = "Mirroring to " + primary.name + "..."
+      monAction.command = ["hyprctl", "eval", calls.join("\n")]; monAction.running = true
+    }
+    function extendMonitors() {
+      quickMonitorsRoot.monStatus = "Reloading monitors..."
+      monAction.command = ["hyprctl", "reload"]; monAction.running = true
+    }
+    function externalOnlyMonitors() {
+      const external = (quickMonitorsRoot.mons || []).find(m => m && m.name !== "eDP-1")
+      if (!external) { quickMonitorsRoot.monStatus = "No external"; return }
+      quickMonitorsRoot.monStatus = "External only..."
+      monAction.command = ["hyprctl", "eval", "hl.monitor({ output = " + quickMonitorsRoot.luaString(external.name) + ", mode = \"preferred\", position = \"0x0\", scale = " + (external.scale || 1) + " })\nhl.monitor({ output = \"eDP-1\", disabled = true })" ]
+      monAction.running = true
+    }
+    function rescanMonitors() {
+      quickMonitorsRoot.monStatus = "Rescanning..."
+      if (!monScan.running) monScan.running = true
+    }
+
+    Process {
+      id: monScan
+      command: ["hyprctl", "monitors", "all", "-j"]
+      stdout: StdioCollector {
+        onStreamFinished: {
+          try { quickMonitorsRoot.mons = JSON.parse((text || "").trim() || "[]") } catch(_) { quickMonitorsRoot.mons = [] }
+          quickMonitorsRoot.monVersion = (quickMonitorsRoot.monVersion + 1) % 1000
+        }
+      }
+    }
+    Process {
+      id: monAction
+      stdout: StdioCollector { id: monOut }
+      stderr: StdioCollector { id: monErr }
+      onExited: (code) => {
+        const out = ((monOut.text || "") + (monErr.text || "")).trim()
+        quickMonitorsRoot.monStatus = (code === 0 ? (out || "ok") : (out || ("fail " + code)))
+        Qt.callLater(function(){ if (!monScan.running) monScan.running = true })
+      }
+    }
+    Timer { interval: 900; id: monDelay; onTriggered: monScan.running = true }
+    Timer { interval: 3000; running: root.quickDetailActive && root.expandedQuickKey === "monitors"; repeat: true; triggeredOnStart: true; onTriggered: if (!monScan.running) monScan.running = true }
+
+    Component.onCompleted: Qt.callLater(function(){ if (!monScan.running) monScan.running = true })
+
+    ColumnLayout {
+      anchors.fill: parent; spacing: 4
+      RowLayout {
+        Layout.fillWidth: true; spacing: 4
+        Text { text: "󰍹 Monitors (" + ((quickMonitorsRoot.mons || []).length || 0) + ")"; color: Style.green; font.pixelSize: root.fontPx(10); font.family: root.uiFont; font.bold: true }
+        Text { text: quickMonitorsRoot.monStatus || "live"; color: (quickMonitorsRoot.monStatus.indexOf("fail")>=0 || quickMonitorsRoot.monStatus.indexOf("No ")>=0 ? Style.red : Style.menuInkDeep); font.pixelSize: root.fontPx(8); font.family: root.uiFont; Layout.fillWidth: true; elide: Text.ElideRight }
+        Rectangle { width: 52; height: 18; radius: 3; color: mirrMa.containsMouse ? Style.menuRowHi : root.menuTileBg; border.color: Style.menuSep; border.width: 1
+          Text { anchors.centerIn: parent; text: "Mirror"; font.pixelSize: root.fontPx(8); color: Style.menuInk; font.family: root.uiFont }
+          Behavior on color { ColorAnimation { duration: 140 } }
+          MouseArea { id: mirrMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: quickMonitorsRoot.mirrorMonitors() }
+        }
+        Rectangle { width: 52; height: 18; radius: 3; color: extMa.containsMouse ? Style.menuRowHi : root.menuTileBg; border.color: Style.menuSep; border.width: 1
+          Text { anchors.centerIn: parent; text: "Extend"; font.pixelSize: root.fontPx(8); color: Style.menuInk; font.family: root.uiFont }
+          Behavior on color { ColorAnimation { duration: 140 } }
+          MouseArea { id: extMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: quickMonitorsRoot.extendMonitors() }
+        }
+        Rectangle { width: 52; height: 18; radius: 3; color: extnMa.containsMouse ? Style.menuRowHi : root.menuTileBg; border.color: Style.menuSep; border.width: 1
+          Text { anchors.centerIn: parent; text: "External"; font.pixelSize: root.fontPx(8); color: Style.menuInk; font.family: root.uiFont }
+          Behavior on color { ColorAnimation { duration: 140 } }
+          MouseArea { id: extnMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: quickMonitorsRoot.externalOnlyMonitors() }
+        }
+        Rectangle { width: 52; height: 18; radius: 3; color: resMa.containsMouse ? Style.menuRowHi : root.menuTileBg; border.color: Style.menuSep; border.width: 1
+          Text { anchors.centerIn: parent; text: "Rescan"; font.pixelSize: root.fontPx(8); color: Style.menuInk; font.family: root.uiFont }
+          Behavior on color { ColorAnimation { duration: 140 } }
+          MouseArea { id: resMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: quickMonitorsRoot.rescanMonitors() }
+        }
+      }
+      // compact layout viz
+      Rectangle {
+        Layout.fillWidth: true; Layout.preferredHeight: 110
+        radius: 4; color: Style.menuControlBg; border.color: Style.menuSep; border.width: 1
+        Canvas {
+          anchors.fill: parent; anchors.margins: 6
+          property int v: quickMonitorsRoot.monVersion
+          onVChanged: requestPaint()
+          onPaint: {
+            const ctx = getContext("2d"); ctx.reset()
+            const mons = quickMonitorsRoot.mons || []
+            if (!mons.length) { ctx.fillStyle = Style.menuInkDeep; ctx.font = root.fontPx(8)+"px monospace"; ctx.fillText("Loading... rescan", 4, 12); return }
+            let minX=0, minY=0, maxX=0, maxY=0
+            for (const m of mons) { minX=Math.min(minX, m.x||0); minY=Math.min(minY, m.y||0); maxX=Math.max(maxX, (m.x||0)+quickMonitorsRoot.monitorLogicalWidth(m)); maxY=Math.max(maxY, (m.y||0)+quickMonitorsRoot.monitorLogicalHeight(m)) }
+            const W=width, H=height, pad=4
+            const sx=(W-2*pad)/Math.max(1,maxX-minX), sy=(H-2*pad)/Math.max(1,maxY-minY)
+            for (const m of mons) {
+              const x=pad+((m.x||0)-minX)*sx, y=pad+((m.y||0)-minY)*sy
+              const w=quickMonitorsRoot.monitorLogicalWidth(m)*sx, h=quickMonitorsRoot.monitorLogicalHeight(m)*sy
+              ctx.strokeStyle = Style.menuIndigo; ctx.lineWidth = 1; ctx.strokeRect(x, y, w, h)
+              ctx.fillStyle = m.focused ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.2) : root.menuTileBg
+              ctx.fillRect(x+1, y+1, w-2, h-2)
+              ctx.fillStyle = Style.menuInk; ctx.font = root.fontPx(8)+"px monospace"
+              ctx.fillText((m.name||"").slice(0,10), x+3, y+10)
+            }
+          }
+        }
+      }
+      Flickable {
+        Layout.fillWidth: true; Layout.fillHeight: true; clip: true
+        contentHeight: monList.height
+        Column { id: monList; width: parent.width; spacing: 3
+          Repeater {
+            model: quickMonitorsRoot.mons || []
+            delegate: Rectangle {
+              required property var modelData
+              width: parent.width; height: 28; radius: 3
+              color: modelData.focused ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.12) : root.menuTileBg
+              border.color: modelData.focused ? Style.menuIndigo : Style.menuSep; border.width: 1
+              Behavior on color { ColorAnimation { duration: 140 } }
+              RowLayout {
+                anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 6; spacing: 6
+                Text { text: modelData.focused ? "󰍹" : "󰌢"; color: modelData.focused ? Style.menuIndigo : Style.menuInkDeep; font.pixelSize: root.fontPx(11); font.family: root.uiFont }
+                ColumnLayout {
+                  Layout.fillWidth: true; spacing: 0
+                  Text { text: (modelData.name || "?") + (modelData.mirrorOf && modelData.mirrorOf !== "none" ? (" mirrors " + modelData.mirrorOf) : ""); color: Style.menuInk; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: modelData.focused; elide: Text.ElideRight; Layout.fillWidth: true }
+                  Text { text: quickMonitorsRoot.monitorMode(modelData) + " sc" + (modelData.scale||1) + " " + (modelData.x||0) + "," + (modelData.y||0); color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont; elide: Text.ElideRight; Layout.fillWidth: true }
+                }
+              }
+            }
+          }
+        }
+      }
+      Text { text: "Mirror/extend use eDP-1. Viz logical. hyprctl"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont }
+    }
+  } }
+  Component { id: quickTempComp; Item {
+    id: quickTempRoot
+    anchors.fill: parent
+    // full port of temp: parse/groups/hottest/bars/color/percent/proc/timer/UI (exact old, guards, live)
+    property string tempOutput: ""
+    property var tempSensors: []
+    property var tempGroups: []
+    property var hottestSensor: null
+    property string tempUpdated: ""
+
+    function parseTemperatures(out) {
+      const sensors = []
+      let groupName = ""; let groupPath = ""; let last = null
+      const lines = (out || "").split("\n")
+      for (const line of lines) {
+        if (line.indexOf("Hottest:") === 0) break
+        const gm = line.match(/^>>> (.+?) \((.+)\)$/)
+        if (gm) { groupName = gm[1]; groupPath = gm[2]; continue }
+        const sm = line.match(/^\s*(\S+)\s+(.+?)\s+(-?\d+(?:\.\d+)?)°C\s+(.+)$/)
+        if (sm) {
+          const keyName = groupName || sm[1]
+          const keyPath = groupPath || sm[4].trim().replace(/\/temp[^/]+$/, "")
+          last = { group: keyName, groupPath: keyPath, groupKey: keyName + "|" + keyPath, name: sm[1], label: sm[2].trim(), displayLabel: sm[2].trim(), value: Number(sm[3]), path: sm[4].trim(), desc: "" }
+          sensors.push(last); continue
+        }
+        const dm = line.match(/^\s{4}(.+)$/)
+        if (dm && last) last.desc = dm[1].trim()
+      }
+      const groups = []
+      for (const sensor of sensors) {
+        let g = groups.find(item => item.key === sensor.groupKey)
+        if (!g) { g = { key: sensor.groupKey, name: sensor.group, path: sensor.groupPath, sensors: [], max: sensor.value, sum: 0 }; groups.push(g) }
+        g.sensors.push(sensor); g.max = Math.max(g.max, sensor.value); g.sum = (g.sum || 0) + sensor.value
+      }
+      for (const g of groups) { g.avg = g.sum / Math.max(1, g.sensors.length) }
+      const groupNameMap = { "macsmc_hwmon": "SMC Sensors", "tas2764": "Speaker Amps", "macsmc_battery": "Battery", "nvme": "NVMe SSD" }
+      const sourceCounts = {}; for (const g of groups) sourceCounts[g.name] = (sourceCounts[g.name] || 0) + 1
+      const sourceSeen = {}
+      for (const g of groups) {
+        const baseName = groupNameMap[g.name] || g.name
+        sourceSeen[g.name] = (sourceSeen[g.name] || 0) + 1
+        g.displayName = sourceCounts[g.name] > 1 ? (baseName + " " + sourceSeen[g.name]) : baseName
+        const labelCounts = {}; for (const s of g.sensors) labelCounts[s.label] = (labelCounts[s.label] || 0) + 1
+        const labelSeen = {}
+        for (const s of g.sensors) {
+          labelSeen[s.label] = (labelSeen[s.label] || 0) + 1
+          s.displayLabel = labelCounts[s.label] > 1 ? (s.label + " " + labelSeen[s.label]) : s.label
+          s.groupDisplayName = g.displayName
+        }
+        const descs = g.sensors.map(s => s.desc || "").filter(d => d)
+        let shared = null
+        if (descs.length > 0) { shared = descs[0]; for (let i=1; i<descs.length; i++) if (descs[i] !== shared) { shared = null; break } }
+        g.sharedDesc = shared; for (const s of g.sensors) s.sharedDesc = g.sharedDesc
+      }
+      groups.sort((a, b) => b.max - a.max)
+      quickTempRoot.tempSensors = sensors
+      quickTempRoot.tempGroups = groups
+      quickTempRoot.hottestSensor = sensors.reduce((best, sensor) => !best || sensor.value > best.value ? sensor : best, null)
+      quickTempRoot.tempUpdated = Qt.formatTime(new Date(), "HH:mm:ss")
+    }
+    function tempColor(value) {
+      if (value >= 70) return Style.red
+      if (value >= 55) return Style.orange
+      if (value >= 45) return Style.yellow
+      return Style.green
+    }
+    function tempPercent(value) { return Math.max(0, Math.min(1, (value - 25) / 55)) }
+
+    Process {
+      id: tProc
+      command: [root.binDir + "/asahi-temperature"]
+      stdout: StdioCollector {
+        onStreamFinished: {
+          quickTempRoot.tempOutput = (text || "").trim()
+          quickTempRoot.parseTemperatures(quickTempRoot.tempOutput)
+        }
+      }
+    }
+    Timer { interval: 2500; running: root.quickDetailActive && root.expandedQuickKey === "temp"; repeat: true; triggeredOnStart: true; onTriggered: if (!tProc.running) tProc.running = true }
+
+    Component.onCompleted: Qt.callLater(function(){ if (!tProc.running) tProc.running = true })
+
+    ColumnLayout {
+      anchors.fill: parent; spacing: 4
+      Text { text: "TEMPERATURES"; color: Style.menuInk; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.letterSpacing: 1.2 }
+      Rectangle {
+        Layout.fillWidth: true; Layout.fillHeight: true
+        radius: 4; color: Style.menuControlBg; border.color: Style.menuSep; border.width: 1
+        Flickable {
+          anchors.fill: parent; anchors.margins: 6; clip: true
+          contentHeight: tempCol.height; boundsBehavior: Flickable.StopAtBounds
+          Column {
+            id: tempCol; width: parent.width; spacing: 6
+            Text {
+              visible: (quickTempRoot.tempGroups || []).length === 0
+              text: quickTempRoot.tempOutput ? "No sensors parsed." : "Loading sensors..."
+              color: Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont; wrapMode: Text.Wrap; width: parent.width
+            }
+            Text {
+              visible: !!quickTempRoot.hottestSensor && (quickTempRoot.tempGroups || []).length > 0
+              text: "Hottest: " + (quickTempRoot.hottestSensor.groupDisplayName || quickTempRoot.hottestSensor.group) + " / " + quickTempRoot.hottestSensor.displayLabel + " " + quickTempRoot.hottestSensor.value.toFixed(1) + "°C"
+              color: quickTempRoot.tempColor(quickTempRoot.hottestSensor.value); font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true
+              width: parent.width; elide: Text.ElideRight
+            }
+            Repeater {
+              model: quickTempRoot.tempGroups || []
+              delegate: Rectangle {
+                required property var modelData
+                width: parent.width; height: groupCol.height + 10; radius: 4
+                color: root.menuTileBg; border.color: Style.menuSep; border.width: 1
+                Column {
+                  id: groupCol; width: parent.width - 12; x: 6; y: 5; spacing: 3
+                  RowLayout {
+                    width: parent.width
+                    Text { text: modelData.displayName || modelData.name; color: Style.menuInk; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
+                    Text { text: "avg " + modelData.avg.toFixed(1) + "°C"; color: quickTempRoot.tempColor(modelData.avg); font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true }
+                  }
+                  Repeater {
+                    model: modelData.sensors || []
+                    delegate: Column {
+                      required property var modelData; required property int index
+                      width: groupCol.width; spacing: 1
+                      RowLayout {
+                        width: parent.width
+                        Text { text: modelData.displayLabel || modelData.label; color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont; Layout.fillWidth: true; elide: Text.ElideRight }
+                        Text { text: modelData.value.toFixed(1) + "°C"; color: quickTempRoot.tempColor(modelData.value); font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true }
+                      }
+                      Rectangle {
+                        width: parent.width; height: 4; radius: 2; color: Qt.rgba(0,0,0,0.2)
+                        Rectangle { width: parent.width * quickTempRoot.tempPercent(modelData.value); height: parent.height; radius: parent.radius; color: quickTempRoot.tempColor(modelData.value) }
+                      }
+                      Text {
+                        visible: !!modelData.desc && (index === 0 || !modelData.sharedDesc)
+                        text: modelData.sharedDesc || modelData.desc; color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont; width: parent.width; elide: Text.ElideRight
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      Text { text: quickTempRoot.tempUpdated ? ("updated " + quickTempRoot.tempUpdated) : "asahi-temperature"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont }
+    }
+  } }
+  Component { id: quickBtComp; Item {
+    id: quickBtRoot
+    anchors.fill: parent
+    // bt enhanced (power toggle rfkill like old, dev list conn/pair, procs)
+    property bool btOn: Bluetooth.defaultAdapter && Bluetooth.defaultAdapter.enabled
+    property var btDevs: (Bluetooth.devices && Bluetooth.devices.values) ? Bluetooth.devices.values : []
+
+    Process {
+      id: btStat
+      command: ["sh", "-c", "bluetoothctl show 2>/dev/null || true"]
+      stdout: StdioCollector { onStreamFinished: quickBtRoot.btOn = (text || "").indexOf("Powered: yes") !== -1 }
+    }
+    Timer { id: btDelay; interval: 500; onTriggered: if (btStat) btStat.running = true }
+    function refreshBt() { if (btStat && !btStat.running) btStat.running = true }
+    function toggleBt() {
+      const next = quickBtRoot.btOn ? "off" : "on"
+      Quickshell.execDetached(["sh", "-c", "if [ \"$1\" = on ]; then rfkill unblock bluetooth 2>/dev/null || true; fi; bluetoothctl power \"$1\"", "sh", next])
+      quickBtRoot.btOn = !quickBtRoot.btOn
+      btDelay.restart()
+    }
+
+    Component.onCompleted: quickBtRoot.refreshBt()
+
+    ColumnLayout { anchors.fill: parent; spacing: 4
+      RowLayout { Layout.fillWidth: true
+        Text { text: "BLUETOOTH"; color: Style.menuInk; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.letterSpacing: 1.2 }
+        Item { Layout.fillWidth: true }
+        Text { text: quickBtRoot.btOn ? "ON" : "OFF"; color: quickBtRoot.btOn ? Style.green : Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
+        Rectangle {
+          width: 52; height: 16; radius: 3; color: btPwr.containsMouse ? Style.menuRowHi : root.menuTileBg; border.color: Style.menuSep; border.width: 1
+          Text { anchors.centerIn: parent; text: quickBtRoot.btOn ? "Turn Off" : "Turn On"; font.pixelSize: root.fontPx(7); color: Style.menuInk; font.family: root.uiFont }
+          Behavior on color { ColorAnimation { duration: 140 } }
+          MouseArea { id: btPwr; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: quickBtRoot.toggleBt() }
+        }
+      }
+      Repeater {
+        model: (quickBtRoot.btDevs || []).slice(0,6)
+        delegate: Rectangle {
+          required property var modelData
+          Layout.fillWidth: true; height: 18; radius: 3; color: modelData.connected ? Style.menuRowSel : (btd.containsMouse ? Style.menuRowHi : Style.menuControlBg); border.color: modelData.connected ? Style.menuSeal : Style.menuSep; border.width: 1
+          Behavior on color { ColorAnimation { duration: 140 } }
+          RowLayout {
+            anchors.fill: parent; anchors.leftMargin: 4; anchors.rightMargin: 4; spacing: 4
+            Text { text: modelData.connected ? "󰂱" : "󰂯"; font.pixelSize: root.fontPx(10); color: modelData.connected ? Style.green : Style.menuInkDeep; font.family: root.uiFont }
+            Text { Layout.fillWidth: true; text: (modelData.name || modelData.alias || modelData.address || "dev") + (modelData.batteryAvailable ? (" "+modelData.battery+"%") : ""); color: Style.menuInk; font.pixelSize: root.fontPx(8); font.family: root.uiFont; elide: Text.ElideRight }
+            Rectangle {
+              width: 36; height: 14; radius: 2; color: Style.menuControlBg; border.color: Style.menuSep
+              Text { anchors.centerIn: parent; text: modelData.connected ? "disc" : (modelData.paired ? "conn" : "pair"); font.pixelSize: root.fontPx(7); color: Style.menuIndigo; font.family: root.uiFont }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { if (modelData.connected) modelData.disconnect(); else if (modelData.paired) modelData.connect(); else modelData.pair() } }
+            }
+          }
+          MouseArea { id: btd; anchors.fill: parent; hoverEnabled: true }
+        }
+      }
+      Text { text: "󰂯 " + ((quickBtRoot.btDevs||[]).length||0) + " devs" + (quickBtRoot.btOn ? "" : " (off)"); color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont }
+    }
+  } }
+  Component { id: quickPowerComp; Item {
+    id: quickPowerRoot
+    // power window exact (ported grid of session actions; danger red for destructive; + confirm for danger like old)
+    anchors.fill: parent
+    property string pendingConfirm: ""
+    ColumnLayout {
+      anchors.fill: parent
+      Text { text: quickPowerRoot.pendingConfirm ? ("Confirm " + quickPowerRoot.pendingConfirm + "?") : ""; color: Style.red; font.pixelSize: root.fontPx(8); font.family: root.uiFont; visible: !!quickPowerRoot.pendingConfirm; Layout.preferredHeight: quickPowerRoot.pendingConfirm ? 16 : 0 }
+      GridLayout {
+        Layout.fillWidth: true; Layout.fillHeight: true; columns: 2; rowSpacing: 6; columnSpacing: 6
+      Repeater {
+        model: [
+          { icon: "󰌾", label: "Lock", cmd: ["loginctl","lock-session"], danger: false },
+          { icon: "󰒲", label: "Suspend", cmd: ["systemctl","suspend"], danger: false },
+          { icon: "󰜉", label: "Reboot", cmd: ["systemctl","reboot"], danger: false },
+          { icon: "󰐥", label: "Shutdown", cmd: ["systemctl","poweroff"], danger: true },
+          { icon: "󰍃", label: "Logout", cmd: ["hyprctl","dispatch","exit"], danger: false },
+          { icon: "󰤁", label: "Hibernate", cmd: ["systemctl","hibernate"], danger: false }
+        ]
+        delegate: Rectangle {
+          required property var modelData
+          Layout.fillWidth: true; Layout.fillHeight: true; radius: 6
+          color: pma.containsMouse ? (modelData.danger ? Qt.rgba(Style.red.r,Style.red.g,Style.red.b,0.18) : Style.menuRowHi) : (modelData.danger ? Qt.rgba(Style.red.r,Style.red.g,Style.red.b,0.12) : Style.menuControlBg)
+          border.color: pma.containsMouse ? (modelData.danger ? Style.red : Style.menuSep) : Style.menuSep
+          border.width: 1
+          scale: pma.containsMouse ? 1.01 : 1.0
+          Behavior on color { ColorAnimation { duration: 80 } }
+          Behavior on scale { NumberAnimation { duration: 80 } }
+          Column {
+            anchors.centerIn: parent; spacing: 1
+            Text { text: modelData.icon; font.pixelSize: 16; color: modelData.danger ? Style.red : Style.menuSeal; font.family: root.uiFont; anchors.horizontalCenter: parent.horizontalCenter }
+            Text { text: modelData.label.toUpperCase(); font.pixelSize: 9; color: Style.menuInk; font.family: root.uiFont; font.letterSpacing: 1; anchors.horizontalCenter: parent.horizontalCenter }
+          }
+          MouseArea {
+            id: pma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+            onClicked: {
+              if (quickPowerRoot.pendingConfirm === modelData.label) {
+                Quickshell.execDetached(root.resolveCmd(modelData.cmd)); root.shouldShow = false; quickPowerRoot.pendingConfirm = ""
+              } else if (modelData.danger) {
+                quickPowerRoot.pendingConfirm = modelData.label
+              } else {
+                Quickshell.execDetached(root.resolveCmd(modelData.cmd)); root.shouldShow = false
+              }
+            }
+          }
+        }
+      }
+    }
+  } }
+  Component { id: quickDefaultComp; Item {
+    anchors.fill: parent
+    Text { anchors.centerIn: parent; text: "select a quick tile"; color: Style.menuInkDeep; font.pixelSize: 10; font.family: root.uiFont }
+  } }
+
+  function quickDetailFor(key) {
+    const k = (key === "dashboard" || key === "hub") ? "hub" : key
+    switch (k) {
+      case "hub": return quickHubComp
+      case "wallpaper": return quickWallpaperComp
+      case "screenshots": return quickScreenshotsComp
+      case "media": return quickMediaComp
+      case "network": return quickNetworkComp
+      case "monitors": return quickMonitorsComp
+      case "temp": return quickTempComp
+      case "bluetooth": return quickBtComp
+      case "power": return quickPowerComp
+      default: return quickDefaultComp
+    }
+  }
+
   readonly property string headerText: {
     const q = root.query.trim()
+    if (root.categoryFilter !== "") return "› " + root.categoryFilter.toUpperCase()
     if (q.startsWith("=")) return "Calculator"
     if (q.startsWith("!")) return "Web Search"
     if (q.startsWith("@")) return "Documentation"
     if (q.startsWith(":")) return "Actions"
     if (root.fileTerm(q) !== null) return "File Search"
     if (root.dictTerm(q) !== null) return "Dictionary"
-    return "Applications"
+    return "LAUNCHER"
   }
 
   readonly property string resultText: {
@@ -92,19 +1642,58 @@ Scope {
     }
     if (qq.startsWith(":")) return c + " action" + s
     if (qq.startsWith("=") || qq.startsWith("!") || qq.startsWith("@")) return c + " result" + s
-    return c + " application" + s
+    if (root.categoryFilter !== "") {
+      if (root.quickMode) {
+        const n = (root.quickTiles || []).length
+        return n + " tiles · " + n + " total"
+      }
+      let n = (root.launcherItems || []).filter(x => x.category === root.categoryFilter).length
+      if (root.categoryFilter === "App") n = (DesktopEntries.applications.values || []).filter(d => !d.noDisplay).length
+      return c + " match" + s + " · " + n + " total"
+    }
+    if (qq.length === 0) {
+      const total = (root.launcherItems || []).length + (DesktopEntries.applications.values || []).length
+      return c + " entries · " + total + " total"
+    }
+    return c + " match" + s
   }
 
   onResultCountChanged: {
     const max = Math.max(0, root.resultCount - 1)
-    if (resultsList && resultsList.currentIndex > max && max >= 0) {
-      resultsList.currentIndex = max
+    if (!root.quickMode && resultsList && (resultsList.currentIndex > max || resultsList.currentIndex < 0)) {
+      resultsList.currentIndex = 0
     }
   }
   onDictVersionChanged: root.resetDictSelection()
-  onFileVersionChanged: root.resetFileSelection()
+  onFileVersionChanged: { root.resetFileSelection(); if (root.fileMode) Qt.callLater(root.updateFilePreview) }
+  onDeVersionChanged: { if (resultsList) resultsList.currentIndex = 0; root.selectedIndex = 0 }
+  onCategoryFilterChanged: {
+    if (resultsList) resultsList.currentIndex = 0
+    root.selectedIndex = 0
+    if (root.fileMode) root.scheduleFileLookup()
+    else { root.fileItems=[]; root.fileStatus=""; root.filePreviewText=""; root.filePreviewMeta=""; root.pdfPreviewPath=""; root.pdfPreviewVersion=0 }
+    if (root.categoryFilter === "Quick") {
+      root.query = ""
+      if (searchInput) searchInput.text = ""
+      root.expandedQuickKey = ""
+      Qt.callLater(function(){ if (root.scanShots) root.scanShots() })
+    } else {
+      root.expandedQuickKey = ""
+    }
+    if (root.categoryFilter === Data.fileCategory && (root.query || "").trim() === "") {
+      root.query = ">"
+      if (searchInput) searchInput.text = ">"
+    }
+  }
 
   function launchCurrent() {
+    if (root.quickMode) {
+      const t = (root.quickTiles || [])[root.selectedIndex]
+      if (!t) return
+      if (t.mode) root.expandQuick(t.key)
+      else if (t.command && t.command.length) { Quickshell.execDetached(root.resolveCmd(t.command)); root.shouldShow = false }
+      return
+    }
     let entry = null
     if (resultsList && resultsList.currentItem && resultsList.currentItem.modelData) {
       entry = resultsList.currentItem.modelData
@@ -116,21 +1705,37 @@ Scope {
 
   function openLauncher() {
     const mon = Hyprland.focusedMonitor
-    launcherScreen = mon ? (Quickshell.screens.find(s => s.name === mon.name) ?? Quickshell.screens[0]) : (Quickshell.screens[0] ?? null)
+    launcherScreen = mon
+      ? (Quickshell.screens.find(s => s.name === mon.name) ?? (Quickshell.screens.length > 0 ? Quickshell.screens[0] : null))
+      : (Quickshell.screens.length > 0 ? Quickshell.screens[0] : null)
     launcherWorkspaceId = Hyprland.focusedWorkspace?.id ?? 1
     shouldShow = true
-    searchInput.text = ""
+    root.categoryFilter = ""
+    root.expandedQuickKey = ""
+    if (searchInput) searchInput.text = ""
+    else root.query = ""
     if (resultsList) resultsList.currentIndex = 0
     Qt.callLater(() => { if (searchInput) searchInput.forceActiveFocus() })
   }
 
   function openFileSearch(term) {
-    root.openLauncher()
-    searchInput.text = ">" + (term || "")
+    if (!root.shouldShow) root.openLauncher()
+    const q = ">" + (term || "")
+    root.query = q
+    if (searchInput) searchInput.text = q
   }
 
   function closeLauncher() {
     shouldShow = false
+  }
+
+  // Register for direct Hyprland global shortcut (more reliable than spawning `qs ipc` each time).
+  // Bound in hypr/conf.d/bindings.lua as hl.dsp.global("quickshell:launcher-toggle")
+  GlobalShortcut {
+    appid: "quickshell"
+    name: "launcher-toggle"
+    description: "Toggle launcher"
+    onPressed: root.shouldShow ? root.closeLauncher() : root.openLauncher()
   }
 
   function shQuote(s) {
@@ -159,8 +1764,19 @@ Scope {
     root.appUsageVersion++
   }
 
-  function featureCommand(mode) {
-    return ["qs", "-c", "remix", "ipc", "call", "feature", "open", mode || "hub"]
+  function expandQuick(key) {
+    const k = (key === "dashboard" || key === "hub") ? "hub" : key
+    if (!root.quickMode) { root.categoryFilter = "Quick"; root.query = ""; if (searchInput) searchInput.text = "" }
+    root.expandedQuickKey = (root.expandedQuickKey === k ? "" : k)
+  }
+
+  function resolveCmd(c) {
+    if (!c || c.length === 0) return c
+    const first = c[0]
+    if (typeof first === "string" && first.indexOf("asahi-") === 0 && first.indexOf("/") < 0) {
+      return [root.binDir + "/" + first].concat(c.slice(1))
+    }
+    return c
   }
 
   function actionMatches(action, term) {
@@ -205,6 +1821,19 @@ Scope {
 
   function launchApp(entry) {
     if (!entry) { shouldShow = false; return }
+    if (entry.isCategory || entry.target) {
+      // Drill into category overview (launcher style) or quick action target
+      const tgt = entry.target || entry.category || ""
+      if (tgt) {
+        root.categoryFilter = tgt
+        root.query = (tgt === Data.fileCategory) ? ">" : ""
+        if (searchInput) searchInput.text = root.query
+        root.selectedIndex = 0
+        root.expandedQuickKey = ""
+        if (tgt === Data.fileCategory) root.scheduleFileLookup()
+        return
+      }
+    }
     if (entry.special === "noop") {
       return
     } else if (entry.special === "calc") {
@@ -216,17 +1845,36 @@ Scope {
     } else if (entry.special === "file" && entry.path) {
       Quickshell.execDetached(["xdg-open", entry.path])
     } else if (entry.special === "action") {
-      if (entry.mode) Quickshell.execDetached(root.featureCommand(entry.mode))
-      else if (entry.command && entry.command.length > 0) Quickshell.execDetached(entry.command)
+      if (entry.mode) { root.expandQuick(entry.mode); root.shouldShow = false; return }
+      else if (entry.command && entry.command.length > 0) Quickshell.execDetached(root.resolveCmd(entry.command))
     } else if ((entry.special === "web" || entry.special === "doc") && entry.url) {
+      if (entry.prefix) {
+        // selected engine from @ fuzzy list: autofill shortcut like "jaxdoc " so user types the term at _
+        root.query = "@" + entry.prefix + " "
+        if (searchInput) searchInput.text = root.query
+        root.selectedIndex = 0
+        return // keep open for term input
+      }
       let u = entry.url
       if (u.includes("%TERM%")) u = u.replace("%TERM%", "")
       u = u.replace(/\?q=$/, "").replace(/\?s=$/, "").replace(/&text=$/, "").replace(/search\?q=$/, "")
       Quickshell.execDetached(["xdg-open", u])
+    } else if (entry.special === "app" && entry.raw) {
+      shouldShow = false
+      Qt.callLater(() => root.launchDesktopEntry(entry.raw))
+      return
     } else if (entry.execute) {
       shouldShow = false
       Qt.callLater(() => root.launchDesktopEntry(entry))
       return
+    } else if (entry.command && entry.command.length > 0) {
+      Quickshell.execDetached(entry.command)
+    } else if (entry.exec) {
+      if (entry.exec.indexOf("asahi-") === 0 && entry.exec.indexOf(" ") < 0) {
+        Quickshell.execDetached([root.binDir + "/" + entry.exec])
+      } else {
+        Quickshell.execDetached(["sh", "-c", entry.exec])
+      }
     }
     shouldShow = false
   }
@@ -240,6 +1888,13 @@ Scope {
   function fileTerm(q) {
     const value = (q || "").trim()
     return value.startsWith(">") ? value.substring(1).trim() : null
+  }
+
+  function isPrefixSpecial(q) {
+    const t = (q || "").trim()
+    if (!t) return false
+    if (t.startsWith(">") || t.startsWith("@") || t.startsWith(":") || t.startsWith("=") || t.startsWith("!")) return true
+    return root.dictTerm(t) !== null
   }
 
   function resetFileSelection() {
@@ -373,13 +2028,9 @@ Scope {
   }
 
   function fileGlyph(name, isDirectory) {
-    if (isDirectory) return "󰉋"
+    if (isDirectory) return Data.fileIcons.dir || "󰉋"
     const ext = name.includes(".") ? name.split(".").pop().toLowerCase() : ""
-    if (["jpg", "jpeg", "png", "gif", "svg", "webp", "bmp", "ico"].includes(ext)) return "󰋩"
-    if (["mp3", "wav", "flac", "ogg", "m4a", "aac"].includes(ext)) return "󰎆"
-    if (["mp4", "mkv", "avi", "mov", "webm"].includes(ext)) return "󰎁"
-    if (["zip", "tar", "gz", "bz2", "xz", "7z", "rar"].includes(ext)) return "󰀼"
-    return "󰈔"
+    return Data.fileIcons[ext] || Data.fileIcons.file || "󰈔"
   }
 
   Timer {
@@ -674,7 +2325,8 @@ Scope {
           comment: e.description || ("@" + e.prefix + " — select to search"),
           icon: e.icon,
           special: "doc",
-          url: e.url.replace("%TERM%", "")
+          url: e.url.replace("%TERM%", ""),
+          prefix: e.prefix
         }))
       }
 
@@ -686,6 +2338,222 @@ Scope {
     return null
   }
 
+  // ---------- Launcher port: scoring + category overview (following bjarneo launcher ref style) ----------
+  function goUp() {
+    if (root.categoryFilter !== "") {
+      root.categoryFilter = ""
+      root.query = ""
+      root.selectedIndex = 0
+      root.expandedQuickKey = ""
+      return true
+    }
+    return false
+  }
+
+  function primaryScore(item, tokens) {
+    const title = item._t || ""
+    let total = 0
+    for (let i = 0; i < tokens.length; i++) {
+      const t = tokens[i]
+      if (title.indexOf(t) === 0) total += root.scPrefix
+      else if (title.indexOf(t) >= 0) total += root.scTitle
+    }
+    return total
+  }
+
+  function scoreItem(item, tokens) {
+    const title = item._t || ""
+    const kw = item._k || ""
+    const cat = item._c || ""
+    let total = 0
+    for (let i = 0; i < tokens.length; i++) {
+      const t = tokens[i]
+      let sub = 0
+      if (title.indexOf(t) === 0) sub += root.scPrefix
+      else if (title.indexOf(t) >= 0) sub += root.scTitle
+      if (kw.indexOf(t) >= 0) sub += root.scKw
+      if (cat.indexOf(t) >= 0) sub += root.scCat
+      if (sub === 0) return 0
+      total += sub
+    }
+    return total
+  }
+
+  readonly property var queryTokens: {
+    const q = (root.query || "").trim().toLowerCase()
+    return q.length === 0 ? [] : q.split(/\s+/)
+  }
+
+  readonly property var navRows: Data.categoryNav
+
+  function computeFiltered() {
+    root.deVersion; root.dictVersion; root.fileVersion; root.webVersion; root.appUsageVersion
+
+    const tokens = root.queryTokens
+    const filter = root.categoryFilter
+
+    // Prefix specials still win (calc/web/@/dict/>/: ) for muscle memory + power
+    const specials = root.getSpecialResults(root.query)
+    if (specials && specials.length > 0) return specials
+
+    if (root.quickMode) return []
+    let pool = []
+    if (filter !== "" && filter !== "Quick") {
+      pool = (root.launcherItems || []).filter(it => it.category === filter)
+    } else {
+      pool = (root.navRows || []).concat(root.launcherItems || [])
+    }
+
+    // desktops ONLY for root search (tokens>0 && no drill or App) + App drill (per review)
+    if ((tokens.length > 0 && (filter === "" || filter === "App")) || filter === "App") {
+      const vals = DesktopEntries.applications.values || []
+      for (let i = 0; i < vals.length; i++) {
+        const a = vals[i]
+        if (a.noDisplay) continue
+        const t = String(a.name || "").toLowerCase()
+        const k = String((a.genericName || "") + " " + (a.comment || "")).toLowerCase()
+        const aid = "app-" + (a.id || a.name || i)
+        pool.push({ id: aid, title: a.name, _t: t, _k: k, _c: "app", category: "App", icon: a.icon || "", glyph: "", special: "app", raw: a })
+      }
+    }
+
+    // Empty query: for App drill use limited usage tail (no flood); for other drills use pool; root: nav+8apps
+    if (tokens.length === 0) {
+      if (filter !== "" && filter !== "Quick") {
+        if (filter === "App") {
+          const tail = []
+          let allApps = (DesktopEntries.applications.values || []).filter(d => !d.noDisplay)
+          allApps = allApps.sort((a, b) => {
+            const au = root.appScore(a); const bu = root.appScore(b)
+            if (au !== bu) return bu - au
+            return (a.name || "").localeCompare(b.name || "")
+          })
+          for (let i = 0; i < allApps.length && tail.length < 20; i++) {
+            const a = allApps[i]
+            tail.push({ id: "app-" + (a.id || a.name), title: a.name, comment: a.genericName || "", icon: a.icon || "", glyph: "", category: "App", special: "app", raw: a })
+          }
+          return tail.length <= root.maxResults ? tail : tail.slice(0, root.maxResults)
+        }
+        return pool.length <= root.maxResults ? pool : pool.slice(0, root.maxResults)
+      }
+      // Overview root empty: categories only (no apps shown by default)
+      const out = root.navRows
+      return out.length <= root.maxResults ? out : out.slice(0, root.maxResults)
+    }
+
+    const scored = []
+    for (let i = 0; i < pool.length; i++) {
+      const it = pool[i]
+      const s = root.scoreItem(it, tokens)
+      if (s > 0) scored.push({ s: s, p: root.primaryScore(it, tokens), item: it })
+    }
+    scored.sort((a, b) => {
+      if (b.p !== a.p) return b.p - a.p
+      const aCat = a.item.isCategory ? 0 : 1
+      const bCat = b.item.isCategory ? 0 : 1
+      if (aCat !== bCat) return aCat - bCat
+      if (b.s !== a.s) return b.s - a.s
+      return (a.item.title || "").localeCompare(b.item.title || "")
+    })
+    const lim = Math.min(scored.length, root.maxResults)
+    const out = []
+    for (let j = 0; j < lim; j++) out.push(scored[j].item)
+    return out
+  }
+
+  function isImageFile(p) {
+    if (!p) return false
+    const e = Data.fileExt(p)
+    return Data.imageExts.indexOf(e) >= 0
+  }
+  function isTextFile(p) {
+    if (!p) return false
+    const e = Data.fileExt(p)
+    return Data.textExts.indexOf(e) >= 0
+  }
+
+  function isPdfFile(p) {
+    if (!p) return false
+    const e = Data.fileExt(p)
+    return e === "pdf"
+  }
+
+  property string filePreviewText: ""
+  property string filePreviewMeta: ""
+  property string pdfPreviewPath: ""
+  property int pdfPreviewVersion: 0
+
+  function updateFilePreview() {
+    if (!root.fileMode) { root.filePreviewText = ""; root.filePreviewMeta = ""; root.pdfPreviewPath = ""; root.pdfPreviewVersion=0; return }
+    const it = resultsList.currentItem ? resultsList.currentItem.modelData : null
+    const p = it && it.path ? it.path : ""
+    if (!p) { root.filePreviewText = ""; root.filePreviewMeta = ""; root.pdfPreviewPath = ""; root.pdfPreviewVersion=0; return }
+    if (root.isImageFile(p)) { root.filePreviewText = ""; root.filePreviewMeta = ""; root.pdfPreviewPath = ""; root.pdfPreviewVersion=0; return }
+    if (root.isTextFile(p)) {
+      // fire head for preview text (reuse style from file logic)
+      root.filePreviewMeta = ""
+      root.pdfPreviewPath = ""
+      root.pdfPreviewVersion = 0
+      headProc.command = ["head", "-c", "2048", p]
+      headProc.running = true
+      return
+    }
+    if (root.isPdfFile(p)) {
+      root.filePreviewText = ""
+      root.filePreviewMeta = "PDF preview..."
+      root.pdfPreviewVersion = 0
+      root.pdfPreviewPath = ""
+      const base = "/tmp/launcher-pdf-" + (p ? Qt.md5(p) : Date.now())
+      pdfProc.command = ["pdftoppm", "-png", "-f", "1", "-l", "1", "-r", "100", "-singlefile", p, base]
+      pdfProc.running = true
+      // on success, pdfProc onExited sets pdfPreviewPath and bumps version
+      return
+    }
+    // meta
+    root.filePreviewText = ""
+    root.pdfPreviewPath = ""
+    root.pdfPreviewVersion = 0
+    metaProc.command = ["sh", "-c", "stat -c 'SIZE %s B  MTIME %y' \"$1\" 2>/dev/null; printf 'MIME '; file -b --mime-type \"$1\" 2>/dev/null", "sh", p]
+    metaProc.running = true
+  }
+
+  Process {
+    id: headProc
+    stdout: StdioCollector { id: headOut }
+    onExited: code => {
+      if (code === 0) root.filePreviewText = (headOut.text || "").replace(/\0/g, "")
+    }
+  }
+  Process {
+    id: metaProc
+    stdout: StdioCollector { id: metaOut }
+    onExited: code => {
+      if (code === 0) root.filePreviewMeta = (metaOut.text || "").trim()
+    }
+  }
+
+  Process {
+    id: pdfProc
+    onExited: code => {
+      if (code !== 0) {
+        root.filePreviewMeta = "PDF preview failed (need pdftoppm?)"
+        root.pdfPreviewPath = ""
+      } else {
+        // file now exists; set path to trigger Image load (no pre-load cannot-open)
+        const base = (pdfProc.command && pdfProc.command.length > 1) ? pdfProc.command[pdfProc.command.length-1] : ""
+        if (base) root.pdfPreviewPath = "file://" + base + ".png"
+        root.filePreviewMeta = ""
+        root.pdfPreviewVersion = (root.pdfPreviewVersion || 0) + 1
+      }
+    }
+  }
+
+  // call preview update on selection for files
+  Connections {
+    target: resultsList
+    function onCurrentIndexChanged() { if (root.fileMode) root.updateFilePreview() }
+  }
+
   ScriptModel {
     id: filteredApps
     objectProp: "id"
@@ -695,37 +2563,9 @@ Scope {
       root.fileVersion
       root.webVersion
       root.appUsageVersion
-      const specials = root.getSpecialResults(root.query)
-      if (specials && specials.length > 0) return specials
-      let all = [...DesktopEntries.applications.values]
-      all = all.filter(d => !d.noDisplay)
-      const q = root.query.trim().toLowerCase()
-      if (q === "") {
-        return all.sort((a, b) => {
-          const au = root.appScore(a)
-          const bu = root.appScore(b)
-          if (au !== bu) return bu - au
-          return (a.name || "").localeCompare(b.name || "")
-        })
-      }
-      const filtered = all.filter(d =>
-        (d.name && d.name.toLowerCase().includes(q)) ||
-        (d.genericName && d.genericName.toLowerCase().includes(q)) ||
-        (d.keywords && d.keywords.some(k => k.toLowerCase().includes(q))) ||
-        (d.categories && d.categories.some(c => c.toLowerCase().includes(q)))
-      )
-      return filtered.sort((a, b) => {
-        const an = (a.name || "").toLowerCase()
-        const bn = (b.name || "").toLowerCase()
-        const aStarts = an.startsWith(q)
-        const bStarts = bn.startsWith(q)
-        if (aStarts && !bStarts) return -1
-        if (!aStarts && bStarts) return 1
-        const au = root.appScore(a)
-        const bu = root.appScore(b)
-        if (au !== bu) return bu - au
-        return an.localeCompare(bn)
-      })
+      root.categoryFilter
+      root.query
+      return root.computeFiltered()
     }
   }
 
@@ -762,7 +2602,8 @@ Scope {
       id: launcherBox
       anchors.horizontalCenter: parent.horizontalCenter
       y: parent.height * 0.18
-      width: 680
+      width: root.sideActive ? 980 : 680
+      Behavior on width { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
       height: Math.min(launcherCol.implicitHeight + 34, parent.height * 0.72)
       cardMargin: 17
 
@@ -774,15 +2615,19 @@ Scope {
         Menu.MenuHeader {
           width: parent.width
           fontFamily: root.uiFont
-          title: "ASAHI"
+          title: "LAUNCHER"
           subtitle: root.headerText.toUpperCase() + "  ·  " + root.resultText.toUpperCase()
         }
 
         Menu.MenuDivider { width: parent.width }
 
+        // search hidden in quickMode (bjarneo: no search bar; grid+side is the view;
+        // prevents typing pollution of query/cat/schedules while grid+side shown)
         Item {
           width: parent.width
-          height: 36
+          height: root.quickMode ? 0 : 36
+          visible: !root.quickMode
+          clip: true
 
           Text {
             id: searchPrompt
@@ -813,7 +2658,7 @@ Scope {
 
             Text {
               anchors.fill: parent
-              text: "Type to search apps, files, docs, actions…"
+              text: "Type to search apps (or >files @web :act =calc !web dict)"
               color: Style.menuInkDeep
               font: parent.font
               opacity: 0.5
@@ -823,23 +2668,84 @@ Scope {
 
             onTextChanged: {
               root.query = text
+              if (root.quickMode) {
+                // no schedules, no auto-cat from search while quick grid is active (hidden input; internal cat sets still ok)
+                if (resultsList) resultsList.currentIndex = 0
+                return
+              }
+              const ft = root.fileTerm(text)
+              if (ft !== null && root.categoryFilter !== Data.fileCategory) {
+                root.categoryFilter = Data.fileCategory
+              }
+              if (text.trim() && !root.isPrefixSpecial(text) && root.categoryFilter === "" && !root.quickMode) {
+                root.categoryFilter = "App"
+              }
               root.scheduleDictLookup()
               root.scheduleFileLookup()
               if (resultsList) resultsList.currentIndex = 0
+              if (root.fileMode) root.updateFilePreview()
             }
 
-            Keys.onEscapePressed: root.shouldShow = false
+            Keys.onEscapePressed: {
+              if (root.quickDetailActive) {
+                root.expandedQuickKey = ""
+                return
+              }
+              if (root.categoryFilter !== "") {
+                root.categoryFilter = ""
+                root.query = ""
+                if (searchInput) searchInput.text = ""
+              } else {
+                root.shouldShow = false
+              }
+            }
             Keys.onReturnPressed: root.launchCurrent()
             Keys.onEnterPressed: root.launchCurrent()
 
             Keys.onPressed: event => {
+              // Esc: unwind category (like launcher) then close
+              // cascade: first collapse quick side detail (bjarneo: if(quickExpanded) clear
+              // else if(query) else if(!goUp)close), then cat, then close
+              if (event.key === Qt.Key_Escape) {
+                if (root.quickDetailActive) {
+                  root.expandedQuickKey = ""
+                  event.accepted = true
+                  return
+                }
+                if (root.categoryFilter !== "") {
+                  root.categoryFilter = ""
+                  root.query = ""
+                  if (searchInput) searchInput.text = ""
+                  event.accepted = true
+                  return
+                }
+                root.shouldShow = false
+                event.accepted = true
+                return
+              }
+              if (event.key === Qt.Key_Backspace && (root.query || "").trim() === "") {
+                if (root.goUp()) { event.accepted = true; return; }
+              }
               const max = Math.max(0, root.resultCount - 1)
+              if (root.quickMode) {
+                const cols = root.quickGridCols
+                if (event.key === Qt.Key_Down) {
+                  event.accepted = true; root.selectedIndex = Math.min(root.selectedIndex + cols, max)
+                } else if (event.key === Qt.Key_Up) {
+                  event.accepted = true; root.selectedIndex = Math.max(root.selectedIndex - cols, 0)
+                } else if (event.key === Qt.Key_Tab && !(event.modifiers & Qt.ShiftModifier)) {
+                  event.accepted = true; root.selectedIndex = Math.min(root.selectedIndex + 1, max)
+                } else if (event.key === Qt.Key_Backtab || (event.key === Qt.Key_Tab && (event.modifiers & Qt.ShiftModifier))) {
+                  event.accepted = true; root.selectedIndex = Math.max(root.selectedIndex - 1, 0)
+                }
+                return
+              }
               if (event.key === Qt.Key_Down || (event.key === Qt.Key_Tab && !(event.modifiers & Qt.ShiftModifier))) {
                 event.accepted = true
                 resultsList.currentIndex = Math.min(resultsList.currentIndex + 1, max)
                 resultsList.positionViewAtIndex(resultsList.currentIndex, ListView.Contain)
               } else if (event.key === Qt.Key_Up || event.key === Qt.Key_Backtab
-                         || (event.key === Qt.Key_Tab && (event.modifiers & Qt.ShiftModifier))) {
+                || (event.key === Qt.Key_Tab && (event.modifiers & Qt.ShiftModifier))) {
                 event.accepted = true
                 resultsList.currentIndex = Math.max(resultsList.currentIndex - 1, 0)
                 resultsList.positionViewAtIndex(resultsList.currentIndex, ListView.Contain)
@@ -848,132 +2754,412 @@ Scope {
           }
         }
 
-        Menu.MenuDivider { width: parent.width }
+        Menu.MenuDivider { width: parent.width; visible: !root.quickMode }
 
+        // List area (with optional file preview split)
         Item {
+          id: listArea
           width: parent.width
-          height: Math.max(220, launcherPanel.height * 0.42)
+          height: visible ? Math.max(220, launcherPanel.height * (root.sideActive ? 0.48 : 0.42)) : 0
+          visible: true
           clip: true
 
-          ListView {
-            id: resultsList
+          // Normal results list (or split when preview for files)
+          Item {
             anchors.fill: parent
-            model: filteredApps
-            spacing: 0
-            boundsBehavior: Flickable.StopAtBounds
-            currentIndex: 0
-            highlightFollowsCurrentItem: false
-            pixelAligned: true
 
-            onCountChanged: root.resultCount = count
-            onCurrentIndexChanged: if (currentIndex >= 0) root.selectedIndex = currentIndex
+            readonly property real listFrac: root.quickDetailActive ? 0.12 : (root.sideActive ? (root.quickMode ? 0.32 : 0.52) : 1.0)
 
-            delegate: Item {
-              id: delegateRoot
-              required property var modelData
-              required property int index
-              width: resultsList.width
-              height: 38
-              readonly property bool isSelected: resultsList.currentIndex === index
+            ListView {
+              id: resultsList
+              visible: !root.quickMode
+              anchors.top: parent.top
+              anchors.bottom: parent.bottom
+              anchors.left: parent.left
+              width: parent.width * parent.listFrac
+              model: filteredApps
+              spacing: 0
+              boundsBehavior: Flickable.StopAtBounds
+              currentIndex: 0
+              highlightFollowsCurrentItem: false
+              pixelAligned: true
 
-              Accessible.role: Accessible.Button
-              Accessible.name: (modelData.name ?? "Application") + (modelData.genericName ? " - " + modelData.genericName : "")
+              onCountChanged: if (!root.quickMode) root.resultCount = count
+              onCurrentIndexChanged: if (currentIndex >= 0) root.selectedIndex = currentIndex
 
-              Rectangle {
-                anchors.fill: parent
-                color: delegateRoot.isSelected ? Style.menuRowSel
-                      : rowMa.containsMouse ? Style.menuRowHi : "transparent"
-                Behavior on color { ColorAnimation { duration: 40 } }
-              }
-              Rectangle {
-                anchors.left: parent.left
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-                width: 2
-                color: Style.menuSeal
-                visible: delegateRoot.isSelected
-              }
+              delegate: Item {
+                id: delegateRoot
+                required property var modelData
+                required property int index
+                width: resultsList.width
+                height: 38
+                readonly property bool isSelected: resultsList.currentIndex === index
+                readonly property string dName: modelData.name || modelData.title || "?"
+                readonly property string dGlyph: modelData.glyph || ""
+                readonly property string dIcon: modelData.icon || ""
+                readonly property string dAcc: modelData.accessory || (modelData.category ? modelData.category.toUpperCase() : (modelData.isCategory ? "›" : ""))
+                readonly property bool dCat: !!modelData.isCategory
 
-              RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 14
-                anchors.rightMargin: 14
-                spacing: 12
+                Accessible.role: Accessible.Button
+                Accessible.name: dName
 
-                Item {
-                  width: 22
-                  height: 22
-                  Layout.alignment: Qt.AlignVCenter
+                Rectangle {
+                  anchors.fill: parent
+                  color: delegateRoot.isSelected ? Style.menuRowSel
+                        : rowMa.containsMouse ? Style.menuRowHi : "transparent"
+                  Behavior on color { ColorAnimation { duration: 40 } }
+                }
+                Rectangle {
+                  anchors.left: parent.left
+                  anchors.top: parent.top
+                  anchors.bottom: parent.bottom
+                  width: 2
+                  color: Style.menuSeal
+                  visible: delegateRoot.isSelected
+                }
 
-                  IconImage {
-                    anchors.fill: parent
-                    source: Quickshell.iconPath(delegateRoot.modelData.icon ?? "", true)
-                    visible: (delegateRoot.modelData.icon ?? "") !== ""
-                      && !(delegateRoot.modelData.icon ?? "").startsWith("file://")
+                RowLayout {
+                  anchors.fill: parent
+                  anchors.leftMargin: 14
+                  anchors.rightMargin: 14
+                  spacing: 12
+
+                  Item {
+                    width: 26
+                    height: 26
+                    Layout.alignment: Qt.AlignVCenter
+                    IconImage {
+                      anchors.fill: parent
+                      source: Quickshell.iconPath(delegateRoot.dIcon, true)
+                      visible: delegateRoot.dIcon !== "" && !delegateRoot.dIcon.startsWith("file://")
+                    }
+                    Image {
+                      anchors.fill: parent
+                      source: delegateRoot.dIcon.startsWith("file://") ? delegateRoot.dIcon : ""
+                      fillMode: Image.PreserveAspectFit
+                      visible: delegateRoot.dIcon.startsWith("file://")
+                    }
+                    Text {
+                      anchors.centerIn: parent
+                      text: delegateRoot.dGlyph !== "" ? delegateRoot.dGlyph : delegateRoot.dName.charAt(0).toUpperCase()
+                      color: delegateRoot.dCat ? Style.menuSeal : (delegateRoot.isSelected ? Style.menuSeal : (delegateRoot.dGlyph === "󰉋" ? "#89b4fa" : Style.menuInkDeep))
+                      font.pixelSize: delegateRoot.dGlyph !== "" ? 18 : 14
+                      font.family: root.uiFont
+                      visible: delegateRoot.dIcon === ""
+                    }
                   }
-                  Image {
-                    anchors.fill: parent
-                    source: (delegateRoot.modelData.icon ?? "").startsWith("file://") ? delegateRoot.modelData.icon : ""
-                    fillMode: Image.PreserveAspectFit
-                    visible: (delegateRoot.modelData.icon ?? "").startsWith("file://")
-                  }
+
                   Text {
-                    anchors.centerIn: parent
-                    text: delegateRoot.modelData.glyph ?? (delegateRoot.modelData.name ?? "?").charAt(0).toUpperCase()
-                    color: delegateRoot.isSelected ? Style.menuSeal : Style.menuInkDeep
-                    font.pixelSize: 16
+                    Layout.fillWidth: true
+                    text: delegateRoot.dName + (delegateRoot.dCat ? "  ›" : "")
+                    color: delegateRoot.isSelected ? Style.menuInk : Style.menuInkDeep
+                    font.pixelSize: 13
                     font.family: root.uiFont
-                    visible: (delegateRoot.modelData.icon ?? "") === ""
+                    font.weight: delegateRoot.isSelected ? Font.Medium : Font.Light
+                    font.letterSpacing: 1
+                    elide: Text.ElideRight
+                  }
+
+                  Text {
+                    text: delegateRoot.dAcc.toUpperCase()
+                    visible: text !== ""
+                    color: delegateRoot.isSelected ? Style.menuSeal : Style.menuInkDeep
+                    opacity: delegateRoot.isSelected ? 0.95 : 0.65
+                    font.pixelSize: 10
+                    font.family: root.uiFont
+                    font.letterSpacing: 2
+                    elide: Text.ElideLeft
+                    maximumLineCount: 1
+                    Layout.maximumWidth: 180
                   }
                 }
 
-                Text {
-                  Layout.fillWidth: true
-                  text: delegateRoot.modelData.name ?? ""
-                  color: delegateRoot.isSelected ? Style.menuInk : Style.menuInkDeep
-                  font.pixelSize: 13
-                  font.family: root.uiFont
-                  font.weight: delegateRoot.isSelected ? Font.Medium : Font.Light
-                  font.letterSpacing: 1
-                  elide: Text.ElideRight
-                }
-
-                Text {
-                  text: (delegateRoot.modelData.accessory
-                    || delegateRoot.modelData.genericName
-                    || delegateRoot.modelData.comment
-                    || "").toUpperCase()
-                  visible: text !== ""
-                  color: delegateRoot.isSelected ? Style.menuSeal : Style.menuInkDeep
-                  opacity: delegateRoot.isSelected ? 0.95 : 0.65
-                  font.pixelSize: 10
-                  font.family: root.uiFont
-                  font.letterSpacing: 2
-                  elide: Text.ElideLeft
-                  maximumLineCount: 1
-                  Layout.maximumWidth: 180
+                MouseArea {
+                  id: rowMa
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onPositionChanged: resultsList.currentIndex = delegateRoot.index
+                  onClicked: root.launchApp(delegateRoot.modelData)
                 }
               }
 
-              MouseArea {
-                id: rowMa
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onPositionChanged: resultsList.currentIndex = delegateRoot.index
-                onClicked: root.launchApp(delegateRoot.modelData)
+              Text {
+                anchors.centerIn: parent
+                text: (root.resultCount === 0 && searchInput.text !== "" ? "NOTHING MATCHES" : "")
+                color: Style.menuInkDeep
+                font.family: root.uiFont
+                font.pixelSize: 11
+                font.letterSpacing: 3
+                opacity: 0.6
+                visible: root.resultCount === 0 && searchInput.text !== ""
               }
             }
 
-            Text {
-              anchors.centerIn: parent
-              text: "NOTHING MATCHES"
-              color: Style.menuInkDeep
-              font.family: root.uiFont
-              font.pixelSize: 11
-              font.letterSpacing: 3
-              opacity: 0.6
-              visible: root.resultCount === 0 && searchInput.text !== ""
+            // Quick grid (exact ref bjarneo style: compress width+cols+tileH on detail; 1 hairline sep; grid nav; sub hidden colmode)
+            Grid {
+              id: quickGrid
+              visible: root.quickMode
+              anchors.top: parent.top
+              anchors.bottom: parent.bottom
+              anchors.left: parent.left
+              width: parent.width * parent.listFrac
+              columns: root.quickGridCols
+              rowSpacing: root.quickDetailActive ? 4 : 8
+              columnSpacing: root.quickDetailActive ? 4 : 8
+              clip: true
+              readonly property bool colMode: root.quickDetailActive
+              readonly property int tileH: colMode ? 42 : 64
+              Timer { interval: 0; running: root.quickMode; repeat: false; onTriggered: root.resultCount = (root.quickTiles || []).length }
+
+              Repeater {
+                model: root.quickTiles || []
+                delegate: Item {
+                  id: qtile
+                  required property var modelData
+                  required property int index
+                  readonly property bool isSel: root.selectedIndex === index
+                  readonly property var t: modelData || {}
+                  width: (quickGrid.width - (quickGrid.columns-1)*quickGrid.columnSpacing) / quickGrid.columns
+                  height: quickGrid.tileH
+                  Rectangle {
+                    anchors.fill: parent
+                    radius: Style.menuRadius
+                    color: isSel
+                      ? Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.08)
+                      : qma.containsMouse
+                        ? Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.05)
+                        : Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.03)
+                    border.color: isSel ? Style.menuSeal : Style.menuSep
+                    border.width: isSel ? 2 : 1
+                    Behavior on color { ColorAnimation { duration: 50 } }
+                    Behavior on border.color { ColorAnimation { duration: 50 } }
+                    Behavior on border.width { NumberAnimation { duration: 50 } }
+                  }
+                  Column {
+                    anchors.fill: parent
+                    anchors.margins: quickGrid.colMode ? 3 : 6
+                    spacing: quickGrid.colMode ? 0 : 2
+                    Text {
+                      text: t.glyph || "󰘔"; color: isSel ? Style.menuSeal : Style.menuInk
+                      font.pixelSize: (quickGrid.colMode ? 14 : 18) ; font.family: root.uiFont; anchors.horizontalCenter: parent.horizontalCenter
+                    }
+                    Text {
+                      anchors.horizontalCenter: parent.horizontalCenter
+                      width: parent.width - 4
+                      text: (t.label || "").toUpperCase()
+                      color: isSel ? Style.menuInk : Style.menuInkDeep
+                      font.pixelSize: (quickGrid.colMode ? 7 : 9) ; font.family: root.uiFont; font.letterSpacing: quickGrid.colMode ? 0.8 : 1.2
+                      font.weight: Font.Medium
+                      elide: Text.ElideRight
+                      horizontalAlignment: Text.AlignHCenter
+                    }
+                    Text {
+                      visible: !quickGrid.colMode
+                      anchors.horizontalCenter: parent.horizontalCenter
+                      width: parent.width - 4
+                      text: t.sub || ""
+                      color: Style.menuInkDeep; font.pixelSize: 7; font.family: root.uiFont
+                      opacity: 0.8; elide: Text.ElideRight; horizontalAlignment: Text.AlignHCenter
+                    }
+                  }
+                  MouseArea {
+                    id: qma
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onPositionChanged: { root.selectedIndex = index; if (resultsList) resultsList.currentIndex = index }
+                    onClicked: {
+                      root.selectedIndex = index
+                      if (modelData.mode) root.expandQuick(modelData.key)
+                      else if (modelData.command && modelData.command.length > 0) {
+                        Quickshell.execDetached(root.resolveCmd(modelData.command)); root.shouldShow = false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            // mid hairline sep (ref style between compressed grid and detail)
+            Rectangle {
+              id: quickSep
+              visible: root.quickDetailActive
+              anchors.top: parent.top; anchors.bottom: parent.bottom
+              anchors.left: quickGrid.right; anchors.leftMargin: 8
+              width: 1; color: Style.menuSep
+            }
+
+            // Preview pane (file only for now, launcher style split; or quick feature detail when expanded)
+            Item {
+              visible: root.sideActive
+              anchors.top: parent.top
+              anchors.bottom: parent.bottom
+              anchors.left: root.quickMode && root.quickDetailActive ? quickSep.right : (root.quickMode ? quickGrid.right : resultsList.right)
+              anchors.leftMargin: root.quickDetailActive ? 10 : 8
+              anchors.right: parent.right
+
+              // quick detail side (exact ref: header glyph26 + label13 lSp2 + sub10 + round×22; topM6; no mid hairline in detail; flick topM10; bodies are feature windows content)
+              Item {
+                id: qDetailSide
+                visible: root.quickDetailActive
+                anchors.fill: parent
+                readonly property var qtile: (root.quickTiles || []).find(function(x){ return x.key === root.expandedQuickKey }) || {}
+                RowLayout {
+                  id: qDetailHeader
+                  anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.topMargin: 6; spacing: 10
+                  Text {
+                    text: qDetailSide.qtile.glyph || "󰘔"
+                    color: Style.menuSeal
+                    font.family: root.uiFont
+                    font.pixelSize: 24
+                    Layout.alignment: Qt.AlignVCenter
+                  }
+                  Column {
+                    Layout.fillWidth: true
+                    Layout.alignment: Qt.AlignVCenter
+                    spacing: 1
+                    Text {
+                      text: (qDetailSide.qtile.label || "").toUpperCase()
+                      color: Style.menuInk
+                      font.family: root.uiFont
+                      font.pixelSize: 12
+                      font.letterSpacing: 1.6
+                      font.weight: Font.Medium
+                    }
+                    Text {
+                      text: qDetailSide.qtile.sub || ""
+                      color: Style.menuInkDeep
+                      font.family: root.uiFont
+                      font.pixelSize: 9
+                      font.letterSpacing: 0.8
+                      opacity: 0.85
+                      elide: Text.ElideRight
+                    }
+                  }
+                  Rectangle {
+                    Layout.alignment: Qt.AlignVCenter
+                    width: 20; height: 20; radius: 10
+                    color: cqma.containsMouse ? Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.08) : "transparent"
+                    border.color: Style.menuSep
+                    border.width: 1
+                    Text {
+                      anchors.centerIn: parent
+                      text: "×"
+                      color: Style.menuInkDeep
+                      font.family: root.uiFont
+                      font.pixelSize: 13
+                    }
+                    MouseArea {
+                      id: cqma
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.expandedQuickKey = ""
+                    }
+                  }
+                }
+                Flickable {
+                  id: qBodyFlick
+                  anchors.left: parent.left; anchors.right: parent.right
+                  anchors.top: qDetailHeader.bottom; anchors.bottom: parent.bottom
+                  anchors.topMargin: 8
+                  clip: true
+                  contentWidth: width
+                  contentHeight: qdl.implicitHeight || 120
+                  boundsBehavior: Flickable.StopAtBounds
+                  Loader {
+                    id: qdl
+                    width: parent.width
+                    active: root.quickDetailActive
+                    sourceComponent: root.quickDetailFor(root.expandedQuickKey)
+                  }
+                }
+              }
+
+              // file preview (unchanged, only when not quick detail)
+              Item {
+                visible: root.previewActive && !root.quickDetailActive
+                anchors.fill: parent
+
+                Text {
+                  id: previewName
+                  anchors.top: parent.top
+                  text: {
+                    const it = resultsList.currentItem ? resultsList.currentItem.modelData : null
+                    return it && it.path ? Data.basename(it.path) : "File preview"
+                  }
+                  color: Style.menuInk
+                  font.family: root.uiFont
+                  font.pixelSize: 12
+                  elide: Text.ElideRight
+                }
+                Text {
+                  anchors.top: previewName.bottom
+                  text: {
+                    const it = resultsList.currentItem ? resultsList.currentItem.modelData : null
+                    return it && it.path ? Data.tildify(Data.dirname(it.path), root.homeDir) : ""
+                  }
+                  color: Style.menuInkDeep
+                  font.family: root.uiFont
+                  font.pixelSize: 10
+                  opacity: 0.7
+                  elide: Text.ElideLeft
+                }
+                Rectangle { anchors.top: parent.top; anchors.topMargin: 32; width: parent.width; height: 1; color: Style.menuSep }
+
+                // Simple file preview body
+                Item {
+                  anchors.top: parent.top
+                  anchors.topMargin: 36
+                  anchors.bottom: parent.bottom
+                  anchors.left: parent.left
+                  anchors.right: parent.right
+                  clip: true
+
+                  Image {
+                    anchors.fill: parent
+                    anchors.margins: 4
+                    visible: root.fileMode && resultsList.currentItem && resultsList.currentItem.modelData && root.isImageFile(resultsList.currentItem.modelData.path || "")
+                    source: root.fileMode && resultsList.currentItem && resultsList.currentItem.modelData && root.isImageFile(resultsList.currentItem.modelData.path || "") && resultsList.currentItem.modelData.path ? "file://" + resultsList.currentItem.modelData.path : ""
+                    fillMode: Image.PreserveAspectFit
+                    asynchronous: true
+                  }
+
+                  Image {
+                    anchors.fill: parent
+                    anchors.margins: 4
+                    visible: root.fileMode && resultsList.currentItem && resultsList.currentItem.modelData && root.isPdfFile(resultsList.currentItem.modelData.path || "")
+                    source: root.fileMode && resultsList.currentItem && resultsList.currentItem.modelData && root.isPdfFile(resultsList.currentItem.modelData.path || "") && root.pdfPreviewPath ? root.pdfPreviewPath + "?v=" + root.pdfPreviewVersion : ""
+                    fillMode: Image.PreserveAspectFit
+                    asynchronous: true
+                  }
+
+                  Text {
+                    anchors.fill: parent
+                    anchors.margins: 4
+                    visible: root.fileMode && resultsList.currentItem && resultsList.currentItem.modelData && root.isTextFile(resultsList.currentItem.modelData.path || "")
+                    text: root.filePreviewText
+                    color: Style.menuInkDeep
+                    font.family: root.uiFont
+                    font.pixelSize: 10
+                    wrapMode: Text.Wrap
+                    elide: Text.ElideRight
+                    maximumLineCount: 18
+                  }
+
+                  Text {
+                    anchors.fill: parent
+                    anchors.margins: 4
+                    visible: root.fileMode && resultsList.currentItem && resultsList.currentItem.modelData && !root.isImageFile(resultsList.currentItem.modelData.path || "") && !root.isTextFile(resultsList.currentItem.modelData.path || "") && !(root.isPdfFile(resultsList.currentItem.modelData.path || "") && !root.filePreviewMeta)
+                    text: root.filePreviewMeta
+                    color: Style.menuInkDeep
+                    font.family: root.uiFont
+                    font.pixelSize: 10
+                    wrapMode: Text.Wrap
+                  }
+                }
+              }
             }
           }
         }
@@ -985,11 +3171,13 @@ Scope {
           elide: Text.ElideRight
           text: {
             const it = resultsList.currentItem ? resultsList.currentItem.modelData : null
+            if (root.quickMode) return ""
             if (!it) return ""
-            if (it.special === "action" && it.command && it.command.length)
-              return "$ " + it.command.join(" ")
+            if (it.special === "action" && it.command && it.command.length) return "$ " + it.command.join(" ")
             if (it.special === "file" && it.path) return "$ xdg-open " + it.path
             if (it.execString) return "$ " + it.execString
+            if (it.exec) return "$ " + it.exec
+            if (it.command) return "$ " + (it.command.join ? it.command.join(" ") : it.command)
             return it.comment || ""
           }
           color: Style.menuInkDeep
@@ -1002,7 +3190,7 @@ Scope {
         Menu.MenuHintRow {
           width: parent.width
           fontFamily: root.uiFont
-          hints: "= calc  ! kagi  @ docs  dict  > files  : actions"
+          hints: "!  >  :  @  dict"
         }
       }
 

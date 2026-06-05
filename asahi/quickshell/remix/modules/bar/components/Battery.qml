@@ -63,7 +63,7 @@ Rectangle {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: Quickshell.execDetached(["qs", "-c", "remix", "ipc", "call", "feature", "open", "power"])
+        onClicked: Quickshell.execDetached(["qs", "-c", "remix", "ipc", "call", "launcher", "openCategory", "Quick"])
     }
 
     TooltipWindow {

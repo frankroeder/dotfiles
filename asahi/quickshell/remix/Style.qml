@@ -76,7 +76,7 @@ Singleton {
   readonly property color panelWarningBg:       Qt.alpha(Wallpaper.DefaultTheme.peach, 0.16)
   readonly property color panelDivider:         Qt.alpha(Wallpaper.DefaultTheme.text, 0.10)
 
-  // Omni-inspired menu chrome (Asahi palette, not omarchy paths)
+  // Launcher-inspired menu chrome (Asahi palette, not omarchy paths)
   readonly property color menuPaper:   Wallpaper.DefaultTheme.crust
   readonly property color menuInk:     Wallpaper.DefaultTheme.text
   readonly property color menuInkDeep: Wallpaper.DefaultTheme.subtext0
