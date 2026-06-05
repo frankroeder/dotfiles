@@ -3,7 +3,8 @@
 set -euo pipefail
 
 action="${1:-}"
-state_dir="${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-brightness"
+state_dir="${ASAHI_IDLE_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-brightness}"
+screen_shader="${ASAHI_IDLE_DIM_SHADER:-$HOME/.dotfiles/asahi/hypr/shaders/idle-dim.frag}"
 
 usage() {
   echo "usage: $0 <dim|off|restore>" >&2
@@ -73,6 +74,58 @@ restore_device() {
   rm -f "$state"
 }
 
+current_screen_shader() {
+  local output
+  local value
+
+  if ! output="$(hyprctl getoption decoration:screen_shader 2>/dev/null)"; then
+    printf "\n"
+    return 0
+  fi
+  value="$output"
+  value="${value%%$'\n'*}"
+  value="${value#str: }"
+  [ "$value" = "[[EMPTY]]" ] && value=""
+  [ -n "$value" ] && [ ! -r "$value" ] && value=""
+  printf "%s\n" "$value"
+}
+
+save_screen_shader() {
+  local state="$state_dir/screen_shader"
+
+  mkdir -p "$state_dir"
+  [ -e "$state" ] && return 0
+  current_screen_shader > "$state"
+}
+
+set_screen_shader() {
+  local value="$1"
+
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  hyprctl eval "hl.config({ decoration = { screen_shader = \"$value\" } })" >/dev/null 2>&1 || true
+}
+
+dim_screen_shader() {
+  [ -r "$screen_shader" ] || return 0
+  save_screen_shader
+  set_screen_shader "$screen_shader"
+}
+
+restore_screen_shader() {
+  local state="$state_dir/screen_shader"
+  local value
+
+  [ -e "$state" ] || return 0
+  value="$(<"$state")"
+  if [ -n "$value" ]; then
+    set_screen_shader "$value"
+  else
+    hyprctl reload config-only >/dev/null 2>&1 || true
+  fi
+  rm -f "$state"
+}
+
 case "$action" in
   dim)
     if device="$(brightness_device)"; then
@@ -84,6 +137,7 @@ case "$action" in
       save_device keyboard "$device"
       set_device "$device" 10%
     fi
+    dim_screen_shader
     ;;
   off)
     if device="$(brightness_device)"; then
@@ -96,6 +150,7 @@ case "$action" in
     fi
     ;;
   restore)
+    restore_screen_shader
     if device="$(brightness_device)"; then
       restore_device display "$device"
     fi

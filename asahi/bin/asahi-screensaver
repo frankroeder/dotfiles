@@ -11,6 +11,11 @@ case "$action" in
     ;;
 esac
 
-qs -n -d -c screensaver >/dev/null 2>&1 || true
-sleep 0.08
+case "$action" in
+  start|toggle|next)
+    qs -n -d -c screensaver >/dev/null 2>&1 || true
+    sleep 0.08
+    ;;
+esac
+
 exec qs -c screensaver ipc call saver "$action"
