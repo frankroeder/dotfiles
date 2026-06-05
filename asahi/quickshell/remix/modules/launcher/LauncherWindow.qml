@@ -7,6 +7,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Widgets
 import "../wallpaper" as Wallpaper
+import "../menu" as Menu
 import "../../"
 
 Scope {
@@ -36,6 +37,7 @@ Scope {
   property int appUsageVersion: 0
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
+  readonly property string uiFont: "Hack Nerd Font"
   readonly property string dictIcon: "file://" + Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/assets/dict-cc.png"
   readonly property string webIconBase: "file://" + Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/assets/"
   readonly property string websearchJsonPath: Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/modules/launcher/websearch.json"
@@ -50,7 +52,8 @@ Scope {
     { key: "temp", aliases: ["temps", "temperature"], icon: "󰔄", name: "Temperatures", comment: "Open sensor view", mode: "temp" },
     { key: "bluetooth", aliases: ["bt"], icon: "󰂯", name: "Bluetooth", comment: "Open Bluetooth devices", mode: "bluetooth" },
     { key: "power", aliases: ["session"], icon: "󰐥", name: "Power", comment: "Open session controls", mode: "power" },
-    { key: "reload", aliases: ["qs"], icon: "󰑐", name: "Reload Quickshell", comment: "Restart QS Remix", command: [root.binDir + "/asahi-restart-app", "qs", "-c", "remix"] },
+    { key: "screensaver", aliases: ["saver"], icon: "󱄄", name: "Screensaver", comment: "Shader idle display", command: [root.binDir + "/asahi-screensaver", "toggle"] },
+    { key: "reload", aliases: ["qs"], icon: "󰑐", name: "Reload Quickshell", comment: "Restart QS", command: [root.binDir + "/asahi-restart-quickshell"] },
     { key: "hypr", aliases: ["hyprland"], icon: "󰑓", name: "Reload Hyprland", comment: "Reload Hyprland config", command: [root.binDir + "/asahi-reload-hyprland"] },
     { key: "lock", aliases: ["lockscreen"], icon: "󰌾", name: "Lock", comment: "Lock session", command: ["loginctl", "lock-session"] },
     { key: "scratch", aliases: ["scratchpad"], icon: "󱂬", name: "Scratchpad", comment: "Toggle scratch workspace", command: ["hyprctl", "dispatch", "togglespecialworkspace", "scratch"] }
@@ -746,353 +749,264 @@ Scope {
       right: true
     }
 
-    // Dark overlay backdrop
+    Menu.MenuBackdrop {
+      reveal: root.shouldShow ? 1 : 0
+    }
+
     MouseArea {
       anchors.fill: parent
       onClicked: root.shouldShow = false
-
-      Rectangle {
-        anchors.fill: parent
-        color: Style.panelOverlay
-      }
     }
 
-    // Centered launcher box
-    Rectangle {
+    Menu.MenuCard {
       id: launcherBox
-      anchors.centerIn: parent
-      width: 580
-      height: 480
-      radius: 16
-      color: Style.panelBg
-      border.color: Style.panelAccentBorder
-      border.width: 1
+      anchors.horizontalCenter: parent.horizontalCenter
+      y: parent.height * 0.18
+      width: 680
+      height: Math.min(launcherCol.implicitHeight + 34, parent.height * 0.72)
+      cardMargin: 17
 
-      ColumnLayout {
-        anchors.fill: parent
-        anchors.margins: 16
+      Column {
+        id: launcherCol
+        width: parent.width - 34
         spacing: 12
 
-        // Header
-        Text {
-          text: root.headerText
-          color: Style.sky
-          font.pixelSize: 14
-          font.family: "Hack Nerd Font"
-          font.bold: true
+        Menu.MenuHeader {
+          width: parent.width
+          fontFamily: root.uiFont
+          title: "ASAHI"
+          subtitle: root.headerText.toUpperCase() + "  ·  " + root.resultText.toUpperCase()
         }
 
-        // Search bar
-        Rectangle {
-          Layout.fillWidth: true
-          height: 44
-          radius: 10
-          color: Style.panelInputBg
-          border.color: searchInput.activeFocus ? Style.panelAccentBorder : Style.panelCardBorder
-          border.width: 1
+        Menu.MenuDivider { width: parent.width }
 
-          Behavior on border.color {
-            ColorAnimation { duration: 150 }
+        Item {
+          width: parent.width
+          height: 36
+
+          Text {
+            id: searchPrompt
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            text: "󰍉"
+            color: searchInput.activeFocus ? Style.menuSeal : Style.menuInkDeep
+            font.family: root.uiFont
+            font.pixelSize: 16
+            Behavior on color { ColorAnimation { duration: 120 } }
           }
 
-          RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 14
-            anchors.rightMargin: 14
-            spacing: 10
+          TextInput {
+            id: searchInput
+            anchors.left: searchPrompt.right
+            anchors.leftMargin: 10
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            color: text.length > 0 ? Style.menuInk : Style.menuInkDeep
+            opacity: text.length > 0 ? 1 : 0.55
+            font.family: root.uiFont
+            font.pixelSize: 14
+            font.letterSpacing: 1
+            clip: true
+            focus: true
+            Accessible.role: Accessible.EditableText
+            Accessible.name: "Search applications"
 
             Text {
-              text: "󰍉"
-              color: searchInput.activeFocus ? Style.sky : Style.textMuted
-              font.pixelSize: 18
-              font.family: "Hack Nerd Font"
-              Layout.alignment: Qt.AlignVCenter
-            }
-
-            TextInput {
-              id: searchInput
-              Layout.fillWidth: true
-              Layout.alignment: Qt.AlignVCenter
-              color: Style.text
-              font.pixelSize: 15
-              font.family: "Hack Nerd Font"
-              clip: true
-              focus: true
-              Accessible.role: Accessible.EditableText
-              Accessible.name: "Search applications"
-
-              Text {
-                anchors.fill: parent
-                text: "Type to search..."
-                color: Style.textMuted
-                font: parent.font
-                visible: !parent.text && !parent.activeFocus
-                verticalAlignment: Text.AlignVCenter
-              }
-
-              onTextChanged: {
-                root.query = text
-                root.scheduleDictLookup()
-                root.scheduleFileLookup()
-                if (resultsList) resultsList.currentIndex = 0
-              }
-
-              Keys.onEscapePressed: root.shouldShow = false
-              Keys.onReturnPressed: root.launchCurrent()
-              Keys.onEnterPressed: root.launchCurrent()
-
-              Keys.onPressed: event => {
-                const max = Math.max(0, root.resultCount - 1)
-                if (event.key === Qt.Key_Down) {
-                  event.accepted = true
-                  resultsList.currentIndex = Math.min(resultsList.currentIndex + 1, max)
-                  resultsList.positionViewAtIndex(resultsList.currentIndex, ListView.Contain)
-                } else if (event.key === Qt.Key_Up) {
-                  event.accepted = true
-                  resultsList.currentIndex = Math.max(resultsList.currentIndex - 1, 0)
-                  resultsList.positionViewAtIndex(resultsList.currentIndex, ListView.Contain)
-                } else if (event.key === Qt.Key_Tab) {
-                  event.accepted = true
-                  resultsList.currentIndex = Math.min(resultsList.currentIndex + 1, max)
-                  resultsList.positionViewAtIndex(resultsList.currentIndex, ListView.Contain)
-                }
-              }
-            }
-          }
-        }
-
-        // Results count
-        Text {
-          text: root.resultText
-          color: Style.textMuted
-          font.pixelSize: 11
-          font.family: "Hack Nerd Font"
-        }
-
-        // App list
-        ListView {
-          id: resultsList
-          Layout.fillWidth: true
-          Layout.fillHeight: true
-          model: filteredApps
-          clip: true
-          spacing: 2
-          boundsBehavior: Flickable.StopAtBounds
-          currentIndex: 0
-          highlightMoveDuration: 150
-          highlightMoveVelocity: -1
-
-          onCountChanged: root.resultCount = count
-          onCurrentIndexChanged: if (currentIndex >= 0) root.selectedIndex = currentIndex
-
-          highlight: Rectangle {
-            radius: 8
-            color: Style.panelAccentBg
-            border.width: 1
-            border.color: Style.panelAccentBorder
-
-            gradient: Gradient {
-              orientation: Gradient.Horizontal
-              GradientStop { position: 0.0; color: Style.panelAccentBg }
-              GradientStop { position: 1.0; color: Qt.alpha(Style.sky, 0.10) }
-            }
-
-            Rectangle {
-              width: 3
-              height: 24
-              radius: 2
-              color: Style.sky
-              anchors.left: parent.left
-              anchors.leftMargin: 2
-              anchors.verticalCenter: parent.verticalCenter
-            }
-          }
-
-          delegate: Rectangle {
-            id: delegateRoot
-            required property var modelData
-            required property int index
-
-            Accessible.role: Accessible.Button
-            Accessible.name: (modelData.name ?? "Application") + (modelData.genericName ? " - " + modelData.genericName : "")
-
-            width: resultsList.width
-            height: 44
-            radius: 8
-            color: hoverArea.containsMouse && resultsList.currentIndex !== index ? Style.panelCardHover : "transparent"
-
-            Behavior on color {
-              ColorAnimation { duration: 100 }
-            }
-
-            RowLayout {
               anchors.fill: parent
-              anchors.leftMargin: 12
-              anchors.rightMargin: 12
-              spacing: 12
+              text: "Type to search apps, files, docs, actions…"
+              color: Style.menuInkDeep
+              font: parent.font
+              opacity: 0.5
+              visible: !parent.text && !parent.activeFocus
+              verticalAlignment: Text.AlignVCenter
+            }
 
-              // App icon
-              Item {
-                width: 28
-                height: 28
-                Layout.alignment: Qt.AlignVCenter
+            onTextChanged: {
+              root.query = text
+              root.scheduleDictLookup()
+              root.scheduleFileLookup()
+              if (resultsList) resultsList.currentIndex = 0
+            }
 
-                IconImage {
-                  anchors.fill: parent
-                  source: Quickshell.iconPath(delegateRoot.modelData.icon ?? "", true)
-                  visible: (delegateRoot.modelData.icon ?? "") !== "" && !(delegateRoot.modelData.icon ?? "").startsWith("file://")
-                }
+            Keys.onEscapePressed: root.shouldShow = false
+            Keys.onReturnPressed: root.launchCurrent()
+            Keys.onEnterPressed: root.launchCurrent()
 
-                Image {
-                  anchors.fill: parent
-                  source: delegateRoot.modelData.icon ?? ""
-                  fillMode: Image.PreserveAspectFit
-                  visible: (delegateRoot.modelData.icon ?? "").startsWith("file://")
-                }
-
-                // Fallback letter icon
-                Text {
-                  anchors.centerIn: parent
-                  text: delegateRoot.modelData.glyph ?? (delegateRoot.modelData.name ?? "?").charAt(0).toUpperCase()
-                  color: Style.sky
-                  font.pixelSize: 16
-                  font.family: "Hack Nerd Font"
-                  font.bold: true
-                  visible: (delegateRoot.modelData.icon ?? "") === ""
-                }
+            Keys.onPressed: event => {
+              const max = Math.max(0, root.resultCount - 1)
+              if (event.key === Qt.Key_Down || (event.key === Qt.Key_Tab && !(event.modifiers & Qt.ShiftModifier))) {
+                event.accepted = true
+                resultsList.currentIndex = Math.min(resultsList.currentIndex + 1, max)
+                resultsList.positionViewAtIndex(resultsList.currentIndex, ListView.Contain)
+              } else if (event.key === Qt.Key_Up || event.key === Qt.Key_Backtab
+                         || (event.key === Qt.Key_Tab && (event.modifiers & Qt.ShiftModifier))) {
+                event.accepted = true
+                resultsList.currentIndex = Math.max(resultsList.currentIndex - 1, 0)
+                resultsList.positionViewAtIndex(resultsList.currentIndex, ListView.Contain)
               }
+            }
+          }
+        }
 
-              // App info
-              ColumnLayout {
-                Layout.fillWidth: true
-                Layout.alignment: Qt.AlignVCenter
-                spacing: 1
+        Menu.MenuDivider { width: parent.width }
 
-                Text {
-                  text: delegateRoot.modelData.name ?? ""
-                  color: resultsList.currentIndex === delegateRoot.index ? Style.text : Style.textAlt
-                  font.pixelSize: 13
-                  font.family: "Hack Nerd Font"
-                  font.bold: resultsList.currentIndex === delegateRoot.index
-                  elide: Text.ElideRight
-                  Layout.fillWidth: true
-                }
+        Item {
+          width: parent.width
+          height: Math.max(220, launcherPanel.height * 0.42)
+          clip: true
 
-                Text {
-                  text: delegateRoot.modelData.genericName ?? delegateRoot.modelData.comment ?? ""
-                  color: Style.textMuted
-                  font.pixelSize: 11
-                  font.family: "Hack Nerd Font"
-                  elide: Text.ElideRight
-                  Layout.fillWidth: true
-                  visible: text !== ""
-                }
-              }
+          ListView {
+            id: resultsList
+            anchors.fill: parent
+            model: filteredApps
+            spacing: 0
+            boundsBehavior: Flickable.StopAtBounds
+            currentIndex: 0
+            highlightFollowsCurrentItem: false
+            pixelAligned: true
+
+            onCountChanged: root.resultCount = count
+            onCurrentIndexChanged: if (currentIndex >= 0) root.selectedIndex = currentIndex
+
+            delegate: Item {
+              id: delegateRoot
+              required property var modelData
+              required property int index
+              width: resultsList.width
+              height: 38
+              readonly property bool isSelected: resultsList.currentIndex === index
+
+              Accessible.role: Accessible.Button
+              Accessible.name: (modelData.name ?? "Application") + (modelData.genericName ? " - " + modelData.genericName : "")
 
               Rectangle {
-                Layout.alignment: Qt.AlignVCenter
-                width: accessoryText.visible ? accessoryText.width + 12 : 0
-                height: accessoryText.visible ? 20 : 0
-                radius: 5
-                color: Style.panelControlBg
-                border.color: Style.panelCardBorder
-                border.width: accessoryText.visible ? 1 : 0
-                visible: accessoryText.visible
+                anchors.fill: parent
+                color: delegateRoot.isSelected ? Style.menuRowSel
+                      : rowMa.containsMouse ? Style.menuRowHi : "transparent"
+                Behavior on color { ColorAnimation { duration: 40 } }
+              }
+              Rectangle {
+                anchors.left: parent.left
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: 2
+                color: Style.menuSeal
+                visible: delegateRoot.isSelected
+              }
+
+              RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 14
+                anchors.rightMargin: 14
+                spacing: 12
+
+                Item {
+                  width: 22
+                  height: 22
+                  Layout.alignment: Qt.AlignVCenter
+
+                  IconImage {
+                    anchors.fill: parent
+                    source: Quickshell.iconPath(delegateRoot.modelData.icon ?? "", true)
+                    visible: (delegateRoot.modelData.icon ?? "") !== ""
+                      && !(delegateRoot.modelData.icon ?? "").startsWith("file://")
+                  }
+                  Image {
+                    anchors.fill: parent
+                    source: (delegateRoot.modelData.icon ?? "").startsWith("file://") ? delegateRoot.modelData.icon : ""
+                    fillMode: Image.PreserveAspectFit
+                    visible: (delegateRoot.modelData.icon ?? "").startsWith("file://")
+                  }
+                  Text {
+                    anchors.centerIn: parent
+                    text: delegateRoot.modelData.glyph ?? (delegateRoot.modelData.name ?? "?").charAt(0).toUpperCase()
+                    color: delegateRoot.isSelected ? Style.menuSeal : Style.menuInkDeep
+                    font.pixelSize: 16
+                    font.family: root.uiFont
+                    visible: (delegateRoot.modelData.icon ?? "") === ""
+                  }
+                }
 
                 Text {
-                  id: accessoryText
-                  anchors.centerIn: parent
-                  text: delegateRoot.modelData.accessory ?? ""
-                  color: Style.textMuted
-                  font.pixelSize: 10
-                  font.family: "Hack Nerd Font"
-                  font.bold: true
-                  visible: text !== ""
+                  Layout.fillWidth: true
+                  text: delegateRoot.modelData.name ?? ""
+                  color: delegateRoot.isSelected ? Style.menuInk : Style.menuInkDeep
+                  font.pixelSize: 13
+                  font.family: root.uiFont
+                  font.weight: delegateRoot.isSelected ? Font.Medium : Font.Light
+                  font.letterSpacing: 1
+                  elide: Text.ElideRight
                 }
+
+                Text {
+                  text: (delegateRoot.modelData.accessory
+                    || delegateRoot.modelData.genericName
+                    || delegateRoot.modelData.comment
+                    || "").toUpperCase()
+                  visible: text !== ""
+                  color: delegateRoot.isSelected ? Style.menuSeal : Style.menuInkDeep
+                  opacity: delegateRoot.isSelected ? 0.95 : 0.65
+                  font.pixelSize: 10
+                  font.family: root.uiFont
+                  font.letterSpacing: 2
+                  elide: Text.ElideLeft
+                  maximumLineCount: 1
+                  Layout.maximumWidth: 180
+                }
+              }
+
+              MouseArea {
+                id: rowMa
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onPositionChanged: resultsList.currentIndex = delegateRoot.index
+                onClicked: root.launchApp(delegateRoot.modelData)
               }
             }
 
-            MouseArea {
-              id: hoverArea
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              onClicked: root.launchApp(delegateRoot.modelData)
-              onEntered: resultsList.currentIndex = delegateRoot.index
+            Text {
+              anchors.centerIn: parent
+              text: "NOTHING MATCHES"
+              color: Style.menuInkDeep
+              font.family: root.uiFont
+              font.pixelSize: 11
+              font.letterSpacing: 3
+              opacity: 0.6
+              visible: root.resultCount === 0 && searchInput.text !== ""
             }
-          }
-
-          // Empty state
-          Text {
-            anchors.centerIn: parent
-            text: "No results found"
-            color: Style.textMuted
-            font.pixelSize: 14
-            font.family: "Hack Nerd Font"
-            visible: root.resultCount === 0 && searchInput.text !== ""
           }
         }
 
-        // Footer hint
-        RowLayout {
-          Layout.fillWidth: true
-          spacing: 16
+        Menu.MenuDivider { width: parent.width }
 
-          Row {
-            spacing: 4
-            Rectangle {
-              width: hintUp.width + 8; height: 18; radius: 4; color: Style.panelControlBg
-              Text { id: hintUp; anchors.centerIn: parent; text: "↑↓"; color: Style.text; font.pixelSize: 10; font.family: "Hack Nerd Font" }
-            }
-            Text {
-              text: "navigate"
-              color: Style.text
-              font.pixelSize: 10
-              font.family: "Hack Nerd Font"
-              anchors.verticalCenter: parent.verticalCenter
-            }
+        Text {
+          width: parent.width
+          elide: Text.ElideRight
+          text: {
+            const it = resultsList.currentItem ? resultsList.currentItem.modelData : null
+            if (!it) return ""
+            if (it.special === "action" && it.command && it.command.length)
+              return "$ " + it.command.join(" ")
+            if (it.special === "file" && it.path) return "$ xdg-open " + it.path
+            if (it.execString) return "$ " + it.execString
+            return it.comment || ""
           }
+          color: Style.menuInkDeep
+          font.family: root.uiFont
+          font.pixelSize: 10
+          font.letterSpacing: 1
+          opacity: 0.65
+        }
 
-          Row {
-            spacing: 4
-            Rectangle {
-              width: hintEnter.width + 8; height: 18; radius: 4; color: Style.panelControlBg
-              Text { id: hintEnter; anchors.centerIn: parent; text: "⏎"; color: Style.text; font.pixelSize: 10; font.family: "Hack Nerd Font" }
-            }
-            Text {
-              text: "launch"
-              color: Style.text
-              font.pixelSize: 10
-              font.family: "Hack Nerd Font"
-              anchors.verticalCenter: parent.verticalCenter
-            }
-          }
-
-          Row {
-            spacing: 4
-            Rectangle {
-              width: hintEsc.width + 8; height: 18; radius: 4; color: Style.panelControlBg
-              Text { id: hintEsc; anchors.centerIn: parent; text: "esc"; color: Style.text; font.pixelSize: 10; font.family: "Hack Nerd Font" }
-            }
-            Text {
-              text: "close"
-              color: Style.text
-              font.pixelSize: 10
-              font.family: "Hack Nerd Font"
-              anchors.verticalCenter: parent.verticalCenter
-            }
-          }
-
-          Text {
-            text: "=:calc  !:kagi  @:docs  dict:translate  >:files  :actions"
-            color: Style.text
-            font.pixelSize: 10
-            font.family: "Hack Nerd Font"
-            Layout.alignment: Qt.AlignVCenter
-          }
-          Item { Layout.fillWidth: true }
+        Menu.MenuHintRow {
+          width: parent.width
+          fontFamily: root.uiFont
+          hints: "= calc  ! kagi  @ docs  dict  > files  : actions"
         }
       }
+
+      focus: true
     }
   }
 }

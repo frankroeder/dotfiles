@@ -76,6 +76,28 @@ Singleton {
   readonly property color panelWarningBg:       Qt.alpha(Wallpaper.DefaultTheme.peach, 0.16)
   readonly property color panelDivider:         Qt.alpha(Wallpaper.DefaultTheme.text, 0.10)
 
+  // Omni-inspired menu chrome (Asahi palette, not omarchy paths)
+  readonly property color menuPaper:   Wallpaper.DefaultTheme.crust
+  readonly property color menuInk:     Wallpaper.DefaultTheme.text
+  readonly property color menuInkDeep: Wallpaper.DefaultTheme.subtext0
+  readonly property color menuInkMuted: Wallpaper.DefaultTheme.overlay1
+  readonly property color menuSumi:    Wallpaper.DefaultTheme.overlay0
+  readonly property color menuSeal:    Wallpaper.DefaultTheme.peach
+  readonly property color menuIndigo:  Wallpaper.DefaultTheme.sapphire
+  readonly property color menuSealAlt: Wallpaper.DefaultTheme.peach
+  readonly property color menuBg:      Qt.rgba(menuPaper.r, menuPaper.g, menuPaper.b, 0.96)
+  readonly property color menuSep:     Qt.rgba(menuInk.r, menuInk.g, menuInk.b, 0.16)
+  readonly property color menuRowHi:   Qt.rgba(menuInk.r, menuInk.g, menuInk.b, 0.07)
+  readonly property color menuRowSel:  Qt.rgba(menuSeal.r, menuSeal.g, menuSeal.b, 0.20)
+  readonly property color menuDim:     Qt.rgba(0, 0, 0, 0.52)
+  readonly property color menuCardBg:  Qt.rgba(menuInk.r, menuInk.g, menuInk.b, 0.05)
+  readonly property color menuControlBg: Qt.rgba(menuInk.r, menuInk.g, menuInk.b, 0.08)
+  readonly property int menuRadius: 6
+  readonly property int menuTitleSpacing: 4
+  readonly property int menuLabelSpacing: 2
+  readonly property string menuMono: "JetBrainsMono Nerd Font"
+  readonly property string menuSerif: "serif"
+
   // Full re-export for complete delegation (no hex dups; enables Style. for all DefaultTheme names)
   readonly property color crust:      Wallpaper.DefaultTheme.crust
   readonly property color mantle:     Wallpaper.DefaultTheme.mantle

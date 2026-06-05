@@ -10,6 +10,8 @@ import Quickshell.Bluetooth
 import Quickshell.Services.Mpris
 import "../../"
 import "../wallpaper" as WallpaperModule
+import "../menu" as Menu
+import "." as FeatureMenu
 
 pragma ComponentBehavior: Bound
 
@@ -24,6 +26,33 @@ Scope {
   // Manual Media page Cava panel height.
   property int mediaCavaHeight: 220
   readonly property int uiFontBump: 2
+  readonly property string uiFont: "Hack Nerd Font"
+
+  readonly property int menuWidth: {
+    const s = root.featureScreen || (Quickshell.screens.length > 0 ? Quickshell.screens[0] : null)
+    return s ? Math.min(1000, Math.round(s.width * 0.9)) : 960
+  }
+  readonly property int menuHeight: {
+    const s = root.featureScreen || (Quickshell.screens.length > 0 ? Quickshell.screens[0] : null)
+    return s ? Math.min(700, Math.round(s.height * 0.82)) : 640
+  }
+  readonly property int hubMenuHeight: {
+    const s = root.featureScreen || (Quickshell.screens.length > 0 ? Quickshell.screens[0] : null)
+    return s ? Math.min(550, Math.round(s.height * 0.66)) : 530
+  }
+
+  readonly property string modeHeaderSubtitle: {
+    if (root.mode === "hub") return "DASHBOARD"
+    if (root.mode === "wallpaper") return "WALLPAPERS"
+    if (root.mode === "screenshots") return "SCREENSHOTS"
+    if (root.mode === "media") return "MEDIA"
+    if (root.mode === "network") return "NETWORK"
+    if (root.mode === "monitors") return "MONITORS"
+    if (root.mode === "temp") return "TEMPERATURES"
+    if (root.mode === "bluetooth") return "BLUETOOTH"
+    if (root.mode === "power") return "POWER"
+    return "FEATURES"
+  }
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
   readonly property string shotDir: Quickshell.env("HOME") + "/screenshots"
@@ -735,31 +764,22 @@ Scope {
 
     anchors { top: true; bottom: true; left: true; right: true }
 
-    // Backdrop overlay
+    Menu.MenuBackdrop {
+      reveal: root.shouldShow ? 1 : 0
+    }
+
     MouseArea {
       anchors.fill: parent
       onClicked: root.closeFeature()
-      Rectangle { anchors.fill: parent; color: Style.panelOverlay }
     }
 
-    // Centered console box
-    Rectangle {
+    Menu.MenuCard {
       id: box
-      anchors.centerIn: parent
-      width: Math.min(1080, parent.width * 0.86)
-      height: Math.min(720, parent.height * 0.86)
-      radius: 16
-      color: Style.panelBg
-      border.color: Style.panelCardBorderHover
-      border.width: 1
-      clip: true
-      opacity: root.shouldShow ? 1 : 0
-      scale: root.shouldShow ? 1 : 0.98
-
-      Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-      Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-
-      MouseArea { anchors.fill: parent; onClicked: event => event.accepted = true }
+      anchors.horizontalCenter: parent.horizontalCenter
+      y: parent.height * 0.10
+      width: root.menuWidth
+      height: root.mode === "hub" ? root.hubMenuHeight : root.menuHeight
+      cardMargin: 17
 
       Keys.onEscapePressed: {
         if (root.shotPreviewPath !== "") {
@@ -779,11 +799,12 @@ Scope {
         anchors.fill: parent
         spacing: 0
 
-        // LEFT NAVIGATION SIDEBAR
+        // LEFT NAVIGATION SIDEBAR (hidden for grid overview; the submenus are incorporated in the grid tiles)
         Rectangle {
           id: sidebar
-          Layout.preferredWidth: 220
+          Layout.preferredWidth: 0
           Layout.fillHeight: true
+          visible: false
           color: Style.panelSidebarBg
           topLeftRadius: 16
           bottomLeftRadius: 16
@@ -995,59 +1016,40 @@ Scope {
           }
         }
 
-        // RIGHT MAIN CONTENT PANE
+        // RIGHT MAIN CONTENT PANE (transparent to use outer MenuCard bg like launcher/wp)
         Rectangle {
           Layout.fillWidth: true
           Layout.fillHeight: true
-          color: Style.panelMainBg
-          topRightRadius: 16
-          bottomRightRadius: 16
+          color: "transparent"
+          radius: Style.menuRadius
 
           ColumnLayout {
             anchors.fill: parent
             anchors.margins: 16
             spacing: 12
 
-            // Header Row
+            // Header Row - uniform with launcher + wallpaper manager using MenuHeader + mode subtitle
             RowLayout {
               Layout.fillWidth: true
 
-              Text {
-                text: {
-                  if (root.mode === "hub") return "󰕮  Dashboard"
-                  if (root.mode === "wallpaper") return "󰸉  Wallpapers"
-                  if (root.mode === "screenshots") return "󰹑  Screenshots Gallery"
-                  if (root.mode === "media") return "󰝚  Media"
-                  if (root.mode === "network") return "󰈀  Network"
-                  if (root.mode === "monitors") return "󰍹  Monitors"
-                  if (root.mode === "temp") return "󰔄  Temperatures"
-                  if (root.mode === "bluetooth") return "󰂯  Bluetooth Devices"
-                  if (root.mode === "power") return "󰐥  Power Actions"
-                  return "Features"
+              Menu.MenuHeader {
+                Layout.fillWidth: true
+                fontFamily: root.uiFont
+                title: "ASAHI"
+                subtitle: {
+                  var s = root.modeHeaderSubtitle
+                  if (root.mode === "screenshots" && root.shots.length) s += "  ·  " + root.shots.length + " RECENT"
+                  return s
                 }
-                color: Style.sky
-                font.pixelSize: 16 + root.uiFontBump
-                font.family: "JetBrainsMono Nerd Font"
-                font.bold: true
-              }
-
-              Item { Layout.fillWidth: true }
-
-              Text {
-                visible: root.mode === "screenshots" && root.shots.length
-                text: root.shots.length + " recent"
-                color: Style.textMuted
-                font.pixelSize: 11 + root.uiFontBump
-                font.family: "JetBrainsMono Nerd Font"
               }
 
               Rectangle {
                 id: closeButton
                 Layout.preferredWidth: 26; Layout.preferredHeight: 26; radius: 13
-                color: closeMa.containsMouse ? Style.panelDangerBg : Style.panelControlBg
+                color: closeMa.containsMouse ? Style.menuRowSel : Style.menuControlBg
                 border.width: 1
-                border.color: closeMa.containsMouse ? Style.red : Style.panelCardBorder
-                Text { anchors.centerIn: parent; text: "󰅖"; color: closeMa.containsMouse ? Style.red : Style.textMuted; font.pixelSize: 16 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font" }
+                border.color: closeMa.containsMouse ? Style.menuSeal : Style.menuSep
+                Text { anchors.centerIn: parent; text: "󰅖"; color: closeMa.containsMouse ? Style.menuSeal : Style.menuInkDeep; font.pixelSize: 16 + root.uiFontBump; font.family: root.uiFont }
                 Behavior on color { ColorAnimation { duration: 150 } }
                 Behavior on border.color { ColorAnimation { duration: 150 } }
                 MouseArea { id: closeMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.closeFeature() }
@@ -1057,7 +1059,7 @@ Scope {
             Rectangle {
               Layout.fillWidth: true
               height: 1
-              color: Style.panelDivider
+              color: Style.menuSep
             }
 
             // DYNAMIC VIEWS CONTAINER
@@ -1066,11 +1068,305 @@ Scope {
               Layout.fillHeight: true
 
               // ----------------------------------------------------
-              // DASHBOARD VIEW (HUB)
+              // OVERVIEW GRID (hub) - 3x3 feature tiles + lower CPU/RAM/BAT + latest shots.
+              // Fully styled with Menu* + menu* palette + uiFont from launcher + wallpaper.
+              // ----------------------------------------------------
+              Grid {
+                id: featureGrid
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.margins: 10
+                height: 3 * 86 + 2 * 12
+                columns: 3
+                rowSpacing: 12
+                columnSpacing: 12
+                visible: root.mode === "hub"
+
+                Repeater {
+                  model: [
+                    { key: "hub", icon: "󰕮", label: "Dashboard", sub: "System & quick" },
+                    { key: "wallpaper", icon: "󰸉", label: "Wallpapers", sub: "Browse & set" },
+                    { key: "screenshots", icon: "󰹑", label: "Screenshots", sub: "Recent & capture" },
+                    { key: "media", icon: "󰝚", label: "Media", sub: "Players & mixer" },
+                    { key: "network", icon: "󰈀", label: "Network", sub: "WiFi & LAN" },
+                    { key: "monitors", icon: "󰍹", label: "Monitors", sub: "Layout & control" },
+                    { key: "temp", icon: "󰔄", label: "Temperatures", sub: "Sensors" },
+                    { key: "bluetooth", icon: "󰂯", label: "Bluetooth", sub: "Devices" },
+                    { key: "power", icon: "󰐥", label: "Power", sub: "Session" }
+                  ]
+                  delegate: Item {
+                    required property var modelData
+                    required property int index
+                    readonly property bool selected: root.mode === modelData.key
+                    width: (featureGrid.width - 2 * 12) / 3
+                    height: 86
+
+                    Rectangle {
+                      anchors.fill: parent
+                      anchors.margins: 1
+                      radius: Style.menuRadius
+                      color: selected
+                        ? Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.08)
+                        : tileMouse.containsMouse
+                          ? Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.05)
+                          : Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.03)
+                      border.color: selected ? Style.menuSeal : Style.menuSep
+                      border.width: selected ? 2 : 1
+                      Behavior on color { ColorAnimation { duration: 50 } }
+                      Behavior on border.color { ColorAnimation { duration: 50 } }
+                      Behavior on border.width { NumberAnimation { duration: 50 } }
+                    }
+
+                    Column {
+                      anchors.centerIn: parent
+                      width: parent.width - 18
+                      spacing: 3
+
+                      Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: modelData.icon
+                        color: selected ? Style.menuSeal : Style.menuInk
+                        font.family: root.uiFont
+                        font.pixelSize: 20
+                      }
+                      Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: parent.width
+                        text: modelData.label.toUpperCase()
+                        color: Style.menuInk
+                        font.family: root.uiFont
+                        font.pixelSize: 9
+                        font.letterSpacing: 1.4
+                        font.weight: Font.Medium
+                        elide: Text.ElideRight
+                        horizontalAlignment: Text.AlignHCenter
+                      }
+                      Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: parent.width
+                        text: modelData.sub
+                        color: Style.menuInkDeep
+                        font.family: root.uiFont
+                        font.pixelSize: 8
+                        font.letterSpacing: 1
+                        opacity: 0.85
+                        elide: Text.ElideRight
+                        horizontalAlignment: Text.AlignHCenter
+                      }
+                    }
+
+                    MouseArea {
+                      id: tileMouse
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.activateMode(modelData.key)
+                    }
+                  }
+                }
+              }
+
+              // LOWER of grid (hub only): CPU/RAM/Battery (as previously) + latest 4 shots click-to-copy.
+              // Styled with menu* colors, uiFont, radii, hovers, borders exactly like launcher rows + wallpaper tiles.
+              Item {
+                anchors.top: featureGrid.bottom
+                anchors.topMargin: 14
+                anchors.left: featureGrid.left
+                anchors.right: featureGrid.right
+                height: 112
+                visible: root.mode === "hub"
+
+                RowLayout {
+                  anchors.fill: parent
+                  spacing: 12
+
+                  // left: telemetry bars (CPU / RAM / Battery)
+                  Rectangle {
+                    Layout.preferredWidth: 218
+                    Layout.fillHeight: true
+                    radius: Style.menuRadius
+                    color: Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.03)
+                    border.color: Style.menuSep
+                    border.width: 1
+
+                    ColumnLayout {
+                      anchors.fill: parent
+                      anchors.margins: 10
+                      spacing: 7
+
+                      Repeater {
+                        model: [
+                          { label: "CPU", value: root.sidebarCpu, color: Style.orange },
+                          { label: "RAM", value: root.sidebarMem, color: Style.lavender },
+                          {
+                            label: "BAT",
+                            value: root.sidebarBat,
+                            color: root.sidebarBatStatus === "Charging" ? Style.yellow : (root.sidebarBat < 20 ? Style.red : Style.green)
+                          }
+                        ]
+                        delegate: Item {
+                          required property var modelData
+                          Layout.fillWidth: true
+                          Layout.preferredHeight: 26
+
+                          RowLayout {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            spacing: 8
+
+                            Text {
+                              text: modelData.label
+                              color: Style.menuInkDeep
+                              font.pixelSize: 9
+                              font.family: root.uiFont
+                              font.letterSpacing: 1.2
+                            }
+                            Item { Layout.fillWidth: true }
+                            Text {
+                              text: modelData.value + "%"
+                              color: modelData.color
+                              font.pixelSize: 10
+                              font.family: root.uiFont
+                              font.weight: Font.Medium
+                            }
+                          }
+
+                          Rectangle {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.bottom: parent.bottom
+                            height: 4
+                            radius: 2
+                            color: Style.menuControlBg
+                            Rectangle {
+                              width: parent.width * Math.max(0, Math.min(1, modelData.value / 100))
+                              height: parent.height
+                              radius: 2
+                              color: modelData.color
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+
+                  // right: latest screenshots strip (4, click copy, right open; styled like wp tiles)
+                  Rectangle {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    radius: Style.menuRadius
+                    color: Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.03)
+                    border.color: Style.menuSep
+                    border.width: 1
+
+                    ColumnLayout {
+                      anchors.fill: parent
+                      anchors.margins: 10
+                      spacing: 8
+
+                      Text {
+                        text: "SCREENSHOTS"
+                        color: Style.menuInk
+                        font.pixelSize: 9
+                        font.family: root.uiFont
+                        font.letterSpacing: 1.4
+                        font.weight: Font.Medium
+                      }
+
+                      Grid {
+                        id: lowerShots
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        columns: 4
+                        columnSpacing: 8
+                        rowSpacing: 8
+                        Repeater {
+                          model: root.shots.slice(0, 4)
+                          delegate: Item {
+                            required property var modelData
+                            width: (lowerShots.width - 3 * 8) / 4
+                            height: lowerShots.height
+                            Rectangle {
+                              anchors.fill: parent
+                              radius: Style.menuRadius
+                              clip: true
+                              color: shotMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
+                              border.color: root.copiedShot === modelData.path ? Style.green : Style.menuSep
+                              border.width: root.copiedShot === modelData.path ? 2 : 1
+                              Behavior on color { ColorAnimation { duration: 80 } }
+                              Behavior on border.color { ColorAnimation { duration: 80 } }
+
+                              Image {
+                                anchors.fill: parent
+                                anchors.margins: 1
+                                source: "file://" + modelData.path
+                                fillMode: Image.PreserveAspectCrop
+                                asynchronous: true
+                                sourceSize.width: 180
+                                sourceSize.height: 100
+                              }
+
+                              Rectangle {
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.bottom: parent.bottom
+                                height: 16
+                                color: Qt.rgba(0, 0, 0, 0.62)
+                                Text {
+                                  anchors.centerIn: parent
+                                  text: modelData.label
+                                  color: Style.menuInk
+                                  font.pixelSize: 7
+                                  font.family: root.uiFont
+                                  elide: Text.ElideRight
+                                  width: parent.width - 6
+                                  horizontalAlignment: Text.AlignHCenter
+                                }
+                              }
+
+                              Rectangle {
+                                anchors.fill: parent
+                                color: Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.35)
+                                visible: root.copiedShot === modelData.path
+                                Text {
+                                  anchors.centerIn: parent
+                                  text: "COPIED"
+                                  color: Style.menuInk
+                                  font.pixelSize: 8
+                                  font.family: root.uiFont
+                                  font.weight: Font.Medium
+                                  font.letterSpacing: 1
+                                }
+                              }
+
+                              MouseArea {
+                                id: shotMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                onClicked: (mouse) => {
+                                  if (mouse.button === Qt.RightButton) root.openShot(modelData.path)
+                                  else root.copyShot(modelData.path)
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+
+              // ----------------------------------------------------
+              // DASHBOARD VIEW (HUB) - kept for compatibility but hidden in hub (grid above takes over the overview)
               // ----------------------------------------------------
               ColumnLayout {
                 anchors.fill: parent
-                visible: root.mode === "hub"
+                visible: root.mode === "hub" && false
                 spacing: 12
 
                 RowLayout {
@@ -2573,7 +2869,7 @@ Scope {
                       const ctx = getContext("2d"); ctx.reset()
                       const mons = root.monitorList || []
                       if (!mons.length) {
-                        ctx.fillStyle=Style.textMuted; ctx.font="12px JetBrainsMono Nerd Font"
+                        ctx.fillStyle=Style.textMuted; ctx.font="12px monospace"
                         ctx.fillText("Loading... (Rescan after open)", 10, 20)
                         return
                       }
@@ -2593,9 +2889,9 @@ Scope {
                         ctx.strokeRect(x, y, w, h)
                         ctx.fillStyle = m.focused ? "rgba(137,180,250,0.25)" : "rgba(49,50,68,0.5)"
                         ctx.fillRect(x+1,y+1,w-2,h-2)
-                        ctx.fillStyle = Style.text || "#cdd6f4"; ctx.font="13px JetBrainsMono Nerd Font"
+                        ctx.fillStyle = Style.text || "#cdd6f4"; ctx.font="13px monospace"
                         ctx.fillText((m.name||"mon").slice(0,14), x+8, y+18)
-                        ctx.font="11px JetBrainsMono Nerd Font"
+                        ctx.font="11px monospace"
                         ctx.fillText(
                           Math.round(root.monitorLogicalWidth(m))+"x"+Math.round(root.monitorLogicalHeight(m))+" logical",
                           x+8,
@@ -2697,7 +2993,7 @@ Scope {
                               model: modelData.sensors
                               delegate: Column {
                                 required property var modelData
-                                width: parent.width; spacing: 2
+                                width: groupCol.width; spacing: 2
                                 RowLayout {
                                   width: parent.width
                                   Text {

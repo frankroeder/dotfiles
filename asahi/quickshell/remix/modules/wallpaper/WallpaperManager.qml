@@ -65,7 +65,7 @@ Scope {
         width: parent.width - 34
         spacing: 12
 
-        Row {
+        Item {
           width: parent.width
           height: 28
           Menu.MenuHeader {
