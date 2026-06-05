@@ -26,19 +26,24 @@ Scope {
   // Manual Media page Cava panel height.
   property int mediaCavaHeight: 220
   readonly property int uiFontBump: 2
+  readonly property real uiFontScale: 1.2
   readonly property string uiFont: "Hack Nerd Font"
+  readonly property color menuTileBg: Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.03)
+  readonly property color menuDangerBg: Qt.rgba(Style.red.r, Style.red.g, Style.red.b, 0.16)
+  readonly property color menuSuccessBg: Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.16)
+  function fontPx(size) { return Math.round(size * root.uiFontScale) }
 
   readonly property int menuWidth: {
     const s = root.featureScreen || (Quickshell.screens.length > 0 ? Quickshell.screens[0] : null)
-    return s ? Math.min(1000, Math.round(s.width * 0.9)) : 960
+    return s ? Math.min(1180, Math.round(s.width * 0.94)) : 1120
   }
   readonly property int menuHeight: {
     const s = root.featureScreen || (Quickshell.screens.length > 0 ? Quickshell.screens[0] : null)
-    return s ? Math.min(700, Math.round(s.height * 0.82)) : 640
+    return s ? Math.min(820, Math.round(s.height * 0.88)) : 780
   }
   readonly property int hubMenuHeight: {
     const s = root.featureScreen || (Quickshell.screens.length > 0 ? Quickshell.screens[0] : null)
-    return s ? Math.min(550, Math.round(s.height * 0.66)) : 530
+    return s ? Math.min(660, Math.round(s.height * 0.76)) : 620
   }
 
   readonly property string modeHeaderSubtitle: {
@@ -89,10 +94,10 @@ Scope {
       "sh", "-c",
       "top -bn1 | grep 'Cpu(s)' | awk '{print $2}' ; " +
       "free | grep Mem | awk '{print $3/$2 * 100}' ; " +
-      "cat /sys/class/power_supply/BAT0/capacity 2>/dev/null || " +
-      "cat /sys/class/power_supply/BAT1/capacity 2>/dev/null || echo 100 ; " +
-      "cat /sys/class/power_supply/BAT0/status 2>/dev/null || " +
-      "cat /sys/class/power_supply/BAT1/status 2>/dev/null || echo 'Full'"
+      "for p in /sys/class/power_supply/macsmc-battery /sys/class/power_supply/BAT0 /sys/class/power_supply/BAT1 /sys/class/power_supply/*; do " +
+      "[ -r \"$p/type\" ] || continue; [ \"$(cat \"$p/type\")\" = Battery ] || continue; " +
+      "case \"$p\" in *hid-*) continue;; esac; [ -r \"$p/capacity\" ] || continue; " +
+      "cat \"$p/capacity\"; cat \"$p/status\" 2>/dev/null || echo Unknown; exit; done; echo 100; echo Unknown"
     ]
     stdout: StdioCollector {
       onStreamFinished: {
@@ -101,7 +106,8 @@ Scope {
           if (lines.length >= 4) {
             root.sidebarCpu = Math.round(parseFloat(lines[0]) || 0)
             root.sidebarMem = Math.round(parseFloat(lines[1]) || 0)
-            root.sidebarBat = Math.round(parseFloat(lines[2]) || 100)
+            const bat = parseFloat(lines[2])
+            root.sidebarBat = Number.isFinite(bat) ? Math.max(0, Math.min(100, Math.round(bat))) : 100
             root.sidebarBatStatus = lines[3].trim()
           }
         } catch (_) {}
@@ -118,14 +124,19 @@ Scope {
   property bool wifiEnabled: true
   property string currentWifiSsid: ""
   property bool wifiScanning: false
+  property string wifiDevice: ""
   function scanWifi() {
     wifiScanning = true
-    wifiListProc.running = true
+    wifiProc.running = true
+    if (!wifiListProc.running) wifiListProc.running = true
     wifiPowerCheck.running = true
+    ethCheck.running = true
   }
   Process {
     id: wifiListProc
-    command: ["nmcli", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "dev", "wifi", "list", "--rescan", "auto"]
+    command: root.wifiDevice
+      ? ["nmcli", "-w", "8", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "dev", "wifi", "list", "ifname", root.wifiDevice, "--rescan", "yes"]
+      : ["nmcli", "-w", "8", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "dev", "wifi", "list", "--rescan", "yes"]
     stdout: StdioCollector {
       onStreamFinished: {
         root.wifiScanning = false
@@ -144,7 +155,12 @@ Scope {
         }
         const ai = out.findIndex(n => n.active)
         if (ai > 0) { const a = out.splice(ai, 1)[0]; out.unshift(a) }
-        root.wifiNetworks = out.slice(0, 12)
+        const next = out.slice(0, 12)
+        if (next.length === 1 && next[0].active && root.wifiNetworks.length > 1) {
+          root.wifiNetworks = [next[0]].concat(root.wifiNetworks.filter(n => n.ssid !== next[0].ssid)).slice(0, 12)
+        } else {
+          root.wifiNetworks = next
+        }
       }
     }
   }
@@ -158,11 +174,7 @@ Scope {
   }
   Timer {
     interval: 6000; running: shouldShow && root.mode === "network"; repeat: true
-    onTriggered: {
-      wifiProc.running = true
-      wifiPowerCheck.running = true
-      ethCheck.running = true
-    }
+    onTriggered: root.scanWifi()
   }
 
   // fastfetch for Dashboard (more system info like requested; --logo none keeps it compact)
@@ -194,6 +206,7 @@ Scope {
         const lines = text.trim().split("\n").filter(l => l)
         for (const line of lines) {
           const p = line.split(":")
+          if (p[1] === "wifi" && !root.wifiDevice) root.wifiDevice = p[0] || ""
           if (p[1] !== "ethernet") continue
           devices.push({ device: p[0] || "", state: p[2] || "", connection: p.slice(3).join(":") || "" })
         }
@@ -715,6 +728,7 @@ Scope {
     wifiPowerCheck.running = true
     ffProc.running = true
     ethCheck.running = true
+    sidebarProc.running = true
     monitorsProc.running = true
     tempProc.running = true
     root.activateMode(nextMode || "hub")
@@ -805,7 +819,7 @@ Scope {
           Layout.preferredWidth: 0
           Layout.fillHeight: true
           visible: false
-          color: Style.panelSidebarBg
+          color: Style.menuBg
           topLeftRadius: 16
           bottomLeftRadius: 16
 
@@ -815,7 +829,7 @@ Scope {
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             width: 1
-            color: Style.panelDivider
+            color: Style.menuSep
           }
 
           ColumnLayout {
@@ -832,15 +846,15 @@ Scope {
                 width: 38
                 height: 38
                 radius: 19
-                color: Style.panelCardBg
+                color: root.menuTileBg
                 border.width: 1
-                border.color: Style.panelCardBorder
+                border.color: Style.menuSep
                 Text {
                   anchors.centerIn: parent
                   visible: distroIcon.source === ""
                   text: ""
-                  font.pixelSize: 20 + root.uiFontBump
-                  color: Style.blue || "#89b4fa"
+                  font.pixelSize: root.fontPx(20 + root.uiFontBump)
+                  color: Style.menuIndigo
                 }
                 IconImage {
                   id: distroIcon
@@ -853,16 +867,16 @@ Scope {
               Column {
                 Text {
                   text: "froeder"
-                  color: Style.text || "#cdd6f4"
-                  font.pixelSize: 13 + root.uiFontBump
+                  color: Style.menuInk
+                  font.pixelSize: root.fontPx(13 + root.uiFontBump)
                   font.bold: true
-                  font.family: "JetBrainsMono Nerd Font"
+                  font.family: root.uiFont
                 }
                 Text {
                   text: "@asahi"
-                  color: Style.textMuted || "#a6adc8"
-                  font.pixelSize: 10 + root.uiFontBump
-                  font.family: "JetBrainsMono Nerd Font"
+                  color: Style.menuInkDeep
+                  font.pixelSize: root.fontPx(10 + root.uiFontBump)
+                  font.family: root.uiFont
                 }
               }
             }
@@ -870,7 +884,7 @@ Scope {
             Rectangle {
               Layout.fillWidth: true
               height: 1
-              color: Style.panelDivider
+              color: Style.menuSep
             }
 
             // Navigation menu list
@@ -900,9 +914,9 @@ Scope {
                   Layout.fillWidth: true
                   height: 34
                   radius: 8
-                  color: isActive ? Style.panelCardActive : (isHovered ? Style.panelCardHover : "transparent")
+                  color: isActive ? Style.menuRowSel : (isHovered ? Style.menuRowHi : "transparent")
                   border.width: 1
-                  border.color: isActive ? Style.panelAccentBorder : (isHovered ? Style.panelCardBorderHover : "transparent")
+                  border.color: isActive ? Style.menuSeal : (isHovered ? Style.menuSep : "transparent")
                   scale: isHovered && !isActive ? 1.015 : 1.0
 
                   Behavior on color { ColorAnimation { duration: 150 } }
@@ -915,7 +929,7 @@ Scope {
                     anchors.bottom: parent.bottom
                     width: 3
                     radius: 1.5
-                    color: Style.sky
+                    color: Style.menuSeal
                     opacity: navRow.isActive ? 1 : 0
 
                     Behavior on opacity { NumberAnimation { duration: 150 } }
@@ -929,19 +943,19 @@ Scope {
 
                     Text {
                       text: modelData.icon
-                      font.pixelSize: 14 + root.uiFontBump
-                      color: navRow.isActive ? Style.sky : (navRow.isHovered ? Style.text : Style.textMuted)
-                      font.family: "JetBrainsMono Nerd Font"
+                      font.pixelSize: root.fontPx(14 + root.uiFontBump)
+                      color: navRow.isActive ? Style.menuSeal : (navRow.isHovered ? Style.menuInk : Style.menuInkDeep)
+                      font.family: root.uiFont
                       Layout.preferredWidth: 18
                       horizontalAlignment: Text.AlignHCenter
                       Behavior on color { ColorAnimation { duration: 150 } }
                     }
                     Text {
                       text: modelData.label
-                      font.pixelSize: 11 + root.uiFontBump
+                      font.pixelSize: root.fontPx(11 + root.uiFontBump)
                       font.bold: navRow.isActive
-                      color: navRow.isActive ? Style.text : Style.textAlt
-                      font.family: "JetBrainsMono Nerd Font"
+                      color: navRow.isActive ? Style.menuInk : Style.menuInkDeep
+                      font.family: root.uiFont
                       Behavior on color { ColorAnimation { duration: 150 } }
                     }
                   }
@@ -963,7 +977,7 @@ Scope {
             Rectangle {
               Layout.fillWidth: true
               height: 1
-              color: Style.panelDivider
+              color: Style.menuSep
             }
 
             // Quick stats telemetry in sidebar
@@ -975,12 +989,12 @@ Scope {
                 Layout.fillWidth: true
                 spacing: 2
                 RowLayout {
-                  Text { text: "CPU Load"; font.pixelSize: 10 + root.uiFontBump; color: Style.textMuted; font.family: "JetBrainsMono Nerd Font" }
+                  Text { text: "CPU Load"; font.pixelSize: root.fontPx(10 + root.uiFontBump); color: Style.menuInkDeep; font.family: root.uiFont }
                   Item { Layout.fillWidth: true }
-                  Text { text: root.sidebarCpu + "%"; font.pixelSize: 10 + root.uiFontBump; color: Style.orange || "#fab387"; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
+                  Text { text: root.sidebarCpu + "%"; font.pixelSize: root.fontPx(10 + root.uiFontBump); color: Style.orange || "#fab387"; font.family: root.uiFont; font.bold: true }
                 }
                 Rectangle {
-                  Layout.fillWidth: true; height: 5; radius: 2.5; color: Style.panelControlBg
+                  Layout.fillWidth: true; height: 5; radius: 2.5; color: Style.menuControlBg
                   Rectangle { width: parent.width * root.sidebarCpu / 100; height: parent.height; radius: 2.5; color: Style.orange || "#fab387" }
                 }
               }
@@ -989,12 +1003,12 @@ Scope {
                 Layout.fillWidth: true
                 spacing: 2
                 RowLayout {
-                  Text { text: "Memory"; font.pixelSize: 10 + root.uiFontBump; color: Style.textMuted; font.family: "JetBrainsMono Nerd Font" }
+                  Text { text: "Memory"; font.pixelSize: root.fontPx(10 + root.uiFontBump); color: Style.menuInkDeep; font.family: root.uiFont }
                   Item { Layout.fillWidth: true }
-                  Text { text: root.sidebarMem + "%"; font.pixelSize: 10 + root.uiFontBump; color: Style.lavender || "#b4befe"; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
+                  Text { text: root.sidebarMem + "%"; font.pixelSize: root.fontPx(10 + root.uiFontBump); color: Style.lavender || "#b4befe"; font.family: root.uiFont; font.bold: true }
                 }
                 Rectangle {
-                  Layout.fillWidth: true; height: 5; radius: 2.5; color: Style.panelControlBg
+                  Layout.fillWidth: true; height: 5; radius: 2.5; color: Style.menuControlBg
                   Rectangle { width: parent.width * root.sidebarMem / 100; height: parent.height; radius: 2.5; color: Style.lavender || "#b4befe" }
                 }
               }
@@ -1003,12 +1017,12 @@ Scope {
                 Layout.fillWidth: true
                 spacing: 2
                 RowLayout {
-                  Text { text: "Battery"; font.pixelSize: 10 + root.uiFontBump; color: Style.textMuted; font.family: "JetBrainsMono Nerd Font" }
+                  Text { text: "Battery"; font.pixelSize: root.fontPx(10 + root.uiFontBump); color: Style.menuInkDeep; font.family: root.uiFont }
                   Item { Layout.fillWidth: true }
-                  Text { text: root.sidebarBat + "%"; font.pixelSize: 10 + root.uiFontBump; color: Style.green || "#a6e3a1"; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
+                  Text { text: root.sidebarBat + "%"; font.pixelSize: root.fontPx(10 + root.uiFontBump); color: Style.green || "#a6e3a1"; font.family: root.uiFont; font.bold: true }
                 }
                 Rectangle {
-                  Layout.fillWidth: true; height: 5; radius: 2.5; color: Style.panelControlBg
+                  Layout.fillWidth: true; height: 5; radius: 2.5; color: Style.menuControlBg
                   Rectangle { width: parent.width * root.sidebarBat / 100; height: parent.height; radius: 2.5; color: root.sidebarBatStatus === "Charging" ? Style.yellow : (root.sidebarBat < 20 ? Style.red : Style.green) }
                 }
               }
@@ -1049,7 +1063,7 @@ Scope {
                 color: closeMa.containsMouse ? Style.menuRowSel : Style.menuControlBg
                 border.width: 1
                 border.color: closeMa.containsMouse ? Style.menuSeal : Style.menuSep
-                Text { anchors.centerIn: parent; text: "󰅖"; color: closeMa.containsMouse ? Style.menuSeal : Style.menuInkDeep; font.pixelSize: 16 + root.uiFontBump; font.family: root.uiFont }
+                Text { anchors.centerIn: parent; text: "󰅖"; color: closeMa.containsMouse ? Style.menuSeal : Style.menuInkDeep; font.pixelSize: root.fontPx(16 + root.uiFontBump); font.family: root.uiFont }
                 Behavior on color { ColorAnimation { duration: 150 } }
                 Behavior on border.color { ColorAnimation { duration: 150 } }
                 MouseArea { id: closeMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.closeFeature() }
@@ -1128,7 +1142,7 @@ Scope {
                         text: modelData.icon
                         color: selected ? Style.menuSeal : Style.menuInk
                         font.family: root.uiFont
-                        font.pixelSize: 20
+                        font.pixelSize: root.fontPx(20)
                       }
                       Text {
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -1136,7 +1150,7 @@ Scope {
                         text: modelData.label.toUpperCase()
                         color: Style.menuInk
                         font.family: root.uiFont
-                        font.pixelSize: 9
+                        font.pixelSize: root.fontPx(9)
                         font.letterSpacing: 1.4
                         font.weight: Font.Medium
                         elide: Text.ElideRight
@@ -1148,7 +1162,7 @@ Scope {
                         text: modelData.sub
                         color: Style.menuInkDeep
                         font.family: root.uiFont
-                        font.pixelSize: 8
+                        font.pixelSize: root.fontPx(8)
                         font.letterSpacing: 1
                         opacity: 0.85
                         elide: Text.ElideRight
@@ -1197,16 +1211,20 @@ Scope {
 
                       Repeater {
                         model: [
-                          { label: "CPU", value: root.sidebarCpu, color: Style.orange },
-                          { label: "RAM", value: root.sidebarMem, color: Style.lavender },
-                          {
-                            label: "BAT",
-                            value: root.sidebarBat,
-                            color: root.sidebarBatStatus === "Charging" ? Style.yellow : (root.sidebarBat < 20 ? Style.red : Style.green)
-                          }
+                          { label: "CPU", key: "cpu" },
+                          { label: "RAM", key: "ram" },
+                          { label: "BAT", key: "bat" }
                         ]
                         delegate: Item {
                           required property var modelData
+                          readonly property int meterValue: modelData.key === "cpu"
+                            ? root.sidebarCpu
+                            : (modelData.key === "ram" ? root.sidebarMem : root.sidebarBat)
+                          readonly property color meterColor: modelData.key === "cpu"
+                            ? Style.orange
+                            : (modelData.key === "ram"
+                              ? Style.lavender
+                              : (root.sidebarBatStatus === "Charging" ? Style.yellow : (root.sidebarBat < 20 ? Style.red : Style.green)))
                           Layout.fillWidth: true
                           Layout.preferredHeight: 26
 
@@ -1219,15 +1237,15 @@ Scope {
                             Text {
                               text: modelData.label
                               color: Style.menuInkDeep
-                              font.pixelSize: 9
+                              font.pixelSize: root.fontPx(9)
                               font.family: root.uiFont
                               font.letterSpacing: 1.2
                             }
                             Item { Layout.fillWidth: true }
                             Text {
-                              text: modelData.value + "%"
-                              color: modelData.color
-                              font.pixelSize: 10
+                              text: meterValue + "%"
+                              color: meterColor
+                              font.pixelSize: root.fontPx(10)
                               font.family: root.uiFont
                               font.weight: Font.Medium
                             }
@@ -1241,10 +1259,10 @@ Scope {
                             radius: 2
                             color: Style.menuControlBg
                             Rectangle {
-                              width: parent.width * Math.max(0, Math.min(1, modelData.value / 100))
+                              width: parent.width * Math.max(0, Math.min(1, meterValue / 100))
                               height: parent.height
                               radius: 2
-                              color: modelData.color
+                              color: meterColor
                             }
                           }
                         }
@@ -1269,7 +1287,7 @@ Scope {
                       Text {
                         text: "SCREENSHOTS"
                         color: Style.menuInk
-                        font.pixelSize: 9
+                        font.pixelSize: root.fontPx(9)
                         font.family: root.uiFont
                         font.letterSpacing: 1.4
                         font.weight: Font.Medium
@@ -1318,7 +1336,7 @@ Scope {
                                   anchors.centerIn: parent
                                   text: modelData.label
                                   color: Style.menuInk
-                                  font.pixelSize: 7
+                                  font.pixelSize: root.fontPx(7)
                                   font.family: root.uiFont
                                   elide: Text.ElideRight
                                   width: parent.width - 6
@@ -1334,7 +1352,7 @@ Scope {
                                   anchors.centerIn: parent
                                   text: "COPIED"
                                   color: Style.menuInk
-                                  font.pixelSize: 8
+                                  font.pixelSize: root.fontPx(8)
                                   font.family: root.uiFont
                                   font.weight: Font.Medium
                                   font.letterSpacing: 1
@@ -1380,8 +1398,8 @@ Scope {
                     Layout.fillHeight: true
                     Layout.preferredWidth: 1.2
                     radius: 12
-                    color: Style.panelCardBg
-                    border.color: Style.panelCardBorder
+                    color: root.menuTileBg
+                    border.color: Style.menuSep
                     border.width: 1
 
                     ColumnLayout {
@@ -1391,10 +1409,10 @@ Scope {
 
                       Text {
                         text: "󰌢  System Information"
-                        color: Style.blue
-                        font.pixelSize: 13 + root.uiFontBump
+                        color: Style.menuIndigo
+                        font.pixelSize: root.fontPx(13 + root.uiFontBump)
                         font.bold: true
-                        font.family: "JetBrainsMono Nerd Font"
+                        font.family: root.uiFont
                       }
 
                       // fastfetch pane (compact no-logo system overview)
@@ -1402,8 +1420,8 @@ Scope {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 320
                         radius: 6
-                        color: Style.panelControlBg
-                        border.color: Style.panelCardBorder
+                        color: Style.menuControlBg
+                        border.color: Style.menuSep
                         border.width: 1
                         clip: true
                         Flickable {
@@ -1412,7 +1430,7 @@ Scope {
                           Text {
                             id: ffText
                             text: root.fastfetchOut || "loading system info..."
-                            font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10 + root.uiFontBump; color: Style.text
+                            font.family: root.uiFont; font.pixelSize: root.fontPx(10 + root.uiFontBump); color: Style.menuInk
                             wrapMode: Text.Wrap; width: parent.width
                           }
                         }
@@ -1427,18 +1445,18 @@ Scope {
                           Layout.fillWidth: true
                           Text {
                             text: "󰹑  Recent Screenshots"
-                            color: Style.textMuted
-                            font.pixelSize: 11 + root.uiFontBump
-                            font.family: "JetBrainsMono Nerd Font"
+                            color: Style.menuInkDeep
+                            font.pixelSize: root.fontPx(11 + root.uiFontBump)
+                            font.family: root.uiFont
                             font.bold: true
                           }
                           Item { Layout.fillWidth: true }
                           Text {
                             visible: root.shots.length > 0
                             text: "view all →"
-                            color: Style.sky
-                            font.pixelSize: 10 + root.uiFontBump
-                            font.family: "JetBrainsMono Nerd Font"
+                            color: Style.menuSeal
+                            font.pixelSize: root.fontPx(10 + root.uiFontBump)
+                            font.family: root.uiFont
                             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.mode = "screenshots" }
                           }
                         }
@@ -1463,8 +1481,8 @@ Scope {
                               anchors.margins: 4
                               radius: 8
                               clip: true
-                              color: dashShotMa.containsMouse ? Style.panelControlHover : Style.panelControlBg
-                              border.color: root.copiedShot === modelData.path ? Style.green : (dashShotMa.containsMouse ? Style.panelCardBorderHover : Style.panelCardBorder)
+                              color: dashShotMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
+                              border.color: root.copiedShot === modelData.path ? Style.green : (dashShotMa.containsMouse ? Style.menuSep : Style.menuSep)
                               border.width: root.copiedShot === modelData.path ? 2 : 1
                               scale: dashShotMa.containsMouse ? 1.025 : 1.0
 
@@ -1493,8 +1511,8 @@ Scope {
                                   width: parent.width - 8
                                   text: modelData.label
                                   color: "#ffffff"
-                                  font.pixelSize: 9 + root.uiFontBump
-                                  font.family: "JetBrainsMono Nerd Font"
+                                  font.pixelSize: root.fontPx(9 + root.uiFontBump)
+                                  font.family: root.uiFont
                                   elide: Text.ElideRight
                                   horizontalAlignment: Text.AlignHCenter
                                 }
@@ -1504,7 +1522,7 @@ Scope {
                                 anchors.fill: parent
                                 color: Qt.rgba(0.4, 0.8, 0.5, 0.32)
                                 visible: root.copiedShot === modelData.path
-                                Text { anchors.centerIn: parent; text: "COPIED"; color: "#ffffff"; font.pixelSize: 11 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
+                                Text { anchors.centerIn: parent; text: "COPIED"; color: "#ffffff"; font.pixelSize: root.fontPx(11 + root.uiFontBump); font.family: root.uiFont; font.bold: true }
                               }
 
                               MouseArea {
@@ -1525,10 +1543,10 @@ Scope {
                                 radius: 12
                                 z: 4
                                 visible: dashShotMa.containsMouse
-                                color: Style.panelControlBg
+                                color: Style.menuControlBg
                                 border.width: 1
-                                border.color: Style.panelCardBorderHover
-                                Text { anchors.centerIn: parent; text: "󰋲"; color: Style.sky; font.pixelSize: 12 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font" }
+                                border.color: Style.menuSep
+                                Text { anchors.centerIn: parent; text: "󰋲"; color: Style.menuSeal; font.pixelSize: root.fontPx(12 + root.uiFontBump); font.family: root.uiFont }
                                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.previewShot(modelData.path) }
                               }
                             }
@@ -1538,9 +1556,9 @@ Scope {
                         Text {
                           visible: root.shots.length === 0
                           text: "No screenshots yet"
-                          color: Style.textMuted
-                          font.pixelSize: 10 + root.uiFontBump
-                          font.family: "JetBrainsMono Nerd Font"
+                          color: Style.menuInkDeep
+                          font.pixelSize: root.fontPx(10 + root.uiFontBump)
+                          font.family: root.uiFont
                           Layout.alignment: Qt.AlignHCenter
                         }
                       }
@@ -1558,8 +1576,8 @@ Scope {
                       Layout.fillWidth: true
                       Layout.fillHeight: true
                       radius: 12
-                      color: Style.panelCardBg
-                      border.color: Style.panelCardBorder
+                      color: root.menuTileBg
+                      border.color: Style.menuSep
                       border.width: 1
 
                       ColumnLayout {
@@ -1569,10 +1587,10 @@ Scope {
 
                         Text {
                           text: "󰎈  Now Playing"
-                          color: Style.blue
-                          font.pixelSize: 13 + root.uiFontBump
+                          color: Style.menuIndigo
+                          font.pixelSize: root.fontPx(13 + root.uiFontBump)
                           font.bold: true
-                          font.family: "JetBrainsMono Nerd Font"
+                          font.family: root.uiFont
                         }
 
                         RowLayout {
@@ -1583,11 +1601,11 @@ Scope {
                             width: 36
                             height: 36
                             radius: 8
-                            color: Style.panelControlBg
+                            color: Style.menuControlBg
                             Text {
                               anchors.centerIn: parent
                               text: "󰎆"
-                              font.pixelSize: 18 + root.uiFontBump
+                              font.pixelSize: root.fontPx(18 + root.uiFontBump)
                               color: Style.green
                             }
                           }
@@ -1601,10 +1619,10 @@ Scope {
                                 if (!p) return "No media playing"
                                 return p.trackTitle || "Unknown Track"
                               }
-                              color: Style.text
-                              font.pixelSize: 12 + root.uiFontBump
+                              color: Style.menuInk
+                              font.pixelSize: root.fontPx(12 + root.uiFontBump)
                               font.bold: true
-                              font.family: "JetBrainsMono Nerd Font"
+                              font.family: root.uiFont
                               elide: Text.ElideRight
                               Layout.fillWidth: true
                             }
@@ -1614,9 +1632,9 @@ Scope {
                                 if (!p) return "System Player"
                                 return p.trackArtist || "Unknown Artist"
                               }
-                              color: Style.textMuted
-                              font.pixelSize: 10 + root.uiFontBump
-                              font.family: "JetBrainsMono Nerd Font"
+                              color: Style.menuInkDeep
+                              font.pixelSize: root.fontPx(10 + root.uiFontBump)
+                              font.family: root.uiFont
                               elide: Text.ElideRight
                               Layout.fillWidth: true
                             }
@@ -1634,7 +1652,7 @@ Scope {
                               const p = root.activePlayer
                               if (p && p.canGoPrevious) p.previous()
                             }
-                            Text { anchors.centerIn: parent; text: "󰒮"; font.pixelSize: 18 + root.uiFontBump; color: Style.textMuted; font.family: "JetBrainsMono Nerd Font" }
+                            Text { anchors.centerIn: parent; text: "󰒮"; font.pixelSize: root.fontPx(18 + root.uiFontBump); color: Style.menuInkDeep; font.family: root.uiFont }
                           }
 
                           Rectangle {
@@ -1648,9 +1666,9 @@ Scope {
                                 const p = root.activePlayer
                                 return (p && p.isPlaying) ? "󰏤" : "󰐊"
                               }
-                              font.pixelSize: 16 + root.uiFontBump
+                              font.pixelSize: root.fontPx(16 + root.uiFontBump)
                               color: Style.green
-                              font.family: "JetBrainsMono Nerd Font"
+                              font.family: root.uiFont
                             }
                             MouseArea {
                               anchors.fill: parent; cursorShape: Qt.PointingHandCursor
@@ -1667,7 +1685,7 @@ Scope {
                               const p = root.activePlayer
                               if (p && p.canGoNext) p.next()
                             }
-                            Text { anchors.centerIn: parent; text: "󰒭"; font.pixelSize: 18 + root.uiFontBump; color: Style.textMuted; font.family: "JetBrainsMono Nerd Font" }
+                            Text { anchors.centerIn: parent; text: "󰒭"; font.pixelSize: root.fontPx(18 + root.uiFontBump); color: Style.menuInkDeep; font.family: root.uiFont }
                           }
                         }
                       }
@@ -1679,8 +1697,8 @@ Scope {
                       Layout.fillHeight: true
                       radius: 12
                       clip: true
-                      color: Style.panelCardBg
-                      border.color: Style.panelCardBorder
+                      color: root.menuTileBg
+                      border.color: Style.menuSep
                       border.width: 1
 
                       Image {
@@ -1700,19 +1718,19 @@ Scope {
 
                         Text {
                           text: "󰸉  Active Wallpaper"
-                          color: Style.text
-                          font.pixelSize: 12 + root.uiFontBump
+                          color: Style.menuInk
+                          font.pixelSize: root.fontPx(12 + root.uiFontBump)
                           font.bold: true
-                          font.family: "JetBrainsMono Nerd Font"
+                          font.family: root.uiFont
                           style: Text.Outline; styleColor: "#000000"
                         }
                         Item { Layout.fillHeight: true }
                         Text {
                           text: WallpaperModule.WallpaperService.currentWallpaper ? WallpaperModule.WallpaperService.currentWallpaper.split("/").pop() : "No wallpaper active"
-                          color: Style.text
-                          font.pixelSize: 10 + root.uiFontBump
+                          color: Style.menuInk
+                          font.pixelSize: root.fontPx(10 + root.uiFontBump)
                           font.bold: true
-                          font.family: "JetBrainsMono Nerd Font"
+                          font.family: root.uiFont
                           elide: Text.ElideRight
                           Layout.fillWidth: true
                           style: Text.Outline; styleColor: "#000000"
@@ -1745,8 +1763,8 @@ Scope {
                     delegate: Rectangle {
                       required property var modelData
                       Layout.fillWidth: true; height: 32; radius: 8
-                      color: reloadMa.containsMouse ? Style.panelControlHover : Style.panelControlBg
-                      border.color: reloadMa.containsMouse ? Style.panelCardBorderHover : Style.panelCardBorder
+                      color: reloadMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
+                      border.color: reloadMa.containsMouse ? Style.menuSep : Style.menuSep
                       border.width: 1
                       scale: reloadMa.containsMouse ? 1.02 : 1.0
 
@@ -1754,7 +1772,7 @@ Scope {
                       Behavior on border.color { ColorAnimation { duration: 140 } }
                       Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
-                      Row { anchors.centerIn: parent; spacing: 6; Text { text: modelData.icon; font.pixelSize: 13 + root.uiFontBump; color: Style.blue; font.family: "JetBrainsMono Nerd Font" } Text { text: modelData.label; font.pixelSize: 11 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font" } }
+                      Row { anchors.centerIn: parent; spacing: 6; Text { text: modelData.icon; font.pixelSize: root.fontPx(13 + root.uiFontBump); color: Style.menuIndigo; font.family: root.uiFont } Text { text: modelData.label; font.pixelSize: root.fontPx(11 + root.uiFontBump); color: Style.menuInk; font.family: root.uiFont } }
                       MouseArea { id: reloadMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: modelData.act() }
                     }
                   }
@@ -1773,8 +1791,8 @@ Scope {
                   Layout.fillWidth: true
                   height: 36
                   radius: 8
-                  color: Style.panelControlBg
-                  border.color: searchInput.activeFocus ? Style.panelCardBorderHover : Style.panelCardBorder
+                  color: Style.menuControlBg
+                  border.color: searchInput.activeFocus ? Style.menuSep : Style.menuSep
                   border.width: 1
                   Behavior on border.color { ColorAnimation { duration: 140 } }
 
@@ -1788,9 +1806,9 @@ Scope {
                       id: searchInput
                       Layout.fillWidth: true
                       Layout.alignment: Qt.AlignVCenter
-                      color: Style.text || "#cdd6f4"
-                      font.pixelSize: 13 + root.uiFontBump
-                      font.family: "JetBrainsMono Nerd Font"
+                      color: Style.menuInk
+                      font.pixelSize: root.fontPx(13 + root.uiFontBump)
+                      font.family: root.uiFont
                       clip: true
                       selectByMouse: true
                       onTextChanged: root.wallpaperSearchText = text
@@ -1798,9 +1816,9 @@ Scope {
 
                     Text {
                       text: "Search wallpapers..."
-                      color: Style.textMuted || "#a6adc8"
-                      font.pixelSize: 13 + root.uiFontBump
-                      font.family: "JetBrainsMono Nerd Font"
+                      color: Style.menuInkDeep
+                      font.pixelSize: root.fontPx(13 + root.uiFontBump)
+                      font.family: root.uiFont
                       visible: searchInput.text === "" && !searchInput.activeFocus
                     }
                   }
@@ -1828,8 +1846,8 @@ Scope {
                       anchors.fill: parent
                       anchors.margins: 4
                       radius: 8
-                      color: wallGridMa.containsMouse ? Style.panelControlHover : Style.panelControlBg
-                      border.color: WallpaperModule.WallpaperService.currentWallpaper === modelData ? Style.green : (wallGridMa.containsMouse ? Style.panelCardBorderHover : Style.panelCardBorder)
+                      color: wallGridMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
+                      border.color: WallpaperModule.WallpaperService.currentWallpaper === modelData ? Style.green : (wallGridMa.containsMouse ? Style.menuSep : Style.menuSep)
                       border.width: WallpaperModule.WallpaperService.currentWallpaper === modelData ? 2 : 1
                       clip: true
                       scale: wallGridMa.containsMouse ? 1.025 : 1.0
@@ -1849,9 +1867,9 @@ Scope {
 
                         Rectangle {
                           anchors.fill: parent
-                          color: Style.panelControlBg
+                          color: Style.menuControlBg
                           visible: parent.status !== Image.Ready
-                          Text { anchors.centerIn: parent; text: "󰋩"; color: Style.textMuted; font.pixelSize: 22 + root.uiFontBump }
+                          Text { anchors.centerIn: parent; text: "󰋩"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(22 + root.uiFontBump) }
                         }
                       }
 
@@ -1861,7 +1879,7 @@ Scope {
                         anchors.right: parent.right
                         height: 20
                         color: Qt.rgba(0, 0, 0, 0.6)
-                        Text { anchors.centerIn: parent; text: modelData.split("/").pop(); color: "#ffffff"; font.pixelSize: 9 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; elide: Text.ElideMiddle; width: parent.width - 6; horizontalAlignment: Text.AlignHCenter }
+                        Text { anchors.centerIn: parent; text: modelData.split("/").pop(); color: "#ffffff"; font.pixelSize: root.fontPx(9 + root.uiFontBump); font.family: root.uiFont; elide: Text.ElideMiddle; width: parent.width - 6; horizontalAlignment: Text.AlignHCenter }
                       }
 
                       Rectangle {
@@ -1871,7 +1889,7 @@ Scope {
                         width: 18; height: 18; radius: 9
                         color: Style.green
                         visible: WallpaperModule.WallpaperService.currentWallpaper === modelData
-                        Text { anchors.centerIn: parent; text: "✓"; color: Style.bg || "#1e1e2e"; font.pixelSize: 11 + root.uiFontBump; font.bold: true }
+                        Text { anchors.centerIn: parent; text: "✓"; color: Style.menuPaper; font.pixelSize: root.fontPx(11 + root.uiFontBump); font.bold: true }
                       }
 
                       MouseArea {
@@ -1896,9 +1914,9 @@ Scope {
                 RowLayout {
                   Layout.fillWidth: true
                   spacing: 12
-                  Text { text: "Left-click: apply • Right-click: widescreen preview"; color: Style.textMuted; font.pixelSize: 10 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font" }
+                  Text { text: "Left-click: apply • Right-click: widescreen preview"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(10 + root.uiFontBump); font.family: root.uiFont }
                   Item { Layout.fillWidth: true }
-                  Text { text: WallpaperModule.WallpaperService.wallpapers.length + " wallpapers"; color: Style.textMuted; font.pixelSize: 10 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font" }
+                  Text { text: WallpaperModule.WallpaperService.wallpapers.length + " wallpapers"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(10 + root.uiFontBump); font.family: root.uiFont }
                 }
               }
 
@@ -1930,8 +1948,8 @@ Scope {
                       anchors.fill: parent
                       anchors.margins: 4
                       radius: 8; clip: true
-                      color: hma.containsMouse ? Style.panelControlHover : Style.panelControlBg
-                      border.color: root.copiedShot === modelData.path ? Style.green : (hma.containsMouse ? Style.panelCardBorderHover : Style.panelCardBorder)
+                      color: hma.containsMouse ? Style.menuRowHi : Style.menuControlBg
+                      border.color: root.copiedShot === modelData.path ? Style.green : (hma.containsMouse ? Style.menuSep : Style.menuSep)
                       border.width: root.copiedShot === modelData.path ? 2 : 1
                       scale: hma.containsMouse ? 1.025 : 1.0
 
@@ -1950,12 +1968,12 @@ Scope {
 
                       Rectangle {
                         anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.right: parent.right; height: 18; color: Qt.rgba(0,0,0,0.55)
-                        Text { anchors.centerIn: parent; text: modelData.label; color: "#ffffff"; font.pixelSize: 9 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; elide: Text.ElideRight; width: parent.width-6; horizontalAlignment: Text.AlignHCenter }
+                        Text { anchors.centerIn: parent; text: modelData.label; color: "#ffffff"; font.pixelSize: root.fontPx(9 + root.uiFontBump); font.family: root.uiFont; elide: Text.ElideRight; width: parent.width-6; horizontalAlignment: Text.AlignHCenter }
                       }
 
                       Rectangle {
                         anchors.fill: parent; anchors.margins: 1; radius: 6; color: Qt.rgba(0.4,0.8,0.5,0.32); visible: root.copiedShot === modelData.path
-                        Text { anchors.centerIn: parent; text: "COPIED"; color: "#ffffff"; font.pixelSize: 12 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
+                        Text { anchors.centerIn: parent; text: "COPIED"; color: "#ffffff"; font.pixelSize: root.fontPx(12 + root.uiFontBump); font.family: root.uiFont; font.bold: true }
                       }
 
                       MouseArea {
@@ -1972,16 +1990,16 @@ Scope {
                         radius: 12
                         z: 4
                         visible: hma.containsMouse
-                        color: Style.panelControlBg
+                        color: Style.menuControlBg
                         border.width: 1
-                        border.color: Style.panelCardBorderHover
-                        Text { anchors.centerIn: parent; text: "󰋲"; color: Style.sky; font.pixelSize: 12 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font" }
+                        border.color: Style.menuSep
+                        Text { anchors.centerIn: parent; text: "󰋲"; color: Style.menuSeal; font.pixelSize: root.fontPx(12 + root.uiFontBump); font.family: root.uiFont }
                         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.previewShot(modelData.path) }
                       }
                     }
                   }
                 }
-                Text { visible: root.shots.length === 0; text: "No screenshots in ~/screenshots"; color: Style.textMuted; font.pixelSize: 11 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; Layout.alignment: Qt.AlignHCenter }
+                Text { visible: root.shots.length === 0; text: "No screenshots in ~/screenshots"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(11 + root.uiFontBump); font.family: root.uiFont; Layout.alignment: Qt.AlignHCenter }
               }
 
               // ----------------------------------------------------
@@ -1996,8 +2014,8 @@ Scope {
                 Rectangle {
                   Layout.fillWidth: true
                   radius: 12
-                  color: Style.panelCardBg
-                  border.color: Style.panelCardBorder
+                  color: root.menuTileBg
+                  border.color: Style.menuSep
                   border.width: 1
                   Layout.preferredHeight: 76
                   Layout.maximumHeight: 76
@@ -2007,7 +2025,7 @@ Scope {
                     anchors.margins: 12
                     spacing: 8
 
-                    Text { text: "󰎈  Now Playing Status"; color: Style.blue; font.pixelSize: 12 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
+                    Text { text: "󰎈  Now Playing Status"; color: Style.menuIndigo; font.pixelSize: root.fontPx(12 + root.uiFontBump); font.family: root.uiFont; font.bold: true }
 
                     RowLayout {
                       Layout.fillWidth: true
@@ -2022,10 +2040,10 @@ Scope {
                             if (!p) return "No active media player"
                             return (p.trackArtist || "Unknown Artist") + " — " + (p.trackTitle || "Unknown Track")
                           }
-                          color: Style.text
-                          font.pixelSize: 12 + root.uiFontBump
+                          color: Style.menuInk
+                          font.pixelSize: root.fontPx(12 + root.uiFontBump)
                           font.bold: true
-                          font.family: "JetBrainsMono Nerd Font"
+                          font.family: root.uiFont
                           elide: Text.ElideRight
                           Layout.fillWidth: true
                         }
@@ -2040,7 +2058,7 @@ Scope {
                             const p = root.activePlayer
                             if (p && p.canGoPrevious) p.previous()
                           }
-                          Text { text: "󰒮"; font.pixelSize: 16 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font" }
+                          Text { text: "󰒮"; font.pixelSize: root.fontPx(16 + root.uiFontBump); color: Style.menuInk; font.family: root.uiFont }
                         }
 
                         Rectangle {
@@ -2053,7 +2071,7 @@ Scope {
                               const p = root.activePlayer
                               return (p && p.isPlaying) ? "󰏤" : "󰐊"
                             }
-                            font.pixelSize: 15 + root.uiFontBump; color: Style.green; font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: root.fontPx(15 + root.uiFontBump); color: Style.green; font.family: root.uiFont
                           }
                           MouseArea {
                             anchors.fill: parent; cursorShape: Qt.PointingHandCursor
@@ -2070,7 +2088,7 @@ Scope {
                             const p = root.activePlayer
                             if (p && p.canGoNext) p.next()
                           }
-                          Text { text: "󰒭"; font.pixelSize: 16 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font" }
+                          Text { text: "󰒭"; font.pixelSize: root.fontPx(16 + root.uiFontBump); color: Style.menuInk; font.family: root.uiFont }
                         }
                       }
                     }
@@ -2086,34 +2104,34 @@ Scope {
 
                   // Output Vol
                   Rectangle {
-                    Layout.fillWidth: true; height: 36; radius: 8; color: Style.panelCardBg
-                    border.color: Style.panelCardBorder; border.width: 1
+                    Layout.fillWidth: true; height: 36; radius: 8; color: root.menuTileBg
+                    border.color: Style.menuSep; border.width: 1
 
                     RowLayout {
                       anchors.fill: parent; anchors.margins: 10
                       Text {
                         text: root.defaultSinkMuted ? "󰖁  Speakers" : "󰕾  Speakers"
-                        font.pixelSize: 11 + root.uiFontBump
-                        color: root.defaultSinkMuted ? Style.red : Style.text
-                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: root.fontPx(11 + root.uiFontBump)
+                        color: root.defaultSinkMuted ? Style.red : Style.menuInk
+                        font.family: root.uiFont
                         font.bold: true
                       }
                       Item { Layout.fillWidth: true }
                       Text {
                         text: root.defaultSinkVol
-                        font.pixelSize: 11 + root.uiFontBump
-                        color: root.defaultSinkMuted ? Style.red : Style.blue
-                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: root.fontPx(11 + root.uiFontBump)
+                        color: root.defaultSinkMuted ? Style.red : Style.menuIndigo
+                        font.family: root.uiFont
                         font.bold: true
                       }
 
                       Rectangle {
-                        width: 20; height: 20; radius: 4; color: Style.panelControlBg
+                        width: 20; height: 20; radius: 4; color: Style.menuControlBg
                         Text {
                           anchors.centerIn: parent
                           text: root.defaultSinkMuted ? "󰖁" : "󰕾"
-                          font.pixelSize: 12 + root.uiFontBump
-                          color: Style.text
+                          font.pixelSize: root.fontPx(12 + root.uiFontBump)
+                          color: Style.menuInk
                         }
                         MouseArea {
                           anchors.fill: parent
@@ -2123,13 +2141,13 @@ Scope {
                       }
 
                       Rectangle {
-                        width: 20; height: 20; radius: 4; color: Style.panelControlBg
-                        Text { anchors.centerIn: parent; text: "−"; font.pixelSize: 12 + root.uiFontBump; color: Style.text }
+                        width: 20; height: 20; radius: 4; color: Style.menuControlBg
+                        Text { anchors.centerIn: parent; text: "−"; font.pixelSize: root.fontPx(12 + root.uiFontBump); color: Style.menuInk }
                         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.volAdjust("@DEFAULT_AUDIO_SINK@", -5) }
                       }
                       Rectangle {
-                        width: 20; height: 20; radius: 4; color: Style.panelControlBg
-                        Text { anchors.centerIn: parent; text: "+"; font.pixelSize: 12 + root.uiFontBump; color: Style.text }
+                        width: 20; height: 20; radius: 4; color: Style.menuControlBg
+                        Text { anchors.centerIn: parent; text: "+"; font.pixelSize: root.fontPx(12 + root.uiFontBump); color: Style.menuInk }
                         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.volAdjust("@DEFAULT_AUDIO_SINK@", 5) }
                       }
                     }
@@ -2137,34 +2155,34 @@ Scope {
 
                   // Mic Vol
                   Rectangle {
-                    Layout.fillWidth: true; height: 36; radius: 8; color: Style.panelCardBg
-                    border.color: Style.panelCardBorder; border.width: 1
+                    Layout.fillWidth: true; height: 36; radius: 8; color: root.menuTileBg
+                    border.color: Style.menuSep; border.width: 1
 
                     RowLayout {
                       anchors.fill: parent; anchors.margins: 10
                       Text {
                         text: root.defaultSourceMuted ? "󰍭  Microphone" : "󰍬  Microphone"
-                        font.pixelSize: 11 + root.uiFontBump
-                        color: root.defaultSourceMuted ? Style.red : Style.text
-                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: root.fontPx(11 + root.uiFontBump)
+                        color: root.defaultSourceMuted ? Style.red : Style.menuInk
+                        font.family: root.uiFont
                         font.bold: true
                       }
                       Item { Layout.fillWidth: true }
                       Text {
                         text: root.defaultSourceVol
-                        font.pixelSize: 11 + root.uiFontBump
-                        color: root.defaultSourceMuted ? Style.red : Style.blue
-                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: root.fontPx(11 + root.uiFontBump)
+                        color: root.defaultSourceMuted ? Style.red : Style.menuIndigo
+                        font.family: root.uiFont
                         font.bold: true
                       }
 
                       Rectangle {
-                        width: 20; height: 20; radius: 4; color: Style.panelControlBg
+                        width: 20; height: 20; radius: 4; color: Style.menuControlBg
                         Text {
                           anchors.centerIn: parent
                           text: root.defaultSourceMuted ? "󰍭" : "󰍬"
-                          font.pixelSize: 12 + root.uiFontBump
-                          color: Style.text
+                          font.pixelSize: root.fontPx(12 + root.uiFontBump)
+                          color: Style.menuInk
                         }
                         MouseArea {
                           anchors.fill: parent
@@ -2174,8 +2192,8 @@ Scope {
                       }
 
                       Rectangle {
-                        width: 20; height: 20; radius: 4; color: Style.panelControlBg
-                        Text { anchors.centerIn: parent; text: "−"; font.pixelSize: 12 + root.uiFontBump; color: Style.text }
+                        width: 20; height: 20; radius: 4; color: Style.menuControlBg
+                        Text { anchors.centerIn: parent; text: "−"; font.pixelSize: root.fontPx(12 + root.uiFontBump); color: Style.menuInk }
                         MouseArea {
                           anchors.fill: parent
                           cursorShape: Qt.PointingHandCursor
@@ -2183,8 +2201,8 @@ Scope {
                         }
                       }
                       Rectangle {
-                        width: 20; height: 20; radius: 4; color: Style.panelControlBg
-                        Text { anchors.centerIn: parent; text: "+"; font.pixelSize: 12 + root.uiFontBump; color: Style.text }
+                        width: 20; height: 20; radius: 4; color: Style.menuControlBg
+                        Text { anchors.centerIn: parent; text: "+"; font.pixelSize: root.fontPx(12 + root.uiFontBump); color: Style.menuInk }
                         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.volAdjust("@DEFAULT_AUDIO_SOURCE@", 5) }
                       }
                     }
@@ -2201,8 +2219,8 @@ Scope {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     radius: 10
-                    color: Style.panelCardBg
-                    border.color: Style.panelCardBorder
+                    color: root.menuTileBg
+                    border.color: Style.menuSep
                     border.width: 1
 
                     ColumnLayout {
@@ -2212,9 +2230,9 @@ Scope {
 
                       Text {
                         text: "󰕾  Output devices"
-                        font.pixelSize: 10 + root.uiFontBump
-                        color: Style.textMuted
-                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: root.fontPx(10 + root.uiFontBump)
+                        color: Style.menuInkDeep
+                        font.family: root.uiFont
                         font.bold: true
                       }
                       Flickable {
@@ -2229,9 +2247,9 @@ Scope {
                           Text {
                             visible: root.audioSinks.length === 0
                             text: "No outputs"
-                            color: Style.textMuted
-                            font.pixelSize: 9 + root.uiFontBump
-                            font.family: "JetBrainsMono Nerd Font"
+                            color: Style.menuInkDeep
+                            font.pixelSize: root.fontPx(9 + root.uiFontBump)
+                            font.family: root.uiFont
                           }
                           Repeater {
                             model: root.audioSinks
@@ -2241,9 +2259,9 @@ Scope {
                               height: 22
                               radius: 5
                               color: modelData.active
-                                ? Qt.rgba(Style.blue.r, Style.blue.g, Style.blue.b, 0.18)
-                                : (outMa.containsMouse ? Style.panelControlHover : "transparent")
-                              border.color: modelData.active ? Style.blue : (outMa.containsMouse ? Style.panelCardBorderHover : "transparent")
+                                ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.18)
+                                : (outMa.containsMouse ? Style.menuRowHi : "transparent")
+                              border.color: modelData.active ? Style.menuIndigo : (outMa.containsMouse ? Style.menuSep : "transparent")
                               border.width: 1
                               Behavior on color { ColorAnimation { duration: 140 } }
                               Behavior on border.color { ColorAnimation { duration: 140 } }
@@ -2254,22 +2272,22 @@ Scope {
                                 spacing: 6
                                 Text {
                                   text: modelData.active ? "●" : "○"
-                                  color: modelData.active ? Style.green : Style.textMuted
-                                  font.pixelSize: 7 + root.uiFontBump
+                                  color: modelData.active ? Style.green : Style.menuInkDeep
+                                  font.pixelSize: root.fontPx(7 + root.uiFontBump)
                                 }
                                 Text {
                                   text: modelData.name
-                                  color: Style.text
-                                  font.pixelSize: 8 + root.uiFontBump
-                                  font.family: "JetBrainsMono Nerd Font"
+                                  color: Style.menuInk
+                                  font.pixelSize: root.fontPx(8 + root.uiFontBump)
+                                  font.family: root.uiFont
                                   elide: Text.ElideRight
                                   Layout.fillWidth: true
                                 }
                                 Text {
                                   text: "#" + modelData.id
-                                  color: Style.textMuted
-                                  font.pixelSize: 8 + root.uiFontBump
-                                  font.family: "JetBrainsMono Nerd Font"
+                                  color: Style.menuInkDeep
+                                  font.pixelSize: root.fontPx(8 + root.uiFontBump)
+                                  font.family: root.uiFont
                                 }
                               }
                               MouseArea {
@@ -2290,8 +2308,8 @@ Scope {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     radius: 10
-                    color: Style.panelCardBg
-                    border.color: Style.panelCardBorder
+                    color: root.menuTileBg
+                    border.color: Style.menuSep
                     border.width: 1
 
                     ColumnLayout {
@@ -2301,9 +2319,9 @@ Scope {
 
                       Text {
                         text: "󰍬  Input sources"
-                        font.pixelSize: 10 + root.uiFontBump
-                        color: Style.textMuted
-                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: root.fontPx(10 + root.uiFontBump)
+                        color: Style.menuInkDeep
+                        font.family: root.uiFont
                         font.bold: true
                       }
                       Flickable {
@@ -2318,9 +2336,9 @@ Scope {
                           Text {
                             visible: root.audioSources.length === 0
                             text: "No inputs"
-                            color: Style.textMuted
-                            font.pixelSize: 9 + root.uiFontBump
-                            font.family: "JetBrainsMono Nerd Font"
+                            color: Style.menuInkDeep
+                            font.pixelSize: root.fontPx(9 + root.uiFontBump)
+                            font.family: root.uiFont
                           }
                           Repeater {
                             model: root.audioSources
@@ -2330,9 +2348,9 @@ Scope {
                               height: 22
                               radius: 5
                               color: modelData.active
-                                ? Qt.rgba(Style.blue.r, Style.blue.g, Style.blue.b, 0.18)
-                                : (inMa.containsMouse ? Style.panelControlHover : "transparent")
-                              border.color: modelData.active ? Style.blue : (inMa.containsMouse ? Style.panelCardBorderHover : "transparent")
+                                ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.18)
+                                : (inMa.containsMouse ? Style.menuRowHi : "transparent")
+                              border.color: modelData.active ? Style.menuIndigo : (inMa.containsMouse ? Style.menuSep : "transparent")
                               border.width: 1
                               Behavior on color { ColorAnimation { duration: 140 } }
                               Behavior on border.color { ColorAnimation { duration: 140 } }
@@ -2343,22 +2361,22 @@ Scope {
                                 spacing: 6
                                 Text {
                                   text: modelData.active ? "●" : "○"
-                                  color: modelData.active ? Style.green : Style.textMuted
-                                  font.pixelSize: 7 + root.uiFontBump
+                                  color: modelData.active ? Style.green : Style.menuInkDeep
+                                  font.pixelSize: root.fontPx(7 + root.uiFontBump)
                                 }
                                 Text {
                                   text: modelData.name
-                                  color: Style.text
-                                  font.pixelSize: 8 + root.uiFontBump
-                                  font.family: "JetBrainsMono Nerd Font"
+                                  color: Style.menuInk
+                                  font.pixelSize: root.fontPx(8 + root.uiFontBump)
+                                  font.family: root.uiFont
                                   elide: Text.ElideRight
                                   Layout.fillWidth: true
                                 }
                                 Text {
                                   text: "#" + modelData.id
-                                  color: Style.textMuted
-                                  font.pixelSize: 8 + root.uiFontBump
-                                  font.family: "JetBrainsMono Nerd Font"
+                                  color: Style.menuInkDeep
+                                  font.pixelSize: root.fontPx(8 + root.uiFontBump)
+                                  font.family: root.uiFont
                                 }
                               }
                               MouseArea {
@@ -2381,8 +2399,8 @@ Scope {
                   Layout.preferredHeight: 116
                   Layout.maximumHeight: 116
                   radius: 10
-                  color: Style.panelCardBg
-                  border.color: Style.panelCardBorder
+                  color: root.menuTileBg
+                  border.color: Style.menuSep
                   border.width: 1
 
                   ColumnLayout {
@@ -2392,9 +2410,9 @@ Scope {
 
                     Text {
                       text: "󰝚  Stream mixer"
-                      font.pixelSize: 10 + root.uiFontBump
-                      color: Style.textMuted
-                      font.family: "JetBrainsMono Nerd Font"
+                      font.pixelSize: root.fontPx(10 + root.uiFontBump)
+                      color: Style.menuInkDeep
+                      font.family: root.uiFont
                       font.bold: true
                     }
                     Flickable {
@@ -2409,9 +2427,9 @@ Scope {
                         Text {
                           visible: root.audioStreams.length === 0
                           text: "No active streams"
-                          color: Style.textMuted
-                          font.pixelSize: 9 + root.uiFontBump
-                          font.family: "JetBrainsMono Nerd Font"
+                          color: Style.menuInkDeep
+                          font.pixelSize: root.fontPx(9 + root.uiFontBump)
+                          font.family: root.uiFont
                         }
                         Repeater {
                           model: root.audioStreams
@@ -2421,9 +2439,9 @@ Scope {
                             width: parent.width
                             height: 26
                             radius: 6
-                            color: modelData.muted ? Style.panelDangerBg : Style.panelControlBg
+                            color: modelData.muted ? root.menuDangerBg : Style.menuControlBg
                             border.width: 1
-                            border.color: modelData.muted ? Style.red : Style.panelCardBorder
+                            border.color: modelData.muted ? Style.red : Style.menuSep
                             Behavior on color { ColorAnimation { duration: 140 } }
                             Behavior on border.color { ColorAnimation { duration: 140 } }
 
@@ -2436,31 +2454,31 @@ Scope {
                               Text {
                                 text: "󰝚"
                                 color: Style.green
-                                font.pixelSize: 10 + root.uiFontBump
-                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: root.fontPx(10 + root.uiFontBump)
+                                font.family: root.uiFont
                               }
                               Text {
                                 text: modelData.name
-                                color: modelData.muted ? Style.textMuted : Style.text
-                                font.pixelSize: 9 + root.uiFontBump
-                                font.family: "JetBrainsMono Nerd Font"
+                                color: modelData.muted ? Style.menuInkDeep : Style.menuInk
+                                font.pixelSize: root.fontPx(9 + root.uiFontBump)
+                                font.family: root.uiFont
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
                               }
                               Text {
                                 text: modelData.volume || "#" + modelData.id
-                                color: modelData.muted ? Style.red : Style.blue
-                                font.pixelSize: 9 + root.uiFontBump
-                                font.family: "JetBrainsMono Nerd Font"
+                                color: modelData.muted ? Style.red : Style.menuIndigo
+                                font.pixelSize: root.fontPx(9 + root.uiFontBump)
+                                font.family: root.uiFont
                                 font.bold: true
                               }
                               Rectangle {
-                                width: 18; height: 18; radius: 4; color: Style.controlBg
+                                width: 18; height: 18; radius: 4; color: Style.menuControlBg
                                 Text {
                                   anchors.centerIn: parent
                                   text: modelData.muted ? "󰖁" : "󰕾"
-                                  font.pixelSize: 10 + root.uiFontBump
-                                  color: modelData.muted ? Style.red : Style.text
+                                  font.pixelSize: root.fontPx(10 + root.uiFontBump)
+                                  color: modelData.muted ? Style.red : Style.menuInk
                                 }
                                 MouseArea {
                                   anchors.fill: parent
@@ -2471,12 +2489,12 @@ Scope {
                                 }
                               }
                               Rectangle {
-                                width: 18; height: 18; radius: 4; color: Style.controlBg
+                                width: 18; height: 18; radius: 4; color: Style.menuControlBg
                                 Text {
                                   anchors.centerIn: parent
                                   text: "−"
-                                  font.pixelSize: 10 + root.uiFontBump
-                                  color: Style.text
+                                  font.pixelSize: root.fontPx(10 + root.uiFontBump)
+                                  color: Style.menuInk
                                 }
                                 MouseArea {
                                   anchors.fill: parent
@@ -2487,12 +2505,12 @@ Scope {
                                 }
                               }
                               Rectangle {
-                                width: 18; height: 18; radius: 4; color: Style.controlBg
+                                width: 18; height: 18; radius: 4; color: Style.menuControlBg
                                 Text {
                                   anchors.centerIn: parent
                                   text: "+"
-                                  font.pixelSize: 10 + root.uiFontBump
-                                  color: Style.text
+                                  font.pixelSize: root.fontPx(10 + root.uiFontBump)
+                                  color: Style.menuInk
                                 }
                                 MouseArea {
                                   anchors.fill: parent
@@ -2516,8 +2534,8 @@ Scope {
                   Layout.preferredHeight: root.mediaCavaHeight
                   Layout.maximumHeight: root.mediaCavaHeight
                   radius: 12
-                  color: Style.panelCardBg
-                  border.color: Style.panelCardBorder
+                  color: root.menuTileBg
+                  border.color: Style.menuSep
                   border.width: 1
 
                   ColumnLayout {
@@ -2525,7 +2543,7 @@ Scope {
                     anchors.margins: 14
                     spacing: 8
 
-                    Text { text: "󰎈  Live Cava Audio Spectrum"; color: Style.textMuted; font.pixelSize: 10 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
+                    Text { text: "󰎈  Live Cava Audio Spectrum"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(10 + root.uiFontBump); font.family: root.uiFont; font.bold: true }
 
                     Item {
                       Layout.fillWidth: true
@@ -2564,16 +2582,16 @@ Scope {
 
                 RowLayout {
                   Layout.fillWidth: true
-                  Text { text: "󰈀 Network"; font.pixelSize: 12 + root.uiFontBump; color: Style.green; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
+                  Text { text: "󰈀 Network"; font.pixelSize: root.fontPx(12 + root.uiFontBump); color: Style.green; font.family: root.uiFont; font.bold: true }
                   Text {
                     text: root.wifiNetworks.length + " Wi-Fi networks"
-                    color: Style.textMuted; font.pixelSize: 10 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"
+                    color: Style.menuInkDeep; font.pixelSize: root.fontPx(10 + root.uiFontBump); font.family: root.uiFont
                   }
                   Item { Layout.fillWidth: true }
                   Rectangle {
-                    width: 70; height: 24; radius: 6; color: refreshNetMa.containsMouse ? Style.panelControlHover : Style.panelCardBg
-                    border.color: refreshNetMa.containsMouse ? Style.panelCardBorderHover : Style.panelCardBorder; border.width: 1
-                    Text { anchors.centerIn: parent; text: "Refresh"; font.pixelSize: 10 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font" }
+                    width: 70; height: 24; radius: 6; color: refreshNetMa.containsMouse ? Style.menuRowHi : root.menuTileBg
+                    border.color: refreshNetMa.containsMouse ? Style.menuSep : Style.menuSep; border.width: 1
+                    Text { anchors.centerIn: parent; text: "Refresh"; font.pixelSize: root.fontPx(10 + root.uiFontBump); color: Style.menuInk; font.family: root.uiFont }
                     Behavior on color { ColorAnimation { duration: 140 } }
                     Behavior on border.color { ColorAnimation { duration: 140 } }
                     MouseArea {
@@ -2589,17 +2607,17 @@ Scope {
 
                   Rectangle {
                     Layout.fillWidth: true; Layout.preferredHeight: 146
-                    radius: 8; color: Style.panelCardBg; border.color: root.wifiEnabled ? Style.panelCardBorderHover : Style.panelCardBorder; border.width: 1
+                    radius: 8; color: root.menuTileBg; border.color: root.wifiEnabled ? Style.menuSep : Style.menuSep; border.width: 1
                     Behavior on border.color { ColorAnimation { duration: 140 } }
                     ColumnLayout {
                       anchors.fill: parent; anchors.margins: 12; spacing: 6
                       RowLayout {
                         Layout.fillWidth: true
-                        Text { text: "󰤨 Wi-Fi"; color: Style.blueAlt; font.pixelSize: 12 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
+                        Text { text: "󰤨 Wi-Fi"; color: Style.menuIndigo; font.pixelSize: root.fontPx(12 + root.uiFontBump); font.family: root.uiFont; font.bold: true }
                         Text {
                           text: root.wifiEnabled ? "enabled" : "disabled"
                           color: root.wifiEnabled ? Style.green : Style.red
-                          font.pixelSize: 10 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true
+                          font.pixelSize: root.fontPx(10 + root.uiFontBump); font.family: root.uiFont; font.bold: true
                         }
                         Item { Layout.fillWidth: true }
                         Rectangle {
@@ -2612,7 +2630,7 @@ Scope {
                             anchors.centerIn: parent
                             text: root.wifiEnabled ? "Disable" : "Enable"
                             color: root.wifiEnabled ? Style.red : Style.green
-                            font.pixelSize: 9 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true
+                            font.pixelSize: root.fontPx(9 + root.uiFontBump); font.family: root.uiFont; font.bold: true
                           }
                           MouseArea {
                             anchors.fill: parent; cursorShape: Qt.PointingHandCursor
@@ -2628,14 +2646,14 @@ Scope {
                       Text {
                         Layout.fillWidth: true
                         text: root.currentWifiSsid ? root.currentWifiSsid : root.wifiLabel
-                        color: Style.text; font.pixelSize: 11 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true
+                        color: Style.menuInk; font.pixelSize: root.fontPx(11 + root.uiFontBump); font.family: root.uiFont; font.bold: true
                         elide: Text.ElideRight
                       }
                       Text {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         text: root.wifiTooltip || "No Wi-Fi connection details"
-                        color: Style.textMuted; font.pixelSize: 9 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"
+                        color: Style.menuInkDeep; font.pixelSize: root.fontPx(9 + root.uiFontBump); font.family: root.uiFont
                         wrapMode: Text.Wrap
                         maximumLineCount: 4
                         elide: Text.ElideRight
@@ -2646,17 +2664,17 @@ Scope {
 
                   Rectangle {
                     Layout.fillWidth: true; Layout.preferredHeight: 146
-                    radius: 8; color: Style.panelCardBg; border.color: root.ethConnected ? Style.panelCardBorderHover : Style.panelCardBorder; border.width: 1
+                    radius: 8; color: root.menuTileBg; border.color: root.ethConnected ? Style.menuSep : Style.menuSep; border.width: 1
                     Behavior on border.color { ColorAnimation { duration: 140 } }
                     ColumnLayout {
                       anchors.fill: parent; anchors.margins: 12; spacing: 6
                       RowLayout {
                         Layout.fillWidth: true
-                        Text { text: "󰈀 LAN"; color: Style.cyan; font.pixelSize: 12 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true }
+                        Text { text: "󰈀 LAN"; color: Style.menuIndigo; font.pixelSize: root.fontPx(12 + root.uiFontBump); font.family: root.uiFont; font.bold: true }
                         Text {
                           text: root.ethDevice ? root.ethState : "missing"
-                          color: root.ethConnected ? Style.green : Style.textMuted
-                          font.pixelSize: 10 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true
+                          color: root.ethConnected ? Style.green : Style.menuInkDeep
+                          font.pixelSize: root.fontPx(10 + root.uiFontBump); font.family: root.uiFont; font.bold: true
                         }
                         Item { Layout.fillWidth: true }
                         Rectangle {
@@ -2670,7 +2688,7 @@ Scope {
                             anchors.centerIn: parent
                             text: root.ethConnected ? "Disable" : "Enable"
                             color: root.ethConnected ? Style.red : Style.green
-                            font.pixelSize: 9 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true
+                            font.pixelSize: root.fontPx(9 + root.uiFontBump); font.family: root.uiFont; font.bold: true
                           }
                           MouseArea {
                             anchors.fill: parent; cursorShape: Qt.PointingHandCursor
@@ -2685,7 +2703,7 @@ Scope {
                       Text {
                         Layout.fillWidth: true
                         text: root.ethDevice ? root.ethDevice : "No ethernet device"
-                        color: Style.text; font.pixelSize: 11 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true
+                        color: Style.menuInk; font.pixelSize: root.fontPx(11 + root.uiFontBump); font.family: root.uiFont; font.bold: true
                         elide: Text.ElideRight
                       }
                       Text {
@@ -2693,7 +2711,7 @@ Scope {
                         text: root.ethConnection || (
                           root.ethDevices.length > 1 ? (root.ethDevices.length + " ethernet devices") : "No active LAN connection"
                         )
-                        color: Style.textMuted; font.pixelSize: 9 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"
+                        color: Style.menuInkDeep; font.pixelSize: root.fontPx(9 + root.uiFontBump); font.family: root.uiFont
                         elide: Text.ElideRight
                       }
                     }
@@ -2702,15 +2720,15 @@ Scope {
 
                 RowLayout {
                   Layout.fillWidth: true
-                  Text { text: "Available networks"; font.pixelSize: 10 + root.uiFontBump; color: Style.textMuted; font.family: "JetBrainsMono Nerd Font" }
+                  Text { text: "Available networks"; font.pixelSize: root.fontPx(10 + root.uiFontBump); color: Style.menuInkDeep; font.family: root.uiFont }
                   Text {
                     visible: root.wifiScanning; text: " (scanning...)"
-                    font.pixelSize: 9 + root.uiFontBump; color: Style.textMuted; font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: root.fontPx(9 + root.uiFontBump); color: Style.menuInkDeep; font.family: root.uiFont
                   }
                   Item { Layout.fillWidth: true }
                 }
 
-                Rectangle { Layout.fillWidth: true; height: 1; color: Style.panelDivider }
+                Rectangle { Layout.fillWidth: true; height: 1; color: Style.menuSep }
 
                 Flickable {
                   Layout.fillWidth: true; Layout.fillHeight: true; clip: true
@@ -2725,9 +2743,9 @@ Scope {
                         required property var modelData
                         width: parent.width - 8; x: 4; height: 34; radius: 6
                         color: modelData.active
-                          ? Qt.rgba(Style.blue.r, Style.blue.g, Style.blue.b, 0.16)
-                          : (netMa.containsMouse ? Style.panelControlHover : "transparent")
-                        border.color: modelData.active ? Style.blueAlt : (netMa.containsMouse ? Style.panelCardBorderHover : "transparent")
+                          ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.16)
+                          : (netMa.containsMouse ? Style.menuRowHi : "transparent")
+                        border.color: modelData.active ? Style.menuIndigo : (netMa.containsMouse ? Style.menuSep : "transparent")
                         border.width: 1
                         scale: netMa.containsMouse && !modelData.active ? 1.01 : 1.0
                         Behavior on color { ColorAnimation { duration: 140 } }
@@ -2738,35 +2756,35 @@ Scope {
                           anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10; spacing: 8
                           Text {
                             text: modelData.signal > 75 ? "󰤨" : (modelData.signal > 50 ? "󰤥" : (modelData.signal > 25 ? "󰤢" : "󰤟"))
-                            font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14 + root.uiFontBump
-                            color: modelData.active ? Style.blueAlt : Style.textMuted
+                            font.family: root.uiFont; font.pixelSize: root.fontPx(14 + root.uiFontBump)
+                            color: modelData.active ? Style.menuIndigo : Style.menuInkDeep
                           }
                           ColumnLayout {
                             spacing: 0; Layout.fillWidth: true
                             Text {
                               text: modelData.ssid;
-                              font.family: "JetBrainsMono Nerd Font";
-                              font.pixelSize: 11 + root.uiFontBump;
+                              font.family: root.uiFont;
+                              font.pixelSize: root.fontPx(11 + root.uiFontBump);
                               font.bold: modelData.active
-                              color: modelData.active ? Style.blueAlt : Style.text;
+                              color: modelData.active ? Style.menuIndigo : Style.menuInk;
                               elide: Text.ElideRight;
                               Layout.fillWidth: true
                             }
                             Text {
                               text: modelData.active ? "Connected" : (modelData.sec ? "Secure" : "Open")
-                              font.family: "JetBrainsMono Nerd Font";
-                              font.pixelSize: 9 + root.uiFontBump;
-                              color: modelData.active ? Style.blueAlt : Style.textMuted
+                              font.family: root.uiFont;
+                              font.pixelSize: root.fontPx(9 + root.uiFontBump);
+                              color: modelData.active ? Style.menuIndigo : Style.menuInkDeep
                             }
                           }
-                          Text { text: modelData.sec ? "󰌾" : ""; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12 + root.uiFontBump; color: Style.textMuted }
-                          Text { text: modelData.signal + "%"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 9 + root.uiFontBump; color: Style.textMuted }
+                          Text { text: modelData.sec ? "󰌾" : ""; font.family: root.uiFont; font.pixelSize: root.fontPx(12 + root.uiFontBump); color: Style.menuInkDeep }
+                          Text { text: modelData.signal + "%"; font.family: root.uiFont; font.pixelSize: root.fontPx(9 + root.uiFontBump); color: Style.menuInkDeep }
 
                           // Disconnect affordance for active (exact marking from popup)
                           MouseArea {
                             visible: modelData.active; width: 18; height: 18
                             onClicked: { Quickshell.execDetached(["nmcli", "con", "down", "id", modelData.ssid]); root.scanWifi() }
-                            Text { anchors.centerIn: parent; text: "󰅙"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14 + root.uiFontBump; color: Style.red }
+                            Text { anchors.centerIn: parent; text: "󰅙"; font.family: root.uiFont; font.pixelSize: root.fontPx(14 + root.uiFontBump); color: Style.red }
                           }
                         }
 
@@ -2788,7 +2806,7 @@ Scope {
                 Text {
                   visible: root.wifiNetworks.length === 0
                   text: root.wifiScanning ? "Scanning..." : "No networks found. Tap Scan."
-                  color: Style.textMuted; font.pixelSize: 10 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"
+                  color: Style.menuInkDeep; font.pixelSize: root.fontPx(10 + root.uiFontBump); font.family: root.uiFont
                   Layout.alignment: Qt.AlignHCenter
                 }
               }
@@ -2804,18 +2822,18 @@ Scope {
                   Layout.fillWidth: true
                   Text {
                     text: "󰍹 Monitors (" + (root.monitorList ? root.monitorList.length : 0) + ")"
-                    font.pixelSize: 12 + root.uiFontBump; color: Style.green; font.family: "JetBrainsMono Nerd Font"; font.bold: true
+                    font.pixelSize: root.fontPx(12 + root.uiFontBump); color: Style.green; font.family: root.uiFont; font.bold: true
                   }
                   Text {
                     text: root.monitorStatus || "Live layout"
-                    color: root.monitorStatus.indexOf("failed") >= 0 || root.monitorStatus.indexOf("can't") >= 0 ? Style.red : Style.textMuted
-                    font.pixelSize: 9 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"
+                    color: root.monitorStatus.indexOf("failed") >= 0 || root.monitorStatus.indexOf("can't") >= 0 ? Style.red : Style.menuInkDeep
+                    font.pixelSize: root.fontPx(9 + root.uiFontBump); font.family: root.uiFont
                     Layout.fillWidth: true; elide: Text.ElideRight
                   }
                   Rectangle {
-                    width: 76; height: 26; radius: 5; color: mirrorMouse.containsMouse ? Style.panelControlHover : Style.panelCardBg
-                    border.color: mirrorMouse.containsMouse ? Style.panelCardBorderHover : Style.panelCardBorder; border.width: 1
-                    Text { anchors.centerIn: parent; text: "Mirror"; font.pixelSize: 9 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font" }
+                    width: 76; height: 26; radius: 5; color: mirrorMouse.containsMouse ? Style.menuRowHi : root.menuTileBg
+                    border.color: mirrorMouse.containsMouse ? Style.menuSep : Style.menuSep; border.width: 1
+                    Text { anchors.centerIn: parent; text: "Mirror"; font.pixelSize: root.fontPx(9 + root.uiFontBump); color: Style.menuInk; font.family: root.uiFont }
                     Behavior on color { ColorAnimation { duration: 140 } }
                     Behavior on border.color { ColorAnimation { duration: 140 } }
                     MouseArea {
@@ -2824,9 +2842,9 @@ Scope {
                     }
                   }
                   Rectangle {
-                    width: 76; height: 26; radius: 5; color: extendMouse.containsMouse ? Style.panelControlHover : Style.panelCardBg
-                    border.color: extendMouse.containsMouse ? Style.panelCardBorderHover : Style.panelCardBorder; border.width: 1
-                    Text { anchors.centerIn: parent; text: "Extend"; font.pixelSize: 9 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font" }
+                    width: 76; height: 26; radius: 5; color: extendMouse.containsMouse ? Style.menuRowHi : root.menuTileBg
+                    border.color: extendMouse.containsMouse ? Style.menuSep : Style.menuSep; border.width: 1
+                    Text { anchors.centerIn: parent; text: "Extend"; font.pixelSize: root.fontPx(9 + root.uiFontBump); color: Style.menuInk; font.family: root.uiFont }
                     Behavior on color { ColorAnimation { duration: 140 } }
                     Behavior on border.color { ColorAnimation { duration: 140 } }
                     MouseArea {
@@ -2835,9 +2853,9 @@ Scope {
                     }
                   }
                   Rectangle {
-                    width: 76; height: 26; radius: 5; color: externalMouse.containsMouse ? Style.panelControlHover : Style.panelCardBg
-                    border.color: externalMouse.containsMouse ? Style.panelCardBorderHover : Style.panelCardBorder; border.width: 1
-                    Text { anchors.centerIn: parent; text: "External"; font.pixelSize: 9 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font" }
+                    width: 76; height: 26; radius: 5; color: externalMouse.containsMouse ? Style.menuRowHi : root.menuTileBg
+                    border.color: externalMouse.containsMouse ? Style.menuSep : Style.menuSep; border.width: 1
+                    Text { anchors.centerIn: parent; text: "External"; font.pixelSize: root.fontPx(9 + root.uiFontBump); color: Style.menuInk; font.family: root.uiFont }
                     Behavior on color { ColorAnimation { duration: 140 } }
                     Behavior on border.color { ColorAnimation { duration: 140 } }
                     MouseArea {
@@ -2846,9 +2864,9 @@ Scope {
                     }
                   }
                   Rectangle {
-                    width: 76; height: 26; radius: 5; color: rescanMouse.containsMouse ? Style.panelControlHover : Style.panelCardBg
-                    border.color: rescanMouse.containsMouse ? Style.panelCardBorderHover : Style.panelCardBorder; border.width: 1
-                    Text { anchors.centerIn: parent; text: "Rescan"; font.pixelSize: 9 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font" }
+                    width: 76; height: 26; radius: 5; color: rescanMouse.containsMouse ? Style.menuRowHi : root.menuTileBg
+                    border.color: rescanMouse.containsMouse ? Style.menuSep : Style.menuSep; border.width: 1
+                    Text { anchors.centerIn: parent; text: "Rescan"; font.pixelSize: root.fontPx(9 + root.uiFontBump); color: Style.menuInk; font.family: root.uiFont }
                     Behavior on color { ColorAnimation { duration: 140 } }
                     Behavior on border.color { ColorAnimation { duration: 140 } }
                     MouseArea {
@@ -2860,7 +2878,7 @@ Scope {
                 // Layout visualization (normalized rects from hyprctl coords)
                 Rectangle {
                   Layout.fillWidth: true; Layout.preferredHeight: 360
-                  radius: 6; color: Style.panelControlBg; border.color: Style.panelCardBorder; border.width: 1
+                  radius: 6; color: Style.menuControlBg; border.color: Style.menuSep; border.width: 1
                   Canvas {
                     anchors.fill: parent; anchors.margins: 10
                     property int v: root.monitorVersion
@@ -2869,7 +2887,8 @@ Scope {
                       const ctx = getContext("2d"); ctx.reset()
                       const mons = root.monitorList || []
                       if (!mons.length) {
-                        ctx.fillStyle=Style.textMuted; ctx.font="12px monospace"
+                        ctx.fillStyle = Style.menuInkDeep
+                        ctx.font = root.fontPx(12) + "px monospace"
                         ctx.fillText("Loading... (Rescan after open)", 10, 20)
                         return
                       }
@@ -2885,13 +2904,17 @@ Scope {
                       for (const m of mons) {
                         const x=pad+((m.x||0)-minX)*sx, y=pad+((m.y||0)-minY)*sy
                         const w=root.monitorLogicalWidth(m)*sx, h=root.monitorLogicalHeight(m)*sy
-                        ctx.strokeStyle = Style.blue || "#89b4fa"; ctx.lineWidth=1
+                        ctx.strokeStyle = Style.menuIndigo
+                        ctx.lineWidth = 1
                         ctx.strokeRect(x, y, w, h)
-                        ctx.fillStyle = m.focused ? "rgba(137,180,250,0.25)" : "rgba(49,50,68,0.5)"
+                        ctx.fillStyle = m.focused
+                          ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.24)
+                          : root.menuTileBg
                         ctx.fillRect(x+1,y+1,w-2,h-2)
-                        ctx.fillStyle = Style.text || "#cdd6f4"; ctx.font="13px monospace"
+                        ctx.fillStyle = Style.menuInk
+                        ctx.font = root.fontPx(13) + "px monospace"
                         ctx.fillText((m.name||"mon").slice(0,14), x+8, y+18)
-                        ctx.font="11px monospace"
+                        ctx.font = root.fontPx(11) + "px monospace"
                         ctx.fillText(
                           Math.round(root.monitorLogicalWidth(m))+"x"+Math.round(root.monitorLogicalHeight(m))+" logical",
                           x+8,
@@ -2904,7 +2927,7 @@ Scope {
                 }
                 Text {
                   text: "Mirror uses eDP-1 as source when present. Extend reloads monitors.lua. Layout drawn in logical coordinates."
-                  color: Style.textMuted; font.pixelSize: 9 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; Layout.alignment: Qt.AlignHCenter
+                  color: Style.menuInkDeep; font.pixelSize: root.fontPx(9 + root.uiFontBump); font.family: root.uiFont; Layout.alignment: Qt.AlignHCenter
                 }
                 Flickable { Layout.fillWidth: true; Layout.fillHeight: true; clip: true; contentHeight: monListCol.height
                   Column { id: monListCol; width: parent.width; spacing: 6
@@ -2913,29 +2936,29 @@ Scope {
                       delegate: Rectangle {
                         required property var modelData
                         width: parent.width; height: 44; radius: 6
-                        color: modelData.focused ? Qt.rgba(Style.blue.r, Style.blue.g, Style.blue.b, 0.16) : Style.panelCardBg
-                        border.color: modelData.focused ? Style.blueAlt : Style.panelCardBorder; border.width: 1
+                        color: modelData.focused ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.16) : root.menuTileBg
+                        border.color: modelData.focused ? Style.menuIndigo : Style.menuSep; border.width: 1
                         Behavior on color { ColorAnimation { duration: 140 } }
                         Behavior on border.color { ColorAnimation { duration: 140 } }
                         RowLayout {
                           anchors.fill: parent; anchors.leftMargin: 9; anchors.rightMargin: 9; spacing: 10
                           Text {
                             text: modelData.focused ? "󰍹" : "󰌢"
-                            color: modelData.focused ? Style.blueAlt : Style.textMuted
-                            font.pixelSize: 14 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"
+                            color: modelData.focused ? Style.menuIndigo : Style.menuInkDeep
+                            font.pixelSize: root.fontPx(14 + root.uiFontBump); font.family: root.uiFont
                           }
                           ColumnLayout {
                             Layout.fillWidth: true; spacing: 0
                             Text {
                               text: (modelData.name || "?")
                                 + (modelData.mirrorOf && modelData.mirrorOf !== "none" ? (" mirrors " + modelData.mirrorOf) : "")
-                              color: Style.text; font.pixelSize: 10 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: modelData.focused
+                              color: Style.menuInk; font.pixelSize: root.fontPx(10 + root.uiFontBump); font.family: root.uiFont; font.bold: modelData.focused
                               elide: Text.ElideRight; Layout.fillWidth: true
                             }
                             Text {
                               text: root.monitorMode(modelData) + "  scale " + (modelData.scale || 1)
                                 + "  pos " + (modelData.x || 0) + "," + (modelData.y || 0)
-                              color: Style.textMuted; font.pixelSize: 8 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"
+                              color: Style.menuInkDeep; font.pixelSize: root.fontPx(8 + root.uiFontBump); font.family: root.uiFont
                               elide: Text.ElideRight; Layout.fillWidth: true
                             }
                           }
@@ -2955,7 +2978,7 @@ Scope {
                 spacing: 8
                 Rectangle {
                   Layout.fillWidth: true; Layout.fillHeight: true
-                  radius: 6; color: Style.panelControlBg; border.color: Style.panelCardBorder; border.width: 1
+                  radius: 6; color: Style.menuControlBg; border.color: Style.menuSep; border.width: 1
                   Flickable {
                     anchors.fill: parent; anchors.margins: 8; clip: true
                     contentHeight: tempCol.height; boundsBehavior: Flickable.StopAtBounds
@@ -2965,7 +2988,7 @@ Scope {
                       Text {
                         visible: root.tempSensors.length === 0
                         text: root.tempOutput ? "No sensors parsed. Raw script output unavailable here." : "Loading sensors..."
-                        font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10 + root.uiFontBump; color: Style.textMuted
+                        font.family: root.uiFont; font.pixelSize: root.fontPx(10 + root.uiFontBump); color: Style.menuInkDeep
                         wrapMode: Text.Wrap; width: parent.width
                       }
                       Repeater {
@@ -2973,7 +2996,7 @@ Scope {
                         delegate: Rectangle {
                           required property var modelData
                           width: parent.width; height: groupCol.height + 14; radius: 6
-                          color: Style.panelCardBg; border.color: Style.panelCardBorder; border.width: 1
+                          color: root.menuTileBg; border.color: Style.menuSep; border.width: 1
                           Column {
                             id: groupCol
                             width: parent.width - 16; x: 8; y: 7; spacing: 5
@@ -2981,12 +3004,12 @@ Scope {
                               width: parent.width
                               Text {
                                 text: modelData.name
-                                color: Style.text; font.pixelSize: 11 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true
+                                color: Style.menuInk; font.pixelSize: root.fontPx(11 + root.uiFontBump); font.family: root.uiFont; font.bold: true
                                 Layout.fillWidth: true; elide: Text.ElideRight
                               }
                               Text {
                                 text: modelData.max.toFixed(1) + "°C"
-                                color: root.tempColor(modelData.max); font.pixelSize: 10 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true
+                                color: root.tempColor(modelData.max); font.pixelSize: root.fontPx(10 + root.uiFontBump); font.family: root.uiFont; font.bold: true
                               }
                             }
                             Repeater {
@@ -2998,12 +3021,12 @@ Scope {
                                   width: parent.width
                                   Text {
                                     text: modelData.label
-                                    color: Style.textAlt; font.pixelSize: 9 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"
+                                    color: Style.menuInkDeep; font.pixelSize: root.fontPx(9 + root.uiFontBump); font.family: root.uiFont
                                     Layout.fillWidth: true; elide: Text.ElideRight
                                   }
                                   Text {
                                     text: modelData.value.toFixed(1) + "°C"
-                                    color: root.tempColor(modelData.value); font.pixelSize: 9 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true
+                                    color: root.tempColor(modelData.value); font.pixelSize: root.fontPx(9 + root.uiFontBump); font.family: root.uiFont; font.bold: true
                                   }
                                 }
                                 Rectangle {
@@ -3016,7 +3039,7 @@ Scope {
                                 Text {
                                   visible: !!modelData.desc
                                   text: modelData.desc
-                                  color: Style.textMuted; font.pixelSize: 8 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"
+                                  color: Style.menuInkDeep; font.pixelSize: root.fontPx(8 + root.uiFontBump); font.family: root.uiFont
                                   width: parent.width; elide: Text.ElideRight
                                 }
                               }
@@ -3041,21 +3064,21 @@ Scope {
                   Layout.fillWidth: true
                   Text {
                     text: "Bluetooth Radio: " + (root.bluetoothPowered ? "Active" : "Off")
-                    color: root.bluetoothPowered ? Style.green : Style.textMuted
-                    font.pixelSize: 11 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; font.bold: true
+                    color: root.bluetoothPowered ? Style.green : Style.menuInkDeep
+                    font.pixelSize: root.fontPx(11 + root.uiFontBump); font.family: root.uiFont; font.bold: true
                   }
                   Item { Layout.fillWidth: true }
                   Rectangle {
-                    width: 70; height: 24; radius: 6; color: btPowerMa.containsMouse ? Style.panelControlHover : Style.panelCardBg
-                    border.color: btPowerMa.containsMouse ? Style.panelCardBorderHover : Style.panelCardBorder; border.width: 1
+                    width: 70; height: 24; radius: 6; color: btPowerMa.containsMouse ? Style.menuRowHi : root.menuTileBg
+                    border.color: btPowerMa.containsMouse ? Style.menuSep : Style.menuSep; border.width: 1
                     Behavior on color { ColorAnimation { duration: 140 } }
                     Behavior on border.color { ColorAnimation { duration: 140 } }
                     Text {
                       anchors.centerIn: parent
                       text: root.bluetoothPowered ? "Turn Off" : "Turn On"
-                      font.pixelSize: 10 + root.uiFontBump
-                      color: Style.text
-                      font.family: "JetBrainsMono Nerd Font"
+                      font.pixelSize: root.fontPx(10 + root.uiFontBump)
+                      color: Style.menuInk
+                      font.family: root.uiFont
                     }
                     MouseArea {
                       id: btPowerMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -3064,7 +3087,7 @@ Scope {
                   }
                 }
 
-                Rectangle { Layout.fillWidth: true; height: 1; color: Style.panelDivider }
+                Rectangle { Layout.fillWidth: true; height: 1; color: Style.menuSep }
 
                 Flickable {
                   Layout.fillWidth: true; Layout.fillHeight: true; clip: true
@@ -3077,27 +3100,27 @@ Scope {
                       delegate: Rectangle {
                         required property var modelData
                         width: parent.width; height: 36; radius: 6
-                        color: modelData.connected ? Style.panelAccentBg : (bth.containsMouse ? Style.panelControlHover : "transparent")
+                        color: modelData.connected ? Style.menuRowSel : (bth.containsMouse ? Style.menuRowHi : "transparent")
                         border.width: 1
-                        border.color: modelData.connected ? Style.panelAccentBorder : (bth.containsMouse ? Style.panelCardBorderHover : "transparent")
+                        border.color: modelData.connected ? Style.menuSeal : (bth.containsMouse ? Style.menuSep : "transparent")
                         Behavior on color { ColorAnimation { duration: 140 } }
                         Behavior on border.color { ColorAnimation { duration: 140 } }
 
                         RowLayout {
                           anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 8
-                          Text { text: modelData.connected ? "󰂱" : "󰂯"; font.pixelSize: 14 + root.uiFontBump; color: modelData.connected ? Style.green : Style.textMuted }
+                          Text { text: modelData.connected ? "󰂱" : "󰂯"; font.pixelSize: root.fontPx(14 + root.uiFontBump); color: modelData.connected ? Style.green : Style.menuInkDeep }
 
                           ColumnLayout {
                             Layout.fillWidth: true; spacing: 0
-                            Text { text: modelData.name || modelData.alias || modelData.address; font.pixelSize: 11 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font"; elide: Text.ElideRight; font.bold: modelData.connected }
-                            Text { text: modelData.batteryAvailable ? ("Battery: " + modelData.battery + "%") : (modelData.paired ? "Paired" : "Nearby Device"); font.pixelSize: 9 + root.uiFontBump; color: Style.textMuted; font.family: "JetBrainsMono Nerd Font" }
+                            Text { text: modelData.name || modelData.alias || modelData.address; font.pixelSize: root.fontPx(11 + root.uiFontBump); color: Style.menuInk; font.family: root.uiFont; elide: Text.ElideRight; font.bold: modelData.connected }
+                            Text { text: modelData.batteryAvailable ? ("Battery: " + modelData.battery + "%") : (modelData.paired ? "Paired" : "Nearby Device"); font.pixelSize: root.fontPx(9 + root.uiFontBump); color: Style.menuInkDeep; font.family: root.uiFont }
                           }
                           Item { Layout.fillWidth: true }
                           Rectangle {
                             width: 64; height: 20; radius: 4
-                            color: Style.panelControlBg
-                            border.color: Style.panelCardBorder; border.width: 1
-                            Text { anchors.centerIn: parent; text: modelData.connected ? "󰂲" : (modelData.paired ? "󰂱" : "󰂯"); font.pixelSize: 14 + root.uiFontBump; color: Style.blue; font.family: "JetBrainsMono Nerd Font" }
+                            color: Style.menuControlBg
+                            border.color: Style.menuSep; border.width: 1
+                            Text { anchors.centerIn: parent; text: modelData.connected ? "󰂲" : (modelData.paired ? "󰂱" : "󰂯"); font.pixelSize: root.fontPx(14 + root.uiFontBump); color: Style.menuIndigo; font.family: root.uiFont }
                             MouseArea {
                               anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                               onClicked: { if (modelData.connected) modelData.disconnect(); else if (modelData.paired) modelData.connect(); else modelData.pair() }
@@ -3109,7 +3132,7 @@ Scope {
                     }
                   }
                 }
-                Text { visible: (!Bluetooth.devices || Bluetooth.devices.values.length === 0); text: "No devices found"; color: Style.textMuted; font.pixelSize: 11 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; Layout.alignment: Qt.AlignHCenter }
+                Text { visible: (!Bluetooth.devices || Bluetooth.devices.values.length === 0); text: "No devices found"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(11 + root.uiFontBump); font.family: root.uiFont; Layout.alignment: Qt.AlignHCenter }
               }
 
               // ----------------------------------------------------
@@ -3118,15 +3141,16 @@ Scope {
               ColumnLayout {
                 anchors.fill: parent
                 visible: root.mode === "power"
-                spacing: 12
+                spacing: 18
 
-                Text { text: root.pendingConfirm ? "Confirm action: " + root.pendingConfirm + "?" : "Select Power Action"; color: Style.textMuted; font.pixelSize: 12 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"; Layout.alignment: Qt.AlignHCenter }
+                Text { text: root.pendingConfirm ? "Confirm action: " + root.pendingConfirm + "?" : "Select Power Action"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(12 + root.uiFontBump); font.family: root.uiFont; Layout.alignment: Qt.AlignHCenter }
 
                 GridLayout {
                   Layout.fillWidth: true
+                  Layout.alignment: Qt.AlignVCenter
                   columns: 2
-                  rowSpacing: 12
-                  columnSpacing: 12
+                  rowSpacing: 18
+                  columnSpacing: 18
                   Repeater {
                     model: [
                       { icon: "󰌾", label: "Lock Session", act: () => root.doLock(), danger: false },
@@ -3136,9 +3160,11 @@ Scope {
                     ]
                     delegate: Rectangle {
                       required property var modelData
-                      Layout.fillWidth: true; height: 50; radius: 10
-                      color: modelData.danger ? Style.panelDangerBg : (pma.containsMouse ? Style.panelControlHover : Style.panelCardBg)
-                      border.color: pma.containsMouse ? (modelData.danger ? Style.red : Style.panelCardBorderHover) : Style.panelCardBorder
+                      Layout.fillWidth: true
+                      Layout.preferredHeight: 76
+                      radius: 12
+                      color: modelData.danger ? root.menuDangerBg : (pma.containsMouse ? Style.menuRowHi : root.menuTileBg)
+                      border.color: pma.containsMouse ? (modelData.danger ? Style.red : Style.menuSep) : Style.menuSep
                       border.width: 1
                       scale: pma.containsMouse ? 1.02 : 1.0
 
@@ -3146,7 +3172,7 @@ Scope {
                       Behavior on border.color { ColorAnimation { duration: 140 } }
                       Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
-                      Row { anchors.centerIn: parent; spacing: 8; Text { text: modelData.icon; font.pixelSize: 20 + root.uiFontBump; color: modelData.danger ? Style.red : Style.blue; font.family: "JetBrainsMono Nerd Font" } Text { text: modelData.label; font.pixelSize: 12 + root.uiFontBump; color: Style.text; font.family: "JetBrainsMono Nerd Font"; font.bold: true } }
+                      Row { anchors.centerIn: parent; spacing: 12; Text { text: modelData.icon; font.pixelSize: root.fontPx(24 + root.uiFontBump); color: modelData.danger ? Style.red : Style.menuIndigo; font.family: root.uiFont } Text { text: modelData.label; font.pixelSize: root.fontPx(14 + root.uiFontBump); color: Style.menuInk; font.family: root.uiFont; font.bold: true } }
                       MouseArea { id: pma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: modelData.act() }
                     }
                   }
@@ -3157,12 +3183,12 @@ Scope {
                   Layout.alignment: Qt.AlignHCenter
                   spacing: 12
 
-                  Rectangle { width: 90; height: 30; radius: 6; color: Style.panelSuccessBg; border.width: 1; border.color: Style.green
-                    Text { anchors.centerIn: parent; text: "Confirm"; color: Style.green; font.pixelSize: 12 + root.uiFontBump; font.bold: true }
+                  Rectangle { width: 118; height: 40; radius: 8; color: root.menuSuccessBg; border.width: 1; border.color: Style.green
+                    Text { anchors.centerIn: parent; text: "Confirm"; color: Style.green; font.pixelSize: root.fontPx(12 + root.uiFontBump); font.bold: true }
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { if (root.pendingConfirm === "reboot") root.doReboot(); else if (root.pendingConfirm === "shutdown") root.doShutdown() } }
                   }
-                  Rectangle { width: 90; height: 30; radius: 6; color: Style.panelControlBg; border.width: 1; border.color: Style.panelCardBorder
-                    Text { anchors.centerIn: parent; text: "Cancel"; color: Style.textMuted; font.pixelSize: 12 + root.uiFontBump }
+                  Rectangle { width: 118; height: 40; radius: 8; color: Style.menuControlBg; border.width: 1; border.color: Style.menuSep
+                    Text { anchors.centerIn: parent; text: "Cancel"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(12 + root.uiFontBump) }
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.cancelConfirm() }
                   }
                 }
@@ -3176,7 +3202,7 @@ Scope {
     // SCREENSHOT PREVIEW OVERLAY
     Rectangle {
       anchors.fill: parent
-      color: Style.panelOverlay
+      color: Style.menuDim
       visible: root.shotPreviewPath !== ""
       radius: 16
       z: 30
@@ -3200,10 +3226,10 @@ Scope {
 
         Rectangle {
           width: 96; height: 34; radius: 17
-          color: copyShotPreviewMa.containsMouse ? Style.panelSuccessBg : Style.panelControlBg
+          color: copyShotPreviewMa.containsMouse ? root.menuSuccessBg : Style.menuControlBg
           border.width: 1
-          border.color: copyShotPreviewMa.containsMouse ? Style.green : Style.panelCardBorder
-          Text { anchors.centerIn: parent; text: "Copy"; color: copyShotPreviewMa.containsMouse ? Style.green : Style.text; font.pixelSize: 11 + root.uiFontBump; font.bold: true; font.family: "JetBrainsMono Nerd Font" }
+          border.color: copyShotPreviewMa.containsMouse ? Style.green : Style.menuSep
+          Text { anchors.centerIn: parent; text: "Copy"; color: copyShotPreviewMa.containsMouse ? Style.green : Style.menuInk; font.pixelSize: root.fontPx(11 + root.uiFontBump); font.bold: true; font.family: root.uiFont }
           MouseArea {
             id: copyShotPreviewMa
             anchors.fill: parent
@@ -3215,10 +3241,10 @@ Scope {
 
         Rectangle {
           width: 96; height: 34; radius: 17
-          color: openShotPreviewMa.containsMouse ? Style.panelAccentBg : Style.panelControlBg
+          color: openShotPreviewMa.containsMouse ? Style.menuRowSel : Style.menuControlBg
           border.width: 1
-          border.color: openShotPreviewMa.containsMouse ? Style.panelAccentBorder : Style.panelCardBorder
-          Text { anchors.centerIn: parent; text: "Open"; color: openShotPreviewMa.containsMouse ? Style.sky : Style.text; font.pixelSize: 11 + root.uiFontBump; font.bold: true; font.family: "JetBrainsMono Nerd Font" }
+          border.color: openShotPreviewMa.containsMouse ? Style.menuSeal : Style.menuSep
+          Text { anchors.centerIn: parent; text: "Open"; color: openShotPreviewMa.containsMouse ? Style.menuSeal : Style.menuInk; font.pixelSize: root.fontPx(11 + root.uiFontBump); font.bold: true; font.family: root.uiFont }
           MouseArea { id: openShotPreviewMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.openShot(root.shotPreviewPath) }
         }
       }
@@ -3227,7 +3253,7 @@ Scope {
     // WIDESCREEN WALLPAPER PICKER PREVIEW OVERLAY
     Rectangle {
       anchors.fill: parent
-      color: Style.panelOverlay
+      color: Style.menuDim
       visible: root.wallpaperPreviewPath !== ""
       radius: 16
 
@@ -3249,16 +3275,16 @@ Scope {
         width: applyRow.width + 36
         height: 40
         radius: 20
-        color: Style.sky
+        color: Style.menuSeal
         border.width: 1
-        border.color: Style.panelAccentBorder
+        border.color: Style.menuSeal
 
         RowLayout {
           id: applyRow
           anchors.centerIn: parent
           spacing: 10
-          Text { text: "✓"; color: Style.crust || "#11111b"; font.pixelSize: 14 + root.uiFontBump; font.bold: true }
-          Text { text: "Apply Wallpaper"; color: Style.crust || "#11111b"; font.pixelSize: 12 + root.uiFontBump; font.bold: true; font.family: "JetBrainsMono Nerd Font" }
+          Text { text: "✓"; color: Style.crust || "#11111b"; font.pixelSize: root.fontPx(14 + root.uiFontBump); font.bold: true }
+          Text { text: "Apply Wallpaper"; color: Style.crust || "#11111b"; font.pixelSize: root.fontPx(12 + root.uiFontBump); font.bold: true; font.family: root.uiFont }
         }
 
         MouseArea {
@@ -3275,7 +3301,7 @@ Scope {
         anchors.top: parent.top
         anchors.right: parent.right
         anchors.margins: 20
-        text: "Press ESC or click anywhere to exit preview"; color: Style.textMuted; font.pixelSize: 11 + root.uiFontBump; font.family: "JetBrainsMono Nerd Font"
+        text: "Press ESC or click anywhere to exit preview"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(11 + root.uiFontBump); font.family: root.uiFont
       }
     }
   }
