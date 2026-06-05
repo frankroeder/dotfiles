@@ -36,10 +36,15 @@ yabai -m config window_origin_display        default \
                 external_bar                 all:$(sketchybar-top --query bar | jq .height):$(sketchybar --query bar | jq .height)
 
 # events
-yabai -m signal --add event=window_created action="sketchybar -m --trigger window_created &> /dev/null"
-yabai -m signal --add event=window_destroyed action="sketchybar -m --trigger window_destroyed &> /dev/null"
+yabai -m signal --add event=window_created action="sketchybar -m --trigger window_created &> /dev/null; sketchybar-top -m --trigger window_created &> /dev/null"
+yabai -m signal --add event=window_destroyed action="sketchybar -m --trigger window_destroyed &> /dev/null; sketchybar-top -m --trigger window_destroyed &> /dev/null"
+yabai -m signal --add event=window_moved action="sketchybar-top -m --trigger window_moved &> /dev/null"
+yabai -m signal --add event=window_minimized action="sketchybar-top -m --trigger window_minimized &> /dev/null"
+yabai -m signal --add event=window_deminimized action="sketchybar-top -m --trigger window_deminimized &> /dev/null"
 yabai -m signal --add event=window_focused action="sketchybar -m --trigger window_focus &> /dev/null; sketchybar-top -m --trigger window_focus &> /dev/null"
-yabai -m signal --add event=space_changed action="sketchybar-top -m --trigger layout_change &> /dev/null"
+yabai -m signal --add event=space_changed action="sketchybar-top -m --trigger layout_change &> /dev/null; sketchybar-top -m --trigger space_windows_refresh &> /dev/null"
+yabai -m signal --add event=space_created action="sketchybar-top -m --trigger space_created &> /dev/null"
+yabai -m signal --add event=space_destroyed action="sketchybar-top -m --trigger space_destroyed &> /dev/null"
 yabai -m signal --add event=display_removed action="launchctl kickstart -k \"gui/${UID}/homebrew.mxcl.yabai\""
 yabai -m signal --add event=display_added action="launchctl kickstart -k \"gui/${UID}/homebrew.mxcl.yabai\""
 

@@ -1,4 +1,9 @@
 local utils = {}
+local app_icon_indexes = setmetatable({}, { __mode = "k" })
+
+function utils.shell_quote(value)
+  return "'" .. tostring(value):gsub("'", [['"'"']]) .. "'"
+end
 
 function utils.get_wifi_interface()
   local handle =
@@ -55,6 +60,38 @@ function utils.color_gradient(value, thresholds)
     end
   end
   return colors.white
+end
+
+function utils.lookup_app_icon(app, app_icons)
+  if not app or app == "" then
+    return app_icons["Default"]
+  end
+
+  local by_lower = app_icon_indexes[app_icons]
+  if not by_lower then
+    by_lower = {}
+    for name, icon in pairs(app_icons) do
+      by_lower[name:lower()] = icon
+    end
+    app_icon_indexes[app_icons] = by_lower
+  end
+
+  local trimmed = tostring(app):gsub("^%s+", ""):gsub("%s+$", "")
+  local candidates = {
+    trimmed,
+    trimmed:gsub("%.app$", ""),
+    trimmed:gsub(" Browser$", ""),
+    trimmed:gsub(" %- .*$", ""),
+  }
+
+  for _, candidate in ipairs(candidates) do
+    local icon = app_icons[candidate] or by_lower[candidate:lower()]
+    if icon then
+      return icon
+    end
+  end
+
+  return app_icons["Default"]
 end
 
 function utils.exec_safe(cmd, callback)

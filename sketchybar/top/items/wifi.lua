@@ -11,6 +11,9 @@ local popup_row_height = settings.ui.popup_row_height
 
 local wifi = sbar.add("item", "widgets.wifi", {
   position = "right",
+  width = 28,
+  padding_left = 0,
+  padding_right = 0,
   icon = {
     font = {
       style = settings.font.style_map["Regular"],
@@ -18,6 +21,10 @@ local wifi = sbar.add("item", "widgets.wifi", {
     },
     string = icons.wifi.disconnected,
     color = colors.red,
+    width = 20,
+    align = "center",
+    padding_left = 4,
+    padding_right = 4,
   },
   label = { drawing = false },
   background = { drawing = false },

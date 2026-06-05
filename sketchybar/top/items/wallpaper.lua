@@ -10,6 +10,11 @@ local ITEM_HEIGHT = 115
 local THUMB_WIDTH = 200
 local THUMB_HEIGHT = 100
 local PREFETCH_PAGES = 2
+local WALLPAPER_DIRS = {
+  settings.wallpaper.path,
+  os.getenv "HOME" .. "/Pictures/wallpaper",
+  os.getenv "HOME" .. "/Pictures/Wallpapers",
+}
 
 local current_page = 1
 local all_wallpapers = {}
@@ -43,11 +48,24 @@ local wallpaper = sbar.add("item", "widgets.wallpaper", {
 
 -- Wallpaper Setter
 local function set_wallpaper(path)
-  local cmd = string.format(
-    [[osascript -e 'tell application "System Events" to set picture of every desktop to (POSIX file "%s")']],
-    path
-  )
-  os.execute(cmd)
+  local jxa = [[ObjC.import("AppKit"); function run(argv) { const url = $.NSURL.fileURLWithPath(argv[0]); const screens = $.NSScreen.screens; const ws = $.NSWorkspace.sharedWorkspace; for (let i = 0; i < screens.count; i++) { const ok = ws.setDesktopImageURLForScreenOptionsError(url, screens.objectAtIndex(i), $(), null); if (!ok) throw new Error("setDesktopImageURL failed"); } }]]
+  local cmd = "/usr/bin/osascript -l JavaScript -e "
+    .. utils.shell_quote(jxa)
+    .. " -- "
+    .. utils.shell_quote(path)
+    .. " 2>&1"
+
+  sbar.exec(cmd, function(result)
+    local ok = not result or result == ""
+    wallpaper:set {
+      icon = {
+        color = ok and settings.theme.accent_alt or settings.theme.critical,
+      },
+    }
+    sbar.delay(1.2, function()
+      wallpaper:set { icon = { color = settings.theme.text_primary } }
+    end)
+  end)
 end
 
 -- Pool of items with their current wallpaper paths
@@ -155,9 +173,9 @@ local function load_dimensions_async(wallpaper_entry, callback)
     return
   end
 
-  local sips_cmd = [[sips -g pixelWidth -g pixelHeight "]]
-    .. wallpaper_entry.path
-    .. [[" | awk '/pixelWidth/ {w=$2} /pixelHeight/ {h=$2} END {print w, h}']]
+  local sips_cmd = "sips -g pixelWidth -g pixelHeight "
+    .. utils.shell_quote(wallpaper_entry.path)
+    .. [[ | awk '/pixelWidth/ {w=$2} /pixelHeight/ {h=$2} END {print w, h}']]
   sbar.exec(sips_cmd, function(result)
     local w, h = result:match "(%d+)%s+(%d+)"
     wallpaper_entry.width = tonumber(w) or 2000
@@ -261,46 +279,66 @@ local function scan_wallpapers()
   end
 
   is_scanning = true
-  local cmd = 'ls "' .. settings.wallpaper.path .. '"'
+  page_indicator:set {
+    drawing = true,
+    label = { string = "Loading wallpapers..." },
+  }
+
+  local dir_args = {}
+  for _, dir in ipairs(WALLPAPER_DIRS) do
+    table.insert(dir_args, utils.shell_quote(dir))
+  end
+
+  local cmd = "find "
+    .. table.concat(dir_args, " ")
+    .. [[ -maxdepth 1 -type f \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) -print 2>/dev/null | sort -f]]
 
   sbar.exec(cmd, function(result)
     if not result then
       is_scanning = false
+      page_indicator:set {
+        drawing = true,
+        label = { string = "No wallpapers found" },
+      }
       return
     end
 
     local files = {}
-    for file in result:gmatch "[^\r\n]+" do
-      if
-        not file:match "^%."
-        and (
-          file:match "%.jpg$"
-          or file:match "%.png$"
-          or file:match "%.jpeg$"
-          or file:match "%.webp$"
-        )
-      then
-        table.insert(files, file)
+    local seen = {}
+    for path in result:gmatch "[^\r\n]+" do
+      if path ~= "" and not seen[path] then
+        seen[path] = true
+        table.insert(files, path)
       end
     end
 
-    table.sort(files)
-
     all_wallpapers = {}
-    for _, file in ipairs(files) do
+    for _, path in ipairs(files) do
       table.insert(all_wallpapers, {
-        file = file,
-        path = settings.wallpaper.path .. "/" .. file,
+        file = path:match "([^/]+)$" or path,
+        path = path,
       })
     end
 
     is_initialized = true
     is_scanning = false
-    update_page()
+    if #all_wallpapers > 0 then
+      update_page()
+    else
+      page_indicator:set {
+        drawing = true,
+        label = { string = "No wallpapers found" },
+      }
+    end
   end)
 end
 
 wallpaper:subscribe("mouse.clicked", function(env)
+  if env.BUTTON == "right" then
+    is_initialized = false
+    all_wallpapers = {}
+    dimensions_cache = {}
+  end
   scan_wallpapers()
   utils.popup_toggle(wallpaper)
 end)

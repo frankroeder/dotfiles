@@ -137,18 +137,6 @@ cpu:subscribe("routine", function(env)
     local swap_used = output.memory.swap_gb_used
     local gpu_used = math.floor(output.usage.gpu.active_percent)
     local gpu_temp = output.temperature.gpu_avg_c
-    print(
-      ecpu_val,
-      pcpu_val,
-      cpu_temp,
-      ram_total,
-      ram_used,
-      swap_total,
-      swap_used,
-      gpu_used,
-      gpu_temp
-    )
-
     if
       not (
         ecpu_val

@@ -1,107 +1,206 @@
 local colors = require "colors"
 local settings = require "settings"
 local app_icons = require "helpers.app_icons"
+local ui = require "ui"
+local utils = require "utils"
 
 sbar.add("event", "flashspace_workspace_change")
+
+local flashspace_cmd = "flashspace"
 local map_monitor = settings.monitor_map
-
 local workspaces = {}
+local workspace_state = {}
+local ws_theme = settings.theme.workspace
 
-local function updateWindows(workspace_name)
-  local get_windows =
-    string.format("/usr/local/bin/flashspace list-apps %s --only-running", workspace_name)
-  sbar.exec(get_windows, function(open_windows)
-    local icon_line = ""
-    local has_app = false
-    for app in open_windows:gmatch "[^\r\n]+" do
-      has_app = true
-      local lookup = app_icons[app] or app_icons["Default"]
-      icon_line = icon_line .. " " .. lookup
-    end
-
-    sbar.animate("tanh", settings.animation_duration, function()
-      if has_app then
-        workspaces[workspace_name]:set {
-          label = { string = icon_line },
-        }
-      else
-        workspaces[workspace_name]:set {
-          label = { string = "" },
-        }
-      end
-    end)
-  end)
-end
-
-local function updateWorkspaceDisplays()
-  sbar.exec("/usr/local/bin/flashspace list-workspaces --with-display", function(output)
-    for line in output:gmatch "[^\n]+" do
-      local ws_name, display_name = line:match "([^,]+),%s*(.+)"
-      if ws_name and display_name then
-        local display_index = map_monitor[display_name]
-        workspaces[ws_name]:set {
-          display = display_index,
-        }
-      end
-    end
-  end)
-end
-
-local function parse_string_to_table(s)
+local function parse_lines(output)
   local result = {}
-  for line in s:gmatch "([^\n]+)" do
-    table.insert(result, line)
+  for line in tostring(output or ""):gmatch "[^\r\n]+" do
+    if line ~= "" then
+      table.insert(result, line)
+    end
   end
   return result
 end
 
-local file = io.popen [[/usr/local/bin/flashspace list-workspaces]]
-local wspaces = file:read "*a"
-file:close()
+local function ensureState(workspace_name)
+  if not workspace_state[workspace_name] then
+    workspace_state[workspace_name] = {
+      focused = false,
+      occupied = false,
+      apps = {},
+    }
+  end
+  return workspace_state[workspace_name]
+end
 
-for workspace_index, workspace_name in ipairs(parse_string_to_table(wspaces)) do
+local function updateStyle(workspace_name)
+  local workspace = workspaces[workspace_name]
+  if not workspace then
+    return
+  end
+
+  local state = ensureState(workspace_name)
+  local focused = state.focused
+  local occupied = state.occupied
+
+  sbar.animate("tanh", settings.motion.fast, function()
+    workspace:set {
+      icon = {
+        color = focused and ws_theme.badge_active_text
+          or (occupied and ws_theme.occupied_text or ws_theme.empty_text),
+        background = {
+          drawing = true,
+          color = focused and ws_theme.badge_active_bg
+            or (occupied and ws_theme.badge_occupied_bg or ws_theme.badge_empty_bg),
+          border_width = 1,
+          border_color = focused and ws_theme.badge_active_border or ws_theme.badge_border,
+          height = 22,
+          corner_radius = 11,
+        },
+      },
+      label = {
+        color = focused and colors.crust
+          or (occupied and settings.theme.text_primary or settings.theme.text_muted),
+      },
+      background = {
+        color = focused and ws_theme.active
+          or (occupied and ws_theme.occupied_bg or ws_theme.empty_bg),
+        border_width = 1,
+        border_color = focused and ws_theme.active_border or ws_theme.inactive_border,
+      },
+    }
+  end)
+end
+
+local function updateWindows(workspace_name)
+  local workspace = workspaces[workspace_name]
+  if not workspace then
+    return
+  end
+
+  local get_windows = flashspace_cmd
+    .. " list-apps "
+    .. utils.shell_quote(workspace_name)
+    .. " --only-running 2>/dev/null"
+
+  sbar.exec(get_windows, function(open_windows)
+    local state = ensureState(workspace_name)
+    local icon_list = {}
+    state.apps = {}
+
+    for _, app in ipairs(parse_lines(open_windows)) do
+      table.insert(state.apps, app)
+      table.insert(icon_list, utils.lookup_app_icon(app, app_icons))
+    end
+
+    state.occupied = #icon_list > 0
+    workspace:set {
+      label = { string = table.concat(icon_list, " ") },
+    }
+    updateStyle(workspace_name)
+  end)
+end
+
+local function updateAllWindows()
+  for workspace_name, _ in pairs(workspaces) do
+    updateWindows(workspace_name)
+  end
+end
+
+local function updateWorkspaceDisplays()
+  sbar.exec(flashspace_cmd .. " list-workspaces --with-display 2>/dev/null", function(output)
+    for line in tostring(output or ""):gmatch "[^\n]+" do
+      local ws_name, display_name = line:match "([^,]+),%s*(.+)"
+      local workspace = ws_name and workspaces[ws_name]
+      if workspace and display_name then
+        workspace:set {
+          display = map_monitor[display_name] or "active",
+        }
+      end
+    end
+  end)
+end
+
+local list_cmd = "command -v "
+  .. flashspace_cmd
+  .. " >/dev/null 2>&1 && "
+  .. flashspace_cmd
+  .. " list-workspaces 2>/dev/null"
+local file = io.popen(list_cmd)
+local workspace_output = file and file:read "*a" or ""
+if file then
+  file:close()
+end
+
+for workspace_index, workspace_name in ipairs(parse_lines(workspace_output)) do
+  local display_name = tostring(workspace_index - 1)
   local workspace = sbar.add("item", "workspace_" .. workspace_name, {
     icon = {
-      color = colors.white,
-      highlight_color = colors.blue,
-      font = { family = settings.font.numbers },
-      string = workspace_index - 1,
-      padding_left = 8,
-      padding_right = 4,
+      color = ws_theme.empty_text,
+      font = {
+        family = settings.font.numbers,
+        style = settings.font.style_map["Bold"],
+        size = 11.0,
+      },
+      string = display_name,
+      padding_left = 7,
+      padding_right = 7,
+      background = {
+        drawing = true,
+        color = ws_theme.badge_empty_bg,
+        border_width = 1,
+        border_color = ws_theme.badge_border,
+        height = 22,
+        corner_radius = 11,
+      },
     },
     label = {
       font = "sketchybar-app-font:Regular:16.0",
       string = "",
-      color = colors.grey,
-      highlight_color = colors.blue,
+      color = settings.theme.text_muted,
       y_offset = -1,
-      padding_right = 10,
+      padding_left = 7,
+      padding_right = 8,
     },
-    background = {
-      color = colors.bg2,
-      border_width = 0,
-      height = 24,
+    background = ui.capsule {
+      color = ws_theme.empty_bg,
+      border_color = ws_theme.inactive_border,
+      border_width = 1,
+      height = 30,
+      corner_radius = 15,
     },
-    padding_right = -4,
-    click_script = "/usr/local/bin/flashspace workspace --name " .. workspace_name,
+    padding_right = settings.spaces.padding,
+    padding_left = settings.spaces.padding,
+    click_script = flashspace_cmd .. " workspace --name " .. utils.shell_quote(workspace_name),
   })
 
   workspaces[workspace_name] = workspace
+  ensureState(workspace_name)
   updateWindows(workspace_name)
-  updateWorkspaceDisplays()
 
   workspace:subscribe("flashspace_workspace_change", function(env)
     local focused_workspace = env.WORKSPACE
-    local is_focused = focused_workspace == workspace_name
-    updateWindows(focused_workspace)
-    sbar.animate("tanh", settings.animation_duration, function()
-      workspace:set {
-        icon = { highlight = is_focused },
-        label = { highlight = is_focused },
-        background = { color = is_focused and colors.with_alpha(colors.orange, 0.18) or colors.bg2 },
-      }
-    end)
+    for name, _ in pairs(workspaces) do
+      local state = ensureState(name)
+      state.focused = focused_workspace == name
+      updateStyle(name)
+    end
+    updateAllWindows()
+    updateWorkspaceDisplays()
   end)
 end
+
+local observer = sbar.add("item", "widgets.flashspace_observer", {
+  drawing = false,
+  updates = true,
+  update_freq = 3,
+})
+
+observer:subscribe({ "routine", "forced", "system_woke" }, function()
+  updateAllWindows()
+  updateWorkspaceDisplays()
+end)
+
+updateWorkspaceDisplays()
 
 return workspaces
