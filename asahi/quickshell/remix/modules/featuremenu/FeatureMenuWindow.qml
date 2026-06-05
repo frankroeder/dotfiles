@@ -24,7 +24,7 @@ Scope {
   property string pendingConfirm: ""
   property bool bluetoothPowered: Bluetooth.defaultAdapter && Bluetooth.defaultAdapter.enabled
   // Manual Media page Cava panel height.
-  property int mediaCavaHeight: 220
+  property int mediaCavaHeight: 260
   readonly property int uiFontBump: 2
   readonly property real uiFontScale: 1.2
   readonly property string uiFont: "Hack Nerd Font"
@@ -43,7 +43,7 @@ Scope {
   }
   readonly property int hubMenuHeight: {
     const s = root.featureScreen || (Quickshell.screens.length > 0 ? Quickshell.screens[0] : null)
-    return s ? Math.min(660, Math.round(s.height * 0.76)) : 620
+    return s ? Math.min(720, Math.round(s.height * 0.80)) : 660
   }
 
   readonly property string modeHeaderSubtitle: {
@@ -65,6 +65,7 @@ Scope {
   // Live wifi status for overview tile (enriched for native menu like NetworkPopupWindow)
   property string wifiLabel: "WiFi"
   property string wifiTooltip: ""
+  property string netDevice: ""
   Process {
     id: wifiProc
     command: [binDir + "/asahi-network"]
@@ -74,6 +75,7 @@ Scope {
           const d = JSON.parse(text.trim())
           root.wifiLabel = (d.text || "WiFi").replace(/<[^>]*>/g, "")
           root.wifiTooltip = d.tooltip || ""
+          root.netDevice = d.device || ""
           const m = (d.tooltip || "").match(/^Connected to (.+)$/m)
           if (m) root.currentWifiSsid = m[1].trim()
         } catch (_) {}
@@ -87,13 +89,15 @@ Scope {
   property int sidebarMem: 0
   property int sidebarBat: 100
   property string sidebarBatStatus: "Discharging"
+  property real sidebarCpuPrevIdle: -1
+  property real sidebarCpuPrevTotal: -1
 
   Process {
     id: sidebarProc
     command: [
       "sh", "-c",
-      "top -bn1 | grep 'Cpu(s)' | awk '{print $2}' ; " +
-      "free | grep Mem | awk '{print $3/$2 * 100}' ; " +
+      "awk '/^cpu / { idle=$5+$6; total=0; for (i=2; i<=NF; i++) total+=$i; print idle; print total }' /proc/stat; " +
+      "awk '/MemTotal:/ { total=$2 } /MemAvailable:/ { available=$2 } END { if (total > 0) print (total - available) * 100 / total; else print 0 }' /proc/meminfo; " +
       "for p in /sys/class/power_supply/macsmc-battery /sys/class/power_supply/BAT0 /sys/class/power_supply/BAT1 /sys/class/power_supply/*; do " +
       "[ -r \"$p/type\" ] || continue; [ \"$(cat \"$p/type\")\" = Battery ] || continue; " +
       "case \"$p\" in *hid-*) continue;; esac; [ -r \"$p/capacity\" ] || continue; " +
@@ -103,20 +107,28 @@ Scope {
       onStreamFinished: {
         try {
           const lines = text.trim().split("\n")
-          if (lines.length >= 4) {
-            root.sidebarCpu = Math.round(parseFloat(lines[0]) || 0)
-            root.sidebarMem = Math.round(parseFloat(lines[1]) || 0)
-            const bat = parseFloat(lines[2])
+          if (lines.length >= 5) {
+            const idle = parseFloat(lines[0])
+            const total = parseFloat(lines[1])
+            if (root.sidebarCpuPrevTotal >= 0 && total > root.sidebarCpuPrevTotal) {
+              const totalDelta = total - root.sidebarCpuPrevTotal
+              const idleDelta = idle - root.sidebarCpuPrevIdle
+              root.sidebarCpu = Math.max(0, Math.min(100, Math.round(100 * (totalDelta - idleDelta) / totalDelta)))
+            }
+            root.sidebarCpuPrevIdle = idle
+            root.sidebarCpuPrevTotal = total
+            root.sidebarMem = Math.round(parseFloat(lines[2]) || 0)
+            const bat = parseFloat(lines[3])
             root.sidebarBat = Number.isFinite(bat) ? Math.max(0, Math.min(100, Math.round(bat))) : 100
-            root.sidebarBatStatus = lines[3].trim()
+            root.sidebarBatStatus = lines[4].trim()
           }
         } catch (_) {}
       }
     }
   }
   Timer {
-    interval: 3000; running: shouldShow; repeat: true; triggeredOnStart: true
-    onTriggered: sidebarProc.running = true
+    interval: 2000; running: shouldShow; repeat: true; triggeredOnStart: true
+    onTriggered: if (!sidebarProc.running) sidebarProc.running = true
   }
 
   // Embedded wifi (native, no popup) - enriched like NetworkPopupWindow
@@ -125,6 +137,76 @@ Scope {
   property string currentWifiSsid: ""
   property bool wifiScanning: false
   property string wifiDevice: ""
+  property real netRxSpeed: 0
+  property real netTxSpeed: 0
+  property real netPreviousRxBytes: -1
+  property real netPreviousTxBytes: -1
+  property real netPreviousSampleMs: 0
+  property string netSpeedDevice: ""
+  property var netRxHistory: []
+  property var netTxHistory: []
+  readonly property int netHistoryLimit: 60
+
+  function formatNetSpeed(bytes) {
+    let unit = "K"
+    let value = bytes / 1024
+    if (value >= 1024) {
+      unit = "M"
+      value /= 1024
+    }
+    if (value >= 1024) {
+      unit = "G"
+      value /= 1024
+    }
+    return Math.min(999, Math.round(value)).toString().padStart(3, "0") + " " + unit + "/s"
+  }
+  function resetNetSpeed(device) {
+    root.netSpeedDevice = device || ""
+    root.netRxSpeed = 0
+    root.netTxSpeed = 0
+    root.netPreviousRxBytes = -1
+    root.netPreviousTxBytes = -1
+    root.netPreviousSampleMs = 0
+    root.netRxHistory = []
+    root.netTxHistory = []
+  }
+  function activeNetDevice() {
+    return root.netDevice || root.wifiDevice || root.ethDevice || ""
+  }
+  function refreshNetSpeed() {
+    const dev = root.activeNetDevice()
+    if (!dev || netSpeedProc.running) return
+    if (dev !== root.netSpeedDevice) root.resetNetSpeed(dev)
+    netSpeedProc.command = [
+      "cat",
+      "/sys/class/net/" + dev + "/statistics/rx_bytes",
+      "/sys/class/net/" + dev + "/statistics/tx_bytes"
+    ]
+    netSpeedProc.running = true
+  }
+  function updateNetSpeed(out) {
+    const values = (out || "").trim().split(/\s+/)
+    if (values.length < 2) return
+    const now = Date.now()
+    const rxBytes = Number(values[0])
+    const txBytes = Number(values[1])
+    const seconds = (now - root.netPreviousSampleMs) / 1000
+
+    if (root.netPreviousSampleMs > 0 && seconds > 0) {
+      root.netRxSpeed = Math.max(0, (rxBytes - root.netPreviousRxBytes) / seconds)
+      root.netTxSpeed = Math.max(0, (txBytes - root.netPreviousTxBytes) / seconds)
+      const rx = root.netRxHistory.slice(-root.netHistoryLimit + 1)
+      const tx = root.netTxHistory.slice(-root.netHistoryLimit + 1)
+      rx.push(root.netRxSpeed)
+      tx.push(root.netTxSpeed)
+      root.netRxHistory = rx
+      root.netTxHistory = tx
+    }
+
+    root.netPreviousRxBytes = rxBytes
+    root.netPreviousTxBytes = txBytes
+    root.netPreviousSampleMs = now
+  }
   function scanWifi() {
     wifiScanning = true
     wifiProc.running = true
@@ -175,6 +257,16 @@ Scope {
   Timer {
     interval: 6000; running: shouldShow && root.mode === "network"; repeat: true
     onTriggered: root.scanWifi()
+  }
+
+  Process {
+    id: netSpeedProc
+    command: ["true"]
+    stdout: StdioCollector { onStreamFinished: root.updateNetSpeed(text) }
+  }
+  Timer {
+    interval: 1000; running: shouldShow && root.mode === "network"; repeat: true; triggeredOnStart: true
+    onTriggered: root.refreshNetSpeed()
   }
 
   // fastfetch for Dashboard (more system info like requested; --logo none keeps it compact)
@@ -341,19 +433,33 @@ Scope {
   }
   function parseTemperatures(out) {
     const sensors = []
-    let group = ""
+    let groupName = ""
+    let groupPath = ""
     let last = null
     const lines = (out || "").split("\n")
     for (const line of lines) {
       if (line.indexOf("Hottest:") === 0) break
       const gm = line.match(/^>>> (.+?) \((.+)\)$/)
       if (gm) {
-        group = gm[1]
+        groupName = gm[1]
+        groupPath = gm[2]
         continue
       }
       const sm = line.match(/^\s*(\S+)\s+(.+?)\s+(-?\d+(?:\.\d+)?)°C\s+(.+)$/)
       if (sm) {
-        last = { group: group || sm[1], name: sm[1], label: sm[2].trim(), value: Number(sm[3]), path: sm[4].trim(), desc: "" }
+        const keyName = groupName || sm[1]
+        const keyPath = groupPath || sm[4].trim().replace(/\/temp[^/]+$/, "")
+        last = {
+          group: keyName,
+          groupPath: keyPath,
+          groupKey: keyName + "|" + keyPath,
+          name: sm[1],
+          label: sm[2].trim(),
+          displayLabel: sm[2].trim(),
+          value: Number(sm[3]),
+          path: sm[4].trim(),
+          desc: ""
+        }
         sensors.push(last)
         continue
       }
@@ -363,14 +469,51 @@ Scope {
 
     const groups = []
     for (const sensor of sensors) {
-      let g = groups.find(item => item.name === sensor.group)
+      let g = groups.find(item => item.key === sensor.groupKey)
       if (!g) {
-        g = { name: sensor.group, sensors: [], max: sensor.value }
+        g = { key: sensor.groupKey, name: sensor.group, path: sensor.groupPath, sensors: [], max: sensor.value, sum: 0 }
         groups.push(g)
       }
       g.sensors.push(sensor)
       g.max = Math.max(g.max, sensor.value)
+      g.sum = (g.sum || 0) + sensor.value
     }
+    for (const g of groups) {
+      g.avg = g.sum / Math.max(1, g.sensors.length)
+    }
+    const groupNameMap = {
+      "macsmc_hwmon": "SMC Sensors",
+      "tas2764": "Speaker Amps",
+      "macsmc_battery": "Battery",
+      "nvme": "NVMe SSD"
+    }
+    const sourceCounts = {}
+    for (const g of groups) sourceCounts[g.name] = (sourceCounts[g.name] || 0) + 1
+    const sourceSeen = {}
+    for (const g of groups) {
+      const baseName = groupNameMap[g.name] || g.name
+      sourceSeen[g.name] = (sourceSeen[g.name] || 0) + 1
+      g.displayName = sourceCounts[g.name] > 1 ? (baseName + " " + sourceSeen[g.name]) : baseName
+
+      const labelCounts = {}
+      for (const s of g.sensors) labelCounts[s.label] = (labelCounts[s.label] || 0) + 1
+      const labelSeen = {}
+      for (const s of g.sensors) {
+        labelSeen[s.label] = (labelSeen[s.label] || 0) + 1
+        s.displayLabel = labelCounts[s.label] > 1 ? (s.label + " " + labelSeen[s.label]) : s.label
+        s.groupDisplayName = g.displayName
+      }
+
+      const descs = g.sensors.map(s => s.desc || "").filter(d => d)
+      let shared = null
+      if (descs.length > 0) {
+        shared = descs[0]
+        for (let i = 1; i < descs.length; i++) if (descs[i] !== shared) { shared = null; break }
+      }
+      g.sharedDesc = shared
+      for (const s of g.sensors) s.sharedDesc = g.sharedDesc
+    }
+    groups.sort((a, b) => b.max - a.max)
     root.tempSensors = sensors
     root.tempGroups = groups
     root.hottestSensor = sensors.reduce((best, sensor) => !best || sensor.value > best.value ? sensor : best, null)
@@ -414,6 +557,8 @@ Scope {
   // Media mode state (players via Mpris, audio via wpctl, cava viz)
   property var cavaValues: []
   property bool cavaRunning: false
+  property string cavaStatus: "idle"
+  property real cavaLastFrameMs: 0
   readonly property string cavaDir: "/tmp/quickshell-remix-" + (Quickshell.env("USER") || "user")
   readonly property string cavaConfigPath: cavaDir + "/cava.conf"
   readonly property string cavaFramePath: cavaDir + "/cava-frame"
@@ -432,14 +577,17 @@ Scope {
   function startCavaIfNeeded() {
     if (cavaRunning) return
     cavaRunning = true
+    cavaStatus = "starting"
+    cavaLastFrameMs = 0
     root.cavaValues = []
     Quickshell.execDetached([
       "sh", "-c",
       "dir=$1; conf=$2; frame=$3; " +
+      "if ! command -v cava >/dev/null 2>&1; then echo 'cava missing' >/tmp/quickshell-cava.err; exit 0; fi; " +
       "pkill -f \"cava -p $conf\" 2>/dev/null || true; " +
       "mkdir -p \"$dir\"; " +
       "printf '%s\n' " +
-      "'[general]' 'bars=24' 'framerate=30' 'sensitivity=180' '' " +
+      "'[general]' 'bars=24' 'framerate=30' 'autosens=1' 'sensitivity=180' '' " +
       "'[input]' 'method=pulse' 'source=auto' '' " +
       "'[output]' 'method=raw' 'raw_target=/dev/stdout' 'data_format=ascii' 'ascii_max_range=100' " +
       "'bar_delimiter=59' 'frame_delimiter=10' > \"$conf\"; " +
@@ -451,6 +599,8 @@ Scope {
   function stopCava() {
     if (!cavaRunning) return
     cavaRunning = false
+    cavaStatus = "idle"
+    cavaLastFrameMs = 0
     Quickshell.execDetached(["pkill", "-f", "cava -p " + cavaConfigPath])
   }
   function updateCavaFrame(line) {
@@ -464,6 +614,8 @@ Scope {
     }
     while (vals.length < 24) vals.push(0)
     root.cavaValues = vals
+    root.cavaLastFrameMs = Date.now()
+    root.cavaStatus = vals.some(v => v > 0) ? "active" : "waiting for audio"
   }
 
   Process {
@@ -479,6 +631,7 @@ Scope {
     repeat: true
     triggeredOnStart: true
     onTriggered: {
+      if (root.cavaRunning && root.cavaLastFrameMs > 0 && Date.now() - root.cavaLastFrameMs > 3000) root.cavaRunning = false
       if (!root.cavaRunning) root.startCavaIfNeeded()
       if (!cavaReadProc.running) cavaReadProc.running = true
     }
@@ -691,6 +844,18 @@ Scope {
   }
   function openShot(p) { if (p) Quickshell.execDetached(["xdg-open", p]) }
   function previewShot(p) { if (p) root.shotPreviewPath = p }
+  function deleteShot(p) {
+    if (!p) return
+    if (root.shotPreviewPath === p) root.shotPreviewPath = ""
+    if (root.copiedShot === p) root.copiedShot = ""
+    root.shots = root.shots.filter(s => s.path !== p)
+    Quickshell.execDetached([
+      "sh", "-c",
+      "rm -f -- \"$1\" && notify-send -a screenshot -t 900 'Deleted' \"$(basename \"$1\")\"",
+      "sh", p
+    ])
+    Qt.callLater(root.scanShots)
+  }
   function capture(kind) {
     Quickshell.execDetached([binDir + "/asahi-cmd-screenshot", kind || "smart"])
     Qt.callLater(function() { Qt.callLater(scanShots) })
@@ -709,8 +874,10 @@ Scope {
   }
 
   function activateMode(nextMode) {
+    const wasMedia = root.mode === "media"
     root.mode = nextMode || "hub"
     root.pendingConfirm = ""
+    if (wasMedia && root.mode !== "media") root.stopCava()
     if (root.mode === "screenshots" || root.mode === "hub") root.scanShots()
     else if (root.mode === "network") { root.scanWifi(); ethCheck.running = true }
     else if (root.mode === "media") root.enterMedia()
@@ -737,6 +904,7 @@ Scope {
     root.openFeatureMode("hub")
   }
   function closeFeature() {
+    if (mode === "media") root.stopCava()
     shouldShow = false
     mode = "hub"
     pendingConfirm = ""
@@ -1091,7 +1259,9 @@ Scope {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.margins: 10
-                height: 3 * 86 + 2 * 12
+                readonly property int tileHeight: Math.max(104, Math.min(128, Math.floor((parent.height - 220) / 3)))
+
+                height: 3 * tileHeight + 2 * 12
                 columns: 3
                 rowSpacing: 12
                 columnSpacing: 12
@@ -1114,7 +1284,7 @@ Scope {
                     required property int index
                     readonly property bool selected: root.mode === modelData.key
                     width: (featureGrid.width - 2 * 12) / 3
-                    height: 86
+                    height: featureGrid.tileHeight
 
                     Rectangle {
                       anchors.fill: parent
@@ -1188,7 +1358,8 @@ Scope {
                 anchors.topMargin: 14
                 anchors.left: featureGrid.left
                 anchors.right: featureGrid.right
-                height: 112
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 6
                 visible: root.mode === "hub"
 
                 RowLayout {
@@ -1207,7 +1378,7 @@ Scope {
                     ColumnLayout {
                       anchors.fill: parent
                       anchors.margins: 10
-                      spacing: 7
+                      spacing: 6
 
                       Repeater {
                         model: [
@@ -1226,12 +1397,13 @@ Scope {
                               ? Style.lavender
                               : (root.sidebarBatStatus === "Charging" ? Style.yellow : (root.sidebarBat < 20 ? Style.red : Style.green)))
                           Layout.fillWidth: true
-                          Layout.preferredHeight: 26
+                          Layout.fillHeight: true
 
                           RowLayout {
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.top: parent.top
+                            anchors.topMargin: 2
                             spacing: 8
 
                             Text {
@@ -1255,13 +1427,14 @@ Scope {
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.bottom: parent.bottom
-                            height: 4
-                            radius: 2
+                            anchors.bottomMargin: 2
+                            height: 6
+                            radius: 3
                             color: Style.menuControlBg
                             Rectangle {
                               width: parent.width * Math.max(0, Math.min(1, meterValue / 100))
                               height: parent.height
-                              radius: 2
+                              radius: 3
                               color: meterColor
                             }
                           }
@@ -1322,8 +1495,8 @@ Scope {
                                 source: "file://" + modelData.path
                                 fillMode: Image.PreserveAspectCrop
                                 asynchronous: true
-                                sourceSize.width: 180
-                                sourceSize.height: 100
+                                sourceSize.width: 240
+                                sourceSize.height: 140
                               }
 
                               Rectangle {
@@ -1982,6 +2155,7 @@ Scope {
                       }
 
                       Rectangle {
+                        id: shotQuickPreview
                         anchors.top: parent.top
                         anchors.right: parent.right
                         anchors.margins: 7
@@ -1995,6 +2169,30 @@ Scope {
                         border.color: Style.menuSep
                         Text { anchors.centerIn: parent; text: "󰋲"; color: Style.menuSeal; font.pixelSize: root.fontPx(12 + root.uiFontBump); font.family: root.uiFont }
                         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.previewShot(modelData.path) }
+                      }
+
+                      Rectangle {
+                        anchors.top: parent.top
+                        anchors.right: shotQuickPreview.left
+                        anchors.topMargin: 7
+                        anchors.rightMargin: 6
+                        width: 24
+                        height: 24
+                        radius: 12
+                        z: 4
+                        visible: hma.containsMouse
+                        color: Style.menuControlBg
+                        border.width: 1
+                        border.color: Style.menuSep
+                        Text { anchors.centerIn: parent; text: "󰆴"; color: Style.red; font.pixelSize: root.fontPx(12 + root.uiFontBump); font.family: root.uiFont }
+                        MouseArea {
+                          anchors.fill: parent
+                          cursorShape: Qt.PointingHandCursor
+                          onClicked: mouse => {
+                            mouse.accepted = true
+                            root.deleteShot(modelData.path)
+                          }
+                        }
                       }
                     }
                   }
@@ -2017,8 +2215,8 @@ Scope {
                   color: root.menuTileBg
                   border.color: Style.menuSep
                   border.width: 1
-                  Layout.preferredHeight: 76
-                  Layout.maximumHeight: 76
+                  Layout.preferredHeight: 82
+                  Layout.maximumHeight: 82
 
                   ColumnLayout {
                     anchors.fill: parent
@@ -2543,7 +2741,23 @@ Scope {
                     anchors.margins: 14
                     spacing: 8
 
-                    Text { text: "󰎈  Live Cava Audio Spectrum"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(10 + root.uiFontBump); font.family: root.uiFont; font.bold: true }
+                    RowLayout {
+                      Layout.fillWidth: true
+                      Text {
+                        text: "󰎈  Live Cava Audio Spectrum"
+                        color: Style.menuInkDeep
+                        font.pixelSize: root.fontPx(10 + root.uiFontBump)
+                        font.family: root.uiFont
+                        font.bold: true
+                      }
+                      Item { Layout.fillWidth: true }
+                      Text {
+                        text: root.cavaStatus
+                        color: root.cavaStatus === "active" ? Style.green : Style.menuInkDeep
+                        font.pixelSize: root.fontPx(9 + root.uiFontBump)
+                        font.family: root.uiFont
+                      }
+                    }
 
                     Item {
                       Layout.fillWidth: true
@@ -2606,7 +2820,7 @@ Scope {
                   spacing: 10
 
                   Rectangle {
-                    Layout.fillWidth: true; Layout.preferredHeight: 146
+                    Layout.fillWidth: true; Layout.preferredHeight: 170
                     radius: 8; color: root.menuTileBg; border.color: root.wifiEnabled ? Style.menuSep : Style.menuSep; border.width: 1
                     Behavior on border.color { ColorAnimation { duration: 140 } }
                     ColumnLayout {
@@ -2651,11 +2865,14 @@ Scope {
                       }
                       Text {
                         Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        text: root.wifiTooltip || "No Wi-Fi connection details"
+                        text: {
+                          let t = root.wifiTooltip || "No Wi-Fi connection details"
+                          t = t.replace(/^Connected to [^\n]*\n?/, "")
+                          return t.trim() || "No Wi-Fi connection details"
+                        }
                         color: Style.menuInkDeep; font.pixelSize: root.fontPx(9 + root.uiFontBump); font.family: root.uiFont
                         wrapMode: Text.Wrap
-                        maximumLineCount: 4
+                        maximumLineCount: 5
                         elide: Text.ElideRight
                         verticalAlignment: Text.AlignTop
                       }
@@ -2663,7 +2880,7 @@ Scope {
                   }
 
                   Rectangle {
-                    Layout.fillWidth: true; Layout.preferredHeight: 146
+                    Layout.fillWidth: true; Layout.preferredHeight: 170
                     radius: 8; color: root.menuTileBg; border.color: root.ethConnected ? Style.menuSep : Style.menuSep; border.width: 1
                     Behavior on border.color { ColorAnimation { duration: 140 } }
                     ColumnLayout {
@@ -2718,6 +2935,108 @@ Scope {
                   }
                 }
 
+                Rectangle {
+                  Layout.fillWidth: true
+                  Layout.preferredHeight: 110
+                  Layout.maximumHeight: 110
+                  radius: 8
+                  color: root.menuTileBg
+                  border.color: Style.menuSep
+                  border.width: 1
+
+                  ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 10
+                    spacing: 6
+
+                    RowLayout {
+                      Layout.fillWidth: true
+                      Text {
+                        text: "Traffic"
+                        color: Style.menuInk
+                        font.pixelSize: root.fontPx(10 + root.uiFontBump)
+                        font.family: root.uiFont
+                        font.bold: true
+                      }
+                      Text {
+                        text: root.netSpeedDevice || "no interface"
+                        color: Style.menuInkDeep
+                        font.pixelSize: root.fontPx(9 + root.uiFontBump)
+                        font.family: root.uiFont
+                      }
+                      Item { Layout.fillWidth: true }
+                      Text {
+                        text: "↑ " + root.formatNetSpeed(root.netTxSpeed)
+                        color: root.netTxSpeed >= 1024 ? Style.green : Style.menuInkDeep
+                        font.pixelSize: root.fontPx(9 + root.uiFontBump)
+                        font.family: root.uiFont
+                      }
+                      Text {
+                        text: "↓ " + root.formatNetSpeed(root.netRxSpeed)
+                        color: root.netRxSpeed >= 1024 ? Style.menuIndigo : Style.menuInkDeep
+                        font.pixelSize: root.fontPx(9 + root.uiFontBump)
+                        font.family: root.uiFont
+                      }
+                    }
+
+                    Canvas {
+                      id: netTimelineCanvas
+                      Layout.fillWidth: true
+                      Layout.fillHeight: true
+                      Connections {
+                        target: root
+                        function onNetRxHistoryChanged() { netTimelineCanvas.requestPaint() }
+                        function onNetTxHistoryChanged() { netTimelineCanvas.requestPaint() }
+                      }
+                      onPaint: {
+                        const ctx = getContext("2d")
+                        ctx.reset()
+                        const w = width
+                        const h = height
+                        const rx = root.netRxHistory || []
+                        const tx = root.netTxHistory || []
+                        const n = Math.max(rx.length, tx.length)
+                        let maxValue = 1024
+                        for (let i = 0; i < rx.length; i++) maxValue = Math.max(maxValue, rx[i])
+                        for (let i = 0; i < tx.length; i++) maxValue = Math.max(maxValue, tx[i])
+
+                        ctx.strokeStyle = Qt.rgba(Style.menuInkDeep.r, Style.menuInkDeep.g, Style.menuInkDeep.b, 0.22)
+                        ctx.lineWidth = 1
+                        for (let i = 1; i < 4; i++) {
+                          const y = Math.round(h * i / 4) + 0.5
+                          ctx.beginPath()
+                          ctx.moveTo(0, y)
+                          ctx.lineTo(w, y)
+                          ctx.stroke()
+                        }
+
+                        function drawLine(values, color) {
+                          if (values.length < 2) return
+                          ctx.strokeStyle = color
+                          ctx.lineWidth = 2
+                          ctx.beginPath()
+                          for (let i = 0; i < values.length; i++) {
+                            const x = values.length === 1 ? w : i * w / (values.length - 1)
+                            const y = h - Math.max(0, Math.min(1, values[i] / maxValue)) * h
+                            if (i === 0) ctx.moveTo(x, y)
+                            else ctx.lineTo(x, y)
+                          }
+                          ctx.stroke()
+                        }
+
+                        if (n === 0) {
+                          ctx.fillStyle = Style.menuInkDeep
+                          ctx.font = root.fontPx(9 + root.uiFontBump) + "px sans-serif"
+                          ctx.fillText("waiting for traffic samples", 8, Math.round(h / 2))
+                        } else {
+                          drawLine(tx, Style.green)
+                          drawLine(rx, Style.menuIndigo)
+                        }
+                      }
+                    }
+                  }
+                }
+
                 RowLayout {
                   Layout.fillWidth: true
                   Text { text: "Available networks"; font.pixelSize: root.fontPx(10 + root.uiFontBump); color: Style.menuInkDeep; font.family: root.uiFont }
@@ -2741,7 +3060,7 @@ Scope {
                       model: root.wifiNetworks
                       delegate: Rectangle {
                         required property var modelData
-                        width: parent.width - 8; x: 4; height: 34; radius: 6
+                        width: parent.width - 8; x: 4; height: 58; radius: 6
                         color: modelData.active
                           ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.16)
                           : (netMa.containsMouse ? Style.menuRowHi : "transparent")
@@ -2753,14 +3072,19 @@ Scope {
                         Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
                         RowLayout {
-                          anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10; spacing: 8
+                          anchors.fill: parent
+                          anchors.leftMargin: 14
+                          anchors.rightMargin: 14
+                          anchors.topMargin: 9
+                          anchors.bottomMargin: 9
+                          spacing: 8
                           Text {
                             text: modelData.signal > 75 ? "󰤨" : (modelData.signal > 50 ? "󰤥" : (modelData.signal > 25 ? "󰤢" : "󰤟"))
                             font.family: root.uiFont; font.pixelSize: root.fontPx(14 + root.uiFontBump)
                             color: modelData.active ? Style.menuIndigo : Style.menuInkDeep
                           }
                           ColumnLayout {
-                            spacing: 0; Layout.fillWidth: true
+                            spacing: 2; Layout.fillWidth: true; Layout.fillHeight: true
                             Text {
                               text: modelData.ssid;
                               font.family: root.uiFont;
@@ -2877,7 +3201,7 @@ Scope {
                 }
                 // Layout visualization (normalized rects from hyprctl coords)
                 Rectangle {
-                  Layout.fillWidth: true; Layout.preferredHeight: 360
+                  Layout.fillWidth: true; Layout.preferredHeight: 420
                   radius: 6; color: Style.menuControlBg; border.color: Style.menuSep; border.width: 1
                   Canvas {
                     anchors.fill: parent; anchors.margins: 10
@@ -2935,13 +3259,13 @@ Scope {
                       model: root.monitorList || []
                       delegate: Rectangle {
                         required property var modelData
-                        width: parent.width; height: 44; radius: 6
+                        width: parent.width; height: 46; radius: 6
                         color: modelData.focused ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.16) : root.menuTileBg
                         border.color: modelData.focused ? Style.menuIndigo : Style.menuSep; border.width: 1
                         Behavior on color { ColorAnimation { duration: 140 } }
                         Behavior on border.color { ColorAnimation { duration: 140 } }
                         RowLayout {
-                          anchors.fill: parent; anchors.leftMargin: 9; anchors.rightMargin: 9; spacing: 10
+                          anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10; spacing: 10
                           Text {
                             text: modelData.focused ? "󰍹" : "󰌢"
                             color: modelData.focused ? Style.menuIndigo : Style.menuInkDeep
@@ -2991,6 +3315,13 @@ Scope {
                         font.family: root.uiFont; font.pixelSize: root.fontPx(10 + root.uiFontBump); color: Style.menuInkDeep
                         wrapMode: Text.Wrap; width: parent.width
                       }
+                      Text {
+                        visible: !!root.hottestSensor && root.tempGroups.length > 0
+                        text: "Hottest: " + (root.hottestSensor ? ((root.hottestSensor.groupDisplayName || root.hottestSensor.group) + " / " + root.hottestSensor.displayLabel) : "") + " " + (root.hottestSensor ? root.hottestSensor.value.toFixed(1) : "") + "°C"
+                        color: root.hottestSensor ? root.tempColor(root.hottestSensor.value) : Style.menuInkDeep
+                        font.family: root.uiFont; font.pixelSize: root.fontPx(10 + root.uiFontBump); font.bold: true
+                        width: parent.width; elide: Text.ElideRight
+                      }
                       Repeater {
                         model: root.tempGroups
                         delegate: Rectangle {
@@ -3003,24 +3334,25 @@ Scope {
                             RowLayout {
                               width: parent.width
                               Text {
-                                text: modelData.name
+                                text: modelData.displayName || modelData.name
                                 color: Style.menuInk; font.pixelSize: root.fontPx(11 + root.uiFontBump); font.family: root.uiFont; font.bold: true
                                 Layout.fillWidth: true; elide: Text.ElideRight
                               }
                               Text {
-                                text: modelData.max.toFixed(1) + "°C"
-                                color: root.tempColor(modelData.max); font.pixelSize: root.fontPx(10 + root.uiFontBump); font.family: root.uiFont; font.bold: true
+                                text: "avg " + modelData.avg.toFixed(1) + "°C"
+                                color: root.tempColor(modelData.avg); font.pixelSize: root.fontPx(10 + root.uiFontBump); font.family: root.uiFont; font.bold: true
                               }
                             }
                             Repeater {
                               model: modelData.sensors
                               delegate: Column {
                                 required property var modelData
+                                required property int index
                                 width: groupCol.width; spacing: 2
                                 RowLayout {
                                   width: parent.width
                                   Text {
-                                    text: modelData.label
+                                    text: modelData.displayLabel || modelData.label
                                     color: Style.menuInkDeep; font.pixelSize: root.fontPx(9 + root.uiFontBump); font.family: root.uiFont
                                     Layout.fillWidth: true; elide: Text.ElideRight
                                   }
@@ -3037,8 +3369,8 @@ Scope {
                                   }
                                 }
                                 Text {
-                                  visible: !!modelData.desc
-                                  text: modelData.desc
+                                  visible: !!modelData.desc && (index === 0 || !modelData.sharedDesc)
+                                  text: modelData.sharedDesc || modelData.desc
                                   color: Style.menuInkDeep; font.pixelSize: root.fontPx(8 + root.uiFontBump); font.family: root.uiFont
                                   width: parent.width; elide: Text.ElideRight
                                 }
@@ -3099,7 +3431,7 @@ Scope {
                       model: Bluetooth.devices ? Bluetooth.devices.values : []
                       delegate: Rectangle {
                         required property var modelData
-                        width: parent.width; height: 36; radius: 6
+                        width: parent.width; height: 38; radius: 6
                         color: modelData.connected ? Style.menuRowSel : (bth.containsMouse ? Style.menuRowHi : "transparent")
                         border.width: 1
                         border.color: modelData.connected ? Style.menuSeal : (bth.containsMouse ? Style.menuSep : "transparent")
@@ -3107,7 +3439,7 @@ Scope {
                         Behavior on border.color { ColorAnimation { duration: 140 } }
 
                         RowLayout {
-                          anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 8
+                          anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10
                           Text { text: modelData.connected ? "󰂱" : "󰂯"; font.pixelSize: root.fontPx(14 + root.uiFontBump); color: modelData.connected ? Style.green : Style.menuInkDeep }
 
                           ColumnLayout {
@@ -3146,11 +3478,12 @@ Scope {
                 Text { text: root.pendingConfirm ? "Confirm action: " + root.pendingConfirm + "?" : "Select Power Action"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(12 + root.uiFontBump); font.family: root.uiFont; Layout.alignment: Qt.AlignHCenter }
 
                 GridLayout {
+                  id: powerGrid
                   Layout.fillWidth: true
-                  Layout.alignment: Qt.AlignVCenter
+                  Layout.fillHeight: true
                   columns: 2
-                  rowSpacing: 18
-                  columnSpacing: 18
+                  rowSpacing: 14
+                  columnSpacing: 14
                   Repeater {
                     model: [
                       { icon: "󰌾", label: "Lock Session", act: () => root.doLock(), danger: false },
@@ -3161,7 +3494,8 @@ Scope {
                     delegate: Rectangle {
                       required property var modelData
                       Layout.fillWidth: true
-                      Layout.preferredHeight: 76
+                      Layout.fillHeight: true
+                      Layout.preferredHeight: Math.max(118, (powerGrid.height - powerGrid.rowSpacing) / 2)
                       radius: 12
                       color: modelData.danger ? root.menuDangerBg : (pma.containsMouse ? Style.menuRowHi : root.menuTileBg)
                       border.color: pma.containsMouse ? (modelData.danger ? Style.red : Style.menuSep) : Style.menuSep
@@ -3246,6 +3580,24 @@ Scope {
           border.color: openShotPreviewMa.containsMouse ? Style.menuSeal : Style.menuSep
           Text { anchors.centerIn: parent; text: "Open"; color: openShotPreviewMa.containsMouse ? Style.menuSeal : Style.menuInk; font.pixelSize: root.fontPx(11 + root.uiFontBump); font.bold: true; font.family: root.uiFont }
           MouseArea { id: openShotPreviewMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.openShot(root.shotPreviewPath) }
+        }
+
+        Rectangle {
+          width: 96; height: 34; radius: 17
+          color: deleteShotPreviewMa.containsMouse ? root.menuDangerBg : Style.menuControlBg
+          border.width: 1
+          border.color: deleteShotPreviewMa.containsMouse ? Style.red : Style.menuSep
+          Text { anchors.centerIn: parent; text: "Delete"; color: deleteShotPreviewMa.containsMouse ? Style.red : Style.menuInk; font.pixelSize: root.fontPx(11 + root.uiFontBump); font.bold: true; font.family: root.uiFont }
+          MouseArea {
+            id: deleteShotPreviewMa
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: mouse => {
+              mouse.accepted = true
+              root.deleteShot(root.shotPreviewPath)
+            }
+          }
         }
       }
     }
