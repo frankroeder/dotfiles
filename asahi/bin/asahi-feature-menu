@@ -2,4 +2,4 @@
 set -euo pipefail
 # Thin trigger for the QS graphical feature menu (replaces fuzzel dmenu).
 # All UI, overviews, previews, deep links now in quickshell remix.
-exec qs -c remix ipc call launcher openCategory Quick
+exec qs -c remix ipc call launcher quick hub

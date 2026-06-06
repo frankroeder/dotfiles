@@ -702,8 +702,13 @@ Variants {
       function openCategory(cat: string) {
         const l = launcherLoader.item
         if (!l) return
-        if (l.openLauncher) l.openLauncher()
-        Qt.callLater(() => { if (l) l.categoryFilter = cat || "" })
+        if (l.openCategory) l.openCategory(cat || "")
+        else if (l.openLauncher) l.openLauncher()
+      }
+      function quick(key: string) {
+        const l = launcherLoader.item
+        if (!l) return
+        if (l.openQuick) l.openQuick(key || "hub")
       }
     }
 

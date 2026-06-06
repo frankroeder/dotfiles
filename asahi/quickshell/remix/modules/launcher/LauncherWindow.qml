@@ -85,8 +85,10 @@ Scope {
     { key: "scratch", aliases: ["scratchpad"], icon: "󱂬", name: "Scratchpad", comment: "Toggle scratch workspace", command: ["hyprctl", "dispatch", "togglespecialworkspace", "scratch"] }
   ]
 
-  readonly property var quickTiles: root.quickActions.map(function(a) {
-    return { key: a.key, glyph: a.icon, label: a.name, sub: a.comment, mode: a.mode || "", command: a.command || [] }
+  readonly property var quickTiles: root.quickActions.filter(function(a) {
+    return !!a.mode
+  }).map(function(a) {
+    return { key: a.key, glyph: a.icon, label: a.name, sub: a.comment, mode: a.mode }
   })
 
   // --- live data + exact hub/lower + side windows (ported from old featuremenu; now the only place, module removed)
@@ -194,7 +196,97 @@ Scope {
   // Components for side detail "feature popups" (show exactly the feature windows content in launcher side, per task)
   Component { id: quickHubComp; Item {
     // exact copy of feature's hub overview grid + lower telemetry/shots (for side popup in launcher; uses duplicated data)
+    id: quickHubRoot
     anchors.fill: parent
+    property string ffTitle: "System"
+    property string ffSubtitle: "fastfetch"
+    property string ffUpdated: ""
+    property int ffDiskPct: 0
+    property var ffRows: []
+
+    function prettyBytes(bytes) {
+      let value = Number(bytes) || 0
+      if (value <= 0) return "—"
+      const units = ["B", "K", "M", "G", "T"]
+      let idx = 0
+      while (value >= 1024 && idx < units.length - 1) { value /= 1024; idx++ }
+      return value.toFixed(idx >= 3 && value < 100 ? 1 : 0) + " " + units[idx]
+    }
+    function pct(used, total) {
+      total = Number(total) || 0
+      used = Number(used) || 0
+      return total > 0 ? Math.round(used * 100 / total) : 0
+    }
+    function parseFastfetch(text) {
+      try {
+        const data = JSON.parse((text || "").trim() || "[]")
+        function one(type) {
+          for (let i=0; i<data.length; i++) if (data[i] && data[i].type === type && data[i].result) return data[i].result
+          return null
+        }
+        const title = one("Title") || {}
+        const os = one("OS") || {}
+        const host = one("Host") || {}
+        const kernel = one("Kernel") || {}
+        const pkgs = one("Packages") || {}
+        const cpu = one("CPU") || {}
+        const gpus = one("GPU") || []
+        const gpu = gpus.length > 0 ? gpus[0] : {}
+        const mem = one("Memory") || {}
+        const disks = one("Disk") || []
+        const disk = disks.find(d => d.mountpoint === "/") || disks[0] || {}
+        const displays = one("Display") || []
+        const display = displays.length > 0 ? displays[0] : {}
+        const wm = one("WM") || {}
+        const ips = one("LocalIp") || []
+        const ip = ips.find(x => x.defaultRoute && x.defaultRoute.ipv4) || ips[0] || {}
+        const bats = one("Battery") || []
+        const bat = bats.length > 0 ? bats[0] : {}
+        const power = one("PowerAdapter") || []
+        const adapter = power.length > 0 ? power[0] : {}
+        const diskBytes = disk.bytes || {}
+        const memUsed = Number(mem.used) || 0
+        const memTotal = Number(mem.total) || 0
+        const diskUsed = Number(diskBytes.used) || 0
+        const diskTotal = Number(diskBytes.total) || 0
+        const out = display.output || {}
+        const scaled = display.scaled || out
+        const refresh = out.refreshRate ? (" @" + Math.round(out.refreshRate) + "Hz") : ""
+        const batteryStatus = Array.isArray(bat.status) ? bat.status.join(", ") : (bat.status || "")
+        quickHubRoot.ffTitle = (title.userName && title.hostName) ? (title.userName + "@" + title.hostName) : (host.name || "System")
+        quickHubRoot.ffSubtitle = os.prettyName || os.name || "fastfetch"
+        quickHubRoot.ffDiskPct = quickHubRoot.pct(diskUsed, diskTotal)
+        quickHubRoot.ffRows = [
+          { label: "MODEL", value: host.name || host.family || "—" },
+          { label: "OS", value: os.prettyName || os.name || "—" },
+          { label: "KERNEL", value: (kernel.name || "Linux") + " " + (kernel.release || "") },
+          { label: "CPU", value: (cpu.cpu || "—") + (cpu.cores && cpu.cores.logical ? (" · " + cpu.cores.logical + " cores") : "") },
+          { label: "GPU", value: (gpu.name || "—") + (gpu.coreCount ? (" · " + gpu.coreCount + " cores") : "") },
+          { label: "MEMORY", value: quickHubRoot.prettyBytes(memUsed) + " / " + quickHubRoot.prettyBytes(memTotal) },
+          { label: "DISK", value: quickHubRoot.prettyBytes(diskUsed) + " / " + quickHubRoot.prettyBytes(diskTotal) + " · " + quickHubRoot.ffDiskPct + "% · " + (disk.filesystem || "") },
+          { label: "PACKAGES", value: (pkgs.all || 0) + " total · " + (pkgs.rpm || 0) + " rpm · " + (pkgs.flatpakUser || 0) + " flatpak" },
+          { label: "DISPLAY", value: (scaled.width || out.width || "?") + "x" + (scaled.height || out.height || "?") + refresh + (display.name ? (" · " + display.name) : "") },
+          { label: "WM", value: (wm.prettyName || wm.processName || "—") + (wm.version ? (" " + wm.version) : "") },
+          { label: "BATTERY", value: (bat.capacity !== undefined ? (Math.round(bat.capacity) + "%") : "—") + (bat.cycleCount ? (" · " + bat.cycleCount + " cycles") : "") + (batteryStatus ? (" · " + batteryStatus) : "") },
+          { label: "POWER", value: adapter.watts ? (adapter.watts + "W adapter") : (ip.ipv4 || "—") }
+        ]
+        quickHubRoot.ffUpdated = Qt.formatTime(new Date(), "HH:mm:ss")
+      } catch (_) {
+        quickHubRoot.ffRows = [{ label: "FASTFETCH", value: "unavailable" }]
+      }
+    }
+
+    Process {
+      id: ffProc
+      command: ["fastfetch", "--format", "json"]
+      stdout: StdioCollector { onStreamFinished: quickHubRoot.parseFastfetch(text) }
+    }
+    Timer {
+      interval: 60000; running: root.quickDetailActive && root.expandedQuickKey === "hub"; repeat: true; triggeredOnStart: true
+      onTriggered: if (!ffProc.running) ffProc.running = true
+    }
+    Component.onCompleted: Qt.callLater(function(){ if (!ffProc.running) ffProc.running = true })
+
     // OVERVIEW GRID (hub) - 3x3 feature tiles (exact from feature)
     Grid {
       id: featureGrid
@@ -290,7 +382,7 @@ Scope {
       }
     }
 
-    // LOWER of grid (hub only): CPU/RAM/Battery + latest 4 shots (exact from feature)
+    // LOWER of grid (hub only): fastfetch about + latest shots
     Item {
       anchors.top: featureGrid.bottom
       anchors.topMargin: 8
@@ -303,9 +395,9 @@ Scope {
         anchors.fill: parent
         spacing: 8
 
-        // left: telemetry bars (CPU / RAM / Battery) exact
+        // left: fastfetch about + live meters
         Rectangle {
-          Layout.preferredWidth: 160
+          Layout.preferredWidth: 430
           Layout.fillHeight: true
           radius: Style.menuRadius
           color: Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.03)
@@ -314,65 +406,137 @@ Scope {
 
           ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 6
-            spacing: 4
+            anchors.margins: 10
+            spacing: 7
 
-            Repeater {
-              model: [
-                { label: "CPU", key: "cpu" },
-                { label: "RAM", key: "ram" },
-                { label: "BAT", key: "bat" }
-              ]
-              delegate: Item {
-                required property var modelData
-                readonly property int meterValue: modelData.key === "cpu"
-                  ? root.sidebarCpu
-                  : (modelData.key === "ram" ? root.sidebarMem : root.sidebarBat)
-                readonly property color meterColor: modelData.key === "cpu"
-                  ? Style.orange
-                  : (modelData.key === "ram"
-                    ? Style.lavender
-                    : (root.sidebarBatStatus === "Charging" ? Style.yellow : (root.sidebarBat < 20 ? Style.red : Style.green)))
-                Layout.fillWidth: true
-                Layout.fillHeight: true
+            RowLayout {
+              Layout.fillWidth: true
+              spacing: 8
+              Text { text: "󰟀"; color: Style.menuSeal; font.pixelSize: root.fontPx(18); font.family: root.uiFont }
+              ColumnLayout {
+                Layout.fillWidth: true; spacing: 0
+                Text {
+                  text: quickHubRoot.ffTitle.toUpperCase()
+                  color: Style.menuInk; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.letterSpacing: 1.4; font.weight: Font.Medium
+                  elide: Text.ElideRight; Layout.fillWidth: true
+                }
+                Text {
+                  text: quickHubRoot.ffSubtitle
+                  color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont; elide: Text.ElideRight; Layout.fillWidth: true
+                }
+              }
+              Text { text: quickHubRoot.ffUpdated || "loading"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont }
+            }
 
-                RowLayout {
-                  anchors.left: parent.left
-                  anchors.right: parent.right
-                  anchors.top: parent.top
-                  anchors.topMargin: 1
-                  spacing: 4
+            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Style.menuSep }
 
-                  Text {
-                    text: modelData.label
-                    color: Style.menuInkDeep
-                    font.pixelSize: root.fontPx(8)
-                    font.family: root.uiFont
-                    font.letterSpacing: 1
-                  }
-                  Item { Layout.fillWidth: true }
-                  Text {
-                    text: meterValue + "%"
-                    color: meterColor
-                    font.pixelSize: root.fontPx(9)
-                    font.family: root.uiFont
-                    font.weight: Font.Medium
+            Flickable {
+              Layout.fillWidth: true
+              Layout.fillHeight: true
+              clip: true
+              contentHeight: sysRows.implicitHeight
+              boundsBehavior: Flickable.StopAtBounds
+              Column {
+                id: sysRows
+                width: parent.width
+                spacing: 4
+                Repeater {
+                  model: quickHubRoot.ffRows
+                  delegate: RowLayout {
+                    required property var modelData
+                    width: parent.width
+                    spacing: 8
+                    Text {
+                      Layout.preferredWidth: 70
+                      text: modelData.label
+                      color: Style.menuInkDeep
+                      font.pixelSize: root.fontPx(7)
+                      font.family: root.uiFont
+                      font.letterSpacing: 1
+                      elide: Text.ElideRight
+                    }
+                    Text {
+                      Layout.fillWidth: true
+                      text: modelData.value
+                      color: Style.menuInk
+                      font.pixelSize: root.fontPx(8)
+                      font.family: root.uiFont
+                      elide: Text.ElideRight
+                    }
                   }
                 }
+              }
+            }
 
-                Rectangle {
-                  anchors.left: parent.left
-                  anchors.right: parent.right
-                  anchors.bottom: parent.bottom
-                  anchors.bottomMargin: 1
-                  height: 5
-                  radius: 2
-                  color: Style.menuControlBg
+            Row {
+              Layout.fillWidth: true
+              Layout.preferredHeight: 42
+              spacing: 6
+
+              Repeater {
+                model: [
+                  { label: "CPU", key: "cpu" },
+                  { label: "RAM", key: "ram" },
+                  { label: "DISK", key: "disk" },
+                  { label: "BAT", key: "bat" }
+                ]
+                delegate: Item {
+                  required property var modelData
+                  readonly property int meterValue: modelData.key === "cpu"
+                    ? root.sidebarCpu
+                    : (modelData.key === "ram" ? root.sidebarMem : (modelData.key === "disk" ? quickHubRoot.ffDiskPct : root.sidebarBat))
+                  readonly property color meterColor: modelData.key === "cpu"
+                    ? Style.orange
+                    : (modelData.key === "ram"
+                      ? Style.lavender
+                      : (modelData.key === "disk"
+                        ? Style.menuIndigo
+                        : (root.sidebarBatStatus === "Charging" ? Style.yellow : (root.sidebarBat < 20 ? Style.red : Style.green))))
+                  width: (parent.width - 3 * parent.spacing) / 4
+                  height: parent.height
+
                   Rectangle {
-                    width: parent.width * Math.max(0, Math.min(1, meterValue / 100))
-                    height: parent.height
-                    radius: 2
-                    color: meterColor
+                    anchors.fill: parent
+                    radius: 5
+                    color: Style.menuControlBg
+                    border.color: Style.menuSep
+                    border.width: 1
+
+                    Text {
+                      anchors.left: parent.left
+                      anchors.top: parent.top
+                      anchors.margins: 5
+                      text: modelData.label
+                      color: Style.menuInkDeep
+                      font.pixelSize: root.fontPx(7)
+                      font.family: root.uiFont
+                    }
+                    Text {
+                      anchors.right: parent.right
+                      anchors.top: parent.top
+                      anchors.margins: 5
+                      text: meterValue + "%"
+                      color: meterColor
+                      font.pixelSize: root.fontPx(8)
+                      font.family: root.uiFont
+                      font.weight: Font.Medium
+                    }
+
+                    Rectangle {
+                      anchors.left: parent.left
+                      anchors.right: parent.right
+                      anchors.bottom: parent.bottom
+                      anchors.margins: 5
+                      height: 5
+                      radius: 2
+                      color: Qt.rgba(0, 0, 0, 0.2)
+                      Rectangle {
+                        width: parent.width * Math.max(0, Math.min(1, meterValue / 100))
+                        height: parent.height
+                        radius: 2
+                        color: meterColor
+                      }
+                    }
                   }
                 }
               }
@@ -660,9 +824,11 @@ Scope {
   Component { id: quickMediaComp; Item {
     id: quickMediaRoot
     anchors.fill: parent
+    implicitHeight: mediaCol.implicitHeight
     // fuller media port (Mpris+controls+active, wpctl, cava, streams; procs/timers/guards)
     property var cavaValues: []
     property bool cavaRunning: false
+    property string cavaStatus: "idle"
     property real cavaLast: 0
     readonly property string cavaDir: "/tmp/quickshell-remix-" + (Quickshell.env("USER") || "user")
     readonly property string cavaCfg: quickMediaRoot.cavaDir + "/cava.conf"
@@ -694,43 +860,77 @@ Scope {
     }
     function startCava() {
       if (quickMediaRoot.cavaRunning) return
-      quickMediaRoot.cavaRunning = true; quickMediaRoot.cavaLast=0; quickMediaRoot.cavaValues=[]
+      quickMediaRoot.cavaRunning = true; quickMediaRoot.cavaStatus = "starting"; quickMediaRoot.cavaLast=0; quickMediaRoot.cavaValues=[]
       Quickshell.execDetached([
         "sh", "-c",
-        "dir=$1;cfg=$2;frm=$3; pkill -f \"cava -p $cfg\" 2>/dev/null||true; mkdir -p \"$dir\"; " +
-        "printf '%s\n' '[general]' 'bars=16' 'framerate=20' 'autosens=1' '' '[input]' 'method=pulse' 'source=auto' '' " +
-        "'[output]' 'method=raw' 'raw_target=/dev/stdout' 'data_format=ascii' 'ascii_max_range=100' 'bar_delimiter=59' > \"$cfg\"; " +
+        "dir=$1;cfg=$2;frm=$3; if ! command -v cava >/dev/null 2>&1; then echo 'cava missing' >/tmp/quickshell-cava.err; exit 0; fi; " +
+        "pkill -f \"cava -p $cfg\" 2>/dev/null||true; mkdir -p \"$dir\"; " +
+        "printf '%s\n' '[general]' 'bars=24' 'framerate=30' 'autosens=1' 'sensitivity=180' '' '[input]' 'method=pulse' 'source=auto' '' " +
+        "'[output]' 'method=raw' 'raw_target=/dev/stdout' 'data_format=ascii' 'ascii_max_range=100' 'bar_delimiter=59' 'frame_delimiter=10' > \"$cfg\"; " +
         ": > \"$frm\"; (stdbuf -oL cava -p \"$cfg\" 2>/dev/null | while IFS= read -r ln; do printf '%s\n' \"$ln\" > \"$frm\"; done) &",
         "sh", quickMediaRoot.cavaDir, quickMediaRoot.cavaCfg, quickMediaRoot.cavaFrame
       ])
     }
     function stopCava() {
       if (!quickMediaRoot.cavaRunning) return
-      quickMediaRoot.cavaRunning=false
+      quickMediaRoot.cavaRunning=false; quickMediaRoot.cavaStatus="idle"; quickMediaRoot.cavaLast=0
       Quickshell.execDetached(["pkill","-f","cava -p "+quickMediaRoot.cavaCfg])
     }
     function updCava(ln) {
       ln=(ln||"").trim(); if(!ln) return
-      const ps = ln.split(/[; ]+/); const vs=[]
-      for (let i=0; i<ps.length && i<16; i++) vs.push( Math.max(0,Math.min(100, parseInt(ps[i])||0 )) )
-      while(vs.length<16) vs.push(0)
+      const ps = ln.split(/[;,\t ]+/); const vs=[]
+      for (let i=0; i<ps.length && i<24; i++) vs.push( Math.max(0,Math.min(100, parseInt(ps[i])||0 )) )
+      while(vs.length<24) vs.push(0)
       quickMediaRoot.cavaValues=vs; quickMediaRoot.cavaLast=Date.now()
+      quickMediaRoot.cavaStatus = vs.some(v => v > 0) ? "active" : "waiting for audio"
     }
     function refreshAudioMixer() { if (!mixerProc.running) mixerProc.running = true }
     function parseAudioSimple(out) {
-      const ls = (out||'').split('\n').filter(l=>l.trim())
-      quickMediaRoot.audioSinks = ls.filter(l => /Sink/i.test(l) || l.match(/^\s*├.*Sink/)).slice(0,3).map(l => ({name: l.trim().slice(0,40)}))
-      quickMediaRoot.audioSources = ls.filter(l => /Source/i.test(l) || l.match(/^\s*├.*Source/)).slice(0,2).map(l => ({name: l.trim().slice(0,40)}))
-      quickMediaRoot.audioStreams = ls.filter(l =>
-        /Stream/i.test(l) || /^\s*├─/.test(l) || l.match(/^\s*\d+\.\s/)
-      ).slice(0,4).map(l => ({name: l.trim().slice(0,30)}))
+      const sinks = []
+      const sources = []
+      const streams = []
+      let section = ""
+      const ls = (out || "").split("\n")
+      for (const line of ls) {
+        if (line.indexOf("├─ Sinks:") >= 0) { section = "sinks"; continue }
+        if (line.indexOf("├─ Sources:") >= 0) { section = "sources"; continue }
+        if (line.indexOf("└─ Streams:") >= 0) { section = "streams"; continue }
+        if (line.indexOf("├─ Devices:") >= 0 || line.indexOf("├─ Filters:") >= 0 || line.indexOf("Video") === 0 || line.indexOf("Settings") === 0) {
+          section = ""
+          continue
+        }
+        const m = line.match(/(\*)?\s*(\d+)\.\s+(.+?)(?:\s+\[(.+)\])?\s*$/)
+        if (!m || !section) continue
+        const info = (m[4] || "").trim()
+        const vm = info.match(/vol:\s*([0-9.]+)/)
+        const item = {
+          id: m[2],
+          name: m[3].trim(),
+          info: info,
+          active: line.indexOf("*") >= 0,
+          muted: line.indexOf("MUTED") >= 0,
+          volume: vm ? Math.round(parseFloat(vm[1]) * 100) + "%" : ""
+        }
+        if (section === "sinks") sinks.push(item)
+        else if (section === "sources") sources.push(item)
+        else if (section === "streams") streams.push(item)
+      }
+      quickMediaRoot.audioSinks = sinks.slice(0, 4)
+      quickMediaRoot.audioSources = sources.slice(0, 4)
+      quickMediaRoot.audioStreams = streams.slice(0, 5)
+    }
+    function setAudioDefault(id) {
+      if (!id) return
+      Quickshell.execDetached(["wpctl", "set-default", String(id)])
+      volDelay.restart()
+      Qt.callLater(quickMediaRoot.refreshAudioMixer)
     }
 
     Process { id: volProc; stdout: StdioCollector { onStreamFinished: { const ls=(text||"").trim().split("\n"); quickMediaRoot.sinkVol=quickMediaRoot.parseVol(ls[0]); quickMediaRoot.srcVol=quickMediaRoot.parseVol(ls[1]); quickMediaRoot.sinkM=(ls[0]||"").indexOf("MUTED")!==-1; quickMediaRoot.srcM=(ls[1]||"").indexOf("MUTED")!==-1 } } }
     Timer { id: volDelay; interval: 400; onTriggered: quickMediaRoot.pollVol() }
     Process {
       id: mixerProc
-      command: ["sh", "-c", "wpctl status 2>/dev/null | cat || true"]
+      command: ["sh", "-c", "wpctl status 2>/dev/null || true"]
       stdout: StdioCollector { onStreamFinished: quickMediaRoot.parseAudioSimple(text) }
     }
     Process {
@@ -741,7 +941,7 @@ Scope {
     Timer {
       interval: 90; running: root.quickDetailActive && root.expandedQuickKey === "media"; repeat: true; triggeredOnStart: true
       onTriggered: {
-        if (quickMediaRoot.cavaRunning && quickMediaRoot.cavaLast>0 && Date.now()-quickMediaRoot.cavaLast > 2500) quickMediaRoot.cavaRunning=false
+        if (quickMediaRoot.cavaRunning && quickMediaRoot.cavaLast>0 && Date.now()-quickMediaRoot.cavaLast > 3000) quickMediaRoot.cavaRunning=false
         if (!quickMediaRoot.cavaRunning) quickMediaRoot.startCava()
         if (!cavaRd.running) cavaRd.running = true
       }
@@ -749,78 +949,230 @@ Scope {
     Component.onCompleted: { quickMediaRoot.pollVol(); quickMediaRoot.startCava(); quickMediaRoot.refreshAudioMixer() }
     Component.onDestruction: quickMediaRoot.stopCava()
 
-    ColumnLayout {
-      anchors.fill: parent; spacing: 4
-      Text { text: "MEDIA · MPRIS"; color: Style.menuInk; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.letterSpacing: 1 }
-      // players
-      Repeater {
-        model: ((Mpris.players && Mpris.players.values) || []).slice(0, 3)
-        delegate: Rectangle {
-          required property var modelData
-          Layout.fillWidth: true; height: 26; radius: 3; color: Style.menuControlBg; border.color: Style.menuSep
+    Column {
+      id: mediaCol
+      anchors.fill: parent
+      spacing: 8
+
+      Rectangle {
+        width: parent.width; height: 82; radius: 10
+        color: root.menuTileBg; border.color: Style.menuSep; border.width: 1
+        ColumnLayout {
+          anchors.fill: parent; anchors.margins: 12; spacing: 8
+          Text { text: "󰎈  Now Playing Status"; color: Style.menuIndigo; font.pixelSize: root.fontPx(12); font.family: root.uiFont; font.bold: true }
           RowLayout {
-            anchors.fill: parent; anchors.margins: 4; spacing: 4
-            Text { text: "󰝚"; font.pixelSize: 10; color: Style.menuSeal; font.family: root.uiFont }
-            Text { Layout.fillWidth: true; text: (modelData.identity || modelData.name || "player"); color: Style.menuInk; font.pixelSize: root.fontPx(9); font.family: root.uiFont; elide: Text.ElideRight }
+            Layout.fillWidth: true; spacing: 10
             Text {
-              text: (modelData.trackArtist ? modelData.trackArtist+" — " : "") + (modelData.trackTitle || "")
-              color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont
-              elide: Text.ElideRight; Layout.fillWidth: true
+              Layout.fillWidth: true
+              text: {
+                const p = quickMediaRoot.activeP
+                if (!p) return "No active media player"
+                return (p.trackArtist || "Unknown Artist") + " — " + (p.trackTitle || "Unknown Track")
+              }
+              color: Style.menuInk; font.pixelSize: root.fontPx(12); font.family: root.uiFont; font.bold: true; elide: Text.ElideRight
             }
-            Text { text: modelData.isPlaying ? "▶" : (modelData.playbackState === Mpris.Paused ? "⏸" : ""); color: Style.menuInkDeep; font.pixelSize: root.fontPx(8) }
             MouseArea {
-              width:14; height:14
-              onClicked: if (modelData.canTogglePlaying) modelData.togglePlaying()
-              Text { anchors.centerIn: parent; text: "⏯"; font.pixelSize: root.fontPx(10); color: Style.menuIndigo }
+              width: 22; height: 22; cursorShape: Qt.PointingHandCursor
+              onClicked: { const p = quickMediaRoot.activeP; if (p && p.canGoPrevious) p.previous() }
+              Text { anchors.centerIn: parent; text: "󰒮"; font.pixelSize: root.fontPx(16); color: Style.menuInk; font.family: root.uiFont }
+            }
+            Rectangle {
+              width: 28; height: 28; radius: 14; color: Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.18)
+              Text {
+                anchors.centerIn: parent
+                text: { const p = quickMediaRoot.activeP; return (p && p.isPlaying) ? "󰏤" : "󰐊" }
+                font.pixelSize: root.fontPx(15); color: Style.green; font.family: root.uiFont
+              }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { const p = quickMediaRoot.activeP; if (p && p.canTogglePlaying) p.togglePlaying() } }
+            }
+            MouseArea {
+              width: 22; height: 22; cursorShape: Qt.PointingHandCursor
+              onClicked: { const p = quickMediaRoot.activeP; if (p && p.canGoNext) p.next() }
+              Text { anchors.centerIn: parent; text: "󰒭"; font.pixelSize: root.fontPx(16); color: Style.menuInk; font.family: root.uiFont }
             }
           }
         }
       }
-      // vol
-      RowLayout {
-        Layout.fillWidth: true; spacing: 4
-        Text { text: "Vol"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
-        Rectangle { width: 42; height: 16; radius: 2; color: Style.menuControlBg; border.color: Style.menuSep
-          Text { anchors.centerIn: parent; text: "sink " + quickMediaRoot.sinkVol; font.pixelSize: root.fontPx(7); color: quickMediaRoot.sinkM ? Style.red : Style.menuInk; font.family: root.uiFont }
-          MouseArea { anchors.fill: parent; onClicked: quickMediaRoot.togMute("@DEFAULT_AUDIO_SINK@"); onWheel: quickMediaRoot.volAdj("@DEFAULT_AUDIO_SINK@", wheel.angleDelta.y > 0) }
+
+      Row {
+        width: parent.width; height: 36; spacing: 12
+        Rectangle {
+          width: (parent.width - parent.spacing) / 2; height: parent.height; radius: 8
+          color: root.menuTileBg; border.color: Style.menuSep; border.width: 1
+          RowLayout {
+            anchors.fill: parent; anchors.margins: 10; spacing: 6
+            Text { text: quickMediaRoot.sinkM ? "󰖁  Speakers" : "󰕾  Speakers"; color: quickMediaRoot.sinkM ? Style.red : Style.menuInk; font.pixelSize: root.fontPx(11); font.family: root.uiFont; font.bold: true }
+            Item { Layout.fillWidth: true }
+            Text { text: quickMediaRoot.sinkVol; color: quickMediaRoot.sinkM ? Style.red : Style.menuIndigo; font.pixelSize: root.fontPx(11); font.family: root.uiFont; font.bold: true }
+            Rectangle {
+              width: 20; height: 20; radius: 4; color: Style.menuControlBg
+              Text { anchors.centerIn: parent; text: quickMediaRoot.sinkM ? "󰖁" : "󰕾"; color: Style.menuInk; font.pixelSize: root.fontPx(12) }
+              MouseArea { anchors.fill: parent; onClicked: quickMediaRoot.togMute("@DEFAULT_AUDIO_SINK@") }
+            }
+            Rectangle {
+              width: 20; height: 20; radius: 4; color: Style.menuControlBg
+              Text { anchors.centerIn: parent; text: "−"; color: Style.menuInk; font.pixelSize: root.fontPx(12) }
+              MouseArea { anchors.fill: parent; onClicked: quickMediaRoot.volAdj("@DEFAULT_AUDIO_SINK@", false) }
+            }
+            Rectangle {
+              width: 20; height: 20; radius: 4; color: Style.menuControlBg
+              Text { anchors.centerIn: parent; text: "+"; color: Style.menuInk; font.pixelSize: root.fontPx(12) }
+              MouseArea { anchors.fill: parent; onClicked: quickMediaRoot.volAdj("@DEFAULT_AUDIO_SINK@", true) }
+            }
+          }
         }
-        Rectangle { width: 42; height: 16; radius: 2; color: Style.menuControlBg; border.color: Style.menuSep
-          Text { anchors.centerIn: parent; text: "src " + quickMediaRoot.srcVol; font.pixelSize: root.fontPx(7); color: quickMediaRoot.srcM ? Style.red : Style.menuInk; font.family: root.uiFont }
-          MouseArea { anchors.fill: parent; onClicked: quickMediaRoot.togMute("@DEFAULT_AUDIO_SOURCE@"); onWheel: quickMediaRoot.volAdj("@DEFAULT_AUDIO_SOURCE@", wheel.angleDelta.y > 0) }
+        Rectangle {
+          width: (parent.width - parent.spacing) / 2; height: parent.height; radius: 8
+          color: root.menuTileBg; border.color: Style.menuSep; border.width: 1
+          RowLayout {
+            anchors.fill: parent; anchors.margins: 10; spacing: 6
+            Text { text: quickMediaRoot.srcM ? "󰍭  Microphone" : "󰍬  Microphone"; color: quickMediaRoot.srcM ? Style.red : Style.menuInk; font.pixelSize: root.fontPx(11); font.family: root.uiFont; font.bold: true }
+            Item { Layout.fillWidth: true }
+            Text { text: quickMediaRoot.srcVol; color: quickMediaRoot.srcM ? Style.red : Style.menuIndigo; font.pixelSize: root.fontPx(11); font.family: root.uiFont; font.bold: true }
+            Rectangle {
+              width: 20; height: 20; radius: 4; color: Style.menuControlBg
+              Text { anchors.centerIn: parent; text: quickMediaRoot.srcM ? "󰍭" : "󰍬"; color: Style.menuInk; font.pixelSize: root.fontPx(12) }
+              MouseArea { anchors.fill: parent; onClicked: quickMediaRoot.togMute("@DEFAULT_AUDIO_SOURCE@") }
+            }
+            Rectangle {
+              width: 20; height: 20; radius: 4; color: Style.menuControlBg
+              Text { anchors.centerIn: parent; text: "−"; color: Style.menuInk; font.pixelSize: root.fontPx(12) }
+              MouseArea { anchors.fill: parent; onClicked: quickMediaRoot.volAdj("@DEFAULT_AUDIO_SOURCE@", false) }
+            }
+            Rectangle {
+              width: 20; height: 20; radius: 4; color: Style.menuControlBg
+              Text { anchors.centerIn: parent; text: "+"; color: Style.menuInk; font.pixelSize: root.fontPx(12) }
+              MouseArea { anchors.fill: parent; onClicked: quickMediaRoot.volAdj("@DEFAULT_AUDIO_SOURCE@", true) }
+            }
+          }
         }
-        Item { Layout.fillWidth: true }
-        Text { text: "cava"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont }
       }
-      // cava bars compact (live via values[index])
-      Rectangle {
-        Layout.fillWidth: true; Layout.preferredHeight: 28; radius: 3; color: Qt.rgba(0,0,0,0.2); border.color: Style.menuSep; border.width: 1
-        Row {
-          anchors.fill: parent; anchors.margins: 2; spacing: 1
-          Repeater {
-            model: 16
-            delegate: Item {
-              width: (parent.width - 15) / 16; height: parent.height
-              Rectangle {
-                anchors.bottom: parent.bottom; width: parent.width; height: parent.height * (((quickMediaRoot.cavaValues && quickMediaRoot.cavaValues[index]) || 0) / 100)
-                color: Style.menuIndigo; radius: 1
+
+      Row {
+        width: parent.width; height: 96; spacing: 12
+        Repeater {
+          model: [
+            { title: "󰕾  Output devices", empty: "No outputs", items: quickMediaRoot.audioSinks },
+            { title: "󰍬  Input sources", empty: "No inputs", items: quickMediaRoot.audioSources }
+          ]
+          delegate: Rectangle {
+            id: devCard
+            required property var modelData
+            readonly property var devItems: modelData.items || []
+            width: (parent.width - parent.spacing) / 2; height: parent.height; radius: 10
+            color: root.menuTileBg; border.color: Style.menuSep; border.width: 1
+            Column {
+              anchors.fill: parent; anchors.margins: 8; spacing: 4
+              Text { text: modelData.title; color: Style.menuInkDeep; font.pixelSize: root.fontPx(10); font.family: root.uiFont; font.bold: true }
+              Text { visible: devCard.devItems.length === 0; text: modelData.empty; color: Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont }
+              Flickable {
+                visible: devCard.devItems.length > 0
+                width: parent.width; height: parent.height - 18; clip: true
+                contentHeight: deviceCol.implicitHeight
+                boundsBehavior: Flickable.StopAtBounds
+                Column {
+                  id: deviceCol; width: parent.width; spacing: 2
+                  Repeater {
+                    model: devCard.devItems
+                    delegate: Rectangle {
+                      required property var modelData
+                      width: parent.width; height: 22; radius: 5
+                      color: modelData.active ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.18) : (devMa.containsMouse ? Style.menuRowHi : "transparent")
+                      border.color: modelData.active ? Style.menuIndigo : (devMa.containsMouse ? Style.menuSep : "transparent")
+                      border.width: 1
+                      RowLayout {
+                        anchors.fill: parent; anchors.leftMargin: 7; anchors.rightMargin: 7; spacing: 6
+                        Text { text: modelData.active ? "●" : "○"; color: modelData.active ? Style.green : Style.menuInkDeep; font.pixelSize: root.fontPx(7) }
+                        Text { Layout.fillWidth: true; text: modelData.name; color: Style.menuInk; font.pixelSize: root.fontPx(8); font.family: root.uiFont; elide: Text.ElideRight }
+                        Text { text: modelData.volume || ("#" + modelData.id); color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
+                      }
+                      MouseArea { id: devMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: quickMediaRoot.setAudioDefault(modelData.id) }
+                    }
+                  }
+                }
               }
             }
           }
         }
       }
-      // extended mixer from old (sinks/sources streams compact)
-      RowLayout {
-        Layout.fillWidth: true
-        Text { text: "Mixer"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont }
-        Repeater {
-          model: (quickMediaRoot.audioSinks || []).slice(0,2)
-          delegate: Text { required property var modelData; text: "sink:" + (modelData.name||"").slice(0,20); color: Style.menuInkDeep; font.pixelSize: root.fontPx(6); font.family: root.uiFont; elide: Text.ElideRight }
-        }
-        Repeater {
-          model: (quickMediaRoot.audioStreams || []).slice(0,2)
-          delegate: Text { required property var modelData; text: "str:" + (modelData.name||"").slice(0,18); color: Style.menuInkDeep; font.pixelSize: root.fontPx(6); font.family: root.uiFont; elide: Text.ElideRight }
+
+      Rectangle {
+        width: parent.width; height: 116; radius: 10
+        color: root.menuTileBg; border.color: Style.menuSep; border.width: 1
+        Column {
+          anchors.fill: parent; anchors.margins: 8; spacing: 4
+          Text { text: "󰝚  Stream mixer"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(10); font.family: root.uiFont; font.bold: true }
+          Text { visible: (quickMediaRoot.audioStreams || []).length === 0; text: "No active streams"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont }
+          Flickable {
+            visible: (quickMediaRoot.audioStreams || []).length > 0
+            width: parent.width; height: parent.height - 18; clip: true
+            contentHeight: streamCol.implicitHeight
+            boundsBehavior: Flickable.StopAtBounds
+            Column {
+              id: streamCol; width: parent.width; spacing: 4
+              Repeater {
+                model: quickMediaRoot.audioStreams || []
+                delegate: Rectangle {
+                  id: streamRow
+                  required property var modelData
+                  width: parent.width; height: 26; radius: 6; color: modelData.muted ? root.menuDangerBg : Style.menuControlBg
+                  border.color: modelData.muted ? Style.red : Style.menuSep; border.width: 1
+                  RowLayout {
+                    anchors.fill: parent; anchors.leftMargin: 7; anchors.rightMargin: 7; spacing: 6
+                    Text { text: "󰝚"; color: Style.green; font.pixelSize: root.fontPx(10); font.family: root.uiFont }
+                    Text { Layout.fillWidth: true; text: modelData.name; color: modelData.muted ? Style.menuInkDeep : Style.menuInk; font.pixelSize: root.fontPx(9); font.family: root.uiFont; elide: Text.ElideRight }
+                    Text { text: modelData.volume || ("#" + modelData.id); color: modelData.muted ? Style.red : Style.menuIndigo; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true }
+                    Rectangle {
+                      width: 18; height: 18; radius: 4; color: Style.menuControlBg
+                      Text { anchors.centerIn: parent; text: streamRow.modelData.muted ? "󰖁" : "󰕾"; font.pixelSize: root.fontPx(10); color: streamRow.modelData.muted ? Style.red : Style.menuInk }
+                      MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: quickMediaRoot.togMute(streamRow.modelData.id) }
+                    }
+                    Rectangle {
+                      width: 18; height: 18; radius: 4; color: Style.menuControlBg
+                      Text { anchors.centerIn: parent; text: "−"; font.pixelSize: root.fontPx(10); color: Style.menuInk }
+                      MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: quickMediaRoot.volAdj(streamRow.modelData.id, false) }
+                    }
+                    Rectangle {
+                      width: 18; height: 18; radius: 4; color: Style.menuControlBg
+                      Text { anchors.centerIn: parent; text: "+"; font.pixelSize: root.fontPx(10); color: Style.menuInk }
+                      MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: quickMediaRoot.volAdj(streamRow.modelData.id, true) }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
+
+      Rectangle {
+        width: parent.width; height: 96; radius: 12
+        color: root.menuTileBg; border.color: Style.menuSep; border.width: 1
+        Column {
+          anchors.fill: parent; anchors.margins: 12; spacing: 8
+          RowLayout {
+            width: parent.width
+            Text { text: "󰎈  Live Cava Audio Spectrum"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true }
+            Item { Layout.fillWidth: true }
+            Text { text: quickMediaRoot.cavaStatus; color: quickMediaRoot.cavaStatus === "active" ? Style.green : Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
+          }
+          Row {
+            width: parent.width; height: parent.height - 28; spacing: 4
+            Repeater {
+              model: 24
+              delegate: Item {
+                width: (parent.width - 23 * parent.spacing) / 24; height: parent.height
+                Rectangle {
+                  anchors.bottom: parent.bottom; width: parent.width; radius: 2
+                  height: Math.max(2, parent.height * (((quickMediaRoot.cavaValues && quickMediaRoot.cavaValues[index]) || 0) / 100))
+                  color: Style.green
+                }
+              }
+            }
+          }
+        }
+      }
+
       Text { text: "pavucontrol for full mixer"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont }
     }
   } }
@@ -1182,6 +1534,7 @@ Scope {
   Component { id: quickMonitorsComp; Item {
     id: quickMonitorsRoot
     anchors.fill: parent
+    implicitHeight: monLayout.implicitHeight
     // full port monitors (hypr all-j, list, mirror/extend/external/rescan, status, canvas, procs, guards; exact)
     property var mons: []
     property int monVersion: 0
@@ -1253,38 +1606,39 @@ Scope {
     Component.onCompleted: Qt.callLater(function(){ if (!monScan.running) monScan.running = true })
 
     ColumnLayout {
-      anchors.fill: parent; spacing: 4
+      id: monLayout
+      anchors.fill: parent; spacing: 8
       RowLayout {
-        Layout.fillWidth: true; spacing: 4
-        Text { text: "󰍹 Monitors (" + ((quickMonitorsRoot.mons || []).length || 0) + ")"; color: Style.green; font.pixelSize: root.fontPx(10); font.family: root.uiFont; font.bold: true }
-        Text { text: quickMonitorsRoot.monStatus || "live"; color: (quickMonitorsRoot.monStatus.indexOf("fail")>=0 || quickMonitorsRoot.monStatus.indexOf("No ")>=0 ? Style.red : Style.menuInkDeep); font.pixelSize: root.fontPx(8); font.family: root.uiFont; Layout.fillWidth: true; elide: Text.ElideRight }
-        Rectangle { width: 52; height: 18; radius: 3; color: mirrMa.containsMouse ? Style.menuRowHi : root.menuTileBg; border.color: Style.menuSep; border.width: 1
-          Text { anchors.centerIn: parent; text: "Mirror"; font.pixelSize: root.fontPx(8); color: Style.menuInk; font.family: root.uiFont }
+        Layout.fillWidth: true; spacing: 6
+        Text { text: "󰍹 Monitors (" + ((quickMonitorsRoot.mons || []).length || 0) + ")"; color: Style.green; font.pixelSize: root.fontPx(12); font.family: root.uiFont; font.bold: true }
+        Text { text: quickMonitorsRoot.monStatus || "Live layout"; color: (quickMonitorsRoot.monStatus.indexOf("fail")>=0 || quickMonitorsRoot.monStatus.indexOf("No ")>=0 ? Style.red : Style.menuInkDeep); font.pixelSize: root.fontPx(9); font.family: root.uiFont; Layout.fillWidth: true; elide: Text.ElideRight }
+        Rectangle { width: 76; height: 26; radius: 5; color: mirrMa.containsMouse ? Style.menuRowHi : root.menuTileBg; border.color: Style.menuSep; border.width: 1
+          Text { anchors.centerIn: parent; text: "Mirror"; font.pixelSize: root.fontPx(9); color: Style.menuInk; font.family: root.uiFont }
           Behavior on color { ColorAnimation { duration: 140 } }
           MouseArea { id: mirrMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: quickMonitorsRoot.mirrorMonitors() }
         }
-        Rectangle { width: 52; height: 18; radius: 3; color: extMa.containsMouse ? Style.menuRowHi : root.menuTileBg; border.color: Style.menuSep; border.width: 1
-          Text { anchors.centerIn: parent; text: "Extend"; font.pixelSize: root.fontPx(8); color: Style.menuInk; font.family: root.uiFont }
+        Rectangle { width: 76; height: 26; radius: 5; color: extMa.containsMouse ? Style.menuRowHi : root.menuTileBg; border.color: Style.menuSep; border.width: 1
+          Text { anchors.centerIn: parent; text: "Extend"; font.pixelSize: root.fontPx(9); color: Style.menuInk; font.family: root.uiFont }
           Behavior on color { ColorAnimation { duration: 140 } }
           MouseArea { id: extMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: quickMonitorsRoot.extendMonitors() }
         }
-        Rectangle { width: 52; height: 18; radius: 3; color: extnMa.containsMouse ? Style.menuRowHi : root.menuTileBg; border.color: Style.menuSep; border.width: 1
-          Text { anchors.centerIn: parent; text: "External"; font.pixelSize: root.fontPx(8); color: Style.menuInk; font.family: root.uiFont }
+        Rectangle { width: 76; height: 26; radius: 5; color: extnMa.containsMouse ? Style.menuRowHi : root.menuTileBg; border.color: Style.menuSep; border.width: 1
+          Text { anchors.centerIn: parent; text: "External"; font.pixelSize: root.fontPx(9); color: Style.menuInk; font.family: root.uiFont }
           Behavior on color { ColorAnimation { duration: 140 } }
           MouseArea { id: extnMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: quickMonitorsRoot.externalOnlyMonitors() }
         }
-        Rectangle { width: 52; height: 18; radius: 3; color: resMa.containsMouse ? Style.menuRowHi : root.menuTileBg; border.color: Style.menuSep; border.width: 1
-          Text { anchors.centerIn: parent; text: "Rescan"; font.pixelSize: root.fontPx(8); color: Style.menuInk; font.family: root.uiFont }
+        Rectangle { width: 76; height: 26; radius: 5; color: resMa.containsMouse ? Style.menuRowHi : root.menuTileBg; border.color: Style.menuSep; border.width: 1
+          Text { anchors.centerIn: parent; text: "Rescan"; font.pixelSize: root.fontPx(9); color: Style.menuInk; font.family: root.uiFont }
           Behavior on color { ColorAnimation { duration: 140 } }
           MouseArea { id: resMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: quickMonitorsRoot.rescanMonitors() }
         }
       }
       // compact layout viz
       Rectangle {
-        Layout.fillWidth: true; Layout.preferredHeight: 110
-        radius: 4; color: Style.menuControlBg; border.color: Style.menuSep; border.width: 1
+        Layout.fillWidth: true; Layout.preferredHeight: 420
+        radius: 6; color: Style.menuControlBg; border.color: Style.menuSep; border.width: 1
         Canvas {
-          anchors.fill: parent; anchors.margins: 6
+          anchors.fill: parent; anchors.margins: 10
           property int v: quickMonitorsRoot.monVersion
           onVChanged: requestPaint()
           onPaint: {
@@ -1293,46 +1647,49 @@ Scope {
             if (!mons.length) { ctx.fillStyle = Style.menuInkDeep; ctx.font = root.fontPx(8)+"px monospace"; ctx.fillText("Loading... rescan", 4, 12); return }
             let minX=0, minY=0, maxX=0, maxY=0
             for (const m of mons) { minX=Math.min(minX, m.x||0); minY=Math.min(minY, m.y||0); maxX=Math.max(maxX, (m.x||0)+quickMonitorsRoot.monitorLogicalWidth(m)); maxY=Math.max(maxY, (m.y||0)+quickMonitorsRoot.monitorLogicalHeight(m)) }
-            const W=width, H=height, pad=4
+            const W=width, H=height, pad=10
             const sx=(W-2*pad)/Math.max(1,maxX-minX), sy=(H-2*pad)/Math.max(1,maxY-minY)
             for (const m of mons) {
               const x=pad+((m.x||0)-minX)*sx, y=pad+((m.y||0)-minY)*sy
               const w=quickMonitorsRoot.monitorLogicalWidth(m)*sx, h=quickMonitorsRoot.monitorLogicalHeight(m)*sy
               ctx.strokeStyle = Style.menuIndigo; ctx.lineWidth = 1; ctx.strokeRect(x, y, w, h)
-              ctx.fillStyle = m.focused ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.2) : root.menuTileBg
+              ctx.fillStyle = m.focused ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.24) : root.menuTileBg
               ctx.fillRect(x+1, y+1, w-2, h-2)
-              ctx.fillStyle = Style.menuInk; ctx.font = root.fontPx(8)+"px monospace"
-              ctx.fillText((m.name||"").slice(0,10), x+3, y+10)
+              ctx.fillStyle = Style.menuInk; ctx.font = root.fontPx(13)+"px monospace"
+              ctx.fillText((m.name||"mon").slice(0,14), x+8, y+18)
+              ctx.font = root.fontPx(11)+"px monospace"
+              ctx.fillText(Math.round(quickMonitorsRoot.monitorLogicalWidth(m))+"x"+Math.round(quickMonitorsRoot.monitorLogicalHeight(m))+" logical", x+8, y+34)
+              ctx.fillText("scale " + (m.scale || 1) + "  " + (m.x || 0) + "," + (m.y || 0), x+8, y+48)
             }
           }
         }
       }
+      Text { text: "Mirror uses eDP-1 as source when present. Extend reloads monitors.lua. Layout drawn in logical coordinates."; color: Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont; Layout.alignment: Qt.AlignHCenter }
       Flickable {
         Layout.fillWidth: true; Layout.fillHeight: true; clip: true
         contentHeight: monList.height
-        Column { id: monList; width: parent.width; spacing: 3
+        Column { id: monList; width: parent.width; spacing: 6
           Repeater {
             model: quickMonitorsRoot.mons || []
             delegate: Rectangle {
               required property var modelData
-              width: parent.width; height: 28; radius: 3
-              color: modelData.focused ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.12) : root.menuTileBg
+              width: parent.width; height: 46; radius: 6
+              color: modelData.focused ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.16) : root.menuTileBg
               border.color: modelData.focused ? Style.menuIndigo : Style.menuSep; border.width: 1
               Behavior on color { ColorAnimation { duration: 140 } }
               RowLayout {
-                anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 6; spacing: 6
-                Text { text: modelData.focused ? "󰍹" : "󰌢"; color: modelData.focused ? Style.menuIndigo : Style.menuInkDeep; font.pixelSize: root.fontPx(11); font.family: root.uiFont }
+                anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10; spacing: 10
+                Text { text: modelData.focused ? "󰍹" : "󰌢"; color: modelData.focused ? Style.menuIndigo : Style.menuInkDeep; font.pixelSize: root.fontPx(14); font.family: root.uiFont }
                 ColumnLayout {
                   Layout.fillWidth: true; spacing: 0
-                  Text { text: (modelData.name || "?") + (modelData.mirrorOf && modelData.mirrorOf !== "none" ? (" mirrors " + modelData.mirrorOf) : ""); color: Style.menuInk; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: modelData.focused; elide: Text.ElideRight; Layout.fillWidth: true }
-                  Text { text: quickMonitorsRoot.monitorMode(modelData) + " sc" + (modelData.scale||1) + " " + (modelData.x||0) + "," + (modelData.y||0); color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont; elide: Text.ElideRight; Layout.fillWidth: true }
+                  Text { text: (modelData.name || "?") + (modelData.mirrorOf && modelData.mirrorOf !== "none" ? (" mirrors " + modelData.mirrorOf) : ""); color: Style.menuInk; font.pixelSize: root.fontPx(10); font.family: root.uiFont; font.bold: modelData.focused; elide: Text.ElideRight; Layout.fillWidth: true }
+                  Text { text: quickMonitorsRoot.monitorMode(modelData) + "  scale " + (modelData.scale||1) + "  pos " + (modelData.x||0) + "," + (modelData.y||0); color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont; elide: Text.ElideRight; Layout.fillWidth: true }
                 }
               }
             }
           }
         }
       }
-      Text { text: "Mirror/extend use eDP-1. Viz logical. hyprctl"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont }
     }
   } }
   Component { id: quickTempComp; Item {
@@ -1425,7 +1782,7 @@ Scope {
         radius: 4; color: Style.menuControlBg; border.color: Style.menuSep; border.width: 1
         Flickable {
           anchors.fill: parent; anchors.margins: 6; clip: true
-          contentHeight: tempCol.height; boundsBehavior: Flickable.StopAtBounds
+          contentHeight: tempCol.implicitHeight; boundsBehavior: Flickable.StopAtBounds
           Column {
             id: tempCol; width: parent.width; spacing: 6
             Text {
@@ -1435,15 +1792,19 @@ Scope {
             }
             Text {
               visible: !!quickTempRoot.hottestSensor && (quickTempRoot.tempGroups || []).length > 0
-              text: "Hottest: " + (quickTempRoot.hottestSensor.groupDisplayName || quickTempRoot.hottestSensor.group) + " / " + quickTempRoot.hottestSensor.displayLabel + " " + quickTempRoot.hottestSensor.value.toFixed(1) + "°C"
-              color: quickTempRoot.tempColor(quickTempRoot.hottestSensor.value); font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true
+              text: quickTempRoot.hottestSensor
+                ? "Hottest: " + (quickTempRoot.hottestSensor.groupDisplayName || quickTempRoot.hottestSensor.group) + " / "
+                  + quickTempRoot.hottestSensor.displayLabel + " " + quickTempRoot.hottestSensor.value.toFixed(1) + "°C"
+                : ""
+              color: quickTempRoot.hottestSensor ? quickTempRoot.tempColor(quickTempRoot.hottestSensor.value) : Style.menuInkDeep
+              font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true
               width: parent.width; elide: Text.ElideRight
             }
             Repeater {
               model: quickTempRoot.tempGroups || []
               delegate: Rectangle {
                 required property var modelData
-                width: parent.width; height: groupCol.height + 10; radius: 4
+                width: parent.width; height: groupCol.implicitHeight + 10; radius: 4
                 color: root.menuTileBg; border.color: Style.menuSep; border.width: 1
                 Column {
                   id: groupCol; width: parent.width - 12; x: 6; y: 5; spacing: 3
@@ -1484,6 +1845,7 @@ Scope {
   Component { id: quickBtComp; Item {
     id: quickBtRoot
     anchors.fill: parent
+    implicitHeight: btLayout.implicitHeight
     // bt enhanced (power toggle rfkill like old, dev list conn/pair, procs)
     property bool btOn: Bluetooth.defaultAdapter && Bluetooth.defaultAdapter.enabled
     property var btDevs: (Bluetooth.devices && Bluetooth.devices.values) ? Bluetooth.devices.values : []
@@ -1504,38 +1866,132 @@ Scope {
 
     Component.onCompleted: quickBtRoot.refreshBt()
 
-    ColumnLayout { anchors.fill: parent; spacing: 4
-      RowLayout { Layout.fillWidth: true
-        Text { text: "BLUETOOTH"; color: Style.menuInk; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.letterSpacing: 1.2 }
-        Item { Layout.fillWidth: true }
-        Text { text: quickBtRoot.btOn ? "ON" : "OFF"; color: quickBtRoot.btOn ? Style.green : Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
+    ColumnLayout {
+      id: btLayout
+      anchors.left: parent.left
+      anchors.top: parent.top
+      width: Math.min(parent.width, 880)
+      spacing: 12
+
+      Item {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 30
+        Text {
+          anchors.left: parent.left
+          anchors.verticalCenter: parent.verticalCenter
+          text: "Bluetooth Radio: " + (quickBtRoot.btOn ? "Active" : "Off")
+          color: quickBtRoot.btOn ? Style.green : Style.menuInkDeep
+          font.pixelSize: root.fontPx(11); font.family: root.uiFont; font.bold: true
+        }
         Rectangle {
-          width: 52; height: 16; radius: 3; color: btPwr.containsMouse ? Style.menuRowHi : root.menuTileBg; border.color: Style.menuSep; border.width: 1
-          Text { anchors.centerIn: parent; text: quickBtRoot.btOn ? "Turn Off" : "Turn On"; font.pixelSize: root.fontPx(7); color: Style.menuInk; font.family: root.uiFont }
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          width: 82; height: 26; radius: 6
+          color: btPwr.containsMouse ? Style.menuRowHi : root.menuTileBg
+          border.color: Style.menuSep; border.width: 1
           Behavior on color { ColorAnimation { duration: 140 } }
+          Text { anchors.centerIn: parent; text: quickBtRoot.btOn ? "Turn Off" : "Turn On"; font.pixelSize: root.fontPx(10); color: Style.menuInk; font.family: root.uiFont }
           MouseArea { id: btPwr; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: quickBtRoot.toggleBt() }
         }
       }
-      Repeater {
-        model: (quickBtRoot.btDevs || []).slice(0,6)
-        delegate: Rectangle {
-          required property var modelData
-          Layout.fillWidth: true; height: 18; radius: 3; color: modelData.connected ? Style.menuRowSel : (btd.containsMouse ? Style.menuRowHi : Style.menuControlBg); border.color: modelData.connected ? Style.menuSeal : Style.menuSep; border.width: 1
-          Behavior on color { ColorAnimation { duration: 140 } }
-          RowLayout {
-            anchors.fill: parent; anchors.leftMargin: 4; anchors.rightMargin: 4; spacing: 4
-            Text { text: modelData.connected ? "󰂱" : "󰂯"; font.pixelSize: root.fontPx(10); color: modelData.connected ? Style.green : Style.menuInkDeep; font.family: root.uiFont }
-            Text { Layout.fillWidth: true; text: (modelData.name || modelData.alias || modelData.address || "dev") + (modelData.batteryAvailable ? (" "+modelData.battery+"%") : ""); color: Style.menuInk; font.pixelSize: root.fontPx(8); font.family: root.uiFont; elide: Text.ElideRight }
-            Rectangle {
-              width: 36; height: 14; radius: 2; color: Style.menuControlBg; border.color: Style.menuSep
-              Text { anchors.centerIn: parent; text: modelData.connected ? "disc" : (modelData.paired ? "conn" : "pair"); font.pixelSize: root.fontPx(7); color: Style.menuIndigo; font.family: root.uiFont }
-              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { if (modelData.connected) modelData.disconnect(); else if (modelData.paired) modelData.connect(); else modelData.pair() } }
+
+      Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Style.menuSep }
+
+      Flickable {
+        Layout.fillWidth: true
+        Layout.preferredHeight: Math.min(340, Math.max(88, btCol.implicitHeight))
+        clip: true
+        contentHeight: btCol.implicitHeight
+        boundsBehavior: Flickable.StopAtBounds
+        Column {
+          id: btCol; width: parent.width; spacing: 5
+          Repeater {
+            model: (quickBtRoot.btDevs || [])
+            delegate: Rectangle {
+              id: btRow
+              required property var modelData
+              width: parent.width; height: 42; radius: 6
+              color: modelData.connected ? Style.menuRowSel : (btd.containsMouse ? Style.menuRowHi : "transparent")
+              border.color: modelData.connected ? Style.menuSeal : (btd.containsMouse ? Style.menuSep : "transparent")
+              border.width: 1
+              Behavior on color { ColorAnimation { duration: 140 } }
+              Behavior on border.color { ColorAnimation { duration: 140 } }
+
+              MouseArea { id: btd; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.NoButton }
+
+              Text {
+                id: btIcon
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.verticalCenter: parent.verticalCenter
+                width: 22
+                text: modelData.connected ? "󰂱" : "󰂯"
+                font.pixelSize: root.fontPx(14)
+                color: modelData.connected ? Style.green : Style.menuInkDeep
+                font.family: root.uiFont
+                horizontalAlignment: Text.AlignHCenter
+              }
+
+              Column {
+                anchors.left: btIcon.right
+                anchors.leftMargin: 12
+                anchors.right: btAction.left
+                anchors.rightMargin: 14
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 1
+                Text {
+                  width: parent.width
+                  text: modelData.name || modelData.alias || modelData.address || "Device"
+                  color: Style.menuInk; font.pixelSize: root.fontPx(11); font.family: root.uiFont
+                  elide: Text.ElideRight; font.bold: modelData.connected
+                }
+                Text {
+                  width: parent.width
+                  text: modelData.connected ? "Connected" : (modelData.batteryAvailable ? ("Battery: " + modelData.battery + "%") : (modelData.paired ? "Paired" : "Nearby Device"))
+                  color: modelData.connected ? Style.green : Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont
+                  elide: Text.ElideRight
+                }
+              }
+
+              Rectangle {
+                id: btAction
+                anchors.right: parent.right
+                anchors.rightMargin: 10
+                anchors.verticalCenter: parent.verticalCenter
+                width: 108; height: 24; radius: 5
+                color: btActionMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
+                border.color: Style.menuSep; border.width: 1
+                Behavior on color { ColorAnimation { duration: 120 } }
+                Text {
+                  anchors.centerIn: parent
+                  text: modelData.connected ? "󰂲  Disconnect" : (modelData.paired ? "󰂱  Connect" : "󰂯  Pair")
+                  font.pixelSize: root.fontPx(8); color: Style.menuIndigo; font.family: root.uiFont
+                  elide: Text.ElideRight
+                  width: parent.width - 8
+                  horizontalAlignment: Text.AlignHCenter
+                }
+                MouseArea {
+                  id: btActionMa
+                  anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                  onClicked: { if (btRow.modelData.connected) btRow.modelData.disconnect(); else if (btRow.modelData.paired) btRow.modelData.connect(); else btRow.modelData.pair() }
+                }
+              }
             }
           }
-          MouseArea { id: btd; anchors.fill: parent; hoverEnabled: true }
+          Text {
+            visible: (!quickBtRoot.btDevs || quickBtRoot.btDevs.length === 0)
+            text: "No devices found"
+            color: Style.menuInkDeep; font.pixelSize: root.fontPx(11); font.family: root.uiFont
+            width: parent.width; horizontalAlignment: Text.AlignHCenter
+          }
         }
       }
-      Text { text: "󰂯 " + ((quickBtRoot.btDevs||[]).length||0) + " devs" + (quickBtRoot.btOn ? "" : " (off)"); color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont }
+      Text {
+        Layout.fillWidth: true
+        text: "󰂯 " + ((quickBtRoot.btDevs||[]).length||0) + " devices" + (quickBtRoot.btOn ? "" : " · radio off")
+        color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont
+        horizontalAlignment: Text.AlignLeft
+      }
     }
   } }
   Component { id: quickPowerComp; Item {
@@ -1586,7 +2042,7 @@ Scope {
         }
       }
     }
-  } }
+  } } }
   Component { id: quickDefaultComp; Item {
     anchors.fill: parent
     Text { anchors.centerIn: parent; text: "select a quick tile"; color: Style.menuInkDeep; font.pixelSize: 10; font.family: root.uiFont }
@@ -1725,6 +2181,26 @@ Scope {
     if (searchInput) searchInput.text = q
   }
 
+  function openCategory(cat) {
+    if (!root.shouldShow) root.openLauncher()
+    root.categoryFilter = cat || ""
+    root.query = (root.categoryFilter === Data.fileCategory) ? ">" : ""
+    if (searchInput) searchInput.text = root.query
+    root.selectedIndex = 0
+    root.expandedQuickKey = ""
+  }
+
+  function openQuick(key) {
+    if (!root.shouldShow) root.openLauncher()
+    root.categoryFilter = "Quick"
+    root.query = ""
+    if (searchInput) searchInput.text = ""
+    const k = key === "dashboard" ? "hub" : (key || "hub")
+    root.expandedQuickKey = k
+    const idx = (root.quickTiles || []).findIndex(function(t) { return t.mode === k || t.key === k })
+    root.selectedIndex = Math.max(0, idx)
+  }
+
   function closeLauncher() {
     shouldShow = false
   }
@@ -1777,6 +2253,15 @@ Scope {
       return [root.binDir + "/" + first].concat(c.slice(1))
     }
     return c
+  }
+
+  function resolveIconUrl(raw) {
+    if (!raw) return ""
+    const icon = String(raw)
+    if (icon.startsWith("file://")) return icon
+    if (icon.charAt(0) === "/") return "file://" + icon
+    if (icon.indexOf(".") >= 0 && icon.indexOf("/") >= 0) return icon
+    return Quickshell.iconPath(icon, "")
   }
 
   function actionMatches(action, term) {
@@ -2413,7 +2898,9 @@ Scope {
         const t = String(a.name || "").toLowerCase()
         const k = String((a.genericName || "") + " " + (a.comment || "")).toLowerCase()
         const aid = "app-" + (a.id || a.name || i)
-        pool.push({ id: aid, title: a.name, _t: t, _k: k, _c: "app", category: "App", icon: a.icon || "", glyph: "", special: "app", raw: a })
+        pool.push({
+          id: aid, title: a.name, _t: t, _k: k, _c: "app", category: "App", icon: "󰀻", rawIcon: a.icon || "", special: "app", raw: a
+        })
       }
     }
 
@@ -2430,7 +2917,10 @@ Scope {
           })
           for (let i = 0; i < allApps.length && tail.length < 20; i++) {
             const a = allApps[i]
-            tail.push({ id: "app-" + (a.id || a.name), title: a.name, comment: a.genericName || "", icon: a.icon || "", glyph: "", category: "App", special: "app", raw: a })
+            tail.push({
+              id: "app-" + (a.id || a.name), title: a.name, comment: a.genericName || "", icon: "󰀻", rawIcon: a.icon || "",
+              category: "App", special: "app", raw: a
+            })
           }
           return tail.length <= root.maxResults ? tail : tail.slice(0, root.maxResults)
         }
@@ -2795,8 +3285,10 @@ Scope {
                 height: 38
                 readonly property bool isSelected: resultsList.currentIndex === index
                 readonly property string dName: modelData.name || modelData.title || "?"
-                readonly property string dGlyph: modelData.glyph || ""
                 readonly property string dIcon: modelData.icon || ""
+                readonly property string dRawIcon: modelData.rawIcon || ""
+                readonly property string dImage: root.resolveIconUrl(dRawIcon || (dIcon.startsWith("file://") || dIcon.charAt(0) === "/" ? dIcon : ""))
+                readonly property string dGlyph: modelData.glyph || (dImage === "" && dIcon !== "" ? dIcon : "")
                 readonly property string dAcc: modelData.accessory || (modelData.category ? modelData.category.toUpperCase() : (modelData.isCategory ? "›" : ""))
                 readonly property bool dCat: !!modelData.isCategory
 
@@ -2825,19 +3317,20 @@ Scope {
                   spacing: 12
 
                   Item {
+                    id: iconSlot
                     width: 26
                     height: 26
                     Layout.alignment: Qt.AlignVCenter
-                    IconImage {
-                      anchors.fill: parent
-                      source: Quickshell.iconPath(delegateRoot.dIcon, true)
-                      visible: delegateRoot.dIcon !== "" && !delegateRoot.dIcon.startsWith("file://")
-                    }
                     Image {
+                      id: rowIcon
                       anchors.fill: parent
-                      source: delegateRoot.dIcon.startsWith("file://") ? delegateRoot.dIcon : ""
+                      source: delegateRoot.dImage
                       fillMode: Image.PreserveAspectFit
-                      visible: delegateRoot.dIcon.startsWith("file://")
+                      sourceSize.width: 52
+                      sourceSize.height: 52
+                      smooth: true
+                      asynchronous: true
+                      visible: delegateRoot.dImage !== "" && status === Image.Ready
                     }
                     Text {
                       anchors.centerIn: parent
@@ -2845,7 +3338,7 @@ Scope {
                       color: delegateRoot.dCat ? Style.menuSeal : (delegateRoot.isSelected ? Style.menuSeal : (delegateRoot.dGlyph === "󰉋" ? "#89b4fa" : Style.menuInkDeep))
                       font.pixelSize: delegateRoot.dGlyph !== "" ? 18 : 14
                       font.family: root.uiFont
-                      visible: delegateRoot.dIcon === ""
+                      visible: rowIcon.status !== Image.Ready
                     }
                   }
 
@@ -3066,11 +3559,13 @@ Scope {
                   anchors.topMargin: 8
                   clip: true
                   contentWidth: width
-                  contentHeight: qdl.implicitHeight || 120
+                  contentHeight: Math.max(height, qdl.height || 0)
                   boundsBehavior: Flickable.StopAtBounds
                   Loader {
                     id: qdl
+                    readonly property real loadedImplicitHeight: item ? item.implicitHeight : 0
                     width: parent.width
+                    height: Math.max(qBodyFlick.height, loadedImplicitHeight)
                     active: root.quickDetailActive
                     sourceComponent: root.quickDetailFor(root.expandedQuickKey)
                   }
@@ -3130,9 +3625,10 @@ Scope {
                     anchors.fill: parent
                     anchors.margins: 4
                     visible: root.fileMode && resultsList.currentItem && resultsList.currentItem.modelData && root.isPdfFile(resultsList.currentItem.modelData.path || "")
-                    source: root.fileMode && resultsList.currentItem && resultsList.currentItem.modelData && root.isPdfFile(resultsList.currentItem.modelData.path || "") && root.pdfPreviewPath ? root.pdfPreviewPath + "?v=" + root.pdfPreviewVersion : ""
+                    source: root.fileMode && resultsList.currentItem && resultsList.currentItem.modelData && root.isPdfFile(resultsList.currentItem.modelData.path || "") && root.pdfPreviewPath ? root.pdfPreviewPath : ""
                     fillMode: Image.PreserveAspectFit
                     asynchronous: true
+                    cache: false
                   }
 
                   Text {
