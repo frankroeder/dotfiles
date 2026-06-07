@@ -37,7 +37,7 @@ const fileIcons = {
 }
 
 const categoryNav = [
-  { title: "Quick", icon: "󱎫", category: "Browse", isCategory: true, target: "Quick", keywords: "quick settings dashboard hub overview battery audio wifi bt display media screenshots wallpaper" },
+  { title: "Quick", icon: "󱎫", category: "Browse", isCategory: true, target: "Quick", keywords: "quick settings dashboard hub overview battery audio wifi bt display media screenshots wallpaper storage disk space du" },
   { title: "Apps", icon: "󰀻", category: "Browse", isCategory: true, target: "App", keywords: "apps applications launcher programs software desktop" },
   { title: "Files", icon: "󰉋", category: "Browse", isCategory: true, target: fileCategory, keywords: "files file search find folder browse path fd", accessory: ">" },
   { title: "Actions", icon: "󰜎", category: "Browse", isCategory: true, target: "Actions", keywords: "actions colon commands run reload lock scratch hypr wallpaper dashboard", accessory: ":" },
