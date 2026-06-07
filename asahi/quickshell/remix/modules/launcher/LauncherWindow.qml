@@ -144,7 +144,10 @@ Scope {
     }
   }
   Timer {
-    interval: 2000; running: true; repeat: true; triggeredOnStart: true
+    interval: (root.quickDetailActive && root.expandedQuickKey === "hub") ? 800 : 2000
+    running: true
+    repeat: true
+    triggeredOnStart: true
     onTriggered: if (!sidebarProc.running) sidebarProc.running = true
   }
 
@@ -195,33 +198,71 @@ Scope {
 
   // Components for side detail "feature popups" (show exactly the feature windows content in launcher side, per task)
   Component { id: quickHubComp; Item {
-    // exact copy of feature's hub overview grid + lower telemetry/shots (for side popup in launcher; uses duplicated data)
     id: quickHubRoot
     anchors.fill: parent
     property string ffTitle: "System"
     property string ffSubtitle: "fastfetch"
+    property string ffUptime: ""
     property string ffUpdated: ""
     property int ffDiskPct: 0
-    property var ffRows: []
+    property int ffMemPct: 0
+    property real ffMemUsedBytes: 0
+    property real ffMemTotalBytes: 0
+    property var ffLogoLines: []
+    property var ffLeftRows: []
+    property var ffRightRows: []
+    readonly property int ffLabelWidth: 54
+    readonly property string ffLogoText: quickHubRoot.ffLogoLines.join("\n")
 
+    function stripAnsi(text) {
+      return (text || "")
+        .replace(/\u001b\[[0-9;]*[A-Za-z]/g, "")
+        .replace(/\u001b\][^\u0007]*\u0007/g, "")
+    }
     function prettyBytes(bytes) {
       let value = Number(bytes) || 0
-      if (value <= 0) return "—"
-      const units = ["B", "K", "M", "G", "T"]
+      if (value <= 0) return "0 B"
+      const units = ["B", "KiB", "MiB", "GiB", "TiB"]
       let idx = 0
       while (value >= 1024 && idx < units.length - 1) { value /= 1024; idx++ }
-      return value.toFixed(idx >= 3 && value < 100 ? 1 : 0) + " " + units[idx]
+      return value.toFixed(idx >= 2 && value < 100 ? 1 : 0) + " " + units[idx]
     }
     function pct(used, total) {
       total = Number(total) || 0
       used = Number(used) || 0
       return total > 0 ? Math.round(used * 100 / total) : 0
     }
+    function formatUptime(ms) {
+      const sec = Math.max(0, Math.floor(Number(ms) / 1000))
+      const days = Math.floor(sec / 86400)
+      const hrs = Math.floor((sec % 86400) / 3600)
+      const mins = Math.floor((sec % 3600) / 60)
+      if (days > 0) return days + "d " + hrs + "h " + mins + "m"
+      if (hrs > 0) return hrs + "h " + mins + "m"
+      return mins + "m"
+    }
+    function parseLogo(text) {
+      const lines = (text || "").split("\n")
+      const logo = []
+      for (let i = 0; i < lines.length; i++) {
+        const line = quickHubRoot.stripAnsi(lines[i]).replace(/\r/g, "")
+        if (/^-{3,}\s*$/.test(line.trim())) break
+        if (line.trim().length === 0) continue
+        if (line.indexOf("@") >= 0) continue
+        logo.push(line)
+      }
+      quickHubRoot.ffLogoLines = logo
+    }
+    function ffRow(key, icon, accent, value) {
+      return { key: key, icon: icon, accent: accent, value: value }
+    }
     function parseFastfetch(text) {
       try {
         const data = JSON.parse((text || "").trim() || "[]")
         function one(type) {
-          for (let i=0; i<data.length; i++) if (data[i] && data[i].type === type && data[i].result) return data[i].result
+          for (let i = 0; i < data.length; i++) {
+            if (data[i] && data[i].type === type && data[i].result) return data[i].result
+          }
           return null
         }
         const title = one("Title") || {}
@@ -238,12 +279,16 @@ Scope {
         const displays = one("Display") || []
         const display = displays.length > 0 ? displays[0] : {}
         const wm = one("WM") || {}
+        const shell = one("Shell") || {}
+        const theme = one("Theme") || {}
         const ips = one("LocalIp") || []
         const ip = ips.find(x => x.defaultRoute && x.defaultRoute.ipv4) || ips[0] || {}
         const bats = one("Battery") || []
         const bat = bats.length > 0 ? bats[0] : {}
         const power = one("PowerAdapter") || []
         const adapter = power.length > 0 ? power[0] : {}
+        const uptime = one("Uptime") || {}
+        const locale = one("Locale") || ""
         const diskBytes = disk.bytes || {}
         const memUsed = Number(mem.used) || 0
         const memTotal = Number(mem.total) || 0
@@ -251,29 +296,74 @@ Scope {
         const diskTotal = Number(diskBytes.total) || 0
         const out = display.output || {}
         const scaled = display.scaled || out
-        const refresh = out.refreshRate ? (" @" + Math.round(out.refreshRate) + "Hz") : ""
+        const phys = display.physical || {}
+        const refresh = out.refreshRate ? (" @ " + Math.round(out.refreshRate) + " Hz") : ""
+        const scale = (out.width && scaled.width && out.width !== scaled.width)
+          ? (" @ " + (out.width / scaled.width).toFixed(2) + "x") : ""
+        const diagIn = (phys.width && phys.height)
+          ? Math.round(Math.sqrt(phys.width * phys.width + phys.height * phys.height) / 25.4) : 0
         const batteryStatus = Array.isArray(bat.status) ? bat.status.join(", ") : (bat.status || "")
-        quickHubRoot.ffTitle = (title.userName && title.hostName) ? (title.userName + "@" + title.hostName) : (host.name || "System")
+        const cpuFreq = cpu.frequency && cpu.frequency.max
+          ? (" @ " + (cpu.frequency.max / 1000).toFixed(2) + " GHz") : ""
+        const gpuFreq = gpu.frequency ? (" @ " + (gpu.frequency / 1000).toFixed(2) + " GHz") : ""
+        const gpuType = gpu.type ? (" [" + gpu.type + "]") : ""
+        quickHubRoot.ffTitle = (title.userName && title.hostName)
+          ? (title.userName + "@" + title.hostName) : (host.name || "System")
         quickHubRoot.ffSubtitle = os.prettyName || os.name || "fastfetch"
+        quickHubRoot.ffUptime = quickHubRoot.formatUptime(uptime.uptime)
         quickHubRoot.ffDiskPct = quickHubRoot.pct(diskUsed, diskTotal)
-        quickHubRoot.ffRows = [
-          { label: "MODEL", value: host.name || host.family || "—" },
-          { label: "OS", value: os.prettyName || os.name || "—" },
-          { label: "KERNEL", value: (kernel.name || "Linux") + " " + (kernel.release || "") },
-          { label: "CPU", value: (cpu.cpu || "—") + (cpu.cores && cpu.cores.logical ? (" · " + cpu.cores.logical + " cores") : "") },
-          { label: "GPU", value: (gpu.name || "—") + (gpu.coreCount ? (" · " + gpu.coreCount + " cores") : "") },
-          { label: "MEMORY", value: quickHubRoot.prettyBytes(memUsed) + " / " + quickHubRoot.prettyBytes(memTotal) },
-          { label: "DISK", value: quickHubRoot.prettyBytes(diskUsed) + " / " + quickHubRoot.prettyBytes(diskTotal) + " · " + quickHubRoot.ffDiskPct + "% · " + (disk.filesystem || "") },
-          { label: "PACKAGES", value: (pkgs.all || 0) + " total · " + (pkgs.rpm || 0) + " rpm · " + (pkgs.flatpakUser || 0) + " flatpak" },
-          { label: "DISPLAY", value: (scaled.width || out.width || "?") + "x" + (scaled.height || out.height || "?") + refresh + (display.name ? (" · " + display.name) : "") },
-          { label: "WM", value: (wm.prettyName || wm.processName || "—") + (wm.version ? (" " + wm.version) : "") },
-          { label: "BATTERY", value: (bat.capacity !== undefined ? (Math.round(bat.capacity) + "%") : "—") + (bat.cycleCount ? (" · " + bat.cycleCount + " cycles") : "") + (batteryStatus ? (" · " + batteryStatus) : "") },
-          { label: "POWER", value: adapter.watts ? (adapter.watts + "W adapter") : (ip.ipv4 || "—") }
+        quickHubRoot.ffMemPct = quickHubRoot.pct(memUsed, memTotal)
+        quickHubRoot.ffMemUsedBytes = memUsed
+        quickHubRoot.ffMemTotalBytes = memTotal
+        quickHubRoot.ffLeftRows = [
+          quickHubRoot.ffRow("OS", "󰣇", Style.menuSeal,
+            (os.prettyName || os.name || "—") + (kernel.architecture ? " " + kernel.architecture : "")),
+          quickHubRoot.ffRow("Kernel", "󰣀", Style.teal,
+            (kernel.name || "Linux") + " " + (kernel.release || "")),
+          quickHubRoot.ffRow("Packages", "󰏖", Style.mauve,
+            (pkgs.flatpakUser || 0) + " flatpak · " + (pkgs.rpm || 0) + " rpm"),
+          quickHubRoot.ffRow("Display", "󰍹", Style.sapphire,
+            (out.width || scaled.width || "?") + "x" + (out.height || scaled.height || "?")
+              + scale + refresh + (diagIn ? (" · " + diagIn + '"') : "")
+              + (display.name ? (" [" + display.name + "]") : "")),
+          quickHubRoot.ffRow("CPU", "󰘚", Style.orange,
+            (cpu.cpu || "—") + (cpu.cores && cpu.cores.logical ? (" (" + cpu.cores.logical + ")") : "") + cpuFreq),
+          quickHubRoot.ffRow("Memory", "󰍛", Style.lavender,
+            quickHubRoot.prettyBytes(memUsed) + " / " + quickHubRoot.prettyBytes(memTotal)
+              + " (" + quickHubRoot.ffMemPct + "%)"),
+          quickHubRoot.ffRow("Local IP", "󰩠", Style.cyan,
+            (ip.name ? (ip.name + ": ") : "") + (ip.ipv4 || "—")),
+          quickHubRoot.ffRow("Theme", "󰸌", Style.mauve, theme.theme2 || theme.theme1 || "—"),
+          quickHubRoot.ffRow("Power", "󰚥", Style.yellow, adapter.watts ? (adapter.watts + "W adapter") : "—")
+        ]
+        quickHubRoot.ffRightRows = [
+          quickHubRoot.ffRow("Host", "󰌢", Style.sky, host.name || host.family || "—"),
+          quickHubRoot.ffRow("Uptime", "󰅐", Style.lavender, quickHubRoot.ffUptime || "—"),
+          quickHubRoot.ffRow("Shell", "󰆍", Style.yellow,
+            (shell.prettyName || shell.processName || "—") + (shell.version ? " " + shell.version : "")),
+          quickHubRoot.ffRow("WM", "󰖯", Style.green,
+            (wm.prettyName || wm.processName || "—")
+              + (wm.version ? " " + wm.version : "") + (wm.protocolName ? " (" + wm.protocolName + ")" : "")),
+          quickHubRoot.ffRow("GPU", "󰢮", Style.menuIndigo,
+            (gpu.name || "—") + (gpu.coreCount ? (" (" + gpu.coreCount + ")") : "") + gpuFreq + gpuType),
+          quickHubRoot.ffRow("Disk", "󰋊", Style.menuIndigo,
+            quickHubRoot.prettyBytes(diskUsed) + " / " + quickHubRoot.prettyBytes(diskTotal)
+              + " (" + quickHubRoot.ffDiskPct + "%) · " + (disk.filesystem || "—")),
+          quickHubRoot.ffRow("Locale", "󰖟", Style.menuInkDeep, locale || "—"),
+          quickHubRoot.ffRow("Battery", "󰁹", Style.green,
+            (bat.capacity !== undefined ? (Math.round(bat.capacity) + "%") : "—")
+              + (batteryStatus ? (" · " + batteryStatus) : "")
+              + (bat.cycleCount ? (" · " + bat.cycleCount + " cycles") : ""))
         ]
         quickHubRoot.ffUpdated = Qt.formatTime(new Date(), "HH:mm:ss")
       } catch (_) {
-        quickHubRoot.ffRows = [{ label: "FASTFETCH", value: "unavailable" }]
+        quickHubRoot.ffLeftRows = [quickHubRoot.ffRow("fastfetch", "󰀦", Style.red, "unavailable")]
+        quickHubRoot.ffRightRows = []
       }
+    }
+    function refreshFastfetch() {
+      if (!ffProc.running) ffProc.running = true
+      if (!ffLogoProc.running) ffLogoProc.running = true
     }
 
     Process {
@@ -281,260 +371,231 @@ Scope {
       command: ["fastfetch", "--format", "json"]
       stdout: StdioCollector { onStreamFinished: quickHubRoot.parseFastfetch(text) }
     }
+    Process {
+      id: ffLogoProc
+      command: ["fastfetch", "--logo-type", "small", "--structure", "Title"]
+      stdout: StdioCollector { onStreamFinished: quickHubRoot.parseLogo(text) }
+    }
     Timer {
-      interval: 60000; running: root.quickDetailActive && root.expandedQuickKey === "hub"; repeat: true; triggeredOnStart: true
-      onTriggered: if (!ffProc.running) ffProc.running = true
+      interval: 60000
+      running: root.quickDetailActive && root.expandedQuickKey === "hub"
+      repeat: true
+      triggeredOnStart: true
+      onTriggered: quickHubRoot.refreshFastfetch()
     }
-    Component.onCompleted: Qt.callLater(function(){ if (!ffProc.running) ffProc.running = true })
+    Component.onCompleted: Qt.callLater(quickHubRoot.refreshFastfetch)
 
-    // OVERVIEW GRID (hub) - 3x3 feature tiles (exact from feature)
-    Grid {
-      id: featureGrid
-      anchors.top: parent.top
-      anchors.left: parent.left
-      anchors.right: parent.right
-      anchors.margins: 6
-      readonly property int tileHeight: Math.max(70, Math.min(90, Math.floor((parent.height - 160) / 3)))
-      height: 3 * tileHeight + 2 * 8
-      columns: 3
-      rowSpacing: 8
-      columnSpacing: 8
-      Repeater {
-        model: [
-          { key: "hub", icon: "󰕮", label: "Dashboard", sub: "System & quick" },
-          { key: "wallpaper", icon: "󰸉", label: "Wallpapers", sub: "Browse & set" },
-          { key: "screenshots", icon: "󰹑", label: "Screenshots", sub: "Recent & capture" },
-          { key: "media", icon: "󰝚", label: "Media", sub: "Players & mixer" },
-          { key: "network", icon: "󰈀", label: "Network", sub: "WiFi & LAN" },
-          { key: "monitors", icon: "󰍹", label: "Monitors", sub: "Layout & control" },
-          { key: "temp", icon: "󰔄", label: "Temperatures", sub: "Sensors" },
-          { key: "bluetooth", icon: "󰂯", label: "Bluetooth", sub: "Devices" },
-          { key: "power", icon: "󰐥", label: "Power", sub: "Session" }
-        ]
-        delegate: Item {
-          required property var modelData
-          required property int index
-          readonly property bool selected: false // in side, no mode switch
-          width: (featureGrid.width - 2 * 8) / 3
-          height: featureGrid.tileHeight
-          Rectangle {
-            anchors.fill: parent
-            anchors.margins: 1
-            radius: Style.menuRadius
-            color: selected
-              ? Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.08)
-              : tileMouse.containsMouse
-                ? Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.05)
-                : Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.03)
-            border.color: selected ? Style.menuSeal : Style.menuSep
-            border.width: selected ? 2 : 1
-            Behavior on color { ColorAnimation { duration: 50 } }
-            Behavior on border.color { ColorAnimation { duration: 50 } }
-            Behavior on border.width { NumberAnimation { duration: 50 } }
-          }
-          Column {
-            anchors.centerIn: parent
-            width: parent.width - 12
-            spacing: 2
+    ColumnLayout {
+      anchors.fill: parent
+      anchors.margins: 4
+      spacing: 8
+
+      Rectangle {
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        radius: Style.menuRadius
+        color: Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.04)
+        border.color: Style.menuSep
+        border.width: 1
+
+        ColumnLayout {
+          anchors.fill: parent
+          anchors.margins: 10
+          spacing: 8
+
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
             Text {
-              anchors.horizontalCenter: parent.horizontalCenter
-              text: modelData.icon
-              color: selected ? Style.menuSeal : Style.menuInk
-              font.family: root.uiFont
+              text: "󰟀"
+              color: Style.menuSeal
               font.pixelSize: root.fontPx(16)
-            }
-            Text {
-              anchors.horizontalCenter: parent.horizontalCenter
-              width: parent.width
-              text: modelData.label.toUpperCase()
-              color: Style.menuInk
               font.family: root.uiFont
-              font.pixelSize: root.fontPx(8)
-              font.letterSpacing: 1.2
-              font.weight: Font.Medium
-              elide: Text.ElideRight
-              horizontalAlignment: Text.AlignHCenter
             }
-            Text {
-              anchors.horizontalCenter: parent.horizontalCenter
-              width: parent.width
-              text: modelData.sub
-              color: Style.menuInkDeep
-              font.family: root.uiFont
-              font.pixelSize: root.fontPx(7)
-              font.letterSpacing: 1
-              opacity: 0.85
-              elide: Text.ElideRight
-              horizontalAlignment: Text.AlignHCenter
-            }
-          }
-          MouseArea {
-            id: tileMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: {
-              // clicking hub tile expands that feature window content in the side popup (exact integration, no full open)
-              root.expandQuick(modelData.key)
-            }
-          }
-        }
-      }
-    }
-
-    // LOWER of grid (hub only): fastfetch about + latest shots
-    Item {
-      anchors.top: featureGrid.bottom
-      anchors.topMargin: 8
-      anchors.left: featureGrid.left
-      anchors.right: featureGrid.right
-      anchors.bottom: parent.bottom
-      anchors.bottomMargin: 4
-
-      RowLayout {
-        anchors.fill: parent
-        spacing: 8
-
-        // left: fastfetch about + live meters
-        Rectangle {
-          Layout.preferredWidth: 430
-          Layout.fillHeight: true
-          radius: Style.menuRadius
-          color: Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.03)
-          border.color: Style.menuSep
-          border.width: 1
-
-          ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: 10
-            spacing: 7
-
-            RowLayout {
+            ColumnLayout {
               Layout.fillWidth: true
-              spacing: 8
-              Text { text: "󰟀"; color: Style.menuSeal; font.pixelSize: root.fontPx(18); font.family: root.uiFont }
-              ColumnLayout {
-                Layout.fillWidth: true; spacing: 0
-                Text {
-                  text: quickHubRoot.ffTitle.toUpperCase()
-                  color: Style.menuInk; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.letterSpacing: 1.4; font.weight: Font.Medium
-                  elide: Text.ElideRight; Layout.fillWidth: true
-                }
-                Text {
-                  text: quickHubRoot.ffSubtitle
-                  color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont; elide: Text.ElideRight; Layout.fillWidth: true
-                }
+              spacing: 1
+              Text {
+                text: quickHubRoot.ffTitle
+                color: Style.menuInk
+                font.pixelSize: root.fontPx(11)
+                font.family: Style.menuMono
+                font.weight: Font.Medium
+                elide: Text.ElideRight
+                Layout.fillWidth: true
               }
-              Text { text: quickHubRoot.ffUpdated || "loading"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont }
+              Text {
+                text: quickHubRoot.ffSubtitle
+                color: Style.menuInkDeep
+                font.pixelSize: root.fontPx(9)
+                font.family: root.uiFont
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+              }
+            }
+            ColumnLayout {
+              spacing: 1
+              Text {
+                text: "󰅐 " + (quickHubRoot.ffUptime || "…")
+                color: Style.lavender
+                font.pixelSize: root.fontPx(8)
+                font.family: root.uiFont
+                font.weight: Font.Medium
+                horizontalAlignment: Text.AlignRight
+              }
+              Text {
+                text: quickHubRoot.ffUpdated || "loading"
+                color: Style.menuInkDeep
+                font.pixelSize: root.fontPx(7)
+                font.family: root.uiFont
+                horizontalAlignment: Text.AlignRight
+                opacity: 0.8
+              }
+            }
+            Rectangle {
+              Layout.alignment: Qt.AlignVCenter
+              width: 22; height: 22; radius: 11
+              color: hubCloseMa.containsMouse ? Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.08) : "transparent"
+              border.color: Style.menuSep
+              border.width: 1
+              Text {
+                anchors.centerIn: parent
+                text: "×"
+                color: Style.menuInkDeep
+                font.family: root.uiFont
+                font.pixelSize: 14
+              }
+              MouseArea {
+                id: hubCloseMa
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.expandedQuickKey = ""
+              }
+            }
+          }
+
+          Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Style.menuSep }
+
+          RowLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            spacing: 10
+
+            Text {
+              Layout.alignment: Qt.AlignTop
+              Layout.rightMargin: 2
+              visible: quickHubRoot.ffLogoLines.length > 0
+              text: quickHubRoot.ffLogoText
+              color: Style.menuSeal
+              font.family: "monospace"
+              font.pixelSize: 7
+              lineHeight: 8
+              lineHeightMode: Text.FixedHeight
+              wrapMode: Text.NoWrap
             }
 
-            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Style.menuSep }
+            Rectangle {
+              visible: quickHubRoot.ffLogoLines.length > 0
+              Layout.fillHeight: true
+              Layout.preferredWidth: 1
+              color: Style.menuSep
+            }
 
             Flickable {
               Layout.fillWidth: true
               Layout.fillHeight: true
               clip: true
-              contentHeight: sysRows.implicitHeight
+              contentHeight: ffInfoBody.implicitHeight
               boundsBehavior: Flickable.StopAtBounds
-              Column {
-                id: sysRows
+              ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded; width: 4 }
+
+              Row {
+                id: ffInfoBody
                 width: parent.width
-                spacing: 4
-                Repeater {
-                  model: quickHubRoot.ffRows
-                  delegate: RowLayout {
-                    required property var modelData
-                    width: parent.width
-                    spacing: 8
-                    Text {
-                      Layout.preferredWidth: 70
-                      text: modelData.label
-                      color: Style.menuInkDeep
-                      font.pixelSize: root.fontPx(7)
-                      font.family: root.uiFont
-                      font.letterSpacing: 1
-                      elide: Text.ElideRight
-                    }
-                    Text {
-                      Layout.fillWidth: true
-                      text: modelData.value
-                      color: Style.menuInk
-                      font.pixelSize: root.fontPx(8)
-                      font.family: root.uiFont
-                      elide: Text.ElideRight
+                spacing: 14
+
+                Column {
+                  id: ffLeftCol
+                  width: (parent.width - parent.spacing) / 2
+                  spacing: 4
+                  Repeater {
+                    model: quickHubRoot.ffLeftRows
+                    delegate: RowLayout {
+                      required property var modelData
+                      width: ffLeftCol.width
+                      spacing: 4
+                      Text {
+                        Layout.preferredWidth: 14
+                        Layout.alignment: Qt.AlignTop
+                        text: modelData.icon || ""
+                        color: modelData.accent || Style.menuInkDeep
+                        font.pixelSize: root.fontPx(9)
+                        font.family: root.uiFont
+                      }
+                      Text {
+                        Layout.preferredWidth: quickHubRoot.ffLabelWidth
+                        Layout.alignment: Qt.AlignTop
+                        text: (modelData.key || "") + ":"
+                        color: modelData.accent || Style.menuInkDeep
+                        font.pixelSize: root.fontPx(9)
+                        font.family: root.uiFont
+                        font.weight: Font.Medium
+                      }
+                      Text {
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignTop
+                        text: modelData.key === "Memory"
+                          ? (quickHubRoot.prettyBytes(quickHubRoot.ffMemTotalBytes * root.sidebarMem / 100)
+                            + " / " + quickHubRoot.prettyBytes(quickHubRoot.ffMemTotalBytes)
+                            + " (" + root.sidebarMem + "%)")
+                          : (modelData.value || "—")
+                        color: Style.menuInk
+                        font.pixelSize: root.fontPx(9)
+                        font.family: root.uiFont
+                        wrapMode: Text.WordWrap
+                        maximumLineCount: 2
+                      }
                     }
                   }
                 }
-              }
-            }
 
-            Row {
-              Layout.fillWidth: true
-              Layout.preferredHeight: 42
-              spacing: 6
-
-              Repeater {
-                model: [
-                  { label: "CPU", key: "cpu" },
-                  { label: "RAM", key: "ram" },
-                  { label: "DISK", key: "disk" },
-                  { label: "BAT", key: "bat" }
-                ]
-                delegate: Item {
-                  required property var modelData
-                  readonly property int meterValue: modelData.key === "cpu"
-                    ? root.sidebarCpu
-                    : (modelData.key === "ram" ? root.sidebarMem : (modelData.key === "disk" ? quickHubRoot.ffDiskPct : root.sidebarBat))
-                  readonly property color meterColor: modelData.key === "cpu"
-                    ? Style.orange
-                    : (modelData.key === "ram"
-                      ? Style.lavender
-                      : (modelData.key === "disk"
-                        ? Style.menuIndigo
-                        : (root.sidebarBatStatus === "Charging" ? Style.yellow : (root.sidebarBat < 20 ? Style.red : Style.green))))
-                  width: (parent.width - 3 * parent.spacing) / 4
-                  height: parent.height
-
-                  Rectangle {
-                    anchors.fill: parent
-                    radius: 5
-                    color: Style.menuControlBg
-                    border.color: Style.menuSep
-                    border.width: 1
-
-                    Text {
-                      anchors.left: parent.left
-                      anchors.top: parent.top
-                      anchors.margins: 5
-                      text: modelData.label
-                      color: Style.menuInkDeep
-                      font.pixelSize: root.fontPx(7)
-                      font.family: root.uiFont
-                    }
-                    Text {
-                      anchors.right: parent.right
-                      anchors.top: parent.top
-                      anchors.margins: 5
-                      text: meterValue + "%"
-                      color: meterColor
-                      font.pixelSize: root.fontPx(8)
-                      font.family: root.uiFont
-                      font.weight: Font.Medium
-                    }
-
-                    Rectangle {
-                      anchors.left: parent.left
-                      anchors.right: parent.right
-                      anchors.bottom: parent.bottom
-                      anchors.margins: 5
-                      height: 5
-                      radius: 2
-                      color: Qt.rgba(0, 0, 0, 0.2)
-                      Rectangle {
-                        width: parent.width * Math.max(0, Math.min(1, meterValue / 100))
-                        height: parent.height
-                        radius: 2
-                        color: meterColor
+                Column {
+                  id: ffRightCol
+                  width: (parent.width - parent.spacing) / 2
+                  spacing: 4
+                  Repeater {
+                    model: quickHubRoot.ffRightRows
+                    delegate: RowLayout {
+                      required property var modelData
+                      width: ffRightCol.width
+                      spacing: 4
+                      Text {
+                        Layout.preferredWidth: 14
+                        Layout.alignment: Qt.AlignTop
+                        text: modelData.icon || ""
+                        color: modelData.accent || Style.menuInkDeep
+                        font.pixelSize: root.fontPx(9)
+                        font.family: root.uiFont
+                      }
+                      Text {
+                        Layout.preferredWidth: quickHubRoot.ffLabelWidth
+                        Layout.alignment: Qt.AlignTop
+                        text: (modelData.key || "") + ":"
+                        color: modelData.accent || Style.menuInkDeep
+                        font.pixelSize: root.fontPx(9)
+                        font.family: root.uiFont
+                        font.weight: Font.Medium
+                      }
+                      Text {
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignTop
+                        text: modelData.value || "—"
+                        color: Style.menuInk
+                        font.pixelSize: root.fontPx(9)
+                        font.family: root.uiFont
+                        wrapMode: Text.WordWrap
+                        maximumLineCount: 2
                       }
                     }
                   }
@@ -542,22 +603,106 @@ Scope {
               }
             }
           }
+
+          Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Style.menuSep }
+
+          Row {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 44
+            spacing: 6
+
+            Repeater {
+              model: [
+                { label: "CPU", key: "cpu" },
+                { label: "RAM", key: "ram" },
+                { label: "DISK", key: "disk" },
+                { label: "BAT", key: "bat" }
+              ]
+              delegate: Item {
+                required property var modelData
+                readonly property int meterValue: modelData.key === "cpu"
+                  ? root.sidebarCpu
+                  : (modelData.key === "ram"
+                    ? root.sidebarMem
+                    : (modelData.key === "disk" ? quickHubRoot.ffDiskPct : root.sidebarBat))
+                readonly property color meterColor: modelData.key === "cpu"
+                  ? Style.orange
+                  : (modelData.key === "ram"
+                    ? Style.lavender
+                    : (modelData.key === "disk"
+                      ? Style.menuIndigo
+                      : (root.sidebarBatStatus === "Charging"
+                        ? Style.yellow : (root.sidebarBat < 20 ? Style.red : Style.green))))
+                width: (parent.width - 3 * parent.spacing) / 4
+                height: parent.height
+
+                Rectangle {
+                  anchors.fill: parent
+                  radius: 5
+                  color: Style.menuControlBg
+                  border.color: Style.menuSep
+                  border.width: 1
+
+                  Text {
+                    anchors.left: parent.left
+                    anchors.top: parent.top
+                    anchors.margins: 5
+                    text: modelData.label
+                    color: Style.menuInkDeep
+                    font.pixelSize: root.fontPx(8)
+                    font.family: root.uiFont
+                    font.weight: Font.Medium
+                  }
+                  Text {
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: 5
+                    text: meterValue + "%"
+                    color: meterColor
+                    font.pixelSize: root.fontPx(9)
+                    font.family: root.uiFont
+                    font.weight: Font.Medium
+                  }
+
+                  Rectangle {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    anchors.margins: 5
+                    height: 5
+                    radius: 2
+                    color: Qt.rgba(0, 0, 0, 0.22)
+                    Rectangle {
+                      width: parent.width * Math.max(0, Math.min(1, meterValue / 100))
+                      height: parent.height
+                      radius: 3
+                      color: meterColor
+                      Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
+      }
 
-        // right: latest screenshots strip (4, click copy, right open; exact)
-        Rectangle {
-          Layout.fillWidth: true
-          Layout.fillHeight: true
-          radius: Style.menuRadius
-          color: Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.03)
-          border.color: Style.menuSep
-          border.width: 1
+      Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 82
+        Layout.maximumHeight: 82
+        radius: Style.menuRadius
+        color: Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.03)
+        border.color: Style.menuSep
+        border.width: 1
 
-          ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: 6
-            spacing: 4
+        ColumnLayout {
+          anchors.fill: parent
+          anchors.margins: 6
+          spacing: 4
 
+          RowLayout {
+            Layout.fillWidth: true
             Text {
               text: "SCREENSHOTS"
               color: Style.menuInk
@@ -566,83 +711,90 @@ Scope {
               font.letterSpacing: 1.2
               font.weight: Font.Medium
             }
+            Item { Layout.fillWidth: true }
+            Text {
+              text: (root.shots || []).length + " recent"
+              color: Style.menuInkDeep
+              font.pixelSize: root.fontPx(7)
+              font.family: root.uiFont
+            }
+          }
 
-            Grid {
-              id: lowerShots
-              Layout.fillWidth: true
-              Layout.fillHeight: true
-              columns: 4
-              columnSpacing: 4
-              rowSpacing: 4
-              Repeater {
-                model: (root.shots || []).slice(0, 4)
-                delegate: Item {
-                  required property var modelData
-                  width: (lowerShots.width - 3 * 4) / 4
-                  height: lowerShots.height
+          Grid {
+            id: lowerShots
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            columns: 4
+            columnSpacing: 6
+            rowSpacing: 4
+            Repeater {
+              model: (root.shots || []).slice(0, 4)
+              delegate: Item {
+                required property var modelData
+                width: (lowerShots.width - 3 * 6) / 4
+                height: lowerShots.height
+                Rectangle {
+                  anchors.fill: parent
+                  radius: Style.menuRadius
+                  clip: true
+                  color: shotMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
+                  border.color: root.copiedShot === modelData.path ? Style.green : Style.menuSep
+                  border.width: root.copiedShot === modelData.path ? 2 : 1
+                  Behavior on color { ColorAnimation { duration: 80 } }
+                  Behavior on border.color { ColorAnimation { duration: 80 } }
+
+                  Image {
+                    anchors.fill: parent
+                    anchors.margins: 1
+                    source: (modelData && modelData.path) ? ("file://" + modelData.path) : ""
+                    fillMode: Image.PreserveAspectCrop
+                    asynchronous: true
+                    sourceSize.width: 160
+                    sourceSize.height: 96
+                  }
+
+                  Rectangle {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    height: 16
+                    color: Qt.rgba(0, 0, 0, 0.62)
+                    Text {
+                      anchors.centerIn: parent
+                      text: modelData.label
+                      color: Style.menuInk
+                      font.pixelSize: root.fontPx(6)
+                      font.family: root.uiFont
+                      elide: Text.ElideRight
+                      width: parent.width - 4
+                      horizontalAlignment: Text.AlignHCenter
+                    }
+                  }
+
                   Rectangle {
                     anchors.fill: parent
-                    radius: Style.menuRadius
-                    clip: true
-                    color: shotMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
-                    border.color: root.copiedShot === modelData.path ? Style.green : Style.menuSep
-                    border.width: root.copiedShot === modelData.path ? 2 : 1
-                    Behavior on color { ColorAnimation { duration: 80 } }
-                    Behavior on border.color { ColorAnimation { duration: 80 } }
-
-                    Image {
-                      anchors.fill: parent
-                      anchors.margins: 1
-                      source: (modelData && modelData.path) ? ("file://" + modelData.path) : ""
-                      fillMode: Image.PreserveAspectCrop
-                      asynchronous: true
-                      sourceSize.width: 120
-                      sourceSize.height: 80
+                    color: Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.35)
+                    visible: root.copiedShot === modelData.path
+                    Text {
+                      anchors.centerIn: parent
+                      text: "COPIED"
+                      color: Style.menuInk
+                      font.pixelSize: root.fontPx(7)
+                      font.family: root.uiFont
+                      font.weight: Font.Medium
+                      font.letterSpacing: 1
                     }
+                  }
 
-                    Rectangle {
-                      anchors.left: parent.left
-                      anchors.right: parent.right
-                      anchors.bottom: parent.bottom
-                      height: 12
-                      color: Qt.rgba(0, 0, 0, 0.62)
-                      Text {
-                        anchors.centerIn: parent
-                        text: modelData.label
-                        color: Style.menuInk
-                        font.pixelSize: root.fontPx(6)
-                        font.family: root.uiFont
-                        elide: Text.ElideRight
-                        width: parent.width - 4
-                        horizontalAlignment: Text.AlignHCenter
-                      }
-                    }
-
-                    Rectangle {
-                      anchors.fill: parent
-                      color: Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.35)
-                      visible: root.copiedShot === modelData.path
-                      Text {
-                        anchors.centerIn: parent
-                        text: "COPIED"
-                        color: Style.menuInk
-                        font.pixelSize: root.fontPx(7)
-                        font.family: root.uiFont
-                        font.weight: Font.Medium
-                        font.letterSpacing: 1
-                      }
-                    }
-
-                    MouseArea {
-                      id: shotMa
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      cursorShape: Qt.PointingHandCursor
-                      acceptedButtons: Qt.LeftButton | Qt.RightButton
-                      onClicked: (mouse) => {
-                        if (mouse.button === Qt.RightButton) root.openShot(modelData.path)
-                        else root.copyShot(modelData.path)
-                      }
+                  MouseArea {
+                    id: shotMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                    onClicked: (mouse) => {
+                      if (mouse.button === Qt.RightButton) root.openShot(modelData.path)
+                      else root.copyShot(modelData.path)
                     }
                   }
                 }
@@ -3250,7 +3402,8 @@ Scope {
         Item {
           id: listArea
           width: parent.width
-          height: visible ? Math.max(220, launcherPanel.height * (root.sideActive ? 0.48 : 0.42)) : 0
+          height: visible ? Math.max(260, launcherPanel.height * (root.expandedQuickKey === "hub"
+            ? 0.54 : (root.sideActive ? 0.48 : 0.42))) : 0
           visible: true
           clip: true
 
@@ -3497,9 +3650,11 @@ Scope {
                 id: qDetailSide
                 visible: root.quickDetailActive
                 anchors.fill: parent
+                readonly property bool hubMode: root.expandedQuickKey === "hub"
                 readonly property var qtile: (root.quickTiles || []).find(function(x){ return x.key === root.expandedQuickKey }) || {}
                 RowLayout {
                   id: qDetailHeader
+                  visible: !qDetailSide.hubMode
                   anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.topMargin: 6; spacing: 10
                   Text {
                     text: qDetailSide.qtile.glyph || "󰘔"
@@ -3555,8 +3710,9 @@ Scope {
                 Flickable {
                   id: qBodyFlick
                   anchors.left: parent.left; anchors.right: parent.right
-                  anchors.top: qDetailHeader.bottom; anchors.bottom: parent.bottom
-                  anchors.topMargin: 8
+                  anchors.top: qDetailSide.hubMode ? parent.top : qDetailHeader.bottom
+                  anchors.bottom: parent.bottom
+                  anchors.topMargin: qDetailSide.hubMode ? 0 : 8
                   clip: true
                   contentWidth: width
                   contentHeight: Math.max(height, qdl.height || 0)
@@ -3565,7 +3721,7 @@ Scope {
                     id: qdl
                     readonly property real loadedImplicitHeight: item ? item.implicitHeight : 0
                     width: parent.width
-                    height: Math.max(qBodyFlick.height, loadedImplicitHeight)
+                    height: qDetailSide.hubMode ? parent.height : Math.max(parent.height, loadedImplicitHeight)
                     active: root.quickDetailActive
                     sourceComponent: root.quickDetailFor(root.expandedQuickKey)
                   }
