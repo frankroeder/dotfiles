@@ -37,20 +37,22 @@ const fileIcons = {
 }
 
 const categoryNav = [
-  { title: "Quick", icon: "󱎫", category: "Browse", isCategory: true, target: "Quick", keywords: "quick settings dashboard hub overview battery audio wifi bt display media power screenshots wallpaper" },
+  { title: "Quick", icon: "󱎫", category: "Browse", isCategory: true, target: "Quick", keywords: "quick settings dashboard hub overview battery audio wifi bt display media screenshots wallpaper" },
   { title: "Apps", icon: "󰀻", category: "Browse", isCategory: true, target: "App", keywords: "apps applications launcher programs software desktop" },
-  { title: "Files", icon: "󰉋", category: "Browse", isCategory: true, target: fileCategory, keywords: "files file search find folder browse path fd" },
+  { title: "Files", icon: "󰉋", category: "Browse", isCategory: true, target: fileCategory, keywords: "files file search find folder browse path fd", accessory: ">" },
+  { title: "Actions", icon: "󰜎", category: "Browse", isCategory: true, target: "Actions", keywords: "actions colon commands run reload lock scratch hypr wallpaper dashboard", accessory: ":" },
+  { title: "Websearch", icon: "󰖟", category: "Browse", isCategory: true, target: "Websearch", keywords: "web search documentation engines kagi docs translate wiki", accessory: "@" },
   { title: "System", icon: "󰐥", category: "Browse", isCategory: true, target: "System", keywords: "system lock suspend hibernate logout restart reboot shutdown power session" }
 ]
 
 const localItems = [
   // System / Session (reached via System category)
-  { title: "Lock Screen", icon: "󰌾", category: "System", keywords: "lock screen security", command: ["loginctl", "lock-session"] },
-  { title: "Suspend", icon: "󰒲", category: "System", keywords: "suspend sleep", exec: "systemctl suspend" },
-  { title: "Hibernate", icon: "󰤁", category: "System", keywords: "hibernate", exec: "systemctl hibernate" },
-  { title: "Logout", icon: "󰍃", category: "System", keywords: "logout exit session", exec: "hyprctl dispatch exit" },
-  { title: "Restart", icon: "󰜉", category: "System", keywords: "restart reboot", exec: "systemctl reboot" },
-  { title: "Shutdown", icon: "󰐥", category: "System", keywords: "shutdown poweroff", exec: "systemctl poweroff" },
+  { title: "Lock Screen", icon: "󰌾", category: "System", keywords: "lock screen security", comment: "Lock the current session", command: ["loginctl", "lock-session"] },
+  { title: "Suspend", icon: "󰒲", category: "System", keywords: "suspend sleep", comment: "Sleep until next wake", exec: "systemctl suspend" },
+  { title: "Hibernate", icon: "󰤁", category: "System", keywords: "hibernate", comment: "Save state to disk and power off", exec: "systemctl hibernate" },
+  { title: "Logout", icon: "󰍃", category: "System", keywords: "logout exit session", comment: "End the Hyprland session", exec: "hyprctl dispatch exit" },
+  { title: "Restart", icon: "󰜉", category: "System", keywords: "restart reboot", comment: "Reboot the machine", exec: "systemctl reboot" },
+  { title: "Shutdown", icon: "󰐥", category: "System", keywords: "shutdown poweroff", comment: "Power off the machine", exec: "systemctl poweroff" },
 
 ]
 

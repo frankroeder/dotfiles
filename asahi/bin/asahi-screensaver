@@ -11,10 +11,37 @@ case "$action" in
     ;;
 esac
 
+screensaver_running() {
+  local pid cmdline
+  for pid in $(pgrep -x qs 2>/dev/null || true); do
+    cmdline="$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || true)"
+    case "$cmdline" in
+      *" -c screensaver"*) return 0 ;;
+    esac
+  done
+  return 1
+}
+
+wait_for_screensaver_ipc() {
+  local attempt
+  for attempt in $(seq 1 50); do
+    if qs -c screensaver ipc call saver stop >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 0.1
+  done
+  return 1
+}
+
 case "$action" in
   start|toggle|next)
-    qs -n -d -c screensaver >/dev/null 2>&1 || true
-    sleep 0.08
+    if ! screensaver_running; then
+      qs -n -d -c screensaver >/dev/null 2>&1 || true
+      wait_for_screensaver_ipc || {
+        echo "asahi-screensaver: screensaver module failed to start" >&2
+        exit 1
+      }
+    fi
     ;;
 esac
 

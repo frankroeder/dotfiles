@@ -27,6 +27,7 @@ ShellRoot {
 
     // ---------- State ----------
     property bool active: false
+    property bool panelVisible: false
     property int  shaderIndex: 0
 
     // Adding a shader = one entry here + drop its .qsb in shaders/.
@@ -96,11 +97,23 @@ ShellRoot {
 
     Component.onCompleted: paletteFile.reload()
 
+    function setActive(on: bool): void {
+        if (root.active === on && root.panelVisible === on)
+            return;
+        if (!on) {
+            root.active = false;
+            Qt.callLater(() => { if (!root.active) root.panelVisible = false; });
+            return;
+        }
+        root.panelVisible = true;
+        Qt.callLater(() => { if (root.panelVisible) root.active = true; });
+    }
+
     IpcHandler {
         target: "saver"
-        function start():  void { root.active = true; }
-        function stop():   void { root.active = false; }
-        function toggle(): void { root.active = !root.active; }
+        function start():  void { Qt.callLater(() => root.setActive(true)); }
+        function stop():   void { root.setActive(false); }
+        function toggle(): void { Qt.callLater(() => root.setActive(!root.active)); }
         function next():   void {
             root.shaderIndex = (root.shaderIndex + 1) % root.shaderCount;
             root.elapsed = 0;
@@ -131,18 +144,21 @@ ShellRoot {
         }
     }
 
+    property string focusScreenName: ""
+
     onActiveChanged: {
         if (active) {
+            const mon = Hyprland.focusedMonitor;
+            const screens = Quickshell.screens;
+            if (!mon || screens.length === 0)
+                root.focusScreenName = screens.length ? screens[0].name : "";
+            else
+                root.focusScreenName = mon.name;
             root.elapsed = 0;
             root.armedFor = 0;
+        } else {
+            root.focusScreenName = "";
         }
-    }
-
-    readonly property var focusScreen: {
-        const mon = Hyprland.focusedMonitor;
-        const screens = Quickshell.screens;
-        if (!mon || screens.length === 0) return screens[0] ?? null;
-        return screens.find(s => s.name === mon.name) ?? screens[0];
     }
 
     component SaverSurface : Item {
@@ -181,7 +197,7 @@ ShellRoot {
                     required property int index
                     required property string modelData
                     anchors.fill: parent
-                    active: slotLoader.modelData !== "life"
+                    active: root.active && slotLoader.modelData !== "life"
                     sourceComponent: ShaderEffect {
                         anchors.fill: parent
                         opacity: root.shaderIndex === slotLoader.index ? 1 : 0
@@ -226,7 +242,7 @@ ShellRoot {
                     id: lifeSource
                     sourceItem: lifeEffect
                     recursive: true
-                    live: true
+                    live: root.active
                     smooth: false
                     hideSource: false
                     // Texture sized to grid so neighbour sampling lines up
@@ -261,13 +277,13 @@ ShellRoot {
             hoverEnabled: true
             acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
 
-            onPressed: root.active = false
-            onWheel: root.active = false
+            onPressed: root.setActive(false)
+            onWheel: root.setActive(false)
             onPositionChanged: (m) => {
                 if (surf.lastX < 0) { surf.lastX = m.x; surf.lastY = m.y; return; }
                 if (root.armedFor < 0.25) { surf.lastX = m.x; surf.lastY = m.y; return; }
                 const dx = m.x - surf.lastX, dy = m.y - surf.lastY;
-                if (dx * dx + dy * dy > 9) root.active = false;
+                if (dx * dx + dy * dy > 9) root.setActive(false);
             }
         }
 
@@ -297,7 +313,7 @@ ShellRoot {
                     e.accepted = true;
                     return;
                 }
-                root.active = false;
+                root.setActive(false);
                 e.accepted = true;
             }
         }
@@ -309,16 +325,21 @@ ShellRoot {
         PanelWindow {
             required property var modelData
             screen: modelData
-            visible: root.active
+            visible: root.panelVisible
+            focusable: root.active && modelData.name === root.focusScreenName
             color: "transparent"
             anchors { top: true; bottom: true; left: true; right: true }
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.namespace: "screensaver"
-            WlrLayershell.keyboardFocus: root.active && modelData === root.focusScreen
+            WlrLayershell.keyboardFocus: root.active && modelData.name === root.focusScreenName
                 ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
             exclusionMode: ExclusionMode.Ignore
 
-            SaverSurface {}
+            Loader {
+                anchors.fill: parent
+                active: root.active
+                sourceComponent: SaverSurface {}
+            }
         }
     }
 }

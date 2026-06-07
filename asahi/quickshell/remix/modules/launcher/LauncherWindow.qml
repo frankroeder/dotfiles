@@ -77,7 +77,6 @@ Scope {
     { key: "monitors", aliases: ["display", "screen"], icon: "󰍹", name: "Monitors", comment: "Open monitor layout", mode: "monitors" },
     { key: "temp", aliases: ["temps", "temperature"], icon: "󰔄", name: "Temperatures", comment: "Open sensor view", mode: "temp" },
     { key: "bluetooth", aliases: ["bt"], icon: "󰂯", name: "Bluetooth", comment: "Open Bluetooth devices", mode: "bluetooth" },
-    { key: "power", aliases: ["session"], icon: "󰐥", name: "Power", comment: "Open session controls", mode: "power" },
     { key: "screensaver", aliases: ["saver"], icon: "󱄄", name: "Screensaver", comment: "Shader idle display", command: [root.binDir + "/asahi-screensaver", "toggle"] },
     { key: "reload", aliases: ["qs"], icon: "󰑐", name: "Reload Quickshell", comment: "Restart QS", command: [root.binDir + "/asahi-restart-quickshell"] },
     { key: "hypr", aliases: ["hyprland"], icon: "󰑓", name: "Reload Hyprland", comment: "Reload Hyprland config", command: [root.binDir + "/asahi-reload-hyprland"] },
@@ -388,7 +387,7 @@ Scope {
     ColumnLayout {
       anchors.fill: parent
       anchors.margins: 4
-      spacing: 8
+      spacing: 6
 
       Rectangle {
         Layout.fillWidth: true
@@ -400,8 +399,8 @@ Scope {
 
         ColumnLayout {
           anchors.fill: parent
-          anchors.margins: 10
-          spacing: 8
+          anchors.margins: 8
+          spacing: 6
 
           RowLayout {
             Layout.fillWidth: true
@@ -479,7 +478,7 @@ Scope {
 
           RowLayout {
             Layout.fillWidth: true
-            Layout.fillHeight: true
+            Layout.alignment: Qt.AlignTop
             spacing: 10
 
             Text {
@@ -497,18 +496,15 @@ Scope {
 
             Rectangle {
               visible: quickHubRoot.ffLogoLines.length > 0
-              Layout.fillHeight: true
+              Layout.preferredHeight: ffInfoBody.implicitHeight
               Layout.preferredWidth: 1
               color: Style.menuSep
             }
 
-            Flickable {
+            Item {
               Layout.fillWidth: true
-              Layout.fillHeight: true
-              clip: true
-              contentHeight: ffInfoBody.implicitHeight
-              boundsBehavior: Flickable.StopAtBounds
-              ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded; width: 4 }
+              implicitHeight: ffInfoBody.implicitHeight
+              height: implicitHeight
 
               Row {
                 id: ffInfoBody
@@ -608,7 +604,7 @@ Scope {
 
           Row {
             Layout.fillWidth: true
-            Layout.preferredHeight: 44
+            Layout.preferredHeight: 40
             spacing: 6
 
             Repeater {
@@ -689,8 +685,8 @@ Scope {
 
       Rectangle {
         Layout.fillWidth: true
-        Layout.preferredHeight: 82
-        Layout.maximumHeight: 82
+        Layout.preferredHeight: 70
+        Layout.maximumHeight: 70
         radius: Style.menuRadius
         color: Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.03)
         border.color: Style.menuSep
@@ -793,8 +789,34 @@ Scope {
                     cursorShape: Qt.PointingHandCursor
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
                     onClicked: (mouse) => {
-                      if (mouse.button === Qt.RightButton) root.openShot(modelData.path)
+                      if (mouse.button === Qt.RightButton) root.previewShot(modelData.path)
                       else root.copyShot(modelData.path)
+                    }
+                  }
+
+                  Rectangle {
+                    anchors.top: parent.top
+                    anchors.right: parent.right
+                    anchors.margins: 4
+                    width: 20
+                    height: 20
+                    radius: 10
+                    z: 2
+                    visible: shotMa.containsMouse
+                    color: Style.menuControlBg
+                    border.width: 1
+                    border.color: Style.menuSep
+                    Text {
+                      anchors.centerIn: parent
+                      text: "󰋲"
+                      color: Style.menuSeal
+                      font.pixelSize: root.fontPx(10)
+                      font.family: root.uiFont
+                    }
+                    MouseArea {
+                      anchors.fill: parent
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.previewShot(modelData.path)
                     }
                   }
                 }
@@ -906,70 +928,245 @@ Scope {
     }
   } }
   Component { id: quickScreenshotsComp; Item {
-    // exact shots window (uses launcher root.shots + copy/open/delete; + capture actions)
     anchors.fill: parent
     ColumnLayout {
-      anchors.fill: parent; spacing: 6
+      anchors.fill: parent
+      spacing: 8
+
       RowLayout {
-        Layout.fillWidth: true; spacing: 6
-        Text { text: "SCREENSHOTS"; color: Style.menuInk; font.pixelSize: 9; font.family: root.uiFont; font.letterSpacing: 1.2; font.weight: Font.Medium }
+        Layout.fillWidth: true
+        spacing: 6
+        Text {
+          text: "SCREENSHOTS"
+          color: Style.menuInk
+          font.pixelSize: root.fontPx(9)
+          font.family: root.uiFont
+          font.letterSpacing: 1.2
+          font.weight: Font.Medium
+        }
         Item { Layout.fillWidth: true }
-        Text { text: (root.shots || []).length + " recent"; color: Style.menuInkDeep; font.pixelSize: 8; font.family: root.uiFont }
+        Text {
+          text: (root.shots || []).length + " recent"
+          color: Style.menuInkDeep
+          font.pixelSize: root.fontPx(8)
+          font.family: root.uiFont
+        }
       }
-      Text {
-        visible: (root.shots || []).length === 0
-        text: "No screenshots in ~/screenshots"
-        color: Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont
-        Layout.alignment: Qt.AlignHCenter
-      }
-      Grid {
-        Layout.fillWidth: true; Layout.fillHeight: true
-        columns: 3; columnSpacing: 4; rowSpacing: 4
-        Repeater {
-          model: (root.shots || []).slice(0, 9)
-          delegate: Item {
-            required property var modelData
-            width: (parent.width - 2*4)/3 ; height: width * 0.62 + 4
+
+      GridView {
+        id: shotGrid
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        cellWidth: Math.max(80, Math.floor((width - 10) / 3))
+        cellHeight: cellWidth * 0.6 + 6
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+        model: root.shots || []
+
+        delegate: Item {
+          required property var modelData
+          required property int index
+          width: shotGrid.cellWidth
+          height: shotGrid.cellHeight
+
+          Rectangle {
+            anchors.fill: parent
+            anchors.margins: 4
+            radius: 8
+            clip: true
+            color: hma.containsMouse ? Style.menuRowHi : Style.menuControlBg
+            border.color: root.copiedShot === modelData.path ? Style.green : Style.menuSep
+            border.width: root.copiedShot === modelData.path ? 2 : 1
+            scale: hma.containsMouse ? 1.02 : 1.0
+            Behavior on color { ColorAnimation { duration: 140 } }
+            Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+
+            Image {
+              anchors.fill: parent
+              anchors.margins: 1
+              source: modelData.path ? ("file://" + modelData.path) : ""
+              fillMode: Image.PreserveAspectCrop
+              asynchronous: true
+              sourceSize.width: 200
+              sourceSize.height: 120
+            }
+
             Rectangle {
-              anchors.fill: parent; radius: 4; clip: true
-              color: sma.containsMouse ? Style.menuRowHi : Style.menuControlBg
-              border.color: root.copiedShot === modelData.path ? Style.green : Style.menuSep
-              border.width: root.copiedShot === modelData.path ? 2 : 1
-              Behavior on color { ColorAnimation { duration: 80 } }
-              Image { anchors.fill: parent; anchors.margins: 1; source: (modelData && modelData.path) ? ("file://" + modelData.path) : ""; fillMode: Image.PreserveAspectCrop; asynchronous: true; sourceSize.width: 120; sourceSize.height: 72 }
-              Rectangle { anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.right: parent.right; height: 11; color: Qt.rgba(0,0,0,0.6)
-                Text { anchors.centerIn: parent; text: modelData.label; color: "#fff"; font.pixelSize: 6; font.family: root.uiFont; elide: Text.ElideRight; horizontalAlignment: Text.AlignHCenter }
+              anchors.bottom: parent.bottom
+              anchors.left: parent.left
+              anchors.right: parent.right
+              height: 18
+              color: Qt.rgba(0, 0, 0, 0.55)
+              Text {
+                anchors.centerIn: parent
+                text: modelData.label
+                color: "#ffffff"
+                font.pixelSize: root.fontPx(9)
+                font.family: root.uiFont
+                elide: Text.ElideRight
+                width: parent.width - 6
+                horizontalAlignment: Text.AlignHCenter
               }
-              Rectangle { anchors.fill: parent; color: Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.3); visible: root.copiedShot === modelData.path
-                Text { anchors.centerIn: parent; text: "COPIED"; color: "#fff"; font.pixelSize: 7; font.family: root.uiFont; font.weight: Font.Medium }
+            }
+
+            Rectangle {
+              anchors.fill: parent
+              anchors.margins: 1
+              radius: 6
+              color: Qt.rgba(0.4, 0.8, 0.5, 0.32)
+              visible: root.copiedShot === modelData.path
+              Text {
+                anchors.centerIn: parent
+                text: "COPIED"
+                color: "#ffffff"
+                font.pixelSize: root.fontPx(12)
+                font.family: root.uiFont
+                font.bold: true
+              }
+            }
+
+            MouseArea {
+              id: hma
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              acceptedButtons: Qt.LeftButton | Qt.RightButton
+              onClicked: (mouse) => {
+                if (mouse.button === Qt.RightButton) root.previewShot(modelData.path)
+                else root.copyShot(modelData.path)
+              }
+            }
+
+            Rectangle {
+              id: shotQuickPreview
+              anchors.top: parent.top
+              anchors.right: parent.right
+              anchors.margins: 7
+              width: 24
+              height: 24
+              radius: 12
+              z: 4
+              visible: hma.containsMouse
+              color: Style.menuControlBg
+              border.width: 1
+              border.color: Style.menuSep
+              Text {
+                anchors.centerIn: parent
+                text: "󰋲"
+                color: Style.menuSeal
+                font.pixelSize: root.fontPx(12)
+                font.family: root.uiFont
               }
               MouseArea {
-                id: sma
-                anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                acceptedButtons: Qt.LeftButton|Qt.RightButton
-                onClicked: function(e){ if (e.button===Qt.RightButton) root.openShot(modelData.path); else root.copyShot(modelData.path) }
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: (mouse) => { mouse.accepted = true; root.previewShot(modelData.path) }
               }
-              Rectangle {
-                anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 2
-                width: 12; height: 12; radius: 2
-                color: Qt.rgba(Style.red.r, 0, 0, 0.7); visible: sma.containsMouse; z: 2
-                Text { anchors.centerIn: parent; text: "x"; color: "#fff"; font.pixelSize: 8; font.family: root.uiFont }
-                MouseArea { anchors.fill: parent; onClicked: root.deleteShot(modelData.path); z: 2 }
+            }
+
+            Rectangle {
+              anchors.top: parent.top
+              anchors.right: shotQuickPreview.left
+              anchors.topMargin: 7
+              anchors.rightMargin: 6
+              width: 24
+              height: 24
+              radius: 12
+              z: 4
+              visible: hma.containsMouse
+              color: Style.menuControlBg
+              border.width: 1
+              border.color: Style.menuSep
+              Text {
+                anchors.centerIn: parent
+                text: "󰆴"
+                color: Style.red
+                font.pixelSize: root.fontPx(12)
+                font.family: root.uiFont
+              }
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: (mouse) => { mouse.accepted = true; root.deleteShot(modelData.path) }
               }
             }
           }
         }
       }
+
+      Text {
+        visible: (root.shots || []).length === 0
+        text: "No screenshots in ~/screenshots"
+        color: Style.menuInkDeep
+        font.pixelSize: root.fontPx(11)
+        font.family: root.uiFont
+        Layout.alignment: Qt.AlignHCenter
+      }
+
       RowLayout {
-        Layout.fillWidth: true; spacing: 6
-        Rectangle { Layout.fillWidth: true; height: 18; radius: 3; color: Style.menuControlBg; border.color: Style.menuSep
-          Text { anchors.centerIn: parent; text: "󰄀 smart"; font.pixelSize: 9; font.family: root.uiFont; color: Style.menuInk }
-          MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: function(){ Quickshell.execDetached([root.binDir+"/asahi-cmd-screenshot","smart"]); root.shouldShow=false } }
+        Layout.fillWidth: true
+        spacing: 8
+        Rectangle {
+          Layout.fillWidth: true
+          height: 32
+          radius: 8
+          color: smartCapMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
+          border.color: Style.menuSep
+          Text {
+            anchors.centerIn: parent
+            text: "󰄀  smart"
+            font.pixelSize: root.fontPx(11)
+            font.family: root.uiFont
+            color: Style.menuInk
+            font.weight: Font.Medium
+          }
+          MouseArea {
+            id: smartCapMa
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+              Quickshell.execDetached([root.binDir + "/asahi-cmd-screenshot", "smart"])
+              Qt.callLater(root.scanShots)
+            }
+          }
         }
-        Rectangle { Layout.fillWidth: true; height: 18; radius: 3; color: Style.menuControlBg; border.color: Style.menuSep
-          Text { anchors.centerIn: parent; text: "󰹑 area"; font.pixelSize: 9; font.family: root.uiFont; color: Style.menuInk }
-          MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: function(){ Quickshell.execDetached([root.binDir+"/asahi-cmd-screenshot","area"]); root.shouldShow=false } }
+        Rectangle {
+          Layout.fillWidth: true
+          height: 32
+          radius: 8
+          color: areaCapMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
+          border.color: Style.menuSep
+          Text {
+            anchors.centerIn: parent
+            text: "󰹑  area"
+            font.pixelSize: root.fontPx(11)
+            font.family: root.uiFont
+            color: Style.menuInk
+            font.weight: Font.Medium
+          }
+          MouseArea {
+            id: areaCapMa
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+              Quickshell.execDetached([root.binDir + "/asahi-cmd-screenshot", "area"])
+              Qt.callLater(root.scanShots)
+            }
+          }
         }
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: "L: copy  ·  R: preview"
+        color: Style.menuInkDeep
+        font.pixelSize: root.fontPx(8)
+        font.family: root.uiFont
+        horizontalAlignment: Text.AlignHCenter
+        opacity: 0.7
       }
     }
   } }
@@ -2146,55 +2343,6 @@ Scope {
       }
     }
   } }
-  Component { id: quickPowerComp; Item {
-    id: quickPowerRoot
-    // power window exact (ported grid of session actions; danger red for destructive; + confirm for danger like old)
-    anchors.fill: parent
-    property string pendingConfirm: ""
-    ColumnLayout {
-      anchors.fill: parent
-      Text { text: quickPowerRoot.pendingConfirm ? ("Confirm " + quickPowerRoot.pendingConfirm + "?") : ""; color: Style.red; font.pixelSize: root.fontPx(8); font.family: root.uiFont; visible: !!quickPowerRoot.pendingConfirm; Layout.preferredHeight: quickPowerRoot.pendingConfirm ? 16 : 0 }
-      GridLayout {
-        Layout.fillWidth: true; Layout.fillHeight: true; columns: 2; rowSpacing: 6; columnSpacing: 6
-      Repeater {
-        model: [
-          { icon: "󰌾", label: "Lock", cmd: ["loginctl","lock-session"], danger: false },
-          { icon: "󰒲", label: "Suspend", cmd: ["systemctl","suspend"], danger: false },
-          { icon: "󰜉", label: "Reboot", cmd: ["systemctl","reboot"], danger: false },
-          { icon: "󰐥", label: "Shutdown", cmd: ["systemctl","poweroff"], danger: true },
-          { icon: "󰍃", label: "Logout", cmd: ["hyprctl","dispatch","exit"], danger: false },
-          { icon: "󰤁", label: "Hibernate", cmd: ["systemctl","hibernate"], danger: false }
-        ]
-        delegate: Rectangle {
-          required property var modelData
-          Layout.fillWidth: true; Layout.fillHeight: true; radius: 6
-          color: pma.containsMouse ? (modelData.danger ? Qt.rgba(Style.red.r,Style.red.g,Style.red.b,0.18) : Style.menuRowHi) : (modelData.danger ? Qt.rgba(Style.red.r,Style.red.g,Style.red.b,0.12) : Style.menuControlBg)
-          border.color: pma.containsMouse ? (modelData.danger ? Style.red : Style.menuSep) : Style.menuSep
-          border.width: 1
-          scale: pma.containsMouse ? 1.01 : 1.0
-          Behavior on color { ColorAnimation { duration: 80 } }
-          Behavior on scale { NumberAnimation { duration: 80 } }
-          Column {
-            anchors.centerIn: parent; spacing: 1
-            Text { text: modelData.icon; font.pixelSize: 16; color: modelData.danger ? Style.red : Style.menuSeal; font.family: root.uiFont; anchors.horizontalCenter: parent.horizontalCenter }
-            Text { text: modelData.label.toUpperCase(); font.pixelSize: 9; color: Style.menuInk; font.family: root.uiFont; font.letterSpacing: 1; anchors.horizontalCenter: parent.horizontalCenter }
-          }
-          MouseArea {
-            id: pma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-            onClicked: {
-              if (quickPowerRoot.pendingConfirm === modelData.label) {
-                Quickshell.execDetached(root.resolveCmd(modelData.cmd)); root.shouldShow = false; quickPowerRoot.pendingConfirm = ""
-              } else if (modelData.danger) {
-                quickPowerRoot.pendingConfirm = modelData.label
-              } else {
-                Quickshell.execDetached(root.resolveCmd(modelData.cmd)); root.shouldShow = false
-              }
-            }
-          }
-        }
-      }
-    }
-  } } }
   Component { id: quickDefaultComp; Item {
     anchors.fill: parent
     Text { anchors.centerIn: parent; text: "select a quick tile"; color: Style.menuInkDeep; font.pixelSize: 10; font.family: root.uiFont }
@@ -2211,7 +2359,6 @@ Scope {
       case "monitors": return quickMonitorsComp
       case "temp": return quickTempComp
       case "bluetooth": return quickBtComp
-      case "power": return quickPowerComp
       default: return quickDefaultComp
     }
   }
@@ -2255,8 +2402,19 @@ Scope {
         const n = (root.quickTiles || []).length
         return n + " tiles · " + n + " total"
       }
-      let n = (root.launcherItems || []).filter(x => x.category === root.categoryFilter).length
-      if (root.categoryFilter === "App") n = (DesktopEntries.applications.values || []).filter(d => !d.noDisplay).length
+      if (root.categoryFilter === "App") {
+        const n = (DesktopEntries.applications.values || []).filter(d => !d.noDisplay).length
+        return c + " match" + s + " · " + n + " total"
+      }
+      if (root.categoryFilter === "Actions") {
+        const n = (root.quickActions || []).length
+        return c + " action" + s + " · " + n + " total"
+      }
+      if (root.categoryFilter === "Websearch") {
+        const n = (root.webEngines || []).length
+        return c + " engine" + s + " · " + n + " total"
+      }
+      const n = (root.launcherItems || []).filter(x => x.category === root.categoryFilter).length
       return c + " match" + s + " · " + n + " total"
     }
     if (qq.length === 0) {
@@ -2275,6 +2433,11 @@ Scope {
   onDictVersionChanged: root.resetDictSelection()
   onFileVersionChanged: { root.resetFileSelection(); if (root.fileMode) Qt.callLater(root.updateFilePreview) }
   onDeVersionChanged: { if (resultsList) resultsList.currentIndex = 0; root.selectedIndex = 0 }
+  onShouldShowChanged: {
+    if (root.shouldShow) root.focusLauncherInput()
+    else root.shotPreviewPath = ""
+  }
+
   onCategoryFilterChanged: {
     if (resultsList) resultsList.currentIndex = 0
     root.selectedIndex = 0
@@ -2292,6 +2455,15 @@ Scope {
       root.query = ">"
       if (searchInput) searchInput.text = ">"
     }
+    if (root.categoryFilter === "Actions" && !(root.query || "").trim().startsWith(":")) {
+      root.query = ":"
+      if (searchInput) searchInput.text = ":"
+    }
+    if (root.categoryFilter === "Websearch" && !(root.query || "").trim().startsWith("@")) {
+      root.query = "@"
+      if (searchInput) searchInput.text = "@"
+    }
+    if (root.shouldShow) root.focusLauncherInput()
   }
 
   function launchCurrent() {
@@ -2311,6 +2483,13 @@ Scope {
     if (entry) root.launchApp(entry)
   }
 
+  function focusLauncherInput() {
+    Qt.callLater(function() {
+      if (!root.quickMode && searchInput) searchInput.forceActiveFocus()
+      else if (launcherBox) launcherBox.forceActiveFocus()
+    })
+  }
+
   function openLauncher() {
     const mon = Hyprland.focusedMonitor
     launcherScreen = mon
@@ -2323,7 +2502,7 @@ Scope {
     if (searchInput) searchInput.text = ""
     else root.query = ""
     if (resultsList) resultsList.currentIndex = 0
-    Qt.callLater(() => { if (searchInput) searchInput.forceActiveFocus() })
+    root.focusLauncherInput()
   }
 
   function openFileSearch(term) {
@@ -2331,15 +2510,19 @@ Scope {
     const q = ">" + (term || "")
     root.query = q
     if (searchInput) searchInput.text = q
+    root.focusLauncherInput()
   }
 
   function openCategory(cat) {
     if (!root.shouldShow) root.openLauncher()
     root.categoryFilter = cat || ""
-    root.query = (root.categoryFilter === Data.fileCategory) ? ">" : ""
+    root.query = root.categoryFilter === Data.fileCategory ? ">"
+      : (root.categoryFilter === "Actions" ? ":"
+        : (root.categoryFilter === "Websearch" ? "@" : ""))
     if (searchInput) searchInput.text = root.query
     root.selectedIndex = 0
     root.expandedQuickKey = ""
+    root.focusLauncherInput()
   }
 
   function openQuick(key) {
@@ -2396,6 +2579,7 @@ Scope {
     const k = (key === "dashboard" || key === "hub") ? "hub" : key
     if (!root.quickMode) { root.categoryFilter = "Quick"; root.query = ""; if (searchInput) searchInput.text = "" }
     root.expandedQuickKey = (root.expandedQuickKey === k ? "" : k)
+    if (root.expandedQuickKey === "screenshots" || root.expandedQuickKey === "hub") root.scanShots()
   }
 
   function resolveCmd(c) {
@@ -2433,9 +2617,8 @@ Scope {
     return actions.map(a => ({
       id: "action-" + a.key,
       name: a.name,
-      comment: ":" + a.key + " · " + a.comment,
+      comment: a.comment || "",
       glyph: a.icon,
-      accessory: a.mode ? "MENU" : "RUN",
       special: "action",
       mode: a.mode || "",
       command: a.command || []
@@ -2463,7 +2646,9 @@ Scope {
       const tgt = entry.target || entry.category || ""
       if (tgt) {
         root.categoryFilter = tgt
-        root.query = (tgt === Data.fileCategory) ? ">" : ""
+        root.query = tgt === Data.fileCategory ? ">"
+          : (tgt === "Actions" ? ":"
+            : (tgt === "Websearch" ? "@" : ""))
         if (searchInput) searchInput.text = root.query
         root.selectedIndex = 0
         root.expandedQuickKey = ""
@@ -2482,8 +2667,16 @@ Scope {
     } else if (entry.special === "file" && entry.path) {
       Quickshell.execDetached(["xdg-open", entry.path])
     } else if (entry.special === "action") {
-      if (entry.mode) { root.expandQuick(entry.mode); root.shouldShow = false; return }
-      else if (entry.command && entry.command.length > 0) Quickshell.execDetached(root.resolveCmd(entry.command))
+      if (entry.mode) {
+        root.categoryFilter = "Quick"
+        root.query = ""
+        if (searchInput) searchInput.text = ""
+        root.expandQuick(entry.mode)
+        return
+      } else if (entry.command && entry.command.length > 0) {
+        Quickshell.execDetached(root.resolveCmd(entry.command))
+        root.shouldShow = false
+      }
     } else if ((entry.special === "web" || entry.special === "doc") && entry.url) {
       if (entry.prefix) {
         // selected engine from @ fuzzy list: autofill shortcut like "jaxdoc " so user types the term at _
@@ -2975,16 +3168,82 @@ Scope {
     return null
   }
 
+  function handleEscape() {
+    if (root.shotPreviewPath !== "") {
+      root.shotPreviewPath = ""
+      return
+    }
+    if (root.quickDetailActive) {
+      root.expandedQuickKey = ""
+      root.focusLauncherInput()
+      return
+    }
+    if (root.quickMode || root.categoryFilter !== "") {
+      root.categoryFilter = ""
+      root.query = ""
+      root.selectedIndex = 0
+      root.expandedQuickKey = ""
+      if (searchInput) searchInput.text = ""
+      root.focusLauncherInput()
+      return
+    }
+    root.shouldShow = false
+  }
+
   // ---------- Launcher port: scoring + category overview (following bjarneo launcher ref style) ----------
   function goUp() {
+    if (root.quickDetailActive) {
+      root.expandedQuickKey = ""
+      return true
+    }
     if (root.categoryFilter !== "") {
       root.categoryFilter = ""
       root.query = ""
       root.selectedIndex = 0
       root.expandedQuickKey = ""
+      if (searchInput) searchInput.text = ""
       return true
     }
     return false
+  }
+
+  function actionSearchTerm() {
+    let t = (root.query || "").trim()
+    if (t.startsWith(":")) t = t.substring(1).trim()
+    return t.toLowerCase()
+  }
+
+  function mapActionEntry(a) {
+    return {
+      id: "action-" + a.key,
+      title: a.name,
+      comment: a.comment || "",
+      glyph: a.icon,
+      category: "Actions",
+      special: "action",
+      mode: a.mode || "",
+      command: a.command || [],
+      _t: (a.name || "").toLowerCase(),
+      _k: ((a.key || "") + " " + (a.aliases || []).join(" ")).toLowerCase(),
+      _c: "actions"
+    }
+  }
+
+  function mapWebEntry(e) {
+    const icon = e.icon || (root.webIconBase + "kagi.png")
+    return {
+      id: "web-" + e.prefix,
+      title: e.name,
+      comment: e.description || ("Search with @" + e.prefix),
+      icon: icon,
+      category: "Websearch",
+      special: "doc",
+      url: e.url,
+      prefix: e.prefix,
+      _t: (e.name || "").toLowerCase(),
+      _k: ((e.prefix || "") + " " + (e.description || "")).toLowerCase(),
+      _c: "websearch"
+    }
   }
 
   function primaryScore(item, tokens) {
@@ -3033,6 +3292,28 @@ Scope {
     const specials = root.getSpecialResults(root.query)
     if (specials && specials.length > 0) return specials
 
+    if (filter === "Actions") {
+      const term = root.actionSearchTerm()
+      const acts = (root.quickActions || []).filter(a => root.actionMatches(a, term))
+      const out = acts.map(a => root.mapActionEntry(a))
+      return out.length <= root.maxResults ? out : out.slice(0, root.maxResults)
+    }
+    if (filter === "Websearch") {
+      const after = (root.query || "").trim()
+      const la = after.startsWith("@") ? after.substring(1).trim().toLowerCase() : after.toLowerCase()
+      const engines = root.webEngines.length > 0 ? root.webEngines : [{
+        name: "Kagi", prefix: "kagi", url: "https://kagi.com/search?q=%TERM%",
+        icon: root.webIconBase + "kagi.png", description: "Web search"
+      }]
+      const webs = engines.filter(e => {
+        if (!la) return true
+        const p = (e.prefix || "").toLowerCase()
+        const n = (e.name || "").toLowerCase()
+        return p.indexOf(la) >= 0 || n.indexOf(la) >= 0 || p.startsWith(la) || n.startsWith(la)
+      }).map(e => root.mapWebEntry(e))
+      return webs.length <= root.maxResults ? webs : webs.slice(0, root.maxResults)
+    }
+
     if (root.quickMode) return []
     let pool = []
     if (filter !== "" && filter !== "Quick") {
@@ -3051,12 +3332,13 @@ Scope {
         const k = String((a.genericName || "") + " " + (a.comment || "")).toLowerCase()
         const aid = "app-" + (a.id || a.name || i)
         pool.push({
-          id: aid, title: a.name, _t: t, _k: k, _c: "app", category: "App", icon: "󰀻", rawIcon: a.icon || "", special: "app", raw: a
+          id: aid, title: a.name, accessory: "APP",
+          _t: t, _k: k, _c: "app", category: "App", icon: "󰀻", rawIcon: a.icon || "", special: "app", raw: a
         })
       }
     }
 
-    // Empty query: for App drill use limited usage tail (no flood); for other drills use pool; root: nav+8apps
+    // Empty query: for App drill use limited usage tail (no flood); for other drills use pool; root: nav only
     if (tokens.length === 0) {
       if (filter !== "" && filter !== "Quick") {
         if (filter === "App") {
@@ -3070,7 +3352,8 @@ Scope {
           for (let i = 0; i < allApps.length && tail.length < 20; i++) {
             const a = allApps[i]
             tail.push({
-              id: "app-" + (a.id || a.name), title: a.name, comment: a.genericName || "", icon: "󰀻", rawIcon: a.icon || "",
+              id: "app-" + (a.id || a.name), title: a.name, accessory: "APP",
+              icon: "󰀻", rawIcon: a.icon || "",
               category: "App", special: "app", raw: a
             })
           }
@@ -3248,6 +3531,14 @@ Scope {
       Behavior on width { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
       height: Math.min(launcherCol.implicitHeight + 34, parent.height * 0.72)
       cardMargin: 17
+      focus: true
+      activeFocusOnTab: true
+      Keys.onPressed: (event) => {
+        if (event.key === Qt.Key_Escape) {
+          root.handleEscape()
+          event.accepted = true
+        }
+      }
 
       Column {
         id: launcherCol
@@ -3319,6 +3610,12 @@ Scope {
               if (ft !== null && root.categoryFilter !== Data.fileCategory) {
                 root.categoryFilter = Data.fileCategory
               }
+              if (text.trim().startsWith(":") && root.categoryFilter !== "Actions") {
+                root.categoryFilter = "Actions"
+              }
+              if (text.trim().startsWith("@") && root.categoryFilter !== "Websearch") {
+                root.categoryFilter = "Websearch"
+              }
               if (text.trim() && !root.isPrefixSpecial(text) && root.categoryFilter === "" && !root.quickMode) {
                 root.categoryFilter = "App"
               }
@@ -3328,19 +3625,7 @@ Scope {
               if (root.fileMode) root.updateFilePreview()
             }
 
-            Keys.onEscapePressed: {
-              if (root.quickDetailActive) {
-                root.expandedQuickKey = ""
-                return
-              }
-              if (root.categoryFilter !== "") {
-                root.categoryFilter = ""
-                root.query = ""
-                if (searchInput) searchInput.text = ""
-              } else {
-                root.shouldShow = false
-              }
-            }
+            Keys.onEscapePressed: root.handleEscape()
             Keys.onReturnPressed: root.launchCurrent()
             Keys.onEnterPressed: root.launchCurrent()
 
@@ -3349,19 +3634,7 @@ Scope {
               // cascade: first collapse quick side detail (bjarneo: if(quickExpanded) clear
               // else if(query) else if(!goUp)close), then cat, then close
               if (event.key === Qt.Key_Escape) {
-                if (root.quickDetailActive) {
-                  root.expandedQuickKey = ""
-                  event.accepted = true
-                  return
-                }
-                if (root.categoryFilter !== "") {
-                  root.categoryFilter = ""
-                  root.query = ""
-                  if (searchInput) searchInput.text = ""
-                  event.accepted = true
-                  return
-                }
-                root.shouldShow = false
+                root.handleEscape()
                 event.accepted = true
                 return
               }
@@ -3402,8 +3675,8 @@ Scope {
         Item {
           id: listArea
           width: parent.width
-          height: visible ? Math.max(260, launcherPanel.height * (root.expandedQuickKey === "hub"
-            ? 0.54 : (root.sideActive ? 0.48 : 0.42))) : 0
+          height: visible ? Math.max(240, launcherPanel.height * (root.expandedQuickKey === "hub"
+            ? 0.46 : (root.sideActive ? 0.48 : 0.42))) : 0
           visible: true
           clip: true
 
@@ -3435,15 +3708,16 @@ Scope {
                 required property var modelData
                 required property int index
                 width: resultsList.width
-                height: 38
-                readonly property bool isSelected: resultsList.currentIndex === index
                 readonly property string dName: modelData.name || modelData.title || "?"
+                readonly property string dSub: modelData.comment || ""
+                readonly property bool dCat: !!modelData.isCategory
+                height: dCat || dSub === "" ? 38 : 50
+                readonly property bool isSelected: resultsList.currentIndex === index
                 readonly property string dIcon: modelData.icon || ""
                 readonly property string dRawIcon: modelData.rawIcon || ""
                 readonly property string dImage: root.resolveIconUrl(dRawIcon || (dIcon.startsWith("file://") || dIcon.charAt(0) === "/" ? dIcon : ""))
                 readonly property string dGlyph: modelData.glyph || (dImage === "" && dIcon !== "" ? dIcon : "")
-                readonly property string dAcc: modelData.accessory || (modelData.category ? modelData.category.toUpperCase() : (modelData.isCategory ? "›" : ""))
-                readonly property bool dCat: !!modelData.isCategory
+                readonly property string dAcc: modelData.accessory || (modelData.isCategory ? "›" : "")
 
                 Accessible.role: Accessible.Button
                 Accessible.name: dName
@@ -3495,15 +3769,33 @@ Scope {
                     }
                   }
 
-                  Text {
+                  ColumnLayout {
                     Layout.fillWidth: true
-                    text: delegateRoot.dName + (delegateRoot.dCat ? "  ›" : "")
-                    color: delegateRoot.isSelected ? Style.menuInk : Style.menuInkDeep
-                    font.pixelSize: 13
-                    font.family: root.uiFont
-                    font.weight: delegateRoot.isSelected ? Font.Medium : Font.Light
-                    font.letterSpacing: 1
-                    elide: Text.ElideRight
+                    spacing: 1
+
+                    Text {
+                      Layout.fillWidth: true
+                      text: delegateRoot.dName + (delegateRoot.dCat ? "  ›" : "")
+                      color: delegateRoot.isSelected ? Style.menuInk : Style.menuInkDeep
+                      font.pixelSize: 13
+                      font.family: root.uiFont
+                      font.weight: delegateRoot.isSelected ? Font.Medium : Font.Light
+                      font.letterSpacing: 1
+                      elide: Text.ElideRight
+                    }
+
+                    Text {
+                      Layout.fillWidth: true
+                      visible: delegateRoot.dSub !== "" && !delegateRoot.dCat
+                      text: delegateRoot.dSub
+                      color: delegateRoot.isSelected ? Style.menuInk : Style.menuInkDeep
+                      opacity: delegateRoot.isSelected ? 0.75 : 0.5
+                      font.pixelSize: 10
+                      font.family: root.uiFont
+                      font.letterSpacing: 0.5
+                      elide: Text.ElideRight
+                      maximumLineCount: 1
+                    }
                   }
 
                   Text {
@@ -3555,7 +3847,7 @@ Scope {
               columnSpacing: root.quickDetailActive ? 4 : 8
               clip: true
               readonly property bool colMode: root.quickDetailActive
-              readonly property int tileH: colMode ? 42 : 64
+              readonly property int tileH: colMode ? 48 : 72
               Timer { interval: 0; running: root.quickMode; repeat: false; onTriggered: root.resultCount = (root.quickTiles || []).length }
 
               Repeater {
@@ -3846,7 +4138,108 @@ Scope {
         }
       }
 
-      focus: true
+      // Screenshot preview overlay (copy / open / delete)
+      Rectangle {
+        anchors.fill: parent
+        color: Style.menuDim
+        visible: root.shotPreviewPath !== ""
+        radius: 16
+        z: 30
+
+        MouseArea { anchors.fill: parent; onClicked: root.shotPreviewPath = "" }
+
+        Image {
+          anchors.centerIn: parent
+          width: parent.width * 0.86
+          height: parent.height * 0.82
+          source: root.shotPreviewPath !== "" ? ("file://" + root.shotPreviewPath) : ""
+          fillMode: Image.PreserveAspectFit
+          asynchronous: true
+        }
+
+        RowLayout {
+          anchors.bottom: parent.bottom
+          anchors.horizontalCenter: parent.horizontalCenter
+          anchors.bottomMargin: 28
+          spacing: 10
+
+          Rectangle {
+            width: 96
+            height: 34
+            radius: 17
+            color: copyShotPreviewMa.containsMouse ? root.menuSuccessBg : Style.menuControlBg
+            border.width: 1
+            border.color: copyShotPreviewMa.containsMouse ? Style.green : Style.menuSep
+            Text {
+              anchors.centerIn: parent
+              text: "Copy"
+              color: copyShotPreviewMa.containsMouse ? Style.green : Style.menuInk
+              font.pixelSize: root.fontPx(11)
+              font.bold: true
+              font.family: root.uiFont
+            }
+            MouseArea {
+              id: copyShotPreviewMa
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: (mouse) => { mouse.accepted = true; root.copyShot(root.shotPreviewPath) }
+            }
+          }
+
+          Rectangle {
+            width: 96
+            height: 34
+            radius: 17
+            color: openShotPreviewMa.containsMouse ? Style.menuRowSel : Style.menuControlBg
+            border.width: 1
+            border.color: openShotPreviewMa.containsMouse ? Style.menuSeal : Style.menuSep
+            Text {
+              anchors.centerIn: parent
+              text: "Open"
+              color: openShotPreviewMa.containsMouse ? Style.menuSeal : Style.menuInk
+              font.pixelSize: root.fontPx(11)
+              font.bold: true
+              font.family: root.uiFont
+            }
+            MouseArea {
+              id: openShotPreviewMa
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.openShot(root.shotPreviewPath)
+            }
+          }
+
+          Rectangle {
+            width: 96
+            height: 34
+            radius: 17
+            color: deleteShotPreviewMa.containsMouse ? root.menuDangerBg : Style.menuControlBg
+            border.width: 1
+            border.color: deleteShotPreviewMa.containsMouse ? Style.red : Style.menuSep
+            Text {
+              anchors.centerIn: parent
+              text: "Delete"
+              color: deleteShotPreviewMa.containsMouse ? Style.red : Style.menuInk
+              font.pixelSize: root.fontPx(11)
+              font.bold: true
+              font.family: root.uiFont
+            }
+            MouseArea {
+              id: deleteShotPreviewMa
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: (mouse) => {
+                mouse.accepted = true
+                root.deleteShot(root.shotPreviewPath)
+              }
+            }
+          }
+        }
+      }
+
     }
   }
 }
