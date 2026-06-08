@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
 # Empty trash and clean caches (Linux version)
 
-# Empty the main trash
+# Empty the main trash (compat for del())
 if [ -d "$HOME/.Trash" ] && [ "$(ls -A $HOME/.Trash 2>/dev/null)" ]; then
   for t in $HOME/.Trash/*; do
     sudo rm -rf "$t"
   done
+fi
+
+# Empty XDG trash (primary on Asahi/Fedora desktops + portals)
+if [ -d "$HOME/.local/share/Trash/files" ] && [ "$(ls -A "$HOME/.local/share/Trash/files" 2>/dev/null)" ]; then
+  sudo rm -rfv "$HOME/.local/share/Trash/files"/*
+  sudo rm -rfv "$HOME/.local/share/Trash/info"/*
 fi
 
 # Clean package manager caches
@@ -28,6 +34,18 @@ fi
 if command -v dnf >/dev/null 2>&1; then
   sudo dnf autoremove -y
   sudo dnf clean all
+fi
+
+# Flatpak (used on Asahi/Fedora for apps like zotero/anki)
+if command -v flatpak >/dev/null 2>&1; then
+  flatpak uninstall --unused -y || true
+  flatpak repair || true
+fi
+
+# Vacuum journald (common source of large logs on Fedora/Asahi)
+if command -v journalctl >/dev/null 2>&1; then
+  journalctl --vacuum-time=2weeks --vacuum-size=300M 2>/dev/null || true
+  sudo journalctl --vacuum-time=2weeks --vacuum-size=500M 2>/dev/null || true
 fi
 
 # Clear thumbnail cache

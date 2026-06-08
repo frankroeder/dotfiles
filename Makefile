@@ -254,9 +254,17 @@ node: ## Install Node.js and global npm packages
 	fi
 	@if command -v npm >/dev/null 2>&1; then \
 		$(call print_step,Installing global npm packages); \
-		npm i --location=global npm@latest; \
-		npm i --location=global eslint; \
-		npm i --location=global neovim; \
+		if [ "$(uname -s)" = "Linux" ]; then \
+			mkdir -p $(HOME)/.local/bin $(HOME)/.local/lib/node_modules; \
+			npm config set prefix "$(HOME)/.local" --location=user 2>/dev/null || true; \
+			npm install --prefix "$(HOME)/.local" npm@latest; \
+			npm install --prefix "$(HOME)/.local" eslint; \
+			npm install --prefix "$(HOME)/.local" neovim; \
+		else \
+			npm i --location=global npm@latest; \
+			npm i --location=global eslint; \
+			npm i --location=global neovim; \
+		fi; \
 	else \
 		$(call print_error,npm not available for package installation); \
 	fi

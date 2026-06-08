@@ -5,6 +5,7 @@ dotfilesDir = os.getenv("HOME") .. "/.dotfiles"
 
 terminal = "ghostty"
 browser = "librewolf"
+filemanager = "thunar"
 mainMod = "SUPER"
 
 local function load_config(name)

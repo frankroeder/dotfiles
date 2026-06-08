@@ -52,8 +52,18 @@ zsh_update() {
 }
 
 npm_update() {
-  npm install npm@latest --location=global;
-  npm update --location=global;
+  if [[ "$OSTYPE" = "Linux" ]]; then
+    # Force user-writable prefix on Linux. System npm (or unconfigured local node)
+    # defaults to /usr/local which is not writable → EACCES on mkdir node_modules.
+    local pfx="$HOME/.local"
+    mkdir -p "$pfx/bin" "$pfx/lib/node_modules"
+    npm config set prefix "$pfx" --location=user 2>/dev/null || true
+    npm install npm@latest --prefix "$pfx" || true
+    npm update --prefix "$pfx" || true
+  else
+    npm install npm@latest --location=global
+    npm update --location=global
+  fi
 }
 
 gem_update() {
@@ -91,6 +101,11 @@ dnf_update() {
   sudo dnf clean all;
 }
 
+flatpak_update() {
+  flatpak update -y;
+  flatpak uninstall --unused -y;
+}
+
 misc() {
   if [ $commands[battery] ]; then
     battery update;
@@ -121,6 +136,7 @@ run(){
     [ "$OSTYPE" = "Darwin" ] && exec_routine macos_update
     [ $commands[apt] ] && exec_routine apt_update
     [ $commands[dnf] ] && exec_routine dnf_update
+    [ $commands[flatpak] ] && exec_routine flatpak_update
     success "Updates completed"
   else
     error "No internet access"
