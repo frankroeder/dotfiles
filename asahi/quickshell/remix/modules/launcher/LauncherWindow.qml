@@ -47,7 +47,7 @@ Scope {
   property string expandedQuickKey: ""
   readonly property bool quickDetailActive: root.quickMode && root.expandedQuickKey !== ""
   readonly property bool sideActive: root.previewActive || root.quickDetailActive
-  readonly property int quickGridCols: root.quickDetailActive ? 1 : 3
+  readonly property int quickGridCols: root.quickDetailActive ? 1 : 4
 
   // Scoring (ported from launcher ref, tuned for small set)
   readonly property int scPrefix: 100
@@ -92,7 +92,7 @@ Scope {
   })
 
   // --- live data + exact hub/lower + side windows (ported from old featuremenu; now the only place, module removed)
-  readonly property real uiFontScale: 1.2
+  readonly property real uiFontScale: 1.4
   function fontPx(size) { return Math.round(size * root.uiFontScale) }
   function prettyBytes(bytes) {
     let value = Number(bytes) || 0
@@ -1110,25 +1110,43 @@ Scope {
     anchors.fill: parent
     ColumnLayout {
       anchors.fill: parent
-      spacing: 8
+      spacing: 10
 
-      RowLayout {
+      Item {
         Layout.fillWidth: true
-        spacing: 6
+        Layout.preferredHeight: 30
         Text {
-          text: "SCREENSHOTS"
-          color: Style.menuInk
-          font.pixelSize: root.fontPx(9)
-          font.family: root.uiFont
-          font.letterSpacing: 1.2
-          font.weight: Font.Medium
-        }
-        Item { Layout.fillWidth: true }
-        Text {
-          text: (root.shots || []).length + " recent"
+          anchors.left: parent.left
+          anchors.verticalCenter: parent.verticalCenter
+          text: (root.shots || []).length + " RECENT"
           color: Style.menuInkDeep
-          font.pixelSize: root.fontPx(8)
+          font.pixelSize: root.fontPx(11)
           font.family: root.uiFont
+          font.letterSpacing: 1.5
+        }
+        Rectangle {
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          width: capBtnLbl.width + 16; height: 26; radius: Style.menuRadius
+          color: capBtnMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
+          border.color: Style.menuSep; border.width: 1
+          Behavior on color { ColorAnimation { duration: 120 } }
+          Text {
+            id: capBtnLbl
+            anchors.centerIn: parent
+            text: "CAPTURE"
+            color: Style.menuInk
+            font.pixelSize: root.fontPx(10)
+            font.family: root.uiFont
+            font.letterSpacing: 1
+          }
+          MouseArea {
+            id: capBtnMa
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: Quickshell.execDetached([root.binDir + "/asahi-cmd-screenshot", "area"])
+          }
         }
       }
 
@@ -1136,8 +1154,8 @@ Scope {
         id: shotGrid
         Layout.fillWidth: true
         Layout.fillHeight: true
-        cellWidth: Math.max(80, Math.floor((width - 10) / 3))
-        cellHeight: cellWidth * 0.6 + 6
+        cellWidth: Math.floor((width - 6) / 3)
+        cellHeight: cellWidth * 0.62 + 4
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
@@ -1151,13 +1169,13 @@ Scope {
 
           Rectangle {
             anchors.fill: parent
-            anchors.margins: 4
-            radius: 8
+            anchors.margins: 2
+            radius: 6
             clip: true
             color: hma.containsMouse ? Style.menuRowHi : Style.menuControlBg
             border.color: root.copiedShot === modelData.path ? Style.green : Style.menuSep
             border.width: root.copiedShot === modelData.path ? 2 : 1
-            scale: hma.containsMouse ? 1.02 : 1.0
+            scale: hma.containsMouse ? 1.025 : 1.0
             Behavior on color { ColorAnimation { duration: 140 } }
             Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
@@ -1167,24 +1185,24 @@ Scope {
               source: modelData.path ? ("file://" + modelData.path) : ""
               fillMode: Image.PreserveAspectCrop
               asynchronous: true
-              sourceSize.width: 200
-              sourceSize.height: 120
+              sourceSize.width: 160
+              sourceSize.height: 96
             }
 
             Rectangle {
               anchors.bottom: parent.bottom
               anchors.left: parent.left
               anchors.right: parent.right
-              height: 18
+              height: 14
               color: Qt.rgba(0, 0, 0, 0.55)
               Text {
                 anchors.centerIn: parent
                 text: modelData.label
                 color: "#ffffff"
-                font.pixelSize: root.fontPx(9)
+                font.pixelSize: root.fontPx(7)
                 font.family: root.uiFont
-                elide: Text.ElideRight
-                width: parent.width - 6
+                elide: Text.ElideMiddle
+                width: parent.width - 4
                 horizontalAlignment: Text.AlignHCenter
               }
             }
@@ -1561,10 +1579,12 @@ Scope {
       RowLayout {
         Layout.fillWidth: true
         Layout.preferredHeight: 38
+        Layout.maximumHeight: 38
+        Layout.fillHeight: false
         spacing: 10
         Rectangle {
           Layout.fillWidth: true
-          Layout.fillHeight: true
+          height: 36
           radius: 8
           color: root.menuTileBg
           border.color: Style.menuSep
@@ -1595,7 +1615,7 @@ Scope {
         }
         Rectangle {
           Layout.fillWidth: true
-          Layout.fillHeight: true
+          height: 36
           radius: 8
           color: root.menuTileBg
           border.color: Style.menuSep
@@ -1628,119 +1648,39 @@ Scope {
 
       RowLayout {
         Layout.fillWidth: true
-        Layout.fillHeight: true
+        Layout.preferredHeight: root.fontPx(96)
+        Layout.maximumHeight: root.fontPx(96)
+        Layout.fillHeight: false
         spacing: 10
-
-        ColumnLayout {
-          Layout.fillWidth: true
-          Layout.fillHeight: true
-          spacing: 8
-
-          RowLayout {
+        Repeater {
+          model: [
+            { title: "󰕾  Output devices", empty: "No outputs", items: quickMediaRoot.audioSinks },
+            { title: "󰍬  Input sources", empty: "No inputs", items: quickMediaRoot.audioSources }
+          ]
+          delegate: Rectangle {
+            id: devCard
+            required property var modelData
+            readonly property var devItems: modelData.items || []
             Layout.fillWidth: true
             Layout.fillHeight: true
-            spacing: 8
-            Repeater {
-              model: [
-                { title: "󰕾  Output devices", empty: "No outputs", items: quickMediaRoot.audioSinks },
-                { title: "󰍬  Input sources", empty: "No inputs", items: quickMediaRoot.audioSources }
-              ]
-              delegate: Rectangle {
-                id: devCard
-                required property var modelData
-                readonly property var devItems: modelData.items || []
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                radius: 10
-                color: root.menuTileBg
-                border.color: Style.menuSep
-                border.width: 1
-                ColumnLayout {
-                  anchors.fill: parent
-                  anchors.margins: 10
-                  spacing: 4
-                  Text {
-                    text: modelData.title
-                    color: Style.menuInkDeep
-                    font.pixelSize: root.fontPx(10)
-                    font.family: root.uiFont
-                    font.bold: true
-                  }
-                  Text {
-                    visible: devCard.devItems.length === 0
-                    text: modelData.empty
-                    color: Style.menuInkDeep
-                    font.pixelSize: root.fontPx(9)
-                    font.family: root.uiFont
-                  }
-                  Flickable {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    visible: devCard.devItems.length > 0
-                    clip: true
-                    contentHeight: deviceCol.implicitHeight
-                    boundsBehavior: Flickable.StopAtBounds
-                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-                    Column {
-                      id: deviceCol
-                      width: parent.width
-                      spacing: 3
-                      Repeater {
-                        model: devCard.devItems
-                        delegate: Rectangle {
-                          required property var modelData
-                          width: parent.width
-                          height: 30
-                          radius: 6
-                          color: modelData.active ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.18) : (devMa.containsMouse ? Style.menuRowHi : "transparent")
-                          border.color: modelData.active ? Style.menuIndigo : (devMa.containsMouse ? Style.menuSep : "transparent")
-                          border.width: 1
-                          RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: 8
-                            anchors.rightMargin: 8
-                            spacing: 6
-                            Text { text: modelData.active ? "●" : "○"; color: modelData.active ? Style.green : Style.menuInkDeep; font.pixelSize: root.fontPx(8) }
-                            Text { Layout.fillWidth: true; text: modelData.name; color: Style.menuInk; font.pixelSize: root.fontPx(9); font.family: root.uiFont; elide: Text.ElideRight }
-                            Text { text: modelData.volume || ("#" + modelData.id); color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
-                          }
-                          MouseArea {
-                            id: devMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: quickMediaRoot.setAudioDefault(modelData.id)
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-
-          Rectangle {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            radius: 10
+            radius: Style.menuRadius
             color: root.menuTileBg
             border.color: Style.menuSep
             border.width: 1
             ColumnLayout {
               anchors.fill: parent
-              anchors.margins: 10
-              spacing: 4
+              anchors.margins: 8
+              spacing: 3
               Text {
-                text: "󰝚  Stream mixer"
+                text: modelData.title
                 color: Style.menuInkDeep
                 font.pixelSize: root.fontPx(10)
                 font.family: root.uiFont
                 font.bold: true
               }
               Text {
-                visible: (quickMediaRoot.audioStreams || []).length === 0
-                text: "No active streams"
+                visible: devCard.devItems.length === 0
+                text: modelData.empty
                 color: Style.menuInkDeep
                 font.pixelSize: root.fontPx(9)
                 font.family: root.uiFont
@@ -1748,49 +1688,40 @@ Scope {
               Flickable {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                visible: (quickMediaRoot.audioStreams || []).length > 0
+                visible: devCard.devItems.length > 0
                 clip: true
-                contentHeight: streamCol.implicitHeight
+                contentHeight: deviceCol.implicitHeight
                 boundsBehavior: Flickable.StopAtBounds
                 ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
                 Column {
-                  id: streamCol
+                  id: deviceCol
                   width: parent.width
-                  spacing: 5
+                  spacing: 2
                   Repeater {
-                    model: quickMediaRoot.audioStreams || []
+                    model: devCard.devItems
                     delegate: Rectangle {
-                      id: streamRow
                       required property var modelData
                       width: parent.width
-                      height: 34
-                      radius: 6
-                      color: modelData.muted ? root.menuDangerBg : Style.menuControlBg
-                      border.color: modelData.muted ? Style.red : Style.menuSep
+                      height: root.fontPx(22)
+                      radius: 5
+                      color: modelData.active ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.18) : (devMa.containsMouse ? Style.menuRowHi : "transparent")
+                      border.color: modelData.active ? Style.menuIndigo : (devMa.containsMouse ? Style.menuSep : "transparent")
                       border.width: 1
                       RowLayout {
                         anchors.fill: parent
-                        anchors.leftMargin: 8
-                        anchors.rightMargin: 8
+                        anchors.leftMargin: 7
+                        anchors.rightMargin: 7
                         spacing: 6
-                        Text { text: "󰝚"; color: Style.green; font.pixelSize: root.fontPx(11); font.family: root.uiFont }
-                        Text { Layout.fillWidth: true; text: modelData.name; color: modelData.muted ? Style.menuInkDeep : Style.menuInk; font.pixelSize: root.fontPx(10); font.family: root.uiFont; elide: Text.ElideRight }
-                        Text { text: modelData.volume || ("#" + modelData.id); color: modelData.muted ? Style.red : Style.menuIndigo; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true }
-                        Rectangle {
-                          width: 22; height: 22; radius: 4; color: Style.menuControlBg
-                          Text { anchors.centerIn: parent; text: streamRow.modelData.muted ? "󰖁" : "󰕾"; font.pixelSize: root.fontPx(10); color: streamRow.modelData.muted ? Style.red : Style.menuInk }
-                          MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: quickMediaRoot.togMute(streamRow.modelData.id) }
-                        }
-                        Rectangle {
-                          width: 22; height: 22; radius: 4; color: Style.menuControlBg
-                          Text { anchors.centerIn: parent; text: "−"; font.pixelSize: root.fontPx(10); color: Style.menuInk }
-                          MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: quickMediaRoot.volAdj(streamRow.modelData.id, false) }
-                        }
-                        Rectangle {
-                          width: 22; height: 22; radius: 4; color: Style.menuControlBg
-                          Text { anchors.centerIn: parent; text: "+"; font.pixelSize: root.fontPx(10); color: Style.menuInk }
-                          MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: quickMediaRoot.volAdj(streamRow.modelData.id, true) }
-                        }
+                        Text { text: modelData.active ? "●" : "○"; color: modelData.active ? Style.green : Style.menuInkDeep; font.pixelSize: root.fontPx(7) }
+                        Text { Layout.fillWidth: true; text: modelData.name; color: Style.menuInk; font.pixelSize: root.fontPx(8); font.family: root.uiFont; elide: Text.ElideRight }
+                        Text { text: modelData.volume || ("#" + modelData.id); color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
+                      }
+                      MouseArea {
+                        id: devMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: quickMediaRoot.setAudioDefault(modelData.id)
                       }
                     }
                   }
@@ -1799,56 +1730,137 @@ Scope {
             }
           }
         }
+      }
 
-        Rectangle {
-          Layout.fillWidth: true
-          Layout.fillHeight: true
-          radius: 12
-          color: root.menuTileBg
-          border.color: Style.menuSep
-          border.width: 1
-          ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: 12
-            spacing: 8
-            RowLayout {
-              Layout.fillWidth: true
-              Text {
-                text: "󰎈  Cava Spectrum"
-                color: Style.menuInkDeep
-                font.pixelSize: root.fontPx(10)
-                font.family: root.uiFont
-                font.bold: true
-              }
-              Item { Layout.fillWidth: true }
-              Text {
-                text: quickMediaRoot.cavaStatus
-                color: quickMediaRoot.cavaStatus === "active" ? Style.green : Style.menuInkDeep
-                font.pixelSize: root.fontPx(9)
-                font.family: root.uiFont
+      Rectangle {
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        radius: Style.menuRadius
+        color: root.menuTileBg
+        border.color: Style.menuSep
+        border.width: 1
+        ColumnLayout {
+          anchors.fill: parent
+          anchors.margins: 8
+          spacing: 4
+          Text {
+            text: "󰝚  Stream mixer"
+            color: Style.menuInkDeep
+            font.pixelSize: root.fontPx(10)
+            font.family: root.uiFont
+            font.bold: true
+          }
+          Text {
+            visible: (quickMediaRoot.audioStreams || []).length === 0
+            text: "No active streams"
+            color: Style.menuInkDeep
+            font.pixelSize: root.fontPx(9)
+            font.family: root.uiFont
+          }
+          Flickable {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: (quickMediaRoot.audioStreams || []).length > 0
+            clip: true
+            contentHeight: streamCol.implicitHeight
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+            Column {
+              id: streamCol
+              width: parent.width
+              spacing: 4
+              Repeater {
+                model: quickMediaRoot.audioStreams || []
+                delegate: Rectangle {
+                  id: streamRow
+                  required property var modelData
+                  width: parent.width
+                  height: root.fontPx(26)
+                  radius: 6
+                  color: modelData.muted ? root.menuDangerBg : Style.menuControlBg
+                  border.color: modelData.muted ? Style.red : Style.menuSep
+                  border.width: 1
+                  RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 7
+                    anchors.rightMargin: 7
+                    spacing: 6
+                    Text { text: "󰝚"; color: Style.green; font.pixelSize: root.fontPx(10); font.family: root.uiFont }
+                    Text { Layout.fillWidth: true; text: modelData.name; color: modelData.muted ? Style.menuInkDeep : Style.menuInk; font.pixelSize: root.fontPx(9); font.family: root.uiFont; elide: Text.ElideRight }
+                    Text { text: modelData.volume || ("#" + modelData.id); color: modelData.muted ? Style.red : Style.menuIndigo; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true }
+                    Rectangle {
+                      width: root.fontPx(18); height: root.fontPx(18); radius: 4; color: Style.menuControlBg
+                      Text { anchors.centerIn: parent; text: streamRow.modelData.muted ? "󰖁" : "󰕾"; font.pixelSize: root.fontPx(10); color: streamRow.modelData.muted ? Style.red : Style.menuInk }
+                      MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: quickMediaRoot.togMute(streamRow.modelData.id) }
+                    }
+                    Rectangle {
+                      width: root.fontPx(18); height: root.fontPx(18); radius: 4; color: Style.menuControlBg
+                      Text { anchors.centerIn: parent; text: "−"; font.pixelSize: root.fontPx(10); color: Style.menuInk }
+                      MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: quickMediaRoot.volAdj(streamRow.modelData.id, false) }
+                    }
+                    Rectangle {
+                      width: root.fontPx(18); height: root.fontPx(18); radius: 4; color: Style.menuControlBg
+                      Text { anchors.centerIn: parent; text: "+"; font.pixelSize: root.fontPx(10); color: Style.menuInk }
+                      MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: quickMediaRoot.volAdj(streamRow.modelData.id, true) }
+                    }
+                  }
+                }
               }
             }
-            Item {
-              Layout.fillWidth: true
-              Layout.fillHeight: true
-              Row {
-                anchors.fill: parent
-                anchors.margins: 4
-                spacing: 5
-                Repeater {
-                  model: 24
-                  delegate: Item {
-                    required property int index
-                    width: (parent.width - 23 * parent.spacing) / 24
-                    height: parent.height
-                    Rectangle {
-                      anchors.bottom: parent.bottom
-                      width: parent.width
-                      radius: 3
-                      height: Math.max(4, parent.height * (((quickMediaRoot.cavaValues && quickMediaRoot.cavaValues[index]) || 0) / 100))
-                      color: Style.green
-                      Behavior on height { NumberAnimation { duration: 60; easing.type: Easing.OutQuad } }
-                    }
+          }
+        }
+      }
+
+      Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: root.fontPx(96)
+        Layout.maximumHeight: root.fontPx(96)
+        Layout.fillHeight: false
+        radius: Style.menuRadius
+        color: root.menuTileBg
+        border.color: Style.menuSep
+        border.width: 1
+        ColumnLayout {
+          anchors.fill: parent
+          anchors.margins: 10
+          spacing: 6
+          RowLayout {
+            Layout.fillWidth: true
+            Text {
+              text: "󰎈  Live Cava Audio Spectrum"
+              color: Style.menuInkDeep
+              font.pixelSize: root.fontPx(9)
+              font.family: root.uiFont
+              font.bold: true
+            }
+            Item { Layout.fillWidth: true }
+            Text {
+              text: quickMediaRoot.cavaStatus
+              color: quickMediaRoot.cavaStatus === "active" ? Style.green : Style.menuInkDeep
+              font.pixelSize: root.fontPx(8)
+              font.family: root.uiFont
+            }
+          }
+          Item {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            Row {
+              anchors.fill: parent
+              anchors.margins: 2
+              spacing: 4
+              Repeater {
+                model: 24
+                delegate: Item {
+                  required property int index
+                  width: (parent.width - 23 * parent.spacing) / 24
+                  height: parent.height
+                  Rectangle {
+                    anchors.bottom: parent.bottom
+                    width: parent.width
+                    radius: 2
+                    height: Math.max(2, parent.height * (((quickMediaRoot.cavaValues && quickMediaRoot.cavaValues[index]) || 0) / 100))
+                    color: Style.green
+                    Behavior on height { NumberAnimation { duration: 60; easing.type: Easing.OutQuad } }
                   }
                 }
               }
@@ -2030,26 +2042,27 @@ Scope {
     Component.onCompleted: Qt.callLater(quickNetworkRoot.scanWifi)
 
     ColumnLayout {
-      anchors.fill: parent; spacing: 6
+      anchors.fill: parent; spacing: 8
       RowLayout {
         Layout.fillWidth: true
         Text { text: "󰈀 Network"; font.pixelSize: root.fontPx(11); color: Style.green; font.family: root.uiFont; font.bold: true }
         Text { text: (quickNetworkRoot.wifiNetworks || []).length + " Wi-Fi"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont }
         Item { Layout.fillWidth: true }
         Rectangle {
-          width: 58; height: 20; radius: 4; color: refreshMa.containsMouse ? Style.menuRowHi : root.menuTileBg
+          width: refreshLbl.width + 16; height: 26; radius: Style.menuRadius
+          color: refreshMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
           border.color: Style.menuSep; border.width: 1
-          Text { anchors.centerIn: parent; text: "Refresh"; font.pixelSize: root.fontPx(9); color: Style.menuInk; font.family: root.uiFont }
+          Text { id: refreshLbl; anchors.centerIn: parent; text: "Refresh"; font.pixelSize: root.fontPx(9); color: Style.menuInk; font.family: root.uiFont }
           Behavior on color { ColorAnimation { duration: 140 } }
           MouseArea { id: refreshMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { quickNetworkRoot.scanWifi(); if (typeof ethCheck !== 'undefined' && ethCheck) ethCheck.running = true } }
         }
       }
 
       RowLayout {
-        Layout.fillWidth: true; spacing: 6
+        Layout.fillWidth: true; spacing: 8
         Rectangle {
-          Layout.fillWidth: true; Layout.preferredHeight: 118
-          radius: 6; color: root.menuTileBg; border.color: Style.menuSep; border.width: 1
+          Layout.fillWidth: true; Layout.preferredHeight: root.fontPx(132)
+          radius: Style.menuRadius; color: root.menuTileBg; border.color: Style.menuSep; border.width: 1
           ColumnLayout {
             anchors.fill: parent; anchors.margins: 8; spacing: 4
             RowLayout {
@@ -2058,10 +2071,10 @@ Scope {
               Text { text: quickNetworkRoot.wifiEnabled ? "enabled" : "disabled"; color: quickNetworkRoot.wifiEnabled ? Style.green : Style.red; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true }
               Item { Layout.fillWidth: true }
               Rectangle {
-                width: 58; height: 18; radius: 4
+                width: wifiToggleLbl.width + 12; height: 22; radius: Style.menuRadius
                 color: quickNetworkRoot.wifiEnabled ? Qt.rgba(Style.red.r, Style.red.g, Style.red.b, 0.18) : Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.18)
                 border.color: quickNetworkRoot.wifiEnabled ? Style.red : Style.green; border.width: 1
-                Text { anchors.centerIn: parent; text: quickNetworkRoot.wifiEnabled ? "Disable" : "Enable"; color: quickNetworkRoot.wifiEnabled ? Style.red : Style.green; font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true }
+                Text { id: wifiToggleLbl; anchors.centerIn: parent; text: quickNetworkRoot.wifiEnabled ? "Disable" : "Enable"; color: quickNetworkRoot.wifiEnabled ? Style.red : Style.green; font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true }
                 MouseArea {
                   anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                   onClicked: {
@@ -2080,18 +2093,20 @@ Scope {
             }
             Text {
               Layout.fillWidth: true
+              Layout.fillHeight: true
               text: {
                 let t = quickNetworkRoot.wifiTooltip || "No Wi-Fi details"
                 t = t.replace(/^Connected to [^\n]*\n?/, "")
                 return t.trim() || "No Wi-Fi connection details"
               }
-              color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont; wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight; verticalAlignment: Text.AlignTop
+              color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont
+              wrapMode: Text.Wrap; verticalAlignment: Text.AlignTop
             }
           }
         }
         Rectangle {
-          Layout.fillWidth: true; Layout.preferredHeight: 118
-          radius: 6; color: root.menuTileBg; border.color: Style.menuSep; border.width: 1
+          Layout.fillWidth: true; Layout.preferredHeight: root.fontPx(132)
+          radius: Style.menuRadius; color: root.menuTileBg; border.color: Style.menuSep; border.width: 1
           ColumnLayout {
             anchors.fill: parent; anchors.margins: 8; spacing: 4
             RowLayout {
@@ -2101,10 +2116,10 @@ Scope {
               Item { Layout.fillWidth: true }
               Rectangle {
                 visible: !!quickNetworkRoot.ethDevice
-                width: 58; height: 18; radius: 4
+                width: ethToggleLbl.width + 12; height: 22; radius: Style.menuRadius
                 color: quickNetworkRoot.ethConnected ? Qt.rgba(Style.red.r, Style.red.g, Style.red.b, 0.18) : Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.18)
                 border.color: quickNetworkRoot.ethConnected ? Style.red : Style.green; border.width: 1
-                Text { anchors.centerIn: parent; text: quickNetworkRoot.ethConnected ? "Disable" : "Enable"; color: quickNetworkRoot.ethConnected ? Style.red : Style.green; font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true }
+                Text { id: ethToggleLbl; anchors.centerIn: parent; text: quickNetworkRoot.ethConnected ? "Disable" : "Enable"; color: quickNetworkRoot.ethConnected ? Style.red : Style.green; font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true }
                 MouseArea {
                   anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                   onClicked: {
@@ -2121,10 +2136,9 @@ Scope {
         }
       }
 
-      // traffic compact
       Rectangle {
         Layout.fillWidth: true; Layout.preferredHeight: 72
-        radius: 6; color: root.menuTileBg; border.color: Style.menuSep; border.width: 1
+        radius: Style.menuRadius; color: root.menuTileBg; border.color: Style.menuSep; border.width: 1
         ColumnLayout {
           anchors.fill: parent; anchors.margins: 6; spacing: 2
           RowLayout {
@@ -2181,7 +2195,7 @@ Scope {
             model: quickNetworkRoot.wifiNetworks || []
             delegate: Rectangle {
               required property var modelData
-              width: parent.width - 4; x: 2; height: 36; radius: 4
+              width: parent.width - 4; x: 2; height: 36; radius: Style.menuRadius
               color: modelData.active ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.14) : (netMa.containsMouse ? Style.menuRowHi : "transparent")
               border.color: modelData.active ? Style.menuIndigo : (netMa.containsMouse ? Style.menuSep : "transparent"); border.width: 1
               scale: netMa.containsMouse && !modelData.active ? 1.01 : 1.0
@@ -2536,7 +2550,6 @@ Scope {
   Component { id: quickBtComp; Item {
     id: quickBtRoot
     anchors.fill: parent
-    implicitHeight: btLayout.implicitHeight
     // bt enhanced (power toggle rfkill like old, dev list conn/pair, procs)
     property bool btOn: Bluetooth.defaultAdapter && Bluetooth.defaultAdapter.enabled
     property var btDevs: (Bluetooth.devices && Bluetooth.devices.values) ? Bluetooth.devices.values : []
@@ -2559,10 +2572,8 @@ Scope {
 
     ColumnLayout {
       id: btLayout
-      anchors.left: parent.left
-      anchors.top: parent.top
-      width: Math.min(parent.width, 880)
-      spacing: 12
+      anchors.fill: parent
+      spacing: 10
 
       Item {
         Layout.fillWidth: true
@@ -2577,11 +2588,11 @@ Scope {
         Rectangle {
           anchors.right: parent.right
           anchors.verticalCenter: parent.verticalCenter
-          width: 82; height: 26; radius: 6
-          color: btPwr.containsMouse ? Style.menuRowHi : root.menuTileBg
+          width: btPwrLbl.width + 16; height: 26; radius: Style.menuRadius
+          color: btPwr.containsMouse ? Style.menuRowHi : Style.menuControlBg
           border.color: Style.menuSep; border.width: 1
           Behavior on color { ColorAnimation { duration: 140 } }
-          Text { anchors.centerIn: parent; text: quickBtRoot.btOn ? "Turn Off" : "Turn On"; font.pixelSize: root.fontPx(10); color: Style.menuInk; font.family: root.uiFont }
+          Text { id: btPwrLbl; anchors.centerIn: parent; text: quickBtRoot.btOn ? "Turn Off" : "Turn On"; font.pixelSize: root.fontPx(10); color: Style.menuInk; font.family: root.uiFont }
           MouseArea { id: btPwr; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: quickBtRoot.toggleBt() }
         }
       }
@@ -2590,7 +2601,7 @@ Scope {
 
       Flickable {
         Layout.fillWidth: true
-        Layout.preferredHeight: Math.min(340, Math.max(88, btCol.implicitHeight))
+        Layout.fillHeight: true
         clip: true
         contentHeight: btCol.implicitHeight
         boundsBehavior: Flickable.StopAtBounds
@@ -2601,7 +2612,7 @@ Scope {
             delegate: Rectangle {
               id: btRow
               required property var modelData
-              width: parent.width; height: 42; radius: 6
+              width: parent.width; height: 42; radius: Style.menuRadius
               color: modelData.connected ? Style.menuRowSel : (btd.containsMouse ? Style.menuRowHi : "transparent")
               border.color: modelData.connected ? Style.menuSeal : (btd.containsMouse ? Style.menuSep : "transparent")
               border.width: 1
@@ -2638,7 +2649,8 @@ Scope {
                 }
                 Text {
                   width: parent.width
-                  text: modelData.connected ? "Connected" : (modelData.batteryAvailable ? ("Battery: " + modelData.battery + "%") : (modelData.paired ? "Paired" : "Nearby Device"))
+                  text: modelData.connected ? "Connected"
+                    : (modelData.batteryAvailable ? ("Battery: " + modelData.battery + "%") : (modelData.paired ? "Paired" : "Nearby Device"))
                   color: modelData.connected ? Style.green : Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont
                   elide: Text.ElideRight
                 }
@@ -2649,7 +2661,7 @@ Scope {
                 anchors.right: parent.right
                 anchors.rightMargin: 10
                 anchors.verticalCenter: parent.verticalCenter
-                width: 108; height: 24; radius: 5
+                width: 108; height: 24; radius: Style.menuRadius
                 color: btActionMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
                 border.color: Style.menuSep; border.width: 1
                 Behavior on color { ColorAnimation { duration: 120 } }
@@ -2999,6 +3011,36 @@ Scope {
       case "storage": return quickStorageComp
       default: return quickDefaultComp
     }
+  }
+
+  readonly property string sectionIcon: {
+    if (root.categoryFilter === "") return ""
+    for (let i = 0; i < Data.categoryNav.length; i++) {
+      if (Data.categoryNav[i].target === root.categoryFilter)
+        return Data.categoryNav[i].icon || ""
+    }
+    return ""
+  }
+
+  readonly property string sectionName: {
+    const q = root.query.trim()
+    if (root.categoryFilter !== "") return root.categoryFilter
+    if (q.startsWith("=")) return "Calculator"
+    if (q.startsWith("!")) return "Web Search"
+    if (q.startsWith("@")) return "Documentation"
+    if (q.startsWith(":")) return "Actions"
+    if (root.fileTerm(q) !== null) return "Files"
+    if (root.dictTerm(q) !== null) return "Dictionary"
+    return ""
+  }
+
+  readonly property string headerHintText: {
+    if (root.quickMode)
+      return root.quickDetailActive
+        ? "HJKL / ↑↓←→  ·  TAB SECT  ·  . APPLY  ·  ESC BACK"
+        : "HJKL / ↑↓  ·  OPEN  ·  ESC BACK"
+    if (root.fileMode) return "↑↓ / TAB  ·  OPEN FILE  ·  ESC BACK"
+    return "↓ / TAB  ·  ↩ OPEN  ·  ESC CLOSE"
   }
 
   readonly property string headerText: {
@@ -3394,22 +3436,39 @@ Scope {
     fileDebounce.restart()
   }
 
+  function buildFdArgs(tokens) {
+    const args = ["--type", "f", "--max-results", "200"]
+    const excludes = Data.fdExcludes
+    for (let i = 0; i < excludes.length; i++) {
+      args.push("--exclude")
+      args.push(excludes[i])
+    }
+    const raw = tokens.join(" ")
+    const hasSlash = raw.indexOf("/") >= 0
+    const hasGlob = raw.indexOf("*") >= 0 || raw.indexOf("?") >= 0
+    if (hasSlash) {
+      args.push("--glob")
+      args.push("--full-path")
+      const prefix = (raw[0] === "*" || raw[0] === "/") ? "" : "**/"
+      args.push(prefix + raw)
+    } else if (hasGlob) {
+      args.push("--glob")
+      args.push(raw)
+    } else {
+      args.push(tokens.join(".*"))
+    }
+    args.push(Quickshell.env("HOME"))
+    return args
+  }
+
   function startFileLookup() {
     const term = root.filePendingTerm
     if (!term || fileProc.running) return
     root.fileRunningTerm = term
     root.fileStatus = "loading"
     root.fileVersion++
-    fileProc.command = [
-      "fd",
-      "--type", "f",
-      "--type", "d",
-      "--max-results", "200",
-      "--absolute-path",
-      "--color", "never",
-      "--fixed-strings",
-      "--", term, Quickshell.env("HOME")
-    ]
+    const tokens = term.toLowerCase().split(/\s+/).filter(t => t.length > 0)
+    fileProc.command = ["fd"].concat(root.buildFdArgs(tokens))
     fileProc.running = true
   }
 
@@ -3440,7 +3499,7 @@ Scope {
     const term = fileTerm(q)
     if (term === null) return null
     if (!term) {
-      return [{ id: "file-prompt", name: "Search files and folders", comment: "Type > followed by a filename", icon: "", glyph: "󰍉", special: "noop" }]
+      return [{ id: "file-prompt", name: "Search files in ~", comment: "Globs: docs/*.txt  Regex: word1 word2", icon: "", glyph: "󰍉", special: "noop" }]
     }
     if (root.fileStatus === "loading") {
       return [{ id: "file-loading", name: "Searching " + term, comment: "Searching ~ with fd", icon: "", glyph: "󰍉", special: "noop" }]
@@ -4166,8 +4225,8 @@ Scope {
       id: launcherBox
       anchors.horizontalCenter: parent.horizontalCenter
       y: parent.height * 0.18
-      width: root.sideActive ? 980 : 680
-      Behavior on width { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
+      width: root.sideActive ? 1080 : 820
+      Behavior on width { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
       height: Math.min(launcherCol.implicitHeight + 34, parent.height * 0.72)
       cardMargin: 17
       focus: true
@@ -4175,6 +4234,32 @@ Scope {
       Keys.onPressed: (event) => {
         if (event.key === Qt.Key_Escape) {
           root.handleEscape()
+          event.accepted = true
+          return
+        }
+        if (!root.quickMode) return
+        const max = Math.max(0, root.resultCount - 1)
+        const cols = root.quickGridCols
+        const hjkl = {}
+        hjkl[Qt.Key_H] = Qt.Key_Left
+        hjkl[Qt.Key_J] = Qt.Key_Down
+        hjkl[Qt.Key_K] = Qt.Key_Up
+        hjkl[Qt.Key_L] = Qt.Key_Right
+        const qk = hjkl[event.key] !== undefined ? hjkl[event.key] : event.key
+        if (qk === Qt.Key_Down) {
+          root.selectedIndex = Math.min(root.selectedIndex + cols, max)
+          event.accepted = true
+        } else if (qk === Qt.Key_Up) {
+          root.selectedIndex = Math.max(root.selectedIndex - cols, 0)
+          event.accepted = true
+        } else if (qk === Qt.Key_Left) {
+          root.selectedIndex = Math.max(root.selectedIndex - 1, 0)
+          event.accepted = true
+        } else if (qk === Qt.Key_Right) {
+          root.selectedIndex = Math.min(root.selectedIndex + 1, max)
+          event.accepted = true
+        } else if (qk === Qt.Key_Return || qk === Qt.Key_Enter) {
+          root.launchCurrent()
           event.accepted = true
         }
       }
@@ -4187,8 +4272,15 @@ Scope {
         Menu.MenuHeader {
           width: parent.width
           fontFamily: root.uiFont
+          fontScale: root.uiFontScale
           title: "LAUNCHER"
-          subtitle: root.headerText.toUpperCase() + "  ·  " + root.resultText.toUpperCase()
+          sectionIcon: root.sectionIcon
+          sectionName: root.sectionName
+          countLine: root.resultText.toUpperCase()
+          hintText: root.headerHintText
+          subtitle: root.sectionName === ""
+            ? root.resultText.toUpperCase()
+            : ""
         }
 
         Menu.MenuDivider { width: parent.width }
@@ -4197,7 +4289,7 @@ Scope {
         // prevents typing pollution of query/cat/schedules while grid+side shown)
         Item {
           width: parent.width
-          height: root.quickMode ? 0 : 36
+          height: root.quickMode ? 0 : 42
           visible: !root.quickMode
           clip: true
 
@@ -4205,10 +4297,10 @@ Scope {
             id: searchPrompt
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
-            text: "󰍉"
+            text: root.fileMode ? "󰉖" : "󰍉"
             color: searchInput.activeFocus ? Style.menuSeal : Style.menuInkDeep
             font.family: root.uiFont
-            font.pixelSize: 16
+            font.pixelSize: root.fontPx(18)
             Behavior on color { ColorAnimation { duration: 120 } }
           }
 
@@ -4221,7 +4313,7 @@ Scope {
             color: text.length > 0 ? Style.menuInk : Style.menuInkDeep
             opacity: text.length > 0 ? 1 : 0.55
             font.family: root.uiFont
-            font.pixelSize: 14
+            font.pixelSize: root.fontPx(15)
             font.letterSpacing: 1
             clip: true
             focus: true
@@ -4230,7 +4322,9 @@ Scope {
 
             Text {
               anchors.fill: parent
-              text: "Type to search apps (or >files @web :act =calc !web dict)"
+              text: root.fileMode
+                ? "Type to search files in ~ (globs: mrrobot/*.txt, regex: word1 word2)"
+                : "Type to search apps (or >files @web :act =calc !web dict)"
               color: Style.menuInkDeep
               font: parent.font
               opacity: 0.5
@@ -4283,10 +4377,20 @@ Scope {
               const max = Math.max(0, root.resultCount - 1)
               if (root.quickMode) {
                 const cols = root.quickGridCols
-                if (event.key === Qt.Key_Down) {
+                const hjkl = {}
+                hjkl[Qt.Key_H] = Qt.Key_Left
+                hjkl[Qt.Key_J] = Qt.Key_Down
+                hjkl[Qt.Key_K] = Qt.Key_Up
+                hjkl[Qt.Key_L] = Qt.Key_Right
+                const qk = hjkl[event.key] !== undefined ? hjkl[event.key] : event.key
+                if (qk === Qt.Key_Down) {
                   event.accepted = true; root.selectedIndex = Math.min(root.selectedIndex + cols, max)
-                } else if (event.key === Qt.Key_Up) {
+                } else if (qk === Qt.Key_Up) {
                   event.accepted = true; root.selectedIndex = Math.max(root.selectedIndex - cols, 0)
+                } else if (qk === Qt.Key_Left) {
+                  event.accepted = true; root.selectedIndex = Math.max(root.selectedIndex - 1, 0)
+                } else if (qk === Qt.Key_Right) {
+                  event.accepted = true; root.selectedIndex = Math.min(root.selectedIndex + 1, max)
                 } else if (event.key === Qt.Key_Tab && !(event.modifiers & Qt.ShiftModifier)) {
                   event.accepted = true; root.selectedIndex = Math.min(root.selectedIndex + 1, max)
                 } else if (event.key === Qt.Key_Backtab || (event.key === Qt.Key_Tab && (event.modifiers & Qt.ShiftModifier))) {
@@ -4314,8 +4418,8 @@ Scope {
         Item {
           id: listArea
           width: parent.width
-          height: visible ? Math.max(240, launcherPanel.height * (root.expandedQuickKey === "hub"
-            ? 0.46 : (root.sideActive ? 0.48 : 0.42))) : 0
+          height: visible ? Math.max(300, launcherPanel.height * (root.expandedQuickKey === "hub"
+            ? 0.44 : (root.sideActive ? 0.52 : 0.40))) : 0
           visible: true
           clip: true
 
@@ -4323,7 +4427,8 @@ Scope {
           Item {
             anchors.fill: parent
 
-            readonly property real listFrac: root.quickDetailActive ? 0.12 : (root.sideActive ? (root.quickMode ? 0.32 : 0.52) : 1.0)
+            readonly property real listFrac: root.quickDetailActive ? 0.12
+              : (root.sideActive ? (root.quickMode ? 0.38 : 0.46) : 1.0)
 
             ListView {
               id: resultsList
@@ -4350,7 +4455,7 @@ Scope {
                 readonly property string dName: modelData.name || modelData.title || "?"
                 readonly property string dSub: modelData.comment || ""
                 readonly property bool dCat: !!modelData.isCategory
-                height: dCat || dSub === "" ? 38 : 50
+                height: dCat || dSub === "" ? 44 : 56
                 readonly property bool isSelected: resultsList.currentIndex === index
                 readonly property string dIcon: modelData.icon || ""
                 readonly property string dRawIcon: modelData.rawIcon || ""
@@ -4384,8 +4489,8 @@ Scope {
 
                   Item {
                     id: iconSlot
-                    width: 26
-                    height: 26
+                    width: 30
+                    height: 30
                     Layout.alignment: Qt.AlignVCenter
                     Image {
                       id: rowIcon
@@ -4402,7 +4507,7 @@ Scope {
                       anchors.centerIn: parent
                       text: delegateRoot.dGlyph !== "" ? delegateRoot.dGlyph : delegateRoot.dName.charAt(0).toUpperCase()
                       color: delegateRoot.dCat ? Style.menuSeal : (delegateRoot.isSelected ? Style.menuSeal : (delegateRoot.dGlyph === "󰉋" ? "#89b4fa" : Style.menuInkDeep))
-                      font.pixelSize: delegateRoot.dGlyph !== "" ? 18 : 14
+                      font.pixelSize: delegateRoot.dGlyph !== "" ? root.fontPx(20) : root.fontPx(15)
                       font.family: root.uiFont
                       visible: rowIcon.status !== Image.Ready
                     }
@@ -4410,13 +4515,13 @@ Scope {
 
                   ColumnLayout {
                     Layout.fillWidth: true
-                    spacing: 1
+                    spacing: 2
 
                     Text {
                       Layout.fillWidth: true
                       text: delegateRoot.dName + (delegateRoot.dCat ? "  ›" : "")
                       color: delegateRoot.isSelected ? Style.menuInk : Style.menuInkDeep
-                      font.pixelSize: 13
+                      font.pixelSize: root.fontPx(14)
                       font.family: root.uiFont
                       font.weight: delegateRoot.isSelected ? Font.Medium : Font.Light
                       font.letterSpacing: 1
@@ -4425,11 +4530,11 @@ Scope {
 
                     Text {
                       Layout.fillWidth: true
-                      visible: delegateRoot.dSub !== "" && !delegateRoot.dCat
+                      visible: delegateRoot.dSub !== "" && !delegateRoot.dCat && !root.fileMode
                       text: delegateRoot.dSub
                       color: delegateRoot.isSelected ? Style.menuInk : Style.menuInkDeep
                       opacity: delegateRoot.isSelected ? 0.75 : 0.5
-                      font.pixelSize: 10
+                      font.pixelSize: root.fontPx(11)
                       font.family: root.uiFont
                       font.letterSpacing: 0.5
                       elide: Text.ElideRight
@@ -4438,11 +4543,13 @@ Scope {
                   }
 
                   Text {
-                    text: delegateRoot.dAcc.toUpperCase()
+                    text: root.fileMode && modelData.path
+                      ? Data.tildify(Data.dirname(modelData.path), root.homeDir)
+                      : delegateRoot.dAcc.toUpperCase()
                     visible: text !== ""
                     color: delegateRoot.isSelected ? Style.menuSeal : Style.menuInkDeep
                     opacity: delegateRoot.isSelected ? 0.95 : 0.65
-                    font.pixelSize: 10
+                    font.pixelSize: root.fontPx(11)
                     font.family: root.uiFont
                     font.letterSpacing: 2
                     elide: Text.ElideLeft
@@ -4482,11 +4589,12 @@ Scope {
               anchors.left: parent.left
               width: parent.width * parent.listFrac
               columns: root.quickGridCols
-              rowSpacing: root.quickDetailActive ? 4 : 8
-              columnSpacing: root.quickDetailActive ? 4 : 8
+              rowSpacing: root.quickDetailActive ? 6 : 12
+              columnSpacing: root.quickDetailActive ? 6 : 12
               clip: true
               readonly property bool colMode: root.quickDetailActive
-              readonly property int tileH: colMode ? 48 : 72
+              readonly property int tileH: colMode ? 56 : 108
+              Behavior on width { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
               Timer { interval: 0; running: root.quickMode; repeat: false; onTriggered: root.resultCount = (root.quickTiles || []).length }
 
               Repeater {
@@ -4501,6 +4609,7 @@ Scope {
                   height: quickGrid.tileH
                   Rectangle {
                     anchors.fill: parent
+                    anchors.margins: quickGrid.colMode ? 3 : (isSel ? 1 : 5)
                     radius: Style.menuRadius
                     color: isSel
                       ? Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.08)
@@ -4515,18 +4624,21 @@ Scope {
                   }
                   Column {
                     anchors.fill: parent
-                    anchors.margins: quickGrid.colMode ? 3 : 6
-                    spacing: quickGrid.colMode ? 0 : 2
+                    anchors.margins: quickGrid.colMode ? 8 : (isSel ? 14 : 11)
+                    spacing: quickGrid.colMode ? 2 : 4
                     Text {
                       text: t.glyph || "󰘔"; color: isSel ? Style.menuSeal : Style.menuInk
-                      font.pixelSize: (quickGrid.colMode ? 14 : 18) ; font.family: root.uiFont; anchors.horizontalCenter: parent.horizontalCenter
+                      font.pixelSize: root.fontPx(quickGrid.colMode ? 18 : 24)
+                      font.family: root.uiFont; anchors.horizontalCenter: parent.horizontalCenter
                     }
                     Text {
+                      visible: !quickGrid.colMode
                       anchors.horizontalCenter: parent.horizontalCenter
-                      width: parent.width - 4
+                      width: parent.width - 8
                       text: (t.label || "").toUpperCase()
                       color: isSel ? Style.menuInk : Style.menuInkDeep
-                      font.pixelSize: (quickGrid.colMode ? 7 : 9) ; font.family: root.uiFont; font.letterSpacing: quickGrid.colMode ? 0.8 : 1.2
+                      font.pixelSize: root.fontPx(11)
+                      font.family: root.uiFont; font.letterSpacing: 1.4
                       font.weight: Font.Medium
                       elide: Text.ElideRight
                       horizontalAlignment: Text.AlignHCenter
@@ -4534,9 +4646,9 @@ Scope {
                     Text {
                       visible: !quickGrid.colMode
                       anchors.horizontalCenter: parent.horizontalCenter
-                      width: parent.width - 4
+                      width: parent.width - 8
                       text: t.sub || ""
-                      color: Style.menuInkDeep; font.pixelSize: 7; font.family: root.uiFont
+                      color: Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont
                       opacity: 0.8; elide: Text.ElideRight; horizontalAlignment: Text.AlignHCenter
                     }
                   }
@@ -4563,8 +4675,10 @@ Scope {
               id: quickSep
               visible: root.quickDetailActive
               anchors.top: parent.top; anchors.bottom: parent.bottom
-              anchors.left: quickGrid.right; anchors.leftMargin: 8
+              anchors.left: quickGrid.right; anchors.leftMargin: 12
               width: 1; color: Style.menuSep
+              opacity: root.quickDetailActive ? 1 : 0
+              Behavior on opacity { NumberAnimation { duration: 100 } }
             }
 
             // Preview pane (file only for now, launcher style split; or quick feature detail when expanded)
@@ -4581,36 +4695,39 @@ Scope {
                 id: qDetailSide
                 visible: root.quickDetailActive
                 anchors.fill: parent
+                opacity: root.quickDetailActive ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
                 readonly property bool hubMode: root.expandedQuickKey === "hub"
+                  || root.expandedQuickKey === "dashboard"
                 readonly property var qtile: (root.quickTiles || []).find(function(x){ return x.key === root.expandedQuickKey }) || {}
                 RowLayout {
                   id: qDetailHeader
                   visible: !qDetailSide.hubMode
-                  anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.topMargin: 6; spacing: 10
+                  anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.topMargin: 8; spacing: 12
                   Text {
                     text: qDetailSide.qtile.glyph || "󰘔"
                     color: Style.menuSeal
                     font.family: root.uiFont
-                    font.pixelSize: 24
+                    font.pixelSize: root.fontPx(28)
                     Layout.alignment: Qt.AlignVCenter
                   }
                   Column {
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignVCenter
-                    spacing: 1
+                    spacing: 2
                     Text {
                       text: (qDetailSide.qtile.label || "").toUpperCase()
                       color: Style.menuInk
                       font.family: root.uiFont
-                      font.pixelSize: 12
-                      font.letterSpacing: 1.6
+                      font.pixelSize: root.fontPx(14)
+                      font.letterSpacing: 1.8
                       font.weight: Font.Medium
                     }
                     Text {
                       text: qDetailSide.qtile.sub || ""
                       color: Style.menuInkDeep
                       font.family: root.uiFont
-                      font.pixelSize: 9
+                      font.pixelSize: root.fontPx(11)
                       font.letterSpacing: 0.8
                       opacity: 0.85
                       elide: Text.ElideRight
@@ -4618,7 +4735,7 @@ Scope {
                   }
                   Rectangle {
                     Layout.alignment: Qt.AlignVCenter
-                    width: 20; height: 20; radius: 10
+                    width: 24; height: 24; radius: 12
                     color: cqma.containsMouse ? Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.08) : "transparent"
                     border.color: Style.menuSep
                     border.width: 1
@@ -4638,64 +4755,53 @@ Scope {
                     }
                   }
                 }
-                Flickable {
-                  id: qBodyFlick
-                  anchors.left: parent.left; anchors.right: parent.right
+                Loader {
+                  id: qdl
+                  anchors.left: parent.left
+                  anchors.right: parent.right
                   anchors.top: qDetailSide.hubMode ? parent.top : qDetailHeader.bottom
                   anchors.bottom: parent.bottom
                   anchors.topMargin: qDetailSide.hubMode ? 0 : 8
-                  clip: true
-                  contentWidth: width
-                  contentHeight: Math.max(height, qdl.height || 0)
-                  boundsBehavior: Flickable.StopAtBounds
-                  Loader {
-                    id: qdl
-                    width: parent.width
-                    height: parent.height
-                    active: root.quickDetailActive
-                    sourceComponent: root.quickDetailFor(root.expandedQuickKey)
-                  }
+                  active: root.quickDetailActive
+                  sourceComponent: root.quickDetailFor(root.expandedQuickKey)
                 }
               }
 
-              // file preview (unchanged, only when not quick detail)
-              Item {
+              // file preview (only when not quick detail)
+              ColumnLayout {
                 visible: root.previewActive && !root.quickDetailActive
                 anchors.fill: parent
+                spacing: 6
 
                 Text {
                   id: previewName
-                  anchors.top: parent.top
+                  Layout.fillWidth: true
                   text: {
                     const it = resultsList.currentItem ? resultsList.currentItem.modelData : null
                     return it && it.path ? Data.basename(it.path) : "File preview"
                   }
                   color: Style.menuInk
                   font.family: root.uiFont
-                  font.pixelSize: 12
+                  font.pixelSize: root.fontPx(14)
                   elide: Text.ElideRight
                 }
                 Text {
-                  anchors.top: previewName.bottom
+                  Layout.fillWidth: true
                   text: {
                     const it = resultsList.currentItem ? resultsList.currentItem.modelData : null
                     return it && it.path ? Data.tildify(Data.dirname(it.path), root.homeDir) : ""
                   }
                   color: Style.menuInkDeep
                   font.family: root.uiFont
-                  font.pixelSize: 10
+                  font.pixelSize: root.fontPx(12)
                   opacity: 0.7
                   elide: Text.ElideLeft
                 }
-                Rectangle { anchors.top: parent.top; anchors.topMargin: 32; width: parent.width; height: 1; color: Style.menuSep }
+                Rectangle { Layout.fillWidth: true; height: 1; color: Style.menuSep }
 
-                // Simple file preview body
                 Item {
-                  anchors.top: parent.top
-                  anchors.topMargin: 36
-                  anchors.bottom: parent.bottom
-                  anchors.left: parent.left
-                  anchors.right: parent.right
+                  Layout.fillWidth: true
+                  Layout.fillHeight: true
                   clip: true
 
                   Image {
@@ -4724,7 +4830,7 @@ Scope {
                     text: root.filePreviewText
                     color: Style.menuInkDeep
                     font.family: root.uiFont
-                    font.pixelSize: 10
+                    font.pixelSize: root.fontPx(10)
                     wrapMode: Text.Wrap
                     elide: Text.ElideRight
                     maximumLineCount: 18
@@ -4737,7 +4843,7 @@ Scope {
                     text: root.filePreviewMeta
                     color: Style.menuInkDeep
                     font.family: root.uiFont
-                    font.pixelSize: 10
+                    font.pixelSize: root.fontPx(10)
                     wrapMode: Text.Wrap
                   }
                 }
@@ -4764,7 +4870,7 @@ Scope {
           }
           color: Style.menuInkDeep
           font.family: root.uiFont
-          font.pixelSize: 10
+          font.pixelSize: root.fontPx(11)
           font.letterSpacing: 1
           opacity: 0.65
         }
@@ -4772,6 +4878,7 @@ Scope {
         Menu.MenuHintRow {
           width: parent.width
           fontFamily: root.uiFont
+          fontScale: root.uiFontScale
           hints: "!  >  :  @  dict"
         }
       }

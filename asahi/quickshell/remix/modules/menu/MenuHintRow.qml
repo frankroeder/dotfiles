@@ -21,9 +21,9 @@ RowLayout {
       required property var modelData
 
       Rectangle {
-        width: keyLbl.width + 8
-        height: 18
-        radius: 4
+        width: keyLbl.width + Math.round(8 * root.fontScale)
+        height: Math.round(18 * root.fontScale)
+        radius: Math.round(4 * root.fontScale)
         color: Style.panelControlBg
         Text {
           id: keyLbl
