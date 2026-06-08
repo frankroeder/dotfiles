@@ -47,7 +47,7 @@ Scope {
   property string expandedQuickKey: ""
   readonly property bool quickDetailActive: root.quickMode && root.expandedQuickKey !== ""
   readonly property bool sideActive: root.previewActive || root.quickDetailActive
-  readonly property int quickGridCols: root.quickDetailActive ? 1 : 4
+  readonly property int quickGridCols: root.quickDetailActive ? 1 : 3
 
   // Scoring (ported from launcher ref, tuned for small set)
   readonly property int scPrefix: 100
@@ -4593,7 +4593,7 @@ Scope {
               columnSpacing: root.quickDetailActive ? 6 : 12
               clip: true
               readonly property bool colMode: root.quickDetailActive
-              readonly property int tileH: colMode ? 56 : 108
+              readonly property int tileH: colMode ? 56 : 112
               Behavior on width { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
               Timer { interval: 0; running: root.quickMode; repeat: false; onTriggered: root.resultCount = (root.quickTiles || []).length }
 
@@ -4609,7 +4609,8 @@ Scope {
                   height: quickGrid.tileH
                   Rectangle {
                     anchors.fill: parent
-                    anchors.margins: quickGrid.colMode ? 3 : (isSel ? 1 : 5)
+                    anchors.margins: quickGrid.colMode ? 3 : (isSel ? 2 : 6)
+                    anchors.bottomMargin: quickGrid.colMode ? 3 : (isSel ? 8 : 10)
                     radius: Style.menuRadius
                     color: isSel
                       ? Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.08)
@@ -4623,9 +4624,13 @@ Scope {
                     Behavior on border.width { NumberAnimation { duration: 50 } }
                   }
                   Column {
-                    anchors.fill: parent
-                    anchors.margins: quickGrid.colMode ? 8 : (isSel ? 14 : 11)
-                    spacing: quickGrid.colMode ? 2 : 4
+                    width: parent.width - (quickGrid.colMode ? 12 : 16)
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.verticalCenterOffset: quickGrid.colMode ? 0 : -2
+                    spacing: quickGrid.colMode ? 2 : 5
+                    topPadding: quickGrid.colMode ? 0 : 2
+                    bottomPadding: quickGrid.colMode ? 0 : 4
                     Text {
                       text: t.glyph || "󰘔"; color: isSel ? Style.menuSeal : Style.menuInk
                       font.pixelSize: root.fontPx(quickGrid.colMode ? 18 : 24)
@@ -4634,7 +4639,7 @@ Scope {
                     Text {
                       visible: !quickGrid.colMode
                       anchors.horizontalCenter: parent.horizontalCenter
-                      width: parent.width - 8
+                      width: parent.width
                       text: (t.label || "").toUpperCase()
                       color: isSel ? Style.menuInk : Style.menuInkDeep
                       font.pixelSize: root.fontPx(11)
@@ -4646,7 +4651,7 @@ Scope {
                     Text {
                       visible: !quickGrid.colMode
                       anchors.horizontalCenter: parent.horizontalCenter
-                      width: parent.width - 8
+                      width: parent.width
                       text: t.sub || ""
                       color: Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont
                       opacity: 0.8; elide: Text.ElideRight; horizontalAlignment: Text.AlignHCenter
