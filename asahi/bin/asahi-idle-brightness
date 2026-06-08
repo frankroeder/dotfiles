@@ -107,7 +107,11 @@ set_screen_shader() {
 }
 
 dim_screen_shader() {
+  local current
+
   [ -r "$screen_shader" ] || return 0
+  current="$(current_screen_shader)"
+  [ "$current" = "$screen_shader" ] && return 0
   save_screen_shader
   set_screen_shader "$screen_shader"
 }
@@ -118,26 +122,21 @@ restore_screen_shader() {
 
   [ -e "$state" ] || return 0
   value="$(<"$state")"
-  if [ -n "$value" ]; then
-    set_screen_shader "$value"
-  else
-    hyprctl reload config-only >/dev/null 2>&1 || true
-  fi
+  set_screen_shader "$value"
   rm -f "$state"
 }
 
 case "$action" in
   dim)
-    if device="$(brightness_device)"; then
-      save_device display "$device"
-      set_device "$device" 10%
-    fi
+    # Display dim uses the Hyprland screen shader only. Combining a backlight
+    # cut with the shader made brightness oscillate between "shader+backlight"
+    # and "backlight only" whenever the shader was reapplied.
+    dim_screen_shader
 
     if device="$(keyboard_device)"; then
       save_device keyboard "$device"
       set_device "$device" 10%
     fi
-    dim_screen_shader
     ;;
   off)
     if device="$(brightness_device)"; then
