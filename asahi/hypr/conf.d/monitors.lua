@@ -30,3 +30,7 @@ hl.workspace_rule({ workspace = "1", monitor = "HDMI-A-1" })
 hl.workspace_rule({ workspace = "2", monitor = "HDMI-A-1" })
 hl.workspace_rule({ workspace = "3", monitor = "HDMI-A-1" })
 hl.workspace_rule({ workspace = "4", monitor = "HDMI-A-1" })
+
+-- Lid close: only eDP-1 (not external/HDMI). asahi-idle-brightness off (panel bl + kbd) + dpms off eDP-1.
+hl.bind("switch:on:Apple SMC power/lid events", hl.dsp.exec_cmd("~/.dotfiles/asahi/bin/asahi-idle-brightness off; hyprctl dispatch dpms off eDP-1"))
+hl.bind("switch:off:Apple SMC power/lid events", hl.dsp.exec_cmd("hyprctl dispatch dpms on eDP-1; ~/.dotfiles/asahi/bin/asahi-idle-brightness restore"))
