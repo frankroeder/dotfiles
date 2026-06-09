@@ -72,41 +72,31 @@ PanelWindow {
         Repeater {
           model: Bluetooth.devices.values
           delegate: Rectangle {
-            Layout.fillWidth: true; height: 30; radius: 5
-            color: mouseArea.containsMouse ? Qt.rgba(Style.surface.r, Style.surface.g, Style.surface.b, 0.2) : "transparent"
+            Layout.fillWidth: true; height: 32; radius: 6
+            color: mouseArea.containsMouse ? Qt.rgba(0.2,0.2,0.25,0.25) : "transparent"
             RowLayout {
-              anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 6; spacing: 6
+              anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 8; spacing: 8
               Text {
                 text: modelData.connected ? "󰂱" : "󰂯"
-                font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14
+                font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13
                 color: modelData.connected ? Style.green : Style.textMuted
               }
               ColumnLayout {
                 spacing: -1; Layout.fillWidth: true
-                Text {
-                  text: modelData.name || modelData.alias || modelData.address
-                  font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: Style.text; elide: Text.ElideRight; Layout.fillWidth: true
-                }
-                Text {
-                  text: (modelData.batteryAvailable ? modelData.battery + "%" : (modelData.paired ? "Paired" : "Nearby"))
-                  font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 8; color: Style.textMuted
-                }
+                Text { text: modelData.name || modelData.alias || modelData.address; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10; color: Style.text; elide: Text.ElideRight; Layout.fillWidth: true }
+                Text { text: (modelData.batteryAvailable ? modelData.battery+"%" : (modelData.paired?"Paired":"")); font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 8; color: Style.textMuted }
               }
               MouseArea {
-                id: actionBtn; width: 72; height: 20; Layout.alignment: Qt.AlignVCenter; cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                  if (modelData.connected) modelData.disconnect()
-                  else if (modelData.paired) modelData.connect()
-                  else modelData.pair()
-                }
+                id: actionBtn; width: 64; height: 18; cursorShape: Qt.PointingHandCursor
+                onClicked: { if (modelData.connected) modelData.disconnect(); else if (modelData.paired) modelData.connect(); else modelData.pair() }
                 Rectangle {
-                  anchors.fill: parent; radius: 4
+                  anchors.fill: parent; radius: 3
                   color: actionBtn.containsMouse ? Style.magenta : "transparent"; border.color: Style.magenta; border.width: 1; opacity: actionBtn.containsMouse ? 0.18 : 0.7
                 }
                 Text {
                   anchors.centerIn: parent
                   text: modelData.connected ? "Disconnect" : (modelData.paired ? "Connect" : "Pair")
-                  font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 9; color: Style.text
+                  font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 8; color: Style.text
                 }
               }
             }
@@ -134,12 +124,12 @@ PanelWindow {
           cursorShape: Qt.PointingHandCursor
           onClicked: {
             root.shouldShow = false
-            Quickshell.execDetached([binDir + "/asahi-launch-bluetooth"])
+            Quickshell.execDetached(["qs", "-c", "remix", "ipc", "call", "launcher", "quick", "bluetooth"])
           }
 
           Text {
             anchors.centerIn: parent
-            text: "Open Bluetooth Menu →"
+            text: "Open Bluetooth Controls →"
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 11
             color: Style.magenta

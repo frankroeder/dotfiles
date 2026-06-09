@@ -261,8 +261,8 @@ PanelWindow {
       Rectangle { Layout.fillWidth: true; height: 1; color: Style.barBorder; opacity: 0.5 }
       MouseArea {
         Layout.fillWidth: true; height: 24; cursorShape: Qt.PointingHandCursor
-        onClicked: { shouldShow = false; Quickshell.execDetached([binDir + "/asahi-network-menu"]) }
-        Text { anchors.centerIn: parent; text: "Advanced Network Menu →"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: Style.blueAlt }
+        onClicked: { shouldShow = false; Quickshell.execDetached(["qs", "-c", "remix", "ipc", "call", "launcher", "quick", "network"]) }
+        Text { anchors.centerIn: parent; text: "Open Network Controls →"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: Style.blueAlt }
       }
     }
     Rectangle {

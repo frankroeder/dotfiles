@@ -8,6 +8,10 @@ browser = "librewolf"
 filemanager = "thunar"
 mainMod = "SUPER"
 
+function launch(cmd)
+  return "sh -c 'command -v uwsm-app >/dev/null 2>&1 && exec uwsm-app -- " .. cmd .. " || exec " .. cmd .. "'"
+end
+
 local function load_config(name)
   dofile(configDir .. "/conf.d/" .. name .. ".lua")
 end

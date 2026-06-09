@@ -130,12 +130,12 @@ FocusScope {
           cursorShape: Qt.PointingHandCursor
           onClicked: {
             root.closeRequested()
-            Quickshell.execDetached([binDir + "/asahi-launch-bluetooth"])
+            Quickshell.execDetached(["qs", "-c", "remix", "ipc", "call", "launcher", "quick", "bluetooth"])
           }
 
           Text {
             anchors.centerIn: parent
-            text: "Open Bluetooth Menu →"
+            text: "Open Bluetooth Controls →"
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 11
             color: Style.magenta

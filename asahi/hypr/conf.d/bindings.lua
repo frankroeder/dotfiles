@@ -2,8 +2,8 @@ local mod = mainMod
 local scripts = dotfilesDir .. "/asahi/bin"
 
 -- Apps and windows
-hl.bind(mod .. " + T", hl.dsp.exec_cmd(terminal), { desc = "Terminal" })
-hl.bind(mod .. " + H", hl.dsp.exec_cmd(filemanager), { desc = "Filemanager" })
+hl.bind(mod .. " + T", hl.dsp.exec_cmd(launch(terminal)), { desc = "Terminal" })
+hl.bind(mod .. " + Z", hl.dsp.exec_cmd(launch(filemanager)), { desc = "Filemanager" })
 hl.bind(mod .. " + SPACE", hl.dsp.global("quickshell:launcher-toggle"), { desc = "Launcher" })
 hl.bind(mod .. " + SHIFT + W", hl.dsp.exec_cmd("qs -c remix ipc call wallpaper toggle"), { desc = "Wallpaper picker" })
 -- hl.bind(mod .. " + B", hl.dsp.exec_cmd(browser), { desc = "Browser" })
@@ -14,11 +14,10 @@ hl.bind(mod .. " + P", hl.dsp.window.pseudo(), { desc = "Toggle pseudo" })
 hl.bind(mod .. " + R", hl.dsp.layout("togglesplit"), { desc = "Toggle split" })
 hl.bind(mod .. " + SHIFT + P", hl.dsp.window.pin(), { desc = "Toggle pin window (always on top)" })
 hl.bind(mod .. " + W", hl.dsp.group.toggle(), { desc = "Toggle group" })
-hl.bind(mod .. " + ALT + SPACE", hl.dsp.exec_cmd(scripts .. "/asahi-feature-menu"), { desc = "Feature menu" })
 hl.bind(mod .. " + SHIFT + N", hl.dsp.exec_cmd("qs -c remix ipc call notifications toggleHistory"), { desc = "Notification history" })
 hl.bind(mod .. " + SHIFT + D", hl.dsp.exec_cmd("qs -c remix ipc call notifications toggleDnd"), { desc = "Toggle notification DND" })
-hl.bind(mod .. " + N", hl.dsp.exec_cmd(scripts .. "/asahi-network-menu"), { desc = "Network menu" })
-hl.bind(mod .. " + B", hl.dsp.exec_cmd(scripts .. "/asahi-bluetooth-menu"), { desc = "Bluetooth menu" })
+hl.bind(mod .. " + N", hl.dsp.exec_cmd("qs -c remix ipc call launcher quick network"), { desc = "Network" })
+hl.bind(mod .. " + B", hl.dsp.exec_cmd("qs -c remix ipc call launcher quick bluetooth"), { desc = "Bluetooth" })
 hl.bind(mod .. " + S", hl.dsp.workspace.toggle_special("scratch"), { desc = "Toggle scratchpad" })
 hl.bind(mod .. " + SHIFT + S", hl.dsp.window.move({ workspace = "special:scratch", silent = true }), { desc = "Move to scratchpad" })
 hl.bind(mod .. " + ALT + Return", hl.dsp.exec_cmd(scripts .. "/asahi-special-terminal"), { desc = "Special terminal" })
@@ -29,7 +28,7 @@ hl.bind(mod .. " + C", hl.dsp.window.center(), { desc = "Center floating window"
 
 -- Session and screenshots
 hl.bind(mod .. " + Escape", hl.dsp.exec_cmd("hyprlock --config " .. configDir .. "/hyprlock.conf"), { desc = "Lock" })
-hl.bind(mod .. " + SHIFT + Escape", hl.dsp.exec_cmd(scripts .. "/asahi-control-menu"), { desc = "Control menu" })
+hl.bind(mod .. " + SHIFT + Escape", hl.dsp.exec_cmd("qs -c remix ipc call launcher openCategory System"), { desc = "System menu" })
 hl.bind(mod .. " + CONTROL + ALT + S", hl.dsp.exec_cmd("loginctl lock-session && systemctl suspend"), { desc = "Suspend" })  -- s2idle only (Asahi: no disk hibernation)
 
 hl.bind(mod .. " + ALT + CONTROL + 4", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot smart"), { desc = "Screenshot smart" })

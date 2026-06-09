@@ -76,6 +76,7 @@ Scope {
     { key: "network", aliases: ["wifi", "net"], icon: "󰈀", name: "Network", comment: "Open network controls", mode: "network" },
     { key: "monitors", aliases: ["display", "screen"], icon: "󰍹", name: "Monitors", comment: "Open monitor layout", mode: "monitors" },
     { key: "temp", aliases: ["temps", "temperature"], icon: "󰔄", name: "Temperatures", comment: "Open sensor view", mode: "temp" },
+    { key: "battery", aliases: ["bat", "power", "charge"], icon: "󰁹", name: "Battery", comment: "Battery status, health, and power", mode: "battery" },
     { key: "bluetooth", aliases: ["bt"], icon: "󰂯", name: "Bluetooth", comment: "Open Bluetooth devices", mode: "bluetooth" },
     { key: "storage", aliases: ["disk", "space"], icon: "󰋊", name: "Storage", comment: "Disk usage and home folders", mode: "storage" },
     { key: "screensaver", aliases: ["saver"], icon: "󱄄", name: "Screensaver", comment: "Shader idle display", command: [root.binDir + "/asahi-screensaver", "toggle"] },
@@ -93,7 +94,13 @@ Scope {
 
   // --- live data + exact hub/lower + side windows (ported from old featuremenu; now the only place, module removed)
   readonly property real uiFontScale: 1.4
+  readonly property real quickOverviewScale: 1.0
   function fontPx(size) { return Math.round(size * root.uiFontScale) }
+  function quickPx(size) { return Math.round(size * root.uiFontScale * root.quickOverviewScale) }
+  function execAndClose(cmd) {
+    Quickshell.execDetached(cmd)
+    root.closeLauncher()
+  }
   function prettyBytes(bytes) {
     let value = Number(bytes) || 0
     if (value <= 0) return "0 B"
@@ -199,7 +206,7 @@ Scope {
       "sh", p
     ])
   }
-  function openShot(p) { if (p) Quickshell.execDetached(["xdg-open", p]) }
+  function openShot(p) { if (p) Quickshell.execDetached([binDir + "/asahi-launch", "xdg-open", p]) }
   function previewShot(p) { if (p) root.shotPreviewPath = p }
   function deleteShot(p) {
     if (!p) return
@@ -946,7 +953,7 @@ Scope {
               acceptedButtons: Qt.LeftButton | Qt.RightButton
               onClicked: function(e) {
                 if (e.button === Qt.RightButton) {
-                  if (modelData) Quickshell.execDetached(["xdg-open", modelData])  // preview action
+                  if (modelData) Quickshell.execDetached([binDir + "/asahi-launch", "xdg-open", modelData])  // preview action
                 } else {
                   if (modelData) Wallpaper.WallpaperService.setWallpaper(modelData)
                   root.expandedQuickKey = ""
@@ -1740,7 +1747,7 @@ Scope {
   Component { id: quickNetworkComp; Item {
     id: quickNetworkRoot
     anchors.fill: parent
-    // full port of network from old (wifi enable/scan/list/conn + tooltip/ssid, eth toggle, refresh, traffic, state/procs; compressed)
+    // full port of network from old (wifi enable/scan/list/conn + tooltip/ssid, eth toggle, refresh, state/procs; compressed)
     property var wifiNetworks: []
     property bool wifiEnabled: true
     property string currentWifiSsid: ""
@@ -1748,60 +1755,68 @@ Scope {
     property string wifiDevice: ""
     property string wifiLabel: "WiFi"
     property string wifiTooltip: ""
-    property string netDevice: ""
     property string ethDevice: ""
     property string ethState: ""
     property string ethConnection: ""
     property bool ethConnected: false
     property var ethDevices: []
-    property real netRxSpeed: 0
-    property real netTxSpeed: 0
-    property real netPreviousRxBytes: -1
-    property real netPreviousTxBytes: -1
-    property real netPreviousSampleMs: 0
-    property string netSpeedDevice: ""
-    property var netRxHistory: []
-    property var netTxHistory: []
-    readonly property int netHistoryLimit: 60
+    property var activeConnections: []
+    property bool showPasswordPrompt: false
+    property string pendingSsid: ""
 
-    function formatNetSpeed(bytes) {
-      let unit = "K"; let value = bytes / 1024
-      if (value >= 1024) { unit = "M"; value /= 1024 }
-      if (value >= 1024) { unit = "G"; value /= 1024 }
-      return Math.min(999, Math.round(value)).toString().padStart(3, "0") + " " + unit + "/s"
+    function notifyNet(title, body) {
+      Quickshell.execDetached(["notify-send", "-a", "Network", title, body])
     }
-    function resetNetSpeed(device) {
-      quickNetworkRoot.netSpeedDevice = device || ""
-      quickNetworkRoot.netRxSpeed = 0; quickNetworkRoot.netTxSpeed = 0
-      quickNetworkRoot.netPreviousRxBytes = -1; quickNetworkRoot.netPreviousTxBytes = -1
-      quickNetworkRoot.netPreviousSampleMs = 0
-      quickNetworkRoot.netRxHistory = []; quickNetworkRoot.netTxHistory = []
+    function openNetworkEditor() {
+      root.execAndClose([root.binDir + "/asahi-launch", "nm-connection-editor"])
     }
-    function activeNetDevice() { return quickNetworkRoot.netDevice || quickNetworkRoot.wifiDevice || quickNetworkRoot.ethDevice || "" }
-    function refreshNetSpeed() {
-      const dev = quickNetworkRoot.activeNetDevice()
-      if (!dev || netSpeedProc.running) return
-      if (dev !== quickNetworkRoot.netSpeedDevice) quickNetworkRoot.resetNetSpeed(dev)
-      netSpeedProc.command = ["cat", "/sys/class/net/" + dev + "/statistics/rx_bytes", "/sys/class/net/" + dev + "/statistics/tx_bytes"]
-      netSpeedProc.running = true
+    function rescanWifi() {
+      Quickshell.execDetached(["nmcli", "device", "wifi", "rescan"])
+      Qt.callLater(quickNetworkRoot.scanWifi)
     }
-    function updateNetSpeed(out) {
-      const values = (out || "").trim().split(/\s+/)
-      if (values.length < 2) return
-      const now = Date.now()
-      const rxBytes = Number(values[0]); const txBytes = Number(values[1])
-      const seconds = (now - quickNetworkRoot.netPreviousSampleMs) / 1000
-      if (quickNetworkRoot.netPreviousSampleMs > 0 && seconds > 0) {
-        quickNetworkRoot.netRxSpeed = Math.max(0, (rxBytes - quickNetworkRoot.netPreviousRxBytes) / seconds)
-        quickNetworkRoot.netTxSpeed = Math.max(0, (txBytes - quickNetworkRoot.netPreviousTxBytes) / seconds)
-        const rx = quickNetworkRoot.netRxHistory.slice(-quickNetworkRoot.netHistoryLimit + 1)
-        const tx = quickNetworkRoot.netTxHistory.slice(-quickNetworkRoot.netHistoryLimit + 1)
-        rx.push(quickNetworkRoot.netRxSpeed); tx.push(quickNetworkRoot.netTxSpeed)
-        quickNetworkRoot.netRxHistory = rx; quickNetworkRoot.netTxHistory = tx
-      }
-      quickNetworkRoot.netPreviousRxBytes = rxBytes; quickNetworkRoot.netPreviousTxBytes = txBytes
-      quickNetworkRoot.netPreviousSampleMs = now
+    function disconnectWifi() {
+      if (!quickNetworkRoot.wifiDevice) return
+      Quickshell.execDetached(["nmcli", "device", "disconnect", quickNetworkRoot.wifiDevice])
+      root.closeLauncher()
     }
+    function toggleWifi() {
+      const tgt = quickNetworkRoot.wifiEnabled ? "off" : "on"
+      Quickshell.execDetached(["nmcli", "radio", "wifi", tgt])
+      quickNetworkRoot.wifiEnabled = !quickNetworkRoot.wifiEnabled
+      Qt.callLater(quickNetworkRoot.scanWifi)
+    }
+    function toggleEth() {
+      if (quickNetworkRoot.ethConnected) Quickshell.execDetached(["nmcli", "device", "disconnect", quickNetworkRoot.ethDevice])
+      else Quickshell.execDetached(["nmcli", "device", "connect", quickNetworkRoot.ethDevice])
+      Qt.callLater(function() { if (ethCheck && !ethCheck.running) ethCheck.running = true })
+    }
+    function disconnectSsid(ssid) {
+      Quickshell.execDetached(["nmcli", "con", "down", "id", ssid])
+      root.closeLauncher()
+    }
+    function tapNetwork(net) {
+      if (net.active) { quickNetworkRoot.disconnectSsid(net.ssid); return }
+      quickNetworkRoot.requestConnect(net.ssid, net.sec)
+    }
+    function requestConnect(ssid, sec) {
+      if (!sec) { quickNetworkRoot.doConnect(ssid, null); return }
+      savedCheckProc.targetSsid = ssid
+      savedCheckProc.command = [
+        "bash", "-c",
+        "nmcli -g NAME connection show | grep -Fx " + root.shQuote(ssid) + " >/dev/null && echo saved || echo new"
+      ]
+      savedCheckProc.running = true
+    }
+    function doConnect(ssid, pass) {
+      quickNetworkRoot.showPasswordPrompt = false
+      connectProc.targetSsid = ssid
+      let cmd = "nmcli dev wifi connect " + root.shQuote(ssid)
+      if (pass && pass.length) cmd += " password " + root.shQuote(pass)
+      connectProc.command = ["bash", "-c", cmd]
+      connectProc.running = true
+      root.closeLauncher()
+    }
+
     function scanWifi() {
       quickNetworkRoot.wifiScanning = true
       wifiListProc.command = quickNetworkRoot.wifiDevice
@@ -1811,6 +1826,7 @@ Scope {
       if (!wifiListProc.running) wifiListProc.running = true
       if (typeof wifiPowerCheck !== 'undefined' && wifiPowerCheck) wifiPowerCheck.running = true
       if (typeof ethCheck !== 'undefined' && ethCheck) ethCheck.running = true
+      if (typeof activeConnProc !== 'undefined' && activeConnProc) activeConnProc.running = true
     }
 
     Process {
@@ -1822,7 +1838,6 @@ Scope {
             const d = JSON.parse((text || "").trim() || "{}")
             quickNetworkRoot.wifiLabel = (d.text || "WiFi").replace(/<[^>]*>/g, "")
             quickNetworkRoot.wifiTooltip = d.tooltip || ""
-            quickNetworkRoot.netDevice = d.device || ""
             const m = (d.tooltip || "").match(/^Connected to (.+)$/m)
             if (m) quickNetworkRoot.currentWifiSsid = m[1].trim()
           } catch (_) {}
@@ -1867,11 +1882,6 @@ Scope {
       }
     }
     Process {
-      id: netSpeedProc
-      command: ["true"]
-      stdout: StdioCollector { onStreamFinished: quickNetworkRoot.updateNetSpeed(text) }
-    }
-    Process {
       id: ethCheck
       command: ["nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device", "status"]
       stdout: StdioCollector {
@@ -1893,202 +1903,370 @@ Scope {
         }
       }
     }
+    Process {
+      id: activeConnProc
+      command: ["nmcli", "-t", "-f", "TYPE,NAME,DEVICE", "connection", "show", "--active"]
+      stdout: StdioCollector {
+        onStreamFinished: {
+          const lines = (text || "").trim().split("\n").filter(function(l) { return l.length > 0 })
+          const out = []
+          for (let i = 0; i < lines.length; i++) {
+            const p = lines[i].split(":")
+            if (p.length >= 3) out.push({ type: p[0] || "", name: p[1] || "", device: p[2] || "" })
+          }
+          quickNetworkRoot.activeConnections = out
+        }
+      }
+    }
+    Process {
+      id: savedCheckProc
+      property string targetSsid: ""
+      stdout: StdioCollector {
+        onStreamFinished: {
+          const saved = (text || "").trim() === "saved"
+          if (saved) quickNetworkRoot.doConnect(savedCheckProc.targetSsid, null)
+          else {
+            quickNetworkRoot.pendingSsid = savedCheckProc.targetSsid
+            quickNetworkRoot.showPasswordPrompt = true
+          }
+        }
+      }
+    }
+    Process {
+      id: connectProc
+      property string targetSsid: ""
+      onExited: function(code) {
+        if (code === 0) quickNetworkRoot.notifyNet("Connected", connectProc.targetSsid)
+        else {
+          quickNetworkRoot.notifyNet("Could not connect", connectProc.targetSsid)
+          quickNetworkRoot.openNetworkEditor()
+        }
+        Qt.callLater(quickNetworkRoot.scanWifi)
+      }
+    }
 
     Timer { interval: 6000; running: root.quickDetailActive && root.expandedQuickKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: quickNetworkRoot.scanWifi() }
-    Timer { interval: 1000; running: root.quickDetailActive && root.expandedQuickKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: quickNetworkRoot.refreshNetSpeed() }
 
     Component.onCompleted: Qt.callLater(quickNetworkRoot.scanWifi)
 
     ColumnLayout {
-      anchors.fill: parent; spacing: 8
+      anchors.fill: parent
+      spacing: 6
+
       RowLayout {
         Layout.fillWidth: true
         Text { text: "󰈀 Network"; font.pixelSize: root.fontPx(11); color: Style.green; font.family: root.uiFont; font.bold: true }
         Text { text: (quickNetworkRoot.wifiNetworks || []).length + " Wi-Fi"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont }
         Item { Layout.fillWidth: true }
         Rectangle {
-          width: refreshLbl.width + 16; height: 26; radius: Style.menuRadius
+          width: rescanLbl.width + 16; height: 28; radius: Style.menuRadius
+          color: rescanMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
+          border.color: Style.menuSep; border.width: 1
+          Text { id: rescanLbl; anchors.centerIn: parent; text: "Rescan"; font.pixelSize: root.fontPx(9); color: Style.menuIndigo; font.family: root.uiFont }
+          MouseArea { id: rescanMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: quickNetworkRoot.rescanWifi() }
+        }
+        Rectangle {
+          width: refreshLbl.width + 16; height: 28; radius: Style.menuRadius
           color: refreshMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
           border.color: Style.menuSep; border.width: 1
           Text { id: refreshLbl; anchors.centerIn: parent; text: "Refresh"; font.pixelSize: root.fontPx(9); color: Style.menuInk; font.family: root.uiFont }
-          Behavior on color { ColorAnimation { duration: 140 } }
-          MouseArea { id: refreshMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { quickNetworkRoot.scanWifi(); if (typeof ethCheck !== 'undefined' && ethCheck) ethCheck.running = true } }
+          MouseArea { id: refreshMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { quickNetworkRoot.scanWifi(); if (ethCheck && !ethCheck.running) ethCheck.running = true } }
         }
       }
-
-      RowLayout {
-        Layout.fillWidth: true; spacing: 8
-        Rectangle {
-          Layout.fillWidth: true; Layout.preferredHeight: root.fontPx(132)
-          radius: Style.menuRadius; color: root.menuTileBg; border.color: Style.menuSep; border.width: 1
-          ColumnLayout {
-            anchors.fill: parent; anchors.margins: 8; spacing: 4
-            RowLayout {
-              Layout.fillWidth: true
-              Text { text: "󰤨 Wi-Fi"; color: Style.menuIndigo; font.pixelSize: root.fontPx(10); font.family: root.uiFont; font.bold: true }
-              Text { text: quickNetworkRoot.wifiEnabled ? "enabled" : "disabled"; color: quickNetworkRoot.wifiEnabled ? Style.green : Style.red; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true }
-              Item { Layout.fillWidth: true }
-              Rectangle {
-                width: wifiToggleLbl.width + 12; height: 22; radius: Style.menuRadius
-                color: quickNetworkRoot.wifiEnabled ? Qt.rgba(Style.red.r, Style.red.g, Style.red.b, 0.18) : Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.18)
-                border.color: quickNetworkRoot.wifiEnabled ? Style.red : Style.green; border.width: 1
-                Text { id: wifiToggleLbl; anchors.centerIn: parent; text: quickNetworkRoot.wifiEnabled ? "Disable" : "Enable"; color: quickNetworkRoot.wifiEnabled ? Style.red : Style.green; font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true }
-                MouseArea {
-                  anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                  onClicked: {
-                    const tgt = quickNetworkRoot.wifiEnabled ? "off" : "on"
-                    Quickshell.execDetached(["nmcli", "radio", "wifi", tgt])
-                    quickNetworkRoot.wifiEnabled = !quickNetworkRoot.wifiEnabled
-                    Qt.callLater(quickNetworkRoot.scanWifi)
-                  }
-                }
-              }
-            }
-            Text {
-              Layout.fillWidth: true
-              text: quickNetworkRoot.currentWifiSsid ? quickNetworkRoot.currentWifiSsid : quickNetworkRoot.wifiLabel
-              color: Style.menuInk; font.pixelSize: root.fontPx(10); font.family: root.uiFont; font.bold: true; elide: Text.ElideRight
-            }
-            Text {
-              Layout.fillWidth: true
-              Layout.fillHeight: true
-              text: {
-                let t = quickNetworkRoot.wifiTooltip || "No Wi-Fi details"
-                t = t.replace(/^Connected to [^\n]*\n?/, "")
-                return t.trim() || "No Wi-Fi connection details"
-              }
-              color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont
-              wrapMode: Text.Wrap; verticalAlignment: Text.AlignTop
-            }
-          }
-        }
-        Rectangle {
-          Layout.fillWidth: true; Layout.preferredHeight: root.fontPx(132)
-          radius: Style.menuRadius; color: root.menuTileBg; border.color: Style.menuSep; border.width: 1
-          ColumnLayout {
-            anchors.fill: parent; anchors.margins: 8; spacing: 4
-            RowLayout {
-              Layout.fillWidth: true
-              Text { text: "󰈀 LAN"; color: Style.menuIndigo; font.pixelSize: root.fontPx(10); font.family: root.uiFont; font.bold: true }
-              Text { text: quickNetworkRoot.ethDevice ? quickNetworkRoot.ethState : "missing"; color: quickNetworkRoot.ethConnected ? Style.green : Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true }
-              Item { Layout.fillWidth: true }
-              Rectangle {
-                visible: !!quickNetworkRoot.ethDevice
-                width: ethToggleLbl.width + 12; height: 22; radius: Style.menuRadius
-                color: quickNetworkRoot.ethConnected ? Qt.rgba(Style.red.r, Style.red.g, Style.red.b, 0.18) : Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.18)
-                border.color: quickNetworkRoot.ethConnected ? Style.red : Style.green; border.width: 1
-                Text { id: ethToggleLbl; anchors.centerIn: parent; text: quickNetworkRoot.ethConnected ? "Disable" : "Enable"; color: quickNetworkRoot.ethConnected ? Style.red : Style.green; font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true }
-                MouseArea {
-                  anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                  onClicked: {
-                    if (quickNetworkRoot.ethConnected) Quickshell.execDetached(["nmcli", "device", "disconnect", quickNetworkRoot.ethDevice])
-                    else Quickshell.execDetached(["nmcli", "device", "connect", quickNetworkRoot.ethDevice])
-                    Qt.callLater(function(){ if (typeof ethCheck !== 'undefined' && ethCheck) ethCheck.running = true })
-                  }
-                }
-              }
-            }
-            Text { Layout.fillWidth: true; text: quickNetworkRoot.ethDevice ? quickNetworkRoot.ethDevice : "No ethernet device"; color: Style.menuInk; font.pixelSize: root.fontPx(10); font.family: root.uiFont; font.bold: true; elide: Text.ElideRight }
-            Text { Layout.fillWidth: true; text: quickNetworkRoot.ethConnection || ((quickNetworkRoot.ethDevices || []).length > 1 ? ((quickNetworkRoot.ethDevices || []).length + " ethernet") : "No active LAN"); color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont; elide: Text.ElideRight }
-          }
-        }
-      }
-
-      Rectangle {
-        Layout.fillWidth: true; Layout.preferredHeight: 72
-        radius: Style.menuRadius; color: root.menuTileBg; border.color: Style.menuSep; border.width: 1
-        ColumnLayout {
-          anchors.fill: parent; anchors.margins: 6; spacing: 2
-          RowLayout {
-            Layout.fillWidth: true
-            Text { text: "Traffic"; color: Style.menuInk; font.pixelSize: root.fontPx(9); font.family: root.uiFont }
-            Item { Layout.fillWidth: true }
-            Text { text: "↑ " + quickNetworkRoot.formatNetSpeed(quickNetworkRoot.netTxSpeed); color: quickNetworkRoot.netTxSpeed >= 1024 ? Style.green : Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
-            Text { text: "↓ " + quickNetworkRoot.formatNetSpeed(quickNetworkRoot.netRxSpeed); color: quickNetworkRoot.netRxSpeed >= 1024 ? Style.menuIndigo : Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
-          }
-          Canvas {
-            id: netCanvas
-            Layout.fillWidth: true; Layout.fillHeight: true
-            Connections {
-              target: quickNetworkRoot
-              function onNetRxHistoryChanged() { netCanvas.requestPaint() }
-              function onNetTxHistoryChanged() { netCanvas.requestPaint() }
-            }
-            onPaint: {
-              const ctx = getContext("2d"); ctx.reset()
-              const w = width; const h = height
-              const rx = quickNetworkRoot.netRxHistory || []; const tx = quickNetworkRoot.netTxHistory || []
-              const n = Math.max(rx.length, tx.length); let maxValue = 1024
-              for (let i=0; i<rx.length; i++) maxValue = Math.max(maxValue, rx[i])
-              for (let i=0; i<tx.length; i++) maxValue = Math.max(maxValue, tx[i])
-              ctx.strokeStyle = Qt.rgba(Style.menuInkDeep.r, Style.menuInkDeep.g, Style.menuInkDeep.b, 0.22); ctx.lineWidth = 1
-              for (let i=1; i<4; i++) { const y = Math.round(h * i / 4) + 0.5; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke() }
-              function drawLine(vals, color) {
-                if (vals.length < 2) return
-                ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath()
-                for (let i=0; i<vals.length; i++) {
-                  const x = vals.length === 1 ? w : i * w / (vals.length - 1)
-                  const y = h - Math.max(0, Math.min(1, vals[i] / maxValue)) * h
-                  if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y)
-                }
-                ctx.stroke()
-              }
-              if (n === 0) { ctx.fillStyle = Style.menuInkDeep; ctx.font = root.fontPx(8) + "px sans-serif"; ctx.fillText("waiting for traffic", 4, Math.round(h/2)) }
-              else { drawLine(tx, Style.green); drawLine(rx, Style.menuIndigo) }
-            }
-          }
-        }
-      }
-
-      Text { text: "Available networks" + (quickNetworkRoot.wifiScanning ? " (scanning...)" : ""); font.pixelSize: root.fontPx(9); color: Style.menuInkDeep; font.family: root.uiFont }
-
-      Rectangle { Layout.fillWidth: true; height: 1; color: Style.menuSep }
 
       Flickable {
-        Layout.fillWidth: true; Layout.fillHeight: true; clip: true
-        contentHeight: wifiCol.height; boundsBehavior: Flickable.StopAtBounds
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        clip: true
+        flickableDirection: Flickable.VerticalFlick
+        contentHeight: netScrollCol.height
+        boundsBehavior: Flickable.StopAtBounds
+        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded; width: 4 }
+
         Column {
-          id: wifiCol; width: parent.width; spacing: 3
+          id: netScrollCol
+          width: parent.width
+          spacing: 8
+
+          Column {
+            width: parent.width
+            spacing: 3
+            visible: (quickNetworkRoot.activeConnections || []).length > 0
+            Text { text: "Active"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.letterSpacing: 0.8 }
+            Repeater {
+              model: quickNetworkRoot.activeConnections || []
+              delegate: Row {
+                required property var modelData
+                width: parent.width
+                spacing: 6
+                Text { text: "󰒢"; font.pixelSize: root.fontPx(10); color: Style.green; font.family: root.uiFont; anchors.verticalCenter: parent.verticalCenter }
+                Text {
+                  width: parent.width - 24
+                  text: (modelData.type || "") + " · " + (modelData.name || "") + " · " + (modelData.device || "")
+                  color: Style.menuInk
+                  font.pixelSize: root.fontPx(9)
+                  font.family: root.uiFont
+                  elide: Text.ElideRight
+                }
+              }
+            }
+          }
+
+          Row {
+            width: parent.width
+            spacing: 8
+            Rectangle {
+              width: (parent.width - parent.spacing) / 2
+              implicitHeight: wifiCardCol.implicitHeight + 16
+              radius: Style.menuRadius
+              color: root.menuTileBg
+              border.color: Style.menuSep
+              border.width: 1
+              Column {
+                id: wifiCardCol
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 8
+                spacing: 4
+                RowLayout {
+                  width: parent.width
+                  spacing: 4
+                  Text { text: "󰤨 Wi-Fi"; color: Style.menuIndigo; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true }
+                  Text { text: quickNetworkRoot.wifiEnabled ? "on" : "off"; color: quickNetworkRoot.wifiEnabled ? Style.green : Style.red; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
+                  Item { Layout.fillWidth: true }
+                  Rectangle {
+                    visible: !!quickNetworkRoot.currentWifiSsid && !!quickNetworkRoot.wifiDevice && quickNetworkRoot.wifiEnabled
+                    width: wifiDiscLbl.width + 12; height: 24; radius: Style.menuRadius
+                    color: wifiDiscMa.containsMouse ? Style.menuRowHi : Qt.rgba(Style.red.r, Style.red.g, Style.red.b, 0.14)
+                    border.color: Style.red; border.width: 1
+                    Text { id: wifiDiscLbl; anchors.centerIn: parent; text: "Disconnect"; color: Style.red; font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true }
+                    MouseArea { id: wifiDiscMa; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: quickNetworkRoot.disconnectWifi() }
+                  }
+                  Rectangle {
+                    width: wifiToggleLbl.width + 12; height: 24; radius: Style.menuRadius
+                    color: quickNetworkRoot.wifiEnabled ? Qt.rgba(Style.red.r, Style.red.g, Style.red.b, 0.18) : Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.18)
+                    border.color: quickNetworkRoot.wifiEnabled ? Style.red : Style.green; border.width: 1
+                    Text { id: wifiToggleLbl; anchors.centerIn: parent; text: quickNetworkRoot.wifiEnabled ? "Disable Wi-Fi" : "Enable Wi-Fi"; color: quickNetworkRoot.wifiEnabled ? Style.red : Style.green; font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true }
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: quickNetworkRoot.toggleWifi() }
+                  }
+                }
+                Text {
+                  width: parent.width
+                  text: quickNetworkRoot.currentWifiSsid ? quickNetworkRoot.currentWifiSsid : quickNetworkRoot.wifiLabel
+                  color: Style.menuInk; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true; elide: Text.ElideRight
+                }
+                Text {
+                  width: parent.width
+                  text: {
+                    let t = quickNetworkRoot.wifiTooltip || "No Wi-Fi details"
+                    t = t.replace(/^Connected to [^\n]*\n?/, "")
+                    return t.trim() || "No Wi-Fi connection details"
+                  }
+                  color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont
+                  wrapMode: Text.Wrap
+                }
+              }
+            }
+            Rectangle {
+              width: (parent.width - parent.spacing) / 2
+              implicitHeight: ethCardCol.implicitHeight + 16
+              radius: Style.menuRadius
+              color: root.menuTileBg
+              border.color: Style.menuSep
+              border.width: 1
+              Column {
+                id: ethCardCol
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 8
+                spacing: 4
+                RowLayout {
+                  width: parent.width
+                  Text { text: "󰈀 LAN"; color: Style.menuIndigo; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true }
+                  Text { text: quickNetworkRoot.ethDevice ? quickNetworkRoot.ethState : "missing"; color: quickNetworkRoot.ethConnected ? Style.green : Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
+                  Item { Layout.fillWidth: true }
+                  Rectangle {
+                    visible: !!quickNetworkRoot.ethDevice
+                    width: ethToggleLbl.width + 12; height: 24; radius: Style.menuRadius
+                    color: quickNetworkRoot.ethConnected ? Qt.rgba(Style.red.r, Style.red.g, Style.red.b, 0.18) : Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.18)
+                    border.color: quickNetworkRoot.ethConnected ? Style.red : Style.green; border.width: 1
+                    Text { id: ethToggleLbl; anchors.centerIn: parent; text: quickNetworkRoot.ethConnected ? "Disconnect LAN" : "Connect LAN"; color: quickNetworkRoot.ethConnected ? Style.red : Style.green; font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true }
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: quickNetworkRoot.toggleEth() }
+                  }
+                }
+                Text { width: parent.width; text: quickNetworkRoot.ethDevice ? quickNetworkRoot.ethDevice : "No ethernet device"; color: Style.menuInk; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true; elide: Text.ElideRight }
+                Text { width: parent.width; text: quickNetworkRoot.ethConnection || ((quickNetworkRoot.ethDevices || []).length > 1 ? ((quickNetworkRoot.ethDevices || []).length + " ethernet") : "No active LAN"); color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont; wrapMode: Text.Wrap }
+              }
+            }
+          }
+
+          Text { text: "Available networks" + (quickNetworkRoot.wifiScanning ? " (scanning...)" : ""); font.pixelSize: root.fontPx(9); color: Style.menuInkDeep; font.family: root.uiFont }
+
           Repeater {
             model: quickNetworkRoot.wifiNetworks || []
             delegate: Rectangle {
               required property var modelData
-              width: parent.width - 4; x: 2; height: 36; radius: Style.menuRadius
+              width: netScrollCol.width - 4
+              x: 2
+              height: 36
+              radius: Style.menuRadius
               color: modelData.active ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.14) : (netMa.containsMouse ? Style.menuRowHi : "transparent")
-              border.color: modelData.active ? Style.menuIndigo : (netMa.containsMouse ? Style.menuSep : "transparent"); border.width: 1
-              scale: netMa.containsMouse && !modelData.active ? 1.01 : 1.0
-              Behavior on color { ColorAnimation { duration: 140 } }
-              Behavior on border.color { ColorAnimation { duration: 140 } }
-              Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
-              RowLayout {
-                anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 8; anchors.topMargin: 4; anchors.bottomMargin: 4; spacing: 6
-                Text { text: modelData.signal > 75 ? "󰤨" : (modelData.signal > 50 ? "󰤥" : (modelData.signal > 25 ? "󰤢" : "󰤟")); font.family: root.uiFont; font.pixelSize: root.fontPx(12); color: modelData.active ? Style.menuIndigo : Style.menuInkDeep }
-                ColumnLayout { spacing: 1; Layout.fillWidth: true
-                  Text { text: modelData.ssid; font.family: root.uiFont; font.pixelSize: root.fontPx(9); font.bold: modelData.active; color: modelData.active ? Style.menuIndigo : Style.menuInk; elide: Text.ElideRight; Layout.fillWidth: true }
-                  Text { text: modelData.active ? "Connected" : (modelData.sec ? "Secure" : "Open"); font.family: root.uiFont; font.pixelSize: root.fontPx(7); color: modelData.active ? Style.menuIndigo : Style.menuInkDeep }
+              border.color: modelData.active ? Style.menuIndigo : (netMa.containsMouse ? Style.menuSep : "transparent")
+              border.width: 1
+              Row {
+                anchors.fill: parent
+                anchors.leftMargin: 8
+                anchors.rightMargin: 8
+                spacing: 6
+                Text { text: modelData.signal > 75 ? "󰤨" : (modelData.signal > 50 ? "󰤥" : (modelData.signal > 25 ? "󰤢" : "󰤟")); font.family: root.uiFont; font.pixelSize: root.fontPx(12); color: modelData.active ? Style.menuIndigo : Style.menuInkDeep; anchors.verticalCenter: parent.verticalCenter }
+                Column {
+                  width: parent.width - 90
+                  anchors.verticalCenter: parent.verticalCenter
+                  spacing: 1
+                  Text { width: parent.width; text: modelData.ssid; font.family: root.uiFont; font.pixelSize: root.fontPx(9); font.bold: modelData.active; color: modelData.active ? Style.menuIndigo : Style.menuInk; elide: Text.ElideRight }
+                  Text { width: parent.width; text: modelData.active ? "Connected" : (modelData.sec ? "Secure" : "Open"); font.family: root.uiFont; font.pixelSize: root.fontPx(7); color: modelData.active ? Style.menuIndigo : Style.menuInkDeep }
                 }
-                Text { text: modelData.sec ? "󰌾" : ""; font.family: root.uiFont; font.pixelSize: root.fontPx(10); color: Style.menuInkDeep }
-                Text { text: modelData.signal + "%"; font.family: root.uiFont; font.pixelSize: root.fontPx(8); color: Style.menuInkDeep }
+                Text { text: modelData.sec ? "󰌾" : ""; font.family: root.uiFont; font.pixelSize: root.fontPx(10); color: Style.menuInkDeep; anchors.verticalCenter: parent.verticalCenter }
+                Text { text: modelData.signal + "%"; font.family: root.uiFont; font.pixelSize: root.fontPx(8); color: Style.menuInkDeep; anchors.verticalCenter: parent.verticalCenter }
                 MouseArea {
-                  visible: modelData.active; width: 16; height: 16
-                  onClicked: { Quickshell.execDetached(["nmcli", "con", "down", "id", modelData.ssid]); quickNetworkRoot.scanWifi() }
+                  visible: modelData.active
+                  width: 20; height: 20
+                  anchors.verticalCenter: parent.verticalCenter
+                  onClicked: quickNetworkRoot.disconnectSsid(modelData.ssid)
                   Text { anchors.centerIn: parent; text: "󰅙"; font.family: root.uiFont; font.pixelSize: root.fontPx(12); color: Style.red }
                 }
               }
               MouseArea {
-                id: netMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; z: -1
-                onClicked: {
-                  if (modelData.active) { Quickshell.execDetached(["nmcli", "con", "down", "id", modelData.ssid]); quickNetworkRoot.scanWifi(); return }
-                  Quickshell.execDetached(["nmcli", "dev", "wifi", "connect", modelData.ssid])
-                  Qt.callLater(quickNetworkRoot.scanWifi)
-                }
+                id: netMa
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                z: -1
+                onClicked: quickNetworkRoot.tapNetwork(modelData)
               }
             }
           }
           Text {
             visible: (quickNetworkRoot.wifiNetworks || []).length === 0
+            width: parent.width
             text: quickNetworkRoot.wifiScanning ? "Scanning..." : "No networks. Tap Refresh."
-            color: Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont; horizontalAlignment: Text.AlignHCenter
+            color: Style.menuInkDeep
+            font.pixelSize: root.fontPx(9)
+            font.family: root.uiFont
+            horizontalAlignment: Text.AlignHCenter
+          }
+        }
+      }
+
+      Row {
+        Layout.fillWidth: true
+        spacing: 6
+        Repeater {
+          model: [
+            { label: "󰈀 Editor", cmd: [root.binDir + "/asahi-launch", "nm-connection-editor"] },
+            { label: "󱘖 nmtui", cmd: [root.binDir + "/asahi-launch-or-focus-tui", "nmtui"] }
+          ]
+          delegate: Rectangle {
+            required property var modelData
+            width: (parent.width - parent.spacing) / 2
+            height: 28
+            radius: Style.menuRadius
+            color: netToolMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
+            border.color: Style.menuSep
+            border.width: 1
+            Text {
+              anchors.centerIn: parent
+              text: modelData.label
+              color: Style.menuIndigo
+              font.pixelSize: root.fontPx(9)
+              font.family: root.uiFont
+            }
+            MouseArea {
+              id: netToolMa
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.execAndClose(modelData.cmd)
+            }
+          }
+        }
+      }
+    }
+
+    Rectangle {
+      anchors.fill: parent
+      radius: Style.menuRadius
+      color: Qt.rgba(0, 0, 0, 0.78)
+      visible: quickNetworkRoot.showPasswordPrompt
+      z: 20
+      ColumnLayout {
+        anchors.centerIn: parent
+        width: parent.width - 36
+        spacing: 10
+        Text {
+          text: "Connect to " + quickNetworkRoot.pendingSsid
+          color: Style.menuInk
+          font.family: root.uiFont
+          font.pixelSize: root.fontPx(10)
+          font.bold: true
+          Layout.alignment: Qt.AlignHCenter
+          Layout.fillWidth: true
+          horizontalAlignment: Text.AlignHCenter
+          elide: Text.ElideRight
+        }
+        Rectangle {
+          Layout.fillWidth: true
+          height: 30
+          radius: Style.menuRadius
+          color: Style.menuControlBg
+          border.color: Style.menuSep
+          border.width: 1
+          TextInput {
+            id: netPassInput
+            anchors.fill: parent
+            anchors.margins: 7
+            color: Style.menuInk
+            font.family: root.uiFont
+            font.pixelSize: root.fontPx(11)
+            echoMode: TextInput.Password
+            verticalAlignment: TextInput.AlignVCenter
+            onAccepted: quickNetworkRoot.doConnect(quickNetworkRoot.pendingSsid, text)
+          }
+        }
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 8
+          Rectangle {
+            Layout.fillWidth: true
+            height: 26
+            radius: Style.menuRadius
+            color: netPassCancelMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
+            border.color: Style.menuSep
+            border.width: 1
+            Text { anchors.centerIn: parent; text: "Cancel"; color: Style.menuInkDeep; font.family: root.uiFont; font.pixelSize: root.fontPx(10) }
+            MouseArea {
+              id: netPassCancelMa
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: quickNetworkRoot.showPasswordPrompt = false
+            }
+          }
+          Rectangle {
+            Layout.fillWidth: true
+            height: 26
+            radius: Style.menuRadius
+            color: netPassOkMa.containsMouse ? Style.menuRowHi : Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.22)
+            border.color: Style.menuIndigo
+            border.width: 1
+            Text { anchors.centerIn: parent; text: "Connect"; color: Style.menuIndigo; font.family: root.uiFont; font.pixelSize: root.fontPx(10); font.bold: true }
+            MouseArea {
+              id: netPassOkMa
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: quickNetworkRoot.doConnect(quickNetworkRoot.pendingSsid, netPassInput.text)
+            }
           }
         }
       }
@@ -2405,20 +2583,289 @@ Scope {
       Text { text: quickTempRoot.tempUpdated ? ("updated " + quickTempRoot.tempUpdated) : "asahi-temperature"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont }
     }
   } }
+  Component { id: quickBatteryComp; Item {
+    id: quickBatteryRoot
+    anchors.fill: parent
+
+    property string batIcon: "󰁹"
+    property string batStatus: ""
+    property int batPercentage: 0
+    property var batClass: []
+    property var batLines: []
+    property string batUpdated: ""
+    property string batTimeRemaining: ""
+
+    readonly property var batDetailLines: {
+      const lines = quickBatteryRoot.batLines || []
+      return lines.filter(function(l) {
+        if (!l) return false
+        if (l.indexOf("Power:") === 0) return false
+        if (l.indexOf("Time to ") === 0) return false
+        return true
+      })
+    }
+
+    function batColor() {
+      const cls = quickBatteryRoot.batClass || []
+      if (cls.indexOf("critical") >= 0) return Style.red
+      if (cls.indexOf("warning") >= 0) return Style.orange
+      if (cls.indexOf("charging") >= 0) return Style.yellow
+      if (cls.indexOf("full") >= 0) return Style.green
+      return Style.green
+    }
+    function parseBattery(jsonText) {
+      try {
+        const data = JSON.parse((jsonText || "").trim())
+        quickBatteryRoot.batPercentage = Number(data.percentage) || 0
+        quickBatteryRoot.batClass = data.class || []
+
+        const text = data.text || "󰁹 —"
+        const iconMatch = text.match(/^(.+?)\s+\d+%/)
+        quickBatteryRoot.batIcon = iconMatch ? iconMatch[1].trim() : "󰁹"
+
+        const raw = (data.tooltip || "").split("\n").filter(function(line) { return line.length > 0 })
+        const statusMatch = (raw[0] || "").match(/\(([^)]+)\)/)
+        quickBatteryRoot.batStatus = statusMatch ? statusMatch[1] : ""
+
+        const f = {}
+        for (let i = 1; i < raw.length; i++) {
+          const line = raw[i]
+          if (line.indexOf("Power:") === 0) f.power = line.substring(6).trim()
+          else if (line.indexOf("Time") === 0) f.time = line.replace(/^Time[^:]*:\s*/, "")
+          else if (line.indexOf("Energy:") === 0) {
+            const em = line.match(/Energy:\s*([^/]+)\s*\/\s*(.+)/)
+            if (em) { f.energyNow = em[1].trim(); f.energyFull = em[2].trim() }
+          } else if (line.indexOf("Design:") === 0) {
+            const dm = line.match(/Health:\s*([^(]+)\(([^)]+)\)/)
+            if (dm) { f.health = dm[1].trim(); f.healthLabel = dm[2].trim() }
+          } else if (line.indexOf("Cycles:") === 0) {
+            const cm = line.match(/Cycles:\s*([^|]+)\|\s*Temp:\s*(.+)/)
+            if (cm) { f.cycles = cm[1].trim(); f.temp = cm[2].trim() }
+          } else if (line.indexOf("Model:") === 0) {
+            const mm = line.match(/Model:\s*([^|]+)\|\s*Mfg:\s*(.+)/)
+            if (mm) { f.model = mm[1].trim(); f.mfg = mm[2].trim() }
+          }
+        }
+
+        quickBatteryRoot.batLines = raw.length > 1 ? raw.slice(1) : []
+        quickBatteryRoot.batUpdated = Qt.formatTime(new Date(), "HH:mm:ss")
+        quickBatteryRoot.batTimeRemaining = f.time || ""
+      } catch (_) {}
+    }
+
+    Process {
+      id: batProc
+      command: ["bash", root.binDir + "/asahi-battery"]
+      stdout: StdioCollector { onStreamFinished: quickBatteryRoot.parseBattery(text) }
+    }
+    Timer {
+      interval: 3000
+      running: root.quickDetailActive && root.expandedQuickKey === "battery"
+      repeat: true
+      triggeredOnStart: true
+      onTriggered: if (!batProc.running) batProc.running = true
+    }
+    Component.onCompleted: Qt.callLater(function() { if (!batProc.running) batProc.running = true })
+
+    Rectangle {
+      anchors.fill: parent
+      radius: 6
+      color: Style.menuControlBg
+      border.color: Style.menuSep
+      border.width: 1
+
+      ColumnLayout {
+        anchors.fill: parent
+        anchors.margins: 12
+        spacing: 8
+
+        // Prominent summary at top of the card (uses space wisely for the key overview)
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 12
+          ColumnLayout {
+            spacing: 2
+            Text {
+              text: quickBatteryRoot.batIcon + "  " + quickBatteryRoot.batPercentage + "%"
+              color: quickBatteryRoot.batColor()
+              font.pixelSize: root.fontPx(22)
+              font.family: root.uiFont
+              font.bold: true
+            }
+            Text {
+              visible: quickBatteryRoot.batTimeRemaining !== ""
+              text: quickBatteryRoot.batTimeRemaining
+              color: Style.menuInkDeep
+              font.pixelSize: root.fontPx(11)
+              font.family: root.uiFont
+            }
+            Text {
+              visible: quickBatteryRoot.batUpdated !== ""
+              text: "updated " + quickBatteryRoot.batUpdated
+              color: Style.menuInkDeep
+              font.pixelSize: root.fontPx(8)
+              font.family: root.uiFont
+              opacity: 0.7
+            }
+          }
+          Text {
+            Layout.fillWidth: true
+            Layout.alignment: Qt.AlignVCenter
+            visible: quickBatteryRoot.batStatus !== ""
+            text: quickBatteryRoot.batStatus
+            color: quickBatteryRoot.batColor()
+            font.pixelSize: root.fontPx(13)
+            font.family: root.uiFont
+            opacity: 0.95
+            elide: Text.ElideRight
+            wrapMode: Text.Wrap
+          }
+        }
+
+        // Progress bar
+        Rectangle {
+          Layout.fillWidth: true
+          height: 10
+          radius: 5
+          color: Qt.rgba(0, 0, 0, 0.22)
+          Rectangle {
+            width: parent.width * Math.max(0, Math.min(1, quickBatteryRoot.batPercentage / 100))
+            height: parent.height
+            radius: parent.radius
+            color: quickBatteryRoot.batColor()
+            Behavior on width { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
+          }
+        }
+
+        // Thin separator
+        Rectangle {
+          Layout.fillWidth: true
+          height: 1
+          color: Style.menuSep
+          opacity: 0.6
+        }
+
+        // Scrollable details (uses remaining space in the card)
+        Flickable {
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          clip: true
+          flickableDirection: Flickable.VerticalFlick
+          contentHeight: detailCol.implicitHeight
+          boundsBehavior: Flickable.StopAtBounds
+          ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded; width: 4 }
+          Column {
+            id: detailCol
+            width: parent.width
+            spacing: 4
+            Repeater {
+              model: quickBatteryRoot.batDetailLines.length ? quickBatteryRoot.batDetailLines : (quickBatteryRoot.batLines.length ? quickBatteryRoot.batLines : ["Loading…"])
+              delegate: Text {
+                required property string modelData
+                width: parent.width
+                text: modelData
+                color: Style.menuInkDeep
+                font.pixelSize: root.fontPx(12)
+                font.family: root.uiFont
+                wrapMode: Text.Wrap
+              }
+            }
+          }
+        }
+      }
+    }
+  } }
   Component { id: quickBtComp; Item {
     id: quickBtRoot
     anchors.fill: parent
-    // bt enhanced (power toggle rfkill like old, dev list conn/pair, procs)
     property bool btOn: Bluetooth.defaultAdapter && Bluetooth.defaultAdapter.enabled
     property var btDevs: (Bluetooth.devices && Bluetooth.devices.values) ? Bluetooth.devices.values : []
+    property string btAlias: "Bluetooth"
+    property string btTooltip: ""
+    property int btConnectedCount: 0
+    property string btUpdated: ""
+    readonly property var btPairedDevs: {
+      const devs = (quickBtRoot.btDevs || []).filter(function(d) { return d && d.paired })
+      devs.sort(function(a, b) { return (b.connected ? 1 : 0) - (a.connected ? 1 : 0) })
+      return devs
+    }
+
+    function btNotify(title, body) {
+      Quickshell.execDetached(["notify-send", "-a", "Bluetooth", title, body])
+    }
+    function openBtManager() {
+      root.execAndClose([root.binDir + "/asahi-launch-bluetooth"])
+    }
+    function btConnect(mac, name) {
+      btActionProc.action = "connect"
+      btActionProc.targetMac = mac || ""
+      btActionProc.targetName = name || "device"
+      btActionProc.command = ["bluetoothctl", "connect", btActionProc.targetMac]
+      btActionProc.running = true
+      root.closeLauncher()
+    }
+    function btDisconnect(mac, name) {
+      btActionProc.action = "disconnect"
+      btActionProc.targetMac = mac || ""
+      btActionProc.targetName = name || "device"
+      btActionProc.command = ["bluetoothctl", "disconnect", btActionProc.targetMac]
+      btActionProc.running = true
+      root.closeLauncher()
+    }
 
     Process {
       id: btStat
       command: ["sh", "-c", "bluetoothctl show 2>/dev/null || true"]
       stdout: StdioCollector { onStreamFinished: quickBtRoot.btOn = (text || "").indexOf("Powered: yes") !== -1 }
     }
-    Timer { id: btDelay; interval: 500; onTriggered: if (btStat) btStat.running = true }
-    function refreshBt() { if (btStat && !btStat.running) btStat.running = true }
+    Process {
+      id: btJsonProc
+      command: [root.binDir + "/asahi-bluetooth"]
+      stdout: StdioCollector {
+        onStreamFinished: {
+          try {
+            const d = JSON.parse((text || "").trim() || "{}")
+            quickBtRoot.btTooltip = d.tooltip || ""
+            const lines = (d.tooltip || "").split("\n")
+            quickBtRoot.btAlias = lines[0] || "Bluetooth"
+            const m = (lines[1] || "").match(/(\d+)\s+connected/)
+            quickBtRoot.btConnectedCount = m ? parseInt(m[1], 10) : 0
+            quickBtRoot.btUpdated = Qt.formatTime(new Date(), "HH:mm:ss")
+          } catch (_) {}
+        }
+      }
+    }
+    Process {
+      id: btActionProc
+      property string action: ""
+      property string targetMac: ""
+      property string targetName: ""
+      onExited: function(code) {
+        if (btActionProc.action === "connect") {
+          if (code === 0) quickBtRoot.btNotify("Connected", btActionProc.targetName)
+          else {
+            quickBtRoot.btNotify("Could not connect", btActionProc.targetName)
+            quickBtRoot.openBtManager()
+          }
+        } else if (btActionProc.action === "disconnect" && code === 0) {
+          quickBtRoot.btNotify("Disconnected", btActionProc.targetName)
+        }
+        btDelay.restart()
+        if (!btJsonProc.running) btJsonProc.running = true
+      }
+    }
+    Timer { id: btDelay; interval: 500; onTriggered: { if (btStat) btStat.running = true; if (btJsonProc) btJsonProc.running = true } }
+    Timer {
+      interval: 4000
+      running: root.quickDetailActive && root.expandedQuickKey === "bluetooth"
+      repeat: true
+      triggeredOnStart: true
+      onTriggered: { if (!btJsonProc.running) btJsonProc.running = true }
+    }
+    function refreshBt() {
+      if (btStat && !btStat.running) btStat.running = true
+      if (btJsonProc && !btJsonProc.running) btJsonProc.running = true
+    }
     function toggleBt() {
       const next = quickBtRoot.btOn ? "off" : "on"
       Quickshell.execDetached(["sh", "-c", "if [ \"$1\" = on ]; then rfkill unblock bluetooth 2>/dev/null || true; fi; bluetoothctl power \"$1\"", "sh", next])
@@ -2431,46 +2878,112 @@ Scope {
     ColumnLayout {
       id: btLayout
       anchors.fill: parent
-      spacing: 10
+      spacing: 6
 
-      Item {
+      RowLayout {
         Layout.fillWidth: true
-        Layout.preferredHeight: 30
+        spacing: 6
         Text {
-          anchors.left: parent.left
-          anchors.verticalCenter: parent.verticalCenter
-          text: "Bluetooth Radio: " + (quickBtRoot.btOn ? "Active" : "Off")
+          text: "󰂯 " + quickBtRoot.btAlias
           color: quickBtRoot.btOn ? Style.green : Style.menuInkDeep
-          font.pixelSize: root.fontPx(11); font.family: root.uiFont; font.bold: true
+          font.pixelSize: root.fontPx(9)
+          font.family: root.uiFont
+          font.bold: true
+          Layout.fillWidth: true
+          elide: Text.ElideRight
+        }
+        Text {
+          text: quickBtRoot.btOn ? (quickBtRoot.btConnectedCount + " connected") : "off"
+          color: quickBtRoot.btOn ? Style.menuIndigo : Style.menuInkDeep
+          font.pixelSize: root.fontPx(8)
+          font.family: root.uiFont
+        }
+      }
+
+      Text {
+        visible: quickBtRoot.btTooltip.length > 0
+        Layout.fillWidth: true
+        text: {
+          let t = quickBtRoot.btTooltip || ""
+          const lines = t.split("\n")
+          if (lines.length <= 2) return ""
+          return lines.slice(2).join("\n").trim()
+        }
+        color: Style.menuInkDeep
+        font.pixelSize: root.fontPx(8)
+        font.family: root.uiFont
+        wrapMode: Text.Wrap
+        maximumLineCount: 2
+        elide: Text.ElideRight
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        Text {
+          text: "Radio: " + (quickBtRoot.btOn ? "Active" : "Off")
+          color: quickBtRoot.btOn ? Style.green : Style.menuInkDeep
+          font.pixelSize: root.fontPx(8)
+          font.family: root.uiFont
+          font.bold: true
+          Layout.fillWidth: true
         }
         Rectangle {
-          anchors.right: parent.right
-          anchors.verticalCenter: parent.verticalCenter
-          width: btPwrLbl.width + 16; height: 26; radius: Style.menuRadius
+          width: btPwrLbl.width + 16
+          height: 24
+          radius: Style.menuRadius
           color: btPwr.containsMouse ? Style.menuRowHi : Style.menuControlBg
-          border.color: Style.menuSep; border.width: 1
+          border.color: Style.menuSep
+          border.width: 1
           Behavior on color { ColorAnimation { duration: 140 } }
-          Text { id: btPwrLbl; anchors.centerIn: parent; text: quickBtRoot.btOn ? "Turn Off" : "Turn On"; font.pixelSize: root.fontPx(10); color: Style.menuInk; font.family: root.uiFont }
-          MouseArea { id: btPwr; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: quickBtRoot.toggleBt() }
+          Text {
+            id: btPwrLbl
+            anchors.centerIn: parent
+            text: quickBtRoot.btOn ? "Turn Off" : "Turn On"
+            font.pixelSize: root.fontPx(8)
+            color: Style.menuInk
+            font.family: root.uiFont
+            font.bold: true
+          }
+          MouseArea {
+            id: btPwr
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: quickBtRoot.toggleBt()
+          }
         }
       }
 
       Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Style.menuSep }
 
+      Text {
+        text: "Paired devices"
+        color: Style.menuInkDeep
+        font.pixelSize: root.fontPx(8)
+        font.family: root.uiFont
+        font.letterSpacing: 0.8
+      }
+
       Flickable {
         Layout.fillWidth: true
         Layout.fillHeight: true
         clip: true
+        flickableDirection: Flickable.VerticalFlick
         contentHeight: btCol.implicitHeight
         boundsBehavior: Flickable.StopAtBounds
+        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded; width: 4 }
         Column {
-          id: btCol; width: parent.width; spacing: 5
+          id: btCol
+          width: parent.width
+          spacing: 4
           Repeater {
-            model: (quickBtRoot.btDevs || [])
+            model: quickBtRoot.btPairedDevs || []
             delegate: Rectangle {
               id: btRow
               required property var modelData
-              width: parent.width; height: 42; radius: Style.menuRadius
+              width: parent.width
+              height: 32
+              radius: Style.menuRadius
               color: modelData.connected ? Style.menuRowSel : (btd.containsMouse ? Style.menuRowHi : "transparent")
               border.color: modelData.connected ? Style.menuSeal : (btd.containsMouse ? Style.menuSep : "transparent")
               border.width: 1
@@ -2482,11 +2995,11 @@ Scope {
               Text {
                 id: btIcon
                 anchors.left: parent.left
-                anchors.leftMargin: 12
+                anchors.leftMargin: 8
                 anchors.verticalCenter: parent.verticalCenter
-                width: 22
+                width: 18
                 text: modelData.connected ? "󰂱" : "󰂯"
-                font.pixelSize: root.fontPx(14)
+                font.pixelSize: root.fontPx(10)
                 color: modelData.connected ? Style.green : Style.menuInkDeep
                 font.family: root.uiFont
                 horizontalAlignment: Text.AlignHCenter
@@ -2494,22 +3007,28 @@ Scope {
 
               Column {
                 anchors.left: btIcon.right
-                anchors.leftMargin: 12
+                anchors.leftMargin: 8
                 anchors.right: btAction.left
-                anchors.rightMargin: 14
+                anchors.rightMargin: 8
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 1
                 Text {
                   width: parent.width
                   text: modelData.name || modelData.alias || modelData.address || "Device"
-                  color: Style.menuInk; font.pixelSize: root.fontPx(11); font.family: root.uiFont
-                  elide: Text.ElideRight; font.bold: modelData.connected
+                  color: Style.menuInk
+                  font.pixelSize: root.fontPx(9)
+                  font.family: root.uiFont
+                  elide: Text.ElideRight
+                  font.bold: modelData.connected
                 }
                 Text {
                   width: parent.width
-                  text: modelData.connected ? "Connected"
-                    : (modelData.batteryAvailable ? ("Battery: " + modelData.battery + "%") : (modelData.paired ? "Paired" : "Nearby Device"))
-                  color: modelData.connected ? Style.green : Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont
+                  text: modelData.connected
+                    ? (modelData.batteryAvailable ? ("Connected · " + modelData.battery + "%") : "Connected")
+                    : "Paired"
+                  color: modelData.connected ? Style.green : Style.menuInkDeep
+                  font.pixelSize: root.fontPx(7)
+                  font.family: root.uiFont
                   elide: Text.ElideRight
                 }
               }
@@ -2517,42 +3036,86 @@ Scope {
               Rectangle {
                 id: btAction
                 anchors.right: parent.right
-                anchors.rightMargin: 10
+                anchors.rightMargin: 8
                 anchors.verticalCenter: parent.verticalCenter
-                width: 108; height: 24; radius: Style.menuRadius
+                width: btActionLbl.width + 12
+                height: 22
+                radius: Style.menuRadius
                 color: btActionMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
-                border.color: Style.menuSep; border.width: 1
+                border.color: Style.menuSep
+                border.width: 1
                 Behavior on color { ColorAnimation { duration: 120 } }
                 Text {
+                  id: btActionLbl
                   anchors.centerIn: parent
-                  text: modelData.connected ? "󰂲  Disconnect" : (modelData.paired ? "󰂱  Connect" : "󰂯  Pair")
-                  font.pixelSize: root.fontPx(8); color: Style.menuIndigo; font.family: root.uiFont
-                  elide: Text.ElideRight
-                  width: parent.width - 8
-                  horizontalAlignment: Text.AlignHCenter
+                  text: modelData.connected ? "Disconnect" : "Connect"
+                  font.pixelSize: root.fontPx(8)
+                  color: Style.menuIndigo
+                  font.family: root.uiFont
+                  font.bold: true
                 }
                 MouseArea {
                   id: btActionMa
-                  anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                  onClicked: { if (btRow.modelData.connected) btRow.modelData.disconnect(); else if (btRow.modelData.paired) btRow.modelData.connect(); else btRow.modelData.pair() }
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: {
+                    const dev = btRow.modelData
+                    const name = dev.name || dev.alias || dev.address || "device"
+                    if (dev.connected) quickBtRoot.btDisconnect(dev.address, name)
+                    else if (dev.paired) quickBtRoot.btConnect(dev.address, name)
+                    else { dev.pair(); root.closeLauncher() }
+                  }
                 }
               }
             }
           }
           Text {
-            visible: (!quickBtRoot.btDevs || quickBtRoot.btDevs.length === 0)
-            text: "No devices found"
-            color: Style.menuInkDeep; font.pixelSize: root.fontPx(11); font.family: root.uiFont
-            width: parent.width; horizontalAlignment: Text.AlignHCenter
+            visible: quickBtRoot.btOn && (!quickBtRoot.btPairedDevs || quickBtRoot.btPairedDevs.length === 0)
+            text: "No paired devices"
+            color: Style.menuInkDeep
+            font.pixelSize: root.fontPx(9)
+            font.family: root.uiFont
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
+          }
+          Text {
+            visible: !quickBtRoot.btOn
+            text: "Bluetooth is off"
+            color: Style.menuInkDeep
+            font.pixelSize: root.fontPx(9)
+            font.family: root.uiFont
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
           }
         }
       }
-      Text {
+
+      Rectangle {
         Layout.fillWidth: true
-        text: "󰂯 " + ((quickBtRoot.btDevs||[]).length||0) + " devices" + (quickBtRoot.btOn ? "" : " · radio off")
-        color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont
-        horizontalAlignment: Text.AlignLeft
+        height: 26
+        radius: Style.menuRadius
+        color: btMgrMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
+        border.color: Style.menuSep
+        border.width: 1
+        Behavior on color { ColorAnimation { duration: 120 } }
+        Text {
+          anchors.centerIn: parent
+          text: "󰂯 Bluetooth manager"
+          color: Style.menuIndigo
+          font.pixelSize: root.fontPx(9)
+          font.family: root.uiFont
+          font.bold: true
+        }
+        MouseArea {
+          id: btMgrMa
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: quickBtRoot.openBtManager()
+        }
       }
+      Text { text: quickBtRoot.btUpdated ? ("updated " + quickBtRoot.btUpdated) : ""; color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont; Layout.alignment: Qt.AlignRight }
     }
   } }
   Component { id: quickStorageComp; Item {
@@ -2577,7 +3140,7 @@ Scope {
         Text {
           text: "STORAGE"
           color: Style.menuInk
-          font.pixelSize: root.fontPx(9)
+          font.pixelSize: root.quickPx(9)
           font.family: root.uiFont
           font.letterSpacing: 1.2
           font.weight: Font.Medium
@@ -2588,7 +3151,7 @@ Scope {
             ? "scanning…"
             : (root.storageUpdated ? ("updated " + root.storageUpdated) : "")
           color: Style.menuInkDeep
-          font.pixelSize: root.fontPx(8)
+          font.pixelSize: root.quickPx(8)
           font.family: root.uiFont
         }
       }
@@ -2619,7 +3182,7 @@ Scope {
               visible: root.storageError !== ""
               text: root.storageError
               color: Style.red
-              font.pixelSize: root.fontPx(9)
+              font.pixelSize: root.quickPx(9)
               font.family: root.uiFont
               width: parent.width
               wrapMode: Text.Wrap
@@ -2628,7 +3191,7 @@ Scope {
             Text {
               text: "FILESYSTEMS"
               color: Style.menuInkDeep
-              font.pixelSize: root.fontPx(8)
+              font.pixelSize: root.quickPx(8)
               font.family: root.uiFont
               font.letterSpacing: 1
             }
@@ -2637,7 +3200,7 @@ Scope {
               visible: (root.storageMounts || []).length === 0 && root.storageStatus === "scanning"
               text: "Reading mount points…"
               color: Style.menuInkDeep
-              font.pixelSize: root.fontPx(9)
+              font.pixelSize: root.quickPx(9)
               font.family: root.uiFont
               width: parent.width
             }
@@ -2666,7 +3229,7 @@ Scope {
                     Text {
                       text: modelData.mount
                       color: modelData.highlight ? Style.menuInk : Style.menuInkDeep
-                      font.pixelSize: root.fontPx(9)
+                      font.pixelSize: root.quickPx(9)
                       font.family: root.uiFont
                       font.weight: modelData.highlight ? Font.Medium : Font.Light
                       Layout.fillWidth: true
@@ -2675,7 +3238,7 @@ Scope {
                     Text {
                       text: modelData.pct + "%"
                       color: quickStorageRoot.mountColor(modelData.pct)
-                      font.pixelSize: root.fontPx(8)
+                      font.pixelSize: root.quickPx(8)
                       font.family: root.uiFont
                       font.bold: true
                     }
@@ -2686,7 +3249,7 @@ Scope {
                       + root.prettyBytes(modelData.avail) + " free · "
                       + root.prettyBytes(modelData.total) + " total"
                     color: Style.menuInkDeep
-                    font.pixelSize: root.fontPx(7)
+                    font.pixelSize: root.quickPx(7)
                     font.family: root.uiFont
                     width: parent.width
                     elide: Text.ElideRight
@@ -2711,7 +3274,7 @@ Scope {
                   anchors.fill: parent
                   hoverEnabled: true
                   cursorShape: Qt.PointingHandCursor
-                  onClicked: Quickshell.execDetached(["xdg-open", modelData.mount])
+                  onClicked: Quickshell.execDetached([binDir + "/asahi-launch", "xdg-open", modelData.mount])
                 }
               }
             }
@@ -2806,7 +3369,7 @@ Scope {
                   anchors.fill: parent
                   hoverEnabled: true
                   cursorShape: Qt.PointingHandCursor
-                  onClicked: Quickshell.execDetached(["xdg-open", modelData.path])
+                  onClicked: Quickshell.execDetached([binDir + "/asahi-launch", "xdg-open", modelData.path])
                 }
               }
             }
@@ -2865,6 +3428,7 @@ Scope {
       case "network": return quickNetworkComp
       case "monitors": return quickMonitorsComp
       case "temp": return quickTempComp
+      case "battery": return quickBatteryComp
       case "bluetooth": return quickBtComp
       case "storage": return quickStorageComp
       default: return quickDefaultComp
@@ -3174,7 +3738,8 @@ Scope {
 
     const ws = root.launcherWorkspaceId || Hyprland.focusedWorkspace?.id || 1
     Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({ workspace = " + ws + " })"])
-    Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.exec_cmd(" + root.luaQuote("[workspace " + ws + "] " + exec) + ")"])
+    const launchPrefix = (command.length > 0 ? (binDir + "/asahi-launch ") : "uwsm-app -- ")
+    Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.exec_cmd(" + root.luaQuote("[workspace " + ws + "] " + launchPrefix + exec) + ")"])
   }
 
   function launchApp(entry) {
@@ -3203,7 +3768,7 @@ Scope {
       const copy = entry.copy || ""
       if (copy) Quickshell.execDetached(["sh", "-c", "printf %s \"$1\" | wl-copy", "sh", copy])
     } else if (entry.special === "file" && entry.path) {
-      Quickshell.execDetached(["xdg-open", entry.path])
+      Quickshell.execDetached([binDir + "/asahi-launch", "xdg-open", entry.path])
     } else if (entry.special === "action") {
       if (entry.mode) {
         root.categoryFilter = "Quick"
@@ -3226,7 +3791,7 @@ Scope {
       let u = entry.url
       if (u.includes("%TERM%")) u = u.replace("%TERM%", "")
       u = u.replace(/\?q=$/, "").replace(/\?s=$/, "").replace(/&text=$/, "").replace(/search\?q=$/, "")
-      Quickshell.execDetached(["xdg-open", u])
+      Quickshell.execDetached([binDir + "/asahi-launch", "xdg-open", u])
     } else if (entry.special === "app" && entry.raw) {
       shouldShow = false
       Qt.callLater(() => root.launchDesktopEntry(entry.raw))
@@ -4570,7 +5135,7 @@ Scope {
                     text: qDetailSide.qtile.glyph || "󰘔"
                     color: Style.menuSeal
                     font.family: root.uiFont
-                    font.pixelSize: root.fontPx(28)
+                    font.pixelSize: root.fontPx(14)
                     Layout.alignment: Qt.AlignVCenter
                   }
                   Column {
@@ -4581,7 +5146,7 @@ Scope {
                       text: (qDetailSide.qtile.label || "").toUpperCase()
                       color: Style.menuInk
                       font.family: root.uiFont
-                      font.pixelSize: root.fontPx(14)
+                      font.pixelSize: root.fontPx(10)
                       font.letterSpacing: 1.8
                       font.weight: Font.Medium
                     }
@@ -4589,7 +5154,7 @@ Scope {
                       text: qDetailSide.qtile.sub || ""
                       color: Style.menuInkDeep
                       font.family: root.uiFont
-                      font.pixelSize: root.fontPx(11)
+                      font.pixelSize: root.fontPx(8)
                       font.letterSpacing: 0.8
                       opacity: 0.85
                       elide: Text.ElideRight

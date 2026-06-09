@@ -9,6 +9,10 @@ if hyprctl clients -j | jq -e --arg workspace "$workspace" '.[] | select(.worksp
   exec hyprctl dispatch togglespecialworkspace term
 fi
 
-hyprctl dispatch exec "[workspace $workspace silent] $terminal"
+if command -v uwsm-app >/dev/null 2>&1; then
+  hyprctl dispatch exec "[workspace $workspace silent] uwsm-app -- $terminal"
+else
+  hyprctl dispatch exec "[workspace $workspace silent] $terminal"
+fi
 sleep 0.2
 hyprctl dispatch togglespecialworkspace term

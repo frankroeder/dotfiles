@@ -21,7 +21,6 @@ Rectangle {
     implicitWidth: row.implicitWidth + 14
     implicitHeight: 26
 
-    property string icon: ""
     property string text: "BT"
     property string tooltip: ""
 
@@ -47,8 +46,6 @@ Rectangle {
                     const data = JSON.parse(text.trim())
                     root.text = data.text || "BT"
                     root.tooltip = data.tooltip || ""
-                    if (data.text && data.text.includes("on")) root.icon = "󰂯"
-                    else root.icon = "󰂲"
                 } catch (e) {}
             }
         }
@@ -65,6 +62,8 @@ Rectangle {
         id: ma
         anchors.fill: parent
         hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: Quickshell.execDetached(["qs", "-c", "remix", "ipc", "call", "launcher", "quick", "bluetooth"])
     }
 
     TooltipWindow {

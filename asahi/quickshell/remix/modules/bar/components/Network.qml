@@ -169,6 +169,8 @@ Rectangle {
         anchors.fill: parent
         anchors.margins: -12   // much larger hit area so hover and click are reliable
         hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: Quickshell.execDetached(["qs", "-c", "remix", "ipc", "call", "launcher", "quick", "network"])
     }
 
     TooltipWindow {

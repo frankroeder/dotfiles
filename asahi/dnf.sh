@@ -41,7 +41,6 @@ sudo dnf install -y \
   fastfetch \
   ffmpeg \
   flatpak \
-  fuzzel \
   ghostty \
   google-noto-color-emoji-fonts \
   grim \

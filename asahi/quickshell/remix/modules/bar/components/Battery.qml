@@ -23,6 +23,7 @@ Rectangle {
 
     property string text: "Bat --%"
     property string tooltip: ""
+    property int percentage: 0
 
     RowLayout {
         id: row
@@ -33,7 +34,7 @@ Rectangle {
             text: root.text
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 18
-            color: Style.green
+            color: root.percentage <= 10 ? Style.red : (root.percentage <= 20 ? Style.orange : Style.green)
         }
     }
 
@@ -46,6 +47,7 @@ Rectangle {
                     const data = JSON.parse(text.trim())
                     root.text = data.text || "Bat --%"
                     root.tooltip = data.tooltip || ""
+                    root.percentage = data.percentage || 0
                 } catch (e) {}
             }
         }
@@ -63,7 +65,7 @@ Rectangle {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: Quickshell.execDetached(["qs", "-c", "remix", "ipc", "call", "launcher", "openCategory", "Quick"])
+        onClicked: Quickshell.execDetached(["qs", "-c", "remix", "ipc", "call", "launcher", "quick", "battery"])
     }
 
     TooltipWindow {

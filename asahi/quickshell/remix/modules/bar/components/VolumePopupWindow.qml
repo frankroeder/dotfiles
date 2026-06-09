@@ -218,7 +218,7 @@ PanelWindow {
           cursorShape: Qt.PointingHandCursor
           onClicked: {
             root.shouldShow = false
-            Quickshell.execDetached(["pavucontrol"])
+            Quickshell.execDetached([binDir + "/asahi-launch", "pavucontrol"])
           }
           Text {
             anchors.centerIn: parent

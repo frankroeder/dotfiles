@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# General guarded launcher for user graphical apps under uwsm when available.
+# Mirrors the logic in asahi/hypr/hyprland.lua:launch() and the specialized launch-* scripts.
+set -euo pipefail
+
+if [ "$#" -eq 0 ]; then
+  echo "usage: $0 <command> [args...]" >&2
+  exit 2
+fi
+
+if command -v uwsm-app >/dev/null 2>&1; then
+  exec setsid uwsm-app -- "$@"
+fi
+
+exec setsid "$@"

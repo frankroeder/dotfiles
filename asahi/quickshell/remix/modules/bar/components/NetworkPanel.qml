@@ -184,8 +184,10 @@ FocusScope {
         Repeater {
           model: root.networks
           delegate: Rectangle {
-            Layout.fillWidth: true; height: 28; radius: 4
-            color: modelData.active ? Qt.rgba(0.25,0.55,0.35,0.25) : (netMa.containsMouse ? Qt.rgba(0.2,0.2,0.25,0.2) : "transparent")
+            Layout.fillWidth: true; height: 30; radius: 5
+            color: modelData.active ? Qt.rgba(Style.blue.r, Style.blue.g, Style.blue.b, 0.22) : (netMa.containsMouse ? Qt.rgba(Style.surface.r, Style.surface.g, Style.surface.b, 0.25) : "transparent")
+            border.color: modelData.active ? Style.blueAlt : "transparent"
+            border.width: modelData.active ? 1.5 : 0
             RowLayout {
               anchors.fill: parent; anchors.leftMargin: 5; anchors.rightMargin: 5; spacing: 6
               Text {
@@ -194,8 +196,8 @@ FocusScope {
               }
               ColumnLayout {
                 spacing: -1; Layout.fillWidth: true
-                Text { text: modelData.ssid; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10; color: modelData.active ? Style.blueAlt : Style.text; elide: Text.ElideRight; Layout.fillWidth: true }
-                Text { text: modelData.active ? "Connected" : (modelData.security ? "Secure" : "Open"); font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 8; color: Style.textMuted }
+                Text { text: modelData.ssid; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10; font.bold: modelData.active; color: modelData.active ? Style.blueAlt : Style.text; elide: Text.ElideRight; Layout.fillWidth: true }
+                Text { text: modelData.active ? "Connected" : (modelData.security ? "Secure" : "Open"); font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 8; color: modelData.active ? Style.blueAlt : Style.textMuted }
               }
               Text { text: modelData.security ? "󰌾" : ""; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: Style.textMuted }
               Text { text: modelData.signal+"%"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 9; color: Style.textMuted }
@@ -234,8 +236,8 @@ FocusScope {
 
       MouseArea {
         Layout.fillWidth: true; height: 22; cursorShape: Qt.PointingHandCursor
-        onClicked: { closeRequested(); Quickshell.execDetached([binDir + "/asahi-network-menu"]) }
-        Text { anchors.centerIn:parent; text: "Advanced Network Menu →"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10; color: Style.blueAlt }
+        onClicked: { closeRequested(); Quickshell.execDetached(["qs", "-c", "remix", "ipc", "call", "launcher", "quick", "network"]) }
+        Text { anchors.centerIn:parent; text: "Open Network Controls →"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10; color: Style.blueAlt }
       }
     }
 

@@ -112,7 +112,7 @@ FocusScope {
         spacing: 12
         MouseArea { Layout.fillWidth: true; height: 26; cursorShape: Qt.PointingHandCursor; onClicked: { Quickshell.execDetached([binDir + "/asahi-media-control", "output-volume", "raise"]); refresh() }; Text { anchors.centerIn: parent; text: "Raise"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: Style.green } }
         MouseArea { Layout.fillWidth: true; height: 26; cursorShape: Qt.PointingHandCursor; onClicked: { Quickshell.execDetached([binDir + "/asahi-media-control", "output-volume", "lower"]); refresh() }; Text { anchors.centerIn: parent; text: "Lower"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: Style.green } }
-        MouseArea { Layout.fillWidth: true; height: 26; cursorShape: Qt.PointingHandCursor; onClicked: { root.closeRequested(); Quickshell.execDetached(["pavucontrol"]) }; Text { anchors.centerIn: parent; text: "Mixer →"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: Style.green } }
+        MouseArea { Layout.fillWidth: true; height: 26; cursorShape: Qt.PointingHandCursor; onClicked: { root.closeRequested(); Quickshell.execDetached([binDir + "/asahi-launch", "pavucontrol"]) }; Text { anchors.centerIn: parent; text: "Mixer →"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: Style.green } }
       }
     }
   }

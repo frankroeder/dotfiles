@@ -570,7 +570,7 @@ check: ## Run Neovim health check
 	fi
 
 check-asahi: ## Check minimal Asahi desktop commands
-	@for command in Hyprland fuzzel; do \
+	@for command in Hyprland; do \
 		command -v "$$command" >/dev/null 2>&1 || $(call print_warning,$$command not installed); \
 	done
 	@for command in quickshell qs hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl; do \
