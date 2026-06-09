@@ -69,6 +69,7 @@ sudo dnf install -y \
   pipewire \
   pipewire-pulseaudio \
   pipewire-utils \
+  pipewire-alsa \
   playerctl \
   ripgrep \
   slurp \
@@ -84,6 +85,8 @@ sudo dnf install -y \
   xdg-desktop-portal \
   xdg-desktop-portal-gtk \
   xdg-desktop-portal-hyprland \
+  desktop-file-utils \
+  qt6-qtwayland \
   zsh
 
 flatpak remote-add --user --if-not-exists flathub "$FLATHUB_REPO_URL"
