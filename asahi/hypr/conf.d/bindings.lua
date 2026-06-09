@@ -3,7 +3,7 @@ local scripts = dotfilesDir .. "/asahi/bin"
 
 -- Apps and windows
 hl.bind(mod .. " + T", hl.dsp.exec_cmd(terminal), { desc = "Terminal" })
-hl.bind(mod .. " + F", hl.dsp.exec_cmd(filemanager), { desc = "Filemanager" })
+hl.bind(mod .. " + H", hl.dsp.exec_cmd(filemanager), { desc = "Filemanager" })
 hl.bind(mod .. " + SPACE", hl.dsp.global("quickshell:launcher-toggle"), { desc = "Launcher" })
 hl.bind(mod .. " + SHIFT + W", hl.dsp.exec_cmd("qs -c remix ipc call wallpaper toggle"), { desc = "Wallpaper picker" })
 -- hl.bind(mod .. " + B", hl.dsp.exec_cmd(browser), { desc = "Browser" })

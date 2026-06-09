@@ -862,148 +862,6 @@ Scope {
         }
       }
 
-      Rectangle {
-        Layout.fillWidth: true
-        Layout.preferredHeight: 70
-        Layout.maximumHeight: 70
-        radius: Style.menuRadius
-        color: Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.03)
-        border.color: Style.menuSep
-        border.width: 1
-
-        ColumnLayout {
-          anchors.fill: parent
-          anchors.margins: 6
-          spacing: 4
-
-          RowLayout {
-            Layout.fillWidth: true
-            Text {
-              text: "SCREENSHOTS"
-              color: Style.menuInk
-              font.pixelSize: root.fontPx(8)
-              font.family: root.uiFont
-              font.letterSpacing: 1.2
-              font.weight: Font.Medium
-            }
-            Item { Layout.fillWidth: true }
-            Text {
-              text: (root.shots || []).length + " recent"
-              color: Style.menuInkDeep
-              font.pixelSize: root.fontPx(7)
-              font.family: root.uiFont
-            }
-          }
-
-          Grid {
-            id: lowerShots
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            columns: 4
-            columnSpacing: 6
-            rowSpacing: 4
-            Repeater {
-              model: (root.shots || []).slice(0, 4)
-              delegate: Item {
-                required property var modelData
-                width: (lowerShots.width - 3 * 6) / 4
-                height: lowerShots.height
-                Rectangle {
-                  anchors.fill: parent
-                  radius: Style.menuRadius
-                  clip: true
-                  color: shotMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
-                  border.color: root.copiedShot === modelData.path ? Style.green : Style.menuSep
-                  border.width: root.copiedShot === modelData.path ? 2 : 1
-                  Behavior on color { ColorAnimation { duration: 80 } }
-                  Behavior on border.color { ColorAnimation { duration: 80 } }
-
-                  Image {
-                    anchors.fill: parent
-                    anchors.margins: 1
-                    source: (modelData && modelData.path) ? ("file://" + modelData.path) : ""
-                    fillMode: Image.PreserveAspectCrop
-                    asynchronous: true
-                    sourceSize.width: 160
-                    sourceSize.height: 96
-                  }
-
-                  Rectangle {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                    height: 16
-                    color: Qt.rgba(0, 0, 0, 0.62)
-                    Text {
-                      anchors.centerIn: parent
-                      text: modelData.label
-                      color: Style.menuInk
-                      font.pixelSize: root.fontPx(6)
-                      font.family: root.uiFont
-                      elide: Text.ElideRight
-                      width: parent.width - 4
-                      horizontalAlignment: Text.AlignHCenter
-                    }
-                  }
-
-                  Rectangle {
-                    anchors.fill: parent
-                    color: Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.35)
-                    visible: root.copiedShot === modelData.path
-                    Text {
-                      anchors.centerIn: parent
-                      text: "COPIED"
-                      color: Style.menuInk
-                      font.pixelSize: root.fontPx(7)
-                      font.family: root.uiFont
-                      font.weight: Font.Medium
-                      font.letterSpacing: 1
-                    }
-                  }
-
-                  MouseArea {
-                    id: shotMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    acceptedButtons: Qt.LeftButton | Qt.RightButton
-                    onClicked: (mouse) => {
-                      if (mouse.button === Qt.RightButton) root.previewShot(modelData.path)
-                      else root.copyShot(modelData.path)
-                    }
-                  }
-
-                  Rectangle {
-                    anchors.top: parent.top
-                    anchors.right: parent.right
-                    anchors.margins: 4
-                    width: 20
-                    height: 20
-                    radius: 10
-                    z: 2
-                    visible: shotMa.containsMouse
-                    color: Style.menuControlBg
-                    border.width: 1
-                    border.color: Style.menuSep
-                    Text {
-                      anchors.centerIn: parent
-                      text: "󰋲"
-                      color: Style.menuSeal
-                      font.pixelSize: root.fontPx(10)
-                      font.family: root.uiFont
-                    }
-                    MouseArea {
-                      anchors.fill: parent
-                      cursorShape: Qt.PointingHandCursor
-                      onClicked: root.previewShot(modelData.path)
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
     }
   } }
   Component { id: quickWallpaperComp; Item {
@@ -3127,7 +2985,6 @@ Scope {
       root.query = ""
       if (searchInput) searchInput.text = ""
       root.expandedQuickKey = ""
-      Qt.callLater(function(){ if (root.scanShots) root.scanShots() })
     } else {
       root.expandedQuickKey = ""
     }
@@ -3259,7 +3116,7 @@ Scope {
     const k = (key === "dashboard" || key === "hub") ? "hub" : key
     if (!root.quickMode) { root.categoryFilter = "Quick"; root.query = ""; if (searchInput) searchInput.text = "" }
     root.expandedQuickKey = (root.expandedQuickKey === k ? "" : k)
-    if (root.expandedQuickKey === "screenshots" || root.expandedQuickKey === "hub") root.scanShots()
+    if (root.expandedQuickKey === "screenshots") root.scanShots()
     if (root.expandedQuickKey === "storage") root.scanStorage()
   }
 

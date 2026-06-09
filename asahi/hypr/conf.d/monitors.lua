@@ -2,7 +2,7 @@ hl.monitor({
   output = "eDP-1",
   mode = "3024x1890@120.000",
   position = "0x0",
-  scale = 1.75,
+  scale = 1.5,
 })
 
 hl.monitor({
