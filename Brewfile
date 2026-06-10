@@ -32,6 +32,7 @@ brew "tree-sitter"
 brew "yabai"
 brew "skhd", args: ["with-logging"]
 brew "sketchybar", args:  ["HEAD"], restart_service: :changed
+brew "borders", restart_service: :changed
 brew "mole"
 brew "macmon"
 
@@ -41,6 +42,7 @@ cask "musescore"
 cask "sioyek"
 cask "mactex-no-gui"
 cask "font-hack-nerd-font"
+cask "sf-symbols"
 cask "lulu"
 cask "zoom"
 cask "zotero"

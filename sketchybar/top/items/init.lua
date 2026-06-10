@@ -1,4 +1,6 @@
 local settings = require "settings"
+local colors = require "colors"
+local ui = require "ui"
 
 local function flashspace_running()
   local handle = io.popen "command -v flashspace >/dev/null 2>&1 && pgrep -qx FlashSpace >/dev/null 2>&1 && echo yes"
@@ -29,14 +31,8 @@ sbar.add("bracket", "top.group.network", {
   "widgets.wifi",
   "widgets.network_up",
 }, {
-  background = {
-    drawing = true,
-    color = settings.theme.surface,
-    border_color = settings.theme.border_hover,
-    border_width = 1,
-    height = settings.ui.group_height,
-    corner_radius = settings.ui.group_corner_radius,
-    padding_left = 4,
-    padding_right = 4,
+  background = ui.capsule {
+    color = settings.theme.surface_alt,
+    border_color = colors.with_alpha(colors.sky, 0.42),
   },
 })

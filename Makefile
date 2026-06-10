@@ -359,6 +359,7 @@ ifeq ($(OSTYPE), Darwin)
 	@if command -v brew >/dev/null 2>&1; then \
 		$(call print_step,Starting sketchybar service); \
 		brew services start sketchybar; \
+		brew services start borders; \
 	fi
 	@$(MAKE) agents
 endif
@@ -473,6 +474,7 @@ _macos: ## macOS-specific configuration and applications
 	fi
 	@ln -sfv $(DOTFILES)/mpv $(HOME)/.config/mpv
 	@ln -sfv $(DOTFILES)/yabai $(HOME)/.config/yabai
+	@ln -sfv $(DOTFILES)/borders $(HOME)/.config/borders
 
 .PHONY: _terminal
 _terminal: ## Install and configure terminal emulator
@@ -638,6 +640,7 @@ ifeq ($(OSTYPE), Darwin)
 	-@rm -rf $(HOME)/.config/sketchybar
 	-@rm -rf $(HOME)/.config/sioyek
 	-@rm -rf $(HOME)/.config/yabai
+	-@rm -rf $(HOME)/.config/borders
 	-@sudo battery uninstall 2>/dev/null || true
 endif
 

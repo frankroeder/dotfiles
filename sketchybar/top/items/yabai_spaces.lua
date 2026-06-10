@@ -17,8 +17,6 @@ sbar.add("event", "space_created")
 sbar.add("event", "space_destroyed")
 
 local spaces = {}
-local space_brackets = {}
-local space_window_counts = {}
 local space_state = {}
 
 local static_names = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" }
@@ -74,32 +72,19 @@ local function updateSpaceVisual(index)
   local visible = state.visible and not selected
   local occupied = (state.window_count or 0) > 0
 
-  local bg = selected and ws_theme.active
-    or (visible and ws_theme.visible_bg or (occupied and ws_theme.occupied_bg or ws_theme.empty_bg))
-  local border = selected and ws_theme.active_border
-    or (visible and ws_theme.visible_border or ws_theme.inactive_border)
-  local badge_bg = selected and ws_theme.badge_active_bg
-    or (visible and ws_theme.badge_visible_bg or (occupied and ws_theme.badge_occupied_bg or ws_theme.badge_empty_bg))
-  local badge_border = selected and ws_theme.badge_active_border or ws_theme.badge_border
-  local number_color = selected and ws_theme.badge_active_text
-    or (visible and colors.sky or (occupied and ws_theme.occupied_text or ws_theme.empty_text))
-  local label_color = selected and colors.crust
+  local bg = selected and colors.with_alpha(colors.sky, 0.30)
+    or colors.with_alpha(colors.surface0, 0.45)
+  local number_color = selected and 0xffffffff
     or (visible and settings.theme.text_primary or (occupied and settings.theme.text_primary or settings.theme.text_muted))
-  local count_color = selected and colors.crust or settings.theme.text_muted
+  local label_color = selected and 0xffffffff
+    or (visible and settings.theme.text_primary or (occupied and settings.theme.text_primary or settings.theme.text_muted))
 
   sbar.animate("tanh", settings.motion.fast, function()
     space:set {
       icon = {
         color = number_color,
         highlight = false,
-        background = {
-          drawing = true,
-          color = badge_bg,
-          border_width = 1,
-          border_color = badge_border,
-          height = 20,
-          corner_radius = 10,
-        },
+        background = { drawing = false },
       },
       label = {
         color = label_color,
@@ -107,32 +92,10 @@ local function updateSpaceVisual(index)
       },
       background = {
         color = bg,
-        border_width = 1,
-        border_color = border,
+        border_width = selected and 1 or 0,
+        border_color = selected and colors.sky or colors.transparent,
       },
     }
-
-    if space_brackets[index] then
-      space_brackets[index]:set {
-        background = {
-          border_color = selected and ws_theme.active_border or colors.transparent,
-        },
-      }
-    end
-
-    if space_window_counts[index] then
-      if occupied then
-        space_window_counts[index]:set {
-          label = {
-            string = tostring(state.window_count),
-            color = count_color,
-          },
-          drawing = true,
-        }
-      else
-        space_window_counts[index]:set { drawing = false }
-      end
-    end
   end)
 end
 
@@ -234,14 +197,7 @@ for index, space_name in ipairs(static_names) do
       padding_left = 6,
       padding_right = 6,
       color = ws_theme.empty_text,
-      background = {
-        drawing = true,
-        color = ws_theme.badge_empty_bg,
-        border_width = 1,
-        border_color = ws_theme.badge_border,
-        height = 20,
-        corner_radius = 10,
-      },
+      background = { drawing = false },
     },
     label = {
       padding_left = 6,
@@ -252,56 +208,15 @@ for index, space_name in ipairs(static_names) do
     padding_right = settings.spaces.padding,
     padding_left = settings.spaces.padding,
     background = ui.capsule {
-      color = ws_theme.empty_bg,
-      border_color = ws_theme.inactive_border,
-      border_width = 1,
-      height = 28,
-      corner_radius = 14,
+      color = colors.with_alpha(colors.surface0, 0.45),
+      border_color = colors.transparent,
+      border_width = 0,
+      height = 30,
+      corner_radius = 15,
     },
   })
 
   spaces[index] = space
-
-  local window_count = sbar.add("item", "widgets.space.count." .. index, {
-    icon = {
-      drawing = false,
-    },
-    padding_left = -3,
-    label = {
-      string = "",
-      font = {
-        family = settings.font.numbers,
-        style = settings.font.style_map["Bold"],
-        size = 9.0,
-      },
-      color = settings.theme.text_muted,
-      padding_left = 0,
-      padding_right = 2,
-      y_offset = 4,
-    },
-    background = {
-      drawing = false,
-    },
-    drawing = false,
-  })
-
-  space_window_counts[index] = window_count
-
-  local space_bracket = sbar.add(
-    "bracket",
-    { "widgets.space." .. index, "widgets.space.count." .. index },
-    {
-      background = {
-        color = colors.transparent,
-        border_color = colors.transparent,
-        height = 32,
-        border_width = 1,
-        corner_radius = 16,
-      },
-    }
-  )
-
-  space_brackets[index] = space_bracket
 
   space:subscribe("space_change", function(env)
     state.selected = env.SELECTED == "true"
@@ -346,13 +261,12 @@ local function updateLayout()
     for _, yabai_space in ipairs(spaces_data) do
       local index = tonumber(yabai_space.index)
       local display = tonumber(yabai_space.display)
-      if index and spaces[index] and space_window_counts[index] then
+      if index and spaces[index] then
         local state = ensureSpaceState(index)
         state.display = display or state.display
         state.selected = yabai_space["has-focus"] == true
         state.visible = yabai_space["is-visible"] == true
         spaces[index]:set { display = state.display }
-        space_window_counts[index]:set { display = state.display }
         updateSpaceVisual(index)
       end
     end

@@ -14,11 +14,11 @@ yabai -m config window_origin_display        default \
                 window_insertion_point       focused \
                 normal_window_opacity        0.92 \
                 active_window_opacity        1.0 \
-                window_gap                   8 \
+                window_gap                   10 \
                 window_animation_duration    0.08 \
                 window_animation_easing      ease_out_circ \
-                top_padding                  8 \
-                bottom_padding               8 \
+                top_padding                  12 \
+                bottom_padding               10 \
                 left_padding                 14 \
                 right_padding                14 \
                 window_zoom_persist          off \
@@ -54,4 +54,7 @@ if [[ -f $WINDOW_RULES ]]; then
 fi
 
 yabai -m rule --apply
+
+$HOME/.config/borders/bordersrc 2>/dev/null 1>&2 &
+
 echo "yabai configuration loaded..."

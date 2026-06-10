@@ -46,27 +46,19 @@ local function updateStyle(workspace_name)
   sbar.animate("tanh", settings.motion.fast, function()
     workspace:set {
       icon = {
-        color = focused and ws_theme.badge_active_text
-          or (occupied and ws_theme.occupied_text or ws_theme.empty_text),
-        background = {
-          drawing = true,
-          color = focused and ws_theme.badge_active_bg
-            or (occupied and ws_theme.badge_occupied_bg or ws_theme.badge_empty_bg),
-          border_width = 1,
-          border_color = focused and ws_theme.badge_active_border or ws_theme.badge_border,
-          height = 22,
-          corner_radius = 11,
-        },
+        color = focused and 0xffffffff
+          or (occupied and settings.theme.text_primary or settings.theme.text_muted),
+        background = { drawing = false },
       },
       label = {
-        color = focused and colors.crust
+        color = focused and 0xffffffff
           or (occupied and settings.theme.text_primary or settings.theme.text_muted),
       },
       background = {
-        color = focused and ws_theme.active
-          or (occupied and ws_theme.occupied_bg or ws_theme.empty_bg),
-        border_width = 1,
-        border_color = focused and ws_theme.active_border or ws_theme.inactive_border,
+        color = focused and colors.with_alpha(colors.sky, 0.30)
+          or colors.with_alpha(colors.surface0, 0.45),
+        border_width = focused and 1 or 0,
+        border_color = focused and colors.sky or colors.transparent,
       },
     }
   end)
@@ -146,12 +138,10 @@ for workspace_index, workspace_name in ipairs(parse_lines(workspace_output)) do
       padding_left = 7,
       padding_right = 7,
       background = {
-        drawing = true,
-        color = ws_theme.badge_empty_bg,
-        border_width = 1,
-        border_color = ws_theme.badge_border,
-        height = 22,
-        corner_radius = 11,
+        drawing = false,
+        color = colors.transparent,
+        border_width = 0,
+        border_color = colors.transparent,
       },
     },
     label = {
@@ -163,9 +153,9 @@ for workspace_index, workspace_name in ipairs(parse_lines(workspace_output)) do
       padding_right = 8,
     },
     background = ui.capsule {
-      color = ws_theme.empty_bg,
-      border_color = ws_theme.inactive_border,
-      border_width = 1,
+      color = colors.with_alpha(colors.surface0, 0.45),
+      border_color = colors.transparent,
+      border_width = 0,
       height = 30,
       corner_radius = 15,
     },

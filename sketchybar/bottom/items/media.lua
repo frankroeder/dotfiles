@@ -3,6 +3,7 @@ local settings = require "settings"
 local icons = require "icons"
 local app_icons = require "helpers.app_icons"
 local utils = require "utils"
+local ui = require "ui"
 local popup_row_height = settings.ui.popup_row_height
 
 sbar.add("event", "music_change", "com.apple.Music.playerInfo")
@@ -24,10 +25,8 @@ local media = sbar.add("item", "widgets.media", {
     },
   },
   updates = true,
-  background = {
-    drawing = true,
+  background = ui.capsule {
     color = settings.theme.surface_alt,
-    border_width = 0,
   },
   popup = {
     align = "center",

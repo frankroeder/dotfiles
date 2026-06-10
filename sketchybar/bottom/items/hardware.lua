@@ -47,12 +47,9 @@ local ram_g = sbar.add("graph", "widgets.ram", 100, {
     padding_right = 4,
     y_offset = 6,
   },
-  background = {
-    drawing = true,
+  background = ui.capsule {
     color = settings.theme.surface_alt,
-    border_width = 0,
-    corner_radius = settings.ui.item_corner_radius,
-    height = settings.ui.item_height,
+    border_color = colors.with_alpha(settings.theme.warn, 0.45),
   },
 })
 
@@ -62,6 +59,7 @@ local cpu = sbar.add("graph", "widgets.cpu", 130, {
     string = icons.cpu,
     color = settings.theme.accent_alt,
     padding_left = 4,
+    padding_right = 8,
     y_offset = 0,
   },
   label = {
@@ -70,16 +68,14 @@ local cpu = sbar.add("graph", "widgets.cpu", 130, {
       size = 10.0,
     },
     align = "right",
-    width = 115,
+    width = 0,
+    padding_left = 20,
     padding_right = 4,
     y_offset = 6,
   },
-  background = {
-    drawing = true,
+  background = ui.capsule {
     color = settings.theme.surface_alt,
-    border_width = 0,
-    corner_radius = settings.ui.item_corner_radius,
-    height = settings.ui.item_height,
+    border_color = colors.with_alpha(settings.theme.accent_alt, 0.42),
   },
   update_freq = settings.hardware.update_freq,
 })
