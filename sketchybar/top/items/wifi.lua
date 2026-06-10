@@ -24,7 +24,7 @@ local wifi = sbar.add("item", "widgets.wifi", {
     width = 20,
     align = "center",
     padding_left = 4,
-    padding_right = 4,
+    padding_right = 12,
   },
   label = { drawing = false },
   background = { drawing = false },

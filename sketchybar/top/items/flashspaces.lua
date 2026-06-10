@@ -41,24 +41,23 @@ local function updateStyle(workspace_name)
 
   local state = ensureState(workspace_name)
   local focused = state.focused
-  local occupied = state.occupied
+
+  local bg = focused and 0xff7aa2f7 or colors.with_alpha(colors.surface0, 0.55)
+  local fg = focused and 0xff15161e or 0xff7aa2f7
 
   sbar.animate("tanh", settings.motion.fast, function()
     workspace:set {
       icon = {
-        color = focused and 0xffffffff
-          or (occupied and settings.theme.text_primary or settings.theme.text_muted),
+        color = fg,
         background = { drawing = false },
       },
       label = {
-        color = focused and 0xffffffff
-          or (occupied and settings.theme.text_primary or settings.theme.text_muted),
+        color = fg,
       },
       background = {
-        color = focused and colors.with_alpha(colors.sky, 0.30)
-          or colors.with_alpha(colors.surface0, 0.45),
-        border_width = focused and 1 or 0,
-        border_color = focused and colors.sky or colors.transparent,
+        color = bg,
+        border_width = 0,
+        border_color = colors.transparent,
       },
     }
   end)
@@ -86,8 +85,9 @@ local function updateWindows(workspace_name)
     end
 
     state.occupied = #icon_list > 0
+    local label_str = #icon_list > 0 and table.concat(icon_list, " ") or " —"
     workspace:set {
-      label = { string = table.concat(icon_list, " ") },
+      label = { string = label_str },
     }
     updateStyle(workspace_name)
   end)
@@ -135,8 +135,8 @@ for workspace_index, workspace_name in ipairs(parse_lines(workspace_output)) do
         size = 11.0,
       },
       string = display_name,
-      padding_left = 7,
-      padding_right = 7,
+      padding_left = 5,
+      padding_right = 4,
       background = {
         drawing = false,
         color = colors.transparent,
@@ -145,19 +145,19 @@ for workspace_index, workspace_name in ipairs(parse_lines(workspace_output)) do
       },
     },
     label = {
-      font = "sketchybar-app-font:Regular:16.0",
-      string = "",
+      font = "sketchybar-app-font:Regular:15.0",
+      string = " —",
       color = settings.theme.text_muted,
-      y_offset = -1,
-      padding_left = 7,
-      padding_right = 8,
+      y_offset = -2,
+      padding_left = 4,
+      padding_right = 16,
     },
     background = ui.capsule {
-      color = colors.with_alpha(colors.surface0, 0.45),
+      color = colors.with_alpha(colors.surface0, 0.55),
       border_color = colors.transparent,
       border_width = 0,
-      height = 30,
-      corner_radius = 15,
+      height = 28,
+      corner_radius = 8,
     },
     padding_right = settings.spaces.padding,
     padding_left = settings.spaces.padding,

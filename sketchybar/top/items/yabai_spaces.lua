@@ -47,7 +47,7 @@ local function renderSpaceApps(index)
   end
 
   local state = ensureSpaceState(index)
-  local icon_line = ""
+  local icon_line = " —"
   if state.app_names and #state.app_names > 0 then
     local app_icon_list = {}
     for _, app in ipairs(state.app_names) do
@@ -69,31 +69,25 @@ local function updateSpaceVisual(index)
 
   local state = ensureSpaceState(index)
   local selected = state.selected
-  local visible = state.visible and not selected
-  local occupied = (state.window_count or 0) > 0
 
-  local bg = selected and colors.with_alpha(colors.sky, 0.30)
-    or colors.with_alpha(colors.surface0, 0.45)
-  local number_color = selected and 0xffffffff
-    or (visible and settings.theme.text_primary or (occupied and settings.theme.text_primary or settings.theme.text_muted))
-  local label_color = selected and 0xffffffff
-    or (visible and settings.theme.text_primary or (occupied and settings.theme.text_primary or settings.theme.text_muted))
+  local bg = selected and 0xff7aa2f7 or colors.with_alpha(colors.surface0, 0.55)
+  local fg = selected and 0xff15161e or 0xff7aa2f7
 
   sbar.animate("tanh", settings.motion.fast, function()
     space:set {
       icon = {
-        color = number_color,
+        color = fg,
         highlight = false,
         background = { drawing = false },
       },
       label = {
-        color = label_color,
+        color = fg,
         highlight = false,
       },
       background = {
         color = bg,
-        border_width = selected and 1 or 0,
-        border_color = selected and colors.sky or colors.transparent,
+        border_width = 0,
+        border_color = colors.transparent,
       },
     }
   end)
@@ -194,25 +188,27 @@ for index, space_name in ipairs(static_names) do
         size = 11.0,
       },
       string = space_name,
-      padding_left = 6,
-      padding_right = 6,
+      padding_left = 5,
+      padding_right = 4,
       color = ws_theme.empty_text,
       background = { drawing = false },
     },
     label = {
-      padding_left = 6,
-      padding_right = 5,
+      padding_left = 4,
+      padding_right = 16,
       color = settings.theme.text_muted,
       font = "sketchybar-app-font:Regular:15.0",
+      y_offset = -2,
+      string = " —",
     },
     padding_right = settings.spaces.padding,
     padding_left = settings.spaces.padding,
     background = ui.capsule {
-      color = colors.with_alpha(colors.surface0, 0.45),
+      color = colors.with_alpha(colors.surface0, 0.55),
       border_color = colors.transparent,
       border_width = 0,
-      height = 30,
-      corner_radius = 15,
+      height = 28,
+      corner_radius = 8,
     },
   })
 
