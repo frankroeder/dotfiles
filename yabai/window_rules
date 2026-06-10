@@ -13,6 +13,7 @@ yabai -m rule --add app='Zotero' title='Find Full Text' manage=off sub-layer=abo
 
 yabai -m rule --add title='(Picture in Picture|Picture-in-Picture)' manage=off
 yabai -m rule --add app="^Orion( RC)?$" title="^(General|Appearance|Browsing|Sync|(Password|Website|Extension)s|Privacy|Advanced|Completions)$" manage=off
+yabai -m rule --add app="^LibreWolf$" title="^(Settings|Preferences|General|Privacy|Advanced|Sync|Appearance|About).*" manage=off
 
 FLOAT_APPS="^(Dictionary|Music|Podcasts|App Store|Calendar|Photos|Stickies|Raycast|LuLu|Python|Archive Utility|Calculator)"
 yabai -m rule --add app="${FLOAT_APPS}" manage=off sub-layer=auto
@@ -21,12 +22,12 @@ CENTER_APPS="^(Anki|Bitwarden)$"
 yabai -m rule --add app="${CENTER_APPS}" manage=off grid=16:9:2:2:5:12
 
 TRANSPARENT_APPS="(Music|Notes|Claude|Grok)"
-yabai -m signal --add event=window_focused app="^${TRANSPARENT_APPS}$" action="yabai -m config active_window_opacity 0.9"
-yabai -m signal --add event=window_focused app="^${TRANSPARENT_APPS}$" action="yabai -m config normal_window_opacity 0.00001"
+yabai -m signal --add event=window_focused app="^${TRANSPARENT_APPS}$" action="yabai -m config active_window_opacity 0.98"
+yabai -m signal --add event=window_focused app="^${TRANSPARENT_APPS}$" action="yabai -m config normal_window_opacity 0.75"
 yabai -m signal --add event=window_focused app="Ghostty" action="yabai -m config active_window_opacity 1"
 # When any other app gains focus, reset both active and background window opacity to fully visible
 yabai -m signal --add event=window_focused app!="^${TRANSPARENT_APPS}$" action="yabai -m config active_window_opacity 1.0"
-yabai -m signal --add event=window_focused app!="^${TRANSPARENT_APPS}$" action="yabai -m config normal_window_opacity 1.0"
+yabai -m signal --add event=window_focused app!="^${TRANSPARENT_APPS}$" action="yabai -m config normal_window_opacity 0.92"
 
 if [[ -n "$NUM_SPACES" ]] && [[ "$NUM_SPACES" =~ ^[0-9]+$ ]]; then
   for ((i=NUM_SPACES; i<3; i++)); do

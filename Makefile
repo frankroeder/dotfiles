@@ -447,6 +447,14 @@ _macos: ## macOS-specific configuration and applications
 	$(call print_step,Downloading sketchybar font)
 	@bash $(DOTFILES)/scripts/sketchybar_app_font.sh
 	@ln -sfv $(DOTFILES)/skhd $(HOME)/.config/skhd
+	@$(call print_step,Linking LibreWolf config (Asahi settings))
+	@mkdir -p "$(HOME)/Library/Application Support/LibreWolf/librewolf"
+	@$(call create_symlink,$(DOTFILES)/shared/librewolf/librewolf.overrides.cfg,$(HOME)/Library/Application Support/LibreWolf/librewolf/librewolf.overrides.cfg)
+	@for profile in "$(HOME)/Library/Application Support/LibreWolf/Profiles/"*.default* ; do \
+		[ -d "$$profile" ] || continue; \
+		mkdir -p "$$profile/chrome"; \
+		ln -sfn "$(DOTFILES)/shared/librewolf/userChrome.css" "$$profile/chrome/userChrome.css" || true; \
+	done
 	$(call print_step,Running Sioyek setup)
 	@zsh $(DOTFILES)/scripts/sioyek.sh
 	@ln -sfv $(DOTFILES)/sioyek $(HOME)/.config/sioyek
@@ -541,11 +549,11 @@ asahi-desktop: asahi-common
 	@ln -sfv $(DOTFILES)/mpv/mpv_asahi.conf $(HOME)/.config/mpv/mpv.conf
 	@ln -sfv $(DOTFILES)/asahi/environment.d/90-asahi.conf $(HOME)/.config/environment.d/90-asahi.conf
 	@mkdir -p $(HOME)/.config/librewolf/librewolf
-	@ln -sfv $(DOTFILES)/asahi/librewolf/librewolf.overrides.cfg $(HOME)/.config/librewolf/librewolf/librewolf.overrides.cfg
+	@ln -sfv $(DOTFILES)/shared/librewolf/librewolf.overrides.cfg $(HOME)/.config/librewolf/librewolf/librewolf.overrides.cfg
 	@for profile in $(HOME)/.librewolf/*.default*; do \
 		[ -d "$$profile" ] || continue; \
 		mkdir -p "$$profile/chrome"; \
-		ln -sfn "$(DOTFILES)/asahi/librewolf/userChrome.css" "$$profile/chrome/userChrome.css"; \
+		ln -sfn "$(DOTFILES)/shared/librewolf/userChrome.css" "$$profile/chrome/userChrome.css"; \
 	done
 	@for profile in $(HOME)/.thunderbird/*.default*; do \
 		[ -d "$$profile" ] || continue; \

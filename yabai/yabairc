@@ -12,15 +12,15 @@ yabai -m config window_origin_display        default \
                 window_opacity               on \
                 window_opacity_duration      0.0 \
                 window_insertion_point       focused \
-                normal_window_opacity        0.85 \
-                active_window_opacity        0.95 \
-                window_gap                   10 \
-                window_animation_duration    0.15 \
-                window_animation_easing      ease_in_out_circ \
-                top_padding                  10 \
-                bottom_padding               10 \
-                left_padding                 20 \
-                right_padding                20 \
+                normal_window_opacity        0.92 \
+                active_window_opacity        1.0 \
+                window_gap                   8 \
+                window_animation_duration    0.08 \
+                window_animation_easing      ease_out_circ \
+                top_padding                  8 \
+                bottom_padding               8 \
+                left_padding                 14 \
+                right_padding                14 \
                 window_zoom_persist          off \
                 insert_feedback_color        0xffd75f5f \
                 mouse_follows_focus          off \

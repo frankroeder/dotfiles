@@ -8,12 +8,12 @@ local cal = sbar.add("item", "widgets.calendar", {
   update_freq = 30,
   label = {
     color = settings.theme.text_primary,
-    padding_right = 8,
+    padding_right = 6,
     padding_left = 0,
     font = {
       family = settings.font.numbers,
       style = settings.font.style_map["Semibold"],
-      size = 13.0,
+      size = 12.0,
     },
   },
   background = ui.capsule {

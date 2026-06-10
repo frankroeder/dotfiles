@@ -4,7 +4,7 @@ local settings = require "settings"
 local utils = require "utils"
 local ui = require "ui"
 
-local gpu = sbar.add("graph", "widgets.gpu", 80, {
+local gpu = sbar.add("graph", "widgets.gpu", 75, {
   position = "right",
   graph = { color = colors.with_alpha(settings.theme.accent, 0.40) },
   icon = {
@@ -16,12 +16,12 @@ local gpu = sbar.add("graph", "widgets.gpu", 80, {
   label = {
     string = "GPU --% --°C",
     font = {
-      size = 9.0,
+      size = 10.0,
     },
     align = "right",
     width = 0,
     padding_right = 4,
-    y_offset = 8,
+    y_offset = 6,
   },
   background = ui.capsule {
     color = settings.theme.surface_alt,
@@ -29,7 +29,7 @@ local gpu = sbar.add("graph", "widgets.gpu", 80, {
   },
 })
 
-local ram_g = sbar.add("graph", "widgets.ram", 108, {
+local ram_g = sbar.add("graph", "widgets.ram", 100, {
   position = "right",
   icon = {
     string = icons.ram,
@@ -40,12 +40,12 @@ local ram_g = sbar.add("graph", "widgets.ram", 108, {
   label = {
     string = "RAM --% SWAP --%",
     font = {
-      size = 9.0,
+      size = 10.0,
     },
     align = "right",
     width = 0,
     padding_right = 4,
-    y_offset = 8,
+    y_offset = 6,
   },
   background = {
     drawing = true,
@@ -56,7 +56,7 @@ local ram_g = sbar.add("graph", "widgets.ram", 108, {
   },
 })
 
-local cpu = sbar.add("graph", "widgets.cpu", 138, {
+local cpu = sbar.add("graph", "widgets.cpu", 130, {
   position = "right",
   icon = {
     string = icons.cpu,
@@ -67,12 +67,12 @@ local cpu = sbar.add("graph", "widgets.cpu", 138, {
   label = {
     string = "eCPU --% pCPU --% --°C",
     font = {
-      size = 9.0,
+      size = 10.0,
     },
     align = "right",
-    width = 0,
+    width = 115,
     padding_right = 4,
-    y_offset = 8,
+    y_offset = 6,
   },
   background = {
     drawing = true,
@@ -84,14 +84,14 @@ local cpu = sbar.add("graph", "widgets.cpu", 138, {
   update_freq = settings.hardware.update_freq,
 })
 
-local ecpu = sbar.add("graph", "widgets.ecpu", 138, {
+local ecpu = sbar.add("graph", "widgets.ecpu", 130, {
   position = "right",
   graph = { color = colors.with_alpha(colors.green, 0.5) },
   background = { drawing = false },
   icon = { drawing = false },
   label = { drawing = false },
-  padding_right = -163,
-  y_offset = 4,
+  padding_right = -150,
+  y_offset = 3,
 })
 
 local power = sbar.add("item", "widgets.power", {
@@ -105,11 +105,11 @@ local power = sbar.add("item", "widgets.power", {
   label = {
     string = "-- W",
     font = {
-      size = 9.0,
+      size = 10.0,
     },
     padding_right = 3,
   },
-  padding_right = 23,
+  padding_right = 18,
   background = ui.capsule {
     color = settings.theme.surface_alt,
     border_color = colors.with_alpha(settings.theme.warn, 0.45),

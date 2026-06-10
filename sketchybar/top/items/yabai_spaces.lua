@@ -97,8 +97,8 @@ local function updateSpaceVisual(index)
           color = badge_bg,
           border_width = 1,
           border_color = badge_border,
-          height = 22,
-          corner_radius = 11,
+          height = 20,
+          corner_radius = 10,
         },
       },
       label = {
@@ -231,23 +231,23 @@ for index, space_name in ipairs(static_names) do
         size = 11.0,
       },
       string = space_name,
-      padding_left = 7,
-      padding_right = 7,
+      padding_left = 6,
+      padding_right = 6,
       color = ws_theme.empty_text,
       background = {
         drawing = true,
         color = ws_theme.badge_empty_bg,
         border_width = 1,
         border_color = ws_theme.badge_border,
-        height = 22,
-        corner_radius = 11,
+        height = 20,
+        corner_radius = 10,
       },
     },
     label = {
-      padding_left = 7,
-      padding_right = 6,
+      padding_left = 6,
+      padding_right = 5,
       color = settings.theme.text_muted,
-      font = "sketchybar-app-font:Regular:16.0",
+      font = "sketchybar-app-font:Regular:15.0",
     },
     padding_right = settings.spaces.padding,
     padding_left = settings.spaces.padding,
@@ -255,8 +255,8 @@ for index, space_name in ipairs(static_names) do
       color = ws_theme.empty_bg,
       border_color = ws_theme.inactive_border,
       border_width = 1,
-      height = 30,
-      corner_radius = 15,
+      height = 28,
+      corner_radius = 14,
     },
   })
 
@@ -266,7 +266,7 @@ for index, space_name in ipairs(static_names) do
     icon = {
       drawing = false,
     },
-    padding_left = -4,
+    padding_left = -3,
     label = {
       string = "",
       font = {
@@ -276,8 +276,8 @@ for index, space_name in ipairs(static_names) do
       },
       color = settings.theme.text_muted,
       padding_left = 0,
-      padding_right = 3,
-      y_offset = 5,
+      padding_right = 2,
+      y_offset = 4,
     },
     background = {
       drawing = false,
@@ -294,9 +294,9 @@ for index, space_name in ipairs(static_names) do
       background = {
         color = colors.transparent,
         border_color = colors.transparent,
-        height = 34,
+        height = 32,
         border_width = 1,
-        corner_radius = 17,
+        corner_radius = 16,
       },
     }
   )
@@ -320,7 +320,7 @@ for index, space_name in ipairs(static_names) do
 end
 
 local space_layout = sbar.add("item", "widgets.yabai_layout", {
-  padding_left = 10,
+  padding_left = 8,
   icon = {
     font = { family = settings.font.numbers },
     string = icons.yabai.bsp,
@@ -328,7 +328,7 @@ local space_layout = sbar.add("item", "widgets.yabai_layout", {
   },
   label = {
     string = "",
-    padding_right = 8,
+    padding_right = 6,
     color = settings.theme.text_muted,
   },
   background = ui.capsule {
