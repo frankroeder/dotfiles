@@ -30,21 +30,77 @@ alias sshconfig="$EDITOR $HOME/.ssh/config"
 
 # Copies the contents of all files in the current directory to clipboard
 llmcopy() {
+	local output
+	output=$(find . -type f \
+		\! -path "*/.git/*" \
+		\! -path "*/build/*" \
+		\! -path "*/node_modules/*" \
+		\! -path "*/dist/*" \
+		\! -path "*/.venv/*" \
+		\! -path "*/__pycache__/*" \
+		\! -path "*/.*/*" \
+		\! -name "*.jpg" \
+		\! -name "*.jpeg" \
+		\! -name "*.png" \
+		\! -name "*.gif" \
+		\! -name "*.bmp" \
+		\! -name "*.tiff" \
+		\! -name "*.mp4" \
+		\! -name "*.mov" \
+		\! -name "*.avi" \
+		\! -name "*.wmv" \
+		\! -name "*.mkv" \
+		\! -name "*.pdf" \
+		\! -name "*.zip" \
+		\! -name "*.tar" \
+		\! -name "*.gz" \
+		\! -name "*.pyc" \
+		\! -name "*.pyo" \
+		\! -name "*.so" \
+		\! -name "*.dylib" \
+		\! -name "*.bin" \
+		\! -name "*.pkl" \
+		\! -name "*.pt" \
+		\! -name "*.pth" \
+		\! -name "*.safetensors" \
+		\! -name "*.ckpt" \
+		\! -name "*.npy" \
+		\! -name "*.npz" \
+		\! -name ".DS_Store" \
+		\! -name "uv.lock" \
+		-print0 | sort -z | while IFS= read -r -d '' file; do
+		# Only skip files containing null bytes (true binary indicator)
+		if grep -qP '\x00' "$file" 2>/dev/null; then
+			continue
+		fi
+		echo "=== $file ==="
+		cat "$file" 2>/dev/null
+		echo
+	done)
 
-  # Construct find command to exclude directories
-  find . -type f \( \! -path "*/.git/*" \! -path "*/build/*" \! -path "*/node_modules/*" \
-                 \! -path "*/dist/*" \! -path "*/.venv/*" \! -path "*/__pycache__/*" \) \
-    \! -name "*.jpg" \! -name "*.jpeg" \! -name "*.png" \
-    \! -name "*.gif" \! -name "*.bmp" \! -name "*.tiff" \
-    \! -name "*.mp4" \! -name "*.mov" \! -name "*.avi" \
-    \! -name "*.wmv" \! -name "*.mkv" \! -name ".DS_Store" \
-    \! -name "uv.lock" \
-    -print0 | \
-  while IFS= read -r -d '' file; do
-    echo "=== $file ==="
-    cat "$file"
-    echo
-  done | pbcopy
+	if [ -z "$output" ]; then
+		echo "⚠️  Nothing collected. Run llmcopy_debug to diagnose." >&2
+		return 1
+	fi
+
+	if [[ "$OSTYPE" == "Darwin"* ]]; then
+		echo "$output" | pbcopy
+	elif command -v xclip &>/dev/null; then
+		echo "$output" | xclip -selection clipboard
+	elif command -v xsel &>/dev/null; then
+		echo "$output" | xsel --clipboard --input
+	elif command -v wl-copy &>/dev/null; then
+		echo "$output" | wl-copy
+	else
+		echo "$output"
+		echo "⚠️  No clipboard tool found. Install xclip, xsel, or wl-copy." >&2
+		return 1
+	fi
+
+	local size=${#output}
+	local files
+	files=$(echo "$output" | grep -c "^=== ")
+	echo "✓ Copied ~$((size / 1000))k chars from $files files to clipboard" >&2
 }
 
 alias notes="$EDITOR $HOME/Nextcloud/notes/"

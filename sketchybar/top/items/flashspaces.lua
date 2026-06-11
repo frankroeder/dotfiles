@@ -11,6 +11,7 @@ local map_monitor = settings.monitor_map
 local workspaces = {}
 local workspace_state = {}
 local ws_theme = settings.theme.workspace
+local ws_layout = settings.spaces
 
 local function parse_lines(output)
   local result = {}
@@ -42,8 +43,9 @@ local function updateStyle(workspace_name)
   local state = ensureState(workspace_name)
   local focused = state.focused
 
-  local bg = focused and 0xff7aa2f7 or colors.with_alpha(colors.surface0, 0.55)
-  local fg = focused and 0xff15161e or 0xff7aa2f7
+  local bg = focused and ws_theme.active_bg or ws_theme.bg
+  local fg = focused and ws_theme.badge_active_text or ws_theme.active
+  local border = focused and ws_theme.active_border or ws_theme.border
 
   sbar.animate("tanh", settings.motion.fast, function()
     workspace:set {
@@ -56,8 +58,8 @@ local function updateStyle(workspace_name)
       },
       background = {
         color = bg,
-        border_width = 0,
-        border_color = colors.transparent,
+        border_width = 1,
+        border_color = border,
       },
     }
   end)
@@ -132,11 +134,12 @@ for workspace_index, workspace_name in ipairs(parse_lines(workspace_output)) do
       font = {
         family = settings.font.numbers,
         style = settings.font.style_map["Bold"],
-        size = 11.0,
+        size = ws_layout.icon.size,
       },
       string = display_name,
-      padding_left = 5,
-      padding_right = 4,
+      padding_left = ws_layout.icon.padding_left,
+      padding_right = ws_layout.icon.padding_right,
+      y_offset = ws_layout.icon.y_offset,
       background = {
         drawing = false,
         color = colors.transparent,
@@ -145,22 +148,22 @@ for workspace_index, workspace_name in ipairs(parse_lines(workspace_output)) do
       },
     },
     label = {
-      font = "sketchybar-app-font:Regular:15.0",
+      font = ws_layout.label.font,
       string = " —",
-      color = settings.theme.text_muted,
-      y_offset = -2,
-      padding_left = 4,
-      padding_right = 16,
+      color = ws_theme.active,
+      y_offset = ws_layout.label.y_offset,
+      padding_left = ws_layout.label.padding_left,
+      padding_right = ws_layout.label.padding_right,
     },
     background = ui.capsule {
-      color = colors.with_alpha(colors.surface0, 0.55),
-      border_color = colors.transparent,
-      border_width = 0,
-      height = 28,
-      corner_radius = 8,
+      color = ws_theme.bg,
+      border_color = ws_theme.border,
+      border_width = 1,
+      height = ws_layout.capsule.height,
+      corner_radius = ws_layout.capsule.corner_radius,
     },
-    padding_right = settings.spaces.padding,
-    padding_left = settings.spaces.padding,
+    padding_right = ws_layout.padding,
+    padding_left = ws_layout.padding,
     click_script = flashspace_cmd .. " workspace --name " .. utils.shell_quote(workspace_name),
   })
 
