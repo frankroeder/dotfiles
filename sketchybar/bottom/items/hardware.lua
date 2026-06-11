@@ -4,6 +4,12 @@ local settings = require "settings"
 local utils = require "utils"
 local ui = require "ui"
 
+local cpu_graph_width = 134
+local cpu_icon_width = 20
+local cpu_item_pad = 14
+-- Shift the eCPU overlay left over the CPU graph area (fixed label width keeps this stable).
+local cpu_overlay_pad = cpu_icon_width + settings.hardware.label_width - cpu_item_pad
+
 local gpu = sbar.add("graph", "widgets.gpu", 75, {
   position = "right",
   graph = { color = colors.with_alpha(settings.theme.accent, 0.40) },
@@ -29,7 +35,7 @@ local gpu = sbar.add("graph", "widgets.gpu", 75, {
   },
 })
 
-local ram_g = sbar.add("graph", "widgets.ram", 100, {
+local ram_g = sbar.add("graph", "widgets.ram", 104, {
   position = "right",
   icon = {
     string = icons.ram,
@@ -38,7 +44,7 @@ local ram_g = sbar.add("graph", "widgets.ram", 100, {
     y_offset = 0,
   },
   label = {
-    string = "RAM --% SWAP --%",
+    string = "RAM --% SWP --%",
     font = {
       size = 10.0,
     },
@@ -53,7 +59,7 @@ local ram_g = sbar.add("graph", "widgets.ram", 100, {
   },
 })
 
-local cpu = sbar.add("graph", "widgets.cpu", 130, {
+local cpu = sbar.add("graph", "widgets.cpu", cpu_graph_width, {
   position = "right",
   icon = {
     string = icons.cpu,
@@ -80,14 +86,17 @@ local cpu = sbar.add("graph", "widgets.cpu", 130, {
   update_freq = settings.hardware.update_freq,
 })
 
-local ecpu = sbar.add("graph", "widgets.ecpu", 130, {
+local ecpu = sbar.add("graph", "widgets.ecpu", cpu_graph_width, {
   position = "right",
   graph = { color = colors.with_alpha(colors.green, 0.5) },
-  background = { drawing = false },
-  icon = { drawing = false },
-  label = { drawing = false },
-  padding_right = -150,
-  y_offset = 3,
+  background = ui.capsule {
+    color = colors.transparent,
+    border_width = 0,
+  },
+  icon = { drawing = false, width = 0 },
+  label = { drawing = false, width = 0 },
+  padding_right = -cpu_overlay_pad,
+  y_offset = 0,
 })
 
 local power = sbar.add("item", "widgets.power", {
@@ -160,7 +169,7 @@ cpu:subscribe("routine", function(env)
     }
     ram_g:set {
       graph = { color = colors.with_alpha(color_ram, 0.5) },
-      label = "RAM " .. math.floor(ram_pct) .. "% SWAP " .. math.floor(swap_pct) .. "%",
+      label = "RAM " .. math.floor(ram_pct) .. "% SWP " .. math.floor(swap_pct) .. "%",
     }
     gpu:set {
       graph = { color = colors.with_alpha(color_gpu, 0.5) },
