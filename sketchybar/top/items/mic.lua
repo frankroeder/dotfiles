@@ -37,14 +37,11 @@ local mic_slider = sbar.add("slider", "widgets.mic.slider", 100, {
   slider = {
     highlight_color = settings.theme.accent_alt,
     background = {
-      height = 6,
-      corner_radius = 3,
-      color = colors.bg2,
+      height = 4,
+      corner_radius = 2,
+      color = colors.surface0,
     },
-    knob = {
-      drawing = true,
-      string = " ",
-    },
+    knob = { string = "􀀁" },
   },
   background = {
     color = settings.theme.surface_alt,

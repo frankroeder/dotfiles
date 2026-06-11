@@ -1,25 +1,25 @@
 local settings = require "settings"
-local colors = require "colors"
-local icons = require "icons"
 local ui = require "ui"
 
 local cal = sbar.add("item", "widgets.calendar", {
   position = "right",
   update_freq = 30,
+  icon = { drawing = false },
   label = {
-    color = settings.theme.text_primary,
-    padding_right = 6,
-    padding_left = 0,
+    color = settings.theme.text_muted,
+    padding_right = 8,
+    padding_left = 8,
     font = {
       family = settings.font.numbers,
       style = settings.font.style_map["Semibold"],
-      size = 12.0,
+      size = 13.0,
     },
   },
   background = ui.capsule {
-    color = settings.theme.surface_alt,
-    border_color = colors.with_alpha(settings.theme.success, 0.42),
+    color = settings.theme.surface,
+    border_color = settings.theme.border,
   },
+  popup = { align = "center" },
   click_script = "open -a 'Calendar'",
 })
 

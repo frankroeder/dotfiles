@@ -32,9 +32,9 @@ end
 
 function ui.popup(accent)
   return {
-    border_width = 0,
+    border_width = 1,
     corner_radius = metrics.popup_corner_radius,
-    border_color = colors.with_alpha(accent or theme.popup_border, 0.58),
+    border_color = accent or theme.popup_border,
     color = theme.popup_bg,
     shadow = { drawing = true },
   }
