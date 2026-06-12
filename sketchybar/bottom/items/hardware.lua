@@ -4,13 +4,37 @@ local settings = require "settings"
 local utils = require "utils"
 local ui = require "ui"
 
-local cpu_graph_width = 134
-local cpu_icon_width = 20
-local cpu_item_pad = 14
--- Shift the eCPU overlay left over the CPU graph area (fixed label width keeps this stable).
-local cpu_overlay_pad = cpu_icon_width + settings.hardware.label_width - cpu_item_pad
+local cpu_graph_width = 144
+local cpu_icon_pad = 28
+local cpu_bar_inset = 8
+local cpu_graph_alpha = 0.32
+-- Shift the eCPU overlay over the CPU graph column (skip icon + bar inset, fixed label width).
+local cpu_overlay_pad = cpu_icon_pad + cpu_bar_inset + settings.hardware.label_width
 
-local gpu = sbar.add("graph", "widgets.gpu", 75, {
+local hw_label_font = {
+  family = settings.font.numbers,
+  style = settings.font.style_map["Semibold"],
+  size = 10.0,
+}
+
+local function fmt_cpu_label(ecpu, pcpu, temp)
+  return string.format(
+    "eCPU %02d%% pCPU %02d%% %02d°C",
+    math.floor(ecpu),
+    math.floor(pcpu),
+    math.floor(temp)
+  )
+end
+
+local function fmt_ram_label(ram, swap)
+  return string.format("RAM %02d%% SWP %02d%%", math.floor(ram), math.floor(swap))
+end
+
+local function fmt_gpu_label(gpu, temp)
+  return string.format("GPU %02d%% %02d°C", math.floor(gpu), math.floor(temp))
+end
+
+local gpu = sbar.add("graph", "widgets.gpu", 80, {
   position = "right",
   graph = { color = colors.with_alpha(settings.theme.accent, 0.40) },
   icon = {
@@ -20,10 +44,8 @@ local gpu = sbar.add("graph", "widgets.gpu", 75, {
     y_offset = 0,
   },
   label = {
-    string = "GPU --% --°C",
-    font = {
-      size = 10.0,
-    },
+    string = fmt_gpu_label(0, 0),
+    font = hw_label_font,
     align = "right",
     width = 0,
     padding_right = 4,
@@ -35,7 +57,7 @@ local gpu = sbar.add("graph", "widgets.gpu", 75, {
   },
 })
 
-local ram_g = sbar.add("graph", "widgets.ram", 104, {
+local ram_g = sbar.add("graph", "widgets.ram", 108, {
   position = "right",
   icon = {
     string = icons.ram,
@@ -44,10 +66,8 @@ local ram_g = sbar.add("graph", "widgets.ram", 104, {
     y_offset = 0,
   },
   label = {
-    string = "RAM --% SWP --%",
-    font = {
-      size = 10.0,
-    },
+    string = fmt_ram_label(0, 0),
+    font = hw_label_font,
     align = "right",
     width = 0,
     padding_right = 4,
@@ -61,21 +81,23 @@ local ram_g = sbar.add("graph", "widgets.ram", 104, {
 
 local cpu = sbar.add("graph", "widgets.cpu", cpu_graph_width, {
   position = "right",
+  graph = {
+    color = colors.with_alpha(colors.blue, cpu_graph_alpha),
+    fill_color = colors.with_alpha(colors.blue, cpu_graph_alpha),
+  },
   icon = {
     string = icons.cpu,
     color = settings.theme.accent_alt,
     padding_left = 4,
-    padding_right = 8,
+    padding_right = 4,
     y_offset = 0,
   },
   label = {
-    string = "eCPU --% pCPU --% --°C",
-    font = {
-      size = 10.0,
-    },
+    string = fmt_cpu_label(0, 0, 0),
+    font = hw_label_font,
     align = "right",
     width = 0,
-    padding_left = 20,
+    padding_left = 6,
     padding_right = 4,
     y_offset = 6,
   },
@@ -88,15 +110,17 @@ local cpu = sbar.add("graph", "widgets.cpu", cpu_graph_width, {
 
 local ecpu = sbar.add("graph", "widgets.ecpu", cpu_graph_width, {
   position = "right",
-  graph = { color = colors.with_alpha(colors.green, 0.5) },
+  graph = {
+    color = colors.with_alpha(colors.green, cpu_graph_alpha),
+    fill_color = colors.with_alpha(colors.green, cpu_graph_alpha),
+  },
   background = ui.capsule {
     color = colors.transparent,
     border_width = 0,
   },
-  icon = { drawing = false, width = 0 },
-  label = { drawing = false, width = 0 },
+  icon = { drawing = false },
+  label = { drawing = false },
   padding_right = -cpu_overlay_pad,
-  y_offset = 0,
 })
 
 local power = sbar.add("item", "widgets.power", {
@@ -114,7 +138,7 @@ local power = sbar.add("item", "widgets.power", {
     },
     padding_right = 3,
   },
-  padding_right = 18,
+  padding_right = 20,
   background = ui.capsule {
     color = settings.theme.surface_alt,
     border_color = colors.with_alpha(settings.theme.warn, 0.45),
@@ -164,16 +188,25 @@ cpu:subscribe("routine", function(env)
     local color_gpu = utils.color_gradient(gpu_used)
 
     cpu:set {
-      graph = { color = colors.with_alpha(colors.blue, 0.5) },
-      label = "eCPU " .. ecpu_val .. "% pCPU " .. pcpu_val .. "% " .. math.floor(cpu_temp) .. "°C",
+      graph = {
+        color = colors.with_alpha(colors.blue, cpu_graph_alpha),
+        fill_color = colors.with_alpha(colors.blue, cpu_graph_alpha),
+      },
+      label = fmt_cpu_label(ecpu_val, pcpu_val, cpu_temp),
+    }
+    ecpu:set {
+      graph = {
+        color = colors.with_alpha(colors.green, cpu_graph_alpha),
+        fill_color = colors.with_alpha(colors.green, cpu_graph_alpha),
+      },
     }
     ram_g:set {
       graph = { color = colors.with_alpha(color_ram, 0.5) },
-      label = "RAM " .. math.floor(ram_pct) .. "% SWP " .. math.floor(swap_pct) .. "%",
+      label = fmt_ram_label(ram_pct, swap_pct),
     }
     gpu:set {
       graph = { color = colors.with_alpha(color_gpu, 0.5) },
-      label = "GPU " .. gpu_used .. "% " .. math.floor(gpu_temp) .. "°C",
+      label = fmt_gpu_label(gpu_used, gpu_temp),
     }
     power:set {
       label = math.floor(output.power.all_watts or 0) .. " W",
