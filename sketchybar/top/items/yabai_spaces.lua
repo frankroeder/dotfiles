@@ -54,7 +54,7 @@ local function renderSpaceApps(index)
     for _, app in ipairs(state.app_names) do
       table.insert(app_icon_list, utils.lookup_app_icon(app, app_icons))
     end
-    icon_line = table.concat(app_icon_list, " ")
+    icon_line = " " .. table.concat(app_icon_list, " ")
   end
 
   space:set {
@@ -73,7 +73,6 @@ local function updateSpaceVisual(index)
 
   local bg = selected and ws_theme.active_bg or ws_theme.bg
   local fg = selected and ws_theme.badge_active_text or ws_theme.active
-  local border = selected and ws_theme.active_border or ws_theme.border
 
   sbar.animate("tanh", settings.motion.fast, function()
     space:set {
@@ -87,9 +86,9 @@ local function updateSpaceVisual(index)
         highlight = false,
       },
       background = {
+        drawing = true,
         color = bg,
-        border_width = 1,
-        border_color = border,
+        border_width = 0,
       },
     }
   end)
@@ -208,8 +207,7 @@ for index, space_name in ipairs(static_names) do
     padding_left = ws_layout.padding,
     background = ui.capsule {
       color = ws_theme.bg,
-      border_color = ws_theme.border,
-      border_width = 1,
+      border_width = 0,
       height = ws_layout.capsule.height,
       corner_radius = ws_layout.capsule.corner_radius,
     },

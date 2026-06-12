@@ -33,6 +33,5 @@ sbar.add("bracket", "top.group.network", {
 }, {
   background = ui.capsule {
     color = settings.theme.surface_alt,
-    border_color = colors.with_alpha(colors.sky, 0.42),
   },
 })

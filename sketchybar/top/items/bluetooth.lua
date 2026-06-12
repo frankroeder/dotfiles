@@ -27,7 +27,6 @@ local bluetooth = sbar.add("item", "widgets.bluetooth", {
   },
   background = ui.capsule {
     color = settings.theme.surface_alt,
-    border_color = colors.with_alpha(settings.theme.accent, 0.42),
   },
 })
 
@@ -120,7 +119,7 @@ local function update()
                   string = icon,
                   padding_left = 10,
                   padding_right = 4,
-                  color = colors.white,
+                  color = colors.subtext1,
                   font = { size = 16.0 },
                 },
                 background = {
@@ -135,7 +134,7 @@ local function update()
     end
 
     if count == 0 then
-      bluetooth:set { icon = { color = colors.grey } }
+      bluetooth:set { icon = { color = colors.overlay0 } }
       if not empty_item then
         empty_item = sbar.add("item", "widgets.bluetooth.empty", {
           position = "popup." .. bluetooth.name,
@@ -159,7 +158,7 @@ end
 
 bluetooth:subscribe("bt_device", function(env)
   if env.INFO.POWER_STATE == 0 then
-    bluetooth:set { icon = { string = icons.bluetooth.off, color = colors.grey } }
+    bluetooth:set { icon = { string = icons.bluetooth.off, color = colors.overlay0 } }
   elseif env.INFO.POWER_STATE > 0 then
     bluetooth:set { icon = { string = icons.bluetooth.on, color = colors.blue } }
   end

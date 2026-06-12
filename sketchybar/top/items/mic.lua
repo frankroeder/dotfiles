@@ -9,7 +9,7 @@ local mic = sbar.add("item", "widgets.mic", {
   position = "right",
   icon = {
     string = icons.mic.off,
-    color = settings.theme.accent_alt,
+    color = colors.mic,
     padding_left = 8,
     padding_right = 8,
     font = {
@@ -24,18 +24,17 @@ local mic = sbar.add("item", "widgets.mic", {
       size = 13.0,
     },
     padding_right = 8,
-    color = settings.theme.text_primary,
+    color = colors.mic,
   },
   background = ui.capsule {
     color = settings.theme.surface_alt,
-    border_color = colors.with_alpha(settings.theme.accent_alt, 0.45),
   },
 })
 
 local mic_slider = sbar.add("slider", "widgets.mic.slider", 100, {
   position = "popup.widgets.mic",
   slider = {
-    highlight_color = settings.theme.accent_alt,
+    highlight_color = colors.mic,
     background = {
       height = 4,
       corner_radius = 2,
@@ -44,10 +43,11 @@ local mic_slider = sbar.add("slider", "widgets.mic.slider", 100, {
     knob = { string = "􀀁" },
   },
   background = {
-    color = settings.theme.surface_alt,
+    color = settings.theme.button_bg,
     height = popup_row_height,
     corner_radius = 6,
-    border_width = 0,
+    border_width = settings.theme.border_width,
+    border_color = settings.theme.border,
   },
 })
 
@@ -64,10 +64,7 @@ local function update()
 
     sbar.animate("tanh", settings.animation_duration, function()
       mic:set {
-        icon = {
-          string = icon,
-          color = is_muted and settings.theme.critical or settings.theme.accent_alt,
-        },
+        icon = { string = icon, color = colors.mic },
         label = { string = is_muted and "Muted" or volume .. "%" },
       }
     end)
@@ -81,12 +78,7 @@ local mic_mute = sbar.add("item", {
   align = "center",
   label = { string = "Toggle Mute", align = "center" },
   width = 160,
-  background = {
-    color = colors.with_alpha(settings.theme.surface_alt, 0.60),
-    border_width = 0,
-    corner_radius = 6,
-    height = popup_row_height,
-  },
+  background = ui.button {},
 })
 
 mic_mute:subscribe("mouse.clicked", function()

@@ -30,7 +30,6 @@ local brew = sbar.add("item", "widgets.brew", {
   },
   background = ui.capsule {
     color = settings.theme.surface_alt,
-    border_color = colors.with_alpha(settings.theme.warn, 0.42),
   },
 })
 
@@ -70,13 +69,11 @@ local function update_brew()
       end
     end
 
-    local color = colors.white
+    local color = colors.subtext1
     if count >= 10 then
       color = colors.red
     elseif count > 0 then
       color = colors.yellow
-    else
-      color = colors.white
     end
 
     brew:set {
@@ -117,9 +114,7 @@ local function populate_popup()
         padding_right = 10,
       },
       icon = { drawing = false },
-      background = {
-        height = popup_row_height,
-      },
+      background = ui.button {},
     })
     table.insert(popup_items, no_updates)
   else
@@ -140,7 +135,7 @@ local function populate_popup()
           string = "•",
           padding_left = 10,
           padding_right = 4,
-          color = colors.white,
+          color = colors.subtext1,
         },
         background = {
           height = popup_row_height,

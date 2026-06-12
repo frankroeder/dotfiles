@@ -28,7 +28,6 @@ local timer = sbar.add("item", "widgets.timer", {
   },
   background = ui.capsule {
     color = settings.theme.surface_alt,
-    border_color = colors.with_alpha(settings.theme.warn, 0.42),
   },
 })
 
@@ -97,12 +96,7 @@ local function create_timer_option(minutes)
       padding_left = 10,
       padding_right = 10,
     },
-    background = {
-      height = popup_row_height,
-      color = colors.with_alpha(settings.theme.surface_alt, 0.60),
-      border_width = 0,
-      corner_radius = 6,
-    },
+    background = ui.button {},
   })
 
   option:subscribe("mouse.clicked", function()

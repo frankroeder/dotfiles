@@ -38,7 +38,6 @@ local ssd_volume = sbar.add("item", "widgets.ssd.volume", {
   update_freq = 600,
   background = ui.capsule {
     color = settings.theme.surface_alt,
-    border_color = colors.with_alpha(settings.theme.success, 0.45),
   },
 })
 
@@ -86,7 +85,7 @@ ssd_volume:subscribe({ "routine", "forced", "system_woke" }, function(_)
             color = Color,
           },
           background = {
-            border_color = colors.with_alpha(Color, 0.45),
+            border_color = settings.theme.border,
           },
         }
       end

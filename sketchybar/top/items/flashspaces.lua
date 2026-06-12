@@ -45,7 +45,6 @@ local function updateStyle(workspace_name)
 
   local bg = focused and ws_theme.active_bg or ws_theme.bg
   local fg = focused and ws_theme.badge_active_text or ws_theme.active
-  local border = focused and ws_theme.active_border or ws_theme.border
 
   sbar.animate("tanh", settings.motion.fast, function()
     workspace:set {
@@ -57,9 +56,9 @@ local function updateStyle(workspace_name)
         color = fg,
       },
       background = {
+        drawing = true,
         color = bg,
-        border_width = 1,
-        border_color = border,
+        border_width = 0,
       },
     }
   end)
@@ -87,7 +86,7 @@ local function updateWindows(workspace_name)
     end
 
     state.occupied = #icon_list > 0
-    local label_str = #icon_list > 0 and table.concat(icon_list, " ") or " —"
+    local label_str = #icon_list > 0 and " " .. table.concat(icon_list, " ") or " —"
     workspace:set {
       label = { string = label_str },
     }
@@ -157,8 +156,7 @@ for workspace_index, workspace_name in ipairs(parse_lines(workspace_output)) do
     },
     background = ui.capsule {
       color = ws_theme.bg,
-      border_color = ws_theme.border,
-      border_width = 1,
+      border_width = 0,
       height = ws_layout.capsule.height,
       corner_radius = ws_layout.capsule.corner_radius,
     },

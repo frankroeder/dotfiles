@@ -1,6 +1,25 @@
 #!/bin/bash
+# Catppuccin Mocha/Latte borders, synced with sketchybar/colors.lua (auto dark/light like nvim/ghostty)
+# edit palettes in colors.lua or here for global align
 
-borders active_color=0xff7aa2f7 \
-        inactive_color=0x4D414868 \
+is_dark=1
+if [ "$(uname -s)" = "Darwin" ]; then
+  style=$(defaults read -g AppleInterfaceStyle 2>/dev/null || echo Light)
+  echo "$style" | grep -qi dark && is_dark=1 || is_dark=0
+else
+  # linux gsettings etc
+  if gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null | grep -qi dark; then is_dark=1; else is_dark=0; fi
+fi
+
+if [ "$is_dark" = "1" ]; then
+  active="0xff89b4fa"      # cat blue (or change to b4befe lavender)
+  inactive="0x55313244"    # surface0 ~33% alpha
+else
+  active="0xff1e66f5"      # latte blue
+  inactive="0x55ccd0da"    # surface0 light ~33%
+fi
+
+borders active_color="$active" \
+        inactive_color="$inactive" \
         width=8.0 \
         style=round

@@ -1,3 +1,4 @@
+local colors = require "colors"
 local settings = require "settings"
 local ui = require "ui"
 
@@ -6,7 +7,7 @@ local cal = sbar.add("item", "widgets.calendar", {
   update_freq = 30,
   icon = { drawing = false },
   label = {
-    color = settings.theme.text_muted,
+    color = colors.cal,
     padding_right = 8,
     padding_left = 8,
     font = {
@@ -16,13 +17,12 @@ local cal = sbar.add("item", "widgets.calendar", {
     },
   },
   background = ui.capsule {
-    color = settings.theme.surface,
-    border_color = settings.theme.border,
+    color = settings.theme.surface_alt,
   },
   popup = { align = "center" },
   click_script = "open -a 'Calendar'",
 })
 
 cal:subscribe({ "forced", "routine", "system_woke" }, function(env)
-  cal:set { label = os.date "%a %d %b  %H:%M" }
+  cal:set { label = os.date "%a %d %b  -  %H:%M" }
 end)

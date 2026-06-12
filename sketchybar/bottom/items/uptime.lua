@@ -20,7 +20,6 @@ local uptime = sbar.add("item", "widgets.uptime", {
   update_freq = 600,
   background = ui.capsule {
     color = settings.theme.surface_alt,
-    border_color = colors.with_alpha(settings.theme.accent, 0.45),
   },
 })
 

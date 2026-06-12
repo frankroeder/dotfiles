@@ -27,7 +27,6 @@ local vpn_item = sbar.add("item", "widgets.vpn", {
   drawing = false,
   background = ui.capsule {
     color = settings.theme.surface_alt,
-    border_color = colors.with_alpha(settings.theme.accent_alt, 0.42),
   },
   click_script = "open 'x-apple.systempreferences:com.apple.preference.vpn'",
 })

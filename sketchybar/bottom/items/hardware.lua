@@ -257,7 +257,7 @@ local power = sbar.add("item", "widgets.power", {
   padding_right = 8,
   background = ui.capsule {
     color = settings.theme.surface_alt,
-    border_color = colors.with_alpha(settings.theme.warn, 0.45),
+    border_color = settings.theme.border,
   },
 })
 
@@ -269,7 +269,7 @@ sbar.add("bracket", "hw.group.gpu", {
 }, {
   background = ui.capsule {
     color = settings.theme.surface_alt,
-    border_color = colors.with_alpha(settings.theme.accent, 0.42),
+    border_color = settings.theme.border,
   },
 })
 
@@ -279,7 +279,7 @@ sbar.add("bracket", "hw.group.ram", {
 }, {
   background = ui.capsule {
     color = settings.theme.surface_alt,
-    border_color = colors.with_alpha(settings.theme.warn, 0.45),
+    border_color = settings.theme.border,
   },
 })
 
@@ -292,7 +292,7 @@ sbar.add("bracket", "hw.group.cpu", {
 }, {
   background = ui.capsule {
     color = settings.theme.surface_alt,
-    border_color = colors.with_alpha(settings.theme.accent_alt, 0.42),
+    border_color = settings.theme.border,
   },
 })
 

@@ -18,13 +18,13 @@ local mode = sbar.add("item", "widgets.mode", {
   label = { drawing = false },
   background = ui.capsule {
     color = settings.theme.surface_alt,
-    border_color = colors.with_alpha(settings.theme.warn, 0.42),
   },
 })
 
 mode:subscribe({ "routine", "system_woke", "forced" }, function()
-  sbar.exec("defaults read -g AppleInterfaceStyle 2>/dev/null", function(style)
-    local is_dark = style == "Dark\n" or style == "Dark"
+  -- Use osascript (same as the toggle) for reliable current dark mode state
+  sbar.exec([[osascript -e 'tell application "System Events" to tell appearance preferences to return dark mode' 2>/dev/null || echo false]], function(result)
+    local is_dark = (result or ""):lower():match("true") ~= nil
     mode:set {
       icon = {
         string = is_dark and icons.mode.dark or icons.mode.light,
@@ -36,7 +36,15 @@ end)
 
 mode:subscribe("mouse.clicked", function()
   sbar.exec "osascript -e 'tell application \"System Events\" to tell appearance preferences to set dark mode to not dark mode'"
-  sbar.delay(0.1, function()
+  -- quick update for the mode icon itself (re-reads current state)
+  sbar.delay(0.12, function()
     sbar.trigger "forced"
+  end)
+  -- longer delay + sleep before reloads: gives the system prefs time to settle so colors.lua detection (osascript/defaults) sees the new mode.
+  -- This reloads both bars so they re-require colors.lua and get correct Mocha/Latte palette + ws etc.
+  sbar.delay(0.55, function()
+    -- use the same bare commands as skhdrc / flashspace for controlling the two instances
+    sbar.exec("sleep 0.3; sketchybar --reload && sketchybar-top --reload >/dev/null 2>&1 &")
+    sbar.exec("pkill -x borders 2>/dev/null; sleep 0.1; $HOME/.config/borders/bordersrc >/dev/null 2>&1 &")
   end)
 end)

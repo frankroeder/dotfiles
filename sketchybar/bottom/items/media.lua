@@ -27,6 +27,7 @@ local media = sbar.add("item", "widgets.media", {
   updates = true,
   background = ui.capsule {
     color = settings.theme.surface_alt,
+    border_color = settings.theme.border,
   },
   popup = {
     align = "center",
@@ -64,12 +65,7 @@ local back = sbar.add("item", "widgets.media.back", {
   label = { drawing = false },
   width = 90,
   align = "center",
-  background = {
-    height = popup_row_height,
-    color = colors.with_alpha(settings.theme.surface_alt, 0.60),
-    border_width = 0,
-    corner_radius = 6,
-  },
+  background = ui.button {},
 })
 
 back:subscribe("mouse.clicked", function()
@@ -85,12 +81,7 @@ local play = sbar.add("item", "widgets.media.play", {
   label = { drawing = false },
   width = 90,
   align = "center",
-  background = {
-    height = popup_row_height,
-    color = colors.with_alpha(settings.theme.surface_alt, 0.60),
-    border_width = 0,
-    corner_radius = 6,
-  },
+  background = ui.button {},
 })
 
 play:subscribe("mouse.clicked", function()
@@ -106,12 +97,7 @@ local forward = sbar.add("item", "widgets.media.forward", {
   label = { drawing = false },
   width = 90,
   align = "center",
-  background = {
-    height = popup_row_height,
-    color = colors.with_alpha(settings.theme.surface_alt, 0.60),
-    border_width = 0,
-    corner_radius = 6,
-  },
+  background = ui.button {},
 })
 
 forward:subscribe("mouse.clicked", function()

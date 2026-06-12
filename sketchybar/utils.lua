@@ -59,7 +59,7 @@ function utils.color_gradient(value, thresholds)
       return t.color
     end
   end
-  return colors.white
+  return colors.subtext1
 end
 
 function utils.lookup_app_icon(app, app_icons)

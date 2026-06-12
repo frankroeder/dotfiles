@@ -1,7 +1,6 @@
 auto-update-channel = stable
 
 theme = dark:Catppuccin Mocha,light:Catppuccin Latte
-background-opacity = 0.9
 window-theme = system
 
 font-family = "Hack Nerd Font"

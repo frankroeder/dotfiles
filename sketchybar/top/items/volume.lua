@@ -9,7 +9,7 @@ local volume = sbar.add("item", "widgets.volume", {
   position = "right",
   icon = {
     string = icons.volume[100],
-    color = settings.theme.accent,
+    color = colors.vol,
     padding_left = 8,
     padding_right = 8,
     font = {
@@ -24,18 +24,17 @@ local volume = sbar.add("item", "widgets.volume", {
       size = 13.0,
     },
     padding_right = 8,
-    color = settings.theme.text_primary,
+    color = colors.vol,
   },
   background = ui.capsule {
     color = settings.theme.surface_alt,
-    border_color = colors.with_alpha(settings.theme.accent, 0.45),
   },
 })
 
 local volume_slider = sbar.add("slider", "widgets.volume.slider", 100, {
   position = "popup.widgets.volume",
   slider = {
-    highlight_color = settings.theme.accent,
+    highlight_color = colors.vol,
     background = {
       height = 4,
       corner_radius = 2,
@@ -44,35 +43,28 @@ local volume_slider = sbar.add("slider", "widgets.volume.slider", 100, {
     knob = { string = "􀀁" },
   },
   background = {
-    color = settings.theme.surface_alt,
+    color = settings.theme.button_bg,
     height = popup_row_height,
     corner_radius = 6,
-    border_width = 0,
+    border_width = settings.theme.border_width,
+    border_color = settings.theme.border,
   },
   click_script = 'osascript -e "set volume output volume $PERCENTAGE"',
 })
 
 local function update_volume(volume_level)
   local icon = icons.volume[0]
-  local color = settings.theme.critical
-
-  if volume_level > 66 then
+  if volume_level >= 60 then
     icon = icons.volume[100]
-    color = settings.theme.text_primary
-  elseif volume_level > 33 then
+  elseif volume_level >= 30 then
     icon = icons.volume[66]
-    color = settings.theme.text_primary
-  elseif volume_level > 10 then
+  elseif volume_level >= 1 then
     icon = icons.volume[33]
-    color = settings.theme.text_primary
-  elseif volume_level > 0 then
-    icon = icons.volume[10]
-    color = settings.theme.text_primary
   end
 
   sbar.animate("tanh", settings.animation_duration, function()
     volume:set {
-      icon = { string = icon, color = color },
+      icon = { string = icon, color = colors.vol },
       label = { string = volume_level .. "%" },
     }
   end)
@@ -95,12 +87,7 @@ local volume_mute = sbar.add("item", {
   align = "center",
   label = { string = "Toggle Mute", align = "center" },
   width = 160,
-  background = {
-    color = colors.with_alpha(settings.theme.surface_alt, 0.60),
-    border_width = 0,
-    corner_radius = 6,
-    height = popup_row_height,
-  },
+  background = ui.button {},
 })
 
 volume_mute:subscribe("mouse.clicked", function()
