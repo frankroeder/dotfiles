@@ -3,6 +3,7 @@ local colors = require "colors"
 local settings = require "settings"
 local utils = require "utils"
 local ui = require "ui"
+local network = require "items.network"
 
 local interface = utils.get_wifi_interface()
 local popup_width = 280
@@ -160,9 +161,13 @@ local function update_details()
   )
 end
 
-wifi:subscribe("mouse.clicked", function(env)
+local function toggle_details()
   utils.popup_toggle(wifi, update_details)
-end)
+end
+
+wifi:subscribe("mouse.clicked", toggle_details)
+network.up:subscribe("mouse.clicked", toggle_details)
+network.down:subscribe("mouse.clicked", toggle_details)
 
 wifi:subscribe("mouse.exited.global", function()
   utils.popup_hide(wifi)

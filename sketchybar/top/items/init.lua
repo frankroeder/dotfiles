@@ -30,6 +30,7 @@ require "items.wallpaper"
 sbar.add("bracket", "top.group.network", {
   "widgets.wifi",
   "widgets.network_up",
+  "widgets.network_down",
 }, {
   background = ui.capsule {
     color = settings.theme.surface_alt,

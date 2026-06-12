@@ -21,56 +21,71 @@ start_provider(interface)
 local rate_font = {
   family = settings.font.numbers,
   style = settings.font.style_map["Bold"],
-  size = 10.0,
+  size = 9.0,
 }
 
-local RATE_LABEL_WIDTH = 58
-local RATE_ICON_WIDTH = 14
-local RATE_ITEM_WIDTH = RATE_ICON_WIDTH + RATE_LABEL_WIDTH + 8
 local function rate_inactive(rate)
   return not rate or rate:match "^0+%s" ~= nil
 end
 
 local network_up = sbar.add("item", "widgets.network_up", {
   position = "right",
-  width = RATE_ITEM_WIDTH,
-  padding_left = 0,
-  padding_right = 0,
+  padding_left = -5,
+  width = 0,
   icon = {
-    string = icons.wifi.upload .. " 000 KBps",
-    drawing = true,
     font = rate_font,
-    width = RATE_ITEM_WIDTH,
-    align = "left",
-    padding_left = 0,
-    padding_right = 0,
-    y_offset = 5,
+    string = icons.wifi.upload,
     color = settings.theme.critical,
+    width = 14,
+    align = "left",
   },
   label = {
     font = rate_font,
-    padding_left = -RATE_ITEM_WIDTH,
-    padding_right = 0,
-    align = "left",
-    width = 0,
-    string = icons.wifi.download .. " 000 KBps",
-    color = settings.theme.accent,
-    y_offset = -5,
+    color = settings.theme.critical,
+    string = "000 Bps",
+    width = 58,
+    align = "right",
   },
+  y_offset = 4,
+  background = { drawing = false },
+})
+
+local network_down = sbar.add("item", "widgets.network_down", {
+  position = "right",
+  padding_left = -5,
+  width = 72,
+  icon = {
+    font = rate_font,
+    string = icons.wifi.download,
+    color = settings.theme.accent,
+    width = 14,
+    align = "left",
+  },
+  label = {
+    font = rate_font,
+    color = settings.theme.accent,
+    string = "000 Bps",
+    width = 58,
+    align = "right",
+  },
+  y_offset = -4,
   background = { drawing = false },
 })
 
 network_up:subscribe("network_update", function(env)
   local up_color = rate_inactive(env.upload) and settings.theme.text_muted or settings.theme.critical
-  local down_color = rate_inactive(env.download) and settings.theme.text_muted
-    or settings.theme.accent
+  local down_color = rate_inactive(env.download) and settings.theme.text_muted or settings.theme.accent
   network_up:set {
-    icon = {
-      string = icons.wifi.upload .. " " .. env.upload,
+    icon = { color = up_color },
+    label = {
+      string = env.upload,
       color = up_color,
     },
+  }
+  network_down:set {
+    icon = { color = down_color },
     label = {
-      string = icons.wifi.download .. " " .. env.download,
+      string = env.download,
       color = down_color,
     },
   }
@@ -80,3 +95,8 @@ network_up:subscribe({ "system_woke", "wifi_change" }, function()
   interface = utils.get_primary_interface()
   start_provider(interface)
 end)
+
+return {
+  up = network_up,
+  down = network_down,
+}
