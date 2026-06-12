@@ -25,7 +25,6 @@ require "items.brew"
 require "items.volume"
 require "items.mic"
 require "items.bluetooth"
-require "items.wallpaper"
 
 sbar.add("bracket", "top.group.network", {
   "widgets.wifi",
