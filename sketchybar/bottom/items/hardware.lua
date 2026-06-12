@@ -42,7 +42,7 @@ local gpu_graph = sbar.add("graph", "widgets.gpu_graph", gpu_graph_width, {
   position = "right",
   padding_left = 0,
   padding_right = 4,
-  y_offset = 7,
+  y_offset = 8,
   graph = {
     color = colors.with_alpha(settings.theme.accent, 0.40),
     line_width = 1.0,
@@ -166,7 +166,7 @@ local cpu_pcpu_graph = sbar.add("graph", "widgets.cpu_pcpu", cpu_graph_width, {
   position = "right",
   padding_left = 4,
   padding_right = 4,
-  y_offset = 7,
+  y_offset = 8,
   graph = {
     color = colors.with_alpha(colors.blue, graph_alpha),
     fill_color = colors.with_alpha(colors.blue, graph_alpha),
@@ -181,8 +181,8 @@ local cpu_pcpu_graph = sbar.add("graph", "widgets.cpu_pcpu", cpu_graph_width, {
 local cpu_ecpu_graph = sbar.add("graph", "widgets.cpu_ecpu", cpu_graph_width, {
   position = "right",
   padding_left = 0,
-  padding_right = -(cpu_graph_width - 4),
-  y_offset = 7,
+  padding_right = -(cpu_graph_width + 4),
+  y_offset = 21,
   graph = {
     color = colors.with_alpha(colors.green, graph_alpha),
     fill_color = colors.with_alpha(colors.green, graph_alpha),
@@ -365,8 +365,8 @@ cpu_pcpu_graph:subscribe("routine", function(env)
     power:set { label = math.floor(output.power.all_watts or 0) .. " W" }
 
     -- Push graph data and scale graphs by 0.6
-    cpu_pcpu_graph:push { pcpu_val / 100. * .6 }
-    cpu_ecpu_graph:push { ecpu_val / 100. * .6 }
+    cpu_pcpu_graph:push { pcpu_val / 100. * .275 }
+    cpu_ecpu_graph:push { ecpu_val / 100. * .275 }
     gpu_graph:push { gpu_used / 100. * .6 }
   end)
 end)
