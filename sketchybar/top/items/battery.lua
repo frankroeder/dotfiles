@@ -11,6 +11,8 @@ local CACHE_TTL = 300 -- 5 minutes
 
 local battery = sbar.add("item", "widgets.battery", {
   position = "right",
+  padding_left = settings.paddings,
+  padding_right = settings.paddings,
   icon = {
     font = {
       style = settings.font.style_map["Regular"],
@@ -24,9 +26,7 @@ local battery = sbar.add("item", "widgets.battery", {
   },
   update_freq = 120,
   popup = { align = "center" },
-  background = ui.capsule {
-    color = settings.theme.surface_alt,
-  },
+  background = ui.capsule {},
 })
 
 local remaining_time = sbar.add("item", {

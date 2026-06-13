@@ -17,18 +17,16 @@ local timer = sbar.add("item", "widgets.timer", {
   icon = {
     string = icons.timer,
     color = colors.yellow,
-    padding_left = 8,
+    padding_left = 4,
+    padding_right = 2,
   },
   label = {
     string = "-",
-    padding_right = 8,
   },
   popup = {
     align = "center",
   },
-  background = ui.capsule {
-    color = settings.theme.surface_alt,
-  },
+  background = ui.capsule {},
 })
 
 local function stop_timer()

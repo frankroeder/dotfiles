@@ -24,7 +24,7 @@ function ui.group(accent, opts)
     drawing = true,
     color = opts.color or colors.with_alpha(theme.surface_alt, 0.22),
     border_width = opts.border_width or metrics.group_border_width,
-    border_color = opts.border_color or colors.with_alpha(accent or theme.border, colors.is_dark and 0.34 or 0.40),
+    border_color = opts.border_color or theme.border,
     corner_radius = opts.corner_radius or metrics.group_corner_radius,
     height = opts.height or metrics.group_height,
   }

@@ -8,19 +8,17 @@ local uptime = sbar.add("item", "widgets.uptime", {
   icon = {
     string = icons.uptime,
     color = settings.theme.accent,
-    padding_left = 8,
+    padding_left = 4,
+    padding_right = 2,
   },
   label = {
     font = {
       size = 15.0,
     },
     string = "...",
-    padding_right = 8,
   },
   update_freq = 600,
-  background = ui.capsule {
-    color = settings.theme.surface_alt,
-  },
+  background = ui.capsule {},
 })
 
 local function format_uptime(seconds)

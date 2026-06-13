@@ -232,20 +232,24 @@ for index, space_name in ipairs(static_names) do
 end
 
 local space_layout = sbar.add("item", "widgets.yabai_layout", {
-  padding_left = 8,
+  padding_left = settings.paddings,
   icon = {
     font = { family = settings.font.numbers },
     string = icons.yabai.bsp,
-    color = settings.theme.accent_alt,
+    color = ws_theme.fg,
+    padding_left = ws_layout.icon.padding_left,
+    padding_right = ws_layout.icon.padding_right,
   },
   label = {
     string = "",
-    padding_right = 6,
-    color = settings.theme.text_muted,
+    padding_right = settings.ui.label_padding_right,
+    color = ws_theme.fg,
   },
   background = ui.capsule {
-    color = settings.theme.surface_alt,
-    border_color = settings.theme.border,
+    color = ws_theme.bg,
+    border_width = 0,
+    height = ws_layout.capsule.height,
+    corner_radius = ws_layout.capsule.corner_radius,
   },
 })
 
@@ -333,7 +337,7 @@ local window_properties = sbar.add("item", "widgets.yabai_property", {
       style = settings.font.style_map["Bold"],
       size = 11,
     },
-    color = colors.orange,
+    color = ws_theme.fg,
     padding_left = 2,
     padding_right = 0,
   },

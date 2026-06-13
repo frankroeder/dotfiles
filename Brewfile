@@ -1,4 +1,4 @@
-tap "koekeishiya/formulae"
+tap "asmvik/formulae"
 tap "FelixKratz/formulae"
 tap "tw93/formulae"
 cask_args appdir: "~/Applications", require_sha: true

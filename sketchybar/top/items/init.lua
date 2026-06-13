@@ -34,4 +34,6 @@ sbar.add("bracket", "top.group.network", {
   background = ui.capsule {
     color = settings.theme.surface_alt,
   },
+  padding_left = settings.paddings,
+  padding_right = settings.paddings,
 })

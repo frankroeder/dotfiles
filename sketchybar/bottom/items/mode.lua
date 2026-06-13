@@ -8,17 +8,15 @@ local mode = sbar.add("item", "widgets.mode", {
   icon = {
     string = icons.mode.dark,
     color = colors.yellow,
-    padding_left = 8,
-    padding_right = 8,
+    padding_left = 6,
+    padding_right = 6,
     font = {
       style = settings.font.style_map["Regular"],
       size = 16.0,
     },
   },
   label = { drawing = false },
-  background = ui.capsule {
-    color = settings.theme.surface_alt,
-  },
+  background = ui.capsule {},
 })
 
 mode:subscribe({ "routine", "system_woke", "forced" }, function()

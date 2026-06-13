@@ -14,10 +14,8 @@ local media = sbar.add("item", "widgets.media", {
   icon = {
     font = "sketchybar-app-font:Regular:16.0",
     string = "",
-    padding_left = 8,
   },
   label = {
-    padding_right = 8,
     max_chars = 40,
     scroll_duration = 1400,
     font = {
@@ -25,10 +23,7 @@ local media = sbar.add("item", "widgets.media", {
     },
   },
   updates = true,
-  background = ui.capsule {
-    color = settings.theme.surface_alt,
-    border_color = settings.theme.border,
-  },
+  background = ui.capsule {},
   popup = {
     align = "center",
     horizontal = true,

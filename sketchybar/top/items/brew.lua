@@ -6,11 +6,14 @@ local popup_row_height = settings.ui.popup_row_height
 
 local brew = sbar.add("item", "widgets.brew", {
   position = "right",
+  padding_left = settings.paddings,
+  padding_right = settings.paddings,
   update_freq = 3600,
   icon = {
     string = icons.brew,
     color = colors.blue,
-    padding_right = 4,
+    padding_left = 4,
+    padding_right = 2,
     font = {
       size = 14.0,
     },
@@ -22,15 +25,12 @@ local brew = sbar.add("item", "widgets.brew", {
       style = settings.font.style_map["Bold"],
       size = 12.0,
     },
-    padding_right = 8,
   },
   popup = {
     align = "right",
     height = 30,
   },
-  background = ui.capsule {
-    color = settings.theme.surface_alt,
-  },
+  background = ui.capsule {},
 })
 
 -- Cache for outdated packages

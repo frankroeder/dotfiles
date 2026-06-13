@@ -8,18 +8,15 @@ local coffee = sbar.add("item", "widgets.coffee", {
   icon = {
     string = icons.coffee.off,
     color = colors.grey,
-    padding_left = 8,
-    padding_right = 8,
+    padding_left = 6,
+    padding_right = 6,
     font = {
       style = settings.font.style_map["Regular"],
       size = 16.0,
     },
   },
   label = { drawing = false },
-  background = ui.capsule {
-    color = settings.theme.surface_alt,
-    border_color = settings.theme.border,
-  },
+  background = ui.capsule {},
 })
 
 local function update_coffee()

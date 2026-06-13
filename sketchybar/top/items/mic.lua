@@ -7,11 +7,11 @@ local popup_row_height = settings.ui.popup_row_height
 
 local mic = sbar.add("item", "widgets.mic", {
   position = "right",
+  padding_left = settings.paddings,
+  padding_right = settings.paddings,
   icon = {
     string = icons.mic.off,
     color = colors.mic,
-    padding_left = 8,
-    padding_right = 8,
     font = {
       style = settings.font.style_map["Regular"],
       size = 16.0,
@@ -23,12 +23,9 @@ local mic = sbar.add("item", "widgets.mic", {
       style = settings.font.style_map["Semibold"],
       size = 13.0,
     },
-    padding_right = 8,
     color = colors.mic,
   },
-  background = ui.capsule {
-    color = settings.theme.surface_alt,
-  },
+  background = ui.capsule {},
 })
 
 local mic_slider = sbar.add("slider", "widgets.mic.slider", 100, {

@@ -7,11 +7,11 @@ local popup_row_height = settings.ui.popup_row_height
 
 local volume = sbar.add("item", "widgets.volume", {
   position = "right",
+  padding_left = settings.paddings,
+  padding_right = settings.paddings,
   icon = {
     string = icons.volume[100],
     color = colors.vol,
-    padding_left = 8,
-    padding_right = 8,
     font = {
       style = settings.font.style_map["Regular"],
       size = 16.0,
@@ -23,12 +23,9 @@ local volume = sbar.add("item", "widgets.volume", {
       style = settings.font.style_map["Semibold"],
       size = 13.0,
     },
-    padding_right = 8,
     color = colors.vol,
   },
-  background = ui.capsule {
-    color = settings.theme.surface_alt,
-  },
+  background = ui.capsule {},
 })
 
 local volume_slider = sbar.add("slider", "widgets.volume.slider", 100, {

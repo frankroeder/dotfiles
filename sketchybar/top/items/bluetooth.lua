@@ -9,11 +9,13 @@ local popup_row_height = settings.ui.popup_row_height
 
 local bluetooth = sbar.add("item", "widgets.bluetooth", {
   position = "right",
+  padding_left = settings.paddings,
+  padding_right = settings.paddings,
   icon = {
     string = icons.bluetooth.on,
     color = colors.blue,
-    padding_left = 8,
-    padding_right = 8,
+    padding_left = 6,
+    padding_right = 6,
     font = {
       style = settings.font.style_map["Regular"],
       size = 16.0,
@@ -25,9 +27,7 @@ local bluetooth = sbar.add("item", "widgets.bluetooth", {
   popup = {
     align = "right",
   },
-  background = ui.capsule {
-    color = settings.theme.surface_alt,
-  },
+  background = ui.capsule {},
 })
 
 local popup_items = {}

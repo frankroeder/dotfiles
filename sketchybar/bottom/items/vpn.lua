@@ -10,14 +10,14 @@ local vpn_item = sbar.add("item", "widgets.vpn", {
   update_freq = 60,
   icon = {
     string = icons.vpn,
-    padding_left = 8,
     font = {
       style = settings.font.style_map["Regular"],
       size = 16.0,
     },
+    padding_left = 4,
+    padding_right = 2,
   },
   label = {
-    padding_right = 8,
     string = "",
     font = {
       style = settings.font.style_map["Bold"],
@@ -25,9 +25,7 @@ local vpn_item = sbar.add("item", "widgets.vpn", {
     },
   },
   drawing = false,
-  background = ui.capsule {
-    color = settings.theme.surface_alt,
-  },
+  background = ui.capsule {},
   click_script = "open 'x-apple.systempreferences:com.apple.preference.vpn'",
 })
 

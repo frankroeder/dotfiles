@@ -38,6 +38,8 @@ local network_up = sbar.add("item", "widgets.network_up", {
     color = settings.theme.critical,
     width = 14,
     align = "left",
+    padding_left = 2,
+    padding_right = 2,
   },
   label = {
     font = rate_font,
@@ -53,6 +55,7 @@ local network_up = sbar.add("item", "widgets.network_up", {
 local network_down = sbar.add("item", "widgets.network_down", {
   position = "right",
   padding_left = -5,
+  padding_right = settings.paddings,
   width = 72,
   icon = {
     font = rate_font,
@@ -60,6 +63,8 @@ local network_down = sbar.add("item", "widgets.network_down", {
     color = settings.theme.accent,
     width = 14,
     align = "left",
+    padding_left = 2,
+    padding_right = 2,
   },
   label = {
     font = rate_font,

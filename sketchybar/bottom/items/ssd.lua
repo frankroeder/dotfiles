@@ -23,7 +23,8 @@ local ssd_volume = sbar.add("item", "widgets.ssd.volume", {
       size = 16.0,
     },
     string = icons.disk["0"],
-    padding_left = 8,
+    padding_left = 4,
+    padding_right = 2,
   },
   label = {
     font = {
@@ -32,13 +33,10 @@ local ssd_volume = sbar.add("item", "widgets.ssd.volume", {
     },
     align = "right",
     width = 64,
-    padding_right = 8,
     string = "...%",
   },
   update_freq = 600,
-  background = ui.capsule {
-    color = settings.theme.surface_alt,
-  },
+  background = ui.capsule {},
 })
 
 local function free_space_color(free_percent)
