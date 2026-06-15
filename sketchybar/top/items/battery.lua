@@ -86,6 +86,21 @@ local power_wattage = sbar.add("item", {
   drawing = false,
 })
 
+local temperature = sbar.add("item", {
+  position = "popup." .. battery.name,
+  icon = {
+    string = icons.temperature,
+    padding_left = 5,
+    padding_right = 5,
+  },
+  label = {
+    string = "Temperature: --°C",
+    padding_right = 11,
+  },
+  background = ui.popup_row(popup_row_height),
+  drawing = false,
+})
+
 battery:subscribe({ "routine", "power_source_change", "system_woke" }, function()
   sbar.exec("pmset -g batt", function(batt_info)
     local icon = "!"
@@ -124,6 +139,40 @@ battery:subscribe({ "routine", "power_source_change", "system_woke" }, function(
   end)
 end)
 
+local function update_ioreg_data()
+  sbar.exec("ioreg -r -c AppleSmartBattery -d 1", function(output)
+    if not output or output == "" then
+      return
+    end
+
+    local ac_connected = output:match '"ExternalConnected"%s*=%s*Yes' ~= nil
+    local battery_temp = tonumber(
+      output:match '"VirtualTemperature"%s*=%s*(%d+)'
+        or output:match '\n%s+"Temperature"%s*=%s*(%d+)'
+    )
+    local charger_temp = tonumber(
+      output:match '"ConnectorTemperature"%s*=%s*(%d+)'
+        or output:match '"PortTemperature"%s*=%s*(%d+)'
+        or output:match '"ChargerTemperature"%s*=%s*(%d+)'
+        or output:match '"AdapterTemperature"%s*=%s*(%d+)'
+    )
+
+    if ac_connected and charger_temp then
+      temperature:set {
+        drawing = true,
+        label = string.format("AC connector: %.1f°C", charger_temp / 100),
+      }
+    elseif battery_temp then
+      temperature:set {
+        drawing = true,
+        label = string.format("Battery: %.1f°C", battery_temp / 100),
+      }
+    else
+      temperature:set { drawing = false }
+    end
+  end)
+end
+
 local function apply_profiler_data(data)
   if not data or not data.SPPowerDataType then
     return
@@ -152,6 +201,8 @@ local function apply_profiler_data(data)
 end
 
 local function update_details()
+  update_ioreg_data()
+
   sbar.exec("pmset -g batt", function(batt_info)
     local found, _, remaining = batt_info:find " (%d+:%d+) remaining"
     local label = found and remaining .. "h" or "No estimate"

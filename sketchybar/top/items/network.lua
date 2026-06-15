@@ -1,5 +1,4 @@
 local icons = require "icons"
-local colors = require "colors"
 local settings = require "settings"
 local utils = require "utils"
 
@@ -18,11 +17,7 @@ end
 local interface = utils.get_primary_interface()
 start_provider(interface)
 
-local rate_font = {
-  family = settings.font.numbers,
-  style = settings.font.style_map["Bold"],
-  size = 11.0,
-}
+local rate_font = settings.font.numbers .. ":" .. settings.font.style_map["Bold"] .. ":11.0"
 
 local function rate_inactive(rate)
   return not rate or rate:match "^0+%s" ~= nil

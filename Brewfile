@@ -33,7 +33,6 @@ brew "yabai"
 brew "skhd", args: ["with-logging"]
 brew "sketchybar", args:  ["HEAD"], restart_service: :changed
 brew "borders"
-brew "mole"
 brew "macmon"
 
 cask "raycast"
