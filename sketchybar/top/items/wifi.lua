@@ -12,19 +12,19 @@ local popup_row_height = settings.ui.popup_row_height
 
 local wifi = sbar.add("item", "widgets.wifi", {
   position = "right",
-  width = 28,
+  width = 30,
   padding_left = 0,
   padding_right = 0,
   icon = {
     font = {
       style = settings.font.style_map["Regular"],
-      size = 16.0,
+      size = 18.0,
     },
     string = icons.wifi.disconnected,
     color = colors.red,
     width = 20,
     align = "center",
-    padding_left = 4,
+    padding_left = 6,
     padding_right = 12,
   },
   label = { drawing = false },
@@ -119,6 +119,7 @@ local router = sbar.add("item", {
 })
 
 wifi:subscribe({ "wifi_change", "system_woke" }, function(env)
+  interface = utils.get_wifi_interface()
   sbar.exec("ipconfig getifaddr " .. interface, function(ip_addr)
     local connected = not (ip_addr == "")
     wifi:set {
@@ -131,6 +132,7 @@ wifi:subscribe({ "wifi_change", "system_woke" }, function(env)
 end)
 
 local function update_details()
+  interface = utils.get_wifi_interface()
   sbar.exec("networksetup -getcomputername", function(result)
     hostname:set { label = result }
   end)

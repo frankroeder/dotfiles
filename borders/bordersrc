@@ -19,8 +19,8 @@ else
   inactive="0x55ccd0da"    # surface0 light ~33%
 fi
 
-borders active_color="$active" \
-        inactive_color="$inactive" \
-        width=10.0 \
-        style=round \
-        hidpi=on
+exec borders active_color="$active" \
+             inactive_color="$inactive" \
+             width=8.0 \
+             style=round \
+             hidpi=on

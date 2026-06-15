@@ -34,7 +34,7 @@ sbar.default {
   },
   popup = {
     background = ui.popup(settings.theme.popup_border),
-    blur_radius = 30,
+    blur_radius = settings.ui.item_blur_radius,
     y_offset = settings.ui.popup_y_offset,
   },
   padding_left = settings.paddings,

@@ -359,7 +359,6 @@ ifeq ($(OSTYPE), Darwin)
 	@if command -v brew >/dev/null 2>&1; then \
 		$(call print_step,Starting sketchybar service); \
 		brew services start sketchybar; \
-		brew services start borders; \
 	fi
 	@$(MAKE) agents
 endif

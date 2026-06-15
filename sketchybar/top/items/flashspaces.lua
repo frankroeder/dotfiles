@@ -42,9 +42,12 @@ local function updateStyle(workspace_name)
 
   local state = ensureState(workspace_name)
   local focused = state.focused
+  local occupied = state.occupied
 
-  local bg = focused and ws_theme.active_bg or ws_theme.bg
-  local fg = focused and ws_theme.badge_active_text or ws_theme.active
+  local bg = focused and ws_theme.active_bg
+    or (occupied and ws_theme.occupied_bg or ws_theme.empty_bg)
+  local fg = focused and ws_theme.badge_active_text
+    or (occupied and ws_theme.occupied_text or ws_theme.empty_text)
 
   sbar.animate("tanh", settings.motion.fast, function()
     workspace:set {

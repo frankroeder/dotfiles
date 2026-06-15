@@ -70,9 +70,12 @@ local function updateSpaceVisual(index)
 
   local state = ensureSpaceState(index)
   local selected = state.selected
+  local occupied = (state.window_count or 0) > 0
 
-  local bg = selected and ws_theme.active_bg or ws_theme.bg
-  local fg = selected and ws_theme.badge_active_text or ws_theme.active
+  local bg = selected and ws_theme.active_bg
+    or (occupied and ws_theme.occupied_bg or ws_theme.empty_bg)
+  local fg = selected and ws_theme.badge_active_text
+    or (occupied and ws_theme.occupied_text or ws_theme.empty_text)
 
   sbar.animate("tanh", settings.motion.fast, function()
     space:set {

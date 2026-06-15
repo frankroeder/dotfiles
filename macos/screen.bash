@@ -18,9 +18,12 @@ defaults write NSGlobalDomain AppleHighlightColor -string '0.780400 0.815700 0.8
 
 # Require password immediately after sleep or screen saver begins
 defaults write com.apple.screensaver askForPassword -bool true
-defaults write com.apple.screensaver askForPasswordDelay -int 5
-
-# Show screensaver with clock
+defaults write com.apple.screensaver askForPasswordDelay -int 30
+defaults -currentHost write com.apple.screensaver idleTime -int 300
+defaults -currentHost write com.apple.screensaver moduleDict -dict \
+  moduleName "Floating Message" \
+  path "/System/Library/Screen Savers/FloatingMessage.saver" \
+  type -int 0
 defaults -currentHost write com.apple.screensaver showClock -bool true
 
 # Save screenshots to custom folder

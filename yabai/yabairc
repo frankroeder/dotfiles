@@ -6,6 +6,25 @@ launchctl unload -F /System/Library/LaunchAgents/com.apple.WindowManager.plist >
 yabai -m signal --add event=dock_did_restart action="sudo yabai --load-sa"
 sudo yabai --load-sa
 
+bar_height() {
+  local cmd="$1"
+  local fallback="$2"
+  local height=""
+
+  if command -v "$cmd" >/dev/null 2>&1; then
+    height=$("$cmd" --query bar 2>/dev/null | jq -r '.height // empty' 2>/dev/null)
+  fi
+
+  if [[ $height =~ ^[0-9]+$ ]]; then
+    printf '%s\n' "$height"
+  else
+    printf '%s\n' "$fallback"
+  fi
+}
+
+TOP_BAR_HEIGHT=$(bar_height sketchybar-top 43)
+BOTTOM_BAR_HEIGHT=$(bar_height sketchybar 43)
+
 yabai -m config window_origin_display        default \
                 window_placement             second_child \
                 window_shadow                off \
@@ -15,7 +34,7 @@ yabai -m config window_origin_display        default \
                 normal_window_opacity        0.94 \
                 active_window_opacity        1.0 \
                 window_gap                   20 \
-                window_animation_duration    0.08 \
+                window_animation_duration    0.0 \
                 window_animation_easing      ease_out_circ \
                 top_padding                  12 \
                 bottom_padding               10 \
@@ -33,7 +52,7 @@ yabai -m config window_origin_display        default \
                 split_ratio                  0.50 \
                 split_type                   auto \
                 layout                       stack \
-                external_bar                 all:$(sketchybar-top --query bar | jq .height):$(sketchybar --query bar | jq .height)
+                external_bar                 all:${TOP_BAR_HEIGHT}:${BOTTOM_BAR_HEIGHT}
 
 # events
 yabai -m signal --add event=window_created action="sketchybar -m --trigger window_created &> /dev/null; sketchybar-top -m --trigger window_created &> /dev/null"
