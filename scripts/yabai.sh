@@ -24,7 +24,7 @@ yabai --stop-service
 
 # reinstall yabai & codesign
 echo "Updating yabai.."
-brew reinstall koekeishiya/formulae/yabai
+brew reinstall asmvik/formulae/yabai
 codesign -fs "${YABAI_CERT:-yabai-cert}" "$(brew --prefix yabai)/bin/yabai"
 
 # update sudoers file & start yabai
