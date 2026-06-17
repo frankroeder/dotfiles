@@ -76,6 +76,7 @@ local function updateSpaceVisual(index)
     or (occupied and ws_theme.occupied_bg or ws_theme.empty_bg)
   local fg = selected and ws_theme.badge_active_text
     or (occupied and ws_theme.occupied_text or ws_theme.empty_text)
+  local border_color = selected and colors.yellow or ws_theme.border
 
   sbar.animate("tanh", settings.motion.fast, function()
     space:set {
@@ -91,7 +92,8 @@ local function updateSpaceVisual(index)
       background = {
         drawing = true,
         color = bg,
-        border_width = 0,
+        border_width = settings.theme.border_width,
+        border_color = border_color,
       },
     }
   end)
@@ -210,7 +212,7 @@ for index, space_name in ipairs(static_names) do
     padding_left = ws_layout.padding,
     background = ui.capsule {
       color = ws_theme.bg,
-      border_width = 0,
+      border_color = ws_theme.border,
       height = ws_layout.capsule.height,
       corner_radius = ws_layout.capsule.corner_radius,
     },
@@ -226,7 +228,7 @@ for index, space_name in ipairs(static_names) do
 
   space:subscribe("mouse.clicked", function(env)
     if env.BUTTON == "right" then
-      sbar.exec("yabai -m space --destroy " .. index)
+      sbar.exec("yabai -m space --destroy " .. index .. "; sketchybar-top --trigger space_destroyed")
     else
       sbar.exec("yabai -m space --focus " .. index)
     end
@@ -250,7 +252,7 @@ local space_layout = sbar.add("item", "widgets.yabai_layout", {
   },
   background = ui.capsule {
     color = ws_theme.bg,
-    border_width = 0,
+    border_color = ws_theme.border,
     height = ws_layout.capsule.height,
     corner_radius = ws_layout.capsule.corner_radius,
   },
@@ -262,16 +264,26 @@ local function updateLayout()
       return
     end
 
+    local present = {}
     for _, yabai_space in ipairs(spaces_data) do
       local index = tonumber(yabai_space.index)
       local display = tonumber(yabai_space.display)
       if index and spaces[index] then
+        present[index] = true
         local state = ensureSpaceState(index)
         state.display = display or state.display
         state.selected = yabai_space["has-focus"] == true
         state.visible = yabai_space["is-visible"] == true
-        spaces[index]:set { display = state.display }
+        spaces[index]:set { display = state.display, drawing = true }
         updateSpaceVisual(index)
+      end
+    end
+    for idx, _ in pairs(spaces) do
+      if not present[idx] then
+        local st = ensureSpaceState(idx)
+        st.selected = false
+        st.visible = false
+        spaces[idx]:set { drawing = false }
       end
     end
 
@@ -344,7 +356,12 @@ local window_properties = sbar.add("item", "widgets.yabai_property", {
     padding_left = 2,
     padding_right = 0,
   },
-  background = { drawing = false },
+  background = ui.capsule {
+    color = ws_theme.bg,
+    border_color = ws_theme.border,
+    height = ws_layout.capsule.height,
+    corner_radius = ws_layout.capsule.corner_radius,
+  },
   padding_left = 0,
   drawing = false,
 })

@@ -217,6 +217,7 @@ misc: ## Install miscellaneous tools and configurations
 	$(call create_symlink,$(DOTFILES)/wgetrc,$(HOME)/.wgetrc)
 	$(call create_symlink,$(DOTFILES)/curlrc,$(HOME)/.curlrc)
 	$(call create_symlink,$(DOTFILES)/tmux/tmux.conf,$(HOME)/.tmux.conf)
+	$(call create_symlink,$(DOTFILES)/fastfetch,$(HOME)/.config/fastfetch)
 	$(call create_symlink,$(DOTFILES)/latexmkrc,$(HOME)/.latexmkrc)
 	$(call create_symlink,$(DOTFILES)/btop,$(HOME)/.config/btop)
 

@@ -66,6 +66,7 @@ yabai -m signal --add event=space_created action="sketchybar-top -m --trigger sp
 yabai -m signal --add event=space_destroyed action="sketchybar-top -m --trigger space_destroyed &> /dev/null"
 yabai -m signal --add event=display_removed action="launchctl kickstart -k \"gui/${UID}/homebrew.mxcl.yabai\""
 yabai -m signal --add event=display_added action="launchctl kickstart -k \"gui/${UID}/homebrew.mxcl.yabai\""
+# yabai -m signal --add event=space_changed action="yabai -m window --focus first"
 
 WINDOW_RULES="${DOTFILES:-$HOME/.dotfiles}/yabai/window_rules"
 if [[ -f $WINDOW_RULES ]]; then
