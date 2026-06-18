@@ -344,57 +344,6 @@ local function updateLayout()
   end)
 end
 
-local window_properties = sbar.add("item", "widgets.yabai_property", {
-  updates = true,
-  label = {
-    font = {
-      family = settings.font.text,
-      style = settings.font.style_map["Bold"],
-      size = 11,
-    },
-    color = ws_theme.fg,
-    padding_left = 2,
-    padding_right = 0,
-  },
-  background = ui.capsule {
-    color = ws_theme.bg,
-    border_color = ws_theme.border,
-    height = ws_layout.capsule.height,
-    corner_radius = ws_layout.capsule.corner_radius,
-  },
-  padding_left = 0,
-  drawing = false,
-})
-
-local function updateWindowProperties()
-  sbar.exec("yabai -m query --windows --window 2>/dev/null", function(window)
-    if type(window) ~= "table" then
-      window_properties:set { drawing = false }
-      return
-    end
-
-    local flags = {}
-    if window["is-sticky"] then
-      table.insert(flags, "S")
-    end
-    if window["is-floating"] then
-      table.insert(flags, "F")
-    end
-    if window["has-parent-zoom"] then
-      table.insert(flags, "Z")
-    end
-
-    local label = table.concat(flags, " ")
-    window_properties:set {
-      label = { string = label },
-      drawing = label ~= "",
-    }
-  end)
-end
-
-window_properties:subscribe("property_change", updateWindowProperties)
-window_properties:subscribe("front_app_switched", updateWindowProperties)
-window_properties:subscribe("window_focus", updateWindowProperties)
 
 local space_window_observer = sbar.add("item", "widgets.space_window_observer", {
   drawing = false,
@@ -449,7 +398,6 @@ space_layout:subscribe("space_created", updateLayout)
 space_layout:subscribe("space_destroyed", updateLayout)
 
 updateLayout()
-updateWindowProperties()
 scheduleSpaceWindowRefresh(2)
 
 return spaces

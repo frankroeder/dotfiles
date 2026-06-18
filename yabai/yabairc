@@ -75,6 +75,32 @@ fi
 
 yabai -m rule --apply
 
+# When external display connected, keep workspace 1 on built-in, move the rest to external.
+# Only move a workspace if it is not already on the target display.
+if [[ $(yabai -m query --displays 2>/dev/null | jq 'length') -gt 1 ]]; then
+  builtin=$(system_profiler SPDisplaysDataType -json 2>/dev/null | jq -r '
+    .SPDisplaysDataType[0].spdisplays_ndrvs[] |
+    select(.spdisplays_connection_type == "spdisplays_internal")._spdisplays_displayID' | head -1)
+  primary=${builtin:-1}
+
+  external=$(yabai -m query --displays 2>/dev/null | jq -r --arg p "$primary" '
+    .[] | select(.index != ($p|tonumber)) | .index' | head -1)
+  secondary=${external:-2}
+
+  # stream "index display" for each workspace and move only when needed
+  yabai -m query --spaces 2>/dev/null | jq -r '.[] | "\(.index) \(.display)"' |
+  while read -r idx cur; do
+    if [[ $idx -eq 1 ]]; then
+      target=$primary
+    else
+      target=$secondary
+    fi
+    if [[ $cur != "$target" ]]; then
+      yabai -m space "$idx" --display "$target" >/dev/null 2>&1 || true
+    fi
+  done
+fi
+
 $HOME/.config/borders/bordersrc 2>/dev/null 1>&2 &
 
 echo "yabai configuration loaded..."
