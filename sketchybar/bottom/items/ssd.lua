@@ -22,6 +22,7 @@ local ssd_volume = sbar.add("item", "widgets.ssd.volume", {
   position = "right",
   icon = {
     font = {
+      family = "Hack Nerd Font",
       size = 16.0,
     },
     string = icons.disk["0"],
@@ -290,7 +291,7 @@ ssd_volume:subscribe({ "routine", "forced", "system_woke" }, function(_)
         local Icon = "󰅚"
         local Color = free_space_color(free_pct)
         for _, threshold in ipairs(icon_thresholds) do
-          if free_pct >= threshold.min then
+          if used_pct >= threshold.min then
             Icon = threshold.icon
             break
           end

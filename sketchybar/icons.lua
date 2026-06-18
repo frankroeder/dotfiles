@@ -21,6 +21,7 @@ local icons = {
       download = "􀄩",
       connected = "􀙇",
       disconnected = "􀙈",
+      lan = "󰀂",
       router = "􁓤",
     },
     media = {
@@ -119,6 +120,7 @@ local icons = {
       download = "",
       connected = "󰖩",
       disconnected = "󰖪",
+      lan = "󰀂",
       router = "󰑩",
     },
     media = {

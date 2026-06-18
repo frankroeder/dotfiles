@@ -5,6 +5,8 @@ local utils = require "utils"
 local ui = require "ui"
 local network = require "items.network"
 
+sbar.add("event", "network_change", "com.apple.networkConnect")
+
 local interface = utils.get_wifi_interface()
 local popup_width = 280
 local row_width = popup_width / 2
@@ -118,49 +120,89 @@ local router = sbar.add("item", {
   background = ui.popup_row(popup_row_height),
 })
 
-wifi:subscribe({ "wifi_change", "system_woke" }, function(env)
+local function update_wifi()
   interface = utils.get_wifi_interface()
   sbar.exec("ipconfig getifaddr " .. interface, function(ip_addr)
     local connected = not (ip_addr == "")
-    wifi:set {
-      icon = {
-        string = connected and icons.wifi.connected or icons.wifi.disconnected,
-        color = connected and colors.text or colors.red,
-      },
-    }
+    if connected then
+      wifi:set {
+        icon = {
+          string = icons.wifi.connected,
+          color = colors.text,
+        },
+      }
+    else
+      local cmd = string.format([[
+        for ifc in $(networksetup -listallhardwareports | awk '/Device: en/{print $2}'); do
+          [ "$ifc" = "%s" ] && continue
+          ipconfig getifaddr "$ifc" >/dev/null 2>&1 && { echo "1"; exit; }
+        done; printf ''
+      ]], interface)
+      sbar.exec(cmd, function(lan)
+        local on_lan = lan and lan:match("%S") ~= nil
+        wifi:set {
+          icon = {
+            string = on_lan and icons.wifi.lan or icons.wifi.disconnected,
+            color = on_lan and colors.text or colors.red,
+          },
+        }
+      end)
+    end
   end)
-end)
+end
+
+wifi:subscribe({ "forced", "wifi_change", "network_change", "system_woke" }, update_wifi)
+update_wifi()
 
 local function update_details()
-  interface = utils.get_wifi_interface()
+  local wifi_if = utils.get_wifi_interface()
+  local active_if = utils.get_primary_interface()
+  local using_wifi = (active_if == wifi_if)
+  interface = wifi_if
+
+  ssid:set {
+    icon = { string = using_wifi and icons.wifi.router or icons.wifi.lan },
+  }
+
   sbar.exec("networksetup -getcomputername", function(result)
     hostname:set { label = result }
   end)
-  sbar.exec("ipconfig getifaddr " .. interface, function(result)
+  sbar.exec("ipconfig getifaddr " .. active_if .. " | tr -d '\n'", function(result)
     ip:set { label = result }
   end)
-  sbar.exec(
-    [[
-        en="$(networksetup -listallhardwareports | awk '/Wi-Fi|AirPort/{getline; print $NF}')";
-        ipconfig getsummary "$en" | grep -Fxq "  Active : FALSE" || \
-            networksetup -listpreferredwirelessnetworks "$en" | sed -n '2s/^\t//p'
-    ]],
-    function(result)
-      ssid:set { label = result }
-    end
-  )
-  sbar.exec(
-    "networksetup -getinfo Wi-Fi | awk -F 'Subnet mask: ' '/^Subnet mask: / {print $2}'",
-    function(result)
-      mask:set { label = result }
-    end
-  )
-  sbar.exec(
-    "networksetup -getinfo Wi-Fi | awk -F 'Router: ' '/^Router: / {print $2}'",
-    function(result)
-      router:set { label = result }
-    end
-  )
+
+  if using_wifi then
+    sbar.exec(
+      [[
+          en="$(networksetup -listallhardwareports | awk '/Wi-Fi|AirPort/{getline; print $NF}')";
+          ipconfig getsummary "$en" | grep -Fxq "  Active : FALSE" || \
+              networksetup -listpreferredwirelessnetworks "$en" | sed -n '2s/^\t//p'
+      ]],
+      function(result)
+        ssid:set { label = result }
+      end
+    )
+  else
+    sbar.exec(string.format([[
+      networksetup -listallhardwareports | awk -v dev="%s" '
+        /^Hardware Port:/ { port = substr($0, index($0, ": ")+2); getline; if ($2 == dev) { print port; exit } }
+      ' | tr -d '\n'
+    ]], active_if), function(result)
+      ssid:set { label = result ~= "" and result or active_if }
+    end)
+  end
+
+  -- mask/router via getpacket (works for active wifi or lan)
+  sbar.exec(string.format([[
+    ipconfig getpacket "%s" 2>/dev/null | awk '/subnet_mask/ {print $NF}' | tr -d '\n'
+  ]], active_if), function(result)
+    mask:set { label = result }
+  end)
+  sbar.exec(string.format([[
+    ipconfig getpacket "%s" 2>/dev/null | sed -n 's/.*router[^:]*: *{\([^}]*\)}.*/\1/p' | tr -d '\n'
+  ]], active_if), function(result)
+    router:set { label = result }
+  end)
 end
 
 local function toggle_details()
