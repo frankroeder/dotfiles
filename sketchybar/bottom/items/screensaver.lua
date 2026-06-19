@@ -3,13 +3,11 @@ local icons = require "icons"
 local settings = require "settings"
 local ui = require "ui"
 
-local saver = sbar.add("item", "widgets.screensaver", {
+local saver = ui.add_capsule("widgets.screensaver", {
   position = "left",
   icon = {
     string = icons.saver,
     color = colors.sky,
-    padding_left = 6,
-    padding_right = 6,
     font = {
       family = "Hack Nerd Font",
       style = settings.font.style_map["Regular"],
@@ -17,7 +15,6 @@ local saver = sbar.add("item", "widgets.screensaver", {
     },
   },
   label = { drawing = false },
-  background = ui.capsule {},
 })
 
 saver:subscribe("mouse.clicked", function(env)

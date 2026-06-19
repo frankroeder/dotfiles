@@ -7,16 +7,14 @@ local network = require "items.network"
 
 sbar.add("event", "network_change", "com.apple.networkConnect")
 
+local col = settings.layout.columns
 local interface = utils.get_wifi_interface()
 local popup_width = 280
 local row_width = popup_width / 2
 local popup_row_height = settings.ui.popup_row_height
 
-local wifi = sbar.add("item", "widgets.wifi", {
-  position = "right",
-  width = 30,
-  padding_left = 0,
-  padding_right = 0,
+local wifi = ui.bracket_icon("widgets.wifi", {
+  width = col.wifi,
   icon = {
     font = {
       style = settings.font.style_map["Regular"],
@@ -24,34 +22,20 @@ local wifi = sbar.add("item", "widgets.wifi", {
     },
     string = icons.wifi.disconnected,
     color = colors.red,
-    width = 20,
+    width = col.wifi_icon,
     align = "center",
     padding_left = 6,
     padding_right = 12,
   },
-  label = { drawing = false },
-  background = { drawing = false },
 })
 
-local ssid = sbar.add("item", {
-  position = "popup." .. wifi.name,
-  icon = {
-    font = {
-      style = settings.font.style_map["Bold"],
-    },
-    string = icons.wifi.router,
-  },
+local ssid = ui.popup_header("widgets.wifi.ssid", wifi, {
+  icon = icons.wifi.router,
+  icon_font = { style = settings.font.style_map["Bold"] },
   width = popup_width,
-  align = "center",
-  label = {
-    font = {
-      size = 14,
-      style = settings.font.style_map["Bold"],
-    },
-    max_chars = 24,
-    string = "????????????",
-    align = "center",
-  },
+  label = "????????????",
+  label_font = { size = 14, style = settings.font.style_map["Bold"] },
+  max_chars = 24,
   background = {
     height = 2,
     color = settings.theme.border,
@@ -59,66 +43,22 @@ local ssid = sbar.add("item", {
   },
 })
 
-local hostname = sbar.add("item", {
-  position = "popup." .. wifi.name,
-  icon = {
-    align = "left",
-    string = "Hostname:",
-    width = row_width,
-  },
-  label = {
-    max_chars = 26,
-    string = "????????????",
-    width = row_width,
-    align = "right",
-  },
-  background = ui.popup_row(popup_row_height),
-})
+local function wifi_detail(name, title, label)
+  return ui.popup_field(name, wifi, {
+    icon = title,
+    icon_width = row_width,
+    label = label,
+    label_width = row_width,
+    label_align = "right",
+    max_chars = name == "widgets.wifi.hostname" and 26 or nil,
+    height = popup_row_height,
+  })
+end
 
-local ip = sbar.add("item", {
-  position = "popup." .. wifi.name,
-  icon = {
-    align = "left",
-    string = "IP:",
-    width = row_width,
-  },
-  label = {
-    string = "???.???.???.???",
-    width = row_width,
-    align = "right",
-  },
-  background = ui.popup_row(popup_row_height),
-})
-
-local mask = sbar.add("item", {
-  position = "popup." .. wifi.name,
-  icon = {
-    align = "left",
-    string = "Subnet mask:",
-    width = row_width,
-  },
-  label = {
-    string = "???.???.???.???",
-    width = row_width,
-    align = "right",
-  },
-  background = ui.popup_row(popup_row_height),
-})
-
-local router = sbar.add("item", {
-  position = "popup." .. wifi.name,
-  icon = {
-    align = "left",
-    string = "Router:",
-    width = row_width,
-  },
-  label = {
-    string = "???.???.???.???",
-    width = row_width,
-    align = "right",
-  },
-  background = ui.popup_row(popup_row_height),
-})
+local hostname = wifi_detail("widgets.wifi.hostname", "Hostname:", "????????????")
+local ip = wifi_detail("widgets.wifi.ip", "IP:", "???.???.???.???")
+local mask = wifi_detail("widgets.wifi.mask", "Subnet mask:", "???.???.???.???")
+local router = wifi_detail("widgets.wifi.router", "Router:", "???.???.???.???")
 
 local function update_wifi()
   interface = utils.get_wifi_interface()
@@ -126,10 +66,7 @@ local function update_wifi()
     local connected = not (ip_addr == "")
     if connected then
       wifi:set {
-        icon = {
-          string = icons.wifi.connected,
-          color = colors.text,
-        },
+        icon = { string = icons.wifi.connected, color = colors.text },
       }
     else
       local cmd = string.format([[
@@ -192,7 +129,6 @@ local function update_details()
     end)
   end
 
-  -- mask/router via getpacket (works for active wifi or lan)
   sbar.exec(string.format([[
     ipconfig getpacket "%s" 2>/dev/null | awk '/subnet_mask/ {print $NF}' | tr -d '\n'
   ]], active_if), function(result)
@@ -205,17 +141,7 @@ local function update_details()
   end)
 end
 
-local function toggle_details()
-  utils.popup_toggle(wifi, update_details)
-end
-
-wifi:subscribe("mouse.clicked", toggle_details)
-network.up:subscribe("mouse.clicked", toggle_details)
-network.down:subscribe("mouse.clicked", toggle_details)
-
-wifi:subscribe("mouse.exited.global", function()
-  utils.popup_hide(wifi)
-end)
+ui.bind_popup_group(wifi, { wifi, network.up, network.down }, { on_open = update_details })
 
 local function copy_label(env)
   utils.clipboard_copy(env.NAME, icons)

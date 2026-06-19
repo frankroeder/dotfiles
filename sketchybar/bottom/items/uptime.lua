@@ -3,7 +3,7 @@ local colors = require "colors"
 local icons = require "icons"
 local ui = require "ui"
 
-local uptime = sbar.add("item", "widgets.uptime", {
+local uptime = ui.add_capsule("widgets.uptime", {
   position = "left",
   icon = {
     string = icons.uptime,
@@ -12,13 +12,10 @@ local uptime = sbar.add("item", "widgets.uptime", {
     padding_right = 2,
   },
   label = {
-    font = {
-      size = 15.0,
-    },
+    font = { size = 15.0 },
     string = "...",
   },
   update_freq = 600,
-  background = ui.capsule {},
 })
 
 local function format_uptime(seconds)
@@ -30,26 +27,16 @@ local function format_uptime(seconds)
     return string.format("%dd %dh", days, hours)
   elseif hours > 0 then
     return string.format("%dh %dm", hours, mins)
-  else
-    return string.format("%dm", mins)
   end
+  return string.format("%dm", mins)
 end
 
-uptime:subscribe({ "routine", "forced", "system_woke" }, function(_)
+uptime:subscribe({ "routine", "forced", "system_woke" }, function()
   sbar.exec("sysctl -n kern.boottime | awk '{print $4}' | sed 's/,//'", function(boottime)
-    if boottime then
-      local boot = tonumber(boottime)
-      if boot then
-        local now = os.time()
-        local uptime_seconds = now - boot
-        local uptime_str = format_uptime(uptime_seconds)
-
-        uptime:set {
-          label = {
-            string = uptime_str,
-          },
-        }
-      end
+    local boot = boottime and tonumber(boottime)
+    if not boot then
+      return
     end
+    uptime:set { label = { string = format_uptime(os.time() - boot) } }
   end)
 end)

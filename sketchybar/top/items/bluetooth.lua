@@ -1,33 +1,22 @@
 local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
-local utils = require "utils"
 local ui = require "ui"
-
-sbar.add("event", "bt_device", "com.apple.bluetooth.status")
 local popup_row_height = settings.ui.popup_row_height
 
-local bluetooth = sbar.add("item", "widgets.bluetooth", {
-  position = "right",
-  padding_left = settings.paddings,
-  padding_right = settings.paddings,
+sbar.add("event", "bt_device", "com.apple.bluetooth.status")
+
+local bluetooth = ui.add_capsule("widgets.bluetooth", {
   icon = {
     string = icons.bluetooth.on,
     color = colors.blue,
-    padding_left = 6,
-    padding_right = 6,
     font = {
       style = settings.font.style_map["Regular"],
       size = 16.0,
     },
   },
-  label = {
-    drawing = false,
-  },
-  popup = {
-    align = "right",
-  },
-  background = ui.capsule {},
+  label = { drawing = false },
+  popup = { align = "right" },
 })
 
 local popup_items = {}
@@ -95,7 +84,8 @@ local function update()
                 display_label = display_label .. " (" .. rssi .. " dBm)"
               end
 
-              display_label = display_label .. string.format(" - %s @%s", minor_type, address)
+              display_label = display_label
+                .. string.format(" - %s @%s", minor_type, address)
 
               if firmware then
                 display_label = display_label .. ' Version: "' .. firmware .. '"'
@@ -103,28 +93,17 @@ local function update()
 
               local icon = get_device_icon(info.device_minorType)
 
-              local item = sbar.add("item", "widgets.bluetooth.device." .. count, {
-                position = "popup." .. bluetooth.name,
-                label = {
-                  string = display_label,
-                  font = {
-                    family = settings.font.text,
-                    style = settings.font.style_map["Regular"],
-                    size = 12.0,
-                  },
-                  padding_left = 8,
-                  padding_right = 10,
+              local item = ui.popup_list_row("widgets.bluetooth.device." .. count, bluetooth, {
+                label = display_label,
+                font = {
+                  family = settings.font.text,
+                  style = settings.font.style_map["Regular"],
+                  size = 12.0,
                 },
-                icon = {
-                  string = icon,
-                  padding_left = 10,
-                  padding_right = 4,
-                  color = colors.subtext1,
-                  font = { size = 16.0 },
-                },
-                background = {
-                  height = popup_row_height,
-                },
+                icon = icon,
+                icon_color = colors.subtext1,
+                icon_font = { size = 16.0 },
+                background = { height = popup_row_height },
               })
               table.insert(popup_items, item)
             end
@@ -136,14 +115,8 @@ local function update()
     if count == 0 then
       bluetooth:set { icon = { color = colors.overlay0 } }
       if not empty_item then
-        empty_item = sbar.add("item", "widgets.bluetooth.empty", {
-          position = "popup." .. bluetooth.name,
-          label = {
-            string = "No Devices Connected",
-            padding_left = 10,
-            padding_right = 10,
-          },
-          icon = { drawing = false },
+        empty_item = ui.popup_button("widgets.bluetooth.empty", bluetooth, {
+          label = "No Devices Connected",
         })
       end
       empty_item:set { drawing = true }
@@ -165,12 +138,5 @@ bluetooth:subscribe("bt_device", function(env)
   update()
 end)
 
-bluetooth:subscribe("mouse.clicked", function()
-  utils.popup_toggle(bluetooth)
-end)
-
-bluetooth:subscribe("mouse.exited.global", function()
-  utils.popup_hide(bluetooth)
-end)
-
+ui.bind_popup(bluetooth, { on_open = update })
 update()

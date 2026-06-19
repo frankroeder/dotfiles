@@ -1,10 +1,8 @@
-local colors = require "colors"
 local settings = require "settings"
 local icons = require "icons"
 local app_icons = require "helpers.app_icons"
 local utils = require "utils"
 local ui = require "ui"
-local popup_row_height = settings.ui.popup_row_height
 
 sbar.add("event", "music_change", "com.apple.Music.playerInfo")
 
@@ -18,9 +16,7 @@ local media = sbar.add("item", "widgets.media", {
   label = {
     max_chars = 40,
     scroll_duration = 1400,
-    font = {
-      size = 14.0,
-    },
+    font = { size = 14.0 },
   },
   updates = true,
   background = ui.capsule {},
@@ -35,17 +31,16 @@ local function media_control(cmd)
 end
 
 local POPUP_WIDTH = 130
+local ART_SIZE = 120
 
 local album_art = sbar.add("item", "widgets.media.art", {
   position = "popup.widgets.media",
-  icon = {
-    drawing = false,
-  },
+  icon = { drawing = false },
   label = { drawing = false },
   width = POPUP_WIDTH,
   background = {
     drawing = false,
-    height = 120,
+    height = ART_SIZE,
     corner_radius = 8,
     color = settings.theme.surface_alt,
   },
@@ -100,43 +95,40 @@ forward:subscribe("mouse.clicked", function()
 end)
 
 media:subscribe("music_change", function(env)
-  if env.INFO then
-    local artist = env.INFO.Artist or ""
-    local title = env.INFO.Name or ""
-    -- Access "Player State" key and handle capitalization
-    local state = env.INFO["Player State"] or "Stopped"
-    local display_text = artist .. " - " .. title
-
-    sbar.animate("tanh", settings.animation_duration * 2, function()
-      media:set {
-        drawing = (artist .. title ~= ""),
-        label = {
-          string = display_text,
-        },
-        icon = {
-          string = app_icons["Music"] or app_icons["Default"],
-        },
-      }
-
-      play:set {
-        icon = {
-          string = (state == "Playing") and icons.media.pause or icons.media.play,
-        },
-      }
-    end)
+  if not env.INFO then
+    return
   end
+
+  local artist = env.INFO.Artist or ""
+  local title = env.INFO.Name or ""
+  local state = env.INFO["Player State"] or "Stopped"
+  local display_text = artist .. " - " .. title
+
+  sbar.animate("tanh", settings.animation_duration * 2, function()
+    media:set {
+      drawing = (artist .. title ~= ""),
+      label = { string = display_text },
+      icon = { string = app_icons["Music"] or app_icons["Default"] },
+    }
+    play:set {
+      icon = {
+        string = (state == "Playing") and icons.media.pause or icons.media.play,
+      },
+    }
+  end)
 end)
 
-local ART_SIZE = 120
-
 local function calculate_art_scale(width, height)
-  local scale_w = ART_SIZE / width
-  local scale_h = ART_SIZE / height
-  return math.min(scale_w, scale_h)
+  return math.min(ART_SIZE / width, ART_SIZE / height)
 end
 
 media:subscribe("mouse.clicked", function()
-  local should_draw = media:query().popup.drawing == "off"
+  local query = media:query()
+  if not query or not query.popup then
+    return
+  end
+
+  local should_draw = query.popup.drawing == "off"
   media:set { popup = { drawing = should_draw } }
   if not should_draw then
     return
@@ -145,35 +137,30 @@ media:subscribe("mouse.clicked", function()
   sbar.exec("$CONFIG_DIR/helpers/get_album_art.sh", function(album_art_path)
     local art_path = album_art_path and album_art_path:gsub("%s+$", "") or ""
 
-    if art_path ~= "" then
-      -- Get image dimensions
-      local sips_cmd = [[sips -g pixelWidth -g pixelHeight "]]
-        .. art_path
-        .. [[" | awk '/pixelWidth/ {w=$2} /pixelHeight/ {h=$2} END {print w, h}']]
-      sbar.exec(sips_cmd, function(result)
-        local w, h = result:match "(%d+)%s+(%d+)"
-        local width = tonumber(w) or 600
-        local height = tonumber(h) or 600
-        local scale = calculate_art_scale(width, height)
+    if art_path == "" then
+      album_art:set { background = { drawing = false } }
+      return
+    end
 
-        album_art:set {
-          background = {
-            image = {
-              padding_left = 5,
-              string = art_path,
-              scale = scale,
-            },
-            drawing = true,
-          },
-        }
-      end)
-    else
+    local sips_cmd = [[sips -g pixelWidth -g pixelHeight "]]
+      .. art_path
+      .. [[" | awk '/pixelWidth/ {w=$2} /pixelHeight/ {h=$2} END {print w, h}']]
+    sbar.exec(sips_cmd, function(result)
+      local w, h = result:match "(%d+)%s+(%d+)"
+      local width = tonumber(w) or 600
+      local height = tonumber(h) or 600
+
       album_art:set {
         background = {
-          drawing = false,
+          image = {
+            padding_left = settings.layout.spacing.widget,
+            string = art_path,
+            scale = calculate_art_scale(width, height),
+          },
+          drawing = true,
         },
       }
-    end
+    end)
   end)
 end)
 

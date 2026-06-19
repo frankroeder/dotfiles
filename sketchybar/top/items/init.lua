@@ -18,7 +18,6 @@ else
 end
 
 require "items.front_app"
-
 require "items.calendar"
 require "items.battery"
 require "items.network"
@@ -28,15 +27,9 @@ require "items.volume"
 require "items.mic"
 require "items.bluetooth"
 
-sbar.add("bracket", "top.group.network", {
+ui.bracket_group("top.group.network", {
   "widgets.wifi",
   "widgets.network_gap",
   "widgets.network_up",
   "widgets.network_down",
-}, {
-  background = ui.capsule {
-    color = settings.theme.surface_alt,
-  },
-  padding_left = settings.paddings,
-  padding_right = settings.paddings,
-})
+}, { padding = settings.paddings })

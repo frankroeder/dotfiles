@@ -3,37 +3,28 @@ local icons = require "icons"
 local settings = require "settings"
 local ui = require "ui"
 
-local coffee = sbar.add("item", "widgets.coffee", {
+local coffee = ui.add_capsule("widgets.coffee", {
   position = "left",
   icon = {
     string = icons.coffee.off,
     color = colors.grey,
-    padding_left = 6,
-    padding_right = 6,
     font = {
       style = settings.font.style_map["Regular"],
       size = 16.0,
     },
   },
   label = { drawing = false },
-  background = ui.capsule {},
 })
 
 local function update_coffee()
   sbar.exec("pgrep -x caffeinate", function(pid)
     if pid ~= "" then
       coffee:set {
-        icon = {
-          string = icons.coffee.on,
-          color = colors.yellow,
-        },
+        icon = { string = icons.coffee.on, color = colors.yellow },
       }
     else
       coffee:set {
-        icon = {
-          string = icons.coffee.off,
-          color = colors.grey,
-        },
+        icon = { string = icons.coffee.off, color = colors.grey },
       }
     end
   end)

@@ -237,7 +237,8 @@ for index, space_name in ipairs(static_names) do
 end
 
 local space_layout = sbar.add("item", "widgets.yabai_layout", {
-  padding_left = settings.paddings,
+  padding_left = settings.layout.spacing.widget,
+  padding_right = settings.layout.spacing.widget,
   icon = {
     font = { family = settings.font.numbers },
     string = icons.yabai.bsp,
@@ -247,6 +248,7 @@ local space_layout = sbar.add("item", "widgets.yabai_layout", {
   },
   label = {
     string = "",
+    padding_left = settings.ui.label_padding_left,
     padding_right = settings.ui.label_padding_right,
     color = ws_theme.fg,
   },

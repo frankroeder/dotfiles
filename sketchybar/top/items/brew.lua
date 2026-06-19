@@ -14,9 +14,7 @@ local brew = sbar.add("item", "widgets.brew", {
     color = colors.blue,
     padding_left = 4,
     padding_right = 2,
-    font = {
-      size = 14.0,
-    },
+    font = { size = 14.0 },
   },
   label = {
     string = "?",
@@ -33,7 +31,6 @@ local brew = sbar.add("item", "widgets.brew", {
   background = ui.capsule {},
 })
 
--- Cache for outdated packages
 local cached_packages = {}
 
 local function is_package_line(line)
@@ -77,10 +74,7 @@ local function update_brew()
     end
 
     brew:set {
-      label = {
-        string = tostring(count),
-        color = color,
-      },
+      label = { string = tostring(count), color = color },
       icon = { color = color },
     }
   end)
@@ -137,34 +131,19 @@ local function populate_popup()
           padding_right = 4,
           color = colors.subtext1,
         },
-        background = {
-          height = popup_row_height,
-        },
+        background = { height = popup_row_height },
       })
       table.insert(popup_items, pkg_item)
     end
   end
 end
 
-brew:subscribe("mouse.clicked", function(env)
-  if env.BUTTON == "right" then
+ui.bind_popup(brew, {
+  on_open = populate_popup,
+  on_right = function()
     brew:set { label = { string = "..." } }
     update_brew()
-    return
-  end
-
-  local query = brew:query()
-  local should_draw = query and query.popup and query.popup.drawing == "off" or true
-
-  if should_draw then
-    populate_popup()
-  end
-
-  brew:set { popup = { drawing = "toggle" } }
-end)
-
-brew:subscribe("mouse.exited.global", function()
-  brew:set { popup = { drawing = false } }
-end)
+  end,
+})
 
 update_brew()

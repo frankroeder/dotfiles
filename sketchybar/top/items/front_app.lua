@@ -1,5 +1,5 @@
-local colors = require "colors"
 local settings = require "settings"
+local ui = require "ui"
 
 sbar.add("event", "property_change")
 
@@ -25,10 +25,9 @@ local front_app = sbar.add("item", "top.front_app", {
       size = 16.0,
     },
   },
-  background = {
-    color = colors.bg1,
-    border_color = colors.purple,
-    border_width = 0,
+  background = ui.capsule {
+    color = settings.theme.surface,
+    border_color = settings.theme.border,
   },
   click_script = "open -a 'Mission Control'",
   updates = true,

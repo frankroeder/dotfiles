@@ -1,21 +1,20 @@
 local settings = require "settings"
-local colors = require "colors"
 local icons = require "icons"
 local ui = require "ui"
 
 sbar.add("event", "network_change", "com.apple.networkConnect")
 
-local vpn_item = sbar.add("item", "widgets.vpn", {
+local vpn_item = ui.add_capsule("widgets.vpn", {
   position = "left",
   update_freq = 60,
   icon = {
     string = icons.vpn,
+    padding_left = 4,
+    padding_right = 2,
     font = {
       style = settings.font.style_map["Regular"],
       size = 16.0,
     },
-    padding_left = 4,
-    padding_right = 2,
   },
   label = {
     string = "",
@@ -25,28 +24,24 @@ local vpn_item = sbar.add("item", "widgets.vpn", {
     },
   },
   drawing = false,
-  background = ui.capsule {},
   click_script = "open 'x-apple.systempreferences:com.apple.preference.vpn'",
 })
 
 local function update()
-  local cmd = [[
-    scutil --nc list | grep Connected | sed -E 's/.*"(.*)".*/\1/'
-  ]]
-  sbar.exec(cmd, function(output)
-    local vpn_name = output:match "^%s*(.-)%s*$"
-    if vpn_name and vpn_name:len() > 0 then
+  sbar.exec([[scutil --nc list | grep Connected | sed -E 's/.*"(.*)".*/\1/' | head -1]], function(output)
+    local vpn_name = (output or ""):gsub("%s+$", ""):match "^%s*(.-)%s*$"
+    if vpn_name and vpn_name ~= "" then
       sbar.animate("sin", settings.animation_duration, function()
-        vpn_item:set { label = vpn_name, drawing = true }
+        vpn_item:set {
+          drawing = true,
+          label = { string = vpn_name },
+        }
       end)
     else
-      vpn_item:set { drawing = false }
+      vpn_item:set { drawing = false, label = { string = "" } }
     end
   end)
 end
 
-vpn_item:subscribe({ "network_change", "routine", "system_woke" }, function(_)
-  update()
-end)
-
+vpn_item:subscribe({ "network_change", "routine", "system_woke" }, update)
 update()

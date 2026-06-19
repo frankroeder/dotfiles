@@ -22,8 +22,24 @@ end
 local home = os.getenv "HOME"
 local colors = require "colors"
 
+local spacing = {
+  widget = 5,
+  bracket = 5,
+  bracket_item = 0,
+  icon_left = 10,
+  icon_right = 4,
+  icon = 6,
+  label_left = 6,
+  label_right = 10,
+  label = 6,
+  workspace_label_right = 20,
+  stack = 6,
+  group = 8,
+  inner = 4,
+  edge = 6,
+}
+
 local settings = {
-  paddings = 5,
   animation_duration = 10,
   bar_height = 43,
   bar_padding = 5,
@@ -81,24 +97,55 @@ local settings = {
       empty_text = colors.with_alpha(colors.ws.fg, 0.42),
     },
   },
+  layout = {
+    spacing = spacing,
+    columns = {
+      icon = 28,
+      icon_sm = 22,
+      label = 50,
+      label_lg = 62,
+      label_pct = 64,
+      wifi = 30,
+      wifi_icon = 20,
+      rate_icon = 21,
+      rate = 58,
+      rate_row = 74,
+    },
+    hardware = {
+      cpu_graph = 60,
+      gpu_graph = 28,
+      graph_h = 22,
+      graph_alpha = 0.42,
+      graph_y = 8,
+      ecpu_graph_y = 21,
+      ram_top_w = 0,
+      ram_bot_w = 78,
+      cpu_ecpu_w = 0,
+      cpu_pcpu_w = 88,
+      gpu_temp_pad_l = -6,
+      gpu_label_pad_r = -8,
+      cpu_ecpu_pad_l = -12,
+      cpu_ecpu_pad_r_extra = 4,
+    },
+    fonts = {
+      hw_mono = "SF Mono",
+      hw_label = 14.0,
+      hw_small = 11.0,
+      rate = 11.0,
+    },
+  },
   ui = {
     item_height = 30,
     item_corner_radius = 8,
     item_border_width = 1,
     item_blur_radius = 0,
-    group_height = 30,
-    group_corner_radius = 8,
-    group_border_width = 0,
     popup_row_height = 24,
     popup_corner_radius = 10,
     popup_y_offset = -2,
     icon_size = 16.0,
     label_size = 14.0,
-    icon_padding_left = 10,
-    icon_padding_right = 4,
-    label_padding_left = 6,
-    label_padding_right = 10,
-    label_padding = 6,
+    popup_icon_padding = 5,
+    popup_label_padding = 11,
   },
   motion = {
     fast = 8,
@@ -129,18 +176,13 @@ local settings = {
   large_screen_width = 2000,
   monitor_map = { ["LG ULTRAFINE"] = 2, ["DELL S2722DZ"] = 2, ["Built-in Retina Display"] = 1 },
   spaces = {
-    padding = 5,
     highlight_color = colors.lavender,
     icon = {
       size = 16.0,
-      padding_left = 10,
-      padding_right = 4,
       y_offset = 0,
     },
     label = {
       font = "sketchybar-app-font:Regular:18.0",
-      padding_left = 6,
-      padding_right = 20,
       y_offset = -2,
     },
     capsule = {
@@ -163,4 +205,18 @@ local settings = {
 }
 
 settings.theme.border_width = settings.border_width
+settings.paddings = spacing.widget
+
+settings.ui.icon_padding_left = spacing.icon_left
+settings.ui.icon_padding_right = spacing.icon_right
+settings.ui.label_padding_left = spacing.label_left
+settings.ui.label_padding_right = spacing.label_right
+settings.ui.label_padding = spacing.label
+
+settings.spaces.padding = spacing.widget
+settings.spaces.icon.padding_left = spacing.icon_left
+settings.spaces.icon.padding_right = spacing.icon_right
+settings.spaces.label.padding_left = spacing.label_left
+settings.spaces.label.padding_right = spacing.workspace_label_right
+
 return settings

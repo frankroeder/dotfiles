@@ -18,8 +18,7 @@ local icon_thresholds = {
   { min = 0, icon = icons.disk["0"] },
 }
 
-local ssd_volume = sbar.add("item", "widgets.ssd.volume", {
-  position = "right",
+local ssd_volume = ui.add_capsule("widgets.ssd.volume", {
   icon = {
     font = {
       family = "Hack Nerd Font",
@@ -35,29 +34,20 @@ local ssd_volume = sbar.add("item", "widgets.ssd.volume", {
       size = 12.0,
     },
     align = "right",
-    width = 64,
+    width = settings.layout.columns.label_pct,
     padding_left = 4,
     padding_right = 6,
     string = "...%",
   },
   update_freq = 600,
   popup = { align = "right" },
-  background = ui.capsule {},
 })
 
 local function popup_row(name, icon)
-  return sbar.add("item", "widgets.ssd." .. name, {
-    position = "popup." .. ssd_volume.name,
-    icon = {
-      string = icon,
-      padding_left = 5,
-      padding_right = 5,
-    },
-    label = {
-      string = "...",
-      padding_right = 11,
-    },
-    background = ui.popup_row(popup_row_height),
+  return ui.popup_field("widgets.ssd." .. name, ssd_volume, {
+    icon = icon,
+    label = "...",
+    height = popup_row_height,
     drawing = false,
   })
 end
@@ -83,8 +73,8 @@ local function format_bytes(bytes)
   return string.format("%.2f GiB", bytes / gib)
 end
 
-local function set_row(row, label)
-  row:set { drawing = true, label = label }
+local function set_row(row, text)
+  row:set { drawing = true, label = { string = text } }
 end
 
 local function volume_types(types)
@@ -315,10 +305,4 @@ ssd_volume:subscribe({ "routine", "forced", "system_woke" }, function(_)
   )
 end)
 
-ssd_volume:subscribe("mouse.clicked", function()
-  utils.popup_toggle(ssd_volume, update_details)
-end)
-
-ssd_volume:subscribe("mouse.exited.global", function()
-  utils.popup_hide(ssd_volume)
-end)
+ui.bind_popup(ssd_volume, { on_open = update_details })

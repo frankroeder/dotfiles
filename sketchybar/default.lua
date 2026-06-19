@@ -37,7 +37,7 @@ sbar.default {
     blur_radius = settings.ui.item_blur_radius,
     y_offset = settings.ui.popup_y_offset,
   },
-  padding_left = settings.paddings,
-  padding_right = settings.paddings,
+  padding_left = settings.layout.spacing.widget,
+  padding_right = settings.layout.spacing.widget,
   scroll_texts = true,
 }

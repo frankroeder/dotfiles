@@ -1,14 +1,9 @@
 local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
-local utils = require "utils"
 local ui = require "ui"
-local popup_row_height = settings.ui.popup_row_height
 
-local volume = sbar.add("item", "widgets.volume", {
-  position = "right",
-  padding_left = settings.paddings,
-  padding_right = settings.paddings,
+local volume = ui.add_capsule("widgets.volume", {
   icon = {
     string = icons.volume[100],
     color = colors.vol,
@@ -25,29 +20,15 @@ local volume = sbar.add("item", "widgets.volume", {
     },
     color = colors.vol,
   },
-  background = ui.capsule {},
+  popup = { align = "right" },
 })
 
-local volume_slider = sbar.add("slider", "widgets.volume.slider", 100, {
-  position = "popup.widgets.volume",
-  slider = {
-    highlight_color = colors.vol,
-    background = {
-      height = 4,
-      corner_radius = 2,
-      color = colors.surface0,
-    },
-    knob = { string = "􀀁" },
-  },
-  background = {
-    color = settings.theme.button_bg,
-    height = popup_row_height,
-    corner_radius = 6,
-    border_width = settings.theme.border_width,
-    border_color = settings.theme.border,
-  },
-  click_script = 'osascript -e "set volume output volume $PERCENTAGE"',
-})
+local volume_slider = ui.slider_popup(
+  "widgets.volume.slider",
+  "widgets.volume",
+  colors.vol,
+  'osascript -e "set volume output volume $PERCENTAGE"'
+)
 
 local function update_volume(volume_level)
   local icon = icons.volume[0]
@@ -79,12 +60,11 @@ volume:subscribe("system_woke", function()
   end)
 end)
 
-local volume_mute = sbar.add("item", {
-  position = "popup.widgets.volume",
+local volume_mute = ui.popup_button("widgets.volume.mute", volume, {
+  label = "Toggle Mute",
   align = "center",
-  label = { string = "Toggle Mute", align = "center" },
+  label_align = "center",
   width = 160,
-  background = ui.button {},
 })
 
 volume_mute:subscribe("mouse.clicked", function()
@@ -96,14 +76,10 @@ volume_mute:subscribe("mouse.clicked", function()
   )
 end)
 
-volume:subscribe("mouse.clicked", function(env)
-  if env.BUTTON == "left" then
-    utils.popup_toggle(volume)
-  elseif env.BUTTON == "right" then
-    sbar.exec "open /System/Library/PreferencePanes/Sound.prefpane"
-  end
-end)
+ui.bind_popup(volume, {
+  on_right = "open /System/Library/PreferencePanes/Sound.prefpane",
+})
 
-volume:subscribe("mouse.exited.global", function()
-  utils.popup_hide(volume)
+sbar.exec("osascript -e 'output volume of (get volume settings)'", function(vol)
+  update_volume(tonumber(vol) or 0)
 end)

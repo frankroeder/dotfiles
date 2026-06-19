@@ -263,8 +263,10 @@ lpath() {
     }'
 }
 
-catcsv() {
-  cat "$1"  | column -t -s,
+catcsv(){
+	FILE="$1"
+	DELIMITER="${2:-,}"
+	cat "$FILE" | column -t -s${DELIMITER}
 }
 
 topllm() {

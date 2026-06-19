@@ -1,17 +1,15 @@
 local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
-local utils = require "utils"
 local ui = require "ui"
-local popup_row_height = settings.ui.popup_row_height
 
-local timer_state = "stopped" -- stopped, running, finished
+local timer_state = "stopped"
 local remaining_time = 0
 local remaining_rings = 0
 local ring_cooldown = 0
 local sounds_path = settings.sounds.path
 
-local timer = sbar.add("item", "widgets.timer", {
+local timer = ui.add_capsule("widgets.timer", {
   position = "left",
   update_freq = 1,
   icon = {
@@ -20,13 +18,8 @@ local timer = sbar.add("item", "widgets.timer", {
     padding_left = 4,
     padding_right = 2,
   },
-  label = {
-    string = "-",
-  },
-  popup = {
-    align = "center",
-  },
-  background = ui.capsule {},
+  label = { string = "-" },
+  popup = { align = "center" },
 })
 
 local function stop_timer()
@@ -52,9 +45,7 @@ timer:subscribe("routine", function()
     if remaining_time > 0 then
       local minutes = math.floor(remaining_time / 60)
       local seconds = remaining_time % 60
-      timer:set {
-        label = { string = string.format("%02d:%02d", minutes, seconds) },
-      }
+      timer:set { label = { string = string.format("%02d:%02d", minutes, seconds) } }
       remaining_time = remaining_time - 1
     else
       timer_state = "finished"
@@ -73,28 +64,10 @@ timer:subscribe("routine", function()
   end
 end)
 
-timer:subscribe("mouse.clicked", function(env)
-  if env.BUTTON == "left" then
-    utils.popup_toggle(timer)
-  elseif env.BUTTON == "right" then
-    stop_timer()
-  end
-end)
-
-timer:subscribe("mouse.exited.global", function()
-  utils.popup_hide(timer)
-end)
-
 local function create_timer_option(minutes)
   local duration = minutes * 60
-  local option = sbar.add("item", "widgets.timer." .. minutes, {
-    position = "popup." .. timer.name,
-    label = {
-      string = minutes .. " Minutes",
-      padding_left = 10,
-      padding_right = 10,
-    },
-    background = ui.button {},
+  local option = ui.popup_button("widgets.timer." .. minutes, timer, {
+    label = minutes .. " Minutes",
   })
 
   option:subscribe("mouse.clicked", function()
@@ -102,6 +75,8 @@ local function create_timer_option(minutes)
     timer:set { popup = { drawing = false } }
   end)
 end
+
+ui.bind_popup(timer, { on_right = stop_timer })
 
 create_timer_option(5)
 create_timer_option(10)

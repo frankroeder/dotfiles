@@ -1,18 +1,12 @@
 local icons = require "icons"
 local colors = require "colors"
 local settings = require "settings"
-local utils = require "utils"
 local ui = require "ui"
-local popup_row_height = settings.ui.popup_row_height
 
--- Cache for expensive system_profiler calls
 local profiler_cache = { data = nil, timestamp = 0 }
-local CACHE_TTL = 300 -- 5 minutes
+local CACHE_TTL = 300
 
-local battery = sbar.add("item", "widgets.battery", {
-  position = "right",
-  padding_left = settings.paddings,
-  padding_right = settings.paddings,
+local battery = ui.add_capsule("widgets.battery", {
   icon = {
     font = {
       style = settings.font.style_map["Regular"],
@@ -26,78 +20,32 @@ local battery = sbar.add("item", "widgets.battery", {
   },
   update_freq = 120,
   popup = { align = "center" },
-  background = ui.capsule {},
 })
 
-local remaining_time = sbar.add("item", {
-  position = "popup." .. battery.name,
-  icon = {
-    string = icons.clock,
-    padding_left = 5,
-    padding_right = 5,
-  },
-  label = {
-    string = "??:??h",
-    padding_right = 11,
-  },
-  background = ui.popup_row(popup_row_height),
+local remaining_time = ui.popup_field("widgets.battery.remaining", battery, {
+  icon = icons.clock,
+  label = "??:??h",
 })
 
-local battery_health = sbar.add("item", {
-  position = "popup." .. battery.name,
-  icon = {
-    string = icons.battery.health,
-    padding_left = 5,
-    padding_right = 5,
-  },
-  label = {
-    string = "Health: ???%",
-    padding_right = 11,
-  },
-  background = ui.popup_row(popup_row_height),
+local battery_health = ui.popup_field("widgets.battery.health", battery, {
+  icon = icons.battery.health,
+  label = "Health: ???%",
 })
 
-local battery_cycles = sbar.add("item", {
-  position = "popup." .. battery.name,
-  icon = {
-    string = icons.battery.cycles,
-    padding_left = 5,
-    padding_right = 5,
-  },
-  label = {
-    string = "Cycles: ???",
-    padding_right = 11,
-  },
-  background = ui.popup_row(popup_row_height),
+local battery_cycles = ui.popup_field("widgets.battery.cycles", battery, {
+  icon = icons.battery.cycles,
+  label = "Cycles: ???",
 })
 
-local power_wattage = sbar.add("item", {
-  position = "popup." .. battery.name,
-  icon = {
-    string = icons.battery.wattage,
-    padding_left = 5,
-    padding_right = 5,
-  },
-  label = {
-    string = "Watts: ???W",
-    padding_right = 11,
-  },
-  background = ui.popup_row(popup_row_height),
+local power_wattage = ui.popup_field("widgets.battery.watts", battery, {
+  icon = icons.battery.wattage,
+  label = "Watts: ???W",
   drawing = false,
 })
 
-local temperature = sbar.add("item", {
-  position = "popup." .. battery.name,
-  icon = {
-    string = icons.temperature,
-    padding_left = 5,
-    padding_right = 5,
-  },
-  label = {
-    string = "Temperature: --°C",
-    padding_right = 11,
-  },
-  background = ui.popup_row(popup_row_height),
+local temperature = ui.popup_field("widgets.battery.temperature", battery, {
+  icon = icons.temperature,
+  label = "Temperature: --°C",
   drawing = false,
 })
 
@@ -112,22 +60,20 @@ battery:subscribe({ "routine", "power_source_change", "system_woke" }, function(
       label = charge .. "%"
     end
 
-    local charging, _, _ = batt_info:find "AC Power"
+    local charging = batt_info:find "AC Power" ~= nil
 
     if charging then
       icon = icons.battery.charging
+    elseif found and charge >= 90 then
+      icon = icons.battery["100"]
+    elseif found and charge >= 60 then
+      icon = icons.battery["75"]
+    elseif found and charge >= 40 then
+      icon = icons.battery["50"]
+    elseif found and charge >= 20 then
+      icon = icons.battery["25"]
     else
-      if found and charge >= 90 then
-        icon = icons.battery["100"]
-      elseif found and charge >= 60 then
-        icon = icons.battery["75"]
-      elseif found and charge >= 40 then
-        icon = icons.battery["50"]
-      elseif found and charge >= 20 then
-        icon = icons.battery["25"]
-      else
-        icon = icons.battery["0"]
-      end
+      icon = icons.battery["0"]
     end
 
     sbar.animate("tanh", settings.animation_duration, function()
@@ -205,8 +151,7 @@ local function update_details()
 
   sbar.exec("pmset -g batt", function(batt_info)
     local found, _, remaining = batt_info:find " (%d+:%d+) remaining"
-    local label = found and remaining .. "h" or "No estimate"
-    remaining_time:set { label = label }
+    remaining_time:set { label = found and remaining .. "h" or "No estimate" }
   end)
 
   local now = os.time()
@@ -222,10 +167,4 @@ local function update_details()
   end)
 end
 
-battery:subscribe("mouse.clicked", function()
-  utils.popup_toggle(battery, update_details)
-end)
-
-battery:subscribe("mouse.exited.global", function()
-  utils.popup_hide(battery)
-end)
+ui.bind_popup(battery, { on_open = update_details })

@@ -25,10 +25,18 @@ function utils.get_primary_interface()
 end
 
 function utils.popup_toggle(item, update_fn)
-  local should_draw = item:query().popup.drawing == "off"
-  item:set { popup = { drawing = should_draw } }
-  if should_draw and update_fn then
+  local query = item:query()
+  local opening = not query or not query.popup or query.popup.drawing == "off"
+
+  if opening and update_fn then
     update_fn()
+  end
+
+  -- Lazy popups (e.g. brew) have no query.popup until children are created.
+  if not query or not query.popup then
+    item:set { popup = { drawing = "toggle" } }
+  else
+    item:set { popup = { drawing = opening } }
   end
 end
 
