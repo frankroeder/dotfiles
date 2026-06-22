@@ -10,7 +10,7 @@ local cal = ui.add_capsule("widgets.calendar", {
     padding_left = 10,
     padding_right = 10,
     font = {
-      family = settings.font.numbers,
+      family = settings.font.family,
       style = settings.font.style_map["Semibold"],
       size = 13.0,
     },

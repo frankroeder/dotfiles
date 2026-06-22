@@ -33,7 +33,7 @@ function ui.label_pad()
 end
 
 function ui.rate_font()
-  return settings.font.numbers .. ":" .. settings.font.style_map["Bold"] .. ":" .. fnt.rate
+  return settings.font.family .. ":" .. settings.font.style_map["Bold"] .. ":" .. fnt.rate
 end
 
 local function apply_icon_pad(icon)
@@ -137,7 +137,7 @@ function ui.bracket_metric(name, spec)
   spec = spec or {}
   local icon = {
     font = spec.icon_font or {
-      family = fnt.hw_mono,
+      family = settings.font.family,
       style = settings.font.style_map["Bold"],
       size = fnt.hw_small,
     },

@@ -10,7 +10,7 @@ local hw = settings.layout.hardware
 local fnt = settings.layout.fonts
 
 local hw_label_font = {
-  family = fnt.hw_mono,
+  family = settings.font.family,
   style = settings.font.style_map["Semibold"],
   size = fnt.hw_label,
 }

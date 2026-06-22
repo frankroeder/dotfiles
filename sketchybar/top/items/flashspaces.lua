@@ -134,7 +134,7 @@ for workspace_index, workspace_name in ipairs(parse_lines(workspace_output)) do
     icon = {
       color = ws_theme.empty_text,
       font = {
-        family = settings.font.numbers,
+        family = settings.font.family,
         style = settings.font.style_map["Bold"],
         size = ws_layout.icon.size,
       },

@@ -21,6 +21,8 @@ end
 
 local home = os.getenv "HOME"
 local colors = require "colors"
+local font_family = "SF Mono"
+local app_icon_font = "sketchybar-app-font"
 
 local spacing = {
   widget = 5,
@@ -128,7 +130,6 @@ local settings = {
       cpu_ecpu_pad_r_extra = 4,
     },
     fonts = {
-      hw_mono = "SF Mono",
       hw_label = 14.0,
       hw_small = 11.0,
       rate = 11.0,
@@ -182,7 +183,7 @@ local settings = {
       y_offset = 0,
     },
     label = {
-      font = "sketchybar-app-font:Regular:18.0",
+      font = app_icon_font .. ":Regular:18.0",
       y_offset = -2,
     },
     capsule = {
@@ -191,8 +192,8 @@ local settings = {
     },
   },
   font = {
-    text = "SF Pro",
-    numbers = "SF Pro",
+    family = font_family,
+    app_icon = app_icon_font,
     style_map = {
       ["Regular"] = "Regular",
       ["Semibold"] = "Semibold",

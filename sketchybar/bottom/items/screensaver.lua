@@ -9,7 +9,7 @@ local saver = ui.add_capsule("widgets.screensaver", {
     string = icons.saver,
     color = colors.sky,
     font = {
-      family = "Hack Nerd Font",
+      family = settings.font.family,
       style = settings.font.style_map["Regular"],
       size = 18.0,
     },

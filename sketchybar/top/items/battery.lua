@@ -15,7 +15,7 @@ local battery = ui.add_capsule("widgets.battery", {
     color = colors.bat,
   },
   label = {
-    font = { family = settings.font.numbers },
+    font = { family = settings.font.family },
     color = colors.bat,
   },
   update_freq = 120,

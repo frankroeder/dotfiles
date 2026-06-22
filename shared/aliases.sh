@@ -56,3 +56,4 @@ alias online="ping -c 1 www.example.com &> /dev/null && echo 'Online :)' || echo
 alias joke="curl https://icanhazdadjoke.com"
 
 alias agents="$EDITOR $HOME/Nextcloud/portal/AGENTS.md"
+alias oil="nvim ."

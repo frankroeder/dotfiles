@@ -10,7 +10,7 @@ local media = sbar.add("item", "widgets.media", {
   position = "center",
   drawing = false,
   icon = {
-    font = "sketchybar-app-font:Regular:16.0",
+    font = settings.font.app_icon .. ":Regular:16.0",
     string = "",
   },
   label = {

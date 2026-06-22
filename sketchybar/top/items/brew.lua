@@ -19,7 +19,7 @@ local brew = sbar.add("item", "widgets.brew", {
   label = {
     string = "?",
     font = {
-      family = settings.font.numbers,
+      family = settings.font.family,
       style = settings.font.style_map["Bold"],
       size = 12.0,
     },
@@ -100,7 +100,7 @@ local function populate_popup()
       label = {
         string = "No outdated packages",
         font = {
-          family = settings.font.text,
+          family = settings.font.family,
           style = settings.font.style_map["Regular"],
           size = 12.0,
         },
@@ -118,7 +118,7 @@ local function populate_popup()
         label = {
           string = package,
           font = {
-            family = settings.font.text,
+            family = settings.font.family,
             style = settings.font.style_map["Regular"],
             size = 12.0,
           },

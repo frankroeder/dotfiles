@@ -15,7 +15,7 @@ local front_app = sbar.add("item", "top.front_app", {
         scale = 0.9,
       },
     },
-    font = "sketchybar-app-font:Regular:22.0",
+    font = settings.font.app_icon .. ":Regular:22.0",
   },
   label = {
     padding_left = 10,

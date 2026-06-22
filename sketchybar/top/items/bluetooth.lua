@@ -96,7 +96,7 @@ local function update()
               local item = ui.popup_list_row("widgets.bluetooth.device." .. count, bluetooth, {
                 label = display_label,
                 font = {
-                  family = settings.font.text,
+                  family = settings.font.family,
                   style = settings.font.style_map["Regular"],
                   size = 12.0,
                 },

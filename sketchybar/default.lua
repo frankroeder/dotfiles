@@ -8,7 +8,7 @@ sbar.default {
   blur_radius = settings.ui.item_blur_radius,
   icon = {
     font = {
-      family = settings.font.text,
+      family = settings.font.family,
       style = settings.font.style_map["Bold"],
       size = settings.ui.icon_size,
     },
@@ -18,7 +18,7 @@ sbar.default {
   },
   label = {
     font = {
-      family = settings.font.text,
+      family = settings.font.family,
       style = settings.font.style_map["Bold"],
       size = settings.ui.label_size,
     },
