@@ -84,6 +84,6 @@ alias screensaver="open /System/Library/CoreServices/ScreenSaverEngine.app"
 heic2jpg(){
   sips -s format jpeg "$1" --out "${2:-${1%.*}.jpg}"
 }
-[ $commands[mpv] ] && mpvyt() {
+(( ${+commands[mpv]} )) && mpvyt() {
   mpv --ytdl-raw-options=cookies-from-browser=firefox:~/Library/Application\ Support/librewolf/Profiles/*.default-default "$1"
 }

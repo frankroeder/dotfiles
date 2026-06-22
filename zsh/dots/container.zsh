@@ -1,6 +1,6 @@
 # container CLI shortcuts
 # https://github.com/apple/container/tree/main
-! [ $commands[container] ] && return
+(( ${+commands[container]} )) || return
 
 alias cbusybox='container run -it --rm busybox:latest'
 alias crbase='container run  --rm -it r-base:latest'
@@ -13,8 +13,12 @@ alias crmiall='container images rm $(container images ls -q)'
 alias csls='container system logs'
 
 cname() {
-  local names cmd
-  if [[ -n $1 ]] then; cmd="container ls -a"; else cmd="container ls"; fi
+  local name cmd
+  if [[ -n $1 ]]; then
+    cmd="container ls -a"
+  else
+    cmd="container ls"
+  fi
   name=$(eval "$cmd --format json --all | jq -r '.[] | select(.status == \"running\") | .configuration.id' | fzf --exit-0 --query='$1'")
   echo $name
 }
@@ -46,10 +50,10 @@ cex{b,z,ec}() {
   local cn=$(cname)
   local fn=${funcstack[1]:3}
   local shell=
-  if [[ "$fn" = "b" ]] then;
-    shell=bash;
-  elif [[ "$fn" = "z" ]] then;
-    shell=zsh;
+  if [[ "$fn" = "b" ]]; then
+    shell=bash
+  elif [[ "$fn" = "z" ]]; then
+    shell=zsh
   else
     shell='sh -c "'$1'"'
   fi

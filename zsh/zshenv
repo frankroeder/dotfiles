@@ -36,9 +36,9 @@ path=(
 if [[ "$OSTYPE" == "Darwin" ]]; then
   export BROWSER="open"
 elif [[ "$OSTYPE" == "Linux" ]]; then
-  if (( $+commands[librewolf] )); then
+  if (( ${+commands[librewolf]} )); then
     export BROWSER="librewolf"
-  elif (( $+commands[firefox] )); then
+  elif (( ${+commands[firefox]} )); then
     export BROWSER="firefox"
   fi
   keychain_env="$HOME/.keychain/${HOST:-$HOSTNAME}-sh"

@@ -1,6 +1,4 @@
-autoload -Uz compinit && compinit -C -d "${ZDOTDIR:-${HOME}}/${zcompdump_file:-.zcompdump}"
-
-fpath=(~/.zsh/completion $fpath)
+fpath=("$HOME/.zsh/completion" $fpath)
 
 setopt AUTO_MENU          # show completion menu on a successive tab press
 setopt ALWAYS_TO_END      # move cursor to the end of a completed word
@@ -67,12 +65,31 @@ zstyle ':completion:*:*:*:users' ignored-patterns \
 
 # Media Players
 AUDIO_FILES='wav|mp3|ogg|flac|aif|aiff|alac|aac'
-if [ $commands[mpv] ]; then
-	zstyle ':completion:*:*:mpv:*' file-patterns "*.(#i)(flv|mp4|webm|mkv|wmv|mov|avi|$AUDIO_FILES|wma|m4a|m4b|m4v|gif|ifo)(-.) *(-/):directories" '*:all-files'
+if (( ${+commands[mpv]} )); then
+  zstyle ':completion:*:*:mpv:*' file-patterns "*.(#i)(flv|mp4|webm|mkv|wmv|mov|avi|$AUDIO_FILES|wma|m4a|m4b|m4v|gif|ifo)(-.) *(-/):directories" '*:all-files'
 fi
-if [ $commands[ffplay] ]; then
+if (( ${+commands[ffplay]} )); then
   zstyle ':completion:*:*:ffplay:*' file-patterns "*.(mkv|avi|wmv|mov|m4a|mpg|mpeg|mp4|webm|$AUDIO_FILES):mp3\ files *(-/):directories"
 fi
-if [ $commands[afplay] ]; then
+if (( ${+commands[afplay]} )); then
   zstyle ':completion:*:*:afplay:*' file-patterns "*.($AUDIO_FILES):mp3\ files *(-/):directories"
 fi
+
+autoload -Uz compinit
+zcompdump="${ZDOTDIR:-$HOME}/${zcompdump_file:-.zcompdump}"
+if [[ "$OSTYPE" == "Darwin" ]]; then
+  if [[ ! -f "$zcompdump" ]] || [[ "$(date +'%j')" != "$(stat -f '%Sm' -t '%j' "$zcompdump")" ]]; then
+    compinit -d "$zcompdump"
+  else
+    compinit -C -d "$zcompdump"
+  fi
+elif [[ "$OSTYPE" == "Linux" ]]; then
+  if [[ ! -f "$zcompdump" ]] || [[ "$(date +'%F')" != "$(stat -c '%y' "$zcompdump" | cut -d' ' -f1)" ]]; then
+    compinit -d "$zcompdump"
+  else
+    compinit -C -d "$zcompdump"
+  fi
+else
+  compinit -C -d "$zcompdump"
+fi
+unset zcompdump

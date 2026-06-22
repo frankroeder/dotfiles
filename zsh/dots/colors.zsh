@@ -6,9 +6,9 @@ for COLOR in RED GREEN YELLOW BLUE MAGENTA CYAN BLACK WHITE; do
 done
 eval RESET='$reset_color'
 
-if (( $+commands[gdircolors] )); then
+if (( ${+commands[gdircolors]} )); then
   eval "$(gdircolors -b "${HOME}/.dircolors" 2>/dev/null || gdircolors -b)"
-elif (( $+commands[dircolors] )); then
+elif (( ${+commands[dircolors]} )); then
   eval "$(dircolors -b "${HOME}/.dircolors" 2>/dev/null || dircolors -b)"
 else
   unset LS_COLORS

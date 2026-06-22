@@ -1,6 +1,6 @@
 # Zsh-specific aliases (common aliases are in shared/aliases.sh)
 
-alias {src,refresh}='exec "$SHELL" -l'
+alias src='exec "$SHELL" -l'
 # forcibly rebuild zcompdump
 alias rezcomp='rm -f $HOME/.zcompdump; compinit'
 alias vimrc="$EDITOR $HOME/.dotfiles/nvim/{init.lua,plugin/*,lua/*}"
@@ -9,10 +9,10 @@ alias localgit="$EDITOR $HOME/.local.gitconfig"
 alias localtmux="$EDITOR $HOME/.local.tmux"
 alias localnvim="$EDITOR $HOME/.localnvim.lua"
 
-[[ $commands[rg] ]] && alias rg="rg --pretty --ignore-file $DOTFILES/ignore"
+(( ${+commands[rg]} )) && alias rg="rg --pretty --ignore-file $DOTFILES/ignore"
 alias -g @="| grep -i"
 
-if [[ $commands[npm] ]]; then
+if (( ${+commands[npm]} )); then
   alias npmls='npm ls --depth=0'
   alias npmlsg='npm ls --depth=0 --location=global'
 fi

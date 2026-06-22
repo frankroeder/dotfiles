@@ -2,37 +2,20 @@
 # definitions for all interactive sessions
 
 # Uncomment to profile zsh
-# zmodload zsh/zprof && zprof
+# zmodload zsh/zprof
 
 # ensure to only execute on ZSH
 [ ! -n "$ZSH_VERSION" ] && return
-
-autoload -Uz compinit
-zcompdump="${ZDOTDIR:-$HOME}/.zcompdump"
-if [[ "$OSTYPE" == "Darwin" ]]; then
-  if [[ ! -f "$zcompdump" ]] || [[ "$(date +'%j')" != "$(stat -f '%Sm' -t '%j' "$zcompdump")" ]]; then
-    compinit
-  else
-    compinit -C
-  fi
-elif [[ "$OSTYPE" == "Linux" ]]; then
-  if [[ ! -f "$zcompdump" ]] || [[ "$(date +'%F')" != "$(stat -c '%y' "$zcompdump" | cut -d' ' -f1)" ]]; then
-    compinit
-  else
-    compinit -C
-  fi
-fi
-unset zcompdump
 
 # autoloaded functions (lazy loading)
 zsh_functions=$DOTFILES/autoloaded
 fpath=($zsh_functions $fpath)
 
 if [[ -d "$zsh_functions" ]]; then
-    for func in $zsh_functions/*; do
-        autoload -Uz ${func:t}
-    done
-    unset func
+  for func in $zsh_functions/*; do
+    autoload -Uz ${func:t}
+  done
+  unset func
 fi
 unset zsh_functions
 
@@ -57,16 +40,16 @@ zle_highlight+=(paste:none)
 if [[ -d "$HOME/.fzf/bin" ]]; then
   path=($HOME/.fzf/bin $path)
 fi
-if (( $+commands[fzf] )); then
+if (( ${+commands[fzf]} )); then
   eval "$(fzf --zsh)"
 fi
 
 # Source shared configurations (used by both bash and zsh)
 if [[ -d "$DOTFILES/shared" ]]; then
-    for file in $DOTFILES/shared/*.sh; do
-        source $file
-    done
-    unset file
+  for file in $DOTFILES/shared/*.sh; do
+    source $file
+  done
+  unset file
 fi
 
 [ -f ~/.local.zsh ] && source ~/.local.zsh
@@ -74,26 +57,21 @@ fi
 # load zsh-specific configs
 zsh_dots=$DOTFILES/zsh/dots
 if [[ -d "$zsh_dots" ]]; then
-    for file in $zsh_dots/*.zsh; do
-        source $file
-    done
-    unset file
+  [[ -r "$zsh_dots/completion.zsh" ]] && source "$zsh_dots/completion.zsh"
+  for file in $zsh_dots/*.zsh; do
+    [[ ${file:t} == "completion.zsh" ]] && continue
+    source $file
+  done
+  unset file
 fi
 unset zsh_dots
-
-# enable completions
-if [ -d ~/.zsh/completion ]; then
-    fpath=(~/.zsh/completion $fpath)
-    autoload -U ~/.zsh/completion/*(:t)
-fi
-
 
 # Prevent duplicates in PATH and FPATH
 typeset -U path fpath
 export PATH
 
 if [[ "$OSTYPE" == "Darwin" ]]; then
-    if ( which zprof > /dev/null ); then
+  if ( which zprof > /dev/null ); then
     zprof | less
-    fi
+  fi
 fi

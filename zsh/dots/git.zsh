@@ -1,6 +1,6 @@
 # Zsh-specific git configuration (common git aliases are in shared/git.sh)
 # https://github.com/robbyrussell/oh-my-zsh/blob/master/plugins/git/git.plugin.zsh
-! [ $commands[git] ] && return
+(( ${+commands[git]} )) || return
 
 # Desktop-specific git aliases and functions (rest are in shared/git.sh for servers)
 alias gwch='echo "PLEASE USE glgp"'

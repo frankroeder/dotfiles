@@ -35,7 +35,7 @@ if [ "$OSTYPE" = "Darwin" ]; then
 fi
 
 if [ "$(tty)" = "/dev/tty1" ];then
-  if (( $+commands[start-hyprland] )); then
+  if (( ${+commands[start-hyprland]} )); then
     exec start-hyprland
   fi
 fi

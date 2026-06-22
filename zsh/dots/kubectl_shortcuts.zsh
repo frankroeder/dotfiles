@@ -1,6 +1,6 @@
 # Kubernetes Shortcuts
 # ------------------------------------------------------------------------------
-! [ $commands[kubectl] ] && return
+(( ${+commands[kubectl]} )) || return
 
 # basic
 alias k='kubectl'

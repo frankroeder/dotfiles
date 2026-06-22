@@ -1,3 +1,3 @@
-! [ $commands[fzf] ] && return
+(( ${+commands[fzf]} )) || return
 
 bindkey '^Z' fzf-cd-widget

@@ -1,5 +1,5 @@
 # Zsh-specific docker configuration (common docker functions are in shared/docker_functions.sh)
-! [ $commands[docker] ] && return
+(( ${+commands[docker]} )) || return
 
 # Docker container shortcuts (zsh-specific aliases)
 dsgpt(){
@@ -41,5 +41,5 @@ alias dtag='docker inspect --format "{{.Name}}
   {{end}}" $(docker ps -q)'
 
 # Docker-compose
-! [ $commands[docker-compose] ] && return
+(( ${+commands[docker-compose]} )) || return
 alias dcp='docker-compose'

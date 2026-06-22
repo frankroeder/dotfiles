@@ -13,7 +13,7 @@ path=(
 # Open current directory in file manager (GUI)
 alias f='xdg-open ./'
 
-if [ $commands[wl-copy] ] && [ $commands[wl-paste] ]; then
+if (( ${+commands[wl-copy]} )) && (( ${+commands[wl-paste]} )); then
   pbcopy() { command wl-copy "$@"; }
   pbpaste() { command wl-paste --no-newline "$@"; }
   copypubkey() { pbcopy < ~/.ssh/id_rsa.pub; }
