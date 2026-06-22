@@ -1,6 +1,6 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
-NUM_SPACES=$(yabai -m query --spaces | jq '. | length')
+NUM_SPACES=$(yabai -m query --spaces 2>/dev/null | jq '. | length')
 
 # general exceptions
 yabai -m rule --add app='^System Information$' manage=off sub-layer=above
@@ -25,9 +25,10 @@ if [[ -n "$NUM_SPACES" ]] && [[ "$NUM_SPACES" =~ ^[0-9]+$ ]]; then
   for ((i=NUM_SPACES; i<3; i++)); do
     yabai -m space --create
   done
+  NUM_SPACES=$(yabai -m query --spaces 2>/dev/null | jq '. | length')
 fi
 
-if [[ $NUM_SPACES -gt 2 ]]; then
+if [[ "$NUM_SPACES" =~ ^[0-9]+$ ]] && [[ $NUM_SPACES -gt 2 ]]; then
   # "social" apps should always be inside the last space
   yabai -m rule --add app="^(Messages|Discord|Signal|Telegram|Mattermost|Zoom)$" space=$NUM_SPACES
 fi

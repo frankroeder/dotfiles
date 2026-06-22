@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
 # Unload the macOS WindowManager process
 launchctl unload -F /System/Library/LaunchAgents/com.apple.WindowManager.plist > /dev/null 2>&1 &
@@ -79,12 +79,12 @@ yabai -m rule --apply
 # Only move a workspace if it is not already on the target display.
 if [[ $(yabai -m query --displays 2>/dev/null | jq 'length') -gt 1 ]]; then
   builtin=$(system_profiler SPDisplaysDataType -json 2>/dev/null | jq -r '
-    .SPDisplaysDataType[0].spdisplays_ndrvs[] |
-    select(.spdisplays_connection_type == "spdisplays_internal")._spdisplays_displayID' | head -1)
+    first(.SPDisplaysDataType[0].spdisplays_ndrvs[] |
+    select(.spdisplays_connection_type == "spdisplays_internal")._spdisplays_displayID) // empty')
   primary=${builtin:-1}
 
   external=$(yabai -m query --displays 2>/dev/null | jq -r --arg p "$primary" '
-    .[] | select(.index != ($p|tonumber)) | .index' | head -1)
+    first(.[] | select(.index != ($p|tonumber)) | .index) // empty')
   secondary=${external:-2}
 
   # stream "index display" for each workspace and move only when needed
@@ -101,6 +101,6 @@ if [[ $(yabai -m query --displays 2>/dev/null | jq 'length') -gt 1 ]]; then
   done
 fi
 
-$HOME/.config/borders/bordersrc 2>/dev/null 1>&2 &
+"$HOME/.config/borders/bordersrc" >/dev/null 2>&1 &
 
 echo "yabai configuration loaded..."
