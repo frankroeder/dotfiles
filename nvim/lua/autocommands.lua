@@ -68,9 +68,7 @@ autocmd("BufWritePre", {
   group = trim_group,
   callback = function()
     if not table_find_element({ "markdown" }, vim.bo.filetype) then
-      local save = vim.fn.winsaveview()
       trim [[%s/\s\+$//e]]
-      vim.fn.winrestview(save)
     end
   end,
   desc = "Automatically trim trailing whitespaces on write.",
@@ -80,9 +78,7 @@ autocmd("BufWritePre", {
   pattern = "*",
   group = trim_group,
   callback = function()
-    local save = vim.fn.winsaveview()
     trim [[%s/\($\n\s*\)\+\%$//]]
-    vim.fn.winrestview(save)
   end,
   desc = "Automatically trim trailing lines on write.",
 })
@@ -117,11 +113,6 @@ autocmd({ "FileType" }, {
   desc = "Close certain filetypes with <q>",
 })
 
-local status_ok, List = pcall(require, "plenary.collections.py_list")
-if not status_ok then
-  return
-end
-
 autocmd("BufReadPost", {
   group = augroup("last_loc", { clear = true }),
   desc = "Go to last loc when opening a buffer, see ':h last-position-jump'",
@@ -141,11 +132,11 @@ autocmd("BufReadPost", {
 })
 
 local toggle_line_numbers_group = augroup("toggle_line_numbers", { clear = true })
-local line_numbers_ft_ignore_list = List { "Telescope" }
+local line_numbers_ft_ignore = { Telescope = true }
 autocmd({ "FocusGained", "InsertLeave" }, {
   pattern = "*",
   callback = function()
-    if line_numbers_ft_ignore_list:contains(vim.bo.filetype) or vim.bo.filetype == "" then
+    if line_numbers_ft_ignore[vim.bo.filetype] or vim.bo.filetype == "" then
       return
     end
     vim.cmd [[set relativenumber]]
@@ -156,7 +147,7 @@ autocmd({ "FocusGained", "InsertLeave" }, {
 autocmd({ "FocusLost", "InsertEnter" }, {
   pattern = "*",
   callback = function()
-    if line_numbers_ft_ignore_list:contains(vim.bo.filetype) or vim.bo.filetype == "" then
+    if line_numbers_ft_ignore[vim.bo.filetype] or vim.bo.filetype == "" then
       return
     end
     vim.cmd [[set norelativenumber]]

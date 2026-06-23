@@ -5,10 +5,17 @@
 is_dark=1
 if [ "$(uname -s)" = "Darwin" ]; then
   style=$(defaults read -g AppleInterfaceStyle 2>/dev/null || echo Light)
-  echo "$style" | grep -qi dark && is_dark=1 || is_dark=0
+  case "$style" in
+    *[Dd]ark*) is_dark=1 ;;
+    *) is_dark=0 ;;
+  esac
 else
   # linux gsettings etc
-  if gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null | grep -qi dark; then is_dark=1; else is_dark=0; fi
+  style=$(gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null || echo "")
+  case "$style" in
+    *dark*|*prefer-dark*) is_dark=1 ;;
+    *) is_dark=0 ;;
+  esac
 fi
 
 if [ "$is_dark" = "1" ]; then

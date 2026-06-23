@@ -5,4 +5,4 @@ export BAR_NAME=sketchybar
 export CONFIG_DIR="$HOME/.config/sketchybar"
 
 # Execute the init.lua script
-exec lua $CONFIG_DIR/init.lua
+exec "${LUA:-lua}" "$CONFIG_DIR/init.lua"

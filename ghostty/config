@@ -28,7 +28,7 @@ mouse-hide-while-typing = true
 mouse-scroll-multiplier = 0.5
 cursor-style = "block"
 
-copy-on-select= true
+copy-on-select = true
 clipboard-read = allow
 clipboard-write = allow
 clipboard-trim-trailing-spaces = true

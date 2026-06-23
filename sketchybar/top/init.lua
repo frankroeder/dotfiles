@@ -1,11 +1,10 @@
 #!/usr/bin/env lua
 -- Set up package paths
 local home = os.getenv "HOME"
-local user = os.getenv "USER"
 local config_dir = home .. "/.config/sketchybar-top"
 local shared_dir = home .. "/.dotfiles/sketchybar" -- Base dir for shared files
 
-package.cpath = package.cpath .. ";/Users/" .. user .. "/.local/share/sketchybar_lua/?.so"
+package.cpath = package.cpath .. ";" .. home .. "/.local/share/sketchybar_lua/?.so"
 package.path = package.path .. ";" .. config_dir .. "/?.lua"
 package.path = package.path .. ";" .. config_dir .. "/?/init.lua"
 package.path = package.path .. ";" .. shared_dir .. "/?.lua"

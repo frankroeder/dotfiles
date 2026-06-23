@@ -39,18 +39,11 @@ validate-tools: ## Validate that minimal required tools are available
 	@$(call print_step,All required tools are available)
 
 # Common functions
-define create_symlink
-	@if [ -e "$(1)" ] || [ -L "$(1)" ]; then \
-		echo "Linking $(1) -> $(2)"; \
-		ln -sfv $(1) $(2); \
-	else \
-		echo "\033[1m\033[33mWarning: Source $(1) does not exist, skipping symlink\033[0m"; \
-	fi
-endef
-
 define replace_with_symlink
 	@mkdir -p "$$(dirname "$(2)")"
-	@if [ -L "$(2)" ] && [ "$$(readlink -f "$(2)")" = "$$(readlink -f "$(1)")" ]; then \
+	@if [ ! -e "$(1)" ] && [ ! -L "$(1)" ]; then \
+		$(call print_warning,Optional source $(1) does not exist; skipping symlink); \
+	elif [ -L "$(2)" ] && [ "$$(readlink "$(2)")" = "$(1)" ]; then \
 		echo "Link already correct: $(2) -> $(1)"; \
 	else \
 		if [ -e "$(2)" ] || [ -L "$(2)" ]; then \
@@ -68,7 +61,7 @@ define link_if_exists
 		echo "Linking $(2) -> $(1)"; \
 		ln -sfn "$(1)" "$(2)"; \
 	else \
-		$(call print_warning,Optional source $(1) does not exist, skipping symlink); \
+		$(call print_warning,Optional source $(1) does not exist; skipping symlink); \
 	fi
 endef
 
@@ -102,7 +95,7 @@ endef
 
 # and homebrew available
 ifeq ($(ARCHITECTURE), arm64)
-	PATH := $(PATH):/opt/homebrew/bin:/opt/homebrew/sbin
+PATH := $(PATH):/opt/homebrew/bin:/opt/homebrew/sbin
 endif
 
 CONTAINER_CMD := $(shell if command -v podman >/dev/null 2>&1; then echo "podman"; elif command -v docker >/dev/null 2>&1; then echo "docker"; else echo "container"; fi)
@@ -140,8 +133,7 @@ help: ## Show this help message
 	@echo "#######################################################################"
 	@echo "# Dotfiles Installation"
 	@echo "#######################################################################"
-	@grep -E '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) \
-	| awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m  %-15s\033[0m %s\n", $$1, $$2}'
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*## / {printf "\033[36m  %-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo "#######################################################################"
 
 .PHONY: sudo
@@ -191,10 +183,10 @@ endif
 	fi
 	@if command -v ipython >/dev/null 2>&1; then \
 		mkdir -p $(HOME)/.ipython/profile_default; \
-		ln -sfv $(DOTFILES)/python/ipython_config.py $(HOME)/.ipython/profile_default/; \
 	else \
 		$(call print_warning,IPython not available for configuration); \
 	fi
+	$(call link_if_exists,$(DOTFILES)/python/ipython_config.py,$(HOME)/.ipython/profile_default/ipython_config.py)
 
 .PHONY: misc
 misc: ## Install miscellaneous tools and configurations
@@ -214,12 +206,12 @@ misc: ## Install miscellaneous tools and configurations
 	else \
 		$(call print_warning,fzf is already installed); \
 	fi
-	$(call create_symlink,$(DOTFILES)/wgetrc,$(HOME)/.wgetrc)
-	$(call create_symlink,$(DOTFILES)/curlrc,$(HOME)/.curlrc)
-	$(call create_symlink,$(DOTFILES)/tmux/tmux.conf,$(HOME)/.tmux.conf)
-	$(call create_symlink,$(DOTFILES)/fastfetch,$(HOME)/.config/fastfetch)
-	$(call create_symlink,$(DOTFILES)/latexmkrc,$(HOME)/.latexmkrc)
-	$(call create_symlink,$(DOTFILES)/btop,$(HOME)/.config/btop)
+	$(call link_if_exists,$(DOTFILES)/wgetrc,$(HOME)/.wgetrc)
+	$(call link_if_exists,$(DOTFILES)/curlrc,$(HOME)/.curlrc)
+	$(call link_if_exists,$(DOTFILES)/tmux/tmux.conf,$(HOME)/.tmux.conf)
+	$(call replace_with_symlink,$(DOTFILES)/fastfetch,$(HOME)/.config/fastfetch)
+	$(call link_if_exists,$(DOTFILES)/latexmkrc,$(HOME)/.latexmkrc)
+	$(call replace_with_symlink,$(DOTFILES)/btop,$(HOME)/.config/btop)
 
 
 .PHONY: zsh
@@ -230,10 +222,10 @@ zsh: | directories
 		$(call print_error,Zsh is not installed. Please install it first); \
 		exit 1; \
 	fi
-	$(call create_symlink,$(DOTFILES)/zsh/zshrc,$(HOME)/.zshrc)
-	$(call create_symlink,$(DOTFILES)/zsh/zlogin,$(HOME)/.zlogin)
-	$(call create_symlink,$(DOTFILES)/zsh/zshenv,$(HOME)/.zshenv)
-	$(call create_symlink,$(DOTFILES)/zsh/zprofile,$(HOME)/.zprofile)
+	$(call link_if_exists,$(DOTFILES)/zsh/zshrc,$(HOME)/.zshrc)
+	$(call link_if_exists,$(DOTFILES)/zsh/zlogin,$(HOME)/.zlogin)
+	$(call link_if_exists,$(DOTFILES)/zsh/zshenv,$(HOME)/.zshenv)
+	$(call link_if_exists,$(DOTFILES)/zsh/zprofile,$(HOME)/.zprofile)
 	@mkdir -p $(HOME)/.zsh/completion
 	@if command -v rg >/dev/null 2>&1; then \
 		$(call print_step,Generating ripgrep completions); \
@@ -255,7 +247,7 @@ node: ## Install Node.js and global npm packages
 	fi
 	@if command -v npm >/dev/null 2>&1; then \
 		$(call print_step,Installing global npm packages); \
-		if [ "$(uname -s)" = "Linux" ]; then \
+		if [ "$(OSTYPE)" = "Linux" ]; then \
 			mkdir -p $(HOME)/.local/bin $(HOME)/.local/lib/node_modules; \
 			npm config set prefix "$(HOME)/.local" --location=user 2>/dev/null || true; \
 			npm install --prefix "$(HOME)/.local" npm@latest; \
@@ -278,11 +270,9 @@ nvim: | directories
 		$(call print_error,Neovim is not installed. Please install it first); \
 		exit 1; \
 	fi
-	nvim "+call mkdir(stdpath('config'), 'p')" +qall; \
-	rm -rfv $(HOME)/.config/nvim; \
-	touch $(HOME)/.localnvim.lua; \
-	ln -sfv $(DOTFILES)/nvim $(HOME)/.config; \
-	$(call print_step,Syncing Neovim plugins); \
+	@touch "$(HOME)/.localnvim.lua"
+	$(call replace_with_symlink,$(DOTFILES)/nvim,$(HOME)/.config/nvim)
+	$(call print_step,Syncing Neovim plugins)
 	nvim --headless "+lua vim.pack.update()" "+qa"
 
 .PHONY: _git
@@ -294,8 +284,8 @@ _git: ## Configure Git with completion and dotfiles
 	else \
 		$(call print_warning,Git completion already exists); \
 	fi
-	@if [ -f "$(DOTFILES)/git/gitconfig" ]; then ln -sfv $(DOTFILES)/git/gitconfig $(HOME)/.gitconfig; fi
-	@if [ -f "$(DOTFILES)/git/gitignore" ]; then ln -sfv $(DOTFILES)/git/gitignore $(HOME)/.gitignore; fi
+	$(call link_if_exists,$(DOTFILES)/git/gitconfig,$(HOME)/.gitconfig)
+	$(call link_if_exists,$(DOTFILES)/git/gitignore,$(HOME)/.gitignore)
 
 .PHONY: agents
 agents: ## Sync coding agent instructions and settings from Nextcloud
@@ -367,7 +357,7 @@ endif
 .PHONY: directories
 directories: ## Create necessary directories
 	$(call print_step,Creating directories)
-	@mkdir -p $(HOME)/config
+	@mkdir -p $(HOME)/.config
 	@mkdir -p $(HOME)/.zsh
 	@mkdir -p $(HOME)/.config/htop
 	@mkdir -p $(HOME)/tmp
@@ -381,20 +371,20 @@ directories: ## Create necessary directories
 micro: ## Minimal setup with bash configuration
 micro: _backup _bash
 	$(call print_step,Setting up micro configuration)
-	$(call create_symlink,$(DOTFILES)/bash/tmux.conf,$(HOME)/.tmux.conf)
-	$(call create_symlink,$(DOTFILES)/bash/vimrc,$(HOME)/.vimrc)
-	$(call create_symlink,$(DOTFILES)/htop/server,$(HOME)/.htoprc)
+	$(call link_if_exists,$(DOTFILES)/bash/tmux.conf,$(HOME)/.tmux.conf)
+	$(call link_if_exists,$(DOTFILES)/bash/vimrc,$(HOME)/.vimrc)
+	$(call link_if_exists,$(DOTFILES)/htop/server,$(HOME)/.htoprc)
 	@mkdir -p $(HOME)/.Trash
 
 .PHONY: _bash
 _bash: ## Configure bash dotfiles
 	$(call print_step,Configuring bash dotfiles)
-	$(call create_symlink,$(DOTFILES)/bash/bash_profile,$(HOME)/.bash_profile)
-	$(call create_symlink,$(DOTFILES)/bash/bashrc,$(HOME)/.bashrc)
-	$(call create_symlink,$(DOTFILES)/bash/bash_prompt,$(HOME)/.bash_prompt)
-	$(call create_symlink,$(DOTFILES)/bash/bash_logout,$(HOME)/.bash_logout)
-	$(call create_symlink,$(DOTFILES)/bash/bash_aliases,$(HOME)/.bash_aliases)
-	$(call create_symlink,$(DOTFILES)/bash/bash_functions,$(HOME)/.bash_functions)
+	$(call link_if_exists,$(DOTFILES)/bash/bash_profile,$(HOME)/.bash_profile)
+	$(call link_if_exists,$(DOTFILES)/bash/bashrc,$(HOME)/.bashrc)
+	$(call link_if_exists,$(DOTFILES)/bash/bash_prompt,$(HOME)/.bash_prompt)
+	$(call link_if_exists,$(DOTFILES)/bash/bash_logout,$(HOME)/.bash_logout)
+	$(call link_if_exists,$(DOTFILES)/bash/bash_aliases,$(HOME)/.bash_aliases)
+	$(call link_if_exists,$(DOTFILES)/bash/bash_functions,$(HOME)/.bash_functions)
 
 .PHONY: _backup
 _backup: ## Backup existing dotfiles
@@ -415,8 +405,7 @@ _linux: ## Linux-specific setup and package installation
 		$(call print_step,Installing Linux packages); \
 		bash $(DOTFILES)/linux/apt.sh "default"; \
 	fi
-	@mkdir -p $(HOME)/.config/htop; \
-	@ln -sfv $(DOTFILES)/htop/server $(HOME)/.config/htop/htoprc; \
+	$(call link_if_exists,$(DOTFILES)/htop/server,$(HOME)/.config/htop/htoprc)
 	@if ! command -v nvim >/dev/null 2>&1; then \
 		if [ -z "$(NOSUDO)" ]; then \
 			bash $(DOTFILES)/scripts/nvim.sh "source"; \
@@ -442,15 +431,15 @@ _macos: ## macOS-specific configuration and applications
 	@mkdir -p $(HOME)/screens $(HOME)/.config $(HOME)/Library/Fonts
 	$(call print_step,Running macOS setup script)
 	@bash $(DOTFILES)/macos/main.bash
-	@ln -sfv $(DOTFILES)/sketchybar/bottom $(HOME)/.config/sketchybar
-	@ln -sfv $(DOTFILES)/sketchybar/top $(HOME)/.config/sketchybar-top
+	$(call replace_with_symlink,$(DOTFILES)/sketchybar/bottom,$(HOME)/.config/sketchybar)
+	$(call replace_with_symlink,$(DOTFILES)/sketchybar/top,$(HOME)/.config/sketchybar-top)
 	$(MAKE) sketchybar-top
 	$(call print_step,Downloading sketchybar font)
 	@bash $(DOTFILES)/scripts/sketchybar_app_font.sh
-	@ln -sfv $(DOTFILES)/skhd $(HOME)/.config/skhd
+	$(call replace_with_symlink,$(DOTFILES)/skhd,$(HOME)/.config/skhd)
 	@$(call print_step,Linking LibreWolf config (Asahi settings))
 	@mkdir -p "$(HOME)/Library/Application Support/LibreWolf/librewolf"
-	@$(call create_symlink,$(DOTFILES)/shared/librewolf/librewolf.overrides.cfg,$(HOME)/Library/Application Support/LibreWolf/librewolf/librewolf.overrides.cfg)
+	$(call link_if_exists,$(DOTFILES)/shared/librewolf/librewolf.overrides.cfg,$(HOME)/Library/Application Support/LibreWolf/librewolf/librewolf.overrides.cfg)
 	@for profile in "$(HOME)/Library/Application Support/LibreWolf/Profiles/"*.default* ; do \
 		[ -d "$$profile" ] || continue; \
 		mkdir -p "$$profile/chrome"; \
@@ -458,7 +447,7 @@ _macos: ## macOS-specific configuration and applications
 	done
 	$(call print_step,Running Sioyek setup)
 	@zsh $(DOTFILES)/scripts/sioyek.sh
-	@ln -sfv $(DOTFILES)/sioyek $(HOME)/.config/sioyek
+	$(call replace_with_symlink,$(DOTFILES)/sioyek,$(HOME)/.config/sioyek)
 	@if command -v swift >/dev/null 2>&1; then \
 		mkdir -p $(HOME)/.zsh/completion; \
 		swift package completion-tool generate-zsh-script > $(HOME)/.zsh/completion/_swift 2>/dev/null || true; \
@@ -472,9 +461,9 @@ _macos: ## macOS-specific configuration and applications
 		curl -fsSL https://raw.githubusercontent.com/actuallymentor/battery/main/setup.sh | bash; \
 		battery maintain 80; \
 	fi
-	@ln -sfv $(DOTFILES)/mpv $(HOME)/.config/mpv
-	@ln -sfv $(DOTFILES)/yabai $(HOME)/.config/yabai
-	@ln -sfv $(DOTFILES)/borders $(HOME)/.config/borders
+	$(call replace_with_symlink,$(DOTFILES)/mpv,$(HOME)/.config/mpv)
+	$(call replace_with_symlink,$(DOTFILES)/yabai,$(HOME)/.config/yabai)
+	$(call replace_with_symlink,$(DOTFILES)/borders,$(HOME)/.config/borders)
 
 .PHONY: _terminal
 _terminal: ## Install and configure terminal emulator
@@ -483,9 +472,8 @@ _terminal: ## Install and configure terminal emulator
 	else \
 		$(call print_step,Ghostty is available); \
 	fi
-	@ln -sfv $(DOTFILES)/ghostty $(HOME)/.config/ghostty; \
-	mkdir -p $(HOME)/.config/htop; \
-	ln -sfv $(DOTFILES)/htop/personal $(HOME)/.config/htop/htoprc; \
+	$(call replace_with_symlink,$(DOTFILES)/ghostty,$(HOME)/.config/ghostty)
+	$(call link_if_exists,$(DOTFILES)/htop/personal,$(HOME)/.config/htop/htoprc)
 
 
 .PHONY: asahi asahi-system asahi-zotero asahi-common asahi-user
@@ -528,7 +516,7 @@ asahi-zotero: ## Install Zotero ARM64 on Asahi Linux
 asahi-common: directories _git zsh python misc nvim
 	@mkdir -p $(HOME)/.config/environment.d
 	@mkdir -p $(HOME)/.local/share/applications
-	@ln -sfv $(DOTFILES)/asahi/mimeapps.list $(HOME)/.config/mimeapps.list
+	$(call link_if_exists,$(DOTFILES)/asahi/mimeapps.list,$(HOME)/.config/mimeapps.list)
 	@$(call print_step,Fixing Linux desktop icons); \
 	bash $(DOTFILES)/scripts/fix_linux_desktop_icons.sh
 	@if ! command -v tree-sitter >/dev/null 2>&1; then \
@@ -543,15 +531,15 @@ asahi-desktop: asahi-common
 		[ -f "$$script" ] && chmod +x "$$script"; \
 	done
 	@mkdir -p $(HOME)/.config/systemd/user
-	@ln -sfv $(DOTFILES)/asahi/systemd/user/hyprland-session.target $(HOME)/.config/systemd/user/hyprland-session.target
+	$(call link_if_exists,$(DOTFILES)/asahi/systemd/user/hyprland-session.target,$(HOME)/.config/systemd/user/hyprland-session.target)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/hypr,$(HOME)/.config/hypr)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/quickshell,$(HOME)/.config/quickshell)
 	$(call replace_with_symlink,$(DOTFILES)/asahi/ghostty,$(HOME)/.config/ghostty)
 	@mkdir -p $(HOME)/.config/mpv
-	@ln -sfv $(DOTFILES)/mpv/mpv_asahi.conf $(HOME)/.config/mpv/mpv.conf
-	@ln -sfv $(DOTFILES)/asahi/environment.d/90-asahi.conf $(HOME)/.config/environment.d/90-asahi.conf
+	$(call link_if_exists,$(DOTFILES)/mpv/mpv_asahi.conf,$(HOME)/.config/mpv/mpv.conf)
+	$(call link_if_exists,$(DOTFILES)/asahi/environment.d/90-asahi.conf,$(HOME)/.config/environment.d/90-asahi.conf)
 	@mkdir -p $(HOME)/.config/librewolf/librewolf
-	@ln -sfv $(DOTFILES)/shared/librewolf/librewolf.overrides.cfg $(HOME)/.config/librewolf/librewolf/librewolf.overrides.cfg
+	$(call link_if_exists,$(DOTFILES)/shared/librewolf/librewolf.overrides.cfg,$(HOME)/.config/librewolf/librewolf/librewolf.overrides.cfg)
 	@for profile in $(HOME)/.librewolf/*.default*; do \
 		[ -d "$$profile" ] || continue; \
 		mkdir -p "$$profile/chrome"; \
@@ -662,6 +650,6 @@ endif
 sketchybar-top: ## Install and start SketchyBar Top LaunchAgent
 	$(call print_step,Installing sketchybar-top LaunchAgent)
 	@mkdir -p $(HOME)/Library/LaunchAgents
-	@ln -sfv $(DOTFILES)/sketchybar/top/git.frank.sketchybar-top.plist $(HOME)/Library/LaunchAgents/git.frank.sketchybar-top.plist
+	$(call link_if_exists,$(DOTFILES)/sketchybar/top/git.frank.sketchybar-top.plist,$(HOME)/Library/LaunchAgents/git.frank.sketchybar-top.plist)
 	@launchctl bootout gui/$(shell id -u) $(HOME)/Library/LaunchAgents/git.frank.sketchybar-top.plist 2>/dev/null || true
 	@launchctl bootstrap gui/$(shell id -u) $(HOME)/Library/LaunchAgents/git.frank.sketchybar-top.plist

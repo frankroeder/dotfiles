@@ -126,8 +126,6 @@ opt.wildignore = {
   "*/.repo/*",
   "*/.sass-cache/*",
   "*/.svn/*",
-  "*/.venv/*",
-  "*/.yarn/*",
   "*/.yarn/*",
   "*/__pycache__/*",
   "*/bower_modules/*",

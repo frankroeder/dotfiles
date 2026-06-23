@@ -152,14 +152,16 @@ vim.keymap.set("n", "<leader>gs", function()
   extcmd({ "git", "show", vim.fn.expand "<cword>" }, true)
 end)
 vim.keymap.set("n", "<leader>gp", function()
-  vim.cmd(
-    "edit "
-      .. vim.fn.system("python3 -c 'import site; print(site.getsitepackages()[0])'"):gsub(
-        "%s+$",
-        ""
-      )
-      .. "/."
-  )
+  local site_packages = vim.fn.systemlist({
+    "uv",
+    "run",
+    "python",
+    "-c",
+    "import site; print(site.getsitepackages()[0])",
+  })[1]
+  if vim.v.shell_error == 0 and site_packages and site_packages ~= "" then
+    vim.cmd("edit " .. vim.fn.fnameescape(site_packages) .. "/.")
+  end
 end)
 vim.keymap.set("n", "<leader>gr", function()
   local registry = os.getenv "CARGO_HOME" or (os.getenv "HOME" .. "/.cargo") .. "/registry/src"
