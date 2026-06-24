@@ -228,12 +228,6 @@ for index, space_name in ipairs(static_names) do
 
   spaces[index] = space
 
-  space:subscribe("space_change", function(env)
-    state.selected = env.SELECTED == "true"
-    state.visible = state.selected
-    updateSpaceVisual(index)
-  end)
-
   space:subscribe("mouse.clicked", function(env)
     if env.BUTTON == "right" then
       sbar.exec(
@@ -296,7 +290,9 @@ local function updateLayout()
         local st = ensureSpaceState(idx)
         st.selected = false
         st.visible = false
-        spaces[idx]:set { drawing = false }
+        st.app_names = {}
+        st.window_count = 0
+        spaces[idx]:set { drawing = false, label = { string = " —" } }
       end
     end
 
@@ -359,35 +355,13 @@ end
 
 local space_window_observer = sbar.add("item", "widgets.space_window_observer", {
   drawing = false,
-  updates = true,
-  update_freq = 3,
 })
-
-space_window_observer:subscribe("space_windows_change", function(env)
-  local apps = (env.INFO and env.INFO.apps) or {}
-  local app_names = {}
-  local window_count = 0
-
-  for app, count in pairs(apps) do
-    window_count = window_count + count
-    table.insert(app_names, app)
-  end
-
-  table.sort(app_names)
-
-  local space_index = tonumber(env.INFO and env.INFO.space)
-  if space_index and spaces[space_index] then
-    setSpaceWindowData(space_index, app_names, window_count)
-  end
-end)
 
 space_window_observer:subscribe("window_created", function()
   scheduleSpaceWindowRefresh(5)
 end)
 
 space_window_observer:subscribe({
-  "routine",
-  "forced",
   "space_windows_refresh",
   "window_destroyed",
   "window_moved",

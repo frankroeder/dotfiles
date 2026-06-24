@@ -64,8 +64,8 @@ yabai -m signal --add event=window_focused action="sketchybar -m --trigger windo
 yabai -m signal --add event=space_changed action="sketchybar-top -m --trigger layout_change &> /dev/null; sketchybar-top -m --trigger space_windows_refresh &> /dev/null"
 yabai -m signal --add event=space_created action="sketchybar-top -m --trigger space_created &> /dev/null"
 yabai -m signal --add event=space_destroyed action="sketchybar-top -m --trigger space_destroyed &> /dev/null"
-yabai -m signal --add event=display_removed action="/bin/sh $HOME/.config/yabai/arrange-displays.sh &"
-yabai -m signal --add event=display_added action="/bin/sh $HOME/.config/yabai/arrange-displays.sh &"
+yabai -m signal --add event=display_removed action="sketchybar-top -m --trigger display_change &> /dev/null; sketchybar-top -m --trigger layout_change &> /dev/null; /bin/sh $HOME/.config/yabai/arrange-displays.sh &"
+yabai -m signal --add event=display_added action="sketchybar-top -m --trigger display_change &> /dev/null; sketchybar-top -m --trigger layout_change &> /dev/null; /bin/sh $HOME/.config/yabai/arrange-displays.sh &"
 # yabai -m signal --add event=space_changed action="yabai -m window --focus first"
 
 WINDOW_RULES="${DOTFILES:-$HOME/.dotfiles}/yabai/window_rules"

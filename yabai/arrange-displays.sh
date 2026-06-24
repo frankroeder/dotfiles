@@ -19,5 +19,7 @@ while read -r idx cur; do
   [ "$cur" != "$target" ] && "$yabai" -m space "$idx" --display "$target" 2>/dev/null || true
 done
 
-# force sketchybar to re-query current window-to-space mapping after moves
+# force sketchybar to update after space moves on display change/hotplug
 "$sketchybar_top" -m --trigger space_windows_refresh &> /dev/null || true
+"$sketchybar_top" -m --trigger layout_change &> /dev/null || true
+"$sketchybar_top" -m --trigger display_change &> /dev/null || true

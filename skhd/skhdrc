@@ -36,8 +36,8 @@ fn + alt - m : yabai -m window --toggle music || open -a Music
 fn + alt - p : yabai -m window --toggle pw || open -a "Proton Pass"
 
 # Move space to next display
-meh - 1 : yabai -m space --display 1
-meh - 2 : yabai -m space --display 2
+meh - 1 : yabai -m space --display 1; sketchybar-top --trigger layout_change; sketchybar-top --trigger space_windows_refresh
+meh - 2 : yabai -m space --display 2; sketchybar-top --trigger layout_change; sketchybar-top --trigger space_windows_refresh
 
 ########
 #  FN  #
@@ -178,7 +178,7 @@ fn + shift + ctrl - n : yabai -m space --create && \
                 sketchybar-top --trigger layout_change
 
 # destroy space
-fn + shift - q : yabai -m space --destroy; sketchybar-top --trigger layout_change
+fn + shift - q : yabai -m space --destroy; sketchybar-top --trigger layout_change; sketchybar-top --trigger space_destroyed
 
 #################
 #  SHIFT + ALT  #
