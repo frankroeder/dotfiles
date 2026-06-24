@@ -64,8 +64,8 @@ yabai -m signal --add event=window_focused action="sketchybar -m --trigger windo
 yabai -m signal --add event=space_changed action="sketchybar-top -m --trigger layout_change &> /dev/null; sketchybar-top -m --trigger space_windows_refresh &> /dev/null"
 yabai -m signal --add event=space_created action="sketchybar-top -m --trigger space_created &> /dev/null"
 yabai -m signal --add event=space_destroyed action="sketchybar-top -m --trigger space_destroyed &> /dev/null"
-yabai -m signal --add event=display_removed action="launchctl kickstart -k \"gui/${UID}/homebrew.mxcl.yabai\""
-yabai -m signal --add event=display_added action="launchctl kickstart -k \"gui/${UID}/homebrew.mxcl.yabai\""
+yabai -m signal --add event=display_removed action="/bin/sh $HOME/.config/yabai/arrange-displays.sh &"
+yabai -m signal --add event=display_added action="/bin/sh $HOME/.config/yabai/arrange-displays.sh &"
 # yabai -m signal --add event=space_changed action="yabai -m window --focus first"
 
 WINDOW_RULES="${DOTFILES:-$HOME/.dotfiles}/yabai/window_rules"
@@ -75,31 +75,7 @@ fi
 
 yabai -m rule --apply
 
-# When external display connected, keep workspace 1 on built-in, move the rest to external.
-# Only move a workspace if it is not already on the target display.
-if [[ $(yabai -m query --displays 2>/dev/null | jq 'length') -gt 1 ]]; then
-  builtin=$(system_profiler SPDisplaysDataType -json 2>/dev/null | jq -r '
-    first(.SPDisplaysDataType[0].spdisplays_ndrvs[] |
-    select(.spdisplays_connection_type == "spdisplays_internal")._spdisplays_displayID) // empty')
-  primary=${builtin:-1}
-
-  external=$(yabai -m query --displays 2>/dev/null | jq -r --arg p "$primary" '
-    first(.[] | select(.index != ($p|tonumber)) | .index) // empty')
-  secondary=${external:-2}
-
-  # stream "index display" for each workspace and move only when needed
-  yabai -m query --spaces 2>/dev/null | jq -r '.[] | "\(.index) \(.display)"' |
-  while read -r idx cur; do
-    if [[ $idx -eq 1 ]]; then
-      target=$primary
-    else
-      target=$secondary
-    fi
-    if [[ $cur != "$target" ]]; then
-      yabai -m space "$idx" --display "$target" >/dev/null 2>&1 || true
-    fi
-  done
-fi
+/bin/sh "$HOME/.config/yabai/arrange-displays.sh" &
 
 "$HOME/.config/borders/bordersrc" >/dev/null 2>&1 &
 

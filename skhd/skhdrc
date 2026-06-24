@@ -117,15 +117,20 @@ fn + ctrl - 9 : id=$(yabai -m query --windows --window | jq .id); \
                  yabai -m window --space 9 && yabai -m space --focus 9 && yabai -m window --focus $id
 
 # shift window in current space, possibly also to adjacent display
-fn + ctrl - h : yabai -m window --swap west || $(yabai -m window --display west; yabai -m display --focus west)
-fn + ctrl - j : yabai -m window --swap south || $(yabai -m window --display south; yabai -m display --focus south)
-fn + ctrl - k : yabai -m window --swap north || $(yabai -m window --display north; yabai -m display --focus north)
-fn + ctrl - l : yabai -m window --swap east || $(yabai -m window --display east; yabai -m display --focus east)
+fn + ctrl - h : yabai -m window --swap west || { yabai -m window --display west; yabai -m display --focus west; }
+fn + ctrl - j : yabai -m window --swap south || { yabai -m window --display south; yabai -m display --focus south; }
+fn + ctrl - k : yabai -m window --swap north || { yabai -m window --display north; yabai -m display --focus north; }
+fn + ctrl - l : yabai -m window --swap east || { yabai -m window --display east; yabai -m display --focus east; }
 # move window to (n)ext display
 fn + ctrl - n : id=$(yabai -m query --windows --window | jq .id); \
                     yabai -m window --display next  || yabai -m window --display first; \
                     yabai -m display --focus next   || yabai -m display --focus first; \
                     yabai -m window --focus $id  # ]
+# move window to (p)revious display
+fn + ctrl - p : id=$(yabai -m query --windows --window | jq .id); \
+                    yabai -m window --display prev || yabai -m window --display last; \
+                    yabai -m display --focus prev  || yabai -m display --focus last; \
+                    yabai -m window --focus $id
 
 ################
 #  FN + SHIFT  #
@@ -166,7 +171,7 @@ fn + shift - n : yabai -m space --create && \
                   yabai -m space --focus "${index}"; \
                   sketchybar-top --trigger layout_change
 
-# create space in background
+# create space without moving the focused window
 fn + shift + ctrl - n : yabai -m space --create && \
                 index="$(yabai -m query --spaces --display | jq 'map(select(."is-native-fullscreen" == false))[-1].index')" && \
                 yabai -m space --focus "${index}"; \

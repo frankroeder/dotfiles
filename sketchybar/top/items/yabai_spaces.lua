@@ -99,6 +99,14 @@ local function updateSpaceVisual(index)
   end)
 end
 
+local function setFocusedSpace(index)
+  for idx, _ in pairs(spaces) do
+    local state = ensureSpaceState(idx)
+    state.selected = idx == index
+    updateSpaceVisual(idx)
+  end
+end
+
 local function setSpaceWindowData(index, app_names, window_count)
   local state = ensureSpaceState(index)
   state.app_names = app_names or {}
@@ -228,9 +236,12 @@ for index, space_name in ipairs(static_names) do
 
   space:subscribe("mouse.clicked", function(env)
     if env.BUTTON == "right" then
-      sbar.exec("yabai -m space --destroy " .. index .. "; sketchybar-top --trigger space_destroyed")
+      sbar.exec(
+        "yabai -m space --destroy " .. index .. "; sketchybar-top --trigger space_destroyed"
+      )
     else
-      sbar.exec("yabai -m space --focus " .. index)
+      setFocusedSpace(index)
+      sbar.exec("yabai -m space --focus " .. index .. "; sketchybar-top --trigger layout_change")
     end
     scheduleSpaceWindowRefresh(0, 0.12)
   end)
@@ -346,7 +357,6 @@ local function updateLayout()
   end)
 end
 
-
 local space_window_observer = sbar.add("item", "widgets.space_window_observer", {
   drawing = false,
   updates = true,
@@ -394,6 +404,7 @@ space_window_observer:subscribe({
 end)
 
 space_layout:subscribe("layout_change", updateLayout)
+space_layout:subscribe("space_windows_refresh", updateLayout)
 space_layout:subscribe("front_app_switched", updateLayout)
 space_layout:subscribe("display_change", updateLayout)
 space_layout:subscribe("space_created", updateLayout)
