@@ -57,7 +57,7 @@ yabai -m config window_origin_display        default \
 # events
 yabai -m signal --add event=window_created action="sketchybar -m --trigger window_created &> /dev/null; sketchybar-top -m --trigger window_created &> /dev/null"
 yabai -m signal --add event=window_destroyed action="sketchybar -m --trigger window_destroyed &> /dev/null; sketchybar-top -m --trigger window_destroyed &> /dev/null"
-yabai -m signal --add event=window_moved action="sketchybar-top -m --trigger window_moved &> /dev/null"
+yabai -m signal --add event=window_moved action="sketchybar-top -m --trigger window_moved &> /dev/null; sketchybar-top -m --trigger space_windows_refresh &> /dev/null"
 yabai -m signal --add event=window_minimized action="sketchybar-top -m --trigger window_minimized &> /dev/null"
 yabai -m signal --add event=window_deminimized action="sketchybar-top -m --trigger window_deminimized &> /dev/null"
 yabai -m signal --add event=window_focused action="sketchybar -m --trigger window_focus &> /dev/null; sketchybar-top -m --trigger window_focus &> /dev/null"

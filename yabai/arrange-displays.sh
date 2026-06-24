@@ -10,7 +10,13 @@ jq=/opt/homebrew/bin/jq
 sketchybar_top=/opt/homebrew/bin/sketchybar-top
 
 displays=$("$yabai" -m query --displays 2>/dev/null | "$jq" 'length' 2>/dev/null || echo 0)
-[ "$displays" -lt 2 ] && exit 0
+if [ "$displays" -lt 2 ]; then
+  # still notify to reassign spaces to remaining display on unplug
+  "$sketchybar_top" -m --trigger space_windows_refresh &> /dev/null || true
+  "$sketchybar_top" -m --trigger layout_change &> /dev/null || true
+  "$sketchybar_top" -m --trigger display_change &> /dev/null || true
+  exit 0
+fi
 
 "$yabai" -m query --spaces 2>/dev/null | "$jq" -r '.[] | "\(.index) \(.display)"' 2>/dev/null |
 while read -r idx cur; do

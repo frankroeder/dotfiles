@@ -15,6 +15,8 @@ sbar.add("event", "window_minimized")
 sbar.add("event", "window_deminimized")
 sbar.add("event", "space_created")
 sbar.add("event", "space_destroyed")
+sbar.add("event", "display_change")
+sbar.add("event", "window_focus")
 
 local spaces = {}
 local space_state = {}
@@ -141,7 +143,7 @@ local function refreshSpaceWindows()
     for _, window in ipairs(windows) do
       local index = tonumber(window.space)
       local bucket = index and grouped[index]
-      if bucket and not window["is-minimized"] then
+      if bucket and not window["is-minimized"] and not (window["is-hidden"] == true) then
         local app = tostring(window.app or ""):gsub("^%s+", ""):gsub("%s+$", "")
         if app ~= "" then
           bucket.count = bucket.count + 1
@@ -230,12 +232,10 @@ for index, space_name in ipairs(static_names) do
 
   space:subscribe("mouse.clicked", function(env)
     if env.BUTTON == "right" then
-      sbar.exec(
-        "yabai -m space --destroy " .. index .. "; sketchybar-top --trigger space_destroyed"
-      )
+      sbar.exec("yabai -m space --destroy " .. index)
     else
       setFocusedSpace(index)
-      sbar.exec("yabai -m space --focus " .. index .. "; sketchybar-top --trigger layout_change")
+      sbar.exec("yabai -m space --focus " .. index)
     end
     scheduleSpaceWindowRefresh(0, 0.12)
   end)
@@ -361,20 +361,24 @@ space_window_observer:subscribe("window_created", function()
   scheduleSpaceWindowRefresh(5)
 end)
 
+space_window_observer:subscribe("window_moved", function()
+  scheduleSpaceWindowRefresh(4, 0.15)
+end)
+
 space_window_observer:subscribe({
   "space_windows_refresh",
   "window_destroyed",
-  "window_moved",
   "window_minimized",
   "window_deminimized",
   "window_focus",
   "front_app_switched",
   "layout_change",
   "display_change",
+  "window_moved",
   "space_created",
   "space_destroyed",
 }, function()
-  scheduleSpaceWindowRefresh(0)
+  scheduleSpaceWindowRefresh(2, 0.12)
 end)
 
 space_layout:subscribe("layout_change", updateLayout)
@@ -383,6 +387,8 @@ space_layout:subscribe("front_app_switched", updateLayout)
 space_layout:subscribe("display_change", updateLayout)
 space_layout:subscribe("space_created", updateLayout)
 space_layout:subscribe("space_destroyed", updateLayout)
+space_layout:subscribe("window_moved", updateLayout)
+space_layout:subscribe("window_focus", updateLayout)
 
 updateLayout()
 scheduleSpaceWindowRefresh(2)
