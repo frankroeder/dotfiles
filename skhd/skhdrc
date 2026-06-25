@@ -97,24 +97,15 @@ fn + ctrl - x  : yabai -m window --space prev && yabai -m space --focus prev; sk
 fn + ctrl - c  : yabai -m window --space next && yabai -m space --focus next; sketchybar-top --trigger space_windows_refresh
 
 # move window to space and follow with focus
-fn + ctrl - 1 : id=$(yabai -m query --windows --window | jq .id); \
-                 yabai -m window --space 1 && yabai -m space --focus 1; sketchybar-top --trigger space_windows_refresh
-fn + ctrl - 2 : id=$(yabai -m query --windows --window | jq .id); \
-                 yabai -m window --space 2 && yabai -m space --focus 2; sketchybar-top --trigger space_windows_refresh
-fn + ctrl - 3 : id=$(yabai -m query --windows --window | jq .id); \
-                 yabai -m window --space 3 && yabai -m space --focus 3; sketchybar-top --trigger space_windows_refresh
-fn + ctrl - 4 : id=$(yabai -m query --windows --window | jq .id); \
-                 yabai -m window --space 4 && yabai -m space --focus 4; sketchybar-top --trigger space_windows_refresh
-fn + ctrl - 5 : id=$(yabai -m query --windows --window | jq .id); \
-                 yabai -m window --space 5 && yabai -m space --focus 5; sketchybar-top --trigger space_windows_refresh
-fn + ctrl - 6 : id=$(yabai -m query --windows --window | jq .id); \
-                 yabai -m window --space 6 && yabai -m space --focus 6; sketchybar-top --trigger space_windows_refresh
-fn + ctrl - 7 : id=$(yabai -m query --windows --window | jq .id); \
-                 yabai -m window --space 7 && yabai -m space --focus 7; sketchybar-top --trigger space_windows_refresh
-fn + ctrl - 8 : id=$(yabai -m query --windows --window | jq .id); \
-                 yabai -m window --space 8 && yabai -m space --focus 8; sketchybar-top --trigger space_windows_refresh
-fn + ctrl - 9 : id=$(yabai -m query --windows --window | jq .id); \
-                 yabai -m window --space 9 && yabai -m space --focus 9; sketchybar-top --trigger space_windows_refresh
+fn + ctrl - 1 : yabai -m window --space 1 && yabai -m space --focus 1; sketchybar-top --trigger space_windows_refresh
+fn + ctrl - 2 : yabai -m window --space 2 && yabai -m space --focus 2; sketchybar-top --trigger space_windows_refresh
+fn + ctrl - 3 : yabai -m window --space 3 && yabai -m space --focus 3; sketchybar-top --trigger space_windows_refresh
+fn + ctrl - 4 : yabai -m window --space 4 && yabai -m space --focus 4; sketchybar-top --trigger space_windows_refresh
+fn + ctrl - 5 : yabai -m window --space 5 && yabai -m space --focus 5; sketchybar-top --trigger space_windows_refresh
+fn + ctrl - 6 : yabai -m window --space 6 && yabai -m space --focus 6; sketchybar-top --trigger space_windows_refresh
+fn + ctrl - 7 : yabai -m window --space 7 && yabai -m space --focus 7; sketchybar-top --trigger space_windows_refresh
+fn + ctrl - 8 : yabai -m window --space 8 && yabai -m space --focus 8; sketchybar-top --trigger space_windows_refresh
+fn + ctrl - 9 : yabai -m window --space 9 && yabai -m space --focus 9; sketchybar-top --trigger space_windows_refresh
 
 # shift window in current space, possibly also to adjacent display
 fn + ctrl - h : yabai -m window --swap west || { yabai -m window --display west; yabai -m display --focus west; }; sketchybar-top --trigger space_windows_refresh; sketchybar-top --trigger layout_change
@@ -122,16 +113,12 @@ fn + ctrl - j : yabai -m window --swap south || { yabai -m window --display sout
 fn + ctrl - k : yabai -m window --swap north || { yabai -m window --display north; yabai -m display --focus north; }; sketchybar-top --trigger space_windows_refresh; sketchybar-top --trigger layout_change
 fn + ctrl - l : yabai -m window --swap east || { yabai -m window --display east; yabai -m display --focus east; }; sketchybar-top --trigger space_windows_refresh; sketchybar-top --trigger layout_change
 # move window to (n)ext display
-fn + ctrl - n : id=$(yabai -m query --windows --window | jq .id); \
-                    yabai -m window --display next  || yabai -m window --display first; \
+fn + ctrl - n : yabai -m window --display next  || yabai -m window --display first; \
                     yabai -m display --focus next   || yabai -m display --focus first; \
-                    yabai -m window --focus $id; \
                     sketchybar-top --trigger space_windows_refresh; sketchybar-top --trigger layout_change; sketchybar-top --trigger display_change  # ]
 # move window to (p)revious display
-fn + ctrl - p : id=$(yabai -m query --windows --window | jq .id); \
-                    yabai -m window --display prev || yabai -m window --display last; \
+fn + ctrl - p : yabai -m window --display prev || yabai -m window --display last; \
                     yabai -m display --focus prev  || yabai -m display --focus last; \
-                    yabai -m window --focus $id; \
                     sketchybar-top --trigger space_windows_refresh; sketchybar-top --trigger layout_change; sketchybar-top --trigger display_change
 
 ################

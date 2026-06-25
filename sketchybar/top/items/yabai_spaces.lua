@@ -374,7 +374,6 @@ space_window_observer:subscribe({
   "front_app_switched",
   "layout_change",
   "display_change",
-  "window_moved",
   "space_created",
   "space_destroyed",
 }, function()
