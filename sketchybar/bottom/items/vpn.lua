@@ -28,19 +28,22 @@ local vpn_item = ui.add_capsule("widgets.vpn", {
 })
 
 local function update()
-  sbar.exec([[scutil --nc list | grep Connected | sed -E 's/.*"(.*)".*/\1/' | head -1]], function(output)
-    local vpn_name = (output or ""):gsub("%s+$", ""):match "^%s*(.-)%s*$"
-    if vpn_name and vpn_name ~= "" then
-      sbar.animate("sin", settings.animation_duration, function()
-        vpn_item:set {
-          drawing = true,
-          label = { string = vpn_name },
-        }
-      end)
-    else
-      vpn_item:set { drawing = false, label = { string = "" } }
+  sbar.exec(
+    [[scutil --nc list | grep Connected | sed -E 's/.*"(.*)".*/\1/' | head -1]],
+    function(output)
+      local vpn_name = (output or ""):gsub("%s+$", ""):match "^%s*(.-)%s*$"
+      if vpn_name and vpn_name ~= "" then
+        sbar.animate("sin", settings.animation_duration, function()
+          vpn_item:set {
+            drawing = true,
+            label = { string = vpn_name },
+          }
+        end)
+      else
+        vpn_item:set { drawing = false, label = { string = "" } }
+      end
     end
-  end)
+  )
 end
 
 vpn_item:subscribe({ "network_change", "routine", "system_woke" }, update)

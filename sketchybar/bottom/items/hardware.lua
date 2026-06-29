@@ -186,7 +186,10 @@ local function apply_silistats(output)
   local gpu_used = math.floor(output.usage.gpu.active_percent or 0)
   local gpu_t = output.temperature.gpu_avg_c
 
-  if not (ram_total and ram_used and swap_total and swap_used and cpu_t and gpu_t) or ram_total == 0 then
+  if
+    not (ram_total and ram_used and swap_total and swap_used and cpu_t and gpu_t)
+    or ram_total == 0
+  then
     return
   end
 

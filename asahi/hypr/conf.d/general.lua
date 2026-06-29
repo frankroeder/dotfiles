@@ -1,4 +1,4 @@
-hl.config({
+hl.config {
   general = {
     gaps_in = 4,
     gaps_out = 10,
@@ -41,10 +41,10 @@ hl.config({
     mouse_move_enables_dpms = true,
   },
   -- Asahi note: blur + animations tuned; test perf on Apple GPU (reverse-eng driver limits, aquamarine history)
-})
+}
 
-hl.gesture({
+hl.gesture {
   fingers = 3,
   direction = "horizontal",
   action = "workspace",
-})
+}

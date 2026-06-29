@@ -1,13 +1,11 @@
 tap "asmvik/formulae"
 tap "FelixKratz/formulae"
-tap "tw93/formulae"
 cask_args appdir: "~/Applications", require_sha: true
 
 brew "git"
 brew "zsh"
 brew "mas"
 brew "htop"
-brew "btop"
 brew "neovim"
 brew "ripgrep"
 brew "wget"
@@ -33,8 +31,9 @@ brew "yabai"
 brew "skhd", args: ["with-logging"]
 brew "sketchybar", args:  ["HEAD"], restart_service: :changed
 brew "borders"
-brew "macmon"
 
+cask "librewolf",
+     postinstall: "/usr/bin/xattr -dr com.apple.quarantine /Applications/LibreWolf.app"
 cask "raycast"
 cask "ghostty"
 cask "musescore"

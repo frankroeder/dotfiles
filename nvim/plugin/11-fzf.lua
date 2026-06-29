@@ -1,6 +1,6 @@
 local gh = require("pack_helpers").gh
 
-vim.pack.add({ gh("ibhagwan/fzf-lua") }, { load = false })
+vim.pack.add({ gh "ibhagwan/fzf-lua" }, { load = false })
 
 if #vim.api.nvim_list_uis() == 0 then
   return
@@ -11,7 +11,7 @@ vim.cmd.packadd "fzf-lua"
 do
   local fzf = require "fzf-lua"
 
-  fzf.setup({
+  fzf.setup {
     winopts = { split = "aboveleft new" },
     previewers = {
       builtin = {
@@ -23,26 +23,26 @@ do
         enter = fzf.actions.file_edit,
       },
     },
-  })
+  }
 
   vim.keymap.set("i", "<C-x><C-f>", function()
-    fzf.complete_file({
+    fzf.complete_file {
       cmd = "rg --files",
       winopts = { preview = { hidden = "nohidden" } },
-    })
+    }
   end, { silent = true, desc = "Fuzzy complete file" })
 
   vim.keymap.set("n", "<C-T>", function()
     local is_git_repo = require("utils").is_git_repo
     if is_git_repo() then
-      fzf.git_files({ file_icons = false, git_icons = false })
+      fzf.git_files { file_icons = false, git_icons = false }
     else
-      fzf.files({ file_icons = false, git_icons = false })
+      fzf.files { file_icons = false, git_icons = false }
     end
   end, { desc = "files / git files" })
 
   vim.keymap.set("n", "<C-F>", function()
-    fzf.grep_project({ file_icons = false, git_icons = false })
+    fzf.grep_project { file_icons = false, git_icons = false }
   end, { desc = "file lines" })
 
   vim.keymap.set("n", "<C-B>", fzf.buffers, { desc = "buffers" })

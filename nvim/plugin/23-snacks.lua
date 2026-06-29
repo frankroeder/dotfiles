@@ -1,12 +1,12 @@
 local gh = require("pack_helpers").gh
 
-vim.pack.add({
-  gh("folke/snacks.nvim"),
-})
+vim.pack.add {
+  gh "folke/snacks.nvim",
+}
 
 local snacks = require "snacks"
 
-snacks.setup({
+snacks.setup {
   bigfile = { enabled = true },
   gitbrowse = { enabled = true },
   image = {
@@ -27,14 +27,14 @@ snacks.setup({
       wo = { wrap = true },
     },
   },
-})
+}
 
 vim.api.nvim_create_user_command("GitBrowse", function()
   snacks.gitbrowse()
 end, {})
 
 vim.api.nvim_create_user_command("Notifications", function()
-  snacks.notifier.show_history({})
+  snacks.notifier.show_history {}
 end, {})
 
 vim.keymap.set("n", "<C-C>", function()

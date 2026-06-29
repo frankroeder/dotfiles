@@ -69,14 +69,17 @@ local function update_wifi()
         icon = { string = icons.wifi.connected, color = colors.text },
       }
     else
-      local cmd = string.format([[
+      local cmd = string.format(
+        [[
         for ifc in $(networksetup -listallhardwareports | awk '/Device: en/{print $2}'); do
           [ "$ifc" = "%s" ] && continue
           ipconfig getifaddr "$ifc" >/dev/null 2>&1 && { echo "1"; exit; }
         done; printf ''
-      ]], interface)
+      ]],
+        interface
+      )
       sbar.exec(cmd, function(lan)
-        local on_lan = lan and lan:match("%S") ~= nil
+        local on_lan = lan and lan:match "%S" ~= nil
         wifi:set {
           icon = {
             string = on_lan and icons.wifi.lan or icons.wifi.disconnected,
@@ -120,25 +123,43 @@ local function update_details()
       end
     )
   else
-    sbar.exec(string.format([[
+    sbar.exec(
+      string.format(
+        [[
       networksetup -listallhardwareports | awk -v dev="%s" '
         /^Hardware Port:/ { port = substr($0, index($0, ": ")+2); getline; if ($2 == dev) { print port; exit } }
       ' | tr -d '\n'
-    ]], active_if), function(result)
-      ssid:set { label = result ~= "" and result or active_if }
-    end)
+    ]],
+        active_if
+      ),
+      function(result)
+        ssid:set { label = result ~= "" and result or active_if }
+      end
+    )
   end
 
-  sbar.exec(string.format([[
+  sbar.exec(
+    string.format(
+      [[
     ipconfig getpacket "%s" 2>/dev/null | awk '/subnet_mask/ {print $NF}' | tr -d '\n'
-  ]], active_if), function(result)
-    mask:set { label = result }
-  end)
-  sbar.exec(string.format([[
+  ]],
+      active_if
+    ),
+    function(result)
+      mask:set { label = result }
+    end
+  )
+  sbar.exec(
+    string.format(
+      [[
     ipconfig getpacket "%s" 2>/dev/null | sed -n 's/.*router[^:]*: *{\([^}]*\)}.*/\1/p' | tr -d '\n'
-  ]], active_if), function(result)
-    router:set { label = result }
-  end)
+  ]],
+      active_if
+    ),
+    function(result)
+      router:set { label = result }
+    end
+  )
 end
 
 ui.bind_popup_group(wifi, { wifi, network.up, network.down }, { on_open = update_details })

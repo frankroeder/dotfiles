@@ -1,4 +1,4 @@
-hl.config({
+hl.config {
   xwayland = {
     force_zero_scaling = true,
   },
@@ -6,4 +6,4 @@ hl.config({
   cursor = {
     no_hardware_cursors = true,
   },
-})
+}

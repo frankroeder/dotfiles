@@ -3,22 +3,24 @@ local gh = require("pack_helpers").gh
 local function system_background()
   local sysname = (vim.uv or vim.loop).os_uname().sysname
 
-  if sysname == "Darwin" and vim.fn.executable("defaults") == 1 then
-    local result = vim.fn.system({ "defaults", "read", "-g", "AppleInterfaceStyle" })
-    return vim.v.shell_error == 0 and result:match("Dark") and "dark" or "light"
+  if sysname == "Darwin" and vim.fn.executable "defaults" == 1 then
+    local result = vim.fn.system { "defaults", "read", "-g", "AppleInterfaceStyle" }
+    return vim.v.shell_error == 0 and result:match "Dark" and "dark" or "light"
   end
 
-  if sysname == "Linux" and vim.fn.executable("gsettings") == 1 then
-    local color_scheme = vim.fn.system({ "gsettings", "get", "org.gnome.desktop.interface", "color-scheme" })
-    if vim.v.shell_error == 0 and color_scheme:match("prefer%-dark") then
+  if sysname == "Linux" and vim.fn.executable "gsettings" == 1 then
+    local color_scheme =
+      vim.fn.system { "gsettings", "get", "org.gnome.desktop.interface", "color-scheme" }
+    if vim.v.shell_error == 0 and color_scheme:match "prefer%-dark" then
       return "dark"
     end
-    if vim.v.shell_error == 0 and color_scheme:match("prefer%-light") then
+    if vim.v.shell_error == 0 and color_scheme:match "prefer%-light" then
       return "light"
     end
 
-    local gtk_theme = vim.fn.system({ "gsettings", "get", "org.gnome.desktop.interface", "gtk-theme" })
-    if vim.v.shell_error == 0 and gtk_theme:lower():match("dark") then
+    local gtk_theme =
+      vim.fn.system { "gsettings", "get", "org.gnome.desktop.interface", "gtk-theme" }
+    if vim.v.shell_error == 0 and gtk_theme:lower():match "dark" then
       return "dark"
     end
 
@@ -28,11 +30,11 @@ local function system_background()
   return vim.o.background == "light" and "light" or "dark"
 end
 
-vim.pack.add({
-  { src = gh("catppuccin/nvim"), name = "catppuccin" },
-})
+vim.pack.add {
+  { src = gh "catppuccin/nvim", name = "catppuccin" },
+}
 
-require("catppuccin").setup({
+require("catppuccin").setup {
   background = { light = "latte", dark = "mocha" },
   transparent_background = true,
   integrations = {
@@ -43,7 +45,7 @@ require("catppuccin").setup({
     render_markdown = true,
     treesitter = true,
   },
-})
+}
 
 local function set_theme(background)
   vim.o.background = background

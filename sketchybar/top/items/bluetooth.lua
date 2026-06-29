@@ -84,8 +84,7 @@ local function update()
                 display_label = display_label .. " (" .. rssi .. " dBm)"
               end
 
-              display_label = display_label
-                .. string.format(" - %s @%s", minor_type, address)
+              display_label = display_label .. string.format(" - %s @%s", minor_type, address)
 
               if firmware then
                 display_label = display_label .. ' Version: "' .. firmware .. '"'

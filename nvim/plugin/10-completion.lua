@@ -17,9 +17,7 @@ local function build_blink_fuzzy(path)
     return false
   end
 
-  local result = vim
-    .system({ "cargo", "build", "--release" }, { cwd = path, text = true })
-    :wait()
+  local result = vim.system({ "cargo", "build", "--release" }, { cwd = path, text = true }):wait()
   if result.code ~= 0 then
     local output = result.stderr ~= "" and result.stderr or result.stdout
     pack.notify(("blink.cmp build failed:\n%s"):format(output))
@@ -30,7 +28,8 @@ local function build_blink_fuzzy(path)
 end
 
 local function ensure_blink_fuzzy(path)
-  local lib = vim.fs.joinpath(path, "target", "release", "libblink_cmp_fuzzy" .. blink_fuzzy_lib_extension())
+  local lib =
+    vim.fs.joinpath(path, "target", "release", "libblink_cmp_fuzzy" .. blink_fuzzy_lib_extension())
   if vim.uv.fs_stat(lib) then
     return
   end

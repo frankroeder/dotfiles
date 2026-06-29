@@ -17,15 +17,18 @@ local mode = ui.add_capsule("widgets.mode", {
 })
 
 mode:subscribe({ "routine", "system_woke", "forced" }, function()
-  sbar.exec([[osascript -e 'tell application "System Events" to tell appearance preferences to return dark mode' 2>/dev/null || echo false]], function(result)
-    local is_dark = (result or ""):lower():match("true") ~= nil
-    mode:set {
-      icon = {
-        string = is_dark and icons.mode.dark or icons.mode.light,
-        color = is_dark and colors.yellow or colors.blue,
-      },
-    }
-  end)
+  sbar.exec(
+    [[osascript -e 'tell application "System Events" to tell appearance preferences to return dark mode' 2>/dev/null || echo false]],
+    function(result)
+      local is_dark = (result or ""):lower():match "true" ~= nil
+      mode:set {
+        icon = {
+          string = is_dark and icons.mode.dark or icons.mode.light,
+          color = is_dark and colors.yellow or colors.blue,
+        },
+      }
+    end
+  )
 end)
 
 mode:subscribe("mouse.clicked", function()
@@ -34,7 +37,7 @@ mode:subscribe("mouse.clicked", function()
     sbar.trigger "forced"
   end)
   sbar.delay(0.55, function()
-    sbar.exec("sleep 0.3; sketchybar --reload && sketchybar-top --reload >/dev/null 2>&1 &")
-    sbar.exec("pkill -x borders 2>/dev/null; sleep 0.1; $HOME/.config/borders/bordersrc >/dev/null 2>&1 &")
+    sbar.exec "sleep 0.3; sketchybar --reload && sketchybar-top --reload >/dev/null 2>&1 &"
+    sbar.exec "pkill -x borders 2>/dev/null; sleep 0.1; $HOME/.config/borders/bordersrc >/dev/null 2>&1 &"
   end)
 end)

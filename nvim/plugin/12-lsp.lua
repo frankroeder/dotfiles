@@ -165,16 +165,18 @@ vim.api.nvim_create_autocmd("VimLeavePre", {
 })
 
 vim.api.nvim_create_autocmd("LspProgress", {
-    callback = function(ev)
-        local value = ev.data.params.value or {}
-        if not value.kind then return end
-        local status = value.kind == "end" and 0 or 1
-        local percent = value.percentage or 0
-        local osc_seq = string.format("\27]9;4;%d;%d\a", status, percent)
-        if os.getenv("TMUX") then
-            osc_seq = string.format("\27Ptmux;\27%s\27\\", osc_seq)
-        end
-        io.stdout:write(osc_seq)
-        io.stdout:flush()
-    end,
+  callback = function(ev)
+    local value = ev.data.params.value or {}
+    if not value.kind then
+      return
+    end
+    local status = value.kind == "end" and 0 or 1
+    local percent = value.percentage or 0
+    local osc_seq = string.format("\27]9;4;%d;%d\a", status, percent)
+    if os.getenv "TMUX" then
+      osc_seq = string.format("\27Ptmux;\27%s\27\\", osc_seq)
+    end
+    io.stdout:write(osc_seq)
+    io.stdout:flush()
+  end,
 })

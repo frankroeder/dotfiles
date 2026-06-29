@@ -6,7 +6,8 @@ local function pack_complete(arg_lead)
     return {}
   end
 
-  local names = vim.iter(plugins)
+  local names = vim
+    .iter(plugins)
     :map(function(plugin)
       return plugin.spec.name
     end)
@@ -55,7 +56,8 @@ end, {
 })
 
 vim.api.nvim_create_user_command("PackClean", function()
-  local inactive = vim.iter(vim.pack.get())
+  local inactive = vim
+    .iter(vim.pack.get())
     :filter(function(plugin)
       return not plugin.active
     end)

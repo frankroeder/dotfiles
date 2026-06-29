@@ -1,9 +1,9 @@
 local gh = require("pack_helpers").gh
 local utils = require "utils"
 
-vim.pack.add({
-  gh("lervag/vim-latex"),
-})
+vim.pack.add {
+  gh "lervag/vim-latex",
+}
 
 local function callback(msg)
   local match = vim.fn.matchlist(msg, [[\vRun number (\d+) of rule ''(.*)'']])
@@ -37,11 +37,11 @@ vim.g.vimtex_quickfix_autoclose_after_keystrokes = 0
 vim.g.vimtex_quickfix_open_on_warning = 0
 vim.g.vimtex_view_automatic = 1
 if utils.is_asahi_linux() then
-  if vim.fn.executable 'okular' then
-    vim.g.vimtex_view_general_viewer = 'okular'
+  if vim.fn.executable "okular" then
+    vim.g.vimtex_view_general_viewer = "okular"
     vim.g.vimtex_view_general_options = [[--unique file:@pdf\#src:@line@tex]]
   else
-    print("No viewer for vimtex found.")
+    print "No viewer for vimtex found."
   end
 else
   vim.g.vimtex_view_method = "sioyek"

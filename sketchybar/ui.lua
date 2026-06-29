@@ -80,8 +80,10 @@ function ui.add_capsule(name, spec)
   local hidden_label = spec.label and spec.label.drawing == false
   local cfg = {
     position = spec.position or "right",
-    padding_left = spec.padding_left ~= nil and spec.padding_left or (spec.widget_gap == false and 0 or sp.widget),
-    padding_right = spec.padding_right ~= nil and spec.padding_right or (spec.widget_gap == false and 0 or sp.widget),
+    padding_left = spec.padding_left ~= nil and spec.padding_left
+      or (spec.widget_gap == false and 0 or sp.widget),
+    padding_right = spec.padding_right ~= nil and spec.padding_right
+      or (spec.widget_gap == false and 0 or sp.widget),
     background = ui.capsule(spec.surface),
     icon = hidden_label and apply_center_icon_pad(spec.icon) or apply_icon_pad(spec.icon),
     label = apply_label_pad(spec.label),

@@ -14,11 +14,11 @@ M.is_asahi_linux = function()
     return true
   end
 
-  if vim.fn.filereadable("/etc/os-release") == 0 then
+  if vim.fn.filereadable "/etc/os-release" == 0 then
     return false
   end
 
-  return table.concat(vim.fn.readfile("/etc/os-release"), "\n"):lower():find("asahi", 1, true) ~= nil
+  return table.concat(vim.fn.readfile "/etc/os-release", "\n"):lower():find("asahi", 1, true) ~= nil
 end
 
 -- merge two tables

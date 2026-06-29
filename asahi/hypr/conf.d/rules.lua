@@ -22,9 +22,21 @@ window_rule({ class = "^(blueman-manager|nm-connection-editor)$" }, { float = tr
 -- Quickshell (bar + popups + OSD + notif toast from NotificationServer in remix/shell.qml)
 layer_rule("^(quickshell.*)$", { blur = true, ignore_alpha = 0.3 })
 
-window_rule({ class = "^(pavucontrol|easyeffects|gnome-control-center|nm-applet)$" }, { float = true, center = true })
-window_rule({ class = "^(org.pwmt.zathura|sioyek|evince|okular)$" }, { opacity = "0.98 0.92", pseudo = false })
-window_rule({ class = ".*", title = ".*(Open File|Save As|Choose|Preferences|Properties|Dialog).*" }, { float = true, center = true })
-window_rule({ class = "^(hyprland-share-picker)$" }, { float = true, center = true, opacity = 1.0, pseudo = false })
+window_rule(
+  { class = "^(pavucontrol|easyeffects|gnome-control-center|nm-applet)$" },
+  { float = true, center = true }
+)
+window_rule(
+  { class = "^(org.pwmt.zathura|sioyek|evince|okular)$" },
+  { opacity = "0.98 0.92", pseudo = false }
+)
+window_rule(
+  { class = ".*", title = ".*(Open File|Save As|Choose|Preferences|Properties|Dialog).*" },
+  { float = true, center = true }
+)
+window_rule(
+  { class = "^(hyprland-share-picker)$" },
+  { float = true, center = true, opacity = 1.0, pseudo = false }
+)
 
 layer_rule("^(gtk-layer-shell)$", { blur = true, ignore_alpha = 0.3 }) -- notifications removed (mako purged; QS notif toast covered by quickshell.*)

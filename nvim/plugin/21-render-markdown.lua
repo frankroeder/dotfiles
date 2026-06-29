@@ -1,11 +1,11 @@
 local gh = require("pack_helpers").gh
 
-vim.pack.add({
-  gh("nvim-tree/nvim-web-devicons"),
-  gh("MeanderingProgrammer/render-markdown.nvim"),
-})
+vim.pack.add {
+  gh "nvim-tree/nvim-web-devicons",
+  gh "MeanderingProgrammer/render-markdown.nvim",
+}
 
-require("render-markdown").setup({
+require("render-markdown").setup {
   anti_conceal = {
     enabled = true,
   },
@@ -24,7 +24,7 @@ require("render-markdown").setup({
     blink = { enabled = true },
     lsp = { enabled = true },
   },
-})
+}
 
 vim.api.nvim_create_autocmd("FileType", {
   group = vim.api.nvim_create_augroup("render_markdown_keymaps", { clear = true }),

@@ -1,8 +1,8 @@
 local gh = require("pack_helpers").gh
 
-vim.pack.add({
-  gh("mfussenegger/nvim-lint"),
-})
+vim.pack.add {
+  gh "mfussenegger/nvim-lint",
+}
 
 require("lint").linters_by_ft = {
   c = { "clangtidy" },

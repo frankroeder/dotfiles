@@ -33,7 +33,7 @@ local hl = function(group)
 end
 
 local redraw = function()
-  vim.api.nvim__redraw({ statusline = true })
+  vim.api.nvim__redraw { statusline = true }
 end
 
 local set_hl = function()
@@ -74,21 +74,28 @@ local file_info = function()
   local icon, group = devicon(name, vim.fn.fnamemodify(path, ":e"), ft)
 
   if bt == "terminal" then
-    if display:match("^zsh") then
+    if display:match "^zsh" then
       icon, group = "", "Special"
-    elseif display:match("^claude") or display:match("^opencode") or display:match("^copilot") then
+    elseif display:match "^claude" or display:match "^opencode" or display:match "^copilot" then
       icon, group = "󰚩", "Special"
-    elseif display:match("^python ?") then
+    elseif display:match "^python ?" then
       icon, group = devicon("", "", "python")
     end
   end
 
-  return { buf = buf, ft = ft, bt = bt, display = display, icon = icon, group = group or "StatusLine" }
+  return {
+    buf = buf,
+    ft = ft,
+    bt = bt,
+    display = display,
+    icon = icon,
+    group = group or "StatusLine",
+  }
 end
 
 local mode = function()
   local id = vim.api.nvim_get_mode().mode:sub(1, 1)
-  return sl("StatusLineBold") .. (mode_names[id] or id)
+  return sl "StatusLineBold" .. (mode_names[id] or id)
 end
 
 local git = function()
@@ -109,12 +116,12 @@ local filename = function(info)
     return
   end
 
-  local modified = vim.bo[info.buf].modified and sl("StatusLineModified") .. "[+]" or ""
+  local modified = vim.bo[info.buf].modified and sl "StatusLineModified" .. "[+]" or ""
   if not info.icon then
-    return sl("StatusLineBold") .. info.display .. modified
+    return sl "StatusLineBold" .. info.display .. modified
   end
 
-  return sl(info.group) .. info.icon .. " " .. sl("StatusLineBold") .. info.display .. modified
+  return sl(info.group) .. info.icon .. " " .. sl "StatusLineBold" .. info.display .. modified
 end
 
 local spell = function()
@@ -123,7 +130,7 @@ local spell = function()
   end
 
   local lang = vim.split(vim.bo[bufnr()].spelllang, ",", { plain = true })[1]
-  return lang ~= "" and sl("StatusLineDim") .. ("[%s]"):format(lang) or nil
+  return lang ~= "" and sl "StatusLineDim" .. ("[%s]"):format(lang) or nil
 end
 
 local parrot = function()
@@ -134,7 +141,10 @@ local parrot = function()
 
   local info = config.get_status_info()
   local provider = info and info.prov and (info.is_chat and info.prov.chat or info.prov.command)
-  return provider and info.model and sl("StatusLineDim") .. ("🦜%s(%s)"):format(provider.name, info.model) or nil
+  return provider
+      and info.model
+      and sl "StatusLineDim" .. ("🦜%s(%s)"):format(provider.name, info.model)
+    or nil
 end
 
 local vimtex = function(info)
@@ -148,7 +158,7 @@ local vimtex = function(info)
   end
 
   local status = ({ [1] = "{⋯}", [2] = "{✓}", [3] = "{✗}" })[state.compiler.status]
-  return status and sl("StatusLineDim") .. status or nil
+  return status and sl "StatusLineDim" .. status or nil
 end
 
 local filetype = function(info)
@@ -162,22 +172,28 @@ local filetype = function(info)
   end
 
   if not info.icon then
-    return sl("StatusLineFiletype") .. label
+    return sl "StatusLineFiletype" .. label
   end
 
-  return sl(info.group) .. info.icon .. " " .. sl("StatusLineFiletype") .. label
+  return sl(info.group) .. info.icon .. " " .. sl "StatusLineFiletype" .. label
 end
 
 local position = function()
-  return sl("StatusLineDim") .. ("%d:%d"):format(vim.fn.line("."), vim.fn.virtcol("."))
+  return sl "StatusLineDim" .. ("%d:%d"):format(vim.fn.line ".", vim.fn.virtcol ".")
 end
 
 set_hl()
 
 local group = vim.api.nvim_create_augroup("jscott/statusline", { clear = true })
 vim.api.nvim_create_autocmd("ColorScheme", { group = group, callback = set_hl })
-vim.api.nvim_create_autocmd("OptionSet", { group = group, pattern = "background", callback = set_hl })
-vim.api.nvim_create_autocmd("User", { group = group, pattern = "GitSignsUpdate", callback = redraw })
+vim.api.nvim_create_autocmd(
+  "OptionSet",
+  { group = group, pattern = "background", callback = set_hl }
+)
+vim.api.nvim_create_autocmd(
+  "User",
+  { group = group, pattern = "GitSignsUpdate", callback = redraw }
+)
 
 vim.o.statusline = "%!v:lua.require'statusline'.render()"
 
@@ -191,20 +207,23 @@ function M.render()
     return info and " " .. filename(info) or ""
   end
 
-  return table.concat(vim.tbl_filter(function(part)
-    return part and part ~= ""
-  end, {
-    mode(),
-    filename(info),
-    spell(),
-    parrot(),
-    "%=",
-    diagnostics(),
-    git(),
-    vimtex(info),
-    filetype(info),
-    position(),
-  }), sl("StatusLine") .. " ")
+  return table.concat(
+    vim.tbl_filter(function(part)
+      return part and part ~= ""
+    end, {
+      mode(),
+      filename(info),
+      spell(),
+      parrot(),
+      "%=",
+      diagnostics(),
+      git(),
+      vimtex(info),
+      filetype(info),
+      position(),
+    }),
+    sl "StatusLine" .. " "
+  )
 end
 
 return M

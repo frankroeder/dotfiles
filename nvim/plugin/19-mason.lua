@@ -1,8 +1,8 @@
 local gh = require("pack_helpers").gh
 
-vim.pack.add({
-  gh("mason-org/mason.nvim"),
-})
+vim.pack.add {
+  gh "mason-org/mason.nvim",
+}
 
 local opts = {
   ui = {

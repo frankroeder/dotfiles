@@ -1,10 +1,10 @@
 local gh = require("pack_helpers").gh
 
-vim.pack.add({
-  gh("stevearc/conform.nvim"),
-})
+vim.pack.add {
+  gh "stevearc/conform.nvim",
+}
 
-require("conform").setup({
+require("conform").setup {
   formatters = {
     jq = {
       args = { "--indent", "4" },
@@ -17,10 +17,10 @@ require("conform").setup({
     lua = { "stylua" },
     json = { "jq" },
   },
-})
+}
 
 vim.o.formatexpr = "v:lua.require'conform'.formatexpr()"
 
 vim.keymap.set({ "n", "v" }, "<Space>cf", function()
-  require("conform").format({ async = true, lsp_format = "fallback" })
+  require("conform").format { async = true, lsp_format = "fallback" }
 end, { desc = "[c]ode [f]ormat" })

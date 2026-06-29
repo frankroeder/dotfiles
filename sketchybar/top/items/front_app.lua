@@ -93,7 +93,9 @@ local function updateFrontAppProperties()
     end
 
     local name = current_front_app ~= "" and current_front_app or app_name
-    if name == "" then name = app_name end
+    if name == "" then
+      name = app_name
+    end
 
     local flags = {}
     if window["is-sticky"] then

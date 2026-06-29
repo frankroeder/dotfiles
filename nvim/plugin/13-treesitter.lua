@@ -13,7 +13,10 @@ end
 
 vim.api.nvim_create_autocmd("PackChanged", {
   desc = "Handle nvim-treesitter installs and updates",
-  group = vim.api.nvim_create_augroup("nvim-treesitter-pack-changed-update-handler", { clear = true }),
+  group = vim.api.nvim_create_augroup(
+    "nvim-treesitter-pack-changed-update-handler",
+    { clear = true }
+  ),
   callback = function(event)
     if event.data.spec.name ~= "nvim-treesitter" then
       return
@@ -38,12 +41,12 @@ vim.api.nvim_create_autocmd("PackChanged", {
   end,
 })
 
-vim.pack.add({
+vim.pack.add {
   {
-    src = gh("nvim-treesitter/nvim-treesitter"),
+    src = gh "nvim-treesitter/nvim-treesitter",
     version = "master",
   },
-})
+}
 
 local function fix_query_predicates_for_nvim_012()
   pcall(require, "nvim-treesitter.query_predicates")
@@ -68,7 +71,9 @@ local function fix_query_predicates_for_nvim_012()
 
   local function get_parser_from_markdown_info_string(injection_alias)
     local match = vim.filetype.match { filename = "a." .. injection_alias }
-    return match or non_filetype_match_injection_language_aliases[injection_alias] or injection_alias
+    return match
+      or non_filetype_match_injection_language_aliases[injection_alias]
+      or injection_alias
   end
 
   local function valid_args(name, pred, count, strict_count)
@@ -181,7 +186,8 @@ local function fix_query_predicates_for_nvim_012()
       return
     end
 
-    local text = vim.treesitter.get_node_text(node, bufnr, { metadata = metadata[capture_id] }) or ""
+    local text = vim.treesitter.get_node_text(node, bufnr, { metadata = metadata[capture_id] })
+      or ""
     if not metadata[capture_id] then
       metadata[capture_id] = {}
     end
@@ -226,7 +232,7 @@ if not vim.tbl_contains(vim.opt.runtimepath:get(), parser_install_dir) then
   vim.opt.runtimepath:append(parser_install_dir)
 end
 
-require("nvim-treesitter.configs").setup({
+require("nvim-treesitter.configs").setup {
   parser_install_dir = parser_install_dir,
   ensure_installed = require("settings").treesitter_ensure_installed,
   auto_install = true,
@@ -250,4 +256,4 @@ require("nvim-treesitter.configs").setup({
       node_decremental = "<C-p>",
     },
   },
-})
+}

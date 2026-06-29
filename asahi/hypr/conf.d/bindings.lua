@@ -4,93 +4,200 @@ local scripts = dotfilesDir .. "/asahi/bin"
 -- Apps and windows
 hl.bind(mod .. " + T", hl.dsp.exec_cmd(launch(terminal)), { desc = "Terminal" })
 hl.bind(mod .. " + Z", hl.dsp.exec_cmd(launch(filemanager)), { desc = "Filemanager" })
-hl.bind(mod .. " + SPACE", hl.dsp.global("quickshell:launcher-toggle"), { desc = "Launcher" })
-hl.bind(mod .. " + SHIFT + W", hl.dsp.exec_cmd("qs -c remix ipc call wallpaper toggle"), { desc = "Wallpaper picker" })
+hl.bind(mod .. " + SPACE", hl.dsp.global "quickshell:launcher-toggle", { desc = "Launcher" })
+hl.bind(
+  mod .. " + SHIFT + W",
+  hl.dsp.exec_cmd "qs -c remix ipc call wallpaper toggle",
+  { desc = "Wallpaper picker" }
+)
 -- hl.bind(mod .. " + B", hl.dsp.exec_cmd(browser), { desc = "Browser" })
 hl.bind(mod .. " + Q", hl.dsp.window.close(), { desc = "Close window" })
-hl.bind(mod .. " + F", hl.dsp.window.fullscreen({ mode = 1 }), { desc = "Toggle maximized" })
+hl.bind(mod .. " + F", hl.dsp.window.fullscreen { mode = 1 }, { desc = "Toggle maximized" })
 hl.bind(mod .. " + SHIFT + F", hl.dsp.window.fullscreen(), { desc = "Toggle fullscreen" })
 hl.bind(mod .. " + P", hl.dsp.window.pseudo(), { desc = "Toggle pseudo" })
-hl.bind(mod .. " + R", hl.dsp.layout("togglesplit"), { desc = "Toggle split" })
+hl.bind(mod .. " + R", hl.dsp.layout "togglesplit", { desc = "Toggle split" })
 hl.bind(mod .. " + SHIFT + P", hl.dsp.window.pin(), { desc = "Toggle pin window (always on top)" })
 hl.bind(mod .. " + W", hl.dsp.group.toggle(), { desc = "Toggle group" })
-hl.bind(mod .. " + SHIFT + N", hl.dsp.exec_cmd("qs -c remix ipc call notifications toggleHistory"), { desc = "Notification history" })
-hl.bind(mod .. " + SHIFT + D", hl.dsp.exec_cmd("qs -c remix ipc call notifications toggleDnd"), { desc = "Toggle notification DND" })
-hl.bind(mod .. " + N", hl.dsp.exec_cmd("qs -c remix ipc call launcher quick network"), { desc = "Network" })
-hl.bind(mod .. " + B", hl.dsp.exec_cmd("qs -c remix ipc call launcher quick bluetooth"), { desc = "Bluetooth" })
-hl.bind(mod .. " + S", hl.dsp.workspace.toggle_special("scratch"), { desc = "Toggle scratchpad" })
-hl.bind(mod .. " + SHIFT + S", hl.dsp.window.move({ workspace = "special:scratch", silent = true }), { desc = "Move to scratchpad" })
-hl.bind(mod .. " + ALT + Return", hl.dsp.exec_cmd(scripts .. "/asahi-special-terminal"), { desc = "Special terminal" })
+hl.bind(
+  mod .. " + SHIFT + N",
+  hl.dsp.exec_cmd "qs -c remix ipc call notifications toggleHistory",
+  { desc = "Notification history" }
+)
+hl.bind(
+  mod .. " + SHIFT + D",
+  hl.dsp.exec_cmd "qs -c remix ipc call notifications toggleDnd",
+  { desc = "Toggle notification DND" }
+)
+hl.bind(
+  mod .. " + N",
+  hl.dsp.exec_cmd "qs -c remix ipc call launcher quick network",
+  { desc = "Network" }
+)
+hl.bind(
+  mod .. " + B",
+  hl.dsp.exec_cmd "qs -c remix ipc call launcher quick bluetooth",
+  { desc = "Bluetooth" }
+)
+hl.bind(mod .. " + S", hl.dsp.workspace.toggle_special "scratch", { desc = "Toggle scratchpad" })
+hl.bind(
+  mod .. " + SHIFT + S",
+  hl.dsp.window.move { workspace = "special:scratch", silent = true },
+  { desc = "Move to scratchpad" }
+)
+hl.bind(
+  mod .. " + ALT + Return",
+  hl.dsp.exec_cmd(scripts .. "/asahi-special-terminal"),
+  { desc = "Special terminal" }
+)
 
 -- Floating
 hl.bind(mod .. " + SHIFT + T", hl.dsp.window.float(), { desc = "Toggle floating" })
 hl.bind(mod .. " + C", hl.dsp.window.center(), { desc = "Center floating window" })
 
 -- Session and screenshots
-hl.bind(mod .. " + Escape", hl.dsp.exec_cmd("hyprlock --config " .. configDir .. "/hyprlock.conf"), { desc = "Lock" })
-hl.bind(mod .. " + SHIFT + Escape", hl.dsp.exec_cmd("qs -c remix ipc call launcher openCategory System"), { desc = "System menu" })
-hl.bind(mod .. " + CONTROL + ALT + S", hl.dsp.exec_cmd("loginctl lock-session && systemctl suspend"), { desc = "Suspend" })  -- s2idle only (Asahi: no disk hibernation)
+hl.bind(
+  mod .. " + Escape",
+  hl.dsp.exec_cmd("hyprlock --config " .. configDir .. "/hyprlock.conf"),
+  { desc = "Lock" }
+)
+hl.bind(
+  mod .. " + SHIFT + Escape",
+  hl.dsp.exec_cmd "qs -c remix ipc call launcher openCategory System",
+  { desc = "System menu" }
+)
+hl.bind(
+  mod .. " + CONTROL + ALT + S",
+  hl.dsp.exec_cmd "loginctl lock-session && systemctl suspend",
+  { desc = "Suspend" }
+) -- s2idle only (Asahi: no disk hibernation)
 
-hl.bind(mod .. " + ALT + CONTROL + 4", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot smart"), { desc = "Screenshot smart" })
-hl.bind(mod .. " + ALT + CONTROL + 5", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot fullscreen"), { desc = "Screenshot fullscreen" })
-hl.bind(mod .. " + ALT + CONTROL + 6", hl.dsp.exec_cmd("hyprpicker -a"), { desc = "Color picker" })
-
+hl.bind(
+  mod .. " + ALT + CONTROL + 4",
+  hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot smart"),
+  { desc = "Screenshot smart" }
+)
+hl.bind(
+  mod .. " + ALT + CONTROL + 5",
+  hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot fullscreen"),
+  { desc = "Screenshot fullscreen" }
+)
+hl.bind(mod .. " + ALT + CONTROL + 6", hl.dsp.exec_cmd "hyprpicker -a", { desc = "Color picker" })
 
 -- Reloads
-hl.bind(mod .. " + CONTROL + ALT + R", hl.dsp.exec_cmd(scripts .. "/asahi-reload-hyprland"), { desc = "Reload Hyprland" })
+hl.bind(
+  mod .. " + CONTROL + ALT + R",
+  hl.dsp.exec_cmd(scripts .. "/asahi-reload-hyprland"),
+  { desc = "Reload Hyprland" }
+)
 hl.bind(
   mod .. " + CONTROL + ALT + W",
   hl.dsp.exec_cmd(scripts .. "/asahi-restart-quickshell"),
   { desc = "Restart Quickshell" }
 )
-hl.bind(mod .. " + CONTROL + ALT + P", hl.dsp.exec_cmd(scripts .. "/asahi-restart-app hyprpaper"), { desc = "Restart hyprpaper" })
-hl.bind(mod .. " + CONTROL + ALT + I", hl.dsp.exec_cmd(scripts .. "/asahi-restart-app hypridle"), { desc = "Restart hypridle" })
+hl.bind(
+  mod .. " + CONTROL + ALT + P",
+  hl.dsp.exec_cmd(scripts .. "/asahi-restart-app hyprpaper"),
+  { desc = "Restart hyprpaper" }
+)
+hl.bind(
+  mod .. " + CONTROL + ALT + I",
+  hl.dsp.exec_cmd(scripts .. "/asahi-restart-app hypridle"),
+  { desc = "Restart hypridle" }
+)
 
 -- Focus
-hl.bind(mod .. " + H", hl.dsp.focus({ direction = "l" }), { desc = "Focus left" })
-hl.bind(mod .. " + L", hl.dsp.focus({ direction = "r" }), { desc = "Focus right" })
-hl.bind(mod .. " + K", hl.dsp.focus({ direction = "u" }), { desc = "Focus up" })
-hl.bind(mod .. " + J", hl.dsp.focus({ direction = "d" }), { desc = "Focus down" })
+hl.bind(mod .. " + H", hl.dsp.focus { direction = "l" }, { desc = "Focus left" })
+hl.bind(mod .. " + L", hl.dsp.focus { direction = "r" }, { desc = "Focus right" })
+hl.bind(mod .. " + K", hl.dsp.focus { direction = "u" }, { desc = "Focus up" })
+hl.bind(mod .. " + J", hl.dsp.focus { direction = "d" }, { desc = "Focus down" })
 
 -- Move windows
-hl.bind(mod .. " + SHIFT + H", hl.dsp.window.move({ direction = "l" }), { desc = "Move left" })
-hl.bind(mod .. " + SHIFT + L", hl.dsp.window.move({ direction = "r" }), { desc = "Move right" })
-hl.bind(mod .. " + SHIFT + K", hl.dsp.window.move({ direction = "u" }), { desc = "Move up" })
-hl.bind(mod .. " + SHIFT + J", hl.dsp.window.move({ direction = "d" }), { desc = "Move down" })
+hl.bind(mod .. " + SHIFT + H", hl.dsp.window.move { direction = "l" }, { desc = "Move left" })
+hl.bind(mod .. " + SHIFT + L", hl.dsp.window.move { direction = "r" }, { desc = "Move right" })
+hl.bind(mod .. " + SHIFT + K", hl.dsp.window.move { direction = "u" }, { desc = "Move up" })
+hl.bind(mod .. " + SHIFT + J", hl.dsp.window.move { direction = "d" }, { desc = "Move down" })
 
 -- Monitors
-hl.bind(mod .. " + CONTROL + left", hl.dsp.focus({ monitor = "l" }), { desc = "Focus monitor left" })
-hl.bind(mod .. " + CONTROL + right", hl.dsp.focus({ monitor = "r" }), { desc = "Focus monitor right" })
-hl.bind(mod .. " + CONTROL + up", hl.dsp.focus({ monitor = "u" }), { desc = "Focus monitor up" })
-hl.bind(mod .. " + CONTROL + down", hl.dsp.focus({ monitor = "d" }), { desc = "Focus monitor down" })
-hl.bind(mod .. " + SHIFT + CONTROL + H", hl.dsp.window.move({ monitor = "l" }), { desc = "Move to monitor left" })
-hl.bind(mod .. " + SHIFT + CONTROL + L", hl.dsp.window.move({ monitor = "r" }), { desc = "Move to monitor right" })
-hl.bind(mod .. " + SHIFT + CONTROL + K", hl.dsp.window.move({ monitor = "u" }), { desc = "Move to monitor up" })
-hl.bind(mod .. " + SHIFT + CONTROL + J", hl.dsp.window.move({ monitor = "d" }), { desc = "Move to monitor down" })
+hl.bind(mod .. " + CONTROL + left", hl.dsp.focus { monitor = "l" }, { desc = "Focus monitor left" })
+hl.bind(
+  mod .. " + CONTROL + right",
+  hl.dsp.focus { monitor = "r" },
+  { desc = "Focus monitor right" }
+)
+hl.bind(mod .. " + CONTROL + up", hl.dsp.focus { monitor = "u" }, { desc = "Focus monitor up" })
+hl.bind(mod .. " + CONTROL + down", hl.dsp.focus { monitor = "d" }, { desc = "Focus monitor down" })
+hl.bind(
+  mod .. " + SHIFT + CONTROL + H",
+  hl.dsp.window.move { monitor = "l" },
+  { desc = "Move to monitor left" }
+)
+hl.bind(
+  mod .. " + SHIFT + CONTROL + L",
+  hl.dsp.window.move { monitor = "r" },
+  { desc = "Move to monitor right" }
+)
+hl.bind(
+  mod .. " + SHIFT + CONTROL + K",
+  hl.dsp.window.move { monitor = "u" },
+  { desc = "Move to monitor up" }
+)
+hl.bind(
+  mod .. " + SHIFT + CONTROL + J",
+  hl.dsp.window.move { monitor = "d" },
+  { desc = "Move to monitor down" }
+)
 
 -- Workspaces
 for i = 1, 10 do
   local key = tostring(i % 10)
-  hl.bind(mod .. " + " .. key, hl.dsp.focus({ workspace = i }), { desc = "Workspace " .. i })
-  hl.bind(mod .. " + CONTROL + " .. key, hl.dsp.window.move({ workspace = i }), { desc = "Move to workspace " .. i })
+  hl.bind(mod .. " + " .. key, hl.dsp.focus { workspace = i }, { desc = "Workspace " .. i })
+  hl.bind(
+    mod .. " + CONTROL + " .. key,
+    hl.dsp.window.move { workspace = i },
+    { desc = "Move to workspace " .. i }
+  )
 end
-hl.bind(mod .. " + TAB", hl.dsp.focus({ workspace = "e+1" }))
-hl.bind(mod .. " + SHIFT + TAB", hl.dsp.focus({ workspace = "e-1" }))
+hl.bind(mod .. " + TAB", hl.dsp.focus { workspace = "e+1" })
+hl.bind(mod .. " + SHIFT + TAB", hl.dsp.focus { workspace = "e-1" })
 
-hl.bind(mod .. " + I", hl.dsp.focus({ workspace = "e-1" }), { desc = "Previous workspace" })
-hl.bind(mod .. " + U", hl.dsp.focus({ workspace = "e+1" }), { desc = "Next workspace" })
-hl.bind(mod .. " + Page_Up", hl.dsp.focus({ workspace = "e-1" }), { desc = "Previous workspace" })
-hl.bind(mod .. " + Page_Down", hl.dsp.focus({ workspace = "e+1" }), { desc = "Next workspace" })
-hl.bind(mod .. " + SHIFT + I", hl.dsp.window.move({ workspace = "e-1" }), { desc = "Move to previous workspace" })
-hl.bind(mod .. " + SHIFT + U", hl.dsp.window.move({ workspace = "e+1" }), { desc = "Move to next workspace" })
-hl.bind(mod .. " + SHIFT + Page_Up", hl.dsp.window.move({ workspace = "e-1" }), { desc = "Move to previous workspace" })
-hl.bind(mod .. " + SHIFT + Page_Down", hl.dsp.window.move({ workspace = "e+1" }), { desc = "Move to next workspace" })
+hl.bind(mod .. " + I", hl.dsp.focus { workspace = "e-1" }, { desc = "Previous workspace" })
+hl.bind(mod .. " + U", hl.dsp.focus { workspace = "e+1" }, { desc = "Next workspace" })
+hl.bind(mod .. " + Page_Up", hl.dsp.focus { workspace = "e-1" }, { desc = "Previous workspace" })
+hl.bind(mod .. " + Page_Down", hl.dsp.focus { workspace = "e+1" }, { desc = "Next workspace" })
+hl.bind(
+  mod .. " + SHIFT + I",
+  hl.dsp.window.move { workspace = "e-1" },
+  { desc = "Move to previous workspace" }
+)
+hl.bind(
+  mod .. " + SHIFT + U",
+  hl.dsp.window.move { workspace = "e+1" },
+  { desc = "Move to next workspace" }
+)
+hl.bind(
+  mod .. " + SHIFT + Page_Up",
+  hl.dsp.window.move { workspace = "e-1" },
+  { desc = "Move to previous workspace" }
+)
+hl.bind(
+  mod .. " + SHIFT + Page_Down",
+  hl.dsp.window.move { workspace = "e+1" },
+  { desc = "Move to next workspace" }
+)
 
 -- Mouse
-hl.bind(mod .. " + mouse_down", hl.dsp.focus({ workspace = "e+1" }), { desc = "Next workspace" })
-hl.bind(mod .. " + mouse_up", hl.dsp.focus({ workspace = "e-1" }), { desc = "Previous workspace" })
-hl.bind(mod .. " + CONTROL + mouse_down", hl.dsp.window.move({ workspace = "e+1" }), { desc = "Move to next workspace" })
-hl.bind(mod .. " + CONTROL + mouse_up", hl.dsp.window.move({ workspace = "e-1" }), { desc = "Move to previous workspace" })
+hl.bind(mod .. " + mouse_down", hl.dsp.focus { workspace = "e+1" }, { desc = "Next workspace" })
+hl.bind(mod .. " + mouse_up", hl.dsp.focus { workspace = "e-1" }, { desc = "Previous workspace" })
+hl.bind(
+  mod .. " + CONTROL + mouse_down",
+  hl.dsp.window.move { workspace = "e+1" },
+  { desc = "Move to next workspace" }
+)
+hl.bind(
+  mod .. " + CONTROL + mouse_up",
+  hl.dsp.window.move { workspace = "e-1" },
+  { desc = "Move to previous workspace" }
+)
 hl.bind(mod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true, desc = "Drag window" })
 hl.bind(mod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true, desc = "Resize window" })
 
@@ -101,9 +208,21 @@ local function media_bind(key, action, opts)
 end
 
 media_bind("XF86AudioRaiseVolume", "output-volume raise", { repeating = true, desc = "Volume up" })
-media_bind("XF86AudioLowerVolume", "output-volume lower", { repeating = true, desc = "Volume down" })
-media_bind("SHIFT + XF86AudioRaiseVolume", "output-volume +1", { repeating = true, desc = "Volume up 1%" })
-media_bind("SHIFT + XF86AudioLowerVolume", "output-volume -1", { repeating = true, desc = "Volume down 1%" })
+media_bind(
+  "XF86AudioLowerVolume",
+  "output-volume lower",
+  { repeating = true, desc = "Volume down" }
+)
+media_bind(
+  "SHIFT + XF86AudioRaiseVolume",
+  "output-volume +1",
+  { repeating = true, desc = "Volume up 1%" }
+)
+media_bind(
+  "SHIFT + XF86AudioLowerVolume",
+  "output-volume -1",
+  { repeating = true, desc = "Volume down 1%" }
+)
 
 media_bind("XF86AudioMute", "output-volume mute-toggle", { desc = "Mute" })
 media_bind("XF86AudioMicMute", "input-volume mute-toggle", { desc = "Mic mute" })
@@ -113,16 +232,48 @@ media_bind("XF86AudioPause", "playerctl play-pause", { desc = "Play pause" })
 media_bind("XF86AudioNext", "playerctl next", { desc = "Next track" })
 media_bind("XF86AudioPrev", "playerctl previous", { desc = "Previous track" })
 
-hl.bind("Caps_Lock", hl.dsp.exec_cmd("sleep 0.08; " .. scripts .. "/asahi-media-control caps-lock show"), { locked = true, desc = "Caps lock OSD" })
+hl.bind(
+  "Caps_Lock",
+  hl.dsp.exec_cmd("sleep 0.08; " .. scripts .. "/asahi-media-control caps-lock show"),
+  { locked = true, desc = "Caps lock OSD" }
+)
 
 -- Display Brightness
 media_bind("XF86MonBrightnessUp", "brightness raise", { repeating = true, desc = "Brightness up" })
-media_bind("XF86MonBrightnessDown", "brightness lower", { repeating = true, desc = "Brightness down" })
-media_bind("SHIFT + XF86MonBrightnessUp", "brightness +1", { repeating = true, desc = "Brightness fine up" })
-media_bind("SHIFT + XF86MonBrightnessDown", "brightness -1", { repeating = true, desc = "Brightness fine down" })
+media_bind(
+  "XF86MonBrightnessDown",
+  "brightness lower",
+  { repeating = true, desc = "Brightness down" }
+)
+media_bind(
+  "SHIFT + XF86MonBrightnessUp",
+  "brightness +1",
+  { repeating = true, desc = "Brightness fine up" }
+)
+media_bind(
+  "SHIFT + XF86MonBrightnessDown",
+  "brightness -1",
+  { repeating = true, desc = "Brightness fine down" }
+)
 
 -- Keyboard Brightness
-media_bind("XF86Search", "keyboard-brightness raise", { repeating = true, desc = "Keyboard brightness up" })
-media_bind("XF86LaunchA", "keyboard-brightness lower", { repeating = true, desc = "Keyboard brightness down" })
-media_bind("SHIFT + XF86Search", "keyboard-brightness +1", { repeating = true, desc = "Keyboard brightness fine up" })
-media_bind("SHIFT + XF86LaunchA", "keyboard-brightness -1", { repeating = true, desc = "Keyboard brightness fine down" })
+media_bind(
+  "XF86Search",
+  "keyboard-brightness raise",
+  { repeating = true, desc = "Keyboard brightness up" }
+)
+media_bind(
+  "XF86LaunchA",
+  "keyboard-brightness lower",
+  { repeating = true, desc = "Keyboard brightness down" }
+)
+media_bind(
+  "SHIFT + XF86Search",
+  "keyboard-brightness +1",
+  { repeating = true, desc = "Keyboard brightness fine up" }
+)
+media_bind(
+  "SHIFT + XF86LaunchA",
+  "keyboard-brightness -1",
+  { repeating = true, desc = "Keyboard brightness fine down" }
+)
