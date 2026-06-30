@@ -30,12 +30,12 @@ local front_app = sbar.add("item", "top.front_app", {
     border_color = settings.theme.border,
   },
   click_script = "open -a 'Mission Control'",
-  updates = true,
 })
 
 -- State to track if the built-in display is the primary (Main) display
 local builtin_is_main = true
 local current_front_app = ""
+local focus_debounce_token = 0
 
 local function update_position()
   sbar.exec("yabai -m query --displays --display", function(display_json)
@@ -134,8 +134,15 @@ front_app:subscribe({ "display_change" }, function()
 end)
 
 front_app:subscribe({ "window_focus" }, function()
-  update_position()
-  updateFrontAppProperties()
+  focus_debounce_token = focus_debounce_token + 1
+  local token = focus_debounce_token
+  sbar.delay(0.15, function()
+    if token ~= focus_debounce_token then
+      return
+    end
+    update_position()
+    updateFrontAppProperties()
+  end)
 end)
 
 front_app:subscribe("property_change", updateFrontAppProperties)

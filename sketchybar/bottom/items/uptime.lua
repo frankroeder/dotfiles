@@ -31,12 +31,20 @@ local function format_uptime(seconds)
   return string.format("%dm", mins)
 end
 
-uptime:subscribe({ "routine", "forced", "system_woke" }, function()
-  sbar.exec("sysctl -n kern.boottime | awk '{print $4}' | sed 's/,//'", function(boottime)
-    local boot = boottime and tonumber(boottime)
-    if not boot then
-      return
+local function refresh_uptime()
+  sbar.exec(
+    "sysctl -n kern.boottime 2>/dev/null | awk '{print $4}' | sed 's/,//'",
+    function(boottime)
+      local boot = boottime and tonumber(boottime)
+      if not boot then
+        return
+      end
+      uptime:set { label = { string = format_uptime(os.time() - boot) } }
     end
-    uptime:set { label = { string = format_uptime(os.time() - boot) } }
-  end)
-end)
+  )
+end
+
+uptime:subscribe({ "routine", "system_woke", "forced" }, refresh_uptime)
+
+-- ensure label is populated immediately on sketchybar (re)load
+refresh_uptime()

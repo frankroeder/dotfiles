@@ -38,6 +38,7 @@ local function ensureSpaceState(index)
       window_count = 0,
       display = 1,
       app_names = {},
+      last_icon_line = nil,
     }
   end
   return space_state[index]
@@ -54,14 +55,42 @@ local function renderSpaceApps(index)
   if state.app_names and #state.app_names > 0 then
     local app_icon_list = {}
     for _, app in ipairs(state.app_names) do
-      table.insert(app_icon_list, utils.lookup_app_icon(app, app_icons))
+      if type(app) == "string" and app ~= "" then
+        table.insert(app_icon_list, utils.lookup_app_icon(app, app_icons))
+      end
     end
-    icon_line = " " .. table.concat(app_icon_list, " ")
+    if #app_icon_list > 0 then
+      icon_line = " " .. table.concat(app_icon_list, " ")
+    end
   end
 
-  space:set {
-    label = { string = icon_line },
-  }
+  if state.last_icon_line == icon_line then
+    return
+  end
+  state.last_icon_line = icon_line
+
+  local apps_color = ws_theme.empty_text or colors.text
+  if state.selected then
+    apps_color = ws_theme.active or colors.text
+  elseif (state.window_count or 0) > 0 then
+    apps_color = ws_theme.occupied_text or colors.text
+  elseif state.visible and not state.selected then
+    apps_color = colors.subtext1
+  end
+
+  sbar.animate("tanh", settings.motion.fast, function()
+    space:set {
+      label = { string = icon_line, color = apps_color, y_offset = ws_layout.label.y_offset - 3 },
+    }
+  end)
+
+  sbar.delay(0.06, function()
+    sbar.animate("sin", settings.motion.normal, function()
+      space:set {
+        label = { string = icon_line, color = apps_color, y_offset = ws_layout.label.y_offset },
+      }
+    end)
+  end)
 end
 
 local function updateSpaceVisual(index)
@@ -292,6 +321,7 @@ local function updateLayout()
         st.visible = false
         st.app_names = {}
         st.window_count = 0
+        st.last_icon_line = nil
         spaces[idx]:set { drawing = false, label = { string = " —" } }
       end
     end

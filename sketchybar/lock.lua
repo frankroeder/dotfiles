@@ -9,7 +9,6 @@ sbar.add("event", "unlock", "com.apple.screenIsUnlocked")
 -- Create the animator item (hidden, just for logic)
 local animator = sbar.add("item", "animator", {
   drawing = false,
-  updates = true,
 })
 
 -- Lock animation: hide the bar

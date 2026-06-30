@@ -15,6 +15,8 @@ require "helpers"
 -- Require the sketchybar module
 sbar = require "sketchybar"
 
+sbar.add("event", "theme_change", "AppleInterfaceThemeChangedNotification")
+
 sbar.set_bar_name "sketchybar"
 
 -- Bundle the entire initial configuration into a single message to sketchybar

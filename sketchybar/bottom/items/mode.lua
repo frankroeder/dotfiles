@@ -16,20 +16,38 @@ local mode = ui.add_capsule("widgets.mode", {
   label = { drawing = false },
 })
 
-mode:subscribe({ "routine", "system_woke", "forced" }, function()
+local function apply_mode(is_dark)
+  -- In light mode show moon (to switch to dark); in dark mode show sun (to switch to light)
+  mode:set {
+    icon = {
+      string = is_dark and icons.mode.light or icons.mode.dark,
+      color = is_dark and colors.blue or colors.yellow,
+    },
+  }
+end
+
+local function refresh_mode()
   sbar.exec(
     [[osascript -e 'tell application "System Events" to tell appearance preferences to return dark mode' 2>/dev/null || echo false]],
     function(result)
       local is_dark = (result or ""):lower():match "true" ~= nil
-      mode:set {
-        icon = {
-          string = is_dark and icons.mode.dark or icons.mode.light,
-          color = is_dark and colors.yellow or colors.blue,
-        },
-      }
+      apply_mode(is_dark)
     end
   )
+end
+
+mode:subscribe({ "system_woke", "forced" }, refresh_mode)
+
+mode:subscribe("theme_change", function()
+  -- on system theme change, reload bars to pick up fresh colors from colors.lua (like manual toggle)
+  sbar.delay(0.1, function()
+    sbar.exec "sketchybar --reload && sketchybar-top --reload >/dev/null 2>&1 &"
+    sbar.exec "pkill -x borders 2>/dev/null; sleep 0.1; $HOME/.config/borders/bordersrc >/dev/null 2>&1 &"
+  end)
 end)
+
+-- immediate query so correct icon shows at bar start (routine may lag; colors.is_dark can be stale)
+refresh_mode()
 
 mode:subscribe("mouse.clicked", function()
   sbar.exec "osascript -e 'tell application \"System Events\" to tell appearance preferences to set dark mode to not dark mode'"

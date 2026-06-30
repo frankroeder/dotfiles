@@ -5,7 +5,5 @@ require "items.ssd"
 
 require "items.uptime"
 require "items.vpn"
-require "items.pomodoro"
 require "items.mode"
-require "items.screensaver"
 require "items.coffee"

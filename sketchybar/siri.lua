@@ -5,7 +5,6 @@ sbar.add("event", "siri_disappear", "com.apple.Siri.SiriDidDisappear")
 
 local siri = sbar.add("item", "siri", {
   drawing = false,
-  updates = true,
 })
 
 siri:subscribe({ "siri_appear", "siri_disappear" }, function(env)
