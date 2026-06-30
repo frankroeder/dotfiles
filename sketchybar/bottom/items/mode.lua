@@ -38,9 +38,13 @@ end
 
 mode:subscribe({ "system_woke", "forced" }, refresh_mode)
 
+local reload_token = 0
 mode:subscribe("theme_change", function()
+  reload_token = reload_token + 1
+  local token = reload_token
   -- on system theme change, reload bars to pick up fresh colors from colors.lua (like manual toggle)
-  sbar.delay(0.1, function()
+  sbar.delay(0.25, function()
+    if token ~= reload_token then return end
     sbar.exec "sketchybar --reload && sketchybar-top --reload >/dev/null 2>&1 &"
     sbar.exec "pkill -x borders 2>/dev/null; sleep 0.1; $HOME/.config/borders/bordersrc >/dev/null 2>&1 &"
   end)
@@ -54,7 +58,10 @@ mode:subscribe("mouse.clicked", function()
   sbar.delay(0.12, function()
     sbar.trigger "forced"
   end)
+  reload_token = reload_token + 1
+  local token = reload_token
   sbar.delay(0.55, function()
+    if token ~= reload_token then return end
     sbar.exec "sleep 0.3; sketchybar --reload && sketchybar-top --reload >/dev/null 2>&1 &"
     sbar.exec "pkill -x borders 2>/dev/null; sleep 0.1; $HOME/.config/borders/bordersrc >/dev/null 2>&1 &"
   end)

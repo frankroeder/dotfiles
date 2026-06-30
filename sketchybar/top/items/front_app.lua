@@ -38,13 +38,14 @@ local current_front_app = ""
 local focus_debounce_token = 0
 
 local function update_position()
-  sbar.exec("yabai -m query --displays --display", function(display_json)
-    if not display_json then
+  sbar.exec("yabai -m query --displays --display", function(display)
+    if type(display) ~= "table" or not display.frame then
       return
     end
 
-    local x = tonumber(display_json:match '"x":%s*([-%d%.]+)')
-    local y = tonumber(display_json:match '"y":%s*([-%d%.]+)')
+    local frame = display.frame
+    local x = tonumber(frame.x)
+    local y = tonumber(frame.y)
 
     local is_main_frame = (x == 0 and y == 0)
     local is_builtin = (is_main_frame == builtin_is_main)

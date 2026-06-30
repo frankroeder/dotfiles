@@ -1,7 +1,7 @@
 -- Catppuccin Mocha (dark) + Latte (light) for sketchybar, auto based on system appearance.
 -- Matches nvim (catppuccin), ghostty, terminal-theme.sh etc.
 -- Edit the palettes or ws/indicator keys here for global scheme changes.
--- On theme toggle via bottom bar mode item, bars reload to pick fresh colors.
+-- On system theme change (or manual), bars reload to pick fresh colors.
 
 local function detect_dark()
   local env = os.getenv("CATPPUCCIN_TERM_MODE") or ""

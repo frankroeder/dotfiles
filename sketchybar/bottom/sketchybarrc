@@ -4,5 +4,15 @@
 export BAR_NAME=sketchybar
 export CONFIG_DIR="$HOME/.config/sketchybar"
 
+# simple sleep to serialize reloads (prevents concurrent inits)
+sleep 0.2
+
+# pre-clean: add guard item properly (position required), set hidden, then regex remove
+# this ensures regex always matches (no "no match") and cleans before lua
+sketchybar -m --add item reload_guard right >/dev/null 2>&1 || true
+sketchybar -m --set reload_guard drawing=false >/dev/null 2>&1 || true
+sketchybar -m --remove "/.*/" >/dev/null 2>&1 || true
+sleep 0.1
+
 # Execute the init.lua script
 exec "${LUA:-lua}" "$CONFIG_DIR/init.lua"

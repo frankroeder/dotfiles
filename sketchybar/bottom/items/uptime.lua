@@ -33,10 +33,12 @@ end
 
 local function refresh_uptime()
   sbar.exec(
-    "sysctl -n kern.boottime 2>/dev/null | awk '{print $4}' | sed 's/,//'",
+    "sysctl -n kern.boottime | sed -E 's/.* sec = ([0-9]+).*/\\1/'",
     function(boottime)
-      local boot = boottime and tonumber(boottime)
-      if not boot then
+      local num = (boottime or ""):gsub("%D", "")
+      local boot = tonumber(num)
+      if not boot or boot == 0 then
+        uptime:set { label = { string = "???" } }
         return
       end
       uptime:set { label = { string = format_uptime(os.time() - boot) } }

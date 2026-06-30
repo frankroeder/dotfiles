@@ -19,6 +19,10 @@ sbar.add("event", "theme_change", "AppleInterfaceThemeChangedNotification")
 
 sbar.set_bar_name "sketchybar-top"
 
+-- guard so remove regex always matches (prevents "No match" log), then nuke prior items
+sbar.add("item", "reload_guard", { position = "right", drawing = false })
+sbar.remove("/.*/")
+
 -- Bundle the entire initial configuration into a single message to sketchybar
 sbar.begin_config()
 require "default"
