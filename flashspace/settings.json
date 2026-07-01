@@ -58,7 +58,7 @@
   "pipScreenCornerOffset" : 15,
   "restoreHiddenAppsOnSwitch" : true,
   "runScriptOnLaunch" : "/opt/homebrew/opt/sketchybar/bin/sketchybar",
-  "runScriptOnProfileChange" : "/opt/homebrew/bin/sketchybar --reload && /opt/homebrew/bin/sketchybar-top --reload",
+  "runScriptOnProfileChange" : "/opt/homebrew/bin/sketchybar --reload && /opt/homebrew/bin/sketchybar-top --reload && /opt/homebrew/bin/sketchybar-island --reload",
   "runScriptOnWorkspaceChange" : "/opt/homebrew/bin/sketchybar-top --trigger flashspace_workspace_change WORKSPACE=$WORKSPACE",
   "showFloatingNotifications" : true,
   "showMenuBarIcon" : true,

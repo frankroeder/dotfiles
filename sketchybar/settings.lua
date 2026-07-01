@@ -137,6 +137,34 @@ local settings = {
     normal = 12,
     slow = 18,
   },
+  island = {
+    appswitch = true,
+    appswitch_duration = 2,
+    cpu_alert = true,
+    cpu_threshold = 80,
+    cpu_cooldown = 120,
+    power = true,
+    power_duration = 3,
+    -- Pill geometry. Heights must clear the physical notch or the pill hides
+    -- behind it; adjust `widths` to make the pill narrower/wider per alert.
+    bar_height = 40,
+    idle_height = 40,
+    expand_height = 100,
+    corner_radius = 18,
+    -- Idle sits tucked under the bezel; expanded floats down for top padding.
+    y_offset_idle = -9,
+    y_offset_expand = 6,
+    -- Single-line pills put their text in the left lobe (left of the notch),
+    -- so width must be generous enough to keep that text out of the centre.
+    widths = {
+      app = 520,
+      siri = 360,
+      battery = 420,
+      battery_critical = 420,
+      cpu = 420,
+      power = 560,
+    },
+  },
   wallpaper = {
     path = home .. "/Library/Mobile Documents/com~apple~CloudDocs/wallpapers",
     scale = 1.0,

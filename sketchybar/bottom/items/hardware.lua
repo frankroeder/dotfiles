@@ -1,8 +1,11 @@
+local bridge = require "island_bridge"
 local icons = require "icons"
 local colors = require "colors"
 local settings = require "settings"
 local utils = require "utils"
 local ui = require "ui"
+
+local last_cpu_alert = 0
 
 local sp = settings.layout.spacing
 local col = settings.layout.columns
@@ -221,6 +224,18 @@ local function apply_silistats(output)
   cpu_pcpu_graph:push { pcpu_val / 100. * 0.275 }
   cpu_ecpu_graph:push { ecpu_val / 100. * 0.275 }
   gpu_graph:push { gpu_used / 100. * 0.6 }
+
+  if settings.island.cpu_alert then
+    local cpu_max = math.max(ecpu_val, pcpu_val)
+    local now = os.time()
+    if cpu_max >= settings.island.cpu_threshold and (now - last_cpu_alert) >= settings.island.cpu_cooldown then
+      last_cpu_alert = now
+      sbar.exec("yabai -m query --windows --window 2>/dev/null", function(window)
+        local app = (type(window) == "table" and window.app) or "System"
+        bridge.trigger("island_cpuload", { percent = cpu_max, app = app })
+      end)
+    end
+  end
 end
 
 cpu_pcpu_graph:subscribe("routine", function()

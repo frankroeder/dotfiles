@@ -8,8 +8,10 @@ sbar.add("event", "theme_relay")
 
 local handler = sbar.add("item", "theme_handler", { drawing = false, updates = true })
 
-local this = os.getenv "BAR_NAME" == "sketchybar-top" and "top" or "bottom"
+local bar_name = os.getenv "BAR_NAME" or "sketchybar"
+local this = bar_name == "sketchybar-top" and "top" or "bottom"
 local peer = this == "top" and "/opt/homebrew/bin/sketchybar" or "/opt/homebrew/bin/sketchybar-top"
+local island = "/opt/homebrew/bin/sketchybar-island"
 
 local function apply(is_dark)
   if is_dark == colors.is_dark then
@@ -32,6 +34,7 @@ local function repaint(relay)
     end
     if relay then
       sbar.exec(peer .. " --trigger theme_relay 2>/dev/null")
+      sbar.exec(island .. " --trigger theme_relay 2>/dev/null")
     end
   end)
 end

@@ -22,6 +22,10 @@ local bluetooth = ui.add_capsule("widgets.bluetooth", {
 local popup_items = {}
 local empty_item = nil
 
+local function ready()
+  return bluetooth:query() ~= nil
+end
+
 local function clear_popup()
   for _, item in ipairs(popup_items) do
     sbar.remove(item.name)
@@ -50,6 +54,9 @@ end
 
 local function update()
   sbar.exec("system_profiler SPBluetoothDataType -json", function(data)
+    if not ready() then
+      return
+    end
     clear_popup()
     local count = 0
 
@@ -129,6 +136,9 @@ local function update()
 end
 
 bluetooth:subscribe("bt_device", function(env)
+  if not ready() then
+    return
+  end
   if env.INFO.POWER_STATE == 0 then
     bluetooth:set { icon = { string = icons.bluetooth.off, color = colors.overlay0 } }
   elseif env.INFO.POWER_STATE > 0 then
@@ -139,9 +149,12 @@ end)
 
 ui.bind_popup(bluetooth, { on_open = update })
 
+bluetooth:subscribe({ "forced", "routine", "deferred_wake" }, update)
+
 bluetooth:subscribe("theme_colors_updated", function()
+  if not ready() then
+    return
+  end
   bluetooth:set { background = ui.widget_background() }
   update()
 end)
-
-update()

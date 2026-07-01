@@ -87,9 +87,9 @@ function utils.lookup_app_icon(app, app_icons)
   local trimmed = tostring(app):gsub("^%s+", ""):gsub("%s+$", "")
   local candidates = {
     trimmed,
-    trimmed:gsub("%.app$", ""),
-    trimmed:gsub(" Browser$", ""),
-    trimmed:gsub(" %- .*$", ""),
+    (trimmed:gsub("%.app$", "")),
+    (trimmed:gsub(" Browser$", "")),
+    (trimmed:gsub(" %- .*$", "")),
   }
 
   for _, candidate in ipairs(candidates) do

@@ -1,11 +1,15 @@
+local bridge = require "island_bridge"
+local display = require "display"
 local settings = require "settings"
 local ui = require "ui"
 
 sbar.add("event", "property_change")
 
+local use_island = settings.island.appswitch
+
 local front_app = sbar.add("item", "top.front_app", {
-  display = "active",
-  position = "left", -- Default to left
+  display = use_island and display.external_index or "active",
+  position = use_island and "center" or "left",
   icon = {
     background = {
       drawing = true,
@@ -30,23 +34,39 @@ local front_app = sbar.add("item", "top.front_app", {
     border_color = settings.theme.border,
   },
   click_script = "open -a 'Mission Control'",
+  drawing = true,
 })
 
--- State to track if the built-in display is the primary (Main) display
 local builtin_is_main = true
 local current_front_app = ""
 local focus_debounce_token = 0
 
 local function update_position()
-  sbar.exec("yabai -m query --displays --display", function(display)
-    if type(display) ~= "table" or not display.frame then
+  if use_island then
+    local ext = display.external_index
+    if ext then
+      front_app:set {
+        display = ext,
+        position = "center",
+        drawing = true,
+        background = ui.widget_background(),
+      }
+    else
+      front_app:set { drawing = false, background = { drawing = false } }
+    end
+    return
+  end
+
+  front_app:set { display = "active", background = ui.widget_background() }
+
+  sbar.exec("yabai -m query --displays --display", function(disp)
+    if type(disp) ~= "table" or not disp.frame then
       return
     end
 
-    local frame = display.frame
+    local frame = disp.frame
     local x = tonumber(frame.x)
     local y = tonumber(frame.y)
-
     local is_main_frame = (x == 0 and y == 0)
     local is_builtin = (is_main_frame == builtin_is_main)
 
@@ -59,6 +79,11 @@ local function update_position()
 end
 
 local function check_displays()
+  if use_island then
+    update_position()
+    return
+  end
+
   sbar.exec("system_profiler SPDisplaysDataType", function(info)
     local builtin_block_start = info:find "Built%-in"
 
@@ -120,13 +145,18 @@ end
 
 front_app:subscribe("front_app_switched", function(env)
   current_front_app = env.INFO or ""
+  if use_island and current_front_app ~= "" then
+    bridge.trigger("island_appswitch", { app = current_front_app })
+  end
   update_position()
-  sbar.animate("tanh", 20, function()
-    front_app:set {
-      label = { string = current_front_app },
-      icon = { background = { image = { string = "app." .. current_front_app } } },
-    }
-  end)
+  if not use_island or display.external_index then
+    sbar.animate("tanh", 20, function()
+      front_app:set {
+        label = { string = current_front_app },
+        icon = { background = { image = { string = "app." .. current_front_app } } },
+      }
+    end)
+  end
   updateFrontAppProperties()
 end)
 
@@ -157,15 +187,29 @@ end)
 
 check_displays()
 
--- initial properties fetch (in case switched event hasn't populated yet)
+local function populate_initial(name)
+  name = tostring(name or ""):gsub("^%s+", ""):gsub("%s+$", "")
+  if name == "" then
+    return
+  end
+  current_front_app = name
+  front_app:set {
+    label = { string = name },
+    icon = { background = { image = { string = "app." .. name } } },
+  }
+  updateFrontAppProperties()
+end
+
 sbar.delay(0.2, function()
   sbar.exec("yabai -m query --windows --window 2>/dev/null", function(window)
     if type(window) == "table" and window.app then
-      current_front_app = tostring(window.app):gsub("^%s+", ""):gsub("%s+$", "")
-      front_app:set {
-        icon = { background = { image = { string = "app." .. current_front_app } } },
-      }
-      updateFrontAppProperties()
+      populate_initial(window.app)
+    else
+      -- yabai not ready: fall back to the frontmost app via AppleScript.
+      sbar.exec(
+        "osascript -e 'tell application \"System Events\" to name of first application process whose frontmost is true' 2>/dev/null",
+        populate_initial
+      )
     end
   end)
 end)

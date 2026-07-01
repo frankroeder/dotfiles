@@ -6,6 +6,28 @@ local ui = require "ui"
 local profiler_cache = { data = nil, timestamp = 0 }
 local CACHE_TTL = 300
 
+local bridge = require "island_bridge"
+local island_alerts = {}
+local last_charging = nil
+
+local function reset_island_alerts()
+  island_alerts = {}
+end
+
+local function maybe_island_alert(charge)
+  if not charge or charge >= 30 then
+    return
+  end
+  if charge < 15 and not island_alerts[15] then
+    island_alerts[15] = true
+  elseif charge < 30 and not island_alerts[30] then
+    island_alerts[30] = true
+  else
+    return
+  end
+  bridge.trigger("island_battery", { percent = charge })
+end
+
 local battery = ui.add_capsule("widgets.battery", {
   icon = {
     font = {
@@ -61,6 +83,17 @@ battery:subscribe({ "routine", "power_source_change", "deferred_wake" }, functio
     end
 
     local charging = batt_info:find "AC Power" ~= nil
+
+    if last_charging ~= nil and charging ~= last_charging and settings.island.power then
+      bridge.trigger("island_power", { state = charging and "charging" or "battery", percent = found and charge or nil })
+    end
+    last_charging = charging
+
+    if charging then
+      reset_island_alerts()
+    elseif found then
+      maybe_island_alert(charge)
+    end
 
     if charging then
       icon = icons.battery.charging

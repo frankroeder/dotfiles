@@ -9,7 +9,7 @@ ctrl + alt + cmd - r : \
   skhd --restart-service;
 
 # reload sketchybar
-ctrl + alt + cmd - b : sketchybar --reload && sketchybar-top --reload
+ctrl + alt + cmd - b : sketchybar --reload && sketchybar-top --reload && sketchybar-island --reload
 
 # #######################################
 #         Applications and Tools        #

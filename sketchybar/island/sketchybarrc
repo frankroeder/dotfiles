@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+
+export BAR_NAME=sketchybar-island
+export CONFIG_DIR="$HOME/.config/sketchybar-island"
+
+sleep 0.2
+
+sketchybar-island -m --add item reload_guard right >/dev/null 2>&1 || true
+sketchybar-island -m --set reload_guard drawing=false >/dev/null 2>&1 || true
+sketchybar-island -m --remove "/.*/" >/dev/null 2>&1 || true
+sleep 0.1
+
+exec "${LUA:-lua}" "$CONFIG_DIR/init.lua"
