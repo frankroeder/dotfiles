@@ -1,6 +1,8 @@
 local settings = require "settings"
 local ui = require "ui"
 
+require "theme_handler"
+
 local function flashspace_running()
   local handle =
     io.popen "command -v flashspace >/dev/null 2>&1 && pgrep -qx FlashSpace >/dev/null 2>&1 && echo yes"
@@ -33,3 +35,14 @@ ui.bracket_group("top.group.network", {
   "widgets.network_up",
   "widgets.network_down",
 }, { padding = settings.paddings })
+
+local network_bracket_theme =
+  sbar.add("item", "top.group.network.theme", { drawing = false, updates = true })
+network_bracket_theme:subscribe("theme_colors_updated", function()
+  sbar.set("top.group.network", {
+    background = ui.capsule {
+      color = settings.theme.surface_alt,
+      border_color = settings.theme.border,
+    },
+  })
+end)

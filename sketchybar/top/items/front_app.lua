@@ -25,7 +25,7 @@ local front_app = sbar.add("item", "top.front_app", {
       size = 16.0,
     },
   },
-  background = ui.capsule {
+  background = ui.widget_background {
     color = settings.theme.surface,
     border_color = settings.theme.border,
   },
@@ -147,6 +147,13 @@ front_app:subscribe({ "window_focus" }, function()
 end)
 
 front_app:subscribe("property_change", updateFrontAppProperties)
+
+front_app:subscribe("theme_colors_updated", function()
+  front_app:set {
+    background = ui.widget_background(),
+    label = { color = settings.theme.text_primary },
+  }
+end)
 
 check_displays()
 

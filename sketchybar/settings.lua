@@ -3,6 +3,56 @@ local colors = require "colors"
 local font_family = "SF Mono"
 local app_icon_font = "sketchybar-app-font"
 
+local function build_theme()
+  return {
+    bar = colors.transparent,
+    bar_border = colors.transparent,
+    surface = colors.with_alpha(colors.base, colors.is_dark and 0.82 or 0.96),
+    surface_alt = colors.with_alpha(colors.mantle, colors.is_dark and 0.88 or 0.94),
+    surface_hover = colors.with_alpha(colors.surface0, colors.is_dark and 0.92 or 0.85),
+    surface_active = colors.with_alpha(colors.blue, 0.28),
+    border = colors.with_alpha(colors.blue, colors.is_dark and 0.27 or 0.38),
+    border_hover = colors.with_alpha(colors.sky, 0.45),
+    accent = colors.with_alpha(colors.blue, colors.is_dark and 0.92 or 0.98),
+    accent_alt = colors.with_alpha(colors.sky, colors.is_dark and 0.92 or 0.98),
+    success = colors.with_alpha(colors.green, 0.85),
+    warn = colors.with_alpha(colors.peach, 0.85),
+    critical = colors.with_alpha(colors.red, 0.88),
+    text_primary = colors.text,
+    text_muted = colors.subtext1,
+    text_alt = colors.with_alpha(colors.subtext1, 0.92),
+    popup_bg = colors.with_alpha(colors.popup.bg, 0.88),
+    popup_border = colors.with_alpha(colors.blue, colors.is_dark and 0.27 or 0.38),
+    border_width = 1,
+    button_bg = colors.with_alpha(colors.surface0, colors.is_dark and 0.85 or 0.80),
+    workspace = {
+      bg = colors.ws.bg,
+      border = colors.ws.border,
+      fg = colors.ws.fg,
+      active = colors.ws.fg,
+      active_alt = colors.sky,
+      active_bg = colors.ws.sel_bg,
+      active_border = colors.with_alpha(colors.ws.fg, 0.53),
+      hover_bg = colors.with_alpha(colors.surface0, 0.80),
+      occupied_bg = colors.with_alpha(colors.crust, 0.67),
+      visible_bg = colors.with_alpha(colors.crust, 0.67),
+      empty_bg = colors.with_alpha(colors.crust, 0.67),
+      inactive_border = colors.with_alpha(colors.ws.fg, 0.27),
+      visible_border = colors.with_alpha(colors.ws.fg, 0.40),
+      badge_active_bg = colors.ws.sel_bg,
+      badge_hover_bg = colors.with_alpha(colors.ws.fg, 0.35),
+      badge_visible_bg = colors.with_alpha(colors.crust, 0.67),
+      badge_occupied_bg = colors.with_alpha(colors.crust, 0.67),
+      badge_empty_bg = colors.with_alpha(colors.crust, 0.67),
+      badge_border = colors.with_alpha(colors.ws.fg, 0.27),
+      badge_active_border = colors.with_alpha(colors.ws.fg, 0.53),
+      badge_active_text = colors.ws.sel_fg,
+      occupied_text = colors.ws.fg,
+      empty_text = colors.with_alpha(colors.ws.fg, 0.42),
+    },
+  }
+end
+
 local spacing = {
   widget = 5,
   bracket = 5,
@@ -32,52 +82,7 @@ local settings = {
   bar_border_color = colors.transparent,
   border_width = 1,
   icons = "sf-symbols",
-  theme = {
-    bar = colors.transparent,
-    bar_border = colors.transparent,
-    surface = colors.with_alpha(colors.base, colors.is_dark and 0.82 or 0.96),
-    surface_alt = colors.with_alpha(colors.mantle, colors.is_dark and 0.88 or 0.94),
-    surface_hover = colors.with_alpha(colors.surface0, colors.is_dark and 0.92 or 0.85),
-    surface_active = colors.with_alpha(colors.blue, 0.28),
-    border = colors.with_alpha(colors.blue, colors.is_dark and 0.27 or 0.38),
-    border_hover = colors.with_alpha(colors.sky, 0.45),
-    accent = colors.with_alpha(colors.blue, colors.is_dark and 0.92 or 0.98),
-    accent_alt = colors.with_alpha(colors.sky, colors.is_dark and 0.92 or 0.98),
-    success = colors.with_alpha(colors.green, 0.85),
-    warn = colors.with_alpha(colors.peach, 0.85),
-    critical = colors.with_alpha(colors.red, 0.88),
-    text_primary = colors.text,
-    text_muted = colors.subtext1,
-    text_alt = colors.with_alpha(colors.subtext1, 0.92),
-    popup_bg = colors.with_alpha(colors.popup.bg, 0.88),
-    popup_border = colors.with_alpha(colors.blue, colors.is_dark and 0.27 or 0.38),
-    border_width = 1,
-    button_bg = colors.with_alpha(colors.surface0, colors.is_dark and 0.85 or 0.80),
-    workspace = {
-      bg = colors.ws.bg,
-      border = colors.ws.border,
-      active = colors.ws.fg,
-      active_alt = colors.sky,
-      active_bg = colors.ws.sel_bg,
-      active_border = colors.with_alpha(colors.ws.fg, 0.53),
-      hover_bg = colors.with_alpha(colors.surface0, 0.80),
-      occupied_bg = colors.with_alpha(colors.crust, 0.67),
-      visible_bg = colors.with_alpha(colors.crust, 0.67),
-      empty_bg = colors.with_alpha(colors.crust, 0.67),
-      inactive_border = colors.with_alpha(colors.ws.fg, 0.27),
-      visible_border = colors.with_alpha(colors.ws.fg, 0.40),
-      badge_active_bg = colors.ws.sel_bg,
-      badge_hover_bg = colors.with_alpha(colors.ws.fg, 0.35),
-      badge_visible_bg = colors.with_alpha(colors.crust, 0.67),
-      badge_occupied_bg = colors.with_alpha(colors.crust, 0.67),
-      badge_empty_bg = colors.with_alpha(colors.crust, 0.67),
-      badge_border = colors.with_alpha(colors.ws.fg, 0.27),
-      badge_active_border = colors.with_alpha(colors.ws.fg, 0.53),
-      badge_active_text = colors.ws.sel_fg,
-      occupied_text = colors.ws.fg,
-      empty_text = colors.with_alpha(colors.ws.fg, 0.42),
-    },
-  },
+  theme = build_theme(),
   layout = {
     spacing = spacing,
     columns = {
@@ -196,5 +201,15 @@ settings.spaces.icon.padding_left = spacing.icon_left
 settings.spaces.icon.padding_right = spacing.icon_right
 settings.spaces.label.padding_left = spacing.label_left
 settings.spaces.label.padding_right = spacing.workspace_label_right
+
+function settings.refresh_theme()
+  local theme = build_theme()
+  for key, value in pairs(theme) do
+    settings.theme[key] = value
+  end
+  settings.bar_color = colors.transparent
+  settings.bar_border_color = colors.transparent
+  settings.spaces.highlight_color = colors.lavender
+end
 
 return settings

@@ -42,8 +42,12 @@ local function update()
 
     sbar.animate("tanh", settings.animation_duration, function()
       mic:set {
+        background = ui.widget_background(),
         icon = { string = icon, color = colors.mic },
-        label = { string = is_muted and "Muted" or volume .. "%" },
+        label = {
+          string = is_muted and "Muted" or volume .. "%",
+          color = colors.mic,
+        },
       }
     end)
 
@@ -78,4 +82,14 @@ mic_slider:subscribe("mouse.clicked", function(env)
 end)
 
 mic:subscribe({ "routine", "system_woke" }, update)
+
+mic:subscribe("theme_colors_updated", function()
+  mic:set { background = ui.widget_background() }
+  mic_slider:set {
+    slider = ui.slider_track(colors.mic),
+    background = ui.button(),
+  }
+  update()
+end)
+
 update()

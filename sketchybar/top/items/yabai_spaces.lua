@@ -22,8 +22,36 @@ local spaces = {}
 local space_state = {}
 
 local static_names = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" }
-local ws_theme = settings.theme.workspace
 local ws_layout = settings.spaces
+
+local function ws_theme()
+  return settings.theme.workspace
+end
+
+local function space_surface(state)
+  local theme = ws_theme()
+  local selected = state.selected
+  local occupied = (state.window_count or 0) > 0
+  local bg = selected and theme.active_bg or (occupied and theme.occupied_bg or theme.empty_bg)
+  local border_color = selected and colors.yellow or theme.border
+
+  return {
+    drawing = true,
+    color = bg,
+    border_width = settings.theme.border_width,
+    border_color = border_color,
+  }
+end
+
+local function layout_surface()
+  local theme = ws_theme()
+  return ui.widget_background {
+    color = theme.bg,
+    border_color = theme.border,
+    height = ws_layout.capsule.height,
+    corner_radius = ws_layout.capsule.corner_radius,
+  }
+end
 
 local refresh_in_flight = false
 local refresh_queued = false
@@ -69,11 +97,12 @@ local function renderSpaceApps(index)
   end
   state.last_icon_line = icon_line
 
-  local apps_color = ws_theme.empty_text or colors.text
+  local theme = ws_theme()
+  local apps_color = theme.empty_text or colors.text
   if state.selected then
-    apps_color = ws_theme.active or colors.text
+    apps_color = theme.active or colors.text
   elseif (state.window_count or 0) > 0 then
-    apps_color = ws_theme.occupied_text or colors.text
+    apps_color = theme.occupied_text or colors.text
   elseif state.visible and not state.selected then
     apps_color = colors.subtext1
   end
@@ -103,11 +132,9 @@ local function updateSpaceVisual(index)
   local selected = state.selected
   local occupied = (state.window_count or 0) > 0
 
-  local bg = selected and ws_theme.active_bg
-    or (occupied and ws_theme.occupied_bg or ws_theme.empty_bg)
-  local fg = selected and ws_theme.badge_active_text
-    or (occupied and ws_theme.occupied_text or ws_theme.empty_text)
-  local border_color = selected and colors.yellow or ws_theme.border
+  local theme = ws_theme()
+  local fg = selected and theme.badge_active_text
+    or (occupied and theme.occupied_text or theme.empty_text)
 
   sbar.animate("tanh", settings.motion.fast, function()
     space:set {
@@ -120,12 +147,7 @@ local function updateSpaceVisual(index)
         color = fg,
         highlight = false,
       },
-      background = {
-        drawing = true,
-        color = bg,
-        border_width = settings.theme.border_width,
-        border_color = border_color,
-      },
+      background = space_surface(state),
     }
   end)
 end
@@ -236,25 +258,20 @@ for index, space_name in ipairs(static_names) do
       padding_left = ws_layout.icon.padding_left,
       padding_right = ws_layout.icon.padding_right,
       y_offset = ws_layout.icon.y_offset,
-      color = ws_theme.empty_text,
+      color = ws_theme().empty_text,
       background = { drawing = false },
     },
     label = {
       padding_left = ws_layout.label.padding_left,
       padding_right = ws_layout.label.padding_right,
-      color = ws_theme.active,
+      color = ws_theme().active,
       font = ws_layout.label.font,
       y_offset = ws_layout.label.y_offset,
       string = " —",
     },
     padding_right = ws_layout.padding,
     padding_left = ws_layout.padding,
-    background = ui.capsule {
-      color = ws_theme.bg,
-      border_color = ws_theme.border,
-      height = ws_layout.capsule.height,
-      corner_radius = ws_layout.capsule.corner_radius,
-    },
+    background = space_surface(state),
   })
 
   spaces[index] = space
@@ -276,7 +293,7 @@ local space_layout = sbar.add("item", "widgets.yabai_layout", {
   icon = {
     font = { family = settings.font.family },
     string = icons.yabai.bsp,
-    color = ws_theme.fg,
+    color = ws_theme().fg,
     padding_left = ws_layout.icon.padding_left,
     padding_right = ws_layout.icon.padding_right,
   },
@@ -284,15 +301,23 @@ local space_layout = sbar.add("item", "widgets.yabai_layout", {
     string = "",
     padding_left = settings.ui.label_padding_left,
     padding_right = settings.ui.label_padding_right,
-    color = ws_theme.fg,
+    color = ws_theme().fg,
   },
-  background = ui.capsule {
-    color = ws_theme.bg,
-    border_color = ws_theme.border,
-    height = ws_layout.capsule.height,
-    corner_radius = ws_layout.capsule.corner_radius,
-  },
+  background = layout_surface(),
 })
+
+local function refresh_theme()
+  local theme = ws_theme()
+  space_layout:set {
+    icon = { color = theme.fg },
+    label = { color = theme.fg },
+    background = layout_surface(),
+  }
+  for idx, _ in pairs(spaces) do
+    updateSpaceVisual(idx)
+    renderSpaceApps(idx)
+  end
+end
 
 local function updateLayout()
   sbar.exec("yabai -m query --spaces 2>/dev/null", function(spaces_data)
@@ -385,6 +410,7 @@ end
 
 local space_window_observer = sbar.add("item", "widgets.space_window_observer", {
   drawing = false,
+  updates = true,
 })
 
 space_window_observer:subscribe("window_created", function()
@@ -409,6 +435,8 @@ space_window_observer:subscribe({
 }, function()
   scheduleSpaceWindowRefresh(2, 0.12)
 end)
+
+space_window_observer:subscribe("theme_colors_updated", refresh_theme)
 
 space_layout:subscribe("layout_change", updateLayout)
 space_layout:subscribe("space_windows_refresh", updateLayout)

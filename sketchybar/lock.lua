@@ -1,34 +1,30 @@
--- Taken from: https://github.com/realprogrammersusevim/dotfiles/blob/main/sketchybar/items/animator.lua
 local settings = require "settings"
-local colors = require "colors"
 
--- Add custom events
-sbar.add("event", "lock", "com.apple.screenIsLocked")
-sbar.add("event", "unlock", "com.apple.screenIsUnlocked")
+local unlocked = {
+  y_offset = 0,
+  margin = settings.bar_margin,
+}
 
--- Create the animator item (hidden, just for logic)
-local animator = sbar.add("item", "animator", {
-  drawing = false,
-})
+local hidden = {
+  y_offset = -20,
+  margin = -30,
+}
 
--- Lock animation: hide the bar
-animator:subscribe("lock", function()
-  sbar.bar {
-    y_offset = -32,
-    margin = -200,
-    notch_width = 0,
-    blur_radius = 0,
-    color = colors.transparent,
-  }
-end)
+local lock_event = sbar.add("event", "lock", "com.apple.screenIsLocked")
+local unlock_event = sbar.add("event", "unlock", "com.apple.screenIsUnlocked")
 
--- Unlock animation: restore the bar
-animator:subscribe("unlock", function()
-  sbar.animate("sin", 25, function()
-    sbar.bar {
-      y_offset = 0,
-      margin = settings.bar_margin,
-      color = settings.bar_color,
-    }
+local animator = sbar.add("item", "animator", { drawing = false })
+animator:subscribe({ lock_event.name, unlock_event.name }, function(env)
+  local properties
+  if env.SENDER == lock_event.name then
+    properties = hidden
+  elseif env.SENDER == unlock_event.name then
+    -- screenIsLocked is often missed; snap hidden so unlock always slides in
+    sbar.bar(hidden)
+    properties = unlocked
+  end
+
+  sbar.animate("sin", 15, function()
+    sbar.bar(properties)
   end)
 end)

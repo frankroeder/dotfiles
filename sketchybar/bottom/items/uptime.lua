@@ -32,21 +32,26 @@ local function format_uptime(seconds)
 end
 
 local function refresh_uptime()
-  sbar.exec(
-    "sysctl -n kern.boottime | sed -E 's/.* sec = ([0-9]+).*/\\1/'",
-    function(boottime)
-      local num = (boottime or ""):gsub("%D", "")
-      local boot = tonumber(num)
-      if not boot or boot == 0 then
-        uptime:set { label = { string = "???" } }
-        return
-      end
-      uptime:set { label = { string = format_uptime(os.time() - boot) } }
+  sbar.exec("sysctl -n kern.boottime | sed -E 's/.* sec = ([0-9]+).*/\\1/'", function(boottime)
+    local num = (boottime or ""):gsub("%D", "")
+    local boot = tonumber(num)
+    if not boot or boot == 0 then
+      uptime:set { label = { string = "???" } }
+      return
     end
-  )
+    uptime:set { label = { string = format_uptime(os.time() - boot) } }
+  end)
 end
 
 uptime:subscribe({ "routine", "system_woke", "forced" }, refresh_uptime)
+
+uptime:subscribe("theme_colors_updated", function()
+  uptime:set {
+    background = ui.capsule(),
+    icon = { color = settings.theme.accent },
+    label = { color = settings.theme.text_muted },
+  }
+end)
 
 -- ensure label is populated immediately on sketchybar (re)load
 refresh_uptime()

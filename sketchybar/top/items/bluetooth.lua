@@ -138,4 +138,10 @@ bluetooth:subscribe("bt_device", function(env)
 end)
 
 ui.bind_popup(bluetooth, { on_open = update })
+
+bluetooth:subscribe("theme_colors_updated", function()
+  bluetooth:set { background = ui.widget_background() }
+  update()
+end)
+
 update()

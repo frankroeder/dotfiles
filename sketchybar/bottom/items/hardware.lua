@@ -230,3 +230,45 @@ end)
 cpu_pcpu_graph:subscribe("mouse.clicked", function()
   sbar.exec "open -a 'Activity Monitor'"
 end)
+
+local function refresh_theme()
+  local theme = settings.theme
+  local bracket_bg = ui.capsule {
+    color = theme.surface_alt,
+    border_color = theme.border,
+  }
+
+  gpu_temp:set { label = { color = theme.accent } }
+  gpu_label:set { icon = { color = theme.accent } }
+  gpu_graph:set { graph = { color = colors.with_alpha(theme.accent, 0.40) } }
+  ram_top:set { icon = { color = theme.warn }, label = { color = theme.warn } }
+  ram_bot:set { icon = { color = theme.warn }, label = { color = theme.warn } }
+  cpu_temp:set { label = { color = theme.accent_alt } }
+  cpu_ecpu_label:set { icon = { color = colors.green }, label = { color = colors.green } }
+  cpu_pcpu_label:set { icon = { color = colors.blue }, label = { color = colors.blue } }
+  cpu_pcpu_graph:set {
+    graph = {
+      color = colors.with_alpha(colors.blue, hw.graph_alpha),
+      fill_color = colors.with_alpha(colors.blue, hw.graph_alpha),
+    },
+  }
+  cpu_ecpu_graph:set {
+    graph = {
+      color = colors.with_alpha(colors.green, hw.graph_alpha),
+      fill_color = colors.with_alpha(colors.green, hw.graph_alpha),
+    },
+  }
+  power:set {
+    background = ui.capsule {
+      color = theme.surface_alt,
+      border_color = theme.border,
+    },
+    icon = { color = theme.warn },
+    label = { color = theme.text_muted },
+  }
+  sbar.set("hw.group.gpu", { background = bracket_bg })
+  sbar.set("hw.group.ram", { background = bracket_bg })
+  sbar.set("hw.group.cpu", { background = bracket_bg })
+end
+
+cpu_pcpu_graph:subscribe("theme_colors_updated", refresh_theme)

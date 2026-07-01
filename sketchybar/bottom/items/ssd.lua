@@ -263,7 +263,7 @@ local function update_details()
   update_physical_rows()
 end
 
-ssd_volume:subscribe({ "routine", "forced", "system_woke" }, function(_)
+local function refresh_volume()
   sbar.exec(
     [[
     df -k "$HOME" | awk 'NR==2 {
@@ -296,13 +296,13 @@ ssd_volume:subscribe({ "routine", "forced", "system_woke" }, function(_)
             string = Icon,
             color = Color,
           },
-          background = {
-            border_color = settings.theme.border,
-          },
+          background = ui.capsule(),
         }
       end
     end
   )
-end)
+end
+
+ssd_volume:subscribe({ "routine", "forced", "system_woke", "theme_colors_updated" }, refresh_volume)
 
 ui.bind_popup(ssd_volume, { on_open = update_details })

@@ -167,3 +167,14 @@ end)
 media:subscribe("mouse.exited.global", function()
   utils.popup_hide(media)
 end)
+
+media:subscribe("theme_colors_updated", function()
+  media:set {
+    background = ui.capsule(),
+    label = { color = settings.theme.text_muted },
+  }
+  album_art:set { background = { color = settings.theme.surface_alt } }
+  back:set { background = ui.button() }
+  play:set { background = ui.button() }
+  forward:set { background = ui.button() }
+end)

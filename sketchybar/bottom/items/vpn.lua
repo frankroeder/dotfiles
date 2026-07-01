@@ -47,4 +47,14 @@ local function update()
 end
 
 vpn_item:subscribe({ "network_change", "routine", "system_woke" }, update)
+
+vpn_item:subscribe("theme_colors_updated", function()
+  vpn_item:set {
+    background = ui.capsule(),
+    icon = { color = settings.theme.accent },
+    label = { color = settings.theme.text_muted },
+  }
+  update()
+end)
+
 update()

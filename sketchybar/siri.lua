@@ -1,4 +1,5 @@
 local colors = require "colors"
+local settings = require "settings"
 
 sbar.add("event", "siri_appear", "com.apple.Siri.SiriDidAppear")
 sbar.add("event", "siri_disappear", "com.apple.Siri.SiriDidDisappear")
@@ -17,7 +18,7 @@ siri:subscribe({ "siri_appear", "siri_disappear" }, function(env)
   elseif env.SENDER == "siri_disappear" then
     sbar.animate("tanh", 20, function()
       sbar.bar {
-        color = require("settings").bar_color,
+        color = settings.bar_color,
       }
     end)
   end

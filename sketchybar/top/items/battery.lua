@@ -168,3 +168,11 @@ local function update_details()
 end
 
 ui.bind_popup(battery, { on_open = update_details })
+
+battery:subscribe("theme_colors_updated", function()
+  battery:set {
+    background = ui.widget_background(),
+    icon = { color = colors.bat },
+    label = { color = colors.bat },
+  }
+end)

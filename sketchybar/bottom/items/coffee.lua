@@ -20,17 +20,19 @@ local function update_coffee()
   sbar.exec("pgrep -x caffeinate", function(pid)
     if pid ~= "" then
       coffee:set {
+        background = ui.capsule(),
         icon = { string = icons.coffee.on, color = colors.yellow },
       }
     else
       coffee:set {
+        background = ui.capsule(),
         icon = { string = icons.coffee.off, color = colors.grey },
       }
     end
   end)
 end
 
-coffee:subscribe({ "routine", "system_woke" }, update_coffee)
+coffee:subscribe({ "routine", "system_woke", "theme_colors_updated" }, update_coffee)
 
 coffee:subscribe("mouse.clicked", function()
   sbar.exec("pgrep -x caffeinate", function(pid)

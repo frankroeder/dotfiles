@@ -10,8 +10,11 @@ local flashspace_cmd = "flashspace"
 local map_monitor = settings.monitor_map
 local workspaces = {}
 local workspace_state = {}
-local ws_theme = settings.theme.workspace
 local ws_layout = settings.spaces
+
+local function ws_theme()
+  return settings.theme.workspace
+end
 
 local function parse_lines(output)
   local result = {}
@@ -44,10 +47,12 @@ local function updateStyle(workspace_name)
   local focused = state.focused
   local occupied = state.occupied
 
-  local bg = focused and ws_theme.active_bg
-    or (occupied and ws_theme.occupied_bg or ws_theme.empty_bg)
-  local fg = focused and ws_theme.badge_active_text
-    or (occupied and ws_theme.occupied_text or ws_theme.empty_text)
+  local theme = ws_theme()
+  local bg = focused and theme.active_bg or (occupied and theme.occupied_bg or theme.empty_bg)
+  local fg = focused and theme.badge_active_text
+    or (occupied and theme.occupied_text or theme.empty_text)
+
+  local background = ui.widget_background { color = bg, border_width = 0 }
 
   sbar.animate("tanh", settings.motion.fast, function()
     workspace:set {
@@ -58,11 +63,7 @@ local function updateStyle(workspace_name)
       label = {
         color = fg,
       },
-      background = {
-        drawing = true,
-        color = bg,
-        border_width = 0,
-      },
+      background = background,
     }
   end)
 end
@@ -132,7 +133,7 @@ for workspace_index, workspace_name in ipairs(parse_lines(workspace_output)) do
   local display_name = tostring(workspace_index - 1)
   local workspace = sbar.add("item", "workspace_" .. workspace_name, {
     icon = {
-      color = ws_theme.empty_text,
+      color = ws_theme().empty_text,
       font = {
         family = settings.font.family,
         style = settings.font.style_map["Bold"],
@@ -152,13 +153,13 @@ for workspace_index, workspace_name in ipairs(parse_lines(workspace_output)) do
     label = {
       font = ws_layout.label.font,
       string = " —",
-      color = ws_theme.active,
+      color = ws_theme().active,
       y_offset = ws_layout.label.y_offset,
       padding_left = ws_layout.label.padding_left,
       padding_right = ws_layout.label.padding_right,
     },
-    background = ui.capsule {
-      color = ws_theme.bg,
+    background = ui.widget_background {
+      color = ws_theme().bg,
       border_width = 0,
       height = ws_layout.capsule.height,
       corner_radius = ws_layout.capsule.corner_radius,
@@ -193,6 +194,12 @@ local observer = sbar.add("item", "widgets.flashspace_observer", {
 observer:subscribe({ "routine", "forced", "system_woke" }, function()
   updateAllWindows()
   updateWorkspaceDisplays()
+end)
+
+observer:subscribe("theme_colors_updated", function()
+  for workspace_name, _ in pairs(workspaces) do
+    updateStyle(workspace_name)
+  end
 end)
 
 updateWorkspaceDisplays()

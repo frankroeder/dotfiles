@@ -12,6 +12,10 @@ local fnt = settings.layout.fonts
 
 local NO_BG = { drawing = false }
 
+function ui.widget_background(opts)
+  return ui.capsule(opts)
+end
+
 function ui.capsule(opts)
   opts = opts or {}
   return {
@@ -84,7 +88,7 @@ function ui.add_capsule(name, spec)
       or (spec.widget_gap == false and 0 or sp.widget),
     padding_right = spec.padding_right ~= nil and spec.padding_right
       or (spec.widget_gap == false and 0 or sp.widget),
-    background = ui.capsule(spec.surface),
+    background = spec.surface and ui.capsule(spec.surface) or ui.widget_background(),
     icon = hidden_label and apply_center_icon_pad(spec.icon) or apply_icon_pad(spec.icon),
     label = apply_label_pad(spec.label),
     update_freq = spec.update_freq,

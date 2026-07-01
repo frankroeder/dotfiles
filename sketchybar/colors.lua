@@ -1,41 +1,6 @@
 -- Catppuccin Mocha (dark) + Latte (light) for sketchybar, auto based on system appearance.
 -- Matches nvim (catppuccin), ghostty, terminal-theme.sh etc.
--- Edit the palettes or ws/indicator keys here for global scheme changes.
--- On system theme change (or manual), bars reload to pick fresh colors.
-
-local function detect_dark()
-  local env = os.getenv("CATPPUCCIN_TERM_MODE") or ""
-  if env == "dark" then return true end
-  if env == "light" then return false end
-
-  -- Prefer osascript (matches the toggle command; more reliable immediately after set)
-  local h = io.popen([[osascript -e 'tell application "System Events" to tell appearance preferences to return dark mode' 2>/dev/null || echo "false"]])
-  if h then
-    local out = (h:read("*a") or ""):lower():gsub("%s+", "")
-    h:close()
-    if out == "true" then return true end
-    if out == "false" then return false end
-  end
-
-  -- macOS fallback
-  h = io.popen("defaults read -g AppleInterfaceStyle 2>/dev/null || echo Light")
-  if h then
-    local out = (h:read("*a") or ""):lower()
-    h:close()
-    if out:match("dark") then return true end
-  end
-
-  -- linux fallback
-  h = io.popen("gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null || echo ''")
-  if h then
-    local out = (h:read("*a") or ""):lower()
-    h:close()
-    if out:match("dark") or out:match("prefer%-dark") then return true end
-  end
-  return true
-end
-
-local is_dark = detect_dark()
+-- Call update_theme_colors() on theme_change; items subscribe to theme_colors_updated.
 
 local mocha = {
   base = 0xff1e1e2e,
@@ -111,49 +76,106 @@ local latte = {
   lightblack = 0xff7c7f93,
 }
 
-local p = is_dark and mocha or latte
+local function detect_system_dark()
+  local h =
+    io.popen([[osascript -e 'tell application "System Events" to tell appearance preferences to return dark mode' 2>/dev/null || echo "false"]])
+  if h then
+    local out = (h:read("*a") or ""):lower():gsub("%s+", "")
+    h:close()
+    if out == "true" then
+      return true
+    end
+    if out == "false" then
+      return false
+    end
+  end
 
-local c = {}
-for k, v in pairs(p) do
-  c[k] = v
+  h = io.popen("defaults read -g AppleInterfaceStyle 2>/dev/null || echo Light")
+  if h then
+    local out = (h:read("*a") or ""):lower()
+    h:close()
+    if out:match("dark") then
+      return true
+    end
+  end
+
+  h = io.popen("gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null || echo ''")
+  if h then
+    local out = (h:read("*a") or ""):lower()
+    h:close()
+    if out:match("dark") or out:match("prefer%-dark") then
+      return true
+    end
+  end
+  return true
 end
-c.transparent = 0x00000000
-c.is_dark = is_dark
 
-c.with_alpha = function(color, alpha)
+local function detect_dark()
+  local env = os.getenv("CATPPUCCIN_TERM_MODE") or ""
+  if env == "dark" then
+    return true
+  end
+  if env == "light" then
+    return false
+  end
+  return detect_system_dark()
+end
+
+local c = {
+  transparent = 0x00000000,
+}
+
+function c.with_alpha(color, alpha)
   if alpha > 1.0 or alpha < 0.0 then
     return color
   end
   return (color & 0x00ffffff) | (math.floor(alpha * 255.0) << 24)
 end
 
--- bar / popup / misc (trans bar good for both, popup adapts)
-c.bar = { bg = c.transparent, border = c.transparent }
-c.popup = {
-  bg = c.with_alpha(is_dark and c.mantle or c.base, 0.92),
-  border = c.blue,
-}
-c.bg = c.base
-c.bg1 = is_dark and c.crust or c.mantle
-c.bg2 = is_dark and c.crust or c.mantle
-c.bg3 = c.surface0
-c.pill_bg = c.surface0
-c.bar_color = c.transparent
-c.bar_border_color = c.transparent
+local function apply_palette(is_dark)
+  local p = is_dark and mocha or latte
+  for k, v in pairs(p) do
+    c[k] = v
+  end
+  c.is_dark = is_dark
 
--- global easy retune keys (use these or ws.* for scheme)
-c.vol = c.sky
-c.bat = c.peach
-c.mic = c.teal
-c.cal = c.subtext0
+  c.bar = { bg = c.transparent, border = c.transparent }
+  c.popup = {
+    bg = c.with_alpha(is_dark and c.mantle or c.base, 0.92),
+    border = c.blue,
+  }
+  c.bg = c.base
+  c.bg1 = is_dark and c.crust or c.mantle
+  c.bg2 = is_dark and c.crust or c.mantle
+  c.bg3 = c.surface0
+  c.pill_bg = c.surface0
+  c.bar_color = c.transparent
+  c.bar_border_color = c.transparent
 
--- workspace overview colors (lavender pop like ref rose; sel inverts fg for contrast)
-c.ws = {
-  bg = c.with_alpha(c.crust, is_dark and 0.58 or 0.72),
-  border = c.with_alpha(c.blue, 0.28),
-  fg = c.lavender,
-  sel_bg = c.lavender,
-  sel_fg = is_dark and c.crust or c.base,
-}
+  c.vol = c.sky
+  c.bat = c.peach
+  c.mic = c.teal
+  c.cal = c.subtext0
+
+  c.ws = {
+    bg = c.with_alpha(c.crust, is_dark and 0.58 or 0.72),
+    border = c.with_alpha(c.blue, 0.28),
+    fg = c.lavender,
+    sel_bg = c.lavender,
+    sel_fg = is_dark and c.crust or c.base,
+  }
+end
+
+-- from_system: true on theme_change so macOS appearance wins over CATPPUCCIN_TERM_MODE.
+function c.update_theme_colors(from_system)
+  apply_palette(from_system and detect_system_dark() or detect_dark())
+end
+
+-- Apply a known appearance without re-detecting (theme_handler reads it async first).
+function c.set_dark(is_dark)
+  apply_palette(is_dark)
+end
+
+c.update_theme_colors()
 
 return c

@@ -173,3 +173,12 @@ hostname:subscribe("mouse.clicked", copy_label)
 ip:subscribe("mouse.clicked", copy_label)
 mask:subscribe("mouse.clicked", copy_label)
 router:subscribe("mouse.clicked", copy_label)
+
+wifi:subscribe("theme_colors_updated", function()
+  ssid:set { background = { color = settings.theme.border } }
+  wifi:set {
+    background = { drawing = false },
+    icon = { color = settings.theme.text_primary },
+  }
+  update_wifi()
+end)

@@ -28,10 +28,20 @@ local brew = sbar.add("item", "widgets.brew", {
     align = "right",
     height = 30,
   },
-  background = ui.capsule {},
+  background = ui.widget_background(),
 })
 
 local cached_packages = {}
+local last_count = 0
+
+local function brew_color(count)
+  if count >= 10 then
+    return colors.red
+  elseif count > 0 then
+    return colors.yellow
+  end
+  return colors.subtext1
+end
 
 local function is_package_line(line)
   if not line or line == "" or line:match "^%s*$" then
@@ -66,12 +76,8 @@ local function update_brew()
       end
     end
 
-    local color = colors.subtext1
-    if count >= 10 then
-      color = colors.red
-    elseif count > 0 then
-      color = colors.yellow
-    end
+    last_count = count
+    local color = brew_color(count)
 
     brew:set {
       label = { string = tostring(count), color = color },
@@ -145,5 +151,14 @@ ui.bind_popup(brew, {
     update_brew()
   end,
 })
+
+brew:subscribe("theme_colors_updated", function()
+  local color = brew_color(last_count)
+  brew:set {
+    background = ui.widget_background(),
+    icon = { color = color },
+    label = { color = color },
+  }
+end)
 
 update_brew()
