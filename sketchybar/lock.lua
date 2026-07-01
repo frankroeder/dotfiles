@@ -1,6 +1,8 @@
+local bar_config = require "bar_config"
 local settings = require "settings"
+local motion = require "motion"
 
-local SLIDE_FRAMES = 15
+local SLIDE_FRAMES = 20
 local WAKE_DELAY = SLIDE_FRAMES / 60
 
 local unlocked = { y_offset = 0, margin = settings.bar_margin }
@@ -16,9 +18,7 @@ local wake_handled = false
 local wake_scheduled = false
 
 local function slide(props)
-  sbar.animate("sin", SLIDE_FRAMES, function()
-    sbar.bar(props)
-  end)
+  motion.animate_bar(props, SLIDE_FRAMES)
 end
 
 local function defer_widgets()
@@ -72,7 +72,7 @@ animator:subscribe(unlock_event.name, function()
     return
   end
   if not is_hidden then
-    sbar.bar(hidden)
+    bar_config.bar(hidden)
   end
   is_hidden = false
   slide(unlocked)

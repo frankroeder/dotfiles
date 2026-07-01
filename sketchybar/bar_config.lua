@@ -3,6 +3,8 @@ local display = require "display"
 
 local M = {}
 
+local bar_position = "top"
+
 function M.resolve_notch(position, info)
   info = info or display
   if position == "top" and info.external_index == nil then
@@ -15,13 +17,42 @@ function M.resolve_notch(position, info)
   return 0
 end
 
+function M.resolve_display(position, info)
+  info = info or display
+  -- Dual-monitor top bar: pin to built-in only so notch geometry never renders
+  -- on external screens (island + front_app cover the other displays).
+  if position == "top" and info.external_index ~= nil then
+    return info.builtin_index
+  end
+  return nil
+end
+
+function M.bar_props(position, extra)
+  extra = extra or {}
+  local props = {
+    notch_width = M.resolve_notch(position, display),
+    notch_display_height = 0,
+  }
+  local disp = M.resolve_display(position, display)
+  if disp then
+    props.display = disp
+  end
+  for key, value in pairs(extra) do
+    props[key] = value
+  end
+  return props
+end
+
+function M.bar(extra)
+  sbar.bar(M.bar_props(bar_position, extra))
+end
+
 function M.apply(position)
+  bar_position = position
   -- notch cutouts only belong on a lone built-in screen (island covers the notch
   -- in dual-monitor setups). On the bottom bar or on external displays they leave
   -- a visible artifact at the screen edge.
-  local notch = M.resolve_notch(position, display)
-
-  sbar.bar {
+  M.bar {
     height = settings.bar_height,
     position = position,
     padding_right = settings.bar_padding,
@@ -32,8 +63,6 @@ function M.apply(position)
     blur_radius = settings.bar_blur_radius,
     margin = settings.bar_margin,
     corner_radius = settings.bar_corner_radius,
-    notch_width = notch,
-    notch_display_height = 0,
     topmost = "off",
   }
 end

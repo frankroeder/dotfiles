@@ -55,6 +55,21 @@ assert_eq("zero notch width falls back to 200", bar_config.resolve_notch("top", 
   external_index = nil,
 }), 200)
 
+assert_eq("dual monitor top pins to builtin", bar_config.resolve_display("top", {
+  builtin_index = 1,
+  external_index = 2,
+}), 1)
+
+assert_eq("lone builtin top uses all displays", bar_config.resolve_display("top", {
+  builtin_index = 1,
+  external_index = nil,
+}), nil)
+
+assert_eq("bottom bar uses all displays", bar_config.resolve_display("bottom", {
+  builtin_index = 1,
+  external_index = 2,
+}), nil)
+
 local captured = {}
 _G.sbar = {
   bar = function(props)
@@ -65,6 +80,7 @@ _G.sbar = {
 package.loaded["display"] = {
   notch_width = 162,
   external_index = 3,
+  builtin_index = 1,
 }
 package.loaded["bar_config"] = nil
 bar_config = require "bar_config"
@@ -77,7 +93,13 @@ else
   pass("apply top emits one bar config")
   assert_eq("apply top passes notch_width=0", captured[1].notch_width, 0)
   assert_eq("apply top passes notch_display_height=0", captured[1].notch_display_height, 0)
+  assert_eq("apply dual-monitor top pins display", captured[1].display, 1)
 end
+
+bar_config.bar { color = 0xff000000 }
+assert_eq("bar() preserves notch_width on partial update", captured[2].notch_width, 0)
+assert_eq("bar() preserves display on partial update", captured[2].display, 1)
+assert_eq("bar() passes through color", captured[2].color, 0xff000000)
 
 package.loaded["display"] = {
   notch_width = 180,
@@ -106,6 +128,10 @@ io.write(string.format(
 io.write(string.format(
   "live top notch decision: %s\n",
   tostring(bar_config.resolve_notch("top", display))
+))
+io.write(string.format(
+  "live top display decision: %s\n",
+  tostring(bar_config.resolve_display("top", display))
 ))
 
 if failures > 0 then
