@@ -35,6 +35,7 @@ local front_app = sbar.add("item", "top.front_app", {
   },
   click_script = "open -a 'Mission Control'",
   drawing = true,
+  updates = true,
 })
 
 local builtin_is_main = true
@@ -52,7 +53,7 @@ local function update_position()
         background = ui.widget_background(),
       }
     else
-      front_app:set { drawing = false, background = { drawing = false } }
+      front_app:set { drawing = false, updates = true, background = { drawing = false } }
     end
     return
   end
