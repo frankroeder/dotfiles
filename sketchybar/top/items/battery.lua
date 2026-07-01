@@ -49,7 +49,7 @@ local temperature = ui.popup_field("widgets.battery.temperature", battery, {
   drawing = false,
 })
 
-battery:subscribe({ "routine", "power_source_change", "system_woke" }, function()
+battery:subscribe({ "routine", "power_source_change", "deferred_wake" }, function()
   sbar.exec("pmset -g batt", function(batt_info)
     local icon = "!"
     local label = "?"

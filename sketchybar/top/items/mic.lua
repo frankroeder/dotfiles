@@ -81,7 +81,7 @@ mic_slider:subscribe("mouse.clicked", function(env)
   sbar.exec("osascript -e 'set volume input volume " .. env["PERCENTAGE"] .. "'", update)
 end)
 
-mic:subscribe({ "routine", "system_woke" }, update)
+mic:subscribe({ "routine", "deferred_wake" }, update)
 
 mic:subscribe("theme_colors_updated", function()
   mic:set { background = ui.widget_background() }

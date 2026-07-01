@@ -66,7 +66,7 @@ end)
 
 network_up:subscribe("theme_colors_updated", apply_rate_colors)
 
-network_up:subscribe({ "system_woke", "wifi_change" }, function()
+network_up:subscribe({ "deferred_wake", "wifi_change" }, function()
   interface = utils.get_primary_interface()
   start_provider(interface)
 end)

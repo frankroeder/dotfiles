@@ -46,7 +46,7 @@ local function update()
   )
 end
 
-vpn_item:subscribe({ "network_change", "routine", "system_woke" }, update)
+vpn_item:subscribe({ "network_change", "routine", "deferred_wake" }, update)
 
 vpn_item:subscribe("theme_colors_updated", function()
   vpn_item:set {

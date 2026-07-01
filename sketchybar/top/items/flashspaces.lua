@@ -191,7 +191,7 @@ local observer = sbar.add("item", "widgets.flashspace_observer", {
   update_freq = 3,
 })
 
-observer:subscribe({ "routine", "forced", "system_woke" }, function()
+observer:subscribe({ "routine", "forced", "deferred_wake" }, function()
   updateAllWindows()
   updateWorkspaceDisplays()
 end)

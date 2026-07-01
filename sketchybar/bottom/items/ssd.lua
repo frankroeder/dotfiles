@@ -303,6 +303,6 @@ local function refresh_volume()
   )
 end
 
-ssd_volume:subscribe({ "routine", "forced", "system_woke", "theme_colors_updated" }, refresh_volume)
+ssd_volume:subscribe({ "routine", "forced", "deferred_wake", "theme_colors_updated" }, refresh_volume)
 
 ui.bind_popup(ssd_volume, { on_open = update_details })

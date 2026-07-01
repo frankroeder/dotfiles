@@ -63,7 +63,7 @@ volume:subscribe("volume_change", function(env)
   update_volume(tonumber(env.INFO))
 end)
 
-volume:subscribe("system_woke", function()
+volume:subscribe("deferred_wake", function()
   sbar.exec("osascript -e 'output volume of (get volume settings)'", function(vol)
     update_volume(tonumber(vol) or 0)
   end)

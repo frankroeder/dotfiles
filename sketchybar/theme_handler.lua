@@ -1,5 +1,4 @@
 -- Theme updates only from AppleInterfaceThemeChangedNotification (theme_change).
--- Ignore spurious notifications during unlock so lock.lua can animate margin/y_offset.
 
 local colors = require "colors"
 local settings = require "settings"
@@ -11,14 +10,6 @@ local handler = sbar.add("item", "theme_handler", { drawing = false, updates = t
 
 local this = os.getenv "BAR_NAME" == "sketchybar-top" and "top" or "bottom"
 local peer = this == "top" and "/opt/homebrew/bin/sketchybar" or "/opt/homebrew/bin/sketchybar-top"
-
-local unlock_busy = false
-
-local function read_is_dark(callback)
-  sbar.exec("defaults read -g AppleInterfaceStyle 2>/dev/null || echo Light", function(result)
-    callback(result:lower():match "dark" ~= nil)
-  end)
-end
 
 local function apply(is_dark)
   if is_dark == colors.is_dark then
@@ -34,13 +25,8 @@ local function apply(is_dark)
 end
 
 local function repaint(relay)
-  if unlock_busy then
-    return
-  end
-  read_is_dark(function(is_dark)
-    if unlock_busy then
-      return
-    end
+  sbar.exec("defaults read -g AppleInterfaceStyle 2>/dev/null || echo Light", function(result)
+    local is_dark = result:lower():match "dark" ~= nil
     if not apply(is_dark) then
       return
     end
@@ -56,13 +42,6 @@ end)
 
 handler:subscribe("theme_relay", function()
   repaint(false)
-end)
-
-handler:subscribe("unlock", function()
-  unlock_busy = true
-  sbar.exec("sleep 0.3", function()
-    unlock_busy = false
-  end)
 end)
 
 return { apply = apply }

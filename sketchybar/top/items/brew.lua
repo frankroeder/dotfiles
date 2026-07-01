@@ -86,7 +86,7 @@ local function update_brew()
   end)
 end
 
-brew:subscribe({ "routine", "forced", "system_woke" }, update_brew)
+brew:subscribe({ "routine", "forced", "deferred_wake" }, update_brew)
 
 local popup_items = {}
 

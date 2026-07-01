@@ -43,7 +43,7 @@ local function refresh_uptime()
   end)
 end
 
-uptime:subscribe({ "routine", "system_woke", "forced" }, refresh_uptime)
+uptime:subscribe({ "routine", "deferred_wake", "forced" }, refresh_uptime)
 
 uptime:subscribe("theme_colors_updated", function()
   uptime:set {

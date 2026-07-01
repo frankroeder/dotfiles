@@ -19,7 +19,7 @@ local cal = ui.add_capsule("widgets.calendar", {
   click_script = "open -a 'Calendar'",
 })
 
-cal:subscribe({ "forced", "routine", "system_woke" }, function()
+cal:subscribe({ "forced", "routine", "deferred_wake" }, function()
   cal:set { label = os.date "%a %d %b  -  %H:%M" }
 end)
 

@@ -50,3 +50,8 @@ We need to always differentiate between the different Linux settings with respec
 - Zsh: https://zsh.sourceforge.io/Doc/
 - Ghostty: https://ghostty.org/docs
 - mpv: https://mpv.io/manual/stable/
+
+# Hints
+
+When working with sketchybar, you can inspect for both bars the logs in `/opt/homebrew/var/log/sketchybar/sketchybar.* /tmp/sketchybar-top.*` to inspect print outputs and much more.
+Make sure to clean those files to track the latest changes.

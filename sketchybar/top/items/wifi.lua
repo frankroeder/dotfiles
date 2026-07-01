@@ -91,7 +91,7 @@ local function update_wifi()
   end)
 end
 
-wifi:subscribe({ "forced", "wifi_change", "network_change", "system_woke" }, update_wifi)
+wifi:subscribe({ "forced", "wifi_change", "network_change", "deferred_wake" }, update_wifi)
 update_wifi()
 
 local function update_details()
