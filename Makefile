@@ -433,7 +433,8 @@ _macos: ## macOS-specific configuration and applications
 	@bash $(DOTFILES)/macos/main.bash
 	$(call replace_with_symlink,$(DOTFILES)/sketchybar/bottom,$(HOME)/.config/sketchybar)
 	$(call replace_with_symlink,$(DOTFILES)/sketchybar/top,$(HOME)/.config/sketchybar-top)
-	$(MAKE) sketchybar-top
+	$(call replace_with_symlink,$(DOTFILES)/sketchybar/island,$(HOME)/.config/sketchybar-island)
+	$(MAKE) sketchybar-top sketchybar-island
 	$(call print_step,Downloading sketchybar font)
 	@bash $(DOTFILES)/scripts/sketchybar_app_font.sh
 	$(call replace_with_symlink,$(DOTFILES)/skhd,$(HOME)/.config/skhd)
@@ -646,10 +647,23 @@ else
 endif
 	$(call print_step,Container can now be shut down)
 
-.PHONY: sketchybar-top
+.PHONY: sketchybar-test
+sketchybar-test: ## Run sketchybar Lua unit tests
+	@lua $(DOTFILES)/sketchybar/test/notch_test.lua
+
+.PHONY: sketchybar-top sketchybar-island
 sketchybar-top: ## Install and start SketchyBar Top LaunchAgent
 	$(call print_step,Installing sketchybar-top LaunchAgent)
 	@mkdir -p $(HOME)/Library/LaunchAgents
+	@ln -sf /opt/homebrew/bin/sketchybar /opt/homebrew/bin/sketchybar-top 2>/dev/null || true
 	$(call link_if_exists,$(DOTFILES)/sketchybar/top/git.frank.sketchybar-top.plist,$(HOME)/Library/LaunchAgents/git.frank.sketchybar-top.plist)
 	@launchctl bootout gui/$(shell id -u) $(HOME)/Library/LaunchAgents/git.frank.sketchybar-top.plist 2>/dev/null || true
 	@launchctl bootstrap gui/$(shell id -u) $(HOME)/Library/LaunchAgents/git.frank.sketchybar-top.plist
+
+sketchybar-island: ## Install and start SketchyBar Island LaunchAgent
+	$(call print_step,Installing sketchybar-island LaunchAgent)
+	@mkdir -p $(HOME)/Library/LaunchAgents
+	@ln -sf /opt/homebrew/bin/sketchybar /opt/homebrew/bin/sketchybar-island 2>/dev/null || true
+	$(call link_if_exists,$(DOTFILES)/sketchybar/island/git.frank.sketchybar-island.plist,$(HOME)/Library/LaunchAgents/git.frank.sketchybar-island.plist)
+	@launchctl bootout gui/$(shell id -u) $(HOME)/Library/LaunchAgents/git.frank.sketchybar-island.plist 2>/dev/null || true
+	@launchctl bootstrap gui/$(shell id -u) $(HOME)/Library/LaunchAgents/git.frank.sketchybar-island.plist
