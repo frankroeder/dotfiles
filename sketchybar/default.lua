@@ -44,7 +44,6 @@ function M.apply()
     },
     padding_left = settings.layout.spacing.widget,
     padding_right = settings.layout.spacing.widget,
-    scroll_texts = true,
   }
 end
 

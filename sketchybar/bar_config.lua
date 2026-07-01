@@ -17,26 +17,12 @@ function M.resolve_notch(position, info)
   return 0
 end
 
-function M.resolve_display(position, info)
-  info = info or display
-  -- Dual-monitor top bar: pin to built-in only so notch geometry never renders
-  -- on external screens (island + front_app cover the other displays).
-  if position == "top" and info.external_index ~= nil then
-    return info.builtin_index
-  end
-  return nil
-end
-
 function M.bar_props(position, extra)
   extra = extra or {}
   local props = {
     notch_width = M.resolve_notch(position, display),
     notch_display_height = 0,
   }
-  local disp = M.resolve_display(position, display)
-  if disp then
-    props.display = disp
-  end
   for key, value in pairs(extra) do
     props[key] = value
   end
