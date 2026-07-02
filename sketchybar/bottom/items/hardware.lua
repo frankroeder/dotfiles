@@ -1,11 +1,8 @@
-local bridge = require "island_bridge"
 local icons = require "icons"
 local colors = require "colors"
 local settings = require "settings"
 local utils = require "utils"
 local ui = require "ui"
-
-local last_cpu_alert = 0
 
 local sp = settings.layout.spacing
 local col = settings.layout.columns
@@ -200,9 +197,17 @@ local function apply_silistats(output)
   local swap_pct = (swap_total > 0) and ((swap_used / swap_total) * 100) or 0
   local color_ram = utils.color_gradient(ram_pct)
   local color_gpu = utils.color_gradient(gpu_used)
+  local color_ecpu = utils.color_gradient(ecpu_val)
+  local color_pcpu = utils.color_gradient(pcpu_val)
 
-  cpu_ecpu_label:set { label = { string = percent_label("eCPU", ecpu_val) } }
-  cpu_pcpu_label:set { label = { string = percent_label("pCPU", pcpu_val) } }
+  cpu_ecpu_label:set {
+    icon = { color = color_ecpu },
+    label = { string = percent_label("eCPU", ecpu_val), color = color_ecpu },
+  }
+  cpu_pcpu_label:set {
+    icon = { color = color_pcpu },
+    label = { string = percent_label("pCPU", pcpu_val), color = color_pcpu },
+  }
   cpu_temp:set { label = { string = temp_label(cpu_t) } }
 
   ram_top:set {
@@ -225,17 +230,18 @@ local function apply_silistats(output)
   cpu_ecpu_graph:push { ecpu_val / 100. * 0.275 }
   gpu_graph:push { gpu_used / 100. * 0.6 }
 
-  if settings.island.cpu_alert then
-    local cpu_max = math.max(ecpu_val, pcpu_val)
-    local now = os.time()
-    if cpu_max >= settings.island.cpu_threshold and (now - last_cpu_alert) >= settings.island.cpu_cooldown then
-      last_cpu_alert = now
-      sbar.exec("yabai -m query --windows --window 2>/dev/null", function(window)
-        local app = (type(window) == "table" and window.app) or "System"
-        bridge.trigger("island_cpuload", { percent = cpu_max, app = app })
-      end)
-    end
-  end
+  cpu_pcpu_graph:set {
+    graph = {
+      color = colors.with_alpha(color_pcpu, hw.graph_alpha),
+      fill_color = colors.with_alpha(color_pcpu, hw.graph_alpha),
+    },
+  }
+  cpu_ecpu_graph:set {
+    graph = {
+      color = colors.with_alpha(color_ecpu, hw.graph_alpha),
+      fill_color = colors.with_alpha(color_ecpu, hw.graph_alpha),
+    },
+  }
 end
 
 cpu_pcpu_graph:subscribe("routine", function()

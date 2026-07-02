@@ -19,6 +19,9 @@ end
 
 function M.bar_props(position, extra)
   extra = extra or {}
+  -- Render the top bar on every display (built-in + externals). In dual-monitor
+  -- setups resolve_notch keeps notch_width = 0 so externals get no cutout artifact;
+  -- the built-in notch is covered by the island pill, not by a bar cutout.
   local props = {
     notch_width = M.resolve_notch(position, display),
     notch_display_height = 0,
@@ -38,7 +41,7 @@ function M.apply(position)
   -- notch cutouts only belong on a lone built-in screen (island covers the notch
   -- in dual-monitor setups). On the bottom bar or on external displays they leave
   -- a visible artifact at the screen edge.
-  M.bar {
+  local props = {
     height = settings.bar_height,
     position = position,
     padding_right = settings.bar_padding,
@@ -51,6 +54,10 @@ function M.apply(position)
     corner_radius = settings.bar_corner_radius,
     topmost = "off",
   }
+  if settings.bar_shadow then
+    props.shadow = { drawing = true }
+  end
+  M.bar(props)
 end
 
 return M

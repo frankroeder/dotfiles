@@ -41,6 +41,7 @@ function M.apply()
       background = ui.popup(settings.theme.popup_border),
       blur_radius = settings.ui.item_blur_radius,
       y_offset = settings.ui.popup_y_offset,
+      align = "center",
     },
     padding_left = settings.layout.spacing.widget,
     padding_right = settings.layout.spacing.widget,

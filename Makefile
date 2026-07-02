@@ -647,10 +647,6 @@ else
 endif
 	$(call print_step,Container can now be shut down)
 
-.PHONY: sketchybar-test
-sketchybar-test: ## Run sketchybar Lua unit tests
-	@lua $(DOTFILES)/sketchybar/test/notch_test.lua
-
 .PHONY: sketchybar-top sketchybar-island
 sketchybar-top: ## Install and start SketchyBar Top LaunchAgent
 	$(call print_step,Installing sketchybar-top LaunchAgent)

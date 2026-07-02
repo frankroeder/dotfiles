@@ -25,6 +25,19 @@ bar_height() {
 TOP_BAR_HEIGHT=$(bar_height sketchybar-top 43)
 BOTTOM_BAR_HEIGHT=$(bar_height sketchybar 43)
 
+# Reserve top space for the appswitcher pill (idle height + downward offset),
+# reading the geometry from settings.lua so it stays in sync with the pill.
+SETTINGS="${DOTFILES:-$HOME/.dotfiles}/sketchybar/settings.lua"
+island_num() {
+  local value
+  value=$(grep -m1 -E "^[[:space:]]*$1[[:space:]]*=" "$SETTINGS" 2>/dev/null | grep -oE '[0-9]+')
+  [[ $value =~ ^[0-9]+$ ]] && printf '%s\n' "$value" || printf '%s\n' "$2"
+}
+
+ISLAND_TOP=$(( $(island_num idle_height 40) + $(island_num y_offset_expand 6) ))
+TOP_RESERVE=$TOP_BAR_HEIGHT
+[[ $ISLAND_TOP -gt $TOP_RESERVE ]] && TOP_RESERVE=$ISLAND_TOP
+
 yabai -m config window_origin_display        default \
                 window_placement             second_child \
                 window_shadow                off \
@@ -52,7 +65,7 @@ yabai -m config window_origin_display        default \
                 split_ratio                  0.50 \
                 split_type                   auto \
                 layout                       stack \
-                external_bar                 all:${TOP_BAR_HEIGHT}:${BOTTOM_BAR_HEIGHT}
+                external_bar                 all:${TOP_RESERVE}:${BOTTOM_BAR_HEIGHT}
 
 # events
 yabai -m signal --add event=window_created action="sketchybar -m --trigger window_created &> /dev/null; sketchybar-top -m --trigger window_created &> /dev/null"
@@ -60,12 +73,12 @@ yabai -m signal --add event=window_destroyed action="sketchybar -m --trigger win
 yabai -m signal --add event=window_moved action="sketchybar-top -m --trigger window_moved &> /dev/null; sketchybar-top -m --trigger space_windows_refresh &> /dev/null"
 yabai -m signal --add event=window_minimized action="sketchybar-top -m --trigger window_minimized &> /dev/null"
 yabai -m signal --add event=window_deminimized action="sketchybar-top -m --trigger window_deminimized &> /dev/null"
-yabai -m signal --add event=window_focused action="sketchybar -m --trigger window_focus &> /dev/null; sketchybar-top -m --trigger window_focus &> /dev/null"
+yabai -m signal --add event=window_focused action="sketchybar -m --trigger window_focus &> /dev/null; sketchybar-top -m --trigger window_focus &> /dev/null; sketchybar-island -m --trigger window_focus &> /dev/null"
 yabai -m signal --add event=space_changed action="sketchybar-top -m --trigger layout_change &> /dev/null; sketchybar-top -m --trigger space_windows_refresh &> /dev/null"
 yabai -m signal --add event=space_created action="sketchybar-top -m --trigger space_created &> /dev/null; sketchybar-top -m --trigger layout_change &> /dev/null"
 yabai -m signal --add event=space_destroyed action="sketchybar-top -m --trigger space_destroyed &> /dev/null; sketchybar-top -m --trigger layout_change &> /dev/null"
-yabai -m signal --add event=display_removed action="sketchybar-top -m --trigger display_change &> /dev/null; sketchybar-top -m --trigger layout_change &> /dev/null; /bin/sh $HOME/.config/yabai/arrange-displays.sh &"
-yabai -m signal --add event=display_added action="sketchybar-top -m --trigger display_change &> /dev/null; sketchybar-top -m --trigger layout_change &> /dev/null; /bin/sh $HOME/.config/yabai/arrange-displays.sh &"
+yabai -m signal --add event=display_removed action="sketchybar-top -m --trigger display_change &> /dev/null; sketchybar-island -m --trigger display_change &> /dev/null; sketchybar-top -m --trigger layout_change &> /dev/null; /bin/sh $HOME/.config/yabai/arrange-displays.sh &"
+yabai -m signal --add event=display_added action="sketchybar-top -m --trigger display_change &> /dev/null; sketchybar-island -m --trigger display_change &> /dev/null; sketchybar-top -m --trigger layout_change &> /dev/null; /bin/sh $HOME/.config/yabai/arrange-displays.sh &"
 # yabai -m signal --add event=space_changed action="yabai -m window --focus first"
 
 WINDOW_RULES="${DOTFILES:-$HOME/.dotfiles}/yabai/window_rules"
