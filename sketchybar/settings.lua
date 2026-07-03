@@ -53,6 +53,49 @@ local function build_theme()
   }
 end
 
+-- Bar visual preset: "transparent" (default) or "gnix" (solid surface + blur, Efterklang-style).
+local preset = "transparent"
+
+local preset_options = {
+  transparent = {
+    bar_height = 38,
+    bar_margin = 8,
+    bar_corner_radius = 8,
+    bar_border_width = 0,
+    bar_blur_radius = 0,
+    bar_shadow = false,
+    item_height = 30,
+    item_corner_radius = 8,
+    item_border_width = 1,
+    popup_blur_radius = 0,
+  },
+  gnix = {
+    bar_height = 32,
+    bar_margin = 5,
+    bar_corner_radius = 10,
+    bar_border_width = 3,
+    bar_blur_radius = 15,
+    bar_shadow = true,
+    item_height = 28,
+    item_corner_radius = 9,
+    item_border_width = 2,
+    popup_blur_radius = 50,
+  },
+}
+
+local modules = {
+  logo = { enable = false },
+  calendar = { enable = true },
+  battery = { enable = true },
+  brew = { enable = true },
+  network = { enable = true },
+  wifi = { enable = true },
+  volume = { enable = true },
+  mic = { enable = true },
+  bluetooth = { enable = true },
+  app_badges = { enable = false },
+}
+
 local spacing = {
   widget = 5,
   bracket = 5,
@@ -70,14 +113,19 @@ local spacing = {
   edge = 6,
 }
 
+local active_preset = preset_options[preset] or preset_options.transparent
+
 local settings = {
+  preset = preset,
+  modules = modules,
   animation_duration = 10,
-  bar_height = 43,
+  bar_height = active_preset.bar_height,
   bar_padding = 5,
-  bar_margin = 8,
-  bar_corner_radius = 8,
-  bar_border_width = 0,
-  bar_blur_radius = 0,
+  bar_margin = active_preset.bar_margin,
+  bar_corner_radius = active_preset.bar_corner_radius,
+  bar_border_width = active_preset.bar_border_width,
+  bar_blur_radius = active_preset.bar_blur_radius,
+  bar_shadow = active_preset.bar_shadow,
   bar_color = colors.transparent,
   bar_border_color = colors.transparent,
   border_width = 1,
@@ -120,10 +168,10 @@ local settings = {
     },
   },
   ui = {
-    item_height = 30,
-    item_corner_radius = 8,
-    item_border_width = 1,
-    item_blur_radius = 0,
+    item_height = active_preset.item_height,
+    item_corner_radius = active_preset.item_corner_radius,
+    item_border_width = active_preset.item_border_width,
+    item_blur_radius = active_preset.popup_blur_radius,
     popup_row_height = 24,
     popup_corner_radius = 10,
     popup_y_offset = -2,
@@ -140,20 +188,20 @@ local settings = {
   island = {
     appswitch = true,
     appswitch_duration = 2,
-    cpu_alert = true,
-    cpu_threshold = 80,
-    cpu_cooldown = 120,
     power = true,
     power_duration = 3,
+    siri_frames = 18,
     -- Pill geometry. Heights must clear the physical notch or the pill hides
     -- behind it; adjust `widths` to make the pill narrower/wider per alert.
     bar_height = 40,
     idle_height = 40,
     expand_height = 100,
     corner_radius = 18,
-    -- Idle sits tucked under the bezel; expanded floats down for top padding.
+    -- Built-in notch: tuck under the bezel while idle, float down when expanded.
     y_offset_idle = -9,
     y_offset_expand = 6,
+    -- External / notchless displays align with the usual top bar offset.
+    y_offset_external = 6,
     -- Single-line pills put their text in the left lobe (left of the notch),
     -- so width must be generous enough to keep that text out of the centre.
     widths = {
@@ -161,7 +209,6 @@ local settings = {
       siri = 360,
       battery = 420,
       battery_critical = 420,
-      cpu = 420,
       power = 560,
     },
   },
@@ -181,13 +228,33 @@ local settings = {
   network = {
     provider_path = "$CONFIG_DIR/../helpers/event_providers/network_load/bin/network_load",
   },
+  volume = {
+    output_devices = true,
+    scroll_step = 10,
+  },
+  app_badges = {
+    apps = {
+      -- { name = "widgets.badge.messages", bundle_id = "com.apple.MobileSMS",
+      --   icon = "􀌥", color = colors.green, app_name = "Messages" },
+    },
+  },
   media = {
+    controller = "media-control",
+    album_art_size = 1280,
+    title_max_chars = 40,
+    popup_height = 160,
+    delay_after_cmd = 0.2,
+    default_artist = "Various Artists",
+    default_album = "No Album",
     nowplaying_path = home
       .. "/.dotfiles/sketchybar/helpers/event_providers/media_nowplaying/media_nowplaying",
   },
   large_screen_width = 2000,
   monitor_map = { ["LG ULTRAFINE"] = 2, ["DELL S2722DZ"] = 2, ["Built-in Retina Display"] = 1 },
   spaces = {
+    -- nil | "greek_uppercase" | "greek_lowercase"
+    id_style = "greek_lowercase",
+    item_padding = 12,
     highlight_color = colors.lavender,
     icon = {
       size = 16.0,
@@ -230,14 +297,48 @@ settings.spaces.icon.padding_right = spacing.icon_right
 settings.spaces.label.padding_left = spacing.label_left
 settings.spaces.label.padding_right = spacing.workspace_label_right
 
+function settings.apply_preset(name)
+  local opts = preset_options[name]
+  if not opts then
+    return
+  end
+  settings.preset = name
+  settings.bar_height = opts.bar_height
+  settings.bar_margin = opts.bar_margin
+  settings.bar_corner_radius = opts.bar_corner_radius
+  settings.bar_border_width = opts.bar_border_width
+  settings.bar_blur_radius = opts.bar_blur_radius
+  settings.bar_shadow = opts.bar_shadow
+  settings.ui.item_height = opts.item_height
+  settings.ui.item_corner_radius = opts.item_corner_radius
+  settings.ui.item_border_width = opts.item_border_width
+  settings.ui.item_blur_radius = opts.popup_blur_radius
+  if name == "gnix" then
+    settings.bar_color = colors.base
+    settings.bar_border_color = colors.surface0
+    settings.theme.bar = colors.base
+    settings.theme.bar_border = colors.surface0
+    settings.border_width = 2
+    settings.theme.border_width = 2
+  else
+    settings.bar_color = colors.transparent
+    settings.bar_border_color = colors.transparent
+    settings.theme.bar = colors.transparent
+    settings.theme.bar_border = colors.transparent
+    settings.border_width = 1
+    settings.theme.border_width = 1
+  end
+end
+
 function settings.refresh_theme()
   local theme = build_theme()
   for key, value in pairs(theme) do
     settings.theme[key] = value
   end
-  settings.bar_color = colors.transparent
-  settings.bar_border_color = colors.transparent
+  settings.apply_preset(settings.preset)
   settings.spaces.highlight_color = colors.lavender
 end
+
+settings.apply_preset(preset)
 
 return settings

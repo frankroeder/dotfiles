@@ -30,6 +30,8 @@ local icons = {
       play_pause = "􀊈",
       play = "􀊃",
       pause = "􀊆",
+      shuffle = "􀊝",
+      repeating = "􀊞",
     },
     yabai = {
       float = "􀏜",
@@ -67,6 +69,7 @@ local icons = {
       ["0"] = "󰅚",
     },
     brew = "􀐛",
+    external_link = "􀂎",
     zen = "􀋲",
     coffee = {
       on = "􁞵",
@@ -129,6 +132,8 @@ local icons = {
       play_pause = "",
       play = "",
       pause = "",
+      shuffle = "󰒟",
+      repeating = "󰑖",
     },
     battery = {
       ["100"] = "",
@@ -156,6 +161,7 @@ local icons = {
     date = "󰃭",
     saver = "󰸉",
     brew = "",
+    external_link = "󰌷",
     zen = "",
     coffee = {
       on = "",

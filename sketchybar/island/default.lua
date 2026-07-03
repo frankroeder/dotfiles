@@ -1,9 +1,9 @@
-local display = require "display"
 local settings = require "settings"
 local ui = require "ui"
 
 sbar.default {
-  display = display.builtin_index,
+  -- No display pin: pill items must draw on whichever display the bar
+  -- currently targets (island_core moves the bar to the focused display).
   updates = "when_shown",
   blur_radius = settings.ui.item_blur_radius,
   icon = {

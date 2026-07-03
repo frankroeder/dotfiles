@@ -1,5 +1,4 @@
 require "items.battery"
 require "items.siri"
 require "items.appswitch"
--- require "items.cpuload"
 require "items.power"

@@ -19,7 +19,6 @@ else
   require "items.yabai_spaces"
 end
 
-require "items.front_app"
 require "items.calendar"
 require "items.battery"
 require "items.network"

@@ -24,8 +24,6 @@ sbar.add("event", "theme_relay")
 sbar.add("event", "island_tap")
 sbar.add("event", "island_battery")
 sbar.add("event", "island_siri")
-sbar.add("event", "island_appswitch")
-sbar.add("event", "island_cpuload")
 sbar.add("event", "island_power")
 require "bar"
 require "default"

@@ -38,8 +38,8 @@ local listener = sbar.add("item", "listener.appswitch", {
   background = { drawing = false },
 })
 
-listener:subscribe("island_appswitch", function(env)
-  local name = env.app or env.INFO or ""
+listener:subscribe("front_app_switched", function(env)
+  local name = env.INFO or ""
   if name == "" or name == last_app then
     return
   end

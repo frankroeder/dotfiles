@@ -1,6 +1,5 @@
 local colors = require "colors"
 local icons = require "icons"
-local modules = require "modules"
 local settings = require "settings"
 local app_icons = require "helpers.app_icons"
 local media_control = require "helpers.media_control"
@@ -9,13 +8,13 @@ local ui = require "ui"
 
 sbar.add("event", "music_change", "com.apple.Music.playerInfo")
 
-local rich = modules.enabled "media_rich"
 local cfg = settings.media
 local delay = cfg.delay_after_cmd or 0.2
 
 local media = sbar.add("item", "widgets.media", {
   position = "center",
   drawing = false,
+  scroll_texts = true,
   icon = {
     font = settings.font.app_icon .. ":Regular:16.0",
     string = "",
@@ -30,8 +29,8 @@ local media = sbar.add("item", "widgets.media", {
   background = ui.capsule {},
   popup = {
     align = "center",
-    horizontal = rich,
-    height = rich and (cfg.popup_height or 120) or nil,
+    horizontal = true,
+    height = cfg.popup_height or 160,
   },
 })
 
@@ -43,69 +42,70 @@ local function after_cmd(fn)
   sbar.exec("sleep " .. tostring(delay), fn)
 end
 
-local POPUP_WIDTH = 130
 local ART_SIZE = 120
-local IMAGE_SCALE = 0.15
-local Y_OFFSET = -5
 
 local album_art = sbar.add("item", "widgets.media.art", {
   position = "popup.widgets.media",
   icon = { drawing = false },
   label = { drawing = false },
-  width = rich and 0 or POPUP_WIDTH,
-  padding_right = rich and 10 or 0,
+  width = ART_SIZE,
+  padding_right = 12,
   background = {
     drawing = false,
     height = ART_SIZE,
     corner_radius = 8,
     color = settings.theme.surface_alt,
-    image = rich and { string = "/tmp/sketchybar_music_cover.jpg" } or nil,
   },
 })
 
-local track_title, track_artist, track_album
+-- width = 0 + zero paddings keep all text items at the same x, stacked via y_offset
+local track_title = sbar.add("item", "widgets.media.title", {
+  position = "popup.widgets.media",
+  icon = { drawing = false },
+  width = 0,
+  padding_left = 0,
+  padding_right = 0,
+  label = {
+    font = { size = 20.0 },
+    max_chars = 18,
+    color = colors.mauve,
+  },
+  y_offset = 48,
+})
 
-if rich then
-  track_title = sbar.add("item", "widgets.media.title", {
-    position = "popup.widgets.media",
-    icon = { drawing = false },
-    label = {
-      font = { size = 20.0 },
-      max_chars = cfg.title_max_chars or 40,
-      color = colors.mauve,
-    },
-    y_offset = 80 + Y_OFFSET,
-  })
+local track_artist = sbar.add("item", "widgets.media.artist", {
+  position = "popup.widgets.media",
+  icon = { drawing = false },
+  width = 0,
+  padding_left = 0,
+  padding_right = 0,
+  label = {
+    font = { size = 15.0 },
+    max_chars = 20,
+    color = colors.blue,
+  },
+  y_offset = 18,
+})
 
-  track_artist = sbar.add("item", "widgets.media.artist", {
-    position = "popup.widgets.media",
-    icon = { drawing = false },
-    align = "center",
-    label = {
-      font = { size = 15.0 },
-      max_chars = 20,
-      color = colors.blue,
-    },
-    y_offset = 50 + Y_OFFSET,
-  })
+local track_album = sbar.add("item", "widgets.media.album", {
+  position = "popup.widgets.media",
+  icon = { drawing = false },
+  width = 0,
+  padding_left = 0,
+  padding_right = 0,
+  label = {
+    font = { size = 15.0 },
+    max_chars = 20,
+    color = colors.lavender,
+  },
+  y_offset = -8,
+})
 
-  track_album = sbar.add("item", "widgets.media.album", {
-    position = "popup.widgets.media",
-    icon = { drawing = false },
-    label = {
-      font = { size = 15.0 },
-      max_chars = 20,
-      color = colors.lavender,
-    },
-    y_offset = 25 + Y_OFFSET,
-  })
-end
-
-local CONTROLS_Y = rich and (-55 + Y_OFFSET) or 0
+local CONTROLS_Y = -48
 
 local shuffle_btn = sbar.add("item", "widgets.media.shuffle", {
   position = "popup.widgets.media",
-  drawing = rich and media_control.available,
+  drawing = media_control.available,
   icon = {
     string = icons.media.shuffle,
     padding_left = 5,
@@ -127,9 +127,9 @@ local back = sbar.add("item", "widgets.media.back", {
     color = colors.grey,
   },
   label = { drawing = false },
-  width = rich and 0 or 90,
+  width = 30,
   align = "center",
-  background = rich and { drawing = false } or ui.button {},
+  background = { drawing = false },
   y_offset = CONTROLS_Y,
 })
 
@@ -137,22 +137,22 @@ local play = sbar.add("item", "widgets.media.play", {
   position = "popup.widgets.media",
   icon = {
     string = icons.media.play,
-    font = { size = rich and 18.0 or 16.0 },
-    padding_left = rich and 4 or 0,
-    padding_right = rich and 4 or 0,
-    color = rich and colors.red or colors.text,
+    font = { size = 18.0 },
+    padding_left = 4,
+    padding_right = 4,
+    color = colors.red,
   },
   label = { drawing = false },
-  width = rich and 40 or 90,
+  width = 40,
   align = "center",
-  background = rich and {
+  background = {
     height = 40,
     corner_radius = 20,
     color = colors.surface0,
     border_color = colors.surface1,
     border_width = 2,
     drawing = true,
-  } or ui.button {},
+  },
   y_offset = CONTROLS_Y,
 })
 
@@ -166,15 +166,15 @@ local forward = sbar.add("item", "widgets.media.forward", {
     color = colors.grey,
   },
   label = { drawing = false },
-  width = rich and 0 or 90,
+  width = 30,
   align = "center",
-  background = rich and { drawing = false } or ui.button {},
+  background = { drawing = false },
   y_offset = CONTROLS_Y,
 })
 
 local repeat_btn = sbar.add("item", "widgets.media.repeat", {
   position = "popup.widgets.media",
-  drawing = rich and media_control.available,
+  drawing = media_control.available,
   icon = {
     string = icons.media.repeating,
     highlight_color = colors.lavender,
@@ -186,22 +186,14 @@ local repeat_btn = sbar.add("item", "widgets.media.repeat", {
   y_offset = CONTROLS_Y,
 })
 
-if rich then
-  sbar.add("bracket", "widgets.media.controls", {
-    shuffle_btn.name,
-    back.name,
-    play.name,
-    forward.name,
-    repeat_btn.name,
-  }, {
-    background = {
-      color = colors.surface0,
-      corner_radius = 11,
-      drawing = true,
-    },
-    y_offset = CONTROLS_Y,
-  })
-end
+-- pads the text/controls column so long titles stay inside the popup
+sbar.add("item", "widgets.media.spacer", {
+  position = "popup.widgets.media",
+  width = 60,
+  icon = { drawing = false },
+  label = { drawing = false },
+  background = { drawing = false },
+})
 
 local function display_artist(artist)
   if artist and artist ~= "" then
@@ -217,30 +209,66 @@ local function display_album(album)
   return cfg.default_album or "No Album"
 end
 
-local function update_track_ui(title, artist, album, state)
-  local display_text = display_artist(artist)
-  if title and title ~= "" then
-    display_text = display_artist(artist) .. " - " .. title
-  end
+-- sketchybar never marks popup items as "shown", so scroll_texts is dead there;
+-- scroll the popup texts manually while the popup is open
+local marquee = {
+  { item = track_title, width = 18 },
+  { item = track_artist, width = 20 },
+  { item = track_album, width = 20 },
+}
+local marquee_running = false
 
+local function marquee_set(entry, text)
+  entry.chars = {}
+  for c in (text .. "   "):gmatch(utf8.charpattern) do
+    entry.chars[#entry.chars + 1] = c
+  end
+  entry.pos = 0
+  entry.item:set { label = text }
+end
+
+local function marquee_tick()
+  if media:query().popup.drawing ~= "on" then
+    marquee_running = false
+    return
+  end
+  for _, m in ipairs(marquee) do
+    if m.chars and #m.chars - 3 > m.width then
+      local win = {}
+      for i = 0, m.width - 1 do
+        win[i + 1] = m.chars[(m.pos + i) % #m.chars + 1]
+      end
+      m.pos = (m.pos + 1) % #m.chars
+      m.item:set { label = table.concat(win) }
+    end
+  end
+  sbar.delay(0.3, marquee_tick)
+end
+
+local function marquee_start()
+  if not marquee_running then
+    marquee_running = true
+    marquee_tick()
+  end
+end
+
+local function update_track_ui(title, artist, album, state)
   local playing = state == "Playing" or state == true
   local has_media = (title and title ~= "") or (artist and artist ~= "")
 
   sbar.animate("tanh", settings.animation_duration * 2, function()
     media:set {
       drawing = has_media,
-      label = { string = rich and (title or "") or display_text },
+      label = { string = title or "" },
       icon = { string = app_icons["Music"] or app_icons["Default"] },
     }
-    if track_title then
-      track_title:set { label = title or "" }
-      track_artist:set { label = display_artist(artist) }
-      track_album:set { label = display_album(album) }
-    end
+    marquee_set(marquee[1], title or "")
+    marquee_set(marquee[2], display_artist(artist))
+    marquee_set(marquee[3], display_album(album))
     play:set {
       icon = {
         string = playing and icons.media.pause or icons.media.play,
-        color = rich and (playing and colors.green or colors.red) or colors.text,
+        color = playing and colors.green or colors.red,
       },
     }
   end)
@@ -249,20 +277,6 @@ end
 local function update_album_art(path)
   if not path or path == "" then
     album_art:set { background = { drawing = false } }
-    return
-  end
-
-  if rich then
-    album_art:set {
-      background = {
-        image = {
-          string = path,
-          scale = IMAGE_SCALE,
-          drawing = true,
-        },
-        drawing = true,
-      },
-    }
     return
   end
 
@@ -278,7 +292,6 @@ local function update_album_art(path)
     album_art:set {
       background = {
         image = {
-          padding_left = settings.layout.spacing.widget,
           string = path,
           scale = scale,
         },
@@ -336,6 +349,7 @@ end
 
 media:subscribe("mouse.clicked", function()
   utils.popup_toggle(media, load_art)
+  marquee_start()
 end)
 
 local function control_action(action, after)
@@ -366,7 +380,7 @@ play:subscribe("mouse.clicked", function()
       play:set {
         icon = {
           string = playing and icons.media.pause or icons.media.play,
-          color = rich and (playing and colors.green or colors.red) or colors.text,
+          color = playing and colors.green or colors.red,
         },
       }
     end)
@@ -406,9 +420,4 @@ media:subscribe("theme_colors_updated", function()
     label = { color = colors.lavender },
   }
   album_art:set { background = { color = settings.theme.surface_alt } }
-  if not rich then
-    back:set { background = ui.button() }
-    play:set { background = ui.button() }
-    forward:set { background = ui.button() }
-  end
 end)
