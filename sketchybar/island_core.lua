@@ -33,26 +33,25 @@ local function display_width(idx)
   return display.main_width
 end
 
--- Pill baseline: the physical notch on the built-in screen, else a 200px pill.
+-- Pill baseline: notch on built-in, small on external.
 local function pill_base(idx)
   if idx == display.builtin_index and display.notch_width > 0 then
     return display.notch_width
   end
-  return 200
+  return 160
 end
 
--- Item widths are sized to straddle the notch. On notchless displays that gap is
--- gone, so shrink the pill by the notch allowance to keep it from being too wide.
-local NOTCH_ALLOWANCE = display.notch_width > 0 and display.notch_width or 160
 local function effective_width(idx, w)
   if idx == display.builtin_index and display.notch_width > 0 then
     return w
   end
-  return math.max(200, w - NOTCH_ALLOWANCE)
+  return math.max(160, (w or 160) - 320)
 end
 
 local function idle_margin(idx)
-  return math.max(0, math.floor((display_width(idx) - pill_base(idx)) / 2))
+  local dw = display_width(idx)
+  local pw = pill_base(idx)
+  return math.max(0, math.floor(dw / 2) - math.floor(pw / 2))
 end
 
 local NOTCH_W = pill_base(current_display)
@@ -185,7 +184,8 @@ local function expand_on(target, item)
 
   local w = effective_width(target, item.width or pill_base(target))
   local h = item.height or IDLE_H
-  local mg = math.max(0, math.floor((display_width(target) - w) / 2))
+  local dw = display_width(target)
+  local mg = math.max(0, math.floor(dw / 2) - math.floor(w / 2))
 
   local L = item.left
   local R = item.right
@@ -338,24 +338,22 @@ end
 
 local function retarget_focused_display()
   local target = display.focused_index()
-  if target == current_display then
-    return
-  end
+  if target == current_display then return end
   current_display = target
   if not is_expanded then
+    local base = pill_base(target)
+    island:set { width = base }
+    cur_w = base
+    cur_mg = idle_margin(target)
+    sbar.bar(bar_props({ display = target, margin = cur_mg, y_offset = y_idle(target), hidden = true }, target))
     return
   end
-
   local query = island:query()
   local w = tonumber(query and query.geometry and query.geometry.width) or pill_base(target)
-  local mg = math.max(0, math.floor((display_width(target) - w) / 2))
+  local dw = display_width(target)
+  local mg = math.max(0, math.floor(dw / 2) - math.floor(w / 2))
   cur_mg = mg
-  sbar.bar(bar_props({
-    display = target,
-    height = cur_h,
-    margin = mg,
-    y_offset = y_expand(target),
-  }, target))
+  sbar.bar(bar_props({ display = target, height = cur_h, margin = mg, y_offset = y_expand(target) }, target))
 end
 
 function M.restore_idle(opts)

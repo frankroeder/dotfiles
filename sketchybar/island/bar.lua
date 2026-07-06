@@ -2,9 +2,6 @@ local display = require "display"
 local island_style = require "island_style"
 local settings = require "settings"
 
--- Pill baseline: the physical notch when the focused screen is the notched
--- built-in, else a 200px pill. The island only ever lives on the focused
--- display (island_core retargets it on focus changes).
 local focused = display.focused_index()
 
 local focused_width = display.main_width
@@ -16,8 +13,8 @@ for _, row in ipairs(display.displays) do
 end
 
 local on_notched = focused == display.builtin_index and display.notch_width > 0
-local pill_width = on_notched and display.notch_width or 200
-local bar_margin = math.max(0, math.floor((focused_width - pill_width) / 2))
+local pill_width = on_notched and display.notch_width or 160
+local bar_margin = math.max(0, math.floor(focused_width / 2) - math.floor(pill_width / 2))
 local style = island_style.bar()
 
 sbar.bar {
