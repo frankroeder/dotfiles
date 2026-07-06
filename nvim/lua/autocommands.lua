@@ -119,7 +119,13 @@ autocmd("BufReadPost", {
   callback = function(event)
     local exclude = { "gitcommit", "commit", "gitrebase", "svn", "hgcommit" }
     local buf = event.buf
-    if vim.tbl_contains(exclude, vim.bo[buf].filetype) or vim.b[buf].lazyvim_last_loc then
+    local name = vim.api.nvim_buf_get_name(buf)
+    if vim.tbl_contains(exclude, vim.bo[buf].filetype)
+      or vim.b[buf].lazyvim_last_loc
+      or name:find("COMMIT_EDITMSG", 1, true)
+      or name:find("MERGE_MSG", 1, true)
+      or name:find("git-rebase-todo", 1, true)
+    then
       return
     end
     vim.b[buf].lazyvim_last_loc = true
