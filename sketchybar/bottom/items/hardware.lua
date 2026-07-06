@@ -49,16 +49,12 @@ local gpu_graph = ui.bracket_graph("widgets.gpu_graph", hw.gpu_graph, {
 
 local gpu_label = ui.bracket_metric("widgets.gpu_label", {
   pad_r = hw.gpu_label_pad_r,
-  width = 88,
+  width = 78,
   icon = icons.gpu,
-  icon_w = 20,
+  icon_w = 28,
   icon_font = { size = fnt.hw_small },
   color = settings.theme.accent,
   text = "GPU 00%",
-  label_w = 58,
-  label_align = "right",
-  label_pad_l = 0,
-  label_pad_r = sp.edge,
 })
 
 ui.bracket_spacer("widgets.spacer_gpu_ram", 0)
@@ -153,6 +149,7 @@ local power = ui.add_capsule("widgets.power", {
   label = {
     string = "-- W",
     font = { size = 12.0 },
+    padding_left = 0,
     padding_right = 6,
   },
 })

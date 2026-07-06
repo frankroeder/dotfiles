@@ -35,7 +35,7 @@ local ssd_volume = ui.add_capsule("widgets.ssd.volume", {
     },
     align = "right",
     width = settings.layout.columns.label_pct,
-    padding_left = 4,
+    padding_left = 0,
     padding_right = 6,
     string = "...%",
   },

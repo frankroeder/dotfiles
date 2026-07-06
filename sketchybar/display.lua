@@ -215,6 +215,10 @@ local function map_yabai_index(yabai_index)
 end
 
 local function focused_index()
+  -- Single display: skip the blocking yabai+jq query (pills appear faster).
+  if #displays == 1 then
+    return displays[1].index
+  end
   -- `--display focused` is not a valid yabai DISPLAY_SEL; pick the has-focus display instead.
   local yabai_index = tonumber(
     popen_line [[yabai -m query --displays 2>/dev/null | /usr/bin/jq -r 'map(select(.["has-focus"]))[0].index // empty' 2>/dev/null]]

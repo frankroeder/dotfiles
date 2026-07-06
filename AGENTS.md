@@ -58,7 +58,20 @@ Config in `sketchybar/{bottom,top,island}/`; shared lua at `sketchybar/*.lua`. R
 with `<bin> --reload`. Prefer plain `require` for items (fail loud), not safe_require.
 
 Requirements / decisions:
-- Island pill follows the active theme (`theme.surface`/`theme.border`), never hardcoded black.
+- Island pill background is notch-black (0xff000000) to blend with the physical notch; border is
+  `theme.border`. Foregrounds are the static mocha palette at full alpha (`colors.mocha` in
+  island_style) — bright in both modes, since latte fg is unreadable on black.
+- Island pills: appswitch, battery, power, siri, volume (native `volume_change`, first event after
+  subscribe is skipped), layout (`island_layout` fired from skhd fn-e/w/s), wifi (native
+  `wifi_change`, SSID primed at load, dedup on state). No now-playing/media pill (removed by decision).
+- Every expand grows out of the notch (idle seed in island_core); consecutive expands morph.
+- NEVER put constant-valued numeric props inside `sbar.animate` batches: sketchybar interpolates
+  constants through truncated midpoints (y_offset -16 → -15 → -16, border_width 1 → 0, corner_radius
+  16 → 15), visible as 1px jitter / border flicker on every pill. island_core tracks last-applied
+  geometry (`cur_w/cur_h/cur_mg`) and builds animate payloads with only the props that change;
+  strings/fonts/paddings/statics apply un-animated beforehand.
+- Island tuck equals corner_radius (offsets -16): hides the top rounding above the screen edge so
+  the pill sides come out of the notch square; heights include the tucked 16px.
 - Island is notch-aware: on the built-in (notched) display keep full width to straddle the notch;
   on external/notchless displays subtract the notch allowance (`effective_width` in island_core).
 - Island shows ONLY on the focused display: every `sbar.bar` mutation carries `display = <focused>`.

@@ -135,11 +135,19 @@ local back = sbar.add("item", "widgets.media.back", {
 
 local play = sbar.add("item", "widgets.media.play", {
   position = "popup.widgets.media",
+  -- Icon box, item box and background must all be exactly 40px with zero
+  -- paddings (item and background paddings are coupled in sketchybar), or the
+  -- circle offsets from the glyph. The asymmetric icon paddings and y_offset
+  -- optically re-center the SF glyphs (their ink sits left/high of the
+  -- advance box that sketchybar centers on).
   icon = {
     string = icons.media.play,
     font = { size = 18.0 },
+    width = 40,
+    align = "center",
     padding_left = 4,
-    padding_right = 4,
+    padding_right = 0,
+    y_offset = -1,
     color = colors.red,
   },
   label = { drawing = false },
@@ -152,6 +160,8 @@ local play = sbar.add("item", "widgets.media.play", {
     border_color = colors.surface1,
     border_width = 2,
     drawing = true,
+    padding_left = 0,
+    padding_right = 0,
   },
   y_offset = CONTROLS_Y,
 })
@@ -420,4 +430,12 @@ media:subscribe("theme_colors_updated", function()
     label = { color = colors.lavender },
   }
   album_art:set { background = { color = settings.theme.surface_alt } }
+  track_title:set { label = { color = colors.mauve } }
+  track_artist:set { label = { color = colors.blue } }
+  track_album:set { label = { color = colors.lavender } }
+  shuffle_btn:set { icon = { color = colors.grey, highlight_color = colors.lavender } }
+  back:set { icon = { color = colors.grey } }
+  forward:set { icon = { color = colors.grey } }
+  repeat_btn:set { icon = { color = colors.grey, highlight_color = colors.lavender } }
+  play:set { background = { color = colors.surface0, border_color = colors.surface1 } }
 end)

@@ -25,6 +25,7 @@ sbar.add("event", "island_tap")
 sbar.add("event", "island_battery")
 sbar.add("event", "island_siri")
 sbar.add("event", "island_power")
+sbar.add("event", "island_layout")
 require "bar"
 require "default"
 require "display_watch"

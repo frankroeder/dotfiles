@@ -5,9 +5,14 @@ local ui = require "ui"
 
 local coffee = ui.add_capsule("widgets.coffee", {
   position = "left",
+  -- Fixed centered icon box (zero paddings) so the glyph sits dead-centre.
   icon = {
     string = icons.coffee.off,
     color = colors.grey,
+    width = 30,
+    align = "center",
+    padding_left = 0,
+    padding_right = 0,
     font = {
       style = settings.font.style_map["Regular"],
       size = 16.0,

@@ -30,11 +30,11 @@ BOTTOM_BAR_HEIGHT=$(bar_height sketchybar 43)
 SETTINGS="${DOTFILES:-$HOME/.dotfiles}/sketchybar/settings.lua"
 island_num() {
   local value
-  value=$(grep -m1 -E "^[[:space:]]*$1[[:space:]]*=" "$SETTINGS" 2>/dev/null | grep -oE '[0-9]+')
-  [[ $value =~ ^[0-9]+$ ]] && printf '%s\n' "$value" || printf '%s\n' "$2"
+  value=$(grep -m1 -E "^[[:space:]]*$1[[:space:]]*=" "$SETTINGS" 2>/dev/null | grep -oE '\-?[0-9]+')
+  [[ $value =~ ^-?[0-9]+$ ]] && printf '%s\n' "$value" || printf '%s\n' "$2"
 }
 
-ISLAND_TOP=$(( $(island_num idle_height 40) + $(island_num y_offset_expand 6) ))
+ISLAND_TOP=$(( $(island_num idle_height 56) + $(island_num y_offset_expand -16) ))
 TOP_RESERVE=$TOP_BAR_HEIGHT
 [[ $ISLAND_TOP -gt $TOP_RESERVE ]] && TOP_RESERVE=$ISLAND_TOP
 
@@ -42,12 +42,12 @@ yabai -m config window_origin_display        default \
                 window_placement             second_child \
                 window_shadow                off \
                 window_opacity               on \
-                window_opacity_duration      0.0 \
+                window_opacity_duration      0.15 \
                 window_insertion_point       focused \
                 normal_window_opacity        0.94 \
                 active_window_opacity        1.0 \
                 window_gap                   20 \
-                window_animation_duration    0.0 \
+                window_animation_duration    0.2 \
                 window_animation_easing      ease_out_circ \
                 top_padding                  12 \
                 bottom_padding               10 \

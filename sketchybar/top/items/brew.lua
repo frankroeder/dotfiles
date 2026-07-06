@@ -9,11 +9,11 @@ local brew = sbar.add("item", "widgets.brew", {
   padding_left = settings.paddings,
   padding_right = settings.paddings,
   update_freq = 3600,
+  -- No padding overrides: inherit the default icon paddings so the capsule
+  -- breathes evenly like the other top widgets.
   icon = {
     string = icons.brew,
     color = colors.blue,
-    padding_left = 4,
-    padding_right = 2,
     font = { size = 14.0 },
   },
   label = {

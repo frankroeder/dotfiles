@@ -24,7 +24,6 @@ listener:subscribe("island_siri", function(env)
       height = island.IDLE_H,
       duration = 0,
       frames = siri_frames,
-      from_idle = true,
       color = SIRI_FILL,
       border_color = SIRI_FILL,
       left = {

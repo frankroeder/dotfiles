@@ -123,6 +123,8 @@ end
 
 local c = {
   transparent = 0x00000000,
+  -- Static dark palette for surfaces that stay black regardless of mode (notch pill).
+  mocha = mocha,
 }
 
 function c.with_alpha(color, alpha)

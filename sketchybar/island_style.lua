@@ -1,18 +1,22 @@
+local colors = require "colors"
 local display = require "display"
 local settings = require "settings"
 
 local M = {}
 
+-- The pill blends with the physical notch: always pure black, regardless of theme.
+local NOTCH_BLACK = 0xff000000
+
 local function on_notched_builtin(idx)
   return idx == display.builtin_index and display.notch_width > 0
 end
 
--- Pill follows the active theme; only the y-offset differs per display (notch tuck).
+-- Notch-black fill; border and foregrounds follow the active theme.
 function M.bar(_display_index)
   local theme = settings.theme
   local ui = settings.ui
   return {
-    color = theme.surface,
+    color = NOTCH_BLACK,
     border_color = theme.border,
     border_width = theme.border_width,
     corner_radius = settings.island.corner_radius or ui.item_corner_radius,
@@ -37,32 +41,36 @@ function M.y_offset_expand(display_index)
   return settings.island.y_offset_external or 0
 end
 
+-- Foregrounds on the notch-black pill: always the dark palette's hues at full
+-- alpha (bright), independent of light/dark mode — light palette is too dark on black.
+local fg = colors.mocha
+
 function M.text()
-  return settings.theme.text_primary
+  return 0xffffffff
 end
 
 function M.muted()
-  return settings.theme.text_muted
+  return fg.text
 end
 
 function M.accent()
-  return settings.theme.accent
+  return fg.blue
 end
 
 function M.accent_alt()
-  return settings.theme.accent_alt
+  return fg.sky
 end
 
 function M.warn()
-  return settings.theme.warn
+  return fg.peach
 end
 
 function M.critical()
-  return settings.theme.critical
+  return fg.red
 end
 
 function M.success()
-  return settings.theme.success
+  return fg.green
 end
 
 return M

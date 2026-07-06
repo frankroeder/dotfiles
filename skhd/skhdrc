@@ -69,9 +69,9 @@ fn - 8 : yabai -m space --focus 8
 fn - 9 : yabai -m space --focus 9
 
 # change layout of space (i3 defaults)
-fn - e : yabai -m space --layout bsp; sketchybar-top --trigger layout_change
-fn - w : yabai -m space --layout float; sketchybar-top --trigger layout_change
-fn - s : yabai -m space --layout stack; sketchybar-top --trigger layout_change
+fn - e : yabai -m space --layout bsp; sketchybar-top --trigger layout_change; sketchybar-island --trigger island_layout layout=bsp
+fn - w : yabai -m space --layout float; sketchybar-top --trigger layout_change; sketchybar-island --trigger island_layout layout=float
+fn - s : yabai -m space --layout stack; sketchybar-top --trigger layout_change; sketchybar-island --trigger island_layout layout=stack
 
 # quit/close focused window
 fn - q : yabai -m window --close

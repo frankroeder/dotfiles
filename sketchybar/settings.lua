@@ -138,7 +138,7 @@ local settings = {
       icon_sm = 22,
       label = 50,
       label_lg = 62,
-      label_pct = 64,
+      label_pct = 58,
       wifi = 30,
       wifi_icon = 20,
       rate_icon = 21,
@@ -190,18 +190,26 @@ local settings = {
     appswitch_duration = 2,
     power = true,
     power_duration = 3,
+    volume = true,
+    volume_duration = 1,
+    layout = true,
+    layout_duration = 2,
+    wifi = true,
+    wifi_duration = 3,
     siri_frames = 18,
     -- Pill geometry. Heights must clear the physical notch or the pill hides
     -- behind it; adjust `widths` to make the pill narrower/wider per alert.
     bar_height = 40,
-    idle_height = 40,
-    expand_height = 100,
-    corner_radius = 18,
-    -- Built-in notch: tuck under the bezel while idle, float down when expanded.
-    y_offset_idle = -9,
-    y_offset_expand = 6,
-    -- External / notchless displays align with the usual top bar offset.
-    y_offset_external = 6,
+    idle_height = 56,
+    expand_height = 112,
+    corner_radius = 16,
+    -- Tuck by the corner radius so the top rounding hides above the screen edge
+    -- and the pill pours squarely out of the notch. Heights include the tuck.
+    y_offset_idle = -16,
+    y_offset_expand = -16,
+    y_offset_external = -16,
+    -- Push pill text toward the bottom of the pill (negative = down).
+    text_y_offset = -8,
     -- Single-line pills put their text in the left lobe (left of the notch),
     -- so width must be generous enough to keep that text out of the centre.
     widths = {
@@ -210,6 +218,9 @@ local settings = {
       battery = 420,
       battery_critical = 420,
       power = 560,
+      volume = 420,
+      layout = 460,
+      wifi = 520,
     },
   },
   wallpaper = {
