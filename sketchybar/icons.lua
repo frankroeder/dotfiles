@@ -93,8 +93,8 @@ local icons = {
       dark = "􀆺",
     },
     bluetooth = {
-      on = "􀖀",
-      off = "􁅒",
+      on = "󰂯",
+      off = "󰂲",
     },
     device = {
       headphone = "􀑈",

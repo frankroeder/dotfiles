@@ -6,6 +6,7 @@ local ui = require "ui"
 local last_level = 0
 
 local volume = ui.add_capsule("widgets.volume", {
+  grouped = true,
   icon = {
     string = icons.volume[100],
     color = colors.vol,
@@ -45,7 +46,7 @@ local function update_volume(volume_level)
 
   sbar.animate("tanh", settings.animation_duration, function()
     volume:set {
-      background = ui.widget_background(),
+      background = { drawing = false },
       icon = { string = icon, color = colors.vol },
       label = { string = volume_level .. "%", color = colors.vol },
     }
@@ -94,7 +95,7 @@ sbar.exec("osascript -e 'output volume of (get volume settings)'", function(vol)
 end)
 
 volume:subscribe("theme_colors_updated", function()
-  volume:set { background = ui.widget_background() }
+  volume:set { background = { drawing = false } }
   update_volume(last_level)
   volume_slider:set {
     slider = ui.slider_track(colors.vol),

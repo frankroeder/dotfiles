@@ -79,18 +79,47 @@ local function apply_label_pad(label)
   return label
 end
 
+-- Tighter paddings for widgets that live inside a shared pill.
+local function apply_compact_icon_pad(icon)
+  if not icon or icon.drawing == false then
+    return icon
+  end
+  if icon.padding_left == nil then
+    icon.padding_left = sp.inner
+  end
+  if icon.padding_right == nil then
+    icon.padding_right = sp.inner
+  end
+  return icon
+end
+
+local function apply_compact_label_pad(label)
+  if not label or label.drawing == false then
+    return label
+  end
+  if label.padding_left == nil then
+    label.padding_left = 2
+  end
+  if label.padding_right == nil then
+    label.padding_right = sp.inner
+  end
+  return label
+end
+
 function ui.add_capsule(name, spec)
   spec = spec or {}
   local hidden_label = spec.label and spec.label.drawing == false
   local cfg = {
     position = spec.position or "right",
     padding_left = spec.padding_left ~= nil and spec.padding_left
-      or (spec.widget_gap == false and 0 or sp.widget),
+      or (spec.widget_gap == false and 0 or (spec.grouped and 0 or sp.widget)),
     padding_right = spec.padding_right ~= nil and spec.padding_right
-      or (spec.widget_gap == false and 0 or sp.widget),
-    background = spec.surface and ui.capsule(spec.surface) or ui.widget_background(),
-    icon = hidden_label and apply_center_icon_pad(spec.icon) or apply_icon_pad(spec.icon),
-    label = apply_label_pad(spec.label),
+      or (spec.widget_gap == false and 0 or (spec.grouped and 0 or sp.widget)),
+    background = spec.surface and ui.capsule(spec.surface)
+      or (spec.grouped and { drawing = false } or ui.widget_background()),
+    icon = spec.grouped and apply_compact_icon_pad(spec.icon)
+      or (hidden_label and apply_center_icon_pad(spec.icon) or apply_icon_pad(spec.icon)),
+    label = spec.grouped and apply_compact_label_pad(spec.label) or apply_label_pad(spec.label),
     update_freq = spec.update_freq,
     updates = spec.updates,
     popup = spec.popup,

@@ -41,7 +41,7 @@ local network_down = ui.stacked_rate("widgets.network_down", {
   stack = -settings.layout.spacing.stack,
 })
 
-ui.bracket_spacer("widgets.network_gap", settings.layout.spacing.group)
+ui.bracket_spacer("widgets.network_gap", settings.layout.spacing.edge)
 
 local function apply_rate_colors()
   local up_color = rate_inactive(last_rates.upload) and settings.theme.text_muted

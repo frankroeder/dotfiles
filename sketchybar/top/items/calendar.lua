@@ -3,6 +3,8 @@ local settings = require "settings"
 local ui = require "ui"
 
 local cal = ui.add_capsule("widgets.calendar", {
+  padding_left = 4,
+  padding_right = 4,
   update_freq = 30,
   icon = { drawing = false },
   label = {

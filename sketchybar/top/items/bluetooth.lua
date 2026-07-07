@@ -7,12 +7,18 @@ local popup_row_height = settings.ui.popup_row_height
 sbar.add("event", "bt_device", "com.apple.bluetooth.status")
 
 local bluetooth = ui.add_capsule("widgets.bluetooth", {
+  padding_left = 4,
+  padding_right = 4,
   icon = {
     string = icons.bluetooth.on,
     color = colors.blue,
+    width = 22,
+    align = "center",
+    padding_left = 8,
+    padding_right = 8,
     font = {
-      style = settings.font.style_map["Regular"],
-      size = 16.0,
+      style = settings.font.style_map["Bold"],
+      size = 18.0,
     },
   },
   label = { drawing = false },
@@ -52,16 +58,39 @@ local function get_device_icon(minor_type)
   return "•"
 end
 
+-- Mirror the macOS bluetooth state on the bar icon.
+local function set_bar(powered, count)
+  if not powered then
+    bluetooth:set { icon = { string = icons.bluetooth.off, color = colors.overlay0 } }
+  elseif count > 0 then
+    bluetooth:set { icon = { string = icons.bluetooth.on, color = colors.blue } }
+  else
+    bluetooth:set { icon = { string = icons.bluetooth.on, color = colors.subtext1 } }
+  end
+end
+
+local function show_empty(text)
+  if not empty_item then
+    empty_item = ui.popup_button("widgets.bluetooth.empty", bluetooth, { label = text })
+  end
+  empty_item:set { drawing = true, label = { string = text } }
+end
+
 local function update()
   sbar.exec("system_profiler SPBluetoothDataType -json", function(data)
     if not ready() then
       return
     end
     clear_popup()
+    local powered = true
     local count = 0
 
     if data and data.SPBluetoothDataType then
       for _, controller in pairs(data.SPBluetoothDataType) do
+        local props = controller.controller_properties
+        if props and props.controller_state == "attrib_off" then
+          powered = false
+        end
         if controller.device_connected then
           for _, device_entry in pairs(controller.device_connected) do
             for name, info in pairs(device_entry) do
@@ -118,32 +147,19 @@ local function update()
       end
     end
 
-    if count == 0 then
-      bluetooth:set { icon = { color = colors.overlay0 } }
-      if not empty_item then
-        empty_item = ui.popup_button("widgets.bluetooth.empty", bluetooth, {
-          label = "No Devices Connected",
-        })
-      end
-      empty_item:set { drawing = true }
-    else
-      if empty_item then
-        empty_item:set { drawing = false }
-      end
-      bluetooth:set { icon = { color = colors.blue } }
+    set_bar(powered, count)
+
+    if not powered then
+      show_empty "Bluetooth Off"
+    elseif count == 0 then
+      show_empty "No Devices Connected"
+    elseif empty_item then
+      empty_item:set { drawing = false }
     end
   end)
 end
 
-bluetooth:subscribe("bt_device", function(env)
-  if not ready() then
-    return
-  end
-  if env.INFO.POWER_STATE == 0 then
-    bluetooth:set { icon = { string = icons.bluetooth.off, color = colors.overlay0 } }
-  elseif env.INFO.POWER_STATE > 0 then
-    bluetooth:set { icon = { string = icons.bluetooth.on, color = colors.blue } }
-  end
+bluetooth:subscribe("bt_device", function()
   update()
 end)
 
@@ -158,3 +174,6 @@ bluetooth:subscribe("theme_colors_updated", function()
   bluetooth:set { background = ui.widget_background() }
   update()
 end)
+
+-- Seed initial state on load.
+update()

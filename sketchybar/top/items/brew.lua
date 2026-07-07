@@ -6,8 +6,8 @@ local popup_row_height = settings.ui.popup_row_height
 
 local brew = sbar.add("item", "widgets.brew", {
   position = "right",
-  padding_left = settings.paddings,
-  padding_right = settings.paddings,
+  padding_left = 4,
+  padding_right = 4,
   update_freq = 3600,
   -- No padding overrides: inherit the default icon paddings so the capsule
   -- breathes evenly like the other top widgets.

@@ -6,6 +6,7 @@ local ui = require "ui"
 local last_volume = 100
 
 local mic = ui.add_capsule("widgets.mic", {
+  grouped = true,
   icon = {
     string = icons.mic.off,
     color = colors.mic,
@@ -42,7 +43,7 @@ local function update()
 
     sbar.animate("tanh", settings.animation_duration, function()
       mic:set {
-        background = ui.widget_background(),
+        background = { drawing = false },
         icon = { string = icon, color = colors.mic },
         label = {
           string = is_muted and "Muted" or volume .. "%",
@@ -84,7 +85,7 @@ end)
 mic:subscribe({ "routine", "deferred_wake" }, update)
 
 mic:subscribe("theme_colors_updated", function()
-  mic:set { background = ui.widget_background() }
+  mic:set { background = { drawing = false } }
   mic_slider:set {
     slider = ui.slider_track(colors.mic),
     background = ui.button(),

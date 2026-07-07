@@ -29,6 +29,8 @@ local function maybe_island_alert(charge)
 end
 
 local battery = ui.add_capsule("widgets.battery", {
+  padding_left = 4,
+  padding_right = 4,
   icon = {
     font = {
       style = settings.font.style_map["Regular"],

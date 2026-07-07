@@ -19,29 +19,41 @@ else
   require "items.yabai_spaces"
 end
 
+-- Order matters: items are position="right", so requiring an item later places
+-- it further left. This keeps each pill's members visually adjacent.
 require "items.calendar"
 require "items.battery"
+require "items.brew"
+require "items.bluetooth" -- standalone, sits just right of the wifi pill
 require "items.network"
 require "items.wifi"
-require "items.brew"
+
+-- Spacer so the audio pill and the wifi pill don't touch.
+ui.bracket_spacer("top.group.gap", settings.layout.spacing.group)
+
 require "items.volume"
 require "items.mic"
-require "items.bluetooth"
 
-ui.bracket_group("top.group.network", {
+-- Volume + mic in one pill; wifi + network rates in another. Bluetooth is its own
+-- standalone capsule and sits between the two pills.
+ui.bracket_group("top.group.audio", {
+  "widgets.volume",
+  "widgets.mic",
+}, { padding = 3 })
+
+ui.bracket_group("top.group.connectivity", {
   "widgets.wifi",
   "widgets.network_gap",
   "widgets.network_up",
   "widgets.network_down",
-}, { padding = settings.paddings })
+}, { padding = 3 })
 
-local network_bracket_theme =
-  sbar.add("item", "top.group.network.theme", { drawing = false, updates = true })
-network_bracket_theme:subscribe("theme_colors_updated", function()
-  sbar.set("top.group.network", {
-    background = ui.capsule {
-      color = settings.theme.surface_alt,
-      border_color = settings.theme.border,
-    },
-  })
+local group_theme = sbar.add("item", "top.group.theme", { drawing = false, updates = true })
+group_theme:subscribe("theme_colors_updated", function()
+  local bg = ui.capsule {
+    color = settings.theme.surface_alt,
+    border_color = settings.theme.border,
+  }
+  sbar.set("top.group.audio", { background = bg })
+  sbar.set("top.group.connectivity", { background = bg })
 end)
