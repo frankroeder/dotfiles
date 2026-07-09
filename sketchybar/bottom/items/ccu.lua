@@ -7,18 +7,17 @@ local ui = require "ui"
 local theme = settings.theme
 local metrics = settings.ui
 
-local popup_width = 440
-local popup_pad = 12
-local title_width = 72
-local bar_width = 120
-local bar_height = 18
-local row_height = 34
+local popup_width = 280
+local title_w = 52
+local bar_w = 100
+local value_w = 112
+local bar_h = 6
+local row_h = metrics.popup_row_height
+local pad = 6
 
-local accent_session = colors.mauve or theme.accent
-local accent_weekly = colors.blue or theme.accent
-local last_usage = { session = 0, weekly = 0 }
-
-local NO_BG = { drawing = false }
+local accent_session = colors.mauve
+local accent_weekly = colors.blue
+local last = { session = nil, weekly = nil }
 
 local ccu = ui.add_capsule("widgets.ccu", {
   position = "left",
@@ -37,29 +36,45 @@ local ccu = ui.add_capsule("widgets.ccu", {
 
 local title_font = {
   family = settings.font.text,
-  style = settings.font.style_map["Bold"],
-  size = 15.0,
+  style = settings.font.style_map["Semibold"],
+  size = 12.0,
 }
 local value_font = {
   family = settings.font.numbers,
-  size = 13.0,
+  size = 11.0,
 }
 
 local function track_color(accent)
-  return colors.with_alpha(accent, colors.is_dark and 0.18 or 0.12)
+  return colors.with_alpha(accent, colors.is_dark and 0.20 or 0.14)
 end
 
--- One slider row per metric: title (icon) + proportional bar + value (label).
+local function usage_color(pct)
+  if pct == nil then
+    return theme.text_muted
+  end
+  if pct >= 90 then
+    return theme.critical
+  end
+  if pct >= 75 then
+    return colors.orange
+  end
+  if pct >= 50 then
+    return theme.warn
+  end
+  return theme.text_muted
+end
+
 local function metric_row(name, title, accent)
-  return sbar.add("slider", name, bar_width, {
+  return sbar.add("slider", name, bar_w, {
     position = "popup." .. ccu.name,
     width = popup_width,
-    padding_left = popup_pad,
-    padding_right = popup_pad,
+    align = "center",
+    padding_left = pad,
+    padding_right = pad,
     icon = {
       string = title,
-      width = title_width,
-      align = "left",
+      width = title_w,
+      align = "right",
       padding_left = 0,
       padding_right = 6,
       font = title_font,
@@ -67,10 +82,11 @@ local function metric_row(name, title, accent)
     },
     label = {
       string = "…",
-      align = "right",
+      width = value_w,
+      align = "left",
       padding_left = 6,
       padding_right = 0,
-      max_chars = 40,
+      max_chars = 22,
       font = value_font,
       color = theme.text_muted,
     },
@@ -78,84 +94,50 @@ local function metric_row(name, title, accent)
       percentage = 0,
       highlight_color = accent,
       background = {
-        height = bar_height,
-        corner_radius = bar_height / 2,
+        height = bar_h,
+        corner_radius = bar_h / 2,
         color = track_color(accent),
       },
       knob = { drawing = false, string = "" },
     },
-    background = { drawing = false, height = row_height },
+    background = { drawing = false, height = row_h },
   })
 end
 
 local function set_percent(item, accent, percent)
-  item:set({
+  item:set {
     slider = {
       percentage = percent == nil and 0 or math.floor(percent + 0.5),
       highlight_color = accent,
       background = {
-        height = bar_height,
-        corner_radius = bar_height / 2,
+        height = bar_h,
+        corner_radius = bar_h / 2,
         color = track_color(accent),
       },
       knob = { drawing = false, string = "" },
     },
-  })
+  }
 end
 
 local session_row = metric_row("widgets.ccu.session", "Session", accent_session)
 local weekly_row = metric_row("widgets.ccu.weekly", "Weekly", accent_weekly)
 
-local extra_row = sbar.add("item", "widgets.ccu.extra", {
-  position = "popup." .. ccu.name,
-  width = popup_width,
-  padding_left = popup_pad,
-  padding_right = popup_pad,
-  icon = {
-    string = "Extra",
-    width = title_width,
-    align = "left",
-    padding_left = 0,
-    padding_right = 6,
-    font = title_font,
-    color = theme.text_muted,
-  },
-  label = {
-    string = "…",
-    align = "right",
-    padding_left = 0,
-    padding_right = 0,
-    max_chars = 24,
-    font = value_font,
-    color = theme.text_muted,
-  },
-  background = { drawing = false, height = row_height },
-})
-
 local link = sbar.add("item", "widgets.ccu.link", {
   position = "popup." .. ccu.name,
   width = popup_width,
-  padding_left = popup_pad,
-  padding_right = popup_pad,
-  icon = {
-    string = icons.external_link,
-    color = theme.text_muted,
-    font = { size = 13.0 },
-    padding_left = 0,
-    padding_right = 6,
-  },
+  align = "center",
+  padding_left = pad,
+  padding_right = pad,
+  icon = { drawing = false },
   label = {
-    string = "Anthropic Usage page",
+    string = icons.external_link .. "  claude.ai/usage",
     color = theme.text_muted,
-    font = {
-      family = settings.font.numbers,
-      size = 13.0,
-    },
+    font = value_font,
+    align = "center",
     padding_left = 0,
     padding_right = 0,
   },
-  align = "center",
-  background = { drawing = false, height = row_height },
+  background = ui.button { height = row_h },
   click_script = "open https://claude.ai/settings/usage",
 })
 
@@ -173,7 +155,7 @@ end
 local function get_claude_usage(callback)
   sbar.exec(ccu_fetch_cmd(), function(lit)
     if not lit or lit == "" then
-      callback({ error = "empty_response" })
+      callback { error = "empty_response" }
       return
     end
 
@@ -181,26 +163,37 @@ local function get_claude_usage(callback)
     local result = (fn and fn()) or {}
 
     if type(result) ~= "table" then
-      callback({ error = "invalid_response" })
+      callback { error = "invalid_response" }
       return
     end
 
     if result.error then
-      callback({ error = result.error })
+      callback { error = result.error }
       return
     end
 
     local fh = result.five_hour
     local sd = result.seven_day
 
-    callback({
+    callback {
       five_hour = pct_value(fh),
       weekly = pct_value(sd),
       resets_at = fh and (fh.resets_at_de or fh.resets_at),
       weekly_resets_at = sd and (sd.resets_at_de or sd.resets_at),
-      extra_usage = result.extra_usage,
-    })
+    }
   end)
+end
+
+-- "2026-07-09 11:19 (CEST)" → "09.07. 11:19" (German date)
+local function short_reset(s)
+  if not s or s == "" then
+    return nil
+  end
+  local m, d, t = s:match "%d%d%d%d%-(%d%d)%-(%d%d) (%d%d:%d%d)"
+  if m then
+    return string.format("%s.%s. %s", d, m, t)
+  end
+  return s
 end
 
 local function format_pct(percent, reset)
@@ -208,59 +201,87 @@ local function format_pct(percent, reset)
     return "—"
   end
   local text = string.format("%.0f%%", percent)
-  if reset and reset ~= "" then
-    text = text .. " · " .. reset
+  local r = short_reset(reset)
+  if r then
+    text = text .. " · " .. r
   end
   return text
 end
 
-local function apply_usage(result)
-  if result.error then
-    last_usage.session, last_usage.weekly = 0, 0
-    session_row:set({ label = { string = result.error, color = theme.critical } })
-    weekly_row:set({ label = { string = "—", color = theme.text_muted } })
-    extra_row:set({ label = { string = "—", color = theme.text_muted } })
-    set_percent(session_row, accent_session, 0)
-    set_percent(weekly_row, accent_weekly, 0)
+local function set_capsule(session_pct, weekly_pct, err)
+  if err then
+    ccu:set {
+      background = ui.capsule(),
+      label = { string = "CCu ?", color = theme.critical },
+    }
     return
   end
 
-  last_usage.session = result.five_hour or 0
-  last_usage.weekly = result.weekly or 0
+  local pct = session_pct
+  if pct == nil and weekly_pct ~= nil then
+    pct = weekly_pct
+  elseif pct ~= nil and weekly_pct ~= nil then
+    pct = math.max(pct, weekly_pct)
+  end
 
-  session_row:set({
-    label = { string = format_pct(result.five_hour, result.resets_at), color = theme.text_muted },
-  })
-  weekly_row:set({
-    label = { string = format_pct(result.weekly, result.weekly_resets_at), color = theme.text_muted },
-  })
+  if pct == nil then
+    ccu:set {
+      background = ui.capsule(),
+      label = { string = "CCu", color = theme.text_muted },
+    }
+    return
+  end
+
+  ccu:set {
+    background = ui.capsule(),
+    label = {
+      string = string.format("CCu %.0f%%", pct),
+      color = usage_color(pct),
+    },
+  }
+end
+
+local function apply_usage(result)
+  if result.error then
+    last.session, last.weekly = nil, nil
+    session_row:set { label = { string = result.error, color = theme.critical } }
+    weekly_row:set { label = { string = "—", color = theme.text_muted } }
+    set_percent(session_row, accent_session, 0)
+    set_percent(weekly_row, accent_weekly, 0)
+    set_capsule(nil, nil, true)
+    return
+  end
+
+  last.session = result.five_hour
+  last.weekly = result.weekly
+
+  session_row:set {
+    label = {
+      string = format_pct(result.five_hour, result.resets_at),
+      color = usage_color(result.five_hour),
+    },
+  }
+  weekly_row:set {
+    label = {
+      string = format_pct(result.weekly, result.weekly_resets_at),
+      color = usage_color(result.weekly),
+    },
+  }
   set_percent(session_row, accent_session, result.five_hour)
   set_percent(weekly_row, accent_weekly, result.weekly)
-
-  local eu = result.extra_usage
-  if eu and eu.is_enabled then
-    local pct = pct_value(eu) or 0
-    local used = eu.used_credits and string.format("%.2f", tonumber(eu.used_credits) / 100) or "?"
-    local limit = eu.monthly_limit and string.format("%.2f", tonumber(eu.monthly_limit) / 100) or "?"
-    extra_row:set({
-      label = { string = string.format("%.0f%% · €%s/€%s", pct, used, limit), color = theme.text_muted },
-    })
-  else
-    extra_row:set({ label = { string = "disabled", color = theme.text_muted } })
-  end
+  set_capsule(result.five_hour, result.weekly)
 end
 
 local function refresh_theme()
-  ccu:set({
-    background = ui.capsule(),
+  session_row:set { icon = { color = accent_session } }
+  weekly_row:set { icon = { color = accent_weekly } }
+  link:set {
     label = { color = theme.text_muted },
-  })
-  link:set({
-    icon = { color = theme.text_muted },
-    label = { color = theme.text_muted },
-  })
-  set_percent(session_row, accent_session, last_usage.session)
-  set_percent(weekly_row, accent_weekly, last_usage.weekly)
+    background = ui.button { height = row_h },
+  }
+  set_percent(session_row, accent_session, last.session)
+  set_percent(weekly_row, accent_weekly, last.weekly)
+  set_capsule(last.session, last.weekly)
 end
 
 ccu:subscribe("theme_colors_updated", refresh_theme)
