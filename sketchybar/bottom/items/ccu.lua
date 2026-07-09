@@ -6,16 +6,21 @@ local ui = require "ui"
 
 local theme = settings.theme
 local metrics = settings.ui
-local accent = colors.peach
 
-local popup_width = 280
-local popup_pad =  metrics.popup_label_padding
-local bar_height = 12
-local bar_track_width = popup_width - popup_pad * 2
+local popup_width = 440
+local popup_pad = 12
+local title_width = 72
+local bar_width = 120
+local bar_height = 18
+local row_height = 34
 
-local popup_row = { drawing = false, height = metrics.popup_row_height }
+local accent_session = colors.mauve or theme.accent
+local accent_weekly = colors.blue or theme.accent
+local last_usage = { session = 0, weekly = 0 }
 
-local ccu_item = ui.add_capsule("widgets.ccu", {
+local NO_BG = { drawing = false }
+
+local ccu = ui.add_capsule("widgets.ccu", {
   position = "left",
   icon = { drawing = false },
   label = {
@@ -25,239 +30,144 @@ local ccu_item = ui.add_capsule("widgets.ccu", {
       style = settings.font.style_map["Bold"],
       size = 12.0,
     },
-    color = accent,
     padding_right = 10,
   },
+  popup = { align = "center" },
 })
-
-local ccu_bracket = sbar.add("bracket", "widgets.ccu.bracket", {
-  ccu_item.name,
-}, {
-  background = ui.capsule {
-    color = colors.with_alpha(accent, colors.is_dark and 0.16 or 0.10),
-    border_width = 0,
-  },
-  popup = {
-    align = "center",
-    y_offset = metrics.popup_y_offset,
-    background = ui.popup(accent),
-  },
-})
-
-local function popup_item(name, spec)
-  return sbar.add("item", name, {
-    position = "popup." .. ccu_bracket.name,
-    width = popup_width,
-    background = popup_row,
-    icon = spec.icon or { drawing = false },
-    label = spec.label or { drawing = false },
-    align = spec.align,
-    click_script = spec.click_script,
-  })
-end
-
-local function set_bar_percent(label_item, bar_item, percent)
-  local fill_width = math.floor(percent / 100 * bar_track_width + 0.5)
-  bar_item:set({ icon = { width = fill_width } })
-  label_item:set({ label = { string = percent .. "%" } })
-end
 
 local title_font = {
   family = settings.font.text,
   style = settings.font.style_map["Bold"],
-  size = 13.0,
+  size = 15.0,
 }
 local value_font = {
   family = settings.font.numbers,
-  size = 12.0,
-}
-local meta_font = {
-  family = settings.font.numbers,
-  size = 11.0,
+  size = 13.0,
 }
 
-popup_item("widgets.ccu.spacer_0", {
-  label = { string = "", font = meta_font, color = theme.text_muted },
-})
+local function track_color(accent)
+  return colors.with_alpha(accent, colors.is_dark and 0.18 or 0.12)
+end
 
-local session_label = popup_item("widgets.ccu.session_label", {
-  icon = {
-    string = "Current Session",
-    color = colors.mauve,
-    width = popup_width / 2,
-    font = title_font,
-  },
-  label = {
-    string = "--%",
-    color = colors.mauve,
-    align = "right",
-    width = popup_width / 2,
-    font = value_font,
-  },
-})
-
-local session_bar = popup_item("widgets.ccu.session_bar", {
-  icon = {
-    string = " ",
-    width = 0,
-    padding_left = 0,
-    padding_right = 0,
-    background = {
-      color = colors.mauve,
-      height = bar_height,
-      corner_radius = 2,
-    },
-  },
-  label = { drawing = false },
-})
-session_bar:set({
-  background = {
-    drawing = true,
-    color = colors.with_alpha(colors.mauve, 0.22),
-    height = bar_height,
-    corner_radius = 2,
-    border_width = 0,
+-- One slider row per metric: title (icon) + proportional bar + value (label).
+local function metric_row(name, title, accent)
+  return sbar.add("slider", name, bar_width, {
+    position = "popup." .. ccu.name,
+    width = popup_width,
     padding_left = popup_pad,
     padding_right = popup_pad,
-  },
-})
+    icon = {
+      string = title,
+      width = title_width,
+      align = "left",
+      padding_left = 0,
+      padding_right = 6,
+      font = title_font,
+      color = accent,
+    },
+    label = {
+      string = "…",
+      align = "right",
+      padding_left = 6,
+      padding_right = 0,
+      max_chars = 40,
+      font = value_font,
+      color = theme.text_muted,
+    },
+    slider = {
+      percentage = 0,
+      highlight_color = accent,
+      background = {
+        height = bar_height,
+        corner_radius = bar_height / 2,
+        color = track_color(accent),
+      },
+      knob = { drawing = false, string = "" },
+    },
+    background = { drawing = false, height = row_height },
+  })
+end
 
-local session_reset = popup_item("widgets.ccu.session_reset", {
-  label = {
-    string = "Resets: --",
-    color = theme.text_muted,
-    font = meta_font,
-  },
-})
+local function set_percent(item, accent, percent)
+  item:set({
+    slider = {
+      percentage = percent == nil and 0 or math.floor(percent + 0.5),
+      highlight_color = accent,
+      background = {
+        height = bar_height,
+        corner_radius = bar_height / 2,
+        color = track_color(accent),
+      },
+      knob = { drawing = false, string = "" },
+    },
+  })
+end
 
-popup_item("widgets.ccu.spacer_1", {
-  label = { string = "", font = meta_font, color = theme.text_muted },
-})
+local session_row = metric_row("widgets.ccu.session", "Session", accent_session)
+local weekly_row = metric_row("widgets.ccu.weekly", "Weekly", accent_weekly)
 
-local weekly_label = popup_item("widgets.ccu.weekly_label", {
+local extra_row = sbar.add("item", "widgets.ccu.extra", {
+  position = "popup." .. ccu.name,
+  width = popup_width,
+  padding_left = popup_pad,
+  padding_right = popup_pad,
   icon = {
-    string = "Weekly Usage",
-    color = colors.blue,
-    width = popup_width / 2,
+    string = "Extra",
+    width = title_width,
+    align = "left",
+    padding_left = 0,
+    padding_right = 6,
     font = title_font,
+    color = theme.text_muted,
   },
   label = {
-    string = "--%",
-    color = colors.blue,
+    string = "…",
     align = "right",
-    width = popup_width / 2,
-    font = value_font,
-  },
-})
-
-local weekly_bar = popup_item("widgets.ccu.weekly_bar", {
-  icon = {
-    string = " ",
-    width = 0,
     padding_left = 0,
     padding_right = 0,
-    background = {
-      color = colors.blue,
-      height = bar_height,
-      corner_radius = 2,
-    },
-  },
-  label = { drawing = false },
-})
-weekly_bar:set({
-  background = {
-    drawing = true,
-    color = colors.with_alpha(colors.blue, 0.22),
-    height = bar_height,
-    corner_radius = 2,
-    border_width = 0,
-    padding_left = popup_pad,
-    padding_right = popup_pad,
-  },
-})
-
-local weekly_reset = popup_item("widgets.ccu.weekly_reset", {
-  label = {
-    string = "Resets: --",
-    color = theme.text_muted,
-    font = meta_font,
-  },
-})
-
-popup_item("widgets.ccu.spacer_2", {
-  label = { string = "", font = meta_font, color = theme.text_muted },
-})
-
-local extra_label = popup_item("widgets.ccu.extra_label", {
-  icon = {
-    string = "Extra Usage",
-    color = colors.green,
-    width = popup_width / 2,
-    font = title_font,
-  },
-  label = {
-    string = "--%",
-    color = colors.green,
-    align = "right",
-    width = popup_width / 2,
+    max_chars = 24,
     font = value_font,
-  },
-})
-
-local extra_bar = popup_item("widgets.ccu.extra_bar", {
-  icon = {
-    string = " ",
-    width = 0,
-    padding_left = 0,
-    padding_right = 0,
-    background = {
-      color = colors.green,
-      height = bar_height,
-      corner_radius = 2,
-    },
-  },
-  label = { drawing = false },
-})
-extra_bar:set({
-  background = {
-    drawing = true,
-    color = colors.with_alpha(colors.green, 0.22),
-    height = bar_height,
-    corner_radius = 2,
-    border_width = 0,
-    padding_left = popup_pad,
-    padding_right = popup_pad,
-  },
-})
-
-local extra_info = popup_item("widgets.ccu.extra_info", {
-  label = {
-    string = "",
     color = theme.text_muted,
-    font = meta_font,
   },
+  background = { drawing = false, height = row_height },
 })
 
-local link = popup_item("widgets.ccu.link", {
+local link = sbar.add("item", "widgets.ccu.link", {
+  position = "popup." .. ccu.name,
+  width = popup_width,
+  padding_left = popup_pad,
+  padding_right = popup_pad,
   icon = {
     string = icons.external_link,
     color = theme.text_muted,
-    font = { size = 11.0 },
-    padding_left = popup_pad,
-    padding_right = 4,
+    font = { size = 13.0 },
+    padding_left = 0,
+    padding_right = 6,
   },
   label = {
-    string = "open Anthropic usage page",
+    string = "Anthropic Usage page",
     color = theme.text_muted,
-    font = meta_font,
-    padding_right = popup_pad,
+    font = {
+      family = settings.font.numbers,
+      size = 13.0,
+    },
+    padding_left = 0,
+    padding_right = 0,
   },
-  align = "right",
+  align = "center",
+  background = { drawing = false, height = row_height },
   click_script = "open https://claude.ai/settings/usage",
 })
 
 local function ccu_fetch_cmd()
   return "python3 " .. os.getenv "HOME" .. "/.dotfiles/sketchybar/helpers/claude_usage.py"
+end
+
+local function pct_value(block)
+  if not block or block.utilization == nil then
+    return nil
+  end
+  return tonumber(block.utilization)
 end
 
 local function get_claude_usage(callback)
@@ -282,119 +192,82 @@ local function get_claude_usage(callback)
 
     local fh = result.five_hour
     local sd = result.seven_day
-    local eu = result.extra_usage
 
     callback({
-      five_hour = fh and tonumber(fh.utilization),
-      weekly = sd and tonumber(sd.utilization),
+      five_hour = pct_value(fh),
+      weekly = pct_value(sd),
       resets_at = fh and (fh.resets_at_de or fh.resets_at),
       weekly_resets_at = sd and (sd.resets_at_de or sd.resets_at),
-      extra_usage = eu,
-      source = result.source,
+      extra_usage = result.extra_usage,
     })
   end)
 end
 
+local function format_pct(percent, reset)
+  if percent == nil then
+    return "—"
+  end
+  local text = string.format("%.0f%%", percent)
+  if reset and reset ~= "" then
+    text = text .. " · " .. reset
+  end
+  return text
+end
+
+local function apply_usage(result)
+  if result.error then
+    last_usage.session, last_usage.weekly = 0, 0
+    session_row:set({ label = { string = result.error, color = theme.critical } })
+    weekly_row:set({ label = { string = "—", color = theme.text_muted } })
+    extra_row:set({ label = { string = "—", color = theme.text_muted } })
+    set_percent(session_row, accent_session, 0)
+    set_percent(weekly_row, accent_weekly, 0)
+    return
+  end
+
+  last_usage.session = result.five_hour or 0
+  last_usage.weekly = result.weekly or 0
+
+  session_row:set({
+    label = { string = format_pct(result.five_hour, result.resets_at), color = theme.text_muted },
+  })
+  weekly_row:set({
+    label = { string = format_pct(result.weekly, result.weekly_resets_at), color = theme.text_muted },
+  })
+  set_percent(session_row, accent_session, result.five_hour)
+  set_percent(weekly_row, accent_weekly, result.weekly)
+
+  local eu = result.extra_usage
+  if eu and eu.is_enabled then
+    local pct = pct_value(eu) or 0
+    local used = eu.used_credits and string.format("%.2f", tonumber(eu.used_credits) / 100) or "?"
+    local limit = eu.monthly_limit and string.format("%.2f", tonumber(eu.monthly_limit) / 100) or "?"
+    extra_row:set({
+      label = { string = string.format("%.0f%% · €%s/€%s", pct, used, limit), color = theme.text_muted },
+    })
+  else
+    extra_row:set({ label = { string = "disabled", color = theme.text_muted } })
+  end
+end
+
 local function refresh_theme()
-  local pill = ui.capsule {
-    color = colors.with_alpha(accent, colors.is_dark and 0.16 or 0.10),
-    border_width = 0,
-  }
-
-  ccu_bracket:set({
-    background = pill,
-    popup = { background = ui.popup(accent) },
-  })
-
-  ccu_item:set({
+  ccu:set({
     background = ui.capsule(),
-    label = { color = accent },
+    label = { color = theme.text_muted },
   })
-
-  session_label:set({
-    icon = { color = colors.mauve },
-    label = { color = colors.mauve },
-  })
-  session_bar:set({
-    icon = { background = { color = colors.mauve } },
-    background = { color = colors.with_alpha(colors.mauve, 0.22) },
-  })
-  session_reset:set({ label = { color = theme.text_muted } })
-
-  weekly_label:set({
-    icon = { color = colors.blue },
-    label = { color = colors.blue },
-  })
-  weekly_bar:set({
-    icon = { background = { color = colors.blue } },
-    background = { color = colors.with_alpha(colors.blue, 0.22) },
-  })
-  weekly_reset:set({ label = { color = theme.text_muted } })
-
-  extra_label:set({
-    icon = { color = colors.green },
-    label = { color = colors.green },
-  })
-  extra_bar:set({
-    icon = { background = { color = colors.green } },
-    background = { color = colors.with_alpha(colors.green, 0.22) },
-  })
-  extra_info:set({ label = { color = theme.text_muted } })
-
   link:set({
     icon = { color = theme.text_muted },
     label = { color = theme.text_muted },
   })
+  set_percent(session_row, accent_session, last_usage.session)
+  set_percent(weekly_row, accent_weekly, last_usage.weekly)
 end
 
-ccu_bracket:subscribe("theme_colors_updated", refresh_theme)
+ccu:subscribe("theme_colors_updated", refresh_theme)
 refresh_theme()
 
-local function update_popup()
-  get_claude_usage(function(result)
-    if ccu_bracket:query().popup.drawing ~= "on" then
-      return
-    end
-
-    if result.error then
-      session_label:set({ label = { string = "err" } })
-      session_reset:set({ label = { string = result.error } })
-      weekly_label:set({ label = { string = "--%" } })
-      weekly_reset:set({ label = { string = "" } })
-      extra_label:set({ label = { string = "Disabled" } })
-      extra_bar:set({ background = { drawing = false }, icon = { drawing = false } })
-      extra_info:set({ label = { string = "" } })
-      return
-    end
-
-    if result.five_hour then
-      set_bar_percent(session_label, session_bar, result.five_hour)
-    end
-    session_reset:set({
-      label = { string = "Resets: " .. (result.resets_at or "---") },
-    })
-
-    if result.weekly then
-      set_bar_percent(weekly_label, weekly_bar, result.weekly)
-    end
-    weekly_reset:set({
-      label = { string = "Resets: " .. (result.weekly_resets_at or "---") },
-    })
-
-    local eu = result.extra_usage
-    if eu and eu.is_enabled then
-      local pct = eu.utilization and tonumber(eu.utilization) or 0
-      set_bar_percent(extra_label, extra_bar, pct)
-      extra_bar:set({ background = { drawing = true }, icon = { drawing = true } })
-      local used = eu.used_credits and string.format("%.2f", tonumber(eu.used_credits) / 100) or "?"
-      local limit = eu.monthly_limit and string.format("%.2f", tonumber(eu.monthly_limit) / 100) or "?"
-      extra_info:set({ label = { string = "Used: €" .. used .. " / €" .. limit } })
-    else
-      extra_label:set({ label = { string = "Disabled" } })
-      extra_bar:set({ background = { drawing = false }, icon = { drawing = false } })
-      extra_info:set({ label = { string = "" } })
-    end
-  end)
+local function refresh_usage()
+  get_claude_usage(apply_usage)
 end
 
 local refresh_timer = sbar.add("item", "widgets.ccu.refresh_timer", {
@@ -403,9 +276,10 @@ local refresh_timer = sbar.add("item", "widgets.ccu.refresh_timer", {
 })
 
 refresh_timer:subscribe("routine", function()
-  if ccu_bracket:query().popup.drawing == "on" then
-    update_popup()
+  if ccu:query().popup.drawing == "on" then
+    refresh_usage()
   end
 end)
 
-ui.bind_popup_group(ccu_bracket, { ccu_item }, { on_open = update_popup })
+ui.bind_popup(ccu, { on_open = refresh_usage })
+refresh_usage()
