@@ -11,6 +11,26 @@ sbar.add("event", "music_change", "com.apple.Music.playerInfo")
 local cfg = settings.media
 local delay = cfg.delay_after_cmd or 0.2
 
+-- Popup: [art | text column]. Text uses width=0 (stack); spacer completes the
+-- column width after the control strip so the shell matches the text (no
+-- double-count of controls + full TEXT_COL_W).
+local ART_SIZE = cfg.popup_art_size or 180
+local POPUP_H = cfg.popup_height or 240
+local TEXT_COL_W = cfg.popup_text_width or 320
+local text_chars = cfg.popup_text_chars or { title = 27, artist = 30, album = 30 }
+local ART_GAP = 20
+local PLAY_BTN = 40
+local CONTROLS_Y = -56
+local PLAY_FONT = "SF Pro:Regular:15.0"
+local CTRL_FONT = "SF Pro:Regular:16.0"
+
+-- back(30)+play(40)+forward(30); shuffle/repeat when media-control is present
+local CTRL_STRIP = 30 + PLAY_BTN + 30
+if media_control.available then
+  CTRL_STRIP = CTRL_STRIP + 28 + 28
+end
+local SPACER_W = math.max(20, TEXT_COL_W - CTRL_STRIP)
+
 local media = sbar.add("item", "widgets.media", {
   position = "center",
   drawing = false,
@@ -30,9 +50,12 @@ local media = sbar.add("item", "widgets.media", {
   popup = {
     align = "center",
     horizontal = true,
-    height = cfg.popup_height or 160,
+    height = POPUP_H,
+    background = ui.popup(),
   },
 })
+
+local is_playing = false
 
 local function media_osascript(cmd)
   sbar.exec('osascript -e \'tell application "Music" to ' .. cmd .. "'")
@@ -42,91 +65,99 @@ local function after_cmd(fn)
   sbar.exec("sleep " .. tostring(delay), fn)
 end
 
-local ART_SIZE = 120
-
 local album_art = sbar.add("item", "widgets.media.art", {
   position = "popup.widgets.media",
   icon = { drawing = false },
   label = { drawing = false },
   width = ART_SIZE,
-  padding_right = 12,
+  padding_left = 0,
+  padding_right = ART_GAP,
   background = {
     drawing = false,
     height = ART_SIZE,
-    corner_radius = 8,
+    corner_radius = 10,
     color = settings.theme.surface_alt,
   },
 })
 
--- width = 0 + zero paddings keep all text items at the same x, stacked via y_offset
-local track_title = sbar.add("item", "widgets.media.title", {
-  position = "popup.widgets.media",
-  icon = { drawing = false },
-  width = 0,
-  padding_left = 0,
-  padding_right = 0,
-  label = {
-    font = { size = 20.0 },
-    max_chars = 18,
-    color = colors.mauve,
-  },
-  y_offset = 48,
-})
+-- width=0 + zero pads: all text shares the same x; label.width clips to column.
+local function text_row(name, font_size, max_chars, color, y)
+  return sbar.add("item", name, {
+    position = "popup.widgets.media",
+    icon = { drawing = false },
+    width = 0,
+    padding_left = 0,
+    padding_right = 0,
+    label = {
+      font = { size = font_size },
+      max_chars = max_chars,
+      width = TEXT_COL_W,
+      padding_left = 0,
+      padding_right = 0,
+      color = color,
+    },
+    y_offset = y,
+  })
+end
 
-local track_artist = sbar.add("item", "widgets.media.artist", {
-  position = "popup.widgets.media",
-  icon = { drawing = false },
-  width = 0,
-  padding_left = 0,
-  padding_right = 0,
-  label = {
-    font = { size = 15.0 },
-    max_chars = 20,
-    color = colors.blue,
-  },
-  y_offset = 18,
-})
+local track_title = text_row("widgets.media.title", 22.0, text_chars.title, colors.mauve, 56)
+local track_artist = text_row("widgets.media.artist", 16.0, text_chars.artist, colors.blue, 22)
+local track_album = text_row("widgets.media.album", 16.0, text_chars.album, colors.lavender, -10)
 
-local track_album = sbar.add("item", "widgets.media.album", {
-  position = "popup.widgets.media",
-  icon = { drawing = false },
-  width = 0,
-  padding_left = 0,
-  padding_right = 0,
-  label = {
-    font = { size = 15.0 },
-    max_chars = 20,
-    color = colors.lavender,
-  },
-  y_offset = -8,
-})
-
-local CONTROLS_Y = -48
+local function play_icon(playing)
+  if playing then
+    return {
+      string = icons.media.pause,
+      font = PLAY_FONT,
+      width = PLAY_BTN,
+      align = "center",
+      padding_left = 0,
+      padding_right = 0,
+      y_offset = 0,
+      color = colors.green,
+    }
+  end
+  return {
+    string = icons.media.play,
+    font = PLAY_FONT,
+    width = PLAY_BTN,
+    align = "center",
+    padding_left = 2,
+    padding_right = 0,
+    y_offset = 0,
+    color = colors.red,
+  }
+end
 
 local shuffle_btn = sbar.add("item", "widgets.media.shuffle", {
   position = "popup.widgets.media",
   drawing = media_control.available,
+  padding_left = 0,
+  padding_right = 0,
   icon = {
     string = icons.media.shuffle,
-    padding_left = 5,
-    padding_right = 5,
+    font = CTRL_FONT,
+    padding_left = 4,
+    padding_right = 4,
     color = colors.grey,
     highlight_color = colors.lavender,
   },
-  label = { drawing = false },
+  label = { drawing = false, width = 0, padding_left = 0, padding_right = 0 },
   y_offset = CONTROLS_Y,
 })
 
 local back = sbar.add("item", "widgets.media.back", {
   position = "popup.widgets.media",
+  padding_left = 0,
+  padding_right = 0,
   icon = {
     string = icons.media.back,
-    font = { size = 16.0 },
-    padding_left = 5,
-    padding_right = 5,
+    font = CTRL_FONT,
+    padding_left = 4,
+    padding_right = 4,
     color = colors.grey,
   },
-  label = { drawing = false },
+  label = { drawing = false, width = 0, padding_left = 0, padding_right = 0 },
   width = 30,
   align = "center",
   background = { drawing = false },
@@ -135,27 +166,21 @@ local back = sbar.add("item", "widgets.media.back", {
 
 local play = sbar.add("item", "widgets.media.play", {
   position = "popup.widgets.media",
-  -- Icon box, item box and background must all be exactly 40px with zero
-  -- paddings (item and background paddings are coupled in sketchybar), or the
-  -- circle offsets from the glyph. The asymmetric icon paddings and y_offset
-  -- optically re-center the SF glyphs (their ink sits left/high of the
-  -- advance box that sketchybar centers on).
-  icon = {
-    string = icons.media.play,
-    font = { size = 18.0 },
-    width = 40,
-    align = "center",
-    padding_left = 4,
+  icon = play_icon(false),
+  label = {
+    drawing = false,
+    string = "",
+    width = 0,
+    padding_left = 0,
     padding_right = 0,
-    y_offset = -1,
-    color = colors.red,
   },
-  label = { drawing = false },
-  width = 40,
+  width = PLAY_BTN,
+  padding_left = 0,
+  padding_right = 0,
   align = "center",
   background = {
-    height = 40,
-    corner_radius = 20,
+    height = PLAY_BTN,
+    corner_radius = math.floor(PLAY_BTN / 2),
     color = colors.surface0,
     border_color = colors.surface1,
     border_width = 2,
@@ -168,14 +193,16 @@ local play = sbar.add("item", "widgets.media.play", {
 
 local forward = sbar.add("item", "widgets.media.forward", {
   position = "popup.widgets.media",
+  padding_left = 0,
+  padding_right = 0,
   icon = {
     string = icons.media.forward,
-    font = { size = 16.0 },
-    padding_left = 5,
-    padding_right = 5,
+    font = CTRL_FONT,
+    padding_left = 4,
+    padding_right = 4,
     color = colors.grey,
   },
-  label = { drawing = false },
+  label = { drawing = false, width = 0, padding_left = 0, padding_right = 0 },
   width = 30,
   align = "center",
   background = { drawing = false },
@@ -185,21 +212,26 @@ local forward = sbar.add("item", "widgets.media.forward", {
 local repeat_btn = sbar.add("item", "widgets.media.repeat", {
   position = "popup.widgets.media",
   drawing = media_control.available,
+  padding_left = 0,
+  padding_right = 0,
   icon = {
     string = icons.media.repeating,
+    font = CTRL_FONT,
     highlight_color = colors.lavender,
-    padding_left = 5,
-    padding_right = 10,
+    padding_left = 4,
+    padding_right = 4,
     color = colors.grey,
   },
-  label = { drawing = false },
+  label = { drawing = false, width = 0, padding_left = 0, padding_right = 0 },
   y_offset = CONTROLS_Y,
 })
 
--- pads the text/controls column so long titles stay inside the popup
+-- Completes the text column: controls strip + spacer ≈ TEXT_COL_W (not double).
 sbar.add("item", "widgets.media.spacer", {
   position = "popup.widgets.media",
-  width = 60,
+  width = SPACER_W,
+  padding_left = 0,
+  padding_right = 8,
   icon = { drawing = false },
   label = { drawing = false },
   background = { drawing = false },
@@ -219,12 +251,11 @@ local function display_album(album)
   return cfg.default_album or "No Album"
 end
 
--- sketchybar never marks popup items as "shown", so scroll_texts is dead there;
--- scroll the popup texts manually while the popup is open
+-- sketchybar never marks popup items as "shown"; marquee while popup is open
 local marquee = {
-  { item = track_title, width = 18 },
-  { item = track_artist, width = 20 },
-  { item = track_album, width = 20 },
+  { item = track_title, width = text_chars.title },
+  { item = track_artist, width = text_chars.artist },
+  { item = track_album, width = text_chars.album },
 }
 local marquee_running = false
 
@@ -234,7 +265,14 @@ local function marquee_set(entry, text)
     entry.chars[#entry.chars + 1] = c
   end
   entry.pos = 0
-  entry.item:set { label = text }
+  entry.item:set {
+    label = {
+      string = text,
+      width = TEXT_COL_W,
+      padding_left = 0,
+      padding_right = 0,
+    },
+  }
 end
 
 local function marquee_tick()
@@ -249,7 +287,14 @@ local function marquee_tick()
         win[i + 1] = m.chars[(m.pos + i) % #m.chars + 1]
       end
       m.pos = (m.pos + 1) % #m.chars
-      m.item:set { label = table.concat(win) }
+      m.item:set {
+        label = {
+          string = table.concat(win),
+          width = TEXT_COL_W,
+          padding_left = 0,
+          padding_right = 0,
+        },
+      }
     end
   end
   sbar.delay(0.3, marquee_tick)
@@ -264,6 +309,7 @@ end
 
 local function update_track_ui(title, artist, album, state)
   local playing = state == "Playing" or state == true
+  is_playing = playing
   local has_media = (title and title ~= "") or (artist and artist ~= "")
 
   sbar.animate("tanh", settings.animation_duration * 2, function()
@@ -275,18 +321,13 @@ local function update_track_ui(title, artist, album, state)
     marquee_set(marquee[1], title or "")
     marquee_set(marquee[2], display_artist(artist))
     marquee_set(marquee[3], display_album(album))
-    play:set {
-      icon = {
-        string = playing and icons.media.pause or icons.media.play,
-        color = playing and colors.green or colors.red,
-      },
-    }
+    play:set { icon = play_icon(playing) }
   end)
 end
 
 local function update_album_art(path)
   if not path or path == "" then
-    album_art:set { background = { drawing = false } }
+    album_art:set { background = { drawing = false, image = { drawing = false } } }
     return
   end
 
@@ -322,11 +363,28 @@ end
 
 local function refresh_from_media_control()
   media_control.update_current_track(function(title, artist, album)
-    media_control.stats(function(playing)
+    media_control.stats(function(playing, shuffle, repeat_on)
       update_track_ui(title, artist, album, playing)
-      update_icons(nil, false, false)
+      update_icons(nil, shuffle, repeat_on)
     end)
   end)
+end
+
+local function load_art()
+  if media_control.available then
+    media_control.update_album_art(update_album_art, {})
+    return
+  end
+  sbar.exec("$CONFIG_DIR/helpers/get_album_art.sh", function(path)
+    update_album_art(path and path:gsub("%s+$", "") or "")
+  end)
+end
+
+local function refresh_all()
+  if media_control.available then
+    refresh_from_media_control()
+  end
+  load_art()
 end
 
 media:subscribe("routine", function()
@@ -345,20 +403,15 @@ media:subscribe("music_change", function(env)
     env.INFO.Album or "",
     env.INFO["Player State"] or "Stopped"
   )
+  load_art()
 end)
 
-local function load_art()
-  if media_control.available then
-    media_control.update_album_art(update_album_art, {})
-    return
-  end
-  sbar.exec("$CONFIG_DIR/helpers/get_album_art.sh", function(path)
-    update_album_art(path and path:gsub("%s+$", "") or "")
-  end)
-end
-
 media:subscribe("mouse.clicked", function()
-  utils.popup_toggle(media, load_art)
+  utils.popup_toggle(media, function()
+    refresh_all()
+    marquee_start()
+  end)
+  -- Ensure marquee runs even if popup was already open / toggle closed→open race
   marquee_start()
 end)
 
@@ -374,6 +427,9 @@ local function control_action(action, after)
     elseif action == "prev_track" then
       media_osascript "previous track"
     end
+    if after then
+      after_cmd(after)
+    end
   end
 end
 
@@ -386,14 +442,15 @@ end)
 
 play:subscribe("mouse.clicked", function()
   control_action("toggle_play", function()
-    media_control.stats(function(playing)
-      play:set {
-        icon = {
-          string = playing and icons.media.pause or icons.media.play,
-          color = playing and colors.green or colors.red,
-        },
-      }
-    end)
+    if media_control.available then
+      media_control.stats(function(playing)
+        is_playing = playing and true or false
+        play:set { icon = play_icon(is_playing) }
+      end)
+    else
+      is_playing = not is_playing
+      play:set { icon = play_icon(is_playing) }
+    end
   end)
 end)
 
@@ -428,14 +485,26 @@ media:subscribe("theme_colors_updated", function()
   media:set {
     background = ui.capsule(),
     label = { color = colors.lavender },
+    popup = {
+      align = "center",
+      horizontal = true,
+      height = POPUP_H,
+      background = ui.popup(),
+    },
   }
   album_art:set { background = { color = settings.theme.surface_alt } }
-  track_title:set { label = { color = colors.mauve } }
-  track_artist:set { label = { color = colors.blue } }
-  track_album:set { label = { color = colors.lavender } }
+  track_title:set { label = { color = colors.mauve, width = TEXT_COL_W, padding_left = 0, padding_right = 0 } }
+  track_artist:set { label = { color = colors.blue, width = TEXT_COL_W, padding_left = 0, padding_right = 0 } }
+  track_album:set { label = { color = colors.lavender, width = TEXT_COL_W, padding_left = 0, padding_right = 0 } }
   shuffle_btn:set { icon = { color = colors.grey, highlight_color = colors.lavender } }
   back:set { icon = { color = colors.grey } }
   forward:set { icon = { color = colors.grey } }
   repeat_btn:set { icon = { color = colors.grey, highlight_color = colors.lavender } }
-  play:set { background = { color = colors.surface0, border_color = colors.surface1 } }
+  play:set {
+    background = {
+      color = colors.surface0,
+      border_color = colors.surface1,
+    },
+    icon = play_icon(is_playing),
+  }
 end)

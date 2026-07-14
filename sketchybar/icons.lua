@@ -13,6 +13,7 @@ local icons = {
     cpu = "􀫥",
     gpu = "􀧓",
     power = "􀋦",
+    pin = "􀎧",
     clipboard = "􀉄",
     calendar = "􀧞",
     ip = "􀤆",
@@ -112,6 +113,7 @@ local icons = {
     gear = "",
     cpu = "",
     clipboard = "Missing Icon",
+    pin = "󰐃",
     calendar = "",
     swap = "󰍛",
     mail = "􀍕",
@@ -181,6 +183,17 @@ local icons = {
     bluetooth = {
       on = "󰂱",
       off = "󰂲",
+    },
+    device = {
+      headphone = "󰋋",
+      speaker = "󰓃",
+      keyboard = "󰌌",
+      mouse = "󰍽",
+    },
+    yabai = {
+      float = "󰖲",
+      stack = "󰐃",
+      bsp = "󰕰",
     },
   },
 }

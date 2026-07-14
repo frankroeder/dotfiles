@@ -188,39 +188,33 @@ local settings = {
   island = {
     appswitch = true,
     appswitch_duration = 2,
-    power = true,
-    power_duration = 3,
-    volume = true,
-    volume_duration = 1,
+    window = true,
+    window_duration = 2,
     layout = true,
     layout_duration = 2,
-    wifi = true,
-    wifi_duration = 3,
+    mic = true,
+    mic_duration = 2,
+    bluetooth = true,
+    bluetooth_duration = 3,
     siri_frames = 18,
-    -- Pill geometry. Heights must clear the physical notch or the pill hides
-    -- behind it; adjust `widths` to make the pill narrower/wider per alert.
-    bar_height = 40,
+    -- Idle bar height matches the single-line pill; heights include the tuck.
+    bar_height = 56,
     idle_height = 56,
     expand_height = 112,
     corner_radius = 16,
-    -- Tuck by the corner radius so the top rounding hides above the screen edge
-    -- and the pill pours squarely out of the notch. Heights include the tuck.
+    -- Tuck by the corner radius so the top rounding hides above the screen edge.
     y_offset_idle = -16,
     y_offset_expand = -16,
     y_offset_external = -16,
-    -- Push pill text toward the bottom of the pill (negative = down).
     text_y_offset = -8,
-    -- Single-line pills put their text in the left lobe (left of the notch),
-    -- so width must be generous enough to keep that text out of the centre.
+    -- Widths sized so the longest label fits its lobe (fallback mono is wide).
     widths = {
-      app = 520,
-      siri = 360,
-      battery = 420,
-      battery_critical = 420,
-      power = 560,
-      volume = 420,
-      layout = 460,
-      wifi = 520,
+      app = 560,
+      siri = 380,
+      layout = 520,
+      mic = 460,
+      bluetooth = 540,
+      window = 480,
     },
   },
   wallpaper = {
@@ -253,7 +247,11 @@ local settings = {
     controller = "media-control",
     album_art_size = 1280,
     title_max_chars = 40,
-    popup_height = 160,
+    -- ~150% wider popup: art 120→180, text column ~200→320 (must be ≥ longest label)
+    popup_height = 240,
+    popup_art_size = 180,
+    popup_text_width = 320,
+    popup_text_chars = { title = 27, artist = 30, album = 30 },
     delay_after_cmd = 0.2,
     default_artist = "Various Artists",
     default_album = "No Album",
@@ -263,8 +261,6 @@ local settings = {
   large_screen_width = 2000,
   monitor_map = { ["LG ULTRAFINE"] = 2, ["DELL S2722DZ"] = 2, ["Built-in Retina Display"] = 1 },
   spaces = {
-    -- nil | "greek_uppercase" | "greek_lowercase"
-    id_style = "greek_lowercase",
     item_padding = 12,
     highlight_color = colors.lavender,
     icon = {

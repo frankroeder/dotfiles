@@ -61,19 +61,32 @@ Requirements / decisions:
 - Island pill background is notch-black (0xff000000) to blend with the physical notch; border is
   `theme.border`. Foregrounds are the static mocha palette at full alpha (`colors.mocha` in
   island_style) — bright in both modes, since latte fg is unreadable on black.
-- Island pills: appswitch, battery, power, siri, volume (native `volume_change`, first event after
-  subscribe is skipped), layout (`island_layout` fired from skhd fn-e/w/s), wifi (native
-  `wifi_change`, SSID primed at load, dedup on state). No now-playing/media pill (removed by decision).
+- Island pills: appswitch, siri, layout (`island_layout` from skhd fn-e/w/s), mic (`island_mic`
+  from top mic), bluetooth (`island_bluetooth` from top bt poll on new connect), window
+  (`island_window` from skhd fn+shift-w/s float+sticky toggles; re-queries yabai for state).
+  No battery/power pills (macOS notifies on low battery), no volume pill (native HUD), no wifi
+  pill, no space pill (overlapped appswitch), no now-playing/media pill, no vpn pill.
+- Expand priority: lower prio never clobbers higher; sticky siri (duration=0) only yields to higher
+  prio or same kind. Dismiss uses cancellable `sbar.delay`. Restore snaps idle geometry outside
+  animate then hides.
+- `display.refresh()` re-probes notch + arrangement rows on `display_change` (hotplug).
 - Every expand grows out of the notch (idle seed in island_core); consecutive expands morph.
-- NEVER put constant-valued numeric props inside `sbar.animate` batches: sketchybar interpolates
-  constants through truncated midpoints (y_offset -16 → -15 → -16, border_width 1 → 0, corner_radius
-  16 → 15), visible as 1px jitter / border flicker on every pill. island_core tracks last-applied
-  geometry (`cur_w/cur_h/cur_mg`) and builds animate payloads with only the props that change;
-  strings/fonts/paddings/statics apply un-animated beforehand.
+- NEVER put constant-valued numeric props inside `sbar.animate` batches when value is unchanged
+  (1px jitter). Expand only animates changing geometry. Restore snaps idle geometry un-animated
+  then hides (avoids omitted margin/width zeroing to full-display stretch).
+- `display.notch_width`: require both auxiliary flanks + n < 40% of screen (else 0). Full-width
+  "notch" on externals was a false positive that set idle pill width = display width.
+- Smoke: `sketchybar/island/smoke_test.sh [out_dir]`.
 - Island tuck equals corner_radius (offsets -16): hides the top rounding above the screen edge so
   the pill sides come out of the notch square; heights include the tucked 16px.
-- Island is notch-aware: on the built-in (notched) display keep full width to straddle the notch;
-  on external/notchless displays subtract the notch allowance (`effective_width` in island_core).
+- Island is notch-aware: on the built-in (notched) display the pill straddles the notch — text in
+  a wide left box (left-aligned, at the pill's left, out of the notch), glyph in a fixed right lobe
+  (right of the notch). The wide left box fills the width so the glyph is pushed to the right lobe
+  with only small paddings — DO NOT use large paddings (~notch width) to build the gap, sketchybar
+  mis-renders them (content collapses/centers even though `--query` reports the set values). Widths
+  in settings.lua are sized (from measured label widths) so the left text stays clear of the notch;
+  SF Mono is not installed so the fallback monospaced font is wider — measure against it. On
+  external/notchless displays lobes are equal halves clustered toward the center.
 - Island shows ONLY on the focused display: every `sbar.bar` mutation carries `display = <focused>`.
   Focused display comes from `display.focused_index()`, which filters yabai's `has-focus` display
   (NOT `--display focused` — that is an invalid yabai DISPLAY_SEL and silently fails).
@@ -86,8 +99,9 @@ Requirements / decisions:
   `island_core.refresh_theme()` (recolor-only while expanded).
 - Appswitch pill dedups on app name (`last_app`) — when testing with manual
   `--trigger front_app_switched INFO=...`, use a fresh name each time.
-- Island expand height reserved by yabai `external_bar` top = appswitcher pill (`idle_height +
-  y_offset_expand`), parsed from settings.lua in yabairc. Needs `yabai --restart-service` to apply.
+- Island yabai `external_bar` top = idle pill only (`idle_height + y_offset_expand`
+  from settings.lua). Island bar `topmost=on` so taller critical can draw over
+  windows. Needs `yabai --restart-service` to apply.
 - Top bar renders on ALL displays (no display pin). In dual-monitor `notch_width` stays 0 (avoids
   external cutout artifacts); the built-in notch is covered by the island pill, not a bar cutout.
 - No `front_app` top widget: deleted. The island appswitch pill is the app indicator, driven

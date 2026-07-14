@@ -20,14 +20,27 @@ local config = {
   },
   right = {
     font = settings.font.app_icon .. ":Regular:32.0",
-    align = "center",
-    width = 40,
+    -- Fixed right lobe keeps the glyph outside the physical notch.
+    width = 48,
     padding_left = 4,
     padding_right = 16,
   },
 }
 
 local last_app = nil
+
+-- Transient system UIs — toasting these is noise (lock, auth, helpers).
+local SKIP = {
+  loginwindow = true,
+  SecurityAgent = true,
+  ["ScreenSaverEngine"] = true,
+  ["Notification Center"] = true,
+  ["Control Center"] = true,
+  ["SystemUIServer"] = true,
+  ["ViewBridgeAuxiliary"] = true,
+  coreautha = true,
+  universalAccessAuthWarn = true,
+}
 
 local listener = sbar.add("item", "listener.appswitch", {
   drawing = false,
@@ -40,16 +53,22 @@ local listener = sbar.add("item", "listener.appswitch", {
 
 listener:subscribe("front_app_switched", function(env)
   local name = env.INFO or ""
-  if name == "" or name == last_app then
+  if name == "" or name == last_app or SKIP[name] then
+    return
+  end
+  -- sketchybar emits the current app once on subscribe; prime only, no toast.
+  if last_app == nil then
+    last_app = name
     return
   end
   last_app = name
 
-  -- Keep the name inside the left lobe (left of the notch) so it stays visible.
-  local short = #name > 15 and (name:sub(1, 14) .. "…") or name
+  local short = #name > 13 and (name:sub(1, 13) .. "…") or name
   local glyph = utils.lookup_app_icon(name, app_icons)
 
   island.expand {
+    kind = "appswitch",
+    priority = island.priority.appswitch,
     width = config.width,
     height = config.height,
     duration = config.duration,
@@ -63,7 +82,6 @@ listener:subscribe("front_app_switched", function(env)
     right = {
       text = glyph ~= app_icons["Default"] and glyph or icons.apple,
       font = config.right.font,
-      align = config.right.align,
       width = config.right.width,
       color = island_style.accent(),
       padding_left = config.right.padding_left,

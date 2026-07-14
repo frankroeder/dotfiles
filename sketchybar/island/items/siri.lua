@@ -20,6 +20,9 @@ local listener = sbar.add("item", "listener.siri", {
 listener:subscribe("island_siri", function(env)
   if env.action == "appear" then
     island.expand {
+      kind = "siri",
+      priority = island.priority.siri,
+      sticky = true,
       width = settings.island.widths.siri,
       height = island.IDLE_H,
       duration = 0,
@@ -27,11 +30,17 @@ listener:subscribe("island_siri", function(env)
       color = SIRI_FILL,
       border_color = SIRI_FILL,
       left = {
-        text = "􀫛",
-        font = { size = 32, style = "Regular" },
+        text = "Siri",
+        font = { size = 16, style = "Semibold" },
         color = SIRI_GLYPH,
-        width = 100,
-        padding_left = 2,
+        padding_left = 16,
+        padding_right = 4,
+      },
+      right = {
+        text = "􀫛",
+        font = { size = 26, style = "Regular" },
+        color = SIRI_GLYPH,
+        padding_left = 4,
         padding_right = 16,
       },
     }

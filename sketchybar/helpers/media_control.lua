@@ -44,7 +44,11 @@ function media_control.stats(callback)
       callback(false, false, false)
       return
     end
-    callback(result.playing == true, false, false)
+    local shuffle = result.shuffle == true or result.shuffleMode == true
+      or result.shuffle == "on" or result.shuffleMode == "on"
+    local rep = result["repeat"] == true or result.repeatMode == true
+      or result.repeating == true or result["repeat"] == "on"
+    callback(result.playing == true, shuffle, rep)
   end)
 end
 

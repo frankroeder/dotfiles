@@ -10,6 +10,7 @@
 --   main_width       – logical width of main_index
 --   main_notch       – notch width on main_index (0 when main is external)
 --   focused_index()  – sketchybar arrangement-id for yabai's focused display
+--   refresh()        – re-probe notch + display rows (hotplug / resolution)
 
 local SKETCHYBAR_BINS = {
   "/opt/homebrew/bin/sketchybar-top",
@@ -40,55 +41,56 @@ local function popen_all(cmd)
   return raw
 end
 
-local handle = io.popen(
-  "osascript -l JavaScript -e '"
-    .. 'ObjC.import("AppKit");'
-    .. "var screens=$.NSScreen.screens;"
-    .. "var sw=0,nw=0;"
-    .. "for(var i=0;i<screens.length;i++){"
-    .. "var s=screens.objectAtIndex(i);"
-    .. "var w=s.frame.size.width;"
-    .. "var n=w-s.auxiliaryTopLeftArea.size.width"
-    .. "-s.auxiliaryTopRightArea.size.width;"
-    .. "if(n>50){sw=Math.floor(w);nw=Math.floor(n);break;}"
-    .. "}"
-    .. "if(sw===0){"
-    .. "for(var j=0;j<screens.length;j++){"
-    .. "var s=screens.objectAtIndex(j);"
-    .. "var name=ObjC.unwrap(s.localizedName)||\"\";"
-    .. "if(name.indexOf(\"Built-in\")>=0){"
-    .. "sw=Math.floor(s.frame.size.width);"
-    .. "nw=Math.floor(sw-s.auxiliaryTopLeftArea.size.width"
-    .. "-s.auxiliaryTopRightArea.size.width);"
-    .. "break;}"
-    .. "}"
-    .. "}"
-    .. "if(sw===0){"
-    .. "var m=$.NSScreen.mainScreen;"
-    .. "sw=Math.floor(m.frame.size.width);"
-    .. "nw=Math.floor(sw-m.auxiliaryTopLeftArea.size.width"
-    .. "-m.auxiliaryTopRightArea.size.width);"
-    .. "}"
-    .. "sw+\",\"+nw"
-    .. "' 2>/dev/null"
-)
-local out = handle and handle:read "*l" or ""
-if handle then
-  handle:close()
+-- Notch = gap between auxiliaryTopLeft/Right areas. Without side areas, n == w
+-- (false notch on external monitors); require both flanks and n < 40% of width.
+local NOTCH_JS = "osascript -l JavaScript -e '"
+  .. 'ObjC.import("AppKit");'
+  .. "function notchOf(s){"
+  .. "var w=s.frame.size.width;"
+  .. "var L=s.auxiliaryTopLeftArea.size.width;"
+  .. "var R=s.auxiliaryTopRightArea.size.width;"
+  .. "var n=w-L-R;"
+  .. "if(L>1&&R>1&&n>50&&n<w*0.4)return Math.floor(n);"
+  .. "return 0;}"
+  .. "var screens=$.NSScreen.screens;"
+  .. "var sw=0,nw=0;"
+  .. "for(var i=0;i<screens.length;i++){"
+  .. "var s=screens.objectAtIndex(i);"
+  .. "var n=notchOf(s);"
+  .. "if(n>0){sw=Math.floor(s.frame.size.width);nw=n;break;}"
+  .. "}"
+  .. "if(sw===0){"
+  .. "for(var j=0;j<screens.length;j++){"
+  .. "var s=screens.objectAtIndex(j);"
+  .. "var name=ObjC.unwrap(s.localizedName)||\"\";"
+  .. "if(name.indexOf(\"Built-in\")>=0){"
+  .. "sw=Math.floor(s.frame.size.width);nw=notchOf(s);break;}"
+  .. "}"
+  .. "}"
+  .. "if(sw===0){"
+  .. "var m=$.NSScreen.mainScreen;"
+  .. "sw=Math.floor(m.frame.size.width);nw=notchOf(m);"
+  .. "}"
+  .. "sw+\",\"+nw"
+  .. "' 2>/dev/null"
+
+local MAIN_W_JS = "osascript -l JavaScript -e 'ObjC.import(\"AppKit\"); "
+  .. "Math.floor($.NSScreen.mainScreen.frame.size.width)' 2>/dev/null"
+
+local function probe_notch()
+  local out = popen_line(NOTCH_JS) or ""
+  local sw, nw = out:match("([%d.]+),([%d.]+)")
+  local screen_width = math.floor(tonumber(sw) or 1728)
+  local notch_width = math.floor(tonumber(nw) or 0)
+  if notch_width <= 50 or notch_width >= screen_width * 0.4 then
+    notch_width = 0
+  end
+  return screen_width, notch_width
 end
 
-local sw, nw = out:match("([%d.]+),([%d.]+)")
-local screen_width = math.floor(tonumber(sw) or 1728)
-local notch_width = math.floor(tonumber(nw) or 162)
-
-local main_screen_width = math.floor(
-  tonumber(
-    popen_line(
-      "osascript -l JavaScript -e 'ObjC.import(\"AppKit\"); "
-        .. "Math.floor($.NSScreen.mainScreen.frame.size.width)' 2>/dev/null"
-    )
-  ) or screen_width
-)
+local function probe_main_width(fallback)
+  return math.floor(tonumber(popen_line(MAIN_W_JS)) or fallback)
+end
 
 local function query_sketchybar_displays()
   for _, bin in ipairs(SKETCHYBAR_BINS) do
@@ -133,7 +135,7 @@ local function query_yabai_rows()
   return rows
 end
 
-local function ingest_display_rows()
+local function ingest_display_rows(screen_width)
   local rows = parse_sketchybar_rows(query_sketchybar_displays())
   if #rows > 0 then
     return rows
@@ -160,45 +162,58 @@ local function ingest_display_rows()
   }
 end
 
-local displays = ingest_display_rows()
+local M = {}
 
-local function match_width(width)
-  if not width then
+local function recompute()
+  local screen_width, notch_width = probe_notch()
+  local main_screen_width = probe_main_width(screen_width)
+  local displays = ingest_display_rows(screen_width)
+
+  local function match_width(width)
+    if not width then
+      return nil
+    end
+    for _, row in ipairs(displays) do
+      if row.width and math.abs(row.width - width) < 2 then
+        return row.index
+      end
+    end
     return nil
   end
+
+  local builtin_index = match_width(screen_width) or displays[1].index
+  local external_index = nil
   for _, row in ipairs(displays) do
-    if row.width and math.abs(row.width - width) < 2 then
-      return row.index
+    if row.index ~= builtin_index then
+      external_index = row.index
+      break
     end
   end
-  return nil
-end
 
-local builtin_index = match_width(screen_width) or displays[1].index
-local external_index = nil
-for _, row in ipairs(displays) do
-  if row.index ~= builtin_index then
-    external_index = row.index
-    break
+  local main_index = match_width(main_screen_width) or builtin_index
+  local main_width = screen_width
+  for _, row in ipairs(displays) do
+    if row.index == main_index and row.width then
+      main_width = row.width
+      break
+    end
   end
-end
 
-local main_index = match_width(main_screen_width) or builtin_index
-local main_width = screen_width
-for _, row in ipairs(displays) do
-  if row.index == main_index and row.width then
-    main_width = row.width
-    break
-  end
+  M.screen_width = screen_width
+  M.notch_width = notch_width
+  M.builtin_index = builtin_index
+  M.external_index = external_index
+  M.displays = displays
+  M.main_index = main_index
+  M.main_width = main_width
+  M.main_notch = (main_index == builtin_index and notch_width > 0) and notch_width or 0
 end
-
-local main_notch = (main_index == builtin_index and notch_width > 0) and notch_width or 0
 
 local function map_yabai_index(yabai_index)
   if not yabai_index then
     return nil
   end
-  for _, row in ipairs(displays) do
+  for _, row in ipairs(M.displays) do
     if row.index == yabai_index or row.direct_id == yabai_index then
       return row.index
     end
@@ -211,29 +226,35 @@ local function map_yabai_index(yabai_index)
       break
     end
   end
-  return match_width(width) or yabai_index
+  if not width then
+    return yabai_index
+  end
+  for _, row in ipairs(M.displays) do
+    if row.width and math.abs(row.width - width) < 2 then
+      return row.index
+    end
+  end
+  return yabai_index
 end
 
-local function focused_index()
+function M.focused_index()
   -- Single display: skip the blocking yabai+jq query (pills appear faster).
-  if #displays == 1 then
-    return displays[1].index
+  if #M.displays == 1 then
+    return M.displays[1].index
   end
   -- `--display focused` is not a valid yabai DISPLAY_SEL; pick the has-focus display instead.
   local yabai_index = tonumber(
     popen_line [[yabai -m query --displays 2>/dev/null | /usr/bin/jq -r 'map(select(.["has-focus"]))[0].index // empty' 2>/dev/null]]
   )
-  return map_yabai_index(yabai_index) or main_index
+  return map_yabai_index(yabai_index) or M.main_index
 end
 
-return {
-  screen_width = screen_width,
-  notch_width = notch_width,
-  builtin_index = builtin_index,
-  external_index = external_index,
-  displays = displays,
-  main_index = main_index,
-  main_width = main_width,
-  main_notch = main_notch,
-  focused_index = focused_index,
-}
+-- Re-probe notch + arrangement rows (display_change / hotplug).
+function M.refresh()
+  recompute()
+  return M
+end
+
+recompute()
+
+return M

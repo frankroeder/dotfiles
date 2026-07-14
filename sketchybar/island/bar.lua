@@ -28,6 +28,8 @@ sbar.bar {
   padding_left = 0,
   blur_radius = 0,
   shadow = false,
+  -- Idle starts off; island_core sets topmost=on only while a pill is expanded
+  -- (always-on topmost covered the top bar space app icons).
   topmost = "off",
   y_offset = island_style.y_offset_idle(focused),
   margin = bar_margin,

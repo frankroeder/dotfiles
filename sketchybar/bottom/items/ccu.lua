@@ -53,6 +53,7 @@ local ccu = ui.add_capsule("widgets.ccu", {
     align = "center",
     horizontal = true,
     height = popup_h,
+    background = ui.popup(),
   },
 })
 
@@ -363,9 +364,14 @@ local function apply_grok(result)
 end
 
 local function refresh_theme()
-  session_row:set { icon = { color = accent_session } }
-  weekly_row:set { icon = { color = accent_weekly } }
-  grok_row:set { icon = { color = accent_grok } }
+  -- Re-read palette: these track colors.* which mutate in place on theme change.
+  accent_session = colors.mauve
+  accent_weekly = colors.blue
+  accent_grok = colors.teal
+  ccu:set { popup = { background = ui.popup() } }
+  session_row:set { icon = { color = accent_session }, label = { color = usage_color(last.session) } }
+  weekly_row:set { icon = { color = accent_weekly }, label = { color = usage_color(last.weekly) } }
+  grok_row:set { icon = { color = accent_grok }, label = { color = usage_color(last.grok) } }
   for _, btn in ipairs { claude_link, grok_link } do
     btn:set {
       label = { color = theme.text_muted },

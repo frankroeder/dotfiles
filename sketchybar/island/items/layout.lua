@@ -25,13 +25,14 @@ listener:subscribe("island_layout", function(env)
   end
 
   island.expand {
+    kind = "layout",
+    priority = island.priority.layout,
     width = settings.island.widths.layout,
     height = island.IDLE_H,
     duration = settings.island.layout_duration,
     left = {
       text = layout:sub(1, 1):upper() .. layout:sub(2) .. " layout",
       font = { size = 15, style = "Semibold" },
-      align = "left",
       color = island_style.text(),
       padding_left = 16,
       padding_right = 4,
@@ -39,8 +40,6 @@ listener:subscribe("island_layout", function(env)
     right = {
       text = glyph,
       font = { size = 18, style = "Regular" },
-      align = "center",
-      width = 32,
       color = island_style.accent(),
       padding_left = 4,
       padding_right = 16,

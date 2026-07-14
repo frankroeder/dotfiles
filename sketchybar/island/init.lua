@@ -22,10 +22,11 @@ sbar.begin_config()
 sbar.add("event", "theme_change", "AppleInterfaceThemeChangedNotification")
 sbar.add("event", "theme_relay")
 sbar.add("event", "island_tap")
-sbar.add("event", "island_battery")
 sbar.add("event", "island_siri")
-sbar.add("event", "island_power")
 sbar.add("event", "island_layout")
+sbar.add("event", "island_mic")
+sbar.add("event", "island_bluetooth")
+sbar.add("event", "island_window")
 require "bar"
 require "default"
 require "display_watch"
