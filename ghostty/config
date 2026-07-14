@@ -34,7 +34,7 @@ clipboard-write = allow
 clipboard-trim-trailing-spaces = true
 
 shell-integration = zsh
-shell-integration-features = no-cursor,sudo
+shell-integration-features = no-cursor,sudo,title,ssh-env,path
 window-save-state = always
 
 # macos-option-as-alt = right
