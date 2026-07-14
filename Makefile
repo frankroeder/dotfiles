@@ -12,10 +12,16 @@ OSTYPE := $(shell uname -s)
 ARCHITECTURE := $(shell uname -m)
 INSTALL := $(DOTFILES)/install.sh
 
-CONTAINER_CMD := $(shell if command -v podman >/dev/null 2>&1; then echo "podman"; elif command -v docker >/dev/null 2>&1; then echo "docker"; else echo "container"; fi)
-ifeq ($(CONTAINER_CMD), docker)
+# Override: make test CONTAINER_CMD=container  (podman | docker | container)
+CONTAINER_CMD ?= $(shell \
+	if command -v podman >/dev/null 2>&1; then echo podman; \
+	elif command -v docker >/dev/null 2>&1; then echo docker; \
+	elif command -v container >/dev/null 2>&1; then echo container; \
+	else echo ""; fi)
+ifeq ($(CONTAINER_CMD),docker)
 CONTAINER_BUILD_CMD := build --platform linux/amd64 --progress plain --rm
-else ifeq ($(CONTAINER_CMD), container)
+else ifeq ($(CONTAINER_CMD),container)
+# Apple container: https://github.com/apple/container — no --rm on build; --arch not --platform
 CONTAINER_BUILD_CMD := build --progress plain --arch $(ARCHITECTURE)
 else
 CONTAINER_BUILD_CMD := build --progress plain --rm
@@ -83,18 +89,26 @@ format: ## Format Lua files with stylua
 	fi
 
 .PHONY: test
-test: ## Test installation in a container
-	@echo "==> Testing linux installation"
-ifeq ($(NOSUDO), 1)
-	$(CONTAINER_CMD) $(CONTAINER_BUILD_CMD) -t dotfiles $(PWD) -f $(DOTFILES)/docker/Dockerfile;
-	$(CONTAINER_CMD) run -it --rm --name maketest -d dotfiles:latest;
-	$(CONTAINER_CMD) exec -it maketest /bin/bash -c "make NOSUDO=$(NOSUDO) minimal";
-else
-	$(CONTAINER_CMD) $(CONTAINER_BUILD_CMD) -t dotfiles_sudo $(PWD) -f $(DOTFILES)/docker/sudoer.Dockerfile;
-	$(CONTAINER_CMD) run -it --rm --name maketest_sudo -d dotfiles_sudo:latest;
-	$(CONTAINER_CMD) exec -it maketest_sudo /bin/bash -c "make linux";
+test: ## Test installation in a container (podman|docker|macOS container)
+	@if [ -z "$(CONTAINER_CMD)" ]; then echo "No container runtime (podman/docker/container)" >&2; exit 1; fi
+	@echo "==> Testing linux installation with $(CONTAINER_CMD)"
+ifeq ($(CONTAINER_CMD),container)
+	@container system start
 endif
-	@echo "==> Container can now be shut down"
+ifeq ($(NOSUDO), 1)
+	$(CONTAINER_CMD) $(CONTAINER_BUILD_CMD) -t dotfiles -f $(DOTFILES)/docker/Dockerfile $(PWD)
+	-$(CONTAINER_CMD) rm -f maketest 2>/dev/null || true
+	# Override CMD (/bin/bash): detached bash exits immediately → --rm deletes container before exec
+	$(CONTAINER_CMD) run --name maketest --detach --rm dotfiles:latest sleep infinity
+	# No -t: apple container fails exec when make has no pty ("fd is not a pty")
+	$(CONTAINER_CMD) exec maketest /bin/bash -c "make NOSUDO=$(NOSUDO) minimal"
+else
+	$(CONTAINER_CMD) $(CONTAINER_BUILD_CMD) -t dotfiles_sudo -f $(DOTFILES)/docker/sudoer.Dockerfile $(PWD)
+	-$(CONTAINER_CMD) rm -f maketest_sudo 2>/dev/null || true
+	$(CONTAINER_CMD) run --name maketest_sudo --detach --rm dotfiles_sudo:latest sleep infinity
+	$(CONTAINER_CMD) exec maketest_sudo /bin/bash -c "make linux"
+endif
+	@echo "==> Container can now be shut down (container stop <name>; apple: container system stop)"
 
 .PHONY: uninstall
 uninstall: ## Remove installed dotfiles and configurations

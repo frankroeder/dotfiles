@@ -12,30 +12,33 @@ local metrics = settings.ui
 -- title/bar/value use icon/label padding inside fixed column widths instead.
 local pad = 10
 local col_gap = 10
-local title_w = 72
+local title_w = 108 -- fits "Session (5h)" / "Weekly Fable"
 local bar_w = 100
-local value_w = 148
+local value_w = 160 -- fits "69%  3h 5m [active]"
 local bar_h = 6
 local row_h = metrics.popup_row_height
 local content_w = title_w + bar_w + value_w
 local popup_width = content_w + pad * 2
 local helpers = os.getenv "HOME" .. "/.dotfiles/sketchybar/helpers"
 
--- Horizontal popup (like media): width=0 rows stack via y_offset; link buttons share
--- the bottom y_offset and pack left-to-right.
+-- Horizontal popup: width=0 rows stack via y_offset; link buttons share bottom.
+-- Rows: Session (5h), Week (7d), Weekly Fable, Grok (30d), links.
 local row_gap = 2
-local popup_h = row_h * 4 + row_gap * 3 + 10
-local y_session = math.floor(1.5 * (row_h + row_gap))
-local y_weekly = math.floor(0.5 * (row_h + row_gap))
-local y_grok = -math.floor(0.5 * (row_h + row_gap))
-local y_links = -math.floor(1.5 * (row_h + row_gap))
+local step = row_h + row_gap
+local popup_h = row_h * 5 + row_gap * 4 + 10
+local y_session = 2 * step
+local y_weekly = 1 * step
+local y_fable = 0
+local y_grok = -1 * step
+local y_links = -2 * step
 local btn_gap = 6
 local btn_w = math.floor((content_w - btn_gap) / 2)
 
 local accent_session = colors.mauve
 local accent_weekly = colors.blue
+local accent_fable = colors.pink
 local accent_grok = colors.teal
-local last = { session = nil, weekly = nil, grok = nil }
+local last = { session = nil, weekly = nil, fable = nil, grok = nil }
 
 local ccu = ui.add_capsule("widgets.ccu", {
   position = "left",
@@ -72,17 +75,18 @@ local function track_color(accent)
   return colors.with_alpha(accent, colors.is_dark and 0.20 or 0.14)
 end
 
-local function usage_color(pct)
-  if pct == nil then
+-- Color by used % (high = bad), even when UI shows remaining.
+local function usage_color(used)
+  if used == nil then
     return theme.text_muted
   end
-  if pct >= 90 then
+  if used >= 90 then
     return theme.critical
   end
-  if pct >= 75 then
+  if used >= 75 then
     return colors.orange
   end
-  if pct >= 50 then
+  if used >= 50 then
     return theme.warn
   end
   return theme.text_muted
@@ -92,7 +96,6 @@ local function metric_row(name, title, accent, y)
   return sbar.add("slider", name, bar_w, {
     position = "popup." .. ccu.name,
     -- width=0 + zero item pads: pack length 0 so every row shares the same x.
-    -- (In horizontal popups, padding_left/right advances x and staggered the rows.)
     width = 0,
     padding_left = 0,
     padding_right = 0,
@@ -102,7 +105,7 @@ local function metric_row(name, title, accent, y)
       width = title_w,
       align = "right",
       padding_left = 0,
-      padding_right = col_gap, -- gap title → bar (inside title column)
+      padding_right = col_gap,
       font = title_font,
       color = accent,
     },
@@ -110,7 +113,7 @@ local function metric_row(name, title, accent, y)
       string = "…",
       width = value_w,
       align = "left",
-      padding_left = col_gap, -- gap bar → value (inside value column)
+      padding_left = col_gap,
       padding_right = 0,
       font = value_font,
       color = theme.text_muted,
@@ -146,7 +149,6 @@ local function set_percent(item, accent, percent)
   }
 end
 
--- Leading inset (horizontal pack). Metric rows use width=0 so they stay on this x.
 sbar.add("item", "widgets.ccu.inset", {
   position = "popup." .. ccu.name,
   width = pad,
@@ -157,9 +159,10 @@ sbar.add("item", "widgets.ccu.inset", {
   background = { drawing = false },
 })
 
-local session_row = metric_row("widgets.ccu.session", "Session", accent_session, y_session)
-local weekly_row = metric_row("widgets.ccu.weekly", "Weekly", accent_weekly, y_weekly)
-local grok_row = metric_row("widgets.ccu.grok", "Grok/mo", accent_grok, y_grok)
+local session_row = metric_row("widgets.ccu.session", "Session (5h)", accent_session, y_session)
+local weekly_row = metric_row("widgets.ccu.weekly", "Week (7d)", accent_weekly, y_weekly)
+local fable_row = metric_row("widgets.ccu.fable", "Weekly Fable", accent_fable, y_fable)
+local grok_row = metric_row("widgets.ccu.grok", "Grok (30d)", accent_grok, y_grok)
 
 local function link_button(name, title, url, pad_l, pad_r)
   return sbar.add("item", name, {
@@ -184,7 +187,6 @@ local function link_button(name, title, url, pad_l, pad_r)
   })
 end
 
--- Side-by-side under the metric columns (total width = content_w).
 local claude_link = link_button(
   "widgets.ccu.claude_link",
   "Claude",
@@ -215,11 +217,30 @@ local function parse_lua_table(lit, tag)
   return result
 end
 
-local function pct_value(block)
-  if not block or block.utilization == nil then
+local function window_fields(block)
+  if not block or type(block) ~= "table" then
     return nil
   end
-  return tonumber(block.utilization)
+  local used = tonumber(block.used)
+  local remaining = tonumber(block.remaining)
+  if used == nil and remaining == nil then
+    return nil
+  end
+  if used == nil then
+    used = 100 - remaining
+  end
+  if remaining == nil then
+    remaining = 100 - used
+  end
+  return {
+    used = used,
+    remaining = remaining,
+    reset_text = block.reset_text,
+    label = block.label,
+    kind = block.kind,
+    model = block.model,
+    active = block.active == true,
+  }
 end
 
 local function get_claude_usage(callback)
@@ -229,13 +250,10 @@ local function get_claude_usage(callback)
       callback(result)
       return
     end
-    local fh = result.five_hour
-    local sd = result.seven_day
     callback {
-      five_hour = pct_value(fh),
-      weekly = pct_value(sd),
-      resets_at = fh and (fh.resets_at_de or fh.resets_at),
-      weekly_resets_at = sd and (sd.resets_at_de or sd.resets_at),
+      session = window_fields(result.session),
+      weekly = window_fields(result.weekly),
+      scoped = window_fields(result.scoped),
     }
   end)
 end
@@ -254,7 +272,7 @@ local function get_grok_usage(callback)
   end)
 end
 
--- "2026-07-09 11:19 (CEST)" → "09.07. 11:19" (German date)
+-- "2026-07-09 11:19 (CEST)" → "09.07. 11:19" (Grok absolute date fallback)
 local function short_reset(s)
   if not s or s == "" then
     return nil
@@ -266,11 +284,39 @@ local function short_reset(s)
   return s
 end
 
+-- Remaining % + relative reset; [active] = currently counting window (CLI style).
+local function format_remaining(win)
+  if not win or win.remaining == nil then
+    return "—"
+  end
+  local text = string.format("%3.0f%%", win.remaining)
+  if win.reset_text and win.reset_text ~= "" then
+    text = text .. "  " .. win.reset_text
+  end
+  if win.active then
+    text = text .. " [active]"
+  end
+  return text
+end
+
+-- Fixed CLI-style titles (window length / weekly scope). Scoped uses model name.
+local function row_title(win, fallback)
+  if not win then
+    return fallback
+  end
+  if win.kind == "weekly_scoped" or (win.label and win.label ~= "Session" and win.label ~= "Weekly") then
+    local model = win.model or win.label
+    if model and model ~= "" and model ~= "Scoped" then
+      return "Weekly " .. model
+    end
+  end
+  return fallback
+end
+
 local function format_pct(percent, reset)
   if percent == nil then
     return "—"
   end
-  -- Fixed-width percent (mono) so · dates share one column.
   local text = string.format("%3.0f%%", percent)
   local r = short_reset(reset)
   if r then
@@ -290,7 +336,7 @@ local function max_pct(...)
   return best
 end
 
-local function set_capsule(session_pct, weekly_pct, grok_pct, err)
+local function set_capsule(session_used, weekly_used, fable_used, grok_used, err)
   if err then
     ccu:set {
       background = ui.capsule(),
@@ -299,7 +345,7 @@ local function set_capsule(session_pct, weekly_pct, grok_pct, err)
     return
   end
 
-  local pct = max_pct(session_pct, weekly_pct, grok_pct)
+  local pct = max_pct(session_used, weekly_used, fable_used, grok_used)
   if pct == nil then
     ccu:set {
       background = ui.capsule(),
@@ -317,32 +363,51 @@ local function set_capsule(session_pct, weekly_pct, grok_pct, err)
   }
 end
 
+local function apply_window_row(row, accent, win, title_fallback)
+  if not win then
+    row:set {
+      icon = { string = title_fallback, color = accent },
+      label = { string = "—", color = theme.text_muted },
+    }
+    set_percent(row, accent, 0)
+    return nil
+  end
+  row:set {
+    icon = { string = row_title(win, title_fallback), color = accent },
+    label = {
+      string = format_remaining(win),
+      color = usage_color(win.used),
+    },
+  }
+  -- Bar shows remaining (CLI progress bar style).
+  set_percent(row, accent, win.remaining)
+  return win.used
+end
+
 local function apply_claude(result)
   if result.error then
-    last.session, last.weekly = nil, nil
-    session_row:set { label = { string = result.error, color = theme.critical } }
-    weekly_row:set { label = { string = "—", color = theme.text_muted } }
-    set_percent(session_row, accent_session, 0)
-    set_percent(weekly_row, accent_weekly, 0)
-  else
-    last.session = result.five_hour
-    last.weekly = result.weekly
+    last.session, last.weekly, last.fable = nil, nil, nil
     session_row:set {
-      label = {
-        string = format_pct(result.five_hour, result.resets_at),
-        color = usage_color(result.five_hour),
-      },
+      icon = { string = "Session (5h)", color = accent_session },
+      label = { string = result.error, color = theme.critical },
     }
     weekly_row:set {
-      label = {
-        string = format_pct(result.weekly, result.weekly_resets_at),
-        color = usage_color(result.weekly),
-      },
+      icon = { string = "Week (7d)", color = accent_weekly },
+      label = { string = "—", color = theme.text_muted },
     }
-    set_percent(session_row, accent_session, result.five_hour)
-    set_percent(weekly_row, accent_weekly, result.weekly)
+    fable_row:set {
+      icon = { string = "Weekly Fable", color = accent_fable },
+      label = { string = "—", color = theme.text_muted },
+    }
+    set_percent(session_row, accent_session, 0)
+    set_percent(weekly_row, accent_weekly, 0)
+    set_percent(fable_row, accent_fable, 0)
+  else
+    last.session = apply_window_row(session_row, accent_session, result.session, "Session (5h)")
+    last.weekly = apply_window_row(weekly_row, accent_weekly, result.weekly, "Week (7d)")
+    last.fable = apply_window_row(fable_row, accent_fable, result.scoped, "Weekly Fable")
   end
-  set_capsule(last.session, last.weekly, last.grok, result.error and not last.grok)
+  set_capsule(last.session, last.weekly, last.fable, last.grok, result.error and not last.grok)
 end
 
 local function apply_grok(result)
@@ -352,25 +417,29 @@ local function apply_grok(result)
     set_percent(grok_row, accent_grok, 0)
   else
     last.grok = result.utilization
+    -- Grok still reports used % from billing; show remaining if we have it.
+    local used = result.utilization
+    local remaining = used and (100 - used) or nil
     grok_row:set {
       label = {
-        string = format_pct(result.utilization, result.resets_at),
-        color = usage_color(result.utilization),
+        string = format_pct(remaining or used, result.resets_at),
+        color = usage_color(used),
       },
     }
-    set_percent(grok_row, accent_grok, result.utilization)
+    set_percent(grok_row, accent_grok, remaining or used or 0)
   end
-  set_capsule(last.session, last.weekly, last.grok, result.error and not last.session)
+  set_capsule(last.session, last.weekly, last.fable, last.grok, result.error and not last.session)
 end
 
 local function refresh_theme()
-  -- Re-read palette: these track colors.* which mutate in place on theme change.
   accent_session = colors.mauve
   accent_weekly = colors.blue
+  accent_fable = colors.pink
   accent_grok = colors.teal
   ccu:set { popup = { background = ui.popup() } }
   session_row:set { icon = { color = accent_session }, label = { color = usage_color(last.session) } }
   weekly_row:set { icon = { color = accent_weekly }, label = { color = usage_color(last.weekly) } }
+  fable_row:set { icon = { color = accent_fable }, label = { color = usage_color(last.fable) } }
   grok_row:set { icon = { color = accent_grok }, label = { color = usage_color(last.grok) } }
   for _, btn in ipairs { claude_link, grok_link } do
     btn:set {
@@ -378,10 +447,12 @@ local function refresh_theme()
       background = ui.button { height = row_h },
     }
   end
-  set_percent(session_row, accent_session, last.session)
-  set_percent(weekly_row, accent_weekly, last.weekly)
-  set_percent(grok_row, accent_grok, last.grok)
-  set_capsule(last.session, last.weekly, last.grok)
+  -- Bars: remaining for Claude (stored used in last.*); invert for display.
+  set_percent(session_row, accent_session, last.session and (100 - last.session) or 0)
+  set_percent(weekly_row, accent_weekly, last.weekly and (100 - last.weekly) or 0)
+  set_percent(fable_row, accent_fable, last.fable and (100 - last.fable) or 0)
+  set_percent(grok_row, accent_grok, last.grok and (100 - last.grok) or 0)
+  set_capsule(last.session, last.weekly, last.fable, last.grok)
 end
 
 ccu:subscribe("theme_colors_updated", refresh_theme)
