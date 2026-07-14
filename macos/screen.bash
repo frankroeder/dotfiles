@@ -71,6 +71,14 @@ defaults write NSGlobalDomain NSTableViewDefaultSizeMode -int 2
 # Speed up Mission Control animations
 defaults write com.apple.dock expose-animation-duration -float 0.1
 
+# Disable hot corners
+for corner in tl tr bl br; do
+  defaults write com.apple.dock wvous-${corner}-corner -int 0
+  defaults write com.apple.dock wvous-${corner}-modifier -int 0
+  defaults write com.apple.MissionControl wvous-${corner}-corner -int 0
+  defaults write com.apple.MissionControl wvous-${corner}-modifier -int 0
+done
+
 # Disable opening and closing window animations
 defaults write NSGlobalDomain NSAutomaticWindowAnimationsEnabled -bool false
 
