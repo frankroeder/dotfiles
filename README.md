@@ -1,20 +1,42 @@
 # dotfiles
 
-![](https://flat.badgen.net/badge/platform/Linux,macOS?list=|)
+![](https://flat.badgen.net/badge/platform/Linux,macOS,AsahiLinux?list=|)
 ![](https://flat.badgen.net/badge/icon/docker?icon=docker&label)
-![](https://flat.badgen.net/badge/license/MIT/blue)
+![](https://flat.badgen.net/badge/license/MIT/green)
 
-My personal dotfiles for Linux and macOS.
+My personal dotfiles for Linux, macOS, and Asahi Linux.
 
 ## Installation
-- Clone the repository as `~/.dotfiles`
-- Consider testing these dotfiles in a Docker container by executing `make test` or `NOSUDO=1 make test`.
 
-## Options
-- macOS Intel and ARM: `make macos`
-- Linux with sudo rights: `make linux`
-- Asahi Linux (Fedora Minimal + Hyprland): `make asahi`
-- Linux without sudo rights: `make NOSUDO=1 minimal`
+Clone the repository as `~/.dotfiles`, then run a **profile**. Install logic lives
+in `install.sh`; the `Makefile` keeps thin wrappers plus test/benchmark/format.
+
+| Setup | Command |
+| --- | --- |
+| macOS Intel/ARM | `make macos` |
+| Linux with sudo | `make linux` |
+| Linux without sudo | `make minimal` |
+| Bash-only, no tooling | `make micro` |
+| Asahi (Fedora Minimal + Hyprland) | `make asahi` |
+
+Profiles are **idempotent**: simply rerun one (e.g. `./install.sh macos`) to
+refresh configs and re-apply symlinks; tools already installed are skipped.
+Test in a container with `make test` (or `NOSUDO=1 make test`).
+
+### Options
+
+Profiles share components (`zsh`, `git`, `nvim`, …) runnable in isolation, e.g.
+`./install.sh zsh`. Run `./install.sh help` for the full list.
+
+- `--no-sudo` — skip steps needing root (implied by `minimal`).
+- `make doctor` — report binaries, services, and config-symlink health.
+- `make after` — post-install: git setup, Treesitter parsers, desktop services.
+
+### Maintenance
+- `make check` — Neovim health check.
+- `make benchmark` — Neovim and Zsh startup times.
+- `make format` — format Lua files with stylua.
+- `make uninstall` — remove installed symlinks and configs.
 
 ## Asahi install
 Start from Fedora Minimal and configure Wi-Fi.

@@ -1,5 +1,5 @@
-# Makefile for dotfiles installation and configuration
-# Usage: make <target>
+# Makefile for dotfiles — thin wrappers around ./install.sh plus test/bench/format helpers.
+# The actual install logic lives in install.sh and install/*.sh. Run `./install.sh help`.
 
 SHELL := /bin/bash
 .SHELLFLAGS := -ec
@@ -10,93 +10,7 @@ NOSUDO ?=
 DOTFILES := $(PWD)
 OSTYPE := $(shell uname -s)
 ARCHITECTURE := $(shell uname -m)
-DEVNUL := /dev/null
-WHICH := which
-
-PATH := $(PATH):/usr/local/bin:/usr/local/sbin:/usr/bin
-PATH := $(PATH):$(DOTFILES)/bin/$(OSTYPE)/$(ARCHITECTURE):$(DOTFILES)/bin/$(OSTYPE)
-PATH := $(PATH):$(HOME)/bin:$(HOME)/.local/bin:$(HOME)/.local/nodejs/bin
-ifeq ($(OSTYPE),Linux)
-PATH := $(PATH):$(DOTFILES)/asahi/bin
-endif
-
-NEXTCLOUD_DIR ?= $(HOME)/Nextcloud/portal
-ASAHI_WALLPAPERS_DIR ?= $(HOME)/Pictures/wallpaper
-
-# Validation targets
-.PHONY: validate-macos validate-linux validate-tools
-validate-macos: ## Validate macOS environment
-	@if [ "$(OSTYPE)" != "Darwin" ]; then echo "Error: This target requires macOS" && exit 1; fi
-
-validate-linux: ## Validate Linux environment
-	@if [ "$(OSTYPE)" = "Darwin" ]; then echo "Error: This target requires Linux" && exit 1; fi
-
-validate-tools: ## Validate that minimal required tools are available
-	@$(call print_step,Validating required tools)
-	@command -v curl >/dev/null 2>&1 || { $(call print_error,curl is required); exit 1; }
-	@command -v git >/dev/null 2>&1 || { $(call print_error,git is required); exit 1; }
-	@command -v make >/dev/null 2>&1 || { $(call print_error,make is required); exit 1; }
-	@$(call print_step,All required tools are available)
-
-# Common functions
-define replace_with_symlink
-	@mkdir -p "$$(dirname "$(2)")"
-	@if [ ! -e "$(1)" ] && [ ! -L "$(1)" ]; then \
-		$(call print_warning,Optional source $(1) does not exist; skipping symlink); \
-	elif [ -L "$(2)" ] && [ "$$(readlink "$(2)")" = "$(1)" ]; then \
-		echo "Link already correct: $(2) -> $(1)"; \
-	else \
-		if [ -e "$(2)" ] || [ -L "$(2)" ]; then \
-			echo "Removing existing $(2)"; \
-			rm -rf "$(2)"; \
-		fi; \
-		echo "Linking $(2) -> $(1)"; \
-		ln -sfn "$(1)" "$(2)"; \
-	fi
-endef
-
-define link_if_exists
-	@mkdir -p "$$(dirname "$(2)")"
-	@if [ -e "$(1)" ] || [ -L "$(1)" ]; then \
-		echo "Linking $(2) -> $(1)"; \
-		ln -sfn "$(1)" "$(2)"; \
-	else \
-		$(call print_warning,Optional source $(1) does not exist; skipping symlink); \
-	fi
-endef
-
-define link_first_exists
-	@mkdir -p "$$(dirname "$(2)")"
-	@linked=0; \
-	for source in $(1); do \
-		if [ -e "$$source" ] || [ -L "$$source" ]; then \
-			echo "Linking $(2) -> $$source"; \
-			ln -sfn "$$source" "$(2)"; \
-			linked=1; \
-			break; \
-		fi; \
-	done; \
-	if [ "$$linked" -eq 0 ]; then \
-		$(call print_warning,Optional sources not found for $(2): $(1)); \
-	fi
-endef
-
-define print_step
-	echo -e "\033[1m\033[34m==> $(1)\033[0m"
-endef
-
-define print_error
-	echo -e "\033[1m\033[31mError: $(1)\033[0m" >&2
-endef
-
-define print_warning
-	echo -e "\033[1m\033[33mWarning: $(1)\033[0m"
-endef
-
-# and homebrew available
-ifeq ($(ARCHITECTURE), arm64)
-PATH := $(PATH):/opt/homebrew/bin:/opt/homebrew/sbin
-endif
+INSTALL := $(DOTFILES)/install.sh
 
 CONTAINER_CMD := $(shell if command -v podman >/dev/null 2>&1; then echo "podman"; elif command -v docker >/dev/null 2>&1; then echo "docker"; else echo "container"; fi)
 ifeq ($(CONTAINER_CMD), docker)
@@ -109,512 +23,85 @@ endif
 
 .DEFAULT_GOAL := help
 
-.PHONY: macos
-macos: ## Complete macOS setup with all components
-macos: validate-macos validate-tools sudo directories homebrew _macos zsh python misc nvim _git node
-	@$(call print_step,Finalizing macOS setup)
-	$(call print_step,Switching to Zsh); \
-	$(SHELL) $(DOTFILES)/autoloaded/switch_zsh; \
-	zsh -i -c "fast-theme free" 2>/dev/null || $(call print_warning,Failed to set fast-theme); \
-	compaudit 2>/dev/null | xargs chmod g-w 2>/dev/null || true
+# --- install profiles (delegated to install.sh) -----------------------------
+.PHONY: macos linux minimal micro asahi
+macos: ## Complete macOS setup
+	@$(INSTALL) macos
+linux: ## Complete Linux setup (with sudo)
+	@$(INSTALL) linux
+minimal: ## Minimal Linux setup without sudo
+	@$(INSTALL) minimal
+micro: ## Minimal bash-only setup
+	@$(INSTALL) micro
+asahi: ## Asahi Linux (Fedora Minimal + Hyprland)
+	@$(INSTALL) asahi
 
-.PHONY: linux
-linux: ## Complete Linux setup with all components
-linux: validate-linux validate-tools sudo directories _linux _git zsh python misc node nvim
-	@$(call print_step,Finalizing Linux setup)
-	$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
-
-.PHONY: minimal
-minimal: ## Minimal Linux setup without sudo requirements
-minimal: validate-linux validate-tools directories _linux _git zsh python misc node nvim
+.PHONY: doctor after
+doctor: ## Report installed binaries and running services
+	@$(INSTALL) doctor
+after: ## Post-install setup and desktop services
+	@$(INSTALL) after
 
 .PHONY: help
 help: ## Show this help message
 	@echo "#######################################################################"
-	@echo "# Dotfiles Installation"
+	@echo "# Dotfiles Installation — see ./install.sh help for components/options"
 	@echo "#######################################################################"
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*## / {printf "\033[36m  %-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo "#######################################################################"
 
-.PHONY: sudo
-sudo: ## Authenticate and keep sudo session alive
-	$(call print_step,Installation with sudo required)
-	@if sudo -n true 2>/dev/null; then \
-		$(call print_warning,sudo session already active); \
-	else \
-		sudo -v; \
-	fi
-	@while true; do sudo -n true; sleep 1200; kill -0 "$$$$" || exit; done 2>/dev/null &
-
-.PHONY: homebrew
-homebrew: ## Install Homebrew and bundle packages
-homebrew: | sudo
-	$(call print_step,Installing brew if not already present)
-ifeq ($(ARCHITECTURE), arm64)
-	$(call print_step,Installing rosetta for non-native apps)
-	@if [ ! -d "/usr/libexec/rosetta" ]; then softwareupdate --install-rosetta --agree-to-license; fi
-endif
-ifeq ($(shell ${WHICH} brew 2>${DEVNUL}),)
-	@$(SHELL) -c "$$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-else
-	$(call print_warning,Homebrew is already installed)
-endif
-	$(call print_step,Installing brew formulas)
-	@brew bundle --file="$(DOTFILES)/Brewfile" --no-lock
-	@brew cleanup
-	-brew doctor
-
-.PHONY: python
-python: ## Install Python tools and configure IPython
-	$(call print_step,Installing python tools)
-ifeq ($(OSTYPE), Linux)
-	@if ! command -v uv >/dev/null 2>&1; then \
-		$(call print_step,Installing uv package manager); \
-		curl -LsSf https://astral.sh/uv/install.sh | sh; \
-	else \
-		$(call print_warning,uv is already installed); \
-	fi
-endif
-	@if command -v uv >/dev/null 2>&1; then \
-		uv tool install --upgrade ty@latest; \
-		uv tool install --upgrade ipython --with matplotlib --with numpy; \
-	else \
-		$(call print_error,uv not available for Python tool installation); \
-	fi
-	@if command -v ipython >/dev/null 2>&1; then \
-		mkdir -p $(HOME)/.ipython/profile_default; \
-	else \
-		$(call print_warning,IPython not available for configuration); \
-	fi
-	$(call link_if_exists,$(DOTFILES)/python/ipython_config.py,$(HOME)/.ipython/profile_default/ipython_config.py)
-
-.PHONY: misc
-misc: ## Install miscellaneous tools and configurations
-	$(call print_step,Installing misc)
-	@if ! command -v fzf >/dev/null 2>&1; then \
-		if [ -d "$(HOME)/.fzf/.git" ]; then \
-			$(call print_step,Updating existing fzf checkout); \
-			git -C "$(HOME)/.fzf" pull --ff-only; \
-			"$(HOME)/.fzf/install" --bin; \
-		elif [ -e "$(HOME)/.fzf" ]; then \
-			$(call print_warning,$(HOME)/.fzf already exists but is not a git checkout; skipping fzf clone); \
-		else \
-			$(call print_step,Installing fzf); \
-			git clone --depth 1 https://github.com/junegunn/fzf.git "$(HOME)/.fzf"; \
-			"$(HOME)/.fzf/install" --bin; \
-		fi; \
-	else \
-		$(call print_warning,fzf is already installed); \
-	fi
-	$(call link_if_exists,$(DOTFILES)/wgetrc,$(HOME)/.wgetrc)
-	$(call link_if_exists,$(DOTFILES)/curlrc,$(HOME)/.curlrc)
-	$(call link_if_exists,$(DOTFILES)/tmux/tmux.conf,$(HOME)/.tmux.conf)
-	$(call replace_with_symlink,$(DOTFILES)/fastfetch,$(HOME)/.config/fastfetch)
-	$(call link_if_exists,$(DOTFILES)/latexmkrc,$(HOME)/.latexmkrc)
-	$(call replace_with_symlink,$(DOTFILES)/btop,$(HOME)/.config/btop)
-
-
-.PHONY: zsh
-zsh: ## Install and configure Zsh with completions
-zsh: | directories
-	$(call print_step,Installing zsh and tools)
-	@if ! command -v zsh >/dev/null 2>&1; then \
-		$(call print_error,Zsh is not installed. Please install it first); \
-		exit 1; \
-	fi
-	$(call link_if_exists,$(DOTFILES)/zsh/zshrc,$(HOME)/.zshrc)
-	$(call link_if_exists,$(DOTFILES)/zsh/zlogin,$(HOME)/.zlogin)
-	$(call link_if_exists,$(DOTFILES)/zsh/zshenv,$(HOME)/.zshenv)
-	$(call link_if_exists,$(DOTFILES)/zsh/zprofile,$(HOME)/.zprofile)
-	@mkdir -p $(HOME)/.zsh/completion
-	@if command -v rg >/dev/null 2>&1; then \
-		$(call print_step,Generating ripgrep completions); \
-		rg --generate complete-zsh > $(HOME)/.zsh/completion/_rg; \
-	fi
-	@if [ -f "$(HOME)/.zshrc" ]; then \
-		$(call print_step,Checking zshrc); \
-		zsh -n $(HOME)/.zshrc || $(call print_warning,zshrc syntax check failed); \
-	fi
-
-.PHONY: node
-node: ## Install Node.js and global npm packages
-	$(call print_step,Installing node and npm packages)
-	@if ! command -v node >/dev/null 2>&1; then \
-		$(call print_step,Installing Node.js); \
-		bash $(DOTFILES)/scripts/nodejs.sh; \
-	else \
-		$(call print_warning,Node.js is already installed); \
-	fi
-	@if command -v npm >/dev/null 2>&1; then \
-		$(call print_step,Installing global npm packages); \
-		if [ "$(OSTYPE)" = "Linux" ]; then \
-			mkdir -p $(HOME)/.local/bin $(HOME)/.local/lib/node_modules; \
-			npm config set prefix "$(HOME)/.local" --location=user 2>/dev/null || true; \
-			npm install --prefix "$(HOME)/.local" npm@latest; \
-			npm install --prefix "$(HOME)/.local" eslint; \
-			npm install --prefix "$(HOME)/.local" neovim; \
-		else \
-			npm i --location=global npm@latest; \
-			npm i --location=global eslint; \
-			npm i --location=global neovim; \
-		fi; \
-	else \
-		$(call print_error,npm not available for package installation); \
-	fi
-
-.PHONY: nvim
-nvim: ## Install and configure Neovim with plugins
-nvim: | directories
-	$(call print_step,Installing nvim dependencies)
-	@if ! command -v nvim >/dev/null 2>&1; then \
-		$(call print_error,Neovim is not installed. Please install it first); \
-		exit 1; \
-	fi
-	@touch "$(HOME)/.localnvim.lua"
-	$(call replace_with_symlink,$(DOTFILES)/nvim,$(HOME)/.config/nvim)
-	$(call print_step,Syncing Neovim plugins)
-	nvim --headless "+lua vim.pack.update()" "+qa"
-
-.PHONY: _git
-_git: ## Configure Git with completion and dotfiles
-	$(call print_step,Installing stuff for git)
-	@if ! [ -f "$(HOME)/.git-completion.bash" ]; then \
-		$(call print_step,Downloading git completion); \
-		curl -fsSL https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash -o $(HOME)/.git-completion.bash; \
-	else \
-		$(call print_warning,Git completion already exists); \
-	fi
-	$(call link_if_exists,$(DOTFILES)/git/gitconfig,$(HOME)/.gitconfig)
-	$(call link_if_exists,$(DOTFILES)/git/gitignore,$(HOME)/.gitignore)
-
-.PHONY: agents
-agents: ## Sync coding agent instructions and settings from Nextcloud
-ifneq ($(shell command -v codex 2>/dev/null),)
-	@$(call print_step,Syncing Codex agent configuration)
-	$(call link_if_exists,$(NEXTCLOUD_DIR)/AGENTS.md,$(HOME)/.codex/AGENTS.md)
-	$(call link_first_exists,$(NEXTCLOUD_DIR)/codex_config.toml $(NEXTCLOUD_DIR)/codex_settings.toml,$(HOME)/.codex/config.toml)
-else
-	@$(call print_warning,Codex CLI not installed; skipping Codex agent configuration)
-endif
-ifneq ($(shell command -v claude 2>/dev/null),)
-	@$(call print_step,Syncing Claude agent configuration)
-	@mkdir -p $(HOME)/.claude
-	$(call link_if_exists,$(NEXTCLOUD_DIR)/AGENTS.md,$(HOME)/.claude/CLAUDE.md)
-	$(call link_if_exists,$(NEXTCLOUD_DIR)/claude_settings.json,$(HOME)/.claude/settings.json)
-else
-	@$(call print_warning,Claude CLI not installed; skipping Claude agent configuration)
-endif
-ifneq ($(shell command -v gemini 2>/dev/null),)
-	@$(call print_step,Syncing Gemini agent configuration)
-	@mkdir -p $(HOME)/.gemini
-	$(call link_if_exists,$(NEXTCLOUD_DIR)/AGENTS.md,$(HOME)/.gemini/GEMINI.md)
-	$(call link_if_exists,$(NEXTCLOUD_DIR)/gemini_settings.json,$(HOME)/.gemini/settings.json)
-else
-	@$(call print_warning,Gemini CLI not installed; skipping Gemini agent configuration)
-endif
-ifneq ($(shell command -v opencode 2>/dev/null),)
-	@$(call print_step,Syncing OpenCode agent configuration)
-	$(call link_if_exists,$(NEXTCLOUD_DIR)/opencode.jsonc,$(HOME)/.config/opencode/opencode.jsonc)
-else
-	@$(call print_warning,OpenCode CLI not installed; skipping OpenCode agent configuration)
-endif
-ifneq ($(shell command -v grok 2>/dev/null),)
-	@$(call print_step,Syncing Grok build configuration)
-	$(call link_if_exists,$(NEXTCLOUD_DIR)/AGENTS.md,$(HOME)/.grok/AGENTS.md)
-else
-	@$(call print_warning,Grok Build CLI not installed; skipping Grok configuration)
-endif
-
-.PHONY: after
-after: ## Post-installation setup and service start
-after: _terminal
-	$(call print_step,Post-installation setup)
-	$(call print_step,Running git setup)
-	@bash $(DOTFILES)/git/setup.sh
-	@if [ "$(OSTYPE)" = "Linux" ] && [ -f "$(DOTFILES)/linux/apt.sh" ] && command -v apt-get >/dev/null 2>&1; then \
-		$(call print_step,Installing Linux desktop packages); \
-		bash $(DOTFILES)/linux/apt.sh "desktop"; \
-	fi
-	@if command -v nvim >/dev/null 2>&1 ; then \
-		$(call print_step,Updating Treesitter parsers); \
-		nvim -i NONE -u $(DOTFILES)/nvim/init.lua -c "TSUpdate" -c "quitall"; \
-	fi
-ifeq ($(OSTYPE), Darwin)
-	@if command -v yabai >/dev/null 2>&1; then \
-		$(call print_step,Starting yabai and skhd service); \
-		echo "$$(whoami) ALL=(root) NOPASSWD: sha256:$$(shasum -a 256 $$(which yabai) | cut -d ' ' -f 1) $$(which yabai) --load-sa" | sudo tee /private/etc/sudoers.d/yabai; \
-		sudo yabai --install-sa; \
-		yabai --start-service; \
-		skhd --start-service; \
-	fi
-	@if command -v brew >/dev/null 2>&1; then \
-		$(call print_step,Starting sketchybar service); \
-		brew services start sketchybar; \
-	fi
-	@$(MAKE) agents
-endif
-
-.PHONY: directories
-directories: ## Create necessary directories
-	$(call print_step,Creating directories)
-	@mkdir -p $(HOME)/.config
-	@mkdir -p $(HOME)/.zsh
-	@mkdir -p $(HOME)/.config/htop
-	@mkdir -p $(HOME)/tmp
-	@mkdir -p $(HOME)/.Trash
-	@mkdir -p $(HOME)/Downloads
-	@mkdir -p $(HOME)/bin
-	@mkdir -p $(HOME)/.zcompcache
-
-
-.PHONY: micro
-micro: ## Minimal setup with bash configuration
-micro: _backup _bash
-	$(call print_step,Setting up micro configuration)
-	$(call link_if_exists,$(DOTFILES)/bash/tmux.conf,$(HOME)/.tmux.conf)
-	$(call link_if_exists,$(DOTFILES)/bash/vimrc,$(HOME)/.vimrc)
-	$(call link_if_exists,$(DOTFILES)/htop/server,$(HOME)/.htoprc)
-	@mkdir -p $(HOME)/.Trash
-
-.PHONY: _bash
-_bash: ## Configure bash dotfiles
-	$(call print_step,Configuring bash dotfiles)
-	$(call link_if_exists,$(DOTFILES)/bash/bash_profile,$(HOME)/.bash_profile)
-	$(call link_if_exists,$(DOTFILES)/bash/bashrc,$(HOME)/.bashrc)
-	$(call link_if_exists,$(DOTFILES)/bash/bash_prompt,$(HOME)/.bash_prompt)
-	$(call link_if_exists,$(DOTFILES)/bash/bash_logout,$(HOME)/.bash_logout)
-	$(call link_if_exists,$(DOTFILES)/bash/bash_aliases,$(HOME)/.bash_aliases)
-	$(call link_if_exists,$(DOTFILES)/bash/bash_functions,$(HOME)/.bash_functions)
-
-.PHONY: _backup
-_backup: ## Backup existing dotfiles
-	$(call print_step,Backing up existing dotfiles)
-	@mkdir -p $(HOME)/old_dots
-	@for file in .bash* .profile .vimrc .tmux.conf .htoprc; do \
-		if [ -e "$(HOME)/$$file" ]; then \
-			echo "Backing up $$file"; \
-			mv "$(HOME)/$$file" "$(HOME)/old_dots/" 2>/dev/null || true; \
-		fi; \
-	done
-
-.PHONY: _linux
-_linux: ## Linux-specific setup and package installation
-	$(call print_step,Installing linux basis)
-	@mkdir -p $(HOME)/bin $(HOME)/.local/bin $(HOME)/Uploads
-	@if [ -z "$(NOSUDO)" ] ; then \
-		$(call print_step,Installing Linux packages); \
-		bash $(DOTFILES)/linux/apt.sh "default"; \
-	fi
-	$(call link_if_exists,$(DOTFILES)/htop/server,$(HOME)/.config/htop/htoprc)
-	@if ! command -v nvim >/dev/null 2>&1; then \
-		if [ -z "$(NOSUDO)" ]; then \
-			bash $(DOTFILES)/scripts/nvim.sh "source"; \
-		else \
-			bash $(DOTFILES)/scripts/nvim.sh "binary"; \
-		fi; \
-	fi
-	@if ! command -v tree-sitter >/dev/null 2>&1 ; then \
-		$(call print_step,Installing tree-sitter); \
-		bash $(DOTFILES)/scripts/tree-sitter.sh; \
-	fi
-
-.PHONY: _macos
-_macos: ## macOS-specific configuration and applications
-	$(call print_step,Configure macos and applications)
-	@if ! xcode-select -p >/dev/null 2>&1; then \
-		$(call print_step,Installing Xcode command line tools); \
-		sudo xcode-select --install; \
-		sudo xcodebuild -license accept; \
-	else \
-		$(call print_warning,Xcode command line tools already installed); \
-	fi
-	@mkdir -p $(HOME)/screens $(HOME)/.config $(HOME)/Library/Fonts
-	$(call print_step,Running macOS setup script)
-	@bash $(DOTFILES)/macos/main.bash
-	$(call replace_with_symlink,$(DOTFILES)/sketchybar/bottom,$(HOME)/.config/sketchybar)
-	$(call replace_with_symlink,$(DOTFILES)/sketchybar/top,$(HOME)/.config/sketchybar-top)
-	$(call replace_with_symlink,$(DOTFILES)/sketchybar/island,$(HOME)/.config/sketchybar-island)
-	$(MAKE) sketchybar-top sketchybar-island
-	$(call print_step,Downloading sketchybar font)
-	@bash $(DOTFILES)/scripts/sketchybar_app_font.sh
-	$(call replace_with_symlink,$(DOTFILES)/skhd,$(HOME)/.config/skhd)
-	@$(call print_step,Linking LibreWolf config (Asahi settings))
-	@mkdir -p "$(HOME)/Library/Application Support/LibreWolf/librewolf"
-	$(call link_if_exists,$(DOTFILES)/shared/librewolf/librewolf.overrides.cfg,$(HOME)/Library/Application Support/LibreWolf/librewolf/librewolf.overrides.cfg)
-	@for profile in "$(HOME)/Library/Application Support/LibreWolf/Profiles/"*.default* ; do \
-		[ -d "$$profile" ] || continue; \
-		mkdir -p "$$profile/chrome"; \
-		ln -sfn "$(DOTFILES)/shared/librewolf/userChrome.css" "$$profile/chrome/userChrome.css" || true; \
-	done
-	$(call print_step,Running Sioyek setup)
-	@zsh $(DOTFILES)/scripts/sioyek.sh
-	$(call replace_with_symlink,$(DOTFILES)/sioyek,$(HOME)/.config/sioyek)
-	@if command -v swift >/dev/null 2>&1; then \
-		mkdir -p $(HOME)/.zsh/completion; \
-		swift package completion-tool generate-zsh-script > $(HOME)/.zsh/completion/_swift 2>/dev/null || true; \
-	fi
-	@if ! command -v sourcekit-lsp >/dev/null 2>&1 ; then \
-		$(call print_step,Installing sourcekit-lsp); \
-		bash $(DOTFILES)/scripts/sourcekit-lsp.sh; \
-	fi
-	@if ! command -v battery >/dev/null 2>&1; then \
-		$(call print_step,Installing battery manager); \
-		curl -fsSL https://raw.githubusercontent.com/actuallymentor/battery/main/setup.sh | bash; \
-		battery maintain 80; \
-	fi
-	$(call replace_with_symlink,$(DOTFILES)/mpv,$(HOME)/.config/mpv)
-	$(call replace_with_symlink,$(DOTFILES)/yabai,$(HOME)/.config/yabai)
-	$(call replace_with_symlink,$(DOTFILES)/borders,$(HOME)/.config/borders)
-
-.PHONY: _terminal
-_terminal: ## Install and configure terminal emulator
-	@if ! command -v ghostty >/dev/null 2>&1; then \
-		$(call print_warning,Ghostty not installed); \
-	else \
-		$(call print_step,Ghostty is available); \
-	fi
-	$(call replace_with_symlink,$(DOTFILES)/ghostty,$(HOME)/.config/ghostty)
-	$(call link_if_exists,$(DOTFILES)/htop/personal,$(HOME)/.config/htop/htoprc)
-
-
-.PHONY: asahi asahi-system asahi-zotero asahi-common asahi-user
-.PHONY: asahi-desktop asahi-battery-alerts asahi-default-shell check-asahi
-asahi: validate-linux validate-tools sudo asahi-system asahi-zotero asahi-user ## Asahi Linux: apply minimal Hyprland desktop config
-	@$(MAKE) agents
-	@if [ -d "$(ASAHI_WALLPAPERS_DIR)/.git" ]; then \
-		$(call print_step,Updating wallpapers); \
-		git -C "$(ASAHI_WALLPAPERS_DIR)" pull --ff-only || $(call print_warning,Failed to update wallpapers); \
-	elif [ -e "$(ASAHI_WALLPAPERS_DIR)" ]; then \
-		$(call print_warning,$(ASAHI_WALLPAPERS_DIR) already exists and is not a git checkout; skipping wallpaper clone); \
-	else \
-		$(call print_step,Downloading wallpapers); \
-		mkdir -p "$(HOME)/Pictures"; \
-		git clone https://github.com/mylinuxforwork/wallpaper.git "$(ASAHI_WALLPAPERS_DIR)"; \
-	fi
-
-asahi-user: asahi-desktop asahi-battery-alerts asahi-default-shell check-asahi
-
-asahi-system: ## Update Fedora and install base packages for Asahi
-	@bash $(DOTFILES)/asahi/dnf.sh
-	@sudo install -Dm644 $(DOTFILES)/asahi/systemd/system/asahi-tty-font.service /etc/systemd/system/asahi-tty-font.service
-	@sudo systemctl daemon-reload
-	@sudo systemctl enable asahi-tty-font.service
-	@sudo systemctl restart asahi-tty-font.service
-	@if command -v brightnessctl >/dev/null 2>&1; then \
-		brightnessctl --device='kbd_backlight' set 30% || true; \
-	elif command -v light >/dev/null 2>&1; then \
-		light -s sysfs/leds/kbd_backlight -S 30 || true; \
-	fi
-
-asahi-zotero: ## Install Zotero ARM64 on Asahi Linux
-	@if [ -x "/opt/zotero/zotero" ]; then \
-		$(call print_warning,Zotero already installed at /opt/zotero; skipping setup script); \
-	else \
-		$(call print_step,Installing Zotero ARM64); \
-		bash $(DOTFILES)/scripts/setup_zotero.sh; \
-	fi
-
-asahi-common: directories _git zsh python misc nvim
-	@mkdir -p $(HOME)/.config/environment.d
-	@mkdir -p $(HOME)/.local/share/applications
-	$(call link_if_exists,$(DOTFILES)/asahi/mimeapps.list,$(HOME)/.config/mimeapps.list)
-	@$(call print_step,Fixing Linux desktop icons); \
-	bash $(DOTFILES)/scripts/fix_linux_desktop_icons.sh
-	@if ! command -v tree-sitter >/dev/null 2>&1; then \
-		$(call print_step,Installing tree-sitter CLI); \
-		bash $(DOTFILES)/scripts/tree-sitter.sh; \
-	fi
-
-asahi-desktop: ## Apply minimal Hyprland desktop user config
-asahi-desktop: asahi-common
-	@mkdir -p $(HOME)/screenshots
-	@for script in $(DOTFILES)/asahi/bin/*; do \
-		[ -f "$$script" ] && chmod +x "$$script"; \
-	done
-	@mkdir -p $(HOME)/.config/systemd/user
-	$(call link_if_exists,$(DOTFILES)/asahi/systemd/user/hyprland-session.target,$(HOME)/.config/systemd/user/hyprland-session.target)
-	$(call replace_with_symlink,$(DOTFILES)/asahi/hypr,$(HOME)/.config/hypr)
-	$(call replace_with_symlink,$(DOTFILES)/asahi/quickshell,$(HOME)/.config/quickshell)
-	$(call replace_with_symlink,$(DOTFILES)/asahi/ghostty,$(HOME)/.config/ghostty)
-	@mkdir -p $(HOME)/.config/mpv
-	$(call link_if_exists,$(DOTFILES)/mpv/mpv_asahi.conf,$(HOME)/.config/mpv/mpv.conf)
-	$(call link_if_exists,$(DOTFILES)/asahi/environment.d/90-asahi.conf,$(HOME)/.config/environment.d/90-asahi.conf)
-	@mkdir -p $(HOME)/.config/librewolf/librewolf
-	$(call link_if_exists,$(DOTFILES)/shared/librewolf/librewolf.overrides.cfg,$(HOME)/.config/librewolf/librewolf/librewolf.overrides.cfg)
-	@for profile in $(HOME)/.librewolf/*.default*; do \
-		[ -d "$$profile" ] || continue; \
-		mkdir -p "$$profile/chrome"; \
-		ln -sfn "$(DOTFILES)/shared/librewolf/userChrome.css" "$$profile/chrome/userChrome.css"; \
-	done
-	@for profile in $(HOME)/.thunderbird/*.default*; do \
-		[ -d "$$profile" ] || continue; \
-		ln -sfn "$(DOTFILES)/asahi/thunderbird/user.js" "$$profile/user.js"; \
-	done
-
-asahi-battery-alerts: ## Install and start Asahi battery alert daemon
-	@$(call print_step,Installing Asahi battery alerts)
-	@DOTFILES="$(DOTFILES)" bash $(DOTFILES)/scripts/asahi-battery-alerts.sh
-
-asahi-default-shell: ## Make Zsh the default login shell for Asahi
-	@$(SHELL) $(DOTFILES)/autoloaded/switch_zsh
-
+# --- maintenance helpers ----------------------------------------------------
 .PHONY: check
 check: ## Run Neovim health check
 	@if command -v nvim >/dev/null 2>&1; then \
-		$(call print_step,Running Neovim health check); \
 		nvim -i NONE -c "checkhealth"; \
 	else \
-		$(call print_error,Neovim is not installed); \
-		exit 1; \
+		echo "Neovim is not installed" >&2; exit 1; \
 	fi
-
-check-asahi: ## Check minimal Asahi desktop commands
-	@for command in Hyprland; do \
-		command -v "$$command" >/dev/null 2>&1 || $(call print_warning,$$command not installed); \
-	done
-	@for command in quickshell qs hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl; do \
-		command -v "$$command" >/dev/null 2>&1 || $(call print_warning,$$command not installed); \
-	done
-	@for command in nm-connection-editor nmtui blueman-manager; do \
-		command -v "$$command" >/dev/null 2>&1 || $(call print_warning,$$command not installed); \
-	done
 
 .PHONY: benchmark
 benchmark: ## Benchmark Neovim and Zsh startup times
 	@if command -v nvim >/dev/null 2>&1; then \
-		$(call print_step,nvim startuptime clean); \
-		nvim --startuptime /tmp/startup-clean.log --clean "+qall" && \
-		echo "Clean startup:" && \
-		tail -2 /tmp/startup-clean.log && \
-		rm -f /tmp/startup-clean.log; \
-		$(call print_step,nvim startuptime with all plugins); \
-		nvim --startuptime /tmp/startup-full.log "+qall" && \
-		echo "Full startup:" && \
-		tail -2 /tmp/startup-full.log && \
-		rm -f /tmp/startup-full.log; \
+		echo "==> nvim startuptime clean"; \
+		nvim --startuptime /tmp/startup-clean.log --clean "+qall" && tail -2 /tmp/startup-clean.log && rm -f /tmp/startup-clean.log; \
+		echo "==> nvim startuptime with all plugins"; \
+		nvim --startuptime /tmp/startup-full.log "+qall" && tail -2 /tmp/startup-full.log && rm -f /tmp/startup-full.log; \
 	else \
-		$(call print_warning,Neovim not available for benchmarking); \
+		echo "Neovim not available for benchmarking"; \
 	fi
 	@if command -v zsh >/dev/null 2>&1 ; then \
-		$(call print_step,zsh startuptime); \
+		echo "==> zsh startuptime"; \
 		zsh $(DOTFILES)/autoloaded/bench_zsh; \
-	else \
-		$(call print_warning,Zsh benchmark script not available); \
 	fi
 
 .PHONY: format
 format: ## Format Lua files with stylua
 	@if command -v stylua >/dev/null 2>&1; then \
-		$(call print_step,Formatting Lua files with stylua); \
 		stylua -v -f $(DOTFILES)/.stylua.toml $$(find $(DOTFILES) -type f -name '*.lua' ! -name 'colors.lua' 2>/dev/null) || true; \
 	else \
-		$(call print_warning,stylua not installed); \
+		echo "stylua not installed"; \
 	fi
+
+.PHONY: test
+test: ## Test installation in a container
+	@echo "==> Testing linux installation"
+ifeq ($(NOSUDO), 1)
+	$(CONTAINER_CMD) $(CONTAINER_BUILD_CMD) -t dotfiles $(PWD) -f $(DOTFILES)/docker/Dockerfile;
+	$(CONTAINER_CMD) run -it --rm --name maketest -d dotfiles:latest;
+	$(CONTAINER_CMD) exec -it maketest /bin/bash -c "make NOSUDO=$(NOSUDO) minimal";
+else
+	$(CONTAINER_CMD) $(CONTAINER_BUILD_CMD) -t dotfiles_sudo $(PWD) -f $(DOTFILES)/docker/sudoer.Dockerfile;
+	$(CONTAINER_CMD) run -it --rm --name maketest_sudo -d dotfiles_sudo:latest;
+	$(CONTAINER_CMD) exec -it maketest_sudo /bin/bash -c "make linux";
+endif
+	@echo "==> Container can now be shut down"
+
 .PHONY: uninstall
 uninstall: ## Remove installed dotfiles and configurations
 	-@rm -f $(HOME)/.zshrc
 	-@rm -f $(HOME)/.zshenv
 	-@rm -f $(HOME)/.zprofile
+	-@rm -f $(HOME)/.zlogin
 	-@rm -f $(HOME)/.tmux.conf
 	-@rm -f $(HOME)/.wgetrc
 	-@rm -f $(HOME)/.curlrc
@@ -624,42 +111,19 @@ uninstall: ## Remove installed dotfiles and configurations
 	-@rm -rf $(HOME)/.config/htop
 	-@rm -rf $(HOME)/.config/btop
 	-@rm -rf $(HOME)/.config/nvim
+	-@rm -rf $(HOME)/.config/fastfetch
+	-@rm -rf $(HOME)/.config/ghostty
 ifeq ($(OSTYPE), Darwin)
+	-@launchctl bootout gui/$(shell id -u) $(HOME)/Library/LaunchAgents/git.frank.sketchybar-top.plist 2>/dev/null || true
+	-@launchctl bootout gui/$(shell id -u) $(HOME)/Library/LaunchAgents/git.frank.sketchybar-island.plist 2>/dev/null || true
+	-@rm -f $(HOME)/Library/LaunchAgents/git.frank.sketchybar-top.plist
+	-@rm -f $(HOME)/Library/LaunchAgents/git.frank.sketchybar-island.plist
 	-@rm -rf $(HOME)/.config/skhd
 	-@rm -rf $(HOME)/.config/sketchybar
+	-@rm -rf $(HOME)/.config/sketchybar-top
+	-@rm -rf $(HOME)/.config/sketchybar-island
 	-@rm -rf $(HOME)/.config/sioyek
 	-@rm -rf $(HOME)/.config/yabai
 	-@rm -rf $(HOME)/.config/borders
 	-@sudo battery uninstall 2>/dev/null || true
 endif
-
-.PHONY: test
-test: ## Test installation in Docker container
-	$(call print_step,Testing linux installation on ${OSTYPE})
-ifeq ($(NOSUDO), 1)
-	$(CONTAINER_CMD) $(CONTAINER_BUILD_CMD) -t dotfiles ${PWD} -f $(DOTFILES)/docker/Dockerfile;
-	$(CONTAINER_CMD) run -it --rm --name maketest -d dotfiles:latest;
-	$(CONTAINER_CMD) exec -it maketest /bin/bash -c "make NOSUDO=$(NOSUDO) minimal";
-else
-	$(CONTAINER_CMD) $(CONTAINER_BUILD_CMD) -t dotfiles_sudo ${PWD} -f $(DOTFILES)/docker/sudoer.Dockerfile;
-	$(CONTAINER_CMD) run -it --rm --name maketest_sudo -d dotfiles_sudo:latest;
-	$(CONTAINER_CMD) exec -it maketest_sudo /bin/bash -c "make linux";
-endif
-	$(call print_step,Container can now be shut down)
-
-.PHONY: sketchybar-top sketchybar-island
-sketchybar-top: ## Install and start SketchyBar Top LaunchAgent
-	$(call print_step,Installing sketchybar-top LaunchAgent)
-	@mkdir -p $(HOME)/Library/LaunchAgents
-	@ln -sf /opt/homebrew/bin/sketchybar /opt/homebrew/bin/sketchybar-top 2>/dev/null || true
-	$(call link_if_exists,$(DOTFILES)/sketchybar/top/git.frank.sketchybar-top.plist,$(HOME)/Library/LaunchAgents/git.frank.sketchybar-top.plist)
-	@launchctl bootout gui/$(shell id -u) $(HOME)/Library/LaunchAgents/git.frank.sketchybar-top.plist 2>/dev/null || true
-	@launchctl bootstrap gui/$(shell id -u) $(HOME)/Library/LaunchAgents/git.frank.sketchybar-top.plist
-
-sketchybar-island: ## Install and start SketchyBar Island LaunchAgent
-	$(call print_step,Installing sketchybar-island LaunchAgent)
-	@mkdir -p $(HOME)/Library/LaunchAgents
-	@ln -sf /opt/homebrew/bin/sketchybar /opt/homebrew/bin/sketchybar-island 2>/dev/null || true
-	$(call link_if_exists,$(DOTFILES)/sketchybar/island/git.frank.sketchybar-island.plist,$(HOME)/Library/LaunchAgents/git.frank.sketchybar-island.plist)
-	@launchctl bootout gui/$(shell id -u) $(HOME)/Library/LaunchAgents/git.frank.sketchybar-island.plist 2>/dev/null || true
-	@launchctl bootstrap gui/$(shell id -u) $(HOME)/Library/LaunchAgents/git.frank.sketchybar-island.plist
