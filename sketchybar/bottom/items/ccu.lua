@@ -14,7 +14,7 @@ local pad = 10
 local col_gap = 10
 local title_w = 108 -- fits "Session (5h)" / "Weekly Fable"
 local bar_w = 100
-local value_w = 160 -- fits "69%  3h 5m [active]"
+local value_w = 180 -- fits "130% used  01.08. 02:00" / "69%  3h 5m [active]"
 local bar_h = 6
 local row_h = metrics.popup_row_height
 local content_w = title_w + bar_w + value_w
@@ -133,10 +133,24 @@ local function metric_row(name, title, accent, y)
   })
 end
 
+local function clamp_pct(percent)
+  if percent == nil then
+    return 0
+  end
+  local n = math.floor(percent + 0.5)
+  if n < 0 then
+    return 0
+  end
+  if n > 100 then
+    return 100
+  end
+  return n
+end
+
 local function set_percent(item, accent, percent)
   item:set {
     slider = {
-      percentage = percent == nil and 0 or math.floor(percent + 0.5),
+      percentage = clamp_pct(percent),
       width = bar_w,
       highlight_color = accent,
       background = {
@@ -206,9 +220,12 @@ local function parse_lua_table(lit, tag)
   if not lit or lit == "" then
     return { error = "empty_response" }
   end
-  local fn = load("return " .. lit, tag, "t", {})
-  local result = (fn and fn()) or {}
-  if type(result) ~= "table" then
+  local fn, err = load("return " .. lit, tag, "t", {})
+  if not fn then
+    return { error = "parse_error" }
+  end
+  local ok, result = pcall(fn)
+  if not ok or type(result) ~= "table" then
     return { error = "invalid_response" }
   end
   if result.error then
@@ -230,11 +247,12 @@ local function window_fields(block)
     used = 100 - remaining
   end
   if remaining == nil then
-    remaining = 100 - used
+    remaining = math.max(0, 100 - used)
   end
   return {
     used = used,
-    remaining = remaining,
+    remaining = math.max(0, remaining),
+
     reset_text = block.reset_text,
     label = block.label,
     kind = block.kind,
@@ -265,8 +283,14 @@ local function get_grok_usage(callback)
       callback(result)
       return
     end
+    local used = tonumber(result.utilization)
+    local remaining = tonumber(result.remaining)
+    if remaining == nil and used ~= nil then
+      remaining = math.max(0, 100 - used)
+    end
     callback {
-      utilization = tonumber(result.utilization),
+      utilization = used,
+      remaining = remaining,
       resets_at = result.resets_at_de or result.resets_at,
     }
   end)
@@ -313,11 +337,20 @@ local function row_title(win, fallback)
   return fallback
 end
 
-local function format_pct(percent, reset)
-  if percent == nil then
+local function format_pct(percent, reset, used)
+  if percent == nil and used == nil then
     return "—"
   end
-  local text = string.format("%3.0f%%", percent)
+  -- Prefer remaining; if over-limit (used > 100) show used so we never print "-30%".
+  local show = percent
+  local suffix = ""
+  if used ~= nil and used > 100 then
+    show = used
+    suffix = " used"
+  elseif show == nil then
+    show = used
+  end
+  local text = string.format("%3.0f%%%s", show, suffix)
   local r = short_reset(reset)
   if r then
     text = text .. "  " .. r
@@ -386,49 +419,56 @@ end
 
 local function apply_claude(result)
   if result.error then
-    last.session, last.weekly, last.fable = nil, nil, nil
-    session_row:set {
-      icon = { string = "Session (5h)", color = accent_session },
-      label = { string = result.error, color = theme.critical },
-    }
-    weekly_row:set {
-      icon = { string = "Week (7d)", color = accent_weekly },
-      label = { string = "—", color = theme.text_muted },
-    }
-    fable_row:set {
-      icon = { string = "Weekly Fable", color = accent_fable },
-      label = { string = "—", color = theme.text_muted },
-    }
-    set_percent(session_row, accent_session, 0)
-    set_percent(weekly_row, accent_weekly, 0)
-    set_percent(fable_row, accent_fable, 0)
+    -- Keep last-good rows on transient failures (429 / parse / network).
+    local had = last.session ~= nil or last.weekly ~= nil or last.fable ~= nil
+    if not had then
+      session_row:set {
+        icon = { string = "Session (5h)", color = accent_session },
+        label = { string = result.error, color = theme.critical },
+      }
+      weekly_row:set {
+        icon = { string = "Week (7d)", color = accent_weekly },
+        label = { string = "—", color = theme.text_muted },
+      }
+      fable_row:set {
+        icon = { string = "Weekly Fable", color = accent_fable },
+        label = { string = "—", color = theme.text_muted },
+      }
+      set_percent(session_row, accent_session, 0)
+      set_percent(weekly_row, accent_weekly, 0)
+      set_percent(fable_row, accent_fable, 0)
+    end
   else
     last.session = apply_window_row(session_row, accent_session, result.session, "Session (5h)")
     last.weekly = apply_window_row(weekly_row, accent_weekly, result.weekly, "Week (7d)")
     last.fable = apply_window_row(fable_row, accent_fable, result.scoped, "Weekly Fable")
   end
-  set_capsule(last.session, last.weekly, last.fable, last.grok, result.error and not last.grok)
+  set_capsule(last.session, last.weekly, last.fable, last.grok, result.error and not last.grok and not last.session)
 end
 
 local function apply_grok(result)
   if result.error then
-    last.grok = nil
-    grok_row:set { label = { string = result.error, color = theme.critical } }
-    set_percent(grok_row, accent_grok, 0)
+    if last.grok == nil then
+      grok_row:set { label = { string = result.error, color = theme.critical } }
+      set_percent(grok_row, accent_grok, 0)
+    end
   else
-    last.grok = result.utilization
-    -- Grok still reports used % from billing; show remaining if we have it.
     local used = result.utilization
-    local remaining = used and (100 - used) or nil
+    local remaining = result.remaining
+    if remaining == nil and used ~= nil then
+      remaining = math.max(0, 100 - used)
+    end
+    last.grok = used
     grok_row:set {
       label = {
-        string = format_pct(remaining or used, result.resets_at),
+        string = format_pct(remaining, result.resets_at, used),
         color = usage_color(used),
       },
     }
-    set_percent(grok_row, accent_grok, remaining or used or 0)
+    -- Bar = remaining (CLI style); over-limit → 0%.
+    set_percent(grok_row, accent_grok, remaining or 0)
   end
-  set_capsule(last.session, last.weekly, last.fable, last.grok, result.error and not last.session)
+  set_capsule(last.session, last.weekly, last.fable, last.grok, result.error and not last.session and not last.grok)
 end
 
 local function refresh_theme()
@@ -463,15 +503,17 @@ local function refresh_usage()
   get_grok_usage(apply_grok)
 end
 
+-- Always refresh capsule (was stuck after first failed fetch when popup closed).
+-- Open popup: 20s; closed: 60s — avoids Claude 429 from 10s hammering.
 local refresh_timer = sbar.add("item", "widgets.ccu.refresh_timer", {
-  update_freq = 10,
+  update_freq = 60,
   drawing = false,
 })
 
 refresh_timer:subscribe("routine", function()
-  if ccu:query().popup.drawing == "on" then
-    refresh_usage()
-  end
+  local open = ccu:query().popup.drawing == "on"
+  refresh_timer:set { update_freq = open and 20 or 60 }
+  refresh_usage()
 end)
 
 ui.bind_popup(ccu, { on_open = refresh_usage })

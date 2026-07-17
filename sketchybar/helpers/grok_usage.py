@@ -33,7 +33,14 @@ def lua_literal(value: Any) -> str:
   if isinstance(value, (int, float)):
     return str(value)
   if isinstance(value, str):
-    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    # Escape control chars — bare newlines break Lua double-quoted strings.
+    escaped = (
+      value.replace("\\", "\\\\")
+      .replace('"', '\\"')
+      .replace("\n", "\\n")
+      .replace("\r", "\\r")
+      .replace("\t", "\\t")
+    )
     return f'"{escaped}"'
   if isinstance(value, dict):
     parts = [f"{k}={lua_literal(v)}" for k, v in value.items()]
@@ -148,6 +155,8 @@ def fetch_billing(token: str) -> dict[str, Any]:
   except urllib.error.HTTPError as exc:
     body = exc.read().decode("utf-8", errors="replace")
     raise RuntimeError(f"http_{exc.code}: {body[:120]}") from exc
+  except Exception as exc:  # noqa: BLE001 — network DNS/timeout → soft error
+    raise RuntimeError(f"network: {exc}") from exc
 
 
 def build_payload(data: dict[str, Any]) -> dict[str, Any]:
@@ -159,13 +168,17 @@ def build_payload(data: dict[str, Any]) -> dict[str, Any]:
   period_start = cfg.get("billingPeriodStart")
 
   utilization = None
+  remaining = None
   if used is not None and limit and limit > 0:
     utilization = round(100.0 * used / limit, 1)
+    # Clamp remaining so over-limit never yields negative % in the bar.
+    remaining = max(0.0, round(100.0 - utilization, 1))
 
   return {
     "source": "grok_billing",
     "error": None,
     "utilization": utilization,
+    "remaining": remaining,
     "used": used,
     "monthly_limit": limit,
     "on_demand_cap": on_demand,
@@ -177,10 +190,14 @@ def build_payload(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def build_error(error: str) -> dict[str, Any]:
+  one = " ".join(str(error).split())
+  if len(one) > 48:
+    one = one[:45] + "..."
   return {
     "source": "grok_billing",
-    "error": error,
+    "error": one,
     "utilization": None,
+    "remaining": None,
     "used": None,
     "monthly_limit": None,
     "on_demand_cap": None,

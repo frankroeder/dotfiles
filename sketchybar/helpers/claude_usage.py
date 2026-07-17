@@ -19,6 +19,8 @@ from typing import Any
 OAUTH_URL = "https://api.anthropic.com/api/oauth/usage"
 CRED_PATH = Path.home() / ".claude" / ".credentials.json"
 KEYCHAIN_SERVICE = "Claude Code-credentials"
+CACHE_PATH = Path.home() / ".cache" / "sketchybar" / "claude_usage.json"
+CACHE_TTL_SEC = 90
 
 
 def lua_literal(value: Any) -> str:
@@ -31,7 +33,14 @@ def lua_literal(value: Any) -> str:
   if isinstance(value, (int, float)):
     return str(value)
   if isinstance(value, str):
-    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    # Escape control chars — bare newlines break Lua double-quoted strings.
+    escaped = (
+      value.replace("\\", "\\\\")
+      .replace('"', '\\"')
+      .replace("\n", "\\n")
+      .replace("\r", "\\r")
+      .replace("\t", "\\t")
+    )
     return f'"{escaped}"'
   if isinstance(value, dict):
     parts = [f"{k}={lua_literal(v)}" for k, v in value.items()]
@@ -39,6 +48,16 @@ def lua_literal(value: Any) -> str:
   if isinstance(value, list):
     return "{" + ",".join(lua_literal(v) for v in value) + "}"
   return lua_literal(str(value))
+
+
+def short_error(msg: str) -> str:
+  """Collapse API error bodies to a single short line for the popup."""
+  one = " ".join(msg.split())
+  if "rate_limit" in one.lower() or "http_429" in one:
+    return "rate_limited"
+  if len(one) > 48:
+    return one[:45] + "..."
+  return one
 
 
 def token_from_json(data: dict[str, Any]) -> str | None:
@@ -116,7 +135,8 @@ def parse_limit(item: dict[str, Any]) -> dict[str, Any] | None:
     "group": item.get("group"),
     "label": limit_label(item),
     "used": used,
-    "remaining": 100.0 - used,
+    "remaining": max(0.0, 100.0 - used),
+
     "severity": item.get("severity"),
     "resets_at": resets_at,
     "reset_text": format_reset(resets_at),
@@ -138,7 +158,8 @@ def parse_window(data: dict[str, Any], key: str, label: str, kind: str) -> dict[
     "group": None,
     "label": label,
     "used": used,
-    "remaining": 100.0 - used,
+    "remaining": max(0.0, 100.0 - used),
+
     "severity": None,
     "resets_at": resets_at,
     "reset_text": format_reset(resets_at),
@@ -161,9 +182,9 @@ def fetch_oauth_usage(token: str) -> tuple[dict[str, Any] | None, str | None]:
       return json.loads(resp.read()), None
   except urllib.error.HTTPError as exc:
     body = exc.read().decode("utf-8", errors="replace")
-    return None, f"http_{exc.code}: {body[:120]}"
+    return None, short_error(f"http_{exc.code}: {body[:120]}")
   except Exception as exc:  # noqa: BLE001
-    return None, str(exc)
+    return None, short_error(str(exc))
 
 
 def build_payload(data: dict[str, Any]) -> dict[str, Any]:
@@ -202,12 +223,42 @@ def build_payload(data: dict[str, Any]) -> dict[str, Any]:
 def build_error(error: str) -> dict[str, Any]:
   return {
     "source": "oauth",
-    "error": error,
+    "error": short_error(error),
     "limits": [],
     "session": None,
     "weekly": None,
     "scoped": None,
   }
+
+
+def load_cache() -> dict[str, Any] | None:
+  if not CACHE_PATH.is_file():
+    return None
+  try:
+    raw = json.loads(CACHE_PATH.read_text())
+  except (json.JSONDecodeError, OSError):
+    return None
+  if not isinstance(raw, dict) or not isinstance(raw.get("payload"), dict):
+    return None
+  age = datetime.now(timezone.utc).timestamp() - float(raw.get("ts") or 0)
+  if age < 0 or age > CACHE_TTL_SEC * 4:
+    return None
+  payload = raw["payload"]
+  if payload.get("error"):
+    return None
+  return payload
+
+
+def save_cache(payload: dict[str, Any]) -> None:
+  if payload.get("error"):
+    return
+  try:
+    CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CACHE_PATH.write_text(
+      json.dumps({"ts": datetime.now(timezone.utc).timestamp(), "payload": payload})
+    )
+  except OSError:
+    pass
 
 
 def fetch_usage() -> dict[str, Any]:
@@ -216,8 +267,14 @@ def fetch_usage() -> dict[str, Any]:
     return build_error("no_oauth: Claude Code credentials missing")
   data, err = fetch_oauth_usage(token)
   if data is None:
+    # Prefer last-good cache on transient failures (esp. 429).
+    cached = load_cache()
+    if cached is not None:
+      return cached
     return build_error(err or "fetch_failed")
-  return build_payload(data)
+  payload = build_payload(data)
+  save_cache(payload)
+  return payload
 
 
 def main() -> int:
