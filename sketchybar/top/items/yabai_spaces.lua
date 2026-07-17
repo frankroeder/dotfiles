@@ -6,7 +6,6 @@ local ui = require "ui"
 local utils = require "utils"
 
 sbar.add("event", "layout_change")
-sbar.add("event", "property_change")
 sbar.add("event", "space_windows_refresh")
 sbar.add("event", "window_created")
 sbar.add("event", "window_destroyed")
@@ -20,9 +19,12 @@ sbar.add("event", "window_focus")
 
 local spaces = {}
 local space_state = {}
+-- Declared early: set_layout_item / update* close over this local (not a global).
+local space_layout
 
 local static_names = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" }
 local ws_layout = settings.spaces
+local max_app_icons = 5
 
 local function ws_theme()
   return settings.theme.workspace
@@ -31,9 +33,28 @@ end
 local function space_surface(state)
   local theme = ws_theme()
   local selected = state.selected
+  local visible = state.visible
   local occupied = (state.window_count or 0) > 0
-  local bg = selected and theme.active_bg or (occupied and theme.occupied_bg or theme.empty_bg)
-  local border_color = selected and colors.yellow or theme.border
+
+  local bg
+  if selected then
+    bg = theme.active_bg
+  elseif visible then
+    bg = theme.visible_bg or theme.occupied_bg
+  elseif occupied then
+    bg = theme.occupied_bg
+  else
+    bg = theme.empty_bg
+  end
+
+  local border_color
+  if selected then
+    border_color = theme.active_border or colors.yellow
+  elseif visible then
+    border_color = theme.visible_border or theme.border
+  else
+    border_color = theme.border
+  end
 
   return {
     drawing = true,
@@ -57,6 +78,8 @@ local refresh_in_flight = false
 local refresh_queued = false
 local refresh_timer_running = false
 local retry_refreshes = 0
+local layout_in_flight = false
+local layout_queued = false
 
 local function ensureSpaceState(index)
   if not space_state[index] then
@@ -67,12 +90,27 @@ local function ensureSpaceState(index)
       display = 1,
       app_names = {},
       last_icon_line = nil,
+      last_visual = nil,
     }
   end
   return space_state[index]
 end
 
-local function renderSpaceApps(index)
+local function apps_color_for(state)
+  local theme = ws_theme()
+  if state.selected then
+    return theme.badge_active_text or theme.active or colors.text
+  end
+  if (state.window_count or 0) > 0 then
+    return theme.occupied_text or colors.text
+  end
+  if state.visible then
+    return theme.visible_text or colors.subtext1
+  end
+  return theme.empty_text or colors.text
+end
+
+local function renderSpaceApps(index, animate)
   local space = spaces[index]
   if not space then
     return
@@ -83,38 +121,41 @@ local function renderSpaceApps(index)
   if state.app_names and #state.app_names > 0 then
     local app_icon_list = {}
     for _, app in ipairs(state.app_names) do
-      if type(app) == "string" and app ~= "" then
+      if type(app) == "string" and app ~= "" and #app_icon_list < max_app_icons then
         table.insert(app_icon_list, utils.lookup_app_icon(app, app_icons))
       end
     end
     if #app_icon_list > 0 then
       icon_line = " " .. table.concat(app_icon_list, " ")
+      -- More unique apps than we show: subtle overflow marker.
+      if #state.app_names > max_app_icons then
+        icon_line = icon_line .. "…"
+      end
     end
   end
 
-  if state.last_icon_line == icon_line then
+  local apps_color = apps_color_for(state)
+  local key = icon_line .. "|" .. tostring(apps_color)
+  if state.last_icon_line == key then
     return
   end
-  state.last_icon_line = icon_line
+  state.last_icon_line = key
 
-  local theme = ws_theme()
-  local apps_color = theme.empty_text or colors.text
-  if state.selected then
-    apps_color = theme.active or colors.text
-  elseif (state.window_count or 0) > 0 then
-    apps_color = theme.occupied_text or colors.text
-  elseif state.visible and not state.selected then
-    apps_color = colors.subtext1
+  if animate == false then
+    space:set {
+      label = { string = icon_line, color = apps_color, y_offset = ws_layout.label.y_offset },
+    }
+    return
   end
 
+  -- Short pop only when the icon strip actually changes.
   sbar.animate("tanh", settings.motion.fast, function()
     space:set {
-      label = { string = icon_line, color = apps_color, y_offset = ws_layout.label.y_offset - 3 },
+      label = { string = icon_line, color = apps_color, y_offset = ws_layout.label.y_offset - 2 },
     }
   end)
-
-  sbar.delay(0.06, function()
-    sbar.animate("sin", settings.motion.normal, function()
+  sbar.delay(0.05, function()
+    sbar.animate("sin", settings.motion.fast, function()
       space:set {
         label = { string = icon_line, color = apps_color, y_offset = ws_layout.label.y_offset },
       }
@@ -131,10 +172,23 @@ local function updateSpaceVisual(index)
   local state = ensureSpaceState(index)
   local selected = state.selected
   local occupied = (state.window_count or 0) > 0
-
   local theme = ws_theme()
   local fg = selected and theme.badge_active_text
     or (occupied and theme.occupied_text or theme.empty_text)
+  local surface = space_surface(state)
+  local key = table.concat({
+    selected and "1" or "0",
+    state.visible and "1" or "0",
+    occupied and "1" or "0",
+    tostring(fg),
+    tostring(surface.color),
+    tostring(surface.border_color),
+  }, "|")
+
+  if state.last_visual == key then
+    return
+  end
+  state.last_visual = key
 
   sbar.animate("tanh", settings.motion.fast, function()
     space:set {
@@ -147,7 +201,7 @@ local function updateSpaceVisual(index)
         color = fg,
         highlight = false,
       },
-      background = space_surface(state),
+      background = surface,
     }
   end)
 end
@@ -155,17 +209,47 @@ end
 local function setFocusedSpace(index)
   for idx, _ in pairs(spaces) do
     local state = ensureSpaceState(idx)
+    local was = state.selected
     state.selected = idx == index
-    updateSpaceVisual(idx)
+    if was ~= state.selected then
+      state.last_visual = nil
+      state.last_icon_line = nil
+      updateSpaceVisual(idx)
+      renderSpaceApps(idx, false)
+    end
   end
 end
 
 local function setSpaceWindowData(index, app_names, window_count)
   local state = ensureSpaceState(index)
+  local prev_count = state.window_count
   state.app_names = app_names or {}
   state.window_count = window_count or 0
-  renderSpaceApps(index)
+  if prev_count ~= state.window_count then
+    state.last_visual = nil
+  end
+  renderSpaceApps(index, true)
   updateSpaceVisual(index)
+end
+
+local function window_counts(windows)
+  local grouped = {}
+  for index, _ in pairs(spaces) do
+    grouped[index] = { count = 0, apps = {} }
+  end
+
+  for _, window in ipairs(windows) do
+    local index = tonumber(window.space)
+    local bucket = index and grouped[index]
+    if bucket and not window["is-minimized"] and window["is-hidden"] ~= true then
+      local app = tostring(window.app or ""):gsub("^%s+", ""):gsub("%s+$", "")
+      if app ~= "" then
+        bucket.count = bucket.count + 1
+        bucket.apps[app] = true
+      end
+    end
+  end
+  return grouped
 end
 
 local function refreshSpaceWindows()
@@ -186,23 +270,7 @@ local function refreshSpaceWindows()
       return
     end
 
-    local grouped = {}
-    for index, _ in pairs(spaces) do
-      grouped[index] = { count = 0, apps = {} }
-    end
-
-    for _, window in ipairs(windows) do
-      local index = tonumber(window.space)
-      local bucket = index and grouped[index]
-      if bucket and not window["is-minimized"] and not (window["is-hidden"] == true) then
-        local app = tostring(window.app or ""):gsub("^%s+", ""):gsub("%s+$", "")
-        if app ~= "" then
-          bucket.count = bucket.count + 1
-          bucket.apps[app] = true
-        end
-      end
-    end
-
+    local grouped = window_counts(windows)
     for index, bucket in pairs(grouped) do
       local app_names = {}
       for app, _ in pairs(bucket.apps) do
@@ -226,7 +294,7 @@ local function runScheduledRefresh()
   if retry_refreshes > 0 then
     retry_refreshes = retry_refreshes - 1
     refresh_timer_running = true
-    sbar.delay(0.18, runScheduledRefresh)
+    sbar.delay(0.2, runScheduledRefresh)
   end
 end
 
@@ -242,6 +310,60 @@ local function scheduleSpaceWindowRefresh(retries, delay)
 
   refresh_timer_running = true
   sbar.delay(delay or 0.08, runScheduledRefresh)
+end
+
+-- yabai 7.x stack layout often reports stack-index=0 for every window.
+-- Fall back to focused position among non-minimized windows on the space.
+local function format_stack_label(windows)
+  local entries = {}
+  local focused_pos = nil
+  local stack_idx = nil
+
+  for _, window in ipairs(windows) do
+    if not window["is-minimized"] and window["is-hidden"] ~= true then
+      table.insert(entries, window)
+      local si = tonumber(window["stack-index"]) or 0
+      if window["has-focus"] then
+        focused_pos = #entries
+        if si > 0 then
+          stack_idx = si
+        end
+      end
+    end
+  end
+
+  local total = #entries
+  if total <= 1 then
+    return ""
+  end
+
+  local pos = stack_idx or focused_pos
+  if not pos then
+    return tostring(total)
+  end
+  return string.format("%d/%d", pos, total)
+end
+
+local function set_layout_item(layout, label, display)
+  if not space_layout then
+    return
+  end
+  local glyph = icons.yabai[layout] or icons.yabai.bsp
+  local text = label or ""
+  local has_label = text ~= ""
+  -- Label off → its padding_right is gone; keep icon solo padded like left side.
+  local icon_pad_r = has_label and ws_layout.icon.padding_right or ws_layout.icon.padding_left
+  space_layout:set {
+    icon = {
+      string = glyph,
+      padding_right = icon_pad_r,
+    },
+    label = {
+      string = text,
+      drawing = has_label,
+    },
+    display = tonumber(display),
+  }
 end
 
 for index, space_name in ipairs(static_names) do
@@ -278,7 +400,14 @@ for index, space_name in ipairs(static_names) do
 
   space:subscribe("mouse.clicked", function(env)
     if env.BUTTON == "right" then
-      sbar.exec("yabai -m space --destroy " .. index)
+      -- Only destroy empty spaces (avoids nuking occupied ones by misclick).
+      local st = ensureSpaceState(index)
+      if (st.window_count or 0) == 0 then
+        sbar.exec("yabai -m space --destroy " .. index)
+      else
+        setFocusedSpace(index)
+        sbar.exec("yabai -m space --focus " .. index)
+      end
     else
       setFocusedSpace(index)
       sbar.exec("yabai -m space --focus " .. index)
@@ -287,7 +416,7 @@ for index, space_name in ipairs(static_names) do
   end)
 end
 
-local space_layout = sbar.add("item", "widgets.yabai_layout", {
+space_layout = sbar.add("item", "widgets.yabai_layout", {
   padding_left = settings.layout.spacing.widget,
   padding_right = settings.layout.spacing.widget,
   icon = {
@@ -299,6 +428,7 @@ local space_layout = sbar.add("item", "widgets.yabai_layout", {
   },
   label = {
     string = "",
+    drawing = false,
     padding_left = settings.ui.label_padding_left,
     padding_right = settings.ui.label_padding_right,
     color = ws_theme().fg,
@@ -314,14 +444,50 @@ local function refresh_theme()
     background = layout_surface(),
   }
   for idx, _ in pairs(spaces) do
+    local st = ensureSpaceState(idx)
+    st.last_visual = nil
+    st.last_icon_line = nil
     updateSpaceVisual(idx)
-    renderSpaceApps(idx)
+    renderSpaceApps(idx, false)
   end
 end
 
+-- Light path: layout glyph + stack i/n for the focused space only.
+local function updateStackIndicator()
+  sbar.exec("yabai -m query --spaces --space 2>/dev/null", function(sp)
+    if type(sp) ~= "table" then
+      return
+    end
+    local layout = sp.type or "bsp"
+    local display = sp.display
+    if layout ~= "stack" then
+      set_layout_item(layout, "", display)
+      return
+    end
+    sbar.exec("yabai -m query --windows --space 2>/dev/null", function(windows)
+      if type(windows) ~= "table" then
+        set_layout_item(layout, "", display)
+        return
+      end
+      set_layout_item(layout, format_stack_label(windows), display)
+    end)
+  end)
+end
+
 local function updateLayout()
+  if layout_in_flight then
+    layout_queued = true
+    return
+  end
+  layout_in_flight = true
+
   sbar.exec("yabai -m query --spaces 2>/dev/null", function(spaces_data)
+    layout_in_flight = false
     if type(spaces_data) ~= "table" then
+      if layout_queued then
+        layout_queued = false
+        updateLayout()
+      end
       return
     end
 
@@ -332,13 +498,21 @@ local function updateLayout()
       if index and spaces[index] then
         present[index] = true
         local state = ensureSpaceState(index)
+        local sel = yabai_space["has-focus"] == true
+        local vis = yabai_space["is-visible"] == true
+        if state.display ~= display or state.selected ~= sel or state.visible ~= vis then
+          state.last_visual = nil
+          state.last_icon_line = nil
+        end
         state.display = display or state.display
-        state.selected = yabai_space["has-focus"] == true
-        state.visible = yabai_space["is-visible"] == true
+        state.selected = sel
+        state.visible = vis
         spaces[index]:set { display = state.display, drawing = true }
         updateSpaceVisual(index)
+        renderSpaceApps(index, false)
       end
     end
+
     for idx, _ in pairs(spaces) do
       if not present[idx] then
         local st = ensureSpaceState(idx)
@@ -347,6 +521,7 @@ local function updateLayout()
         st.app_names = {}
         st.window_count = 0
         st.last_icon_line = nil
+        st.last_visual = nil
         spaces[idx]:set { drawing = false, label = { string = " —" } }
       end
     end
@@ -359,52 +534,28 @@ local function updateLayout()
       end
     end
 
-    if not focused_space then
-      scheduleSpaceWindowRefresh(0)
-      return
-    end
-
-    local layout = focused_space.type
-    local display = focused_space.display
-    local stack_info = "-"
-
-    if layout == "stack" then
-      sbar.exec("yabai -m query --windows --space 2>/dev/null", function(windows)
-        if type(windows) ~= "table" then
-          return
-        end
-        local visible_count = 0
-        local stack_index = nil
-        for _, window in ipairs(windows) do
-          if window["is-visible"] then
-            visible_count = visible_count + 1
+    if focused_space then
+      local layout = focused_space.type or "bsp"
+      local display = focused_space.display
+      if layout == "stack" then
+        sbar.exec("yabai -m query --windows --space 2>/dev/null", function(windows)
+          if type(windows) ~= "table" then
+            set_layout_item(layout, "", display)
+            return
           end
-          if window["has-focus"] then
-            stack_index = window["stack-index"]
-          end
-        end
-
-        if not stack_index or stack_index == 0 then
-          stack_info = "[NA]"
-        else
-          stack_info = "[" .. tostring(stack_index) .. "/" .. tostring(visible_count) .. "]"
-        end
-
-        space_layout:set {
-          icon = { string = icons.yabai[layout] },
-          label = { string = stack_info },
-          display = tonumber(display),
-        }
-      end)
-    else
-      space_layout:set {
-        icon = { string = icons.yabai[layout] },
-        label = { string = stack_info },
-        display = tonumber(display),
-      }
+          set_layout_item(layout, format_stack_label(windows), display)
+        end)
+      else
+        set_layout_item(layout, "", display)
+      end
     end
 
     scheduleSpaceWindowRefresh(0)
+
+    if layout_queued then
+      layout_queued = false
+      updateLayout()
+    end
   end)
 end
 
@@ -413,12 +564,13 @@ local space_window_observer = sbar.add("item", "widgets.space_window_observer", 
   updates = true,
 })
 
+-- Window create/move can lag behind yabai; one short retry is enough.
 space_window_observer:subscribe("window_created", function()
-  scheduleSpaceWindowRefresh(5)
+  scheduleSpaceWindowRefresh(1, 0.12)
 end)
 
 space_window_observer:subscribe("window_moved", function()
-  scheduleSpaceWindowRefresh(4, 0.15)
+  scheduleSpaceWindowRefresh(1, 0.15)
 end)
 
 space_window_observer:subscribe({
@@ -426,28 +578,29 @@ space_window_observer:subscribe({
   "window_destroyed",
   "window_minimized",
   "window_deminimized",
-  "window_focus",
   "front_app_switched",
-  "layout_change",
-  "display_change",
-  "space_created",
-  "space_destroyed",
 }, function()
-  scheduleSpaceWindowRefresh(2, 0.12)
+  scheduleSpaceWindowRefresh(1, 0.1)
+end)
+
+-- Focus changes only need the stack counter + selection colors, not a full windows scan.
+space_window_observer:subscribe("window_focus", function()
+  updateStackIndicator()
 end)
 
 space_window_observer:subscribe("theme_colors_updated", refresh_theme)
 
 space_layout:subscribe("layout_change", updateLayout)
 space_layout:subscribe("space_windows_refresh", updateLayout)
-space_layout:subscribe("front_app_switched", updateLayout)
 space_layout:subscribe("display_change", updateLayout)
 space_layout:subscribe("space_created", updateLayout)
 space_layout:subscribe("space_destroyed", updateLayout)
 space_layout:subscribe("window_moved", updateLayout)
-space_layout:subscribe("window_focus", updateLayout)
+space_layout:subscribe("window_focus", function()
+  updateStackIndicator()
+end)
 
 updateLayout()
-scheduleSpaceWindowRefresh(2)
+scheduleSpaceWindowRefresh(1)
 
 return spaces
