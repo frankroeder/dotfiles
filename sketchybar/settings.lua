@@ -186,17 +186,13 @@ local settings = {
     slow = 18,
   },
   island = {
-    appswitch = true,
-    appswitch_duration = 2,
-    window = true,
-    window_duration = 2,
-    layout = true,
+    -- Pills always on; only durations / geometry live here.
+    appswitch_duration = 4,
     layout_duration = 2,
-    mic = true,
+    window_duration = 2,
     mic_duration = 2,
-    bluetooth = true,
     bluetooth_duration = 3,
-    siri_frames = 18,
+    siri_frames = 108,
     -- Idle bar height matches the single-line pill; heights include the tuck.
     bar_height = 56,
     idle_height = 56,
@@ -209,7 +205,7 @@ local settings = {
     text_y_offset = -8,
     -- Widths sized so the longest label fits its lobe (fallback mono is wide).
     widths = {
-      app = 560,
+      app = 520,
       siri = 380,
       layout = 520,
       mic = 460,

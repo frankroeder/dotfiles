@@ -3,10 +3,6 @@ local island = require "island_core"
 local island_style = require "island_style"
 local settings = require "settings"
 
-if not settings.island.layout then
-  return
-end
-
 local listener = sbar.add("item", "listener.layout", {
   drawing = false,
   updates = true,

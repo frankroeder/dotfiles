@@ -210,9 +210,10 @@ comp_macos_apps() {
     bash "$DOTFILES/scripts/sketchybar_app_font.sh"
   fi
   replace_with_symlink "$DOTFILES/skhd" "$HOME/.config/skhd"
-  print_step "Linking LibreWolf config (Asahi settings)"
-  mkdir -p "$HOME/Library/Application Support/LibreWolf/librewolf"
-  link_if_exists "$DOTFILES/shared/librewolf/librewolf.overrides.cfg" "$HOME/Library/Application Support/LibreWolf/librewolf/librewolf.overrides.cfg"
+  print_step "Linking LibreWolf config"
+  # Official macOS overrides path (not Application Support): https://librewolf.net/docs/settings/
+  mkdir -p "$HOME/.librewolf"
+  link_if_exists "$DOTFILES/shared/librewolf/librewolf.overrides.cfg" "$HOME/.librewolf/librewolf.overrides.cfg"
   local profile
   for profile in "$HOME/Library/Application Support/LibreWolf/Profiles/"*.default*; do
     [ -d "$profile" ] || continue

@@ -217,7 +217,7 @@ local function update(opts)
     end
 
     -- Island toast only on real connect events, never on popup open rebuild.
-    if opts.toast_new and settings.island.bluetooth and bt_primed then
+    if opts.toast_new and bt_primed then
       for _, d in ipairs(devices) do
         if not last_connected[d.name] then
           bridge.trigger("island_bluetooth", {

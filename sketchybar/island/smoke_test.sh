@@ -1,9 +1,18 @@
 #!/usr/bin/env bash
 # Live smoke test / demo for sketchybar-island. Drives real triggers + queries.
+#
+# Island pills (all six):
+#   appswitch  — front_app_switched (app name + app icon glyph)
+#   layout     — island_layout layout=bsp|stack|float
+#   window     — island_window prop=float|sticky (reads live yabai focused window)
+#   mic        — island_mic muted=true|false
+#   bluetooth  — island_bluetooth name=… type=Headphones|Mouse|Keyboard|Speaker battery=…
+#   siri       — island_siri action=appear|disappear (sticky, highest prio)
+#
 # Usage:
 #   ./sketchybar/island/smoke_test.sh [out_dir]     # verify (default)
 #   ./sketchybar/island/smoke_test.sh --demo        # slow visual demo of every pill
-# Demo dwell is tunable via DEMO_DWELL (seconds).
+# Demo dwell defaults to 5s; override with DEMO_DWELL=<seconds>.
 set -euo pipefail
 
 ISLAND="${ISLAND_BIN:-sketchybar-island}"
@@ -86,54 +95,155 @@ $ISLAND --trigger island_tap 2>/dev/null || true
 sleep "$STEP"
 
 # ---------------------------------------------------------------------------
-# Demo mode: show every pill as it really looks, with a comfortable dwell.
+# Demo mode: show every pill as it really looks, with a 5s dwell + live prints.
 # ---------------------------------------------------------------------------
 demo() {
-  local dwell="${DEMO_DWELL:-2.6}"
-  step() { printf '\n\033[1;36m▶ %s\033[0m\n' "$1"; }
-  hold() { sleep "$dwell"; }
-  reset() { $ISLAND --trigger island_tap; sleep 1.0; }
+  local dwell="${DEMO_DWELL:-5}"
+  local n=0 total=6
 
-  echo "── sketchybar-island demo (dwell ${dwell}s; Ctrl-C to stop) ──"
+  step() {
+    n=$((n + 1))
+    printf '\n\033[1;36m▶ [%d/%d] %s\033[0m\n' "$n" "$total" "$1"
+  }
+  detail() { printf '   \033[2m%s\033[0m\n' "$1"; }
+  # Hold while pill is visible; print a ticking status line so the terminal
+  # tracks the on-screen dwell (default 5s).
+  hold() {
+    local msg="${1:-showing}"
+    local left
+    for ((left = dwell; left > 0; left--)); do
+      printf '\r   \033[1;33m●\033[0m %s  \033[2m(%ds left)\033[0m   ' "$msg" "$left"
+      sleep 1
+    done
+    printf '\r   \033[1;32m✓\033[0m %s  \033[2m(done %ds)\033[0m   \n' "$msg" "$dwell"
+  }
+  reset() {
+    detail "dismiss (island_tap) → idle"
+    $ISLAND --trigger island_tap
+    sleep 1.0
+  }
+  snap() {
+    # Optional live query of what's on the pill right now.
+    local q
+    q="$($ISLAND --query island.main 2>/dev/null | python3 -c '
+import json,sys
+try:
+  m=json.load(sys.stdin)
+  print("%s | %s" % (m.get("icon",{}).get("value") or "—", m.get("label",{}).get("value") or "—"))
+except Exception:
+  print("— | —")
+' 2>/dev/null)" || q="— | —"
+    detail "pill now: $q"
+  }
 
-  step "App switch"
-  # First front_app_switched only primes (no toast); then names toast.
-  $ISLAND --trigger front_app_switched INFO=Finder; sleep 0.4
+  cat <<EOF
+════════════════════════════════════════════════════════════
+  sketchybar-island demo
+  dwell ${dwell}s per state · Ctrl-C to stop
+
+  All pills covered:
+    1. appswitch   front_app_switched
+    2. layout      island_layout (bsp / stack / float)
+    3. window      island_window (float / sticky)
+    4. mic         island_mic (muted / on)
+    5. bluetooth   island_bluetooth (Headphones/Mouse/Keyboard/Speaker)
+    6. siri        island_siri sticky (appear / disappear)
+════════════════════════════════════════════════════════════
+EOF
+
+  # --- 1. appswitch ---
+  step "appswitch — front app name + app icon glyph"
+  detail "trigger: front_app_switched INFO=<app>"
+  detail "first event only primes last_app (no toast); later names expand"
+  $ISLAND --trigger front_app_switched INFO=Finder
+  sleep 0.4
   for a in Safari Ghostty Music; do
-    $ISLAND --trigger front_app_switched INFO="$a"; echo "   $a"; hold
+    detail "→ INFO=$a"
+    $ISLAND --trigger front_app_switched INFO="$a"
+    sleep 0.35
+    snap
+    hold "appswitch · $a"
   done
   reset
 
-  step "Layout change"
+  # --- 2. layout ---
+  step "layout — space layout change (skhd fn-e/w/s)"
+  detail "trigger: island_layout layout=bsp|stack|float"
+  detail "left: \"Bsp/Stack/Float layout\" · right: yabai glyph"
   for l in bsp stack float; do
-    $ISLAND --trigger island_layout layout=$l; echo "   $l"; hold
+    detail "→ layout=$l"
+    $ISLAND --trigger island_layout layout=$l
+    sleep 0.35
+    snap
+    hold "layout · $l"
   done
   reset
 
-  step "Window properties (reflects the real focused window)"
+  # --- 3. window ---
+  step "window — float / sticky of the real focused window"
+  detail "trigger: island_window prop=float|sticky"
+  detail "re-queries yabai; shows Floating|Tiled or Sticky|Not sticky"
   for pr in float sticky; do
-    $ISLAND --trigger island_window prop=$pr; echo "   $pr"; hold
+    detail "→ prop=$pr"
+    $ISLAND --trigger island_window prop=$pr
+    sleep 0.5
+    snap
+    hold "window · $pr"
   done
   reset
 
-  step "Microphone"
-  $ISLAND --trigger island_mic muted=true;  echo "   muted"; hold
-  $ISLAND --trigger island_mic muted=false; echo "   on"; hold
+  # --- 4. mic ---
+  step "mic — mute state (from top-bar mic bridge)"
+  detail "trigger: island_mic muted=true|false"
+  detail "left: \"Mic muted\" / \"Mic on\" · right: mic glyph (warn/success)"
+  detail "→ muted=true"
+  $ISLAND --trigger island_mic muted=true
+  sleep 0.35
+  snap
+  hold "mic · muted"
+  detail "→ muted=false"
+  $ISLAND --trigger island_mic muted=false
+  sleep 0.35
+  snap
+  hold "mic · on"
   reset
 
-  step "Bluetooth connect (device-type glyphs)"
-  $ISLAND --trigger island_bluetooth name=AirPodsPro type=Headphones battery=80%; echo "   AirPods"; hold
-  $ISLAND --trigger island_bluetooth name="MX Master 3S" type=Mouse battery=55%;  echo "   Mouse"; hold
-  $ISLAND --trigger island_bluetooth name="Magic Keyboard" type=Keyboard battery=90%; echo "   Keyboard"; hold
-  $ISLAND --trigger island_bluetooth name="HomePod" type=Speaker battery=100%;    echo "   Speaker"; hold
+  # --- 5. bluetooth ---
+  step "bluetooth — device connect + type glyph + battery"
+  detail "trigger: island_bluetooth name=… type=… battery=…"
+  detail "types: Headphones / Mouse / Keyboard / Speaker"
+  $ISLAND --trigger island_bluetooth name=AirPodsPro type=Headphones battery=80%
+  sleep 0.35; snap
+  hold "bluetooth · AirPodsPro · Headphones · 80%"
+  $ISLAND --trigger island_bluetooth name="MX Master 3S" type=Mouse battery=55%
+  sleep 0.35; snap
+  hold "bluetooth · MX Master 3S · Mouse · 55%"
+  $ISLAND --trigger island_bluetooth name="Magic Keyboard" type=Keyboard battery=90%
+  sleep 0.35; snap
+  hold "bluetooth · Magic Keyboard · Keyboard · 90%"
+  $ISLAND --trigger island_bluetooth name=HomePod type=Speaker battery=100%
+  sleep 0.35; snap
+  hold "bluetooth · HomePod · Speaker · 100%"
   reset
 
-  step "Siri (sticky highlight)"
-  $ISLAND --trigger island_siri action=appear; echo "   listening…"; hold; hold
-  $ISLAND --trigger island_siri action=disappear; sleep 1.0
+  # --- 6. siri ---
+  step "siri — sticky mauve highlight (highest priority)"
+  detail "trigger: island_siri action=appear|disappear"
+  detail "sticky=true · duration=0 · lower prio pills cannot clobber"
+  detail "→ action=appear"
+  $ISLAND --trigger island_siri action=appear
+  sleep 0.35
+  snap
+  hold "siri · listening (sticky)"
+  detail "→ action=disappear"
+  $ISLAND --trigger island_siri action=disappear
+  sleep 1.0
+  detail "siri dismissed"
 
-  $ISLAND --trigger island_tap; sleep 1.0
-  echo; echo "── demo complete ──"
+  $ISLAND --trigger island_tap 2>/dev/null || true
+  sleep 1.0
+  echo
+  echo "── demo complete: all 6 island pills shown ──"
 }
 
 if [[ "$MODE" == "demo" ]]; then

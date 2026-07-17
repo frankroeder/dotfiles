@@ -43,7 +43,7 @@ local function update()
     local is_muted = volume == 0
     local icon = is_muted and icons.mic.off or icons.mic.on
 
-    if settings.island.mic and last_muted ~= nil and is_muted ~= last_muted then
+    if last_muted ~= nil and is_muted ~= last_muted then
       bridge.trigger("island_mic", { muted = is_muted and "true" or "false" })
     end
     last_muted = is_muted

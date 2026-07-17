@@ -5,10 +5,6 @@ local island_style = require "island_style"
 local settings = require "settings"
 local utils = require "utils"
 
-if not settings.island.appswitch then
-  return
-end
-
 local config = {
   width = settings.island.widths.app,
   height = island.IDLE_H,

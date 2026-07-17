@@ -3,10 +3,6 @@ local island = require "island_core"
 local island_style = require "island_style"
 local settings = require "settings"
 
-if not settings.island.bluetooth then
-  return
-end
-
 local listener = sbar.add("item", "listener.bluetooth", {
   drawing = false,
   updates = true,
