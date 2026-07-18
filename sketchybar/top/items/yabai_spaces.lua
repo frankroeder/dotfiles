@@ -25,50 +25,53 @@ local space_layout
 local static_names = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" }
 local ws_layout = settings.spaces
 local max_app_icons = 5
+local motion_fast = settings.motion.fast
+
+-- Layout pill accent (live palette): stack=mauve, bsp=blue, float=peach.
+local function layout_accent(layout)
+  if layout == "stack" then
+    return colors.mauve
+  end
+  if layout == "float" then
+    return colors.peach
+  end
+  return colors.blue
+end
 
 local function ws_theme()
   return settings.theme.workspace
 end
 
+-- Selection = solid active fill (no ring). Rings were hard to see and clashed.
 local function space_surface(state)
   local theme = ws_theme()
-  local selected = state.selected
-  local visible = state.visible
-  local occupied = (state.window_count or 0) > 0
-
   local bg
-  if selected then
+  if state.selected then
     bg = theme.active_bg
-  elseif visible then
+  elseif state.visible then
     bg = theme.visible_bg or theme.occupied_bg
-  elseif occupied then
+  elseif (state.window_count or 0) > 0 then
     bg = theme.occupied_bg
   else
     bg = theme.empty_bg
   end
-
-  local border_color
-  if selected then
-    border_color = theme.active_border or colors.yellow
-  elseif visible then
-    border_color = theme.visible_border or theme.border
-  else
-    border_color = theme.border
-  end
-
-  return {
-    drawing = true,
+  return ui.widget_background {
     color = bg,
-    border_width = settings.theme.border_width,
-    border_color = border_color,
+    border_width = 0,
+    border_color = colors.transparent,
+    height = ws_layout.capsule.height,
+    corner_radius = ws_layout.capsule.corner_radius,
   }
 end
 
-local function layout_surface()
-  local theme = ws_theme()
+-- Calendar/battery shell; layout type only tints border + glyph/label.
+local function layout_surface(accent)
+  local tint = accent or settings.theme.accent
+  local dark = colors.is_dark
   return ui.widget_background {
-    color = theme.bg,
-    border_color = theme.border,
+    color = settings.theme.surface,
+    border_color = colors.with_alpha(tint, dark and 0.45 or 0.50),
+    border_width = settings.theme.border_width,
     height = ws_layout.capsule.height,
     corner_radius = ws_layout.capsule.corner_radius,
   }
@@ -96,18 +99,23 @@ local function ensureSpaceState(index)
   return space_state[index]
 end
 
-local function apps_color_for(state)
+-- Same fg ladder as flashspaces (theme.workspace tokens only).
+local function badge_color_for(state)
   local theme = ws_theme()
   if state.selected then
-    return theme.badge_active_text or theme.active or colors.text
+    return theme.badge_active_text
   end
   if (state.window_count or 0) > 0 then
-    return theme.occupied_text or colors.text
+    return theme.occupied_text
   end
   if state.visible then
-    return theme.visible_text or colors.subtext1
+    return theme.occupied_text
   end
-  return theme.empty_text or colors.text
+  return theme.empty_text
+end
+
+local function apps_color_for(state)
+  return badge_color_for(state)
 end
 
 local function renderSpaceApps(index, animate)
@@ -127,7 +135,6 @@ local function renderSpaceApps(index, animate)
     end
     if #app_icon_list > 0 then
       icon_line = " " .. table.concat(app_icon_list, " ")
-      -- More unique apps than we show: subtle overflow marker.
       if #state.app_names > max_app_icons then
         icon_line = icon_line .. "…"
       end
@@ -141,29 +148,24 @@ local function renderSpaceApps(index, animate)
   end
   state.last_icon_line = key
 
+  local payload = {
+    label = {
+      string = icon_line,
+      color = apps_color,
+      y_offset = ws_layout.label.y_offset,
+    },
+  }
   if animate == false then
-    space:set {
-      label = { string = icon_line, color = apps_color, y_offset = ws_layout.label.y_offset },
-    }
+    space:set(payload)
     return
   end
-
-  -- Short pop only when the icon strip actually changes.
-  sbar.animate("tanh", settings.motion.fast, function()
-    space:set {
-      label = { string = icon_line, color = apps_color, y_offset = ws_layout.label.y_offset - 2 },
-    }
-  end)
-  sbar.delay(0.05, function()
-    sbar.animate("sin", settings.motion.fast, function()
-      space:set {
-        label = { string = icon_line, color = apps_color, y_offset = ws_layout.label.y_offset },
-      }
-    end)
+  sbar.animate("tanh", motion_fast, function()
+    space:set(payload)
   end)
 end
 
-local function updateSpaceVisual(index)
+local function updateSpaceVisual(index, opts)
+  opts = opts or {}
   local space = spaces[index]
   if not space then
     return
@@ -172,9 +174,7 @@ local function updateSpaceVisual(index)
   local state = ensureSpaceState(index)
   local selected = state.selected
   local occupied = (state.window_count or 0) > 0
-  local theme = ws_theme()
-  local fg = selected and theme.badge_active_text
-    or (occupied and theme.occupied_text or theme.empty_text)
+  local fg = badge_color_for(state)
   local surface = space_surface(state)
   local key = table.concat({
     selected and "1" or "0",
@@ -182,23 +182,23 @@ local function updateSpaceVisual(index)
     occupied and "1" or "0",
     tostring(fg),
     tostring(surface.color),
-    tostring(surface.border_color),
   }, "|")
 
-  if state.last_visual == key then
+  if state.last_visual == key and not opts.force then
     return
   end
   state.last_visual = key
 
-  sbar.animate("tanh", settings.motion.fast, function()
+  sbar.animate("tanh", motion_fast, function()
     space:set {
       icon = {
         color = fg,
         highlight = false,
+        y_offset = ws_layout.icon.y_offset,
         background = { drawing = false },
       },
       label = {
-        color = fg,
+        color = apps_color_for(state),
         highlight = false,
       },
       background = surface,
@@ -344,6 +344,8 @@ local function format_stack_label(windows)
   return string.format("%d/%d", pos, total)
 end
 
+local last_layout_key = nil
+
 local function set_layout_item(layout, label, display)
   if not space_layout then
     return
@@ -353,17 +355,29 @@ local function set_layout_item(layout, label, display)
   local has_label = text ~= ""
   -- Label off → its padding_right is gone; keep icon solo padded like left side.
   local icon_pad_r = has_label and ws_layout.icon.padding_right or ws_layout.icon.padding_left
-  space_layout:set {
-    icon = {
-      string = glyph,
-      padding_right = icon_pad_r,
-    },
-    label = {
-      string = text,
-      drawing = has_label,
-    },
-    display = tonumber(display),
-  }
+  local tint = layout_accent(layout)
+  local key = layout .. "|" .. text .. "|" .. tostring(display) .. "|" .. tostring(tint)
+  if key == last_layout_key then
+    return
+  end
+  last_layout_key = key
+
+  sbar.animate("tanh", motion_fast, function()
+    space_layout:set {
+      icon = {
+        string = glyph,
+        color = tint,
+        padding_right = icon_pad_r,
+      },
+      label = {
+        string = text,
+        color = tint,
+        drawing = has_label,
+      },
+      background = layout_surface(tint),
+      display = tonumber(display),
+    }
+  end)
 end
 
 for index, space_name in ipairs(static_names) do
@@ -398,6 +412,29 @@ for index, space_name in ipairs(static_names) do
 
   spaces[index] = space
 
+  space:subscribe("mouse.entered", function()
+    local st = ensureSpaceState(index)
+    if st.selected then
+      return
+    end
+    sbar.animate("tanh", motion_fast, function()
+      space:set {
+        background = ui.widget_background {
+          color = ws_theme().hover_bg,
+          border_width = 0,
+          border_color = colors.transparent,
+          height = ws_layout.capsule.height,
+          corner_radius = ws_layout.capsule.corner_radius,
+        },
+      }
+    end)
+  end)
+
+  space:subscribe("mouse.exited", function()
+    ensureSpaceState(index).last_visual = nil
+    updateSpaceVisual(index, { force = true })
+  end)
+
   space:subscribe("mouse.clicked", function(env)
     if env.BUTTON == "right" then
       -- Only destroy empty spaces (avoids nuking occupied ones by misclick).
@@ -422,7 +459,7 @@ space_layout = sbar.add("item", "widgets.yabai_layout", {
   icon = {
     font = { family = settings.font.family },
     string = icons.yabai.bsp,
-    color = ws_theme().fg,
+    color = colors.blue,
     padding_left = ws_layout.icon.padding_left,
     padding_right = ws_layout.icon.padding_right,
   },
@@ -431,26 +468,10 @@ space_layout = sbar.add("item", "widgets.yabai_layout", {
     drawing = false,
     padding_left = settings.ui.label_padding_left,
     padding_right = settings.ui.label_padding_right,
-    color = ws_theme().fg,
+    color = colors.blue,
   },
-  background = layout_surface(),
+  background = layout_surface(colors.blue),
 })
-
-local function refresh_theme()
-  local theme = ws_theme()
-  space_layout:set {
-    icon = { color = theme.fg },
-    label = { color = theme.fg },
-    background = layout_surface(),
-  }
-  for idx, _ in pairs(spaces) do
-    local st = ensureSpaceState(idx)
-    st.last_visual = nil
-    st.last_icon_line = nil
-    updateSpaceVisual(idx)
-    renderSpaceApps(idx, false)
-  end
-end
 
 -- Light path: layout glyph + stack i/n for the focused space only.
 local function updateStackIndicator()
@@ -472,6 +493,18 @@ local function updateStackIndicator()
       set_layout_item(layout, format_stack_label(windows), display)
     end)
   end)
+end
+
+local function refresh_theme()
+  last_layout_key = nil
+  updateStackIndicator()
+  for idx, _ in pairs(spaces) do
+    local st = ensureSpaceState(idx)
+    st.last_visual = nil
+    st.last_icon_line = nil
+    updateSpaceVisual(idx, { force = true })
+    renderSpaceApps(idx, false)
+  end
 end
 
 local function updateLayout()
