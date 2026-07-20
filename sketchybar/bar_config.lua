@@ -4,24 +4,25 @@ local display = require "display"
 local M = {}
 
 local bar_position = "top"
+local display_watch = nil
 
+-- Real notch only on a lone built-in screen. Dual-monitor and notchless stay 0
+-- (island covers the notch; a fake cutout artifacts on externals).
 function M.resolve_notch(position, info)
   info = info or display
-  if position == "top" and info.external_index == nil then
-    local width = info.notch_width
-    if width < 1 then
-      return 200
-    end
-    return width
+  if position ~= "top" or info.external_index ~= nil then
+    return 0
   end
-  return 0
+  local width = info.notch_width or 0
+  if width < 1 then
+    return 0
+  end
+  return width
 end
 
 function M.bar_props(position, extra)
   extra = extra or {}
-  -- Render the top bar on every display (built-in + externals). In dual-monitor
-  -- setups resolve_notch keeps notch_width = 0 so externals get no cutout artifact;
-  -- the built-in notch is covered by the island pill, not by a bar cutout.
+  -- Top bar on every display. Dual-monitor: notch_width = 0 (no external cutout).
   local props = {
     notch_width = M.resolve_notch(position, display),
     notch_display_height = 0,
@@ -36,11 +37,15 @@ function M.bar(extra)
   sbar.bar(M.bar_props(bar_position, extra))
 end
 
+function M.refresh_geometry()
+  if display.refresh then
+    display.refresh()
+  end
+  M.bar()
+end
+
 function M.apply(position)
   bar_position = position
-  -- notch cutouts only belong on a lone built-in screen (island covers the notch
-  -- in dual-monitor setups). On the bottom bar or on external displays they leave
-  -- a visible artifact at the screen edge.
   local props = {
     height = settings.bar_height,
     position = position,
@@ -58,6 +63,15 @@ function M.apply(position)
     props.shadow = { drawing = true }
   end
   M.bar(props)
+
+  -- Hotplug / arrangement change: re-probe notch + reapply bar geometry.
+  if not display_watch then
+    sbar.add("event", "display_change")
+    display_watch = sbar.add("item", "bar.display_watch", { drawing = false, updates = true })
+    display_watch:subscribe("display_change", function()
+      M.refresh_geometry()
+    end)
+  end
 end
 
 return M

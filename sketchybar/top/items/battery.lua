@@ -5,6 +5,7 @@ local ui = require "ui"
 
 local profiler_cache = { data = nil, timestamp = 0 }
 local CACHE_TTL = 300
+local last = { charge = nil, charging = false, icon = icons.battery["100"], label = "?" }
 
 local battery = ui.add_capsule("widgets.battery", {
   padding_left = 4,
@@ -51,37 +52,65 @@ local temperature = ui.popup_field("widgets.battery.temperature", battery, {
   drawing = false,
 })
 
+local function bat_color(charge, charging)
+  if charging then
+    return colors.green
+  end
+  if not charge then
+    return colors.bat
+  end
+  if charge <= 15 then
+    return colors.red
+  end
+  if charge <= 30 then
+    return colors.yellow
+  end
+  return colors.bat
+end
+
+local function battery_icon(charge, charging)
+  if charging then
+    return icons.battery.charging
+  end
+  if not charge then
+    return "!"
+  end
+  if charge >= 90 then
+    return icons.battery["100"]
+  end
+  if charge >= 60 then
+    return icons.battery["75"]
+  end
+  if charge >= 40 then
+    return icons.battery["50"]
+  end
+  if charge >= 20 then
+    return icons.battery["25"]
+  end
+  return icons.battery["0"]
+end
+
 battery:subscribe({ "routine", "power_source_change", "deferred_wake" }, function()
   sbar.exec("pmset -g batt", function(batt_info)
-    local icon = "!"
-    local label = "?"
-
-    local found, _, charge = batt_info:find "(%d+)%%"
+    local charge = nil
+    local found, _, pct = batt_info:find "(%d+)%%"
     if found then
-      charge = tonumber(charge)
-      label = charge .. "%"
+      charge = tonumber(pct)
     end
-
     local charging = batt_info:find "AC Power" ~= nil
+    local icon = battery_icon(charge, charging)
+    local label = charge and (charge .. "%") or "?"
+    local color = bat_color(charge, charging)
 
-    if charging then
-      icon = icons.battery.charging
-    elseif found and charge >= 90 then
-      icon = icons.battery["100"]
-    elseif found and charge >= 60 then
-      icon = icons.battery["75"]
-    elseif found and charge >= 40 then
-      icon = icons.battery["50"]
-    elseif found and charge >= 20 then
-      icon = icons.battery["25"]
-    else
-      icon = icons.battery["0"]
-    end
+    last.charge = charge
+    last.charging = charging
+    last.icon = icon
+    last.label = label
 
     sbar.animate("tanh", settings.animation_duration, function()
       battery:set {
-        icon = { string = icon, color = colors.bat },
-        label = { string = label },
+        icon = { string = icon, color = color },
+        label = { string = label, color = color },
       }
     end)
   end)
@@ -172,9 +201,10 @@ end
 ui.bind_popup(battery, { on_open = update_details })
 
 battery:subscribe("theme_colors_updated", function()
+  local color = bat_color(last.charge, last.charging)
   battery:set {
     background = ui.widget_background(),
-    icon = { color = colors.bat },
-    label = { color = colors.bat },
+    icon = { string = last.icon, color = color },
+    label = { string = last.label, color = color },
   }
 end)

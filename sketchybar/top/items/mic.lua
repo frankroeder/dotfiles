@@ -6,6 +6,7 @@ local bridge = require "island_bridge"
 
 local last_volume = 100
 local last_muted = nil
+local scroll_step = settings.volume.scroll_step or 10
 
 local mic = ui.add_capsule("widgets.mic", {
   grouped = true,
@@ -63,6 +64,19 @@ local function update()
   end)
 end
 
+local function scroll_delta(env)
+  for _, key in ipairs { "SCROLL_DELTA", "INFO" } do
+    local raw = env[key]
+    if raw ~= nil and raw ~= "" then
+      local n = tonumber(raw) or tonumber(tostring(raw):match "(-?%d+)")
+      if n and n ~= 0 then
+        return n
+      end
+    end
+  end
+  return 0
+end
+
 local mic_mute = ui.popup_button("widgets.mic.mute", mic, {
   label = "Toggle Mute",
   align = "center",
@@ -89,7 +103,23 @@ mic_slider:subscribe("mouse.clicked", function(env)
   sbar.exec("osascript -e 'set volume input volume " .. env["PERCENTAGE"] .. "'", update)
 end)
 
-mic:subscribe({ "routine", "deferred_wake" }, update)
+-- No system input-volume event; refresh on wake / own actions only (no poll).
+mic:subscribe("deferred_wake", update)
+
+mic:subscribe("mouse.scrolled", function(env)
+  local delta = scroll_delta(env)
+  if delta == 0 then
+    return
+  end
+  local base = last_muted and 0 or last_volume
+  local next = base + (delta > 0 and scroll_step or -scroll_step)
+  if next < 0 then
+    next = 0
+  elseif next > 100 then
+    next = 100
+  end
+  sbar.exec("osascript -e 'set volume input volume " .. next .. "'", update)
+end)
 
 mic:subscribe("theme_colors_updated", function()
   mic:set { background = { drawing = false } }

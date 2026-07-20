@@ -84,19 +84,6 @@ local preset_options = {
   },
 }
 
-local modules = {
-  logo = { enable = false },
-  calendar = { enable = true },
-  battery = { enable = true },
-  brew = { enable = true },
-  network = { enable = true },
-  wifi = { enable = true },
-  volume = { enable = true },
-  mic = { enable = true },
-  bluetooth = { enable = true },
-  app_badges = { enable = false },
-}
-
 local spacing = {
   widget = 5,
   bracket = 5,
@@ -118,7 +105,6 @@ local active_preset = preset_options[preset] or preset_options.transparent
 
 local settings = {
   preset = preset,
-  modules = modules,
   animation_duration = 10,
   bar_height = active_preset.bar_height,
   bar_padding = 5,

@@ -2,6 +2,7 @@
 
 ![](https://flat.badgen.net/badge/platform/Linux,macOS,AsahiLinux?list=|)
 ![](https://flat.badgen.net/badge/icon/docker?icon=docker&label)
+![](https://flat.badgen.net/badge/icon/container?icon=apple&label)
 ![](https://flat.badgen.net/badge/license/MIT/green)
 
 My personal dotfiles for Linux, macOS, and Asahi Linux.
