@@ -220,6 +220,15 @@ local function setFocusedSpace(index)
   end
 end
 
+-- Skip no-op focus; silence yabai stderr (already-focused / missing index).
+local function focus_space(index)
+  if ensureSpaceState(index).selected then
+    return
+  end
+  setFocusedSpace(index)
+  sbar.exec("yabai -m space --focus " .. index .. " 2>/dev/null")
+end
+
 local function setSpaceWindowData(index, app_names, window_count)
   local state = ensureSpaceState(index)
   local prev_count = state.window_count
@@ -440,14 +449,12 @@ for index, space_name in ipairs(static_names) do
       -- Only destroy empty spaces (avoids nuking occupied ones by misclick).
       local st = ensureSpaceState(index)
       if (st.window_count or 0) == 0 then
-        sbar.exec("yabai -m space --destroy " .. index)
+        sbar.exec("yabai -m space --destroy " .. index .. " 2>/dev/null")
       else
-        setFocusedSpace(index)
-        sbar.exec("yabai -m space --focus " .. index)
+        focus_space(index)
       end
     else
-      setFocusedSpace(index)
-      sbar.exec("yabai -m space --focus " .. index)
+      focus_space(index)
     end
     scheduleSpaceWindowRefresh(0, 0.12)
   end)
@@ -545,7 +552,6 @@ local function updateLayout()
         renderSpaceApps(index, false)
       end
     end
-
     for idx, _ in pairs(spaces) do
       if not present[idx] then
         local st = ensureSpaceState(idx)

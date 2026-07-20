@@ -239,7 +239,10 @@ def fetch_usage() -> dict[str, Any]:
 
 
 def main() -> int:
-  payload = fetch_usage()
+  try:
+    payload = fetch_usage()
+  except Exception as exc:  # noqa: BLE001 — bar must always get a Lua table
+    payload = build_error(str(exc))
   print(lua_literal(payload))
   return 0 if not payload.get("error") else 1
 

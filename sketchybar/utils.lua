@@ -45,7 +45,14 @@ function utils.popup_hide(item)
 end
 
 function utils.clipboard_copy(item_name, icons)
-  local label = sbar.query(item_name).label.value
+  if not item_name or item_name == "" then
+    return
+  end
+  local q = sbar.query(item_name)
+  local label = q and q.label and q.label.value
+  if not label then
+    return
+  end
   sbar.exec('echo "' .. label .. '" | pbcopy')
   sbar.set(item_name, { label = { string = icons.clipboard, align = "center" } })
   sbar.delay(1, function()
