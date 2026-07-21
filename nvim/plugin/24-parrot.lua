@@ -17,7 +17,7 @@ local default_opts = {
   providers = {
     xai = {
       name = "xai",
-      endpoint = "https://api.x.ai/v1/chat/completions",
+      endpoint = "https://api.x.ai/v1/responses",
       model_endpoint = "https://api.x.ai/v1/language-models",
       api_key = os.getenv "XAI_API_KEY",
       params = {
@@ -26,23 +26,13 @@ local default_opts = {
       },
       topic = {
         model = "grok-4.3",
-        params = { max_completion_tokens = 64 },
+        params = { max_output_tokens = 64 },
       },
       models = {
-        "grok-4.20-0309-non-reasoning",
-        "grok-4.20-0309-reasoning",
-        "grok-4.20-multi-agent-0309",
         "grok-4.3",
+        "grok-4.5",
         "grok-build-0.1",
       },
-    },
-    grok = {
-      type = "acp",
-      name = "grok",
-      command = { "grok", "agent", "stdio" },
-      cli_command = { "grok" },
-      models = { "grok-composer-2.5-fast", "grok-build" },
-      always_approve = false,
     },
   },
   cmd_prefix = "Prt",
