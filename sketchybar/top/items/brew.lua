@@ -27,6 +27,7 @@ local brew = sbar.add("item", "widgets.brew", {
   popup = {
     align = "right",
     height = 30,
+    background = ui.popup(),
   },
   background = ui.widget_background(),
 })
@@ -100,16 +101,18 @@ end
 local function populate_popup()
   clear_popup()
 
+  local row_font = {
+    family = settings.font.family,
+    style = settings.font.style_map["Regular"],
+    size = 12.0,
+  }
   if #cached_packages == 0 then
     local no_updates = sbar.add("item", "widgets.brew.empty", {
       position = "popup." .. brew.name,
       label = {
         string = "No outdated packages",
-        font = {
-          family = settings.font.family,
-          style = settings.font.style_map["Regular"],
-          size = 12.0,
-        },
+        color = settings.theme.text_muted,
+        font = row_font,
         padding_left = 10,
         padding_right = 10,
       },
@@ -123,11 +126,8 @@ local function populate_popup()
         position = "popup." .. brew.name,
         label = {
           string = package,
-          font = {
-            family = settings.font.family,
-            style = settings.font.style_map["Regular"],
-            size = 12.0,
-          },
+          color = settings.theme.text_muted,
+          font = row_font,
           padding_left = 10,
           padding_right = 10,
         },
@@ -137,7 +137,7 @@ local function populate_popup()
           padding_right = 4,
           color = colors.subtext1,
         },
-        background = { height = popup_row_height },
+        background = ui.popup_field_bg(popup_row_height),
       })
       table.insert(popup_items, pkg_item)
     end
@@ -159,6 +159,8 @@ brew:subscribe("theme_colors_updated", function()
     icon = { color = color },
     label = { color = color },
   }
+  -- Open → rebuild with current palette; closed → next open is enough.
+  ui.theme_popup(brew, { rebuild = populate_popup })
 end)
 
 update_brew()

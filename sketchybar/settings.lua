@@ -227,19 +227,8 @@ local settings = {
     },
   },
   media = {
-    controller = "media-control",
-    album_art_size = 1280,
     title_max_chars = 40,
-    -- ~150% wider popup: art 120→180, text column ~200→320 (must be ≥ longest label)
-    popup_height = 240,
-    popup_art_size = 180,
-    popup_text_width = 320,
-    popup_text_chars = { title = 27, artist = 30, album = 30 },
-    delay_after_cmd = 0.2,
-    default_artist = "Various Artists",
-    default_album = "No Album",
-    nowplaying_path = home
-      .. "/.dotfiles/sketchybar/helpers/event_providers/media_nowplaying/media_nowplaying",
+    update_freq = 15, -- media-control poll when available
   },
   large_screen_width = 2000,
   monitor_map = { ["LG ULTRAFINE"] = 2, ["DELL S2722DZ"] = 2, ["Built-in Retina Display"] = 1 },

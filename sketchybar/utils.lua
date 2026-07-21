@@ -5,6 +5,20 @@ function utils.shell_quote(value)
   return "'" .. tostring(value):gsub("'", [['"'"']]) .. "'"
 end
 
+-- sketchybar mouse.scrolled: prefer SCROLL_DELTA; INFO is a fallback.
+function utils.scroll_delta(env)
+  for _, key in ipairs { "SCROLL_DELTA", "INFO" } do
+    local raw = env[key]
+    if raw ~= nil and raw ~= "" then
+      local n = tonumber(raw) or tonumber(tostring(raw):match "(-?%d+)")
+      if n and n ~= 0 then
+        return n
+      end
+    end
+  end
+  return 0
+end
+
 function utils.get_wifi_interface()
   local handle =
     io.popen "networksetup -listallhardwareports | awk '/Wi-Fi|AirPort/{getline; print $NF}'"

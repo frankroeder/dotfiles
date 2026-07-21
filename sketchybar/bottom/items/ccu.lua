@@ -46,7 +46,7 @@ local ccu = ui.add_capsule("widgets.ccu", {
   label = {
     string = "CCu",
     font = {
-      family = settings.font.numbers,
+      family = settings.font.family,
       style = settings.font.style_map["Bold"],
       size = 12.0,
     },
@@ -62,12 +62,12 @@ local ccu = ui.add_capsule("widgets.ccu", {
 
 -- Mono for titles+values so fixed icon/label widths actually column-align.
 local title_font = {
-  family = settings.font.numbers,
+  family = settings.font.family,
   style = settings.font.style_map["Semibold"],
   size = 12.0,
 }
 local value_font = {
-  family = settings.font.numbers,
+  family = settings.font.family,
   size = 11.0,
 }
 
@@ -476,7 +476,7 @@ local function refresh_theme()
   accent_weekly = colors.blue
   accent_fable = colors.pink
   accent_grok = colors.teal
-  ccu:set { popup = { background = ui.popup() } }
+  ui.theme_popup(ccu)
   session_row:set { icon = { color = accent_session }, label = { color = usage_color(last.session) } }
   weekly_row:set { icon = { color = accent_weekly }, label = { color = usage_color(last.weekly) } }
   fable_row:set { icon = { color = accent_fable }, label = { color = usage_color(last.fable) } }

@@ -205,19 +205,23 @@ local function apply_silistats(output)
     icon = { color = color_pcpu },
     label = { string = percent_label("pCPU", pcpu_val), color = color_pcpu },
   }
-  cpu_temp:set { label = { string = temp_label(cpu_t) } }
+  local theme = settings.theme
+  cpu_temp:set { label = { string = temp_label(cpu_t), color = theme.accent_alt } }
 
   ram_top:set {
     icon = { color = color_ram },
     label = { string = percent_label("RAM", ram_pct), color = color_ram },
   }
-  ram_bot:set { label = { string = percent_label("SWP", swap_pct) } }
+  ram_bot:set {
+    icon = { color = theme.warn },
+    label = { string = percent_label("SWP", swap_pct), color = theme.warn },
+  }
 
   gpu_label:set {
     label = { string = percent_label("GPU", gpu_used), color = color_gpu },
     icon = { color = color_gpu },
   }
-  gpu_temp:set { label = { string = temp_label(gpu_t) } }
+  gpu_temp:set { label = { string = temp_label(gpu_t), color = theme.accent } }
   gpu_graph:set { graph = { color = colors.with_alpha(color_gpu, 0.5) } }
 
   local power_watts = output.power and output.power.all_watts or 0
@@ -241,11 +245,17 @@ local function apply_silistats(output)
   }
 end
 
-cpu_pcpu_graph:subscribe("routine", function()
+local function poll_silistats()
   sbar.exec(settings.hardware.silistats_path .. " --once", apply_silistats)
-end)
+end
+
+cpu_pcpu_graph:subscribe({ "routine", "deferred_wake" }, poll_silistats)
 
 cpu_pcpu_graph:subscribe("mouse.clicked", function()
+  sbar.exec "open -a 'Activity Monitor'"
+end)
+
+power:subscribe("mouse.clicked", function()
   sbar.exec "open -a 'Activity Monitor'"
 end)
 
@@ -256,26 +266,10 @@ local function refresh_theme()
     border_color = theme.border,
   }
 
-  gpu_temp:set { label = { color = theme.accent } }
-  gpu_label:set { icon = { color = theme.accent } }
-  gpu_graph:set { graph = { color = colors.with_alpha(theme.accent, 0.40) } }
-  ram_top:set { icon = { color = theme.warn }, label = { color = theme.warn } }
-  ram_bot:set { icon = { color = theme.warn }, label = { color = theme.warn } }
+  -- Brackets + static metric colors; silistats repaints gradient metrics.
   cpu_temp:set { label = { color = theme.accent_alt } }
-  cpu_ecpu_label:set { icon = { color = colors.green }, label = { color = colors.green } }
-  cpu_pcpu_label:set { icon = { color = colors.blue }, label = { color = colors.blue } }
-  cpu_pcpu_graph:set {
-    graph = {
-      color = colors.with_alpha(colors.blue, hw.graph_alpha),
-      fill_color = colors.with_alpha(colors.blue, hw.graph_alpha),
-    },
-  }
-  cpu_ecpu_graph:set {
-    graph = {
-      color = colors.with_alpha(colors.green, hw.graph_alpha),
-      fill_color = colors.with_alpha(colors.green, hw.graph_alpha),
-    },
-  }
+  gpu_temp:set { label = { color = theme.accent } }
+  ram_bot:set { icon = { color = theme.warn }, label = { color = theme.warn } }
   power:set {
     background = ui.capsule {
       color = theme.surface_alt,
@@ -287,6 +281,7 @@ local function refresh_theme()
   sbar.set("hw.group.gpu", { background = bracket_bg })
   sbar.set("hw.group.ram", { background = bracket_bg })
   sbar.set("hw.group.cpu", { background = bracket_bg })
+  poll_silistats()
 end
 
 cpu_pcpu_graph:subscribe("theme_colors_updated", refresh_theme)

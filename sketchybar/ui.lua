@@ -4,7 +4,6 @@ local utils = require "utils"
 
 local ui = {}
 
-local theme = settings.theme
 local metrics = settings.ui
 local sp = settings.layout.spacing
 local col = settings.layout.columns
@@ -12,17 +11,22 @@ local fnt = settings.layout.fonts
 
 local NO_BG = { drawing = false }
 
+local function theme()
+  return settings.theme
+end
+
 function ui.widget_background(opts)
   return ui.capsule(opts)
 end
 
 function ui.capsule(opts)
   opts = opts or {}
+  local t = theme()
   return {
     drawing = opts.drawing ~= false,
-    color = opts.color or theme.surface,
-    border_width = opts.border_width or theme.border_width or metrics.item_border_width,
-    border_color = opts.border_color or theme.border,
+    color = opts.color or t.surface,
+    border_width = opts.border_width or t.border_width or metrics.item_border_width,
+    border_color = opts.border_color or t.border,
     corner_radius = opts.corner_radius or metrics.item_corner_radius,
     height = opts.height or metrics.item_height,
   }
@@ -144,12 +148,13 @@ end
 
 function ui.bracket_group(name, members, opts)
   opts = opts or {}
+  local t = theme()
   local pad_l = opts.padding_left ~= nil and opts.padding_left or (opts.padding or 0)
   local pad_r = opts.padding_right ~= nil and opts.padding_right or (opts.padding or 0)
   return sbar.add("bracket", name, members, {
     background = ui.capsule {
-      color = opts.color or theme.surface_alt,
-      border_color = opts.border_color or theme.border,
+      color = opts.color or t.surface_alt,
+      border_color = opts.border_color or t.border,
     },
     padding_left = pad_l,
     padding_right = pad_r,
@@ -281,6 +286,19 @@ function ui.popup_row(height)
   return { height = height or metrics.popup_row_height }
 end
 
+-- Themed pill for popup rows (do not inherit bar-item capsule defaults).
+function ui.popup_field_bg(height)
+  local t = theme()
+  return {
+    drawing = true,
+    color = t.button_bg,
+    border_color = t.border,
+    border_width = t.border_width or 1,
+    corner_radius = 6,
+    height = height or metrics.popup_row_height,
+  }
+end
+
 function ui.popup_cell()
   return {
     icon = {
@@ -294,6 +312,7 @@ end
 function ui.popup_field(name, parent, spec)
   spec = spec or {}
   local cell = ui.popup_cell()
+  local t = theme()
   local item = {
     position = "popup." .. parent.name,
     icon = {
@@ -303,6 +322,7 @@ function ui.popup_field(name, parent, spec)
       padding_left = cell.icon.padding_left,
       padding_right = cell.icon.padding_right,
       font = spec.icon_font,
+      color = spec.icon_color or t.accent,
     },
     label = {
       string = spec.label or "...",
@@ -311,8 +331,9 @@ function ui.popup_field(name, parent, spec)
       max_chars = spec.max_chars,
       padding_right = cell.label.padding_right,
       font = spec.label_font,
+      color = spec.label_color or t.text_muted,
     },
-    background = spec.background or ui.popup_row(spec.height),
+    background = spec.background or ui.popup_field_bg(spec.height),
   }
   if spec.drawing ~= nil then
     item.drawing = spec.drawing
@@ -356,18 +377,20 @@ end
 
 function ui.popup_list_row(name, parent, spec)
   spec = spec or {}
+  local t = theme()
   return sbar.add("item", name, {
     position = "popup." .. parent.name,
     label = apply_label_pad {
       string = spec.label,
       font = spec.font,
+      color = spec.label_color or t.text_muted,
     },
     icon = apply_icon_pad {
       string = spec.icon or "•",
-      color = spec.icon_color,
+      color = spec.icon_color or t.accent,
       font = spec.icon_font,
     },
-    background = spec.background or ui.popup_row(),
+    background = spec.background or ui.popup_field_bg(),
   })
 end
 
@@ -428,23 +451,74 @@ end
 
 function ui.button(opts)
   opts = opts or {}
+  local t = theme()
   return {
-    color = opts.color or theme.button_bg,
-    border_width = opts.border_width or theme.border_width,
-    border_color = opts.border_color or theme.border,
+    color = opts.color or t.button_bg,
+    border_width = opts.border_width or t.border_width,
+    border_color = opts.border_color or t.border,
     corner_radius = opts.corner_radius or 6,
     height = opts.height or metrics.popup_row_height,
   }
 end
 
 function ui.popup(accent)
+  local t = theme()
   return {
     border_width = 1,
     corner_radius = metrics.popup_corner_radius,
-    border_color = accent or theme.popup_border,
-    color = theme.popup_bg,
+    border_color = accent or t.popup_border,
+    color = t.popup_bg,
     shadow = { drawing = true },
   }
+end
+
+-- Repaint popup chrome (partial set keeps align/height).
+function ui.set_popup_bg(item, accent)
+  item:set {
+    popup = {
+      background = ui.popup(accent),
+      blur_radius = metrics.item_blur_radius,
+      y_offset = metrics.popup_y_offset,
+    },
+  }
+end
+
+-- Full popup-row restyle: icon, label, and pill bg.
+function ui.theme_popup_field(item, opts)
+  opts = opts or {}
+  local t = theme()
+  item:set {
+    icon = { color = opts.icon_color or t.accent },
+    label = { color = opts.label_color or t.text_muted },
+    background = opts.background or ui.popup_field_bg(opts.height),
+  }
+end
+
+-- One-shot theme paint for a parent popup + its fields/buttons.
+-- opts.fields      = { item, ... }
+-- opts.field_opts  = passed to theme_popup_field
+-- opts.buttons     = { item, ... } → ui.button()
+-- opts.rebuild     = fn() if popup currently open (lazy lists)
+-- opts.accent      = optional popup border color
+function ui.theme_popup(parent, opts)
+  opts = opts or {}
+  ui.set_popup_bg(parent, opts.accent)
+  if opts.fields then
+    for _, field in ipairs(opts.fields) do
+      ui.theme_popup_field(field, opts.field_opts or {})
+    end
+  end
+  if opts.buttons then
+    for _, btn in ipairs(opts.buttons) do
+      btn:set { background = ui.button() }
+    end
+  end
+  if opts.rebuild then
+    local q = parent:query()
+    if q and q.popup and q.popup.drawing == "on" then
+      opts.rebuild()
+    end
+  end
 end
 
 return ui

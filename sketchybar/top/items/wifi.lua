@@ -40,6 +40,7 @@ local ssid = ui.popup_header("widgets.wifi.ssid", wifi, {
     height = 2,
     color = settings.theme.border,
     y_offset = -15,
+    drawing = true,
   },
 })
 
@@ -47,7 +48,9 @@ local function wifi_detail(name, title, label)
   return ui.popup_field(name, wifi, {
     icon = title,
     icon_width = row_width,
+    icon_color = settings.theme.text_muted,
     label = label,
+    label_color = settings.theme.text_primary,
     label_width = row_width,
     label_align = "right",
     max_chars = name == "widgets.wifi.hostname" and 26 or nil,
@@ -174,11 +177,33 @@ ip:subscribe("mouse.clicked", copy_label)
 mask:subscribe("mouse.clicked", copy_label)
 router:subscribe("mouse.clicked", copy_label)
 
+local function ssid_underline()
+  return {
+    height = 2,
+    color = settings.theme.border,
+    y_offset = -15,
+    drawing = true,
+  }
+end
+
 wifi:subscribe("theme_colors_updated", function()
-  ssid:set { background = { color = settings.theme.border } }
+  local t = settings.theme
+  ui.theme_popup(wifi, {
+    fields = { hostname, ip, mask, router },
+    field_opts = {
+      icon_color = t.text_muted,
+      label_color = t.text_primary,
+      height = popup_row_height,
+    },
+  })
+  ssid:set {
+    background = ssid_underline(),
+    icon = { color = t.accent },
+    label = { color = t.text_primary },
+  }
   wifi:set {
     background = { drawing = false },
-    icon = { color = settings.theme.text_primary },
+    icon = { color = t.text_primary },
   }
   update_wifi()
 end)

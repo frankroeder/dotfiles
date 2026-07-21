@@ -6,6 +6,7 @@ sbar.add("event", "network_change", "com.apple.networkConnect")
 
 local vpn_item = ui.add_capsule("widgets.vpn", {
   position = "left",
+  -- Safety net: some VPN clients never fire networkConnect.
   update_freq = 60,
   icon = {
     string = icons.vpn,

@@ -22,7 +22,7 @@ local battery = ui.add_capsule("widgets.battery", {
     color = colors.bat,
   },
   update_freq = 120,
-  popup = { align = "center" },
+  popup = { align = "center", background = ui.popup() },
 })
 
 local remaining_time = ui.popup_field("widgets.battery.remaining", battery, {
@@ -207,4 +207,13 @@ battery:subscribe("theme_colors_updated", function()
     icon = { string = last.icon, color = color },
     label = { string = last.label, color = color },
   }
+  ui.theme_popup(battery, {
+    fields = {
+      remaining_time,
+      battery_health,
+      battery_cycles,
+      power_wattage,
+      temperature,
+    },
+  })
 end)

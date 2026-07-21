@@ -40,7 +40,7 @@ local ssd_volume = ui.add_capsule("widgets.ssd.volume", {
     string = "...%",
   },
   update_freq = 600,
-  popup = { align = "right" },
+  popup = { align = "right", background = ui.popup() },
 })
 
 local function popup_row(name, icon)
@@ -303,6 +303,22 @@ local function refresh_volume()
   )
 end
 
-ssd_volume:subscribe({ "routine", "forced", "deferred_wake", "theme_colors_updated" }, refresh_volume)
+ssd_volume:subscribe({ "routine", "forced", "deferred_wake" }, refresh_volume)
+
+ssd_volume:subscribe("theme_colors_updated", function()
+  ui.theme_popup(ssd_volume, {
+    fields = {
+      swap_row,
+      root_row,
+      home_row,
+      physical_rows[1],
+      physical_rows[2],
+      physical_rows[3],
+      physical_rows[4],
+    },
+    field_opts = { height = popup_row_height },
+  })
+  refresh_volume()
+end)
 
 ui.bind_popup(ssd_volume, { on_open = update_details })

@@ -2,6 +2,7 @@ local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
 local ui = require "ui"
+local utils = require "utils"
 local bridge = require "island_bridge"
 
 local last_volume = 100
@@ -26,7 +27,7 @@ local mic = ui.add_capsule("widgets.mic", {
     },
     color = colors.mic,
   },
-  popup = { align = "right" },
+  popup = { align = "right", background = ui.popup() },
 })
 
 local mic_slider = sbar.add("slider", "widgets.mic.slider", 100, {
@@ -64,19 +65,6 @@ local function update()
   end)
 end
 
-local function scroll_delta(env)
-  for _, key in ipairs { "SCROLL_DELTA", "INFO" } do
-    local raw = env[key]
-    if raw ~= nil and raw ~= "" then
-      local n = tonumber(raw) or tonumber(tostring(raw):match "(-?%d+)")
-      if n and n ~= 0 then
-        return n
-      end
-    end
-  end
-  return 0
-end
-
 local mic_mute = ui.popup_button("widgets.mic.mute", mic, {
   label = "Toggle Mute",
   align = "center",
@@ -107,7 +95,7 @@ end)
 mic:subscribe("deferred_wake", update)
 
 mic:subscribe("mouse.scrolled", function(env)
-  local delta = scroll_delta(env)
+  local delta = utils.scroll_delta(env)
   if delta == 0 then
     return
   end
@@ -123,6 +111,7 @@ end)
 
 mic:subscribe("theme_colors_updated", function()
   mic:set { background = { drawing = false } }
+  ui.theme_popup(mic, { buttons = { mic_mute } })
   mic_slider:set {
     slider = ui.slider_track(colors.mic),
     background = ui.button(),

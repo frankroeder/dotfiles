@@ -31,7 +31,7 @@ local bluetooth = ui.add_capsule("widgets.bluetooth", {
     },
   },
   label = { drawing = false },
-  popup = { align = "right" },
+  popup = { align = "right", background = ui.popup() },
 })
 
 local function ready()
@@ -257,6 +257,9 @@ bluetooth:subscribe("theme_colors_updated", function()
     return
   end
   bluetooth:set { background = ui.widget_background() }
+  ui.set_popup_bg(bluetooth)
+  -- Invalidate fingerprint so rows rebuild with current palette.
+  popup_fp = nil
   update { toast_new = false }
 end)
 

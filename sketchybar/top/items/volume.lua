@@ -2,6 +2,7 @@ local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
 local ui = require "ui"
+local utils = require "utils"
 
 local last_level = 0
 local last_muted = false
@@ -25,7 +26,7 @@ local volume = ui.add_capsule("widgets.volume", {
     },
     color = colors.vol,
   },
-  popup = { align = "right" },
+  popup = { align = "right", background = ui.popup() },
 })
 
 local volume_slider = ui.slider_popup(
@@ -85,20 +86,6 @@ local function refresh_volume()
   )
 end
 
--- mouse.scrolled: $SCROLL_DELTA (docs); some builds also put it in $INFO.
-local function scroll_delta(env)
-  for _, key in ipairs { "SCROLL_DELTA", "INFO" } do
-    local raw = env[key]
-    if raw ~= nil and raw ~= "" then
-      local n = tonumber(raw) or tonumber(tostring(raw):match "(-?%d+)")
-      if n and n ~= 0 then
-        return n
-      end
-    end
-  end
-  return 0
-end
-
 volume:subscribe("volume_change", function(env)
   local level = tonumber(env.INFO)
   if level then
@@ -114,7 +101,7 @@ end)
 volume:subscribe("deferred_wake", refresh_volume)
 
 volume:subscribe("mouse.scrolled", function(env)
-  local delta = scroll_delta(env)
+  local delta = utils.scroll_delta(env)
   if delta == 0 then
     return
   end
@@ -154,10 +141,10 @@ refresh_volume()
 
 volume:subscribe("theme_colors_updated", function()
   volume:set { background = { drawing = false } }
+  ui.theme_popup(volume, { buttons = { volume_mute } })
   apply_volume(last_level, last_muted)
   volume_slider:set {
     slider = ui.slider_track(colors.vol),
     background = ui.button(),
   }
-  volume_mute:set { background = ui.button() }
 end)

@@ -17,7 +17,6 @@ local cal = ui.add_capsule("widgets.calendar", {
       size = 13.0,
     },
   },
-  popup = { align = "center" },
   click_script = "open -a 'Calendar'",
 })
 
