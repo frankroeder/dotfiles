@@ -98,100 +98,44 @@ mynodes() {
   squeue -u $USER -t RUNNING -o "%N" | tr ',' '\n' | sort | uniq -c | sort -nr
 }
 
-# Unique node set for your RUNNING jobs (one line each)
-_running_nodes() {
-  squeue -u "$USER" -t RUNNING -h -o "%N" 2>/dev/null | tr ',' '\n' | grep -v '^$' | sort -u
-}
-
-# SSH helper for node probes
-_node_ssh() {
-  ssh -o ConnectTimeout=8 -o BatchMode=yes "$1" "$2"
-}
-
-# GPU node (u0XX): nvidia-smi + CPU/RAM + top processes
-_nodestats_one_gpu() {
-  local node=$1
-  echo
-  echo "========== $node (GPU) =========="
-  _node_ssh "$node" '
-    echo "--- GPU ---"
-    nvidia-smi --query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu --format=csv,noheader 2>/dev/null \
-      || nvidia-smi
-    echo
-    echo "--- GPU processes ---"
-    nvidia-smi --query-compute-apps=pid,process_name,used_gpu_memory --format=csv,noheader 2>/dev/null \
-      || nvidia-smi pmon -c 1 2>/dev/null || true
-    echo
-    echo "--- CPU / RAM ---"
-    uptime
-    free -h
-    echo
-    echo "--- top processes (MEM) ---"
-    ps -eo user,pid,%cpu,%mem,rss,comm --sort=-%mem | head -n 12
-    echo
-    echo "--- top processes (CPU) ---"
-    ps -eo user,pid,%cpu,%mem,rss,comm --sort=-%cpu | head -n 10
-  ' 2>/dev/null || echo "  ssh/query failed for $node"
-}
-
-# CPU/SMP node: load, free, top processes
-_nodestats_one_cpu() {
-  local node=$1
-  echo
-  echo "========== $node (CPU) =========="
-  _node_ssh "$node" '
-    echo "--- CPU / RAM ---"
-    uptime
-    free -h
-    echo
-    echo "--- top processes (MEM) ---"
-    ps -eo user,pid,%cpu,%mem,rss,comm --sort=-%mem | head -n 15
-    echo
-    echo "--- top processes (CPU) ---"
-    ps -eo user,pid,%cpu,%mem,rss,comm --sort=-%cpu | head -n 12
-  ' 2>/dev/null || echo "  ssh/query failed for $node"
-}
-
-# Overview of GPU/CPU usage on unique nodes where you have RUNNING jobs
-# Usage: nodestats [--gpu|-g] [--cpu|-c]
-#   --gpu  only u0XX GPU nodes (nvidia-smi + CPU/RAM)
-#   --cpu  only non-GPU nodes (load + processes)
-#   default: both. One pass over the RUNNING node set.
+# Overview of system + your procs on unique RUNNING-job nodes
+# Usage: nodestats [--gpu|-g] [--cpu|-c]   (default: both; u0XX = GPU)
 nodestats() {
-  local want_gpu=0 want_cpu=0 node
+  local want_gpu=0 want_cpu=0 node kind
   for arg in "$@"; do
     case "$arg" in
       --gpu|-g) want_gpu=1 ;;
       --cpu|-c) want_cpu=1 ;;
-      -h|--help)
-        echo "Usage: nodestats [--gpu|-g] [--cpu|-c]"
-        echo "  Probe unique nodes with your RUNNING jobs via ssh."
-        echo "  --gpu / -g  only u0XX GPU nodes"
-        echo "  --cpu / -c  only CPU/SMP nodes"
-        echo "  default: both"
-        return 0
-        ;;
     esac
   done
   [ "$want_gpu" -eq 0 ] && [ "$want_cpu" -eq 0 ] && want_gpu=1 && want_cpu=1
 
-  local nodes
-  nodes=$(_running_nodes)
-  if [ -z "$nodes" ]; then
-    echo "No RUNNING jobs / no nodes."
-    return 0
-  fi
+  local nodes me=$USER
+  nodes=$(squeue -u "$me" -t RUNNING -h -o "%N" 2>/dev/null | tr ',' '\n' | sort -u)
+  [ -z "$nodes" ] && { echo "No RUNNING nodes."; return 0; }
 
-  echo "Nodes (RUNNING): $(echo "$nodes" | tr '\n' ' ')"
   for node in $nodes; do
     case "$node" in
-      u0[0-9][0-9])
-        [ "$want_gpu" -eq 1 ] && _nodestats_one_gpu "$node"
-        ;;
-      *)
-        [ "$want_cpu" -eq 1 ] && _nodestats_one_cpu "$node"
-        ;;
+      u0[0-9][0-9]) [ "$want_gpu" -eq 0 ] && continue; kind=GPU ;;
+      *)            [ "$want_cpu" -eq 0 ] && continue; kind=CPU ;;
     esac
+    echo
+    echo "=== $node ($kind) ==="
+    ssh -o ConnectTimeout=8 -o BatchMode=yes "$node" "
+      uptime
+      free -h
+      if command -v nvidia-smi >/dev/null 2>&1; then
+        echo
+        nvidia-smi --query-gpu=index,utilization.gpu,memory.used,memory.total,temperature.gpu --format=csv,noheader
+        nvidia-smi --query-compute-apps=pid,process_name,used_gpu_memory --format=csv,noheader 2>/dev/null
+      fi
+      echo
+      echo '-- node top --'
+      ps -eo user,pid,%cpu,%mem,rss,comm --sort=-%cpu | head -n 8
+      echo
+      echo '-- your procs --'
+      ps -u $me -o pid,%cpu,%mem,rss,etime,comm --sort=-%mem | head -n 20
+    " 2>/dev/null || echo "  ssh failed: $node"
   done
 }
 
