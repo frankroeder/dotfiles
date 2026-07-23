@@ -12,7 +12,7 @@ local metrics = settings.ui
 -- title/bar/value use icon/label padding inside fixed column widths instead.
 local pad = 10
 local col_gap = 10
-local title_w = 108 -- fits "Session (5h)" / "Weekly Fable"
+local title_w = 108 -- fits "Session (5h)" / "Week (7d)"
 local bar_w = 100
 local value_w = 180 -- fits "130% used  01.08. 02:00" / "69%  3h 5m [active]"
 local bar_h = 6
@@ -22,23 +22,21 @@ local popup_width = content_w + pad * 2
 local helpers = os.getenv "HOME" .. "/.dotfiles/sketchybar/helpers"
 
 -- Horizontal popup: width=0 rows stack via y_offset; link buttons share bottom.
--- Rows: Session (5h), Week (7d), Weekly Fable, Grok (7d weekly Build credits), links.
+-- Rows: Session (5h), Week (7d), Grok (7d weekly Build credits), links.
 local row_gap = 2
 local step = row_h + row_gap
-local popup_h = row_h * 5 + row_gap * 4 + 10
-local y_session = 2 * step
-local y_weekly = 1 * step
-local y_fable = 0
-local y_grok = -1 * step
-local y_links = -2 * step
+local popup_h = row_h * 4 + row_gap * 3 + 10
+local y_session = 1.5 * step
+local y_weekly = 0.5 * step
+local y_grok = -0.5 * step
+local y_links = -1.5 * step
 local btn_gap = 6
 local btn_w = math.floor((content_w - btn_gap) / 2)
 
 local accent_session = colors.mauve
 local accent_weekly = colors.blue
-local accent_fable = colors.pink
 local accent_grok = colors.teal
-local last = { session = nil, weekly = nil, fable = nil, grok = nil }
+local last = { session = nil, weekly = nil, grok = nil }
 
 local ccu = ui.add_capsule("widgets.ccu", {
   position = "left",
@@ -175,7 +173,6 @@ sbar.add("item", "widgets.ccu.inset", {
 
 local session_row = metric_row("widgets.ccu.session", "Session (5h)", accent_session, y_session)
 local weekly_row = metric_row("widgets.ccu.weekly", "Week (7d)", accent_weekly, y_weekly)
-local fable_row = metric_row("widgets.ccu.fable", "Weekly Fable", accent_fable, y_fable)
 local grok_row = metric_row("widgets.ccu.grok", "Grok (7d)", accent_grok, y_grok)
 
 local function link_button(name, title, url, pad_l, pad_r)
@@ -271,7 +268,6 @@ local function get_claude_usage(callback)
     callback {
       session = window_fields(result.session),
       weekly = window_fields(result.weekly),
-      scoped = window_fields(result.scoped),
     }
   end)
 end
@@ -380,7 +376,7 @@ local function max_pct(...)
   return best
 end
 
-local function set_capsule(session_used, weekly_used, fable_used, grok_used, err)
+local function set_capsule(session_used, weekly_used, grok_used, err)
   if err then
     ccu:set {
       background = ui.capsule(),
@@ -389,7 +385,7 @@ local function set_capsule(session_used, weekly_used, fable_used, grok_used, err
     return
   end
 
-  local pct = max_pct(session_used, weekly_used, fable_used, grok_used)
+  local pct = max_pct(session_used, weekly_used, grok_used)
   if pct == nil then
     ccu:set {
       background = ui.capsule(),
@@ -431,7 +427,7 @@ end
 local function apply_claude(result)
   if result.error then
     -- Keep last-good rows on transient failures (429 / parse / network).
-    local had = last.session ~= nil or last.weekly ~= nil or last.fable ~= nil
+    local had = last.session ~= nil or last.weekly ~= nil
     if not had then
       session_row:set {
         icon = { string = "Session (5h)", color = accent_session },
@@ -441,20 +437,14 @@ local function apply_claude(result)
         icon = { string = "Week (7d)", color = accent_weekly },
         label = { string = "—", color = theme.text_muted },
       }
-      fable_row:set {
-        icon = { string = "Weekly Fable", color = accent_fable },
-        label = { string = "—", color = theme.text_muted },
-      }
       set_percent(session_row, accent_session, 0)
       set_percent(weekly_row, accent_weekly, 0)
-      set_percent(fable_row, accent_fable, 0)
     end
   else
     last.session = apply_window_row(session_row, accent_session, result.session, "Session (5h)")
     last.weekly = apply_window_row(weekly_row, accent_weekly, result.weekly, "Week (7d)")
-    last.fable = apply_window_row(fable_row, accent_fable, result.scoped, "Weekly Fable")
   end
-  set_capsule(last.session, last.weekly, last.fable, last.grok, result.error and not last.grok and not last.session)
+  set_capsule(last.session, last.weekly, last.grok, result.error and not last.grok and not last.session)
 end
 
 local function apply_grok(result)
@@ -483,18 +473,16 @@ local function apply_grok(result)
     -- Bar = remaining (CLI style); over-limit → 0%.
     set_percent(grok_row, accent_grok, remaining or 0)
   end
-  set_capsule(last.session, last.weekly, last.fable, last.grok, result.error and not last.session and not last.grok)
+  set_capsule(last.session, last.weekly, last.grok, result.error and not last.session and not last.grok)
 end
 
 local function refresh_theme()
   accent_session = colors.mauve
   accent_weekly = colors.blue
-  accent_fable = colors.pink
   accent_grok = colors.teal
   ui.theme_popup(ccu)
   session_row:set { icon = { color = accent_session }, label = { color = usage_color(last.session) } }
   weekly_row:set { icon = { color = accent_weekly }, label = { color = usage_color(last.weekly) } }
-  fable_row:set { icon = { color = accent_fable }, label = { color = usage_color(last.fable) } }
   grok_row:set { icon = { color = accent_grok }, label = { color = usage_color(last.grok) } }
   for _, btn in ipairs { claude_link, grok_link } do
     btn:set {
@@ -505,9 +493,8 @@ local function refresh_theme()
   -- Bars: remaining for Claude (stored used in last.*); invert for display.
   set_percent(session_row, accent_session, last.session and (100 - last.session) or 0)
   set_percent(weekly_row, accent_weekly, last.weekly and (100 - last.weekly) or 0)
-  set_percent(fable_row, accent_fable, last.fable and (100 - last.fable) or 0)
   set_percent(grok_row, accent_grok, last.grok and (100 - last.grok) or 0)
-  set_capsule(last.session, last.weekly, last.fable, last.grok)
+  set_capsule(last.session, last.weekly, last.grok)
 end
 
 ccu:subscribe("theme_colors_updated", refresh_theme)
@@ -523,6 +510,7 @@ end
 local refresh_timer = sbar.add("item", "widgets.ccu.refresh_timer", {
   update_freq = 60,
   drawing = false,
+  updates = true,
 })
 
 refresh_timer:subscribe("routine", function()
