@@ -19,7 +19,9 @@ from zoneinfo import ZoneInfo
 
 BERLIN = ZoneInfo("Europe/Berlin")
 AUTH_PATH = Path.home() / ".grok" / "auth.json"
-BILLING_URL = "https://cli-chat-proxy.grok.com/v1/billing"
+# Official Grok Build client uses format=credits (creditUsagePercent + weekly period).
+# Bare /v1/billing is legacy used/monthlyLimit and over-reports vs real credits.
+BILLING_URL = "https://cli-chat-proxy.grok.com/v1/billing?format=credits"
 TOKEN_URL = "https://auth.x.ai/oauth2/token"
 
 
@@ -160,22 +162,43 @@ def fetch_billing(token: str) -> dict[str, Any]:
 
 
 def build_payload(data: dict[str, Any]) -> dict[str, Any]:
+  """Map billing JSON → Lua fields for ccu.lua.
+
+  Prefer credits shape (creditUsagePercent + currentPeriod / billingPeriodEnd).
+  Fall back to legacy used/monthlyLimit money ratio only when credits % absent.
+  """
   cfg = data.get("config") or {}
   used = money_val(cfg.get("used"))
   limit = money_val(cfg.get("monthlyLimit"))
   on_demand = money_val(cfg.get("onDemandCap"))
-  period_end = cfg.get("billingPeriodEnd")
-  period_start = cfg.get("billingPeriodStart")
+
+  period = cfg.get("currentPeriod") if isinstance(cfg.get("currentPeriod"), dict) else {}
+  period_end = period.get("end") or cfg.get("billingPeriodEnd")
+  period_start = period.get("start") or cfg.get("billingPeriodStart")
+  period_type = period.get("type")
 
   utilization = None
   remaining = None
-  if used is not None and limit and limit > 0:
+  source = "grok_billing"
+
+  # Credits-first: official Build % (weekly unified pool).
+  credit_pct = cfg.get("creditUsagePercent")
+  if credit_pct is not None:
+    try:
+      utilization = round(float(credit_pct), 1)
+      remaining = max(0.0, round(100.0 - utilization, 1))
+      source = "grok_credits"
+    except (TypeError, ValueError):
+      utilization = None
+
+  # Legacy money ratio when credits fields missing.
+  if utilization is None and used is not None and limit and limit > 0:
     utilization = round(100.0 * used / limit, 1)
-    # Clamp remaining so over-limit never yields negative % in the bar.
     remaining = max(0.0, round(100.0 - utilization, 1))
+    source = "grok_billing"
 
   return {
-    "source": "grok_billing",
+    "source": source,
     "error": None,
     "utilization": utilization,
     "remaining": remaining,
@@ -186,6 +209,7 @@ def build_payload(data: dict[str, Any]) -> dict[str, Any]:
     "resets_at_de": format_berlin(period_end),
     "period_start": period_start,
     "period_end": period_end,
+    "period_type": period_type,
   }
 
 
@@ -205,6 +229,7 @@ def build_error(error: str) -> dict[str, Any]:
     "resets_at_de": None,
     "period_start": None,
     "period_end": None,
+    "period_type": None,
   }
 
 

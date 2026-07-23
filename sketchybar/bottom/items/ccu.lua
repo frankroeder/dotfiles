@@ -22,7 +22,7 @@ local popup_width = content_w + pad * 2
 local helpers = os.getenv "HOME" .. "/.dotfiles/sketchybar/helpers"
 
 -- Horizontal popup: width=0 rows stack via y_offset; link buttons share bottom.
--- Rows: Session (5h), Week (7d), Weekly Fable, Grok (30d), links.
+-- Rows: Session (5h), Week (7d), Weekly Fable, Grok (7d weekly Build credits), links.
 local row_gap = 2
 local step = row_h + row_gap
 local popup_h = row_h * 5 + row_gap * 4 + 10
@@ -176,7 +176,7 @@ sbar.add("item", "widgets.ccu.inset", {
 local session_row = metric_row("widgets.ccu.session", "Session (5h)", accent_session, y_session)
 local weekly_row = metric_row("widgets.ccu.weekly", "Week (7d)", accent_weekly, y_weekly)
 local fable_row = metric_row("widgets.ccu.fable", "Weekly Fable", accent_fable, y_fable)
-local grok_row = metric_row("widgets.ccu.grok", "Grok (30d)", accent_grok, y_grok)
+local grok_row = metric_row("widgets.ccu.grok", "Grok (7d)", accent_grok, y_grok)
 
 local function link_button(name, title, url, pad_l, pad_r)
   return sbar.add("item", name, {
@@ -276,6 +276,16 @@ local function get_claude_usage(callback)
   end)
 end
 
+local function grok_title(period_type)
+  if type(period_type) == "string" and period_type:find("WEEKLY") then
+    return "Grok (7d)"
+  end
+  if type(period_type) == "string" and period_type:find("MONTHLY") then
+    return "Grok (30d)"
+  end
+  return "Grok (7d)" -- Build credits default weekly
+end
+
 local function get_grok_usage(callback)
   sbar.exec("python3 " .. helpers .. "/grok_usage.py", function(lit)
     local result = parse_lua_table(lit, "ccu_grok")
@@ -292,6 +302,7 @@ local function get_grok_usage(callback)
       utilization = used,
       remaining = remaining,
       resets_at = result.resets_at_de or result.resets_at,
+      period_type = result.period_type,
     }
   end)
 end
@@ -449,7 +460,10 @@ end
 local function apply_grok(result)
   if result.error then
     if last.grok == nil then
-      grok_row:set { label = { string = result.error, color = theme.critical } }
+      grok_row:set {
+        icon = { string = "Grok (7d)", color = accent_grok },
+        label = { string = result.error, color = theme.critical },
+      }
       set_percent(grok_row, accent_grok, 0)
     end
   else
@@ -460,6 +474,7 @@ local function apply_grok(result)
     end
     last.grok = used
     grok_row:set {
+      icon = { string = grok_title(result.period_type), color = accent_grok },
       label = {
         string = format_pct(remaining, result.resets_at, used),
         color = usage_color(used),
