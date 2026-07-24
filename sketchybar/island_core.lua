@@ -569,47 +569,44 @@ function M.restore_idle(opts)
   local style = island_style.bar(current_display)
   local mg = idle_margin(current_display)
 
-  -- Snap idle geometry OUTSIDE animate. Sketchybar animate batches that only
-  -- carry color can zero omitted margin/width (full-display stretch).
+  -- Fade targets: same RGB, alpha 0 (`% 0x1000000` drops the alpha byte). Fading
+  -- to a bare TRANSPARENT (white) would tint the pill white on the way out.
+  local fade_color = style.color % 0x1000000
+  local fade_border = style.border_color % 0x1000000
+
+  -- Subtitle position must be snapped (item y_offset must never animate).
   island_sub:set {
     y_offset = 0,
     label = { color = TRANSPARENT, string = "", width = 0, padding_left = 0, padding_right = 0 },
   }
-  island:set {
-    width = base,
-    icon = {
-      string = "",
-      color = TRANSPARENT,
-      align = "center",
-      width = 0,
-      padding_left = 12,
-      padding_right = 4,
-    },
-    label = {
-      string = "",
-      color = TRANSPARENT,
-      align = "center",
-      width = base - 20,
-      padding_left = 4,
-      padding_right = 12,
-    },
-  }
-  sbar.bar(bar_props({
-    display = current_display,
-    height = BAR_H,
-    margin = mg,
-    y_offset = y_idle(current_display),
-    hidden = false,
-    topmost = "on",
-  }, current_display))
 
-  -- Color fade only (no geometry in the animate batch).
+  -- Keep the pill visible + topmost through the whole collapse.
+  sbar.bar { display = current_display, hidden = false, topmost = "on" }
+
+  -- Smooth collapse: retract height/margin/y_offset to idle while fading the
+  -- background, border and content fully out in a single animate batch. Fading
+  -- to transparent (not the opaque idle color) avoids the two-stage pop on
+  -- notchless externals, where the pill would otherwise land on the visible idle
+  -- pill and then get hidden. Carrying margin + height keeps this from being a
+  -- color-only batch (which sketchybar can turn into a full-display stretch by
+  -- zeroing omitted margin). Item width is snapped to the idle base only after
+  -- the fade (schedule_hide -> apply_idle_geometry); animating it clips the glyph.
   sbar.animate(motion.curve, frames, function()
-    sbar.bar { color = style.color, border_color = style.border_color }
+    sbar.bar {
+      height = BAR_H,
+      margin = mg,
+      y_offset = y_idle(current_display),
+      color = fade_color,
+      border_color = fade_border,
+    }
+    island:set {
+      icon = { color = TRANSPARENT },
+      label = { color = TRANSPARENT },
+    }
   end)
   cur_w, cur_h, cur_mg = base, BAR_H, mg
 
-  -- Fully hide + re-assert idle geometry once fade finishes.
+  -- Fully hide + re-assert idle geometry (clears strings + item width) once fade finishes.
   schedule_hide(frames)
 end
 
