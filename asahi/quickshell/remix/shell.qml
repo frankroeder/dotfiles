@@ -300,13 +300,6 @@ Variants {
     }
   }
 
-  Timer {
-    interval: 800
-    running: true
-    repeat: true
-    onTriggered: root.refreshWorkspaceIcons(0)
-  }
-
   Item {
     id: barContent
     anchors.fill: parent

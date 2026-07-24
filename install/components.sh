@@ -376,7 +376,7 @@ comp_asahi_desktop() {
   mkdir -p "$HOME/.config/librewolf/librewolf"
   link_if_exists "$DOTFILES/shared/librewolf/librewolf.overrides.cfg" "$HOME/.config/librewolf/librewolf/librewolf.overrides.cfg"
   local profile
-  for profile in "$HOME"/.librewolf/*.default*; do
+  for profile in "$HOME"/.config/librewolf/librewolf/*.default*; do
     [ -d "$profile" ] || continue
     mkdir -p "$profile/chrome"
     ln -sfn "$DOTFILES/shared/librewolf/userChrome.css" "$profile/chrome/userChrome.css"

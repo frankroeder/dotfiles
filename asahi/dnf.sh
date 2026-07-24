@@ -13,11 +13,18 @@ sudo dnf upgrade -y
 sudo dnf remove -y kitty kitty-terminfo || true
 
 if ! sudo dnf repolist --all | grep -q '^librewolf'; then
-  sudo dnf config-manager addrepo --add-or-replace --overwrite --from-repofile="$LIBREWOLF_REPO_URL"
+  if [ "$FEDORA_VERSION" -ge 41 ]; then
+    # dnf5 (Fedora 41+)
+    sudo dnf config-manager addrepo --from-repofile="$LIBREWOLF_REPO_URL"
+  else
+    # dnf4
+    sudo dnf config-manager --add-repo "$LIBREWOLF_REPO_URL"
+  fi
 fi
 
 sudo dnf copr enable -y scottames/ghostty
-sudo dnf copr enable errornointernet/quickshell
+sudo dnf copr enable -y solopasha/hyprland
+sudo dnf copr enable -y errornointernet/quickshell
 
 sudo dnf makecache --refresh
 

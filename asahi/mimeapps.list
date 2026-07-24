@@ -28,6 +28,7 @@ x-scheme-handler/nntp=userapp-Thunderbird-BDEXN3.desktop
 x-scheme-handler/feed=userapp-Thunderbird-JNXXN3.desktop
 application/rss+xml=userapp-Thunderbird-JNXXN3.desktop
 application/x-extension-rss=userapp-Thunderbird-JNXXN3.desktop
+x-scheme-handler/claude-cli=claude-code-url-handler.desktop
 
 [Added Associations]
 x-scheme-handler/news=userapp-Thunderbird-BDEXN3.desktop;
