@@ -165,30 +165,23 @@ ui.bracket_group("hw.group.cpu", {
 })
 
 local function apply_silistats(output)
-  if not output or not output.usage or not output.temperature or not output.memory then
+  -- sbar.exec only parses JSON into a table on success
+  if type(output) ~= "table" then
     return
   end
 
-  if not output.usage.ecpu or not output.usage.pcpu or not output.usage.gpu then
-    return
-  end
-
-  local ecpu_val = math.floor(output.usage.ecpu.active_percent or 0)
-  local pcpu_val = math.floor(output.usage.pcpu.active_percent or 0)
+  -- perf_percent = freq-weighted load (not active residency / busy_*)
+  local ecpu_val = math.floor(output.usage.ecpu.perf_percent)
+  local pcpu_val = math.floor(output.usage.pcpu.perf_percent)
+  local gpu_used = math.floor(output.usage.gpu.perf_percent)
   local cpu_t = output.temperature.cpu_avg_c
+  local gpu_t = output.temperature.gpu_avg_c
   local ram_total = output.memory.ram_gb_total
   local ram_used = output.memory.ram_gb_used
   local swap_total = output.memory.swap_gb_total
   local swap_used = output.memory.swap_gb_used
-  local gpu_used = math.floor(output.usage.gpu.active_percent or 0)
-  local gpu_t = output.temperature.gpu_avg_c
-
-  if
-    not (ram_total and ram_used and swap_total and swap_used and cpu_t and gpu_t)
-    or ram_total == 0
-  then
-    return
-  end
+  -- system_watts = SMC PSTR platform total
+  local power_watts = output.power.system_watts
 
   local ram_pct = (ram_used / ram_total) * 100
   local swap_pct = (swap_total > 0) and ((swap_used / swap_total) * 100) or 0
@@ -224,7 +217,6 @@ local function apply_silistats(output)
   gpu_temp:set { label = { string = temp_label(gpu_t), color = theme.accent } }
   gpu_graph:set { graph = { color = colors.with_alpha(color_gpu, 0.5) } }
 
-  local power_watts = output.power and output.power.all_watts or 0
   power:set { label = { string = string.format("%02d W", math.min(99, math.floor(power_watts))) } }
 
   cpu_pcpu_graph:push { pcpu_val / 100. * 0.275 }

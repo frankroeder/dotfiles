@@ -27,6 +27,7 @@ sbar.add("event", "island_layout")
 sbar.add("event", "island_mic")
 sbar.add("event", "island_bluetooth")
 sbar.add("event", "island_window")
+sbar.add("event", "island_hide")
 require "bar"
 require "default"
 require "display_watch"

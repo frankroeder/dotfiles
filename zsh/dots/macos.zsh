@@ -77,9 +77,14 @@ pbcurl() {
 applenotifications(){
   log show --predicate 'eventMessage contains[c] "register name"' --last 1h | awk '{ print $12 }' | sort | uniq -c | sort | less
 }
-alias yabailogs="tail -f $HOMEBREW_PREFIX/var/log/yabai/*.log"
-alias watchsketchybar="tail -F /opt/homebrew/var/log/sketchybar/sketchybar.out.log /tmp/sketchybar-top.* /tmp/sketchybar-island.*"
+
+alias yabailogs="$EDITOR $HOMEBREW_PREFIX/var/log/yabai/*.log"
+alias watchyabai="tail -f $HOMEBREW_PREFIX/var/log/yabai/*.log"
 alias sketchylogs="$EDITOR /opt/homebrew/var/log/sketchybar/sketchybar.* /tmp/sketchybar-top.* /tmp/sketchybar-island.*"
+alias watchsketchybar="tail -F /opt/homebrew/var/log/sketchybar/sketchybar.out.log /tmp/sketchybar-top.* /tmp/sketchybar-island.*"
+alias skhdlogs="$EDITOR /tmp/skhd_*.log"
+alias watchskhd="tail -F /tmp/skhd_*.log"
+
 alias screensaver="open /System/Library/CoreServices/ScreenSaverEngine.app"
 # alias agents="$EDITOR $HOME/Library/Mobile\ Documents/com~apple~CloudDocs/configs/AGENTS.md"
 heic2jpg(){

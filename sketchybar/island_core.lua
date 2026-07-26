@@ -667,6 +667,12 @@ local focus_watcher = sbar.add("item", "island.focus", {
 
 focus_watcher:subscribe({ "display_change", "window_focus" }, on_display_or_focus)
 
+-- Mission Control (from yabai): the pill is topmost while expanded and would
+-- float over the space overview — drop it.
+focus_watcher:subscribe("island_hide", function()
+  M.force_hide()
+end)
+
 function M.current_display()
   return current_display
 end

@@ -3,7 +3,7 @@
 # Unload the macOS WindowManager process
 launchctl unload -F /System/Library/LaunchAgents/com.apple.WindowManager.plist > /dev/null 2>&1 &
 
-yabai -m signal --add event=dock_did_restart action="sudo yabai --load-sa"
+yabai -m signal --add label=sa_reload event=dock_did_restart action="sudo yabai --load-sa"
 sudo yabai --load-sa
 
 bar_height() {
@@ -70,17 +70,37 @@ yabai -m config window_origin_display        default \
                 external_bar                 all:${TOP_RESERVE}:${BOTTOM_BAR_HEIGHT}
 
 # events
-yabai -m signal --add event=window_created action="sketchybar -m --trigger window_created &> /dev/null; sketchybar-top -m --trigger window_created &> /dev/null"
-yabai -m signal --add event=window_destroyed action="sketchybar -m --trigger window_destroyed &> /dev/null; sketchybar-top -m --trigger window_destroyed &> /dev/null"
-yabai -m signal --add event=window_moved action="sketchybar-top -m --trigger window_moved &> /dev/null; sketchybar-top -m --trigger space_windows_refresh &> /dev/null"
-yabai -m signal --add event=window_minimized action="sketchybar-top -m --trigger window_minimized &> /dev/null"
-yabai -m signal --add event=window_deminimized action="sketchybar-top -m --trigger window_deminimized &> /dev/null"
-yabai -m signal --add event=window_focused action="sketchybar -m --trigger window_focus &> /dev/null; sketchybar-top -m --trigger window_focus &> /dev/null; sketchybar-island -m --trigger window_focus &> /dev/null"
-yabai -m signal --add event=space_changed action="sketchybar-top -m --trigger layout_change &> /dev/null; sketchybar-top -m --trigger space_windows_refresh &> /dev/null"
-yabai -m signal --add event=space_created action="sketchybar-top -m --trigger space_created &> /dev/null; sketchybar-top -m --trigger layout_change &> /dev/null"
-yabai -m signal --add event=space_destroyed action="sketchybar-top -m --trigger space_destroyed &> /dev/null; sketchybar-top -m --trigger layout_change &> /dev/null"
-yabai -m signal --add event=display_removed action="sketchybar-top -m --trigger display_change &> /dev/null; sketchybar-island -m --trigger display_change &> /dev/null; sketchybar-top -m --trigger layout_change &> /dev/null; /bin/sh $HOME/.config/yabai/arrange-displays.sh &"
-yabai -m signal --add event=display_added action="sketchybar-top -m --trigger display_change &> /dev/null; sketchybar-island -m --trigger display_change &> /dev/null; sketchybar-top -m --trigger layout_change &> /dev/null; /bin/sh $HOME/.config/yabai/arrange-displays.sh &"
+# Only the top bar consumes window/space events (the bottom bar has no yabai
+# widgets). No signal sends a bar two triggers: the lua handlers for layout_change
+# / space_created / space_destroyed already schedule the window rescan themselves,
+# so a paired space_windows_refresh only doubles the queries.
+# EVERY signal needs a label: --add is append-only, so an unlabelled signal stacks
+# a duplicate on every re-source. With a label it replaces in place.
+yabai -m signal --add label=sb_window_created event=window_created action="sketchybar-top -m --trigger window_created &> /dev/null"
+yabai -m signal --add label=sb_window_destroyed event=window_destroyed action="sketchybar-top -m --trigger window_destroyed &> /dev/null"
+yabai -m signal --add label=sb_window_moved event=window_moved action="sketchybar-top -m --trigger window_moved &> /dev/null"
+yabai -m signal --add label=sb_window_minimized event=window_minimized action="sketchybar-top -m --trigger window_minimized &> /dev/null"
+yabai -m signal --add label=sb_window_deminimized event=window_deminimized action="sketchybar-top -m --trigger window_deminimized &> /dev/null"
+yabai -m signal --add label=sb_window_focused event=window_focused action="sketchybar-top -m --trigger window_focus &> /dev/null; sketchybar-island -m --trigger window_focus &> /dev/null"
+yabai -m signal --add label=sb_space_changed event=space_changed action="sketchybar-top -m --trigger layout_change &> /dev/null"
+yabai -m signal --add label=sb_space_created event=space_created action="sketchybar-top -m --trigger space_created &> /dev/null"
+yabai -m signal --add label=sb_space_destroyed event=space_destroyed action="sketchybar-top -m --trigger space_destroyed &> /dev/null"
+# Focus moved to another display without focusing a window (empty display): the
+# island retargets on window_focus, so reuse it rather than the costly display_change
+# re-probe, which is only for hotplug/arrangement changes.
+yabai -m signal --add label=sb_display_changed event=display_changed action="sketchybar-top -m --trigger layout_change &> /dev/null; sketchybar-island -m --trigger window_focus &> /dev/null"
+# cmd-H / unhide changes the per-space window counts, which the space capsules show.
+yabai -m signal --add label=sb_application_hidden event=application_hidden action="sketchybar-top -m --trigger space_windows_refresh &> /dev/null"
+yabai -m signal --add label=sb_application_visible event=application_visible action="sketchybar-top -m --trigger space_windows_refresh &> /dev/null"
+# The notch pill is topmost while expanded; drop it so it cannot cover Mission Control.
+# Exit re-runs the full layout scan: Mission Control is where spaces get created,
+# destroyed and REORDERED, and a reorder fires no space_* signal at all.
+yabai -m signal --add label=sb_mission_control_enter event=mission_control_enter action="sketchybar-island -m --trigger island_hide &> /dev/null"
+yabai -m signal --add label=sb_mission_control_exit event=mission_control_exit action="sketchybar-top -m --trigger layout_change &> /dev/null"
+# Hotplug: display_change already drives updateLayout on the top bar (and the bar
+# geometry re-probe), so no extra layout_change here.
+yabai -m signal --add label=sb_display_removed event=display_removed action="sketchybar-top -m --trigger display_change &> /dev/null; sketchybar-island -m --trigger display_change &> /dev/null; /bin/sh $HOME/.config/yabai/arrange-displays.sh &"
+yabai -m signal --add label=sb_display_added event=display_added action="sketchybar-top -m --trigger display_change &> /dev/null; sketchybar-island -m --trigger display_change &> /dev/null; /bin/sh $HOME/.config/yabai/arrange-displays.sh &"
 # yabai -m signal --add event=space_changed action="yabai -m window --focus first"
 
 WINDOW_RULES="${DOTFILES:-$HOME/.dotfiles}/yabai/window_rules"

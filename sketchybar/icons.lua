@@ -38,6 +38,7 @@ local icons = {
       float = "􀏜",
       stack = "􀢌",
       bsp = "􀏝",
+      zoom = "􀐸",
     },
     battery = {
       ["100"] = "􀛨",
@@ -194,6 +195,7 @@ local icons = {
       float = "󰖲",
       stack = "󰐃",
       bsp = "󰕰",
+      zoom = "󰊓",
     },
   },
 }

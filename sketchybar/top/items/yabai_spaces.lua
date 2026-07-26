@@ -16,6 +16,8 @@ sbar.add("event", "space_created")
 sbar.add("event", "space_destroyed")
 sbar.add("event", "display_change")
 sbar.add("event", "window_focus")
+-- skhd fires this after float/sticky/zoom toggles (fn+shift-w/s/z).
+sbar.add("event", "property_change")
 
 local spaces = {}
 local space_state = {}
@@ -36,6 +38,50 @@ local function layout_accent(layout)
     return colors.peach
   end
   return colors.blue
+end
+
+-- Focused-window state outranks the space layout for the pill tint, but only when
+-- the layout does not already imply it (float layout + floating window is normal,
+-- so peach there would say nothing).
+local function state_accent(flags, layout)
+  if flags.zoom then
+    return colors.yellow
+  end
+  if flags.float and layout ~= "float" then
+    return colors.peach
+  end
+  if flags.sticky then
+    return colors.teal
+  end
+  return layout_accent(layout)
+end
+
+local function focused_window_flags(windows)
+  for _, window in ipairs(windows) do
+    if window["has-focus"] then
+      return {
+        float = window["is-floating"] == true,
+        sticky = window["is-sticky"] == true,
+        zoom = window["has-fullscreen-zoom"] == true or window["has-parent-zoom"] == true,
+      }
+    end
+  end
+  return {}
+end
+
+-- Pill label: stack counter, then the focused window's state glyphs.
+local function pill_label(counter, flags)
+  local parts = (counter and counter ~= "") and { counter } or {}
+  if flags.float then
+    table.insert(parts, icons.yabai.float)
+  end
+  if flags.sticky then
+    table.insert(parts, icons.pin)
+  end
+  if flags.zoom then
+    table.insert(parts, icons.yabai.zoom)
+  end
+  return table.concat(parts, "  ")
 end
 
 local function ws_theme()
@@ -354,17 +400,21 @@ local function format_stack_label(windows)
 end
 
 local last_layout_key = nil
+-- Last layout yabai reported for the focused space; drives the click/scroll cycle.
+local current_layout = "bsp"
 
-local function set_layout_item(layout, label, display)
+local function set_layout_item(layout, label, display, flags)
   if not space_layout then
     return
   end
+  flags = flags or {}
+  current_layout = layout
   local glyph = icons.yabai[layout] or icons.yabai.bsp
-  local text = label or ""
+  local text = pill_label(label, flags)
   local has_label = text ~= ""
   -- Label off → its padding_right is gone; keep icon solo padded like left side.
   local icon_pad_r = has_label and ws_layout.icon.padding_right or ws_layout.icon.padding_left
-  local tint = layout_accent(layout)
+  local tint = state_accent(flags, layout)
   local key = layout .. "|" .. text .. "|" .. tostring(display) .. "|" .. tostring(tint)
   if key == last_layout_key then
     return
@@ -453,10 +503,13 @@ for index, space_name in ipairs(static_names) do
       else
         focus_space(index)
       end
+    elseif env.BUTTON == "other" then
+      -- Middle click: throw the focused window onto this space, stay where we are.
+      sbar.exec("yabai -m window --space " .. index .. " 2>/dev/null")
     else
       focus_space(index)
     end
-    scheduleSpaceWindowRefresh(0, 0.12)
+    scheduleSpaceWindowRefresh(1, 0.12)
   end)
 end
 
@@ -480,25 +533,35 @@ space_layout = sbar.add("item", "widgets.yabai_layout", {
   background = layout_surface(colors.blue),
 })
 
--- Light path: layout glyph + stack i/n for the focused space only.
+-- Sole writer of the pill; one --windows query feeds both counter and flags.
+-- Callers overlap (property_change starts two chains on purpose) and exec callbacks
+-- can land out of order, so the newest chain wins: gen is taken here, where the
+-- space data just arrived, making gen order == data freshness.
+local pill_gen = 0
+
+local function refresh_layout_pill(layout, display)
+  pill_gen = pill_gen + 1
+  local gen = pill_gen
+  sbar.exec("yabai -m query --windows --space 2>/dev/null", function(windows)
+    if gen ~= pill_gen then
+      return
+    end
+    if type(windows) ~= "table" then
+      set_layout_item(layout, "", display)
+      return
+    end
+    local counter = layout == "stack" and format_stack_label(windows) or ""
+    set_layout_item(layout, counter, display, focused_window_flags(windows))
+  end)
+end
+
+-- Light path: pill only, no spaces rescan.
 local function updateStackIndicator()
   sbar.exec("yabai -m query --spaces --space 2>/dev/null", function(sp)
     if type(sp) ~= "table" then
       return
     end
-    local layout = sp.type or "bsp"
-    local display = sp.display
-    if layout ~= "stack" then
-      set_layout_item(layout, "", display)
-      return
-    end
-    sbar.exec("yabai -m query --windows --space 2>/dev/null", function(windows)
-      if type(windows) ~= "table" then
-        set_layout_item(layout, "", display)
-        return
-      end
-      set_layout_item(layout, format_stack_label(windows), display)
-    end)
+    refresh_layout_pill(sp.type or "bsp", sp.display)
   end)
 end
 
@@ -574,19 +637,7 @@ local function updateLayout()
     end
 
     if focused_space then
-      local layout = focused_space.type or "bsp"
-      local display = focused_space.display
-      if layout == "stack" then
-        sbar.exec("yabai -m query --windows --space 2>/dev/null", function(windows)
-          if type(windows) ~= "table" then
-            set_layout_item(layout, "", display)
-            return
-          end
-          set_layout_item(layout, format_stack_label(windows), display)
-        end)
-      else
-        set_layout_item(layout, "", display)
-      end
+      refresh_layout_pill(focused_space.type or "bsp", focused_space.display)
     end
 
     scheduleSpaceWindowRefresh(0)
@@ -622,21 +673,60 @@ space_window_observer:subscribe({
   scheduleSpaceWindowRefresh(1, 0.1)
 end)
 
--- Focus changes only need the stack counter + selection colors, not a full windows scan.
-space_window_observer:subscribe("window_focus", function()
-  updateStackIndicator()
-end)
-
 space_window_observer:subscribe("theme_colors_updated", refresh_theme)
 
 space_layout:subscribe("layout_change", updateLayout)
-space_layout:subscribe("space_windows_refresh", updateLayout)
+-- Membership moved, not structure: the observer above owns the capsule counts, and
+-- every producer that does change structure fires a paired layout_change.
+space_layout:subscribe("space_windows_refresh", updateStackIndicator)
 space_layout:subscribe("display_change", updateLayout)
 space_layout:subscribe("space_created", updateLayout)
 space_layout:subscribe("space_destroyed", updateLayout)
 space_layout:subscribe("window_moved", updateLayout)
 space_layout:subscribe("window_focus", function()
   updateStackIndicator()
+end)
+
+-- skhd triggers this right after the yabai command, so the toggle may not have
+-- landed yet; re-read once shortly after.
+space_layout:subscribe("property_change", function()
+  updateStackIndicator()
+  sbar.delay(0.12, updateStackIndicator)
+end)
+
+-- Click/scroll the pill to cycle the focused space's layout; relay to the notch
+-- pill so it toasts exactly like the skhd fn-e/w/s bindings do.
+local LAYOUT_CYCLE = { "bsp", "stack", "float" }
+
+local function cycle_layout(step)
+  local idx = 1
+  for i, name in ipairs(LAYOUT_CYCLE) do
+    if name == current_layout then
+      idx = i
+      break
+    end
+  end
+  local target = LAYOUT_CYCLE[(idx - 1 + step) % #LAYOUT_CYCLE + 1]
+  -- Layout changes leave space membership alone, so only the pill needs a repaint.
+  sbar.exec("yabai -m space --layout " .. target .. " 2>/dev/null", function()
+    updateStackIndicator()
+    sbar.exec("sketchybar-island --trigger island_layout layout=" .. target .. " 2>/dev/null")
+  end)
+end
+
+space_layout:subscribe("mouse.clicked", function(env)
+  -- Middle click means "send window" on the space capsules; keep it inert here.
+  if env.BUTTON == "other" then
+    return
+  end
+  cycle_layout(env.BUTTON == "right" and -1 or 1)
+end)
+
+space_layout:subscribe("mouse.scrolled", function(env)
+  local delta = utils.scroll_delta(env)
+  if delta ~= 0 then
+    cycle_layout(delta > 0 and 1 or -1)
+  end
 end)
 
 updateLayout()
