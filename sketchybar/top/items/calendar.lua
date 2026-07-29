@@ -26,7 +26,7 @@ end)
 
 cal:subscribe("theme_colors_updated", function()
   cal:set {
-    background = ui.widget_background(),
+    background = ui.capsule(),
     label = { color = colors.cal },
   }
 end)

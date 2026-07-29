@@ -52,7 +52,7 @@ local function updateStyle(workspace_name)
   local fg = focused and theme.badge_active_text
     or (occupied and theme.occupied_text or theme.empty_text)
 
-  local background = ui.widget_background { color = bg, border_width = 0 }
+  local background = ui.capsule { color = bg, border_width = 0 }
 
   sbar.animate("tanh", settings.motion.fast, function()
     workspace:set {
@@ -158,7 +158,7 @@ for workspace_index, workspace_name in ipairs(parse_lines(workspace_output)) do
       padding_left = ws_layout.label.padding_left,
       padding_right = ws_layout.label.padding_right,
     },
-    background = ui.widget_background {
+    background = ui.capsule {
       color = ws_theme().bg,
       border_width = 0,
       height = ws_layout.capsule.height,
@@ -172,17 +172,6 @@ for workspace_index, workspace_name in ipairs(parse_lines(workspace_output)) do
   workspaces[workspace_name] = workspace
   ensureState(workspace_name)
   updateWindows(workspace_name)
-
-  workspace:subscribe("flashspace_workspace_change", function(env)
-    local focused_workspace = env.WORKSPACE
-    for name, _ in pairs(workspaces) do
-      local state = ensureState(name)
-      state.focused = focused_workspace == name
-      updateStyle(name)
-    end
-    updateAllWindows()
-    updateWorkspaceDisplays()
-  end)
 end
 
 local observer = sbar.add("item", "widgets.flashspace_observer", {
@@ -190,6 +179,18 @@ local observer = sbar.add("item", "widgets.flashspace_observer", {
   updates = true,
   update_freq = 3,
 })
+
+-- One subscription, not one per workspace: the event is a broadcast, so
+-- subscribing each item ran the full rescan N times per switch.
+observer:subscribe("flashspace_workspace_change", function(env)
+  local focused_workspace = env.WORKSPACE
+  for name, _ in pairs(workspaces) do
+    ensureState(name).focused = focused_workspace == name
+    updateStyle(name)
+  end
+  updateAllWindows()
+  updateWorkspaceDisplays()
+end)
 
 observer:subscribe({ "routine", "forced", "deferred_wake" }, function()
   updateAllWindows()

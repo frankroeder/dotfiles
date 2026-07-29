@@ -29,7 +29,7 @@ local brew = sbar.add("item", "widgets.brew", {
     height = 30,
     background = ui.popup(),
   },
-  background = ui.widget_background(),
+  background = ui.capsule(),
 })
 
 local cached_packages = {}
@@ -155,7 +155,7 @@ ui.bind_popup(brew, {
 brew:subscribe("theme_colors_updated", function()
   local color = brew_color(last_count)
   brew:set {
-    background = ui.widget_background(),
+    background = ui.capsule(),
     icon = { color = color },
     label = { color = color },
   }

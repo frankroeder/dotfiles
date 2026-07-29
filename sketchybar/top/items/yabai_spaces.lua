@@ -101,7 +101,7 @@ local function space_surface(state)
   else
     bg = theme.empty_bg
   end
-  return ui.widget_background {
+  return ui.capsule {
     color = bg,
     border_width = 0,
     border_color = colors.transparent,
@@ -114,7 +114,7 @@ end
 local function layout_surface(accent)
   local tint = accent or settings.theme.accent
   local dark = colors.is_dark
-  return ui.widget_background {
+  return ui.capsule {
     color = settings.theme.surface,
     border_color = colors.with_alpha(tint, dark and 0.45 or 0.50),
     border_width = settings.theme.border_width,
@@ -478,7 +478,7 @@ for index, space_name in ipairs(static_names) do
     end
     sbar.animate("tanh", motion_fast, function()
       space:set {
-        background = ui.widget_background {
+        background = ui.capsule {
           color = ws_theme().hover_bg,
           border_width = 0,
           border_color = colors.transparent,

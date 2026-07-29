@@ -12,14 +12,13 @@ local function on_notched_builtin(idx)
 end
 
 -- Notch-black fill; border and foregrounds follow the active theme.
-function M.bar(_display_index)
+function M.bar()
   local theme = settings.theme
-  local ui = settings.ui
   return {
     color = NOTCH_BLACK,
     border_color = theme.border,
     border_width = theme.border_width,
-    corner_radius = settings.island.corner_radius or ui.item_corner_radius,
+    corner_radius = settings.island.corner_radius or settings.ui.item_corner_radius,
   }
 end
 
@@ -57,16 +56,8 @@ function M.accent()
   return fg.blue
 end
 
-function M.accent_alt()
-  return fg.sky
-end
-
 function M.warn()
   return fg.peach
-end
-
-function M.critical()
-  return fg.red
 end
 
 function M.success()

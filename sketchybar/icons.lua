@@ -90,10 +90,6 @@ local icons = {
     },
     weather = "􀇞",
     downloads = "􀈖",
-    mode = {
-      light = "􀆮",
-      dark = "􀆺",
-    },
     bluetooth = {
       on = "󰂯",
       off = "󰂲",
@@ -172,10 +168,6 @@ local icons = {
     },
     weather = "󰖐",
     downloads = "",
-    mode = {
-      light = "",
-      dark = "",
-    },
     github = "",
     python = "",
     ssh = "󰣀",

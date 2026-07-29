@@ -76,38 +76,16 @@ local latte = {
   lightblack = 0xff7c7f93,
 }
 
+-- Same probe the theme handlers use, and ~10x faster than asking System Events
+-- via osascript (this runs at load in all three bars).
 local function detect_system_dark()
-  local h =
-    io.popen([[osascript -e 'tell application "System Events" to tell appearance preferences to return dark mode' 2>/dev/null || echo "false"]])
-  if h then
-    local out = (h:read("*a") or ""):lower():gsub("%s+", "")
-    h:close()
-    if out == "true" then
-      return true
-    end
-    if out == "false" then
-      return false
-    end
+  local h = io.popen("defaults read -g AppleInterfaceStyle 2>/dev/null || echo Light")
+  if not h then
+    return true
   end
-
-  h = io.popen("defaults read -g AppleInterfaceStyle 2>/dev/null || echo Light")
-  if h then
-    local out = (h:read("*a") or ""):lower()
-    h:close()
-    if out:match("dark") then
-      return true
-    end
-  end
-
-  h = io.popen("gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null || echo ''")
-  if h then
-    local out = (h:read("*a") or ""):lower()
-    h:close()
-    if out:match("dark") or out:match("prefer%-dark") then
-      return true
-    end
-  end
-  return true
+  local out = (h:read("*a") or ""):lower()
+  h:close()
+  return out:match("dark") ~= nil
 end
 
 local function detect_dark()
@@ -141,18 +119,7 @@ local function apply_palette(is_dark)
   end
   c.is_dark = is_dark
 
-  c.bar = { bg = c.transparent, border = c.transparent }
-  c.popup = {
-    bg = c.with_alpha(is_dark and c.mantle or c.base, 0.92),
-    border = c.blue,
-  }
-  c.bg = c.base
-  c.bg1 = is_dark and c.crust or c.mantle
-  c.bg2 = is_dark and c.crust or c.mantle
-  c.bg3 = c.surface0
-  c.pill_bg = c.surface0
-  c.bar_color = c.transparent
-  c.bar_border_color = c.transparent
+  c.popup = { bg = c.with_alpha(is_dark and c.mantle or c.base, 0.92) }
 
   c.vol = c.sky
   c.bat = c.peach
@@ -161,7 +128,6 @@ local function apply_palette(is_dark)
 
   c.ws = {
     bg = c.with_alpha(c.crust, is_dark and 0.58 or 0.72),
-    border = c.with_alpha(c.blue, 0.28),
     fg = c.lavender,
     sel_bg = c.lavender,
     sel_fg = is_dark and c.crust or c.base,

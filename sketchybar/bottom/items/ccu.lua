@@ -514,7 +514,8 @@ local refresh_timer = sbar.add("item", "widgets.ccu.refresh_timer", {
 })
 
 refresh_timer:subscribe("routine", function()
-  local open = ccu:query().popup.drawing == "on"
+  local q = ccu:query()
+  local open = q and q.popup and q.popup.drawing == "on"
   refresh_timer:set { update_freq = open and 20 or 60 }
   refresh_usage()
 end)

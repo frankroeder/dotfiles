@@ -168,7 +168,7 @@ end
 ui.bind_popup_group(wifi, { wifi, network.up, network.down }, { on_open = update_details })
 
 local function copy_label(env)
-  utils.clipboard_copy(env.NAME, icons)
+  utils.clipboard_copy(env.NAME)
 end
 
 ssid:subscribe("mouse.clicked", copy_label)

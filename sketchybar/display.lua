@@ -1,14 +1,12 @@
 -- Built-in display geometry for notch-aware bars.
 -- Uses the internal screen (not NSScreen.mainScreen) so external-primary setups stay correct.
 --
---   screen_width     – built-in logical width
 --   notch_width      – built-in notch width
 --   builtin_index    – sketchybar arrangement-id for the built-in display
 --   external_index   – first non-built-in arrangement-id (nil if none)
 --   displays         – sketchybar display rows { index, direct_id, width }
 --   main_index       – sketchybar arrangement-id for NSScreen.mainScreen
 --   main_width       – logical width of main_index
---   main_notch       – notch width on main_index (0 when main is external)
 --   focused_index()  – sketchybar arrangement-id for yabai's focused display
 --   refresh()        – re-probe notch + display rows (hotplug / resolution)
 
@@ -199,14 +197,12 @@ local function recompute()
     end
   end
 
-  M.screen_width = screen_width
   M.notch_width = notch_width
   M.builtin_index = builtin_index
   M.external_index = external_index
   M.displays = displays
   M.main_index = main_index
   M.main_width = main_width
-  M.main_notch = (main_index == builtin_index and notch_width > 0) and notch_width or 0
 end
 
 local function map_yabai_index(yabai_index)

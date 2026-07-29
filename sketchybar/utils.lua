@@ -58,7 +58,7 @@ function utils.popup_hide(item)
   item:set { popup = { drawing = false } }
 end
 
-function utils.clipboard_copy(item_name, icons)
+function utils.clipboard_copy(item_name)
   if not item_name or item_name == "" then
     return
   end
@@ -67,7 +67,10 @@ function utils.clipboard_copy(item_name, icons)
   if not label then
     return
   end
-  sbar.exec('echo "' .. label .. '" | pbcopy')
+  local icons = require "icons"
+  -- printf %s + quoting: SSIDs / hostnames may contain " $ ` and would otherwise
+  -- be mangled or executed by the shell.
+  sbar.exec("printf %s " .. utils.shell_quote(label) .. " | pbcopy")
   sbar.set(item_name, { label = { string = icons.clipboard, align = "center" } })
   sbar.delay(1, function()
     sbar.set(item_name, { label = { string = label, align = "right" } })
@@ -121,14 +124,6 @@ function utils.lookup_app_icon(app, app_icons)
   end
 
   return app_icons["Default"]
-end
-
-function utils.exec_safe(cmd, callback)
-  sbar.exec(cmd, function(result)
-    if result and result ~= "" then
-      callback(result)
-    end
-  end)
 end
 
 return utils

@@ -203,7 +203,7 @@ ui.bind_popup(battery, { on_open = update_details })
 battery:subscribe("theme_colors_updated", function()
   local color = bat_color(last.charge, last.charging)
   battery:set {
-    background = ui.widget_background(),
+    background = ui.capsule(),
     icon = { string = last.icon, color = color },
     label = { string = last.label, color = color },
   }

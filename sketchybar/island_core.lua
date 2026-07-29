@@ -10,7 +10,6 @@ local TRANSPARENT = 0x00ffffff
 
 local BAR_H = settings.island.bar_height or 45
 local IDLE_H = settings.island.idle_height or 51
-local EXPAND_H = settings.island.expand_height or 125
 
 -- Higher = more important. Sticky expand only yields to equal/higher priority.
 local PRIORITY = {
@@ -53,10 +52,6 @@ local function pill_base(idx)
   return 160
 end
 
-local function effective_width(_idx, w)
-  return math.max(160, w or 160)
-end
-
 local function idle_margin(idx)
   local dw = display_width(idx)
   local pw = pill_base(idx)
@@ -65,8 +60,8 @@ end
 
 local NOTCH_W = pill_base(current_display)
 
-local function bar_props(extra, idx)
-  local style = island_style.bar(idx or current_display)
+local function bar_props(extra)
+  local style = island_style.bar()
   local props = {
     color = style.color,
     border_color = style.border_color,
@@ -168,8 +163,6 @@ local cur_kind = nil
 -- Monotonic tokens cancel stale sbar.delay callbacks (dismiss / post-retract hide).
 local dismiss_token = 0
 local hide_token = 0
--- kind -> unix time until which expands of that kind are suppressed (anti-stack).
-local suppress_until = {}
 
 -- Last applied geometry. Animate batches only carry props whose value changes
 -- (sketchybar interpolates constant props through truncated midpoints → jitter).
@@ -178,9 +171,7 @@ local cur_h = BAR_H
 local cur_mg = idle_margin(current_display)
 
 local M = {}
-M.BAR_H = BAR_H
 M.IDLE_H = IDLE_H
-M.EXPAND_H = EXPAND_H
 M.priority = PRIORITY
 
 local function cancel_dismiss()
@@ -196,7 +187,7 @@ local function apply_idle_geometry(opts)
   local hide = opts.hidden ~= false
   local base = pill_base(current_display)
   local mg = idle_margin(current_display)
-  local style = island_style.bar(current_display)
+  local style = island_style.bar()
   cur_w, cur_h, cur_mg = base, BAR_H, mg
   island_sub:set {
     y_offset = 0,
@@ -221,7 +212,7 @@ local function apply_idle_geometry(opts)
       padding_right = 12,
     },
   }
-  sbar.bar(bar_props({
+  sbar.bar(bar_props {
     display = current_display,
     height = BAR_H,
     margin = mg,
@@ -231,7 +222,7 @@ local function apply_idle_geometry(opts)
     hidden = hide,
     -- Idle/hidden must not be topmost (covers top-bar space app icons).
     topmost = hide and "off" or "on",
-  }, current_display))
+  })
 end
 
 local function schedule_dismiss(duration)
@@ -280,7 +271,7 @@ local function expand_on(target, item)
   cancel_hide()
   cancel_dismiss()
 
-  local w = effective_width(target, item.width or pill_base(target))
+  local w = math.max(160, item.width or pill_base(target))
   local h = item.height or IDLE_H
   local dw = display_width(target)
   local mg = math.max(0, math.floor(dw / 2) - math.floor(w / 2))
@@ -342,7 +333,7 @@ local function expand_on(target, item)
   local sub_y = sfont and (TEXT_Y - (sfont.size + 16)) or 0
 
   local frames = item.frames or motion.frames.normal
-  local style = island_style.bar(target)
+  local style = island_style.bar()
   local pill_color = item.color or style.color
   local pill_border = item.border_color or style.border_color
 
@@ -400,7 +391,7 @@ local function expand_on(target, item)
   -- Mid-retract / size change: morph from current geometry.
   if not is_expanded and not retracting then
     cur_w, cur_h, cur_mg = w, h, mg
-    sbar.bar(bar_props({
+    sbar.bar(bar_props {
       hidden = false,
       topmost = "on",
       display = target,
@@ -409,7 +400,7 @@ local function expand_on(target, item)
       y_offset = y_expand(target),
       color = pill_color,
       border_color = pill_border,
-    }, target))
+    })
     island:set {
       width = w,
       icon = with_color(icon_content, TRANSPARENT),
@@ -496,20 +487,8 @@ local function expand_on(target, item)
   schedule_dismiss(item.duration)
 end
 
-function M.suppress_kind(kind, seconds)
-  if not kind then
-    return
-  end
-  suppress_until[kind] = os.time() + (seconds or 1)
-end
-
 function M.expand(item)
   item = item or {}
-  local kind = item.kind
-  local hold = kind and suppress_until[kind]
-  if hold and os.time() < hold then
-    return false
-  end
   local prio = resolve_priority(item)
   if is_expanded then
     -- Lower priority never clobbers a visible pill.
@@ -545,7 +524,7 @@ local function on_display_or_focus(env)
   local dw = display_width(target)
   local mg = math.max(0, math.floor(dw / 2) - math.floor(w / 2))
   cur_mg = mg
-  sbar.bar(bar_props({ display = target, height = cur_h, margin = mg, y_offset = y_expand(target) }, target))
+  sbar.bar(bar_props { display = target, height = cur_h, margin = mg, y_offset = y_expand(target) })
 end
 
 function M.restore_idle(opts)
@@ -566,7 +545,7 @@ function M.restore_idle(opts)
 
   local base = pill_base(current_display)
   local frames = opts.frames or motion.frames.normal
-  local style = island_style.bar(current_display)
+  local style = island_style.bar()
   local mg = idle_margin(current_display)
 
   -- Fade targets: same RGB, alpha 0 (`% 0x1000000` drops the alpha byte). Fading
@@ -629,30 +608,6 @@ function M.on_unlock()
   end
 end
 
--- Clear sticky of a given kind (or any sticky) then optionally stay idle.
-function M.clear_sticky(kind)
-  if not is_expanded or not cur_sticky then
-    return false
-  end
-  if kind and cur_kind ~= kind then
-    return false
-  end
-  M.restore_idle()
-  return true
-end
-
-function M.is_expanded()
-  return is_expanded
-end
-
-function M.current_priority()
-  return cur_priority
-end
-
-function M.current_kind()
-  return cur_kind
-end
-
 island:subscribe("island_tap", function()
   M.restore_idle()
 end)
@@ -673,22 +628,18 @@ focus_watcher:subscribe("island_hide", function()
   M.force_hide()
 end)
 
-function M.current_display()
-  return current_display
-end
-
 function M.refresh_theme()
   if is_expanded then
     -- Recolor only; the expanded geometry stays as-is.
-    sbar.bar(bar_props(nil, current_display))
+    sbar.bar(bar_props())
     return
   end
-  sbar.bar(bar_props({
+  sbar.bar(bar_props {
     display = current_display,
     margin = idle_margin(current_display),
     y_offset = y_idle(current_display),
     hidden = true,
-  }, current_display))
+  })
 end
 
 -- Ensure clean idle geometry at load (recovers stuck full-width from prior session).

@@ -256,7 +256,7 @@ bluetooth:subscribe("theme_colors_updated", function()
   if not ready() then
     return
   end
-  bluetooth:set { background = ui.widget_background() }
+  bluetooth:set { background = ui.capsule() }
   ui.set_popup_bg(bluetooth)
   -- Invalidate fingerprint so rows rebuild with current palette.
   popup_fp = nil

@@ -15,10 +15,6 @@ local function theme()
   return settings.theme
 end
 
-function ui.widget_background(opts)
-  return ui.capsule(opts)
-end
-
 function ui.capsule(opts)
   opts = opts or {}
   local t = theme()
@@ -120,7 +116,7 @@ function ui.add_capsule(name, spec)
     padding_right = spec.padding_right ~= nil and spec.padding_right
       or (spec.widget_gap == false and 0 or (spec.grouped and 0 or sp.widget)),
     background = spec.surface and ui.capsule(spec.surface)
-      or (spec.grouped and { drawing = false } or ui.widget_background()),
+      or (spec.grouped and { drawing = false } or ui.capsule()),
     icon = spec.grouped and apply_compact_icon_pad(spec.icon)
       or (hidden_label and apply_center_icon_pad(spec.icon) or apply_icon_pad(spec.icon)),
     label = spec.grouped and apply_compact_label_pad(spec.label) or apply_label_pad(spec.label),
@@ -282,10 +278,6 @@ function ui.stacked_rate(name, spec)
   })
 end
 
-function ui.popup_row(height)
-  return { height = height or metrics.popup_row_height }
-end
-
 -- Themed pill for popup rows (do not inherit bar-item capsule defaults).
 function ui.popup_field_bg(height)
   local t = theme()
@@ -299,19 +291,8 @@ function ui.popup_field_bg(height)
   }
 end
 
-function ui.popup_cell()
-  return {
-    icon = {
-      padding_left = metrics.popup_icon_padding,
-      padding_right = metrics.popup_icon_padding,
-    },
-    label = { padding_right = metrics.popup_label_padding },
-  }
-end
-
 function ui.popup_field(name, parent, spec)
   spec = spec or {}
-  local cell = ui.popup_cell()
   local t = theme()
   local item = {
     position = "popup." .. parent.name,
@@ -319,8 +300,8 @@ function ui.popup_field(name, parent, spec)
       string = spec.icon,
       align = spec.icon_align or "left",
       width = spec.icon_width,
-      padding_left = cell.icon.padding_left,
-      padding_right = cell.icon.padding_right,
+      padding_left = metrics.popup_icon_padding,
+      padding_right = metrics.popup_icon_padding,
       font = spec.icon_font,
       color = spec.icon_color or t.accent,
     },
@@ -329,7 +310,7 @@ function ui.popup_field(name, parent, spec)
       align = spec.label_align or "left",
       width = spec.label_width,
       max_chars = spec.max_chars,
-      padding_right = cell.label.padding_right,
+      padding_right = metrics.popup_label_padding,
       font = spec.label_font,
       color = spec.label_color or t.text_muted,
     },
@@ -357,21 +338,6 @@ function ui.popup_button(name, parent, spec)
       font = spec.font,
     },
     background = ui.button(spec.button),
-  })
-end
-
-function ui.popup_icon_button(name, parent, spec)
-  spec = spec or {}
-  return sbar.add("item", name, {
-    position = "popup." .. parent.name,
-    icon = apply_icon_pad {
-      string = spec.icon,
-      font = spec.font or { size = 16.0 },
-    },
-    label = NO_BG,
-    width = spec.width or 90,
-    align = spec.align or "center",
-    background = ui.button {},
   })
 end
 

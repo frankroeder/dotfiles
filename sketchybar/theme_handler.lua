@@ -11,7 +11,7 @@ local handler = sbar.add("item", "theme_handler", { drawing = false, updates = t
 local bar_name = os.getenv "BAR_NAME" or "sketchybar"
 local this = bar_name == "sketchybar-top" and "top" or "bottom"
 local peer = this == "top" and "/opt/homebrew/bin/sketchybar" or "/opt/homebrew/bin/sketchybar-top"
-local island = "/opt/homebrew/bin/sketchybar-island"
+local island = require("island_bridge").bin
 
 local function apply(is_dark)
   if is_dark == colors.is_dark then
