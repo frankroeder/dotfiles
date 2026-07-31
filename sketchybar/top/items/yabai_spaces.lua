@@ -678,11 +678,15 @@ space_window_observer:subscribe("theme_colors_updated", refresh_theme)
 space_layout:subscribe("layout_change", updateLayout)
 -- Membership moved, not structure: the observer above owns the capsule counts, and
 -- every producer that does change structure fires a paired layout_change.
+-- window_moved is membership-only (scheduleSpaceWindowRefresh above) — do NOT
+-- full-rescan --spaces on every drag/swap (that was a major fan-out source).
 space_layout:subscribe("space_windows_refresh", updateStackIndicator)
 space_layout:subscribe("display_change", updateLayout)
 space_layout:subscribe("space_created", updateLayout)
 space_layout:subscribe("space_destroyed", updateLayout)
-space_layout:subscribe("window_moved", updateLayout)
+space_layout:subscribe("window_moved", function()
+  updateStackIndicator()
+end)
 space_layout:subscribe("window_focus", function()
   updateStackIndicator()
 end)

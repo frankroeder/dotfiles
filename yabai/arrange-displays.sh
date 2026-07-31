@@ -3,18 +3,27 @@
 # First space (index 1) on display 1, all others on display 2.
 
 # wait briefly for macOS/yabai to settle display + space state on hotplug
-sleep 2.0
+sleep 1.0
 
-yabai=/opt/homebrew/bin/yabai
-jq=/opt/homebrew/bin/jq
-sketchybar_top=/opt/homebrew/bin/sketchybar-top
+yabai=$(command -v yabai)
+jq=$(command -v jq)
+sketchybar_top=$(command -v sketchybar-top)
+
+if [ -z "$yabai" ] || [ -z "$jq" ]; then
+  exit 0
+fi
+
+trigger_top() {
+  [ -n "$sketchybar_top" ] || return 0
+  "$sketchybar_top" -m --trigger "$1" >/dev/null 2>&1 || true
+}
 
 displays=$("$yabai" -m query --displays 2>/dev/null | "$jq" 'length' 2>/dev/null || echo 0)
 if [ "$displays" -lt 2 ]; then
   # still notify to reassign spaces to remaining display on unplug
-  "$sketchybar_top" -m --trigger space_windows_refresh &> /dev/null || true
-  "$sketchybar_top" -m --trigger layout_change &> /dev/null || true
-  "$sketchybar_top" -m --trigger display_change &> /dev/null || true
+  trigger_top space_windows_refresh
+  trigger_top layout_change
+  trigger_top display_change
   exit 0
 fi
 
@@ -26,6 +35,6 @@ while read -r idx cur; do
 done
 
 # force sketchybar to update after space moves on display change/hotplug
-"$sketchybar_top" -m --trigger space_windows_refresh &> /dev/null || true
-"$sketchybar_top" -m --trigger layout_change &> /dev/null || true
-"$sketchybar_top" -m --trigger display_change &> /dev/null || true
+trigger_top space_windows_refresh
+trigger_top layout_change
+trigger_top display_change

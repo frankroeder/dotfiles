@@ -43,13 +43,11 @@ yabai -m rule --add app="^Ghostty$" space=2
 yabai -m rule --add app="^(Claude|Grok)$" space=3
 yabai -m rule --add app=".*" sub-layer=normal
 
-# Make all non-resizeable windows float (#1317)
-yabai -m signal --add event=window_created action='yabai -m query --windows --window $YABAI_WINDOW_ID | jq -er ".\"can-resize\" or .\"is-floating\"" || yabai -m window $YABAI_WINDOW_ID --toggle float'
+# Make all non-resizeable windows float (#1317). label= is required: --add is
+# append-only, so unlabelled signals stack a duplicate on every yabairc re-source.
+yabai -m signal --add label=float_non_resizable event=window_created \
+  action='yabai -m query --windows --window $YABAI_WINDOW_ID | jq -er ".\"can-resize\" or .\"is-floating\"" || yabai -m window $YABAI_WINDOW_ID --toggle float'
 
 # This focuses the previous window if a window is not currently focused, such as when a floating window is minimized
 # https://github.com/koekeishiya/yabai/issues/1212#issuecomment-1107854658
-# yabai -m signal --add event=window_minimized active=yes action="if \$(yabai -m query --windows --window \$YABAI_WINDOW_ID | jq -r '.\"is-floating\"'); then yabai -m query --windows --window &> /dev/null || yabai -m window --focus mouse &> /dev/null || yabai -m window --focus \$(yabai -m query --windows --space | jq .[0].id) &> /dev/null; fi"
-
-# Workaround tab creation in Ghostty and Finder
-yabai -m signal --add app='^(Ghostty|Finder)$' event=window_created action='yabai -m space --focus next; sleep 0.01; yabai -m space --focus prev'
-yabai -m signal --add app='^(Ghostty|Finder)$' event=window_destroyed action='yabai -m space --focus next; sleep 0.01; yabai -m space --focus prev'
+# yabai -m signal --add label=focus_after_minimize event=window_minimized active=yes action="if \$(yabai -m query --windows --window \$YABAI_WINDOW_ID | jq -r '.\"is-floating\"'); then yabai -m query --windows --window &> /dev/null || yabai -m window --focus mouse &> /dev/null || yabai -m window --focus \$(yabai -m query --windows --space | jq .[0].id) &> /dev/null; fi"
