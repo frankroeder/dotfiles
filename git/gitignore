@@ -7,6 +7,7 @@ jsconfig.json
 events.out.tfevents.*
 .claude/
 .codex
+.grok/
 build/
 
 # python

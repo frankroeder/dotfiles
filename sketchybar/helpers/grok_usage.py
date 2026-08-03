@@ -20,8 +20,9 @@ from zoneinfo import ZoneInfo
 BERLIN = ZoneInfo("Europe/Berlin")
 AUTH_PATH = Path.home() / ".grok" / "auth.json"
 # Official Grok Build client uses format=credits (creditUsagePercent + weekly period).
-# Bare /v1/billing is legacy used/monthlyLimit and over-reports vs real credits.
-BILLING_URL = "https://cli-chat-proxy.grok.com/v1/billing?format=credits"
+# Unified prepaid users often omit creditUsagePercent; bare /v1/billing still has used/monthlyLimit.
+CREDITS_URL = "https://cli-chat-proxy.grok.com/v1/billing?format=credits"
+BARE_URL = "https://cli-chat-proxy.grok.com/v1/billing"
 TOKEN_URL = "https://auth.x.ai/oauth2/token"
 
 
@@ -142,9 +143,9 @@ def refresh_token(data: dict[str, Any], scope: str, entry: dict[str, Any]) -> st
   return access
 
 
-def fetch_billing(token: str) -> dict[str, Any]:
+def fetch_billing(token: str, url: str) -> dict[str, Any]:
   req = urllib.request.Request(
-    BILLING_URL,
+    url,
     headers={
       "Authorization": f"Bearer {token}",
       "Accept": "application/json",
@@ -161,20 +162,33 @@ def fetch_billing(token: str) -> dict[str, Any]:
     raise RuntimeError(f"network: {exc}") from exc
 
 
-def build_payload(data: dict[str, Any]) -> dict[str, Any]:
+def build_payload(credits: dict[str, Any], bare: dict[str, Any] | None = None) -> dict[str, Any]:
   """Map billing JSON → Lua fields for ccu.lua.
 
   Prefer credits shape (creditUsagePercent + currentPeriod / billingPeriodEnd).
-  Fall back to legacy used/monthlyLimit money ratio only when credits % absent.
+  Unified prepaid often omits creditUsagePercent and used/limit on the credits
+  response — merge bare /v1/billing used/monthlyLimit when needed.
   """
-  cfg = data.get("config") or {}
+  cfg = credits.get("config") or {}
+  bare_cfg = (bare or {}).get("config") or {}
+
   used = money_val(cfg.get("used"))
+  if used is None:
+    used = money_val(bare_cfg.get("used"))
   limit = money_val(cfg.get("monthlyLimit"))
+  if limit is None:
+    limit = money_val(bare_cfg.get("monthlyLimit"))
   on_demand = money_val(cfg.get("onDemandCap"))
+  if on_demand is None:
+    on_demand = money_val(bare_cfg.get("onDemandCap"))
+  prepaid = money_val(cfg.get("prepaidBalance"))
+  od_used = money_val(cfg.get("onDemandUsed"))
+  if od_used is None:
+    od_used = money_val(bare_cfg.get("onDemandUsed"))
 
   period = cfg.get("currentPeriod") if isinstance(cfg.get("currentPeriod"), dict) else {}
-  period_end = period.get("end") or cfg.get("billingPeriodEnd")
-  period_start = period.get("start") or cfg.get("billingPeriodStart")
+  period_end = period.get("end") or cfg.get("billingPeriodEnd") or bare_cfg.get("billingPeriodEnd")
+  period_start = period.get("start") or cfg.get("billingPeriodStart") or bare_cfg.get("billingPeriodStart")
   period_type = period.get("type")
 
   utilization = None
@@ -191,11 +205,23 @@ def build_payload(data: dict[str, Any]) -> dict[str, Any]:
     except (TypeError, ValueError):
       utilization = None
 
-  # Legacy money ratio when credits fields missing.
+  # Legacy money ratio when credits % absent (common for unified prepaid).
   if utilization is None and used is not None and limit and limit > 0:
     utilization = round(100.0 * used / limit, 1)
     remaining = max(0.0, round(100.0 - utilization, 1))
     source = "grok_billing"
+
+  # Prepaid depleted → on-demand fill ratio (still no used/limit).
+  if utilization is None and prepaid is not None and prepaid <= 0 and on_demand and on_demand > 0:
+    utilization = round(100.0 * (od_used or 0.0) / on_demand, 1)
+    remaining = max(0.0, round(100.0 - utilization, 1))
+    source = "grok_on_demand"
+
+  # Still have prepaid, no other signal: treat as fully remaining.
+  if utilization is None and prepaid is not None and prepaid > 0:
+    utilization = 0.0
+    remaining = 100.0
+    source = "grok_prepaid"
 
   return {
     "source": source,
@@ -205,6 +231,7 @@ def build_payload(data: dict[str, Any]) -> dict[str, Any]:
     "used": used,
     "monthly_limit": limit,
     "on_demand_cap": on_demand,
+    "prepaid_balance": prepaid,
     "resets_at": period_end,
     "resets_at_de": format_berlin(period_end),
     "period_start": period_start,
@@ -225,12 +252,26 @@ def build_error(error: str) -> dict[str, Any]:
     "used": None,
     "monthly_limit": None,
     "on_demand_cap": None,
+    "prepaid_balance": None,
     "resets_at": None,
     "resets_at_de": None,
     "period_start": None,
     "period_end": None,
     "period_type": None,
   }
+
+
+def _billing_with_auth(token: str, data: dict[str, Any], scope: str, entry: dict[str, Any], url: str) -> tuple[str, dict[str, Any]]:
+  """Fetch url; refresh once on 401/403. Returns (token, body)."""
+  try:
+    return token, fetch_billing(token, url)
+  except RuntimeError as exc:
+    msg = str(exc)
+    if "http_401" not in msg and "http_403" not in msg:
+      raise
+    data, scope, entry = load_auth()
+    token = refresh_token(data, scope, entry)
+    return token, fetch_billing(token, url)
 
 
 def fetch_usage() -> dict[str, Any]:
@@ -247,20 +288,21 @@ def fetch_usage() -> dict[str, Any]:
       return build_error(str(exc))
 
   try:
-    billing = fetch_billing(token)
+    token, credits = _billing_with_auth(token, data, scope, entry, CREDITS_URL)
   except RuntimeError as exc:
-    msg = str(exc)
-    if "http_401" in msg or "http_403" in msg:
-      try:
-        data, scope, entry = load_auth()
-        token = refresh_token(data, scope, entry)
-        billing = fetch_billing(token)
-      except RuntimeError as retry_exc:
-        return build_error(str(retry_exc))
-    else:
-      return build_error(msg)
+    return build_error(str(exc))
 
-  return build_payload(billing)
+  bare = None
+  cfg = credits.get("config") or {}
+  # Bare merge only when credits alone cannot produce a %.
+  needs_bare = cfg.get("creditUsagePercent") is None and money_val(cfg.get("used")) is None
+  if needs_bare:
+    try:
+      _, bare = _billing_with_auth(token, data, scope, entry, BARE_URL)
+    except RuntimeError:
+      bare = None  # still try prepaid / on-demand paths from credits alone
+
+  return build_payload(credits, bare)
 
 
 def main() -> int:

@@ -287,6 +287,23 @@ local function setSpaceWindowData(index, app_names, window_count)
   updateSpaceVisual(index)
 end
 
+-- Prefer Title Case over all-lowercase when the same app appears under both
+-- (Ghostty tab churn can leave a second shell with app="ghostty").
+local function prefer_app_name(current, incoming)
+  if not current then
+    return incoming
+  end
+  local cur_lower = current:lower()
+  if current == cur_lower and incoming ~= incoming:lower() then
+    return incoming
+  end
+  return current
+end
+
+local function is_space_member(window)
+  return window and not window["is-minimized"] and window["is-hidden"] ~= true
+end
+
 local function window_counts(windows)
   local grouped = {}
   for index, _ in pairs(spaces) do
@@ -296,11 +313,14 @@ local function window_counts(windows)
   for _, window in ipairs(windows) do
     local index = tonumber(window.space)
     local bucket = index and grouped[index]
-    if bucket and not window["is-minimized"] and window["is-hidden"] ~= true then
+    if bucket and is_space_member(window) then
       local app = tostring(window.app or ""):gsub("^%s+", ""):gsub("%s+$", "")
       if app ~= "" then
         bucket.count = bucket.count + 1
-        bucket.apps[app] = true
+        -- Case-insensitive key: multiple Ghostty tabs share one icon; "ghostty"
+        -- must not paint a second identical glyph next to "Ghostty".
+        local key = app:lower()
+        bucket.apps[key] = prefer_app_name(bucket.apps[key], app)
       end
     end
   end
@@ -375,7 +395,7 @@ local function format_stack_label(windows)
   local stack_idx = nil
 
   for _, window in ipairs(windows) do
-    if not window["is-minimized"] and window["is-hidden"] ~= true then
+    if is_space_member(window) then
       table.insert(entries, window)
       local si = tonumber(window["stack-index"]) or 0
       if window["has-focus"] then

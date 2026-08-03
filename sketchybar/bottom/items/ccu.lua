@@ -21,17 +21,50 @@ local content_w = title_w + bar_w + value_w
 local popup_width = content_w + pad * 2
 local helpers = os.getenv "HOME" .. "/.dotfiles/sketchybar/helpers"
 
+-- Only poll tools whose CLI is on PATH (claude / grok).
+local function has_bin(name)
+  local h = io.popen("command -v " .. name .. " >/dev/null 2>&1 && echo yes")
+  local out = h and h:read "*a" or ""
+  if h then
+    h:close()
+  end
+  return out:match "yes" ~= nil
+end
+
+local has_claude = has_bin "claude"
+local has_grok = has_bin "grok"
+
 -- Horizontal popup: width=0 rows stack via y_offset; link buttons share bottom.
--- Rows: Session (5h), Week (7d), Grok (7d weekly Build credits), links.
+-- Rows depend on installed CLIs: Session/Week (claude), Grok (grok), links.
 local row_gap = 2
 local step = row_h + row_gap
-local popup_h = row_h * 4 + row_gap * 3 + 10
-local y_session = 1.5 * step
-local y_weekly = 0.5 * step
-local y_grok = -0.5 * step
-local y_links = -1.5 * step
+local n_rows = (has_claude and 2 or 0) + (has_grok and 1 or 0) + ((has_claude or has_grok) and 1 or 0)
+local popup_h = n_rows > 0 and (row_h * n_rows + row_gap * math.max(0, n_rows - 1) + 10) or row_h
+
+-- y_offset: top → bottom, centered on 0. i=0 is top row.
+local function row_y(i)
+  return ((n_rows - 1) / 2 - i) * step
+end
+
+local row_i = 0
+local y_session, y_weekly, y_grok, y_links
+if has_claude then
+  y_session = row_y(row_i)
+  row_i = row_i + 1
+  y_weekly = row_y(row_i)
+  row_i = row_i + 1
+end
+if has_grok then
+  y_grok = row_y(row_i)
+  row_i = row_i + 1
+end
+if has_claude or has_grok then
+  y_links = row_y(row_i)
+end
+
 local btn_gap = 6
-local btn_w = math.floor((content_w - btn_gap) / 2)
+local both_links = has_claude and has_grok
+local btn_w = both_links and math.floor((content_w - btn_gap) / 2) or content_w
 
 local accent_session = colors.mauve
 local accent_weekly = colors.blue
@@ -40,6 +73,7 @@ local last = { session = nil, weekly = nil, grok = nil }
 
 local ccu = ui.add_capsule("widgets.ccu", {
   position = "left",
+  drawing = has_claude or has_grok,
   icon = { drawing = false },
   label = {
     string = "CCu",
@@ -57,6 +91,11 @@ local ccu = ui.add_capsule("widgets.ccu", {
     background = ui.popup(),
   },
 })
+
+-- Nothing to show: skip rows / polling.
+if not has_claude and not has_grok then
+  return
+end
 
 -- Mono for titles+values so fixed icon/label widths actually column-align.
 local title_font = {
@@ -171,9 +210,14 @@ sbar.add("item", "widgets.ccu.inset", {
   background = { drawing = false },
 })
 
-local session_row = metric_row("widgets.ccu.session", "Session (5h)", accent_session, y_session)
-local weekly_row = metric_row("widgets.ccu.weekly", "Week (7d)", accent_weekly, y_weekly)
-local grok_row = metric_row("widgets.ccu.grok", "Grok (7d)", accent_grok, y_grok)
+local session_row, weekly_row, grok_row
+if has_claude then
+  session_row = metric_row("widgets.ccu.session", "Session (5h)", accent_session, y_session)
+  weekly_row = metric_row("widgets.ccu.weekly", "Week (7d)", accent_weekly, y_weekly)
+end
+if has_grok then
+  grok_row = metric_row("widgets.ccu.grok", "Grok (7d)", accent_grok, y_grok)
+end
 
 local function link_button(name, title, url, pad_l, pad_r)
   return sbar.add("item", name, {
@@ -198,20 +242,25 @@ local function link_button(name, title, url, pad_l, pad_r)
   })
 end
 
-local claude_link = link_button(
-  "widgets.ccu.claude_link",
-  "Claude",
-  "https://claude.ai/settings/usage",
-  0,
-  math.floor(btn_gap / 2)
-)
-local grok_link = link_button(
-  "widgets.ccu.grok_link",
-  "Grok",
-  "https://grok.com/?_s=usage",
-  math.ceil(btn_gap / 2),
-  0
-)
+local claude_link, grok_link
+if has_claude then
+  claude_link = link_button(
+    "widgets.ccu.claude_link",
+    "Claude",
+    "https://claude.ai/settings/usage",
+    0,
+    both_links and math.floor(btn_gap / 2) or 0
+  )
+end
+if has_grok then
+  grok_link = link_button(
+    "widgets.ccu.grok_link",
+    "Grok",
+    "https://grok.com/?_s=usage",
+    both_links and math.ceil(btn_gap / 2) or 0,
+    0
+  )
+end
 
 local function parse_lua_table(lit, tag)
   if not lit or lit == "" then
@@ -425,6 +474,9 @@ local function apply_window_row(row, accent, win, title_fallback)
 end
 
 local function apply_claude(result)
+  if not has_claude then
+    return
+  end
   if result.error then
     -- Keep last-good rows on transient failures (429 / parse / network).
     local had = last.session ~= nil or last.weekly ~= nil
@@ -448,6 +500,9 @@ local function apply_claude(result)
 end
 
 local function apply_grok(result)
+  if not has_grok then
+    return
+  end
   if result.error then
     if last.grok == nil then
       grok_row:set {
@@ -481,19 +536,26 @@ local function refresh_theme()
   accent_weekly = colors.blue
   accent_grok = colors.teal
   ui.theme_popup(ccu)
-  session_row:set { icon = { color = accent_session }, label = { color = usage_color(last.session) } }
-  weekly_row:set { icon = { color = accent_weekly }, label = { color = usage_color(last.weekly) } }
-  grok_row:set { icon = { color = accent_grok }, label = { color = usage_color(last.grok) } }
-  for _, btn in ipairs { claude_link, grok_link } do
-    btn:set {
-      label = { color = theme.text_muted },
-      background = ui.button { height = row_h },
-    }
+  if has_claude then
+    session_row:set { icon = { color = accent_session }, label = { color = usage_color(last.session) } }
+    weekly_row:set { icon = { color = accent_weekly }, label = { color = usage_color(last.weekly) } }
+    set_percent(session_row, accent_session, last.session and (100 - last.session) or 0)
+    set_percent(weekly_row, accent_weekly, last.weekly and (100 - last.weekly) or 0)
   end
-  -- Bars: remaining for Claude (stored used in last.*); invert for display.
-  set_percent(session_row, accent_session, last.session and (100 - last.session) or 0)
-  set_percent(weekly_row, accent_weekly, last.weekly and (100 - last.weekly) or 0)
-  set_percent(grok_row, accent_grok, last.grok and (100 - last.grok) or 0)
+  if has_grok then
+    grok_row:set { icon = { color = accent_grok }, label = { color = usage_color(last.grok) } }
+    set_percent(grok_row, accent_grok, last.grok and (100 - last.grok) or 0)
+  end
+  local link_style = {
+    label = { color = theme.text_muted },
+    background = ui.button { height = row_h },
+  }
+  if claude_link then
+    claude_link:set(link_style)
+  end
+  if grok_link then
+    grok_link:set(link_style)
+  end
   set_capsule(last.session, last.weekly, last.grok)
 end
 
@@ -501,8 +563,12 @@ ccu:subscribe("theme_colors_updated", refresh_theme)
 refresh_theme()
 
 local function refresh_usage()
-  get_claude_usage(apply_claude)
-  get_grok_usage(apply_grok)
+  if has_claude then
+    get_claude_usage(apply_claude)
+  end
+  if has_grok then
+    get_grok_usage(apply_grok)
+  end
 end
 
 -- Always refresh capsule (was stuck after first failed fetch when popup closed).
