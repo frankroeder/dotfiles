@@ -48,6 +48,15 @@ yabai -m rule --add app=".*" sub-layer=normal
 yabai -m signal --add label=float_non_resizable event=window_created \
   action='yabai -m query --windows --window $YABAI_WINDOW_ID | jq -er ".\"can-resize\" or .\"is-floating\"" || yabai -m window $YABAI_WINDOW_ID --toggle float'
 
+# Native tabs (Ghostty/Finder) create then destroy a real window. Re-tile + keep
+# focus without space next/prev thrash (see check_config.sh + yabai/native_tab.sh).
+# nohup+bg: in-signal yabai self-calls can deadlock; bare & dies on action-shell exit.
+NATIVE_TAB="${DOTFILES:-$HOME/.dotfiles}/yabai/native_tab.sh"
+yabai -m signal --add label=native_tab_created app='^(Ghostty|Finder)$' event=window_created \
+  action="nohup /bin/bash '$NATIVE_TAB' created >/dev/null 2>&1 &"
+yabai -m signal --add label=native_tab_destroyed app='^(Ghostty|Finder)$' event=window_destroyed \
+  action="nohup /bin/bash '$NATIVE_TAB' destroyed >/dev/null 2>&1 &"
+
 # This focuses the previous window if a window is not currently focused, such as when a floating window is minimized
 # https://github.com/koekeishiya/yabai/issues/1212#issuecomment-1107854658
 # yabai -m signal --add label=focus_after_minimize event=window_minimized active=yes action="if \$(yabai -m query --windows --window \$YABAI_WINDOW_ID | jq -r '.\"is-floating\"'); then yabai -m query --windows --window &> /dev/null || yabai -m window --focus mouse &> /dev/null || yabai -m window --focus \$(yabai -m query --windows --space | jq .[0].id) &> /dev/null; fi"

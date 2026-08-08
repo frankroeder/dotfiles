@@ -37,6 +37,19 @@ else
   else
     bad "float_non_resizable label missing"
   fi
+
+  if grep -q 'label=native_tab_created' "$rules" && grep -q 'label=native_tab_destroyed' "$rules"; then
+    ok "native_tab signals labelled"
+  else
+    bad "native_tab create/destroy signals missing"
+  fi
+fi
+
+tab_helper="$ROOT/yabai/native_tab.sh"
+if [[ -x $tab_helper ]]; then
+  ok "native_tab.sh executable"
+else
+  bad "native_tab.sh missing or not executable"
 fi
 
 # --- yabairc: anim/opacity smooth defaults ---
