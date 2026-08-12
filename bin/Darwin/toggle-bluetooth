@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# @vicinae.schemaVersion 1
+# @vicinae.title Toggle Bluetooth
+# @vicinae.mode compact
+# @vicinae.icon 🅱️
+# @vicinae.packageName System
+# @vicinae.description Toggle Bluetooth power via blueutil
+# @vicinae.keywords ["bluetooth", "bt", "toggle"]
+
+set -euo pipefail
+
+# GUI launchers (Vicinae) often omit Homebrew from PATH
+PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin${PATH:+:$PATH}"
+
+blueutil_bin=""
+for c in blueutil /opt/homebrew/bin/blueutil /usr/local/bin/blueutil; do
+  if command -v "$c" >/dev/null 2>&1; then
+    blueutil_bin=$(command -v "$c")
+    break
+  elif [[ -x "$c" ]]; then
+    blueutil_bin="$c"
+    break
+  fi
+done
+
+if [[ -z "$blueutil_bin" ]]; then
+  echo "blueutil not found (brew install blueutil)"
+  exit 1
+fi
+
+# blueutil -p prints 1/0; may need Bluetooth permission on first run
+cur=$("$blueutil_bin" -p 2>&1) || {
+  echo "blueutil failed: $cur"
+  exit 1
+}
+cur=$(printf '%s' "$cur" | tr -d '[:space:]')
+
+if [[ "$cur" == "1" ]]; then
+  if ! err=$("$blueutil_bin" -p 0 2>&1); then
+    echo "Bluetooth off failed: $err"
+    exit 1
+  fi
+  echo "Bluetooth Off"
+else
+  if ! err=$("$blueutil_bin" -p 1 2>&1); then
+    echo "Bluetooth on failed: $err"
+    exit 1
+  fi
+  echo "Bluetooth On"
+fi

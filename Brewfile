@@ -31,10 +31,11 @@ brew "yabai"
 brew "skhd", args: ["with-logging"]
 brew "sketchybar", args:  ["HEAD"], restart_service: :changed
 brew "borders"
+brew "blueutil"
 
 cask "librewolf",
      postinstall: "/usr/bin/xattr -dr com.apple.quarantine /Applications/LibreWolf.app"
-cask "raycast"
+cask "vicinae"
 cask "ghostty"
 cask "musescore"
 cask "sioyek"

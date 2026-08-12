@@ -1,14 +1,14 @@
 #!/usr/bin/env zsh
 # open localhost on given port
 
-# @raycast.title Localhost
-# @raycast.mode silent
-# @raycast.schemaVersion 1
-# @raycast.argument1 { "type": "text", "placeholder": "port"}
+# @vicinae.title Localhost
+# @vicinae.mode silent
+# @vicinae.schemaVersion 1
+# @vicinae.argument1 { "type": "text", "placeholder": "port"}
 
 if [[ -z "$1" ]]; then
   echo "Please specify a port."
-  return 1
+  return 1 2>/dev/null || exit 1
 fi
 
 location="http://localhost:${1}"

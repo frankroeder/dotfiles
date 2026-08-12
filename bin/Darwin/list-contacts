@@ -1,0 +1,190 @@
+#!/usr/bin/env bash
+# @vicinae.schemaVersion 1
+# @vicinae.title List Contacts
+# @vicinae.mode silent
+# @vicinae.icon 👤
+# @vicinae.packageName System
+# @vicinae.description List contacts from AddressBook DB (no Contacts.app)
+# @vicinae.keywords ["contacts", "people", "address book", "phone", "email", "list"]
+
+set -euo pipefail
+PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin${PATH:+:$PATH}"
+
+CACHE="${TMPDIR:-/tmp}/vicinae-contacts"
+mkdir -p "$CACHE"
+SELF="$(cd "$(dirname "$0")" && pwd -P)/$(basename "$0")"
+
+# Split "a|||b|||c" into named vars (empty fields stay empty)
+split_pipe() {
+  local _s="$1"; shift
+  local _v _rest="$_s" _f
+  for _v in "$@"; do
+    case "$_rest" in
+      *'|||'*) _f="${_rest%%|||*}"; _rest="${_rest#*|||}" ;;
+      *)       _f="$_rest"; _rest="" ;;
+    esac
+    printf -v "$_v" '%s' "$_f"
+  done
+}
+
+# AddressBook SQLite — same store as Contacts.app, no app launch.
+# Lines: id|||name|||org|||emails|||phones
+dump_all() {
+  local db
+  find "$HOME/Library/Application Support/AddressBook" -name 'AddressBook-v22.abcddb' 2>/dev/null \
+    | while IFS= read -r db; do
+        sqlite3 -readonly "$db" "
+SELECT printf('%s|||%s|||%s|||%s|||%s',
+  replace(replace(COALESCE(r.ZUNIQUEID, CAST(r.Z_PK AS TEXT)), ':', '_'), '/', '_'),
+  COALESCE(
+    NULLIF(TRIM(COALESCE(r.ZFIRSTNAME,'') || ' ' || COALESCE(r.ZLASTNAME,'')), ''),
+    NULLIF(r.ZORGANIZATION, ''),
+    NULLIF(r.ZNAME, ''),
+    '(no name)'),
+  COALESCE(r.ZORGANIZATION, ''),
+  COALESCE((SELECT group_concat(e.ZADDRESS, ';') FROM ZABCDEMAILADDRESS e WHERE e.ZOWNER = r.Z_PK), ''),
+  COALESCE((SELECT group_concat(p.ZFULLNUMBER, ';') FROM ZABCDPHONENUMBER p WHERE p.ZOWNER = r.Z_PK), '')
+)
+FROM ZABCDRECORD r
+WHERE r.Z_ENT IN (
+  SELECT Z_ENT FROM Z_PRIMARYKEY WHERE Z_NAME IN ('ABCDContact', 'ABCDSubscribedContact')
+)
+ORDER BY 1 COLLATE NOCASE;" 2>/dev/null
+      done \
+    | awk -F'[|][|][|]' '!seen[$1]++'
+}
+
+copy_text() { printf '%s' "$1" | pbcopy; }
+
+open_contact() {
+  osascript - "$1" <<'APPLESCRIPT'
+on run argv
+  set nm to item 1 of argv
+  tell application "Contacts"
+    activate
+    set ps to (people whose name is nm)
+    if (count of ps) > 0 then set selection to {item 1 of ps}
+  end tell
+end run
+APPLESCRIPT
+}
+
+# Build dmenu list + lookup index
+build() {
+  local rec id name org emails phones label
+  rec=$(dump_all)
+  [[ -n "$rec" ]] || return 1
+  : > "$CACHE/list.txt"
+  : > "$CACHE/index.txt"
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    split_pipe "$line" id name org emails phones
+    label="$name"
+    [[ -n "$emails" ]] && label="$label  ·  ${emails%%;*}"
+    [[ -n "$phones" ]] && label="$label  ·  ${phones%%;*}"
+    printf '%s\n' "$label" >> "$CACHE/list.txt"
+    printf '%s|||%s|||%s|||%s|||%s\n' "$label" "$name" "$org" "$emails" "$phones" >> "$CACHE/index.txt"
+  done <<< "$rec"
+}
+
+lookup() {
+  local key="$1" label name org emails phones
+  while IFS= read -r line; do
+    split_pipe "$line" label name org emails phones
+    if [[ "$label" == "$key" ]]; then
+      printf '%s|||%s|||%s|||%s\n' "$name" "$org" "$emails" "$phones"
+      return 0
+    fi
+  done < "$CACHE/index.txt"
+  return 1
+}
+
+run_ui() {
+  local selected row name org emails phones action e p oldifs
+  [[ -s "$CACHE/list.txt" ]] || { echo "No contacts" >&2; exit 1; }
+
+  vicinae open 2>/dev/null || true
+  sleep 0.25
+  selected=$(vicinae dmenu -p "List contacts..." -n "List Contacts" -s "People" --no-quick-look \
+    < "$CACHE/list.txt" || true)
+  [[ -n "${selected:-}" ]] || exit 0
+
+  row=$(lookup "$selected") || { echo "Unknown selection" >&2; exit 1; }
+  split_pipe "$row" name org emails phones
+
+  {
+    printf '%s\n' "-- $name --"
+    [[ -n "$org" ]] && printf 'org    %s\n' "$org"
+    if [[ -n "$emails" ]]; then
+      oldifs=$IFS; IFS=';'
+      for e in $emails; do [[ -n "$e" ]] && printf 'email  %s\n' "$e"; done
+      IFS=$oldifs
+    else
+      printf 'email  (none)\n'
+    fi
+    if [[ -n "$phones" ]]; then
+      oldifs=$IFS; IFS=';'
+      for p in $phones; do [[ -n "$p" ]] && printf 'phone  %s\n' "$p"; done
+      IFS=$oldifs
+    else
+      printf 'phone  (none)\n'
+    fi
+    printf 'name   %s\n' "$name"
+    printf 'open   Open in Contacts\n'
+    [[ -n "$emails" ]] && printf 'mail   %s\n' "${emails%%;*}"
+  } > "$CACHE/actions.txt"
+
+  vicinae open 2>/dev/null || true
+  sleep 0.15
+  action=$(vicinae dmenu -p "Copy or open - $name" -n "$name" -s "Details" --no-quick-look \
+    < "$CACHE/actions.txt" || true)
+
+  if [[ -z "${action:-}" ]]; then
+    if [[ -n "$emails" ]]; then copy_text "${emails%%;*}"
+    elif [[ -n "$phones" ]]; then copy_text "${phones%%;*}"
+    else copy_text "$name"
+    fi
+    exit 0
+  fi
+  case "$action" in
+    "org    "*) copy_text "${action#org    }" ;;
+    "email  "*) [[ "$action" != "email  (none)" ]] && copy_text "${action#email  }" ;;
+    "phone  "*) [[ "$action" != "phone  (none)" ]] && copy_text "${action#phone  }" ;;
+    "name   "*) copy_text "$name" ;;
+    "open   "*) open_contact "$name" ;;
+    "mail   "*) open "mailto:${action#mail   }" ;;
+  esac
+}
+
+# Escape Vicinae's process group so dmenu survives script exit
+detach_ui() {
+  perl -MPOSIX -e '
+    my ($self, $log) = @ARGV;
+    defined(my $pid = fork()) or exit 1;
+    exit 0 if $pid;
+    setsid();
+    open STDIN, "<", "/dev/null";
+    open STDOUT, ">", $log;
+    open STDERR, ">&STDOUT";
+    exec $self, "--ui" or exit 127;
+  ' "$SELF" "$CACHE/ui.log"
+}
+
+if [[ "${1:-}" == "--list" ]]; then
+  dump_all | while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    split_pipe "$line" _id name org emails phones
+    printf '%s | %s | %s\n' "$name" "${emails:-}" "${phones:-}"
+  done
+  exit 0
+fi
+
+if [[ "${1:-}" == "--ui" ]]; then
+  run_ui
+  exit 0
+fi
+
+command -v vicinae >/dev/null || { echo "vicinae not found" >&2; exit 1; }
+build || { echo "No contacts found"; exit 1; }
+detach_ui
+echo "List Contacts"

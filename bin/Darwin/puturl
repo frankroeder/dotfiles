@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Return url of selected browser tab
 
-# @raycast.title Put URL
-# @raycast.mode compact
-# @raycast.schemaVersion 1
+# @vicinae.title Put URL
+# @vicinae.mode compact
+# @vicinae.schemaVersion 1
 
 set -euo pipefail
 

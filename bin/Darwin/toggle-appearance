@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# @vicinae.schemaVersion 1
+# @vicinae.title Toggle Appearance
+# @vicinae.mode compact
+# @vicinae.icon 🌓
+# @vicinae.packageName System
+# @vicinae.description Toggle system light/dark appearance
+# @vicinae.keywords ["appearance", "dark", "light", "theme", "toggle"]
+
+set -euo pipefail
+
+# returns "true" or "false"
+dark_mode() {
+  osascript -e 'tell application "System Events" to tell appearance preferences to get dark mode'
+}
+
+osascript -e 'tell application "System Events" to tell appearance preferences to set dark mode to not dark mode' >/dev/null
+if [[ "$(dark_mode)" == "true" ]]; then
+  echo "Dark Mode"
+else
+  echo "Light Mode"
+fi

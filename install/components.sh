@@ -243,9 +243,9 @@ comp_macos_apps() {
   replace_with_symlink "$DOTFILES/mpv"     "$HOME/.config/mpv"
   replace_with_symlink "$DOTFILES/yabai"   "$HOME/.config/yabai"
   replace_with_symlink "$DOTFILES/borders" "$HOME/.config/borders"
+  mkdir -p "$HOME/.config/vicinae"
+  link_if_exists "$DOTFILES/vicinae/dotfiles.json" "$HOME/.config/vicinae/dotfiles.json"
 }
-
-# _sketchybar_agent NAME : install and reload the sketchybar-NAME LaunchAgent.
 _sketchybar_agent() {
   require_macos
   local name="$1"
@@ -509,7 +509,8 @@ comp_doctor() {
     check_link "$l"
   done
   if [ "$OSTYPE_UNAME" = "Darwin" ]; then
-    for l in "$HOME/.config/sketchybar" "$HOME/.config/skhd" "$HOME/.config/yabai" "$HOME/.config/ghostty"; do
+    for l in "$HOME/.config/sketchybar" "$HOME/.config/skhd" "$HOME/.config/yabai" "$HOME/.config/ghostty" \
+             "$HOME/.config/vicinae/dotfiles.json"; do
       check_link "$l"
     done
   fi

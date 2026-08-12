@@ -94,15 +94,6 @@ media:subscribe("music_change", function(env)
   )
 end)
 
-media:subscribe("mouse.clicked", function()
-  if mc then
-    sbar.exec "media-control toggle-play-pause"
-    sbar.delay(0.2, refresh)
-  else
-    sbar.exec 'osascript -e \'tell application "Music" to playpause\''
-  end
-end)
-
 media:subscribe("theme_colors_updated", function()
   media:set {
     background = ui.capsule(),

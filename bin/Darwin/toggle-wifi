@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# @vicinae.schemaVersion 1
+# @vicinae.title Toggle Wi-Fi
+# @vicinae.mode compact
+# @vicinae.icon 📶
+# @vicinae.packageName System
+# @vicinae.description Toggle Wi-Fi power on the primary AirPort interface
+# @vicinae.keywords ["wifi", "wireless", "network", "toggle"]
+
+set -euo pipefail
+
+wifi_iface() {
+  networksetup -listallhardwareports | awk '
+    /Wi-Fi|AirPort/ { getline; if ($1 == "Device:") { print $2; exit } }
+  '
+}
+
+wifi_power() {
+  local iface="$1"
+  networksetup -getairportpower "$iface" | awk '{print tolower($NF)}'
+}
+
+iface=$(wifi_iface)
+if [[ -z "$iface" ]]; then
+  echo "No Wi-Fi interface found"
+  exit 1
+fi
+
+cur=$(wifi_power "$iface")
+if [[ "$cur" == "on" ]]; then
+  networksetup -setairportpower "$iface" off
+  echo "Wi-Fi Off ($iface)"
+else
+  networksetup -setairportpower "$iface" on
+  echo "Wi-Fi On ($iface)"
+fi

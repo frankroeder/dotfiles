@@ -1,0 +1,43 @@
+#!/bin/bash
+# sketchybar bluetooth helper — toggle/connect/disconnect + optimistic UI paint.
+# usage: bt toggle | disconnect <id> | connect <id>
+set -u
+export PATH="/opt/homebrew/bin:/usr/bin:/bin"
+BU=/opt/homebrew/bin/blueutil
+TOP=/opt/homebrew/bin/sketchybar-top
+
+cmd=${1:-}
+shift || true
+
+case "$cmd" in
+  toggle)
+    "$BU" -p toggle
+    ;;
+  disconnect|connect)
+    id=${1:-}
+    if [[ -z "$id" ]]; then
+      echo "usage: bt $cmd <address|name>" >&2
+      exit 64
+    fi
+    "$BU" --"$cmd" "$id"
+    ;;
+  *)
+    echo "usage: bt toggle|disconnect <id>|connect <id>" >&2
+    exit 64
+    ;;
+esac
+
+# Settle, then paint labels immediately (lua re-poll fills devices / theme colors).
+sleep 0.35
+p=$("$BU" -p 2>/dev/null || echo 0)
+if [[ "$p" == "1" ]]; then
+  "$TOP" --set widgets.bluetooth.power label="Bluetooth · On" icon.string="󰂯" \
+    --set widgets.bluetooth.idle drawing=on label="No devices" \
+    --set widgets.bluetooth label.drawing=off 2>/dev/null || true
+else
+  "$TOP" --set widgets.bluetooth.power label="Bluetooth · Off" icon.string="󰂲" \
+    --set widgets.bluetooth.idle drawing=off \
+    --set widgets.bluetooth label.drawing=off icon.string="󰂲" 2>/dev/null || true
+fi
+
+"$TOP" --trigger bt_refresh 2>/dev/null || true

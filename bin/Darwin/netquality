@@ -1,20 +1,20 @@
 #!/bin/bash
 
 # Required parameters:
-# @raycast.schemaVersion 1
-# @raycast.title Network Quality
-# @raycast.mode inline
-# @raycast.refreshTime 20m
+# @vicinae.schemaVersion 1
+# @vicinae.title Network Quality
+# @vicinae.mode inline
+# @vicinae.refreshTime 20m
 
 # Optional parameters:
-# @raycast.icon 🌐
+# @vicinae.icon 🌐
 
 # Documentation:
-# @raycast.packageName System
-# @raycast.author Archie Lacoin
-# @raycast.authorURL https://github.com/pomdtr
-# @raycast.author LanikSJ
-# @raycast.authorURL https://github.com/LanikSJ
+# @vicinae.packageName System
+# @vicinae.author Archie Lacoin
+# @vicinae.authorURL https://github.com/pomdtr
+# @vicinae.author LanikSJ
+# @vicinae.authorURL https://github.com/LanikSJ
 
 result=$(networkQuality -v)
 

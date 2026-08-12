@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-# @raycast.title Copy Last Screenshot
-# @raycast.author Frank Röder
-# @raycast.authorURL https://github.com/frankroeder
-# @raycast.mode silent
-# @raycast.packageName System
-# @raycast.icon 📸
-# @raycast.description Copies the last screenshot to the clipboard.
-# @raycast.schemaVersion 1
+# @vicinae.title Copy Last Screenshot
+# @vicinae.author Frank Röder
+# @vicinae.authorURL https://github.com/frankroeder
+# @vicinae.mode silent
+# @vicinae.packageName System
+# @vicinae.icon 📸
+# @vicinae.description Copies the last screenshot to the clipboard.
+# @vicinae.schemaVersion 1
 
 DIR=$(defaults read com.apple.screencapture location)
 FILE=$(ls -t "$DIR" | head -n 1)

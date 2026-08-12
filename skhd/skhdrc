@@ -16,12 +16,12 @@ ctrl + alt + cmd - b : sketchybar --reload && sketchybar-top --reload && sketchy
 # #######################################
 # toggle main terminal application
 fn - space : bash "$DOTFILES/scripts/toggle_app.bash" "Ghostty"
-meh - f : open "raycast://extensions/raycast/file-search/search-files"
-meh - c : open "raycast://extensions/raycast/clipboard-history/clipboard-history"
-meh - l : open "raycast://extensions/raycast/raycast/search-quicklinks"
-meh - s : open "raycast://extensions/raycast/screenshots/search-screenshots"
-meh - n : open "raycast://extensions/raycast/snippets/search-snippets"
-meh - p : open "raycast://extensions/EvanZhouDev/raycast-apple-intelligence/proofread"
+meh - f : vicinae deeplink vicinae://launch/files/search
+meh - c : open "vicinae://launch/clipboard/history"
+meh - l : open "vicinae://launch/manage-shortcuts/manage"
+meh - s : bash "$DOTFILES/bin/Darwin/pick-screenshot"
+meh - n : open "vicinae://launch/snippets/manage"
+meh - p : vicinae deeplink vicinae://launch/@EvanZhouDev/store.raycast.raycast-apple-intelligence/proofread
 
 hyper - m : yabai -m space --focus 5; open "/Applications/Mattermost.app/"
 hyper - s : yabai -m space --focus 5; open "/Applications/Signal.app/"

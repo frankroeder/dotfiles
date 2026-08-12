@@ -2,18 +2,27 @@ local colors = require "colors"
 local icons = require "icons"
 local settings = require "settings"
 local ui = require "ui"
+local utils = require "utils"
 local bridge = require "island_bridge"
 local popup_row_height = settings.ui.popup_row_height
+local bt_helper = os.getenv "HOME" .. "/.dotfiles/sketchybar/helpers/bt"
+local popup_width = 280
+local row_width = popup_width / 2
+local BU = "/opt/homebrew/bin/blueutil"
 
 sbar.add("event", "bt_device", "com.apple.bluetooth.status")
+sbar.add("event", "bt_refresh")
 
--- Connected device names from last poll — new names toast on the island.
+-- Connected keys from last poll — new ones toast on the island.
 local last_connected = {}
 local bt_primed = false
--- Skip popup rebuild when the device list has not changed (avoids open flicker).
 local popup_fp = nil
 local popup_items = {}
-local empty_item = nil
+local power_btn = nil
+local idle_item = nil
+local inflight = false
+local pending_opts = nil
+local update
 
 local bluetooth = ui.add_capsule("widgets.bluetooth", {
   padding_left = 4,
@@ -30,7 +39,16 @@ local bluetooth = ui.add_capsule("widgets.bluetooth", {
       size = 18.0,
     },
   },
-  label = { drawing = false },
+  label = {
+    drawing = false,
+    string = "",
+    font = {
+      style = settings.font.style_map["Semibold"],
+      size = 12.0,
+    },
+    color = colors.blue,
+    padding_right = 8,
+  },
   popup = { align = "right", background = ui.popup() },
 })
 
@@ -38,202 +56,481 @@ local function ready()
   return bluetooth:query() ~= nil
 end
 
-local function clear_popup()
+local function clear_rows()
   for _, item in ipairs(popup_items) do
     sbar.remove(item.name)
   end
   popup_items = {}
-  popup_fp = nil
 end
 
-local function get_device_icon(minor_type)
-  if not minor_type then
-    return "•"
-  end
-  local type = minor_type:lower()
+local function norm_addr(addr)
+  return (addr or ""):lower():gsub("[:-]", "")
+end
 
-  if type:find "head" or type:find "airpods" then
+local function device_kind(minor_type, name)
+  local t = (minor_type or ""):lower()
+  if t:find "head" or t:find "airpods" then
+    return "headphone"
+  elseif t:find "speaker" then
+    return "speaker"
+  elseif t:find "keyboard" then
+    return "keyboard"
+  elseif t:find "mouse" or t:find "trackpad" then
+    return "mouse"
+  end
+
+  local n = (name or ""):lower()
+  if
+    n:find "airpods"
+    or n:find "headphone"
+    or n:find "headset"
+    or n:find "wh%-"
+    or n:find "xm%d"
+    or n:find "momentum"
+    or n:find "buds"
+    or n:find "beats"
+  then
+    return "headphone"
+  elseif
+    n:find "speaker"
+    or n:find "soundlink"
+    or n:find "homepod"
+    or n:find "jbl"
+    or n:find "flip"
+    or n:find "receiver"
+  then
+    return "speaker"
+  elseif n:find "keyboard" or n:find "keychron" then
+    return "keyboard"
+  elseif n:find "mouse" or n:find "trackpad" or n:find "magic track" then
+    return "mouse"
+  end
+  return nil
+end
+
+local function get_device_icon(kind)
+  if kind == "headphone" then
     return icons.device.headphone
-  elseif type:find "speaker" then
+  elseif kind == "speaker" then
     return icons.device.speaker
-  elseif type:find "keyboard" then
+  elseif kind == "keyboard" then
     return icons.device.keyboard
-  elseif type:find "mouse" or type:find "trackpad" then
+  elseif kind == "mouse" then
     return icons.device.mouse
   end
+  return icons.bluetooth.on
+end
 
-  return "•"
+-- Human signal label from RSSI (dBm). Golden range ≈ 0; unreadable ≈ -129/127.
+local function signal_label(rssi)
+  if rssi == nil then
+    return nil
+  end
+  local n = tonumber(rssi)
+  if not n or n == 127 or n <= -129 then
+    return nil
+  end
+  local qual
+  if n >= -50 then
+    qual = "Excellent"
+  elseif n >= -60 then
+    qual = "Good"
+  elseif n >= -70 then
+    qual = "Fair"
+  else
+    qual = "Weak"
+  end
+  return string.format("%s (%d dBm)", qual, n)
+end
+
+-- Extract A2DP/HFP/… tokens from system_profiler services string.
+local function services_short(raw)
+  if not raw or raw == "" then
+    return nil
+  end
+  local tags = {}
+  for _, key in ipairs { "A2DP", "HFP", "AVRCP", "HID", "GATT", "LEA", "ACL" } do
+    if raw:find(key, 1, true) then
+      table.insert(tags, key)
+    end
+  end
+  if #tags == 0 then
+    return nil
+  end
+  return table.concat(tags, " · ")
 end
 
 local function set_bar(powered, count)
   if not powered then
-    bluetooth:set { icon = { string = icons.bluetooth.off, color = colors.overlay0 } }
+    bluetooth:set {
+      icon = { string = icons.bluetooth.off, color = colors.overlay0 },
+      label = { drawing = false },
+    }
   elseif count > 0 then
-    bluetooth:set { icon = { string = icons.bluetooth.on, color = colors.blue } }
+    bluetooth:set {
+      icon = { string = icons.bluetooth.on, color = colors.blue },
+      label = {
+        drawing = true,
+        string = tostring(count),
+        color = colors.blue,
+      },
+    }
   else
-    bluetooth:set { icon = { string = icons.bluetooth.on, color = colors.subtext1 } }
+    bluetooth:set {
+      icon = { string = icons.bluetooth.on, color = colors.subtext1 },
+      label = { drawing = false },
+    }
   end
 end
 
-local function show_empty(text)
-  if not empty_item then
-    empty_item = ui.popup_button("widgets.bluetooth.empty", bluetooth, { label = text })
+local function ensure_chrome()
+  if not power_btn then
+    power_btn = sbar.add("item", "widgets.bluetooth.power", {
+      position = "popup." .. bluetooth.name,
+      width = popup_width,
+      icon = {
+        string = icons.bluetooth.on,
+        color = colors.blue,
+        font = { size = 15.0 },
+        padding_left = 10,
+        padding_right = 6,
+      },
+      label = {
+        string = "Bluetooth · …",
+        font = {
+          family = settings.font.family,
+          style = settings.font.style_map["Semibold"],
+          size = 12.0,
+        },
+        color = colors.text,
+        padding_right = 10,
+      },
+      background = ui.button { height = popup_row_height + 4 },
+      click_script = utils.shell_quote(bt_helper) .. " toggle",
+    })
   end
-  empty_item:set { drawing = true, label = { string = text } }
+  if not idle_item then
+    idle_item = sbar.add("item", "widgets.bluetooth.idle", {
+      position = "popup." .. bluetooth.name,
+      width = popup_width,
+      drawing = false,
+      icon = { drawing = false },
+      label = {
+        string = "No devices",
+        font = {
+          family = settings.font.family,
+          style = settings.font.style_map["Regular"],
+          size = 12.0,
+        },
+        color = colors.subtext1,
+        padding_left = 12,
+        padding_right = 12,
+      },
+      background = { drawing = false },
+    })
+  end
 end
 
-local function hide_empty()
-  if empty_item then
-    empty_item:set { drawing = false }
-  end
+local function set_power_row(powered)
+  ensure_chrome()
+  power_btn:set {
+    drawing = true,
+    icon = {
+      string = powered and icons.bluetooth.on or icons.bluetooth.off,
+      color = powered and colors.blue or colors.overlay0,
+    },
+    label = {
+      string = powered and "Bluetooth · On" or "Bluetooth · Off",
+      color = powered and colors.text or colors.subtext1,
+    },
+  }
 end
 
--- Stable fingerprint so rebuild is skipped when nothing changed.
+local function add_detail(name, title, value)
+  local item = ui.popup_field(name, bluetooth, {
+    icon = title,
+    icon_width = row_width,
+    icon_color = settings.theme.text_muted,
+    label = value,
+    label_color = settings.theme.text_primary,
+    label_width = row_width,
+    label_align = "right",
+    max_chars = 22,
+    height = popup_row_height,
+  })
+  table.insert(popup_items, item)
+  return item
+end
+
 local function fingerprint(devices, powered)
   local parts = { powered and "1" or "0" }
   for _, d in ipairs(devices) do
-    table.insert(parts, d.name .. "\0" .. (d.battery_short or "") .. "\0" .. (d.minor_type or ""))
+    table.insert(
+      parts,
+      table.concat({
+        d.address or "",
+        d.name or "",
+        d.battery_short or "",
+        d.rssi or "",
+        d.minor_type or "",
+        d.firmware or "",
+        d.services or "",
+      }, "\0")
+    )
   end
   return table.concat(parts, "\n")
 end
 
 local function rebuild_popup(devices, powered)
   local fp = fingerprint(devices, powered)
-  -- Same list already drawn → keep existing items (no clear = no flicker).
   if fp == popup_fp then
     return
   end
 
-  clear_popup()
+  clear_rows()
+  set_power_row(powered)
 
   if not powered then
-    show_empty "Bluetooth Off"
-    popup_fp = fp
-    return
-  end
-  if #devices == 0 then
-    show_empty "No Devices Connected"
+    idle_item:set { drawing = false }
     popup_fp = fp
     return
   end
 
-  hide_empty()
+  if #devices == 0 then
+    idle_item:set { drawing = true, label = { string = "No devices" } }
+    popup_fp = fp
+    return
+  end
+
+  idle_item:set { drawing = false }
+
   for i, d in ipairs(devices) do
-    local item = ui.popup_list_row("widgets.bluetooth.device." .. i, bluetooth, {
-      label = d.display_label,
-      font = {
-        family = settings.font.family,
-        style = settings.font.style_map["Regular"],
-        size = 12.0,
+    local id = (d.address ~= "" and d.address) or d.name
+    local prefix = "widgets.bluetooth.d" .. i
+
+    -- Device header: glyph + name · battery. Click disconnects.
+    local header_label = d.name
+    if d.battery_short then
+      header_label = d.name .. " · " .. d.battery_short
+    end
+    local header = sbar.add("item", prefix .. ".name", {
+      position = "popup." .. bluetooth.name,
+      width = popup_width,
+      icon = {
+        string = d.icon,
+        color = colors.blue,
+        font = { size = 15.0 },
+        padding_left = 10,
+        padding_right = 6,
       },
-      icon = d.icon,
-      icon_color = colors.subtext1,
-      icon_font = { size = 16.0 },
-      background = { height = popup_row_height },
+      label = {
+        string = header_label,
+        font = {
+          family = settings.font.family,
+          style = settings.font.style_map["Semibold"],
+          size = 13.0,
+        },
+        color = colors.text,
+        max_chars = 28,
+        padding_right = 10,
+      },
+      background = {
+        height = 2,
+        color = settings.theme.border,
+        y_offset = -12,
+        drawing = true,
+      },
+      click_script = utils.shell_quote(bt_helper) .. " disconnect " .. utils.shell_quote(id),
     })
-    table.insert(popup_items, item)
+    table.insert(popup_items, header)
+
+    if d.minor_type and d.minor_type ~= "" then
+      add_detail(prefix .. ".type", "Type:", d.minor_type)
+    end
+    if d.battery_detail then
+      add_detail(prefix .. ".batt", "Battery:", d.battery_detail)
+    end
+    local sig = signal_label(d.rssi)
+    if sig then
+      add_detail(prefix .. ".rssi", "Signal:", sig)
+    end
+    if d.services then
+      add_detail(prefix .. ".svc", "Services:", d.services)
+    end
+    if d.firmware and d.firmware ~= "" then
+      add_detail(prefix .. ".fw", "Firmware:", d.firmware)
+    end
+    if d.address and d.address ~= "" then
+      add_detail(prefix .. ".addr", "Address:", d.address)
+    end
   end
   popup_fp = fp
 end
 
--- Returns nil on system_profiler glitch (missing payload) vs {} for truly none.
-local function parse_devices(data)
-  local powered = true
-  local devices = {}
-  if type(data) ~= "table" or not data.SPBluetoothDataType then
-    return nil, powered
+local function parse_device_entry(name, info)
+  local battery_main = info.device_batteryLevelMain
+  local battery_left = info.device_batteryLevelLeft
+  local battery_right = info.device_batteryLevelRight
+  local battery_case = info.device_batteryLevelCase
+  local minor_type = info.device_minorType
+  local address = info.device_address or ""
+  local firmware = info.device_firmwareVersion
+  local rssi = info.device_rssi
+
+  local battery_short = nil
+  local battery_detail = nil
+  if battery_left and battery_right then
+    battery_short = string.format("%s/%s", battery_left, battery_right)
+    battery_detail = string.format("L %s · R %s", battery_left, battery_right)
+    if battery_case then
+      battery_detail = battery_detail .. " · Case " .. tostring(battery_case)
+    end
+  elseif battery_main then
+    local pct = tostring(battery_main):gsub("%%", ""):gsub("%s", "")
+    battery_short = pct .. "%"
+    battery_detail = battery_short
+  elseif battery_left then
+    battery_short = tostring(battery_left)
+    battery_detail = "L " .. battery_short
   end
 
+  local kind = device_kind(minor_type, name)
+  return {
+    name = name,
+    address = address,
+    kind = kind,
+    minor_type = minor_type or "",
+    battery_short = battery_short,
+    battery_detail = battery_detail,
+    firmware = firmware and tostring(firmware) or nil,
+    rssi = rssi and tostring(rssi) or nil,
+    services = services_short(info.device_services),
+    icon = get_device_icon(kind),
+  }
+end
+
+-- Connected devices from system_profiler. RSSI often missing → filled from blueutil.
+local function parse_connected(data)
+  local devices = {}
+  if type(data) ~= "table" or not data.SPBluetoothDataType then
+    return nil
+  end
   for _, controller in pairs(data.SPBluetoothDataType) do
-    local props = controller.controller_properties
-    if props and props.controller_state == "attrib_off" then
-      powered = false
-    end
     if controller.device_connected then
       for _, device_entry in pairs(controller.device_connected) do
         for name, info in pairs(device_entry) do
-          local battery_main = info.device_batteryLevelMain
-          local battery_left = info.device_batteryLevelLeft
-          local battery_right = info.device_batteryLevelRight
-          local rssi = info.device_rssi
-          local minor_type = info.device_minorType or "Unknown"
-          local address = info.device_address or "??"
-          local firmware = info.device_firmwareVersion
-
-          local display_label = name
-          local battery_short = nil
-          local battery_info = ""
-          if battery_left and battery_right then
-            battery_info = string.format(" (L %s, R %s)", battery_left, battery_right)
-            battery_short = string.format("%s/%s", battery_left, battery_right)
-          elseif battery_main then
-            battery_info = string.format(" (%s)", battery_main)
-            battery_short = tostring(battery_main):gsub("%%", ""):gsub("%s", "") .. "%"
-          elseif battery_left then
-            battery_info = string.format(" (L %s)", battery_left)
-            battery_short = tostring(battery_left)
+          if type(info) == "table" then
+            table.insert(devices, parse_device_entry(name, info))
           end
-          display_label = display_label .. battery_info
-
-          if rssi then
-            display_label = display_label .. " (" .. rssi .. " dBm)"
-          end
-          display_label = display_label .. string.format(" - %s @%s", minor_type, address)
-          if firmware then
-            display_label = display_label .. ' Version: "' .. firmware .. '"'
-          end
-
-          table.insert(devices, {
-            name = name,
-            minor_type = minor_type,
-            battery_short = battery_short,
-            display_label = display_label,
-            icon = get_device_icon(info.device_minorType),
-          })
         end
       end
     end
   end
-  return devices, powered
+  table.sort(devices, function(a, b)
+    return (a.name or "") < (b.name or "")
+  end)
+  return devices
 end
 
--- opts.toast_new: only true for bt_device events (not popup open / routine).
-local function update(opts)
-  opts = opts or {}
-  sbar.exec("system_profiler SPBluetoothDataType -json", function(data)
-    if not ready() then
-      return
-    end
-
-    local devices, powered = parse_devices(data)
-    if not devices then
-      -- Transient system_profiler glitch: keep previous state (UI + membership)
-      -- so we do not re-toast everyone on the next good poll.
-      return
-    end
-    local connected_now = {}
-    for _, d in ipairs(devices) do
-      connected_now[d.name] = true
-    end
-
-    -- Island toast only on real connect events, never on popup open rebuild.
-    if opts.toast_new and bt_primed then
-      for _, d in ipairs(devices) do
-        if not last_connected[d.name] then
-          bridge.trigger("island_bluetooth", {
-            name = d.name,
-            type = d.minor_type,
-            battery = d.battery_short or "",
-          })
-        end
+-- Merge blueutil --connected RSSI (and address fallback) into profiler devices.
+local function merge_blueutil(devices, bu)
+  if type(bu) ~= "table" then
+    return devices
+  end
+  local by_addr, by_name = {}, {}
+  for _, raw in ipairs(bu) do
+    if type(raw) == "table" then
+      local key = norm_addr(raw.address)
+      if key ~= "" then
+        by_addr[key] = raw
+      end
+      if type(raw.name) == "string" and raw.name ~= "" then
+        by_name[raw.name] = raw
       end
     end
+  end
+  for _, d in ipairs(devices) do
+    local raw = by_addr[norm_addr(d.address)] or by_name[d.name]
+    if raw then
+      if (not d.rssi or d.rssi == "") and raw.RSSI ~= nil and raw.RSSI ~= 127 then
+        d.rssi = tostring(raw.RSSI)
+      end
+      if (not d.address or d.address == "") and raw.address then
+        d.address = tostring(raw.address):gsub("-", ":"):upper()
+      end
+    end
+  end
+  return devices
+end
 
-    last_connected = connected_now
-    bt_primed = true
+local function finish(powered, devices, opts)
+  if not ready() then
+    return
+  end
+  devices = devices or {}
 
-    set_bar(powered, #devices)
-    rebuild_popup(devices, powered)
+  local connected_now = {}
+  for _, d in ipairs(devices) do
+    local key = d.address ~= "" and d.address or d.name
+    connected_now[key] = d
+  end
+
+  if opts.toast_new and bt_primed then
+    for key, d in pairs(connected_now) do
+      if not last_connected[key] then
+        bridge.trigger("island_bluetooth", {
+          name = d.name,
+          type = d.kind or d.minor_type or "",
+          battery = d.battery_short or "",
+          rssi = d.rssi or "",
+        })
+      end
+    end
+  end
+
+  last_connected = connected_now
+  bt_primed = true
+
+  set_bar(powered, #devices)
+  rebuild_popup(devices, powered)
+end
+
+local function done_inflight()
+  inflight = false
+  if pending_opts then
+    local next_opts = pending_opts
+    pending_opts = nil
+    update(next_opts)
+  end
+end
+
+-- Power via blueutil. Devices via system_profiler + blueutil RSSI merge.
+update = function(opts)
+  opts = opts or {}
+  if inflight then
+    if pending_opts then
+      pending_opts.toast_new = pending_opts.toast_new or opts.toast_new
+    else
+      pending_opts = opts
+    end
+    return
+  end
+  inflight = true
+
+  sbar.exec(BU .. " -p", function(raw)
+    local powered = tostring(raw or ""):match "1" ~= nil
+    if not powered then
+      finish(false, {}, opts)
+      done_inflight()
+      return
+    end
+    sbar.exec("system_profiler SPBluetoothDataType -json", function(data)
+      local devices = parse_connected(data) or {}
+      sbar.exec(BU .. " --connected --format json", function(bu)
+        finish(true, merge_blueutil(devices, bu), opts)
+        done_inflight()
+      end)
+    end)
   end)
 end
 
@@ -241,11 +538,16 @@ bluetooth:subscribe("bt_device", function()
   update { toast_new = true }
 end)
 
--- Popup open: refresh data but do not toast; skip rebuild when fingerprint matches.
+bluetooth:subscribe("bt_refresh", function()
+  popup_fp = nil
+  update { toast_new = false }
+end)
+
 ui.bind_popup(bluetooth, {
   on_open = function()
     update { toast_new = false }
   end,
+  on_right = 'open "x-apple.systempreferences:com.apple.BluetoothSettings" 2>/dev/null || open /System/Library/PreferencePanes/Bluetooth.prefPane',
 })
 
 bluetooth:subscribe({ "forced", "routine", "deferred_wake" }, function()
@@ -258,10 +560,11 @@ bluetooth:subscribe("theme_colors_updated", function()
   end
   bluetooth:set { background = ui.capsule() }
   ui.set_popup_bg(bluetooth)
-  -- Invalidate fingerprint so rows rebuild with current palette.
+  if power_btn then
+    power_btn:set { background = ui.button { height = popup_row_height + 4 } }
+  end
   popup_fp = nil
   update { toast_new = false }
 end)
 
--- Seed initial state on load (no toast).
 update { toast_new = false }

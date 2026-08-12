@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 
-# @raycast.title Akku Health
-# @raycast.author Frank Röder
-# @raycast.authorURL https://github.com/frankroeder
-# @raycast.description Displays useful information of the battery
-# @raycast.icon 🔋
-# @raycast.mode inline
-# @raycast.refreshTime 3m
-# @raycast.packageName System
-# @raycast.schemaVersion 1
+# @vicinae.title Akku Health
+# @vicinae.author Frank Röder
+# @vicinae.authorURL https://github.com/frankroeder
+# @vicinae.description Displays useful information of the battery
+# @vicinae.icon 🔋
+# @vicinae.mode inline
+# @vicinae.refreshTime 3m
+# @vicinae.packageName System
+# @vicinae.schemaVersion 1
 
 BATT_PERCENTAGE=$(pmset -g batt | grep "InternalBattery-0" |  awk '{print $3}')
 CHARGE_STATUS=$(pmset -g batt | grep "InternalBattery-0" |  awk '{print $4}')

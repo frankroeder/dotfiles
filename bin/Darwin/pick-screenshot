@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# @vicinae.schemaVersion 1
+# @vicinae.title Pick Screenshot
+# @vicinae.mode silent
+# @vicinae.icon 📸
+# @vicinae.packageName System
+# @vicinae.description Pick a recent screenshot (dmenu quick look) and copy to clipboard
+# @vicinae.keywords ["screenshot", "picker", "clipboard", "capture"]
+
+set -euo pipefail
+
+# GUI launchers often omit Homebrew from PATH
+PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin${PATH:+:$PATH}"
+
+screenshot_dir() {
+  local dir
+  dir=$(defaults read com.apple.screencapture location 2>/dev/null || true)
+  dir="${dir//\"/}"
+  if [[ -z "$dir" ]]; then
+    dir="$HOME/screens"
+  fi
+  # expand leading ~
+  if [[ "$dir" == ~* ]]; then
+    dir="${dir/#\~/$HOME}"
+  fi
+  printf '%s\n' "$dir"
+}
+
+# Print absolute paths of recent image screenshots, newest first (default 50).
+list_screenshots() {
+  local dir limit=50
+  dir=$(screenshot_dir)
+  [[ -d "$dir" ]] || return 0
+  if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
+    limit="$1"
+  fi
+  # mtime path — paths may contain spaces
+  find "$dir" -maxdepth 1 -type f \( \
+      -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.heic' \
+    \) -exec stat -f '%m %N' {} + 2>/dev/null \
+    | sort -rn \
+    | head -n "$limit" \
+    | while IFS= read -r line; do
+        printf '%s\n' "${line#* }"
+      done
+}
+
+copy_image_to_clipboard() {
+  local file="$1"
+  [[ -f "$file" ]] || { echo "Not a file: $file" >&2; return 1; }
+  osascript -e "set the clipboard to (read (POSIX file \"$file\") as JPEG picture)"
+}
+
+# Sourced: stop after helpers
+if [[ "${BASH_SOURCE[0]:-}" != "${0:-}" ]]; then
+  return 0 2>/dev/null || exit 0
+fi
+
+if [[ "${1:-}" == "--list" ]]; then
+  list_screenshots "${2:-50}"
+  exit 0
+fi
+
+if [[ "${1:-}" == "--copy" ]]; then
+  copy_image_to_clipboard "${2:?usage: pick-screenshot --copy FILE}"
+  echo "Copied $(basename "$2")"
+  exit 0
+fi
+
+if ! command -v vicinae >/dev/null 2>&1; then
+  echo "vicinae not found" >&2
+  exit 1
+fi
+
+list=$(list_screenshots 50)
+if [[ -z "$list" ]]; then
+  echo "No screenshots found in $(screenshot_dir)"
+  exit 1
+fi
+
+selected=$(printf '%s\n' "$list" | vicinae dmenu \
+  -p "Pick screenshot..." \
+  -n "Screenshots" \
+  -s "Recent ({count})")
+
+if [[ -z "${selected:-}" ]]; then
+  exit 0
+fi
+
+copy_image_to_clipboard "$selected"
+echo "Copied $(basename "$selected")"

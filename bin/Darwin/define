@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# @vicinae.schemaVersion 1
+# @vicinae.title Define
+# @vicinae.mode fullOutput
+# @vicinae.icon 📖
+# @vicinae.packageName System
+# @vicinae.description Look up a word via macOS Dictionary Services
+# @vicinae.keywords ["define", "dictionary", "definition", "lookup", "meaning"]
+# @vicinae.argument1 { "type": "text", "placeholder": "word", "optional": true }
+
+set -euo pipefail
+
+# Print definition for WORD using DCSCopyTextDefinition (system dictionaries).
+# Exit 1 if none. Optional second arg "open" also opens Dictionary.app.
+define_word() {
+  local word="$1"
+  /usr/bin/swift - "$word" <<'SWIFT'
+import Foundation
+import CoreServices
+
+let word = CommandLine.arguments.dropFirst().first ?? ""
+guard !word.isEmpty else {
+  fputs("empty word\n", stderr)
+  exit(2)
+}
+let ns = word as NSString
+let range = CFRangeMake(0, ns.length)
+guard let cf = DCSCopyTextDefinition(nil, ns, range) else {
+  fputs("No definition for \(word)\n", stderr)
+  exit(1)
+}
+let def = cf.takeRetainedValue() as String
+// light formatting: ORIGIN / part-of-speech-ish breaks
+var out = def
+for token in [" ORIGIN ", " • "] {
+  out = out.replacingOccurrences(of: token, with: "\n" + token.trimmingCharacters(in: .whitespaces) + " ")
+}
+print(out)
+SWIFT
+}
+
+open_dict() {
+  local word="$1"
+  # Dictionary URL scheme (spaces → %20; enough for typical lookups)
+  word="${word// /%20}"
+  open "dict://$word"
+}
+
+# --- CLI ---
+if [[ "${1:-}" == "--open" ]]; then
+  word="${2:-}"
+  shift 2 || shift || true
+else
+  word="${1:-}"
+  [[ -n "${1:-}" ]] && shift || true
+fi
+
+# empty → clipboard (first token)
+if [[ -z "$word" ]]; then
+  word=$(pbpaste 2>/dev/null | tr -d '\r' | head -n 1 | awk '{print $1}')
+  word="${word//[[:space:]]/}"
+fi
+
+if [[ -z "$word" ]]; then
+  echo "Usage: define <word>"
+  echo "Pass a word, or copy one to the clipboard."
+  exit 1
+fi
+
+# strip wrapping punctuation often left from selection
+word=$(printf '%s' "$word" | sed -E 's/^[[:punct:]]+//; s/[[:punct:]]+$//')
+
+if ! def=$(define_word "$word" 2>/dev/null); then
+  echo "No definition for '$word'"
+  echo ""
+  echo "Open Dictionary.app for a broader search..."
+  open_dict "$word"
+  exit 1
+fi
+
+printf '📖 %s\n\n%s\n' "$word" "$def"
+
+# optional: also open Dictionary when env set or trailing --open
+if [[ "${1:-}" == "--open" ]] || [[ "${DEFINE_OPEN:-}" == "1" ]]; then
+  open_dict "$word"
+fi
