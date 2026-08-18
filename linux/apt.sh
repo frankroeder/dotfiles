@@ -2,7 +2,7 @@
 set -euo pipefail
 
 apt_update() {
-  sudo apt update -y
+  sudo apt update -y && sudo apt upgrade -y;
 }
 
 install_default() {
