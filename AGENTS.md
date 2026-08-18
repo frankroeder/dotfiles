@@ -30,7 +30,7 @@ We need to always differentiate between the different Linux settings with respec
 
 ## macOS
 - yabai (tiling WM, bspwm-like): https://github.com/asmvik/yabai/wiki
-- skhd (hotkey daemon): https://github.com/koekeishiya/skhd
+- skhd (hotkey daemon): https://github.com/asmvik/skhd
 - SketchyBar (lua status bars): https://felixkratz.github.io/SketchyBar/
 - AeroSpace (i3/sway-like): https://nikitabobko.github.io/AeroSpace/
 - FlashSpace: https://github.com/wojciech-kulik/FlashSpace

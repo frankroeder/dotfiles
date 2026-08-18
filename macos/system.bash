@@ -62,34 +62,14 @@ sudo defaults write /Library/Preferences/com.apple.driver.AppleIRController Devi
 # Limit ad tracking
 defaults write com.apple.AdLib forceLimitAdTracking -bool true
 
-# Set local reference to the `airport` command-line utility for later use.
+# airport(8) was removed in macOS 26; JoinMode prefs have no public CLI replacement.
+# networksetup can still toggle power; wdutil is diagnostics-only.
 AIRPORT="/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport"
-
-# Join Preferred Wi-Fi networks.
-# Possible values:
-#   * Automatic
-#   * Preferred
-#   * Ranked
-#   * Recent
-#   * Strongest
-sudo "${AIRPORT}" prefs JoinMode=Preferred
-
-# Do not ask to join new networks.
-# Possible values:
-#   * Prompt
-#   * JoinOpen
-#   * KeepLooking
-#   * DoNothing
-sudo "${AIRPORT}" prefs JoinModeFallback=DoNothing
-
-# Remember networks this computer has joined.
-sudo "${AIRPORT}" prefs RememberRecentNetworks=YES
-
-# Require administrator authorization to create computer-to-computer networks.
-sudo "${AIRPORT}" prefs RequireAdminIBSS=YES
-
-# Require administrator authorization to change networks.
-sudo "${AIRPORT}" prefs RequireAdminNetworkChange=NO
-
-# Require administrator authorization to turn Wi-Fi on or off.
-sudo "${AIRPORT}" prefs RequireAdminPowerToggle=NO
+if [ -x "$AIRPORT" ]; then
+  sudo "${AIRPORT}" prefs JoinMode=Preferred
+  sudo "${AIRPORT}" prefs JoinModeFallback=DoNothing
+  sudo "${AIRPORT}" prefs RememberRecentNetworks=YES
+  sudo "${AIRPORT}" prefs RequireAdminIBSS=YES
+  sudo "${AIRPORT}" prefs RequireAdminNetworkChange=NO
+  sudo "${AIRPORT}" prefs RequireAdminPowerToggle=NO
+fi

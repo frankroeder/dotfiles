@@ -2,7 +2,7 @@
 sudo pmset -a standbydelay 3600
 
 # Restart automatically if the computer freezes
-sudo systemsetup -setrestartfreeze on
+sudo systemsetup -setrestartfreeze on >/dev/null 2>&1
 
 # Sleep the display after 5 minutes
 sudo pmset -a displaysleep 5
@@ -11,7 +11,7 @@ sudo pmset -a displaysleep 5
 sudo pmset -b sleep 15
 
 # Never go into computer sleep mode
-sudo systemsetup -setcomputersleep Off > /dev/null
+sudo systemsetup -setcomputersleep Off >/dev/null 2>&1
 
 # Menu bar: show battery percentage
 defaults write com.apple.menuextra.battery ShowPercent -bool true

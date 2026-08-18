@@ -58,8 +58,8 @@ comp_python() {
     curl -LsSf https://astral.sh/uv/install.sh | sh
   fi
   if have uv; then
-    if have ty; then print_warning "ty already installed"; else uv tool install ty@latest; fi
-    if have ipython; then print_warning "ipython already installed"; else uv tool install ipython --with matplotlib --with numpy; fi
+    if have ty; then print_ok "ty already installed"; else uv tool install ty@latest; fi
+    if have ipython; then print_ok "ipython already installed"; else uv tool install ipython --with matplotlib --with numpy; fi
   else
     print_warning "uv not available for Python tool installation"
   fi
@@ -96,7 +96,7 @@ comp_node() {
     print_step "Installing Node.js"
     bash "$DOTFILES/scripts/nodejs.sh"
   else
-    print_warning "Node.js is already installed"
+    print_ok "Node.js is already installed"
   fi
   if ! have npm; then
     print_warning "npm not available for package installation"
@@ -114,7 +114,7 @@ comp_node() {
   local pkg
   for pkg in eslint neovim; do
     if npm ls "${scope[@]}" "$pkg" >/dev/null 2>&1; then
-      print_warning "npm package $pkg already installed"
+      print_ok "npm package $pkg already installed"
     else
       print_step "Installing npm package $pkg"
       npm install "${scope[@]}" "$pkg" || print_warning "Failed to install npm package $pkg"
@@ -177,12 +177,11 @@ comp_homebrew() {
     print_step "Installing Homebrew"
     bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
   else
-    print_warning "Homebrew is already installed"
+    print_ok "Homebrew is already installed"
   fi
   print_step "Installing brew formulas"
   brew bundle --file="$DOTFILES/Brewfile"
   brew cleanup
-  brew doctor || true
 }
 
 comp_macos_apps() {
@@ -193,7 +192,7 @@ comp_macos_apps() {
     sudo xcode-select --install
     sudo xcodebuild -license accept
   else
-    print_warning "Xcode command line tools already installed"
+    print_ok "Xcode command line tools already installed"
   fi
   mkdir -p "$HOME/screens" "$HOME/.config" "$HOME/Library/Fonts"
   print_step "Running macOS setup script"
@@ -204,7 +203,7 @@ comp_macos_apps() {
   comp_sketchybar_top
   comp_sketchybar_island
   if [ -f "$HOME/Library/Fonts/sketchybar-app-font.ttf" ]; then
-    print_warning "sketchybar app font already installed"
+    print_ok "sketchybar app font already installed"
   else
     print_step "Downloading sketchybar font"
     bash "$DOTFILES/scripts/sketchybar_app_font.sh"
@@ -221,7 +220,7 @@ comp_macos_apps() {
     ln -sfn "$DOTFILES/shared/librewolf/userChrome.css" "$profile/chrome/userChrome.css" || true
   done
   if have sioyek; then
-    print_warning "sioyek already installed"
+    print_ok "sioyek already installed"
   else
     print_step "Running Sioyek setup"
     zsh "$DOTFILES/scripts/sioyek.sh"
@@ -444,38 +443,51 @@ comp_after() {
   fi
 }
 
-# (Re)start macOS desktop services (yabai, skhd, sketchybar). Idempotent: the
-# scripting-addition sudoers entry is refreshed (needed after yabai upgrades) but
-# services are only started when not already loaded.
+# ensure_asmvik_service CMD : write the launchd plist, then start.
+# After a brew upgrade the plist is often gone. --start-service then only
+# installs it; a second --start-service actually loads the job.
+ensure_asmvik_service() {
+  local cmd="$1"
+  have "$cmd" || return 0
+  "$cmd" --install-service >/dev/null 2>&1 || true
+  if launchd_loaded "$cmd"; then
+    print_step "Restarting $cmd service"
+    "$cmd" --restart-service || print_warning "Failed to restart $cmd service"
+    return 0
+  fi
+  print_step "Starting $cmd service"
+  "$cmd" --start-service || true
+  if ! launchd_loaded "$cmd"; then
+    "$cmd" --start-service || print_warning "Failed to start $cmd service"
+  fi
+}
+
+# ensure_brew_service NAME : start a brew-managed LaunchAgent if it is down.
+ensure_brew_service() {
+  local name="$1"
+  have brew || return 0
+  if brew_service_running "$name"; then
+    print_ok "$name service already running"
+  else
+    print_step "Starting $name service"
+    brew services start "$name" || print_warning "Failed to start $name service"
+  fi
+}
+
+# (Re)start macOS desktop services (yabai, skhd, sketchybar).
+# Called from make macos and make after. After brew upgrades: rewrite sudoers,
+# reinstall missing plists, restart already-running asmvik jobs.
+# borders is spawned from yabairc — do not brew-services it (double-instance).
 comp_services() {
   require_macos
   if have yabai; then
     print_step "Refreshing yabai scripting-addition permissions"
     echo "$(whoami) ALL=(root) NOPASSWD: sha256:$(shasum -a 256 "$(command -v yabai)" | cut -d ' ' -f 1) $(command -v yabai) --load-sa" | sudo tee /private/etc/sudoers.d/yabai >/dev/null
+    ensure_asmvik_service yabai
     sudo yabai --load-sa || print_warning "yabai --load-sa failed"
-    if launchd_loaded yabai; then
-      print_warning "yabai service already running"
-    else
-      print_step "Starting yabai service"
-      yabai --start-service || print_warning "Failed to start yabai service"
-    fi
   fi
-  if have skhd; then
-    if launchd_loaded skhd; then
-      print_warning "skhd service already running"
-    else
-      print_step "Starting skhd service"
-      skhd --start-service || print_warning "Failed to start skhd service"
-    fi
-  fi
-  if have brew; then
-    if brew_service_running sketchybar; then
-      print_warning "sketchybar service already running"
-    else
-      print_step "Starting sketchybar service"
-      brew services start sketchybar || print_warning "Failed to start sketchybar service"
-    fi
-  fi
+  ensure_asmvik_service skhd
+  ensure_brew_service sketchybar
 }
 
 # --- doctor: report on binaries and services --------------------------------
@@ -497,6 +509,7 @@ comp_doctor() {
     report_check "sketchybar-island LaunchAgent" launchd_loaded sketchybar-island
     report_check "yabai service" launchd_loaded yabai
     report_check "skhd service" launchd_loaded skhd
+    report_check "borders process" pgrep -qx borders
   else
     print_step "Checking Asahi/Hyprland binaries"
     for b in Hyprland quickshell qs hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl nm-connection-editor nmtui blueman-manager; do

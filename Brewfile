@@ -38,7 +38,8 @@ cask "librewolf",
 cask "vicinae"
 cask "ghostty"
 cask "musescore"
-cask "sioyek"
+cask "sioyek",
+     postinstall: "/usr/bin/xattr -dr com.apple.quarantine /Applications/sioyek.app"
 cask "mactex-no-gui"
 cask "font-hack-nerd-font"
 cask "sf-symbols"
