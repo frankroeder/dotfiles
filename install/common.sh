@@ -10,27 +10,47 @@ ARCHITECTURE="$(uname -m)"
 # NOSUDO=1 disables every sudo call and package manager step that needs root.
 NOSUDO="${NOSUDO:-}"
 
+# --- host detection ---------------------------------------------------------
+# Asahi Fedora (or an already-linked Hyprland desktop). Used so generic Linux
+# hosts do not pick up Hyprland helper scripts or doctor checks.
+is_asahi() {
+  [ -n "${ASAHI:-}" ] && return 0
+  if [ -r /etc/os-release ] && grep -qi asahi /etc/os-release; then
+    return 0
+  fi
+  case "$(uname -r)" in
+    *[Aa]sahi*) return 0 ;;
+  esac
+  if [ -L "$HOME/.config/hypr" ]; then
+    case "$(readlink "$HOME/.config/hypr")" in
+      "$DOTFILES"/asahi/hypr|*/asahi/hypr) return 0 ;;
+    esac
+  fi
+  return 1
+}
+
 # Make repo-provided binaries discoverable, mirroring the old Makefile PATH.
 PATH="$PATH:/usr/local/bin:/usr/local/sbin:/usr/bin"
 PATH="$PATH:$DOTFILES/bin/$OSTYPE_UNAME/$ARCHITECTURE:$DOTFILES/bin/$OSTYPE_UNAME"
 PATH="$PATH:$HOME/bin:$HOME/.local/bin:$HOME/.local/nodejs/bin"
-[ "$OSTYPE_UNAME" = "Linux" ] && PATH="$PATH:$DOTFILES/asahi/bin"
+[ "$OSTYPE_UNAME" = "Linux" ] && is_asahi && PATH="$PATH:$DOTFILES/asahi/bin"
 [ "$ARCHITECTURE" = "arm64" ] && PATH="$PATH:/opt/homebrew/bin:/opt/homebrew/sbin"
 export PATH
 
 # --- pretty printing --------------------------------------------------------
-# Warnings/errors are counted so a run can print a summary at the end.
+# Warnings stay non-fatal. Errors fail the profile at the end (install.sh).
 INSTALL_WARNINGS=0
+INSTALL_ERRORS=0
 print_step()    { printf '\033[1m\033[34m==> %s\033[0m\n' "$*"; }
 print_ok()      { printf '\033[1m\033[32m  ok %s\033[0m\n' "$*"; }
 print_warning() { INSTALL_WARNINGS=$((INSTALL_WARNINGS + 1)); printf '\033[1m\033[33mWarning: %s\033[0m\n' "$*"; }
-print_error()   { INSTALL_WARNINGS=$((INSTALL_WARNINGS + 1)); printf '\033[1m\033[31mError: %s\033[0m\n' "$*" >&2; }
+print_error()   { INSTALL_ERRORS=$((INSTALL_ERRORS + 1)); printf '\033[1m\033[31mError: %s\033[0m\n' "$*" >&2; }
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
 # --- guards -----------------------------------------------------------------
 require_macos() { [ "$OSTYPE_UNAME" = "Darwin" ] || { print_error "This step requires macOS"; exit 1; }; }
-require_linux() { [ "$OSTYPE_UNAME" != "Darwin" ] || { print_error "This step requires Linux"; exit 1; }; }
+require_linux() { [ "$OSTYPE_UNAME" = "Linux" ] || { print_error "This step requires Linux"; exit 1; }; }
 
 require_tools() {
   print_step "Validating required tools"

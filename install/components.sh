@@ -9,7 +9,10 @@
 ensure_tree_sitter() {
   have tree-sitter && return 0
   print_step "Installing tree-sitter"
-  bash "$DOTFILES/scripts/tree-sitter.sh"
+  if ! bash "$DOTFILES/scripts/tree-sitter.sh"; then
+    print_error "tree-sitter install failed"
+    return 1
+  fi
 }
 
 # --- shared components (used by macOS, Linux, Asahi) ------------------------
@@ -22,15 +25,16 @@ comp_directories() {
 
 comp_zsh() {
   print_step "Installing zsh and tools"
-  if ! have zsh; then
-    print_error "Zsh is not installed. Please install it first"
-    return 1
-  fi
+  # Link first so a missing binary still leaves a usable config for later installs.
   link_if_exists "$DOTFILES/zsh/zshrc"    "$HOME/.zshrc"
   link_if_exists "$DOTFILES/zsh/zlogin"   "$HOME/.zlogin"
   link_if_exists "$DOTFILES/zsh/zshenv"   "$HOME/.zshenv"
   link_if_exists "$DOTFILES/zsh/zprofile" "$HOME/.zprofile"
   mkdir -p "$HOME/.zsh/completion"
+  if ! have zsh; then
+    print_error "Zsh is not installed (required for linux/minimal)"
+    return 1
+  fi
   if have rg; then
     print_step "Generating ripgrep completions"
     rg --generate complete-zsh > "$HOME/.zsh/completion/_rg"
@@ -270,14 +274,14 @@ comp_linux_base() {
   mkdir -p "$HOME/bin" "$HOME/.local/bin" "$HOME/Uploads"
   if [ -z "$NOSUDO" ]; then
     print_step "Installing Linux packages"
-    bash "$DOTFILES/linux/apt.sh" "default"
+    bash "$DOTFILES/linux/apt.sh" "default" || print_error "apt package install failed"
   fi
   link_if_exists "$DOTFILES/htop/server" "$HOME/.config/htop/htoprc"
   if ! have nvim; then
     if [ -z "$NOSUDO" ]; then
-      bash "$DOTFILES/scripts/nvim.sh" "source"
+      bash "$DOTFILES/scripts/nvim.sh" "source" || print_error "nvim source install failed"
     else
-      bash "$DOTFILES/scripts/nvim.sh" "binary"
+      bash "$DOTFILES/scripts/nvim.sh" "binary" || print_error "nvim binary install failed"
     fi
   fi
   ensure_tree_sitter
@@ -483,7 +487,7 @@ comp_services() {
 comp_doctor() {
   print_step "Checking core binaries"
   local b
-  for b in zsh git curl make nvim node npm fzf rg uv tree-sitter; do
+  for b in zsh git curl make nvim node npm fzf rg uv tree-sitter tmux; do
     check_bin "$b" || true
   done
   if [ "$OSTYPE_UNAME" = "Darwin" ]; then
@@ -497,7 +501,7 @@ comp_doctor() {
     report_check "sketchybar-island LaunchAgent" launchd_loaded sketchybar-island
     report_check "yabai service" launchd_loaded yabai
     report_check "skhd service" launchd_loaded skhd
-  else
+  elif is_asahi; then
     print_step "Checking Asahi/Hyprland binaries"
     for b in Hyprland quickshell qs hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl nm-connection-editor nmtui blueman-manager; do
       check_bin "$b" || true
@@ -505,7 +509,7 @@ comp_doctor() {
   fi
   print_step "Checking config symlinks"
   local l
-  for l in "$HOME/.zshrc" "$HOME/.gitconfig" "$HOME/.gitignore" "$HOME/.tmux.conf" "$HOME/.config/nvim"; do
+  for l in "$HOME/.zshrc" "$HOME/.zshenv" "$HOME/.gitconfig" "$HOME/.gitignore" "$HOME/.tmux.conf" "$HOME/.config/nvim"; do
     check_link "$l"
   done
   if [ "$OSTYPE_UNAME" = "Darwin" ]; then

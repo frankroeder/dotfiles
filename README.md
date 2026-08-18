@@ -23,6 +23,9 @@ in `install.sh`; the `Makefile` keeps thin wrappers plus test/benchmark/format.
 Profiles are **idempotent**: simply rerun one (e.g. `./install.sh macos`) to
 refresh configs and re-apply symlinks; tools already installed are skipped.
 Test in a container with `make test` (or `NOSUDO=1 make test`).
+The `linux` and `minimal` profiles exit non-zero when a required step fails.
+`make doctor` is profile-aware (Hyprland checks only on Asahi).
+`make smoke` syntax-checks installer scripts; container tests also run `install/check.sh`.
 
 ### Options
 

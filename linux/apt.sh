@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 apt_update() {
-  sudo apt update -y && sudo apt upgrade -y;
+  sudo apt update -y
 }
 
 install_default() {

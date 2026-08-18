@@ -160,8 +160,16 @@ case "$TARGET" in
   *) print_error "Unknown target: $TARGET"; usage; exit 1 ;;
 esac
 
-# Surface a tally so warnings don't get lost in a long install log (doctor's
-# warnings are the report itself, so skip the summary there).
-if [ "$TARGET" != "doctor" ] && [ "$INSTALL_WARNINGS" -gt 0 ]; then
-  printf '\033[1m\033[33m==> Finished with %s warning(s); review the log above\033[0m\n' "$INSTALL_WARNINGS"
+# Surface a tally so warnings/errors don't get lost in a long install log
+# (doctor's warnings are the report itself, so skip the summary there).
+if [ "$TARGET" != "doctor" ]; then
+  if [ "${INSTALL_ERRORS:-0}" -gt 0 ]; then
+    printf '\033[1m\033[31m==> Finished with %s error(s)' "$INSTALL_ERRORS"
+    [ "${INSTALL_WARNINGS:-0}" -gt 0 ] && printf ' and %s warning(s)' "$INSTALL_WARNINGS"
+    printf '; review the log above\033[0m\n'
+    exit 1
+  fi
+  if [ "${INSTALL_WARNINGS:-0}" -gt 0 ]; then
+    printf '\033[1m\033[33m==> Finished with %s warning(s); review the log above\033[0m\n' "$INSTALL_WARNINGS"
+  fi
 fi
