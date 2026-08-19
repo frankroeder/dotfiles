@@ -1,4 +1,6 @@
 FROM ubuntu:22.04
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
 
 RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     make cmake sudo software-properties-common curl git locales \
