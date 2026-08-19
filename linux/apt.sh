@@ -2,7 +2,7 @@
 set -euo pipefail
 
 apt_update() {
-  sudo apt update -y && sudo apt upgrade -y;
+  sudo DEBIAN_FRONTEND=noninteractive apt update -y && sudo DEBIAN_FRONTEND=noninteractive apt upgrade -y;
 }
 
 install_default() {
@@ -31,7 +31,7 @@ install_default() {
     wget
     zsh
   "
-  sudo apt install $PKGS -y;
+  sudo DEBIAN_FRONTEND=noninteractive apt install $PKGS -y;
 }
 
 install_desktop() {
@@ -48,7 +48,7 @@ install_desktop() {
     wl-clipboard
     i3
   "
-  sudo apt install $DESKTOP_PKGS -y;
+  sudo DEBIAN_FRONTEND=noninteractive apt install $DESKTOP_PKGS -y;
 }
 main() {
   case $1 in
