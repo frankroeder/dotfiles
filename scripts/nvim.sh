@@ -48,74 +48,16 @@ install_binary() {
     *) error "Unsupported OS/ARCH: $OS $ARCH" ;;
   esac
 
-  local assets_json=""
-  if command -v gh >/dev/null 2>&1; then
-    info "Fetching release data via gh (tag: $tag)"
-    assets_json="$(gh api "repos/neovim/neovim/releases/tags/$tag" 2>/dev/null || true)"
-  else
-    local api_url="https://api.github.com/repos/neovim/neovim/releases/tags/$tag"
-    info "Fetching release data from: $api_url"
-    assets_json="$(curl -fsSL -A "frankroeder-dotfiles" "$api_url" 2>/dev/null || true)"
-  fi
-
-  local expected_checksum=""
-  if [[ -z "$assets_json" ]]; then
-    warn "GitHub API returned empty response; falling back to direct download"
-  elif command -v jq >/dev/null 2>&1; then
-    local msg assets_type
-    msg="$(printf '%s' "$assets_json" | jq -r '.message // empty' 2>/dev/null || true)"
-    assets_type="$(printf '%s' "$assets_json" | jq -r '.assets | type' 2>/dev/null || true)"
-    if [[ -n "$msg" ]]; then
-      warn "GitHub API error: $msg; falling back to direct download"
-    elif [[ "$assets_type" != "array" ]]; then
-      warn "GitHub API missing assets; falling back to direct download"
-    else
-      expected_checksum="$(printf '%s' "$assets_json" | jq -r --arg n "$expected_asset" \
-        '.assets[] | select(.name == $n) | .digest // empty' 2>/dev/null | sed 's/^sha256://')"
-    fi
-  else
-    if printf '%s' "$assets_json" | grep -q '"message"'; then
-      warn "GitHub API returned a message; falling back to direct download"
-    elif printf '%s' "$assets_json" | grep -Eq '"assets"[[:space:]]*:[[:space:]]*null'; then
-      warn "GitHub API missing assets; falling back to direct download"
-    elif ! printf '%s' "$assets_json" | grep -q '"assets"'; then
-      warn "GitHub API missing assets; falling back to direct download"
-    fi
-  fi
-
   local download_url="https://github.com/neovim/neovim/releases/download/$tag/$expected_asset"
-
   mkdir -p "$NVIM_TMP_DIR"
   cd "$NVIM_TMP_DIR" || error "Failed to enter directory $NVIM_TMP_DIR"
 
   info "Downloading $expected_asset from $download_url"
-  curl -fSL -A "frankroeder-dotfiles" -o "$expected_asset" "$download_url" \
-    || error "Failed to download $download_url"
-
-  if ! gzip -t "$expected_asset" 2>/dev/null; then
-    error "Downloaded file is not a valid gzip archive (possible HTML 404): $expected_asset"
-  fi
-
-  if [[ -n "$expected_checksum" ]]; then
-    info "Verifying checksum"
-    local computed_checksum=""
-    if command -v sha256sum >/dev/null 2>&1; then
-      computed_checksum="$(sha256sum "$expected_asset" | awk '{print $1}')"
-    elif command -v shasum >/dev/null 2>&1; then
-      computed_checksum="$(shasum -a 256 "$expected_asset" | awk '{print $1}')"
-    else
-      warn "Neither sha256sum nor shasum found; skipping checksum verification"
-    fi
-    if [[ -n "$computed_checksum" && "$computed_checksum" != "$expected_checksum" ]]; then
-      error "Checksum mismatch for $expected_asset"
-    fi
-  else
-    warn "No checksum metadata found for $expected_asset; skipping checksum verification."
-  fi
+  curl -fSL -o "$expected_asset" "$download_url" || error "Failed to download $download_url"
+  gzip -t "$expected_asset" || error "Downloaded file is not a gzip archive"
 
   info "Extracting $expected_asset to $install_prefix"
-  tar xzf "$expected_asset" -C "$install_prefix" --strip-components=1 \
-    || error "Failed to extract $expected_asset"
+  tar xzf "$expected_asset" -C "$install_prefix" --strip-components=1 || error "Failed to extract $expected_asset"
 
   local nvim_path="$install_prefix/bin/nvim"
   if [[ -x "$nvim_path" ]]; then
@@ -124,8 +66,6 @@ install_binary() {
   else
     error "Neovim executable not found at $nvim_path"
   fi
-
-  info "Cleaning up"
   rm -f "$expected_asset"
 }
 

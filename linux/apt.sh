@@ -2,7 +2,7 @@
 set -euo pipefail
 
 apt_update() {
-  sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update -y && sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold upgrade
+  sudo apt update -y && sudo apt upgrade -y;
 }
 
 install_default() {
@@ -31,7 +31,7 @@ install_default() {
     wget
     zsh
   "
-  sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y $PKGS
+  sudo apt install $PKGS -y;
 }
 
 install_desktop() {
@@ -48,7 +48,7 @@ install_desktop() {
     wl-clipboard
     i3
   "
-  sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y $DESKTOP_PKGS
+  sudo apt install $DESKTOP_PKGS -y;
 }
 main() {
   case $1 in
