@@ -134,8 +134,12 @@ comp_nvim() {
   fi
   touch "$HOME/.localnvim.lua"
   replace_with_symlink "$DOTFILES/nvim" "$HOME/.config/nvim"
+  if ! nvim --version >/dev/null 2>&1; then
+    print_error "nvim is installed but cannot run (glibc or loader mismatch)"
+    return 1
+  fi
   print_step "Syncing Neovim plugins"
-  nvim --headless "+lua vim.pack.update()" "+qa"
+  nvim --headless "+lua vim.pack.update()" "+qa" || print_error "nvim plugin sync failed"
 }
 
 # agent_begin CLI NAME : if CLI is present announce the sync (return 0), else warn.

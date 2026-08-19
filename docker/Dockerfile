@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     make cmake sudo software-properties-common curl locales \
