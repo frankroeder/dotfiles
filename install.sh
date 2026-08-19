@@ -59,8 +59,8 @@ profile_macos() {
   comp_node
   print_step "Finalizing macOS setup"
   comp_default_shell
-  zsh -i -c "fast-theme free" 2>/dev/null || print_warning "Failed to set fast-theme"
   compaudit 2>/dev/null | xargs chmod g-w 2>/dev/null || true
+  comp_services
 }
 
 # Shared component list for the sudo and no-sudo Linux profiles.

@@ -5,9 +5,6 @@
 # Enable the firewall
 sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on
 
-# Enable logging on the firewall
-sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setloggingmode on
-
 # Enable stealth mode
 # (computer does not respond to PING or TCP connections on closed ports)
 sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode on

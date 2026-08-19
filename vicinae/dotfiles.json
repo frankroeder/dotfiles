@@ -1,0 +1,160 @@
+{
+  "$schema": "https://vicinae.com/schemas/config.json",
+  "close_on_focus_loss": true,
+  "pop_to_root_on_close": true,
+  "escape_key_behavior": "close_window",
+  "keybinding": "vim",
+  "global_shortcuts": {
+    "toggle": "control+SPACE"
+  },
+  "font": {
+    "rendering": "qt",
+    "normal": {
+      "family": ".AppleSystemUIFont",
+      "size": 16
+    }
+  },
+  "theme": {
+    "dark": {
+      "name": "catppuccin-mocha"
+    }
+  },
+  "launcher_window": {
+    "compact_mode": {
+      "enabled": false
+    }
+  },
+  "fallbacks": [
+    "shortcuts:sct-8c3c5bfa66e9",
+    "files:search"
+  ],
+  "providers": {
+    "@EvanZhouDev/store.raycast.raycast-apple-intelligence": {
+      "entrypoints": {
+        "compose": { "enabled": false },
+        "create-image": { "enabled": false },
+        "create-key-points": { "enabled": false },
+        "list-writing-tools": { "enabled": false },
+        "make-concise": { "enabled": false },
+        "make-friendly": { "enabled": false },
+        "make-list": { "enabled": false },
+        "make-professional": { "enabled": false },
+        "make-table": { "enabled": false },
+        "rewrite": { "enabled": true },
+        "show-writing-tools": { "enabled": false }
+      }
+    },
+    "@JeffersonDing/store.raycast.latex-math-symbols": {
+      "entrypoints": {
+        "index": { "alias": "sx" }
+      }
+    },
+    "@JeffersonDing/store.raycast.typst-symbols": {
+      "entrypoints": {
+        "index": { "alias": "st" }
+      }
+    },
+    "@fedevitaledev/store.raycast.music": {
+      "entrypoints": {
+        "add-to-library": { "enabled": false },
+        "favorite-and-add-to-library": { "enabled": true },
+        "play-library-album": { "enabled": true },
+        "play-library-track": { "enabled": true }
+      }
+    },
+    "@hugomarfani/store.raycast.pick-your-wallpaper": {
+      "preferences": {
+        "wallpaperFolder": "/Users/frankroeder/Library/Mobile Documents/com~apple~CloudDocs/wallpapers/"
+      },
+      "entrypoints": {
+        "choose-wallpaper": { "alias": "wp", "enabled": true },
+        "set-as-wallpaper": { "enabled": false }
+      }
+    },
+    "@natterstefan/store.raycast.dict-cc": {
+      "entrypoints": {
+        "translate": { "alias": "dcc" },
+        "translate-from-clipboard": { "enabled": false },
+        "translate-from-selection": { "enabled": true }
+      }
+    },
+    "@reckoning-dev/store.raycast.zotero": {
+      "preferences": {
+        "bibtex_path": "~/Zotero/lib.json",
+        "cache_period": "30",
+        "csl_style": "ieee",
+        "quote_pdf_path": false,
+        "use_bibtex": true,
+        "zotero_path": "~/Zotero/zotero.sqlite"
+      },
+      "entrypoints": {
+        "commandSearchZotero": { "alias": "sz" }
+      }
+    },
+    "core": {
+      "entrypoints": {
+        "inspect-local-storage": { "enabled": true },
+        "open-config-file": { "enabled": false },
+        "open-default-config": { "enabled": false },
+        "reload-scripts": { "enabled": true },
+        "search-emojis": { "alias": "se" }
+      }
+    },
+    "developer": {
+      "enabled": false
+    },
+    "files": {
+      "entrypoints": {
+        "search": { "alias": "sf" }
+      }
+    },
+    "macos-settings": {
+      "entrypoints": {
+        "com.apple.Classroom-Settings.extension": { "enabled": true },
+        "com.apple.Keyboard-Settings.extension": { "enabled": true }
+      }
+    },
+    "power": {
+      "entrypoints": {
+        "logout": { "enabled": true }
+      }
+    },
+    "scripts": {
+      "preferences": {
+        "customDirs": [
+          "/Users/frankroeder/.dotfiles/autoloaded",
+          "/Users/frankroeder/.dotfiles/bin/Darwin"
+        ]
+      },
+      "entrypoints": {
+        "define": { "alias": "def" },
+        "lh": { "alias": "lh" },
+        "list-contacts": { "alias": "lc" },
+        "toggle-appearance": { "alias": "ta" }
+      }
+    },
+    "snippets": {
+      "entrypoints": {
+        "manage": { "alias": "ss" }
+      }
+    },
+    "system": {
+      "entrypoints": {
+        "toggle-mute": { "enabled": true },
+        "volume-0": { "enabled": false },
+        "volume-100": { "enabled": false },
+        "volume-25": { "enabled": false },
+        "volume-50": { "enabled": false },
+        "volume-75": { "enabled": false },
+        "volume-down": { "enabled": false },
+        "volume-up": { "enabled": false }
+      }
+    },
+    "wm": {
+      "enabled": false,
+      "entrypoints": {
+        "switch-windows": { "enabled": false }
+      }
+    }
+  }
+}
