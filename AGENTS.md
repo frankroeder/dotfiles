@@ -25,6 +25,8 @@ We need to always differentiate between the different Linux settings with respec
 
 - always try to run scripts that do not break the system (have smoketests) and verify that symlinks are present
 - always inspect the outputs of scripts and programs yourself to identify bugs and issues
+- required-step failures must fail the installer (not warn-only)
+- doctor must not flag Hyprland on generic Linux
 
 # Documentation
 

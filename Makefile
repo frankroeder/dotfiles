@@ -88,8 +88,19 @@ format: ## Format Lua files with stylua
 		echo "stylua not installed"; \
 	fi
 
+.PHONY: smoke
+smoke: ## Syntax-check installer scripts
+	@bash -n $(DOTFILES)/install.sh
+	@bash -n $(DOTFILES)/install/common.sh
+	@bash -n $(DOTFILES)/install/components.sh
+	@bash -n $(DOTFILES)/install/check.sh
+	@bash -n $(DOTFILES)/linux/apt.sh
+	@bash -n $(DOTFILES)/scripts/nvim.sh
+	@bash -n $(DOTFILES)/scripts/tree-sitter.sh
+	@echo ok
+
 .PHONY: test
-test: ## Test installation in a container (podman|docker|macOS container)
+test: smoke ## Test installation in a container (podman|docker|macOS container)
 	@if [ -z "$(CONTAINER_CMD)" ]; then echo "No container runtime (podman/docker/container)" >&2; exit 1; fi
 	@echo "==> Testing linux installation with $(CONTAINER_CMD)"
 ifeq ($(CONTAINER_CMD),container)
@@ -101,12 +112,12 @@ ifeq ($(NOSUDO), 1)
 	# Override CMD (/bin/bash): detached bash exits immediately → --rm deletes container before exec
 	$(CONTAINER_CMD) run --name maketest --detach --rm dotfiles:latest sleep infinity
 	# No -t: apple container fails exec when make has no pty ("fd is not a pty")
-	$(CONTAINER_CMD) exec maketest /bin/bash -c "make NOSUDO=$(NOSUDO) minimal"
+	$(CONTAINER_CMD) exec maketest /bin/bash -c "make NOSUDO=$(NOSUDO) minimal && ./install/check.sh"
 else
 	$(CONTAINER_CMD) $(CONTAINER_BUILD_CMD) -t dotfiles_sudo -f $(DOTFILES)/docker/sudoer.Dockerfile $(PWD)
 	-$(CONTAINER_CMD) rm -f maketest_sudo 2>/dev/null || true
 	$(CONTAINER_CMD) run --name maketest_sudo --detach --rm dotfiles_sudo:latest sleep infinity
-	$(CONTAINER_CMD) exec maketest_sudo /bin/bash -c "make linux"
+	$(CONTAINER_CMD) exec maketest_sudo /bin/bash -c "make linux && ./install/check.sh"
 endif
 	@echo "==> Container can now be shut down (container stop <name>; apple: container system stop)"
 
