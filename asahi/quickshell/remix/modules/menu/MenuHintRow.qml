@@ -9,6 +9,7 @@ RowLayout {
   property string fontFamily: Style.menuMono
 
   spacing: 14
+  implicitHeight: Math.round(18 * root.fontScale)
 
   Repeater {
     model: [

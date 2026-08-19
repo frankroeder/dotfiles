@@ -664,12 +664,20 @@ def fetch_usage() -> dict[str, Any]:
   }
 
 
+def emit(payload: dict[str, Any]) -> None:
+  if "--json" in sys.argv:
+    json.dump(payload, sys.stdout, ensure_ascii=True)
+    sys.stdout.write("\n")
+  else:
+    print(lua_literal(payload))
+
+
 def main() -> int:
   try:
     payload = fetch_usage()
-  except Exception as exc:  # noqa: BLE001 — bar must always get a Lua table
+  except Exception as exc:  # noqa: BLE001 — bar must always get a table
     payload = build_error(str(exc))
-  print(lua_literal(payload))
+  emit(payload)
   return 0 if not payload.get("error") else 1
 
 

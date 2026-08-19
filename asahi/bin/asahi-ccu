@@ -1,0 +1,540 @@
+#!/usr/bin/python3
+"""Credit usage (CCu) for the Asahi Quickshell bar.
+
+Imports the same sketchybar helpers macOS uses:
+  sketchybar/helpers/grok_usage.py
+  sketchybar/helpers/claude_usage.py
+
+Claude rows are included only when the `claude` CLI is installed.
+Always prints one JSON object for Quickshell.
+"""
+
+from __future__ import annotations
+
+import fcntl
+import json
+import math
+import os
+import re
+import shutil
+import sys
+import time
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from typing import Any
+
+DOTFILES = Path(__file__).resolve().parent.parent.parent
+HELPERS = DOTFILES / "sketchybar" / "helpers"
+if str(HELPERS) not in sys.path:
+  sys.path.insert(0, str(HELPERS))
+
+import ccu_cost  # noqa: E402
+import claude_usage  # noqa: E402
+import grok_usage  # noqa: E402
+
+CACHE_PATH = Path.home() / ".cache" / "asahi" / "ccu.json"
+LAST_PATH = Path.home() / ".cache" / "asahi" / "ccu.last.json"
+LOCK_PATH = Path.home() / ".cache" / "asahi" / "ccu.lock"
+LAST_TTL_SEC = 20
+
+CLAUDE_USAGE = "https://claude.ai/settings/usage"
+GROK_USAGE = "https://grok.com/?_s=usage"
+
+EXTRA_BIN_DIRS = (
+  Path.home() / ".local" / "bin",
+  Path.home() / ".grok" / "bin",
+  Path("/usr/bin"),
+  Path("/usr/local/bin"),
+)
+
+
+def has_bin(name: str) -> bool:
+  if shutil.which(name):
+    return True
+  for folder in EXTRA_BIN_DIRS:
+    candidate = folder / name
+    if candidate.is_file() and os.access(candidate, os.X_OK):
+      return True
+  return False
+
+
+def load_cache() -> dict[str, Any]:
+  try:
+    raw = json.loads(CACHE_PATH.read_text())
+  except (OSError, json.JSONDecodeError):
+    return {}
+  return raw if isinstance(raw, dict) else {}
+
+
+def save_cache(parts: dict[str, Any]) -> None:
+  try:
+    CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CACHE_PATH.write_text(json.dumps(parts))
+  except OSError:
+    pass
+
+
+def pick_provider(fresh: dict[str, Any] | None, cached: dict[str, Any] | None) -> dict[str, Any] | None:
+  if fresh and not fresh.get("error"):
+    return fresh
+  if cached and not cached.get("error"):
+    return cached
+  return fresh or cached
+
+
+def grok_title(period_type: Any) -> str:
+  if isinstance(period_type, str) and "MONTHLY" in period_type:
+    return "Grok (30d)"
+  return "Grok (7d)"
+
+
+def short_reset(s: Any) -> str:
+  if not s or not isinstance(s, str):
+    return ""
+  m = re.search(r"\d{4}-(\d{2})-(\d{2}) (\d{2}:\d{2})", s)
+  if m:
+    return f"{m.group(2)}.{m.group(1)}. {m.group(3)}"
+  return s
+
+
+def num(v: Any) -> float | None:
+  if v is None or isinstance(v, bool):
+    return None
+  try:
+    return float(v)
+  except (TypeError, ValueError):
+    return None
+
+
+def tidy_error(msg: Any) -> str:
+  one = " ".join(str(msg).split())
+  low = one.lower()
+  if any(s in one for s in ("http_401", "http_403", "no_oauth", "missing_auth", "invalid_auth")):
+    return "auth_error"
+  if "http_429" in one or "rate_limit" in low:
+    return "rate_limited"
+  if "http_5" in one:
+    return "server_error"
+  if "timeout" in low:
+    return "timeout"
+  if "network" in low:
+    return "network"
+  if len(one) > 22:
+    return one[:19] + "..."
+  return one
+
+
+SPARK = "▁▂▃▅"
+
+
+def fmt_tokens(n: Any) -> str:
+  n = float(n or 0)
+  if n >= 1e6:
+    return f"{n / 1e6:.1f}M"
+  if n >= 1e3:
+    return f"{n / 1e3:.0f}k"
+  return f"{n:.0f}"
+
+
+def fmt_usd(u: Any) -> str:
+  u = float(u or 0)
+  if u >= 1000:
+    return f"${u / 1000:.1f}k"
+  if u >= 100:
+    return f"${u:.0f}"
+  return f"${u:.2f}"
+
+
+def money_tok(usd: Any, tokens: Any) -> str:
+  return f"{fmt_usd(usd)} · {fmt_tokens(tokens)}"
+
+
+def spark_levels(days: Any, max_usd: float, max_bars: int = 7) -> list[int]:
+  max_usd = float(max_usd or 0)
+
+  def level(u: float) -> int:
+    if max_usd > 0 and u > 0:
+      return max(1, min(4, int(u / max_usd * 3 + 1.25)))
+    return 1
+
+  if not days:
+    return [1] * max_bars
+  n = len(days)
+  if n <= max_bars:
+    return [level(float((days[i] or {}).get("usd") or 0)) for i in range(n)]
+  out: list[int] = []
+  for i in range(max_bars):
+    start = int(math.floor(i * n / max_bars))
+    end = int(math.floor((i + 1) * n / max_bars))
+    if end <= start:
+      end = min(n, start + 1)
+    peak_u = 0.0
+    for j in range(start, min(end, n)):
+      peak_u = max(peak_u, float((days[j] or {}).get("usd") or 0))
+    out.append(level(peak_u))
+  return out
+
+
+def sparkline(days: Any, max_usd: float, max_bars: int = 7) -> str:
+  return "".join(SPARK[lv - 1] for lv in spark_levels(days, max_usd, max_bars))
+
+
+def remaining_label(remaining: float | None, used: float | None, reset: str, active: bool) -> str:
+  if remaining is None and used is None:
+    return "—"
+  if used is not None and used > 100:
+    text = f"{used:.0f}% used"
+  elif remaining is not None:
+    text = f"{remaining:.0f}%"
+  else:
+    text = f"{used:.0f}%"
+  if reset:
+    text += f"  {reset}"
+  if active:
+    text += " [active]"
+  return text
+
+
+def window_row(wid: str, title: str, block: dict[str, Any] | None) -> dict[str, Any] | None:
+  if not isinstance(block, dict):
+    return None
+  used = num(block.get("used"))
+  remaining = num(block.get("remaining"))
+  if used is None and remaining is None:
+    return None
+  if used is None and remaining is not None:
+    used = max(0.0, 100.0 - remaining)
+  if remaining is None and used is not None:
+    remaining = max(0.0, 100.0 - used)
+  reset = str(block.get("reset_text") or "")
+  label = block.get("label")
+  kind = block.get("kind")
+  model = block.get("model")
+  if kind == "weekly_scoped" or (label and label not in ("Session", "Weekly")):
+    if model and model not in ("", "Scoped"):
+      title = f"Weekly {model}"
+  return {
+    "id": wid,
+    "kind": "quota",
+    "title": title,
+    "used": used,
+    "remaining": remaining,
+    "percent": remaining,
+    "no_bar": False,
+    "accent": wid,
+    "spark": "",
+    "spark_levels": [],
+    "reset": reset,
+    "active": block.get("active") is True,
+    "label": remaining_label(remaining, used, reset, block.get("active") is True),
+    "error": None,
+  }
+
+
+def error_row(wid: str, title: str, error: str) -> dict[str, Any]:
+  short = tidy_error(error)
+  return {
+    "id": wid,
+    "kind": "quota",
+    "title": title,
+    "used": None,
+    "remaining": None,
+    "percent": 0,
+    "no_bar": False,
+    "accent": wid,
+    "spark": "",
+    "spark_levels": [],
+    "reset": "",
+    "active": False,
+    "label": short,
+    "error": short,
+  }
+
+
+def usage_class(used: float | None, errored: bool) -> str:
+  if used is None:
+    return "error" if errored else "normal"
+  if used >= 90:
+    return "critical"
+  if used >= 75:
+    return "warning"
+  if used >= 50:
+    return "caution"
+  return "normal"
+
+
+def cost_row(
+  wid: str,
+  title: str,
+  accent: str,
+  label: str,
+  percent: float,
+  no_bar: bool = False,
+  spark: str = "",
+  spark_levels: list[int] | None = None,
+) -> dict[str, Any]:
+  return {
+    "id": wid,
+    "kind": "cost",
+    "title": title,
+    "used": None,
+    "remaining": None,
+    "percent": percent,
+    "no_bar": no_bar,
+    "accent": accent,
+    "spark": spark,
+    "spark_levels": spark_levels or [],
+    "reset": "",
+    "active": False,
+    "label": label,
+    "error": None,
+  }
+
+
+def provider_cost_rows(prov: dict[str, Any], multi: bool) -> list[dict[str, Any]]:
+  pid = str(prov.get("id") or "cli")
+  name = str(prov.get("label") or pid)
+  today = prov.get("today") or {}
+  week = prov.get("week") or {}
+  month = prov.get("month") or {}
+  total = prov.get("total") or {}
+  weekdays = prov.get("weekdays") or []
+  month_days = month.get("days") or []
+  today_usd = float(today.get("usd") or 0)
+  week_usd = float(week.get("usd") or 0)
+  month_usd = float(month.get("usd") or 0)
+  total_usd = float(total.get("usd") or 0)
+  max_day = float(week.get("max_day_usd") or 0)
+  month_max = float(month.get("max_day_usd") or 0)
+  peak = max(max_day, today_usd, 0.01)
+  week_pct = (week_usd / max(month_usd, week_usd) * 100) if month_usd > 0 else (100.0 if week_usd > 0 else 0.0)
+  month_pct = (month_usd / total_usd * 100) if total_usd > 0 else (100.0 if month_usd > 0 else 0.0)
+  t_today = f"{name} today" if multi else "Today"
+  t_week = f"{name} 7d" if multi else "Past 7d"
+  t_month = f"{name} mo" if multi else "Month"
+  t_total = f"{name} total" if multi else "All time"
+  week_lv = spark_levels(weekdays, max_day, 7)
+  month_lv = spark_levels(month_days, month_max, 8)
+  week_spark = "".join(SPARK[lv - 1] for lv in week_lv)
+  month_spark = "".join(SPARK[lv - 1] for lv in month_lv)
+  return [
+    cost_row(f"{pid}_today", t_today, "today", money_tok(today_usd, today.get("tokens")), (today_usd / peak) * 100),
+    cost_row(
+      f"{pid}_week", t_week, "week", money_tok(week_usd, week.get("tokens")), week_pct,
+      spark=week_spark, spark_levels=week_lv,
+    ),
+    cost_row(
+      f"{pid}_month", t_month, "month", money_tok(month_usd, month.get("tokens")), month_pct,
+      spark=month_spark, spark_levels=month_lv,
+    ),
+    cost_row(f"{pid}_total", t_total, "total", money_tok(total_usd, total.get("tokens")), 0, no_bar=True),
+  ]
+
+
+def call_helper(fetch) -> dict[str, Any]:
+  try:
+    result = fetch()
+  except Exception as err:  # noqa: BLE001
+    return {"error": str(err)[:48]}
+  return result if isinstance(result, dict) else {"error": "invalid_response"}
+
+
+def build() -> dict[str, Any]:
+  want_claude = has_bin("claude")
+  want_grok = has_bin("grok")
+  want_codex = has_bin("codex")
+  if not want_claude and not want_grok and not want_codex:
+    return {
+      "text": "CCu",
+      "tooltip": "",
+      "class": "normal",
+      "percentage": None,
+      "visible": False,
+      "error": None,
+      "rows": [],
+      "links": [],
+    }
+
+  cache = load_cache()
+  cached_claude = cache.get("claude") if isinstance(cache.get("claude"), dict) else None
+  cached_grok = cache.get("grok") if isinstance(cache.get("grok"), dict) else None
+
+  fresh_claude: dict[str, Any] | None = None
+  fresh_grok: dict[str, Any] | None = None
+  fresh_cost: dict[str, Any] | None = None
+  with ThreadPoolExecutor(max_workers=3) as pool:
+    fut_c = pool.submit(call_helper, claude_usage.fetch_usage) if want_claude else None
+    fut_g = pool.submit(call_helper, grok_usage.fetch_usage) if want_grok else None
+    fut_cost = pool.submit(call_helper, ccu_cost.fetch_cost)
+    if fut_c is not None:
+      fresh_claude = fut_c.result()
+    if fut_g is not None:
+      fresh_grok = fut_g.result()
+    fresh_cost = fut_cost.result()
+
+  claude = pick_provider(fresh_claude, cached_claude) if want_claude else None
+  grok = pick_provider(fresh_grok, cached_grok) if want_grok else None
+
+  parts: dict[str, Any] = {}
+  if claude and not claude.get("error"):
+    parts["claude"] = claude
+  elif cached_claude and not cached_claude.get("error"):
+    parts["claude"] = cached_claude
+  if grok and not grok.get("error"):
+    parts["grok"] = grok
+  elif cached_grok and not cached_grok.get("error"):
+    parts["grok"] = cached_grok
+  if parts:
+    save_cache(parts)
+
+  rows: list[dict[str, Any]] = []
+  used_vals: list[float] = []
+  claude_errors: list[dict[str, Any]] = []
+
+  if want_claude:
+    session = window_row("session", "Session (5h)", (claude or {}).get("session") if claude else None)
+    weekly = window_row("weekly", "Week (7d)", (claude or {}).get("weekly") if claude else None)
+    claude_err = (fresh_claude or {}).get("error") if fresh_claude and fresh_claude.get("error") and session is None else None
+    if session:
+      rows.append(session)
+      if session["used"] is not None:
+        used_vals.append(session["used"])
+    elif claude_err:
+      claude_errors.append(error_row("session", "Session (5h)", str(claude_err)))
+    if weekly:
+      rows.append(weekly)
+      if weekly["used"] is not None:
+        used_vals.append(weekly["used"])
+
+  if want_grok:
+    grok_err = (fresh_grok or {}).get("error") if fresh_grok else None
+    grok_used = num((grok or {}).get("utilization")) if grok else None
+    grok_rem = num((grok or {}).get("remaining")) if grok else None
+    if grok_used is None and grok_rem is not None:
+      grok_used = max(0.0, 100.0 - grok_rem)
+    if grok_rem is None and grok_used is not None:
+      grok_rem = max(0.0, 100.0 - grok_used)
+    if grok_used is not None:
+      title = grok_title((grok or {}).get("period_type"))
+      reset = short_reset((grok or {}).get("resets_at_de") or (grok or {}).get("resets_at"))
+      rows.append({
+        "id": "grok",
+        "kind": "quota",
+        "title": title,
+        "used": grok_used,
+        "remaining": grok_rem,
+        "percent": grok_rem,
+        "no_bar": False,
+        "accent": "grok",
+        "spark": "",
+        "spark_levels": [],
+        "reset": reset,
+        "active": False,
+        "label": remaining_label(grok_rem, grok_used, reset, False),
+        "error": None,
+      })
+      used_vals.append(grok_used)
+    elif grok_err:
+      rows.append(error_row("grok", "Grok (7d)", str(grok_err)))
+
+  if not used_vals:
+    rows[0:0] = claude_errors
+
+  cost_providers = []
+  if isinstance(fresh_cost, dict) and not fresh_cost.get("error"):
+    raw_list = fresh_cost.get("providers") or []
+    if isinstance(raw_list, list):
+      cost_providers = [p for p in raw_list if isinstance(p, dict) and p.get("id")]
+  if cost_providers:
+    if rows:
+      who = (cost_providers[0].get("label") + " · ") if len(cost_providers) == 1 else ""
+      rows.append({
+        "id": "div",
+        "kind": "div",
+        "title": f"── {who}API cost & tokens ──",
+        "used": None,
+        "remaining": None,
+        "percent": 0,
+        "no_bar": True,
+        "accent": "div",
+        "spark": "",
+        "spark_levels": [],
+        "reset": "",
+        "active": False,
+        "label": "",
+        "error": None,
+      })
+    multi = len(cost_providers) > 1
+    for prov in cost_providers:
+      rows.extend(provider_cost_rows(prov, multi))
+  elif isinstance(fresh_cost, dict) and fresh_cost.get("error") and (want_grok or want_claude or want_codex):
+    rows.append(error_row("cost", "API cost", str(fresh_cost.get("error"))))
+
+  max_used = max(used_vals) if used_vals else None
+  stale_only = False
+  if want_claude and fresh_claude and fresh_claude.get("error") and claude and not claude.get("error"):
+    stale_only = True
+  if want_grok and fresh_grok and fresh_grok.get("error") and grok and not grok.get("error"):
+    stale_only = True
+  fresh_err = None
+  if want_claude and fresh_claude and fresh_claude.get("error"):
+    fresh_err = tidy_error(fresh_claude["error"])
+  if want_grok and fresh_grok and fresh_grok.get("error"):
+    grok_short = tidy_error(fresh_grok["error"])
+    fresh_err = grok_short if fresh_err is None else fresh_err
+
+  errored = max_used is None and bool(fresh_err) and not stale_only
+  if max_used is None:
+    text = "CCu ?" if errored else "CCu"
+  else:
+    text = f"CCu {max_used:.0f}%"
+
+  tooltip_lines = [
+    f"{row['title']}  {row['label']}".rstrip()
+    for row in rows
+    if row.get("kind") != "div"
+  ]
+  if stale_only and fresh_err:
+    tooltip_lines.append(f"(cached; {fresh_err})")
+
+  links = []
+  if want_claude:
+    links.append({"id": "claude", "title": "Claude", "url": CLAUDE_USAGE})
+  if want_grok:
+    links.append({"id": "grok", "title": "Grok", "url": GROK_USAGE})
+
+  return {
+    "text": text,
+    "tooltip": "\n".join(tooltip_lines),
+    "class": usage_class(max_used, errored),
+    "percentage": None if max_used is None else round(max_used, 1),
+    "visible": True,
+    "error": fresh_err if errored else None,
+    "rows": rows,
+    "links": links,
+  }
+
+
+def main() -> int:
+  LAST_PATH.parent.mkdir(parents=True, exist_ok=True)
+  with open(LOCK_PATH, "a+") as lock:
+    fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+    if LAST_PATH.is_file() and time.time() - LAST_PATH.stat().st_mtime < LAST_TTL_SEC:
+      try:
+        cached = LAST_PATH.read_text().strip()
+        if cached:
+          print(cached)
+          return 0
+      except OSError:
+        pass
+    payload = json.dumps(build(), ensure_ascii=True, separators=(",", ":"))
+    try:
+      LAST_PATH.write_text(payload)
+    except OSError:
+      pass
+    print(payload)
+  return 0
+
+
+if __name__ == "__main__":
+  sys.exit(main())

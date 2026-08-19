@@ -419,6 +419,9 @@ Variants {
           hoverEnabled: true
         }
       }
+
+      // Compact CCu (credit used) — remaining overview on click
+      BarComponents.Ccu {}
     }
 
     // Exactly centered workspaces (true geometric center, independent of left/right widths)

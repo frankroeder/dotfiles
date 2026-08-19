@@ -20,8 +20,8 @@ image/x-portable-bitmap=org.kde.gwenview.desktop
 image/x-portable-graymap=org.kde.gwenview.desktop
 image/x-xbitmap=org.kde.gwenview.desktop
 image/svg+xml=org.kde.gwenview.desktop
-inode/directory=org.kde.dolphin.desktop
-x-scheme-handler/file=org.kde.dolphin.desktop
+inode/directory=thunar.desktop
+x-scheme-handler/file=thunar.desktop
 x-scheme-handler/news=userapp-Thunderbird-BDEXN3.desktop
 x-scheme-handler/snews=userapp-Thunderbird-BDEXN3.desktop
 x-scheme-handler/nntp=userapp-Thunderbird-BDEXN3.desktop
@@ -31,6 +31,8 @@ application/x-extension-rss=userapp-Thunderbird-JNXXN3.desktop
 x-scheme-handler/claude-cli=claude-code-url-handler.desktop
 
 [Added Associations]
+inode/directory=thunar.desktop;
+x-scheme-handler/file=thunar.desktop;
 x-scheme-handler/news=userapp-Thunderbird-BDEXN3.desktop;
 x-scheme-handler/snews=userapp-Thunderbird-BDEXN3.desktop;
 x-scheme-handler/nntp=userapp-Thunderbird-BDEXN3.desktop;

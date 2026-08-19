@@ -10,8 +10,10 @@ Item {
   property real fontScale: 1.0
   property string fontFamily: "Hack Nerd Font"
 
-  width: parent ? parent.width : 0
-  height: 36
+  implicitWidth: parent ? parent.width : 0
+  implicitHeight: 36
+  width: parent ? parent.width : implicitWidth
+  height: implicitHeight
 
   Text {
     id: prompt

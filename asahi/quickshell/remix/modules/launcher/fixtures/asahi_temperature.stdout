@@ -1,0 +1,50 @@
+============================================
+     Asahi Linux Temperature Sensors
+============================================
+
+Values are read from /sys/class/hwmon by device name and temp label.
+
+>>> nvme (/sys/class/hwmon/hwmon0)
+  nvme               Composite                      34.85°C   /sys/class/hwmon/hwmon0/temp1_input
+    NVMe SSD controller composite temperature.
+
+>>> macsmc_hwmon (/sys/class/hwmon/hwmon1)
+  macsmc_hwmon       NAND Flash Temperature         36.91°C   /sys/class/hwmon/hwmon1/temp1_input
+    SMC storage/NAND area sensor.
+  macsmc_hwmon       Battery Hotspot                34.50°C   /sys/class/hwmon/hwmon1/temp2_input
+    SMC battery-near hotspot; useful chassis heat proxy.
+  macsmc_hwmon       Charge Regulator Temp          41.97°C   /sys/class/hwmon/hwmon1/temp3_input
+    SMC charge/power regulation; often the hottest system sensor.
+  macsmc_hwmon       WiFi/BT Module Temp            44.20°C   /sys/class/hwmon/hwmon1/temp4_input
+    SMC Wi-Fi/Bluetooth module temperature.
+
+>>> macsmc_battery (/sys/class/hwmon/hwmon2)
+  macsmc_battery     temp                           34.50°C   /sys/class/hwmon/hwmon2/temp1_input
+    Battery pack temperature from the SMC battery driver.
+
+>>> tas2764 (/sys/class/hwmon/hwmon8)
+  tas2764            temp1                          34.00°C   /sys/class/hwmon/hwmon8/temp1_input
+    Speaker amplifier chip; rises under audio load.
+
+>>> tas2764 (/sys/class/hwmon/hwmon9)
+  tas2764            temp1                          38.00°C   /sys/class/hwmon/hwmon9/temp1_input
+    Speaker amplifier chip; rises under audio load.
+
+>>> tas2764 (/sys/class/hwmon/hwmon10)
+  tas2764            temp1                          36.00°C   /sys/class/hwmon/hwmon10/temp1_input
+    Speaker amplifier chip; rises under audio load.
+
+>>> tas2764 (/sys/class/hwmon/hwmon11)
+  tas2764            temp1                          38.00°C   /sys/class/hwmon/hwmon11/temp1_input
+    Speaker amplifier chip; rises under audio load.
+
+>>> tas2764 (/sys/class/hwmon/hwmon12)
+  tas2764            temp1                          36.00°C   /sys/class/hwmon/hwmon12/temp1_input
+    Speaker amplifier chip; rises under audio load.
+
+>>> tas2764 (/sys/class/hwmon/hwmon13)
+  tas2764            temp1                          37.00°C   /sys/class/hwmon/hwmon13/temp1_input
+    Speaker amplifier chip; rises under audio load.
+
+Hottest:
+  macsmc_hwmon / WiFi/BT Module Temp: 44.20°C   /sys/class/hwmon/hwmon1/temp4_input

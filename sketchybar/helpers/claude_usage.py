@@ -21,6 +21,8 @@ CRED_PATH = Path.home() / ".claude" / ".credentials.json"
 KEYCHAIN_SERVICE = "Claude Code-credentials"
 CACHE_PATH = Path.home() / ".cache" / "sketchybar" / "claude_usage.json"
 CACHE_TTL_SEC = 90
+COOLDOWN_PATH = Path.home() / ".cache" / "sketchybar" / "claude_usage.cooldown"
+COOLDOWN_SEC = 300  # skip refetch after 429; dual-bar polls otherwise hammer OAuth
 
 
 def lua_literal(value: Any) -> str:
@@ -191,7 +193,10 @@ def fetch_oauth_usage(token: str) -> tuple[dict[str, Any] | None, str | None]:
       return json.loads(resp.read()), None
   except urllib.error.HTTPError as exc:
     body = exc.read().decode("utf-8", errors="replace")
-    return None, short_error(f"http_{exc.code}: {body[:120]}")
+    err = short_error(f"http_{exc.code}: {body[:120]}")
+    if exc.code == 429 or "rate_limit" in err:
+      start_cooldown()
+    return None, err
   except Exception as exc:  # noqa: BLE001
     return None, short_error(str(exc))
 
@@ -270,7 +275,31 @@ def save_cache(payload: dict[str, Any]) -> None:
     pass
 
 
+def start_cooldown() -> None:
+  try:
+    COOLDOWN_PATH.parent.mkdir(parents=True, exist_ok=True)
+    COOLDOWN_PATH.write_text(str(datetime.now(timezone.utc).timestamp()))
+  except OSError:
+    pass
+
+
+def in_cooldown() -> bool:
+  if not COOLDOWN_PATH.is_file():
+    return False
+  try:
+    ts = float(COOLDOWN_PATH.read_text().strip())
+  except (OSError, ValueError):
+    return False
+  age = datetime.now(timezone.utc).timestamp() - ts
+  return 0 <= age < COOLDOWN_SEC
+
+
 def fetch_usage() -> dict[str, Any]:
+  if in_cooldown():
+    cached = load_cache()
+    if cached is not None:
+      return cached
+    return build_error("rate_limited")
   token = load_access_token()
   if not token:
     return build_error("no_oauth: Claude Code credentials missing")
@@ -286,9 +315,17 @@ def fetch_usage() -> dict[str, Any]:
   return payload
 
 
+def emit(payload: dict[str, Any]) -> None:
+  if "--json" in sys.argv:
+    json.dump(payload, sys.stdout, ensure_ascii=True)
+    sys.stdout.write("\n")
+  else:
+    print(lua_literal(payload))
+
+
 def main() -> int:
   payload = fetch_usage()
-  print(lua_literal(payload))
+  emit(payload)
   return 0 if not payload.get("error") else 1
 
 

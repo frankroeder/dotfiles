@@ -12,6 +12,9 @@ import Quickshell.Bluetooth
 import Quickshell.Services.Mpris
 import "../../"
 import "Data.js" as Data
+import "launcher_layout.js" as LauncherGeom
+import "hub_logo.js" as HubLogo
+import "temp_display.js" as TempDisplay
 
 Scope {
   id: root
@@ -95,6 +98,21 @@ Scope {
   // --- live data + exact hub/lower + side windows (ported from old featuremenu; now the only place, module removed)
   readonly property real uiFontScale: 1.4
   readonly property real quickOverviewScale: 1.0
+  readonly property int launcherScreenH: {
+    const h = launcherPanel.height
+    if (h > 1) return h
+    const scr = launcherPanel.screen || root.launcherScreen
+    if (scr && scr.height > 1) return scr.height
+    return 1080
+  }
+  readonly property var launcherGeom: LauncherGeom.launcherLayout({
+    screenH: root.launcherScreenH,
+    tileCount: (root.quickTiles || []).length,
+    sideActive: root.sideActive,
+    quickMode: root.quickMode,
+    hubMode: root.expandedQuickKey === "hub" || root.expandedQuickKey === "dashboard",
+    fontScale: root.uiFontScale
+  })
   function fontPx(size) { return Math.round(size * root.uiFontScale) }
   function quickPx(size) { return Math.round(size * root.uiFontScale * root.quickOverviewScale) }
   function execAndClose(cmd) {
@@ -400,9 +418,7 @@ Scope {
     readonly property string ffLogoText: quickHubRoot.ffLogoLines.join("\n")
 
     function stripAnsi(text) {
-      return (text || "")
-        .replace(/\u001b\[[0-9;]*[A-Za-z]/g, "")
-        .replace(/\u001b\][^\u0007]*\u0007/g, "")
+      return HubLogo.stripAnsi(text)
     }
     function prettyBytes(bytes) {
       let value = Number(bytes) || 0
@@ -427,16 +443,7 @@ Scope {
       return mins + "m"
     }
     function parseLogo(text) {
-      const lines = (text || "").split("\n")
-      const logo = []
-      for (let i = 0; i < lines.length; i++) {
-        const line = quickHubRoot.stripAnsi(lines[i]).replace(/\r/g, "")
-        if (/^-{3,}\s*$/.test(line.trim())) break
-        if (line.trim().length === 0) continue
-        if (line.indexOf("@") >= 0) continue
-        logo.push(line)
-      }
-      quickHubRoot.ffLogoLines = logo
+      quickHubRoot.ffLogoLines = HubLogo.parseLogo(text)
     }
     function ffRow(key, icon, accent, value) {
       return { key: key, icon: icon, accent: accent, value: value }
@@ -926,9 +933,11 @@ Scope {
             Behavior on border.color { ColorAnimation { duration: 140 } }
             Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
             Image {
-              anchors.fill: parent; anchors.margins: (Wallpaper.WallpaperService.currentWallpaper === modelData) ? 2 : 1; source: modelData ? ("file://" + modelData) : ""
+              anchors.fill: parent; anchors.margins: (Wallpaper.WallpaperService.currentWallpaper === modelData) ? 2 : 1
+              source: Wallpaper.WallpaperService.previewSource(modelData)
               fillMode: Image.PreserveAspectCrop
-              sourceSize.width: 160; sourceSize.height: 96; asynchronous: true
+              asynchronous: true
+              cache: true
               Rectangle {
                 anchors.fill: parent; color: Style.menuControlBg; visible: parent.status !== Image.Ready
                 Text { anchors.centerIn: parent; text: "󰋩"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(18); font.family: root.uiFont }
@@ -2349,6 +2358,7 @@ Scope {
     ColumnLayout {
       id: monLayout
       anchors.fill: parent; spacing: 8
+      clip: true
       RowLayout {
         Layout.fillWidth: true; spacing: 6
         Text { text: "󰍹 Monitors (" + ((quickMonitorsRoot.mons || []).length || 0) + ")"; color: Style.green; font.pixelSize: root.fontPx(12); font.family: root.uiFont; font.bold: true }
@@ -2374,9 +2384,13 @@ Scope {
           MouseArea { id: resMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: quickMonitorsRoot.rescanMonitors() }
         }
       }
-      // compact layout viz
+      // compact layout viz — leftover pane height, never a rigid 420 that overflows
       Rectangle {
-        Layout.fillWidth: true; Layout.preferredHeight: 420
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        Layout.minimumHeight: 96
+        Layout.maximumHeight: 420
+        Layout.preferredHeight: LauncherGeom.monitorsVizHeight(quickMonitorsRoot.height)
         radius: 6; color: Style.menuControlBg; border.color: Style.menuSep; border.width: 1
         Canvas {
           anchors.fill: parent; anchors.margins: 10
@@ -2408,7 +2422,9 @@ Scope {
       Text { text: "Mirror uses eDP-1 as source when present. Extend reloads monitors.lua. Layout drawn in logical coordinates."; color: Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont; Layout.alignment: Qt.AlignHCenter }
       Flickable {
         Layout.fillWidth: true; Layout.fillHeight: true; clip: true
+        boundsBehavior: Flickable.StopAtBounds
         contentHeight: monList.height
+        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
         Column { id: monList; width: parent.width; spacing: 6
           Repeater {
             model: quickMonitorsRoot.mons || []
@@ -2440,57 +2456,16 @@ Scope {
     property string tempOutput: ""
     property var tempSensors: []
     property var tempGroups: []
+    property var tempRows: []
     property var hottestSensor: null
     property string tempUpdated: ""
 
     function parseTemperatures(out) {
-      const sensors = []
-      let groupName = ""; let groupPath = ""; let last = null
-      const lines = (out || "").split("\n")
-      for (const line of lines) {
-        if (line.indexOf("Hottest:") === 0) break
-        const gm = line.match(/^>>> (.+?) \((.+)\)$/)
-        if (gm) { groupName = gm[1]; groupPath = gm[2]; continue }
-        const sm = line.match(/^\s*(\S+)\s+(.+?)\s+(-?\d+(?:\.\d+)?)°C\s+(.+)$/)
-        if (sm) {
-          const keyName = groupName || sm[1]
-          const keyPath = groupPath || sm[4].trim().replace(/\/temp[^/]+$/, "")
-          last = { group: keyName, groupPath: keyPath, groupKey: keyName + "|" + keyPath, name: sm[1], label: sm[2].trim(), displayLabel: sm[2].trim(), value: Number(sm[3]), path: sm[4].trim(), desc: "" }
-          sensors.push(last); continue
-        }
-        const dm = line.match(/^\s{4}(.+)$/)
-        if (dm && last) last.desc = dm[1].trim()
-      }
-      const groups = []
-      for (const sensor of sensors) {
-        let g = groups.find(item => item.key === sensor.groupKey)
-        if (!g) { g = { key: sensor.groupKey, name: sensor.group, path: sensor.groupPath, sensors: [], max: sensor.value, sum: 0 }; groups.push(g) }
-        g.sensors.push(sensor); g.max = Math.max(g.max, sensor.value); g.sum = (g.sum || 0) + sensor.value
-      }
-      for (const g of groups) { g.avg = g.sum / Math.max(1, g.sensors.length) }
-      const groupNameMap = { "macsmc_hwmon": "SMC Sensors", "tas2764": "Speaker Amps", "macsmc_battery": "Battery", "nvme": "NVMe SSD" }
-      const sourceCounts = {}; for (const g of groups) sourceCounts[g.name] = (sourceCounts[g.name] || 0) + 1
-      const sourceSeen = {}
-      for (const g of groups) {
-        const baseName = groupNameMap[g.name] || g.name
-        sourceSeen[g.name] = (sourceSeen[g.name] || 0) + 1
-        g.displayName = sourceCounts[g.name] > 1 ? (baseName + " " + sourceSeen[g.name]) : baseName
-        const labelCounts = {}; for (const s of g.sensors) labelCounts[s.label] = (labelCounts[s.label] || 0) + 1
-        const labelSeen = {}
-        for (const s of g.sensors) {
-          labelSeen[s.label] = (labelSeen[s.label] || 0) + 1
-          s.displayLabel = labelCounts[s.label] > 1 ? (s.label + " " + labelSeen[s.label]) : s.label
-          s.groupDisplayName = g.displayName
-        }
-        const descs = g.sensors.map(s => s.desc || "").filter(d => d)
-        let shared = null
-        if (descs.length > 0) { shared = descs[0]; for (let i=1; i<descs.length; i++) if (descs[i] !== shared) { shared = null; break } }
-        g.sharedDesc = shared; for (const s of g.sensors) s.sharedDesc = g.sharedDesc
-      }
-      groups.sort((a, b) => b.max - a.max)
-      quickTempRoot.tempSensors = sensors
-      quickTempRoot.tempGroups = groups
-      quickTempRoot.hottestSensor = sensors.reduce((best, sensor) => !best || sensor.value > best.value ? sensor : best, null)
+      const parsed = TempDisplay.parseTemperatures(out)
+      quickTempRoot.tempSensors = parsed.sensors
+      quickTempRoot.tempGroups = parsed.groups
+      quickTempRoot.tempRows = TempDisplay.tempDisplayRows(parsed.groups)
+      quickTempRoot.hottestSensor = parsed.hottest
       quickTempRoot.tempUpdated = Qt.formatTime(new Date(), "HH:mm:ss")
     }
     function tempColor(value) {
@@ -2527,12 +2502,12 @@ Scope {
           Column {
             id: tempCol; width: parent.width; spacing: 6
             Text {
-              visible: (quickTempRoot.tempGroups || []).length === 0
+              visible: (quickTempRoot.tempRows || []).length === 0
               text: quickTempRoot.tempOutput ? "No sensors parsed." : "Loading sensors..."
               color: Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont; wrapMode: Text.Wrap; width: parent.width
             }
             Text {
-              visible: !!quickTempRoot.hottestSensor && (quickTempRoot.tempGroups || []).length > 0
+              visible: !!quickTempRoot.hottestSensor && (quickTempRoot.tempRows || []).length > 0
               text: quickTempRoot.hottestSensor
                 ? "Hottest: " + (quickTempRoot.hottestSensor.groupDisplayName || quickTempRoot.hottestSensor.group) + " / "
                   + quickTempRoot.hottestSensor.displayLabel + " " + quickTempRoot.hottestSensor.value.toFixed(1) + "°C"
@@ -2542,7 +2517,7 @@ Scope {
               width: parent.width; elide: Text.ElideRight
             }
             Repeater {
-              model: quickTempRoot.tempGroups || []
+              model: quickTempRoot.tempRows || []
               delegate: Rectangle {
                 required property var modelData
                 width: parent.width; height: groupCol.implicitHeight + 10; radius: 4
@@ -2551,17 +2526,32 @@ Scope {
                   id: groupCol; width: parent.width - 12; x: 6; y: 5; spacing: 3
                   RowLayout {
                     width: parent.width
-                    Text { text: modelData.displayName || modelData.name; color: Style.menuInk; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
-                    Text { text: "avg " + modelData.avg.toFixed(1) + "°C"; color: quickTempRoot.tempColor(modelData.avg); font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true }
+                    Text { text: modelData.title || ""; color: Style.menuInk; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
+                    Text {
+                      visible: modelData.value !== null && modelData.value !== undefined
+                      text: (modelData.value !== null && modelData.value !== undefined) ? (modelData.value.toFixed(1) + "°C") : ""
+                      color: quickTempRoot.tempColor(modelData.value || 0)
+                      font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true
+                    }
+                  }
+                  Rectangle {
+                    visible: modelData.kind === "item" && modelData.value !== null && modelData.value !== undefined
+                    width: parent.width; height: 4; radius: 2; color: Qt.rgba(0,0,0,0.2)
+                    Rectangle { width: parent.width * quickTempRoot.tempPercent(modelData.value || 0); height: parent.height; radius: parent.radius; color: quickTempRoot.tempColor(modelData.value || 0) }
+                  }
+                  Text {
+                    visible: modelData.kind === "item" && !!modelData.desc
+                    text: modelData.desc || ""
+                    color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont; width: parent.width; elide: Text.ElideRight
                   }
                   Repeater {
                     model: modelData.sensors || []
                     delegate: Column {
-                      required property var modelData; required property int index
+                      required property var modelData
                       width: groupCol.width; spacing: 1
                       RowLayout {
                         width: parent.width
-                        Text { text: modelData.displayLabel || modelData.label; color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont; Layout.fillWidth: true; elide: Text.ElideRight }
+                        Text { text: modelData.title || ""; color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont; Layout.fillWidth: true; elide: Text.ElideRight }
                         Text { text: modelData.value.toFixed(1) + "°C"; color: quickTempRoot.tempColor(modelData.value); font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true }
                       }
                       Rectangle {
@@ -2569,8 +2559,9 @@ Scope {
                         Rectangle { width: parent.width * quickTempRoot.tempPercent(modelData.value); height: parent.height; radius: parent.radius; color: quickTempRoot.tempColor(modelData.value) }
                       }
                       Text {
-                        visible: !!modelData.desc && (index === 0 || !modelData.sharedDesc)
-                        text: modelData.sharedDesc || modelData.desc; color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont; width: parent.width; elide: Text.ElideRight
+                        visible: !!modelData.desc
+                        text: modelData.desc || ""
+                        color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont; width: parent.width; elide: Text.ElideRight
                       }
                     }
                   }
@@ -4646,10 +4637,10 @@ Scope {
     Menu.MenuCard {
       id: launcherBox
       anchors.horizontalCenter: parent.horizontalCenter
-      y: parent.height * 0.18
+      y: root.launcherGeom.cardY
       width: root.sideActive ? 1080 : 820
       Behavior on width { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
-      height: Math.min(launcherCol.implicitHeight + 34, parent.height * 0.72)
+      height: root.launcherGeom.cardHeight
       cardMargin: 17
       focus: true
       activeFocusOnTab: true
@@ -4686,13 +4677,14 @@ Scope {
         }
       }
 
-      Column {
+      ColumnLayout {
         id: launcherCol
-        width: parent.width - 34
+        anchors.fill: parent
         spacing: 12
 
         Menu.MenuHeader {
-          width: parent.width
+          Layout.fillWidth: true
+          Layout.preferredHeight: implicitHeight
           fontFamily: root.uiFont
           fontScale: root.uiFontScale
           title: "LAUNCHER"
@@ -4705,13 +4697,13 @@ Scope {
             : ""
         }
 
-        Menu.MenuDivider { width: parent.width }
+        Menu.MenuDivider { Layout.fillWidth: true; Layout.preferredHeight: implicitHeight }
 
         // search hidden in quickMode (bjarneo: no search bar; grid+side is the view;
         // prevents typing pollution of query/cat/schedules while grid+side shown)
         Item {
-          width: parent.width
-          height: root.quickMode ? 0 : 42
+          Layout.fillWidth: true
+          Layout.preferredHeight: root.quickMode ? 0 : 42
           visible: !root.quickMode
           clip: true
 
@@ -4834,16 +4826,23 @@ Scope {
           }
         }
 
-        Menu.MenuDivider { width: parent.width; visible: !root.quickMode }
+        Menu.MenuDivider { Layout.fillWidth: true; Layout.preferredHeight: implicitHeight; visible: !root.quickMode }
 
-        // List area (with optional file preview split)
+        // List area (with optional file preview split). Height is leftover
+        // inside the card (ColumnLayout fill), not a fraction of the overlay.
         Item {
           id: listArea
-          width: parent.width
-          height: visible ? Math.max(300, launcherPanel.height * (root.expandedQuickKey === "hub"
-            ? 0.44 : (root.sideActive ? 0.52 : 0.40))) : 0
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          Layout.minimumHeight: 120
+          Layout.preferredHeight: root.launcherGeom.bodyHeight
           visible: true
           clip: true
+          readonly property var tileGeom: LauncherGeom.tileMetrics(
+            height,
+            (root.quickTiles || []).length,
+            !!root.quickDetailActive
+          )
 
           // Normal results list (or split when preview for files)
           Item {
@@ -5003,21 +5002,31 @@ Scope {
             }
 
             // Quick grid (exact ref bjarneo style: compress width+cols+tileH on detail; 1 hairline sep; grid nav; sub hidden colmode)
-            Grid {
-              id: quickGrid
+            Flickable {
+              id: quickSide
               visible: root.quickMode
               anchors.top: parent.top
               anchors.bottom: parent.bottom
               anchors.left: parent.left
               width: parent.width * parent.listFrac
-              columns: root.quickGridCols
-              rowSpacing: root.quickDetailActive ? 6 : 12
-              columnSpacing: root.quickDetailActive ? 6 : 12
               clip: true
-              readonly property bool colMode: root.quickDetailActive
-              readonly property int tileH: colMode ? 56 : 112
+              boundsBehavior: Flickable.StopAtBounds
+              contentHeight: Math.max(height, listArea.tileGeom.tileColumnHeight)
+              interactive: contentHeight > height + 1
               Behavior on width { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
-              Timer { interval: 0; running: root.quickMode; repeat: false; onTriggered: root.resultCount = (root.quickTiles || []).length }
+              ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+              Grid {
+                id: quickGrid
+                width: quickSide.width
+                height: Math.max(1, listArea.tileGeom.tileColumnHeight)
+                columns: root.quickGridCols
+                rowSpacing: root.quickDetailActive ? 6 : 12
+                columnSpacing: root.quickDetailActive ? 6 : 12
+                clip: true
+                readonly property bool colMode: root.quickDetailActive
+                readonly property int tileH: listArea.tileGeom.tileH
+                Timer { interval: 0; running: root.quickMode; repeat: false; onTriggered: root.resultCount = (root.quickTiles || []).length }
 
               Repeater {
                 model: root.quickTiles || []
@@ -5096,13 +5105,14 @@ Scope {
                 }
               }
             }
+            }
 
             // mid hairline sep (ref style between compressed grid and detail)
             Rectangle {
               id: quickSep
               visible: root.quickDetailActive
               anchors.top: parent.top; anchors.bottom: parent.bottom
-              anchors.left: quickGrid.right; anchors.leftMargin: 12
+              anchors.left: quickSide.right; anchors.leftMargin: 12
               width: 1; color: Style.menuSep
               opacity: root.quickDetailActive ? 1 : 0
               Behavior on opacity { NumberAnimation { duration: 100 } }
@@ -5113,7 +5123,7 @@ Scope {
               visible: root.sideActive
               anchors.top: parent.top
               anchors.bottom: parent.bottom
-              anchors.left: root.quickMode && root.quickDetailActive ? quickSep.right : (root.quickMode ? quickGrid.right : resultsList.right)
+              anchors.left: root.quickMode && root.quickDetailActive ? quickSep.right : (root.quickMode ? quickSide.right : resultsList.right)
               anchors.leftMargin: root.quickDetailActive ? 10 : 8
               anchors.right: parent.right
 
@@ -5122,6 +5132,7 @@ Scope {
                 id: qDetailSide
                 visible: root.quickDetailActive
                 anchors.fill: parent
+                clip: true
                 opacity: root.quickDetailActive ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
                 readonly property bool hubMode: root.expandedQuickKey === "hub"
@@ -5279,10 +5290,11 @@ Scope {
           }
         }
 
-        Menu.MenuDivider { width: parent.width }
+        Menu.MenuDivider { Layout.fillWidth: true; Layout.preferredHeight: implicitHeight }
 
         Text {
-          width: parent.width
+          Layout.fillWidth: true
+          visible: !root.quickMode
           elide: Text.ElideRight
           text: {
             const it = resultsList.currentItem ? resultsList.currentItem.modelData : null
@@ -5303,7 +5315,8 @@ Scope {
         }
 
         Menu.MenuHintRow {
-          width: parent.width
+          Layout.fillWidth: true
+          Layout.preferredHeight: implicitHeight
           fontFamily: root.uiFont
           fontScale: root.uiFontScale
           hints: "!  >  :  @  dict"

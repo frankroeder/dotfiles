@@ -14,10 +14,14 @@ Item {
 
   readonly property bool breadcrumb: root.sectionName !== ""
 
-  width: parent ? parent.width : 0
-  height: breadcrumb
+  // ColumnLayout uses implicitHeight, not height. Keep both in sync so
+  // Column (wallpaper picker) and ColumnLayout (launcher) allocate the same chrome.
+  implicitWidth: parent ? parent.width : 0
+  implicitHeight: breadcrumb
     ? Math.max(40, titleRow.height + 4 + countText.implicitHeight)
     : Math.max(28, titleText.implicitHeight + 4)
+  width: parent ? parent.width : implicitWidth
+  height: implicitHeight
 
   // Classic single-row header (wallpaper picker, root launcher)
   Text {

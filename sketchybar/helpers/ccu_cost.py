@@ -8,6 +8,7 @@ Pricing: LiteLLM model_prices_and_context_window.json (ccusage-style), cached 6h
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sys
 import time
@@ -210,6 +211,16 @@ def windows(dm: dict[date, list[float]], today: date) -> dict[str, Any]:
   }
 
 
+def has_cli(name: str) -> bool:
+  if shutil.which(name):
+    return True
+  for folder in (Path.home() / ".local" / "bin", Path.home() / ".grok" / "bin", Path("/usr/bin"), Path("/usr/local/bin")):
+    candidate = folder / name
+    if candidate.is_file() and os.access(candidate, os.X_OK):
+      return True
+  return False
+
+
 def grok_days() -> dict[date, list[float]]:
   """All-time Grok turn_completed usage from session updates."""
   root = Path.home() / ".grok" / "sessions"
@@ -337,17 +348,22 @@ def codex_days() -> dict[date, list[float]]:
   return dm
 
 
-def main() -> int:
+def fetch_cost() -> dict[str, Any]:
   today = date.today()
   providers = []
-  if shutil.which("grok"):
+  if has_cli("grok"):
     providers.append({"id": "grok", "label": "Grok", "source": "sessions", **windows(grok_days(), today)})
-  if shutil.which("claude"):
+  if has_cli("claude"):
     providers.append({"id": "claude", "label": "Claude", "source": "projects", **windows(claude_days(), today)})
-  if shutil.which("codex"):
+  if has_cli("codex"):
     providers.append({"id": "codex", "label": "Codex", "source": "rollouts", **windows(codex_days(), today)})
-  emit({"error": None, "as_of": today.isoformat(), "providers": providers})
-  return 0
+  return {"error": None, "as_of": today.isoformat(), "providers": providers}
+
+
+def main() -> int:
+  payload = fetch_cost()
+  emit(payload)
+  return 0 if not payload.get("error") else 1
 
 
 if __name__ == "__main__":

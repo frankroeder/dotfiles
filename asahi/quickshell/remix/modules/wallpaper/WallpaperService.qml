@@ -3,6 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "wallpaper_thumbs.js" as WallThumbs
 
 Singleton {
   id: root
@@ -13,6 +14,23 @@ Singleton {
   property string defaultFit: "cover"   // default fit mode passed to hyprpaper (cover, stretch, etc.)
   property bool hyprpaperIpcErrorShown: false   // show the "restart hyprpaper" message only once per session
   property string wallpaperConf: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/quickshell/wallpaper.conf"
+  property int thumbsEpoch: 0
+  readonly property string thumbCacheDir: WallThumbs.cacheDir(Quickshell.env("HOME"))
+
+  function previewSource(original) {
+    const _ = root.thumbsEpoch
+    if (!original) return ""
+    return WallThumbs.previewSource(original, root.thumbCacheDir, root.thumbsEpoch > 0)
+  }
+
+  function rebuildThumbs() {
+    const paths = []
+    for (let i = 0; i < root.wallpapers.length; i++) paths.push(root.wallpapers[i])
+    const script = WallThumbs.thumbBatchScript(paths, root.thumbCacheDir)
+    thumbProc.command = ["sh", "-c", script]
+    if (thumbProc.running) thumbProc.running = false
+    thumbProc.running = true
+  }
 
   // Scan wallpaper directories (our setup uses ~/Pictures/wallpaper)
   Process {
@@ -28,6 +46,20 @@ Singleton {
           root.wallpapers = [...root.wallpapers, path]
         }
       }
+    }
+    onExited: root.rebuildThumbs()
+  }
+
+  Process {
+    id: thumbProc
+    running: false
+    stdout: StdioCollector {
+      onStreamFinished: {
+        if ((text || "").indexOf("THUMBS_DONE") >= 0) root.thumbsEpoch += 1
+      }
+    }
+    onExited: {
+      if (root.thumbsEpoch === 0) root.thumbsEpoch = 1
     }
   }
 

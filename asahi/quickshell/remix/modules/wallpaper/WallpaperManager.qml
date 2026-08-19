@@ -178,11 +178,10 @@ Scope {
                 Image {
                   anchors.fill: parent
                   anchors.margins: 1
-                  source: "file://" + modelData
+                  source: WallpaperService.previewSource(modelData)
                   fillMode: Image.PreserveAspectCrop
-                  sourceSize.width: 200
-                  sourceSize.height: 120
                   asynchronous: true
+                  cache: true
                   Rectangle {
                     anchors.fill: parent
                     color: Style.menuControlBg

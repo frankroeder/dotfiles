@@ -9,6 +9,15 @@ FLATPAK_EXPORT_DIR="${HOME}/.local/share/flatpak/exports/share"
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FEDORA_VERSION="$(rpm -E %fedora)"
 
+# solopasha/hyprland has no fedora-44-aarch64 metadata (404 on --refresh).
+# Hyprland wiki and this machine's packages use the lionheartp fork instead.
+if sudo dnf repolist --all 2>/dev/null | grep -q 'solopasha:hyprland'; then
+  sudo dnf copr remove -y solopasha/hyprland
+fi
+sudo dnf copr enable -y scottames/ghostty
+sudo dnf copr enable -y lionheartp/Hyprland
+sudo dnf copr enable -y errornointernet/quickshell
+
 sudo dnf upgrade -y
 sudo dnf remove -y kitty kitty-terminfo || true
 
@@ -21,10 +30,6 @@ if ! sudo dnf repolist --all | grep -q '^librewolf'; then
     sudo dnf config-manager --add-repo "$LIBREWOLF_REPO_URL"
   fi
 fi
-
-sudo dnf copr enable -y scottames/ghostty
-sudo dnf copr enable -y solopasha/hyprland
-sudo dnf copr enable -y errornointernet/quickshell
 
 sudo dnf makecache --refresh
 
@@ -82,6 +87,8 @@ sudo dnf install -y \
   texlive-scheme-full \
   terminus-fonts-console \
   thunderbird \
+  Thunar \
+  tumbler \
   tree \
   uv \
   quickshell-git \
