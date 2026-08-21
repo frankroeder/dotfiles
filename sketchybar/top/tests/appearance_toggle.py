@@ -29,10 +29,10 @@ PROBES = [
     (BOT, "widgets.cpu_temp", ("label", "color"), "cpu"),
     (BOT, "widgets.uptime", ("icon", "color"), "uptime"),
     (BOT, "widgets.ssd.volume", ("icon", "color"), "ssd"),
-    (BOT, "widgets.coffee", ("icon", "color"), "coffee"),
+    (TOP, "widgets.coffee", ("icon", "color"), "coffee"),
     (BOT, "widgets.power", ("icon", "color"), "power"),
     (BOT, "widgets.gpu_temp", ("label", "color"), "gpu"),
-    (BOT, "widgets.ccu", ("label", "color"), "ccu"),
+    (TOP, "widgets.ccu", ("label", "color"), "ccu"),
     (BOT, "widgets.media", ("label", "color"), "media"),
 ]
 

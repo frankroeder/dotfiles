@@ -102,7 +102,8 @@ local accent_grok = colors.teal
 local last = { session = nil, weekly = nil, grok = nil, cost = nil }
 
 local ccu = ui.add_capsule("widgets.ccu", {
-  position = "left",
+  padding_left = 2,
+  padding_right = 2,
   drawing = has_claude or has_grok or has_codex,
   icon = { drawing = false },
   label = {
@@ -112,12 +113,15 @@ local ccu = ui.add_capsule("widgets.ccu", {
       style = settings.font.style_map["Bold"],
       size = 12.0,
     },
-    padding_right = 10,
+    padding_left = 4,
+    padding_right = 6,
   },
   popup = {
-    align = "center",
+    -- Top bar: open downward, grow right so the wide panel stays on-screen.
+    align = "left",
     horizontal = true,
     height = popup_h,
+    y_offset = 1,
     background = ui.popup(),
   },
 })
@@ -829,6 +833,7 @@ local function refresh_theme()
   win_month = colors.lavender
   win_total = colors.mauve
   ui.theme_popup(ccu)
+  ccu:set { popup = { y_offset = 1, align = "left" } }
   if has_claude then
     session_row:set { icon = { color = accent_session }, label = { color = usage_color(last.session) } }
     weekly_row:set { icon = { color = accent_weekly }, label = { color = usage_color(last.weekly) } }

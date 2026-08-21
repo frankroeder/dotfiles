@@ -6,15 +6,15 @@ local popup_row_height = settings.ui.popup_row_height
 
 local brew = sbar.add("item", "widgets.brew", {
   position = "right",
-  padding_left = 4,
-  padding_right = 4,
+  padding_left = 2,
+  padding_right = 2,
   update_freq = 3600,
-  -- No padding overrides: inherit the default icon paddings so the capsule
-  -- breathes evenly like the other top widgets.
   icon = {
     string = icons.brew,
     color = colors.blue,
     font = { size = 14.0 },
+    padding_left = 4,
+    padding_right = 2,
   },
   label = {
     string = "?",
@@ -23,6 +23,8 @@ local brew = sbar.add("item", "widgets.brew", {
       style = settings.font.style_map["Bold"],
       size = 12.0,
     },
+    padding_left = 2,
+    padding_right = 6,
   },
   popup = {
     align = "right",

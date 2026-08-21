@@ -21,7 +21,7 @@ local cal = ui.add_capsule("widgets.calendar", {
 })
 
 cal:subscribe({ "forced", "routine", "deferred_wake" }, function()
-  cal:set { label = os.date "%a %d %b  -  %H:%M" }
+  cal:set { label = os.date "%a %d %b  %H:%M" }
 end)
 
 cal:subscribe("theme_colors_updated", function()

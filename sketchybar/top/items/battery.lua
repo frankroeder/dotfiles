@@ -8,18 +8,22 @@ local CACHE_TTL = 300
 local last = { charge = nil, charging = false, icon = icons.battery["100"], label = "?" }
 
 local battery = ui.add_capsule("widgets.battery", {
-  padding_left = 4,
-  padding_right = 4,
+  padding_left = 2,
+  padding_right = 2,
   icon = {
     font = {
       style = settings.font.style_map["Regular"],
-      size = 19.0,
+      size = 16.0,
     },
     color = colors.bat,
+    padding_left = 4,
+    padding_right = 2,
   },
   label = {
     font = { family = settings.font.family },
     color = colors.bat,
+    padding_left = 2,
+    padding_right = 6,
   },
   update_freq = 120,
   popup = { align = "center", background = ui.popup() },

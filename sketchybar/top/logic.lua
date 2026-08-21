@@ -253,7 +253,7 @@ function M.media_display(title, artist, max_n)
 end
 
 function M.date_string(t)
-  return os.date("%b %d %a", t)
+  return os.date("%a %d %b", t)
 end
 
 function M.time_string(t)

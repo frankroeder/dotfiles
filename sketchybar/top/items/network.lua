@@ -25,7 +25,9 @@ local function rate_inactive(rate)
 end
 
 local network_up = ui.stacked_rate("widgets.network_up", {
-  padding_right = settings.paddings,
+  padding_left = 8,
+  padding_right = 0,
+  icon_padding = 2,
   icon = icons.wifi.upload,
   color = settings.theme.critical,
   text = "000 Bps",
@@ -34,14 +36,16 @@ local network_up = ui.stacked_rate("widgets.network_up", {
 
 local network_down = ui.stacked_rate("widgets.network_down", {
   width = settings.layout.columns.rate_row,
-  padding_right = settings.paddings,
+  padding_left = 8,
+  padding_right = 0,
+  icon_padding = 2,
   icon = icons.wifi.download,
   color = settings.theme.accent,
   text = "000 Bps",
   stack = -settings.layout.spacing.stack,
 })
 
-ui.bracket_spacer("widgets.network_gap", settings.layout.spacing.edge)
+ui.bracket_spacer("widgets.network_gap", 8)
 
 local function apply_rate_colors()
   local up_color = rate_inactive(last_rates.upload) and settings.theme.text_muted

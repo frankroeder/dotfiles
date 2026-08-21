@@ -257,9 +257,10 @@ function ui.popup_header(name, parent, spec)
 end
 
 function ui.stacked_rate(name, spec)
+  local ipad = spec.icon_padding or 2
   return sbar.add("item", name, {
     position = "right",
-    padding_left = spec.padding_left ~= nil and spec.padding_left or sp.stack,
+    padding_left = spec.padding_left ~= nil and spec.padding_left or 2,
     padding_right = spec.padding_right or 0,
     width = spec.width or 0,
     icon = {
@@ -268,15 +269,17 @@ function ui.stacked_rate(name, spec)
       color = spec.color,
       width = col.rate_icon,
       align = spec.icon_align or "center",
-      padding_left = spec.icon_padding or 2,
-      padding_right = spec.icon_padding or 6,
+      padding_left = ipad,
+      padding_right = spec.icon_padding_right or 2,
     },
     label = {
       font = spec.font or ui.rate_font(),
       color = spec.color,
       string = spec.text or "000 Bps",
       width = col.rate,
-      align = "right",
+      align = "left",
+      padding_left = 2,
+      padding_right = 0,
     },
     y_offset = spec.stack,
     background = NO_BG,

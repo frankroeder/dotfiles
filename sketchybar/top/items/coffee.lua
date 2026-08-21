@@ -8,13 +8,13 @@ local started_by_us = false
 local was_running = false
 
 local coffee = ui.add_capsule("widgets.coffee", {
-  position = "left",
+  padding_left = 0,
+  padding_right = 2,
   update_freq = 60,
-  -- Fixed centered icon box (zero paddings) so the glyph sits dead-centre.
   icon = {
     string = icons.coffee.off,
     color = colors.grey,
-    width = 30,
+    width = 22,
     align = "center",
     padding_left = 0,
     padding_right = 0,

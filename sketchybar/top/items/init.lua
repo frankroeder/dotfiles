@@ -1,6 +1,3 @@
-local settings = require "settings"
-local ui = require "ui"
-
 require "theme_handler"
 
 local function flashspace_running()
@@ -23,9 +20,11 @@ end
 require "items.calendar"
 require "items.battery"
 require "items.brew"
+require "items.coffee"
 require "items.bluetooth"
 require "items.network"
 require "items.wifi"
-ui.bracket_spacer("top.group.gap", settings.layout.spacing.group)
+require "items.vpn"
 require "items.volume"
 require "items.mic"
+require "items.ccu"

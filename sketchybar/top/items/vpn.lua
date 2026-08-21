@@ -5,8 +5,8 @@ local ui = require "ui"
 sbar.add("event", "network_change", "com.apple.networkConnect")
 
 local vpn_item = ui.add_capsule("widgets.vpn", {
-  position = "left",
-  -- Safety net: some VPN clients never fire networkConnect.
+  padding_left = 2,
+  padding_right = 2,
   update_freq = 60,
   icon = {
     string = icons.vpn,
@@ -21,8 +21,10 @@ local vpn_item = ui.add_capsule("widgets.vpn", {
     string = "",
     font = {
       style = settings.font.style_map["Bold"],
-      size = 14.0,
+      size = 13.0,
     },
+    padding_left = 2,
+    padding_right = 6,
   },
   drawing = false,
   click_script = "open 'x-apple.systempreferences:com.apple.preference.vpn'",
@@ -30,7 +32,7 @@ local vpn_item = ui.add_capsule("widgets.vpn", {
 
 local function update()
   sbar.exec(
-    [[scutil --nc list | grep Connected | sed -E 's/.*"(.*)".*/\1/' | head -1]],
+    [[scutil --nc list | grep Connected | sed -E 's/.*"(.*)".*/\1/' | awk 'NR==1{print; exit}']],
     function(output)
       local vpn_name = (output or ""):gsub("%s+$", ""):match "^%s*(.-)%s*$"
       if vpn_name and vpn_name ~= "" then

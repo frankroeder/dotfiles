@@ -35,6 +35,6 @@ sbar.bar {
   margin = bar_margin,
   notch_width = 0,
   display = focused,
-  -- Idle is a hidden seed the size of the top bar; expand unhides and grows out.
+  -- Idle seed: tucked into the screen edge (y_offset = -corner_radius).
   hidden = true,
 }

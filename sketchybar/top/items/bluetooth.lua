@@ -27,6 +27,8 @@ local update
 
 local bluetooth = sbar.add("item", "widgets.bluetooth", {
   position = "right",
+  padding_left = 0,
+  padding_right = 0,
   background = { drawing = false },
   icon = {
     string = ":bluetooth:",
@@ -36,8 +38,10 @@ local bluetooth = sbar.add("item", "widgets.bluetooth", {
       size = 14.0,
     },
     color = colors.overlay0,
-    padding_left = 8,
-    padding_right = 4,
+    width = 16,
+    align = "center",
+    padding_left = 0,
+    padding_right = 0,
   },
   label = { drawing = false },
   updates = true,
