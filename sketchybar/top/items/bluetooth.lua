@@ -4,7 +4,6 @@ local settings = require "settings"
 local ui = require "ui"
 local utils = require "utils"
 local bridge = require "island_bridge"
-local logic = require "logic"
 local popup_row_height = settings.ui.popup_row_height
 local bt_helper = os.getenv "HOME" .. "/.dotfiles/sketchybar/helpers/bt"
 local popup_width = 280
@@ -25,26 +24,31 @@ local inflight = false
 local pending_opts = nil
 local update
 
-local bluetooth = sbar.add("item", "widgets.bluetooth", {
-  position = "right",
-  padding_left = 0,
-  padding_right = 0,
-  background = { drawing = false },
+local bluetooth = ui.add_capsule("widgets.bluetooth", {
+  padding_left = 2,
+  padding_right = 2,
   icon = {
-    string = ":bluetooth:",
-    font = {
-      family = "sketchybar-app-font",
-      style = "Regular",
-      size = 14.0,
-    },
-    color = colors.overlay0,
-    width = 16,
+    string = icons.bluetooth.on,
+    color = colors.blue,
+    width = 22,
     align = "center",
-    padding_left = 0,
-    padding_right = 0,
+    padding_left = 4,
+    padding_right = 4,
+    font = {
+      style = settings.font.style_map["Bold"],
+      size = 16.0,
+    },
   },
-  label = { drawing = false },
-  updates = true,
+  label = {
+    drawing = false,
+    string = "",
+    font = {
+      style = settings.font.style_map["Semibold"],
+      size = 12.0,
+    },
+    color = colors.blue,
+    padding_right = 6,
+  },
   popup = { align = "right", background = ui.popup() },
 })
 
@@ -156,23 +160,27 @@ local function services_short(raw)
   return table.concat(tags, " · ")
 end
 
-local function bt_color(state)
-  if state == "connected" then
-    return colors.yellow
-  end
-  if state == "on" then
-    return colors.text
-  end
-  return colors.overlay0
-end
-
 local function set_bar(powered, count)
-  local state = logic.bluetooth_state(powered, (count or 0) > 0)
-  bluetooth:set {
-    icon = { string = ":bluetooth:", color = bt_color(state) },
-    label = { drawing = false },
-    background = { drawing = false },
-  }
+  if not powered then
+    bluetooth:set {
+      icon = { string = icons.bluetooth.off, color = colors.overlay0 },
+      label = { drawing = false },
+    }
+  elseif count > 0 then
+    bluetooth:set {
+      icon = { string = icons.bluetooth.on, color = colors.blue },
+      label = {
+        drawing = true,
+        string = tostring(count),
+        color = colors.blue,
+      },
+    }
+  else
+    bluetooth:set {
+      icon = { string = icons.bluetooth.on, color = colors.subtext1 },
+      label = { drawing = false },
+    }
+  end
 end
 
 local function ensure_chrome()
@@ -550,7 +558,7 @@ bluetooth:subscribe("theme_colors_updated", function()
   if not ready() then
     return
   end
-  bluetooth:set { background = { drawing = false } }
+  bluetooth:set { background = ui.capsule() }
   ui.set_popup_bg(bluetooth)
   if power_btn then
     power_btn:set { background = ui.button { height = popup_row_height + 4 } }

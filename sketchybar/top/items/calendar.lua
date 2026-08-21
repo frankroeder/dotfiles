@@ -2,10 +2,13 @@ local colors = require "colors"
 local settings = require "settings"
 local ui = require "ui"
 
+-- Native Control Center clock alias stalls the bar (screenshot/mach). Use a
+-- local clock; re-enable the alias only after Screen Recording is granted:
+-- sbar.add("alias", "Control Center,Clock(1)", { position = "right", padding_left = -10 })
 local cal = ui.add_capsule("widgets.calendar", {
   padding_left = 4,
   padding_right = 4,
-  update_freq = 30,
+  update_freq = 1,
   icon = { drawing = false },
   label = {
     color = colors.cal,

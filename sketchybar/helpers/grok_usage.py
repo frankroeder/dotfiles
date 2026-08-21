@@ -124,7 +124,7 @@ def refresh_token(data: dict[str, Any], scope: str, entry: dict[str, Any]) -> st
       tok = json.loads(resp.read())
   except urllib.error.HTTPError as exc:
     raise RuntimeError(f"refresh_failed: http_{exc.code}") from exc
-  except Exception as exc:  # noqa: BLE001
+  except Exception as exc:
     raise RuntimeError(f"refresh_failed: {exc}") from exc
 
   access = tok.get("access_token")
@@ -158,7 +158,7 @@ def fetch_billing(token: str, url: str) -> dict[str, Any]:
   except urllib.error.HTTPError as exc:
     body = exc.read().decode("utf-8", errors="replace")
     raise RuntimeError(f"http_{exc.code}: {body[:120]}") from exc
-  except Exception as exc:  # noqa: BLE001 — network DNS/timeout → soft error
+  except Exception as exc:
     raise RuntimeError(f"network: {exc}") from exc
 
 
@@ -223,6 +223,20 @@ def build_payload(credits: dict[str, Any], bare: dict[str, Any] | None = None) -
     remaining = 100.0
     source = "grok_prepaid"
 
+  reset_ts = None
+  if period_end:
+    try:
+      reset_ts = int(datetime.fromisoformat(str(period_end).replace("Z", "+00:00")).timestamp())
+    except ValueError:
+      reset_ts = None
+  start_ts = None
+  if period_start:
+    try:
+      start_ts = int(datetime.fromisoformat(str(period_start).replace("Z", "+00:00")).timestamp())
+    except ValueError:
+      start_ts = None
+  span_sec = (reset_ts - start_ts) if start_ts and reset_ts and reset_ts > start_ts else None
+
   return {
     "source": source,
     "error": None,
@@ -234,8 +248,11 @@ def build_payload(credits: dict[str, Any], bare: dict[str, Any] | None = None) -
     "prepaid_balance": prepaid,
     "resets_at": period_end,
     "resets_at_de": format_berlin(period_end),
+    "reset_unix": reset_ts,
     "period_start": period_start,
+    "period_start_unix": start_ts,
     "period_end": period_end,
+    "span_sec": span_sec,
     "period_type": period_type,
   }
 
@@ -255,8 +272,11 @@ def build_error(error: str) -> dict[str, Any]:
     "prepaid_balance": None,
     "resets_at": None,
     "resets_at_de": None,
+    "reset_unix": None,
     "period_start": None,
+    "period_start_unix": None,
     "period_end": None,
+    "span_sec": None,
     "period_type": None,
   }
 

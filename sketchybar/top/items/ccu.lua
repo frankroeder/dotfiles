@@ -1,27 +1,11 @@
--- Credits to https://github.com/TaterDoge/dotfiles/tree/main
 local colors = require "colors"
-local icons = require "icons"
 local settings = require "settings"
 local ui = require "ui"
+local logic = require "ccu_logic"
 
 local theme = settings.theme
-local metrics = settings.ui
-
--- Fixed columns: title | bar | value.
--- Item padding must stay 0 (horizontal pack advances x by it). Gaps between
--- title/bar/value use icon/label padding inside fixed column widths instead.
-local pad = 10
-local col_gap = 10
-local title_w = 88 -- "This month" / "All time" / "Past 7d"
-local bar_w = 72 -- slimmer intensity bar
-local value_w = 200 -- spark + "$305 · 225M"
-local bar_h = 6
-local row_h = metrics.popup_row_height
-local content_w = title_w + bar_w + value_w
-local popup_width = content_w + pad * 2
 local helpers = os.getenv "HOME" .. "/.dotfiles/sketchybar/helpers"
 
--- Only poll tools whose CLI is on PATH (claude / grok).
 local function has_bin(name)
   local h = io.popen("command -v " .. name .. " >/dev/null 2>&1 && echo yes")
   local out = h and h:read "*a" or ""
@@ -31,202 +15,194 @@ local function has_bin(name)
   return out:match "yes" ~= nil
 end
 
-local has_claude = has_bin "claude"
-local has_grok = has_bin "grok"
-local has_codex = has_bin "codex"
-
--- Cost providers = installed CLIs only (separate sections each).
-local cost_providers = {}
-if has_grok then
-  cost_providers[#cost_providers + 1] = { id = "grok", label = "Grok", accent = colors.teal }
-end
-if has_claude then
-  cost_providers[#cost_providers + 1] = { id = "claude", label = "Claude", accent = colors.peach }
-end
-if has_codex then
-  cost_providers[#cost_providers + 1] = { id = "codex", label = "Codex", accent = colors.sky }
+local function path_exists(path)
+  local h = io.popen('test -e "' .. path .. '" && echo yes')
+  local out = h and h:read "*a" or ""
+  if h then
+    h:close()
+  end
+  return out:match "yes" ~= nil
 end
 
--- Window accents (cost rows) — distinct from quota palette.
-local win_today = colors.peach
-local win_week = colors.green
-local win_month = colors.lavender
-local win_total = colors.mauve
-
--- Horizontal popup: width=0 rows stack via y_offset; link buttons share bottom.
--- Layout: [quota…] [─ API $ ─] [per CLI: Today/7d/Month/Total] [links]
--- One divider only (no second provider header).
-local row_gap = 2
-local step = row_h + row_gap
-local n_quota = (has_claude and 2 or 0) + (has_grok and 1 or 0)
-local n_div = (n_quota > 0 and #cost_providers > 0) and 1 or 0
-local n_cost = #cost_providers * 4 -- Today / 7d / Month / Total
-local n_links = (has_claude or has_grok) and 1 or 0
-local n_rows = n_quota + n_div + n_cost + n_links
-local popup_h = n_rows > 0 and (row_h * n_rows + row_gap * math.max(0, n_rows - 1) + 10) or row_h
-
--- y_offset: top → bottom, centered on 0. i=0 is top row.
-local function row_y(i)
-  return ((n_rows - 1) / 2 - i) * step
+local function has_cursor()
+  local home = os.getenv "HOME" or ""
+  return has_bin "cursor"
+    or has_bin "cursor-agent"
+    or path_exists "/Applications/Cursor.app"
+    or path_exists(home .. "/Library/Application Support/Cursor")
+    or path_exists(home .. "/.config/cursor/auth.json")
+    or path_exists(home .. "/.cursor")
 end
 
-local row_i = 0
-local y_session, y_weekly, y_grok, y_div, y_links
-if has_claude then
-  y_session = row_y(row_i)
-  row_i = row_i + 1
-  y_weekly = row_y(row_i)
-  row_i = row_i + 1
-end
-if has_grok then
-  y_grok = row_y(row_i)
-  row_i = row_i + 1
-end
-if n_div > 0 then
-  y_div = row_y(row_i)
-  row_i = row_i + 1
-end
-local cost_y0 = row_i
-row_i = row_i + n_cost
-if has_claude or has_grok then
-  y_links = row_y(row_i)
+-- Grok + Cursor on the bar; Claude / Codex still in the popup (lower priority).
+local provider_defs = {
+  { id = "grok", label = "Grok", accent = colors.teal, bin = "grok", bar = true },
+  { id = "cursor", label = "Cursor", accent = colors.mauve, detect = "cursor", bar = true },
+  { id = "claude", label = "Claude", accent = colors.peach, bin = "claude", bar = false },
+  { id = "codex", label = "Codex", accent = colors.sky, bin = "codex", bar = false },
+}
+local providers = {}
+for _, p in ipairs(provider_defs) do
+  local ok = false
+  if p.detect == "cursor" then
+    ok = has_cursor()
+  elseif p.bin then
+    ok = has_bin(p.bin)
+  end
+  if ok then
+    providers[#providers + 1] = p
+  end
 end
 
-local btn_gap = 6
-local both_links = has_claude and has_grok
-local btn_w = both_links and math.floor((content_w - btn_gap) / 2) or content_w
+local bar_list = {}
+for _, p in ipairs(providers) do
+  if p.bar then
+    bar_list[#bar_list + 1] = p
+  end
+end
+if #bar_list == 0 then
+  bar_list = providers
+end
 
-local accent_session = colors.mauve
-local accent_weekly = colors.blue
-local accent_grok = colors.teal
-local last = { session = nil, weekly = nil, grok = nil, cost = nil }
+local pad = 8
+local content_w = 280
+local plate_w = content_w + pad * 2
+local row_h = 20
+local row_gap = 0
+local extra_max = 3
+local bar_h = 5
+local name_w = 58
+
+local title_font = {
+  family = settings.font.family,
+  style = settings.font.style_map["Bold"],
+  size = 12.0,
+}
+local body_font = { family = settings.font.family, size = 11.0 }
+local cap_font = { family = settings.font.family, size = 10.0 }
+local chip_font = {
+  family = settings.font.family,
+  style = settings.font.style_map["Bold"],
+  size = 12.0,
+}
+
+local function popup_fill()
+  return colors.is_dark and colors.mantle or colors.base
+end
+
+local function frame_bg(h)
+  return {
+    drawing = true,
+    color = popup_fill(),
+    height = h,
+    corner_radius = settings.ui.popup_corner_radius,
+    border_width = 1,
+    border_color = theme.popup_border,
+  }
+end
+
+-- position=right: later items sit further left. Extra bar chips first, host last → Grok leftmost.
+local extra_chips = {}
+if #bar_list > 1 then
+  for i = #bar_list, 2, -1 do
+    local p = bar_list[i]
+    extra_chips[p.id] = ui.add_capsule("widgets.ccu." .. p.id, {
+      padding_left = 2,
+      padding_right = 2,
+      icon = { drawing = false },
+      label = {
+        string = p.label .. " —",
+        font = chip_font,
+        padding_left = 4,
+        padding_right = 6,
+        color = theme.text_muted,
+      },
+    })
+  end
+end
 
 local ccu = ui.add_capsule("widgets.ccu", {
   padding_left = 2,
   padding_right = 2,
-  drawing = has_claude or has_grok or has_codex,
+  drawing = #providers > 0,
   icon = { drawing = false },
   label = {
-    string = "CCu",
-    font = {
-      family = settings.font.family,
-      style = settings.font.style_map["Bold"],
-      size = 12.0,
-    },
+    string = bar_list[1] and (bar_list[1].label .. " —") or "—",
+    font = chip_font,
     padding_left = 4,
     padding_right = 6,
   },
   popup = {
-    -- Top bar: open downward, grow right so the wide panel stays on-screen.
     align = "left",
     horizontal = true,
-    height = popup_h,
+    height = row_h * 8,
     y_offset = 1,
-    background = ui.popup(),
+    background = frame_bg(row_h * 8),
   },
 })
 
--- Nothing to show: skip rows / polling.
-if not has_claude and not has_grok and not has_codex then
+if #providers == 0 then
   return
 end
 
--- Mono for titles+values so fixed icon/label widths actually column-align.
-local title_font = {
-  family = settings.font.family,
-  style = settings.font.style_map["Semibold"],
-  size = 12.0,
-}
-local value_font = {
-  family = settings.font.family,
-  size = 11.0,
-}
+local all_chips = { ccu }
+for i = 2, #bar_list do
+  all_chips[#all_chips + 1] = extra_chips[bar_list[i].id]
+end
+
+local last = {}
+for _, p in ipairs(providers) do
+  last[p.id] = { weekly = nil, days = {}, extras = {}, status = nil }
+end
+
+local function chip_item(p, index)
+  if index == 1 then
+    return ccu
+  end
+  return extra_chips[p.id]
+end
 
 local function track_color(accent)
   return colors.with_alpha(accent, colors.is_dark and 0.20 or 0.14)
 end
 
--- Color by used % (high = bad), even when UI shows remaining.
-local function usage_color(used)
-  if used == nil then
-    return theme.text_muted
-  end
-  if used >= 90 then
-    return theme.critical
-  end
-  if used >= 75 then
-    return colors.orange
-  end
-  if used >= 50 then
-    return theme.warn
-  end
-  return theme.text_muted
+local function pop_item(name, spec)
+  spec.position = "popup." .. ccu.name
+  spec.width = 0
+  spec.padding_left = spec.padding_left or pad
+  spec.padding_right = spec.padding_right or 0
+  spec.background = spec.background or { drawing = false }
+  return sbar.add("item", name, spec)
 end
 
--- opts.no_bar: text-only row (no slider) — used for All time.
-local function metric_row(name, title, accent, y, opts)
-  opts = opts or {}
-  if opts.no_bar then
-    return sbar.add("item", name, {
-      position = "popup." .. ccu.name,
-      width = 0,
-      padding_left = 0,
-      padding_right = 0,
-      y_offset = y,
-      icon = {
-        string = title,
-        width = title_w,
-        align = "right",
-        padding_left = 0,
-        padding_right = col_gap,
-        font = title_font,
-        color = accent,
-      },
-      label = {
-        string = "…",
-        width = bar_w + value_w + col_gap,
-        align = "left",
-        padding_left = col_gap,
-        padding_right = 0,
-        font = value_font,
-        color = theme.text_muted,
-      },
-      background = { drawing = false, height = row_h },
-    })
-  end
-  return sbar.add("slider", name, bar_w, {
-    position = "popup." .. ccu.name,
-    -- width=0 + zero item pads: pack length 0 so every row shares the same x.
-    width = 0,
+local header = pop_item("widgets.ccu.header", {
+  icon = {
+    string = "AGENT USAGE",
+    width = content_w,
+    align = "left",
+    font = title_font,
+    color = theme.text_primary,
     padding_left = 0,
     padding_right = 0,
-    y_offset = y,
-    icon = {
-      string = title,
-      width = title_w,
-      align = "right",
-      padding_left = 0,
-      padding_right = col_gap,
-      font = title_font,
-      color = accent,
-    },
-    label = {
-      string = "…",
-      width = value_w,
-      align = "left",
-      padding_left = col_gap,
-      padding_right = 0,
-      font = value_font,
-      color = theme.text_muted,
-    },
+  },
+  label = { drawing = false },
+})
+
+local function make_slider(name, width, height)
+  return sbar.add("slider", name, width, {
+    position = "popup." .. ccu.name,
+    width = 0,
+    padding_left = pad,
+    padding_right = 0,
+    icon = { drawing = false },
+    label = { drawing = false },
     slider = {
       percentage = 0,
-      width = bar_w,
-      highlight_color = accent,
+      highlight_color = theme.text_primary,
       background = {
-        height = bar_h,
-        corner_radius = bar_h / 2,
-        color = track_color(accent),
+        height = height,
+        corner_radius = height / 2,
+        color = track_color(theme.text_primary),
       },
       knob = { drawing = false, string = "" },
     },
@@ -234,29 +210,16 @@ local function metric_row(name, title, accent, y, opts)
   })
 end
 
-local function clamp_pct(percent)
-  if percent == nil then
-    return 0
-  end
-  local n = math.floor(percent + 0.5)
-  if n < 0 then
-    return 0
-  end
-  if n > 100 then
-    return 100
-  end
-  return n
-end
-
-local function set_percent(item, accent, percent)
+local function set_slider(item, pct, accent, height, drawing)
+  height = height or bar_h
   item:set {
+    drawing = drawing ~= false,
     slider = {
-      percentage = clamp_pct(percent),
-      width = bar_w,
+      percentage = math.min(100, math.max(0, math.floor((pct or 0) + 0.5))),
       highlight_color = accent,
       background = {
-        height = bar_h,
-        corner_radius = bar_h / 2,
+        height = height,
+        corner_radius = height / 2,
         color = track_color(accent),
       },
       knob = { drawing = false, string = "" },
@@ -264,123 +227,243 @@ local function set_percent(item, accent, percent)
   }
 end
 
-sbar.add("item", "widgets.ccu.inset", {
+local mono = {
+  family = settings.font.family,
+  size = 10.0,
+}
+local cards = {}
+for _, p in ipairs(providers) do
+  local prefix = "widgets.ccu." .. p.id
+  local card = { id = p.id, label = p.label, accent = p.accent }
+  card.sep = pop_item(prefix .. ".sep", {
+    icon = {
+      string = "─",
+      width = content_w,
+      align = "center",
+      font = cap_font,
+      color = theme.text_muted,
+      padding_left = 0,
+      padding_right = 0,
+    },
+    label = { drawing = false },
+  })
+  card.head = pop_item(prefix .. ".head", {
+    icon = {
+      string = p.label,
+      width = name_w,
+      align = "left",
+      font = title_font,
+      color = p.accent,
+      padding_left = 0,
+      padding_right = 0,
+    },
+    label = {
+      string = "0% used · resets in —",
+      width = content_w - name_w,
+      align = "left",
+      font = body_font,
+      color = theme.text_muted,
+      padding_left = 0,
+      padding_right = 0,
+    },
+  })
+  card.meter = make_slider(prefix .. ".meter", content_w, bar_h)
+  card.week = pop_item(prefix .. ".week", {
+    icon = {
+      string = "LAST 7 DAYS · 0 TOKENS",
+      width = content_w,
+      align = "left",
+      font = cap_font,
+      color = theme.text_muted,
+      padding_left = 0,
+      padding_right = 0,
+    },
+    label = { drawing = false },
+  })
+  local function chart_row(name, key)
+    card[key] = pop_item(prefix .. "." .. name, {
+      icon = {
+        string = "",
+        width = content_w,
+        align = "center",
+        font = mono,
+        color = theme.text_muted,
+        padding_left = 0,
+        padding_right = 0,
+      },
+      label = { drawing = false },
+    })
+  end
+  chart_row("counts", "counts")
+  chart_row("spark", "spark")
+  chart_row("dows", "dows")
+  card.extras = {}
+  for e = 1, extra_max do
+    card.extras[e] = pop_item(prefix .. ".extra" .. e, {
+      icon = {
+        string = "",
+        width = math.floor(content_w * 0.48),
+        align = "left",
+        font = cap_font,
+        color = theme.text_muted,
+        padding_left = 0,
+        padding_right = 0,
+      },
+      label = {
+        string = "",
+        width = content_w - math.floor(content_w * 0.48),
+        align = "right",
+        font = cap_font,
+        color = theme.text_muted,
+        padding_left = 0,
+        padding_right = 0,
+      },
+    })
+  end
+  cards[p.id] = card
+end
+
+-- Invisible last item: only job is popup window width = content. Added after
+-- width=0 rows so it does not shift them (pack x stays 0 until this item).
+sbar.add("item", "widgets.ccu.plate", {
   position = "popup." .. ccu.name,
-  width = pad,
-  padding_left = 0,
-  padding_right = 0,
+  width = plate_w,
   icon = { drawing = false },
   label = { drawing = false },
   background = { drawing = false },
 })
 
-local session_row, weekly_row, grok_row
-if has_claude then
-  session_row = metric_row("widgets.ccu.session", "Session (5h)", accent_session, y_session)
-  weekly_row = metric_row("widgets.ccu.weekly", "Week (7d)", accent_weekly, y_weekly)
-end
-if has_grok then
-  grok_row = metric_row("widgets.ccu.grok", "Grok (7d)", accent_grok, y_grok)
+local function row_y(i, n)
+  return ((n - 1) / 2 - i) * row_h
 end
 
--- One divider between quota and local API cost/token estimates.
-local div_row = nil
-if n_div > 0 then
-  local who = #cost_providers == 1 and (cost_providers[1].label .. " · ") or ""
-  local div_title = "── " .. who .. "API cost & tokens ──"
-  div_row = sbar.add("item", "widgets.ccu.div", {
-    position = "popup." .. ccu.name,
-    width = 0,
-    padding_left = 0,
-    padding_right = 0,
-    y_offset = y_div,
-    icon = {
-      string = div_title,
-      width = content_w,
-      align = "center",
-      padding_left = 0,
-      padding_right = 0,
-      font = {
-        family = settings.font.family,
-        style = settings.font.style_map["Semibold"],
-        size = 10.0,
-      },
-      color = theme.text_muted,
+local function relayout()
+  local rows = { { header } }
+  for i, p in ipairs(providers) do
+    local card = cards[p.id]
+    local st = last[p.id]
+    card.sep:set { drawing = i > 1 }
+    if i > 1 then
+      rows[#rows + 1] = { card.sep }
+    end
+    rows[#rows + 1] = { card.head }
+    if st.weekly then
+      rows[#rows + 1] = { card.meter }
+    end
+    if st.days and #st.days > 0 then
+      rows[#rows + 1] = { card.week }
+      rows[#rows + 1] = { card.counts }
+      rows[#rows + 1] = { card.spark }
+      rows[#rows + 1] = { card.dows }
+    end
+    for e = 1, extra_max do
+      local extra = st.extras and st.extras[e]
+      card.extras[e]:set { drawing = extra ~= nil }
+      if extra then
+        rows[#rows + 1] = { card.extras[e] }
+      end
+    end
+  end
+  local n = #rows
+  for i, group in ipairs(rows) do
+    local y = row_y(i - 1, n)
+    for _, it in ipairs(group) do
+      it:set { y_offset = y, width = 0 }
+    end
+  end
+  local h = n * row_h + 10
+  ccu:set {
+    popup = {
+      height = h,
+      y_offset = 1,
+      align = "left",
+      horizontal = true,
+      background = frame_bg(h),
     },
-    label = { drawing = false },
-    background = { drawing = false, height = row_h },
-  })
+  }
 end
 
--- Per-CLI: Today / Past 7d / Month / All time (no extra header row).
-local cost_rows = {} -- [id] = { today, week, month, total, accent, label }
-do
-  local yi = cost_y0
-  for _, p in ipairs(cost_providers) do
-    local multi = #cost_providers > 1
-    local t_today = multi and (p.label .. " today") or "Today"
-    local t_week = multi and (p.label .. " 7d") or "Past 7d"
-    local t_month = multi and (p.label .. " mo") or "Month"
-    local t_total = multi and (p.label .. " total") or "All time"
-    cost_rows[p.id] = {
-      label = p.label,
-      accent = p.accent,
-      today = metric_row("widgets.ccu.cost_" .. p.id .. "_today", t_today, win_today, row_y(yi)),
-      week = metric_row("widgets.ccu.cost_" .. p.id .. "_week", t_week, win_week, row_y(yi + 1)),
-      month = metric_row("widgets.ccu.cost_" .. p.id .. "_month", t_month, win_month, row_y(yi + 2)),
-      total = metric_row(
-        "widgets.ccu.cost_" .. p.id .. "_total",
-        t_total,
-        win_total,
-        row_y(yi + 3),
-        { no_bar = true }
-      ),
+local function fg_color(weekly, now)
+  if not weekly then
+    return theme.text_muted
+  end
+  if logic.behind_pace(weekly, now) then
+    return theme.critical
+  end
+  return theme.text_primary
+end
+
+local function apply_bar(now)
+  for i, p in ipairs(bar_list) do
+    local st = last[p.id]
+    local weekly = st.weekly
+    chip_item(p, i):set {
+      background = ui.capsule(),
+      label = {
+        string = logic.bar_chip(p.label, weekly, now),
+        color = fg_color(weekly, now),
+      },
     }
-    yi = yi + 4
   end
 end
 
-local function link_button(name, title, url, pad_l, pad_r)
-  return sbar.add("item", name, {
-    position = "popup." .. ccu.name,
-    width = btn_w,
-    align = "center",
-    padding_left = pad_l,
-    padding_right = pad_r,
-    y_offset = y_links,
-    icon = { drawing = false },
+local function apply_card(p, now)
+  local card = cards[p.id]
+  local st = last[p.id]
+  local weekly = st.weekly
+  local behind = logic.behind_pace(weekly, now)
+  local fg = fg_color(weekly, now)
+  local muted = behind and theme.critical or theme.text_muted
+  local fill = behind and theme.critical or p.accent
+
+  card.sep:set { drawing = p ~= providers[1], icon = { color = theme.text_muted } }
+  card.head:set {
+    drawing = true,
+    icon = { string = p.label, color = fg },
     label = {
-      string = icons.external_link .. "  " .. title,
-      color = theme.text_muted,
-      font = value_font,
-      align = "center",
-      width = btn_w,
-      padding_left = 0,
-      padding_right = 0,
+      string = weekly and logic.used_line(weekly, now) or (st.status or logic.NO_WEEKLY),
+      color = muted,
     },
-    background = ui.button { height = row_h },
-    click_script = "open '" .. url .. "'",
-  })
+  }
+  -- Meter fill = used (not remaining). Behind-pace only tints chip/meter.
+  if weekly then
+    set_slider(card.meter, weekly.used * 100, fill, bar_h, true)
+  else
+    set_slider(card.meter, 0, p.accent, bar_h, false)
+  end
+
+  local days = st.days or {}
+  local has_days = #days > 0
+  card.week:set {
+    drawing = has_days,
+    icon = { string = logic.week_header(days), color = theme.text_muted },
+  }
+  local counts, spark, labels = logic.chart_lines(days)
+  card.counts:set { drawing = has_days, icon = { string = counts, color = theme.text_muted } }
+  card.spark:set { drawing = has_days, icon = { string = spark, color = fill } }
+  card.dows:set { drawing = has_days, icon = { string = labels, color = theme.text_muted } }
+
+  for e = 1, extra_max do
+    local extra = st.extras and st.extras[e]
+    if extra then
+      card.extras[e]:set {
+        drawing = true,
+        icon = { string = extra.label, color = theme.text_muted },
+        label = { string = logic.extra_line(extra.weekly, now), color = theme.text_muted },
+      }
+    else
+      card.extras[e]:set { drawing = false }
+    end
+  end
 end
 
-local claude_link, grok_link
-if has_claude then
-  claude_link = link_button(
-    "widgets.ccu.claude_link",
-    "Claude",
-    "https://claude.ai/settings/usage",
-    0,
-    both_links and math.floor(btn_gap / 2) or 0
-  )
-end
-if has_grok then
-  grok_link = link_button(
-    "widgets.ccu.grok_link",
-    "Grok",
-    "https://grok.com/?_s=usage",
-    both_links and math.ceil(btn_gap / 2) or 0,
-    0
-  )
+local function apply_all()
+  local now = os.time()
+  apply_bar(now)
+  for _, p in ipairs(providers) do
+    apply_card(p, now)
+  end
+  relayout()
 end
 
 local function parse_lua_table(lit, tag)
@@ -401,499 +484,165 @@ local function parse_lua_table(lit, tag)
   return result
 end
 
-local function window_fields(block)
-  if not block or type(block) ~= "table" then
-    return nil
+local function apply_claude(result)
+  local st = last.claude
+  if not st then
+    return
   end
-  local used = tonumber(block.used)
-  local remaining = tonumber(block.remaining)
-  if used == nil and remaining == nil then
-    return nil
+  if result.error then
+    if not st.weekly then
+      st.status = result.error
+    end
+  else
+    st.weekly = logic.from_helper_window(result.weekly)
+    st.extras = logic.extra_windows(result.limits)
+    if #st.extras == 0 then
+      local extras = {}
+      if result.session then
+        extras[#extras + 1] = {
+          label = logic.extra_label(result.session),
+          weekly = logic.from_helper_window(result.session),
+        }
+      end
+      if result.scoped then
+        extras[#extras + 1] = {
+          label = logic.extra_label(result.scoped),
+          weekly = logic.from_helper_window(result.scoped),
+        }
+      end
+      st.extras = extras
+    end
+    st.status = nil
   end
-  if used == nil then
-    used = 100 - remaining
-  end
-  if remaining == nil then
-    remaining = math.max(0, 100 - used)
-  end
-  return {
-    used = used,
-    remaining = math.max(0, remaining),
+  apply_all()
+end
 
-    reset_text = block.reset_text,
-    label = block.label,
-    kind = block.kind,
-    model = block.model,
-    active = block.active == true,
-  }
+local function apply_grok(result)
+  local st = last.grok
+  if not st then
+    return
+  end
+  if result.error then
+    if not st.weekly then
+      st.status = result.error
+    end
+  else
+    local used = tonumber(result.utilization)
+    local reset = tonumber(result.reset_unix) or logic.iso_to_unix(result.resets_at)
+    local span = tonumber(result.span_sec)
+    if not span then
+      local start = tonumber(result.period_start_unix) or logic.iso_to_unix(result.period_start)
+      if start and reset and reset > start then
+        span = reset - start
+      end
+    end
+    st.weekly = used ~= nil and logic.weekly(used / 100, reset, span) or nil
+    st.status = nil
+  end
+  apply_all()
+end
+
+local function apply_cursor(result)
+  local st = last.cursor
+  if not st then
+    return
+  end
+  if result.error then
+    if not st.weekly then
+      st.status = result.error
+    end
+  else
+    st.weekly = logic.from_helper_window {
+      utilization = result.utilization,
+      reset_unix = result.reset_unix,
+      span_sec = result.span_sec,
+      period_start_unix = result.period_start_unix,
+    }
+    st.extras = logic.extra_windows(result.limits)
+    st.status = nil
+  end
+  apply_all()
+end
+
+local function apply_cost(result)
+  if result.error then
+    return
+  end
+  local by_id = {}
+  local list = result.providers
+  if type(list) == "table" then
+    for i = 1, #list do
+      local prov = list[i]
+      if type(prov) == "table" and prov.id then
+        by_id[prov.id] = prov
+      end
+    end
+  end
+  for _, p in ipairs(providers) do
+    local prov = by_id[p.id]
+    if prov and type(prov.weekdays) == "table" then
+      last[p.id].days = prov.weekdays
+    end
+  end
+  apply_all()
 end
 
 local function get_claude_usage(callback)
   sbar.exec("python3 " .. helpers .. "/claude_usage.py", function(lit)
-    local result = parse_lua_table(lit, "ccu_claude")
-    if result.error then
-      callback(result)
-      return
-    end
-    callback {
-      session = window_fields(result.session),
-      weekly = window_fields(result.weekly),
-    }
+    callback(parse_lua_table(lit, "ccu_claude"))
   end)
-end
-
-local function grok_title(period_type)
-  if type(period_type) == "string" and period_type:find("WEEKLY") then
-    return "Grok (7d)"
-  end
-  if type(period_type) == "string" and period_type:find("MONTHLY") then
-    return "Grok (30d)"
-  end
-  return "Grok (7d)" -- Build credits default weekly
 end
 
 local function get_grok_usage(callback)
   sbar.exec("python3 " .. helpers .. "/grok_usage.py", function(lit)
-    local result = parse_lua_table(lit, "ccu_grok")
-    if result.error then
-      callback(result)
-      return
-    end
-    local used = tonumber(result.utilization)
-    local remaining = tonumber(result.remaining)
-    if remaining == nil and used ~= nil then
-      remaining = math.max(0, 100 - used)
-    end
-    callback {
-      utilization = used,
-      remaining = remaining,
-      resets_at = result.resets_at_de or result.resets_at,
-      period_type = result.period_type,
-    }
+    callback(parse_lua_table(lit, "ccu_grok"))
+  end)
+end
+
+local function get_cursor_usage(callback)
+  sbar.exec("python3 " .. helpers .. "/cursor_usage.py", function(lit)
+    callback(parse_lua_table(lit, "ccu_cursor"))
   end)
 end
 
 local function get_cost_estimate(callback)
-  -- Local stats only — no OAuth; safe on every refresh.
   sbar.exec("python3 " .. helpers .. "/ccu_cost.py", function(lit)
     callback(parse_lua_table(lit, "ccu_cost"))
   end)
 end
 
--- "2026-07-09 11:19 (CEST)" → "09.07. 11:19" (Grok absolute date fallback)
-local function short_reset(s)
-  if not s or s == "" then
-    return nil
+local function refresh_usage()
+  if last.grok then
+    get_grok_usage(apply_grok)
   end
-  local m, d, t = s:match "%d%d%d%d%-(%d%d)%-(%d%d) (%d%d:%d%d)"
-  if m then
-    return string.format("%s.%s. %s", d, m, t)
+  if last.cursor then
+    get_cursor_usage(apply_cursor)
   end
-  return s
-end
-
--- Remaining % + relative reset; [active] = currently counting window (CLI style).
-local function format_remaining(win)
-  if not win or win.remaining == nil then
-    return "—"
+  if last.claude then
+    get_claude_usage(apply_claude)
   end
-  local text = string.format("%3.0f%%", win.remaining)
-  if win.reset_text and win.reset_text ~= "" then
-    text = text .. "  " .. win.reset_text
-  end
-  if win.active then
-    text = text .. " [active]"
-  end
-  return text
-end
-
--- Fixed CLI-style titles (window length / weekly scope). Scoped uses model name.
-local function row_title(win, fallback)
-  if not win then
-    return fallback
-  end
-  if win.kind == "weekly_scoped" or (win.label and win.label ~= "Session" and win.label ~= "Weekly") then
-    local model = win.model or win.label
-    if model and model ~= "" and model ~= "Scoped" then
-      return "Weekly " .. model
-    end
-  end
-  return fallback
-end
-
-local function format_pct(percent, reset, used)
-  if percent == nil and used == nil then
-    return "—"
-  end
-  -- Prefer remaining; if over-limit (used > 100) show used so we never print "-30%".
-  local show = percent
-  local suffix = ""
-  if used ~= nil and used > 100 then
-    show = used
-    suffix = " used"
-  elseif show == nil then
-    show = used
-  end
-  local text = string.format("%3.0f%%%s", show, suffix)
-  local r = short_reset(reset)
-  if r then
-    text = text .. "  " .. r
-  end
-  return text
-end
-
-local function max_pct(...)
-  local best = nil
-  for i = 1, select("#", ...) do
-    local v = select(i, ...)
-    if v ~= nil and (best == nil or v > best) then
-      best = v
-    end
-  end
-  return best
-end
-
-local function set_capsule(session_used, weekly_used, grok_used, err)
-  if err then
-    ccu:set {
-      background = ui.capsule(),
-      label = { string = "CCu ?", color = theme.critical },
-    }
-    return
-  end
-
-  local pct = max_pct(session_used, weekly_used, grok_used)
-  if pct == nil then
-    ccu:set {
-      background = ui.capsule(),
-      label = { string = "CCu", color = theme.text_muted },
-    }
-    return
-  end
-
-  ccu:set {
-    background = ui.capsule(),
-    label = {
-      string = string.format("CCu %.0f%%", pct),
-      color = usage_color(pct),
-    },
-  }
-end
-
-local function apply_window_row(row, accent, win, title_fallback)
-  if not win then
-    row:set {
-      icon = { string = title_fallback, color = accent },
-      label = { string = "—", color = theme.text_muted },
-    }
-    set_percent(row, accent, 0)
-    return nil
-  end
-  row:set {
-    icon = { string = row_title(win, title_fallback), color = accent },
-    label = {
-      string = format_remaining(win),
-      color = usage_color(win.used),
-    },
-  }
-  -- Bar shows remaining (CLI progress bar style).
-  set_percent(row, accent, win.remaining)
-  return win.used
-end
-
-local function apply_claude(result)
-  if not has_claude then
-    return
-  end
-  if result.error then
-    -- Keep last-good rows on transient failures (429 / parse / network).
-    local had = last.session ~= nil or last.weekly ~= nil
-    if not had then
-      session_row:set {
-        icon = { string = "Session (5h)", color = accent_session },
-        label = { string = result.error, color = theme.critical },
-      }
-      weekly_row:set {
-        icon = { string = "Week (7d)", color = accent_weekly },
-        label = { string = "—", color = theme.text_muted },
-      }
-      set_percent(session_row, accent_session, 0)
-      set_percent(weekly_row, accent_weekly, 0)
-    end
-  else
-    last.session = apply_window_row(session_row, accent_session, result.session, "Session (5h)")
-    last.weekly = apply_window_row(weekly_row, accent_weekly, result.weekly, "Week (7d)")
-  end
-  set_capsule(last.session, last.weekly, last.grok, result.error and not last.grok and not last.session)
-end
-
-local function apply_grok(result)
-  if not has_grok then
-    return
-  end
-  if result.error then
-    if last.grok == nil then
-      grok_row:set {
-        icon = { string = "Grok (7d)", color = accent_grok },
-        label = { string = result.error, color = theme.critical },
-      }
-      set_percent(grok_row, accent_grok, 0)
-    end
-  else
-    local used = result.utilization
-    local remaining = result.remaining
-    if remaining == nil and used ~= nil then
-      remaining = math.max(0, 100 - used)
-    end
-    last.grok = used
-    grok_row:set {
-      icon = { string = grok_title(result.period_type), color = accent_grok },
-      label = {
-        string = format_pct(remaining, result.resets_at, used),
-        color = usage_color(used),
-      },
-    }
-    -- Bar = remaining (CLI style); over-limit → 0%.
-    set_percent(grok_row, accent_grok, remaining or 0)
-  end
-  set_capsule(last.session, last.weekly, last.grok, result.error and not last.session and not last.grok)
-end
-
-local function fmt_tokens(n)
-  n = tonumber(n) or 0
-  if n >= 1e6 then
-    return string.format("%.1fM", n / 1e6)
-  end
-  if n >= 1e3 then
-    return string.format("%.0fk", n / 1e3)
-  end
-  return string.format("%.0f", n)
-end
-
-local function fmt_usd(u)
-  u = tonumber(u) or 0
-  if u >= 1000 then
-    return string.format("$%.1fk", u / 1000)
-  end
-  if u >= 100 then
-    return string.format("$%.0f", u)
-  end
-  return string.format("$%.2f", u)
-end
-
--- Cost-first; tokens secondary. e.g. "$21 · 16.7M"
-local function money_tok(usd, tokens)
-  return fmt_usd(usd) .. " · " .. fmt_tokens(tokens)
-end
-
--- Slim spark: 4 height steps only (less visual weight than full block set).
-local spark_blocks = { "▁", "▂", "▃", "▅" }
-local function sparkline(days, max_usd, max_bars)
-  max_usd = tonumber(max_usd) or 0
-  max_bars = max_bars or 7
-  if not days or #days == 0 then
-    return string.rep("▁", max_bars)
-  end
-  local n = #days
-  local chars = {}
-  local function level(u)
-    if max_usd > 0 and u > 0 then
-      return math.max(1, math.min(4, math.floor(u / max_usd * 3 + 1.25)))
-    end
-    return 1
-  end
-  if n <= max_bars then
-    for i = 1, n do
-      chars[i] = spark_blocks[level(tonumber(days[i].usd) or 0)]
-    end
-  else
-    for i = 1, max_bars do
-      local idx = math.floor((i - 0.5) * n / max_bars) + 1
-      if idx > n then
-        idx = n
-      end
-      chars[i] = spark_blocks[level(tonumber(days[idx].usd) or 0)]
-    end
-  end
-  return table.concat(chars)
-end
-
-local function apply_provider_cost(rows, prov)
-  local today = prov.today or {}
-  local week = prov.week or {}
-  local month = prov.month or {}
-  local total = prov.total or {}
-  local weekdays = prov.weekdays or {}
-  local max_day = tonumber(week.max_day_usd) or 0
-  local today_usd = tonumber(today.usd) or 0
-  local week_usd = tonumber(week.usd) or 0
-  local month_usd = tonumber(month.usd) or 0
-  local total_usd = tonumber(total.usd) or 0
-  local peak = math.max(max_day, today_usd, 0.01)
-
-  -- Today
-  rows.today:set {
-    icon = { color = win_today },
-    label = {
-      string = money_tok(today_usd, today.tokens),
-      color = today_usd > 0 and theme.text_primary or theme.text_muted,
-    },
-  }
-  set_percent(rows.today, win_today, (today_usd / peak) * 100)
-
-  -- Past 7d: slim 7-bar spark + $ · tokens
-  rows.week:set {
-    icon = { color = win_week },
-    label = {
-      string = sparkline(weekdays, max_day, 7) .. " " .. money_tok(week_usd, week.tokens),
-      color = week_usd > 0 and theme.text_primary or theme.text_muted,
-    },
-  }
-  local week_pct = (month_usd > 0) and (week_usd / math.max(month_usd, week_usd) * 100)
-    or (week_usd > 0 and 100 or 0)
-  set_percent(rows.week, win_week, week_pct)
-
-  -- Month: API $ + tokens used (no day-spark; bar already shows share of all-time)
-  rows.month:set {
-    icon = { color = win_month },
-    label = {
-      string = money_tok(month_usd, month.tokens),
-      color = month_usd > 0 and theme.text_primary or theme.text_muted,
-    },
-  }
-  local month_pct = (total_usd > 0) and (month_usd / total_usd * 100) or (month_usd > 0 and 100 or 0)
-  set_percent(rows.month, win_month, month_pct)
-
-  -- All time: text only (no bar)
-  rows.total:set {
-    icon = { color = win_total },
-    label = {
-      string = money_tok(total_usd, total.tokens),
-      color = total_usd > 0 and theme.text_primary or theme.text_muted,
-    },
-  }
-end
-
-local function apply_cost(result)
-  if result.error and not last.cost then
-    for _, rows in pairs(cost_rows) do
-      rows.today:set { label = { string = result.error, color = theme.critical } }
-      rows.week:set { label = { string = "—", color = theme.text_muted } }
-      rows.month:set { label = { string = "—", color = theme.text_muted } }
-      rows.total:set { label = { string = "—", color = theme.text_muted } }
-      set_percent(rows.today, win_today, 0)
-      set_percent(rows.week, win_week, 0)
-      set_percent(rows.month, win_month, 0)
-    end
-    return
-  end
-  if result.error then
-    return
-  end
-
-  last.cost = result
-  local by_id = {}
-  local list = result.providers
-  if type(list) == "table" then
-    for i = 1, #list do
-      local p = list[i]
-      if type(p) == "table" and p.id then
-        by_id[p.id] = p
-      end
-    end
-    for k, p in pairs(list) do
-      if type(k) == "string" and type(p) == "table" then
-        by_id[k] = p
-      end
-    end
-  end
-
-  for id, rows in pairs(cost_rows) do
-    local prov = by_id[id]
-    if prov then
-      apply_provider_cost(rows, prov)
-    else
-      rows.today:set { label = { string = "$0 · 0", color = theme.text_muted } }
-      rows.week:set { label = { string = "▁▁▁▁▁▁▁ $0 · 0", color = theme.text_muted } }
-      rows.month:set { label = { string = "▁▁▁▁▁▁▁▁ $0", color = theme.text_muted } }
-      rows.total:set { label = { string = "$0 · 0", color = theme.text_muted } }
-      set_percent(rows.today, win_today, 0)
-      set_percent(rows.week, win_week, 0)
-      set_percent(rows.month, win_month, 0)
-    end
-  end
+  get_cost_estimate(apply_cost)
 end
 
 local function refresh_theme()
-  accent_session = colors.mauve
-  accent_weekly = colors.blue
-  accent_grok = colors.teal
-  win_today = colors.peach
-  win_week = colors.green
-  win_month = colors.lavender
-  win_total = colors.mauve
-  ui.theme_popup(ccu)
-  ccu:set { popup = { y_offset = 1, align = "left" } }
-  if has_claude then
-    session_row:set { icon = { color = accent_session }, label = { color = usage_color(last.session) } }
-    weekly_row:set { icon = { color = accent_weekly }, label = { color = usage_color(last.weekly) } }
-    set_percent(session_row, accent_session, last.session and (100 - last.session) or 0)
-    set_percent(weekly_row, accent_weekly, last.weekly and (100 - last.weekly) or 0)
-  end
-  if has_grok then
-    grok_row:set { icon = { color = accent_grok }, label = { color = usage_color(last.grok) } }
-    set_percent(grok_row, accent_grok, last.grok and (100 - last.grok) or 0)
-  end
-  if div_row then
-    div_row:set { icon = { color = theme.text_muted } }
-  end
-  if cost_rows.grok then
-    cost_rows.grok.accent = colors.teal
-  end
-  if cost_rows.claude then
-    cost_rows.claude.accent = colors.peach
-  end
-  if cost_rows.codex then
-    cost_rows.codex.accent = colors.sky
-  end
-  if last.cost then
-    apply_cost(last.cost)
-  else
-    for _, rows in pairs(cost_rows) do
-      rows.today:set { icon = { color = win_today } }
-      rows.week:set { icon = { color = win_week } }
-      rows.month:set { icon = { color = win_month } }
-      rows.total:set { icon = { color = win_total } }
+  for _, p in ipairs(provider_defs) do
+    if p.id == "grok" then
+      p.accent = colors.teal
+    elseif p.id == "cursor" then
+      p.accent = colors.mauve
+    elseif p.id == "claude" then
+      p.accent = colors.peach
+    else
+      p.accent = colors.sky
     end
   end
-  local link_style = {
-    label = { color = theme.text_muted },
-    background = ui.button { height = row_h },
-  }
-  if claude_link then
-    claude_link:set(link_style)
-  end
-  if grok_link then
-    grok_link:set(link_style)
-  end
-  set_capsule(last.session, last.weekly, last.grok)
+  header:set { icon = { string = "AGENT USAGE", color = theme.text_primary } }
+  apply_all()
 end
 
 ccu:subscribe("theme_colors_updated", refresh_theme)
 refresh_theme()
 
-local function refresh_usage()
-  if has_claude then
-    get_claude_usage(apply_claude)
-  end
-  if has_grok then
-    get_grok_usage(apply_grok)
-  end
-  get_cost_estimate(apply_cost)
-end
-
--- Always refresh capsule (was stuck after first failed fetch when popup closed).
--- Open popup: 20s; closed: 60s — avoids Claude 429 from 10s hammering.
 local refresh_timer = sbar.add("item", "widgets.ccu.refresh_timer", {
   update_freq = 60,
   drawing = false,
@@ -907,5 +656,5 @@ refresh_timer:subscribe("routine", function()
   refresh_usage()
 end)
 
-ui.bind_popup(ccu, { on_open = refresh_usage })
+ui.bind_popup_group(ccu, all_chips, { on_open = refresh_usage, on_right = refresh_usage })
 refresh_usage()

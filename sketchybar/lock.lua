@@ -30,19 +30,17 @@ local function defer_widgets()
   end)
 end
 
--- Reload loses lua state; recover if the bar is still off-screen.
-do
-  local bin = os.getenv "BAR_NAME" == "sketchybar-top" and "/opt/homebrew/bin/sketchybar-top"
-    or "/opt/homebrew/bin/sketchybar"
-  local f = io.popen(bin .. " -m --query bar 2>/dev/null")
-  if f then
-    local out = f:read "*a" or ""
-    f:close()
-    if (tonumber(out:match '"y_offset":%s*(-?%d+)') or 0) < -10 then
-      is_hidden = true
-    end
+-- Recover after reload if the C bar is still slid off-screen. Must not
+-- `--query` during begin_config (deadlocks the mach transaction).
+sbar.delay(0.25, function()
+  local info = sbar.query "bar"
+  local y = info and tonumber(info.y_offset)
+  if y and y < -10 then
+    is_hidden = true
+    slide(bar_config.rest_geometry())
+    is_hidden = false
   end
-end
+end)
 
 local animator = sbar.add("item", "animator", { drawing = false })
 

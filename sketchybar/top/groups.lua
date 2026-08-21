@@ -8,7 +8,6 @@ return {
     "widgets.coffee",
     "widgets.bluetooth",
     "widgets.wifi",
-    "widgets.vpn",
     "widgets.network_up",
     "widgets.network_down",
     "widgets.volume",

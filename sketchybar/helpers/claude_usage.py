@@ -91,6 +91,13 @@ def load_access_token() -> str | None:
   return None
 
 
+def reset_unix(iso: str | None) -> int | None:
+  if not iso:
+    return None
+  dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+  return int(dt.timestamp())
+
+
 def format_reset(iso: str | None) -> str | None:
   if not iso:
     return None
@@ -139,6 +146,7 @@ def parse_limit(item: dict[str, Any]) -> dict[str, Any] | None:
 
     "severity": item.get("severity"),
     "resets_at": resets_at,
+    "reset_unix": reset_unix(resets_at),
     "reset_text": format_reset(resets_at),
     "active": bool(item.get("is_active")),
     "model": ((item.get("scope") or {}).get("model") or {}).get("display_name")
@@ -162,6 +170,7 @@ def parse_window(data: dict[str, Any], key: str, label: str, kind: str) -> dict[
 
     "severity": None,
     "resets_at": resets_at,
+    "reset_unix": reset_unix(resets_at),
     "reset_text": format_reset(resets_at),
     "active": kind == "session",
     "model": None,
