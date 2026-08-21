@@ -151,8 +151,10 @@ ok(cl:find("50", 1, true), "chart counts line has peak")
 ok(cl:find("0", 1, true), "chart counts line has zero day")
 ok(ll:find("Mon", 1, true) and ll:find("Sat", 1, true), "chart labels packed Sat..Mon")
 ok(not cl:find("padding", 1, true), "chart lines are plain text")
-eq(#cl, 42, "7×6 count cells")
-eq(#ll, 42, "7×6 label cells")
+eq(#cl, 7 * logic.CHART_CELL, "7 chart count cells")
+eq(#ll, 7 * logic.CHART_CELL, "7 chart label cells")
+eq(logic.month_line(5.63e7), "THIS MONTH · 56.3M", "month line")
+eq(logic.total_line(1.86e8), "ALL TIME · 186M", "all-time line")
 
 -- helper window mapping (0–100 used + reset_unix)
 local win = logic.from_helper_window { used = 31, reset_unix = claude_reset }
@@ -182,6 +184,9 @@ eq(cursor_extras[2].label, "Other Models", "cursor other extra")
 eq(logic.extra_line(cursor_extras[2].weekly, now), "12% used · 1d 0h", "cursor extra line")
 
 eq(logic.bar_chip("Codex", nil, now), "Codex —", "unavailable weekly chip")
+eq(logic.next_bar(1, 2), 2, "rotate 1/2 → 2")
+eq(logic.next_bar(2, 2), 1, "rotate 2/2 → 1")
+eq(logic.next_bar(1, 1), 1, "rotate single stays")
 eq(logic.used_line(nil, now), "Weekly limit unavailable", "unavailable used line")
 
 -- iso fallback

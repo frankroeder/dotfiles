@@ -65,7 +65,7 @@ if #bar_list == 0 then
 end
 
 local pad = 8
-local content_w = 280
+local content_w = 360
 local plate_w = content_w + pad * 2
 local row_h = 20
 local row_gap = 0
@@ -101,26 +101,6 @@ local function frame_bg(h)
   }
 end
 
--- position=right: later items sit further left. Extra bar chips first, host last → Grok leftmost.
-local extra_chips = {}
-if #bar_list > 1 then
-  for i = #bar_list, 2, -1 do
-    local p = bar_list[i]
-    extra_chips[p.id] = ui.add_capsule("widgets.ccu." .. p.id, {
-      padding_left = 2,
-      padding_right = 2,
-      icon = { drawing = false },
-      label = {
-        string = p.label .. " —",
-        font = chip_font,
-        padding_left = 4,
-        padding_right = 6,
-        color = theme.text_muted,
-      },
-    })
-  end
-end
-
 local ccu = ui.add_capsule("widgets.ccu", {
   padding_left = 2,
   padding_right = 2,
@@ -145,22 +125,12 @@ if #providers == 0 then
   return
 end
 
-local all_chips = { ccu }
-for i = 2, #bar_list do
-  all_chips[#all_chips + 1] = extra_chips[bar_list[i].id]
-end
-
 local last = {}
 for _, p in ipairs(providers) do
   last[p.id] = { weekly = nil, days = {}, extras = {}, status = nil }
 end
 
-local function chip_item(p, index)
-  if index == 1 then
-    return ccu
-  end
-  return extra_chips[p.id]
-end
+local bar_i = 1
 
 local function track_color(accent)
   return colors.with_alpha(accent, colors.is_dark and 0.20 or 0.14)
@@ -229,7 +199,7 @@ end
 
 local mono = {
   family = settings.font.family,
-  size = 10.0,
+  size = 11.0,
 }
 local cards = {}
 for _, p in ipairs(providers) do
@@ -268,6 +238,26 @@ for _, p in ipairs(providers) do
     },
   })
   card.meter = make_slider(prefix .. ".meter", content_w, bar_h)
+  card.totals = pop_item(prefix .. ".totals", {
+    icon = {
+      string = "THIS MONTH · 0",
+      width = math.floor(content_w * 0.50),
+      align = "left",
+      font = cap_font,
+      color = theme.text_muted,
+      padding_left = 0,
+      padding_right = 0,
+    },
+    label = {
+      string = "ALL TIME · 0",
+      width = content_w - math.floor(content_w * 0.50),
+      align = "right",
+      font = cap_font,
+      color = theme.text_muted,
+      padding_left = 0,
+      padding_right = 0,
+    },
+  })
   card.week = pop_item(prefix .. ".week", {
     icon = {
       string = "LAST 7 DAYS · 0 TOKENS",
@@ -350,6 +340,9 @@ local function relayout()
     if st.weekly then
       rows[#rows + 1] = { card.meter }
     end
+    if st.month_tokens ~= nil or st.total_tokens ~= nil then
+      rows[#rows + 1] = { card.totals }
+    end
     if st.days and #st.days > 0 then
       rows[#rows + 1] = { card.week }
       rows[#rows + 1] = { card.counts }
@@ -394,17 +387,22 @@ local function fg_color(weekly, now)
 end
 
 local function apply_bar(now)
-  for i, p in ipairs(bar_list) do
-    local st = last[p.id]
-    local weekly = st.weekly
-    chip_item(p, i):set {
-      background = ui.capsule(),
-      label = {
-        string = logic.bar_chip(p.label, weekly, now),
-        color = fg_color(weekly, now),
-      },
-    }
+  if #bar_list == 0 then
+    return
   end
+  if bar_i < 1 or bar_i > #bar_list then
+    bar_i = 1
+  end
+  local p = bar_list[bar_i]
+  local st = last[p.id] or {}
+  local weekly = st.weekly
+  ccu:set {
+    background = ui.capsule(),
+    label = {
+      string = logic.bar_chip(p.label, weekly, now or os.time()),
+      color = fg_color(weekly, now or os.time()),
+    },
+  }
 end
 
 local function apply_card(p, now)
@@ -434,6 +432,12 @@ local function apply_card(p, now)
 
   local days = st.days or {}
   local has_days = #days > 0
+  local has_totals = st.month_tokens ~= nil or st.total_tokens ~= nil
+  card.totals:set {
+    drawing = has_totals,
+    icon = { string = logic.month_line(st.month_tokens), color = theme.text_muted },
+    label = { string = logic.total_line(st.total_tokens), color = theme.text_muted },
+  }
   card.week:set {
     drawing = has_days,
     icon = { string = logic.week_header(days), color = theme.text_muted },
@@ -580,8 +584,14 @@ local function apply_cost(result)
   end
   for _, p in ipairs(providers) do
     local prov = by_id[p.id]
-    if prov and type(prov.weekdays) == "table" then
-      last[p.id].days = prov.weekdays
+    if prov then
+      if type(prov.weekdays) == "table" then
+        last[p.id].days = prov.weekdays
+      end
+      local month = prov.month
+      local tot = prov.total
+      last[p.id].month_tokens = type(month) == "table" and tonumber(month.tokens) or nil
+      last[p.id].total_tokens = type(tot) == "table" and tonumber(tot.tokens) or nil
     end
   end
   apply_all()
@@ -656,5 +666,17 @@ refresh_timer:subscribe("routine", function()
   refresh_usage()
 end)
 
-ui.bind_popup_group(ccu, all_chips, { on_open = refresh_usage, on_right = refresh_usage })
+local rotate_timer = sbar.add("item", "widgets.ccu.rotate", {
+  update_freq = 10,
+  drawing = false,
+  updates = true,
+})
+rotate_timer:subscribe("routine", function()
+  if #bar_list > 1 then
+    bar_i = logic.next_bar(bar_i, #bar_list)
+    apply_bar()
+  end
+end)
+
+ui.bind_popup(ccu, { on_open = refresh_usage, on_right = refresh_usage })
 refresh_usage()

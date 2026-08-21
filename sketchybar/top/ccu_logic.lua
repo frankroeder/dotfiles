@@ -169,6 +169,13 @@ function M.bar_chip(name, weekly, now)
   return name .. " " .. M.percent(weekly.used) .. " · " .. M.countdown(weekly.reset, now)
 end
 
+function M.next_bar(i, n)
+  if n < 1 then
+    return 1
+  end
+  return (i % n) + 1
+end
+
 function M.bar_label(chips, now)
   local parts = {}
   for i, c in ipairs(chips or {}) do
@@ -246,6 +253,14 @@ function M.week_header(days)
   return "LAST 7 DAYS · " .. M.token_count(M.recent_total(days)) .. " TOKENS"
 end
 
+function M.month_line(n)
+  return "THIS MONTH · " .. M.token_count(n or 0)
+end
+
+function M.total_line(n)
+  return "ALL TIME · " .. M.token_count(n or 0)
+end
+
 function M.chart_columns(days)
   local list = days or {}
   local peak = M.recent_peak(list)
@@ -292,9 +307,12 @@ function M.pad_cell(s, w)
   return string.rep(" ", left) .. s .. string.rep(" ", pad - left)
 end
 
--- Three monospaced lines (counts / spark / weekdays). No per-day items — padding_left blew the popup off-screen.
+-- Three monospaced lines (counts / spark / weekdays). Cell width 8 so 24.5M isn't jammed.
+M.CHART_CELL = 8
+
 function M.chart_lines(days)
   local cols = M.chart_columns(days)
+  local w = M.CHART_CELL
   local counts, sparks, labels = {}, {}, {}
   for i = 1, 7 do
     local c = cols[i]
@@ -302,9 +320,9 @@ function M.chart_lines(days)
     if #lab > 3 then
       lab = lab:sub(1, 3)
     end
-    counts[i] = M.pad_cell(c.compact, 6)
-    sparks[i] = M.pad_cell(M.spark_char(c.height), 6)
-    labels[i] = M.pad_cell(lab, 6)
+    counts[i] = M.pad_cell(c.compact, w)
+    sparks[i] = M.pad_cell(M.spark_char(c.height), w)
+    labels[i] = M.pad_cell(lab, w)
   end
   return table.concat(counts), table.concat(sparks), table.concat(labels)
 end

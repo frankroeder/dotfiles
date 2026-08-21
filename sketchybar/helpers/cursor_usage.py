@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Fetch Cursor plan usage for sketchybar ccu.lua.
 
-Auth from Cursor's local store (state.vscdb / auth.json), same session the IDE uses.
+Auth from Cursor's local store (state.vscdb / auth.json) or the Cursor CLI
+(token in the macOS login keychain, user id in ~/.cursor/cli-config.json).
 No Omarchy collectors.
 """
 
@@ -9,6 +10,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -31,6 +33,7 @@ AUTH_JSON_PATHS = (
   HOME / ".config" / "cursor" / "auth.json",
   HOME / ".cursor" / "auth.json",
 )
+CLI_CONFIG_PATH = HOME / ".cursor" / "cli-config.json"
 SENTRY_PATHS = (
   HOME / "Library" / "Application Support" / "Cursor" / "sentry" / "scope_v3.json",
   HOME / "Library" / "Application Support" / "Cursor" / "sentry" / "session.json",
@@ -165,6 +168,29 @@ def auth_from_vscdb() -> tuple[str | None, str | None]:
   return None, None
 
 
+def auth_from_cli() -> tuple[str | None, str | None]:
+  """Cursor CLI: access token in the login keychain, user id in cli-config.json."""
+  try:
+    proc = subprocess.run(
+      ["security", "find-generic-password", "-s", "cursor-access-token", "-a", "cursor-user", "-w"],
+      capture_output=True,
+      text=True,
+      timeout=10,
+    )
+  except (OSError, subprocess.TimeoutExpired):
+    return None, None
+  token = proc.stdout.strip() if proc.returncode == 0 else None
+  if not token:
+    return None, None
+  uid = None
+  if CLI_CONFIG_PATH.is_file():
+    try:
+      uid = find_user_id(json.loads(CLI_CONFIG_PATH.read_text()))
+    except (json.JSONDecodeError, OSError):
+      pass
+  return token, uid
+
+
 def user_id_from_sentry() -> str | None:
   for path in SENTRY_PATHS:
     if not path.is_file():
@@ -183,6 +209,8 @@ def load_auth() -> tuple[str, str | None]:
   token, uid = auth_from_json()
   if not token:
     token, uid = auth_from_vscdb()
+  if not token:
+    token, uid = auth_from_cli()
   if not uid:
     uid = user_id_from_sentry()
   if not token:

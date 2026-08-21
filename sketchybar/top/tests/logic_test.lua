@@ -282,6 +282,8 @@ ok(read_src("sketchybar/top/items/ccu.lua"):find "y_offset = 1", "ccu popup open
 ok(read_src("sketchybar/top/items/ccu.lua"):find "plate_w", "ccu popup width follows content")
 ok(read_src("sketchybar/top/items/ccu.lua"):find "horizontal = true", "ccu popup overlays with width=0")
 ok(read_src("sketchybar/top/items/ccu.lua"):find "widgets.ccu.plate", "ccu plate item sets popup width")
+ok(read_src("sketchybar/top/items/ccu.lua"):find "widgets.ccu.rotate", "ccu bar rotates one provider")
+ok(not read_src("sketchybar/top/items/ccu.lua"):find "extra_chips", "ccu bar is a single chip")
 ok(read_src("sketchybar/top/items/ccu.lua"):find "popup_fill", "ccu popup fill is opaque")
 ok(read_src("sketchybar/top/items/ccu.lua"):find 'require "ccu_logic"', "ccu item requires shipped ccu_logic")
 ok(read_src("sketchybar/top/items/ccu.lua"):find "AGENT USAGE", "ccu popup headed AGENT USAGE")
