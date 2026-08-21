@@ -136,11 +136,14 @@ local function track_color(accent)
   return colors.with_alpha(accent, colors.is_dark and 0.20 or 0.14)
 end
 
+-- Horizontal-popup quirk: a width=0 item still advances the pack cursor by its
+-- paddings, so rows drift right cumulatively. Cancel the left pad with a
+-- negative right pad → every row renders at x=pad and advances 0.
 local function pop_item(name, spec)
   spec.position = "popup." .. ccu.name
   spec.width = 0
   spec.padding_left = spec.padding_left or pad
-  spec.padding_right = spec.padding_right or 0
+  spec.padding_right = spec.padding_right or -pad
   spec.background = spec.background or { drawing = false }
   return sbar.add("item", name, spec)
 end
@@ -163,7 +166,7 @@ local function make_slider(name, width, height)
     position = "popup." .. ccu.name,
     width = 0,
     padding_left = pad,
-    padding_right = 0,
+    padding_right = -pad,
     icon = { drawing = false },
     label = { drawing = false },
     slider = {
@@ -197,9 +200,13 @@ local function set_slider(item, pct, accent, height, drawing)
   }
 end
 
+-- Chart rows need a REAL monospace font: settings.font.family is "SF Mono",
+-- which is not installed, and its fallback is proportional — space-padded
+-- cells drift. Menlo ships with macOS and is uniformly 6.02 px/char at 10pt,
+-- so 7 cells × 8 chars = 337px ≤ content_w.
 local mono = {
-  family = settings.font.family,
-  size = 11.0,
+  family = "Menlo",
+  size = 10.0,
 }
 local cards = {}
 for _, p in ipairs(providers) do
@@ -207,9 +214,10 @@ for _, p in ipairs(providers) do
   local card = { id = p.id, label = p.label, accent = p.accent }
   card.sep = pop_item(prefix .. ".sep", {
     icon = {
-      string = "─",
+      -- 35 dashes ≈ 350px in the fallback font (~10 px/char at 10pt) ≤ content_w.
+      string = string.rep("─", 35),
       width = content_w,
-      align = "center",
+      align = "left",
       font = cap_font,
       color = theme.text_muted,
       padding_left = 0,
@@ -275,7 +283,7 @@ for _, p in ipairs(providers) do
       icon = {
         string = "",
         width = content_w,
-        align = "center",
+        align = "left",
         font = mono,
         color = theme.text_muted,
         padding_left = 0,
@@ -386,6 +394,24 @@ local function fg_color(weekly, now)
   return theme.text_primary
 end
 
+-- Fixed chip width = longest chip among rotating providers, so the capsule
+-- does not resize (and shift neighbours) on every rotation. SF Mono is not
+-- installed; 6.2 px/char is calibrated against the fallback font at 12pt bold
+-- (measured 5.8 px/char via a probe item) with ~10% headroom.
+local chip_px_per_char = 6.2
+
+local function chip_width(now)
+  local max_len = 0
+  for _, p in ipairs(bar_list) do
+    local s = logic.bar_chip(p.label, (last[p.id] or {}).weekly, now)
+    local n = (utf8 and utf8.len(s)) or #s
+    if n > max_len then
+      max_len = n
+    end
+  end
+  return math.ceil(max_len * chip_px_per_char)
+end
+
 local function apply_bar(now)
   if #bar_list == 0 then
     return
@@ -393,15 +419,21 @@ local function apply_bar(now)
   if bar_i < 1 or bar_i > #bar_list then
     bar_i = 1
   end
+  now = now or os.time()
   local p = bar_list[bar_i]
   local st = last[p.id] or {}
   local weekly = st.weekly
+  local label = {
+    string = logic.bar_chip(p.label, weekly, now),
+    color = fg_color(weekly, now),
+  }
+  if #bar_list > 1 then
+    label.width = chip_width(now)
+    label.align = "left"
+  end
   ccu:set {
     background = ui.capsule(),
-    label = {
-      string = logic.bar_chip(p.label, weekly, now or os.time()),
-      color = fg_color(weekly, now or os.time()),
-    },
+    label = label,
   }
 end
 

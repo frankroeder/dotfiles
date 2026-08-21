@@ -296,15 +296,17 @@ function M.spark_char(height)
   return M.SPARK[i]
 end
 
+-- Cells are LEFT-aligned: sketchybar trims any leading/trailing whitespace
+-- (plain space and NBSP alike) from a label, which would eat a centered first
+-- cell's lead pad and shift rows against each other. With content first, every
+-- line starts at x=0 and inner spaces keep the mono grid intact.
 function M.pad_cell(s, w)
   s = tostring(s or "")
   local n = (utf8 and utf8.len(s)) or #s
   if n >= w then
     return s
   end
-  local pad = w - n
-  local left = math.floor(pad / 2)
-  return string.rep(" ", left) .. s .. string.rep(" ", pad - left)
+  return s .. string.rep(" ", w - n)
 end
 
 -- Three monospaced lines (counts / spark / weekdays). Cell width 8 so 24.5M isn't jammed.
