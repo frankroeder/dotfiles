@@ -125,7 +125,7 @@ function ui.add_capsule(name, spec)
       or (hidden_label and apply_center_icon_pad(spec.icon) or apply_icon_pad(spec.icon)),
     label = spec.grouped and apply_compact_label_pad(spec.label) or apply_label_pad(spec.label),
     update_freq = spec.update_freq,
-    updates = spec.updates,
+    updates = spec.updates ~= nil and spec.updates or true,
     popup = spec.popup,
     click_script = spec.click_script,
     drawing = spec.drawing,
@@ -226,6 +226,7 @@ function ui.bracket_graph(name, width, spec)
     label = NO_BG,
     background = { drawing = false, height = spec.height or settings.layout.hardware.graph_h },
     update_freq = spec.update_freq,
+    updates = true,
   })
 end
 
@@ -279,6 +280,7 @@ function ui.stacked_rate(name, spec)
     },
     y_offset = spec.stack,
     background = NO_BG,
+    updates = true,
   })
 end
 

@@ -14,7 +14,8 @@ function M.apply()
   }
 
   sbar.default {
-    updates = "when_shown",
+    -- when_shown: in-process sbar.trigger skips theme_colors_updated.
+    updates = true,
     blur_radius = settings.ui.item_blur_radius,
     icon = {
       font = {

@@ -12,20 +12,29 @@ local function repaint()
   end
 end
 
-handler:subscribe("theme_change", function()
-  sbar.exec("defaults read -g AppleInterfaceStyle 2>/dev/null || echo Light", function(result)
-    local is_dark = result:lower():match "dark" ~= nil
-    if is_dark == colors.is_dark then
-      return
-    end
-    colors.set_dark(is_dark)
-    settings.refresh_theme()
-    repaint()
-  end)
-end)
-
-handler:subscribe("theme_relay", function()
-  colors.update_theme_colors()
+local function apply_system(is_dark)
+  colors.set_dark(is_dark)
   settings.refresh_theme()
   repaint()
+end
+
+-- Always probe macOS appearance. Do not use the env-palette loader here.
+local gen = 0
+local function probe()
+  gen = gen + 1
+  local token = gen
+  sbar.exec("defaults read -g AppleInterfaceStyle 2>/dev/null || echo Light", function(result)
+    if token ~= gen then
+      return
+    end
+    apply_system(result:lower():match "dark" ~= nil)
+  end)
+end
+
+-- Same delay as theme_handler: notification can beat AppleInterfaceStyle.
+handler:subscribe("theme_change", function()
+  sbar.delay(0.3, probe)
 end)
+handler:subscribe("theme_relay", probe)
+
+probe()

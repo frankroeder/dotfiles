@@ -204,8 +204,7 @@ settings.spaces.icon.padding_right = spacing.icon_right
 settings.spaces.label.padding_left = spacing.label_left
 settings.spaces.label.padding_right = spacing.workspace_label_right
 
--- build_theme() already carries bar/bar_border = transparent and border_width = 1,
--- so repainting is just a copy over the live theme table.
+-- Copy the live palette onto the shared theme table (items hold this ref).
 function settings.refresh_theme()
   for key, value in pairs(build_theme()) do
     settings.theme[key] = value

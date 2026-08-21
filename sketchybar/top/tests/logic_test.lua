@@ -23,6 +23,7 @@ package.path = root
 local logic = require "logic"
 local icons = require "icons"
 local colors = require "colors"
+local settings = require "settings"
 local groups = require "groups"
 
 local failures = 0
@@ -143,6 +144,9 @@ eq(logic.truncate("abcdefghij", 5), "abcd…", "ascii truncate")
 eq(logic.truncate("日本語です", 5), "日本…", "CJK truncate")
 eq(logic.truncate("short", 20), "short", "no truncate when short")
 eq(logic.media_display("Title", "Artist", 20), "Title – Artist", "media title – artist")
+eq(logic.media_display("Title", ""), "Title", "media title only")
+eq(logic.IDLE_COPY, "It's pretty silent in here...", "idle copy")
+ok(logic.media_display("Title", "Artist") ~= logic.IDLE_COPY, "track label is not idle copy")
 local cjk_media = logic.media_display("日本語の曲", "歌手", 8)
 ok(logic.display_width(cjk_media) <= 8, "media CJK stays within budget")
 ok(cjk_media:find "…", "media CJK truncated")
@@ -193,16 +197,32 @@ local function read_src(rel)
 end
 
 ok(read_src("sketchybar/top/items/spaces.lua"):find "logic.space_pill", "spaces.lua calls logic.space_pill")
-ok(read_src("sketchybar/top/items/volume.lua"):find "logic.volume_icon", "volume.lua calls logic.volume_icon")
-ok(read_src("sketchybar/top/items/battery.lua"):find "logic.battery_visual", "battery.lua calls logic.battery_visual")
-ok(read_src("sketchybar/top/items/media.lua"):find "logic.media_display", "media.lua calls logic.media_display")
 ok(read_src("sketchybar/top/items/weather.lua"):find "logic.weather_label", "weather.lua calls logic.weather_label")
-ok(read_src("sketchybar/top/items/wifi.lua"):find "logic.wifi_connected", "wifi.lua calls logic.wifi_connected")
+ok(read_src("sketchybar/top/items/volume.lua"):find "bind_popup", "volume.lua binds popup")
+ok(read_src("sketchybar/top/items/volume.lua"):find "widgets.volume.slider", "volume popup has slider")
+ok(read_src("sketchybar/top/items/volume.lua"):find "widgets.volume.mute", "volume popup has mute")
+ok(read_src("sketchybar/top/items/battery.lua"):find "bind_popup", "battery.lua binds popup")
+ok(read_src("sketchybar/top/items/battery.lua"):find "widgets.battery.remaining", "battery popup has remaining")
+ok(read_src("sketchybar/top/items/battery.lua"):find "widgets.battery.health", "battery popup has health")
+ok(read_src("sketchybar/top/items/wifi.lua"):find "bind_popup_group", "wifi.lua binds popup group")
+ok(read_src("sketchybar/top/items/wifi.lua"):find "widgets.wifi.hostname", "wifi popup has hostname")
+ok(read_src("sketchybar/top/items/wifi.lua"):find "widgets.wifi.ip", "wifi popup has ip")
+ok(read_src("sketchybar/top/items/wifi.lua"):find "widgets.wifi.mask", "wifi popup has mask")
+ok(read_src("sketchybar/top/items/wifi.lua"):find "widgets.wifi.router", "wifi popup has router")
 ok(read_src("sketchybar/top/bar.lua"):find 'apply%("top"', "top bar uses shared apply")
 ok(read_src("sketchybar/top/bar.lua"):find "notch_width = 0", "top bar has no notch cutout")
 ok(read_src("sketchybar/bottom/bar.lua"):find 'apply "bottom"', "bottom bar still shared apply")
 ok(read_src("sketchybar/settings.lua"):find "bar_embed_items = true", "items sit on the solid bar")
 ok(read_src("sketchybar/island_core.lua"):find "idle_margin%(target%)", "island seeds from the top-bar strip")
+ok(read_src("sketchybar/top/items/yabai_spaces.lua"):find "force = true", "space pills force visible fill")
+ok(not read_src("sketchybar/top/items/init.lua"):find "nowplaying%-cli", "top bar does not use nowplaying-cli")
+
+local island_style = require "island_style"
+eq(island_style.bar().color, 0xff000000, "island bar fill is notch-black")
+eq(island_style.NOTCH_BLACK, 0xff000000, "island NOTCH_BLACK constant")
+eq(island_style.text(), 0xffffffff, "island text is bright on black")
+eq(island_style.accent(), colors.mocha.blue, "island accent is mocha-on-black")
+ok(island_style.bar().color ~= settings.theme.bar, "island fill is not the solid bar color")
 
 local init_path = root .. "sketchybar/top/items/init.lua"
 local f = io.open(init_path, "r")
@@ -219,8 +239,8 @@ if f then
   ok(init_src:find 'require "items.wifi"', "init requires wifi")
   ok(init_src:find 'require "items.bluetooth"', "init requires bluetooth")
   ok(init_src:find 'require "items.mic"', "init requires mic")
-  ok(not init_src:find 'items.logo', "init does not require logo")
   ok(not init_src:find 'items.media', "init does not require media")
+  ok(not init_src:find 'items.logo', "init does not require logo")
   ok(not init_src:find 'items.weather', "init does not require weather")
   ok(not init_src:find "center.notch", "init has no notch spacer")
   ok(not init_src:find "bracket.left", "no left group pill — bar is the chrome")
@@ -229,6 +249,14 @@ end
 
 ok(read_src("yabai/yabairc"):find "BOTTOM_RESERVE", "yabairc has BOTTOM_RESERVE")
 ok(read_src("yabai/yabairc"):find "bar_y_offset", "yabairc reads bar_y_offset")
+ok(not read_src("sketchybar/theme_handler.lua"):find "if is_dark == colors.is_dark then", "theme_handler always applies system appearance")
+ok(read_src("sketchybar/theme_handler.lua"):find "%-%-trigger theme_colors_updated", "theme_handler CLI-triggers when_shown items")
+ok(read_src("sketchybar/theme_handler.lua"):find "sbar.delay%(0%.3", "theme_handler waits for AppleInterfaceStyle before relay")
+ok(read_src("sketchybar/default.lua"):find "updates = true", "default updates=true so theme events reach items")
+ok(read_src("sketchybar/colors.lua"):find "update_theme_colors%(true%)", "colors load from macOS appearance not CATPPUCCIN_TERM_MODE")
+ok(not read_src("sketchybar/island/theme.lua"):find "update_theme_colors%(%)", "island relay does not revert to CATPPUCCIN_TERM_MODE")
+ok(read_src("sketchybar/island/theme.lua"):find "AppleInterfaceStyle", "island theme probes macOS appearance")
+ok(read_src("sketchybar/island/theme.lua"):find "probe%(%)%s*$", "island probes appearance at load")
 
 if failures > 0 then
   print(failures .. " failed")

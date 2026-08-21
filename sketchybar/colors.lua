@@ -144,6 +144,7 @@ function c.set_dark(is_dark)
   apply_palette(is_dark)
 end
 
-c.update_theme_colors()
+-- macOS appearance at load. CATPPUCCIN_TERM_MODE must not paint the first frame.
+c.update_theme_colors(true)
 
 return c

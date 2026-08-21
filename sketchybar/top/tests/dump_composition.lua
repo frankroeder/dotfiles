@@ -8,7 +8,11 @@ if root == src then
   root = (os.getenv "DOTFILES" or (os.getenv "HOME" .. "/.dotfiles")) .. "/"
 end
 
-package.path = root .. "sketchybar/top/?.lua;" .. package.path
+package.path = root
+  .. "sketchybar/?.lua;"
+  .. root
+  .. "sketchybar/top/?.lua;"
+  .. package.path
 
 local groups = require "groups"
 local init_f = assert(io.open(root .. "sketchybar/top/items/init.lua", "r"))
@@ -19,15 +23,14 @@ local function has(pat)
   return init_src:find(pat, 1, true) ~= nil
 end
 
-print "bar: solid floating strip (original widgets, no group pills)"
+print("bar: solid floating strip")
 print("left: " .. table.concat(groups.left, " "))
+print("center: " .. table.concat(groups.center or {}, " "))
 print("right: " .. table.concat(groups.right, " "))
-print("yabai_spaces=" .. tostring(has 'items.yabai_spaces'))
+print("yabai_spaces=" .. tostring(has "items.yabai_spaces"))
+print("media=" .. tostring(has 'require "items.media"'))
+print("nowplaying_cli=" .. tostring(init_src:find("nowplaying%-cli") ~= nil))
+print("weather=" .. tostring(has 'require "items.weather"'))
 print("calendar=" .. tostring(has 'require "items.calendar"'))
 print("brew=" .. tostring(has 'require "items.brew"'))
-print("network=" .. tostring(has 'require "items.network"'))
 print("mic=" .. tostring(has 'require "items.mic"'))
-print("logo=" .. tostring(has 'items.logo'))
-print("media=" .. tostring(has 'require "items.media"'))
-print("weather=" .. tostring(has 'require "items.weather"'))
-print("brackets=" .. tostring(has "bracket.left" or has "bracket.right"))
