@@ -97,6 +97,16 @@ else
     bad "window_moved subscription missing entirely"
   fi
 fi
+if grep -q 'BOTTOM_RESERVE' "$ROOT/yabai/yabairc" && grep -q 'bar_y_offset' "$ROOT/yabai/yabairc"; then
+  ok "external_bar bottom includes bar_y_offset"
+else
+  bad "external_bar bottom missing bar_y_offset pad"
+fi
+if grep -q 'expand_height' "$ROOT/yabai/yabairc"; then
+  ok "external_bar top includes island expand_height"
+else
+  bad "external_bar top missing island expand_height"
+fi
 
 # --- arrange-displays: no hard-coded /opt/homebrew ---
 arr="$ROOT/yabai/arrange-displays.sh"

@@ -8,8 +8,9 @@ local settings = require "settings"
 
 local TRANSPARENT = 0x00ffffff
 
-local BAR_H = settings.island.bar_height or 45
-local IDLE_H = settings.island.idle_height or 51
+local BAR_H = settings.island.bar_height or settings.bar_height or 32
+local IDLE_H = settings.island.idle_height or BAR_H
+local EXPAND_H = settings.island.expand_height or 48
 
 -- Higher = more important. Sticky expand only yields to equal/higher priority.
 local PRIORITY = {
@@ -172,6 +173,7 @@ local cur_mg = idle_margin(current_display)
 
 local M = {}
 M.IDLE_H = IDLE_H
+M.EXPAND_H = EXPAND_H
 M.priority = PRIORITY
 
 local function cancel_dismiss()
@@ -272,7 +274,10 @@ local function expand_on(target, item)
   cancel_dismiss()
 
   local w = math.max(160, item.width or pill_base(target))
-  local h = item.height or IDLE_H
+  local h = item.height
+  if not h or h == IDLE_H then
+    h = EXPAND_H
+  end
   local dw = display_width(target)
   local mg = math.max(0, math.floor(dw / 2) - math.floor(w / 2))
 
@@ -387,16 +392,17 @@ local function expand_on(target, item)
     return
   end
 
-  -- Fresh show: unhide already at target size (no notch-seed flash).
+  -- Fresh show: unhide at the top-bar strip, then grow out of it.
   -- Mid-retract / size change: morph from current geometry.
   if not is_expanded and not retracting then
-    cur_w, cur_h, cur_mg = w, h, mg
+    local seed_mg = idle_margin(target)
+    cur_w, cur_h, cur_mg = w, BAR_H, seed_mg
     sbar.bar(bar_props {
       hidden = false,
       topmost = "on",
       display = target,
-      height = h,
-      margin = mg,
+      height = BAR_H,
+      margin = seed_mg,
       y_offset = y_expand(target),
       color = pill_color,
       border_color = pill_border,

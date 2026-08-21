@@ -17,6 +17,10 @@ end
 
 function ui.capsule(opts)
   opts = opts or {}
+  -- Solid bars: item chrome is the bar itself.
+  if settings.bar_embed_items and opts.force ~= true then
+    return { drawing = false }
+  end
   local t = theme()
   return {
     drawing = opts.drawing ~= false,

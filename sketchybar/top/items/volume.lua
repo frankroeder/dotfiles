@@ -1,72 +1,49 @@
 local colors = require "colors"
-local icons = require "icons"
 local settings = require "settings"
-local ui = require "ui"
+local logic = require "logic"
 local utils = require "utils"
 
 local last_level = 0
 local last_muted = false
 local scroll_step = settings.volume.scroll_step or 10
 
-local volume = ui.add_capsule("widgets.volume", {
-  grouped = true,
+local volume = sbar.add("item", "widgets.volume", {
+  position = "right",
+  background = { drawing = false },
   icon = {
-    string = icons.volume[100],
-    color = colors.vol,
+    string = logic.volume_icon(100),
     font = {
-      style = settings.font.style_map["Regular"],
-      size = 16.0,
+      style = settings.font.style_map["Bold"],
+      size = 14.0,
     },
+    color = colors.green,
+    padding_left = 8,
+    padding_right = 4,
   },
   label = {
-    string = "??%",
+    string = "--%",
     font = {
-      style = settings.font.style_map["Semibold"],
-      size = 13.0,
+      family = settings.font.family,
+      style = settings.font.style_map["Bold"],
+      size = 12.0,
     },
-    color = colors.vol,
+    color = colors.text,
+    padding_right = 0,
   },
-  popup = { align = "right", background = ui.popup() },
+  updates = true,
 })
 
-local volume_slider = ui.slider_popup(
-  "widgets.volume.slider",
-  "widgets.volume",
-  colors.vol,
-  'osascript -e "set volume output volume $PERCENTAGE"'
-)
-
-local function volume_icon(level, muted)
-  if muted or level < 1 then
-    return icons.volume[0]
-  end
-  if level >= 60 then
-    return icons.volume[100]
-  end
-  if level >= 30 then
-    return icons.volume[66]
-  end
-  return icons.volume[33]
-end
-
-local function apply_volume(level, muted)
+local function apply(level, muted)
   last_level = level or 0
   last_muted = muted and true or false
-  local icon = volume_icon(last_level, last_muted)
-  local label = last_muted and "Muted" or (last_level .. "%")
-
-  sbar.animate("tanh", settings.animation_duration, function()
-    volume:set {
-      background = { drawing = false },
-      icon = { string = icon, color = colors.vol },
-      label = { string = label, color = colors.vol },
-    }
-  end)
-
-  volume_slider:set {
-    slider = {
-      percentage = last_level,
-      highlight_color = colors.vol,
+  volume:set {
+    icon = {
+      string = logic.volume_icon(last_level, last_muted),
+      color = colors.green,
+    },
+    label = {
+      string = last_muted and "00%" or logic.volume_label(last_level),
+      color = colors.text,
     },
   }
 end
@@ -77,11 +54,9 @@ local function refresh_volume()
     function(out)
       local lines = {}
       for line in tostring(out or ""):gmatch "[^\r\n]+" do
-        table.insert(lines, line)
+        lines[#lines + 1] = line
       end
-      local level = tonumber(lines[1]) or last_level
-      local muted = tostring(lines[2] or ""):lower():match "true" ~= nil
-      apply_volume(level, muted)
+      apply(tonumber(lines[1]) or last_level, tostring(lines[2] or ""):lower():match "true" ~= nil)
     end
   )
 end
@@ -90,8 +65,7 @@ volume:subscribe("volume_change", function(env)
   local level = tonumber(env.INFO)
   if level then
     sbar.exec([[osascript -e 'output muted of (get volume settings)']], function(muted_out)
-      local muted = tostring(muted_out or ""):lower():match "true" ~= nil
-      apply_volume(level, muted)
+      apply(level, tostring(muted_out or ""):lower():match "true" ~= nil)
     end)
   else
     refresh_volume()
@@ -111,40 +85,11 @@ volume:subscribe("mouse.scrolled", function(env)
   elseif next > 100 then
     next = 100
   end
-  sbar.exec(
-    "osascript -e 'set volume output volume "
-      .. next
-      .. "' -e 'set volume output muted false'",
-    refresh_volume
-  )
+  sbar.exec("osascript -e 'set volume output volume " .. next .. "' -e 'set volume output muted false'", refresh_volume)
 end)
-
-local volume_mute = ui.popup_button("widgets.volume.mute", volume, {
-  label = "Toggle Mute",
-  align = "center",
-  label_align = "center",
-  width = 160,
-})
-
-volume_mute:subscribe("mouse.clicked", function()
-  sbar.exec(
-    "osascript -e 'set volume output muted not (output muted of (get volume settings))'",
-    refresh_volume
-  )
-end)
-
-ui.bind_popup(volume, {
-  on_right = "open /System/Library/PreferencePanes/Sound.prefpane",
-})
-
-refresh_volume()
 
 volume:subscribe("theme_colors_updated", function()
-  volume:set { background = { drawing = false } }
-  ui.theme_popup(volume, { buttons = { volume_mute } })
-  apply_volume(last_level, last_muted)
-  volume_slider:set {
-    slider = ui.slider_track(colors.vol),
-    background = ui.button(),
-  }
+  apply(last_level, last_muted)
 end)
+
+refresh_volume()

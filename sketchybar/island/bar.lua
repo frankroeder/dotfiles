@@ -16,10 +16,12 @@ local on_notched = focused == display.builtin_index and display.notch_width > 0
 local pill_width = on_notched and display.notch_width or 160
 local bar_margin = math.max(0, math.floor(focused_width / 2) - math.floor(pill_width / 2))
 local style = island_style.bar()
+local seed_h = settings.island.bar_height or settings.bar_height or 32
+local seed_y = settings.island.y_offset_idle or settings.bar_y_offset or 0
 
 sbar.bar {
   position = "top",
-  height = settings.island.bar_height,
+  height = seed_h,
   color = style.color,
   border_color = style.border_color,
   border_width = style.border_width,
@@ -28,13 +30,11 @@ sbar.bar {
   padding_left = 0,
   blur_radius = 0,
   shadow = false,
-  -- Idle starts off; island_core sets topmost=on only while a pill is expanded
-  -- (always-on topmost covered the top bar space app icons).
   topmost = "off",
-  y_offset = island_style.y_offset_idle(focused),
+  y_offset = seed_y,
   margin = bar_margin,
   notch_width = 0,
   display = focused,
-  -- Idle island is invisible; island_core unhides the bar only while expanded.
+  -- Idle is a hidden seed the size of the top bar; expand unhides and grows out.
   hidden = true,
 }

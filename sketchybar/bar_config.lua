@@ -5,6 +5,8 @@ local M = {}
 
 local bar_position = "top"
 local display_watch = nil
+local last_extra = {}
+local rest = { y_offset = 0, margin = settings.bar_margin, color = settings.theme.bar }
 
 -- Real notch only on a lone built-in screen. Dual-monitor and notchless stay 0
 -- (island covers the notch; a fake cutout artifacts on externals).
@@ -33,8 +35,25 @@ function M.bar_props(position, extra)
   return props
 end
 
+function M.rest_geometry()
+  return { y_offset = rest.y_offset, margin = rest.margin }
+end
+
+function M.rest_color()
+  return rest.color or settings.theme.bar
+end
+
+function M.set_rest_color(color)
+  rest.color = color
+end
+
 function M.bar(extra)
-  sbar.bar(M.bar_props(bar_position, extra))
+  if extra then
+    for key, value in pairs(extra) do
+      last_extra[key] = value
+    end
+  end
+  sbar.bar(M.bar_props(bar_position, last_extra))
 end
 
 function M.refresh_geometry()
@@ -44,8 +63,9 @@ function M.refresh_geometry()
   M.bar()
 end
 
-function M.apply(position)
+function M.apply(position, extra)
   bar_position = position
+  extra = extra or {}
   local props = {
     height = settings.bar_height,
     position = position,
@@ -57,11 +77,19 @@ function M.apply(position)
     blur_radius = settings.bar_blur_radius,
     margin = settings.bar_margin,
     corner_radius = settings.bar_corner_radius,
+    y_offset = settings.bar_y_offset or 0,
     topmost = "off",
   }
   if settings.bar_shadow then
     props.shadow = { drawing = true }
   end
+  for key, value in pairs(extra) do
+    props[key] = value
+  end
+  rest.y_offset = props.y_offset or 0
+  rest.margin = props.margin or settings.bar_margin
+  rest.color = props.color or settings.theme.bar
+  last_extra = {}
   M.bar(props)
 
   -- Hotplug / arrangement change: re-probe notch + reapply bar geometry.

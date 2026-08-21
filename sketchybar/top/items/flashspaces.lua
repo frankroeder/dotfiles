@@ -52,7 +52,7 @@ local function updateStyle(workspace_name)
   local fg = focused and theme.badge_active_text
     or (occupied and theme.occupied_text or theme.empty_text)
 
-  local background = ui.capsule { color = bg, border_width = 0 }
+  local background = ui.capsule { force = true, color = bg, border_width = 0 }
 
   sbar.animate("tanh", settings.motion.fast, function()
     workspace:set {
@@ -159,6 +159,7 @@ for workspace_index, workspace_name in ipairs(parse_lines(workspace_output)) do
       padding_right = ws_layout.label.padding_right,
     },
     background = ui.capsule {
+      force = true,
       color = ws_theme().bg,
       border_width = 0,
       height = ws_layout.capsule.height,

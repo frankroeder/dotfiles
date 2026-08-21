@@ -1,7 +1,6 @@
 local bar_config = require "bar_config"
 local bridge = require "island_bridge"
 local colors = require "colors"
-local settings = require "settings"
 
 sbar.add("event", "siri_appear", "com.apple.Siri.SiriDidAppear")
 sbar.add("event", "siri_disappear", "com.apple.Siri.SiriDidDisappear")
@@ -18,7 +17,7 @@ siri:subscribe({ "siri_appear", "siri_disappear" }, function(env)
   else
     bridge.trigger("island_siri", { action = "disappear" })
     sbar.animate("tanh", 20, function()
-      bar_config.bar { color = settings.theme.bar }
+      bar_config.bar { color = bar_config.rest_color() }
     end)
   end
 end)

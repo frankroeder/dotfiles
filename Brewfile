@@ -32,6 +32,7 @@ brew "skhd", args: ["with-logging"]
 brew "sketchybar", args:  ["HEAD"], restart_service: :changed
 brew "borders"
 brew "blueutil"
+brew "nowplaying-cli"
 
 cask "librewolf",
      postinstall: "/usr/bin/xattr -dr com.apple.quarantine /Applications/LibreWolf.app"

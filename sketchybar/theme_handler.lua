@@ -21,6 +21,9 @@ local function apply(is_dark)
   settings.refresh_theme()
   -- Keep sbar.default popup/icon/label colors in sync for newly created rows.
   require("default").apply()
+  local bar_config = require "bar_config"
+  bar_config.set_rest_color(settings.theme.bar)
+  bar_config.bar { color = settings.theme.bar }
   sbar.trigger "theme_colors_updated"
   if this == "bottom" then
     sbar.exec "pkill -x borders 2>/dev/null; $HOME/.config/borders/bordersrc >/dev/null 2>&1 &"

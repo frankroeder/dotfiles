@@ -1,11 +1,9 @@
 local bar_config = require "bar_config"
-local settings = require "settings"
 local motion = require "motion"
 
 local SLIDE_FRAMES = 20
 local WAKE_DELAY = SLIDE_FRAMES / 60
 
-local unlocked = { y_offset = 0, margin = settings.bar_margin }
 local hidden = { y_offset = -20, margin = -30 }
 
 sbar.add("event", "deferred_wake")
@@ -62,7 +60,7 @@ animator:subscribe("system_woke", function()
   end
   is_hidden = false
   wake_handled = true
-  slide(unlocked)
+  slide(bar_config.rest_geometry())
 end)
 
 animator:subscribe(unlock_event.name, function()
@@ -75,5 +73,5 @@ animator:subscribe(unlock_event.name, function()
     bar_config.bar(hidden)
   end
   is_hidden = false
-  slide(unlocked)
+  slide(bar_config.rest_geometry())
 end)

@@ -4,7 +4,7 @@ local app_icon_font = "sketchybar-app-font"
 
 local function build_theme()
   return {
-    bar = colors.transparent,
+    bar = colors.with_alpha(colors.crust, colors.is_dark and 0.94 or 0.92),
     bar_border = colors.transparent,
     surface = colors.with_alpha(colors.base, colors.is_dark and 0.82 or 0.96),
     surface_alt = colors.with_alpha(colors.mantle, colors.is_dark and 0.88 or 0.94),
@@ -51,16 +51,18 @@ local spacing = {
   edge = 6,
 }
 
--- Transparent bar: chrome lives in the item capsules, never in the bar itself.
+-- Solid floating bars; widgets sit on the bar (no per-item capsules).
 local settings = {
   animation_duration = 10,
-  bar_height = 38,
-  bar_padding = 5,
-  bar_margin = 8,
+  bar_height = 32,
+  bar_padding = 8,
+  bar_margin = 12,
+  bar_y_offset = 0,
   bar_corner_radius = 8,
   bar_border_width = 0,
   bar_blur_radius = 0,
   bar_shadow = false,
+  bar_embed_items = true,
   border_width = 1,
   icons = "sf-symbols",
   theme = build_theme(),
@@ -126,15 +128,15 @@ local settings = {
     mic_duration = 2,
     bluetooth_duration = 3,
     siri_frames = 108,
-    -- Idle bar height matches the single-line pill; heights include the tuck.
-    bar_height = 56,
-    idle_height = 56,
-    corner_radius = 16,
-    -- Tuck by the corner radius so the top rounding hides above the screen edge.
-    y_offset_idle = -16,
-    y_offset_expand = -16,
-    y_offset_external = -16,
-    text_y_offset = -8,
+    -- Idle seed matches the top bar strip; expand_height pops out below it.
+    bar_height = 32,
+    idle_height = 32,
+    expand_height = 48,
+    corner_radius = 8,
+    y_offset_idle = 0,
+    y_offset_expand = 0,
+    y_offset_external = 0,
+    text_y_offset = 0,
     -- Widths sized so the longest label fits its lobe (fallback mono is wide).
     widths = {
       app = 520,

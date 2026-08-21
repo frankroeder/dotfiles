@@ -25,20 +25,20 @@ bar_height() {
 TOP_BAR_HEIGHT=$(bar_height sketchybar-top 43)
 BOTTOM_BAR_HEIGHT=$(bar_height sketchybar 43)
 
-# Island top reserve: idle single-line pill only (smallest). Island bar is
-# topmost so taller critical pills draw over windows without a permanent gap.
-# Reading geometry from settings.lua keeps yabai in sync with the pill.
+# Bars sit flush (bar_y_offset=0). Top reserve is the larger of the top bar and
+# the island toast (expand_height + y_offset) so windows stay clear of it.
 SETTINGS="${DOTFILES:-$HOME/.dotfiles}/sketchybar/settings.lua"
-island_num() {
+settings_num() {
   local value
   value=$(grep -m1 -E "^[[:space:]]*$1[[:space:]]*=" "$SETTINGS" 2>/dev/null | grep -oE '\-?[0-9]+')
   [[ $value =~ ^-?[0-9]+$ ]] && printf '%s\n' "$value" || printf '%s\n' "$2"
 }
 
-# Visible pill height ≈ idle_height + y_offset (y_offset is negative tuck).
-ISLAND_TOP=$(( $(island_num idle_height 56) + $(island_num y_offset_expand -16) ))
-TOP_RESERVE=$TOP_BAR_HEIGHT
+BAR_Y=$(settings_num bar_y_offset 0)
+ISLAND_TOP=$(( $(settings_num expand_height 48) + $(settings_num y_offset_expand 0) ))
+TOP_RESERVE=$(( TOP_BAR_HEIGHT + BAR_Y ))
 [[ $ISLAND_TOP -gt $TOP_RESERVE ]] && TOP_RESERVE=$ISLAND_TOP
+BOTTOM_RESERVE=$(( BOTTOM_BAR_HEIGHT + BAR_Y ))
 
 yabai -m config window_origin_display        default \
                 window_placement             second_child \
@@ -67,7 +67,7 @@ yabai -m config window_origin_display        default \
                 split_ratio                  0.50 \
                 split_type                   auto \
                 layout                       stack \
-                external_bar                 all:${TOP_RESERVE}:${BOTTOM_BAR_HEIGHT}
+                external_bar                 all:${TOP_RESERVE}:${BOTTOM_RESERVE}
 
 # events
 # Only the top bar consumes window/space events (the bottom bar has no yabai
