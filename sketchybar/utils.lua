@@ -5,6 +5,21 @@ function utils.shell_quote(value)
   return "'" .. tostring(value):gsub("'", [['"'"']]) .. "'"
 end
 
+-- Truncate to `max_chars` CODEPOINTS with a trailing ellipsis. Byte-based
+-- string.sub splits multibyte UTF-8 (app/device names like "Café" → mojibake).
+function utils.ellipsize(s, max_chars)
+  s = tostring(s or "")
+  local len = utf8 and utf8.len(s)
+  if not len then
+    -- Invalid UTF-8 (or no utf8 lib): fall back to byte semantics.
+    return #s > max_chars and (s:sub(1, max_chars) .. "…") or s
+  end
+  if len <= max_chars then
+    return s
+  end
+  return s:sub(1, utf8.offset(s, max_chars + 1) - 1) .. "…"
+end
+
 -- sketchybar mouse.scrolled: prefer SCROLL_DELTA; INFO is a fallback.
 function utils.scroll_delta(env)
   for _, key in ipairs { "SCROLL_DELTA", "INFO" } do

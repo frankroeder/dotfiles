@@ -1,5 +1,8 @@
 local colors = require "colors"
-local font_family = "SF Mono"
+-- SF Pro is actually installed (/Library/Fonts/SF-Pro*.otf); "SF Mono" was not,
+-- so every bar silently rendered a narrower system fallback. Fixed widths below
+-- are calibrated against SF Pro — re-measure with probe items if this changes.
+local font_family = "SF Pro"
 local app_icon_font = "sketchybar-app-font"
 
 local function build_theme()
@@ -56,7 +59,7 @@ local settings = {
   animation_duration = 10,
   bar_height = 32,
   bar_padding = 8,
-  bar_margin = 12,
+  bar_margin = 6,
   bar_y_offset = 0,
   bar_corner_radius = 8,
   bar_border_width = 0,
@@ -71,14 +74,14 @@ local settings = {
     columns = {
       icon = 28,
       icon_sm = 22,
-      label = 50,
-      label_lg = 62,
-      label_pct = 58,
+      label = 58, -- "RAM 65%" = 54px in SF Pro Bold 11
+      label_lg = 62, -- "eCPU 23%" = 59px
+      label_pct = 64, -- "SSD 100%" = 63px in SF Pro Bold 12
       wifi = 32,
       wifi_icon = 20,
       rate_icon = 21,
-      rate = 50,
-      rate_row = 66,
+      rate = 56, -- "999 KB/s" = 51px in SF Pro Bold 11
+      rate_row = 77,
     },
     hardware = {
       cpu_graph = 60,
@@ -88,9 +91,12 @@ local settings = {
       graph_y = 8,
       ecpu_graph_y = 21,
       ram_top_w = 0,
-      ram_bot_w = 78,
+      ram_bot_w = 86, -- icon 28 + label 58
       cpu_ecpu_w = 0,
-      cpu_pcpu_w = 88,
+      -- = the row's NATURAL packed width (probe: icon box 28 + "eCPU 22%" in
+      -- 62px label, SF Pro Bold 11). Fixed row must equal the width-0 partner's
+      -- natural extent or the stacked rows x-misalign (was 88 vs natural 84).
+      cpu_pcpu_w = 90,
       gpu_temp_pad_l = -6,
       gpu_label_pad_r = -8,
       cpu_ecpu_pad_l = -12,
@@ -138,14 +144,20 @@ local settings = {
     y_offset_expand = -16,
     y_offset_external = -16,
     text_y_offset = -8,
-    -- Widths sized so the longest label fits its lobe (fallback mono is wide).
+    -- FIXED pill widths = 2 × (16px text pad + measured longest left text +
+    -- 12px slack) + 220px probed notch. Measured in SF Pro Semibold 15 via
+    -- probe items: "Stack layout"=88, "Mic muted"=74, "Not sticky"=72,
+    -- appswitch worst (13ch+…)≈130, bt worst (9ch+… · 100%)=156. siri is
+    -- floored by the right lobe minimum (wing ≥ 4+48+16 → w ≥ 356).
+    -- Do NOT slim these per toast: the probed notch_width (220) underreads the
+    -- physical cutout, and only the generous worst-case wings absorb that.
     widths = {
-      app = 520,
+      app = 540,
       siri = 380,
-      layout = 520,
-      mic = 460,
-      bluetooth = 540,
-      window = 480,
+      layout = 460,
+      mic = 430,
+      bluetooth = 590,
+      window = 430,
     },
   },
   hardware = {

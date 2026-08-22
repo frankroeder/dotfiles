@@ -84,11 +84,11 @@ Requirements / decisions:
 - Island is notch-aware: on the built-in (notched) display the pill straddles the notch — text in
   a wide left box (left-aligned, at the pill's left, out of the notch), glyph in a fixed right lobe
   (right of the notch). The wide left box fills the width so the glyph is pushed to the right lobe
-  with only small paddings — DO NOT use large paddings (~notch width) to build the gap, sketchybar
-  mis-renders them (content collapses/centers even though `--query` reports the set values). Widths
-  in settings.lua are sized (from measured label widths) so the left text stays clear of the notch;
-  SF Mono is not installed so the fallback monospaced font is wider — measure against it. On
-  external/notchless displays lobes are equal halves clustered toward the center.
+ with only small paddings — DO NOT use large paddings (~notch width) to build the gap, sketchybar
+ mis-renders them (content collapses/centers even though `--query` reports the set values). Widths
+ in settings.lua are sized (from measured label widths) so the left text stays clear of the notch;
+ the declared family is now SF Pro (installed) — measure against it with probe items. On
+ external/notchless displays lobes are equal halves clustered toward the center.
 - Island shows ONLY on the focused display: every `sbar.bar` mutation carries `display = <focused>`.
   Focused display comes from `display.focused_index()`, which filters yabai's `has-focus` display
   (NOT `--display focused` — that is an invalid yabai DISPLAY_SEL and silently fails).
@@ -124,8 +124,35 @@ Requirements / decisions:
  50px label — numbers must hug the ↑/↓ arrows; right-align opened a hole between arrow and value
  whenever the text was shorter than the box. Raw zero-padded provider strings are kept in
  `last_rates` (the `^0+%s` inactive check depends on them) and prettified only at display time.
-- Mic/volume labels live in a fixed 40px left-aligned box: "9%"→"100%"→"Muted" must not resize
- the item and bump neighbours.
+- Mic/volume labels live in a fixed 42px left-aligned box ("Muted" = 39px in SF Pro Semibold 13):
+ "9%"→"100%"→"Muted" must not resize the item and bump neighbours. Their icons are fixed 24px
+ boxes for the same reason (state glyphs differ in width).
+- ALL bars now declare `SF Pro` (installed at /Library/Fonts/SF-Pro*.otf). "SF Mono" never was
+ installed — every bar used to render a ~10% narrower system fallback, and all fixed widths were
+ calibrated against SF Pro after the switch. Verify font metrics with probe items
+ (`--add item` + `bounding_rects`), never by assuming.
+- Island pill widths (settings.lua `island.widths`) are FIXED per kind:
+ `w = 2 × (16px text pad + measured longest left text in SF Pro Semibold 15 + 12px slack) +
+ 220px probed notch`, floored by the right-lobe minimum (wing ≥ 4+48+16 → w ≥ 356, binds siri).
+ Undersizing runs the text into the notch (the old bluetooth 580 was 10px short for
+ "Momentum4… · 100%" = 156px). Per-toast slimming (fit width to the actual text) was TRIED AND
+ REVERTED: the probed `display.notch_width` (220) underreads the physical cutout, so tight-fit
+ pills clipped real text behind the notch — only the generous fixed worst-case wings absorb the
+ probe error. Do not reintroduce dynamic pill widths without first measuring the true cutout.
+- App/device names in island pills are truncated with `utils.ellipsize` (codepoint-aware,
+ utf8.offset) — byte-based `string.sub` split multibyte names ("Café…") into mojibake.
+- A long-lived sketchybar process can silently corrupt: `--bar hidden=…` becomes a no-op AND all
+ bar props inside `--animate` batches get dropped, while direct un-animated sets still apply.
+ Symptoms on the island: pills stuck at idle height/margin while expanded, bar never re-hiding
+ after retract. `--reload` does NOT clear it — only a full process restart does
+ (`launchctl kickstart -k gui/$UID/git.frank.sketchybar-island`). Diagnose by comparing a direct
+ `--bar margin=N` (applies) against `--animate tanh 15 --bar margin=N` (dropped when corrupted).
+- sketchybar TRIMS leading label whitespace — ASCII space AND NBSP alike — so left-padding a
+ digit-first string is impossible; interior padding survives. FIGURE SPACE (U+2007) is exactly
+ digit-wide in SF Pro (tabular digits), so stacked pairs (eCPU/pCPU, RAM/SWP) drop zero-padding
+ ("pCPU 07%") for interior U+2007 ("pCPU␇7%") and stay column-aligned. Power keeps a fixed 34px
+ right-aligned label box so 9 W ↔ 19 W cannot resize the capsule. ccu popup chart GRIDS still
+ need Menlo (real mono) — space-padded cells drift in any proportional face.
 - Layout pill (`widgets.yabai_layout`): glyph = space layout, label = stack `i/n` + the focused
   window's flag glyphs, tint = `state_accent`, where window state outranks layout
   (zoom=yellow > float=peach > sticky=teal > layout accent). Float only overrides outside float

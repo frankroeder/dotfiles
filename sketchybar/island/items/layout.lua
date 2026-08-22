@@ -20,6 +20,7 @@ listener:subscribe("island_layout", function(env)
     return
   end
 
+  local text = layout:sub(1, 1):upper() .. layout:sub(2) .. " layout"
   island.expand {
     kind = "layout",
     priority = island.priority.layout,
@@ -27,7 +28,7 @@ listener:subscribe("island_layout", function(env)
     height = island.IDLE_H,
     duration = settings.island.layout_duration,
     left = {
-      text = layout:sub(1, 1):upper() .. layout:sub(2) .. " layout",
+      text = text,
       font = { size = 15, style = "Semibold" },
       color = island_style.text(),
       padding_left = 16,

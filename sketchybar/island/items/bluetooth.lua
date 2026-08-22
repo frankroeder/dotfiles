@@ -2,6 +2,7 @@ local icons = require "icons"
 local island = require "island_core"
 local island_style = require "island_style"
 local settings = require "settings"
+local utils = require "utils"
 
 local listener = sbar.add("item", "listener.bluetooth", {
   drawing = false,
@@ -73,7 +74,7 @@ listener:subscribe("island_bluetooth", function(env)
     return
   end
   -- Keep name + detail inside the left lobe (hugs the notch's left edge).
-  local short = #name > 10 and (name:sub(1, 9) .. "…") or name
+  local short = utils.ellipsize(name, 9)
   local battery = env.battery
   local rssi = env.rssi
   local text = short

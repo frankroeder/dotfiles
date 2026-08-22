@@ -9,6 +9,12 @@ local col = settings.layout.columns
 local hw = settings.layout.hardware
 local fnt = settings.layout.fonts
 
+-- Interior FIGURE SPACE (U+2007) is exactly digit-wide in SF Pro (tabular
+-- digits), so single-digit values stay column-aligned with their stacked
+-- partner without zero-padding ("pCPU 07%"). sketchybar trims LEADING
+-- whitespace (ASCII space and NBSP alike) — only interior padding survives.
+local FIGSP = "\u{2007}"
+
 local hw_label_font = {
   family = settings.font.family,
   style = settings.font.style_map["Semibold"],
@@ -20,11 +26,12 @@ local function clamp_percent(value)
 end
 
 local function percent_label(prefix, value)
-  return string.format("%s %02d%%", prefix, clamp_percent(value))
+  local v = clamp_percent(value)
+  return string.format("%s %s%d%%", prefix, v < 10 and FIGSP or "", v)
 end
 
 local function temp_label(value)
-  return string.format("%02d°C", math.min(math.max(math.floor(value or 0), 0), 99))
+  return string.format("%d°C", math.min(math.max(math.floor(value or 0), 0), 99))
 end
 
 local gpu_temp = ui.bracket_metric("widgets.gpu_temp", {
@@ -49,12 +56,12 @@ local gpu_graph = ui.bracket_graph("widgets.gpu_graph", hw.gpu_graph, {
 
 local gpu_label = ui.bracket_metric("widgets.gpu_label", {
   pad_r = hw.gpu_label_pad_r,
-  width = 78,
+  width = 86, -- icon 28 + label col 58
   icon = icons.gpu,
   icon_w = 28,
   icon_font = { size = fnt.hw_small },
   color = settings.theme.accent,
-  text = "GPU 00%",
+  text = "GPU 0%",
 })
 
 ui.bracket_spacer("widgets.spacer_gpu_ram", 0)
@@ -63,7 +70,7 @@ local ram_top = ui.bracket_metric("widgets.ram_top", {
   width = hw.ram_top_w,
   icon = icons.ram,
   color = settings.theme.warn,
-  text = "RAM 00%",
+  text = "RAM 0%",
   label_pad_r = sp.edge,
   stack = sp.stack,
 })
@@ -72,7 +79,7 @@ local ram_bot = ui.bracket_metric("widgets.ram_bot", {
   width = hw.ram_bot_w,
   icon = icons.swap,
   color = settings.theme.warn,
-  text = "SWP 00%",
+  text = "SWP 0%",
   label_pad_r = sp.edge,
   stack = -sp.stack,
 })
@@ -112,12 +119,16 @@ local cpu_ecpu_graph = ui.bracket_graph("widgets.cpu_ecpu", hw.cpu_graph, {
   },
 })
 
+-- Icon box = col.icon (28) like RAM/GPU, NOT icon_sm (22): SF Pro "eCPU 22%"
+-- fills the 62px label box, and with the narrow icon box the right-aligned
+-- text started at the chip glyph's edge (overlap). 28 restores the same
+-- glyph→text air the RAM rows have.
 local cpu_ecpu_label = ui.bracket_metric("widgets.cpu_ecpu_label", {
   width = hw.cpu_ecpu_w,
   icon = icons.cpu,
-  icon_w = col.icon_sm,
+  icon_w = col.icon,
   color = colors.green,
-  text = "eCPU 00%",
+  text = "eCPU 0%",
   label_w = col.label_lg,
   stack = sp.stack,
 })
@@ -125,9 +136,9 @@ local cpu_ecpu_label = ui.bracket_metric("widgets.cpu_ecpu_label", {
 local cpu_pcpu_label = ui.bracket_metric("widgets.cpu_pcpu_label", {
   width = hw.cpu_pcpu_w,
   icon = icons.cpu,
-  icon_w = col.icon_sm,
+  icon_w = col.icon,
   color = colors.blue,
-  text = "pCPU 00%",
+  text = "pCPU 0%",
   label_w = col.label_lg,
   stack = -sp.stack,
 })
@@ -149,6 +160,11 @@ local power = ui.add_capsule("widgets.power", {
   label = {
     string = "-- W",
     font = { size = 12.0 },
+    -- Fixed box ("99 W" = 31px in SF Pro Bold 12): "9 W" → "19 W" must not
+    -- resize (leading pad gets trimmed, so width+align is the only stable
+    -- option for a digit-first string).
+    width = 34,
+    align = "right",
     padding_left = 0,
     padding_right = 6,
   },
@@ -217,7 +233,7 @@ local function apply_silistats(output)
   gpu_temp:set { label = { string = temp_label(gpu_t), color = theme.accent } }
   gpu_graph:set { graph = { color = colors.with_alpha(color_gpu, 0.5) } }
 
-  power:set { label = { string = string.format("%02d W", math.min(99, math.floor(power_watts))) } }
+  power:set { label = { string = string.format("%d W", math.min(99, math.floor(power_watts))) } }
 
   cpu_pcpu_graph:push { pcpu_val / 100. * 0.275 }
   cpu_ecpu_graph:push { ecpu_val / 100. * 0.275 }

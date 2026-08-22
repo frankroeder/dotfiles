@@ -59,7 +59,7 @@ listener:subscribe("front_app_switched", function(env)
   end
   last_app = name
 
-  local short = #name > 13 and (name:sub(1, 13) .. "…") or name
+  local short = utils.ellipsize(name, 13)
   local glyph = utils.lookup_app_icon(name, app_icons)
 
   island.expand {

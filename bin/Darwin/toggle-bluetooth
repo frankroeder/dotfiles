@@ -12,39 +12,76 @@ set -euo pipefail
 # GUI launchers (Vicinae) often omit Homebrew from PATH
 PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin${PATH:+:$PATH}"
 
-blueutil_bin=""
+BU=""
 for c in blueutil /opt/homebrew/bin/blueutil /usr/local/bin/blueutil; do
   if command -v "$c" >/dev/null 2>&1; then
-    blueutil_bin=$(command -v "$c")
+    BU=$(command -v "$c")
     break
   elif [[ -x "$c" ]]; then
-    blueutil_bin="$c"
+    BU="$c"
     break
   fi
 done
 
-if [[ -z "$blueutil_bin" ]]; then
+if [[ -z "$BU" ]]; then
   echo "blueutil not found (brew install blueutil)"
   exit 1
 fi
 
-# blueutil -p prints 1/0; may need Bluetooth permission on first run
-cur=$("$blueutil_bin" -p 2>&1) || {
-  echo "blueutil failed: $cur"
-  exit 1
+report() {
+  case "$1" in
+    1|on) echo "Bluetooth On" ;;
+    *) echo "Bluetooth Off" ;;
+  esac
 }
-cur=$(printf '%s' "$cur" | tr -d '[:space:]')
 
-if [[ "$cur" == "1" ]]; then
-  if ! err=$("$blueutil_bin" -p 0 2>&1); then
-    echo "Bluetooth off failed: $err"
-    exit 1
-  fi
-  echo "Bluetooth Off"
-else
-  if ! err=$("$blueutil_bin" -p 1 2>&1); then
-    echo "Bluetooth on failed: $err"
-    exit 1
-  fi
-  echo "Bluetooth On"
+# system_profiler does not need Bluetooth TCC (blueutil does).
+profiler_state() {
+  system_profiler SPBluetoothDataType 2>/dev/null \
+    | awk '/^[[:space:]]*State:/{print tolower($2); exit}'
+}
+
+# blueutil talks to IOBluetooth. The responsible app needs Bluetooth TCC.
+# Ghostty/Terminal have it; Vicinae does not (and has no usage string, so macOS never prompts).
+set +e
+"$BU" -p toggle >/dev/null 2>&1
+st=$?
+set -e
+if [[ $st -eq 0 ]]; then
+  cur=$("$BU" -p 2>/dev/null | tr -d '[:space:]')
+  report "${cur:-$(profiler_state)}"
+  exit 0
 fi
+
+# Fallback: sketchybar already holds Bluetooth TCC; its helper runs blueutil as its child.
+TOP=""
+for c in sketchybar-top /opt/homebrew/bin/sketchybar-top; do
+  if command -v "$c" >/dev/null 2>&1; then
+    TOP=$(command -v "$c")
+    break
+  elif [[ -x "$c" ]]; then
+    TOP="$c"
+    break
+  fi
+done
+
+if [[ -z "$TOP" ]]; then
+  echo "Bluetooth toggle failed (no Bluetooth permission)"
+  exit 1
+fi
+
+before=$(profiler_state)
+"$TOP" --trigger bt_power_toggle
+i=0
+while [[ $i -lt 12 ]]; do
+  sleep 0.3
+  after=$(profiler_state)
+  if [[ -n "$after" && "$after" != "$before" ]]; then
+    report "$after"
+    exit 0
+  fi
+  i=$((i + 1))
+done
+
+echo "Bluetooth toggle failed (no Bluetooth permission)"
+exit 1

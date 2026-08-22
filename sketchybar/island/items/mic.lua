@@ -31,6 +31,7 @@ listener:subscribe("island_mic", function(env)
   end
   last_muted = muted
 
+  local text = muted and "Mic muted" or "Mic on"
   island.expand {
     kind = "mic",
     priority = island.priority.mic,
@@ -38,7 +39,7 @@ listener:subscribe("island_mic", function(env)
     height = island.IDLE_H,
     duration = settings.island.mic_duration,
     left = {
-      text = muted and "Mic muted" or "Mic on",
+      text = text,
       font = { size = 15, style = "Semibold" },
       color = muted and island_style.warn() or island_style.text(),
       padding_left = 16,

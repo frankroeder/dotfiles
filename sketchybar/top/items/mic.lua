@@ -26,8 +26,9 @@ local mic = ui.add_capsule("widgets.mic", {
   },
   label = {
     string = "??%",
-    -- Fixed box: "9%" → "100%" → "Muted" must not resize and bump neighbours.
-    width = 40,
+    -- Fixed box: "9%" → "100%" → "Muted" must not resize and bump neighbours
+    -- ("Muted" = 39px in SF Pro Semibold 13).
+    width = 42,
     align = "left",
     font = {
       style = settings.font.style_map["Semibold"],

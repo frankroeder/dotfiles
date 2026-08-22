@@ -12,6 +12,7 @@ local BU = "/opt/homebrew/bin/blueutil"
 
 sbar.add("event", "bt_device", "com.apple.bluetooth.status")
 sbar.add("event", "bt_refresh")
+sbar.add("event", "bt_power_toggle")
 
 -- Connected keys from last poll — new ones toast on the island.
 local last_connected = {}
@@ -541,6 +542,12 @@ end)
 bluetooth:subscribe("bt_refresh", function()
   popup_fp = nil
   update { toast_new = false }
+end)
+
+-- Vicinae (and other GUI launchers) have no Bluetooth TCC; blueutil aborts there.
+-- Run the helper as sketchybar's child so IOBluetooth is allowed.
+bluetooth:subscribe("bt_power_toggle", function()
+  sbar.exec(utils.shell_quote(bt_helper) .. " toggle")
 end)
 
 ui.bind_popup(bluetooth, {

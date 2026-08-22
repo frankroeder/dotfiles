@@ -199,10 +199,9 @@ local function set_slider(item, pct, accent, height, drawing)
   }
 end
 
--- Chart rows need a REAL monospace font: settings.font.family is "SF Mono",
--- which is not installed, and its fallback is proportional — space-padded
--- cells drift. Menlo ships with macOS and is uniformly 6.02 px/char at 10pt,
--- so 7 cells × 8 chars = 337px ≤ content_w.
+-- Chart rows need a REAL monospace font: settings.font.family is "SF Pro"
+-- (proportional) — space-padded cells drift. Menlo ships with macOS and is
+-- uniformly 6.02 px/char at 10pt, so 7 cells × 8 chars = 337px ≤ content_w.
 local mono = {
   family = "Menlo",
   size = 10.0,
@@ -431,10 +430,10 @@ local function fg_color(weekly, now)
 end
 
 -- Fixed chip width = longest chip among rotating providers, so the capsule
--- does not resize (and shift neighbours) on every rotation. SF Mono is not
--- installed; 6.2 px/char is calibrated against the fallback font at 12pt bold
--- (measured 5.8 px/char via a probe item) with ~10% headroom.
-local chip_px_per_char = 6.2
+-- does not resize (and shift neighbours) on every rotation. 6.9 px/char is
+-- calibrated against SF Pro at 12pt bold (measured 6.56 px/char via a probe
+-- item: "Grok 0% · 6d 20h" = 105px / 16 chars) with ~5% headroom.
+local chip_px_per_char = 6.9
 
 local function chip_width(now)
   local max_len = 0
