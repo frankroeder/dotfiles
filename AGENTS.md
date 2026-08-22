@@ -116,6 +116,16 @@ Requirements / decisions:
   always present — no fallbacks. Swap pct only guards `swap_gb_total > 0` (div-by-zero).
 - Bar presets in settings.lua: `transparent` (default, invisible bar) / `gnix` (solid+blur).
 - No capsule drop shadows anywhere — deliberate, do not add them back.
+- Top-bar right cluster keeps an even ~12–14px visual gap rhythm. Grouped widgets (mic/volume)
+ default to 0 outer padding, which packed them tight — their explicit padding overrides plus
+ wifi icon pads and calendar's trimmed left pads carry the rhythm; verify gaps numerically via
+ `--query <item>` `bounding_rects` (rect gap + inner edge paddings), not by eye.
+- Network rates render "12 KB/s" (leading zeros stripped, `ps`→`/s`) LEFT-aligned in the fixed
+ 50px label — numbers must hug the ↑/↓ arrows; right-align opened a hole between arrow and value
+ whenever the text was shorter than the box. Raw zero-padded provider strings are kept in
+ `last_rates` (the `^0+%s` inactive check depends on them) and prettified only at display time.
+- Mic/volume labels live in a fixed 40px left-aligned box: "9%"→"100%"→"Muted" must not resize
+ the item and bump neighbours.
 - Layout pill (`widgets.yabai_layout`): glyph = space layout, label = stack `i/n` + the focused
   window's flag glyphs, tint = `state_accent`, where window state outranks layout
   (zoom=yellow > float=peach > sticky=teal > layout accent). Float only overrides outside float

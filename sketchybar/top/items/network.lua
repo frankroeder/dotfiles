@@ -24,13 +24,22 @@ local function rate_inactive(rate)
   return not rate or rate:match "^0+%s" ~= nil
 end
 
+-- Provider emits zero-padded '%03d KBps'; render "12 KB/s" not "012 KBps".
+local function pretty_rate(rate)
+  local n, unit = tostring(rate or ""):match "^(%d+)%s+(%a+)"
+  if not n then
+    return rate
+  end
+  return tostring(tonumber(n)) .. " " .. unit:gsub("ps$", "/s")
+end
+
 local network_up = ui.stacked_rate("widgets.network_up", {
   padding_left = 8,
   padding_right = 0,
   icon_padding = 2,
   icon = icons.wifi.upload,
   color = settings.theme.critical,
-  text = "000 Bps",
+  text = "0 KB/s",
   stack = settings.layout.spacing.stack,
 })
 
@@ -41,7 +50,7 @@ local network_down = ui.stacked_rate("widgets.network_down", {
   icon_padding = 2,
   icon = icons.wifi.download,
   color = settings.theme.accent,
-  text = "000 Bps",
+  text = "0 KB/s",
   stack = -settings.layout.spacing.stack,
 })
 
@@ -54,11 +63,11 @@ local function apply_rate_colors()
     or settings.theme.accent
   network_up:set {
     icon = { color = up_color },
-    label = { string = last_rates.upload, color = up_color },
+    label = { string = pretty_rate(last_rates.upload), color = up_color },
   }
   network_down:set {
     icon = { color = down_color },
-    label = { string = last_rates.download, color = down_color },
+    label = { string = pretty_rate(last_rates.download), color = down_color },
   }
 end
 

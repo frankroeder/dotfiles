@@ -11,9 +11,14 @@ local scroll_step = settings.volume.scroll_step or 10
 
 local mic = ui.add_capsule("widgets.mic", {
   grouped = true,
+  -- Even out the ccu|mic|volume gaps (grouped default of 0 packed them tight).
+  padding_right = 3,
   icon = {
     string = icons.mic.off,
     color = colors.mic,
+    -- Fixed box: on/off glyphs differ in width; without it the item resizes.
+    width = 24,
+    align = "center",
     font = {
       style = settings.font.style_map["Regular"],
       size = 16.0,
@@ -21,6 +26,9 @@ local mic = ui.add_capsule("widgets.mic", {
   },
   label = {
     string = "??%",
+    -- Fixed box: "9%" → "100%" → "Muted" must not resize and bump neighbours.
+    width = 40,
+    align = "left",
     font = {
       style = settings.font.style_map["Semibold"],
       size = 13.0,

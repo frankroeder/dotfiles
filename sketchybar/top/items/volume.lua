@@ -10,9 +10,15 @@ local scroll_step = settings.volume.scroll_step or 10
 
 local volume = ui.add_capsule("widgets.volume", {
   grouped = true,
+  -- Even out the mic|volume|wifi gaps (grouped default of 0 packed them tight).
+  padding_left = 3,
+  padding_right = 4,
   icon = {
     string = icons.volume[100],
     color = colors.vol,
+    -- Fixed box: the 0/33/66/100 glyphs differ in width; without it the item resizes.
+    width = 24,
+    align = "center",
     font = {
       style = settings.font.style_map["Regular"],
       size = 16.0,
@@ -20,6 +26,9 @@ local volume = ui.add_capsule("widgets.volume", {
   },
   label = {
     string = "??%",
+    -- Fixed box: "9%" → "100%" → "Muted" must not resize and bump neighbours.
+    width = 40,
+    align = "left",
     font = {
       style = settings.font.style_map["Semibold"],
       size = 13.0,

@@ -24,8 +24,8 @@ local wifi = ui.bracket_icon("widgets.wifi", {
     color = colors.red,
     width = col.wifi_icon,
     align = "center",
-    padding_left = 2,
-    padding_right = 8,
+    padding_left = 4,
+    padding_right = 6,
   },
 })
 

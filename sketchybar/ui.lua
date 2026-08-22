@@ -275,9 +275,9 @@ function ui.stacked_rate(name, spec)
     label = {
       font = spec.font or ui.rate_font(),
       color = spec.color,
-      string = spec.text or "000 Bps",
+      string = spec.text or "0 B/s",
       width = col.rate,
-      align = "left",
+      align = spec.label_align or "left",
       padding_left = 2,
       padding_right = 0,
     },
