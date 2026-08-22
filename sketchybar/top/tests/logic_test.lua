@@ -298,12 +298,15 @@ ok(read_src("sketchybar/top/items/ccu.lua"):find "popup_fill", "ccu popup fill i
 ok(read_src("sketchybar/top/items/ccu.lua"):find 'require "ccu_logic"', "ccu item requires shipped ccu_logic")
 ok(read_src("sketchybar/top/items/ccu.lua"):find "AGENT USAGE", "ccu popup headed AGENT USAGE")
 ok(read_src("sketchybar/top/items/ccu.lua"):find "used · resets in", "ccu used · resets in")
-ok(read_src("sketchybar/top/items/ccu.lua"):find "LAST 7 DAYS", "ccu LAST 7 DAYS")
+ok(read_src("sketchybar/top/items/ccu.lua"):find "week_line", "ccu 7d on the totals row")
+ok(read_src("sketchybar/top/items/ccu.lua"):find "peer = card.week", "ccu All/30d/7d share one row")
+ok(read_src("sketchybar/top/items/ccu.lua"):find ".totals", "ccu totals row")
+ok(read_src("sketchybar/top/items/ccu.lua"):find('type(lit) == "table"', 1, true), "ccu accepts sbar.exec json tables")
 ok(read_src("sketchybar/top/ccu_logic.lua"):find "ahead of pace", "ccu_logic ahead of pace")
 ok(read_src("sketchybar/top/ccu_logic.lua"):find "behind pace", "ccu_logic behind pace")
 ok(not read_src("sketchybar/top/items/ccu.lua"):find "Expected %d", "ccu popup has no Expected N% row")
 ok(not read_src("sketchybar/top/items/ccu.lua"):find "Past 7d", "ccu dropped Past 7d API-$ row")
-ok(not read_src("sketchybar/top/items/ccu.lua"):find "All time", "ccu dropped All time API-$ row")
+ok(not read_src("sketchybar/top/items/ccu.lua"):find "All time API", "ccu dropped All time API-$ row")
 
 local ccu_logic = require "ccu_logic"
 local now = 1700000000

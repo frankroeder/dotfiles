@@ -1,6 +1,6 @@
 -- Shipped top-bar composition (original widgets, solid-bar chrome).
 return {
-  left = { "/widgets\\.space.*/", "widgets.yabai_layout" },
+  left = { "/widgets\\.space.*/", "widgets.yabai_layout", "widgets.shortcuts" },
   right = {
     "widgets.calendar",
     "widgets.battery",

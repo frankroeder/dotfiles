@@ -21,28 +21,16 @@ LITELLM_URL = (
 )
 PRICING_CACHE = Path.home() / ".cache" / "sketchybar" / "litellm_pricing.json"
 PRICING_TTL = 6 * 3600
-# per-token fallback ≈ xai/grok-4.5
-_FALLBACK = (2e-6, 6e-6, 5e-7, 2.5e-6)  # in, out, cache_read, cache_write
+# Only if LiteLLM JSON is unavailable. Prefer real list prices from LITELLM_URL.
+_FALLBACK = (2e-6, 6e-6, 5e-7, 2.5e-6)  # in, out, cache_read, cache_write  ≈ xai/grok-4.5
 
 _pricing: dict[str, tuple[float, float, float, float]] | None = None  # model → rates
 
 
-def lua(v: Any) -> str:
-  if v is None:
-    return "nil"
-  if isinstance(v, bool):
-    return "true" if v else "false"
-  if isinstance(v, float):
-    return f"{v:.6g}"
-  if isinstance(v, int):
-    return str(v)
-  if isinstance(v, str):
-    return '"' + v.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n") + '"'
-  if isinstance(v, dict):
-    return "{" + ",".join(f"{k}={lua(x)}" for k, x in v.items()) + "}"
-  if isinstance(v, list):
-    return "{" + ",".join(lua(x) for x in v) + "}"
-  return lua(str(v))
+def emit(obj: dict[str, Any]) -> None:
+  # JSON: sbar.exec parses it into a lua table. Lua literals break on reserved
+  # keys (days30.end) and on concat when the callback already got a table.
+  print(json.dumps(obj, separators=(",", ":")), flush=True)
 
 
 def day_of(ts: Any) -> date | None:
@@ -106,27 +94,38 @@ def load_pricing() -> dict[str, tuple[float, float, float, float]]:
   return out
 
 
+def _norm_model(name: str) -> str:
+  n = name.strip().split("/")[-1].lower()
+  for suf in ("-build", "-latest", "-beta"):
+    if n.endswith(suf):
+      n = n[: -len(suf)]
+  return n
+
+
 def rates(model: str) -> tuple[float, float, float, float]:
+  """Per-token USD from LiteLLM. Unknown model → zeros (no made-up price)."""
   global _pricing
   if _pricing is None:
     _pricing = load_pricing()
+  if not _pricing:
+    return _FALLBACK
   m = model.strip()
-  base = m.split("/")[-1]
-  for key in (m, base, f"xai/{base}", f"anthropic/{base}", f"openai/{base}",
-              base.removesuffix("-build"), f"xai/{base.removesuffix('-build')}"):
+  n = _norm_model(m)
+  for key in (m, n, f"xai/{n}", f"anthropic/{n}", f"openai/{n}"):
     if key in _pricing:
       return _pricing[key]
-  # longest suffix match, prefer xai/anthropic
-  ml = base.lower()
+  # Exact last-segment match; prefer vendor keys over azure/oci/openrouter.
   best = None
   for k, r in _pricing.items():
     last = k.rsplit("/", 1)[-1].lower()
-    if last != ml and not k.lower().endswith("/" + ml) and ml not in last:
+    if last != n and last != n.replace(".", "-"):
       continue
-    score = len(k) + (1000 if k.startswith(("xai/", "anthropic/")) or "/" not in k else 0)
+    vendor = k.split("/", 1)[0] if "/" in k else ""
+    score = 3 if vendor in ("xai", "anthropic", "openai") else 2 if vendor == "" else 1
+    score = score * 1000 + len(k)
     if best is None or score > best[0]:
       best = (score, r)
-  return best[1] if best else _FALLBACK
+  return best[1] if best else (0.0, 0.0, 0.0, 0.0)
 
 
 def cost(model: str, inp: float, out: float, cache_r: float = 0, cache_w: float = 0) -> float:
@@ -154,21 +153,27 @@ def windows(dm: dict[date, list[float]], today: date) -> dict[str, Any]:
     wtok += t
     wusd += u
 
-  # Full calendar month day-by-day (for sparkline); future days stay 0
+  d30tok = d30usd = 0.0
+  for i in range(30):
+    d = today - timedelta(days=29 - i)
+    t, u = dm.get(d, [0.0, 0.0])
+    d30tok += t
+    d30usd += u
+
+  # Calendar month totals only — popup does not plot month.days.
   m_start = date(today.year, today.month, 1)
   if today.month == 12:
     m_end = date(today.year + 1, 1, 1) - timedelta(days=1)
   else:
     m_end = date(today.year, today.month + 1, 1) - timedelta(days=1)
-  month_days = []
-  mtok = musd = 0.0
+  mtok = musd = max_u = 0.0
   d = m_start
   while d <= m_end:
     t, u = dm.get(d, [0.0, 0.0])
-    month_days.append({"date": d.isoformat(), "tokens": round(t), "usd": round(u, 4)})
     if d <= today:
       mtok += t
       musd += u
+      max_u = max(max_u, u)
     d += timedelta(days=1)
 
   # All-time total from every day we have
@@ -188,13 +193,18 @@ def windows(dm: dict[date, list[float]], today: date) -> dict[str, Any]:
       "usd": round(wusd, 4),
       "max_day_usd": round(max((x["usd"] for x in days), default=0.0), 4),
     },
+    "days30": {
+      "start": (today - timedelta(days=29)).isoformat(),
+      "week_end": today.isoformat(),
+      "tokens": round(d30tok),
+      "usd": round(d30usd, 4),
+    },
     "month": {
       "year": today.year,
       "month": today.month,
       "tokens": round(mtok),
       "usd": round(musd, 4),
-      "max_day_usd": round(max((x["usd"] for x in month_days), default=0.0), 4),
-      "days": month_days,
+      "max_day_usd": round(max_u, 4),
     },
     "total": {"tokens": round(ttok), "usd": round(tusd, 4)},
   }
@@ -336,7 +346,7 @@ def main() -> int:
     providers.append({"id": "claude", "label": "Claude", "source": "projects", **windows(claude_days(), today)})
   if shutil.which("codex"):
     providers.append({"id": "codex", "label": "Codex", "source": "rollouts", **windows(codex_days(), today)})
-  print(lua({"error": None, "as_of": today.isoformat(), "providers": providers}))
+  emit({"error": None, "as_of": today.isoformat(), "providers": providers})
   return 0
 
 
@@ -344,5 +354,5 @@ if __name__ == "__main__":
   try:
     raise SystemExit(main())
   except Exception as e:
-    print(lua({"error": str(e)[:48], "as_of": date.today().isoformat(), "providers": []}))
+    emit({"error": str(e)[:48], "as_of": date.today().isoformat(), "providers": []})
     raise SystemExit(1)

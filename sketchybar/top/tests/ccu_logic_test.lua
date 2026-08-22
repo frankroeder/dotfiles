@@ -134,27 +134,87 @@ eq(logic.recent_peak(days), 50, "7-day peak")
 eq(logic.bar_height(0, 50), 0, "zero day has no bar")
 eq(logic.bar_height(50, 50), 1, "peak day is full height")
 eq(logic.bar_height(20, 50), 0.4, "20/50 height")
-eq(logic.week_header(days), "LAST 7 DAYS · 100 TOKENS", "week header")
+local friday = os.time { year = 2026, month = 8, day = 21, hour = 12 }
+eq(logic.week_header(days, friday), "Last 7 days · 100", "week header")
 eq(logic.day_label "2026-08-21", "Fri", "2026-08-21 is Fri")
 
-local cols, peak, total = logic.chart_columns(days)
+local cols, peak, total = logic.chart_columns(days, friday)
 eq(peak, 50, "chart peak")
 eq(total, 100, "chart total")
 eq(cols[2].compact, "0", "zero day compact")
 eq(cols[2].height, 0, "zero day height")
 eq(cols[3].compact, "50", "peak compact")
 eq(cols[3].label, "Mon", "2026-08-17 is Mon")
-eq(logic.spark_char(0), "▁", "zero spark")
+eq(cols[7].label, "Fri", "rightmost is current day")
+eq(cols[1].date, "2026-08-15", "leftmost is 6 days ago")
+eq(logic.spark_char(0), "·", "zero spark is a dot not a fake bar")
 eq(logic.spark_char(1), "█", "peak spark")
-local cl, sl, ll = logic.chart_lines(days)
+local cl, sl, ll = logic.chart_lines(days, friday)
+ok(sl:find("██", 1, true), "week bars are two blocks wide")
 ok(cl:find("50", 1, true), "chart counts line has peak")
 ok(cl:find("0", 1, true), "chart counts line has zero day")
 ok(ll:find("Mon", 1, true) and ll:find("Sat", 1, true), "chart labels packed Sat..Mon")
 ok(not cl:find("padding", 1, true), "chart lines are plain text")
 eq(utf8.len(cl), 7 * logic.CHART_CELL, "7 chart count cells")
 eq(utf8.len(ll), 7 * logic.CHART_CELL, "7 chart label cells")
-eq(logic.month_line(5.63e7), "THIS MONTH · 56.3M", "month line")
-eq(logic.total_line(1.86e8), "ALL TIME · 186M", "all-time line")
+eq(logic.chart_cell_for(440), 10, "440px popup → 10-wide cells")
+eq(logic.chart_cell_for(400), 9, "400px popup → 9-wide cells")
+local cl11 = select(1, logic.chart_lines(days, friday, 11))
+eq(utf8.len(cl11), 7 * 11, "chart_lines honors cell width")
+ok(logic.pad_cell("0", 8):find("\u{2007}", 1, true), "pad_cell uses figure space")
+ok(not logic.pad_cell("0", 8):find(" ", 1, true), "pad_cell no ascii space")
+eq(utf8.len(logic.center_cell("24.5M", 8)), 8, "center_cell width 8")
+local sunday = os.time { year = 2026, month = 8, day = 23, hour = 12 }
+local rolled = logic.chart_columns(days, sunday)
+eq(rolled[1].date, "2026-08-17", "sunday window starts Mon 17")
+eq(rolled[1].label, "Mon", "sunday window leftmost Mon")
+eq(rolled[7].date, "2026-08-23", "sunday window ends today")
+eq(rolled[7].label, "Sun", "rightmost is today")
+eq(rolled[7].compact, "0", "today with no data is zero")
+eq(rolled[1].compact, "50", "Mon 17 tokens follow the date not list order")
+local empty_week = logic.last_7_days({}, sunday)
+eq(#empty_week, 7, "empty input still last 7 days")
+eq(empty_week[1].date, "2026-08-17", "empty window starts 6d ago")
+eq(empty_week[7].date, "2026-08-23", "empty window ends today")
+eq(empty_week[7].tokens, 0, "empty today is zero")
+local keyed = { d = { date = "2026-08-23", tokens = 9 } }
+eq(logic.last_7_days(keyed, sunday)[7].tokens, 9, "date-keyed days still map")
+local shuffled = {
+  days[7],
+  days[1],
+  days[4],
+  days[3],
+  days[6],
+  days[2],
+  days[5],
+}
+local ordered = logic.chart_columns(shuffled, friday)
+eq(ordered[1].date, "2026-08-15", "shuffled input still oldest-left")
+eq(ordered[7].label, "Fri", "shuffled input still today-right")
+local with_usd = {
+  { date = "2026-08-15", tokens = 10, usd = 1 },
+  { date = "2026-08-16", tokens = 0, usd = 0 },
+  { date = "2026-08-17", tokens = 50, usd = 4 },
+  { date = "2026-08-18", tokens = 20, usd = 2 },
+  { date = "2026-08-19", tokens = 0, usd = 0 },
+  { date = "2026-08-20", tokens = 5, usd = 0.5 },
+  { date = "2026-08-21", tokens = 15, usd = 1.5 },
+}
+local wtok, wusd = logic.window_sum(with_usd, friday)
+eq(wtok, 100, "window_sum tokens")
+eq(wusd, 9, "window_sum usd")
+
+eq(logic.month_line(5.63e7), "This month · 56.3M", "month line")
+eq(logic.total_line(1.86e8), "All time · 186M", "all-time line")
+eq(logic.usd(12.3), "$12.30", "usd cents")
+eq(logic.usd(100), "$100", "usd dollars")
+eq(logic.usd(1500), "$1.5k", "usd thousands")
+eq(logic.month_line(5.63e7, 12.3), "This month · 56.3M · $12.30", "month line with cost")
+eq(logic.total_line(1.86e8, 1500), "All time · 186M · $1.5k", "all-time line with cost")
+eq(logic.all_line(1.86e8, 1500), "All · 186M · $1.5k", "all window cell")
+eq(logic.days30_line(5.63e7, 12.3), "30d · 56.3M · $12.30", "30d window cell")
+eq(logic.week_line(450e6, 8), "7d · 450M · $8.00", "7d window cell")
+eq(logic.stat_line("30d", nil, nil), "30d · —", "missing window is em dash")
 
 -- helper window mapping (0–100 used + reset_unix)
 local win = logic.from_helper_window { used = 31, reset_unix = claude_reset }

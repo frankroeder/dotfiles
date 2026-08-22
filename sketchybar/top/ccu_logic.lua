@@ -249,20 +249,98 @@ function M.bar_height(tokens, peak)
   return tokens / peak
 end
 
-function M.week_header(days)
-  return "LAST 7 DAYS · " .. M.token_count(M.recent_total(days)) .. " TOKENS"
+-- Rolling window: oldest on the left, current local day on the right.
+function M.last_7_days(days, now)
+  local t = os.date("*t", M.number(now, os.time()))
+  t.hour, t.min, t.sec = 12, 0, 0
+  local today = os.time(t)
+  local by_date = {}
+  for _, day in pairs(days or {}) do
+    if type(day) == "table" and day.date then
+      by_date[tostring(day.date)] = day
+    end
+  end
+  local out = {}
+  for i = 1, 7 do
+    local d = os.date("*t", today)
+    d.day = d.day - (7 - i)
+    d.hour = 12
+    local ts = os.time(d)
+    local key = os.date("%Y-%m-%d", ts)
+    local src = by_date[key]
+    out[i] = {
+      date = key,
+      dow = M.DOW[tonumber(os.date("%w", ts)) + 1],
+      tokens = src and M.day_tokens(src) or 0,
+      usd = src and M.number(src.usd, 0) or 0,
+    }
+  end
+  return out
 end
 
-function M.month_line(n)
-  return "THIS MONTH · " .. M.token_count(n or 0)
+function M.week_header(days, now, usd)
+  local tok, u = M.window_sum(days, now)
+  if usd ~= nil then
+    u = usd
+  end
+  return M.stat_line("Last 7 days", tok, (u and u > 0) and u or nil)
 end
 
-function M.total_line(n)
-  return "ALL TIME · " .. M.token_count(n or 0)
+function M.window_sum(days, now)
+  local list = M.last_7_days(days, now)
+  local tok, usd = 0, 0
+  for i = 1, #list do
+    tok = tok + list[i].tokens
+    usd = usd + M.number(list[i].usd, 0)
+  end
+  return tok, usd
 end
 
-function M.chart_columns(days)
-  local list = days or {}
+-- Same steps as master bottom-bar ccu: $1.5k / $120 / $12.34
+function M.usd(u)
+  u = M.number(u, 0)
+  if u >= 1000 then
+    return string.format("$%.1fk", u / 1000)
+  end
+  if u >= 100 then
+    return string.format("$%.0f", u)
+  end
+  return string.format("$%.2f", u)
+end
+
+function M.stat_line(label, tokens, usd)
+  if tokens == nil and usd == nil then
+    return label .. " · —"
+  end
+  local s = label .. " · " .. M.token_count(tokens or 0)
+  if usd ~= nil then
+    s = s .. " · " .. M.usd(usd)
+  end
+  return s
+end
+
+function M.month_line(tokens, usd)
+  return M.stat_line("This month", tokens, usd)
+end
+
+function M.total_line(tokens, usd)
+  return M.stat_line("All time", tokens, usd)
+end
+
+function M.all_line(tokens, usd)
+  return M.stat_line("All", tokens, usd)
+end
+
+function M.days30_line(tokens, usd)
+  return M.stat_line("30d", tokens, usd)
+end
+
+function M.week_line(tokens, usd)
+  return M.stat_line("7d", tokens, usd)
+end
+
+function M.chart_columns(days, now)
+  local list = M.last_7_days(days, now)
   local peak = M.recent_peak(list)
   local cols = {}
   for i = 1, 7 do
@@ -270,6 +348,7 @@ function M.chart_columns(days)
     local tokens = M.day_tokens(day)
     local date = day and day.date
     cols[i] = {
+      date = date,
       tokens = tokens,
       compact = M.token_count(tokens),
       height = M.bar_height(tokens, peak),
@@ -284,7 +363,7 @@ M.SPARK = { "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█" }
 function M.spark_char(height)
   height = M.number(height, 0)
   if height <= 0 then
-    return M.SPARK[1]
+    return "·"
   end
   local i = math.floor(height * (#M.SPARK - 1) + 1.5)
   if i < 2 then
@@ -296,25 +375,48 @@ function M.spark_char(height)
   return M.SPARK[i]
 end
 
--- Cells are LEFT-aligned: sketchybar trims any leading/trailing whitespace
--- (plain space and NBSP alike) from a label, which would eat a centered first
--- cell's lead pad and shift rows against each other. With content first, every
--- line starts at x=0 and inner spaces keep the mono grid intact.
+-- ASCII space / NBSP are trimmed AND collapsed by sketchybar, which jammed
+-- "24.5M" into "294M". Figure space is digit-wide and survives as interior pad.
+M.FIGSP = "\u{2007}"
+
 function M.pad_cell(s, w)
   s = tostring(s or "")
   local n = (utf8 and utf8.len(s)) or #s
   if n >= w then
     return s
   end
-  return s .. string.rep(" ", w - n)
+  return s .. string.rep(M.FIGSP, w - n)
 end
 
--- Three monospaced lines (counts / spark / weekdays). Cell width 8 so 24.5M isn't jammed.
-M.CHART_CELL = 8
+function M.center_cell(s, w)
+  s = tostring(s or "")
+  local n = (utf8 and utf8.len(s)) or #s
+  if n >= w then
+    return s
+  end
+  local left = math.floor((w - n) / 2)
+  return string.rep(M.FIGSP, left) .. s .. string.rep(M.FIGSP, w - n - left)
+end
 
-function M.chart_lines(days)
-  local cols = M.chart_columns(days)
-  local w = M.CHART_CELL
+-- Three monospaced lines (counts / spark / weekdays). Menlo 10pt ≈ 6.02px/char;
+-- default 10 fills a 440px popup (7×10=421). Floor so 24.5M never jams.
+M.CHART_CELL = 10
+M.MONO_PX = 6.02
+
+function M.chart_cell_for(width)
+  local n = math.floor(M.number(width, 0) / (M.MONO_PX * 7))
+  if n < 8 then
+    return 8
+  end
+  return n
+end
+
+function M.chart_lines(days, now, cell)
+  local cols = M.chart_columns(days, now)
+  local w = math.floor(M.number(cell, M.CHART_CELL))
+  if w < 8 then
+    w = M.CHART_CELL
+  end
   local counts, sparks, labels = {}, {}, {}
   for i = 1, 7 do
     local c = cols[i]
@@ -322,9 +424,10 @@ function M.chart_lines(days)
     if #lab > 3 then
       lab = lab:sub(1, 3)
     end
-    counts[i] = M.pad_cell(c.compact, w)
-    sparks[i] = M.pad_cell(M.spark_char(c.height), w)
-    labels[i] = M.pad_cell(lab, w)
+    counts[i] = M.center_cell(c.compact, w)
+    -- Two block chars: a single 10pt bar is ~6px and hard to read.
+    sparks[i] = M.center_cell(string.rep(M.spark_char(c.height), 2), w)
+    labels[i] = M.center_cell(lab, w)
   end
   return table.concat(counts), table.concat(sparks), table.concat(labels)
 end

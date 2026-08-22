@@ -65,8 +65,12 @@ if #bar_list == 0 then
 end
 
 local pad = 8
-local content_w = 360
+local content_w = 440
 local plate_w = content_w + pad * 2
+-- All time · 1.6B · $2.0k needs ~164px at 13pt; 30d/7d are shorter.
+local col_all = 176
+local col_30 = 132
+local col_7 = content_w - col_all - col_30
 local row_h = 20
 local extra_max = 3
 local bar_h = 5
@@ -75,10 +79,11 @@ local name_w = 58
 local title_font = {
   family = settings.font.family,
   style = settings.font.style_map["Bold"],
-  size = 12.0,
+  size = 13.0,
 }
-local body_font = { family = settings.font.family, size = 11.0 }
-local cap_font = { family = settings.font.family, size = 10.0 }
+local body_font = { family = settings.font.family, size = 12.0 }
+local cap_font = { family = settings.font.family, size = 11.0 }
+local stat_font = { family = settings.font.family, size = 13.0 }
 local chip_font = {
   family = settings.font.family,
   style = settings.font.style_map["Bold"],
@@ -200,10 +205,15 @@ local function set_slider(item, pct, accent, height, drawing)
 end
 
 -- Chart rows need a REAL monospace font: settings.font.family is "SF Pro"
--- (proportional) — space-padded cells drift. Menlo ships with macOS and is
--- uniformly 6.02 px/char at 10pt, so 7 cells × 8 chars = 337px ≤ content_w.
+-- (proportional) — space-padded cells drift. Menlo 10pt is 6.02 px/char;
+-- cell width is content_w / 7 so the week chart spans the popup.
 local mono = {
   family = "Menlo",
+  size = 10.0,
+}
+local mono_bar = {
+  family = "Menlo",
+  style = "Bold",
   size = 10.0,
 }
 local cards = {}
@@ -246,43 +256,52 @@ for _, p in ipairs(providers) do
   card.meter = make_slider(prefix .. ".meter", content_w, bar_h)
   card.totals = pop_item(prefix .. ".totals", {
     icon = {
-      string = "THIS MONTH · 0",
-      width = math.floor(content_w * 0.50),
+      string = "All time · —",
+      width = col_all,
       align = "left",
-      font = cap_font,
+      font = stat_font,
       color = theme.text_muted,
       padding_left = 0,
       padding_right = 0,
     },
     label = {
-      string = "ALL TIME · 0",
-      width = content_w - math.floor(content_w * 0.50),
-      align = "right",
-      font = cap_font,
+      string = "30d · —",
+      width = col_30,
+      align = "left",
+      font = stat_font,
       color = theme.text_muted,
       padding_left = 0,
       padding_right = 0,
     },
   })
+  -- Same y as totals (relayout peer): empty icon holds All+30d, label is 7d.
   card.week = pop_item(prefix .. ".week", {
     icon = {
-      string = "LAST 7 DAYS · 0 TOKENS",
-      width = content_w,
+      string = "",
+      width = col_all + col_30,
       align = "left",
-      font = cap_font,
+      font = stat_font,
       color = theme.text_muted,
       padding_left = 0,
       padding_right = 0,
     },
-    label = { drawing = false },
+    label = {
+      string = "7d · —",
+      width = col_7,
+      align = "left",
+      font = stat_font,
+      color = theme.text_muted,
+      padding_left = 0,
+      padding_right = 0,
+    },
   })
-  local function chart_row(name, key)
+  local function chart_row(name, key, font)
     card[key] = pop_item(prefix .. "." .. name, {
       icon = {
         string = "",
         width = content_w,
         align = "left",
-        font = mono,
+        font = font or mono,
         color = theme.text_muted,
         padding_left = 0,
         padding_right = 0,
@@ -291,7 +310,7 @@ for _, p in ipairs(providers) do
     })
   end
   chart_row("counts", "counts")
-  chart_row("spark", "spark")
+  chart_row("spark", "spark", mono_bar)
   chart_row("dows", "dows")
   card.extras = {}
   for e = 1, extra_max do
@@ -300,7 +319,7 @@ for _, p in ipairs(providers) do
         string = "",
         width = math.floor(content_w * 0.48),
         align = "left",
-        font = cap_font,
+        font = body_font,
         color = theme.text_muted,
         padding_left = 0,
         padding_right = 0,
@@ -309,7 +328,7 @@ for _, p in ipairs(providers) do
         string = "",
         width = content_w - math.floor(content_w * 0.48),
         align = "right",
-        font = cap_font,
+        font = body_font,
         color = theme.text_muted,
         padding_left = 0,
         padding_right = 0,
@@ -333,11 +352,11 @@ sbar.add("item", "widgets.ccu.plate", {
 -- small gaps, instead of a uniform row_h wall. y_offsets stack from the top.
 local h_head = row_h
 local h_meter = 12
-local h_cap = 18
-local h_chart = 15
-local h_sep = 12
-local gap_section = 4
-local gap_header = 6
+local h_cap = 20
+local h_chart = 18
+local h_sep = 14
+local gap_section = 6
+local gap_header = 8
 
 local function relayout()
   local entries = {}
@@ -363,17 +382,14 @@ local function relayout()
     if st.weekly then
       push(card.meter, h_meter)
     end
-    local has_totals = st.month_tokens ~= nil or st.total_tokens ~= nil
-    local has_days = st.days and #st.days > 0
+    local has_days = next(st.days or {}) ~= nil
+    local has_totals = st.total_tokens ~= nil or st.days30_tokens ~= nil
     if has_totals or has_days then
       gap(gap_section)
-    end
-    if has_totals then
-      push(card.totals, h_cap)
+      entries[#entries + 1] = { item = card.totals, peer = card.week, h = h_cap }
     end
     if has_days then
-      push(card.week, h_cap)
-      gap(2)
+      gap(4)
       push(card.counts, h_chart)
       push(card.spark, h_chart)
       push(card.dows, h_chart)
@@ -403,7 +419,11 @@ local function relayout()
   local y = total / 2
   for _, e in ipairs(entries) do
     if e.item then
-      e.item:set { y_offset = math.floor(y - e.h / 2 + 0.5), width = 0 }
+      local y_off = math.floor(y - e.h / 2 + 0.5)
+      e.item:set { y_offset = y_off, width = 0 }
+      if e.peer then
+        e.peer:set { y_offset = y_off, width = 0 }
+      end
     end
     y = y - e.h
   end
@@ -419,12 +439,9 @@ local function relayout()
   }
 end
 
-local function fg_color(weekly, now)
+local function fg_color(weekly)
   if not weekly then
     return theme.text_muted
-  end
-  if logic.behind_pace(weekly, now) then
-    return theme.critical
   end
   return theme.text_primary
 end
@@ -451,7 +468,7 @@ local function chip_label(p, now)
   local weekly = (last[p.id] or {}).weekly
   local label = {
     string = logic.bar_chip(p.label, weekly, now),
-    color = fg_color(weekly, now),
+    color = fg_color(weekly),
   }
   if #bar_list > 1 then
     label.width = chip_width(now)
@@ -489,7 +506,7 @@ local function rotate_to_next()
   end
   rotating = true
   local now = os.time()
-  local cur_fg = fg_color((last[bar_list[bar_i].id] or {}).weekly, now)
+  local cur_fg = fg_color((last[bar_list[bar_i].id] or {}).weekly)
   sbar.animate("tanh", settings.motion.fast, function()
     ccu:set { label = { y_offset = rotate_rise, color = colors.with_alpha(cur_fg, 0) } }
   end)
@@ -518,21 +535,17 @@ local function apply_card(p, now)
   local card = cards[p.id]
   local st = last[p.id]
   local weekly = st.weekly
-  local behind = logic.behind_pace(weekly, now)
-  local fg = fg_color(weekly, now)
-  local muted = behind and theme.critical or theme.text_muted
-  local fill = behind and theme.critical or p.accent
+  local fill = p.accent
 
   card.sep:set { drawing = p ~= providers[1], icon = { color = theme.text_muted } }
   card.head:set {
     drawing = true,
-    icon = { string = p.label, color = fg },
+    icon = { string = p.label, color = p.accent },
     label = {
       string = weekly and logic.used_line(weekly, now) or (st.status or logic.NO_WEEKLY),
-      color = muted,
+      color = weekly and theme.text_primary or theme.text_muted,
     },
   }
-  -- Meter fill = used (not remaining). Behind-pace only tints chip/meter.
   if weekly then
     set_slider(card.meter, weekly.used * 100, fill, bar_h, true)
   else
@@ -540,18 +553,27 @@ local function apply_card(p, now)
   end
 
   local days = st.days or {}
-  local has_days = #days > 0
-  local has_totals = st.month_tokens ~= nil or st.total_tokens ~= nil
+  local has_days = next(days) ~= nil
+  local has_totals = st.total_tokens ~= nil or st.days30_tokens ~= nil
+  local show_stats = has_totals or has_days
+  local wtok, wusd = st.week_tokens, st.week_usd
+  if wtok == nil and has_days then
+    wtok, wusd = logic.window_sum(days, now)
+    if wusd == 0 then
+      wusd = nil
+    end
+  end
   card.totals:set {
-    drawing = has_totals,
-    icon = { string = logic.month_line(st.month_tokens), color = theme.text_muted },
-    label = { string = logic.total_line(st.total_tokens), color = theme.text_muted },
+    drawing = show_stats,
+    icon = { string = logic.total_line(st.total_tokens, st.total_usd), color = theme.text_muted },
+    label = { string = logic.days30_line(st.days30_tokens, st.days30_usd), color = theme.text_muted },
   }
   card.week:set {
-    drawing = has_days,
-    icon = { string = logic.week_header(days), color = theme.text_muted },
+    drawing = show_stats,
+    icon = { string = "", width = col_all + col_30 },
+    label = { string = logic.week_line(wtok, wusd), color = theme.text_muted },
   }
-  local counts, spark, labels = logic.chart_lines(days)
+  local counts, spark, labels = logic.chart_lines(days, now, logic.chart_cell_for(content_w))
   card.counts:set { drawing = has_days, icon = { string = counts, color = theme.text_primary } }
   card.spark:set { drawing = has_days, icon = { string = spark, color = fill } }
   card.dows:set { drawing = has_days, icon = { string = labels, color = theme.text_muted } }
@@ -580,7 +602,14 @@ local function apply_all()
 end
 
 local function parse_lua_table(lit, tag)
-  if not lit or lit == "" then
+  -- sbar.exec JSON → table. Lua-literal helpers still arrive as a string.
+  if type(lit) == "table" then
+    if lit.error then
+      return { error = lit.error }
+    end
+    return lit
+  end
+  if type(lit) ~= "string" or lit == "" then
     return { error = "empty_response" }
   end
   local fn, err = load("return " .. lit, tag, "t", {})
@@ -699,8 +728,16 @@ local function apply_cost(result)
       end
       local month = prov.month
       local tot = prov.total
+      local week = prov.week
+      local d30 = prov.days30
       last[p.id].month_tokens = type(month) == "table" and tonumber(month.tokens) or nil
+      last[p.id].month_usd = type(month) == "table" and tonumber(month.usd) or nil
       last[p.id].total_tokens = type(tot) == "table" and tonumber(tot.tokens) or nil
+      last[p.id].total_usd = type(tot) == "table" and tonumber(tot.usd) or nil
+      last[p.id].week_tokens = type(week) == "table" and tonumber(week.tokens) or nil
+      last[p.id].week_usd = type(week) == "table" and tonumber(week.usd) or nil
+      last[p.id].days30_tokens = type(d30) == "table" and tonumber(d30.tokens) or nil
+      last[p.id].days30_usd = type(d30) == "table" and tonumber(d30.usd) or nil
     end
   end
   apply_all()
