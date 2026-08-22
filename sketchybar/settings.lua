@@ -134,30 +134,40 @@ local settings = {
     mic_duration = 2,
     bluetooth_duration = 3,
     siri_frames = 108,
+    -- Expand/retract pacing (frames at 60fps, tanh curve).
+    frames_expand = 16,
+    frames_retract = 18,
     -- Heights include the tuck. Visible idle = bar_height (32); expand pops below.
     -- Tuck = corner_radius so the top rounding + top border sit above the screen edge.
     bar_height = 48,
     idle_height = 48,
-    expand_height = 64,
+    expand_height = 60,
     corner_radius = 16,
     y_offset_idle = -16,
     y_offset_expand = -16,
     y_offset_external = -16,
     text_y_offset = -8,
-    -- FIXED pill widths = 2 × (16px text pad + measured longest left text +
-    -- 12px slack) + 220px probed notch. Measured in SF Pro Semibold 15 via
-    -- probe items: "Stack layout"=88, "Mic muted"=74, "Not sticky"=72,
-    -- appswitch worst (13ch+…)≈130, bt worst (9ch+… · 100%)=156. siri is
-    -- floored by the right lobe minimum (wing ≥ 4+48+16 → w ≥ 356).
-    -- Do NOT slim these per toast: the probed notch_width (220) underreads the
-    -- physical cutout, and only the generous worst-case wings absorb that.
-    widths = {
-      app = 540,
-      siri = 380,
-      layout = 460,
-      mic = 430,
-      bluetooth = 590,
-      window = 430,
+    -- Dynamic pill sizing (island_core.pill_width): per-toast width from exact
+    -- SF Pro advance sums (island_text.measure), fitted around the notch.
+    --   w = (notch + 2×notch_fudge) + 2×max(lpl+text+lpr+text_slack, rpl+right_lobe+rpr)
+    -- notch_fudge: the AppKit aux-area probe (220 @ 1800pt) badly underreads
+    -- the physical cutout. Live-calibrated on the pill text end position
+    -- (display center ± text end): 772.8 clipped "Ghostty" by 2–4px, 762.8 was
+    -- "almost hidden" → the visible cutout edge sits near ±768 (physical width
+    -- ≈ 268–272pt, ~25px/side beyond the probe; the old FIXED widths grazed
+    -- this too, e.g. mic 430 ended at 776). fudge 24 + lpr 4 + slack 2 puts
+    -- text ends at ≤ ~753 (≥ 15px visual gap) plus 0–9.5px quantization.
+    -- width_step quantizes so similar-length toasts reuse geometry (no morph
+    -- churn). Texts longer than max_width allows are pixel-refit
+    -- (island_text.fit) — the hard guarantee against text under the cutout.
+    sizing = {
+      notch_fudge = 24,
+      text_slack = 2,
+      right_lobe = 48,
+      width_step = 20,
+      max_width = 620,
+      notchless_gap = 24,
+      notchless_min = 160,
     },
   },
   hardware = {

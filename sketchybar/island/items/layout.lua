@@ -24,7 +24,6 @@ listener:subscribe("island_layout", function(env)
   island.expand {
     kind = "layout",
     priority = island.priority.layout,
-    width = settings.island.widths.layout,
     height = island.IDLE_H,
     duration = settings.island.layout_duration,
     left = {

@@ -90,7 +90,6 @@ listener:subscribe("island_bluetooth", function(env)
   island.expand {
     kind = "bluetooth",
     priority = island.priority.bluetooth,
-    width = settings.island.widths.bluetooth,
     height = island.IDLE_H,
     duration = settings.island.bluetooth_duration,
     left = {

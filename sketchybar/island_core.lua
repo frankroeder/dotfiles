@@ -3,6 +3,7 @@
 
 local display = require "display"
 local island_style = require "island_style"
+local island_text = require "island_text"
 local motion = require "motion"
 local settings = require "settings"
 
@@ -11,6 +12,9 @@ local TRANSPARENT = 0x00ffffff
 local BAR_H = settings.island.bar_height or settings.bar_height or 32
 local IDLE_H = settings.island.idle_height or BAR_H
 local EXPAND_H = settings.island.expand_height or 48
+local SIZING = settings.island.sizing or {}
+local F_EXPAND = settings.island.frames_expand or settings.motion.normal
+local F_RETRACT = settings.island.frames_retract or settings.motion.normal
 
 -- Higher = more important. Sticky expand only yields to equal/higher priority.
 local PRIORITY = {
@@ -60,6 +64,43 @@ local function idle_margin(idx)
 end
 
 local NOTCH_W = pill_base(current_display)
+
+-- Per-toast pill width from exact text metrics (see settings.island.sizing).
+-- May pixel-refit item.left.text in place when the max width caps the wing.
+local function pill_width(target, item, lpl, lpr, rpl, rpr)
+  if item.width then
+    return math.max(160, item.width)
+  end
+  local L = item.left
+  local R = item.right
+  local step = SIZING.width_step or 20
+  local max_w = SIZING.max_width or 620
+  local slack = SIZING.text_slack or 2
+  local lsize = (L and type(L.font) == "table" and L.font.size) or 15
+  local text_w = L and island_text.measure(L.text or "", lsize) or 0
+  local r_box = R and (R.width or SIZING.right_lobe or 48) or 0
+
+  if island_style.on_notched_builtin(target) then
+    local eff_notch = display.notch_width + 2 * (SIZING.notch_fudge or 10)
+    local l_wing = lpl + text_w + lpr + slack
+    local r_wing = rpl + r_box + rpr
+    local w = math.ceil((eff_notch + 2 * math.max(l_wing, r_wing)) / step) * step
+    if w > max_w then
+      w = max_w
+      if L then
+        -- Hard guarantee: text can never render under the physical cutout.
+        local avail = (max_w - eff_notch) / 2 - lpl - lpr - slack
+        L.text = island_text.fit(L.text or "", lsize, avail)
+      end
+    end
+    return w
+  end
+
+  -- Notchless: halves cluster at the center; each half holds its content.
+  local half = math.max(lpl + text_w + lpr, rpl + r_box + rpr)
+  local w = math.ceil((2 * half + (SIZING.notchless_gap or 24)) / step) * step
+  return math.max(SIZING.notchless_min or 160, math.min(w, max_w))
+end
 
 local function bar_props(extra)
   local style = island_style.bar()
@@ -171,6 +212,18 @@ local cur_w = NOTCH_W
 local cur_h = BAR_H
 local cur_mg = idle_margin(current_display)
 
+-- Last applied colors (same rule as geometry: animating a color to its current
+-- value is a constant-prop batch entry — the old snap-then-animate double set
+-- was a flicker source on morphs and fresh shows).
+local cur_bar_color = island_style.bar().color
+local cur_bar_border = island_style.bar().border_color
+local cur_icon_color = TRANSPARENT
+local cur_label_color = TRANSPARENT
+
+-- Last applied bar y_offset (the vertical dismiss animates it; morphs that
+-- arrive mid-dismiss must ride it back down inside the animate batch).
+local cur_y = y_idle(current_display)
+
 local M = {}
 M.IDLE_H = IDLE_H
 M.EXPAND_H = EXPAND_H
@@ -191,6 +244,9 @@ local function apply_idle_geometry(opts)
   local mg = idle_margin(current_display)
   local style = island_style.bar()
   cur_w, cur_h, cur_mg = base, BAR_H, mg
+  cur_bar_color, cur_bar_border = style.color, style.border_color
+  cur_icon_color, cur_label_color = TRANSPARENT, TRANSPARENT
+  cur_y = y_idle(current_display)
   island_sub:set {
     y_offset = 0,
     label = { color = TRANSPARENT, string = "", width = 0, padding_left = 0, padding_right = 0 },
@@ -273,14 +329,6 @@ local function expand_on(target, item)
   cancel_hide()
   cancel_dismiss()
 
-  local w = math.max(160, item.width or pill_base(target))
-  local h = item.height
-  if not h or h == IDLE_H then
-    h = EXPAND_H
-  end
-  local dw = display_width(target)
-  local mg = math.max(0, math.floor(dw / 2) - math.floor(w / 2))
-
   local L = item.left
   local R = item.right
   local S = item.subtitle
@@ -289,6 +337,14 @@ local function expand_on(target, item)
   local lpr = L and (L.padding_right or 4) or 4
   local rpl = R and (R.padding_left or 4) or 4
   local rpr = R and (R.padding_right or 12) or 12
+
+  local w = pill_width(target, item, lpl, lpr, rpl, rpr)
+  local h = item.height
+  if not h or h == IDLE_H then
+    h = EXPAND_H
+  end
+  local dw = display_width(target)
+  local mg = math.max(0, math.floor(dw / 2) - math.floor(w / 2))
 
   local l_fixed = L and L.width or nil
   local r_fixed = R and R.width or nil
@@ -337,7 +393,7 @@ local function expand_on(target, item)
   local sfont = S and resolve_font(S.font or { size = 12, style = "Regular" }) or nil
   local sub_y = sfont and (TEXT_Y - (sfont.size + 16)) or 0
 
-  local frames = item.frames or motion.frames.normal
+  local frames = item.frames or F_EXPAND
   local style = island_style.bar()
   local pill_color = item.color or style.color
   local pill_border = item.border_color or style.border_color
@@ -386,17 +442,25 @@ local function expand_on(target, item)
         label = { color = TRANSPARENT, string = "", width = 0 },
       }
     end
+    cur_icon_color, cur_label_color = icon_color, label_color
     cur_priority = resolve_priority(item)
     cur_sticky = item.sticky == true or (item.duration ~= nil and item.duration == 0)
     schedule_dismiss(item.duration)
     return
   end
 
-  -- Fresh show: unhide at the top-bar strip, then grow out of it.
+  -- Fresh show: seed content (transparent) BEFORE unhiding so the first visible
+  -- frame never shows stale strings/widths, then grow out of the notch strip.
   -- Mid-retract / size change: morph from current geometry.
   if not is_expanded and not retracting then
     local seed_mg = idle_margin(target)
     cur_w, cur_h, cur_mg = w, BAR_H, seed_mg
+    island:set {
+      width = w,
+      icon = with_color(icon_content, TRANSPARENT),
+      label = with_color(label_content, TRANSPARENT),
+    }
+    cur_icon_color, cur_label_color = TRANSPARENT, TRANSPARENT
     sbar.bar(bar_props {
       hidden = false,
       topmost = "on",
@@ -407,22 +471,22 @@ local function expand_on(target, item)
       color = pill_color,
       border_color = pill_border,
     })
-    island:set {
-      width = w,
-      icon = with_color(icon_content, TRANSPARENT),
-      label = with_color(label_content, TRANSPARENT),
-    }
+    cur_bar_color, cur_bar_border = pill_color, pill_border
+    cur_y = y_expand(target)
   else
+    -- y_offset deliberately NOT snapped here: mid-dismiss the pill sits partly
+    -- above the edge and must slide back down inside the animate batch.
     sbar.bar {
       hidden = false,
       display = target,
-      y_offset = y_expand(target),
     }
     -- Snap width with content: animating it mid-morph clips/drifts the glyph.
+    -- Colors are NOT snapped here — the animate batch below carries them from
+    -- whatever is on screen (mid-fade during a retract) to the new targets.
     island:set {
       width = w,
-      icon = with_color(icon_content, icon_color),
-      label = with_color(label_content, label_color),
+      icon = icon_content,
+      label = label_content,
     }
   end
 
@@ -447,7 +511,9 @@ local function expand_on(target, item)
     }
   end
 
-  -- Fade content in; only animate geometry when it actually changes (morph).
+  -- Fade content in / morph geometry. Every prop in the animate batch must be
+  -- actually changing — constant-valued entries jitter (geometry) or double-set
+  -- (colors), both visible as flicker.
   local bar_anim = {}
   if cur_h ~= h then
     bar_anim.height = h
@@ -455,36 +521,54 @@ local function expand_on(target, item)
   if cur_mg ~= mg then
     bar_anim.margin = mg
   end
-  if not is_expanded and not retracting then
-    bar_anim.color = pill_color
-    bar_anim.border_color = pill_border
-  else
-    if pill_color then
+  if cur_y ~= y_expand(target) then
+    bar_anim.y_offset = y_expand(target)
+  end
+  if next(bar_anim) then
+    -- Bar color rides the geometry batch when it changes (morph from a
+    -- mid-retract fade or a differently-tinted pill like siri).
+    if pill_color ~= cur_bar_color then
       bar_anim.color = pill_color
     end
-    if pill_border then
+    if pill_border ~= cur_bar_border then
       bar_anim.border_color = pill_border
     end
+  elseif pill_color ~= cur_bar_color or pill_border ~= cur_bar_border then
+    -- No geometry change: snap the color outside animate. A color-only bar
+    -- batch gets mangled by sketchybar (omitted margin zeroes → full-width).
+    sbar.bar { color = pill_color, border_color = pill_border }
   end
-  local island_anim = {
-    icon = { color = icon_color },
-    label = { color = label_color },
-  }
+
+  local island_anim = {}
+  if icon_color ~= cur_icon_color then
+    island_anim.icon = { color = icon_color }
+  end
+  if label_color ~= cur_label_color then
+    island_anim.label = { color = label_color }
+  end
 
   local needs_bar_anim = next(bar_anim) ~= nil
-  sbar.animate(motion.curve, frames, function()
-    if needs_bar_anim then
-      sbar.bar(bar_anim)
-    end
-    island:set(island_anim)
-    if S then
-      island_sub:set {
-        label = { color = S.color or island_style.muted() },
-      }
-    end
-  end)
+  local needs_island_anim = next(island_anim) ~= nil
+  if needs_bar_anim or needs_island_anim or S then
+    sbar.animate(motion.curve, frames, function()
+      if needs_bar_anim then
+        sbar.bar(bar_anim)
+      end
+      if needs_island_anim then
+        island:set(island_anim)
+      end
+      if S then
+        island_sub:set {
+          label = { color = S.color or island_style.muted() },
+        }
+      end
+    end)
+  end
 
   cur_w, cur_h, cur_mg = w, h, mg
+  cur_y = y_expand(target)
+  cur_bar_color, cur_bar_border = pill_color, pill_border
+  cur_icon_color, cur_label_color = icon_color, label_color
   is_expanded = true
   retracting = false
   cur_priority = resolve_priority(item)
@@ -530,7 +614,8 @@ local function on_display_or_focus(env)
   local dw = display_width(target)
   local mg = math.max(0, math.floor(dw / 2) - math.floor(w / 2))
   cur_mg = mg
-  sbar.bar(bar_props { display = target, height = cur_h, margin = mg, y_offset = y_expand(target) })
+  cur_y = y_expand(target)
+  sbar.bar(bar_props { display = target, height = cur_h, margin = mg, y_offset = cur_y })
 end
 
 function M.restore_idle(opts)
@@ -549,10 +634,8 @@ function M.restore_idle(opts)
   cur_kind = nil
   cancel_dismiss()
 
-  local base = pill_base(current_display)
-  local frames = opts.frames or motion.frames.normal
+  local frames = opts.frames or F_RETRACT
   local style = island_style.bar()
-  local mg = idle_margin(current_display)
 
   -- Fade targets: same RGB, alpha 0 (`% 0x1000000` drops the alpha byte). Fading
   -- to a bare TRANSPARENT (white) would tint the pill white on the way out.
@@ -565,33 +648,43 @@ function M.restore_idle(opts)
     label = { color = TRANSPARENT, string = "", width = 0, padding_left = 0, padding_right = 0 },
   }
 
-  -- Keep the pill visible + topmost through the whole collapse.
+  -- Keep the pill visible + topmost through the whole dismiss.
   sbar.bar { display = current_display, hidden = false, topmost = "on" }
 
-  -- Smooth collapse: retract height/margin/y_offset to idle while fading the
-  -- background, border and content fully out in a single animate batch. Fading
-  -- to transparent (not the opaque idle color) avoids the two-stage pop on
-  -- notchless externals, where the pill would otherwise land on the visible idle
-  -- pill and then get hidden. Carrying margin + height keeps this from being a
-  -- color-only batch (which sketchybar can turn into a full-display stretch by
-  -- zeroing omitted margin). Item width is snapped to the idle base only after
-  -- the fade (schedule_hide -> apply_idle_geometry); animating it clips the glyph.
+  -- Vertical dismiss: slide the pill straight up behind the screen edge
+  -- (bar y_offset → -height puts the bottom edge at y=0) while fading it out.
+  -- Width, margin and height stay CONSTANT — no sideways collapse — and stay
+  -- out of the batch (constant props jitter); y_offset is the changing
+  -- geometry that keeps this from being a color-only bar batch (which
+  -- sketchybar can turn into a full-display stretch by zeroing omitted
+  -- margin). Geometry trackers are NOT reset here: the bar physically keeps
+  -- the expanded margin/height until apply_idle_geometry snaps idle after the
+  -- hide, and a morph arriving mid-dismiss must see the real values.
+  local bar_anim = {
+    y_offset = -cur_h,
+    color = fade_color,
+    border_color = fade_border,
+  }
+  local island_anim = {}
+  if cur_icon_color ~= TRANSPARENT then
+    island_anim.icon = { color = TRANSPARENT }
+  end
+  if cur_label_color ~= TRANSPARENT then
+    island_anim.label = { color = TRANSPARENT }
+  end
+  local needs_island_anim = next(island_anim) ~= nil
   sbar.animate(motion.curve, frames, function()
-    sbar.bar {
-      height = BAR_H,
-      margin = mg,
-      y_offset = y_idle(current_display),
-      color = fade_color,
-      border_color = fade_border,
-    }
-    island:set {
-      icon = { color = TRANSPARENT },
-      label = { color = TRANSPARENT },
-    }
+    sbar.bar(bar_anim)
+    if needs_island_anim then
+      island:set(island_anim)
+    end
   end)
-  cur_w, cur_h, cur_mg = base, BAR_H, mg
+  cur_y = -cur_h
+  cur_bar_color, cur_bar_border = fade_color, fade_border
+  cur_icon_color, cur_label_color = TRANSPARENT, TRANSPARENT
 
-  -- Fully hide + re-assert idle geometry (clears strings + item width) once fade finishes.
+  -- Fully hide + re-assert idle geometry (clears strings + item width) once
+  -- the pill is off-screen.
   schedule_hide(frames)
 end
 
@@ -640,10 +733,11 @@ function M.refresh_theme()
     sbar.bar(bar_props())
     return
   end
+  cur_y = y_idle(current_display)
   sbar.bar(bar_props {
     display = current_display,
     margin = idle_margin(current_display),
-    y_offset = y_idle(current_display),
+    y_offset = cur_y,
     hidden = true,
   })
 end

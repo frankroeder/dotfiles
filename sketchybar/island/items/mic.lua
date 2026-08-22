@@ -35,7 +35,6 @@ listener:subscribe("island_mic", function(env)
   island.expand {
     kind = "mic",
     priority = island.priority.mic,
-    width = settings.island.widths.mic,
     height = island.IDLE_H,
     duration = settings.island.mic_duration,
     left = {

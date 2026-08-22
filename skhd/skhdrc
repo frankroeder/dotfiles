@@ -23,17 +23,18 @@ meh - s : bash "$DOTFILES/bin/Darwin/pick-screenshot"
 meh - n : open "vicinae://launch/snippets/manage"
 meh - p : vicinae deeplink vicinae://launch/@EvanZhouDev/store.raycast.raycast-apple-intelligence/proofread
 
-hyper - m : yabai -m space --focus 5; open "/Applications/Mattermost.app/"
-hyper - s : yabai -m space --focus 5; open "/Applications/Signal.app/"
-hyper - t : yabai -m space --focus 5; open "/Applications/Telegram.app/"
+hyper - m : yabai -m space --focus 5 2>/dev/null; open "/Applications/Mattermost.app/"
+hyper - s : yabai -m space --focus 5 2>/dev/null; open "/Applications/Signal.app/"
+hyper - t : yabai -m space --focus 5 2>/dev/null; open "/Applications/Telegram.app/"
 hyper - p : open "x-apple.systempreferences:"
 hyper - a : open -a "About This Mac"
 hyper - b : bash "$DOTFILES/scripts/toggle_app.bash" "$BROWSER_NAME"
 
-# yabai scratchpads
-fn + alt - m : yabai -m window --toggle music || open -a Music
-# fn + alt - n : yabai -m window --toggle notes || open -a Notes
-fn + alt - p : yabai -m window --toggle pw || open -a "Proton Pass"
+# yabai scratchpads (toggle fails with "unknown value" while the app is not
+# running yet — that is the expected trigger for the open fallback, so mute it)
+fn + alt - m : yabai -m window --toggle music 2>/dev/null || open -a Music
+# fn + alt - n : yabai -m window --toggle notes 2>/dev/null || open -a Notes
+fn + alt - p : yabai -m window --toggle pw 2>/dev/null || open -a "Proton Pass"
 
 # Move space to next display
 meh - 1 : yabai -m space --display 1; sketchybar-top --trigger layout_change; sketchybar-top --trigger space_windows_refresh
@@ -49,24 +50,24 @@ fn - h : yabai -m window --focus west
 fn - j : yabai -m window --focus south
 fn - k : yabai -m window --focus north
 fn - l : yabai -m window --focus east
-# going stack (u)p and (d)own
-fn - d : yabai -m window --focus stack.prev
-fn - u : yabai -m window --focus stack.next
+# going stack (u)p and (d)own, wrapping around at the ends
+fn - d : yabai -m window --focus stack.prev 2>/dev/null || yabai -m window --focus stack.last 2>/dev/null
+fn - u : yabai -m window --focus stack.next 2>/dev/null || yabai -m window --focus stack.first 2>/dev/null
 
-# change space focus
-fn - y : yabai -m space --focus recent
-fn - x : yabai -m space --focus prev
-fn - c : yabai -m space --focus next
+# change space focus (errors muted: "already focused" / edge spaces are no-ops)
+fn - y : yabai -m space --focus recent 2>/dev/null
+fn - x : yabai -m space --focus prev 2>/dev/null
+fn - c : yabai -m space --focus next 2>/dev/null
 
-fn - 1 : yabai -m space --focus 1 || skhd -k "ctrl + alt + cmd - 1"
-fn - 2 : yabai -m space --focus 2 || skhd -k "ctrl + alt + cmd - 2"
-fn - 3 : yabai -m space --focus 3 || skhd -k "ctrl + alt + cmd - 3"
-fn - 4 : yabai -m space --focus 4 || skhd -k "ctrl + alt + cmd - 4"
-fn - 5 : yabai -m space --focus 5 || skhd -k "ctrl + alt + cmd - 5"
-fn - 6 : yabai -m space --focus 6
-fn - 7 : yabai -m space --focus 7
-fn - 8 : yabai -m space --focus 8
-fn - 9 : yabai -m space --focus 9
+fn - 1 : yabai -m space --focus 1 2>/dev/null || skhd -k "ctrl + alt + cmd - 1"
+fn - 2 : yabai -m space --focus 2 2>/dev/null || skhd -k "ctrl + alt + cmd - 2"
+fn - 3 : yabai -m space --focus 3 2>/dev/null || skhd -k "ctrl + alt + cmd - 3"
+fn - 4 : yabai -m space --focus 4 2>/dev/null || skhd -k "ctrl + alt + cmd - 4"
+fn - 5 : yabai -m space --focus 5 2>/dev/null || skhd -k "ctrl + alt + cmd - 5"
+fn - 6 : yabai -m space --focus 6 2>/dev/null
+fn - 7 : yabai -m space --focus 7 2>/dev/null
+fn - 8 : yabai -m space --focus 8 2>/dev/null
+fn - 9 : yabai -m space --focus 9 2>/dev/null
 
 # change layout of space (i3 defaults) — layout type only: pill refresh, not full space rescan
 fn - e : yabai -m space --layout bsp; sketchybar-top --trigger property_change; sketchybar-island --trigger island_layout layout=bsp
@@ -92,20 +93,20 @@ fn - r : yabai -m space --rotate 90
 # Shortcuts to move and open applications
 
 # move window to space and focus — yabai signals cover bars; short race refresh only
-fn + ctrl - y  : yabai -m window --space recent && yabai -m space --focus recent
-fn + ctrl - x  : yabai -m window --space prev && yabai -m space --focus prev
-fn + ctrl - c  : yabai -m window --space next && yabai -m space --focus next
+fn + ctrl - y  : yabai -m window --space recent && yabai -m space --focus recent 2>/dev/null
+fn + ctrl - x  : yabai -m window --space prev && yabai -m space --focus prev 2>/dev/null
+fn + ctrl - c  : yabai -m window --space next && yabai -m space --focus next 2>/dev/null
 
 # move window to space and follow with focus
-fn + ctrl - 1 : yabai -m window --space 1 && yabai -m space --focus 1
-fn + ctrl - 2 : yabai -m window --space 2 && yabai -m space --focus 2
-fn + ctrl - 3 : yabai -m window --space 3 && yabai -m space --focus 3
-fn + ctrl - 4 : yabai -m window --space 4 && yabai -m space --focus 4
-fn + ctrl - 5 : yabai -m window --space 5 && yabai -m space --focus 5
-fn + ctrl - 6 : yabai -m window --space 6 && yabai -m space --focus 6
-fn + ctrl - 7 : yabai -m window --space 7 && yabai -m space --focus 7
-fn + ctrl - 8 : yabai -m window --space 8 && yabai -m space --focus 8
-fn + ctrl - 9 : yabai -m window --space 9 && yabai -m space --focus 9
+fn + ctrl - 1 : yabai -m window --space 1 && yabai -m space --focus 1 2>/dev/null
+fn + ctrl - 2 : yabai -m window --space 2 && yabai -m space --focus 2 2>/dev/null
+fn + ctrl - 3 : yabai -m window --space 3 && yabai -m space --focus 3 2>/dev/null
+fn + ctrl - 4 : yabai -m window --space 4 && yabai -m space --focus 4 2>/dev/null
+fn + ctrl - 5 : yabai -m window --space 5 && yabai -m space --focus 5 2>/dev/null
+fn + ctrl - 6 : yabai -m window --space 6 && yabai -m space --focus 6 2>/dev/null
+fn + ctrl - 7 : yabai -m window --space 7 && yabai -m space --focus 7 2>/dev/null
+fn + ctrl - 8 : yabai -m window --space 8 && yabai -m space --focus 8 2>/dev/null
+fn + ctrl - 9 : yabai -m window --space 9 && yabai -m space --focus 9 2>/dev/null
 
 # swap same-space: window_moved signal. display hop: structure refresh.
 fn + ctrl - h : yabai -m window --swap west || { yabai -m window --display west; yabai -m display --focus west; sketchybar-top --trigger layout_change; }

@@ -70,13 +70,20 @@ Requirements / decisions:
   No battery/power pills (macOS notifies on low battery), no volume pill (native HUD), no wifi
   pill, no space pill (overlapped appswitch), no now-playing/media pill, no vpn pill.
 - Expand priority: lower prio never clobbers higher; sticky siri (duration=0) only yields to higher
-  prio or same kind. Dismiss uses cancellable `sbar.delay`. Restore snaps idle geometry outside
-  animate then hides.
+  prio or same kind. Dismiss uses cancellable `sbar.delay`. Dismiss is VERTICAL: the pill slides
+  straight up behind the screen edge (bar y_offset → -height) while fading; width/margin/height
+  stay constant — no sideways collapse. Idle geometry snaps only after the hide
+  (apply_idle_geometry), and geometry trackers are NOT reset at dismiss start so a morph arriving
+  mid-slide sees real values and rides y_offset back down inside its animate batch (cur_y tracker).
 - `display.refresh()` re-probes notch + arrangement rows on `display_change` (hotplug).
 - Every expand grows out of the notch (idle seed in island_core); consecutive expands morph.
-- NEVER put constant-valued numeric props inside `sbar.animate` batches when value is unchanged
-  (1px jitter). Expand only animates changing geometry. Restore snaps idle geometry un-animated
-  then hides (avoids omitted margin/width zeroing to full-display stretch).
+- NEVER put constant-valued props inside `sbar.animate` batches when the value is unchanged —
+  numeric geometry jitters 1px, colors double-set (visible flicker on morphs). island_core tracks
+  the last-applied bar color/border and icon/label colors alongside geometry and prunes constant
+  entries from every batch. A bar-color change with NO geometry change is snapped un-animated
+  (a color-only bar batch gets mangled: omitted margin zeroes to a full-display stretch). Expand
+  only animates changing geometry; fresh shows seed content transparent BEFORE unhiding the bar.
+  The vertical dismiss animates only y_offset + fade; idle geometry snaps un-animated after hide.
 - `display.notch_width`: require both auxiliary flanks + n < 40% of screen (else 0). Full-width
   "notch" on externals was a false positive that set idle pill width = display width.
 - Smoke: `sketchybar/island/smoke_test.sh [out_dir]`.
@@ -143,14 +150,22 @@ Requirements / decisions:
  installed — every bar used to render a ~10% narrower system fallback, and all fixed widths were
  calibrated against SF Pro after the switch. Verify font metrics with probe items
  (`--add item` + `bounding_rects`), never by assuming.
-- Island pill widths (settings.lua `island.widths`) are FIXED per kind:
- `w = 2 × (16px text pad + measured longest left text in SF Pro Semibold 15 + 12px slack) +
- 220px probed notch`, floored by the right-lobe minimum (wing ≥ 4+48+16 → w ≥ 356, binds siri).
- Undersizing runs the text into the notch (the old bluetooth 580 was 10px short for
- "Momentum4… · 100%" = 156px). Per-toast slimming (fit width to the actual text) was TRIED AND
- REVERTED: the probed `display.notch_width` (220) underreads the physical cutout, so tight-fit
- pills clipped real text behind the notch — only the generous fixed worst-case wings absorb the
- probe error. Do not reintroduce dynamic pill widths without first measuring the true cutout.
+- Island pill widths are DYNAMIC per toast (`island_core.pill_width`, params in
+ `settings.island.sizing`): `w = (probed notch + 2×10 fudge) + 2×max(lpl 16 + exact text width +
+ lpr 4 + slack 2, right lobe 4+48+16)`, ceil-quantized to 20px so similar-length toasts reuse
+ geometry (string-swap instead of a morph). Text widths are EXACT: `island_text.lua` holds SF Pro
+ Semibold 15pt advance widths measured via NSString sizeWithAttributes on the resolved "SF Pro"
+ Semibold face (char-sum ≤ 0.6px off full-string rendering); unknown codepoints get a full em.
+ The AppKit aux-area probe (220 @ 1800pt wide) BADLY underreads the physical cutout —
+ live-calibrated on text end position (display center ± end): 772.8 clipped "Ghostty"'s tail by
+ 2–4px and 762.8 was still "almost hidden", so the visible cutout edge sits near ±768 (physical
+ ≈ 268–272pt, ~25px/side beyond the probe; the retired FIXED widths grazed it too — mic 430 put
+ "Mic muted" at 776). `notch_fudge 24 + lpr 4 + slack 2` keeps text ends ≤ ~753 (≥ 15px visual
+ gap, +0–9.5px quantization). Slim examples: "Ghostty" 540→440, "Siri" 380→420, "Tiled" 430→420,
+ "Mic muted" 430→480, bluetooth worst 590→620 (cap, pixel-refit guards it). Texts that would
+ exceed `max_width` are pixel-refit in place with `island_text.fit` — the hard guarantee that
+ text never renders under the cutout. Regenerate the W15 table with a JXA probe if the pill font
+ family/weight ever changes.
 - App/device names in island pills are truncated with `utils.ellipsize` (codepoint-aware,
  utf8.offset) — byte-based `string.sub` split multibyte names ("Café…") into mojibake.
 - A long-lived sketchybar process can silently corrupt: `--bar hidden=…` becomes a no-op AND all

@@ -23,7 +23,6 @@ listener:subscribe("island_siri", function(env)
       kind = "siri",
       priority = island.priority.siri,
       sticky = true,
-      width = settings.island.widths.siri,
       height = island.IDLE_H,
       duration = 0,
       frames = siri_frames,

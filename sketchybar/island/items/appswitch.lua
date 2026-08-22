@@ -6,7 +6,6 @@ local settings = require "settings"
 local utils = require "utils"
 
 local config = {
-  width = settings.island.widths.app,
   height = island.IDLE_H,
   duration = settings.island.appswitch_duration,
   left = {
@@ -65,7 +64,6 @@ listener:subscribe("front_app_switched", function(env)
   island.expand {
     kind = "appswitch",
     priority = island.priority.appswitch,
-    width = config.width,
     height = config.height,
     duration = config.duration,
     left = {

@@ -39,7 +39,6 @@ listener:subscribe("island_window", function(env)
     island.expand {
       kind = "window",
       priority = island.priority.window,
-      width = settings.island.widths.window,
       height = island.IDLE_H,
       duration = settings.island.window_duration,
       left = {
