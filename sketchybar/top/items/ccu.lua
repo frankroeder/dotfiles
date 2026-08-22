@@ -68,7 +68,6 @@ local pad = 8
 local content_w = 360
 local plate_w = content_w + pad * 2
 local row_h = 20
-local row_gap = 0
 local extra_max = 3
 local bar_h = 5
 local name_w = 58
@@ -331,48 +330,85 @@ sbar.add("item", "widgets.ccu.plate", {
   background = { drawing = false },
 })
 
-local function row_y(i, n)
-  return ((n - 1) / 2 - i) * row_h
-end
+-- Vertical rhythm: rows carry their own slot height and sections are split by
+-- small gaps, instead of a uniform row_h wall. y_offsets stack from the top.
+local h_head = row_h
+local h_meter = 12
+local h_cap = 18
+local h_chart = 15
+local h_sep = 12
+local gap_section = 4
+local gap_header = 6
 
 local function relayout()
-  local rows = { { header } }
+  local entries = {}
+  local function push(item, h)
+    entries[#entries + 1] = { item = item, h = h }
+  end
+  local function gap(h)
+    entries[#entries + 1] = { h = h }
+  end
+
+  push(header, row_h)
+  gap(gap_header)
   for i, p in ipairs(providers) do
     local card = cards[p.id]
     local st = last[p.id]
     card.sep:set { drawing = i > 1 }
     if i > 1 then
-      rows[#rows + 1] = { card.sep }
+      gap(gap_section)
+      push(card.sep, h_sep)
+      gap(gap_section)
     end
-    rows[#rows + 1] = { card.head }
+    push(card.head, h_head)
     if st.weekly then
-      rows[#rows + 1] = { card.meter }
+      push(card.meter, h_meter)
     end
-    if st.month_tokens ~= nil or st.total_tokens ~= nil then
-      rows[#rows + 1] = { card.totals }
+    local has_totals = st.month_tokens ~= nil or st.total_tokens ~= nil
+    local has_days = st.days and #st.days > 0
+    if has_totals or has_days then
+      gap(gap_section)
     end
-    if st.days and #st.days > 0 then
-      rows[#rows + 1] = { card.week }
-      rows[#rows + 1] = { card.counts }
-      rows[#rows + 1] = { card.spark }
-      rows[#rows + 1] = { card.dows }
+    if has_totals then
+      push(card.totals, h_cap)
     end
+    if has_days then
+      push(card.week, h_cap)
+      gap(2)
+      push(card.counts, h_chart)
+      push(card.spark, h_chart)
+      push(card.dows, h_chart)
+    end
+    local n_extras = 0
     for e = 1, extra_max do
       local extra = st.extras and st.extras[e]
       card.extras[e]:set { drawing = extra ~= nil }
       if extra then
-        rows[#rows + 1] = { card.extras[e] }
+        n_extras = n_extras + 1
+      end
+    end
+    if n_extras > 0 then
+      gap(gap_section)
+      for e = 1, extra_max do
+        if st.extras and st.extras[e] then
+          push(card.extras[e], h_cap)
+        end
       end
     end
   end
-  local n = #rows
-  for i, group in ipairs(rows) do
-    local y = row_y(i - 1, n)
-    for _, it in ipairs(group) do
-      it:set { y_offset = y, width = 0 }
-    end
+
+  local total = 0
+  for _, e in ipairs(entries) do
+    total = total + e.h
   end
-  local h = n * row_h + 10
+  local y = total / 2
+  for _, e in ipairs(entries) do
+    if e.item then
+      e.item:set { y_offset = math.floor(y - e.h / 2 + 0.5), width = 0 }
+    end
+    y = y - e.h
+  end
+  local h = total + 12
   ccu:set {
     popup = {
       height = h,
@@ -475,7 +511,7 @@ local function apply_card(p, now)
     icon = { string = logic.week_header(days), color = theme.text_muted },
   }
   local counts, spark, labels = logic.chart_lines(days)
-  card.counts:set { drawing = has_days, icon = { string = counts, color = theme.text_muted } }
+  card.counts:set { drawing = has_days, icon = { string = counts, color = theme.text_primary } }
   card.spark:set { drawing = has_days, icon = { string = spark, color = fill } }
   card.dows:set { drawing = has_days, icon = { string = labels, color = theme.text_muted } }
 
@@ -485,7 +521,7 @@ local function apply_card(p, now)
       card.extras[e]:set {
         drawing = true,
         icon = { string = extra.label, color = theme.text_muted },
-        label = { string = logic.extra_line(extra.weekly, now), color = theme.text_muted },
+        label = { string = logic.extra_line(extra.weekly, now), color = theme.text_primary },
       }
     else
       card.extras[e]:set { drawing = false }
@@ -698,17 +734,17 @@ refresh_timer:subscribe("routine", function()
   refresh_usage()
 end)
 
-local rotate_timer = sbar.add("item", "widgets.ccu.rotate", {
-  update_freq = 10,
-  drawing = false,
-  updates = true,
-})
-rotate_timer:subscribe("routine", function()
-  if #bar_list > 1 then
+if #bar_list > 1 then
+  local rotate_timer = sbar.add("item", "widgets.ccu.rotate", {
+    update_freq = 10,
+    drawing = false,
+    updates = true,
+  })
+  rotate_timer:subscribe("routine", function()
     bar_i = logic.next_bar(bar_i, #bar_list)
     apply_bar()
-  end
-end)
+  end)
+end
 
 ui.bind_popup(ccu, { on_open = refresh_usage, on_right = refresh_usage })
 refresh_usage()
