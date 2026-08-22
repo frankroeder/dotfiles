@@ -8,19 +8,19 @@ local started_by_us = false
 local was_running = false
 
 local coffee = ui.add_capsule("widgets.coffee", {
-  padding_left = 0,
+  padding_left = 4,
   padding_right = 2,
   update_freq = 60,
   icon = {
     string = icons.coffee.off,
     color = colors.grey,
-    width = 22,
+    width = 24,
     align = "center",
     padding_left = 0,
     padding_right = 0,
     font = {
       style = settings.font.style_map["Regular"],
-      size = 16.0,
+      size = 18.0,
     },
   },
   label = { drawing = false },

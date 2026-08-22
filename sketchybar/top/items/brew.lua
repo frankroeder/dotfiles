@@ -12,7 +12,7 @@ local brew = sbar.add("item", "widgets.brew", {
   icon = {
     string = icons.brew,
     color = colors.blue,
-    font = { size = 14.0 },
+    font = { size = 16.0 },
     padding_left = 4,
     padding_right = 2,
   },

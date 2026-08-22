@@ -138,8 +138,8 @@ function ui.bracket_icon(name, spec)
   return sbar.add("item", name, {
     position = "right",
     width = spec.width,
-    padding_left = sp.bracket_item,
-    padding_right = sp.bracket_item,
+    padding_left = spec.padding_left ~= nil and spec.padding_left or sp.bracket_item,
+    padding_right = spec.padding_right ~= nil and spec.padding_right or sp.bracket_item,
     icon = apply_icon_pad(spec.icon),
     label = spec.label or NO_BG,
     background = NO_BG,

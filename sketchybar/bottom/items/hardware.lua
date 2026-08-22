@@ -64,7 +64,7 @@ local gpu_label = ui.bracket_metric("widgets.gpu_label", {
   text = "GPU 0%",
 })
 
-ui.bracket_spacer("widgets.spacer_gpu_ram", 0)
+ui.bracket_spacer("widgets.spacer_gpu_ram", sp.group)
 
 local ram_top = ui.bracket_metric("widgets.ram_top", {
   width = hw.ram_top_w,

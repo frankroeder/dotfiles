@@ -26,18 +26,20 @@ local pending_opts = nil
 local update
 
 local bluetooth = ui.add_capsule("widgets.bluetooth", {
-  padding_left = 2,
-  padding_right = 2,
+  padding_left = 4,
+  padding_right = 4,
   icon = {
     string = icons.bluetooth.on,
     color = colors.blue,
-    width = 22,
+    width = 24,
     align = "center",
     padding_left = 4,
     padding_right = 4,
+    -- No SF bluetooth glyph; 󰂯 is Nerd Font. SF Pro at 16pt rendered it tiny vs wifi's 18pt SF symbol.
     font = {
-      style = settings.font.style_map["Bold"],
-      size = 16.0,
+      family = "Hack Nerd Font",
+      style = "Regular",
+      size = 18.0,
     },
   },
   label = {

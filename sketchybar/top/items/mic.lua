@@ -21,7 +21,7 @@ local mic = ui.add_capsule("widgets.mic", {
     align = "center",
     font = {
       style = settings.font.style_map["Regular"],
-      size = 16.0,
+      size = 18.0,
     },
   },
   label = {

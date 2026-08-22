@@ -121,6 +121,9 @@ Requirements / decisions:
  default to 0 outer padding, which packed them tight — their explicit padding overrides plus
  wifi icon pads and calendar's trimmed left pads carry the rhythm; verify gaps numerically via
  `--query <item>` `bounding_rects` (rect gap + inner edge paddings), not by eye.
+ Icon-only strip (mic/volume/wifi/bt/coffee) is 18pt; bluetooth is Hack Nerd Font 18 (no SF
+ bluetooth glyph — SF Pro fallback made 󰂯 look tiny vs wifi's 􀙇). Wifi→bt→coffee item pads
+ are 4px so those icons don't glue together after rates went hover-only.
 - Network rates render "12 KB/s" (leading zeros stripped, `ps`→`/s`) LEFT-aligned in the fixed
  56px label — numbers must hug the ↑/↓ arrows; right-align opened a hole between arrow and value
  whenever the text was shorter than the box. Raw zero-padded provider strings are kept in

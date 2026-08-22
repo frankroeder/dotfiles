@@ -15,6 +15,8 @@ local popup_row_height = settings.ui.popup_row_height
 
 local wifi = ui.bracket_icon("widgets.wifi", {
   width = col.wifi,
+  padding_left = 4,
+  padding_right = 4,
   icon = {
     font = {
       style = settings.font.style_map["Regular"],
