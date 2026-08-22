@@ -18,7 +18,7 @@ local vpn_name = sbar.add("item", "widgets.vpn", {
     font = {
       family = settings.font.family,
       style = settings.font.style_map["Bold"],
-      size = 13.0,
+      size = 15.0,
     },
     padding_left = 4,
     padding_right = 8,

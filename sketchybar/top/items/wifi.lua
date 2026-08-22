@@ -7,14 +7,14 @@ local network = require "items.network"
 
 sbar.add("event", "network_change", "com.apple.networkConnect")
 
-local col = settings.layout.columns
 local interface = utils.get_wifi_interface()
 local popup_width = 280
 local row_width = popup_width / 2
 local popup_row_height = settings.ui.popup_row_height
 
 local wifi = ui.bracket_icon("widgets.wifi", {
-  width = col.wifi,
+  -- No fixed width: item pads must sit outside the icon box (a 32px width ate them
+  -- and glued volume to wifi).
   padding_left = 4,
   padding_right = 4,
   icon = {
@@ -24,10 +24,10 @@ local wifi = ui.bracket_icon("widgets.wifi", {
     },
     string = icons.wifi.disconnected,
     color = colors.red,
-    width = col.wifi_icon,
+    width = 24,
     align = "center",
     padding_left = 4,
-    padding_right = 6,
+    padding_right = 4,
   },
 })
 

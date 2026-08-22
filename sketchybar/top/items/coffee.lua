@@ -9,7 +9,7 @@ local was_running = false
 
 local coffee = ui.add_capsule("widgets.coffee", {
   padding_left = 4,
-  padding_right = 2,
+  padding_right = 4,
   update_freq = 60,
   icon = {
     string = icons.coffee.off,

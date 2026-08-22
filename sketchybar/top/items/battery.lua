@@ -13,7 +13,7 @@ local battery = ui.add_capsule("widgets.battery", {
   icon = {
     font = {
       style = settings.font.style_map["Regular"],
-      size = 16.0,
+      size = 18.0,
     },
     color = colors.bat,
     padding_left = 4,

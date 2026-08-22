@@ -21,7 +21,8 @@ local icon_thresholds = {
 local ssd_volume = ui.add_capsule("widgets.ssd.volume", {
   icon = {
     font = {
-      family = settings.font.family,
+      family = "Hack Nerd Font",
+      style = "Regular",
       size = 16.0,
     },
     string = icons.disk["0"],
