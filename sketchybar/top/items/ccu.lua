@@ -109,7 +109,7 @@ local ccu = ui.add_capsule("widgets.ccu", {
     string = bar_list[1] and (bar_list[1].label .. " —") or "—",
     font = chip_font,
     padding_left = 4,
-    padding_right = 6,
+    padding_right = 2,
   },
   popup = {
     align = "left",

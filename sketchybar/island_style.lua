@@ -12,11 +12,11 @@ local function on_notched_builtin(idx)
 end
 
 function M.bar()
-  local theme = settings.theme
   return {
     color = M.NOTCH_BLACK,
-    border_color = theme.border,
-    border_width = theme.border_width or 1,
+    -- Same-color stroke: a themed ring (theme.border) reads as a seam against the physical notch.
+    border_color = M.NOTCH_BLACK,
+    border_width = 0,
     corner_radius = settings.island.corner_radius or settings.bar_corner_radius or 8,
   }
 end

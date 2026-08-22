@@ -25,11 +25,14 @@ local volume = ui.add_capsule("widgets.volume", {
     },
   },
   label = {
+    drawing = false,
     string = "??%",
-    -- Fixed box: "9%" → "100%" → "Muted" must not resize and bump neighbours
+    -- Hover-only. Fixed 42px while shown so "9%" → "100%" → "Muted" don't jitter
     -- ("Muted" = 39px in SF Pro Semibold 13).
-    width = 42,
+    width = 0,
     align = "left",
+    padding_left = 2,
+    padding_right = 4,
     font = {
       style = settings.font.style_map["Semibold"],
       size = 13.0,
@@ -145,6 +148,7 @@ end)
 
 ui.bind_popup(volume, {
   on_right = "open /System/Library/PreferencePanes/Sound.prefpane",
+  hover_label = 42,
 })
 
 refresh_volume()

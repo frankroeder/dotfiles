@@ -60,9 +60,10 @@ Config in `sketchybar/{bottom,top,island}/`; shared lua at `sketchybar/*.lua`. R
 with `<bin> --reload`. Prefer plain `require` for items (fail loud), not safe_require.
 
 Requirements / decisions:
-- Island pill background is notch-black (0xff000000) to blend with the physical notch; border is
-  `theme.border`. Foregrounds are the static mocha palette at full alpha (`colors.mocha` in
-  island_style) — bright in both modes, since latte fg is unreadable on black.
+- Island pill fill AND border are notch-black (0xff000000), border_width 0 — a themed ring
+  (`theme.border` blue) reads as a seam against the physical notch. Foregrounds are the static
+  mocha palette at full alpha (`colors.mocha` in island_style) — bright in both modes, since latte
+  fg is unreadable on black.
 - Island pills: appswitch, siri, layout (`island_layout` from skhd fn-e/w/s), mic (`island_mic`
   from top mic), bluetooth (`island_bluetooth` from top bt poll on new connect), window
   (`island_window` from skhd fn+shift-w/s float+sticky toggles; re-queries yabai for state).
@@ -121,12 +122,19 @@ Requirements / decisions:
  wifi icon pads and calendar's trimmed left pads carry the rhythm; verify gaps numerically via
  `--query <item>` `bounding_rects` (rect gap + inner edge paddings), not by eye.
 - Network rates render "12 KB/s" (leading zeros stripped, `ps`→`/s`) LEFT-aligned in the fixed
- 50px label — numbers must hug the ↑/↓ arrows; right-align opened a hole between arrow and value
+ 56px label — numbers must hug the ↑/↓ arrows; right-align opened a hole between arrow and value
  whenever the text was shorter than the box. Raw zero-padded provider strings are kept in
  `last_rates` (the `^0+%s` inactive check depends on them) and prettified only at display time.
-- Mic/volume labels live in a fixed 42px left-aligned box ("Muted" = 39px in SF Pro Semibold 13):
- "9%"→"100%"→"Muted" must not resize the item and bump neighbours. Their icons are fixed 24px
- boxes for the same reason (state glyphs differ in width).
+ Idle = wifi icon only; hover (wifi/gap/rates) animates the stacked ↑/↓ row open (tanh,
+ motion.normal, `network_down` width 0↔rate_row). `network_update` still polls; the bar is
+ painted only while hot so the numbers don't twitch the layout when collapsed.
+- Mic/volume percentages are hover-only (idle = icon). The shown label is still a fixed 42px
+ left-aligned box so "9%"→"100%"→"Muted" don't jitter while hovering ("Muted" = 39px in SF Pro
+ Semibold 13). Icons stay a fixed 24px box (state glyphs differ in width). `ui.bind_popup`
+ `hover_label` animates label.width (tanh, motion.normal) 0↔42; `drawing` snaps outside the
+ animate batch (not interpolatable). Show on `mouse.entered`, collapse on `mouse.exited`.
+ `mouse.exited.global` still closes the popup and collapses — `mouse.exited` no-ops while the
+ popup is open so the parent doesn't shrink and jump it.
 - ALL bars now declare `SF Pro` (installed at /Library/Fonts/SF-Pro*.otf). "SF Mono" never was
  installed — every bar used to render a ~10% narrower system fallback, and all fixed widths were
  calibrated against SF Pro after the switch. Verify font metrics with probe items

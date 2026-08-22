@@ -165,7 +165,33 @@ local function update_details()
   )
 end
 
-ui.bind_popup_group(wifi, { wifi, network.up, network.down }, { on_open = update_details })
+local hover_gen = 0
+ui.bind_popup_group(wifi, { wifi, network.up, network.down, network.gap }, {
+  on_open = update_details,
+  on_enter = function()
+    hover_gen = hover_gen + 1
+    network.set_hot(true)
+  end,
+  on_leave = function()
+    local q = wifi:query()
+    if q and q.popup and q.popup.drawing == "on" then
+      return
+    end
+    hover_gen = hover_gen + 1
+    local token = hover_gen
+    -- Crossing wifi → gap → rates must not collapse the cluster.
+    sbar.delay(0.08, function()
+      if token ~= hover_gen then
+        return
+      end
+      network.set_hot(false)
+    end)
+  end,
+  on_leave_global = function()
+    hover_gen = hover_gen + 1
+    network.set_hot(false)
+  end,
+})
 
 local function copy_label(env)
   utils.clipboard_copy(env.NAME)

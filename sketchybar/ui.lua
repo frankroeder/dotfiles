@@ -162,7 +162,7 @@ function ui.bracket_group(name, members, opts)
 end
 
 function ui.bracket_spacer(name, width)
-  sbar.add("item", name, {
+  return sbar.add("item", name, {
     position = "right",
     width = width,
     padding_left = sp.bracket_item,
@@ -260,6 +260,7 @@ function ui.stacked_rate(name, spec)
   local ipad = spec.icon_padding or 2
   return sbar.add("item", name, {
     position = "right",
+    drawing = spec.drawing,
     padding_left = spec.padding_left ~= nil and spec.padding_left or 2,
     padding_right = spec.padding_right or 0,
     width = spec.width or 0,
@@ -404,11 +405,63 @@ end
 
 function ui.bind_popup(item, opts)
   opts = opts or {}
+  local hover_w = opts.hover_label
+  if hover_w == true then
+    hover_w = 42
+  end
+  local hide_label
+  if hover_w then
+    local frames = settings.motion.normal
+    local hover_gen = 0
+    local function label_width()
+      local q = item:query()
+      return tonumber(q and q.label and q.label.width) or 0
+    end
+    local function show_label()
+      hover_gen = hover_gen + 1
+      -- drawing is not interpolatable — snap on, then animate width only.
+      item:set { label = { drawing = true } }
+      if label_width() ~= hover_w then
+        sbar.animate("tanh", frames, function()
+          item:set { label = { width = hover_w } }
+        end)
+      end
+    end
+    hide_label = function()
+      hover_gen = hover_gen + 1
+      local token = hover_gen
+      if label_width() ~= 0 then
+        sbar.animate("tanh", frames, function()
+          item:set { label = { width = 0 } }
+        end)
+        sbar.delay(frames / 60, function()
+          if token ~= hover_gen then
+            return
+          end
+          item:set { label = { drawing = false, width = 0 } }
+        end)
+      else
+        item:set { label = { drawing = false, width = 0 } }
+      end
+    end
+    item:subscribe("mouse.entered", show_label)
+    -- Leave the item itself (exited.global often does not fire unless a popup was open).
+    item:subscribe("mouse.exited", function()
+      local q = item:query()
+      if q and q.popup and q.popup.drawing == "on" then
+        return
+      end
+      hide_label()
+    end)
+  end
   item:subscribe("mouse.clicked", function(env)
     handle_popup_click(item, env, opts)
   end)
   item:subscribe("mouse.exited.global", function()
     utils.popup_hide(item)
+    if hide_label then
+      hide_label()
+    end
   end)
 end
 
@@ -418,9 +471,18 @@ function ui.bind_popup_group(primary, triggers, opts)
     item:subscribe("mouse.clicked", function(env)
       handle_popup_click(primary, env, opts)
     end)
+    if opts.on_enter then
+      item:subscribe("mouse.entered", opts.on_enter)
+    end
+    if opts.on_leave then
+      item:subscribe("mouse.exited", opts.on_leave)
+    end
   end
   primary:subscribe("mouse.exited.global", function()
     utils.popup_hide(primary)
+    if opts.on_leave_global then
+      opts.on_leave_global()
+    end
   end)
 end
 
