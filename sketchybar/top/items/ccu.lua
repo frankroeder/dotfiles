@@ -448,17 +448,8 @@ local function chip_width(now)
   return math.ceil(max_len * chip_px_per_char)
 end
 
-local function apply_bar(now)
-  if #bar_list == 0 then
-    return
-  end
-  if bar_i < 1 or bar_i > #bar_list then
-    bar_i = 1
-  end
-  now = now or os.time()
-  local p = bar_list[bar_i]
-  local st = last[p.id] or {}
-  local weekly = st.weekly
+local function chip_label(p, now)
+  local weekly = (last[p.id] or {}).weekly
   local label = {
     string = logic.bar_chip(p.label, weekly, now),
     color = fg_color(weekly, now),
@@ -467,10 +458,61 @@ local function apply_bar(now)
     label.width = chip_width(now)
     label.align = "left"
   end
+  return label
+end
+
+local function apply_bar(now)
+  if #bar_list == 0 then
+    return
+  end
+  if bar_i < 1 or bar_i > #bar_list then
+    bar_i = 1
+  end
+  now = now or os.time()
+  local label = chip_label(bar_list[bar_i], now)
+  -- y_offset = 0 also recovers the chip if a refresh lands mid-rotation tween.
+  label.y_offset = 0
   ccu:set {
     background = ui.capsule(),
     label = label,
   }
+end
+
+-- Rotation animation: the current chip slides up and fades out, the string
+-- swaps while invisible, then the next chip slides in from below. The label
+-- width is fixed (chip_width), so the capsule itself never moves.
+local rotate_rise = 7
+local rotating = false
+
+local function rotate_to_next()
+  if rotating or #bar_list < 2 then
+    return
+  end
+  rotating = true
+  local now = os.time()
+  local cur_fg = fg_color((last[bar_list[bar_i].id] or {}).weekly, now)
+  sbar.animate("tanh", settings.motion.fast, function()
+    ccu:set { label = { y_offset = rotate_rise, color = colors.with_alpha(cur_fg, 0) } }
+  end)
+  sbar.delay(0.18, function()
+    bar_i = logic.next_bar(bar_i, #bar_list)
+    local label = chip_label(bar_list[bar_i], os.time())
+    -- Start pose set instantly (string is not animatable): below the slot,
+    -- fully transparent.
+    ccu:set {
+      label = {
+        string = label.string,
+        width = label.width,
+        align = label.align,
+        y_offset = -rotate_rise,
+        color = colors.with_alpha(label.color, 0),
+      },
+    }
+    sbar.animate("tanh", settings.motion.normal, function()
+      ccu:set { label = { y_offset = 0, color = label.color } }
+    end)
+    rotating = false
+  end)
 end
 
 local function apply_card(p, now)
@@ -740,10 +782,7 @@ if #bar_list > 1 then
     drawing = false,
     updates = true,
   })
-  rotate_timer:subscribe("routine", function()
-    bar_i = logic.next_bar(bar_i, #bar_list)
-    apply_bar()
-  end)
+  rotate_timer:subscribe("routine", rotate_to_next)
 end
 
 ui.bind_popup(ccu, { on_open = refresh_usage, on_right = refresh_usage })
