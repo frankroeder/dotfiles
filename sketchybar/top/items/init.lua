@@ -16,6 +16,9 @@ else
   require "items.yabai_spaces"
 end
 
+-- position=left: packs after the space capsules / layout pill.
+require "items.shortcuts"
+
 -- position=right: later requires sit further left.
 require "items.calendar"
 require "items.battery"
