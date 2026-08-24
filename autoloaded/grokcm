@@ -1,3 +1,4 @@
+#!/usr/bin/env zsh
 (
   set -euo pipefail
   sid=$(uuidgen | tr '[:upper:]' '[:lower:]')
@@ -6,11 +7,13 @@
   msg_file="${HOME}/.dotfiles/git/gitmessage"
   template=
   [[ -f $msg_file && -r $msg_file ]] && template=$(<$msg_file)
-  GROK_MEMORY=0 grok --session-id "$sid" \
+  out=$(GROK_MEMORY=0 grok --session-id "$sid" \
     --disable-web-search --no-subagents --verbatim \
     --no-plan --effort low \
     --single "Output a commit msg for the current changes, following the conventional commit format
 ---
 ${template}
-Be very concise and to the point."
+Be very concise and to the point.")
+  echo
+  echo "$out"
 )

@@ -93,3 +93,9 @@ heic2jpg(){
 (( ${+commands[mpv]} )) && mpvyt() {
   mpv --ytdl-raw-options=cookies-from-browser=firefox:~/Library/Application\ Support/librewolf/Profiles/*.default-default "$1"
 }
+
+# cloud zsh file
+if [ -f "$HOME/Library/Mobile Documents/com~apple~CloudDocs/configs/cloud.zsh" ]; then
+  source "$HOME/Library/Mobile Documents/com~apple~CloudDocs/configs/cloud.zsh"
+  alias cloudrc="nvim $HOME/Library/Mobile\ Documents/com~apple~CloudDocs/configs/cloud.zsh"
+fi
