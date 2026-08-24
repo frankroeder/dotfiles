@@ -39,7 +39,7 @@ local default_opts = {
       name = "grok",
       command = { "grok", "agent", "stdio" },
       cli_command = { "grok" },
-      models = { "grok-composer-2.5-fast", "grok-build" },
+      models = {},
       always_approve = false,
     },
   },
