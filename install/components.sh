@@ -430,6 +430,27 @@ comp_asahi_system() {
     sudo dracut -f
     print_ok "asahi-notch.conf written; reboot required"
   fi
+  # Apple Silicon: early-load Apple HID modules in initramfs to avoid trackpad race on boot.
+  if [ "$(uname -m)" = "aarch64" ] && grep -qi apple /proc/device-tree/compatible 2>/dev/null; then
+    if [ ! -f /etc/mkinitcpio.conf.d/apple_hid_modules.conf ]; then
+      print_step "Early-loading Apple HID modules (trackpad race fix)"
+      sudo mkdir -p /etc/mkinitcpio.conf.d
+      sudo tee /etc/mkinitcpio.conf.d/apple_hid_modules.conf >/dev/null <<'EOF'
+# Load Apple HID before session start — avoids dockchannel-hid rebinding race on Asahi.
+for _asahi_apple_hid_module in hid_apple hid_magicmouse; do
+  modinfo -k "${KERNELVERSION:-$(uname -r)}" "$_asahi_apple_hid_module" >/dev/null 2>&1 &&
+    MODULES+=("$_asahi_apple_hid_module")
+done
+unset _asahi_apple_hid_module
+EOF
+      if have dracut; then
+        sudo dracut -f
+        print_ok "apple_hid_modules.conf written; reboot required"
+      else
+        print_warning "dracut not found; apple_hid_modules.conf written but initramfs not rebuilt"
+      fi
+    fi
+  fi
   if have brightnessctl; then
     brightnessctl --device='kbd_backlight' set 30% || true
   elif have light; then

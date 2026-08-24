@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# The Asahi bar is always solid (omarchy/sketchybar-style). This script only restarts quickshell.
+echo "Bar is always solid (omarchy-style strip)."
+if command -v asahi-restart-quickshell >/dev/null 2>&1; then
+  asahi-restart-quickshell
+fi

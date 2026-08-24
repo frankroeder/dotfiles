@@ -9,16 +9,21 @@ import "../../../"
 Rectangle {
   id: root
 
+  property var barHost: null
+  readonly property bool solidBar: barHost !== null && barHost !== undefined
+
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
   readonly property int contentW: 440
 
-  color: ccuMouse.containsMouse || popup.shouldShow ? Style.barHoverBg : Style.barBg
-  radius: Style.radius
-  border.width: 1
-  border.color: ccuMouse.containsMouse || popup.shouldShow ? Style.barHoverBorder : Style.barBorder
-  scale: ccuMouse.containsMouse || popup.shouldShow ? 1.018 : 1.0
-  implicitWidth: Math.max(68, Math.max(row.implicitWidth, chipChars * 7.2) + 14)
-  implicitHeight: 26
+  color: solidBar
+    ? ((ccuMouse.containsMouse || popup.shouldShow) ? Style.barStripHover : "transparent")
+    : (ccuMouse.containsMouse || popup.shouldShow ? Style.barHoverBg : Style.barBg)
+  radius: solidBar ? 0 : Style.radius
+  border.width: solidBar ? 0 : 1
+  border.color: solidBar ? "transparent" : (ccuMouse.containsMouse || popup.shouldShow ? Style.barHoverBorder : Style.barBorder)
+  scale: solidBar ? 1.0 : (ccuMouse.containsMouse || popup.shouldShow ? 1.018 : 1.0)
+  implicitWidth: Math.max(68, Math.max(row.implicitWidth, chipChars * 7.2) + (solidBar ? 8 : 14))
+  implicitHeight: solidBar ? Style.barHeight : 26
   visible: available
   Behavior on color { ColorAnimation { duration: 140 } }
   Behavior on border.color { ColorAnimation { duration: 140 } }

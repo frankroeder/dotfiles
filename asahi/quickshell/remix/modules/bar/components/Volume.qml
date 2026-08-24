@@ -5,87 +5,103 @@ import Quickshell.Io
 import "../../../"
 
 Rectangle {
-    id: root
+  id: root
 
-    readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
+  property var barHost: null
+  readonly property bool solidBar: barHost !== null && barHost !== undefined
 
-    color: volumeMouse.containsMouse ? Style.barHoverBg : Style.barBg
-    radius: Style.radius
-    border.width: 1
-    border.color: volumeMouse.containsMouse ? Style.barHoverBorder : Style.barBorder
-    Behavior on color { ColorAnimation { duration: 140 } }
-    Behavior on border.color { ColorAnimation { duration: 140 } }
-    scale: volumeMouse.containsMouse ? 1.018 : 1.0
-    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+  readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
 
-    implicitWidth: content.implicitWidth + 14
-    implicitHeight: 26
+  color: solidBar
+    ? (volumeMouse.containsMouse ? Style.barStripHover : "transparent")
+    : (volumeMouse.containsMouse ? Style.barHoverBg : Style.barBg)
+  radius: solidBar ? 0 : Style.radius
+  border.width: solidBar ? 0 : 1
+  border.color: solidBar ? "transparent" : (volumeMouse.containsMouse ? Style.barHoverBorder : Style.barBorder)
+  Behavior on color { ColorAnimation { duration: 140 } }
+  Behavior on border.color { ColorAnimation { duration: 140 } }
+  scale: solidBar ? 1.0 : (volumeMouse.containsMouse ? 1.018 : 1.0)
 
-    property string text: "--%"
-    property bool muted: false
+  implicitWidth: content.implicitWidth + (solidBar ? 10 : 14)
+  implicitHeight: solidBar ? Style.barHeight : 30
 
-    RowLayout {
-        id: content
-        anchors.centerIn: parent
-        spacing: 2
+  property bool muted: false
+  property int percentage: -1
 
-        // Script already provides icon + percentage (e.g. "󰕿 15%")
-        // Show only one symbol, bigger
-        Text {
-            text: root.text
-            font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 17
-            color: root.muted ? Style.red : Style.green
+  function outputIcon(pct, isMuted) {
+    if (isMuted) return "󰖁"
+    if (pct <= 30) return "󰕿"
+    if (pct <= 60) return "󰖀"
+    return "󰕾"
+  }
+
+  readonly property string iconGlyph: outputIcon(percentage, muted)
+  readonly property string levelText: percentage >= 0 ? percentage + "%" : "--%"
+
+  RowLayout {
+    id: content
+    anchors.centerIn: parent
+    spacing: 4
+
+    Text {
+      text: root.iconGlyph
+      font.family: Style.fontFamily
+      font.pixelSize: Style.barFontMicVolIcon
+      color: root.muted ? Style.red : Style.green
+    }
+
+    Text {
+      text: root.levelText
+      font.family: Style.fontFamily
+      font.pixelSize: Style.barFontBody
+      color: barHost ? barHost.barForeground : Style.text
+    }
+  }
+
+  Process {
+    id: audioProc
+    command: ["bash", binDir + "/asahi-audio", "output"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const data = JSON.parse(text.trim())
+          root.muted = (data.class || []).includes("muted")
+          if (typeof data.percentage === "number") root.percentage = data.percentage
+        } catch (e) {
+          root.percentage = -1
         }
+      }
     }
+  }
 
-    Process {
-        id: audioProc
-        command: ["bash", binDir + "/asahi-audio", "output"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    const data = JSON.parse(text.trim())
-                    // Prefer the script's text (it already includes the correct icon for muted state, like waybar)
-                    root.text = data.text || (root.muted ? "󰖁 --%" : "󰕾 --%")
-                    root.muted = (data.class || []).includes("muted") || (data.text || "").includes("muted")
-                } catch (e) {
-                    root.text = root.muted ? "󰖁 --%" : "󰕾 --%"
-                }
-            }
-        }
+  Timer {
+    interval: 2000
+    running: true
+    repeat: true
+    onTriggered: audioProc.running = true
+  }
+
+  Component.onCompleted: audioProc.running = true
+
+  Timer {
+    id: refreshDelay
+    interval: 250
+    onTriggered: audioProc.running = true
+  }
+
+  MouseArea {
+    id: volumeMouse
+    anchors.fill: parent
+    hoverEnabled: true
+    cursorShape: Qt.PointingHandCursor
+    onClicked: {
+      Quickshell.execDetached(["bash", "-c", binDir + "/asahi-media-control output-volume mute-toggle"])
+      refreshDelay.restart()
     }
-
-    Timer {
-        interval: 2000
-        running: true
-        repeat: true
-        onTriggered: audioProc.running = true
+    onWheel: wheel => {
+      const direction = wheel.angleDelta.y > 0 ? "raise" : "lower"
+      Quickshell.execDetached(["bash", "-c", binDir + "/asahi-media-control output-volume " + direction])
+      refreshDelay.restart()
     }
-
-    Component.onCompleted: audioProc.running = true
-
-    Timer {
-        id: refreshDelay
-        interval: 250
-        onTriggered: audioProc.running = true
-    }
-
-    MouseArea {
-        id: volumeMouse
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-
-        onClicked: {
-            Quickshell.execDetached(["bash", "-c", binDir + "/asahi-media-control output-volume mute-toggle"])
-            refreshDelay.restart()
-        }
-
-        onWheel: (wheel) => {
-            const direction = wheel.angleDelta.y > 0 ? "raise" : "lower"
-            Quickshell.execDetached(["bash", "-c", binDir + "/asahi-media-control output-volume " + direction])
-            refreshDelay.restart()
-        }
-    }
+  }
 }

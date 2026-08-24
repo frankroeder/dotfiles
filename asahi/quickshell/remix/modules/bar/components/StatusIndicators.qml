@@ -11,10 +11,12 @@ RowLayout {
   property bool isRecording: false
   property bool updatesAvailable: false
   property bool stayAwake: false
+  property var barHost: null
+  readonly property bool solidBar: barHost !== null && barHost !== undefined
 
   readonly property string stayAwakePath: Quickshell.env("HOME") + "/.local/state/asahi/stay-awake"
 
-  spacing: 6
+  spacing: solidBar ? 2 : 6
 
   function refreshStayAwake() {
     if (!stayAwakeProc.running) stayAwakeProc.running = true
@@ -52,21 +54,24 @@ RowLayout {
 
   Rectangle {
     id: stayAwakeChip
-    width: 26
-    height: 26
-    radius: Style.radius
-    color: stayAwakeMouse.containsMouse ? Style.panelWarningBg : Style.barBg
-    border.width: 1
+    width: solidBar ? stayAwakeGlyph.implicitWidth + 10 : 30
+    height: solidBar ? Style.barHeight : 30
+    radius: solidBar ? 0 : Style.radius
+    color: solidBar
+      ? (stayAwakeMouse.containsMouse ? Style.barStripHover : "transparent")
+      : (stayAwakeMouse.containsMouse ? Style.panelWarningBg : Style.barBg)
+    border.width: solidBar ? 0 : 1
     border.color: root.stayAwake ? Style.yellow : (stayAwakeMouse.containsMouse ? Style.barHoverBorder : Style.barBorder)
     Behavior on color { ColorAnimation { duration: 140 } }
     Behavior on border.color { ColorAnimation { duration: 140 } }
 
     Text {
+      id: stayAwakeGlyph
       anchors.centerIn: parent
       text: "󰅶"
       font.family: Style.fontFamily
-      font.pixelSize: 13
-      color: root.stayAwake ? Style.yellow : Style.textMuted
+      font.pixelSize: solidBar ? Style.barFontIcon : 15
+      color: root.stayAwake ? Style.yellow : (solidBar && barHost ? barHost.barForeground : Style.textMuted)
     }
 
     MouseArea {
@@ -86,12 +91,14 @@ RowLayout {
 
   Rectangle {
     id: recChip
-    width: recRow.implicitWidth + 12
-    height: 26
-    radius: Style.radius
-    color: recMouse.containsMouse ? Style.panelDangerBg : Style.barBg
-    border.width: 1
-    border.color: recMouse.containsMouse ? Style.red : Style.barBorder
+    width: recRow.implicitWidth + (solidBar ? 8 : 12)
+    height: solidBar ? Style.barHeight : 26
+    radius: solidBar ? 0 : Style.radius
+    color: solidBar
+      ? (recMouse.containsMouse ? Style.barStripHover : "transparent")
+      : (recMouse.containsMouse ? Style.panelDangerBg : Style.barBg)
+    border.width: solidBar ? 0 : 1
+    border.color: solidBar ? "transparent" : (recMouse.containsMouse ? Style.red : Style.barBorder)
     visible: root.isRecording
     Behavior on color { ColorAnimation { duration: 140 } }
     Behavior on border.color { ColorAnimation { duration: 140 } }
@@ -110,12 +117,14 @@ RowLayout {
 
   Rectangle {
     id: updateChip
-    width: 26
-    height: 26
-    radius: Style.radius
-    color: updateMouse.containsMouse ? Style.panelWarningBg : Style.barBg
-    border.width: 1
-    border.color: updateMouse.containsMouse ? Style.orange : Style.barBorder
+    width: solidBar ? 28 : 26
+    height: solidBar ? Style.barHeight : 26
+    radius: solidBar ? 0 : Style.radius
+    color: solidBar
+      ? (updateMouse.containsMouse ? Style.barStripHover : "transparent")
+      : (updateMouse.containsMouse ? Style.panelWarningBg : Style.barBg)
+    border.width: solidBar ? 0 : 1
+    border.color: solidBar ? "transparent" : (updateMouse.containsMouse ? Style.orange : Style.barBorder)
     visible: root.updatesAvailable
     Behavior on color { ColorAnimation { duration: 140 } }
     Behavior on border.color { ColorAnimation { duration: 140 } }
@@ -124,7 +133,7 @@ RowLayout {
       anchors.centerIn: parent
       text: "󰚰"
       font.family: Style.fontFamily
-      font.pixelSize: 13
+      font.pixelSize: solidBar ? Style.barFontIcon : 15
       color: Style.orange
     }
 
@@ -133,16 +142,15 @@ RowLayout {
   }
 
   Rectangle {
-    width: notifRow.implicitWidth + 12
-    height: 26
-    radius: Style.radius
-    border.width: 1
-    border.color: Style.barBorder
-    Behavior on color { ColorAnimation { duration: 140 } }
-    Behavior on border.color { ColorAnimation { duration: 140 } }
-    scale: notifMouse.containsMouse ? 1.018 : 1.0
-    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
-    color: notifMouse.containsMouse ? Style.barHoverBg : Style.barBg
+    width: notifRow.implicitWidth + (solidBar ? 8 : 12)
+    height: solidBar ? Style.barHeight : 26
+    radius: solidBar ? 0 : Style.radius
+    border.width: solidBar ? 0 : 1
+    border.color: solidBar ? "transparent" : Style.barBorder
+    scale: solidBar ? 1.0 : (notifMouse.containsMouse ? 1.018 : 1.0)
+    color: solidBar
+      ? (notifMouse.containsMouse ? Style.barStripHover : "transparent")
+      : (notifMouse.containsMouse ? Style.barHoverBg : Style.barBg)
     visible: root.notificationCenter !== null
 
     RowLayout {
@@ -153,7 +161,7 @@ RowLayout {
       Text {
         text: root.notificationCenter && root.notificationCenter.dndEnabled ? "󰂛" : "󰂚"
         font.family: Style.fontFamily
-        font.pixelSize: 13
+        font.pixelSize: solidBar ? Style.barFontIcon : 15
         color: root.notificationCenter && root.notificationCenter.dndEnabled ? Style.yellow : Style.blueAlt
       }
 

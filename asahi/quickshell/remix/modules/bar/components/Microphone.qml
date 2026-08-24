@@ -5,108 +5,89 @@ import Quickshell.Io
 import "../../../"
 
 Rectangle {
-    id: root
+  id: root
 
-    readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
+  property var barHost: null
+  readonly property bool solidBar: barHost !== null && barHost !== undefined
 
-    color: micMouse.containsMouse ? Style.barHoverBg : Style.barBg
-    radius: Style.radius
-    border.width: 1
-    border.color: micMouse.containsMouse ? Style.barHoverBorder : Style.barBorder
-    Behavior on color { ColorAnimation { duration: 140 } }
-    Behavior on border.color { ColorAnimation { duration: 140 } }
-    scale: micMouse.containsMouse ? 1.018 : 1.0
-    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+  readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
 
-    implicitWidth: content.implicitWidth + 14
-    implicitHeight: 26
+  color: solidBar
+    ? (micMouse.containsMouse ? Style.barStripHover : "transparent")
+    : (micMouse.containsMouse ? Style.barHoverBg : Style.barBg)
+  radius: solidBar ? 0 : Style.radius
+  border.width: solidBar ? 0 : 1
+  border.color: solidBar ? "transparent" : (micMouse.containsMouse ? Style.barHoverBorder : Style.barBorder)
+  Behavior on color { ColorAnimation { duration: 140 } }
+  Behavior on border.color { ColorAnimation { duration: 140 } }
+  scale: solidBar ? 1.0 : (micMouse.containsMouse ? 1.018 : 1.0)
 
-    property string text: "󰍬 --%"
-    property bool muted: false
-    property string level: "--"   // current volume percentage as string
+  implicitWidth: content.implicitWidth + (solidBar ? 10 : 14)
+  implicitHeight: solidBar ? Style.barHeight : 30
 
-    onMutedChanged: {
-        const icon = muted ? "󰍭" : "󰍬"
-        text = icon + " " + level + "%"
+  property bool muted: false
+  property int level: -1
+  readonly property string iconGlyph: muted ? "󰍭" : "󰍬"
+  readonly property string levelText: level >= 0 ? level + "%" : "--%"
+
+  RowLayout {
+    id: content
+    anchors.centerIn: parent
+    spacing: 4
+
+    Text {
+      text: root.iconGlyph
+      font.family: Style.fontFamily
+      font.pixelSize: Style.barFontMicVolIcon
+      color: root.muted ? Style.red : Style.blueAlt
     }
 
-    RowLayout {
-        id: content
-        anchors.centerIn: parent
-        spacing: 2
-
-        // Script provides icon + level (e.g. "󰍬 60%")
-        Text {
-            text: root.text
-            font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 17
-            color: root.muted ? Style.red : Style.blueAlt
-        }
+    Text {
+      text: root.levelText
+      font.family: Style.fontFamily
+      font.pixelSize: Style.barFontBody
+      color: barHost ? barHost.barForeground : Style.text
     }
+  }
 
-    Process {
-        id: micProc
-        command: ["bash", binDir + "/asahi-audio", "input"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    const data = JSON.parse(text.trim())
-                    root.muted = (data.class || []).includes("muted") || (data.text || "").includes("muted")
-                } catch (e) {}
-            }
-        }
+  Process {
+    id: micProc
+    command: ["bash", binDir + "/asahi-audio", "input"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const data = JSON.parse(text.trim())
+          root.muted = (data.class || []).includes("muted")
+          if (typeof data.percentage === "number") root.level = data.percentage
+        } catch (e) {}
+      }
     }
+  }
 
-    Timer {
-        interval: 2000
-        running: true
-        repeat: true
-        onTriggered: {
-            micProc.running = true
-            micLevelProc.running = true
-        }
+  Timer {
+    interval: 2000
+    running: true
+    repeat: true
+    onTriggered: micProc.running = true
+  }
+
+  Component.onCompleted: micProc.running = true
+
+  MouseArea {
+    id: micMouse
+    anchors.fill: parent
+    hoverEnabled: true
+    cursorShape: Qt.PointingHandCursor
+    onClicked: Quickshell.execDetached(["bash", "-c", binDir + "/asahi-media-control input-volume mute-toggle"])
+    onWheel: wheel => {
+      const direction = wheel.angleDelta.y > 0 ? "raise" : "lower"
+      Quickshell.execDetached(["bash", "-c", binDir + "/asahi-media-control input-volume " + direction])
     }
+  }
 
-    // Separate process to always get real mic volume percentage
-    Process {
-        id: micLevelProc
-        command: ["bash", "-c", "wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null | awk '{gsub(/[^0-9.]/, \"\", $2); printf \"%.0f\", $2*100}'"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const perc = text.trim()
-                root.level = perc.length > 0 ? perc : "--"
-                const icon = root.muted ? "󰍭" : "󰍬"
-                root.text = icon + " " + root.level + "%"
-            }
-        }
-    }
-
-    Component.onCompleted: {
-        micProc.running = true
-        micLevelProc.running = true
-    }
-
-    MouseArea {
-        id: micMouse
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-
-        // Left click: toggle mute
-        onClicked: {
-            Quickshell.execDetached(["bash", "-c", binDir + "/asahi-media-control input-volume mute-toggle"])
-        }
-
-        // Scroll wheel: adjust microphone volume
-        onWheel: (wheel) => {
-            const direction = wheel.angleDelta.y > 0 ? "raise" : "lower"
-            Quickshell.execDetached(["bash", "-c", binDir + "/asahi-media-control input-volume " + direction])
-        }
-    }
-
-    TooltipWindow {
-        target: root
-        text: "Microphone\nClick: mute\nScroll: adjust"
-        show: micMouse.containsMouse
-    }
+  TooltipWindow {
+    target: root
+    text: "Microphone\nClick: mute\nScroll: adjust"
+    show: micMouse.containsMouse
+  }
 }

@@ -1,44 +1,60 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import "../../../"
 
-Rectangle {
+Item {
   id: root
 
-  color: Style.barBg
-  radius: Style.radius
-  border.width: 1
-  border.color: Style.barBorder
-  Behavior on color { ColorAnimation { duration: 140 } }
-  Behavior on border.color { ColorAnimation { duration: 140 } }
+  property var barHost: null
+  readonly property bool solidBar: barHost !== null && barHost !== undefined
 
-  implicitWidth: clockRow.implicitWidth + 14
-  implicitHeight: 26
+  SystemClock {
+    id: clock
+    precision: SystemClock.Minutes
+  }
 
-  RowLayout {
-    id: clockRow
+  readonly property string timeLine: Qt.formatDateTime(clock.date, "HH:mm")
+  readonly property string dateLine: Qt.formatDateTime(clock.date, "ddd dd MMM")
+
+  implicitWidth: solidBar ? flatLabel.implicitWidth + 16 : clockRow.implicitWidth + 14
+  implicitHeight: solidBar ? Style.barHeight : 26
+
+  Text {
+    id: flatLabel
+    visible: root.solidBar
     anchors.centerIn: parent
-    spacing: 6
+    text: root.dateLine + "  " + root.timeLine
+    font.family: Style.fontFamily
+    font.pixelSize: Style.barFontBody
+    color: barHost ? barHost.barForeground : Style.barStripText
+  }
 
-    Text {
-      text: Qt.formatDateTime(new Date(), "ddd dd MMM")
-      font.family: "JetBrainsMono Nerd Font"
-      font.pixelSize: 18
-      color: Style.cyan
-    }
-    Text {
-      id: timeText
-      text: Qt.formatDateTime(new Date(), "HH:mm")
-      font.family: "JetBrainsMono Nerd Font"
-      font.pixelSize: 18
-      color: Style.cyan
-      Timer {
-        interval: 1000
-        running: true
-        repeat: true
-        onTriggered: timeText.text = Qt.formatDateTime(new Date(), "HH:mm")
+  Rectangle {
+    visible: !root.solidBar
+    anchors.fill: parent
+    color: Style.barBg
+    radius: Style.radius
+    border.width: 1
+    border.color: Style.barBorder
+
+    RowLayout {
+      id: clockRow
+      anchors.centerIn: parent
+      spacing: 6
+
+      Text {
+        text: root.dateLine
+        font.family: Style.fontFamily
+        font.pixelSize: Style.barFontBody
+        color: Style.cyan
+      }
+      Text {
+        text: root.timeLine
+        font.family: Style.fontFamily
+        font.pixelSize: Style.barFontBody
+        color: Style.cyan
       }
     }
   }
-
 }

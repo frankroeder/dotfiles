@@ -7,34 +7,62 @@ import "../../../"
 Rectangle {
     id: root
 
+    property var barHost: null
+    readonly property bool solidBar: barHost !== null && barHost !== undefined
+
     readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
 
-    color: batMa.containsMouse ? Style.barHoverBg : Style.barBg
-    radius: Style.radius
-    border.width: 1
-    border.color: batMa.containsMouse ? Style.barHoverBorder : Style.barBorder
+    color: solidBar
+      ? (batMa.containsMouse ? Style.barStripHover : "transparent")
+      : (batMa.containsMouse ? Style.barHoverBg : Style.barBg)
+    radius: solidBar ? 0 : Style.radius
+    border.width: solidBar ? 0 : 1
+    border.color: solidBar ? "transparent" : (batMa.containsMouse ? Style.barHoverBorder : Style.barBorder)
     Behavior on color { ColorAnimation { duration: 140 } }
     Behavior on border.color { ColorAnimation { duration: 140 } }
-    scale: batMa.containsMouse ? 1.018 : 1.0
-    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+    scale: solidBar ? 1.0 : (batMa.containsMouse ? 1.018 : 1.0)
 
-    implicitWidth: row.implicitWidth + 14
-    implicitHeight: 26
+    implicitWidth: row.implicitWidth + (solidBar ? 8 : 14)
+    implicitHeight: solidBar ? Style.barHeight : 26
 
-    property string text: "Bat --%"
     property string tooltip: ""
     property int percentage: 0
+    property string iconGlyph: "󰁹"
+    property string levelText: "--%"
+
+    function parseBatteryPayload(raw) {
+        try {
+            const data = JSON.parse(raw.trim())
+            root.tooltip = data.tooltip || ""
+            root.percentage = typeof data.percentage === "number" ? data.percentage : 0
+            const text = data.text || ""
+            const iconMatch = text.match(/^(.+?)\s+(\d+)%/)
+            if (iconMatch) {
+                root.iconGlyph = iconMatch[1].trim()
+                root.levelText = iconMatch[2] + "%"
+            } else if (typeof data.percentage === "number") {
+                root.levelText = data.percentage + "%"
+            }
+        } catch (e) {}
+    }
 
     RowLayout {
         id: row
         anchors.centerIn: parent
-        spacing: 10
+        spacing: 4
 
         Text {
-            text: root.text
-            font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 18
+            text: root.iconGlyph
+            font.family: Style.fontFamily
+            font.pixelSize: Style.barFontMicVolIcon
             color: root.percentage <= 10 ? Style.red : (root.percentage <= 20 ? Style.orange : Style.green)
+        }
+
+        Text {
+            text: root.levelText
+            font.family: Style.fontFamily
+            font.pixelSize: Style.barFontBody
+            color: barHost ? barHost.barForeground : Style.text
         }
     }
 
@@ -42,14 +70,7 @@ Rectangle {
         id: batProc
         command: ["bash", binDir + "/asahi-battery"]
         stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    const data = JSON.parse(text.trim())
-                    root.text = data.text || "Bat --%"
-                    root.tooltip = data.tooltip || ""
-                    root.percentage = data.percentage || 0
-                } catch (e) {}
-            }
+            onStreamFinished: root.parseBatteryPayload(text)
         }
     }
 

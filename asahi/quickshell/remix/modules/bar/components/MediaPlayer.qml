@@ -7,17 +7,21 @@ import "../../../services" as Services
 Rectangle {
   id: root
 
-  color: mediaMouse.containsMouse ? Style.barHoverBg : Style.barBg
-  radius: Style.radius
-  border.width: 1
-  border.color: mediaMouse.containsMouse ? Style.barHoverBorder : Style.barBorder
+  property var barHost: null
+  readonly property bool solidBar: barHost !== null && barHost !== undefined
+
+  color: solidBar
+    ? (mediaMouse.containsMouse ? Style.barStripHover : "transparent")
+    : (mediaMouse.containsMouse ? Style.barHoverBg : Style.barBg)
+  radius: solidBar ? 0 : Style.radius
+  border.width: solidBar ? 0 : 1
+  border.color: solidBar ? "transparent" : (mediaMouse.containsMouse ? Style.barHoverBorder : Style.barBorder)
   Behavior on color { ColorAnimation { duration: 140 } }
   Behavior on border.color { ColorAnimation { duration: 140 } }
-  scale: mediaMouse.containsMouse ? 1.018 : 1.0
-  Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+  scale: solidBar ? 1.0 : (mediaMouse.containsMouse ? 1.018 : 1.0)
 
-  implicitWidth: Math.min(320, contentRow.implicitWidth + 16)
-  implicitHeight: 26
+  implicitWidth: Math.min(280, contentRow.implicitWidth + (solidBar ? 10 : 16))
+  implicitHeight: solidBar ? Style.barHeight : 26
 
   property bool hasMedia: Services.Players.hasPlayer
   property string mediaText: {
@@ -37,8 +41,8 @@ Rectangle {
     Text {
       text: root.mediaText
       font.family: Style.fontFamily
-      font.pixelSize: 14
-      color: Style.text
+      font.pixelSize: Style.barFontBody
+      color: solidBar && barHost ? barHost.barForeground : Style.text
       elide: Text.ElideRight
       Layout.maximumWidth: 230
     }

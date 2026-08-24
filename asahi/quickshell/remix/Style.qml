@@ -57,6 +57,13 @@ Singleton {
   readonly property color barBorder:      Qt.alpha(Wallpaper.DefaultTheme.text, 0.10)
   readonly property color barHoverBorder: Qt.alpha(Wallpaper.DefaultTheme.sky, 0.34)
 
+  // Solid top strip (omarchy bar.background / sketchybar theme.bar) — always opaque, never transparent.
+  readonly property color barStripBg:   Wallpaper.DefaultTheme.mantle
+  readonly property color barStripText: Wallpaper.DefaultTheme.text
+  readonly property color barStripMuted: Wallpaper.DefaultTheme.subtext0
+  readonly property color barStripActive: Wallpaper.DefaultTheme.red
+  readonly property color barStripHover:  Qt.alpha(Wallpaper.DefaultTheme.text, 0.08)
+
   readonly property color panelOverlay:         Qt.alpha(Wallpaper.DefaultTheme.crust, 0.76)
   readonly property color panelBg:              Qt.alpha(Wallpaper.DefaultTheme.base, 0.98)
   readonly property color panelSidebarBg:       Qt.alpha(Wallpaper.DefaultTheme.crust, 0.96)
@@ -139,6 +146,15 @@ Singleton {
 
   readonly property int radius: 6
   readonly property int radiusSm: 4
+
+  // Solid strip sizing — sketchybar top uses 32px; slightly taller for icons + workspace row.
+  readonly property int barHeight: 34
+  readonly property int barFontBody: 13
+  readonly property int barFontIcon: 18
+  readonly property int barFontMicVolIcon: 20
+  readonly property int barFontCaption: 11
+  readonly property int barEdgeMargin: 8
+  readonly property int barIconSlot: 34
 
   readonly property string fontFamily: "JetBrainsMono Nerd Font"
   readonly property int fontSize: 16
