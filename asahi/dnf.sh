@@ -125,6 +125,8 @@ sudo systemctl enable --now cups cups-browsed
 # Optional Asahi extras (not in minimal dnf to avoid bloat):
 # - hyprdynamicmonitors (Go tool for dynamic monitor profiles/lid/hotplug on Mac hw): go install github.com/fiffeek/hyprdynamicmonitors@latest
 # - matugen (theming, per DankMaterialShell patterns): dnf or cargo install; integrate with QS for wallpaper-driven colors if chosen
+# - power-profiles-daemon: Omarchy wraps powerprofilesctl with no Apple Silicon
+#   backend. This machine is apple-cpufreq/schedutil; PPD does not drive it.
 
 systemctl --user daemon-reload
 systemctl --user enable --now pipewire.socket pipewire-pulse.socket wireplumber.service

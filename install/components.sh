@@ -414,9 +414,22 @@ comp_asahi_system() {
   require_linux
   bash "$DOTFILES/asahi/dnf.sh"
   sudo install -Dm644 "$DOTFILES/asahi/systemd/system/asahi-tty-font.service" /etc/systemd/system/asahi-tty-font.service
+  sudo install -Dm644 "$DOTFILES/asahi/systemd/logind.conf.d/10-asahi-sleep.conf" /etc/systemd/logind.conf.d/10-asahi-sleep.conf
+  sudo install -Dm644 "$DOTFILES/asahi/systemd/sleep.conf.d/10-asahi-no-hibernate.conf" /etc/systemd/sleep.conf.d/10-asahi-no-hibernate.conf
   sudo systemctl daemon-reload
   sudo systemctl enable asahi-tty-font.service
   sudo systemctl restart asahi-tty-font.service
+  # Full panel height beside the notch (appledrm). No-op without that driver.
+  if modinfo appledrm >/dev/null 2>&1 && [ ! -f /etc/modprobe.d/asahi-notch.conf ]; then
+    print_step "Enabling Asahi notch area (full display height)"
+    echo "options appledrm show_notch=1" | sudo tee /etc/modprobe.d/asahi-notch.conf >/dev/null
+    if ! have dracut; then
+      print_error "dracut not found; cannot rebuild initramfs for appledrm show_notch=1"
+      exit 1
+    fi
+    sudo dracut -f
+    print_ok "asahi-notch.conf written; reboot required"
+  fi
   if have brightnessctl; then
     brightnessctl --device='kbd_backlight' set 30% || true
   elif have light; then
@@ -462,6 +475,9 @@ comp_asahi_desktop() {
   mkdir -p "$HOME/.config/mpv"
   link_if_exists "$DOTFILES/mpv/mpv_asahi.conf" "$HOME/.config/mpv/mpv.conf"
   link_if_exists "$DOTFILES/asahi/environment.d/90-asahi.conf" "$HOME/.config/environment.d/90-asahi.conf"
+  mkdir -p "$HOME/.config/gtk-3.0" "$HOME/.config/gtk-4.0"
+  link_if_exists "$DOTFILES/asahi/gtk-3.0/settings.ini" "$HOME/.config/gtk-3.0/settings.ini"
+  link_if_exists "$DOTFILES/asahi/gtk-4.0/settings.ini" "$HOME/.config/gtk-4.0/settings.ini"
   mkdir -p "$HOME/.config/librewolf/librewolf"
   link_if_exists "$DOTFILES/shared/librewolf/librewolf.overrides.cfg" "$HOME/.config/librewolf/librewolf/librewolf.overrides.cfg"
   local profile
@@ -632,6 +648,22 @@ comp_doctor() {
     for b in Hyprland quickshell qs hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl nm-connection-editor nmtui blueman-manager; do
       check_bin "$b" || true
     done
+    print_step "Checking Asahi hardware/session"
+    report_check "asahi-notch.conf" test -f /etc/modprobe.d/asahi-notch.conf
+    if [ -r /sys/module/appledrm/parameters/show_notch ]; then
+      if [ "$(tr -d '[:space:]' < /sys/module/appledrm/parameters/show_notch)" = "Y" ]; then
+        print_ok "appledrm show_notch active"
+      else
+        print_warning "appledrm show_notch not active (reboot after enabling)"
+      fi
+    fi
+    if grep -q 'title: "Hibernate"' "$DOTFILES/asahi/quickshell/remix/modules/launcher/Data.js"; then
+      print_warning "launcher still lists Hibernate"
+    else
+      print_ok "launcher has no Hibernate action"
+    fi
+    check_link "$HOME/.config/hypr"
+    check_link "$HOME/.config/quickshell"
   fi
   print_step "Checking config symlinks"
   local l

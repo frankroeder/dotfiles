@@ -1,5 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
+import Quickshell.Io
 import "../../../"
 
 RowLayout {
@@ -8,10 +10,79 @@ RowLayout {
   property var notificationCenter: null
   property bool isRecording: false
   property bool updatesAvailable: false
+  property bool stayAwake: false
+
+  readonly property string stayAwakePath: Quickshell.env("HOME") + "/.local/state/asahi/stay-awake"
 
   spacing: 6
 
+  function refreshStayAwake() {
+    if (!stayAwakeProc.running) stayAwakeProc.running = true
+  }
+
+  function toggleStayAwake() {
+    if (root.stayAwake)
+      Quickshell.execDetached(["rm", "-f", root.stayAwakePath])
+    else
+      Quickshell.execDetached(["bash", "-lc", "mkdir -p \"$HOME/.local/state/asahi\" && touch \"$HOME/.local/state/asahi/stay-awake\""])
+    stayAwakeRefresh.restart()
+  }
+
+  Process {
+    id: stayAwakeProc
+    command: ["test", "-e", root.stayAwakePath]
+    onExited: code => { root.stayAwake = (code === 0) }
+  }
+
+  Timer {
+    interval: 2000
+    running: true
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: root.refreshStayAwake()
+  }
+
+  Timer {
+    id: stayAwakeRefresh
+    interval: 250
+    onTriggered: root.refreshStayAwake()
+  }
+
   SystemTray {}
+
+  Rectangle {
+    id: stayAwakeChip
+    width: 26
+    height: 26
+    radius: Style.radius
+    color: stayAwakeMouse.containsMouse ? Style.panelWarningBg : Style.barBg
+    border.width: 1
+    border.color: root.stayAwake ? Style.yellow : (stayAwakeMouse.containsMouse ? Style.barHoverBorder : Style.barBorder)
+    Behavior on color { ColorAnimation { duration: 140 } }
+    Behavior on border.color { ColorAnimation { duration: 140 } }
+
+    Text {
+      anchors.centerIn: parent
+      text: "󰅶"
+      font.family: Style.fontFamily
+      font.pixelSize: 13
+      color: root.stayAwake ? Style.yellow : Style.textMuted
+    }
+
+    MouseArea {
+      id: stayAwakeMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: root.toggleStayAwake()
+    }
+
+    TooltipWindow {
+      target: stayAwakeChip
+      text: root.stayAwake ? "Stay awake (idle lock off)" : "Allow idle lock"
+      show: stayAwakeMouse.containsMouse
+    }
+  }
 
   Rectangle {
     id: recChip

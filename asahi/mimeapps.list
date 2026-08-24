@@ -29,6 +29,8 @@ x-scheme-handler/feed=userapp-Thunderbird-JNXXN3.desktop
 application/rss+xml=userapp-Thunderbird-JNXXN3.desktop
 application/x-extension-rss=userapp-Thunderbird-JNXXN3.desktop
 x-scheme-handler/claude-cli=claude-code-url-handler.desktop
+x-scheme-handler/grokbot=grok-bot.desktop
+x-scheme-handler/sand=grok-bot.desktop
 
 [Added Associations]
 inode/directory=thunar.desktop;

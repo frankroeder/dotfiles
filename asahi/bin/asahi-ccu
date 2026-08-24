@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import fcntl
 import json
-import math
 import os
 import re
 import shutil
@@ -124,9 +123,6 @@ def tidy_error(msg: Any) -> str:
   return one
 
 
-SPARK = "▁▂▃▅"
-
-
 def fmt_tokens(n: Any) -> str:
   n = float(n or 0)
   if n >= 1e6:
@@ -147,36 +143,6 @@ def fmt_usd(u: Any) -> str:
 
 def money_tok(usd: Any, tokens: Any) -> str:
   return f"{fmt_usd(usd)} · {fmt_tokens(tokens)}"
-
-
-def spark_levels(days: Any, max_usd: float, max_bars: int = 7) -> list[int]:
-  max_usd = float(max_usd or 0)
-
-  def level(u: float) -> int:
-    if max_usd > 0 and u > 0:
-      return max(1, min(4, int(u / max_usd * 3 + 1.25)))
-    return 1
-
-  if not days:
-    return [1] * max_bars
-  n = len(days)
-  if n <= max_bars:
-    return [level(float((days[i] or {}).get("usd") or 0)) for i in range(n)]
-  out: list[int] = []
-  for i in range(max_bars):
-    start = int(math.floor(i * n / max_bars))
-    end = int(math.floor((i + 1) * n / max_bars))
-    if end <= start:
-      end = min(n, start + 1)
-    peak_u = 0.0
-    for j in range(start, min(end, n)):
-      peak_u = max(peak_u, float((days[j] or {}).get("usd") or 0))
-    out.append(level(peak_u))
-  return out
-
-
-def sparkline(days: Any, max_usd: float, max_bars: int = 7) -> str:
-  return "".join(SPARK[lv - 1] for lv in spark_levels(days, max_usd, max_bars))
 
 
 def remaining_label(remaining: float | None, used: float | None, reset: str, active: bool) -> str:
@@ -222,8 +188,6 @@ def window_row(wid: str, title: str, block: dict[str, Any] | None) -> dict[str, 
     "percent": remaining,
     "no_bar": False,
     "accent": wid,
-    "spark": "",
-    "spark_levels": [],
     "reset": reset,
     "active": block.get("active") is True,
     "label": remaining_label(remaining, used, reset, block.get("active") is True),
@@ -242,8 +206,6 @@ def error_row(wid: str, title: str, error: str) -> dict[str, Any]:
     "percent": 0,
     "no_bar": False,
     "accent": wid,
-    "spark": "",
-    "spark_levels": [],
     "reset": "",
     "active": False,
     "label": short,
@@ -270,8 +232,6 @@ def cost_row(
   label: str,
   percent: float,
   no_bar: bool = False,
-  spark: str = "",
-  spark_levels: list[int] | None = None,
 ) -> dict[str, Any]:
   return {
     "id": wid,
@@ -282,8 +242,6 @@ def cost_row(
     "percent": percent,
     "no_bar": no_bar,
     "accent": accent,
-    "spark": spark,
-    "spark_levels": spark_levels or [],
     "reset": "",
     "active": False,
     "label": label,
@@ -298,35 +256,21 @@ def provider_cost_rows(prov: dict[str, Any], multi: bool) -> list[dict[str, Any]
   week = prov.get("week") or {}
   month = prov.get("month") or {}
   total = prov.get("total") or {}
-  weekdays = prov.get("weekdays") or []
-  month_days = month.get("days") or []
   today_usd = float(today.get("usd") or 0)
   week_usd = float(week.get("usd") or 0)
   month_usd = float(month.get("usd") or 0)
   total_usd = float(total.get("usd") or 0)
-  max_day = float(week.get("max_day_usd") or 0)
-  month_max = float(month.get("max_day_usd") or 0)
-  peak = max(max_day, today_usd, 0.01)
+  peak = max(float(week.get("max_day_usd") or 0), today_usd, 0.01)
   week_pct = (week_usd / max(month_usd, week_usd) * 100) if month_usd > 0 else (100.0 if week_usd > 0 else 0.0)
   month_pct = (month_usd / total_usd * 100) if total_usd > 0 else (100.0 if month_usd > 0 else 0.0)
   t_today = f"{name} today" if multi else "Today"
   t_week = f"{name} 7d" if multi else "Past 7d"
   t_month = f"{name} mo" if multi else "Month"
   t_total = f"{name} total" if multi else "All time"
-  week_lv = spark_levels(weekdays, max_day, 7)
-  month_lv = spark_levels(month_days, month_max, 8)
-  week_spark = "".join(SPARK[lv - 1] for lv in week_lv)
-  month_spark = "".join(SPARK[lv - 1] for lv in month_lv)
   return [
     cost_row(f"{pid}_today", t_today, "today", money_tok(today_usd, today.get("tokens")), (today_usd / peak) * 100),
-    cost_row(
-      f"{pid}_week", t_week, "week", money_tok(week_usd, week.get("tokens")), week_pct,
-      spark=week_spark, spark_levels=week_lv,
-    ),
-    cost_row(
-      f"{pid}_month", t_month, "month", money_tok(month_usd, month.get("tokens")), month_pct,
-      spark=month_spark, spark_levels=month_lv,
-    ),
+    cost_row(f"{pid}_week", t_week, "week", money_tok(week_usd, week.get("tokens")), week_pct),
+    cost_row(f"{pid}_month", t_month, "month", money_tok(month_usd, month.get("tokens")), month_pct),
     cost_row(f"{pid}_total", t_total, "total", money_tok(total_usd, total.get("tokens")), 0, no_bar=True),
   ]
 
@@ -353,6 +297,7 @@ def build() -> dict[str, Any]:
       "error": None,
       "rows": [],
       "links": [],
+      "overview": [],
     }
 
   cache = load_cache()
@@ -426,8 +371,6 @@ def build() -> dict[str, Any]:
         "percent": grok_rem,
         "no_bar": False,
         "accent": "grok",
-        "spark": "",
-        "spark_levels": [],
         "reset": reset,
         "active": False,
         "label": remaining_label(grok_rem, grok_used, reset, False),
@@ -457,8 +400,6 @@ def build() -> dict[str, Any]:
         "percent": 0,
         "no_bar": True,
         "accent": "div",
-        "spark": "",
-        "spark_levels": [],
         "reset": "",
         "active": False,
         "label": "",
@@ -503,6 +444,43 @@ def build() -> dict[str, Any]:
   if want_grok:
     links.append({"id": "grok", "title": "Grok", "url": GROK_USAGE})
 
+  cost_by_id = {str(p.get("id")): p for p in cost_providers}
+
+  def overview_entry(pid: str, name: str, quota: list[dict[str, Any]], url: str) -> dict[str, Any]:
+    cost = cost_by_id.get(pid)
+    limits = []
+    for row in quota:
+      if not row or row.get("kind") != "quota":
+        continue
+      used = row.get("used")
+      limits.append({
+        "title": row.get("title") or pid,
+        "percent": (used / 100.0) if used is not None else None,
+        "used": used,
+        "reset": row.get("reset") or "",
+        "label": row.get("label") or "",
+        "error": row.get("error"),
+      })
+    return {
+      "id": pid,
+      "name": name,
+      "limits": limits,
+      "today": cost.get("today") if isinstance(cost, dict) else None,
+      "week": cost.get("week") if isinstance(cost, dict) else None,
+      "total": cost.get("total") if isinstance(cost, dict) else None,
+      "url": url,
+    }
+
+  overview: list[dict[str, Any]] = []
+  if want_claude:
+    claude_quota = [r for r in rows if r.get("id") in ("session", "weekly")]
+    overview.append(overview_entry("claude", "Claude", claude_quota, CLAUDE_USAGE))
+  if want_grok:
+    grok_quota = [r for r in rows if r.get("id") == "grok"]
+    overview.append(overview_entry("grok", "Grok", grok_quota, GROK_USAGE))
+  if want_codex:
+    overview.append(overview_entry("codex", "Codex", [], ""))
+
   return {
     "text": text,
     "tooltip": "\n".join(tooltip_lines),
@@ -512,6 +490,7 @@ def build() -> dict[str, Any]:
     "error": fresh_err if errored else None,
     "rows": rows,
     "links": links,
+    "overview": overview,
   }
 
 

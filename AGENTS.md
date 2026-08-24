@@ -46,6 +46,11 @@ We need to always differentiate between the different Linux settings with respec
 - hypridle (idle daemon): https://wiki.hypr.land/Hypr-Ecosystem/hypridle/
 - Quickshell (QML toolkit, bar/launcher + native notifications): https://quickshell.org/docs/
 - **QML singletons (Quickshell/Qt6)**: `pragma Singleton` is ignored without `qmldir` registration. `import "File.qml" as X` silently falls back to white/black defaults. Create `qmldir` in module dirs (`singleton Name File.qml`), use module imports (`import "../foo"`), reference by registered name (`Foo.bar`). Prefer Quickshell `Singleton` root type (reloadable) over QtObject. Never `Foo {}` construct singletons.
+- **Lock on boot**: do not lock after Hyprland starts. This session is `login` on tty1 — the getty password is the auth gate. A second hyprlock after the desktop appears was redundant. Super+Escape and hypridle still lock.
+- **Hibernate**: unsupported on Asahi (`freeze`/`mem` only, zram is not a resume image). Launcher has no Hibernate row; logind/sleep drop-ins ignore hibernate keys. Stay on `systemctl suspend` (s2idle).
+- **Lid**: Apple Silicon names the switch `Apple SMC power/lid events`, not `Lid Switch`. Binds live in `asahi/hypr/conf.d/monitors.lua` (dpms + `asahi-idle-brightness` on eDP-1) with `locked = true`. There is no ACPI `/proc/acpi/button/lid` on this hardware.
+- **Notch**: `comp_asahi_system` writes `/etc/modprobe.d/asahi-notch.conf` (`options appledrm show_notch=1`) and rebuilds initramfs with **dracut**. Reboot required. Without this, Asahi crops the panel below the notch.
+- **Appearance**: Hyprland does not publish `org.freedesktop.appearance color-scheme`. Autostart sets `gsettings` `color-scheme=prefer-dark` plus `adw-gtk3-dark` / `Papirus-Dark`; GTK ini lives in `asahi/gtk-{3,4}.0/settings.ini`. LibreWolf chrome (`userChrome.css`) and nvim follow that portal/gsettings signal, not quickshell/ghostty palettes. Unset (`default` / portal `0`) is treated as light.
 
 ## Shared
 - Neovim: https://neovim.io/doc/

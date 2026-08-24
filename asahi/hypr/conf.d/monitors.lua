@@ -9,7 +9,7 @@ hl.monitor {
   output = "desc:LG Electronics LG ULTRAFINE 112NTMX6B267",
   mode = "3840x2160@60.000",
   position = "-2560x-360",
-  scale = 1.5,
+  scale = 1.88,
 }
 
 hl.monitor {
@@ -32,11 +32,15 @@ hl.workspace_rule { workspace = "3", monitor = "HDMI-A-1" }
 hl.workspace_rule { workspace = "4", monitor = "HDMI-A-1" }
 
 -- Lid close: only eDP-1 (not external/HDMI). asahi-idle-brightness off (panel bl + kbd) + dpms off eDP-1.
+-- Apple Silicon names this switch "Apple SMC power/lid events", not "Lid Switch".
+-- locked = true so the bind still fires on the lock screen.
 hl.bind(
   "switch:on:Apple SMC power/lid events",
-  hl.dsp.exec_cmd "~/.dotfiles/asahi/bin/asahi-idle-brightness off; hyprctl dispatch dpms off eDP-1"
+  hl.dsp.exec_cmd "~/.dotfiles/asahi/bin/asahi-idle-brightness off; hyprctl dispatch dpms off eDP-1",
+  { locked = true }
 )
 hl.bind(
   "switch:off:Apple SMC power/lid events",
-  hl.dsp.exec_cmd "hyprctl dispatch dpms on eDP-1; ~/.dotfiles/asahi/bin/asahi-idle-brightness restore"
+  hl.dsp.exec_cmd "hyprctl dispatch dpms on eDP-1; ~/.dotfiles/asahi/bin/asahi-idle-brightness restore",
+  { locked = true }
 )
