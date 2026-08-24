@@ -18,7 +18,7 @@
 #
 # Components (run one piece in isolation):
 #   directories git zsh python misc node nvim agents terminal default-shell
-#   homebrew macos-apps sketchybar        (macOS)
+#   homebrew macos-apps sketchybar vicinae icloud  (macOS)
 #   linux-base                            (Linux)
 #   asahi-system asahi-zotero asahi-desktop asahi-battery-alerts  (Asahi)
 #   after services                        (post-install / desktop services)
@@ -145,6 +145,8 @@ case "$TARGET" in
   homebrew)             comp_homebrew ;;
   macos-apps)           comp_macos_apps ;;
   sketchybar)           comp_sketchybar_top; comp_sketchybar_island ;;
+  vicinae)              comp_vicinae ;;
+  icloud)               comp_icloud ;;
 
   linux-base)           comp_linux_base ;;
 

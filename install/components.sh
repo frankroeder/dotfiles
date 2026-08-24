@@ -169,6 +169,92 @@ comp_agents() {
   fi
 }
 
+# --- iCloud private configs (macOS) -----------------------------------------
+# Copy machine-local state that must not live in git into CloudDocs/configs.
+# Restore fills local gaps; existing local files win; dict-cc is repo-built.
+
+_icloud_configs() {
+  printf '%s\n' "$HOME/Library/Mobile Documents/com~apple~CloudDocs/configs"
+}
+
+_cp_missing() {
+  [ -f "$1" ] && [ ! -e "$2" ] || return 1
+  mkdir -p "$(dirname "$2")"
+  cp -f "$1" "$2"
+}
+
+_cp_to() {
+  [ -f "$1" ] || return 0
+  mkdir -p "$(dirname "$2")"
+  cp -f "$1" "$2"
+}
+
+_rsync_ext() {
+  mkdir -p "$2"
+  rsync -a --exclude '.DS_Store' --exclude '*.icloud' "$1/" "$2/"
+}
+
+# Restore missing vicinae files from iCloud, then copy local store.* + json back.
+icloud_sync_vicinae() {
+  local docs="$HOME/Library/Mobile Documents/com~apple~CloudDocs"
+  [ -d "$docs" ] || { print_warning "iCloud Drive not available; skip vicinae configs"; return 0; }
+
+  local cloud="$docs/configs/vicinae"
+  local share="$HOME/.local/share/vicinae"
+  local cfg="$HOME/.config/vicinae"
+  local src dst name restored=0
+
+  print_step "Syncing vicinae private configs with iCloud"
+  mkdir -p "$cloud" "$cfg" "$share/extensions"
+  brctl download "$cloud" >/dev/null 2>&1 || true
+
+  _cp_missing "$cloud/settings.json" "$cfg/settings.json" && restored=1
+  _cp_missing "$cloud/snippets.json" "$share/snippets/snippets.json" && restored=1
+  _cp_missing "$cloud/shortcuts.json" "$share/shortcuts/shortcuts.json" && restored=1
+  for src in "$cloud/extensions"/store.*; do
+    [ -d "$src" ] || continue
+    name="${src##*/}"
+    dst="$share/extensions/$name"
+    [ -d "$dst" ] && continue
+    if _rsync_ext "$src" "$dst"; then restored=1; else print_warning "failed to restore $name"; fi
+  done
+
+  _cp_to "$cfg/settings.json" "$cloud/settings.json"
+  _cp_to "$share/snippets/snippets.json" "$cloud/snippets.json"
+  _cp_to "$share/shortcuts/shortcuts.json" "$cloud/shortcuts.json"
+  for src in "$share/extensions"/store.*; do
+    [ -d "$src" ] || continue
+    name="${src##*/}"
+    _rsync_ext "$src" "$cloud/extensions/$name" || print_warning "failed to store $name"
+  done
+  print_ok "vicinae iCloud sync done"
+
+  if [ "$restored" -eq 1 ] && [ "$HOME" = "/Users/${USER}" ] && have vicinae && vicinae ping >/dev/null 2>&1; then
+    print_step "Restarting vicinae to pick up restored data"
+    vicinae server --replace || print_warning "vicinae server restart failed"
+  fi
+}
+
+comp_icloud() {
+  require_macos
+  icloud_sync_vicinae
+}
+
+comp_vicinae() {
+  require_macos
+  print_step "Configuring vicinae"
+  mkdir -p "$HOME/.config/vicinae"
+  link_if_exists "$DOTFILES/vicinae/dotfiles.json" "$HOME/.config/vicinae/dotfiles.json"
+  icloud_sync_vicinae
+  local dictcc="$DOTFILES/vicinae/extensions/dict-cc"
+  if have vicinae && have npm && [ -f "$dictcc/package.json" ]; then
+    print_step "Building vicinae dict-cc extension"
+    if ! (cd "$dictcc" && npm install --omit=dev && npx vici build); then
+      print_warning "vicinae dict-cc build failed"
+    fi
+  fi
+}
+
 # --- macOS ------------------------------------------------------------------
 
 comp_homebrew() {
@@ -246,15 +332,7 @@ comp_macos_apps() {
   replace_with_symlink "$DOTFILES/mpv"     "$HOME/.config/mpv"
   replace_with_symlink "$DOTFILES/yabai"   "$HOME/.config/yabai"
   replace_with_symlink "$DOTFILES/borders" "$HOME/.config/borders"
-  mkdir -p "$HOME/.config/vicinae"
-  link_if_exists "$DOTFILES/vicinae/dotfiles.json" "$HOME/.config/vicinae/dotfiles.json"
-  local dictcc="$DOTFILES/vicinae/extensions/dict-cc"
-  if have vicinae && have npm && [ -f "$dictcc/package.json" ]; then
-    print_step "Building vicinae dict-cc extension"
-    if ! (cd "$dictcc" && npm install --omit=dev && npx vici build); then
-      print_warning "vicinae dict-cc build failed"
-    fi
-  fi
+  comp_vicinae
 }
 
 _sketchybar_agent() {
@@ -435,6 +513,32 @@ comp_terminal() {
   link_if_exists "$DOTFILES/htop/personal" "$HOME/.config/htop/htoprc"
 }
 
+# BBT has no CLI import. The iCloud export uses shorttitle(2,…); BBT default is (3,3).
+_bbt_imported() {
+  local f
+  for f in "$HOME/Library/Application Support/Zotero/Profiles/"*/prefs.js; do
+    [ -f "$f" ] || continue
+    grep -E 'translators.better-bibtex.citekeyFormat".*shorttitle\(2' "$f" >/dev/null && return 0
+  done
+  return 1
+}
+
+comp_zotero_bbt() {
+  require_macos
+  print_step "Checking Zotero Better BibTeX preferences"
+  local json
+  json="$(_icloud_configs)/betterbib_config_export.json"
+  if [ ! -f "$json" ]; then
+    print_warning "Better BibTeX export missing (expected $json)"
+    return 0
+  fi
+  if _bbt_imported; then
+    print_ok "Better BibTeX prefs already imported"
+    return 0
+  fi
+  print_warning "Import Better BibTeX prefs into Zotero (install the plugin if needed): Settings → Better BibTeX → Import → Import BetterBibTeX preferences/citation keys… then pick $json"
+}
+
 # Post-install: run git setup, TS parsers, and (re)start desktop services.
 comp_after() {
   comp_terminal
@@ -452,6 +556,7 @@ comp_after() {
   if [ "$OSTYPE_UNAME" = "Darwin" ]; then
     comp_services
     comp_agents
+    comp_zotero_bbt
   fi
 }
 
@@ -512,7 +617,7 @@ comp_doctor() {
   done
   if [ "$OSTYPE_UNAME" = "Darwin" ]; then
     print_step "Checking macOS binaries"
-    for b in brew yabai skhd sketchybar ghostty battery sourcekit-lsp; do
+    for b in brew yabai skhd sketchybar ghostty vicinae battery sourcekit-lsp; do
       check_bin "$b" || true
     done
     print_step "Checking macOS services"
@@ -538,5 +643,16 @@ comp_doctor() {
              "$HOME/.config/vicinae/dotfiles.json"; do
       check_link "$l"
     done
+    print_step "Checking iCloud private configs"
+    local cloud
+    cloud="$(_icloud_configs)"
+    if [ ! -d "$HOME/Library/Mobile Documents/com~apple~CloudDocs" ]; then
+      print_warning "iCloud Drive not available"
+    else
+      [ -f "$cloud/vicinae/settings.json" ] && print_ok "iCloud vicinae backup" || print_warning "iCloud vicinae backup missing (./install.sh icloud)"
+      [ -f "$cloud/betterbib_config_export.json" ] && print_ok "iCloud Better BibTeX export" || print_warning "iCloud Better BibTeX export missing"
+    fi
+    if _bbt_imported; then print_ok "Zotero Better BibTeX prefs imported"
+    else print_warning "Zotero Better BibTeX prefs not imported (Settings → Better BibTeX → Import)"; fi
   fi
 }
