@@ -17,7 +17,10 @@ sbar = require "sketchybar"
 
 sbar.add("event", "theme_change", "AppleInterfaceThemeChangedNotification")
 
-sbar.set_bar_name "sketchybar"
+-- Instance identity for shared modules (theme_handler, siri). The launchd
+-- plists never exported BAR_NAME, so env-based detection silently failed.
+BAR_NAME = "sketchybar"
+sbar.set_bar_name(BAR_NAME)
 
 -- guard so remove regex always matches (prevents "No match" log), then nuke prior items
 sbar.add("item", "reload_guard", { position = "right", drawing = false })

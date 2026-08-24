@@ -75,6 +75,7 @@ local row_h = 20
 local extra_max = 3
 local bar_h = 5
 local name_w = 58
+local legend_dot_w = 12
 
 local title_font = {
   family = settings.font.family,
@@ -165,43 +166,66 @@ local header = pop_item("widgets.ccu.header", {
   label = { drawing = false },
 })
 
-local function make_slider(name, width, height)
-  return sbar.add("slider", name, width, {
+-- Meter rows are plain items whose BACKGROUND is the bar, positioned with the
+-- same padding trick as pop_item (padding_left = pad + x, negative right pad
+-- cancels the advance). One item per usage category segment plus one for the
+-- remaining track — segments never overlap, so z-order never matters.
+local seg_max = 5
+local seg_gap = 2
+
+local function bar_seg_item(name)
+  return sbar.add("item", name, {
     position = "popup." .. ccu.name,
+    drawing = false,
     width = 0,
     padding_left = pad,
     padding_right = -pad,
     icon = { drawing = false },
     label = { drawing = false },
-    slider = {
-      percentage = 0,
-      highlight_color = theme.text_primary,
-      background = {
-        height = height,
-        corner_radius = height / 2,
-        color = track_color(theme.text_primary),
-      },
-      knob = { drawing = false, string = "" },
+    background = {
+      drawing = true,
+      color = colors.transparent,
+      height = bar_h,
+      corner_radius = math.floor(bar_h / 2),
     },
-    background = { drawing = false, height = row_h },
   })
 end
 
-local function set_slider(item, pct, accent, height, drawing)
-  height = height or bar_h
+local function set_bar_seg(item, x, w, color)
+  x = math.floor(x + 0.5)
+  w = math.floor(w + 0.5)
+  if w < 1 then
+    item:set { drawing = false }
+    return
+  end
   item:set {
-    drawing = drawing ~= false,
-    slider = {
-      percentage = math.min(100, math.max(0, math.floor((pct or 0) + 0.5))),
-      highlight_color = accent,
-      background = {
-        height = height,
-        corner_radius = height / 2,
-        color = track_color(accent),
-      },
-      knob = { drawing = false, string = "" },
+    drawing = true,
+    width = w,
+    padding_left = pad + x,
+    padding_right = -(pad + x + w),
+    background = {
+      drawing = true,
+      color = color,
+      height = bar_h,
+      corner_radius = math.floor(bar_h / 2),
     },
   }
+end
+
+-- Product colors for the shared-pool split (Grok usage categories).
+local function category_color(label, index)
+  local named = {
+    ["Chat"] = colors.blue,
+    ["Grok Build"] = colors.mauve,
+    ["API"] = colors.green,
+    ["Imagine"] = colors.pink,
+    ["Voice"] = colors.yellow,
+  }
+  if named[label] then
+    return named[label]
+  end
+  local fallback = { colors.sky, colors.teal, colors.peach, colors.lavender, colors.maroon }
+  return fallback[(index - 1) % #fallback + 1]
 end
 
 -- Chart rows need a REAL monospace font: settings.font.family is "SF Pro"
@@ -253,7 +277,71 @@ for _, p in ipairs(providers) do
       padding_right = 0,
     },
   })
-  card.meter = make_slider(prefix .. ".meter", content_w, bar_h)
+  -- Identity peer on the head row: account email + rebill, right-aligned.
+  card.ident = pop_item(prefix .. ".ident", {
+    drawing = false,
+    icon = { drawing = false },
+    label = {
+      string = "",
+      width = content_w,
+      align = "right",
+      font = cap_font,
+      color = theme.text_muted,
+      padding_left = 0,
+      padding_right = 0,
+    },
+  })
+  -- Usage subline: "21% of weekly limit used" | "Resets Aug 29, 2:48 AM · 5d 11h".
+  card.sub = pop_item(prefix .. ".sub", {
+    drawing = false,
+    icon = {
+      string = "",
+      width = 200,
+      align = "left",
+      font = body_font,
+      color = theme.text_primary,
+      padding_left = 0,
+      padding_right = 0,
+    },
+    label = {
+      string = "",
+      width = content_w - 200,
+      align = "right",
+      font = body_font,
+      color = theme.text_muted,
+      padding_left = 0,
+      padding_right = 0,
+    },
+  })
+  card.meter_segs = {}
+  for k = 1, seg_max do
+    card.meter_segs[k] = bar_seg_item(prefix .. ".seg" .. k)
+  end
+  card.meter_rest = bar_seg_item(prefix .. ".rest")
+  -- Legend under the meter: one dot + "Chat 1%" cell per category, packed left.
+  card.legend = {}
+  for k = 1, seg_max do
+    card.legend[k] = pop_item(prefix .. ".legend" .. k, {
+      drawing = false,
+      icon = {
+        string = "●",
+        width = legend_dot_w,
+        align = "left",
+        font = { family = settings.font.family, size = 9.0 },
+        color = theme.text_muted,
+        padding_left = 0,
+        padding_right = 0,
+      },
+      label = {
+        string = "",
+        align = "left",
+        font = cap_font,
+        color = theme.text_muted,
+        padding_left = 0,
+        padding_right = 0,
+      },
+    })
+  end
   card.totals = pop_item(prefix .. ".totals", {
     icon = {
       string = "All time · —",
@@ -351,17 +439,40 @@ sbar.add("item", "widgets.ccu.plate", {
 -- Vertical rhythm: rows carry their own slot height and sections are split by
 -- small gaps, instead of a uniform row_h wall. y_offsets stack from the top.
 local h_head = row_h
+local h_sub = 18
 local h_meter = 12
+local h_legend = 16
 local h_cap = 20
 local h_chart = 18
 local h_sep = 14
 local gap_section = 6
 local gap_header = 8
 
+local function card_tier(st)
+  local tier = st.tier
+  if type(tier) == "string" and tier ~= "" then
+    return tier
+  end
+  return nil
+end
+
+local function show_ident(st)
+  if not card_tier(st) then
+    return false
+  end
+  return (type(st.email) == "string" and st.email ~= "") or tonumber(st.renews_unix) ~= nil
+end
+
+local function show_sub(st)
+  return st.weekly ~= nil and card_tier(st) ~= nil
+end
+
 local function relayout()
   local entries = {}
-  local function push(item, h)
-    entries[#entries + 1] = { item = item, h = h }
+  -- peers share the row's y_offset; keep_w rows own their width (bar segments
+  -- are positioned via width + paddings, so width must not be reset to 0).
+  local function push(item, h, peers, keep_w)
+    entries[#entries + 1] = { item = item, h = h, peers = peers, keep_w = keep_w }
   end
   local function gap(h)
     entries[#entries + 1] = { h = h }
@@ -378,15 +489,21 @@ local function relayout()
       push(card.sep, h_sep)
       gap(gap_section)
     end
-    push(card.head, h_head)
+    push(card.head, h_head, show_ident(st) and { card.ident } or nil)
+    if show_sub(st) then
+      push(card.sub, h_sub)
+    end
     if st.weekly then
-      push(card.meter, h_meter)
+      push(card.meter_rest, h_meter, card.meter_segs, true)
+    end
+    if (st.legend_n or 0) > 0 then
+      push(card.legend[1], h_legend, card.legend, true)
     end
     local has_days = next(st.days or {}) ~= nil
     local has_totals = st.total_tokens ~= nil or st.days30_tokens ~= nil
     if has_totals or has_days then
       gap(gap_section)
-      entries[#entries + 1] = { item = card.totals, peer = card.week, h = h_cap }
+      push(card.totals, h_cap, { card.week })
     end
     if has_days then
       gap(4)
@@ -420,9 +537,13 @@ local function relayout()
   for _, e in ipairs(entries) do
     if e.item then
       local y_off = math.floor(y - e.h / 2 + 0.5)
-      e.item:set { y_offset = y_off, width = 0 }
-      if e.peer then
-        e.peer:set { y_offset = y_off, width = 0 }
+      if e.keep_w then
+        e.item:set { y_offset = y_off }
+      else
+        e.item:set { y_offset = y_off, width = 0 }
+      end
+      for _, peer in ipairs(e.peers or {}) do
+        peer:set { y_offset = y_off }
       end
     end
     y = y - e.h
@@ -531,26 +652,126 @@ local function rotate_to_next()
   end)
 end
 
+local function apply_meter(card, weekly, cats, accent)
+  if not weekly then
+    for k = 1, seg_max do
+      card.meter_segs[k]:set { drawing = false }
+    end
+    card.meter_rest:set { drawing = false }
+    return
+  end
+  local x = 0
+  local n = cats and #cats or 0
+  for k = 1, seg_max do
+    local cat = cats and cats[k]
+    if cat and x < content_w then
+      local w = math.max(cat.pct * content_w, 2)
+      if x + w > content_w then
+        w = content_w - x
+      end
+      set_bar_seg(card.meter_segs[k], x, w - (k < n and seg_gap or 0), category_color(cat.label, k))
+      x = x + w
+    else
+      card.meter_segs[k]:set { drawing = false }
+    end
+  end
+  if n == 0 then
+    x = logic.clamp(logic.number(weekly.used, 0), 0, 1) * content_w
+    set_bar_seg(card.meter_segs[1], 0, x, accent)
+  end
+  local rest_x = x > 0 and (x + seg_gap) or 0
+  if rest_x < content_w - 1 then
+    set_bar_seg(card.meter_rest, rest_x, content_w - rest_x, track_color(accent))
+  else
+    card.meter_rest:set { drawing = false }
+  end
+end
+
+-- 11pt legend text ≈ 6.4 px/char (SF Pro, same calibration family as chips).
+local legend_px_per_char = 6.4
+
+local function apply_legend(card, cats)
+  local shown = 0
+  local x = 0
+  for k = 1, seg_max do
+    local cat = cats and cats[k]
+    if cat then
+      local text = cat.label .. " " .. logic.category_percent(cat.pct)
+      local chars = (utf8 and utf8.len(text)) or #text
+      local tw = math.ceil(chars * legend_px_per_char) + 4
+      if x + legend_dot_w + tw <= content_w then
+        card.legend[k]:set {
+          drawing = true,
+          padding_left = pad + x,
+          padding_right = -(pad + x),
+          icon = { string = "●", color = category_color(cat.label, k) },
+          label = { string = text, width = tw, color = theme.text_muted },
+        }
+        shown = shown + 1
+        x = x + legend_dot_w + tw + 10
+      else
+        card.legend[k]:set { drawing = false }
+      end
+    else
+      card.legend[k]:set { drawing = false }
+    end
+  end
+  return shown
+end
+
 local function apply_card(p, now)
   local card = cards[p.id]
   local st = last[p.id]
   local weekly = st.weekly
   local fill = p.accent
+  local tier = card_tier(st)
+  local cats = weekly and st.cats or nil
+  if cats and #cats == 0 then
+    cats = nil
+  end
 
   card.sep:set { drawing = p ~= providers[1], icon = { color = theme.text_muted } }
+
+  -- Head: plan name when known (usage detail moves to the subline), else the
+  -- classic "x% used · resets in" line.
+  local head_label
+  if tier then
+    head_label = tier
+  elseif weekly then
+    head_label = logic.used_line(weekly, now)
+  else
+    head_label = st.status or logic.NO_WEEKLY
+  end
   card.head:set {
     drawing = true,
     icon = { string = p.label, color = p.accent },
     label = {
-      string = weekly and logic.used_line(weekly, now) or (st.status or logic.NO_WEEKLY),
-      color = weekly and theme.text_primary or theme.text_muted,
+      string = head_label,
+      color = (tier or weekly) and theme.text_primary or theme.text_muted,
     },
   }
-  if weekly then
-    set_slider(card.meter, weekly.used * 100, fill, bar_h, true)
-  else
-    set_slider(card.meter, 0, p.accent, bar_h, false)
+
+  local ident_parts = {}
+  if type(st.email) == "string" and st.email ~= "" then
+    ident_parts[#ident_parts + 1] = st.email
   end
+  local renews = logic.renews_line(st.renews_unix, st.cancels)
+  if renews ~= "" then
+    ident_parts[#ident_parts + 1] = renews
+  end
+  card.ident:set {
+    drawing = show_ident(st),
+    label = { string = table.concat(ident_parts, " · "), color = theme.text_muted },
+  }
+
+  card.sub:set {
+    drawing = show_sub(st),
+    icon = { string = weekly and logic.usage_line(weekly) or "", color = theme.text_primary },
+    label = { string = weekly and logic.reset_line(weekly, now) or "", color = theme.text_muted },
+  }
+
+  apply_meter(card, weekly, cats, fill)
+  st.legend_n = apply_legend(card, cats)
 
   local days = st.days or {}
   local has_days = next(days) ~= nil
@@ -566,7 +787,10 @@ local function apply_card(p, now)
   card.totals:set {
     drawing = show_stats,
     icon = { string = logic.total_line(st.total_tokens, st.total_usd), color = theme.text_muted },
-    label = { string = logic.days30_line(st.days30_tokens, st.days30_usd), color = theme.text_muted },
+    label = {
+      string = logic.days30_line(st.days30_tokens, st.days30_usd),
+      color = theme.text_muted,
+    },
   }
   card.week:set {
     drawing = show_stats,
@@ -584,7 +808,10 @@ local function apply_card(p, now)
       card.extras[e]:set {
         drawing = true,
         icon = { string = extra.label, color = theme.text_muted },
-        label = { string = logic.extra_line(extra.weekly, now), color = theme.text_primary },
+        label = {
+          string = extra.text or logic.extra_line(extra.weekly, now),
+          color = theme.text_primary,
+        },
       }
     else
       card.extras[e]:set { drawing = false }
@@ -679,6 +906,11 @@ local function apply_grok(result)
       end
     end
     st.weekly = used ~= nil and logic.weekly(used / 100, reset, span) or nil
+    st.cats = logic.categories(result.categories)
+    st.tier = result.tier
+    st.email = result.email
+    st.renews_unix = tonumber(result.renews_unix)
+    st.cancels = result.cancels == true
     st.status = nil
   end
   apply_all()
@@ -701,6 +933,21 @@ local function apply_cursor(result)
       period_start_unix = result.period_start_unix,
     }
     st.extras = logic.extra_windows(result.limits)
+    -- On-demand / usage-based spend (cents): "$86 of $400 used" or the
+    -- included allowance when Cursor reports no remaining figure.
+    local lim = tonumber(result.spend_limit_cents) or tonumber(result.included_spend_cents)
+    if lim and lim > 0 and #st.extras < extra_max then
+      local rem = tonumber(result.spend_remaining_cents)
+      local text
+      if rem then
+        text = logic.usd(math.max(0, lim - rem) / 100) .. " of " .. logic.usd(lim / 100) .. " used"
+      else
+        text = logic.usd(lim / 100) .. " included"
+      end
+      st.extras[#st.extras + 1] = { label = "Usage-based spend", text = text }
+    end
+    st.tier = result.plan
+    st.email = result.email
     st.status = nil
   end
   apply_all()

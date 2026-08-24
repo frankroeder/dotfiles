@@ -13,7 +13,8 @@ require "helpers"
 
 sbar = require "sketchybar"
 
-sbar.set_bar_name "sketchybar-island"
+BAR_NAME = "sketchybar-island"
+sbar.set_bar_name(BAR_NAME)
 
 sbar.add("item", "reload_guard", { position = "right", drawing = false })
 sbar.remove "/.*/"

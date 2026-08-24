@@ -5,7 +5,7 @@ local M = {}
 
 local bar_position = "top"
 local display_watch = nil
-local last_extra = {}
+local last_notch = nil
 local rest = { y_offset = 0, margin = settings.bar_margin, color = settings.theme.bar }
 
 -- Real notch only on a lone built-in screen. Dual-monitor and notchless stay 0
@@ -22,15 +22,16 @@ function M.resolve_notch(position, info)
   return width
 end
 
-function M.bar_props(position, extra)
-  extra = extra or {}
-  -- Top bar on every display. Dual-monitor: notch_width = 0 (no external cutout).
-  local props = {
-    notch_width = M.resolve_notch(position, display),
-    notch_display_height = 0,
-  }
-  for key, value in pairs(extra) do
-    props[key] = value
+-- Top bar on every display. Dual-monitor: notch_width = 0 (no external cutout).
+-- notch_width joins the props only when its resolved value CHANGES: M.bar runs
+-- inside sbar.animate batches (lock slide) and constant-valued props in a
+-- batch jitter/flicker.
+local function attach_notch(props)
+  local notch = M.resolve_notch(bar_position, display)
+  if notch ~= last_notch then
+    props.notch_width = notch
+    props.notch_display_height = 0
+    last_notch = notch
   end
   return props
 end
@@ -47,13 +48,22 @@ function M.set_rest_color(color)
   rest.color = color
 end
 
+-- Send ONLY the props passed in. This used to accumulate every prop ever
+-- passed (M.apply seeded the store with the FULL bar config: position, height,
+-- margin, paddings, topmost, ...) and replay the whole set on every call —
+-- inside sbar.animate batches (siri tint, lock slide) that meant a bar-wide
+-- batch of constant-valued props per event: bars stretched/flickered wildly
+-- whenever Siri opened. sketchybar keeps unspecified props as-is, so minimal
+-- sends are always correct.
 function M.bar(extra)
-  if extra then
-    for key, value in pairs(extra) do
-      last_extra[key] = value
-    end
+  local props = {}
+  for key, value in pairs(extra or {}) do
+    props[key] = value
   end
-  sbar.bar(M.bar_props(bar_position, last_extra))
+  attach_notch(props)
+  if next(props) then
+    sbar.bar(props)
+  end
 end
 
 function M.refresh_geometry()
@@ -89,7 +99,7 @@ function M.apply(position, extra)
   rest.y_offset = props.y_offset or 0
   rest.margin = props.margin or settings.bar_margin
   rest.color = props.color or settings.theme.bar
-  last_extra = {}
+  last_notch = nil -- force a fresh notch_width on the full (un-animated) apply
   M.bar(props)
 
   -- Hotplug / arrangement change: re-probe notch + reapply bar geometry.

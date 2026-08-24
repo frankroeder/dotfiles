@@ -17,8 +17,17 @@ local listener = sbar.add("item", "listener.siri", {
   background = { drawing = false },
 })
 
+-- Dedupe repeated actions (belt against double relays / repeated
+-- notifications): a second "appear" mid-fade would snap the fading-in colors.
+local last_action = nil
+
 listener:subscribe("island_siri", function(env)
-  if env.action == "appear" then
+  local action = env.action == "appear" and "appear" or "disappear"
+  if action == last_action then
+    return
+  end
+  last_action = action
+  if action == "appear" then
     island.expand {
       kind = "siri",
       priority = island.priority.siri,

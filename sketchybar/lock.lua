@@ -19,6 +19,26 @@ local function slide(props)
   motion.animate_bar(props, SLIDE_FRAMES)
 end
 
+-- Belt for the CVDisplayLink wedge: sketchybar animations (and sbar.delay,
+-- which rides the same tick) freeze system-wide when CoreVideo's display
+-- state is wedged by a lock/unlock — the slide-in then never runs and the bar
+-- stays parked off-screen ("bars disappeared"). Verify via an exec callback
+-- (process-exit driven, independent of the display link) and snap un-animated
+-- if the bar is still below rest.
+local function ensure_rest_after(delay)
+  sbar.exec("sleep " .. delay, function()
+    if is_hidden then
+      return
+    end
+    local info = sbar.query "bar"
+    local y = info and tonumber(info.y_offset)
+    local rest_y = bar_config.rest_geometry().y_offset or 0
+    if y and y < rest_y - 5 then
+      bar_config.bar(bar_config.rest_geometry())
+    end
+  end)
+end
+
 local function defer_widgets()
   if wake_scheduled then
     return
@@ -59,6 +79,7 @@ animator:subscribe("system_woke", function()
   is_hidden = false
   wake_handled = true
   slide(bar_config.rest_geometry())
+  ensure_rest_after(1)
 end)
 
 animator:subscribe(unlock_event.name, function()
@@ -72,4 +93,5 @@ animator:subscribe(unlock_event.name, function()
   end
   is_hidden = false
   slide(bar_config.rest_geometry())
+  ensure_rest_after(1)
 end)

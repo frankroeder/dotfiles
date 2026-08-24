@@ -70,9 +70,12 @@ Requirements / decisions:
   No battery/power pills (macOS notifies on low battery), no volume pill (native HUD), no wifi
   pill, no space pill (overlapped appswitch), no now-playing/media pill, no vpn pill.
 - Expand priority: lower prio never clobbers higher; sticky siri (duration=0) only yields to higher
-  prio or same kind. Dismiss uses cancellable `sbar.delay`. Dismiss is VERTICAL: the pill slides
-  straight up behind the screen edge (bar y_offset → -height) while fading; width/margin/height
-  stay constant — no sideways collapse. Idle geometry snaps only after the hide
+  prio or same kind. Dismiss timers are DUAL (`sbar.delay` + `sbar.exec sleep` failsafe, shared
+  token + fired flag) because sbar.delay rides the animation tick and dies with a wedged display
+  link. Dismiss is VERTICAL and SOLID: the pill slides straight up behind the screen edge (bar
+  y_offset → -(height+1), the ONLY animated prop) with NO fade — fading made it translucent
+  mid-slide, visibly not notch-black, and read as flicker. Width/margin/height/colors stay
+  constant — no sideways collapse. Idle geometry snaps only after the hide
   (apply_idle_geometry), and geometry trackers are NOT reset at dismiss start so a morph arriving
   mid-slide sees real values and rides y_offset back down inside its animate batch (cur_y tracker).
 - `display.refresh()` re-probes notch + arrangement rows on `display_change` (hotplug).
@@ -174,12 +177,33 @@ Requirements / decisions:
  after retract. `--reload` does NOT clear it — only a full process restart does
  (`launchctl kickstart -k gui/$UID/git.frank.sketchybar-island`). Diagnose by comparing a direct
  `--bar margin=N` (applies) against `--animate tanh 15 --bar margin=N` (dropped when corrupted).
+- ROOT CAUSE of frozen animations (macOS 26): sketchybar ticks its animator AND SbarLua's
+ `sbar.delay` off a CVDisplayLink. A lock/unlock (or display sleep) can wedge CoreVideo/SkyLight
+ state SYSTEM-WIDE: every fresh `CVDisplayLinkStart` never delivers (a `sample` of the binary
+ shows NO CVDisplayLink thread), so ALL sketchybar instances — including freshly kickstarted
+ processes — freeze animations at frame 0 and drop delays, while direct sets/triggers/queries
+ still work. Process restarts do NOT help. `pmset displaysleepnow` + `caffeinate -u -t 3` re-arms
+ currently-armed links for one burst, but the next link start wedges again; only reboot/logout
+ fully resets. Downstream damage: lock.lua's unlock slide-in never runs → bars parked off-screen
+ at the lock position (y −20 / margin −30) = "bars disappeared". Guards: lock.lua
+ `ensure_rest_after` (exec-driven post-unlock snap) and island dual timers. Upstream:
+ FelixKratz/SketchyBar #691, #776, #738.
 - sketchybar TRIMS leading label whitespace — ASCII space AND NBSP alike — so left-padding a
  digit-first string is impossible; interior padding survives. FIGURE SPACE (U+2007) is exactly
  digit-wide in SF Pro (tabular digits), so stacked pairs (eCPU/pCPU, RAM/SWP) drop zero-padding
  ("pCPU 07%") for interior U+2007 ("pCPU␇7%") and stay column-aligned. Power keeps a fixed 34px
  right-aligned label box so 9 W ↔ 19 W cannot resize the capsule. ccu popup chart GRIDS still
  need Menlo (real mono) — space-padded cells drift in any proportional face.
+- ccu cards (top bar): head = provider + plan name with a right-aligned email/rebill peer;
+ subline = "x% of weekly|monthly limit used" + "Resets <date>, <time> · <countdown>". The meter is
+ NOT a slider: plain items whose BACKGROUND is the bar, one per usage category (Grok's shared
+ weekly pool split: Chat/Grok Build/API/Imagine/Voice) + one remaining-track item, positioned via
+ the same pad/negative-pad trick as pop_item (relayout must NOT reset width on them — keep_w).
+ Legend cells (dot + "Chat 1%") pack left the same way. Grok data = gRPC-web GetGrokCreditsConfig
+ protobuf scan in `helpers/grok_usage.py` (+ tier from /v1/settings, rebill from
+ grok.com/rest/subscriptions); Cursor adds GetPlanInfo/GetMe + spend cents in
+ `helpers/cursor_usage.py`. All-time/30d/7d + chart rows stay from ccu_cost.py. Cards without a
+ plan name (Claude/Codex) keep the old single-line head + solid accent meter.
 - Layout pill (`widgets.yabai_layout`): glyph = space layout, label = stack `i/n` + the focused
   window's flag glyphs, tint = `state_accent`, where window state outranks layout
   (zoom=yellow > float=peach > sticky=teal > layout accent). Float only overrides outside float
@@ -216,7 +240,23 @@ Requirements / decisions:
   and `space_windows_change` DO overlap the custom yabai window signals; untested, not swapped.
 - yabairc changes need `yabai --restart-service` to take effect.
 - Bar `margin` is HORIZONTAL only (the island centres its pill with it), so `external_bar` reserves
-  bar `height` alone — do not add margin to it.
+ bar `height` alone — do not add margin to it.
+- `bar_config.M.bar(extra)` sends ONLY the props passed in (+ `notch_width` only when its resolved
+ value changes). It used to accumulate every prop ever passed — `M.apply` seeded the store with the
+ FULL bar config — and replay the whole set on every call; inside `sbar.animate` batches (siri
+ tint, lock slide) that was a bar-wide batch of constant-valued props per event and made the top +
+ bottom bars flicker/stretch wildly whenever Siri opened. sketchybar keeps unspecified props as-is,
+ so minimal sends are always correct. Bar-color washes (siri) are SNAPPED, never animated.
+- `BAR_NAME` is a lua GLOBAL set in each instance's init.lua ("sketchybar" / "sketchybar-top" /
+ "sketchybar-island"). The launchd plists never exported a BAR_NAME env var, so `os.getenv`-based
+ instance detection (theme_handler) silently failed — both bars believed they were "bottom"
+ (double borders restarts, mis-aimed relays). Shared modules must read the global (env as
+ fallback). Shared `siri.lua` loads on top AND bottom (via shared default.lua): both tint, but only
+ the top instance relays `island_siri` — dual relays double-triggered the island (pill flicker);
+ the island's siri item additionally dedupes consecutive same actions.
+- "Item not found" spam in bar logs right after a restart is transient rebuild noise: init does
+ `sbar.remove "/.*/"` and async timers/event providers keep firing sets until items.init re-adds
+ everything. Benign — fix the thing causing restarts, not the noise.
 
 # Hints
 

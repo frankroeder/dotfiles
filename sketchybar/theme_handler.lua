@@ -8,7 +8,7 @@ sbar.add("event", "theme_relay")
 
 local handler = sbar.add("item", "theme_handler", { drawing = false, updates = true })
 
-local bar_name = os.getenv "BAR_NAME" or "sketchybar"
+local bar_name = BAR_NAME or os.getenv "BAR_NAME" or "sketchybar"
 local this = bar_name == "sketchybar-top" and "top" or "bottom"
 local peer = this == "top" and "/opt/homebrew/bin/sketchybar" or "/opt/homebrew/bin/sketchybar-top"
 local island = require("island_bridge").bin

@@ -283,13 +283,31 @@ local function apply_idle_geometry(opts)
   })
 end
 
+-- sbar.delay rides the animation tick: when macOS 26 wedges the CVDisplayLink
+-- (lock/unlock — all sketchybar animations freeze system-wide), delays die
+-- with it and pills would stay stuck on screen. sbar.exec callbacks are
+-- process-exit driven and survive a wedge, so every timer runs both — the
+-- `fired` flag plus the monotonic token keep the pair idempotent.
+local function dual_timer(seconds, fn)
+  local fired = false
+  local function once()
+    if fired then
+      return
+    end
+    fired = true
+    fn()
+  end
+  sbar.delay(seconds, once)
+  sbar.exec("sleep " .. string.format("%.2f", seconds + 0.4), once)
+end
+
 local function schedule_dismiss(duration)
   cancel_dismiss()
   if not duration or duration <= 0 then
     return
   end
   local token = dismiss_token
-  sbar.delay(duration, function()
+  dual_timer(duration, function()
     if token ~= dismiss_token or not is_expanded then
       return
     end
@@ -301,7 +319,7 @@ local function schedule_hide(frames)
   cancel_hide()
   local token = hide_token
   local delay = math.max(0.3, (frames or motion.frames.normal) / 60 + 0.08)
-  sbar.delay(delay, function()
+  dual_timer(delay, function()
     if token ~= hide_token then
       return
     end
@@ -635,12 +653,6 @@ function M.restore_idle(opts)
   cancel_dismiss()
 
   local frames = opts.frames or F_RETRACT
-  local style = island_style.bar()
-
-  -- Fade targets: same RGB, alpha 0 (`% 0x1000000` drops the alpha byte). Fading
-  -- to a bare TRANSPARENT (white) would tint the pill white on the way out.
-  local fade_color = style.color % 0x1000000
-  local fade_border = style.border_color % 0x1000000
 
   -- Subtitle position must be snapped (item y_offset must never animate).
   island_sub:set {
@@ -651,37 +663,23 @@ function M.restore_idle(opts)
   -- Keep the pill visible + topmost through the whole dismiss.
   sbar.bar { display = current_display, hidden = false, topmost = "on" }
 
-  -- Vertical dismiss: slide the pill straight up behind the screen edge
-  -- (bar y_offset → -height puts the bottom edge at y=0) while fading it out.
-  -- Width, margin and height stay CONSTANT — no sideways collapse — and stay
-  -- out of the batch (constant props jitter); y_offset is the changing
-  -- geometry that keeps this from being a color-only bar batch (which
-  -- sketchybar can turn into a full-display stretch by zeroing omitted
-  -- margin). Geometry trackers are NOT reset here: the bar physically keeps
-  -- the expanded margin/height until apply_idle_geometry snaps idle after the
-  -- hide, and a morph arriving mid-dismiss must see the real values.
-  local bar_anim = {
-    y_offset = -cur_h,
-    color = fade_color,
-    border_color = fade_border,
-  }
-  local island_anim = {}
-  if cur_icon_color ~= TRANSPARENT then
-    island_anim.icon = { color = TRANSPARENT }
-  end
-  if cur_label_color ~= TRANSPARENT then
-    island_anim.label = { color = TRANSPARENT }
-  end
-  local needs_island_anim = next(island_anim) ~= nil
+  -- Vertical dismiss: slide the pill straight up behind the screen edge,
+  -- SOLID — no fade. Fading made the pill translucent mid-slide (visibly not
+  -- the notch's black, read as flicker); a solid notch-black pill tucking into
+  -- the edge is the smooth path. y_offset → -(height+1) puts the whole bar
+  -- above y=0, so the deferred hide + idle snap happen fully off-screen.
+  -- y_offset is the ONLY animated prop (a changing geometry prop, so the
+  -- batch is not color-only); width/margin/height/colors stay constant and
+  -- stay OUT of the batch (constant props jitter). Trackers are NOT reset
+  -- here: the bar physically keeps the expanded geometry/colors until
+  -- apply_idle_geometry snaps idle after the hide, and a morph arriving
+  -- mid-dismiss must see the real values (it rides y_offset back down and
+  -- skips the untouched colors).
+  local slide_y = -(cur_h + 1)
   sbar.animate(motion.curve, frames, function()
-    sbar.bar(bar_anim)
-    if needs_island_anim then
-      island:set(island_anim)
-    end
+    sbar.bar { y_offset = slide_y }
   end)
-  cur_y = -cur_h
-  cur_bar_color, cur_bar_border = fade_color, fade_border
-  cur_icon_color, cur_label_color = TRANSPARENT, TRANSPARENT
+  cur_y = slide_y
 
   -- Fully hide + re-assert idle geometry (clears strings + item width) once
   -- the pill is off-screen.

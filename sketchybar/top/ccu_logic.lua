@@ -162,6 +162,99 @@ function M.extra_line(weekly, now)
   return M.percent(weekly.used) .. " used · " .. M.countdown(weekly.reset, now)
 end
 
+M.MONTH = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" }
+
+-- "9:46 PM" in local time (strftime %-I is not portable on BSD).
+function M.clock_short(unix)
+  local t = os.date("*t", M.number(unix, 0))
+  local h = t.hour % 12
+  if h == 0 then
+    h = 12
+  end
+  return string.format("%d:%02d %s", h, t.min, t.hour >= 12 and "PM" or "AM")
+end
+
+function M.date_short(unix)
+  local t = os.date("*t", M.number(unix, 0))
+  return M.MONTH[t.month] .. " " .. t.day
+end
+
+function M.date_long(unix)
+  local t = os.date("*t", M.number(unix, 0))
+  return M.MONTH[t.month] .. " " .. t.day .. ", " .. t.year
+end
+
+-- Window label from the pool span: SuperGrok = weekly, Cursor = monthly.
+function M.window_name(span)
+  local s = M.number(span, M.WEEK_SEC)
+  if s >= 6 * 86400 and s <= 8 * 86400 then
+    return "weekly"
+  end
+  if s >= 27 * 86400 and s <= 32 * 86400 then
+    return "monthly"
+  end
+  return "period"
+end
+
+-- "21% of weekly limit used" (screenshot wording of the official usage card).
+function M.usage_line(weekly)
+  if not weekly then
+    return M.NO_WEEKLY
+  end
+  return M.percent(weekly.used) .. " of " .. M.window_name(weekly.span) .. " limit used"
+end
+
+-- "Resets Aug 29, 2:48 AM · 5d 11h" — actual date plus countdown.
+function M.reset_line(weekly, now)
+  if not weekly or M.number(weekly.reset, 0) <= 0 then
+    return ""
+  end
+  return "Resets "
+    .. M.date_short(weekly.reset)
+    .. ", "
+    .. M.clock_short(weekly.reset)
+    .. " · "
+    .. M.countdown(weekly.reset, now)
+end
+
+function M.renews_line(unix, cancels)
+  local ts = M.number(unix, 0)
+  if ts <= 0 then
+    return ""
+  end
+  return (cancels and "Ends " or "Renews ") .. M.date_long(ts)
+end
+
+-- Helper categories ({label, percent 0–100}) → up to 5 nonzero {label, pct 0–1}
+-- segments for the meter + legend, in helper (official card) order.
+function M.categories(list)
+  local out = {}
+  if type(list) ~= "table" then
+    return out
+  end
+  for i = 1, #list do
+    local c = list[i]
+    if type(c) == "table" then
+      local pct = tonumber(c.percent)
+      if pct and pct > 0.05 then
+        out[#out + 1] = { label = tostring(c.label or "?"), pct = M.clamp(pct / 100, 0, 1) }
+        if #out >= 5 then
+          break
+        end
+      end
+    end
+  end
+  return out
+end
+
+function M.category_percent(frac)
+  local n = math.floor(M.number(frac, 0) * 100 + 0.5)
+  if n < 1 then
+    return "<1%"
+  end
+  return n .. "%"
+end
+
 function M.bar_chip(name, weekly, now)
   if not weekly then
     return name .. " —"

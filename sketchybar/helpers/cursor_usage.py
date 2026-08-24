@@ -3,15 +3,23 @@
 
 Auth from Cursor's local store (state.vscdb / auth.json) or the Cursor CLI
 (token in the macOS login keychain, user id in ~/.cursor/cli-config.json).
-No Omarchy collectors.
+Expired CLI session JWTs are refreshed via api2.cursor.sh and written back
+to auth.json atomically.
+
+Besides the period pools (Cursor Models / Other Models), the scan loads the
+plan name (GetPlanInfo), account name/email (GetMe), and on-demand spend
+figures so the bar popup can show the full subscription picture.
 """
 
 from __future__ import annotations
 
 import json
+import math
+import os
 import sqlite3
 import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
@@ -21,9 +29,14 @@ from typing import Any
 HOME = Path.home()
 CACHE_PATH = HOME / ".cache" / "sketchybar" / "cursor_usage.json"
 CACHE_TTL_SEC = 90
+API_BASE = "https://api2.cursor.sh/aiserver.v1.DashboardService"
+PERIOD_URL = f"{API_BASE}/GetCurrentPeriodUsage"
+PLAN_URL = f"{API_BASE}/GetPlanInfo"
+ME_URL = f"{API_BASE}/GetMe"
 SUMMARY_URL = "https://cursor.com/api/usage-summary"
 LEGACY_URL = "https://cursor.com/api/usage"
-PERIOD_URL = "https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage"
+TOKEN_URL = "https://api2.cursor.sh/oauth/token"
+CLIENT_ID = "KbZUR41cY7W6zRSdpSUJ7I7mLYBKOCmB"
 
 VSCDB_PATHS = (
   HOME / "Library" / "Application Support" / "Cursor" / "User" / "globalStorage" / "state.vscdb",
@@ -106,6 +119,20 @@ def pct(value: Any) -> float | None:
   return n
 
 
+def cents_or_none(*values: Any) -> int | None:
+  for value in values:
+    if value is None or value == "":
+      continue
+    try:
+      number = float(value)
+    except (TypeError, ValueError):
+      continue
+    if not math.isfinite(number):
+      continue
+    return int(round(number))
+  return None
+
+
 def find_user_id(obj: Any) -> str | None:
   if isinstance(obj, str):
     if obj.startswith("user_") and len(obj) > 20:
@@ -128,24 +155,33 @@ def find_user_id(obj: Any) -> str | None:
   return None
 
 
-def auth_from_json() -> tuple[str | None, str | None]:
+def auth_from_json() -> dict[str, Any] | None:
   for path in AUTH_JSON_PATHS:
     if not path.is_file():
       continue
-    data = json.loads(path.read_text())
+    try:
+      data = json.loads(path.read_text())
+    except (json.JSONDecodeError, OSError):
+      continue
     if not isinstance(data, dict):
       continue
     nested = data.get("auth") if isinstance(data.get("auth"), dict) else {}
     token = data.get("accessToken") or data.get("access_token") or nested.get("accessToken")
+    refresh = data.get("refreshToken") or data.get("refresh_token") or nested.get("refreshToken")
     uid = data.get("userId") or data.get("user_id") or data.get("cachedUserId") or nested.get("userId")
     uid = find_user_id(uid) or find_user_id(data)
     if token:
-      return str(token), uid
-  return None, None
+      return {
+        "token": str(token),
+        "uid": uid,
+        "refresh_token": str(refresh or ""),
+        "auth_path": path,
+        "auth_data": data,
+      }
+  return None
 
 
-def auth_from_vscdb() -> tuple[str | None, str | None]:
-  token = uid = None
+def auth_from_vscdb() -> dict[str, Any] | None:
   for db in VSCDB_PATHS:
     if not db.is_file():
       continue
@@ -157,18 +193,27 @@ def auth_from_vscdb() -> tuple[str | None, str | None]:
     finally:
       con.close()
     kv = {str(k): v for k, v in rows}
-    token = kv.get("cursorAuth/accessToken") or token
+    token = kv.get("cursorAuth/accessToken")
+    uid = None
     for key in ("cursorAuth/cachedUserId", "cursorAuth/userId", "cursorAuth/authId"):
       found = find_user_id(kv.get(key))
       if found:
         uid = found
         break
     if token:
-      return str(token), uid
-  return None, None
+      return {
+        "token": str(token),
+        "uid": uid,
+        "refresh_token": "",
+        "auth_path": None,
+        "auth_data": None,
+        "membership": kv.get("cursorAuth/stripeMembershipType") or "",
+        "cached_email": kv.get("cursorAuth/cachedEmail") or "",
+      }
+  return None
 
 
-def auth_from_cli() -> tuple[str | None, str | None]:
+def auth_from_cli() -> dict[str, Any] | None:
   """Cursor CLI: access token in the login keychain, user id in cli-config.json."""
   try:
     proc = subprocess.run(
@@ -178,17 +223,17 @@ def auth_from_cli() -> tuple[str | None, str | None]:
       timeout=10,
     )
   except (OSError, subprocess.TimeoutExpired):
-    return None, None
+    return None
   token = proc.stdout.strip() if proc.returncode == 0 else None
   if not token:
-    return None, None
+    return None
   uid = None
   if CLI_CONFIG_PATH.is_file():
     try:
       uid = find_user_id(json.loads(CLI_CONFIG_PATH.read_text()))
     except (json.JSONDecodeError, OSError):
       pass
-  return token, uid
+  return {"token": token, "uid": uid, "refresh_token": "", "auth_path": None, "auth_data": None}
 
 
 def user_id_from_sentry() -> str | None:
@@ -205,17 +250,84 @@ def user_id_from_sentry() -> str | None:
   return None
 
 
-def load_auth() -> tuple[str, str | None]:
-  token, uid = auth_from_json()
-  if not token:
-    token, uid = auth_from_vscdb()
-  if not token:
-    token, uid = auth_from_cli()
-  if not uid:
-    uid = user_id_from_sentry()
-  if not token:
+def load_auth() -> dict[str, Any]:
+  creds = auth_from_json() or auth_from_vscdb() or auth_from_cli()
+  if not creds:
     raise RuntimeError("no_auth: open Cursor and sign in")
-  return token, uid
+  if not creds.get("uid"):
+    creds["uid"] = user_id_from_sentry()
+  return creds
+
+
+def save_auth(creds: dict[str, Any]) -> None:
+  """Atomically write refreshed tokens back to CLI auth.json (mode 0600)."""
+  path = creds.get("auth_path")
+  data = creds.get("auth_data")
+  if path is None or not isinstance(data, dict):
+    return
+  data = dict(data)
+  data["accessToken"] = creds["token"]
+  if creds.get("refresh_token"):
+    data["refreshToken"] = creds["refresh_token"]
+  creds["auth_data"] = data
+
+  try:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=".auth.", suffix=".tmp", dir=str(path.parent))
+    try:
+      with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        json.dump(data, fh, indent=2)
+        fh.write("\n")
+      os.chmod(tmp, 0o600)
+      os.replace(tmp, path)
+    except Exception:
+      try:
+        os.unlink(tmp)
+      except OSError:
+        pass
+      raise
+  except Exception as exc:
+    sys.stderr.write(f"cursor_usage: could not write auth.json: {exc}\n")
+
+
+def refresh_token(creds: dict[str, Any]) -> bool:
+  refresh = str(creds.get("refresh_token") or "").strip()
+  if not refresh:
+    return False
+
+  body = json.dumps({
+    "grant_type": "refresh_token",
+    "client_id": CLIENT_ID,
+    "refresh_token": refresh,
+  }).encode()
+  req = urllib.request.Request(
+    TOKEN_URL,
+    data=body,
+    method="POST",
+    headers={
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      "User-Agent": "sketchybar-ccu",
+    },
+  )
+  try:
+    with urllib.request.urlopen(req, timeout=20) as resp:
+      payload = json.loads(resp.read())
+  except Exception:
+    return False
+
+  if not isinstance(payload, dict) or payload.get("shouldLogout") is True:
+    return False
+  access = payload.get("access_token") or payload.get("accessToken")
+  if not access:
+    return False
+
+  creds["token"] = str(access)
+  new_refresh = payload.get("refresh_token") or payload.get("refreshToken")
+  if new_refresh:
+    creds["refresh_token"] = str(new_refresh)
+  save_auth(creds)
+  return True
 
 
 def http_json(url: str, token: str, uid: str | None, method: str = "GET") -> dict[str, Any]:
@@ -241,12 +353,46 @@ def http_json(url: str, token: str, uid: str | None, method: str = "GET") -> dic
     raise RuntimeError(f"network: {exc}") from exc
 
 
+def with_auth_retry(creds: dict[str, Any], fetch):
+  """Call fetch(creds); on 401/403 refresh the CLI token once and retry."""
+  try:
+    return fetch(creds)
+  except RuntimeError as exc:
+    msg = str(exc)
+    if "http_401" not in msg and "http_403" not in msg:
+      raise
+    if not refresh_token(creds):
+      raise
+    return fetch(creds)
+
+
 def plan_label(raw: dict[str, Any]) -> str | None:
   for key in ("individualMembershipType", "membershipType", "planName", "plan"):
     v = raw.get(key)
     if isinstance(v, str) and v:
       return v.replace("_", " ").replace("pro plus", "Pro+").title() if v.islower() else v
   return None
+
+
+def fetch_plan_name(creds: dict[str, Any]) -> str:
+  payload = http_json(PLAN_URL, creds["token"], creds.get("uid"), method="POST")
+  info = payload.get("planInfo") if isinstance(payload, dict) else None
+  if not isinstance(info, dict):
+    return ""
+  return str(info.get("planName") or "").strip()
+
+
+def fetch_account(creds: dict[str, Any]) -> tuple[str, str]:
+  payload = http_json(ME_URL, creds["token"], creds.get("uid"), method="POST")
+  if not isinstance(payload, dict):
+    return "", ""
+  email = str(payload.get("email") or "").strip()
+  name = str(payload.get("name") or "").strip()
+  if not name:
+    first = str(payload.get("firstName") or payload.get("given_name") or "").strip()
+    last = str(payload.get("lastName") or payload.get("family_name") or "").strip()
+    name = " ".join(part for part in (first, last) if part)
+  return name, email
 
 
 def build_payload(raw: dict[str, Any]) -> dict[str, Any]:
@@ -295,6 +441,15 @@ def build_payload(raw: dict[str, Any]) -> dict[str, Any]:
       "reset_unix": end,
     })
 
+  plan_dict = pu if isinstance(pu, dict) else {}
+  included = cents_or_none(plan_dict.get("includedSpend"), raw.get("includedSpend"))
+  spend_limit = cents_or_none(
+    plan_dict.get("spendLimit"), plan_dict.get("limit"), raw.get("spendLimit")
+  )
+  spend_remaining = cents_or_none(
+    plan_dict.get("spendRemaining"), plan_dict.get("remaining"), raw.get("spendRemaining")
+  )
+
   return {
     "source": "cursor",
     "error": None,
@@ -305,6 +460,11 @@ def build_payload(raw: dict[str, Any]) -> dict[str, Any]:
     "span_sec": span,
     "period_start_unix": start,
     "plan": plan_label(raw),
+    "email": None,
+    "name": None,
+    "included_spend_cents": included,
+    "spend_limit_cents": spend_limit,
+    "spend_remaining_cents": spend_remaining,
     "limits": limits,
   }
 
@@ -320,6 +480,11 @@ def build_error(error: str) -> dict[str, Any]:
     "span_sec": None,
     "period_start_unix": None,
     "plan": None,
+    "email": None,
+    "name": None,
+    "included_spend_cents": None,
+    "spend_limit_cents": None,
+    "spend_remaining_cents": None,
     "limits": [],
   }
 
@@ -352,7 +517,8 @@ def save_cache(payload: dict[str, Any]) -> None:
     pass
 
 
-def fetch_raw(token: str, uid: str | None) -> dict[str, Any]:
+def fetch_raw(creds: dict[str, Any]) -> dict[str, Any]:
+  token, uid = creds["token"], creds.get("uid")
   last_err = None
   try:
     return http_json(PERIOD_URL, token, uid, method="POST")
@@ -372,16 +538,35 @@ def fetch_raw(token: str, uid: str | None) -> dict[str, Any]:
 
 def fetch_usage() -> dict[str, Any]:
   try:
-    token, uid = load_auth()
+    creds = load_auth()
   except RuntimeError as exc:
     cached = load_cache()
     return cached if cached is not None else build_error(str(exc))
   try:
-    raw = fetch_raw(token, uid)
+    raw = with_auth_retry(creds, fetch_raw)
   except RuntimeError as exc:
     cached = load_cache()
     return cached if cached is not None else build_error(str(exc))
   payload = build_payload(raw)
+
+  # Plan name and account identity are best-effort; period usage still stands.
+  try:
+    plan = with_auth_retry(creds, fetch_plan_name)
+    if plan:
+      payload["plan"] = plan
+  except RuntimeError:
+    pass
+  if not payload.get("plan") and creds.get("membership"):
+    payload["plan"] = plan_label({"membershipType": str(creds["membership"])})
+  try:
+    name, email = with_auth_retry(creds, fetch_account)
+    payload["name"] = name or None
+    payload["email"] = email or None
+  except RuntimeError:
+    pass
+  if not payload.get("email") and creds.get("cached_email"):
+    payload["email"] = str(creds["cached_email"])
+
   save_cache(payload)
   return payload
 
