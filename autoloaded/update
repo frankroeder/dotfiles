@@ -67,9 +67,28 @@ npm_update() {
 }
 
 gem_update() {
-  sudo gem update --system;
-  sudo gem update;
-  sudo gem cleanup;
+  local prefix
+  prefix="$(ruby -e 'print RbConfig::CONFIG["prefix"]')"
+
+  # Homebrew ships RubyGems. `gem update --system` writes gem/bundle into the
+  # versioned Cellar keg and regenerates rdoc_plugin.rb with absolute keg paths.
+  # `brew upgrade ruby` then LoadErrors the plugin (missing rdoc under the old
+  # keg) and leftover root-owned files block `brew cleanup`.
+  if [[ "$prefix" == */Cellar/ruby* ]]; then
+    gem update
+    gem cleanup
+    return
+  fi
+
+  if [[ -w "$prefix" ]]; then
+    gem update --system
+    gem update
+    gem cleanup
+  else
+    sudo gem update --system
+    sudo gem update
+    sudo gem cleanup
+  fi
 }
 
 macos_update() {
@@ -129,9 +148,10 @@ run(){
     [ $commands[nvim] ] && exec_routine neovim_plug_update
     [ $commands[zimfw] ] && exec_routine zsh_update
     [ $commands[npm] ] && exec_routine npm_update
-    [ $commands[gem] ] && exec_routine gem_update
     [ $commands[mas] ] && exec_routine mas_update
     [ $commands[brew] ] && exec_routine brew_update
+    # After brew: native gems compile against the new keg, not a just-replaced one.
+    [ $commands[gem] ] && exec_routine gem_update
     exec_routine misc
     [ "$OSTYPE" = "Darwin" ] && exec_routine macos_update
     [ $commands[apt] ] && exec_routine apt_update

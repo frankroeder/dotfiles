@@ -248,7 +248,15 @@ comp_macos_apps() {
   replace_with_symlink "$DOTFILES/borders" "$HOME/.config/borders"
   mkdir -p "$HOME/.config/vicinae"
   link_if_exists "$DOTFILES/vicinae/dotfiles.json" "$HOME/.config/vicinae/dotfiles.json"
+  local dictcc="$DOTFILES/vicinae/extensions/dict-cc"
+  if have vicinae && have npm && [ -f "$dictcc/package.json" ]; then
+    print_step "Building vicinae dict-cc extension"
+    if ! (cd "$dictcc" && npm install --omit=dev && npx vici build); then
+      print_warning "vicinae dict-cc build failed"
+    fi
+  fi
 }
+
 _sketchybar_agent() {
   require_macos
   local name="$1"

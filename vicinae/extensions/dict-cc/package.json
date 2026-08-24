@@ -1,0 +1,102 @@
+{
+  "$schema": "https://raw.githubusercontent.com/vicinaehq/vicinae/refs/heads/main/extra/schemas/extension.json",
+  "name": "dict-cc",
+  "title": "dict.cc",
+  "description": "Fast dict.cc translations (DE↔EN and other pairs)",
+  "icon": "icon.png",
+  "author": "frankroeder",
+  "license": "MIT",
+  "categories": ["Productivity"],
+  "commands": [
+    {
+      "name": "translate",
+      "title": "Translate",
+      "subtitle": "dict.cc",
+      "description": "Translate a term with dict.cc",
+      "mode": "view"
+    },
+    {
+      "name": "translate-from-clipboard",
+      "title": "Translate from Clipboard",
+      "subtitle": "dict.cc",
+      "description": "Translate clipboard text with dict.cc",
+      "mode": "view"
+    },
+    {
+      "name": "translate-from-selection",
+      "title": "Translate from Selection",
+      "subtitle": "dict.cc",
+      "description": "Translate selected text with dict.cc",
+      "mode": "view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "sourceLanguage",
+      "type": "dropdown",
+      "required": false,
+      "title": "Source Language",
+      "description": "Default source language (overridden by 'en de term')",
+      "default": "de",
+      "data": [
+        { "title": "German (de)", "value": "de" },
+        { "title": "English (en)", "value": "en" },
+        { "title": "French (fr)", "value": "fr" },
+        { "title": "Spanish (es)", "value": "es" },
+        { "title": "Italian (it)", "value": "it" },
+        { "title": "Dutch (nl)", "value": "nl" },
+        { "title": "Portuguese (pt)", "value": "pt" },
+        { "title": "Polish (pl)", "value": "pl" },
+        { "title": "Russian (ru)", "value": "ru" },
+        { "title": "Swedish (sv)", "value": "sv" },
+        { "title": "Danish (da)", "value": "da" },
+        { "title": "Norwegian (no)", "value": "no" },
+        { "title": "Finnish (fi)", "value": "fi" },
+        { "title": "Czech (cs)", "value": "cs" },
+        { "title": "Latin (la)", "value": "la" },
+        { "title": "Turkish (tr)", "value": "tr" },
+        { "title": "Greek (el)", "value": "el" },
+        { "title": "Hungarian (hu)", "value": "hu" }
+      ]
+    },
+    {
+      "name": "targetLanguage",
+      "type": "dropdown",
+      "required": false,
+      "title": "Target Language",
+      "description": "Default target language (overridden by 'en de term')",
+      "default": "en",
+      "data": [
+        { "title": "English (en)", "value": "en" },
+        { "title": "German (de)", "value": "de" },
+        { "title": "French (fr)", "value": "fr" },
+        { "title": "Spanish (es)", "value": "es" },
+        { "title": "Italian (it)", "value": "it" },
+        { "title": "Dutch (nl)", "value": "nl" },
+        { "title": "Portuguese (pt)", "value": "pt" },
+        { "title": "Polish (pl)", "value": "pl" },
+        { "title": "Russian (ru)", "value": "ru" },
+        { "title": "Swedish (sv)", "value": "sv" },
+        { "title": "Danish (da)", "value": "da" },
+        { "title": "Norwegian (no)", "value": "no" },
+        { "title": "Finnish (fi)", "value": "fi" },
+        { "title": "Czech (cs)", "value": "cs" },
+        { "title": "Latin (la)", "value": "la" },
+        { "title": "Turkish (tr)", "value": "tr" },
+        { "title": "Greek (el)", "value": "el" },
+        { "title": "Hungarian (hu)", "value": "hu" }
+      ]
+    }
+  ],
+  "scripts": {
+    "build": "vici build",
+    "dev": "vici develop"
+  },
+  "dependencies": {
+    "@vicinae/api": "^0.26.2"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.10",
+    "typescript": "^5.9.3"
+  }
+}

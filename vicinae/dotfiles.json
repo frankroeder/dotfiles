@@ -72,6 +72,14 @@
       }
     },
     "@natterstefan/store.raycast.dict-cc": {
+      "enabled": false,
+      "entrypoints": {
+        "translate": { "enabled": false },
+        "translate-from-clipboard": { "enabled": false },
+        "translate-from-selection": { "enabled": false }
+      }
+    },
+    "@frankroeder/dict-cc": {
       "entrypoints": {
         "translate": { "alias": "dcc" },
         "translate-from-clipboard": { "enabled": false },
