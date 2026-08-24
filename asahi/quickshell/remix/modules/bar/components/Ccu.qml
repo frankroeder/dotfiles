@@ -154,7 +154,7 @@ Rectangle {
 
     Text {
       text: root.chipText
-      font { family: Style.fontFamily; pixelSize: 12; bold: true }
+      font { family: Style.fontFamily; pixelSize: 14; bold: true }
       color: root.valueColor
       verticalAlignment: Text.AlignVCenter
     }

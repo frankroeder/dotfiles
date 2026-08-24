@@ -149,8 +149,8 @@ Singleton {
 
   // Solid strip sizing — sketchybar top uses 32px; slightly taller for icons + workspace row.
   readonly property int barHeight: 34
-  readonly property int barFontBody: 13
-  readonly property int barFontIcon: 18
+  readonly property int barFontBody: 18
+  readonly property int barFontIcon: 28
   readonly property int barFontMicVolIcon: 20
   readonly property int barFontCaption: 11
   readonly property int barEdgeMargin: 8
