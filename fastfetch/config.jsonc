@@ -41,6 +41,11 @@
       "keyColor": "36"
     },
     {
+      "key": " wm",
+      "type": "wm",
+      "keyColor": "32"
+    },
+    {
       "key": " term",
       "type": "terminal",
       "keyColor": "31"

@@ -17,6 +17,7 @@ Scope {
   property real percent: 0
   property color accent: Style.blueAlt
   property string pending: ""
+  property bool showBar: true
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
 
@@ -32,8 +33,35 @@ Scope {
     percent = Math.max(0, Math.min(100, Number(nextPercent) || 0))
     value = nextValue
     accent = kind === "volume" ? Style.green : (kind === "brightness" ? Style.orange : Style.blueAlt)
+    showBar = true
     visible = true
+    hideTimer.interval = 1100
     hideTimer.restart()
+  }
+
+  // Bar-less text toast (launch feedback). duration 0 = sticky until dismissToast().
+  function toast(nextIcon, nextLabel, nextValue, duration) {
+    osdScreen = focusedScreen()
+    icon = nextIcon
+    label = nextLabel
+    value = nextValue || ""
+    percent = 0
+    accent = Style.blueAlt
+    showBar = false
+    visible = true
+    const ms = Number(duration) || 0
+    if (ms > 0) {
+      hideTimer.interval = ms
+      hideTimer.restart()
+    } else {
+      hideTimer.stop()
+    }
+  }
+
+  function dismissToast() {
+    if (root.showBar) return
+    hideTimer.stop()
+    root.visible = false
   }
 
   function query(kind, command) {
@@ -163,6 +191,7 @@ Scope {
           }
 
           Rectangle {
+            visible: root.showBar
             Layout.fillWidth: true
             height: 8
             radius: 4

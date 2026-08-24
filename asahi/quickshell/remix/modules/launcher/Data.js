@@ -41,6 +41,7 @@ const categoryNav = [
   { title: "Apps", icon: "󰀻", category: "Browse", isCategory: true, target: "App", keywords: "apps applications launcher programs software desktop" },
   { title: "Files", icon: "󰉋", category: "Browse", isCategory: true, target: fileCategory, keywords: "files file search find folder browse path fd", accessory: ">" },
   { title: "Actions", icon: "󰜎", category: "Browse", isCategory: true, target: "Actions", keywords: "actions colon commands run reload lock scratch hypr wallpaper dashboard", accessory: ":" },
+  { title: "Keyboard Shortcuts", icon: "󰌌", category: "Browse", isCategory: true, target: "Keys", keywords: "keys keyboard shortcuts bindings hotkeys binds hyprland super mod cheatsheet" },
   { title: "Websearch", icon: "󰖟", category: "Browse", isCategory: true, target: "Websearch", keywords: "web search documentation engines kagi docs translate wiki", accessory: "@" },
   { title: "System", icon: "󰐥", category: "Browse", isCategory: true, target: "System", keywords: "system lock suspend logout restart reboot shutdown power session" }
 ]
@@ -91,4 +92,26 @@ function fileIcon(path) {
 function itemKey(item) {
   if (!item) return ""
   return item.path || item.exec || item.command || (item.title + "|" + item.category)
+}
+
+// Acronym of a text: first letters of camelCase/word-split tokens.
+// "Visual Studio Code" / "code-oss" -> "vsc" / "co", so "ff" hits Firefox.
+function acronym(text) {
+  const norm = String(text || "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[._:/\\-]+/g, " ")
+    .toLowerCase()
+  const parts = norm.split(/[^a-z0-9]+/)
+  let out = ""
+  for (let i = 0; i < parts.length; i++) {
+    if (parts[i]) out += parts[i].charAt(0)
+  }
+  return out
+}
+
+function desktopKeywords(entry) {
+  try {
+    if (entry && entry.keywords && typeof entry.keywords.join === "function") return entry.keywords.join(" ")
+  } catch (e) {}
+  return ""
 }

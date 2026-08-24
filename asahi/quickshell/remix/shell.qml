@@ -47,6 +47,7 @@ ShellRoot {
     id: launcherLoader
     source: "modules/launcher/LauncherWindow.qml"
     active: true
+    onLoaded: item.osd = osd
   }
 
   IpcHandler {

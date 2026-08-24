@@ -1,0 +1,6 @@
+# Desktop entries hidden from the launcher's Apps list.
+# One desktop id per line (with or without the .desktop suffix).
+# Watched live: edits apply without reloading Quickshell.
+nwg-panel-config
+panel-preferences
+uuctl

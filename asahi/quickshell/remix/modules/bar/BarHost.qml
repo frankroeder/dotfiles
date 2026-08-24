@@ -257,8 +257,6 @@ Item {
 
     WorkspacesBlock { controller: barWindow }
 
-    BarComponents.Shortcuts { barHost: barWindow }
-
     BarComponents.MediaPlayer { barHost: barWindow }
 
     WidgetButton {

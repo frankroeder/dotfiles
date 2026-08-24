@@ -42,6 +42,33 @@ Scope {
   property var appUsage: ({})
   property int appUsageVersion: 0
 
+  // Fallback icon lookup for names Qt's themed cache misses (apps installed
+  // after QS started, device icons like "printer"). name -> absolute path.
+  property var iconIndex: ({})
+  property var pendingIconIndex: ({})
+
+  // Desktop ids hidden from the Apps drill (launcher.hides, one id per line).
+  property var hiddenAppIds: ({})
+  property int hiddenVersion: 0
+
+  // Nightlight state mirrored from ~/.local/state/asahi/nightlight.json for
+  // the checkmark on the Actions row.
+  property bool nightLightOn: false
+  property int nightVersion: 0
+
+  // Keyboard shortcuts drill: rows parsed from `hyprctl binds` (descriptions
+  // come from the Lua binds' desc options). Rescanned on every drill entry.
+  property var keyBinds: []
+  property int keysVersion: 0
+
+  // Launch feedback: injected system OSD (shell.qml) + toplevel snapshot taken
+  // at launch so a slow starter can show a "Launching X…" toast.
+  property var osd: null
+  property string launchFeedbackName: ""
+  property int launchToplevelCount: 0
+  property var launchActiveToplevel: null
+  property bool launchOsdOpen: false
+
   // Launcher palette state (category overview + drills + query shapes)
   property string categoryFilter: ""
   readonly property bool fileMode: root.categoryFilter === Data.fileCategory || root.fileTerm(root.query) !== null
@@ -57,6 +84,7 @@ Scope {
   readonly property int scTitle: 60
   readonly property int scKw: 20
   readonly property int scCat: 10
+  readonly property int scAcro: 15
   readonly property int maxResults: 200
 
   readonly property string homeDir: Quickshell.env("HOME")
@@ -66,6 +94,8 @@ Scope {
   readonly property string dictIcon: "file://" + Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/assets/dict-cc.png"
   readonly property string webIconBase: "file://" + Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/assets/"
   readonly property string websearchJsonPath: Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/modules/launcher/websearch.json"
+  readonly property string hidesPath: Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/modules/launcher/launcher.hides"
+  readonly property string nightStatePath: Quickshell.env("HOME") + "/.local/state/asahi/nightlight.json"
   property int webVersion: 0
 
   // Launcher-style data (nav + local items for categories + prefix specials for files/web/docs/calc/actions)
@@ -561,7 +591,11 @@ Scope {
 
     Process {
       id: ffProc
-      command: ["fastfetch", "--format", "json"]
+      // Explicit structure: the user config's default module list lacks most
+      // of what parseFastfetch reads (Host, Packages, GPU, Display, LocalIp,
+      // Theme, Battery, PowerAdapter, Locale), leaving dashes on the card.
+      command: ["fastfetch", "--format", "json", "--structure",
+        "Title:OS:Host:Kernel:Uptime:Packages:Shell:Display:WM:Theme:CPU:GPU:Memory:Disk:LocalIp:Battery:PowerAdapter:Locale"]
       stdout: StdioCollector { onStreamFinished: quickHubRoot.parseFastfetch(text) }
     }
     Process {
@@ -681,7 +715,10 @@ Scope {
               visible: quickHubRoot.ffLogoLines.length > 0
               text: quickHubRoot.ffLogoText
               color: Style.menuSeal
-              font.family: "monospace"
+              // QML does not resolve the "monospace" fontconfig alias — it
+              // falls back to proportional Noto Sans, whose thin spaces
+              // collapse the logo's left indentation. Name a real mono face.
+              font.family: "Noto Sans Mono"
               font.pixelSize: 7
               lineHeight: 8
               lineHeightMode: Text.FixedHeight
@@ -3497,12 +3534,16 @@ Scope {
         return n + " tiles · " + n + " total"
       }
       if (root.categoryFilter === "App") {
-        const n = (DesktopEntries.applications.values || []).filter(d => !d.noDisplay).length
+        const n = (DesktopEntries.applications.values || []).filter(d => !d.noDisplay && !root.isHiddenApp(d)).length
         return c + " match" + s + " · " + n + " total"
       }
       if (root.categoryFilter === "Actions") {
         const n = (root.quickActions || []).length
         return c + " action" + s + " · " + n + " total"
+      }
+      if (root.categoryFilter === "Keys") {
+        const n = (root.keyBinds || []).length
+        return c + " shortcut" + s + " · " + n + " total"
       }
       if (root.categoryFilter === "Websearch") {
         const n = (root.webEngines || []).length
@@ -3535,6 +3576,7 @@ Scope {
   onCategoryFilterChanged: {
     if (resultsList) resultsList.currentIndex = 0
     root.selectedIndex = 0
+    if (root.categoryFilter === "Keys") root.scanKeyBinds()
     if (root.fileMode) root.scheduleFileLookup()
     else { root.fileItems=[]; root.fileStatus=""; root.filePreviewText=""; root.filePreviewMeta=""; root.pdfPreviewPath=""; root.pdfPreviewVersion=0 }
     if (root.categoryFilter === "Quick") {
@@ -3691,6 +3733,10 @@ Scope {
     if (icon.startsWith("file://")) return icon
     if (icon.charAt(0) === "/") return "file://" + icon
     if (icon.indexOf(".") >= 0 && icon.indexOf("/") >= 0) return icon
+    // Prefer the scanned app/device index: Qt's themed cache never re-scans
+    // after startup, so apps installed mid-session resolve blank without it.
+    const found = root.iconIndex[icon]
+    if (found) return "file://" + found
     return Quickshell.iconPath(icon, "")
   }
 
@@ -3698,6 +3744,19 @@ Scope {
     if (!term) return true
     const values = [action.key, action.name].concat(action.aliases || [])
     return values.some(v => String(v || "").toLowerCase().includes(term))
+  }
+
+  // Live state decoration for toggle actions (currently nightlight only).
+  function actionLabel(a) {
+    root.nightVersion
+    if (a.key === "nightlight" && root.nightLightOn) return a.name + " ✓"
+    return a.name
+  }
+
+  function actionGlyph(a) {
+    root.nightVersion
+    if (a.key === "nightlight" && root.nightLightOn) return "󰽥"
+    return a.icon
   }
 
   function getActionResults(q) {
@@ -3710,9 +3769,9 @@ Scope {
     }
     return actions.map(a => ({
       id: "action-" + a.key,
-      name: a.name,
+      name: root.actionLabel(a),
       comment: a.comment || "",
-      glyph: a.icon,
+      glyph: root.actionGlyph(a),
       special: "action",
       mode: a.mode || "",
       command: a.command || []
@@ -3721,6 +3780,7 @@ Scope {
 
   function launchDesktopEntry(entry) {
     root.bumpAppUsage(entry)
+    root.beginLaunchFeedback(entry.name)
     const command = Array.from(entry.command || [])
     const exec = command.length > 0 ? command.map(root.shQuote).join(" ") : String(entry.execString || "")
     if (exec === "") {
@@ -4145,8 +4205,221 @@ Scope {
 
   Connections {
     target: DesktopEntries
-    function onApplicationsChanged() { root.deVersion++ }
+    function onApplicationsChanged() { root.deVersion++; iconIndexDebounce.restart() }
   }
+
+  // --- Icon fallback index: one find over the XDG icon dirs into name -> path.
+  // SVGs are listed before PNGs so the first hit per name prefers scalable.
+  function iconIndexScanCommand() {
+    return [
+      'dirs="$HOME/.icons $HOME/.local/share/icons";',
+      'IFS=":"; for d in ${XDG_DATA_DIRS:-/usr/local/share:/usr/share}; do dirs="$dirs $d/icons"; done; unset IFS;',
+      'for ext in svg png; do',
+      '  for base in $dirs; do',
+      '    [ -d "$base" ] && find "$base" \\( -path "*/apps/*" -o -path "*/devices/*" \\) -name "*.$ext" 2>/dev/null;',
+      '  done;',
+      '  find /usr/share/pixmaps -maxdepth 1 -name "*.$ext" 2>/dev/null;',
+      'done'
+    ].join(' ')
+  }
+
+  function indexIconLine(path) {
+    const value = String(path || "").trim()
+    if (value.length === 0) return
+    const slash = value.lastIndexOf("/")
+    const file = slash >= 0 ? value.slice(slash + 1) : value
+    const dot = file.lastIndexOf(".")
+    const name = dot > 0 ? file.slice(0, dot) : file
+    if (name.length > 0 && root.pendingIconIndex[name] === undefined)
+      root.pendingIconIndex[name] = value
+  }
+
+  Process {
+    id: iconIndexScan
+    command: ["bash", "-c", root.iconIndexScanCommand()]
+    stdout: SplitParser { onRead: line => root.indexIconLine(line) }
+    onStarted: root.pendingIconIndex = ({})
+    // Swapping the property re-evaluates every resolveIconUrl binding.
+    onExited: root.iconIndex = root.pendingIconIndex
+  }
+
+  // Coalesces bursts of app-list changes (a dnf install touches many entries).
+  Timer {
+    id: iconIndexDebounce
+    interval: 750
+    onTriggered: if (!iconIndexScan.running) iconIndexScan.running = true
+  }
+
+  // --- Hidden desktop entries (launcher.hides: one id per line, # comments).
+  function isHiddenApp(a) {
+    return root.hiddenAppIds[String((a && a.id) || "")] === true
+  }
+
+  function parseHides(text) {
+    const next = {}
+    const lines = String(text || "").split("\n")
+    for (let i = 0; i < lines.length; i++) {
+      let id = lines[i].trim()
+      if (!id || id.charAt(0) === "#") continue
+      if (id.endsWith(".desktop")) id = id.slice(0, -8)
+      next[id] = true
+    }
+    root.hiddenAppIds = next
+    root.hiddenVersion++
+  }
+
+  FileView {
+    id: hidesFile
+    path: root.hidesPath
+    watchChanges: true
+    printErrors: false
+    onLoaded: root.parseHides(text)
+    onTextChanged: if (root) root.parseHides(text)
+    onLoadFailed: root.parseHides("")
+  }
+
+  // --- Nightlight state for the Actions checkmark (written by asahi-nightlight).
+  function parseNightState(text) {
+    try {
+      const data = JSON.parse(String(text || "").trim())
+      root.nightLightOn = !!data.on
+    } catch (e) {
+      root.nightLightOn = false
+    }
+    root.nightVersion++
+  }
+
+  FileView {
+    id: nightStateFile
+    path: root.nightStatePath
+    watchChanges: true
+    printErrors: false
+    onLoaded: root.parseNightState(text)
+    onTextChanged: if (root) root.parseNightState(text)
+    onLoadFailed: root.parseNightState("")
+  }
+
+  // --- Keyboard shortcuts: parse `hyprctl binds` into { combo, desc } rows.
+  function scanKeyBinds() {
+    if (!keyBindsProc.running) keyBindsProc.running = true
+  }
+
+  function bindCombo(b) {
+    let key = String(b.key || "")
+    // Lua binds may report "SUPER + <key>"; mods are carried in modmask.
+    const plus = key.lastIndexOf(" + ")
+    if (plus >= 0) key = key.slice(plus + 3)
+    if (!key && b.keycode && b.keycode !== "0") key = "code:" + b.keycode
+    if (!key || key.indexOf("switch:") === 0) return ""
+    const mouseNames = {
+      "mouse:272": "LeftClick", "mouse:273": "RightClick", "mouse:274": "MiddleClick",
+      "mouse_down": "ScrollDown", "mouse_up": "ScrollUp"
+    }
+    if (mouseNames[key]) key = mouseNames[key]
+    const mask = Number(b.modmask) || 0
+    const parts = []
+    if (mask & 64) parts.push("Super")
+    if (mask & 4) parts.push("Ctrl")
+    if (mask & 8) parts.push("Alt")
+    if (mask & 1) parts.push("Shift")
+    parts.push(key)
+    return parts.join("+")
+  }
+
+  function parseHyprBinds(text) {
+    const rows = []
+    const seen = {}
+    const lines = String(text || "").split("\n")
+    let cur = null
+    const flush = function() {
+      if (!cur) return
+      const desc = (cur.description || "").trim()
+      const combo = root.bindCombo(cur)
+      // Repeat variants (binde) duplicate their base bind; keep the first.
+      const dedup = combo + "|" + desc
+      if (desc && combo && !seen[dedup]) {
+        seen[dedup] = true
+        rows.push({ combo: combo, desc: desc })
+      }
+      cur = null
+    }
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      if (line.indexOf("bind") === 0) { flush(); cur = {}; continue }
+      if (!cur) continue
+      const m = line.match(/^\t([a-z]+): ?(.*)$/)
+      if (m) cur[m[1]] = m[2]
+    }
+    flush()
+    root.keyBinds = rows
+    root.keysVersion++
+  }
+
+  Process {
+    id: keyBindsProc
+    command: ["hyprctl", "binds"]
+    stdout: StdioCollector {
+      onStreamFinished: root.parseHyprBinds(text)
+    }
+  }
+
+  // --- Launch feedback: "Launching X…" toast when no window shows within 2s.
+  function toplevelCount() {
+    try { return ToplevelManager.toplevels.values.length } catch (e) { return 0 }
+  }
+
+  function beginLaunchFeedback(name) {
+    root.launchToplevelCount = root.toplevelCount()
+    root.launchActiveToplevel = ToplevelManager.activeToplevel
+    root.launchFeedbackName = String(name || "application")
+    launchDelay.restart()
+    launchTimeout.restart()
+  }
+
+  function closeLaunchFeedback() {
+    launchDelay.stop()
+    launchTimeout.stop()
+    if (root.launchOsdOpen) {
+      if (root.osd && root.osd.dismissToast) root.osd.dismissToast()
+      root.launchOsdOpen = false
+    }
+  }
+
+  function maybeFinishLaunchFeedback() {
+    if (!launchDelay.running && !launchTimeout.running && !root.launchOsdOpen) return
+    if (root.toplevelCount() <= root.launchToplevelCount && ToplevelManager.activeToplevel === root.launchActiveToplevel) return
+    root.closeLaunchFeedback()
+  }
+
+  Timer {
+    id: launchDelay
+    interval: 2000
+    onTriggered: {
+      if (root.toplevelCount() > root.launchToplevelCount || ToplevelManager.activeToplevel !== root.launchActiveToplevel) return
+      if (root.osd && root.osd.toast) {
+        root.launchOsdOpen = true
+        root.osd.toast("󱓞", "Launching " + root.launchFeedbackName + "…", "", 0)
+      }
+    }
+  }
+
+  Timer {
+    id: launchTimeout
+    interval: 15000
+    onTriggered: root.closeLaunchFeedback()
+  }
+
+  Connections {
+    target: ToplevelManager
+    function onActiveToplevelChanged() { root.maybeFinishLaunchFeedback() }
+  }
+
+  Connections {
+    target: ToplevelManager.toplevels
+    function onValuesChanged() { root.maybeFinishLaunchFeedback() }
+  }
+
+  Component.onCompleted: iconIndexScan.running = true
 
   function calculate(expr) {
     expr = (expr || "").trim()
@@ -4328,9 +4601,9 @@ Scope {
   function mapActionEntry(a) {
     return {
       id: "action-" + a.key,
-      title: a.name,
+      title: root.actionLabel(a),
       comment: a.comment || "",
-      glyph: a.icon,
+      glyph: root.actionGlyph(a),
       category: "Actions",
       special: "action",
       mode: a.mode || "",
@@ -4373,6 +4646,7 @@ Scope {
     const title = item._t || ""
     const kw = item._k || ""
     const cat = item._c || ""
+    const acro = item._a || ""
     let total = 0
     for (let i = 0; i < tokens.length; i++) {
       const t = tokens[i]
@@ -4381,6 +4655,8 @@ Scope {
       else if (title.indexOf(t) >= 0) sub += root.scTitle
       if (kw.indexOf(t) >= 0) sub += root.scKw
       if (cat.indexOf(t) >= 0) sub += root.scCat
+      // Acronym rescue for short terms only: "ff" -> Firefox, "vsc" -> VS Code.
+      if (sub === 0 && t.length <= 5 && acro.indexOf(t) >= 0) sub += root.scAcro
       if (sub === 0) return 0
       total += sub
     }
@@ -4396,6 +4672,7 @@ Scope {
 
   function computeFiltered() {
     root.deVersion; root.dictVersion; root.fileVersion; root.webVersion; root.appUsageVersion
+    root.hiddenVersion; root.nightVersion; root.keysVersion
 
     const tokens = root.queryTokens
     const filter = root.categoryFilter
@@ -4425,6 +4702,26 @@ Scope {
       }).map(e => root.mapWebEntry(e))
       return webs.length <= root.maxResults ? webs : webs.slice(0, root.maxResults)
     }
+    if (filter === "Keys") {
+      const term = (root.query || "").trim().toLowerCase()
+      const terms = term.length ? term.split(/\s+/) : []
+      const binds = root.keyBinds || []
+      const out = []
+      for (let i = 0; i < binds.length; i++) {
+        const b = binds[i]
+        const hay = (b.desc + " " + b.combo).toLowerCase()
+        let ok = true
+        for (let j = 0; j < terms.length; j++) {
+          if (hay.indexOf(terms[j]) < 0) { ok = false; break }
+        }
+        if (!ok) continue
+        out.push({
+          id: "key-" + i, title: b.desc, accessory: b.combo,
+          glyph: "󰌌", category: "Keys", special: "noop"
+        })
+      }
+      return out.length <= root.maxResults ? out : out.slice(0, root.maxResults)
+    }
 
     if (root.quickMode) return []
     let pool = []
@@ -4439,13 +4736,16 @@ Scope {
       const vals = DesktopEntries.applications.values || []
       for (let i = 0; i < vals.length; i++) {
         const a = vals[i]
-        if (a.noDisplay) continue
+        if (a.noDisplay || root.isHiddenApp(a)) continue
         const t = String(a.name || "").toLowerCase()
-        const k = String((a.genericName || "") + " " + (a.comment || "")).toLowerCase()
+        const kws = Data.desktopKeywords(a)
+        const k = String((a.genericName || "") + " " + (a.comment || "") + " " + kws + " " + (a.id || "")).toLowerCase()
         const aid = "app-" + (a.id || a.name || i)
         pool.push({
           id: aid, title: a.name, accessory: "APP",
-          _t: t, _k: k, _c: "app", category: "App", icon: "󰀻", rawIcon: a.icon || "", special: "app", raw: a
+          _t: t, _k: k, _c: "app",
+          _a: Data.acronym((a.name || "") + " " + (a.genericName || "") + " " + kws + " " + (a.id || "")),
+          category: "App", icon: "󰀻", rawIcon: a.icon || "", special: "app", raw: a
         })
       }
     }
@@ -4455,7 +4755,7 @@ Scope {
       if (filter !== "" && filter !== "Quick") {
         if (filter === "App") {
           const tail = []
-          let allApps = (DesktopEntries.applications.values || []).filter(d => !d.noDisplay)
+          let allApps = (DesktopEntries.applications.values || []).filter(d => !d.noDisplay && !root.isHiddenApp(d))
           allApps = allApps.sort((a, b) => {
             const au = root.appScore(a); const bu = root.appScore(b)
             if (au !== bu) return bu - au
@@ -4482,7 +4782,7 @@ Scope {
     for (let i = 0; i < pool.length; i++) {
       const it = pool[i]
       const s = root.scoreItem(it, tokens)
-      if (s > 0) scored.push({ s: s, p: root.primaryScore(it, tokens), item: it })
+      if (s > 0) scored.push({ s: s, p: root.primaryScore(it, tokens), u: it.special === "app" ? root.appScore(it.raw) : 0, item: it })
     }
     scored.sort((a, b) => {
       if (b.p !== a.p) return b.p - a.p
@@ -4490,6 +4790,7 @@ Scope {
       const bCat = b.item.isCategory ? 0 : 1
       if (aCat !== bCat) return aCat - bCat
       if (b.s !== a.s) return b.s - a.s
+      if (b.u !== a.u) return b.u - a.u
       return (a.item.title || "").localeCompare(b.item.title || "")
     })
     const lim = Math.min(scored.length, root.maxResults)
@@ -4976,7 +5277,9 @@ Scope {
                     font.letterSpacing: 2
                     elide: Text.ElideLeft
                     maximumLineCount: 1
-                    Layout.maximumWidth: 180
+                    // Key combos ("SUPER+SHIFT+ESCAPE") need more room than
+                    // the short APP/category accessories.
+                    Layout.maximumWidth: modelData.category === "Keys" ? 340 : 180
                   }
                 }
 
