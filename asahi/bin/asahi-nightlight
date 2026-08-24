@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# Night light via hyprsunset + hyprctl (temperature in Kelvin, e.g. 2500 = warm).
+
+set -euo pipefail
+
+STATE_DIR="${ASAHI_STATE_DIR:-$HOME/.local/state/asahi}"
+STATE_FILE="${ASAHI_NIGHTLIGHT_STATE:-$STATE_DIR/nightlight.json}"
+DEFAULT_ON_TEMP="${ASAHI_NIGHTLIGHT_TEMP:-1500}"
+IDENTITY_TEMP=6500
+
+mkdir -p "$STATE_DIR"
+
+read_state() {
+  if [[ -f "$STATE_FILE" ]]; then
+    jq -r '.temperature // empty' "$STATE_FILE" 2>/dev/null || true
+  fi
+}
+
+read_on() {
+  if [[ -f "$STATE_FILE" ]]; then
+    jq -r '.on // false' "$STATE_FILE" 2>/dev/null || echo false
+  else
+    echo false
+  fi
+}
+
+write_state() {
+  local on=$1 temp=$2
+  jq -cn --argjson on "$on" --argjson temp "$temp" '{on:$on,temperature:$temp}' >"$STATE_FILE"
+}
+
+ensure_daemon() {
+  if ! pgrep -x hyprsunset >/dev/null 2>&1; then
+    hyprsunset &
+    sleep 0.25
+  fi
+}
+
+set_identity() {
+  ensure_daemon
+  if hyprctl hyprsunset identity >/dev/null 2>&1; then
+    :
+  else
+    hyprctl hyprsunset temperature "$IDENTITY_TEMP" >/dev/null 2>&1 || true
+  fi
+  write_state false "$IDENTITY_TEMP"
+  notify-send -a nightlight -t 1200 "Night light off"
+}
+
+set_temperature() {
+  local temp=$1
+  ensure_daemon
+  hyprctl hyprsunset temperature "$temp"
+  write_state true "$temp"
+  notify-send -a nightlight -t 1200 "Night light ${temp}K"
+}
+
+cmd="${1:-toggle}"
+arg="${2:-}"
+
+case "$cmd" in
+  toggle)
+    if [[ $(read_on) == "true" ]]; then
+      set_identity
+    else
+      set_temperature "$DEFAULT_ON_TEMP"
+    fi
+    ;;
+  on|warm)
+    set_temperature "${arg:-$DEFAULT_ON_TEMP}"
+    ;;
+  off|identity)
+    set_identity
+    ;;
+  cooler)
+    cur=$(read_state)
+    [[ -z $cur || ! $cur =~ ^[0-9]+$ ]] && cur=$DEFAULT_ON_TEMP
+    set_temperature "$((cur + 500))"
+    ;;
+  warmer)
+    cur=$(read_state)
+    [[ -z $cur || ! $cur =~ ^[0-9]+$ ]] && cur=$IDENTITY_TEMP
+    new=$((cur - 500))
+    ((new < 1000)) && new=1000
+    set_temperature "$new"
+    ;;
+  status)
+    cat "$STATE_FILE" 2>/dev/null || jq -cn --argjson t "$IDENTITY_TEMP" '{on:false,temperature:$t}'
+    ;;
+  *)
+    echo "usage: $0 [toggle|on [K]|off|warmer|cooler|status]" >&2
+    exit 2
+    ;;
+esac

@@ -497,6 +497,9 @@ comp_asahi_desktop() {
   link_if_exists "$DOTFILES/mpv/mpv_asahi.conf" "$HOME/.config/mpv/mpv.conf"
   link_if_exists "$DOTFILES/asahi/environment.d/90-asahi.conf" "$HOME/.config/environment.d/90-asahi.conf"
   mkdir -p "$HOME/.config/gtk-3.0" "$HOME/.config/gtk-4.0"
+  mkdir -p "$HOME/.config/wireplumber/wireplumber.conf.d"
+  link_if_exists "$DOTFILES/asahi/wireplumber/wireplumber.conf.d/bluetooth-a2dp-autoconnect.conf" \
+    "$HOME/.config/wireplumber/wireplumber.conf.d/bluetooth-a2dp-autoconnect.conf"
   link_if_exists "$DOTFILES/asahi/gtk-3.0/settings.ini" "$HOME/.config/gtk-3.0/settings.ini"
   link_if_exists "$DOTFILES/asahi/gtk-4.0/settings.ini" "$HOME/.config/gtk-4.0/settings.ini"
   mkdir -p "$HOME/.config/librewolf/librewolf"

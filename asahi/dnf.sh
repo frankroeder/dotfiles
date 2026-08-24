@@ -57,12 +57,13 @@ sudo dnf install -y \
   google-noto-color-emoji-fonts \
   grim \
   gwenview \
-  git \
-  htop \
   hypridle \
   hyprland \
   hyprlock \
   hyprpaper \
+  hyprsunset \
+  git \
+  htop \
   ImageMagick \
   keychain \
   jq \
@@ -82,6 +83,7 @@ sudo dnf install -y \
   pipewire-utils \
   pipewire-alsa \
   playerctl \
+  speakersafetyd \
   ripgrep \
   slurp \
   texlive-scheme-full \
@@ -127,6 +129,8 @@ sudo systemctl enable --now cups cups-browsed
 # - matugen (theming, per DankMaterialShell patterns): dnf or cargo install; integrate with QS for wallpaper-driven colors if chosen
 # - power-profiles-daemon: Omarchy wraps powerprofilesctl with no Apple Silicon
 #   backend. This machine is apple-cpufreq/schedutil; PPD does not drive it.
+
+sudo systemctl enable --now speakersafetyd >/dev/null 2>&1 || true
 
 systemctl --user daemon-reload
 systemctl --user enable --now pipewire.socket pipewire-pulse.socket wireplumber.service

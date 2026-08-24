@@ -11,15 +11,28 @@ RowLayout {
   property bool isRecording: false
   property bool updatesAvailable: false
   property bool stayAwake: false
+  property bool nightLightOn: false
+  property int nightLightTemp: 6500
   property var barHost: null
   readonly property bool solidBar: barHost !== null && barHost !== undefined
 
   readonly property string stayAwakePath: Quickshell.env("HOME") + "/.local/state/asahi/stay-awake"
+  readonly property string nightLightStatePath: Quickshell.env("HOME") + "/.local/state/asahi/nightlight.json"
+  readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
 
   spacing: solidBar ? 2 : 6
 
   function refreshStayAwake() {
     if (!stayAwakeProc.running) stayAwakeProc.running = true
+  }
+
+  function refreshNightLight() {
+    if (!nightLightProc.running) nightLightProc.running = true
+  }
+
+  function toggleNightLight() {
+    Quickshell.execDetached(["bash", binDir + "/asahi-nightlight", "toggle"])
+    nightLightRefresh.restart()
   }
 
   function toggleStayAwake() {
@@ -28,6 +41,36 @@ RowLayout {
     else
       Quickshell.execDetached(["bash", "-lc", "mkdir -p \"$HOME/.local/state/asahi\" && touch \"$HOME/.local/state/asahi/stay-awake\""])
     stayAwakeRefresh.restart()
+  }
+
+  Process {
+    id: nightLightProc
+    command: ["bash", root.binDir + "/asahi-nightlight", "status"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const data = JSON.parse(text.trim())
+          root.nightLightOn = !!data.on
+          root.nightLightTemp = data.temperature || 6500
+        } catch (e) {
+          root.nightLightOn = false
+        }
+      }
+    }
+  }
+
+  Timer {
+    interval: 3000
+    running: true
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: root.refreshNightLight()
+  }
+
+  Timer {
+    id: nightLightRefresh
+    interval: 400
+    onTriggered: root.refreshNightLight()
   }
 
   Process {
@@ -82,10 +125,41 @@ RowLayout {
       onClicked: root.toggleStayAwake()
     }
 
+    TooltipWindow { target: stayAwakeChip; text: root.stayAwake ? "Stay awake (idle lock off)" : "Allow idle lock"; show: stayAwakeMouse.containsMouse }
+  }
+
+  Rectangle {
+    id: nightChip
+    width: solidBar ? 28 : 26
+    height: solidBar ? Style.barHeight : 26
+    radius: solidBar ? 0 : Style.radius
+    color: solidBar
+      ? (nightMouse.containsMouse ? Style.barStripHover : "transparent")
+      : (nightMouse.containsMouse ? Style.panelWarningBg : Style.barBg)
+    border.width: solidBar ? 0 : 1
+    border.color: root.nightLightOn ? Style.orange : (solidBar ? "transparent" : Style.barBorder)
+    visible: true
+
+    Text {
+      anchors.centerIn: parent
+      text: root.nightLightOn ? "󰽥" : "󰖔"
+      font.family: Style.fontFamily
+      font.pixelSize: solidBar ? Style.barFontIcon : 15
+      color: root.nightLightOn ? Style.orange : (solidBar && barHost ? barHost.barForeground : Style.textMuted)
+    }
+
+    MouseArea {
+      id: nightMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: root.toggleNightLight()
+    }
+
     TooltipWindow {
-      target: stayAwakeChip
-      text: root.stayAwake ? "Stay awake (idle lock off)" : "Allow idle lock"
-      show: stayAwakeMouse.containsMouse
+      target: nightChip
+      text: root.nightLightOn ? ("Night light " + root.nightLightTemp + "K") : "Night light off"
+      show: nightMouse.containsMouse
     }
   }
 
