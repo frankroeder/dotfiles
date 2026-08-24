@@ -34,7 +34,6 @@ Rectangle {
   property int chipIndex: 0
   property int providerIndex: 0
   property int chipChars: 0
-  property string tooltip: ""
   property double lastFetch: 0
 
   readonly property var currentChip: {
@@ -132,7 +131,6 @@ Rectangle {
     root.overview = data.overview || []
     root.chips = data.chips || []
     root.chipChars = Number(data.chip_chars) || 0
-    root.tooltip = data.tooltip || ""
     if (root.chipIndex >= root.chips.length)
       root.chipIndex = 0
     if (root.providerIndex >= root.overview.length)
@@ -221,13 +219,6 @@ Rectangle {
         root.refresh()
       }
     }
-  }
-
-  TooltipWindow {
-    target: root
-    text: root.tooltip
-    show: ccuMouse.containsMouse && !popup.shouldShow
-    maxWidth: 440
   }
 
   PopupWindow {

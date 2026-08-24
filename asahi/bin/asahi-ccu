@@ -821,7 +821,6 @@ def serialize_card(spec: dict[str, Any], st: dict[str, Any], now: int) -> dict[s
 def empty_payload(error: str | None = None) -> dict[str, Any]:
   return {
     "text": "CCu",
-    "tooltip": "",
     "class": "normal",
     "percentage": None,
     "visible": False,
@@ -948,21 +947,6 @@ def build() -> dict[str, Any]:
   errored = max_used is None and bool(fresh_err) and not stale_only
   text = chips[0]["text"] if chips else ("CCu ?" if errored else "CCu")
 
-  tooltip_lines: list[str] = []
-  for card in overview:
-    line = f"{card['name']}  {card['head']}".rstrip()
-    if card.get("usage_line"):
-      line = f"{card['name']}  {card['usage_line']}"
-      if card.get("reset_line"):
-        line += f"  {card['reset_line']}"
-    tooltip_lines.append(line)
-    for extra in card.get("extras") or []:
-      tooltip_lines.append(f"  {extra.get('label')}  {extra.get('text')}")
-    if card.get("has_stats"):
-      tooltip_lines.append(f"  {card.get('total_line')}  {card.get('days30_line')}  {card.get('week_line')}")
-  if stale_only and fresh_err:
-    tooltip_lines.append(f"(cached; {fresh_err})")
-
   links = []
   for spec in providers:
     if spec.get("url"):
@@ -987,7 +971,6 @@ def build() -> dict[str, Any]:
 
   return {
     "text": text,
-    "tooltip": "\n".join(tooltip_lines),
     "class": usage_class(max_used, errored),
     "percentage": None if max_used is None else round(max_used, 1),
     "visible": True,

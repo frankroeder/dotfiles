@@ -275,6 +275,9 @@ ok("categories" in qml_src, "Ccu.qml renders category meter")
 ok("total_line" in qml_src and "days30_line" in qml_src, "Ccu.qml All time / 30d / 7d")
 ok("chipText" in qml_src, "Ccu.qml bar chip uses helper chip text")
 ok("cursor_usage.py" not in qml_src, "QML does not fetch helpers itself")
+ok("tooltip" not in src, "asahi-ccu emits no hover tooltip")
+ok("TooltipWindow" not in qml_src, "Ccu.qml has no hover tooltip")
+ok("PopupWindow" in qml_src, "Ccu.qml keeps the usage popup")
 
 if FAILED:
   print(f"\n{FAILED} failed")
