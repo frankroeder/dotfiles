@@ -5,18 +5,19 @@ import Quickshell.Io
 import Quickshell.Wayland
 import "../../../"
 
-// CCu chip: quota remaining + cost overview from asahi-ccu.
+// CCu chip: Grok/Cursor overview from asahi-ccu, matching sketchybar ccu.lua.
 Rectangle {
   id: root
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
+  readonly property int contentW: 440
 
   color: ccuMouse.containsMouse || popup.shouldShow ? Style.barHoverBg : Style.barBg
   radius: Style.radius
   border.width: 1
   border.color: ccuMouse.containsMouse || popup.shouldShow ? Style.barHoverBorder : Style.barBorder
   scale: ccuMouse.containsMouse || popup.shouldShow ? 1.018 : 1.0
-  implicitWidth: Math.max(68, row.implicitWidth + 14)
+  implicitWidth: Math.max(68, Math.max(row.implicitWidth, chipChars * 7.2) + 14)
   implicitHeight: 26
   visible: available
   Behavior on color { ColorAnimation { duration: 140 } }
@@ -29,27 +30,38 @@ Rectangle {
   property var rows: []
   property var links: []
   property var overview: []
+  property var chips: []
+  property int chipIndex: 0
   property int providerIndex: 0
+  property int chipChars: 0
   property string tooltip: ""
   property double lastFetch: 0
 
+  readonly property var currentChip: {
+    const list = root.chips || []
+    if (list.length === 0) return null
+    const i = Math.max(0, Math.min(root.chipIndex, list.length - 1))
+    return list[i]
+  }
   readonly property var provider: {
     const list = root.overview || []
     if (list.length === 0) return null
     const i = Math.max(0, Math.min(root.providerIndex, list.length - 1))
     return list[i]
   }
-  readonly property bool hasValue: usedPct !== null && usedPct !== undefined
-  readonly property string valueText: {
-    if (hasError && !hasValue) return "?"
-    if (hasValue) return Math.round(usedPct) + "%"
-    return ""
+  readonly property string chipText: {
+    if (root.currentChip && root.currentChip.text)
+      return root.currentChip.text
+    if (root.hasError) return "CCu ?"
+    return "CCu"
   }
+  readonly property var chipUsed: root.currentChip ? root.currentChip.used : root.usedPct
+  readonly property bool hasValue: chipUsed !== null && chipUsed !== undefined
   readonly property color valueColor: {
-    if (hasError && !hasValue) return Style.red
-    return usageColor(usedPct)
+    if (root.hasError && !root.hasValue) return Style.red
+    return usageColor(chipUsed)
   }
-  readonly property bool alarming: hasValue && usedPct >= 90
+  readonly property bool alarming: hasValue && chipUsed >= 90
 
   function usageColor(used) {
     if (used === null || used === undefined) return Style.textMuted
@@ -59,33 +71,48 @@ Rectangle {
     return Style.teal
   }
 
-  function fmtTokens(n) {
-    n = Number(n) || 0
-    if (n >= 1e6) return (n / 1e6).toFixed(1) + "M"
-    if (n >= 1e3) return Math.round(n / 1e3) + "k"
-    return String(Math.round(n))
-  }
-
-  function fmtUsd(u) {
-    u = Number(u) || 0
-    if (u >= 1000) return "$" + (u / 1000).toFixed(1) + "k"
-    if (u >= 100) return "$" + Math.round(u)
-    return "$" + u.toFixed(2)
-  }
-
-  function heroMeta(p) {
-    if (!p) return ""
-    const limits = p.limits || []
-    let best = null
-    for (let i = 0; i < limits.length; i++) {
-      if (limits[i].percent == null) continue
-      if (!best || limits[i].percent > best.percent) best = limits[i]
+  function accentColor(name) {
+    switch (name) {
+      case "teal": return Style.teal
+      case "mauve": return Style.mauve
+      case "peach": return Style.orange
+      case "sky": return Style.sky
+      case "blue": return Style.blue
+      case "green": return Style.green
+      case "pink": return Style.pink
+      case "yellow": return Style.yellow
+      case "lavender": return Style.lavender
+      case "maroon": return Style.maroon
+      default: return Style.teal
     }
-    if (best && best.percent != null)
-      return Math.round(best.percent * 100) + "% of " + (best.title || "limit").toLowerCase()
-    const week = p.week || {}
-    if (week.tokens) return fmtTokens(week.tokens) + " tokens · 7d"
-    return "Subscription"
+  }
+
+  function meterSegs(card) {
+    const cats = (card && card.categories) || []
+    const segs = []
+    const gap = 2 / root.contentW
+    let x = 0
+    if (cats.length > 0) {
+      for (let i = 0; i < cats.length; i++) {
+        let w = Math.max(Number(cats[i].pct) || 0, 2 / root.contentW)
+        if (x + w > 1) w = Math.max(0, 1 - x)
+        segs.push({
+          x: x,
+          w: Math.max(0, w - (i < cats.length - 1 ? gap : 0)),
+          color: cats[i].color,
+          rest: false
+        })
+        x += w
+      }
+    } else if (card && card.used != null) {
+      x = Math.max(0, Math.min(1, Number(card.used) / 100))
+      segs.push({ x: 0, w: x, color: card.accent, rest: false })
+    }
+    if (x < 0.995) {
+      const restX = x > 0 ? x + gap : 0
+      segs.push({ x: restX, w: Math.max(0, 1 - restX), color: card ? card.accent : "teal", rest: true })
+    }
+    return segs
   }
 
   function refresh() {
@@ -103,9 +130,18 @@ Rectangle {
     root.rows = data.rows || []
     root.links = data.links || []
     root.overview = data.overview || []
+    root.chips = data.chips || []
+    root.chipChars = Number(data.chip_chars) || 0
     root.tooltip = data.tooltip || ""
+    if (root.chipIndex >= root.chips.length)
+      root.chipIndex = 0
     if (root.providerIndex >= root.overview.length)
       root.providerIndex = 0
+  }
+
+  function nextChip() {
+    if ((root.chips || []).length < 2) return
+    root.chipIndex = (root.chipIndex + 1) % root.chips.length
   }
 
   RowLayout {
@@ -114,15 +150,8 @@ Rectangle {
     spacing: 4
 
     Text {
-      text: "󱚣"
-      font { family: Style.fontFamily; pixelSize: 14 }
-      color: root.alarming ? Style.red : Style.text
-      verticalAlignment: Text.AlignVCenter
-    }
-    Text {
-      visible: root.valueText !== ""
-      text: root.valueText
-      font { family: Style.fontFamily; pixelSize: Style.fontSize }
+      text: root.chipText
+      font { family: Style.fontFamily; pixelSize: 12; bold: true }
       color: root.valueColor
       verticalAlignment: Text.AlignVCenter
     }
@@ -143,7 +172,7 @@ Rectangle {
   }
 
   Timer {
-    interval: popup.shouldShow ? 45000 : 90000
+    interval: popup.shouldShow ? 20000 : 60000
     running: true
     repeat: true
     triggeredOnStart: true
@@ -153,6 +182,13 @@ Rectangle {
     }
   }
 
+  Timer {
+    interval: 10000
+    running: (root.chips || []).length > 1
+    repeat: true
+    onTriggered: root.nextChip()
+  }
+
   MouseArea {
     id: ccuMouse
     anchors.fill: parent
@@ -160,12 +196,23 @@ Rectangle {
     cursorShape: Qt.PointingHandCursor
     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
     onClicked: (mouse) => {
-      if (mouse.button === Qt.MiddleButton && root.overview.length > 1) {
-        root.providerIndex = (root.providerIndex + 1) % root.overview.length
+      if (mouse.button === Qt.MiddleButton && (root.chips || []).length > 1) {
+        root.nextChip()
         return
       }
-      if (mouse.button === Qt.RightButton && root.provider && root.provider.url) {
-        Quickshell.execDetached(["xdg-open", root.provider.url])
+      if (mouse.button === Qt.RightButton) {
+        let url = ""
+        if (root.currentChip) {
+          const list = root.overview || []
+          for (let i = 0; i < list.length; i++) {
+            if (list[i].id === root.currentChip.id) {
+              url = list[i].url || ""
+              break
+            }
+          }
+        }
+        if (!url && root.provider) url = root.provider.url || ""
+        if (url) Quickshell.execDetached(["xdg-open", url])
         return
       }
       popup.shouldShow = !popup.shouldShow
@@ -180,7 +227,7 @@ Rectangle {
     target: root
     text: root.tooltip
     show: ccuMouse.containsMouse && !popup.shouldShow
-    maxWidth: 380
+    maxWidth: 440
   }
 
   PopupWindow {
@@ -200,181 +247,279 @@ Rectangle {
       border.color: Style.barBorder
       border.width: 1
       radius: Style.radius
-      implicitWidth: 380
-      implicitHeight: col.implicitHeight + 24
+      implicitWidth: root.contentW + 28
+      implicitHeight: Math.min(flick.contentHeight + 28, 720)
 
-      Column {
-        id: col
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
+      Flickable {
+        id: flick
+        anchors.fill: parent
         anchors.margins: 14
-        spacing: 12
-
-        Row {
-          width: parent.width
-          spacing: 10
-          Text {
-            text: "󱚣"
-            font { family: Style.fontFamily; pixelSize: 22 }
-            color: root.alarming ? Style.red : Style.text
-            anchors.verticalCenter: parent.verticalCenter
-          }
-          Column {
-            spacing: 2
-            Text {
-              text: root.provider ? root.provider.name : "Agents"
-              font { family: Style.fontFamily; pixelSize: 14; bold: true }
-              color: Style.text
-            }
-            Text {
-              text: root.heroMeta(root.provider)
-              font { family: Style.fontFamily; pixelSize: 11 }
-              color: Style.textMuted
-            }
-          }
-        }
-
-        Row {
-          visible: root.overview.length > 1
-          width: parent.width
-          spacing: 6
-          Repeater {
-            model: root.overview
-            Rectangle {
-              required property var modelData
-              required property int index
-              width: (col.width - 6 * Math.max(0, root.overview.length - 1)) / Math.max(1, root.overview.length)
-              height: 24
-              color: index === root.providerIndex ? Qt.alpha(Style.text, 0.18) : Qt.alpha(Style.text, 0.04)
-              radius: 0
-              Text {
-                anchors.centerIn: parent
-                text: modelData.name
-                font { family: Style.fontFamily; pixelSize: 11 }
-                color: Style.text
-              }
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.providerIndex = index
-              }
-            }
-          }
-        }
-
-        Text {
-          visible: !root.provider
-          width: parent.width
-          text: "No AI coding subscriptions found.\nAgents show up here once you've used them."
-          color: Style.textMuted
-          font { family: Style.fontFamily; pixelSize: 12 }
-          horizontalAlignment: Text.AlignHCenter
-          wrapMode: Text.WordWrap
-        }
+        contentWidth: width
+        contentHeight: col.implicitHeight
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        interactive: contentHeight > height
 
         Column {
-          visible: root.provider && (root.provider.limits || []).length > 0
-          width: parent.width
+          id: col
+          width: flick.width
           spacing: 8
+
           Text {
-            text: "LIMITS"
-            font { family: Style.fontFamily; pixelSize: 10; bold: true }
-            color: Style.textMuted
+            text: "AGENT USAGE"
+            font { family: Style.fontFamily; pixelSize: 13; bold: true }
+            color: Style.text
           }
+
+          Text {
+            visible: root.overview.length === 0
+            width: parent.width
+            text: "No AI coding subscriptions found.\nAgents show up here once you've used them."
+            color: Style.textMuted
+            font { family: Style.fontFamily; pixelSize: 12 }
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.WordWrap
+          }
+
           Repeater {
-            model: root.provider ? (root.provider.limits || []) : []
+            model: root.overview
             Column {
               required property var modelData
+              required property int index
+              readonly property var cardData: modelData
+              readonly property color fill: root.accentColor(cardData.accent)
+              readonly property real cardW: width
               width: col.width
-              spacing: 4
-              Row {
+              spacing: 6
+
+              Rectangle {
+                visible: index > 0
                 width: parent.width
+                height: 1
+                color: Qt.alpha(Style.text, 0.14)
+              }
+
+              Item {
+                width: parent.width
+                height: Math.max(nameText.implicitHeight, identText.implicitHeight)
+
                 Text {
-                  width: parent.width - pctLabel.width
-                  text: modelData.title || ""
+                  id: nameText
+                  anchors.left: parent.left
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: cardData.name || ""
+                  font { family: Style.fontFamily; pixelSize: 13; bold: true }
+                  color: fill
+                }
+                Text {
+                  anchors.left: nameText.right
+                  anchors.leftMargin: 10
+                  anchors.right: identText.left
+                  anchors.rightMargin: 8
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: cardData.head || ""
+                  font { family: Style.fontFamily; pixelSize: 12 }
+                  color: (cardData.tier || cardData.used != null) ? Style.text : Style.textMuted
+                  elide: Text.ElideRight
+                }
+                Text {
+                  id: identText
+                  visible: (cardData.ident || "") !== ""
+                  anchors.right: parent.right
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: cardData.ident || ""
+                  font { family: Style.fontFamily; pixelSize: 11 }
+                  color: Style.textMuted
+                }
+              }
+
+              Item {
+                visible: (cardData.usage_line || "") !== ""
+                width: parent.width
+                height: usageText.implicitHeight
+
+                Text {
+                  id: usageText
+                  anchors.left: parent.left
+                  anchors.right: resetText.left
+                  anchors.rightMargin: 8
+                  text: cardData.usage_line || ""
                   font { family: Style.fontFamily; pixelSize: 12 }
                   color: Style.text
                   elide: Text.ElideRight
                 }
                 Text {
-                  id: pctLabel
-                  text: modelData.percent == null ? (modelData.label || "—") : (Math.round(modelData.percent * 100) + "%")
-                  font { family: Style.fontFamily; pixelSize: 11 }
-                  color: (modelData.percent || 0) >= 0.9 ? Style.red : Style.textMuted
+                  id: resetText
+                  anchors.right: parent.right
+                  text: cardData.reset_line || ""
+                  font { family: Style.fontFamily; pixelSize: 12 }
+                  color: Style.textMuted
                 }
               }
-              Rectangle {
+
+              Item {
+                visible: cardData.used != null || (cardData.categories || []).length > 0
                 width: parent.width
-                height: 4
-                color: Qt.alpha(Style.text, 0.12)
-                Rectangle {
-                  width: parent.width * Math.max(0, Math.min(1, Number(modelData.percent) || 0))
-                  height: parent.height
-                  color: (modelData.percent || 0) >= 0.9 ? Style.red : Style.text
+                height: 5
+
+                Repeater {
+                  model: root.meterSegs(cardData)
+                  Rectangle {
+                    required property var modelData
+                    x: modelData.x * cardW
+                    width: Math.max(1, modelData.w * cardW)
+                    height: 5
+                    radius: 2
+                    color: modelData.rest
+                      ? Qt.alpha(root.accentColor(modelData.color), 0.20)
+                      : root.accentColor(modelData.color)
+                  }
                 }
               }
-              Text {
-                visible: (modelData.reset || "") !== ""
-                text: modelData.reset
-                font { family: Style.fontFamily; pixelSize: 10 }
-                color: Style.textMuted
+
+              Flow {
+                visible: (cardData.categories || []).length > 0
+                width: parent.width
+                spacing: 10
+                Repeater {
+                  model: cardData.categories
+                  Row {
+                    required property var modelData
+                    spacing: 4
+                    Text {
+                      text: "●"
+                      font { family: Style.fontFamily; pixelSize: 9 }
+                      color: root.accentColor(modelData.color)
+                    }
+                    Text {
+                      text: (modelData.label || "") + " " + (modelData.percent || "")
+                      font { family: Style.fontFamily; pixelSize: 11 }
+                      color: Style.textMuted
+                    }
+                  }
+                }
+              }
+
+              Row {
+                visible: !!cardData.has_stats
+                width: parent.width
+                spacing: 0
+                Text {
+                  width: parent.width * 0.40
+                  text: cardData.total_line || ""
+                  font { family: Style.fontFamily; pixelSize: 12 }
+                  color: Style.textMuted
+                  elide: Text.ElideRight
+                }
+                Text {
+                  width: parent.width * 0.30
+                  text: cardData.days30_line || ""
+                  font { family: Style.fontFamily; pixelSize: 12 }
+                  color: Style.textMuted
+                  elide: Text.ElideRight
+                }
+                Text {
+                  width: parent.width * 0.30
+                  text: cardData.week_line || ""
+                  font { family: Style.fontFamily; pixelSize: 12 }
+                  color: Style.textMuted
+                  elide: Text.ElideRight
+                }
+              }
+
+              Row {
+                visible: (cardData.chart || []).length > 0
+                width: parent.width
+                height: 52
+                Repeater {
+                  model: cardData.chart
+                  Item {
+                    required property var modelData
+                    width: col.width / Math.max(1, (cardData.chart || []).length)
+                    height: 52
+                    Text {
+                      anchors.top: parent.top
+                      anchors.horizontalCenter: parent.horizontalCenter
+                      text: modelData.compact || "0"
+                      font { family: Style.fontFamily; pixelSize: 9 }
+                      color: Style.text
+                    }
+                    Rectangle {
+                      anchors.horizontalCenter: parent.horizontalCenter
+                      anchors.bottom: dowLabel.top
+                      anchors.bottomMargin: 2
+                      width: 10
+                      height: 22
+                      radius: 1
+                      color: Qt.alpha(fill, 0.14)
+                      Rectangle {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        height: parent.height * Math.max(0, Math.min(1, Number(modelData.height) || 0))
+                        radius: 1
+                        color: fill
+                      }
+                    }
+                    Text {
+                      id: dowLabel
+                      anchors.bottom: parent.bottom
+                      anchors.horizontalCenter: parent.horizontalCenter
+                      text: modelData.dow || ""
+                      font { family: Style.fontFamily; pixelSize: 9 }
+                      color: Style.textMuted
+                    }
+                  }
+                }
+              }
+
+              Column {
+                visible: (cardData.extras || []).length > 0
+                width: parent.width
+                spacing: 4
+                Repeater {
+                  model: cardData.extras
+                  Row {
+                    required property var modelData
+                    width: col.width
+                    Text {
+                      width: parent.width * 0.48
+                      text: modelData.label || ""
+                      font { family: Style.fontFamily; pixelSize: 12 }
+                      color: Style.textMuted
+                      elide: Text.ElideRight
+                    }
+                    Text {
+                      width: parent.width * 0.52
+                      text: modelData.text || ""
+                      font { family: Style.fontFamily; pixelSize: 12 }
+                      color: Style.text
+                      horizontalAlignment: Text.AlignRight
+                      elide: Text.ElideRight
+                    }
+                  }
+                }
               }
             }
           }
-        }
 
-        Column {
-          visible: root.provider && (root.provider.today || root.provider.week || root.provider.total)
-          width: parent.width
-          spacing: 4
-          Text {
-            text: "COST"
-            font { family: Style.fontFamily; pixelSize: 10; bold: true }
-            color: Style.textMuted
-          }
-          Text {
-            visible: !!(root.provider && root.provider.today)
-            text: root.provider && root.provider.today
-              ? ("Today  " + root.fmtUsd(root.provider.today.usd) + " · " + root.fmtTokens(root.provider.today.tokens))
-              : ""
-            font { family: Style.fontFamily; pixelSize: 11 }
-            color: Style.text
-          }
-          Text {
-            visible: !!(root.provider && root.provider.week)
-            text: root.provider && root.provider.week
-              ? ("7 days  " + root.fmtUsd(root.provider.week.usd) + " · " + root.fmtTokens(root.provider.week.tokens))
-              : ""
-            font { family: Style.fontFamily; pixelSize: 11 }
-            color: Style.text
-          }
-          Text {
-            visible: !!(root.provider && root.provider.total)
-            text: root.provider && root.provider.total
-              ? ("All time  " + root.fmtUsd(root.provider.total.usd) + " · " + root.fmtTokens(root.provider.total.tokens))
-              : ""
-            font { family: Style.fontFamily; pixelSize: 11 }
-            color: Style.textMuted
-          }
-        }
-
-        Row {
-          visible: root.links.length > 0
-          spacing: 14
-          Repeater {
-            model: root.links
-            Text {
-              required property var modelData
-              text: "↗  " + (modelData.title || "")
-              font { family: Style.fontFamily; pixelSize: 11 }
-              color: linkMa.containsMouse ? Style.sky : Style.textMuted
-              MouseArea {
-                id: linkMa
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: if (modelData.url) Quickshell.execDetached(["xdg-open", modelData.url])
+          Row {
+            visible: root.links.length > 0
+            spacing: 14
+            Repeater {
+              model: root.links
+              Text {
+                required property var modelData
+                text: "↗  " + (modelData.title || "")
+                font { family: Style.fontFamily; pixelSize: 11 }
+                color: linkMa.containsMouse ? Style.sky : Style.textMuted
+                MouseArea {
+                  id: linkMa
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: if (modelData.url) Quickshell.execDetached(["xdg-open", modelData.url])
+                }
               }
             }
           }

@@ -1,11 +1,14 @@
 #!/usr/bin/python3
 """Credit usage (CCu) for the Asahi Quickshell bar.
 
-Imports the same sketchybar helpers macOS uses:
-  sketchybar/helpers/grok_usage.py
-  sketchybar/helpers/claude_usage.py
+Mirrors sketchybar/top/items/ccu.lua using the same helpers:
 
-Claude rows are included only when the `claude` CLI is installed.
+  sketchybar/helpers/grok_usage.py
+  sketchybar/helpers/cursor_usage.py
+  sketchybar/helpers/claude_usage.py
+  sketchybar/helpers/ccu_cost.py
+
+Grok + Cursor are the bar chips; Claude / Codex stay in the popup.
 Always prints one JSON object for Quickshell.
 """
 
@@ -14,11 +17,11 @@ from __future__ import annotations
 import fcntl
 import json
 import os
-import re
 import shutil
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +32,7 @@ if str(HELPERS) not in sys.path:
 
 import ccu_cost  # noqa: E402
 import claude_usage  # noqa: E402
+import cursor_usage  # noqa: E402
 import grok_usage  # noqa: E402
 
 CACHE_PATH = Path.home() / ".cache" / "asahi" / "ccu.json"
@@ -38,12 +42,67 @@ LAST_TTL_SEC = 20
 
 CLAUDE_USAGE = "https://claude.ai/settings/usage"
 GROK_USAGE = "https://grok.com/?_s=usage"
+CURSOR_USAGE = "https://cursor.com/dashboard"
 
 EXTRA_BIN_DIRS = (
   Path.home() / ".local" / "bin",
   Path.home() / ".grok" / "bin",
   Path("/usr/bin"),
   Path("/usr/local/bin"),
+)
+
+WEEK_SEC = 7 * 24 * 60 * 60
+NO_WEEKLY = "Weekly limit unavailable"
+MONTH_NAMES = (
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+)
+DOW = ("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+SPARK = ("▁", "▂", "▃", "▄", "▅", "▆", "▇", "█")
+EXTRA_MAX = 3
+
+CATEGORY_COLORS = {
+  "Chat": "blue",
+  "Grok Build": "mauve",
+  "API": "green",
+  "Imagine": "pink",
+  "Voice": "yellow",
+}
+CATEGORY_FALLBACK = ("sky", "teal", "peach", "lavender", "maroon")
+
+PROVIDER_DEFS = (
+  {
+    "id": "grok",
+    "label": "Grok",
+    "accent": "teal",
+    "bin": "grok",
+    "bar": True,
+    "url": GROK_USAGE,
+  },
+  {
+    "id": "cursor",
+    "label": "Cursor",
+    "accent": "mauve",
+    "detect": "cursor",
+    "bar": True,
+    "url": CURSOR_USAGE,
+  },
+  {
+    "id": "claude",
+    "label": "Claude",
+    "accent": "peach",
+    "bin": "claude",
+    "bar": False,
+    "url": CLAUDE_USAGE,
+  },
+  {
+    "id": "codex",
+    "label": "Codex",
+    "accent": "sky",
+    "bin": "codex",
+    "bar": False,
+    "url": "",
+  },
 )
 
 
@@ -55,6 +114,45 @@ def has_bin(name: str) -> bool:
     if candidate.is_file() and os.access(candidate, os.X_OK):
       return True
   return False
+
+
+def path_exists(path: Path) -> bool:
+  try:
+    return path.exists()
+  except OSError:
+    return False
+
+
+def has_cursor() -> bool:
+  home = Path.home()
+  return (
+    has_bin("cursor")
+    or has_bin("cursor-agent")
+    or path_exists(Path("/Applications/Cursor.app"))
+    or path_exists(home / "Library" / "Application Support" / "Cursor")
+    or path_exists(home / ".config" / "cursor" / "auth.json")
+    or path_exists(home / ".config" / "Cursor")
+    or path_exists(home / ".cursor")
+  )
+
+
+def detected_providers() -> list[dict[str, Any]]:
+  out: list[dict[str, Any]] = []
+  for spec in PROVIDER_DEFS:
+    if spec.get("detect") == "cursor":
+      ok = has_cursor()
+    elif spec.get("bin"):
+      ok = has_bin(str(spec["bin"]))
+    else:
+      ok = False
+    if ok:
+      out.append(dict(spec))
+  return out
+
+
+def bar_providers(providers: list[dict[str, Any]]) -> list[dict[str, Any]]:
+  bars = [p for p in providers if p.get("bar")]
+  return bars if bars else list(providers)
 
 
 def load_cache() -> dict[str, Any]:
@@ -81,21 +179,6 @@ def pick_provider(fresh: dict[str, Any] | None, cached: dict[str, Any] | None) -
   return fresh or cached
 
 
-def grok_title(period_type: Any) -> str:
-  if isinstance(period_type, str) and "MONTHLY" in period_type:
-    return "Grok (30d)"
-  return "Grok (7d)"
-
-
-def short_reset(s: Any) -> str:
-  if not s or not isinstance(s, str):
-    return ""
-  m = re.search(r"\d{4}-(\d{2})-(\d{2}) (\d{2}:\d{2})", s)
-  if m:
-    return f"{m.group(2)}.{m.group(1)}. {m.group(3)}"
-  return s
-
-
 def num(v: Any) -> float | None:
   if v is None or isinstance(v, bool):
     return None
@@ -108,7 +191,7 @@ def num(v: Any) -> float | None:
 def tidy_error(msg: Any) -> str:
   one = " ".join(str(msg).split())
   low = one.lower()
-  if any(s in one for s in ("http_401", "http_403", "no_oauth", "missing_auth", "invalid_auth")):
+  if any(s in one for s in ("http_401", "http_403", "no_oauth", "missing_auth", "invalid_auth", "no_auth")):
     return "auth_error"
   if "http_429" in one or "rate_limit" in low:
     return "rate_limited"
@@ -123,94 +206,351 @@ def tidy_error(msg: Any) -> str:
   return one
 
 
-def fmt_tokens(n: Any) -> str:
-  n = float(n or 0)
-  if n >= 1e6:
-    return f"{n / 1e6:.1f}M"
-  if n >= 1e3:
-    return f"{n / 1e3:.0f}k"
-  return f"{n:.0f}"
+def clamp(value: float, lo: float, hi: float) -> float:
+  return lo if value < lo else hi if value > hi else value
 
 
-def fmt_usd(u: Any) -> str:
-  u = float(u or 0)
-  if u >= 1000:
-    return f"${u / 1000:.1f}k"
-  if u >= 100:
-    return f"${u:.0f}"
-  return f"${u:.2f}"
+def weekly(used: Any, reset: Any = 0, span: Any = None) -> dict[str, Any] | None:
+  if used is None:
+    return None
+  u = clamp(num(used) or 0.0, 0.0, 1.0)
+  s = num(span)
+  if s is None or s <= 0:
+    s = float(WEEK_SEC)
+  return {
+    "used": u,
+    "remaining": 1.0 - u,
+    "reset": int(num(reset) or 0),
+    "span": s,
+  }
 
 
-def money_tok(usd: Any, tokens: Any) -> str:
-  return f"{fmt_usd(usd)} · {fmt_tokens(tokens)}"
-
-
-def remaining_label(remaining: float | None, used: float | None, reset: str, active: bool) -> str:
-  if remaining is None and used is None:
-    return "—"
-  if used is not None and used > 100:
-    text = f"{used:.0f}% used"
-  elif remaining is not None:
-    text = f"{remaining:.0f}%"
-  else:
-    text = f"{used:.0f}%"
-  if reset:
-    text += f"  {reset}"
-  if active:
-    text += " [active]"
-  return text
-
-
-def window_row(wid: str, title: str, block: dict[str, Any] | None) -> dict[str, Any] | None:
+def from_helper_window(block: Any) -> dict[str, Any] | None:
   if not isinstance(block, dict):
     return None
   used = num(block.get("used"))
-  remaining = num(block.get("remaining"))
-  if used is None and remaining is None:
+  if used is None:
+    used = num(block.get("utilization"))
+  if used is None:
     return None
-  if used is None and remaining is not None:
-    used = max(0.0, 100.0 - remaining)
-  if remaining is None and used is not None:
-    remaining = max(0.0, 100.0 - used)
-  reset = str(block.get("reset_text") or "")
-  label = block.get("label")
-  kind = block.get("kind")
-  model = block.get("model")
-  if kind == "weekly_scoped" or (label and label not in ("Session", "Weekly")):
-    if model and model not in ("", "Scoped"):
-      title = f"Weekly {model}"
-  return {
-    "id": wid,
-    "kind": "quota",
-    "title": title,
-    "used": used,
-    "remaining": remaining,
-    "percent": remaining,
-    "no_bar": False,
-    "accent": wid,
-    "reset": reset,
-    "active": block.get("active") is True,
-    "label": remaining_label(remaining, used, reset, block.get("active") is True),
-    "error": None,
-  }
+  reset = num(block.get("reset_unix"))
+  if reset is None:
+    reset = iso_to_unix(block.get("resets_at"))
+  span = num(block.get("span_sec"))
+  if span is None:
+    start = num(block.get("period_start_unix"))
+    if start is None:
+      start = iso_to_unix(block.get("period_start"))
+    if start is not None and reset is not None and reset > start:
+      span = reset - start
+  return weekly(used / 100.0, reset, span)
 
 
-def error_row(wid: str, title: str, error: str) -> dict[str, Any]:
-  short = tidy_error(error)
-  return {
-    "id": wid,
-    "kind": "quota",
-    "title": title,
-    "used": None,
-    "remaining": None,
-    "percent": 0,
-    "no_bar": False,
-    "accent": wid,
-    "reset": "",
-    "active": False,
-    "label": short,
-    "error": short,
-  }
+def is_extra(label: Any) -> bool:
+  return str(label or "").lower()[:6] != "weekly"
+
+
+def extra_label(lim: Any) -> str:
+  if not isinstance(lim, dict):
+    return "Limit"
+  kind = str(lim.get("kind") or "")
+  if kind == "session":
+    return "Session (5-hour)"
+  label = str(lim.get("label") or "Limit") or "Limit"
+  lower = label.lower()
+  if "weekly" in kind and "weekly" not in lower:
+    return f"{label} Weekly"
+  return label
+
+
+def extra_windows(limits: Any) -> list[dict[str, Any]]:
+  out: list[dict[str, Any]] = []
+  if not isinstance(limits, list):
+    return out
+  for lim in limits:
+    if not isinstance(lim, dict) or lim.get("kind") == "weekly_all":
+      continue
+    label = extra_label(lim)
+    if is_extra(label):
+      out.append({"label": label, "weekly": from_helper_window(lim)})
+  return out
+
+
+def percent(value: Any) -> str:
+  n = clamp(num(value) or 0.0, 0.0, 1.0)
+  return f"{int(n * 100 + 0.5)}%"
+
+
+def countdown(reset: Any, now: Any) -> str:
+  reset_n = int(num(reset) or 0)
+  now_n = int(num(now) or 0)
+  if reset_n <= 0 or reset_n <= now_n:
+    return "now"
+  minutes = max(0, (reset_n - now_n) // 60)
+  days = minutes // 1440
+  hours = (minutes % 1440) // 60
+  mins = minutes % 60
+  if days > 0:
+    return f"{days}d {hours}h"
+  if hours > 0:
+    return f"{hours}h {mins}m"
+  return f"{mins}m"
+
+
+def used_line(win: dict[str, Any] | None, now: int) -> str:
+  if not win:
+    return NO_WEEKLY
+  return f"{percent(win['used'])} used · resets in {countdown(win['reset'], now)}"
+
+
+def extra_line(win: dict[str, Any] | None, now: int) -> str:
+  if not win:
+    return "—"
+  return f"{percent(win['used'])} used · {countdown(win['reset'], now)}"
+
+
+def clock_short(unix: Any) -> str:
+  t = datetime.fromtimestamp(int(num(unix) or 0))
+  h = t.hour % 12
+  if h == 0:
+    h = 12
+  ampm = "PM" if t.hour >= 12 else "AM"
+  return f"{h}:{t.minute:02d} {ampm}"
+
+
+def date_short(unix: Any) -> str:
+  t = datetime.fromtimestamp(int(num(unix) or 0))
+  return f"{MONTH_NAMES[t.month - 1]} {t.day}"
+
+
+def date_long(unix: Any) -> str:
+  t = datetime.fromtimestamp(int(num(unix) or 0))
+  return f"{MONTH_NAMES[t.month - 1]} {t.day}, {t.year}"
+
+
+def window_name(span: Any) -> str:
+  s = num(span)
+  if s is None:
+    s = float(WEEK_SEC)
+  if 6 * 86400 <= s <= 8 * 86400:
+    return "weekly"
+  if 27 * 86400 <= s <= 32 * 86400:
+    return "monthly"
+  return "period"
+
+
+def usage_line(win: dict[str, Any] | None) -> str:
+  if not win:
+    return NO_WEEKLY
+  return f"{percent(win['used'])} of {window_name(win.get('span'))} limit used"
+
+
+def reset_line(win: dict[str, Any] | None, now: int) -> str:
+  if not win or int(num(win.get("reset")) or 0) <= 0:
+    return ""
+  return f"Resets {date_short(win['reset'])}, {clock_short(win['reset'])} · {countdown(win['reset'], now)}"
+
+
+def renews_line(unix: Any, cancels: Any = False) -> str:
+  ts = int(num(unix) or 0)
+  if ts <= 0:
+    return ""
+  return f"{'Ends' if cancels else 'Renews'} {date_long(ts)}"
+
+
+def category_color(label: str, index: int) -> str:
+  if label in CATEGORY_COLORS:
+    return CATEGORY_COLORS[label]
+  return CATEGORY_FALLBACK[(index - 1) % len(CATEGORY_FALLBACK)]
+
+
+def categories(raw: Any) -> list[dict[str, Any]]:
+  out: list[dict[str, Any]] = []
+  if not isinstance(raw, list):
+    return out
+  for item in raw:
+    if not isinstance(item, dict):
+      continue
+    pct = num(item.get("percent"))
+    if pct is None or pct <= 0.05:
+      continue
+    label = str(item.get("label") or "?")
+    frac = clamp(pct / 100.0, 0.0, 1.0)
+    out.append({
+      "label": label,
+      "pct": frac,
+      "percent": category_percent(frac),
+      "color": category_color(label, len(out) + 1),
+    })
+    if len(out) >= 5:
+      break
+  return out
+
+
+def category_percent(frac: Any) -> str:
+  n = int((num(frac) or 0.0) * 100 + 0.5)
+  if n < 1:
+    return "<1%"
+  return f"{n}%"
+
+
+def bar_chip(name: str, win: dict[str, Any] | None, now: int) -> str:
+  if not win:
+    return f"{name} —"
+  return f"{name} {percent(win['used'])} · {countdown(win['reset'], now)}"
+
+
+def strip_point_zero(s: str) -> str:
+  return s[:-2] if s.endswith(".0") else s
+
+
+def token_count(value: Any) -> str:
+  amount = max(0.0, num(value) or 0.0)
+  if amount >= 1e9:
+    digits = 0 if amount >= 1e10 else 1
+    return strip_point_zero(f"{amount / 1e9:.{digits}f}") + "B"
+  if amount >= 1e6:
+    digits = 0 if amount >= 1e8 else 1
+    return strip_point_zero(f"{amount / 1e6:.{digits}f}") + "M"
+  if amount >= 1e3:
+    digits = 0 if amount >= 1e5 else 1
+    return strip_point_zero(f"{amount / 1e3:.{digits}f}") + "K"
+  return f"{amount:.0f}"
+
+
+def usd(u: Any) -> str:
+  n = num(u) or 0.0
+  if n >= 1000:
+    return f"${n / 1000:.1f}k"
+  if n >= 100:
+    return f"${n:.0f}"
+  return f"${n:.2f}"
+
+
+def stat_line(label: str, tokens: Any, cost: Any) -> str:
+  if tokens is None and cost is None:
+    return f"{label} · —"
+  s = f"{label} · {token_count(tokens or 0)}"
+  if cost is not None:
+    s += f" · {usd(cost)}"
+  return s
+
+
+def total_line(tokens: Any, cost: Any) -> str:
+  return stat_line("All time", tokens, cost)
+
+
+def days30_line(tokens: Any, cost: Any) -> str:
+  return stat_line("30d", tokens, cost)
+
+
+def week_line(tokens: Any, cost: Any) -> str:
+  return stat_line("7d", tokens, cost)
+
+
+def day_tokens(day: Any) -> float:
+  if not isinstance(day, dict):
+    return 0.0
+  n = num(day.get("tokens"))
+  if n is None:
+    n = num(day.get("messageCount"))
+  return max(0.0, n or 0.0)
+
+
+def last_7_days(days: Any, now: int) -> list[dict[str, Any]]:
+  today = datetime.fromtimestamp(now).replace(hour=12, minute=0, second=0, microsecond=0)
+  by_date: dict[str, dict[str, Any]] = {}
+  if isinstance(days, dict):
+    iterable = days.values()
+  else:
+    iterable = days or []
+  for day in iterable:
+    if isinstance(day, dict) and day.get("date"):
+      by_date[str(day["date"])] = day
+  out: list[dict[str, Any]] = []
+  for i in range(1, 8):
+    d = today - timedelta(days=7 - i)
+    key = d.strftime("%Y-%m-%d")
+    src = by_date.get(key)
+    out.append({
+      "date": key,
+      "dow": DOW[int(d.strftime("%w"))],
+      "tokens": day_tokens(src) if src else 0.0,
+      "usd": (num(src.get("usd")) or 0.0) if src else 0.0,
+    })
+  return out
+
+
+def window_sum(days: Any, now: int) -> tuple[float, float]:
+  week = last_7_days(days, now)
+  tok = usd_sum = 0.0
+  for day in week:
+    tok += day["tokens"]
+    usd_sum += num(day.get("usd")) or 0.0
+  return tok, usd_sum
+
+
+def recent_peak(days: list[dict[str, Any]]) -> float:
+  peak = 0.0
+  for day in days:
+    n = day_tokens(day)
+    if n > peak:
+      peak = n
+  return peak
+
+
+def spark_char(height: Any) -> str:
+  h = num(height) or 0.0
+  if h <= 0:
+    return "·"
+  i = int(h * (len(SPARK) - 1) + 1.5)
+  i = 2 if i < 2 else min(i, len(SPARK))
+  return SPARK[i - 1]
+
+
+def chart_days(days: Any, now: int) -> list[dict[str, Any]]:
+  week = last_7_days(days, now)
+  peak = recent_peak(week)
+  cols: list[dict[str, Any]] = []
+  for day in week:
+    tokens = day_tokens(day)
+    height = (tokens / peak) if tokens > 0 and peak > 0 else 0.0
+    cols.append({
+      "date": day["date"],
+      "dow": day["dow"],
+      "tokens": tokens,
+      "usd": day.get("usd") or 0.0,
+      "compact": token_count(tokens),
+      "height": height,
+    })
+  return cols
+
+
+def spend_extra(result: dict[str, Any]) -> dict[str, Any] | None:
+  lim = num(result.get("spend_limit_cents")) or num(result.get("included_spend_cents"))
+  if lim is None or lim <= 0:
+    return None
+  rem = num(result.get("spend_remaining_cents"))
+  if rem is not None:
+    text = f"{usd(max(0.0, lim - rem) / 100.0)} of {usd(lim / 100.0)} used"
+  else:
+    text = f"{usd(lim / 100.0)} included"
+  return {"label": "Usage-based spend", "text": text}
+
+
+def iso_to_unix(s: Any) -> float | None:
+  if not isinstance(s, str) or not s:
+    return None
+  text = s.strip()
+  if text.endswith("Z"):
+    text = text[:-1] + "+00:00"
+  try:
+    dt = datetime.fromisoformat(text)
+  except ValueError:
+    return None
+  if dt.tzinfo is None:
+    dt = dt.replace(tzinfo=timezone.utc)
+  return dt.timestamp()
 
 
 def usage_class(used: float | None, errored: bool) -> str:
@@ -225,56 +565,6 @@ def usage_class(used: float | None, errored: bool) -> str:
   return "normal"
 
 
-def cost_row(
-  wid: str,
-  title: str,
-  accent: str,
-  label: str,
-  percent: float,
-  no_bar: bool = False,
-) -> dict[str, Any]:
-  return {
-    "id": wid,
-    "kind": "cost",
-    "title": title,
-    "used": None,
-    "remaining": None,
-    "percent": percent,
-    "no_bar": no_bar,
-    "accent": accent,
-    "reset": "",
-    "active": False,
-    "label": label,
-    "error": None,
-  }
-
-
-def provider_cost_rows(prov: dict[str, Any], multi: bool) -> list[dict[str, Any]]:
-  pid = str(prov.get("id") or "cli")
-  name = str(prov.get("label") or pid)
-  today = prov.get("today") or {}
-  week = prov.get("week") or {}
-  month = prov.get("month") or {}
-  total = prov.get("total") or {}
-  today_usd = float(today.get("usd") or 0)
-  week_usd = float(week.get("usd") or 0)
-  month_usd = float(month.get("usd") or 0)
-  total_usd = float(total.get("usd") or 0)
-  peak = max(float(week.get("max_day_usd") or 0), today_usd, 0.01)
-  week_pct = (week_usd / max(month_usd, week_usd) * 100) if month_usd > 0 else (100.0 if week_usd > 0 else 0.0)
-  month_pct = (month_usd / total_usd * 100) if total_usd > 0 else (100.0 if month_usd > 0 else 0.0)
-  t_today = f"{name} today" if multi else "Today"
-  t_week = f"{name} 7d" if multi else "Past 7d"
-  t_month = f"{name} mo" if multi else "Month"
-  t_total = f"{name} total" if multi else "All time"
-  return [
-    cost_row(f"{pid}_today", t_today, "today", money_tok(today_usd, today.get("tokens")), (today_usd / peak) * 100),
-    cost_row(f"{pid}_week", t_week, "week", money_tok(week_usd, week.get("tokens")), week_pct),
-    cost_row(f"{pid}_month", t_month, "month", money_tok(month_usd, month.get("tokens")), month_pct),
-    cost_row(f"{pid}_total", t_total, "total", money_tok(total_usd, total.get("tokens")), 0, no_bar=True),
-  ]
-
-
 def call_helper(fetch) -> dict[str, Any]:
   try:
     result = fetch()
@@ -283,203 +573,417 @@ def call_helper(fetch) -> dict[str, Any]:
   return result if isinstance(result, dict) else {"error": "invalid_response"}
 
 
+def cost_block(block: Any) -> dict[str, Any] | None:
+  if not isinstance(block, dict):
+    return None
+  tokens = num(block.get("tokens"))
+  cost = num(block.get("usd"))
+  if tokens is None and cost is None:
+    return None
+  return {"tokens": tokens or 0.0, "usd": cost or 0.0, **{
+    k: block[k] for k in ("date", "start", "week_end") if k in block
+  }}
+
+
+def ident_text(email: Any, renews_unix: Any, cancels: Any) -> str:
+  parts: list[str] = []
+  if isinstance(email, str) and email:
+    parts.append(email)
+  renews = renews_line(renews_unix, cancels is True)
+  if renews:
+    parts.append(renews)
+  return " · ".join(parts)
+
+
+def extra_payload(items: list[dict[str, Any]], now: int) -> list[dict[str, Any]]:
+  out: list[dict[str, Any]] = []
+  for item in items[:EXTRA_MAX]:
+    text = item.get("text")
+    if not text:
+      text = extra_line(item.get("weekly"), now)
+    out.append({"label": item.get("label") or "Limit", "text": text})
+  return out
+
+
+def limit_entry(title: str, win: dict[str, Any] | None, now: int, error: str | None = None) -> dict[str, Any]:
+  used = None if win is None else win["used"] * 100.0
+  return {
+    "title": title,
+    "percent": None if used is None else used / 100.0,
+    "used": used,
+    "reset": "" if win is None else reset_line(win, now),
+    "label": "" if win is None else extra_line(win, now),
+    "error": error,
+  }
+
+
+def grok_state(result: dict[str, Any] | None) -> dict[str, Any]:
+  st: dict[str, Any] = {
+    "weekly": None,
+    "cats": [],
+    "tier": None,
+    "email": None,
+    "renews_unix": None,
+    "cancels": False,
+    "extras": [],
+    "status": None,
+  }
+  if not result:
+    st["status"] = "unavailable"
+    return st
+  if result.get("error"):
+    st["status"] = tidy_error(result["error"])
+    return st
+  used = num(result.get("utilization"))
+  reset = num(result.get("reset_unix"))
+  if reset is None:
+    reset = iso_to_unix(result.get("resets_at"))
+  span = num(result.get("span_sec"))
+  if span is None:
+    start = num(result.get("period_start_unix")) or iso_to_unix(result.get("period_start"))
+    if start is not None and reset is not None and reset > start:
+      span = reset - start
+  st["weekly"] = weekly(None if used is None else used / 100.0, reset, span)
+  st["cats"] = categories(result.get("categories"))
+  tier = result.get("tier")
+  st["tier"] = tier if isinstance(tier, str) and tier else None
+  email = result.get("email")
+  st["email"] = email if isinstance(email, str) and email else None
+  st["renews_unix"] = num(result.get("renews_unix"))
+  st["cancels"] = result.get("cancels") is True
+  return st
+
+
+def cursor_state(result: dict[str, Any] | None) -> dict[str, Any]:
+  st: dict[str, Any] = {
+    "weekly": None,
+    "cats": [],
+    "tier": None,
+    "email": None,
+    "renews_unix": None,
+    "cancels": False,
+    "extras": [],
+    "status": None,
+  }
+  if not result:
+    st["status"] = "unavailable"
+    return st
+  if result.get("error"):
+    st["status"] = tidy_error(result["error"])
+    return st
+  st["weekly"] = from_helper_window({
+    "utilization": result.get("utilization"),
+    "reset_unix": result.get("reset_unix"),
+    "span_sec": result.get("span_sec"),
+    "period_start_unix": result.get("period_start_unix"),
+  })
+  extras = extra_windows(result.get("limits"))
+  spend = spend_extra(result)
+  if spend and len(extras) < EXTRA_MAX:
+    extras.append(spend)
+  st["extras"] = extras
+  plan = result.get("plan")
+  st["tier"] = plan if isinstance(plan, str) and plan else None
+  email = result.get("email")
+  st["email"] = email if isinstance(email, str) and email else None
+  return st
+
+
+def claude_state(result: dict[str, Any] | None) -> dict[str, Any]:
+  st: dict[str, Any] = {
+    "weekly": None,
+    "cats": [],
+    "tier": None,
+    "email": None,
+    "renews_unix": None,
+    "cancels": False,
+    "extras": [],
+    "status": None,
+  }
+  if not result:
+    st["status"] = "unavailable"
+    return st
+  if result.get("error"):
+    st["status"] = tidy_error(result["error"])
+    return st
+  st["weekly"] = from_helper_window(result.get("weekly"))
+  extras = extra_windows(result.get("limits"))
+  if not extras:
+    extras = []
+    if result.get("session"):
+      extras.append({
+        "label": extra_label(result["session"]),
+        "weekly": from_helper_window(result["session"]),
+      })
+    if result.get("scoped"):
+      extras.append({
+        "label": extra_label(result["scoped"]),
+        "weekly": from_helper_window(result["scoped"]),
+      })
+  st["extras"] = extras
+  return st
+
+
+def codex_state(_result: dict[str, Any] | None = None) -> dict[str, Any]:
+  return {
+    "weekly": None,
+    "cats": [],
+    "tier": None,
+    "email": None,
+    "renews_unix": None,
+    "cancels": False,
+    "extras": [],
+    "status": None,
+  }
+
+
+def attach_cost(st: dict[str, Any], prov: dict[str, Any] | None) -> None:
+  if not isinstance(prov, dict):
+    return
+  week = prov.get("week") if isinstance(prov.get("week"), dict) else None
+  d30 = prov.get("days30") if isinstance(prov.get("days30"), dict) else None
+  tot = prov.get("total") if isinstance(prov.get("total"), dict) else None
+  today = prov.get("today") if isinstance(prov.get("today"), dict) else None
+  st["week_tokens"] = num(week.get("tokens")) if week else None
+  st["week_usd"] = num(week.get("usd")) if week else None
+  st["days30_tokens"] = num(d30.get("tokens")) if d30 else None
+  st["days30_usd"] = num(d30.get("usd")) if d30 else None
+  st["total_tokens"] = num(tot.get("tokens")) if tot else None
+  st["total_usd"] = num(tot.get("usd")) if tot else None
+  st["today"] = today
+  st["week"] = week
+  st["total"] = tot
+  days = prov.get("weekdays")
+  st["days"] = days if isinstance(days, list) else []
+
+
+def serialize_card(spec: dict[str, Any], st: dict[str, Any], now: int) -> dict[str, Any]:
+  win = st.get("weekly")
+  tier = st.get("tier") if isinstance(st.get("tier"), str) and st.get("tier") else None
+  ident = ident_text(st.get("email"), st.get("renews_unix"), st.get("cancels"))
+  if tier:
+    head = tier
+  elif win:
+    head = used_line(win, now)
+  else:
+    head = st.get("status") or NO_WEEKLY
+  cats = st.get("cats") or []
+  extras = extra_payload(st.get("extras") or [], now)
+  has_days = bool(st.get("days"))
+  has_totals = st.get("total_tokens") is not None or st.get("days30_tokens") is not None
+  wtok, wusd = st.get("week_tokens"), st.get("week_usd")
+  if wtok is None and has_days:
+    wtok, wusd = window_sum(st.get("days") or [], now)
+    if not wusd:
+      wusd = None
+  chart = chart_days(st.get("days") or [], now) if has_days else []
+  used100 = None if win is None else round(win["used"] * 100.0, 1)
+  limits = []
+  if win is not None:
+    limits.append(limit_entry(
+      f"{window_name(win.get('span')).title()} limit",
+      win,
+      now,
+    ))
+  for extra in (st.get("extras") or [])[:EXTRA_MAX]:
+    if extra.get("weekly"):
+      limits.append(limit_entry(str(extra.get("label") or "Limit"), extra["weekly"], now))
+  return {
+    "id": spec["id"],
+    "name": spec["label"],
+    "accent": spec["accent"],
+    "bar": bool(spec.get("bar")),
+    "url": spec.get("url") or "",
+    "tier": tier,
+    "email": st.get("email"),
+    "ident": ident,
+    "head": head,
+    "usage_line": usage_line(win) if (win is not None and tier) else "",
+    "reset_line": reset_line(win, now) if (win is not None and tier) else "",
+    "chip": bar_chip(spec["label"], win, now),
+    "used": used100,
+    "status": st.get("status"),
+    "error": st.get("status") if win is None else None,
+    "categories": cats,
+    "extras": extras,
+    "total_line": total_line(st.get("total_tokens"), st.get("total_usd")) if has_totals or has_days else "",
+    "days30_line": days30_line(st.get("days30_tokens"), st.get("days30_usd")) if has_totals or has_days else "",
+    "week_line": week_line(wtok, wusd) if has_totals or has_days else "",
+    "has_stats": has_totals or has_days,
+    "chart": chart,
+    "limits": limits,
+    "today": cost_block(st.get("today")),
+    "week": cost_block(st.get("week")),
+    "total": cost_block(st.get("total")),
+  }
+
+
+def empty_payload(error: str | None = None) -> dict[str, Any]:
+  return {
+    "text": "CCu",
+    "tooltip": "",
+    "class": "normal",
+    "percentage": None,
+    "visible": False,
+    "error": error,
+    "rows": [],
+    "links": [],
+    "overview": [],
+    "chips": [],
+    "chip_chars": 0,
+  }
+
+
 def build() -> dict[str, Any]:
-  want_claude = has_bin("claude")
-  want_grok = has_bin("grok")
-  want_codex = has_bin("codex")
-  if not want_claude and not want_grok and not want_codex:
-    return {
-      "text": "CCu",
-      "tooltip": "",
-      "class": "normal",
-      "percentage": None,
-      "visible": False,
-      "error": None,
-      "rows": [],
-      "links": [],
-      "overview": [],
-    }
+  providers = detected_providers()
+  if not providers:
+    return empty_payload()
+
+  ids = {p["id"] for p in providers}
+  want_claude = "claude" in ids
+  want_grok = "grok" in ids
+  want_cursor = "cursor" in ids
+  want_codex = "codex" in ids
 
   cache = load_cache()
   cached_claude = cache.get("claude") if isinstance(cache.get("claude"), dict) else None
   cached_grok = cache.get("grok") if isinstance(cache.get("grok"), dict) else None
+  cached_cursor = cache.get("cursor") if isinstance(cache.get("cursor"), dict) else None
 
   fresh_claude: dict[str, Any] | None = None
   fresh_grok: dict[str, Any] | None = None
+  fresh_cursor: dict[str, Any] | None = None
   fresh_cost: dict[str, Any] | None = None
-  with ThreadPoolExecutor(max_workers=3) as pool:
+  with ThreadPoolExecutor(max_workers=4) as pool:
     fut_c = pool.submit(call_helper, claude_usage.fetch_usage) if want_claude else None
     fut_g = pool.submit(call_helper, grok_usage.fetch_usage) if want_grok else None
+    fut_u = pool.submit(call_helper, cursor_usage.fetch_usage) if want_cursor else None
     fut_cost = pool.submit(call_helper, ccu_cost.fetch_cost)
     if fut_c is not None:
       fresh_claude = fut_c.result()
     if fut_g is not None:
       fresh_grok = fut_g.result()
+    if fut_u is not None:
+      fresh_cursor = fut_u.result()
     fresh_cost = fut_cost.result()
 
   claude = pick_provider(fresh_claude, cached_claude) if want_claude else None
   grok = pick_provider(fresh_grok, cached_grok) if want_grok else None
+  cursor = pick_provider(fresh_cursor, cached_cursor) if want_cursor else None
 
   parts: dict[str, Any] = {}
-  if claude and not claude.get("error"):
-    parts["claude"] = claude
-  elif cached_claude and not cached_claude.get("error"):
-    parts["claude"] = cached_claude
-  if grok and not grok.get("error"):
-    parts["grok"] = grok
-  elif cached_grok and not cached_grok.get("error"):
-    parts["grok"] = cached_grok
+  for key, val, cached in (
+    ("claude", claude, cached_claude),
+    ("grok", grok, cached_grok),
+    ("cursor", cursor, cached_cursor),
+  ):
+    if val and not val.get("error"):
+      parts[key] = val
+    elif cached and not cached.get("error"):
+      parts[key] = cached
   if parts:
     save_cache(parts)
 
-  rows: list[dict[str, Any]] = []
-  used_vals: list[float] = []
-  claude_errors: list[dict[str, Any]] = []
-
-  if want_claude:
-    session = window_row("session", "Session (5h)", (claude or {}).get("session") if claude else None)
-    weekly = window_row("weekly", "Week (7d)", (claude or {}).get("weekly") if claude else None)
-    claude_err = (fresh_claude or {}).get("error") if fresh_claude and fresh_claude.get("error") and session is None else None
-    if session:
-      rows.append(session)
-      if session["used"] is not None:
-        used_vals.append(session["used"])
-    elif claude_err:
-      claude_errors.append(error_row("session", "Session (5h)", str(claude_err)))
-    if weekly:
-      rows.append(weekly)
-      if weekly["used"] is not None:
-        used_vals.append(weekly["used"])
-
-  if want_grok:
-    grok_err = (fresh_grok or {}).get("error") if fresh_grok else None
-    grok_used = num((grok or {}).get("utilization")) if grok else None
-    grok_rem = num((grok or {}).get("remaining")) if grok else None
-    if grok_used is None and grok_rem is not None:
-      grok_used = max(0.0, 100.0 - grok_rem)
-    if grok_rem is None and grok_used is not None:
-      grok_rem = max(0.0, 100.0 - grok_used)
-    if grok_used is not None:
-      title = grok_title((grok or {}).get("period_type"))
-      reset = short_reset((grok or {}).get("resets_at_de") or (grok or {}).get("resets_at"))
-      rows.append({
-        "id": "grok",
-        "kind": "quota",
-        "title": title,
-        "used": grok_used,
-        "remaining": grok_rem,
-        "percent": grok_rem,
-        "no_bar": False,
-        "accent": "grok",
-        "reset": reset,
-        "active": False,
-        "label": remaining_label(grok_rem, grok_used, reset, False),
-        "error": None,
-      })
-      used_vals.append(grok_used)
-    elif grok_err:
-      rows.append(error_row("grok", "Grok (7d)", str(grok_err)))
-
-  if not used_vals:
-    rows[0:0] = claude_errors
-
-  cost_providers = []
+  cost_by_id: dict[str, Any] = {}
   if isinstance(fresh_cost, dict) and not fresh_cost.get("error"):
     raw_list = fresh_cost.get("providers") or []
     if isinstance(raw_list, list):
-      cost_providers = [p for p in raw_list if isinstance(p, dict) and p.get("id")]
-  if cost_providers:
-    if rows:
-      who = (cost_providers[0].get("label") + " · ") if len(cost_providers) == 1 else ""
-      rows.append({
-        "id": "div",
-        "kind": "div",
-        "title": f"── {who}API cost & tokens ──",
-        "used": None,
-        "remaining": None,
-        "percent": 0,
-        "no_bar": True,
-        "accent": "div",
-        "reset": "",
-        "active": False,
-        "label": "",
-        "error": None,
-      })
-    multi = len(cost_providers) > 1
-    for prov in cost_providers:
-      rows.extend(provider_cost_rows(prov, multi))
-  elif isinstance(fresh_cost, dict) and fresh_cost.get("error") and (want_grok or want_claude or want_codex):
-    rows.append(error_row("cost", "API cost", str(fresh_cost.get("error"))))
+      for prov in raw_list:
+        if isinstance(prov, dict) and prov.get("id"):
+          cost_by_id[str(prov["id"])] = prov
 
+  now = int(time.time())
+  builders = {
+    "grok": lambda: grok_state(grok),
+    "cursor": lambda: cursor_state(cursor),
+    "claude": lambda: claude_state(claude),
+    "codex": lambda: codex_state(),
+  }
+
+  overview: list[dict[str, Any]] = []
+  for spec in providers:
+    st = builders[spec["id"]]()
+    attach_cost(st, cost_by_id.get(spec["id"]))
+    if spec["id"] == "claude" and st.get("weekly") is None and fresh_claude and fresh_claude.get("error"):
+      if not st.get("status"):
+        st["status"] = tidy_error(fresh_claude["error"])
+    if spec["id"] == "grok" and st.get("weekly") is None and fresh_grok and fresh_grok.get("error"):
+      if not st.get("status"):
+        st["status"] = tidy_error(fresh_grok["error"])
+    if spec["id"] == "cursor" and st.get("weekly") is None and fresh_cursor and fresh_cursor.get("error"):
+      if not st.get("status"):
+        st["status"] = tidy_error(fresh_cursor["error"])
+    overview.append(serialize_card(spec, st, now))
+
+  bars = bar_providers(providers)
+  chips = []
+  for spec in bars:
+    card = next((c for c in overview if c["id"] == spec["id"]), None)
+    if card:
+      chips.append({
+        "id": card["id"],
+        "label": card["name"],
+        "text": card["chip"],
+        "used": card["used"],
+        "accent": card["accent"],
+      })
+
+  used_vals = [c["used"] for c in chips if c.get("used") is not None]
   max_used = max(used_vals) if used_vals else None
+
   stale_only = False
   if want_claude and fresh_claude and fresh_claude.get("error") and claude and not claude.get("error"):
     stale_only = True
   if want_grok and fresh_grok and fresh_grok.get("error") and grok and not grok.get("error"):
     stale_only = True
+  if want_cursor and fresh_cursor and fresh_cursor.get("error") and cursor and not cursor.get("error"):
+    stale_only = True
+
   fresh_err = None
-  if want_claude and fresh_claude and fresh_claude.get("error"):
-    fresh_err = tidy_error(fresh_claude["error"])
-  if want_grok and fresh_grok and fresh_grok.get("error"):
-    grok_short = tidy_error(fresh_grok["error"])
-    fresh_err = grok_short if fresh_err is None else fresh_err
+  for fresh in (fresh_claude, fresh_grok, fresh_cursor):
+    if fresh and fresh.get("error"):
+      fresh_err = tidy_error(fresh["error"])
+      break
 
   errored = max_used is None and bool(fresh_err) and not stale_only
-  if max_used is None:
-    text = "CCu ?" if errored else "CCu"
-  else:
-    text = f"CCu {max_used:.0f}%"
+  text = chips[0]["text"] if chips else ("CCu ?" if errored else "CCu")
 
-  tooltip_lines = [
-    f"{row['title']}  {row['label']}".rstrip()
-    for row in rows
-    if row.get("kind") != "div"
-  ]
+  tooltip_lines: list[str] = []
+  for card in overview:
+    line = f"{card['name']}  {card['head']}".rstrip()
+    if card.get("usage_line"):
+      line = f"{card['name']}  {card['usage_line']}"
+      if card.get("reset_line"):
+        line += f"  {card['reset_line']}"
+    tooltip_lines.append(line)
+    for extra in card.get("extras") or []:
+      tooltip_lines.append(f"  {extra.get('label')}  {extra.get('text')}")
+    if card.get("has_stats"):
+      tooltip_lines.append(f"  {card.get('total_line')}  {card.get('days30_line')}  {card.get('week_line')}")
   if stale_only and fresh_err:
     tooltip_lines.append(f"(cached; {fresh_err})")
 
   links = []
-  if want_claude:
-    links.append({"id": "claude", "title": "Claude", "url": CLAUDE_USAGE})
-  if want_grok:
-    links.append({"id": "grok", "title": "Grok", "url": GROK_USAGE})
+  for spec in providers:
+    if spec.get("url"):
+      links.append({"id": spec["id"], "title": spec["label"], "url": spec["url"]})
 
-  cost_by_id = {str(p.get("id")): p for p in cost_providers}
-
-  def overview_entry(pid: str, name: str, quota: list[dict[str, Any]], url: str) -> dict[str, Any]:
-    cost = cost_by_id.get(pid)
-    limits = []
-    for row in quota:
-      if not row or row.get("kind") != "quota":
-        continue
-      used = row.get("used")
-      limits.append({
-        "title": row.get("title") or pid,
-        "percent": (used / 100.0) if used is not None else None,
-        "used": used,
-        "reset": row.get("reset") or "",
-        "label": row.get("label") or "",
-        "error": row.get("error"),
-      })
-    return {
-      "id": pid,
-      "name": name,
-      "limits": limits,
-      "today": cost.get("today") if isinstance(cost, dict) else None,
-      "week": cost.get("week") if isinstance(cost, dict) else None,
-      "total": cost.get("total") if isinstance(cost, dict) else None,
-      "url": url,
-    }
-
-  overview: list[dict[str, Any]] = []
-  if want_claude:
-    claude_quota = [r for r in rows if r.get("id") in ("session", "weekly")]
-    overview.append(overview_entry("claude", "Claude", claude_quota, CLAUDE_USAGE))
-  if want_grok:
-    grok_quota = [r for r in rows if r.get("id") == "grok"]
-    overview.append(overview_entry("grok", "Grok", grok_quota, GROK_USAGE))
-  if want_codex:
-    overview.append(overview_entry("codex", "Codex", [], ""))
+  rows = []
+  for card in overview:
+    rows.append({
+      "id": card["id"],
+      "kind": "quota",
+      "title": card["name"],
+      "used": card["used"],
+      "remaining": None if card["used"] is None else max(0.0, 100.0 - card["used"]),
+      "percent": None if card["used"] is None else max(0.0, 100.0 - card["used"]),
+      "no_bar": False,
+      "accent": card["id"],
+      "reset": card.get("reset_line") or "",
+      "active": False,
+      "label": card.get("usage_line") or card.get("head") or "",
+      "error": card.get("error"),
+    })
 
   return {
     "text": text,
@@ -491,6 +995,8 @@ def build() -> dict[str, Any]:
     "rows": rows,
     "links": links,
     "overview": overview,
+    "chips": chips,
+    "chip_chars": max((len(c["text"]) for c in chips), default=0),
   }
 
 
