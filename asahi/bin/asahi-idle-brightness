@@ -88,8 +88,14 @@ case "$action" in
       fi
     done
     if device="$(keyboard_device)"; then
-      save_device keyboard "$device"
-      set_device "$device" 10%
+      # Only ever lower the keyboard backlight. An absolute 10% target
+      # would BRIGHTEN a keyboard already below it (or off) on idle.
+      cur=$(brightnessctl --device="$device" get 2>/dev/null || echo "")
+      max=$(brightnessctl --device="$device" max 2>/dev/null || echo "")
+      if [ -n "$cur" ] && [ -n "$max" ] && [ "$cur" -gt $(( max / 10 )) ]; then
+        save_device keyboard "$device"
+        set_device "$device" $(( max / 10 ))
+      fi
     fi
     ;;
   off)

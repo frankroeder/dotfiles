@@ -12,6 +12,7 @@ import Quickshell.Bluetooth
 import Quickshell.Services.Mpris
 import "../../"
 import "Data.js" as Data
+import "dictcc-core.mjs" as DictCC
 import "launcher_layout.js" as LauncherGeom
 import "hub_logo.js" as HubLogo
 import "temp_display.js" as TempDisplay
@@ -34,6 +35,8 @@ Scope {
   property string dictCopyLang: ""
   property string dictError: ""
   property var dictItems: []
+  property var dictXhr: null
+  readonly property var dictDefaults: ({ sourceLanguage: "de", targetLanguage: "en" })
   property int fileVersion: 0
   property string fileStatus: ""
   property string filePendingTerm: ""
@@ -1811,6 +1814,55 @@ Scope {
     property bool showPasswordPrompt: false
     property string pendingSsid: ""
 
+    // Saved wifi profile names (known-network grouping, omarchy-style).
+    property var savedWifi: ({})
+
+    // Live throughput of the active device + connection quality (rolling
+    // router/internet ping, packet loss) while the panel is open.
+    property real netRxRate: 0
+    property real netTxRate: 0
+    property real prevRxBytes: -1
+    property real prevTxBytes: -1
+    property real prevSampleMs: 0
+    property string statsDevice: ""
+    property var routerPings: []
+    property var netPings: []
+
+    function fmtRate(bps) {
+      if (bps < 1024) return Math.round(bps) + " B/s"
+      if (bps < 1048576) return (bps / 1024).toFixed(1) + " KB/s"
+      return (bps / 1048576).toFixed(1) + " MB/s"
+    }
+    function pingAvg(samples) {
+      let total = 0, count = 0
+      for (let i = 0; i < samples.length; i++) {
+        if (samples[i] !== null) { total += samples[i]; count++ }
+      }
+      return count > 0 ? total / count : -1
+    }
+    function fmtPing(ms) {
+      if (ms < 0) return "--"
+      return ms.toFixed(ms > 0 && ms < 10 ? 1 : 0) + " ms"
+    }
+    function pingLoss(samples) {
+      if (samples.length === 0) return "--"
+      let lost = 0
+      for (let i = 0; i < samples.length; i++) if (samples[i] === null) lost++
+      return Math.round(lost * 100 / samples.length) + "%"
+    }
+    function sampleThroughput() {
+      const dev = quickNetworkRoot.ethConnected ? quickNetworkRoot.ethDevice : quickNetworkRoot.wifiDevice
+      if (!dev || throughputProc.running) return
+      if (dev !== quickNetworkRoot.statsDevice) {
+        quickNetworkRoot.statsDevice = dev
+        quickNetworkRoot.prevSampleMs = 0
+      }
+      throughputProc.command = ["cat",
+        "/sys/class/net/" + dev + "/statistics/rx_bytes",
+        "/sys/class/net/" + dev + "/statistics/tx_bytes"]
+      throughputProc.running = true
+    }
+
     function notifyNet(title, body) {
       Quickshell.execDetached(["notify-send", "-a", "Network", title, body])
     }
@@ -1874,6 +1926,7 @@ Scope {
       if (typeof wifiPowerCheck !== 'undefined' && wifiPowerCheck) wifiPowerCheck.running = true
       if (typeof ethCheck !== 'undefined' && ethCheck) ethCheck.running = true
       if (typeof activeConnProc !== 'undefined' && activeConnProc) activeConnProc.running = true
+      if (typeof savedWifiProc !== 'undefined' && savedWifiProc && !savedWifiProc.running) savedWifiProc.running = true
     }
 
     Process {
@@ -1906,16 +1959,31 @@ Scope {
             seen[ssid] = true
             const inUse = p[0] === "*"
             const isCurrent = inUse || (ssid === quickNetworkRoot.currentWifiSsid)
-            out.push({ ssid: ssid, signal: parseInt(p[2])||0, sec: p[3]||"", active: isCurrent })
+            out.push({
+              ssid: ssid, signal: parseInt(p[2])||0, sec: p[3]||"", active: isCurrent,
+              known: quickNetworkRoot.savedWifi[ssid] === true
+            })
           }
-          const ai = out.findIndex(n => n.active)
-          if (ai > 0) { const a = out.splice(ai, 1)[0]; out.unshift(a) }
-          const next = out.slice(0, 12)
-          if (next.length === 1 && next[0].active && (quickNetworkRoot.wifiNetworks || []).length > 1) {
-            quickNetworkRoot.wifiNetworks = [next[0]].concat( (quickNetworkRoot.wifiNetworks || []).filter(n => n.ssid !== next[0].ssid) ).slice(0, 12)
-          } else {
-            quickNetworkRoot.wifiNetworks = next
+          // A scan can momentarily report only the active AP; keep the last list.
+          let next = out
+          if (out.length === 1 && out[0].active && (quickNetworkRoot.wifiNetworks || []).length > 1) {
+            next = [out[0]].concat((quickNetworkRoot.wifiNetworks || []).filter(n => n.ssid !== out[0].ssid))
           }
+          // omarchy ordering: connected, then known, then by signal.
+          next.sort(function(a, b) {
+            if (a.active !== b.active) return a.active ? -1 : 1
+            if (a.known !== b.known) return a.known ? -1 : 1
+            return b.signal - a.signal
+          })
+          next = next.slice(0, 20)
+          for (let i = 0; i < next.length; i++) {
+            const curKnown = next[i].active || next[i].known
+            const prevKnown = i > 0 ? (next[i - 1].active || next[i - 1].known) : null
+            next[i].section = ""
+            if (i === 0 && curKnown) next[i].section = "Known networks"
+            else if (!curKnown && (i === 0 || prevKnown)) next[i].section = "Other networks"
+          }
+          quickNetworkRoot.wifiNetworks = next
         }
       }
       stderr: StdioCollector {}
@@ -1992,7 +2060,62 @@ Scope {
       }
     }
 
+    Process {
+      id: savedWifiProc
+      command: ["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show"]
+      stdout: StdioCollector {
+        onStreamFinished: {
+          const map = {}
+          const lines = (text || "").trim().split("\n")
+          for (let i = 0; i < lines.length; i++) {
+            const idx = lines[i].lastIndexOf(":")
+            if (idx < 0) continue
+            if (lines[i].slice(idx + 1) !== "802-11-wireless") continue
+            // nmcli -t escapes ':' in values as '\:'
+            map[lines[i].slice(0, idx).replace(/\\:/g, ":")] = true
+          }
+          quickNetworkRoot.savedWifi = map
+        }
+      }
+    }
+    Process {
+      id: throughputProc
+      command: ["true"]
+      stdout: StdioCollector {
+        onStreamFinished: {
+          const values = (text || "").trim().split(/\s+/)
+          if (values.length < 2) return
+          const now = Date.now()
+          const rx = Number(values[0]); const tx = Number(values[1])
+          const seconds = (now - quickNetworkRoot.prevSampleMs) / 1000
+          if (quickNetworkRoot.prevSampleMs > 0 && seconds > 0) {
+            quickNetworkRoot.netRxRate = Math.max(0, (rx - quickNetworkRoot.prevRxBytes) / seconds)
+            quickNetworkRoot.netTxRate = Math.max(0, (tx - quickNetworkRoot.prevTxBytes) / seconds)
+          }
+          quickNetworkRoot.prevRxBytes = rx
+          quickNetworkRoot.prevTxBytes = tx
+          quickNetworkRoot.prevSampleMs = now
+        }
+      }
+    }
+    Process {
+      id: pingProc
+      command: [root.binDir + "/asahi-net-quality"]
+      stdout: StdioCollector {
+        onStreamFinished: {
+          const p = (text || "").trim().split(/\s+/)
+          if (p.length < 2) return
+          const router = p[0] === "x" ? null : parseFloat(p[0])
+          const inet = p[1] === "x" ? null : parseFloat(p[1])
+          quickNetworkRoot.routerPings = quickNetworkRoot.routerPings.concat([router]).slice(-5)
+          quickNetworkRoot.netPings = quickNetworkRoot.netPings.concat([inet]).slice(-5)
+        }
+      }
+    }
+
     Timer { interval: 6000; running: root.quickDetailActive && root.expandedQuickKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: quickNetworkRoot.scanWifi() }
+    Timer { interval: 1500; running: root.quickDetailActive && root.expandedQuickKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: quickNetworkRoot.sampleThroughput() }
+    Timer { interval: 4000; running: root.quickDetailActive && root.expandedQuickKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: { if (!pingProc.running) pingProc.running = true } }
 
     Component.onCompleted: Qt.callLater(quickNetworkRoot.scanWifi)
 
@@ -2019,6 +2142,23 @@ Scope {
           Text { id: refreshLbl; anchors.centerIn: parent; text: "Refresh"; font.pixelSize: root.fontPx(9); color: Style.menuInk; font.family: root.uiFont }
           MouseArea { id: refreshMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { quickNetworkRoot.scanWifi(); if (ethCheck && !ethCheck.running) ethCheck.running = true } }
         }
+      }
+
+      // Live throughput + connection quality (moved out of the bar widget).
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 12
+        Text { text: "↑ " + quickNetworkRoot.fmtRate(quickNetworkRoot.netTxRate); color: Style.green; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
+        Text { text: "↓ " + quickNetworkRoot.fmtRate(quickNetworkRoot.netRxRate); color: Style.menuIndigo; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
+        Text { text: "Router " + quickNetworkRoot.fmtPing(quickNetworkRoot.pingAvg(quickNetworkRoot.routerPings)); color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
+        Text { text: "Internet " + quickNetworkRoot.fmtPing(quickNetworkRoot.pingAvg(quickNetworkRoot.netPings)); color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
+        Text {
+          readonly property string loss: quickNetworkRoot.pingLoss(quickNetworkRoot.netPings)
+          text: "Loss " + loss
+          color: loss !== "--" && loss !== "0%" ? Style.red : Style.menuInkDeep
+          font.pixelSize: root.fontPx(8); font.family: root.uiFont
+        }
+        Item { Layout.fillWidth: true }
       }
 
       Flickable {
@@ -2149,49 +2289,72 @@ Scope {
             }
           }
 
-          Text { text: "Available networks" + (quickNetworkRoot.wifiScanning ? " (scanning...)" : ""); font.pixelSize: root.fontPx(9); color: Style.menuInkDeep; font.family: root.uiFont }
+          Text { visible: quickNetworkRoot.wifiScanning; text: "Scanning..."; font.pixelSize: root.fontPx(9); color: Style.menuInkDeep; font.family: root.uiFont }
 
           Repeater {
             model: quickNetworkRoot.wifiNetworks || []
-            delegate: Rectangle {
+            delegate: Column {
+              id: netDelegate
               required property var modelData
-              width: netScrollCol.width - 4
-              x: 2
-              height: 36
-              radius: Style.menuRadius
-              color: modelData.active ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.14) : (netMa.containsMouse ? Style.menuRowHi : "transparent")
-              border.color: modelData.active ? Style.menuIndigo : (netMa.containsMouse ? Style.menuSep : "transparent")
-              border.width: 1
-              Row {
-                anchors.fill: parent
-                anchors.leftMargin: 8
-                anchors.rightMargin: 8
-                spacing: 6
-                Text { text: modelData.signal > 75 ? "󰤨" : (modelData.signal > 50 ? "󰤥" : (modelData.signal > 25 ? "󰤢" : "󰤟")); font.family: root.uiFont; font.pixelSize: root.fontPx(12); color: modelData.active ? Style.menuIndigo : Style.menuInkDeep; anchors.verticalCenter: parent.verticalCenter }
-                Column {
-                  width: parent.width - 90
-                  anchors.verticalCenter: parent.verticalCenter
-                  spacing: 1
-                  Text { width: parent.width; text: modelData.ssid; font.family: root.uiFont; font.pixelSize: root.fontPx(9); font.bold: modelData.active; color: modelData.active ? Style.menuIndigo : Style.menuInk; elide: Text.ElideRight }
-                  Text { width: parent.width; text: modelData.active ? "Connected" : (modelData.sec ? "Secure" : "Open"); font.family: root.uiFont; font.pixelSize: root.fontPx(7); color: modelData.active ? Style.menuIndigo : Style.menuInkDeep }
-                }
-                Text { text: modelData.sec ? "󰌾" : ""; font.family: root.uiFont; font.pixelSize: root.fontPx(10); color: Style.menuInkDeep; anchors.verticalCenter: parent.verticalCenter }
-                Text { text: modelData.signal + "%"; font.family: root.uiFont; font.pixelSize: root.fontPx(8); color: Style.menuInkDeep; anchors.verticalCenter: parent.verticalCenter }
-                MouseArea {
-                  visible: modelData.active
-                  width: 20; height: 20
-                  anchors.verticalCenter: parent.verticalCenter
-                  onClicked: quickNetworkRoot.disconnectSsid(modelData.ssid)
-                  Text { anchors.centerIn: parent; text: "󰅙"; font.family: root.uiFont; font.pixelSize: root.fontPx(12); color: Style.red }
-                }
+              width: netScrollCol.width
+              spacing: 3
+              Text {
+                visible: !!netDelegate.modelData.section
+                text: netDelegate.modelData.section || ""
+                color: Style.menuInkDeep
+                font.pixelSize: root.fontPx(8)
+                font.family: root.uiFont
+                font.letterSpacing: 0.8
+                topPadding: 4
               }
-              MouseArea {
-                id: netMa
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                z: -1
-                onClicked: quickNetworkRoot.tapNetwork(modelData)
+              Rectangle {
+                width: netDelegate.width - 4
+                x: 2
+                height: 36
+                radius: Style.menuRadius
+                color: netDelegate.modelData.active ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.14) : (netMa.containsMouse ? Style.menuRowHi : "transparent")
+                border.color: netDelegate.modelData.active ? Style.menuIndigo : (netMa.containsMouse ? Style.menuSep : "transparent")
+                border.width: 1
+                Row {
+                  anchors.fill: parent
+                  anchors.leftMargin: 8
+                  anchors.rightMargin: 8
+                  spacing: 6
+                  Text { text: ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"][Math.max(0, Math.min(4, Math.ceil(netDelegate.modelData.signal / 20) - 1))]; font.family: root.uiFont; font.pixelSize: root.fontPx(12); color: netDelegate.modelData.active ? Style.menuIndigo : Style.menuInkDeep; anchors.verticalCenter: parent.verticalCenter }
+                  Column {
+                    width: parent.width - 90
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 1
+                    Text { width: parent.width; text: netDelegate.modelData.ssid; font.family: root.uiFont; font.pixelSize: root.fontPx(9); font.bold: netDelegate.modelData.active; color: netDelegate.modelData.active ? Style.menuIndigo : Style.menuInk; elide: Text.ElideRight }
+                    Text {
+                      width: parent.width
+                      text: {
+                        if (netDelegate.modelData.active) return "Connected"
+                        const sec = netDelegate.modelData.sec ? "Secure" : "Open"
+                        return netDelegate.modelData.known ? "Saved · " + sec : sec
+                      }
+                      font.family: root.uiFont; font.pixelSize: root.fontPx(7)
+                      color: netDelegate.modelData.active ? Style.menuIndigo : Style.menuInkDeep
+                    }
+                  }
+                  Text { text: netDelegate.modelData.sec ? "󰌾" : ""; font.family: root.uiFont; font.pixelSize: root.fontPx(10); color: Style.menuInkDeep; anchors.verticalCenter: parent.verticalCenter }
+                  Text { text: netDelegate.modelData.signal + "%"; font.family: root.uiFont; font.pixelSize: root.fontPx(8); color: Style.menuInkDeep; anchors.verticalCenter: parent.verticalCenter }
+                  MouseArea {
+                    visible: netDelegate.modelData.active
+                    width: 20; height: 20
+                    anchors.verticalCenter: parent.verticalCenter
+                    onClicked: quickNetworkRoot.disconnectSsid(netDelegate.modelData.ssid)
+                    Text { anchors.centerIn: parent; text: "󰅙"; font.family: root.uiFont; font.pixelSize: root.fontPx(12); color: Style.red }
+                  }
+                }
+                MouseArea {
+                  id: netMa
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  z: -1
+                  onClicked: quickNetworkRoot.tapNetwork(netDelegate.modelData)
+                }
               }
             }
           }
@@ -2813,10 +2976,51 @@ Scope {
     property string btTooltip: ""
     property int btConnectedCount: 0
     property string btUpdated: ""
-    readonly property var btPairedDevs: {
-      const devs = (quickBtRoot.btDevs || []).filter(function(d) { return d && d.paired })
-      devs.sort(function(a, b) { return (b.connected ? 1 : 0) - (a.connected ? 1 : 0) })
-      return devs
+    property bool btScanRequested: false
+    readonly property bool btDiscovering: Bluetooth.defaultAdapter ? Bluetooth.defaultAdapter.discovering : false
+
+    // Primitives-only rows grouped omarchy-style (Connected / Paired /
+    // Discovered). Holding live Device QObjects in model data segfaults
+    // quickshell when BlueZ churn (discovery timeouts, unpair) destroys an
+    // object while a delegate is still incubating; actions go through
+    // bluetoothctl by address instead.
+    readonly property var btRows: {
+      const tick = quickBtRoot.btUpdated  // periodic refresh picks up device property changes
+      const devs = quickBtRoot.btDevs || []
+      const connected = []; const known = []; const discovered = []
+      for (let i = 0; i < devs.length; i++) {
+        const d = devs[i]
+        if (!d) continue
+        const label = String(d.name || d.deviceName || "").trim()
+        if (!label) continue
+        if (/^([0-9a-f]{2}[:-]){5}[0-9a-f]{2}$/i.test(label)) continue
+        if (/^[0-9a-f-]{32,36}$/i.test(label)) continue
+        const row = {
+          address: d.address || "",
+          label: label,
+          connected: !!d.connected,
+          paired: !!(d.paired || d.bonded || d.trusted),
+          batteryAvailable: !!d.batteryAvailable,
+          battery: Math.round((d.battery || 0) * 100),
+          section: ""
+        }
+        if (row.connected) connected.push(row)
+        else if (row.paired) known.push(row)
+        else discovered.push(row)
+      }
+      const byLabel = function(a, b) { return a.label.localeCompare(b.label) }
+      connected.sort(byLabel); known.sort(byLabel); discovered.sort(byLabel)
+      const rows = []
+      const pushGroup = function(list, title) {
+        for (let i = 0; i < list.length; i++) {
+          list[i].section = i === 0 ? title : ""
+          rows.push(list[i])
+        }
+      }
+      pushGroup(connected, "Connected")
+      pushGroup(known, "Paired")
+      if (quickBtRoot.btScanRequested || quickBtRoot.btDiscovering) pushGroup(discovered, "Discovered")
+      return rows
     }
 
     function btNotify(title, body) {
@@ -2840,6 +3044,24 @@ Scope {
       btActionProc.command = ["bluetoothctl", "disconnect", btActionProc.targetMac]
       btActionProc.running = true
       root.closeLauncher()
+    }
+    function btPair(mac, name) {
+      if (!mac || btActionProc.running) return
+      btActionProc.action = "pair"
+      btActionProc.targetMac = mac
+      btActionProc.targetName = name || "device"
+      // Stay open: the row should move from Discovered to Paired in place.
+      btActionProc.command = ["bash", "-c",
+        "bluetoothctl pair " + root.shQuote(mac) +
+        " && bluetoothctl trust " + root.shQuote(mac) +
+        " && bluetoothctl connect " + root.shQuote(mac)]
+      btActionProc.running = true
+    }
+    function toggleScan() {
+      const a = Bluetooth.defaultAdapter
+      if (!a) return
+      quickBtRoot.btScanRequested = !quickBtRoot.btScanRequested
+      a.discovering = quickBtRoot.btScanRequested
     }
 
     Process {
@@ -2878,6 +3100,8 @@ Scope {
           }
         } else if (btActionProc.action === "disconnect" && code === 0) {
           quickBtRoot.btNotify("Disconnected", btActionProc.targetName)
+        } else if (btActionProc.action === "pair") {
+          quickBtRoot.btNotify(code === 0 ? "Paired" : "Pairing failed", btActionProc.targetName)
         }
         btDelay.restart()
         if (!btJsonProc.running) btJsonProc.running = true
@@ -2889,7 +3113,22 @@ Scope {
       running: root.quickDetailActive && root.expandedQuickKey === "bluetooth"
       repeat: true
       triggeredOnStart: true
-      onTriggered: { if (!btJsonProc.running) btJsonProc.running = true }
+      onTriggered: {
+        if (!btJsonProc.running) btJsonProc.running = true
+        if (!btStat.running) btStat.running = true
+      }
+    }
+    // BlueZ discovery sessions time out on their own; keep the scan alive
+    // while it is requested (omarchy's discoveryRetry).
+    Timer {
+      interval: 4000
+      repeat: true
+      running: quickBtRoot.btScanRequested && quickBtRoot.btOn && !quickBtRoot.btDiscovering
+      onTriggered: { if (Bluetooth.defaultAdapter) Bluetooth.defaultAdapter.discovering = true }
+    }
+    Component.onDestruction: {
+      if (quickBtRoot.btScanRequested && Bluetooth.defaultAdapter && Bluetooth.defaultAdapter.discovering)
+        Bluetooth.defaultAdapter.discovering = false
     }
     function refreshBt() {
       if (btStat && !btStat.running) btStat.running = true
@@ -2957,6 +3196,34 @@ Scope {
           Layout.fillWidth: true
         }
         Rectangle {
+          visible: quickBtRoot.btOn
+          width: btScanLbl.width + 16
+          height: 24
+          radius: Style.menuRadius
+          color: quickBtRoot.btScanRequested
+            ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.18)
+            : (btScanMa.containsMouse ? Style.menuRowHi : Style.menuControlBg)
+          border.color: quickBtRoot.btScanRequested ? Style.menuIndigo : Style.menuSep
+          border.width: 1
+          Behavior on color { ColorAnimation { duration: 140 } }
+          Text {
+            id: btScanLbl
+            anchors.centerIn: parent
+            text: quickBtRoot.btScanRequested ? "Scanning..." : "Scan"
+            font.pixelSize: root.fontPx(8)
+            color: quickBtRoot.btScanRequested ? Style.menuIndigo : Style.menuInk
+            font.family: root.uiFont
+            font.bold: true
+          }
+          MouseArea {
+            id: btScanMa
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: quickBtRoot.toggleScan()
+          }
+        }
+        Rectangle {
           width: btPwrLbl.width + 16
           height: 24
           radius: Style.menuRadius
@@ -2985,14 +3252,6 @@ Scope {
 
       Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Style.menuSep }
 
-      Text {
-        text: "Paired devices"
-        color: Style.menuInkDeep
-        font.pixelSize: root.fontPx(8)
-        font.family: root.uiFont
-        font.letterSpacing: 0.8
-      }
-
       Flickable {
         Layout.fillWidth: true
         Layout.fillHeight: true
@@ -3006,102 +3265,115 @@ Scope {
           width: parent.width
           spacing: 4
           Repeater {
-            model: quickBtRoot.btPairedDevs || []
-            delegate: Rectangle {
-              id: btRow
+            model: quickBtRoot.btRows || []
+            delegate: Column {
+              id: btDelegate
               required property var modelData
               width: parent.width
-              height: 32
-              radius: Style.menuRadius
-              color: modelData.connected ? Style.menuRowSel : (btd.containsMouse ? Style.menuRowHi : "transparent")
-              border.color: modelData.connected ? Style.menuSeal : (btd.containsMouse ? Style.menuSep : "transparent")
-              border.width: 1
-              Behavior on color { ColorAnimation { duration: 140 } }
-              Behavior on border.color { ColorAnimation { duration: 140 } }
-
-              MouseArea { id: btd; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.NoButton }
-
+              spacing: 4
               Text {
-                id: btIcon
-                anchors.left: parent.left
-                anchors.leftMargin: 8
-                anchors.verticalCenter: parent.verticalCenter
-                width: 18
-                text: modelData.connected ? "󰂱" : "󰂯"
-                font.pixelSize: root.fontPx(10)
-                color: modelData.connected ? Style.green : Style.menuInkDeep
+                visible: !!btDelegate.modelData.section
+                text: btDelegate.modelData.section || ""
+                color: Style.menuInkDeep
+                font.pixelSize: root.fontPx(8)
                 font.family: root.uiFont
-                horizontalAlignment: Text.AlignHCenter
+                font.letterSpacing: 0.8
+                topPadding: 4
               }
-
-              Column {
-                anchors.left: btIcon.right
-                anchors.leftMargin: 8
-                anchors.right: btAction.left
-                anchors.rightMargin: 8
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 1
-                Text {
-                  width: parent.width
-                  text: modelData.name || modelData.alias || modelData.address || "Device"
-                  color: Style.menuInk
-                  font.pixelSize: root.fontPx(9)
-                  font.family: root.uiFont
-                  elide: Text.ElideRight
-                  font.bold: modelData.connected
-                }
-                Text {
-                  width: parent.width
-                  text: modelData.connected
-                    ? (modelData.batteryAvailable ? ("Connected · " + modelData.battery + "%") : "Connected")
-                    : "Paired"
-                  color: modelData.connected ? Style.green : Style.menuInkDeep
-                  font.pixelSize: root.fontPx(7)
-                  font.family: root.uiFont
-                  elide: Text.ElideRight
-                }
-              }
-
               Rectangle {
-                id: btAction
-                anchors.right: parent.right
-                anchors.rightMargin: 8
-                anchors.verticalCenter: parent.verticalCenter
-                width: btActionLbl.width + 12
-                height: 22
+                id: btRow
+                width: btDelegate.width
+                height: 32
                 radius: Style.menuRadius
-                color: btActionMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
-                border.color: Style.menuSep
+                color: btDelegate.modelData.connected ? Style.menuRowSel : (btd.containsMouse ? Style.menuRowHi : "transparent")
+                border.color: btDelegate.modelData.connected ? Style.menuSeal : (btd.containsMouse ? Style.menuSep : "transparent")
                 border.width: 1
-                Behavior on color { ColorAnimation { duration: 120 } }
+                Behavior on color { ColorAnimation { duration: 140 } }
+                Behavior on border.color { ColorAnimation { duration: 140 } }
+
+                MouseArea { id: btd; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.NoButton }
+
                 Text {
-                  id: btActionLbl
-                  anchors.centerIn: parent
-                  text: modelData.connected ? "Disconnect" : "Connect"
-                  font.pixelSize: root.fontPx(8)
-                  color: Style.menuIndigo
+                  id: btIcon
+                  anchors.left: parent.left
+                  anchors.leftMargin: 8
+                  anchors.verticalCenter: parent.verticalCenter
+                  width: 18
+                  text: btDelegate.modelData.connected ? "󰂱" : (btDelegate.modelData.paired ? "󰂯" : "󰂰")
+                  font.pixelSize: root.fontPx(10)
+                  color: btDelegate.modelData.connected ? Style.green : Style.menuInkDeep
                   font.family: root.uiFont
-                  font.bold: true
+                  horizontalAlignment: Text.AlignHCenter
                 }
-                MouseArea {
-                  id: btActionMa
-                  anchors.fill: parent
-                  hoverEnabled: true
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: {
-                    const dev = btRow.modelData
-                    const name = dev.name || dev.alias || dev.address || "device"
-                    if (dev.connected) quickBtRoot.btDisconnect(dev.address, name)
-                    else if (dev.paired) quickBtRoot.btConnect(dev.address, name)
-                    else { dev.pair(); root.closeLauncher() }
+
+                Column {
+                  anchors.left: btIcon.right
+                  anchors.leftMargin: 8
+                  anchors.right: btAction.left
+                  anchors.rightMargin: 8
+                  anchors.verticalCenter: parent.verticalCenter
+                  spacing: 1
+                  Text {
+                    width: parent.width
+                    text: btDelegate.modelData.label
+                    color: Style.menuInk
+                    font.pixelSize: root.fontPx(9)
+                    font.family: root.uiFont
+                    elide: Text.ElideRight
+                    font.bold: btDelegate.modelData.connected
+                  }
+                  Text {
+                    width: parent.width
+                    text: btDelegate.modelData.connected
+                      ? (btDelegate.modelData.batteryAvailable ? ("Connected · " + btDelegate.modelData.battery + "%") : "Connected")
+                      : (btDelegate.modelData.paired ? "Paired" : btDelegate.modelData.address)
+                    color: btDelegate.modelData.connected ? Style.green : Style.menuInkDeep
+                    font.pixelSize: root.fontPx(7)
+                    font.family: root.uiFont
+                    elide: Text.ElideRight
+                  }
+                }
+
+                Rectangle {
+                  id: btAction
+                  anchors.right: parent.right
+                  anchors.rightMargin: 8
+                  anchors.verticalCenter: parent.verticalCenter
+                  width: btActionLbl.width + 12
+                  height: 22
+                  radius: Style.menuRadius
+                  color: btActionMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
+                  border.color: Style.menuSep
+                  border.width: 1
+                  Behavior on color { ColorAnimation { duration: 120 } }
+                  Text {
+                    id: btActionLbl
+                    anchors.centerIn: parent
+                    text: btDelegate.modelData.connected ? "Disconnect" : (btDelegate.modelData.paired ? "Connect" : "Pair")
+                    font.pixelSize: root.fontPx(8)
+                    color: Style.menuIndigo
+                    font.family: root.uiFont
+                    font.bold: true
+                  }
+                  MouseArea {
+                    id: btActionMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                      const dev = btDelegate.modelData
+                      if (dev.connected) quickBtRoot.btDisconnect(dev.address, dev.label)
+                      else if (dev.paired) quickBtRoot.btConnect(dev.address, dev.label)
+                      else quickBtRoot.btPair(dev.address, dev.label)
+                    }
                   }
                 }
               }
             }
           }
           Text {
-            visible: quickBtRoot.btOn && (!quickBtRoot.btPairedDevs || quickBtRoot.btPairedDevs.length === 0)
-            text: "No paired devices"
+            visible: quickBtRoot.btOn && (!quickBtRoot.btRows || quickBtRoot.btRows.length === 0)
+            text: quickBtRoot.btScanRequested ? "Scanning for devices..." : "No devices. Tap Scan to discover."
             color: Style.menuInkDeep
             font.pixelSize: root.fontPx(9)
             font.family: root.uiFont
@@ -4058,6 +4330,7 @@ Scope {
     const term = dictTerm(root.query)
     dictDebounce.stop()
     if (term === null) {
+      root.abortDictXhr()
       root.dictPendingTerm = ""
       root.dictStatus = ""
       root.dictCopyLang = ""
@@ -4068,10 +4341,22 @@ Scope {
     }
     root.dictPendingTerm = term
     if (!term) {
+      root.abortDictXhr()
       root.dictStatus = "prompt"
       root.dictCopyLang = ""
       root.dictError = ""
       root.dictItems = []
+      root.dictVersion++
+      return
+    }
+    const q = DictCC.parseQuery(term, root.dictDefaults)
+    const cached = q.term ? DictCC.cacheGet(q.sourceLanguage, q.targetLanguage, q.term) : undefined
+    if (cached) {
+      root.abortDictXhr()
+      root.dictStatus = cached.items.length > 0 ? "ok" : "no-results"
+      root.dictCopyLang = cached.copyLang
+      root.dictError = ""
+      root.dictItems = cached.items
       root.dictVersion++
       return
     }
@@ -4083,44 +4368,60 @@ Scope {
     dictDebounce.restart()
   }
 
+  function abortDictXhr() {
+    const xhr = root.dictXhr
+    root.dictXhr = null
+    if (xhr) xhr.abort()
+  }
+
   function startDictLookup() {
     const term = root.dictPendingTerm
-    if (!term || dictProc.running) return
+    if (!term) return
+    root.abortDictXhr()
     root.dictRunningTerm = term
     root.dictStatus = "loading"
     root.dictVersion++
-    dictProc.running = true
+    const q = DictCC.parseQuery(term, root.dictDefaults)
+    const xhr = new XMLHttpRequest()
+    root.dictXhr = xhr
+    xhr.onreadystatechange = () => {
+      if (xhr.readyState !== XMLHttpRequest.DONE) return
+      if (root.dictXhr !== xhr) return
+      root.dictXhr = null
+      if (xhr.status !== 200) {
+        root.finishDictLookup(term, {
+          status: "error",
+          copyLang: "",
+          error: xhr.status ? "dict.cc " + xhr.status : "Network error",
+          items: []
+        })
+        return
+      }
+      let result
+      try {
+        const copyLang = DictCC.copyLangFromUrl(xhr.responseURL || "", q.targetLanguage)
+        const items = DictCC.parseHits(xhr.responseText, q.term, copyLang)
+        DictCC.cachePut(q.sourceLanguage, q.targetLanguage, q.term, { items: items, copyLang: copyLang, url: "" })
+        result = { status: items.length > 0 ? "ok" : "no-results", copyLang: copyLang, error: "", items: items }
+      } catch (e) {
+        result = { status: "error", copyLang: "", error: "" + e, items: [] }
+      }
+      root.finishDictLookup(term, result)
+    }
+    xhr.open("GET", DictCC.buildUrl(q.sourceLanguage, q.targetLanguage, q.term))
+    xhr.timeout = 8000
+    xhr.send()
   }
 
-  function finishDictLookup(text) {
-    const term = root.dictRunningTerm
+  function finishDictLookup(term, result) {
     if (term === root.dictPendingTerm && term === dictTerm(root.query)) {
-      try {
-        const data = JSON.parse((text || "").trim())
-        root.dictStatus = data.status || "error"
-        root.dictCopyLang = data.copyLang || ""
-        root.dictError = data.error || ""
-        root.dictItems = data.items || []
-      } catch (_) {
-        root.dictStatus = "error"
-        root.dictCopyLang = ""
-        root.dictError = "Invalid lookup response"
-        root.dictItems = []
-      }
+      root.dictStatus = result.status || "error"
+      root.dictCopyLang = result.copyLang || ""
+      root.dictError = result.error || ""
+      root.dictItems = result.items || []
       root.dictVersion++
     }
     if (root.dictPendingTerm && root.dictPendingTerm !== term) dictDebounce.restart()
-  }
-
-  function formatDictMeta(meta) {
-    if (!meta || typeof meta !== "object") return ""
-    const join = parts => (parts || []).filter(Boolean).join(", ")
-    return [
-      join(meta.abbreviations),
-      join(meta.wordClassDefinitions),
-      join(meta.comments),
-      join(meta.optionalData)
-    ].filter(s => s.length > 0).join(" · ")
   }
 
   function getDictResults(q) {
@@ -4136,7 +4437,7 @@ Scope {
       }]
     }
     if (root.dictStatus === "loading") {
-      return [{ id: "dict-loading", name: "Looking up " + term, comment: "dict.cc DE↔EN", icon: root.dictIcon, special: "noop" }]
+      return [{ id: "dict-loading", name: "Looking up " + term, comment: "dict.cc", icon: root.dictIcon, special: "noop" }]
     }
     if (root.dictStatus === "error") {
       return [{
@@ -4151,7 +4452,7 @@ Scope {
       return [{ id: "dict-empty", name: "No dict.cc results", comment: term, icon: root.dictIcon, special: "noop" }]
     }
     return root.dictItems.map((it, i) => {
-      const metaLine = root.formatDictMeta(it.meta)
+      const metaLine = DictCC.metaText(it.meta)
       return {
         id: "dict-" + i,
         name: it.target || it.copy || "",
@@ -4166,15 +4467,8 @@ Scope {
 
   Timer {
     id: dictDebounce
-    interval: 250
+    interval: 150
     onTriggered: root.startDictLookup()
-  }
-
-  Process {
-    id: dictProc
-    command: ["uv", "run", "python", root.binDir + "/asahi-dictcc.py", root.dictRunningTerm]
-    stdout: StdioCollector { id: dictStdout }
-    onExited: () => root.finishDictLookup(dictStdout.text)
   }
 
   // websearch: @ uses engines[] (fuzzy lists + prefix direct). ! passes the literal text to Kagi via defaultSearchUrl.

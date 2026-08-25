@@ -53,6 +53,14 @@ We need to always differentiate between the different Linux settings with respec
 - **Appearance**: Hyprland does not publish `org.freedesktop.appearance color-scheme`. Autostart sets `gsettings` `color-scheme=prefer-dark` plus `adw-gtk3-dark` / `Papirus-Dark`; GTK ini lives in `asahi/gtk-{3,4}.0/settings.ini`. LibreWolf chrome (`userChrome.css`) and nvim follow that portal/gsettings signal, not quickshell/ghostty palettes. Unset (`default` / portal `0`) is treated as light.
 
 ## Shared
+- **dict.cc launchers**: ONE shared core, `vicinae/extensions/dict-cc/src/dictcc-core.mjs`
+ (query parsing, HTML parsing, meta, LRU cache; conservative ES2018, no fetch/matchAll —
+ quickshell's QML JS engine must run it). Hosts keep only transport: vicinae `src/dictcc.ts`
+ wraps it with fetch (macOS), the Asahi quickshell launcher imports it directly
+ (`import "dictcc-core.mjs" as DictCC` via symlink in `asahi/quickshell/remix/modules/launcher/`)
+ with an XMLHttpRequest lookup — no python helper, no subprocess. dict.cc ignores User-Agent, so
+ QML's forbidden-UA-header XHR is fine; `xhr.responseURL` works for DE/EN direction detection.
+ Test: `node asahi/quickshell/remix/modules/launcher/dictcc_test.js` (real-page fixture).
 - Neovim: https://neovim.io/doc/
 - Zsh: https://zsh.sourceforge.io/Doc/
 - Ghostty: https://ghostty.org/docs

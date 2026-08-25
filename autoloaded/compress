@@ -1,21 +1,72 @@
-#!/usr/bin/env bash
-# compress - archive wrapper
-# usage: compress <foo.tar.gz> ./foo ./bar
+#!/usr/bin/env zsh
+# compress - create archives
+#
+# omarchy-style default:
+#   compress <file|dir>                  -> <file|dir>.tar.gz (next to the source)
+# extended form (format from the archive extension):
+#   compress <archive.ext> <src> [...]
+# formats: tar.gz tgz tar.bz2 tbz tbz2 tar.xz txz tar.zst tar zip jar 7z
 
-ARCHIVE_NAME="${1:t}"
-DIR="${2}"
-if [[ -n "$ARCHIVE_NAME" ]]; then
-  case $ARCHIVE_NAME in
-    *.tar.gz|*.tgz) tar -cvf "$ARCHIVE_NAME " --use-compress-program=gzip "$DIR" ;;
-    *.tar.bz2|*.tbz|*.tbz2) tar -cvf "$ARCHIVE_NAME" --use-compress-program=bzip2 "$DIR" ;;
-    *.tar.xz|*.txz) tar -cvJf "$ARCHIVE_NAME" "$DIR" ;;
-    *.zip|*.jar) zip -r "$ARCHIVE_NAME" "$DIR" ;;
-    *.tar) tar -cvf "$ARCHIVE_NAME" "$DIR" ;;
-    *.7z) 7za a "$ARCHIVE_NAME" "$DIR" ;;
-    *.rar) rar a "$ARCHIVE_NAME" "$DIR" ;;
-		*) echo "'$1' cannot be compressed";;
-  esac
-else
-	echo "Usage: compress <foo.tar.gz> ./foo ./bar"
-	echo "Options: tar.bz2 tar.gz tgz zip"
+if (( $# == 0 )); then
+  echo "usage: compress <file|dir>                  create <file|dir>.tar.gz" >&2
+  echo "       compress <archive.ext> <src> [...]   format from extension" >&2
+  echo "formats: tar.gz tgz tar.bz2 tbz tbz2 tar.xz txz tar.zst tar zip jar 7z" >&2
+  return 1 2>/dev/null || exit 1
 fi
+
+local archive
+local -a sources
+
+if (( $# == 1 )); then
+  sources=("${1%/}")
+  archive="${sources[1]}.tar.gz"
+else
+  archive="$1"
+  shift
+  sources=("${@%/}")
+fi
+
+local src
+for src in "${sources[@]}"; do
+  if [[ ! -e "$src" ]]; then
+    echo "compress: '$src' does not exist" >&2
+    return 1 2>/dev/null || exit 1
+  fi
+done
+
+if [[ -e "$archive" ]]; then
+  echo "compress: '$archive' already exists" >&2
+  return 1 2>/dev/null || exit 1
+fi
+
+if (( ${#sources} == 1 )) && [[ "$archive" == *.tar.gz ]]; then
+  # Single source: archive members start at the source itself, not its
+  # leading path (compress foo/bar -> bar/... inside the archive).
+  tar -czf "$archive" -C "${sources[1]:h}" "${sources[1]:t}"
+else
+  case "$archive" in
+    *.tar.gz|*.tgz)         tar -czf "$archive" "${sources[@]}" ;;
+    *.tar.bz2|*.tbz|*.tbz2) tar -cjf "$archive" "${sources[@]}" ;;
+    *.tar.xz|*.txz)         tar -cJf "$archive" "${sources[@]}" ;;
+    *.tar.zst)              tar --zstd -cf "$archive" "${sources[@]}" ;;
+    *.tar)                  tar -cf "$archive" "${sources[@]}" ;;
+    *.zip|*.jar)            zip -qr "$archive" "${sources[@]}" ;;
+    *.7z)                   7z a -bso0 "$archive" "${sources[@]}" ;;
+    *)
+      echo "compress: unknown archive format '$archive'" >&2
+      echo "formats: tar.gz tgz tar.bz2 tbz tbz2 tar.xz txz tar.zst tar zip jar 7z" >&2
+      return 1 2>/dev/null || exit 1
+      ;;
+  esac
+fi
+
+local rc=$?
+if (( rc != 0 )); then
+  rm -f "$archive"
+  echo "compress: failed to create '$archive'" >&2
+  return $rc 2>/dev/null || exit $rc
+fi
+
+# ls -lh instead of du: du reports allocated blocks (16K for a tiny
+# archive) and BSD du on macOS lacks --apparent-size.
+echo "created '$archive' ($(ls -lh "$archive" | awk '{print $5}'))"

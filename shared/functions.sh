@@ -94,7 +94,7 @@ extract() {
 
   local filename=$(basename "$FILE")
   case "$filename" in
-    *.tar.bz2|*.tar.gz|*.tar.Z|*.tar.xz)
+    *.tar.bz2|*.tar.gz|*.tar.Z|*.tar.xz|*.tar.zst)
       local foldername="${filename%.*.*}"
       ;;
     *)
@@ -134,8 +134,10 @@ extract() {
     *.xz) unxz -c "$fullpath" > "${filename%.xz}" ;;
     *.Z) uncompress -c "$fullpath" > "${filename%.Z}" ;;
     *.7z) 7z x "$fullpath" ;;
-    *.zst) zstd -d "$fullpath" ;;
+    # tar.zst must come before the bare zst pattern: first match wins, and
+    # a tarball caught by *.zst would only be unzstd'd, not unpacked.
     *.tar.zst) tar --zstd -xf "$fullpath" ;;
+    *.zst) zstd -d "$fullpath" -o "${filename%.zst}" ;;
     *.rar) unrar x "$fullpath" ;;
     *)
       echo "'$FILE' cannot be extracted via extract()"
@@ -156,6 +158,10 @@ extract() {
 
   cd "$current_dir" || return 1
 }
+
+# omarchy-compatible name: decompress [file.tar.gz] — extract handles
+# tar.gz and every other format listed above.
+alias decompress='extract'
 
 # Overwrite man with different colors
 man() {

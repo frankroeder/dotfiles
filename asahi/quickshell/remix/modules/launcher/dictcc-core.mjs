@@ -1,0 +1,1 @@
+../../../../../vicinae/extensions/dict-cc/src/dictcc-core.mjs

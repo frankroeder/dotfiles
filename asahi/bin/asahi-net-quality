@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Router + internet ping probe for the launcher network panel.
+# Prints "<router_ms|x> <internet_ms|x>" — "x" marks a timeout/no-route.
+
+gw=$(ip route show default 2>/dev/null | awk '{print $3; exit}')
+r=x
+i=x
+
+if [[ -n $gw ]]; then
+  t=$(ping -n -q -c1 -W1 "$gw" 2>/dev/null | awk -F/ '/^rtt|^round-trip/{print $5}')
+  [[ -n $t ]] && r=$t
+fi
+
+t=$(ping -n -q -c1 -W1 1.1.1.1 2>/dev/null | awk -F/ '/^rtt|^round-trip/{print $5}')
+[[ -n $t ]] && i=$t
+
+echo "$r $i"

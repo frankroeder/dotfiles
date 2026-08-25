@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react"
 import { Action, ActionPanel, Clipboard, getPreferenceValues, getSelectedText, List } from "@vicinae/api"
-import { lookup, peekCache, type Hit, type Prefs } from "./dictcc"
+import { lookup, metaText, peekCache, type Hit, type Prefs } from "./dictcc"
 
 const DEBOUNCE_MS = 150
 
 function accessory(hit: Hit) {
-  const parts = [...hit.meta.wordClass, ...hit.meta.abbreviations, ...hit.meta.comments]
-  return parts.length ? [{ text: parts.join(" · ") }] : []
+  const text = metaText(hit.meta)
+  return text ? [{ text }] : []
 }
 
 export function TranslationsList({ from }: { from?: "clipboard" | "selection" }) {

@@ -48,10 +48,12 @@ ShellRoot {
         "shaders/fire.frag.qsb",
         "shaders/terminal.frag.qsb",
         "shaders/mrrobot.frag.qsb",
-        "life"   // sentinel — special-cased in the stack
+        "life",  // sentinel — special-cased in the stack
+        "ascii"  // sentinel — omarchy-style logo text effects (asciiContainer)
     ]
     readonly property int shaderCount: shaderList.length
     readonly property int lifeIndex: 10
+    readonly property int asciiIndex: 11
 
     // Indices that paint with premultiplied alpha and want the desktop
     // visible behind them — the paper backdrop fades out while one of
@@ -95,7 +97,22 @@ ShellRoot {
         onFileChanged: { reload(); paletteFile.reload(); }
     }
 
-    Component.onCompleted: paletteFile.reload()
+    // ---------- ASCII branding (omarchy-style saver scene) ----------
+    // The logo the ascii scene animates. Regenerate with:
+    //   fastfetch --logo asahi --structure none --pipe | sed 's/\x1b\[[0-9;]*m//g'
+    readonly property string logoPath: Quickshell.env("HOME") + "/.config/quickshell/screensaver/logo.txt"
+    property var logoLines: ["A S A H I"]
+    FileView {
+        id: logoFile
+        path: root.logoPath
+        onLoaded: {
+            let lines = logoFile.text().split("\n")
+            while (lines.length > 0 && lines[lines.length - 1].trim() === "") lines.pop()
+            if (lines.length > 0) root.logoLines = lines
+        }
+    }
+
+    Component.onCompleted: { paletteFile.reload(); logoFile.reload(); }
 
     function setActive(on: bool): void {
         if (root.active === on && root.panelVisible === on)
@@ -137,7 +154,10 @@ ShellRoot {
         onTriggered: {
             root.elapsed += 0.016;
             root.armedFor += 0.016;
-            if (root.elapsed >= root.cycleSec) {
+            // The ascii scene holds twice as long: it is the omarchy-style
+            // headliner and runs several random effects back to back.
+            const slot = root.shaderIndex === root.asciiIndex ? root.cycleSec * 2 : root.cycleSec;
+            if (root.elapsed >= slot) {
                 root.elapsed = 0;
                 root.shaderIndex = (root.shaderIndex + 1) % root.shaderCount;
             }
@@ -154,6 +174,8 @@ ShellRoot {
                 root.focusScreenName = screens.length ? screens[0].name : "";
             else
                 root.focusScreenName = mon.name;
+            // Open on the omarchy-style logo scene, then cycle into shaders.
+            root.shaderIndex = root.asciiIndex;
             root.elapsed = 0;
             root.armedFor = 0;
         } else {
@@ -197,7 +219,7 @@ ShellRoot {
                     required property int index
                     required property string modelData
                     anchors.fill: parent
-                    active: root.active && slotLoader.modelData !== "life"
+                    active: root.active && slotLoader.modelData.indexOf("shaders/") === 0
                     sourceComponent: ShaderEffect {
                         anchors.fill: parent
                         opacity: root.shaderIndex === slotLoader.index ? 1 : 0
@@ -250,6 +272,211 @@ ShellRoot {
                     textureSize: Qt.size(192, 108)
                 }
             }
+
+            // omarchy screensaver port: the ASCII logo animated by a random
+            // terminal-text effect (their ttfx saver), re-rolled every few
+            // seconds while the scene is up. Two text layers per row: base
+            // (ink) carries settled characters, hot (accent) carries the
+            // moving/unresolved ones.
+            Item {
+                id: asciiContainer
+                anchors.fill: parent
+                opacity: root.shaderIndex === root.asciiIndex ? 1 : 0
+                visible: opacity > 0.001
+                Behavior on opacity { NumberAnimation { duration: root.fadeMs; easing.type: Easing.InOutQuad } }
+
+                readonly property int rows: root.logoLines.length
+                readonly property int cols: {
+                    let m = 1
+                    for (let i = 0; i < root.logoLines.length; i++)
+                        m = Math.max(m, root.logoLines[i].length)
+                    return m
+                }
+                // The family MUST be an installed monospace face. Qt
+                // silently substitutes proportional Noto Sans for unknown
+                // families ("JetBrainsMono Nerd Font" is not installed
+                // here), which shreds column alignment — wide Ms made the
+                // logo look melted. Same trap as the launcher's fastfetch
+                // logo. The advance is probed, not assumed.
+                readonly property string monoFamily: "Noto Sans Mono"
+                TextMetrics {
+                    id: cellProbe
+                    font.family: asciiContainer.monoFamily
+                    font.pixelSize: 100
+                    text: "M"
+                }
+                readonly property real advRatio: cellProbe.advanceWidth > 0 ? cellProbe.advanceWidth / 100 : 0.6
+
+                // Terminals stack lines at the font's natural ~1.33 em;
+                // anything flatter squashes the logo vertically. The logo
+                // fills at most ~60% of either screen axis.
+                readonly property real lineFactor: 1.33
+                readonly property real cellPx: Math.max(10, Math.min(
+                    width * 0.62 / (cols * advRatio),
+                    height * 0.6 / (rows * lineFactor)))
+
+                property string kind: "decrypt"
+                property real t: 0
+                property real dur: 6
+                property int seed: 1
+                property var baseLines: []
+                property var hotLines: []
+
+                readonly property var kinds: ["typewriter", "decrypt", "rain", "beams", "slide", "expand"]
+                readonly property string glyphs: "!<>-_\\/[]{}=+*^?#$%&@abcdefghikmnopqrstuvwxyz0123456789"
+
+                // Deterministic per-(seed, n) hash → [0, 1). Stable across
+                // ticks so every character keeps its own timing/jitter.
+                function rnd(n) {
+                    let x = Math.imul(n + 1, 2654435761) ^ Math.imul(asciiContainer.seed, 40503)
+                    x = Math.imul(x ^ (x >>> 13), 1274126177)
+                    x ^= x >>> 16
+                    return (x >>> 0) / 4294967296
+                }
+                function randGlyph(n) {
+                    return glyphs.charAt(Math.floor(rnd(n) * glyphs.length))
+                }
+
+                function restart() {
+                    seed = Math.floor(Math.random() * 2147483647) || 1
+                    let next = kinds[Math.floor(Math.random() * kinds.length)]
+                    if (next === kind) next = kinds[(kinds.indexOf(next) + 1) % kinds.length]
+                    kind = next
+                    dur = kind === "typewriter" || kind === "decrypt" ? 7 : 5.5
+                    t = 0
+                    step()
+                }
+
+                function step() {
+                    const lines = root.logoLines
+                    const R = rows, C = cols, time = t, k = kind
+                    const B = [], H = []
+                    for (let r = 0; r < R; r++) {
+                        B.push(new Array(C).fill(" "))
+                        H.push(new Array(C).fill(" "))
+                    }
+                    const flicker = Math.floor(time * 12) * 7919
+                    if (k === "typewriter") {
+                        const frontier = time / (dur - 0.8) * R * C
+                        for (let r = 0; r < R; r++) {
+                            const line = lines[r]
+                            for (let c = 0; c < line.length; c++) {
+                                if (r * C + c < frontier) B[r][c] = line[c]
+                            }
+                        }
+                        const fr = Math.floor(frontier / C), fc = Math.floor(frontier % C)
+                        if (fr < R) H[fr][Math.min(fc, C - 1)] = "\u2588"
+                    } else if (k === "decrypt") {
+                        for (let r = 0; r < R; r++) {
+                            const line = lines[r]
+                            for (let c = 0; c < line.length; c++) {
+                                if (line[c] === " ") continue
+                                const idx = r * C + c
+                                const resolve = 0.6 + rnd(idx) * (dur - 1.8)
+                                if (time >= resolve) B[r][c] = line[c]
+                                else H[r][c] = randGlyph(idx + flicker)
+                            }
+                        }
+                    } else if (k === "rain") {
+                        const speed = R / (dur * 0.4)
+                        for (let r = 0; r < R; r++) {
+                            const line = lines[r]
+                            for (let c = 0; c < line.length; c++) {
+                                if (line[c] === " ") continue
+                                const idx = r * C + c
+                                const cur = Math.floor((time - rnd(idx) * dur * 0.45) * speed)
+                                if (cur < 0) continue
+                                if (cur >= r) B[r][c] = line[c]
+                                else H[cur][c] = line[c]
+                            }
+                        }
+                    } else if (k === "beams") {
+                        const sweep = time / (dur * 0.8) * (R + 4) - 2
+                        for (let r = 0; r < R; r++) {
+                            const line = lines[r]
+                            for (let c = 0; c < line.length; c++) {
+                                if (line[c] === " ") continue
+                                if (r < sweep - 1.5) B[r][c] = line[c]
+                                else if (r < sweep + 1.5) H[r][c] = randGlyph(r * C + c + flicker)
+                            }
+                        }
+                    } else if (k === "slide") {
+                        const speed = (C * 1.6) / (dur * 0.7)
+                        for (let r = 0; r < R; r++) {
+                            const line = lines[r]
+                            const shift = Math.max(0, Math.floor(C + 4 - (time - r * 0.08) * speed))
+                            for (let c = 0; c < line.length; c++) {
+                                if (line[c] === " ") continue
+                                if (shift === 0) { B[r][c] = line[c]; continue }
+                                // Even rows enter from the right, odd from the left.
+                                const at = r % 2 === 0 ? c + shift : c - shift
+                                if (at >= 0 && at < C) H[r][at] = line[c]
+                            }
+                        }
+                    } else { // expand
+                        const cy = (R - 1) / 2, cx = (C - 1) / 2
+                        const maxd = cx * 0.55 + cy * 1.4
+                        const reach = time / (dur * 0.8) * (maxd + 1.5)
+                        for (let r = 0; r < R; r++) {
+                            const line = lines[r]
+                            for (let c = 0; c < line.length; c++) {
+                                if (line[c] === " ") continue
+                                const d = Math.abs(c - cx) * 0.55 + Math.abs(r - cy) * 1.4
+                                if (d < reach - 1.2) B[r][c] = line[c]
+                                else if (d < reach + 1.2) H[r][c] = randGlyph(r * C + c + flicker)
+                            }
+                        }
+                    }
+                    const bases = [], hots = []
+                    for (let r = 0; r < R; r++) { bases.push(B[r].join("")); hots.push(H[r].join("")) }
+                    baseLines = bases
+                    hotLines = hots
+                }
+
+                onVisibleChanged: if (visible) restart()
+
+                Timer {
+                    interval: 33
+                    repeat: true
+                    running: asciiContainer.visible && root.active
+                    onTriggered: {
+                        asciiContainer.t += 0.033
+                        if (asciiContainer.t > asciiContainer.dur + 2.6) asciiContainer.restart()
+                        else asciiContainer.step()
+                    }
+                }
+
+                // Two overlaid multi-line texts (settled ink + moving
+                // accent) with a FIXED line height. Per-row Items squeezed
+                // lines below the font's natural height and distorted the
+                // logo; a single Text with fixed line spacing keeps the
+                // terminal aspect exactly, and both layers stay aligned.
+                Item {
+                    anchors.centerIn: parent
+                    width: asciiContainer.cols * asciiContainer.cellPx * asciiContainer.advRatio
+                    height: asciiContainer.rows * asciiContainer.cellPx * asciiContainer.lineFactor
+                    Text {
+                        anchors.fill: parent
+                        text: asciiContainer.baseLines.join("\n")
+                        textFormat: Text.PlainText
+                        color: root.ink
+                        font.family: asciiContainer.monoFamily
+                        font.pixelSize: asciiContainer.cellPx
+                        lineHeight: asciiContainer.cellPx * asciiContainer.lineFactor
+                        lineHeightMode: Text.FixedHeight
+                    }
+                    Text {
+                        anchors.fill: parent
+                        text: asciiContainer.hotLines.join("\n")
+                        textFormat: Text.PlainText
+                        color: root.accent
+                        font.family: asciiContainer.monoFamily
+                        font.pixelSize: asciiContainer.cellPx
+                        lineHeight: asciiContainer.cellPx * asciiContainer.lineFactor
+                        lineHeightMode: Text.FixedHeight
+                    }
+                }
+            }
         }
 
         // Thin theme strip across the bottom — like a slide footer. Pure
@@ -292,6 +519,12 @@ ShellRoot {
             focus: true
             Keys.onPressed: (e) => {
                 if (root.armedFor < 0.25) { e.accepted = true; return; }
+                if (e.key === Qt.Key_0) {
+                    root.shaderIndex = root.asciiIndex;
+                    root.elapsed = 0;
+                    e.accepted = true;
+                    return;
+                }
                 const maxKey = Qt.Key_1 + Math.min(root.shaderCount, 9) - 1;
                 if (e.key >= Qt.Key_1 && e.key <= maxKey) {
                     root.shaderIndex = e.key - Qt.Key_1;
