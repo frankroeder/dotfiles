@@ -44,6 +44,7 @@ sudo dnf install -y \
   blueman \
   cargo \
   cascadia-mono-nf-fonts \
+  cava \
   chromium \
   cmake \
   cups \

@@ -61,6 +61,7 @@ make asahi
 
 This applies a minimal Hyprland desktop with Ghostty, Quickshell, Mako, Hypridle, and Hyprlock.
 
+Credits: the Asahi setup draws from [Omarchy](https://github.com/basecamp/omarchy) and [Omarchy Mac](https://github.com/omarchy-mac/omarchy-mac).
 
 ## Local configuration files
 The following list of files could be created and used to define local configurations:
@@ -77,3 +78,5 @@ The following list of files could be created and used to define local configurat
 - https://github.com/sindresorhus/pure
 - https://github.com/nikitabobko/AeroSpace
 - https://github.com/ghostty-org/ghostty
+- https://github.com/basecamp/omarchy (Asahi)
+- https://github.com/omarchy-mac/omarchy-mac (Asahi)

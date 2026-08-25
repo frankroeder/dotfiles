@@ -32,22 +32,30 @@ Singleton {
     thumbProc.running = true
   }
 
-  // Scan wallpaper directories (our setup uses ~/Pictures/wallpaper)
+  // Scan wallpaper directories (our setup uses ~/Pictures/wallpaper).
+  // Collected in one shot and assigned ONCE: the old per-line append rebuilt
+  // the wallpapers list (and thus reset every wallpaper GridView) once per
+  // file, which made opening/rescanning the pickers crawl.
   Process {
     id: scanner
     command: ["sh", "-c",
-      "find \"$HOME/Pictures/wallpaper\" \"$HOME/Pictures/Wallpapers\" -maxdepth 2 -type f \\( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \\) 2>/dev/null | sort -u | head -200"
+      "find \"$HOME/Pictures/wallpaper\" \"$HOME/Pictures/Wallpapers\" -maxdepth 2 -type f \\( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \\) 2>/dev/null | sort -u | head -500"
     ]
     running: false
-    stdout: SplitParser {
-      onRead: data => {
-        const path = data.trim()
-        if (path !== "") {
-          root.wallpapers = [...root.wallpapers, path]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const found = []
+        const lines = (text || "").split("\n")
+        for (let i = 0; i < lines.length; i++) {
+          const path = lines[i].trim()
+          if (path !== "") found.push(path)
         }
+        root.wallpapers = found
+        // From here, not onExited: the exit signal can race the collector,
+        // and rebuildThumbs must see the fresh list.
+        root.rebuildThumbs()
       }
     }
-    onExited: root.rebuildThumbs()
   }
 
   Process {

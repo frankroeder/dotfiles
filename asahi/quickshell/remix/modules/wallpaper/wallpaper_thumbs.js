@@ -2,12 +2,16 @@
 // QML: import "wallpaper_thumbs.js" as WallThumbs
 // Node: require("./wallpaper_thumbs.js")
 
-var THUMB_W = 160
-var THUMB_H = 96
+// 2x the old 160x96: grid cells render ~200-240px wide, so 160px thumbs were
+// upscaled blurry. Still tiny to decode (~15 KB JPEG).
+var THUMB_W = 320
+var THUMB_H = 192
 
+// Size-versioned subdir so a thumb-size bump regenerates instead of reusing
+// stale smaller thumbs (the batch script's freshness check is mtime-only).
 function cacheDir(home) {
   const h = String(home || "").replace(/\/$/, "")
-  return h + "/.cache/asahi/wallpaper-thumbs"
+  return h + "/.cache/asahi/wallpaper-thumbs/" + THUMB_W + "x" + THUMB_H
 }
 
 function thumbName(original) {
@@ -55,9 +59,12 @@ function shellQuote(s) {
   return "'" + String(s).replace(/'/g, "'\\''") + "'"
 }
 
+// Converts run 4-wide (backgrounded, `wait` every 4 files) so a cold cache
+// fills in seconds instead of minutes; a warm cache is just N stat checks.
 function thumbBatchScript(originals, dir, w, h) {
   const lines = ["mkdir -p " + shellQuote(dir)]
   const list = originals || []
+  let inFlight = 0
   for (let i = 0; i < list.length; i++) {
     const src = list[i]
     if (!src) continue
@@ -66,9 +73,12 @@ function thumbBatchScript(originals, dir, w, h) {
     lines.push(
       "if [ ! -f " + shellQuote(dest) + " ] || [ " + shellQuote(src) + " -nt " + shellQuote(dest) + " ]; then"
     )
-    lines.push("  " + cmd.map(shellQuote).join(" ") + " || true")
+    lines.push("  " + cmd.map(shellQuote).join(" ") + " >/dev/null 2>&1 &")
     lines.push("fi")
+    inFlight++
+    if (inFlight % 4 === 0) lines.push("wait")
   }
+  lines.push("wait")
   lines.push("echo THUMBS_DONE")
   return lines.join("\n")
 }

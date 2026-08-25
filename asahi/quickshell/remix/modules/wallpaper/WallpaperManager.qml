@@ -55,9 +55,9 @@ Scope {
     Menu.MenuCard {
       id: wallBox
       anchors.horizontalCenter: parent.horizontalCenter
-      y: parent.height * 0.12
-      width: Math.min(720, parent.width * 0.88)
-      height: Math.min(560, parent.height * 0.76)
+      y: parent.height * 0.06
+      width: Math.min(1220, parent.width * 0.92)
+      height: Math.min(940, parent.height * 0.88)
       cardMargin: 17
 
       Column {
@@ -154,11 +154,26 @@ Scope {
           GridView {
             id: wallpaperGrid
             anchors.fill: parent
-            cellWidth: Math.floor(width / 3)
+            // 4-up on the enlarged card; still ≥ ~280px cells at full width.
+            cellWidth: Math.floor(width / 4)
             cellHeight: cellWidth * 0.62 + 8
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             model: root.filteredWallpapers
+            // Same scroll-perf trio as the launcher quick grid: delegate
+            // pooling, pre-created rows, and direct (non-kinetic) wheel steps.
+            reuseItems: true
+            cacheBuffer: Math.max(400, cellHeight * 3)
+            WheelHandler {
+              target: null
+              acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+              onWheel: function(ev) {
+                const step = ev.pixelDelta.y !== 0 ? ev.pixelDelta.y : (ev.angleDelta.y / 120) * wallpaperGrid.cellHeight
+                const maxY = Math.max(0, wallpaperGrid.contentHeight - wallpaperGrid.height)
+                wallpaperGrid.contentY = Math.max(0, Math.min(maxY, wallpaperGrid.contentY - step))
+                ev.accepted = true
+              }
+            }
 
             delegate: Item {
               required property string modelData
@@ -182,6 +197,8 @@ Scope {
                   fillMode: Image.PreserveAspectCrop
                   asynchronous: true
                   cache: true
+                  sourceSize.width: 320
+                  sourceSize.height: 192
                   Rectangle {
                     anchors.fill: parent
                     color: Style.menuControlBg
@@ -287,6 +304,10 @@ Scope {
         source: root.previewPath !== "" ? "file://" + root.previewPath : ""
         fillMode: Image.PreserveAspectFit
         asynchronous: true
+        // Full-res 4K+ originals decode slowly and blow up texture memory;
+        // the preview only ever renders at viewport size.
+        sourceSize.width: wallpaperPanel.width
+        sourceSize.height: wallpaperPanel.height
       }
       Rectangle {
         anchors.bottom: parent.bottom

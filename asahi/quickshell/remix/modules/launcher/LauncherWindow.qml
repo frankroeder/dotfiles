@@ -10,12 +10,14 @@ import "../wallpaper" as Wallpaper
 import "../menu" as Menu
 import Quickshell.Bluetooth
 import Quickshell.Services.Mpris
+import Quickshell.Services.Pipewire
 import "../../"
 import "Data.js" as Data
 import "dictcc-core.mjs" as DictCC
 import "launcher_layout.js" as LauncherGeom
 import "hub_logo.js" as HubLogo
 import "temp_display.js" as TempDisplay
+import "quick_models.js" as QuickModels
 
 Scope {
   id: root
@@ -958,9 +960,28 @@ Scope {
         Layout.alignment: Qt.AlignHCenter; Layout.preferredHeight: 20
       }
       GridView {
+        id: wpGrid
         Layout.fillWidth: true; Layout.fillHeight: (quickWallpaperRoot.filtered || []).length > 0
-        cellWidth: Math.floor((width - 6) / 3); cellHeight: cellWidth * 0.62 + 4
+        cellWidth: Math.floor((width - 6) / 4); cellHeight: cellWidth * 0.62 + 4
         clip: true; model: quickWallpaperRoot.filtered
+        // Scroll perf: pool delegates instead of destroying them mid-flick,
+        // pre-create ~3 rows beyond the viewport, and drop the synchronous
+        // layout thrash of Flickable's animated wheel response in favor of
+        // direct contentY steps (omarchy's pickers feel instant for the same
+        // reason — no kinetic animation on wheel).
+        reuseItems: true
+        cacheBuffer: Math.max(400, cellHeight * 3)
+        boundsBehavior: Flickable.StopAtBounds
+        WheelHandler {
+          target: null
+          acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+          onWheel: function(ev) {
+            const step = ev.pixelDelta.y !== 0 ? ev.pixelDelta.y : (ev.angleDelta.y / 120) * wpGrid.cellHeight
+            const maxY = Math.max(0, wpGrid.contentHeight - wpGrid.height)
+            wpGrid.contentY = Math.max(0, Math.min(maxY, wpGrid.contentY - step))
+            ev.accepted = true
+          }
+        }
         delegate: Item {
           required property string modelData; required property int index
           width: GridView.view.cellWidth; height: GridView.view.cellHeight
@@ -979,6 +1000,10 @@ Scope {
               fillMode: Image.PreserveAspectCrop
               asynchronous: true
               cache: true
+              // Cap decode + texture at thumb resolution even if a source
+              // ever resolves to a full-size image.
+              sourceSize.width: 320
+              sourceSize.height: 192
               Rectangle {
                 anchors.fill: parent; color: Style.menuControlBg; visible: parent.status !== Image.Ready
                 Text { anchors.centerIn: parent; text: "󰋩"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(18); font.family: root.uiFont }
@@ -1290,6 +1315,7 @@ Scope {
     property bool cavaRunning: false
     property string cavaStatus: "idle"
     property real cavaLast: 0
+    property real cavaStartedAt: 0
     readonly property string cavaDir: "/tmp/quickshell-remix-" + (Quickshell.env("USER") || "user")
     readonly property string cavaCfg: quickMediaRoot.cavaDir + "/cava.conf"
     readonly property string cavaFrame: quickMediaRoot.cavaDir + "/cava-frame"
@@ -1298,29 +1324,95 @@ Scope {
       for (let i=0; i<list.length; i++) if (list[i] && list[i].isPlaying) return list[i]
       return list.length > 0 ? list[0] : null
     }
-    property string sinkVol: "—"; property string srcVol: "—"; property bool sinkM: false; property bool srcM: false
-    property var audioSinks: []
-    property var audioSources: []
-    property var audioStreams: []
+    // Native Pipewire mixer (omarchy.audio port): live nodes instead of the
+    // old 3s `wpctl status` poll — sliders track and write volumes directly.
+    readonly property var pwNodes: Pipewire.nodes ? Pipewire.nodes.values : []
+    readonly property var pwSink: Pipewire.defaultAudioSink
+    readonly property var pwSource: Pipewire.defaultAudioSource
+    readonly property var candidateSinks: {
+      const list = []
+      const nodes = quickMediaRoot.pwNodes || []
+      for (let i = 0; i < nodes.length; i++) {
+        const n = nodes[i]
+        if (n && n.isSink && !n.isStream) list.push(n)
+      }
+      return list
+    }
+    readonly property var candidateSources: {
+      const list = []
+      const nodes = quickMediaRoot.pwNodes || []
+      for (let i = 0; i < nodes.length; i++) {
+        const n = nodes[i]
+        if (!n || n.isSink || n.isStream || !QuickModels.isAudioSource(n)) continue
+        if ((n.name || "") === "quickshell") continue
+        list.push(n)
+      }
+      return list
+    }
+    readonly property var candidateStreams: {
+      const list = []
+      const nodes = quickMediaRoot.pwNodes || []
+      for (let i = 0; i < nodes.length; i++) {
+        const n = nodes[i]
+        if (n && n.isStream && QuickModels.isPlaybackStream(n)) list.push(n)
+      }
+      return list
+    }
+    // Repeaters feed from panel-local snapshots, not the live PipeWire model:
+    // PipeWire can remove nodes while quickshell dispatches the removal
+    // signal, and rebuilding a Repeater from that signal path has crashed
+    // quickshell's PipeWire service (omarchy's snapshot-timer pattern).
+    property var displaySinks: []
+    property var displaySources: []
+    property var displayStreams: []
+    function refreshAudioModels() {
+      quickMediaRoot.displaySinks = (quickMediaRoot.candidateSinks || []).slice()
+      quickMediaRoot.displaySources = (quickMediaRoot.candidateSources || []).slice()
+      quickMediaRoot.displayStreams = (quickMediaRoot.candidateStreams || []).slice()
+    }
+    onCandidateSinksChanged: audioModelRefresh.restart()
+    onCandidateSourcesChanged: audioModelRefresh.restart()
+    onCandidateStreamsChanged: audioModelRefresh.restart()
+    Timer { id: audioModelRefresh; interval: 75; onTriggered: quickMediaRoot.refreshAudioModels() }
 
-    function parseVol(l) { const v = (l||"").match(/[0-9.]+/); return v ? Math.round(parseFloat(v[0])*100)+"%" : "—" }
-    function pollVol() {
-      volProc.command = ["sh", "-c", "wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null ; wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null"]
-      volProc.running = true
+    readonly property real outVol: quickMediaRoot.pwSink && quickMediaRoot.pwSink.audio ? quickMediaRoot.pwSink.audio.volume : 0
+    readonly property bool outMuted: quickMediaRoot.pwSink && quickMediaRoot.pwSink.audio ? quickMediaRoot.pwSink.audio.muted : false
+    readonly property real inVol: quickMediaRoot.pwSource && quickMediaRoot.pwSource.audio ? quickMediaRoot.pwSource.audio.volume : 0
+    readonly property bool inMuted: quickMediaRoot.pwSource && quickMediaRoot.pwSource.audio ? quickMediaRoot.pwSource.audio.muted : false
+
+    function setOutVol(v) {
+      const s = quickMediaRoot.pwSink
+      if (s && s.audio) s.audio.volume = Math.max(0, Math.min(1, v))
     }
-    function volAdj(tgt, up) {
-      const ts = Array.isArray(tgt)?tgt:[tgt]
-      for (let i=0;i<ts.length;i++) Quickshell.execDetached(["wpctl","set-volume","-l","1",String(ts[i]), up?"5%+":"5%-"])
-      volDelay.restart()
+    function setInVol(v) {
+      const s = quickMediaRoot.pwSource
+      if (s && s.audio) s.audio.volume = Math.max(0, Math.min(1, v))
     }
-    function togMute(tgt) {
-      const ts = Array.isArray(tgt)?tgt:[tgt]
-      for (let i=0;i<ts.length;i++) Quickshell.execDetached(["wpctl","set-mute",String(ts[i]),"toggle"])
-      volDelay.restart()
+    function toggleOutMute() {
+      const s = quickMediaRoot.pwSink
+      if (s && s.audio) s.audio.muted = !s.audio.muted
+    }
+    function toggleInMute() {
+      const s = quickMediaRoot.pwSource
+      if (s && s.audio) s.audio.muted = !s.audio.muted
+    }
+    // Default switches are PERSISTED by WirePlumber (default-nodes state), so
+    // a stray tap can silently break audio for every future stream — no-op on
+    // the already-active device and always notify so the change is visible.
+    function setDefaultSink(node) {
+      if (!node || node === quickMediaRoot.pwSink) return
+      Pipewire.preferredDefaultAudioSink = node
+      Quickshell.execDetached(["notify-send", "-a", "Audio", "Output device", QuickModels.nodeLabel(node)])
+    }
+    function setDefaultSource(node) {
+      if (!node || node === quickMediaRoot.pwSource) return
+      Pipewire.preferredDefaultAudioSource = node
+      Quickshell.execDetached(["notify-send", "-a", "Audio", "Input device", QuickModels.nodeLabel(node)])
     }
     function startCava() {
       if (quickMediaRoot.cavaRunning) return
       quickMediaRoot.cavaRunning = true; quickMediaRoot.cavaStatus = "starting"; quickMediaRoot.cavaLast=0; quickMediaRoot.cavaValues=[]
+      quickMediaRoot.cavaStartedAt = Date.now()
       Quickshell.execDetached([
         "sh", "-c",
         "dir=$1;cfg=$2;frm=$3; if ! command -v cava >/dev/null 2>&1; then echo 'cava missing' >/tmp/quickshell-cava.err; exit 0; fi; " +
@@ -1344,55 +1436,11 @@ Scope {
       quickMediaRoot.cavaValues=vs; quickMediaRoot.cavaLast=Date.now()
       quickMediaRoot.cavaStatus = vs.some(v => v > 0) ? "active" : "waiting for audio"
     }
-    function refreshAudioMixer() { if (!mixerProc.running) mixerProc.running = true }
-    function parseAudioSimple(out) {
-      const sinks = []
-      const sources = []
-      const streams = []
-      let section = ""
-      const ls = (out || "").split("\n")
-      for (const line of ls) {
-        if (line.indexOf("├─ Sinks:") >= 0) { section = "sinks"; continue }
-        if (line.indexOf("├─ Sources:") >= 0) { section = "sources"; continue }
-        if (line.indexOf("└─ Streams:") >= 0) { section = "streams"; continue }
-        if (line.indexOf("├─ Devices:") >= 0 || line.indexOf("├─ Filters:") >= 0 || line.indexOf("Video") === 0 || line.indexOf("Settings") === 0) {
-          section = ""
-          continue
-        }
-        const m = line.match(/(\*)?\s*(\d+)\.\s+(.+?)(?:\s+\[(.+)\])?\s*$/)
-        if (!m || !section) continue
-        const info = (m[4] || "").trim()
-        const vm = info.match(/vol:\s*([0-9.]+)/)
-        const item = {
-          id: m[2],
-          name: m[3].trim(),
-          info: info,
-          active: line.indexOf("*") >= 0,
-          muted: line.indexOf("MUTED") >= 0,
-          volume: vm ? Math.round(parseFloat(vm[1]) * 100) + "%" : ""
-        }
-        if (section === "sinks") sinks.push(item)
-        else if (section === "sources") sources.push(item)
-        else if (section === "streams") streams.push(item)
-      }
-      quickMediaRoot.audioSinks = sinks.slice(0, 8)
-      quickMediaRoot.audioSources = sources.slice(0, 8)
-      quickMediaRoot.audioStreams = streams.slice(0, 12)
-    }
-    function setAudioDefault(id) {
-      if (!id) return
-      Quickshell.execDetached(["wpctl", "set-default", String(id)])
-      volDelay.restart()
-      Qt.callLater(quickMediaRoot.refreshAudioMixer)
-    }
+    // Binds the candidate nodes so .audio/.properties/.description are live.
+    PwObjectTracker { objects: quickMediaRoot.candidateSinks }
+    PwObjectTracker { objects: quickMediaRoot.candidateSources }
+    PwObjectTracker { objects: quickMediaRoot.candidateStreams }
 
-    Process { id: volProc; stdout: StdioCollector { onStreamFinished: { const ls=(text||"").trim().split("\n"); quickMediaRoot.sinkVol=quickMediaRoot.parseVol(ls[0]); quickMediaRoot.srcVol=quickMediaRoot.parseVol(ls[1]); quickMediaRoot.sinkM=(ls[0]||"").indexOf("MUTED")!==-1; quickMediaRoot.srcM=(ls[1]||"").indexOf("MUTED")!==-1 } } }
-    Timer { id: volDelay; interval: 400; onTriggered: quickMediaRoot.pollVol() }
-    Process {
-      id: mixerProc
-      command: ["sh", "-c", "wpctl status 2>/dev/null || true"]
-      stdout: StdioCollector { onStreamFinished: quickMediaRoot.parseAudioSimple(text) }
-    }
     Process {
       id: cavaRd
       command: ["sh","-c","cat \"$1\" 2>/dev/null || true", "sh", quickMediaRoot.cavaFrame]
@@ -1402,19 +1450,56 @@ Scope {
       interval: 90; running: root.quickDetailActive && root.expandedQuickKey === "media"; repeat: true; triggeredOnStart: true
       onTriggered: {
         if (quickMediaRoot.cavaRunning && quickMediaRoot.cavaLast>0 && Date.now()-quickMediaRoot.cavaLast > 3000) quickMediaRoot.cavaRunning=false
+        // No frame ever arrived: cava is likely not installed (see /tmp/quickshell-cava.err).
+        if (quickMediaRoot.cavaRunning && quickMediaRoot.cavaLast===0 && quickMediaRoot.cavaStartedAt>0
+            && Date.now()-quickMediaRoot.cavaStartedAt > 3000 && quickMediaRoot.cavaStatus === "starting")
+          quickMediaRoot.cavaStatus = "cava not installed"
         if (!quickMediaRoot.cavaRunning) quickMediaRoot.startCava()
         if (!cavaRd.running) cavaRd.running = true
       }
     }
-    Timer {
-      interval: 3000
-      running: root.quickDetailActive && root.expandedQuickKey === "media"
-      repeat: true
-      triggeredOnStart: true
-      onTriggered: quickMediaRoot.refreshAudioMixer()
-    }
-    Component.onCompleted: { quickMediaRoot.pollVol(); quickMediaRoot.startCava(); quickMediaRoot.refreshAudioMixer() }
+    Component.onCompleted: { quickMediaRoot.refreshAudioModels(); quickMediaRoot.startCava() }
     Component.onDestruction: quickMediaRoot.stopCava()
+
+    // Minimal draggable volume slider (track + fill + knob). Writes through
+    // `moved`, displays `value` — the live PipeWire volume, so external
+    // changes (volume keys) move it too.
+    component VolSlider: Item {
+      id: vs
+      property real value: 0
+      property color accent: Style.menuIndigo
+      property bool dimmed: false
+      signal moved(real v)
+      implicitHeight: root.fontPx(12)
+      Rectangle {
+        anchors.verticalCenter: parent.verticalCenter
+        width: parent.width; height: 4; radius: 2
+        color: Style.menuControlBg
+        border.color: Style.menuSep; border.width: 1
+      }
+      Rectangle {
+        anchors.verticalCenter: parent.verticalCenter
+        width: Math.max(0, Math.min(1, vs.value)) * parent.width
+        height: 4; radius: 2
+        color: vs.dimmed ? Style.menuInkDeep : vs.accent
+      }
+      Rectangle {
+        x: Math.max(0, Math.min(parent.width - width, Math.min(1, vs.value) * parent.width - width / 2))
+        anchors.verticalCenter: parent.verticalCenter
+        width: 10; height: 10; radius: 5
+        color: vs.dimmed ? Style.menuInkDeep : vs.accent
+        border.color: Style.menuSep; border.width: 1
+      }
+      MouseArea {
+        anchors.fill: parent
+        anchors.topMargin: -6; anchors.bottomMargin: -6
+        cursorShape: Qt.PointingHandCursor
+        preventStealing: true
+        function apply(mx) { vs.moved(Math.max(0, Math.min(1, mx / vs.width))) }
+        onPressed: function(m) { apply(m.x) }
+        onPositionChanged: function(m) { if (pressed) apply(m.x) }
+      }
+    }
 
     ColumnLayout {
       id: mediaCol
@@ -1491,71 +1576,82 @@ Scope {
         }
       }
 
+      // Master output/input: live sliders on the default sink/source
+      // (device name from the node, glyph by device type — omarchy.audio).
       RowLayout {
         Layout.fillWidth: true
-        Layout.preferredHeight: 38
-        Layout.maximumHeight: 38
+        Layout.preferredHeight: 52
+        Layout.maximumHeight: 52
         Layout.fillHeight: false
         spacing: 10
-        Rectangle {
-          Layout.fillWidth: true
-          height: 36
-          radius: 8
-          color: root.menuTileBg
-          border.color: Style.menuSep
-          border.width: 1
-          RowLayout {
-            anchors.fill: parent
-            anchors.margins: 10
-            spacing: 6
-            Text { text: quickMediaRoot.sinkM ? "󰖁  Speakers" : "󰕾  Speakers"; color: quickMediaRoot.sinkM ? Style.red : Style.menuInk; font.pixelSize: root.fontPx(11); font.family: root.uiFont; font.bold: true }
-            Item { Layout.fillWidth: true }
-            Text { text: quickMediaRoot.sinkVol; color: quickMediaRoot.sinkM ? Style.red : Style.menuIndigo; font.pixelSize: root.fontPx(11); font.family: root.uiFont; font.bold: true }
-            Rectangle {
-              width: 22; height: 22; radius: 4; color: Style.menuControlBg
-              Text { anchors.centerIn: parent; text: quickMediaRoot.sinkM ? "󰖁" : "󰕾"; color: Style.menuInk; font.pixelSize: root.fontPx(12) }
-              MouseArea { anchors.fill: parent; onClicked: quickMediaRoot.togMute("@DEFAULT_AUDIO_SINK@") }
-            }
-            Rectangle {
-              width: 22; height: 22; radius: 4; color: Style.menuControlBg
-              Text { anchors.centerIn: parent; text: "−"; color: Style.menuInk; font.pixelSize: root.fontPx(12) }
-              MouseArea { anchors.fill: parent; onClicked: quickMediaRoot.volAdj("@DEFAULT_AUDIO_SINK@", false) }
-            }
-            Rectangle {
-              width: 22; height: 22; radius: 4; color: Style.menuControlBg
-              Text { anchors.centerIn: parent; text: "+"; color: Style.menuInk; font.pixelSize: root.fontPx(12) }
-              MouseArea { anchors.fill: parent; onClicked: quickMediaRoot.volAdj("@DEFAULT_AUDIO_SINK@", true) }
-            }
-          }
-        }
-        Rectangle {
-          Layout.fillWidth: true
-          height: 36
-          radius: 8
-          color: root.menuTileBg
-          border.color: Style.menuSep
-          border.width: 1
-          RowLayout {
-            anchors.fill: parent
-            anchors.margins: 10
-            spacing: 6
-            Text { text: quickMediaRoot.srcM ? "󰍭  Microphone" : "󰍬  Microphone"; color: quickMediaRoot.srcM ? Style.red : Style.menuInk; font.pixelSize: root.fontPx(11); font.family: root.uiFont; font.bold: true }
-            Item { Layout.fillWidth: true }
-            Text { text: quickMediaRoot.srcVol; color: quickMediaRoot.srcM ? Style.red : Style.menuIndigo; font.pixelSize: root.fontPx(11); font.family: root.uiFont; font.bold: true }
-            Rectangle {
-              width: 22; height: 22; radius: 4; color: Style.menuControlBg
-              Text { anchors.centerIn: parent; text: quickMediaRoot.srcM ? "󰍭" : "󰍬"; color: Style.menuInk; font.pixelSize: root.fontPx(12) }
-              MouseArea { anchors.fill: parent; onClicked: quickMediaRoot.togMute("@DEFAULT_AUDIO_SOURCE@") }
-            }
-            Rectangle {
-              width: 22; height: 22; radius: 4; color: Style.menuControlBg
-              Text { anchors.centerIn: parent; text: "−"; color: Style.menuInk; font.pixelSize: root.fontPx(12) }
-              MouseArea { anchors.fill: parent; onClicked: quickMediaRoot.volAdj("@DEFAULT_AUDIO_SOURCE@", false) }
-            }
-            Rectangle {
-              width: 22; height: 22; radius: 4; color: Style.menuControlBg
-              Text { anchors.centerIn: parent; text: "+"; color: Style.menuInk; font.pixelSize: root.fontPx(12) }
-              MouseArea { anchors.fill: parent; onClicked: quickMediaRoot.volAdj("@DEFAULT_AUDIO_SOURCE@", true) }
+        Repeater {
+          model: [
+            { out: true, fallback: "Speakers" },
+            { out: false, fallback: "Microphone" }
+          ]
+          delegate: Rectangle {
+            id: masterCard
+            required property var modelData
+            readonly property bool isOut: modelData.out
+            readonly property var node: isOut ? quickMediaRoot.pwSink : quickMediaRoot.pwSource
+            readonly property bool muted: isOut ? quickMediaRoot.outMuted : quickMediaRoot.inMuted
+            readonly property real vol: isOut ? quickMediaRoot.outVol : quickMediaRoot.inVol
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            radius: 8
+            color: root.menuTileBg
+            border.color: Style.menuSep
+            border.width: 1
+            ColumnLayout {
+              anchors.fill: parent
+              anchors.margins: 8
+              spacing: 4
+              RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+                Text {
+                  text: (masterCard.isOut
+                    ? (masterCard.muted ? "󰖁" : QuickModels.sinkGlyph(masterCard.node))
+                    : (masterCard.muted ? "󰍭" : QuickModels.sourceGlyph(masterCard.node)))
+                    + "  " + (masterCard.node ? QuickModels.nodeLabel(masterCard.node) : masterCard.modelData.fallback)
+                  color: masterCard.muted ? Style.red : Style.menuInk
+                  font.pixelSize: root.fontPx(9)
+                  font.family: root.uiFont
+                  font.bold: true
+                  elide: Text.ElideRight
+                  Layout.fillWidth: true
+                }
+                Text {
+                  text: masterCard.muted ? "Muted" : Math.round(masterCard.vol * 100) + "%"
+                  color: masterCard.muted ? Style.red : Style.menuIndigo
+                  font.pixelSize: root.fontPx(9)
+                  font.family: root.uiFont
+                  font.bold: true
+                }
+                Rectangle {
+                  width: 20; height: 20; radius: 4
+                  color: masterMuteMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
+                  Text {
+                    anchors.centerIn: parent
+                    text: masterCard.isOut ? (masterCard.muted ? "󰖁" : "󰕾") : (masterCard.muted ? "󰍭" : "󰍬")
+                    color: masterCard.muted ? Style.red : Style.menuInk
+                    font.pixelSize: root.fontPx(10)
+                  }
+                  MouseArea {
+                    id: masterMuteMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: masterCard.isOut ? quickMediaRoot.toggleOutMute() : quickMediaRoot.toggleInMute()
+                  }
+                }
+              }
+              VolSlider {
+                Layout.fillWidth: true
+                value: masterCard.vol
+                dimmed: masterCard.muted
+                onMoved: function(v) { masterCard.isOut ? quickMediaRoot.setOutVol(v) : quickMediaRoot.setInVol(v) }
+              }
             }
           }
         }
@@ -1569,13 +1665,15 @@ Scope {
         spacing: 10
         Repeater {
           model: [
-            { title: "󰕾  Output devices", empty: "No outputs", items: quickMediaRoot.audioSinks },
-            { title: "󰍬  Input sources", empty: "No inputs", items: quickMediaRoot.audioSources }
+            { title: "󰕾  Output devices", empty: "No outputs", out: true },
+            { title: "󰍬  Input sources", empty: "No inputs", out: false }
           ]
           delegate: Rectangle {
             id: devCard
             required property var modelData
-            readonly property var devItems: modelData.items || []
+            readonly property bool isOut: modelData.out
+            readonly property var devItems: isOut ? (quickMediaRoot.displaySinks || []) : (quickMediaRoot.displaySources || [])
+            readonly property var activeNode: isOut ? quickMediaRoot.pwSink : quickMediaRoot.pwSource
             Layout.fillWidth: true
             Layout.fillHeight: true
             radius: Style.menuRadius
@@ -1587,7 +1685,7 @@ Scope {
               anchors.margins: 8
               spacing: 3
               Text {
-                text: modelData.title
+                text: devCard.modelData.title
                 color: Style.menuInkDeep
                 font.pixelSize: root.fontPx(10)
                 font.family: root.uiFont
@@ -1595,7 +1693,7 @@ Scope {
               }
               Text {
                 visible: devCard.devItems.length === 0
-                text: modelData.empty
+                text: devCard.modelData.empty
                 color: Style.menuInkDeep
                 font.pixelSize: root.fontPx(9)
                 font.family: root.uiFont
@@ -1615,28 +1713,40 @@ Scope {
                   Repeater {
                     model: devCard.devItems
                     delegate: Rectangle {
+                      id: devRow
                       required property var modelData
+                      readonly property bool active: devCard.activeNode === modelData
                       width: parent.width
                       height: root.fontPx(22)
                       radius: 5
-                      color: modelData.active ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.18) : (devMa.containsMouse ? Style.menuRowHi : "transparent")
-                      border.color: modelData.active ? Style.menuIndigo : (devMa.containsMouse ? Style.menuSep : "transparent")
+                      color: devRow.active ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.18) : (devMa.containsMouse ? Style.menuRowHi : "transparent")
+                      border.color: devRow.active ? Style.menuIndigo : (devMa.containsMouse ? Style.menuSep : "transparent")
                       border.width: 1
                       RowLayout {
                         anchors.fill: parent
                         anchors.leftMargin: 7
                         anchors.rightMargin: 7
                         spacing: 6
-                        Text { text: modelData.active ? "●" : "○"; color: modelData.active ? Style.green : Style.menuInkDeep; font.pixelSize: root.fontPx(7) }
-                        Text { Layout.fillWidth: true; text: modelData.name; color: Style.menuInk; font.pixelSize: root.fontPx(8); font.family: root.uiFont; elide: Text.ElideRight }
-                        Text { text: modelData.volume || ("#" + modelData.id); color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
+                        Text {
+                          text: devCard.isOut ? QuickModels.sinkGlyph(devRow.modelData) : QuickModels.sourceGlyph(devRow.modelData)
+                          color: devRow.active ? Style.green : Style.menuInkDeep
+                          font.pixelSize: root.fontPx(9)
+                          font.family: root.uiFont
+                        }
+                        Text { Layout.fillWidth: true; text: QuickModels.nodeLabel(devRow.modelData); color: Style.menuInk; font.pixelSize: root.fontPx(8); font.family: root.uiFont; elide: Text.ElideRight }
+                        Text {
+                          text: devRow.modelData && devRow.modelData.audio ? Math.round(devRow.modelData.audio.volume * 100) + "%" : ""
+                          color: Style.menuInkDeep
+                          font.pixelSize: root.fontPx(8)
+                          font.family: root.uiFont
+                        }
                       }
                       MouseArea {
                         id: devMa
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: quickMediaRoot.setAudioDefault(modelData.id)
+                        onClicked: devCard.isOut ? quickMediaRoot.setDefaultSink(devRow.modelData) : quickMediaRoot.setDefaultSource(devRow.modelData)
                       }
                     }
                   }
@@ -1666,7 +1776,7 @@ Scope {
             font.bold: true
           }
           Text {
-            visible: (quickMediaRoot.audioStreams || []).length === 0
+            visible: (quickMediaRoot.displayStreams || []).length === 0
             text: "No active streams"
             color: Style.menuInkDeep
             font.pixelSize: root.fontPx(9)
@@ -1675,7 +1785,7 @@ Scope {
           Flickable {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: (quickMediaRoot.audioStreams || []).length > 0
+            visible: (quickMediaRoot.displayStreams || []).length > 0
             clip: true
             contentHeight: streamCol.implicitHeight
             boundsBehavior: Flickable.StopAtBounds
@@ -1685,38 +1795,50 @@ Scope {
               width: parent.width
               spacing: 4
               Repeater {
-                model: quickMediaRoot.audioStreams || []
+                model: quickMediaRoot.displayStreams || []
                 delegate: Rectangle {
                   id: streamRow
                   required property var modelData
+                  readonly property var audio: modelData ? modelData.audio : null
+                  readonly property bool muted: streamRow.audio ? streamRow.audio.muted : false
+                  readonly property real vol: streamRow.audio ? streamRow.audio.volume : 0
                   width: parent.width
                   height: root.fontPx(26)
                   radius: 6
-                  color: modelData.muted ? root.menuDangerBg : Style.menuControlBg
-                  border.color: modelData.muted ? Style.red : Style.menuSep
+                  color: streamRow.muted ? root.menuDangerBg : Style.menuControlBg
+                  border.color: streamRow.muted ? Style.red : Style.menuSep
                   border.width: 1
                   RowLayout {
                     anchors.fill: parent
                     anchors.leftMargin: 7
                     anchors.rightMargin: 7
                     spacing: 6
-                    Text { text: "󰝚"; color: Style.green; font.pixelSize: root.fontPx(10); font.family: root.uiFont }
-                    Text { Layout.fillWidth: true; text: modelData.name; color: modelData.muted ? Style.menuInkDeep : Style.menuInk; font.pixelSize: root.fontPx(9); font.family: root.uiFont; elide: Text.ElideRight }
-                    Text { text: modelData.volume || ("#" + modelData.id); color: modelData.muted ? Style.red : Style.menuIndigo; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true }
-                    Rectangle {
-                      width: root.fontPx(18); height: root.fontPx(18); radius: 4; color: Style.menuControlBg
-                      Text { anchors.centerIn: parent; text: streamRow.modelData.muted ? "󰖁" : "󰕾"; font.pixelSize: root.fontPx(10); color: streamRow.modelData.muted ? Style.red : Style.menuInk }
-                      MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: quickMediaRoot.togMute(streamRow.modelData.id) }
+                    Text { text: "󰝚"; color: streamRow.muted ? Style.menuInkDeep : Style.green; font.pixelSize: root.fontPx(10); font.family: root.uiFont }
+                    Text {
+                      Layout.preferredWidth: parent.width * 0.34
+                      text: QuickModels.friendlyDeviceLabel(QuickModels.rawStreamLabel(streamRow.modelData)) || "Stream"
+                      color: streamRow.muted ? Style.menuInkDeep : Style.menuInk
+                      font.pixelSize: root.fontPx(9)
+                      font.family: root.uiFont
+                      elide: Text.ElideRight
+                    }
+                    VolSlider {
+                      Layout.fillWidth: true
+                      value: streamRow.vol
+                      dimmed: streamRow.muted
+                      onMoved: function(v) { if (streamRow.audio) streamRow.audio.volume = v }
+                    }
+                    Text {
+                      text: streamRow.muted ? "Muted" : Math.round(streamRow.vol * 100) + "%"
+                      color: streamRow.muted ? Style.red : Style.menuIndigo
+                      font.pixelSize: root.fontPx(9)
+                      font.family: root.uiFont
+                      font.bold: true
                     }
                     Rectangle {
                       width: root.fontPx(18); height: root.fontPx(18); radius: 4; color: Style.menuControlBg
-                      Text { anchors.centerIn: parent; text: "−"; font.pixelSize: root.fontPx(10); color: Style.menuInk }
-                      MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: quickMediaRoot.volAdj(streamRow.modelData.id, false) }
-                    }
-                    Rectangle {
-                      width: root.fontPx(18); height: root.fontPx(18); radius: 4; color: Style.menuControlBg
-                      Text { anchors.centerIn: parent; text: "+"; font.pixelSize: root.fontPx(10); color: Style.menuInk }
-                      MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: quickMediaRoot.volAdj(streamRow.modelData.id, true) }
+                      Text { anchors.centerIn: parent; text: streamRow.muted ? "󰖁" : "󰕾"; font.pixelSize: root.fontPx(10); color: streamRow.muted ? Style.red : Style.menuInk }
+                      MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (streamRow.audio) streamRow.audio.muted = !streamRow.audio.muted }
                     }
                   }
                 }
@@ -1813,6 +1935,9 @@ Scope {
     property var activeConnections: []
     property bool showPasswordPrompt: false
     property string pendingSsid: ""
+    property string pendingSec: ""
+    property string passwordError: ""
+    property string connectingSsid: ""
 
     // Saved wifi profile names (known-network grouping, omarchy-style).
     property var savedWifi: ({})
@@ -1876,13 +2001,36 @@ Scope {
     function disconnectWifi() {
       if (!quickNetworkRoot.wifiDevice) return
       Quickshell.execDetached(["nmcli", "device", "disconnect", quickNetworkRoot.wifiDevice])
-      root.closeLauncher()
-    }
-    function toggleWifi() {
-      const tgt = quickNetworkRoot.wifiEnabled ? "off" : "on"
-      Quickshell.execDetached(["nmcli", "radio", "wifi", tgt])
-      quickNetworkRoot.wifiEnabled = !quickNetworkRoot.wifiEnabled
+      quickNetworkRoot.currentWifiSsid = ""
       Qt.callLater(quickNetworkRoot.scanWifi)
+    }
+    // Optimistic toggle with a settle window: while radioSettle runs, the
+    // periodic power poll must not overwrite the button state (nmcli reports
+    // the OLD radio state for a moment, which made the button flip-flop),
+    // and no wifi rescans fire until the radio has actually switched.
+    function toggleWifi() {
+      const turningOn = !quickNetworkRoot.wifiEnabled
+      quickNetworkRoot.wifiEnabled = turningOn
+      if (!turningOn) {
+        quickNetworkRoot.wifiNetworks = []
+        quickNetworkRoot.currentWifiSsid = ""
+        quickNetworkRoot.wifiScanning = false
+      }
+      radioSettle.stop()
+      radioProc.command = ["nmcli", "radio", "wifi", turningOn ? "on" : "off"]
+      radioProc.running = true
+    }
+    Process {
+      id: radioProc
+      onExited: radioSettle.restart()
+    }
+    Timer {
+      id: radioSettle
+      interval: 1500
+      onTriggered: {
+        if (quickNetworkRoot.wifiEnabled) quickNetworkRoot.scanWifi()
+        else if (!wifiPowerCheck.running) wifiPowerCheck.running = true
+      }
     }
     function toggleEth() {
       if (quickNetworkRoot.ethConnected) Quickshell.execDetached(["nmcli", "device", "disconnect", quickNetworkRoot.ethDevice])
@@ -1891,13 +2039,23 @@ Scope {
     }
     function disconnectSsid(ssid) {
       Quickshell.execDetached(["nmcli", "con", "down", "id", ssid])
-      root.closeLauncher()
+      quickNetworkRoot.currentWifiSsid = ""
+      Qt.callLater(quickNetworkRoot.scanWifi)
+    }
+    // Forget a saved profile in place (omarchy's 'x'); the row drops from
+    // "Known networks" on the next scan.
+    function forgetSsid(ssid) {
+      if (!ssid) return
+      forgetProc.targetSsid = ssid
+      forgetProc.command = ["nmcli", "connection", "delete", "id", ssid]
+      forgetProc.running = true
     }
     function tapNetwork(net) {
       if (net.active) { quickNetworkRoot.disconnectSsid(net.ssid); return }
       quickNetworkRoot.requestConnect(net.ssid, net.sec)
     }
     function requestConnect(ssid, sec) {
+      quickNetworkRoot.pendingSec = sec || ""
       if (!sec) { quickNetworkRoot.doConnect(ssid, null); return }
       savedCheckProc.targetSsid = ssid
       savedCheckProc.command = [
@@ -1906,23 +2064,32 @@ Scope {
       ]
       savedCheckProc.running = true
     }
+    // Stays open (omarchy behavior): the row shows "Connecting…", failures
+    // reopen the passphrase prompt with the reason instead of bailing to an
+    // external editor.
     function doConnect(ssid, pass) {
       quickNetworkRoot.showPasswordPrompt = false
+      quickNetworkRoot.passwordError = ""
+      quickNetworkRoot.connectingSsid = ssid
       connectProc.targetSsid = ssid
+      connectProc.usedPassword = !!(pass && pass.length)
       let cmd = "nmcli dev wifi connect " + root.shQuote(ssid)
       if (pass && pass.length) cmd += " password " + root.shQuote(pass)
       connectProc.command = ["bash", "-c", cmd]
       connectProc.running = true
-      root.closeLauncher()
     }
 
     function scanWifi() {
-      quickNetworkRoot.wifiScanning = true
-      wifiListProc.command = quickNetworkRoot.wifiDevice
-        ? ["nmcli", "-w", "8", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "dev", "wifi", "list", "ifname", quickNetworkRoot.wifiDevice, "--rescan", "yes"]
-        : ["nmcli", "-w", "8", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "dev", "wifi", "list", "--rescan", "yes"]
+      // Radio off (or still settling after a toggle): no point scanning —
+      // repeated failed scans while off were a major source of list churn.
+      if (quickNetworkRoot.wifiEnabled && !radioSettle.running) {
+        quickNetworkRoot.wifiScanning = true
+        wifiListProc.command = quickNetworkRoot.wifiDevice
+          ? ["nmcli", "-w", "8", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY,FREQ", "dev", "wifi", "list", "ifname", quickNetworkRoot.wifiDevice, "--rescan", "yes"]
+          : ["nmcli", "-w", "8", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY,FREQ", "dev", "wifi", "list", "--rescan", "yes"]
+        if (!wifiListProc.running) wifiListProc.running = true
+      }
       if (typeof wifiProc !== 'undefined' && wifiProc) wifiProc.running = true
-      if (!wifiListProc.running) wifiListProc.running = true
       if (typeof wifiPowerCheck !== 'undefined' && wifiPowerCheck) wifiPowerCheck.running = true
       if (typeof ethCheck !== 'undefined' && ethCheck) ethCheck.running = true
       if (typeof activeConnProc !== 'undefined' && activeConnProc) activeConnProc.running = true
@@ -1961,7 +2128,8 @@ Scope {
             const isCurrent = inUse || (ssid === quickNetworkRoot.currentWifiSsid)
             out.push({
               ssid: ssid, signal: parseInt(p[2])||0, sec: p[3]||"", active: isCurrent,
-              known: quickNetworkRoot.savedWifi[ssid] === true
+              known: quickNetworkRoot.savedWifi[ssid] === true,
+              band: QuickModels.formatHeaderFreq(p[4] || "")
             })
           }
           // A scan can momentarily report only the active AP; keep the last list.
@@ -1983,7 +2151,10 @@ Scope {
             if (i === 0 && curKnown) next[i].section = "Known networks"
             else if (!curKnown && (i === 0 || prevKnown)) next[i].section = "Other networks"
           }
-          quickNetworkRoot.wifiNetworks = next
+          // Only reassign when contents actually changed — a fresh array per
+          // 6s poll rebuilt every Repeater row and made the list twitch.
+          if (JSON.stringify(next) !== JSON.stringify(quickNetworkRoot.wifiNetworks))
+            quickNetworkRoot.wifiNetworks = next
         }
       }
       stderr: StdioCollector {}
@@ -1993,7 +2164,12 @@ Scope {
       id: wifiPowerCheck
       command: ["nmcli", "radio", "wifi"]
       stdout: StdioCollector {
-        onStreamFinished: { quickNetworkRoot.wifiEnabled = (text || "").trim().indexOf("enabled") !== -1 }
+        onStreamFinished: {
+          // Don't fight an in-flight toggle: nmcli briefly reports the old
+          // radio state, which flip-flopped the Enable/Disable button.
+          if (radioProc.running || radioSettle.running) return
+          quickNetworkRoot.wifiEnabled = (text || "").trim().indexOf("enabled") !== -1
+        }
       }
     }
     Process {
@@ -2042,6 +2218,7 @@ Scope {
           if (saved) quickNetworkRoot.doConnect(savedCheckProc.targetSsid, null)
           else {
             quickNetworkRoot.pendingSsid = savedCheckProc.targetSsid
+            quickNetworkRoot.passwordError = ""
             quickNetworkRoot.showPasswordPrompt = true
           }
         }
@@ -2050,12 +2227,31 @@ Scope {
     Process {
       id: connectProc
       property string targetSsid: ""
+      property bool usedPassword: false
       onExited: function(code) {
-        if (code === 0) quickNetworkRoot.notifyNet("Connected", connectProc.targetSsid)
-        else {
+        quickNetworkRoot.connectingSsid = ""
+        if (code === 0) {
+          quickNetworkRoot.notifyNet("Connected", connectProc.targetSsid)
+          quickNetworkRoot.currentWifiSsid = connectProc.targetSsid
+        } else if (quickNetworkRoot.pendingSec) {
+          // A failed secured attempt leaves a half-baked profile behind that
+          // would silently reuse the bad passphrase on retry — drop it and
+          // re-open the prompt with the reason (omarchy's reprompt path).
+          Quickshell.execDetached(["nmcli", "connection", "delete", "id", connectProc.targetSsid])
+          quickNetworkRoot.pendingSsid = connectProc.targetSsid
+          quickNetworkRoot.passwordError = connectProc.usedPassword ? "Wrong password — try again" : "Passphrase required"
+          quickNetworkRoot.showPasswordPrompt = true
+        } else {
           quickNetworkRoot.notifyNet("Could not connect", connectProc.targetSsid)
-          quickNetworkRoot.openNetworkEditor()
         }
+        Qt.callLater(quickNetworkRoot.scanWifi)
+      }
+    }
+    Process {
+      id: forgetProc
+      property string targetSsid: ""
+      onExited: function(code) {
+        quickNetworkRoot.notifyNet(code === 0 ? "Forgotten" : "Could not forget", forgetProc.targetSsid)
         Qt.callLater(quickNetworkRoot.scanWifi)
       }
     }
@@ -2329,9 +2525,11 @@ Scope {
                     Text {
                       width: parent.width
                       text: {
-                        if (netDelegate.modelData.active) return "Connected"
+                        if (quickNetworkRoot.connectingSsid === netDelegate.modelData.ssid) return "Connecting…"
+                        const band = netDelegate.modelData.band ? " · " + netDelegate.modelData.band : ""
+                        if (netDelegate.modelData.active) return "Connected" + band
                         const sec = netDelegate.modelData.sec ? "Secure" : "Open"
-                        return netDelegate.modelData.known ? "Saved · " + sec : sec
+                        return (netDelegate.modelData.known ? "Saved · " + sec : sec) + band
                       }
                       font.family: root.uiFont; font.pixelSize: root.fontPx(7)
                       color: netDelegate.modelData.active ? Style.menuIndigo : Style.menuInkDeep
@@ -2345,6 +2543,23 @@ Scope {
                     anchors.verticalCenter: parent.verticalCenter
                     onClicked: quickNetworkRoot.disconnectSsid(netDelegate.modelData.ssid)
                     Text { anchors.centerIn: parent; text: "󰅙"; font.family: root.uiFont; font.pixelSize: root.fontPx(12); color: Style.red }
+                  }
+                  // Forget saved profile (only for known, not-connected rows).
+                  MouseArea {
+                    id: netForgetMa
+                    visible: netDelegate.modelData.known && !netDelegate.modelData.active
+                    width: 20; height: 20
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    anchors.verticalCenter: parent.verticalCenter
+                    onClicked: quickNetworkRoot.forgetSsid(netDelegate.modelData.ssid)
+                    Text {
+                      anchors.centerIn: parent
+                      text: "󰩺"
+                      font.family: root.uiFont
+                      font.pixelSize: root.fontPx(11)
+                      color: netForgetMa.containsMouse ? Style.red : Style.menuInkDeep
+                    }
                   }
                 }
                 MouseArea {
@@ -2410,6 +2625,7 @@ Scope {
       radius: Style.menuRadius
       color: Qt.rgba(0, 0, 0, 0.78)
       visible: quickNetworkRoot.showPasswordPrompt
+      onVisibleChanged: if (visible) { netPassInput.text = ""; netPassInput.forceActiveFocus() }
       z: 20
       ColumnLayout {
         anchors.centerIn: parent
@@ -2425,6 +2641,16 @@ Scope {
           Layout.fillWidth: true
           horizontalAlignment: Text.AlignHCenter
           elide: Text.ElideRight
+        }
+        Text {
+          visible: quickNetworkRoot.passwordError !== ""
+          text: quickNetworkRoot.passwordError
+          color: Style.red
+          font.family: root.uiFont
+          font.pixelSize: root.fontPx(9)
+          Layout.alignment: Qt.AlignHCenter
+          Layout.fillWidth: true
+          horizontalAlignment: Text.AlignHCenter
         }
         Rectangle {
           Layout.fillWidth: true
@@ -2531,6 +2757,106 @@ Scope {
       if (!monScan.running) monScan.running = true
     }
 
+    // ---- Brightness (omarchy.monitor's slider, via brightnessctl) ----
+    property int brightness: -1  // percent; -1 = no controllable backlight
+    function setBrightness(pct) {
+      quickMonitorsRoot.brightness = QuickModels.clampBrightness(pct)
+      brightSet.restart()
+    }
+    Process {
+      id: brightProc
+      command: ["bash", "-c", "brightnessctl -m 2>/dev/null | awk -F, '{gsub(/%/,\"\",$4); print $4}'"]
+      stdout: StdioCollector {
+        onStreamFinished: {
+          const v = parseInt((text || "").trim(), 10)
+          if (Number.isFinite(v) && !brightSet.running) quickMonitorsRoot.brightness = v
+        }
+      }
+    }
+    // Debounced write so dragging the slider doesn't spawn a process per pixel.
+    Timer {
+      id: brightSet
+      interval: 90
+      onTriggered: Quickshell.execDetached(["brightnessctl", "set", quickMonitorsRoot.brightness + "%"])
+    }
+
+    // ---- Scale presets for the focused monitor (omarchy.monitor) ----
+    // cleanScale snaps to values Hyprland actually accepts for the mode.
+    readonly property var scalePresets: ["1", "1.25", "1.6", "2", "3", "4"]
+    readonly property var focusedMon: {
+      const list = quickMonitorsRoot.mons || []
+      return list.find(m => m && m.focused && !m.disabled) || quickMonitorsRoot.monitorPrimary()
+    }
+    readonly property var scaleValues: {
+      const m = quickMonitorsRoot.focusedMon
+      if (!m) return quickMonitorsRoot.scalePresets
+      return QuickModels.availableScales(quickMonitorsRoot.scalePresets, m.width, m.height)
+    }
+    readonly property int activeScaleIdx: {
+      const m = quickMonitorsRoot.focusedMon
+      if (!m) return -1
+      return QuickModels.matchingScaleIndex(quickMonitorsRoot.scaleValues, m.scale, m.width, m.height)
+    }
+    function setScale(scale) {
+      const m = quickMonitorsRoot.focusedMon
+      if (!m) { quickMonitorsRoot.monStatus = "No focused monitor"; return }
+      const clean = QuickModels.cleanScale(scale, m.width, m.height)
+      if (!clean) { quickMonitorsRoot.monStatus = "Invalid scale"; return }
+      quickMonitorsRoot.applyMonitorConfig(m, quickMonitorsRoot.monitorMode(m), clean, m.name + " scale " + clean + "...")
+    }
+
+    // ---- Resolution / refresh for the focused monitor ----
+    readonly property var resolutionOpts: {
+      const m = quickMonitorsRoot.focusedMon
+      return m ? QuickModels.resolutionOptions(m.availableModes, 6) : []
+    }
+    readonly property var refreshOpts: {
+      const m = quickMonitorsRoot.focusedMon
+      return m ? QuickModels.refreshOptions(m.availableModes, m.width, m.height, 6) : []
+    }
+    function applyMode(w, h, hz) {
+      const m = quickMonitorsRoot.focusedMon
+      if (!m) { quickMonitorsRoot.monStatus = "No focused monitor"; return }
+      const mode = w + "x" + h + "@" + Number(hz).toFixed(2)
+      // The scale must stay legal for the NEW mode dimensions.
+      const scale = QuickModels.cleanScale(m.scale || 1, w, h) || "1"
+      quickMonitorsRoot.applyMonitorConfig(m, mode, scale, m.name + " → " + mode + "...")
+    }
+    // Lua config (Hyprland 0.56): `hyprctl keyword` is legacy-parser only —
+    // apply through hl.monitor via eval, like mirror/external-only do. The
+    // position stays explicit (omarchy uses "auto", but this setup pins
+    // monitor positions in monitors.lua — auto would rearrange the layout).
+    function applyMonitorConfig(m, mode, scale, status) {
+      quickMonitorsRoot.monStatus = status
+      monAction.command = ["hyprctl", "eval",
+        "hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name)
+        + ", mode = " + quickMonitorsRoot.luaString(mode)
+        + ", position = " + quickMonitorsRoot.luaString((m.x || 0) + "x" + (m.y || 0))
+        + ", scale = " + scale + " })"]
+      monAction.running = true
+    }
+
+    // ---- Per-display enable/disable (guarded: never the last one) ----
+    readonly property int enabledMonCount: {
+      const list = quickMonitorsRoot.mons || []
+      let n = 0
+      for (let i = 0; i < list.length; i++) if (list[i] && !list[i].disabled) n++
+      return n
+    }
+    function toggleMonitor(m) {
+      if (!m || !m.name) return
+      if (!m.disabled && quickMonitorsRoot.enabledMonCount <= 1) {
+        quickMonitorsRoot.monStatus = "Won't disable the last display"
+        return
+      }
+      quickMonitorsRoot.monStatus = (m.disabled ? "Enabling " : "Disabling ") + m.name + "..."
+      monAction.command = ["hyprctl", "eval",
+        m.disabled
+          ? ("hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name) + ", mode = \"preferred\", position = \"auto\", scale = " + (m.scale || 1) + " })")
+          : ("hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name) + ", disabled = true })")]
+      monAction.running = true
+    }
+
     Process {
       id: monScan
       command: ["hyprctl", "monitors", "all", "-j"]
@@ -2552,9 +2878,52 @@ Scope {
       }
     }
     Timer { interval: 900; id: monDelay; onTriggered: monScan.running = true }
-    Timer { interval: 3000; running: root.quickDetailActive && root.expandedQuickKey === "monitors"; repeat: true; triggeredOnStart: true; onTriggered: if (!monScan.running) monScan.running = true }
+    Timer {
+      interval: 3000; running: root.quickDetailActive && root.expandedQuickKey === "monitors"; repeat: true; triggeredOnStart: true
+      onTriggered: {
+        if (!monScan.running) monScan.running = true
+        if (!brightProc.running) brightProc.running = true
+      }
+    }
 
     Component.onCompleted: Qt.callLater(function(){ if (!monScan.running) monScan.running = true })
+
+    // Equal-width option pill (omarchy's ScalePill): every pill in a row
+    // stretches to the same share so the presets fill the width evenly.
+    component OptionPill: Rectangle {
+      id: optPill
+      property string label: ""
+      property bool active: false
+      signal tapped()
+      Layout.fillWidth: true
+      Layout.preferredWidth: 10
+      implicitHeight: 24
+      radius: Style.menuRadius
+      color: optPill.active
+        ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.18)
+        : (optPillMa.containsMouse ? Style.menuRowHi : Style.menuControlBg)
+      border.color: optPill.active ? Style.menuIndigo : Style.menuSep
+      border.width: 1
+      Behavior on color { ColorAnimation { duration: 120 } }
+      Text {
+        anchors.centerIn: parent
+        width: Math.min(implicitWidth, optPill.width - 8)
+        text: optPill.label
+        font.pixelSize: root.fontPx(8)
+        color: optPill.active ? Style.menuIndigo : Style.menuInk
+        font.family: root.uiFont
+        font.bold: optPill.active
+        elide: Text.ElideMiddle
+        horizontalAlignment: Text.AlignHCenter
+      }
+      MouseArea {
+        id: optPillMa
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: optPill.tapped()
+      }
+    }
 
     ColumnLayout {
       id: monLayout
@@ -2583,6 +2952,100 @@ Scope {
           Text { anchors.centerIn: parent; text: "Rescan"; font.pixelSize: root.fontPx(9); color: Style.menuInk; font.family: root.uiFont }
           Behavior on color { ColorAnimation { duration: 140 } }
           MouseArea { id: resMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: quickMonitorsRoot.rescanMonitors() }
+        }
+      }
+      // Brightness slider (hidden when brightnessctl reports nothing).
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 10
+        visible: quickMonitorsRoot.brightness >= 0
+        Text { text: "󰃟"; color: Style.orange; font.pixelSize: root.fontPx(12); font.family: root.uiFont }
+        VolSlider {
+          Layout.fillWidth: true
+          value: Math.max(0, quickMonitorsRoot.brightness) / 100
+          accent: Style.orange
+          onMoved: function(v) { quickMonitorsRoot.setBrightness(Math.round(v * 100)) }
+        }
+        Text {
+          text: quickMonitorsRoot.brightness + "%"
+          color: Style.menuInk
+          font.pixelSize: root.fontPx(9)
+          font.family: root.uiFont
+          font.bold: true
+        }
+        Text {
+          text: QuickModels.brightnessName(quickMonitorsRoot.brightness)
+          color: Style.menuInkDeep
+          font.pixelSize: root.fontPx(8)
+          font.family: root.uiFont
+        }
+      }
+      // Focused-display controls (omarchy.monitor): equal-width preset rows.
+      // Scale pills are labeled with the EFFECTIVE snapped value for the
+      // current mode (a preset like 1.6 may land on 1.575), so what you click
+      // is what you get.
+      ColumnLayout {
+        Layout.fillWidth: true
+        spacing: 4
+        visible: !!quickMonitorsRoot.focusedMon
+        Text {
+          text: "DISPLAY" + (quickMonitorsRoot.focusedMon && quickMonitorsRoot.enabledMonCount > 1
+            ? " · " + quickMonitorsRoot.focusedMon.name : "")
+          color: Style.menuInkDeep
+          font.pixelSize: root.fontPx(7)
+          font.family: root.uiFont
+          font.bold: true
+          font.letterSpacing: 1.2
+        }
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 6
+          Text { text: "Scale"; Layout.preferredWidth: 72; color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
+          Repeater {
+            model: quickMonitorsRoot.scaleValues || []
+            delegate: OptionPill {
+              required property string modelData
+              required property int index
+              label: (quickMonitorsRoot.focusedMon
+                ? QuickModels.cleanScale(modelData, quickMonitorsRoot.focusedMon.width, quickMonitorsRoot.focusedMon.height)
+                : QuickModels.normalizeScale(modelData)) + "×"
+              active: index === quickMonitorsRoot.activeScaleIdx
+              onTapped: quickMonitorsRoot.setScale(modelData)
+            }
+          }
+        }
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 6
+          visible: (quickMonitorsRoot.resolutionOpts || []).length > 1
+          Text { text: "Resolution"; Layout.preferredWidth: 72; color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
+          Repeater {
+            model: quickMonitorsRoot.resolutionOpts || []
+            delegate: OptionPill {
+              required property var modelData
+              label: modelData.label
+              active: !!quickMonitorsRoot.focusedMon
+                && modelData.width === quickMonitorsRoot.focusedMon.width
+                && modelData.height === quickMonitorsRoot.focusedMon.height
+              onTapped: quickMonitorsRoot.applyMode(modelData.width, modelData.height, modelData.best)
+            }
+          }
+        }
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 6
+          visible: (quickMonitorsRoot.refreshOpts || []).length > 1
+          Text { text: "Refresh"; Layout.preferredWidth: 72; color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
+          Repeater {
+            model: quickMonitorsRoot.refreshOpts || []
+            delegate: OptionPill {
+              required property var modelData
+              label: QuickModels.formatRefresh(modelData)
+              active: !!quickMonitorsRoot.focusedMon
+                && QuickModels.sameRefresh(modelData, quickMonitorsRoot.focusedMon.refreshRate)
+              onTapped: quickMonitorsRoot.applyMode(quickMonitorsRoot.focusedMon.width, quickMonitorsRoot.focusedMon.height, modelData)
+            }
+          }
         }
       }
       // compact layout viz — leftover pane height, never a rigid 420 that overflows
@@ -2640,8 +3103,35 @@ Scope {
                 Text { text: modelData.focused ? "󰍹" : "󰌢"; color: modelData.focused ? Style.menuIndigo : Style.menuInkDeep; font.pixelSize: root.fontPx(14); font.family: root.uiFont }
                 ColumnLayout {
                   Layout.fillWidth: true; spacing: 0
-                  Text { text: (modelData.name || "?") + (modelData.mirrorOf && modelData.mirrorOf !== "none" ? (" mirrors " + modelData.mirrorOf) : ""); color: Style.menuInk; font.pixelSize: root.fontPx(10); font.family: root.uiFont; font.bold: modelData.focused; elide: Text.ElideRight; Layout.fillWidth: true }
+                  Text { text: (modelData.name || "?") + (modelData.mirrorOf && modelData.mirrorOf !== "none" ? (" mirrors " + modelData.mirrorOf) : "") + (modelData.disabled ? "  (off)" : ""); color: modelData.disabled ? Style.menuInkDeep : Style.menuInk; font.pixelSize: root.fontPx(10); font.family: root.uiFont; font.bold: modelData.focused; elide: Text.ElideRight; Layout.fillWidth: true }
                   Text { text: quickMonitorsRoot.monitorMode(modelData) + "  scale " + (modelData.scale||1) + "  pos " + (modelData.x||0) + "," + (modelData.y||0); color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont; elide: Text.ElideRight; Layout.fillWidth: true }
+                }
+                // Enable/disable this display (guarded against the last one).
+                Rectangle {
+                  id: monToggle
+                  readonly property bool isOff: !!modelData.disabled
+                  readonly property bool locked: !monToggle.isOff && quickMonitorsRoot.enabledMonCount <= 1
+                  width: monToggleLbl.width + 14; height: 22; radius: Style.menuRadius
+                  color: monToggleMa.containsMouse && !monToggle.locked ? Style.menuRowHi : Style.menuControlBg
+                  border.color: monToggle.isOff ? Style.menuSep : Style.green
+                  border.width: 1
+                  opacity: monToggle.locked ? 0.4 : 1
+                  Text {
+                    id: monToggleLbl
+                    anchors.centerIn: parent
+                    text: monToggle.isOff ? "Enable" : "On"
+                    font.pixelSize: root.fontPx(8)
+                    color: monToggle.isOff ? Style.menuInkDeep : Style.green
+                    font.family: root.uiFont
+                    font.bold: true
+                  }
+                  MouseArea {
+                    id: monToggleMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: monToggle.locked ? Qt.ArrowCursor : Qt.PointingHandCursor
+                    onClicked: if (!monToggle.locked) quickMonitorsRoot.toggleMonitor(modelData)
+                  }
                 }
               }
             }
@@ -2979,6 +3469,20 @@ Scope {
     property bool btScanRequested: false
     readonly property bool btDiscovering: Bluetooth.defaultAdapter ? Bluetooth.defaultAdapter.discovering : false
 
+    // Address -> "connecting" | "disconnecting" | "forgetting" (omarchy's
+    // pendingActions). Keeps the panel open and responsive while BlueZ
+    // catches up instead of closing the launcher on every action.
+    property var btPending: ({})
+    function setBtPending(mac, action) {
+      if (!mac) return
+      quickBtRoot.btPending = QuickModels.withPendingAction(quickBtRoot.btPending, mac, action)
+      if (action) btPendingTimeout.restart()
+    }
+    function settleBtPending() {
+      const next = QuickModels.settledPendingActions(quickBtRoot.btPending, quickBtRoot.btDevs)
+      if (next) quickBtRoot.btPending = next
+    }
+
     // Primitives-only rows grouped omarchy-style (Connected / Paired /
     // Discovered). Holding live Device QObjects in model data segfaults
     // quickshell when BlueZ churn (discovery timeouts, unpair) destroys an
@@ -2986,6 +3490,7 @@ Scope {
     // bluetoothctl by address instead.
     readonly property var btRows: {
       const tick = quickBtRoot.btUpdated  // periodic refresh picks up device property changes
+      const pending = quickBtRoot.btPending || {}
       const devs = quickBtRoot.btDevs || []
       const connected = []; const known = []; const discovered = []
       for (let i = 0; i < devs.length; i++) {
@@ -3002,6 +3507,7 @@ Scope {
           paired: !!(d.paired || d.bonded || d.trusted),
           batteryAvailable: !!d.batteryAvailable,
           battery: Math.round((d.battery || 0) * 100),
+          pending: QuickModels.pendingAction(pending, d.address || ""),
           section: ""
         }
         if (row.connected) connected.push(row)
@@ -3029,24 +3535,29 @@ Scope {
     function openBtManager() {
       root.execAndClose([root.binDir + "/asahi-launch-bluetooth"])
     }
+    // All actions stay open (omarchy behavior): the row shows a pending
+    // state and settles in place once BlueZ reports the transition.
     function btConnect(mac, name) {
+      if (!mac || btActionProc.running) return
+      quickBtRoot.setBtPending(mac, "connecting")
       btActionProc.action = "connect"
-      btActionProc.targetMac = mac || ""
+      btActionProc.targetMac = mac
       btActionProc.targetName = name || "device"
-      btActionProc.command = ["bluetoothctl", "connect", btActionProc.targetMac]
+      btActionProc.command = ["bluetoothctl", "connect", mac]
       btActionProc.running = true
-      root.closeLauncher()
     }
     function btDisconnect(mac, name) {
+      if (!mac || btActionProc.running) return
+      quickBtRoot.setBtPending(mac, "disconnecting")
       btActionProc.action = "disconnect"
-      btActionProc.targetMac = mac || ""
+      btActionProc.targetMac = mac
       btActionProc.targetName = name || "device"
-      btActionProc.command = ["bluetoothctl", "disconnect", btActionProc.targetMac]
+      btActionProc.command = ["bluetoothctl", "disconnect", mac]
       btActionProc.running = true
-      root.closeLauncher()
     }
     function btPair(mac, name) {
       if (!mac || btActionProc.running) return
+      quickBtRoot.setBtPending(mac, "connecting")
       btActionProc.action = "pair"
       btActionProc.targetMac = mac
       btActionProc.targetName = name || "device"
@@ -3055,6 +3566,18 @@ Scope {
         "bluetoothctl pair " + root.shQuote(mac) +
         " && bluetoothctl trust " + root.shQuote(mac) +
         " && bluetoothctl connect " + root.shQuote(mac)]
+      btActionProc.running = true
+    }
+    function btForget(mac, name) {
+      if (!mac || btActionProc.running) return
+      quickBtRoot.setBtPending(mac, "forgetting")
+      btActionProc.action = "forget"
+      btActionProc.targetMac = mac
+      btActionProc.targetName = name || "device"
+      // Disconnect first so a connected device can be removed cleanly.
+      btActionProc.command = ["bash", "-c",
+        "bluetoothctl disconnect " + root.shQuote(mac) + " >/dev/null 2>&1; " +
+        "bluetoothctl remove " + root.shQuote(mac)]
       btActionProc.running = true
     }
     function toggleScan() {
@@ -3092,22 +3615,38 @@ Scope {
       property string targetMac: ""
       property string targetName: ""
       onExited: function(code) {
+        // On failure clear the pending row state right away (success settles
+        // via the live device list) and notify — the panel stays open so the
+        // user can just retry; no jump to an external manager.
+        if (code !== 0) quickBtRoot.setBtPending(btActionProc.targetMac, "")
         if (btActionProc.action === "connect") {
-          if (code === 0) quickBtRoot.btNotify("Connected", btActionProc.targetName)
-          else {
-            quickBtRoot.btNotify("Could not connect", btActionProc.targetName)
-            quickBtRoot.openBtManager()
-          }
+          quickBtRoot.btNotify(code === 0 ? "Connected" : "Could not connect", btActionProc.targetName)
         } else if (btActionProc.action === "disconnect" && code === 0) {
           quickBtRoot.btNotify("Disconnected", btActionProc.targetName)
         } else if (btActionProc.action === "pair") {
           quickBtRoot.btNotify(code === 0 ? "Paired" : "Pairing failed", btActionProc.targetName)
+        } else if (btActionProc.action === "forget") {
+          quickBtRoot.btNotify(code === 0 ? "Forgotten" : "Could not forget", btActionProc.targetName)
         }
         btDelay.restart()
         if (!btJsonProc.running) btJsonProc.running = true
       }
     }
     Timer { id: btDelay; interval: 500; onTriggered: { if (btStat) btStat.running = true; if (btJsonProc) btJsonProc.running = true } }
+    // Pending-state failsafe (omarchy's pendingTimeout): if BlueZ never
+    // reports the transition, stop showing spinner text after 20s.
+    Timer { id: btPendingTimeout; interval: 20000; onTriggered: quickBtRoot.btPending = ({}) }
+    // Fast settle poll while any action is in flight so rows flip from
+    // "Connecting…" to their real state promptly.
+    Timer {
+      interval: 800
+      repeat: true
+      running: Object.keys(quickBtRoot.btPending || {}).length > 0
+      onTriggered: {
+        quickBtRoot.settleBtPending()
+        quickBtRoot.btUpdated = Qt.formatTime(new Date(), "HH:mm:ss")
+      }
+    }
     Timer {
       interval: 4000
       running: root.quickDetailActive && root.expandedQuickKey === "bluetooth"
@@ -3197,8 +3736,10 @@ Scope {
         }
         Rectangle {
           visible: quickBtRoot.btOn
-          width: btScanLbl.width + 16
-          height: 24
+          // RowLayout allocates by implicit size — a plain `width` paints
+          // outside the slot and overlaps the neighbor when the label grows.
+          implicitWidth: btScanLbl.width + 16
+          implicitHeight: 24
           radius: Style.menuRadius
           color: quickBtRoot.btScanRequested
             ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.18)
@@ -3224,8 +3765,8 @@ Scope {
           }
         }
         Rectangle {
-          width: btPwrLbl.width + 16
-          height: 24
+          implicitWidth: btPwrLbl.width + 16
+          implicitHeight: 24
           radius: Style.menuRadius
           color: btPwr.containsMouse ? Style.menuRowHi : Style.menuControlBg
           border.color: Style.menuSep
@@ -3309,7 +3850,7 @@ Scope {
                 Column {
                   anchors.left: btIcon.right
                   anchors.leftMargin: 8
-                  anchors.right: btAction.left
+                  anchors.right: btForgetBtn.visible ? btForgetBtn.left : btAction.left
                   anchors.rightMargin: 8
                   anchors.verticalCenter: parent.verticalCenter
                   spacing: 1
@@ -3324,32 +3865,71 @@ Scope {
                   }
                   Text {
                     width: parent.width
-                    text: btDelegate.modelData.connected
-                      ? (btDelegate.modelData.batteryAvailable ? ("Connected · " + btDelegate.modelData.battery + "%") : "Connected")
-                      : (btDelegate.modelData.paired ? "Paired" : btDelegate.modelData.address)
-                    color: btDelegate.modelData.connected ? Style.green : Style.menuInkDeep
+                    text: {
+                      const p = btDelegate.modelData.pending || ""
+                      if (p === "connecting") return "Connecting…"
+                      if (p === "disconnecting") return "Disconnecting…"
+                      if (p === "forgetting") return "Forgetting…"
+                      if (btDelegate.modelData.connected)
+                        return btDelegate.modelData.batteryAvailable ? ("Connected · " + btDelegate.modelData.battery + "%") : "Connected"
+                      return btDelegate.modelData.paired ? "Paired" : btDelegate.modelData.address
+                    }
+                    color: (btDelegate.modelData.pending || "") !== "" ? Style.menuIndigo
+                      : (btDelegate.modelData.connected ? Style.green : Style.menuInkDeep)
                     font.pixelSize: root.fontPx(7)
                     font.family: root.uiFont
                     elide: Text.ElideRight
                   }
                 }
 
+                // Forget (omarchy's 'x'): only for remembered devices, and
+                // hidden while an action is in flight.
+                Rectangle {
+                  id: btForgetBtn
+                  visible: btDelegate.modelData.paired && (btDelegate.modelData.pending || "") === ""
+                  anchors.right: btAction.left
+                  anchors.rightMargin: 6
+                  anchors.verticalCenter: parent.verticalCenter
+                  width: 22
+                  height: 22
+                  radius: Style.menuRadius
+                  color: btForgetMa.containsMouse ? Qt.rgba(Style.red.r, Style.red.g, Style.red.b, 0.16) : Style.menuControlBg
+                  border.color: btForgetMa.containsMouse ? Style.red : Style.menuSep
+                  border.width: 1
+                  Behavior on color { ColorAnimation { duration: 120 } }
+                  Text {
+                    anchors.centerIn: parent
+                    text: "󰅙"
+                    font.pixelSize: root.fontPx(9)
+                    color: btForgetMa.containsMouse ? Style.red : Style.menuInkDeep
+                    font.family: root.uiFont
+                  }
+                  MouseArea {
+                    id: btForgetMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: quickBtRoot.btForget(btDelegate.modelData.address, btDelegate.modelData.label)
+                  }
+                }
                 Rectangle {
                   id: btAction
+                  readonly property bool busy: (btDelegate.modelData.pending || "") !== ""
                   anchors.right: parent.right
                   anchors.rightMargin: 8
                   anchors.verticalCenter: parent.verticalCenter
                   width: btActionLbl.width + 12
                   height: 22
                   radius: Style.menuRadius
-                  color: btActionMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
+                  color: btActionMa.containsMouse && !btAction.busy ? Style.menuRowHi : Style.menuControlBg
                   border.color: Style.menuSep
                   border.width: 1
+                  opacity: btAction.busy ? 0.5 : 1
                   Behavior on color { ColorAnimation { duration: 120 } }
                   Text {
                     id: btActionLbl
                     anchors.centerIn: parent
-                    text: btDelegate.modelData.connected ? "Disconnect" : (btDelegate.modelData.paired ? "Connect" : "Pair")
+                    text: btAction.busy ? "…" : (btDelegate.modelData.connected ? "Disconnect" : (btDelegate.modelData.paired ? "Connect" : "Pair"))
                     font.pixelSize: root.fontPx(8)
                     color: Style.menuIndigo
                     font.family: root.uiFont
@@ -3359,8 +3939,9 @@ Scope {
                     id: btActionMa
                     anchors.fill: parent
                     hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
+                    cursorShape: btAction.busy ? Qt.ArrowCursor : Qt.PointingHandCursor
                     onClicked: {
+                      if (btAction.busy) return
                       const dev = btDelegate.modelData
                       if (dev.connected) quickBtRoot.btDisconnect(dev.address, dev.label)
                       else if (dev.paired) quickBtRoot.btConnect(dev.address, dev.label)
