@@ -51,6 +51,29 @@ assert(
   qml.indexOf('indexOf("@")') === -1,
   "hub no longer drops every line containing @"
 );
+assert(
+  !/Layout\.maximumWidth:\s*84\b/.test(qml),
+  "hub logo is not capped at 84px (that painted past the layout slot over the labels)"
+);
+assert(
+  /Layout\.preferredWidth:\s*contentWidth/.test(qml),
+  "hub logo preferredWidth follows contentWidth so art and labels do not overlap"
+);
+assert(
+  !/Layout\.preferredWidth:\s*1\s*\n\s*Layout\.fillHeight:\s*false\s*\n\s*Layout\.preferredHeight:\s*ffInfoBody/.test(qml),
+  "hub no longer draws a vertical separator bar between logo and info"
+);
+assert(
+  /elide:\s*Text\.ElideRight/.test(qml) && /wrapMode:\s*Text\.NoWrap/.test(qml),
+  "hub info values elide on one line instead of wrapping mid-word"
+);
+
+const maxLen = Math.max.apply(null, lines.map(function (l) { return l.length; }));
+assert(
+  lines.every(function (l) { return !/\.+$/.test(l); }),
+  "parsed logo lines have trailing shade dots stripped"
+);
+assert(maxLen <= 36, "shade-trimmed logo max width <= 36 cols (got " + maxLen + ")");
 
 if (failed > 0) {
   console.log("\n" + failed + " assertion(s) failed");

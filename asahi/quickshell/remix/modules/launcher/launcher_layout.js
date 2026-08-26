@@ -16,9 +16,13 @@ var TILE_H_COL_MIN = 36
 var TILE_H_GRID_MIN = 72
 var TILE_GAP_COL = 6
 var TILE_GAP_GRID = 12
-var VIZ_MAX = 420
-var VIZ_MIN = 96
-var MIN_LIST = 52
+// Monitor layout preview owns leftover pane height (list is content-sized).
+// Soft cap keeps the viz from dominating ultra-tall screens; Flickable scrolls
+// the list when there are more than ~3 rows.
+var VIZ_MAX = 450
+var VIZ_MIN = 160
+var MIN_LIST = 110
+var MON_LIST_MAX = 160
 var MON_TOOLBAR_H = 26
 var MON_CAPTION_H = 16
 var MON_SPACING = 8
@@ -182,6 +186,9 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     CARD_MARGIN: CARD_MARGIN,
     VIZ_MAX: VIZ_MAX,
+    VIZ_MIN: VIZ_MIN,
+    MIN_LIST: MIN_LIST,
+    MON_LIST_MAX: MON_LIST_MAX,
     TILE_H_COL: TILE_H_COL,
     launcherLayout: launcherLayout,
     launcherChrome: launcherChrome,

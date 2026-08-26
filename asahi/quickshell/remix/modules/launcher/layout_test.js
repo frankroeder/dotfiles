@@ -50,11 +50,17 @@ function runCase(label, opts) {
   if (r.vizWouldOverflow) {
     assert(
       viz < shipped.VIZ_MAX,
-      label + ": viz " + viz + " < rigid 420 because 420 would overflow pane " + r.paneHeight
+      label + ": viz " + viz + " < vizMax " + shipped.VIZ_MAX + " because max would overflow pane " + r.paneHeight
     );
   } else {
-    console.log("ok  " + label + ": 420 fits in pane " + r.paneHeight + " (viz=" + viz + ")");
+    console.log("ok  " + label + ": vizMax " + shipped.VIZ_MAX + " fits in pane " + r.paneHeight + " (viz=" + viz + ")");
   }
+  const chromeMon = 26 + 16 + 3 * 8; // toolbar + caption + spacing (matches launcher_layout.js)
+  const listRoom = r.paneHeight - chromeMon - viz;
+  assert(
+    listRoom >= 110 || viz <= shipped.VIZ_MIN,
+    label + ": list room " + listRoom + " >= 110 (or viz at floor) so ≥2 monitor rows fit without scroll"
+  );
   return r;
 }
 
@@ -86,6 +92,22 @@ assert(
 assert(
   /LauncherGeom\.monitorsVizHeight/.test(qml),
   "monitors viz height comes from shipped monitorsVizHeight"
+);
+assert(
+  /Layout\.maximumHeight:\s*LauncherGeom\.VIZ_MAX/.test(qml),
+  "monitors viz max height uses shipped VIZ_MAX"
+);
+assert(
+  /Layout\.fillHeight:\s*false/.test(qml) && /LauncherGeom\.MON_LIST_MAX/.test(qml),
+  "monitor list sizes to content (capped) so leftover height goes to the preview"
+);
+assert(
+  /const s = Math\.min\(/.test(qml),
+  "monitors viz paints with uniform scale (keeps logical aspect)"
+);
+assert(
+  /h >= 72/.test(qml),
+  "monitors viz scales label density to box height"
 );
 assert(
   /id:\s*quickSide/.test(qml),

@@ -10,6 +10,15 @@ function stripAnsi(text) {
     .replace(/\u001b./g, "")
 }
 
+// Fedora_small shades the right edge with trailing "...." (sometimes ",,");
+// those look like a hollow gap once the art sits in its own column, and they
+// used to paint over the OS/Kernel labels. Keep the solid glyphs only.
+function trimShade(line) {
+  return String(line || "")
+    .replace(/\.+[.,]*\s*$/g, "")
+    .replace(/\s+$/g, "")
+}
+
 function parseLogo(text) {
   const lines = String(text || "").split(/\n/)
   const logo = []
@@ -21,7 +30,7 @@ function parseLogo(text) {
     if (/^-{3,}$/.test(trimmed)) break
     if (trimmed.length === 0) continue
     if (/^[A-Za-z0-9._-]+@[A-Za-z0-9._-]+$/.test(trimmed)) continue
-    logo.push(line.replace(/\s+$/g, ""))
+    logo.push(trimShade(line))
   }
   return logo
 }
@@ -33,6 +42,7 @@ function logoText(text) {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     stripAnsi: stripAnsi,
+    trimShade: trimShade,
     parseLogo: parseLogo,
     logoText: logoText
   }

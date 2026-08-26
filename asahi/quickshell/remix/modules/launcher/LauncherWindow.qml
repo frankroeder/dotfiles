@@ -501,10 +501,11 @@ Scope {
           color: Style.menuInk
           font.pixelSize: root.fontPx(9)
           font.family: root.uiFont
-          wrapMode: Text.WordWrap
-          maximumLineCount: 3
-          lineHeight: 1.2
-          lineHeightMode: Text.ProportionalHeight
+          // Single-line elide — wrapping in the narrow right column was
+          // chopping Host/WM/GPU mid-word after the logo took its real width.
+          wrapMode: Text.NoWrap
+          elide: Text.ElideRight
+          maximumLineCount: 1
         }
       }
     }
@@ -772,11 +773,14 @@ Scope {
           RowLayout {
             Layout.fillWidth: true
             Layout.alignment: Qt.AlignTop
-            spacing: 12
+            spacing: 10
 
             Text {
+              // Shade-trimmed art (hub_logo) + contentWidth: no overlap, no
+              // hollow gap, no separator bar between logo and info.
               Layout.alignment: Qt.AlignTop
-              Layout.maximumWidth: 84
+              Layout.preferredWidth: contentWidth
+              Layout.maximumWidth: contentWidth
               visible: quickHubRoot.ffLogoLines.length > 0
               text: quickHubRoot.ffLogoText
               color: Style.menuSeal
@@ -790,24 +794,16 @@ Scope {
               wrapMode: Text.NoWrap
             }
 
-            Rectangle {
-              visible: quickHubRoot.ffLogoLines.length > 0
-              Layout.preferredWidth: 1
-              Layout.fillHeight: false
-              Layout.preferredHeight: ffInfoBody.implicitHeight
-              Layout.alignment: Qt.AlignTop
-              color: Style.menuSep
-            }
-
             RowLayout {
               id: ffInfoBody
               Layout.fillWidth: true
               Layout.alignment: Qt.AlignTop
-              spacing: 20
+              spacing: 14
 
               Column {
                 id: ffLeftCol
                 Layout.fillWidth: true
+                Layout.preferredWidth: 1
                 spacing: 5
                 Repeater {
                   model: quickHubRoot.ffLeftRows
@@ -819,6 +815,7 @@ Scope {
               Column {
                 id: ffRightCol
                 Layout.fillWidth: true
+                Layout.preferredWidth: 1
                 spacing: 5
                 Repeater {
                   model: quickHubRoot.ffRightRows
@@ -3395,16 +3392,17 @@ Scope {
           }
         }
       }
-      // compact layout viz — leftover pane height, never a rigid 420 that overflows
+      // Layout viz — uniform scale, height capped so the list stays visible.
+      // Label size / line count follow box height so text never clips.
       Rectangle {
         Layout.fillWidth: true
         Layout.fillHeight: true
-        Layout.minimumHeight: 96
-        Layout.maximumHeight: 420
+        Layout.minimumHeight: LauncherGeom.VIZ_MIN
+        Layout.maximumHeight: LauncherGeom.VIZ_MAX
         Layout.preferredHeight: LauncherGeom.monitorsVizHeight(quickMonitorsRoot.height)
         radius: 6; color: Style.menuControlBg; border.color: Style.menuSep; border.width: 1
         Canvas {
-          anchors.fill: parent; anchors.margins: 10
+          anchors.fill: parent; anchors.margins: 8
           property int v: quickMonitorsRoot.monVersion
           onVChanged: requestPaint()
           onPaint: {
@@ -3413,26 +3411,59 @@ Scope {
             if (!mons.length) { ctx.fillStyle = Style.menuInkDeep; ctx.font = root.fontPx(8)+"px monospace"; ctx.fillText("Loading... rescan", 4, 12); return }
             let minX=0, minY=0, maxX=0, maxY=0
             for (const m of mons) { minX=Math.min(minX, m.x||0); minY=Math.min(minY, m.y||0); maxX=Math.max(maxX, (m.x||0)+quickMonitorsRoot.monitorLogicalWidth(m)); maxY=Math.max(maxY, (m.y||0)+quickMonitorsRoot.monitorLogicalHeight(m)) }
-            const W=width, H=height, pad=10
-            const sx=(W-2*pad)/Math.max(1,maxX-minX), sy=(H-2*pad)/Math.max(1,maxY-minY)
+            const W=width, H=height, pad=8
+            const spanX = Math.max(1, maxX - minX), spanY = Math.max(1, maxY - minY)
+            // Uniform scale keeps logical aspect; center leftover pad.
+            const s = Math.min((W - 2 * pad) / spanX, (H - 2 * pad) / spanY)
+            const ox = pad + (W - 2 * pad - spanX * s) / 2
+            const oy = pad + (H - 2 * pad - spanY * s) / 2
             for (const m of mons) {
-              const x=pad+((m.x||0)-minX)*sx, y=pad+((m.y||0)-minY)*sy
-              const w=quickMonitorsRoot.monitorLogicalWidth(m)*sx, h=quickMonitorsRoot.monitorLogicalHeight(m)*sy
+              const x = ox + ((m.x || 0) - minX) * s, y = oy + ((m.y || 0) - minY) * s
+              const w = quickMonitorsRoot.monitorLogicalWidth(m) * s, h = quickMonitorsRoot.monitorLogicalHeight(m) * s
               ctx.strokeStyle = Style.menuIndigo; ctx.lineWidth = 1; ctx.strokeRect(x, y, w, h)
               ctx.fillStyle = m.focused ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.24) : root.menuTileBg
               ctx.fillRect(x+1, y+1, w-2, h-2)
-              ctx.fillStyle = Style.menuInk; ctx.font = root.fontPx(13)+"px monospace"
-              ctx.fillText((m.name||"mon").slice(0,14), x+8, y+18)
-              ctx.font = root.fontPx(11)+"px monospace"
-              ctx.fillText(Math.round(quickMonitorsRoot.monitorLogicalWidth(m))+"x"+Math.round(quickMonitorsRoot.monitorLogicalHeight(m))+" logical", x+8, y+34)
-              ctx.fillText("scale " + (m.scale || 1) + "  " + (m.x || 0) + "," + (m.y || 0), x+8, y+48)
+              const name = (m.name || "mon").slice(0, 14)
+              const logical = Math.round(quickMonitorsRoot.monitorLogicalWidth(m)) + "x" + Math.round(quickMonitorsRoot.monitorLogicalHeight(m)) + " logical"
+              const meta = "scale " + (m.scale || 1) + "  " + (m.x || 0) + "," + (m.y || 0)
+              const inset = Math.max(4, Math.min(8, w * 0.04))
+              ctx.fillStyle = Style.menuInk
+              if (h >= 72) {
+                const titlePx = Math.max(10, Math.min(13, Math.floor(h / 7)))
+                const metaPx = Math.max(8, titlePx - 2)
+                const y1 = y + inset + titlePx
+                const y2 = y1 + metaPx + 4
+                const y3 = y2 + metaPx + 4
+                ctx.font = root.fontPx(titlePx) + "px monospace"
+                ctx.fillText(name, x + inset, y1)
+                ctx.font = root.fontPx(metaPx) + "px monospace"
+                if (y2 < y + h - 4) ctx.fillText(logical, x + inset, y2)
+                if (y3 < y + h - 4) ctx.fillText(meta, x + inset, y3)
+              } else if (h >= 44) {
+                const titlePx = Math.max(9, Math.min(11, Math.floor(h / 5)))
+                const metaPx = Math.max(7, titlePx - 2)
+                ctx.font = root.fontPx(titlePx) + "px monospace"
+                ctx.fillText(name, x + inset, y + inset + titlePx)
+                ctx.font = root.fontPx(metaPx) + "px monospace"
+                ctx.fillText(logical + " · " + meta, x + inset, y + h - inset - 2)
+              } else {
+                const titlePx = Math.max(8, Math.min(10, Math.floor(h / 3)))
+                ctx.font = root.fontPx(titlePx) + "px monospace"
+                ctx.fillText(name, x + inset, y + h / 2 + titlePx / 3)
+              }
             }
           }
         }
       }
       Text { text: "Mirror uses eDP-1 as source when present. Extend reloads monitors.lua. Layout drawn in logical coordinates."; color: Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont; Layout.alignment: Qt.AlignHCenter }
+      // Content-sized (capped) so leftover height feeds the preview, not a gap.
       Flickable {
-        Layout.fillWidth: true; Layout.fillHeight: true; clip: true
+        Layout.fillWidth: true
+        Layout.fillHeight: false
+        Layout.preferredHeight: Math.min(Math.max(monList.height, 98), LauncherGeom.MON_LIST_MAX)
+        Layout.maximumHeight: Math.min(Math.max(monList.height, 98), LauncherGeom.MON_LIST_MAX)
+        Layout.minimumHeight: 98
+        clip: true
         boundsBehavior: Flickable.StopAtBounds
         contentHeight: monList.height
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }

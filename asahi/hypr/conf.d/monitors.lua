@@ -15,7 +15,7 @@ hl.monitor {
 hl.monitor {
   output = "desc:Dell Inc. DELL P2723DE 895ZNR3",
   mode = "2560x1440@59.95100",
-  position = "-160x-1252",
+  position = "0x-1252",
   scale = 1.25,
 }
 
