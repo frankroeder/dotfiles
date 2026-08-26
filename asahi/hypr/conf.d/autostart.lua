@@ -3,6 +3,8 @@ local terminal = "ghostty"
 hl.on("hyprland.start", function()
   hl.exec_cmd "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE HYPRLAND_INSTANCE_SIGNATURE"
   hl.exec_cmd "systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE HYPRLAND_INSTANCE_SIGNATURE"
+  -- gnome-keyring owns org.freedesktop.secrets (kwallet is disabled). SSH stays with keychain.
+  hl.exec_cmd "~/.dotfiles/asahi/autostart-scripts/gnome-keyring"
   -- Portal Settings (LibreWolf / GTK4 / nvim) read this, not quickshell/ghostty colors.
   hl.exec_cmd "gsettings set org.gnome.desktop.interface color-scheme prefer-dark"
   hl.exec_cmd "gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark"

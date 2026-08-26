@@ -57,6 +57,8 @@ sudo dnf install -y \
   ghostty \
   google-noto-color-emoji-fonts \
   grim \
+  # Secret Service for Hyprland (kwallet disabled). Not GNOME Shell; SSH stays with keychain.
+  gnome-keyring \
   gwenview \
   hypridle \
   hyprland \
@@ -77,6 +79,7 @@ sudo dnf install -y \
   NetworkManager-wifi \
   NetworkManager-tui \
   nm-connection-editor \
+  openconnect \
   okular \
   papirus-icon-theme \
   pipewire \
@@ -130,6 +133,10 @@ sudo systemctl enable --now cups cups-browsed
 # - matugen (theming, per DankMaterialShell patterns): dnf or cargo install; integrate with QS for wallpaper-driven colors if chosen
 # - power-profiles-daemon: Omarchy wraps powerprofilesctl with no Apple Silicon
 #   backend. This machine is apple-cpufreq/schedutil; PPD does not drive it.
+# - seahorse / gnome-shell / gdm: not needed. gnome-keyring is Secret Service
+#   only (Hyprland autostart, no ssh component; keychain owns SSH).
+# - NetworkManager-openconnect / NetworkManager-vpnc: not used. TUHH VPN
+#   is `scripts/tuhhvpn.sh` → `sudo openconnect --useragent=AnyConnect any1.rz.tuhh.de`.
 
 sudo systemctl enable --now speakersafetyd >/dev/null 2>&1 || true
 

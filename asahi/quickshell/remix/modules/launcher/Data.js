@@ -41,7 +41,7 @@ const categoryNav = [
   { title: "Apps", icon: "󰀻", category: "Browse", isCategory: true, target: "App", keywords: "apps applications launcher programs software desktop" },
   { title: "Files", icon: "󰉋", category: "Browse", isCategory: true, target: fileCategory, keywords: "files file search find folder browse path fd", accessory: ">" },
   { title: "Actions", icon: "󰜎", category: "Browse", isCategory: true, target: "Actions", keywords: "actions colon commands run reload lock scratch hypr wallpaper dashboard", accessory: ":" },
-  { title: "Keyboard Shortcuts", icon: "󰌌", category: "Browse", isCategory: true, target: "Keys", keywords: "keys keyboard shortcuts bindings hotkeys binds hyprland super mod cheatsheet" },
+  { title: "Keyboard Shortcuts", icon: "󰌌", category: "Browse", isCategory: true, target: "Keys", keywords: "keys keyboard shortcuts bindings hotkeys binds hyprland super mod cheatsheet", accessory: "?" },
   { title: "Websearch", icon: "󰖟", category: "Browse", isCategory: true, target: "Websearch", keywords: "web search documentation engines kagi docs translate wiki", accessory: "@" },
   { title: "System", icon: "󰐥", category: "Browse", isCategory: true, target: "System", keywords: "system lock suspend logout restart reboot shutdown power session" }
 ]

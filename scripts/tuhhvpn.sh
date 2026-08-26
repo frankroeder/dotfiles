@@ -1,26 +1,33 @@
 #!/usr/bin/env sh
+# TUHH VPN via OpenConnect CLI — the path that works here.
+# Official console command: sudo openconnect any1.rz.tuhh.de
+#   https://www.tuhh.de/rzt/netze/vpn/anleitungen/ubuntu-linux
+#
+# --useragent=AnyConnect is required: the ASA 404s the config-auth XML
+# POST unless User-Agent starts with AnyConnect. Fedora's system store
+# already trusts the live GEANT/HARICA chain (leaf CN=any.rz.tuhh.de).
+# Do not pass --cafile / --no-system-trust. NetworkManager-openconnect
+# and vpnc are not used.
 
 set -eu
 
-# setup script for TUHH-VPN
+GW="any1.rz.tuhh.de"
+UA="AnyConnect"
 
-CON_NAME="TUHH-VPN"
-
-if [ "$#" -ne 1 ]; then
-  echo "Usage: $0 <username>" >&2
+if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
+  echo "Usage: $0 [username] [openconnect-args...]" >&2
   exit 1
 fi
 
-UN="$1"
-
-sudo wget -O /etc/ssl/certs/GlobalRoot_Class_2.crt https://corporate-pki.telekom.de/crt/GlobalRoot_Class_2.crt
-
-if nmcli connection show "$CON_NAME" >/dev/null 2>&1; then
-  nmcli connection delete "$CON_NAME"
+if ! command -v openconnect >/dev/null 2>&1; then
+  echo "openconnect is not installed (dnf install openconnect)" >&2
+  exit 1
 fi
 
-nmcli connection add type vpn \
-  con-name "$CON_NAME" \
-  vpn.service-type org.freedesktop.NetworkManager.openconnect \
-  vpn.data "gateway=any1.rz.tuhh.de,protocol=anyconnect,cacert=/etc/ssl/certs/GlobalRoot_Class_2.crt,cookie-flags=2,password-flags=0" \
-  vpn.user-name "$UN"
+if [ "$#" -ge 1 ] && [ "${1#-}" = "$1" ]; then
+  user=$1
+  shift
+  exec sudo openconnect --useragent="$UA" -u "$user" "$GW" "$@"
+fi
+
+exec sudo openconnect --useragent="$UA" "$GW" "$@"

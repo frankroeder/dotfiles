@@ -2,18 +2,33 @@
 (
   set -euo pipefail
   sid=$(uuidgen | tr '[:upper:]' '[:lower:]')
-  cleanup() { grok sessions delete "$sid" >/dev/null 2>&1 || true }
+  json=
+  cleanup() {
+    grok sessions delete "$sid" >/dev/null 2>&1 || true
+    actual=$(jq -r '.sessionId // empty' <<<"${json-}" 2>/dev/null || true)
+    [[ -n ${actual-} && $actual != $sid ]] && grok sessions delete "$actual" >/dev/null 2>&1 || true
+  }
   trap cleanup EXIT
   msg_file="${HOME}/.dotfiles/git/gitmessage"
   template=
   [[ -f $msg_file && -r $msg_file ]] && template=$(<$msg_file)
-  out=$(GROK_MEMORY=0 grok --session-id "$sid" \
+  diff=$(git diff --cached 2>/dev/null || true)
+  [[ -z $diff ]] && diff=$(git diff 2>/dev/null || true)
+  set +e
+  json=$(GROK_MEMORY=0 grok --session-id "$sid" \
     --disable-web-search --no-subagents --verbatim \
     --no-plan --effort low \
-    --single "Output a commit msg for the current changes, following the conventional commit format
+    --disallowed-tools "run_terminal_cmd,read_file,grep,list_dir,search_replace,write" \
+    --json-schema '{"type":"object","properties":{"message":{"type":"string"}},"required":["message"]}' \
+    --single "Write a conventional commit message for the current changes. Return JSON {\"message\": \"...\"} only.
 ---
 ${template}
-Be very concise and to the point.")
-  echo
-  echo "$out"
+=== GIT DIFF ===
+${diff}")
+  st=$?
+  set -e
+  cleanup
+  trap - EXIT
+  (( st == 0 )) || exit $st
+  jq -r '.structuredOutput.message // (.text | fromjson? | .message) // empty' <<<"$json"
 )

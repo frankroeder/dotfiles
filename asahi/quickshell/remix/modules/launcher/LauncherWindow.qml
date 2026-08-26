@@ -111,7 +111,7 @@ Scope {
     { key: "wallpaper", aliases: ["wall", "paper"], icon: "󰸉", name: "Wallpapers", comment: "Open wallpaper picker", mode: "wallpaper" },
     { key: "screenshots", aliases: ["shots", "ss"], icon: "󰹑", name: "Screenshots", comment: "Open screenshot gallery", mode: "screenshots" },
     { key: "media", aliases: ["music", "audio"], icon: "󰝚", name: "Media", comment: "Open media and mixer", mode: "media" },
-    { key: "network", aliases: ["wifi", "net"], icon: "󰈀", name: "Network", comment: "Open network controls", mode: "network" },
+    { key: "network", aliases: ["wifi", "net", "vpn"], icon: "󰈀", name: "Network", comment: "Open network and VPN controls", mode: "network" },
     { key: "monitors", aliases: ["display", "screen"], icon: "󰍹", name: "Monitors", comment: "Open monitor layout", mode: "monitors" },
     { key: "temp", aliases: ["temps", "temperature"], icon: "󰔄", name: "Temperatures", comment: "Open sensor view", mode: "temp" },
     { key: "battery", aliases: ["bat", "power", "charge"], icon: "󰁹", name: "Battery", comment: "Battery status, health, and power", mode: "battery" },
@@ -450,8 +450,64 @@ Scope {
     property var ffLogoLines: []
     property var ffLeftRows: []
     property var ffRightRows: []
-    readonly property int ffLabelWidth: 54
+    readonly property int ffIconWidth: 18
+    readonly property int ffLabelWidth: 78
     readonly property string ffLogoText: quickHubRoot.ffLogoLines.join("\n")
+
+    Component {
+      id: ffInfoRowDelegate
+      RowLayout {
+        required property var modelData
+        width: parent ? parent.width : implicitWidth
+        spacing: 6
+        readonly property string rowValue: {
+          if (modelData && modelData.key === "Memory") {
+            return quickHubRoot.prettyBytes(quickHubRoot.ffMemTotalBytes * root.sidebarMem / 100)
+              + " / " + quickHubRoot.prettyBytes(quickHubRoot.ffMemTotalBytes)
+              + " (" + root.sidebarMem + "%)"
+          }
+          return (modelData && modelData.value) || "—"
+        }
+
+        Text {
+          Layout.preferredWidth: quickHubRoot.ffIconWidth
+          Layout.maximumWidth: quickHubRoot.ffIconWidth
+          Layout.alignment: Qt.AlignTop
+          Layout.topMargin: 1
+          text: modelData.icon || ""
+          color: modelData.accent || Style.menuInkDeep
+          font.pixelSize: root.fontPx(9)
+          font.family: root.uiFont
+          horizontalAlignment: Text.AlignHCenter
+        }
+        Text {
+          Layout.preferredWidth: quickHubRoot.ffLabelWidth
+          Layout.maximumWidth: quickHubRoot.ffLabelWidth
+          Layout.alignment: Qt.AlignTop
+          Layout.topMargin: 1
+          text: (modelData.key || "") + ":"
+          color: modelData.accent || Style.menuInkDeep
+          font.pixelSize: root.fontPx(9)
+          font.family: root.uiFont
+          font.weight: Font.Medium
+          horizontalAlignment: Text.AlignRight
+          elide: Text.ElideRight
+        }
+        Text {
+          Layout.fillWidth: true
+          Layout.alignment: Qt.AlignTop
+          Layout.topMargin: 1
+          text: rowValue
+          color: Style.menuInk
+          font.pixelSize: root.fontPx(9)
+          font.family: root.uiFont
+          wrapMode: Text.WordWrap
+          maximumLineCount: 3
+          lineHeight: 1.2
+          lineHeightMode: Text.ProportionalHeight
+        }
+      }
+    }
 
     function stripAnsi(text) {
       return HubLogo.stripAnsi(text)
@@ -666,8 +722,11 @@ Scope {
               }
             }
             ColumnLayout {
+              Layout.alignment: Qt.AlignTop | Qt.AlignRight
+              Layout.minimumWidth: 72
               spacing: 1
               Text {
+                Layout.fillWidth: true
                 text: "󰅐 " + (quickHubRoot.ffUptime || "…")
                 color: Style.lavender
                 font.pixelSize: root.fontPx(8)
@@ -676,6 +735,7 @@ Scope {
                 horizontalAlignment: Text.AlignRight
               }
               Text {
+                Layout.fillWidth: true
                 text: quickHubRoot.ffUpdated || "loading"
                 color: Style.menuInkDeep
                 font.pixelSize: root.fontPx(7)
@@ -712,11 +772,11 @@ Scope {
           RowLayout {
             Layout.fillWidth: true
             Layout.alignment: Qt.AlignTop
-            spacing: 10
+            spacing: 12
 
             Text {
               Layout.alignment: Qt.AlignTop
-              Layout.rightMargin: 2
+              Layout.maximumWidth: 84
               visible: quickHubRoot.ffLogoLines.length > 0
               text: quickHubRoot.ffLogoText
               color: Style.menuSeal
@@ -732,105 +792,37 @@ Scope {
 
             Rectangle {
               visible: quickHubRoot.ffLogoLines.length > 0
-              Layout.preferredHeight: ffInfoBody.implicitHeight
               Layout.preferredWidth: 1
+              Layout.fillHeight: false
+              Layout.preferredHeight: ffInfoBody.implicitHeight
+              Layout.alignment: Qt.AlignTop
               color: Style.menuSep
             }
 
-            Item {
+            RowLayout {
+              id: ffInfoBody
               Layout.fillWidth: true
-              implicitHeight: ffInfoBody.implicitHeight
-              height: implicitHeight
+              Layout.alignment: Qt.AlignTop
+              spacing: 20
 
-              Row {
-                id: ffInfoBody
-                width: parent.width
-                spacing: 14
-
-                Column {
-                  id: ffLeftCol
-                  width: (parent.width - parent.spacing) / 2
-                  spacing: 4
-                  Repeater {
-                    model: quickHubRoot.ffLeftRows
-                    delegate: RowLayout {
-                      required property var modelData
-                      width: ffLeftCol.width
-                      spacing: 4
-                      Text {
-                        Layout.preferredWidth: 14
-                        Layout.alignment: Qt.AlignTop
-                        text: modelData.icon || ""
-                        color: modelData.accent || Style.menuInkDeep
-                        font.pixelSize: root.fontPx(9)
-                        font.family: root.uiFont
-                      }
-                      Text {
-                        Layout.preferredWidth: quickHubRoot.ffLabelWidth
-                        Layout.alignment: Qt.AlignTop
-                        text: (modelData.key || "") + ":"
-                        color: modelData.accent || Style.menuInkDeep
-                        font.pixelSize: root.fontPx(9)
-                        font.family: root.uiFont
-                        font.weight: Font.Medium
-                      }
-                      Text {
-                        Layout.fillWidth: true
-                        Layout.alignment: Qt.AlignTop
-                        text: modelData.key === "Memory"
-                          ? (quickHubRoot.prettyBytes(quickHubRoot.ffMemTotalBytes * root.sidebarMem / 100)
-                            + " / " + quickHubRoot.prettyBytes(quickHubRoot.ffMemTotalBytes)
-                            + " (" + root.sidebarMem + "%)")
-                          : (modelData.value || "—")
-                        color: Style.menuInk
-                        font.pixelSize: root.fontPx(9)
-                        font.family: root.uiFont
-                        wrapMode: Text.WordWrap
-                        maximumLineCount: 2
-                      }
-                    }
-                  }
+              Column {
+                id: ffLeftCol
+                Layout.fillWidth: true
+                spacing: 5
+                Repeater {
+                  model: quickHubRoot.ffLeftRows
+                  // Component ids are not type names — no `{ … }` after the id.
+                  delegate: ffInfoRowDelegate
                 }
+              }
 
-                Column {
-                  id: ffRightCol
-                  width: (parent.width - parent.spacing) / 2
-                  spacing: 4
-                  Repeater {
-                    model: quickHubRoot.ffRightRows
-                    delegate: RowLayout {
-                      required property var modelData
-                      width: ffRightCol.width
-                      spacing: 4
-                      Text {
-                        Layout.preferredWidth: 14
-                        Layout.alignment: Qt.AlignTop
-                        text: modelData.icon || ""
-                        color: modelData.accent || Style.menuInkDeep
-                        font.pixelSize: root.fontPx(9)
-                        font.family: root.uiFont
-                      }
-                      Text {
-                        Layout.preferredWidth: quickHubRoot.ffLabelWidth
-                        Layout.alignment: Qt.AlignTop
-                        text: (modelData.key || "") + ":"
-                        color: modelData.accent || Style.menuInkDeep
-                        font.pixelSize: root.fontPx(9)
-                        font.family: root.uiFont
-                        font.weight: Font.Medium
-                      }
-                      Text {
-                        Layout.fillWidth: true
-                        Layout.alignment: Qt.AlignTop
-                        text: modelData.value || "—"
-                        color: Style.menuInk
-                        font.pixelSize: root.fontPx(9)
-                        font.family: root.uiFont
-                        wrapMode: Text.WordWrap
-                        maximumLineCount: 2
-                      }
-                    }
-                  }
+              Column {
+                id: ffRightCol
+                Layout.fillWidth: true
+                spacing: 5
+                Repeater {
+                  model: quickHubRoot.ffRightRows
+                  delegate: ffInfoRowDelegate
                 }
               }
             }
@@ -840,8 +832,8 @@ Scope {
 
           Row {
             Layout.fillWidth: true
-            Layout.preferredHeight: 40
-            spacing: 6
+            Layout.preferredHeight: 44
+            spacing: 8
 
             Repeater {
               model: [
@@ -875,41 +867,44 @@ Scope {
                   border.color: Style.menuSep
                   border.width: 1
 
-                  Text {
-                    anchors.left: parent.left
-                    anchors.top: parent.top
-                    anchors.margins: 5
-                    text: modelData.label
-                    color: Style.menuInkDeep
-                    font.pixelSize: root.fontPx(8)
-                    font.family: root.uiFont
-                    font.weight: Font.Medium
-                  }
-                  Text {
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    anchors.margins: 5
-                    text: meterValue + "%"
-                    color: meterColor
-                    font.pixelSize: root.fontPx(9)
-                    font.family: root.uiFont
-                    font.weight: Font.Medium
-                  }
+                  ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 6
+                    spacing: 4
 
-                  Rectangle {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                    anchors.margins: 5
-                    height: 5
-                    radius: 2
-                    color: Qt.rgba(0, 0, 0, 0.22)
+                    RowLayout {
+                      Layout.fillWidth: true
+                      spacing: 4
+                      Text {
+                        text: modelData.label
+                        color: Style.menuInkDeep
+                        font.pixelSize: root.fontPx(8)
+                        font.family: root.uiFont
+                        font.weight: Font.Medium
+                      }
+                      Item { Layout.fillWidth: true }
+                      Text {
+                        text: meterValue + "%"
+                        color: meterColor
+                        font.pixelSize: root.fontPx(9)
+                        font.family: root.uiFont
+                        font.weight: Font.Medium
+                        horizontalAlignment: Text.AlignRight
+                      }
+                    }
+
                     Rectangle {
-                      width: parent.width * Math.max(0, Math.min(1, meterValue / 100))
-                      height: parent.height
-                      radius: 3
-                      color: meterColor
-                      Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                      Layout.fillWidth: true
+                      Layout.preferredHeight: 5
+                      radius: 2
+                      color: Qt.rgba(0, 0, 0, 0.22)
+                      Rectangle {
+                        width: parent.width * Math.max(0, Math.min(1, meterValue / 100))
+                        height: parent.height
+                        radius: 2
+                        color: meterColor
+                        Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                      }
                     }
                   }
                 }
@@ -1939,6 +1934,24 @@ Scope {
     property string passwordError: ""
     property string connectingSsid: ""
 
+    // NetworkManager VPN / WireGuard profiles (jkoestinger/omarchy-vpn overview).
+    // TUHH OpenConnect is CLI-only (`scripts/tuhhvpn.sh`); the GTK dialog 404s.
+    readonly property string vpnTuhhScript: Quickshell.env("HOME") + "/.dotfiles/scripts/tuhhvpn.sh"
+    property var vpnProfiles: []
+    property var vpnTargets: []
+    property var vpnExternal: []
+    property var vpnTools: ({ openconnect: false, wireguard: false, openvpn: false, vpnc: false })
+    property string vpnSummary: "No profiles"
+    property string vpnPublicIp: ""
+    property string vpnStatus: ""
+    property string vpnError: ""
+    property bool vpnBusy: false
+    property var vpnPending: null
+    property string vpnStage: ""
+    property string vpnIpKey: ""
+    property var vpnLastConns: []
+    property var vpnLastDetails: ({})
+
     // Saved wifi profile names (known-network grouping, omarchy-style).
     property var savedWifi: ({})
 
@@ -2050,6 +2063,110 @@ Scope {
       forgetProc.command = ["nmcli", "connection", "delete", "id", ssid]
       forgetProc.running = true
     }
+    function applyVpnProfiles(connections, details) {
+      quickNetworkRoot.vpnLastConns = connections || []
+      quickNetworkRoot.vpnLastDetails = details || {}
+      const merged = QuickModels.mergeVpnDetails(connections, details || {})
+      const runnable = QuickModels.filterRunnableProfiles(merged, quickNetworkRoot.vpnTools)
+      quickNetworkRoot.vpnProfiles = runnable
+      let targets = QuickModels.nmTargets(runnable, "")
+      let hasTuhh = false
+      for (let i = 0; i < targets.length; i++) {
+        if (targets[i].kind === "openconnect") {
+          targets[i].detail = "openconnect (terminal)"
+          targets[i].command = undefined
+          if ((targets[i].gateway || "").indexOf("tuhh.de") !== -1) hasTuhh = true
+        }
+      }
+      if (quickNetworkRoot.vpnTools.openconnect && !hasTuhh) {
+        targets = [{
+          key: "cli:tuhh",
+          label: "TUHH-VPN",
+          detail: "openconnect (terminal)",
+          glyph: QuickModels.GLYPH_SHIELD_LOCK,
+          gateway: "any1.rz.tuhh.de",
+          kind: "openconnect-cli",
+          active: false
+        }].concat(targets)
+      }
+      quickNetworkRoot.vpnTargets = targets
+      quickNetworkRoot.vpnSummary = QuickModels.nmSummary(runnable)
+      quickNetworkRoot.maybeFetchPublicIp()
+    }
+    function launchTuhhVpn() {
+      root.execAndClose([root.binDir + "/asahi-launch-or-focus-tui", quickNetworkRoot.vpnTuhhScript])
+    }
+    function refreshVpn() {
+      if (vpnListProc.running || vpnDetailsProc.running) return
+      vpnListProc.running = true
+    }
+    function startVpnUp(target) {
+      if (target.kind === "openconnect" || target.kind === "openconnect-cli") {
+        quickNetworkRoot.launchTuhhVpn()
+        return
+      } else if (QuickModels.needsUsername(target) && target.hasUsername === false) {
+        quickNetworkRoot.vpnError = "\"" + target.label + "\" has no username"
+        quickNetworkRoot.vpnBusy = false
+        quickNetworkRoot.vpnStage = ""
+        return
+      } else {
+        vpnConnectProc.command = ["nmcli"].concat(target.args || [])
+        quickNetworkRoot.vpnStatus = "Connecting to " + target.label + "…"
+      }
+      quickNetworkRoot.vpnError = ""
+      quickNetworkRoot.vpnBusy = true
+      vpnConnectProc.running = true
+    }
+    function tapVpn(target) {
+      if (!target || quickNetworkRoot.vpnBusy) return
+      if (target.kind === "openconnect" || target.kind === "openconnect-cli") {
+        quickNetworkRoot.launchTuhhVpn()
+        return
+      }
+      if (target.active) {
+        quickNetworkRoot.vpnPending = null
+        quickNetworkRoot.vpnStage = "final"
+        quickNetworkRoot.vpnStatus = "Disconnecting…"
+        quickNetworkRoot.vpnError = ""
+        quickNetworkRoot.vpnBusy = true
+        vpnConnectProc.command = ["nmcli", "connection", "down", "uuid", target.uuid]
+        vpnConnectProc.running = true
+        return
+      }
+      const active = QuickModels.activeNmProfile(quickNetworkRoot.vpnProfiles)
+      quickNetworkRoot.vpnPending = target
+      if (active && active.uuid !== target.uuid) {
+        quickNetworkRoot.vpnStage = "handover"
+        quickNetworkRoot.vpnStatus = "Switching…"
+        quickNetworkRoot.vpnError = ""
+        quickNetworkRoot.vpnBusy = true
+        vpnConnectProc.command = ["nmcli", "connection", "down", "uuid", active.uuid]
+        vpnConnectProc.running = true
+        return
+      }
+      quickNetworkRoot.vpnStage = "final"
+      quickNetworkRoot.startVpnUp(target)
+    }
+    function copyPublicIp() {
+      if (!quickNetworkRoot.vpnPublicIp) return
+      Quickshell.execDetached(["wl-copy", quickNetworkRoot.vpnPublicIp])
+      quickNetworkRoot.vpnStatus = "Copied " + quickNetworkRoot.vpnPublicIp
+    }
+    function maybeFetchPublicIp() {
+      const ext = (quickNetworkRoot.vpnExternal[0] && quickNetworkRoot.vpnExternal[0].device) || ""
+      const key = quickNetworkRoot.vpnSummary + "|" + ext
+      if (key === quickNetworkRoot.vpnIpKey && quickNetworkRoot.vpnPublicIp) return
+      quickNetworkRoot.vpnIpKey = key
+      const xhr = new XMLHttpRequest()
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState !== XMLHttpRequest.DONE) return
+        if (xhr.status !== 200) return
+        const ip = QuickModels.parsePublicIp(xhr.responseText)
+        if (ip) quickNetworkRoot.vpnPublicIp = ip
+      }
+      xhr.open("GET", "https://checkip.amazonaws.com")
+      xhr.send()
+    }
     function tapNetwork(net) {
       if (net.active) { quickNetworkRoot.disconnectSsid(net.ssid); return }
       quickNetworkRoot.requestConnect(net.ssid, net.sec)
@@ -2094,6 +2211,7 @@ Scope {
       if (typeof ethCheck !== 'undefined' && ethCheck) ethCheck.running = true
       if (typeof activeConnProc !== 'undefined' && activeConnProc) activeConnProc.running = true
       if (typeof savedWifiProc !== 'undefined' && savedWifiProc && !savedWifiProc.running) savedWifiProc.running = true
+      quickNetworkRoot.refreshVpn()
     }
 
     Process {
@@ -2191,6 +2309,10 @@ Scope {
           quickNetworkRoot.ethState = active ? active.state : ""
           quickNetworkRoot.ethConnection = active ? active.connection : ""
           quickNetworkRoot.ethConnected = active ? active.state === "connected" : false
+          const names = {}
+          const profiles = quickNetworkRoot.vpnProfiles || []
+          for (let i = 0; i < profiles.length; i++) names[profiles[i].name] = true
+          quickNetworkRoot.vpnExternal = QuickModels.parseExternalTunnels(text || "", names)
         }
       }
     }
@@ -2309,6 +2431,111 @@ Scope {
       }
     }
 
+    Process {
+      id: vpnToolProbe
+      command: ["sh", "-c", "command -v wg >/dev/null && echo wg; command -v openvpn >/dev/null && echo ovpn; { test -x /usr/libexec/nm-vpnc-service || test -x /usr/lib/nm-vpnc-service; } && echo vpnc; true"]
+      running: true
+      stdout: StdioCollector {
+        onStreamFinished: {
+          const blob = (text || "")
+          const next = Object.assign({}, quickNetworkRoot.vpnTools)
+          next.wireguard = blob.indexOf("wg") !== -1
+          next.openvpn = blob.indexOf("ovpn") !== -1
+          next.vpnc = blob.indexOf("vpnc") !== -1
+          quickNetworkRoot.vpnTools = next
+          quickNetworkRoot.applyVpnProfiles(quickNetworkRoot.vpnLastConns, quickNetworkRoot.vpnLastDetails)
+        }
+      }
+    }
+    Process {
+      id: vpnOcProbe
+      command: ["sh", "-c", "command -v openconnect >/dev/null"]
+      running: true
+      onExited: function(code) {
+        const next = Object.assign({}, quickNetworkRoot.vpnTools)
+        next.openconnect = code === 0
+        quickNetworkRoot.vpnTools = next
+        quickNetworkRoot.applyVpnProfiles(quickNetworkRoot.vpnLastConns, quickNetworkRoot.vpnLastDetails)
+      }
+    }
+    Process {
+      id: vpnListProc
+      command: ["nmcli", "-t", "-f", "NAME,UUID,TYPE,ACTIVE,FILENAME", "connection", "show"]
+      property var pending: []
+      stdout: StdioCollector {
+        id: vpnListOut
+        waitForEnd: true
+      }
+      onExited: function(code) {
+        if (code !== 0) return
+        const conns = QuickModels.parseNmcliConnections(vpnListOut.text || "")
+        vpnListProc.pending = conns
+        const uuids = []
+        for (let i = 0; i < conns.length; i++) {
+          if (conns[i].kind === "vpn") uuids.push(conns[i].uuid)
+        }
+        if (uuids.length === 0) {
+          quickNetworkRoot.applyVpnProfiles(conns, {})
+          return
+        }
+        vpnDetailsProc.command = ["nmcli", "-t", "-f", "connection.uuid,vpn.service-type,vpn.data", "connection", "show"].concat(uuids)
+        vpnDetailsProc.running = true
+      }
+    }
+    Process {
+      id: vpnDetailsProc
+      command: ["true"]
+      stdout: StdioCollector {
+        id: vpnDetailsOut
+        waitForEnd: true
+      }
+      onExited: function(code) {
+        if (code !== 0) {
+          quickNetworkRoot.applyVpnProfiles(vpnListProc.pending || [], {})
+          return
+        }
+        quickNetworkRoot.applyVpnProfiles(
+          vpnListProc.pending || [],
+          QuickModels.parseNmcliVpnDetails(vpnDetailsOut.text || "")
+        )
+      }
+    }
+    Process {
+      id: vpnConnectProc
+      command: ["true"]
+      stdout: StdioCollector { id: vpnConnOut; waitForEnd: true }
+      stderr: StdioCollector { id: vpnConnErr; waitForEnd: true }
+      onExited: function(code) {
+        if (quickNetworkRoot.vpnStage === "handover") {
+          quickNetworkRoot.vpnStage = ""
+          vpnHandover.restart()
+          return
+        }
+        quickNetworkRoot.vpnStage = ""
+        quickNetworkRoot.vpnBusy = false
+        quickNetworkRoot.vpnPending = null
+        if (code !== 0) {
+          const output = String(vpnConnErr.text || "") + "\n" + String(vpnConnOut.text || "")
+          quickNetworkRoot.vpnError = output.replace(/\s+/g, " ").trim().slice(0, 140) || "VPN command failed"
+          quickNetworkRoot.vpnStatus = ""
+        } else {
+          quickNetworkRoot.vpnError = ""
+          quickNetworkRoot.vpnStatus = ""
+        }
+        Qt.callLater(quickNetworkRoot.refreshVpn)
+      }
+    }
+    Timer {
+      id: vpnHandover
+      interval: 0
+      onTriggered: {
+        const target = quickNetworkRoot.vpnPending
+        if (!target) { quickNetworkRoot.vpnBusy = false; return }
+        quickNetworkRoot.vpnStage = "final"
+        quickNetworkRoot.startVpnUp(target)
+      }
+    }
+
     Timer { interval: 6000; running: root.quickDetailActive && root.expandedQuickKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: quickNetworkRoot.scanWifi() }
     Timer { interval: 1500; running: root.quickDetailActive && root.expandedQuickKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: quickNetworkRoot.sampleThroughput() }
     Timer { interval: 4000; running: root.quickDetailActive && root.expandedQuickKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: { if (!pingProc.running) pingProc.running = true } }
@@ -2322,7 +2549,14 @@ Scope {
       RowLayout {
         Layout.fillWidth: true
         Text { text: "󰈀 Network"; font.pixelSize: root.fontPx(11); color: Style.green; font.family: root.uiFont; font.bold: true }
-        Text { text: (quickNetworkRoot.wifiNetworks || []).length + " Wi-Fi"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont }
+        Text {
+          text: {
+            const vpn = quickNetworkRoot.vpnSummary
+            const n = (quickNetworkRoot.wifiNetworks || []).length
+            return (vpn && vpn !== "No profiles" ? vpn + " · " : "") + n + " Wi-Fi"
+          }
+          color: Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont
+        }
         Item { Layout.fillWidth: true }
         Rectangle {
           width: rescanLbl.width + 16; height: 28; radius: Style.menuRadius
@@ -2370,6 +2604,119 @@ Scope {
           id: netScrollCol
           width: parent.width
           spacing: 8
+
+          Column {
+            width: parent.width
+            spacing: 3
+            Row {
+              width: parent.width
+              spacing: 8
+              Text { text: "VPN"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.letterSpacing: 0.8; anchors.verticalCenter: parent.verticalCenter }
+              Text {
+                text: quickNetworkRoot.vpnSummary
+                color: QuickModels.activeNmProfile(quickNetworkRoot.vpnProfiles) ? Style.green : Style.menuInkDeep
+                font.pixelSize: root.fontPx(8)
+                font.family: root.uiFont
+                anchors.verticalCenter: parent.verticalCenter
+              }
+              Item { width: 1; height: 1 }
+              Text {
+                visible: !!quickNetworkRoot.vpnPublicIp
+                text: quickNetworkRoot.vpnPublicIp
+                color: ipMa.containsMouse ? Style.menuIndigo : Style.menuInk
+                font.pixelSize: root.fontPx(8)
+                font.family: root.uiFont
+                anchors.verticalCenter: parent.verticalCenter
+                MouseArea {
+                  id: ipMa
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: quickNetworkRoot.copyPublicIp()
+                }
+              }
+            }
+            Text {
+              visible: !!quickNetworkRoot.vpnStatus || !!quickNetworkRoot.vpnError
+              width: parent.width
+              text: quickNetworkRoot.vpnError || quickNetworkRoot.vpnStatus
+              color: quickNetworkRoot.vpnError ? Style.red : Style.menuInkDeep
+              font.pixelSize: root.fontPx(8)
+              font.family: root.uiFont
+              wrapMode: Text.Wrap
+            }
+            Repeater {
+              model: quickNetworkRoot.vpnExternal || []
+              delegate: Rectangle {
+                required property var modelData
+                width: parent.width - 4
+                x: 2
+                height: 32
+                radius: Style.menuRadius
+                color: Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.10)
+                border.color: Style.green
+                border.width: 1
+                Row {
+                  anchors.fill: parent
+                  anchors.leftMargin: 8
+                  anchors.rightMargin: 8
+                  spacing: 6
+                  Text { text: "󰯄"; font.pixelSize: root.fontPx(11); color: Style.green; font.family: root.uiFont; anchors.verticalCenter: parent.verticalCenter }
+                  Column {
+                    width: parent.width - 28
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 1
+                    Text { width: parent.width; text: modelData.connection || modelData.device; color: Style.green; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true; elide: Text.ElideRight }
+                    Text { width: parent.width; text: "External tunnel · " + (modelData.device || ""); color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont }
+                  }
+                }
+              }
+            }
+            Repeater {
+              model: quickNetworkRoot.vpnTargets || []
+              delegate: Rectangle {
+                id: vpnRow
+                required property var modelData
+                width: parent.width - 4
+                x: 2
+                height: 36
+                radius: Style.menuRadius
+                color: vpnRow.modelData.active ? Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.14) : (vpnMa.containsMouse ? Style.menuRowHi : "transparent")
+                border.color: vpnRow.modelData.active ? Style.green : (vpnMa.containsMouse ? Style.menuSep : "transparent")
+                border.width: 1
+                Row {
+                  anchors.fill: parent
+                  anchors.leftMargin: 8
+                  anchors.rightMargin: 8
+                  spacing: 6
+                  Text { text: vpnRow.modelData.glyph || "󰯄"; font.pixelSize: root.fontPx(12); color: vpnRow.modelData.active ? Style.green : Style.menuInkDeep; font.family: root.uiFont; anchors.verticalCenter: parent.verticalCenter }
+                  Column {
+                    width: parent.width - 28
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 1
+                    Text { width: parent.width; text: vpnRow.modelData.label; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: vpnRow.modelData.active; color: vpnRow.modelData.active ? Style.green : Style.menuInk; elide: Text.ElideRight }
+                    Text { width: parent.width; text: vpnRow.modelData.detail + (vpnRow.modelData.gateway ? " · " + vpnRow.modelData.gateway : ""); font.pixelSize: root.fontPx(7); font.family: root.uiFont; color: vpnRow.modelData.active ? Style.green : Style.menuInkDeep; elide: Text.ElideRight }
+                  }
+                }
+                MouseArea {
+                  id: vpnMa
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: quickNetworkRoot.tapVpn(vpnRow.modelData)
+                }
+              }
+            }
+            Text {
+              visible: (quickNetworkRoot.vpnTargets || []).length === 0 && (quickNetworkRoot.vpnExternal || []).length === 0
+              width: parent.width
+              text: "No VPN profiles. TUHH: tap TUHH-VPN or run scripts/tuhhvpn.sh (openconnect)."
+              color: Style.menuInkDeep
+              font.pixelSize: root.fontPx(8)
+              font.family: root.uiFont
+              wrapMode: Text.Wrap
+            }
+          }
 
           Column {
             width: parent.width
@@ -4333,6 +4680,7 @@ Scope {
     if (q.startsWith("!")) return "Web Search"
     if (q.startsWith("@")) return "Documentation"
     if (q.startsWith(":")) return "Actions"
+    if (q.startsWith("?")) return "Keys"
     if (root.fileTerm(q) !== null) return "Files"
     if (root.dictTerm(q) !== null) return "Dictionary"
     return ""
@@ -4354,6 +4702,7 @@ Scope {
     if (q.startsWith("!")) return "Web Search"
     if (q.startsWith("@")) return "Documentation"
     if (q.startsWith(":")) return "Actions"
+    if (q.startsWith("?")) return "› KEYS"
     if (root.fileTerm(q) !== null) return "File Search"
     if (root.dictTerm(q) !== null) return "Dictionary"
     return "LAUNCHER"
@@ -4380,6 +4729,7 @@ Scope {
       return c + " result" + s + " · Return copies " + lang
     }
     if (qq.startsWith(":")) return c + " action" + s
+    if (qq.startsWith("?")) return c + " shortcut" + s
     if (qq.startsWith("=") || qq.startsWith("!") || qq.startsWith("@")) return c + " result" + s
     if (root.categoryFilter !== "") {
       if (root.quickMode) {
@@ -4447,6 +4797,10 @@ Scope {
       root.query = ":"
       if (searchInput) searchInput.text = ":"
     }
+    if (root.categoryFilter === "Keys" && !(root.query || "").trim().startsWith("?")) {
+      root.query = "?"
+      if (searchInput) searchInput.text = "?"
+    }
     if (root.categoryFilter === "Websearch" && !(root.query || "").trim().startsWith("@")) {
       root.query = "@"
       if (searchInput) searchInput.text = "@"
@@ -4506,7 +4860,8 @@ Scope {
     root.categoryFilter = cat || ""
     root.query = root.categoryFilter === Data.fileCategory ? ">"
       : (root.categoryFilter === "Actions" ? ":"
-        : (root.categoryFilter === "Websearch" ? "@" : ""))
+        : (root.categoryFilter === "Keys" ? "?"
+          : (root.categoryFilter === "Websearch" ? "@" : "")))
     if (searchInput) searchInput.text = root.query
     root.selectedIndex = 0
     root.expandedQuickKey = ""
@@ -4518,7 +4873,7 @@ Scope {
     root.categoryFilter = "Quick"
     root.query = ""
     if (searchInput) searchInput.text = ""
-    const k = key === "dashboard" ? "hub" : (key || "hub")
+    const k = key === "dashboard" ? "hub" : (key === "vpn" ? "network" : (key || "hub"))
     root.expandedQuickKey = k
     const idx = (root.quickTiles || []).findIndex(function(t) { return t.mode === k || t.key === k })
     root.selectedIndex = Math.max(0, idx)
@@ -4731,7 +5086,8 @@ Scope {
   function isPrefixSpecial(q) {
     const t = (q || "").trim()
     if (!t) return false
-    if (t.startsWith(">") || t.startsWith("@") || t.startsWith(":") || t.startsWith("=") || t.startsWith("!")) return true
+    if (t.startsWith(">") || t.startsWith("@") || t.startsWith(":") || t.startsWith("?")
+        || t.startsWith("=") || t.startsWith("!")) return true
     return root.dictTerm(t) !== null
   }
 
@@ -5473,6 +5829,12 @@ Scope {
     return t.toLowerCase()
   }
 
+  function keysSearchTerm() {
+    let t = (root.query || "").trim()
+    if (t.startsWith("?")) t = t.substring(1).trim()
+    return t.toLowerCase()
+  }
+
   function mapActionEntry(a) {
     return {
       id: "action-" + a.key,
@@ -5552,7 +5914,7 @@ Scope {
     const tokens = root.queryTokens
     const filter = root.categoryFilter
 
-    // Prefix specials still win (calc/web/@/dict/>/: ) for muscle memory + power
+    // Prefix specials still win (calc/web/@/dict/>/:/? ) for muscle memory + power
     const specials = root.getSpecialResults(root.query)
     if (specials && specials.length > 0) return specials
 
@@ -5578,7 +5940,7 @@ Scope {
       return webs.length <= root.maxResults ? webs : webs.slice(0, root.maxResults)
     }
     if (filter === "Keys") {
-      const term = (root.query || "").trim().toLowerCase()
+      const term = root.keysSearchTerm()
       const terms = term.length ? term.split(/\s+/) : []
       const binds = root.keyBinds || []
       const out = []
@@ -5915,7 +6277,7 @@ Scope {
               anchors.fill: parent
               text: root.fileMode
                 ? "Type to search files in ~ (globs: mrrobot/*.txt, regex: word1 word2)"
-                : "Type to search apps (or >files @web :act =calc !web dict)"
+                : "Type to search apps (or >files @web :act ?keys =calc !web dict)"
               color: Style.menuInkDeep
               font: parent.font
               opacity: 0.5
@@ -5936,6 +6298,9 @@ Scope {
               }
               if (text.trim().startsWith(":") && root.categoryFilter !== "Actions") {
                 root.categoryFilter = "Actions"
+              }
+              if (text.trim().startsWith("?") && root.categoryFilter !== "Keys") {
+                root.categoryFilter = "Keys"
               }
               if (text.trim().startsWith("@") && root.categoryFilter !== "Websearch") {
                 root.categoryFilter = "Websearch"

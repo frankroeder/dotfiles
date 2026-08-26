@@ -410,12 +410,45 @@ comp_micro() {
 
 # --- Asahi Linux ------------------------------------------------------------
 
+# Power-button tap ignore + no hibernate. Safe to rerun on a live Hyprland
+# session: SIGHUP reloads logind.conf.d; do not restart systemd-logind.
+comp_asahi_logind() {
+  require_linux
+  print_step "Installing Asahi logind drop-ins (ignore power tap, no hibernate)"
+  if [ -n "$NOSUDO" ]; then
+    print_error "asahi-logind writes /etc/systemd; rerun without --no-sudo"
+    exit 1
+  fi
+  local src_login src_sleep
+  src_login="$DOTFILES/asahi/systemd/logind.conf.d/10-asahi-sleep.conf"
+  src_sleep="$DOTFILES/asahi/systemd/sleep.conf.d/10-asahi-no-hibernate.conf"
+  [ -f "$src_login" ] && [ -f "$src_sleep" ] || {
+    print_error "missing Asahi systemd drop-ins under $DOTFILES/asahi/systemd"
+    exit 1
+  }
+  sudo install -Dm644 "$src_login" /etc/systemd/logind.conf.d/10-asahi-sleep.conf
+  sudo install -Dm644 "$src_sleep" /etc/systemd/sleep.conf.d/10-asahi-no-hibernate.conf
+  if ! cmp -s "$src_login" /etc/systemd/logind.conf.d/10-asahi-sleep.conf; then
+    print_error "installed logind drop-in does not match $src_login"
+    exit 1
+  fi
+  # Reload logind.conf.d without restarting the unit (restart would kill the session).
+  sudo systemctl kill -s HUP systemd-logind
+  local live
+  live="$(busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager HandlePowerKey 2>/dev/null || true)"
+  if printf '%s\n' "$live" | grep -q '"ignore"'; then
+    print_ok "HandlePowerKey=ignore (tap ignored; ~10s SMC hold still force-resets)"
+  else
+    print_error "logind HandlePowerKey is still ${live:-unknown} after SIGHUP"
+    exit 1
+  fi
+}
+
 comp_asahi_system() {
   require_linux
   bash "$DOTFILES/asahi/dnf.sh"
   sudo install -Dm644 "$DOTFILES/asahi/systemd/system/asahi-tty-font.service" /etc/systemd/system/asahi-tty-font.service
-  sudo install -Dm644 "$DOTFILES/asahi/systemd/logind.conf.d/10-asahi-sleep.conf" /etc/systemd/logind.conf.d/10-asahi-sleep.conf
-  sudo install -Dm644 "$DOTFILES/asahi/systemd/sleep.conf.d/10-asahi-no-hibernate.conf" /etc/systemd/sleep.conf.d/10-asahi-no-hibernate.conf
+  comp_asahi_logind
   sudo systemctl daemon-reload
   sudo systemctl enable asahi-tty-font.service
   sudo systemctl restart asahi-tty-font.service
@@ -485,7 +518,7 @@ comp_asahi_desktop() {
   comp_asahi_common
   mkdir -p "$HOME/screenshots"
   local script
-  for script in "$DOTFILES"/asahi/bin/*; do
+  for script in "$DOTFILES"/asahi/bin/* "$DOTFILES"/asahi/autostart-scripts/*; do
     [ -f "$script" ] && chmod +x "$script"
   done
   mkdir -p "$HOME/.config/systemd/user"
@@ -496,6 +529,12 @@ comp_asahi_desktop() {
   mkdir -p "$HOME/.config/mpv"
   link_if_exists "$DOTFILES/mpv/mpv_asahi.conf" "$HOME/.config/mpv/mpv.conf"
   link_if_exists "$DOTFILES/asahi/environment.d/90-asahi.conf" "$HOME/.config/environment.d/90-asahi.conf"
+  # Hyprland is not KDE: stop kwalletd/ksecretd from claiming Secret Service
+  # ("Default Keyring" wallet wizard). gnome-keyring is the store instead.
+  link_if_exists "$DOTFILES/asahi/kwalletrc" "$HOME/.config/kwalletrc"
+  mkdir -p "$HOME/.config/autostart"
+  link_if_exists "$DOTFILES/asahi/autostart/gnome-keyring-ssh.desktop" \
+    "$HOME/.config/autostart/gnome-keyring-ssh.desktop"
   mkdir -p "$HOME/.config/gtk-3.0" "$HOME/.config/gtk-4.0"
   mkdir -p "$HOME/.config/wireplumber/wireplumber.conf.d"
   link_if_exists "$DOTFILES/asahi/wireplumber/wireplumber.conf.d/bluetooth-a2dp-autoconnect.conf" \
@@ -669,11 +708,17 @@ comp_doctor() {
     report_check "borders process" pgrep -qx borders
   elif is_asahi; then
     print_step "Checking Asahi/Hyprland binaries"
-    for b in Hyprland quickshell qs hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl nm-connection-editor nmtui blueman-manager; do
+    for b in Hyprland quickshell qs hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl nm-connection-editor nmtui blueman-manager openconnect gnome-keyring-daemon; do
       check_bin "$b" || true
     done
     print_step "Checking Asahi hardware/session"
     report_check "asahi-notch.conf" test -f /etc/modprobe.d/asahi-notch.conf
+    report_check "logind HandlePowerKey=ignore" grep -q '^HandlePowerKey=ignore' /etc/systemd/logind.conf.d/10-asahi-sleep.conf
+    if busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager HandlePowerKey 2>/dev/null | grep -q '"ignore"'; then
+      print_ok "logind live HandlePowerKey=ignore"
+    else
+      print_warning "logind still handles the power key (install drop-in + SIGHUP systemd-logind)"
+    fi
     if [ -r /sys/module/appledrm/parameters/show_notch ]; then
       if [ "$(tr -d '[:space:]' < /sys/module/appledrm/parameters/show_notch)" = "Y" ]; then
         print_ok "appledrm show_notch active"
@@ -688,6 +733,7 @@ comp_doctor() {
     fi
     check_link "$HOME/.config/hypr"
     check_link "$HOME/.config/quickshell"
+    check_link "$HOME/.config/kwalletrc"
   fi
   print_step "Checking config symlinks"
   local l

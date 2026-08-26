@@ -3,8 +3,30 @@ set -euo pipefail
 
 # Output JSON { "text": short display, "tooltip": multi-line details, "class": ..., "percentage": 0-100 }
 
+# Prefer ethernet over wifi. Ignore tun/vpn/wireguard — those are overlay,
+# not the underlay the bar icon should represent.
 get_active() {
-  nmcli -t -f DEVICE,TYPE,STATE,CONNECTION dev status 2>/dev/null | grep -E ':connected:' | head -1 || true
+  local best_eth="" best_wifi="" line type rest state
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    rest=${line#*:}
+    type=${rest%%:*}
+    rest=${rest#*:}
+    state=${rest%%:*}
+    case "$state" in
+      connected*) ;;
+      *) continue ;;
+    esac
+    case "$type" in
+      ethernet) [ -z "$best_eth" ] && best_eth=$line ;;
+      wifi) [ -z "$best_wifi" ] && best_wifi=$line ;;
+    esac
+  done < <(nmcli -t -f DEVICE,TYPE,STATE,CONNECTION dev status 2>/dev/null || true)
+  if [ -n "$best_eth" ]; then
+    printf '%s\n' "$best_eth"
+  elif [ -n "$best_wifi" ]; then
+    printf '%s\n' "$best_wifi"
+  fi
 }
 
 build_wifi_tooltip() {
@@ -27,15 +49,54 @@ build_ethernet_tooltip() {
   printf "%s %s\n gw %s" "$dev" "${ip}" "${gw}"
 }
 
+vpn_name=""
+vpn_kind=""
+while IFS= read -r line; do
+  [ -z "$line" ] && continue
+  type=$(printf '%s' "$line" | awk -F: '{print $(NF-1)}')
+  active=$(printf '%s' "$line" | awk -F: '{print $NF}')
+  name=${line%:*}
+  name=${name%:*}
+  name=${name//\\:/:}
+  if [ "$active" = "yes" ] && { [ "$type" = "vpn" ] || [ "$type" = "wireguard" ]; }; then
+    vpn_name=$name
+    vpn_kind=$type
+    break
+  fi
+done <<EOF
+$(nmcli -t -f NAME,TYPE,ACTIVE connection show 2>/dev/null || true)
+EOF
+
+if [ -z "$vpn_name" ]; then
+  tun_line=$(nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device status 2>/dev/null | awk -F: '$2=="tun" && $3 ~ /^connected/ {print $1 ":" $4; exit}' || true)
+  if [ -n "$tun_line" ]; then
+    vpn_name=${tun_line#*:}
+    [ -z "$vpn_name" ] && vpn_name=${tun_line%%:*}
+    vpn_kind="external"
+  fi
+fi
+
+vpn_tooltip=""
+if [ -n "$vpn_name" ]; then
+  if [ "$vpn_kind" = "external" ]; then
+    vpn_tooltip=$(printf 'VPN: %s (external tunnel)' "$vpn_name")
+  else
+    vpn_tooltip=$(printf 'VPN: %s' "$vpn_name")
+  fi
+fi
+
 line=$(get_active)
 if [ -z "$line" ]; then
   jq -cn \
     --arg text "󰤮" \
-    --arg tooltip "Disconnected" \
+    --arg tooltip "$( [ -n "$vpn_tooltip" ] && printf '%s' "$vpn_tooltip" || printf 'Disconnected' )" \
     --arg class "disconnected" \
     --arg device "" \
+    --arg vpn "$vpn_name" \
+    --arg vpnKind "$vpn_kind" \
     --argjson percentage 0 \
-    '{text:$text, tooltip:$tooltip, class:$class, device:$device, percentage:$percentage}'
+    --argjson vpnUp "$([ -n "$vpn_name" ] && echo true || echo false)" \
+    '{text:$text, tooltip:$tooltip, class:$class, device:$device, percentage:$percentage, vpn:$vpnUp, vpnName:$vpn, vpnKind:$vpnKind}'
   exit 0
 fi
 
@@ -72,10 +133,17 @@ else
   text="$icon"
 fi
 
+if [ -n "$vpn_tooltip" ]; then
+  tooltip=$(printf '%s\n%s' "$tooltip" "$vpn_tooltip")
+fi
+
 jq -cn \
   --arg text "$text" \
   --arg tooltip "$tooltip" \
   --arg class "$class" \
   --arg device "$dev" \
+  --arg vpn "$vpn_name" \
+  --arg vpnKind "$vpn_kind" \
   --argjson percentage "${pct:-0}" \
-  '{text:$text, tooltip:$tooltip, class:$class, device:$device, percentage:$percentage}'
+  --argjson vpnUp "$([ -n "$vpn_name" ] && echo true || echo false)" \
+  '{text:$text, tooltip:$tooltip, class:$class, device:$device, percentage:$percentage, vpn:$vpnUp, vpnName:$vpn, vpnKind:$vpnKind}'

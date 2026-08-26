@@ -1,0 +1,6 @@
+[Wallet]
+Enabled=false
+First Use=false
+
+[org.freedesktop.secrets]
+apiEnabled=false

@@ -320,6 +320,279 @@ function formatHeaderFreq(mhz) {
   return ghz.toFixed(ghz % 1 === 0 ? 0 : 1) + " GHz"
 }
 
+// ---------- vpn (jkoestinger/omarchy-vpn NetworkManager model) ----------
+// Glyphs from codepoints so the file survives editors that mangle nerd-font chars.
+var GLYPH_VPN = String.fromCodePoint(0xF0582)
+var GLYPH_LOCK = String.fromCodePoint(0xF033E)
+var GLYPH_SHIELD = String.fromCodePoint(0xF0498)
+var GLYPH_SHIELD_LOCK = String.fromCodePoint(0xF099D)
+
+function parsePublicIp(raw) {
+  var text = String(raw || "").trim()
+  if (text === "" || text.length > 45) return ""
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(text)) {
+    var octets = text.split(".")
+    for (var i = 0; i < octets.length; i++) {
+      if (parseInt(octets[i], 10) > 255) return ""
+    }
+    return text
+  }
+  if (/^[0-9a-fA-F:]+$/.test(text) && text.indexOf("::") === text.lastIndexOf("::")) {
+    if (text.indexOf(":") !== -1 && !/:::/.test(text)) return text.toLowerCase()
+  }
+  return ""
+}
+
+function splitNmcliLine(line) {
+  var text = String(line || "")
+  for (var i = 0; i < text.length; i++) {
+    if (text[i] === "\\") { i++; continue }
+    if (text[i] === ":") return [unescapeNmcli(text.substring(0, i)), unescapeNmcli(text.substring(i + 1))]
+  }
+  return [unescapeNmcli(text), ""]
+}
+
+function unescapeNmcli(value) {
+  return String(value || "").replace(/\\(.)/g, "$1")
+}
+
+function isVolatileConnection(filename) {
+  return String(filename || "").indexOf("/run/") === 0
+}
+
+function parseNmcliConnections(raw) {
+  var connections = []
+  var lines = String(raw || "").split("\n")
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i]
+    if (line.trim() === "") continue
+    var fields = []
+    var rest = line
+    for (var f = 0; f < 4; f++) {
+      var pair = splitNmcliLine(rest)
+      fields.push(pair[0])
+      rest = pair[1]
+    }
+    fields.push(unescapeNmcli(rest))
+    if (fields[2] !== "vpn" && fields[2] !== "wireguard") continue
+    if (isVolatileConnection(fields[4])) continue
+    connections.push({
+      name: fields[0],
+      uuid: fields[1],
+      kind: fields[2] === "wireguard" ? "wireguard" : "vpn",
+      active: fields[3] === "yes"
+    })
+  }
+  return connections
+}
+
+function parseNmcliVpnDetails(raw) {
+  var details = {}
+  var current = null
+  var lines = String(raw || "").split("\n")
+
+  function flush() {
+    if (current && current.uuid !== "") details[current.uuid] = current
+    current = null
+  }
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim()
+    if (line === "") {
+      flush()
+      continue
+    }
+    var pair = splitNmcliLine(line)
+    if (!current) current = { uuid: "", serviceType: "", hasUsername: false, gateway: "" }
+    if (pair[0] === "connection.uuid") current.uuid = pair[1]
+    else if (pair[0] === "vpn.service-type") current.serviceType = pair[1]
+    else if (pair[0] === "vpn.data") {
+      current.hasUsername = hasVpnUsername(pair[1])
+      current.gateway = vpnDataValue(pair[1], "gateway") || vpnDataValue(pair[1], "IPSec gateway")
+    }
+  }
+  flush()
+  return details
+}
+
+function vpnDataValue(data, wanted) {
+  var entries = String(data || "").split(",")
+  for (var i = 0; i < entries.length; i++) {
+    var entry = entries[i]
+    var eq = entry.indexOf("=")
+    if (eq === -1) continue
+    if (entry.substring(0, eq).trim() !== wanted) continue
+    return entry.substring(eq + 1).trim()
+  }
+  return ""
+}
+
+function hasVpnUsername(data) {
+  var entries = String(data || "").split(",")
+  for (var i = 0; i < entries.length; i++) {
+    var entry = entries[i].trim()
+    var eq = entry.indexOf("=")
+    if (eq === -1) continue
+    var key = entry.substring(0, eq).trim().toLowerCase()
+    if (key !== "username" && key !== "xauth username") continue
+    if (entry.substring(eq + 1).trim() !== "") return true
+  }
+  return false
+}
+
+function isOpenVpnService(serviceType) {
+  return String(serviceType || "").toLowerCase().indexOf("openvpn") !== -1
+}
+
+function isOpenConnectService(serviceType) {
+  return String(serviceType || "").toLowerCase().indexOf("openconnect") !== -1
+}
+
+function isVpncService(serviceType) {
+  return String(serviceType || "").toLowerCase().indexOf("networkmanager.vpnc") !== -1
+}
+
+function isWireGuard(profile) {
+  return profile && profile.kind === "wireguard"
+}
+
+function isOpenConnect(profile) {
+  return profile && profile.kind === "openconnect"
+}
+
+function isVpnc(profile) {
+  return profile && profile.kind === "vpnc"
+}
+
+function needsUsername(profile) {
+  return !isWireGuard(profile) && !isOpenConnect(profile)
+}
+
+function usernameSetting(profile) {
+  return isVpnc(profile) ? "Xauth username" : "username"
+}
+
+function nmKindLabel(profile) {
+  if (isWireGuard(profile)) return "WireGuard"
+  if (isOpenConnect(profile)) return "OpenConnect"
+  if (isVpnc(profile)) return "VPNC"
+  return "OpenVPN"
+}
+
+function mergeVpnDetails(connections, details) {
+  var usable = []
+  for (var i = 0; i < (connections || []).length; i++) {
+    var candidate = connections[i]
+    if (candidate.kind === "wireguard") {
+      usable.push(candidate)
+      continue
+    }
+    var detail = details && details[candidate.uuid]
+    if (!detail) continue
+    if (isOpenConnectService(detail.serviceType)) candidate.kind = "openconnect"
+    else if (isVpncService(detail.serviceType)) candidate.kind = "vpnc"
+    else if (!isOpenVpnService(detail.serviceType)) continue
+    candidate.hasUsername = detail.hasUsername
+    candidate.gateway = detail.gateway
+    usable.push(candidate)
+  }
+  return usable
+}
+
+function nmTargets(profiles, authScript) {
+  var targets = []
+  for (var i = 0; i < (profiles || []).length; i++) {
+    var profile = profiles[i]
+    var glyph = GLYPH_LOCK
+    if (isWireGuard(profile)) glyph = GLYPH_SHIELD
+    else if (isOpenConnect(profile) || isVpnc(profile)) glyph = GLYPH_SHIELD_LOCK
+    var target = {
+      key: "profile:" + profile.uuid,
+      label: profile.name,
+      detail: profile.active
+        ? "Connected"
+        : (!needsUsername(profile) || profile.hasUsername
+          ? nmKindLabel(profile) + " profile"
+          : "No username set"),
+      glyph: glyph,
+      args: ["connection", "up", "uuid", profile.uuid],
+      uuid: profile.uuid,
+      kind: profile.kind,
+      hasUsername: profile.hasUsername,
+      gateway: profile.gateway || "",
+      active: !!profile.active
+    }
+    if (isOpenConnect(profile) && String(authScript || "") !== "") {
+      target.command = [String(authScript), profile.uuid]
+    }
+    targets.push(target)
+  }
+  return targets
+}
+
+function nmSummary(profiles) {
+  for (var i = 0; i < (profiles || []).length; i++) {
+    if (profiles[i].active) return profiles[i].name
+  }
+  return (profiles || []).length === 0 ? "No profiles" : "Not connected"
+}
+
+function nmDetails(profiles) {
+  var rows = []
+  for (var i = 0; i < (profiles || []).length; i++) {
+    if (!profiles[i].active) continue
+    rows.push({ label: "Profile", value: profiles[i].name })
+    rows.push({ label: "Type", value: nmKindLabel(profiles[i]) })
+    if ((isOpenConnect(profiles[i]) || isVpnc(profiles[i])) && profiles[i].gateway) {
+      rows.push({ label: "Gateway", value: profiles[i].gateway })
+    }
+  }
+  if (rows.length > 0) rows.push({ label: "Managed by", value: "NetworkManager" })
+  return rows
+}
+
+function activeNmProfile(profiles) {
+  for (var i = 0; i < (profiles || []).length; i++) {
+    if (profiles[i].active) return profiles[i]
+  }
+  return null
+}
+
+function vpnRunnable(profile, tools) {
+  var t = tools || {}
+  if (profile.kind === "wireguard") return !!t.wireguard
+  // OpenConnect rows are driven by the CLI (`sudo openconnect`), not the NM GTK dialog.
+  if (profile.kind === "openconnect") return !!t.openconnect
+  if (profile.kind === "vpnc") return !!t.vpnc
+  return !!t.openvpn
+}
+
+function filterRunnableProfiles(profiles, tools) {
+  var out = []
+  for (var i = 0; i < (profiles || []).length; i++) {
+    if (vpnRunnable(profiles[i], tools)) out.push(profiles[i])
+  }
+  return out
+}
+
+function parseExternalTunnels(raw, profileNames) {
+  var names = profileNames || {}
+  var tunnels = []
+  var lines = String(raw || "").split("\n")
+  for (var i = 0; i < lines.length; i++) {
+    if (!lines[i]) continue
+    var p = lines[i].split(":")
+    var type = p[1] || ""
+    var state = p[2] || ""
+    var conn = p.slice(3).join(":")
+    if (type !== "tun" && type !== "vpn" && type !== "wireguard") continue
+    if (state.indexOf("connected") !== 0) continue
+    if (names[conn]) continue
+    tunnels.push({ device: p[0] || "", type: type, connection: conn })
+  }
+  return tunnels
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
     nodeProps: nodeProps,
@@ -346,6 +619,31 @@ if (typeof module !== "undefined") {
     pendingAction: pendingAction,
     withPendingAction: withPendingAction,
     settledPendingActions: settledPendingActions,
-    formatHeaderFreq: formatHeaderFreq
+    formatHeaderFreq: formatHeaderFreq,
+    parsePublicIp: parsePublicIp,
+    splitNmcliLine: splitNmcliLine,
+    unescapeNmcli: unescapeNmcli,
+    isVolatileConnection: isVolatileConnection,
+    parseNmcliConnections: parseNmcliConnections,
+    parseNmcliVpnDetails: parseNmcliVpnDetails,
+    vpnDataValue: vpnDataValue,
+    hasVpnUsername: hasVpnUsername,
+    isOpenVpnService: isOpenVpnService,
+    isOpenConnectService: isOpenConnectService,
+    isVpncService: isVpncService,
+    needsUsername: needsUsername,
+    usernameSetting: usernameSetting,
+    nmKindLabel: nmKindLabel,
+    mergeVpnDetails: mergeVpnDetails,
+    nmTargets: nmTargets,
+    nmSummary: nmSummary,
+    nmDetails: nmDetails,
+    activeNmProfile: activeNmProfile,
+    filterRunnableProfiles: filterRunnableProfiles,
+    parseExternalTunnels: parseExternalTunnels,
+    GLYPH_VPN: GLYPH_VPN,
+    GLYPH_LOCK: GLYPH_LOCK,
+    GLYPH_SHIELD: GLYPH_SHIELD,
+    GLYPH_SHIELD_LOCK: GLYPH_SHIELD_LOCK
   }
 }

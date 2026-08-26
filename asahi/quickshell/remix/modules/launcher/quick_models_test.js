@@ -96,4 +96,86 @@ assert.strictEqual(M.formatHeaderFreq("5180"), "5 GHz")
 assert.strictEqual(M.formatHeaderFreq("6115"), "6 GHz")
 assert.strictEqual(M.formatHeaderFreq(""), "")
 
+// --- public IP ---
+assert.strictEqual(M.parsePublicIp("1.2.3.4\n"), "1.2.3.4")
+assert.strictEqual(M.parsePublicIp("256.0.0.1"), "")
+assert.strictEqual(M.parsePublicIp("<html>nope</html>"), "")
+assert.strictEqual(M.parsePublicIp("2001:db8::1"), "2001:db8::1")
+
+// --- NetworkManager vpn listing (jkoestinger/omarchy-vpn) ---
+assert.deepStrictEqual(M.splitNmcliLine("home\\:vpn:uuid-1"), ["home:vpn", "uuid-1"])
+assert.deepStrictEqual(M.parseNmcliConnections([
+  "Work VPN:uuid-1:vpn:yes:/etc/NetworkManager/system-connections/work.nmconnection",
+  "Home WG:uuid-2:wireguard:no:/etc/NetworkManager/system-connections/home.nmconnection",
+  "Wired:uuid-3:ethernet:yes:/etc/NetworkManager/system-connections/wired.nmconnection",
+  "wg0-mullvad:uuid-9:wireguard:yes:/run/NetworkManager/system-connections/wg0-mullvad.nmconnection",
+  ""
+].join("\n")), [
+  { name: "Work VPN", uuid: "uuid-1", kind: "vpn", active: true },
+  { name: "Home WG", uuid: "uuid-2", kind: "wireguard", active: false }
+])
+assert.deepStrictEqual(M.parseNmcliConnections("Work VPN:uuid-1:vpn:yes"), [
+  { name: "Work VPN", uuid: "uuid-1", kind: "vpn", active: true }
+])
+
+const ocDetails = M.parseNmcliVpnDetails([
+  "connection.uuid:uuid-oc",
+  "vpn.service-type:org.freedesktop.NetworkManager.openconnect",
+  "vpn.data:authtype = password, cookie-flags = 2, gateway = any1.rz.tuhh.de, gateway-flags = 2, protocol = anyconnect",
+  ""
+].join("\n"))
+assert.strictEqual(M.isOpenConnectService(ocDetails["uuid-oc"].serviceType), true)
+assert.strictEqual(ocDetails["uuid-oc"].gateway, "any1.rz.tuhh.de")
+assert.strictEqual(M.vpnDataValue("gateway-flags = 2, gateway = vpn.example.com", "gateway"), "vpn.example.com")
+assert.strictEqual(M.isOpenVpnService("org.freedesktop.NetworkManager.openconnect"), false)
+assert.strictEqual(M.hasVpnUsername("username = alice"), true)
+assert.strictEqual(M.hasVpnUsername("username = "), false)
+
+const merged = M.mergeVpnDetails(
+  [{ name: "TUHH-VPN", uuid: "uuid-oc", kind: "vpn", active: false }],
+  ocDetails
+)
+assert.strictEqual(merged[0].kind, "openconnect")
+assert.strictEqual(merged[0].gateway, "any1.rz.tuhh.de")
+
+const helper = "/dotfiles/asahi/bin/asahi-openconnect-auth"
+const ocTargets = M.nmTargets([
+  { name: "TUHH-VPN", uuid: "uuid-oc", kind: "openconnect", active: false, gateway: "any1.rz.tuhh.de" },
+  { name: "Home", uuid: "uuid-wg", kind: "wireguard", active: false }
+], helper)
+assert.deepStrictEqual(ocTargets[0].command, [helper, "uuid-oc"])
+assert.strictEqual(ocTargets[0].detail, "OpenConnect profile")
+assert.strictEqual(ocTargets[0].glyph, M.GLYPH_SHIELD_LOCK)
+assert.strictEqual(ocTargets[1].command, undefined)
+assert.deepStrictEqual(ocTargets[1].args, ["connection", "up", "uuid", "uuid-wg"])
+assert.strictEqual(M.nmTargets([{ name: "Work", uuid: "uuid-oc", kind: "openconnect", active: false }])[0].command, undefined)
+
+const ovpn = M.nmTargets([
+  { name: "Work", uuid: "uuid-1", kind: "vpn", active: false, hasUsername: false }
+])
+assert.strictEqual(ovpn[0].detail, "No username set")
+assert.strictEqual(M.nmSummary([]), "No profiles")
+assert.strictEqual(M.nmSummary([{ name: "Work", active: false }]), "Not connected")
+assert.strictEqual(M.nmSummary([{ name: "TUHH-VPN", active: true }]), "TUHH-VPN")
+
+const ocLive = M.nmDetails([
+  { name: "TUHH-VPN", uuid: "uuid-oc", kind: "openconnect", active: true, gateway: "any1.rz.tuhh.de" }
+])
+assert.deepStrictEqual(ocLive[1], { label: "Type", value: "OpenConnect" })
+assert.deepStrictEqual(ocLive[2], { label: "Gateway", value: "any1.rz.tuhh.de" })
+
+assert.deepStrictEqual(M.filterRunnableProfiles(
+  [{ kind: "openconnect" }, { kind: "wireguard" }, { kind: "vpn" }],
+  { openconnect: true, wireguard: false, openvpn: false }
+), [{ kind: "openconnect" }])
+
+assert.deepStrictEqual(M.parseExternalTunnels(
+  "enu1u4:ethernet:connected:Wired\ntun0:tun:connected (externally):tun0\nwld0:wifi:unavailable:\n",
+  { "TUHH-VPN": true }
+), [{ device: "tun0", type: "tun", connection: "tun0" }])
+assert.deepStrictEqual(M.parseExternalTunnels(
+  "tun0:tun:connected:TUHH-VPN\n",
+  { "TUHH-VPN": true }
+), [])
+
 console.log("quick_models_test: all assertions passed")

@@ -4,8 +4,9 @@ import Quickshell
 import Quickshell.Io
 import "../../../"
 
-// Minimal bar widget: connection icon only. The full overview (networks,
-// throughput, connection quality) lives in the launcher's Quick > Network.
+// Minimal bar widget: underlay icon (wifi / ethernet). VPN is a smaller
+// badge beside it — it must not replace the link type. Full overview lives
+// in the launcher's Quick > Network.
 Rectangle {
     id: root
 
@@ -29,6 +30,7 @@ Rectangle {
 
     property string text: "󰤨"
     property string tooltip: ""
+    property bool vpnUp: false
 
     RowLayout {
         id: content
@@ -41,6 +43,14 @@ Rectangle {
             font.pixelSize: 32
             color: Style.blueAlt
         }
+
+        Text {
+            visible: root.vpnUp
+            text: "󰯄"
+            font.family: "JetBrainsMono Nerd Font"
+            font.pixelSize: 16
+            color: Style.green
+        }
     }
 
     Process {
@@ -52,6 +62,7 @@ Rectangle {
                     const data = JSON.parse(text.trim())
                     root.text = data.text || "󰤮"
                     root.tooltip = data.tooltip || ""
+                    root.vpnUp = !!data.vpn
                 } catch (e) {}
             }
         }

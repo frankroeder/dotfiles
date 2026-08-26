@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Secret Service for Hyprland. SSH stays with keychain (ssh-keychain).
+set -euo pipefail
+
+dir="${XDG_DATA_HOME:-$HOME/.local/share}/keyrings"
+mkdir -p "$dir"
+chmod 700 "$dir"
+
+if [ ! -e "$dir/default" ]; then
+  printf '%s\n' 'Default_keyring' >"$dir/default"
+  chmod 600 "$dir/default"
+fi
+
+# Unencrypted default keyring: tty1 getty already authenticated this session,
+# and there is no display-manager PAM unlock. Do not clobber an existing store.
+if [ ! -e "$dir/Default_keyring.keyring" ] && [ ! -e "$dir/login.keyring" ]; then
+  cat >"$dir/Default_keyring.keyring" <<'EOF'
+[keyring]
+display-name=Default keyring
+ctime=0
+mtime=0
+lock-on-idle=false
+lock-after=false
+EOF
+  chmod 600 "$dir/Default_keyring.keyring"
+fi
+
+# Drop leftover ksecretd so gnome-keyring can own org.freedesktop.secrets.
+if pgrep -x ksecretd >/dev/null 2>&1 || pgrep -x kwalletd6 >/dev/null 2>&1; then
+  killall ksecretd kwalletd6 2>/dev/null || true
+fi
+
+# Fedora's user unit is pkcs11,secrets (no ssh). Start it for this session only;
+# do not enable WantedBy=default.target (would race the keyring seed on first login).
+if command -v gnome-keyring-daemon >/dev/null 2>&1; then
+  if systemctl --user start gnome-keyring-daemon.service 2>/dev/null; then
+    :
+  else
+    gnome-keyring-daemon --start --components=secrets,pkcs11 >/dev/null
+  fi
+fi
