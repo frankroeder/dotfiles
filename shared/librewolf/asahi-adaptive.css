@@ -1,0 +1,35 @@
+/* Default Catppuccin Mocha — replaced by asahi-autotheme from wallpaper */
+:root {
+  color-scheme: dark !important;
+  --asahi-bg: #1e1e2e;
+  --asahi-bg-alt: #181825;
+  --asahi-surface: #313244;
+  --asahi-surface-alt: #45475a;
+  --asahi-fg: #cdd6f4;
+  --asahi-accent: #89b4fa;
+  --asahi-border: #45475a;
+
+  --toolbar-bgcolor: var(--asahi-bg) !important;
+  --toolbar-color: var(--asahi-fg) !important;
+  --toolbarbutton-icon-fill: var(--asahi-fg) !important;
+  --toolbarbutton-hover-background: var(--asahi-surface) !important;
+  --toolbarbutton-active-background: var(--asahi-surface-alt) !important;
+  --lwt-accent-color: var(--asahi-bg) !important;
+  --lwt-accent-color-inactive: var(--asahi-bg-alt) !important;
+  --lwt-text-color: var(--asahi-fg) !important;
+  --lwt-toolbar-field-background-color: var(--asahi-surface) !important;
+  --lwt-toolbar-field-color: var(--asahi-fg) !important;
+  --lwt-toolbar-field-border-color: var(--asahi-border) !important;
+  --lwt-selected-tab-background-color: var(--asahi-surface) !important;
+  --tab-selected-bgcolor: var(--asahi-surface) !important;
+  --tab-selected-color: var(--asahi-fg) !important;
+  --urlbar-box-bgcolor: var(--asahi-surface) !important;
+  --urlbar-box-text-color: var(--asahi-fg) !important;
+  --urlbarView-highlight-background: var(--asahi-surface-alt) !important;
+  --urlbarView-highlight-color: var(--asahi-fg) !important;
+  --arrowpanel-background: var(--asahi-bg-alt) !important;
+  --arrowpanel-color: var(--asahi-fg) !important;
+  --arrowpanel-border-color: var(--asahi-border) !important;
+  --sidebar-background-color: var(--asahi-bg) !important;
+  --sidebar-text-color: var(--asahi-fg) !important;
+}

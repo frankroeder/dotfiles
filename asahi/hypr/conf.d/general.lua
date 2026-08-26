@@ -43,6 +43,17 @@ hl.config {
   -- Asahi note: blur + animations tuned; test perf on Apple GPU (reverse-eng driver limits, aquamarine history)
 }
 
+-- Wallpaper-adaptive borders from asahi-autotheme (overrides col.* when present).
+do
+  local adaptive = (os.getenv "XDG_STATE_HOME" or (os.getenv "HOME" .. "/.local/state"))
+    .. "/asahi-theme/hyprland.lua"
+  local f = io.open(adaptive, "r")
+  if f then
+    f:close()
+    dofile(adaptive)
+  end
+end
+
 hl.gesture {
   fingers = 3,
   direction = "horizontal",

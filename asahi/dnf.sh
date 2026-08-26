@@ -130,7 +130,7 @@ sudo systemctl enable --now cups cups-browsed
 
 # Optional Asahi extras (not in minimal dnf to avoid bloat):
 # - hyprdynamicmonitors (Go tool for dynamic monitor profiles/lid/hotplug on Mac hw): go install github.com/fiffeek/hyprdynamicmonitors@latest
-# - matugen (theming, per DankMaterialShell patterns): dnf or cargo install; integrate with QS for wallpaper-driven colors if chosen
+# - wallpaper adaptive theming: asahi/bin/asahi-autotheme (omagen-inspired; no matugen dep)
 # - power-profiles-daemon: Omarchy wraps powerprofilesctl with no Apple Silicon
 #   backend. This machine is apple-cpufreq/schedutil; PPD does not drive it.
 # - seahorse / gnome-shell / gdm: not needed. gnome-keyring is Secret Service

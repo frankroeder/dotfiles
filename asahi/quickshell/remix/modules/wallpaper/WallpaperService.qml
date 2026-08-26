@@ -110,6 +110,11 @@ Singleton {
     // Apply directly (hyprpaper preload IPC returns invalid+exit1 here; wallpaper= cmd works and changes it, matching asahi-wallpaper-menu)
     applyProc.command = ["hyprctl", "hyprpaper", "wallpaper", "," + path + "," + root.defaultFit]
     applyProc.running = true
+
+    // Wallpaper-driven adaptive theme (Quickshell / Ghostty / LibreWolf / Hyprland)
+    themeProc.command = [Quickshell.env("HOME") + "/.dotfiles/asahi/bin/asahi-autotheme", path]
+    if (themeProc.running) themeProc.running = false
+    themeProc.running = true
   }
 
   // Preload step
@@ -177,5 +182,24 @@ Singleton {
     id: saveProcess
     command: []
     running: false
+  }
+
+  Process {
+    id: themeProc
+    command: []
+    running: false
+    stdout: StdioCollector {}
+    stderr: StdioCollector {}
+    onExited: (code) => {
+      if (code !== 0) {
+        const err = ((stderr.text || "") + (stdout.text || "")).trim()
+        console.warn("asahi-autotheme failed (code " + code + "):", err)
+        return
+      }
+      // Pull fresh colors into DefaultTheme/Style immediately (FileView can race).
+      try { DefaultTheme.reloadFromDisk() } catch (e) {
+        console.warn("DefaultTheme reload after autotheme:", e)
+      }
+    }
   }
 }

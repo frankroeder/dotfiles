@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+"""Generate and apply an Asahi desktop theme from a wallpaper image.
+
+Inspired by prettyletto/omagen: image → representatives → semantic palette →
+Quickshell / Ghostty / LibreWolf / Hyprland.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+
+DOTFILES = Path(os.environ.get("DOTFILES", Path.home() / ".dotfiles")).resolve()
+THEME_ROOT = DOTFILES / "asahi"
+if str(THEME_ROOT) not in sys.path:
+    sys.path.insert(0, str(THEME_ROOT))
+
+from theme.extract import extract_representatives  # noqa: E402
+from theme.palette import build_palette  # noqa: E402
+from theme.apply import apply_live, state_dir, write_all  # noqa: E402
+
+
+def resolve_wallpaper(explicit: str | None) -> Path:
+    if explicit:
+        path = Path(explicit).expanduser().resolve()
+        if not path.is_file():
+            raise SystemExit(f"wallpaper not found: {path}")
+        return path
+
+    state = state_dir() / "wallpaper"
+    if state.is_file():
+        saved = state.read_text(encoding="utf-8").strip()
+        if saved and Path(saved).is_file():
+            return Path(saved)
+
+    qs = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state"))
+    qs_wall = qs / "quickshell" / "wallpaper.conf"
+    if qs_wall.is_file():
+        saved = qs_wall.read_text(encoding="utf-8").strip()
+        if saved and Path(saved).is_file():
+            return Path(saved)
+
+    raise SystemExit("no wallpaper path given and none saved in state")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("wallpaper", nargs="?", help="image path (default: current wallpaper)")
+    parser.add_argument(
+        "--variant",
+        default="source",
+        choices=("source", "calm", "vibrant", "deep"),
+        help="palette direction (omagen-inspired)",
+    )
+    parser.add_argument("--dry-run", action="store_true", help="print palette JSON only")
+    parser.add_argument("--no-apply", action="store_true", help="write files but skip live apply")
+    parser.add_argument("--json", action="store_true", help="print colors.json to stdout")
+    args = parser.parse_args()
+
+    wallpaper = resolve_wallpaper(args.wallpaper)
+    reps = extract_representatives(str(wallpaper))
+    palette = build_palette(reps, str(wallpaper), variant=args.variant)
+
+    if args.dry_run:
+        print(json.dumps(palette.to_dict(), indent=2, sort_keys=True))
+        return 0
+
+    paths = write_all(palette)
+    if not args.no_apply:
+        apply_live(palette)
+
+    if args.json:
+        print(paths["colors_json"].read_text(encoding="utf-8"), end="")
+    else:
+        print(f"theme: {palette.mode}/{palette.variant} from {wallpaper.name}")
+        print(f"  accent={palette.accent} bg={palette.background} fg={palette.foreground}")
+        print(f"  state={state_dir()}")
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

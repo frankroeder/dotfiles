@@ -5,36 +5,39 @@ import "modules/wallpaper" as Wallpaper
 
 // Catppuccin Mocha for menu bar - delegates to DefaultTheme.qml (single source)
 Singleton {
-  readonly property color bg:        Wallpaper.DefaultTheme.base
-  readonly property color surface:   Wallpaper.DefaultTheme.base
-  readonly property color moduleBg:  Wallpaper.DefaultTheme.surface0
-  readonly property color border:    Wallpaper.DefaultTheme.surface1
+  // Depend on generation so every Style color rebinds when wallpaper theme loads.
+  readonly property int themeGeneration: Wallpaper.DefaultTheme.generation
 
-  readonly property color text:      Wallpaper.DefaultTheme.text
-  readonly property color textMuted: Wallpaper.DefaultTheme.subtext0
-  readonly property color textAlt:   Wallpaper.DefaultTheme.subtext1
-  readonly property color muted:     Wallpaper.DefaultTheme.overlay0
+  readonly property color bg:        { const _ = themeGeneration; return Wallpaper.DefaultTheme.base }
+  readonly property color surface:   { const _ = themeGeneration; return Wallpaper.DefaultTheme.base }
+  readonly property color moduleBg:  { const _ = themeGeneration; return Wallpaper.DefaultTheme.surface0 }
+  readonly property color border:    { const _ = themeGeneration; return Wallpaper.DefaultTheme.surface1 }
 
-  readonly property color red:       Wallpaper.DefaultTheme.red
-  readonly property color green:     Wallpaper.DefaultTheme.green
-  readonly property color yellow:    Wallpaper.DefaultTheme.yellow
-  readonly property color cyan:      Wallpaper.DefaultTheme.sky
-  readonly property color blue:      Wallpaper.DefaultTheme.blue
-  readonly property color blueAlt:   Wallpaper.DefaultTheme.blue
-  readonly property color magenta:   Wallpaper.DefaultTheme.mauve
-  readonly property color orange:    Wallpaper.DefaultTheme.peach
-  readonly property color lavender:  Wallpaper.DefaultTheme.lavender
+  readonly property color text:      { const _ = themeGeneration; return Wallpaper.DefaultTheme.text }
+  readonly property color textMuted: { const _ = themeGeneration; return Wallpaper.DefaultTheme.subtext0 }
+  readonly property color textAlt:   { const _ = themeGeneration; return Wallpaper.DefaultTheme.subtext1 }
+  readonly property color muted:     { const _ = themeGeneration; return Wallpaper.DefaultTheme.overlay0 }
 
-  readonly property color hoverBg:   Wallpaper.DefaultTheme.surface1
-  readonly property color controlBg: Wallpaper.DefaultTheme.surface0
-  readonly property color wsNumBg:   Wallpaper.DefaultTheme.surface0
+  readonly property color red:       { const _ = themeGeneration; return Wallpaper.DefaultTheme.red }
+  readonly property color green:     { const _ = themeGeneration; return Wallpaper.DefaultTheme.green }
+  readonly property color yellow:    { const _ = themeGeneration; return Wallpaper.DefaultTheme.yellow }
+  readonly property color cyan:      { const _ = themeGeneration; return Wallpaper.DefaultTheme.sky }
+  readonly property color blue:      { const _ = themeGeneration; return Wallpaper.DefaultTheme.blue }
+  readonly property color blueAlt:   { const _ = themeGeneration; return Wallpaper.DefaultTheme.blue }
+  readonly property color magenta:   { const _ = themeGeneration; return Wallpaper.DefaultTheme.mauve }
+  readonly property color orange:    { const _ = themeGeneration; return Wallpaper.DefaultTheme.peach }
+  readonly property color lavender:  { const _ = themeGeneration; return Wallpaper.DefaultTheme.lavender }
 
-  readonly property color wsBg:             Qt.alpha(Wallpaper.DefaultTheme.base, 0.72)
-  readonly property color wsBorder:         Qt.alpha(Wallpaper.DefaultTheme.text, 0.07)
-  readonly property color wsActive:         Wallpaper.DefaultTheme.teal
-  readonly property color wsActiveAlt:      Qt.lighter(Wallpaper.DefaultTheme.sky, 1.08)
-  readonly property color wsActiveBorder:   Qt.alpha(Wallpaper.DefaultTheme.sky, 0.45)
-  readonly property color wsActiveBg:       Qt.alpha(Wallpaper.DefaultTheme.sky, 0.20)
+  readonly property color hoverBg:   { const _ = themeGeneration; return Wallpaper.DefaultTheme.surface1 }
+  readonly property color controlBg: { const _ = themeGeneration; return Wallpaper.DefaultTheme.surface0 }
+  readonly property color wsNumBg:   { const _ = themeGeneration; return Wallpaper.DefaultTheme.surface0 }
+
+  readonly property color wsBg:             { const _ = themeGeneration; return Qt.alpha(Wallpaper.DefaultTheme.base, 0.72) }
+  readonly property color wsBorder:         { const _ = themeGeneration; return Qt.alpha(Wallpaper.DefaultTheme.text, 0.07) }
+  readonly property color wsActive:         { const _ = themeGeneration; return Wallpaper.DefaultTheme.accent }
+  readonly property color wsActiveAlt:      { const _ = themeGeneration; return Qt.lighter(Wallpaper.DefaultTheme.accent, 1.08) }
+  readonly property color wsActiveBorder:   { const _ = themeGeneration; return Qt.alpha(Wallpaper.DefaultTheme.accent, 0.45) }
+  readonly property color wsActiveBg:       { const _ = themeGeneration; return Qt.alpha(Wallpaper.DefaultTheme.accent, 0.20) }
   readonly property color wsHoverBg:        Qt.alpha(Wallpaper.DefaultTheme.text, 0.10)
   readonly property color wsOccupiedBg:     Qt.alpha(Wallpaper.DefaultTheme.text, 0.10)
   readonly property color wsVisibleBg:      Qt.alpha(Wallpaper.DefaultTheme.sky, 0.14)
@@ -57,12 +60,12 @@ Singleton {
   readonly property color barBorder:      Qt.alpha(Wallpaper.DefaultTheme.text, 0.10)
   readonly property color barHoverBorder: Qt.alpha(Wallpaper.DefaultTheme.sky, 0.34)
 
-  // Solid top strip (omarchy bar.background / sketchybar theme.bar) — always opaque, never transparent.
-  readonly property color barStripBg:   Wallpaper.DefaultTheme.mantle
-  readonly property color barStripText: Wallpaper.DefaultTheme.text
-  readonly property color barStripMuted: Wallpaper.DefaultTheme.subtext0
-  readonly property color barStripActive: Wallpaper.DefaultTheme.red
-  readonly property color barStripHover:  Qt.alpha(Wallpaper.DefaultTheme.text, 0.08)
+  // Solid strip sizing — sketchybar top uses 32px; slightly taller for icons + workspace row.
+  readonly property color barStripBg:   { const _ = themeGeneration; return Wallpaper.DefaultTheme.mantle }
+  readonly property color barStripText: { const _ = themeGeneration; return Wallpaper.DefaultTheme.text }
+  readonly property color barStripMuted: { const _ = themeGeneration; return Wallpaper.DefaultTheme.subtext0 }
+  readonly property color barStripActive: { const _ = themeGeneration; return Wallpaper.DefaultTheme.red }
+  readonly property color barStripHover:  { const _ = themeGeneration; return Qt.alpha(Wallpaper.DefaultTheme.text, 0.08) }
 
   readonly property color panelOverlay:         Qt.alpha(Wallpaper.DefaultTheme.crust, 0.76)
   readonly property color panelBg:              Qt.alpha(Wallpaper.DefaultTheme.base, 0.98)
@@ -84,14 +87,14 @@ Singleton {
   readonly property color panelDivider:         Qt.alpha(Wallpaper.DefaultTheme.text, 0.10)
 
   // Launcher-inspired menu chrome (Asahi palette, not omarchy paths)
-  readonly property color menuPaper:   Wallpaper.DefaultTheme.crust
-  readonly property color menuInk:     Wallpaper.DefaultTheme.text
-  readonly property color menuInkDeep: Wallpaper.DefaultTheme.subtext0
-  readonly property color menuInkMuted: Wallpaper.DefaultTheme.overlay1
-  readonly property color menuSumi:    Wallpaper.DefaultTheme.overlay0
-  readonly property color menuSeal:    Wallpaper.DefaultTheme.peach
-  readonly property color menuIndigo:  Wallpaper.DefaultTheme.sapphire
-  readonly property color menuSealAlt: Wallpaper.DefaultTheme.peach
+  readonly property color menuPaper:   { const _ = themeGeneration; return Wallpaper.DefaultTheme.crust }
+  readonly property color menuInk:     { const _ = themeGeneration; return Wallpaper.DefaultTheme.text }
+  readonly property color menuInkDeep: { const _ = themeGeneration; return Wallpaper.DefaultTheme.subtext0 }
+  readonly property color menuInkMuted: { const _ = themeGeneration; return Wallpaper.DefaultTheme.overlay1 }
+  readonly property color menuSumi:    { const _ = themeGeneration; return Wallpaper.DefaultTheme.overlay0 }
+  readonly property color menuSeal:    { const _ = themeGeneration; return Wallpaper.DefaultTheme.peach }
+  readonly property color menuIndigo:  { const _ = themeGeneration; return Wallpaper.DefaultTheme.sapphire }
+  readonly property color menuSealAlt: { const _ = themeGeneration; return Wallpaper.DefaultTheme.peach }
   readonly property color menuBg:      Qt.rgba(menuPaper.r, menuPaper.g, menuPaper.b, 0.96)
   readonly property color menuSep:     Qt.rgba(menuInk.r, menuInk.g, menuInk.b, 0.16)
   readonly property color menuRowHi:   Qt.rgba(menuInk.r, menuInk.g, menuInk.b, 0.07)

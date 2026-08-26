@@ -35,8 +35,16 @@ shell-integration = zsh
 shell-integration-features = cursor,sudo,title,no-cursor
 keybind = shift+enter=text:\n
 
-theme = Catppuccin Mocha
-window-theme = dark
+theme = asahi-adaptive
+# adaptive.conf (asahi-autotheme) sets window-theme=ghostty, titlebar colors,
+# and gtk-custom-css so tabs + command palette recolor on reload-config.
+# Do not kill Ghostty — Adw StyleManager does not follow light/dark on reload
+# (ghostty#13127); custom CSS is the live path on Hyprland.
+window-theme = ghostty
+config-file = ?adaptive.conf
+
+# Fallback if asahi-adaptive theme file is missing (first boot before wallpaper theming):
+# theme = Catppuccin Mocha
 
 # Fix general slowness on hyprland (https://github.com/ghostty-org/ghostty/discussions/3224)
 async-backend = epoll

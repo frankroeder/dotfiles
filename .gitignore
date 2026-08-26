@@ -2,3 +2,7 @@ __pycache__
 Brewfile.lock.json
 .netrwhist
 .codex
+asahi/ghostty/themes/asahi-adaptive
+asahi/ghostty/adaptive.conf
+asahi/ghostty/adaptive.css
+asahi/theme/**/__pycache__/

@@ -6,6 +6,7 @@ hl.on("hyprland.start", function()
   -- gnome-keyring owns org.freedesktop.secrets (kwallet is disabled). SSH stays with keychain.
   hl.exec_cmd "~/.dotfiles/asahi/autostart-scripts/gnome-keyring"
   -- Portal Settings (LibreWolf / GTK4 / nvim) read this, not quickshell/ghostty colors.
+  -- asahi-autotheme may override color-scheme from wallpaper lightness after start.
   hl.exec_cmd "gsettings set org.gnome.desktop.interface color-scheme prefer-dark"
   hl.exec_cmd "gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark"
   hl.exec_cmd "gsettings set org.gnome.desktop.interface icon-theme Papirus-Dark"
@@ -18,6 +19,8 @@ hl.on("hyprland.start", function()
   hl.exec_cmd "~/.dotfiles/asahi/bin/asahi-start-quickshell"
   hl.exec_cmd "hypridle"
   hl.exec_cmd "hyprsunset"
+  -- Restore wallpaper-adaptive theme (Ghostty / borders / LibreWolf CSS / gsettings).
+  hl.exec_cmd "~/.dotfiles/asahi/bin/asahi-autotheme"
   -- No lock-on-boot: tty1 getty already authenticated this session (Service=login).
   hl.exec_cmd(launch(terminal), { workspace = "1 silent" })
 end)

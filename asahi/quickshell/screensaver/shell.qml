@@ -17,8 +17,9 @@ ShellRoot {
     id: root
 
     // ---------- Theme ----------
-    readonly property string colorsPath: Quickshell.env("HOME") + "/.config/quickshell/asahi/theme/colors.toml"
-    readonly property string themeNamePath: Quickshell.env("HOME") + "/.config/quickshell/asahi/theme.name"
+    readonly property string stateHome: Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")
+    readonly property string colorsPath: root.stateHome + "/asahi-theme/screensaver-colors.toml"
+    readonly property string themeNamePath: root.stateHome + "/asahi-theme/theme.name"
 
     property color paper:  "#181616"
     property color ink:    "#c5c9c5"

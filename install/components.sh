@@ -308,6 +308,9 @@ comp_macos_apps() {
     [ -d "$profile" ] || continue
     mkdir -p "$profile/chrome"
     ln -sfn "$DOTFILES/shared/librewolf/userChrome.css" "$profile/chrome/userChrome.css" || true
+    if [ ! -f "$profile/chrome/asahi-adaptive.css" ]; then
+      cp -f "$DOTFILES/shared/librewolf/asahi-adaptive.css" "$profile/chrome/asahi-adaptive.css" || true
+    fi
   done
   if have sioyek; then
     print_ok "sioyek already installed"
@@ -539,8 +542,18 @@ comp_asahi_desktop() {
   mkdir -p "$HOME/.config/wireplumber/wireplumber.conf.d"
   link_if_exists "$DOTFILES/asahi/wireplumber/wireplumber.conf.d/bluetooth-a2dp-autoconnect.conf" \
     "$HOME/.config/wireplumber/wireplumber.conf.d/bluetooth-a2dp-autoconnect.conf"
-  link_if_exists "$DOTFILES/asahi/gtk-3.0/settings.ini" "$HOME/.config/gtk-3.0/settings.ini"
-  link_if_exists "$DOTFILES/asahi/gtk-4.0/settings.ini" "$HOME/.config/gtk-4.0/settings.ini"
+  # Real files (not symlinks): asahi-autotheme flips light/dark here.
+  for gtkver in gtk-3.0 gtk-4.0; do
+    dest="$HOME/.config/$gtkver/settings.ini"
+    src="$DOTFILES/asahi/$gtkver/settings.ini"
+    mkdir -p "$HOME/.config/$gtkver"
+    if [ -L "$dest" ]; then
+      rm -f "$dest"
+    fi
+    if [ -f "$src" ]; then
+      cp -f "$src" "$dest"
+    fi
+  done
   mkdir -p "$HOME/.config/librewolf/librewolf"
   link_if_exists "$DOTFILES/shared/librewolf/librewolf.overrides.cfg" "$HOME/.config/librewolf/librewolf/librewolf.overrides.cfg"
   local profile
@@ -548,6 +561,10 @@ comp_asahi_desktop() {
     [ -d "$profile" ] || continue
     mkdir -p "$profile/chrome"
     ln -sfn "$DOTFILES/shared/librewolf/userChrome.css" "$profile/chrome/userChrome.css"
+    # Copy (not symlink): asahi-autotheme overwrites this from the wallpaper palette.
+    if [ ! -f "$profile/chrome/asahi-adaptive.css" ]; then
+      cp -f "$DOTFILES/shared/librewolf/asahi-adaptive.css" "$profile/chrome/asahi-adaptive.css"
+    fi
   done
   for profile in "$HOME"/.thunderbird/*.default*; do
     [ -d "$profile" ] || continue

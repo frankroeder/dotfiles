@@ -1,8 +1,19 @@
 #!/usr/bin/env sh
 # Shared terminal palette for shell tooling on all platforms.
+# On Asahi, prefer wallpaper-adaptive colors from asahi-autotheme when present.
 
 catppuccin_term_mode="light"
 catppuccin_term_os="$(uname -s 2>/dev/null || printf '%s' "")"
+asahi_colors="${XDG_STATE_HOME:-$HOME/.local/state}/asahi-theme/colors.env"
+
+if [ -f "$asahi_colors" ]; then
+  # shellcheck disable=SC1090
+  . "$asahi_colors"
+  unset asahi_colors
+  unset catppuccin_term_mode
+  unset catppuccin_term_os
+  return 0 2>/dev/null || exit 0
+fi
 
 if [ "$catppuccin_term_os" = "Darwin" ] && command -v defaults >/dev/null 2>&1; then
   if defaults read -g AppleInterfaceStyle 2>/dev/null | grep -qi dark; then
