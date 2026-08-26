@@ -30,13 +30,21 @@ function runCase(label, opts) {
   console.log("result " + JSON.stringify(r, null, 2));
 
   assert(r.cardBottom < r.screenH, label + ": cardBottom " + r.cardBottom + " < screenH " + r.screenH);
+  assert(r.cardWidth < r.screenW, label + ": cardWidth " + r.cardWidth + " < screenW " + r.screenW);
+  assert(
+    r.cardY + r.cardHeight + r.bottomGap <= r.screenH + 1,
+    label + ": card + gaps fit in screenH"
+  );
   assert(r.bodyHeight > 0, label + ": leftover bodyHeight " + r.bodyHeight + " > 0");
   assert(
     r.chrome + r.bodyHeight <= r.cardHeight,
     label + ": chrome " + r.chrome + " + body " + r.bodyHeight + " <= cardHeight " + r.cardHeight
   );
+  assert(r.fontScale >= 1.05 && r.fontScale <= 1.80, label + ": fontScale " + r.fontScale + " in [1.05, 1.80]");
+  assert(r.cardMargin >= 10 && r.cardMargin <= 28, label + ": cardMargin " + r.cardMargin + " in [10, 28]");
+  assert(r.colSpacing >= 6 && r.colSpacing <= 18, label + ": colSpacing " + r.colSpacing + " in [6, 18]");
 
-  const tiles = tileMetrics(r.bodyHeight, opts.tileCount, r.colMode);
+  const tiles = tileMetrics(r.bodyHeight, opts.tileCount, r.colMode, r.uiScale);
   const fitOrScroll = tiles.tileColumnHeight <= r.bodyHeight || tiles.tileScrollBudget <= r.bodyHeight;
   assert(
     fitOrScroll,
@@ -44,35 +52,63 @@ function runCase(label, opts) {
       tiles.tileScrollBudget + ") <= body " + r.bodyHeight
   );
 
-  const viz = monitorsVizHeight(r.paneHeight);
+  const viz = monitorsVizHeight(r.paneHeight, r);
   assert(viz === r.vizHeight, label + ": launcherLayout.vizHeight uses shipped monitorsVizHeight");
-  assert(viz <= shipped.VIZ_MAX, label + ": vizHeight " + viz + " <= vizMax " + shipped.VIZ_MAX);
+  assert(viz <= r.vizMax, label + ": vizHeight " + viz + " <= vizMax " + r.vizMax);
   if (r.vizWouldOverflow) {
     assert(
-      viz < shipped.VIZ_MAX,
-      label + ": viz " + viz + " < vizMax " + shipped.VIZ_MAX + " because max would overflow pane " + r.paneHeight
+      viz < r.vizMax,
+      label + ": viz " + viz + " < vizMax " + r.vizMax + " because max would overflow pane " + r.paneHeight
     );
   } else {
-    console.log("ok  " + label + ": vizMax " + shipped.VIZ_MAX + " fits in pane " + r.paneHeight + " (viz=" + viz + ")");
+    console.log("ok  " + label + ": vizMax " + r.vizMax + " fits in pane " + r.paneHeight + " (viz=" + viz + ")");
   }
-  const chromeMon = 26 + 16 + 3 * 8; // toolbar + caption + spacing (matches launcher_layout.js)
+  const chromeMon = r.monToolbarH + r.monCaptionH + 3 * r.monSpacing;
   const listRoom = r.paneHeight - chromeMon - viz;
   assert(
-    listRoom >= 110 || viz <= shipped.VIZ_MIN,
-    label + ": list room " + listRoom + " >= 110 (or viz at floor) so ≥2 monitor rows fit without scroll"
+    listRoom >= r.minList || viz <= r.vizMin,
+    label + ": list room " + listRoom + " >= minList " + r.minList + " (or viz at floor)"
   );
   return r;
 }
 
 const cases = [
-  { screenH: 1260, tileCount: 10, sideActive: true, quickMode: true },
-  { screenH: 1080, tileCount: 10, sideActive: true, quickMode: true },
-  { screenH: 800, tileCount: 10, sideActive: true, quickMode: true }
+  { screenW: 1280, screenH: 800, tileCount: 10, sideActive: true, quickMode: true },
+  { screenW: 1920, screenH: 1080, tileCount: 10, sideActive: true, quickMode: true },
+  { screenW: 2560, screenH: 1440, tileCount: 10, sideActive: true, quickMode: true },
+  { screenW: 3840, screenH: 2160, tileCount: 10, sideActive: true, quickMode: true }
 ];
 
+const results = {};
 for (const opts of cases) {
-  runCase("screenH=" + opts.screenH, opts);
+  results[opts.screenH] = runCase("screen=" + opts.screenW + "x" + opts.screenH, opts);
 }
+
+console.log("\n== adaptive size order ==");
+const compact = results[800];
+const mid = results[1080];
+const large = results[1440];
+const huge = results[2160];
+assert(compact.cardWidth < mid.cardWidth, "1280×800 card narrower than 1080p (" + compact.cardWidth + " < " + mid.cardWidth + ")");
+assert(mid.cardWidth < large.cardWidth, "1080p card narrower than 1440p (" + mid.cardWidth + " < " + large.cardWidth + ")");
+assert(large.cardWidth < huge.cardWidth, "1440p card narrower than 4K (" + large.cardWidth + " < " + huge.cardWidth + ")");
+assert(compact.fontScale <= mid.fontScale, "type on 800p <= 1080p (" + compact.fontScale + " <= " + mid.fontScale + ")");
+assert(mid.fontScale <= large.fontScale, "type on 1080p <= 1440p (" + mid.fontScale + " <= " + large.fontScale + ")");
+assert(Math.abs(mid.cardWidth - 1080) <= 8, "1080p side-active width stays near 1080 (got " + mid.cardWidth + ")");
+const midOverview = launcherLayout({ screenW: 1920, screenH: 1080, sideActive: false, quickMode: false, tileCount: 10 });
+assert(Math.abs(midOverview.cardWidth - 820) <= 8, "1080p overview width stays near 820 (got " + midOverview.cardWidth + ")");
+assert(compact.cardWidth <= 1280 - 48, "800p card keeps side gaps (width " + compact.cardWidth + ")");
+assert(huge.cardWidth >= 1500, "4K side-active card is not stuck at 1080 (got " + huge.cardWidth + ")");
+assert(compact.cardMargin <= mid.cardMargin, "margins shrink on small displays");
+assert(large.cardMargin >= mid.cardMargin, "margins grow on large displays");
+assert(typeof shipped.uiScale === "function" && typeof shipped.cardWidthFor === "function",
+  "layout module exports uiScale + cardWidthFor");
+assert(shipped.cardWidthFor(1920, false) === 820, "cardWidthFor(1920, overview) is 820");
+assert(shipped.cardWidthFor(1920, true) === 1080, "cardWidthFor(1920, side) is 1080");
+assert(shipped.cardWidthFor(1280, true) < 1080, "cardWidthFor(1280, side) < 1080");
+assert(shipped.cardWidthFor(2560, true) > 1080, "cardWidthFor(2560, side) > 1080");
+
+runCase("tiny 800×600", { screenW: 800, screenH: 600, tileCount: 10, sideActive: true, quickMode: true });
 
 console.log("\n== QML wiring (shipped LauncherWindow.qml) ==");
 const qmlPath = path.join(__dirname, "LauncherWindow.qml");
@@ -80,6 +116,38 @@ const qml = fs.readFileSync(qmlPath, "utf8");
 assert(
   qml.indexOf("LauncherGeom.launcherLayout") !== -1,
   "LauncherWindow.qml calls shipped LauncherGeom.launcherLayout"
+);
+assert(
+  /screenW:\s*root\.launcherScreenW/.test(qml),
+  "launcherLayout receives screenW so width can track the display"
+);
+assert(
+  !/width:\s*root\.sideActive \? 1080 : 820/.test(qml),
+  "card width is not the fixed 1080/820 pair"
+);
+assert(
+  /width:\s*root\.launcherGeom\.cardWidth/.test(qml),
+  "MenuCard width uses launcherGeom.cardWidth"
+);
+assert(
+  /cardMargin:\s*root\.launcherGeom\.cardMargin/.test(qml),
+  "MenuCard margin uses launcherGeom.cardMargin"
+);
+assert(
+  /spacing:\s*root\.launcherGeom\.colSpacing/.test(qml),
+  "launcher ColumnLayout spacing uses launcherGeom.colSpacing"
+);
+assert(
+  /uiFontScale:\s*root\.launcherGeom\.fontScale/.test(qml),
+  "uiFontScale comes from launcherGeom.fontScale (not a literal 1.4)"
+);
+assert(
+  !/readonly property real uiFontScale:\s*1\.4/.test(qml),
+  "uiFontScale is no longer hardcoded to 1.4"
+);
+assert(
+  /tileMetrics\([\s\S]*root\.launcherGeom\.uiScale/.test(qml),
+  "tileMetrics receives uiScale so Quick tiles grow/shrink with the display"
 );
 assert(
   !/height:\s*visible \? Math\.max\(300,\s*launcherPanel\.height\s*\*/.test(qml),
@@ -94,11 +162,11 @@ assert(
   "monitors viz height comes from shipped monitorsVizHeight"
 );
 assert(
-  /Layout\.maximumHeight:\s*LauncherGeom\.VIZ_MAX/.test(qml),
-  "monitors viz max height uses shipped VIZ_MAX"
+  /Layout\.maximumHeight:\s*root\.launcherGeom\.vizMax/.test(qml),
+  "monitors viz max height uses adaptive launcherGeom.vizMax"
 );
 assert(
-  /Layout\.fillHeight:\s*false/.test(qml) && /LauncherGeom\.MON_LIST_MAX/.test(qml),
+  /Layout\.fillHeight:\s*false/.test(qml) && /launcherGeom\.monListMax/.test(qml),
   "monitor list sizes to content (capped) so leftover height goes to the preview"
 );
 assert(
@@ -116,6 +184,10 @@ assert(
 assert(
   /Layout\.preferredHeight:\s*implicitHeight/.test(qml),
   "launcher ColumnLayout prefers implicitHeight for chrome (header/hint)"
+);
+assert(
+  /rowHTall/.test(qml) && /iconSlot/.test(qml) && /rowPad/.test(qml),
+  "list rows, icon slot, and row padding come from adaptive geom"
 );
 
 console.log("\n== menu chrome implicitHeight (ColumnLayout) ==");

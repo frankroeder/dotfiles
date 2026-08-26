@@ -14,6 +14,7 @@ import Quickshell.Services.Mpris
 import Quickshell.Services.Pipewire
 import "../../"
 import "Data.js" as Data
+import "websearch.js" as WebSearch
 import "dictcc-core.mjs" as DictCC
 import "launcher_layout.js" as LauncherGeom
 import "hub_logo.js" as HubLogo
@@ -133,7 +134,7 @@ Scope {
   })
 
   // --- live data + exact hub/lower + side windows (ported from old featuremenu; now the only place, module removed)
-  readonly property real uiFontScale: 1.4
+  readonly property real uiFontScale: root.launcherGeom.fontScale
   readonly property real quickOverviewScale: 1.0
   readonly property int launcherScreenH: {
     const h = launcherPanel.height
@@ -142,13 +143,20 @@ Scope {
     if (scr && scr.height > 1) return scr.height
     return 1080
   }
+  readonly property int launcherScreenW: {
+    const w = launcherPanel.width
+    if (w > 1) return w
+    const scr = launcherPanel.screen || root.launcherScreen
+    if (scr && scr.width > 1) return scr.width
+    return 1920
+  }
   readonly property var launcherGeom: LauncherGeom.launcherLayout({
     screenH: root.launcherScreenH,
+    screenW: root.launcherScreenW,
     tileCount: (root.quickTiles || []).length,
     sideActive: root.sideActive,
     quickMode: root.quickMode,
-    hubMode: root.expandedQuickKey === "hub" || root.expandedQuickKey === "dashboard",
-    fontScale: root.uiFontScale
+    hubMode: root.expandedQuickKey === "hub" || root.expandedQuickKey === "dashboard"
   })
   function fontPx(size) { return Math.round(size * root.uiFontScale) }
   function quickPx(size) { return Math.round(size * root.uiFontScale * root.quickOverviewScale) }
@@ -679,8 +687,8 @@ Scope {
 
     ColumnLayout {
       anchors.fill: parent
-      anchors.margins: 4
-      spacing: 6
+      anchors.margins: Math.max(2, Math.round(root.launcherGeom.panePad / 2))
+      spacing: Math.max(4, Math.round(root.launcherGeom.colSpacing / 2))
 
       Rectangle {
         Layout.fillWidth: true
@@ -692,8 +700,8 @@ Scope {
 
         ColumnLayout {
           anchors.fill: parent
-          anchors.margins: 8
-          spacing: 6
+          anchors.margins: root.launcherGeom.panePad
+          spacing: Math.max(4, Math.round(root.launcherGeom.colSpacing / 2))
 
           RowLayout {
             Layout.fillWidth: true
@@ -842,8 +850,8 @@ Scope {
 
           Row {
             Layout.fillWidth: true
-            Layout.preferredHeight: 56
-            spacing: 8
+            Layout.preferredHeight: root.launcherGeom.rowHTall
+            spacing: root.launcherGeom.panePad
 
             Repeater {
               model: [
@@ -3426,9 +3434,9 @@ Scope {
       Rectangle {
         Layout.fillWidth: true
         Layout.fillHeight: true
-        Layout.minimumHeight: LauncherGeom.VIZ_MIN
-        Layout.maximumHeight: LauncherGeom.VIZ_MAX
-        Layout.preferredHeight: LauncherGeom.monitorsVizHeight(quickMonitorsRoot.height)
+        Layout.minimumHeight: root.launcherGeom.vizMin
+        Layout.maximumHeight: root.launcherGeom.vizMax
+        Layout.preferredHeight: LauncherGeom.monitorsVizHeight(quickMonitorsRoot.height, root.launcherGeom)
         radius: 6; color: Style.menuControlBg; border.color: Style.menuSep; border.width: 1
         Canvas {
           anchors.fill: parent; anchors.margins: 8
@@ -3489,9 +3497,9 @@ Scope {
       Flickable {
         Layout.fillWidth: true
         Layout.fillHeight: false
-        Layout.preferredHeight: Math.min(Math.max(monList.height, 98), LauncherGeom.MON_LIST_MAX)
-        Layout.maximumHeight: Math.min(Math.max(monList.height, 98), LauncherGeom.MON_LIST_MAX)
-        Layout.minimumHeight: 98
+        Layout.preferredHeight: Math.min(Math.max(monList.height, root.launcherGeom.minList), root.launcherGeom.monListMax)
+        Layout.maximumHeight: Math.min(Math.max(monList.height, root.launcherGeom.minList), root.launcherGeom.monListMax)
+        Layout.minimumHeight: root.launcherGeom.minList
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         contentHeight: monList.height
@@ -5469,29 +5477,21 @@ Scope {
   }
 
   // websearch: @ uses engines[] (fuzzy lists + prefix direct). ! passes the literal text to Kagi via defaultSearchUrl.
-  // Icons prepared exactly like dictIcon so they render in the launcher results list.
-  property var webEngines: [
-    { name: "Kagi", prefix: "kagi", url: "https://kagi.com/search?q=%TERM%", icon: root.webIconBase + "kagi.png" },
-    { name: "Jax Documentation", prefix: "jaxdoc", url: "https://docs.jax.dev/en/latest/search.html?q=%TERM%", icon: root.webIconBase + "jax.png" },
-    { name: "Flax Documentation", prefix: "flaxdoc", url: "https://flax.readthedocs.io/en/stable/search.html?q=%TERM%", icon: root.webIconBase + "flax.png" },
-    { name: "dict.cc", prefix: "dcc", url: "https://www.dict.cc/?s=%TERM%", icon: root.webIconBase + "dict-cc.png" },
-    { name: "NumPy Documentation", prefix: "npdoc", url: "https://numpy.org/doc/stable/search.html?q=%TERM%", icon: root.webIconBase + "numpy.png" },
-    { name: "Kagi Translate", prefix: "kt", url: "https://translate.kagi.com/?from=auto&to=en_us&text=%TERM%", icon: root.webIconBase + "kagi.png" },
-    { name: "PyTorch Documentation", prefix: "ptdoc", url: "https://docs.pytorch.org/docs/stable/search.html?q=%TERM%", icon: root.webIconBase + "pytorch.png" },
-    { name: "Optax Documentation", prefix: "optax", url: "https://optax.readthedocs.io/en/latest/search.html?q=%TERM%", icon: root.webIconBase + "optax.png" },
-    { name: "Grokipedia", prefix: "grokip", url: "https://grokipedia.com/search?q=%TERM%", icon: root.webIconBase + "grokipedia.png" }
-  ]
+  // Seeded empty; FileView.text() fills from websearch.json (Startpage, wikis, …).
+  property var webEngines: []
   property string defaultSearchUrl: "https://kagi.com/search?q=%s"
 
-  // Robust loading of websearch engines + icons from json (better than XHR).
-  // Edit the json to add/remove engines; put matching PNGs in assets/.
-  // Icons resolved at load time using the same base as dictIcon.
+  // FileView.text() is a method, not a property — passing bare `text` into
+  // JSON.parse throws and silently kept the old hardcoded list (no "sp").
   FileView {
     id: websearchConfig
     path: root.websearchJsonPath
     watchChanges: true
-    onLoaded: root.parseWebsearchConfig(text)
-    onTextChanged: if (root) root.parseWebsearchConfig(text)
+    blockLoading: true
+    onFileChanged: reload()
+    onLoaded: root.parseWebsearchConfig(websearchConfig.text())
+    onTextChanged: if (root) root.parseWebsearchConfig(websearchConfig.text())
+    onLoadFailed: root.parseWebsearchConfig("")
   }
 
   Connections {
@@ -5730,27 +5730,14 @@ Scope {
 
   function parseWebsearchConfig(text) {
     try {
-      const body = (text || "").trim()
-      if (!body) return
-      var data = JSON.parse(body)
-      if (data.engines && data.engines.length > 0) {
-        var base = root.webIconBase
-        webEngines = data.engines.map(function(e) {
-          var ic = e.icon || ""
-          var iconPath = ic
-          if (ic && ic.indexOf(".") > 0 && !ic.startsWith("file://")) {
-            iconPath = base + ic
-          }
-          var r = { name: e.name, prefix: e.prefix, url: e.url, icon: iconPath }
-          if (e.description) r.description = e.description
-          return r
-        })
+      const parsed = WebSearch.parseConfig(text, root.webIconBase)
+      if (parsed && parsed.engines.length > 0) {
+        webEngines = parsed.engines
+        if (parsed.defaultSearchUrl) defaultSearchUrl = parsed.defaultSearchUrl
       }
-      if (data.defaultSearchUrl) defaultSearchUrl = data.defaultSearchUrl
-      webVersion++
     } catch (e) {
-      webVersion++
     }
+    webVersion++
   }
 
   function getSpecialResults(qq) {
@@ -5804,7 +5791,8 @@ Scope {
 
       // exact prefix match for direct search (e.g. @ptdoc hello → PyTorch docs with the term)
       for (const e of engines) {
-        const p = e.prefix
+        const p = (e.prefix || "").toLowerCase()
+        if (!p) continue
         if (la === p || la.startsWith(p + " ")) {
           let raw = after.substring(p.length).trim()
           const term = raw.replace(/^["'\s]+|["'\s]+$/g, "")
@@ -6237,10 +6225,10 @@ Scope {
       id: launcherBox
       anchors.horizontalCenter: parent.horizontalCenter
       y: root.launcherGeom.cardY
-      width: root.sideActive ? 1080 : 820
+      width: root.launcherGeom.cardWidth
       Behavior on width { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
       height: root.launcherGeom.cardHeight
-      cardMargin: 17
+      cardMargin: root.launcherGeom.cardMargin
       focus: true
       activeFocusOnTab: true
       Keys.onPressed: (event) => {
@@ -6279,7 +6267,7 @@ Scope {
       ColumnLayout {
         id: launcherCol
         anchors.fill: parent
-        spacing: 12
+        spacing: root.launcherGeom.colSpacing
 
         Menu.MenuHeader {
           Layout.fillWidth: true
@@ -6302,7 +6290,7 @@ Scope {
         // prevents typing pollution of query/cat/schedules while grid+side shown)
         Item {
           Layout.fillWidth: true
-          Layout.preferredHeight: root.quickMode ? 0 : 42
+          Layout.preferredHeight: root.quickMode ? 0 : root.launcherGeom.searchH
           visible: !root.quickMode
           clip: true
 
@@ -6436,14 +6424,15 @@ Scope {
           id: listArea
           Layout.fillWidth: true
           Layout.fillHeight: true
-          Layout.minimumHeight: 120
+          Layout.minimumHeight: root.launcherGeom.minList
           Layout.preferredHeight: root.launcherGeom.bodyHeight
           visible: true
           clip: true
           readonly property var tileGeom: LauncherGeom.tileMetrics(
             height,
             (root.quickTiles || []).length,
-            !!root.quickDetailActive
+            !!root.quickDetailActive,
+            root.launcherGeom.uiScale
           )
 
           // Normal results list (or split when preview for files)
@@ -6478,7 +6467,7 @@ Scope {
                 readonly property string dName: modelData.name || modelData.title || "?"
                 readonly property string dSub: modelData.comment || ""
                 readonly property bool dCat: !!modelData.isCategory
-                height: dCat || dSub === "" ? 44 : 56
+                height: dCat || dSub === "" ? root.launcherGeom.rowH : root.launcherGeom.rowHTall
                 readonly property bool isSelected: resultsList.currentIndex === index
                 readonly property string dIcon: modelData.icon || ""
                 readonly property string dRawIcon: modelData.rawIcon || ""
@@ -6506,14 +6495,14 @@ Scope {
 
                 RowLayout {
                   anchors.fill: parent
-                  anchors.leftMargin: 14
-                  anchors.rightMargin: 14
-                  spacing: 12
+                  anchors.leftMargin: root.launcherGeom.rowPad
+                  anchors.rightMargin: root.launcherGeom.rowPad
+                  spacing: root.launcherGeom.colSpacing
 
                   Item {
                     id: iconSlot
-                    width: 30
-                    height: 30
+                    width: root.launcherGeom.iconSlot
+                    height: root.launcherGeom.iconSlot
                     Layout.alignment: Qt.AlignVCenter
                     Image {
                       id: rowIcon
@@ -6579,7 +6568,7 @@ Scope {
                     maximumLineCount: 1
                     // Key combos ("SUPER+SHIFT+ESCAPE") need more room than
                     // the short APP/category accessories.
-                    Layout.maximumWidth: modelData.category === "Keys" ? 340 : 180
+                    Layout.maximumWidth: modelData.category === "Keys" ? root.launcherGeom.accMaxKeys : root.launcherGeom.accMax
                   }
                 }
 
@@ -6612,7 +6601,9 @@ Scope {
               anchors.top: parent.top
               anchors.bottom: parent.bottom
               anchors.left: parent.left
-              width: parent.width * parent.listFrac
+              width: root.quickDetailActive
+                ? Math.max(root.launcherGeom.sideMin, parent.width * parent.listFrac)
+                : parent.width * parent.listFrac
               clip: true
               boundsBehavior: Flickable.StopAtBounds
               contentHeight: Math.max(height, listArea.tileGeom.tileColumnHeight)
@@ -6625,8 +6616,8 @@ Scope {
                 width: quickSide.width
                 height: Math.max(1, listArea.tileGeom.tileColumnHeight)
                 columns: root.quickGridCols
-                rowSpacing: root.quickDetailActive ? 6 : 12
-                columnSpacing: root.quickDetailActive ? 6 : 12
+                rowSpacing: listArea.tileGeom.tileGap
+                columnSpacing: listArea.tileGeom.tileGap
                 clip: true
                 readonly property bool colMode: root.quickDetailActive
                 readonly property int tileH: listArea.tileGeom.tileH
@@ -6728,7 +6719,7 @@ Scope {
               anchors.top: parent.top
               anchors.bottom: parent.bottom
               anchors.left: root.quickMode && root.quickDetailActive ? quickSep.right : (root.quickMode ? quickSide.right : resultsList.right)
-              anchors.leftMargin: root.quickDetailActive ? 10 : 8
+              anchors.leftMargin: root.quickDetailActive ? root.launcherGeom.sidePad : root.launcherGeom.panePad
               anchors.right: parent.right
 
               // quick detail side (exact ref: header glyph26 + label13 lSp2 + sub10 + round×22; topM6; no mid hairline in detail; flick topM10; bodies are feature windows content)
@@ -6745,7 +6736,7 @@ Scope {
                 RowLayout {
                   id: qDetailHeader
                   visible: !qDetailSide.hubMode
-                  anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.topMargin: 8; spacing: 12
+                  anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.topMargin: root.launcherGeom.panePad; spacing: root.launcherGeom.colSpacing
                   Text {
                     text: qDetailSide.qtile.glyph || "󰘔"
                     color: Style.menuSeal

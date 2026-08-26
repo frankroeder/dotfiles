@@ -91,8 +91,8 @@ assert(
   "hub info values may use up to 4 lines in leftover height"
 );
 assert(
-  /Layout\.preferredHeight:\s*56/.test(qml),
-  "hub meters are taller so the bottom strip uses leftover pane height"
+  /Layout\.preferredHeight:\s*root\.launcherGeom\.rowHTall/.test(qml),
+  "hub meters height follows adaptive rowHTall"
 );
 
 const maxLen = Math.max.apply(null, lines.map(function (l) { return l.length; }));
