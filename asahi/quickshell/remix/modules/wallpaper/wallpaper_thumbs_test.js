@@ -71,6 +71,15 @@ if (haveConvert) {
   console.log("skip  size compare (no convert)");
 }
 
+assert(typeof shipped.wheelStep === "function", "shipped wallpaper_thumbs.js exports wheelStep");
+assert(typeof shipped.clampedContentY === "function", "shipped wallpaper_thumbs.js exports clampedContentY");
+assert(shipped.wheelStep(10, 0, 100) === 20, "touchpad pixel delta is boosted 2x (got " + shipped.wheelStep(10, 0, 100) + ")");
+assert(shipped.wheelStep(0, 120, 100) === 250, "mouse notch jumps 2.5 rows (got " + shipped.wheelStep(0, 120, 100) + ")");
+assert(shipped.wheelStep(0, -240, 80) === -400, "two reverse notches jump 5 rows of 80px");
+assert(shipped.clampedContentY(0, -1000, 500, 200) === 300, "contentY clamps to max scroll");
+assert(shipped.clampedContentY(50, 80, 500, 200) === 0, "contentY clamps to 0");
+assert(shipped.clampedContentY(40, 10, 500, 200) === 30, "contentY subtracts the wheel step");
+
 const qmlGrid = fs.readFileSync(path.join(__dirname, "../launcher/LauncherWindow.qml"), "utf8");
 const mgr = fs.readFileSync(path.join(__dirname, "WallpaperManager.qml"), "utf8");
 const svc = fs.readFileSync(path.join(__dirname, "WallpaperService.qml"), "utf8");
@@ -86,6 +95,32 @@ assert(
 assert(
   !/source:\s*"file:\/\/" \+ modelData/.test(mgr.replace(/source: root\.previewPath[\s\S]*?fillMode/m, "")),
   "WallpaperManager grid Image source is not file:// + raw wallpaper path"
+);
+
+const wpBlock = qmlGrid.match(/id:\s*wpGrid[\s\S]*?delegate:/);
+assert(!!wpBlock, "LauncherWindow.qml declares wpGrid");
+assert(
+  /ScrollBar\.vertical:\s*ScrollBar/.test(wpBlock[0]),
+  "Quick wallpaper GridView has a right scrollbar"
+);
+assert(
+  /WallThumbs\.wheelStep/.test(wpBlock[0]) && /WallThumbs\.clampedContentY/.test(wpBlock[0]),
+  "Quick wallpaper wheel uses shipped wheelStep + clampedContentY"
+);
+assert(
+  /rightMargin:\s*12/.test(wpBlock[0]),
+  "Quick wallpaper grid reserves a right gutter for the scrollbar"
+);
+
+const mgrBlock = mgr.match(/id:\s*wallpaperGrid[\s\S]*?delegate:/);
+assert(!!mgrBlock, "WallpaperManager.qml declares wallpaperGrid");
+assert(
+  /ScrollBar\.vertical:\s*ScrollBar/.test(mgrBlock[0]),
+  "WallpaperManager GridView has a right scrollbar"
+);
+assert(
+  /WallThumbs\.wheelStep/.test(mgrBlock[0]) && /WallThumbs\.clampedContentY/.test(mgrBlock[0]),
+  "WallpaperManager wheel uses shipped wheelStep + clampedContentY"
 );
 
 if (failed > 0) {

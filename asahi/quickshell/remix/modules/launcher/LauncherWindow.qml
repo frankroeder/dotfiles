@@ -7,6 +7,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Widgets
 import "../wallpaper" as Wallpaper
+import "../wallpaper/wallpaper_thumbs.js" as WallThumbs
 import "../menu" as Menu
 import Quickshell.Bluetooth
 import Quickshell.Services.Mpris
@@ -458,7 +459,8 @@ Scope {
       id: ffInfoRowDelegate
       RowLayout {
         required property var modelData
-        width: parent ? parent.width : implicitWidth
+        Layout.fillWidth: true
+        Layout.fillHeight: true
         spacing: 6
         readonly property string rowValue: {
           if (modelData && modelData.key === "Memory") {
@@ -501,11 +503,12 @@ Scope {
           color: Style.menuInk
           font.pixelSize: root.fontPx(9)
           font.family: root.uiFont
-          // Single-line elide — wrapping in the narrow right column was
-          // chopping Host/WM/GPU mid-word after the logo took its real width.
-          wrapMode: Text.NoWrap
-          elide: Text.ElideRight
-          maximumLineCount: 1
+          // Wrap into leftover pane height instead of cropping with "...".
+          // Guard on width so a 0-width first layout pass does not wrap
+          // one-grapheme-per-line (the old mid-word chop).
+          wrapMode: width > 72 ? Text.Wrap : Text.NoWrap
+          elide: Text.ElideNone
+          maximumLineCount: width > 72 ? 4 : 1
         }
       }
     }
@@ -771,7 +774,9 @@ Scope {
           Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Style.menuSep }
 
           RowLayout {
+            id: ffMain
             Layout.fillWidth: true
+            Layout.fillHeight: true
             Layout.alignment: Qt.AlignTop
             spacing: 10
 
@@ -788,8 +793,13 @@ Scope {
               // falls back to proportional Noto Sans, whose thin spaces
               // collapse the logo's left indentation. Name a real mono face.
               font.family: "Noto Sans Mono"
-              font.pixelSize: 7
-              lineHeight: 8
+              font.pixelSize: {
+                const n = Math.max(8, quickHubRoot.ffLogoLines.length + 2)
+                const h = ffMain.height
+                if (h < 8) return 7
+                return Math.max(7, Math.min(10, Math.floor(h / n)))
+              }
+              lineHeight: font.pixelSize + 1
               lineHeightMode: Text.FixedHeight
               wrapMode: Text.NoWrap
             }
@@ -797,14 +807,16 @@ Scope {
             RowLayout {
               id: ffInfoBody
               Layout.fillWidth: true
+              Layout.fillHeight: true
               Layout.alignment: Qt.AlignTop
               spacing: 14
 
-              Column {
+              ColumnLayout {
                 id: ffLeftCol
                 Layout.fillWidth: true
+                Layout.fillHeight: true
                 Layout.preferredWidth: 1
-                spacing: 5
+                spacing: 8
                 Repeater {
                   model: quickHubRoot.ffLeftRows
                   // Component ids are not type names — no `{ … }` after the id.
@@ -812,11 +824,12 @@ Scope {
                 }
               }
 
-              Column {
+              ColumnLayout {
                 id: ffRightCol
                 Layout.fillWidth: true
+                Layout.fillHeight: true
                 Layout.preferredWidth: 1
-                spacing: 5
+                spacing: 8
                 Repeater {
                   model: quickHubRoot.ffRightRows
                   delegate: ffInfoRowDelegate
@@ -829,7 +842,7 @@ Scope {
 
           Row {
             Layout.fillWidth: true
-            Layout.preferredHeight: 44
+            Layout.preferredHeight: 56
             spacing: 8
 
             Repeater {
@@ -892,7 +905,7 @@ Scope {
 
                     Rectangle {
                       Layout.fillWidth: true
-                      Layout.preferredHeight: 5
+                      Layout.preferredHeight: 7
                       radius: 2
                       color: Qt.rgba(0, 0, 0, 0.22)
                       Rectangle {
@@ -954,23 +967,39 @@ Scope {
       GridView {
         id: wpGrid
         Layout.fillWidth: true; Layout.fillHeight: (quickWallpaperRoot.filtered || []).length > 0
-        cellWidth: Math.floor((width - 6) / 4); cellHeight: cellWidth * 0.62 + 4
+        cellWidth: Math.max(1, Math.floor((Math.max(0, width - rightMargin - 4)) / 4)); cellHeight: cellWidth * 0.62 + 4
         clip: true; model: quickWallpaperRoot.filtered
         // Scroll perf: pool delegates instead of destroying them mid-flick,
-        // pre-create ~3 rows beyond the viewport, and drop the synchronous
+        // pre-create extra rows beyond the viewport, and drop the synchronous
         // layout thrash of Flickable's animated wheel response in favor of
         // direct contentY steps (omarchy's pickers feel instant for the same
         // reason — no kinetic animation on wheel).
         reuseItems: true
-        cacheBuffer: Math.max(400, cellHeight * 3)
+        cacheBuffer: Math.max(800, cellHeight * 5)
         boundsBehavior: Flickable.StopAtBounds
+        rightMargin: 12
+        ScrollBar.vertical: ScrollBar {
+          id: wpScrollBar
+          policy: wpGrid.contentHeight > wpGrid.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+          implicitWidth: 8
+          contentItem: Rectangle {
+            implicitWidth: 6
+            radius: 3
+            color: Style.menuInkDeep
+            opacity: wpScrollBar.pressed ? 0.9 : (wpScrollBar.hovered ? 0.7 : 0.5)
+          }
+          background: Rectangle {
+            implicitWidth: 8
+            radius: 4
+            color: Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.08)
+          }
+        }
         WheelHandler {
           target: null
           acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
           onWheel: function(ev) {
-            const step = ev.pixelDelta.y !== 0 ? ev.pixelDelta.y : (ev.angleDelta.y / 120) * wpGrid.cellHeight
-            const maxY = Math.max(0, wpGrid.contentHeight - wpGrid.height)
-            wpGrid.contentY = Math.max(0, Math.min(maxY, wpGrid.contentY - step))
+            const step = WallThumbs.wheelStep(ev.pixelDelta.y, ev.angleDelta.y, wpGrid.cellHeight)
+            wpGrid.contentY = WallThumbs.clampedContentY(wpGrid.contentY, step, wpGrid.contentHeight, wpGrid.height)
             ev.accepted = true
           }
         }

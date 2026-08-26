@@ -63,9 +63,36 @@ assert(
   !/Layout\.preferredWidth:\s*1\s*\n\s*Layout\.fillHeight:\s*false\s*\n\s*Layout\.preferredHeight:\s*ffInfoBody/.test(qml),
   "hub no longer draws a vertical separator bar between logo and info"
 );
+const infoBody = qml.match(/id:\s*ffInfoBody[\s\S]{0,250}/);
+assert(!!infoBody, "hub declares ffInfoBody");
 assert(
-  /elide:\s*Text\.ElideRight/.test(qml) && /wrapMode:\s*Text\.NoWrap/.test(qml),
-  "hub info values elide on one line instead of wrapping mid-word"
+  /Layout\.fillHeight:\s*true/.test(infoBody[0]),
+  "hub info body fills leftover pane height instead of packing at the top"
+);
+const ffMain = qml.match(/id:\s*ffMain[\s\S]{0,180}/);
+assert(!!ffMain, "hub declares ffMain");
+assert(
+  /Layout\.fillHeight:\s*true/.test(ffMain[0]),
+  "hub main logo+info row takes leftover pane height"
+);
+
+const valueBlock = qml.match(/text:\s*rowValue[\s\S]{0,800}/);
+assert(!!valueBlock, "hub value Text binds rowValue");
+assert(
+  /wrapMode:\s*width\s*>\s*72\s*\?\s*Text\.Wrap\s*:\s*Text\.NoWrap/.test(valueBlock[0]),
+  "hub info values wrap once the column has a real width"
+);
+assert(
+  /elide:\s*Text\.ElideNone/.test(valueBlock[0]),
+  "hub info values are not cropped with ElideRight / '...'"
+);
+assert(
+  /maximumLineCount:\s*width\s*>\s*72\s*\?\s*4\s*:\s*1/.test(valueBlock[0]),
+  "hub info values may use up to 4 lines in leftover height"
+);
+assert(
+  /Layout\.preferredHeight:\s*56/.test(qml),
+  "hub meters are taller so the bottom strip uses leftover pane height"
 );
 
 const maxLen = Math.max.apply(null, lines.map(function (l) { return l.length; }));

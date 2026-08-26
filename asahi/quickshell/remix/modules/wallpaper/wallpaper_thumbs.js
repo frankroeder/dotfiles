@@ -59,6 +59,27 @@ function shellQuote(s) {
   return "'" + String(s).replace(/'/g, "'\\''") + "'"
 }
 
+// Picker wheel: mouse notches jump multiple rows; touchpad pixel deltas are
+// boosted so a large wallpaper grid is not one-row-per-tick.
+var WHEEL_PIXEL_BOOST = 2
+var WHEEL_ROW_BOOST = 2.5
+
+function wheelStep(pixelDeltaY, angleDeltaY, cellHeight) {
+  const cell = Math.max(1, Number(cellHeight) || 0)
+  const pixel = Number(pixelDeltaY) || 0
+  const angle = Number(angleDeltaY) || 0
+  if (pixel !== 0) return pixel * WHEEL_PIXEL_BOOST
+  return (angle / 120) * cell * WHEEL_ROW_BOOST
+}
+
+function clampedContentY(currentY, step, contentHeight, viewportHeight) {
+  const maxY = Math.max(0, (Number(contentHeight) || 0) - (Number(viewportHeight) || 0))
+  const next = (Number(currentY) || 0) - (Number(step) || 0)
+  if (next < 0) return 0
+  if (next > maxY) return maxY
+  return next
+}
+
 // Converts run 4-wide (backgrounded, `wait` every 4 files) so a cold cache
 // fills in seconds instead of minutes; a warm cache is just N stat checks.
 function thumbBatchScript(originals, dir, w, h) {
@@ -87,12 +108,16 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     THUMB_W: THUMB_W,
     THUMB_H: THUMB_H,
+    WHEEL_PIXEL_BOOST: WHEEL_PIXEL_BOOST,
+    WHEEL_ROW_BOOST: WHEEL_ROW_BOOST,
     cacheDir: cacheDir,
     thumbName: thumbName,
     thumbPath: thumbPath,
     previewSource: previewSource,
     convertCommand: convertCommand,
     shellQuote: shellQuote,
-    thumbBatchScript: thumbBatchScript
+    thumbBatchScript: thumbBatchScript,
+    wheelStep: wheelStep,
+    clampedContentY: clampedContentY
   }
 }

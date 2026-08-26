@@ -2,7 +2,9 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
+import "wallpaper_thumbs.js" as WallThumbs
 import "../menu" as Menu
 import "../../"
 
@@ -155,7 +157,7 @@ Scope {
             id: wallpaperGrid
             anchors.fill: parent
             // 4-up on the enlarged card; still ≥ ~280px cells at full width.
-            cellWidth: Math.floor(width / 4)
+            cellWidth: Math.max(1, Math.floor((Math.max(0, width - rightMargin)) / 4))
             cellHeight: cellWidth * 0.62 + 8
             clip: true
             boundsBehavior: Flickable.StopAtBounds
@@ -163,14 +165,31 @@ Scope {
             // Same scroll-perf trio as the launcher quick grid: delegate
             // pooling, pre-created rows, and direct (non-kinetic) wheel steps.
             reuseItems: true
-            cacheBuffer: Math.max(400, cellHeight * 3)
+            cacheBuffer: Math.max(800, cellHeight * 5)
+            rightMargin: 12
+            ScrollBar.vertical: ScrollBar {
+              id: wallScrollBar
+              policy: wallpaperGrid.contentHeight > wallpaperGrid.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+              implicitWidth: 8
+              contentItem: Rectangle {
+                implicitWidth: 6
+                radius: 3
+                color: Style.menuInkDeep
+                opacity: wallScrollBar.pressed ? 0.9 : (wallScrollBar.hovered ? 0.7 : 0.5)
+              }
+              background: Rectangle {
+                implicitWidth: 8
+                radius: 4
+                color: Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.08)
+              }
+            }
             WheelHandler {
               target: null
               acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
               onWheel: function(ev) {
-                const step = ev.pixelDelta.y !== 0 ? ev.pixelDelta.y : (ev.angleDelta.y / 120) * wallpaperGrid.cellHeight
-                const maxY = Math.max(0, wallpaperGrid.contentHeight - wallpaperGrid.height)
-                wallpaperGrid.contentY = Math.max(0, Math.min(maxY, wallpaperGrid.contentY - step))
+                const step = WallThumbs.wheelStep(ev.pixelDelta.y, ev.angleDelta.y, wallpaperGrid.cellHeight)
+                wallpaperGrid.contentY = WallThumbs.clampedContentY(
+                  wallpaperGrid.contentY, step, wallpaperGrid.contentHeight, wallpaperGrid.height)
                 ev.accepted = true
               }
             }
