@@ -491,15 +491,6 @@ EOF
   fi
 }
 
-comp_asahi_zotero() {
-  if [ -x "/opt/zotero/zotero" ]; then
-    print_warning "Zotero already installed at /opt/zotero; skipping setup script"
-  else
-    print_step "Installing Zotero ARM64"
-    bash "$DOTFILES/scripts/setup_zotero.sh"
-  fi
-}
-
 comp_asahi_common() {
   comp_directories
   comp_git
