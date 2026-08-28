@@ -77,7 +77,6 @@ sudo dnf install -y \
   make \
   mpv \
   neovim \
-  nextcloud-client \
   NetworkManager-wifi \
   NetworkManager-tui \
   nm-connection-editor \
@@ -117,6 +116,7 @@ FLATPAK_APPS=(
   com.protonvpn.www
   org.zotero.Zotero
   net.ankiweb.Anki
+  icom.nextcloud.desktopclient.nextcloud
 )
 
 flatpak install --user -y flathub "${FLATPAK_APPS[@]}"
