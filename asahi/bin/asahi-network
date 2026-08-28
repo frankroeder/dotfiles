@@ -31,14 +31,23 @@ get_active() {
 
 build_wifi_tooltip() {
   local dev="$1" conn="$2"
-  local ssid sig ip gw bssid
+  local ssid sig ip gw bssid freq bitrate
   ssid=$(nmcli -g GENERAL.CONNECTION dev show "$dev" 2>/dev/null || echo "$conn")
   sig=$(nmcli -f IN-USE,SIGNAL dev wifi list --rescan no 2>/dev/null | awk '/^\*/ {print $2}' | head -1 || echo "0")
   [ -z "$sig" ] && sig=50
   ip=$(nmcli -g IP4.ADDRESS dev show "$dev" 2>/dev/null | head -1 || echo "")
   gw=$(nmcli -g IP4.GATEWAY dev show "$dev" 2>/dev/null | head -1 || echo "")
   bssid=$(nmcli -g 802-11-wireless.bssid dev show "$dev" 2>/dev/null || echo "")
+  freq=""
+  bitrate=""
+  if command -v iw >/dev/null 2>&1; then
+    freq=$(iw dev "$dev" link 2>/dev/null | awk '/freq:/ { print $2; exit }')
+    bitrate=$(iw dev "$dev" link 2>/dev/null | awk '/tx bitrate:/ { print $3 " " $4; exit }')
+  fi
   printf "Connected to %s\nSignal: %s%%\nInterface: %s\nIP: %s\nGateway: %s" "$ssid" "$sig" "$dev" "$ip" "$gw"
+  [ -n "$freq" ] && printf "\nFreq: %s MHz" "$freq"
+  [ -n "$bitrate" ] && printf "\nBitrate: %s" "$bitrate"
+  [ -n "$bssid" ] && printf "\nBSSID: %s" "$bssid"
 }
 
 build_ethernet_tooltip() {

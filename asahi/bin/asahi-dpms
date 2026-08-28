@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# DPMS helper. `on` is a no-op when every enabled monitor is already lit —
+# a redundant enable after resume forces a modeset and flashes the panel.
+
+set -euo pipefail
+
+action="${1:-}"
+
+usage() {
+  echo "usage: $0 <on|off>" >&2
+  exit 2
+}
+
+all_lit() {
+  hyprctl monitors -j 2>/dev/null | jq -e \
+    '[.[] | select(.disabled == false)] | length > 0 and all(.dpmsStatus)' \
+    >/dev/null 2>&1
+}
+
+case "$action" in
+  on)
+    all_lit && exit 0
+    hyprctl dispatch 'hl.dsp.dpms({ action = "enable" })' >/dev/null
+    ;;
+  off)
+    hyprctl dispatch 'hl.dsp.dpms({ action = "disable" })' >/dev/null
+    ;;
+  *)
+    usage
+    ;;
+esac

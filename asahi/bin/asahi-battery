@@ -2,8 +2,9 @@
 
 set -euo pipefail
 
-bat_path="/sys/class/power_supply/${ASAHI_BATTERY_DEVICE:-macsmc-battery}"
-ac_path="/sys/class/power_supply/${ASAHI_AC_DEVICE:-macsmc-ac}"
+supply_root="${ASAHI_POWER_SUPPLY_PATH:-/sys/class/power_supply}"
+bat_path="${supply_root}/${ASAHI_BATTERY_DEVICE:-macsmc-battery}"
+ac_path="${supply_root}/${ASAHI_AC_DEVICE:-macsmc-ac}"
 
 read_value() {
   local path="$1"
@@ -108,8 +109,33 @@ case "$status" in
 esac
 battery_text="$text ${capacity}%"
 
-status_class="$(printf "%s" "$status" | tr '[:upper:] ' '[:lower:]-')"
+# Charge-hold: AC present, a cap below 100, and the pack is no longer
+# taking meaningful current (Not charging / Full-below-100 / trickle at cap).
+holding=false
+end_num="$end_threshold"
+start_num="$start_threshold"
+case "$end_num" in '' | n/a | *[!0-9]*) end_num="" ;; esac
+case "$start_num" in '' | n/a | *[!0-9]*) start_num="" ;; esac
+power_w="$(awk -v value="$power_now" 'BEGIN { print value / 1000000 }')"
+if [ "$ac_online" = "1" ] && [ -n "$end_num" ] && [ "$end_num" -lt 99 ]; then
+  charge_idle=false
+  awk -v rate="$power_w" 'BEGIN { exit !(rate <= 0.2 && rate >= -0.2) }' && charge_idle=true
+  case "$status" in
+    "Not charging") holding=true ;;
+    Full) [ "$capacity" -lt 99 ] && holding=true ;;
+    Charging)
+      if [ "$charge_idle" = true ] && [ "$capacity" -ge "$end_num" ]; then
+        holding=true
+      fi
+      ;;
+  esac
+fi
+display_status="$status"
+[ "$holding" = true ] && display_status="Holding"
+
+status_class="$(printf "%s" "$display_status" | tr '[:upper:] ' '[:lower:]-')"
 classes_json="[\"$status_class\"]"
+[ "$holding" = true ] && classes_json="[\"$status_class\",\"holding\"]"
 [ "$capacity" -le 20 ] && classes_json="[\"$status_class\",\"warning\"]"
 [ "$capacity" -le 10 ] && classes_json="[\"$status_class\",\"critical\"]"
 
@@ -119,7 +145,14 @@ else
   health_percent="n/a"
 fi
 
-if [ "$status" = "Charging" ]; then
+if [ "$holding" = true ]; then
+  if [ -n "$start_num" ] && [ -n "$end_num" ] && [ "$start_num" != "$end_num" ]; then
+    time_line="Holding at ${start_num}-${end_num}%"
+  else
+    time_line="Holding at ${end_num}%"
+  fi
+  power_line="Power: $(format_w "$power_now")"
+elif [ "$status" = "Charging" ]; then
   time_line="Time to full: $(format_time "$time_full")"
   power_line="Power: $(format_w "$power_now") ↑"
 elif [ "$status" = "Discharging" ]; then
@@ -136,7 +169,7 @@ tooltip_format="${tooltip_format}Voltage: %s | Current: %s\nCharge limits: %s-%s
 tooltip_format="${tooltip_format}AC online: %s | Input limit: %s\nModel: %s | Mfg: %s-%s-%s"
 
 tooltip="$(printf "$tooltip_format" \
-  "$capacity" "$status" \
+  "$capacity" "$display_status" \
   "$power_line" "$time_line" \
   "$(format_wh "$energy_now")" "$(format_wh "$energy_full")" \
   "$(format_wh "$energy_design")" "$health_percent" "$health" \
@@ -146,9 +179,22 @@ tooltip="$(printf "$tooltip_format" \
   "$ac_online" "$(format_w "$input_power_limit")" \
   "$model" "$manufacture_year" "$(format_date_part "$manufacture_month")" "$(format_date_part "$manufacture_day")")"
 
+watts="$(awk -v value="$power_now" 'BEGIN { if (value < 0) value = -value; printf "%.1f", value / 1000000 }')"
+threshold_end_json=null
+threshold_start_json=null
+[ -n "$end_num" ] && threshold_end_json="$end_num"
+[ -n "$start_num" ] && threshold_start_json="$start_num"
+holding_json=false
+[ "$holding" = true ] && holding_json=true
+
 jq -cn \
   --arg text "$battery_text" \
   --arg tooltip "$tooltip" \
   --argjson class "$classes_json" \
   --argjson percentage "$capacity" \
-  '{text: $text, tooltip: $tooltip, class: $class, percentage: $percentage}'
+  --argjson holding "$holding_json" \
+  --argjson threshold_end "$threshold_end_json" \
+  --argjson threshold_start "$threshold_start_json" \
+  --argjson watts "$watts" \
+  --arg cycles "$cycle_count" \
+  '{text: $text, tooltip: $tooltip, class: $class, percentage: $percentage, holding: $holding, threshold_end: $threshold_end, threshold_start: $threshold_start, watts: $watts, cycles: $cycles}'

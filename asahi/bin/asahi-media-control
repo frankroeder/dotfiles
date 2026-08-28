@@ -45,22 +45,51 @@ keyboard_device() {
 }
 
 brightness_step() {
-  case "$1" in
-    raise) printf "+5%%\n" ;;
-    lower) printf "5%%-\n" ;;
-    +1) printf "+1%%\n" ;;
-    -1) printf "1%%-\n" ;;
+  local current="$1" action="$2" target
+  case "$action" in
+    raise)
+      if [ "$current" -lt 5 ]; then target=$((current + 1)); else target=$((current + 5)); fi
+      [ "$target" -gt 100 ] && target=100
+      printf '%s%%\n' "$target"
+      ;;
+    lower)
+      if [ "$current" -le 5 ]; then target=$((current - 1)); else target=$((current - 5)); fi
+      [ "$target" -lt 1 ] && target=1
+      printf '%s%%\n' "$target"
+      ;;
+    +1)
+      target=$((current + 1))
+      [ "$target" -gt 100 ] && target=100
+      printf '%s%%\n' "$target"
+      ;;
+    -1)
+      target=$((current - 1))
+      [ "$target" -lt 1 ] && target=1
+      printf '%s%%\n' "$target"
+      ;;
     *)
-      echo "unsupported brightness action: $1" >&2
+      echo "unsupported brightness action: $action" >&2
       exit 2
       ;;
   esac
 }
 
+current_percent() {
+  brightnessctl --device="$1" -m 2>/dev/null | awk -F, '{ gsub("%", "", $4); print $4; found=1 } END { exit !found }'
+}
+
+focused_monitor() {
+  hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.focused == true).name // empty'
+}
+
+monitor_is_internal() {
+  [[ "${1:-}" =~ ^(eDP|LVDS|DSI)- ]]
+}
+
 show_osd() {
   local function="$1"
-
-  qs -c remix ipc call osd "$function" >/dev/null 2>&1 || true
+  shift || true
+  qs -c remix ipc call osd "$function" "$@" >/dev/null 2>&1 || true
 }
 
 case "$target" in
@@ -93,15 +122,26 @@ case "$target" in
     exec playerctl "$action"
     ;;
   brightness)
-    device="$(display_device)"
-    brightnessctl --quiet --device="$device" set "$(brightness_step "$action")"
+    exec {lock_fd}>"${XDG_RUNTIME_DIR:-/tmp}/asahi-brightness.lock"
+    flock -n "$lock_fd" || exit 0
 
-    show_osd brightness
+    monitor="$(focused_monitor || true)"
+    if [ -n "$monitor" ] && ! monitor_is_internal "$monitor"; then
+      # Asahi HDMI has no DDC I2C. Never fall through to apple-panel-bl.
+      percent="$("$(dirname "$0")/asahi-brightness-soft" "$monitor" "$action")"
+      show_osd brightnessSet "$percent"
+      exit 0
+    fi
+
+    device="$(display_device)"
+    current="$(current_percent "$device")"
+    brightnessctl --quiet --device="$device" set "$(brightness_step "$current" "$action")"
+    show_osd brightnessSet "$(current_percent "$device")"
     ;;
   keyboard-brightness)
     device="$(keyboard_device)"
-    brightnessctl --quiet --device="$device" set "$(brightness_step "$action")"
-
+    current="$(current_percent "$device" || echo 0)"
+    brightnessctl --quiet --device="$device" set "$(brightness_step "$current" "$action")"
     show_osd keyboard
     ;;
   caps-lock)

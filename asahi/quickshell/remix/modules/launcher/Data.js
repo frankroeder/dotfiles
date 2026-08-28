@@ -49,7 +49,7 @@ const categoryNav = [
 const localItems = [
   // System / Session (reached via System category)
   { title: "Lock Screen", icon: "󰌾", category: "System", keywords: "lock screen security", comment: "Lock the current session", command: ["loginctl", "lock-session"] },
-  { title: "Suspend", icon: "󰒲", category: "System", keywords: "suspend sleep", comment: "Sleep until next wake", exec: "systemctl suspend" },
+  { title: "Suspend", icon: "󰒲", category: "System", keywords: "suspend sleep", comment: "Sleep until next wake (s2idle; no hibernate on Asahi)", exec: "systemctl suspend" },
   { title: "Logout", icon: "󰍃", category: "System", keywords: "logout exit session", comment: "End the Hyprland session", exec: "hyprctl dispatch exit" },
   { title: "Restart", icon: "󰜉", category: "System", keywords: "restart reboot", comment: "Reboot the machine", exec: "systemctl reboot" },
   { title: "Shutdown", icon: "󰐥", category: "System", keywords: "shutdown poweroff", comment: "Power off the machine", exec: "systemctl poweroff" },

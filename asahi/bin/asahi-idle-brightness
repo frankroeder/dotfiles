@@ -99,6 +99,10 @@ case "$action" in
     fi
     ;;
   off)
+    for device in $(brightness_devices); do
+      save_device "display-$device" "$device"
+      set_device "$device" 0
+    done
     if device="$(display_device)"; then
       save_device display "$device"
       set_device "$device" 0

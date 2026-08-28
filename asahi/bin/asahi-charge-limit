@@ -1,0 +1,181 @@
+#!/usr/bin/env bash
+# Read or set macsmc charge start/end thresholds (Asahi equivalent of
+# macOS `battery maintain 80`). Hibernate is not available; this is the
+# health control that actually exists on this hardware.
+#
+# Usage: asahi-charge-limit [status|apply|80|100|<50-100>]
+
+set -euo pipefail
+
+supply_root="${ASAHI_POWER_SUPPLY_PATH:-/sys/class/power_supply}"
+bat="${supply_root}/${ASAHI_BATTERY_DEVICE:-macsmc-battery}"
+end_path="$bat/charge_control_end_threshold"
+start_path="$bat/charge_control_start_threshold"
+# systemd/udev have no HOME. Never expand $HOME unless it is actually set.
+system_state="${ASAHI_CHARGE_LIMIT_SYSTEM:-/var/lib/asahi/charge-limit}"
+if [ -n "${ASAHI_CHARGE_LIMIT_STATE:-}" ]; then
+  user_state="$ASAHI_CHARGE_LIMIT_STATE"
+elif [ -n "${HOME:-}" ]; then
+  user_state="${XDG_STATE_HOME:-$HOME/.local/state}/asahi/charge-limit"
+else
+  user_state=""
+fi
+
+usage() {
+  echo "usage: asahi-charge-limit [status|apply|80|100|<50-100>]" >&2
+  exit 2
+}
+
+read_file() {
+  if [ -r "$1" ]; then
+    tr -d '\n' < "$1"
+  else
+    printf ""
+  fi
+}
+
+clamp_end() {
+  local n="$1"
+  [ "$n" -lt 50 ] && n=50
+  [ "$n" -gt 100 ] && n=100
+  printf '%s' "$n"
+}
+
+start_for_end() {
+  local end="$1" start
+  if [ "$end" -ge 100 ]; then
+    printf '100'
+    return
+  fi
+  start=$((end - 5))
+  [ "$start" -lt 50 ] && start=50
+  [ "$start" -ge "$end" ] && start=$((end - 1))
+  [ "$start" -lt 1 ] && start=1
+  printf '%s' "$start"
+}
+
+chmod_sysfs() {
+  local f p
+  for f in charge_control_end_threshold charge_control_start_threshold charge_behaviour; do
+    p="$bat/$f"
+    [ -e "$p" ] || continue
+    chgrp wheel "$p" 2>/dev/null || true
+    chmod 664 "$p" 2>/dev/null || true
+  done
+}
+
+write_sysfs() {
+  local end="$1" start="$2"
+  [ -w "$end_path" ] && [ -w "$start_path" ] || return 1
+  printf '%s\n' "$end" >"$end_path"
+  printf '%s\n' "$start" >"$start_path"
+}
+
+write_state() {
+  local end="$1"
+  if [ -n "$user_state" ]; then
+    mkdir -p "$(dirname "$user_state")"
+    printf '%s\n' "$end" >"$user_state"
+  fi
+  if [ -d "$(dirname "$system_state")" ] && [ -w "$(dirname "$system_state")" ] || [ -w "$system_state" ]; then
+    printf '%s\n' "$end" >"$system_state" 2>/dev/null || true
+  fi
+}
+
+current_end() {
+  local v
+  v="$(read_file "$end_path")"
+  case "$v" in
+    '' | *[!0-9]*) printf '100' ;;
+    *) printf '%s' "$v" ;;
+  esac
+}
+
+desired_end() {
+  local v=""
+  if [ "$(id -u)" -eq 0 ]; then
+    [ -r "$system_state" ] && v="$(read_file "$system_state")"
+  else
+    [ -n "$user_state" ] && [ -r "$user_state" ] && v="$(read_file "$user_state")"
+    if [ -z "$v" ] && [ -r "$system_state" ]; then
+      v="$(read_file "$system_state")"
+    fi
+  fi
+  case "$v" in
+    '' | *[!0-9]*) printf "" ;;
+    *) printf '%s' "$v" ;;
+  esac
+}
+
+print_status() {
+  local end start desired
+  end="$(current_end)"
+  start="$(read_file "$start_path")"
+  desired="$(desired_end)"
+  [ -z "$start" ] && start="$end"
+  [ -z "$desired" ] && desired="$end"
+  if [ "${1:-}" = "--json" ]; then
+    jq -cn \
+      --argjson end "$end" \
+      --argjson start "${start:-0}" \
+      --argjson desired "$desired" \
+      '{end:$end, start:$start, desired:$desired}'
+    return
+  fi
+  if [ "$end" -lt 99 ]; then
+    printf 'hold %s%% (resume %s%%)\n' "$end" "$start"
+  else
+    printf 'full 100%%\n'
+  fi
+}
+
+apply_end() {
+  local end start
+  end="$(clamp_end "$1")"
+  start="$(start_for_end "$end")"
+  write_state "$end"
+  if [ "$(id -u)" -eq 0 ]; then
+    mkdir -p "$(dirname "$system_state")"
+    printf '%s\n' "$end" >"$system_state"
+  fi
+  if write_sysfs "$end" "$start"; then
+    print_status
+    return 0
+  fi
+  if [ "$(id -u)" -eq 0 ]; then
+    echo "asahi-charge-limit: cannot write $end_path" >&2
+    return 1
+  fi
+  echo "asahi-charge-limit: sysfs not writable; run ./install.sh asahi-system (udev + oneshot)" >&2
+  return 1
+}
+
+cmd="${1:-status}"
+case "$cmd" in
+  status|--json)
+    if [ "$cmd" = "--json" ] || [ "${2:-}" = "--json" ]; then
+      print_status --json
+    else
+      print_status
+    fi
+    ;;
+  udev)
+    chmod_sysfs
+    ;;
+  apply)
+    [ "$(id -u)" -eq 0 ] && chmod_sysfs
+    if [ -n "${2:-}" ]; then
+      apply_end "$2"
+    else
+      want="$(desired_end)"
+      [ -n "$want" ] || exit 0
+      apply_end "$want"
+    fi
+    ;;
+  '' | *[!0-9]*)
+    usage
+    ;;
+  *)
+    apply_end "$cmd"
+    ;;
+esac

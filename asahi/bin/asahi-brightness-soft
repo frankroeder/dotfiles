@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Software brightness for a Hyprland output with no DDC (Asahi HDMI).
+# Usage: asahi-brightness-soft <monitor> [+N%|N%-|N%|raise|lower|+1|-1]
+
+set -euo pipefail
+
+monitor="${1:-}"
+step="${2:-}"
+[ -n "$monitor" ] || exit 1
+
+state_dir="${ASAHI_BRIGHTNESS_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/asahi-brightness}"
+mkdir -p "$state_dir"
+# Connector names are HDMI-A-1 / DP-1; strip anything outside [A-Za-z0-9._-].
+safe="${monitor//[^A-Za-z0-9._-]/_}"
+state_file="$state_dir/$safe"
+
+read_current() {
+  local v=""
+  [ -r "$state_file" ] && v="$(tr -d '\n' <"$state_file")"
+  case "$v" in
+    '' | *[!0-9]*) printf '100' ;;
+    *) printf '%s' "$v" ;;
+  esac
+}
+
+current="$(read_current)"
+
+if [ -z "$step" ]; then
+  printf '%s\n' "$current"
+  exit 0
+fi
+
+target=""
+case "$step" in
+  raise)
+    if [ "$current" -lt 5 ]; then target=$((current + 1)); else target=$((current + 5)); fi
+    ;;
+  lower)
+    if [ "$current" -le 5 ]; then target=$((current - 1)); else target=$((current - 5)); fi
+    ;;
+  +1) target=$((current + 1)) ;;
+  -1) target=$((current - 1)) ;;
+  [0-9]*%) target="${step%%%}" ;;
+  *) exit 1 ;;
+esac
+
+[ "$target" -lt 1 ] && target=1
+[ "$target" -gt 100 ] && target=100
+printf '%s\n' "$target" >"$state_file"
+
+qs -c remix ipc call dim set "$monitor" "$target" >/dev/null 2>&1 || true
+printf '%s\n' "$target"

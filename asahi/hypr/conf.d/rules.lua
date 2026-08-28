@@ -21,6 +21,7 @@ window_rule({ class = "^(blueman-manager|nm-connection-editor)$" }, { float = tr
 
 -- Quickshell (bar + popups + OSD + notif toast from NotificationServer in remix/shell.qml)
 layer_rule("^(quickshell.*)$", { blur = true, ignore_alpha = 0.3 })
+layer_rule("^asahi-dim$", { no_anim = true, animation = "none" })
 
 window_rule(
   { class = "^(pavucontrol|easyeffects|gnome-control-center|nm-applet)$" },

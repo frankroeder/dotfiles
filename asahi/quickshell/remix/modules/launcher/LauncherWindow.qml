@@ -120,6 +120,7 @@ Scope {
     { key: "bluetooth", aliases: ["bt"], icon: "󰂯", name: "Bluetooth", comment: "Open Bluetooth devices", mode: "bluetooth" },
     { key: "storage", aliases: ["disk", "space"], icon: "󰋊", name: "Storage", comment: "Disk usage and home folders", mode: "storage" },
     { key: "screensaver", aliases: ["saver"], icon: "󱄄", name: "Screensaver", comment: "Shader idle display", command: [root.binDir + "/asahi-screensaver", "toggle"] },
+    { key: "record", aliases: ["rec", "wf-recorder"], icon: "󰑋", name: "Record display", comment: "Toggle focused-display recording (wf-recorder)", command: [root.binDir + "/asahi-cmd-record", "fullscreen"] },
     { key: "nightlight", aliases: ["night", "warm", "hyprsunset"], icon: "󰖔", name: "Night light toggle", comment: "Toggle warm screen tint (hyprsunset)", command: [root.binDir + "/asahi-nightlight", "toggle"] },
     { key: "reload", aliases: ["qs"], icon: "󰑐", name: "Reload Quickshell", comment: "Restart QS", command: [root.binDir + "/asahi-restart-quickshell"] },
     { key: "hypr", aliases: ["hyprland"], icon: "󰑓", name: "Reload Hyprland", comment: "Reload Hyprland config", command: [root.binDir + "/asahi-reload-hyprland"] },
@@ -3095,6 +3096,7 @@ Scope {
     implicitHeight: monLayout.implicitHeight
     // full port monitors (hypr all-j, list, mirror/extend/external/rescan, status, canvas, procs, guards; exact)
     property var mons: []
+    property var monSaved: ({})
     property int monVersion: 0
     property string monStatus: ""
 
@@ -3230,11 +3232,21 @@ Scope {
         quickMonitorsRoot.monStatus = "Won't disable the last display"
         return
       }
-      quickMonitorsRoot.monStatus = (m.disabled ? "Enabling " : "Disabling ") + m.name + "..."
-      monAction.command = ["hyprctl", "eval",
-        m.disabled
-          ? ("hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name) + ", mode = \"preferred\", position = \"auto\", scale = " + (m.scale || 1) + " })")
-          : ("hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name) + ", disabled = true })")]
+      if (m.disabled) {
+        const f = QuickModels.enableMonitorFields(m, quickMonitorsRoot.monSaved)
+        quickMonitorsRoot.monStatus = "Enabling " + m.name + "..."
+        monAction.command = ["hyprctl", "eval",
+          "hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name)
+          + ", disabled = false"
+          + ", mode = " + quickMonitorsRoot.luaString(f.mode)
+          + ", position = " + quickMonitorsRoot.luaString(f.position)
+          + ", scale = " + f.scale + " })"]
+      } else {
+        quickMonitorsRoot.monSaved = QuickModels.rememberEnabledMonitor(quickMonitorsRoot.monSaved, m)
+        quickMonitorsRoot.monStatus = "Disabling " + m.name + "..."
+        monAction.command = ["hyprctl", "eval",
+          "hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name) + ", disabled = true })"]
+      }
       monAction.running = true
     }
 
@@ -3244,6 +3256,10 @@ Scope {
       stdout: StdioCollector {
         onStreamFinished: {
           try { quickMonitorsRoot.mons = JSON.parse((text || "").trim() || "[]") } catch(_) { quickMonitorsRoot.mons = [] }
+          let saved = quickMonitorsRoot.monSaved || {}
+          for (const mon of (quickMonitorsRoot.mons || []))
+            saved = QuickModels.rememberEnabledMonitor(saved, mon)
+          quickMonitorsRoot.monSaved = saved
           quickMonitorsRoot.monVersion = (quickMonitorsRoot.monVersion + 1) % 1000
         }
       }
@@ -3691,6 +3707,8 @@ Scope {
     property var batLines: []
     property string batUpdated: ""
     property string batTimeRemaining: ""
+    property bool batHolding: false
+    property int batThresholdEnd: 100
 
     readonly property var batDetailLines: {
       const lines = quickBatteryRoot.batLines || []
@@ -3747,6 +3765,8 @@ Scope {
         quickBatteryRoot.batLines = raw.length > 1 ? raw.slice(1) : []
         quickBatteryRoot.batUpdated = Qt.formatTime(new Date(), "HH:mm:ss")
         quickBatteryRoot.batTimeRemaining = f.time || ""
+        quickBatteryRoot.batHolding = !!data.holding
+        quickBatteryRoot.batThresholdEnd = Number(data.threshold_end) || 0
       } catch (_) {}
     }
 
@@ -3762,6 +3782,7 @@ Scope {
       triggeredOnStart: true
       onTriggered: if (!batProc.running) batProc.running = true
     }
+    Timer { id: batDelay; interval: 400; onTriggered: { if (!batProc.running) batProc.running = true } }
     Component.onCompleted: Qt.callLater(function() { if (!batProc.running) batProc.running = true })
 
     Rectangle {
@@ -3831,6 +3852,80 @@ Scope {
             radius: parent.radius
             color: quickBatteryRoot.batColor()
             Behavior on width { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
+          }
+        }
+
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 6
+          Text {
+            text: quickBatteryRoot.batHolding
+              ? ("Holding at " + quickBatteryRoot.batThresholdEnd + "%")
+              : (quickBatteryRoot.batThresholdEnd > 0 && quickBatteryRoot.batThresholdEnd < 99
+                ? ("Cap " + quickBatteryRoot.batThresholdEnd + "%")
+                : "Charge cap")
+            color: Style.menuInkDeep
+            font.pixelSize: root.fontPx(8)
+            font.family: root.uiFont
+            Layout.fillWidth: true
+          }
+          Rectangle {
+            implicitWidth: hold80Lbl.width + 16
+            implicitHeight: 24
+            radius: Style.menuRadius
+            color: quickBatteryRoot.batThresholdEnd === 80
+              ? Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.18)
+              : (hold80Ma.containsMouse ? Style.menuRowHi : Style.menuControlBg)
+            border.color: quickBatteryRoot.batThresholdEnd === 80 ? Style.green : Style.menuSep
+            border.width: 1
+            Text {
+              id: hold80Lbl
+              anchors.centerIn: parent
+              text: "Hold 80%"
+              font.pixelSize: root.fontPx(8)
+              font.family: root.uiFont
+              font.bold: true
+              color: Style.menuInk
+            }
+            MouseArea {
+              id: hold80Ma
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                Quickshell.execDetached([root.binDir + "/asahi-charge-limit", "80"])
+                batDelay.restart()
+              }
+            }
+          }
+          Rectangle {
+            implicitWidth: hold100Lbl.width + 16
+            implicitHeight: 24
+            radius: Style.menuRadius
+            color: quickBatteryRoot.batThresholdEnd >= 99
+              ? Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.18)
+              : (hold100Ma.containsMouse ? Style.menuRowHi : Style.menuControlBg)
+            border.color: quickBatteryRoot.batThresholdEnd >= 99 ? Style.green : Style.menuSep
+            border.width: 1
+            Text {
+              id: hold100Lbl
+              anchors.centerIn: parent
+              text: "Full 100%"
+              font.pixelSize: root.fontPx(8)
+              font.family: root.uiFont
+              font.bold: true
+              color: Style.menuInk
+            }
+            MouseArea {
+              id: hold100Ma
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                Quickshell.execDetached([root.binDir + "/asahi-charge-limit", "100"])
+                batDelay.restart()
+              }
+            }
           }
         }
 
@@ -3958,7 +4053,7 @@ Scope {
       btActionProc.action = "connect"
       btActionProc.targetMac = mac
       btActionProc.targetName = name || "device"
-      btActionProc.command = ["bluetoothctl", "connect", mac]
+      btActionProc.command = ["timeout", "20s", "bluetoothctl", "connect", mac]
       btActionProc.running = true
     }
     function btDisconnect(mac, name) {
@@ -3967,7 +4062,7 @@ Scope {
       btActionProc.action = "disconnect"
       btActionProc.targetMac = mac
       btActionProc.targetName = name || "device"
-      btActionProc.command = ["bluetoothctl", "disconnect", mac]
+      btActionProc.command = ["timeout", "10s", "bluetoothctl", "disconnect", mac]
       btActionProc.running = true
     }
     function btPair(mac, name) {
@@ -3978,9 +4073,10 @@ Scope {
       btActionProc.targetName = name || "device"
       // Stay open: the row should move from Discovered to Paired in place.
       btActionProc.command = ["bash", "-c",
-        "bluetoothctl pair " + root.shQuote(mac) +
+        root.shQuote(root.binDir + "/asahi-bluetooth-power") + " on >/dev/null 2>&1 || true; " +
+        "timeout 20s bluetoothctl pair " + root.shQuote(mac) +
         " && bluetoothctl trust " + root.shQuote(mac) +
-        " && bluetoothctl connect " + root.shQuote(mac)]
+        " && timeout 20s bluetoothctl connect " + root.shQuote(mac)]
       btActionProc.running = true
     }
     function btForget(mac, name) {
@@ -3991,8 +4087,8 @@ Scope {
       btActionProc.targetName = name || "device"
       // Disconnect first so a connected device can be removed cleanly.
       btActionProc.command = ["bash", "-c",
-        "bluetoothctl disconnect " + root.shQuote(mac) + " >/dev/null 2>&1; " +
-        "bluetoothctl remove " + root.shQuote(mac)]
+        "timeout 10s bluetoothctl disconnect " + root.shQuote(mac) + " >/dev/null 2>&1; " +
+        "timeout 10s bluetoothctl remove " + root.shQuote(mac)]
       btActionProc.running = true
     }
     function toggleScan() {
@@ -4090,7 +4186,7 @@ Scope {
     }
     function toggleBt() {
       const next = quickBtRoot.btOn ? "off" : "on"
-      Quickshell.execDetached(["sh", "-c", "if [ \"$1\" = on ]; then rfkill unblock bluetooth 2>/dev/null || true; fi; bluetoothctl power \"$1\"", "sh", next])
+      Quickshell.execDetached([root.binDir + "/asahi-bluetooth-power", next])
       quickBtRoot.btOn = !quickBtRoot.btOn
       btDelay.restart()
     }

@@ -82,6 +82,16 @@ hl.bind(
   { desc = "Screenshot fullscreen" }
 )
 hl.bind(mod .. " + ALT + CONTROL + 6", hl.dsp.exec_cmd "hyprpicker -a", { desc = "Color picker" })
+hl.bind(
+  mod .. " + ALT + CONTROL + 7",
+  hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record fullscreen"),
+  { desc = "Record focused display (toggle)" }
+)
+hl.bind(
+  mod .. " + ALT + CONTROL + 8",
+  hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record region"),
+  { desc = "Record region (toggle)" }
+)
 
 -- Reloads
 hl.bind(

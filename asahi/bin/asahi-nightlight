@@ -29,11 +29,29 @@ write_state() {
   jq -cn --argjson on "$on" --argjson temp "$temp" '{on:$on,temperature:$temp}' >"$STATE_FILE"
 }
 
+current_temp() {
+  local output
+  output=$(hyprctl hyprsunset temperature 2>/dev/null) || return
+  grep -oE '[0-9]+' <<<"$output" | head -n1
+}
+
 ensure_daemon() {
-  if ! pgrep -x hyprsunset >/dev/null 2>&1; then
-    hyprsunset &
-    sleep 0.25
-  fi
+  pgrep -x hyprsunset >/dev/null 2>&1 && return 0
+  hyprsunset &
+}
+
+apply_temperature() {
+  local target="$1" i live
+  ensure_daemon || true
+  # Fresh hyprsunset applies its default at the end of boot and overwrites
+  # anything set before then — resend until it sticks.
+  for i in {1..10}; do
+    hyprctl hyprsunset temperature "$target" >/dev/null 2>&1 || true
+    sleep 0.2
+    live="$(current_temp || true)"
+    [ "$live" = "$target" ] && return 0
+  done
+  return 1
 }
 
 set_identity() {
@@ -41,7 +59,7 @@ set_identity() {
   if hyprctl hyprsunset identity >/dev/null 2>&1; then
     :
   else
-    hyprctl hyprsunset temperature "$IDENTITY_TEMP" >/dev/null 2>&1 || true
+    apply_temperature "$IDENTITY_TEMP" || true
   fi
   write_state false "$IDENTITY_TEMP"
   notify-send -a nightlight -t 1200 "Night light off"
@@ -49,8 +67,7 @@ set_identity() {
 
 set_temperature() {
   local temp=$1
-  ensure_daemon
-  hyprctl hyprsunset temperature "$temp"
+  apply_temperature "$temp" || true
   write_state true "$temp"
   notify-send -a nightlight -t 1200 "Night light ${temp}K"
 }
@@ -85,7 +102,16 @@ case "$cmd" in
     set_temperature "$new"
     ;;
   status)
-    cat "$STATE_FILE" 2>/dev/null || jq -cn --argjson t "$IDENTITY_TEMP" '{on:false,temperature:$t}'
+    live="$(current_temp || true)"
+    if [[ "$live" =~ ^[0-9]+$ ]]; then
+      if [ "$live" -lt 6000 ]; then
+        jq -cn --argjson on true --argjson temp "$live" '{on:$on,temperature:$temp}'
+      else
+        jq -cn --argjson on false --argjson temp "$live" '{on:$on,temperature:$temp}'
+      fi
+    else
+      cat "$STATE_FILE" 2>/dev/null || jq -cn --argjson t "$IDENTITY_TEMP" '{on:false,temperature:$t}'
+    fi
     ;;
   *)
     echo "usage: $0 [toggle|on [K]|off|warmer|cooler|status]" >&2

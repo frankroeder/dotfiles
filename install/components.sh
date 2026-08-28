@@ -489,6 +489,31 @@ EOF
   elif have light; then
     light -s sysfs/leds/kbd_backlight -S 30 || true
   fi
+  comp_asahi_charge_limit
+}
+
+# udev + oneshot so macsmc charge thresholds are writable and reapplied at boot.
+comp_asahi_charge_limit() {
+  require_linux
+  print_step "Installing Asahi charge-limit udev rule and oneshot"
+  if [ -n "$NOSUDO" ]; then
+    print_warning "asahi-charge-limit needs /etc/udev and /var/lib/asahi; skipping"
+    return 0
+  fi
+  sudo install -Dm644 "$DOTFILES/asahi/udev/99-asahi-charge-limit.rules" \
+    /etc/udev/rules.d/99-asahi-charge-limit.rules
+  sudo install -Dm755 "$DOTFILES/asahi/bin/asahi-charge-limit" \
+    /usr/local/libexec/asahi-charge-limit
+  sudo install -Dm644 "$DOTFILES/asahi/systemd/system/asahi-charge-limit.service" \
+    /etc/systemd/system/asahi-charge-limit.service
+  sudo install -d -m 2775 -o root -g wheel /var/lib/asahi
+  sudo udevadm control --reload-rules
+  sudo udevadm trigger -s power_supply --action=add || true
+  sudo systemctl daemon-reload
+  sudo systemctl enable asahi-charge-limit.service
+  if [ -r /sys/class/power_supply/macsmc-battery/charge_control_end_threshold ]; then
+    sudo systemctl start asahi-charge-limit.service || true
+  fi
 }
 
 comp_asahi_common() {
@@ -507,7 +532,7 @@ comp_asahi_common() {
 
 comp_asahi_desktop() {
   comp_asahi_common
-  mkdir -p "$HOME/screenshots"
+  mkdir -p "$HOME/screenshots" "$HOME/Videos"
   local script
   for script in "$DOTFILES"/asahi/bin/* "$DOTFILES"/asahi/autostart-scripts/*; do
     [ -f "$script" ] && chmod +x "$script"
@@ -699,7 +724,7 @@ comp_doctor() {
     report_check "borders process" pgrep -qx borders
   elif is_asahi; then
     print_step "Checking Asahi/Hyprland binaries"
-    for b in Hyprland quickshell qs hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl nm-connection-editor nmtui blueman-manager openconnect gnome-keyring-daemon; do
+    for b in Hyprland quickshell qs hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl nm-connection-editor nmtui blueman-manager openconnect gnome-keyring-daemon wf-recorder; do
       check_bin "$b" || true
     done
     print_step "Checking Asahi hardware/session"
@@ -721,6 +746,14 @@ comp_doctor() {
       print_warning "launcher still lists Hibernate"
     else
       print_ok "launcher has no Hibernate action"
+    fi
+    report_check "charge-limit udev" test -f /etc/udev/rules.d/99-asahi-charge-limit.rules
+    report_check "charge-limit oneshot" test -f /etc/systemd/system/asahi-charge-limit.service
+    report_check "asahi-charge-limit libexec" test -x /usr/local/libexec/asahi-charge-limit
+    if [ -w /sys/class/power_supply/macsmc-battery/charge_control_end_threshold ]; then
+      print_ok "macsmc charge_control_end_threshold is writable"
+    else
+      print_warning "macsmc charge threshold not writable (./install.sh asahi-system)"
     fi
     check_link "$HOME/.config/hypr"
     check_link "$HOME/.config/quickshell"

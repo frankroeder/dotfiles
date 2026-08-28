@@ -185,8 +185,14 @@ RowLayout {
       Text { text: "REC"; font.family: Style.fontFamily; font.pixelSize: 10; font.bold: true; color: Style.red }
     }
 
-    MouseArea { id: recMouse; anchors.fill: parent; hoverEnabled: true }
-    TooltipWindow { target: recChip; text: "Screen recording active"; show: recMouse.containsMouse }
+    MouseArea {
+      id: recMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: Quickshell.execDetached([root.binDir + "/asahi-cmd-record", "stop"])
+    }
+    TooltipWindow { target: recChip; text: "Recording — click to stop"; show: recMouse.containsMouse }
   }
 
   Rectangle {

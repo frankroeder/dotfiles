@@ -66,6 +66,24 @@ assert.strictEqual(M.sameRefresh(59.951, 59.95), true)   // hyprctl precision vs
 assert.strictEqual(M.sameRefresh(60, 59.94), false)
 assert.strictEqual(M.matchingScaleIndex(scales, "9.99", 2560, 1600), -1)
 
+const remembered = M.rememberEnabledMonitor({}, {
+  name: "HDMI-A-1", disabled: false, width: 2560, height: 1440,
+  refreshRate: 59.951, scale: 1.25, x: 0, y: -1252
+})
+assert.deepStrictEqual(remembered["HDMI-A-1"], {
+  mode: "2560x1440@59.951", position: "0x-1252", scale: 1.25
+})
+assert.deepStrictEqual(
+  M.rememberEnabledMonitor(remembered, { name: "HDMI-A-1", disabled: true, width: 0, height: 0 }),
+  remembered,
+  "disabled probe must not wipe last-known geometry"
+)
+const enable = M.enableMonitorFields({ name: "HDMI-A-1", disabled: true, width: 0, height: 0, x: 0, y: 0 }, remembered)
+assert.strictEqual(enable.mode, "2560x1440@59.951")
+assert.strictEqual(enable.position, "0x-1252")
+assert.strictEqual(enable.scale, 1.25)
+assert.strictEqual(M.enableMonitorFields({ name: "eDP-1", width: 3024, height: 1890, refreshRate: 120, scale: 1.5, x: 0, y: 0 }, {}).mode, "3024x1890@120.000")
+
 assert.strictEqual(M.clampBrightness(150), 100)
 assert.strictEqual(M.clampBrightness(-5), 1)
 assert.strictEqual(M.clampBrightness("42"), 42)

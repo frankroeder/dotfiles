@@ -187,6 +187,49 @@ function availableScales(scales, width, height) {
     .map(function(candidate) { return candidate.value })
 }
 
+function monitorModeString(m) {
+  if (!m) return "preferred"
+  var w = Number(m.width) || 0
+  var h = Number(m.height) || 0
+  if (w <= 0 || h <= 0) return "preferred"
+  var rr = m.refreshRate ? "@" + Number(m.refreshRate).toFixed(3) : ""
+  return w + "x" + h + rr
+}
+
+function monitorPositionString(m) {
+  if (!m) return "auto"
+  return (Number(m.x) || 0) + "x" + (Number(m.y) || 0)
+}
+
+// Snapshot geometry of an enabled output so Enable can restore it after
+// Disable. Hyprland's disabled JSON often zeros width/height.
+function rememberEnabledMonitor(saved, m) {
+  var next = saved || {}
+  if (!m || !m.name || m.disabled) return next
+  var mode = monitorModeString(m)
+  if (mode === "preferred") return next
+  next = Object.assign({}, next)
+  next[m.name] = {
+    mode: mode,
+    position: monitorPositionString(m),
+    scale: m.scale || 1
+  }
+  return next
+}
+
+// Fields for hl.monitor(..., disabled = false). Last-known beats a zeroed
+// disabled probe; never omit disabled = false (the off rule would stick).
+function enableMonitorFields(m, saved) {
+  var rec = (saved && m && saved[m.name]) || {}
+  var liveMode = monitorModeString(m)
+  var livePos = monitorPositionString(m)
+  return {
+    mode: rec.mode || (liveMode !== "preferred" ? liveMode : "preferred"),
+    position: rec.position || livePos,
+    scale: rec.scale || (m && m.scale) || 1
+  }
+}
+
 // ---------- modes (resolution / refresh, hyprctl availableModes) ----------
 
 function parseModeString(mode) {
@@ -609,6 +652,10 @@ if (typeof module !== "undefined") {
     cleanScale: cleanScale,
     matchingScaleIndex: matchingScaleIndex,
     availableScales: availableScales,
+    monitorModeString: monitorModeString,
+    monitorPositionString: monitorPositionString,
+    rememberEnabledMonitor: rememberEnabledMonitor,
+    enableMonitorFields: enableMonitorFields,
     parseModeString: parseModeString,
     resolutionOptions: resolutionOptions,
     refreshOptions: refreshOptions,

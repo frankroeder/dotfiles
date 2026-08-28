@@ -1,0 +1,155 @@
+#!/usr/bin/env bash
+# Screen recording via wf-recorder. Toggle: a second press stops.
+# Detach with setsid so Hyprland exec_cmd does not SIGHUP the recorder.
+
+set -euo pipefail
+
+output_dir="${ASAHI_RECORD_DIR:-${XDG_VIDEOS_DIR:-$HOME/Videos}}"
+mode="${1:-fullscreen}"
+audio="${ASAHI_RECORD_AUDIO:-1}"
+pid_file="${XDG_RUNTIME_DIR:-/tmp}/asahi-record.pid"
+log_file="${XDG_RUNTIME_DIR:-/tmp}/asahi-record.log"
+
+usage() {
+  echo "usage: $0 [fullscreen|region|status|stop]" >&2
+  exit 2
+}
+
+notify() {
+  notify-send -a record -t 2500 "$@" 2>/dev/null || true
+}
+
+refresh_bar() {
+  qs -c remix ipc call recording refresh >/dev/null 2>&1 || true
+}
+
+recording_pid() {
+  local pid=""
+  if [ -r "$pid_file" ]; then
+    pid="$(tr -d '\n' <"$pid_file")"
+    if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+      printf '%s\n' "$pid"
+      return 0
+    fi
+    rm -f "$pid_file"
+  fi
+  pgrep -x wf-recorder | head -1 || true
+}
+
+stop_recording() {
+  local pid
+  pid="$(recording_pid)"
+  if [ -z "$pid" ]; then
+    notify "Not recording"
+    refresh_bar
+    return 0
+  fi
+  kill -INT "$pid" 2>/dev/null || true
+  local i
+  for ((i = 1; i <= 20; i++)); do
+    kill -0 "$pid" 2>/dev/null || break
+    sleep 0.1
+  done
+  kill -0 "$pid" 2>/dev/null && kill -KILL "$pid" 2>/dev/null || true
+  rm -f "$pid_file"
+  notify "Recording saved"
+  refresh_bar
+}
+
+focused_monitor() {
+  hyprctl monitors -j | jq -r '.[] | select(.focused == true).name // empty'
+}
+
+audio_device() {
+  local sink
+  sink="$(pactl get-default-sink 2>/dev/null || true)"
+  [ -n "$sink" ] || return 0
+  if pactl list sources short 2>/dev/null | grep -qF "${sink}.monitor"; then
+    printf '%s\n' "${sink}.monitor"
+  fi
+}
+
+start_recorder() {
+  local file="$1"
+  shift
+  # New session: Hyprland's exec child exiting must not SIGHUP wf-recorder.
+  setsid wf-recorder "$@" -f "$file" </dev/null >>"$log_file" 2>&1 &
+  printf '%s\n' $! >"$pid_file"
+}
+
+case "$mode" in
+  status)
+    if [ -n "$(recording_pid)" ]; then
+      echo "recording"
+    else
+      echo "stopped"
+    fi
+    exit 0
+    ;;
+  stop)
+    stop_recording
+    exit 0
+    ;;
+  fullscreen | region) ;;
+  *) usage ;;
+esac
+
+if [ -n "$(recording_pid)" ]; then
+  stop_recording
+  exit 0
+fi
+
+if ! command -v wf-recorder >/dev/null 2>&1; then
+  notify "wf-recorder is not installed" "Install with make asahi (asahi/dnf.sh)"
+  echo "asahi-cmd-record: wf-recorder is not installed" >&2
+  exit 1
+fi
+
+mkdir -p "$output_dir"
+file="$output_dir/recording-$(date +'%Y-%m-%d_%H-%M-%S').mp4"
+: >"$log_file"
+
+geom=()
+case "$mode" in
+  fullscreen)
+    mon="$(focused_monitor)"
+    [ -n "$mon" ] || {
+      notify "No focused display"
+      exit 1
+    }
+    geom=(-o "$mon")
+    ;;
+  region)
+    selection="$(slurp 2>/dev/null || true)"
+    [ -n "$selection" ] || exit 0
+    geom=(-g "$selection")
+    ;;
+esac
+
+audio_args=()
+dev=""
+if [ "$audio" != "0" ]; then
+  dev="$(audio_device || true)"
+  if [ -n "$dev" ]; then
+    audio_args=(--audio="$dev")
+  else
+    audio_args=(-a)
+  fi
+fi
+
+start_recorder "$file" "${geom[@]}" -r 60 "${audio_args[@]}"
+sleep 0.4
+if [ -z "$(recording_pid)" ]; then
+  # Audio device mismatch is the usual abort; retry silent.
+  start_recorder "$file" "${geom[@]}" -r 60
+  sleep 0.4
+fi
+
+if [ -z "$(recording_pid)" ]; then
+  notify "Recording failed" "See $log_file"
+  refresh_bar
+  exit 1
+fi
+
+notify "Recording" "$file"
+refresh_bar

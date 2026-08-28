@@ -14,6 +14,7 @@ Item {
 
   property var barScreen: null
   property var notificationCenter: null
+  property bool isRecording: false
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
   readonly property int barSize: Style.barHeight
@@ -37,7 +38,6 @@ Item {
   property string cpuTooltip: ""
   property string memText: ""
   property string memTooltip: ""
-  property bool isRecording: false
   property bool updatesAvailable: false
   property real cpuPerc: 0
   property real memPerc: 0
@@ -176,13 +176,6 @@ Item {
   }
 
   Process {
-    id: recordingProc
-    command: ["pgrep", "-x", "wf-recorder"]
-    stdout: StdioCollector { onStreamFinished: barWindow.isRecording = text.trim().length > 0 }
-    onExited: code => { if (code !== 0) barWindow.isRecording = false }
-  }
-
-  Process {
     id: updatesProc
     command: ["sh", "-c", "dnf check-update --cacheonly -q >/dev/null 2>&1; c=$?; [ \"$c\" = 100 ] && echo 1 || echo 0"]
     stdout: StdioCollector { onStreamFinished: barWindow.updatesAvailable = text.trim() === "1" }
@@ -193,14 +186,6 @@ Item {
     running: true
     repeat: true
     onTriggered: { barWindow.refreshCpu(); barWindow.refreshMem() }
-  }
-
-  Timer {
-    interval: 10000
-    running: true
-    repeat: true
-    triggeredOnStart: true
-    onTriggered: if (!recordingProc.running) recordingProc.running = true
   }
 
   Timer {
