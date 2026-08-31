@@ -4,7 +4,8 @@ local utils = require "utils"
 local ui = require "ui"
 
 local RATE_W = settings.layout.columns.rate_row
-local GAP_W = 8
+-- Hover bridge only. Wifi already has padding_right 4; 8+8 here made a hole.
+local GAP_W = 4
 local frames = settings.motion.normal
 
 local function start_provider(interface)
@@ -41,7 +42,7 @@ end
 
 local network_up = ui.stacked_rate("widgets.network_up", {
   drawing = false,
-  padding_left = 8,
+  padding_left = 0,
   padding_right = 0,
   icon_padding = 2,
   icon = icons.wifi.upload,
@@ -53,7 +54,7 @@ local network_up = ui.stacked_rate("widgets.network_up", {
 local network_down = ui.stacked_rate("widgets.network_down", {
   drawing = false,
   width = 0,
-  padding_left = 8,
+  padding_left = 0,
   padding_right = 0,
   icon_padding = 2,
   icon = icons.wifi.download,

@@ -16,9 +16,12 @@ local volume = ui.add_capsule("widgets.volume", {
   icon = {
     string = icons.volume[100],
     color = colors.vol,
-    -- Fixed box: the 0/33/66/100 glyphs differ in width; without it the item resizes.
-    width = 24,
+    -- 3-wave 􀊩 is 29px at SF Pro 18; inner pads sit inside icon.width and ate the
+    -- box (16px left) so the waves painted over the hover %. Pads 0, width 32.
+    width = 32,
     align = "center",
+    padding_left = 0,
+    padding_right = 0,
     font = {
       style = settings.font.style_map["Regular"],
       size = 18.0,
