@@ -84,6 +84,9 @@ Item {
     if (candidates.length === 0) return ""
     for (let i = 0; i < candidates.length; i++) {
       const name = candidates[i]
+      // Papirus-Dark has no grok-bot; RPM ships hicolor pngs.
+      if (String(name).toLowerCase() === "grok-bot")
+        return "file:///usr/share/icons/hicolor/48x48/apps/grok-bot.png"
       const entry = DesktopEntries.heuristicLookup(name)
       const source = Quickshell.iconPath(entry?.icon || name, true)
       if (source !== "") return source

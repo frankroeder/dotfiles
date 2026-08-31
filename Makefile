@@ -154,3 +154,6 @@ ifeq ($(OSTYPE), Darwin)
 	-@rm -rf $(HOME)/.config/borders
 	-@sudo battery uninstall 2>/dev/null || true
 endif
+ifeq ($(OSTYPE), Linux)
+	-@sudo dnf remove -y grok-bot
+endif

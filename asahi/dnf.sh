@@ -110,6 +110,9 @@ sudo dnf install -y \
   qt6-qtwayland \
   zsh
 
+# Grok Bot desktop agent: latest linux/arm64 RPM from Cursor's update API.
+bash "${DOTFILES_DIR}/asahi/grokbot.sh"
+
 flatpak remote-add --user --if-not-exists flathub "$FLATHUB_REPO_URL"
 
 FLATPAK_APPS=(

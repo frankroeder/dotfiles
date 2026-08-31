@@ -724,7 +724,7 @@ comp_doctor() {
     report_check "borders process" pgrep -qx borders
   elif is_asahi; then
     print_step "Checking Asahi/Hyprland binaries"
-    for b in Hyprland quickshell qs hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl nm-connection-editor nmtui blueman-manager openconnect gnome-keyring-daemon wf-recorder; do
+    for b in Hyprland quickshell qs hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl nm-connection-editor nmtui blueman-manager openconnect gnome-keyring-daemon wf-recorder grok-bot; do
       check_bin "$b" || true
     done
     print_step "Checking Asahi hardware/session"
