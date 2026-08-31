@@ -21,6 +21,8 @@ window_rule({ class = "^(blueman-manager|nm-connection-editor)$" }, { float = tr
 
 -- Quickshell (bar + popups + OSD + notif toast from NotificationServer in remix/shell.qml)
 layer_rule("^(quickshell.*)$", { blur = true, ignore_alpha = 0.3 })
+-- Launcher / wallpaper overlays: keep blur visible under a light frosted dim.
+layer_rule("^(quickshell-launcher|quickshell-wallpaper)$", { blur = true, ignore_alpha = 0.05, xray = false })
 layer_rule("^asahi-dim$", { no_anim = true, animation = "none" })
 
 window_rule(

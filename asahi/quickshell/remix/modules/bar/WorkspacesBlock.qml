@@ -45,12 +45,12 @@ Item {
   Rectangle {
     id: workspacesBlock
     anchors.verticalCenter: parent.verticalCenter
-    color: Qt.alpha(Style.text, 0.06)
-    radius: Style.radius
+    color: Qt.alpha(Style.text, 0.05)
+    radius: Style.radiusSm
     border.width: 1
-    border.color: Qt.alpha(Style.text, 0.10)
-    implicitHeight: 38
-    implicitWidth: wsContent.implicitWidth + 12 + (specialBadge.visible ? 30 : 0)
+    border.color: Qt.alpha(Style.text, 0.08)
+    implicitHeight: Style.barHeight - 2
+    implicitWidth: wsContent.implicitWidth + 10 + (specialBadge.visible ? 28 : 0)
 
     Rectangle {
       id: activeWsHighlight
@@ -87,8 +87,8 @@ Item {
       x: actualLeft
       y: (workspacesBlock.height - height) / 2
       width: Math.max(0, actualRight - actualLeft)
-      height: 30
-      radius: 14
+      height: workspacesBlock.height - 6
+      radius: Style.radiusSm
       color: Style.wsActive
       border.width: 1
       border.color: Style.wsActiveBorder
@@ -130,11 +130,11 @@ Item {
           readonly property var shownWindows: windows.slice(0, iconLimit)
           readonly property int overflowCount: Math.max(0, windows.length - shownWindows.length)
 
-          implicitWidth: wsInner.implicitWidth + 10
-          implicitHeight: 30
-          radius: 14
+          implicitWidth: wsInner.implicitWidth + 8
+          implicitHeight: workspacesBlock.height - 6
+          radius: Style.radiusSm
           color: isFocused ? "transparent" : (isHovered ? Style.wsHoverBg : (isVisibleElsewhere ? Style.wsVisibleBg : (isOccupied ? Style.wsOccupiedBg : Style.wsEmptyBg)))
-          border.width: 1.5
+          border.width: 1
           border.color: isFocused ? "transparent" : (isVisibleElsewhere ? Style.wsVisibleBorder : Style.wsInactiveBorder)
 
           Behavior on color { ColorAnimation { duration: 120 } }
@@ -229,9 +229,9 @@ Item {
       anchors.right: parent.right
       anchors.rightMargin: 6
       anchors.verticalCenter: parent.verticalCenter
-      width: 24
-      height: 24
-      radius: 12
+      width: 22
+      height: 22
+      radius: Style.radiusSm
       visible: root.hasSpecialWorkspace
       color: Style.panelAccentBg
       border.width: 1

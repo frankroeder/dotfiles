@@ -100,20 +100,28 @@ RowLayout {
     width: solidBar ? stayAwakeGlyph.implicitWidth + 10 : 30
     height: solidBar ? Style.barHeight : 30
     radius: solidBar ? 0 : Style.radius
-    color: solidBar
-      ? (stayAwakeMouse.containsMouse ? Style.barStripHover : "transparent")
-      : (stayAwakeMouse.containsMouse ? Style.panelWarningBg : Style.barBg)
+    color: solidBar ? "transparent" : (stayAwakeMouse.containsMouse ? Style.panelWarningBg : Style.barBg)
     border.width: solidBar ? 0 : 1
     border.color: root.stayAwake ? Style.yellow : (stayAwakeMouse.containsMouse ? Style.barHoverBorder : Style.barBorder)
     Behavior on color { ColorAnimation { duration: 140 } }
     Behavior on border.color { ColorAnimation { duration: 140 } }
+
+    Rectangle {
+      anchors.fill: parent
+      anchors.topMargin: Style.barChipInset
+      anchors.bottomMargin: Style.barChipInset
+      radius: Style.radiusSm
+      visible: solidBar
+      color: stayAwakeMouse.containsMouse ? Style.barStripHover : "transparent"
+      Behavior on color { ColorAnimation { duration: 120 } }
+    }
 
     Text {
       id: stayAwakeGlyph
       anchors.centerIn: parent
       text: "󰅶"
       font.family: Style.fontFamily
-      font.pixelSize: solidBar ? Style.barFontIcon : 15
+      font.pixelSize: solidBar ? Style.barFontGlyph : 15
       color: root.stayAwake ? Style.yellow : (solidBar && barHost ? barHost.barForeground : Style.textMuted)
     }
 
@@ -133,18 +141,26 @@ RowLayout {
     width: solidBar ? 28 : 26
     height: solidBar ? Style.barHeight : 26
     radius: solidBar ? 0 : Style.radius
-    color: solidBar
-      ? (nightMouse.containsMouse ? Style.barStripHover : "transparent")
-      : (nightMouse.containsMouse ? Style.panelWarningBg : Style.barBg)
+    color: solidBar ? "transparent" : (nightMouse.containsMouse ? Style.panelWarningBg : Style.barBg)
     border.width: solidBar ? 0 : 1
     border.color: root.nightLightOn ? Style.orange : (solidBar ? "transparent" : Style.barBorder)
     visible: true
+
+    Rectangle {
+      anchors.fill: parent
+      anchors.topMargin: Style.barChipInset
+      anchors.bottomMargin: Style.barChipInset
+      radius: Style.radiusSm
+      visible: solidBar
+      color: nightMouse.containsMouse ? Style.barStripHover : "transparent"
+      Behavior on color { ColorAnimation { duration: 120 } }
+    }
 
     Text {
       anchors.centerIn: parent
       text: root.nightLightOn ? "󰽥" : "󰖔"
       font.family: Style.fontFamily
-      font.pixelSize: solidBar ? Style.barFontIcon : 15
+      font.pixelSize: solidBar ? Style.barFontGlyph : 15
       color: root.nightLightOn ? Style.orange : (solidBar && barHost ? barHost.barForeground : Style.textMuted)
     }
 
@@ -168,14 +184,22 @@ RowLayout {
     width: recRow.implicitWidth + (solidBar ? 8 : 12)
     height: solidBar ? Style.barHeight : 26
     radius: solidBar ? 0 : Style.radius
-    color: solidBar
-      ? (recMouse.containsMouse ? Style.barStripHover : "transparent")
-      : (recMouse.containsMouse ? Style.panelDangerBg : Style.barBg)
+    color: solidBar ? "transparent" : (recMouse.containsMouse ? Style.panelDangerBg : Style.barBg)
     border.width: solidBar ? 0 : 1
     border.color: solidBar ? "transparent" : (recMouse.containsMouse ? Style.red : Style.barBorder)
     visible: root.isRecording
     Behavior on color { ColorAnimation { duration: 140 } }
     Behavior on border.color { ColorAnimation { duration: 140 } }
+
+    Rectangle {
+      anchors.fill: parent
+      anchors.topMargin: Style.barChipInset
+      anchors.bottomMargin: Style.barChipInset
+      radius: Style.radiusSm
+      visible: solidBar
+      color: recMouse.containsMouse ? Style.barStripHover : "transparent"
+      Behavior on color { ColorAnimation { duration: 120 } }
+    }
 
     RowLayout {
       id: recRow
@@ -200,20 +224,28 @@ RowLayout {
     width: solidBar ? 28 : 26
     height: solidBar ? Style.barHeight : 26
     radius: solidBar ? 0 : Style.radius
-    color: solidBar
-      ? (updateMouse.containsMouse ? Style.barStripHover : "transparent")
-      : (updateMouse.containsMouse ? Style.panelWarningBg : Style.barBg)
+    color: solidBar ? "transparent" : (updateMouse.containsMouse ? Style.panelWarningBg : Style.barBg)
     border.width: solidBar ? 0 : 1
     border.color: solidBar ? "transparent" : (updateMouse.containsMouse ? Style.orange : Style.barBorder)
     visible: root.updatesAvailable
     Behavior on color { ColorAnimation { duration: 140 } }
     Behavior on border.color { ColorAnimation { duration: 140 } }
 
+    Rectangle {
+      anchors.fill: parent
+      anchors.topMargin: Style.barChipInset
+      anchors.bottomMargin: Style.barChipInset
+      radius: Style.radiusSm
+      visible: solidBar
+      color: updateMouse.containsMouse ? Style.barStripHover : "transparent"
+      Behavior on color { ColorAnimation { duration: 120 } }
+    }
+
     Text {
       anchors.centerIn: parent
       text: "󰚰"
       font.family: Style.fontFamily
-      font.pixelSize: solidBar ? Style.barFontIcon : 15
+      font.pixelSize: solidBar ? Style.barFontGlyph : 15
       color: Style.orange
     }
 
@@ -228,10 +260,18 @@ RowLayout {
     border.width: solidBar ? 0 : 1
     border.color: solidBar ? "transparent" : Style.barBorder
     scale: solidBar ? 1.0 : (notifMouse.containsMouse ? 1.018 : 1.0)
-    color: solidBar
-      ? (notifMouse.containsMouse ? Style.barStripHover : "transparent")
-      : (notifMouse.containsMouse ? Style.barHoverBg : Style.barBg)
+    color: solidBar ? "transparent" : (notifMouse.containsMouse ? Style.barHoverBg : Style.barBg)
     visible: root.notificationCenter !== null
+
+    Rectangle {
+      anchors.fill: parent
+      anchors.topMargin: Style.barChipInset
+      anchors.bottomMargin: Style.barChipInset
+      radius: Style.radiusSm
+      visible: solidBar
+      color: notifMouse.containsMouse ? Style.barStripHover : "transparent"
+      Behavior on color { ColorAnimation { duration: 120 } }
+    }
 
     RowLayout {
       id: notifRow
@@ -241,7 +281,7 @@ RowLayout {
       Text {
         text: root.notificationCenter && root.notificationCenter.dndEnabled ? "󰂛" : "󰂚"
         font.family: Style.fontFamily
-        font.pixelSize: solidBar ? Style.barFontIcon : 15
+        font.pixelSize: solidBar ? Style.barFontGlyph : 15
         color: root.notificationCenter && root.notificationCenter.dndEnabled ? Style.yellow : Style.blueAlt
       }
 

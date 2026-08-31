@@ -2,30 +2,38 @@ import QtQuick
 import QtQuick.Layouts
 import "../../"
 
-// Launcher-matching list row (38px, seal accent, accessory column).
+// Launcher-matching list row (adaptive height, seal accent, accessory column).
 Item {
   id: row
   property string icon: ""
   property string title: ""
   property string accessory: ""
   property bool selected: false
-  property string uiFont: "Hack Nerd Font"
+  property string uiFont: Style.fontFamily
   property var onClicked: null
 
-  implicitHeight: 38
-  height: 38
+  implicitHeight: 40
+  height: 40
   width: parent ? parent.width : implicitWidth
 
   Rectangle {
     anchors.fill: parent
-    color: row.selected ? Style.menuRowSel : (rowMa.containsMouse ? Style.menuRowHi : Style.menuCardBg)
-    Behavior on color { ColorAnimation { duration: 40 } }
+    anchors.leftMargin: 2
+    anchors.rightMargin: 2
+    anchors.topMargin: 1
+    anchors.bottomMargin: 1
+    radius: Style.radiusSm
+    color: row.selected ? Style.menuRowSel : (rowMa.containsMouse ? Style.menuRowHi : "transparent")
+    Behavior on color { ColorAnimation { duration: 50 } }
   }
   Rectangle {
     anchors.left: parent.left
     anchors.top: parent.top
     anchors.bottom: parent.bottom
+    anchors.topMargin: 6
+    anchors.bottomMargin: 6
     width: 2
+    radius: 1
     color: Style.menuSeal
     visible: row.selected
   }
@@ -50,8 +58,8 @@ Item {
       color: row.selected ? Style.menuInk : Style.menuInkDeep
       font.pixelSize: 13
       font.family: row.uiFont
-      font.weight: row.selected ? Font.Medium : Font.Light
-      font.letterSpacing: 1
+      font.weight: row.selected ? Font.Medium : Font.Normal
+      font.letterSpacing: 0.6
       elide: Text.ElideRight
     }
     Text {
@@ -61,7 +69,7 @@ Item {
       opacity: row.selected ? 0.95 : 0.65
       font.pixelSize: 10
       font.family: row.uiFont
-      font.letterSpacing: 2
+      font.letterSpacing: 1.5
       elide: Text.ElideLeft
       Layout.maximumWidth: 160
     }

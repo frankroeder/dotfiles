@@ -8,10 +8,10 @@ Item {
   property string glyph: "󰍉"
   property string placeholder: "Type to search..."
   property real fontScale: 1.0
-  property string fontFamily: "Hack Nerd Font"
+  property string fontFamily: Style.fontFamily
 
   implicitWidth: parent ? parent.width : 0
-  implicitHeight: 36
+  implicitHeight: 38
   width: parent ? parent.width : implicitWidth
   height: implicitHeight
 
@@ -37,11 +37,24 @@ Item {
     opacity: root.input.text.length > 0 ? 1 : 0.55
     font.family: root.fontFamily
     font.pixelSize: 14 * root.fontScale
-    font.letterSpacing: 1
+    font.letterSpacing: 0.8
     clip: true
     focus: true
     text: root.input.text
     onTextChanged: root.input.text = text
+    cursorDelegate: Rectangle {
+      width: 2
+      height: Math.round(field.font.pixelSize * 1.05)
+      radius: 1
+      color: Style.menuSeal
+      anchors.verticalCenter: parent ? parent.verticalCenter : undefined
+      SequentialAnimation on opacity {
+        running: field.activeFocus && field.cursorVisible
+        loops: Animation.Infinite
+        NumberAnimation { from: 1; to: 0.15; duration: 560; easing.type: Easing.InOutSine }
+        NumberAnimation { from: 0.15; to: 1; duration: 560; easing.type: Easing.InOutSine }
+      }
+    }
 
     Text {
       anchors.fill: parent
@@ -51,21 +64,6 @@ Item {
       opacity: 0.5
       visible: parent.text.length === 0 && !parent.activeFocus
       verticalAlignment: Text.AlignVCenter
-    }
-  }
-
-  Rectangle {
-    width: 2
-    height: 16 * root.fontScale
-    color: Style.menuSeal
-    anchors.verticalCenter: parent.verticalCenter
-    x: field.x + field.contentWidth + 2
-    visible: root.input.activeFocus
-    SequentialAnimation on opacity {
-      running: root.input.activeFocus
-      loops: Animation.Infinite
-      NumberAnimation { from: 1; to: 0.25; duration: 600; easing.type: Easing.InOutSine }
-      NumberAnimation { from: 0.25; to: 1; duration: 600; easing.type: Easing.InOutSine }
     }
   }
 }

@@ -3,37 +3,38 @@ import QtQuick.Layouts
 import Quickshell.Services.SystemTray
 import "../../../"
 
-// Improved SystemTray - based on reference, better icon handling
-Rectangle {
+// Flat system tray for the solid strip — no capsule chrome.
+Item {
   id: root
-  implicitWidth: trayRow.implicitWidth + 10
-  implicitHeight: 26
-  radius: Style.radius
-  color: Style.barBg
-  border.width: 1
-  border.color: Style.barBorder
-    Behavior on color { ColorAnimation { duration: 140 } }
-    Behavior on border.color { ColorAnimation { duration: 140 } }
+  implicitWidth: trayRow.implicitWidth
+  implicitHeight: Style.barHeight
   visible: trayRow.implicitWidth > 0
 
   RowLayout {
     id: trayRow
-    anchors.centerIn: parent
-    spacing: 4
+    anchors.verticalCenter: parent.verticalCenter
+    spacing: 2
 
     Repeater {
       model: SystemTray.items
 
-      delegate: Rectangle {
-        Layout.preferredWidth: 22
-        Layout.preferredHeight: 22
-        radius: 4
-        color: trayMouse.containsMouse ? Style.barHoverBg : "transparent"
+      delegate: Item {
+        Layout.preferredWidth: Style.barIconSlot - 4
+        Layout.preferredHeight: Style.barHeight
+
+        Rectangle {
+          anchors.fill: parent
+          anchors.topMargin: Style.barChipInset
+          anchors.bottomMargin: Style.barChipInset
+          radius: Style.radiusSm
+          color: trayMouse.containsMouse ? Style.barStripHover : "transparent"
+          Behavior on color { ColorAnimation { duration: 120 } }
+        }
 
         Image {
           anchors.centerIn: parent
-          width: 20
-          height: 20
+          width: 18
+          height: 18
           source: {
             const icon = modelData.icon ?? ""
             if (typeof icon === "string" && icon.includes("?path=")) {
@@ -47,6 +48,7 @@ Rectangle {
           }
           visible: status === Image.Ready
           fillMode: Image.PreserveAspectFit
+          smooth: true
         }
 
         MouseArea {

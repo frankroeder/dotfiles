@@ -15,9 +15,7 @@ Rectangle {
 
     readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
 
-    color: solidBar
-      ? (ma.containsMouse ? Style.barStripHover : "transparent")
-      : (ma.containsMouse ? Style.barHoverBg : Style.barBg)
+    color: solidBar ? "transparent" : (ma.containsMouse ? Style.barHoverBg : Style.barBg)
     radius: solidBar ? 0 : Style.radius
     border.width: solidBar ? 0 : 1
     border.color: solidBar ? "transparent" : Style.barBorder
@@ -27,6 +25,16 @@ Rectangle {
 
     implicitWidth: content.implicitWidth + (solidBar ? 8 : 14)
     implicitHeight: solidBar ? Style.barHeight : 26
+
+    Rectangle {
+        anchors.fill: parent
+        anchors.topMargin: Style.barChipInset
+        anchors.bottomMargin: Style.barChipInset
+        radius: Style.radiusSm
+        visible: solidBar
+        color: ma.containsMouse ? Style.barStripHover : "transparent"
+        Behavior on color { ColorAnimation { duration: 120 } }
+    }
 
     property string text: "󰤨"
     property string tooltip: ""
@@ -39,16 +47,16 @@ Rectangle {
 
         Text {
             text: root.text
-            font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 32
+            font.family: Style.fontFamily
+            font.pixelSize: Style.barFontGlyph
             color: Style.blueAlt
         }
 
         Text {
             visible: root.vpnUp
             text: "󰯄"
-            font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 16
+            font.family: Style.fontFamily
+            font.pixelSize: Style.barFontCaption
             color: Style.green
         }
     }
@@ -80,7 +88,7 @@ Rectangle {
     MouseArea {
         id: ma
         anchors.fill: parent
-        anchors.margins: -12   // much larger hit area so hover and click are reliable
+        anchors.margins: -2
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         onClicked: Quickshell.execDetached(["qs", "-c", "remix", "ipc", "call", "launcher", "quick", "network"])

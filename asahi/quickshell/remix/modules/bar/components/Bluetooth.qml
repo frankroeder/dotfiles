@@ -12,9 +12,7 @@ Rectangle {
 
     readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
 
-    color: solidBar
-      ? (ma.containsMouse ? Style.barStripHover : "transparent")
-      : (ma.containsMouse ? Style.barHoverBg : Style.barBg)
+    color: solidBar ? "transparent" : (ma.containsMouse ? Style.barHoverBg : Style.barBg)
     radius: solidBar ? 0 : Style.radius
     border.width: solidBar ? 0 : 1
     border.color: solidBar ? "transparent" : Style.barBorder
@@ -24,6 +22,16 @@ Rectangle {
 
     implicitWidth: row.implicitWidth + (solidBar ? 8 : 14)
     implicitHeight: solidBar ? Style.barHeight : 26
+
+    Rectangle {
+        anchors.fill: parent
+        anchors.topMargin: Style.barChipInset
+        anchors.bottomMargin: Style.barChipInset
+        radius: Style.radiusSm
+        visible: solidBar
+        color: ma.containsMouse ? Style.barStripHover : "transparent"
+        Behavior on color { ColorAnimation { duration: 120 } }
+    }
 
     property string text: "BT"
     property string tooltip: ""
@@ -35,8 +43,8 @@ Rectangle {
 
         Text {
             text: root.text
-            font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 24
+            font.family: Style.fontFamily
+            font.pixelSize: Style.barFontGlyph
             color: Style.magenta
         }
     }

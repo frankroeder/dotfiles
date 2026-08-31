@@ -17,17 +17,29 @@ Item {
   readonly property string timeLine: Qt.formatDateTime(clock.date, "HH:mm")
   readonly property string dateLine: Qt.formatDateTime(clock.date, "ddd dd MMM")
 
-  implicitWidth: solidBar ? flatLabel.implicitWidth + 16 : clockRow.implicitWidth + 14
+  implicitWidth: solidBar ? flatRow.implicitWidth + 16 : clockRow.implicitWidth + 14
   implicitHeight: solidBar ? Style.barHeight : 26
 
-  Text {
-    id: flatLabel
+  Row {
+    id: flatRow
     visible: root.solidBar
     anchors.centerIn: parent
-    text: root.dateLine + "  " + root.timeLine
-    font.family: Style.fontFamily
-    font.pixelSize: Style.barFontBody
-    color: barHost ? barHost.barForeground : Style.barStripText
+    spacing: 8
+
+    Text {
+      text: root.dateLine
+      font.family: Style.fontFamily
+      font.pixelSize: Style.barFontBody
+      color: Style.barStripMuted
+      anchors.verticalCenter: parent.verticalCenter
+    }
+    Text {
+      text: root.timeLine
+      font.family: Style.fontFamily
+      font.pixelSize: Style.barFontBody
+      color: barHost ? barHost.barForeground : Style.barStripText
+      anchors.verticalCenter: parent.verticalCenter
+    }
   }
 
   Rectangle {

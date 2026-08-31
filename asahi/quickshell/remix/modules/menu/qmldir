@@ -9,3 +9,4 @@ MenuSearchField 1.0 MenuSearchField.qml
 MenuListRow 1.0 MenuListRow.qml
 MenuPopupCard 1.0 MenuPopupCard.qml
 MenuSectionTitle 1.0 MenuSectionTitle.qml
+MenuScrollBar 1.0 MenuScrollBar.qml

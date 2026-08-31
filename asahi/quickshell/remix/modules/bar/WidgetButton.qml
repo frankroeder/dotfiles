@@ -1,7 +1,8 @@
 import QtQuick
 import "../../"
+import "components" as BarComponents
 
-// Flat bar control — omarchy WidgetButton adapted for Asahi Style tokens.
+// Flat bar control — inset hover pill + optional tooltip.
 Item {
   id: root
 
@@ -12,8 +13,8 @@ Item {
   property color foreground: barHost ? barHost.barForeground : Style.barStripText
   property color activeColor: Style.red
   property bool active: false
-  property real horizontalMargin: 7
-  property real verticalPadding: 5
+  property real horizontalMargin: 8
+  property real verticalPadding: 4
   property real fixedWidth: -1
   property real fixedHeight: -1
   property bool keepSpace: false
@@ -47,6 +48,15 @@ Item {
     NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
   }
 
+  Rectangle {
+    anchors.fill: parent
+    anchors.topMargin: Style.barChipInset
+    anchors.bottomMargin: Style.barChipInset
+    radius: Style.radiusSm
+    color: mouseArea.containsMouse && root.interactive ? Style.barStripHover : "transparent"
+    Behavior on color { ColorAnimation { duration: 120 } }
+  }
+
   Text {
     id: label
     visible: root.labelVisible
@@ -73,5 +83,11 @@ Item {
     cursorShape: root.pressable ? Qt.PointingHandCursor : Qt.ArrowCursor
     onClicked: function(mouse) { if (root.pressable) root.triggerPress(mouse.button) }
     onWheel: function(wheel) { root.wheelMoved(wheel.angleDelta.y) }
+  }
+
+  BarComponents.TooltipWindow {
+    target: root
+    text: root.tooltipText
+    show: mouseArea.containsMouse && root.tooltipText !== ""
   }
 }

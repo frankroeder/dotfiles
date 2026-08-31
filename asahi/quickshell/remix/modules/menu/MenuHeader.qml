@@ -32,7 +32,7 @@ Item {
     text: root.title
     color: Style.menuInk
     font.family: root.fontFamily
-    font.pixelSize: 19 * root.fontScale
+    font.pixelSize: 17 * root.fontScale
     font.letterSpacing: Style.menuTitleSpacing
     font.weight: Font.Medium
   }
@@ -68,7 +68,7 @@ Item {
         text: root.title
         color: Style.menuInk
         font.family: root.fontFamily
-        font.pixelSize: 19 * root.fontScale
+        font.pixelSize: 17 * root.fontScale
         font.letterSpacing: Style.menuTitleSpacing
         font.weight: Font.Medium
       }
@@ -95,7 +95,7 @@ Item {
         text: root.sectionName.toUpperCase()
         color: Style.menuInk
         font.family: root.fontFamily
-        font.pixelSize: 19 * root.fontScale
+        font.pixelSize: 17 * root.fontScale
         font.letterSpacing: Style.menuTitleSpacing
         font.weight: Font.Medium
         anchors.verticalCenter: parent.verticalCenter

@@ -48,7 +48,7 @@ Singleton {
   readonly property color wsBadgeEmptyBg:      Qt.alpha(Wallpaper.DefaultTheme.text, 0.08)
   readonly property color wsBadgeBorder:       Qt.alpha(Wallpaper.DefaultTheme.text, 0.24)
   readonly property color wsBadgeActiveBorder: Qt.alpha(Wallpaper.DefaultTheme.sky, 0.36)
-  readonly property color wsBadgeActiveText:   "#ffffff"
+  readonly property color wsBadgeActiveText:   Wallpaper.DefaultTheme.crust
   readonly property color wsOccupiedText:   Wallpaper.DefaultTheme.text
   readonly property color wsEmptyText:      Wallpaper.DefaultTheme.overlay1
 
@@ -62,7 +62,7 @@ Singleton {
   readonly property color barStripText: Wallpaper.DefaultTheme.text
   readonly property color barStripMuted: Wallpaper.DefaultTheme.subtext0
   readonly property color barStripActive: Wallpaper.DefaultTheme.red
-  readonly property color barStripHover:  Qt.alpha(Wallpaper.DefaultTheme.text, 0.08)
+  readonly property color barStripHover:  Qt.alpha(Wallpaper.DefaultTheme.text, 0.10)
 
   readonly property color panelOverlay:         Qt.alpha(Wallpaper.DefaultTheme.crust, 0.76)
   readonly property color panelBg:              Qt.alpha(Wallpaper.DefaultTheme.base, 0.98)
@@ -92,18 +92,30 @@ Singleton {
   readonly property color menuSeal:    Wallpaper.DefaultTheme.peach
   readonly property color menuIndigo:  Wallpaper.DefaultTheme.sapphire
   readonly property color menuSealAlt: Wallpaper.DefaultTheme.peach
-  readonly property color menuBg:      Qt.rgba(menuPaper.r, menuPaper.g, menuPaper.b, 0.96)
-  readonly property color menuSep:     Qt.rgba(menuInk.r, menuInk.g, menuInk.b, 0.16)
-  readonly property color menuRowHi:   Qt.rgba(menuInk.r, menuInk.g, menuInk.b, 0.07)
-  readonly property color menuRowSel:  Qt.rgba(menuSeal.r, menuSeal.g, menuSeal.b, 0.20)
-  readonly property color menuDim:     Qt.rgba(0, 0, 0, 0.52)
-  readonly property color menuCardBg:  Qt.rgba(menuInk.r, menuInk.g, menuInk.b, 0.05)
-  readonly property color menuControlBg: Qt.rgba(menuInk.r, menuInk.g, menuInk.b, 0.08)
-  readonly property int menuRadius: 6
-  readonly property int menuTitleSpacing: 4
-  readonly property int menuLabelSpacing: 2
+  readonly property color menuBg:      Qt.rgba(menuPaper.r, menuPaper.g, menuPaper.b, 0.94)
+  readonly property color menuSep:     Qt.rgba(menuInk.r, menuInk.g, menuInk.b, 0.12)
+  readonly property color menuRowHi:   Qt.rgba(menuInk.r, menuInk.g, menuInk.b, 0.06)
+  readonly property color menuRowSel:  Qt.rgba(menuSeal.r, menuSeal.g, menuSeal.b, 0.18)
+  // Barely-there wash so Hyprland layer blur stays readable over the desktop.
+  readonly property color menuDim:     Qt.rgba(0, 0, 0, 0.10)
+  readonly property color menuDimFrost: Qt.rgba(Wallpaper.DefaultTheme.mantle.r, Wallpaper.DefaultTheme.mantle.g, Wallpaper.DefaultTheme.mantle.b, 0.08)
+  readonly property color menuCardBg:  Qt.rgba(menuInk.r, menuInk.g, menuInk.b, 0.04)
+  readonly property color menuControlBg: Qt.rgba(menuInk.r, menuInk.g, menuInk.b, 0.07)
+  readonly property color menuOnAccent: Wallpaper.DefaultTheme.crust
+  readonly property color menuOverlayLight: Qt.rgba(1, 1, 1, 0.92)
+  readonly property color menuSuccessWash: Qt.rgba(green.r, green.g, green.b, 0.32)
+  readonly property int menuRadius: 12
+  readonly property real menuTitleSpacing: 3
+  readonly property real menuLabelSpacing: 1.5
+  readonly property int menuAnimMs: 240
+  readonly property int menuAnimOutMs: 180
   readonly property string menuMono: "JetBrainsMono Nerd Font"
   readonly property string menuSerif: "serif"
+
+  readonly property int scrollbarWidth: 5
+  readonly property color scrollbarThumb: Qt.rgba(menuInk.r, menuInk.g, menuInk.b, 0.28)
+  readonly property color scrollbarThumbHover: Qt.rgba(menuInk.r, menuInk.g, menuInk.b, 0.48)
+  readonly property color scrollbarTrack: Qt.rgba(menuInk.r, menuInk.g, menuInk.b, 0.06)
 
   // Full re-export for complete delegation (no hex dups; enables Style. for all DefaultTheme names)
   readonly property color crust:      Wallpaper.DefaultTheme.crust
@@ -144,17 +156,20 @@ Singleton {
   readonly property color batteryWarning:  Wallpaper.DefaultTheme.batteryWarning
   readonly property color batteryCritical: Wallpaper.DefaultTheme.batteryCritical
 
-  readonly property int radius: 6
-  readonly property int radiusSm: 4
+  readonly property int radius: 8
+  readonly property int radiusSm: 6
+  readonly property int radiusLg: 14
 
   // Solid strip sizing — sketchybar top uses 32px; slightly taller for icons + workspace row.
   readonly property int barHeight: 34
-  readonly property int barFontBody: 18
-  readonly property int barFontIcon: 28
-  readonly property int barFontMicVolIcon: 20
+  readonly property int barFontBody: 14
+  readonly property int barFontIcon: 20
+  readonly property int barFontGlyph: 20
+  readonly property int barFontMicVolIcon: 17
   readonly property int barFontCaption: 11
-  readonly property int barEdgeMargin: 8
-  readonly property int barIconSlot: 34
+  readonly property int barEdgeMargin: 10
+  readonly property int barIconSlot: 28
+  readonly property int barChipInset: 4
 
   readonly property string fontFamily: "JetBrainsMono Nerd Font"
   readonly property int fontSize: 16
