@@ -34,6 +34,7 @@ window-save-state = always
 shell-integration = zsh
 shell-integration-features = cursor,sudo,title,no-cursor
 keybind = shift+enter=text:\n
+keybind = super+alt+enter=toggle_quick_terminal
 
 theme = Catppuccin Mocha
 window-theme = dark

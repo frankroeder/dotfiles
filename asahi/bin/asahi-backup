@@ -1,0 +1,684 @@
+#!/usr/bin/env bash
+# Dated rsync snapshot of /home onto the USB volume labeled "LinuxDrive",
+# plus interactive restore of $HOME dirs (and one level deeper).
+#
+# Same core backup flow as the old backup() helper:
+#   udisksctl mount → /run/media/$USER/LinuxDrive/fedora-home-backup-$DATE/
+#   sudo rsync -aAXv --info=progress2,stats2 --delete [excludes] /home/ → dest/
+#
+# Usage:
+#   asahi-backup [--unmount|-u] [--dry-run|-n] [--help|-h]
+#   asahi-backup restore [--unmount|-u] [--dry-run|-n] [--delete]
+#
+# Restore safety:
+#   - refuses to start unless a snapshot on the drive is recent
+#     (ASAHI_BACKUP_RECENT_DAYS, default 7)
+#   - asks which snapshot to use
+#   - lists $HOME/* and $HOME/*/* candidates that would be overwritten
+#   - confirms the overwrite list, then a final proceed before rsync
+#   - --dry-run never mkdir/writes under $HOME
+#
+# Overrides (ASAHI_* preferred; bare BACKUP_* still accepted):
+#   ASAHI_BACKUP_LABEL / BACKUP_LABEL
+#   ASAHI_BACKUP_DEVICE / BACKUP_DEVICE
+#   ASAHI_BACKUP_SOURCE / BACKUP_SOURCE
+#   ASAHI_BACKUP_LOG_DIR / BACKUP_LOG_DIR
+#   ASAHI_BACKUP_RECENT_DAYS          (default: 7)
+#   ASAHI_BACKUP_MOUNT                (skip udisks; treat path as volume root)
+
+set -euo pipefail
+
+label="${ASAHI_BACKUP_LABEL:-${BACKUP_LABEL:-LinuxDrive}}"
+source_dir="${ASAHI_BACKUP_SOURCE:-${BACKUP_SOURCE:-/home/}}"
+recent_days="${ASAHI_BACKUP_RECENT_DAYS:-7}"
+mode="backup"
+unmount=0
+dry_run=0
+restore_delete=0
+
+usage() {
+  cat >&2 <<EOF
+usage: asahi-backup [--unmount|-u] [--dry-run|-n] [--help|-h]
+       asahi-backup restore [--unmount|-u] [--dry-run|-n] [--delete]
+
+backup   dated rsync of ${source_dir} to USB volume '${label}'
+restore  interactive restore into \$HOME from a snapshot on '${label}'
+
+restore refuses to run unless a snapshot is at most ${recent_days} day(s) old.
+EOF
+}
+
+while (( $# )); do
+  case "$1" in
+    restore|--restore)
+      mode="restore"
+      ;;
+    --unmount|-u) unmount=1 ;;
+    --dry-run|-n) dry_run=1 ;;
+    --delete)
+      restore_delete=1
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "asahi-backup: unknown option: $1" >&2
+      usage
+      exit 2
+      ;;
+  esac
+  shift
+done
+
+if (( restore_delete )) && [[ "$mode" != "restore" ]]; then
+  echo "asahi-backup: --delete is only valid with restore" >&2
+  usage
+  exit 2
+fi
+
+user_name="${SUDO_USER:-$(id -un)}"
+user_home="$HOME"
+if [ -n "${SUDO_USER:-}" ]; then
+  user_home="$(getent passwd "$user_name" | cut -d: -f6)"
+fi
+[ -n "${user_home:-}" ] || user_home="${HOME:-/home/$user_name}"
+
+if [ -n "${ASAHI_BACKUP_DEVICE:-${BACKUP_DEVICE:-}}" ]; then
+  device="${ASAHI_BACKUP_DEVICE:-$BACKUP_DEVICE}"
+elif [ -e "/dev/disk/by-label/${label}" ]; then
+  device="/dev/disk/by-label/${label}"
+elif [ -e /dev/sda1 ]; then
+  device="/dev/sda1"
+else
+  device="/dev/disk/by-label/${label}"
+fi
+
+log_dir="${ASAHI_BACKUP_LOG_DIR:-${BACKUP_LOG_DIR:-${user_home}/.local/share/backup-home}}"
+date_stamp="$(date +%Y-%m-%d)"
+iso_stamp="$(date +%Y-%m-%dT%H:%M:%S%z)"
+run_id="$(date +%Y%m%d-%H%M%S)"
+log_file="${log_dir}/${mode}-${date_stamp}.log"
+lockdir="${log_dir}/.lock"
+media_root="/run/media/${user_name}"
+expected_mount="${media_root}/${label}"
+snap_prefix="fedora-home-backup-"
+
+mkdir -p "$log_dir"
+
+log() {
+  local line
+  line="$(date +%Y-%m-%dT%H:%M:%S%z) $*"
+  printf '%s\n' "$line" | tee -a "$log_file"
+}
+
+need_cmd() {
+  command -v "$1" >/dev/null 2>&1 || {
+    log "ERROR: required command not found: $1"
+    exit 1
+  }
+}
+
+ask_yn() {
+  local prompt="$1" reply
+  while true; do
+    printf '%s [y/N] ' "$prompt" >/dev/tty
+    read -r reply </dev/tty || return 1
+    case "${reply,,}" in
+      y|yes) return 0 ;;
+      n|no|"") return 1 ;;
+    esac
+    echo "please answer y or n" >/dev/tty
+  done
+}
+
+resolve_device_real() {
+  readlink -f "$device" 2>/dev/null || printf '%s' "$device"
+}
+
+ensure_mounted() {
+  local mount_out
+
+  # Test / advanced override: use an already-prepared directory as the volume root.
+  if [ -n "${ASAHI_BACKUP_MOUNT:-}" ]; then
+    mount_point="${ASAHI_BACKUP_MOUNT}"
+    device_real="${device:-override}"
+    if [ ! -d "$mount_point" ]; then
+      log "ERROR: ASAHI_BACKUP_MOUNT is not a directory: ${mount_point}"
+      exit 1
+    fi
+    log "using ASAHI_BACKUP_MOUNT=${mount_point}"
+    return 0
+  fi
+
+  device_real="$(resolve_device_real)"
+
+  if [ ! -e "$device" ] && [ ! -e "$device_real" ]; then
+    log "ERROR: backup disk not found: ${device}"
+    log "ERROR: plug in the USB (label '${label}' or /dev/sda1) and retry"
+    exit 1
+  fi
+
+  mount_point="$(findmnt -n -o TARGET "$device_real" 2>/dev/null | head -n1 || true)"
+  [ -n "$mount_point" ] || mount_point="$(findmnt -n -o TARGET "$device" 2>/dev/null | head -n1 || true)"
+
+  if [ -z "$mount_point" ]; then
+    log "mounting ${device_real}"
+    if ! mount_out="$(udisksctl mount -b "$device_real" 2>&1)"; then
+      log "ERROR: udisksctl mount failed: ${mount_out}"
+      exit 1
+    fi
+    log "$mount_out"
+    if [[ "$mount_out" =~ at[[:space:]]+(/[^[:space:]]+) ]]; then
+      mount_point="${BASH_REMATCH[1]%.}"
+    else
+      mount_point="$(findmnt -n -o TARGET "$device_real" 2>/dev/null | head -n1 || true)"
+    fi
+  else
+    log "already mounted at ${mount_point}"
+  fi
+
+  if [ -d "$expected_mount" ]; then
+    mount_point="$expected_mount"
+  fi
+
+  if [ -z "$mount_point" ] || [ ! -d "$mount_point" ]; then
+    log "ERROR: could not determine mountpoint for ${device_real}"
+    exit 1
+  fi
+  log "mountpoint=${mount_point}"
+  if [ -d "$media_root" ]; then
+    log "media contents: $(ls -1 "$media_root" 2>/dev/null | tr '\n' ' ')"
+  fi
+}
+
+maybe_unmount() {
+  if (( unmount && ! dry_run )); then
+    log "unmounting ${device_real}"
+    udisksctl unmount -b "$device_real" | tee -a "$log_file"
+  fi
+}
+
+list_snapshots() {
+  # Prints absolute snapshot dirs, newest first.
+  local d
+  shopt -s nullglob
+  for d in "${mount_point}/${snap_prefix}"[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]; do
+    [ -d "$d" ] || continue
+    printf '%s\n' "$d"
+  done | sort -r
+  shopt -u nullglob
+}
+
+snapshot_date() {
+  local base="${1##*/}"
+  printf '%s\n' "${base#"$snap_prefix"}"
+}
+
+snapshot_age_days() {
+  local snap="$1" snap_day today_epoch snap_epoch age
+  snap_day="$(snapshot_date "$snap")"
+  today_epoch="$(date -d "$date_stamp" +%s)"
+  snap_epoch="$(date -d "$snap_day" +%s 2>/dev/null || true)"
+  if [ -z "$snap_epoch" ]; then
+    printf '%s\n' "9999"
+    return
+  fi
+  age=$(( (today_epoch - snap_epoch) / 86400 ))
+  # Future-dated folder names (clock skew / typo) must not bypass the gate as "negative age".
+  if (( age < 0 )); then
+    age=0
+  fi
+  printf '%s\n' "$age"
+}
+
+require_recent_snapshot() {
+  local snap age newest="" newest_age=9999
+  local -a snaps=()
+  mapfile -t snaps < <(list_snapshots)
+  if (( ${#snaps[@]} == 0 )); then
+    log "ERROR: no snapshots found under ${mount_point}/${snap_prefix}YYYY-MM-DD"
+    log "ERROR: run a backup first before restoring"
+    exit 1
+  fi
+  for snap in "${snaps[@]}"; do
+    age="$(snapshot_age_days "$snap")"
+    if (( age < newest_age )); then
+      newest_age=$age
+      newest=$snap
+    fi
+  done
+  if (( newest_age > recent_days )); then
+    log "ERROR: no recent backup on the drive (newest is ${newest_age} day(s) old)"
+    log "ERROR: newest snapshot: ${newest}"
+    log "ERROR: refusing restore — take a fresh backup first (need ≤ ${recent_days} day(s))"
+    exit 1
+  fi
+  log "recent backup ok: ${newest##*/} (${newest_age} day(s) old, limit ${recent_days})"
+}
+
+pick_snapshot() {
+  local -a snaps=()
+  local i choice snap age
+  mapfile -t snaps < <(list_snapshots)
+  echo >/dev/tty
+  echo "Available snapshots on ${label}:" >/dev/tty
+  for i in "${!snaps[@]}"; do
+    snap="${snaps[$i]}"
+    age="$(snapshot_age_days "$snap")"
+    printf '  %2d) %s  (%s day(s) old)\n' "$((i + 1))" "${snap##*/}" "$age" >/dev/tty
+  done
+  echo >/dev/tty
+  while true; do
+    printf 'Restore from which snapshot? [1-%d, q=abort] ' "${#snaps[@]}" >/dev/tty
+    read -r choice </dev/tty || exit 1
+    case "$choice" in
+      q|Q|quit|abort)
+        log "restore aborted by user (snapshot pick)"
+        exit 1
+        ;;
+      ''|*[!0-9]*)
+        echo "enter a number" >/dev/tty
+        continue
+        ;;
+    esac
+    if (( choice < 1 || choice > ${#snaps[@]} )); then
+      echo "out of range" >/dev/tty
+      continue
+    fi
+    selected_snapshot="${snaps[$((choice - 1))]}"
+    break
+  done
+  age="$(snapshot_age_days "$selected_snapshot")"
+  log "selected snapshot: ${selected_snapshot} (${age} day(s) old)"
+  if (( age > recent_days )); then
+    echo >/dev/tty
+    echo "WARNING: selected snapshot is ${age} day(s) old (recent limit is ${recent_days})." >/dev/tty
+    echo "A newer backup exists on the drive, but you chose an older one." >/dev/tty
+    ask_yn "Really restore from this older snapshot?" || {
+      log "restore aborted by user (old snapshot confirm)"
+      exit 1
+    }
+  fi
+}
+
+user_snapshot_root() {
+  # Backup source is /home/, so the user tree lives at $snap/$USER.
+  local snap="$1"
+  if [ -d "${snap}/${user_name}" ]; then
+    printf '%s\n' "${snap}/${user_name}"
+  elif [ -d "${snap}${user_home}" ]; then
+    # Unusual absolute layout — keep a fallback.
+    printf '%s\n' "${snap}${user_home}"
+  else
+    printf '%s\n' ""
+  fi
+}
+
+list_home_dirs() {
+  # Top-level entries under the snapshot user tree (files + dirs).
+  local root="$1" entry
+  shopt -s nullglob dotglob
+  for entry in "${root}"/* "${root}"/.[!.]* "${root}"/..?*; do
+    [ -e "$entry" ] || continue
+    printf '%s\n' "${entry##*/}"
+  done | LC_ALL=C sort -u
+  shopt -u nullglob dotglob
+}
+
+list_child_dirs() {
+  local parent="$1" entry
+  [ -d "$parent" ] || return 0
+  shopt -s nullglob dotglob
+  for entry in "${parent}"/* "${parent}"/.[!.]* "${parent}"/..?*; do
+    [ -e "$entry" ] || continue
+    printf '%s\n' "${entry##*/}"
+  done | LC_ALL=C sort -u
+  shopt -u nullglob dotglob
+}
+
+pick_top_level_dirs() {
+  local root="$1"
+  local -a names=() selected=()
+  local i choice name
+  mapfile -t names < <(list_home_dirs "$root")
+  if (( ${#names[@]} == 0 )); then
+    log "ERROR: snapshot user tree is empty: ${root}"
+    exit 1
+  fi
+
+  echo >/dev/tty
+  echo "Top-level items under backup of ${user_home}:" >/dev/tty
+  for i in "${!names[@]}"; do
+    name="${names[$i]}"
+    if [ -e "${user_home}/${name}" ]; then
+      printf '  %2d) %s/   [EXISTS on live home — would overwrite]\n' "$((i + 1))" "$name" >/dev/tty
+    else
+      printf '  %2d) %s/   [new]\n' "$((i + 1))" "$name" >/dev/tty
+    fi
+  done
+  echo >/dev/tty
+  echo "Enter numbers (e.g. 1 3 5), 'all', or 'q' to abort." >/dev/tty
+  while true; do
+    printf 'Restore which top-level dirs? ' >/dev/tty
+    read -r choice </dev/tty || exit 1
+    case "$choice" in
+      q|Q|quit|abort)
+        log "restore aborted by user (dir pick)"
+        exit 1
+        ;;
+    esac
+    selected=()
+    if [[ "${choice,,}" == "all" ]]; then
+      selected=("${names[@]}")
+    else
+      local tok idx
+      for tok in $choice; do
+        [[ "$tok" =~ ^[0-9]+$ ]] || {
+          echo "invalid token: $tok" >/dev/tty
+          selected=()
+          break
+        }
+        idx=$((tok - 1))
+        if (( idx < 0 || idx >= ${#names[@]} )); then
+          echo "out of range: $tok" >/dev/tty
+          selected=()
+          break
+        fi
+        selected+=("${names[$idx]}")
+      done
+    fi
+    (( ${#selected[@]} > 0 )) || continue
+    selected_top=("${selected[@]}")
+    break
+  done
+}
+
+build_restore_plan() {
+  # Fills restore_paths with relative paths under $HOME:
+  #   DIR            (whole top-level)
+  # or DIR/child     (one level deeper when user opts into children)
+  local root="$1"
+  local top child
+  restore_paths=()
+  overwrite_paths=()
+
+  echo >/dev/tty
+  echo "For each selected top-level dir you can restore the whole folder," >/dev/tty
+  echo "or pick children one level deeper (${user_home}/DIR/CHILD)." >/dev/tty
+
+  for top in "${selected_top[@]}"; do
+    echo >/dev/tty
+    echo "=== ${user_home}/${top} ===" >/dev/tty
+    if ask_yn "Restore entire '${top}' (all contents)?"; then
+      restore_paths+=("$top")
+      if [ -e "${user_home}/${top}" ]; then
+        overwrite_paths+=("$top")
+      fi
+      continue
+    fi
+
+    local -a children=()
+    mapfile -t children < <(list_child_dirs "${root}/${top}")
+    if (( ${#children[@]} == 0 )); then
+      echo "(no children — skipping '${top}')" >/dev/tty
+      continue
+    fi
+    echo "Children of ${top}:" >/dev/tty
+    local i
+    for i in "${!children[@]}"; do
+      child="${children[$i]}"
+      if [ -e "${user_home}/${top}/${child}" ]; then
+        printf '  %2d) %s/%s   [EXISTS — would overwrite]\n' "$((i + 1))" "$top" "$child" >/dev/tty
+      else
+        printf '  %2d) %s/%s   [new]\n' "$((i + 1))" "$top" "$child" >/dev/tty
+      fi
+    done
+    local choice tok idx
+    printf 'Children to restore for %s (numbers, all, or enter to skip): ' "$top" >/dev/tty
+    read -r choice </dev/tty || exit 1
+    case "$choice" in
+      "" ) continue ;;
+      all|ALL)
+        for child in "${children[@]}"; do
+          restore_paths+=("${top}/${child}")
+          if [ -e "${user_home}/${top}/${child}" ]; then
+            overwrite_paths+=("${top}/${child}")
+          fi
+        done
+        ;;
+      *)
+        for tok in $choice; do
+          [[ "$tok" =~ ^[0-9]+$ ]] || continue
+          idx=$((tok - 1))
+          (( idx >= 0 && idx < ${#children[@]} )) || continue
+          child="${children[$idx]}"
+          restore_paths+=("${top}/${child}")
+          if [ -e "${user_home}/${top}/${child}" ]; then
+            overwrite_paths+=("${top}/${child}")
+          fi
+        done
+        ;;
+    esac
+  done
+}
+
+confirm_overwrite_plan() {
+  echo >/dev/tty
+  if (( ${#restore_paths[@]} == 0 )); then
+    log "ERROR: nothing selected to restore"
+    exit 1
+  fi
+
+  echo "Restore plan → ${user_home}/" >/dev/tty
+  local p
+  for p in "${restore_paths[@]}"; do
+    if [ -e "${user_home}/${p}" ]; then
+      printf '  RESTORE  %s/%s   (OVERWRITE live)\n' "$user_home" "$p" >/dev/tty
+    else
+      printf '  RESTORE  %s/%s   (create)\n' "$user_home" "$p" >/dev/tty
+    fi
+  done
+
+  echo >/dev/tty
+  if (( ${#overwrite_paths[@]} > 0 )); then
+    echo "These live paths already exist and will be overwritten:" >/dev/tty
+    for p in "${overwrite_paths[@]}"; do
+      printf '  ! %s/%s\n' "$user_home" "$p" >/dev/tty
+    done
+    echo >/dev/tty
+    ask_yn "Confirm overwrite of the paths listed above?" || {
+      log "restore aborted by user (overwrite confirm)"
+      exit 1
+    }
+  fi
+
+  echo >/dev/tty
+  if (( dry_run )); then
+    echo "DRY-RUN: no files will be written." >/dev/tty
+  fi
+  if (( restore_delete )); then
+    echo "WARNING: --delete is on — extras under each restored path will be removed." >/dev/tty
+  else
+    echo "Note: restore does not --delete (live-only files under a path are kept)." >/dev/tty
+  fi
+  ask_yn "Proceed with restore from ${selected_snapshot##*/}?" || {
+    log "restore aborted by user (final confirm)"
+    exit 1
+  }
+}
+
+run_restore_rsync() {
+  local root="$1"
+  local rel src dst rc=0
+  local -a args
+
+  for rel in "${restore_paths[@]}"; do
+    src="${root}/${rel}"
+    dst="${user_home}/${rel}"
+    if [ ! -e "$src" ]; then
+      log "WARN: missing in snapshot, skip: ${src}"
+      continue
+    fi
+
+    # Never touch the live tree on dry-run (rsync --dry-run alone is enough).
+    if (( ! dry_run )); then
+      mkdir -p "$(dirname "$dst")"
+    fi
+
+    args=(-aAXv --info=progress2,stats2)
+    if (( restore_delete )); then
+      args+=(--delete)
+    fi
+    if (( dry_run )); then
+      args+=(--dry-run)
+    fi
+
+    log "rsync ${src}/ → ${dst}/"
+    # Trailing slash: copy contents when src is a directory.
+    if [ -d "$src" ]; then
+      if (( ! dry_run )); then
+        mkdir -p "$dst"
+      fi
+      sudo rsync "${args[@]}" "${src}/" "${dst}/" || rc=$?
+    else
+      sudo rsync "${args[@]}" "$src" "$dst" || rc=$?
+    fi
+    if (( rc != 0 )); then
+      log "ERROR: restore failed for ${rel} (rsync rc=${rc})"
+      exit "$rc"
+    fi
+  done
+}
+
+do_backup() {
+  local dest rsync_log rsync_rc=0
+  local -a rsync_args
+
+  dest="${mount_point}/${snap_prefix}${date_stamp}"
+  mkdir -p "$dest"
+  log "destination=${dest}"
+
+  rsync_log="${log_dir}/rsync-${run_id}.log"
+  rsync_args=(
+    -aAXv
+    --info=progress2,stats2
+    --delete
+    --log-file="$rsync_log"
+    --exclude='.cache'
+    --exclude='node_modules'
+    --exclude='.venv'
+    --exclude='.npm'
+    --exclude='.yarn'
+    --exclude='cache'
+    --exclude='build'
+    --exclude='.thumbnails'
+    --exclude='lost+found'
+    --exclude='*.tmp'
+    --exclude='.local/share/Trash'
+  )
+  if (( dry_run )); then
+    rsync_args+=(--dry-run)
+    log "mode=dry-run"
+  fi
+
+  log "rsync ${source_dir} -> ${dest}/"
+  sudo rsync "${rsync_args[@]}" "$source_dir" "${dest}/" || rsync_rc=$?
+
+  if [ -f "$rsync_log" ]; then
+    log "rsync log: ${rsync_log}"
+    {
+      printf '%s\n' "----- rsync stats (${run_id}) -----"
+      grep -E '^(Number of|Total file size|Total transferred|Literal data|sent |received )' "$rsync_log" \
+        || tail -n 20 "$rsync_log"
+      printf '%s\n' "----- end rsync stats -----"
+    } | tee -a "$log_file"
+    cp -f "$rsync_log" "${dest}/rsync-${run_id}.log" 2>/dev/null || true
+  fi
+
+  if (( rsync_rc != 0 )); then
+    log "ERROR: backup failed (rsync rc=${rsync_rc})"
+    exit "$rsync_rc"
+  fi
+
+  if (( ! dry_run )); then
+    ln -sfn "${dest##*/}" "${mount_point}/${snap_prefix}latest"
+    cp -f "$log_file" "${dest}/backup-${date_stamp}.log" 2>/dev/null || true
+    sync
+  fi
+
+  log "backup finished ok"
+  log "snapshot: ${dest}"
+  log "daily log: ${log_file}"
+}
+
+do_restore() {
+  local snap_user_root
+  selected_top=()
+  restore_paths=()
+  overwrite_paths=()
+
+  require_recent_snapshot
+  pick_snapshot
+
+  snap_user_root="$(user_snapshot_root "$selected_snapshot")"
+  if [ -z "$snap_user_root" ] || [ ! -d "$snap_user_root" ]; then
+    log "ERROR: no user tree for '${user_name}' inside ${selected_snapshot}"
+    log "ERROR: expected ${selected_snapshot}/${user_name}"
+    exit 1
+  fi
+  log "snapshot user tree: ${snap_user_root}"
+  log "live home: ${user_home}"
+
+  pick_top_level_dirs "$snap_user_root"
+  build_restore_plan "$snap_user_root"
+  confirm_overwrite_plan
+  run_restore_rsync "$snap_user_root"
+
+  log "restore finished ok"
+  log "from: ${selected_snapshot}"
+  log "into: ${user_home}"
+  log "daily log: ${log_file}"
+}
+
+need_cmd udisksctl
+need_cmd rsync
+need_cmd findmnt
+need_cmd tee
+need_cmd date
+
+if ! mkdir "$lockdir" 2>/dev/null; then
+  log "ERROR: another asahi-backup is already running (${lockdir})"
+  exit 1
+fi
+cleanup() {
+  rmdir "$lockdir" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
+device_real=""
+mount_point=""
+selected_snapshot=""
+selected_top=()
+restore_paths=()
+overwrite_paths=()
+
+log "======== ${mode} start ${iso_stamp} ========"
+log "user=${user_name} host=$(hostname) pid=$$"
+log "source=${source_dir}"
+log "device=${device} label=${label}"
+
+ensure_mounted
+
+case "$mode" in
+  backup) do_backup ;;
+  restore) do_restore ;;
+  *)
+    log "ERROR: unknown mode ${mode}"
+    exit 2
+    ;;
+esac
+
+maybe_unmount
+log "======== ${mode} end $(date +%Y-%m-%dT%H:%M:%S%z) ========"
+exit 0

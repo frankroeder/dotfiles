@@ -46,8 +46,12 @@ hl.bind(
 )
 hl.bind(
   mod .. " + ALT + Return",
-  hl.dsp.exec_cmd(scripts .. "/asahi-special-terminal"),
-  { desc = "Special terminal" }
+  hl.dsp.send_shortcut {
+    mods = "SUPER + ALT",
+    key = "Return",
+    window = "class:^(com\\.mitchellh\\.ghostty)$",
+  },
+  { desc = "Quick terminal" }
 )
 
 -- Floating

@@ -43,3 +43,4 @@ window_rule(
 )
 
 layer_rule("^(gtk-layer-shell)$", { blur = true, ignore_alpha = 0.3 }) -- notifications removed (mako purged; QS notif toast covered by quickshell.*)
+layer_rule("^(ghostty-quick-terminal)$", { blur = true, ignore_alpha = 0.05, xray = false })
