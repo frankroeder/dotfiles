@@ -39,6 +39,19 @@ function notchHeight(screenName, logicalWidth, logicalHeight, devicePixelRatio) 
   return Math.ceil(strip)
 }
 
+function formatAge(sinceUnix, nowUnix) {
+  var since = Number(sinceUnix)
+  var now = Number(nowUnix)
+  if (!(since > 0) || !(now >= since)) return ""
+  var sec = Math.floor(now - since)
+  var d = Math.floor(sec / 86400)
+  var h = Math.floor((sec % 86400) / 3600)
+  var m = Math.floor((sec % 3600) / 60)
+  if (d > 0) return d + "d " + h + "h"
+  if (h > 0) return h + "h " + m + "m"
+  return m + "m"
+}
+
 function notchSpacerWidth(screenName, logicalWidth, logicalHeight, devicePixelRatio) {
   // Reserve horizontal center gap on the built-in panel so widgets don't sit under the camera.
   if (String(screenName || "").indexOf("eDP") !== 0) return 0

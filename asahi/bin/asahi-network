@@ -3,6 +3,27 @@ set -euo pipefail
 
 # Output JSON { "text": short display, "tooltip": multi-line details, "class": ..., "percentage": 0-100 }
 
+fmt_age() {
+  local sec="${1:-0}"
+  [ "$sec" -lt 0 ] && sec=0
+  local d=$((sec / 86400))
+  local h=$(((sec % 86400) / 3600))
+  local m=$(((sec % 3600) / 60))
+  if [ "$d" -gt 0 ]; then
+    printf '%dd %dh' "$d" "$h"
+  elif [ "$h" -gt 0 ]; then
+    printf '%dh %dm' "$h" "$m"
+  else
+    printf '%dm' "$m"
+  fi
+}
+
+if [ "${1:-}" = "--fmt-age" ]; then
+  fmt_age "${2:-0}"
+  printf '\n'
+  exit 0
+fi
+
 # Prefer ethernet over wifi. Ignore tun/vpn/wireguard — those are overlay,
 # not the underlay the bar icon should represent.
 get_active() {
@@ -85,13 +106,35 @@ if [ -z "$vpn_name" ]; then
   fi
 fi
 
+vpn_since=0
+if [ -n "$vpn_name" ] && [ "$vpn_kind" != "external" ]; then
+  ts=$(nmcli -g connection.timestamp connection show "$vpn_name" 2>/dev/null || true)
+  case "$ts" in
+    ''|*[!0-9]*) ;;
+    *) vpn_since=$ts ;;
+  esac
+fi
+if [ "$vpn_since" = "0" ]; then
+  tun_dev=$(nmcli -t -f DEVICE,TYPE,STATE device status 2>/dev/null \
+    | awk -F: '$2 ~ /^(tun|wireguard|wg)$/ && $3 ~ /^connected/ {print $1; exit}' || true)
+  if [ -n "${tun_dev:-}" ] && [ -d "/sys/class/net/$tun_dev" ]; then
+    vpn_since=$(stat -c %Y "/sys/class/net/$tun_dev" 2>/dev/null || echo 0)
+  fi
+fi
+
 vpn_tooltip=""
 if [ -n "$vpn_name" ]; then
+  now=$(date +%s)
+  age=""
+  if [ "$vpn_since" -gt 0 ] && [ "$vpn_since" -le "$now" ]; then
+    age=$(fmt_age $((now - vpn_since)))
+  fi
   if [ "$vpn_kind" = "external" ]; then
     vpn_tooltip=$(printf 'VPN: %s (external tunnel)' "$vpn_name")
   else
     vpn_tooltip=$(printf 'VPN: %s' "$vpn_name")
   fi
+  [ -n "$age" ] && vpn_tooltip=$(printf '%s · up %s' "$vpn_tooltip" "$age")
 fi
 
 line=$(get_active)
@@ -105,7 +148,8 @@ if [ -z "$line" ]; then
     --arg vpnKind "$vpn_kind" \
     --argjson percentage 0 \
     --argjson vpnUp "$([ -n "$vpn_name" ] && echo true || echo false)" \
-    '{text:$text, tooltip:$tooltip, class:$class, device:$device, percentage:$percentage, vpn:$vpnUp, vpnName:$vpn, vpnKind:$vpnKind}'
+    --argjson vpnSince "${vpn_since:-0}" \
+    '{text:$text, tooltip:$tooltip, class:$class, device:$device, percentage:$percentage, vpn:$vpnUp, vpnName:$vpn, vpnKind:$vpnKind, vpnSince:$vpnSince}'
   exit 0
 fi
 
@@ -155,4 +199,5 @@ jq -cn \
   --arg vpnKind "$vpn_kind" \
   --argjson percentage "${pct:-0}" \
   --argjson vpnUp "$([ -n "$vpn_name" ] && echo true || echo false)" \
-  '{text:$text, tooltip:$tooltip, class:$class, device:$device, percentage:$percentage, vpn:$vpnUp, vpnName:$vpn, vpnKind:$vpnKind}'
+  --argjson vpnSince "${vpn_since:-0}" \
+  '{text:$text, tooltip:$tooltip, class:$class, device:$device, percentage:$percentage, vpn:$vpnUp, vpnName:$vpn, vpnKind:$vpnKind, vpnSince:$vpnSince}'

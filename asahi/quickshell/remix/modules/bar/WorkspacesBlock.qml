@@ -50,7 +50,7 @@ Item {
     border.width: 1
     border.color: Qt.alpha(Style.text, 0.08)
     implicitHeight: Style.barHeight - 2
-    implicitWidth: wsContent.implicitWidth + 10 + (specialBadge.visible ? 28 : 0)
+    implicitWidth: wsContent.implicitWidth + 10 + (specialBadge.visible ? Style.barWsSlot + 8 : 0)
 
     Rectangle {
       id: activeWsHighlight
@@ -146,9 +146,9 @@ Item {
             spacing: 4
 
             Rectangle {
-              width: 22
-              height: 22
-              radius: 11
+              width: Style.barWsSlot
+              height: Style.barWsSlot
+              radius: Style.barWsSlot / 2
               color: isFocused
                 ? Style.wsBadgeActiveBg
                 : (wsButton.isHovered ? Style.wsBadgeHoverBg : (wsButton.isVisibleElsewhere ? Style.wsBadgeVisibleBg : (wsButton.isOccupied ? Style.wsBadgeOccupiedBg : Style.wsBadgeEmptyBg)))
@@ -161,7 +161,7 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
                 color: isFocused ? Style.wsBadgeActiveText : (wsButton.isVisibleElsewhere ? Style.sky : (wsButton.isOccupied ? Style.wsOccupiedText : Style.wsEmptyText))
-                font { family: Style.fontFamily; pixelSize: wsButton.wsId >= 10 ? 10 : 11; bold: true }
+                font { family: Style.fontFamily; pixelSize: wsButton.wsId >= 10 ? 11 : 12; bold: true }
               }
             }
 
@@ -169,14 +169,14 @@ Item {
               model: wsButton.shownWindows
 
               Item {
-                width: 22
-                height: 22
+                width: Style.barWsSlot
+                height: Style.barWsSlot
 
                 IconImage {
                   id: appIcon
                   anchors.centerIn: parent
-                  width: 18
-                  height: 18
+                  width: Style.barWsIcon
+                  height: Style.barWsIcon
                   source: { controller.wsWindowVersion; return controller.appIconSource(modelData) }
                   visible: status === Image.Ready
                 }
@@ -188,16 +188,16 @@ Item {
                   horizontalAlignment: Text.AlignHCenter
                   verticalAlignment: Text.AlignVCenter
                   color: wsButton.isFocused ? Style.crust : Style.textAlt
-                  font { family: Style.fontFamily; pixelSize: 10; bold: true }
+                  font { family: Style.fontFamily; pixelSize: 11; bold: true }
                 }
               }
             }
 
             Rectangle {
               visible: wsButton.overflowCount > 0
-              width: visible ? 22 : 0
-              height: 22
-              radius: 11
+              width: visible ? Style.barWsSlot : 0
+              height: Style.barWsSlot
+              radius: Style.barWsSlot / 2
               color: Qt.alpha(Style.text, 0.10)
               border.width: 1
               border.color: Qt.alpha(Style.text, 0.18)
@@ -206,7 +206,7 @@ Item {
                 anchors.centerIn: parent
                 text: "+" + wsButton.overflowCount
                 color: wsButton.isFocused ? Style.crust : Style.textMuted
-                font { family: Style.fontFamily; pixelSize: 9; bold: true }
+                font { family: Style.fontFamily; pixelSize: 10; bold: true }
               }
             }
           }
@@ -229,8 +229,8 @@ Item {
       anchors.right: parent.right
       anchors.rightMargin: 6
       anchors.verticalCenter: parent.verticalCenter
-      width: 22
-      height: 22
+      width: Style.barWsSlot
+      height: Style.barWsSlot
       radius: Style.radiusSm
       visible: root.hasSpecialWorkspace
       color: Style.panelAccentBg
@@ -242,7 +242,7 @@ Item {
         anchors.centerIn: parent
         text: "S"
         color: Style.sky
-        font { family: Style.fontFamily; pixelSize: 10; bold: true }
+        font { family: Style.fontFamily; pixelSize: 11; bold: true }
       }
 
       MouseArea {

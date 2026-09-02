@@ -160,16 +160,18 @@ Singleton {
   readonly property int radiusSm: 6
   readonly property int radiusLg: 14
 
-  // Solid strip sizing — sketchybar top uses 32px; slightly taller for icons + workspace row.
-  readonly property int barHeight: 34
-  readonly property int barFontBody: 14
-  readonly property int barFontIcon: 20
-  readonly property int barFontGlyph: 20
-  readonly property int barFontMicVolIcon: 17
-  readonly property int barFontCaption: 11
+  // Solid strip sizing — tall enough for 23px glyphs + workspace app icons.
+  readonly property int barHeight: 36
+  readonly property int barFontBody: 15
+  readonly property int barFontIcon: 23
+  readonly property int barFontGlyph: 23
+  readonly property int barFontMicVolIcon: 21
+  readonly property int barFontCaption: 12
   readonly property int barEdgeMargin: 10
-  readonly property int barIconSlot: 28
+  readonly property int barIconSlot: 30
   readonly property int barChipInset: 4
+  readonly property int barWsIcon: 21
+  readonly property int barWsSlot: 24
 
   readonly property string fontFamily: "JetBrainsMono Nerd Font"
   readonly property int fontSize: 16

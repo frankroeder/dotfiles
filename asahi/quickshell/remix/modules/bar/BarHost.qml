@@ -249,7 +249,8 @@ Item {
 
     WidgetButton {
       barHost: barWindow
-      text: "󰍛 " + barWindow.fmt2(barWindow.cpuPerc) + "%"
+      icon: "󰍛"
+      text: barWindow.fmt2(barWindow.cpuPerc) + "%"
       fontSize: Style.barFontBody
       tooltipText: barWindow.cpuTooltip
       foreground: Style.orange
@@ -257,7 +258,8 @@ Item {
 
     WidgetButton {
       barHost: barWindow
-      text: "󰘚 " + barWindow.fmt2(barWindow.memPerc) + "%"
+      icon: "󰘚"
+      text: barWindow.fmt2(barWindow.memPerc) + "%"
       fontSize: Style.barFontBody
       tooltipText: barWindow.memTooltip
       foreground: Style.sky

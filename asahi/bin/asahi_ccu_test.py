@@ -51,9 +51,9 @@ eq(ccu.used_line(claude, now), "31% used · resets in 15h 59m", "used · resets 
 codex_reset = now + 4 * 86400 + 22 * 3600
 codex = ccu.weekly(0.18, codex_reset)
 eq(ccu.countdown(codex_reset, now), "4d 22h", "4d 22h countdown")
-eq(ccu.bar_chip("Claude", claude, now), "Claude 31% · 15h 59m", "claude chip")
-eq(ccu.bar_chip("Codex", codex, now), "Codex 18% · 4d 22h", "codex chip")
-eq(ccu.bar_chip("Codex", None, now), "Codex —", "unavailable weekly chip")
+eq(ccu.bar_chip("Claude", claude, now), "Claude  31% · 15h 59m", "claude chip")
+eq(ccu.bar_chip("Codex", codex, now), "Codex   18% ·  4d 22h", "codex chip")
+eq(ccu.bar_chip("Codex", None, now), "Codex  —".ljust(ccu.CHIP_W), "unavailable weekly chip")
 
 grok = ccu.weekly(0.22, now + 3 * 86400, week)
 cursor = ccu.from_helper_window({
@@ -61,8 +61,11 @@ cursor = ccu.from_helper_window({
   "reset_unix": now + 16 * 86400,
   "span_sec": 30 * 86400,
 })
-eq(ccu.bar_chip("Grok", grok, now), "Grok 22% · 3d 0h", "grok chip")
-eq(ccu.bar_chip("Cursor", cursor, now), "Cursor 31% · 16d 0h", "cursor chip")
+eq(ccu.bar_chip("Grok", grok, now), "Grok    22% ·   3d 0h", "grok chip")
+eq(ccu.bar_chip("Cursor", cursor, now), "Cursor  31% ·  16d 0h", "cursor chip")
+eq(len(ccu.bar_chip("Grok", grok, now)), ccu.CHIP_W, "grok chip width")
+eq(len(ccu.bar_chip("Cursor", cursor, now)), ccu.CHIP_W, "cursor chip width")
+eq(len(ccu.bar_chip("Grok", grok, now)), len(ccu.bar_chip("Cursor", cursor, now)), "rotating chips same size")
 eq(ccu.window_name(week), "weekly", "7d window is weekly")
 eq(ccu.window_name(30 * 86400), "monthly", "30d window is monthly")
 eq(ccu.usage_line(grok), "22% of weekly limit used", "grok usage line")
@@ -187,7 +190,7 @@ grok_card = ccu.serialize_card(
 eq(grok_card["head"], "SuperGrok Heavy", "grok head is plan name")
 eq(grok_card["usage_line"], "22% of weekly limit used", "grok sub usage")
 ok(grok_card["ident"].startswith("a@x.com"), "grok ident has email")
-eq(grok_card["chip"], "Grok 22% · 3d 0h", "grok chip on card")
+eq(grok_card["chip"], "Grok    22% ·   3d 0h", "grok chip on card")
 eq(len(grok_card["categories"]), 4, "grok category split")
 eq(grok_card["total_line"], "All time · 186M · $1.5k", "grok all-time")
 eq(len(grok_card["chart"]), 7, "grok week chart")
@@ -274,6 +277,9 @@ ok("usage_line" in qml_src and "reset_line" in qml_src, "Ccu.qml renders usage s
 ok("categories" in qml_src, "Ccu.qml renders category meter")
 ok("total_line" in qml_src and "days30_line" in qml_src, "Ccu.qml All time / 30d / 7d")
 ok("chipText" in qml_src, "Ccu.qml bar chip uses helper chip text")
+ok("chipBoxW" in qml_src, "Ccu.qml uses a fixed chip box so rotation does not resize")
+ok("barFontBody" in qml_src, "Ccu.qml chip uses Style.barFontBody")
+ok("pixelSize: 14" not in qml_src, "Ccu.qml chip is not a hardcoded 14px")
 ok("cursor_usage.py" not in qml_src, "QML does not fetch helpers itself")
 ok("tooltip" not in src, "asahi-ccu emits no hover tooltip")
 ok("TooltipWindow" not in qml_src, "Ccu.qml has no hover tooltip")

@@ -20,7 +20,7 @@ Rectangle {
   border.width: solidBar ? 0 : 1
   border.color: solidBar ? "transparent" : (ccuMouse.containsMouse || popup.shouldShow ? Style.barHoverBorder : Style.barBorder)
   scale: solidBar ? 1.0 : (ccuMouse.containsMouse || popup.shouldShow ? 1.018 : 1.0)
-  implicitWidth: Math.max(68, Math.max(row.implicitWidth, chipChars * 7.2) + (solidBar ? 8 : 14))
+  implicitWidth: Math.max(68, chipBoxW + (solidBar ? 10 : 16))
   implicitHeight: solidBar ? Style.barHeight : 26
 
   Rectangle {
@@ -74,6 +74,20 @@ Rectangle {
     return usageColor(chipUsed)
   }
   readonly property bool alarming: hasValue && chipUsed >= 90
+
+  FontMetrics {
+    id: chipMetrics
+    font.family: Style.fontFamily
+    font.pixelSize: Style.barFontBody
+  }
+
+  readonly property int chipBoxW: {
+    const n = Math.max(root.chipChars, 8)
+    const adv = chipMetrics.averageCharacterWidth > 0
+      ? chipMetrics.averageCharacterWidth
+      : Style.barFontBody * 0.62
+    return Math.ceil(n * adv)
+  }
 
   function usageColor(used) {
     if (used === null || used === undefined) return Style.textMuted
@@ -162,8 +176,10 @@ Rectangle {
 
     Text {
       text: root.chipText
-      font { family: Style.fontFamily; pixelSize: 14; bold: true }
+      width: root.chipBoxW
+      font { family: Style.fontFamily; pixelSize: Style.barFontBody }
       color: root.valueColor
+      horizontalAlignment: Text.AlignLeft
       verticalAlignment: Text.AlignVCenter
     }
   }

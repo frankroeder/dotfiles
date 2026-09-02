@@ -138,7 +138,7 @@ RowLayout {
 
   Rectangle {
     id: nightChip
-    width: solidBar ? 28 : 26
+    width: solidBar ? Style.barIconSlot : 26
     height: solidBar ? Style.barHeight : 26
     radius: solidBar ? 0 : Style.radius
     color: solidBar ? "transparent" : (nightMouse.containsMouse ? Style.panelWarningBg : Style.barBg)
@@ -157,6 +157,7 @@ RowLayout {
     }
 
     Text {
+      id: nightGlyph
       anchors.centerIn: parent
       text: root.nightLightOn ? "󰽥" : "󰖔"
       font.family: Style.fontFamily
@@ -205,8 +206,8 @@ RowLayout {
       id: recRow
       anchors.centerIn: parent
       spacing: 5
-      Text { text: "󰑋"; font.family: Style.fontFamily; font.pixelSize: 12; color: Style.red }
-      Text { text: "REC"; font.family: Style.fontFamily; font.pixelSize: 10; font.bold: true; color: Style.red }
+      Text { text: "󰑋"; font.family: Style.fontFamily; font.pixelSize: Style.barFontGlyph; color: Style.red }
+      Text { text: "REC"; font.family: Style.fontFamily; font.pixelSize: Style.barFontCaption; font.bold: true; color: Style.red }
     }
 
     MouseArea {
@@ -221,7 +222,7 @@ RowLayout {
 
   Rectangle {
     id: updateChip
-    width: solidBar ? 28 : 26
+    width: solidBar ? Style.barIconSlot : 26
     height: solidBar ? Style.barHeight : 26
     radius: solidBar ? 0 : Style.radius
     color: solidBar ? "transparent" : (updateMouse.containsMouse ? Style.panelWarningBg : Style.barBg)
@@ -242,6 +243,7 @@ RowLayout {
     }
 
     Text {
+      id: updateGlyph
       anchors.centerIn: parent
       text: "󰚰"
       font.family: Style.fontFamily

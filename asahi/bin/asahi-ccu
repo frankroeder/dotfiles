@@ -394,10 +394,19 @@ def category_percent(frac: Any) -> str:
   return f"{n}%"
 
 
+CHIP_NAME_W = 6
+CHIP_PCT_W = 4
+CHIP_CD_W = 7
+CHIP_W = CHIP_NAME_W + 1 + CHIP_PCT_W + 3 + CHIP_CD_W
+
+
 def bar_chip(name: str, win: dict[str, Any] | None, now: int) -> str:
+  label = str(name or "").ljust(CHIP_NAME_W)
   if not win:
-    return f"{name} —"
-  return f"{name} {percent(win['used'])} · {countdown(win['reset'], now)}"
+    return f"{label} —".ljust(CHIP_W)
+  pct = percent(win["used"]).rjust(CHIP_PCT_W)
+  cd = countdown(win["reset"], now).rjust(CHIP_CD_W)
+  return f"{label} {pct} · {cd}"
 
 
 def strip_point_zero(s: str) -> str:

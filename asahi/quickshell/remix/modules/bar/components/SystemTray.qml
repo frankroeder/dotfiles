@@ -33,8 +33,8 @@ Item {
 
         Image {
           anchors.centerIn: parent
-          width: 18
-          height: 18
+          width: 20
+          height: 20
           source: {
             const icon = modelData.icon ?? ""
             if (typeof icon === "string" && icon.includes("?path=")) {
