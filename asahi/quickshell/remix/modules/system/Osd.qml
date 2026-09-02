@@ -132,6 +132,9 @@ Scope {
         "hyprctl devices -j | jq -r '[.keyboards[] | select(.main == true) | .capsLock][0] // [.keyboards[] | .capsLock][0] // false'"
       ])
     }
+    function message(icon: string, label: string, value: string): void {
+      root.toast(icon, label, value, 1400)
+    }
   }
 
   PanelWindow {

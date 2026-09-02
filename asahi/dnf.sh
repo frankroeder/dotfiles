@@ -61,6 +61,7 @@ sudo dnf install -y \
   google-noto-color-emoji-fonts \
   grim \
   gnome-keyring \
+  hyprpicker \
   gwenview \
   hypridle \
   hyprland \
@@ -91,6 +92,9 @@ sudo dnf install -y \
   speakersafetyd \
   ripgrep \
   slurp \
+  tesseract \
+  tesseract-langpack-eng \
+  zbar \
   texlive-scheme-full \
   terminus-fonts-console \
   thunderbird \
@@ -119,7 +123,7 @@ FLATPAK_APPS=(
   com.protonvpn.www
   org.zotero.Zotero
   net.ankiweb.Anki
-  icom.nextcloud.desktopclient.nextcloud
+  com.nextcloud.desktopclient.nextcloud
 )
 
 flatpak install --user -y flathub "${FLATPAK_APPS[@]}"
@@ -139,6 +143,8 @@ sudo systemctl enable --now cups cups-browsed
 # - matugen (theming, per DankMaterialShell patterns): dnf or cargo install; integrate with QS for wallpaper-driven colors if chosen
 # - power-profiles-daemon: Omarchy wraps powerprofilesctl with no Apple Silicon
 #   backend. This machine is apple-cpufreq/schedutil; PPD does not drive it.
+# - hyprpicker: color picker (Super+Shift+F12). Not used for screenshots.
+# - tesseract / zbar: OCR and QR capture.
 # - wf-recorder: Asahi screen recorder (gpu-screen-recorder cannot init on
 #   Mesa Apple GPU). External brightness is a compositor shade — Asahi HDMI
 #   has no DDC I2C. No hibernate package — s2idle only.

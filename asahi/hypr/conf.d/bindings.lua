@@ -75,26 +75,36 @@ hl.bind(
   { desc = "Suspend" }
 ) -- s2idle only (Asahi: no disk hibernation)
 
+-- Mac capture row: Super+F10/F11/F12 (and bare media keys when fnmode=1).
+hl.bind(mod .. " + F10", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot windows"), { desc = "Screenshot window" })
+hl.bind(mod .. " + F11", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot smart"), { desc = "Screenshot smart" })
+hl.bind(mod .. " + F12", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot fullscreen"), { desc = "Screenshot display" })
+hl.bind(mod .. " + SHIFT + F11", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-ocr"), { desc = "OCR region" })
+hl.bind(mod .. " + CONTROL + F11", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-qr"), { desc = "QR region" })
+hl.bind(mod .. " + SHIFT + F12", hl.dsp.exec_cmd "hyprpicker -a", { desc = "Color picker" })
+hl.bind(mod .. " + ALT + F11", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record region"), { desc = "Record region (toggle)" })
+hl.bind(mod .. " + ALT + F12", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record fullscreen"), { desc = "Record focused display (toggle)" })
+hl.bind(mod .. " + XF86AudioMute", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot windows"), { locked = true, desc = "Screenshot window (top row)" })
+hl.bind(mod .. " + XF86AudioLowerVolume", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot smart"), { locked = true, desc = "Screenshot smart (top row)" })
+hl.bind(mod .. " + XF86AudioRaiseVolume", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot fullscreen"), { locked = true, desc = "Screenshot display (top row)" })
+hl.bind(mod .. " + SHIFT + XF86AudioRaiseVolume", hl.dsp.exec_cmd "hyprpicker -a", { locked = true, desc = "Color picker (top row)" })
+hl.bind(mod .. " + ALT + XF86AudioLowerVolume", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record region"), { locked = true, desc = "Record region (top row)" })
+hl.bind(mod .. " + ALT + XF86AudioRaiseVolume", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record fullscreen"), { locked = true, desc = "Record display (top row)" })
+
 hl.bind(
-  mod .. " + ALT + CONTROL + 4",
-  hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot smart"),
-  { desc = "Screenshot smart" }
+  mod .. " + comma",
+  hl.dsp.exec_cmd "qs -c remix ipc call notifications dismissOne",
+  { desc = "Dismiss last notification" }
 )
 hl.bind(
-  mod .. " + ALT + CONTROL + 5",
-  hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot fullscreen"),
-  { desc = "Screenshot fullscreen" }
-)
-hl.bind(mod .. " + ALT + CONTROL + 6", hl.dsp.exec_cmd "hyprpicker -a", { desc = "Color picker" })
-hl.bind(
-  mod .. " + ALT + CONTROL + 7",
-  hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record fullscreen"),
-  { desc = "Record focused display (toggle)" }
+  mod .. " + SHIFT + comma",
+  hl.dsp.exec_cmd "qs -c remix ipc call notifications dismissAll",
+  { desc = "Dismiss all notifications" }
 )
 hl.bind(
-  mod .. " + ALT + CONTROL + 8",
-  hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record region"),
-  { desc = "Record region (toggle)" }
+  mod .. " + CONTROL + Delete",
+  hl.dsp.exec_cmd(scripts .. "/asahi-monitor-internal toggle"),
+  { desc = "Toggle laptop display" }
 )
 
 -- Reloads
@@ -239,6 +249,7 @@ media_bind(
 )
 
 media_bind("XF86AudioMute", "output-volume mute-toggle", { desc = "Mute" })
+media_bind("SHIFT + XF86AudioMute", "output-switch", { desc = "Switch audio output" })
 media_bind("XF86AudioMicMute", "input-volume mute-toggle", { desc = "Mic mute" })
 
 media_bind("XF86AudioPlay", "playerctl play-pause", { desc = "Play pause" })
@@ -259,6 +270,7 @@ media_bind(
   "brightness lower",
   { repeating = true, desc = "Brightness down" }
 )
+-- Fine display brightness on Shift, same as volume. Keyboard backlight is Search/LaunchA.
 media_bind(
   "SHIFT + XF86MonBrightnessUp",
   "brightness +1",

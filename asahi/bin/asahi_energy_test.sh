@@ -161,6 +161,8 @@ pass "asahi-cmd-record status idle"
 # --- dnf.sh ships wf-recorder; make asahi -> install.sh asahi -> dnf.sh ---
 grep -qE '^[[:space:]]*wf-recorder \\$' "$ROOT/../dnf.sh" || fail_at "dnf.sh installs wf-recorder"
 pass "dnf.sh includes wf-recorder"
+grep -qE '^[[:space:]]*hyprpicker \\$' "$ROOT/../dnf.sh" || fail_at "dnf.sh installs hyprpicker"
+pass "dnf.sh includes hyprpicker"
 grep -q 'asahi-cmd-record fullscreen' "$ROOT/../hypr/conf.d/bindings.lua" || fail_at "hypr bindings start recording"
 pass "hypr bindings record fullscreen/region"
 

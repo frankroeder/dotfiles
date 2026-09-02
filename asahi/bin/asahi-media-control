@@ -5,8 +5,8 @@ set -euo pipefail
 target="${1:-}"
 action="${2:-}"
 
-if [ -z "$target" ] || [ -z "$action" ]; then
-  echo "usage: $0 <output-volume|input-volume|brightness|keyboard-brightness|caps-lock|playerctl> <action>" >&2
+if [ -z "$target" ] || { [ "$target" != "output-switch" ] && [ -z "$action" ]; }; then
+  echo "usage: $0 <output-volume|input-volume|output-switch|brightness|keyboard-brightness|caps-lock|playerctl> <action>" >&2
   exit 2
 fi
 
@@ -102,6 +102,35 @@ case "$target" in
       -1) wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 1%- ;;
     esac
     show_osd volume
+    ;;
+  output-switch)
+    if ! command -v pactl >/dev/null 2>&1; then
+      echo "pactl is not installed" >&2
+      exit 1
+    fi
+    mapfile -t sinks < <(timeout 2 pactl -f json list sinks 2>/dev/null | jq -r '
+      .[]
+      | select((.ports | length == 0) or ([.ports[]? | .availability != "not available"] | any))
+      | .name
+    ')
+    if [ "${#sinks[@]}" -eq 0 ]; then
+      show_osd message "󰖁" "Audio output" "No devices"
+      exit 1
+    fi
+    current="$(timeout 2 pactl get-default-sink 2>/dev/null || true)"
+    next_index=0
+    for i in "${!sinks[@]}"; do
+      if [ "${sinks[$i]}" = "$current" ]; then
+        next_index=$(( (i + 1) % ${#sinks[@]} ))
+        break
+      fi
+    done
+    next="${sinks[$next_index]}"
+    timeout 2 pactl set-default-sink "$next" >/dev/null
+    desc="$(timeout 2 pactl -f json list sinks 2>/dev/null | jq -r --arg n "$next" '
+      [.[] | select(.name == $n) | (.description // .name)][0] // $n
+    ')"
+    show_osd message "󰕾" "Audio output" "$desc"
     ;;
   input-volume)
     if [ "$action" = "mute-toggle" ]; then

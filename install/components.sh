@@ -452,37 +452,34 @@ comp_asahi_system() {
   sudo systemctl daemon-reload
   sudo systemctl enable asahi-tty-font.service
   sudo systemctl restart asahi-tty-font.service
+  local rebuild_initramfs=0
   # Full panel height beside the notch (appledrm). No-op without that driver.
-  if modinfo appledrm >/dev/null 2>&1 && [ ! -f /etc/modprobe.d/asahi-notch.conf ]; then
-    print_step "Enabling Asahi notch area (full display height)"
-    echo "options appledrm show_notch=1" | sudo tee /etc/modprobe.d/asahi-notch.conf >/dev/null
+  if modinfo appledrm >/dev/null 2>&1; then
+    if [ ! -f /etc/modprobe.d/asahi-notch.conf ] || ! cmp -s "$DOTFILES/asahi/modprobe.d/asahi-notch.conf" /etc/modprobe.d/asahi-notch.conf; then
+      print_step "Enabling Asahi notch area (full display height)"
+      sudo install -Dm644 "$DOTFILES/asahi/modprobe.d/asahi-notch.conf" /etc/modprobe.d/asahi-notch.conf
+      rebuild_initramfs=1
+    fi
+  fi
+  # Apple Silicon: media keys on the top row (hid_apple fnmode=1).
+  if [ "$(uname -m)" = "aarch64" ] && grep -qi apple /proc/device-tree/compatible 2>/dev/null; then
+    local hid_dst=/etc/modprobe.d/hid_apple.conf
+    if [ ! -f "$hid_dst" ] || grep -q 'fnmode=2' "$hid_dst"; then
+      print_step "hid_apple fnmode=1 (media keys on the top row)"
+      sudo install -Dm644 "$DOTFILES/asahi/modprobe.d/hid_apple.conf" "$hid_dst"
+      rebuild_initramfs=1
+      if [ -f /sys/module/hid_apple/parameters/fnmode ]; then
+        echo 1 | sudo tee /sys/module/hid_apple/parameters/fnmode >/dev/null || true
+      fi
+    fi
+  fi
+  if [ "$rebuild_initramfs" -eq 1 ]; then
     if ! have dracut; then
-      print_error "dracut not found; cannot rebuild initramfs for appledrm show_notch=1"
+      print_error "dracut not found; cannot rebuild initramfs for notch/fnmode"
       exit 1
     fi
     sudo dracut -f
-    print_ok "asahi-notch.conf written; reboot required"
-  fi
-  # Apple Silicon: early-load Apple HID modules in initramfs to avoid trackpad race on boot.
-  if [ "$(uname -m)" = "aarch64" ] && grep -qi apple /proc/device-tree/compatible 2>/dev/null; then
-    if [ ! -f /etc/mkinitcpio.conf.d/apple_hid_modules.conf ]; then
-      print_step "Early-loading Apple HID modules (trackpad race fix)"
-      sudo mkdir -p /etc/mkinitcpio.conf.d
-      sudo tee /etc/mkinitcpio.conf.d/apple_hid_modules.conf >/dev/null <<'EOF'
-# Load Apple HID before session start — avoids dockchannel-hid rebinding race on Asahi.
-for _asahi_apple_hid_module in hid_apple hid_magicmouse; do
-  modinfo -k "${KERNELVERSION:-$(uname -r)}" "$_asahi_apple_hid_module" >/dev/null 2>&1 &&
-    MODULES+=("$_asahi_apple_hid_module")
-done
-unset _asahi_apple_hid_module
-EOF
-      if have dracut; then
-        sudo dracut -f
-        print_ok "apple_hid_modules.conf written; reboot required"
-      else
-        print_warning "dracut not found; apple_hid_modules.conf written but initramfs not rebuilt"
-      fi
-    fi
+    print_ok "initramfs rebuilt; reboot required for notch/fnmode"
   fi
   if have brightnessctl; then
     brightnessctl --device='kbd_backlight' set 30% || true
@@ -727,8 +724,17 @@ comp_doctor() {
     for b in Hyprland quickshell qs hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl nm-connection-editor nmtui blueman-manager openconnect gnome-keyring-daemon wf-recorder grok-bot; do
       check_bin "$b" || true
     done
+    if command -v rpm >/dev/null 2>&1; then
+      if rpm -q quickshell-git >/dev/null 2>&1; then
+        print_warning "quickshell-git is installed (use Fedora quickshell; COPR git breaks on Qt bumps)"
+      elif rpm -q quickshell >/dev/null 2>&1; then
+        print_ok "Fedora quickshell package (not -git)"
+      fi
+    fi
     print_step "Checking Asahi hardware/session"
     report_check "asahi-notch.conf" test -f /etc/modprobe.d/asahi-notch.conf
+    report_check "hid_apple fnmode=1" grep -q 'fnmode=1' /etc/modprobe.d/hid_apple.conf
+    check_bin hyprpicker || true
     report_check "logind HandlePowerKey=ignore" grep -q '^HandlePowerKey=ignore' /etc/systemd/logind.conf.d/10-asahi-sleep.conf
     if busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager HandlePowerKey 2>/dev/null | grep -q '"ignore"'; then
       print_ok "logind live HandlePowerKey=ignore"

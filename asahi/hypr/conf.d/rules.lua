@@ -15,7 +15,7 @@ local function layer_rule(namespace, props)
 end
 
 window_rule({ class = ".*" }, { opacity = "0.97 0.9" })
-window_rule({ class = "^(firefox|librewolf)$", title = "^(Picture-in-Picture)$" }, { float = true })
+window_rule({ title = "(Picture.?in.?[Pp]icture)" }, { float = true })
 window_rule({ class = "^(zoom)$" }, { float = true })
 window_rule({ class = "^(blueman-manager|nm-connection-editor)$" }, { float = true, center = true })
 
