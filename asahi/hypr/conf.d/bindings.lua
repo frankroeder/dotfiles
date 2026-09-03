@@ -101,12 +101,6 @@ hl.bind(
   hl.dsp.exec_cmd "qs -c remix ipc call notifications dismissAll",
   { desc = "Dismiss all notifications" }
 )
-hl.bind(
-  mod .. " + CONTROL + Delete",
-  hl.dsp.exec_cmd(scripts .. "/asahi-monitor-internal toggle"),
-  { desc = "Toggle laptop display" }
-)
-
 -- Reloads
 hl.bind(
   mod .. " + CONTROL + ALT + R",
