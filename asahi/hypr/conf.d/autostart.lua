@@ -18,6 +18,7 @@ hl.on("hyprland.start", function()
   hl.exec_cmd "~/.dotfiles/asahi/bin/asahi-start-quickshell"
   hl.exec_cmd "hypridle"
   hl.exec_cmd "hyprsunset"
+  hl.exec_cmd(dotfilesDir .. "/asahi/bin/asahi-hdmi sync")
   -- No lock-on-boot: tty1 getty already authenticated this session (Service=login).
   hl.exec_cmd(launch(terminal), { workspace = "1 silent" })
 end)

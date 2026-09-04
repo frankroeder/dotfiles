@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# HDMI on Asahi: DCP shares a card with eDP. Modesetting on the udev tick
+# (valid_mode:0, eDP still flipping) freezes the laptop and leaves the Dell
+# black. monitors.lua keeps HDMI-A-1 disabled; this script enables it after
+# DP2HDMI link training.
+#
+# Enable MUST set disabled = false. Omitting the field leaves the lua
+# disable rule in place (hyprctl eval does not override it).
+
+set -euo pipefail
+
+action="${1:-}"
+name="${2:-HDMI-A-1}"
+settle_s="${ASAHI_HDMI_SETTLE_S:-2}"
+drm_path="${ASAHI_DRM_PATH:-/sys/class/drm}"
+gen_file="${ASAHI_HDMI_GEN:-${XDG_RUNTIME_DIR:-/tmp}/asahi-hdmi.gen}"
+
+usage() {
+  echo "usage: $0 <added|removed|sync|on|off> [HDMI-A-1]" >&2
+  exit 2
+}
+
+[[ "$name" =~ ^HDMI[A-Za-z0-9._-]*$ ]] || {
+  echo "refusing monitor name: $name" >&2
+  exit 1
+}
+
+drm_connected() {
+  local f
+  for f in "$drm_path"/card*-HDMI-A-*/status; do
+    [ -e "$f" ] || continue
+    [ "$(tr -d '[:space:]' <"$f")" = "connected" ] && return 0
+  done
+  return 1
+}
+
+hypr_json() {
+  hyprctl monitors all -j 2>/dev/null || printf '[]\n'
+}
+
+is_enabled() {
+  hypr_json | jq -e --arg n "$name" \
+    '.[] | select(.name == $n and .disabled != true)' >/dev/null
+}
+
+# Same numbers as the desc: rules in asahi/hypr/conf.d/monitors.lua.
+layout_fields() {
+  local desc
+  desc="$(hypr_json | jq -r --arg n "$name" \
+    '.[] | select(.name == $n) | (.description // "")' | head -1)"
+  case "$desc" in
+  *P2723DE*) printf 'mode = "2560x1440@59.95100", position = "0x-1252", scale = 1.25' ;;
+  *ULTRAFINE*) printf 'mode = "3840x2160@60.000", position = "-2560x-360", scale = 1.88' ;;
+  *) printf 'mode = "preferred", position = "auto", scale = 1.5' ;;
+  esac
+}
+
+eval_monitor() {
+  hyprctl eval "hl.monitor({ output = \"$name\", $1 })" >/dev/null 2>&1 || true
+}
+
+off_hdmi() {
+  eval_monitor "disabled = true"
+}
+
+on_hdmi() {
+  eval_monitor "disabled = false, $(layout_fields)"
+}
+
+bump_gen() {
+  local n=1
+  [ -s "$gen_file" ] && n=$(($(tr -d '[:space:]' <"$gen_file") + 1))
+  mkdir -p "$(dirname "$gen_file")"
+  printf '%s\n' "$n" >"$gen_file"
+  printf '%s\n' "$n"
+}
+
+stale() {
+  [ "$(tr -d '[:space:]' <"$gen_file" 2>/dev/null || true)" != "$1" ]
+}
+
+after_settle() {
+  local gen="$1"
+  sleep "$settle_s"
+  stale "$gen" && return 0
+  if drm_connected; then
+    on_hdmi
+  else
+    off_hdmi
+  fi
+}
+
+case "$action" in
+off | removed)
+  bump_gen >/dev/null
+  off_hdmi
+  ;;
+on)
+  on_hdmi
+  ;;
+added)
+  after_settle "$(bump_gen)"
+  ;;
+sync)
+  if drm_connected; then
+    is_enabled || after_settle "$(bump_gen)"
+  else
+    bump_gen >/dev/null
+    off_hdmi
+  fi
+  ;;
+*)
+  usage
+  ;;
+esac

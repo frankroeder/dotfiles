@@ -19,6 +19,13 @@ hl.monitor {
   scale = 1.25,
 }
 
+-- Last named rule for HDMI-A-1: skip the udev-tick modeset (DCP not ready).
+-- asahi-hdmi enables after link training; that eval must set disabled = false.
+hl.monitor {
+  output = "HDMI-A-1",
+  disabled = true,
+}
+
 hl.monitor {
   output = "",
   mode = "preferred",
@@ -44,3 +51,34 @@ hl.bind(
   hl.dsp.exec_cmd "hyprctl dispatch dpms on eDP-1; ~/.dotfiles/asahi/bin/asahi-idle-brightness restore",
   { locked = true }
 )
+
+local hdmi = dotfilesDir .. "/asahi/bin/asahi-hdmi"
+
+local function hdmi_name(m)
+  if type(m) == "table" then
+    return m.name or ""
+  end
+  return type(m) == "string" and m or ""
+end
+
+local function hdmi_cmd(action, m)
+  local n = hdmi_name(m)
+  if n ~= "" and not n:match "^HDMI" then
+    return
+  end
+  local cmd = hdmi .. " " .. action
+  if n ~= "" then
+    cmd = cmd .. " " .. n
+  end
+  hl.exec_cmd(cmd)
+end
+
+hl.on("monitor.added", function(m)
+  hdmi_cmd("added", m)
+end)
+hl.on("monitor.removed", function(m)
+  hdmi_cmd("removed", m)
+end)
+hl.on("config.reloaded", function()
+  hl.exec_cmd(hdmi .. " sync")
+end)

@@ -1,31 +1,37 @@
 #!/usr/bin/env bash
-# DPMS helper. `on` is a no-op when every enabled monitor is already lit —
-# a redundant enable after resume forces a modeset and flashes the panel.
+# DPMS only the outputs Hyprland currently has enabled.
+# A global enable/disable pokes disconnected HDMI-A-1 on Asahi and the
+# next plug freezes the laptop panel (shared DCP).
+# `on` is a no-op when every enabled monitor is already lit — a redundant
+# enable after resume forces a modeset and flashes the panel.
 
 set -euo pipefail
 
 action="${1:-}"
-
-usage() {
+case "$action" in
+on | off) ;;
+*)
   echo "usage: $0 <on|off>" >&2
   exit 2
+  ;;
+esac
+
+enabled_names() {
+  hyprctl monitors -j 2>/dev/null | jq -r \
+    '.[] | select(.disabled != true) | .name'
 }
 
-all_lit() {
+if [ "$action" = on ]; then
   hyprctl monitors -j 2>/dev/null | jq -e \
     '[.[] | select(.disabled == false)] | length > 0 and all(.dpmsStatus)' \
-    >/dev/null 2>&1
-}
+    >/dev/null 2>&1 && exit 0
+fi
 
-case "$action" in
-  on)
-    all_lit && exit 0
-    hyprctl dispatch 'hl.dsp.dpms({ action = "enable" })' >/dev/null
-    ;;
-  off)
-    hyprctl dispatch 'hl.dsp.dpms({ action = "disable" })' >/dev/null
-    ;;
-  *)
-    usage
-    ;;
-esac
+act=disable
+[ "$action" = on ] && act=enable
+
+while IFS= read -r name; do
+  [[ "$name" =~ ^[A-Za-z0-9._-]+$ ]] || continue
+  hyprctl dispatch "hl.dsp.dpms({ action = \"$act\", monitor = \"$name\" })" \
+    >/dev/null 2>&1 || true
+done < <(enabled_names)

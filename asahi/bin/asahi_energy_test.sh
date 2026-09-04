@@ -151,6 +151,50 @@ mkdir -p "$tmp/bl/a" "$tmp/bl/b"
 # --- asahi-dpms usage ---
 "$ROOT/asahi-dpms" 2>/dev/null && fail_at "asahi-dpms no-arg should fail" || pass "asahi-dpms usage"
 
+dpms_dir="$tmp/dpms"
+mkdir -p "$dpms_dir/bin"
+dpms_log="$dpms_dir/dispatch.log"
+: >"$dpms_log"
+cat >"$dpms_dir/bin/hyprctl" <<'EOF'
+#!/bin/sh
+if [ "$1" = monitors ]; then
+  cat "${HYPR_MONITORS_JSON:?}"
+  exit 0
+fi
+if [ "$1" = dispatch ]; then
+  printf '%s\n' "$*" >> "${HYPR_DISPATCH_LOG:?}"
+  exit 0
+fi
+exit 0
+EOF
+chmod +x "$dpms_dir/bin/hyprctl"
+run_dpms() {
+  PATH="$dpms_dir/bin:$PATH" HYPR_MONITORS_JSON="$dpms_dir/mon.json" \
+    HYPR_DISPATCH_LOG="$dpms_log" "$ROOT/asahi-dpms" "$@"
+}
+
+# Laptop-only: must DPMS eDP, never a disconnected HDMI-A-1.
+printf '[{"name":"eDP-1","disabled":false,"dpmsStatus":true}]\n' >"$dpms_dir/mon.json"
+: >"$dpms_log"
+run_dpms off
+grep -q 'monitor = "eDP-1"' "$dpms_log" || fail_at "dpms off laptop-only hits eDP"
+grep -q HDMI "$dpms_log" && fail_at "dpms off laptop-only must not poke HDMI" || pass "dpms off does not poke disconnected HDMI"
+: >"$dpms_log"
+run_dpms on
+if grep -q . "$dpms_log"; then
+  fail_at "dpms on is no-op when eDP is already lit"
+else
+  pass "dpms on is no-op when already lit"
+fi
+
+# Docked: both enabled outputs, skip a disabled one.
+printf '[{"name":"eDP-1","disabled":false,"dpmsStatus":false},{"name":"HDMI-A-1","disabled":false,"dpmsStatus":false},{"name":"HDMI-A-2","disabled":true,"dpmsStatus":false}]\n' >"$dpms_dir/mon.json"
+: >"$dpms_log"
+run_dpms on
+grep -q 'monitor = "eDP-1"' "$dpms_log" || fail_at "dpms on docked hits eDP"
+grep -q 'monitor = "HDMI-A-1"' "$dpms_log" || fail_at "dpms on docked hits live HDMI"
+grep -q 'HDMI-A-2' "$dpms_log" && fail_at "dpms on must skip disabled outputs" || pass "dpms on only live outputs"
+
 # --- asahi-bluetooth-power usage ---
 "$ROOT/asahi-bluetooth-power" 2>/dev/null && fail_at "bluetooth-power no-arg should fail" || pass "asahi-bluetooth-power usage"
 
