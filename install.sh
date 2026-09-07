@@ -73,6 +73,7 @@ _linux_components() {
   comp_misc
   comp_node
   comp_nvim
+  comp_agents
 }
 
 profile_linux() {

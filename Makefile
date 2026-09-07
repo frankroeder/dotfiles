@@ -95,10 +95,12 @@ smoke: ## Syntax-check installer scripts
 	@bash -n $(DOTFILES)/install/components.sh
 	@bash -n $(DOTFILES)/install/check.sh
 	@bash -n $(DOTFILES)/install/icloud_test.sh
+	@bash -n $(DOTFILES)/install/after_test.sh
 	@bash -n $(DOTFILES)/linux/apt.sh
 	@bash -n $(DOTFILES)/scripts/nvim.sh
 	@bash -n $(DOTFILES)/scripts/tree-sitter.sh
 	@bash $(DOTFILES)/install/icloud_test.sh
+	@bash $(DOTFILES)/install/after_test.sh
 	@echo ok
 
 .PHONY: test

@@ -661,9 +661,11 @@ comp_after() {
     print_step "Updating Treesitter parsers"
     nvim -i NONE -u "$DOTFILES/nvim/init.lua" -c "TSUpdate" -c "quitall"
   fi
+  # Agent configs are OS-agnostic (have CLI → link Nextcloud files). Do not
+  # nest this under Darwin: make after on Linux/Asahi never reached it.
+  comp_agents
   if [ "$OSTYPE_UNAME" = "Darwin" ]; then
     comp_services
-    comp_agents
     comp_zotero_bbt
   fi
 }
