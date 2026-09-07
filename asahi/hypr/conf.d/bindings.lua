@@ -38,6 +38,11 @@ hl.bind(
   hl.dsp.exec_cmd "qs -c remix ipc call launcher quick bluetooth",
   { desc = "Bluetooth" }
 )
+hl.bind(
+  mod .. " + CONTROL + N",
+  hl.dsp.exec_cmd(scripts .. "/asahi-nightlight"),
+  { desc = "Night light" }
+)
 hl.bind(mod .. " + S", hl.dsp.workspace.toggle_special "scratch", { desc = "Toggle scratchpad" })
 hl.bind(
   mod .. " + SHIFT + S",

@@ -17,6 +17,7 @@ hl.on("hyprland.start", function()
   hl.exec_cmd "hyprpaper"
   hl.exec_cmd "~/.dotfiles/asahi/bin/asahi-start-quickshell"
   hl.exec_cmd "hypridle"
+  -- Identity profile in hyprsunset.conf: no tint until Super+Ctrl+N.
   hl.exec_cmd "hyprsunset"
   hl.exec_cmd(dotfilesDir .. "/asahi/bin/asahi-hdmi sync")
   -- No lock-on-boot: tty1 getty already authenticated this session (Service=login).

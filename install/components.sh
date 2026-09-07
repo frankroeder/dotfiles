@@ -568,6 +568,12 @@ comp_asahi_desktop() {
   mkdir -p "$HOME/.config/autostart"
   link_if_exists "$DOTFILES/asahi/xdg-autostart/gnome-keyring-ssh.desktop" \
     "$HOME/.config/autostart/gnome-keyring-ssh.desktop"
+  # Quickshell owns notifications. Fedora's swaync dbus-activates on reload,
+  # loses the name, and fumon toasts the fail — mask it like sshd.
+  if ! systemctl --user mask swaync.service; then
+    print_error "failed to mask swaync.service"
+  fi
+  systemctl --user reset-failed swaync.service || true
   mkdir -p "$HOME/.config/gtk-3.0" "$HOME/.config/gtk-4.0"
   mkdir -p "$HOME/.config/wireplumber/wireplumber.conf.d"
   link_if_exists "$DOTFILES/asahi/wireplumber/wireplumber.conf.d/bluetooth-a2dp-autoconnect.conf" \
@@ -780,6 +786,8 @@ comp_doctor() {
     report_check "asahi-charge-limit libexec" test -x /usr/local/libexec/asahi-charge-limit
     report_check "ALS keyboard backlight unit" test -L "$HOME/.config/systemd/user/asahi-brightness-keyboard-auto.service"
     report_check "ALS keyboard backlight helper" test -x "$HOME/.local/bin/asahi-brightness-keyboard-auto"
+    report_check "swaync.service mask" \
+      [ "$(systemctl --user is-enabled swaync.service 2>/dev/null || true)" = masked ]
     if [ -w /sys/class/power_supply/macsmc-battery/charge_control_end_threshold ]; then
       print_ok "macsmc charge_control_end_threshold is writable"
     else
