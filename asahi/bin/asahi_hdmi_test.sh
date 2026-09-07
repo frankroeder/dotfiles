@@ -61,12 +61,17 @@ run added
 grep -q 'disabled = false' "$kw_log" || fail_at "added must pass disabled = false"
 grep -q 'mode = "2560x1440@59.95100"' "$kw_log" \
   || fail_at "added uses Dell mode (got $(tr '\n' ' ' <"$kw_log"))"
+grep -q 'position = "0x-1152"' "$kw_log" \
+  || fail_at "Dell abuts above eDP-1 (got $(tr '\n' ' ' <"$kw_log"))"
 pass "added enables Dell with disabled = false"
 
 printf '[{"name":"HDMI-A-1","disabled":true,"description":"LG Electronics LG ULTRAFINE"}]\n' >"$mon_json"
 : >"$kw_log"
 run on
 grep -q '3840x2160@60.000' "$kw_log" || fail_at "LG layout (got $(tr '\n' ' ' <"$kw_log"))"
+grep -q 'position = "-2048x-360"' "$kw_log" \
+  || fail_at "LG abuts eDP-1 at logical 2048 (got $(tr '\n' ' ' <"$kw_log"))"
+grep -q 'scale = 1.875' "$kw_log" || fail_at "LG scale 1.875 (got $(tr '\n' ' ' <"$kw_log"))"
 pass "on uses LG layout from description"
 
 printf 'disconnected\n' >"$drm/card2-HDMI-A-1/status"
@@ -83,14 +88,29 @@ run sync
 grep -q 'disabled = false' "$kw_log" || fail_at "sync enables when HDMI is still disabled"
 pass "sync enables connected-but-disabled HDMI"
 
-printf '[{"name":"HDMI-A-1","disabled":false,"description":"Dell Inc. DELL P2723DE 895ZNR3"}]\n' >"$mon_json"
+printf '[{"name":"HDMI-A-1","disabled":false,"description":"Dell Inc. DELL P2723DE 895ZNR3","x":0,"y":-1152,"scale":1.25}]\n' >"$mon_json"
 : >"$kw_log"
 run sync
 if grep -q . "$kw_log"; then
-  fail_at "sync no-op when already enabled"
+  fail_at "sync no-op when Dell layout already matches (got $(tr '\n' ' ' <"$kw_log"))"
 else
   pass "sync no-op when already enabled"
 fi
+
+printf '[{"name":"HDMI-A-1","disabled":false,"description":"Dell Inc. DELL P2723DE 895ZNR3","x":-2048,"y":-360,"scale":1.875}]\n' >"$mon_json"
+: >"$kw_log"
+run sync
+grep -q 'position = "0x-1152"' "$kw_log" && grep -q 'scale = 1.25' "$kw_log" \
+  || fail_at "sync must not keep UltraFine geometry on the Dell (got $(tr '\n' ' ' <"$kw_log"))"
+grep -q -- '-2048' "$kw_log" && fail_at "Dell sync must not write LG x (got $(tr '\n' ' ' <"$kw_log"))"
+pass "sync reapplies Dell layout after LG leftover"
+
+printf '[{"name":"HDMI-A-1","disabled":false,"description":"LG Electronics LG ULTRAFINE","x":0,"y":-1152,"scale":1.25}]\n' >"$mon_json"
+: >"$kw_log"
+run sync
+grep -q 'position = "-2048x-360"' "$kw_log" && grep -q 'scale = 1.875' "$kw_log" \
+  || fail_at "sync must restore UltraFine left-of-eDP (got $(tr '\n' ' ' <"$kw_log"))"
+pass "sync reapplies LG layout after Dell leftover"
 
 printf 'connected\n' >"$drm/card2-HDMI-A-1/status"
 printf '%s\n' "$dell" >"$mon_json"
@@ -112,6 +132,10 @@ cfg="$ROOT/../hypr/conf.d/monitors.lua"
 grep -q 'output = "HDMI-A-1"' "$cfg" && grep -q 'disabled = true' "$cfg" \
   || fail_at "monitors.lua must disable HDMI-A-1"
 grep -q 'asahi-hdmi' "$cfg" || fail_at "monitors.lua must call asahi-hdmi"
+grep -A4 'ULTRAFINE' "$cfg" | grep -q -- '-2048x-360' \
+  || fail_at "monitors.lua LG position must match asahi-hdmi"
+grep -A4 'P2723DE' "$cfg" | grep -q -- '0x-1152' \
+  || fail_at "monitors.lua Dell position must match asahi-hdmi"
 pass "monitors.lua disables HDMI until asahi-hdmi"
 
 if [ "$fail" -ne 0 ]; then

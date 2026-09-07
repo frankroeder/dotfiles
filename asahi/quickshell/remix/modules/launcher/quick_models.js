@@ -126,8 +126,9 @@ function gcd(a, b) {
 }
 
 // Hyprland only accepts scales whose logical size divides the mode evenly;
-// snap a requested scale to the nearest one it will take (omarchy's trick:
-// work in 1/120 units like wlroots).
+// snap a requested scale to the nearest 1/120 divisor (omarchy's units).
+// Walk both directions: rounding only upward turned 1.88 into 2 and 1.5
+// on the 3024x1964 notch panel into 2 instead of 4/3.
 function cleanScale(scale, width, height) {
   var requested = Number(scale)
   var modeWidth = Number(width)
@@ -138,8 +139,75 @@ function cleanScale(scale, width, height) {
   var divisor = gcd(Math.round(modeWidth * 120), Math.round(modeHeight * 120))
   var scaleUnits = Math.round(requested * 120)
   if (scaleUnits > divisor) scaleUnits = divisor
-  while (divisor % scaleUnits !== 0) scaleUnits++
-  return normalizeScale(scaleUnits / 120)
+  if (scaleUnits < 1) scaleUnits = 1
+
+  var down = scaleUnits
+  var up = scaleUnits
+  while (down > 1 && divisor % down !== 0) down--
+  while (up < divisor && divisor % up !== 0) up++
+  if (divisor % down !== 0) down = 1
+  if (divisor % up !== 0) up = divisor
+  var pick = (Math.abs(up - scaleUnits) < Math.abs(scaleUnits - down)) ? up : down
+  return normalizeScale(pick / 120)
+}
+
+function formatScale(scale) {
+  var n = Number(scale)
+  if (!isFinite(n)) return ""
+  var rounded = Math.round(n * 1000) / 1000
+  if (Math.abs(rounded - Math.round(rounded)) < 0.0005) return String(Math.round(rounded))
+  return String(rounded).replace(/(\.\d*?[1-9])0+$/, "$1")
+}
+
+function logicalSize(width, height, scale) {
+  var s = Number(scale)
+  if (!isFinite(s) || s <= 0) s = 1
+  return { w: (Number(width) || 0) / s, h: (Number(height) || 0) / s }
+}
+
+// After a scale/mode change, snap this output onto the nearest neighbor
+// so a stale x/y cannot open a cursor gap (HDMI at -2560 with logical
+// width 2048 left a 512px hole next to eDP-1).
+function abutPosition(monitor, newW, newH, others) {
+  var x = Number(monitor && monitor.x) || 0
+  var y = Number(monitor && monitor.y) || 0
+  var nw = Number(newW)
+  var nh = Number(newH)
+  if (!isFinite(nw) || nw <= 0 || !isFinite(nh) || nh <= 0) {
+    return Math.round(x) + "x" + Math.round(y)
+  }
+  // Origin stays put (eDP-1 is 0x0). Closing a gap by shifting the laptop
+  // would drag every mapped workspace off the committed layout.
+  if (x === 0 && y === 0) return "0x0"
+
+  var old = logicalSize(monitor && monitor.width, monitor && monitor.height, monitor && monitor.scale)
+  var bestDist = Infinity
+  var bestX = x
+  var bestY = y
+  var name = monitor && monitor.name
+
+  function consider(dist, nx, ny) {
+    if (dist < bestDist) {
+      bestDist = dist
+      bestX = nx
+      bestY = ny
+    }
+  }
+
+  var list = others || []
+  for (var i = 0; i < list.length; i++) {
+    var other = list[i]
+    if (!other || other.disabled || (name && other.name === name)) continue
+    var os = logicalSize(other.width, other.height, other.scale)
+    if (!(os.w > 0) || !(os.h > 0)) continue
+    var ox = Number(other.x) || 0
+    var oy = Number(other.y) || 0
+    consider(Math.abs((x + old.w) - ox), ox - nw, y)
+    consider(Math.abs(x - (ox + os.w)), ox + os.w, y)
+    consider(Math.abs((y + old.h) - oy), x, oy - nh)
+    consider(Math.abs(y - (oy + os.h)), x, oy + os.h)
+  }
+  return Math.round(bestX) + "x" + Math.round(bestY)
 }
 
 function matchingScaleIndex(scales, currentScale, width, height) {
@@ -187,6 +255,30 @@ function availableScales(scales, width, height) {
     .map(function(candidate) { return candidate.value })
 }
 
+function monitorLayoutKey(m) {
+  if (!m) return ""
+  var desc = String(m.description || "").trim()
+  if (/ULTRAFINE/i.test(desc)) return "lg-ultrafine"
+  if (/P2723DE/i.test(desc)) return "dell-p2723de"
+  if (desc) return desc
+  return m.name || ""
+}
+
+// Scale pills are per sink. 1.875 is the UltraFine's 4K step; the Dell
+// 1440p panel and the notch eDP do not offer it.
+function scalePresetsFor(m) {
+  var desc = String((m && (m.description || m.model || "")) || "")
+  var width = Number(m && m.width) || 0
+  var height = Number(m && m.height) || 0
+  if (/ULTRAFINE/i.test(desc) || (width >= 3800 && height >= 2100)) {
+    return ["1", "1.25", "1.5", "1.6", "1.875", "2"]
+  }
+  if (/P2723DE/i.test(desc) || (width === 2560 && height === 1440)) {
+    return ["1", "1.25", "1.5", "1.6", "2"]
+  }
+  return ["1", "1.25", "1.5", "2"]
+}
+
 function monitorModeString(m) {
   if (!m) return "preferred"
   var w = Number(m.width) || 0
@@ -205,11 +297,13 @@ function monitorPositionString(m) {
 // Disable. Hyprland's disabled JSON often zeros width/height.
 function rememberEnabledMonitor(saved, m) {
   var next = saved || {}
-  if (!m || !m.name || m.disabled) return next
+  if (!m || m.disabled) return next
+  var key = monitorLayoutKey(m)
+  if (!key) return next
   var mode = monitorModeString(m)
   if (mode === "preferred") return next
   next = Object.assign({}, next)
-  next[m.name] = {
+  next[key] = {
     mode: mode,
     position: monitorPositionString(m),
     scale: m.scale || 1
@@ -220,7 +314,7 @@ function rememberEnabledMonitor(saved, m) {
 // Fields for hl.monitor(..., disabled = false). Last-known beats a zeroed
 // disabled probe; never omit disabled = false (the off rule would stick).
 function enableMonitorFields(m, saved) {
-  var rec = (saved && m && saved[m.name]) || {}
+  var rec = (saved && m && (saved[monitorLayoutKey(m)] || saved[m.name])) || {}
   var liveMode = monitorModeString(m)
   var livePos = monitorPositionString(m)
   return {
@@ -650,6 +744,11 @@ if (typeof module !== "undefined") {
     clampBrightness: clampBrightness,
     normalizeScale: normalizeScale,
     cleanScale: cleanScale,
+    formatScale: formatScale,
+    logicalSize: logicalSize,
+    abutPosition: abutPosition,
+    monitorLayoutKey: monitorLayoutKey,
+    scalePresetsFor: scalePresetsFor,
     matchingScaleIndex: matchingScaleIndex,
     availableScales: availableScales,
     monitorModeString: monitorModeString,

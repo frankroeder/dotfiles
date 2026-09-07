@@ -3185,7 +3185,7 @@ Scope {
 
     // ---- Scale presets for the focused monitor (omarchy.monitor) ----
     // cleanScale snaps to values Hyprland actually accepts for the mode.
-    readonly property var scalePresets: ["1", "1.25", "1.6", "2", "3", "4"]
+    readonly property var scalePresets: QuickModels.scalePresetsFor(quickMonitorsRoot.focusedMon)
     readonly property var focusedMon: {
       const list = quickMonitorsRoot.mons || []
       return list.find(m => m && m.focused && !m.disabled) || quickMonitorsRoot.monitorPrimary()
@@ -3229,12 +3229,18 @@ Scope {
     // apply through hl.monitor via eval, like mirror/external-only do. The
     // position stays explicit (omarchy uses "auto", but this setup pins
     // monitor positions in monitors.lua — auto would rearrange the layout).
+    // Re-abut after a size change so a leftover x/y cannot open a cursor gap.
     function applyMonitorConfig(m, mode, scale, status) {
+      const parsed = QuickModels.parseModeString(mode)
+      const s = Math.max(0.25, Number(scale) || 1)
+      const newW = parsed ? parsed.width / s : quickMonitorsRoot.monitorLogicalWidth(m)
+      const newH = parsed ? parsed.height / s : quickMonitorsRoot.monitorLogicalHeight(m)
+      const pos = QuickModels.abutPosition(m, newW, newH, quickMonitorsRoot.mons)
       quickMonitorsRoot.monStatus = status
       monAction.command = ["hyprctl", "eval",
         "hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name)
         + ", mode = " + quickMonitorsRoot.luaString(mode)
-        + ", position = " + quickMonitorsRoot.luaString((m.x || 0) + "x" + (m.y || 0))
+        + ", position = " + quickMonitorsRoot.luaString(pos)
         + ", scale = " + scale + " })"]
       monAction.running = true
     }
@@ -3498,7 +3504,7 @@ Scope {
               ctx.fillRect(x+1, y+1, w-2, h-2)
               const name = (m.name || "mon").slice(0, 14)
               const logical = Math.round(quickMonitorsRoot.monitorLogicalWidth(m)) + "x" + Math.round(quickMonitorsRoot.monitorLogicalHeight(m)) + " logical"
-              const meta = "scale " + (m.scale || 1) + "  " + (m.x || 0) + "," + (m.y || 0)
+              const meta = "scale " + QuickModels.formatScale(m.scale || 1) + "  " + (m.x || 0) + "," + (m.y || 0)
               const inset = Math.max(4, Math.min(8, w * 0.04))
               ctx.fillStyle = Style.menuInk
               if (h >= 72) {
@@ -3555,7 +3561,7 @@ Scope {
                 ColumnLayout {
                   Layout.fillWidth: true; spacing: 0
                   Text { text: (modelData.name || "?") + (modelData.mirrorOf && modelData.mirrorOf !== "none" ? (" mirrors " + modelData.mirrorOf) : "") + (modelData.disabled ? "  (off)" : ""); color: modelData.disabled ? Style.menuInkDeep : Style.menuInk; font.pixelSize: root.fontPx(10); font.family: root.uiFont; font.bold: modelData.focused; elide: Text.ElideRight; Layout.fillWidth: true }
-                  Text { text: quickMonitorsRoot.monitorMode(modelData) + "  scale " + (modelData.scale||1) + "  pos " + (modelData.x||0) + "," + (modelData.y||0); color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont; elide: Text.ElideRight; Layout.fillWidth: true }
+                  Text { text: quickMonitorsRoot.monitorMode(modelData) + "  scale " + QuickModels.formatScale(modelData.scale||1) + "  pos " + (modelData.x||0) + "," + (modelData.y||0); color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont; elide: Text.ElideRight; Layout.fillWidth: true }
                 }
                 // Enable/disable this display (guarded against the last one).
                 Rectangle {

@@ -44,15 +44,35 @@ is_enabled() {
 }
 
 # Same numbers as the desc: rules in asahi/hypr/conf.d/monitors.lua.
+# LG = left of eDP; Dell = above eDP. Never share one HDMI geometry.
 layout_fields() {
   local desc
   desc="$(hypr_json | jq -r --arg n "$name" \
     '.[] | select(.name == $n) | (.description // "")' | head -1)"
   case "$desc" in
-  *P2723DE*) printf 'mode = "2560x1440@59.95100", position = "0x-1252", scale = 1.25' ;;
-  *ULTRAFINE*) printf 'mode = "3840x2160@60.000", position = "-2560x-360", scale = 1.88' ;;
+  *P2723DE*) printf 'mode = "2560x1440@59.95100", position = "0x-1152", scale = 1.25' ;;
+  *ULTRAFINE*) printf 'mode = "3840x2160@60.000", position = "-2048x-360", scale = 1.875' ;;
   *) printf 'mode = "preferred", position = "auto", scale = 1.5' ;;
   esac
+}
+
+# True when the live output already matches this sink's committed layout.
+# HDMI-A-1 is reused: an enabled port with the UltraFine's x/y must not
+# count as "already set up" after the Dell EDID appears (or the reverse).
+live_layout_ok() {
+  local fields pos scale
+  fields="$(layout_fields)"
+  case "$fields" in
+  *'position = "auto"'*) return 0 ;;
+  esac
+  pos="$(printf '%s' "$fields" | sed -n 's/.*position = "\([^"]*\)".*/\1/p')"
+  scale="$(printf '%s' "$fields" | sed -n 's/.*scale = \([^, ]*\).*/\1/p')"
+  [ -n "$pos" ] && [ -n "$scale" ] || return 1
+  hypr_json | jq -e --arg n "$name" --arg pos "$pos" --arg scale "$scale" '
+    .[] | select(.name == $n and .disabled != true)
+    | (((.x // 0) | tostring) + "x" + ((.y // 0) | tostring)) == $pos
+      and ((.scale - ($scale | tonumber)) | fabs) < 0.02
+  ' >/dev/null
 }
 
 eval_monitor() {
@@ -103,7 +123,13 @@ added)
   ;;
 sync)
   if drm_connected; then
-    is_enabled || after_settle "$(bump_gen)"
+    if is_enabled && live_layout_ok; then
+      :
+    elif is_enabled; then
+      on_hdmi
+    else
+      after_settle "$(bump_gen)"
+    fi
   else
     bump_gen >/dev/null
     off_hdmi

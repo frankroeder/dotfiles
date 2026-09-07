@@ -34,6 +34,42 @@ assert.strictEqual(M.cleanScale(1.6, 2560, 1600), "1.6")
 const snapped = M.cleanScale(1.3, 2560, 1600)
 assert.ok(snapped !== "", "1.3 should snap to something valid")
 assert.strictEqual(M.cleanScale(0, 2560, 1600), "")
+// nearest divisor, not the next higher: 1.88 → 1.875 (2-dec "1.88"), 1.5 on
+// the notch panel → 4/3 ("1.33"), not 2.
+assert.strictEqual(M.cleanScale(1.88, 3840, 2160), "1.88")
+assert.strictEqual(M.cleanScale(1.875, 3840, 2160), "1.88")
+assert.strictEqual(M.cleanScale(1.5, 3024, 1964), "1.33")
+assert.strictEqual(M.formatScale(1.3333334), "1.333")
+assert.strictEqual(M.formatScale(1.875), "1.875")
+assert.strictEqual(M.formatScale(2), "2")
+
+const gapHdmi = { name: "HDMI-A-1", width: 3840, height: 2160, scale: 1.875, x: -2560, y: -360 }
+const gapEdp = { name: "eDP-1", width: 3024, height: 1964, scale: 1.333334, x: 0, y: 0 }
+assert.strictEqual(
+  M.abutPosition(gapHdmi, 2048, 1152, [gapHdmi, gapEdp]),
+  "-2048x-360",
+  "scale change keeps HDMI's right edge on eDP-1"
+)
+assert.strictEqual(
+  M.abutPosition(gapEdp, 2268, 1473, [gapHdmi, gapEdp]),
+  "0x0",
+  "abut leaves the origin output at 0x0"
+)
+const dell = { name: "HDMI-A-1", width: 2560, height: 1440, scale: 1.25, x: 0, y: -1252 }
+assert.strictEqual(
+  M.abutPosition(dell, 2048, 1152, [gapEdp, dell]),
+  "0x-1152",
+  "Dell above eDP-1 uses its own logical height"
+)
+
+assert.deepStrictEqual(
+  M.scalePresetsFor({ description: "LG Electronics LG ULTRAFINE 112NTMX6B267", width: 3840, height: 2160 }),
+  ["1", "1.25", "1.5", "1.6", "1.875", "2"]
+)
+assert.ok(M.scalePresetsFor({ description: "Dell Inc. DELL P2723DE 895ZNR3", width: 2560, height: 1440 }).indexOf("1.875") === -1)
+assert.ok(M.scalePresetsFor({ name: "eDP-1", width: 3024, height: 1964 }).indexOf("1.875") === -1)
+assert.strictEqual(M.monitorLayoutKey({ name: "HDMI-A-1", description: "LG Electronics LG ULTRAFINE" }), "lg-ultrafine")
+assert.strictEqual(M.monitorLayoutKey({ name: "HDMI-A-1", description: "Dell Inc. DELL P2723DE 895ZNR3" }), "dell-p2723de")
 
 const scales = M.availableScales(["1", "1.25", "1.6", "2", "3", "4"], 2560, 1600)
 assert.ok(scales.indexOf("1") !== -1 && scales.indexOf("2") !== -1)
@@ -68,20 +104,40 @@ assert.strictEqual(M.matchingScaleIndex(scales, "9.99", 2560, 1600), -1)
 
 const remembered = M.rememberEnabledMonitor({}, {
   name: "HDMI-A-1", disabled: false, width: 2560, height: 1440,
+  description: "Dell Inc. DELL P2723DE 895ZNR3",
   refreshRate: 59.951, scale: 1.25, x: 0, y: -1252
 })
-assert.deepStrictEqual(remembered["HDMI-A-1"], {
+assert.deepStrictEqual(remembered["dell-p2723de"], {
   mode: "2560x1440@59.951", position: "0x-1252", scale: 1.25
+})
+assert.strictEqual(remembered["HDMI-A-1"], undefined, "HDMI-A-1 is shared; remember by sink id")
+const rememberedLg = M.rememberEnabledMonitor(remembered, {
+  name: "HDMI-A-1", disabled: false, width: 3840, height: 2160,
+  description: "LG Electronics LG ULTRAFINE 112NTMX6B267",
+  refreshRate: 60, scale: 1.875, x: -2048, y: -360
+})
+assert.deepStrictEqual(rememberedLg["dell-p2723de"], remembered["dell-p2723de"], "LG must not clobber Dell")
+assert.deepStrictEqual(rememberedLg["lg-ultrafine"], {
+  mode: "3840x2160@60.000", position: "-2048x-360", scale: 1.875
 })
 assert.deepStrictEqual(
   M.rememberEnabledMonitor(remembered, { name: "HDMI-A-1", disabled: true, width: 0, height: 0 }),
   remembered,
   "disabled probe must not wipe last-known geometry"
 )
-const enable = M.enableMonitorFields({ name: "HDMI-A-1", disabled: true, width: 0, height: 0, x: 0, y: 0 }, remembered)
+const enable = M.enableMonitorFields({
+  name: "HDMI-A-1", disabled: true, width: 0, height: 0, x: 0, y: 0,
+  description: "Dell Inc. DELL P2723DE 895ZNR3"
+}, rememberedLg)
 assert.strictEqual(enable.mode, "2560x1440@59.951")
 assert.strictEqual(enable.position, "0x-1252")
 assert.strictEqual(enable.scale, 1.25)
+const enableLg = M.enableMonitorFields({
+  name: "HDMI-A-1", disabled: true, width: 0, height: 0,
+  description: "LG Electronics LG ULTRAFINE 112NTMX6B267"
+}, rememberedLg)
+assert.strictEqual(enableLg.position, "-2048x-360")
+assert.strictEqual(enableLg.scale, 1.875)
 assert.strictEqual(M.enableMonitorFields({ name: "eDP-1", width: 3024, height: 1890, refreshRate: 120, scale: 1.5, x: 0, y: 0 }, {}).mode, "3024x1890@120.000")
 
 assert.strictEqual(M.clampBrightness(150), 100)

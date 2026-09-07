@@ -1,21 +1,31 @@
+-- Notch panel is 3024x1964 (1890 was the pre-notch crop). 1.5 is not a
+-- legal 1/120 scale on 1964; Hyprland snaps it to 4/3.
 hl.monitor {
   output = "eDP-1",
-  mode = "3024x1890@120.000",
+  mode = "3024x1964@120.000",
   position = "0x0",
-  scale = 1.5,
+  scale = 1.333334,
 }
 
+-- Both externals arrive as HDMI-A-1. Rules are desc:-keyed so a sink
+-- swap cannot inherit the other panel's geometry. asahi-hdmi reapplies
+-- the matching block after link training (and on sync if identity drifted).
+--
+-- LG UltraFine: left of the laptop, 4K @ 1.875 (logical 2048x1152).
+-- x must be -2048, not -2560 (that was 3840/1.5 and left a 512px cursor gap).
 hl.monitor {
   output = "desc:LG Electronics LG ULTRAFINE 112NTMX6B267",
   mode = "3840x2160@60.000",
-  position = "-2560x-360",
-  scale = 1.88,
+  position = "-2048x-360",
+  scale = 1.875,
 }
 
+-- Dell P2723DE: above the laptop, 1440p @ 1.25 (logical 2048x1152).
+-- Not the UltraFine's left-side stack — y = -1152 so the bottom edge meets eDP-1.
 hl.monitor {
   output = "desc:Dell Inc. DELL P2723DE 895ZNR3",
   mode = "2560x1440@59.95100",
-  position = "0x-1252",
+  position = "0x-1152",
   scale = 1.25,
 }
 
