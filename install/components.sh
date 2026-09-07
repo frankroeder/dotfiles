@@ -447,11 +447,13 @@ comp_asahi_logind() {
 comp_asahi_system() {
   require_linux
   bash "$DOTFILES/asahi/dnf.sh"
-  sudo install -Dm644 "$DOTFILES/asahi/systemd/system/asahi-tty-font.service" /etc/systemd/system/asahi-tty-font.service
+  # Console font, getty prompt included. This has to be vconsole.conf rather
+  # than a setfont unit: systemd-vconsole-setup is udev-triggered and re-runs
+  # as the DRM devices appear, so it overwrites anything a service set earlier.
+  sudo install -Dm644 "$DOTFILES/asahi/vconsole.conf" /etc/vconsole.conf
+  sudo systemctl restart systemd-vconsole-setup.service
   comp_asahi_logind
   sudo systemctl daemon-reload
-  sudo systemctl enable asahi-tty-font.service
-  sudo systemctl restart asahi-tty-font.service
   local rebuild_initramfs=0
   # Full panel height beside the notch (appledrm). No-op without that driver.
   if modinfo appledrm >/dev/null 2>&1; then
@@ -473,13 +475,24 @@ comp_asahi_system() {
       fi
     fi
   fi
+  # Bind the internal keyboard on first registration instead of letting it
+  # churn through hid-generic, which can cost the trackpad or keyboard for a
+  # whole session when logind's TakeDevice loses the race.
+  if [ "$(uname -m)" = "aarch64" ] && grep -qi apple /proc/device-tree/compatible 2>/dev/null; then
+    local hid_dracut=/etc/dracut.conf.d/10-asahi-hid.conf
+    if ! cmp -s "$DOTFILES/asahi/dracut.conf.d/10-asahi-hid.conf" "$hid_dracut" 2>/dev/null; then
+      print_step "Early-loading Apple HID modules from the initramfs"
+      sudo install -Dm644 "$DOTFILES/asahi/dracut.conf.d/10-asahi-hid.conf" "$hid_dracut"
+      rebuild_initramfs=1
+    fi
+  fi
   if [ "$rebuild_initramfs" -eq 1 ]; then
     if ! have dracut; then
-      print_error "dracut not found; cannot rebuild initramfs for notch/fnmode"
+      print_error "dracut not found; cannot rebuild initramfs for notch/fnmode/HID"
       exit 1
     fi
     sudo dracut -f
-    print_ok "initramfs rebuilt; reboot required for notch/fnmode"
+    print_ok "initramfs rebuilt; reboot required for notch/fnmode/HID"
   fi
   if have brightnessctl; then
     brightnessctl --device='kbd_backlight' set 30% || true

@@ -8,7 +8,7 @@ Mirrors sketchybar/top/items/ccu.lua using the same helpers:
   sketchybar/helpers/claude_usage.py
   sketchybar/helpers/ccu_cost.py
 
-Grok + Cursor are the bar chips; Claude / Codex stay in the popup.
+Grok + Cursor + Claude are the bar chips; Codex stays in the popup.
 Always prints one JSON object for Quickshell.
 """
 
@@ -52,6 +52,7 @@ EXTRA_BIN_DIRS = (
 )
 
 WEEK_SEC = 7 * 24 * 60 * 60
+SESSION_SPAN_SEC = 5 * 60 * 60
 NO_WEEKLY = "Weekly limit unavailable"
 MONTH_NAMES = (
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -92,7 +93,7 @@ PROVIDER_DEFS = (
     "label": "Claude",
     "accent": "peach",
     "bin": "claude",
-    "bar": False,
+    "bar": True,
     "url": CLAUDE_USAGE,
   },
   {
@@ -332,6 +333,8 @@ def window_name(span: Any) -> str:
   s = num(span)
   if s is None:
     s = float(WEEK_SEC)
+  if s <= 6 * 60 * 60:
+    return "session"
   if 6 * 86400 <= s <= 8 * 86400:
     return "weekly"
   if 27 * 86400 <= s <= 32 * 86400:
@@ -729,6 +732,21 @@ def claude_state(result: dict[str, Any] | None) -> dict[str, Any]:
         "label": extra_label(result["scoped"]),
         "weekly": from_helper_window(result["scoped"]),
       })
+  # Claude Code usually reports no weekly window -- the rolling 5-hour session
+  # is the live signal. The bar chip is built from st["weekly"], so without
+  # this the chip reads "Claude -" while the popup shows a real session
+  # number. Promote the session, and drop it from extras so the same window is
+  # not listed twice on the card.
+  if st["weekly"] is None and result.get("session"):
+    promoted = from_helper_window(result["session"])
+    if promoted:
+      # The session block carries no period_start/span_sec, so
+      # from_helper_window defaults the span to a week and window_name would
+      # then call it "weekly". Claude's session window is 5 hours.
+      promoted["span"] = float(SESSION_SPAN_SEC)
+      st["weekly"] = promoted
+      session_label = extra_label(result["session"])
+      extras = [e for e in extras if e.get("label") != session_label]
   st["extras"] = extras
   return st
 

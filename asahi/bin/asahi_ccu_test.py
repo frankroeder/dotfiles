@@ -68,6 +68,7 @@ eq(len(ccu.bar_chip("Cursor", cursor, now)), ccu.CHIP_W, "cursor chip width")
 eq(len(ccu.bar_chip("Grok", grok, now)), len(ccu.bar_chip("Cursor", cursor, now)), "rotating chips same size")
 eq(ccu.window_name(week), "weekly", "7d window is weekly")
 eq(ccu.window_name(30 * 86400), "monthly", "30d window is monthly")
+eq(ccu.window_name(ccu.SESSION_SPAN_SEC), "session", "5h window is a session")
 eq(ccu.usage_line(grok), "22% of weekly limit used", "grok usage line")
 eq(ccu.usage_line(cursor), "31% of monthly limit used", "cursor usage line")
 ok("Resets" in ccu.reset_line(grok, now), "reset line has Resets")
@@ -217,7 +218,7 @@ eq(cursor_card["extras"][2]["text"], "$86.00 of $400 used", "cursor spend extra 
 eq(cursor_card["ident"], "dev@cursor.com", "cursor ident is email only")
 
 claude_card = ccu.serialize_card(
-  {"id": "claude", "label": "Claude", "accent": "peach", "bar": False, "url": ccu.CLAUDE_USAGE},
+  {"id": "claude", "label": "Claude", "accent": "peach", "bar": True, "url": ccu.CLAUDE_USAGE},
   {
     "weekly": claude,
     "cats": [],
@@ -233,6 +234,46 @@ claude_card = ccu.serialize_card(
 eq(claude_card["head"], "31% used · resets in 15h 59m", "claude keeps single-line head")
 eq(claude_card["usage_line"], "", "claude has no plan subline")
 eq(claude_card["ident"], "", "claude has no ident")
+ok(claude_card["bar"], "claude is a rotating bar chip")
+
+# Claude Code normally reports no weekly window, only the rolling 5-hour
+# session. That has to reach the bar chip as a percentage rather than an em
+# dash, and be named "session" rather than defaulting to a week-long span.
+session_only = ccu.claude_state({
+  "weekly": None,
+  "scoped": None,
+  "session": {
+    "kind": "session",
+    "label": "Session",
+    "used": 16.0,
+    "reset_unix": now + 4 * 3600,
+  },
+  "limits": [],
+})
+eq(session_only["weekly"]["used"], 0.16, "session promoted to the primary window")
+eq(session_only["weekly"]["span"], float(ccu.SESSION_SPAN_SEC), "promoted session spans 5h")
+eq(session_only["extras"], [], "promoted session is not also an extra")
+eq(
+  ccu.bar_chip("Claude", session_only["weekly"], now),
+  "Claude  16% ·   4h 0m",
+  "claude chip shows the session percentage",
+)
+eq(
+  len(ccu.bar_chip("Claude", session_only["weekly"], now)),
+  ccu.CHIP_W,
+  "claude chip keeps the rotation width",
+)
+eq(ccu.usage_line(session_only["weekly"]), "16% of session limit used", "session usage line")
+
+# A real weekly window still wins, and the session stays an extra.
+both = ccu.claude_state({
+  "weekly": {"used": 40.0, "reset_unix": now + 3 * 86400, "span_sec": week},
+  "scoped": None,
+  "session": {"kind": "session", "label": "Session", "used": 16.0, "reset_unix": now + 3600},
+  "limits": [],
+})
+eq(both["weekly"]["used"], 0.4, "weekly wins over session when present")
+eq(len(both["extras"]), 1, "session stays an extra alongside a weekly window")
 
 st = ccu.grok_state({
   "utilization": 21.0,

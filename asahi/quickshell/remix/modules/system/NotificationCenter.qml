@@ -37,9 +37,18 @@ Scope {
     return String(value || "").replace(/<[^>]*>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
   }
 
+  // Any app on the bus can set image-path, and IconImage will fetch an http
+  // URL — so only local sources are rendered; the rest fall back to the app
+  // icon. (appIcon is safe already: it goes through the icon-theme lookup,
+  // which returns "" for a URL.)
+  function localImage(value) {
+    const s = String(value || "")
+    return s.startsWith("image:") || s.startsWith("file:") || s.startsWith("/")
+  }
+
   function iconFor(entry) {
     if (!entry) return ""
-    if (entry.image) return entry.image
+    if (localImage(entry.image)) return entry.image
     const raw = entry.appIcon || entry.desktopEntry || entry.appName || ""
     return raw ? Quickshell.iconPath(raw, true) : ""
   }

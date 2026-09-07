@@ -18,6 +18,12 @@ window_rule({ class = ".*" }, { opacity = "0.97 0.9" })
 window_rule({ title = "(Picture.?in.?[Pp]icture)" }, { float = true })
 window_rule({ class = "^(zoom)$" }, { float = true })
 window_rule({ class = "^(blueman-manager|nm-connection-editor)$" }, { float = true, center = true })
+window_rule({ class = "^(gcr-prompter)$" }, { float = true, center = true })
+
+-- Trackpad scrolling in the terminal is far too fast at the global
+-- scroll_factor, because ghostty scrolls by lines rather than pixels. 0.2 is
+-- omarchy's Asahi value for exactly this pairing.
+window_rule({ class = "^(com\\.mitchellh\\.ghostty)$" }, { scroll_touchpad = 0.2 })
 
 -- Quickshell (bar + popups + OSD + notif toast from NotificationServer in remix/shell.qml)
 layer_rule("^(quickshell.*)$", { blur = true, ignore_alpha = 0.3 })
