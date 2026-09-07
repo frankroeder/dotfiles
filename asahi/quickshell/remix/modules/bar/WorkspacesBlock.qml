@@ -249,7 +249,7 @@ Item {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: Quickshell.execDetached(["hyprctl", "dispatch", "togglespecialworkspace", "scratch"])
+        onClicked: Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.workspace.toggle_special(\"scratch\")"])
         onWheel: wheel => controller.cycleWorkspace(wheel.angleDelta.y < 0)
       }
     }

@@ -68,14 +68,15 @@ Item {
   function refreshHyprClients() { if (!hyprClientsProc.running) hyprClientsProc.running = true }
 
   function activateWorkspace(wsId) {
-    const ws = Hyprland.workspaces.values.find(w => w.id === wsId)
-    if (ws) ws.activate()
-    else Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({ workspace = " + wsId + " })"])
+    // Hyprland 0.56 lua treats `dispatch workspace N` as `hl.dispatch(workspace N)` (syntax error).
+    // Quickshell's ws.activate() uses that classic dispatcher, so bar clicks never switch.
+    Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({ workspace = " + wsId + " })"])
     refreshWorkspaceIcons(2)
   }
 
   function cycleWorkspace(next) {
-    Quickshell.execDetached(["hyprctl", "dispatch", "workspace", next ? "e+1" : "e-1"])
+    const step = next ? "e+1" : "e-1"
+    Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({ workspace = \"" + step + "\" })"])
     refreshWorkspaceIcons(2)
   }
 
