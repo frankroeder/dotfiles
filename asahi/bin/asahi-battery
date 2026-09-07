@@ -109,6 +109,11 @@ case "$status" in
 esac
 battery_text="$text ${capacity}%"
 
+if [ "${1:-}" = "text" ]; then
+  printf '%s\n' "$battery_text"
+  exit 0
+fi
+
 # Charge-hold: AC present, a cap below 100, and the pack is no longer
 # taking meaningful current (Not charging / Full-below-100 / trickle at cap).
 holding=false

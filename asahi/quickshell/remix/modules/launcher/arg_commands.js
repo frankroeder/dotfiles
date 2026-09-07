@@ -1,11 +1,12 @@
 // Argument-taking launcher shortcuts. Tab arms the prefix and the search
-// field becomes the argument slot (dict, @engines, >, !, =).
+// field becomes the argument slot (dict, @engines, >, ;, !, =).
 // QML: import "arg_commands.js" as ArgCommands
 // Node: require("./arg_commands.js")
 
 function placeholder(command, entry) {
   const cmd = String(command || "")
   if (cmd === "dict") return "Type a word to translate"
+  if (cmd === ";") return "Type to filter emoji"
   if (cmd === ">") return "Search files in ~"
   if (cmd === "!") return "Search the web"
   if (cmd === "=") return "Type an expression"
@@ -18,7 +19,7 @@ function join(command, arg) {
   const cmd = String(command || "")
   const a = String(arg || "")
   if (!cmd) return a
-  if (cmd === ">" || cmd === "!" || cmd === "=") return a ? cmd + " " + a : cmd
+  if (cmd === ">" || cmd === "!" || cmd === "=" || cmd === ";") return a ? cmd + " " + a : cmd
   return a ? cmd + " " + a : cmd
 }
 
@@ -26,7 +27,7 @@ function argFromQuery(query, command) {
   const q = String(query || "").trim()
   const cmd = String(command || "")
   if (!cmd) return q
-  if (cmd === ">" || cmd === "!" || cmd === "=") {
+  if (cmd === ">" || cmd === "!" || cmd === "=" || cmd === ";") {
     if (q.charAt(0) !== cmd) return ""
     return q.substring(1).replace(/^\s+/, "")
   }
@@ -62,6 +63,7 @@ function parse(query, engines) {
     return { command: "dict", arg: q.replace(/^dict\s*/i, "") }
   }
   if (q.charAt(0) === ">") return { command: ">", arg: q.substring(1).replace(/^\s+/, "") }
+  if (q.charAt(0) === ";") return { command: ";", arg: q.substring(1).replace(/^\s+/, "") }
   if (q.charAt(0) === "!") return { command: "!", arg: q.substring(1).replace(/^\s+/, "") }
   if (q.charAt(0) === "=") return { command: "=", arg: q.substring(1).replace(/^\s+/, "") }
   if (q.charAt(0) === "@") {
@@ -96,6 +98,7 @@ function entryCommand(entry) {
   }
   if (entry.id === "dict-prompt") return "dict"
   if (entry.special === "dict" && !entry.copy) return "dict"
+  if (entry.special === "emoji" && !entry.copy) return ";"
   return ""
 }
 

@@ -16,6 +16,7 @@ import "../../"
 import "Data.js" as Data
 import "websearch.js" as WebSearch
 import "arg_commands.js" as ArgCommands
+import "emoji.js" as Emoji
 import "dictcc-core.mjs" as DictCC
 import "launcher_layout.js" as LauncherGeom
 import "hub_logo.js" as HubLogo
@@ -140,6 +141,8 @@ Scope {
     { key: "battery", aliases: ["bat", "power", "charge"], icon: "󰁹", name: "Battery", comment: "Battery status, health, and power", mode: "battery" },
     { key: "bluetooth", aliases: ["bt"], icon: "󰂯", name: "Bluetooth", comment: "Open Bluetooth devices", mode: "bluetooth" },
     { key: "storage", aliases: ["disk", "space"], icon: "󰋊", name: "Storage", comment: "Disk usage and home folders", mode: "storage" },
+    { key: "clipboard", aliases: ["clip", "cliphist", "paste"], icon: "󰅌", name: "Clipboard", comment: "cliphist history — copy, delete, wipe", mode: "clipboard" },
+    { key: "packages", aliases: ["pkg", "dnf", "pkgman"], icon: "󰏖", name: "Packages", comment: "Search and manage dnf packages", ipc: "pkgman" },
     { key: "screensaver", aliases: ["saver"], icon: "󱄄", name: "Screensaver", comment: "Shader idle display", command: [root.binDir + "/asahi-screensaver", "toggle"] },
     { key: "record", aliases: ["rec", "wf-recorder"], icon: "󰑋", name: "Record display", comment: "Toggle focused-display recording (wf-recorder)", command: [root.binDir + "/asahi-cmd-record", "fullscreen"] },
     { key: "ocr", aliases: ["text", "tesseract"], icon: "󰴑", name: "OCR region", comment: "Copy text from a screen region", command: [root.binDir + "/asahi-cmd-ocr"] },
@@ -223,7 +226,11 @@ Scope {
   property var shots: []
   property string copiedShot: ""
   property string shotPreviewPath: ""
+  property var clips: []
+  property string clipsError: ""
+  property string copiedClip: ""
   Timer { id: copyClear; interval: 1200; onTriggered: copiedShot = "" }
+  Timer { id: clipCopyClear; interval: 1200; onTriggered: copiedClip = "" }
 
   Process {
     id: sidebarProc
@@ -265,6 +272,44 @@ Scope {
     repeat: true
     triggeredOnStart: true
     onTriggered: if (!sidebarProc.running) sidebarProc.running = true
+  }
+
+  function scanClips() {
+    Quickshell.execDetached(["bash", root.binDir + "/asahi-cliphist", "watch"])
+    if (!clipScan.running) clipScan.running = true
+  }
+  Process {
+    id: clipScan
+    command: ["bash", root.binDir + "/asahi-cliphist", "list"]
+    running: false
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        try {
+          const data = JSON.parse(text || "{}")
+          root.clips = data.entries || []
+          root.clipsError = data.error || ""
+        } catch (e) {
+          root.clips = []
+          root.clipsError = "parse"
+        }
+      }
+    }
+  }
+  function copyClip(id) {
+    if (!id) return
+    root.copiedClip = id
+    clipCopyClear.restart()
+    Quickshell.execDetached(["bash", root.binDir + "/asahi-cliphist", "copy", String(id)])
+  }
+  function deleteClip(id) {
+    if (!id) return
+    root.clips = (root.clips || []).filter(c => String(c.id) !== String(id))
+    Quickshell.execDetached(["bash", root.binDir + "/asahi-cliphist", "delete", String(id)])
+  }
+  function wipeClips() {
+    root.clips = []
+    Quickshell.execDetached(["bash", root.binDir + "/asahi-cliphist", "wipe"])
   }
 
   function scanShots() {
@@ -4837,6 +4882,136 @@ Scope {
       }
     }
   } }
+  Component { id: quickClipboardComp; Item {
+    anchors.fill: parent
+    ColumnLayout {
+      anchors.fill: parent
+      spacing: 8
+
+      RowLayout {
+        Layout.fillWidth: true
+        Text {
+          Layout.fillWidth: true
+          text: root.clipsError === "cliphist-missing"
+            ? "cliphist is not installed"
+            : ((root.clips || []).length + " ENTRIES")
+          color: Style.menuInkDeep
+          font.pixelSize: root.fontPx(11)
+          font.family: root.uiFont
+          font.letterSpacing: 1.2
+        }
+        Rectangle {
+          width: wipeLbl.implicitWidth + 16
+          height: 26
+          radius: Style.menuRadius
+          color: wipeMa.containsMouse ? Style.panelDangerBg : Style.menuControlBg
+          border.color: Style.menuSep
+          border.width: 1
+          Text {
+            id: wipeLbl
+            anchors.centerIn: parent
+            text: "WIPE"
+            color: Style.red
+            font.pixelSize: root.fontPx(10)
+            font.family: root.uiFont
+          }
+          MouseArea {
+            id: wipeMa
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.wipeClips()
+          }
+        }
+      }
+
+      ListView {
+        id: clipList
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        clip: true
+        spacing: 4
+        boundsBehavior: Flickable.StopAtBounds
+        model: root.clips || []
+        ScrollBar.vertical: Menu.MenuScrollBar {}
+        delegate: Rectangle {
+          required property var modelData
+          width: clipList.width
+          height: modelData.isImage ? 72 : 44
+          radius: 8
+          color: root.copiedClip === String(modelData.id) ? Style.menuRowSel : (clipMa.containsMouse ? Style.menuRowHi : Style.menuControlBg)
+          border.width: 1
+          border.color: root.copiedClip === String(modelData.id) ? Style.menuSeal : Style.menuSep
+          RowLayout {
+            anchors.fill: parent
+            anchors.margins: 8
+            spacing: 8
+            Image {
+              visible: !!modelData.isImage && !!modelData.thumb
+              Layout.preferredWidth: 56
+              Layout.preferredHeight: 48
+              source: modelData.thumb ? ("file://" + modelData.thumb) : ""
+              fillMode: Image.PreserveAspectCrop
+              asynchronous: true
+            }
+            Text {
+              visible: !modelData.isImage
+              text: "󰅌"
+              color: Style.menuSeal
+              font.pixelSize: root.fontPx(14)
+              font.family: root.uiFont
+            }
+            Text {
+              Layout.fillWidth: true
+              text: modelData.isImage ? (modelData.preview || "image") : (modelData.preview || "")
+              color: Style.menuInk
+              font.pixelSize: root.fontPx(11)
+              font.family: root.uiFont
+              elide: Text.ElideRight
+              wrapMode: Text.NoWrap
+            }
+            Text {
+              visible: root.copiedClip === String(modelData.id)
+              text: "copied"
+              color: Style.green
+              font.pixelSize: root.fontPx(10)
+              font.family: root.uiFont
+            }
+          }
+          MouseArea {
+            id: clipMa
+            anchors.fill: parent
+            hoverEnabled: true
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            cursorShape: Qt.PointingHandCursor
+            onClicked: function (mouse) {
+              if (mouse.button === Qt.RightButton) root.deleteClip(modelData.id)
+              else root.copyClip(modelData.id)
+            }
+          }
+        }
+      }
+
+      Text {
+        visible: (root.clips || []).length === 0 && root.clipsError !== "cliphist-missing"
+        text: "Clipboard history is empty — copy something"
+        color: Style.menuInkDeep
+        font.pixelSize: root.fontPx(11)
+        font.family: root.uiFont
+        Layout.alignment: Qt.AlignHCenter
+      }
+      Text {
+        Layout.fillWidth: true
+        text: "L: copy  ·  R: delete"
+        color: Style.menuInkDeep
+        font.pixelSize: root.fontPx(8)
+        font.family: root.uiFont
+        horizontalAlignment: Text.AlignHCenter
+        opacity: 0.7
+      }
+    }
+  } }
+
   Component { id: quickDefaultComp; Item {
     anchors.fill: parent
     Text { anchors.centerIn: parent; text: "select a quick tile"; color: Style.menuInkDeep; font.pixelSize: 10; font.family: root.uiFont }
@@ -4855,6 +5030,7 @@ Scope {
       case "battery": return quickBatteryComp
       case "bluetooth": return quickBtComp
       case "storage": return quickStorageComp
+      case "clipboard": return quickClipboardComp
       default: return quickDefaultComp
     }
   }
@@ -4876,6 +5052,7 @@ Scope {
     if (q.startsWith("@")) return "Documentation"
     if (q.startsWith(":")) return "Actions"
     if (q.startsWith("?")) return "Keys"
+    if (q.startsWith(";")) return "Emoji"
     if (root.fileTerm(q) !== null) return "Files"
     if (root.dictTerm(q) !== null) return "Dictionary"
     return ""
@@ -4899,6 +5076,7 @@ Scope {
     if (q.startsWith("@")) return "Documentation"
     if (q.startsWith(":")) return "Actions"
     if (q.startsWith("?")) return "› KEYS"
+    if (q.startsWith(";")) return "› EMOJI"
     if (root.fileTerm(q) !== null) return "File Search"
     if (root.dictTerm(q) !== null) return "Dictionary"
     return "LAUNCHER"
@@ -4926,6 +5104,7 @@ Scope {
     }
     if (qq.startsWith(":")) return c + " action" + s
     if (qq.startsWith("?")) return c + " shortcut" + s
+    if (qq.startsWith(";")) return c + " emoji" + s
     if (qq.startsWith("=") || qq.startsWith("!") || qq.startsWith("@")) return c + " result" + s
     if (root.categoryFilter !== "") {
       if (root.quickMode) {
@@ -4947,6 +5126,9 @@ Scope {
       if (root.categoryFilter === "Websearch") {
         const n = (root.webEngines || []).length
         return c + " engine" + s + " · " + n + " total"
+      }
+      if (root.categoryFilter === "Emoji") {
+        return c + " emoji" + s + " · " + Emoji.EMOJI.length + " total"
       }
       const n = (root.launcherItems || []).filter(x => x.category === root.categoryFilter).length
       return c + " match" + s + " · " + n + " total"
@@ -5004,6 +5186,9 @@ Scope {
     }
     if (root.categoryFilter === "Websearch" && !(root.query || "").trim().startsWith("@")) {
       root.setSearchQuery("@")
+    }
+    if (root.categoryFilter === "Emoji" && !(root.query || "").trim().startsWith(";")) {
+      root.setSearchQuery(";")
     }
     if (root.shouldShow) root.focusLauncherInput()
   }
@@ -5101,7 +5286,8 @@ Scope {
     root.setSearchQuery(root.categoryFilter === Data.fileCategory ? ">"
       : (root.categoryFilter === "Actions" ? ":"
         : (root.categoryFilter === "Keys" ? "?"
-          : (root.categoryFilter === "Websearch" ? "@" : ""))))
+          : (root.categoryFilter === "Websearch" ? "@"
+            : (root.categoryFilter === "Emoji" ? ";" : "")))))
     root.selectedIndex = 0
     root.expandedQuickKey = ""
     root.focusLauncherInput()
@@ -5115,6 +5301,8 @@ Scope {
     root.expandedQuickKey = k
     const idx = (root.quickTiles || []).findIndex(function(t) { return t.mode === k || t.key === k })
     root.selectedIndex = Math.max(0, idx)
+    if (k === "clipboard") root.scanClips()
+    if (k === "screenshots") root.scanShots()
   }
 
   function closeLauncher() {
@@ -5162,6 +5350,7 @@ Scope {
     root.expandedQuickKey = (root.expandedQuickKey === k ? "" : k)
     if (root.expandedQuickKey === "screenshots") root.scanShots()
     if (root.expandedQuickKey === "storage") root.scanStorage()
+    if (root.expandedQuickKey === "clipboard") root.scanClips()
   }
 
   function resolveCmd(c) {
@@ -5220,6 +5409,7 @@ Scope {
       glyph: root.actionGlyph(a),
       special: "action",
       mode: a.mode || "",
+      ipc: a.ipc || "",
       command: a.command || []
     }))
   }
@@ -5249,7 +5439,9 @@ Scope {
         root.categoryFilter = tgt
         root.setSearchQuery(tgt === Data.fileCategory ? ">"
           : (tgt === "Actions" ? ":"
-            : (tgt === "Websearch" ? "@" : "")))
+            : (tgt === "Keys" ? "?"
+              : (tgt === "Websearch" ? "@"
+                : (tgt === "Emoji" ? ";" : "")))))
         root.selectedIndex = 0
         root.expandedQuickKey = ""
         if (tgt === Data.fileCategory) root.scheduleFileLookup()
@@ -5270,11 +5462,18 @@ Scope {
       if (copy) Quickshell.execDetached(["sh", "-c", "printf %s \"$1\" | wl-copy", "sh", copy])
     } else if (entry.special === "file" && entry.path) {
       Quickshell.execDetached([binDir + "/asahi-launch", "xdg-open", entry.path])
+    } else if (entry.special === "emoji") {
+      const copy = entry.copy || entry.glyph || ""
+      if (copy) Quickshell.execDetached(["sh", "-c", "printf %s \"$1\" | wl-copy", "sh", copy])
     } else if (entry.special === "action") {
       if (entry.mode) {
         root.categoryFilter = "Quick"
         root.setSearchQuery("")
         root.expandQuick(entry.mode)
+        return
+      } else if (entry.ipc) {
+        Quickshell.execDetached(["qs", "-c", "remix", "ipc", "call", entry.ipc, "toggle"])
+        root.shouldShow = false
         return
       } else if (entry.command && entry.command.length > 0) {
         Quickshell.execDetached(root.resolveCmd(entry.command))
@@ -5330,7 +5529,7 @@ Scope {
     const t = (q || "").trim()
     if (!t) return false
     if (t.startsWith(">") || t.startsWith("@") || t.startsWith(":") || t.startsWith("?")
-        || t.startsWith("=") || t.startsWith("!")) return true
+        || t.startsWith("=") || t.startsWith("!") || t.startsWith(";")) return true
     return root.dictTerm(t) !== null
   }
 
@@ -5920,6 +6119,8 @@ Scope {
     if (!q) return null
     const actionResults = getActionResults(q)
     if (actionResults) return actionResults
+    const emojiResults = getEmojiResults(q)
+    if (emojiResults) return emojiResults
     const fileResults = getFileResults(q)
     if (fileResults) return fileResults
     const dictResults = getDictResults(q)
@@ -6065,6 +6266,44 @@ Scope {
     return t.toLowerCase()
   }
 
+  function emojiSearchTerm() {
+    let t = (root.query || "").trim()
+    if (t.startsWith(";")) t = t.substring(1).trim()
+    return t
+  }
+
+  function mapEmojiResults(list) {
+    const src = list || []
+    const out = []
+    for (let i = 0; i < src.length; i++) {
+      const e = src[i]
+      out.push({
+        id: "emoji-" + e.g + "-" + i,
+        title: e.n,
+        name: e.n,
+        comment: e.k || "Enter to copy",
+        glyph: e.g,
+        copy: e.g,
+        category: "Emoji",
+        special: "emoji",
+        _t: (e.n || "").toLowerCase(),
+        _k: (e.k || "").toLowerCase(),
+        _c: "emoji"
+      })
+    }
+    return out
+  }
+
+  function getEmojiResults(q) {
+    const term = Emoji.term(q)
+    if (term === null) return null
+    const hits = Emoji.search(term, root.maxResults)
+    if (hits.length === 0) {
+      return [{ id: "emoji-empty", name: "No emoji found", comment: term, glyph: "󰅙", special: "noop" }]
+    }
+    return root.mapEmojiResults(hits)
+  }
+
   function mapActionEntry(a) {
     return {
       id: "action-" + a.key,
@@ -6074,6 +6313,7 @@ Scope {
       category: "Actions",
       special: "action",
       mode: a.mode || "",
+      ipc: a.ipc || "",
       command: a.command || [],
       _t: (a.name || "").toLowerCase(),
       _k: ((a.key || "") + " " + (a.aliases || []).join(" ")).toLowerCase(),
@@ -6168,6 +6408,10 @@ Scope {
         return p.indexOf(la) >= 0 || n.indexOf(la) >= 0 || p.startsWith(la) || n.startsWith(la)
       }).map(e => root.mapWebEntry(e))
       return webs.length <= root.maxResults ? webs : webs.slice(0, root.maxResults)
+    }
+    if (filter === "Emoji") {
+      const term = root.emojiSearchTerm()
+      return root.mapEmojiResults(Emoji.search(term, root.maxResults))
     }
     if (filter === "Keys") {
       const term = root.keysSearchTerm()
@@ -6584,6 +6828,9 @@ Scope {
               }
               if (shown.trim().startsWith("@") && root.categoryFilter !== "Websearch") {
                 root.categoryFilter = "Websearch"
+              }
+              if (shown.trim().startsWith(";") && root.categoryFilter !== "Emoji") {
+                root.categoryFilter = "Emoji"
               }
               if (shown.trim() && !root.isPrefixSpecial(shown) && root.categoryFilter === "" && !root.quickMode) {
                 root.categoryFilter = "App"
@@ -7188,7 +7435,7 @@ Scope {
           fontFamily: root.uiFont
           fontScale: root.uiFontScale
           gridNav: root.quickMode
-          hints: root.quickMode ? "tab  detail" : (root.argArmed ? "tab  results" : "tab  argument  ·  !  >  @  dict")
+          hints: root.quickMode ? "tab  detail" : (root.argArmed ? "tab  results" : "tab  argument  ·  !  >  ;  @  dict")
         }
       }
 

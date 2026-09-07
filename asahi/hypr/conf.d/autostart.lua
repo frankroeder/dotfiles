@@ -14,6 +14,7 @@ hl.on("hyprland.start", function()
   hl.exec_cmd "systemctl --user restart xdg-desktop-portal-hyprland.service xdg-desktop-portal.service"
   hl.exec_cmd "~/.dotfiles/asahi/bin/asahi-ssh-keychain"
   hl.exec_cmd "playerctld"
+  hl.exec_cmd "~/.dotfiles/asahi/bin/asahi-cliphist watch"
   hl.exec_cmd "hyprpaper"
   hl.exec_cmd "~/.dotfiles/asahi/bin/asahi-start-quickshell"
   hl.exec_cmd "hypridle"

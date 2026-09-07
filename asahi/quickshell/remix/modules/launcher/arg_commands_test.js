@@ -16,6 +16,9 @@ assert.strictEqual(A.join("@dcc", "haus"), "@dcc haus");
 assert.strictEqual(A.join(">", "src"), "> src");
 assert.strictEqual(A.join("!", "hypr"), "! hypr");
 assert.strictEqual(A.join("=", "2+2"), "= 2+2");
+assert.strictEqual(A.join(";", "smile"), "; smile");
+assert.deepStrictEqual(A.parse("; fire", engines), { command: ";", arg: "fire" });
+assert.strictEqual(A.placeholder(";"), "Type to filter emoji");
 
 assert.strictEqual(A.argFromQuery("dict", "dict"), "");
 assert.strictEqual(A.argFromQuery("dict haus", "dict"), "haus");

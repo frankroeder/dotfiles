@@ -14,10 +14,12 @@ ShellRoot {
   id: shell
 
   property bool isRecording: false
+  property bool calendarOpen: false
 
   System.Osd { id: osd }
   System.DimOverlay { id: dimOverlay }
   System.NotificationCenter { id: notificationCenter }
+  System.PkgManager {}
 
   Process {
     id: recProbe
@@ -35,6 +37,13 @@ ShellRoot {
     target: "recording"
     function refresh(): void {
       if (!recProbe.running) recProbe.running = true
+    }
+  }
+
+  IpcHandler {
+    target: "calendar"
+    function toggle(): void {
+      shell.calendarOpen = !shell.calendarOpen
     }
   }
 
@@ -62,6 +71,8 @@ ShellRoot {
         barScreen: modelData
         notificationCenter: notificationCenter
         isRecording: shell.isRecording
+        calendarOpen: shell.calendarOpen
+        onCalendarToggle: shell.calendarOpen = !shell.calendarOpen
       }
     }
   }

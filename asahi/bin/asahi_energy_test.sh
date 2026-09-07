@@ -48,6 +48,8 @@ echo "$out" | jq -e '.threshold_end == 80' >/dev/null || fail_at "battery thresh
 echo "$out" | jq -e '.percentage == 80' >/dev/null || fail_at "battery percentage 80"
 echo "$out" | jq -e '.class | index("holding")' >/dev/null || fail_at "battery class includes holding"
 echo "$out" | grep -q 'Holding at 75-80%' || fail_at "battery tooltip holding label"
+text=$(ASAHI_POWER_SUPPLY_PATH="$tmp/power" "$ROOT/asahi-battery" text)
+echo "$text" | grep -q '%' || fail_at "asahi-battery text has percent"
 pass "asahi-battery reports charge-hold on macsmc-battery"
 
 printf 'Discharging\n' >"$bat/status"

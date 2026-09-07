@@ -45,7 +45,9 @@ sudo dnf install -y \
   adw-gtk3-theme \
   brightnessctl \
   blueman \
+  btop \
   cargo \
+  cliphist \
   cascadia-mono-nf-fonts \
   cava \
   chromium \

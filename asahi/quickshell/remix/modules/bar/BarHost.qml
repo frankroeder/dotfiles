@@ -15,6 +15,8 @@ Item {
   property var barScreen: null
   property var notificationCenter: null
   property bool isRecording: false
+  property bool calendarOpen: false
+  signal calendarToggle()
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
   readonly property int barSize: Style.barHeight
@@ -253,8 +255,9 @@ Item {
       icon: "󰍛"
       text: barWindow.fmt2(barWindow.cpuPerc) + "%"
       fontSize: Style.barFontBody
-      tooltipText: barWindow.cpuTooltip
+      tooltipText: barWindow.cpuTooltip + "\nClick: btop / htop"
       foreground: Style.orange
+      onPressed: Quickshell.execDetached([barWindow.binDir + "/asahi-sysmon"])
     }
 
     WidgetButton {
@@ -262,8 +265,9 @@ Item {
       icon: "󰘚"
       text: barWindow.fmt2(barWindow.memPerc) + "%"
       fontSize: Style.barFontBody
-      tooltipText: barWindow.memTooltip
+      tooltipText: barWindow.memTooltip + "\nClick: btop / htop"
       foreground: Style.sky
+      onPressed: Quickshell.execDetached([barWindow.binDir + "/asahi-sysmon"])
     }
   }
 
@@ -296,7 +300,11 @@ Item {
     BarComponents.Network { barHost: barWindow }
     BarComponents.Bluetooth { barHost: barWindow }
     BarComponents.Battery { barHost: barWindow }
-    BarComponents.Clock { barHost: barWindow }
+    BarComponents.Clock {
+      barHost: barWindow
+      calendarOpen: barWindow.calendarOpen
+      onCalendarToggle: barWindow.calendarToggle()
+    }
   }
   }
 

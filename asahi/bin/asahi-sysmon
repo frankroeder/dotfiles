@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Open btop, falling back to htop, in the Asahi TUI helper.
+
+set -euo pipefail
+
+bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+if command -v btop >/dev/null 2>&1; then
+  exec "$bin/asahi-launch-tui" btop
+fi
+if command -v htop >/dev/null 2>&1; then
+  exec "$bin/asahi-launch-tui" htop
+fi
+notify-send "System monitor" "Install btop or htop." >/dev/null 2>&1 || true
+exit 1
