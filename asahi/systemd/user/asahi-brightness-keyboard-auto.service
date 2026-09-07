@@ -1,0 +1,15 @@
+[Unit]
+Description=Asahi keyboard backlight from ambient light
+After=hyprland-session.target
+PartOf=hyprland-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+Type=simple
+ExecCondition=%h/.local/bin/asahi-brightness-keyboard-auto --available
+ExecStart=%h/.local/bin/asahi-brightness-keyboard-auto
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=hyprland-session.target

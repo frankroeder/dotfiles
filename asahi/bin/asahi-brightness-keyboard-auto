@@ -1,0 +1,298 @@
+#!/usr/bin/env bash
+# Drive kbd_backlight from the AOP ambient light sensor: on in the dark,
+# off in a bright room. Manual Search/LaunchA (or any other LED write)
+# pauses auto until lux moves enough. Lock, lid-close, and eDP DPMS-off
+# pause without treating idle-brightness writes as an override.
+
+set -euo pipefail
+
+POLL_SECONDS=5
+DARK_LUX=8
+BRIGHT_LUX=180
+DEADBAND_PERCENT=4
+OVERRIDE_LUX_DELTA=20
+OVERRIDE_LUX_RATIO=40
+LID_CLOSED_ANGLE="${ASAHI_LID_CLOSED_ANGLE:-30}"
+
+once=0
+available_only=0
+map_lux=""
+
+usage() {
+  echo "usage: $0 [--once|--available|--map-lux N]" >&2
+  exit 2
+}
+
+while (($#)); do
+  case "$1" in
+    --once)
+      once=1
+      shift
+      ;;
+    --available)
+      available_only=1
+      shift
+      ;;
+    --map-lux)
+      if [[ -z ${2:-} ]]; then
+        usage
+      fi
+      map_lux=$2
+      shift 2
+      ;;
+    -h|--help)
+      echo "usage: $0 [--once|--available|--map-lux N]"
+      exit 0
+      ;;
+    *)
+      usage
+      ;;
+  esac
+done
+
+lux_to_percent() {
+  local lux=$1
+  if ((lux < 0)); then
+    lux=0
+  fi
+
+  if ((lux <= DARK_LUX)); then
+    echo 100
+  elif ((lux >= BRIGHT_LUX)); then
+    echo 0
+  else
+    echo $(((100 * (BRIGHT_LUX - lux)) / (BRIGHT_LUX - DARK_LUX)))
+  fi
+}
+
+if [[ -n $map_lux ]]; then
+  if [[ ! $map_lux =~ ^[0-9]+$ ]]; then
+    echo "lux must be a non-negative integer" >&2
+    exit 1
+  fi
+  lux_to_percent "$map_lux"
+  exit 0
+fi
+
+find_als() {
+  local d name
+  local iio_devices_dir=${ASAHI_IIO_DEVICES_DIR:-/sys/bus/iio/devices}
+
+  # Prefer a device that names itself as ALS. Apple AOP exposes the lid-angle
+  # sensor (aop-sensors-las) next to the illuminance sensor (aop-sensors-als).
+  for d in "$iio_devices_dir"/iio:device*; do
+    [[ -r $d/name ]] || continue
+    name=$(<"$d/name")
+    [[ $name == *als* ]] || continue
+    if [[ -r $d/in_illuminance_input ]]; then
+      printf '%s\n' "$d/in_illuminance_input"
+      return 0
+    fi
+    if [[ -r $d/in_illuminance_raw ]]; then
+      printf '%s\n' "$d/in_illuminance_raw"
+      return 0
+    fi
+  done
+
+  for d in "$iio_devices_dir"/iio:device*; do
+    if [[ -r $d/in_illuminance_input ]]; then
+      printf '%s\n' "$d/in_illuminance_input"
+      return 0
+    fi
+    if [[ -r $d/in_illuminance_raw ]]; then
+      printf '%s\n' "$d/in_illuminance_raw"
+      return 0
+    fi
+  done
+  return 1
+}
+
+find_kbd() {
+  local candidate
+  local leds_dir=${ASAHI_LEDS_DIR:-/sys/class/leds}
+
+  for candidate in "$leds_dir"/*kbd_backlight*; do
+    if [[ -e $candidate/brightness && -r $candidate/max_brightness ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+find_las() {
+  local d name
+  local iio_devices_dir=${ASAHI_IIO_DEVICES_DIR:-/sys/bus/iio/devices}
+
+  for d in "$iio_devices_dir"/iio:device*; do
+    [[ -r $d/name ]] || continue
+    name=$(<"$d/name")
+    [[ $name == *las* ]] || continue
+    if [[ -r $d/in_angl_raw ]]; then
+      printf '%s\n' "$d/in_angl_raw"
+      return 0
+    fi
+    if [[ -r $d/in_angl_input ]]; then
+      printf '%s\n' "$d/in_angl_input"
+      return 0
+    fi
+  done
+  return 1
+}
+
+als_path=$(find_als || true)
+kbd_path=$(find_kbd || true)
+
+if [[ $available_only == 1 ]]; then
+  if [[ -n $als_path && -n $kbd_path ]]; then
+    exit 0
+  else
+    exit 1
+  fi
+fi
+
+if [[ -z $als_path || -z $kbd_path ]]; then
+  exit 0
+fi
+
+device=$(basename "$kbd_path")
+max=$(<"$kbd_path/max_brightness")
+if [[ ! $max =~ ^[1-9][0-9]*$ ]]; then
+  exit 0
+fi
+
+last_set=""
+paused=0
+pause_lux=0
+
+session_locked() {
+  local hint session
+  session=${XDG_SESSION_ID:-}
+  if [[ -n $session ]]; then
+    hint=$(loginctl show-session "$session" -p LockedHint --value 2>/dev/null || true)
+    if [[ $hint == yes ]]; then
+      return 0
+    fi
+  fi
+  if pidof hyprlock >/dev/null 2>&1; then
+    return 0
+  fi
+  return 1
+}
+
+lid_closed() {
+  local path raw
+  path=$(find_las || true)
+  if [[ -z $path ]]; then
+    return 1
+  fi
+  raw=$(<"$path") || return 1
+  raw=${raw%%.*}
+  if [[ ! $raw =~ ^-?[0-9]+$ ]]; then
+    return 1
+  fi
+  ((raw < LID_CLOSED_ANGLE))
+}
+
+internal_display_off() {
+  local json
+  json=$(hyprctl monitors -j 2>/dev/null) || return 1
+  printf '%s' "$json" | jq -e \
+    '.[] | select(.name == "eDP-1" and (.dpmsStatus == false or .disabled == true))' \
+    >/dev/null 2>&1
+}
+
+read_lux() {
+  local raw
+  raw=$(<"$als_path") || return 1
+  raw=${raw%%.*}
+  if [[ ! $raw =~ ^[0-9]+$ ]]; then
+    return 1
+  fi
+  printf '%s\n' "$raw"
+}
+
+apply_percent() {
+  local percent=$1
+  local target current delta
+
+  if ((percent < 0)); then
+    percent=0
+  fi
+  if ((percent > 100)); then
+    percent=100
+  fi
+  target=$((max * percent / 100))
+
+  current=$(brightnessctl --device="$device" get) || return 0
+  delta=$((current - target))
+  if ((delta < 0)); then
+    delta=$((-delta))
+  fi
+  if ((delta * 100 < max * DEADBAND_PERCENT)); then
+    last_set=$current
+    return 0
+  fi
+
+  brightnessctl --quiet --device="$device" set "$target" >/dev/null
+  last_set=$(brightnessctl --device="$device" get || echo "$target")
+}
+
+tick() {
+  local lux current delta threshold
+
+  lux=$(read_lux) || return 0
+
+  # Pause without rewriting last_set so idle-brightness off/restore and the
+  # lid bind do not look like a manual override when the session comes back.
+  if session_locked || lid_closed || internal_display_off; then
+    return 0
+  fi
+
+  current=$(brightnessctl --device="$device" get) || return 0
+
+  if [[ -n $last_set && $current != "$last_set" ]]; then
+    paused=1
+    pause_lux=$lux
+    last_set=$current
+    return 0
+  fi
+
+  if ((paused)); then
+    delta=$((lux - pause_lux))
+    if ((delta < 0)); then
+      delta=$((-delta))
+    fi
+    threshold=$OVERRIDE_LUX_DELTA
+    if ((pause_lux * OVERRIDE_LUX_RATIO / 100 > threshold)); then
+      threshold=$((pause_lux * OVERRIDE_LUX_RATIO / 100))
+    fi
+    if ((delta < threshold)); then
+      return 0
+    fi
+    paused=0
+  fi
+
+  apply_percent "$(lux_to_percent "$lux")"
+}
+
+tick
+
+if ((once)); then
+  exit 0
+fi
+
+while true; do
+  sleep "$POLL_SECONDS"
+  als_path=$(find_als || true)
+  kbd_path=$(find_kbd || true)
+  if [[ -z $als_path || -z $kbd_path ]]; then
+    continue
+  fi
+  device=$(basename "$kbd_path")
+  max=$(<"$kbd_path/max_brightness")
+  if [[ ! $max =~ ^[1-9][0-9]*$ ]]; then
+    continue
+  fi
+  tick
+done

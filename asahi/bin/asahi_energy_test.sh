@@ -226,6 +226,93 @@ else
   fail_at "dnf.sh still has a comment inside sudo dnf install \\"
 fi
 
+# --- ALS keyboard backlight: lux map, sensor preference, installer wiring ---
+auto="$ROOT/asahi-brightness-keyboard-auto"
+[[ -x $auto ]] || fail_at "asahi-brightness-keyboard-auto is executable"
+
+[[ $($auto --map-lux 0) == 100 ]] || fail_at "pitch dark lights the keyboard fully (got $($auto --map-lux 0))"
+[[ $($auto --map-lux 8) == 100 ]] || fail_at "dim indoor still uses full keyboard light (got $($auto --map-lux 8))"
+[[ $($auto --map-lux 94) == 50 ]] || fail_at "mid lux maps to half keyboard light (got $($auto --map-lux 94))"
+[[ $($auto --map-lux 180) == 0 ]] || fail_at "bright room turns the keyboard light off (got $($auto --map-lux 180))"
+[[ $($auto --map-lux 400) == 0 ]] || fail_at "daylight keeps the keyboard light off (got $($auto --map-lux 400))"
+pass "ambient lux maps inversely onto keyboard backlight"
+
+if $auto --map-lux >/dev/null 2>&1; then
+  fail_at "map-lux without a value should fail"
+else
+  pass "map-lux without a value is an error"
+fi
+
+eval "$(sed -n '/^find_als()/,/^}/p' "$auto")"
+fake_iio="$tmp/iio"
+fake_leds="$tmp/leds"
+mkdir -p "$fake_iio/iio:device0" "$fake_iio/iio:device1" "$fake_leds/kbd_backlight"
+printf 'aop-sensors-las\n' >"$fake_iio/iio:device0/name"
+printf '12\n' >"$fake_iio/iio:device0/in_illuminance_raw"
+printf 'aop-sensors-als\n' >"$fake_iio/iio:device1/name"
+printf '23\n' >"$fake_iio/iio:device1/in_illuminance_input"
+printf '255\n' >"$fake_leds/kbd_backlight/max_brightness"
+printf '0\n' >"$fake_leds/kbd_backlight/brightness"
+
+got=$(ASAHI_IIO_DEVICES_DIR=$fake_iio find_als)
+[[ $got == "$fake_iio/iio:device1/in_illuminance_input" ]] \
+  || fail_at "find_als prefers a device whose name contains als (got $got)"
+pass "find_als prefers a named ALS device over an earlier illuminance channel"
+
+rm -r "$fake_iio/iio:device1"
+got=$(ASAHI_IIO_DEVICES_DIR=$fake_iio find_als)
+[[ $got == "$fake_iio/iio:device0/in_illuminance_raw" ]] \
+  || fail_at "find_als falls back to the first readable illuminance channel (got $got)"
+pass "find_als falls back when no device name contains als"
+
+mkdir -p "$fake_iio/iio:device1"
+printf 'aop-sensors-als\n' >"$fake_iio/iio:device1/name"
+printf '23\n' >"$fake_iio/iio:device1/in_illuminance_input"
+
+if ASAHI_IIO_DEVICES_DIR=$fake_iio ASAHI_LEDS_DIR=$fake_leds "$auto" --available; then
+  pass "--available succeeds when both ALS and keyboard LED are present"
+else
+  fail_at "--available should succeed when both ALS and keyboard LED are present"
+fi
+
+rm -r "$fake_leds/kbd_backlight"
+if ASAHI_IIO_DEVICES_DIR=$fake_iio ASAHI_LEDS_DIR=$fake_leds "$auto" --available; then
+  fail_at "--available should fail when the keyboard LED is missing"
+else
+  pass "--available fails when the keyboard LED is missing"
+fi
+
+eval "$(sed -n '/^find_las()/,/^}/p' "$auto")"
+eval "$(sed -n '/^lid_closed()/,/^}/p' "$auto")"
+LID_CLOSED_ANGLE=30
+printf '124\n' >"$fake_iio/iio:device0/in_angl_raw"
+if ASAHI_IIO_DEVICES_DIR=$fake_iio lid_closed; then
+  fail_at "lid_closed should be false at 124 degrees"
+else
+  pass "lid_closed is false when the lid angle is open"
+fi
+printf '8\n' >"$fake_iio/iio:device0/in_angl_raw"
+if ASAHI_IIO_DEVICES_DIR=$fake_iio lid_closed; then
+  pass "lid_closed is true when the lid angle is shut"
+else
+  fail_at "lid_closed should be true at 8 degrees"
+fi
+
+unit="$ROOT/../systemd/user/asahi-brightness-keyboard-auto.service"
+grep -Fx 'ExecStart=%h/.local/bin/asahi-brightness-keyboard-auto' "$unit" >/dev/null \
+  || fail_at "ALS unit ExecStart points at the local helper"
+grep -Fx 'ExecCondition=%h/.local/bin/asahi-brightness-keyboard-auto --available' "$unit" >/dev/null \
+  || fail_at "ALS unit ExecCondition checks hardware"
+grep -Fx 'WantedBy=hyprland-session.target' "$unit" >/dev/null \
+  || fail_at "ALS unit follows hyprland-session.target"
+pass "ALS keyboard backlight service follows the Hyprland session"
+
+grep -F 'asahi-brightness-keyboard-auto.service' "$ROOT/../../install/components.sh" >/dev/null \
+  || fail_at "asahi-desktop enables the ALS keyboard unit"
+grep -e "kbd_backlight' set 30%" "$ROOT/../../install/components.sh" >/dev/null \
+  && fail_at "asahi-system still forces a one-shot 30% keyboard backlight" \
+  || pass "asahi-desktop enables ALS keyboard backlight; no 30% oneshot"
+
 # --- launcher / system menu still has no Hibernate ---
 grep -q 'title: "Hibernate"' "$ROOT/../quickshell/remix/modules/launcher/Data.js" \
   && fail_at "launcher still lists Hibernate" \

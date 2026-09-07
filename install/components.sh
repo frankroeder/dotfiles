@@ -494,11 +494,6 @@ comp_asahi_system() {
     sudo dracut -f
     print_ok "initramfs rebuilt; reboot required for notch/fnmode/HID"
   fi
-  if have brightnessctl; then
-    brightnessctl --device='kbd_backlight' set 30% || true
-  elif have light; then
-    light -s sysfs/leds/kbd_backlight -S 30 || true
-  fi
   comp_asahi_charge_limit
 }
 
@@ -550,8 +545,17 @@ comp_asahi_desktop() {
     [ -f "$script" ] || continue
     chmod +x "$script"
   done
-  mkdir -p "$HOME/.config/systemd/user"
+  mkdir -p "$HOME/.local/bin" "$HOME/.config/systemd/user"
   link_if_exists "$DOTFILES/asahi/systemd/user/hyprland-session.target" "$HOME/.config/systemd/user/hyprland-session.target"
+  ln -sfn "$DOTFILES/asahi/bin/asahi-brightness-keyboard-auto" \
+    "$HOME/.local/bin/asahi-brightness-keyboard-auto"
+  ln -sfn "$DOTFILES/asahi/systemd/user/asahi-brightness-keyboard-auto.service" \
+    "$HOME/.config/systemd/user/asahi-brightness-keyboard-auto.service"
+  systemctl --user daemon-reload
+  systemctl --user enable asahi-brightness-keyboard-auto.service
+  if systemctl --user is-active --quiet hyprland-session.target; then
+    systemctl --user start asahi-brightness-keyboard-auto.service || true
+  fi
   replace_with_symlink "$DOTFILES/asahi/hypr"      "$HOME/.config/hypr"
   replace_with_symlink "$DOTFILES/asahi/quickshell" "$HOME/.config/quickshell"
   replace_with_symlink "$DOTFILES/asahi/ghostty"   "$HOME/.config/ghostty"
@@ -774,6 +778,8 @@ comp_doctor() {
     report_check "charge-limit udev" test -f /etc/udev/rules.d/99-asahi-charge-limit.rules
     report_check "charge-limit oneshot" test -f /etc/systemd/system/asahi-charge-limit.service
     report_check "asahi-charge-limit libexec" test -x /usr/local/libexec/asahi-charge-limit
+    report_check "ALS keyboard backlight unit" test -L "$HOME/.config/systemd/user/asahi-brightness-keyboard-auto.service"
+    report_check "ALS keyboard backlight helper" test -x "$HOME/.local/bin/asahi-brightness-keyboard-auto"
     if [ -w /sys/class/power_supply/macsmc-battery/charge_control_end_threshold ]; then
       print_ok "macsmc charge_control_end_threshold is writable"
     else
