@@ -15,6 +15,7 @@ import Quickshell.Services.Pipewire
 import "../../"
 import "Data.js" as Data
 import "websearch.js" as WebSearch
+import "arg_commands.js" as ArgCommands
 import "dictcc-core.mjs" as DictCC
 import "launcher_layout.js" as LauncherGeom
 import "hub_logo.js" as HubLogo
@@ -43,6 +44,10 @@ Scope {
     }
   }
   property string query: ""
+  // Armed prefix (dict, @dcc, >, !, =). Search input then holds only the argument.
+  property string argCommand: ""
+  property string argPlaceholder: ""
+  readonly property bool argArmed: root.argCommand !== ""
   property int selectedIndex: 0
   property var launcherScreen: null
   property int launcherWorkspaceId: 1
@@ -4881,6 +4886,7 @@ Scope {
       return root.quickDetailActive
         ? "HJKL / ↑↓←→  ·  TAB SECT  ·  . APPLY  ·  ESC BACK"
         : "HJKL / ↑↓  ·  OPEN  ·  ESC BACK"
+    if (root.argArmed) return "TYPE ARGUMENT  ·  ↩ GO  ·  TAB RESULTS"
     if (root.fileMode) return "↑↓ / TAB  ·  OPEN FILE  ·  ESC BACK"
     return "↓ / TAB  ·  ↩ OPEN  ·  ESC CLOSE"
   }
@@ -4913,7 +4919,7 @@ Scope {
     if (root.dictTerm(qq) !== null) {
       if (root.dictStatus === "loading") return "Loading dict.cc"
       if (root.dictStatus === "error") return "dict.cc lookup failed"
-      if (root.dictStatus === "prompt") return "Type after dict to translate"
+      if (root.dictStatus === "prompt") return root.argArmed ? "Type a word to translate" : "Tab to type a word"
       if (root.dictStatus === "no-results") return "No translations"
       const lang = root.dictCopyLang === "en" ? "English" : (root.dictCopyLang === "de" ? "German" : "translation")
       return c + " result" + s + " · Return copies " + lang
@@ -4982,29 +4988,72 @@ Scope {
     if (root.fileMode) root.scheduleFileLookup()
     else { root.fileItems=[]; root.fileStatus=""; root.filePreviewText=""; root.filePreviewMeta=""; root.pdfPreviewPath=""; root.pdfPreviewVersion=0 }
     if (root.categoryFilter === "Quick") {
-      root.query = ""
-      if (searchInput) searchInput.text = ""
+      root.setSearchQuery("")
       root.expandedQuickKey = ""
     } else {
       root.expandedQuickKey = ""
     }
     if (root.categoryFilter === Data.fileCategory && (root.query || "").trim() === "") {
-      root.query = ">"
-      if (searchInput) searchInput.text = ">"
+      root.setSearchQuery(">")
     }
     if (root.categoryFilter === "Actions" && !(root.query || "").trim().startsWith(":")) {
-      root.query = ":"
-      if (searchInput) searchInput.text = ":"
+      root.setSearchQuery(":")
     }
     if (root.categoryFilter === "Keys" && !(root.query || "").trim().startsWith("?")) {
-      root.query = "?"
-      if (searchInput) searchInput.text = "?"
+      root.setSearchQuery("?")
     }
     if (root.categoryFilter === "Websearch" && !(root.query || "").trim().startsWith("@")) {
-      root.query = "@"
-      if (searchInput) searchInput.text = "@"
+      root.setSearchQuery("@")
     }
     if (root.shouldShow) root.focusLauncherInput()
+  }
+
+  function currentResultEntry() {
+    if (resultsList && resultsList.currentItem && resultsList.currentItem.modelData)
+      return resultsList.currentItem.modelData
+    if (filteredApps && filteredApps.values && resultsList && resultsList.currentIndex < filteredApps.values.length)
+      return filteredApps.values[resultsList.currentIndex]
+    return null
+  }
+
+  function setSearchQuery(q) {
+    root.argCommand = ""
+    root.argPlaceholder = ""
+    root.query = q || ""
+    if (searchInput) searchInput.text = root.query
+  }
+
+  function armArgument(command, hint) {
+    const cmd = command || ""
+    if (!cmd) return
+    const arg = ArgCommands.argFromQuery(root.query, cmd)
+    root.argCommand = cmd
+    root.argPlaceholder = hint || ArgCommands.placeholder(cmd)
+    root.query = ArgCommands.join(cmd, arg)
+    if (searchInput) {
+      if (searchInput.text !== arg) searchInput.text = arg
+      searchInput.forceActiveFocus()
+    }
+  }
+
+  function clearArgument() {
+    if (!root.argCommand) return
+    const cmd = root.argCommand
+    root.argCommand = ""
+    root.argPlaceholder = ""
+    root.query = cmd
+    if (searchInput) searchInput.text = cmd
+  }
+
+  function tryArmArgument() {
+    if (root.argArmed) {
+      const arg = searchInput ? String(searchInput.text || "").trim() : ""
+      return !arg
+    }
+    const armed = ArgCommands.tabArm(root.query, root.currentResultEntry(), root.webEngines)
+    if (!armed) return false
+    root.armArgument(armed.command, armed.placeholder)
+    return true
   }
 
   function launchCurrent() {
@@ -5015,12 +5064,7 @@ Scope {
       else if (t.command && t.command.length) { Quickshell.execDetached(root.resolveCmd(t.command)); root.shouldShow = false }
       return
     }
-    let entry = null
-    if (resultsList && resultsList.currentItem && resultsList.currentItem.modelData) {
-      entry = resultsList.currentItem.modelData
-    } else if (filteredApps && filteredApps.values && resultsList.currentIndex < filteredApps.values.length) {
-      entry = filteredApps.values[resultsList.currentIndex]
-    }
+    const entry = root.currentResultEntry()
     if (entry) root.launchApp(entry)
   }
 
@@ -5040,28 +5084,24 @@ Scope {
     shouldShow = true
     root.categoryFilter = ""
     root.expandedQuickKey = ""
-    if (searchInput) searchInput.text = ""
-    else root.query = ""
+    root.setSearchQuery("")
     if (resultsList) resultsList.currentIndex = 0
     root.focusLauncherInput()
   }
 
   function openFileSearch(term) {
     if (!root.shouldShow) root.openLauncher()
-    const q = ">" + (term || "")
-    root.query = q
-    if (searchInput) searchInput.text = q
+    root.setSearchQuery(">" + (term || ""))
     root.focusLauncherInput()
   }
 
   function openCategory(cat) {
     if (!root.shouldShow) root.openLauncher()
     root.categoryFilter = cat || ""
-    root.query = root.categoryFilter === Data.fileCategory ? ">"
+    root.setSearchQuery(root.categoryFilter === Data.fileCategory ? ">"
       : (root.categoryFilter === "Actions" ? ":"
         : (root.categoryFilter === "Keys" ? "?"
-          : (root.categoryFilter === "Websearch" ? "@" : "")))
-    if (searchInput) searchInput.text = root.query
+          : (root.categoryFilter === "Websearch" ? "@" : ""))))
     root.selectedIndex = 0
     root.expandedQuickKey = ""
     root.focusLauncherInput()
@@ -5070,8 +5110,7 @@ Scope {
   function openQuick(key) {
     if (!root.shouldShow) root.openLauncher()
     root.categoryFilter = "Quick"
-    root.query = ""
-    if (searchInput) searchInput.text = ""
+    root.setSearchQuery("")
     const k = key === "dashboard" ? "hub" : (key === "vpn" ? "network" : (key || "hub"))
     root.expandedQuickKey = k
     const idx = (root.quickTiles || []).findIndex(function(t) { return t.mode === k || t.key === k })
@@ -5119,7 +5158,7 @@ Scope {
 
   function expandQuick(key) {
     const k = (key === "dashboard" || key === "hub") ? "hub" : key
-    if (!root.quickMode) { root.categoryFilter = "Quick"; root.query = ""; if (searchInput) searchInput.text = "" }
+    if (!root.quickMode) { root.categoryFilter = "Quick"; root.setSearchQuery("") }
     root.expandedQuickKey = (root.expandedQuickKey === k ? "" : k)
     if (root.expandedQuickKey === "screenshots") root.scanShots()
     if (root.expandedQuickKey === "storage") root.scanStorage()
@@ -5208,15 +5247,18 @@ Scope {
       const tgt = entry.target || entry.category || ""
       if (tgt) {
         root.categoryFilter = tgt
-        root.query = tgt === Data.fileCategory ? ">"
+        root.setSearchQuery(tgt === Data.fileCategory ? ">"
           : (tgt === "Actions" ? ":"
-            : (tgt === "Websearch" ? "@" : ""))
-        if (searchInput) searchInput.text = root.query
+            : (tgt === "Websearch" ? "@" : "")))
         root.selectedIndex = 0
         root.expandedQuickKey = ""
         if (tgt === Data.fileCategory) root.scheduleFileLookup()
         return
       }
+    }
+    if (entry.id === "dict-prompt") {
+      root.armArgument("dict")
+      return
     }
     if (entry.special === "noop") {
       return
@@ -5231,8 +5273,7 @@ Scope {
     } else if (entry.special === "action") {
       if (entry.mode) {
         root.categoryFilter = "Quick"
-        root.query = ""
-        if (searchInput) searchInput.text = ""
+        root.setSearchQuery("")
         root.expandQuick(entry.mode)
         return
       } else if (entry.command && entry.command.length > 0) {
@@ -5241,11 +5282,14 @@ Scope {
       }
     } else if ((entry.special === "web" || entry.special === "doc") && entry.url) {
       if (entry.prefix) {
-        // selected engine from @ fuzzy list: autofill shortcut like "jaxdoc " so user types the term at _
-        root.query = "@" + entry.prefix + " "
-        if (searchInput) searchInput.text = root.query
+        root.armArgument("@" + entry.prefix, ArgCommands.placeholder("@" + entry.prefix, entry))
         root.selectedIndex = 0
-        return // keep open for term input
+        return
+      }
+      const web = ArgCommands.parse(root.query, root.webEngines)
+      if (web && web.command.charAt(0) === "@" && web.command.length > 1 && !web.arg) {
+        root.armArgument(web.command, ArgCommands.placeholder(web.command, entry))
+        return
       }
       let u = entry.url
       if (u.includes("%TERM%")) u = u.replace("%TERM%", "")
@@ -5567,7 +5611,7 @@ Scope {
       return [{
         id: "dict-prompt",
         name: "Translate with dict.cc",
-        comment: "Type dict followed by a word · en de Term for language override",
+        comment: "Tab to type a word · en de Term for language override",
         icon: root.dictIcon,
         special: "noop"
       }]
@@ -5973,12 +6017,16 @@ Scope {
       root.focusLauncherInput()
       return
     }
+    if (root.argArmed) {
+      root.clearArgument()
+      root.focusLauncherInput()
+      return
+    }
     if (root.quickMode || root.categoryFilter !== "") {
       root.categoryFilter = ""
-      root.query = ""
+      root.setSearchQuery("")
       root.selectedIndex = 0
       root.expandedQuickKey = ""
-      if (searchInput) searchInput.text = ""
       root.focusLauncherInput()
       return
     }
@@ -5991,12 +6039,15 @@ Scope {
       root.expandedQuickKey = ""
       return true
     }
+    if (root.argArmed) {
+      root.clearArgument()
+      return true
+    }
     if (root.categoryFilter !== "") {
       root.categoryFilter = ""
-      root.query = ""
+      root.setSearchQuery("")
       root.selectedIndex = 0
       root.expandedQuickKey = ""
-      if (searchInput) searchInput.text = ""
       return true
     }
     return false
@@ -6440,21 +6491,50 @@ Scope {
             Behavior on color { ColorAnimation { duration: 120 } }
           }
 
-          TextInput {
-            id: searchInput
+          Rectangle {
+            id: argChip
+            visible: root.argArmed
             anchors.left: searchPrompt.right
             anchors.leftMargin: 10
-            anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
+            width: chipLabel.implicitWidth + 16
+            height: Math.round(parent.height * 0.72)
+            radius: Style.radiusSm
+            color: Style.menuRowSel
+            border.color: Style.menuSeal
+            border.width: 1
+            Text {
+              id: chipLabel
+              anchors.centerIn: parent
+              text: root.argCommand
+              color: Style.menuSeal
+              font.family: root.uiFont
+              font.pixelSize: root.fontPx(13)
+              font.weight: Font.Medium
+            }
+          }
+
+          Item {
+            id: argFieldWrap
+            anchors.left: root.argArmed ? argChip.right : searchPrompt.right
+            anchors.leftMargin: 10
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+
+          TextInput {
+            id: searchInput
+            anchors.fill: parent
             color: text.length > 0 ? Style.menuInk : Style.menuInkDeep
-            opacity: text.length > 0 ? 1 : 0.55
+            opacity: text.length > 0 || root.argArmed ? 1 : 0.55
             font.family: root.uiFont
             font.pixelSize: root.fontPx(15)
             font.letterSpacing: 0.6
+            verticalAlignment: TextInput.AlignVCenter
             clip: true
             focus: true
             Accessible.role: Accessible.EditableText
-            Accessible.name: "Search applications"
+            Accessible.name: root.argArmed ? (root.argPlaceholder || "Argument") : "Search applications"
             // Single peach caret — replaces the native cursor (avoids double caret).
             cursorDelegate: Rectangle {
               width: 2
@@ -6472,37 +6552,40 @@ Scope {
 
             Text {
               anchors.fill: parent
-              text: root.fileMode
-                ? "Type to search files in ~ (globs: mrrobot/*.txt, regex: word1 word2)"
-                : "Type to search apps (or >files @web :act ?keys =calc !web dict)"
+              text: root.argArmed
+                ? (root.argPlaceholder || "Type an argument")
+                : (root.fileMode
+                  ? "Type to search files in ~ (globs: mrrobot/*.txt, regex: word1 word2)"
+                  : "Type to search apps (or >files @web :act ?keys =calc !web dict)")
               color: Style.menuInkDeep
               font: parent.font
-              opacity: 0.5
-              visible: !parent.text && !parent.activeFocus
+              opacity: root.argArmed ? 0.7 : 0.5
+              visible: !parent.text && (root.argArmed || !parent.activeFocus)
               verticalAlignment: Text.AlignVCenter
             }
 
             onTextChanged: {
-              root.query = text
+              root.query = root.argArmed ? ArgCommands.join(root.argCommand, text) : text
               if (root.quickMode) {
                 // no schedules, no auto-cat from search while quick grid is active (hidden input; internal cat sets still ok)
                 if (resultsList) resultsList.currentIndex = 0
                 return
               }
-              const ft = root.fileTerm(text)
+              const shown = root.query
+              const ft = root.fileTerm(shown)
               if (ft !== null && root.categoryFilter !== Data.fileCategory) {
                 root.categoryFilter = Data.fileCategory
               }
-              if (text.trim().startsWith(":") && root.categoryFilter !== "Actions") {
+              if (shown.trim().startsWith(":") && root.categoryFilter !== "Actions") {
                 root.categoryFilter = "Actions"
               }
-              if (text.trim().startsWith("?") && root.categoryFilter !== "Keys") {
+              if (shown.trim().startsWith("?") && root.categoryFilter !== "Keys") {
                 root.categoryFilter = "Keys"
               }
-              if (text.trim().startsWith("@") && root.categoryFilter !== "Websearch") {
+              if (shown.trim().startsWith("@") && root.categoryFilter !== "Websearch") {
                 root.categoryFilter = "Websearch"
               }
-              if (text.trim() && !root.isPrefixSpecial(text) && root.categoryFilter === "" && !root.quickMode) {
+              if (shown.trim() && !root.isPrefixSpecial(shown) && root.categoryFilter === "" && !root.quickMode) {
                 root.categoryFilter = "App"
               }
               root.scheduleDictLookup()
@@ -6521,6 +6604,11 @@ Scope {
               // else if(query) else if(!goUp)close), then cat, then close
               if (event.key === Qt.Key_Escape) {
                 root.handleEscape()
+                event.accepted = true
+                return
+              }
+              if (event.key === Qt.Key_Backspace && root.argArmed && (searchInput.text || "") === "") {
+                root.clearArgument()
                 event.accepted = true
                 return
               }
@@ -6551,6 +6639,10 @@ Scope {
                 }
                 return
               }
+              if (event.key === Qt.Key_Tab && !(event.modifiers & Qt.ShiftModifier) && root.tryArmArgument()) {
+                event.accepted = true
+                return
+              }
               if (event.key === Qt.Key_Down || (event.key === Qt.Key_Tab && !(event.modifiers & Qt.ShiftModifier))) {
                 event.accepted = true
                 resultsList.currentIndex = Math.min(resultsList.currentIndex + 1, max)
@@ -6562,6 +6654,7 @@ Scope {
                 resultsList.positionViewAtIndex(resultsList.currentIndex, ListView.Contain)
               }
             }
+          }
           }
         }
 
@@ -7095,7 +7188,7 @@ Scope {
           fontFamily: root.uiFont
           fontScale: root.uiFontScale
           gridNav: root.quickMode
-          hints: root.quickMode ? "tab  detail" : "!  >  :  @  dict"
+          hints: root.quickMode ? "tab  detail" : (root.argArmed ? "tab  results" : "tab  argument  ·  !  >  @  dict")
         }
       }
 
