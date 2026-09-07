@@ -66,9 +66,12 @@ build_wifi_tooltip() {
     bitrate=$(iw dev "$dev" link 2>/dev/null | awk '/tx bitrate:/ { print $3 " " $4; exit }')
   fi
   printf "Connected to %s\nSignal: %s%%\nInterface: %s\nIP: %s\nGateway: %s" "$ssid" "$sig" "$dev" "$ip" "$gw"
-  [ -n "$freq" ] && printf "\nFreq: %s MHz" "$freq"
-  [ -n "$bitrate" ] && printf "\nBitrate: %s" "$bitrate"
-  [ -n "$bssid" ] && printf "\nBSSID: %s" "$bssid"
+  # if-blocks, not trailing &&: a false test on the last line makes the whole
+  # function return 1, and `tooltip=$(build_wifi_tooltip ...)` under `set -e`
+  # then kills the script before it ever prints its JSON.
+  if [ -n "$freq" ]; then printf "\nFreq: %s MHz" "$freq"; fi
+  if [ -n "$bitrate" ]; then printf "\nBitrate: %s" "$bitrate"; fi
+  if [ -n "$bssid" ]; then printf "\nBSSID: %s" "$bssid"; fi
 }
 
 build_ethernet_tooltip() {

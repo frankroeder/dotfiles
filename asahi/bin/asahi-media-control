@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
+
 target="${1:-}"
 action="${2:-}"
 
@@ -9,40 +11,6 @@ if [ -z "$target" ] || { [ "$target" != "output-switch" ] && [ -z "$action" ]; }
   echo "usage: $0 <output-volume|input-volume|output-switch|brightness|keyboard-brightness|caps-lock|playerctl> <action>" >&2
   exit 2
 fi
-
-display_device() {
-  local device="${ASAHI_BACKLIGHT_DEVICE:-apple-panel-bl}"
-
-  if brightnessctl --device="$device" info >/dev/null 2>&1; then
-    printf "%s\n" "$device"
-    return 0
-  fi
-
-  for path in /sys/class/backlight/*; do
-    [ -e "$path" ] || continue
-    basename "$path"
-    return 0
-  done
-
-  return 1
-}
-
-keyboard_device() {
-  local device="${ASAHI_KEYBOARD_BACKLIGHT_DEVICE:-kbd_backlight}"
-
-  if brightnessctl --device="$device" info >/dev/null 2>&1; then
-    printf "%s\n" "$device"
-    return 0
-  fi
-
-  for path in /sys/class/leds/*kbd_backlight*; do
-    [ -e "$path" ] || continue
-    basename "$path"
-    return 0
-  done
-
-  return 1
-}
 
 brightness_step() {
   local current="$1" action="$2" target
@@ -76,10 +44,6 @@ brightness_step() {
 
 current_percent() {
   brightnessctl --device="$1" -m 2>/dev/null | awk -F, '{ gsub("%", "", $4); print $4; found=1 } END { exit !found }'
-}
-
-focused_monitor() {
-  hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.focused == true).name // empty'
 }
 
 monitor_is_internal() {

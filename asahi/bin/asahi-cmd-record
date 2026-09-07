@@ -4,6 +4,8 @@
 
 set -euo pipefail
 
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
+
 output_dir="${ASAHI_RECORD_DIR:-${XDG_VIDEOS_DIR:-$HOME/Videos}}"
 mode="${1:-fullscreen}"
 audio="${ASAHI_RECORD_AUDIO:-1}"
@@ -54,10 +56,6 @@ stop_recording() {
   rm -f "$pid_file"
   notify "Recording saved"
   refresh_bar
-}
-
-focused_monitor() {
-  hyprctl monitors -j | jq -r '.[] | select(.focused == true).name // empty'
 }
 
 audio_device() {

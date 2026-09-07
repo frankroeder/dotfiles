@@ -2,26 +2,14 @@
 
 set -euo pipefail
 
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
+
 action="${1:-}"
 state_dir="${ASAHI_IDLE_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-brightness}"
 
 usage() {
   echo "usage: $0 <dim|off|restore>" >&2
   exit 2
-}
-
-display_device() {
-  local device="${ASAHI_BACKLIGHT_DEVICE:-apple-panel-bl}"
-  if brightnessctl --device="$device" info >/dev/null 2>&1; then
-    printf "%s\n" "$device"
-    return 0
-  fi
-  for path in /sys/class/backlight/*; do
-    [ -e "$path" ] || continue
-    basename "$path"
-    return 0
-  done
-  return 1
 }
 
 brightness_devices() {
@@ -33,20 +21,6 @@ brightness_devices() {
       printf "%s\n" "$dev"
     fi
   done
-}
-
-keyboard_device() {
-  local device="${ASAHI_KEYBOARD_BACKLIGHT_DEVICE:-kbd_backlight}"
-  if brightnessctl --device="$device" info >/dev/null 2>&1; then
-    printf "%s\n" "$device"
-    return 0
-  fi
-  for path in /sys/class/leds/*kbd_backlight*; do
-    [ -e "$path" ] || continue
-    basename "$path"
-    return 0
-  done
-  return 1
 }
 
 save_device() {

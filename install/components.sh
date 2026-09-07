@@ -544,8 +544,11 @@ comp_asahi_desktop() {
   comp_asahi_common
   mkdir -p "$HOME/screenshots" "$HOME/Videos"
   local script
-  for script in "$DOTFILES"/asahi/bin/* "$DOTFILES"/asahi/autostart-scripts/*; do
-    [ -f "$script" ] && chmod +x "$script"
+  for script in "$DOTFILES"/asahi/bin/*; do
+    # `|| continue`, not `&& chmod`: asahi/bin/lib is a directory and sorts last,
+    # so a trailing `[ -f ]` would leave the loop with a non-zero status.
+    [ -f "$script" ] || continue
+    chmod +x "$script"
   done
   mkdir -p "$HOME/.config/systemd/user"
   link_if_exists "$DOTFILES/asahi/systemd/user/hyprland-session.target" "$HOME/.config/systemd/user/hyprland-session.target"
@@ -559,7 +562,7 @@ comp_asahi_desktop() {
   # ("Default Keyring" wallet wizard). gnome-keyring is the store instead.
   link_if_exists "$DOTFILES/asahi/kwalletrc" "$HOME/.config/kwalletrc"
   mkdir -p "$HOME/.config/autostart"
-  link_if_exists "$DOTFILES/asahi/autostart/gnome-keyring-ssh.desktop" \
+  link_if_exists "$DOTFILES/asahi/xdg-autostart/gnome-keyring-ssh.desktop" \
     "$HOME/.config/autostart/gnome-keyring-ssh.desktop"
   mkdir -p "$HOME/.config/gtk-3.0" "$HOME/.config/gtk-4.0"
   mkdir -p "$HOME/.config/wireplumber/wireplumber.conf.d"

@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+
 rfkill unblock wifi >/dev/null 2>&1 || true
 
 find_impala() {
@@ -26,27 +28,23 @@ iwd_active() {
 }
 
 if iwd_active && impala_bin="$(find_impala)"; then
-  exec "$HOME/.dotfiles/asahi/bin/asahi-launch-or-focus-tui" "$impala_bin"
+  exec "$bin/asahi-launch-or-focus-tui" "$impala_bin"
 fi
 
 if command -v nmtui >/dev/null 2>&1; then
-  exec "$HOME/.dotfiles/asahi/bin/asahi-launch-or-focus-tui" nmtui
+  exec "$bin/asahi-launch-or-focus-tui" nmtui
 fi
 
 if command -v nm-connection-editor >/dev/null 2>&1; then
-  if command -v uwsm-app >/dev/null 2>&1; then
-    exec setsid uwsm-app -- nm-connection-editor
-  fi
-
-  exec setsid nm-connection-editor
+  exec "$bin/asahi-launch" nm-connection-editor
 fi
 
 if command -v nmcli >/dev/null 2>&1; then
-  exec "$HOME/.dotfiles/asahi/bin/asahi-launch-or-focus-tui" nmcli device wifi
+  exec "$bin/asahi-launch-or-focus-tui" nmcli device wifi
 fi
 
 if iwd_active && command -v iwctl >/dev/null 2>&1; then
-  exec "$HOME/.dotfiles/asahi/bin/asahi-launch-or-focus-tui" iwctl
+  exec "$bin/asahi-launch-or-focus-tui" iwctl
 fi
 
 notify-send "Wi-Fi" "No supported Wi-Fi UI found."

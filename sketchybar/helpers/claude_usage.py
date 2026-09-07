@@ -16,6 +16,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from ccu_common import emit, load_cache, save_cache, short_error
+
 OAUTH_URL = "https://api.anthropic.com/api/oauth/usage"
 CRED_PATH = Path.home() / ".claude" / ".credentials.json"
 KEYCHAIN_SERVICE = "Claude Code-credentials"
@@ -23,43 +25,6 @@ CACHE_PATH = Path.home() / ".cache" / "sketchybar" / "claude_usage.json"
 CACHE_TTL_SEC = 90
 COOLDOWN_PATH = Path.home() / ".cache" / "sketchybar" / "claude_usage.cooldown"
 COOLDOWN_SEC = 300  # skip refetch after 429; dual-bar polls otherwise hammer OAuth
-
-
-def lua_literal(value: Any) -> str:
-  if value is None:
-    return "nil"
-  if value is True:
-    return "true"
-  if value is False:
-    return "false"
-  if isinstance(value, (int, float)):
-    return str(value)
-  if isinstance(value, str):
-    # Escape control chars — bare newlines break Lua double-quoted strings.
-    escaped = (
-      value.replace("\\", "\\\\")
-      .replace('"', '\\"')
-      .replace("\n", "\\n")
-      .replace("\r", "\\r")
-      .replace("\t", "\\t")
-    )
-    return f'"{escaped}"'
-  if isinstance(value, dict):
-    parts = [f"{k}={lua_literal(v)}" for k, v in value.items()]
-    return "{" + ",".join(parts) + "}"
-  if isinstance(value, list):
-    return "{" + ",".join(lua_literal(v) for v in value) + "}"
-  return lua_literal(str(value))
-
-
-def short_error(msg: str) -> str:
-  """Collapse API error bodies to a single short line for the popup."""
-  one = " ".join(msg.split())
-  if "rate_limit" in one.lower() or "http_429" in one:
-    return "rate_limited"
-  if len(one) > 48:
-    return one[:45] + "..."
-  return one
 
 
 def token_from_json(data: dict[str, Any]) -> str | None:
@@ -245,36 +210,6 @@ def build_error(error: str) -> dict[str, Any]:
   }
 
 
-def load_cache() -> dict[str, Any] | None:
-  if not CACHE_PATH.is_file():
-    return None
-  try:
-    raw = json.loads(CACHE_PATH.read_text())
-  except (json.JSONDecodeError, OSError):
-    return None
-  if not isinstance(raw, dict) or not isinstance(raw.get("payload"), dict):
-    return None
-  age = datetime.now(timezone.utc).timestamp() - float(raw.get("ts") or 0)
-  if age < 0 or age > CACHE_TTL_SEC * 4:
-    return None
-  payload = raw["payload"]
-  if payload.get("error"):
-    return None
-  return payload
-
-
-def save_cache(payload: dict[str, Any]) -> None:
-  if payload.get("error"):
-    return
-  try:
-    CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CACHE_PATH.write_text(
-      json.dumps({"ts": datetime.now(timezone.utc).timestamp(), "payload": payload})
-    )
-  except OSError:
-    pass
-
-
 def start_cooldown() -> None:
   try:
     COOLDOWN_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -296,7 +231,7 @@ def in_cooldown() -> bool:
 
 def fetch_usage() -> dict[str, Any]:
   if in_cooldown():
-    cached = load_cache()
+    cached = load_cache(CACHE_PATH, CACHE_TTL_SEC)
     if cached is not None:
       return cached
     return build_error("rate_limited")
@@ -306,21 +241,13 @@ def fetch_usage() -> dict[str, Any]:
   data, err = fetch_oauth_usage(token)
   if data is None:
     # Prefer last-good cache on transient failures (esp. 429).
-    cached = load_cache()
+    cached = load_cache(CACHE_PATH, CACHE_TTL_SEC)
     if cached is not None:
       return cached
     return build_error(err or "fetch_failed")
   payload = build_payload(data)
-  save_cache(payload)
+  save_cache(CACHE_PATH, payload)
   return payload
-
-
-def emit(payload: dict[str, Any]) -> None:
-  if "--json" in sys.argv:
-    json.dump(payload, sys.stdout, ensure_ascii=True)
-    sys.stdout.write("\n")
-  else:
-    print(lua_literal(payload))
 
 
 def main() -> int:
