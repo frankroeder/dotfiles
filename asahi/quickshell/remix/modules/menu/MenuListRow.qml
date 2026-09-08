@@ -23,9 +23,8 @@ Item {
     anchors.topMargin: 1
     anchors.bottomMargin: 1
     radius: Style.radiusSm
-    color: row.selected ? Style.menuRowSel : (rowMa.containsMouse ? Style.menuRowHi : "transparent")
+    color: (!row.selected && rowMa.containsMouse) ? Style.menuRowHi : "transparent"
     border.width: 0
-    Behavior on color { ColorAnimation { duration: 60 } }
   }
 
   Rectangle {

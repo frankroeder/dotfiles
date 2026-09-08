@@ -104,8 +104,8 @@ Singleton {
   readonly property color menuSealAlt: Wallpaper.DefaultTheme.teal
   readonly property color menuBg:      launchPanel
   readonly property color menuSep:     Qt.alpha(launchInk, 0.08)
-  readonly property color menuRowHi:   Qt.alpha(launchInk, 0.05)
-  readonly property color menuRowSel:  Qt.alpha(launchLumen, 0.18)
+  readonly property color menuRowHi:   Qt.alpha(launchInk, 0.04)
+  readonly property color menuRowSel:  "transparent"
   readonly property color menuSelBorder: "transparent"
   readonly property color menuHairline: Qt.alpha(launchInk, 0.08)
   readonly property color menuGlow:    Qt.alpha(launchLumen, 0.14)

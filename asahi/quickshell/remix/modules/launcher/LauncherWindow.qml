@@ -224,9 +224,10 @@ Scope {
     hubMode: root.quickPaneKey === "hub",
     compact: root.compactLauncher,
     headerVisible: root.sectionName !== "" || root.quickMode,
+    cmdVisible: !root.quickMode && !root.compactLauncher,
     rowCount: root.categoryFilter === ""
       ? Math.max(root.resultCount, (root.navRows || []).length)
-      : Math.max(1, root.resultCount)
+      : root.resultCount
   })
   function fontPx(size) {
     const boosted = size <= 9 ? size + 2 : size
@@ -5056,6 +5057,7 @@ Scope {
   readonly property string resultText: {
     const c = root.resultCount
     const s = c !== 1 ? "s" : ""
+    const matches = c === 1 ? "match" : "matches"
     const qq = root.query.trim()
     if (root.fileTerm(qq) !== null) {
       if (root.fileStatus === "loading") return "Searching files..."
@@ -5084,7 +5086,7 @@ Scope {
       }
       if (root.categoryFilter === "App") {
         const n = (DesktopEntries.applications.values || []).filter(d => !d.noDisplay && !root.isHiddenApp(d)).length
-        return c + " match" + s + " · " + n + " total"
+        return c + " " + matches + " · " + n + " total"
       }
       if (root.categoryFilter === "Actions") {
         const n = (root.quickActions || []).length
@@ -5102,13 +5104,13 @@ Scope {
         return c + " emoji" + s + " · " + Emoji.EMOJI.length + " total"
       }
       const n = (root.launcherItems || []).filter(x => x.category === root.categoryFilter).length
-      return c + " match" + s + " · " + n + " total"
+      return c + " " + matches + " · " + n + " total"
     }
     if (qq.length === 0) {
       const total = (root.launcherItems || []).length + (DesktopEntries.applications.values || []).length
       return c + " entries · " + total + " total"
     }
-    return c + " match" + s
+    return c + " " + matches
   }
 
   onResultCountChanged: {
@@ -6925,9 +6927,14 @@ Scope {
         Item {
           id: listArea
           Layout.fillWidth: true
-          Layout.fillHeight: true
-          Layout.minimumHeight: root.launcherGeom.minList
+          Layout.fillHeight: !root.compactLauncher
+          Layout.minimumHeight: root.compactLauncher
+            ? root.launcherGeom.bodyHeight
+            : root.launcherGeom.minList
           Layout.preferredHeight: root.launcherGeom.bodyHeight
+          Layout.maximumHeight: root.compactLauncher
+            ? root.launcherGeom.bodyHeight
+            : 100000
           visible: true
           clip: true
           readonly property var tileGeom: LauncherGeom.tileMetrics(
@@ -7003,10 +7010,8 @@ Scope {
                   anchors.topMargin: 1
                   anchors.bottomMargin: 1
                   radius: Style.radiusSm
-                  color: delegateRoot.isSelected ? Style.menuRowSel
-                        : rowMa.containsMouse ? Style.menuRowHi : "transparent"
+                  color: (!delegateRoot.isSelected && rowMa.containsMouse) ? Style.menuRowHi : "transparent"
                   border.width: 0
-                  Behavior on color { ColorAnimation { duration: 60 } }
                 }
 
                 Rectangle {
@@ -7418,7 +7423,7 @@ Scope {
 
         Text {
           Layout.fillWidth: true
-          visible: !root.quickMode
+          visible: !root.quickMode && !root.compactLauncher && text !== ""
           elide: Text.ElideRight
           text: {
             const it = resultsList.currentItem ? resultsList.currentItem.modelData : null

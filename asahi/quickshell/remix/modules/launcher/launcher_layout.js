@@ -49,6 +49,7 @@ var SIDE_MIN = 110
 var VIZ_MAX = 450
 var VIZ_MIN = 160
 var MIN_LIST = 110
+var COMPACT_ROWS_MIN = 4
 var MON_LIST_MAX = 160
 var MON_TOOLBAR_H = 26
 var MON_CAPTION_H = 16
@@ -179,8 +180,8 @@ function launcherChrome(opts) {
   const headerH = headerVisible ? headerHeight(fontScale) : 0
   const hintH = hintHeight(fontScale)
   const searchH = quickMode ? 0 : (opts.searchH == null ? SEARCH_H : opts.searchH)
-  const searchDiv = quickMode ? 0 : DIVIDER_H
-  const cmdH = quickMode ? 0 : cmdLineHeight(fontScale)
+  const searchDiv = 0
+  const cmdH = quickMode || opts.cmdVisible === false ? 0 : cmdLineHeight(fontScale)
 
   const parts = []
   if (headerH > 0) {
@@ -249,6 +250,7 @@ function launcherLayout(opts) {
     fontScale: fontScale,
     quickMode: quickMode,
     headerVisible: headerVisible,
+    cmdVisible: opts.cmdVisible,
     cardMargin: cardMargin,
     colSpacing: colSpacing,
     searchH: searchH
@@ -257,10 +259,10 @@ function launcherLayout(opts) {
 
   let cardHeight = Math.min(roundPx(screenH * CARD_MAX_FRAC), maxCard)
   if (compact) {
-    const rows = Math.max(1, opts.rowCount == null ? 8 : Number(opts.rowCount) || 0)
+    const rows = Math.max(COMPACT_ROWS_MIN, opts.rowCount == null ? 8 : Number(opts.rowCount) || 0)
     const listH = rows * rowH
     const compactMax = Math.min(roundPx(screenH * CARD_COMPACT_MAX_FRAC), maxCard)
-    cardHeight = Math.min(compactMax, Math.max(chrome + Math.min(listH, minList), chrome + listH))
+    cardHeight = Math.min(compactMax, chrome + listH)
   }
   const cardBottom = cardY + cardHeight
   const bodyHeight = Math.max(0, cardHeight - chrome)
@@ -332,6 +334,7 @@ if (typeof module !== "undefined" && module.exports) {
     VIZ_MAX: VIZ_MAX,
     VIZ_MIN: VIZ_MIN,
     MIN_LIST: MIN_LIST,
+    COMPACT_ROWS_MIN: COMPACT_ROWS_MIN,
     MON_LIST_MAX: MON_LIST_MAX,
     TILE_H_COL: TILE_H_COL,
     uiScale: uiScale,

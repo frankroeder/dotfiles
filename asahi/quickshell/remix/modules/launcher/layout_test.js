@@ -105,6 +105,43 @@ assert(midCompact.cardWidth <= 640, "1080p compact overview is narrower than 640
 assert(midCompact.cardHeight < mid.cardHeight, "compact overview is shorter than the deck card (" + midCompact.cardHeight + " < " + mid.cardHeight + ")");
 assert(midCompact.cardHeight <= 540, "compact overview stays at or under half the 1080p frame (got " + midCompact.cardHeight + ")");
 assert(midCompact.cardY < mid.cardY, "compact overview sits closer to the bar");
+const twoHit = launcherLayout({
+  screenW: 1920, screenH: 1080, sideActive: false, quickMode: false,
+  compact: true, rowCount: 2, headerVisible: true, tileCount: 2
+});
+const oneHit = launcherLayout({
+  screenW: 1920, screenH: 1080, sideActive: false, quickMode: false,
+  compact: true, rowCount: 1, headerVisible: true, tileCount: 1
+});
+const emptyHit = launcherLayout({
+  screenW: 1920, screenH: 1080, sideActive: false, quickMode: false,
+  compact: true, rowCount: 0, headerVisible: true, tileCount: 0
+});
+const floor = shipped.COMPACT_ROWS_MIN * twoHit.rowH
+assert(
+  twoHit.bodyHeight === floor,
+  "2-hit compact body stays at the " + shipped.COMPACT_ROWS_MIN + "-row floor (got " + twoHit.bodyHeight + ")"
+);
+assert(
+  oneHit.bodyHeight === floor,
+  "1-hit compact body stays at the " + shipped.COMPACT_ROWS_MIN + "-row floor (got " + oneHit.bodyHeight + ")"
+);
+assert(
+  emptyHit.bodyHeight === floor,
+  "0-hit compact body stays at the " + shipped.COMPACT_ROWS_MIN + "-row floor so empty copy fits (got " + emptyHit.bodyHeight + ")"
+);
+assert(
+  emptyHit.bodyHeight >= 4 * emptyHit.rowH,
+  "empty-state body is at least 4 rows (" + emptyHit.bodyHeight + ")"
+);
+assert(
+  oneHit.cardHeight === twoHit.cardHeight,
+  "short result lists share the minimum card height"
+);
+assert(
+  twoHit.cardHeight < midCompact.cardHeight,
+  "minimum compact card is still shorter than the 8-row overview"
+);
 assert(compact.cardWidth <= 1280 - 48, "800p card keeps side gaps (width " + compact.cardWidth + ")");
 assert(huge.cardWidth >= 1500, "4K side-active card is not stuck at 1080 (got " + huge.cardWidth + ")");
 assert(compact.cardMargin <= mid.cardMargin, "margins shrink on small displays");

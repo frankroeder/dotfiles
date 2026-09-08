@@ -22,12 +22,9 @@ Item {
   Rectangle {
     anchors.fill: parent
     anchors.margins: root.compact ? 2 : 4
-    color: root.selected
-      ? Style.menuRowSel
-      : (root.hovered ? Style.menuRowHi : "transparent")
+    color: (!root.selected && root.hovered) ? Style.menuRowHi : "transparent"
     border.width: 0
     radius: Style.radiusSm
-    Behavior on color { ColorAnimation { duration: 80 } }
   }
 
   Rectangle {
