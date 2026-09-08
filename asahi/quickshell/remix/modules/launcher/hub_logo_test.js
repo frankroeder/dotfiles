@@ -79,16 +79,29 @@ assert(
 const valueBlock = qml.match(/text:\s*rowValue[\s\S]{0,800}/);
 assert(!!valueBlock, "hub value Text binds rowValue");
 assert(
-  /wrapMode:\s*width\s*>\s*72\s*\?\s*Text\.Wrap\s*:\s*Text\.NoWrap/.test(valueBlock[0]),
-  "hub info values wrap once the column has a real width"
+  /wrapMode:\s*width\s*>\s*80\s*\?\s*Text\.WordWrap\s*:\s*Text\.NoWrap/.test(valueBlock[0]),
+  "hub info values wrap into leftover well height once the column has width"
 );
 assert(
-  /elide:\s*Text\.ElideNone/.test(valueBlock[0]),
-  "hub info values are not cropped with ElideRight / '...'"
+  /maximumLineCount:\s*width\s*>\s*80\s*\?\s*2\s*:\s*1/.test(valueBlock[0]),
+  "hub info values may wrap two lines in a shared grid row"
+);
+const minLead = Math.min.apply(null, lines.map(function (l) {
+  const m = l.match(/^(\s*)/);
+  return m ? m[1].length : 0;
+}));
+assert(minLead === 0, "logo shared leading indent is stripped (got " + minLead + ")");
+assert(
+  /id:\s*ffInfoBody[\s\S]{0,80}GridLayout/.test(qml) || /GridLayout\s*\{\s*id:\s*ffInfoBody/.test(qml),
+  "hub facts sit in a shared GridLayout so wrapped rows stay aligned"
 );
 assert(
-  /maximumLineCount:\s*width\s*>\s*72\s*\?\s*4\s*:\s*1/.test(valueBlock[0]),
-  "hub info values may use up to 4 lines in leftover height"
+  /horizontalAlignment:\s*Text\.AlignLeft/.test(qml),
+  "hub fact labels are left-aligned (Display must not become Displ...)"
+);
+assert(
+  /ffLabelWidth:\s*Math\.max\(68/.test(qml),
+  "hub fact label column is wide enough for Display / Kernel"
 );
 assert(
   /Layout\.preferredHeight:\s*root\.launcherGeom\.rowHTall/.test(qml),

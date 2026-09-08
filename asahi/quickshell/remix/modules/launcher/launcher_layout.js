@@ -12,8 +12,10 @@ var REF_W = 1920
 var REF_H = 1080
 var REF_FONT_SCALE = 1.4
 var REF_WIDTH_OVERVIEW = 820
+var REF_WIDTH_COMPACT = 600
 var REF_WIDTH_SIDE = 1080
 var WIDTH_OVERVIEW_FRAC = REF_WIDTH_OVERVIEW / REF_W
+var WIDTH_COMPACT_FRAC = REF_WIDTH_COMPACT / REF_W
 var WIDTH_SIDE_FRAC = REF_WIDTH_SIDE / REF_W
 var UI_SCALE_MIN = 0.78
 var UI_SCALE_MAX = 1.50
@@ -23,7 +25,9 @@ var FONT_SCALE_MAX = 1.80
 var CARD_MARGIN = 17
 var COL_SPACING = 12
 var CARD_TOP_FRAC = 0.12
+var CARD_TOP_FRAC_COMPACT = 0.10
 var CARD_MAX_FRAC = 0.76
+var CARD_COMPACT_MAX_FRAC = 0.50
 var CARD_BOTTOM_FRAC = 0.04
 var MIN_BOTTOM_GAP = 28
 var DIVIDER_H = 1
@@ -72,12 +76,12 @@ function fontScaleFor(scale) {
   return Math.round(clamp(REF_FONT_SCALE * s, FONT_SCALE_MIN, FONT_SCALE_MAX) * 100) / 100
 }
 
-function cardWidthFor(screenW, sideActive) {
+function cardWidthFor(screenW, sideActive, compact) {
   const w = Math.max(1, Number(screenW) || REF_W)
-  const frac = sideActive ? WIDTH_SIDE_FRAC : WIDTH_OVERVIEW_FRAC
+  const frac = sideActive ? WIDTH_SIDE_FRAC : (compact ? WIDTH_COMPACT_FRAC : WIDTH_OVERVIEW_FRAC)
   const gap = Math.max(24, roundPx(w * 0.035))
   const maxW = Math.max(320, w - 2 * gap)
-  const minW = Math.min(maxW, sideActive ? 700 : 540)
+  const minW = Math.min(maxW, sideActive ? 700 : (compact ? 460 : 540))
   return clamp(roundPx(w * frac), minW, maxW)
 }
 
@@ -169,15 +173,20 @@ function launcherChrome(opts) {
   opts = opts || {}
   const fontScale = opts.fontScale == null ? REF_FONT_SCALE : opts.fontScale
   const quickMode = !!opts.quickMode
+  const headerVisible = opts.headerVisible !== false
   const margin = opts.cardMargin == null ? CARD_MARGIN : opts.cardMargin
   const spacing = opts.colSpacing == null ? COL_SPACING : opts.colSpacing
-  const headerH = headerHeight(fontScale)
+  const headerH = headerVisible ? headerHeight(fontScale) : 0
   const hintH = hintHeight(fontScale)
   const searchH = quickMode ? 0 : (opts.searchH == null ? SEARCH_H : opts.searchH)
   const searchDiv = quickMode ? 0 : DIVIDER_H
   const cmdH = quickMode ? 0 : cmdLineHeight(fontScale)
 
-  const parts = [headerH, DIVIDER_H]
+  const parts = []
+  if (headerH > 0) {
+    parts.push(headerH)
+    parts.push(DIVIDER_H)
+  }
   if (searchH > 0) parts.push(searchH)
   if (searchDiv > 0) parts.push(searchDiv)
   parts.push(DIVIDER_H)
@@ -209,6 +218,8 @@ function launcherLayout(opts) {
   const sideActive = !!opts.sideActive
   const quickMode = opts.quickMode == null ? true : !!opts.quickMode
   const hubMode = !!opts.hubMode
+  const compact = !!opts.compact
+  const headerVisible = opts.headerVisible != null ? !!opts.headerVisible : !compact
   const colMode = !!(quickMode && sideActive)
 
   const scale = uiScale(screenW, screenH)
@@ -225,22 +236,33 @@ function launcherLayout(opts) {
   const monToolbarH = scaledPx(MON_TOOLBAR_H, scale, 22, 36)
   const monCaptionH = scaledPx(MON_CAPTION_H, scale, 12, 24)
   const monSpacing = scaledPx(MON_SPACING, scale, 6, 14)
-  const cardWidth = cardWidthFor(screenW, sideActive)
+  const rowH = scaledPx(ROW_H, scale, 36, 64)
+  const cardWidth = cardWidthFor(screenW, sideActive, compact)
 
   const bottomGap = Math.max(minBottom, roundPx(screenH * CARD_BOTTOM_FRAC))
-  const cardY = roundPx(screenH * CARD_TOP_FRAC)
+  const cardY = compact
+    ? Math.max(scaledPx(88, scale, 64, 120), roundPx(screenH * CARD_TOP_FRAC_COMPACT))
+    : roundPx(screenH * CARD_TOP_FRAC)
   const maxCard = screenH - cardY - bottomGap
-  const cardHeight = Math.min(roundPx(screenH * CARD_MAX_FRAC), maxCard)
-  const cardBottom = cardY + cardHeight
 
   const chromeInfo = launcherChrome({
     fontScale: fontScale,
     quickMode: quickMode,
+    headerVisible: headerVisible,
     cardMargin: cardMargin,
     colSpacing: colSpacing,
     searchH: searchH
   })
   const chrome = chromeInfo.chrome
+
+  let cardHeight = Math.min(roundPx(screenH * CARD_MAX_FRAC), maxCard)
+  if (compact) {
+    const rows = Math.max(1, opts.rowCount == null ? 8 : Number(opts.rowCount) || 0)
+    const listH = rows * rowH
+    const compactMax = Math.min(roundPx(screenH * CARD_COMPACT_MAX_FRAC), maxCard)
+    cardHeight = Math.min(compactMax, Math.max(chrome + Math.min(listH, minList), chrome + listH))
+  }
+  const cardBottom = cardY + cardHeight
   const bodyHeight = Math.max(0, cardHeight - chrome)
 
   const tiles = tileMetrics(bodyHeight, tileCount, colMode, scale)
@@ -270,6 +292,8 @@ function launcherLayout(opts) {
     colSpacing: colSpacing,
     searchH: searchH,
     chrome: chrome,
+    compact: compact,
+    headerVisible: headerVisible,
     bodyHeight: bodyHeight,
     colMode: colMode,
     hubMode: hubMode,
@@ -280,7 +304,7 @@ function launcherLayout(opts) {
     tileScrollBudget: tiles.tileScrollBudget,
     paneHeight: paneHeight,
     panePad: scaledPx(8, scale, 4, 14),
-    rowH: scaledPx(ROW_H, scale, 36, 64),
+    rowH: rowH,
     rowHTall: scaledPx(ROW_H_TALL, scale, 44, 80),
     iconSlot: scaledPx(ICON_SLOT, scale, 22, 42),
     rowPad: scaledPx(ROW_PAD, scale, 8, 22),

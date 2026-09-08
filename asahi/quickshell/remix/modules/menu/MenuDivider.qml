@@ -7,5 +7,5 @@ Rectangle {
   width: parent ? parent.width : implicitWidth
   height: implicitHeight
   color: Style.menuSep
-  opacity: 0.85
+  opacity: 0.7
 }

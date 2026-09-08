@@ -36,16 +36,68 @@ const fileIcons = {
   "code": "󰅩", "config": "󰒓", "archive": "󰀼"
 }
 
+const categoryTints = {
+  Quick: "sky",
+  App: "blue",
+  Files: "yellow",
+  Actions: "peach",
+  Keys: "mauve",
+  Emoji: "pink",
+  Websearch: "teal",
+  System: "maroon"
+}
+
+const deckTints = {
+  dashboard: "sky",
+  wallpaper: "lavender",
+  screenshots: "yellow",
+  media: "pink",
+  network: "teal",
+  monitors: "sapphire",
+  temp: "peach",
+  battery: "green",
+  bluetooth: "blue",
+  storage: "yellow",
+  clipboard: "lavender",
+  packages: "green",
+  screensaver: "mauve",
+  record: "maroon",
+  "record-webcam": "maroon",
+  ocr: "peach",
+  qr: "teal",
+  nightlight: "yellow",
+  reload: "sapphire",
+  hypr: "blue",
+  lock: "maroon",
+  scratch: "lavender"
+}
+
 const categoryNav = [
-  { title: "Quick", icon: "󱎫", category: "Browse", isCategory: true, target: "Quick", keywords: "quick settings dashboard hub overview battery audio wifi bt display media screenshots wallpaper storage disk space du clipboard cliphist packages dnf" },
-  { title: "Apps", icon: "󰀻", category: "Browse", isCategory: true, target: "App", keywords: "apps applications launcher programs software desktop" },
-  { title: "Files", icon: "󰉋", category: "Browse", isCategory: true, target: fileCategory, keywords: "files file search find folder browse path fd", accessory: ">" },
-  { title: "Actions", icon: "󰜎", category: "Browse", isCategory: true, target: "Actions", keywords: "actions colon commands run reload lock scratch hypr wallpaper dashboard clipboard packages dnf", accessory: ":" },
-  { title: "Keyboard Shortcuts", icon: "󰌌", category: "Browse", isCategory: true, target: "Keys", keywords: "keys keyboard shortcuts bindings hotkeys binds hyprland super mod cheatsheet", accessory: "?" },
-  { title: "Emoji", icon: "󰱨", category: "Browse", isCategory: true, target: "Emoji", keywords: "emoji emote smiley unicode symbols faces", accessory: ";" },
-  { title: "Websearch", icon: "󰖟", category: "Browse", isCategory: true, target: "Websearch", keywords: "web search documentation engines kagi docs translate wiki", accessory: "@" },
-  { title: "System", icon: "󰐥", category: "Browse", isCategory: true, target: "System", keywords: "system lock suspend logout restart reboot shutdown power session" }
+  { title: "Quick", icon: "󱎫", category: "Browse", isCategory: true, target: "Quick", tint: categoryTints.Quick, keywords: "quick settings dashboard hub overview battery audio wifi bt display media screenshots wallpaper storage disk space du clipboard cliphist packages dnf" },
+  { title: "Apps", icon: "󰀻", category: "Browse", isCategory: true, target: "App", tint: categoryTints.App, keywords: "apps applications launcher programs software desktop" },
+  { title: "Files", icon: "󰉋", category: "Browse", isCategory: true, target: fileCategory, tint: categoryTints.Files, keywords: "files file search find folder browse path fd", accessory: ">" },
+  { title: "Actions", icon: "󰜎", category: "Browse", isCategory: true, target: "Actions", tint: categoryTints.Actions, keywords: "actions colon commands run reload lock scratch hypr wallpaper dashboard clipboard packages dnf", accessory: ":" },
+  { title: "Keyboard Shortcuts", icon: "󰌌", category: "Browse", isCategory: true, target: "Keys", tint: categoryTints.Keys, keywords: "keys keyboard shortcuts bindings hotkeys binds hyprland super mod cheatsheet", accessory: "?" },
+  { title: "Emoji", icon: "󰱨", category: "Browse", isCategory: true, target: "Emoji", tint: categoryTints.Emoji, keywords: "emoji emote smiley unicode symbols faces", accessory: ";" },
+  { title: "Websearch", icon: "󰖟", category: "Browse", isCategory: true, target: "Websearch", tint: categoryTints.Websearch, keywords: "web search documentation engines kagi docs translate wiki", accessory: "@" },
+  { title: "System", icon: "󰐥", category: "Browse", isCategory: true, target: "System", tint: categoryTints.System, keywords: "system lock suspend logout restart reboot shutdown power session" }
 ]
+
+function itemTint(item) {
+  if (!item) return ""
+  if (item.tint) return item.tint
+  if (item.target && categoryTints[item.target]) return categoryTints[item.target]
+  if (item.key && deckTints[item.key]) return deckTints[item.key]
+  if (item.mode && deckTints[item.mode]) return deckTints[item.mode]
+  if (item.isCategory) return ""
+  if (item.special === "app") return ""
+  if (item.category && categoryTints[item.category]) return categoryTints[item.category]
+  return ""
+}
+
+function deckTint(key) {
+  return deckTints[key] || ""
+}
 
 const localItems = [
   // System / Session (reached via System category)

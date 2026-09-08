@@ -19,6 +19,18 @@ function trimShade(line) {
     .replace(/\s+$/g, "")
 }
 
+function leftShift(lines) {
+  const list = lines || []
+  let pad = Infinity
+  for (let i = 0; i < list.length; i++) {
+    const m = String(list[i] || "").match(/^(\s*)/)
+    const n = m ? m[1].length : 0
+    if (n < pad) pad = n
+  }
+  if (!isFinite(pad) || pad <= 0) return list
+  return list.map(function (l) { return String(l).slice(pad) })
+}
+
 function parseLogo(text) {
   const lines = String(text || "").split(/\n/)
   const logo = []
@@ -32,7 +44,9 @@ function parseLogo(text) {
     if (/^[A-Za-z0-9._-]+@[A-Za-z0-9._-]+$/.test(trimmed)) continue
     logo.push(trimShade(line))
   }
-  return logo
+  // Shared leading indent is empty layout width — it used to push
+  // contentWidth over the fact columns and paint through them.
+  return leftShift(logo)
 }
 
 function logoText(text) {
@@ -43,6 +57,7 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     stripAnsi: stripAnsi,
     trimShade: trimShade,
+    leftShift: leftShift,
     parseLogo: parseLogo,
     logoText: logoText
   }

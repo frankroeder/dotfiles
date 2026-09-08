@@ -2,14 +2,14 @@ import QtQuick
 import QtQuick.Layouts
 import "../../"
 
-// Launcher-matching list row (adaptive height, seal accent, accessory column).
 Item {
   id: row
   property string icon: ""
   property string title: ""
   property string accessory: ""
   property bool selected: false
-  property string uiFont: Style.fontFamily
+  property string uiFont: Style.menuMono
+  property string labelFamily: Style.menuSans
   property var onClicked: null
 
   implicitHeight: 40
@@ -24,30 +24,31 @@ Item {
     anchors.bottomMargin: 1
     radius: Style.radiusSm
     color: row.selected ? Style.menuRowSel : (rowMa.containsMouse ? Style.menuRowHi : "transparent")
-    Behavior on color { ColorAnimation { duration: 50 } }
+    border.width: 0
+    Behavior on color { ColorAnimation { duration: 60 } }
   }
+
   Rectangle {
-    anchors.left: parent.left
-    anchors.top: parent.top
-    anchors.bottom: parent.bottom
-    anchors.topMargin: 6
-    anchors.bottomMargin: 6
-    width: 2
-    radius: 1
-    color: Style.menuSeal
     visible: row.selected
+    width: Style.menuRail
+    height: parent.height - 12
+    radius: 1
+    color: Style.menuAccent
+    anchors.left: parent.left
+    anchors.leftMargin: 4
+    anchors.verticalCenter: parent.verticalCenter
   }
 
   RowLayout {
     anchors.fill: parent
-    anchors.leftMargin: 14
+    anchors.leftMargin: 16
     anchors.rightMargin: 14
     spacing: 12
 
     Text {
       text: row.icon
       font.pixelSize: 14
-      color: row.selected ? Style.menuSeal : Style.menuInkDeep
+      color: row.selected ? Style.menuInk : Style.menuInkDeep
       font.family: row.uiFont
       Layout.preferredWidth: 18
       horizontalAlignment: Text.AlignHCenter
@@ -55,21 +56,21 @@ Item {
     Text {
       Layout.fillWidth: true
       text: row.title
-      color: row.selected ? Style.menuInk : Style.menuInkDeep
+      color: row.selected ? Style.menuInk : Style.menuInk
       font.pixelSize: 13
-      font.family: row.uiFont
+      font.family: row.labelFamily
       font.weight: row.selected ? Font.Medium : Font.Normal
-      font.letterSpacing: 0.6
+      font.letterSpacing: 0.15
       elide: Text.ElideRight
     }
     Text {
       visible: row.accessory !== ""
-      text: row.accessory.toUpperCase()
-      color: row.selected ? Style.menuSeal : Style.menuInkDeep
-      opacity: row.selected ? 0.95 : 0.65
-      font.pixelSize: 10
-      font.family: row.uiFont
-      font.letterSpacing: 1.5
+      text: row.accessory === "›" ? "›" : row.accessory
+      color: row.selected ? Style.menuInkDeep : Style.menuInkMuted
+      opacity: row.selected ? 0.9 : 0.55
+      font.pixelSize: row.accessory === "›" ? 16 : 11
+      font.family: row.labelFamily
+      font.letterSpacing: 0.15
       elide: Text.ElideLeft
       Layout.maximumWidth: 160
     }

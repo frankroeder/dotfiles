@@ -8,10 +8,11 @@ Item {
   property string glyph: "󰍉"
   property string placeholder: "Type to search..."
   property real fontScale: 1.0
-  property string fontFamily: Style.fontFamily
+  property string fontFamily: Style.menuDisplay
+  property string iconFamily: Style.menuMono
 
   implicitWidth: parent ? parent.width : 0
-  implicitHeight: 38
+  implicitHeight: 40
   width: parent ? parent.width : implicitWidth
   height: implicitHeight
 
@@ -20,8 +21,8 @@ Item {
     anchors.left: parent.left
     anchors.verticalCenter: parent.verticalCenter
     text: root.glyph
-    color: root.input.activeFocus ? Style.menuSeal : Style.menuInkDeep
-    font.family: root.fontFamily
+    color: root.input.activeFocus ? Style.menuAccent : Style.menuInkDeep
+    font.family: root.iconFamily
     font.pixelSize: 16 * root.fontScale
 
     Behavior on color { ColorAnimation { duration: 120 } }
@@ -34,10 +35,11 @@ Item {
     anchors.right: parent.right
     anchors.verticalCenter: parent.verticalCenter
     color: root.input.text.length > 0 ? Style.menuInk : Style.menuInkDeep
-    opacity: root.input.text.length > 0 ? 1 : 0.55
+    opacity: root.input.text.length > 0 ? 1 : 0.6
     font.family: root.fontFamily
-    font.pixelSize: 14 * root.fontScale
-    font.letterSpacing: 0.8
+    font.pixelSize: 16 * root.fontScale
+    font.weight: Font.Medium
+    font.letterSpacing: 0.1
     clip: true
     focus: true
     text: root.input.text
@@ -46,7 +48,7 @@ Item {
       width: 2
       height: Math.round(field.font.pixelSize * 1.05)
       radius: 1
-      color: Style.menuSeal
+      color: Style.menuAccent
       anchors.verticalCenter: parent ? parent.verticalCenter : undefined
       SequentialAnimation on opacity {
         running: field.activeFocus && field.cursorVisible
@@ -65,5 +67,15 @@ Item {
       visible: parent.text.length === 0 && !parent.activeFocus
       verticalAlignment: Text.AlignVCenter
     }
+  }
+
+  Rectangle {
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    height: 1
+    color: root.input.activeFocus ? Style.menuAccent : Style.menuSep
+    opacity: root.input.activeFocus ? 0.7 : 1
+    Behavior on color { ColorAnimation { duration: 120 } }
   }
 }

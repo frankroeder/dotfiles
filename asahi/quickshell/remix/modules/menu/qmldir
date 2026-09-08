@@ -10,3 +10,7 @@ MenuListRow 1.0 MenuListRow.qml
 MenuPopupCard 1.0 MenuPopupCard.qml
 MenuSectionTitle 1.0 MenuSectionTitle.qml
 MenuScrollBar 1.0 MenuScrollBar.qml
+MenuHudFrame 1.0 MenuHudFrame.qml
+MenuHudDial 1.0 MenuHudDial.qml
+MenuHudTile 1.0 MenuHudTile.qml
+MenuFoldScrim 1.0 MenuFoldScrim.qml

@@ -72,9 +72,9 @@ Scope {
           height: 28
           Menu.MenuHeader {
             width: parent.width - 70
-            fontFamily: root.uiFont
-            title: "ASAHI"
-            subtitle: "WALLPAPERS  ·  " + root.filteredWallpapers.length + " IMAGES"
+            fontFamily: Style.menuMono
+            title: "Asahi"
+            subtitle: "Wallpapers  ·  " + root.filteredWallpapers.length + " images"
           }
           Rectangle {
             width: 26
@@ -302,7 +302,7 @@ Scope {
 
         Menu.MenuHintRow {
           width: parent.width
-          fontFamily: root.uiFont
+          fontFamily: Style.menuMono
           hints: "click apply · right-click preview · " + WallpaperService.backend
         }
       }

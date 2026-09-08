@@ -1,7 +1,6 @@
 import QtQuick
 import "../../"
 
-// Bar-attached popup shell (menu chrome, 14px inset).
 Rectangle {
   id: root
   default property alias content: inner.data
@@ -9,7 +8,7 @@ Rectangle {
   anchors.fill: parent
   radius: Style.menuRadius
   color: Style.menuBg
-  border.color: Style.menuSep
+  border.color: Style.menuHairline
   border.width: 1
   clip: true
 

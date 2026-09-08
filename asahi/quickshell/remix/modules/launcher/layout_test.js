@@ -96,7 +96,15 @@ assert(compact.fontScale <= mid.fontScale, "type on 800p <= 1080p (" + compact.f
 assert(mid.fontScale <= large.fontScale, "type on 1080p <= 1440p (" + mid.fontScale + " <= " + large.fontScale + ")");
 assert(Math.abs(mid.cardWidth - 1080) <= 8, "1080p side-active width stays near 1080 (got " + mid.cardWidth + ")");
 const midOverview = launcherLayout({ screenW: 1920, screenH: 1080, sideActive: false, quickMode: false, tileCount: 10 });
-assert(Math.abs(midOverview.cardWidth - 820) <= 8, "1080p overview width stays near 820 (got " + midOverview.cardWidth + ")");
+assert(Math.abs(midOverview.cardWidth - 820) <= 8, "1080p non-compact list width stays near 820 (got " + midOverview.cardWidth + ")");
+const midCompact = launcherLayout({
+  screenW: 1920, screenH: 1080, sideActive: false, quickMode: false,
+  compact: true, rowCount: 8, headerVisible: false, tileCount: 8
+});
+assert(midCompact.cardWidth <= 640, "1080p compact overview is narrower than 640 (got " + midCompact.cardWidth + ")");
+assert(midCompact.cardHeight < mid.cardHeight, "compact overview is shorter than the deck card (" + midCompact.cardHeight + " < " + mid.cardHeight + ")");
+assert(midCompact.cardHeight <= 540, "compact overview stays at or under half the 1080p frame (got " + midCompact.cardHeight + ")");
+assert(midCompact.cardY < mid.cardY, "compact overview sits closer to the bar");
 assert(compact.cardWidth <= 1280 - 48, "800p card keeps side gaps (width " + compact.cardWidth + ")");
 assert(huge.cardWidth >= 1500, "4K side-active card is not stuck at 1080 (got " + huge.cardWidth + ")");
 assert(compact.cardMargin <= mid.cardMargin, "margins shrink on small displays");
@@ -182,12 +190,32 @@ assert(
   "quick sidebar is a Flickable (quickSide) so leftover tiles can scroll"
 );
 assert(
+  /quickRailW/.test(qml) && !/quickMode \? 0\.34/.test(qml),
+  "quick sidebar width follows label width, not a 34% card fraction"
+);
+assert(
   /Layout\.preferredHeight:\s*implicitHeight/.test(qml),
   "launcher ColumnLayout prefers implicitHeight for chrome (header/hint)"
 );
 assert(
   /rowHTall/.test(qml) && /iconSlot/.test(qml) && /rowPad/.test(qml),
   "list rows, icon slot, and row padding come from adaptive geom"
+);
+assert(
+  /compact:\s*root\.compactLauncher/.test(qml),
+  "launcherLayout receives compact so the overview can hug its rows"
+);
+assert(
+  /rowCount:/.test(qml),
+  "launcherLayout receives rowCount for the compact card height"
+);
+assert(
+  /Behavior on height/.test(qml),
+  "MenuCard height animates when the overview grows into a drill"
+);
+assert(
+  /transformOrigin:\s*Item\.Top/.test(fs.readFileSync(path.join(__dirname, "../menu/MenuCard.qml"), "utf8")),
+  "MenuCard unfolds from the top (menu-strip origin)"
 );
 
 console.log("\n== menu chrome implicitHeight (ColumnLayout) ==");

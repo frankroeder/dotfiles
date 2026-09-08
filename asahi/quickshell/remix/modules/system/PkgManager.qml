@@ -164,11 +164,11 @@ Scope {
           }
           Text {
             Layout.fillWidth: true
-            text: "PACKAGES"
+            text: "Packages"
             color: Style.menuInk
-            font.family: Style.fontFamily
+            font.family: Style.menuMono
             font.pixelSize: 16
-            font.letterSpacing: 1.6
+            font.letterSpacing: 0.15
             font.weight: Font.Medium
           }
           Text {

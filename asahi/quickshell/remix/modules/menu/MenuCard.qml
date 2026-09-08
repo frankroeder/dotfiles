@@ -9,23 +9,23 @@ Rectangle {
   default property alias content: inner.data
 
   color: Style.menuBg
-  border.color: Style.menuSep
+  border.color: Style.menuHairline
   border.width: 1
-  radius: cardRadius
+  radius: root.cardRadius
   clip: true
   opacity: chromeReveal
-  scale: 0.96 + 0.04 * chromeReveal
-  transformOrigin: Item.Center
+  scale: 0.92 + 0.08 * chromeReveal
+  transformOrigin: Item.Top
 
   Behavior on opacity {
     NumberAnimation {
-      duration: Style.menuAnimMs
+      duration: Style.menuAnimMs + 40
       easing.type: Easing.OutCubic
     }
   }
   Behavior on scale {
     NumberAnimation {
-      duration: Style.menuAnimMs + 40
+      duration: Style.menuAnimMs + 60
       easing.type: Easing.OutCubic
     }
   }
@@ -39,5 +39,6 @@ Rectangle {
     id: inner
     anchors.fill: parent
     anchors.margins: root.cardMargin
+    z: 1
   }
 }

@@ -83,33 +83,48 @@ Singleton {
   readonly property color panelWarningBg:       Qt.alpha(Wallpaper.DefaultTheme.peach, 0.16)
   readonly property color panelDivider:         Qt.alpha(Wallpaper.DefaultTheme.text, 0.10)
 
-  // Launcher-inspired menu chrome (Asahi palette, not omarchy paths)
-  readonly property color menuPaper:   Wallpaper.DefaultTheme.crust
-  readonly property color menuInk:     Wallpaper.DefaultTheme.text
-  readonly property color menuInkDeep: Wallpaper.DefaultTheme.subtext0
-  readonly property color menuInkMuted: Wallpaper.DefaultTheme.overlay1
+  // Launcher overlay — same material as the top menu strip (mantle, mono,
+  // sky focus). Card is opaque so rounded corners stay even.
+  readonly property color launchVoid:  Wallpaper.DefaultTheme.crust
+  readonly property color launchPanel: Wallpaper.DefaultTheme.mantle
+  readonly property color launchInk:   Wallpaper.DefaultTheme.text
+  readonly property color launchMute:  Wallpaper.DefaultTheme.subtext0
+  readonly property color launchDeep:  Wallpaper.DefaultTheme.overlay1
+  readonly property color launchLumen: Wallpaper.DefaultTheme.sky
+  readonly property color launchSteel: Wallpaper.DefaultTheme.sapphire
+
+  readonly property color menuPaper:   launchVoid
+  readonly property color menuInk:     launchInk
+  readonly property color menuInkDeep: launchMute
+  readonly property color menuInkMuted: launchDeep
   readonly property color menuSumi:    Wallpaper.DefaultTheme.overlay0
-  readonly property color menuSeal:    Wallpaper.DefaultTheme.peach
-  readonly property color menuIndigo:  Wallpaper.DefaultTheme.sapphire
-  readonly property color menuSealAlt: Wallpaper.DefaultTheme.peach
-  readonly property color menuBg:      Qt.rgba(menuPaper.r, menuPaper.g, menuPaper.b, 0.94)
-  readonly property color menuSep:     Qt.rgba(menuInk.r, menuInk.g, menuInk.b, 0.12)
-  readonly property color menuRowHi:   Qt.rgba(menuInk.r, menuInk.g, menuInk.b, 0.06)
-  readonly property color menuRowSel:  Qt.rgba(menuSeal.r, menuSeal.g, menuSeal.b, 0.18)
-  // Barely-there wash so Hyprland layer blur stays readable over the desktop.
-  readonly property color menuDim:     Qt.rgba(0, 0, 0, 0.10)
-  readonly property color menuDimFrost: Qt.rgba(Wallpaper.DefaultTheme.mantle.r, Wallpaper.DefaultTheme.mantle.g, Wallpaper.DefaultTheme.mantle.b, 0.08)
-  readonly property color menuCardBg:  Qt.rgba(menuInk.r, menuInk.g, menuInk.b, 0.04)
-  readonly property color menuControlBg: Qt.rgba(menuInk.r, menuInk.g, menuInk.b, 0.07)
-  readonly property color menuOnAccent: Wallpaper.DefaultTheme.crust
+  readonly property color menuAccent:  launchLumen
+  readonly property color menuSeal:    launchLumen
+  readonly property color menuIndigo:  launchSteel
+  readonly property color menuSealAlt: Wallpaper.DefaultTheme.teal
+  readonly property color menuBg:      launchPanel
+  readonly property color menuSep:     Qt.alpha(launchInk, 0.08)
+  readonly property color menuRowHi:   Qt.alpha(launchInk, 0.05)
+  readonly property color menuRowSel:  Qt.alpha(launchLumen, 0.18)
+  readonly property color menuSelBorder: "transparent"
+  readonly property color menuHairline: Qt.alpha(launchInk, 0.08)
+  readonly property color menuGlow:    Qt.alpha(launchLumen, 0.14)
+  readonly property color menuDim:     Qt.alpha(launchVoid, 0.50)
+  readonly property color menuDimFrost: Qt.rgba(0, 0, 0, 0.0)
+  readonly property color menuCardBg:  Qt.alpha(launchInk, 0.05)
+  readonly property color menuControlBg: Qt.alpha(launchInk, 0.05)
+  readonly property color menuOnAccent: launchVoid
   readonly property color menuOverlayLight: Qt.rgba(1, 1, 1, 0.92)
-  readonly property color menuSuccessWash: Qt.rgba(green.r, green.g, green.b, 0.32)
-  readonly property int menuRadius: 12
-  readonly property real menuTitleSpacing: 3
-  readonly property real menuLabelSpacing: 1.5
-  readonly property int menuAnimMs: 240
-  readonly property int menuAnimOutMs: 180
+  readonly property color menuSuccessWash: Qt.rgba(green.r, green.g, green.b, 0.28)
+  readonly property int menuRadius: 8
+  readonly property int menuRail: 2
+  readonly property real menuTitleSpacing: 0.6
+  readonly property real menuLabelSpacing: 0.3
+  readonly property int menuAnimMs: 140
+  readonly property int menuAnimOutMs: 120
   readonly property string menuMono: "JetBrainsMono Nerd Font"
+  readonly property string menuSans: "JetBrainsMono Nerd Font"
+  readonly property string menuDisplay: "JetBrainsMono Nerd Font"
   readonly property string menuSerif: "serif"
 
   readonly property int scrollbarWidth: 5

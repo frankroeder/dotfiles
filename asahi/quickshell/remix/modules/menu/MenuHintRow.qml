@@ -9,38 +9,38 @@ RowLayout {
   property string fontFamily: Style.menuMono
   property bool gridNav: false
 
-  spacing: 12
+  spacing: 8
   implicitHeight: Math.round(20 * root.fontScale)
 
   Repeater {
     model: [
-      { key: root.gridNav ? "hjkl / ←→" : "↑↓", label: "navigate" },
-      { key: "⏎", label: "launch" },
+      { key: root.gridNav ? "hjkl" : "↑↓", label: "navigate" },
+      { key: "⏎", label: "open" },
       { key: "esc", label: "close" }
     ]
     delegate: Row {
-      spacing: 5
       required property var modelData
+      spacing: 6
 
       Rectangle {
         width: keyLbl.width + Math.round(10 * root.fontScale)
-        height: Math.round(20 * root.fontScale)
-        radius: Math.round(6 * root.fontScale)
+        height: Math.round(18 * root.fontScale)
+        radius: Style.radiusSm
         color: Style.menuControlBg
         border.width: 1
-        border.color: Style.menuSep
+        border.color: Style.menuHairline
         Text {
           id: keyLbl
           anchors.centerIn: parent
           text: modelData.key
-          color: Style.menuInk
+          color: Style.menuAccent
           font.pixelSize: 10 * root.fontScale
           font.family: root.fontFamily
         }
       }
       Text {
         text: modelData.label
-        color: Style.menuInkDeep
+        color: Style.menuInkMuted
         font.pixelSize: 10 * root.fontScale
         font.family: root.fontFamily
         anchors.verticalCenter: parent.verticalCenter
@@ -54,7 +54,6 @@ RowLayout {
     color: Style.menuInkMuted
     font.pixelSize: 10 * root.fontScale
     font.family: root.fontFamily
-    font.letterSpacing: 1.2
     Layout.alignment: Qt.AlignVCenter
   }
 

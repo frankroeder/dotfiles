@@ -104,9 +104,15 @@ Scope {
   readonly property bool previewActive: root.fileMode
   readonly property bool quickMode: root.categoryFilter === "Quick"
   property string expandedQuickKey: ""
-  readonly property bool quickDetailActive: root.quickMode && root.expandedQuickKey !== ""
-  readonly property bool sideActive: root.previewActive || root.quickDetailActive
-  readonly property int quickGridCols: root.quickDetailActive ? 1 : 3
+  readonly property string quickPaneKey: {
+    if (!root.quickMode) return ""
+    const k = root.expandedQuickKey
+    if (k === "" || k === "dashboard") return "hub"
+    return k
+  }
+  readonly property bool quickDetailActive: root.quickMode
+  readonly property bool sideActive: root.previewActive || root.quickMode
+  readonly property int quickGridCols: 1
 
   // Scoring (ported from launcher ref, tuned for small set)
   readonly property int scPrefix: 100
@@ -119,7 +125,9 @@ Scope {
   readonly property string homeDir: Quickshell.env("HOME")
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
-  readonly property string uiFont: Style.fontFamily
+  readonly property string uiFont: Style.menuMono
+  readonly property string uiSans: Style.menuSans
+  readonly property string uiDisplay: Style.menuDisplay
   readonly property string dictIcon: "file://" + Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/assets/dict-cc.png"
   readonly property string webIconBase: "file://" + Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/assets/"
   readonly property string websearchJsonPath: Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/modules/launcher/websearch.json"
@@ -160,6 +168,34 @@ Scope {
   }).map(function(a) {
     return { key: a.key, glyph: a.icon, label: a.name, sub: a.comment, mode: a.mode }
   })
+  readonly property var quickDeckHidden: ({
+    packages: true,
+    screensaver: true,
+    record: true,
+    "record-webcam": true,
+    ocr: true,
+    qr: true,
+    nightlight: true,
+    reload: true,
+    hypr: true,
+    lock: true,
+    scratch: true
+  })
+  readonly property var quickDeck: (root.quickActions || []).filter(function(a) {
+    return !root.quickDeckHidden[a.key]
+  }).map(function(a) {
+    return {
+      key: a.key,
+      glyph: a.icon,
+      label: a.name,
+      sub: a.comment,
+      mode: a.mode || "",
+      command: a.command || [],
+      ipc: a.ipc || "",
+      kind: a.mode ? "pane" : (a.ipc ? "ipc" : "run"),
+      tint: Data.deckTint(a.key)
+    }
+  })
 
   // --- live data + exact hub/lower + side windows (ported from old featuremenu; now the only place, module removed)
   readonly property real uiFontScale: root.launcherGeom.fontScale
@@ -178,17 +214,43 @@ Scope {
     if (scr && scr.width > 1) return scr.width
     return 1920
   }
+  readonly property bool compactLauncher: !root.quickMode && !root.sideActive
   readonly property var launcherGeom: LauncherGeom.launcherLayout({
     screenH: root.launcherScreenH,
     screenW: root.launcherScreenW,
-    tileCount: (root.quickTiles || []).length,
+    tileCount: (root.quickDeck || []).length,
     sideActive: root.sideActive,
     quickMode: root.quickMode,
-    hubMode: root.expandedQuickKey === "hub" || root.expandedQuickKey === "dashboard"
+    hubMode: root.quickPaneKey === "hub",
+    compact: root.compactLauncher,
+    headerVisible: root.sectionName !== "" || root.quickMode,
+    rowCount: root.categoryFilter === ""
+      ? Math.max(root.resultCount, (root.navRows || []).length)
+      : Math.max(1, root.resultCount)
   })
   function fontPx(size) {
     const boosted = size <= 9 ? size + 2 : size
     return Math.round(boosted * root.uiFontScale)
+  }
+  function tintColor(token) {
+    switch (token) {
+      case "pink": return Style.pink
+      case "mauve": return Style.mauve
+      case "red": return Style.red
+      case "maroon": return Style.maroon
+      case "peach": return Style.orange
+      case "yellow": return Style.yellow
+      case "green": return Style.green
+      case "teal": return Style.teal
+      case "sky": return Style.sky
+      case "sapphire": return Style.sapphire
+      case "blue": return Style.blue
+      case "lavender": return Style.lavender
+      default: return Style.menuInkDeep
+    }
+  }
+  function itemTintColor(item) {
+    return root.tintColor(Data.itemTint(item))
   }
   function quickPx(size) { return Math.round(size * root.uiFontScale * root.quickOverviewScale) }
   function execAndClose(cmd) {
@@ -268,7 +330,7 @@ Scope {
     }
   }
   Timer {
-    interval: (root.quickDetailActive && root.expandedQuickKey === "hub") ? 800 : 2000
+    interval: (root.quickMode && root.quickPaneKey === "hub") ? 800 : 2000
     running: true
     repeat: true
     triggeredOnStart: true
@@ -505,7 +567,7 @@ Scope {
 
   Timer {
     interval: 30000
-    running: root.quickDetailActive && root.expandedQuickKey === "storage"
+    running: root.quickMode && root.quickPaneKey === "storage"
     repeat: true
     onTriggered: {
       if (!storageDfProc.running && !storageDuProc.running) {
@@ -533,18 +595,31 @@ Scope {
     property var ffLeftRows: []
     property var ffRightRows: []
     readonly property int ffIconWidth: 18
-    readonly property int ffLabelWidth: 78
+    readonly property int ffLabelWidth: Math.max(68, Math.round(root.fontPx(8) * 5.6))
     readonly property string ffLogoText: quickHubRoot.ffLogoLines.join("\n")
+    readonly property var ffGridRows: {
+      const left = quickHubRoot.ffLeftRows || []
+      const right = quickHubRoot.ffRightRows || []
+      const n = Math.max(left.length, right.length)
+      const out = []
+      for (let i = 0; i < n; i++) {
+        out.push(i < left.length ? left[i] : { key: "", icon: "", value: "" })
+        out.push(i < right.length ? right[i] : { key: "", icon: "", value: "" })
+      }
+      return out
+    }
 
     Component {
       id: ffInfoRowDelegate
       RowLayout {
         required property var modelData
+        visible: !!(modelData && (modelData.key || modelData.value))
         Layout.fillWidth: true
-        Layout.fillHeight: true
-        spacing: 6
+        Layout.fillHeight: false
+        Layout.preferredWidth: 1
+        spacing: 8
         readonly property string rowValue: {
-          if (modelData && modelData.key === "Memory") {
+          if (modelData && (modelData.key === "Mem" || modelData.key === "Memory")) {
             return quickHubRoot.prettyBytes(quickHubRoot.ffMemTotalBytes * root.sidebarMem / 100)
               + " / " + quickHubRoot.prettyBytes(quickHubRoot.ffMemTotalBytes)
               + " (" + root.sidebarMem + "%)"
@@ -565,16 +640,17 @@ Scope {
         }
         Text {
           Layout.preferredWidth: quickHubRoot.ffLabelWidth
+          Layout.minimumWidth: quickHubRoot.ffLabelWidth
           Layout.maximumWidth: quickHubRoot.ffLabelWidth
           Layout.alignment: Qt.AlignTop
           Layout.topMargin: 1
-          text: (modelData.key || "") + ":"
+          text: (modelData.key || "")
           color: modelData.accent || Style.menuInkDeep
-          font.pixelSize: root.fontPx(9)
+          font.pixelSize: root.fontPx(8)
           font.family: root.uiFont
-          font.weight: Font.Medium
-          horizontalAlignment: Text.AlignRight
-          elide: Text.ElideRight
+          font.weight: Font.DemiBold
+          horizontalAlignment: Text.AlignLeft
+          elide: Text.ElideNone
         }
         Text {
           Layout.fillWidth: true
@@ -584,12 +660,11 @@ Scope {
           color: Style.menuInk
           font.pixelSize: root.fontPx(9)
           font.family: root.uiFont
-          // Wrap into leftover pane height instead of cropping with "...".
-          // Guard on width so a 0-width first layout pass does not wrap
-          // one-grapheme-per-line (the old mid-word chop).
-          wrapMode: width > 72 ? Text.Wrap : Text.NoWrap
-          elide: Text.ElideNone
-          maximumLineCount: width > 72 ? 4 : 1
+          // Guard on width so the first 0-wide pass does not wrap
+          // one grapheme per line. Shared GridLayout rows keep wrap aligned.
+          wrapMode: width > 80 ? Text.WordWrap : Text.NoWrap
+          elide: Text.ElideRight
+          maximumLineCount: width > 80 ? 2 : 1
         }
       }
     }
@@ -649,15 +724,11 @@ Scope {
         const display = displays.length > 0 ? displays[0] : {}
         const wm = one("WM") || {}
         const shell = one("Shell") || {}
-        const theme = one("Theme") || {}
         const ips = one("LocalIp") || []
         const ip = ips.find(x => x.defaultRoute && x.defaultRoute.ipv4) || ips[0] || {}
         const bats = one("Battery") || []
         const bat = bats.length > 0 ? bats[0] : {}
-        const power = one("PowerAdapter") || []
-        const adapter = power.length > 0 ? power[0] : {}
         const uptime = one("Uptime") || {}
-        const locale = one("Locale") || ""
         const diskBytes = disk.bytes || {}
         const memUsed = Number(mem.used) || 0
         const memTotal = Number(mem.total) || 0
@@ -665,17 +736,10 @@ Scope {
         const diskTotal = Number(diskBytes.total) || 0
         const out = display.output || {}
         const scaled = display.scaled || out
-        const phys = display.physical || {}
         const refresh = out.refreshRate ? (" @ " + Math.round(out.refreshRate) + " Hz") : ""
         const scale = (out.width && scaled.width && out.width !== scaled.width)
           ? (" @ " + (out.width / scaled.width).toFixed(2) + "x") : ""
-        const diagIn = (phys.width && phys.height)
-          ? Math.round(Math.sqrt(phys.width * phys.width + phys.height * phys.height) / 25.4) : 0
         const batteryStatus = Array.isArray(bat.status) ? bat.status.join(", ") : (bat.status || "")
-        const cpuFreq = cpu.frequency && cpu.frequency.max
-          ? (" @ " + (cpu.frequency.max / 1000).toFixed(2) + " GHz") : ""
-        const gpuFreq = gpu.frequency ? (" @ " + (gpu.frequency / 1000).toFixed(2) + " GHz") : ""
-        const gpuType = gpu.type ? (" [" + gpu.type + "]") : ""
         quickHubRoot.ffTitle = (title.userName && title.hostName)
           ? (title.userName + "@" + title.hostName) : (host.name || "System")
         quickHubRoot.ffSubtitle = os.prettyName || os.name || "fastfetch"
@@ -684,45 +748,37 @@ Scope {
         quickHubRoot.ffMemPct = quickHubRoot.pct(memUsed, memTotal)
         quickHubRoot.ffMemUsedBytes = memUsed
         quickHubRoot.ffMemTotalBytes = memTotal
+        // Header already shows user@host, OS, and uptime — keep the well
+        // to short one-line facts that fit the leftover pane width.
         quickHubRoot.ffLeftRows = [
-          quickHubRoot.ffRow("OS", "󰣇", Style.menuSeal,
-            (os.prettyName || os.name || "—") + (kernel.architecture ? " " + kernel.architecture : "")),
-          quickHubRoot.ffRow("Kernel", "󰣀", Style.teal,
-            (kernel.name || "Linux") + " " + (kernel.release || "")),
-          quickHubRoot.ffRow("Packages", "󰏖", Style.mauve,
+          quickHubRoot.ffRow("Host", "󰌢", Style.sky, host.name || host.family || "—"),
+          quickHubRoot.ffRow("Kernel", "󰣀", Style.teal, kernel.release || "—"),
+          quickHubRoot.ffRow("Pkgs", "󰏖", Style.mauve,
             (pkgs.flatpakUser || 0) + " flatpak · " + (pkgs.rpm || 0) + " rpm"),
-          quickHubRoot.ffRow("Display", "󰍹", Style.sapphire,
-            (out.width || scaled.width || "?") + "x" + (out.height || scaled.height || "?")
-              + scale + refresh + (diagIn ? (" · " + diagIn + '"') : "")
-              + (display.name ? (" [" + display.name + "]") : "")),
           quickHubRoot.ffRow("CPU", "󰘚", Style.orange,
-            (cpu.cpu || "—") + (cpu.cores && cpu.cores.logical ? (" (" + cpu.cores.logical + ")") : "") + cpuFreq),
-          quickHubRoot.ffRow("Memory", "󰍛", Style.lavender,
+            (cpu.cpu || "—") + (cpu.cores && cpu.cores.logical ? (" (" + cpu.cores.logical + ")") : "")),
+          quickHubRoot.ffRow("GPU", "󰢮", Style.menuIndigo,
+            (gpu.name || "—") + (gpu.coreCount ? (" (" + gpu.coreCount + ")") : "")),
+          quickHubRoot.ffRow("Mem", "󰍛", Style.lavender,
             quickHubRoot.prettyBytes(memUsed) + " / " + quickHubRoot.prettyBytes(memTotal)
-              + " (" + quickHubRoot.ffMemPct + "%)"),
-          quickHubRoot.ffRow("Local IP", "󰩠", Style.cyan,
-            (ip.name ? (ip.name + ": ") : "") + (ip.ipv4 || "—")),
-          quickHubRoot.ffRow("Theme", "󰸌", Style.mauve, theme.theme2 || theme.theme1 || "—"),
-          quickHubRoot.ffRow("Power", "󰚥", Style.yellow, adapter.watts ? (adapter.watts + "W adapter") : "—")
+              + " (" + quickHubRoot.ffMemPct + "%)")
         ]
         quickHubRoot.ffRightRows = [
-          quickHubRoot.ffRow("Host", "󰌢", Style.sky, host.name || host.family || "—"),
-          quickHubRoot.ffRow("Uptime", "󰅐", Style.lavender, quickHubRoot.ffUptime || "—"),
-          quickHubRoot.ffRow("Shell", "󰆍", Style.yellow,
-            (shell.prettyName || shell.processName || "—") + (shell.version ? " " + shell.version : "")),
-          quickHubRoot.ffRow("WM", "󰖯", Style.green,
-            (wm.prettyName || wm.processName || "—")
-              + (wm.version ? " " + wm.version : "") + (wm.protocolName ? " (" + wm.protocolName + ")" : "")),
-          quickHubRoot.ffRow("GPU", "󰢮", Style.menuIndigo,
-            (gpu.name || "—") + (gpu.coreCount ? (" (" + gpu.coreCount + ")") : "") + gpuFreq + gpuType),
+          quickHubRoot.ffRow("Display", "󰍹", Style.sapphire,
+            (out.width || scaled.width || "?") + "x" + (out.height || scaled.height || "?")
+              + scale + refresh
+              + (display.name ? (" · " + display.name) : "")),
+          quickHubRoot.ffRow("WM", "󰖯", Style.green, (wm.prettyName || wm.processName || "—")
+            + (wm.version ? " " + wm.version : "")
+            + (wm.protocolName ? " (" + wm.protocolName + ")" : "")),
+          quickHubRoot.ffRow("Shell", "󰆍", Style.yellow, shell.prettyName || shell.processName || "—"),
           quickHubRoot.ffRow("Disk", "󰋊", Style.menuIndigo,
             quickHubRoot.prettyBytes(diskUsed) + " / " + quickHubRoot.prettyBytes(diskTotal)
-              + " (" + quickHubRoot.ffDiskPct + "%) · " + (disk.filesystem || "—")),
-          quickHubRoot.ffRow("Locale", "󰖟", Style.menuInkDeep, locale || "—"),
-          quickHubRoot.ffRow("Battery", "󰁹", Style.green,
+              + (disk.filesystem ? (" · " + disk.filesystem) : "")),
+          quickHubRoot.ffRow("IP", "󰩠", Style.cyan, ip.ipv4 || "—"),
+          quickHubRoot.ffRow("Bat", "󰁹", Style.green,
             (bat.capacity !== undefined ? (Math.round(bat.capacity) + "%") : "—")
-              + (batteryStatus ? (" · " + batteryStatus) : "")
-              + (bat.cycleCount ? (" · " + bat.cycleCount + " cycles") : ""))
+              + (batteryStatus ? (" · " + batteryStatus) : ""))
         ]
         quickHubRoot.ffUpdated = Qt.formatTime(new Date(), "HH:mm:ss")
       } catch (_) {
@@ -751,7 +807,7 @@ Scope {
     }
     Timer {
       interval: 60000
-      running: root.quickDetailActive && root.expandedQuickKey === "hub"
+      running: root.quickMode && root.quickPaneKey === "hub"
       repeat: true
       triggeredOnStart: true
       onTriggered: quickHubRoot.refreshFastfetch()
@@ -761,251 +817,165 @@ Scope {
     ColumnLayout {
       anchors.fill: parent
       anchors.margins: Math.max(2, Math.round(root.launcherGeom.panePad / 2))
-      spacing: Math.max(4, Math.round(root.launcherGeom.colSpacing / 2))
+      spacing: Math.max(6, Math.round(root.launcherGeom.colSpacing / 2))
 
-      Rectangle {
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 10
+        ColumnLayout {
+          Layout.fillWidth: true
+          spacing: 1
+          Text {
+            text: quickHubRoot.ffTitle
+            color: Style.menuInk
+            font.pixelSize: root.fontPx(16)
+            font.family: root.uiDisplay
+            font.weight: Font.Medium
+            font.letterSpacing: 0.1
+            elide: Text.ElideRight
+            Layout.fillWidth: true
+          }
+          Text {
+            text: quickHubRoot.ffSubtitle
+            color: Style.menuInkMuted
+            font.pixelSize: root.fontPx(10)
+            font.family: root.uiSans
+            font.letterSpacing: 0.15
+            elide: Text.ElideRight
+            Layout.fillWidth: true
+          }
+        }
+        Rectangle {
+          Layout.alignment: Qt.AlignVCenter
+          implicitWidth: uptimePillLbl.implicitWidth + 16
+          implicitHeight: uptimePillLbl.implicitHeight + 8
+          radius: 6
+          color: Style.menuRowSel
+          border.width: 0
+          Text {
+            id: uptimePillLbl
+            anchors.centerIn: parent
+            text: "up  " + (quickHubRoot.ffUptime || "…")
+            color: Style.menuInkDeep
+            font.pixelSize: root.fontPx(10)
+            font.family: root.uiSans
+            font.weight: Font.Medium
+            font.letterSpacing: 0.15
+          }
+        }
+        Text {
+          Layout.alignment: Qt.AlignVCenter
+          text: quickHubRoot.ffUpdated || "SYNC"
+          color: Style.menuInkMuted
+          font.pixelSize: root.fontPx(7)
+          font.family: root.uiFont
+          font.letterSpacing: 1.6
+          font.capitalization: Font.AllUppercase
+        }
+      }
+
+      Row {
         Layout.fillWidth: true
         Layout.fillHeight: true
-        radius: Style.menuRadius
-        color: Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.04)
-        border.color: Style.menuSep
-        border.width: 1
+        Layout.preferredHeight: root.launcherGeom.rowHTall * 3
+        Layout.minimumHeight: root.launcherGeom.rowHTall * 2
+        spacing: root.launcherGeom.panePad
 
-        ColumnLayout {
-          anchors.fill: parent
-          anchors.margins: root.launcherGeom.panePad
-          spacing: Math.max(4, Math.round(root.launcherGeom.colSpacing / 2))
+        Repeater {
+          model: [
+            { label: "CPU", key: "cpu" },
+            { label: "RAM", key: "ram" },
+            { label: "DISK", key: "disk" },
+            { label: "BAT", key: "bat" }
+          ]
+          delegate: Item {
+            required property var modelData
+            readonly property int meterValue: modelData.key === "cpu"
+              ? root.sidebarCpu
+              : (modelData.key === "ram"
+                ? root.sidebarMem
+                : (modelData.key === "disk" ? quickHubRoot.ffDiskPct : root.sidebarBat))
+            readonly property color meterColor: modelData.key === "cpu"
+              ? Style.orange
+              : (modelData.key === "ram"
+                ? Style.lavender
+                : (modelData.key === "disk"
+                  ? Style.menuIndigo
+                  : (root.sidebarBatStatus === "Charging"
+                    ? Style.yellow : (root.sidebarBat < 20 ? Style.red : Style.green))))
+            width: (parent.width - 3 * parent.spacing) / 4
+            height: parent.height
 
-          RowLayout {
-            Layout.fillWidth: true
-            spacing: 10
-            Text {
-              text: "󰟀"
-              color: Style.menuSeal
-              font.pixelSize: root.fontPx(16)
-              font.family: root.uiFont
-            }
-            ColumnLayout {
-              Layout.fillWidth: true
-              spacing: 1
-              Text {
-                text: quickHubRoot.ffTitle
-                color: Style.menuInk
-                font.pixelSize: root.fontPx(11)
-                font.family: Style.menuMono
-                font.weight: Font.Medium
-                elide: Text.ElideRight
-                Layout.fillWidth: true
-              }
-              Text {
-                text: quickHubRoot.ffSubtitle
-                color: Style.menuInkDeep
-                font.pixelSize: root.fontPx(9)
-                font.family: root.uiFont
-                elide: Text.ElideRight
-                Layout.fillWidth: true
-              }
-            }
-            ColumnLayout {
-              Layout.alignment: Qt.AlignTop | Qt.AlignRight
-              Layout.minimumWidth: 72
-              spacing: 1
-              Text {
-                Layout.fillWidth: true
-                text: "󰅐 " + (quickHubRoot.ffUptime || "…")
-                color: Style.lavender
-                font.pixelSize: root.fontPx(8)
-                font.family: root.uiFont
-                font.weight: Font.Medium
-                horizontalAlignment: Text.AlignRight
-              }
-              Text {
-                Layout.fillWidth: true
-                text: quickHubRoot.ffUpdated || "loading"
-                color: Style.menuInkDeep
-                font.pixelSize: root.fontPx(7)
-                font.family: root.uiFont
-                horizontalAlignment: Text.AlignRight
-                opacity: 0.8
-              }
-            }
-            Rectangle {
-              Layout.alignment: Qt.AlignVCenter
-              width: 22; height: 22; radius: 11
-              color: hubCloseMa.containsMouse ? Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.08) : "transparent"
-              border.color: Style.menuSep
-              border.width: 1
-              Text {
-                anchors.centerIn: parent
-                text: "×"
-                color: Style.menuInkDeep
-                font.family: root.uiFont
-                font.pixelSize: 14
-              }
-              MouseArea {
-                id: hubCloseMa
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.expandedQuickKey = ""
-              }
-            }
-          }
-
-          Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Style.menuSep }
-
-          RowLayout {
-            id: ffMain
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.alignment: Qt.AlignTop
-            spacing: 10
-
-            Text {
-              // Shade-trimmed art (hub_logo) + contentWidth: no overlap, no
-              // hollow gap, no separator bar between logo and info.
-              Layout.alignment: Qt.AlignTop
-              Layout.preferredWidth: contentWidth
-              Layout.maximumWidth: contentWidth
-              visible: quickHubRoot.ffLogoLines.length > 0
-              text: quickHubRoot.ffLogoText
-              color: Style.menuSeal
-              // QML does not resolve the "monospace" fontconfig alias — it
-              // falls back to proportional Noto Sans, whose thin spaces
-              // collapse the logo's left indentation. Name a real mono face.
-              font.family: "Noto Sans Mono"
-              font.pixelSize: {
-                const n = Math.max(8, quickHubRoot.ffLogoLines.length + 2)
-                const h = ffMain.height
-                if (h < 8) return 7
-                return Math.max(7, Math.min(10, Math.floor(h / n)))
-              }
-              lineHeight: font.pixelSize + 1
-              lineHeightMode: Text.FixedHeight
-              wrapMode: Text.NoWrap
-            }
-
-            RowLayout {
-              id: ffInfoBody
-              Layout.fillWidth: true
-              Layout.fillHeight: true
-              Layout.alignment: Qt.AlignTop
-              spacing: 14
-
-              ColumnLayout {
-                id: ffLeftCol
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.preferredWidth: 1
-                spacing: 8
-                Repeater {
-                  model: quickHubRoot.ffLeftRows
-                  // Component ids are not type names — no `{ … }` after the id.
-                  delegate: ffInfoRowDelegate
-                }
-              }
-
-              ColumnLayout {
-                id: ffRightCol
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.preferredWidth: 1
-                spacing: 8
-                Repeater {
-                  model: quickHubRoot.ffRightRows
-                  delegate: ffInfoRowDelegate
-                }
-              }
-            }
-          }
-
-          Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Style.menuSep }
-
-          Row {
-            Layout.fillWidth: true
-            Layout.preferredHeight: root.launcherGeom.rowHTall
-            spacing: root.launcherGeom.panePad
-
-            Repeater {
-              model: [
-                { label: "CPU", key: "cpu" },
-                { label: "RAM", key: "ram" },
-                { label: "DISK", key: "disk" },
-                { label: "BAT", key: "bat" }
-              ]
-              delegate: Item {
-                required property var modelData
-                readonly property int meterValue: modelData.key === "cpu"
-                  ? root.sidebarCpu
-                  : (modelData.key === "ram"
-                    ? root.sidebarMem
-                    : (modelData.key === "disk" ? quickHubRoot.ffDiskPct : root.sidebarBat))
-                readonly property color meterColor: modelData.key === "cpu"
-                  ? Style.orange
-                  : (modelData.key === "ram"
-                    ? Style.lavender
-                    : (modelData.key === "disk"
-                      ? Style.menuIndigo
-                      : (root.sidebarBatStatus === "Charging"
-                        ? Style.yellow : (root.sidebarBat < 20 ? Style.red : Style.green))))
-                width: (parent.width - 3 * parent.spacing) / 4
-                height: parent.height
-
-                Rectangle {
-                  anchors.fill: parent
-                  radius: Style.radiusSm
-                  color: Style.menuControlBg
-                  border.color: Style.menuSep
-                  border.width: 1
-
-                  ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 6
-                    spacing: 4
-
-                    RowLayout {
-                      Layout.fillWidth: true
-                      spacing: 4
-                      Text {
-                        text: modelData.label
-                        color: Style.menuInkDeep
-                        font.pixelSize: root.fontPx(8)
-                        font.family: root.uiFont
-                        font.weight: Font.Medium
-                      }
-                      Item { Layout.fillWidth: true }
-                      Text {
-                        text: meterValue + "%"
-                        color: meterColor
-                        font.pixelSize: root.fontPx(9)
-                        font.family: root.uiFont
-                        font.weight: Font.Medium
-                        horizontalAlignment: Text.AlignRight
-                      }
-                    }
-
-                    Rectangle {
-                      Layout.fillWidth: true
-                      Layout.preferredHeight: 7
-                      radius: 2
-                      color: Qt.rgba(0, 0, 0, 0.22)
-                      Rectangle {
-                        width: parent.width * Math.max(0, Math.min(1, meterValue / 100))
-                        height: parent.height
-                        radius: 2
-                        color: meterColor
-                        Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
-                      }
-                    }
-                  }
-                }
-              }
+            Menu.MenuHudDial {
+              anchors.fill: parent
+              value: meterValue
+              label: modelData.label
+              accent: meterColor
+              fontFamily: root.uiFont
             }
           }
         }
       }
 
+      RowLayout {
+        id: ffMain
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        Layout.alignment: Qt.AlignTop
+        spacing: 12
+
+        Text {
+          // Narrow art: size to leftover height so contentWidth stays
+          // small and the two fact columns keep the pane width.
+          Layout.alignment: Qt.AlignVCenter
+          Layout.preferredWidth: contentWidth
+          Layout.maximumWidth: Math.max(1, Math.round(ffMain.width * 0.28))
+          clip: true
+          visible: quickHubRoot.ffLogoLines.length > 0
+          text: quickHubRoot.ffLogoText
+          color: Style.menuSeal
+          // QML does not resolve the "monospace" fontconfig alias — it
+          // falls back to proportional Noto Sans, whose thin spaces
+          // collapse the logo's left indentation. Name a real mono face.
+          font.family: "Noto Sans Mono"
+          font.pixelSize: {
+            const n = Math.max(8, quickHubRoot.ffLogoLines.length)
+            const h = ffMain.height
+            if (h < 8) return 5
+            return Math.max(5, Math.min(8, Math.floor(h / n)))
+          }
+          lineHeight: font.pixelSize + 1
+          lineHeightMode: Text.FixedHeight
+          wrapMode: Text.NoWrap
+        }
+
+        Rectangle {
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          color: Style.menuCardBg
+          border.width: 1
+          border.color: Style.menuSep
+          radius: 8
+
+          GridLayout {
+            id: ffInfoBody
+            anchors.fill: parent
+            anchors.margins: 12
+            columns: 2
+            columnSpacing: 28
+            rowSpacing: 8
+            Layout.fillHeight: true
+            Layout.fillWidth: true
+
+            Repeater {
+              model: quickHubRoot.ffGridRows
+              delegate: ffInfoRowDelegate
+            }
+          }
+        }
+      }
     }
+
   } }
   Component { id: quickWallpaperComp; Item {
     id: quickWallpaperRoot
@@ -1534,7 +1504,7 @@ Scope {
       stdout: StdioCollector { onStreamFinished: quickMediaRoot.updCava(text) }
     }
     Timer {
-      interval: 90; running: root.quickDetailActive && root.expandedQuickKey === "media"; repeat: true; triggeredOnStart: true
+      interval: 90; running: root.quickMode && root.quickPaneKey === "media"; repeat: true; triggeredOnStart: true
       onTriggered: {
         if (quickMediaRoot.cavaRunning && quickMediaRoot.cavaLast>0 && Date.now()-quickMediaRoot.cavaLast > 3000) quickMediaRoot.cavaRunning=false
         // No frame ever arrived: cava is likely not installed (see /tmp/quickshell-cava.err).
@@ -2628,9 +2598,9 @@ Scope {
       }
     }
 
-    Timer { interval: 6000; running: root.quickDetailActive && root.expandedQuickKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: quickNetworkRoot.scanWifi() }
-    Timer { interval: 1500; running: root.quickDetailActive && root.expandedQuickKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: quickNetworkRoot.sampleThroughput() }
-    Timer { interval: 4000; running: root.quickDetailActive && root.expandedQuickKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: { if (!pingProc.running) pingProc.running = true } }
+    Timer { interval: 6000; running: root.quickMode && root.quickPaneKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: quickNetworkRoot.scanWifi() }
+    Timer { interval: 1500; running: root.quickMode && root.quickPaneKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: quickNetworkRoot.sampleThroughput() }
+    Timer { interval: 4000; running: root.quickMode && root.quickPaneKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: { if (!pingProc.running) pingProc.running = true } }
 
     Component.onCompleted: Qt.callLater(quickNetworkRoot.scanWifi)
 
@@ -3353,7 +3323,7 @@ Scope {
     }
     Timer { interval: 900; id: monDelay; onTriggered: monScan.running = true }
     Timer {
-      interval: 3000; running: root.quickDetailActive && root.expandedQuickKey === "monitors"; repeat: true; triggeredOnStart: true
+      interval: 3000; running: root.quickMode && root.quickPaneKey === "monitors"; repeat: true; triggeredOnStart: true
       onTriggered: {
         if (!monScan.running) monScan.running = true
         if (!brightProc.running) brightProc.running = true
@@ -3685,7 +3655,7 @@ Scope {
         }
       }
     }
-    Timer { interval: 2500; running: root.quickDetailActive && root.expandedQuickKey === "temp"; repeat: true; triggeredOnStart: true; onTriggered: if (!tProc.running) tProc.running = true }
+    Timer { interval: 2500; running: root.quickMode && root.quickPaneKey === "temp"; repeat: true; triggeredOnStart: true; onTriggered: if (!tProc.running) tProc.running = true }
 
     Component.onCompleted: Qt.callLater(function(){ if (!tProc.running) tProc.running = true })
 
@@ -3854,7 +3824,7 @@ Scope {
     }
     Timer {
       interval: 3000
-      running: root.quickDetailActive && root.expandedQuickKey === "battery"
+      running: root.quickMode && root.quickPaneKey === "battery"
       repeat: true
       triggeredOnStart: true
       onTriggered: if (!batProc.running) batProc.running = true
@@ -4237,7 +4207,7 @@ Scope {
     }
     Timer {
       interval: 4000
-      running: root.quickDetailActive && root.expandedQuickKey === "bluetooth"
+      running: root.quickMode && root.quickPaneKey === "bluetooth"
       repeat: true
       triggeredOnStart: true
       onTriggered: {
@@ -5061,12 +5031,12 @@ Scope {
 
   readonly property string headerHintText: {
     if (root.quickMode)
-      return root.quickDetailActive
-        ? "HJKL / ↑↓←→  ·  TAB SECT  ·  . APPLY  ·  ESC BACK"
-        : "HJKL / ↑↓  ·  OPEN  ·  ESC BACK"
-    if (root.argArmed) return "TYPE ARGUMENT  ·  ↩ GO  ·  TAB RESULTS"
-    if (root.fileMode) return "↑↓ / TAB  ·  OPEN FILE  ·  ESC BACK"
-    return "↓ / TAB  ·  ↩ OPEN  ·  ESC CLOSE"
+      return root.quickPaneKey !== "hub"
+        ? "↑↓ command · esc cluster"
+        : "↑↓ command · ↩ open · esc leave"
+    if (root.argArmed) return "type argument · ↩ go · tab results"
+    if (root.fileMode) return "↑↓ / tab · open file · esc back"
+    return "↓ / tab · ↩ open · esc close"
   }
 
   readonly property string headerText: {
@@ -5109,8 +5079,8 @@ Scope {
     if (qq.startsWith("=") || qq.startsWith("!") || qq.startsWith("@")) return c + " result" + s
     if (root.categoryFilter !== "") {
       if (root.quickMode) {
-        const n = (root.quickTiles || []).length
-        return n + " tiles · " + n + " total"
+        const n = (root.quickDeck || []).length
+        return n + " commands · cluster live"
       }
       if (root.categoryFilter === "App") {
         const n = (DesktopEntries.applications.values || []).filter(d => !d.noDisplay && !root.isHiddenApp(d)).length
@@ -5172,7 +5142,7 @@ Scope {
     else { root.fileItems=[]; root.fileStatus=""; root.filePreviewText=""; root.filePreviewMeta=""; root.pdfPreviewPath=""; root.pdfPreviewVersion=0 }
     if (root.categoryFilter === "Quick") {
       root.setSearchQuery("")
-      root.expandedQuickKey = ""
+      if (root.expandedQuickKey === "") root.expandedQuickKey = "hub"
     } else {
       root.expandedQuickKey = ""
     }
@@ -5242,12 +5212,26 @@ Scope {
     return true
   }
 
+  function activateDeckItem(t) {
+    if (!t) return
+    if (t.mode) {
+      root.expandQuick(t.key || t.mode)
+      return
+    }
+    if (t.ipc) {
+      Quickshell.execDetached(["qs", "-c", "remix", "ipc", "call", t.ipc, "toggle"])
+      root.shouldShow = false
+      return
+    }
+    if (t.command && t.command.length) {
+      Quickshell.execDetached(root.resolveCmd(t.command))
+      root.shouldShow = false
+    }
+  }
+
   function launchCurrent() {
     if (root.quickMode) {
-      const t = (root.quickTiles || [])[root.selectedIndex]
-      if (!t) return
-      if (t.mode) root.expandQuick(t.key)
-      else if (t.command && t.command.length) { Quickshell.execDetached(root.resolveCmd(t.command)); root.shouldShow = false }
+      root.activateDeckItem((root.quickDeck || [])[root.selectedIndex])
       return
     }
     const entry = root.currentResultEntry()
@@ -5300,7 +5284,7 @@ Scope {
     root.setSearchQuery("")
     const k = key === "dashboard" ? "hub" : (key === "vpn" ? "network" : (key || "hub"))
     root.expandedQuickKey = k
-    const idx = (root.quickTiles || []).findIndex(function(t) { return t.mode === k || t.key === k })
+    const idx = (root.quickDeck || []).findIndex(function(t) { return t.mode === k || t.key === k })
     root.selectedIndex = Math.max(0, idx)
     if (k === "clipboard") root.scanClips()
     if (k === "screenshots") root.scanShots()
@@ -5348,7 +5332,7 @@ Scope {
   function expandQuick(key) {
     const k = (key === "dashboard" || key === "hub") ? "hub" : key
     if (!root.quickMode) { root.categoryFilter = "Quick"; root.setSearchQuery("") }
-    root.expandedQuickKey = (root.expandedQuickKey === k ? "" : k)
+    root.expandedQuickKey = (k === "hub" || root.quickPaneKey === k) ? "hub" : k
     if (root.expandedQuickKey === "screenshots") root.scanShots()
     if (root.expandedQuickKey === "storage") root.scanStorage()
     if (root.expandedQuickKey === "clipboard") root.scanClips()
@@ -6214,8 +6198,8 @@ Scope {
       root.shotPreviewPath = ""
       return
     }
-    if (root.quickDetailActive) {
-      root.expandedQuickKey = ""
+    if (root.quickMode && root.quickPaneKey !== "hub") {
+      root.expandedQuickKey = "hub"
       root.focusLauncherInput()
       return
     }
@@ -6237,8 +6221,8 @@ Scope {
 
   // ---------- Launcher port: scoring + category overview (following bjarneo launcher ref style) ----------
   function goUp() {
-    if (root.quickDetailActive) {
-      root.expandedQuickKey = ""
+    if (root.quickMode && root.quickPaneKey !== "hub") {
+      root.expandedQuickKey = "hub"
       return true
     }
     if (root.argArmed) {
@@ -6652,10 +6636,11 @@ Scope {
     Menu.MenuCard {
       id: launcherBox
       anchors.horizontalCenter: parent.horizontalCenter
-      y: root.launcherGeom.cardY + Math.round(18 * (1 - root.chromeReveal))
+      y: root.launcherGeom.cardY + Math.round(28 * (1 - root.chromeReveal))
       width: root.launcherGeom.cardWidth
-      Behavior on width { NumberAnimation { duration: Style.menuAnimMs; easing.type: Easing.OutCubic } }
-      Behavior on y { NumberAnimation { duration: Style.menuAnimMs + 20; easing.type: Easing.OutCubic } }
+      Behavior on width { NumberAnimation { duration: Style.menuAnimMs + 40; easing.type: Easing.OutCubic } }
+      Behavior on y { NumberAnimation { duration: Style.menuAnimMs + 40; easing.type: Easing.OutCubic } }
+      Behavior on height { NumberAnimation { duration: Style.menuAnimMs + 80; easing.type: Easing.OutCubic } }
       height: root.launcherGeom.cardHeight
       cardMargin: root.launcherGeom.cardMargin
       chromeReveal: root.chromeReveal
@@ -6692,6 +6677,13 @@ Scope {
         } else if (qk === Qt.Key_Return || qk === Qt.Key_Enter) {
           root.launchCurrent()
           event.accepted = true
+        } else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32
+          && event.text.charCodeAt(0) !== 127
+          && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))) {
+          root.categoryFilter = ""
+          root.expandedQuickKey = ""
+          root.setSearchQuery(event.text)
+          event.accepted = true
         }
       }
 
@@ -6702,20 +6694,32 @@ Scope {
 
         Menu.MenuHeader {
           Layout.fillWidth: true
-          Layout.preferredHeight: implicitHeight
+          Layout.preferredHeight: (root.sectionName !== "" || root.quickMode) ? implicitHeight : 0
+          visible: root.sectionName !== "" || root.quickMode
           fontFamily: root.uiFont
           fontScale: root.uiFontScale
-          title: "LAUNCHER"
+          title: root.quickMode ? "Deck" : "Launcher"
           sectionIcon: root.sectionIcon
-          sectionName: root.sectionName
-          countLine: root.resultText.toUpperCase()
+          sectionName: {
+            if (!root.quickMode) return root.sectionName
+            if (root.quickPaneKey === "hub") return "Cluster"
+            const list = root.quickDeck || []
+            for (let i = 0; i < list.length; i++) {
+              if (list[i].key === root.quickPaneKey || list[i].mode === root.quickPaneKey)
+                return list[i].label || root.quickPaneKey
+            }
+            return root.quickPaneKey
+          }
+          countLine: root.resultText
           hintText: root.headerHintText
-          subtitle: root.sectionName === ""
-            ? root.resultText.toUpperCase()
-            : ""
+          subtitle: ""
         }
 
-        Menu.MenuDivider { Layout.fillWidth: true; Layout.preferredHeight: implicitHeight }
+        Menu.MenuDivider {
+          Layout.fillWidth: true
+          Layout.preferredHeight: implicitHeight
+          visible: root.sectionName !== "" || root.quickMode
+        }
 
         // search hidden in quickMode (bjarneo: no search bar; grid+side is the view;
         // prevents typing pollution of query/cat/schedules while grid+side shown)
@@ -6727,12 +6731,13 @@ Scope {
 
           Text {
             id: searchPrompt
+            visible: root.argArmed
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
             text: root.fileMode ? "󰉖" : "󰍉"
             color: searchInput.activeFocus ? Style.menuSeal : Style.menuInkDeep
             font.family: root.uiFont
-            font.pixelSize: root.fontPx(18)
+            font.pixelSize: root.fontPx(16)
             Behavior on color { ColorAnimation { duration: 120 } }
           }
 
@@ -6742,27 +6747,26 @@ Scope {
             anchors.left: searchPrompt.right
             anchors.leftMargin: 10
             anchors.verticalCenter: parent.verticalCenter
-            width: chipLabel.implicitWidth + 16
-            height: Math.round(parent.height * 0.72)
-            radius: Style.radiusSm
+            width: chipLabel.implicitWidth + 14
+            height: Math.round(parent.height * 0.64)
+            radius: 6
             color: Style.menuRowSel
-            border.color: Style.menuSeal
-            border.width: 1
+            border.width: 0
             Text {
               id: chipLabel
               anchors.centerIn: parent
               text: root.argCommand
-              color: Style.menuSeal
-              font.family: root.uiFont
-              font.pixelSize: root.fontPx(13)
+              color: Style.menuInk
+              font.family: root.uiSans
+              font.pixelSize: root.fontPx(12)
               font.weight: Font.Medium
             }
           }
 
           Item {
             id: argFieldWrap
-            anchors.left: root.argArmed ? argChip.right : searchPrompt.right
-            anchors.leftMargin: 10
+            anchors.left: root.argArmed ? argChip.right : parent.left
+            anchors.leftMargin: root.argArmed ? 10 : 0
             anchors.right: parent.right
             anchors.top: parent.top
             anchors.bottom: parent.bottom
@@ -6771,16 +6775,16 @@ Scope {
             id: searchInput
             anchors.fill: parent
             color: text.length > 0 ? Style.menuInk : Style.menuInkDeep
-            opacity: text.length > 0 || root.argArmed ? 1 : 0.55
-            font.family: root.uiFont
-            font.pixelSize: root.fontPx(15)
-            font.letterSpacing: 0.6
+            opacity: text.length > 0 || root.argArmed ? 1 : 0.62
+            font.family: root.uiDisplay
+            font.pixelSize: root.fontPx(20)
+            font.letterSpacing: 0.05
+            font.weight: Font.Medium
             verticalAlignment: TextInput.AlignVCenter
             clip: true
             focus: true
             Accessible.role: Accessible.EditableText
             Accessible.name: root.argArmed ? (root.argPlaceholder || "Argument") : "Search applications"
-            // Single peach caret — replaces the native cursor (avoids double caret).
             cursorDelegate: Rectangle {
               width: 2
               height: Math.round(searchInput.font.pixelSize * 1.05)
@@ -6798,13 +6802,11 @@ Scope {
             Text {
               anchors.fill: parent
               text: root.argArmed
-                ? (root.argPlaceholder || "Type an argument")
-                : (root.fileMode
-                  ? "Type to search files in ~ (globs: mrrobot/*.txt, regex: word1 word2)"
-                  : "Type to search apps (or >files @web :act ?keys =calc !web dict)")
+                ? (root.argPlaceholder || "argument…")
+                : (root.fileMode ? "search files…" : "Search")
               color: Style.menuInkDeep
               font: parent.font
-              opacity: root.argArmed ? 0.7 : 0.5
+              opacity: root.argArmed ? 0.7 : 0.45
               visible: !parent.text && (root.argArmed || !parent.activeFocus)
               verticalAlignment: Text.AlignVCenter
             }
@@ -6904,9 +6906,19 @@ Scope {
             }
           }
           }
+
+          Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: 1
+            color: searchInput.activeFocus ? Style.menuAccent : Style.menuSep
+            opacity: searchInput.activeFocus ? 0.65 : 1
+            Behavior on color { ColorAnimation { duration: 120 } }
+          }
         }
 
-        Menu.MenuDivider { Layout.fillWidth: true; Layout.preferredHeight: implicitHeight; visible: !root.quickMode }
+        Menu.MenuDivider { Layout.fillWidth: true; Layout.preferredHeight: implicitHeight; visible: false }
 
         // List area (with optional file preview split). Height is leftover
         // inside the card (ColumnLayout fill), not a fraction of the overlay.
@@ -6920,8 +6932,8 @@ Scope {
           clip: true
           readonly property var tileGeom: LauncherGeom.tileMetrics(
             height,
-            (root.quickTiles || []).length,
-            !!root.quickDetailActive,
+            (root.quickDeck || []).length,
+            true,
             root.launcherGeom.uiScale
           )
 
@@ -6929,8 +6941,17 @@ Scope {
           Item {
             anchors.fill: parent
 
-            readonly property real listFrac: root.quickDetailActive ? 0.12
-              : (root.sideActive ? (root.quickMode ? 0.38 : 0.46) : 1.0)
+            readonly property real listFrac: root.quickMode ? 0.22
+              : (root.sideActive ? 0.46 : 1.0)
+            // Icon + longest deck label ("Temperatures") + chevron. A
+            // fraction of a wide card left a hollow rail; size to type.
+            readonly property int quickRailW: {
+              const chrome = 10 + 10 + 20 + 8
+              const label = Math.round(root.fontPx(11) * 8.4)
+              const want = chrome + label + 8
+              const cap = Math.round(width * 0.28)
+              return Math.max(root.launcherGeom.sideMin, Math.min(want, cap))
+            }
 
             ListView {
               id: resultsList
@@ -6965,9 +6986,15 @@ Scope {
                 readonly property string dImage: root.resolveIconUrl(dRawIcon || (dIcon.startsWith("file://") || dIcon.charAt(0) === "/" ? dIcon : ""))
                 readonly property string dGlyph: modelData.glyph || (dImage === "" && dIcon !== "" ? dIcon : "")
                 readonly property string dAcc: modelData.accessory || (modelData.isCategory ? "›" : "")
+                readonly property color dTint: root.itemTintColor(modelData)
 
                 Accessible.role: Accessible.Button
                 Accessible.name: dName
+                opacity: {
+                  const t = root.chromeReveal * 1.25 - index * 0.07
+                  return Math.max(0, Math.min(1, t))
+                }
+                Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
                 Rectangle {
                   anchors.fill: parent
@@ -6978,20 +7005,19 @@ Scope {
                   radius: Style.radiusSm
                   color: delegateRoot.isSelected ? Style.menuRowSel
                         : rowMa.containsMouse ? Style.menuRowHi : "transparent"
-                  Behavior on color { ColorAnimation { duration: 80 } }
+                  border.width: 0
+                  Behavior on color { ColorAnimation { duration: 60 } }
                 }
+
                 Rectangle {
-                  anchors.left: parent.left
-                  anchors.top: parent.top
-                  anchors.bottom: parent.bottom
-                  anchors.topMargin: 8
-                  anchors.bottomMargin: 8
-                  width: 2
-                  radius: 1
-                  color: Style.menuSeal
                   visible: delegateRoot.isSelected
-                  opacity: delegateRoot.isSelected ? 1 : 0
-                  Behavior on opacity { NumberAnimation { duration: 80 } }
+                  width: Style.menuRail
+                  height: parent.height - 12
+                  radius: 1
+                  color: delegateRoot.dTint
+                  anchors.left: parent.left
+                  anchors.leftMargin: 4
+                  anchors.verticalCenter: parent.verticalCenter
                 }
 
                 RowLayout {
@@ -7016,10 +7042,18 @@ Scope {
                       asynchronous: true
                       visible: delegateRoot.dImage !== "" && status === Image.Ready
                     }
+                    Rectangle {
+                      anchors.centerIn: parent
+                      width: parent.width
+                      height: parent.height
+                      radius: 6
+                      color: Qt.alpha(delegateRoot.dTint, 0.14)
+                      visible: delegateRoot.dImage === "" || rowIcon.status !== Image.Ready
+                    }
                     Text {
                       anchors.centerIn: parent
                       text: delegateRoot.dGlyph !== "" ? delegateRoot.dGlyph : delegateRoot.dName.charAt(0).toUpperCase()
-                      color: delegateRoot.dCat ? Style.menuSeal : (delegateRoot.isSelected ? Style.menuSeal : (delegateRoot.dGlyph === "󰉋" ? Style.blue : Style.menuInkDeep))
+                      color: delegateRoot.dTint
                       font.pixelSize: delegateRoot.dGlyph !== "" ? root.fontPx(20) : root.fontPx(15)
                       font.family: root.uiFont
                       visible: rowIcon.status !== Image.Ready
@@ -7033,11 +7067,11 @@ Scope {
                     Text {
                       Layout.fillWidth: true
                       text: delegateRoot.dName + (delegateRoot.dCat ? "  ›" : "")
-                      color: delegateRoot.isSelected ? Style.menuInk : Style.menuInkDeep
+                      color: Style.menuInk
                       font.pixelSize: root.fontPx(14)
-                      font.family: root.uiFont
+                      font.family: root.uiSans
                       font.weight: delegateRoot.isSelected ? Font.Medium : Font.Normal
-                      font.letterSpacing: 1
+                      font.letterSpacing: 0.15
                       elide: Text.ElideRight
                     }
 
@@ -7045,11 +7079,11 @@ Scope {
                       Layout.fillWidth: true
                       visible: delegateRoot.dSub !== "" && !delegateRoot.dCat && !root.fileMode
                       text: delegateRoot.dSub
-                      color: delegateRoot.isSelected ? Style.menuInk : Style.menuInkDeep
-                      opacity: delegateRoot.isSelected ? 0.75 : 0.5
+                      color: Style.menuInkDeep
+                      opacity: delegateRoot.isSelected ? 0.85 : 0.7
                       font.pixelSize: root.fontPx(11)
-                      font.family: root.uiFont
-                      font.letterSpacing: 0.5
+                      font.family: root.uiSans
+                      font.letterSpacing: 0.1
                       elide: Text.ElideRight
                       maximumLineCount: 1
                     }
@@ -7058,13 +7092,13 @@ Scope {
                   Text {
                     text: root.fileMode && modelData.path
                       ? Data.tildify(Data.dirname(modelData.path), root.homeDir)
-                      : delegateRoot.dAcc.toUpperCase()
+                      : delegateRoot.dAcc
                     visible: text !== ""
-                    color: delegateRoot.isSelected ? Style.menuSeal : Style.menuInkDeep
-                    opacity: delegateRoot.isSelected ? 0.95 : 0.65
+                    color: Style.menuInkMuted
+                    opacity: delegateRoot.isSelected ? 0.9 : 0.6
                     font.pixelSize: root.fontPx(11)
-                    font.family: root.uiFont
-                    font.letterSpacing: 2
+                    font.family: root.uiSans
+                    font.letterSpacing: 0.15
                     elide: Text.ElideLeft
                     maximumLineCount: 1
                     // Key combos ("SUPER+SHIFT+ESCAPE") need more room than
@@ -7090,29 +7124,35 @@ Scope {
                 Text {
                   anchors.horizontalCenter: parent.horizontalCenter
                   text: "󰍉"
-                  color: Style.menuInkMuted
+                  color: Style.menuAccent
                   font.family: root.uiFont
                   font.pixelSize: root.fontPx(28)
-                  opacity: 0.55
+                  opacity: 0.8
                 }
                 Text {
                   anchors.horizontalCenter: parent.horizontalCenter
                   text: "Nothing matches"
                   color: Style.menuInkDeep
-                  font.family: root.uiFont
+                  font.family: root.uiSans
                   font.pixelSize: root.fontPx(13)
-                  font.letterSpacing: 1.2
+                  font.letterSpacing: 0.15
                   font.weight: Font.Medium
                 }
                 Text {
                   anchors.horizontalCenter: parent.horizontalCenter
                   text: "Try another query or prefix"
                   color: Style.menuInkMuted
-                  font.family: root.uiFont
+                  font.family: root.uiSans
                   font.pixelSize: root.fontPx(11)
                   opacity: 0.8
                 }
               }
+            }
+
+            Menu.MenuFoldScrim {
+              anchors.fill: resultsList
+              visible: resultsList.visible
+              flick: resultsList
             }
 
             // Quick grid (exact ref bjarneo style: compress width+cols+tileH on detail; 1 hairline sep; grid nav; sub hidden colmode)
@@ -7123,7 +7163,7 @@ Scope {
               anchors.bottom: parent.bottom
               anchors.left: parent.left
               width: root.quickDetailActive
-                ? Math.max(root.launcherGeom.sideMin, parent.width * parent.listFrac)
+                ? parent.quickRailW
                 : parent.width * parent.listFrac
               clip: true
               boundsBehavior: Flickable.StopAtBounds
@@ -7142,10 +7182,10 @@ Scope {
                 clip: true
                 readonly property bool colMode: root.quickDetailActive
                 readonly property int tileH: listArea.tileGeom.tileH
-                Timer { interval: 0; running: root.quickMode; repeat: false; onTriggered: root.resultCount = (root.quickTiles || []).length }
+                Timer { interval: 0; running: root.quickMode; repeat: false; onTriggered: root.resultCount = (root.quickDeck || []).length }
 
               Repeater {
-                model: root.quickTiles || []
+                model: root.quickDeck || []
                 delegate: Item {
                   id: qtile
                   required property var modelData
@@ -7154,55 +7194,21 @@ Scope {
                   readonly property var t: modelData || {}
                   width: (quickGrid.width - (quickGrid.columns-1)*quickGrid.columnSpacing) / quickGrid.columns
                   height: quickGrid.tileH
-                  Rectangle {
+                  Menu.MenuHudTile {
                     anchors.fill: parent
-                    anchors.margins: quickGrid.colMode ? 3 : (isSel ? 2 : 6)
-                    anchors.bottomMargin: quickGrid.colMode ? 3 : (isSel ? 8 : 10)
-                    radius: Style.menuRadius
-                    color: isSel
-                      ? Style.menuRowSel
-                      : qma.containsMouse
-                        ? Style.menuRowHi
-                        : Style.menuCardBg
-                    border.color: isSel ? Style.menuSeal : Style.menuSep
-                    border.width: isSel ? 2 : 1
-                    Behavior on color { ColorAnimation { duration: 90 } }
-                    Behavior on border.color { ColorAnimation { duration: 90 } }
-                    Behavior on border.width { NumberAnimation { duration: 90 } }
-                  }
-                  Column {
-                    width: parent.width - (quickGrid.colMode ? 12 : 16)
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.verticalCenterOffset: quickGrid.colMode ? 0 : -2
-                    spacing: quickGrid.colMode ? 2 : 5
-                    topPadding: quickGrid.colMode ? 0 : 2
-                    bottomPadding: quickGrid.colMode ? 0 : 4
-                    Text {
-                      text: t.glyph || "󰘔"; color: isSel ? Style.menuSeal : Style.menuInk
-                      font.pixelSize: root.fontPx(quickGrid.colMode ? 18 : 24)
-                      font.family: root.uiFont; anchors.horizontalCenter: parent.horizontalCenter
-                    }
-                    Text {
-                      visible: !quickGrid.colMode
-                      anchors.horizontalCenter: parent.horizontalCenter
-                      width: parent.width
-                      text: (t.label || "").toUpperCase()
-                      color: isSel ? Style.menuInk : Style.menuInkDeep
-                      font.pixelSize: root.fontPx(11)
-                      font.family: root.uiFont; font.letterSpacing: 1.4
-                      font.weight: Font.Medium
-                      elide: Text.ElideRight
-                      horizontalAlignment: Text.AlignHCenter
-                    }
-                    Text {
-                      visible: !quickGrid.colMode
-                      anchors.horizontalCenter: parent.horizontalCenter
-                      width: parent.width
-                      text: t.sub || ""
-                      color: Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont
-                      opacity: 0.8; elide: Text.ElideRight; horizontalAlignment: Text.AlignHCenter
-                    }
+                    selected: isSel
+                    hovered: qma.containsMouse
+                    compact: quickGrid.colMode
+                    indexLabel: (index + 1) < 10 ? ("0" + (index + 1)) : String(index + 1)
+                    glyph: t.glyph || "󰘔"
+                    label: t.label || ""
+                    sub: t.sub || ""
+                    accessory: t.kind === "run" || t.kind === "ipc" ? "run" : "pane"
+                    tint: root.tintColor(t.tint)
+                    fontFamily: root.uiFont
+                    glyphPx: root.fontPx(24)
+                    labelPx: root.fontPx(11)
+                    subPx: root.fontPx(9)
                   }
                   MouseArea {
                     id: qma
@@ -7212,15 +7218,18 @@ Scope {
                     onPositionChanged: { root.selectedIndex = index; if (resultsList) resultsList.currentIndex = index }
                     onClicked: {
                       root.selectedIndex = index
-                      if (modelData.mode) root.expandQuick(modelData.key)
-                      else if (modelData.command && modelData.command.length > 0) {
-                        Quickshell.execDetached(root.resolveCmd(modelData.command)); root.shouldShow = false
-                      }
+                      root.activateDeckItem(modelData)
                     }
                   }
                 }
               }
             }
+            }
+
+            Menu.MenuFoldScrim {
+              anchors.fill: quickSide
+              visible: quickSide.visible
+              flick: quickSide
             }
 
             // mid hairline sep (ref style between compressed grid and detail)
@@ -7251,9 +7260,8 @@ Scope {
                 clip: true
                 opacity: root.quickDetailActive ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: Style.menuAnimMs; easing.type: Easing.OutCubic } }
-                readonly property bool hubMode: root.expandedQuickKey === "hub"
-                  || root.expandedQuickKey === "dashboard"
-                readonly property var qtile: (root.quickTiles || []).find(function(x){ return x.key === root.expandedQuickKey }) || {}
+                readonly property bool hubMode: root.quickPaneKey === "hub"
+                readonly property var qtile: (root.quickDeck || []).find(function(x){ return x.key === root.quickPaneKey || x.mode === root.quickPaneKey }) || {}
                 RowLayout {
                   id: qDetailHeader
                   visible: !qDetailSide.hubMode
@@ -7270,11 +7278,11 @@ Scope {
                     Layout.alignment: Qt.AlignVCenter
                     spacing: 2
                     Text {
-                      text: (qDetailSide.qtile.label || "").toUpperCase()
+                      text: qDetailSide.qtile.label || ""
                       color: Style.menuInk
-                      font.family: root.uiFont
-                      font.pixelSize: root.fontPx(10)
-                      font.letterSpacing: 1.8
+                      font.family: root.uiSans
+                      font.pixelSize: root.fontPx(12)
+                      font.letterSpacing: 0.15
                       font.weight: Font.Medium
                     }
                     Text {
@@ -7305,7 +7313,7 @@ Scope {
                       anchors.fill: parent
                       hoverEnabled: true
                       cursorShape: Qt.PointingHandCursor
-                      onClicked: root.expandedQuickKey = ""
+                      onClicked: root.expandedQuickKey = "hub"
                     }
                   }
                 }
@@ -7317,7 +7325,7 @@ Scope {
                   anchors.bottom: parent.bottom
                   anchors.topMargin: qDetailSide.hubMode ? 0 : 8
                   active: root.quickDetailActive
-                  sourceComponent: root.quickDetailFor(root.expandedQuickKey)
+                  sourceComponent: root.quickDetailFor(root.quickPaneKey)
                 }
               }
 
@@ -7423,11 +7431,11 @@ Scope {
             if (it.command) return "$ " + (it.command.join ? it.command.join(" ") : it.command)
             return it.comment || ""
           }
-          color: Style.menuInkDeep
-          font.family: root.uiFont
+          color: Style.menuInkMuted
+          font.family: root.uiSans
           font.pixelSize: root.fontPx(11)
-          font.letterSpacing: 1
-          opacity: 0.65
+          font.letterSpacing: 0.1
+          opacity: 0.75
         }
 
         Menu.MenuHintRow {
@@ -7436,7 +7444,7 @@ Scope {
           fontFamily: root.uiFont
           fontScale: root.uiFontScale
           gridNav: root.quickMode
-          hints: root.quickMode ? "tab  detail" : (root.argArmed ? "tab  results" : "tab  argument  ·  !  >  ;  @  dict")
+          hints: root.quickMode ? "esc  cluster / leave" : (root.argArmed ? "tab  results" : "tab  argument  ·  !  >  ;  @  dict")
         }
       }
 
