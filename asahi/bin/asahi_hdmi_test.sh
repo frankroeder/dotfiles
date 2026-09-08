@@ -105,12 +105,29 @@ grep -q 'position = "0x-1152"' "$kw_log" && grep -q 'scale = 1.25' "$kw_log" \
 grep -q -- '-2048' "$kw_log" && fail_at "Dell sync must not write LG x (got $(tr '\n' ' ' <"$kw_log"))"
 pass "sync reapplies Dell layout after LG leftover"
 
-printf '[{"name":"HDMI-A-1","disabled":false,"description":"LG Electronics LG ULTRAFINE","x":0,"y":-1152,"scale":1.25}]\n' >"$mon_json"
+printf '[{"name":"HDMI-A-1","disabled":false,"description":"LG Electronics LG ULTRAFINE","x":0,"y":-1152,"scale":1.25,"availableModes":["3840x2160@60.00Hz","2560x1440@59.95Hz"]}]\n' >"$mon_json"
 : >"$kw_log"
 run sync
 grep -q 'position = "-2048x-360"' "$kw_log" && grep -q 'scale = 1.875' "$kw_log" \
   || fail_at "sync must restore UltraFine left-of-eDP (got $(tr '\n' ' ' <"$kw_log"))"
 pass "sync reapplies LG layout after Dell leftover"
+
+# Stale LG name after a Dell plug: 4K is not in the mode list.
+printf '[{"name":"HDMI-A-1","disabled":true,"description":"LG Electronics LG ULTRAFINE 112NTMX6B267","availableModes":["2560x1440@59.95Hz","1920x1080@60.00Hz"]}]\n' >"$mon_json"
+: >"$kw_log"
+run sync
+grep -q 'disabled = false' "$kw_log" || fail_at "stale LG name still enables"
+grep -q 'mode = "2560x1440@59.95100"' "$kw_log" \
+  || fail_at "stale LG name uses Dell 1440p (got $(tr '\n' ' ' <"$kw_log"))"
+grep -q '3840x2160' "$kw_log" && fail_at "must not 4K when that mode is missing"
+pass "stale LG description with Dell modes uses 1440p"
+
+printf '[{"name":"HDMI-A-1","disabled":true,"description":"LG Electronics LG ULTRAFINE 112NTMX6B267","availableModes":["3840x2160@60.00Hz","2560x1440@59.95Hz"]}]\n' >"$mon_json"
+: >"$kw_log"
+run on
+grep -q 'mode = "3840x2160@60.000"' "$kw_log" \
+  || fail_at "real UltraFine keeps 4K (got $(tr '\n' ' ' <"$kw_log"))"
+pass "UltraFine with 4K in modes keeps 4K"
 
 printf 'connected\n' >"$drm/card2-HDMI-A-1/status"
 printf '%s\n' "$dell" >"$mon_json"

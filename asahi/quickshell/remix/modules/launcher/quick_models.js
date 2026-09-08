@@ -311,15 +311,32 @@ function rememberEnabledMonitor(saved, m) {
   return next
 }
 
+function modeAllowed(mode, availableModes) {
+  if (!mode || mode === "preferred") return true
+  if (!Array.isArray(availableModes) || !availableModes.length) return true
+  var want = parseModeString(mode)
+  if (!want) return true
+  var i, p
+  for (i = 0; i < availableModes.length; i++) {
+    p = parseModeString(availableModes[i])
+    if (p && p.width === want.width && p.height === want.height) return true
+  }
+  return false
+}
+
 // Fields for hl.monitor(..., disabled = false). Last-known beats a zeroed
 // disabled probe; never omit disabled = false (the off rule would stick).
+// If saved/live mode is not in availableModes, drop it (stale 4K after a
+// Dell plug is EINVAL). Fall back to preferred, not another guessed mode.
 function enableMonitorFields(m, saved) {
   var rec = (saved && m && (saved[monitorLayoutKey(m)] || saved[m.name])) || {}
+  var modes = m && m.availableModes
+  if (rec.mode && !modeAllowed(rec.mode, modes)) rec = {}
   var liveMode = monitorModeString(m)
-  var livePos = monitorPositionString(m)
+  if (liveMode !== "preferred" && !modeAllowed(liveMode, modes)) liveMode = "preferred"
   return {
     mode: rec.mode || (liveMode !== "preferred" ? liveMode : "preferred"),
-    position: rec.position || livePos,
+    position: rec.position || monitorPositionString(m),
     scale: rec.scale || (m && m.scale) || 1
   }
 }

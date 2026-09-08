@@ -139,6 +139,13 @@ const enableLg = M.enableMonitorFields({
 assert.strictEqual(enableLg.position, "-2048x-360")
 assert.strictEqual(enableLg.scale, 1.875)
 assert.strictEqual(M.enableMonitorFields({ name: "eDP-1", width: 3024, height: 1890, refreshRate: 120, scale: 1.5, x: 0, y: 0 }, {}).mode, "3024x1890@120.000")
+const staleEnable = M.enableMonitorFields({
+  name: "HDMI-A-1", disabled: true, width: 3840, height: 2160, refreshRate: 60,
+  description: "LG Electronics LG ULTRAFINE 112NTMX6B267",
+  availableModes: ["2560x1440@59.95Hz", "1920x1080@60.00Hz"],
+  x: -2048, y: -360, scale: 1.875
+}, rememberedLg)
+assert.strictEqual(staleEnable.mode, "preferred", "missing 4K becomes preferred, not a guessed mode")
 
 assert.strictEqual(M.clampBrightness(150), 100)
 assert.strictEqual(M.clampBrightness(-5), 1)
