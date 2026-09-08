@@ -6,16 +6,50 @@ set -euo pipefail
 
 . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
 
+bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 output_dir="${ASAHI_RECORD_DIR:-${XDG_VIDEOS_DIR:-$HOME/Videos}}"
-mode="${1:-fullscreen}"
 audio="${ASAHI_RECORD_AUDIO:-1}"
 pid_file="${XDG_RUNTIME_DIR:-/tmp}/asahi-record.pid"
 log_file="${XDG_RUNTIME_DIR:-/tmp}/asahi-record.log"
+webcam=0
+webcam_device=""
+webcam_size="medium"
+mode=""
 
 usage() {
-  echo "usage: $0 [fullscreen|region|status|stop]" >&2
+  echo "usage: $0 [fullscreen|region|webcam|status|stop] [--webcam] [--webcam-device=PATH] [--webcam-size=small|medium|large]" >&2
   exit 2
 }
+
+while (($# > 0)); do
+  case "$1" in
+    --webcam) webcam=1; shift ;;
+    --webcam-device=*) webcam_device="${1#*=}"; shift ;;
+    --webcam-size=*) webcam_size="${1#*=}"; shift ;;
+    --help | -h) usage ;;
+    -*) usage ;;
+    *)
+      if [[ -n $mode ]]; then
+        usage
+      fi
+      mode=$1
+      shift
+      ;;
+  esac
+done
+mode="${mode:-fullscreen}"
+
+case $webcam_size in
+  small | medium | large) ;;
+  *)
+    echo "asahi-cmd-record: webcam size must be small, medium, or large" >&2
+    exit 1
+    ;;
+esac
+if [[ $mode == webcam ]]; then
+  mode=fullscreen
+  webcam=1
+fi
 
 notify() {
   notify-send -a record -t 2500 "$@" 2>/dev/null || true
@@ -54,6 +88,7 @@ stop_recording() {
   done
   kill -0 "$pid" 2>/dev/null && kill -KILL "$pid" 2>/dev/null || true
   rm -f "$pid_file"
+  "$bin/asahi-webcam" overlay stop >/dev/null 2>&1 || true
   notify "Recording saved"
   refresh_bar
 }
@@ -92,6 +127,25 @@ case "$mode" in
   *) usage ;;
 esac
 
+slurp_to_region() {
+  local sel=$1
+  if [[ $sel =~ ^(-?[0-9]+),(-?[0-9]+)[[:space:]]([0-9]+)x([0-9]+)$ ]]; then
+    printf '%sx%s+%s+%s\n' "${BASH_REMATCH[3]}" "${BASH_REMATCH[4]}" "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+  fi
+}
+
+start_webcam() {
+  local region=${1:-}
+  local args=(overlay start --size "$webcam_size")
+  if [[ -n $webcam_device ]]; then
+    args+=(--device "$webcam_device")
+  fi
+  if [[ -n $region ]]; then
+    args+=(--region "$region")
+  fi
+  "$bin/asahi-webcam" "${args[@]}"
+}
+
 if [ -n "$(recording_pid)" ]; then
   stop_recording
   exit 0
@@ -108,6 +162,7 @@ file="$output_dir/recording-$(date +'%Y-%m-%d_%H-%M-%S').mp4"
 : >"$log_file"
 
 geom=()
+webcam_region=""
 case "$mode" in
   fullscreen)
     mon="$(focused_monitor)"
@@ -121,8 +176,13 @@ case "$mode" in
     selection="$(slurp 2>/dev/null || true)"
     [ -n "$selection" ] || exit 0
     geom=(-g "$selection")
+    webcam_region="$(slurp_to_region "$selection")"
     ;;
 esac
+
+if ((webcam)); then
+  start_webcam "$webcam_region"
+fi
 
 audio_args=()
 dev=""
@@ -144,6 +204,7 @@ if [ -z "$(recording_pid)" ]; then
 fi
 
 if [ -z "$(recording_pid)" ]; then
+  "$bin/asahi-webcam" overlay stop >/dev/null 2>&1 || true
   notify "Recording failed" "See $log_file"
   refresh_bar
   exit 1

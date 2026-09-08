@@ -204,6 +204,8 @@ grep -q 'HDMI-A-2' "$dpms_log" && fail_at "dpms on must skip disabled outputs" |
 "$ROOT/asahi-cmd-record" bogus 2>/dev/null && fail_at "cmd-record bad arg should fail" || pass "asahi-cmd-record usage"
 [ "$("$ROOT/asahi-cmd-record" status)" = "stopped" ] || fail_at "cmd-record status is stopped when idle"
 pass "asahi-cmd-record status idle"
+"$ROOT/asahi-cmd-record" --help >/dev/null 2>&1 && fail_at "cmd-record --help exits 2" || true
+grep -q 'webcam' <<<"$("$ROOT/asahi-cmd-record" --help 2>&1 || true)" || fail_at "cmd-record usage mentions webcam"
 # --- dnf.sh ships wf-recorder; make asahi -> install.sh asahi -> dnf.sh ---
 grep -qE '^[[:space:]]*wf-recorder \\$' "$ROOT/../dnf.sh" || fail_at "dnf.sh installs wf-recorder"
 pass "dnf.sh includes wf-recorder"

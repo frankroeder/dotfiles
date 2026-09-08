@@ -15,10 +15,49 @@ local function layer_rule(namespace, props)
 end
 
 window_rule({ class = ".*" }, { opacity = "0.97 0.9" })
-window_rule({ title = "(Picture.?in.?[Pp]icture)" }, { float = true })
+
+-- Media and pickers stay fully opaque; the global 0.97/0.9 wash tints video.
+window_rule({
+  class = "^(zoom|vlc|mpv|org\\.kde\\.kdenlive|com\\.obsproject\\.Studio|imv|org\\.gnome\\.NautilusPreviewer)$",
+}, { opacity = "1 1" })
+
+-- PiP: pin a 16:9 tile to the top-right. Title match only — a bare
+-- "Meet - …" rule would also float the main meeting window.
+window_rule({ title = "(Picture.?in.?[Pp]icture)" }, {
+  float = true,
+  pin = true,
+  size = { 600, 338 },
+  keep_aspect_ratio = true,
+  border_size = 0,
+  opacity = "1 1",
+  move = { "(monitor_w-window_w-40)", "(monitor_h*0.04)" },
+})
+
 window_rule({ class = "^(zoom)$" }, { float = true })
 window_rule({ class = "^(blueman-manager|nm-connection-editor)$" }, { float = true, center = true })
 window_rule({ class = "^(gcr-prompter)$" }, { float = true, center = true })
+window_rule({ class = "^(xdg-desktop-portal-gtk)$" }, { float = true, center = true })
+
+-- Recording face-cam. Class is WebcamOverlay-{small,medium,large} so this
+-- does not inherit mpv's generic float/center rules.
+window_rule({ class = "^WebcamOverlay-small$" }, {
+  size = { "(monitor_h*4/25)", "(monitor_h*9/50)" },
+  move = { "(monitor_w-monitor_h*4/25-40)", "(monitor_h-monitor_h*9/50-40)" },
+})
+window_rule({ class = "^WebcamOverlay-medium$" }, {
+  size = { "(monitor_h*2/9)", "(monitor_h/4)" },
+  move = { "(monitor_w-monitor_h*2/9-40)", "(monitor_h-monitor_h/4-40)" },
+})
+window_rule({ class = "^WebcamOverlay-large$" }, {
+  size = { "(monitor_h*3/10)", "(monitor_h*27/80)" },
+  move = { "(monitor_w-monitor_h*3/10-40)", "(monitor_h-monitor_h*27/80-40)" },
+})
+window_rule({ class = "^WebcamOverlay-(small|medium|large)$", title = "^WebcamOverlay$" }, {
+  float = true,
+  pin = true,
+  no_initial_focus = true,
+  opacity = "1 1",
+})
 
 -- Trackpad scrolling in the terminal is far too fast at the global
 -- scroll_factor, because ghostty scrolls by lines rather than pixels. 0.2 is

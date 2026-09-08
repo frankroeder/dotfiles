@@ -89,12 +89,16 @@ hl.bind(mod .. " + CONTROL + F11", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-qr"), 
 hl.bind(mod .. " + SHIFT + F12", hl.dsp.exec_cmd "hyprpicker -a", { desc = "Color picker" })
 hl.bind(mod .. " + ALT + F11", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record region"), { desc = "Record region (toggle)" })
 hl.bind(mod .. " + ALT + F12", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record fullscreen"), { desc = "Record focused display (toggle)" })
+hl.bind(mod .. " + ALT + SHIFT + F12", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record webcam"), { desc = "Record display with webcam" })
+hl.bind(mod .. " + ALT + code:34", hl.dsp.exec_cmd(scripts .. "/asahi-webcam resize smaller"), { desc = "Webcam overlay smaller" })
+hl.bind(mod .. " + ALT + code:35", hl.dsp.exec_cmd(scripts .. "/asahi-webcam resize larger"), { desc = "Webcam overlay larger" })
 hl.bind(mod .. " + XF86AudioMute", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot windows"), { locked = true, desc = "Screenshot window (top row)" })
 hl.bind(mod .. " + XF86AudioLowerVolume", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot smart"), { locked = true, desc = "Screenshot smart (top row)" })
 hl.bind(mod .. " + XF86AudioRaiseVolume", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot fullscreen"), { locked = true, desc = "Screenshot display (top row)" })
 hl.bind(mod .. " + SHIFT + XF86AudioRaiseVolume", hl.dsp.exec_cmd "hyprpicker -a", { locked = true, desc = "Color picker (top row)" })
 hl.bind(mod .. " + ALT + XF86AudioLowerVolume", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record region"), { locked = true, desc = "Record region (top row)" })
 hl.bind(mod .. " + ALT + XF86AudioRaiseVolume", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record fullscreen"), { locked = true, desc = "Record display (top row)" })
+hl.bind(mod .. " + ALT + SHIFT + XF86AudioRaiseVolume", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record webcam"), { locked = true, desc = "Record display with webcam (top row)" })
 
 hl.bind(
   mod .. " + comma",

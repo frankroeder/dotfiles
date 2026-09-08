@@ -104,6 +104,7 @@ sudo dnf install -y \
   tumbler \
   tree \
   uv \
+  v4l-utils \
   quickshell-git \
   wf-recorder \
   wireplumber \

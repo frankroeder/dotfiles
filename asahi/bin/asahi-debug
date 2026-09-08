@@ -1,0 +1,393 @@
+#!/usr/bin/env bash
+# Fedora Asahi Remix health report. Apple Silicon only.
+# Usage: asahi-debug [--json]
+#
+# Path prefixes (tests): ASAHI_DIAG_ROOT, ASAHI_PROC_ROOT, ASAHI_SYS_ROOT.
+# Empty diag root means the real filesystem. Does not require pacman, iwd,
+# SDDM, or a running Hyprland — those are Arch/omarchy product checks.
+
+set -uo pipefail
+
+json=false
+for arg in "$@"; do
+  case "$arg" in
+    --json) json=true ;;
+    -h | --help)
+      echo "usage: $0 [--json]" >&2
+      exit 2
+      ;;
+    *)
+      echo "usage: $0 [--json]" >&2
+      exit 2
+      ;;
+  esac
+done
+
+diag_root="${ASAHI_DIAG_ROOT:-}"
+proc_root="${ASAHI_PROC_ROOT:-/proc}"
+sys_root="${ASAHI_SYS_ROOT:-/sys}"
+
+pass_count=0
+fail_count=0
+warn_count=0
+skip_count=0
+results=()
+
+record() {
+  local status=$1 id=$2 detail=$3
+  results+=("$status"$'\t'"$id"$'\t'"$detail")
+  case $status in
+    PASS) pass_count=$((pass_count + 1)) ;;
+    FAIL) fail_count=$((fail_count + 1)) ;;
+    WARN) warn_count=$((warn_count + 1)) ;;
+    SKIP) skip_count=$((skip_count + 1)) ;;
+  esac
+}
+
+diag_path() {
+  printf '%s%s\n' "$diag_root" "$1"
+}
+
+require_apple_silicon() {
+  local compat model
+  if [[ $(/usr/bin/uname -m) != "aarch64" ]] && [[ -z ${ASAHI_PROC_ROOT:-} ]]; then
+    echo "asahi-debug: this is not aarch64" >&2
+    exit 2
+  fi
+  compat="$proc_root/device-tree/compatible"
+  if [[ ! -r $compat ]] || ! grep -aq 'apple,' "$compat" 2>/dev/null; then
+    echo "asahi-debug: this is not an Apple Silicon Mac" >&2
+    exit 2
+  fi
+  model=$(tr -d '\0' <"$proc_root/device-tree/model" 2>/dev/null)
+  record PASS platform "${model:-Apple Silicon Mac}"
+}
+
+rpm_query() {
+  rpm -q "$1" 2>/dev/null || true
+}
+
+check_fedora() {
+  local osrel
+  osrel=$(diag_path /etc/os-release)
+  if [[ ! -r $osrel ]]; then
+    record FAIL fedora-release "/etc/os-release is missing"
+    return
+  fi
+  if grep -qi asahi "$osrel"; then
+    record PASS fedora-asahi "$(grep -E '^(PRETTY_NAME|VARIANT)=' "$osrel" | head -1 | tr -d '"')"
+  else
+    record FAIL fedora-asahi "/etc/os-release does not identify Fedora Asahi Remix"
+  fi
+}
+
+check_kernel() {
+  local release q
+  release=$(/usr/bin/uname -r)
+  if [[ $release == *asahi* ]]; then
+    record PASS kernel "$release"
+  else
+    record FAIL kernel "uname -r is '$release' (expected an asahi kernel)"
+  fi
+  q=$(rpm_query kernel-16k)
+  if [[ $q == kernel-16k-* ]]; then
+    record PASS pkg-kernel-16k "$q"
+  elif [[ -n ${ASAHI_DIAG_ROOT:-} ]]; then
+    record SKIP pkg-kernel-16k "rpm not mocked"
+  else
+    record WARN pkg-kernel-16k "kernel-16k is not installed (Fedora Asahi ships that name, not linux-asahi)"
+  fi
+}
+
+check_packages() {
+  local pkg q
+  for pkg in speakersafetyd asahi-audio pipewire wireplumber NetworkManager mesa-vulkan-drivers; do
+    q=$(rpm_query "$pkg")
+    if [[ $q == "$pkg"-* ]]; then
+      record PASS "pkg-$pkg" "$q"
+    elif [[ -n ${ASAHI_DIAG_ROOT:-} ]] && ! command -v rpm >/dev/null 2>&1; then
+      record SKIP "pkg-$pkg" "rpm is not available"
+    else
+      record FAIL "pkg-$pkg" "package $pkg is not installed"
+    fi
+  done
+}
+
+check_wifi_backend() {
+  local conf printed
+  conf=$(diag_path /etc/NetworkManager/conf.d)
+  printed=$(NetworkManager --print-config 2>/dev/null || true)
+  if grep -q 'wifi.backend=wpa_supplicant' <<<"$printed"; then
+    record PASS wifi-backend "NetworkManager uses wpa_supplicant (Fedora Asahi default)"
+  elif grep -q 'wifi.backend=iwd' <<<"$printed"; then
+    record WARN wifi-backend "NetworkManager uses iwd — that is the Arch/omarchy path, not Fedora Asahi"
+  elif [[ -n $printed ]]; then
+    record WARN wifi-backend "NetworkManager did not report a wifi.backend (wpa_supplicant is the Fedora default)"
+  else
+    record SKIP wifi-backend "NetworkManager --print-config returned nothing"
+  fi
+}
+
+check_wifi_powersave() {
+  local conf
+  conf=$(diag_path /etc/NetworkManager/conf.d/asahi-wifi-powersave.conf)
+  if [[ -r $conf ]] && grep -qE 'wifi\.powersave[[:space:]]*=[[:space:]]*2' "$conf"; then
+    record PASS wifi-powersave "asahi-wifi-powersave.conf disables idle naps"
+  else
+    record WARN wifi-powersave "no asahi-wifi-powersave.conf with wifi.powersave=2"
+  fi
+}
+
+check_wifi_link() {
+  local status wifi_line device state
+  status=$(nmcli -t -f DEVICE,TYPE,STATE device status 2>/dev/null || true)
+  if [[ -z $status ]]; then
+    record SKIP wifi-link "nmcli gave no answer"
+    return
+  fi
+  wifi_line=$(awk -F: '$2 == "wifi" { print; exit }' <<<"$status")
+  if [[ -z $wifi_line ]]; then
+    record FAIL wifi-link "no Wi-Fi device is visible to NetworkManager"
+    return
+  fi
+  device=${wifi_line%%:*}
+  state=${wifi_line##*:}
+  if [[ $state == "connected" ]]; then
+    record PASS wifi-link "Wi-Fi device $device is connected"
+  else
+    record WARN wifi-link "Wi-Fi device $device is $state"
+  fi
+}
+
+check_audio() {
+  local status effect_sink
+  status=$(wpctl status 2>/dev/null || true)
+  if [[ -z $status ]]; then
+    record FAIL audio-dsp "wpctl returned nothing — PipeWire is not running"
+  else
+    effect_sink=$(sed -n '/Filters:/,/Streams:/p' <<<"$status" |
+      grep -E 'audio_effect\..*\[Audio/Sink\]' | head -1 |
+      sed 's/^[ │*.]*//; s/ *\[Audio\/Sink\].*$//; s/[0-9]*\. *//')
+    if [[ -n $effect_sink ]]; then
+      record PASS audio-dsp "Asahi DSP chain loaded: $effect_sink"
+    else
+      record FAIL audio-dsp "no audio_effect sink — asahi-audio DSP did not load"
+    fi
+  fi
+
+  if systemctl is-active --quiet speakersafetyd 2>/dev/null; then
+    record PASS speakersafetyd "speaker protection service is active"
+  else
+    record FAIL speakersafetyd "speakersafetyd is not active — speakers are not protected"
+  fi
+}
+
+check_pipewire_rt() {
+  local line
+  line=$(ps -eLo comm,rtprio,cls 2>/dev/null | awk '$1 == "data-loop.0" && $2 == "20" && $3 == "RR" { print; exit }')
+  if [[ -n $line ]]; then
+    record PASS pipewire-rt "PipeWire data-loop thread is 20 RR"
+  else
+    record WARN pipewire-rt "no data-loop.0 thread at 20 RR (check the thread, not the process)"
+  fi
+}
+
+check_bluetooth() {
+  if systemctl is-active --quiet bluetooth 2>/dev/null; then
+    record PASS bluetooth-service "bluetooth.service is active"
+  else
+    record WARN bluetooth-service "bluetooth.service is not active"
+  fi
+}
+
+check_gpu() {
+  local dri cards renders icd_dir icds
+  dri=$(diag_path /dev/dri)
+  cards=$(find "$dri" -maxdepth 1 -name 'card*' 2>/dev/null | grep -c '.' || true)
+  renders=$(find "$dri" -maxdepth 1 -name 'renderD*' 2>/dev/null | grep -c '.' || true)
+  if ((cards > 0 && renders > 0)); then
+    record PASS gpu-drm "DRM nodes present ($cards card, $renders render)"
+  else
+    record FAIL gpu-drm "missing DRM nodes under /dev/dri ($cards card, $renders render)"
+  fi
+
+  icd_dir=$(diag_path /usr/share/vulkan/icd.d)
+  icds=$(find "$icd_dir" -maxdepth 1 -name '*asahi*.json' 2>/dev/null | grep -c '.' || true)
+  if ((icds > 0)); then
+    record PASS gpu-vulkan "Asahi Vulkan ICD present ($icds)"
+  else
+    record FAIL gpu-vulkan "no asahi ICD under /usr/share/vulkan/icd.d"
+  fi
+}
+
+check_backlight() {
+  local bl brightness max
+  bl=$(diag_path /sys/class/backlight/apple-panel-bl)
+  if [[ -d $bl ]]; then
+    brightness=$(cat "$bl/brightness" 2>/dev/null || true)
+    max=$(cat "$bl/max_brightness" 2>/dev/null || true)
+    record PASS backlight "apple-panel-bl present (brightness ${brightness:-?}/${max:-?})"
+  else
+    record FAIL backlight "no apple-panel-bl — display brightness control is missing"
+  fi
+}
+
+check_battery() {
+  local ps capacity battery_status
+  ps=$(diag_path /sys/class/power_supply)
+  if [[ -r $ps/macsmc-battery/capacity ]]; then
+    capacity=$(cat "$ps/macsmc-battery/capacity" 2>/dev/null || true)
+    battery_status=$(cat "$ps/macsmc-battery/status" 2>/dev/null || true)
+    record PASS battery "macsmc-battery at ${capacity:-?}% (${battery_status:-unknown})"
+  else
+    record FAIL battery "the macsmc-battery power supply is missing"
+  fi
+}
+
+check_hid() {
+  local drivers fnmode magic
+  drivers=$(diag_path /sys/bus/hid/drivers)
+  if [[ -d $drivers/apple ]]; then
+    record PASS hid-apple "hid_apple is bound"
+  else
+    record FAIL hid-apple "hid_apple is not bound under /sys/bus/hid/drivers"
+  fi
+  magic=$(modinfo -n hid_magicmouse 2>/dev/null || true)
+  if [[ $magic == "(builtin)" ]]; then
+    record PASS hid-magicmouse "hid_magicmouse is built in (Fedora Asahi)"
+  elif [[ -d $drivers/magicmouse ]]; then
+    record PASS hid-magicmouse "hid_magicmouse is bound"
+  else
+    record WARN hid-magicmouse "hid_magicmouse is neither builtin nor bound"
+  fi
+  fnmode=$(cat "$sys_root/module/hid_apple/parameters/fnmode" 2>/dev/null || true)
+  if [[ $fnmode == "1" ]]; then
+    record PASS hid-fnmode "fnmode=1 (media keys on the top row)"
+  elif [[ -n $fnmode ]]; then
+    record WARN hid-fnmode "fnmode=$fnmode (expected 1)"
+  else
+    record SKIP hid-fnmode "hid_apple fnmode sysfs is missing"
+  fi
+}
+
+check_notch() {
+  local notch
+  notch=$(cat "$sys_root/module/appledrm/parameters/show_notch" 2>/dev/null || true)
+  if [[ $notch == "Y" || $notch == "1" ]]; then
+    record PASS notch "appledrm show_notch is on"
+  elif [[ -n $notch ]]; then
+    record WARN notch "appledrm show_notch=$notch (full panel needs 1 / reboot after asahi-notch.conf)"
+  else
+    record SKIP notch "appledrm is not loaded"
+  fi
+}
+
+check_sshd() {
+  local enabled
+  enabled=$(systemctl is-enabled sshd.service 2>/dev/null || true)
+  if [[ $enabled == "masked" || $enabled == "disabled" ]]; then
+    record PASS sshd "sshd.service is $enabled"
+  elif [[ -z $enabled ]]; then
+    record SKIP sshd "systemctl did not report sshd.service"
+  else
+    record FAIL sshd "sshd.service is $enabled (Fedora enables it; this machine masks it)"
+  fi
+}
+
+check_hibernate() {
+  local conf
+  conf=$(diag_path /etc/systemd/sleep.conf.d/10-asahi-no-hibernate.conf)
+  if [[ -r $conf ]] && grep -q '^AllowHibernation=no' "$conf"; then
+    record PASS hibernate "sleep drop-in forbids hibernate"
+  else
+    record WARN hibernate "no 10-asahi-no-hibernate.conf with AllowHibernation=no"
+  fi
+}
+
+check_logind() {
+  local conf
+  conf=$(diag_path /etc/systemd/logind.conf.d/10-asahi-sleep.conf)
+  if [[ -r $conf ]] && grep -q '^HandlePowerKey=ignore' "$conf"; then
+    record PASS logind-power "HandlePowerKey=ignore is installed"
+  else
+    record WARN logind-power "asahi logind drop-in is missing HandlePowerKey=ignore"
+  fi
+}
+
+check_charge_limit() {
+  local udev unit
+  udev=$(diag_path /etc/udev/rules.d/99-asahi-charge-limit.rules)
+  unit=$(diag_path /etc/systemd/system/asahi-charge-limit.service)
+  if [[ -f $udev && -f $unit ]]; then
+    record PASS charge-limit "udev rule and oneshot are installed"
+  else
+    record WARN charge-limit "charge-limit udev/oneshot missing (./install.sh asahi-system)"
+  fi
+}
+
+check_camera() {
+  local devices
+  devices=$(find "$(diag_path /dev)" -maxdepth 1 -name 'video*' 2>/dev/null | sort | tr '\n' ' ')
+  if [[ -n $devices ]]; then
+    record PASS camera "video device(s) present: $devices"
+  else
+    record WARN camera "no /dev/video* — the camera stack is not active"
+  fi
+}
+
+json_escape() {
+  local value=$1
+  value=${value//\\/\\\\}
+  value=${value//\"/\\\"}
+  printf '%s' "$value"
+}
+
+print_report() {
+  local line status id detail first
+  if [[ $json == "true" ]]; then
+    first=true
+    printf '{\n  "checks": [\n'
+    for line in "${results[@]}"; do
+      IFS=$'\t' read -r status id detail <<<"$line"
+      if [[ $first == "true" ]]; then
+        first=false
+      else
+        printf ',\n'
+      fi
+      printf '    {"id": "%s", "status": "%s", "detail": "%s"}' \
+        "$(json_escape "$id")" "$status" "$(json_escape "$detail")"
+    done
+    printf '\n  ],\n  "passed": %s,\n  "failed": %s,\n  "warnings": %s,\n  "skipped": %s\n}\n' \
+      "$pass_count" "$fail_count" "$warn_count" "$skip_count"
+    return
+  fi
+  for line in "${results[@]}"; do
+    IFS=$'\t' read -r status id detail <<<"$line"
+    printf '%-4s  %-21s %s\n' "$status" "$id" "$detail"
+  done
+  echo
+  echo "$pass_count passed, $fail_count failed, $warn_count warnings, $skip_count skipped"
+}
+
+require_apple_silicon
+check_fedora
+check_kernel
+check_packages
+check_wifi_backend
+check_wifi_powersave
+check_wifi_link
+check_audio
+check_pipewire_rt
+check_bluetooth
+check_gpu
+check_backlight
+check_battery
+check_hid
+check_notch
+check_sshd
+check_hibernate
+check_logind
+check_charge_limit
+check_camera
+print_report
+((fail_count == 0))

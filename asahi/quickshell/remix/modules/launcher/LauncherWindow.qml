@@ -145,6 +145,7 @@ Scope {
     { key: "packages", aliases: ["pkg", "dnf", "pkgman"], icon: "󰏖", name: "Packages", comment: "Search and manage dnf packages", ipc: "pkgman" },
     { key: "screensaver", aliases: ["saver"], icon: "󱄄", name: "Screensaver", comment: "Shader idle display", command: [root.binDir + "/asahi-screensaver", "toggle"] },
     { key: "record", aliases: ["rec", "wf-recorder"], icon: "󰑋", name: "Record display", comment: "Toggle focused-display recording (wf-recorder)", command: [root.binDir + "/asahi-cmd-record", "fullscreen"] },
+    { key: "record-webcam", aliases: ["recam", "webcam", "facecam"], icon: "󰄀", name: "Record with webcam", comment: "Display recording plus a pinned face-cam overlay", command: [root.binDir + "/asahi-cmd-record", "webcam"] },
     { key: "ocr", aliases: ["text", "tesseract"], icon: "󰴑", name: "OCR region", comment: "Copy text from a screen region", command: [root.binDir + "/asahi-cmd-ocr"] },
     { key: "qr", aliases: ["qrcode", "zbar"], icon: "󰐲", name: "Scan QR", comment: "Copy a QR code from a screen region", command: [root.binDir + "/asahi-cmd-qr"] },
     { key: "nightlight", aliases: ["night", "warm", "hyprsunset"], icon: "󰖔", name: "Night light toggle", comment: "Super+Ctrl+N · hyprsunset.conf (identity / temperature)", command: [root.binDir + "/asahi-nightlight", "toggle"] },
