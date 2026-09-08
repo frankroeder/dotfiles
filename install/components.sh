@@ -410,6 +410,37 @@ comp_micro() {
 
 # --- Asahi Linux ------------------------------------------------------------
 
+# tty1 getty is the login password. Safe on a live session: only removes a
+# leftover drop-in and daemon-reloads. Do not restart getty@tty1 (kills Hyprland).
+comp_asahi_getty() {
+  require_linux
+  print_step "Ensuring tty1 getty asks for a password (no autologin)"
+  if [ -n "$NOSUDO" ]; then
+    print_error "asahi-getty writes /etc/systemd; rerun without --no-sudo"
+    exit 1
+  fi
+  local dropin=/etc/systemd/system/getty@tty1.service.d/10-asahi-autologin.conf
+  local dropdir=/etc/systemd/system/getty@tty1.service.d
+  if [ -f "$dropin" ]; then
+    sudo rm -f "$dropin" || {
+      print_error "failed to remove $dropin"
+      exit 1
+    }
+    if [ -d "$dropdir" ] && [ -z "$(ls -A "$dropdir" 2>/dev/null)" ]; then
+      sudo rmdir "$dropdir"
+    fi
+    sudo systemctl daemon-reload || {
+      print_error "systemctl daemon-reload failed after removing autologin"
+      exit 1
+    }
+  fi
+  if systemctl cat getty@tty1.service 2>/dev/null | grep -q -- '--autologin'; then
+    print_error "getty@tty1 still has --autologin after cleanup"
+    exit 1
+  fi
+  print_ok "tty1 getty has no --autologin (password required on next boot)"
+}
+
 # Power-button tap ignore + no hibernate. Safe to rerun on a live Hyprland
 # session: SIGHUP reloads logind.conf.d; do not restart systemd-logind.
 comp_asahi_logind() {
@@ -452,6 +483,9 @@ comp_asahi_system() {
   # as the DRM devices appear, so it overwrites anything a service set earlier.
   sudo install -Dm644 "$DOTFILES/asahi/vconsole.conf" /etc/vconsole.conf
   sudo systemctl restart systemd-vconsole-setup.service
+  # Getty is the auth gate. A leftover agetty --autologin drop-in (tried, then
+  # reverted in the repo) still skips the tty1 password until it is removed.
+  comp_asahi_getty
   comp_asahi_logind
   sudo systemctl daemon-reload
   local rebuild_initramfs=0
@@ -763,6 +797,14 @@ comp_doctor() {
     report_check "asahi-notch.conf" test -f /etc/modprobe.d/asahi-notch.conf
     report_check "hid_apple fnmode=1" grep -q 'fnmode=1' /etc/modprobe.d/hid_apple.conf
     check_bin hyprpicker || true
+    if [ -f /etc/systemd/system/getty@tty1.service.d/10-asahi-autologin.conf ]; then
+      print_warning "tty1 autologin drop-in is present (./install.sh asahi-getty)"
+    elif systemctl cat getty@tty1.service 2>/dev/null | grep -q -- '--autologin'; then
+      print_warning "getty@tty1 still has --autologin"
+    else
+      print_ok "tty1 getty has no autologin"
+    fi
+    report_check "keychain" have keychain
     report_check "logind HandlePowerKey=ignore" grep -q '^HandlePowerKey=ignore' /etc/systemd/logind.conf.d/10-asahi-sleep.conf
     if busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager HandlePowerKey 2>/dev/null | grep -q '"ignore"'; then
       print_ok "logind live HandlePowerKey=ignore"

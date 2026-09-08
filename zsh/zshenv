@@ -48,6 +48,16 @@ elif [[ "$OSTYPE" == "Linux" ]]; then
   if [[ -z "${SSH_AUTH_SOCK:-}" ]] && [[ -n "${XDG_RUNTIME_DIR:-}" ]] && [[ -S "${XDG_RUNTIME_DIR}/ssh-agent.socket" ]]; then
     export SSH_AUTH_SOCK="${XDG_RUNTIME_DIR}/ssh-agent.socket"
   fi
+  # A leftover ~/.keychain socket after reboot is still a file; ssh then
+  # prompts for the key password on every git/ssh instead of using an agent.
+  if [[ -n "${SSH_AUTH_SOCK:-}" ]] && (( ${+commands[ssh-add]} )); then
+    _ssh_add_rc=0
+    ssh-add -l >/dev/null 2>&1 || _ssh_add_rc=$?
+    if ((_ssh_add_rc > 1)); then
+      unset SSH_AUTH_SOCK SSH_AGENT_PID
+    fi
+    unset _ssh_add_rc
+  fi
   unset keychain_env
   export TERM=xterm-256color
 fi

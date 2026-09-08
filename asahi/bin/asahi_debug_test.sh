@@ -122,6 +122,8 @@ echo "$out" | jq -e '[.checks[] | select(.id=="wifi-backend" and .status=="PASS"
   || fail_at "wifi-backend expects wpa_supplicant"
 echo "$out" | jq -e '[.checks[] | select(.id=="sshd" and .status=="PASS")] | length == 1' >/dev/null \
   || fail_at "sshd masked is PASS"
+echo "$out" | jq -e '[.checks[] | select(.id=="getty-autologin" and .status=="PASS")] | length == 1' >/dev/null \
+  || fail_at "getty-autologin PASS when drop-in is absent"
 echo "$out" | jq -e '.checks | any(.id | test("pacman|iwd|sddm|omarchy-version"))' >/dev/null \
   && fail_at "must not emit Arch/omarchy checks" || pass "no pacman/iwd/sddm/omarchy checks"
 echo "$out" | jq -e '[.checks[] | select(.id=="audio-dsp" and .status=="PASS")] | length == 1' >/dev/null \
@@ -139,6 +141,16 @@ out=$(PATH="$bin:$PATH" ASAHI_DIAG_ROOT="$diag" ASAHI_PROC_ROOT="$proc" \
 echo "$out" | jq -e '[.checks[] | select(.id=="wifi-backend" and .status=="WARN")] | length == 1' >/dev/null \
   || fail_at "iwd backend should WARN on Fedora"
 pass "iwd wifi backend is WARN, not FAIL"
+
+mkdir -p "$diag/etc/systemd/system/getty@tty1.service.d"
+printf '%s\n' 'ExecStart=-/usr/sbin/agetty --autologin nobody' \
+  >"$diag/etc/systemd/system/getty@tty1.service.d/10-asahi-autologin.conf"
+out=$(PATH="$bin:$PATH" ASAHI_DIAG_ROOT="$diag" ASAHI_PROC_ROOT="$proc" \
+  ASAHI_SYS_ROOT="$sys" "$ROOT/asahi-debug" --json) || true
+echo "$out" | jq -e '[.checks[] | select(.id=="getty-autologin" and .status=="FAIL")] | length == 1' >/dev/null \
+  || fail_at "getty-autologin FAIL when leftover drop-in exists"
+pass "leftover tty1 autologin is FAIL"
+rm -f "$diag/etc/systemd/system/getty@tty1.service.d/10-asahi-autologin.conf"
 
 if grep -Eiq '[[:space:]]pacman([[:space:]]|$)|systemctl[^[:space:]]* sddm' "$ROOT/asahi-debug"; then
   fail_at "asahi-debug still calls pacman or sddm"

@@ -1,5 +1,86 @@
 #!/usr/bin/env bash
-
+# Live empty ssh-agent for the session. SSH stays with keychain
+# (not gnome-keyring). Never prompt for a passphrase — the first git/ssh
+# unlocks via AddKeysToAgent and the agent holds the key after that.
+#
+# keychain 3 treats a leftover pidfile as valid when that PID was reused
+# by an unrelated process (xdg-document-portal on this box). --quick then
+# re-exports the dead socket and every git/ssh asks for the key password.
+# Never keychain agent stop against that pidfile — it would kill the reused PID.
 set -euo pipefail
 
-eval "$(keychain --quiet --quick --noask --eval --systemd "$HOME/.ssh/id_ed25519")"
+if [[ -n ${1:-} ]]; then
+  echo "usage: $0" >&2
+  exit 2
+fi
+
+dir="${KEYCHAIN_DIR:-$HOME/.keychain}"
+host="${KEYCHAIN_HOST:-${HOST:-${HOSTNAME:-}}}"
+if [[ -z $host ]]; then
+  host=$(hostname -s 2>/dev/null || hostname)
+fi
+pidfile="$dir/${host}-sh"
+
+agent_live() {
+  local sock=${1:-} rc=0
+  [[ -n $sock && -S $sock ]] || return 1
+  SSH_AUTH_SOCK=$sock ssh-add -l >/dev/null 2>&1 || rc=$?
+  [[ $rc -eq 0 || $rc -eq 1 ]]
+}
+
+pid_is_ssh_agent() {
+  local pid=${1:-} comm
+  [[ -n $pid && -r /proc/$pid/comm ]] || return 1
+  comm=$(tr -d '\0' <"/proc/$pid/comm")
+  [[ $comm == ssh-agent ]]
+}
+
+read_pidfile() {
+  sock=
+  pid=
+  [[ -r $pidfile ]] || return 1
+  sock=$(sed -n 's/^SSH_AUTH_SOCK=\([^;[:space:]]*\).*/\1/p' "$pidfile" | head -n1)
+  pid=$(sed -n 's/^SSH_AGENT_PID=\([^;[:space:]]*\).*/\1/p' "$pidfile" | head -n1)
+}
+
+discard_stale() {
+  # Never kill $pid: the recorded PID may now be some other process.
+  if [[ -n ${sock:-} && $sock == "$dir"/* && -S $sock ]]; then
+    rm -f "$sock"
+  fi
+  rm -f "$pidfile"
+  unset SSH_AUTH_SOCK SSH_AGENT_PID
+}
+
+push_agent_env() {
+  if [[ -n ${SSH_AUTH_SOCK:-} ]]; then
+    systemctl --user import-environment SSH_AUTH_SOCK SSH_AGENT_PID 2>/dev/null || true
+    if command -v dbus-update-activation-environment >/dev/null 2>&1; then
+      dbus-update-activation-environment --systemd SSH_AUTH_SOCK SSH_AGENT_PID 2>/dev/null || true
+    fi
+  fi
+}
+
+if [[ -n ${SSH_AUTH_SOCK:-} ]] && agent_live "$SSH_AUTH_SOCK"; then
+  push_agent_env
+  exit 0
+fi
+
+sock=
+pid=
+read_pidfile || true
+if pid_is_ssh_agent "$pid" && agent_live "$sock"; then
+  export SSH_AUTH_SOCK=$sock SSH_AGENT_PID=$pid
+  push_agent_env
+  exit 0
+fi
+
+discard_stale
+
+kc=(keychain)
+if [[ -n ${KEYCHAIN_DIR:-} ]]; then
+  kc+=(--dir "$dir" --host "$host")
+fi
+kc+=(add --quiet --noask --eval --systemd --ignore-missing --no-inherit id_ed25519)
+eval "$("${kc[@]}")"
+push_agent_env

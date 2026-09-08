@@ -282,6 +282,16 @@ check_notch() {
   fi
 }
 
+check_getty() {
+  local dropin
+  dropin=$(diag_path /etc/systemd/system/getty@tty1.service.d/10-asahi-autologin.conf)
+  if [[ -f $dropin ]]; then
+    record FAIL getty-autologin "leftover 10-asahi-autologin.conf (tty1 getty is the auth gate)"
+  else
+    record PASS getty-autologin "tty1 has no agetty --autologin drop-in"
+  fi
+}
+
 check_sshd() {
   local enabled
   enabled=$(systemctl is-enabled sshd.service 2>/dev/null || true)
@@ -385,6 +395,7 @@ check_battery
 check_hid
 check_notch
 check_sshd
+check_getty
 check_hibernate
 check_logind
 check_charge_limit
