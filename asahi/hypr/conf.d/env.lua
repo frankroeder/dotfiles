@@ -14,3 +14,5 @@ hl.env("BROWSER", "librewolf")
 hl.env("FILEMANAGER", "thunar")
 hl.env("OZONE_PLATFORM", "wayland")
 hl.env("OZONE_PLATFORM_HINT", "wayland")
+-- Fedora's chromium-browser.sh reads this; ~/.config/chromium-flags.conf is ignored.
+hl.env("CHROMIUM_USER_FLAGS", "--enable-features=WebRTCPipeWireCapturer")
