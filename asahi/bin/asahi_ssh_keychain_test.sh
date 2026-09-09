@@ -23,6 +23,18 @@ else
   pass "no tty1 key unlock"
 fi
 
+if grep -E -q '^[[:space:]]*export KEYCHAIN_DONE=1' "$ROOT/../../zsh/zshenv"; then
+  pass "zshenv exports KEYCHAIN_DONE (skip Fedora profile.d/keychain.sh)"
+else
+  fail_at "zshenv must export KEYCHAIN_DONE=1 so Fedora does not unlock all ~/.ssh keys on tty1"
+fi
+
+if grep -v '^[[:space:]]*#' "$KC" | grep -q 'KEYCHAIN_DONE=1'; then
+  pass "asahi-ssh-keychain exports KEYCHAIN_DONE"
+else
+  fail_at "asahi-ssh-keychain must export KEYCHAIN_DONE=1"
+fi
+
 if grep -v '^[[:space:]]*#' "$KC" | grep -q -- '--quick'; then
   fail_at "asahi-ssh-keychain must not pass --quick"
 else
@@ -99,6 +111,23 @@ if grep -q -- '--noask' "$log" && grep -q -- '--no-inherit' "$log"; then
   pass "default path is --noask --no-inherit"
 else
   fail_at "default flags: $(cat "$log")"
+fi
+
+# Fedora's hook must not invoke keychain when KEYCHAIN_DONE is set.
+if [ -r /etc/profile.d/keychain.sh ]; then
+  fed_bin="$tmp/fed-bin"
+  mkdir -p "$fed_bin"
+  printf '%s\n' '#!/bin/sh' 'echo FEDORA_KEYCHAIN_RAN "$*" >&2' 'exit 1' >"$fed_bin/keychain"
+  chmod +x "$fed_bin/keychain"
+  fed_out=$(
+    KEYCHAIN_DONE=1 PATH="$fed_bin:$PATH" HOME="$tmp" \
+      bash -c '. /etc/profile.d/keychain.sh' 2>&1
+  ) && fed_rc=0 || fed_rc=$?
+  if [ "$fed_rc" -eq 0 ] && ! printf '%s' "$fed_out" | grep -q FEDORA_KEYCHAIN_RAN; then
+    pass "Fedora profile.d/keychain.sh is a no-op when KEYCHAIN_DONE=1"
+  else
+    fail_at "Fedora keychain.sh still ran: rc=$fed_rc out=$fed_out"
+  fi
 fi
 
 if [ "$fail" -ne 0 ]; then

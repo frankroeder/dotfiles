@@ -41,6 +41,14 @@ elif [[ "$OSTYPE" == "Linux" ]]; then
   elif (( ${+commands[firefox]} )); then
     export BROWSER="firefox"
   fi
+  # Fedora's /etc/profile.d/keychain.sh greps every private key in ~/.ssh
+  # (google_compute_engine included) and on interactive login runs
+  # `keychain --quiet --immediate $SSHKEYS` — no --noask — so tty1 getty
+  # asks for every passphrase after the login password. /etc/zprofile
+  # sources /etc/profile before ~/.zprofile. This is that script's own
+  # skip flag; asahi-ssh-keychain starts an empty agent and the first
+  # git/ssh unlocks via AddKeysToAgent.
+  export KEYCHAIN_DONE=1
   keychain_env="$HOME/.keychain/${HOST:-$HOSTNAME}-sh"
   if [[ -z "${SSH_CONNECTION:-}" && -r "$keychain_env" ]]; then
     source "$keychain_env"

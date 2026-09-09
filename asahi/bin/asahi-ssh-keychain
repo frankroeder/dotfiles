@@ -83,4 +83,5 @@ if [[ -n ${KEYCHAIN_DIR:-} ]]; then
 fi
 kc+=(add --quiet --noask --eval --systemd --ignore-missing --no-inherit id_ed25519)
 eval "$("${kc[@]}")"
+export KEYCHAIN_DONE=1
 push_agent_env

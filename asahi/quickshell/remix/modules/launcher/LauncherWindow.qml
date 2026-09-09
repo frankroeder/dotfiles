@@ -201,17 +201,15 @@ Scope {
   readonly property real uiFontScale: root.launcherGeom.fontScale
   readonly property real quickOverviewScale: 1.0
   readonly property int launcherScreenH: {
-    const h = launcherPanel.height
-    if (h > 1) return h
     const scr = launcherPanel.screen || root.launcherScreen
     if (scr && scr.height > 1) return scr.height
+    if (launcherPanel.height > 1) return launcherPanel.height
     return 1080
   }
   readonly property int launcherScreenW: {
-    const w = launcherPanel.width
-    if (w > 1) return w
     const scr = launcherPanel.screen || root.launcherScreen
     if (scr && scr.width > 1) return scr.width
+    if (launcherPanel.width > 1) return launcherPanel.width
     return 1920
   }
   readonly property bool compactLauncher: !root.quickMode && !root.sideActive
@@ -1424,14 +1422,22 @@ Scope {
     property var displaySources: []
     property var displayStreams: []
     function refreshAudioModels() {
-      quickMediaRoot.displaySinks = (quickMediaRoot.candidateSinks || []).slice()
-      quickMediaRoot.displaySources = (quickMediaRoot.candidateSources || []).slice()
-      quickMediaRoot.displayStreams = (quickMediaRoot.candidateStreams || []).slice()
+      quickMediaRoot.displaySinks = QuickModels.adoptAudioNodes(quickMediaRoot.displaySinks, quickMediaRoot.candidateSinks)
+      quickMediaRoot.displaySources = QuickModels.adoptAudioNodes(quickMediaRoot.displaySources, quickMediaRoot.candidateSources)
+      quickMediaRoot.displayStreams = QuickModels.adoptAudioNodes(quickMediaRoot.displayStreams, quickMediaRoot.candidateStreams)
     }
     onCandidateSinksChanged: audioModelRefresh.restart()
     onCandidateSourcesChanged: audioModelRefresh.restart()
     onCandidateStreamsChanged: audioModelRefresh.restart()
     Timer { id: audioModelRefresh; interval: 75; onTriggered: quickMediaRoot.refreshAudioModels() }
+    // Default sink/source objects go null for a frame on PW republish;
+    // hold the last live node so the master cards do not flash empty.
+    property var heldSink: null
+    property var heldSource: null
+    onPwSinkChanged: if (quickMediaRoot.pwSink) quickMediaRoot.heldSink = quickMediaRoot.pwSink
+    onPwSourceChanged: if (quickMediaRoot.pwSource) quickMediaRoot.heldSource = quickMediaRoot.pwSource
+    readonly property var shownSink: quickMediaRoot.pwSink || quickMediaRoot.heldSink
+    readonly property var shownSource: quickMediaRoot.pwSource || quickMediaRoot.heldSource
 
     readonly property real outVol: quickMediaRoot.pwSink && quickMediaRoot.pwSink.audio ? quickMediaRoot.pwSink.audio.volume : 0
     readonly property bool outMuted: quickMediaRoot.pwSink && quickMediaRoot.pwSink.audio ? quickMediaRoot.pwSink.audio.muted : false
@@ -1458,12 +1464,16 @@ Scope {
     // a stray tap can silently break audio for every future stream — no-op on
     // the already-active device and always notify so the change is visible.
     function setDefaultSink(node) {
-      if (!node || node === quickMediaRoot.pwSink) return
+      if (!node) return
+      const key = QuickModels.audioNodeKey(node)
+      if (key && key === QuickModels.audioNodeKey(quickMediaRoot.pwSink || quickMediaRoot.heldSink)) return
       Pipewire.preferredDefaultAudioSink = node
       Quickshell.execDetached(["notify-send", "-a", "Audio", "Output device", QuickModels.nodeLabel(node)])
     }
     function setDefaultSource(node) {
-      if (!node || node === quickMediaRoot.pwSource) return
+      if (!node) return
+      const key = QuickModels.audioNodeKey(node)
+      if (key && key === QuickModels.audioNodeKey(quickMediaRoot.pwSource || quickMediaRoot.heldSource)) return
       Pipewire.preferredDefaultAudioSource = node
       Quickshell.execDetached(["notify-send", "-a", "Audio", "Input device", QuickModels.nodeLabel(node)])
     }
@@ -1495,9 +1505,9 @@ Scope {
       quickMediaRoot.cavaStatus = vs.some(v => v > 0) ? "active" : "waiting for audio"
     }
     // Binds the candidate nodes so .audio/.properties/.description are live.
-    PwObjectTracker { objects: quickMediaRoot.candidateSinks }
-    PwObjectTracker { objects: quickMediaRoot.candidateSources }
-    PwObjectTracker { objects: quickMediaRoot.candidateStreams }
+    PwObjectTracker { objects: quickMediaRoot.displaySinks }
+    PwObjectTracker { objects: quickMediaRoot.displaySources }
+    PwObjectTracker { objects: quickMediaRoot.displayStreams }
 
     Process {
       id: cavaRd
@@ -1516,7 +1526,12 @@ Scope {
         if (!cavaRd.running) cavaRd.running = true
       }
     }
-    Component.onCompleted: { quickMediaRoot.refreshAudioModels(); quickMediaRoot.startCava() }
+    Component.onCompleted: {
+      if (quickMediaRoot.pwSink) quickMediaRoot.heldSink = quickMediaRoot.pwSink
+      if (quickMediaRoot.pwSource) quickMediaRoot.heldSource = quickMediaRoot.pwSource
+      quickMediaRoot.refreshAudioModels()
+      quickMediaRoot.startCava()
+    }
     Component.onDestruction: quickMediaRoot.stopCava()
 
     // Minimal draggable volume slider (track + fill + knob). Writes through
@@ -1651,7 +1666,7 @@ Scope {
             id: masterCard
             required property var modelData
             readonly property bool isOut: modelData.out
-            readonly property var node: isOut ? quickMediaRoot.pwSink : quickMediaRoot.pwSource
+            readonly property var node: isOut ? quickMediaRoot.shownSink : quickMediaRoot.shownSource
             readonly property bool muted: isOut ? quickMediaRoot.outMuted : quickMediaRoot.inMuted
             readonly property real vol: isOut ? quickMediaRoot.outVol : quickMediaRoot.inVol
             Layout.fillWidth: true
@@ -1731,7 +1746,7 @@ Scope {
             required property var modelData
             readonly property bool isOut: modelData.out
             readonly property var devItems: isOut ? (quickMediaRoot.displaySinks || []) : (quickMediaRoot.displaySources || [])
-            readonly property var activeNode: isOut ? quickMediaRoot.pwSink : quickMediaRoot.pwSource
+            readonly property var activeNode: isOut ? quickMediaRoot.shownSink : quickMediaRoot.shownSource
             Layout.fillWidth: true
             Layout.fillHeight: true
             radius: Style.menuRadius
@@ -1773,7 +1788,8 @@ Scope {
                     delegate: Rectangle {
                       id: devRow
                       required property var modelData
-                      readonly property bool active: devCard.activeNode === modelData
+                      readonly property bool active: QuickModels.audioNodeKey(devCard.activeNode) === QuickModels.audioNodeKey(modelData)
+                        && QuickModels.audioNodeKey(modelData) !== ""
                       width: parent.width
                       height: root.fontPx(22)
                       radius: Style.radiusSm
@@ -3423,12 +3439,13 @@ Scope {
           color: Style.menuInkDeep
           font.pixelSize: root.fontPx(8)
           font.family: root.uiFont
+          elide: Text.ElideRight
+          Layout.maximumWidth: 110
         }
       }
       // Focused-display controls (omarchy.monitor): equal-width preset rows.
-      // Scale pills are labeled with the EFFECTIVE snapped value for the
-      // current mode (a preset like 1.6 may land on 1.575), so what you click
-      // is what you get.
+      // Scale pills are the Hyprland-legal values for this mode (1.875 not
+      // 1.88, 4/3 as 1.333). A named preset that snaps too far is omitted.
       ColumnLayout {
         Layout.fillWidth: true
         spacing: 4
@@ -3451,9 +3468,9 @@ Scope {
             delegate: OptionPill {
               required property string modelData
               required property int index
-              label: (quickMonitorsRoot.focusedMon
+              label: QuickModels.formatScale(quickMonitorsRoot.focusedMon
                 ? QuickModels.cleanScale(modelData, quickMonitorsRoot.focusedMon.width, quickMonitorsRoot.focusedMon.height)
-                : QuickModels.normalizeScale(modelData)) + "×"
+                : modelData) + "×"
               active: index === quickMonitorsRoot.activeScaleIdx
               onTapped: quickMonitorsRoot.setScale(modelData)
             }
@@ -6997,11 +7014,6 @@ Scope {
 
                 Accessible.role: Accessible.Button
                 Accessible.name: dName
-                opacity: {
-                  const t = root.chromeReveal * 1.25 - index * 0.07
-                  return Math.max(0, Math.min(1, t))
-                }
-                Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
                 Rectangle {
                   anchors.fill: parent
@@ -7154,12 +7166,6 @@ Scope {
               }
             }
 
-            Menu.MenuFoldScrim {
-              anchors.fill: resultsList
-              visible: resultsList.visible
-              flick: resultsList
-            }
-
             // Quick grid (exact ref bjarneo style: compress width+cols+tileH on detail; 1 hairline sep; grid nav; sub hidden colmode)
             Flickable {
               id: quickSide
@@ -7229,12 +7235,6 @@ Scope {
                 }
               }
             }
-            }
-
-            Menu.MenuFoldScrim {
-              anchors.fill: quickSide
-              visible: quickSide.visible
-              flick: quickSide
             }
 
             // mid hairline sep (ref style between compressed grid and detail)

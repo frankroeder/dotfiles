@@ -102,6 +102,53 @@ function isAudioSource(node) {
     || mediaClass.indexOf("Source") !== -1
 }
 
+function audioNodeKey(node) {
+  if (!node) return ""
+  if (node.id != null && String(node.id) !== "") return "id:" + String(node.id)
+  if (node.name) return "name:" + String(node.name)
+  return "desc:" + String(node.description || "")
+}
+
+function audioNodeKeys(list) {
+  var keys = []
+  var i
+  if (!list) return keys
+  for (i = 0; i < list.length; i++) keys.push(audioNodeKey(list[i]))
+  keys.sort()
+  return keys
+}
+
+function sameAudioNodes(prev, next) {
+  if (prev === next) return true
+  var a = audioNodeKeys(prev)
+  var b = audioNodeKeys(next)
+  var i
+  if (a.length !== b.length) return false
+  for (i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
+  return true
+}
+
+// Keep the previous snapshot when PipeWire republishes the same nodes
+// (volume/peak ticks). A fresh array of the same ids rebuilds Repeaters.
+function adoptAudioNodes(prev, next) {
+  var incoming = Array.isArray(next) ? next : []
+  var current = Array.isArray(prev) ? prev : []
+  var i
+  if (incoming.length === current.length) {
+    for (i = 0; i < incoming.length; i++) {
+      if (incoming[i] !== current[i]) break
+    }
+    if (i === incoming.length) return current
+  }
+  if (sameAudioNodes(current, incoming)) {
+    for (i = 0; i < current.length; i++) {
+      if (incoming.indexOf(current[i]) === -1) return incoming.slice()
+    }
+    return current
+  }
+  return incoming.slice()
+}
+
 // ---------- monitors (omarchy.monitor) ----------
 
 function clampBrightness(value) {
@@ -110,10 +157,16 @@ function clampBrightness(value) {
   return Math.max(1, Math.min(100, Math.round(n)))
 }
 
-function normalizeScale(scale) {
-  var n = parseFloat(String(scale || ""))
+function formatScale(scale) {
+  var n = Number(scale)
   if (!isFinite(n)) return ""
-  return String(Math.round(n * 100) / 100)
+  var rounded = Math.round(n * 1000) / 1000
+  if (Math.abs(rounded - Math.round(rounded)) < 0.0005) return String(Math.round(rounded))
+  return String(rounded).replace(/(\.\d*?[1-9])0+$/, "$1")
+}
+
+function normalizeScale(scale) {
+  return formatScale(scale)
 }
 
 function gcd(a, b) {
@@ -148,15 +201,7 @@ function cleanScale(scale, width, height) {
   if (divisor % down !== 0) down = 1
   if (divisor % up !== 0) up = divisor
   var pick = (Math.abs(up - scaleUnits) < Math.abs(scaleUnits - down)) ? up : down
-  return normalizeScale(pick / 120)
-}
-
-function formatScale(scale) {
-  var n = Number(scale)
-  if (!isFinite(n)) return ""
-  var rounded = Math.round(n * 1000) / 1000
-  if (Math.abs(rounded - Math.round(rounded)) < 0.0005) return String(Math.round(rounded))
-  return String(rounded).replace(/(\.\d*?[1-9])0+$/, "$1")
+  return formatScale(pick / 120)
 }
 
 function logicalSize(width, height, scale) {
@@ -214,11 +259,11 @@ function matchingScaleIndex(scales, currentScale, width, height) {
   var current = Number(currentScale)
   if (!Array.isArray(scales) || !isFinite(current)) return -1
 
+  var currentClean = cleanScale(current, width, height) || formatScale(current)
   var bestIndex = -1
   var bestDistance = Infinity
-  var normalizedCurrent = normalizeScale(current)
   for (var i = 0; i < scales.length; i++) {
-    if (cleanScale(scales[i], width, height) !== normalizedCurrent) continue
+    if (cleanScale(scales[i], width, height) !== currentClean) continue
     var distance = Math.abs(Number(scales[i]) - current)
     if (distance < bestDistance) {
       bestIndex = i
@@ -228,30 +273,38 @@ function matchingScaleIndex(scales, currentScale, width, height) {
   return bestIndex
 }
 
-// Dedup presets that collapse onto the same effective scale for this mode.
+// How far a named preset may snap and still be offered. 1.25 → 4/3 on
+// the notch panel is 0.08 — too far, that slot is the 1.33 preset.
+var SCALE_SNAP_MAX = 0.06
+
+// Dedup presets that collapse onto the same Hyprland-legal scale, and
+// drop ones that only land there by a long snap (3 → 3.2, 1.875 → 2).
 function availableScales(scales, width, height) {
   if (!Array.isArray(scales) || Number(width) <= 0 || Number(height) <= 0) return scales || []
 
   var byEffectiveScale = {}
   for (var i = 0; i < scales.length; i++) {
     var requested = Number(scales[i])
-    var effective = Number(cleanScale(requested, width, height))
-    if (!isFinite(requested) || !isFinite(effective)) continue
+    var cleaned = cleanScale(requested, width, height)
+    var effective = Number(cleaned)
+    if (!isFinite(requested) || !isFinite(effective) || !cleaned) continue
+    var distance = Math.abs(requested - effective)
+    if (distance > SCALE_SNAP_MAX) continue
 
-    var key = normalizeScale(effective)
+    var key = cleaned
     var existing = byEffectiveScale[key]
-    if (!existing || Math.abs(requested - effective) < existing.distance) {
+    if (!existing || distance < existing.distance) {
       byEffectiveScale[key] = {
-        value: String(scales[i]),
+        value: cleaned,
         index: i,
-        distance: Math.abs(requested - effective)
+        distance: distance
       }
     }
   }
 
   return Object.keys(byEffectiveScale)
     .map(function(key) { return byEffectiveScale[key] })
-    .sort(function(a, b) { return a.index - b.index })
+    .sort(function(a, b) { return Number(a.value) - Number(b.value) || a.index - b.index })
     .map(function(candidate) { return candidate.value })
 }
 
@@ -264,19 +317,24 @@ function monitorLayoutKey(m) {
   return m.name || ""
 }
 
-// Scale pills are per sink. 1.875 is the UltraFine's 4K step; the Dell
-// 1440p panel and the notch eDP do not offer it.
+// Shared candidates: omarchy's 1/1.25/1.6/2/3/4 plus the steps this
+// setup actually commits (eDP 4/3, UltraFine 1.875, a 1.5 mid).
+// availableScales keeps only values Hyprland accepts for the mode.
+var SCALE_PRESETS = ["1", "1.25", "1.33", "1.5", "1.6", "1.875", "2", "3", "4"]
+
 function scalePresetsFor(m) {
-  var desc = String((m && (m.description || m.model || "")) || "")
+  var presets = SCALE_PRESETS.slice()
   var width = Number(m && m.width) || 0
   var height = Number(m && m.height) || 0
-  if (/ULTRAFINE/i.test(desc) || (width >= 3800 && height >= 2100)) {
-    return ["1", "1.25", "1.5", "1.6", "1.875", "2"]
+  var current = cleanScale(m && m.scale, width, height)
+  if (!current) return presets
+  var i
+  for (i = 0; i < presets.length; i++) {
+    if (cleanScale(presets[i], width, height) === current) return presets
   }
-  if (/P2723DE/i.test(desc) || (width === 2560 && height === 1440)) {
-    return ["1", "1.25", "1.5", "1.6", "2"]
-  }
-  return ["1", "1.25", "1.5", "2"]
+  presets.push(current)
+  presets.sort(function(a, b) { return Number(a) - Number(b) })
+  return presets
 }
 
 function monitorModeString(m) {
@@ -758,6 +816,9 @@ if (typeof module !== "undefined") {
     rawStreamLabel: rawStreamLabel,
     isPlaybackStream: isPlaybackStream,
     isAudioSource: isAudioSource,
+    audioNodeKey: audioNodeKey,
+    sameAudioNodes: sameAudioNodes,
+    adoptAudioNodes: adoptAudioNodes,
     clampBrightness: clampBrightness,
     normalizeScale: normalizeScale,
     cleanScale: cleanScale,
@@ -765,6 +826,7 @@ if (typeof module !== "undefined") {
     logicalSize: logicalSize,
     abutPosition: abutPosition,
     monitorLayoutKey: monitorLayoutKey,
+    SCALE_PRESETS: SCALE_PRESETS,
     scalePresetsFor: scalePresetsFor,
     matchingScaleIndex: matchingScaleIndex,
     availableScales: availableScales,

@@ -25,6 +25,19 @@ assert.strictEqual(M.isPlaybackStream({ isStream: true, isSink: true }), true)
 assert.strictEqual(M.isPlaybackStream({ isStream: true, isSink: false, type: "Stream/Input/Audio" }), false)
 assert.strictEqual(M.isPlaybackStream({ isStream: false, isSink: true }), false)
 
+const sinkA = { id: 12, name: "alsa_output.speaker" }
+const sinkB = { id: 13, name: "bluez_output.AA" }
+const sameSinks = [sinkA, sinkB]
+assert.strictEqual(M.audioNodeKey(sinkA), "id:12")
+assert.ok(M.sameAudioNodes(sameSinks, [sinkB, sinkA]), "membership ignores order")
+assert.strictEqual(M.adoptAudioNodes(sameSinks, [sinkA, sinkB]), sameSinks, "identical refs keep the snapshot")
+assert.strictEqual(M.adoptAudioNodes(sameSinks, [sinkB, sinkA]), sameSinks, "reorder keeps the snapshot")
+const tick = [sinkA, sinkB] // new array, same refs
+assert.strictEqual(M.adoptAudioNodes(sameSinks, tick), sameSinks, "volume-tick array does not replace")
+const added = M.adoptAudioNodes(sameSinks, [sinkA, sinkB, { id: 14, name: "hdmi" }])
+assert.strictEqual(added.length, 3)
+assert.notStrictEqual(added, sameSinks)
+
 // --- monitor scale math ---
 assert.strictEqual(M.cleanScale(2, 2560, 1600), "2")
 assert.strictEqual(M.cleanScale(1.25, 2560, 1600), "1.25")
@@ -34,11 +47,11 @@ assert.strictEqual(M.cleanScale(1.6, 2560, 1600), "1.6")
 const snapped = M.cleanScale(1.3, 2560, 1600)
 assert.ok(snapped !== "", "1.3 should snap to something valid")
 assert.strictEqual(M.cleanScale(0, 2560, 1600), "")
-// nearest divisor, not the next higher: 1.88 → 1.875 (2-dec "1.88"), 1.5 on
-// the notch panel → 4/3 ("1.33"), not 2.
-assert.strictEqual(M.cleanScale(1.88, 3840, 2160), "1.88")
-assert.strictEqual(M.cleanScale(1.875, 3840, 2160), "1.88")
-assert.strictEqual(M.cleanScale(1.5, 3024, 1964), "1.33")
+// nearest divisor, not the next higher: 1.88 → 1.875, 1.5 on the notch
+// panel → 4/3 ("1.333"), not 2. Labels keep 3 decimals so 1.875 ≠ 1.88.
+assert.strictEqual(M.cleanScale(1.88, 3840, 2160), "1.875")
+assert.strictEqual(M.cleanScale(1.875, 3840, 2160), "1.875")
+assert.strictEqual(M.cleanScale(1.5, 3024, 1964), "1.333")
 assert.strictEqual(M.formatScale(1.3333334), "1.333")
 assert.strictEqual(M.formatScale(1.875), "1.875")
 assert.strictEqual(M.formatScale(2), "2")
@@ -64,12 +77,29 @@ assert.strictEqual(
 
 assert.deepStrictEqual(
   M.scalePresetsFor({ description: "LG Electronics LG ULTRAFINE 112NTMX6B267", width: 3840, height: 2160 }),
-  ["1", "1.25", "1.5", "1.6", "1.875", "2"]
+  M.SCALE_PRESETS
 )
-assert.ok(M.scalePresetsFor({ description: "Dell Inc. DELL P2723DE 895ZNR3", width: 2560, height: 1440 }).indexOf("1.875") === -1)
-assert.ok(M.scalePresetsFor({ name: "eDP-1", width: 3024, height: 1964 }).indexOf("1.875") === -1)
+assert.deepStrictEqual(
+  M.scalePresetsFor({ description: "Dell Inc. DELL P2723DE 895ZNR3", width: 2560, height: 1440 }),
+  M.SCALE_PRESETS
+)
+assert.ok(M.SCALE_PRESETS.indexOf("1.33") !== -1)
+assert.ok(M.SCALE_PRESETS.indexOf("1.875") !== -1)
 assert.strictEqual(M.monitorLayoutKey({ name: "HDMI-A-1", description: "LG Electronics LG ULTRAFINE" }), "lg-ultrafine")
 assert.strictEqual(M.monitorLayoutKey({ name: "HDMI-A-1", description: "Dell Inc. DELL P2723DE 895ZNR3" }), "dell-p2723de")
+
+const edpScales = M.availableScales(M.scalePresetsFor({ name: "eDP-1", width: 3024, height: 1964, scale: 1.3333334 }), 3024, 1964)
+assert.deepStrictEqual(edpScales, ["1", "1.333", "2", "4"])
+assert.strictEqual(M.matchingScaleIndex(edpScales, 1.3333334, 3024, 1964), edpScales.indexOf("1.333"))
+
+const lgScales = M.availableScales(M.scalePresetsFor({ width: 3840, height: 2160, scale: 1.875 }), 3840, 2160)
+assert.deepStrictEqual(lgScales, ["1", "1.25", "1.333", "1.5", "1.6", "1.875", "2", "3", "4"])
+assert.strictEqual(M.matchingScaleIndex(lgScales, 1.875, 3840, 2160), lgScales.indexOf("1.875"))
+
+const dellScales = M.availableScales(M.scalePresetsFor({ width: 2560, height: 1440, scale: 1.25 }), 2560, 1440)
+assert.deepStrictEqual(dellScales, ["1", "1.25", "1.333", "1.6", "2", "4"])
+assert.ok(dellScales.indexOf("1.875") === -1, "1.875 is not legal on 1440p")
+assert.ok(dellScales.indexOf("1.5") === -1, "1.5 snaps too far on 1440p")
 
 const scales = M.availableScales(["1", "1.25", "1.6", "2", "3", "4"], 2560, 1600)
 assert.ok(scales.indexOf("1") !== -1 && scales.indexOf("2") !== -1)

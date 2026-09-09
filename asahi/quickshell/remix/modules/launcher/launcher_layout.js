@@ -5,8 +5,10 @@
 // Reference look is 1920×1080 (card 820 / 1080, fontScale 1.4, margin 17).
 // Card width tracks screen width so a 14" 1280×800 laptop does not get the
 // 1080-wide overlay, and a 27" 1440p / 4K panel does not keep a tiny 820 card.
-// Type and chrome scale from the geometric mean of width×height vs that
-// reference, clamped so unscaled 4K does not explode point size.
+// Type and chrome scale from the tighter of width/height vs that
+// reference. Geometric mean inflated 16:10 eDP (2268×1473) past the
+// card-width growth and wrapped the monitors toolbar. Clamped so
+// unscaled 4K does not explode point size.
 
 var REF_W = 1920
 var REF_H = 1080
@@ -27,7 +29,7 @@ var COL_SPACING = 12
 var CARD_TOP_FRAC = 0.12
 var CARD_TOP_FRAC_COMPACT = 0.10
 var CARD_MAX_FRAC = 0.76
-var CARD_COMPACT_MAX_FRAC = 0.50
+var CARD_COMPACT_MAX_FRAC = 0.75
 var CARD_BOTTOM_FRAC = 0.04
 var MIN_BOTTOM_GAP = 28
 var DIVIDER_H = 1
@@ -69,7 +71,7 @@ function clamp(n, lo, hi) {
 function uiScale(screenW, screenH) {
   const w = Math.max(1, Number(screenW) || REF_W)
   const h = Math.max(1, Number(screenH) || REF_H)
-  return clamp(Math.sqrt((w / REF_W) * (h / REF_H)), UI_SCALE_MIN, UI_SCALE_MAX)
+  return clamp(Math.min(w / REF_W, h / REF_H), UI_SCALE_MIN, UI_SCALE_MAX)
 }
 
 function fontScaleFor(scale) {
@@ -335,6 +337,7 @@ if (typeof module !== "undefined" && module.exports) {
     VIZ_MIN: VIZ_MIN,
     MIN_LIST: MIN_LIST,
     COMPACT_ROWS_MIN: COMPACT_ROWS_MIN,
+    CARD_COMPACT_MAX_FRAC: CARD_COMPACT_MAX_FRAC,
     MON_LIST_MAX: MON_LIST_MAX,
     TILE_H_COL: TILE_H_COL,
     uiScale: uiScale,

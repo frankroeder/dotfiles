@@ -103,8 +103,24 @@ const midCompact = launcherLayout({
 });
 assert(midCompact.cardWidth <= 640, "1080p compact overview is narrower than 640 (got " + midCompact.cardWidth + ")");
 assert(midCompact.cardHeight < mid.cardHeight, "compact overview is shorter than the deck card (" + midCompact.cardHeight + " < " + mid.cardHeight + ")");
-assert(midCompact.cardHeight <= 540, "compact overview stays at or under half the 1080p frame (got " + midCompact.cardHeight + ")");
+assert(midCompact.cardHeight <= 540, "8-row compact overview stays under half the 1080p frame (got " + midCompact.cardHeight + ")");
 assert(midCompact.cardY < mid.cardY, "compact overview sits closer to the bar");
+const midCompactLong = launcherLayout({
+  screenW: 1920, screenH: 1080, sideActive: false, quickMode: false,
+  compact: true, rowCount: 20, headerVisible: true, tileCount: 20
+});
+assert(
+  midCompactLong.bodyHeight / midCompactLong.rowH >= 10,
+  "long app list shows at least 10 rows (got " + (midCompactLong.bodyHeight / midCompactLong.rowH).toFixed(1) + ")"
+);
+assert(
+  midCompactLong.cardHeight <= Math.round(1080 * shipped.CARD_COMPACT_MAX_FRAC) + 2,
+  "long compact card stays within the height cap (got " + midCompactLong.cardHeight + ")"
+);
+assert(
+  midCompactLong.cardHeight > midCompact.cardHeight,
+  "long app list grows taller than the 8-row overview"
+);
 const twoHit = launcherLayout({
   screenW: 1920, screenH: 1080, sideActive: false, quickMode: false,
   compact: true, rowCount: 2, headerVisible: true, tileCount: 2
@@ -146,6 +162,19 @@ assert(compact.cardWidth <= 1280 - 48, "800p card keeps side gaps (width " + com
 assert(huge.cardWidth >= 1500, "4K side-active card is not stuck at 1080 (got " + huge.cardWidth + ")");
 assert(compact.cardMargin <= mid.cardMargin, "margins shrink on small displays");
 assert(large.cardMargin >= mid.cardMargin, "margins grow on large displays");
+const edp = launcherLayout({ screenW: 2268, screenH: 1473, sideActive: true, quickMode: true, tileCount: 10 });
+assert(
+  Math.abs(edp.uiScale - 2268 / 1920) < 0.005,
+  "eDP 16:10 uiScale follows width, not geometric mean (got " + edp.uiScale + ")"
+);
+assert(
+  edp.fontScale <= 1.66,
+  "eDP fontScale stays with the width scale (got " + edp.fontScale + ")"
+);
+assert(
+  Math.abs(shipped.uiScale(2048, 1152) - 2048 / 1920) < 0.005,
+  "16:9 HDMI uiScale equals the width ratio"
+);
 assert(typeof shipped.uiScale === "function" && typeof shipped.cardWidthFor === "function",
   "layout module exports uiScale + cardWidthFor");
 assert(shipped.cardWidthFor(1920, false) === 820, "cardWidthFor(1920, overview) is 820");
@@ -193,6 +222,10 @@ assert(
 assert(
   /tileMetrics\([\s\S]*root\.launcherGeom\.uiScale/.test(qml),
   "tileMetrics receives uiScale so Quick tiles grow/shrink with the display"
+);
+assert(
+  /scr && scr\.width > 1/.test(qml) && /launcherPanel\.width/.test(qml),
+  "launcherScreenW prefers the logical screen width over the panel buffer"
 );
 assert(
   !/height:\s*visible \? Math\.max\(300,\s*launcherPanel\.height\s*\*/.test(qml),
@@ -253,6 +286,18 @@ assert(
 assert(
   /transformOrigin:\s*Item\.Top/.test(fs.readFileSync(path.join(__dirname, "../menu/MenuCard.qml"), "utf8")),
   "MenuCard unfolds from the top (menu-strip origin)"
+);
+assert(
+  qml.indexOf("MenuFoldScrim") === -1,
+  "launcher has no fold-peek fade over the app list"
+);
+assert(
+  !/index \* 0\.07/.test(qml),
+  "app list rows do not stagger-fade by index"
+);
+assert(
+  !fs.existsSync(path.join(__dirname, "../menu/MenuFoldScrim.qml")),
+  "MenuFoldScrim.qml is gone (no leftover edge wash)"
 );
 
 console.log("\n== menu chrome implicitHeight (ColumnLayout) ==");
