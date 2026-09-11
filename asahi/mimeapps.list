@@ -1,4 +1,6 @@
 [Default Applications]
+text/plain=org.libreoffice.LibreOffice.writer.desktop
+application/x-extension-txt=org.libreoffice.LibreOffice.writer.desktop
 application/pdf=org.kde.okular.desktop
 video/mp4=mpv.desktop
 video/x-matroska=mpv.desktop
@@ -33,6 +35,8 @@ x-scheme-handler/grokbot=grok-bot.desktop
 x-scheme-handler/sand=grok-bot.desktop
 
 [Added Associations]
+text/plain=org.libreoffice.LibreOffice.writer.desktop;
+application/x-extension-txt=org.libreoffice.LibreOffice.writer.desktop;
 inode/directory=thunar.desktop;
 x-scheme-handler/file=thunar.desktop;
 x-scheme-handler/news=userapp-Thunderbird-BDEXN3.desktop;

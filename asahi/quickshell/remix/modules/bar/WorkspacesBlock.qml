@@ -45,12 +45,12 @@ Item {
   Rectangle {
     id: workspacesBlock
     anchors.verticalCenter: parent.verticalCenter
-    color: Qt.alpha(Style.text, 0.06)
-    radius: Style.radius
+    color: Qt.alpha(Style.text, 0.05)
+    radius: Style.radiusSm
     border.width: 1
-    border.color: Qt.alpha(Style.text, 0.10)
-    implicitHeight: 38
-    implicitWidth: wsContent.implicitWidth + 12 + (specialBadge.visible ? 30 : 0)
+    border.color: Qt.alpha(Style.text, 0.08)
+    implicitHeight: Style.barHeight - 2
+    implicitWidth: wsContent.implicitWidth + 10 + (specialBadge.visible ? Style.barWsSlot + 8 : 0)
 
     Rectangle {
       id: activeWsHighlight
@@ -87,8 +87,8 @@ Item {
       x: actualLeft
       y: (workspacesBlock.height - height) / 2
       width: Math.max(0, actualRight - actualLeft)
-      height: 30
-      radius: 14
+      height: workspacesBlock.height - 6
+      radius: Style.radiusSm
       color: Style.wsActive
       border.width: 1
       border.color: Style.wsActiveBorder
@@ -130,11 +130,11 @@ Item {
           readonly property var shownWindows: windows.slice(0, iconLimit)
           readonly property int overflowCount: Math.max(0, windows.length - shownWindows.length)
 
-          implicitWidth: wsInner.implicitWidth + 10
-          implicitHeight: 30
-          radius: 14
+          implicitWidth: wsInner.implicitWidth + 8
+          implicitHeight: workspacesBlock.height - 6
+          radius: Style.radiusSm
           color: isFocused ? "transparent" : (isHovered ? Style.wsHoverBg : (isVisibleElsewhere ? Style.wsVisibleBg : (isOccupied ? Style.wsOccupiedBg : Style.wsEmptyBg)))
-          border.width: 1.5
+          border.width: 1
           border.color: isFocused ? "transparent" : (isVisibleElsewhere ? Style.wsVisibleBorder : Style.wsInactiveBorder)
 
           Behavior on color { ColorAnimation { duration: 120 } }
@@ -146,9 +146,9 @@ Item {
             spacing: 4
 
             Rectangle {
-              width: 22
-              height: 22
-              radius: 11
+              width: Style.barWsSlot
+              height: Style.barWsSlot
+              radius: Style.barWsSlot / 2
               color: isFocused
                 ? Style.wsBadgeActiveBg
                 : (wsButton.isHovered ? Style.wsBadgeHoverBg : (wsButton.isVisibleElsewhere ? Style.wsBadgeVisibleBg : (wsButton.isOccupied ? Style.wsBadgeOccupiedBg : Style.wsBadgeEmptyBg)))
@@ -161,7 +161,7 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
                 color: isFocused ? Style.wsBadgeActiveText : (wsButton.isVisibleElsewhere ? Style.sky : (wsButton.isOccupied ? Style.wsOccupiedText : Style.wsEmptyText))
-                font { family: Style.fontFamily; pixelSize: wsButton.wsId >= 10 ? 10 : 11; bold: true }
+                font { family: Style.fontFamily; pixelSize: wsButton.wsId >= 10 ? 11 : 12; bold: true }
               }
             }
 
@@ -169,14 +169,14 @@ Item {
               model: wsButton.shownWindows
 
               Item {
-                width: 22
-                height: 22
+                width: Style.barWsSlot
+                height: Style.barWsSlot
 
                 IconImage {
                   id: appIcon
                   anchors.centerIn: parent
-                  width: 18
-                  height: 18
+                  width: Style.barWsIcon
+                  height: Style.barWsIcon
                   source: { controller.wsWindowVersion; return controller.appIconSource(modelData) }
                   visible: status === Image.Ready
                 }
@@ -188,16 +188,16 @@ Item {
                   horizontalAlignment: Text.AlignHCenter
                   verticalAlignment: Text.AlignVCenter
                   color: wsButton.isFocused ? Style.crust : Style.textAlt
-                  font { family: Style.fontFamily; pixelSize: 10; bold: true }
+                  font { family: Style.fontFamily; pixelSize: 11; bold: true }
                 }
               }
             }
 
             Rectangle {
               visible: wsButton.overflowCount > 0
-              width: visible ? 22 : 0
-              height: 22
-              radius: 11
+              width: visible ? Style.barWsSlot : 0
+              height: Style.barWsSlot
+              radius: Style.barWsSlot / 2
               color: Qt.alpha(Style.text, 0.10)
               border.width: 1
               border.color: Qt.alpha(Style.text, 0.18)
@@ -206,7 +206,7 @@ Item {
                 anchors.centerIn: parent
                 text: "+" + wsButton.overflowCount
                 color: wsButton.isFocused ? Style.crust : Style.textMuted
-                font { family: Style.fontFamily; pixelSize: 9; bold: true }
+                font { family: Style.fontFamily; pixelSize: 10; bold: true }
               }
             }
           }
@@ -229,9 +229,9 @@ Item {
       anchors.right: parent.right
       anchors.rightMargin: 6
       anchors.verticalCenter: parent.verticalCenter
-      width: 24
-      height: 24
-      radius: 12
+      width: Style.barWsSlot
+      height: Style.barWsSlot
+      radius: Style.radiusSm
       visible: root.hasSpecialWorkspace
       color: Style.panelAccentBg
       border.width: 1
@@ -242,14 +242,14 @@ Item {
         anchors.centerIn: parent
         text: "S"
         color: Style.sky
-        font { family: Style.fontFamily; pixelSize: 10; bold: true }
+        font { family: Style.fontFamily; pixelSize: 11; bold: true }
       }
 
       MouseArea {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: Quickshell.execDetached(["hyprctl", "dispatch", "togglespecialworkspace", "scratch"])
+        onClicked: Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.workspace.toggle_special(\"scratch\")"])
         onWheel: wheel => controller.cycleWorkspace(wheel.angleDelta.y < 0)
       }
     }

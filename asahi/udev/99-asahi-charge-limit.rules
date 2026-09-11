@@ -1,0 +1,4 @@
+# macsmc charge thresholds are root-only on add. The helper chgrps them to
+# wheel so asahi-charge-limit can write without pkexec.
+ACTION=="add", SUBSYSTEM=="power_supply", KERNEL=="macsmc-battery", \
+  RUN+="/usr/local/libexec/asahi-charge-limit udev"

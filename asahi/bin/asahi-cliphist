@@ -1,0 +1,162 @@
+#!/usr/bin/env bash
+# cliphist JSON for the remix launcher. Decode cache lives under $XDG_RUNTIME_DIR.
+
+set -euo pipefail
+
+limit="${ASAHI_CLIPHIST_LIMIT:-80}"
+cache_dir="${XDG_RUNTIME_DIR:-/tmp}/asahi-cliphist"
+
+usage() {
+  printf 'usage: asahi-cliphist list|copy <id>|delete <id>|wipe|watch\n' >&2
+}
+
+list_json() {
+  python3 - "$limit" "$cache_dir" <<'PY'
+import json
+import os
+import subprocess
+import sys
+from shutil import which
+
+limit = int(sys.argv[1])
+cache = sys.argv[2]
+os.makedirs(cache, exist_ok=True)
+
+if which("cliphist") is None:
+    print(json.dumps({"error": "cliphist-missing", "entries": []}))
+    raise SystemExit(0)
+
+try:
+    raw = subprocess.check_output(["cliphist", "list"], stderr=subprocess.DEVNULL, text=True)
+except subprocess.CalledProcessError:
+    raw = ""
+
+entries = []
+for line in raw.splitlines()[:limit]:
+    if "\t" not in line:
+        continue
+    cid, preview = line.split("\t", 1)
+    cid = cid.strip()
+    preview = preview.strip()
+    if not cid:
+        continue
+    is_image = preview.startswith("[[ binary data")
+    thumb = ""
+    if is_image:
+        dest = os.path.join(cache, cid + ".png")
+        if not os.path.isfile(dest) or os.path.getsize(dest) == 0:
+            try:
+                data = subprocess.check_output(["cliphist", "decode", cid], stderr=subprocess.DEVNULL)
+                if data:
+                    tmp = dest + ".tmp"
+                    with open(tmp, "wb") as fh:
+                        fh.write(data)
+                    os.replace(tmp, dest)
+            except (OSError, subprocess.CalledProcessError):
+                dest = ""
+        if dest and os.path.isfile(dest):
+            thumb = dest
+    entries.append({
+        "id": cid,
+        "preview": preview,
+        "isImage": is_image,
+        "thumb": thumb,
+    })
+
+print(json.dumps({"error": "", "entries": entries}, ensure_ascii=False))
+PY
+}
+
+copy_id() {
+  local id="${1:-}"
+  if [ -z "$id" ] || ! command -v cliphist >/dev/null 2>&1; then
+    return 1
+  fi
+  cliphist decode "$id" | wl-copy
+}
+
+delete_id() {
+  local id="${1:-}"
+  local line
+  if [ -z "$id" ] || ! command -v cliphist >/dev/null 2>&1; then
+    return 1
+  fi
+  # cliphist delete reads a `list` line from stdin; argv is ignored.
+  line="$(cliphist list 2>/dev/null | grep -m1 -e "^${id}"$'\t' || true)"
+  if [ -n "$line" ]; then
+    printf '%s\n' "$line" | cliphist delete >/dev/null 2>&1 || true
+  fi
+  rm -f "$cache_dir/${id}.png" || true
+}
+
+wipe_all() {
+  if command -v cliphist >/dev/null 2>&1; then
+    cliphist wipe >/dev/null 2>&1 || true
+  fi
+  rm -rf "$cache_dir"
+}
+
+watcher_running() {
+  local kind="$1"
+  # [w] so pgrep does not match its own argv.
+  pgrep -f -- "[w]l-paste --type ${kind} --watch cliphist store" >/dev/null 2>&1
+}
+
+start_watcher() {
+  local kind="$1"
+  if watcher_running "$kind"; then
+    return 0
+  fi
+  if command -v setsid >/dev/null 2>&1; then
+    setsid -f wl-paste --type "$kind" --watch cliphist store >/dev/null 2>&1 || true
+  else
+    wl-paste --type "$kind" --watch cliphist store >/dev/null 2>&1 &
+  fi
+}
+
+seed_current() {
+  local text
+  if ! command -v wl-paste >/dev/null 2>&1; then
+    return 0
+  fi
+  text="$(wl-paste --type text --no-newline 2>/dev/null || true)"
+  if [ -n "$text" ]; then
+    printf '%s' "$text" | cliphist store >/dev/null 2>&1 || true
+  fi
+}
+
+ensure_watch() {
+  local started=0
+  if ! command -v cliphist >/dev/null 2>&1; then
+    return 0
+  fi
+  if ! command -v wl-paste >/dev/null 2>&1; then
+    return 0
+  fi
+  if ! watcher_running text; then
+    start_watcher text
+    started=1
+  fi
+  if ! watcher_running image; then
+    start_watcher image
+    started=1
+  fi
+  # Seed only when watchers were missing — every-open seed re-stores
+  # the current selection and undoes a just-deleted row.
+  if [ "$started" -eq 1 ]; then
+    seed_current
+  fi
+}
+
+cmd="${1:-}"
+case "$cmd" in
+  list) list_json ;;
+  copy) copy_id "${2:-}" ;;
+  delete) delete_id "${2:-}" ;;
+  wipe) wipe_all ;;
+  watch) ensure_watch ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac

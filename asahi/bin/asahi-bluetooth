@@ -4,6 +4,9 @@ set -euo pipefail
 # JSON {text, tooltip, class, percentage}
 
 powered=$(bluetoothctl show 2>/dev/null | awk -F': ' '/Powered:/ {print $2}' | head -1 || echo "no")
+if rfkill list bluetooth 2>/dev/null | grep -q 'Soft blocked: yes'; then
+  powered="no"
+fi
 
 if [ "$powered" != "yes" ]; then
   jq -cn \

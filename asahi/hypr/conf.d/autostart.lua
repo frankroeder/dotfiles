@@ -4,23 +4,27 @@ hl.on("hyprland.start", function()
   hl.exec_cmd "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE HYPRLAND_INSTANCE_SIGNATURE"
   hl.exec_cmd "systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE HYPRLAND_INSTANCE_SIGNATURE"
   -- gnome-keyring owns org.freedesktop.secrets (kwallet is disabled). SSH stays with keychain.
-  hl.exec_cmd "~/.dotfiles/asahi/autostart-scripts/gnome-keyring"
-  -- Portal Settings (LibreWolf / GTK4 / nvim) read this, not quickshell/ghostty colors.
-  -- asahi-autotheme may override color-scheme from wallpaper lightness after start.
+  hl.exec_cmd "~/.dotfiles/asahi/bin/asahi-gnome-keyring"
+  -- Fallback dark until asahi-autotheme reads wallpaper lightness (gsettings + GTK + icons).
+  -- LibreWolf / GTK4 / Qt-via-gtk3 / nvim follow this portal signal, not quickshell hex.
   hl.exec_cmd "gsettings set org.gnome.desktop.interface color-scheme prefer-dark"
   hl.exec_cmd "gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark"
   hl.exec_cmd "gsettings set org.gnome.desktop.interface icon-theme Papirus-Dark"
   hl.exec_cmd "systemctl --user start hyprland-session.target"
   hl.exec_cmd "systemctl --user start pipewire.socket pipewire-pulse.socket wireplumber.service"
-  hl.exec_cmd "systemctl --user restart xdg-desktop-portal-hyprland.service xdg-desktop-portal.service"
-  hl.exec_cmd "~/.dotfiles/asahi/autostart-scripts/ssh-keychain"
+  -- gtk portal owns org.freedesktop.impl.portal.Settings (Hyprland does not).
+  hl.exec_cmd "systemctl --user restart xdg-desktop-portal-hyprland.service xdg-desktop-portal-gtk.service xdg-desktop-portal.service"
+  hl.exec_cmd "~/.dotfiles/asahi/bin/asahi-ssh-keychain"
   hl.exec_cmd "playerctld"
+  hl.exec_cmd "~/.dotfiles/asahi/bin/asahi-cliphist watch"
   hl.exec_cmd "hyprpaper"
   hl.exec_cmd "~/.dotfiles/asahi/bin/asahi-start-quickshell"
   hl.exec_cmd "hypridle"
+  -- Identity profile in hyprsunset.conf: no tint until Super+Ctrl+N.
   hl.exec_cmd "hyprsunset"
-  -- Restore wallpaper-adaptive theme (Ghostty / borders / LibreWolf CSS / gsettings).
-  hl.exec_cmd "~/.dotfiles/asahi/bin/asahi-autotheme"
+  hl.exec_cmd(dotfilesDir .. "/asahi/bin/asahi-hdmi sync")
+  -- Restore wallpaper-adaptive theme (Quickshell / Ghostty / borders / browsers / gsettings).
+  hl.exec_cmd(dotfilesDir .. "/asahi/bin/asahi-autotheme")
   -- No lock-on-boot: tty1 getty already authenticated this session (Service=login).
   hl.exec_cmd(launch(terminal), { workspace = "1 silent" })
 end)

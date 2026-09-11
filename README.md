@@ -78,5 +78,5 @@ The following list of files could be created and used to define local configurat
 - https://github.com/sindresorhus/pure
 - https://github.com/nikitabobko/AeroSpace
 - https://github.com/ghostty-org/ghostty
-- https://github.com/basecamp/omarchy (Asahi)
+- https://github.com/basecamp/omarchy
 - https://github.com/omarchy-mac/omarchy-mac (Asahi)

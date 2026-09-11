@@ -7,12 +7,16 @@ import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Widgets
 import "../wallpaper" as Wallpaper
+import "../wallpaper/wallpaper_thumbs.js" as WallThumbs
 import "../menu" as Menu
 import Quickshell.Bluetooth
 import Quickshell.Services.Mpris
 import Quickshell.Services.Pipewire
 import "../../"
 import "Data.js" as Data
+import "websearch.js" as WebSearch
+import "arg_commands.js" as ArgCommands
+import "emoji.js" as Emoji
 import "dictcc-core.mjs" as DictCC
 import "launcher_layout.js" as LauncherGeom
 import "hub_logo.js" as HubLogo
@@ -24,7 +28,27 @@ Scope {
 
   property var theme: Wallpaper.DefaultTheme
   property bool shouldShow: false
+  // Keep the layer mapped during close so blur/dim/card can animate out.
+  property bool panelVisible: false
+  property real chromeReveal: 0
+  Timer {
+    id: chromeRevealKick
+    interval: 1
+    onTriggered: root.chromeReveal = 1
+  }
+  Timer {
+    id: chromeHideKick
+    interval: Style.menuAnimOutMs
+    onTriggered: {
+      if (!root.shouldShow)
+        root.panelVisible = false
+    }
+  }
   property string query: ""
+  // Armed prefix (dict, @dcc, >, !, =). Search input then holds only the argument.
+  property string argCommand: ""
+  property string argPlaceholder: ""
+  readonly property bool argArmed: root.argCommand !== ""
   property int selectedIndex: 0
   property var launcherScreen: null
   property int launcherWorkspaceId: 1
@@ -80,9 +104,15 @@ Scope {
   readonly property bool previewActive: root.fileMode
   readonly property bool quickMode: root.categoryFilter === "Quick"
   property string expandedQuickKey: ""
-  readonly property bool quickDetailActive: root.quickMode && root.expandedQuickKey !== ""
-  readonly property bool sideActive: root.previewActive || root.quickDetailActive
-  readonly property int quickGridCols: root.quickDetailActive ? 1 : 3
+  readonly property string quickPaneKey: {
+    if (!root.quickMode) return ""
+    const k = root.expandedQuickKey
+    if (k === "" || k === "dashboard") return "hub"
+    return k
+  }
+  readonly property bool quickDetailActive: root.quickMode
+  readonly property bool sideActive: root.previewActive || root.quickMode
+  readonly property int quickGridCols: 1
 
   // Scoring (ported from launcher ref, tuned for small set)
   readonly property int scPrefix: 100
@@ -95,7 +125,9 @@ Scope {
   readonly property string homeDir: Quickshell.env("HOME")
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
-  readonly property string uiFont: "Hack Nerd Font"
+  readonly property string uiFont: Style.menuMono
+  readonly property string uiSans: Style.menuSans
+  readonly property string uiDisplay: Style.menuDisplay
   readonly property string dictIcon: "file://" + Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/assets/dict-cc.png"
   readonly property string webIconBase: "file://" + Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/assets/"
   readonly property string websearchJsonPath: Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/modules/launcher/websearch.json"
@@ -117,8 +149,14 @@ Scope {
     { key: "battery", aliases: ["bat", "power", "charge"], icon: "󰁹", name: "Battery", comment: "Battery status, health, and power", mode: "battery" },
     { key: "bluetooth", aliases: ["bt"], icon: "󰂯", name: "Bluetooth", comment: "Open Bluetooth devices", mode: "bluetooth" },
     { key: "storage", aliases: ["disk", "space"], icon: "󰋊", name: "Storage", comment: "Disk usage and home folders", mode: "storage" },
+    { key: "clipboard", aliases: ["clip", "cliphist", "paste"], icon: "󰅌", name: "Clipboard", comment: "cliphist history — copy, delete, wipe", mode: "clipboard" },
+    { key: "packages", aliases: ["pkg", "dnf", "pkgman"], icon: "󰏖", name: "Packages", comment: "Search and manage dnf packages", ipc: "pkgman" },
     { key: "screensaver", aliases: ["saver"], icon: "󱄄", name: "Screensaver", comment: "Shader idle display", command: [root.binDir + "/asahi-screensaver", "toggle"] },
-    { key: "nightlight", aliases: ["night", "warm", "hyprsunset"], icon: "󰖔", name: "Night light toggle", comment: "Toggle warm screen tint (hyprsunset)", command: [root.binDir + "/asahi-nightlight", "toggle"] },
+    { key: "record", aliases: ["rec", "wf-recorder"], icon: "󰑋", name: "Record display", comment: "Toggle focused-display recording (wf-recorder)", command: [root.binDir + "/asahi-cmd-record", "fullscreen"] },
+    { key: "record-webcam", aliases: ["recam", "webcam", "facecam"], icon: "󰄀", name: "Record with webcam", comment: "Display recording plus a pinned face-cam overlay", command: [root.binDir + "/asahi-cmd-record", "webcam"] },
+    { key: "ocr", aliases: ["text", "tesseract"], icon: "󰴑", name: "OCR region", comment: "Copy text from a screen region", command: [root.binDir + "/asahi-cmd-ocr"] },
+    { key: "qr", aliases: ["qrcode", "zbar"], icon: "󰐲", name: "Scan QR", comment: "Copy a QR code from a screen region", command: [root.binDir + "/asahi-cmd-qr"] },
+    { key: "nightlight", aliases: ["night", "warm", "hyprsunset"], icon: "󰖔", name: "Night light toggle", comment: "Super+Ctrl+N · hyprsunset.conf (identity / temperature)", command: [root.binDir + "/asahi-nightlight", "toggle"] },
     { key: "reload", aliases: ["qs"], icon: "󰑐", name: "Reload Quickshell", comment: "Restart QS", command: [root.binDir + "/asahi-restart-quickshell"] },
     { key: "hypr", aliases: ["hyprland"], icon: "󰑓", name: "Reload Hyprland", comment: "Reload Hyprland config", command: [root.binDir + "/asahi-reload-hyprland"] },
     { key: "lock", aliases: ["lockscreen"], icon: "󰌾", name: "Lock", comment: "Lock session", command: ["loginctl", "lock-session"] },
@@ -130,26 +168,89 @@ Scope {
   }).map(function(a) {
     return { key: a.key, glyph: a.icon, label: a.name, sub: a.comment, mode: a.mode }
   })
+  readonly property var quickDeckHidden: ({
+    packages: true,
+    screensaver: true,
+    record: true,
+    "record-webcam": true,
+    ocr: true,
+    qr: true,
+    nightlight: true,
+    reload: true,
+    hypr: true,
+    lock: true,
+    scratch: true
+  })
+  readonly property var quickDeck: (root.quickActions || []).filter(function(a) {
+    return !root.quickDeckHidden[a.key]
+  }).map(function(a) {
+    return {
+      key: a.key,
+      glyph: a.icon,
+      label: a.name,
+      sub: a.comment,
+      mode: a.mode || "",
+      command: a.command || [],
+      ipc: a.ipc || "",
+      kind: a.mode ? "pane" : (a.ipc ? "ipc" : "run"),
+      tint: Data.deckTint(a.key)
+    }
+  })
 
   // --- live data + exact hub/lower + side windows (ported from old featuremenu; now the only place, module removed)
-  readonly property real uiFontScale: 1.4
+  readonly property real uiFontScale: root.launcherGeom.fontScale
   readonly property real quickOverviewScale: 1.0
   readonly property int launcherScreenH: {
-    const h = launcherPanel.height
-    if (h > 1) return h
     const scr = launcherPanel.screen || root.launcherScreen
     if (scr && scr.height > 1) return scr.height
+    if (launcherPanel.height > 1) return launcherPanel.height
     return 1080
   }
+  readonly property int launcherScreenW: {
+    const scr = launcherPanel.screen || root.launcherScreen
+    if (scr && scr.width > 1) return scr.width
+    if (launcherPanel.width > 1) return launcherPanel.width
+    return 1920
+  }
+  readonly property bool compactLauncher: !root.quickMode && !root.sideActive
   readonly property var launcherGeom: LauncherGeom.launcherLayout({
     screenH: root.launcherScreenH,
-    tileCount: (root.quickTiles || []).length,
+    screenW: root.launcherScreenW,
+    tileCount: (root.quickDeck || []).length,
     sideActive: root.sideActive,
     quickMode: root.quickMode,
-    hubMode: root.expandedQuickKey === "hub" || root.expandedQuickKey === "dashboard",
-    fontScale: root.uiFontScale
+    hubMode: root.quickPaneKey === "hub",
+    compact: root.compactLauncher,
+    headerVisible: root.sectionName !== "" || root.quickMode,
+    cmdVisible: !root.quickMode && !root.compactLauncher,
+    rowCount: root.categoryFilter === ""
+      ? Math.max(root.resultCount, (root.navRows || []).length)
+      : root.resultCount
   })
-  function fontPx(size) { return Math.round(size * root.uiFontScale) }
+  function fontPx(size) {
+    const boosted = size <= 9 ? size + 2 : size
+    return Math.round(boosted * root.uiFontScale)
+  }
+  function tintColor(token) {
+    switch (token) {
+      case "pink": return Style.pink
+      case "mauve": return Style.mauve
+      case "red": return Style.red
+      case "maroon": return Style.maroon
+      case "peach": return Style.orange
+      case "yellow": return Style.yellow
+      case "green": return Style.green
+      case "teal": return Style.teal
+      case "sky": return Style.sky
+      case "sapphire": return Style.sapphire
+      case "blue": return Style.blue
+      case "lavender": return Style.lavender
+      default: return Style.menuInkDeep
+    }
+  }
+  function itemTintColor(item) {
+    return root.tintColor(Data.itemTint(item))
+  }
   function quickPx(size) { return Math.round(size * root.uiFontScale * root.quickOverviewScale) }
   function execAndClose(cmd) {
     Quickshell.execDetached(cmd)
@@ -187,7 +288,11 @@ Scope {
   property var shots: []
   property string copiedShot: ""
   property string shotPreviewPath: ""
+  property var clips: []
+  property string clipsError: ""
+  property string copiedClip: ""
   Timer { id: copyClear; interval: 1200; onTriggered: copiedShot = "" }
+  Timer { id: clipCopyClear; interval: 1200; onTriggered: copiedClip = "" }
 
   Process {
     id: sidebarProc
@@ -224,11 +329,49 @@ Scope {
     }
   }
   Timer {
-    interval: (root.quickDetailActive && root.expandedQuickKey === "hub") ? 800 : 2000
+    interval: (root.quickMode && root.quickPaneKey === "hub") ? 800 : 2000
     running: true
     repeat: true
     triggeredOnStart: true
     onTriggered: if (!sidebarProc.running) sidebarProc.running = true
+  }
+
+  function scanClips() {
+    Quickshell.execDetached(["bash", root.binDir + "/asahi-cliphist", "watch"])
+    if (!clipScan.running) clipScan.running = true
+  }
+  Process {
+    id: clipScan
+    command: ["bash", root.binDir + "/asahi-cliphist", "list"]
+    running: false
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        try {
+          const data = JSON.parse(text || "{}")
+          root.clips = data.entries || []
+          root.clipsError = data.error || ""
+        } catch (e) {
+          root.clips = []
+          root.clipsError = "parse"
+        }
+      }
+    }
+  }
+  function copyClip(id) {
+    if (!id) return
+    root.copiedClip = id
+    clipCopyClear.restart()
+    Quickshell.execDetached(["bash", root.binDir + "/asahi-cliphist", "copy", String(id)])
+  }
+  function deleteClip(id) {
+    if (!id) return
+    root.clips = (root.clips || []).filter(c => String(c.id) !== String(id))
+    Quickshell.execDetached(["bash", root.binDir + "/asahi-cliphist", "delete", String(id)])
+  }
+  function wipeClips() {
+    root.clips = []
+    Quickshell.execDetached(["bash", root.binDir + "/asahi-cliphist", "wipe"])
   }
 
   function scanShots() {
@@ -423,7 +566,7 @@ Scope {
 
   Timer {
     interval: 30000
-    running: root.quickDetailActive && root.expandedQuickKey === "storage"
+    running: root.quickMode && root.quickPaneKey === "storage"
     repeat: true
     onTriggered: {
       if (!storageDfProc.running && !storageDuProc.running) {
@@ -451,17 +594,31 @@ Scope {
     property var ffLeftRows: []
     property var ffRightRows: []
     readonly property int ffIconWidth: 18
-    readonly property int ffLabelWidth: 78
+    readonly property int ffLabelWidth: Math.max(68, Math.round(root.fontPx(8) * 5.6))
     readonly property string ffLogoText: quickHubRoot.ffLogoLines.join("\n")
+    readonly property var ffGridRows: {
+      const left = quickHubRoot.ffLeftRows || []
+      const right = quickHubRoot.ffRightRows || []
+      const n = Math.max(left.length, right.length)
+      const out = []
+      for (let i = 0; i < n; i++) {
+        out.push(i < left.length ? left[i] : { key: "", icon: "", value: "" })
+        out.push(i < right.length ? right[i] : { key: "", icon: "", value: "" })
+      }
+      return out
+    }
 
     Component {
       id: ffInfoRowDelegate
       RowLayout {
         required property var modelData
-        width: parent ? parent.width : implicitWidth
-        spacing: 6
+        visible: !!(modelData && (modelData.key || modelData.value))
+        Layout.fillWidth: true
+        Layout.fillHeight: false
+        Layout.preferredWidth: 1
+        spacing: 8
         readonly property string rowValue: {
-          if (modelData && modelData.key === "Memory") {
+          if (modelData && (modelData.key === "Mem" || modelData.key === "Memory")) {
             return quickHubRoot.prettyBytes(quickHubRoot.ffMemTotalBytes * root.sidebarMem / 100)
               + " / " + quickHubRoot.prettyBytes(quickHubRoot.ffMemTotalBytes)
               + " (" + root.sidebarMem + "%)"
@@ -482,16 +639,17 @@ Scope {
         }
         Text {
           Layout.preferredWidth: quickHubRoot.ffLabelWidth
+          Layout.minimumWidth: quickHubRoot.ffLabelWidth
           Layout.maximumWidth: quickHubRoot.ffLabelWidth
           Layout.alignment: Qt.AlignTop
           Layout.topMargin: 1
-          text: (modelData.key || "") + ":"
+          text: (modelData.key || "")
           color: modelData.accent || Style.menuInkDeep
-          font.pixelSize: root.fontPx(9)
+          font.pixelSize: root.fontPx(8)
           font.family: root.uiFont
-          font.weight: Font.Medium
-          horizontalAlignment: Text.AlignRight
-          elide: Text.ElideRight
+          font.weight: Font.DemiBold
+          horizontalAlignment: Text.AlignLeft
+          elide: Text.ElideNone
         }
         Text {
           Layout.fillWidth: true
@@ -501,10 +659,11 @@ Scope {
           color: Style.menuInk
           font.pixelSize: root.fontPx(9)
           font.family: root.uiFont
-          wrapMode: Text.WordWrap
-          maximumLineCount: 3
-          lineHeight: 1.2
-          lineHeightMode: Text.ProportionalHeight
+          // Guard on width so the first 0-wide pass does not wrap
+          // one grapheme per line. Shared GridLayout rows keep wrap aligned.
+          wrapMode: width > 80 ? Text.WordWrap : Text.NoWrap
+          elide: Text.ElideRight
+          maximumLineCount: width > 80 ? 2 : 1
         }
       }
     }
@@ -564,15 +723,11 @@ Scope {
         const display = displays.length > 0 ? displays[0] : {}
         const wm = one("WM") || {}
         const shell = one("Shell") || {}
-        const theme = one("Theme") || {}
         const ips = one("LocalIp") || []
         const ip = ips.find(x => x.defaultRoute && x.defaultRoute.ipv4) || ips[0] || {}
         const bats = one("Battery") || []
         const bat = bats.length > 0 ? bats[0] : {}
-        const power = one("PowerAdapter") || []
-        const adapter = power.length > 0 ? power[0] : {}
         const uptime = one("Uptime") || {}
-        const locale = one("Locale") || ""
         const diskBytes = disk.bytes || {}
         const memUsed = Number(mem.used) || 0
         const memTotal = Number(mem.total) || 0
@@ -580,17 +735,10 @@ Scope {
         const diskTotal = Number(diskBytes.total) || 0
         const out = display.output || {}
         const scaled = display.scaled || out
-        const phys = display.physical || {}
         const refresh = out.refreshRate ? (" @ " + Math.round(out.refreshRate) + " Hz") : ""
         const scale = (out.width && scaled.width && out.width !== scaled.width)
           ? (" @ " + (out.width / scaled.width).toFixed(2) + "x") : ""
-        const diagIn = (phys.width && phys.height)
-          ? Math.round(Math.sqrt(phys.width * phys.width + phys.height * phys.height) / 25.4) : 0
         const batteryStatus = Array.isArray(bat.status) ? bat.status.join(", ") : (bat.status || "")
-        const cpuFreq = cpu.frequency && cpu.frequency.max
-          ? (" @ " + (cpu.frequency.max / 1000).toFixed(2) + " GHz") : ""
-        const gpuFreq = gpu.frequency ? (" @ " + (gpu.frequency / 1000).toFixed(2) + " GHz") : ""
-        const gpuType = gpu.type ? (" [" + gpu.type + "]") : ""
         quickHubRoot.ffTitle = (title.userName && title.hostName)
           ? (title.userName + "@" + title.hostName) : (host.name || "System")
         quickHubRoot.ffSubtitle = os.prettyName || os.name || "fastfetch"
@@ -599,45 +747,37 @@ Scope {
         quickHubRoot.ffMemPct = quickHubRoot.pct(memUsed, memTotal)
         quickHubRoot.ffMemUsedBytes = memUsed
         quickHubRoot.ffMemTotalBytes = memTotal
+        // Header already shows user@host, OS, and uptime — keep the well
+        // to short one-line facts that fit the leftover pane width.
         quickHubRoot.ffLeftRows = [
-          quickHubRoot.ffRow("OS", "󰣇", Style.menuSeal,
-            (os.prettyName || os.name || "—") + (kernel.architecture ? " " + kernel.architecture : "")),
-          quickHubRoot.ffRow("Kernel", "󰣀", Style.teal,
-            (kernel.name || "Linux") + " " + (kernel.release || "")),
-          quickHubRoot.ffRow("Packages", "󰏖", Style.mauve,
+          quickHubRoot.ffRow("Host", "󰌢", Style.sky, host.name || host.family || "—"),
+          quickHubRoot.ffRow("Kernel", "󰣀", Style.teal, kernel.release || "—"),
+          quickHubRoot.ffRow("Pkgs", "󰏖", Style.mauve,
             (pkgs.flatpakUser || 0) + " flatpak · " + (pkgs.rpm || 0) + " rpm"),
-          quickHubRoot.ffRow("Display", "󰍹", Style.sapphire,
-            (out.width || scaled.width || "?") + "x" + (out.height || scaled.height || "?")
-              + scale + refresh + (diagIn ? (" · " + diagIn + '"') : "")
-              + (display.name ? (" [" + display.name + "]") : "")),
           quickHubRoot.ffRow("CPU", "󰘚", Style.orange,
-            (cpu.cpu || "—") + (cpu.cores && cpu.cores.logical ? (" (" + cpu.cores.logical + ")") : "") + cpuFreq),
-          quickHubRoot.ffRow("Memory", "󰍛", Style.lavender,
+            (cpu.cpu || "—") + (cpu.cores && cpu.cores.logical ? (" (" + cpu.cores.logical + ")") : "")),
+          quickHubRoot.ffRow("GPU", "󰢮", Style.menuIndigo,
+            (gpu.name || "—") + (gpu.coreCount ? (" (" + gpu.coreCount + ")") : "")),
+          quickHubRoot.ffRow("Mem", "󰍛", Style.lavender,
             quickHubRoot.prettyBytes(memUsed) + " / " + quickHubRoot.prettyBytes(memTotal)
-              + " (" + quickHubRoot.ffMemPct + "%)"),
-          quickHubRoot.ffRow("Local IP", "󰩠", Style.cyan,
-            (ip.name ? (ip.name + ": ") : "") + (ip.ipv4 || "—")),
-          quickHubRoot.ffRow("Theme", "󰸌", Style.mauve, theme.theme2 || theme.theme1 || "—"),
-          quickHubRoot.ffRow("Power", "󰚥", Style.yellow, adapter.watts ? (adapter.watts + "W adapter") : "—")
+              + " (" + quickHubRoot.ffMemPct + "%)")
         ]
         quickHubRoot.ffRightRows = [
-          quickHubRoot.ffRow("Host", "󰌢", Style.sky, host.name || host.family || "—"),
-          quickHubRoot.ffRow("Uptime", "󰅐", Style.lavender, quickHubRoot.ffUptime || "—"),
-          quickHubRoot.ffRow("Shell", "󰆍", Style.yellow,
-            (shell.prettyName || shell.processName || "—") + (shell.version ? " " + shell.version : "")),
-          quickHubRoot.ffRow("WM", "󰖯", Style.green,
-            (wm.prettyName || wm.processName || "—")
-              + (wm.version ? " " + wm.version : "") + (wm.protocolName ? " (" + wm.protocolName + ")" : "")),
-          quickHubRoot.ffRow("GPU", "󰢮", Style.menuIndigo,
-            (gpu.name || "—") + (gpu.coreCount ? (" (" + gpu.coreCount + ")") : "") + gpuFreq + gpuType),
+          quickHubRoot.ffRow("Display", "󰍹", Style.sapphire,
+            (out.width || scaled.width || "?") + "x" + (out.height || scaled.height || "?")
+              + scale + refresh
+              + (display.name ? (" · " + display.name) : "")),
+          quickHubRoot.ffRow("WM", "󰖯", Style.green, (wm.prettyName || wm.processName || "—")
+            + (wm.version ? " " + wm.version : "")
+            + (wm.protocolName ? " (" + wm.protocolName + ")" : "")),
+          quickHubRoot.ffRow("Shell", "󰆍", Style.yellow, shell.prettyName || shell.processName || "—"),
           quickHubRoot.ffRow("Disk", "󰋊", Style.menuIndigo,
             quickHubRoot.prettyBytes(diskUsed) + " / " + quickHubRoot.prettyBytes(diskTotal)
-              + " (" + quickHubRoot.ffDiskPct + "%) · " + (disk.filesystem || "—")),
-          quickHubRoot.ffRow("Locale", "󰖟", Style.menuInkDeep, locale || "—"),
-          quickHubRoot.ffRow("Battery", "󰁹", Style.green,
+              + (disk.filesystem ? (" · " + disk.filesystem) : "")),
+          quickHubRoot.ffRow("IP", "󰩠", Style.cyan, ip.ipv4 || "—"),
+          quickHubRoot.ffRow("Bat", "󰁹", Style.green,
             (bat.capacity !== undefined ? (Math.round(bat.capacity) + "%") : "—")
-              + (batteryStatus ? (" · " + batteryStatus) : "")
-              + (bat.cycleCount ? (" · " + bat.cycleCount + " cycles") : ""))
+              + (batteryStatus ? (" · " + batteryStatus) : ""))
         ]
         quickHubRoot.ffUpdated = Qt.formatTime(new Date(), "HH:mm:ss")
       } catch (_) {
@@ -666,7 +806,7 @@ Scope {
     }
     Timer {
       interval: 60000
-      running: root.quickDetailActive && root.expandedQuickKey === "hub"
+      running: root.quickMode && root.quickPaneKey === "hub"
       repeat: true
       triggeredOnStart: true
       onTriggered: quickHubRoot.refreshFastfetch()
@@ -675,246 +815,166 @@ Scope {
 
     ColumnLayout {
       anchors.fill: parent
-      anchors.margins: 4
-      spacing: 6
+      anchors.margins: Math.max(2, Math.round(root.launcherGeom.panePad / 2))
+      spacing: Math.max(6, Math.round(root.launcherGeom.colSpacing / 2))
 
-      Rectangle {
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 10
+        ColumnLayout {
+          Layout.fillWidth: true
+          spacing: 1
+          Text {
+            text: quickHubRoot.ffTitle
+            color: Style.menuInk
+            font.pixelSize: root.fontPx(16)
+            font.family: root.uiDisplay
+            font.weight: Font.Medium
+            font.letterSpacing: 0.1
+            elide: Text.ElideRight
+            Layout.fillWidth: true
+          }
+          Text {
+            text: quickHubRoot.ffSubtitle
+            color: Style.menuInkMuted
+            font.pixelSize: root.fontPx(10)
+            font.family: root.uiSans
+            font.letterSpacing: 0.15
+            elide: Text.ElideRight
+            Layout.fillWidth: true
+          }
+        }
+        Rectangle {
+          Layout.alignment: Qt.AlignVCenter
+          implicitWidth: uptimePillLbl.implicitWidth + 16
+          implicitHeight: uptimePillLbl.implicitHeight + 8
+          radius: 6
+          color: Style.menuRowSel
+          border.width: 0
+          Text {
+            id: uptimePillLbl
+            anchors.centerIn: parent
+            text: "up  " + (quickHubRoot.ffUptime || "…")
+            color: Style.menuInkDeep
+            font.pixelSize: root.fontPx(10)
+            font.family: root.uiSans
+            font.weight: Font.Medium
+            font.letterSpacing: 0.15
+          }
+        }
+        Text {
+          Layout.alignment: Qt.AlignVCenter
+          text: quickHubRoot.ffUpdated || "SYNC"
+          color: Style.menuInkMuted
+          font.pixelSize: root.fontPx(7)
+          font.family: root.uiFont
+          font.letterSpacing: 1.6
+          font.capitalization: Font.AllUppercase
+        }
+      }
+
+      Row {
         Layout.fillWidth: true
         Layout.fillHeight: true
-        radius: Style.menuRadius
-        color: Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.04)
-        border.color: Style.menuSep
-        border.width: 1
+        Layout.preferredHeight: root.launcherGeom.rowHTall * 3
+        Layout.minimumHeight: root.launcherGeom.rowHTall * 2
+        spacing: root.launcherGeom.panePad
 
-        ColumnLayout {
-          anchors.fill: parent
-          anchors.margins: 8
-          spacing: 6
+        Repeater {
+          model: [
+            { label: "CPU", key: "cpu" },
+            { label: "RAM", key: "ram" },
+            { label: "DISK", key: "disk" },
+            { label: "BAT", key: "bat" }
+          ]
+          delegate: Item {
+            required property var modelData
+            readonly property int meterValue: modelData.key === "cpu"
+              ? root.sidebarCpu
+              : (modelData.key === "ram"
+                ? root.sidebarMem
+                : (modelData.key === "disk" ? quickHubRoot.ffDiskPct : root.sidebarBat))
+            readonly property color meterColor: modelData.key === "cpu"
+              ? Style.orange
+              : (modelData.key === "ram"
+                ? Style.lavender
+                : (modelData.key === "disk"
+                  ? Style.menuIndigo
+                  : (root.sidebarBatStatus === "Charging"
+                    ? Style.yellow : (root.sidebarBat < 20 ? Style.red : Style.green))))
+            width: (parent.width - 3 * parent.spacing) / 4
+            height: parent.height
 
-          RowLayout {
-            Layout.fillWidth: true
-            spacing: 10
-            Text {
-              text: "󰟀"
-              color: Style.menuSeal
-              font.pixelSize: root.fontPx(16)
-              font.family: root.uiFont
-            }
-            ColumnLayout {
-              Layout.fillWidth: true
-              spacing: 1
-              Text {
-                text: quickHubRoot.ffTitle
-                color: Style.menuInk
-                font.pixelSize: root.fontPx(11)
-                font.family: Style.menuMono
-                font.weight: Font.Medium
-                elide: Text.ElideRight
-                Layout.fillWidth: true
-              }
-              Text {
-                text: quickHubRoot.ffSubtitle
-                color: Style.menuInkDeep
-                font.pixelSize: root.fontPx(9)
-                font.family: root.uiFont
-                elide: Text.ElideRight
-                Layout.fillWidth: true
-              }
-            }
-            ColumnLayout {
-              Layout.alignment: Qt.AlignTop | Qt.AlignRight
-              Layout.minimumWidth: 72
-              spacing: 1
-              Text {
-                Layout.fillWidth: true
-                text: "󰅐 " + (quickHubRoot.ffUptime || "…")
-                color: Style.lavender
-                font.pixelSize: root.fontPx(8)
-                font.family: root.uiFont
-                font.weight: Font.Medium
-                horizontalAlignment: Text.AlignRight
-              }
-              Text {
-                Layout.fillWidth: true
-                text: quickHubRoot.ffUpdated || "loading"
-                color: Style.menuInkDeep
-                font.pixelSize: root.fontPx(7)
-                font.family: root.uiFont
-                horizontalAlignment: Text.AlignRight
-                opacity: 0.8
-              }
-            }
-            Rectangle {
-              Layout.alignment: Qt.AlignVCenter
-              width: 22; height: 22; radius: 11
-              color: hubCloseMa.containsMouse ? Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.08) : "transparent"
-              border.color: Style.menuSep
-              border.width: 1
-              Text {
-                anchors.centerIn: parent
-                text: "×"
-                color: Style.menuInkDeep
-                font.family: root.uiFont
-                font.pixelSize: 14
-              }
-              MouseArea {
-                id: hubCloseMa
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.expandedQuickKey = ""
-              }
-            }
-          }
-
-          Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Style.menuSep }
-
-          RowLayout {
-            Layout.fillWidth: true
-            Layout.alignment: Qt.AlignTop
-            spacing: 12
-
-            Text {
-              Layout.alignment: Qt.AlignTop
-              Layout.maximumWidth: 84
-              visible: quickHubRoot.ffLogoLines.length > 0
-              text: quickHubRoot.ffLogoText
-              color: Style.menuSeal
-              // QML does not resolve the "monospace" fontconfig alias — it
-              // falls back to proportional Noto Sans, whose thin spaces
-              // collapse the logo's left indentation. Name a real mono face.
-              font.family: "Noto Sans Mono"
-              font.pixelSize: 7
-              lineHeight: 8
-              lineHeightMode: Text.FixedHeight
-              wrapMode: Text.NoWrap
-            }
-
-            Rectangle {
-              visible: quickHubRoot.ffLogoLines.length > 0
-              Layout.preferredWidth: 1
-              Layout.fillHeight: false
-              Layout.preferredHeight: ffInfoBody.implicitHeight
-              Layout.alignment: Qt.AlignTop
-              color: Style.menuSep
-            }
-
-            RowLayout {
-              id: ffInfoBody
-              Layout.fillWidth: true
-              Layout.alignment: Qt.AlignTop
-              spacing: 20
-
-              Column {
-                id: ffLeftCol
-                Layout.fillWidth: true
-                spacing: 5
-                Repeater {
-                  model: quickHubRoot.ffLeftRows
-                  // Component ids are not type names — no `{ … }` after the id.
-                  delegate: ffInfoRowDelegate
-                }
-              }
-
-              Column {
-                id: ffRightCol
-                Layout.fillWidth: true
-                spacing: 5
-                Repeater {
-                  model: quickHubRoot.ffRightRows
-                  delegate: ffInfoRowDelegate
-                }
-              }
-            }
-          }
-
-          Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Style.menuSep }
-
-          Row {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 44
-            spacing: 8
-
-            Repeater {
-              model: [
-                { label: "CPU", key: "cpu" },
-                { label: "RAM", key: "ram" },
-                { label: "DISK", key: "disk" },
-                { label: "BAT", key: "bat" }
-              ]
-              delegate: Item {
-                required property var modelData
-                readonly property int meterValue: modelData.key === "cpu"
-                  ? root.sidebarCpu
-                  : (modelData.key === "ram"
-                    ? root.sidebarMem
-                    : (modelData.key === "disk" ? quickHubRoot.ffDiskPct : root.sidebarBat))
-                readonly property color meterColor: modelData.key === "cpu"
-                  ? Style.orange
-                  : (modelData.key === "ram"
-                    ? Style.lavender
-                    : (modelData.key === "disk"
-                      ? Style.menuIndigo
-                      : (root.sidebarBatStatus === "Charging"
-                        ? Style.yellow : (root.sidebarBat < 20 ? Style.red : Style.green))))
-                width: (parent.width - 3 * parent.spacing) / 4
-                height: parent.height
-
-                Rectangle {
-                  anchors.fill: parent
-                  radius: 5
-                  color: Style.menuControlBg
-                  border.color: Style.menuSep
-                  border.width: 1
-
-                  ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 6
-                    spacing: 4
-
-                    RowLayout {
-                      Layout.fillWidth: true
-                      spacing: 4
-                      Text {
-                        text: modelData.label
-                        color: Style.menuInkDeep
-                        font.pixelSize: root.fontPx(8)
-                        font.family: root.uiFont
-                        font.weight: Font.Medium
-                      }
-                      Item { Layout.fillWidth: true }
-                      Text {
-                        text: meterValue + "%"
-                        color: meterColor
-                        font.pixelSize: root.fontPx(9)
-                        font.family: root.uiFont
-                        font.weight: Font.Medium
-                        horizontalAlignment: Text.AlignRight
-                      }
-                    }
-
-                    Rectangle {
-                      Layout.fillWidth: true
-                      Layout.preferredHeight: 5
-                      radius: 2
-                      color: Qt.rgba(0, 0, 0, 0.22)
-                      Rectangle {
-                        width: parent.width * Math.max(0, Math.min(1, meterValue / 100))
-                        height: parent.height
-                        radius: 2
-                        color: meterColor
-                        Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
-                      }
-                    }
-                  }
-                }
-              }
+            Menu.MenuHudDial {
+              anchors.fill: parent
+              value: meterValue
+              label: modelData.label
+              accent: meterColor
+              fontFamily: root.uiFont
             }
           }
         }
       }
 
+      RowLayout {
+        id: ffMain
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        Layout.alignment: Qt.AlignTop
+        spacing: 12
+
+        Text {
+          // Narrow art: size to leftover height so contentWidth stays
+          // small and the two fact columns keep the pane width.
+          Layout.alignment: Qt.AlignVCenter
+          Layout.preferredWidth: contentWidth
+          Layout.maximumWidth: Math.max(1, Math.round(ffMain.width * 0.28))
+          clip: true
+          visible: quickHubRoot.ffLogoLines.length > 0
+          text: quickHubRoot.ffLogoText
+          color: Style.menuSeal
+          // QML does not resolve the "monospace" fontconfig alias — it
+          // falls back to proportional Noto Sans, whose thin spaces
+          // collapse the logo's left indentation. Name a real mono face.
+          font.family: "Noto Sans Mono"
+          font.pixelSize: {
+            const n = Math.max(8, quickHubRoot.ffLogoLines.length)
+            const h = ffMain.height
+            if (h < 8) return 5
+            return Math.max(5, Math.min(8, Math.floor(h / n)))
+          }
+          lineHeight: font.pixelSize + 1
+          lineHeightMode: Text.FixedHeight
+          wrapMode: Text.NoWrap
+        }
+
+        Rectangle {
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          color: Style.menuCardBg
+          border.width: 1
+          border.color: Style.menuSep
+          radius: 8
+
+          GridLayout {
+            id: ffInfoBody
+            anchors.fill: parent
+            anchors.margins: 12
+            columns: 2
+            columnSpacing: 28
+            rowSpacing: 8
+            Layout.fillHeight: true
+            Layout.fillWidth: true
+
+            Repeater {
+              model: quickHubRoot.ffGridRows
+              delegate: ffInfoRowDelegate
+            }
+          }
+        }
+      }
     }
+
   } }
   Component { id: quickWallpaperComp; Item {
     id: quickWallpaperRoot
@@ -937,7 +997,7 @@ Scope {
       Item {
         Layout.fillWidth: true; Layout.preferredHeight: 22
         Rectangle {
-          anchors.fill: parent; radius: 4; color: Style.menuControlBg; border.color: Style.menuSep; border.width: 1
+          anchors.fill: parent; radius: Style.radiusSm; color: Style.menuControlBg; border.color: Style.menuSep; border.width: 1
           TextInput {
             id: wpIn; anchors.fill: parent; anchors.margins: 3
             color: Style.menuInk; font.pixelSize: root.fontPx(10); font.family: root.uiFont
@@ -957,23 +1017,24 @@ Scope {
       GridView {
         id: wpGrid
         Layout.fillWidth: true; Layout.fillHeight: (quickWallpaperRoot.filtered || []).length > 0
-        cellWidth: Math.floor((width - 6) / 4); cellHeight: cellWidth * 0.62 + 4
+        cellWidth: Math.max(1, Math.floor((Math.max(0, width - rightMargin - 4)) / 4)); cellHeight: cellWidth * 0.62 + 4
         clip: true; model: quickWallpaperRoot.filtered
         // Scroll perf: pool delegates instead of destroying them mid-flick,
-        // pre-create ~3 rows beyond the viewport, and drop the synchronous
+        // pre-create extra rows beyond the viewport, and drop the synchronous
         // layout thrash of Flickable's animated wheel response in favor of
         // direct contentY steps (omarchy's pickers feel instant for the same
         // reason — no kinetic animation on wheel).
         reuseItems: true
-        cacheBuffer: Math.max(400, cellHeight * 3)
+        cacheBuffer: Math.max(800, cellHeight * 5)
         boundsBehavior: Flickable.StopAtBounds
+        rightMargin: 12
+        ScrollBar.vertical: Menu.MenuScrollBar {}
         WheelHandler {
           target: null
           acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
           onWheel: function(ev) {
-            const step = ev.pixelDelta.y !== 0 ? ev.pixelDelta.y : (ev.angleDelta.y / 120) * wpGrid.cellHeight
-            const maxY = Math.max(0, wpGrid.contentHeight - wpGrid.height)
-            wpGrid.contentY = Math.max(0, Math.min(maxY, wpGrid.contentY - step))
+            const step = WallThumbs.wheelStep(ev.pixelDelta.y, ev.angleDelta.y, wpGrid.cellHeight)
+            wpGrid.contentY = WallThumbs.clampedContentY(wpGrid.contentY, step, wpGrid.contentHeight, wpGrid.height)
             ev.accepted = true
           }
         }
@@ -1008,7 +1069,7 @@ Scope {
               Text {
                 anchors.centerIn: parent
                 text: (modelData || "").split("/").pop()
-                color: "#fff"; font.pixelSize: root.fontPx(7); font.family: root.uiFont
+                color: Style.menuOverlayLight; font.pixelSize: root.fontPx(7); font.family: root.uiFont
                 elide: Text.ElideMiddle; width: parent.width-4; horizontalAlignment: Text.AlignHCenter
               }
             }
@@ -1016,7 +1077,7 @@ Scope {
               anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 3
               width: 14; height: 14; radius: 7; color: Style.green
               visible: Wallpaper.WallpaperService.currentWallpaper === modelData
-              Text { anchors.centerIn: parent; text: "✓"; color: "#fff"; font.pixelSize: 9; font.bold: true }
+              Text { anchors.centerIn: parent; text: "✓"; color: Style.menuOnAccent; font.pixelSize: 9; font.bold: true }
             }
             MouseArea {
               id: wma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -1080,7 +1141,7 @@ Scope {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: Quickshell.execDetached([root.binDir + "/asahi-cmd-screenshot", "area"])
+            onClicked: Quickshell.execDetached([root.binDir + "/asahi-cmd-screenshot", "region"])
           }
         }
       }
@@ -1093,7 +1154,7 @@ Scope {
         cellHeight: cellWidth * 0.62 + 4
         clip: true
         boundsBehavior: Flickable.StopAtBounds
-        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+        ScrollBar.vertical: Menu.MenuScrollBar {}
         model: root.shots || []
 
         delegate: Item {
@@ -1133,7 +1194,7 @@ Scope {
               Text {
                 anchors.centerIn: parent
                 text: modelData.label
-                color: "#ffffff"
+                color: Style.menuOnAccent
                 font.pixelSize: root.fontPx(7)
                 font.family: root.uiFont
                 elide: Text.ElideMiddle
@@ -1146,12 +1207,12 @@ Scope {
               anchors.fill: parent
               anchors.margins: 1
               radius: 6
-              color: Qt.rgba(0.4, 0.8, 0.5, 0.32)
+              color: Style.menuSuccessWash
               visible: root.copiedShot === modelData.path
               Text {
                 anchors.centerIn: parent
                 text: "COPIED"
-                color: "#ffffff"
+                color: Style.menuOnAccent
                 font.pixelSize: root.fontPx(12)
                 font.family: root.uiFont
                 font.bold: true
@@ -1284,7 +1345,7 @@ Scope {
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: {
-              Quickshell.execDetached([root.binDir + "/asahi-cmd-screenshot", "area"])
+              Quickshell.execDetached([root.binDir + "/asahi-cmd-screenshot", "region"])
               Qt.callLater(root.scanShots)
             }
           }
@@ -1361,14 +1422,22 @@ Scope {
     property var displaySources: []
     property var displayStreams: []
     function refreshAudioModels() {
-      quickMediaRoot.displaySinks = (quickMediaRoot.candidateSinks || []).slice()
-      quickMediaRoot.displaySources = (quickMediaRoot.candidateSources || []).slice()
-      quickMediaRoot.displayStreams = (quickMediaRoot.candidateStreams || []).slice()
+      quickMediaRoot.displaySinks = QuickModels.adoptAudioNodes(quickMediaRoot.displaySinks, quickMediaRoot.candidateSinks)
+      quickMediaRoot.displaySources = QuickModels.adoptAudioNodes(quickMediaRoot.displaySources, quickMediaRoot.candidateSources)
+      quickMediaRoot.displayStreams = QuickModels.adoptAudioNodes(quickMediaRoot.displayStreams, quickMediaRoot.candidateStreams)
     }
     onCandidateSinksChanged: audioModelRefresh.restart()
     onCandidateSourcesChanged: audioModelRefresh.restart()
     onCandidateStreamsChanged: audioModelRefresh.restart()
     Timer { id: audioModelRefresh; interval: 75; onTriggered: quickMediaRoot.refreshAudioModels() }
+    // Default sink/source objects go null for a frame on PW republish;
+    // hold the last live node so the master cards do not flash empty.
+    property var heldSink: null
+    property var heldSource: null
+    onPwSinkChanged: if (quickMediaRoot.pwSink) quickMediaRoot.heldSink = quickMediaRoot.pwSink
+    onPwSourceChanged: if (quickMediaRoot.pwSource) quickMediaRoot.heldSource = quickMediaRoot.pwSource
+    readonly property var shownSink: quickMediaRoot.pwSink || quickMediaRoot.heldSink
+    readonly property var shownSource: quickMediaRoot.pwSource || quickMediaRoot.heldSource
 
     readonly property real outVol: quickMediaRoot.pwSink && quickMediaRoot.pwSink.audio ? quickMediaRoot.pwSink.audio.volume : 0
     readonly property bool outMuted: quickMediaRoot.pwSink && quickMediaRoot.pwSink.audio ? quickMediaRoot.pwSink.audio.muted : false
@@ -1395,12 +1464,16 @@ Scope {
     // a stray tap can silently break audio for every future stream — no-op on
     // the already-active device and always notify so the change is visible.
     function setDefaultSink(node) {
-      if (!node || node === quickMediaRoot.pwSink) return
+      if (!node) return
+      const key = QuickModels.audioNodeKey(node)
+      if (key && key === QuickModels.audioNodeKey(quickMediaRoot.pwSink || quickMediaRoot.heldSink)) return
       Pipewire.preferredDefaultAudioSink = node
       Quickshell.execDetached(["notify-send", "-a", "Audio", "Output device", QuickModels.nodeLabel(node)])
     }
     function setDefaultSource(node) {
-      if (!node || node === quickMediaRoot.pwSource) return
+      if (!node) return
+      const key = QuickModels.audioNodeKey(node)
+      if (key && key === QuickModels.audioNodeKey(quickMediaRoot.pwSource || quickMediaRoot.heldSource)) return
       Pipewire.preferredDefaultAudioSource = node
       Quickshell.execDetached(["notify-send", "-a", "Audio", "Input device", QuickModels.nodeLabel(node)])
     }
@@ -1432,9 +1505,9 @@ Scope {
       quickMediaRoot.cavaStatus = vs.some(v => v > 0) ? "active" : "waiting for audio"
     }
     // Binds the candidate nodes so .audio/.properties/.description are live.
-    PwObjectTracker { objects: quickMediaRoot.candidateSinks }
-    PwObjectTracker { objects: quickMediaRoot.candidateSources }
-    PwObjectTracker { objects: quickMediaRoot.candidateStreams }
+    PwObjectTracker { objects: quickMediaRoot.displaySinks }
+    PwObjectTracker { objects: quickMediaRoot.displaySources }
+    PwObjectTracker { objects: quickMediaRoot.displayStreams }
 
     Process {
       id: cavaRd
@@ -1442,7 +1515,7 @@ Scope {
       stdout: StdioCollector { onStreamFinished: quickMediaRoot.updCava(text) }
     }
     Timer {
-      interval: 90; running: root.quickDetailActive && root.expandedQuickKey === "media"; repeat: true; triggeredOnStart: true
+      interval: 90; running: root.quickMode && root.quickPaneKey === "media"; repeat: true; triggeredOnStart: true
       onTriggered: {
         if (quickMediaRoot.cavaRunning && quickMediaRoot.cavaLast>0 && Date.now()-quickMediaRoot.cavaLast > 3000) quickMediaRoot.cavaRunning=false
         // No frame ever arrived: cava is likely not installed (see /tmp/quickshell-cava.err).
@@ -1453,7 +1526,12 @@ Scope {
         if (!cavaRd.running) cavaRd.running = true
       }
     }
-    Component.onCompleted: { quickMediaRoot.refreshAudioModels(); quickMediaRoot.startCava() }
+    Component.onCompleted: {
+      if (quickMediaRoot.pwSink) quickMediaRoot.heldSink = quickMediaRoot.pwSink
+      if (quickMediaRoot.pwSource) quickMediaRoot.heldSource = quickMediaRoot.pwSource
+      quickMediaRoot.refreshAudioModels()
+      quickMediaRoot.startCava()
+    }
     Component.onDestruction: quickMediaRoot.stopCava()
 
     // Minimal draggable volume slider (track + fill + knob). Writes through
@@ -1588,7 +1666,7 @@ Scope {
             id: masterCard
             required property var modelData
             readonly property bool isOut: modelData.out
-            readonly property var node: isOut ? quickMediaRoot.pwSink : quickMediaRoot.pwSource
+            readonly property var node: isOut ? quickMediaRoot.shownSink : quickMediaRoot.shownSource
             readonly property bool muted: isOut ? quickMediaRoot.outMuted : quickMediaRoot.inMuted
             readonly property real vol: isOut ? quickMediaRoot.outVol : quickMediaRoot.inVol
             Layout.fillWidth: true
@@ -1668,7 +1746,7 @@ Scope {
             required property var modelData
             readonly property bool isOut: modelData.out
             readonly property var devItems: isOut ? (quickMediaRoot.displaySinks || []) : (quickMediaRoot.displaySources || [])
-            readonly property var activeNode: isOut ? quickMediaRoot.pwSink : quickMediaRoot.pwSource
+            readonly property var activeNode: isOut ? quickMediaRoot.shownSink : quickMediaRoot.shownSource
             Layout.fillWidth: true
             Layout.fillHeight: true
             radius: Style.menuRadius
@@ -1700,7 +1778,7 @@ Scope {
                 clip: true
                 contentHeight: deviceCol.implicitHeight
                 boundsBehavior: Flickable.StopAtBounds
-                ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                ScrollBar.vertical: Menu.MenuScrollBar {}
                 Column {
                   id: deviceCol
                   width: parent.width
@@ -1710,10 +1788,11 @@ Scope {
                     delegate: Rectangle {
                       id: devRow
                       required property var modelData
-                      readonly property bool active: devCard.activeNode === modelData
+                      readonly property bool active: QuickModels.audioNodeKey(devCard.activeNode) === QuickModels.audioNodeKey(modelData)
+                        && QuickModels.audioNodeKey(modelData) !== ""
                       width: parent.width
                       height: root.fontPx(22)
-                      radius: 5
+                      radius: Style.radiusSm
                       color: devRow.active ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.18) : (devMa.containsMouse ? Style.menuRowHi : "transparent")
                       border.color: devRow.active ? Style.menuIndigo : (devMa.containsMouse ? Style.menuSep : "transparent")
                       border.width: 1
@@ -1784,7 +1863,7 @@ Scope {
             clip: true
             contentHeight: streamCol.implicitHeight
             boundsBehavior: Flickable.StopAtBounds
-            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+            ScrollBar.vertical: Menu.MenuScrollBar {}
             Column {
               id: streamCol
               width: parent.width
@@ -2536,9 +2615,9 @@ Scope {
       }
     }
 
-    Timer { interval: 6000; running: root.quickDetailActive && root.expandedQuickKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: quickNetworkRoot.scanWifi() }
-    Timer { interval: 1500; running: root.quickDetailActive && root.expandedQuickKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: quickNetworkRoot.sampleThroughput() }
-    Timer { interval: 4000; running: root.quickDetailActive && root.expandedQuickKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: { if (!pingProc.running) pingProc.running = true } }
+    Timer { interval: 6000; running: root.quickMode && root.quickPaneKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: quickNetworkRoot.scanWifi() }
+    Timer { interval: 1500; running: root.quickMode && root.quickPaneKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: quickNetworkRoot.sampleThroughput() }
+    Timer { interval: 4000; running: root.quickMode && root.quickPaneKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: { if (!pingProc.running) pingProc.running = true } }
 
     Component.onCompleted: Qt.callLater(quickNetworkRoot.scanWifi)
 
@@ -2559,14 +2638,14 @@ Scope {
         }
         Item { Layout.fillWidth: true }
         Rectangle {
-          width: rescanLbl.width + 16; height: 28; radius: Style.menuRadius
+          width: rescanLbl.width + 20; height: 30; radius: Style.menuRadius
           color: rescanMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
           border.color: Style.menuSep; border.width: 1
           Text { id: rescanLbl; anchors.centerIn: parent; text: "Rescan"; font.pixelSize: root.fontPx(9); color: Style.menuIndigo; font.family: root.uiFont }
           MouseArea { id: rescanMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: quickNetworkRoot.rescanWifi() }
         }
         Rectangle {
-          width: refreshLbl.width + 16; height: 28; radius: Style.menuRadius
+          width: refreshLbl.width + 20; height: 30; radius: Style.menuRadius
           color: refreshMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
           border.color: Style.menuSep; border.width: 1
           Text { id: refreshLbl; anchors.centerIn: parent; text: "Refresh"; font.pixelSize: root.fontPx(9); color: Style.menuInk; font.family: root.uiFont }
@@ -2598,12 +2677,12 @@ Scope {
         flickableDirection: Flickable.VerticalFlick
         contentHeight: netScrollCol.height
         boundsBehavior: Flickable.StopAtBounds
-        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded; width: 4 }
+        ScrollBar.vertical: Menu.MenuScrollBar {}
 
         Column {
           id: netScrollCol
           width: parent.width
-          spacing: 8
+          spacing: 10
 
           Column {
             width: parent.width
@@ -2611,7 +2690,7 @@ Scope {
             Row {
               width: parent.width
               spacing: 8
-              Text { text: "VPN"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.letterSpacing: 0.8; anchors.verticalCenter: parent.verticalCenter }
+              Text { text: "VPN"; color: Style.menuInkMuted; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.letterSpacing: 0.8; anchors.verticalCenter: parent.verticalCenter }
               Text {
                 text: quickNetworkRoot.vpnSummary
                 color: QuickModels.activeNmProfile(quickNetworkRoot.vpnProfiles) ? Style.green : Style.menuInkDeep
@@ -2651,23 +2730,26 @@ Scope {
                 required property var modelData
                 width: parent.width - 4
                 x: 2
-                height: 32
-                radius: Style.menuRadius
+                height: Math.max(40, vpnExtRow.implicitHeight + 12)
+                radius: Style.radiusSm
                 color: Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.10)
                 border.color: Style.green
                 border.width: 1
                 Row {
+                  id: vpnExtRow
                   anchors.fill: parent
-                  anchors.leftMargin: 8
-                  anchors.rightMargin: 8
-                  spacing: 6
+                  anchors.leftMargin: 10
+                  anchors.rightMargin: 10
+                  anchors.topMargin: 6
+                  anchors.bottomMargin: 6
+                  spacing: 8
                   Text { text: "󰯄"; font.pixelSize: root.fontPx(11); color: Style.green; font.family: root.uiFont; anchors.verticalCenter: parent.verticalCenter }
                   Column {
                     width: parent.width - 28
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 1
+                    spacing: 2
                     Text { width: parent.width; text: modelData.connection || modelData.device; color: Style.green; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true; elide: Text.ElideRight }
-                    Text { width: parent.width; text: "External tunnel · " + (modelData.device || ""); color: Style.menuInkDeep; font.pixelSize: root.fontPx(7); font.family: root.uiFont }
+                    Text { width: parent.width; text: "External tunnel · " + (modelData.device || ""); color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
                   }
                 }
               }
@@ -2679,23 +2761,26 @@ Scope {
                 required property var modelData
                 width: parent.width - 4
                 x: 2
-                height: 36
-                radius: Style.menuRadius
+                height: Math.max(44, vpnInner.implicitHeight + 14)
+                radius: Style.radiusSm
                 color: vpnRow.modelData.active ? Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.14) : (vpnMa.containsMouse ? Style.menuRowHi : "transparent")
                 border.color: vpnRow.modelData.active ? Style.green : (vpnMa.containsMouse ? Style.menuSep : "transparent")
                 border.width: 1
                 Row {
+                  id: vpnInner
                   anchors.fill: parent
-                  anchors.leftMargin: 8
-                  anchors.rightMargin: 8
-                  spacing: 6
+                  anchors.leftMargin: 10
+                  anchors.rightMargin: 10
+                  anchors.topMargin: 7
+                  anchors.bottomMargin: 7
+                  spacing: 8
                   Text { text: vpnRow.modelData.glyph || "󰯄"; font.pixelSize: root.fontPx(12); color: vpnRow.modelData.active ? Style.green : Style.menuInkDeep; font.family: root.uiFont; anchors.verticalCenter: parent.verticalCenter }
                   Column {
                     width: parent.width - 28
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 1
-                    Text { width: parent.width; text: vpnRow.modelData.label; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: vpnRow.modelData.active; color: vpnRow.modelData.active ? Style.green : Style.menuInk; elide: Text.ElideRight }
-                    Text { width: parent.width; text: vpnRow.modelData.detail + (vpnRow.modelData.gateway ? " · " + vpnRow.modelData.gateway : ""); font.pixelSize: root.fontPx(7); font.family: root.uiFont; color: vpnRow.modelData.active ? Style.green : Style.menuInkDeep; elide: Text.ElideRight }
+                    spacing: 2
+                    Text { width: parent.width; text: vpnRow.modelData.label; font.pixelSize: root.fontPx(10); font.family: root.uiFont; font.bold: vpnRow.modelData.active; color: vpnRow.modelData.active ? Style.green : Style.menuInk; elide: Text.ElideRight }
+                    Text { width: parent.width; text: vpnRow.modelData.detail + (vpnRow.modelData.gateway ? " · " + vpnRow.modelData.gateway : ""); font.pixelSize: root.fontPx(8); font.family: root.uiFont; color: vpnRow.modelData.active ? Style.green : Style.menuInkDeep; elide: Text.ElideRight }
                   }
                 }
                 MouseArea {
@@ -2722,21 +2807,23 @@ Scope {
             width: parent.width
             spacing: 3
             visible: (quickNetworkRoot.activeConnections || []).length > 0
-            Text { text: "Active"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.letterSpacing: 0.8 }
+            Text { text: "Active"; color: Style.menuInkMuted; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.letterSpacing: 0.8; font.weight: Font.Medium }
             Repeater {
               model: quickNetworkRoot.activeConnections || []
               delegate: Row {
                 required property var modelData
                 width: parent.width
-                spacing: 6
-                Text { text: "󰒢"; font.pixelSize: root.fontPx(10); color: Style.green; font.family: root.uiFont; anchors.verticalCenter: parent.verticalCenter }
+                height: 22
+                spacing: 8
+                Text { text: "󰒢"; font.pixelSize: root.fontPx(11); color: Style.green; font.family: root.uiFont; anchors.verticalCenter: parent.verticalCenter }
                 Text {
-                  width: parent.width - 24
+                  width: parent.width - 28
                   text: (modelData.type || "") + " · " + (modelData.name || "") + " · " + (modelData.device || "")
                   color: Style.menuInk
                   font.pixelSize: root.fontPx(9)
                   font.family: root.uiFont
                   elide: Text.ElideRight
+                  anchors.verticalCenter: parent.verticalCenter
                 }
               }
             }
@@ -2747,7 +2834,7 @@ Scope {
             spacing: 8
             Rectangle {
               width: (parent.width - parent.spacing) / 2
-              implicitHeight: wifiCardCol.implicitHeight + 16
+              implicitHeight: wifiCardCol.implicitHeight + 20
               radius: Style.menuRadius
               color: root.menuTileBg
               border.color: Style.menuSep
@@ -2757,24 +2844,24 @@ Scope {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: parent.top
-                anchors.margins: 8
-                spacing: 4
+                anchors.margins: 10
+                spacing: 6
                 RowLayout {
                   width: parent.width
-                  spacing: 4
+                  spacing: 6
                   Text { text: "󰤨 Wi-Fi"; color: Style.menuIndigo; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true }
                   Text { text: quickNetworkRoot.wifiEnabled ? "on" : "off"; color: quickNetworkRoot.wifiEnabled ? Style.green : Style.red; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
                   Item { Layout.fillWidth: true }
                   Rectangle {
                     visible: !!quickNetworkRoot.currentWifiSsid && !!quickNetworkRoot.wifiDevice && quickNetworkRoot.wifiEnabled
-                    width: wifiDiscLbl.width + 12; height: 24; radius: Style.menuRadius
+                    width: wifiDiscLbl.width + 14; height: 26; radius: Style.radiusSm
                     color: wifiDiscMa.containsMouse ? Style.menuRowHi : Qt.rgba(Style.red.r, Style.red.g, Style.red.b, 0.14)
                     border.color: Style.red; border.width: 1
                     Text { id: wifiDiscLbl; anchors.centerIn: parent; text: "Disconnect"; color: Style.red; font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true }
                     MouseArea { id: wifiDiscMa; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: quickNetworkRoot.disconnectWifi() }
                   }
                   Rectangle {
-                    width: wifiToggleLbl.width + 12; height: 24; radius: Style.menuRadius
+                    width: wifiToggleLbl.width + 14; height: 26; radius: Style.radiusSm
                     color: quickNetworkRoot.wifiEnabled ? Qt.rgba(Style.red.r, Style.red.g, Style.red.b, 0.18) : Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.18)
                     border.color: quickNetworkRoot.wifiEnabled ? Style.red : Style.green; border.width: 1
                     Text { id: wifiToggleLbl; anchors.centerIn: parent; text: quickNetworkRoot.wifiEnabled ? "Disable Wi-Fi" : "Enable Wi-Fi"; color: quickNetworkRoot.wifiEnabled ? Style.red : Style.green; font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true }
@@ -2800,7 +2887,7 @@ Scope {
             }
             Rectangle {
               width: (parent.width - parent.spacing) / 2
-              implicitHeight: ethCardCol.implicitHeight + 16
+              implicitHeight: ethCardCol.implicitHeight + 20
               radius: Style.menuRadius
               color: root.menuTileBg
               border.color: Style.menuSep
@@ -2810,16 +2897,17 @@ Scope {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: parent.top
-                anchors.margins: 8
-                spacing: 4
+                anchors.margins: 10
+                spacing: 6
                 RowLayout {
                   width: parent.width
+                  spacing: 6
                   Text { text: "󰈀 LAN"; color: Style.menuIndigo; font.pixelSize: root.fontPx(9); font.family: root.uiFont; font.bold: true }
                   Text { text: quickNetworkRoot.ethDevice ? quickNetworkRoot.ethState : "missing"; color: quickNetworkRoot.ethConnected ? Style.green : Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
                   Item { Layout.fillWidth: true }
                   Rectangle {
                     visible: !!quickNetworkRoot.ethDevice
-                    width: ethToggleLbl.width + 12; height: 24; radius: Style.menuRadius
+                    width: ethToggleLbl.width + 14; height: 26; radius: Style.radiusSm
                     color: quickNetworkRoot.ethConnected ? Qt.rgba(Style.red.r, Style.red.g, Style.red.b, 0.18) : Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.18)
                     border.color: quickNetworkRoot.ethConnected ? Style.red : Style.green; border.width: 1
                     Text { id: ethToggleLbl; anchors.centerIn: parent; text: quickNetworkRoot.ethConnected ? "Disconnect LAN" : "Connect LAN"; color: quickNetworkRoot.ethConnected ? Style.red : Style.green; font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true }
@@ -2844,31 +2932,36 @@ Scope {
               Text {
                 visible: !!netDelegate.modelData.section
                 text: netDelegate.modelData.section || ""
-                color: Style.menuInkDeep
-                font.pixelSize: root.fontPx(8)
+                color: Style.menuInkMuted
+                font.pixelSize: root.fontPx(9)
                 font.family: root.uiFont
                 font.letterSpacing: 0.8
-                topPadding: 4
+                font.weight: Font.Medium
+                topPadding: 6
+                bottomPadding: 2
               }
               Rectangle {
                 width: netDelegate.width - 4
                 x: 2
-                height: 36
-                radius: Style.menuRadius
+                height: Math.max(44, netRow.implicitHeight + 14)
+                radius: Style.radiusSm
                 color: netDelegate.modelData.active ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.14) : (netMa.containsMouse ? Style.menuRowHi : "transparent")
                 border.color: netDelegate.modelData.active ? Style.menuIndigo : (netMa.containsMouse ? Style.menuSep : "transparent")
                 border.width: 1
                 Row {
+                  id: netRow
                   anchors.fill: parent
-                  anchors.leftMargin: 8
-                  anchors.rightMargin: 8
-                  spacing: 6
-                  Text { text: ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"][Math.max(0, Math.min(4, Math.ceil(netDelegate.modelData.signal / 20) - 1))]; font.family: root.uiFont; font.pixelSize: root.fontPx(12); color: netDelegate.modelData.active ? Style.menuIndigo : Style.menuInkDeep; anchors.verticalCenter: parent.verticalCenter }
+                  anchors.leftMargin: 10
+                  anchors.rightMargin: 10
+                  anchors.topMargin: 7
+                  anchors.bottomMargin: 7
+                  spacing: 8
+                  Text { text: ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"][Math.max(0, Math.min(4, Math.ceil(netDelegate.modelData.signal / 20) - 1))]; font.family: root.uiFont; font.pixelSize: root.fontPx(13); color: netDelegate.modelData.active ? Style.menuIndigo : Style.menuInkDeep; anchors.verticalCenter: parent.verticalCenter }
                   Column {
-                    width: parent.width - 90
+                    width: parent.width - 100
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 1
-                    Text { width: parent.width; text: netDelegate.modelData.ssid; font.family: root.uiFont; font.pixelSize: root.fontPx(9); font.bold: netDelegate.modelData.active; color: netDelegate.modelData.active ? Style.menuIndigo : Style.menuInk; elide: Text.ElideRight }
+                    spacing: 2
+                    Text { width: parent.width; text: netDelegate.modelData.ssid; font.family: root.uiFont; font.pixelSize: root.fontPx(10); font.bold: netDelegate.modelData.active; color: netDelegate.modelData.active ? Style.menuIndigo : Style.menuInk; elide: Text.ElideRight }
                     Text {
                       width: parent.width
                       text: {
@@ -2878,12 +2971,12 @@ Scope {
                         const sec = netDelegate.modelData.sec ? "Secure" : "Open"
                         return (netDelegate.modelData.known ? "Saved · " + sec : sec) + band
                       }
-                      font.family: root.uiFont; font.pixelSize: root.fontPx(7)
+                      font.family: root.uiFont; font.pixelSize: root.fontPx(8)
                       color: netDelegate.modelData.active ? Style.menuIndigo : Style.menuInkDeep
                     }
                   }
                   Text { text: netDelegate.modelData.sec ? "󰌾" : ""; font.family: root.uiFont; font.pixelSize: root.fontPx(10); color: Style.menuInkDeep; anchors.verticalCenter: parent.verticalCenter }
-                  Text { text: netDelegate.modelData.signal + "%"; font.family: root.uiFont; font.pixelSize: root.fontPx(8); color: Style.menuInkDeep; anchors.verticalCenter: parent.verticalCenter }
+                  Text { text: netDelegate.modelData.signal + "%"; font.family: root.uiFont; font.pixelSize: root.fontPx(9); color: Style.menuInkDeep; anchors.verticalCenter: parent.verticalCenter }
                   MouseArea {
                     visible: netDelegate.modelData.active
                     width: 20; height: 20
@@ -3061,6 +3154,7 @@ Scope {
     implicitHeight: monLayout.implicitHeight
     // full port monitors (hypr all-j, list, mirror/extend/external/rescan, status, canvas, procs, guards; exact)
     property var mons: []
+    property var monSaved: ({})
     property int monVersion: 0
     property string monStatus: ""
 
@@ -3129,7 +3223,7 @@ Scope {
 
     // ---- Scale presets for the focused monitor (omarchy.monitor) ----
     // cleanScale snaps to values Hyprland actually accepts for the mode.
-    readonly property var scalePresets: ["1", "1.25", "1.6", "2", "3", "4"]
+    readonly property var scalePresets: QuickModels.scalePresetsFor(quickMonitorsRoot.focusedMon)
     readonly property var focusedMon: {
       const list = quickMonitorsRoot.mons || []
       return list.find(m => m && m.focused && !m.disabled) || quickMonitorsRoot.monitorPrimary()
@@ -3173,12 +3267,18 @@ Scope {
     // apply through hl.monitor via eval, like mirror/external-only do. The
     // position stays explicit (omarchy uses "auto", but this setup pins
     // monitor positions in monitors.lua — auto would rearrange the layout).
+    // Re-abut after a size change so a leftover x/y cannot open a cursor gap.
     function applyMonitorConfig(m, mode, scale, status) {
+      const parsed = QuickModels.parseModeString(mode)
+      const s = Math.max(0.25, Number(scale) || 1)
+      const newW = parsed ? parsed.width / s : quickMonitorsRoot.monitorLogicalWidth(m)
+      const newH = parsed ? parsed.height / s : quickMonitorsRoot.monitorLogicalHeight(m)
+      const pos = QuickModels.abutPosition(m, newW, newH, quickMonitorsRoot.mons)
       quickMonitorsRoot.monStatus = status
       monAction.command = ["hyprctl", "eval",
         "hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name)
         + ", mode = " + quickMonitorsRoot.luaString(mode)
-        + ", position = " + quickMonitorsRoot.luaString((m.x || 0) + "x" + (m.y || 0))
+        + ", position = " + quickMonitorsRoot.luaString(pos)
         + ", scale = " + scale + " })"]
       monAction.running = true
     }
@@ -3196,11 +3296,21 @@ Scope {
         quickMonitorsRoot.monStatus = "Won't disable the last display"
         return
       }
-      quickMonitorsRoot.monStatus = (m.disabled ? "Enabling " : "Disabling ") + m.name + "..."
-      monAction.command = ["hyprctl", "eval",
-        m.disabled
-          ? ("hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name) + ", mode = \"preferred\", position = \"auto\", scale = " + (m.scale || 1) + " })")
-          : ("hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name) + ", disabled = true })")]
+      if (m.disabled) {
+        const f = QuickModels.enableMonitorFields(m, quickMonitorsRoot.monSaved)
+        quickMonitorsRoot.monStatus = "Enabling " + m.name + "..."
+        monAction.command = ["hyprctl", "eval",
+          "hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name)
+          + ", disabled = false"
+          + ", mode = " + quickMonitorsRoot.luaString(f.mode)
+          + ", position = " + quickMonitorsRoot.luaString(f.position)
+          + ", scale = " + f.scale + " })"]
+      } else {
+        quickMonitorsRoot.monSaved = QuickModels.rememberEnabledMonitor(quickMonitorsRoot.monSaved, m)
+        quickMonitorsRoot.monStatus = "Disabling " + m.name + "..."
+        monAction.command = ["hyprctl", "eval",
+          "hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name) + ", disabled = true })"]
+      }
       monAction.running = true
     }
 
@@ -3210,6 +3320,10 @@ Scope {
       stdout: StdioCollector {
         onStreamFinished: {
           try { quickMonitorsRoot.mons = JSON.parse((text || "").trim() || "[]") } catch(_) { quickMonitorsRoot.mons = [] }
+          let saved = quickMonitorsRoot.monSaved || {}
+          for (const mon of (quickMonitorsRoot.mons || []))
+            saved = QuickModels.rememberEnabledMonitor(saved, mon)
+          quickMonitorsRoot.monSaved = saved
           quickMonitorsRoot.monVersion = (quickMonitorsRoot.monVersion + 1) % 1000
         }
       }
@@ -3226,7 +3340,7 @@ Scope {
     }
     Timer { interval: 900; id: monDelay; onTriggered: monScan.running = true }
     Timer {
-      interval: 3000; running: root.quickDetailActive && root.expandedQuickKey === "monitors"; repeat: true; triggeredOnStart: true
+      interval: 3000; running: root.quickMode && root.quickPaneKey === "monitors"; repeat: true; triggeredOnStart: true
       onTriggered: {
         if (!monScan.running) monScan.running = true
         if (!brightProc.running) brightProc.running = true
@@ -3325,12 +3439,13 @@ Scope {
           color: Style.menuInkDeep
           font.pixelSize: root.fontPx(8)
           font.family: root.uiFont
+          elide: Text.ElideRight
+          Layout.maximumWidth: 110
         }
       }
       // Focused-display controls (omarchy.monitor): equal-width preset rows.
-      // Scale pills are labeled with the EFFECTIVE snapped value for the
-      // current mode (a preset like 1.6 may land on 1.575), so what you click
-      // is what you get.
+      // Scale pills are the Hyprland-legal values for this mode (1.875 not
+      // 1.88, 4/3 as 1.333). A named preset that snaps too far is omitted.
       ColumnLayout {
         Layout.fillWidth: true
         spacing: 4
@@ -3353,9 +3468,9 @@ Scope {
             delegate: OptionPill {
               required property string modelData
               required property int index
-              label: (quickMonitorsRoot.focusedMon
+              label: QuickModels.formatScale(quickMonitorsRoot.focusedMon
                 ? QuickModels.cleanScale(modelData, quickMonitorsRoot.focusedMon.width, quickMonitorsRoot.focusedMon.height)
-                : QuickModels.normalizeScale(modelData)) + "×"
+                : modelData) + "×"
               active: index === quickMonitorsRoot.activeScaleIdx
               onTapped: quickMonitorsRoot.setScale(modelData)
             }
@@ -3395,16 +3510,17 @@ Scope {
           }
         }
       }
-      // compact layout viz — leftover pane height, never a rigid 420 that overflows
+      // Layout viz — uniform scale, height capped so the list stays visible.
+      // Label size / line count follow box height so text never clips.
       Rectangle {
         Layout.fillWidth: true
         Layout.fillHeight: true
-        Layout.minimumHeight: 96
-        Layout.maximumHeight: 420
-        Layout.preferredHeight: LauncherGeom.monitorsVizHeight(quickMonitorsRoot.height)
+        Layout.minimumHeight: root.launcherGeom.vizMin
+        Layout.maximumHeight: root.launcherGeom.vizMax
+        Layout.preferredHeight: LauncherGeom.monitorsVizHeight(quickMonitorsRoot.height, root.launcherGeom)
         radius: 6; color: Style.menuControlBg; border.color: Style.menuSep; border.width: 1
         Canvas {
-          anchors.fill: parent; anchors.margins: 10
+          anchors.fill: parent; anchors.margins: 8
           property int v: quickMonitorsRoot.monVersion
           onVChanged: requestPaint()
           onPaint: {
@@ -3413,29 +3529,62 @@ Scope {
             if (!mons.length) { ctx.fillStyle = Style.menuInkDeep; ctx.font = root.fontPx(8)+"px monospace"; ctx.fillText("Loading... rescan", 4, 12); return }
             let minX=0, minY=0, maxX=0, maxY=0
             for (const m of mons) { minX=Math.min(minX, m.x||0); minY=Math.min(minY, m.y||0); maxX=Math.max(maxX, (m.x||0)+quickMonitorsRoot.monitorLogicalWidth(m)); maxY=Math.max(maxY, (m.y||0)+quickMonitorsRoot.monitorLogicalHeight(m)) }
-            const W=width, H=height, pad=10
-            const sx=(W-2*pad)/Math.max(1,maxX-minX), sy=(H-2*pad)/Math.max(1,maxY-minY)
+            const W=width, H=height, pad=8
+            const spanX = Math.max(1, maxX - minX), spanY = Math.max(1, maxY - minY)
+            // Uniform scale keeps logical aspect; center leftover pad.
+            const s = Math.min((W - 2 * pad) / spanX, (H - 2 * pad) / spanY)
+            const ox = pad + (W - 2 * pad - spanX * s) / 2
+            const oy = pad + (H - 2 * pad - spanY * s) / 2
             for (const m of mons) {
-              const x=pad+((m.x||0)-minX)*sx, y=pad+((m.y||0)-minY)*sy
-              const w=quickMonitorsRoot.monitorLogicalWidth(m)*sx, h=quickMonitorsRoot.monitorLogicalHeight(m)*sy
+              const x = ox + ((m.x || 0) - minX) * s, y = oy + ((m.y || 0) - minY) * s
+              const w = quickMonitorsRoot.monitorLogicalWidth(m) * s, h = quickMonitorsRoot.monitorLogicalHeight(m) * s
               ctx.strokeStyle = Style.menuIndigo; ctx.lineWidth = 1; ctx.strokeRect(x, y, w, h)
               ctx.fillStyle = m.focused ? Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.24) : root.menuTileBg
               ctx.fillRect(x+1, y+1, w-2, h-2)
-              ctx.fillStyle = Style.menuInk; ctx.font = root.fontPx(13)+"px monospace"
-              ctx.fillText((m.name||"mon").slice(0,14), x+8, y+18)
-              ctx.font = root.fontPx(11)+"px monospace"
-              ctx.fillText(Math.round(quickMonitorsRoot.monitorLogicalWidth(m))+"x"+Math.round(quickMonitorsRoot.monitorLogicalHeight(m))+" logical", x+8, y+34)
-              ctx.fillText("scale " + (m.scale || 1) + "  " + (m.x || 0) + "," + (m.y || 0), x+8, y+48)
+              const name = (m.name || "mon").slice(0, 14)
+              const logical = Math.round(quickMonitorsRoot.monitorLogicalWidth(m)) + "x" + Math.round(quickMonitorsRoot.monitorLogicalHeight(m)) + " logical"
+              const meta = "scale " + QuickModels.formatScale(m.scale || 1) + "  " + (m.x || 0) + "," + (m.y || 0)
+              const inset = Math.max(4, Math.min(8, w * 0.04))
+              ctx.fillStyle = Style.menuInk
+              if (h >= 72) {
+                const titlePx = Math.max(10, Math.min(13, Math.floor(h / 7)))
+                const metaPx = Math.max(8, titlePx - 2)
+                const y1 = y + inset + titlePx
+                const y2 = y1 + metaPx + 4
+                const y3 = y2 + metaPx + 4
+                ctx.font = root.fontPx(titlePx) + "px monospace"
+                ctx.fillText(name, x + inset, y1)
+                ctx.font = root.fontPx(metaPx) + "px monospace"
+                if (y2 < y + h - 4) ctx.fillText(logical, x + inset, y2)
+                if (y3 < y + h - 4) ctx.fillText(meta, x + inset, y3)
+              } else if (h >= 44) {
+                const titlePx = Math.max(9, Math.min(11, Math.floor(h / 5)))
+                const metaPx = Math.max(7, titlePx - 2)
+                ctx.font = root.fontPx(titlePx) + "px monospace"
+                ctx.fillText(name, x + inset, y + inset + titlePx)
+                ctx.font = root.fontPx(metaPx) + "px monospace"
+                ctx.fillText(logical + " · " + meta, x + inset, y + h - inset - 2)
+              } else {
+                const titlePx = Math.max(8, Math.min(10, Math.floor(h / 3)))
+                ctx.font = root.fontPx(titlePx) + "px monospace"
+                ctx.fillText(name, x + inset, y + h / 2 + titlePx / 3)
+              }
             }
           }
         }
       }
       Text { text: "Mirror uses eDP-1 as source when present. Extend reloads monitors.lua. Layout drawn in logical coordinates."; color: Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont; Layout.alignment: Qt.AlignHCenter }
+      // Content-sized (capped) so leftover height feeds the preview, not a gap.
       Flickable {
-        Layout.fillWidth: true; Layout.fillHeight: true; clip: true
+        Layout.fillWidth: true
+        Layout.fillHeight: false
+        Layout.preferredHeight: Math.min(Math.max(monList.height, root.launcherGeom.minList), root.launcherGeom.monListMax)
+        Layout.maximumHeight: Math.min(Math.max(monList.height, root.launcherGeom.minList), root.launcherGeom.monListMax)
+        Layout.minimumHeight: root.launcherGeom.minList
+        clip: true
         boundsBehavior: Flickable.StopAtBounds
         contentHeight: monList.height
-        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+        ScrollBar.vertical: Menu.MenuScrollBar {}
         Column { id: monList; width: parent.width; spacing: 6
           Repeater {
             model: quickMonitorsRoot.mons || []
@@ -3451,7 +3600,7 @@ Scope {
                 ColumnLayout {
                   Layout.fillWidth: true; spacing: 0
                   Text { text: (modelData.name || "?") + (modelData.mirrorOf && modelData.mirrorOf !== "none" ? (" mirrors " + modelData.mirrorOf) : "") + (modelData.disabled ? "  (off)" : ""); color: modelData.disabled ? Style.menuInkDeep : Style.menuInk; font.pixelSize: root.fontPx(10); font.family: root.uiFont; font.bold: modelData.focused; elide: Text.ElideRight; Layout.fillWidth: true }
-                  Text { text: quickMonitorsRoot.monitorMode(modelData) + "  scale " + (modelData.scale||1) + "  pos " + (modelData.x||0) + "," + (modelData.y||0); color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont; elide: Text.ElideRight; Layout.fillWidth: true }
+                  Text { text: quickMonitorsRoot.monitorMode(modelData) + "  scale " + QuickModels.formatScale(modelData.scale||1) + "  pos " + (modelData.x||0) + "," + (modelData.y||0); color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont; elide: Text.ElideRight; Layout.fillWidth: true }
                 }
                 // Enable/disable this display (guarded against the last one).
                 Rectangle {
@@ -3524,7 +3673,7 @@ Scope {
         }
       }
     }
-    Timer { interval: 2500; running: root.quickDetailActive && root.expandedQuickKey === "temp"; repeat: true; triggeredOnStart: true; onTriggered: if (!tProc.running) tProc.running = true }
+    Timer { interval: 2500; running: root.quickMode && root.quickPaneKey === "temp"; repeat: true; triggeredOnStart: true; onTriggered: if (!tProc.running) tProc.running = true }
 
     Component.onCompleted: Qt.callLater(function(){ if (!tProc.running) tProc.running = true })
 
@@ -3623,6 +3772,8 @@ Scope {
     property var batLines: []
     property string batUpdated: ""
     property string batTimeRemaining: ""
+    property bool batHolding: false
+    property int batThresholdEnd: 100
 
     readonly property var batDetailLines: {
       const lines = quickBatteryRoot.batLines || []
@@ -3679,6 +3830,8 @@ Scope {
         quickBatteryRoot.batLines = raw.length > 1 ? raw.slice(1) : []
         quickBatteryRoot.batUpdated = Qt.formatTime(new Date(), "HH:mm:ss")
         quickBatteryRoot.batTimeRemaining = f.time || ""
+        quickBatteryRoot.batHolding = !!data.holding
+        quickBatteryRoot.batThresholdEnd = Number(data.threshold_end) || 0
       } catch (_) {}
     }
 
@@ -3689,11 +3842,12 @@ Scope {
     }
     Timer {
       interval: 3000
-      running: root.quickDetailActive && root.expandedQuickKey === "battery"
+      running: root.quickMode && root.quickPaneKey === "battery"
       repeat: true
       triggeredOnStart: true
       onTriggered: if (!batProc.running) batProc.running = true
     }
+    Timer { id: batDelay; interval: 400; onTriggered: { if (!batProc.running) batProc.running = true } }
     Component.onCompleted: Qt.callLater(function() { if (!batProc.running) batProc.running = true })
 
     Rectangle {
@@ -3763,6 +3917,80 @@ Scope {
             radius: parent.radius
             color: quickBatteryRoot.batColor()
             Behavior on width { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
+          }
+        }
+
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 6
+          Text {
+            text: quickBatteryRoot.batHolding
+              ? ("Holding at " + quickBatteryRoot.batThresholdEnd + "%")
+              : (quickBatteryRoot.batThresholdEnd > 0 && quickBatteryRoot.batThresholdEnd < 99
+                ? ("Cap " + quickBatteryRoot.batThresholdEnd + "%")
+                : "Charge cap")
+            color: Style.menuInkDeep
+            font.pixelSize: root.fontPx(8)
+            font.family: root.uiFont
+            Layout.fillWidth: true
+          }
+          Rectangle {
+            implicitWidth: hold80Lbl.width + 16
+            implicitHeight: 24
+            radius: Style.menuRadius
+            color: quickBatteryRoot.batThresholdEnd === 80
+              ? Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.18)
+              : (hold80Ma.containsMouse ? Style.menuRowHi : Style.menuControlBg)
+            border.color: quickBatteryRoot.batThresholdEnd === 80 ? Style.green : Style.menuSep
+            border.width: 1
+            Text {
+              id: hold80Lbl
+              anchors.centerIn: parent
+              text: "Hold 80%"
+              font.pixelSize: root.fontPx(8)
+              font.family: root.uiFont
+              font.bold: true
+              color: Style.menuInk
+            }
+            MouseArea {
+              id: hold80Ma
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                Quickshell.execDetached([root.binDir + "/asahi-charge-limit", "80"])
+                batDelay.restart()
+              }
+            }
+          }
+          Rectangle {
+            implicitWidth: hold100Lbl.width + 16
+            implicitHeight: 24
+            radius: Style.menuRadius
+            color: quickBatteryRoot.batThresholdEnd >= 99
+              ? Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.18)
+              : (hold100Ma.containsMouse ? Style.menuRowHi : Style.menuControlBg)
+            border.color: quickBatteryRoot.batThresholdEnd >= 99 ? Style.green : Style.menuSep
+            border.width: 1
+            Text {
+              id: hold100Lbl
+              anchors.centerIn: parent
+              text: "Full 100%"
+              font.pixelSize: root.fontPx(8)
+              font.family: root.uiFont
+              font.bold: true
+              color: Style.menuInk
+            }
+            MouseArea {
+              id: hold100Ma
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                Quickshell.execDetached([root.binDir + "/asahi-charge-limit", "100"])
+                batDelay.restart()
+              }
+            }
           }
         }
 
@@ -3890,7 +4118,7 @@ Scope {
       btActionProc.action = "connect"
       btActionProc.targetMac = mac
       btActionProc.targetName = name || "device"
-      btActionProc.command = ["bluetoothctl", "connect", mac]
+      btActionProc.command = ["timeout", "20s", "bluetoothctl", "connect", mac]
       btActionProc.running = true
     }
     function btDisconnect(mac, name) {
@@ -3899,7 +4127,7 @@ Scope {
       btActionProc.action = "disconnect"
       btActionProc.targetMac = mac
       btActionProc.targetName = name || "device"
-      btActionProc.command = ["bluetoothctl", "disconnect", mac]
+      btActionProc.command = ["timeout", "10s", "bluetoothctl", "disconnect", mac]
       btActionProc.running = true
     }
     function btPair(mac, name) {
@@ -3910,9 +4138,10 @@ Scope {
       btActionProc.targetName = name || "device"
       // Stay open: the row should move from Discovered to Paired in place.
       btActionProc.command = ["bash", "-c",
-        "bluetoothctl pair " + root.shQuote(mac) +
+        root.shQuote(root.binDir + "/asahi-bluetooth-power") + " on >/dev/null 2>&1 || true; " +
+        "timeout 20s bluetoothctl pair " + root.shQuote(mac) +
         " && bluetoothctl trust " + root.shQuote(mac) +
-        " && bluetoothctl connect " + root.shQuote(mac)]
+        " && timeout 20s bluetoothctl connect " + root.shQuote(mac)]
       btActionProc.running = true
     }
     function btForget(mac, name) {
@@ -3923,8 +4152,8 @@ Scope {
       btActionProc.targetName = name || "device"
       // Disconnect first so a connected device can be removed cleanly.
       btActionProc.command = ["bash", "-c",
-        "bluetoothctl disconnect " + root.shQuote(mac) + " >/dev/null 2>&1; " +
-        "bluetoothctl remove " + root.shQuote(mac)]
+        "timeout 10s bluetoothctl disconnect " + root.shQuote(mac) + " >/dev/null 2>&1; " +
+        "timeout 10s bluetoothctl remove " + root.shQuote(mac)]
       btActionProc.running = true
     }
     function toggleScan() {
@@ -3996,7 +4225,7 @@ Scope {
     }
     Timer {
       interval: 4000
-      running: root.quickDetailActive && root.expandedQuickKey === "bluetooth"
+      running: root.quickMode && root.quickPaneKey === "bluetooth"
       repeat: true
       triggeredOnStart: true
       onTriggered: {
@@ -4022,7 +4251,7 @@ Scope {
     }
     function toggleBt() {
       const next = quickBtRoot.btOn ? "off" : "on"
-      Quickshell.execDetached(["sh", "-c", "if [ \"$1\" = on ]; then rfkill unblock bluetooth 2>/dev/null || true; fi; bluetoothctl power \"$1\"", "sh", next])
+      Quickshell.execDetached([root.binDir + "/asahi-bluetooth-power", next])
       quickBtRoot.btOn = !quickBtRoot.btOn
       btDelay.restart()
     }
@@ -4400,7 +4629,7 @@ Scope {
           clip: true
           boundsBehavior: Flickable.StopAtBounds
           contentHeight: storageCol.implicitHeight
-          ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+          ScrollBar.vertical: Menu.MenuScrollBar {}
 
           Column {
             id: storageCol
@@ -4642,6 +4871,136 @@ Scope {
       }
     }
   } }
+  Component { id: quickClipboardComp; Item {
+    anchors.fill: parent
+    ColumnLayout {
+      anchors.fill: parent
+      spacing: 8
+
+      RowLayout {
+        Layout.fillWidth: true
+        Text {
+          Layout.fillWidth: true
+          text: root.clipsError === "cliphist-missing"
+            ? "cliphist is not installed"
+            : ((root.clips || []).length + " ENTRIES")
+          color: Style.menuInkDeep
+          font.pixelSize: root.fontPx(11)
+          font.family: root.uiFont
+          font.letterSpacing: 1.2
+        }
+        Rectangle {
+          width: wipeLbl.implicitWidth + 16
+          height: 26
+          radius: Style.menuRadius
+          color: wipeMa.containsMouse ? Style.panelDangerBg : Style.menuControlBg
+          border.color: Style.menuSep
+          border.width: 1
+          Text {
+            id: wipeLbl
+            anchors.centerIn: parent
+            text: "WIPE"
+            color: Style.red
+            font.pixelSize: root.fontPx(10)
+            font.family: root.uiFont
+          }
+          MouseArea {
+            id: wipeMa
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.wipeClips()
+          }
+        }
+      }
+
+      ListView {
+        id: clipList
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        clip: true
+        spacing: 4
+        boundsBehavior: Flickable.StopAtBounds
+        model: root.clips || []
+        ScrollBar.vertical: Menu.MenuScrollBar {}
+        delegate: Rectangle {
+          required property var modelData
+          width: clipList.width
+          height: modelData.isImage ? 72 : 44
+          radius: 8
+          color: root.copiedClip === String(modelData.id) ? Style.menuRowSel : (clipMa.containsMouse ? Style.menuRowHi : Style.menuControlBg)
+          border.width: 1
+          border.color: root.copiedClip === String(modelData.id) ? Style.menuSeal : Style.menuSep
+          RowLayout {
+            anchors.fill: parent
+            anchors.margins: 8
+            spacing: 8
+            Image {
+              visible: !!modelData.isImage && !!modelData.thumb
+              Layout.preferredWidth: 56
+              Layout.preferredHeight: 48
+              source: modelData.thumb ? ("file://" + modelData.thumb) : ""
+              fillMode: Image.PreserveAspectCrop
+              asynchronous: true
+            }
+            Text {
+              visible: !modelData.isImage
+              text: "󰅌"
+              color: Style.menuSeal
+              font.pixelSize: root.fontPx(14)
+              font.family: root.uiFont
+            }
+            Text {
+              Layout.fillWidth: true
+              text: modelData.isImage ? (modelData.preview || "image") : (modelData.preview || "")
+              color: Style.menuInk
+              font.pixelSize: root.fontPx(11)
+              font.family: root.uiFont
+              elide: Text.ElideRight
+              wrapMode: Text.NoWrap
+            }
+            Text {
+              visible: root.copiedClip === String(modelData.id)
+              text: "copied"
+              color: Style.green
+              font.pixelSize: root.fontPx(10)
+              font.family: root.uiFont
+            }
+          }
+          MouseArea {
+            id: clipMa
+            anchors.fill: parent
+            hoverEnabled: true
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            cursorShape: Qt.PointingHandCursor
+            onClicked: function (mouse) {
+              if (mouse.button === Qt.RightButton) root.deleteClip(modelData.id)
+              else root.copyClip(modelData.id)
+            }
+          }
+        }
+      }
+
+      Text {
+        visible: (root.clips || []).length === 0 && root.clipsError !== "cliphist-missing"
+        text: "Clipboard history is empty — copy something"
+        color: Style.menuInkDeep
+        font.pixelSize: root.fontPx(11)
+        font.family: root.uiFont
+        Layout.alignment: Qt.AlignHCenter
+      }
+      Text {
+        Layout.fillWidth: true
+        text: "L: copy  ·  R: delete"
+        color: Style.menuInkDeep
+        font.pixelSize: root.fontPx(8)
+        font.family: root.uiFont
+        horizontalAlignment: Text.AlignHCenter
+        opacity: 0.7
+      }
+    }
+  } }
+
   Component { id: quickDefaultComp; Item {
     anchors.fill: parent
     Text { anchors.centerIn: parent; text: "select a quick tile"; color: Style.menuInkDeep; font.pixelSize: 10; font.family: root.uiFont }
@@ -4660,6 +5019,7 @@ Scope {
       case "battery": return quickBatteryComp
       case "bluetooth": return quickBtComp
       case "storage": return quickStorageComp
+      case "clipboard": return quickClipboardComp
       default: return quickDefaultComp
     }
   }
@@ -4681,6 +5041,7 @@ Scope {
     if (q.startsWith("@")) return "Documentation"
     if (q.startsWith(":")) return "Actions"
     if (q.startsWith("?")) return "Keys"
+    if (q.startsWith(";")) return "Emoji"
     if (root.fileTerm(q) !== null) return "Files"
     if (root.dictTerm(q) !== null) return "Dictionary"
     return ""
@@ -4688,11 +5049,12 @@ Scope {
 
   readonly property string headerHintText: {
     if (root.quickMode)
-      return root.quickDetailActive
-        ? "HJKL / ↑↓←→  ·  TAB SECT  ·  . APPLY  ·  ESC BACK"
-        : "HJKL / ↑↓  ·  OPEN  ·  ESC BACK"
-    if (root.fileMode) return "↑↓ / TAB  ·  OPEN FILE  ·  ESC BACK"
-    return "↓ / TAB  ·  ↩ OPEN  ·  ESC CLOSE"
+      return root.quickPaneKey !== "hub"
+        ? "↑↓ command · esc cluster"
+        : "↑↓ command · ↩ open · esc leave"
+    if (root.argArmed) return "type argument · ↩ go · tab results"
+    if (root.fileMode) return "↑↓ / tab · open file · esc back"
+    return "↓ / tab · ↩ open · esc close"
   }
 
   readonly property string headerText: {
@@ -4703,6 +5065,7 @@ Scope {
     if (q.startsWith("@")) return "Documentation"
     if (q.startsWith(":")) return "Actions"
     if (q.startsWith("?")) return "› KEYS"
+    if (q.startsWith(";")) return "› EMOJI"
     if (root.fileTerm(q) !== null) return "File Search"
     if (root.dictTerm(q) !== null) return "Dictionary"
     return "LAUNCHER"
@@ -4711,6 +5074,7 @@ Scope {
   readonly property string resultText: {
     const c = root.resultCount
     const s = c !== 1 ? "s" : ""
+    const matches = c === 1 ? "match" : "matches"
     const qq = root.query.trim()
     if (root.fileTerm(qq) !== null) {
       if (root.fileStatus === "loading") return "Searching files..."
@@ -4723,22 +5087,23 @@ Scope {
     if (root.dictTerm(qq) !== null) {
       if (root.dictStatus === "loading") return "Loading dict.cc"
       if (root.dictStatus === "error") return "dict.cc lookup failed"
-      if (root.dictStatus === "prompt") return "Type after dict to translate"
+      if (root.dictStatus === "prompt") return root.argArmed ? "Type a word to translate" : "Tab to type a word"
       if (root.dictStatus === "no-results") return "No translations"
       const lang = root.dictCopyLang === "en" ? "English" : (root.dictCopyLang === "de" ? "German" : "translation")
       return c + " result" + s + " · Return copies " + lang
     }
     if (qq.startsWith(":")) return c + " action" + s
     if (qq.startsWith("?")) return c + " shortcut" + s
+    if (qq.startsWith(";")) return c + " emoji" + s
     if (qq.startsWith("=") || qq.startsWith("!") || qq.startsWith("@")) return c + " result" + s
     if (root.categoryFilter !== "") {
       if (root.quickMode) {
-        const n = (root.quickTiles || []).length
-        return n + " tiles · " + n + " total"
+        const n = (root.quickDeck || []).length
+        return n + " commands · cluster live"
       }
       if (root.categoryFilter === "App") {
         const n = (DesktopEntries.applications.values || []).filter(d => !d.noDisplay && !root.isHiddenApp(d)).length
-        return c + " match" + s + " · " + n + " total"
+        return c + " " + matches + " · " + n + " total"
       }
       if (root.categoryFilter === "Actions") {
         const n = (root.quickActions || []).length
@@ -4752,14 +5117,17 @@ Scope {
         const n = (root.webEngines || []).length
         return c + " engine" + s + " · " + n + " total"
       }
+      if (root.categoryFilter === "Emoji") {
+        return c + " emoji" + s + " · " + Emoji.EMOJI.length + " total"
+      }
       const n = (root.launcherItems || []).filter(x => x.category === root.categoryFilter).length
-      return c + " match" + s + " · " + n + " total"
+      return c + " " + matches + " · " + n + " total"
     }
     if (qq.length === 0) {
       const total = (root.launcherItems || []).length + (DesktopEntries.applications.values || []).length
       return c + " entries · " + total + " total"
     }
-    return c + " match" + s
+    return c + " " + matches
   }
 
   onResultCountChanged: {
@@ -4772,8 +5140,17 @@ Scope {
   onFileVersionChanged: { root.resetFileSelection(); if (root.fileMode) Qt.callLater(root.updateFilePreview) }
   onDeVersionChanged: { if (resultsList) resultsList.currentIndex = 0; root.selectedIndex = 0 }
   onShouldShowChanged: {
-    if (root.shouldShow) root.focusLauncherInput()
-    else root.shotPreviewPath = ""
+    if (root.shouldShow) {
+      chromeHideKick.stop()
+      root.panelVisible = true
+      root.chromeReveal = 0
+      chromeRevealKick.restart()
+      root.focusLauncherInput()
+    } else {
+      root.chromeReveal = 0
+      root.shotPreviewPath = ""
+      chromeHideKick.restart()
+    }
   }
 
   onCategoryFilterChanged: {
@@ -4783,45 +5160,100 @@ Scope {
     if (root.fileMode) root.scheduleFileLookup()
     else { root.fileItems=[]; root.fileStatus=""; root.filePreviewText=""; root.filePreviewMeta=""; root.pdfPreviewPath=""; root.pdfPreviewVersion=0 }
     if (root.categoryFilter === "Quick") {
-      root.query = ""
-      if (searchInput) searchInput.text = ""
-      root.expandedQuickKey = ""
+      root.setSearchQuery("")
+      if (root.expandedQuickKey === "") root.expandedQuickKey = "hub"
     } else {
       root.expandedQuickKey = ""
     }
     if (root.categoryFilter === Data.fileCategory && (root.query || "").trim() === "") {
-      root.query = ">"
-      if (searchInput) searchInput.text = ">"
+      root.setSearchQuery(">")
     }
     if (root.categoryFilter === "Actions" && !(root.query || "").trim().startsWith(":")) {
-      root.query = ":"
-      if (searchInput) searchInput.text = ":"
+      root.setSearchQuery(":")
     }
     if (root.categoryFilter === "Keys" && !(root.query || "").trim().startsWith("?")) {
-      root.query = "?"
-      if (searchInput) searchInput.text = "?"
+      root.setSearchQuery("?")
     }
     if (root.categoryFilter === "Websearch" && !(root.query || "").trim().startsWith("@")) {
-      root.query = "@"
-      if (searchInput) searchInput.text = "@"
+      root.setSearchQuery("@")
+    }
+    if (root.categoryFilter === "Emoji" && !(root.query || "").trim().startsWith(";")) {
+      root.setSearchQuery(";")
     }
     if (root.shouldShow) root.focusLauncherInput()
   }
 
-  function launchCurrent() {
-    if (root.quickMode) {
-      const t = (root.quickTiles || [])[root.selectedIndex]
-      if (!t) return
-      if (t.mode) root.expandQuick(t.key)
-      else if (t.command && t.command.length) { Quickshell.execDetached(root.resolveCmd(t.command)); root.shouldShow = false }
+  function currentResultEntry() {
+    if (resultsList && resultsList.currentItem && resultsList.currentItem.modelData)
+      return resultsList.currentItem.modelData
+    if (filteredApps && filteredApps.values && resultsList && resultsList.currentIndex < filteredApps.values.length)
+      return filteredApps.values[resultsList.currentIndex]
+    return null
+  }
+
+  function setSearchQuery(q) {
+    root.argCommand = ""
+    root.argPlaceholder = ""
+    root.query = q || ""
+    if (searchInput) searchInput.text = root.query
+  }
+
+  function armArgument(command, hint) {
+    const cmd = command || ""
+    if (!cmd) return
+    const arg = ArgCommands.argFromQuery(root.query, cmd)
+    root.argCommand = cmd
+    root.argPlaceholder = hint || ArgCommands.placeholder(cmd)
+    root.query = ArgCommands.join(cmd, arg)
+    if (searchInput) {
+      if (searchInput.text !== arg) searchInput.text = arg
+      searchInput.forceActiveFocus()
+    }
+  }
+
+  function clearArgument() {
+    if (!root.argCommand) return
+    const cmd = root.argCommand
+    root.argCommand = ""
+    root.argPlaceholder = ""
+    root.query = cmd
+    if (searchInput) searchInput.text = cmd
+  }
+
+  function tryArmArgument() {
+    if (root.argArmed) {
+      const arg = searchInput ? String(searchInput.text || "").trim() : ""
+      return !arg
+    }
+    const armed = ArgCommands.tabArm(root.query, root.currentResultEntry(), root.webEngines)
+    if (!armed) return false
+    root.armArgument(armed.command, armed.placeholder)
+    return true
+  }
+
+  function activateDeckItem(t) {
+    if (!t) return
+    if (t.mode) {
+      root.expandQuick(t.key || t.mode)
       return
     }
-    let entry = null
-    if (resultsList && resultsList.currentItem && resultsList.currentItem.modelData) {
-      entry = resultsList.currentItem.modelData
-    } else if (filteredApps && filteredApps.values && resultsList.currentIndex < filteredApps.values.length) {
-      entry = filteredApps.values[resultsList.currentIndex]
+    if (t.ipc) {
+      Quickshell.execDetached(["qs", "-c", "remix", "ipc", "call", t.ipc, "toggle"])
+      root.shouldShow = false
+      return
     }
+    if (t.command && t.command.length) {
+      Quickshell.execDetached(root.resolveCmd(t.command))
+      root.shouldShow = false
+    }
+  }
+
+  function launchCurrent() {
+    if (root.quickMode) {
+      root.activateDeckItem((root.quickDeck || [])[root.selectedIndex])
+      return
+    }
+    const entry = root.currentResultEntry()
     if (entry) root.launchApp(entry)
   }
 
@@ -4841,28 +5273,25 @@ Scope {
     shouldShow = true
     root.categoryFilter = ""
     root.expandedQuickKey = ""
-    if (searchInput) searchInput.text = ""
-    else root.query = ""
+    root.setSearchQuery("")
     if (resultsList) resultsList.currentIndex = 0
     root.focusLauncherInput()
   }
 
   function openFileSearch(term) {
     if (!root.shouldShow) root.openLauncher()
-    const q = ">" + (term || "")
-    root.query = q
-    if (searchInput) searchInput.text = q
+    root.setSearchQuery(">" + (term || ""))
     root.focusLauncherInput()
   }
 
   function openCategory(cat) {
     if (!root.shouldShow) root.openLauncher()
     root.categoryFilter = cat || ""
-    root.query = root.categoryFilter === Data.fileCategory ? ">"
+    root.setSearchQuery(root.categoryFilter === Data.fileCategory ? ">"
       : (root.categoryFilter === "Actions" ? ":"
         : (root.categoryFilter === "Keys" ? "?"
-          : (root.categoryFilter === "Websearch" ? "@" : "")))
-    if (searchInput) searchInput.text = root.query
+          : (root.categoryFilter === "Websearch" ? "@"
+            : (root.categoryFilter === "Emoji" ? ";" : "")))))
     root.selectedIndex = 0
     root.expandedQuickKey = ""
     root.focusLauncherInput()
@@ -4871,12 +5300,13 @@ Scope {
   function openQuick(key) {
     if (!root.shouldShow) root.openLauncher()
     root.categoryFilter = "Quick"
-    root.query = ""
-    if (searchInput) searchInput.text = ""
+    root.setSearchQuery("")
     const k = key === "dashboard" ? "hub" : (key === "vpn" ? "network" : (key || "hub"))
     root.expandedQuickKey = k
-    const idx = (root.quickTiles || []).findIndex(function(t) { return t.mode === k || t.key === k })
+    const idx = (root.quickDeck || []).findIndex(function(t) { return t.mode === k || t.key === k })
     root.selectedIndex = Math.max(0, idx)
+    if (k === "clipboard") root.scanClips()
+    if (k === "screenshots") root.scanShots()
   }
 
   function closeLauncher() {
@@ -4920,10 +5350,11 @@ Scope {
 
   function expandQuick(key) {
     const k = (key === "dashboard" || key === "hub") ? "hub" : key
-    if (!root.quickMode) { root.categoryFilter = "Quick"; root.query = ""; if (searchInput) searchInput.text = "" }
-    root.expandedQuickKey = (root.expandedQuickKey === k ? "" : k)
+    if (!root.quickMode) { root.categoryFilter = "Quick"; root.setSearchQuery("") }
+    root.expandedQuickKey = (k === "hub" || root.quickPaneKey === k) ? "hub" : k
     if (root.expandedQuickKey === "screenshots") root.scanShots()
     if (root.expandedQuickKey === "storage") root.scanStorage()
+    if (root.expandedQuickKey === "clipboard") root.scanClips()
   }
 
   function resolveCmd(c) {
@@ -4982,6 +5413,7 @@ Scope {
       glyph: root.actionGlyph(a),
       special: "action",
       mode: a.mode || "",
+      ipc: a.ipc || "",
       command: a.command || []
     }))
   }
@@ -5009,15 +5441,20 @@ Scope {
       const tgt = entry.target || entry.category || ""
       if (tgt) {
         root.categoryFilter = tgt
-        root.query = tgt === Data.fileCategory ? ">"
+        root.setSearchQuery(tgt === Data.fileCategory ? ">"
           : (tgt === "Actions" ? ":"
-            : (tgt === "Websearch" ? "@" : ""))
-        if (searchInput) searchInput.text = root.query
+            : (tgt === "Keys" ? "?"
+              : (tgt === "Websearch" ? "@"
+                : (tgt === "Emoji" ? ";" : "")))))
         root.selectedIndex = 0
         root.expandedQuickKey = ""
         if (tgt === Data.fileCategory) root.scheduleFileLookup()
         return
       }
+    }
+    if (entry.id === "dict-prompt") {
+      root.armArgument("dict")
+      return
     }
     if (entry.special === "noop") {
       return
@@ -5029,12 +5466,18 @@ Scope {
       if (copy) Quickshell.execDetached(["sh", "-c", "printf %s \"$1\" | wl-copy", "sh", copy])
     } else if (entry.special === "file" && entry.path) {
       Quickshell.execDetached([binDir + "/asahi-launch", "xdg-open", entry.path])
+    } else if (entry.special === "emoji") {
+      const copy = entry.copy || entry.glyph || ""
+      if (copy) Quickshell.execDetached(["sh", "-c", "printf %s \"$1\" | wl-copy", "sh", copy])
     } else if (entry.special === "action") {
       if (entry.mode) {
         root.categoryFilter = "Quick"
-        root.query = ""
-        if (searchInput) searchInput.text = ""
+        root.setSearchQuery("")
         root.expandQuick(entry.mode)
+        return
+      } else if (entry.ipc) {
+        Quickshell.execDetached(["qs", "-c", "remix", "ipc", "call", entry.ipc, "toggle"])
+        root.shouldShow = false
         return
       } else if (entry.command && entry.command.length > 0) {
         Quickshell.execDetached(root.resolveCmd(entry.command))
@@ -5042,11 +5485,14 @@ Scope {
       }
     } else if ((entry.special === "web" || entry.special === "doc") && entry.url) {
       if (entry.prefix) {
-        // selected engine from @ fuzzy list: autofill shortcut like "jaxdoc " so user types the term at _
-        root.query = "@" + entry.prefix + " "
-        if (searchInput) searchInput.text = root.query
+        root.armArgument("@" + entry.prefix, ArgCommands.placeholder("@" + entry.prefix, entry))
         root.selectedIndex = 0
-        return // keep open for term input
+        return
+      }
+      const web = ArgCommands.parse(root.query, root.webEngines)
+      if (web && web.command.charAt(0) === "@" && web.command.length > 1 && !web.arg) {
+        root.armArgument(web.command, ArgCommands.placeholder(web.command, entry))
+        return
       }
       let u = entry.url
       if (u.includes("%TERM%")) u = u.replace("%TERM%", "")
@@ -5087,7 +5533,7 @@ Scope {
     const t = (q || "").trim()
     if (!t) return false
     if (t.startsWith(">") || t.startsWith("@") || t.startsWith(":") || t.startsWith("?")
-        || t.startsWith("=") || t.startsWith("!")) return true
+        || t.startsWith("=") || t.startsWith("!") || t.startsWith(";")) return true
     return root.dictTerm(t) !== null
   }
 
@@ -5368,7 +5814,7 @@ Scope {
       return [{
         id: "dict-prompt",
         name: "Translate with dict.cc",
-        comment: "Type dict followed by a word · en de Term for language override",
+        comment: "Tab to type a word · en de Term for language override",
         icon: root.dictIcon,
         special: "noop"
       }]
@@ -5409,29 +5855,21 @@ Scope {
   }
 
   // websearch: @ uses engines[] (fuzzy lists + prefix direct). ! passes the literal text to Kagi via defaultSearchUrl.
-  // Icons prepared exactly like dictIcon so they render in the launcher results list.
-  property var webEngines: [
-    { name: "Kagi", prefix: "kagi", url: "https://kagi.com/search?q=%TERM%", icon: root.webIconBase + "kagi.png" },
-    { name: "Jax Documentation", prefix: "jaxdoc", url: "https://docs.jax.dev/en/latest/search.html?q=%TERM%", icon: root.webIconBase + "jax.png" },
-    { name: "Flax Documentation", prefix: "flaxdoc", url: "https://flax.readthedocs.io/en/stable/search.html?q=%TERM%", icon: root.webIconBase + "flax.png" },
-    { name: "dict.cc", prefix: "dcc", url: "https://www.dict.cc/?s=%TERM%", icon: root.webIconBase + "dict-cc.png" },
-    { name: "NumPy Documentation", prefix: "npdoc", url: "https://numpy.org/doc/stable/search.html?q=%TERM%", icon: root.webIconBase + "numpy.png" },
-    { name: "Kagi Translate", prefix: "kt", url: "https://translate.kagi.com/?from=auto&to=en_us&text=%TERM%", icon: root.webIconBase + "kagi.png" },
-    { name: "PyTorch Documentation", prefix: "ptdoc", url: "https://docs.pytorch.org/docs/stable/search.html?q=%TERM%", icon: root.webIconBase + "pytorch.png" },
-    { name: "Optax Documentation", prefix: "optax", url: "https://optax.readthedocs.io/en/latest/search.html?q=%TERM%", icon: root.webIconBase + "optax.png" },
-    { name: "Grokipedia", prefix: "grokip", url: "https://grokipedia.com/search?q=%TERM%", icon: root.webIconBase + "grokipedia.png" }
-  ]
+  // Seeded empty; FileView.text() fills from websearch.json (Startpage, wikis, …).
+  property var webEngines: []
   property string defaultSearchUrl: "https://kagi.com/search?q=%s"
 
-  // Robust loading of websearch engines + icons from json (better than XHR).
-  // Edit the json to add/remove engines; put matching PNGs in assets/.
-  // Icons resolved at load time using the same base as dictIcon.
+  // FileView.text() is a method, not a property — passing bare `text` into
+  // JSON.parse throws and silently kept the old hardcoded list (no "sp").
   FileView {
     id: websearchConfig
     path: root.websearchJsonPath
     watchChanges: true
-    onLoaded: root.parseWebsearchConfig(text)
-    onTextChanged: if (root) root.parseWebsearchConfig(text)
+    blockLoading: true
+    onFileChanged: reload()
+    onLoaded: root.parseWebsearchConfig(websearchConfig.text())
+    onTextChanged: if (root) root.parseWebsearchConfig(websearchConfig.text())
+    onLoadFailed: root.parseWebsearchConfig("")
   }
 
   Connections {
@@ -5670,27 +6108,14 @@ Scope {
 
   function parseWebsearchConfig(text) {
     try {
-      const body = (text || "").trim()
-      if (!body) return
-      var data = JSON.parse(body)
-      if (data.engines && data.engines.length > 0) {
-        var base = root.webIconBase
-        webEngines = data.engines.map(function(e) {
-          var ic = e.icon || ""
-          var iconPath = ic
-          if (ic && ic.indexOf(".") > 0 && !ic.startsWith("file://")) {
-            iconPath = base + ic
-          }
-          var r = { name: e.name, prefix: e.prefix, url: e.url, icon: iconPath }
-          if (e.description) r.description = e.description
-          return r
-        })
+      const parsed = WebSearch.parseConfig(text, root.webIconBase)
+      if (parsed && parsed.engines.length > 0) {
+        webEngines = parsed.engines
+        if (parsed.defaultSearchUrl) defaultSearchUrl = parsed.defaultSearchUrl
       }
-      if (data.defaultSearchUrl) defaultSearchUrl = data.defaultSearchUrl
-      webVersion++
     } catch (e) {
-      webVersion++
     }
+    webVersion++
   }
 
   function getSpecialResults(qq) {
@@ -5698,6 +6123,8 @@ Scope {
     if (!q) return null
     const actionResults = getActionResults(q)
     if (actionResults) return actionResults
+    const emojiResults = getEmojiResults(q)
+    if (emojiResults) return emojiResults
     const fileResults = getFileResults(q)
     if (fileResults) return fileResults
     const dictResults = getDictResults(q)
@@ -5744,7 +6171,8 @@ Scope {
 
       // exact prefix match for direct search (e.g. @ptdoc hello → PyTorch docs with the term)
       for (const e of engines) {
-        const p = e.prefix
+        const p = (e.prefix || "").toLowerCase()
+        if (!p) continue
         if (la === p || la.startsWith(p + " ")) {
           let raw = after.substring(p.length).trim()
           const term = raw.replace(/^["'\s]+|["'\s]+$/g, "")
@@ -5789,17 +6217,21 @@ Scope {
       root.shotPreviewPath = ""
       return
     }
-    if (root.quickDetailActive) {
-      root.expandedQuickKey = ""
+    if (root.quickMode && root.quickPaneKey !== "hub") {
+      root.expandedQuickKey = "hub"
+      root.focusLauncherInput()
+      return
+    }
+    if (root.argArmed) {
+      root.clearArgument()
       root.focusLauncherInput()
       return
     }
     if (root.quickMode || root.categoryFilter !== "") {
       root.categoryFilter = ""
-      root.query = ""
+      root.setSearchQuery("")
       root.selectedIndex = 0
       root.expandedQuickKey = ""
-      if (searchInput) searchInput.text = ""
       root.focusLauncherInput()
       return
     }
@@ -5808,16 +6240,19 @@ Scope {
 
   // ---------- Launcher port: scoring + category overview (following bjarneo launcher ref style) ----------
   function goUp() {
-    if (root.quickDetailActive) {
-      root.expandedQuickKey = ""
+    if (root.quickMode && root.quickPaneKey !== "hub") {
+      root.expandedQuickKey = "hub"
+      return true
+    }
+    if (root.argArmed) {
+      root.clearArgument()
       return true
     }
     if (root.categoryFilter !== "") {
       root.categoryFilter = ""
-      root.query = ""
+      root.setSearchQuery("")
       root.selectedIndex = 0
       root.expandedQuickKey = ""
-      if (searchInput) searchInput.text = ""
       return true
     }
     return false
@@ -5835,6 +6270,44 @@ Scope {
     return t.toLowerCase()
   }
 
+  function emojiSearchTerm() {
+    let t = (root.query || "").trim()
+    if (t.startsWith(";")) t = t.substring(1).trim()
+    return t
+  }
+
+  function mapEmojiResults(list) {
+    const src = list || []
+    const out = []
+    for (let i = 0; i < src.length; i++) {
+      const e = src[i]
+      out.push({
+        id: "emoji-" + e.g + "-" + i,
+        title: e.n,
+        name: e.n,
+        comment: e.k || "Enter to copy",
+        glyph: e.g,
+        copy: e.g,
+        category: "Emoji",
+        special: "emoji",
+        _t: (e.n || "").toLowerCase(),
+        _k: (e.k || "").toLowerCase(),
+        _c: "emoji"
+      })
+    }
+    return out
+  }
+
+  function getEmojiResults(q) {
+    const term = Emoji.term(q)
+    if (term === null) return null
+    const hits = Emoji.search(term, root.maxResults)
+    if (hits.length === 0) {
+      return [{ id: "emoji-empty", name: "No emoji found", comment: term, glyph: "󰅙", special: "noop" }]
+    }
+    return root.mapEmojiResults(hits)
+  }
+
   function mapActionEntry(a) {
     return {
       id: "action-" + a.key,
@@ -5844,6 +6317,7 @@ Scope {
       category: "Actions",
       special: "action",
       mode: a.mode || "",
+      ipc: a.ipc || "",
       command: a.command || [],
       _t: (a.name || "").toLowerCase(),
       _k: ((a.key || "") + " " + (a.aliases || []).join(" ")).toLowerCase(),
@@ -5938,6 +6412,10 @@ Scope {
         return p.indexOf(la) >= 0 || n.indexOf(la) >= 0 || p.startsWith(la) || n.startsWith(la)
       }).map(e => root.mapWebEntry(e))
       return webs.length <= root.maxResults ? webs : webs.slice(0, root.maxResults)
+    }
+    if (filter === "Emoji") {
+      const term = root.emojiSearchTerm()
+      return root.mapEmojiResults(Emoji.search(term, root.maxResults))
     }
     if (filter === "Keys") {
       const term = root.keysSearchTerm()
@@ -6146,12 +6624,12 @@ Scope {
 
   PanelWindow {
     id: launcherPanel
-    visible: root.shouldShow
+    visible: root.panelVisible
     focusable: true
     color: "transparent"
 
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+    WlrLayershell.keyboardFocus: root.shouldShow ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     WlrLayershell.namespace: "quickshell-launcher"
     exclusionMode: ExclusionMode.Ignore
 
@@ -6165,24 +6643,29 @@ Scope {
     }
 
     Menu.MenuBackdrop {
-      reveal: root.shouldShow ? 1 : 0
+      reveal: root.chromeReveal
     }
 
     MouseArea {
       anchors.fill: parent
+      enabled: root.shouldShow
       onClicked: root.shouldShow = false
     }
 
     Menu.MenuCard {
       id: launcherBox
       anchors.horizontalCenter: parent.horizontalCenter
-      y: root.launcherGeom.cardY
-      width: root.sideActive ? 1080 : 820
-      Behavior on width { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
+      y: root.launcherGeom.cardY + Math.round(28 * (1 - root.chromeReveal))
+      width: root.launcherGeom.cardWidth
+      Behavior on width { NumberAnimation { duration: Style.menuAnimMs + 40; easing.type: Easing.OutCubic } }
+      Behavior on y { NumberAnimation { duration: Style.menuAnimMs + 40; easing.type: Easing.OutCubic } }
+      Behavior on height { NumberAnimation { duration: Style.menuAnimMs + 80; easing.type: Easing.OutCubic } }
       height: root.launcherGeom.cardHeight
-      cardMargin: 17
+      cardMargin: root.launcherGeom.cardMargin
+      chromeReveal: root.chromeReveal
       focus: true
       activeFocusOnTab: true
+      enabled: root.shouldShow
       Keys.onPressed: (event) => {
         if (event.key === Qt.Key_Escape) {
           root.handleEscape()
@@ -6213,99 +6696,165 @@ Scope {
         } else if (qk === Qt.Key_Return || qk === Qt.Key_Enter) {
           root.launchCurrent()
           event.accepted = true
+        } else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32
+          && event.text.charCodeAt(0) !== 127
+          && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))) {
+          root.categoryFilter = ""
+          root.expandedQuickKey = ""
+          root.setSearchQuery(event.text)
+          event.accepted = true
         }
       }
 
       ColumnLayout {
         id: launcherCol
         anchors.fill: parent
-        spacing: 12
+        spacing: root.launcherGeom.colSpacing
 
         Menu.MenuHeader {
           Layout.fillWidth: true
-          Layout.preferredHeight: implicitHeight
+          Layout.preferredHeight: (root.sectionName !== "" || root.quickMode) ? implicitHeight : 0
+          visible: root.sectionName !== "" || root.quickMode
           fontFamily: root.uiFont
           fontScale: root.uiFontScale
-          title: "LAUNCHER"
+          title: root.quickMode ? "Deck" : "Launcher"
           sectionIcon: root.sectionIcon
-          sectionName: root.sectionName
-          countLine: root.resultText.toUpperCase()
+          sectionName: {
+            if (!root.quickMode) return root.sectionName
+            if (root.quickPaneKey === "hub") return "Cluster"
+            const list = root.quickDeck || []
+            for (let i = 0; i < list.length; i++) {
+              if (list[i].key === root.quickPaneKey || list[i].mode === root.quickPaneKey)
+                return list[i].label || root.quickPaneKey
+            }
+            return root.quickPaneKey
+          }
+          countLine: root.resultText
           hintText: root.headerHintText
-          subtitle: root.sectionName === ""
-            ? root.resultText.toUpperCase()
-            : ""
+          subtitle: ""
         }
 
-        Menu.MenuDivider { Layout.fillWidth: true; Layout.preferredHeight: implicitHeight }
+        Menu.MenuDivider {
+          Layout.fillWidth: true
+          Layout.preferredHeight: implicitHeight
+          visible: root.sectionName !== "" || root.quickMode
+        }
 
         // search hidden in quickMode (bjarneo: no search bar; grid+side is the view;
         // prevents typing pollution of query/cat/schedules while grid+side shown)
         Item {
           Layout.fillWidth: true
-          Layout.preferredHeight: root.quickMode ? 0 : 42
+          Layout.preferredHeight: root.quickMode ? 0 : root.launcherGeom.searchH
           visible: !root.quickMode
           clip: true
 
           Text {
             id: searchPrompt
+            visible: root.argArmed
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
             text: root.fileMode ? "󰉖" : "󰍉"
-            color: searchInput.activeFocus ? Style.menuSeal : Style.menuInkDeep
+            color: searchInput.activeFocus ? Style.menuAccent : Style.menuInkDeep
             font.family: root.uiFont
-            font.pixelSize: root.fontPx(18)
+            font.pixelSize: root.fontPx(16)
             Behavior on color { ColorAnimation { duration: 120 } }
           }
 
-          TextInput {
-            id: searchInput
+          Rectangle {
+            id: argChip
+            visible: root.argArmed
             anchors.left: searchPrompt.right
             anchors.leftMargin: 10
-            anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
+            width: chipLabel.implicitWidth + 14
+            height: Math.round(parent.height * 0.64)
+            radius: 6
+            color: Style.menuRowSel
+            border.width: 0
+            Text {
+              id: chipLabel
+              anchors.centerIn: parent
+              text: root.argCommand
+              color: Style.menuAccent
+              font.family: root.uiSans
+              font.pixelSize: root.fontPx(12)
+              font.weight: Font.Medium
+            }
+          }
+
+          Item {
+            id: argFieldWrap
+            anchors.left: root.argArmed ? argChip.right : parent.left
+            anchors.leftMargin: root.argArmed ? 10 : 0
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+
+          TextInput {
+            id: searchInput
+            anchors.fill: parent
             color: text.length > 0 ? Style.menuInk : Style.menuInkDeep
-            opacity: text.length > 0 ? 1 : 0.55
-            font.family: root.uiFont
-            font.pixelSize: root.fontPx(15)
-            font.letterSpacing: 1
+            opacity: text.length > 0 || root.argArmed ? 1 : 0.62
+            font.family: root.uiDisplay
+            font.pixelSize: root.fontPx(20)
+            font.letterSpacing: 0.05
+            font.weight: Font.Medium
+            verticalAlignment: TextInput.AlignVCenter
             clip: true
             focus: true
             Accessible.role: Accessible.EditableText
-            Accessible.name: "Search applications"
+            Accessible.name: root.argArmed ? (root.argPlaceholder || "Argument") : "Search applications"
+            cursorDelegate: Rectangle {
+              width: 2
+              height: Math.round(searchInput.font.pixelSize * 1.05)
+              radius: 1
+              color: Style.menuAccent
+              anchors.verticalCenter: parent ? parent.verticalCenter : undefined
+              SequentialAnimation on opacity {
+                running: searchInput.activeFocus && searchInput.cursorVisible
+                loops: Animation.Infinite
+                NumberAnimation { from: 1; to: 0.15; duration: 560; easing.type: Easing.InOutSine }
+                NumberAnimation { from: 0.15; to: 1; duration: 560; easing.type: Easing.InOutSine }
+              }
+            }
 
             Text {
               anchors.fill: parent
-              text: root.fileMode
-                ? "Type to search files in ~ (globs: mrrobot/*.txt, regex: word1 word2)"
-                : "Type to search apps (or >files @web :act ?keys =calc !web dict)"
+              text: root.argArmed
+                ? (root.argPlaceholder || "argument…")
+                : (root.fileMode ? "search files…" : "Search")
               color: Style.menuInkDeep
               font: parent.font
-              opacity: 0.5
-              visible: !parent.text && !parent.activeFocus
+              opacity: root.argArmed ? 0.7 : 0.45
+              visible: !parent.text && (root.argArmed || !parent.activeFocus)
               verticalAlignment: Text.AlignVCenter
             }
 
             onTextChanged: {
-              root.query = text
+              root.query = root.argArmed ? ArgCommands.join(root.argCommand, text) : text
               if (root.quickMode) {
                 // no schedules, no auto-cat from search while quick grid is active (hidden input; internal cat sets still ok)
                 if (resultsList) resultsList.currentIndex = 0
                 return
               }
-              const ft = root.fileTerm(text)
+              const shown = root.query
+              const ft = root.fileTerm(shown)
               if (ft !== null && root.categoryFilter !== Data.fileCategory) {
                 root.categoryFilter = Data.fileCategory
               }
-              if (text.trim().startsWith(":") && root.categoryFilter !== "Actions") {
+              if (shown.trim().startsWith(":") && root.categoryFilter !== "Actions") {
                 root.categoryFilter = "Actions"
               }
-              if (text.trim().startsWith("?") && root.categoryFilter !== "Keys") {
+              if (shown.trim().startsWith("?") && root.categoryFilter !== "Keys") {
                 root.categoryFilter = "Keys"
               }
-              if (text.trim().startsWith("@") && root.categoryFilter !== "Websearch") {
+              if (shown.trim().startsWith("@") && root.categoryFilter !== "Websearch") {
                 root.categoryFilter = "Websearch"
               }
-              if (text.trim() && !root.isPrefixSpecial(text) && root.categoryFilter === "" && !root.quickMode) {
+              if (shown.trim().startsWith(";") && root.categoryFilter !== "Emoji") {
+                root.categoryFilter = "Emoji"
+              }
+              if (shown.trim() && !root.isPrefixSpecial(shown) && root.categoryFilter === "" && !root.quickMode) {
                 root.categoryFilter = "App"
               }
               root.scheduleDictLookup()
@@ -6324,6 +6873,11 @@ Scope {
               // else if(query) else if(!goUp)close), then cat, then close
               if (event.key === Qt.Key_Escape) {
                 root.handleEscape()
+                event.accepted = true
+                return
+              }
+              if (event.key === Qt.Key_Backspace && root.argArmed && (searchInput.text || "") === "") {
+                root.clearArgument()
                 event.accepted = true
                 return
               }
@@ -6354,6 +6908,10 @@ Scope {
                 }
                 return
               }
+              if (event.key === Qt.Key_Tab && !(event.modifiers & Qt.ShiftModifier) && root.tryArmArgument()) {
+                event.accepted = true
+                return
+              }
               if (event.key === Qt.Key_Down || (event.key === Qt.Key_Tab && !(event.modifiers & Qt.ShiftModifier))) {
                 event.accepted = true
                 resultsList.currentIndex = Math.min(resultsList.currentIndex + 1, max)
@@ -6366,32 +6924,58 @@ Scope {
               }
             }
           }
+          }
+
+          Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: 1
+            color: searchInput.activeFocus ? Style.menuAccent : Style.menuSep
+            opacity: searchInput.activeFocus ? 0.85 : 1
+            Behavior on color { ColorAnimation { duration: 120 } }
+          }
         }
 
-        Menu.MenuDivider { Layout.fillWidth: true; Layout.preferredHeight: implicitHeight; visible: !root.quickMode }
+        Menu.MenuDivider { Layout.fillWidth: true; Layout.preferredHeight: implicitHeight; visible: false }
 
         // List area (with optional file preview split). Height is leftover
         // inside the card (ColumnLayout fill), not a fraction of the overlay.
         Item {
           id: listArea
           Layout.fillWidth: true
-          Layout.fillHeight: true
-          Layout.minimumHeight: 120
+          Layout.fillHeight: !root.compactLauncher
+          Layout.minimumHeight: root.compactLauncher
+            ? root.launcherGeom.bodyHeight
+            : root.launcherGeom.minList
           Layout.preferredHeight: root.launcherGeom.bodyHeight
+          Layout.maximumHeight: root.compactLauncher
+            ? root.launcherGeom.bodyHeight
+            : 100000
           visible: true
           clip: true
           readonly property var tileGeom: LauncherGeom.tileMetrics(
             height,
-            (root.quickTiles || []).length,
-            !!root.quickDetailActive
+            (root.quickDeck || []).length,
+            true,
+            root.launcherGeom.uiScale
           )
 
           // Normal results list (or split when preview for files)
           Item {
             anchors.fill: parent
 
-            readonly property real listFrac: root.quickDetailActive ? 0.12
-              : (root.sideActive ? (root.quickMode ? 0.38 : 0.46) : 1.0)
+            readonly property real listFrac: root.quickMode ? 0.22
+              : (root.sideActive ? 0.46 : 1.0)
+            // Icon + longest deck label ("Temperatures") + chevron. A
+            // fraction of a wide card left a hollow rail; size to type.
+            readonly property int quickRailW: {
+              const chrome = 10 + 10 + 20 + 8
+              const label = Math.round(root.fontPx(11) * 8.4)
+              const want = chrome + label + 8
+              const cap = Math.round(width * 0.28)
+              return Math.max(root.launcherGeom.sideMin, Math.min(want, cap))
+            }
 
             ListView {
               id: resultsList
@@ -6406,6 +6990,7 @@ Scope {
               currentIndex: 0
               highlightFollowsCurrentItem: false
               pixelAligned: true
+              ScrollBar.vertical: Menu.MenuScrollBar {}
 
               onCountChanged: if (!root.quickMode) root.resultCount = count
               onCurrentIndexChanged: if (currentIndex >= 0) root.selectedIndex = currentIndex
@@ -6418,42 +7003,52 @@ Scope {
                 readonly property string dName: modelData.name || modelData.title || "?"
                 readonly property string dSub: modelData.comment || ""
                 readonly property bool dCat: !!modelData.isCategory
-                height: dCat || dSub === "" ? 44 : 56
+                height: dCat || dSub === "" ? root.launcherGeom.rowH : root.launcherGeom.rowHTall
                 readonly property bool isSelected: resultsList.currentIndex === index
                 readonly property string dIcon: modelData.icon || ""
                 readonly property string dRawIcon: modelData.rawIcon || ""
                 readonly property string dImage: root.resolveIconUrl(dRawIcon || (dIcon.startsWith("file://") || dIcon.charAt(0) === "/" ? dIcon : ""))
                 readonly property string dGlyph: modelData.glyph || (dImage === "" && dIcon !== "" ? dIcon : "")
                 readonly property string dAcc: modelData.accessory || (modelData.isCategory ? "›" : "")
+                readonly property color dTint: root.itemTintColor(modelData)
 
                 Accessible.role: Accessible.Button
                 Accessible.name: dName
 
                 Rectangle {
                   anchors.fill: parent
-                  color: delegateRoot.isSelected ? Style.menuRowSel
-                        : rowMa.containsMouse ? Style.menuRowHi : "transparent"
-                  Behavior on color { ColorAnimation { duration: 40 } }
+                  anchors.leftMargin: 2
+                  anchors.rightMargin: 2
+                  anchors.topMargin: 1
+                  anchors.bottomMargin: 1
+                  radius: Style.radiusSm
+                  color: delegateRoot.isSelected
+                    ? Style.menuRowSel
+                    : (rowMa.containsMouse ? Style.menuRowHi : "transparent")
+                  border.width: 0
                 }
+
                 Rectangle {
-                  anchors.left: parent.left
-                  anchors.top: parent.top
-                  anchors.bottom: parent.bottom
-                  width: 2
-                  color: Style.menuSeal
                   visible: delegateRoot.isSelected
+                  width: Style.menuRail
+                  height: parent.height - 12
+                  radius: 1
+                  color: Style.menuAccent
+                  anchors.left: parent.left
+                  anchors.leftMargin: 4
+                  anchors.verticalCenter: parent.verticalCenter
                 }
 
                 RowLayout {
                   anchors.fill: parent
-                  anchors.leftMargin: 14
-                  anchors.rightMargin: 14
-                  spacing: 12
+                  anchors.leftMargin: root.launcherGeom.rowPad
+                  anchors.rightMargin: root.launcherGeom.rowPad
+                  spacing: root.launcherGeom.colSpacing
 
                   Item {
                     id: iconSlot
-                    width: 30
-                    height: 30
+                    width: root.launcherGeom.iconSlot
+                    height: root.launcherGeom.iconSlot
                     Layout.alignment: Qt.AlignVCenter
                     Image {
                       id: rowIcon
@@ -6466,10 +7061,18 @@ Scope {
                       asynchronous: true
                       visible: delegateRoot.dImage !== "" && status === Image.Ready
                     }
+                    Rectangle {
+                      anchors.centerIn: parent
+                      width: parent.width
+                      height: parent.height
+                      radius: 6
+                      color: Qt.alpha(delegateRoot.dTint, 0.14)
+                      visible: delegateRoot.dImage === "" || rowIcon.status !== Image.Ready
+                    }
                     Text {
                       anchors.centerIn: parent
                       text: delegateRoot.dGlyph !== "" ? delegateRoot.dGlyph : delegateRoot.dName.charAt(0).toUpperCase()
-                      color: delegateRoot.dCat ? Style.menuSeal : (delegateRoot.isSelected ? Style.menuSeal : (delegateRoot.dGlyph === "󰉋" ? "#89b4fa" : Style.menuInkDeep))
+                      color: delegateRoot.dTint
                       font.pixelSize: delegateRoot.dGlyph !== "" ? root.fontPx(20) : root.fontPx(15)
                       font.family: root.uiFont
                       visible: rowIcon.status !== Image.Ready
@@ -6483,11 +7086,11 @@ Scope {
                     Text {
                       Layout.fillWidth: true
                       text: delegateRoot.dName + (delegateRoot.dCat ? "  ›" : "")
-                      color: delegateRoot.isSelected ? Style.menuInk : Style.menuInkDeep
+                      color: delegateRoot.isSelected ? Style.menuAccent : Style.menuInk
                       font.pixelSize: root.fontPx(14)
-                      font.family: root.uiFont
-                      font.weight: delegateRoot.isSelected ? Font.Medium : Font.Light
-                      font.letterSpacing: 1
+                      font.family: root.uiSans
+                      font.weight: delegateRoot.isSelected ? Font.Medium : Font.Normal
+                      font.letterSpacing: 0.15
                       elide: Text.ElideRight
                     }
 
@@ -6495,11 +7098,11 @@ Scope {
                       Layout.fillWidth: true
                       visible: delegateRoot.dSub !== "" && !delegateRoot.dCat && !root.fileMode
                       text: delegateRoot.dSub
-                      color: delegateRoot.isSelected ? Style.menuInk : Style.menuInkDeep
-                      opacity: delegateRoot.isSelected ? 0.75 : 0.5
+                      color: Style.menuInkDeep
+                      opacity: delegateRoot.isSelected ? 0.85 : 0.7
                       font.pixelSize: root.fontPx(11)
-                      font.family: root.uiFont
-                      font.letterSpacing: 0.5
+                      font.family: root.uiSans
+                      font.letterSpacing: 0.1
                       elide: Text.ElideRight
                       maximumLineCount: 1
                     }
@@ -6508,18 +7111,18 @@ Scope {
                   Text {
                     text: root.fileMode && modelData.path
                       ? Data.tildify(Data.dirname(modelData.path), root.homeDir)
-                      : delegateRoot.dAcc.toUpperCase()
+                      : delegateRoot.dAcc
                     visible: text !== ""
-                    color: delegateRoot.isSelected ? Style.menuSeal : Style.menuInkDeep
-                    opacity: delegateRoot.isSelected ? 0.95 : 0.65
+                    color: delegateRoot.isSelected ? Style.menuAccent : Style.menuInkMuted
+                    opacity: delegateRoot.isSelected ? 0.9 : 0.6
                     font.pixelSize: root.fontPx(11)
-                    font.family: root.uiFont
-                    font.letterSpacing: 2
+                    font.family: root.uiSans
+                    font.letterSpacing: 0.15
                     elide: Text.ElideLeft
                     maximumLineCount: 1
                     // Key combos ("SUPER+SHIFT+ESCAPE") need more room than
                     // the short APP/category accessories.
-                    Layout.maximumWidth: modelData.category === "Keys" ? 340 : 180
+                    Layout.maximumWidth: modelData.category === "Keys" ? root.launcherGeom.accMaxKeys : root.launcherGeom.accMax
                   }
                 }
 
@@ -6533,15 +7136,35 @@ Scope {
                 }
               }
 
-              Text {
+              Column {
                 anchors.centerIn: parent
-                text: (root.resultCount === 0 && searchInput.text !== "" ? "NOTHING MATCHES" : "")
-                color: Style.menuInkDeep
-                font.family: root.uiFont
-                font.pixelSize: 11
-                font.letterSpacing: 3
-                opacity: 0.6
+                spacing: 8
                 visible: root.resultCount === 0 && searchInput.text !== ""
+                Text {
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  text: "󰍉"
+                  color: Style.menuAccent
+                  font.family: root.uiFont
+                  font.pixelSize: root.fontPx(28)
+                  opacity: 0.8
+                }
+                Text {
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  text: "Nothing matches"
+                  color: Style.menuInkDeep
+                  font.family: root.uiSans
+                  font.pixelSize: root.fontPx(13)
+                  font.letterSpacing: 0.15
+                  font.weight: Font.Medium
+                }
+                Text {
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  text: "Try another query or prefix"
+                  color: Style.menuInkMuted
+                  font.family: root.uiSans
+                  font.pixelSize: root.fontPx(11)
+                  opacity: 0.8
+                }
               }
             }
 
@@ -6552,28 +7175,30 @@ Scope {
               anchors.top: parent.top
               anchors.bottom: parent.bottom
               anchors.left: parent.left
-              width: parent.width * parent.listFrac
+              width: root.quickDetailActive
+                ? parent.quickRailW
+                : parent.width * parent.listFrac
               clip: true
               boundsBehavior: Flickable.StopAtBounds
               contentHeight: Math.max(height, listArea.tileGeom.tileColumnHeight)
               interactive: contentHeight > height + 1
-              Behavior on width { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
-              ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+              Behavior on width { NumberAnimation { duration: Style.menuAnimMs; easing.type: Easing.OutCubic } }
+              ScrollBar.vertical: Menu.MenuScrollBar {}
 
               Grid {
                 id: quickGrid
                 width: quickSide.width
                 height: Math.max(1, listArea.tileGeom.tileColumnHeight)
                 columns: root.quickGridCols
-                rowSpacing: root.quickDetailActive ? 6 : 12
-                columnSpacing: root.quickDetailActive ? 6 : 12
+                rowSpacing: listArea.tileGeom.tileGap
+                columnSpacing: listArea.tileGeom.tileGap
                 clip: true
                 readonly property bool colMode: root.quickDetailActive
                 readonly property int tileH: listArea.tileGeom.tileH
-                Timer { interval: 0; running: root.quickMode; repeat: false; onTriggered: root.resultCount = (root.quickTiles || []).length }
+                Timer { interval: 0; running: root.quickMode; repeat: false; onTriggered: root.resultCount = (root.quickDeck || []).length }
 
               Repeater {
-                model: root.quickTiles || []
+                model: root.quickDeck || []
                 delegate: Item {
                   id: qtile
                   required property var modelData
@@ -6582,55 +7207,21 @@ Scope {
                   readonly property var t: modelData || {}
                   width: (quickGrid.width - (quickGrid.columns-1)*quickGrid.columnSpacing) / quickGrid.columns
                   height: quickGrid.tileH
-                  Rectangle {
+                  Menu.MenuHudTile {
                     anchors.fill: parent
-                    anchors.margins: quickGrid.colMode ? 3 : (isSel ? 2 : 6)
-                    anchors.bottomMargin: quickGrid.colMode ? 3 : (isSel ? 8 : 10)
-                    radius: Style.menuRadius
-                    color: isSel
-                      ? Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.08)
-                      : qma.containsMouse
-                        ? Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.05)
-                        : Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.03)
-                    border.color: isSel ? Style.menuSeal : Style.menuSep
-                    border.width: isSel ? 2 : 1
-                    Behavior on color { ColorAnimation { duration: 50 } }
-                    Behavior on border.color { ColorAnimation { duration: 50 } }
-                    Behavior on border.width { NumberAnimation { duration: 50 } }
-                  }
-                  Column {
-                    width: parent.width - (quickGrid.colMode ? 12 : 16)
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.verticalCenterOffset: quickGrid.colMode ? 0 : -2
-                    spacing: quickGrid.colMode ? 2 : 5
-                    topPadding: quickGrid.colMode ? 0 : 2
-                    bottomPadding: quickGrid.colMode ? 0 : 4
-                    Text {
-                      text: t.glyph || "󰘔"; color: isSel ? Style.menuSeal : Style.menuInk
-                      font.pixelSize: root.fontPx(quickGrid.colMode ? 18 : 24)
-                      font.family: root.uiFont; anchors.horizontalCenter: parent.horizontalCenter
-                    }
-                    Text {
-                      visible: !quickGrid.colMode
-                      anchors.horizontalCenter: parent.horizontalCenter
-                      width: parent.width
-                      text: (t.label || "").toUpperCase()
-                      color: isSel ? Style.menuInk : Style.menuInkDeep
-                      font.pixelSize: root.fontPx(11)
-                      font.family: root.uiFont; font.letterSpacing: 1.4
-                      font.weight: Font.Medium
-                      elide: Text.ElideRight
-                      horizontalAlignment: Text.AlignHCenter
-                    }
-                    Text {
-                      visible: !quickGrid.colMode
-                      anchors.horizontalCenter: parent.horizontalCenter
-                      width: parent.width
-                      text: t.sub || ""
-                      color: Style.menuInkDeep; font.pixelSize: root.fontPx(9); font.family: root.uiFont
-                      opacity: 0.8; elide: Text.ElideRight; horizontalAlignment: Text.AlignHCenter
-                    }
+                    selected: isSel
+                    hovered: qma.containsMouse
+                    compact: quickGrid.colMode
+                    indexLabel: (index + 1) < 10 ? ("0" + (index + 1)) : String(index + 1)
+                    glyph: t.glyph || "󰘔"
+                    label: t.label || ""
+                    sub: t.sub || ""
+                    accessory: t.kind === "run" || t.kind === "ipc" ? "run" : "pane"
+                    tint: root.tintColor(t.tint)
+                    fontFamily: root.uiFont
+                    glyphPx: root.fontPx(24)
+                    labelPx: root.fontPx(11)
+                    subPx: root.fontPx(9)
                   }
                   MouseArea {
                     id: qma
@@ -6640,10 +7231,7 @@ Scope {
                     onPositionChanged: { root.selectedIndex = index; if (resultsList) resultsList.currentIndex = index }
                     onClicked: {
                       root.selectedIndex = index
-                      if (modelData.mode) root.expandQuick(modelData.key)
-                      else if (modelData.command && modelData.command.length > 0) {
-                        Quickshell.execDetached(root.resolveCmd(modelData.command)); root.shouldShow = false
-                      }
+                      root.activateDeckItem(modelData)
                     }
                   }
                 }
@@ -6659,7 +7247,7 @@ Scope {
               anchors.left: quickSide.right; anchors.leftMargin: 12
               width: 1; color: Style.menuSep
               opacity: root.quickDetailActive ? 1 : 0
-              Behavior on opacity { NumberAnimation { duration: 100 } }
+              Behavior on opacity { NumberAnimation { duration: Style.menuAnimMs } }
             }
 
             // Preview pane (file only for now, launcher style split; or quick feature detail when expanded)
@@ -6668,7 +7256,7 @@ Scope {
               anchors.top: parent.top
               anchors.bottom: parent.bottom
               anchors.left: root.quickMode && root.quickDetailActive ? quickSep.right : (root.quickMode ? quickSide.right : resultsList.right)
-              anchors.leftMargin: root.quickDetailActive ? 10 : 8
+              anchors.leftMargin: root.quickDetailActive ? root.launcherGeom.sidePad : root.launcherGeom.panePad
               anchors.right: parent.right
 
               // quick detail side (exact ref: header glyph26 + label13 lSp2 + sub10 + round×22; topM6; no mid hairline in detail; flick topM10; bodies are feature windows content)
@@ -6678,14 +7266,13 @@ Scope {
                 anchors.fill: parent
                 clip: true
                 opacity: root.quickDetailActive ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
-                readonly property bool hubMode: root.expandedQuickKey === "hub"
-                  || root.expandedQuickKey === "dashboard"
-                readonly property var qtile: (root.quickTiles || []).find(function(x){ return x.key === root.expandedQuickKey }) || {}
+                Behavior on opacity { NumberAnimation { duration: Style.menuAnimMs; easing.type: Easing.OutCubic } }
+                readonly property bool hubMode: root.quickPaneKey === "hub"
+                readonly property var qtile: (root.quickDeck || []).find(function(x){ return x.key === root.quickPaneKey || x.mode === root.quickPaneKey }) || {}
                 RowLayout {
                   id: qDetailHeader
                   visible: !qDetailSide.hubMode
-                  anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.topMargin: 8; spacing: 12
+                  anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.topMargin: root.launcherGeom.panePad; spacing: root.launcherGeom.colSpacing
                   Text {
                     text: qDetailSide.qtile.glyph || "󰘔"
                     color: Style.menuSeal
@@ -6698,11 +7285,11 @@ Scope {
                     Layout.alignment: Qt.AlignVCenter
                     spacing: 2
                     Text {
-                      text: (qDetailSide.qtile.label || "").toUpperCase()
+                      text: qDetailSide.qtile.label || ""
                       color: Style.menuInk
-                      font.family: root.uiFont
-                      font.pixelSize: root.fontPx(10)
-                      font.letterSpacing: 1.8
+                      font.family: root.uiSans
+                      font.pixelSize: root.fontPx(12)
+                      font.letterSpacing: 0.15
                       font.weight: Font.Medium
                     }
                     Text {
@@ -6733,7 +7320,7 @@ Scope {
                       anchors.fill: parent
                       hoverEnabled: true
                       cursorShape: Qt.PointingHandCursor
-                      onClicked: root.expandedQuickKey = ""
+                      onClicked: root.expandedQuickKey = "hub"
                     }
                   }
                 }
@@ -6745,7 +7332,7 @@ Scope {
                   anchors.bottom: parent.bottom
                   anchors.topMargin: qDetailSide.hubMode ? 0 : 8
                   active: root.quickDetailActive
-                  sourceComponent: root.quickDetailFor(root.expandedQuickKey)
+                  sourceComponent: root.quickDetailFor(root.quickPaneKey)
                 }
               }
 
@@ -6838,7 +7425,7 @@ Scope {
 
         Text {
           Layout.fillWidth: true
-          visible: !root.quickMode
+          visible: !root.quickMode && !root.compactLauncher && text !== ""
           elide: Text.ElideRight
           text: {
             const it = resultsList.currentItem ? resultsList.currentItem.modelData : null
@@ -6851,11 +7438,11 @@ Scope {
             if (it.command) return "$ " + (it.command.join ? it.command.join(" ") : it.command)
             return it.comment || ""
           }
-          color: Style.menuInkDeep
-          font.family: root.uiFont
+          color: Style.menuInkMuted
+          font.family: root.uiSans
           font.pixelSize: root.fontPx(11)
-          font.letterSpacing: 1
-          opacity: 0.65
+          font.letterSpacing: 0.1
+          opacity: 0.75
         }
 
         Menu.MenuHintRow {
@@ -6863,7 +7450,8 @@ Scope {
           Layout.preferredHeight: implicitHeight
           fontFamily: root.uiFont
           fontScale: root.uiFontScale
-          hints: "!  >  :  @  dict"
+          gridNav: root.quickMode
+          hints: root.quickMode ? "esc  cluster / leave" : (root.argArmed ? "tab  results" : "tab  argument  ·  !  >  ;  @  dict")
         }
       }
 
@@ -6872,7 +7460,7 @@ Scope {
         anchors.fill: parent
         color: Style.menuDim
         visible: root.shotPreviewPath !== ""
-        radius: 16
+        radius: Style.menuRadius
         z: 30
 
         MouseArea { anchors.fill: parent; onClicked: root.shotPreviewPath = "" }
@@ -6895,7 +7483,7 @@ Scope {
           Rectangle {
             width: 96
             height: 34
-            radius: 17
+            radius: Style.radiusLg
             color: copyShotPreviewMa.containsMouse ? root.menuSuccessBg : Style.menuControlBg
             border.width: 1
             border.color: copyShotPreviewMa.containsMouse ? Style.green : Style.menuSep
@@ -6919,7 +7507,7 @@ Scope {
           Rectangle {
             width: 96
             height: 34
-            radius: 17
+            radius: Style.radiusLg
             color: openShotPreviewMa.containsMouse ? Style.menuRowSel : Style.menuControlBg
             border.width: 1
             border.color: openShotPreviewMa.containsMouse ? Style.menuSeal : Style.menuSep
@@ -6943,7 +7531,7 @@ Scope {
           Rectangle {
             width: 96
             height: 34
-            radius: 17
+            radius: Style.radiusLg
             color: deleteShotPreviewMa.containsMouse ? root.menuDangerBg : Style.menuControlBg
             border.width: 1
             border.color: deleteShotPreviewMa.containsMouse ? Style.red : Style.menuSep

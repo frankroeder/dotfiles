@@ -15,16 +15,16 @@ from __future__ import annotations
 
 import json
 import math
-import os
 import sqlite3
 import subprocess
 import sys
-import tempfile
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+from ccu_common import load_cache, lua_literal, save_cache, short_error, with_auth_retry, write_json_atomic
 
 HOME = Path.home()
 CACHE_PATH = HOME / ".cache" / "sketchybar" / "cursor_usage.json"
@@ -52,39 +52,6 @@ SENTRY_PATHS = (
   HOME / "Library" / "Application Support" / "Cursor" / "sentry" / "session.json",
   HOME / ".config" / "Cursor" / "sentry" / "scope_v3.json",
 )
-
-
-def lua_literal(value: Any) -> str:
-  if value is None:
-    return "nil"
-  if value is True:
-    return "true"
-  if value is False:
-    return "false"
-  if isinstance(value, (int, float)):
-    return str(value)
-  if isinstance(value, str):
-    escaped = (
-      value.replace("\\", "\\\\")
-      .replace('"', '\\"')
-      .replace("\n", "\\n")
-      .replace("\r", "\\r")
-      .replace("\t", "\\t")
-    )
-    return f'"{escaped}"'
-  if isinstance(value, dict):
-    parts = [f"{k}={lua_literal(v)}" for k, v in value.items()]
-    return "{" + ",".join(parts) + "}"
-  if isinstance(value, list):
-    return "{" + ",".join(lua_literal(v) for v in value) + "}"
-  return lua_literal(str(value))
-
-
-def short_error(msg: str) -> str:
-  one = " ".join(str(msg).split())
-  if len(one) > 48:
-    return one[:45] + "..."
-  return one
 
 
 def parse_unix(value: Any) -> int | None:
@@ -270,24 +237,7 @@ def save_auth(creds: dict[str, Any]) -> None:
   if creds.get("refresh_token"):
     data["refreshToken"] = creds["refresh_token"]
   creds["auth_data"] = data
-
-  try:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(prefix=".auth.", suffix=".tmp", dir=str(path.parent))
-    try:
-      with os.fdopen(fd, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, indent=2)
-        fh.write("\n")
-      os.chmod(tmp, 0o600)
-      os.replace(tmp, path)
-    except Exception:
-      try:
-        os.unlink(tmp)
-      except OSError:
-        pass
-      raise
-  except Exception as exc:
-    sys.stderr.write(f"cursor_usage: could not write auth.json: {exc}\n")
+  write_json_atomic(path, data, "cursor_usage")
 
 
 def refresh_token(creds: dict[str, Any]) -> bool:
@@ -351,19 +301,6 @@ def http_json(url: str, token: str, uid: str | None, method: str = "GET") -> dic
     raise RuntimeError(f"http_{exc.code}: {raw[:120]}") from exc
   except Exception as exc:
     raise RuntimeError(f"network: {exc}") from exc
-
-
-def with_auth_retry(creds: dict[str, Any], fetch):
-  """Call fetch(creds); on 401/403 refresh the CLI token once and retry."""
-  try:
-    return fetch(creds)
-  except RuntimeError as exc:
-    msg = str(exc)
-    if "http_401" not in msg and "http_403" not in msg:
-      raise
-    if not refresh_token(creds):
-      raise
-    return fetch(creds)
 
 
 def plan_label(raw: dict[str, Any]) -> str | None:
@@ -489,34 +426,6 @@ def build_error(error: str) -> dict[str, Any]:
   }
 
 
-def load_cache() -> dict[str, Any] | None:
-  if not CACHE_PATH.is_file():
-    return None
-  try:
-    raw = json.loads(CACHE_PATH.read_text())
-  except (json.JSONDecodeError, OSError):
-    return None
-  if not isinstance(raw, dict) or not isinstance(raw.get("payload"), dict):
-    return None
-  age = datetime.now(timezone.utc).timestamp() - float(raw.get("ts") or 0)
-  if age < 0 or age > CACHE_TTL_SEC * 4:
-    return None
-  payload = raw["payload"]
-  if payload.get("error"):
-    return None
-  return payload
-
-
-def save_cache(payload: dict[str, Any]) -> None:
-  if payload.get("error"):
-    return
-  try:
-    CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CACHE_PATH.write_text(json.dumps({"ts": datetime.now(timezone.utc).timestamp(), "payload": payload}))
-  except OSError:
-    pass
-
-
 def fetch_raw(creds: dict[str, Any]) -> dict[str, Any]:
   token, uid = creds["token"], creds.get("uid")
   last_err = None
@@ -540,18 +449,18 @@ def fetch_usage() -> dict[str, Any]:
   try:
     creds = load_auth()
   except RuntimeError as exc:
-    cached = load_cache()
+    cached = load_cache(CACHE_PATH, CACHE_TTL_SEC)
     return cached if cached is not None else build_error(str(exc))
   try:
-    raw = with_auth_retry(creds, fetch_raw)
+    raw = with_auth_retry(creds, fetch_raw, refresh_token)
   except RuntimeError as exc:
-    cached = load_cache()
+    cached = load_cache(CACHE_PATH, CACHE_TTL_SEC)
     return cached if cached is not None else build_error(str(exc))
   payload = build_payload(raw)
 
   # Plan name and account identity are best-effort; period usage still stands.
   try:
-    plan = with_auth_retry(creds, fetch_plan_name)
+    plan = with_auth_retry(creds, fetch_plan_name, refresh_token)
     if plan:
       payload["plan"] = plan
   except RuntimeError:
@@ -559,7 +468,7 @@ def fetch_usage() -> dict[str, Any]:
   if not payload.get("plan") and creds.get("membership"):
     payload["plan"] = plan_label({"membershipType": str(creds["membership"])})
   try:
-    name, email = with_auth_retry(creds, fetch_account)
+    name, email = with_auth_retry(creds, fetch_account, refresh_token)
     payload["name"] = name or None
     payload["email"] = email or None
   except RuntimeError:
@@ -567,7 +476,7 @@ def fetch_usage() -> dict[str, Any]:
   if not payload.get("email") and creds.get("cached_email"):
     payload["email"] = str(creds["cached_email"])
 
-  save_cache(payload)
+  save_cache(CACHE_PATH, payload)
   return payload
 
 

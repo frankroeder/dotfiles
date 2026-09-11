@@ -10,9 +10,7 @@ Rectangle {
   property var barHost: null
   readonly property bool solidBar: barHost !== null && barHost !== undefined
 
-  color: solidBar
-    ? (mediaMouse.containsMouse ? Style.barStripHover : "transparent")
-    : (mediaMouse.containsMouse ? Style.barHoverBg : Style.barBg)
+  color: solidBar ? "transparent" : (mediaMouse.containsMouse ? Style.barHoverBg : Style.barBg)
   radius: solidBar ? 0 : Style.radius
   border.width: solidBar ? 0 : 1
   border.color: solidBar ? "transparent" : (mediaMouse.containsMouse ? Style.barHoverBorder : Style.barBorder)
@@ -22,6 +20,16 @@ Rectangle {
 
   implicitWidth: Math.min(280, contentRow.implicitWidth + (solidBar ? 10 : 16))
   implicitHeight: solidBar ? Style.barHeight : 26
+
+  Rectangle {
+    anchors.fill: parent
+    anchors.topMargin: Style.barChipInset
+    anchors.bottomMargin: Style.barChipInset
+    radius: Style.radiusSm
+    visible: solidBar
+    color: mediaMouse.containsMouse ? Style.barStripHover : "transparent"
+    Behavior on color { ColorAnimation { duration: 120 } }
+  }
 
   property bool hasMedia: Services.Players.hasPlayer
   property string mediaText: {
@@ -52,17 +60,20 @@ Rectangle {
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.bottom: parent.bottom
-    anchors.margins: 3
+    anchors.leftMargin: 6
+    anchors.rightMargin: 6
+    anchors.bottomMargin: 3
     height: 2
     radius: 1
-    color: Qt.rgba(0, 0, 0, 0.22)
+    color: Qt.alpha(Style.text, 0.12)
     visible: Services.Players.progress > 0
 
     Rectangle {
       width: parent.width * Math.max(0, Math.min(1, Services.Players.progress))
       height: parent.height
       radius: parent.radius
-      color: Style.green
+      color: Style.teal
+      Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
     }
   }
 

@@ -13,7 +13,9 @@ Singleton {
   property string backend: "hyprpaper"
   property string defaultFit: "cover"   // default fit mode passed to hyprpaper (cover, stretch, etc.)
   property bool hyprpaperIpcErrorShown: false   // show the "restart hyprpaper" message only once per session
-  property string wallpaperConf: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/quickshell/wallpaper.conf"
+  readonly property string stateHome: Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")
+  property string wallpaperConf: stateHome + "/quickshell/wallpaper.conf"
+  readonly property string lockWallpaper: stateHome + "/asahi/lock-wallpaper"
   property int thumbsEpoch: 0
   readonly property string thumbCacheDir: WallThumbs.cacheDir(Quickshell.env("HOME"))
 
@@ -87,7 +89,13 @@ Singleton {
     path: root.wallpaperConf
     onTextChanged: {
       const saved = configFile.text().trim()
-      if (saved !== "") root.currentWallpaper = saved
+      if (saved === "") return
+      root.currentWallpaper = saved
+      Quickshell.execDetached([
+        "sh", "-c",
+        "mkdir -p \"$(dirname \"$2\")\" && [ -f \"$1\" ] && ln -sfn \"$1\" \"$2\"",
+        "sh", saved, root.lockWallpaper
+      ])
     }
   }
 
@@ -104,7 +112,7 @@ Singleton {
     currentWallpaper = path
 
     // Always save the choice
-    saveProcess.command = ["sh", "-c", "mkdir -p \"$(dirname \"$1\")\" && printf \"%s\" \"$2\" > \"$1\"", "sh", root.wallpaperConf, path]
+    saveProcess.command = ["sh", "-c", "mkdir -p \"$(dirname \"$1\")\" \"$(dirname \"$3\")\" && printf \"%s\" \"$2\" > \"$1\" && ln -sfn \"$2\" \"$3\"", "sh", root.wallpaperConf, path, root.lockWallpaper]
     saveProcess.running = true
 
     // Apply directly (hyprpaper preload IPC returns invalid+exit1 here; wallpaper= cmd works and changes it, matching asahi-wallpaper-menu)

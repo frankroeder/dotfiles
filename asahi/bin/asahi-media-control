@@ -2,65 +2,58 @@
 
 set -euo pipefail
 
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
+
 target="${1:-}"
 action="${2:-}"
 
-if [ -z "$target" ] || [ -z "$action" ]; then
-  echo "usage: $0 <output-volume|input-volume|brightness|keyboard-brightness|caps-lock|playerctl> <action>" >&2
+if [ -z "$target" ] || { [ "$target" != "output-switch" ] && [ -z "$action" ]; }; then
+  echo "usage: $0 <output-volume|input-volume|output-switch|brightness|keyboard-brightness|caps-lock|playerctl> <action>" >&2
   exit 2
 fi
 
-display_device() {
-  local device="${ASAHI_BACKLIGHT_DEVICE:-apple-panel-bl}"
-
-  if brightnessctl --device="$device" info >/dev/null 2>&1; then
-    printf "%s\n" "$device"
-    return 0
-  fi
-
-  for path in /sys/class/backlight/*; do
-    [ -e "$path" ] || continue
-    basename "$path"
-    return 0
-  done
-
-  return 1
-}
-
-keyboard_device() {
-  local device="${ASAHI_KEYBOARD_BACKLIGHT_DEVICE:-kbd_backlight}"
-
-  if brightnessctl --device="$device" info >/dev/null 2>&1; then
-    printf "%s\n" "$device"
-    return 0
-  fi
-
-  for path in /sys/class/leds/*kbd_backlight*; do
-    [ -e "$path" ] || continue
-    basename "$path"
-    return 0
-  done
-
-  return 1
-}
-
 brightness_step() {
-  case "$1" in
-    raise) printf "+5%%\n" ;;
-    lower) printf "5%%-\n" ;;
-    +1) printf "+1%%\n" ;;
-    -1) printf "1%%-\n" ;;
+  local current="$1" action="$2" target
+  case "$action" in
+    raise)
+      if [ "$current" -lt 5 ]; then target=$((current + 1)); else target=$((current + 5)); fi
+      [ "$target" -gt 100 ] && target=100
+      printf '%s%%\n' "$target"
+      ;;
+    lower)
+      if [ "$current" -le 5 ]; then target=$((current - 1)); else target=$((current - 5)); fi
+      [ "$target" -lt 1 ] && target=1
+      printf '%s%%\n' "$target"
+      ;;
+    +1)
+      target=$((current + 1))
+      [ "$target" -gt 100 ] && target=100
+      printf '%s%%\n' "$target"
+      ;;
+    -1)
+      target=$((current - 1))
+      [ "$target" -lt 1 ] && target=1
+      printf '%s%%\n' "$target"
+      ;;
     *)
-      echo "unsupported brightness action: $1" >&2
+      echo "unsupported brightness action: $action" >&2
       exit 2
       ;;
   esac
 }
 
+current_percent() {
+  brightnessctl --device="$1" -m 2>/dev/null | awk -F, '{ gsub("%", "", $4); print $4; found=1 } END { exit !found }'
+}
+
+monitor_is_internal() {
+  [[ "${1:-}" =~ ^(eDP|LVDS|DSI)- ]]
+}
+
 show_osd() {
   local function="$1"
-
-  qs -c remix ipc call osd "$function" >/dev/null 2>&1 || true
+  shift || true
+  qs -c remix ipc call osd "$function" "$@" >/dev/null 2>&1 || true
 }
 
 case "$target" in
@@ -73,6 +66,35 @@ case "$target" in
       -1) wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 1%- ;;
     esac
     show_osd volume
+    ;;
+  output-switch)
+    if ! command -v pactl >/dev/null 2>&1; then
+      echo "pactl is not installed" >&2
+      exit 1
+    fi
+    mapfile -t sinks < <(timeout 2 pactl -f json list sinks 2>/dev/null | jq -r '
+      .[]
+      | select((.ports | length == 0) or ([.ports[]? | .availability != "not available"] | any))
+      | .name
+    ')
+    if [ "${#sinks[@]}" -eq 0 ]; then
+      show_osd message "󰖁" "Audio output" "No devices"
+      exit 1
+    fi
+    current="$(timeout 2 pactl get-default-sink 2>/dev/null || true)"
+    next_index=0
+    for i in "${!sinks[@]}"; do
+      if [ "${sinks[$i]}" = "$current" ]; then
+        next_index=$(( (i + 1) % ${#sinks[@]} ))
+        break
+      fi
+    done
+    next="${sinks[$next_index]}"
+    timeout 2 pactl set-default-sink "$next" >/dev/null
+    desc="$(timeout 2 pactl -f json list sinks 2>/dev/null | jq -r --arg n "$next" '
+      [.[] | select(.name == $n) | (.description // .name)][0] // $n
+    ')"
+    show_osd message "󰕾" "Audio output" "$desc"
     ;;
   input-volume)
     if [ "$action" = "mute-toggle" ]; then
@@ -93,15 +115,26 @@ case "$target" in
     exec playerctl "$action"
     ;;
   brightness)
-    device="$(display_device)"
-    brightnessctl --quiet --device="$device" set "$(brightness_step "$action")"
+    exec {lock_fd}>"${XDG_RUNTIME_DIR:-/tmp}/asahi-brightness.lock"
+    flock -n "$lock_fd" || exit 0
 
-    show_osd brightness
+    monitor="$(focused_monitor || true)"
+    if [ -n "$monitor" ] && ! monitor_is_internal "$monitor"; then
+      # Asahi HDMI has no DDC I2C. Never fall through to apple-panel-bl.
+      percent="$("$(dirname "$0")/asahi-brightness-soft" "$monitor" "$action")"
+      show_osd brightnessSet "$percent"
+      exit 0
+    fi
+
+    device="$(display_device)"
+    current="$(current_percent "$device")"
+    brightnessctl --quiet --device="$device" set "$(brightness_step "$current" "$action")"
+    show_osd brightnessSet "$(current_percent "$device")"
     ;;
   keyboard-brightness)
     device="$(keyboard_device)"
-    brightnessctl --quiet --device="$device" set "$(brightness_step "$action")"
-
+    current="$(current_percent "$device" || echo 0)"
+    brightnessctl --quiet --device="$device" set "$(brightness_step "$current" "$action")"
     show_osd keyboard
     ;;
   caps-lock)

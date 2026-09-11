@@ -8,6 +8,34 @@
       "description": "Web search"
     },
     {
+      "name": "Startpage",
+      "prefix": "sp",
+      "url": "https://eu.startpage.com/sp/search?q=%TERM%",
+      "icon": "startpage.png",
+      "description": "Private web search"
+    },
+    {
+      "name": "Qwant",
+      "prefix": "qw",
+      "url": "https://www.qwant.com/?q=%TERM%&t=web",
+      "icon": "qwant.png",
+      "description": "Web search"
+    },
+    {
+      "name": "DuckDuckGo",
+      "prefix": "ddg",
+      "url": "https://duckduckgo.com/?ia=web&t=h_&q=%TERM%",
+      "icon": "ddg.png",
+      "description": "Web search"
+    },
+    {
+      "name": "Brave Search",
+      "prefix": "brave",
+      "url": "https://search.brave.com/search?q=%TERM%",
+      "icon": "brave.png",
+      "description": "Web search"
+    },
+    {
       "name": "Jax Documentation",
       "prefix": "jaxdoc",
       "url": "https://docs.jax.dev/en/latest/search.html?q=%TERM%",
@@ -67,12 +95,14 @@
       "name": "Hyprland Wiki",
       "prefix": "hypr",
       "url": "https://wiki.hypr.land/",
+      "icon": "hypr.png",
       "description": "Hyprland documentation"
     },
     {
       "name": "Arch Wiki",
       "prefix": "arch",
       "url": "https://wiki.archlinux.org/index.php?search=%TERM%",
+      "icon": "arch.png",
       "description": "Arch Linux wiki"
     }
   ],

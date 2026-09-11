@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+# Pick a screen region. Prints slurp "X,Y WxH". No grim, no clipboard.
+# Used by asahi-cmd-screenshot / asahi-cmd-ocr / asahi-cmd-qr.
+#
+#   region|area     freeform
+#   windows         snap to monitor/window rectangles
+#   smart           freeform with window/monitor hints; tiny click snaps
+#   fullscreen      focused monitor, no interaction
+#
+# A second invocation while slurp is up cancels the picker (no geometry).
+
+set -u
+
+if pkill -x slurp 2>/dev/null; then
+  exit 1
+fi
+
+JQ_MONITOR_GEO='
+  def format_geo:
+    .x as $x | .y as $y |
+    (.width / .scale | floor) as $w |
+    (.height / .scale | floor) as $h |
+    .transform as $t |
+    if $t == 1 or $t == 3 then
+      "\($x),\($y) \($h)x\($w)"
+    else
+      "\($x),\($y) \($w)x\($h)"
+    end;
+'
+
+active_workspace() {
+  hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .activeWorkspace.id'
+}
+
+window_rects() {
+  hyprctl clients -j | jq -r --arg ws "$(active_workspace)" \
+    '[.[] | select(.workspace.id == ($ws | tonumber) and .hidden != true) | "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"] | unique[]'
+}
+
+focused_monitor_geo() {
+  hyprctl monitors -j | jq -r "${JQ_MONITOR_GEO} .[] | select(.focused == true) | format_geo"
+}
+
+get_rectangles() {
+  focused_monitor_geo
+  window_rects
+}
+
+MODE=smart
+for arg in "$@"; do
+  case $arg in
+  area) MODE=region ;;
+  *) MODE=$arg ;;
+  esac
+done
+
+pick() {
+  slurp "$@" 2>/dev/null || true
+}
+
+SELECTION=""
+case "$MODE" in
+region)
+  SELECTION="$(pick)"
+  ;;
+windows)
+  SELECTION="$(get_rectangles | pick -r)"
+  ;;
+fullscreen)
+  SELECTION="$(focused_monitor_geo)"
+  ;;
+smart | *)
+  RECTS="$(get_rectangles)"
+  SELECTION="$(echo "$RECTS" | pick)"
+  if [[ $SELECTION =~ ^(-?[0-9]+),(-?[0-9]+)[[:space:]]([0-9]+)x([0-9]+)$ ]] && ((BASH_REMATCH[3] * BASH_REMATCH[4] < 20)); then
+    click_x=${BASH_REMATCH[1]}
+    click_y=${BASH_REMATCH[2]}
+    while IFS= read -r rect; do
+      [[ $rect =~ ^(-?[0-9]+),(-?[0-9]+)[[:space:]]([0-9]+)x([0-9]+)$ ]] || continue
+      if ((click_x >= BASH_REMATCH[1] && click_x < BASH_REMATCH[1] + BASH_REMATCH[3] && click_y >= BASH_REMATCH[2] && click_y < BASH_REMATCH[2] + BASH_REMATCH[4])); then
+        SELECTION="${BASH_REMATCH[1]},${BASH_REMATCH[2]} ${BASH_REMATCH[3]}x${BASH_REMATCH[4]}"
+        break
+      fi
+    done <<<"$RECTS"
+  fi
+  ;;
+esac
+
+[[ -n $SELECTION ]] || exit 1
+echo "$SELECTION"

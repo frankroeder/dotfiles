@@ -34,7 +34,15 @@ if [ "$OSTYPE" = "Darwin" ]; then
   )
 fi
 
-if [ "$(tty)" = "/dev/tty1" ];then
+if [ "$(tty)" = "/dev/tty1" ]; then
+  # Start a live empty agent so the first git/ssh can AddKeysToAgent.
+  # Do not prompt for the key passphrase here — getty is only the login gate.
+  if [ -x "${DOTFILES:-$HOME/.dotfiles}/asahi/bin/asahi-ssh-keychain" ]; then
+    "${DOTFILES:-$HOME/.dotfiles}/asahi/bin/asahi-ssh-keychain" || true
+    _kc="$HOME/.keychain/${HOST:-$HOSTNAME}-sh"
+    [[ -r $_kc ]] && source "$_kc"
+    unset _kc
+  fi
   if (( ${+commands[start-hyprland]} )); then
     exec start-hyprland
   fi

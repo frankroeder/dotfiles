@@ -1,0 +1,14 @@
+[Unit]
+Description=Apply Asahi battery charge limit
+DefaultDependencies=no
+After=sysinit.target
+ConditionPathExists=/sys/class/power_supply/macsmc-battery/charge_control_end_threshold
+
+[Service]
+Type=oneshot
+# No HOME here — asahi-charge-limit must not expand $HOME under set -u.
+ExecStart=/usr/local/libexec/asahi-charge-limit apply
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

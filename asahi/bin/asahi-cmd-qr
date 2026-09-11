@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Decode a QR code from a screen region. The payload is copied as sensitive
+# (otpauth:// and Wi-Fi secrets stay out of notifications and journals).
+
+set -euo pipefail
+
+bin="$(cd "$(dirname "$0")" && pwd)"
+
+if ! command -v zbarimg >/dev/null 2>&1; then
+  notify-send -a screenshot -u critical "QR unavailable" "Install zbar (asahi/dnf.sh)" 2>/dev/null || true
+  echo "asahi-cmd-qr: zbarimg is not installed" >&2
+  exit 1
+fi
+
+selection="$("$bin/asahi-capture-region" region || true)"
+[ -n "${selection:-}" ] || exit 0
+
+# QR only — other symbologies false-positive on dense UI chrome.
+result="$(grim -g "$selection" - | zbarimg -q --raw -Sdisable -Sqrcode.enable - 2>/dev/null || true)"
+if [ -z "$result" ]; then
+  notify-send -a screenshot -u critical "No QR code found" "Select a region containing a QR code" 2>/dev/null || true
+  exit 1
+fi
+
+if wl-copy --help 2>&1 | grep -q -- '--sensitive'; then
+  printf '%s' "$result" | wl-copy --sensitive
+else
+  printf '%s' "$result" | wl-copy
+fi
+notify-send -a screenshot -t 2500 "QR code copied to clipboard" 2>/dev/null || true

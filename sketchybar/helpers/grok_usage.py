@@ -16,16 +16,16 @@ from __future__ import annotations
 
 import base64
 import json
-import os
 import struct
 import sys
-import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+
+from ccu_common import emit, short_error, with_auth_retry, write_json_atomic
 
 AUTH_PATH = Path.home() / ".grok" / "auth.json"
 CREDITS_URL = "https://grok.com/grok_api_v2.GrokBuildBilling/GetGrokCreditsConfig"
@@ -48,40 +48,6 @@ CATEGORY_LABELS = {
 
 # Legend order matching the official Usage card (Chat, then Grok Build, …).
 CATEGORY_ORDER = {4: 0, 2: 1, 1: 2, 3: 3, 5: 4}
-
-
-def lua_literal(value: Any) -> str:
-  if value is None:
-    return "nil"
-  if value is True:
-    return "true"
-  if value is False:
-    return "false"
-  if isinstance(value, (int, float)):
-    return str(value)
-  if isinstance(value, str):
-    # Escape control chars — bare newlines break Lua double-quoted strings.
-    escaped = (
-      value.replace("\\", "\\\\")
-      .replace('"', '\\"')
-      .replace("\n", "\\n")
-      .replace("\r", "\\r")
-      .replace("\t", "\\t")
-    )
-    return f'"{escaped}"'
-  if isinstance(value, dict):
-    parts = [f"{k}={lua_literal(v)}" for k, v in value.items()]
-    return "{" + ",".join(parts) + "}"
-  if isinstance(value, list):
-    return "{" + ",".join(lua_literal(v) for v in value) + "}"
-  return lua_literal(str(value))
-
-
-def short_error(msg: str) -> str:
-  one = " ".join(str(msg).split())
-  if len(one) > 48:
-    return one[:45] + "..."
-  return one
 
 
 def parse_iso(value: Any) -> datetime | None:
@@ -165,25 +131,7 @@ def save_auth(creds: dict[str, Any]) -> None:
   if creds.get("expires_at"):
     entry["expires_at"] = creds["expires_at"]
   data[creds["scope"]] = entry
-
-  try:
-    AUTH_PATH.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(prefix=".auth.", suffix=".tmp", dir=str(AUTH_PATH.parent))
-    try:
-      with os.fdopen(fd, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, indent=2)
-        fh.write("\n")
-      os.chmod(tmp, 0o600)
-      os.replace(tmp, AUTH_PATH)
-    except Exception:
-      try:
-        os.unlink(tmp)
-      except OSError:
-        pass
-      raise
-  except Exception as exc:
-    # Non-fatal: the in-memory token still works for this scan.
-    sys.stderr.write(f"grok_usage: could not write auth.json: {exc}\n")
+  write_json_atomic(AUTH_PATH, data, "grok_usage")
 
 
 def refresh_token(creds: dict[str, Any]) -> None:
@@ -272,18 +220,6 @@ def http_post_grpc(url: str, token: str, body: bytes, timeout: int = 20) -> byte
     raise RuntimeError(f"http_{exc.code}") from exc
   except Exception as exc:
     raise RuntimeError(f"network: {exc}") from exc
-
-
-def with_auth_retry(creds: dict[str, Any], fetch):
-  """Call fetch(creds); on 401/403 refresh once and retry."""
-  try:
-    return fetch(creds)
-  except RuntimeError as exc:
-    msg = str(exc)
-    if "http_401" not in msg and "http_403" not in msg:
-      raise
-    refresh_token(creds)
-    return fetch(creds)
 
 
 # --- protobuf / gRPC-web ---
@@ -612,7 +548,7 @@ def fetch_usage() -> dict[str, Any]:
       return build_error(str(exc))
 
   try:
-    weekly = with_auth_retry(creds, fetch_weekly)
+    weekly = with_auth_retry(creds, fetch_weekly, refresh_token)
   except RuntimeError as exc:
     return build_error(str(exc))
 
@@ -625,7 +561,7 @@ def fetch_usage() -> dict[str, Any]:
   # Tier / account / rebill are best-effort; never fail the scan on them.
   tier = ""
   try:
-    tier = with_auth_retry(creds, fetch_tier)
+    tier = with_auth_retry(creds, fetch_tier, refresh_token)
   except RuntimeError:
     pass
   if not tier:
@@ -633,13 +569,13 @@ def fetch_usage() -> dict[str, Any]:
 
   name, email = "", ""
   try:
-    name, email = with_auth_retry(creds, fetch_account)
+    name, email = with_auth_retry(creds, fetch_account, refresh_token)
   except RuntimeError:
     pass
 
   renews_unix, cancels = None, False
   try:
-    renews_unix, cancels = with_auth_retry(creds, fetch_rebill)
+    renews_unix, cancels = with_auth_retry(creds, fetch_rebill, refresh_token)
   except RuntimeError:
     pass
 
@@ -662,14 +598,6 @@ def fetch_usage() -> dict[str, Any]:
       {"label": c["label"], "percent": c["percent"]} for c in weekly["categories"]
     ],
   }
-
-
-def emit(payload: dict[str, Any]) -> None:
-  if "--json" in sys.argv:
-    json.dump(payload, sys.stdout, ensure_ascii=True)
-    sys.stdout.write("\n")
-  else:
-    print(lua_literal(payload))
 
 
 def main() -> int:

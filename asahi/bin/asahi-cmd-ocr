@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# OCR a screen region (slurp + grim + tesseract) and copy the text.
+
+set -euo pipefail
+
+bin="$(cd "$(dirname "$0")" && pwd)"
+langs="${ASAHI_OCR_LANGS:-eng}"
+
+if ! command -v tesseract >/dev/null 2>&1; then
+  notify-send -a screenshot -u critical "OCR unavailable" "Install tesseract (asahi/dnf.sh)" 2>/dev/null || true
+  echo "asahi-cmd-ocr: tesseract is not installed" >&2
+  exit 1
+fi
+
+selection="$("$bin/asahi-capture-region" region || true)"
+[ -n "${selection:-}" ] || exit 0
+
+text="$(grim -g "$selection" - | tesseract stdin stdout --oem 1 --psm 6 -l "$langs" --dpi 300 -c preserve_interword_spaces=1 2>/dev/null || true)"
+[ -n "$text" ] || {
+  notify-send -a screenshot -u critical "No text found" "Try a tighter region" 2>/dev/null || true
+  exit 1
+}
+
+printf '%s' "$text" | wl-copy
+notify-send -a screenshot -t 2500 "Copied text from selection" 2>/dev/null || true

@@ -8,7 +8,7 @@ Mirrors sketchybar/top/items/ccu.lua using the same helpers:
   sketchybar/helpers/claude_usage.py
   sketchybar/helpers/ccu_cost.py
 
-Grok + Cursor are the bar chips; Claude / Codex stay in the popup.
+Grok + Cursor + Claude are the bar chips; Codex stays in the popup.
 Always prints one JSON object for Quickshell.
 """
 
@@ -52,6 +52,7 @@ EXTRA_BIN_DIRS = (
 )
 
 WEEK_SEC = 7 * 24 * 60 * 60
+SESSION_SPAN_SEC = 5 * 60 * 60
 NO_WEEKLY = "Weekly limit unavailable"
 MONTH_NAMES = (
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -92,7 +93,7 @@ PROVIDER_DEFS = (
     "label": "Claude",
     "accent": "peach",
     "bin": "claude",
-    "bar": False,
+    "bar": True,
     "url": CLAUDE_USAGE,
   },
   {
@@ -332,6 +333,8 @@ def window_name(span: Any) -> str:
   s = num(span)
   if s is None:
     s = float(WEEK_SEC)
+  if s <= 6 * 60 * 60:
+    return "session"
   if 6 * 86400 <= s <= 8 * 86400:
     return "weekly"
   if 27 * 86400 <= s <= 32 * 86400:
@@ -394,10 +397,19 @@ def category_percent(frac: Any) -> str:
   return f"{n}%"
 
 
+CHIP_NAME_W = 6
+CHIP_PCT_W = 4
+CHIP_CD_W = 7
+CHIP_W = CHIP_NAME_W + 1 + CHIP_PCT_W + 3 + CHIP_CD_W
+
+
 def bar_chip(name: str, win: dict[str, Any] | None, now: int) -> str:
+  label = str(name or "").ljust(CHIP_NAME_W)
   if not win:
-    return f"{name} —"
-  return f"{name} {percent(win['used'])} · {countdown(win['reset'], now)}"
+    return f"{label} —".ljust(CHIP_W)
+  pct = percent(win["used"]).rjust(CHIP_PCT_W)
+  cd = countdown(win["reset"], now).rjust(CHIP_CD_W)
+  return f"{label} {pct} · {cd}"
 
 
 def strip_point_zero(s: str) -> str:
@@ -720,6 +732,21 @@ def claude_state(result: dict[str, Any] | None) -> dict[str, Any]:
         "label": extra_label(result["scoped"]),
         "weekly": from_helper_window(result["scoped"]),
       })
+  # Claude Code usually reports no weekly window -- the rolling 5-hour session
+  # is the live signal. The bar chip is built from st["weekly"], so without
+  # this the chip reads "Claude -" while the popup shows a real session
+  # number. Promote the session, and drop it from extras so the same window is
+  # not listed twice on the card.
+  if st["weekly"] is None and result.get("session"):
+    promoted = from_helper_window(result["session"])
+    if promoted:
+      # The session block carries no period_start/span_sec, so
+      # from_helper_window defaults the span to a week and window_name would
+      # then call it "weekly". Claude's session window is 5 hours.
+      promoted["span"] = float(SESSION_SPAN_SEC)
+      st["weekly"] = promoted
+      session_label = extra_label(result["session"])
+      extras = [e for e in extras if e.get("label") != session_label]
   st["extras"] = extras
   return st
 
@@ -764,7 +791,8 @@ def serialize_card(spec: dict[str, Any], st: dict[str, Any], now: int) -> dict[s
   if tier:
     head = tier
   elif win:
-    head = used_line(win, now)
+    # usage_line/reset_line carry the numbers; keep the header row to the name.
+    head = ""
   else:
     head = st.get("status") or NO_WEEKLY
   cats = st.get("cats") or []
@@ -798,8 +826,8 @@ def serialize_card(spec: dict[str, Any], st: dict[str, Any], now: int) -> dict[s
     "email": st.get("email"),
     "ident": ident,
     "head": head,
-    "usage_line": usage_line(win) if (win is not None and tier) else "",
-    "reset_line": reset_line(win, now) if (win is not None and tier) else "",
+    "usage_line": usage_line(win) if win is not None else "",
+    "reset_line": reset_line(win, now) if win is not None else "",
     "chip": bar_chip(spec["label"], win, now),
     "used": used100,
     "status": st.get("status"),

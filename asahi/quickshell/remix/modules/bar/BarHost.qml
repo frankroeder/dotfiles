@@ -14,6 +14,9 @@ Item {
 
   property var barScreen: null
   property var notificationCenter: null
+  property bool isRecording: false
+  property bool calendarOpen: false
+  signal calendarToggle()
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
   readonly property int barSize: Style.barHeight
@@ -22,12 +25,26 @@ Item {
   readonly property color barBackground: Style.barStripBg
 
   readonly property int notchFloor: appleSiliconHost && barScreen?.name?.indexOf("eDP") === 0
-    ? Math.max(barSize, BarModel.notchHeight(barScreen.name, barScreen.width, barScreen.height, barScreen.devicePixelRatio))
+    ? Math.max(barSize, BarModel.notchHeight(barScreen.name, barScreen.width, barScreen.height))
     : barSize
 
   readonly property int notchSpacerWidth: appleSiliconHost
-    ? BarModel.notchSpacerWidth(barScreen.name, barScreen.width, barScreen.height, barScreen.devicePixelRatio)
+    ? BarModel.notchSpacerWidth(barScreen?.name, barScreen?.width)
     : 0
+
+  // Distance from either bar edge to the cutout — the wall each cluster stops at.
+  readonly property int notchInset: BarModel.notchRegionInset(barContent.width, notchSpacerWidth)
+
+  // ccu is the widest member and the only one with a short form, so it is what gives
+  // when the cutout leaves the right cluster too little room. The sum deliberately
+  // excludes ccu's own width and uses its uncompacted `fullWidth`, so the answer
+  // cannot change the question.
+  readonly property real rightOthers: trayBlock.implicitWidth + statusBlock.implicitWidth
+    + micBlock.implicitWidth + volBlock.implicitWidth + netBlock.implicitWidth
+    + btBlock.implicitWidth + battBlock.implicitWidth + clockBlock.implicitWidth
+    + 9 * rightSection.spacing
+  readonly property bool ccuCompact: notchInset > 0
+    && rightOthers + ccuBlock.fullWidth > rightRegion.width
 
   implicitWidth: parent ? parent.width : 0
   implicitHeight: notchFloor
@@ -37,7 +54,6 @@ Item {
   property string cpuTooltip: ""
   property string memText: ""
   property string memTooltip: ""
-  property bool isRecording: false
   property bool updatesAvailable: false
   property real cpuPerc: 0
   property real memPerc: 0
@@ -68,14 +84,15 @@ Item {
   function refreshHyprClients() { if (!hyprClientsProc.running) hyprClientsProc.running = true }
 
   function activateWorkspace(wsId) {
-    const ws = Hyprland.workspaces.values.find(w => w.id === wsId)
-    if (ws) ws.activate()
-    else Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({ workspace = " + wsId + " })"])
+    // Hyprland 0.56 lua treats `dispatch workspace N` as `hl.dispatch(workspace N)` (syntax error).
+    // Quickshell's ws.activate() uses that classic dispatcher, so bar clicks never switch.
+    Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({ workspace = " + wsId + " })"])
     refreshWorkspaceIcons(2)
   }
 
   function cycleWorkspace(next) {
-    Quickshell.execDetached(["hyprctl", "dispatch", "workspace", next ? "e+1" : "e-1"])
+    const step = next ? "e+1" : "e-1"
+    Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({ workspace = \"" + step + "\" })"])
     refreshWorkspaceIcons(2)
   }
 
@@ -84,6 +101,9 @@ Item {
     if (candidates.length === 0) return ""
     for (let i = 0; i < candidates.length; i++) {
       const name = candidates[i]
+      // Papirus-Dark has no grok-bot; RPM ships hicolor pngs.
+      if (String(name).toLowerCase() === "grok-bot")
+        return "file:///usr/share/icons/hicolor/48x48/apps/grok-bot.png"
       const entry = DesktopEntries.heuristicLookup(name)
       const source = Quickshell.iconPath(entry?.icon || name, true)
       if (source !== "") return source
@@ -176,13 +196,6 @@ Item {
   }
 
   Process {
-    id: recordingProc
-    command: ["pgrep", "-x", "wf-recorder"]
-    stdout: StdioCollector { onStreamFinished: barWindow.isRecording = text.trim().length > 0 }
-    onExited: code => { if (code !== 0) barWindow.isRecording = false }
-  }
-
-  Process {
     id: updatesProc
     command: ["sh", "-c", "dnf check-update --cacheonly -q >/dev/null 2>&1; c=$?; [ \"$c\" = 100 ] && echo 1 || echo 0"]
     stdout: StdioCollector { onStreamFinished: barWindow.updatesAvailable = text.trim() === "1" }
@@ -193,14 +206,6 @@ Item {
     running: true
     repeat: true
     onTriggered: { barWindow.refreshCpu(); barWindow.refreshMem() }
-  }
-
-  Timer {
-    interval: 10000
-    running: true
-    repeat: true
-    triggeredOnStart: true
-    onTriggered: if (!recordingProc.running) recordingProc.running = true
   }
 
   Timer {
@@ -249,6 +254,17 @@ Item {
     anchors.leftMargin: Style.barEdgeMargin
     anchors.rightMargin: Style.barEdgeMargin
 
+  // The cutout is a hole in the layout, not a spacer between two free-floating rows:
+  // each cluster is confined to its own side of it (sketchybar's `bar notch_width`).
+  // Nothing can render under the camera — overflow is cut at the wall instead.
+  Item {
+    id: leftRegion
+    anchors.left: parent.left
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    width: barWindow.notchInset > 0 ? barContent.width - barWindow.notchInset : barContent.width
+    clip: true
+
   Row {
     id: leftSection
     anchors.left: parent.left
@@ -261,29 +277,33 @@ Item {
 
     WidgetButton {
       barHost: barWindow
-      text: "󰍛 " + barWindow.fmt2(barWindow.cpuPerc) + "%"
+      icon: "󰍛"
+      text: barWindow.fmt2(barWindow.cpuPerc) + "%"
       fontSize: Style.barFontBody
-      tooltipText: barWindow.cpuTooltip
+      tooltipText: barWindow.cpuTooltip + "\nClick: btop / htop"
       foreground: Style.orange
+      onPressed: Quickshell.execDetached([barWindow.binDir + "/asahi-sysmon"])
     }
 
     WidgetButton {
       barHost: barWindow
-      text: "󰘚 " + barWindow.fmt2(barWindow.memPerc) + "%"
+      icon: "󰘚"
+      text: barWindow.fmt2(barWindow.memPerc) + "%"
       fontSize: Style.barFontBody
-      tooltipText: barWindow.memTooltip
+      tooltipText: barWindow.memTooltip + "\nClick: btop / htop"
       foreground: Style.sky
+      onPressed: Quickshell.execDetached([barWindow.binDir + "/asahi-sysmon"])
     }
   }
-
-  // Notch spacer — omarchy keeps center empty on notched built-in panel
-  Item {
-    anchors.horizontalCenter: parent.horizontalCenter
-    anchors.verticalCenter: parent.verticalCenter
-    width: barWindow.notchSpacerWidth
-    height: 1
-    visible: barWindow.notchSpacerWidth > 0
   }
+
+  Item {
+    id: rightRegion
+    anchors.right: parent.right
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    width: barWindow.notchInset > 0 ? barContent.width - barWindow.notchInset : barContent.width
+    clip: true
 
   Row {
     id: rightSection
@@ -291,21 +311,38 @@ Item {
     anchors.verticalCenter: parent.verticalCenter
     spacing: 2
 
+    BarComponents.SystemTray {
+      id: trayBlock
+      barHeight: Math.max(44, barWindow.notchFloor)
+      trayScreen: barWindow.barScreen
+    }
+
     BarComponents.StatusIndicators {
+      id: statusBlock
       notificationCenter: barWindow.notificationCenter
       isRecording: barWindow.isRecording
       updatesAvailable: barWindow.updatesAvailable
       barHost: barWindow
     }
 
-    BarComponents.Ccu { barHost: barWindow }
+    BarComponents.Ccu {
+      id: ccuBlock
+      barHost: barWindow
+      compact: barWindow.ccuCompact
+    }
 
-    BarComponents.Microphone { barHost: barWindow }
-    BarComponents.Volume { barHost: barWindow }
-    BarComponents.Network { barHost: barWindow }
-    BarComponents.Bluetooth { barHost: barWindow }
-    BarComponents.Battery { barHost: barWindow }
-    BarComponents.Clock { barHost: barWindow }
+    BarComponents.Microphone { id: micBlock; barHost: barWindow }
+    BarComponents.Volume { id: volBlock; barHost: barWindow }
+    BarComponents.Network { id: netBlock; barHost: barWindow }
+    BarComponents.Bluetooth { id: btBlock; barHost: barWindow }
+    BarComponents.Battery { id: battBlock; barHost: barWindow }
+    BarComponents.Clock {
+      id: clockBlock
+      barHost: barWindow
+      calendarOpen: barWindow.calendarOpen
+      onCalendarToggle: barWindow.calendarToggle()
+    }
+  }
   }
   }
 

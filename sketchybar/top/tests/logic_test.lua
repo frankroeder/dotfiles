@@ -1,52 +1,17 @@
 -- Drive the shipped top-bar helpers. No sbar, no reimplementation of tables.
-local src = debug.getinfo(1, "S").source:gsub("^@", "")
-if not src:match "^/" then
-  local pwd = os.getenv "PWD" or "."
-  src = pwd .. "/" .. src
+local here = debug.getinfo(1, "S").source:gsub("^@", "")
+if not here:match "^/" then
+  here = (os.getenv "PWD" or ".") .. "/" .. here
 end
-local root = src:gsub("sketchybar/top/tests/logic_test.lua$", "")
-if root == src then
-  root = os.getenv "DOTFILES" or (os.getenv "HOME" .. "/.dotfiles")
-  if root:sub(-1) ~= "/" then
-    root = root .. "/"
-  end
-end
-
-package.path = root
-  .. "sketchybar/?.lua;"
-  .. root
-  .. "sketchybar/?/init.lua;"
-  .. root
-  .. "sketchybar/top/?.lua;"
-  .. package.path
+local T = dofile(here:gsub("[^/]+%.lua$", "") .. "prelude.lua")
+local ok, eq, fail = T.ok, T.eq, T.fail
+local root = T.root
 
 local logic = require "logic"
 local icons = require "icons"
 local colors = require "colors"
 local settings = require "settings"
 local groups = require "groups"
-
-local failures = 0
-local function fail(msg)
-  failures = failures + 1
-  io.stderr:write("FAIL " .. msg .. "\n")
-end
-
-local function ok(cond, msg)
-  if cond then
-    print("ok  " .. msg)
-  else
-    fail(msg)
-  end
-end
-
-local function eq(got, expected, msg)
-  if got == expected then
-    print("ok  " .. msg)
-  else
-    fail(msg .. " got=" .. tostring(got) .. " expected=" .. tostring(expected))
-  end
-end
 
 -- space pills
 local empty_unfocused = logic.space_pill("", false, "1")
@@ -332,8 +297,4 @@ ok(not read_src("sketchybar/island/theme.lua"):find "update_theme_colors%(%)", "
 ok(read_src("sketchybar/island/theme.lua"):find "AppleInterfaceStyle", "island theme probes macOS appearance")
 ok(read_src("sketchybar/island/theme.lua"):find "probe%(%)%s*$", "island probes appearance at load")
 
-if failures > 0 then
-  print(failures .. " failed")
-  os.exit(1)
-end
-print "all passed"
+T.done()

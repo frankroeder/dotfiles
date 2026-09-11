@@ -38,11 +38,16 @@ sudo dnf makecache --refresh
 #   exit 1
 # fi
 
+# gnome-keyring: Secret Service for Hyprland (kwallet disabled). Not GNOME
+# Shell; SSH stays with keychain. Do not put comments inside the continued
+# dnf argv — bash treats `# ...` as ending the command.
 sudo dnf install -y \
   adw-gtk3-theme \
   brightnessctl \
   blueman \
+  btop \
   cargo \
+  cliphist \
   cascadia-mono-nf-fonts \
   cava \
   chromium \
@@ -57,8 +62,8 @@ sudo dnf install -y \
   ghostty \
   google-noto-color-emoji-fonts \
   grim \
-  # Secret Service for Hyprland (kwallet disabled). Not GNOME Shell; SSH stays with keychain.
   gnome-keyring \
+  hyprpicker \
   gwenview \
   hypridle \
   hyprland \
@@ -75,7 +80,6 @@ sudo dnf install -y \
   make \
   mpv \
   neovim \
-  nextcloud-client \
   NetworkManager-wifi \
   NetworkManager-tui \
   nm-connection-editor \
@@ -90,6 +94,9 @@ sudo dnf install -y \
   speakersafetyd \
   ripgrep \
   slurp \
+  tesseract \
+  tesseract-langpack-eng \
+  zbar \
   texlive-scheme-full \
   terminus-fonts-console \
   thunderbird \
@@ -97,7 +104,9 @@ sudo dnf install -y \
   tumbler \
   tree \
   uv \
+  v4l-utils \
   quickshell-git \
+  wf-recorder \
   wireplumber \
   wl-clipboard \
   xdg-utils \
@@ -108,12 +117,16 @@ sudo dnf install -y \
   qt6-qtwayland \
   zsh
 
+# Grok Bot desktop agent: latest linux/arm64 RPM from Cursor's update API.
+bash "${DOTFILES_DIR}/asahi/grokbot.sh"
+
 flatpak remote-add --user --if-not-exists flathub "$FLATHUB_REPO_URL"
 
 FLATPAK_APPS=(
   com.protonvpn.www
   org.zotero.Zotero
   net.ankiweb.Anki
+  com.nextcloud.desktopclient.nextcloud
 )
 
 flatpak install --user -y flathub "${FLATPAK_APPS[@]}"
@@ -133,6 +146,11 @@ sudo systemctl enable --now cups cups-browsed
 # - wallpaper adaptive theming: asahi/bin/asahi-autotheme (omagen-inspired; no matugen dep)
 # - power-profiles-daemon: Omarchy wraps powerprofilesctl with no Apple Silicon
 #   backend. This machine is apple-cpufreq/schedutil; PPD does not drive it.
+# - hyprpicker: color picker (Super+Shift+F12). Not used for screenshots.
+# - tesseract / zbar: OCR and QR capture.
+# - wf-recorder: Asahi screen recorder (gpu-screen-recorder cannot init on
+#   Mesa Apple GPU). External brightness is a compositor shade — Asahi HDMI
+#   has no DDC I2C. No hibernate package — s2idle only.
 # - seahorse / gnome-shell / gdm: not needed. gnome-keyring is Secret Service
 #   only (Hyprland autostart, no ssh component; keychain owns SSH).
 # - NetworkManager-openconnect / NetworkManager-vpnc: not used. TUHH VPN

@@ -13,8 +13,39 @@ import "."
 ShellRoot {
   id: shell
 
+  property bool isRecording: false
+  property bool calendarOpen: false
+
   System.Osd { id: osd }
+  System.DimOverlay { id: dimOverlay }
   System.NotificationCenter { id: notificationCenter }
+  System.PkgManager {}
+
+  Process {
+    id: recProbe
+    command: ["pgrep", "-x", "wf-recorder"]
+    onExited: function(code) { shell.isRecording = (code === 0) }
+  }
+  Timer {
+    interval: 2000
+    running: true
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: if (!recProbe.running) recProbe.running = true
+  }
+  IpcHandler {
+    target: "recording"
+    function refresh(): void {
+      if (!recProbe.running) recProbe.running = true
+    }
+  }
+
+  IpcHandler {
+    target: "calendar"
+    function toggle(): void {
+      shell.calendarOpen = !shell.calendarOpen
+    }
+  }
 
   Variants {
     model: Quickshell.screens
@@ -39,6 +70,9 @@ ShellRoot {
         anchors.fill: parent
         barScreen: modelData
         notificationCenter: notificationCenter
+        isRecording: shell.isRecording
+        calendarOpen: shell.calendarOpen
+        onCalendarToggle: shell.calendarOpen = !shell.calendarOpen
       }
     }
   }

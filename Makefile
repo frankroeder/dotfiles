@@ -95,10 +95,12 @@ smoke: ## Syntax-check installer scripts
 	@bash -n $(DOTFILES)/install/components.sh
 	@bash -n $(DOTFILES)/install/check.sh
 	@bash -n $(DOTFILES)/install/icloud_test.sh
+	@bash -n $(DOTFILES)/install/after_test.sh
 	@bash -n $(DOTFILES)/linux/apt.sh
 	@bash -n $(DOTFILES)/scripts/nvim.sh
 	@bash -n $(DOTFILES)/scripts/tree-sitter.sh
 	@bash $(DOTFILES)/install/icloud_test.sh
+	@bash $(DOTFILES)/install/after_test.sh
 	@echo ok
 
 .PHONY: test
@@ -153,4 +155,7 @@ ifeq ($(OSTYPE), Darwin)
 	-@rm -rf $(HOME)/.config/yabai
 	-@rm -rf $(HOME)/.config/borders
 	-@sudo battery uninstall 2>/dev/null || true
+endif
+ifeq ($(OSTYPE), Linux)
+	-@sudo dnf remove -y grok-bot
 endif

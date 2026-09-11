@@ -3,8 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// Adaptive Catppuccin-shaped palette. Falls back to Mocha until asahi-autotheme
-// writes ~/.local/state/asahi-theme/colors.json (wallpaper-driven).
+// Wallpaper palette for Quickshell. Mocha until asahi-autotheme writes colors.json.
 Singleton {
   id: root
 
@@ -12,7 +11,6 @@ Singleton {
   readonly property string colorsPath: root.stateHome + "/asahi-theme/colors.json"
   readonly property string themeNamePath: root.stateHome + "/asahi-theme/theme.name"
 
-  // Full Mocha palette (official) — defaults until adaptive colors load
   property color crust:  "#11111b"
   property color mantle: "#181825"
   property color base:   "#1e1e2e"
@@ -41,12 +39,12 @@ Singleton {
   property color lavender:  "#b4befe"
 
   property string mode: "dark"
+  readonly property bool isDark: mode === "dark"
   property string wallpaper: ""
   property string variant: "source"
   property color accent: blue
   property int generation: 0
 
-  // Legacy names for wallpaper picker compatibility
   readonly property color bgBase: base
   readonly property color bgSurface: surface0
   readonly property color bgOverlay: "#88000000"
@@ -113,7 +111,6 @@ Singleton {
     onLoaded: root.applyJson(colorsFile.text())
   }
 
-  // Atomic rm+mv on colors.json can race inotify; theme.name always changes.
   FileView {
     id: themeMarker
     path: root.themeNamePath
@@ -122,7 +119,6 @@ Singleton {
     onLoaded: root.reloadFromDisk()
   }
 
-  // Retry: FileView may not be ready on first tick of a fresh QS start.
   Timer {
     interval: 400
     running: true

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Secret Service for Hyprland. SSH stays with keychain (ssh-keychain).
+# Secret Service for Hyprland. SSH stays with keychain (asahi-ssh-keychain).
 set -euo pipefail
 
 dir="${XDG_DATA_HOME:-$HOME/.local/share}/keyrings"

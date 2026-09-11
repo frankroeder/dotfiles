@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+
 if [ "$#" -eq 0 ]; then
   echo "usage: $0 <command> [args...]" >&2
   exit 2
@@ -24,4 +26,4 @@ if [ -n "$address" ]; then
   exit 0
 fi
 
-exec "$HOME/.dotfiles/asahi/bin/asahi-launch-tui" "$@"
+exec "$bin/asahi-launch-tui" "$@"

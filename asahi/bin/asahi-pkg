@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+# dnf5 JSON for the remix package manager. Read-only except the tui helpers.
+
+set -euo pipefail
+
+usage() {
+  printf 'usage: asahi-pkg search <q>|installed [q]|updates|tui-install <pkgs...>|tui-remove <pkgs...>|tui-upgrade [pkgs...]\n' >&2
+}
+
+sanitize() {
+  # repoquery glob: keep name-like characters only
+  printf '%s' "$1" | tr -cd 'A-Za-z0-9._+-:*'
+}
+
+emit_rows() {
+  python3 -c '
+import json, sys
+rows = []
+for line in sys.stdin:
+    line = line.rstrip("\n")
+    if not line or line.startswith("Updating ") or line.startswith("Repositories"):
+        continue
+    parts = line.split("|", 3)
+    if len(parts) < 2:
+        continue
+    name = parts[0].strip()
+    version = parts[1].strip() if len(parts) > 1 else ""
+    repo = parts[2].strip() if len(parts) > 2 else ""
+    summary = parts[3].strip() if len(parts) > 3 else ""
+    if not name:
+        continue
+    rows.append({
+        "name": name,
+        "version": version,
+        "repo": repo,
+        "summary": summary,
+        "source": "dnf",
+    })
+print(json.dumps({"error": "", "packages": rows}, ensure_ascii=False))
+'
+}
+
+cmd_search() {
+  local q
+  q="$(sanitize "${1:-}")"
+  if [ -z "$q" ]; then
+    printf '%s\n' '{"error":"empty-query","packages":[]}'
+    return 0
+  fi
+  case "$q" in
+    *"*"*) ;;
+    *) q="*${q}*" ;;
+  esac
+  # head closing the pipe SIGPIPEs dnf; pipefail would then kill a successful emit.
+  local rows
+  rows="$(dnf repoquery --available --queryformat '%{name}|%{evr}|%{from_repo}|%{summary}\n' "$q" 2>/dev/null | head -n 80 || true)"
+  printf '%s\n' "$rows" | emit_rows
+}
+
+cmd_installed() {
+  local q raw
+  q="$(sanitize "${1:-}")"
+  raw="$(dnf repoquery --installed --queryformat '%{name}|%{evr}|%{from_repo}|%{summary}\n' 2>/dev/null || true)"
+  if [ -n "$q" ]; then
+    raw="$(printf '%s\n' "$raw" | { grep -iF -- "$q" || true; } | head -n 200 || true)"
+  else
+    raw="$(printf '%s\n' "$raw" | head -n 200 || true)"
+  fi
+  printf '%s\n' "$raw" | emit_rows
+}
+
+cmd_updates() {
+  python3 - <<'PY'
+import json, subprocess
+
+proc = subprocess.run(
+    ["dnf", "check-update", "--cacheonly", "-q"],
+    capture_output=True, text=True
+)
+# dnf5: 100 = updates available, 0 = none
+rows = []
+skip = {"upgrades", "available", "obsoleting", "removing"}
+for line in (proc.stdout or "").splitlines():
+    s = line.strip()
+    if not s or s.lower() in skip:
+        continue
+    parts = s.split()
+    if len(parts) < 2:
+        continue
+    name_arch = parts[0]
+    version = parts[1]
+    repo = parts[2] if len(parts) > 2 else ""
+    name = name_arch.rsplit(".", 1)[0] if "." in name_arch else name_arch
+    rows.append({
+        "name": name,
+        "arch": name_arch[len(name) + 1:] if name_arch.startswith(name + ".") else "",
+        "version": version,
+        "repo": repo,
+        "summary": "",
+        "source": "dnf",
+    })
+print(json.dumps({
+    "error": "",
+    "packages": rows,
+    "available": len(rows) > 0,
+}, ensure_ascii=False))
+PY
+}
+
+launch_tui() {
+  local bin
+  bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/asahi-launch-tui"
+  exec "$bin" "$@"
+}
+
+cmd="${1:-}"
+shift || true
+case "$cmd" in
+  search) cmd_search "${1:-}" ;;
+  installed) cmd_installed "${1:-}" ;;
+  updates) cmd_updates ;;
+  tui-install)
+    if [ "$#" -eq 0 ]; then
+      usage
+      exit 2
+    fi
+    launch_tui sudo dnf install "$@"
+    ;;
+  tui-remove)
+    if [ "$#" -eq 0 ]; then
+      usage
+      exit 2
+    fi
+    launch_tui sudo dnf remove "$@"
+    ;;
+  tui-upgrade)
+    if [ "$#" -eq 0 ]; then
+      launch_tui sudo dnf upgrade
+    else
+      launch_tui sudo dnf upgrade "$@"
+    fi
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac

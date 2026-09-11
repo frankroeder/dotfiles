@@ -12,9 +12,7 @@ Rectangle {
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
 
-  color: solidBar
-    ? (volumeMouse.containsMouse ? Style.barStripHover : "transparent")
-    : (volumeMouse.containsMouse ? Style.barHoverBg : Style.barBg)
+  color: solidBar ? "transparent" : (volumeMouse.containsMouse ? Style.barHoverBg : Style.barBg)
   radius: solidBar ? 0 : Style.radius
   border.width: solidBar ? 0 : 1
   border.color: solidBar ? "transparent" : (volumeMouse.containsMouse ? Style.barHoverBorder : Style.barBorder)
@@ -24,6 +22,16 @@ Rectangle {
 
   implicitWidth: content.implicitWidth + (solidBar ? 10 : 14)
   implicitHeight: solidBar ? Style.barHeight : 30
+
+  Rectangle {
+    anchors.fill: parent
+    anchors.topMargin: Style.barChipInset
+    anchors.bottomMargin: Style.barChipInset
+    radius: Style.radiusSm
+    visible: solidBar
+    color: volumeMouse.containsMouse ? Style.barStripHover : "transparent"
+    Behavior on color { ColorAnimation { duration: 120 } }
+  }
 
   property bool muted: false
   property int percentage: -1

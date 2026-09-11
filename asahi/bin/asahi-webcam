@@ -1,0 +1,328 @@
+#!/usr/bin/env bash
+# Webcam overlay for screen recordings. list / overlay / resize.
+# Overlay is mpv + Hyprland pin; asahi-cmd-record starts and stops it.
+
+set -euo pipefail
+
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
+
+pid_file="${XDG_RUNTIME_DIR:-/tmp}/asahi-webcam.pid"
+region_file="${XDG_RUNTIME_DIR:-/tmp}/asahi-record-region"
+margin=40
+
+usage() {
+  echo "usage: $0 list | overlay start|stop | resize smaller|larger|reset|small|medium|large" >&2
+  echo "  overlay start [--device PATH] [--size small|medium|large] [--region WxH+X+Y]" >&2
+  exit 2
+}
+
+notify() {
+  notify-send -a record -t 2500 "$@" 2>/dev/null || true
+}
+
+capture_capable() {
+  local device="$1"
+  command -v v4l2-ctl >/dev/null 2>&1 || return 0
+  v4l2-ctl --device "$device" --info 2>/dev/null | awk '
+    /^[[:space:]]*Device Caps[[:space:]]*:/ { inspect = 1; next }
+    inspect && /^[[:space:]]*Video Capture/ { found = 1 }
+    END { exit !found }
+  '
+}
+
+list_devices() {
+  local name device emitted line
+  if command -v v4l2-ctl >/dev/null 2>&1; then
+    name=""
+    emitted=0
+    while IFS= read -r line; do
+      if [[ -n $line && $line != [[:space:]]* ]]; then
+        name="$line"
+        emitted=0
+      elif ((emitted == 0)); then
+        device="${line#"${line%%[![:space:]]*}"}"
+        if [[ $device == /dev/video* ]] && capture_capable "$device"; then
+          emitted=1
+          printf '%s  %s\n' "$device" "$name"
+        fi
+      fi
+    done < <(v4l2-ctl --list-devices 2>/dev/null)
+    return 0
+  fi
+  for device in /dev/video*; do
+    [[ -c $device ]] || continue
+    name=$(cat "/sys/class/video4linux/${device##*/}/name" 2>/dev/null || true)
+    printf '%s  %s\n' "$device" "${name:-video}"
+  done
+}
+
+first_device() {
+  list_devices | sed -n '1s/[[:space:]].*//p'
+}
+
+overlay_pid() {
+  local pid=""
+  if [[ -r $pid_file ]]; then
+    pid="$(tr -d '\n' <"$pid_file")"
+    if [[ $pid =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+      printf '%s\n' "$pid"
+      return 0
+    fi
+    rm -f "$pid_file"
+  fi
+}
+
+stop_overlay() {
+  local pid
+  pid="$(overlay_pid || true)"
+  if [[ -n $pid ]]; then
+    kill "$pid" 2>/dev/null || true
+    local i
+    for ((i = 1; i <= 20; i++)); do
+      kill -0 "$pid" 2>/dev/null || break
+      sleep 0.1
+    done
+    kill -0 "$pid" 2>/dev/null && kill -KILL "$pid" 2>/dev/null || true
+  fi
+  rm -f "$pid_file" "$region_file"
+}
+
+hypr_dispatch() {
+  local lua="$1"
+  shift
+  hyprctl dispatch "$lua" >/dev/null 2>&1 || hyprctl dispatch "$@" >/dev/null
+}
+
+resize_overlay() {
+  local action=$1
+  local client address current_width current_height monitor_id
+  local monitor monitor_x monitor_y monitor_width monitor_height
+  local anchor_x anchor_y anchor_width anchor_height region scale_height available_width
+  local small_height small_width medium_height medium_width large_height large_width
+  local target_width target_height target_x target_y window
+
+  case $action in
+    smaller | larger | reset | small | medium | large) ;;
+    *) usage ;;
+  esac
+
+  if ! client=$(hyprctl clients -j 2>/dev/null | jq -cer 'first(.[] | select(.title == "WebcamOverlay")) // empty' 2>/dev/null); then
+    return 0
+  fi
+  [[ -n $client ]] || return 0
+
+  read -r address current_width current_height monitor_id < <(
+    jq -r '[.address, .size[0], .size[1], .monitor] | @tsv' <<<"$client"
+  )
+  [[ -n $address && $current_width =~ ^[0-9]+$ && $current_height =~ ^[0-9]+$ && $monitor_id =~ ^[0-9]+$ ]] || return 0
+  ((current_width > 0 && current_height > 0)) || return 0
+
+  if ! monitor=$(hyprctl monitors -j 2>/dev/null | jq -cer --argjson id "$monitor_id" 'first(.[] | select(.id == $id)) // empty' 2>/dev/null); then
+    return 0
+  fi
+  [[ -n $monitor ]] || return 0
+
+  read -r monitor_x monitor_y monitor_width monitor_height < <(
+    jq -r '
+      . as $monitor |
+      (($monitor.transform // 0) % 2 == 1) as $rotated |
+      [
+        .x, .y,
+        (((if $rotated then .height else .width end) / .scale) | floor),
+        (((if $rotated then .width else .height end) / .scale) | floor)
+      ] | @tsv
+    ' <<<"$monitor"
+  )
+  [[ $monitor_x =~ ^-?[0-9]+$ && $monitor_y =~ ^-?[0-9]+$ && $monitor_width =~ ^[0-9]+$ && $monitor_height =~ ^[0-9]+$ ]] || return 0
+
+  anchor_x=$monitor_x
+  anchor_y=$monitor_y
+  anchor_width=$monitor_width
+  anchor_height=$monitor_height
+  if [[ -f $region_file ]] && region=$(<"$region_file"); then
+    if [[ $region =~ ^([0-9]+)x([0-9]+)\+(-?[0-9]+)\+(-?[0-9]+)$ ]]; then
+      anchor_width=${BASH_REMATCH[1]}
+      anchor_height=${BASH_REMATCH[2]}
+      anchor_x=${BASH_REMATCH[3]}
+      anchor_y=${BASH_REMATCH[4]}
+    fi
+  fi
+
+  scale_height=$anchor_height
+  available_width=$((anchor_width - 2 * margin))
+  if ((available_width > 0 && scale_height * 3 / 10 > available_width)); then
+    scale_height=$((available_width * 10 / 3))
+  fi
+
+  small_height=$(((scale_height * 9 + 25) / 50))
+  small_width=$(((small_height * 8 + 4) / 9))
+  medium_height=$(((scale_height + 2) / 4))
+  medium_width=$(((medium_height * 8 + 4) / 9))
+  large_height=$(((scale_height * 27 + 40) / 80))
+  large_width=$(((large_height * 8 + 4) / 9))
+
+  target_width=$current_width
+  target_height=$current_height
+  case $action in
+    small)
+      target_width=$small_width
+      target_height=$small_height
+      ;;
+    medium | reset)
+      target_width=$medium_width
+      target_height=$medium_height
+      ;;
+    large)
+      target_width=$large_width
+      target_height=$large_height
+      ;;
+    smaller)
+      if ((large_width < current_width)); then
+        target_width=$large_width
+        target_height=$large_height
+      elif ((medium_width < current_width)); then
+        target_width=$medium_width
+        target_height=$medium_height
+      elif ((small_width < current_width)); then
+        target_width=$small_width
+        target_height=$small_height
+      fi
+      ;;
+    larger)
+      if ((small_width > current_width)); then
+        target_width=$small_width
+        target_height=$small_height
+      elif ((medium_width > current_width)); then
+        target_width=$medium_width
+        target_height=$medium_height
+      elif ((large_width > current_width)); then
+        target_width=$large_width
+        target_height=$large_height
+      fi
+      ;;
+  esac
+
+  target_x=$((anchor_x + anchor_width - target_width - margin))
+  target_y=$((anchor_y + anchor_height - target_height - margin))
+  if ((target_x < anchor_x + margin)); then
+    target_x=$((anchor_x + margin))
+  fi
+  if ((target_y < anchor_y + margin)); then
+    target_y=$((anchor_y + margin))
+  fi
+
+  window="address:$address"
+  hypr_dispatch \
+    "hl.dsp.window.resize({ window = \"$window\", x = $target_width, y = $target_height })" \
+    resizewindowpixel "exact $target_width $target_height,$window"
+  hypr_dispatch \
+    "hl.dsp.window.move({ window = \"$window\", x = $target_x, y = $target_y })" \
+    movewindowpixel "exact $target_x $target_y,$window"
+}
+
+start_overlay() {
+  local device="" size="medium" region="" capture_options available_formats resolution
+  while (($# > 0)); do
+    case "$1" in
+      --device)
+        (($# >= 2)) || usage
+        device=$2
+        shift 2
+        ;;
+      --size)
+        (($# >= 2)) || usage
+        size=$2
+        shift 2
+        ;;
+      --region)
+        (($# >= 2)) || usage
+        region=$2
+        shift 2
+        ;;
+      *) usage ;;
+    esac
+  done
+  case $size in
+    small | medium | large) ;;
+    *)
+      echo "asahi-webcam: size must be small, medium, or large" >&2
+      exit 1
+      ;;
+  esac
+
+  stop_overlay
+  if [[ -z $device ]]; then
+    device=$(first_device)
+  fi
+  if [[ -z $device ]]; then
+    notify "No webcam devices found"
+    echo "asahi-webcam: no capture device" >&2
+    exit 1
+  fi
+
+  capture_options="framerate=30"
+  if command -v v4l2-ctl >/dev/null 2>&1; then
+    available_formats=$(v4l2-ctl --list-formats-ext -d "$device" 2>/dev/null || true)
+    for resolution in 640x360 1280x720 1920x1080; do
+      if grep -q "$resolution" <<<"$available_formats"; then
+        capture_options="video_size=$resolution,$capture_options"
+        break
+      fi
+    done
+  fi
+
+  if [[ -n ${ASAHI_WEBCAM_DRY_RUN:-} ]]; then
+    printf 'mpv av://v4l2:%s --wayland-app-id=WebcamOverlay-%s\n' "$device" "$size"
+    return 0
+  fi
+
+  if ! command -v mpv >/dev/null 2>&1; then
+    notify "mpv is not installed"
+    echo "asahi-webcam: mpv is not installed" >&2
+    exit 1
+  fi
+
+  setsid mpv "av://v4l2:$device" \
+    --profile=low-latency --untimed --no-cache \
+    --demuxer-lavf-o="$capture_options" \
+    '--vf=lavfi=[crop=ih*8/9:ih]' \
+    --title="WebcamOverlay" --wayland-app-id="WebcamOverlay-$size" \
+    --no-border --no-audio --no-osc --osd-level=0 \
+    --really-quiet </dev/null >/dev/null 2>&1 &
+  printf '%s\n' $! >"$pid_file"
+
+  if [[ -n $region ]]; then
+    printf '%s\n' "$region" >"$region_file"
+  fi
+
+  if [[ -z ${ASAHI_WEBCAM_NO_WAIT:-} ]]; then
+    local waited=0
+    while ((waited < 40)) && ! hyprctl clients -j 2>/dev/null | jq -e 'any(.[]; .title == "WebcamOverlay")' >/dev/null 2>&1; do
+      sleep 0.05
+      waited=$((waited + 1))
+    done
+    resize_overlay "$size" || true
+    sleep 0.3
+  fi
+}
+
+cmd=${1:-}
+shift || true
+case "$cmd" in
+  list) list_devices ;;
+  overlay)
+    case "${1:-}" in
+      start)
+        shift
+        start_overlay "$@"
+        ;;
+      stop) stop_overlay ;;
+      *) usage ;;
+    esac
+    ;;
+  resize)
+    (($# == 1)) || usage
+    resize_overlay "$1"
+    ;;
+  *) usage ;;
+esac

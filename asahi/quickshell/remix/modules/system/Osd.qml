@@ -114,6 +114,10 @@ Scope {
     function brightness(): void {
       root.query("brightness", ["bash", "-c", "brightnessctl -m | awk -F, '{gsub(/%/, \"\", $4); print $4}'"])
     }
+    function brightnessSet(value: string): void {
+      const n = Number(value)
+      root.show("brightness", "󰃠", "Brightness", n || 0, (Number.isFinite(n) ? String(n) : value) + "%")
+    }
     function keyboard(): void {
       root.query("keyboard", [
         "bash",
@@ -127,6 +131,9 @@ Scope {
         "-c",
         "hyprctl devices -j | jq -r '[.keyboards[] | select(.main == true) | .capsLock][0] // [.keyboards[] | .capsLock][0] // false'"
       ])
+    }
+    function message(icon: string, label: string, value: string): void {
+      root.toast(icon, label, value, 1400)
     }
   }
 

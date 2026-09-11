@@ -42,6 +42,16 @@ class TestPalette(unittest.TestCase):
         self.assertTrue(p.background.startswith("#"))
         self.assertIn("base", p.to_dict())
 
+    def test_build_light(self):
+        reps = [
+            Representative(lab=from_srgb8(250, 248, 240), weight=100, hex="#faf8f0"),
+            Representative(lab=from_srgb8(230, 200, 160), weight=40, hex="#e6c8a0"),
+            Representative(lab=from_srgb8(40, 36, 32), weight=10, hex="#282420"),
+        ]
+        p = build_palette(reps, "/tmp/light.jpg", variant="source")
+        self.assertEqual(p.mode, "light")
+        self.assertTrue(p.background.startswith("#"))
+
     def test_merge_close(self):
         a = Representative(lab=from_srgb8(10, 10, 10), weight=5, hex="#0a0a0a")
         b = Representative(lab=from_srgb8(12, 12, 12), weight=3, hex="#0c0c0c")

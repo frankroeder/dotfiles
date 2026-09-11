@@ -1,48 +1,12 @@
 -- Drive shipped CCU format/pace/chart helpers. No sbar, no reimplementation oracle.
-local src = debug.getinfo(1, "S").source:gsub("^@", "")
-if not src:match "^/" then
-  local pwd = os.getenv "PWD" or "."
-  src = pwd .. "/" .. src
+local here = debug.getinfo(1, "S").source:gsub("^@", "")
+if not here:match "^/" then
+  here = (os.getenv "PWD" or ".") .. "/" .. here
 end
-local root = src:gsub("sketchybar/top/tests/ccu_logic_test.lua$", "")
-if root == src then
-  root = os.getenv "DOTFILES" or (os.getenv "HOME" .. "/.dotfiles")
-  if root:sub(-1) ~= "/" then
-    root = root .. "/"
-  end
-end
-
-package.path = root
-  .. "sketchybar/?.lua;"
-  .. root
-  .. "sketchybar/?/init.lua;"
-  .. root
-  .. "sketchybar/top/?.lua;"
-  .. package.path
+local T = dofile(here:gsub("[^/]+%.lua$", "") .. "prelude.lua")
+local ok, eq = T.ok, T.eq
 
 local logic = require "ccu_logic"
-
-local failures = 0
-local function fail(msg)
-  failures = failures + 1
-  io.stderr:write("FAIL " .. msg .. "\n")
-end
-
-local function ok(cond, msg)
-  if cond then
-    print("ok  " .. msg)
-  else
-    fail(msg)
-  end
-end
-
-local function eq(got, expected, msg)
-  if got == expected then
-    print("ok  " .. msg)
-  else
-    fail(msg .. " got=" .. tostring(got) .. " expected=" .. tostring(expected))
-  end
-end
 
 local now = 1700000000
 local week = logic.WEEK_SEC
@@ -254,8 +218,4 @@ local iso = logic.iso_to_unix "2026-01-01T00:00:00Z"
 ok(iso ~= nil, "iso_to_unix parses")
 eq(logic.iso_to_unix "2026-01-01T00:00:00Z", logic.iso_to_unix "2026-01-01 00:00:00", "iso T and space")
 
-if failures > 0 then
-  print(failures .. " failed")
-  os.exit(1)
-end
-print "all passed"
+T.done()

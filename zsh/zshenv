@@ -41,12 +41,30 @@ elif [[ "$OSTYPE" == "Linux" ]]; then
   elif (( ${+commands[firefox]} )); then
     export BROWSER="firefox"
   fi
+  # Fedora's /etc/profile.d/keychain.sh greps every private key in ~/.ssh
+  # (google_compute_engine included) and on interactive login runs
+  # `keychain --quiet --immediate $SSHKEYS` — no --noask — so tty1 getty
+  # asks for every passphrase after the login password. /etc/zprofile
+  # sources /etc/profile before ~/.zprofile. This is that script's own
+  # skip flag; asahi-ssh-keychain starts an empty agent and the first
+  # git/ssh unlocks via AddKeysToAgent.
+  export KEYCHAIN_DONE=1
   keychain_env="$HOME/.keychain/${HOST:-$HOSTNAME}-sh"
   if [[ -z "${SSH_CONNECTION:-}" && -r "$keychain_env" ]]; then
     source "$keychain_env"
   fi
   if [[ -z "${SSH_AUTH_SOCK:-}" ]] && [[ -n "${XDG_RUNTIME_DIR:-}" ]] && [[ -S "${XDG_RUNTIME_DIR}/ssh-agent.socket" ]]; then
     export SSH_AUTH_SOCK="${XDG_RUNTIME_DIR}/ssh-agent.socket"
+  fi
+  # A leftover ~/.keychain socket after reboot is still a file; ssh then
+  # prompts for the key password on every git/ssh instead of using an agent.
+  if [[ -n "${SSH_AUTH_SOCK:-}" ]] && (( ${+commands[ssh-add]} )); then
+    _ssh_add_rc=0
+    ssh-add -l >/dev/null 2>&1 || _ssh_add_rc=$?
+    if ((_ssh_add_rc > 1)); then
+      unset SSH_AUTH_SOCK SSH_AGENT_PID
+    fi
+    unset _ssh_add_rc
   fi
   unset keychain_env
   export TERM=xterm-256color

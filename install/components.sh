@@ -413,6 +413,37 @@ comp_micro() {
 
 # --- Asahi Linux ------------------------------------------------------------
 
+# tty1 getty is the login password. Safe on a live session: only removes a
+# leftover drop-in and daemon-reloads. Do not restart getty@tty1 (kills Hyprland).
+comp_asahi_getty() {
+  require_linux
+  print_step "Ensuring tty1 getty asks for a password (no autologin)"
+  if [ -n "$NOSUDO" ]; then
+    print_error "asahi-getty writes /etc/systemd; rerun without --no-sudo"
+    exit 1
+  fi
+  local dropin=/etc/systemd/system/getty@tty1.service.d/10-asahi-autologin.conf
+  local dropdir=/etc/systemd/system/getty@tty1.service.d
+  if [ -f "$dropin" ]; then
+    sudo rm -f "$dropin" || {
+      print_error "failed to remove $dropin"
+      exit 1
+    }
+    if [ -d "$dropdir" ] && [ -z "$(ls -A "$dropdir" 2>/dev/null)" ]; then
+      sudo rmdir "$dropdir"
+    fi
+    sudo systemctl daemon-reload || {
+      print_error "systemctl daemon-reload failed after removing autologin"
+      exit 1
+    }
+  fi
+  if systemctl cat getty@tty1.service 2>/dev/null | grep -q -- '--autologin'; then
+    print_error "getty@tty1 still has --autologin after cleanup"
+    exit 1
+  fi
+  print_ok "tty1 getty has no --autologin (password required on next boot)"
+}
+
 # Power-button tap ignore + no hibernate. Safe to rerun on a live Hyprland
 # session: SIGHUP reloads logind.conf.d; do not restart systemd-logind.
 comp_asahi_logind() {
@@ -450,56 +481,80 @@ comp_asahi_logind() {
 comp_asahi_system() {
   require_linux
   bash "$DOTFILES/asahi/dnf.sh"
-  sudo install -Dm644 "$DOTFILES/asahi/systemd/system/asahi-tty-font.service" /etc/systemd/system/asahi-tty-font.service
+  # Console font, getty prompt included. This has to be vconsole.conf rather
+  # than a setfont unit: systemd-vconsole-setup is udev-triggered and re-runs
+  # as the DRM devices appear, so it overwrites anything a service set earlier.
+  sudo install -Dm644 "$DOTFILES/asahi/vconsole.conf" /etc/vconsole.conf
+  sudo systemctl restart systemd-vconsole-setup.service
+  # Getty is the auth gate. A leftover agetty --autologin drop-in (tried, then
+  # reverted in the repo) still skips the tty1 password until it is removed.
+  comp_asahi_getty
   comp_asahi_logind
   sudo systemctl daemon-reload
-  sudo systemctl enable asahi-tty-font.service
-  sudo systemctl restart asahi-tty-font.service
+  local rebuild_initramfs=0
   # Full panel height beside the notch (appledrm). No-op without that driver.
-  if modinfo appledrm >/dev/null 2>&1 && [ ! -f /etc/modprobe.d/asahi-notch.conf ]; then
-    print_step "Enabling Asahi notch area (full display height)"
-    echo "options appledrm show_notch=1" | sudo tee /etc/modprobe.d/asahi-notch.conf >/dev/null
-    if ! have dracut; then
-      print_error "dracut not found; cannot rebuild initramfs for appledrm show_notch=1"
-      exit 1
+  if modinfo appledrm >/dev/null 2>&1; then
+    if [ ! -f /etc/modprobe.d/asahi-notch.conf ] || ! cmp -s "$DOTFILES/asahi/modprobe.d/asahi-notch.conf" /etc/modprobe.d/asahi-notch.conf; then
+      print_step "Enabling Asahi notch area (full display height)"
+      sudo install -Dm644 "$DOTFILES/asahi/modprobe.d/asahi-notch.conf" /etc/modprobe.d/asahi-notch.conf
+      rebuild_initramfs=1
     fi
-    sudo dracut -f
-    print_ok "asahi-notch.conf written; reboot required"
   fi
-  # Apple Silicon: early-load Apple HID modules in initramfs to avoid trackpad race on boot.
+  # Apple Silicon: media keys on the top row (hid_apple fnmode=1).
   if [ "$(uname -m)" = "aarch64" ] && grep -qi apple /proc/device-tree/compatible 2>/dev/null; then
-    if [ ! -f /etc/mkinitcpio.conf.d/apple_hid_modules.conf ]; then
-      print_step "Early-loading Apple HID modules (trackpad race fix)"
-      sudo mkdir -p /etc/mkinitcpio.conf.d
-      sudo tee /etc/mkinitcpio.conf.d/apple_hid_modules.conf >/dev/null <<'EOF'
-# Load Apple HID before session start — avoids dockchannel-hid rebinding race on Asahi.
-for _asahi_apple_hid_module in hid_apple hid_magicmouse; do
-  modinfo -k "${KERNELVERSION:-$(uname -r)}" "$_asahi_apple_hid_module" >/dev/null 2>&1 &&
-    MODULES+=("$_asahi_apple_hid_module")
-done
-unset _asahi_apple_hid_module
-EOF
-      if have dracut; then
-        sudo dracut -f
-        print_ok "apple_hid_modules.conf written; reboot required"
-      else
-        print_warning "dracut not found; apple_hid_modules.conf written but initramfs not rebuilt"
+    local hid_dst=/etc/modprobe.d/hid_apple.conf
+    if [ ! -f "$hid_dst" ] || grep -q 'fnmode=2' "$hid_dst"; then
+      print_step "hid_apple fnmode=1 (media keys on the top row)"
+      sudo install -Dm644 "$DOTFILES/asahi/modprobe.d/hid_apple.conf" "$hid_dst"
+      rebuild_initramfs=1
+      if [ -f /sys/module/hid_apple/parameters/fnmode ]; then
+        echo 1 | sudo tee /sys/module/hid_apple/parameters/fnmode >/dev/null || true
       fi
     fi
   fi
-  if have brightnessctl; then
-    brightnessctl --device='kbd_backlight' set 30% || true
-  elif have light; then
-    light -s sysfs/leds/kbd_backlight -S 30 || true
+  # Bind the internal keyboard on first registration instead of letting it
+  # churn through hid-generic, which can cost the trackpad or keyboard for a
+  # whole session when logind's TakeDevice loses the race.
+  if [ "$(uname -m)" = "aarch64" ] && grep -qi apple /proc/device-tree/compatible 2>/dev/null; then
+    local hid_dracut=/etc/dracut.conf.d/10-asahi-hid.conf
+    if ! cmp -s "$DOTFILES/asahi/dracut.conf.d/10-asahi-hid.conf" "$hid_dracut" 2>/dev/null; then
+      print_step "Early-loading Apple HID modules from the initramfs"
+      sudo install -Dm644 "$DOTFILES/asahi/dracut.conf.d/10-asahi-hid.conf" "$hid_dracut"
+      rebuild_initramfs=1
+    fi
   fi
+  if [ "$rebuild_initramfs" -eq 1 ]; then
+    if ! have dracut; then
+      print_error "dracut not found; cannot rebuild initramfs for notch/fnmode/HID"
+      exit 1
+    fi
+    sudo dracut -f
+    print_ok "initramfs rebuilt; reboot required for notch/fnmode/HID"
+  fi
+  comp_asahi_charge_limit
 }
 
-comp_asahi_zotero() {
-  if [ -x "/opt/zotero/zotero" ]; then
-    print_warning "Zotero already installed at /opt/zotero; skipping setup script"
-  else
-    print_step "Installing Zotero ARM64"
-    bash "$DOTFILES/scripts/setup_zotero.sh"
+# udev + oneshot so macsmc charge thresholds are writable and reapplied at boot.
+comp_asahi_charge_limit() {
+  require_linux
+  print_step "Installing Asahi charge-limit udev rule and oneshot"
+  if [ -n "$NOSUDO" ]; then
+    print_warning "asahi-charge-limit needs /etc/udev and /var/lib/asahi; skipping"
+    return 0
+  fi
+  sudo install -Dm644 "$DOTFILES/asahi/udev/99-asahi-charge-limit.rules" \
+    /etc/udev/rules.d/99-asahi-charge-limit.rules
+  sudo install -Dm755 "$DOTFILES/asahi/bin/asahi-charge-limit" \
+    /usr/local/libexec/asahi-charge-limit
+  sudo install -Dm644 "$DOTFILES/asahi/systemd/system/asahi-charge-limit.service" \
+    /etc/systemd/system/asahi-charge-limit.service
+  sudo install -d -m 2775 -o root -g wheel /var/lib/asahi
+  sudo udevadm control --reload-rules
+  sudo udevadm trigger -s power_supply --action=add || true
+  sudo systemctl daemon-reload
+  sudo systemctl enable asahi-charge-limit.service
+  if [ -r /sys/class/power_supply/macsmc-battery/charge_control_end_threshold ]; then
+    sudo systemctl start asahi-charge-limit.service || true
   fi
 }
 
@@ -519,13 +574,25 @@ comp_asahi_common() {
 
 comp_asahi_desktop() {
   comp_asahi_common
-  mkdir -p "$HOME/screenshots"
+  mkdir -p "$HOME/screenshots" "$HOME/Videos"
   local script
-  for script in "$DOTFILES"/asahi/bin/* "$DOTFILES"/asahi/autostart-scripts/*; do
-    [ -f "$script" ] && chmod +x "$script"
+  for script in "$DOTFILES"/asahi/bin/*; do
+    # `|| continue`, not `&& chmod`: asahi/bin/lib is a directory and sorts last,
+    # so a trailing `[ -f ]` would leave the loop with a non-zero status.
+    [ -f "$script" ] || continue
+    chmod +x "$script"
   done
-  mkdir -p "$HOME/.config/systemd/user"
+  mkdir -p "$HOME/.local/bin" "$HOME/.config/systemd/user"
   link_if_exists "$DOTFILES/asahi/systemd/user/hyprland-session.target" "$HOME/.config/systemd/user/hyprland-session.target"
+  ln -sfn "$DOTFILES/asahi/bin/asahi-brightness-keyboard-auto" \
+    "$HOME/.local/bin/asahi-brightness-keyboard-auto"
+  ln -sfn "$DOTFILES/asahi/systemd/user/asahi-brightness-keyboard-auto.service" \
+    "$HOME/.config/systemd/user/asahi-brightness-keyboard-auto.service"
+  systemctl --user daemon-reload
+  systemctl --user enable asahi-brightness-keyboard-auto.service
+  if systemctl --user is-active --quiet hyprland-session.target; then
+    systemctl --user start asahi-brightness-keyboard-auto.service || true
+  fi
   replace_with_symlink "$DOTFILES/asahi/hypr"      "$HOME/.config/hypr"
   replace_with_symlink "$DOTFILES/asahi/quickshell" "$HOME/.config/quickshell"
   replace_with_symlink "$DOTFILES/asahi/ghostty"   "$HOME/.config/ghostty"
@@ -536,12 +603,26 @@ comp_asahi_desktop() {
   # ("Default Keyring" wallet wizard). gnome-keyring is the store instead.
   link_if_exists "$DOTFILES/asahi/kwalletrc" "$HOME/.config/kwalletrc"
   mkdir -p "$HOME/.config/autostart"
-  link_if_exists "$DOTFILES/asahi/autostart/gnome-keyring-ssh.desktop" \
+  link_if_exists "$DOTFILES/asahi/xdg-autostart/gnome-keyring-ssh.desktop" \
     "$HOME/.config/autostart/gnome-keyring-ssh.desktop"
+  # Quickshell owns notifications. Fedora's swaync dbus-activates on reload,
+  # loses the name, and fumon toasts the fail — mask it like sshd.
+  if ! systemctl --user mask swaync.service; then
+    print_error "failed to mask swaync.service"
+  fi
+  systemctl --user reset-failed swaync.service || true
   mkdir -p "$HOME/.config/gtk-3.0" "$HOME/.config/gtk-4.0"
+  mkdir -p "$HOME/.config/xdg-desktop-portal"
+  mkdir -p "$HOME/.local/state/asahi-theme"
   mkdir -p "$HOME/.config/wireplumber/wireplumber.conf.d"
   link_if_exists "$DOTFILES/asahi/wireplumber/wireplumber.conf.d/bluetooth-a2dp-autoconnect.conf" \
     "$HOME/.config/wireplumber/wireplumber.conf.d/bluetooth-a2dp-autoconnect.conf"
+  # Settings portal is gtk (Hyprland does not implement appearance color-scheme).
+  link_if_exists "$DOTFILES/asahi/xdg-desktop-portal/portals.conf" \
+    "$HOME/.config/xdg-desktop-portal/portals.conf"
+  if [ ! -f "$HOME/.local/state/asahi-theme/hyprlock.conf" ]; then
+    cp -f "$DOTFILES/asahi/hypr/hyprlock-theme.conf" "$HOME/.local/state/asahi-theme/hyprlock.conf"
+  fi
   # Real files (not symlinks): asahi-autotheme flips light/dark here.
   for gtkver in gtk-3.0 gtk-4.0; do
     dest="$HOME/.config/$gtkver/settings.ini"
@@ -649,9 +730,11 @@ comp_after() {
     print_step "Updating Treesitter parsers"
     nvim -i NONE -u "$DOTFILES/nvim/init.lua" -c "TSUpdate" -c "quitall"
   fi
+  # Agent configs are OS-agnostic (have CLI → link Nextcloud files). Do not
+  # nest this under Darwin: make after on Linux/Asahi never reached it.
+  comp_agents
   if [ "$OSTYPE_UNAME" = "Darwin" ]; then
     comp_services
-    comp_agents
     comp_zotero_bbt
   fi
 }
@@ -725,11 +808,28 @@ comp_doctor() {
     report_check "borders process" pgrep -qx borders
   elif is_asahi; then
     print_step "Checking Asahi/Hyprland binaries"
-    for b in Hyprland quickshell qs hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl nm-connection-editor nmtui blueman-manager openconnect gnome-keyring-daemon; do
+    for b in Hyprland quickshell qs hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl nm-connection-editor nmtui blueman-manager openconnect gnome-keyring-daemon wf-recorder grok-bot; do
       check_bin "$b" || true
     done
+    if command -v rpm >/dev/null 2>&1; then
+      if rpm -q quickshell-git >/dev/null 2>&1; then
+        print_warning "quickshell-git is installed (use Fedora quickshell; COPR git breaks on Qt bumps)"
+      elif rpm -q quickshell >/dev/null 2>&1; then
+        print_ok "Fedora quickshell package (not -git)"
+      fi
+    fi
     print_step "Checking Asahi hardware/session"
     report_check "asahi-notch.conf" test -f /etc/modprobe.d/asahi-notch.conf
+    report_check "hid_apple fnmode=1" grep -q 'fnmode=1' /etc/modprobe.d/hid_apple.conf
+    check_bin hyprpicker || true
+    if [ -f /etc/systemd/system/getty@tty1.service.d/10-asahi-autologin.conf ]; then
+      print_warning "tty1 autologin drop-in is present (./install.sh asahi-getty)"
+    elif systemctl cat getty@tty1.service 2>/dev/null | grep -q -- '--autologin'; then
+      print_warning "getty@tty1 still has --autologin"
+    else
+      print_ok "tty1 getty has no autologin"
+    fi
+    report_check "keychain" have keychain
     report_check "logind HandlePowerKey=ignore" grep -q '^HandlePowerKey=ignore' /etc/systemd/logind.conf.d/10-asahi-sleep.conf
     if busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager HandlePowerKey 2>/dev/null | grep -q '"ignore"'; then
       print_ok "logind live HandlePowerKey=ignore"
@@ -747,6 +847,18 @@ comp_doctor() {
       print_warning "launcher still lists Hibernate"
     else
       print_ok "launcher has no Hibernate action"
+    fi
+    report_check "charge-limit udev" test -f /etc/udev/rules.d/99-asahi-charge-limit.rules
+    report_check "charge-limit oneshot" test -f /etc/systemd/system/asahi-charge-limit.service
+    report_check "asahi-charge-limit libexec" test -x /usr/local/libexec/asahi-charge-limit
+    report_check "ALS keyboard backlight unit" test -L "$HOME/.config/systemd/user/asahi-brightness-keyboard-auto.service"
+    report_check "ALS keyboard backlight helper" test -x "$HOME/.local/bin/asahi-brightness-keyboard-auto"
+    report_check "swaync.service mask" \
+      [ "$(systemctl --user is-enabled swaync.service 2>/dev/null || true)" = masked ]
+    if [ -w /sys/class/power_supply/macsmc-battery/charge_control_end_threshold ]; then
+      print_ok "macsmc charge_control_end_threshold is writable"
+    else
+      print_warning "macsmc charge threshold not writable (./install.sh asahi-system)"
     fi
     check_link "$HOME/.config/hypr"
     check_link "$HOME/.config/quickshell"
