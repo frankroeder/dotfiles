@@ -25,12 +25,26 @@ Item {
   readonly property color barBackground: Style.barStripBg
 
   readonly property int notchFloor: appleSiliconHost && barScreen?.name?.indexOf("eDP") === 0
-    ? Math.max(barSize, BarModel.notchHeight(barScreen.name, barScreen.width, barScreen.height, barScreen.devicePixelRatio))
+    ? Math.max(barSize, BarModel.notchHeight(barScreen.name, barScreen.width, barScreen.height))
     : barSize
 
   readonly property int notchSpacerWidth: appleSiliconHost
-    ? BarModel.notchSpacerWidth(barScreen.name, barScreen.width, barScreen.height, barScreen.devicePixelRatio)
+    ? BarModel.notchSpacerWidth(barScreen?.name, barScreen?.width)
     : 0
+
+  // Distance from either bar edge to the cutout — the wall each cluster stops at.
+  readonly property int notchInset: BarModel.notchRegionInset(barContent.width, notchSpacerWidth)
+
+  // ccu is the widest member and the only one with a short form, so it is what gives
+  // when the cutout leaves the right cluster too little room. The sum deliberately
+  // excludes ccu's own width and uses its uncompacted `fullWidth`, so the answer
+  // cannot change the question.
+  readonly property real rightOthers: trayBlock.implicitWidth + statusBlock.implicitWidth
+    + micBlock.implicitWidth + volBlock.implicitWidth + netBlock.implicitWidth
+    + btBlock.implicitWidth + battBlock.implicitWidth + clockBlock.implicitWidth
+    + 9 * rightSection.spacing
+  readonly property bool ccuCompact: notchInset > 0
+    && rightOthers + ccuBlock.fullWidth > rightRegion.width
 
   implicitWidth: parent ? parent.width : 0
   implicitHeight: notchFloor
@@ -240,6 +254,17 @@ Item {
     anchors.leftMargin: Style.barEdgeMargin
     anchors.rightMargin: Style.barEdgeMargin
 
+  // The cutout is a hole in the layout, not a spacer between two free-floating rows:
+  // each cluster is confined to its own side of it (sketchybar's `bar notch_width`).
+  // Nothing can render under the camera — overflow is cut at the wall instead.
+  Item {
+    id: leftRegion
+    anchors.left: parent.left
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    width: barWindow.notchInset > 0 ? barContent.width - barWindow.notchInset : barContent.width
+    clip: true
+
   Row {
     id: leftSection
     anchors.left: parent.left
@@ -270,15 +295,15 @@ Item {
       onPressed: Quickshell.execDetached([barWindow.binDir + "/asahi-sysmon"])
     }
   }
-
-  // Notch spacer — omarchy keeps center empty on notched built-in panel
-  Item {
-    anchors.horizontalCenter: parent.horizontalCenter
-    anchors.verticalCenter: parent.verticalCenter
-    width: barWindow.notchSpacerWidth
-    height: 1
-    visible: barWindow.notchSpacerWidth > 0
   }
+
+  Item {
+    id: rightRegion
+    anchors.right: parent.right
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    width: barWindow.notchInset > 0 ? barContent.width - barWindow.notchInset : barContent.width
+    clip: true
 
   Row {
     id: rightSection
@@ -286,25 +311,38 @@ Item {
     anchors.verticalCenter: parent.verticalCenter
     spacing: 2
 
+    BarComponents.SystemTray {
+      id: trayBlock
+      barHeight: Math.max(44, barWindow.notchFloor)
+      trayScreen: barWindow.barScreen
+    }
+
     BarComponents.StatusIndicators {
+      id: statusBlock
       notificationCenter: barWindow.notificationCenter
       isRecording: barWindow.isRecording
       updatesAvailable: barWindow.updatesAvailable
       barHost: barWindow
     }
 
-    BarComponents.Ccu { barHost: barWindow }
+    BarComponents.Ccu {
+      id: ccuBlock
+      barHost: barWindow
+      compact: barWindow.ccuCompact
+    }
 
-    BarComponents.Microphone { barHost: barWindow }
-    BarComponents.Volume { barHost: barWindow }
-    BarComponents.Network { barHost: barWindow }
-    BarComponents.Bluetooth { barHost: barWindow }
-    BarComponents.Battery { barHost: barWindow }
+    BarComponents.Microphone { id: micBlock; barHost: barWindow }
+    BarComponents.Volume { id: volBlock; barHost: barWindow }
+    BarComponents.Network { id: netBlock; barHost: barWindow }
+    BarComponents.Bluetooth { id: btBlock; barHost: barWindow }
+    BarComponents.Battery { id: battBlock; barHost: barWindow }
     BarComponents.Clock {
+      id: clockBlock
       barHost: barWindow
       calendarOpen: barWindow.calendarOpen
       onCalendarToggle: barWindow.calendarToggle()
     }
+  }
   }
   }
 

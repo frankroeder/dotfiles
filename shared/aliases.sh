@@ -57,3 +57,4 @@ alias joke="curl https://icanhazdadjoke.com"
 
 alias agents="$EDITOR $HOME/Nextcloud/portal/AGENTS.md"
 alias oil="nvim ."
+alias publicwifilanding="curl -v http://neverssl.com"

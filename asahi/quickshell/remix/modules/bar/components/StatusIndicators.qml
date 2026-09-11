@@ -93,8 +93,6 @@ RowLayout {
     onTriggered: root.refreshStayAwake()
   }
 
-  SystemTray {}
-
   Rectangle {
     id: stayAwakeChip
     width: solidBar ? stayAwakeGlyph.implicitWidth + 10 : 30

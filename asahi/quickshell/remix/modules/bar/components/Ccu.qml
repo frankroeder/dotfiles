@@ -45,8 +45,8 @@ Rectangle {
   property var overview: []
   property var chips: []
   property int chipIndex: 0
-  property int providerIndex: 0
   property int chipChars: 0
+  property int providerIndex: 0
   property double lastFetch: 0
 
   readonly property var currentChip: {
@@ -61,11 +61,22 @@ Rectangle {
     const i = Math.max(0, Math.min(root.providerIndex, list.length - 1))
     return list[i]
   }
+  // asahi-ccu's full chip is "Grok    27% · 17h 30m" (~190px — a quarter of the right
+  // cluster). When the notch leaves the bar too little room, BarHost sets `compact` and
+  // the reset time drops, leaving "Grok 27%". Either way the detail is in the popup.
+  property bool compact: false
+
+  function providerOf(chip) {
+    return String((chip && chip.text) || "").trim().split(/\s+/)[0] || ""
+  }
+
   readonly property string chipText: {
-    if (root.currentChip && root.currentChip.text)
+    if (!root.compact && root.currentChip && root.currentChip.text)
       return root.currentChip.text
-    if (root.hasError) return "CCu ?"
-    return "CCu"
+    const name = root.providerOf(root.currentChip)
+    if (name === "") return root.hasError ? "CCu ?" : "CCu"
+    if (!root.hasValue) return name
+    return name + " " + Math.round(root.chipUsed) + "%"
   }
   readonly property var chipUsed: root.currentChip ? root.currentChip.used : root.usedPct
   readonly property bool hasValue: chipUsed !== null && chipUsed !== undefined
@@ -81,13 +92,24 @@ Rectangle {
     font.pixelSize: Style.barFontBody
   }
 
-  readonly property int chipBoxW: {
-    const n = Math.max(root.chipChars, 8)
-    const adv = chipMetrics.averageCharacterWidth > 0
-      ? chipMetrics.averageCharacterWidth
-      : Style.barFontBody * 0.62
-    return Math.ceil(n * adv)
+  readonly property real charAdvance: chipMetrics.averageCharacterWidth > 0
+    ? chipMetrics.averageCharacterWidth
+    : Style.barFontBody * 0.62
+
+  // Both boxes are sized for the widest chip, so neither jitters as chips rotate.
+  readonly property int fullBoxW: Math.ceil(Math.max(root.chipChars, 8) * root.charAdvance)
+  readonly property int compactBoxW: {
+    const list = root.chips || []
+    let n = 8
+    for (let i = 0; i < list.length; i++)
+      n = Math.max(n, root.providerOf(list[i]).length + 5)   // " 100%"
+    return Math.ceil(n * root.charAdvance)
   }
+  readonly property int chipBoxW: root.compact ? root.compactBoxW : root.fullBoxW
+
+  // What this chip would cost uncompacted — BarHost's cue, and independent of
+  // `compact` so asking the question cannot change the answer.
+  readonly property real fullWidth: Math.max(68, root.fullBoxW + (solidBar ? 10 : 16))
 
   function usageColor(used) {
     if (used === null || used === undefined) return Style.textMuted

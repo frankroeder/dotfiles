@@ -5,23 +5,11 @@ function isPlainObject(value) {
   return !!value && typeof value === "object" && !Array.isArray(value)
 }
 
-var measuredNotchPanels = [
-  { width: 3024, height: 1964, cutoutRows: 64 },
-  { width: 3456, height: 2234, cutoutRows: 64 },
-  { width: 2560, height: 1664, cutoutRows: 56 },
-  { width: 2880, height: 1864, cutoutRows: 56 }
-]
-
-function measuredCutoutRows(physicalWidth, physicalHeight) {
-  for (var i = 0; i < measuredNotchPanels.length; i++) {
-    var panel = measuredNotchPanels[i]
-    if (Math.abs(physicalWidth - panel.width) <= 4 && Math.abs(physicalHeight - panel.height) <= 4)
-      return panel.cutoutRows
-  }
-  return 0
-}
-
-function notchHeight(screenName, logicalWidth, logicalHeight, devicePixelRatio) {
+// The cutout is exactly the rows the panel carries above its 16:10 area: 3024x1964
+// is 1964 - 1890 = 74 physical rows, which is also macOS's 37pt menu bar at 2x. A
+// per-panel lookup table used to override this with 64 and left a 10px band of window
+// content behind the camera housing at scale 1.333 — the geometry is the measurement.
+function notchHeight(screenName, logicalWidth, logicalHeight) {
   if (String(screenName || "").indexOf("eDP") !== 0) return 0
 
   var width = Number(logicalWidth)
@@ -30,12 +18,6 @@ function notchHeight(screenName, logicalWidth, logicalHeight, devicePixelRatio) 
 
   var strip = height - (width * 10) / 16
   if (strip <= 0 || strip > height / 20) return 0
-
-  var scale = Number(devicePixelRatio)
-  if (scale > 0) {
-    var cutout = measuredCutoutRows(Math.round(width * scale), Math.round(height * scale))
-    if (cutout > 0) return Math.ceil(cutout / scale)
-  }
   return Math.ceil(strip)
 }
 
@@ -52,7 +34,38 @@ function formatAge(sinceUnix, nowUnix) {
   return m + "m"
 }
 
-function notchSpacerWidth(screenName, logicalWidth, logicalHeight, devicePixelRatio) {
+function notchRegionInset(contentWidth, spacerWidth) {
+  // sketchybar's `bar notch_width` in QML terms: the cutout is a hole the layout may
+  // not use, not a spacer. Returns the distance from either bar edge to the near edge
+  // of that hole, so the left cluster owns [0, width - inset] and the right cluster
+  // owns [inset, width]. 0 means the whole strip is usable (no notch on this screen).
+  var width = Number(contentWidth) || 0
+  var spacer = Number(spacerWidth) || 0
+  if (!(width > 0) || !(spacer > 0)) return 0
+  return Math.ceil((width + spacer) / 2)
+}
+
+// Tray icons arrive either as a path or as "name?path=/dir"; both the bar and the panel
+// need the file URL, and both want the tooltip with the app's own name trimmed off
+// ("Nextcloud: Last sync ..." under a row already titled Nextcloud).
+function trayIcon(icon) {
+  var raw = String(icon || "")
+  var at = raw.indexOf("?path=")
+  if (at < 0) return raw
+  var name = raw.slice(0, at)
+  return "file://" + raw.slice(at + 6) + "/" + name.slice(name.lastIndexOf("/") + 1)
+}
+
+function trayDetail(title, tooltipTitle) {
+  var name = String(title || "").trim()
+  var tip = String(tooltipTitle || "").trim()
+  if (name !== "" && tip.indexOf(name) === 0)
+    tip = tip.slice(name.length).replace(/^[\s:·-]+/, "")
+  var squash = function (s) { return s.replace(/\s+/g, "").toLowerCase() }
+  return squash(tip) === squash(name) ? "" : tip
+}
+
+function notchSpacerWidth(screenName, logicalWidth) {
   // Reserve horizontal center gap on the built-in panel so widgets don't sit under the camera.
   if (String(screenName || "").indexOf("eDP") !== 0) return 0
   var width = Number(logicalWidth)
