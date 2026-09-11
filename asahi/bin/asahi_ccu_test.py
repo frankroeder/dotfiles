@@ -231,8 +231,9 @@ claude_card = ccu.serialize_card(
   },
   now,
 )
-eq(claude_card["head"], "31% used · resets in 15h 59m", "claude keeps single-line head")
-eq(claude_card["usage_line"], "", "claude has no plan subline")
+eq(claude_card["head"], "", "claude has no plan in the head")
+eq(claude_card["usage_line"], "31% of weekly limit used", "claude usage subline")
+eq(claude_card["reset_line"], ccu.reset_line(claude, now), "claude reset subline with clock time")
 eq(claude_card["ident"], "", "claude has no ident")
 ok(claude_card["bar"], "claude is a rotating bar chip")
 

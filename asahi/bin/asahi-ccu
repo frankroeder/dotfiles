@@ -791,7 +791,8 @@ def serialize_card(spec: dict[str, Any], st: dict[str, Any], now: int) -> dict[s
   if tier:
     head = tier
   elif win:
-    head = used_line(win, now)
+    # usage_line/reset_line carry the numbers; keep the header row to the name.
+    head = ""
   else:
     head = st.get("status") or NO_WEEKLY
   cats = st.get("cats") or []
@@ -825,8 +826,8 @@ def serialize_card(spec: dict[str, Any], st: dict[str, Any], now: int) -> dict[s
     "email": st.get("email"),
     "ident": ident,
     "head": head,
-    "usage_line": usage_line(win) if (win is not None and tier) else "",
-    "reset_line": reset_line(win, now) if (win is not None and tier) else "",
+    "usage_line": usage_line(win) if win is not None else "",
+    "reset_line": reset_line(win, now) if win is not None else "",
     "chip": bar_chip(spec["label"], win, now),
     "used": used100,
     "status": st.get("status"),
