@@ -1,5 +1,7 @@
 /* LibreWolf chrome — colors come from asahi-adaptive.css (wallpaper theme).
-   Install copies a Catppuccin default; asahi-autotheme overwrites per profile. */
+   Install copies a Catppuccin default; asahi-autotheme overwrites per profile.
+   Note: Firefox parses userChrome.css once at startup, so a wallpaper change
+   only lands in an already-running LibreWolf after a restart. */
 
 @import url("asahi-adaptive.css");
 
@@ -29,9 +31,16 @@
   background-color: var(--asahi-surface) !important;
 }
 
-menupopup,
-panel {
-  --panel-background: var(--asahi-bg-alt) !important;
-  --panel-color: var(--asahi-fg) !important;
-  --panel-border-color: var(--asahi-border) !important;
+/* Highlights that resolve to GTK system colors, not to a themeable variable.
+   GTK only hands those to Firefox at startup, so pin them here instead. */
+menu:where([_moz-menuactive]:not([disabled])),
+menuitem:where([_moz-menuactive]:not([disabled])) {
+  background-color: var(--asahi-accent) !important;
+  color: var(--asahi-on-accent) !important;
+}
+
+.urlbar-input::selection,
+.searchbar-textbox::selection {
+  background-color: var(--asahi-accent) !important;
+  color: var(--asahi-on-accent) !important;
 }

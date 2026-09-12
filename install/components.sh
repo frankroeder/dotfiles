@@ -92,6 +92,11 @@ comp_misc() {
   replace_with_symlink "$DOTFILES/fastfetch" "$HOME/.config/fastfetch"
   link_if_exists "$DOTFILES/latexmkrc"      "$HOME/.latexmkrc"
   replace_with_symlink "$DOTFILES/btop"     "$HOME/.config/btop"
+  # btop.conf asks for "asahi-adaptive"; asahi-autotheme regenerates it from the
+  # wallpaper. Seed it so btop still has a theme on macOS / before the first run.
+  if [ ! -f "$DOTFILES/btop/themes/asahi-adaptive.theme" ]; then
+    cp -f "$DOTFILES/btop/themes/HotPurpleTrafficLight.theme" "$DOTFILES/btop/themes/asahi-adaptive.theme"
+  fi
 }
 
 comp_node() {

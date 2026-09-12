@@ -5,4 +5,5 @@ Brewfile.lock.json
 asahi/ghostty/themes/asahi-adaptive
 asahi/ghostty/adaptive.conf
 asahi/ghostty/adaptive.css
+btop/themes/asahi-adaptive.theme
 asahi/theme/**/__pycache__/

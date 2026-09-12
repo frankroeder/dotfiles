@@ -13,10 +13,12 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT.parent))
 
 from theme.apply import (  # noqa: E402
+    write_btop_theme,
     write_chromium_policy,
     write_gtk_css,
     write_hyprland_lua,
     write_hyprlock_conf,
+    write_librewolf_css,
 )
 from theme.oklab import from_srgb8  # noqa: E402
 from theme.extract import Representative  # noqa: E402
@@ -62,6 +64,24 @@ class TestApplyWriters(unittest.TestCase):
         write_chromium_policy(self.palette, path)
         data = json.loads(path.read_text(encoding="utf-8"))
         self.assertEqual(data["BrowserThemeColor"], self.palette.background)
+
+    def test_librewolf_uses_live_variable_names(self):
+        path = self.root / "librewolf.css"
+        write_librewolf_css(self.palette, path)
+        text = path.read_text(encoding="utf-8")
+        self.assertIn("--urlbarview-background-color-selected", text)
+        self.assertIn("--toolbar-field-background-color", text)
+        # Pre-130 spellings fail silently, which is how highlights went stale.
+        for dead in ("--urlbarView-highlight", "--lwt-toolbar-field", "--arrowpanel-",
+                     "--tab-selected-bgcolor", "--urlbar-box-bgcolor", "--toolbar-color:"):
+            self.assertNotIn(dead, text)
+
+    def test_btop_theme_keys(self):
+        path = self.root / "btop.theme"
+        write_btop_theme(self.palette, path)
+        text = path.read_text(encoding="utf-8")
+        self.assertIn(f'theme[main_bg]="{self.palette.base}"', text)
+        self.assertIn(f'theme[hi_fg]="{self.palette.accent}"', text)
 
     def test_hyprland_groupbar(self):
         path = self.root / "hyprland.lua"

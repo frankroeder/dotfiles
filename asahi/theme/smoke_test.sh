@@ -19,7 +19,7 @@ echo "== extract/apply =="
 asahi-autotheme --no-apply "$WALL" | tee "$OUT/apply.txt"
 
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}/asahi-theme"
-for f in colors.json colors.toml ghostty.theme hyprland.lua hyprlock.conf librewolf.css gtk.css chromium-theme.json wallpaper screensaver-colors.toml theme.name; do
+for f in colors.json colors.toml ghostty.theme hyprland.lua hyprlock.conf librewolf.css btop.theme gtk.css chromium-theme.json wallpaper screensaver-colors.toml theme.name; do
   test -s "$STATE/$f" || { echo "missing $STATE/$f" >&2; exit 1; }
 done
 
@@ -63,6 +63,13 @@ rg -q "accent_bg_color" "$STATE/gtk.css" \
   || { echo "gtk.css missing accent_bg_color" >&2; exit 1; }
 rg -q "lock_accent" "$STATE/hyprlock.conf" \
   || { echo "hyprlock.conf missing lock_accent" >&2; exit 1; }
+
+# Dead-vs-live Firefox variable names are asserted in tests/test_apply.py.
+rg -q -- "--urlbarview-background-color-selected" "$STATE/librewolf.css" \
+  || { echo "librewolf.css missing urlbar highlight vars" >&2; exit 1; }
+
+test -s "$HOME/.config/btop/themes/asahi-adaptive.theme" \
+  || { echo "btop theme not installed" >&2; exit 1; }
 
 test -s "$HOME/.config/gtk-3.0/asahi-adaptive.css" \
   || { echo "gtk-3.0/asahi-adaptive.css not installed" >&2; exit 1; }

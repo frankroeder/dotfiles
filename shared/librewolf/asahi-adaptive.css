@@ -1,4 +1,5 @@
-/* Default Catppuccin Mocha — replaced by asahi-autotheme from wallpaper */
+/* Default Catppuccin Mocha — replaced by asahi-autotheme from wallpaper.
+   Regenerate with theme.apply.write_librewolf_css so it cannot drift. */
 :root {
   color-scheme: dark !important;
   --asahi-bg: #1e1e2e;
@@ -6,30 +7,83 @@
   --asahi-surface: #313244;
   --asahi-surface-alt: #45475a;
   --asahi-fg: #cdd6f4;
+  --asahi-muted: #a6adc8;
   --asahi-accent: #89b4fa;
+  --asahi-on-accent: #1e1e2e;
   --asahi-border: #45475a;
 
-  --toolbar-bgcolor: var(--asahi-bg) !important;
-  --toolbar-color: var(--asahi-fg) !important;
+  /* toolbars */
+  --toolbox-background-color: var(--asahi-bg) !important;
+  --toolbox-background-color-inactive: var(--asahi-bg-alt) !important;
+  --toolbox-text-color: var(--asahi-fg) !important;
+  --toolbox-text-color-inactive: var(--asahi-muted) !important;
+  --toolbar-background-color: var(--asahi-bg) !important;
+  --toolbar-text-color: var(--asahi-fg) !important;
   --toolbarbutton-icon-fill: var(--asahi-fg) !important;
-  --toolbarbutton-hover-background: var(--asahi-surface) !important;
-  --toolbarbutton-active-background: var(--asahi-surface-alt) !important;
-  --lwt-accent-color: var(--asahi-bg) !important;
-  --lwt-accent-color-inactive: var(--asahi-bg-alt) !important;
-  --lwt-text-color: var(--asahi-fg) !important;
-  --lwt-toolbar-field-background-color: var(--asahi-surface) !important;
-  --lwt-toolbar-field-color: var(--asahi-fg) !important;
-  --lwt-toolbar-field-border-color: var(--asahi-border) !important;
-  --lwt-selected-tab-background-color: var(--asahi-surface) !important;
-  --tab-selected-bgcolor: var(--asahi-surface) !important;
-  --tab-selected-color: var(--asahi-fg) !important;
-  --urlbar-box-bgcolor: var(--asahi-surface) !important;
+  --toolbarbutton-background-color-hover: var(--asahi-surface) !important;
+  --toolbarbutton-background-color-active: var(--asahi-surface-alt) !important;
+  --toolbarseparator-color: var(--asahi-border) !important;
+  --tabs-navbar-separator-color: var(--asahi-border) !important;
+  --chrome-content-separator-color: var(--asahi-border) !important;
+
+  /* address bar */
+  --toolbar-field-background-color: var(--asahi-surface) !important;
+  --toolbar-field-text-color: var(--asahi-fg) !important;
+  --toolbar-field-border-color: var(--asahi-border) !important;
+  --toolbar-field-background-color-focus: var(--asahi-surface-alt) !important;
+  --toolbar-field-text-color-focus: var(--asahi-fg) !important;
+  --toolbar-field-border-color-focus: var(--asahi-accent) !important;
+  --toolbar-field-focus-color: var(--asahi-on-accent) !important;
+  --urlbar-box-background-color: var(--asahi-surface-alt) !important;
+  --urlbar-box-background-color-hover: var(--asahi-muted) !important;
+  --urlbar-box-background-color-active: var(--asahi-muted) !important;
+  --urlbar-box-background-color-focus: var(--asahi-surface-alt) !important;
   --urlbar-box-text-color: var(--asahi-fg) !important;
-  --urlbarView-highlight-background: var(--asahi-surface-alt) !important;
-  --urlbarView-highlight-color: var(--asahi-fg) !important;
-  --arrowpanel-background: var(--asahi-bg-alt) !important;
-  --arrowpanel-color: var(--asahi-fg) !important;
-  --arrowpanel-border-color: var(--asahi-border) !important;
+
+  /* address-bar results: the selected/highlighted row */
+  --urlbarview-background-color-selected: var(--asahi-accent) !important;
+  --urlbarview-text-color-selected: var(--asahi-on-accent) !important;
+
+  /* tabs */
+  --tab-background-color-selected: var(--asahi-surface) !important;
+  --tab-background-color-hover: var(--asahi-surface-alt) !important;
+  --tab-selected-textcolor: var(--asahi-fg) !important;
+  --tabpanel-background-color: var(--asahi-bg) !important;
+
+  /* sidebar (revamp / vertical tabs) */
   --sidebar-background-color: var(--asahi-bg) !important;
   --sidebar-text-color: var(--asahi-fg) !important;
+  --sidebar-border-color: var(--asahi-border) !important;
+
+  /* menus and panels */
+  --panel-background: var(--asahi-bg-alt) !important;
+  --panel-background-color: var(--asahi-bg-alt) !important;
+  --panel-text-color: var(--asahi-fg) !important;
+  --panel-border-color: var(--asahi-border) !important;
+
+  /* buttons, links, focus rings */
+  --button-background-color: var(--asahi-surface) !important;
+  --button-background-color-hover: var(--asahi-surface-alt) !important;
+  --button-background-color-active: var(--asahi-muted) !important;
+  --button-text-color: var(--asahi-fg) !important;
+  --button-background-color-primary: var(--asahi-accent) !important;
+  --button-text-color-primary: var(--asahi-on-accent) !important;
+  --link-color: var(--asahi-accent) !important;
+  --link-color-hover: var(--asahi-accent) !important;
+  --link-color-active: var(--asahi-accent) !important;
+  --focus-outline-color: var(--asahi-accent) !important;
+
+  /* design-system tokens the vertical-tabs sidebar inherits (shadow DOM:
+     only custom properties cross the boundary, selectors do not) */
+  --background-color-box: var(--asahi-surface) !important;
+  --background-color-list-item-hover: var(--asahi-surface-alt) !important;
+  --text-color-list-item-hover: var(--asahi-fg) !important;
+  --button-background-color-ghost-hover: var(--asahi-surface-alt) !important;
+  --button-background-color-ghost-active: var(--asahi-muted) !important;
+  --button-text-color-ghost-hover: var(--asahi-fg) !important;
+  --button-text-color-ghost-active: var(--asahi-fg) !important;
+  --text-color-deemphasized: var(--asahi-muted) !important;
+  --panel-separator-color: var(--asahi-border) !important;
+  --tab-selected-outline-color: var(--asahi-accent) !important;
+  --color-accent-attention: var(--asahi-accent) !important;
 }
