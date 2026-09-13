@@ -1,0 +1,117 @@
+#!/usr/bin/env sh
+# TUHH VPN as a NetworkManager OpenConnect profile.
+# Official: https://www.tuhh.de/rzt/netze/vpn/anleitungen/ubuntu-linux
+#
+# Connect: tuhhvpn  (or: nmcli --ask connection up TUHH-VPN)
+# Needs NetworkManager-openconnect + openconnect. Not the -gnome GTK
+# dialog — nmcli --ask runs `openconnect --authenticate` itself.
+#
+# --useragent=AnyConnect is required (ASA 404s otherwise). Do not pin
+# the old Telekom GlobalRoot_Class_2.crt. cookie/gateway/gwcert/resolve
+# must all be agent secrets (flags=2) or NM drops the cookie.
+
+set -eu
+
+CON_NAME="${TUHHVPN_NAME:-TUHH-VPN}"
+GW="any1.rz.tuhh.de"
+UA="AnyConnect"
+VPN_DATA="gateway=${GW},protocol=anyconnect,useragent=${UA},cookie-flags=2,gateway-flags=2,gwcert-flags=2,resolve-flags=2"
+VPN_SECRETS="gateway=${GW},gwcert="
+OC_SERVICE="${NM_OPENCONNECT_SERVICE:-/usr/libexec/nm-openconnect-service}"
+
+usage() {
+  echo "usage: $0 [up|down|status|setup] [username]" >&2
+  echo "  up [user]     ensure profile, then nmcli --ask connection up" >&2
+  echo "  down          nmcli connection down $CON_NAME" >&2
+  echo "  status        show the NM profile" >&2
+  echo "  setup [user]  create/update the profile only" >&2
+  exit 2
+}
+
+have_plugin() {
+  [ -x "$OC_SERVICE" ] || [ -x /usr/lib64/NetworkManager/nm-openconnect-service ]
+}
+
+need_nm() {
+  if ! command -v nmcli >/dev/null 2>&1; then
+    echo "tuhhvpn: nmcli is not installed" >&2
+    exit 1
+  fi
+}
+
+need_plugin() {
+  need_nm
+  if have_plugin; then
+    return 0
+  fi
+  echo "tuhhvpn: NetworkManager-openconnect is missing" >&2
+  echo "  dnf install NetworkManager-openconnect openconnect" >&2
+  exit 1
+}
+
+profile_exists() {
+  nmcli connection show "$CON_NAME" >/dev/null 2>&1
+}
+
+ensure_profile() {
+  local user="${1:-}"
+  if profile_exists; then
+    nmcli connection modify "$CON_NAME" \
+      vpn.service-type org.freedesktop.NetworkManager.openconnect \
+      vpn.data "$VPN_DATA" \
+      vpn.secrets "$VPN_SECRETS"
+  else
+    nmcli connection add type vpn \
+      con-name "$CON_NAME" \
+      vpn.service-type org.freedesktop.NetworkManager.openconnect \
+      vpn.data "$VPN_DATA" \
+      vpn.secrets "$VPN_SECRETS"
+  fi
+  nmcli connection modify "$CON_NAME" connection.autoconnect no
+  nmcli connection modify "$CON_NAME" -vpn.data cacert >/dev/null 2>&1 || true
+  if [ -n "$user" ]; then
+    nmcli connection modify "$CON_NAME" vpn.user-name "$user"
+  fi
+}
+
+cmd="${1:-up}"
+if [ "$#" -ge 1 ]; then
+  shift
+fi
+case "$cmd" in
+  -h | --help) usage ;;
+  up | down | status | setup) ;;
+  *)
+    if [ "${cmd#-}" = "$cmd" ]; then
+      set -- "$cmd" "$@"
+      cmd=up
+    else
+      usage
+    fi
+    ;;
+esac
+
+case "$cmd" in
+  up)
+    need_plugin
+    ensure_profile "${1:-}"
+    exec nmcli --ask connection up "$CON_NAME"
+    ;;
+  down)
+    need_nm
+    nmcli connection down "$CON_NAME"
+    ;;
+  status)
+    need_nm
+    if ! profile_exists; then
+      echo "$CON_NAME: not configured (run: $0 setup)"
+      exit 1
+    fi
+    nmcli -f NAME,UUID,TYPE,DEVICE,vpn.service-type,vpn.user-name,vpn.data connection show "$CON_NAME"
+    ;;
+  setup)
+    need_plugin
+    ensure_profile "${1:-}"
+    echo "profile $CON_NAME ready (nmcli --ask connection up $CON_NAME)"
+    ;;
+esac

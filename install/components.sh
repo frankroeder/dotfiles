@@ -816,6 +816,7 @@ comp_doctor() {
     for b in Hyprland quickshell qs hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl nm-connection-editor nmtui blueman-manager openconnect gnome-keyring-daemon wf-recorder grok-bot; do
       check_bin "$b" || true
     done
+    report_check "nm-openconnect-service" test -x /usr/libexec/nm-openconnect-service
     if command -v rpm >/dev/null 2>&1; then
       if rpm -q quickshell-git >/dev/null 2>&1; then
         print_warning "quickshell-git is installed (use Fedora quickshell; COPR git breaks on Qt bumps)"

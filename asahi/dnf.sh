@@ -33,14 +33,7 @@ fi
 
 sudo dnf makecache --refresh
 
-# if ! sudo dnf list --available librewolf >/dev/null 2>&1; then
-#   echo "LibreWolf package is not available from configured DNF repositories." >&2
-#   exit 1
-# fi
-
-# gnome-keyring: Secret Service for Hyprland (kwallet disabled). Not GNOME
-# Shell; SSH stays with keychain. Do not put comments inside the continued
-# dnf argv — bash treats `# ...` as ending the command.
+# No comments inside this argv — bash treats `#` as ending the command.
 sudo dnf install -y \
   adw-gtk3-theme \
   brightnessctl \
@@ -84,6 +77,7 @@ sudo dnf install -y \
   NetworkManager-tui \
   nm-connection-editor \
   openconnect \
+  NetworkManager-openconnect \
   okular \
   papirus-icon-theme \
   pipewire \
@@ -141,20 +135,8 @@ systemctl --user import-environment XDG_DATA_DIRS || true
 
 sudo systemctl enable --now cups cups-browsed
 
-# Optional Asahi extras (not in minimal dnf to avoid bloat):
-# - hyprdynamicmonitors (Go tool for dynamic monitor profiles/lid/hotplug on Mac hw): go install github.com/fiffeek/hyprdynamicmonitors@latest
-# - wallpaper adaptive theming: asahi/bin/asahi-autotheme (omagen-inspired; no matugen dep)
-# - power-profiles-daemon: Omarchy wraps powerprofilesctl with no Apple Silicon
-#   backend. This machine is apple-cpufreq/schedutil; PPD does not drive it.
-# - hyprpicker: color picker (Super+Shift+F12). Not used for screenshots.
-# - tesseract / zbar: OCR and QR capture.
-# - wf-recorder: Asahi screen recorder (gpu-screen-recorder cannot init on
-#   Mesa Apple GPU). External brightness is a compositor shade — Asahi HDMI
-#   has no DDC I2C. No hibernate package — s2idle only.
-# - seahorse / gnome-shell / gdm: not needed. gnome-keyring is Secret Service
-#   only (Hyprland autostart, no ssh component; keychain owns SSH).
-# - NetworkManager-openconnect / NetworkManager-vpnc: not used. TUHH VPN
-#   is `scripts/tuhhvpn.sh` → `sudo openconnect --useragent=AnyConnect any1.rz.tuhh.de`.
+# Skip: power-profiles-daemon (no Apple Silicon backend), seahorse/gdm,
+# NetworkManager-vpnc, NetworkManager-openconnect-gnome (nmcli --ask is enough).
 
 sudo systemctl enable --now speakersafetyd >/dev/null 2>&1 || true
 

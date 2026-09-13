@@ -773,7 +773,6 @@ function activeNmProfile(profiles) {
 function vpnRunnable(profile, tools) {
   var t = tools || {}
   if (profile.kind === "wireguard") return !!t.wireguard
-  // OpenConnect rows are driven by the CLI (`sudo openconnect`), not the NM GTK dialog.
   if (profile.kind === "openconnect") return !!t.openconnect
   if (profile.kind === "vpnc") return !!t.vpnc
   return !!t.openvpn

@@ -2013,9 +2013,9 @@ Scope {
     property string passwordError: ""
     property string connectingSsid: ""
 
-    // NetworkManager VPN / WireGuard profiles (jkoestinger/omarchy-vpn overview).
-    // TUHH OpenConnect is CLI-only (`scripts/tuhhvpn.sh`); the GTK dialog 404s.
-    readonly property string vpnTuhhScript: Quickshell.env("HOME") + "/.dotfiles/scripts/tuhhvpn.sh"
+    // NetworkManager VPN / WireGuard profiles. TUHH is NM-openconnect
+    // (`tuhhvpn` → `nmcli --ask connection up TUHH-VPN`).
+    readonly property string vpnTuhhScript: Quickshell.env("HOME") + "/.dotfiles/bin/Linux/tuhhvpn"
     property var vpnProfiles: []
     property var vpnTargets: []
     property var vpnExternal: []
@@ -2151,17 +2151,14 @@ Scope {
       let targets = QuickModels.nmTargets(runnable, "")
       let hasTuhh = false
       for (let i = 0; i < targets.length; i++) {
-        if (targets[i].kind === "openconnect") {
-          targets[i].detail = "openconnect (terminal)"
-          targets[i].command = undefined
-          if ((targets[i].gateway || "").indexOf("tuhh.de") !== -1) hasTuhh = true
-        }
+        if ((targets[i].gateway || "").indexOf("tuhh.de") !== -1 || targets[i].label === "TUHH-VPN")
+          hasTuhh = true
       }
       if (quickNetworkRoot.vpnTools.openconnect && !hasTuhh) {
         targets = [{
           key: "cli:tuhh",
           label: "TUHH-VPN",
-          detail: "openconnect (terminal)",
+          detail: "nmcli --ask",
           glyph: QuickModels.GLYPH_SHIELD_LOCK,
           gateway: "any1.rz.tuhh.de",
           kind: "openconnect-cli",
@@ -2172,6 +2169,12 @@ Scope {
       quickNetworkRoot.vpnSummary = QuickModels.nmSummary(runnable)
       quickNetworkRoot.maybeFetchPublicIp()
     }
+    function isTuhhTarget(target) {
+      if (!target) return false
+      if (target.kind === "openconnect-cli") return true
+      if (target.label === "TUHH-VPN") return true
+      return (target.gateway || "").indexOf("tuhh.de") !== -1
+    }
     function launchTuhhVpn() {
       root.execAndClose([root.binDir + "/asahi-launch-or-focus-tui", quickNetworkRoot.vpnTuhhScript])
     }
@@ -2180,7 +2183,7 @@ Scope {
       vpnListProc.running = true
     }
     function startVpnUp(target) {
-      if (target.kind === "openconnect" || target.kind === "openconnect-cli") {
+      if (quickNetworkRoot.isTuhhTarget(target)) {
         quickNetworkRoot.launchTuhhVpn()
         return
       } else if (QuickModels.needsUsername(target) && target.hasUsername === false) {
@@ -2198,7 +2201,7 @@ Scope {
     }
     function tapVpn(target) {
       if (!target || quickNetworkRoot.vpnBusy) return
-      if (target.kind === "openconnect" || target.kind === "openconnect-cli") {
+      if (quickNetworkRoot.isTuhhTarget(target) && !target.active) {
         quickNetworkRoot.launchTuhhVpn()
         return
       }
@@ -2795,7 +2798,7 @@ Scope {
             Text {
               visible: (quickNetworkRoot.vpnTargets || []).length === 0 && (quickNetworkRoot.vpnExternal || []).length === 0
               width: parent.width
-              text: "No VPN profiles. TUHH: tap TUHH-VPN or run scripts/tuhhvpn.sh (openconnect)."
+              text: "No VPN profiles. TUHH: tap TUHH-VPN or run tuhhvpn."
               color: Style.menuInkDeep
               font.pixelSize: root.fontPx(8)
               font.family: root.uiFont
