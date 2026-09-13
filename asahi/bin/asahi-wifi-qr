@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Render a join-this-network QR for the active Wi-Fi and print the PNG path.
+# Payload: WIFI:T:<WPA|WEP|nopass>;S:<ssid>;P:<psk>;;
+
+set -euo pipefail
+
+if ! command -v qrencode >/dev/null 2>&1; then
+  echo "asahi-wifi-qr: qrencode is not installed (asahi/dnf.sh)" >&2
+  exit 1
+fi
+
+name="${1:-$(nmcli -t -f NAME,TYPE connection show --active | awk -F: '$2 == "802-11-wireless" { print $1; exit }')}"
+if [ -z "$name" ]; then
+  echo "asahi-wifi-qr: no active Wi-Fi connection" >&2
+  exit 1
+fi
+
+esc() { printf '%s' "$1" | sed 's/[\\;,":]/\\&/g'; }
+
+ssid=$(nmcli -g 802-11-wireless.ssid connection show "$name")
+keymgmt=$(nmcli -g 802-11-wireless-security.key-mgmt connection show "$name")
+case "$keymgmt" in
+  wpa-psk | sae | wpa-eap) auth=WPA ;;
+  none) auth=WEP ;;
+  *) auth=nopass ;;
+esac
+psk=""
+[ "$auth" = nopass ] || psk=$(nmcli -s -g 802-11-wireless-security.psk connection show "$name")
+
+out="${XDG_RUNTIME_DIR:-/tmp}/asahi-wifi-qr.png"
+umask 077
+qrencode -o "$out" -s 8 -m 2 -l M "WIFI:T:$auth;S:$(esc "$ssid");P:$(esc "$psk");;"
+printf '%s\n' "$out"

@@ -48,6 +48,7 @@ Rectangle {
     interval: 3000
     running: true
     repeat: true
+    triggeredOnStart: true
     onTriggered: brightProc.running = true
   }
 

@@ -345,6 +345,24 @@ check_camera() {
   fi
 }
 
+check_coredumps() {
+  local dumps count summary
+  if [[ -n $diag_root ]] || ! command -v coredumpctl >/dev/null 2>&1; then
+    record SKIP coredumps "coredumpctl not consulted"
+    return
+  fi
+  dumps=$(coredumpctl list --no-pager --no-legend --since=-7days 2>/dev/null \
+    | awk '{ print $(NF-1) }' | grep -E '/(quickshell|qs|Hyprland|hyprlock|hypridle|hyprpaper|xdg-desktop-portal[^ ]*)$' \
+    | sort | uniq -c | sort -rn)
+  if [[ -z $dumps ]]; then
+    record PASS coredumps "no desktop-stack coredumps in the last 7 days"
+    return
+  fi
+  count=$(awk '{ s += $1 } END { print s + 0 }' <<<"$dumps")
+  summary=$(awk '{ printf "%s x%s ", $2, $1 }' <<<"$dumps")
+  record WARN coredumps "$count coredump(s) this week: ${summary% } (coredumpctl info <pid>)"
+}
+
 json_escape() {
   local value=$1
   value=${value//\\/\\\\}
@@ -400,5 +418,6 @@ check_hibernate
 check_logind
 check_charge_limit
 check_camera
+check_coredumps
 print_report
 ((fail_count == 0))

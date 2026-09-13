@@ -36,7 +36,7 @@ wait_for_screensaver_ipc() {
 case "$action" in
   start|toggle|next)
     if ! screensaver_running; then
-      qs -n -d -c screensaver >/dev/null 2>&1 || true
+      setsid -f qs -n -c screensaver >/dev/null 2>&1 || true
       wait_for_screensaver_ipc || {
         echo "asahi-screensaver: screensaver module failed to start" >&2
         exit 1

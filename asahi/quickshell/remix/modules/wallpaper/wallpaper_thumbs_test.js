@@ -100,7 +100,7 @@ assert(
 const wpBlock = qmlGrid.match(/id:\s*wpGrid[\s\S]*?delegate:/);
 assert(!!wpBlock, "LauncherWindow.qml declares wpGrid");
 assert(
-  /ScrollBar\.vertical:\s*ScrollBar/.test(wpBlock[0]),
+  /ScrollBar\.vertical:\s*(Menu\.Menu)?ScrollBar/.test(wpBlock[0]),
   "Quick wallpaper GridView has a right scrollbar"
 );
 assert(

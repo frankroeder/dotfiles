@@ -36,7 +36,7 @@ Rectangle {
     property string tooltip: ""
     property int percentage: 0
     property string iconGlyph: "󰁹"
-    property string levelText: "--%"
+    property string levelText: ""
 
     function parseBatteryPayload(raw) {
         try {
@@ -86,6 +86,7 @@ Rectangle {
         interval: 5000
         running: true
         repeat: true
+        triggeredOnStart: true
         onTriggered: batProc.running = true
     }
 

@@ -80,3 +80,4 @@ The following list of files could be created and used to define local configurat
 - https://github.com/ghostty-org/ghostty
 - https://github.com/basecamp/omarchy
 - https://github.com/omarchy-mac/omarchy-mac (Asahi)
+- https://github.com/maralcbr/omarchy-mx-mac (Asahi)

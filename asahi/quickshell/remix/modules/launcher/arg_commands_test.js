@@ -66,9 +66,22 @@ assert.strictEqual(A.tabArm("firefox", null, engines), null, "plain app query do
 assert.strictEqual(A.placeholder("dict"), "Type a word to translate");
 assert.ok(A.placeholder("@dcc", { name: "dict.cc" }).indexOf("dict.cc") >= 0);
 
+assert.deepStrictEqual(A.parseTimer("timer 10m tea"), { duration: "10m", seconds: 600, label: "tea" });
+assert.deepStrictEqual(A.parseTimer("timer 1:30"), { duration: "1:30", seconds: 90, label: "Timer" });
+assert.strictEqual(A.parseTimer("timer 1h15m30s").seconds, 4530, "h/m/s compound");
+assert.strictEqual(A.parseTimer("timer 90 kettle on").label, "kettle on", "label keeps spaces");
+assert.strictEqual(A.parseTimer("timer"), null, "no duration yet");
+assert.strictEqual(A.parseTimer("timer 5x"), null, "bad unit");
+assert.strictEqual(A.parseTimer("timer 0m"), null, "zero length");
+assert.strictEqual(A.formatSeconds(90), "1:30");
+assert.strictEqual(A.formatSeconds(4530), "1:15:30");
+assert.strictEqual(A.formatSeconds(5), "0:05");
+
 const fs = require("fs");
 const path = require("path");
 const qml = fs.readFileSync(path.join(__dirname, "LauncherWindow.qml"), "utf8");
+assert.ok(qml.indexOf("ArgCommands.parseTimer") >= 0, "LauncherWindow builds :timer rows from parseTimer");
+assert.ok(/key:\s*"timer"[^\n]*query:\s*":timer "/.test(qml), "Timer action seeds the :timer query");
 assert.ok(qml.indexOf('import "arg_commands.js" as ArgCommands') >= 0, "LauncherWindow imports ArgCommands");
 assert.ok(qml.indexOf("tryArmArgument") >= 0, "LauncherWindow Tab calls tryArmArgument");
 assert.ok(qml.indexOf("argCommand") >= 0, "LauncherWindow keeps an armed prefix");

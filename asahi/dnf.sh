@@ -91,6 +91,7 @@ sudo dnf install -y \
   tesseract \
   tesseract-langpack-eng \
   zbar \
+  qrencode \
   texlive-scheme-full \
   terminus-fonts-console \
   thunderbird \

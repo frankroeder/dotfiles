@@ -160,6 +160,7 @@ Scope {
     { key: "reload", aliases: ["qs"], icon: "󰑐", name: "Reload Quickshell", comment: "Restart QS", command: [root.binDir + "/asahi-restart-quickshell"] },
     { key: "hypr", aliases: ["hyprland"], icon: "󰑓", name: "Reload Hyprland", comment: "Reload Hyprland config", command: [root.binDir + "/asahi-reload-hyprland"] },
     { key: "lock", aliases: ["lockscreen"], icon: "󰌾", name: "Lock", comment: "Lock session", command: ["loginctl", "lock-session"] },
+    { key: "timer", aliases: ["reminder", "alarm", "countdown"], icon: "󰔛", name: "Timer", comment: ":timer 10m tea · 1:30 · 1h15m", query: ":timer " },
     { key: "scratch", aliases: ["scratchpad"], icon: "󱂬", name: "Scratchpad", comment: "Toggle scratch workspace", command: ["hyprctl", "dispatch", "togglespecialworkspace", "scratch"] }
   ]
 
@@ -179,7 +180,8 @@ Scope {
     reload: true,
     hypr: true,
     lock: true,
-    scratch: true
+    scratch: true,
+    timer: true
   })
   readonly property var quickDeck: (root.quickActions || []).filter(function(a) {
     return !root.quickDeckHidden[a.key]
@@ -2094,7 +2096,23 @@ Scope {
       if (!quickNetworkRoot.wifiDevice) return
       Quickshell.execDetached(["nmcli", "device", "disconnect", quickNetworkRoot.wifiDevice])
       quickNetworkRoot.currentWifiSsid = ""
+      quickNetworkRoot.wifiQrPath = ""
       Qt.callLater(quickNetworkRoot.scanWifi)
+    }
+    // Join-QR for the active network (asahi-wifi-qr → PNG in XDG_RUNTIME_DIR).
+    property string wifiQrPath: ""
+    property string wifiQrError: ""
+    function toggleWifiQr() {
+      if (quickNetworkRoot.wifiQrPath) { quickNetworkRoot.wifiQrPath = ""; return }
+      if (wifiQrProc.running) return
+      quickNetworkRoot.wifiQrError = ""
+      wifiQrProc.running = true
+    }
+    Process {
+      id: wifiQrProc
+      command: [root.binDir + "/asahi-wifi-qr"]
+      stdout: StdioCollector { onStreamFinished: if (text.trim()) quickNetworkRoot.wifiQrPath = "file://" + text.trim() + "?" + Date.now() }
+      stderr: StdioCollector { onStreamFinished: if (text.trim()) quickNetworkRoot.wifiQrError = text.trim().replace(/^asahi-wifi-qr: /, "") }
     }
     // Optimistic toggle with a settle window: while radioSettle runs, the
     // periodic power poll must not overwrite the button state (nmcli reports
@@ -2864,6 +2882,14 @@ Scope {
                     MouseArea { id: wifiDiscMa; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: quickNetworkRoot.disconnectWifi() }
                   }
                   Rectangle {
+                    visible: !!quickNetworkRoot.currentWifiSsid && quickNetworkRoot.wifiEnabled
+                    width: wifiQrLbl.width + 14; height: 26; radius: Style.radiusSm
+                    color: wifiQrMa.containsMouse || quickNetworkRoot.wifiQrPath ? Style.menuRowHi : Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.14)
+                    border.color: Style.menuIndigo; border.width: 1
+                    Text { id: wifiQrLbl; anchors.centerIn: parent; text: quickNetworkRoot.wifiQrPath ? "󰐲 Hide" : "󰐲 Share"; color: Style.menuIndigo; font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true }
+                    MouseArea { id: wifiQrMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: quickNetworkRoot.toggleWifiQr() }
+                  }
+                  Rectangle {
                     width: wifiToggleLbl.width + 14; height: 26; radius: Style.radiusSm
                     color: quickNetworkRoot.wifiEnabled ? Qt.rgba(Style.red.r, Style.red.g, Style.red.b, 0.18) : Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.18)
                     border.color: quickNetworkRoot.wifiEnabled ? Style.red : Style.green; border.width: 1
@@ -2885,6 +2911,21 @@ Scope {
                   }
                   color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont
                   wrapMode: Text.Wrap
+                }
+                Text {
+                  visible: !!quickNetworkRoot.wifiQrError && !quickNetworkRoot.wifiQrPath
+                  width: parent.width; text: quickNetworkRoot.wifiQrError
+                  color: Style.red; font.pixelSize: root.fontPx(8); font.family: root.uiFont; wrapMode: Text.Wrap
+                }
+                Rectangle {
+                  visible: !!quickNetworkRoot.wifiQrPath
+                  width: parent.width; height: visible ? width : 0
+                  radius: Style.radiusSm; color: "white"
+                  Image {
+                    anchors.fill: parent; anchors.margins: 6
+                    source: quickNetworkRoot.wifiQrPath
+                    cache: false; smooth: false; fillMode: Image.PreserveAspectFit
+                  }
                 }
               }
             }
@@ -5405,6 +5446,15 @@ Scope {
     const value = (q || "").trim()
     if (!value.startsWith(":")) return null
     const term = value.substring(1).trim().toLowerCase()
+    if (/^timer\s+\S/.test(term)) {
+      const t = ArgCommands.parseTimer(value.substring(1))
+      if (!t) return [{ id: "timer-bad", name: "Timer: 10m · 1:30 · 1h15m [label]", comment: "duration not understood", glyph: "󰔛", special: "noop" }]
+      return [{
+        id: "timer-add", name: "Start timer · " + ArgCommands.formatSeconds(t.seconds) + " · " + t.label,
+        comment: "notifies when done · bar chip cancels", glyph: "󰔛", special: "action",
+        command: [root.binDir + "/asahi-timer", "add", t.duration, t.label]
+      }]
+    }
     const actions = root.quickActions.filter(a => root.actionMatches(a, term))
     if (actions.length === 0) {
       return [{ id: "action-empty", name: "No action found", comment: term, glyph: "󰅙", special: "noop" }]
@@ -5417,6 +5467,7 @@ Scope {
       special: "action",
       mode: a.mode || "",
       ipc: a.ipc || "",
+      query: a.query || "",
       command: a.command || []
     }))
   }
@@ -5473,6 +5524,11 @@ Scope {
       const copy = entry.copy || entry.glyph || ""
       if (copy) Quickshell.execDetached(["sh", "-c", "printf %s \"$1\" | wl-copy", "sh", copy])
     } else if (entry.special === "action") {
+      if (entry.query) {
+        root.setSearchQuery(entry.query)
+        root.focusLauncherInput()
+        return
+      }
       if (entry.mode) {
         root.categoryFilter = "Quick"
         root.setSearchQuery("")

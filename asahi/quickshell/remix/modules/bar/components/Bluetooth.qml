@@ -33,7 +33,7 @@ Rectangle {
         Behavior on color { ColorAnimation { duration: 120 } }
     }
 
-    property string text: "BT"
+    property string text: "󰂯"
     property string tooltip: ""
 
     RowLayout {
@@ -56,7 +56,7 @@ Rectangle {
             onStreamFinished: {
                 try {
                     const data = JSON.parse(text.trim())
-                    root.text = data.text || "BT"
+                    root.text = data.text || "󰂯"
                     root.tooltip = data.tooltip || ""
                 } catch (e) {}
             }
@@ -67,6 +67,7 @@ Rectangle {
         interval: 5000
         running: true
         repeat: true
+        triggeredOnStart: true
         onTriggered: btProc.running = true
     }
 

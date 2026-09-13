@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import "../../../"
+import "../../launcher/arg_commands.js" as ArgCommands
 
 RowLayout {
   id: root
@@ -13,10 +14,14 @@ RowLayout {
   property bool stayAwake: false
   property bool nightLightOn: false
   property int nightLightTemp: 6500
+  // Soonest asahi-timer (systemd user timers); left ticks locally between polls.
+  property int timerCount: 0
+  property int timerLeft: 0
+  property string timerLabel: ""
+  property string timerUnit: ""
   property var barHost: null
   readonly property bool solidBar: barHost !== null && barHost !== undefined
 
-  readonly property string stayAwakePath: Quickshell.env("HOME") + "/.local/state/asahi/stay-awake"
   readonly property string nightLightStatePath: Quickshell.env("HOME") + "/.local/state/asahi/nightlight.json"
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
 
@@ -36,10 +41,7 @@ RowLayout {
   }
 
   function toggleStayAwake() {
-    if (root.stayAwake)
-      Quickshell.execDetached(["rm", "-f", root.stayAwakePath])
-    else
-      Quickshell.execDetached(["bash", "-lc", "mkdir -p \"$HOME/.local/state/asahi\" && touch \"$HOME/.local/state/asahi/stay-awake\""])
+    Quickshell.execDetached(["bash", root.binDir + "/asahi-stay-awake", "toggle"])
     stayAwakeRefresh.restart()
   }
 
@@ -75,7 +77,7 @@ RowLayout {
 
   Process {
     id: stayAwakeProc
-    command: ["test", "-e", root.stayAwakePath]
+    command: ["bash", root.binDir + "/asahi-stay-awake", "status"]
     onExited: code => { root.stayAwake = (code === 0) }
   }
 
@@ -91,6 +93,41 @@ RowLayout {
     id: stayAwakeRefresh
     interval: 250
     onTriggered: root.refreshStayAwake()
+  }
+
+  Process {
+    id: timerProc
+    command: ["bash", root.binDir + "/asahi-timer", "list", "--json"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const list = JSON.parse(text.trim() || "[]")
+          root.timerCount = list.length
+          root.timerLeft = list.length ? list[0].left : 0
+          root.timerLabel = list.length ? list[0].label : ""
+          root.timerUnit = list.length ? list[0].unit : ""
+        } catch (e) {
+          root.timerCount = 0
+        }
+      }
+    }
+  }
+
+  Timer {
+    interval: root.timerCount > 0 ? 1000 : 4000
+    running: true
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: {
+      if (root.timerCount > 0 && root.timerLeft > 0) root.timerLeft--
+      if (!timerProc.running && (root.timerCount === 0 || root.timerLeft % 5 === 0)) timerProc.running = true
+    }
+  }
+
+  Timer {
+    id: timerRefresh
+    interval: 300
+    onTriggered: if (!timerProc.running) timerProc.running = true
   }
 
   Rectangle {
@@ -216,6 +253,53 @@ RowLayout {
       onClicked: Quickshell.execDetached([root.binDir + "/asahi-cmd-record", "stop"])
     }
     TooltipWindow { target: recChip; text: "Recording — click to stop"; show: recMouse.containsMouse }
+  }
+
+  Rectangle {
+    id: timerChip
+    width: timerRow.implicitWidth + (solidBar ? 8 : 12)
+    height: solidBar ? Style.barHeight : 26
+    radius: solidBar ? 0 : Style.radius
+    color: solidBar ? "transparent" : (timerMouse.containsMouse ? Style.panelWarningBg : Style.barBg)
+    border.width: solidBar ? 0 : 1
+    border.color: solidBar ? "transparent" : (timerMouse.containsMouse ? Style.yellow : Style.barBorder)
+    visible: root.timerCount > 0
+
+    Rectangle {
+      anchors.fill: parent
+      anchors.topMargin: Style.barChipInset
+      anchors.bottomMargin: Style.barChipInset
+      radius: Style.radiusSm
+      visible: solidBar
+      color: timerMouse.containsMouse ? Style.barStripHover : "transparent"
+      Behavior on color { ColorAnimation { duration: 120 } }
+    }
+
+    RowLayout {
+      id: timerRow
+      anchors.centerIn: parent
+      spacing: 5
+      Text { text: "󰔛"; font.family: Style.fontFamily; font.pixelSize: Style.barFontGlyph; color: Style.yellow }
+      Text {
+        text: ArgCommands.formatSeconds(root.timerLeft) + (root.timerCount > 1 ? " +" + (root.timerCount - 1) : "")
+        font.family: Style.fontFamily
+        font.pixelSize: Style.barFontCaption
+        font.bold: true
+        color: solidBar && barHost ? barHost.barForeground : Style.text
+      }
+    }
+
+    MouseArea {
+      id: timerMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: {
+        Quickshell.execDetached([root.binDir + "/asahi-timer", "cancel", root.timerUnit])
+        timerRefresh.restart()
+      }
+    }
+    TooltipWindow { target: timerChip; text: root.timerLabel + " — click to cancel"; show: timerMouse.containsMouse }
   }
 
   Rectangle {

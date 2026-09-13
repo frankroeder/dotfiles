@@ -124,6 +124,37 @@ function tabArm(query, entry, engines) {
   return null
 }
 
+// ":timer 10m tea" -> { duration: "10m", seconds: 600, label: "tea" }.
+// Same grammar as asahi-timer: 90, 10m, 1h30m, 1:30. null when incomplete.
+function parseTimer(term) {
+  const m = String(term || "").trim().match(/^timer(?:\s+(\S+))?(?:\s+(.*))?$/i)
+  if (!m || !m[1]) return null
+  const dur = m[1]
+  let secs = 0
+  const clock = dur.match(/^(\d+):(\d{1,2})$/)
+  if (clock) {
+    secs = Number(clock[1]) * 60 + Number(clock[2])
+  } else if (/^(\d+[hms]?)+$/.test(dur)) {
+    const re = /(\d+)([hms]?)/g
+    let p
+    while ((p = re.exec(dur)) !== null) {
+      const n = Number(p[1])
+      secs += p[2] === "h" ? n * 3600 : p[2] === "m" ? n * 60 : n
+    }
+  } else {
+    return null
+  }
+  if (secs <= 0) return null
+  return { duration: dur, seconds: secs, label: (m[2] || "").trim() || "Timer" }
+}
+
+function formatSeconds(s) {
+  s = Math.max(0, Math.floor(s))
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60
+  const mm = h > 0 ? String(m).padStart(2, "0") : String(m)
+  return (h > 0 ? h + ":" + mm : mm) + ":" + String(r).padStart(2, "0")
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     placeholder: placeholder,
@@ -132,6 +163,8 @@ if (typeof module !== "undefined" && module.exports) {
     parse: parse,
     uniqueEngine: uniqueEngine,
     entryCommand: entryCommand,
-    tabArm: tabArm
+    tabArm: tabArm,
+    parseTimer: parseTimer,
+    formatSeconds: formatSeconds
   }
 }

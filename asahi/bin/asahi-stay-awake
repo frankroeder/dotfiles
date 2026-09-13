@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Session-scoped idle inhibit flag (cleared by reboot, lives in XDG_RUNTIME_DIR).
+#
+#   asahi-stay-awake on|off|toggle
+#   asahi-stay-awake status            exit 0 when awake mode is on
+#   asahi-stay-awake unless <cmd...>   run cmd only when awake mode is off (hypridle)
+set -u
+
+flag="${XDG_RUNTIME_DIR:-/tmp}/asahi-stay-awake"
+
+case "${1:-status}" in
+  on) : >"$flag" ;;
+  off) rm -f "$flag" ;;
+  toggle) if [ -e "$flag" ]; then rm -f "$flag"; else : >"$flag"; fi ;;
+  status) [ -e "$flag" ] ;;
+  unless)
+    shift
+    [ -e "$flag" ] && exit 0
+    exec "$@"
+    ;;
+  *)
+    echo "usage: asahi-stay-awake {on|off|toggle|status|unless <cmd...>}" >&2
+    exit 2
+    ;;
+esac

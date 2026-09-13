@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# Session timers on transient systemd user units: they outlive quickshell
+# restarts and fire a notification when done.
+#
+#   asahi-timer add <duration> [label]   duration: 90, 10m, 1h30m, 1:30
+#   asahi-timer list [--json]            pending timers, soonest first
+#   asahi-timer cancel [unit|all]        default: the soonest
+set -euo pipefail
+
+prefix="asahi-timer-"
+bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+
+to_seconds() {
+  local d="${1// /}" total=0 n
+  if [[ $d =~ ^([0-9]+):([0-9]{1,2})$ ]]; then
+    printf '%d\n' $((BASH_REMATCH[1] * 60 + BASH_REMATCH[2]))
+    return
+  fi
+  [[ $d =~ ^([0-9]+[hms]?)+$ ]] || return 1
+  while [[ $d =~ ^([0-9]+)([hms]?)(.*)$ ]]; do
+    n="${BASH_REMATCH[1]}"
+    case "${BASH_REMATCH[2]}" in
+      h) total=$((total + n * 3600)) ;;
+      m) total=$((total + n * 60)) ;;
+      *) total=$((total + n)) ;;
+    esac
+    d="${BASH_REMATCH[3]}"
+  done
+  [ "$total" -gt 0 ] || return 1
+  printf '%d\n' "$total"
+}
+
+fmt_left() {
+  local s="$1"
+  if [ "$s" -ge 3600 ]; then
+    printf '%d:%02d:%02d' $((s / 3600)) $((s % 3600 / 60)) $((s % 60))
+  else
+    printf '%d:%02d' $((s / 60)) $((s % 60))
+  fi
+}
+
+list_timers() {
+  local now timers units
+  now="$(date +%s)"
+  timers="$(systemctl --user list-timers --all --output=json "${prefix}*" 2>/dev/null || echo '[]')"
+  units="$(systemctl --user list-units --all --output=json "${prefix}*.timer" 2>/dev/null || echo '[]')"
+  jq -nc --argjson t "$timers" --argjson u "$units" --argjson now "$now" '
+    ($u | map({ key: .unit, value: .description }) | from_entries) as $d
+    | [ $t[] | select(.next != null and .next > 0)
+        | { unit: .unit,
+            label: ($d[.unit] // "Timer"),
+            left: (((.next / 1000000 | floor) - $now) | if . < 0 then 0 else . end) }
+      ] | sort_by(.left)'
+}
+
+case "${1:-list}" in
+  add)
+    dur="${2:-}"
+    shift 2 || { echo "usage: asahi-timer add <duration> [label]" >&2; exit 2; }
+    secs="$(to_seconds "$dur")" || { echo "asahi-timer: bad duration '$dur'" >&2; exit 2; }
+    label="${*:-Timer}"
+    unit="${prefix}$(date +%s%N | tail -c 7)"
+    systemd-run --user --quiet --collect \
+      --unit="$unit" --description="$label" \
+      --on-active="$secs" --timer-property=AccuracySec=1s \
+      bash -c "$bin/asahi-notification-sound; notify-send -a 'Asahi Timer' -u critical -i alarm-symbolic -t 0 \"\$1\" \"\$2\"" \
+      _ "$label" "$(fmt_left "$secs") elapsed"
+    notify-send -a "Asahi Timer" -t 2500 -i alarm-symbolic "$label" "Rings in $(fmt_left "$secs")"
+    ;;
+  list)
+    if [ "${2:-}" = "--json" ]; then
+      list_timers
+    else
+      list_timers | jq -r '.[] | "\(.unit)\t\(.left)s\t\(.label)"'
+    fi
+    ;;
+  cancel)
+    target="${2:-}"
+    if [ "$target" = all ]; then
+      units="$(list_timers | jq -r '.[].unit')"
+    elif [ -n "$target" ]; then
+      units="$target"
+    else
+      units="$(list_timers | jq -r '.[0].unit // empty')"
+    fi
+    for u in $units; do
+      systemctl --user stop "$u" 2>/dev/null || true
+    done
+    ;;
+  *)
+    echo "usage: asahi-timer {add <duration> [label]|list [--json]|cancel [unit|all]}" >&2
+    exit 2
+    ;;
+esac
