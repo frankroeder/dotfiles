@@ -5,6 +5,8 @@
 # Same core backup flow as the old backup() helper:
 #   udisksctl mount → /run/media/$USER/LinuxDrive/fedora-home-backup-$DATE/
 #   sudo rsync -aAXv --info=progress2,stats2 --delete [excludes] /home/ → dest/
+# Dest mkdir/ln/cp also use sudo when the volume is not user-writable
+# (udisks leaves ext4 as root:root 755; previous snapshots are root-owned).
 #
 # Usage:
 #   asahi-backup [--unmount|-u] [--dry-run|-n] [--help|-h]
@@ -107,9 +109,7 @@ snap_prefix="fedora-home-backup-"
 mkdir -p "$log_dir"
 
 log() {
-  local line
-  line="$(date +%Y-%m-%dT%H:%M:%S%z) $*"
-  printf '%s\n' "$line" | tee -a "$log_file"
+  printf '%s %s\n' "$(date +%Y-%m-%dT%H:%M:%S%z)" "$*" | tee -a "$log_file"
 }
 
 need_cmd() {
@@ -137,7 +137,7 @@ resolve_device_real() {
 }
 
 ensure_mounted() {
-  local mount_out
+  local mount_out contents
 
   # Test / advanced override: use an already-prepared directory as the volume root.
   if [ -n "${ASAHI_BACKUP_MOUNT:-}" ]; then
@@ -188,7 +188,8 @@ ensure_mounted() {
   fi
   log "mountpoint=${mount_point}"
   if [ -d "$media_root" ]; then
-    log "media contents: $(ls -1 "$media_root" 2>/dev/null | tr '\n' ' ')"
+    contents="$(ls -1 "$media_root" 2>/dev/null | tr '\n' ' ')"
+    log "media contents: ${contents}"
   fi
 }
 
@@ -508,6 +509,20 @@ confirm_overwrite_plan() {
   }
 }
 
+# USB ext4 is mounted by udisks with the filesystem's own root:root 755.
+# FAT/exFAT and ASAHI_BACKUP_MOUNT test dirs stay user-writable — no sudo then.
+as_dest() {
+  if [ -w "$mount_point" ]; then
+    "$@"
+  else
+    if [ -z "${as_dest_sudo_logged:-}" ]; then
+      log "volume not writable as ${user_name}; dest mkdir/ln/cp via sudo"
+      as_dest_sudo_logged=1
+    fi
+    sudo "$@"
+  fi
+}
+
 run_restore_rsync() {
   local root="$1"
   local rel src dst rc=0
@@ -556,7 +571,9 @@ do_backup() {
   local -a rsync_args
 
   dest="${mount_point}/${snap_prefix}${date_stamp}"
-  mkdir -p "$dest"
+  if (( ! dry_run )); then
+    as_dest mkdir -p "$dest"
+  fi
   log "destination=${dest}"
 
   rsync_log="${log_dir}/rsync-${run_id}.log"
@@ -576,6 +593,7 @@ do_backup() {
     --exclude='lost+found'
     --exclude='*.tmp'
     --exclude='.local/share/Trash'
+    --exclude='Nextcloud'
   )
   if (( dry_run )); then
     rsync_args+=(--dry-run)
@@ -589,11 +607,13 @@ do_backup() {
     log "rsync log: ${rsync_log}"
     {
       printf '%s\n' "----- rsync stats (${run_id}) -----"
-      grep -E '^(Number of|Total file size|Total transferred|Literal data|sent |received )' "$rsync_log" \
+      grep -E 'Number of (files|created|deleted|regular)|Total file size|Total transferred|Literal data|sent [0-9]|total size is' "$rsync_log" \
         || tail -n 20 "$rsync_log"
       printf '%s\n' "----- end rsync stats -----"
     } | tee -a "$log_file"
-    cp -f "$rsync_log" "${dest}/rsync-${run_id}.log" 2>/dev/null || true
+    if (( ! dry_run )); then
+      as_dest cp -f "$rsync_log" "${dest}/rsync-${run_id}.log" 2>/dev/null || true
+    fi
   fi
 
   if (( rsync_rc != 0 )); then
@@ -602,9 +622,9 @@ do_backup() {
   fi
 
   if (( ! dry_run )); then
-    ln -sfn "${dest##*/}" "${mount_point}/${snap_prefix}latest"
-    cp -f "$log_file" "${dest}/backup-${date_stamp}.log" 2>/dev/null || true
-    sync
+    as_dest ln -sfn "${dest##*/}" "${mount_point}/${snap_prefix}latest"
+    as_dest cp -f "$log_file" "${dest}/backup-${date_stamp}.log" 2>/dev/null || true
+    sync -f "$dest"
   fi
 
   log "backup finished ok"
@@ -680,5 +700,6 @@ case "$mode" in
 esac
 
 maybe_unmount
-log "======== ${mode} end $(date +%Y-%m-%dT%H:%M:%S%z) ========"
+end_stamp="$(date +%Y-%m-%dT%H:%M:%S%z)"
+log "======== ${mode} end ${end_stamp} ========"
 exit 0
