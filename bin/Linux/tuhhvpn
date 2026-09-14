@@ -107,7 +107,9 @@ case "$cmd" in
       echo "$CON_NAME: not configured (run: $0 setup)"
       exit 1
     fi
-    nmcli -f NAME,UUID,TYPE,DEVICE,vpn.service-type,vpn.user-name,vpn.data connection show "$CON_NAME"
+    # connection show <id> is detail mode: NAME/UUID/TYPE/DEVICE are list columns.
+    nmcli -f connection.id,connection.uuid,connection.type,GENERAL.STATE,GENERAL.DEVICES,vpn.service-type,vpn.user-name,vpn.data \
+      connection show "$CON_NAME"
     ;;
   setup)
     need_plugin
