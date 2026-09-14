@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Pop the focused window: float + fixed size + center + pin (omarchy Super+O).
+# Second press on a popped window unpins and retiles it.
+#
+#   asahi-window-pop [width height]      default 1300x900, clamped to the monitor
+
+set -euo pipefail
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
+
+win=$(hyprctl activewindow -j)
+[ "$(jq -r '.address // empty' <<<"$win")" ] || exit 0
+
+# Lua provider: legacy `dispatch togglefloating` strings are rejected, use hl.dsp.
+if jq -e '.tags | index("pop")' <<<"$win" >/dev/null; then
+  hyprctl --batch 'dispatch hl.dsp.window.pin({ action = "disable" }); dispatch hl.dsp.window.float({ action = "disable" }); dispatch hl.dsp.window.tag({ tag = "-pop" })' >/dev/null
+  exit 0
+fi
+
+mon=$(hyprctl monitors -j | jq -c --arg n "$(focused_monitor)" '.[] | select(.name == $n)')
+read -r maxw maxh < <(jq -r '"\((.width / .scale - 80) | floor) \((.height / .scale - 120) | floor)"' <<<"$mon")
+w=$(( ${1:-1300} < maxw ? ${1:-1300} : maxw ))
+h=$(( ${2:-900} < maxh ? ${2:-900} : maxh ))
+
+# Maximized/fullscreen windows refuse resize + pin; drop that first.
+fs=$(jq -r .fullscreen <<<"$win")
+if [ "$fs" != 0 ]; then
+  hyprctl dispatch "hl.dsp.window.fullscreen({ mode = $fs, action = \"unset\" })" >/dev/null
+fi
+# Float in its own call: inside one batch the resize/pin still see a tiled window.
+hyprctl dispatch 'hl.dsp.window.float({ action = "enable" })' >/dev/null
+hyprctl --batch "dispatch hl.dsp.window.resize({ x = $w, y = $h }); dispatch hl.dsp.window.center(); dispatch hl.dsp.window.pin({ action = \"enable\" }); dispatch hl.dsp.window.tag({ tag = \"+pop\" })" >/dev/null

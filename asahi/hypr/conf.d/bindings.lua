@@ -43,6 +43,9 @@ hl.bind(
   hl.dsp.exec_cmd(scripts .. "/asahi-nightlight"),
   { desc = "Night light" }
 )
+hl.bind(mod .. " + CONTROL + plus", hl.dsp.exec_cmd(scripts .. "/asahi-monitor-scale up"), { desc = "Display scale up" })
+hl.bind(mod .. " + CONTROL + minus", hl.dsp.exec_cmd(scripts .. "/asahi-monitor-scale down"), { desc = "Display scale down" })
+hl.bind(mod .. " + O", hl.dsp.exec_cmd(scripts .. "/asahi-window-pop"), { desc = "Pop window (float + center + pin)" })
 hl.bind(mod .. " + S", hl.dsp.workspace.toggle_special "scratch", { desc = "Toggle scratchpad" })
 hl.bind(
   mod .. " + SHIFT + S",

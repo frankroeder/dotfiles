@@ -9,7 +9,6 @@ config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell"
 modules=(
   remix
   screensaver
-  expose
 )
 
 mkdir -p "$state_dir"

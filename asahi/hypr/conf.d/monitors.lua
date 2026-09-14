@@ -48,39 +48,36 @@ hl.workspace_rule { workspace = "2", monitor = "HDMI-A-1" }
 hl.workspace_rule { workspace = "3", monitor = "HDMI-A-1" }
 hl.workspace_rule { workspace = "4", monitor = "HDMI-A-1" }
 
--- Lid close: only eDP-1 (not external/HDMI). asahi-idle-brightness off (panel bl + kbd) + dpms off eDP-1.
--- Apple Silicon names this switch "Apple SMC power/lid events", not "Lid Switch".
+-- Lid: asahi-clamshell disables eDP-1 while an external is enabled (clamshell,
+-- persisted for the session), otherwise dpms-blanks it. Apple Silicon names
+-- this switch "Apple SMC power/lid events", not "Lid Switch".
 -- locked = true so the bind still fires on the lock screen.
-hl.bind(
-  "switch:on:Apple SMC power/lid events",
-  hl.dsp.exec_cmd "~/.dotfiles/asahi/bin/asahi-idle-brightness off; hyprctl dispatch dpms off eDP-1",
-  { locked = true }
-)
-hl.bind(
-  "switch:off:Apple SMC power/lid events",
-  hl.dsp.exec_cmd "hyprctl dispatch dpms on eDP-1; ~/.dotfiles/asahi/bin/asahi-idle-brightness restore",
-  { locked = true }
-)
+local clamshell = dotfilesDir .. "/asahi/bin/asahi-clamshell"
+hl.bind("switch:on:Apple SMC power/lid events", hl.dsp.exec_cmd(clamshell .. " close"), { locked = true })
+hl.bind("switch:off:Apple SMC power/lid events", hl.dsp.exec_cmd(clamshell .. " open"), { locked = true })
 
 local hdmi = dotfilesDir .. "/asahi/bin/asahi-hdmi"
+local scale = dotfilesDir .. "/asahi/bin/asahi-monitor-scale"
 
-local function hdmi_name(m)
-  if type(m) == "table" then
-    return m.name or ""
+-- monitor.added/removed hand an HL.Monitor *userdata*, not a table.
+local function monitor_name(m)
+  if type(m) == "string" then
+    return m
   end
-  return type(m) == "string" and m or ""
+  if type(m) == "table" or type(m) == "userdata" then
+    return type(m.name) == "string" and m.name or ""
+  end
+  return ""
 end
 
+-- An unknown name must be a no-op: `asahi-hdmi <action>` without an argument
+-- defaults to HDMI-A-1, so disabling eDP-1 used to switch off the external.
 local function hdmi_cmd(action, m)
-  local n = hdmi_name(m)
-  if n ~= "" and not n:match "^HDMI" then
+  local n = monitor_name(m)
+  if not n:match "^HDMI" then
     return
   end
-  local cmd = hdmi .. " " .. action
-  if n ~= "" then
-    cmd = cmd .. " " .. n
-  end
-  hl.exec_cmd(cmd)
+  hl.exec_cmd(hdmi .. " " .. action .. " " .. n)
 end
 
 hl.on("monitor.added", function(m)
@@ -88,7 +85,12 @@ hl.on("monitor.added", function(m)
 end)
 hl.on("monitor.removed", function(m)
   hdmi_cmd("removed", m)
+  -- External gone while in clamshell: bring eDP-1 back, never zero outputs.
+  hl.exec_cmd(clamshell .. " apply")
 end)
+-- A reload re-applies the static rules above; restore the session overrides.
 hl.on("config.reloaded", function()
   hl.exec_cmd(hdmi .. " sync")
+  hl.exec_cmd(scale .. " apply")
+  hl.exec_cmd(clamshell .. " apply")
 end)

@@ -8,6 +8,7 @@
 # disable rule in place (hyprctl eval does not override it).
 
 set -euo pipefail
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
 
 action="${1:-}"
 name="${2:-HDMI-A-1}"
@@ -56,8 +57,20 @@ has_res() {
   return 1
 }
 
+# Offsets are derived, never pinned: the LG sits left of eDP-1 (right edge on
+# x = 0), the Dell above it (bottom edge on y = 0). Both follow the logical
+# size, so a saved scale cannot drop the output on top of the laptop panel.
+lg_fields() {
+  printf 'mode = "3840x2160@60.000", position = "%sx-360", scale = %s' "$(anchor_offset 3840 "$1")" "$1"
+}
+
+dell_fields() {
+  printf 'mode = "2560x1440@59.95100", position = "0x%s", scale = %s' "$(anchor_offset 1440 "$1")" "$1"
+}
+
 layout_fields() {
-  local desc modes
+  local desc modes sc
+  sc=$(saved_scale "$name")
   desc="$(hypr_json | jq -r --arg n "$name" \
     '.[] | select(.name == $n) | (.description // "")')"
   modes="$(hypr_json | jq -r --arg n "$name" \
@@ -65,21 +78,21 @@ layout_fields() {
   case "$desc" in
   *P2723DE*)
     if has_res 2560x1440 "$modes"; then
-      printf 'mode = "2560x1440@59.95100", position = "0x-1152", scale = 1.25'
+      dell_fields "${sc:-1.25}"
       return
     fi
     ;;
   *ULTRAFINE*)
     if has_res 3840x2160 "$modes"; then
-      printf 'mode = "3840x2160@60.000", position = "-2048x-360", scale = 1.875'
+      lg_fields "${sc:-1.875}"
       return
     fi
     ;;
   esac
   case "$modes" in
-  *3840x2160*) printf 'mode = "3840x2160@60.000", position = "-2048x-360", scale = 1.875' ;;
-  *2560x1440*) printf 'mode = "2560x1440@59.95100", position = "0x-1152", scale = 1.25' ;;
-  *) printf 'mode = "preferred", position = "auto", scale = 1.5' ;;
+  *3840x2160*) lg_fields "${sc:-1.875}" ;;
+  *2560x1440*) dell_fields "${sc:-1.25}" ;;
+  *) printf 'mode = "preferred", position = "auto", scale = %s' "${sc:-1.5}" ;;
   esac
 }
 

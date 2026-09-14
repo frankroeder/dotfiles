@@ -157,11 +157,13 @@ Scope {
     { key: "ocr", aliases: ["text", "tesseract"], icon: "󰴑", name: "OCR region", comment: "Copy text from a screen region", command: [root.binDir + "/asahi-cmd-ocr"] },
     { key: "qr", aliases: ["qrcode", "zbar"], icon: "󰐲", name: "Scan QR", comment: "Copy a QR code from a screen region", command: [root.binDir + "/asahi-cmd-qr"] },
     { key: "nightlight", aliases: ["night", "warm", "hyprsunset"], icon: "󰖔", name: "Night light toggle", comment: "Super+Ctrl+N · hyprsunset.conf (identity / temperature)", command: [root.binDir + "/asahi-nightlight", "toggle"] },
+    { key: "pop", aliases: ["float", "pin"], icon: "󰖲", name: "Pop window", comment: "Super+O · float, center and pin the focused window (again to retile)", command: [root.binDir + "/asahi-window-pop"] },
+    { key: "scale", aliases: ["zoom", "hidpi"], icon: "󰍹", name: "Display scale", comment: "Super+Ctrl+plus/minus · cycle the focused display through legal scales", command: [root.binDir + "/asahi-monitor-scale", "cycle"] },
     { key: "reload", aliases: ["qs"], icon: "󰑐", name: "Reload Quickshell", comment: "Restart QS", command: [root.binDir + "/asahi-restart-quickshell"] },
     { key: "hypr", aliases: ["hyprland"], icon: "󰑓", name: "Reload Hyprland", comment: "Reload Hyprland config", command: [root.binDir + "/asahi-reload-hyprland"] },
     { key: "lock", aliases: ["lockscreen"], icon: "󰌾", name: "Lock", comment: "Lock session", command: ["loginctl", "lock-session"] },
     { key: "timer", aliases: ["reminder", "alarm", "countdown"], icon: "󰔛", name: "Timer", comment: ":timer 10m tea · 1:30 · 1h15m", query: ":timer " },
-    { key: "scratch", aliases: ["scratchpad"], icon: "󱂬", name: "Scratchpad", comment: "Toggle scratch workspace", command: ["hyprctl", "dispatch", "togglespecialworkspace", "scratch"] }
+    { key: "scratch", aliases: ["scratchpad"], icon: "󱂬", name: "Scratchpad", comment: "Toggle scratch workspace", command: ["hyprctl", "dispatch", "hl.dsp.workspace.toggle_special(\"scratch\")"] }
   ]
 
   readonly property var quickTiles: root.quickActions.filter(function(a) {
@@ -181,7 +183,9 @@ Scope {
     hypr: true,
     lock: true,
     scratch: true,
-    timer: true
+    timer: true,
+    pop: true,
+    scale: true
   })
   readonly property var quickDeck: (root.quickActions || []).filter(function(a) {
     return !root.quickDeckHidden[a.key]
@@ -2099,6 +2103,19 @@ Scope {
       quickNetworkRoot.wifiQrPath = ""
       Qt.callLater(quickNetworkRoot.scanWifi)
     }
+    // asahi-speedtest: ~15 s of curl against speed.cloudflare.com.
+    property string speedResult: ""
+    function runSpeedtest() {
+      if (speedProc.running) return
+      quickNetworkRoot.speedResult = "Measuring download, upload and latency…"
+      speedProc.running = true
+    }
+    Process {
+      id: speedProc
+      command: [root.binDir + "/asahi-speedtest"]
+      stdout: StdioCollector { onStreamFinished: if (text.trim()) quickNetworkRoot.speedResult = text.trim() }
+      onExited: function(code) { if (code !== 0) quickNetworkRoot.speedResult = "Speed test failed (offline?)" }
+    }
     // Join-QR for the active network (asahi-wifi-qr → PNG in XDG_RUNTIME_DIR).
     property string wifiQrPath: ""
     property string wifiQrError: ""
@@ -3075,11 +3092,12 @@ Scope {
         Repeater {
           model: [
             { label: "󰈀 Editor", cmd: [root.binDir + "/asahi-launch", "nm-connection-editor"] },
-            { label: "󱘖 nmtui", cmd: [root.binDir + "/asahi-launch-or-focus-tui", "nmtui"] }
+            { label: "󱘖 nmtui", cmd: [root.binDir + "/asahi-launch-or-focus-tui", "nmtui"] },
+            { label: "󰓅 Speed test", speedtest: true }
           ]
           delegate: Rectangle {
             required property var modelData
-            width: (parent.width - parent.spacing) / 2
+            width: (parent.width - parent.spacing * 2) / 3
             height: 28
             radius: Style.menuRadius
             color: netToolMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
@@ -3087,7 +3105,7 @@ Scope {
             border.width: 1
             Text {
               anchors.centerIn: parent
-              text: modelData.label
+              text: modelData.speedtest && speedProc.running ? "Testing…" : modelData.label
               color: Style.menuIndigo
               font.pixelSize: root.fontPx(9)
               font.family: root.uiFont
@@ -3097,10 +3115,19 @@ Scope {
               anchors.fill: parent
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
-              onClicked: root.execAndClose(modelData.cmd)
+              onClicked: modelData.speedtest ? quickNetworkRoot.runSpeedtest() : root.execAndClose(modelData.cmd)
             }
           }
         }
+      }
+      Text {
+        visible: !!quickNetworkRoot.speedResult
+        Layout.fillWidth: true
+        text: quickNetworkRoot.speedResult
+        color: Style.menuInkDeep
+        font.pixelSize: root.fontPx(9)
+        font.family: root.uiFont
+        horizontalAlignment: Text.AlignHCenter
       }
     }
 

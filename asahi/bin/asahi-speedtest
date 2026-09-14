@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Quick bandwidth check against speed.cloudflare.com with plain curl — no
+# speedtest package. ~15 s. Prints "↓ 245 Mbit/s  ↑ 38 Mbit/s  12 ms",
+# or JSON with --json.
+
+set -euo pipefail
+
+host="https://speed.cloudflare.com"
+# 100 MB is refused (403); 50 MB streams for the whole --max-time on slow links.
+down_bytes=${ASAHI_SPEEDTEST_DOWN:-50000000}
+up_bytes=${ASAHI_SPEEDTEST_UP:-25000000}
+
+latency_ms() {
+  local t best=""
+  for _ in 1 2 3; do
+    t=$(curl -s -o /dev/null -w '%{time_starttransfer}' --max-time 5 "$host/__down?bytes=0") || continue
+    if [ -z "$best" ] || awk -v a="$t" -v b="$best" 'BEGIN { exit !(a < b) }'; then best=$t; fi
+  done
+  awk -v s="${best:-0}" 'BEGIN { printf "%.0f", s * 1000 }'
+}
+
+# curl reports bytes/s; a partial transfer at --max-time still yields a rate.
+down_bps() {
+  curl -s -o /dev/null -w '%{speed_download}' --max-time 10 "$host/__down?bytes=$down_bytes" || true
+}
+up_bps() {
+  head -c "$up_bytes" /dev/zero \
+    | curl -s -o /dev/null -w '%{speed_upload}' --max-time 10 -X POST --data-binary @- "$host/__up" || true
+}
+
+mbit() { awk -v b="${1:-0}" 'BEGIN { printf "%.0f", b * 8 / 1000000 }'; }
+
+ping=$(latency_ms)
+down=$(mbit "$(down_bps)")
+up=$(mbit "$(up_bps)")
+
+if [ "${1:-}" = --json ]; then
+  printf '{"down_mbps":%s,"up_mbps":%s,"latency_ms":%s}\n' "$down" "$up" "$ping"
+else
+  printf '↓ %s Mbit/s  ↑ %s Mbit/s  %s ms\n' "$down" "$up" "$ping"
+fi

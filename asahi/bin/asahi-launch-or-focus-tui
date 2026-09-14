@@ -22,7 +22,7 @@ address="$(
 )"
 
 if [ -n "$address" ]; then
-  hyprctl dispatch focuswindow "address:$address" >/dev/null
+  hyprctl dispatch "hl.dsp.focus({ window = \"address:$address\" })" >/dev/null
   exit 0
 fi
 

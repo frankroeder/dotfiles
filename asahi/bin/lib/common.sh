@@ -52,3 +52,19 @@ focused_monitor() {
     | jq -r '.[] | select(.focused == true).name // empty' 2>/dev/null \
     || true
 }
+
+# Session-scoped scale override per output, written by asahi-monitor-scale.
+# Empty when none. Consulted by everything that re-enables an output, so a
+# hyprctl reload / lid open / HDMI sync does not fall back to monitors.lua.
+saved_scale() {
+  local f="${ASAHI_SCALE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/asahi-monitor-scale}/$1"
+  [ -s "$f" ] && tr -d '[:space:]' <"$f" || true
+}
+
+# Offset that lands an output's far edge on the origin: logical extent (pixels
+# / scale), negated. Outputs left of / above eDP-1 are anchored by that edge,
+# so a pinned x/y overlaps the panel as soon as the scale changes ("Your
+# monitor layout is set up incorrectly ... overlaps with other monitor(s)").
+anchor_offset() {
+  awk -v n="$1" -v s="$2" 'BEGIN { printf "%d", -n / s }'
+}

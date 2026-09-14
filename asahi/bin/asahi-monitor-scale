@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+# Cycle the focused output through Hyprland-legal scales (omarchy's Super+/).
+#
+#   asahi-monitor-scale up|down|cycle [output]
+#   asahi-monitor-scale set <scale> [output]
+#   asahi-monitor-scale apply               re-eval saved scales (config.reloaded)
+#   asahi-monitor-scale status [output]     "<name> <scale> <legal scales...>"
+#
+# Legal = logical size divides the mode evenly, in 1/120 units like
+# quick_models.js cleanScale. The chosen scale is saved per output in
+# XDG_RUNTIME_DIR so a reload does not snap back to monitors.lua.
+
+set -euo pipefail
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
+
+presets=(1 1.25 1.333334 1.5 1.6 1.75 1.875 2 2.25 2.5)
+dir="${ASAHI_SCALE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/asahi-monitor-scale}"
+
+mon_json() {
+  hyprctl monitors -j | jq -c --arg n "$1" '.[] | select(.name == $n)'
+}
+
+gcd() {
+  local a=$1 b=$2 t
+  while [ "$b" -ne 0 ]; do t=$((a % b)); a=$b; b=$t; done
+  echo "$a"
+}
+
+# Nearest divisor (in 1/120 units) within 0.06 of the requested scale, else "".
+snap() {
+  local units div d
+  units=$(awk -v s="$1" 'BEGIN { printf "%d", s * 120 + 0.5 }')
+  div=$(gcd $((W * 120)) $((H * 120)))
+  for d in $(seq 0 7); do
+    for c in $((units - d)) $((units + d)); do
+      [ "$c" -ge 1 ] && [ $((div % c)) -eq 0 ] && { awk -v c="$c" 'BEGIN { printf "%.7g", c / 120 }'; return; }
+    done
+  done
+  return 0
+}
+
+legal_scales() {
+  local p s
+  for p in "${presets[@]}"; do
+    s=$(snap "$p")
+    [ -n "$s" ] && echo "$s"
+  done | awk '!seen[$0]++'
+}
+
+apply_scale() {
+  local name=$1 scale=$2 json=$3 mode x y
+  mode=$(jq -r '"\(.width)x\(.height)@\(.refreshRate | . * 1000 | round / 1000)"' <<<"$json")
+  x=$(jq -r .x <<<"$json")
+  y=$(jq -r .y <<<"$json")
+  # Re-anchor the edge that faces eDP-1; keeping the old x/y would overlap it.
+  if [ "$x" -lt 0 ]; then
+    x=$(anchor_offset "$W" "$scale")
+  elif [ "$y" -lt 0 ]; then
+    y=$(anchor_offset "$H" "$scale")
+  fi
+  hyprctl eval "hl.monitor({ output = \"$name\", mode = \"$mode\", position = \"${x}x${y}\", scale = $scale })" >/dev/null
+  mkdir -p "$dir"
+  printf '%s\n' "$scale" >"$dir/$name"
+  notify-send -a Display -h string:x-canonical-private-synchronous:asahi-scale -t 1500 \
+    "$name scale $scale" "$(awk -v w="$W" -v h="$H" -v s="$scale" 'BEGIN { printf "%d×%d logical", w / s, h / s }')" 2>/dev/null || true
+}
+
+action="${1:-cycle}"
+case "$action" in
+  apply)
+    for f in "$dir"/*; do
+      [ -s "$f" ] || continue
+      name=$(basename "$f")
+      json=$(mon_json "$name")
+      [ -n "$json" ] || continue
+      W=$(jq -r .width <<<"$json"); H=$(jq -r .height <<<"$json")
+      apply_scale "$name" "$(tr -d '[:space:]' <"$f")" "$json"
+    done
+    exit 0
+    ;;
+  set) target=${2:?scale}; name="${3:-$(focused_monitor)}" ;;
+  up | down | cycle | status) name="${2:-$(focused_monitor)}" ;;
+  *) echo "usage: asahi-monitor-scale {up|down|cycle|set <scale>|apply|status} [output]" >&2; exit 2 ;;
+esac
+
+[ -n "$name" ] || { echo "asahi-monitor-scale: no focused monitor" >&2; exit 1; }
+json=$(mon_json "$name")
+[ -n "$json" ] || { echo "asahi-monitor-scale: unknown output $name" >&2; exit 1; }
+W=$(jq -r .width <<<"$json"); H=$(jq -r .height <<<"$json")
+current=$(jq -r .scale <<<"$json")
+mapfile -t scales < <(legal_scales)
+cur=$(snap "$current"); cur=${cur:-$current}
+
+idx=-1
+for i in "${!scales[@]}"; do [ "${scales[$i]}" = "$cur" ] && idx=$i; done
+
+case "$action" in
+  status) echo "$name $cur ${scales[*]}"; exit 0 ;;
+  set) new=$(snap "$target"); [ -n "$new" ] || { echo "asahi-monitor-scale: $target is not legal for ${W}x${H} (${scales[*]})" >&2; exit 1; } ;;
+  up | cycle) new=${scales[$(( (idx + 1) % ${#scales[@]} ))]} ;;
+  down) new=${scales[$(( (idx - 1 + ${#scales[@]}) % ${#scales[@]} ))]} ;;
+esac
+
+[ "$new" = "$cur" ] && exit 0
+apply_scale "$name" "$new" "$json"
