@@ -20,8 +20,8 @@ hl.config {
       scroll_factor = 0.2,
     },
 
-    -- Power-user: slightly higher sensitivity for precise keyboard-driven workflows
-    sensitivity = 0.1,
+    -- libinput default. The MTP custom curve below ignores this; 0 keeps any other pointer at stock speed.
+    sensitivity = 0,
   },
 
   -- Commit a workspace swipe after 25% travel.
@@ -30,12 +30,14 @@ hl.config {
   },
 }
 
--- Built-in Asahi MTP pad (Intel Macs are apple-spi-trackpad). macOS-like curve:
--- slow start, then a steep ramp. "<step> <output velocity per step>" — raise the
--- later points to speed it up. Keep this rule even on a stock profile: hyprctl
+-- Built-in Asahi MTP pad (Intel Macs are apple-spi-trackpad). Stock macOS tracking
+-- speed (default slider, com.apple.mouse.scaling 0.6875): modest low-speed gain
+-- (slow drags match macOS, not a crawl), then a damped high-speed ramp.
+-- "<step> <output velocity per step>" — raise later points to speed up flicks,
+-- earlier points for slow drags. Keep this rule even on a stock profile: hyprctl
 -- reload does not reset a device, it only stops overriding it.
 hl.device {
   name = "apple-mtp-multi-touch",
-  accel_profile = "custom 1.0 0.0 0.05 0.15 0.35 0.75 1.25",
+  accel_profile = "custom 1.0 0.0 0.10 0.22 0.38 0.58 0.86",
   scroll_points = "1.0 0.0 0.02 0.07 0.2 0.6 1.0",
 }
