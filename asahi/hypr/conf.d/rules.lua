@@ -59,9 +59,8 @@ window_rule({ class = "^WebcamOverlay-(small|medium|large)$", title = "^WebcamOv
   opacity = "1 1",
 })
 
--- Trackpad scrolling in the terminal is far too fast at the global
--- scroll_factor, because ghostty scrolls by lines rather than pixels. 0.2 is
--- omarchy's Asahi value for exactly this pairing.
+-- ghostty scrolls by lines rather than pixels. Pin the terminal at 0.2
+-- (now also the global scroll_factor) so a later global bump cannot re-speed it.
 window_rule({ class = "^(com\\.mitchellh\\.ghostty)$" }, { scroll_touchpad = 0.2 })
 
 -- Quickshell (bar + popups + OSD + notif toast from NotificationServer in remix/shell.qml)

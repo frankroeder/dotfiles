@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Lid handling. With an external display enabled: close = eDP-1 disabled
-# (kept off for the session, survives hyprctl reload), open = eDP-1 back.
-# Without one: close only blanks the panel, so the session never loses its
-# last output.
+# Lid handling, external displays only. Close = eDP-1 disabled (kept off for
+# the session, survives hyprctl reload), open = eDP-1 back. Without an external
+# this does nothing: logind suspends on lid close and owns that path alone.
 #
 #   asahi-clamshell close|open
 #   asahi-clamshell apply     re-assert the state (config.reloaded, monitor.removed)
@@ -29,23 +28,19 @@ edp_on() {
   scale=$(saved_scale eDP-1)
   hyprctl eval "hl.monitor({ output = \"eDP-1\", disabled = false, mode = \"3024x1964@120.000\", position = \"0x0\", scale = ${scale:-1.333334} })" >/dev/null
 }
-dpms() {
-  hyprctl dispatch "hl.dsp.dpms({ action = \"$1\", monitor = \"eDP-1\" })" >/dev/null 2>&1 || true
-}
-
 case "${1:-status}" in
   close)
+    # Without an external, logind owns the lid (HandleLidSwitch=suspend) and
+    # hypridle quiesces the DCP in before_sleep_cmd. Blanking eDP-1 here too
+    # raced that into a failed modeset and hung the machine — so do nothing.
+    external_on || exit 0
     "$bin/asahi-idle-brightness" off
-    if external_on; then
-      : >"$flag"
-      edp_off
-    else
-      dpms disable
-    fi
+    : >"$flag"
+    edp_off
     ;;
   open)
     rm -f "$flag"
-    if edp_disabled; then edp_on; else dpms enable; fi
+    edp_disabled && edp_on
     "$bin/asahi-idle-brightness" restore
     ;;
   apply)

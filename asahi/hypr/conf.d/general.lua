@@ -117,4 +117,5 @@ hl.gesture {
   fingers = 3,
   direction = "horizontal",
   action = "workspace",
+  scale = 0.75,
 }
