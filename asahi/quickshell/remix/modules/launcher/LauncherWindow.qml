@@ -6071,6 +6071,13 @@ Scope {
       "mouse_down": "ScrollDown", "mouse_up": "ScrollUp"
     }
     if (mouseNames[key]) key = mouseNames[key]
+    // Binds given as raw keycodes would otherwise read "code:12".
+    // Labels follow de(mac_nodeadkeys): AD11 is "ü", AD12 is "+".
+    const codeNames = {
+      "code:12": "3", "code:13": "4", "code:14": "5",
+      "code:34": "ü", "code:35": "+"
+    }
+    if (codeNames[key]) key = codeNames[key]
     const mask = Number(b.modmask) || 0
     const parts = []
     if (mask & 64) parts.push("Super")

@@ -1,6 +1,10 @@
 local mod = mainMod
 local scripts = dotfilesDir .. "/asahi/bin"
 
+local function quick(key)
+  return "qs -c remix ipc call launcher quick " .. key
+end
+
 -- Apps and windows
 hl.bind(mod .. " + T", hl.dsp.exec_cmd(launch(terminal)), { desc = "Terminal" })
 hl.bind(mod .. " + Z", hl.dsp.exec_cmd(launch(filemanager)), { desc = "Filemanager" })
@@ -18,33 +22,8 @@ hl.bind(mod .. " + P", hl.dsp.window.pseudo(), { desc = "Toggle pseudo" })
 hl.bind(mod .. " + R", hl.dsp.layout "togglesplit", { desc = "Toggle split" })
 hl.bind(mod .. " + SHIFT + P", hl.dsp.window.pin(), { desc = "Toggle pin window (always on top)" })
 hl.bind(mod .. " + W", hl.dsp.group.toggle(), { desc = "Toggle group" })
-hl.bind(
-  mod .. " + SHIFT + N",
-  hl.dsp.exec_cmd "qs -c remix ipc call notifications toggleHistory",
-  { desc = "Notification history" }
-)
-hl.bind(
-  mod .. " + SHIFT + D",
-  hl.dsp.exec_cmd "qs -c remix ipc call notifications toggleDnd",
-  { desc = "Toggle notification DND" }
-)
-hl.bind(
-  mod .. " + N",
-  hl.dsp.exec_cmd "qs -c remix ipc call launcher quick network",
-  { desc = "Network" }
-)
-hl.bind(
-  mod .. " + B",
-  hl.dsp.exec_cmd "qs -c remix ipc call launcher quick bluetooth",
-  { desc = "Bluetooth" }
-)
-hl.bind(
-  mod .. " + CONTROL + N",
-  hl.dsp.exec_cmd(scripts .. "/asahi-nightlight"),
-  { desc = "Night light" }
-)
-hl.bind(mod .. " + CONTROL + plus", hl.dsp.exec_cmd(scripts .. "/asahi-monitor-scale up"), { desc = "Display scale up" })
-hl.bind(mod .. " + CONTROL + minus", hl.dsp.exec_cmd(scripts .. "/asahi-monitor-scale down"), { desc = "Display scale down" })
+hl.bind(mod .. " + ALT + TAB", hl.dsp.group.next(), { desc = "Next window in group" })
+hl.bind(mod .. " + ALT + SHIFT + TAB", hl.dsp.group.prev(), { desc = "Previous window in group" })
 hl.bind(mod .. " + O", hl.dsp.exec_cmd(scripts .. "/asahi-window-pop"), { desc = "Pop window (float + center + pin)" })
 hl.bind(mod .. " + S", hl.dsp.workspace.toggle_special "scratch", { desc = "Toggle scratchpad" })
 hl.bind(
@@ -65,6 +44,51 @@ hl.bind(
 -- Floating
 hl.bind(mod .. " + SHIFT + T", hl.dsp.window.float(), { desc = "Toggle floating" })
 hl.bind(mod .. " + C", hl.dsp.window.center(), { desc = "Center floating window" })
+
+-- Resize: the Super+ALT variant of the Super+HJKL focus grammar. Tiled, this
+-- pushes the shared border in that direction, so it grows the left/top window
+-- and shrinks the right/bottom one — the direction is the constant, not "grow".
+hl.bind(mod .. " + ALT + H", hl.dsp.window.resize { x = -100, y = 0, relative = true }, { desc = "Resize edge left" })
+hl.bind(mod .. " + ALT + L", hl.dsp.window.resize { x = 100, y = 0, relative = true }, { desc = "Resize edge right" })
+hl.bind(mod .. " + ALT + K", hl.dsp.window.resize { x = 0, y = -100, relative = true }, { desc = "Resize edge up" })
+hl.bind(mod .. " + ALT + J", hl.dsp.window.resize { x = 0, y = 100, relative = true }, { desc = "Resize edge down" })
+
+-- System panels and toggles: omarchy's Super+Ctrl+<letter> family.
+hl.bind(mod .. " + CONTROL + A", hl.dsp.exec_cmd(quick "media"), { desc = "Audio" })
+hl.bind(mod .. " + CONTROL + B", hl.dsp.exec_cmd(quick "bluetooth"), { desc = "Bluetooth" })
+hl.bind(mod .. " + CONTROL + D", hl.dsp.exec_cmd(quick "monitors"), { desc = "Display" })
+hl.bind(mod .. " + CONTROL + W", hl.dsp.exec_cmd(quick "network"), { desc = "Network" })
+hl.bind(mod .. " + CONTROL + P", hl.dsp.exec_cmd(quick "battery"), { desc = "Power" })
+hl.bind(mod .. " + CONTROL + S", hl.dsp.exec_cmd(quick "screenshots"), { desc = "Screenshot gallery" })
+hl.bind(mod .. " + CONTROL + V", hl.dsp.exec_cmd(quick "clipboard"), { desc = "Clipboard history" })
+hl.bind(mod .. " + CONTROL + T", hl.dsp.exec_cmd(scripts .. "/asahi-sysmon"), { desc = "Activity monitor" })
+hl.bind(mod .. " + CONTROL + I", hl.dsp.exec_cmd(scripts .. "/asahi-stay-awake toggle"), { desc = "Stay awake" })
+hl.bind(mod .. " + CONTROL + N", hl.dsp.exec_cmd(scripts .. "/asahi-nightlight"), { desc = "Night light" })
+hl.bind(
+  mod .. " + CONTROL + E",
+  hl.dsp.exec_cmd "qs -c remix ipc call launcher openCategory Emoji",
+  { desc = "Emoji picker" }
+)
+hl.bind(
+  mod .. " + CONTROL + K",
+  hl.dsp.exec_cmd "qs -c remix ipc call launcher openCategory Keys",
+  { desc = "Keybindings" }
+)
+hl.bind(
+  mod .. " + CONTROL + ALT + D",
+  hl.dsp.exec_cmd "qs -c remix ipc call calendar toggle",
+  { desc = "Calendar" }
+)
+hl.bind(mod .. " + CONTROL + plus", hl.dsp.exec_cmd(scripts .. "/asahi-monitor-scale up"), { desc = "Display scale up" })
+hl.bind(mod .. " + CONTROL + minus", hl.dsp.exec_cmd(scripts .. "/asahi-monitor-scale down"), { desc = "Display scale down" })
+
+-- Cursor magnifier, not the display scale above.
+hl.bind(mod .. " + CONTROL + Z", function()
+  hl.config { cursor = { zoom_factor = hl.get_config "cursor.zoom_factor" + 1 } }
+end, { desc = "Zoom in" })
+hl.bind(mod .. " + CONTROL + ALT + Z", function()
+  hl.config { cursor = { zoom_factor = 1 } }
+end, { desc = "Zoom reset" })
 
 -- Session and screenshots
 hl.bind(
@@ -102,7 +126,12 @@ hl.bind(mod .. " + SHIFT + XF86AudioRaiseVolume", hl.dsp.exec_cmd "hyprpicker -a
 hl.bind(mod .. " + ALT + XF86AudioLowerVolume", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record region"), { locked = true, desc = "Record region (top row)" })
 hl.bind(mod .. " + ALT + XF86AudioRaiseVolume", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record fullscreen"), { locked = true, desc = "Record display (top row)" })
 hl.bind(mod .. " + ALT + SHIFT + XF86AudioRaiseVolume", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record webcam"), { locked = true, desc = "Record display with webcam (top row)" })
+-- macOS muscle memory: Cmd+Shift+Ctrl+3/4/5 as aliases for the row above.
+hl.bind(mod .. " + CONTROL + SHIFT + code:12", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot fullscreen"), { desc = "Screenshot display (Cmd+Shift+Ctrl+3)" })
+hl.bind(mod .. " + CONTROL + SHIFT + code:13", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot smart"), { desc = "Screenshot smart (Cmd+Shift+Ctrl+4)" })
+hl.bind(mod .. " + CONTROL + SHIFT + code:14", hl.dsp.exec_cmd(quick "record"), { desc = "Capture menu (Cmd+Shift+Ctrl+5)" })
 
+-- Notifications: the whole family lives on comma.
 hl.bind(
   mod .. " + comma",
   hl.dsp.exec_cmd "qs -c remix ipc call notifications dismissOne",
@@ -112,6 +141,16 @@ hl.bind(
   mod .. " + SHIFT + comma",
   hl.dsp.exec_cmd "qs -c remix ipc call notifications dismissAll",
   { desc = "Dismiss all notifications" }
+)
+hl.bind(
+  mod .. " + CONTROL + comma",
+  hl.dsp.exec_cmd "qs -c remix ipc call notifications toggleDnd",
+  { desc = "Toggle notification DND" }
+)
+hl.bind(
+  mod .. " + ALT + comma",
+  hl.dsp.exec_cmd "qs -c remix ipc call notifications toggleHistory",
+  { desc = "Notification history" }
 )
 -- Reloads
 hl.bind(
@@ -147,35 +186,21 @@ hl.bind(mod .. " + SHIFT + L", hl.dsp.window.move { direction = "r" }, { desc = 
 hl.bind(mod .. " + SHIFT + K", hl.dsp.window.move { direction = "u" }, { desc = "Move up" })
 hl.bind(mod .. " + SHIFT + J", hl.dsp.window.move { direction = "d" }, { desc = "Move down" })
 
--- Monitors
-hl.bind(mod .. " + CONTROL + left", hl.dsp.focus { monitor = "l" }, { desc = "Focus monitor left" })
-hl.bind(
-  mod .. " + CONTROL + right",
-  hl.dsp.focus { monitor = "r" },
-  { desc = "Focus monitor right" }
-)
-hl.bind(mod .. " + CONTROL + up", hl.dsp.focus { monitor = "u" }, { desc = "Focus monitor up" })
-hl.bind(mod .. " + CONTROL + down", hl.dsp.focus { monitor = "d" }, { desc = "Focus monitor down" })
-hl.bind(
-  mod .. " + SHIFT + CONTROL + H",
-  hl.dsp.window.move { monitor = "l" },
-  { desc = "Move to monitor left" }
-)
-hl.bind(
-  mod .. " + SHIFT + CONTROL + L",
-  hl.dsp.window.move { monitor = "r" },
-  { desc = "Move to monitor right" }
-)
-hl.bind(
-  mod .. " + SHIFT + CONTROL + K",
-  hl.dsp.window.move { monitor = "u" },
-  { desc = "Move to monitor up" }
-)
-hl.bind(
-  mod .. " + SHIFT + CONTROL + J",
-  hl.dsp.window.move { monitor = "d" },
-  { desc = "Move to monitor down" }
-)
+-- Monitors. Unguarded, a direction with no display raises "monitor doesn't
+-- exist" (an error toast for move, a log warning for focus) — laptop-only is
+-- the normal case here, so both check first and no-op.
+local dirs = { l = "left", r = "right", u = "up", d = "down" }
+local keys = { l = "H", r = "L", u = "K", d = "J" }
+local arrows = { l = "left", r = "right", u = "up", d = "down" }
+
+for dir, name in pairs(dirs) do
+  hl.bind(mod .. " + CONTROL + " .. arrows[dir], function()
+    if hl.get_monitor(dir) then hl.dispatch(hl.dsp.focus { monitor = dir }) end
+  end, { desc = "Focus monitor " .. name })
+  hl.bind(mod .. " + SHIFT + CONTROL + " .. keys[dir], function()
+    if hl.get_monitor(dir) then hl.dispatch(hl.dsp.window.move { monitor = dir }) end
+  end, { desc = "Move to monitor " .. name })
+end
 
 -- Workspaces
 for i = 1, 10 do
@@ -187,8 +212,8 @@ for i = 1, 10 do
     { desc = "Move to workspace " .. i }
   )
 end
-hl.bind(mod .. " + TAB", hl.dsp.focus { workspace = "e+1" })
-hl.bind(mod .. " + SHIFT + TAB", hl.dsp.focus { workspace = "e-1" })
+hl.bind(mod .. " + TAB", hl.dsp.focus { workspace = "e+1" }, { desc = "Next workspace" })
+hl.bind(mod .. " + SHIFT + TAB", hl.dsp.focus { workspace = "e-1" }, { desc = "Previous workspace" })
 
 hl.bind(mod .. " + I", hl.dsp.focus { workspace = "e-1" }, { desc = "Previous workspace" })
 hl.bind(mod .. " + U", hl.dsp.focus { workspace = "e+1" }, { desc = "Next workspace" })

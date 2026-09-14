@@ -5,9 +5,10 @@ set -euo pipefail
 
 limit="${ASAHI_CLIPHIST_LIMIT:-80}"
 cache_dir="${XDG_RUNTIME_DIR:-/tmp}/asahi-cliphist"
+self="$(readlink -f "${BASH_SOURCE[0]}")"
 
 usage() {
-  printf 'usage: asahi-cliphist list|copy <id>|delete <id>|wipe|watch\n' >&2
+  printf 'usage: asahi-cliphist list|copy <id>|delete <id>|wipe|watch|store|types\n' >&2
 }
 
 list_json() {
@@ -96,10 +97,26 @@ wipe_all() {
   rm -rf "$cache_dir"
 }
 
+# Password managers mark a secret by offering this mime type alongside the
+# text (that is what `wl-copy --sensitive` does, e.g. asahi-cmd-qr). Anything
+# carrying it must never reach the history.
+sensitive_clipboard() {
+  wl-paste --list-types 2>/dev/null | grep -qx 'x-kde-passwordManagerHint'
+}
+
+# `wl-paste --watch` hands us the new selection on stdin.
+store_unless_sensitive() {
+  if sensitive_clipboard; then
+    cat >/dev/null
+    return 0
+  fi
+  cliphist store
+}
+
 watcher_running() {
   local kind="$1"
   # [w] so pgrep does not match its own argv.
-  pgrep -f -- "[w]l-paste --type ${kind} --watch cliphist store" >/dev/null 2>&1
+  pgrep -f -- "[w]l-paste --type ${kind} --watch ${self} store" >/dev/null 2>&1
 }
 
 start_watcher() {
@@ -107,16 +124,21 @@ start_watcher() {
   if watcher_running "$kind"; then
     return 0
   fi
+  # Pre-filter watchers stored secrets too — replace them rather than stack up.
+  pkill -f -- "[w]l-paste --type ${kind} --watch cliphist store" >/dev/null 2>&1 || true
   if command -v setsid >/dev/null 2>&1; then
-    setsid -f wl-paste --type "$kind" --watch cliphist store >/dev/null 2>&1 || true
+    setsid -f wl-paste --type "$kind" --watch "$self" store >/dev/null 2>&1 || true
   else
-    wl-paste --type "$kind" --watch cliphist store >/dev/null 2>&1 &
+    wl-paste --type "$kind" --watch "$self" store >/dev/null 2>&1 &
   fi
 }
 
 seed_current() {
   local text
   if ! command -v wl-paste >/dev/null 2>&1; then
+    return 0
+  fi
+  if sensitive_clipboard; then
     return 0
   fi
   text="$(wl-paste --type text --no-newline 2>/dev/null || true)"
@@ -155,6 +177,12 @@ case "$cmd" in
   delete) delete_id "${2:-}" ;;
   wipe) wipe_all ;;
   watch) ensure_watch ;;
+  store) store_unless_sensitive ;;
+  # Diagnostic: what the current clipboard offers, and whether it is filtered.
+  types)
+    wl-paste --list-types 2>/dev/null || true
+    if sensitive_clipboard; then echo "-> SENSITIVE, not stored"; else echo "-> stored"; fi
+    ;;
   *)
     usage
     exit 2
