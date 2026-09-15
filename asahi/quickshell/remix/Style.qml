@@ -120,19 +120,40 @@ Singleton {
   readonly property color menuOnAccent: themed("crust")
   readonly property color menuOverlayLight: Qt.rgba(1, 1, 1, 0.92)
   readonly property color menuSuccessWash: themedAlpha("green", 0.28)
-  // Accent line + glass body for the launcher card.
-  readonly property color menuNeon:    accent
-  readonly property color menuNeonAlt: themed("sapphire")
-  readonly property color menuGlass:   themedAlpha("mantle", 0.93)
-  readonly property int menuRadius: 8
+  // Material 3 roles (caelestia-style panels) mapped onto the wallpaper palette.
+  readonly property color m3surface:            themedAlpha("base", 0.96)
+  readonly property color m3container:          themed("surface0")
+  readonly property color m3containerHigh:      themed("surface1")
+  readonly property color m3onSurface:          themed("text")
+  readonly property color m3onSurfaceVariant:   themed("subtext0")
+  readonly property color m3outline:            themed("overlay1")
+  readonly property color m3outlineVariant:     themedAlpha("text", 0.12)
+  readonly property color m3primary:            accent
+  readonly property color m3onPrimary:          themed("crust")
+  readonly property color m3primaryContainer:   themedAlpha("accent", 0.22)
+  readonly property color m3secondary:          themed("sapphire")
+  readonly property color m3secondaryContainer: themedAlpha("sapphire", 0.22)
+  readonly property color m3tertiary:           themed("mauve")
+  readonly property color m3tertiaryContainer:  themedAlpha("mauve", 0.22)
+  readonly property color m3stateHover:         themedAlpha("text", 0.08)
+  readonly property color m3shadow:             themedAlpha("crust", 0.55)
+  readonly property int menuRadius: 12
+  readonly property int menuPanelRadius: 28
+  readonly property int menuRadiusLg: 16
+  readonly property int menuRadiusMd: 12
+  readonly property int menuRadiusFull: 999
   readonly property int menuRail: 2
-  readonly property real menuTitleSpacing: 0.6
-  readonly property real menuLabelSpacing: 0.3
-  readonly property int menuAnimMs: 140
-  readonly property int menuAnimOutMs: 120
+  readonly property real menuTitleSpacing: 0.2
+  readonly property real menuLabelSpacing: 0.1
+  // Anim: M3 expressive spatial spring + effects curve.
+  readonly property int menuAnimMs: 200
+  readonly property int menuAnimOutMs: 260
+  readonly property int menuSpringMs: 500
+  readonly property var menuSpring: [0.38, 1.21, 0.22, 1, 1, 1]
+  readonly property var menuEffects: [0.34, 0.8, 0.34, 1, 1, 1]
   readonly property string menuMono: "JetBrainsMono Nerd Font"
-  readonly property string menuSans: "JetBrainsMono Nerd Font"
-  readonly property string menuDisplay: "JetBrainsMono Nerd Font"
+  readonly property string menuSans: "Adwaita Sans"
+  readonly property string menuDisplay: "Adwaita Sans"
   readonly property string menuSerif: "serif"
 
   readonly property int scrollbarWidth: 5

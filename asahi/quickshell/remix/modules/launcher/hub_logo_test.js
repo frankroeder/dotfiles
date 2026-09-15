@@ -45,37 +45,20 @@ assert(
 
 const qmlPath = path.join(__dirname, "LauncherWindow.qml");
 const qml = fs.readFileSync(qmlPath, "utf8");
-assert(qml.indexOf("HubLogo.parseLogo") !== -1, "LauncherWindow.qml calls shipped HubLogo.parseLogo");
-assert(qml.indexOf("ffLogoText") !== -1, "hub binds ffLogoText from parsed logo lines");
+// The hub shows the OS as a logo tile (caelestia User card); the ASCII art
+// parser stays available for other consumers but is not wired into the QML.
+assert(qml.indexOf("ffLogoText") === -1, "hub no longer binds the fastfetch ASCII logo");
 assert(
   qml.indexOf('indexOf("@")') === -1,
   "hub no longer drops every line containing @"
 );
-assert(
-  !/Layout\.maximumWidth:\s*84\b/.test(qml),
-  "hub logo is not capped at 84px (that painted past the layout slot over the labels)"
-);
-assert(
-  /Layout\.preferredWidth:\s*contentWidth/.test(qml),
-  "hub logo preferredWidth follows contentWidth so art and labels do not overlap"
-);
-assert(
-  !/Layout\.preferredWidth:\s*1\s*\n\s*Layout\.fillHeight:\s*false\s*\n\s*Layout\.preferredHeight:\s*ffInfoBody/.test(qml),
-  "hub no longer draws a vertical separator bar between logo and info"
-);
 const infoBody = qml.match(/id:\s*ffInfoBody[\s\S]{0,250}/);
 assert(!!infoBody, "hub declares ffInfoBody");
+const factsCard = qml.match(/\/\/ Facts card\.[\s\S]{0,200}id:\s*ffInfoBody/);
 assert(
-  /Layout\.fillHeight:\s*true/.test(infoBody[0]),
-  "hub info body fills leftover pane height instead of packing at the top"
+  !!factsCard && /Layout\.fillHeight:\s*true/.test(factsCard[0]),
+  "hub facts card fills leftover pane height instead of packing at the top"
 );
-const ffMain = qml.match(/id:\s*ffMain[\s\S]{0,180}/);
-assert(!!ffMain, "hub declares ffMain");
-assert(
-  /Layout\.fillHeight:\s*true/.test(ffMain[0]),
-  "hub main logo+info row takes leftover pane height"
-);
-
 const valueBlock = qml.match(/text:\s*rowValue[\s\S]{0,800}/);
 assert(!!valueBlock, "hub value Text binds rowValue");
 assert(

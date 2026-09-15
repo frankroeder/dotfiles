@@ -1,8 +1,8 @@
 import QtQuick
 import "../../"
 
-// Deck tile: selection is a thin rail and a faint flat wash in the tile's
-// own tint; the glyph carries the colour.
+// Navigation-drawer item: the active entry sits in a full-round
+// secondary-container pill, hover is the onSurface state layer.
 Item {
   id: root
   property bool selected: false
@@ -15,7 +15,7 @@ Item {
   property string accessory: "›"
   property string fontFamily: Style.menuMono
   property string labelFamily: Style.menuSans
-  property color tint: Style.menuInkDeep
+  property color tint: Style.m3onSurfaceVariant
   property int glyphPx: 24
   property int labelPx: 11
   property int subPx: 9
@@ -23,63 +23,37 @@ Item {
   Rectangle {
     anchors.fill: parent
     anchors.margins: root.compact ? 2 : 4
-    radius: Style.radiusSm
-    color: root.selected ? Qt.alpha(root.tint, 0.10) : (root.hovered ? Style.menuRowHi : "transparent")
-    Behavior on color { ColorAnimation { duration: 100 } }
-  }
-
-  Rectangle {
-    visible: root.selected
-    width: Style.menuRail
-    height: parent.height - (root.compact ? 10 : 16)
-    radius: 1
-    color: root.tint
-    anchors.left: parent.left
-    anchors.leftMargin: root.compact ? 4 : 6
-    anchors.verticalCenter: parent.verticalCenter
-  }
-
-  Text {
-    visible: !root.compact && root.indexLabel !== ""
-    anchors.left: parent.left
-    anchors.top: parent.top
-    anchors.leftMargin: 14
-    anchors.topMargin: 10
-    text: root.indexLabel
-    color: Style.menuInkMuted
-    font.family: root.labelFamily
-    font.pixelSize: Math.max(9, Math.round(root.labelPx * 0.8))
-    font.letterSpacing: 0.4
-    opacity: 0.7
+    radius: Style.menuRadiusFull
+    color: root.selected ? Style.m3secondaryContainer : (root.hovered ? Style.m3stateHover : "transparent")
+    Behavior on color { ColorAnimation { duration: Style.menuAnimMs } }
   }
 
   Row {
     visible: root.compact
     anchors.fill: parent
-    anchors.leftMargin: 14
-    anchors.rightMargin: 10
+    anchors.leftMargin: 16
+    anchors.rightMargin: 12
     anchors.topMargin: 4
     anchors.bottomMargin: 4
-    spacing: 10
+    spacing: 12
     Text {
       anchors.verticalCenter: parent.verticalCenter
       text: root.glyph
-      color: root.tint
-      opacity: root.selected ? 1 : 0.75
-      font.pixelSize: Math.round(root.glyphPx * 0.64)
+      color: root.selected ? Style.m3onSurface : root.tint
+      font.pixelSize: Math.round(root.glyphPx * 0.7)
       font.family: root.fontFamily
-      width: 20
+      width: 22
       horizontalAlignment: Text.AlignHCenter
+      Behavior on color { ColorAnimation { duration: Style.menuAnimMs } }
     }
     Text {
       anchors.verticalCenter: parent.verticalCenter
-      width: parent.width - 30
+      width: parent.width - 34
       text: root.label
-      color: root.selected ? Style.menuInk : Style.menuInkDeep
-      font.pixelSize: root.labelPx
+      color: root.selected ? Style.m3onSurface : Style.m3onSurfaceVariant
+      font.pixelSize: root.labelPx + 1
       font.family: root.labelFamily
-      font.letterSpacing: 0.15
-      font.weight: root.selected ? Font.Medium : Font.Normal
+      font.weight: root.selected ? Font.DemiBold : Font.Medium
       elide: Text.ElideRight
     }
   }
@@ -89,14 +63,13 @@ Item {
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.verticalCenter: parent.verticalCenter
-    anchors.verticalCenterOffset: 2
     anchors.leftMargin: 12
     anchors.rightMargin: 12
     spacing: 4
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: root.glyph
-      color: root.tint
+      color: root.selected ? Style.m3onSurface : root.tint
       font.pixelSize: root.glyphPx
       font.family: root.fontFamily
     }
@@ -104,10 +77,9 @@ Item {
       anchors.horizontalCenter: parent.horizontalCenter
       width: parent.width
       text: root.label
-      color: root.selected ? Style.menuInk : Style.menuInkDeep
+      color: root.selected ? Style.m3onSurface : Style.m3onSurfaceVariant
       font.pixelSize: root.labelPx
       font.family: root.labelFamily
-      font.letterSpacing: 0.2
       font.weight: Font.Medium
       elide: Text.ElideRight
       horizontalAlignment: Text.AlignHCenter
@@ -116,13 +88,11 @@ Item {
       anchors.horizontalCenter: parent.horizontalCenter
       width: parent.width
       text: root.sub
-      color: Style.menuInkMuted
+      color: Style.m3outline
       font.pixelSize: root.subPx
       font.family: root.labelFamily
-      font.letterSpacing: 0.1
       elide: Text.ElideRight
       horizontalAlignment: Text.AlignHCenter
-      opacity: 0.8
     }
   }
 }

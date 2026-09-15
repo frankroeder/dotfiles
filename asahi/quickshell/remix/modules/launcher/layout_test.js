@@ -284,8 +284,8 @@ assert(
   "MenuCard height animates when the overview grows into a drill"
 );
 assert(
-  /transformOrigin:\s*Item\.Top/.test(fs.readFileSync(path.join(__dirname, "../menu/MenuCard.qml"), "utf8")),
-  "MenuCard unfolds from the top (menu-strip origin)"
+  /readonly property int restY:/.test(qml) && /Behavior on y \{ Menu\.MenuAnim \{\} \}/.test(qml),
+  "MenuCard slides in from a screen edge with the spring (caelestia drawer)"
 );
 assert(
   qml.indexOf("MenuFoldScrim") === -1,

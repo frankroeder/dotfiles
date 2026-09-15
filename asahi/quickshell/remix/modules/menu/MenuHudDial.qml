@@ -2,143 +2,103 @@ import QtQuick
 import QtQuick.Shapes
 import "../../"
 
-// Instrument dial: ticks light up as the needle passes them, value reads in
-// the meter colour.
+// Ring gauge (caelestia CircularProgress): 270° track in the container tone,
+// value arc in the accent with round caps and a small gap, icon + percent
+// inside and the label underneath.
 Item {
   id: dial
   property real value: 0
   property string label: ""
-  property color accent: Style.menuAccent
+  property string icon: ""
+  property color accent: Style.m3primary
   property string fontFamily: Style.menuMono
+  property string labelFamily: Style.menuSans
 
-  readonly property real diameter: Math.max(8, Math.min(width, height))
-  readonly property real start: 135
+  readonly property real diameter: Math.max(8, Math.min(width, height - labelText.height - 6))
+  readonly property real stroke: Math.max(4, Math.round(diameter * 0.075))
+  readonly property real arcR: diameter / 2 - stroke / 2
+  readonly property real start: -225
   readonly property real sweep: 270
-  readonly property real arcW: Math.max(2, Math.round(diameter * 0.055))
-  readonly property real arcR: diameter / 2 - arcW
-  readonly property real fraction: Math.max(0, Math.min(1, shown / 100))
-  readonly property bool arcOn: fraction > 0.004
+  readonly property real gapDeg: (stroke * 1.6 / Math.max(1, arcR)) * 180 / Math.PI
   property real shown: 0
+  readonly property real frac: Math.max(0.003, Math.min(1, shown / 100))
 
-  Behavior on shown {
-    NumberAnimation { duration: 480; easing.type: Easing.OutCubic }
-  }
+  Behavior on shown { MenuAnim {} }
   onValueChanged: shown = value
   Component.onCompleted: shown = value
 
   Item {
+    id: ring
     width: dial.diameter
     height: dial.diameter
-    anchors.centerIn: parent
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.top: parent.top
 
     Shape {
       anchors.fill: parent
       preferredRendererType: Shape.CurveRenderer
 
+      // remaining track
       ShapePath {
-        strokeWidth: dial.arcW
-        strokeColor: Qt.alpha(Style.menuInk, 0.10)
+        strokeWidth: dial.stroke
+        strokeColor: Qt.alpha(dial.accent, 0.20)
         fillColor: "transparent"
         capStyle: ShapePath.RoundCap
         PathAngleArc {
-          centerX: dial.diameter / 2
-          centerY: dial.diameter / 2
-          radiusX: dial.arcR
-          radiusY: dial.arcR
-          startAngle: dial.start
-          sweepAngle: dial.sweep
+          centerX: dial.diameter / 2; centerY: dial.diameter / 2
+          radiusX: dial.arcR; radiusY: dial.arcR
+          startAngle: dial.start + dial.sweep * dial.frac + dial.gapDeg
+          sweepAngle: Math.max(0.5, dial.sweep * (1 - dial.frac) - dial.gapDeg)
         }
       }
+      // value arc
       ShapePath {
-        strokeWidth: dial.arcW * 2.6
-        strokeColor: dial.arcOn ? Qt.alpha(dial.accent, 0.14) : "transparent"
+        strokeWidth: dial.stroke
+        strokeColor: dial.accent
         fillColor: "transparent"
         capStyle: ShapePath.RoundCap
         PathAngleArc {
-          centerX: dial.diameter / 2
-          centerY: dial.diameter / 2
-          radiusX: dial.arcR
-          radiusY: dial.arcR
+          centerX: dial.diameter / 2; centerY: dial.diameter / 2
+          radiusX: dial.arcR; radiusY: dial.arcR
           startAngle: dial.start
-          sweepAngle: dial.sweep * dial.fraction
-        }
-      }
-      ShapePath {
-        strokeWidth: dial.arcW
-        strokeColor: dial.arcOn ? dial.accent : "transparent"
-        fillColor: "transparent"
-        capStyle: ShapePath.RoundCap
-        PathAngleArc {
-          centerX: dial.diameter / 2
-          centerY: dial.diameter / 2
-          radiusX: dial.arcR
-          radiusY: dial.arcR
-          startAngle: dial.start
-          sweepAngle: dial.sweep * dial.fraction
-        }
-      }
-    }
-
-    Repeater {
-      model: 19
-      delegate: Item {
-        required property int index
-        readonly property bool major: index % 3 === 0
-        readonly property bool lit: index / 18 <= dial.fraction
-        anchors.fill: parent
-        rotation: dial.start + (index / 18) * dial.sweep - 270
-        Rectangle {
-          anchors.horizontalCenter: parent.horizontalCenter
-          y: dial.arcW * 1.6
-          width: major ? 2 : 1
-          height: major ? Math.max(4, dial.diameter * 0.07) : Math.max(3, dial.diameter * 0.045)
-          radius: 1
-          color: lit ? dial.accent : Qt.alpha(Style.menuInk, major ? 0.32 : 0.12)
-          opacity: lit && !major ? 0.7 : 1
-          Behavior on color { ColorAnimation { duration: 200 } }
-        }
-      }
-    }
-
-    Item {
-      anchors.fill: parent
-      rotation: dial.start + dial.fraction * dial.sweep - 270
-      Rectangle {
-        anchors.horizontalCenter: parent.horizontalCenter
-        y: dial.arcW * 2 + 4
-        width: Math.max(2, Math.round(dial.diameter * 0.03))
-        height: dial.diameter * 0.28
-        radius: width / 2
-        gradient: Gradient {
-          GradientStop { position: 0.0; color: dial.accent }
-          GradientStop { position: 0.55; color: dial.accent }
-          GradientStop { position: 1.0; color: "transparent" }
+          sweepAngle: dial.sweep * dial.frac
         }
       }
     }
 
     Column {
-      anchors.horizontalCenter: parent.horizontalCenter
-      anchors.verticalCenter: parent.verticalCenter
-      anchors.verticalCenterOffset: Math.round(dial.diameter * 0.06)
+      anchors.centerIn: parent
+      anchors.verticalCenterOffset: Math.round(dial.diameter * 0.03)
       spacing: 0
+      Text {
+        visible: dial.icon !== ""
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: dial.icon
+        color: dial.accent
+        font.family: dial.fontFamily
+        font.pixelSize: Math.max(10, Math.round(dial.diameter * 0.2))
+      }
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: Math.round(dial.shown) + "%"
         color: dial.accent
-        font.family: dial.fontFamily
-        font.pixelSize: Math.max(9, Math.round(dial.diameter * 0.18))
+        font.family: dial.labelFamily
+        font.pixelSize: Math.max(10, Math.round(dial.diameter * 0.2))
         font.weight: Font.DemiBold
       }
-      Text {
-        anchors.horizontalCenter: parent.horizontalCenter
-        text: dial.label
-        color: Style.menuInkMuted
-        font.family: dial.fontFamily
-        font.pixelSize: Math.max(7, Math.round(dial.diameter * 0.09))
-        font.letterSpacing: 1.2
-        font.weight: Font.Medium
-      }
     }
+  }
+
+  Text {
+    id: labelText
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.top: ring.bottom
+    anchors.topMargin: 6
+    text: dial.label
+    color: Style.m3onSurfaceVariant
+    font.family: dial.labelFamily
+    // Sized from the item height, not the diameter, so the ring can size from the label.
+    font.pixelSize: Math.max(10, Math.round(dial.height * 0.09))
+    font.weight: Font.Medium
   }
 }

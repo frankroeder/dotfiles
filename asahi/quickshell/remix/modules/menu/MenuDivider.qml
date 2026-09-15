@@ -6,6 +6,5 @@ Rectangle {
   implicitHeight: 1
   width: parent ? parent.width : implicitWidth
   height: implicitHeight
-  color: Style.menuSep
-  opacity: 0.7
+  color: Style.m3outlineVariant
 }

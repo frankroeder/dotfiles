@@ -19,7 +19,6 @@ import "arg_commands.js" as ArgCommands
 import "emoji.js" as Emoji
 import "dictcc-core.mjs" as DictCC
 import "launcher_layout.js" as LauncherGeom
-import "hub_logo.js" as HubLogo
 import "temp_display.js" as TempDisplay
 import "quick_models.js" as QuickModels
 import "gallery.js" as Gallery
@@ -288,9 +287,6 @@ Scope {
   readonly property color menuSuccessBg: Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.16)
   property int sidebarCpu: 0
   property int sidebarMem: 0
-  // Last ~60 sidebar samples for the hub sparkline (oldest first).
-  property var cpuHist: []
-  property var memHist: []
   property int sidebarBat: 100
   property string sidebarBatStatus: "Discharging"
   property real sidebarCpuPrevIdle: -1
@@ -332,8 +328,6 @@ Scope {
             root.sidebarCpuPrevIdle = idle
             root.sidebarCpuPrevTotal = total
             root.sidebarMem = Math.round(parseFloat(lines[2]) || 0)
-            root.cpuHist = root.cpuHist.concat([root.sidebarCpu]).slice(-60)
-            root.memHist = root.memHist.concat([root.sidebarMem]).slice(-60)
             const bat = parseFloat(lines[3])
             root.sidebarBat = Number.isFinite(bat) ? Math.max(0, Math.min(100, Math.round(bat))) : 100
             root.sidebarBatStatus = lines[4].trim()
@@ -611,12 +605,10 @@ Scope {
     property int ffMemPct: 0
     property real ffMemUsedBytes: 0
     property real ffMemTotalBytes: 0
-    property var ffLogoLines: []
     property var ffLeftRows: []
     property var ffRightRows: []
     readonly property int ffIconWidth: 18
     readonly property int ffLabelWidth: Math.max(68, Math.round(root.fontPx(8) * 5.6))
-    readonly property string ffLogoText: quickHubRoot.ffLogoLines.join("\n")
     readonly property var ffGridRows: {
       const left = quickHubRoot.ffLeftRows || []
       const right = quickHubRoot.ffRightRows || []
@@ -653,8 +645,8 @@ Scope {
           Layout.alignment: Qt.AlignTop
           Layout.topMargin: 1
           text: modelData.icon || ""
-          color: modelData.accent || Style.menuInkDeep
-          font.pixelSize: root.fontPx(9)
+          color: modelData.accent || Style.m3onSurfaceVariant
+          font.pixelSize: root.fontPx(10)
           font.family: root.uiFont
           horizontalAlignment: Text.AlignHCenter
         }
@@ -665,12 +657,10 @@ Scope {
           Layout.alignment: Qt.AlignTop
           Layout.topMargin: 1
           text: (modelData.key || "")
-          color: modelData.accent || Style.menuInkDeep
-          font.pixelSize: root.fontPx(7)
-          font.family: root.uiFont
-          font.weight: Font.DemiBold
-          font.letterSpacing: 1.2
-          font.capitalization: Font.AllUppercase
+          color: Style.m3onSurfaceVariant
+          font.pixelSize: root.fontPx(9)
+          font.family: root.uiSans
+          font.weight: Font.Medium
           horizontalAlignment: Text.AlignLeft
           elide: Text.ElideNone
         }
@@ -679,9 +669,9 @@ Scope {
           Layout.alignment: Qt.AlignTop
           Layout.topMargin: 1
           text: rowValue
-          color: Style.menuInk
+          color: Style.m3onSurface
           font.pixelSize: root.fontPx(9)
-          font.family: root.uiFont
+          font.family: root.uiSans
           // Guard on width so the first 0-wide pass does not wrap
           // one grapheme per line. Shared GridLayout rows keep wrap aligned.
           wrapMode: width > 80 ? Text.WordWrap : Text.NoWrap
@@ -691,9 +681,6 @@ Scope {
       }
     }
 
-    function stripAnsi(text) {
-      return HubLogo.stripAnsi(text)
-    }
     function prettyBytes(bytes) {
       let value = Number(bytes) || 0
       if (value <= 0) return "0 B"
@@ -715,9 +702,6 @@ Scope {
       if (days > 0) return days + "d " + hrs + "h " + mins + "m"
       if (hrs > 0) return hrs + "h " + mins + "m"
       return mins + "m"
-    }
-    function parseLogo(text) {
-      quickHubRoot.ffLogoLines = HubLogo.parseLogo(text)
     }
     function ffRow(key, icon, accent, value) {
       return { key: key, icon: icon, accent: accent, value: value }
@@ -809,7 +793,6 @@ Scope {
     }
     function refreshFastfetch() {
       if (!ffProc.running) ffProc.running = true
-      if (!ffLogoProc.running) ffLogoProc.running = true
     }
 
     Process {
@@ -820,11 +803,6 @@ Scope {
       command: ["fastfetch", "--format", "json", "--structure",
         "Title:OS:Host:Kernel:Uptime:Packages:Shell:Display:WM:Theme:CPU:GPU:Memory:Disk:LocalIp:Battery:PowerAdapter:Locale"]
       stdout: StdioCollector { onStreamFinished: quickHubRoot.parseFastfetch(text) }
-    }
-    Process {
-      id: ffLogoProc
-      command: ["fastfetch", "--logo-type", "small", "--structure", "Title"]
-      stdout: StdioCollector { onStreamFinished: quickHubRoot.parseLogo(text) }
     }
     Timer {
       interval: 60000
@@ -837,175 +815,101 @@ Scope {
 
     ColumnLayout {
       anchors.fill: parent
-      anchors.margins: Math.max(2, Math.round(root.launcherGeom.panePad / 2))
-      spacing: Math.max(6, Math.round(root.launcherGeom.colSpacing / 2))
+      spacing: 12
 
-      RowLayout {
+      // User card: logo tile, user@host, uptime + clock chips.
+      Rectangle {
         Layout.fillWidth: true
-        spacing: 10
-        ColumnLayout {
-          Layout.fillWidth: true
-          spacing: 1
-          Text {
-            text: quickHubRoot.ffTitle
-            color: Style.menuInk
-            font.pixelSize: root.fontPx(16)
-            font.family: root.uiDisplay
-            font.weight: Font.DemiBold
-            font.letterSpacing: 0.4
-            elide: Text.ElideRight
+        implicitHeight: userRow.implicitHeight + 28
+        radius: Style.menuPanelRadius
+        color: Style.m3container
+        RowLayout {
+          id: userRow
+          anchors.fill: parent
+          anchors.margins: 14
+          spacing: 14
+          Rectangle {
+            width: 46; height: 46; radius: Style.menuRadiusLg
+            color: Style.m3primaryContainer
+            Text { anchors.centerIn: parent; text: "󰣛"; color: Style.m3primary; font.family: root.uiFont; font.pixelSize: 28 }
+          }
+          ColumnLayout {
             Layout.fillWidth: true
+            spacing: 2
+            Text { Layout.fillWidth: true; text: quickHubRoot.ffTitle; color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(17); font.weight: Font.DemiBold; elide: Text.ElideRight }
+            Text { Layout.fillWidth: true; text: quickHubRoot.ffSubtitle; color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(11); elide: Text.ElideRight }
           }
-          Text {
-            text: quickHubRoot.ffSubtitle
-            color: Style.menuNeonAlt
-            font.pixelSize: root.fontPx(9)
-            font.family: root.uiSans
-            font.letterSpacing: 1.4
-            font.capitalization: Font.AllUppercase
-            elide: Text.ElideRight
-            Layout.fillWidth: true
+          Rectangle {
+            implicitWidth: upRow.implicitWidth + 22; implicitHeight: upRow.implicitHeight + 12
+            radius: Style.menuRadiusFull; color: Style.m3tertiaryContainer
+            Row {
+              id: upRow; anchors.centerIn: parent; spacing: 6
+              Text { text: "󰅐"; color: Style.m3onSurface; font.family: root.uiFont; font.pixelSize: root.fontPx(11); anchors.verticalCenter: parent.verticalCenter }
+              Text { text: "up " + (quickHubRoot.ffUptime || "…"); color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(11); font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter }
+            }
           }
-        }
-        Rectangle {
-          Layout.alignment: Qt.AlignVCenter
-          implicitWidth: uptimePillLbl.implicitWidth + 16
-          implicitHeight: uptimePillLbl.implicitHeight + 8
-          radius: 6
-          color: Style.menuRowSel
-          border.width: 0
-          Text {
-            id: uptimePillLbl
-            anchors.centerIn: parent
-            text: "up  " + (quickHubRoot.ffUptime || "…")
-            color: Style.menuNeon
-            font.pixelSize: root.fontPx(10)
-            font.family: root.uiSans
-            font.weight: Font.Medium
-            font.letterSpacing: 0.15
+          Rectangle {
+            implicitWidth: clockRow.implicitWidth + 22; implicitHeight: clockRow.implicitHeight + 12
+            radius: Style.menuRadiusFull; color: Style.m3secondaryContainer
+            Row {
+              id: clockRow; anchors.centerIn: parent; spacing: 6
+              Text { text: "󰥔"; color: Style.m3onSurface; font.family: root.uiFont; font.pixelSize: root.fontPx(11); anchors.verticalCenter: parent.verticalCenter }
+              Text { text: Qt.formatTime(hubClock.date, "HH:mm:ss"); color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(11); font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter }
+            }
           }
-        }
-        Text {
-          Layout.alignment: Qt.AlignVCenter
-          text: Qt.formatTime(hubClock.date, "HH:mm:ss")
-          color: Style.menuNeonAlt
-          font.pixelSize: root.fontPx(7)
-          font.family: root.uiFont
-          font.letterSpacing: 1.6
-          font.capitalization: Font.AllUppercase
         }
       }
 
-      Row {
+      // Gauges: CPU / memory / storage / battery rings.
+      RowLayout {
         Layout.fillWidth: true
-        // Fixed height: dials size from the row, so leftover goes to the facts grid.
-        Layout.preferredHeight: Math.round(root.launcherGeom.rowHTall * 2.5)
-        spacing: root.launcherGeom.panePad
-
+        Layout.preferredHeight: Math.round(root.launcherGeom.rowHTall * 2.7)
+        Layout.maximumHeight: Layout.preferredHeight
+        spacing: 12
         Repeater {
           model: [
-            { label: "CPU", key: "cpu" },
-            { label: "RAM", key: "ram" },
-            { label: "DISK", key: "disk" },
-            { label: "BAT", key: "bat" }
+            { label: "CPU", icon: "󰘚", key: "cpu", r: Style.menuRadiusLg },
+            { label: "Memory", icon: "󰍛", key: "ram", r: Style.menuRadiusLg },
+            { label: "Storage", icon: "󰋊", key: "disk", r: Style.menuRadiusLg },
+            { label: "Battery", icon: "󰁹", key: "bat", r: Style.menuPanelRadius }
           ]
-          delegate: Item {
+          delegate: Rectangle {
             required property var modelData
-            readonly property int meterValue: modelData.key === "cpu"
-              ? root.sidebarCpu
-              : (modelData.key === "ram"
-                ? root.sidebarMem
-                : (modelData.key === "disk" ? quickHubRoot.ffDiskPct : root.sidebarBat))
-            readonly property color meterColor: modelData.key === "cpu"
-              ? Style.orange
-              : (modelData.key === "ram"
-                ? Style.lavender
-                : (modelData.key === "disk"
-                  ? Style.menuIndigo
-                  : (root.sidebarBatStatus === "Charging"
-                    ? Style.yellow : (root.sidebarBat < 20 ? Style.red : Style.green))))
-            width: (parent.width - 3 * parent.spacing) / 4
-            height: parent.height
-
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            radius: modelData.r
+            color: Style.m3container
             Menu.MenuHudDial {
               anchors.fill: parent
-              value: meterValue
+              anchors.margins: 12
+              value: ({ cpu: root.sidebarCpu, ram: root.sidebarMem, disk: quickHubRoot.ffDiskPct, bat: root.sidebarBat })[modelData.key]
+              accent: ({ cpu: Style.m3primary, ram: Style.m3tertiary, disk: Style.m3secondary,
+                bat: root.sidebarBat < 20 && root.sidebarBatStatus !== "Charging" ? Style.red : Style.green })[modelData.key]
               label: modelData.label
-              accent: meterColor
+              icon: modelData.icon
               fontFamily: root.uiFont
+              labelFamily: root.uiSans
             }
           }
         }
       }
 
-      // Telemetry strip: CPU over RAM, last ~2 minutes of sidebar samples.
-      Item {
-        Layout.fillWidth: true
-        Layout.preferredHeight: Math.round(root.launcherGeom.rowH * 0.85)
-        Menu.MenuSpark { anchors.fill: parent; anchors.margins: 3; samples: root.memHist; accent: Style.lavender; opacity: 0.75 }
-        Menu.MenuSpark { anchors.fill: parent; anchors.margins: 3; samples: root.cpuHist; accent: Style.orange }
-        Row {
-          anchors.left: parent.left; anchors.top: parent.top; anchors.margins: 6
-          spacing: 8
-          Text { text: "CPU"; color: Style.orange; font.pixelSize: root.fontPx(7); font.family: root.uiFont; font.letterSpacing: 1.2; font.weight: Font.DemiBold }
-          Text { text: "RAM"; color: Style.lavender; font.pixelSize: root.fontPx(7); font.family: root.uiFont; font.letterSpacing: 1.2; font.weight: Font.DemiBold }
-        }
-      }
-
-      RowLayout {
-        id: ffMain
+      // Facts card.
+      Rectangle {
         Layout.fillWidth: true
         Layout.fillHeight: true
-        Layout.alignment: Qt.AlignTop
-        spacing: 12
-
-        Text {
-          // Narrow art: size to leftover height so contentWidth stays
-          // small and the two fact columns keep the pane width.
-          Layout.alignment: Qt.AlignVCenter
-          Layout.preferredWidth: contentWidth
-          Layout.maximumWidth: Math.max(1, Math.round(ffMain.width * 0.28))
-          clip: true
-          visible: quickHubRoot.ffLogoLines.length > 0
-          text: quickHubRoot.ffLogoText
-          color: Style.menuNeon
-          // QML does not resolve the "monospace" fontconfig alias — it
-          // falls back to proportional Noto Sans, whose thin spaces
-          // collapse the logo's left indentation. Name a real mono face.
-          font.family: "Noto Sans Mono"
-          font.pixelSize: {
-            const n = Math.max(8, quickHubRoot.ffLogoLines.length)
-            const h = ffMain.height
-            if (h < 8) return 5
-            return Math.max(5, Math.min(8, Math.floor(h / n)))
-          }
-          lineHeight: font.pixelSize + 1
-          lineHeightMode: Text.FixedHeight
-          wrapMode: Text.NoWrap
-        }
-
-        Rectangle {
-          Layout.fillWidth: true
-          Layout.fillHeight: true
-          color: Style.menuCardBg
-          border.width: 1
-          border.color: Style.menuSep
-          radius: 8
-
-          GridLayout {
-            id: ffInfoBody
-            anchors.fill: parent
-            anchors.margins: 12
-            columns: 2
-            columnSpacing: 28
-            rowSpacing: 8
-            Layout.fillHeight: true
-            Layout.fillWidth: true
-
-            Repeater {
-              model: quickHubRoot.ffGridRows
-              delegate: ffInfoRowDelegate
-            }
+        radius: Style.menuPanelRadius
+        color: Style.m3container
+        GridLayout {
+          id: ffInfoBody
+          anchors.fill: parent
+          anchors.margins: 16
+          columns: 2
+          columnSpacing: 24
+          rowSpacing: 6
+          Repeater {
+            model: quickHubRoot.ffGridRows
+            delegate: ffInfoRowDelegate
           }
         }
       }
@@ -6817,11 +6721,14 @@ Scope {
     Menu.MenuCard {
       id: launcherBox
       anchors.horizontalCenter: parent.horizontalCenter
-      y: root.launcherGeom.cardY + Math.round(28 * (1 - root.chromeReveal))
+      // Raycast placement: card near the top, dropping in from the top edge
+      // with the caelestia drawer spring.
+      readonly property int restY: root.launcherGeom.cardY
+      y: restY - Math.round((height + 24) * (1 - root.chromeReveal))
       width: root.launcherGeom.cardWidth
-      Behavior on width { NumberAnimation { duration: Style.menuAnimMs + 40; easing.type: Easing.OutCubic } }
-      Behavior on y { NumberAnimation { duration: Style.menuAnimMs + 40; easing.type: Easing.OutCubic } }
-      Behavior on height { NumberAnimation { duration: Style.menuAnimMs + 80; easing.type: Easing.OutCubic } }
+      Behavior on width { Menu.MenuAnim {} }
+      Behavior on y { Menu.MenuAnim {} }
+      Behavior on height { Menu.MenuAnim {} }
       height: root.launcherGeom.cardHeight
       cardMargin: root.launcherGeom.cardMargin
       chromeReveal: root.chromeReveal
@@ -6877,7 +6784,7 @@ Scope {
           Layout.fillWidth: true
           Layout.preferredHeight: (root.sectionName !== "" || root.quickMode) ? implicitHeight : 0
           visible: root.sectionName !== "" || root.quickMode
-          fontFamily: root.uiFont
+          fontFamily: root.uiSans
           fontScale: root.uiFontScale
           title: root.quickMode ? "Deck" : "Launcher"
           sectionIcon: root.sectionIcon
@@ -6902,24 +6809,29 @@ Scope {
           visible: root.sectionName !== "" || root.quickMode
         }
 
-        // search hidden in quickMode (bjarneo: no search bar; grid+side is the view;
-        // prevents typing pollution of query/cat/schedules while grid+side shown)
+        // Search pill under the header (caelestia pill, Raycast placement). Hidden
+        // in quickMode so typing cannot pollute query/cat while the deck is shown.
         Item {
           Layout.fillWidth: true
           Layout.preferredHeight: root.quickMode ? 0 : root.launcherGeom.searchH
           visible: !root.quickMode
           clip: true
 
+          Rectangle {
+            anchors.fill: parent
+            radius: height / 2
+            color: Style.m3container
+          }
+
           Text {
             id: searchPrompt
-            visible: root.argArmed
             anchors.left: parent.left
+            anchors.leftMargin: 16
             anchors.verticalCenter: parent.verticalCenter
             text: root.fileMode ? "󰉖" : "󰍉"
-            color: searchInput.activeFocus ? Style.menuAccent : Style.menuInkDeep
+            color: Style.m3onSurfaceVariant
             font.family: root.uiFont
-            font.pixelSize: root.fontPx(16)
-            Behavior on color { ColorAnimation { duration: 120 } }
+            font.pixelSize: root.fontPx(15)
           }
 
           Rectangle {
@@ -6928,16 +6840,16 @@ Scope {
             anchors.left: searchPrompt.right
             anchors.leftMargin: 10
             anchors.verticalCenter: parent.verticalCenter
-            width: chipLabel.implicitWidth + 14
-            height: Math.round(parent.height * 0.64)
-            radius: 6
-            color: Style.menuRowSel
+            width: chipLabel.implicitWidth + 16
+            height: Math.round(parent.height * 0.6)
+            radius: height / 2
+            color: Style.m3secondaryContainer
             border.width: 0
             Text {
               id: chipLabel
               anchors.centerIn: parent
               text: root.argCommand
-              color: Style.menuAccent
+              color: Style.m3onSurface
               font.family: root.uiSans
               font.pixelSize: root.fontPx(12)
               font.weight: Font.Medium
@@ -6946,20 +6858,19 @@ Scope {
 
           Item {
             id: argFieldWrap
-            anchors.left: root.argArmed ? argChip.right : parent.left
-            anchors.leftMargin: root.argArmed ? 10 : 0
+            anchors.left: root.argArmed ? argChip.right : searchPrompt.right
+            anchors.leftMargin: 10
             anchors.right: parent.right
+            anchors.rightMargin: 16
             anchors.top: parent.top
             anchors.bottom: parent.bottom
 
           TextInput {
             id: searchInput
             anchors.fill: parent
-            color: text.length > 0 ? Style.menuInk : Style.menuInkDeep
-            opacity: text.length > 0 || root.argArmed ? 1 : 0.62
+            color: Style.m3onSurface
             font.family: root.uiDisplay
-            font.pixelSize: root.fontPx(20)
-            font.letterSpacing: 0.05
+            font.pixelSize: root.fontPx(15)
             font.weight: Font.Medium
             verticalAlignment: TextInput.AlignVCenter
             clip: true
@@ -6984,10 +6895,9 @@ Scope {
               anchors.fill: parent
               text: root.argArmed
                 ? (root.argPlaceholder || "argument…")
-                : (root.fileMode ? "search files…" : "Search")
-              color: Style.menuInkDeep
+                : (root.fileMode ? "Search files" : "Search  ·  ctrl+hjkl  ·  tab argument  ·  !  >  ;  @  dict")
+              color: Style.m3onSurfaceVariant
               font: parent.font
-              opacity: root.argArmed ? 0.7 : 0.45
               visible: !parent.text && (root.argArmed || !parent.activeFocus)
               verticalAlignment: Text.AlignVCenter
             }
@@ -7074,11 +6984,25 @@ Scope {
                 event.accepted = true
                 return
               }
-              if (event.key === Qt.Key_Down || (event.key === Qt.Key_Tab && !(event.modifiers & Qt.ShiftModifier))) {
+              // Vim keys while typing: Ctrl+j/k move, Ctrl+h goes up a level, Ctrl+l opens.
+              const ctrl = !!(event.modifiers & Qt.ControlModifier)
+              const ctrlDown = ctrl && event.key === Qt.Key_J
+              const ctrlUp = ctrl && event.key === Qt.Key_K
+              if (ctrl && event.key === Qt.Key_H) {
+                event.accepted = true
+                root.goUp()
+                return
+              }
+              if (ctrl && event.key === Qt.Key_L) {
+                event.accepted = true
+                root.launchCurrent()
+                return
+              }
+              if (ctrlDown || event.key === Qt.Key_Down || (event.key === Qt.Key_Tab && !(event.modifiers & Qt.ShiftModifier))) {
                 event.accepted = true
                 resultsList.currentIndex = Math.min(resultsList.currentIndex + 1, max)
                 resultsList.positionViewAtIndex(resultsList.currentIndex, ListView.Contain)
-              } else if (event.key === Qt.Key_Up || event.key === Qt.Key_Backtab
+              } else if (ctrlUp || event.key === Qt.Key_Up || event.key === Qt.Key_Backtab
                 || (event.key === Qt.Key_Tab && (event.modifiers & Qt.ShiftModifier))) {
                 event.accepted = true
                 resultsList.currentIndex = Math.max(resultsList.currentIndex - 1, 0)
@@ -7088,18 +7012,8 @@ Scope {
           }
           }
 
-          Rectangle {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            height: 1
-            color: searchInput.activeFocus ? Style.menuNeon : Style.menuSep
-            opacity: searchInput.activeFocus ? 0.85 : 1
-            Behavior on color { ColorAnimation { duration: 120 } }
-          }
         }
 
-        Menu.MenuDivider { Layout.fillWidth: true; Layout.preferredHeight: implicitHeight; visible: false }
 
         // List area (with optional file preview split). Height is leftover
         // inside the card (ColumnLayout fill), not a fraction of the overlay.
@@ -7153,6 +7067,15 @@ Scope {
               highlightFollowsCurrentItem: false
               pixelAligned: true
               ScrollBar.vertical: Menu.MenuScrollBar {}
+              highlight: Rectangle {
+                radius: Style.menuRadiusLg
+                color: Style.m3stateHover
+                width: resultsList.width
+                height: resultsList.currentItem ? resultsList.currentItem.height - 2 : 0
+                y: resultsList.currentItem ? resultsList.currentItem.y + 1 : 0
+                Behavior on y { Menu.MenuAnim {} }
+                Behavior on height { Menu.MenuAnim {} }
+              }
 
               onCountChanged: if (!root.quickMode) root.resultCount = count
               onCurrentIndexChanged: if (currentIndex >= 0) root.selectedIndex = currentIndex
@@ -7173,34 +7096,16 @@ Scope {
                 readonly property string dGlyph: modelData.glyph || (dImage === "" && dIcon !== "" ? dIcon : "")
                 readonly property string dAcc: modelData.accessory || (modelData.isCategory ? "›" : "")
                 readonly property color dTint: root.itemTintColor(modelData)
-                // Untinted rows (plain apps) light up in the accent neon.
-                readonly property color selTint: Data.itemTint(modelData) ? dTint : Style.menuNeon
 
                 Accessible.role: Accessible.Button
                 Accessible.name: dName
 
                 Rectangle {
                   anchors.fill: parent
-                  anchors.leftMargin: 2
-                  anchors.rightMargin: 2
                   anchors.topMargin: 1
                   anchors.bottomMargin: 1
-                  radius: Style.radiusSm
-                  color: delegateRoot.isSelected
-                    ? Qt.alpha(delegateRoot.selTint, 0.10)
-                    : (rowMa.containsMouse ? Style.menuRowHi : "transparent")
-                  Behavior on color { ColorAnimation { duration: 100 } }
-                }
-
-                Rectangle {
-                  visible: delegateRoot.isSelected
-                  width: Style.menuRail
-                  height: parent.height - 12
-                  radius: 1
-                  color: delegateRoot.selTint
-                  anchors.left: parent.left
-                  anchors.leftMargin: 4
-                  anchors.verticalCenter: parent.verticalCenter
+                  radius: Style.menuRadiusLg
+                  color: rowMa.containsMouse && !delegateRoot.isSelected ? Style.m3stateHover : "transparent"
                 }
 
                 RowLayout {
@@ -7250,11 +7155,10 @@ Scope {
                     Text {
                       Layout.fillWidth: true
                       text: delegateRoot.dName + (delegateRoot.dCat ? "  ›" : "")
-                      color: delegateRoot.isSelected ? delegateRoot.selTint : Style.menuInk
+                      color: Style.m3onSurface
                       font.pixelSize: root.fontPx(14)
                       font.family: root.uiSans
-                      font.weight: delegateRoot.isSelected ? Font.Medium : Font.Normal
-                      font.letterSpacing: 0.15
+                      font.weight: Font.Medium
                       elide: Text.ElideRight
                     }
 
@@ -7262,11 +7166,9 @@ Scope {
                       Layout.fillWidth: true
                       visible: delegateRoot.dSub !== "" && !delegateRoot.dCat && !root.fileMode
                       text: delegateRoot.dSub
-                      color: Style.menuInkDeep
-                      opacity: delegateRoot.isSelected ? 0.85 : 0.7
+                      color: Style.m3outline
                       font.pixelSize: root.fontPx(11)
                       font.family: root.uiSans
-                      font.letterSpacing: 0.1
                       elide: Text.ElideRight
                       maximumLineCount: 1
                     }
@@ -7277,11 +7179,9 @@ Scope {
                       ? Data.tildify(Data.dirname(modelData.path), root.homeDir)
                       : delegateRoot.dAcc
                     visible: text !== ""
-                    color: delegateRoot.isSelected ? delegateRoot.selTint : Style.menuInkMuted
-                    opacity: delegateRoot.isSelected ? 0.9 : 0.6
+                    color: Style.m3outline
                     font.pixelSize: root.fontPx(11)
                     font.family: root.uiSans
-                    font.letterSpacing: 0.15
                     elide: Text.ElideLeft
                     maximumLineCount: 1
                     // Key combos ("SUPER+SHIFT+ESCAPE") need more room than
@@ -7468,10 +7368,8 @@ Scope {
                   }
                   Rectangle {
                     Layout.alignment: Qt.AlignVCenter
-                    width: 24; height: 24; radius: 12
-                    color: cqma.containsMouse ? Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.08) : "transparent"
-                    border.color: Style.menuSep
-                    border.width: 1
+                    width: 28; height: 28; radius: 14
+                    color: cqma.containsMouse ? Style.m3stateHover : Style.m3container
                     Text {
                       anchors.centerIn: parent
                       text: "×"
@@ -7585,8 +7483,6 @@ Scope {
           }
         }
 
-        Menu.MenuDivider { Layout.fillWidth: true; Layout.preferredHeight: implicitHeight }
-
         Text {
           Layout.fillWidth: true
           visible: !root.quickMode && !root.compactLauncher && text !== ""
@@ -7602,21 +7498,11 @@ Scope {
             if (it.command) return "$ " + (it.command.join ? it.command.join(" ") : it.command)
             return it.comment || ""
           }
-          color: Style.menuInkMuted
+          color: Style.m3outline
           font.family: root.uiSans
           font.pixelSize: root.fontPx(11)
-          font.letterSpacing: 0.1
-          opacity: 0.75
         }
 
-        Menu.MenuHintRow {
-          Layout.fillWidth: true
-          Layout.preferredHeight: implicitHeight
-          fontFamily: root.uiFont
-          fontScale: root.uiFontScale
-          gridNav: root.quickMode
-          hints: root.quickMode ? "esc  cluster / leave" : (root.argArmed ? "tab  results" : "tab  argument  ·  !  >  ;  @  dict")
-        }
       }
 
       // Screenshot preview overlay (copy / open / delete)
@@ -7624,7 +7510,7 @@ Scope {
         anchors.fill: parent
         color: Style.menuDim
         visible: root.shotPreviewPath !== ""
-        radius: Style.menuRadius
+        radius: Style.menuPanelRadius
         z: 30
 
         MouseArea { anchors.fill: parent; onClicked: root.shotPreviewPath = "" }
