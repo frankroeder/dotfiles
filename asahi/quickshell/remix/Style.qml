@@ -120,6 +120,10 @@ Singleton {
   readonly property color menuOnAccent: themed("crust")
   readonly property color menuOverlayLight: Qt.rgba(1, 1, 1, 0.92)
   readonly property color menuSuccessWash: themedAlpha("green", 0.28)
+  // Accent line + glass body for the launcher card.
+  readonly property color menuNeon:    accent
+  readonly property color menuNeonAlt: themed("sapphire")
+  readonly property color menuGlass:   themedAlpha("mantle", 0.93)
   readonly property int menuRadius: 8
   readonly property int menuRail: 2
   readonly property real menuTitleSpacing: 0.6

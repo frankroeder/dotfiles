@@ -1,6 +1,7 @@
 import QtQuick
 import "../../"
 
+// Flat glass card: one hairline, one accent line along the top edge.
 Rectangle {
   id: root
   property int cardRadius: Style.menuRadius
@@ -8,13 +9,13 @@ Rectangle {
   property real chromeReveal: 1.0
   default property alias content: inner.data
 
-  color: Style.menuBg
+  color: Style.menuGlass
   border.color: Style.menuHairline
   border.width: 1
   radius: root.cardRadius
   clip: true
   opacity: chromeReveal
-  scale: 0.92 + 0.08 * chromeReveal
+  scale: 0.96 + 0.04 * chromeReveal
   transformOrigin: Item.Top
 
   Behavior on opacity {
@@ -33,6 +34,21 @@ Rectangle {
   MouseArea {
     anchors.fill: parent
     onClicked: mouse => mouse.accepted = true
+  }
+
+  Rectangle {
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.leftMargin: root.cardRadius
+    anchors.rightMargin: root.cardRadius
+    height: 1
+    gradient: Gradient {
+      orientation: Gradient.Horizontal
+      GradientStop { position: 0.0; color: "transparent" }
+      GradientStop { position: 0.5; color: Style.menuNeon }
+      GradientStop { position: 1.0; color: "transparent" }
+    }
   }
 
   Item {

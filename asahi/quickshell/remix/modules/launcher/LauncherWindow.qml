@@ -288,6 +288,9 @@ Scope {
   readonly property color menuSuccessBg: Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.16)
   property int sidebarCpu: 0
   property int sidebarMem: 0
+  // Last ~60 sidebar samples for the hub sparkline (oldest first).
+  property var cpuHist: []
+  property var memHist: []
   property int sidebarBat: 100
   property string sidebarBatStatus: "Discharging"
   property real sidebarCpuPrevIdle: -1
@@ -329,6 +332,8 @@ Scope {
             root.sidebarCpuPrevIdle = idle
             root.sidebarCpuPrevTotal = total
             root.sidebarMem = Math.round(parseFloat(lines[2]) || 0)
+            root.cpuHist = root.cpuHist.concat([root.sidebarCpu]).slice(-60)
+            root.memHist = root.memHist.concat([root.sidebarMem]).slice(-60)
             const bat = parseFloat(lines[3])
             root.sidebarBat = Number.isFinite(bat) ? Math.max(0, Math.min(100, Math.round(bat))) : 100
             root.sidebarBatStatus = lines[4].trim()
@@ -661,9 +666,11 @@ Scope {
           Layout.topMargin: 1
           text: (modelData.key || "")
           color: modelData.accent || Style.menuInkDeep
-          font.pixelSize: root.fontPx(8)
+          font.pixelSize: root.fontPx(7)
           font.family: root.uiFont
           font.weight: Font.DemiBold
+          font.letterSpacing: 1.2
+          font.capitalization: Font.AllUppercase
           horizontalAlignment: Text.AlignLeft
           elide: Text.ElideNone
         }
@@ -844,17 +851,18 @@ Scope {
             color: Style.menuInk
             font.pixelSize: root.fontPx(16)
             font.family: root.uiDisplay
-            font.weight: Font.Medium
-            font.letterSpacing: 0.1
+            font.weight: Font.DemiBold
+            font.letterSpacing: 0.4
             elide: Text.ElideRight
             Layout.fillWidth: true
           }
           Text {
             text: quickHubRoot.ffSubtitle
-            color: Style.menuInkMuted
-            font.pixelSize: root.fontPx(10)
+            color: Style.menuNeonAlt
+            font.pixelSize: root.fontPx(9)
             font.family: root.uiSans
-            font.letterSpacing: 0.15
+            font.letterSpacing: 1.4
+            font.capitalization: Font.AllUppercase
             elide: Text.ElideRight
             Layout.fillWidth: true
           }
@@ -870,7 +878,7 @@ Scope {
             id: uptimePillLbl
             anchors.centerIn: parent
             text: "up  " + (quickHubRoot.ffUptime || "…")
-            color: Style.menuInkDeep
+            color: Style.menuNeon
             font.pixelSize: root.fontPx(10)
             font.family: root.uiSans
             font.weight: Font.Medium
@@ -880,7 +888,7 @@ Scope {
         Text {
           Layout.alignment: Qt.AlignVCenter
           text: Qt.formatTime(hubClock.date, "HH:mm:ss")
-          color: Style.menuInkMuted
+          color: Style.menuNeonAlt
           font.pixelSize: root.fontPx(7)
           font.family: root.uiFont
           font.letterSpacing: 1.6
@@ -930,6 +938,20 @@ Scope {
         }
       }
 
+      // Telemetry strip: CPU over RAM, last ~2 minutes of sidebar samples.
+      Item {
+        Layout.fillWidth: true
+        Layout.preferredHeight: Math.round(root.launcherGeom.rowH * 0.85)
+        Menu.MenuSpark { anchors.fill: parent; anchors.margins: 3; samples: root.memHist; accent: Style.lavender; opacity: 0.75 }
+        Menu.MenuSpark { anchors.fill: parent; anchors.margins: 3; samples: root.cpuHist; accent: Style.orange }
+        Row {
+          anchors.left: parent.left; anchors.top: parent.top; anchors.margins: 6
+          spacing: 8
+          Text { text: "CPU"; color: Style.orange; font.pixelSize: root.fontPx(7); font.family: root.uiFont; font.letterSpacing: 1.2; font.weight: Font.DemiBold }
+          Text { text: "RAM"; color: Style.lavender; font.pixelSize: root.fontPx(7); font.family: root.uiFont; font.letterSpacing: 1.2; font.weight: Font.DemiBold }
+        }
+      }
+
       RowLayout {
         id: ffMain
         Layout.fillWidth: true
@@ -946,7 +968,7 @@ Scope {
           clip: true
           visible: quickHubRoot.ffLogoLines.length > 0
           text: quickHubRoot.ffLogoText
-          color: Style.menuSeal
+          color: Style.menuNeon
           // QML does not resolve the "monospace" fontconfig alias — it
           // falls back to proportional Noto Sans, whose thin spaces
           // collapse the logo's left indentation. Name a real mono face.
@@ -7071,7 +7093,7 @@ Scope {
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             height: 1
-            color: searchInput.activeFocus ? Style.menuAccent : Style.menuSep
+            color: searchInput.activeFocus ? Style.menuNeon : Style.menuSep
             opacity: searchInput.activeFocus ? 0.85 : 1
             Behavior on color { ColorAnimation { duration: 120 } }
           }
@@ -7151,6 +7173,8 @@ Scope {
                 readonly property string dGlyph: modelData.glyph || (dImage === "" && dIcon !== "" ? dIcon : "")
                 readonly property string dAcc: modelData.accessory || (modelData.isCategory ? "›" : "")
                 readonly property color dTint: root.itemTintColor(modelData)
+                // Untinted rows (plain apps) light up in the accent neon.
+                readonly property color selTint: Data.itemTint(modelData) ? dTint : Style.menuNeon
 
                 Accessible.role: Accessible.Button
                 Accessible.name: dName
@@ -7163,9 +7187,9 @@ Scope {
                   anchors.bottomMargin: 1
                   radius: Style.radiusSm
                   color: delegateRoot.isSelected
-                    ? Style.menuRowSel
+                    ? Qt.alpha(delegateRoot.selTint, 0.10)
                     : (rowMa.containsMouse ? Style.menuRowHi : "transparent")
-                  border.width: 0
+                  Behavior on color { ColorAnimation { duration: 100 } }
                 }
 
                 Rectangle {
@@ -7173,7 +7197,7 @@ Scope {
                   width: Style.menuRail
                   height: parent.height - 12
                   radius: 1
-                  color: Style.menuAccent
+                  color: delegateRoot.selTint
                   anchors.left: parent.left
                   anchors.leftMargin: 4
                   anchors.verticalCenter: parent.verticalCenter
@@ -7226,7 +7250,7 @@ Scope {
                     Text {
                       Layout.fillWidth: true
                       text: delegateRoot.dName + (delegateRoot.dCat ? "  ›" : "")
-                      color: delegateRoot.isSelected ? Style.menuAccent : Style.menuInk
+                      color: delegateRoot.isSelected ? delegateRoot.selTint : Style.menuInk
                       font.pixelSize: root.fontPx(14)
                       font.family: root.uiSans
                       font.weight: delegateRoot.isSelected ? Font.Medium : Font.Normal
@@ -7253,7 +7277,7 @@ Scope {
                       ? Data.tildify(Data.dirname(modelData.path), root.homeDir)
                       : delegateRoot.dAcc
                     visible: text !== ""
-                    color: delegateRoot.isSelected ? Style.menuAccent : Style.menuInkMuted
+                    color: delegateRoot.isSelected ? delegateRoot.selTint : Style.menuInkMuted
                     opacity: delegateRoot.isSelected ? 0.9 : 0.6
                     font.pixelSize: root.fontPx(11)
                     font.family: root.uiSans
@@ -7415,7 +7439,7 @@ Scope {
                   anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.topMargin: root.launcherGeom.panePad; spacing: root.launcherGeom.colSpacing
                   Text {
                     text: qDetailSide.qtile.glyph || "󰘔"
-                    color: Style.menuSeal
+                    color: root.tintColor(qDetailSide.qtile.tint)
                     font.family: root.uiFont
                     font.pixelSize: root.fontPx(14)
                     Layout.alignment: Qt.AlignVCenter

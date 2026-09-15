@@ -9,7 +9,7 @@ RowLayout {
   property string fontFamily: Style.menuMono
   property bool gridNav: false
 
-  spacing: 8
+  spacing: 10
   implicitHeight: Math.round(20 * root.fontScale)
 
   Repeater {
@@ -26,14 +26,14 @@ RowLayout {
         width: keyLbl.width + Math.round(10 * root.fontScale)
         height: Math.round(18 * root.fontScale)
         radius: Style.radiusSm
-        color: Style.menuControlBg
+        color: "transparent"
         border.width: 1
-        border.color: Style.menuHairline
+        border.color: Qt.alpha(Style.menuNeon, 0.4)
         Text {
           id: keyLbl
           anchors.centerIn: parent
           text: modelData.key
-          color: Style.menuAccent
+          color: Style.menuNeon
           font.pixelSize: 10 * root.fontScale
           font.family: root.fontFamily
         }
@@ -43,6 +43,7 @@ RowLayout {
         color: Style.menuInkMuted
         font.pixelSize: 10 * root.fontScale
         font.family: root.fontFamily
+        font.letterSpacing: 0.3
         anchors.verticalCenter: parent.verticalCenter
       }
     }
@@ -54,6 +55,7 @@ RowLayout {
     color: Style.menuInkMuted
     font.pixelSize: 10 * root.fontScale
     font.family: root.fontFamily
+    font.letterSpacing: 0.3
     Layout.alignment: Qt.AlignVCenter
   }
 

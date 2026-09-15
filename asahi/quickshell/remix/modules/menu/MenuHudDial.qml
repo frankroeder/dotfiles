@@ -2,7 +2,8 @@ import QtQuick
 import QtQuick.Shapes
 import "../../"
 
-// Omarchy speed-cluster dial, scaled for the launcher overview.
+// Instrument dial: ticks light up as the needle passes them, value reads in
+// the meter colour.
 Item {
   id: dial
   property real value: 0
@@ -36,7 +37,7 @@ Item {
 
       ShapePath {
         strokeWidth: dial.arcW
-        strokeColor: Qt.rgba(1, 1, 1, 0.12)
+        strokeColor: Qt.alpha(Style.menuInk, 0.10)
         fillColor: "transparent"
         capStyle: ShapePath.RoundCap
         PathAngleArc {
@@ -50,7 +51,7 @@ Item {
       }
       ShapePath {
         strokeWidth: dial.arcW * 2.6
-        strokeColor: dial.arcOn ? Qt.rgba(dial.accent.r, dial.accent.g, dial.accent.b, 0.16) : "transparent"
+        strokeColor: dial.arcOn ? Qt.alpha(dial.accent, 0.14) : "transparent"
         fillColor: "transparent"
         capStyle: ShapePath.RoundCap
         PathAngleArc {
@@ -83,6 +84,7 @@ Item {
       delegate: Item {
         required property int index
         readonly property bool major: index % 3 === 0
+        readonly property bool lit: index / 18 <= dial.fraction
         anchors.fill: parent
         rotation: dial.start + (index / 18) * dial.sweep - 270
         Rectangle {
@@ -91,7 +93,9 @@ Item {
           width: major ? 2 : 1
           height: major ? Math.max(4, dial.diameter * 0.07) : Math.max(3, dial.diameter * 0.045)
           radius: 1
-          color: major ? Qt.rgba(1, 1, 1, 0.32) : Qt.rgba(1, 1, 1, 0.12)
+          color: lit ? dial.accent : Qt.alpha(Style.menuInk, major ? 0.32 : 0.12)
+          opacity: lit && !major ? 0.7 : 1
+          Behavior on color { ColorAnimation { duration: 200 } }
         }
       }
     }
@@ -121,7 +125,7 @@ Item {
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: Math.round(dial.shown) + "%"
-        color: Style.menuInk
+        color: dial.accent
         font.family: dial.fontFamily
         font.pixelSize: Math.max(9, Math.round(dial.diameter * 0.18))
         font.weight: Font.DemiBold
@@ -132,7 +136,7 @@ Item {
         color: Style.menuInkMuted
         font.family: dial.fontFamily
         font.pixelSize: Math.max(7, Math.round(dial.diameter * 0.09))
-        font.letterSpacing: 0.3
+        font.letterSpacing: 1.2
         font.weight: Font.Medium
       }
     }

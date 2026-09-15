@@ -13,3 +13,4 @@ MenuScrollBar 1.0 MenuScrollBar.qml
 MenuHudFrame 1.0 MenuHudFrame.qml
 MenuHudDial 1.0 MenuHudDial.qml
 MenuHudTile 1.0 MenuHudTile.qml
+MenuSpark 1.0 MenuSpark.qml

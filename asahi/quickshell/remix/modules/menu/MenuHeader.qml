@@ -28,10 +28,11 @@ Item {
     anchors.left: parent.left
     anchors.verticalCenter: parent.verticalCenter
     text: root.title
-    color: Style.menuInkDeep
+    color: Style.menuInkMuted
     font.family: root.fontFamily
-    font.pixelSize: 13 * root.fontScale
-    font.letterSpacing: Style.menuTitleSpacing
+    font.pixelSize: 11 * root.fontScale
+    font.letterSpacing: 2.0
+    font.capitalization: Font.AllUppercase
     font.weight: Font.Medium
   }
 
@@ -63,10 +64,11 @@ Item {
 
       Text {
         text: root.title
-        color: Style.menuInkDeep
+        color: Style.menuInkMuted
         font.family: root.fontFamily
-        font.pixelSize: 13 * root.fontScale
-        font.letterSpacing: Style.menuTitleSpacing
+        font.pixelSize: 11 * root.fontScale
+        font.letterSpacing: 2.0
+        font.capitalization: Font.AllUppercase
         font.weight: Font.Medium
         anchors.verticalCenter: parent.verticalCenter
       }
@@ -84,7 +86,7 @@ Item {
       Text {
         visible: root.sectionIcon !== ""
         text: root.sectionIcon
-        color: Style.menuAccent
+        color: Style.menuNeon
         font.family: root.iconFamily
         font.pixelSize: 14 * root.fontScale
         anchors.verticalCenter: parent.verticalCenter
@@ -125,6 +127,6 @@ Item {
     color: Style.menuInkMuted
     font.family: root.fontFamily
     font.pixelSize: 11 * root.fontScale
-    font.letterSpacing: 0.15
+    font.letterSpacing: 0.4
   }
 }

@@ -1,7 +1,8 @@
 import QtQuick
 import "../../"
 
-// Quiet deck tile: selected = left lumen rail, no ticks or boxed fill.
+// Deck tile: selection is a thin rail and a faint flat wash in the tile's
+// own tint; the glyph carries the colour.
 Item {
   id: root
   property bool selected: false
@@ -22,9 +23,9 @@ Item {
   Rectangle {
     anchors.fill: parent
     anchors.margins: root.compact ? 2 : 4
-    color: root.selected ? Style.menuRowSel : (root.hovered ? Style.menuRowHi : "transparent")
-    border.width: 0
     radius: Style.radiusSm
+    color: root.selected ? Qt.alpha(root.tint, 0.10) : (root.hovered ? Style.menuRowHi : "transparent")
+    Behavior on color { ColorAnimation { duration: 100 } }
   }
 
   Rectangle {
@@ -32,7 +33,7 @@ Item {
     width: Style.menuRail
     height: parent.height - (root.compact ? 10 : 16)
     radius: 1
-    color: Style.menuAccent
+    color: root.tint
     anchors.left: parent.left
     anchors.leftMargin: root.compact ? 4 : 6
     anchors.verticalCenter: parent.verticalCenter
@@ -64,6 +65,7 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
       text: root.glyph
       color: root.tint
+      opacity: root.selected ? 1 : 0.75
       font.pixelSize: Math.round(root.glyphPx * 0.64)
       font.family: root.fontFamily
       width: 20
@@ -73,7 +75,7 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
       width: parent.width - 30
       text: root.label
-      color: root.selected ? Style.menuAccent : Style.menuInkDeep
+      color: root.selected ? Style.menuInk : Style.menuInkDeep
       font.pixelSize: root.labelPx
       font.family: root.labelFamily
       font.letterSpacing: 0.15
@@ -102,7 +104,7 @@ Item {
       anchors.horizontalCenter: parent.horizontalCenter
       width: parent.width
       text: root.label
-      color: root.selected ? Style.menuAccent : Style.menuInk
+      color: root.selected ? Style.menuInk : Style.menuInkDeep
       font.pixelSize: root.labelPx
       font.family: root.labelFamily
       font.letterSpacing: 0.2
