@@ -14,7 +14,7 @@ var REF_W = 1920
 var REF_H = 1080
 var REF_FONT_SCALE = 1.4
 var REF_WIDTH_OVERVIEW = 820
-var REF_WIDTH_COMPACT = 600
+var REF_WIDTH_COMPACT = 750
 var REF_WIDTH_SIDE = 1080
 var WIDTH_OVERVIEW_FRAC = REF_WIDTH_OVERVIEW / REF_W
 var WIDTH_COMPACT_FRAC = REF_WIDTH_COMPACT / REF_W
@@ -26,10 +26,10 @@ var FONT_SCALE_MAX = 1.80
 
 var CARD_MARGIN = 17
 var COL_SPACING = 12
-var CARD_TOP_FRAC = 0.12
-var CARD_TOP_FRAC_COMPACT = 0.10
-var CARD_MAX_FRAC = 0.76
-var CARD_COMPACT_MAX_FRAC = 0.75
+var CARD_TOP_FRAC = 0.09
+var CARD_TOP_FRAC_COMPACT = 0.08
+var CARD_MAX_FRAC = 0.68
+var CARD_COMPACT_MAX_FRAC = 0.82
 var CARD_BOTTOM_FRAC = 0.04
 var MIN_BOTTOM_GAP = 28
 var DIVIDER_H = 1
@@ -84,7 +84,7 @@ function cardWidthFor(screenW, sideActive, compact) {
   const frac = sideActive ? WIDTH_SIDE_FRAC : (compact ? WIDTH_COMPACT_FRAC : WIDTH_OVERVIEW_FRAC)
   const gap = Math.max(24, roundPx(w * 0.035))
   const maxW = Math.max(320, w - 2 * gap)
-  const minW = Math.min(maxW, sideActive ? 700 : (compact ? 460 : 540))
+  const minW = Math.min(maxW, sideActive ? 700 : (compact ? 575 : 540))
   return clamp(roundPx(w * frac), minW, maxW)
 }
 

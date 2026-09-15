@@ -101,7 +101,7 @@ const midCompact = launcherLayout({
   screenW: 1920, screenH: 1080, sideActive: false, quickMode: false,
   compact: true, rowCount: 8, headerVisible: false, tileCount: 8
 });
-assert(midCompact.cardWidth <= 640, "1080p compact overview is narrower than 640 (got " + midCompact.cardWidth + ")");
+assert(midCompact.cardWidth <= 780, "1080p compact overview is narrower than 780 (got " + midCompact.cardWidth + ")");
 assert(midCompact.cardHeight < mid.cardHeight, "compact overview is shorter than the deck card (" + midCompact.cardHeight + " < " + mid.cardHeight + ")");
 assert(midCompact.cardHeight <= 540, "8-row compact overview stays under half the 1080p frame (got " + midCompact.cardHeight + ")");
 assert(midCompact.cardY < mid.cardY, "compact overview sits closer to the bar");

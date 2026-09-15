@@ -333,8 +333,14 @@ RowLayout {
       color: Style.orange
     }
 
-    MouseArea { id: updateMouse; anchors.fill: parent; hoverEnabled: true }
-    TooltipWindow { target: updateChip; text: "Package updates available"; show: updateMouse.containsMouse }
+    MouseArea {
+      id: updateMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: Quickshell.execDetached(["qs", "-c", "remix", "ipc", "call", "pkgman", "toggle"])
+    }
+    TooltipWindow { target: updateChip; text: "dnf updates — click to open"; show: updateMouse.containsMouse }
   }
 
   Rectangle {

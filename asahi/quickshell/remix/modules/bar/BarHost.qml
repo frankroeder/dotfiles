@@ -16,7 +16,15 @@ Item {
   property var notificationCenter: null
   property bool isRecording: false
   property bool calendarOpen: false
+  property bool sysPanelOpen: false
   signal calendarToggle()
+  function toggleSysPanel(button) {
+    if (button === Qt.RightButton) Quickshell.execDetached([barWindow.binDir + "/asahi-sysmon"])
+    else {
+      if (barWindow.calendarOpen) barWindow.calendarToggle()
+      barWindow.sysPanelOpen = !barWindow.sysPanelOpen
+    }
+  }
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
   readonly property int barSize: Style.barHeight
@@ -158,7 +166,6 @@ Item {
           barWindow.cpuTempText = m ? m[1] : ""
           barWindow.cpuHistory.push(barWindow.cpuPerc)
           if (barWindow.cpuHistory.length > barWindow.maxGraphHist) barWindow.cpuHistory.shift()
-          cpuInlineGraph.requestPaint()
         } catch (e) {}
       }
     }
@@ -271,28 +278,21 @@ Item {
     anchors.verticalCenter: parent.verticalCenter
     spacing: 2
 
-    WorkspacesBlock { controller: barWindow }
+    WorkspacesBlock { id: wsBlock; controller: barWindow }
 
-    BarComponents.MediaPlayer { barHost: barWindow }
-
-    WidgetButton {
+    // One CPU + RAM chip: click opens SysPanel, right-click btop.
+    BarComponents.SysChip {
+      id: sysBlock
       barHost: barWindow
-      icon: "󰍛"
-      text: barWindow.fmt2(barWindow.cpuPerc) + "%"
-      fontSize: Style.barFontBody
-      tooltipText: barWindow.cpuTooltip + "\nClick: btop / htop"
-      foreground: Style.orange
-      onPressed: Quickshell.execDetached([barWindow.binDir + "/asahi-sysmon"])
+      onPressed: function(button) { barWindow.toggleSysPanel(button) }
     }
 
-    WidgetButton {
+    BarComponents.MediaPlayer {
+      id: mediaBlock
       barHost: barWindow
-      icon: "󰘚"
-      text: barWindow.fmt2(barWindow.memPerc) + "%"
-      fontSize: Style.barFontBody
-      tooltipText: barWindow.memTooltip + "\nClick: btop / htop"
-      foreground: Style.sky
-      onPressed: Quickshell.execDetached([barWindow.binDir + "/asahi-sysmon"])
+      maxChipWidth: Math.max(64,
+        leftRegion.width - wsBlock.implicitWidth - sysBlock.implicitWidth
+          - 2 * leftSection.spacing)
     }
   }
   }
@@ -340,14 +340,18 @@ Item {
       id: clockBlock
       barHost: barWindow
       calendarOpen: barWindow.calendarOpen
-      onCalendarToggle: barWindow.calendarToggle()
+      onCalendarToggle: {
+        barWindow.sysPanelOpen = false
+        barWindow.calendarToggle()
+      }
     }
   }
   }
   }
 
-  Canvas {
-    id: cpuInlineGraph
-    visible: false
+  BarComponents.SysPanel {
+    barHost: barWindow
+    panelOpen: barWindow.sysPanelOpen
+    anchor.item: sysBlock
   }
 }

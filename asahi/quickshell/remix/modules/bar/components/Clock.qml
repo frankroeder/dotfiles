@@ -30,7 +30,6 @@ Item {
 
   property date viewMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   property date today: new Date()
-
   implicitWidth: solidBar ? flatRow.implicitWidth + 16 : clockRow.implicitWidth + 14
   implicitHeight: solidBar ? Style.barHeight : 26
 
@@ -90,7 +89,6 @@ Item {
   }
 
   onCalendarOpenChanged: if (root.calendarOpen) root.goToday()
-
   Row {
     id: flatRow
     visible: root.solidBar
@@ -154,8 +152,8 @@ Item {
     color: "transparent"
     anchor.item: root
     anchor.edges: Edges.Bottom
-    implicitWidth: 336
-    implicitHeight: 348
+    implicitWidth: 340
+    implicitHeight: 330
 
     Rectangle {
       anchors.fill: parent
@@ -166,8 +164,8 @@ Item {
 
       ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 14
-        spacing: 10
+        anchors.margins: 12
+        spacing: 8
 
         RowLayout {
           Layout.fillWidth: true

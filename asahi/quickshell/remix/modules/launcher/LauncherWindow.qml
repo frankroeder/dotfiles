@@ -22,6 +22,7 @@ import "launcher_layout.js" as LauncherGeom
 import "hub_logo.js" as HubLogo
 import "temp_display.js" as TempDisplay
 import "quick_models.js" as QuickModels
+import "gallery.js" as Gallery
 
 Scope {
   id: root
@@ -292,6 +293,8 @@ Scope {
   property real sidebarCpuPrevIdle: -1
   property real sidebarCpuPrevTotal: -1
   property var shots: []
+  property var videos: []
+  property string galleryKind: "shots"
   property string copiedShot: ""
   property string shotPreviewPath: ""
   property var clips: []
@@ -381,21 +384,26 @@ Scope {
   }
 
   function scanShots() {
-    shotScan.command = [
-      "sh", "-c",
-      "find \"" + (Quickshell.env("HOME") + "/screenshots") + "\" -maxdepth 1 -type f -name 'screenshot-*.png' 2>/dev/null | " +
-      "sort -r | head -200"
-    ]
+    shotScan.command = ["sh", "-c", Gallery.scanCommand("shots", Quickshell.env("HOME"))]
     shotScan.running = true
+    root.scanVideos()
+  }
+  function scanVideos() {
+    videoScan.command = ["sh", "-c", Gallery.scanCommand("videos", Quickshell.env("HOME"))]
+    videoScan.running = true
   }
   Process {
     id: shotScan
     running: false
     stdout: StdioCollector {
-      onStreamFinished: {
-        const lines = text.trim().split("\n").filter(l => l.length > 0)
-        root.shots = lines.map(p => ({ path: p, label: p.split("/").pop().replace("screenshot-", "").replace(".png", "") }))
-      }
+      onStreamFinished: root.shots = Gallery.mapPaths(text)
+    }
+  }
+  Process {
+    id: videoScan
+    running: false
+    stdout: StdioCollector {
+      onStreamFinished: root.videos = Gallery.mapPaths(text)
     }
   }
 
@@ -416,6 +424,7 @@ Scope {
     if (root.shotPreviewPath === p) root.shotPreviewPath = ""
     if (root.copiedShot === p) root.copiedShot = ""
     root.shots = (root.shots || []).filter(s => s.path !== p)
+    root.videos = (root.videos || []).filter(s => s.path !== p)
     Quickshell.execDetached([
       "sh", "-c",
       "rm -f -- \"$1\" && notify-send -a screenshot -t 900 'Deleted' \"$(basename \"$1\")\"",
@@ -591,7 +600,8 @@ Scope {
     property string ffTitle: "System"
     property string ffSubtitle: "fastfetch"
     property string ffUptime: ""
-    property string ffUpdated: ""
+    // Live wall clock next to the uptime pill; the hub Item is only instantiated while shown.
+    SystemClock { id: hubClock; precision: SystemClock.Seconds }
     property int ffDiskPct: 0
     property int ffMemPct: 0
     property real ffMemUsedBytes: 0
@@ -785,7 +795,6 @@ Scope {
             (bat.capacity !== undefined ? (Math.round(bat.capacity) + "%") : "—")
               + (batteryStatus ? (" · " + batteryStatus) : ""))
         ]
-        quickHubRoot.ffUpdated = Qt.formatTime(new Date(), "HH:mm:ss")
       } catch (_) {
         quickHubRoot.ffLeftRows = [quickHubRoot.ffRow("fastfetch", "󰀦", Style.red, "unavailable")]
         quickHubRoot.ffRightRows = []
@@ -870,7 +879,7 @@ Scope {
         }
         Text {
           Layout.alignment: Qt.AlignVCenter
-          text: quickHubRoot.ffUpdated || "SYNC"
+          text: Qt.formatTime(hubClock.date, "HH:mm:ss")
           color: Style.menuInkMuted
           font.pixelSize: root.fontPx(7)
           font.family: root.uiFont
@@ -881,9 +890,8 @@ Scope {
 
       Row {
         Layout.fillWidth: true
-        Layout.fillHeight: true
-        Layout.preferredHeight: root.launcherGeom.rowHTall * 3
-        Layout.minimumHeight: root.launcherGeom.rowHTall * 2
+        // Fixed height: dials size from the row, so leftover goes to the facts grid.
+        Layout.preferredHeight: Math.round(root.launcherGeom.rowHTall * 2.5)
         spacing: root.launcherGeom.panePad
 
         Repeater {
@@ -1104,6 +1112,14 @@ Scope {
         Layout.fillWidth: true; spacing: 8
         Text { text: "L: apply • R: preview"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
         Item { Layout.fillWidth: true }
+        Text {
+          text: ((Wallpaper.WallpaperService.currentWallpaper || "").split("/").pop() || "none")
+          color: Style.menuSeal
+          font.pixelSize: root.fontPx(8)
+          font.family: root.uiFont
+          elide: Text.ElideMiddle
+          Layout.maximumWidth: Math.round(140 * root.launcherGeom.uiScale)
+        }
         Text { text: ((quickWallpaperRoot.wps || []).length || 0) + " wallpapers"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
       }
     }
@@ -1117,14 +1133,34 @@ Scope {
       Item {
         Layout.fillWidth: true
         Layout.preferredHeight: 30
-        Text {
+        Row {
           anchors.left: parent.left
           anchors.verticalCenter: parent.verticalCenter
-          text: (root.shots || []).length + " RECENT"
-          color: Style.menuInkDeep
-          font.pixelSize: root.fontPx(11)
-          font.family: root.uiFont
-          font.letterSpacing: 1.5
+          spacing: 8
+          Text {
+            text: "SHOTS " + (root.shots || []).length
+            color: root.galleryKind === "shots" ? Style.menuInk : Style.menuInkDeep
+            font.pixelSize: root.fontPx(11)
+            font.family: root.uiFont
+            font.letterSpacing: 1.5
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.galleryKind = "shots"
+            }
+          }
+          Text {
+            text: "VIDEOS " + (root.videos || []).length
+            color: root.galleryKind === "videos" ? Style.menuInk : Style.menuInkDeep
+            font.pixelSize: root.fontPx(11)
+            font.family: root.uiFont
+            font.letterSpacing: 1.5
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.galleryKind = "videos"
+            }
+          }
         }
         Rectangle {
           anchors.right: parent.right
@@ -1161,7 +1197,7 @@ Scope {
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: Menu.MenuScrollBar {}
-        model: root.shots || []
+        model: root.galleryKind === "videos" ? (root.videos || []) : (root.shots || [])
 
         delegate: Item {
           required property var modelData
@@ -1184,11 +1220,20 @@ Scope {
             Image {
               anchors.fill: parent
               anchors.margins: 1
-              source: modelData.path ? ("file://" + modelData.path) : ""
+              source: root.galleryKind === "videos" ? "" : (modelData.path ? ("file://" + modelData.path) : "")
               fillMode: Image.PreserveAspectCrop
               asynchronous: true
-              sourceSize.width: 160
-              sourceSize.height: 96
+              sourceSize.width: 480
+              sourceSize.height: 300
+              visible: root.galleryKind !== "videos"
+            }
+            Text {
+              anchors.centerIn: parent
+              visible: root.galleryKind === "videos"
+              text: "󰎁"
+              color: Style.menuSeal
+              font.pixelSize: root.fontPx(22)
+              font.family: root.uiFont
             }
 
             Rectangle {
@@ -1232,7 +1277,8 @@ Scope {
               cursorShape: Qt.PointingHandCursor
               acceptedButtons: Qt.LeftButton | Qt.RightButton
               onClicked: (mouse) => {
-                if (mouse.button === Qt.RightButton) root.previewShot(modelData.path)
+                if (root.galleryKind === "videos") root.openShot(modelData.path)
+                else if (mouse.button === Qt.RightButton) root.previewShot(modelData.path)
                 else root.copyShot(modelData.path)
               }
             }
@@ -1241,12 +1287,12 @@ Scope {
               id: shotQuickPreview
               anchors.top: parent.top
               anchors.right: parent.right
-              anchors.margins: 7
-              width: 24
-              height: 24
-              radius: 12
+              anchors.margins: 6
+              width: 40
+              height: 40
+              radius: 20
               z: 4
-              visible: hma.containsMouse
+              visible: hma.containsMouse && root.galleryKind !== "videos"
               color: Style.menuControlBg
               border.width: 1
               border.color: Style.menuSep
@@ -1254,7 +1300,7 @@ Scope {
                 anchors.centerIn: parent
                 text: "󰋲"
                 color: Style.menuSeal
-                font.pixelSize: root.fontPx(12)
+                font.pixelSize: root.fontPx(18)
                 font.family: root.uiFont
               }
               MouseArea {
@@ -1267,11 +1313,11 @@ Scope {
             Rectangle {
               anchors.top: parent.top
               anchors.right: shotQuickPreview.left
-              anchors.topMargin: 7
-              anchors.rightMargin: 6
-              width: 24
-              height: 24
-              radius: 12
+              anchors.topMargin: 6
+              anchors.rightMargin: 8
+              width: 40
+              height: 40
+              radius: 20
               z: 4
               visible: hma.containsMouse
               color: Style.menuControlBg
@@ -1281,7 +1327,7 @@ Scope {
                 anchors.centerIn: parent
                 text: "󰆴"
                 color: Style.red
-                font.pixelSize: root.fontPx(12)
+                font.pixelSize: root.fontPx(18)
                 font.family: root.uiFont
               }
               MouseArea {
@@ -1295,8 +1341,8 @@ Scope {
       }
 
       Text {
-        visible: (root.shots || []).length === 0
-        text: "No screenshots in ~/screenshots"
+        visible: root.galleryKind === "videos" ? (root.videos || []).length === 0 : (root.shots || []).length === 0
+        text: root.galleryKind === "videos" ? "No recordings in ~/Videos" : "No screenshots in ~/screenshots"
         color: Style.menuInkDeep
         font.pixelSize: root.fontPx(11)
         font.family: root.uiFont
@@ -1360,7 +1406,7 @@ Scope {
 
       Text {
         Layout.fillWidth: true
-        text: "L: copy  ·  R: preview"
+        text: root.galleryKind === "videos" ? "click: open  ·  󰆴: delete" : "L: copy  ·  R: preview"
         color: Style.menuInkDeep
         font.pixelSize: root.fontPx(8)
         font.family: root.uiFont
@@ -2892,7 +2938,7 @@ Scope {
                   Item { Layout.fillWidth: true }
                   Rectangle {
                     visible: !!quickNetworkRoot.currentWifiSsid && !!quickNetworkRoot.wifiDevice && quickNetworkRoot.wifiEnabled
-                    width: wifiDiscLbl.width + 14; height: 26; radius: Style.radiusSm
+                    implicitWidth: wifiDiscLbl.implicitWidth + 14; implicitHeight: 26; radius: Style.radiusSm
                     color: wifiDiscMa.containsMouse ? Style.menuRowHi : Qt.rgba(Style.red.r, Style.red.g, Style.red.b, 0.14)
                     border.color: Style.red; border.width: 1
                     Text { id: wifiDiscLbl; anchors.centerIn: parent; text: "Disconnect"; color: Style.red; font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true }
@@ -2900,14 +2946,14 @@ Scope {
                   }
                   Rectangle {
                     visible: !!quickNetworkRoot.currentWifiSsid && quickNetworkRoot.wifiEnabled
-                    width: wifiQrLbl.width + 14; height: 26; radius: Style.radiusSm
+                    implicitWidth: wifiQrLbl.implicitWidth + 14; implicitHeight: 26; radius: Style.radiusSm
                     color: wifiQrMa.containsMouse || quickNetworkRoot.wifiQrPath ? Style.menuRowHi : Qt.rgba(Style.menuIndigo.r, Style.menuIndigo.g, Style.menuIndigo.b, 0.14)
                     border.color: Style.menuIndigo; border.width: 1
                     Text { id: wifiQrLbl; anchors.centerIn: parent; text: quickNetworkRoot.wifiQrPath ? "󰐲 Hide" : "󰐲 Share"; color: Style.menuIndigo; font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true }
                     MouseArea { id: wifiQrMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: quickNetworkRoot.toggleWifiQr() }
                   }
                   Rectangle {
-                    width: wifiToggleLbl.width + 14; height: 26; radius: Style.radiusSm
+                    implicitWidth: wifiToggleLbl.implicitWidth + 14; implicitHeight: 26; radius: Style.radiusSm
                     color: quickNetworkRoot.wifiEnabled ? Qt.rgba(Style.red.r, Style.red.g, Style.red.b, 0.18) : Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.18)
                     border.color: quickNetworkRoot.wifiEnabled ? Style.red : Style.green; border.width: 1
                     Text { id: wifiToggleLbl; anchors.centerIn: parent; text: quickNetworkRoot.wifiEnabled ? "Disable Wi-Fi" : "Enable Wi-Fi"; color: quickNetworkRoot.wifiEnabled ? Style.red : Style.green; font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true }
@@ -2968,7 +3014,7 @@ Scope {
                   Item { Layout.fillWidth: true }
                   Rectangle {
                     visible: !!quickNetworkRoot.ethDevice
-                    width: ethToggleLbl.width + 14; height: 26; radius: Style.radiusSm
+                    implicitWidth: ethToggleLbl.implicitWidth + 14; implicitHeight: 26; radius: Style.radiusSm
                     color: quickNetworkRoot.ethConnected ? Qt.rgba(Style.red.r, Style.red.g, Style.red.b, 0.18) : Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.18)
                     border.color: quickNetworkRoot.ethConnected ? Style.red : Style.green; border.width: 1
                     Text { id: ethToggleLbl; anchors.centerIn: parent; text: quickNetworkRoot.ethConnected ? "Disconnect LAN" : "Connect LAN"; color: quickNetworkRoot.ethConnected ? Style.red : Style.green; font.pixelSize: root.fontPx(8); font.family: root.uiFont; font.bold: true }
@@ -3964,7 +4010,8 @@ Scope {
           }
           Text {
             Layout.fillWidth: true
-            Layout.alignment: Qt.AlignVCenter
+            Layout.alignment: Qt.AlignTop
+            Layout.topMargin: 6
             visible: quickBatteryRoot.batStatus !== ""
             text: quickBatteryRoot.batStatus
             color: quickBatteryRoot.batColor()
