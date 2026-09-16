@@ -961,7 +961,6 @@ Scope {
           height: implicitHeight
           viewW: wallHost.width
           paths: quickWallpaperRoot.filtered
-          itemW: WallThumbs.carouselItemWidth(wallHost.width)
           fontScale: root.uiFontScale
           fontFamily: root.uiSans
           iconFamily: root.uiFont
@@ -971,12 +970,6 @@ Scope {
           Component.onCompleted: root.wallCarousel = wallCarousel
           Component.onDestruction: { if (root.wallCarousel === wallCarousel) root.wallCarousel = null; Wallpaper.WallpaperService.stopPreview() }
         }
-      }
-      Wallpaper.WallpaperTermPreview {
-        id: wallTermPreview
-        Layout.fillWidth: true
-        fontPx: root.fontPx(10)
-        fontFamily: root.uiFont
       }
       Text {
         id: wallPathCaption

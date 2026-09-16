@@ -289,4 +289,35 @@ assert.deepStrictEqual(M.parseExternalTunnels(
   { "TUHH-VPN": true }
 ), [])
 
+const earpods = { id: 117, name: "alsa_output.usb-Apple__Inc._EarPods_L3P7YLQGXT-00.analog-stereo" }
+const speakers = { id: 80, name: "audio_effect.j414-convolver" }
+const phones = { id: 54, name: "alsa_output.platform-sound.HiFi__Headphones__sink" }
+const cands = [phones, speakers, earpods]
+assert.strictEqual(
+  M.matchNodeByName(cands, "alsa_output.usb-Apple__Inc._EarPods_L3P7YLQGXT-00.analog-stereo"),
+  earpods,
+  "matchNodeByName finds EarPods by pactl name"
+)
+assert.strictEqual(
+  M.resolveDefaultNode(speakers, speakers, cands, "alsa_output.usb-Apple__Inc._EarPods_L3P7YLQGXT-00.analog-stereo"),
+  earpods,
+  "resolveDefaultNode prefers pactl default over a stale Quickshell speaker sink"
+)
+assert.strictEqual(
+  M.resolveDefaultNode(earpods, speakers, cands, ""),
+  earpods,
+  "resolveDefaultNode falls back to Quickshell default when no name hint"
+)
+const mic = { id: 55, name: "alsa_input.platform-sound.HiFi__Headset__source" }
+const earMic = { id: 114, name: "alsa_input.usb-Apple__Inc._EarPods_L3P7YLQGXT-00.mono-fallback" }
+assert.strictEqual(
+  M.resolveDefaultNode(mic, mic, [mic, earMic], "alsa_input.usb-Apple__Inc._EarPods_L3P7YLQGXT-00.mono-fallback"),
+  earMic,
+  "resolveDefaultNode picks EarPods mic from pactl default source"
+)
+
+const mediaQml = require("fs").readFileSync(require("path").join(__dirname, "panes/MediaPane.qml"), "utf8")
+assert.ok(mediaQml.indexOf("QuickModels.resolveDefaultNode") !== -1, "Media pane uses shipped resolveDefaultNode")
+assert.ok(mediaQml.indexOf("pactl") !== -1 && mediaQml.indexOf("get-default-sink") !== -1, "Media pane polls pactl default sink")
+
 console.log("quick_models_test: all assertions passed")

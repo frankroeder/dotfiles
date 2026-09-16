@@ -87,6 +87,20 @@ function carouselItemWidth(viewW) {
   return Math.floor(w / 3)
 }
 
+// Prev / current / next slots. Empty path keeps the current tile centred at the
+// ends of the list. A Row of these three is what actually shows neighbours —
+// a ListView sized from its own width collapses to one tile.
+function carouselSlots(paths, currentIndex) {
+  const list = paths || []
+  const n = list.length
+  const i = n <= 0 ? -1 : Math.max(0, Math.min(n - 1, Number(currentIndex) || 0))
+  return [
+    { path: i > 0 ? list[i - 1] : "", index: i - 1, current: false },
+    { path: i >= 0 ? list[i] : "", index: i, current: true },
+    { path: i >= 0 && i < n - 1 ? list[i + 1] : "", index: i + 1, current: false }
+  ]
+}
+
 // Converts run 4-wide (backgrounded, `wait` every 4 files) so a cold cache
 // fills in seconds instead of minutes; a warm cache is just N stat checks.
 function thumbBatchScript(originals, dir, w, h) {
@@ -126,6 +140,7 @@ if (typeof module !== "undefined" && module.exports) {
     thumbBatchScript: thumbBatchScript,
     wheelStep: wheelStep,
     clampedContentY: clampedContentY,
-    carouselItemWidth: carouselItemWidth
+    carouselItemWidth: carouselItemWidth,
+    carouselSlots: carouselSlots
   }
 }

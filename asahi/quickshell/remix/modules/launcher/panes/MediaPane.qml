@@ -88,28 +88,32 @@ Item {
   property var heldSource: null
   onPwSinkChanged: if (quickMediaRoot.pwSink) quickMediaRoot.heldSink = quickMediaRoot.pwSink
   onPwSourceChanged: if (quickMediaRoot.pwSource) quickMediaRoot.heldSource = quickMediaRoot.pwSource
-  readonly property var shownSink: quickMediaRoot.pwSink || quickMediaRoot.heldSink
-  readonly property var shownSource: quickMediaRoot.pwSource || quickMediaRoot.heldSource
+  property string defaultSinkName: ""
+  property string defaultSourceName: ""
+  readonly property var shownSink: QuickModels.resolveDefaultNode(
+    quickMediaRoot.pwSink, quickMediaRoot.heldSink, quickMediaRoot.displaySinks, quickMediaRoot.defaultSinkName)
+  readonly property var shownSource: QuickModels.resolveDefaultNode(
+    quickMediaRoot.pwSource, quickMediaRoot.heldSource, quickMediaRoot.displaySources, quickMediaRoot.defaultSourceName)
 
-  readonly property real outVol: quickMediaRoot.pwSink && quickMediaRoot.pwSink.audio ? quickMediaRoot.pwSink.audio.volume : 0
-  readonly property bool outMuted: quickMediaRoot.pwSink && quickMediaRoot.pwSink.audio ? quickMediaRoot.pwSink.audio.muted : false
-  readonly property real inVol: quickMediaRoot.pwSource && quickMediaRoot.pwSource.audio ? quickMediaRoot.pwSource.audio.volume : 0
-  readonly property bool inMuted: quickMediaRoot.pwSource && quickMediaRoot.pwSource.audio ? quickMediaRoot.pwSource.audio.muted : false
+  readonly property real outVol: quickMediaRoot.shownSink && quickMediaRoot.shownSink.audio ? quickMediaRoot.shownSink.audio.volume : 0
+  readonly property bool outMuted: quickMediaRoot.shownSink && quickMediaRoot.shownSink.audio ? quickMediaRoot.shownSink.audio.muted : false
+  readonly property real inVol: quickMediaRoot.shownSource && quickMediaRoot.shownSource.audio ? quickMediaRoot.shownSource.audio.volume : 0
+  readonly property bool inMuted: quickMediaRoot.shownSource && quickMediaRoot.shownSource.audio ? quickMediaRoot.shownSource.audio.muted : false
 
   function setOutVol(v) {
-    const s = quickMediaRoot.pwSink
+    const s = quickMediaRoot.shownSink
     if (s && s.audio) s.audio.volume = Math.max(0, Math.min(1, v))
   }
   function setInVol(v) {
-    const s = quickMediaRoot.pwSource
+    const s = quickMediaRoot.shownSource
     if (s && s.audio) s.audio.volume = Math.max(0, Math.min(1, v))
   }
   function toggleOutMute() {
-    const s = quickMediaRoot.pwSink
+    const s = quickMediaRoot.shownSink
     if (s && s.audio) s.audio.muted = !s.audio.muted
   }
   function toggleInMute() {
-    const s = quickMediaRoot.pwSource
+    const s = quickMediaRoot.shownSource
     if (s && s.audio) s.audio.muted = !s.audio.muted
   }
   // Default switches are PERSISTED by WirePlumber (default-nodes state), so
@@ -118,14 +122,14 @@ Item {
   function setDefaultSink(node) {
     if (!node) return
     const key = QuickModels.audioNodeKey(node)
-    if (key && key === QuickModels.audioNodeKey(quickMediaRoot.pwSink || quickMediaRoot.heldSink)) return
+    if (key && key === QuickModels.audioNodeKey(quickMediaRoot.shownSink)) return
     Pipewire.preferredDefaultAudioSink = node
     Quickshell.execDetached(["notify-send", "-a", "Audio", "Output device", QuickModels.nodeLabel(node)])
   }
   function setDefaultSource(node) {
     if (!node) return
     const key = QuickModels.audioNodeKey(node)
-    if (key && key === QuickModels.audioNodeKey(quickMediaRoot.pwSource || quickMediaRoot.heldSource)) return
+    if (key && key === QuickModels.audioNodeKey(quickMediaRoot.shownSource)) return
     Pipewire.preferredDefaultAudioSource = node
     Quickshell.execDetached(["notify-send", "-a", "Audio", "Input device", QuickModels.nodeLabel(node)])
   }
@@ -157,9 +161,35 @@ Item {
     quickMediaRoot.cavaStatus = vs.some(v => v > 0) ? "active" : "waiting for audio"
   }
   // Binds the candidate nodes so .audio/.properties/.description are live.
+  PwObjectTracker { objects: [quickMediaRoot.pwSink, quickMediaRoot.pwSource] }
   PwObjectTracker { objects: quickMediaRoot.displaySinks }
   PwObjectTracker { objects: quickMediaRoot.displaySources }
   PwObjectTracker { objects: quickMediaRoot.displayStreams }
+
+  Process {
+    id: defaultSinkProc
+    command: ["pactl", "get-default-sink"]
+    stdout: StdioCollector {
+      onStreamFinished: quickMediaRoot.defaultSinkName = (text || "").trim()
+    }
+  }
+  Process {
+    id: defaultSourceProc
+    command: ["pactl", "get-default-source"]
+    stdout: StdioCollector {
+      onStreamFinished: quickMediaRoot.defaultSourceName = (text || "").trim()
+    }
+  }
+  Timer {
+    interval: 700
+    running: root.quickMode && root.quickPaneKey === "media"
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: {
+      if (!defaultSinkProc.running) defaultSinkProc.running = true
+      if (!defaultSourceProc.running) defaultSourceProc.running = true
+    }
+  }
 
   Process {
     id: cavaRd

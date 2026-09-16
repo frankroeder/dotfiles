@@ -156,18 +156,11 @@ Scope {
           Layout.preferredHeight: implicitHeight
           paths: root.filteredWallpapers
           viewW: parent.width
-          itemW: WallThumbs.carouselItemWidth(parent.width)
           anchorPath: WallpaperService.currentWallpaper
           live: wallpaperPanel.visible
           fontFamily: Style.menuSans
           iconFamily: root.uiFont
           onActivated: function(p) { WallpaperService.setWallpaper(p); root.close() }
-        }
-
-        WallpaperTermPreview {
-          Layout.fillWidth: true
-          fontPx: 12
-          fontFamily: root.uiFont
         }
 
         RowLayout {

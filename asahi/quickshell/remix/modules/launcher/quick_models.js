@@ -109,6 +109,46 @@ function audioNodeKey(node) {
   return "desc:" + String(node.description || "")
 }
 
+function matchNodeByName(nodes, name) {
+  var want = String(name || "").trim()
+  if (!want) return null
+  var list = nodes || []
+  var i, node
+  for (i = 0; i < list.length; i++) {
+    node = list[i]
+    if (node && node.name === want) return node
+  }
+  for (i = 0; i < list.length; i++) {
+    node = list[i]
+    if (!node || !node.name) continue
+    if (node.name.indexOf(want) !== -1 || want.indexOf(node.name) !== -1) return node
+  }
+  return null
+}
+
+// Prefer pactl/wpctl default name (Quickshell defaultAudioSink can stick on
+// the Asahi DSP/speaker node while EarPods is the actual default).
+function resolveDefaultNode(pwDefault, held, candidates, nameHint) {
+  var byName = matchNodeByName(candidates, nameHint)
+  if (byName) return byName
+  var list = candidates || []
+  var k = audioNodeKey(pwDefault)
+  var i
+  if (k) {
+    for (i = 0; i < list.length; i++) {
+      if (audioNodeKey(list[i]) === k) return list[i]
+    }
+    return pwDefault
+  }
+  k = audioNodeKey(held)
+  if (k) {
+    for (i = 0; i < list.length; i++) {
+      if (audioNodeKey(list[i]) === k) return list[i]
+    }
+  }
+  return held || pwDefault || null
+}
+
 function audioNodeKeys(list) {
   var keys = []
   var i
@@ -839,6 +879,8 @@ if (typeof module !== "undefined") {
     isPlaybackStream: isPlaybackStream,
     isAudioSource: isAudioSource,
     audioNodeKey: audioNodeKey,
+    matchNodeByName: matchNodeByName,
+    resolveDefaultNode: resolveDefaultNode,
     sameAudioNodes: sameAudioNodes,
     adoptAudioNodes: adoptAudioNodes,
     clampBrightness: clampBrightness,

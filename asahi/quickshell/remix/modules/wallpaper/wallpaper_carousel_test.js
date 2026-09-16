@@ -42,6 +42,25 @@ for (let i = 0; i < views.length; i++) {
 assert(shipped.carouselItemWidth(0) === 0, "viewW 0 → itemW 0");
 assert(shipped.carouselItemWidth(-10) === 0, "negative viewW → itemW 0");
 
+console.log("\n== carouselSlots (prev/current/next) ==");
+if (typeof shipped.carouselSlots !== "function") {
+  throw new Error("shipped wallpaper_thumbs.js did not export carouselSlots");
+}
+const paths = ["/a.png", "/b.png", "/c.png", "/d.png"];
+const mid = shipped.carouselSlots(paths, 1);
+assert(mid.length === 3, "always three slots");
+assert(mid[0].path === "/a.png" && !mid[0].current, "index 1 has previous neighbour");
+assert(mid[1].path === "/b.png" && mid[1].current, "index 1 current is centre");
+assert(mid[2].path === "/c.png" && !mid[2].current, "index 1 has next neighbour");
+const first = shipped.carouselSlots(paths, 0);
+assert(first[0].path === "" && first[1].path === "/a.png" && first[2].path === "/b.png",
+  "index 0 keeps an empty left slot so current stays centred");
+const last = shipped.carouselSlots(paths, 3);
+assert(last[0].path === "/c.png" && last[1].path === "/d.png" && last[2].path === "",
+  "last item keeps an empty right slot");
+const empty = shipped.carouselSlots([], 0);
+assert(empty[0].path === "" && empty[1].path === "" && empty[2].path === "", "empty list is three empty slots");
+
 console.log("\n== Quick wallpaper source (LauncherWindow.qml) ==");
 const qml = fs.readFileSync(path.join(__dirname, "../launcher/LauncherWindow.qml"), "utf8");
 const start = qml.indexOf("Component { id: quickWallpaperComp");
@@ -49,10 +68,6 @@ assert(start !== -1, "quickWallpaperComp exists");
 const nextComp = qml.indexOf("\n  Component {", start + 10);
 const wp = qml.slice(start, nextComp === -1 ? qml.length : nextComp);
 
-assert(
-  /WallThumbs\.carouselItemWidth\(\s*wallHost\.width\s*\)/.test(wp),
-  "Quick carousel itemW comes from WallThumbs.carouselItemWidth(wallHost.width)"
-);
 assert(
   /viewW:\s*wallHost\.width/.test(wp),
   "Quick carousel viewW is the host viewport, not the ListView width"
@@ -70,48 +85,50 @@ assert(
   "Quick path caption is not width: tileFrame / frame.width"
 );
 assert(
-  /Wallpaper\.WallpaperTermPreview/.test(wp) && /id:\s*wallTermPreview/.test(wp),
-  "Quick wallpaper hosts WallpaperTermPreview so the palette change is visible in-pane"
+  wp.indexOf("WallpaperTermPreview") === -1,
+  "Quick wallpaper has no fake Ghostty ls/src mock"
 );
 
 console.log("\n== WallpaperCarousel.qml ==");
 const car = fs.readFileSync(path.join(__dirname, "WallpaperCarousel.qml"), "utf8");
 assert(
-  /WallThumbs\.carouselItemWidth\(\s*viewW\s*\)/.test(car),
-  "WallpaperCarousel default itemW uses shipped carouselItemWidth(viewW)"
+  /WallThumbs\.carouselSlots\(\s*paths,\s*currentIndex\s*\)/.test(car),
+  "WallpaperCarousel lays out prev/current/next via shipped carouselSlots"
+);
+assert(
+  !/ListView\s*\{/.test(car),
+  "WallpaperCarousel is not a ListView (that clipped neighbours in Quick)"
 );
 assert(
   !/width:\s*frame\.width/.test(car) && !/width:\s*tileFrame/.test(car),
   "carousel tiles do not host a frame-width path caption"
 );
 assert(
-  /Host viewport width/.test(car) || /viewW/.test(car),
+  /viewW/.test(car),
   "carousel documents viewW as the host viewport"
 );
 
 console.log("\n== WallpaperManager.qml ==");
 const mgr = fs.readFileSync(path.join(__dirname, "WallpaperManager.qml"), "utf8");
 assert(
-  /WallThumbs\.carouselItemWidth\(\s*parent\.width\s*\)/.test(mgr),
-  "compact picker itemW uses carouselItemWidth(parent.width)"
+  /viewW:\s*parent\.width/.test(mgr),
+  "compact picker viewW is the host column width"
 );
 assert(
   !/itemW:\s*Math\.floor\(\s*width\s*\/\s*3\s*\)/.test(mgr),
   "compact picker does not size tiles from ListView width"
 );
 assert(
-  /WallpaperTermPreview/.test(mgr),
-  "compact picker hosts WallpaperTermPreview"
-);
-
-const term = fs.readFileSync(path.join(__dirname, "WallpaperTermPreview.qml"), "utf8");
-assert(
-  /Style\.themeGeneration/.test(term) && /Style\.bg/.test(term) && /Style\.green/.test(term),
-  "term preview binds Style palette (updates with DefaultTheme.applyJson)"
+  mgr.indexOf("WallpaperTermPreview") === -1,
+  "compact picker has no fake Ghostty ls/src mock"
 );
 assert(
-  fs.readFileSync(path.join(__dirname, "qmldir"), "utf8").indexOf("WallpaperTermPreview") !== -1,
-  "qmldir registers WallpaperTermPreview"
+  !fs.existsSync(path.join(__dirname, "WallpaperTermPreview.qml")),
+  "WallpaperTermPreview.qml is gone"
+);
+assert(
+  fs.readFileSync(path.join(__dirname, "qmldir"), "utf8").indexOf("WallpaperTermPreview") === -1,
+  "qmldir does not register WallpaperTermPreview"
 );
 
 const svc = fs.readFileSync(path.join(__dirname, "WallpaperService.qml"), "utf8");
