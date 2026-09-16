@@ -87,7 +87,11 @@ assert(
   "hub fact label column is wide enough for Display / Kernel"
 );
 assert(
-  /Layout\.preferredHeight:\s*root\.launcherGeom\.rowHTall/.test(qml),
+  /ffIconWidth:\s*Math\.max\(32/.test(qml) && /font\.pixelSize:\s*root\.fontPx\(18\)/.test(qml),
+  "hub fastfetch fact icons are enlarged"
+);
+assert(
+  /Layout\.preferredHeight:\s*Math\.round\(root\.launcherGeom\.rowHTall \* 2\.7\)/.test(qml),
   "hub meters height follows adaptive rowHTall"
 );
 

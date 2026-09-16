@@ -22,6 +22,7 @@ import "launcher_layout.js" as LauncherGeom
 import "temp_display.js" as TempDisplay
 import "quick_models.js" as QuickModels
 import "gallery.js" as Gallery
+import "calc_history.js" as CalcHist
 import "panes" as Panes
 
 Scope {
@@ -54,6 +55,10 @@ Scope {
   property string argPlaceholder: ""
   readonly property bool argArmed: root.argCommand !== ""
   property int selectedIndex: 0
+  property var calcHistory: []
+  property int calcHistIndex: -1
+  property string calcDraft: ""
+  property bool calcHistLock: false
   property var launcherScreen: null
   property int launcherWorkspaceId: 1
   property int resultCount: 0
@@ -112,11 +117,21 @@ Scope {
   property var wallCarousel: null
   readonly property string quickPaneKey: {
     if (!root.quickMode) return ""
+    const list = root.quickDeck || []
+    const t = list[Math.max(0, Math.min(list.length - 1, root.selectedIndex))]
+    if (t && (t.mode || t.key))
+      return (t.mode === "dashboard" || t.key === "dashboard") ? "hub" : String(t.mode || t.key)
     const k = root.expandedQuickKey
     if (k === "" || k === "dashboard") return "hub"
     return k
   }
   readonly property bool quickDetailActive: root.quickMode
+  onQuickPaneKeyChanged: {
+    if (!root.quickMode) return
+    if (root.quickPaneKey === "screenshots") root.scanShots()
+    if (root.quickPaneKey === "storage") root.scanStorage()
+    if (root.quickPaneKey === "clipboard") root.scanClips()
+  }
   readonly property bool sideActive: root.previewActive || root.quickMode
   readonly property int quickGridCols: 1
 
@@ -615,7 +630,7 @@ Scope {
     property real ffMemTotalBytes: 0
     property var ffLeftRows: []
     property var ffRightRows: []
-    readonly property int ffIconWidth: 18
+    readonly property int ffIconWidth: Math.max(32, root.fontPx(18) + 8)
     readonly property int ffLabelWidth: Math.max(68, Math.round(root.fontPx(8) * 5.6))
     readonly property var ffGridRows: {
       const left = quickHubRoot.ffLeftRows || []
@@ -654,7 +669,7 @@ Scope {
           Layout.topMargin: 1
           text: modelData.icon || ""
           color: modelData.accent || Style.m3onSurfaceVariant
-          font.pixelSize: root.fontPx(10)
+          font.pixelSize: root.fontPx(18)
           font.family: root.uiFont
           horizontalAlignment: Text.AlignHCenter
         }
@@ -837,9 +852,9 @@ Scope {
           anchors.margins: 14
           spacing: 14
           Rectangle {
-            width: 46; height: 46; radius: Style.menuRadiusLg
+            width: 58; height: 58; radius: Style.menuRadiusLg
             color: Style.m3primaryContainer
-            Text { anchors.centerIn: parent; text: "󰣛"; color: Style.m3primary; font.family: root.uiFont; font.pixelSize: 28 }
+            Text { anchors.centerIn: parent; text: "󰣛"; color: Style.m3primary; font.family: root.uiFont; font.pixelSize: 36 }
           }
           ColumnLayout {
             Layout.fillWidth: true
@@ -852,7 +867,7 @@ Scope {
             radius: Style.menuRadiusFull; color: Style.m3tertiaryContainer
             Row {
               id: upRow; anchors.centerIn: parent; spacing: 6
-              Text { text: "󰅐"; color: Style.m3onSurface; font.family: root.uiFont; font.pixelSize: root.fontPx(11); anchors.verticalCenter: parent.verticalCenter }
+              Text { text: "󰅐"; color: Style.m3onSurface; font.family: root.uiFont; font.pixelSize: root.fontPx(15); anchors.verticalCenter: parent.verticalCenter }
               Text { text: "up " + (quickHubRoot.ffUptime || "…"); color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(11); font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter }
             }
           }
@@ -861,7 +876,7 @@ Scope {
             radius: Style.menuRadiusFull; color: Style.m3secondaryContainer
             Row {
               id: clockRow; anchors.centerIn: parent; spacing: 6
-              Text { text: "󰥔"; color: Style.m3onSurface; font.family: root.uiFont; font.pixelSize: root.fontPx(11); anchors.verticalCenter: parent.verticalCenter }
+              Text { text: "󰥔"; color: Style.m3onSurface; font.family: root.uiFont; font.pixelSize: root.fontPx(15); anchors.verticalCenter: parent.verticalCenter }
               Text { text: Qt.formatTime(hubClock.date, "HH:mm:ss"); color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(11); font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter }
             }
           }
@@ -1169,6 +1184,12 @@ Scope {
     }
   }
 
+  // Binding must read quickPaneKey in-body so the Loader actually swaps.
+  readonly property var quickPaneComp: {
+    const k = root.quickPaneKey
+    return root.quickDetailFor(k)
+  }
+
   readonly property string sectionIcon: {
     if (root.categoryFilter === "") return ""
     for (let i = 0; i < Data.categoryNav.length; i++) {
@@ -1194,9 +1215,7 @@ Scope {
 
   readonly property string headerHintText: {
     if (root.quickMode)
-      return root.quickPaneKey !== "hub"
-        ? "↑↓ command · esc cluster"
-        : "↑↓ command · ↩ open · esc leave"
+      return "↑↓ panel · esc leave"
     if (root.argArmed) return "type argument · ↩ go · tab results"
     if (root.fileMode) return "↑↓ / tab · open file · esc back"
     return "↓ / tab · ↩ open · esc close"
@@ -1344,6 +1363,27 @@ Scope {
     if (searchInput) searchInput.text = root.query
   }
 
+  function pushCalcHistory(expr) {
+    root.calcHistory = CalcHist.push(root.calcHistory, expr)
+    root.calcHistIndex = -1
+    root.calcDraft = ""
+  }
+
+  function walkCalcHistory(delta) {
+    const q = String(root.query || "")
+    if (q.charAt(0) !== "=") return false
+    const h = root.calcHistory || []
+    if (h.length < 1) return false
+    if (root.calcHistIndex < 0) root.calcDraft = q.substring(1)
+    const next = CalcHist.step(h, root.calcDraft, root.calcHistIndex, delta)
+    root.calcHistLock = true
+    root.calcHistIndex = next.index
+    root.setSearchQuery("=" + next.text)
+    if (searchInput) searchInput.cursorPosition = (searchInput.text || "").length
+    root.calcHistLock = false
+    return true
+  }
+
   function armArgument(command, hint) {
     const cmd = command || ""
     if (!cmd) return
@@ -1457,11 +1497,9 @@ Scope {
     root.categoryFilter = "Quick"
     root.setSearchQuery("")
     const k = key === "dashboard" ? "hub" : (key === "vpn" ? "network" : (key || "hub"))
-    root.expandedQuickKey = k
     const idx = (root.quickDeck || []).findIndex(function(t) { return t.mode === k || t.key === k })
-    root.selectedIndex = Math.max(0, idx)
-    if (k === "clipboard") root.scanClips()
-    if (k === "screenshots") root.scanShots()
+    if (idx >= 0) root.selectDeckIndex(idx)
+    else root.showQuickPane(k)
   }
 
   function closeLauncher() {
@@ -1503,13 +1541,34 @@ Scope {
     root.appUsageVersion++
   }
 
+  function showQuickPane(key) {
+    const k = (key === "dashboard" || key === "hub") ? "hub" : (key || "hub")
+    if (!root.quickMode) { root.categoryFilter = "Quick"; root.setSearchQuery("") }
+    root.expandedQuickKey = k
+    if (k === "screenshots") root.scanShots()
+    if (k === "storage") root.scanStorage()
+    if (k === "clipboard") root.scanClips()
+  }
+
+  // Rail highlight and the right-hand pane stay in lockstep (↑↓ already switches).
+  function selectDeckIndex(i) {
+    const list = root.quickDeck || []
+    const n = list.length
+    if (n < 1) return
+    const raw = Number(i)
+    const idx = Math.max(0, Math.min(n - 1, raw !== raw ? 0 : Math.round(raw)))
+    if (idx === root.selectedIndex) return
+    root.selectedIndex = idx
+    if (resultsList) resultsList.currentIndex = idx
+    const t = list[idx]
+    if (t && t.mode) root.showQuickPane(t.mode || t.key)
+  }
+
   function expandQuick(key) {
     const k = (key === "dashboard" || key === "hub") ? "hub" : key
-    if (!root.quickMode) { root.categoryFilter = "Quick"; root.setSearchQuery("") }
-    root.expandedQuickKey = (k === "hub" || root.quickPaneKey === k) ? "hub" : k
-    if (root.expandedQuickKey === "screenshots") root.scanShots()
-    if (root.expandedQuickKey === "storage") root.scanStorage()
-    if (root.expandedQuickKey === "clipboard") root.scanClips()
+    const idx = (root.quickDeck || []).findIndex(function(t) { return t.key === k || t.mode === k })
+    if (idx >= 0) root.selectDeckIndex(idx)
+    else root.showQuickPane(k)
   }
 
   function resolveCmd(c) {
@@ -1624,6 +1683,7 @@ Scope {
     if (entry.special === "noop") {
       return
     } else if (entry.special === "calc") {
+      root.pushCalcHistory((root.query || "").substring(1))
       const res = entry.result || ""
       if (res) Quickshell.execDetached(["bash", "-c", "echo -n '" + res.replace(/'/g, "'\\''") + "' | wl-copy"])
     } else if (entry.special === "dict") {
@@ -2395,7 +2455,7 @@ Scope {
       return
     }
     if (root.quickMode && root.quickPaneKey !== "hub") {
-      root.expandedQuickKey = "hub"
+      root.selectDeckIndex(0)
       root.focusLauncherInput()
       return
     }
@@ -2418,7 +2478,7 @@ Scope {
   // ---------- Launcher port: scoring + category overview (following bjarneo launcher ref style) ----------
   function goUp() {
     if (root.quickMode && root.quickPaneKey !== "hub") {
-      root.expandedQuickKey = "hub"
+      root.selectDeckIndex(0)
       return true
     }
     if (root.argArmed) {
@@ -2863,16 +2923,16 @@ Scope {
         const qk = hjkl[event.key] !== undefined ? hjkl[event.key] : event.key
         if (root.quickWallKey(qk)) { event.accepted = true; return }
         if (qk === Qt.Key_Down) {
-          root.selectedIndex = Math.min(root.selectedIndex + cols, max)
+          root.selectDeckIndex(root.selectedIndex + cols)
           event.accepted = true
         } else if (qk === Qt.Key_Up) {
-          root.selectedIndex = Math.max(root.selectedIndex - cols, 0)
+          root.selectDeckIndex(root.selectedIndex - cols)
           event.accepted = true
         } else if (qk === Qt.Key_Left) {
-          root.selectedIndex = Math.max(root.selectedIndex - 1, 0)
+          root.selectDeckIndex(root.selectedIndex - 1)
           event.accepted = true
         } else if (qk === Qt.Key_Right) {
-          root.selectedIndex = Math.min(root.selectedIndex + 1, max)
+          root.selectDeckIndex(root.selectedIndex + 1)
           event.accepted = true
         } else if (qk === Qt.Key_Return || qk === Qt.Key_Enter) {
           root.launchCurrent()
@@ -3006,6 +3066,7 @@ Scope {
             }
 
             onTextChanged: {
+              if (!root.calcHistLock) root.calcHistIndex = -1
               root.query = root.argArmed ? ArgCommands.join(root.argCommand, text) : text
               if (root.quickMode) {
                 // no schedules, no auto-cat from search while quick grid is active (hidden input; internal cat sets still ok)
@@ -3070,17 +3131,17 @@ Scope {
                 const qk = hjkl[event.key] !== undefined ? hjkl[event.key] : event.key
                 if (root.quickWallKey(qk)) { event.accepted = true; return }
                 if (qk === Qt.Key_Down) {
-                  event.accepted = true; root.selectedIndex = Math.min(root.selectedIndex + cols, max)
+                  event.accepted = true; root.selectDeckIndex(root.selectedIndex + cols)
                 } else if (qk === Qt.Key_Up) {
-                  event.accepted = true; root.selectedIndex = Math.max(root.selectedIndex - cols, 0)
+                  event.accepted = true; root.selectDeckIndex(root.selectedIndex - cols)
                 } else if (qk === Qt.Key_Left) {
-                  event.accepted = true; root.selectedIndex = Math.max(root.selectedIndex - 1, 0)
+                  event.accepted = true; root.selectDeckIndex(root.selectedIndex - 1)
                 } else if (qk === Qt.Key_Right) {
-                  event.accepted = true; root.selectedIndex = Math.min(root.selectedIndex + 1, max)
+                  event.accepted = true; root.selectDeckIndex(root.selectedIndex + 1)
                 } else if (event.key === Qt.Key_Tab && !(event.modifiers & Qt.ShiftModifier)) {
-                  event.accepted = true; root.selectedIndex = Math.min(root.selectedIndex + 1, max)
+                  event.accepted = true; root.selectDeckIndex(root.selectedIndex + 1)
                 } else if (event.key === Qt.Key_Backtab || (event.key === Qt.Key_Tab && (event.modifiers & Qt.ShiftModifier))) {
-                  event.accepted = true; root.selectedIndex = Math.max(root.selectedIndex - 1, 0)
+                  event.accepted = true; root.selectDeckIndex(root.selectedIndex - 1)
                 }
                 return
               }
@@ -3092,6 +3153,14 @@ Scope {
               const ctrl = !!(event.modifiers & Qt.ControlModifier)
               const ctrlDown = ctrl && event.key === Qt.Key_J
               const ctrlUp = ctrl && event.key === Qt.Key_K
+              if (!root.quickMode && (event.key === Qt.Key_Up || ctrlUp) && root.walkCalcHistory(1)) {
+                event.accepted = true
+                return
+              }
+              if (!root.quickMode && (event.key === Qt.Key_Down || ctrlDown) && root.walkCalcHistory(-1)) {
+                event.accepted = true
+                return
+              }
               if (ctrl && event.key === Qt.Key_H) {
                 event.accepted = true
                 root.goUp()
@@ -3396,11 +3465,8 @@ Scope {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onPositionChanged: { root.selectedIndex = index; if (resultsList) resultsList.currentIndex = index }
-                    onClicked: {
-                      root.selectedIndex = index
-                      root.activateDeckItem(modelData)
-                    }
+                    onPositionChanged: root.selectDeckIndex(index)
+                    onClicked: root.selectDeckIndex(index)
                   }
                 }
               }
@@ -3439,7 +3505,7 @@ Scope {
                   id: qdl
                   anchors.fill: parent
                   active: root.quickDetailActive
-                  sourceComponent: root.quickDetailFor(root.quickPaneKey)
+                  sourceComponent: root.quickPaneComp
                 }
               }
 

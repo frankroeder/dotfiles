@@ -25,6 +25,10 @@ Singleton {
   // stopPreview() restores all three; commitPreview() applies for real.
   property string previewPath: ""
   property bool previewApplied: false
+  property string fadePath: ""
+  readonly property int previewWaitMs: 500
+  readonly property int previewThemeDelayMs: 100
+  readonly property int previewFadeMs: 320
   readonly property string autotheme: Quickshell.env("HOME") + "/.dotfiles/asahi/bin/asahi-autotheme"
 
   function preview(path) {
@@ -34,13 +38,13 @@ Singleton {
   }
   function stopPreview() {
     previewDebounce.stop()
+    previewThemeDelay.stop()
     root.previewPath = ""
     if (!root.previewApplied) return
+    if (root.currentWallpaper) root.showOnDesktop(root.currentWallpaper)
     root.previewApplied = false
     DefaultTheme.reloadFromDisk()
     if (root.currentWallpaper) {
-      root.showOnDesktop(root.currentWallpaper)
-      // Put the terminal back on the applied wallpaper's palette.
       if (previewThemeProc.running) previewThemeProc.running = false
       previewThemeProc.command = [root.autotheme, "--preview", root.currentWallpaper]
       previewThemeProc.running = true
@@ -49,6 +53,7 @@ Singleton {
   function commitPreview() {
     const p = root.previewPath
     previewDebounce.stop()
+    previewThemeDelay.stop()
     root.previewPath = ""
     root.previewApplied = false
     if (p) root.setWallpaper(p)
@@ -73,11 +78,20 @@ Singleton {
 
   Timer {
     id: previewDebounce
-    interval: 260
+    interval: root.previewWaitMs
     onTriggered: {
       if (root.previewPath === "" || (root.previewPath === root.currentWallpaper && !root.previewApplied)) return
+      root.fadePath = root.previewPath
       root.previewApplied = true
       root.showOnDesktop(root.previewPath)
+      previewThemeDelay.restart()
+    }
+  }
+  Timer {
+    id: previewThemeDelay
+    interval: root.previewThemeDelayMs
+    onTriggered: {
+      if (root.previewPath === "") return
       if (previewThemeProc.running) previewThemeProc.running = false
       previewThemeProc.command = [root.autotheme, "--preview", root.previewPath]
       previewThemeProc.running = true
@@ -195,6 +209,7 @@ Singleton {
 
   function setWallpaper(path) {
     previewDebounce.stop()
+    previewThemeDelay.stop()
     root.previewPath = ""
     root.previewApplied = false
     root.wallQueued = ""

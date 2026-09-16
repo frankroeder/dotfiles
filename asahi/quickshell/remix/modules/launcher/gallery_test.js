@@ -19,9 +19,21 @@ if (G.mapPaths("").length !== 0) throw new Error("empty scan");
 const qml = fs.readFileSync(path.join(__dirname, "LauncherWindow.qml"), "utf8");
 if (qml.indexOf("gallery.js") === -1) throw new Error("LauncherWindow must import gallery.js");
 if (qml.indexOf("scanVideos") === -1 || qml.indexOf("galleryKind") === -1) throw new Error("LauncherWindow must have the videos tab");
-// Image preview + image/png copy cannot handle mp4: the hover preview button must hide on the videos tab.
-if (!/id:\s*shotQuickPreview[\s\S]{0,300}visible:\s*hma\.containsMouse && root\.galleryKind !== "videos"/.test(qml)) {
+
+const pane = fs.readFileSync(path.join(__dirname, "panes/ScreenshotsPane.qml"), "utf8");
+if (pane.indexOf("id: shotHoverActions") === -1) throw new Error("screenshot hover actions row missing");
+if (!/opacity:\s*tileHover\.hovered \? 1 : 0/.test(pane)) {
+  throw new Error("hover actions must follow tile HoverHandler so buttons stay visible when the cursor moves onto them");
+}
+if (/shotHoverActions[\s\S]{0,400}opacity:\s*hma\.containsMouse/.test(pane)) {
+  throw new Error("hover actions must not use hma.containsMouse (IconBtn steals it and hides the row)");
+}
+// Image preview + image/png copy cannot handle mp4: preview/copy hide on the videos tab.
+if (!/visible:\s*!shotsPane\.videoMode;\s*icon:\s*"󰋲"/.test(pane)) {
   throw new Error("preview button must hide on videos");
 }
+if (!/visible:\s*!shotsPane\.videoMode;\s*icon:\s*"󰆏"/.test(pane)) {
+  throw new Error("copy button must hide on videos");
+}
 
-console.log("ok  gallery.js + LauncherWindow.qml");
+console.log("ok  gallery.js + LauncherWindow.qml + ScreenshotsPane.qml");

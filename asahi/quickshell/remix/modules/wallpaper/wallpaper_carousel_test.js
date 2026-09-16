@@ -136,6 +136,18 @@ assert(
   /waitForEnd:\s*true/.test(svc) && /DefaultTheme\.applyJson/.test(svc),
   "preview process waits for autotheme JSON then applyJson"
 );
+assert(
+  /previewWaitMs:\s*500/.test(svc) && /interval:\s*root\.previewWaitMs/.test(svc),
+  "carousel preview waits 500ms before applying wallpaper/theme"
+);
+assert(
+  /id:\s*previewThemeDelay/.test(svc) && /previewThemeDelayMs:\s*100/.test(svc),
+  "theme reload is delayed after the wallpaper fade starts"
+);
+assert(
+  /asahi-wall-preview/.test(mgr) && /previewFadeMs/.test(mgr) && /Easing\.OutCubic/.test(mgr),
+  "preview wallpaper fades in on a pass-through Bottom layer"
+);
 
 if (failed > 0) {
   console.log("\n" + failed + " assertion(s) failed");

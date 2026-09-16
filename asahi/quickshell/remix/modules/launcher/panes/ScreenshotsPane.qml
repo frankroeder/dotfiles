@@ -124,7 +124,8 @@ Item {
             anchors.margins: 4
             radius: Style.menuRadiusMd
             color: Style.m3containerHigh
-            scale: hma.containsMouse ? 1.02 : 1.0
+            HoverHandler { id: tileHover }
+            scale: tileHover.hovered ? 1.02 : 1.0
             Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
             Image {
@@ -200,10 +201,13 @@ Item {
             }
 
             // Hover actions: preview / copy / open / delete.
+            // Tile HoverHandler (not hma.containsMouse): IconBtn MouseAreas steal
+            // the tile MouseArea hover, which hid the row while clicks still hit.
             Row {
+              id: shotHoverActions
               anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 6
               spacing: 4
-              opacity: hma.containsMouse ? 1 : 0
+              opacity: tileHover.hovered ? 1 : 0
               Behavior on opacity { NumberAnimation { duration: 120 } }
               IconBtn { visible: !shotsPane.videoMode; icon: "󰋲"; onClicked: root.previewShot(cell.modelData.path) }
               IconBtn { visible: !shotsPane.videoMode; icon: "󰆏"; onClicked: root.copyShot(cell.modelData.path) }
@@ -218,7 +222,7 @@ Item {
             scale: tile.scale
             color: "transparent"
             border.width: cell.copied ? 2 : 1
-            border.color: cell.copied ? Style.green : (hma.containsMouse ? Style.m3outline : Style.m3outlineVariant)
+            border.color: cell.copied ? Style.green : (tileHover.hovered ? Style.m3outline : Style.m3outlineVariant)
             Behavior on border.color { ColorAnimation { duration: 120 } }
           }
         }

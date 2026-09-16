@@ -57,6 +57,45 @@ Scope {
     WallpaperService.stopPreview()
     wallpaperPanel.visible = false
   }
+
+  // Fullscreen fade of the preview wallpaper (above hyprpaper, below windows)
+  // so carousel browse does not pop the desktop. Starts after previewWaitMs.
+  Variants {
+    model: Quickshell.screens
+    PanelWindow {
+      required property var modelData
+      screen: modelData
+      color: "transparent"
+      exclusionMode: ExclusionMode.Ignore
+      exclusiveZone: 0
+      focusable: false
+      mask: Region {}
+      WlrLayershell.layer: WlrLayer.Bottom
+      WlrLayershell.namespace: "asahi-wall-preview"
+      anchors { left: true; right: true; top: true; bottom: true }
+      visible: fadeImg.opacity > 0.01 || WallpaperService.previewApplied
+
+      Image {
+        id: fadeImg
+        anchors.fill: parent
+        fillMode: Image.PreserveAspectCrop
+        asynchronous: true
+        cache: true
+        sourceSize.width: Math.max(1, modelData.width)
+        sourceSize.height: Math.max(1, modelData.height)
+        source: WallpaperService.fadePath ? ("file://" + WallpaperService.fadePath) : ""
+        readonly property bool show: WallpaperService.previewApplied && fadeImg.status === Image.Ready
+        opacity: fadeImg.show ? 1 : 0
+        scale: fadeImg.show ? 1 : 1.04
+        Behavior on opacity {
+          NumberAnimation { duration: WallpaperService.previewFadeMs; easing.type: Easing.OutCubic }
+        }
+        Behavior on scale {
+          NumberAnimation { duration: WallpaperService.previewFadeMs + 80; easing.type: Easing.OutCubic }
+        }
+      }
+    }
+  }
   function setShowAll(on) {
     root.showAll = on
     if (on) wallSearchInput.forceActiveFocus()

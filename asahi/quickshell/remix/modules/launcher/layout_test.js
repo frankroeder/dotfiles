@@ -357,6 +357,26 @@ assert(
   launcherQmlOnly.indexOf("qDetailHeader") === -1,
   "no per-pane title/close row above the pane Loader"
 );
+assert(
+  /function selectDeckIndex\(/.test(launcherQmlOnly) && /function showQuickPane\(/.test(launcherQmlOnly),
+  "Quick rail has selectDeckIndex + showQuickPane"
+);
+assert(
+  /list\[Math\.max\(0, Math\.min\(list\.length - 1, root\.selectedIndex\)\)\]/.test(launcherQmlOnly),
+  "quickPaneKey follows the selected rail row"
+);
+assert(
+  /sourceComponent:\s*root\.quickPaneComp/.test(launcherQmlOnly),
+  "pane Loader source is quickPaneComp (rebinds on rail move)"
+);
+assert(
+  /Key_Down[\s\S]{0,180}selectDeckIndex\(root\.selectedIndex \+ cols\)/.test(launcherQmlOnly),
+  "↑↓ in Quick calls selectDeckIndex (pane follows the rail)"
+);
+assert(
+  /onPositionChanged:\s*root\.selectDeckIndex\(index\)/.test(launcherQmlOnly),
+  "hovering a rail row also switches the pane"
+);
 const qdlAt = launcherQmlOnly.indexOf("id: qdl");
 assert(qdlAt !== -1, "pane Loader id qdl exists");
 const qdlSlice = launcherQmlOnly.slice(qdlAt, qdlAt + 280);

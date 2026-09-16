@@ -77,7 +77,7 @@ Item {
         text: dial.icon
         color: dial.accent
         font.family: dial.fontFamily
-        font.pixelSize: Math.max(10, Math.round(dial.diameter * 0.2))
+        font.pixelSize: Math.max(14, Math.round(dial.diameter * 0.28))
       }
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
