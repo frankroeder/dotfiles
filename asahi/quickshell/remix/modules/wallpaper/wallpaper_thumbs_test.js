@@ -115,7 +115,7 @@ assert(
 const mgrBlock = mgr.match(/id:\s*wallpaperGrid[\s\S]*?delegate:/);
 assert(!!mgrBlock, "WallpaperManager.qml declares wallpaperGrid");
 assert(
-  /ScrollBar\.vertical:\s*ScrollBar/.test(mgrBlock[0]),
+  /ScrollBar\.vertical:\s*(Menu\.Menu)?ScrollBar/.test(mgrBlock[0]),
   "WallpaperManager GridView has a right scrollbar"
 );
 assert(

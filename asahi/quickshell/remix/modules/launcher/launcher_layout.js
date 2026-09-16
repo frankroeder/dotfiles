@@ -19,15 +19,18 @@ var REF_WIDTH_SIDE = 1080
 var WIDTH_OVERVIEW_FRAC = REF_WIDTH_OVERVIEW / REF_W
 var WIDTH_COMPACT_FRAC = REF_WIDTH_COMPACT / REF_W
 var WIDTH_SIDE_FRAC = REF_WIDTH_SIDE / REF_W
-var UI_SCALE_MIN = 0.78
+// 0.94 keeps the 14" 1512×982 laptop card ~20% larger than pure proportional
+// scaling (Raycast-sized), 1080p and up are unchanged.
+var UI_SCALE_MIN = 0.94
 var UI_SCALE_MAX = 1.50
 var FONT_SCALE_MIN = 1.05
 var FONT_SCALE_MAX = 1.80
 
 var CARD_MARGIN = 17
 var COL_SPACING = 12
-var CARD_TOP_FRAC = 0.09
-var CARD_TOP_FRAC_COMPACT = 0.08
+// Raycast / Alfred placement: about a fifth down the screen.
+var CARD_TOP_FRAC = 0.2
+var CARD_TOP_FRAC_COMPACT = 0.18
 var CARD_MAX_FRAC = 0.68
 var CARD_COMPACT_MAX_FRAC = 0.82
 var CARD_BOTTOM_FRAC = 0.04
@@ -84,7 +87,10 @@ function cardWidthFor(screenW, sideActive, compact) {
   const frac = sideActive ? WIDTH_SIDE_FRAC : (compact ? WIDTH_COMPACT_FRAC : WIDTH_OVERVIEW_FRAC)
   const gap = Math.max(24, roundPx(w * 0.035))
   const maxW = Math.max(320, w - 2 * gap)
-  const minW = Math.min(maxW, sideActive ? 700 : (compact ? 575 : 540))
+  // Floor at the reference width × UI_SCALE_MIN so small high-DPI screens do
+  // not shrink the card below what the type scale needs.
+  const ref = sideActive ? REF_WIDTH_SIDE : (compact ? REF_WIDTH_COMPACT : REF_WIDTH_OVERVIEW)
+  const minW = Math.min(maxW, Math.max(sideActive ? 700 : (compact ? 575 : 540), roundPx(ref * UI_SCALE_MIN)))
   return clamp(roundPx(w * frac), minW, maxW)
 }
 
@@ -222,7 +228,7 @@ function launcherLayout(opts) {
   const quickMode = opts.quickMode == null ? true : !!opts.quickMode
   const hubMode = !!opts.hubMode
   const compact = !!opts.compact
-  const headerVisible = opts.headerVisible != null ? !!opts.headerVisible : !compact
+  const headerVisible = opts.headerVisible != null ? !!opts.headerVisible : (!quickMode && !compact)
   const colMode = !!(quickMode && sideActive)
 
   const scale = uiScale(screenW, screenH)
@@ -270,7 +276,9 @@ function launcherLayout(opts) {
   const bodyHeight = Math.max(0, cardHeight - chrome)
 
   const tiles = tileMetrics(bodyHeight, tileCount, colMode, scale)
-  const paneHeight = Math.max(0, bodyHeight - (hubMode ? 0 : detailHeaderBlock))
+  // Quick (and hub) drop the per-pane title/close row, so the loader gets the
+  // leftover body. Non-quick file preview still budgets a detail header.
+  const paneHeight = Math.max(0, bodyHeight - (quickMode || hubMode ? 0 : detailHeaderBlock))
   const vizCaps = {
     vizMax: vizMax,
     vizMin: vizMin,

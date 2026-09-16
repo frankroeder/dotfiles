@@ -19,6 +19,89 @@ Singleton {
   property int thumbsEpoch: 0
   readonly property string thumbCacheDir: WallThumbs.cacheDir(Quickshell.env("HOME"))
 
+  // Live preview (caelestia Wallpapers.preview): the carousel's centre item is
+  // shown on the desktop, its palette is applied to the shell without touching
+  // colors.json, and Ghostty is rethemed (`asahi-autotheme --preview`).
+  // stopPreview() restores all three; commitPreview() applies for real.
+  property string previewPath: ""
+  property bool previewApplied: false
+  readonly property string autotheme: Quickshell.env("HOME") + "/.dotfiles/asahi/bin/asahi-autotheme"
+
+  function preview(path) {
+    if (!path || path === root.previewPath) return
+    root.previewPath = path
+    previewDebounce.restart()
+  }
+  function stopPreview() {
+    previewDebounce.stop()
+    root.previewPath = ""
+    if (!root.previewApplied) return
+    root.previewApplied = false
+    DefaultTheme.reloadFromDisk()
+    if (root.currentWallpaper) {
+      root.showOnDesktop(root.currentWallpaper)
+      // Put the terminal back on the applied wallpaper's palette.
+      if (previewThemeProc.running) previewThemeProc.running = false
+      previewThemeProc.command = [root.autotheme, "--preview", root.currentWallpaper]
+      previewThemeProc.running = true
+    }
+  }
+  function commitPreview() {
+    const p = root.previewPath
+    previewDebounce.stop()
+    root.previewPath = ""
+    root.previewApplied = false
+    if (p) root.setWallpaper(p)
+  }
+  // hyprpaper takes up to a second per full-size image and a Process ignores
+  // `running = true` while busy, so keep only the newest request and replay it
+  // when the current load exits. Otherwise fast browsing leaves the desktop one
+  // step behind the centre tile (or on a preview after closing).
+  property string wallQueued: ""
+  function showOnDesktop(path) {
+    if (previewWallProc.running) { root.wallQueued = path; return }
+    root.wallQueued = ""
+    previewWallProc.command = ["sh", "-c",
+      "hyprctl hyprpaper wallpaper \",$1,$2\" >/dev/null 2>&1; hyprctl hyprpaper unload unused >/dev/null 2>&1",
+      "sh", path, root.defaultFit]
+    previewWallProc.running = true
+  }
+  function randomWallpaper() {
+    const n = root.wallpapers.length
+    return n ? root.wallpapers[Math.floor(Math.random() * n)] : ""
+  }
+
+  Timer {
+    id: previewDebounce
+    interval: 260
+    onTriggered: {
+      if (root.previewPath === "" || (root.previewPath === root.currentWallpaper && !root.previewApplied)) return
+      root.previewApplied = true
+      root.showOnDesktop(root.previewPath)
+      if (previewThemeProc.running) previewThemeProc.running = false
+      previewThemeProc.command = [root.autotheme, "--preview", root.previewPath]
+      previewThemeProc.running = true
+    }
+  }
+  Process {
+    id: previewThemeProc
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: if (root.previewPath !== "") DefaultTheme.applyJson(text)
+    }
+  }
+  Process {
+    id: previewWallProc
+    onExited: function() {
+      const p = root.wallQueued
+      root.wallQueued = ""
+      if (!p) return
+      // A stale preview must not overtake a wallpaper applied meanwhile.
+      if (root.previewPath === "" && p !== root.currentWallpaper) return
+      root.showOnDesktop(p)
+    }
+  }
+
   function previewSource(original) {
     const _ = root.thumbsEpoch
     if (!original) return ""
@@ -91,6 +174,8 @@ Singleton {
       const saved = configFile.text().trim()
       if (saved === "") return
       root.currentWallpaper = saved
+      // Re-assert on load: heals a desktop left on a preview if the shell died mid-browse.
+      root.showOnDesktop(saved)
       Quickshell.execDetached([
         "sh", "-c",
         "mkdir -p \"$(dirname \"$2\")\" && [ -f \"$1\" ] && ln -sfn \"$1\" \"$2\"",
@@ -109,6 +194,10 @@ Singleton {
   }
 
   function setWallpaper(path) {
+    previewDebounce.stop()
+    root.previewPath = ""
+    root.previewApplied = false
+    root.wallQueued = ""
     currentWallpaper = path
 
     // Always save the choice

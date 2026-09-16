@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import "../../../"
+import "../../../services" as Services
 import "../../launcher/arg_commands.js" as ArgCommands
 
 RowLayout {
@@ -20,6 +21,7 @@ RowLayout {
   property string timerLabel: ""
   property string timerUnit: ""
   property var barHost: null
+  readonly property alias recChip: recChip
   readonly property bool solidBar: barHost !== null && barHost !== undefined
 
   readonly property string nightLightStatePath: Quickshell.env("HOME") + "/.local/state/asahi/nightlight.json"
@@ -215,15 +217,19 @@ RowLayout {
     }
   }
 
+  // Recorder chip: only while recording, with the running clock. Click opens
+  // the panel, right-click stops. Idle, the panel comes from Super+Alt+R.
   Rectangle {
     id: recChip
+    readonly property bool rec: Services.Recorder.running
+    readonly property color tone: Style.red
+    visible: rec
     width: recRow.implicitWidth + (solidBar ? 8 : 12)
     height: solidBar ? Style.barHeight : 26
     radius: solidBar ? 0 : Style.radius
     color: solidBar ? "transparent" : (recMouse.containsMouse ? Style.panelDangerBg : Style.barBg)
     border.width: solidBar ? 0 : 1
     border.color: solidBar ? "transparent" : (recMouse.containsMouse ? Style.red : Style.barBorder)
-    visible: root.isRecording
     Behavior on color { ColorAnimation { duration: 140 } }
     Behavior on border.color { ColorAnimation { duration: 140 } }
 
@@ -241,8 +247,21 @@ RowLayout {
       id: recRow
       anchors.centerIn: parent
       spacing: 5
-      Text { text: "󰑋"; font.family: Style.fontFamily; font.pixelSize: Style.barFontGlyph; color: Style.red }
-      Text { text: "REC"; font.family: Style.fontFamily; font.pixelSize: Style.barFontCaption; font.bold: true; color: Style.red }
+      Text {
+        text: "󰑋"
+        font.family: Style.fontFamily; font.pixelSize: Style.barFontGlyph; color: recChip.tone
+        SequentialAnimation on opacity {
+          running: recChip.rec
+          loops: Animation.Infinite
+          NumberAnimation { from: 1; to: 0.25; duration: 700; easing.type: Easing.InOutSine }
+          NumberAnimation { from: 0.25; to: 1; duration: 700; easing.type: Easing.InOutSine }
+        }
+      }
+      Text {
+        visible: recChip.rec
+        text: Services.Recorder.fmtElapsed(Services.Recorder.elapsed)
+        font.family: Style.fontFamily; font.pixelSize: Style.barFontCaption; font.bold: true; color: recChip.tone
+      }
     }
 
     MouseArea {
@@ -250,9 +269,17 @@ RowLayout {
       anchors.fill: parent
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
-      onClicked: Quickshell.execDetached([root.binDir + "/asahi-cmd-record", "stop"])
+      acceptedButtons: Qt.LeftButton | Qt.RightButton
+      onClicked: function(mouse) {
+        if (mouse.button === Qt.RightButton && recChip.rec) Services.Recorder.stop()
+        else if (root.barHost) root.barHost.toggleRecPanel()
+      }
     }
-    TooltipWindow { target: recChip; text: "Recording — click to stop"; show: recMouse.containsMouse }
+    TooltipWindow {
+      target: recChip
+      text: recChip.rec ? "Recording — click for controls, right-click to stop" : "Screen recorder"
+      show: recMouse.containsMouse
+    }
   }
 
   Rectangle {

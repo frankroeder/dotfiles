@@ -8,12 +8,13 @@ import QtQuick
 import "modules/bar"
 import "modules/system" as System
 import "modules/wallpaper"
+import "services" as Services
 import "."
 
 ShellRoot {
   id: shell
 
-  property bool isRecording: false
+  readonly property bool isRecording: Services.Recorder.running
   property bool calendarOpen: false
 
   System.Osd { id: osd }
@@ -21,23 +22,19 @@ ShellRoot {
   System.NotificationCenter { id: notificationCenter }
   System.PkgManager {}
 
-  Process {
-    id: recProbe
-    command: ["pgrep", "-x", "wf-recorder"]
-    onExited: function(code) { shell.isRecording = (code === 0) }
+  // Bound in hypr/conf.d/bindings.lua as hl.dsp.global("quickshell:recorder-panel").
+  GlobalShortcut {
+    appid: "quickshell"
+    name: "recorder-panel"
+    description: "Toggle screen recorder panel"
+    onPressed: Services.Recorder.panelOpen = !Services.Recorder.panelOpen
   }
-  Timer {
-    interval: 2000
-    running: true
-    repeat: true
-    triggeredOnStart: true
-    onTriggered: if (!recProbe.running) recProbe.running = true
-  }
+
   IpcHandler {
     target: "recording"
-    function refresh(): void {
-      if (!recProbe.running) recProbe.running = true
-    }
+    function refresh(): void { Services.Recorder.refresh() }
+    function panel(): void { Services.Recorder.panelOpen = !Services.Recorder.panelOpen }
+    function toggle(): void { Services.Recorder.panelOpen = !Services.Recorder.panelOpen }
   }
 
   IpcHandler {

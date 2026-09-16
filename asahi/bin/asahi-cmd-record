@@ -11,19 +11,24 @@ output_dir="${ASAHI_RECORD_DIR:-${XDG_VIDEOS_DIR:-$HOME/Videos}}"
 audio="${ASAHI_RECORD_AUDIO:-1}"
 pid_file="${XDG_RUNTIME_DIR:-/tmp}/asahi-record.pid"
 log_file="${XDG_RUNTIME_DIR:-/tmp}/asahi-record.log"
+# Markers the Quickshell recorder panel reads via `status --json`.
+file_marker="${XDG_RUNTIME_DIR:-/tmp}/asahi-record.file"
+start_marker="${XDG_RUNTIME_DIR:-/tmp}/asahi-record.start"
+json=0
 webcam=0
 webcam_device=""
 webcam_size="medium"
 mode=""
 
 usage() {
-  echo "usage: $0 [fullscreen|region|webcam|status|stop] [--webcam] [--webcam-device=PATH] [--webcam-size=small|medium|large]" >&2
+  echo "usage: $0 [fullscreen|region|webcam|status|stop] [--json] [--webcam] [--webcam-device=PATH] [--webcam-size=small|medium|large]" >&2
   exit 2
 }
 
 while (($# > 0)); do
   case "$1" in
     --webcam) webcam=1; shift ;;
+    --json) json=1; shift ;;
     --webcam-device=*) webcam_device="${1#*=}"; shift ;;
     --webcam-size=*) webcam_size="${1#*=}"; shift ;;
     --help | -h) usage ;;
@@ -87,7 +92,7 @@ stop_recording() {
     sleep 0.1
   done
   kill -0 "$pid" 2>/dev/null && kill -KILL "$pid" 2>/dev/null || true
-  rm -f "$pid_file"
+  rm -f "$pid_file" "$start_marker"
   "$bin/asahi-webcam" overlay stop >/dev/null 2>&1 || true
   notify "Recording saved"
   refresh_bar
@@ -108,11 +113,30 @@ start_recorder() {
   # New session: Hyprland's exec child exiting must not SIGHUP wf-recorder.
   setsid wf-recorder "$@" -f "$file" </dev/null >>"$log_file" 2>&1 &
   printf '%s\n' $! >"$pid_file"
+  printf '%s\n' "$file" >"$file_marker"
+  date +%s >"$start_marker"
+}
+
+# No pause: this wf-recorder build exits on SIGUSR1.
+status_json() {
+  local pid file start bytes rec
+  pid="$(recording_pid)"
+  file=""
+  [ -r "$file_marker" ] && file="$(tr -d '\n' <"$file_marker")"
+  start=0
+  [ -n "$pid" ] && [ -r "$start_marker" ] && start="$(tr -d '\n' <"$start_marker")"
+  rec=false
+  [ -n "$pid" ] && rec=true
+  bytes=0
+  [ -n "$file" ] && [ -f "$file" ] && bytes="$(stat -c %s "$file" 2>/dev/null || echo 0)"
+  printf '{"recording":%s,"file":"%s","start":%s,"bytes":%s}\n' "$rec" "$file" "${start:-0}" "${bytes:-0}"
 }
 
 case "$mode" in
   status)
-    if [ -n "$(recording_pid)" ]; then
+    if ((json)); then
+      status_json
+    elif [ -n "$(recording_pid)" ]; then
       echo "recording"
     else
       echo "stopped"

@@ -12,6 +12,6 @@ Item {
 
   Rectangle {
     anchors.fill: parent
-    color: Qt.alpha(Style.crust, 0.28)
+    color: Qt.alpha(Style.crust, 0.12)
   }
 }

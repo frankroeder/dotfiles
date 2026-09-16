@@ -186,7 +186,8 @@ runCase("tiny 800×600", { screenW: 800, screenH: 600, tileCount: 10, sideActive
 
 console.log("\n== QML wiring (shipped LauncherWindow.qml) ==");
 const qmlPath = path.join(__dirname, "LauncherWindow.qml");
-const qml = fs.readFileSync(qmlPath, "utf8");
+// Quick panes live in panes/; the monitors assertions below look at that file too.
+const qml = fs.readFileSync(qmlPath, "utf8") + fs.readFileSync(path.join(__dirname, "panes/MonitorsPane.qml"), "utf8");
 assert(
   qml.indexOf("LauncherGeom.launcherLayout") !== -1,
   "LauncherWindow.qml calls shipped LauncherGeom.launcherLayout"
@@ -319,6 +320,49 @@ assert(
 assert(
   headerQml.indexOf("height: implicitHeight") !== -1,
   "MenuHeader height stays in sync with implicitHeight (Column + ColumnLayout)"
+);
+
+console.log("\n== Quick chrome (no Deck/Cluster header, no pane title row) ==");
+const quickNoHeader = launcherLayout({
+  screenW: 1920, screenH: 1080, tileCount: 10, sideActive: true,
+  quickMode: true, headerVisible: false, hubMode: false
+});
+assert(quickNoHeader.headerVisible === false, "Quick headerVisible === false");
+assert(
+  quickNoHeader.paneHeight === quickNoHeader.bodyHeight,
+  "Quick paneHeight === bodyHeight (got " + quickNoHeader.paneHeight + " vs " + quickNoHeader.bodyHeight + ")"
+);
+const quickDefault = launcherLayout({
+  screenW: 1920, screenH: 1080, tileCount: 10, sideActive: true, quickMode: true
+});
+assert(quickDefault.headerVisible === false, "Quick defaults headerVisible false");
+assert(
+  quickDefault.paneHeight === quickDefault.bodyHeight,
+  "Quick default paneHeight === bodyHeight (got " + quickDefault.paneHeight + " vs " + quickDefault.bodyHeight + ")"
+);
+const launcherQmlOnly = fs.readFileSync(qmlPath, "utf8");
+assert(
+  /headerVisible:\s*!root\.quickMode && root\.sectionName/.test(launcherQmlOnly),
+  "launcherLayout headerVisible is off in Quick"
+);
+assert(
+  /visible:\s*!root\.quickMode && root\.sectionName !== ""/.test(launcherQmlOnly),
+  "MenuHeader is not shown in quickMode"
+);
+assert(
+  launcherQmlOnly.indexOf('title: root.quickMode ? "Deck"') === -1 && launcherQmlOnly.indexOf('title: "Deck"') === -1,
+  "Quick does not title the card Deck"
+);
+assert(
+  launcherQmlOnly.indexOf("qDetailHeader") === -1,
+  "no per-pane title/close row above the pane Loader"
+);
+const qdlAt = launcherQmlOnly.indexOf("id: qdl");
+assert(qdlAt !== -1, "pane Loader id qdl exists");
+const qdlSlice = launcherQmlOnly.slice(qdlAt, qdlAt + 280);
+assert(
+  /anchors\.fill:\s*parent/.test(qdlSlice),
+  "pane Loader fills the detail side (no header offset)"
 );
 
 if (failed > 0) {

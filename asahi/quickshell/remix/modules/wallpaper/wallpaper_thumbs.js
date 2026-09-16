@@ -80,6 +80,13 @@ function clampedContentY(currentY, step, contentHeight, viewportHeight) {
   return next
 }
 
+// Three-tile carousel: size slots from the HOST viewport, not the ListView's
+// implicit/content width (that collapses to one tile and hides neighbours).
+function carouselItemWidth(viewW) {
+  const w = Math.max(0, Number(viewW) || 0)
+  return Math.floor(w / 3)
+}
+
 // Converts run 4-wide (backgrounded, `wait` every 4 files) so a cold cache
 // fills in seconds instead of minutes; a warm cache is just N stat checks.
 function thumbBatchScript(originals, dir, w, h) {
@@ -118,6 +125,7 @@ if (typeof module !== "undefined" && module.exports) {
     shellQuote: shellQuote,
     thumbBatchScript: thumbBatchScript,
     wheelStep: wheelStep,
-    clampedContentY: clampedContentY
+    clampedContentY: clampedContentY,
+    carouselItemWidth: carouselItemWidth
   }
 }

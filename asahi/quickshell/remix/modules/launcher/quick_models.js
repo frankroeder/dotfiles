@@ -804,6 +804,29 @@ function parseExternalTunnels(raw, profileNames) {
   return tunnels
 }
 
+function formatRate(bps) {
+  var n = Number(bps)
+  if (n !== n || n < 0) n = 0
+  if (n < 1024) return Math.round(n) + " B/s"
+  if (n < 1048576) return (n / 1024).toFixed(1) + " KB/s"
+  return (n / 1048576).toFixed(1) + " MB/s"
+}
+
+// Chip pixel width for Tx/Rx: sized to the longest rate label so the stats
+// row does not reflow as throughput changes. Independent of the current bps.
+var RATE_CHIP_CHARS = 12
+
+function rateChipWidth(labelPx) {
+  var px = Math.max(8, Number(labelPx) || 10)
+  return Math.round(20 + 12 + 6 + RATE_CHIP_CHARS * px * 0.68)
+}
+
+function wifiRadioStatus(enabled, ssid) {
+  if (!enabled) return "Off"
+  if (ssid) return "Connected"
+  return "Not connected"
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
     nodeProps: nodeProps,
@@ -868,6 +891,10 @@ if (typeof module !== "undefined") {
     GLYPH_VPN: GLYPH_VPN,
     GLYPH_LOCK: GLYPH_LOCK,
     GLYPH_SHIELD: GLYPH_SHIELD,
-    GLYPH_SHIELD_LOCK: GLYPH_SHIELD_LOCK
+    GLYPH_SHIELD_LOCK: GLYPH_SHIELD_LOCK,
+    formatRate: formatRate,
+    RATE_CHIP_CHARS: RATE_CHIP_CHARS,
+    rateChipWidth: rateChipWidth,
+    wifiRadioStatus: wifiRadioStatus
   }
 }

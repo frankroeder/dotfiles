@@ -65,8 +65,9 @@ window_rule({ class = "^(com\\.mitchellh\\.ghostty)$" }, { scroll_touchpad = 0.2
 
 -- Quickshell (bar + popups + OSD + notif toast from NotificationServer in remix/shell.qml)
 layer_rule("^(quickshell.*)$", { blur = true, ignore_alpha = 0.3 })
--- Launcher / wallpaper overlays: keep blur visible under a light frosted dim.
-layer_rule("^(quickshell-launcher|quickshell-wallpaper|quickshell-pkgman)$", { blur = true, ignore_alpha = 0.05, xray = false })
+-- Launcher / wallpaper overlays: blur only under the card (the scrim is ~0.12 alpha
+-- and stays below ignore_alpha), so the desktop behind stays readable.
+layer_rule("^(quickshell-launcher|quickshell-wallpaper|quickshell-pkgman)$", { blur = true, ignore_alpha = 0.5, xray = false })
 layer_rule("^asahi-dim$", { no_anim = true, animation = "none" })
 
 window_rule(

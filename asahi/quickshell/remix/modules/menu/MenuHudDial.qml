@@ -10,6 +10,7 @@ Item {
   property real value: 0
   property string label: ""
   property string icon: ""
+  property string suffix: "%"
   property color accent: Style.m3primary
   property string fontFamily: Style.menuMono
   property string labelFamily: Style.menuSans
@@ -80,7 +81,7 @@ Item {
       }
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
-        text: Math.round(dial.shown) + "%"
+        text: Math.round(dial.shown) + dial.suffix
         color: dial.accent
         font.family: dial.labelFamily
         font.pixelSize: Math.max(10, Math.round(dial.diameter * 0.2))

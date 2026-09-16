@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT.parent))
 
 from theme.apply import (  # noqa: E402
+    preview_ghostty,
     write_btop_theme,
     write_chromium_policy,
     write_gtk_css,
@@ -90,6 +91,35 @@ class TestApplyWriters(unittest.TestCase):
         self.assertIn("col.active_border", text)
         self.assertIn("groupbar", text)
         self.assertIn("text_color", text)
+
+    def test_preview_ghostty_installs_theme_ghostty_reads(self):
+        cfg = self.root / "ghostty"
+        cfg.mkdir()
+        (cfg / "themes").mkdir()
+        state = self.root / "ghostty.theme"
+        paths = preview_ghostty(
+            self.palette, ghostty_cfg=cfg, theme_state=state, reload=False
+        )
+        installed = Path(paths["ghostty_installed"])
+        self.assertEqual(installed, cfg / "themes" / "asahi-adaptive")
+        theme = installed.read_text(encoding="utf-8")
+        self.assertIn(f"background = {self.palette.background}", theme)
+        self.assertIn(f"foreground = {self.palette.foreground}", theme)
+        css = Path(paths["ghostty_css"]).read_text(encoding="utf-8")
+        self.assertIn(f"@define-color window_bg_color {self.palette.background}", css)
+        extra = Path(paths["ghostty_extra"]).read_text(encoding="utf-8")
+        self.assertIn("window-theme = ghostty", extra)
+        self.assertIn("gtk-custom-css", extra)
+        # state file alone is not what Ghostty loads
+        self.assertNotEqual(state, installed)
+        self.assertTrue(state.is_file())
+
+    def test_autotheme_preview_calls_preview_ghostty(self):
+        src = Path(__file__).resolve().parents[2] / "bin" / "asahi-autotheme"
+        text = src.read_text(encoding="utf-8")
+        self.assertIn("preview_ghostty", text)
+        self.assertNotIn("write_ghostty_theme(palette, state_dir()", text)
+        self.assertNotIn("reload_ghostty()", text)
 
 
 if __name__ == "__main__":

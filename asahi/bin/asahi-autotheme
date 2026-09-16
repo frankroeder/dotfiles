@@ -20,7 +20,7 @@ if str(THEME_ROOT) not in sys.path:
 
 from theme.extract import extract_representatives  # noqa: E402
 from theme.palette import build_palette  # noqa: E402
-from theme.apply import apply_live, state_dir, write_all  # noqa: E402
+from theme.apply import apply_live, preview_ghostty, state_dir, write_all  # noqa: E402
 
 
 def resolve_wallpaper(explicit: str | None) -> Path:
@@ -56,6 +56,11 @@ def main() -> int:
         help="palette direction (omagen-inspired)",
     )
     parser.add_argument("--dry-run", action="store_true", help="print palette JSON only")
+    parser.add_argument(
+        "--preview",
+        action="store_true",
+        help="print palette JSON and retheme Ghostty only (asahi-adaptive + CSS + reload-config; no GTK/LibreWolf/colors.json)",
+    )
     parser.add_argument("--no-apply", action="store_true", help="write files but skip live apply")
     parser.add_argument("--json", action="store_true", help="print colors.json to stdout")
     args = parser.parse_args()
@@ -64,7 +69,9 @@ def main() -> int:
     reps = extract_representatives(str(wallpaper))
     palette = build_palette(reps, str(wallpaper), variant=args.variant)
 
-    if args.dry_run:
+    if args.dry_run or args.preview:
+        if args.preview:
+            preview_ghostty(palette)
         print(json.dumps(palette.to_dict(), indent=2, sort_keys=True))
         return 0
 

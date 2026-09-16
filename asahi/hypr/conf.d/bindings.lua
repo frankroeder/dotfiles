@@ -116,6 +116,7 @@ hl.bind(mod .. " + CONTROL + F11", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-qr"), 
 hl.bind(mod .. " + SHIFT + F12", hl.dsp.exec_cmd "hyprpicker -a", { desc = "Color picker" })
 hl.bind(mod .. " + ALT + F11", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record region"), { desc = "Record region (toggle)" })
 hl.bind(mod .. " + ALT + F12", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record fullscreen"), { desc = "Record focused display (toggle)" })
+hl.bind(mod .. " + ALT + R", hl.dsp.global "quickshell:recorder-panel", { desc = "Recorder panel" })
 hl.bind(mod .. " + ALT + SHIFT + F12", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record webcam"), { desc = "Record display with webcam" })
 hl.bind(mod .. " + ALT + code:34", hl.dsp.exec_cmd(scripts .. "/asahi-webcam resize smaller"), { desc = "Webcam overlay smaller" })
 hl.bind(mod .. " + ALT + code:35", hl.dsp.exec_cmd(scripts .. "/asahi-webcam resize larger"), { desc = "Webcam overlay larger" })

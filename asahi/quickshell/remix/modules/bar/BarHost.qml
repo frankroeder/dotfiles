@@ -17,13 +17,20 @@ Item {
   property bool isRecording: false
   property bool calendarOpen: false
   property bool sysPanelOpen: false
+  property bool recPanelOpen: false
   signal calendarToggle()
   function toggleSysPanel(button) {
     if (button === Qt.RightButton) Quickshell.execDetached([barWindow.binDir + "/asahi-sysmon"])
     else {
       if (barWindow.calendarOpen) barWindow.calendarToggle()
+      barWindow.recPanelOpen = false
       barWindow.sysPanelOpen = !barWindow.sysPanelOpen
     }
+  }
+  function toggleRecPanel() {
+    if (barWindow.calendarOpen) barWindow.calendarToggle()
+    barWindow.sysPanelOpen = false
+    barWindow.recPanelOpen = !barWindow.recPanelOpen
   }
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
@@ -353,5 +360,11 @@ Item {
     barHost: barWindow
     panelOpen: barWindow.sysPanelOpen
     anchor.item: sysBlock
+  }
+
+  BarComponents.RecordPanel {
+    barHost: barWindow
+    panelOpen: barWindow.recPanelOpen
+    anchor.item: statusBlock
   }
 }
