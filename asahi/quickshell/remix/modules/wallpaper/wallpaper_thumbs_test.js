@@ -80,14 +80,9 @@ assert(shipped.clampedContentY(0, -1000, 500, 200) === 300, "contentY clamps to 
 assert(shipped.clampedContentY(50, 80, 500, 200) === 0, "contentY clamps to 0");
 assert(shipped.clampedContentY(40, 10, 500, 200) === 30, "contentY subtracts the wheel step");
 
-const qmlGrid = fs.readFileSync(path.join(__dirname, "../launcher/LauncherWindow.qml"), "utf8");
 const mgr = fs.readFileSync(path.join(__dirname, "WallpaperManager.qml"), "utf8");
 const svc = fs.readFileSync(path.join(__dirname, "WallpaperService.qml"), "utf8");
 assert(svc.indexOf("WallThumbs.previewSource") !== -1, "WallpaperService.previewSource uses shipped helper");
-assert(
-  !/source:\s*modelData \? \("file:\/\/" \+ modelData\)/.test(qmlGrid),
-  "Quick wallpaper GridView does not bind Image source to file:// + raw path"
-);
 assert(
   mgr.indexOf("WallpaperService.previewSource(modelData)") !== -1,
   "WallpaperManager grid uses previewSource"
@@ -95,21 +90,6 @@ assert(
 assert(
   !/source:\s*"file:\/\/" \+ modelData/.test(mgr.replace(/source: root\.previewPath[\s\S]*?fillMode/m, "")),
   "WallpaperManager grid Image source is not file:// + raw wallpaper path"
-);
-
-const wpBlock = qmlGrid.match(/id:\s*wpGrid[\s\S]*?delegate:/);
-assert(!!wpBlock, "LauncherWindow.qml declares wpGrid");
-assert(
-  /ScrollBar\.vertical:\s*(Menu\.Menu)?ScrollBar/.test(wpBlock[0]),
-  "Quick wallpaper GridView has a right scrollbar"
-);
-assert(
-  /WallThumbs\.wheelStep/.test(wpBlock[0]) && /WallThumbs\.clampedContentY/.test(wpBlock[0]),
-  "Quick wallpaper wheel uses shipped wheelStep + clampedContentY"
-);
-assert(
-  /rightMargin:\s*12/.test(wpBlock[0]),
-  "Quick wallpaper grid reserves a right gutter for the scrollbar"
 );
 
 const mgrBlock = mgr.match(/id:\s*wallpaperGrid[\s\S]*?delegate:/);
@@ -121,6 +101,10 @@ assert(
 assert(
   /WallThumbs\.wheelStep/.test(mgrBlock[0]) && /WallThumbs\.clampedContentY/.test(mgrBlock[0]),
   "WallpaperManager wheel uses shipped wheelStep + clampedContentY"
+);
+assert(
+  /rightMargin:\s*12/.test(mgrBlock[0]),
+  "WallpaperManager grid reserves a right gutter for the scrollbar"
 );
 
 if (failed > 0) {

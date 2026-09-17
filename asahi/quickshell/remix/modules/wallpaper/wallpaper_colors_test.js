@@ -176,10 +176,8 @@ assert(/WallpaperFilterBar/.test(mgr) && /WallpaperPalette/.test(mgr) && /Wallpa
 assert(/WallpaperService\.arranged\(root\.searchText\)/.test(mgr), "picker list goes through arrange()");
 
 const launcher = fs.readFileSync(path.join(__dirname, "../launcher/LauncherWindow.qml"), "utf8");
-assert(/quickWallKey\(qk, shift\)/.test(launcher), "launcher routes the shift modifier to the carousel");
-assert(!/function quickWallKey\(qk\)\s*\{/.test(launcher), "the old single-argument router is gone");
-assert(/WallpaperService\.arranged\(quickWallpaperRoot\.wpSearch\)/.test(launcher),
-  "launcher pane shares the service filters");
+assert(/ipc:\s*"wallpaper"/.test(launcher),
+  "Launcher -> Wallpapers opens the same card as Super+Shift+W, not a second picker");
 
 const qmldir = fs.readFileSync(path.join(__dirname, "qmldir"), "utf8");
 for (const t of ["WallpaperChip", "WallpaperFilterBar", "WallpaperFlavors", "WallpaperPalette"]) {

@@ -7,7 +7,6 @@ import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Widgets
 import "../wallpaper" as Wallpaper
-import "../wallpaper/wallpaper_thumbs.js" as WallThumbs
 import "../menu" as Menu
 import Quickshell.Bluetooth
 import Quickshell.Services.Mpris
@@ -113,8 +112,6 @@ Scope {
   readonly property bool previewActive: root.fileMode
   readonly property bool quickMode: root.categoryFilter === "Quick"
   property string expandedQuickKey: ""
-  // Wallpaper pane carousel (set while the pane is loaded) for ←/→/⏎ routing.
-  property var wallCarousel: null
   readonly property string quickPaneKey: {
     if (!root.quickMode) return ""
     const list = root.quickDeck || []
@@ -161,7 +158,7 @@ Scope {
 
   readonly property var quickActions: [
     { key: "dashboard", aliases: ["dash", "hub"], icon: "󰕮", name: "Dashboard", comment: "Open feature dashboard", mode: "hub" },
-    { key: "wallpaper", aliases: ["wall", "paper"], icon: "󰸉", name: "Wallpapers", comment: "Open wallpaper picker", mode: "wallpaper" },
+    { key: "wallpaper", aliases: ["wall", "paper"], icon: "󰸉", name: "Wallpapers", comment: "Open wallpaper picker (same card as Super+Shift+W)", ipc: "wallpaper" },
     { key: "screenshots", aliases: ["shots", "ss"], icon: "󰹑", name: "Screenshots", comment: "Open screenshot gallery", mode: "screenshots" },
     { key: "media", aliases: ["music", "audio"], icon: "󰝚", name: "Media", comment: "Open media and mixer", mode: "media" },
     { key: "network", aliases: ["wifi", "net", "vpn"], icon: "󰈀", name: "Network", comment: "Open network and VPN controls", mode: "network" },
@@ -194,6 +191,9 @@ Scope {
     return { key: a.key, glyph: a.icon, label: a.name, sub: a.comment, mode: a.mode }
   })
   readonly property var quickDeckHidden: ({
+    // Standalone picker (Super+Shift+W), like packages/recorder: still searchable
+    // as an action, just not a Quick tile.
+    wallpaper: true,
     packages: true,
     recorder: true,
     screensaver: true,
@@ -939,229 +939,6 @@ Scope {
     }
 
   } }
-  Component { id: quickWallpaperComp; Item {
-    id: quickWallpaperRoot
-    anchors.fill: parent
-    // full port of wallpaper from old (grid/search/apply service/current 2px border/160 OutCubic scale/hover/ready/filename/L apply/R preview/count)
-    property string wpSearch: ""
-    // Carousel first; the filter + grid only when "All" is toggled.
-    property bool showAll: false
-    readonly property var wps: (Wallpaper.WallpaperService && Wallpaper.WallpaperService.wallpapers) || []
-    // Color / tone filters and sort are owned by WallpaperService, so whatever is
-    // set in the Super+Shift+W picker applies here too.
-    readonly property var filtered: Wallpaper.WallpaperService.arranged(quickWallpaperRoot.wpSearch)
-    Component.onCompleted: {
-      try { if (Wallpaper.WallpaperService && (Wallpaper.WallpaperService.wallpapers || []).length < 1) Wallpaper.WallpaperService.rescan() } catch(_) {}
-    }
-    ColumnLayout {
-      anchors.fill: parent
-      spacing: 8
-
-      // Carousel, three tiles at a time: ←/→ or the wheel browse and preview
-      // the centre tile live, ⏎ or a click on a tile applies it. Centred in the
-      // leftover space while the list is collapsed.
-      Item {
-        id: wallHost
-        Layout.fillWidth: true
-        Layout.fillHeight: !quickWallpaperRoot.showAll
-        Layout.preferredHeight: wallCarousel.implicitHeight
-        Wallpaper.WallpaperCarousel {
-          id: wallCarousel
-          anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.verticalCenter: parent.verticalCenter
-          height: implicitHeight
-          viewW: wallHost.width
-          paths: quickWallpaperRoot.filtered
-          fontScale: root.uiFontScale
-          fontFamily: root.uiSans
-          iconFamily: root.uiFont
-          anchorPath: Wallpaper.WallpaperService.currentWallpaper
-          live: root.shouldShow
-          onActivated: function(p) { Wallpaper.WallpaperService.setWallpaper(p); root.expandedQuickKey = "" }
-          Component.onCompleted: root.wallCarousel = wallCarousel
-          Component.onDestruction: { if (root.wallCarousel === wallCarousel) root.wallCarousel = null; Wallpaper.WallpaperService.stopPreview() }
-        }
-      }
-      Text {
-        id: wallPathCaption
-        Layout.fillWidth: true
-        text: (wallCarousel.currentPath || "").split("/").pop() || "—"
-        color: Style.m3onSurface
-        font.family: root.uiSans
-        font.pixelSize: root.fontPx(10)
-        font.weight: Font.Medium
-        elide: Text.ElideMiddle
-        horizontalAlignment: Text.AlignHCenter
-      }
-      Wallpaper.WallpaperPalette {
-        Layout.fillWidth: true
-        path: wallCarousel.currentPath
-        fontFamily: root.uiSans
-        iconFamily: root.uiFont
-      }
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 8
-        Item { Layout.fillWidth: true }
-        Wallpaper.WallpaperChip {
-          glyph: "󰐊"
-          label: "Live"
-          on: Wallpaper.WallpaperService.liveMode
-          fontFamily: root.uiSans
-          iconFamily: root.uiFont
-          onClicked: Wallpaper.WallpaperService.setLive(!Wallpaper.WallpaperService.liveMode)
-        }
-        Rectangle {
-          implicitWidth: shuffleRow.implicitWidth + 20; implicitHeight: 26; radius: Style.menuRadiusFull
-          color: shuffleMa.containsMouse ? Style.m3containerHigh : Style.m3container
-          Row {
-            id: shuffleRow; anchors.centerIn: parent; spacing: 6
-            Text { text: "󰒝"; color: Style.m3primary; font.family: root.uiFont; font.pixelSize: root.fontPx(11); anchors.verticalCenter: parent.verticalCenter }
-            Text { text: "Shuffle"; color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(9); font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter }
-          }
-          MouseArea { id: shuffleMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: wallCarousel.jumpTo(Wallpaper.WallpaperService.randomWallpaper()) }
-        }
-        Rectangle {
-          implicitWidth: applyRow.implicitWidth + 20; implicitHeight: 26; radius: Style.menuRadiusFull
-          color: applyMa.containsMouse ? Qt.lighter(Style.m3primary, 1.1) : Style.m3primary
-          Row {
-            id: applyRow; anchors.centerIn: parent; spacing: 6
-            Text { text: "󰄬"; color: Style.m3onPrimary; font.family: root.uiFont; font.pixelSize: root.fontPx(11); anchors.verticalCenter: parent.verticalCenter }
-            Text { text: "Apply"; color: Style.m3onPrimary; font.family: root.uiSans; font.pixelSize: root.fontPx(9); font.weight: Font.DemiBold; anchors.verticalCenter: parent.verticalCenter }
-          }
-          MouseArea { id: applyMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: wallCarousel.activate() }
-        }
-        Rectangle {
-          implicitWidth: allRow.implicitWidth + 20; implicitHeight: 26; radius: Style.menuRadiusFull
-          color: quickWallpaperRoot.showAll ? Style.m3secondaryContainer : (allMa.containsMouse ? Style.m3containerHigh : Style.m3container)
-          Row {
-            id: allRow; anchors.centerIn: parent; spacing: 6
-            Text { text: quickWallpaperRoot.showAll ? "󰅃" : "󰅀"; color: Style.m3onSurface; font.family: root.uiFont; font.pixelSize: root.fontPx(11); anchors.verticalCenter: parent.verticalCenter }
-            Text { text: "All " + ((quickWallpaperRoot.wps || []).length || 0); color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(9); font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter }
-          }
-          MouseArea { id: allMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { quickWallpaperRoot.showAll = !quickWallpaperRoot.showAll; if (quickWallpaperRoot.showAll) wpIn.forceActiveFocus(); else { quickWallpaperRoot.wpSearch = ""; wpIn.text = ""; root.focusLauncherInput() } } }
-        }
-      }
-
-      Item {
-        visible: quickWallpaperRoot.showAll
-        Layout.fillWidth: true; Layout.preferredHeight: 26
-        Rectangle {
-          anchors.fill: parent; radius: height / 2; color: Style.m3container
-          TextInput {
-            id: wpIn; anchors.fill: parent; anchors.margins: 3; anchors.leftMargin: 12
-            color: Style.menuInk; font.pixelSize: root.fontPx(10); font.family: root.uiFont
-            text: quickWallpaperRoot.wpSearch
-            onTextChanged: quickWallpaperRoot.wpSearch = text
-            Keys.onEscapePressed: { quickWallpaperRoot.wpSearch = ""; wpIn.text = "" }
-          }
-          Text { anchors.left: parent.left; anchors.leftMargin: 12; anchors.verticalCenter: parent.verticalCenter; text: "Filter wallpapers"; color: Style.m3onSurfaceVariant; font.pixelSize: root.fontPx(9); font.family: root.uiSans; visible: wpIn.text === "" && !wpIn.activeFocus }
-        }
-      }
-      Text {
-        visible: quickWallpaperRoot.showAll && (quickWallpaperRoot.filtered || []).length === 0
-        text: quickWallpaperRoot.wpSearch ? "No matching wallpapers" : "No wallpapers (rescan in bg)"
-        color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont
-        Layout.alignment: Qt.AlignHCenter; Layout.preferredHeight: 20
-      }
-      GridView {
-        id: wpGrid
-        visible: quickWallpaperRoot.showAll
-        Layout.fillWidth: true; Layout.fillHeight: quickWallpaperRoot.showAll && (quickWallpaperRoot.filtered || []).length > 0
-        cellWidth: Math.max(1, Math.floor((Math.max(0, width - rightMargin - 4)) / 4)); cellHeight: cellWidth * 0.62 + 4
-        clip: true; model: quickWallpaperRoot.filtered
-        // Scroll perf: pool delegates instead of destroying them mid-flick,
-        // pre-create extra rows beyond the viewport, and drop the synchronous
-        // layout thrash of Flickable's animated wheel response in favor of
-        // direct contentY steps (omarchy's pickers feel instant for the same
-        // reason — no kinetic animation on wheel).
-        reuseItems: true
-        cacheBuffer: Math.max(800, cellHeight * 5)
-        boundsBehavior: Flickable.StopAtBounds
-        rightMargin: 12
-        ScrollBar.vertical: Menu.MenuScrollBar {}
-        WheelHandler {
-          target: null
-          acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-          onWheel: function(ev) {
-            const step = WallThumbs.wheelStep(ev.pixelDelta.y, ev.angleDelta.y, wpGrid.cellHeight)
-            wpGrid.contentY = WallThumbs.clampedContentY(wpGrid.contentY, step, wpGrid.contentHeight, wpGrid.height)
-            ev.accepted = true
-          }
-        }
-        delegate: Item {
-          required property string modelData; required property int index
-          width: GridView.view.cellWidth; height: GridView.view.cellHeight
-          Rectangle {
-            anchors.fill: parent; anchors.margins: 2; radius: 6; clip: true
-            color: wma.containsMouse ? Style.menuRowHi : Style.menuControlBg
-            border.color: (Wallpaper.WallpaperService.currentWallpaper === modelData) ? Style.green : (wma.containsMouse ? Style.menuSep : Style.menuSep)
-            border.width: (Wallpaper.WallpaperService.currentWallpaper === modelData) ? 2 : 1
-            scale: wma.containsMouse ? 1.025 : 1.0
-            Behavior on color { ColorAnimation { duration: 140 } }
-            Behavior on border.color { ColorAnimation { duration: 140 } }
-            Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
-            Image {
-              anchors.fill: parent; anchors.margins: (Wallpaper.WallpaperService.currentWallpaper === modelData) ? 2 : 1
-              source: Wallpaper.WallpaperService.previewSource(modelData)
-              fillMode: Image.PreserveAspectCrop
-              asynchronous: true
-              cache: true
-              // Cap decode + texture at thumb resolution even if a source
-              // ever resolves to a full-size image.
-              sourceSize.width: 320
-              sourceSize.height: 192
-              Rectangle {
-                anchors.fill: parent; color: Style.menuControlBg; visible: parent.status !== Image.Ready
-                Text { anchors.centerIn: parent; text: "󰋩"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(18); font.family: root.uiFont }
-              }
-            }
-            Rectangle { anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.right: parent.right; height: 14; color: Qt.rgba(0,0,0,0.55)
-              Text {
-                anchors.centerIn: parent
-                text: (modelData || "").split("/").pop()
-                color: Style.menuOverlayLight; font.pixelSize: root.fontPx(7); font.family: root.uiFont
-                elide: Text.ElideMiddle; width: parent.width-4; horizontalAlignment: Text.AlignHCenter
-              }
-            }
-            Rectangle {
-              anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 3
-              width: 14; height: 14; radius: 7; color: Style.green
-              visible: Wallpaper.WallpaperService.currentWallpaper === modelData
-              Text { anchors.centerIn: parent; text: "✓"; color: Style.menuOnAccent; font.pixelSize: 9; font.bold: true }
-            }
-            MouseArea {
-              id: wma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-              acceptedButtons: Qt.LeftButton | Qt.RightButton
-              onClicked: function(e) {
-                if (e.button === Qt.RightButton) {
-                  if (modelData) Quickshell.execDetached([binDir + "/asahi-launch", "xdg-open", modelData])  // preview action
-                } else {
-                  if (modelData) Wallpaper.WallpaperService.setWallpaper(modelData)
-                  root.expandedQuickKey = ""
-                }
-              }
-            }
-          }
-        }
-      }
-      RowLayout {
-        Layout.fillWidth: true; spacing: 8
-        Text { text: "←/→ browse · shift+←/→ live preview · ⏎ applies · All lists every wallpaper"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiSans }
-        Item { Layout.fillWidth: true }
-        Text {
-          text: ((Wallpaper.WallpaperService.currentWallpaper || "").split("/").pop() || "none")
-          color: Style.menuSeal
-          font.pixelSize: root.fontPx(8)
-          font.family: root.uiFont
-          elide: Text.ElideMiddle
-          Layout.maximumWidth: Math.round(140 * root.launcherGeom.uiScale)
-        }
-        Text { text: ((quickWallpaperRoot.wps || []).length || 0) + " wallpapers"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiFont }
-      }
-    }
-  } }
   Component { id: quickScreenshotsComp; Panes.ScreenshotsPane { root: launcherSelf } }
   Component { id: quickMediaComp; Panes.MediaPane { root: launcherSelf } }
   Component { id: quickNetworkComp; Panes.NetworkPane { root: launcherSelf } }
@@ -1181,7 +958,6 @@ Scope {
     const k = (key === "dashboard" || key === "hub") ? "hub" : key
     switch (k) {
       case "hub": return quickHubComp
-      case "wallpaper": return quickWallpaperComp
       case "screenshots": return quickScreenshotsComp
       case "media": return quickMediaComp
       case "network": return quickNetworkComp
@@ -1323,8 +1099,6 @@ Scope {
       root.focusLauncherInput()
     } else {
       root.chromeReveal = 0
-      root.shotPreviewPath = ""
-      Wallpaper.WallpaperService.stopPreview()
       chromeHideKick.restart()
     }
   }
@@ -1426,19 +1200,6 @@ Scope {
     if (!armed) return false
     root.armArgument(armed.command, armed.placeholder)
     return true
-  }
-
-  // Wallpaper pane: ←/→ move the carousel, ⏎ applies the centre item. Shift+←/→
-  // also arms live preview — the launcher is a type-first UI, so bare Shift stays
-  // a modifier for capitals here (the Super+Shift+W picker toggles on it).
-  function quickWallKey(qk, shift) {
-    if (root.quickPaneKey !== "wallpaper" || !root.wallCarousel) return false
-    const move = qk === Qt.Key_Left || qk === Qt.Key_Right
-    if (shift && move) Wallpaper.WallpaperService.setLive(true)
-    if (qk === Qt.Key_Left) { root.wallCarousel.prev(); return true }
-    if (qk === Qt.Key_Right) { root.wallCarousel.next(); return true }
-    if (qk === Qt.Key_Return || qk === Qt.Key_Enter) { root.wallCarousel.activate(); return true }
-    return false
   }
 
   function activateDeckItem(t) {
@@ -2936,7 +2697,6 @@ Scope {
         hjkl[Qt.Key_K] = Qt.Key_Up
         hjkl[Qt.Key_L] = Qt.Key_Right
         const qk = hjkl[event.key] !== undefined ? hjkl[event.key] : event.key
-        if (root.quickWallKey(qk, !!(event.modifiers & Qt.ShiftModifier))) { event.accepted = true; return }
         if (qk === Qt.Key_Down) {
           root.selectDeckIndex(root.selectedIndex + cols)
           event.accepted = true
@@ -3144,7 +2904,6 @@ Scope {
                 hjkl[Qt.Key_K] = Qt.Key_Up
                 hjkl[Qt.Key_L] = Qt.Key_Right
                 const qk = hjkl[event.key] !== undefined ? hjkl[event.key] : event.key
-                if (root.quickWallKey(qk, !!(event.modifiers & Qt.ShiftModifier))) { event.accepted = true; return }
                 if (qk === Qt.Key_Down) {
                   event.accepted = true; root.selectDeckIndex(root.selectedIndex + cols)
                 } else if (qk === Qt.Key_Up) {

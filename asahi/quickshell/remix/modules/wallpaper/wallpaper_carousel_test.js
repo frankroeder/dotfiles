@@ -61,33 +61,53 @@ assert(last[0].path === "/c.png" && last[1].path === "/d.png" && last[2].path ==
 const empty = shipped.carouselSlots([], 0);
 assert(empty[0].path === "" && empty[1].path === "" && empty[2].path === "", "empty list is three empty slots");
 
-console.log("\n== Quick wallpaper source (LauncherWindow.qml) ==");
+console.log("\n== launcher opens the one picker, it does not clone it ==");
 const qml = fs.readFileSync(path.join(__dirname, "../launcher/LauncherWindow.qml"), "utf8");
-const start = qml.indexOf("Component { id: quickWallpaperComp");
-assert(start !== -1, "quickWallpaperComp exists");
-const nextComp = qml.indexOf("\n  Component {", start + 10);
-const wp = qml.slice(start, nextComp === -1 ? qml.length : nextComp);
+assert(
+  /key:\s*"wallpaper".*ipc:\s*"wallpaper"/.test(qml),
+  "the Wallpapers deck entry dispatches to the wallpaper IpcHandler"
+);
+assert(
+  !/mode:\s*"wallpaper"/.test(qml),
+  "it is not an in-launcher pane any more"
+);
+for (const gone of ["quickWallpaperComp", "quickWallpaperRoot", "wallCarousel", "quickWallKey", "WallThumbs"]) {
+  assert(qml.indexOf(gone) === -1, "the duplicated pane's " + gone + " is gone");
+}
+assert(
+  qml.indexOf("Wallpaper.DefaultTheme") !== -1,
+  "the wallpaper import is still pulled in for the palette"
+);
+assert(
+  qml.indexOf("WallpaperCarousel") === -1 && qml.indexOf("WallpaperPalette") === -1,
+  "the launcher no longer builds its own carousel or palette strip"
+);
+// The picker is standalone: no Quick tile, still reachable by typing.
+const hiddenBlock = qml.slice(qml.indexOf("quickDeckHidden"), qml.indexOf("quickDeckHidden") + 600);
+assert(/\bwallpaper:\s*true/.test(hiddenBlock), "Wallpapers is not a Quick deck tile");
+assert(
+  /aliases:\s*\["wall", "paper"\]/.test(qml),
+  "it is still in quickActions, so the launcher search finds it"
+);
 
-assert(
-  /viewW:\s*wallHost\.width/.test(wp),
-  "Quick carousel viewW is the host viewport, not the ListView width"
-);
-assert(
-  !/itemW:\s*Math\.floor\(\s*width\s*\/\s*3\s*\)/.test(wp),
-  "Quick carousel does not size tiles from ListView width"
-);
-assert(
-  /id:\s*wallPathCaption/.test(wp) && /Layout\.fillWidth:\s*true/.test(wp.slice(wp.indexOf("id: wallPathCaption"), wp.indexOf("id: wallPathCaption") + 220)),
-  "current-path caption is pane-width (Layout.fillWidth)"
-);
-assert(
-  !/width:\s*tileFrame/.test(wp) && !/width:\s*frame\.width/.test(wp),
-  "Quick path caption is not width: tileFrame / frame.width"
-);
-assert(
-  wp.indexOf("WallpaperTermPreview") === -1,
-  "Quick wallpaper has no fake Ghostty ls/src mock"
-);
+// The rule that made the tile show "select a quick tile" when it was left
+// visible: quickPaneKey falls back to t.key, not just t.mode, so EVERY visible
+// deck tile asks quickDetailFor for a pane. A tile with only ipc:/command: has
+// none and drops to quickDefaultComp's empty state. Keep those out of the deck.
+const actionsBlock = qml.slice(qml.indexOf("readonly property var quickActions"), qml.indexOf("readonly property var quickTiles"));
+const paneless = [];
+for (const line of actionsBlock.split("\n")) {
+  const key = (line.match(/\{\s*key:\s*"([a-z-]+)"/) || [])[1];
+  if (!key) continue;
+  if (!/\bmode:\s*"/.test(line)) paneless.push(key);
+}
+assert(paneless.length > 0, "found the paneless quickActions entries (" + paneless.length + ")");
+for (const key of paneless) {
+  assert(
+    new RegExp("\\b" + key.replace("-", "\\-") + "\\b\\s*:\\s*true|\"" + key + "\"\\s*:\\s*true").test(hiddenBlock),
+    "paneless action '" + key + "' is hidden from the deck (it has no pane to show)"
+  );
+}
 
 console.log("\n== WallpaperCarousel.qml ==");
 const car = fs.readFileSync(path.join(__dirname, "WallpaperCarousel.qml"), "utf8");
