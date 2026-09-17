@@ -47,11 +47,7 @@ Scope {
     }
   }
 
-  property var filteredWallpapers: {
-    const q = searchText.toLowerCase()
-    if (q === "") return WallpaperService.wallpapers
-    return WallpaperService.wallpapers.filter(p => p.split("/").pop().toLowerCase().includes(q))
-  }
+  property var filteredWallpapers: WallpaperService.arranged(root.searchText)
 
   function close() {
     WallpaperService.stopPreview()
@@ -101,17 +97,30 @@ Scope {
     if (on) wallSearchInput.forceActiveFocus()
     else { root.searchText = ""; wallSearchInput.text = ""; wallBox.forceActiveFocus() }
   }
-  // Shared by the card and the search field: ←/→ or Ctrl+h/j/k/l browse, ⏎ applies, Esc unwinds.
-  function handleKey(event) {
+  // Shared by the card and the search field: Shift arms live preview, ←/→ or
+  // Ctrl+h/j/k/l browse, ⏎ applies, Esc unwinds.
+  // `typing` is the search field, where Shift is just a modifier for capitals —
+  // only the Shift+arrow form arms live preview there.
+  function handleKey(event, typing) {
     const ctrl = !!(event.modifiers & Qt.ControlModifier)
+    const shift = !!(event.modifiers & Qt.ShiftModifier)
+    const left = event.key === Qt.Key_Left || (ctrl && (event.key === Qt.Key_H || event.key === Qt.Key_K))
+    const right = event.key === Qt.Key_Right || (ctrl && (event.key === Qt.Key_L || event.key === Qt.Key_J))
+    if (event.key === Qt.Key_Shift) {
+      if (typing || event.isAutoRepeat) return false
+      WallpaperService.setLive(!WallpaperService.liveMode)
+      return true
+    }
+    if (shift && (left || right)) WallpaperService.setLive(true)
     if (event.key === Qt.Key_Escape) {
       if (root.previewPath !== "") root.previewPath = ""
+      else if (WallpaperService.liveMode) WallpaperService.setLive(false)
       else if (root.showAll) root.setShowAll(false)
       else root.close()
       return true
     }
-    if (event.key === Qt.Key_Left || (ctrl && (event.key === Qt.Key_H || event.key === Qt.Key_K))) { wallCarousel.prev(); return true }
-    if (event.key === Qt.Key_Right || (ctrl && (event.key === Qt.Key_L || event.key === Qt.Key_J))) { wallCarousel.next(); return true }
+    if (left) { wallCarousel.prev(); return true }
+    if (right) { wallCarousel.next(); return true }
     if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { wallCarousel.activate(); return true }
     return false
   }
@@ -166,18 +175,26 @@ Scope {
             Menu.MenuHeader {
               anchors.fill: parent
               title: "Wallpapers"
-              subtitle: WallpaperService.wallpapers.length + " images"
+              subtitle: (root.filteredWallpapers || []).length === WallpaperService.wallpapers.length
+                ? WallpaperService.wallpapers.length + " images"
+                : (root.filteredWallpapers || []).length + " of " + WallpaperService.wallpapers.length + " images"
             }
           }
-          Rectangle {
-            implicitWidth: allRow.implicitWidth + 20; implicitHeight: 28; radius: Style.menuRadiusFull
-            color: root.showAll ? Style.m3secondaryContainer : (allMa.containsMouse ? Style.m3containerHigh : Style.m3container)
-            Row {
-              id: allRow; anchors.centerIn: parent; spacing: 6
-              Text { text: root.showAll ? "󰅃" : "󰅀"; color: Style.m3onSurface; font.family: root.uiFont; font.pixelSize: 13; anchors.verticalCenter: parent.verticalCenter }
-              Text { text: "All"; color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: 12; font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter }
-            }
-            MouseArea { id: allMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.setShowAll(!root.showAll) }
+          WallpaperChip {
+            glyph: "󰐊"
+            label: "Live"
+            on: WallpaperService.liveMode
+            fontFamily: Style.menuSans
+            iconFamily: root.uiFont
+            onClicked: WallpaperService.setLive(!WallpaperService.liveMode)
+          }
+          WallpaperChip {
+            glyph: root.showAll ? "󰅃" : "󰅀"
+            label: "All"
+            on: root.showAll
+            fontFamily: Style.menuSans
+            iconFamily: root.uiFont
+            onClicked: root.setShowAll(!root.showAll)
           }
           Rectangle {
             width: 28; height: 28; radius: 14
@@ -233,6 +250,28 @@ Scope {
           }
         }
 
+        WallpaperFilterBar {
+          Layout.fillWidth: true
+          query: root.searchText
+          fontFamily: Style.menuSans
+          iconFamily: root.uiFont
+        }
+
+        WallpaperPalette {
+          Layout.fillWidth: true
+          path: wallCarousel.currentPath
+          fontFamily: Style.menuSans
+          iconFamily: root.uiFont
+        }
+
+        Menu.MenuDivider { Layout.fillWidth: true; Layout.preferredHeight: 1 }
+
+        WallpaperFlavors {
+          Layout.fillWidth: true
+          fontFamily: Style.menuSans
+          iconFamily: root.uiFont
+        }
+
         // Expanded: filter + full grid (click applies, right-click previews full size).
         ColumnLayout {
           visible: root.showAll
@@ -263,7 +302,7 @@ Scope {
               clip: true
               selectByMouse: true
               onTextChanged: root.searchText = text
-              Keys.onPressed: event => { if (root.handleKey(event)) event.accepted = true }
+              Keys.onPressed: event => { if (root.handleKey(event, true)) event.accepted = true }
               Text {
                 anchors.fill: parent
                 text: "Filter wallpapers"
@@ -380,7 +419,7 @@ Scope {
           Layout.fillWidth: true
           Layout.preferredHeight: implicitHeight
           fontFamily: Style.menuSans
-          hints: "←/→ or ctrl+h/l browse · ⏎ or click applies · All lists every wallpaper"
+          hints: "←/→ browse · shift toggles live preview · ⏎ applies · All lists every wallpaper"
         }
       }
     }

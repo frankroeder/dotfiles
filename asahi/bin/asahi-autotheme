@@ -19,7 +19,7 @@ if str(THEME_ROOT) not in sys.path:
     sys.path.insert(0, str(THEME_ROOT))
 
 from theme.extract import extract_representatives  # noqa: E402
-from theme.palette import build_palette  # noqa: E402
+from theme.palette import FLAVORS, build_palette  # noqa: E402
 from theme.apply import apply_live, preview_ghostty, state_dir, write_all  # noqa: E402
 
 
@@ -52,8 +52,14 @@ def main() -> int:
     parser.add_argument(
         "--variant",
         default="source",
-        choices=("source", "calm", "vibrant", "deep"),
-        help="palette direction (omagen-inspired)",
+        choices=tuple(FLAVORS),
+        help="flavour: how strong and how colorful (matugen scheme-* analogue)",
+    )
+    parser.add_argument(
+        "--mode",
+        default="auto",
+        choices=("auto", "dark", "light"),
+        help="force dark/light instead of deriving it from wallpaper lightness",
     )
     parser.add_argument("--dry-run", action="store_true", help="print palette JSON only")
     parser.add_argument(
@@ -67,7 +73,7 @@ def main() -> int:
 
     wallpaper = resolve_wallpaper(args.wallpaper)
     reps = extract_representatives(str(wallpaper))
-    palette = build_palette(reps, str(wallpaper), variant=args.variant)
+    palette = build_palette(reps, str(wallpaper), variant=args.variant, mode=args.mode)
 
     if args.dry_run or args.preview:
         if args.preview:

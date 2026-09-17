@@ -125,6 +125,51 @@ function thumbBatchScript(originals, dir, w, h) {
   return lines.join("\n")
 }
 
+// Color index: six dominant colors per wallpaper, read back by
+// wallpaper_colors.js for the bucket / tone filters and the palette strip.
+// Sampled from the cached thumb (not the original) — 320x192 JPEG is ~15ms.
+var HIST_ARGS = ["-resize", "24x24!", "-colors", "6", "-depth", "8", "-format", "%c", "histogram:info:-"]
+var HIST_AWK = '{c=$1; sub(/:$/,"",c); h=""; for(i=1;i<=NF;i++) if (substr($i,1,1)=="#") {h=tolower(substr($i,1,7)); break} if (h!="") print c" "h}'
+
+function colorIndexPath(dir) {
+  return String(dir || "").replace(/\/$/, "") + "/colors.tsv"
+}
+
+// `%c histogram:` is unordered, so sort by pixel count and keep the hex only.
+function histogramCommand(thumb) {
+  return '"$IM" ' + shellQuote(thumb) + " " + HIST_ARGS.map(shellQuote).join(" ")
+    + " 2>/dev/null | awk " + shellQuote(HIST_AWK) + " | sort -rn | cut -d' ' -f2 | paste -sd, -"
+}
+
+function colorIndexScript(originals, dir) {
+  const lines = [
+    "mkdir -p " + shellQuote(dir),
+    'IM=/usr/bin/magick; [ -x "$IM" ] || IM=/usr/bin/convert',
+    "IDX=" + shellQuote(colorIndexPath(dir)),
+    // A warm cache is one find: rebuild only when some thumb is newer than the index.
+    'if [ -f "$IDX" ] && [ -z "$(find ' + shellQuote(dir) + ' -name \'*.jpg\' -newer "$IDX" -print -quit 2>/dev/null)" ]; then',
+    "  echo COLORS_DONE",
+    "  exit 0",
+    "fi",
+    ': > "$IDX.tmp"'
+  ]
+  const list = originals || []
+  let inFlight = 0
+  for (let i = 0; i < list.length; i++) {
+    const src = list[i]
+    if (!src) continue
+    // One short O_APPEND line per job, so the 4-wide workers can share the file.
+    lines.push("[ -f " + shellQuote(thumbPath(src, dir)) + " ] && printf '%s\\t%s\\n' " + shellQuote(src)
+      + ' "$(' + histogramCommand(thumbPath(src, dir)) + ')" >> "$IDX.tmp" &')
+    inFlight++
+    if (inFlight % 4 === 0) lines.push("wait")
+  }
+  lines.push("wait")
+  lines.push('mv "$IDX.tmp" "$IDX"')
+  lines.push("echo COLORS_DONE")
+  return lines.join("\n")
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     THUMB_W: THUMB_W,
@@ -138,6 +183,9 @@ if (typeof module !== "undefined" && module.exports) {
     convertCommand: convertCommand,
     shellQuote: shellQuote,
     thumbBatchScript: thumbBatchScript,
+    colorIndexPath: colorIndexPath,
+    colorIndexScript: colorIndexScript,
+    histogramCommand: histogramCommand,
     wheelStep: wheelStep,
     clampedContentY: clampedContentY,
     carouselItemWidth: carouselItemWidth,

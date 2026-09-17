@@ -137,8 +137,8 @@ assert(
   "preview process waits for autotheme JSON then applyJson"
 );
 assert(
-  /previewWaitMs:\s*500/.test(svc) && /interval:\s*root\.previewWaitMs/.test(svc),
-  "carousel preview waits 500ms before applying wallpaper/theme"
+  /previewWaitMs:\s*70/.test(svc) && /interval:\s*root\.previewWaitMs/.test(svc),
+  "armed preview is real-time — the debounce only swallows key-repeat"
 );
 assert(
   /id:\s*previewThemeDelay/.test(svc) && /previewThemeDelayMs:\s*100/.test(svc),

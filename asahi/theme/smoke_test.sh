@@ -76,10 +76,19 @@ test -s "$HOME/.config/gtk-3.0/asahi-adaptive.css" \
 test -s "$HOME/.config/gtk-4.0/asahi-adaptive.css" \
   || { echo "gtk-4.0/asahi-adaptive.css not installed" >&2; exit 1; }
 
-echo "== dry-run variants =="
-for v in source calm vibrant deep; do
+echo "== dry-run flavours =="
+for v in source content vibrant calm mono; do
   asahi-autotheme --dry-run --variant "$v" "$WALL" >/dev/null
   echo "  $v ok"
+done
+
+echo "== dry-run mode override =="
+asahi-autotheme --dry-run --mode auto "$WALL" | rg -q '"mode": "(dark|light)"' \
+  || { echo "--mode auto derived no mode" >&2; exit 1; }
+for m in dark light; do
+  asahi-autotheme --dry-run --mode "$m" "$WALL" | rg -q "\"mode\": \"$m\"" \
+    || { echo "--mode $m was not honoured" >&2; exit 1; }
+  echo "  $m ok"
 done
 
 STYLE="$DOTFILES/asahi/quickshell/remix/Style.qml"

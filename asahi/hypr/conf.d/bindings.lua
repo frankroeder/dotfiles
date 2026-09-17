@@ -16,6 +16,7 @@ hl.bind(
 )
 -- hl.bind(mod .. " + B", hl.dsp.exec_cmd(browser), { desc = "Browser" })
 hl.bind(mod .. " + Q", hl.dsp.window.close(), { desc = "Close window" })
+hl.bind(mod .. " + SHIFT + Q", hl.dsp.window.kill(), { desc = "Kill process" })
 hl.bind(mod .. " + F", hl.dsp.window.fullscreen { mode = 1 }, { desc = "Toggle maximized" })
 hl.bind(mod .. " + SHIFT + F", hl.dsp.window.fullscreen(), { desc = "Toggle fullscreen" })
 hl.bind(mod .. " + P", hl.dsp.window.pseudo(), { desc = "Toggle pseudo" })

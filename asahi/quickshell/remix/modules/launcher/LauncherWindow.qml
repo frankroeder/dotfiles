@@ -947,12 +947,9 @@ Scope {
     // Carousel first; the filter + grid only when "All" is toggled.
     property bool showAll: false
     readonly property var wps: (Wallpaper.WallpaperService && Wallpaper.WallpaperService.wallpapers) || []
-    readonly property var filtered: {
-      const q = (wpSearch || "").toLowerCase().trim()
-      const list = wps || []
-      if (!q) return list
-      return list.filter(function(p){ const n = ((p || "").split("/").pop() || "").toLowerCase(); return n.indexOf(q) >= 0 })
-    }
+    // Color / tone filters and sort are owned by WallpaperService, so whatever is
+    // set in the Super+Shift+W picker applies here too.
+    readonly property var filtered: Wallpaper.WallpaperService.arranged(quickWallpaperRoot.wpSearch)
     Component.onCompleted: {
       try { if (Wallpaper.WallpaperService && (Wallpaper.WallpaperService.wallpapers || []).length < 1) Wallpaper.WallpaperService.rescan() } catch(_) {}
     }
@@ -997,10 +994,24 @@ Scope {
         elide: Text.ElideMiddle
         horizontalAlignment: Text.AlignHCenter
       }
+      Wallpaper.WallpaperPalette {
+        Layout.fillWidth: true
+        path: wallCarousel.currentPath
+        fontFamily: root.uiSans
+        iconFamily: root.uiFont
+      }
       RowLayout {
         Layout.fillWidth: true
         spacing: 8
         Item { Layout.fillWidth: true }
+        Wallpaper.WallpaperChip {
+          glyph: "󰐊"
+          label: "Live"
+          on: Wallpaper.WallpaperService.liveMode
+          fontFamily: root.uiSans
+          iconFamily: root.uiFont
+          onClicked: Wallpaper.WallpaperService.setLive(!Wallpaper.WallpaperService.liveMode)
+        }
         Rectangle {
           implicitWidth: shuffleRow.implicitWidth + 20; implicitHeight: 26; radius: Style.menuRadiusFull
           color: shuffleMa.containsMouse ? Style.m3containerHigh : Style.m3container
@@ -1137,7 +1148,7 @@ Scope {
       }
       RowLayout {
         Layout.fillWidth: true; spacing: 8
-        Text { text: "←/→ or ctrl+h/l browse · ⏎ or click applies · All lists every wallpaper"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiSans }
+        Text { text: "←/→ browse · shift+←/→ live preview · ⏎ applies · All lists every wallpaper"; color: Style.menuInkDeep; font.pixelSize: root.fontPx(8); font.family: root.uiSans }
         Item { Layout.fillWidth: true }
         Text {
           text: ((Wallpaper.WallpaperService.currentWallpaper || "").split("/").pop() || "none")
@@ -1417,9 +1428,13 @@ Scope {
     return true
   }
 
-  // Wallpaper pane: ←/→ move the carousel, ⏎ applies the centre item.
-  function quickWallKey(qk) {
+  // Wallpaper pane: ←/→ move the carousel, ⏎ applies the centre item. Shift+←/→
+  // also arms live preview — the launcher is a type-first UI, so bare Shift stays
+  // a modifier for capitals here (the Super+Shift+W picker toggles on it).
+  function quickWallKey(qk, shift) {
     if (root.quickPaneKey !== "wallpaper" || !root.wallCarousel) return false
+    const move = qk === Qt.Key_Left || qk === Qt.Key_Right
+    if (shift && move) Wallpaper.WallpaperService.setLive(true)
     if (qk === Qt.Key_Left) { root.wallCarousel.prev(); return true }
     if (qk === Qt.Key_Right) { root.wallCarousel.next(); return true }
     if (qk === Qt.Key_Return || qk === Qt.Key_Enter) { root.wallCarousel.activate(); return true }
@@ -2921,7 +2936,7 @@ Scope {
         hjkl[Qt.Key_K] = Qt.Key_Up
         hjkl[Qt.Key_L] = Qt.Key_Right
         const qk = hjkl[event.key] !== undefined ? hjkl[event.key] : event.key
-        if (root.quickWallKey(qk)) { event.accepted = true; return }
+        if (root.quickWallKey(qk, !!(event.modifiers & Qt.ShiftModifier))) { event.accepted = true; return }
         if (qk === Qt.Key_Down) {
           root.selectDeckIndex(root.selectedIndex + cols)
           event.accepted = true
@@ -3129,7 +3144,7 @@ Scope {
                 hjkl[Qt.Key_K] = Qt.Key_Up
                 hjkl[Qt.Key_L] = Qt.Key_Right
                 const qk = hjkl[event.key] !== undefined ? hjkl[event.key] : event.key
-                if (root.quickWallKey(qk)) { event.accepted = true; return }
+                if (root.quickWallKey(qk, !!(event.modifiers & Qt.ShiftModifier))) { event.accepted = true; return }
                 if (qk === Qt.Key_Down) {
                   event.accepted = true; root.selectDeckIndex(root.selectedIndex + cols)
                 } else if (qk === Qt.Key_Up) {

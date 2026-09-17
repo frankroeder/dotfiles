@@ -94,6 +94,16 @@ def gamut_map(lch: OKLCH) -> OKLCH:
     return OKLCH(lch.L, low, lch.H)
 
 
+def max_chroma(l: float, h: float) -> float:
+    """Largest in-sRGB chroma at this lightness and hue (the gamut edge).
+
+    Flavours scale against this instead of against a raw multiplier: past the
+    edge every request clips to the same color, which made strong flavours
+    indistinguishable from each other.
+    """
+    return gamut_map(OKLCH(clamp(l, 0.0, 1.0), 0.5, normalize_hue(h))).C
+
+
 def hex_from_oklch(l: float, c: float, h: float) -> str:
     lch = gamut_map(OKLCH(clamp(l, 0.0, 1.0), max(0.0, c), normalize_hue(h)))
     r, g, b = oklab_to_linear_srgb(lch.to_oklab())

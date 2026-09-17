@@ -4,6 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import "wallpaper_thumbs.js" as WallThumbs
+import "wallpaper_colors.js" as WallColors
 
 Singleton {
   id: root
@@ -23,32 +24,74 @@ Singleton {
   // shown on the desktop, its palette is applied to the shell without touching
   // colors.json, and Ghostty is rethemed (`asahi-autotheme --preview`).
   // stopPreview() restores all three; commitPreview() applies for real.
+  //
+  // Opt-in: Shift in the picker arms it, and from then on every preselected
+  // wallpaper repaints in real time. Disarmed, browsing is thumbnails only —
+  // no hyprpaper churn and no autotheme per keystroke.
+  property bool liveMode: false
+  property string browsePath: ""    // centre tile, previewed only while armed
   property string previewPath: ""
   property bool previewApplied: false
   property string fadePath: ""
-  readonly property int previewWaitMs: 500
+  // A full autotheme pass is ~110ms, so this only has to swallow key-repeat:
+  // the timer restarts per browse step and fires once the user pauses.
+  readonly property int previewWaitMs: 70
   readonly property int previewThemeDelayMs: 100
   readonly property int previewFadeMs: 320
   readonly property string autotheme: Quickshell.env("HOME") + "/.dotfiles/asahi/bin/asahi-autotheme"
 
+  // Flavour (matugen scheme analogue). autotheme records it in colors.json, so
+  // this binding restores the last choice at startup and pins once setFlavor runs.
+  property string flavor: DefaultTheme.variant || "source"
+
   function preview(path) {
-    if (!path || path === root.previewPath) return
+    if (!path) return
+    root.browsePath = path
+    if (!root.liveMode || path === root.previewPath) return
     root.previewPath = path
     previewDebounce.restart()
+  }
+  function setLive(on) {
+    if (root.liveMode === on) return
+    root.liveMode = on
+    if (on) root.preview(root.browsePath)
+    else root.stopPreview()
+  }
+  // Re-theme without touching the wallpaper: refresh the preview while one is
+  // running, otherwise apply for real — a flavour chip is a deliberate choice.
+  property bool flavorDirty: false   // picked mid-preview, not yet written to disk
+
+  function applyFlavor() {
+    root.flavorDirty = false
+    if (!root.currentWallpaper) return
+    themeProc.command = [root.autotheme, "--variant", root.flavor, root.currentWallpaper]
+    if (themeProc.running) themeProc.running = false
+    themeProc.running = true
+  }
+  function setFlavor(name) {
+    if (!name || name === root.flavor) return
+    root.flavor = name
+    if (root.previewPath !== "") { root.flavorDirty = true; previewThemeDelay.restart(); return }
+    root.applyFlavor()
   }
   function stopPreview() {
     previewDebounce.stop()
     previewThemeDelay.stop()
     root.previewPath = ""
-    if (!root.previewApplied) return
-    if (root.currentWallpaper) root.showOnDesktop(root.currentWallpaper)
+    const wasApplied = root.previewApplied
     root.previewApplied = false
-    DefaultTheme.reloadFromDisk()
-    if (root.currentWallpaper) {
-      if (previewThemeProc.running) previewThemeProc.running = false
-      previewThemeProc.command = [root.autotheme, "--preview", root.currentWallpaper]
-      previewThemeProc.running = true
+    if (wasApplied) {
+      if (root.currentWallpaper) root.showOnDesktop(root.currentWallpaper)
+      DefaultTheme.reloadFromDisk()
     }
+    if (!root.currentWallpaper) { root.flavorDirty = false; return }
+    // A flavour picked mid-preview is a lasting choice, so commit it here — the
+    // preview only ever painted the shell, colors.json still holds the old one.
+    if (root.flavorDirty) { root.applyFlavor(); return }
+    if (!wasApplied) return
+    if (previewThemeProc.running) previewThemeProc.running = false
+    previewThemeProc.command = [root.autotheme, "--preview", "--variant", root.flavor, root.currentWallpaper]
+    previewThemeProc.running = true
   }
   function commitPreview() {
     const p = root.previewPath
@@ -93,7 +136,7 @@ Singleton {
     onTriggered: {
       if (root.previewPath === "") return
       if (previewThemeProc.running) previewThemeProc.running = false
-      previewThemeProc.command = [root.autotheme, "--preview", root.previewPath]
+      previewThemeProc.command = [root.autotheme, "--preview", "--variant", root.flavor, root.previewPath]
       previewThemeProc.running = true
     }
   }
@@ -129,6 +172,57 @@ Singleton {
     thumbProc.command = ["sh", "-c", script]
     if (thumbProc.running) thumbProc.running = false
     thumbProc.running = true
+  }
+
+  // Dominant-color index: six colors per wallpaper, sampled from the thumbs, for
+  // the picker's color/tone filters and the palette strip (wallpaper_colors.js).
+  // ~1.3s over 230 cold, a single `find` once warm — so it chases the thumbs.
+  property var colorIndex: ({})
+  readonly property string colorIndexPath: WallThumbs.colorIndexPath(root.thumbCacheDir)
+
+  function colorEntry(path) { return (path && root.colorIndex[path]) || null }
+
+  // Picker filters live here so the compact card and the launcher pane agree.
+  property string filterTone: ""     // "" | dark | light
+  property string filterBucket: ""   // "" | a wallpaper_colors BUCKETS key
+  property string sortKey: "name"    // name | color | tone
+
+  function arranged(query) {
+    return WallColors.arrange(root.wallpapers, root.colorIndex,
+      { query: query || "", tone: root.filterTone, bucket: root.filterBucket, sort: root.sortKey })
+  }
+  function filterCounts(query) {
+    return WallColors.counts(root.wallpapers, root.colorIndex,
+      { query: query || "", tone: root.filterTone, bucket: root.filterBucket })
+  }
+  function clearFilters() { root.filterTone = ""; root.filterBucket = ""; root.sortKey = "name" }
+
+  function rebuildColorIndex() {
+    const paths = []
+    for (let i = 0; i < root.wallpapers.length; i++) paths.push(root.wallpapers[i])
+    if (paths.length === 0) return
+    colorProc.command = ["sh", "-c", WallThumbs.colorIndexScript(paths, root.thumbCacheDir)]
+    if (colorProc.running) colorProc.running = false
+    colorProc.running = true
+  }
+
+  function loadColorIndex() {
+    colorsFile.reload()
+    root.colorIndex = WallColors.parseIndex(colorsFile.text())
+  }
+
+  Process {
+    id: colorProc
+    running: false
+    stdout: StdioCollector {
+      onStreamFinished: if ((text || "").indexOf("COLORS_DONE") >= 0) root.loadColorIndex()
+    }
+  }
+
+  FileView {
+    id: colorsFile
+    path: root.colorIndexPath
+    onLoaded: root.colorIndex = WallColors.parseIndex(colorsFile.text())
   }
 
   // Scan wallpaper directories (our setup uses ~/Pictures/wallpaper).
@@ -167,6 +261,7 @@ Singleton {
     }
     onExited: {
       if (root.thumbsEpoch === 0) root.thumbsEpoch = 1
+      root.rebuildColorIndex()   // the index samples the thumbs, so it waits for them
     }
   }
 
@@ -213,6 +308,7 @@ Singleton {
     root.previewPath = ""
     root.previewApplied = false
     root.wallQueued = ""
+    root.flavorDirty = false   // the autotheme call below writes the flavour anyway
     currentWallpaper = path
 
     // Always save the choice
@@ -224,7 +320,7 @@ Singleton {
     applyProc.running = true
 
     // Wallpaper-driven adaptive theme (Quickshell / Ghostty / LibreWolf / Hyprland)
-    themeProc.command = [Quickshell.env("HOME") + "/.dotfiles/asahi/bin/asahi-autotheme", path]
+    themeProc.command = [root.autotheme, "--variant", root.flavor, path]
     if (themeProc.running) themeProc.running = false
     themeProc.running = true
   }
