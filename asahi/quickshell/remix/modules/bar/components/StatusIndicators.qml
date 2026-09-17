@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import "../../../"
 import "../../../services" as Services
@@ -222,9 +223,18 @@ RowLayout {
   Rectangle {
     id: recChip
     readonly property bool rec: Services.Recorder.running
+    readonly property bool sameScreen: {
+      const mon = Hyprland.focusedMonitor
+      const scr = root.barHost ? root.barHost.barScreen : null
+      if (!mon || !scr) return true
+      return mon.name === scr.name
+    }
+    readonly property bool panelShown: (root.barHost && root.barHost.recPanelOpen) || (Services.Recorder.panelOpen && sameScreen)
     readonly property color tone: Style.red
-    visible: rec
-    width: recRow.implicitWidth + (solidBar ? 8 : 12)
+    // Stays visible while the panel is open even after recording stops, so the chip
+    // that opened it is still there to close it (it used to vanish and strand the popup).
+    visible: rec || panelShown
+    Layout.preferredWidth: recRow.implicitWidth + (solidBar ? 8 : 12)
     height: solidBar ? Style.barHeight : 26
     radius: solidBar ? 0 : Style.radius
     color: solidBar ? "transparent" : (recMouse.containsMouse ? Style.panelDangerBg : Style.barBg)
@@ -272,19 +282,27 @@ RowLayout {
       acceptedButtons: Qt.LeftButton | Qt.RightButton
       onClicked: function(mouse) {
         if (mouse.button === Qt.RightButton && recChip.rec) Services.Recorder.stop()
+        else if (recChip.panelShown) {
+          // Close however it was opened (bar click or the global keybind), not just
+          // this bar's own flag — otherwise a keybind-opened panel wouldn't budge.
+          if (root.barHost) root.barHost.recPanelOpen = false
+          Services.Recorder.panelOpen = false
+        }
         else if (root.barHost) root.barHost.toggleRecPanel()
       }
     }
     TooltipWindow {
       target: recChip
-      text: recChip.rec ? "Recording — click for controls, right-click to stop" : "Screen recorder"
+      text: recChip.rec
+        ? "Recording " + Services.Recorder.fmtElapsed(Services.Recorder.elapsed) + " — click for controls, right-click to stop"
+        : "Screen recorder"
       show: recMouse.containsMouse
     }
   }
 
   Rectangle {
     id: timerChip
-    width: timerRow.implicitWidth + (solidBar ? 8 : 12)
+    Layout.preferredWidth: timerRow.implicitWidth + (solidBar ? 8 : 12)
     height: solidBar ? Style.barHeight : 26
     radius: solidBar ? 0 : Style.radius
     color: solidBar ? "transparent" : (timerMouse.containsMouse ? Style.panelWarningBg : Style.barBg)
@@ -371,7 +389,7 @@ RowLayout {
   }
 
   Rectangle {
-    width: notifRow.implicitWidth + (solidBar ? 8 : 12)
+    Layout.preferredWidth: notifRow.implicitWidth + (solidBar ? 8 : 12)
     height: solidBar ? Style.barHeight : 26
     radius: solidBar ? 0 : Style.radius
     border.width: solidBar ? 0 : 1

@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Hyprland
 import "../../../"
 import "../../../services" as Services
 
@@ -15,7 +16,17 @@ PopupWindow {
   property string confirmDelete: ""
   readonly property bool rec: Services.Recorder.running
 
-  visible: root.panelOpen || Services.Recorder.panelOpen
+  // The keybind/IPC toggle is one flag shared by every screen's panel (there's
+  // no per-screen state to target); restrict it to the currently focused
+  // monitor, same trick as Clock.qml's calendar dropdown.
+  readonly property bool sameScreen: {
+    const mon = Hyprland.focusedMonitor
+    const scr = root.barHost ? root.barHost.barScreen : null
+    if (!mon || !scr) return true
+    return mon.name === scr.name
+  }
+
+  visible: root.panelOpen || (Services.Recorder.panelOpen && root.sameScreen)
   color: "transparent"
   anchor.edges: Edges.Bottom
   implicitWidth: 380
@@ -109,6 +120,10 @@ PopupWindow {
           color: Style.red
           font.family: Style.menuSans; font.pixelSize: 22; font.weight: Font.DemiBold
         }
+        // Always-present close affordance: the bar chip that opens this panel can
+        // disappear out from under it (e.g. recording stops), so closing must not
+        // depend on clicking back on the chip.
+        IconBtn { text: "󰅖"; font.pixelSize: 18; onClicked: root.close() }
       }
 
       // Running: file + size, pause / stop.

@@ -54,6 +54,7 @@ EXTRA_BIN_DIRS = (
 WEEK_SEC = 7 * 24 * 60 * 60
 SESSION_SPAN_SEC = 5 * 60 * 60
 NO_WEEKLY = "Weekly limit unavailable"
+FETCHED_AT = "_fetched_at"
 MONTH_NAMES = (
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
@@ -170,6 +171,18 @@ def save_cache(parts: dict[str, Any]) -> None:
     CACHE_PATH.write_text(json.dumps(parts))
   except OSError:
     pass
+
+
+def cache_times(cache: dict[str, Any]) -> dict[str, int]:
+  raw = cache.get(FETCHED_AT)
+  if not isinstance(raw, dict):
+    return {}
+  out: dict[str, int] = {}
+  for key, val in raw.items():
+    n = num(val)
+    if n is not None and n > 0:
+      out[str(key)] = int(n)
+  return out
 
 
 def pick_provider(fresh: dict[str, Any] | None, cached: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -346,6 +359,26 @@ def usage_line(win: dict[str, Any] | None) -> str:
   if not win:
     return NO_WEEKLY
   return f"{percent(win['used'])} of {window_name(win.get('span'))} limit used"
+
+
+def ago(ts: Any, now: int, short: bool = False) -> str:
+  t = int(num(ts) or 0)
+  n = int(num(now) or 0)
+  if t <= 0:
+    return ""
+  sec = max(0, n - t)
+  if sec < 60:
+    return "now" if short else "just now"
+  if sec < 3600:
+    m = sec // 60
+    return f"{m}m" if short else f"{m}m ago"
+  if sec < 86400:
+    h = sec // 3600
+    return f"{h}h" if short else f"{h}h ago"
+  d = sec // 86400
+  if d < 7:
+    return f"{d}d" if short else f"{d}d ago"
+  return date_short(t)
 
 
 def reset_line(win: dict[str, Any] | None, now: int) -> str:
@@ -784,7 +817,13 @@ def attach_cost(st: dict[str, Any], prov: dict[str, Any] | None) -> None:
   st["days"] = days if isinstance(days, list) else []
 
 
-def serialize_card(spec: dict[str, Any], st: dict[str, Any], now: int) -> dict[str, Any]:
+def serialize_card(
+  spec: dict[str, Any],
+  st: dict[str, Any],
+  now: int,
+  fresh: bool = True,
+  fetched_at: int = 0,
+) -> dict[str, Any]:
   win = st.get("weekly")
   tier = st.get("tier") if isinstance(st.get("tier"), str) and st.get("tier") else None
   ident = ident_text(st.get("email"), st.get("renews_unix"), st.get("cancels"))
@@ -828,6 +867,8 @@ def serialize_card(spec: dict[str, Any], st: dict[str, Any], now: int) -> dict[s
     "head": head,
     "usage_line": usage_line(win) if win is not None else "",
     "reset_line": reset_line(win, now) if win is not None else "",
+    "fresh": bool(fresh),
+    "fetched_at": int(fetched_at or 0),
     "chip": bar_chip(spec["label"], win, now),
     "used": used100,
     "status": st.get("status"),
@@ -846,6 +887,14 @@ def serialize_card(spec: dict[str, Any], st: dict[str, Any], now: int) -> dict[s
   }
 
 
+def is_fresh(result: dict[str, Any] | None, wanted: bool) -> bool:
+  if not wanted:
+    return True
+  if not result:
+    return False
+  return not result.get("error")
+
+
 def empty_payload(error: str | None = None) -> dict[str, Any]:
   return {
     "text": "CCu",
@@ -858,6 +907,7 @@ def empty_payload(error: str | None = None) -> dict[str, Any]:
     "overview": [],
     "chips": [],
     "chip_chars": 0,
+    "updated_at": 0,
   }
 
 
@@ -898,17 +948,22 @@ def build() -> dict[str, Any]:
   grok = pick_provider(fresh_grok, cached_grok) if want_grok else None
   cursor = pick_provider(fresh_cursor, cached_cursor) if want_cursor else None
 
+  now = int(time.time())
+  times = cache_times(cache)
   parts: dict[str, Any] = {}
-  for key, val, cached in (
-    ("claude", claude, cached_claude),
-    ("grok", grok, cached_grok),
-    ("cursor", cursor, cached_cursor),
+  for key, val, cached, fetched in (
+    ("claude", claude, cached_claude, fresh_claude),
+    ("grok", grok, cached_grok, fresh_grok),
+    ("cursor", cursor, cached_cursor, fresh_cursor),
   ):
     if val and not val.get("error"):
       parts[key] = val
     elif cached and not cached.get("error"):
       parts[key] = cached
+    if fetched and not fetched.get("error"):
+      times[key] = now
   if parts:
+    parts[FETCHED_AT] = times
     save_cache(parts)
 
   cost_by_id: dict[str, Any] = {}
@@ -919,12 +974,17 @@ def build() -> dict[str, Any]:
         if isinstance(prov, dict) and prov.get("id"):
           cost_by_id[str(prov["id"])] = prov
 
-  now = int(time.time())
   builders = {
     "grok": lambda: grok_state(grok),
     "cursor": lambda: cursor_state(cursor),
     "claude": lambda: claude_state(claude),
     "codex": lambda: codex_state(),
+  }
+  fresh_map = {
+    "claude": is_fresh(fresh_claude, want_claude),
+    "grok": is_fresh(fresh_grok, want_grok),
+    "cursor": is_fresh(fresh_cursor, want_cursor),
+    "codex": True,
   }
 
   overview: list[dict[str, Any]] = []
@@ -940,7 +1000,13 @@ def build() -> dict[str, Any]:
     if spec["id"] == "cursor" and st.get("weekly") is None and fresh_cursor and fresh_cursor.get("error"):
       if not st.get("status"):
         st["status"] = tidy_error(fresh_cursor["error"])
-    overview.append(serialize_card(spec, st, now))
+    overview.append(serialize_card(
+      spec,
+      st,
+      now,
+      fresh=fresh_map.get(spec["id"], True),
+      fetched_at=times.get(spec["id"], 0),
+    ))
 
   bars = bar_providers(providers)
   chips = []
@@ -953,6 +1019,8 @@ def build() -> dict[str, Any]:
         "text": card["chip"],
         "used": card["used"],
         "accent": card["accent"],
+        "fresh": card.get("fresh") is not False,
+        "fetched_at": int(card.get("fetched_at") or 0),
       })
 
   used_vals = [c["used"] for c in chips if c.get("used") is not None]
@@ -1008,6 +1076,7 @@ def build() -> dict[str, Any]:
     "overview": overview,
     "chips": chips,
     "chip_chars": max((len(c["text"]) for c in chips), default=0),
+    "updated_at": now,
   }
 
 

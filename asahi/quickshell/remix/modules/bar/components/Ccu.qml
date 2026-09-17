@@ -48,6 +48,8 @@ Rectangle {
   property int chipChars: 0
   property int providerIndex: 0
   property double lastFetch: 0
+  property double updatedAt: 0
+  property int clockTick: 0
 
   readonly property var currentChip: {
     const list = root.chips || []
@@ -80,11 +82,13 @@ Rectangle {
   }
   readonly property var chipUsed: root.currentChip ? root.currentChip.used : root.usedPct
   readonly property bool hasValue: chipUsed !== null && chipUsed !== undefined
+  readonly property bool chipFresh: !root.currentChip || root.currentChip.fresh !== false
   readonly property color valueColor: {
     if (root.hasError && !root.hasValue) return Style.red
     return usageColor(chipUsed)
   }
   readonly property bool alarming: hasValue && chipUsed >= 90
+  readonly property string updatedLabel: { clockTick; return ago(root.updatedAt) }
 
   FontMetrics {
     id: chipMetrics
@@ -117,6 +121,25 @@ Rectangle {
     if (used >= 75) return Style.orange
     if (used >= 50) return Style.yellow
     return Style.teal
+  }
+
+  function ago(ts) {
+    const t = Number(ts) || 0
+    if (t <= 0) return ""
+    const sec = Math.max(0, Date.now() / 1000 - t)
+    if (sec < 60) return "just now"
+    if (sec < 3600) return Math.floor(sec / 60) + "m ago"
+    if (sec < 86400) return Math.floor(sec / 3600) + "h ago"
+    const d = Math.floor(sec / 86400)
+    if (d < 7) return d + "d ago"
+    const dt = new Date(t * 1000)
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    return months[dt.getMonth()] + " " + dt.getDate()
+  }
+
+  function staleLine(card) {
+    const when = ago((card && card.fetched_at) || 0)
+    return when ? ("stale, last ok " + when) : "stale, last refresh failed"
   }
 
   function accentColor(name) {
@@ -180,6 +203,7 @@ Rectangle {
     root.overview = data.overview || []
     root.chips = data.chips || []
     root.chipChars = Number(data.chip_chars) || 0
+    root.updatedAt = Number(data.updated_at) || 0
     if (root.chipIndex >= root.chips.length)
       root.chipIndex = 0
     if (root.providerIndex >= root.overview.length)
@@ -201,8 +225,11 @@ Rectangle {
       width: root.chipBoxW
       font { family: Style.fontFamily; pixelSize: Style.barFontBody }
       color: root.valueColor
+      opacity: root.chipFresh ? 1 : 0.45
       horizontalAlignment: Text.AlignLeft
       verticalAlignment: Text.AlignVCenter
+      Behavior on color { ColorAnimation { duration: 200 } }
+      Behavior on opacity { NumberAnimation { duration: 160 } }
     }
   }
 
@@ -221,7 +248,7 @@ Rectangle {
   }
 
   Timer {
-    interval: popup.shouldShow ? 20000 : 60000
+    interval: 2 * 60 * 1000
     running: true
     repeat: true
     triggeredOnStart: true
@@ -229,6 +256,13 @@ Rectangle {
       root.lastFetch = 0
       root.refresh()
     }
+  }
+
+  Timer {
+    interval: 30000
+    running: root.updatedAt > 0
+    repeat: true
+    onTriggered: root.clockTick++
   }
 
   Timer {
@@ -307,10 +341,26 @@ Rectangle {
           width: flick.width
           spacing: 8
 
-          Text {
-            text: "AGENT USAGE"
-            font { family: Style.fontFamily; pixelSize: 13; bold: true }
-            color: Style.text
+          Item {
+            width: parent.width
+            height: titleText.implicitHeight
+
+            Text {
+              id: titleText
+              anchors.left: parent.left
+              anchors.verticalCenter: parent.verticalCenter
+              text: "AGENT USAGE"
+              font { family: Style.fontFamily; pixelSize: 13; bold: true }
+              color: Style.text
+            }
+            Text {
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              visible: root.updatedLabel !== ""
+              text: root.updatedLabel
+              font { family: Style.fontFamily; pixelSize: 11 }
+              color: Style.textMuted
+            }
           }
 
           Text {
@@ -373,6 +423,14 @@ Rectangle {
                   font { family: Style.fontFamily; pixelSize: 11 }
                   color: Style.textMuted
                 }
+              }
+
+              Text {
+                visible: cardData.fresh === false
+                width: parent.width
+                text: { root.clockTick; return root.staleLine(cardData) }
+                font { family: Style.fontFamily; pixelSize: 11 }
+                color: Style.textMuted
               }
 
               Item {

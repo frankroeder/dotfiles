@@ -317,6 +317,55 @@ grep -e "kbd_backlight' set 30%" "$ROOT/../../install/components.sh" >/dev/null 
   && fail_at "asahi-system still forces a one-shot 30% keyboard backlight" \
   || pass "asahi-desktop enables ALS keyboard backlight; no 30% oneshot"
 
+# --- asahi-clamshell: laptop-only close is a no-op; open unblanks ---
+clam_dir="$tmp/clam"
+mkdir -p "$clam_dir/bin" "$clam_dir/idle"
+clam_eval="$clam_dir/eval.log"
+clam_disp="$clam_dir/dispatch.log"
+clam_mon="$clam_dir/mon.json"
+: >"$clam_eval"
+: >"$clam_disp"
+cat >"$clam_dir/bin/hyprctl" <<'EOF'
+#!/bin/sh
+if [ "$1" = monitors ]; then
+  cat "${HYPR_MONITORS_JSON:?}"
+  exit 0
+fi
+if [ "$1" = eval ]; then
+  shift
+  printf '%s\n' "$*" >> "${HYPR_EVAL_LOG:?}"
+  exit 0
+fi
+if [ "$1" = dispatch ]; then
+  printf '%s\n' "$*" >> "${HYPR_DISPATCH_LOG:?}"
+  exit 0
+fi
+exit 0
+EOF
+chmod +x "$clam_dir/bin/hyprctl"
+run_clam() {
+  PATH="$clam_dir/bin:$PATH" ASAHI_CLAMSHELL_FLAG="$clam_dir/flag" \
+    ASAHI_IDLE_STATE_DIR="$clam_dir/idle" HYPR_MONITORS_JSON="$clam_mon" \
+    HYPR_EVAL_LOG="$clam_eval" HYPR_DISPATCH_LOG="$clam_disp" \
+    "$ROOT/asahi-clamshell" "$@"
+}
+
+printf '[{"name":"eDP-1","disabled":false,"dpmsStatus":true}]\n' >"$clam_mon"
+run_clam close
+[ ! -e "$clam_dir/flag" ] || fail_at "laptop-only close must not set the clamshell flag"
+if grep -q . "$clam_eval"; then
+  fail_at "laptop-only close must not eval/DPMS eDP (got $(tr '\n' ' ' <"$clam_eval"))"
+else
+  pass "laptop-only close is a no-op"
+fi
+
+printf '[{"name":"eDP-1","disabled":false,"dpmsStatus":false}]\n' >"$clam_mon"
+: >"$clam_disp"
+run_clam open
+grep -q 'monitor = "eDP-1"' "$clam_disp" || fail_at "open must DPMS-on eDP (got $(tr '\n' ' ' <"$clam_disp"))"
+grep -q HDMI "$clam_disp" && fail_at "open must not DPMS a disconnected HDMI" \
+  || pass "open unblanks eDP"
+
 # --- launcher / system menu still has no Hibernate ---
 grep -q 'title: "Hibernate"' "$ROOT/../quickshell/remix/modules/launcher/Data.js" \
   && fail_at "launcher still lists Hibernate" \

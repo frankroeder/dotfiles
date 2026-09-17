@@ -159,6 +159,15 @@ grep -q 'asahi-hdmi sync' "$ROOT/../hypr/conf.d/autostart.lua" \
   && pass "autostart.lua runs asahi-hdmi sync" \
   || fail_at "autostart.lua missing asahi-hdmi sync"
 
+# HDMI unplugged: Hyprland must not keep a leftover enabled output.
+printf 'disconnected\n' >"$drm/card2-HDMI-A-1/status"
+printf '[{"name":"HDMI-A-1","disabled":false,"description":"Dell Inc. DELL P2723DE 895ZNR3","x":0,"y":-1152,"scale":1.25}]\n' >"$mon_json"
+: >"$kw_log"
+run sync
+grep -q 'disabled = true' "$kw_log" \
+  || fail_at "sync must disable HDMI when DRM is disconnected (got $(tr '\n' ' ' <"$kw_log"))"
+pass "sync disables HDMI when DRM is disconnected"
+
 if [ "$fail" -ne 0 ]; then
   echo "asahi_hdmi_test.sh: FAILED"
   exit 1

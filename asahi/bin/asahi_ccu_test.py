@@ -71,6 +71,21 @@ eq(ccu.window_name(30 * 86400), "monthly", "30d window is monthly")
 eq(ccu.window_name(ccu.SESSION_SPAN_SEC), "session", "5h window is a session")
 eq(ccu.usage_line(grok), "22% of weekly limit used", "grok usage line")
 eq(ccu.usage_line(cursor), "31% of monthly limit used", "cursor usage line")
+
+ok(ccu.is_fresh({"utilization": 1}, True), "successful fetch is fresh")
+ok(not ccu.is_fresh({"error": "timeout"}, True), "failed fetch is stale")
+ok(ccu.is_fresh({"error": "timeout"}, False), "unwanted provider is fresh")
+ok(not ccu.is_fresh(None, True), "missing result is stale")
+eq(ccu.ago(now, now), "just now", "now is just now")
+eq(ccu.ago(now, now, True), "now", "short now")
+eq(ccu.ago(now - 120, now), "2m ago", "2m ago")
+eq(ccu.ago(now - 120, now, True), "2m", "short 2m")
+eq(ccu.ago(now - 3600, now), "1h ago", "1h ago")
+eq(ccu.ago(now - 3 * 86400, now), "3d ago", "3d ago")
+eq(ccu.ago(now - 10 * 86400, now), "Nov 4", "week+ uses date")
+eq(ccu.ago(0, now), "", "missing ts is empty")
+eq(ccu.cache_times({"_fetched_at": {"grok": now - 60, "cursor": "x"}}), {"grok": now - 60}, "cache_times keeps unix")
+eq(ccu.cache_times({}), {}, "empty cache times")
 ok("Resets" in ccu.reset_line(grok, now), "reset line has Resets")
 ok("3d 0h" in ccu.reset_line(grok, now), "reset line has countdown")
 
@@ -192,6 +207,8 @@ eq(grok_card["head"], "SuperGrok Heavy", "grok head is plan name")
 eq(grok_card["usage_line"], "22% of weekly limit used", "grok sub usage")
 ok(grok_card["ident"].startswith("a@x.com"), "grok ident has email")
 eq(grok_card["chip"], "Grok    22% ·   3d 0h", "grok chip on card")
+ok(grok_card["fresh"], "serialize_card defaults fresh")
+eq(grok_card["fetched_at"], 0, "serialize_card defaults fetched_at 0")
 eq(len(grok_card["categories"]), 4, "grok category split")
 eq(grok_card["total_line"], "All time · 186M · $1.5k", "grok all-time")
 eq(len(grok_card["chart"]), 7, "grok week chart")
@@ -236,6 +253,16 @@ eq(claude_card["usage_line"], "31% of weekly limit used", "claude usage subline"
 eq(claude_card["reset_line"], ccu.reset_line(claude, now), "claude reset subline with clock time")
 eq(claude_card["ident"], "", "claude has no ident")
 ok(claude_card["bar"], "claude is a rotating bar chip")
+
+stale_card = ccu.serialize_card(
+  {"id": "grok", "label": "Grok", "accent": "teal", "bar": True, "url": ccu.GROK_USAGE},
+  {"weekly": grok, "cats": [], "tier": None, "email": None, "renews_unix": None, "cancels": False, "extras": [], "status": None},
+  now,
+  fresh=False,
+  fetched_at=now - 3600,
+)
+ok(not stale_card["fresh"], "failed refresh marks the card stale")
+eq(stale_card["fetched_at"], now - 3600, "stale card keeps last-ok unix")
 
 # Claude Code normally reports no weekly window, only the rolling 5-hour
 # session. That has to reach the bar chip as a percentage rather than an em
@@ -326,6 +353,20 @@ ok("cursor_usage.py" not in qml_src, "QML does not fetch helpers itself")
 ok("tooltip" not in src, "asahi-ccu emits no hover tooltip")
 ok("TooltipWindow" not in qml_src, "Ccu.qml has no hover tooltip")
 ok("PopupWindow" in qml_src, "Ccu.qml keeps the usage popup")
+ok("chipFresh" in qml_src, "Ccu.qml dims a stale chip")
+ok("stale, last ok" in qml_src, "Ccu.qml popup marks a stale card with last-ok")
+ok("stale, last refresh failed" in qml_src, "Ccu.qml popup falls back when no last-ok")
+ok("onEntered" not in qml_src, "Ccu.qml does not refresh on hover")
+ok("5 * 60 * 1000" in qml_src, "Ccu.qml polls usage every 5 min")
+ok("interval: 10000" in qml_src, "Ccu.qml still rotates chips every 10s")
+ok("usageColor" in qml_src, "Ccu.qml keeps absolute usage bands")
+ok("nextChip" in qml_src, "Ccu.qml still rotates chips")
+ok("updatedShort" not in qml_src, "Ccu.qml bar chip has no refresh age")
+ok("updatedLabel" in qml_src, "Ccu.qml popup shows last refresh age")
+ok("chipBehind" not in qml_src, "Ccu.qml has no behind-pace color")
+ok("cardData.pace" not in qml_src, "Ccu.qml popup has no pace line")
+ok("behind_pace" not in src and "pace_text" not in src, "asahi-ccu dropped pace helpers")
+ok('"fresh"' in src and "updated_at" in src, "asahi-ccu emits fresh and updated_at")
 
 if FAILED:
   print(f"\n{FAILED} failed")

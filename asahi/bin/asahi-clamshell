@@ -6,6 +6,9 @@
 #   asahi-clamshell close|open
 #   asahi-clamshell apply     re-assert the state (config.reloaded, monitor.removed)
 #   asahi-clamshell status    exit 0 while in clamshell mode
+#
+# open also asahi-dpms on: lid-open that never reached sleep still unblanks.
+# That cannot kick a dead DCP (Hyprland already reports lit).
 
 set -euo pipefail
 bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
@@ -41,6 +44,7 @@ case "${1:-status}" in
   open)
     rm -f "$flag"
     edp_disabled && edp_on
+    "$bin/asahi-dpms" on
     "$bin/asahi-idle-brightness" restore
     ;;
   apply)

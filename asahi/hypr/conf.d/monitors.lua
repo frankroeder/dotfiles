@@ -49,7 +49,8 @@ hl.workspace_rule { workspace = "3", monitor = "HDMI-A-1" }
 hl.workspace_rule { workspace = "4", monitor = "HDMI-A-1" }
 
 -- Lid: asahi-clamshell disables eDP-1 while an external is enabled (clamshell,
--- persisted for the session), otherwise dpms-blanks it. Apple Silicon names
+-- persisted for the session). Without an external it is a no-op — logind
+-- suspends; do not DPMS-blank here (races s2idle, hangs DCP). Apple Silicon names
 -- this switch "Apple SMC power/lid events", not "Lid Switch".
 -- locked = true so the bind still fires on the lock screen.
 local clamshell = dotfilesDir .. "/asahi/bin/asahi-clamshell"
