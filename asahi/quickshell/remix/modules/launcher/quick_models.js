@@ -439,6 +439,33 @@ function enableMonitorFields(m, saved) {
   }
 }
 
+// `hyprctl monitors all -j` lists disabled outputs too. Every action that
+// picks a monitor must filter them out: mirroring onto a clamshell'd eDP-1,
+// or "external only" onto a still-disabled HDMI, leaves zero live outputs.
+function enabledMonitors(mons) {
+  return (mons || []).filter(function(m) { return m && !m.disabled })
+}
+
+function isMirroring(m) {
+  return !!m && !!m.mirrorOf && m.mirrorOf !== "none"
+}
+
+// Source = what stays real and keeps the workspaces. eDP-1 when it is on.
+function mirrorSource(mons) {
+  var on = enabledMonitors(mons)
+  return on.find(function(m) { return m.name === "eDP-1" })
+    || on.find(function(m) { return m.focused })
+    || on[0] || null
+}
+
+// Targets become mirrors: dropped from the layout, no workspace, no input.
+function mirrorTargets(mons, src) {
+  if (!src) return []
+  return enabledMonitors(mons).filter(function(m) {
+    return m.name !== src.name && m.mirrorOf !== src.name
+  })
+}
+
 // ---------- modes (resolution / refresh, hyprctl availableModes) ----------
 
 function parseModeString(mode) {
@@ -898,6 +925,10 @@ if (typeof module !== "undefined") {
     monitorPositionString: monitorPositionString,
     rememberEnabledMonitor: rememberEnabledMonitor,
     enableMonitorFields: enableMonitorFields,
+    enabledMonitors: enabledMonitors,
+    isMirroring: isMirroring,
+    mirrorSource: mirrorSource,
+    mirrorTargets: mirrorTargets,
     parseModeString: parseModeString,
     resolutionOptions: resolutionOptions,
     refreshOptions: refreshOptions,

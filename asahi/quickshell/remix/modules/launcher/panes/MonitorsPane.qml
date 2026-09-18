@@ -31,38 +31,95 @@ Item {
     const rr = m.refreshRate ? "@" + Number(m.refreshRate).toFixed(3) : ""
     return (m.width || 0) + "x" + (m.height || 0) + rr
   }
+  // Enabled only: `monitors all -j` lists disabled outputs, and picking one as
+  // the mirror source (clamshell'd eDP-1) points the live display at nothing.
   function monitorPrimary() {
-    const list = quickMonitorsRoot.mons || []
-    return list.find(m => m.name === "eDP-1") || list.find(m => m.focused) || list[0] || null
+    return QuickModels.mirrorSource(quickMonitorsRoot.mons) || (quickMonitorsRoot.mons || [])[0] || null
   }
   function monitorLogicalWidth(m) { return (m.width || 1920) / Math.max(0.25, m.scale || 1) }
   function monitorLogicalHeight(m) { return (m.height || 1080) / Math.max(0.25, m.scale || 1) }
+  readonly property bool anyMirrored: (quickMonitorsRoot.mons || []).some(QuickModels.isMirroring)
+
+  // Mirror carries the mirror field and nothing else. A mode here forces a DCP
+  // modeset (see asahi-hdmi: an HDMI modeset at the wrong moment freezes the
+  // laptop) and a pinned position = "0x0" drops the target on top of the source
+  // whenever the mirror does not take ("layout is set up incorrectly").
+  // Hyprland owns a mirror's geometry.
   function mirrorMonitors() {
-    const primary = quickMonitorsRoot.monitorPrimary()
-    if (!primary) { quickMonitorsRoot.monStatus = "No primary"; return }
-    const calls = []
-    for (const m of (quickMonitorsRoot.mons || [])) {
-      if (!m || m.name === primary.name || m.disabled) continue
-      calls.push("hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name) + ", mode = \"preferred\", position = \"0x0\", scale = " + (m.scale || 1) + ", mirror = " + quickMonitorsRoot.luaString(primary.name) + " })")
-    }
-    if (!calls.length) { quickMonitorsRoot.monStatus = "No external to mirror"; return }
-    quickMonitorsRoot.monStatus = "Mirroring to " + primary.name + "..."
-    monAction.command = ["hyprctl", "eval", calls.join("\n")]; monAction.running = true
+    const src = QuickModels.mirrorSource(quickMonitorsRoot.mons)
+    const targets = QuickModels.mirrorTargets(quickMonitorsRoot.mons, src)
+    if (!src || !targets.length) { quickMonitorsRoot.monStatus = "Nothing to mirror"; return }
+    const calls = targets.map(m => "hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name)
+      + ", mirror = " + quickMonitorsRoot.luaString(src.name) + " })")
+    quickMonitorsRoot.keepLauncherOn(src)
+    quickMonitorsRoot.applyRevertable(calls.join("\n"), "Mirroring to " + src.name + "...")
   }
-  function extendMonitors() {
-    quickMonitorsRoot.monStatus = "Reloading monitors..."
-    monAction.command = ["hyprctl", "reload"]; monAction.running = true
-  }
+  // A mirrored output leaves the layout, so the workspace rules pinned to it
+  // (ws 1-4 → HDMI-A-1 in monitors.lua) have no display. Reload is the way
+  // back: it wipes eval'd rules and its config.reloaded hook re-runs
+  // asahi-hdmi sync / monitor-scale apply / clamshell apply.
+  function unmirrorMonitors() { quickMonitorsRoot.revertLayout("Unmirroring...") }
+  function extendMonitors() { quickMonitorsRoot.revertLayout("Reloading monitors...") }
+  // Never leave zero outputs: the external must come up enabled (omitting
+  // disabled = false leaves monitors.lua's off rule in place) before eDP-1 goes
+  // dark, and its geometry comes from the saved snapshot, not "preferred".
   function externalOnlyMonitors() {
-    const external = (quickMonitorsRoot.mons || []).find(m => m && m.name !== "eDP-1")
+    const list = quickMonitorsRoot.mons || []
+    const edp = list.find(m => m && m.name === "eDP-1")
+    const external = QuickModels.enabledMonitors(list).find(m => m.name !== "eDP-1")
+      || list.find(m => m && m.name !== "eDP-1")
     if (!external) { quickMonitorsRoot.monStatus = "No external"; return }
-    quickMonitorsRoot.monStatus = "External only..."
-    monAction.command = ["hyprctl", "eval", "hl.monitor({ output = " + quickMonitorsRoot.luaString(external.name) + ", mode = \"preferred\", position = \"0x0\", scale = " + (external.scale || 1) + " })\nhl.monitor({ output = \"eDP-1\", disabled = true })" ]
-    monAction.running = true
+    if (!edp || edp.disabled) { quickMonitorsRoot.monStatus = "Already external only"; return }
+    const f = QuickModels.enableMonitorFields(external, quickMonitorsRoot.monSaved)
+    quickMonitorsRoot.keepLauncherOn(external)
+    quickMonitorsRoot.applyRevertable(
+      "hl.monitor({ output = " + quickMonitorsRoot.luaString(external.name)
+      + ", disabled = false, mode = " + quickMonitorsRoot.luaString(f.mode)
+      + ", position = " + quickMonitorsRoot.luaString(f.position)
+      + ", scale = " + f.scale + " })\nhl.monitor({ output = \"eDP-1\", disabled = true })",
+      "External only...")
   }
   function rescanMonitors() {
     quickMonitorsRoot.monStatus = "Rescanning..."
     if (!monScan.running) monScan.running = true
+  }
+
+  // ---- Topology changes: apply, then revert unless kept ----
+  // Mirror / external-only / disable can strand the session on an output that
+  // no longer takes input, and the pill that undoes it is then unreachable. So
+  // every such change is on probation: `Keep` disarms it, silence reverts it.
+  // (Closing the launcher tears the pane down and cancels the timer too.)
+  property int revertLeft: 0
+  function applyRevertable(lua, status) {
+    quickMonitorsRoot.monStatus = status
+    Quickshell.execDetached(["hyprctl", "eval", lua])
+    quickMonitorsRoot.revertLeft = 15
+    revertTimer.restart()
+    monDelay.restart()
+  }
+  function revertLayout(status) {
+    quickMonitorsRoot.disarmRevert()
+    quickMonitorsRoot.monStatus = status
+    Quickshell.execDetached(["hyprctl", "reload"])
+    monDelay.restart()
+  }
+  function disarmRevert() {
+    quickMonitorsRoot.revertLeft = 0
+    revertTimer.stop()
+  }
+  // Park the launcher on an output that survives the change, so Keep / Unmirror
+  // stay visible and clickable (the panel is pinned to root.launcherScreen).
+  function keepLauncherOn(m) {
+    const scr = m ? Quickshell.screens.find(s => s.name === m.name) : null
+    if (scr) root.launcherScreen = scr
+  }
+  Timer {
+    id: revertTimer
+    interval: 1000; repeat: true
+    onTriggered: {
+      quickMonitorsRoot.revertLeft -= 1
+      if (quickMonitorsRoot.revertLeft <= 0) quickMonitorsRoot.revertLayout("Reverted")
+    }
   }
 
   // ---- Brightness (omarchy.monitor's slider, via brightnessctl) ----
@@ -154,12 +211,7 @@ Item {
   }
 
   // ---- Per-display enable/disable (guarded: never the last one) ----
-  readonly property int enabledMonCount: {
-    const list = quickMonitorsRoot.mons || []
-    let n = 0
-    for (let i = 0; i < list.length; i++) if (list[i] && !list[i].disabled) n++
-    return n
-  }
+  readonly property int enabledMonCount: QuickModels.enabledMonitors(quickMonitorsRoot.mons).length
   function toggleMonitor(m) {
     if (!m || !m.name) return
     if (!m.disabled && quickMonitorsRoot.enabledMonCount <= 1) {
@@ -175,13 +227,14 @@ Item {
         + ", mode = " + quickMonitorsRoot.luaString(f.mode)
         + ", position = " + quickMonitorsRoot.luaString(f.position)
         + ", scale = " + f.scale + " })"]
-    } else {
-      quickMonitorsRoot.monSaved = QuickModels.rememberEnabledMonitor(quickMonitorsRoot.monSaved, m)
-      quickMonitorsRoot.monStatus = "Disabling " + m.name + "..."
-      monAction.command = ["hyprctl", "eval",
-        "hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name) + ", disabled = true })"]
+      monAction.running = true
+      return
     }
-    monAction.running = true
+    quickMonitorsRoot.monSaved = QuickModels.rememberEnabledMonitor(quickMonitorsRoot.monSaved, m)
+    quickMonitorsRoot.keepLauncherOn(QuickModels.enabledMonitors(quickMonitorsRoot.mons).find(x => x.name !== m.name))
+    quickMonitorsRoot.applyRevertable(
+      "hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name) + ", disabled = true })",
+      "Disabling " + m.name + "...")
   }
 
   Process {
@@ -329,7 +382,17 @@ Item {
         color: bad ? Style.red : Style.m3onSurfaceVariant
         font.pixelSize: root.fontPx(10); font.family: root.uiSans; Layout.fillWidth: true; elide: Text.ElideRight
       }
-      ActionPill { label: "Mirror"; onTapped: quickMonitorsRoot.mirrorMonitors() }
+      ActionPill {
+        visible: quickMonitorsRoot.revertLeft > 0
+        label: "Keep " + quickMonitorsRoot.revertLeft + "s"
+        tonal: true
+        onTapped: quickMonitorsRoot.disarmRevert()
+      }
+      ActionPill {
+        label: quickMonitorsRoot.anyMirrored ? "Unmirror" : "Mirror"
+        tonal: quickMonitorsRoot.anyMirrored
+        onTapped: quickMonitorsRoot.anyMirrored ? quickMonitorsRoot.unmirrorMonitors() : quickMonitorsRoot.mirrorMonitors()
+      }
       ActionPill { label: "Extend"; tonal: quickMonitorsRoot.enabledMonCount > 1; onTapped: quickMonitorsRoot.extendMonitors() }
       ActionPill { label: "External"; onTapped: quickMonitorsRoot.externalOnlyMonitors() }
       ActionPill { label: "Rescan"; onTapped: quickMonitorsRoot.rescanMonitors() }
@@ -541,7 +604,7 @@ Item {
     }
     Text {
       Layout.fillWidth: true
-      text: "Mirror uses eDP-1 as source when present · Extend reloads monitors.lua · logical coordinates"
+      text: "Mirror sources eDP-1 when on · Unmirror/Extend reload monitors.lua · Keep holds a change"
       color: Style.m3outline; font.pixelSize: root.fontPx(9); font.family: root.uiSans
       horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight
     }

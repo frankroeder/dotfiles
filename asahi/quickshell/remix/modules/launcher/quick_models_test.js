@@ -177,6 +177,24 @@ const staleEnable = M.enableMonitorFields({
 }, rememberedLg)
 assert.strictEqual(staleEnable.mode, "preferred", "missing 4K becomes preferred, not a guessed mode")
 
+// --- mirror source / targets (disabled outputs are not candidates) ---
+const edp = { name: "eDP-1", disabled: false, focused: true, mirrorOf: "none" }
+const hdmi = { name: "HDMI-A-1", disabled: false, focused: false, mirrorOf: "none" }
+assert.strictEqual(M.mirrorSource([edp, hdmi]).name, "eDP-1")
+assert.deepStrictEqual(M.mirrorTargets([edp, hdmi], edp).map(m => m.name), ["HDMI-A-1"])
+assert.strictEqual(
+  M.mirrorSource([Object.assign({}, edp, { disabled: true }), hdmi]).name, "HDMI-A-1",
+  "clamshell: never mirror onto a disabled eDP-1"
+)
+assert.deepStrictEqual(M.mirrorTargets([edp], edp), [], "single display has no target")
+assert.deepStrictEqual(
+  M.mirrorTargets([edp, Object.assign({}, hdmi, { mirrorOf: "eDP-1" })], edp), [],
+  "already mirroring this source"
+)
+assert.strictEqual(M.enabledMonitors([edp, Object.assign({}, hdmi, { disabled: true })]).length, 1)
+assert.strictEqual(M.isMirroring({ mirrorOf: "none" }), false)
+assert.strictEqual(M.isMirroring({ mirrorOf: "eDP-1" }), true)
+
 assert.strictEqual(M.clampBrightness(150), 100)
 assert.strictEqual(M.clampBrightness(-5), 1)
 assert.strictEqual(M.clampBrightness("42"), 42)

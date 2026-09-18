@@ -256,6 +256,27 @@ assert(
   /h >= 72/.test(qml),
   "monitors viz scales label density to box height"
 );
+// Mirror carries the mirror field only: a mode forces a DCP modeset and a
+// pinned position drops the target on top of the source.
+const mirrorFn = qml.slice(qml.indexOf("function mirrorMonitors()"), qml.indexOf("function unmirrorMonitors()"));
+assert(/mirror = /.test(mirrorFn), "mirror eval sets the mirror field");
+assert(
+  !/mode = /.test(mirrorFn) && !/position = /.test(mirrorFn) && !/scale = /.test(mirrorFn),
+  "mirror eval carries no mode/position/scale (Hyprland owns a mirror's geometry)"
+);
+const externalFn = qml.slice(qml.indexOf("function externalOnlyMonitors()"), qml.indexOf("function rescanMonitors()"));
+assert(
+  /disabled = false/.test(externalFn),
+  "external-only enables the external before eDP-1 goes dark (the lua off rule sticks otherwise)"
+);
+assert(
+  /QuickModels\.enabledMonitors/.test(externalFn),
+  "external-only picks an enabled output, never a disabled probe"
+);
+assert(
+  /revertTimer/.test(qml) && /function disarmRevert\(\)/.test(qml),
+  "topology changes revert unless kept"
+);
 assert(
   /id:\s*quickSide/.test(qml),
   "quick sidebar is a Flickable (quickSide) so leftover tiles can scroll"
