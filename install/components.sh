@@ -449,29 +449,35 @@ comp_asahi_getty() {
   print_ok "tty1 getty has no --autologin (password required on next boot)"
 }
 
-# Power-button tap ignore + no hibernate. Safe to rerun on a live Hyprland
-# session: SIGHUP reloads logind.conf.d; do not restart systemd-logind.
+# Power-button tap ignore + no hibernate + HDMI lid inhibit. Safe to rerun
+# on a live Hyprland session: SIGHUP reloads logind.conf.d; do not restart
+# systemd-logind. Do not udevadm trigger drm (that hotplugs HDMI).
 comp_asahi_logind() {
   require_linux
-  print_step "Installing Asahi logind drop-ins (ignore power tap, no hibernate)"
+  print_step "Installing Asahi logind drop-ins (ignore power tap, no hibernate, HDMI lid inhibit)"
   if [ -n "$NOSUDO" ]; then
     print_error "asahi-logind writes /etc/systemd; rerun without --no-sudo"
     exit 1
   fi
-  local src_login src_sleep
+  local src_login src_sleep src_udev src_unit
   src_login="$DOTFILES/asahi/systemd/logind.conf.d/10-asahi-sleep.conf"
   src_sleep="$DOTFILES/asahi/systemd/sleep.conf.d/10-asahi-no-hibernate.conf"
-  [ -f "$src_login" ] && [ -f "$src_sleep" ] || {
+  src_udev="$DOTFILES/asahi/udev/99-asahi-hdmi-lid-inhibit.rules"
+  src_unit="$DOTFILES/asahi/systemd/system/asahi-hdmi-lid-inhibit.service"
+  [ -f "$src_login" ] && [ -f "$src_sleep" ] && [ -f "$src_udev" ] && [ -f "$src_unit" ] || {
     print_error "missing Asahi systemd drop-ins under $DOTFILES/asahi/systemd"
     exit 1
   }
   sudo install -Dm644 "$src_login" /etc/systemd/logind.conf.d/10-asahi-sleep.conf
   sudo install -Dm644 "$src_sleep" /etc/systemd/sleep.conf.d/10-asahi-no-hibernate.conf
+  sudo install -Dm644 "$src_udev" /etc/udev/rules.d/99-asahi-hdmi-lid-inhibit.rules
+  sudo install -Dm644 "$src_unit" /etc/systemd/system/asahi-hdmi-lid-inhibit.service
   if ! cmp -s "$src_login" /etc/systemd/logind.conf.d/10-asahi-sleep.conf; then
     print_error "installed logind drop-in does not match $src_login"
     exit 1
   fi
-  # Reload logind.conf.d without restarting the unit (restart would kill the session).
+  sudo udevadm control --reload-rules
+  sudo systemctl daemon-reload
   sudo systemctl kill -s HUP systemd-logind
   local live
   live="$(busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager HandlePowerKey 2>/dev/null || true)"
@@ -480,6 +486,14 @@ comp_asahi_logind() {
   else
     print_error "logind HandlePowerKey is still ${live:-unknown} after SIGHUP"
     exit 1
+  fi
+  if grep -qx connected /sys/class/drm/card*-HDMI-A-*/status 2>/dev/null; then
+    sudo systemctl start asahi-hdmi-lid-inhibit.service || {
+      print_error "asahi-hdmi-lid-inhibit.service failed to start with HDMI connected"
+      exit 1
+    }
+  else
+    sudo systemctl stop asahi-hdmi-lid-inhibit.service 2>/dev/null || true
   fi
 }
 
@@ -837,6 +851,8 @@ comp_doctor() {
     fi
     report_check "keychain" have keychain
     report_check "logind HandlePowerKey=ignore" grep -q '^HandlePowerKey=ignore' /etc/systemd/logind.conf.d/10-asahi-sleep.conf
+    report_check "hdmi lid-inhibit" test -f /etc/udev/rules.d/99-asahi-hdmi-lid-inhibit.rules -a \
+      -f /etc/systemd/system/asahi-hdmi-lid-inhibit.service
     if busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager HandlePowerKey 2>/dev/null | grep -q '"ignore"'; then
       print_ok "logind live HandlePowerKey=ignore"
     else

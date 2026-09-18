@@ -159,6 +159,23 @@ grep -q 'asahi-hdmi sync' "$ROOT/../hypr/conf.d/autostart.lua" \
   && pass "autostart.lua runs asahi-hdmi sync" \
   || fail_at "autostart.lua missing asahi-hdmi sync"
 
+login="$ROOT/../systemd/logind.conf.d/10-asahi-sleep.conf"
+udev="$ROOT/../udev/99-asahi-hdmi-lid-inhibit.rules"
+unit="$ROOT/../systemd/system/asahi-hdmi-lid-inhibit.service"
+inst="$ROOT/../../install/components.sh"
+grep -q '^LidSwitchIgnoreInhibited=no' "$login" || fail_at "need LidSwitchIgnoreInhibited=no"
+grep -q '^HandleLidSwitch=' "$login" && fail_at "must not set HandleLidSwitch"
+grep -q 'KERNEL=="card\*-HDMI-A-\*"' "$udev" || fail_at "udev must match HDMI-A"
+grep -q eDP "$udev" && fail_at "udev must not mention eDP"
+grep -q 'systemctl --no-block start asahi-hdmi-lid-inhibit.service' "$udev" \
+  && grep -q 'systemctl --no-block stop asahi-hdmi-lid-inhibit.service' "$udev" \
+  || fail_at "udev must start/stop lid-inhibit on HDMI status"
+grep -q 'handle-lid-switch' "$unit" || fail_at "unit must inhibit handle-lid-switch"
+grep -q WantedBy "$unit" && fail_at "lid-inhibit must not be enabled at boot"
+grep -q 99-asahi-hdmi-lid-inhibit "$inst" || fail_at "asahi-logind must install lid-inhibit"
+grep -q 'systemctl enable asahi-hdmi-lid-inhibit' "$inst" && fail_at "must not enable lid-inhibit"
+pass "HDMI lid-inhibit: udev holds handle-lid-switch, logind honors it"
+
 # HDMI unplugged: Hyprland must not keep a leftover enabled output.
 printf 'disconnected\n' >"$drm/card2-HDMI-A-1/status"
 printf '[{"name":"HDMI-A-1","disabled":false,"description":"Dell Inc. DELL P2723DE 895ZNR3","x":0,"y":-1152,"scale":1.25}]\n' >"$mon_json"

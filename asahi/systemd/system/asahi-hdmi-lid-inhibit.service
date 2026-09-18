@@ -1,0 +1,6 @@
+[Unit]
+Description=Inhibit lid-switch suspend while HDMI is connected
+After=systemd-logind.service
+
+[Service]
+ExecStart=/usr/bin/systemd-inhibit --what=handle-lid-switch --who=asahi-hdmi --why=HDMI connected --mode=block /usr/bin/sleep infinity

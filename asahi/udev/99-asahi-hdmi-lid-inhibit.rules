@@ -1,0 +1,7 @@
+# logind only counts HDMI as docked when sysfs enabled=enabled. Hyprland
+# keeps the connector disabled until asahi-hdmi settles, so a live plug
+# (or a frozen compositor) looks laptop-only and lid-close s2idle-hangs.
+ACTION=="add|change", SUBSYSTEM=="drm", KERNEL=="card*-HDMI-A-*", ATTR{status}=="connected", \
+  RUN+="/usr/bin/systemctl --no-block start asahi-hdmi-lid-inhibit.service"
+ACTION=="change|remove", SUBSYSTEM=="drm", KERNEL=="card*-HDMI-A-*", ATTR{status}=="disconnected", \
+  RUN+="/usr/bin/systemctl --no-block stop asahi-hdmi-lid-inhibit.service"

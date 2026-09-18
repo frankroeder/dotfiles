@@ -53,9 +53,12 @@ VARIANT="Asahi Remix"
 EOF
 printf 'wifi.powersave = 2\n' >"$diag/etc/NetworkManager/conf.d/asahi-wifi-powersave.conf"
 printf '[Sleep]\nAllowHibernation=no\n' >"$diag/etc/systemd/sleep.conf.d/10-asahi-no-hibernate.conf"
-printf '[Login]\nHandlePowerKey=ignore\n' >"$diag/etc/systemd/logind.conf.d/10-asahi-sleep.conf"
+printf '[Login]\nHandlePowerKey=ignore\nLidSwitchIgnoreInhibited=no\n' \
+  >"$diag/etc/systemd/logind.conf.d/10-asahi-sleep.conf"
 : >"$diag/etc/udev/rules.d/99-asahi-charge-limit.rules"
+: >"$diag/etc/udev/rules.d/99-asahi-hdmi-lid-inhibit.rules"
 : >"$diag/etc/systemd/system/asahi-charge-limit.service"
+: >"$diag/etc/systemd/system/asahi-hdmi-lid-inhibit.service"
 : >"$diag/dev/dri/card0"
 : >"$diag/dev/dri/renderD128"
 : >"$diag/dev/video0"
@@ -128,6 +131,8 @@ echo "$out" | jq -e '.checks | any(.id | test("pacman|iwd|sddm|omarchy-version")
   && fail_at "must not emit Arch/omarchy checks" || pass "no pacman/iwd/sddm/omarchy checks"
 echo "$out" | jq -e '[.checks[] | select(.id=="audio-dsp" and .status=="PASS")] | length == 1' >/dev/null \
   || fail_at "audio-dsp PASS on asahi-audio filter"
+echo "$out" | jq -e '[.checks[] | select(.id=="logind-lid" and .status=="PASS")] | length == 1' >/dev/null \
+  || fail_at "logind-lid PASS"
 pass "mocked Fedora Asahi tree is all PASS"
 
 # iwd is a warning, not the required backend.

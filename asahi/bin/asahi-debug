@@ -315,12 +315,19 @@ check_hibernate() {
 }
 
 check_logind() {
-  local conf
+  local conf udev unit
   conf=$(diag_path /etc/systemd/logind.conf.d/10-asahi-sleep.conf)
+  udev=$(diag_path /etc/udev/rules.d/99-asahi-hdmi-lid-inhibit.rules)
+  unit=$(diag_path /etc/systemd/system/asahi-hdmi-lid-inhibit.service)
   if [[ -r $conf ]] && grep -q '^HandlePowerKey=ignore' "$conf"; then
     record PASS logind-power "HandlePowerKey=ignore is installed"
   else
     record WARN logind-power "asahi logind drop-in is missing HandlePowerKey=ignore"
+  fi
+  if [[ -r $conf ]] && grep -q '^LidSwitchIgnoreInhibited=no' "$conf" && [[ -f $udev && -f $unit ]]; then
+    record PASS logind-lid "HDMI lid-inhibit installed"
+  else
+    record WARN logind-lid "HDMI lid-inhibit missing (./install.sh asahi-logind)"
   fi
 }
 
