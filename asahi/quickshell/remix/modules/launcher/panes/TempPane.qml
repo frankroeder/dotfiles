@@ -7,9 +7,7 @@ import Quickshell.Widgets
 import Quickshell.Bluetooth
 import "../../menu" as Menu
 import "../../../"
-import "../quick_models.js" as QuickModels
 import "../temp_display.js" as TempDisplay
-import "../launcher_layout.js" as LauncherGeom
 
 // Temperatures pane: sensor groups from asahi-temperature.
 // `root` is the LauncherWindow (fontPx, uiFont/uiSans, launcherGeom, quickMode, quickPaneKey, binDir, ...).
@@ -23,15 +21,25 @@ Item {
   property var tempSensors: []
   property var tempGroups: []
   property var tempRows: []
+  property var tempValues: ({})
+  property string tempStructureKey: ""
   property var hottestSensor: null
+  property var tempFans: []
   property string tempUpdated: ""
 
   function parseTemperatures(out) {
     const parsed = TempDisplay.parseTemperatures(out)
+    const rows = TempDisplay.tempDisplayRows(parsed.groups)
+    const nextKey = TempDisplay.structureKey(rows)
     quickTempRoot.tempSensors = parsed.sensors
     quickTempRoot.tempGroups = parsed.groups
-    quickTempRoot.tempRows = TempDisplay.tempDisplayRows(parsed.groups)
+    if (nextKey !== quickTempRoot.tempStructureKey) {
+      quickTempRoot.tempRows = rows
+      quickTempRoot.tempStructureKey = nextKey
+    }
+    quickTempRoot.tempValues = TempDisplay.valuesMap(rows)
     quickTempRoot.hottestSensor = parsed.hottest
+    quickTempRoot.tempFans = parsed.fans || []
     quickTempRoot.tempUpdated = Qt.formatTime(new Date(), "HH:mm:ss")
   }
   function tempColor(value) {
@@ -88,10 +96,16 @@ Item {
   }
 
   // Sensor row: name + description, thin heat bar, °C value coloured by heat.
+  // Width is bound to tempValues[sensorKey] so live polls do not rebuild the row
+  // (a new Repeater delegate would restart the bar at 0).
   component SensorRow: RowLayout {
     property string name: ""
     property string desc: ""
-    property real value: 0
+    property string sensorKey: ""
+    readonly property real liveValue: {
+      const v = Number(quickTempRoot.tempValues[sensorKey])
+      return isFinite(v) ? v : 0
+    }
     spacing: 12
     ColumnLayout {
       Layout.fillWidth: true; Layout.preferredWidth: 3; spacing: 0
@@ -107,14 +121,18 @@ Item {
     Rectangle {
       Layout.fillWidth: true; Layout.preferredWidth: 2; height: 6; radius: 3; color: Style.m3containerHigh
       Rectangle {
-        width: parent.width * quickTempRoot.tempPercent(value); height: parent.height; radius: parent.radius
-        color: quickTempRoot.tempColor(value)
-        Behavior on width { Menu.MenuAnim {} }
+        id: barFill
+        property bool ready: false
+        width: parent.width * quickTempRoot.tempPercent(liveValue)
+        height: parent.height; radius: parent.radius
+        color: quickTempRoot.tempColor(liveValue)
+        Behavior on width { enabled: barFill.ready; Menu.MenuAnim {} }
+        Component.onCompleted: Qt.callLater(function() { barFill.ready = true })
       }
     }
     Text {
       Layout.preferredWidth: Math.round(root.fontPx(12) * 3.6); horizontalAlignment: Text.AlignRight
-      text: value.toFixed(1) + "°C"; color: quickTempRoot.tempColor(value)
+      text: liveValue.toFixed(1) + "°C"; color: quickTempRoot.tempColor(liveValue)
       font.family: root.uiSans; font.pixelSize: root.fontPx(12); font.weight: Font.DemiBold
     }
   }
@@ -174,6 +192,36 @@ Item {
             Chip { icon: "󰔏"; label: (quickTempRoot.tempSensors || []).length + " sensors"; bg: Style.m3secondaryContainer }
             Chip { icon: "󰕰"; label: (quickTempRoot.tempGroups || []).length + " groups"; bg: Style.m3tertiaryContainer }
             Chip { icon: "󰥔"; label: quickTempRoot.tempUpdated || "asahi-temperature"; bg: Style.m3containerHigh }
+            Item { Layout.fillWidth: true }
+            ColumnLayout {
+              visible: (quickTempRoot.tempFans || []).length > 0
+              spacing: 4
+              Repeater {
+                model: quickTempRoot.tempFans
+                RowLayout {
+                  required property var modelData
+                  spacing: 8
+                  Text {
+                    text: "󰈐"
+                    color: Style.m3primary
+                    font.family: root.uiFont; font.pixelSize: root.fontPx(13)
+                  }
+                  Text {
+                    text: modelData.displayLabel || modelData.label || "Fan"
+                    color: Style.m3onSurface
+                    font.family: root.uiSans; font.pixelSize: root.fontPx(11)
+                  }
+                  Text {
+                    text: Math.round(modelData.value || 0) + " RPM"
+                      + (isFinite(modelData.min) && isFinite(modelData.max)
+                        ? ("  ·  " + modelData.min + "–" + modelData.max)
+                        : "")
+                    color: Style.m3onSurfaceVariant
+                    font.family: root.uiSans; font.pixelSize: root.fontPx(11)
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -222,7 +270,7 @@ Item {
                 SensorRow {
                   visible: single && modelData.value !== null && modelData.value !== undefined
                   Layout.fillWidth: true; Layout.leftMargin: 8
-                  name: ""; desc: modelData.desc || ""; value: modelData.value || 0
+                  name: ""; desc: modelData.desc || ""; sensorKey: modelData.path || modelData.title || ""
                 }
               }
               Repeater {
@@ -230,7 +278,8 @@ Item {
                 delegate: SensorRow {
                   required property var modelData
                   Layout.fillWidth: true; Layout.leftMargin: 40
-                  name: modelData.title || ""; desc: modelData.desc || ""; value: modelData.value
+                  name: modelData.title || ""; desc: modelData.desc || ""
+                  sensorKey: modelData.path || modelData.title || ""
                 }
               }
             }

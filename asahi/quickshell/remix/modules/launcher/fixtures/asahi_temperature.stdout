@@ -46,5 +46,19 @@ Values are read from /sys/class/hwmon by device name and temp label.
   tas2764            temp1                          37.00°C   /sys/class/hwmon/hwmon13/temp1_input
     Speaker amplifier chip; rises under audio load.
 
+>>> macsmc_hwmon power (/sys/class/hwmon/hwmon1)
+  macsmc_hwmon       Total System Power             16.35 W   /sys/class/hwmon/hwmon1/power1_input
+    SMC whole-machine power draw.
+  macsmc_hwmon       Heatpipe Power                  4.22 W   /sys/class/hwmon/hwmon1/power4_input
+    SMC estimate of SoC heatpipe dissipation; no die °C in sysfs.
+
+>>> macsmc_hwmon fans (/sys/class/hwmon/hwmon1)
+  macsmc_hwmon       Fan 1                              0 RPM  /sys/class/hwmon/hwmon1/fan1_input
+    2317–6800 RPM
+  macsmc_hwmon       Fan 2                           2400 RPM  /sys/class/hwmon/hwmon1/fan2_input
+    2317–6800 RPM
+
 Hottest:
   macsmc_hwmon / WiFi/BT Module Temp: 44.20°C   /sys/class/hwmon/hwmon1/temp4_input
+Heatpipe:
+  macsmc_hwmon / Heatpipe Power: 4.22 W   /sys/class/hwmon/hwmon1/power4_input

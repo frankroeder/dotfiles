@@ -7,9 +7,6 @@ import Quickshell.Widgets
 import Quickshell.Bluetooth
 import "../../menu" as Menu
 import "../../../"
-import "../quick_models.js" as QuickModels
-import "../temp_display.js" as TempDisplay
-import "../launcher_layout.js" as LauncherGeom
 
 // Battery pane: charge, health, power draw.
 // `root` is the LauncherWindow (fontPx, uiFont/uiSans, launcherGeom, quickMode, quickPaneKey, binDir, ...).
@@ -28,6 +25,7 @@ Item {
   property string batTimeRemaining: ""
   property bool batHolding: false
   property int batThresholdEnd: 100
+  property var smcPower: []
 
   readonly property var batDetailLines: {
     const lines = quickBatteryRoot.batLines || []
@@ -122,15 +120,33 @@ Item {
     command: ["bash", root.binDir + "/asahi-battery"]
     stdout: StdioCollector { onStreamFinished: quickBatteryRoot.parseBattery(text) }
   }
+  Process {
+    id: smcProc
+    command: [root.binDir + "/asahi-temperature", "--json"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const data = JSON.parse(String(text || "").trim() || "{}")
+          quickBatteryRoot.smcPower = data.power || []
+        } catch (e) { quickBatteryRoot.smcPower = [] }
+      }
+    }
+  }
   Timer {
     interval: 3000
     running: root.quickMode && root.quickPaneKey === "battery"
     repeat: true
     triggeredOnStart: true
-    onTriggered: if (!batProc.running) batProc.running = true
+    onTriggered: {
+      if (!batProc.running) batProc.running = true
+      if (!smcProc.running) smcProc.running = true
+    }
   }
   Timer { id: batDelay; interval: 400; onTriggered: { if (!batProc.running) batProc.running = true } }
-  Component.onCompleted: Qt.callLater(function() { if (!batProc.running) batProc.running = true })
+  Component.onCompleted: Qt.callLater(function() {
+    if (!batProc.running) batProc.running = true
+    if (!smcProc.running) smcProc.running = true
+  })
 
   // Full-round fact chip: glyph + text on a tonal container.
   component Chip: Rectangle {
@@ -265,6 +281,55 @@ Item {
         }
       }
       Item { Layout.fillWidth: true }
+    }
+
+    Rectangle {
+      Layout.fillWidth: true
+      visible: (quickBatteryRoot.smcPower || []).length > 0
+      implicitHeight: smcCol.implicitHeight + 24
+      radius: Style.menuRadiusLg
+      color: Style.m3container
+      ColumnLayout {
+        id: smcCol
+        anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
+        anchors.margins: 12
+        spacing: 8
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 10
+          Rectangle {
+            width: 30; height: 30; radius: Style.menuRadiusMd
+            color: Style.m3primaryContainer
+            Text {
+              anchors.centerIn: parent; text: "󰓅"; color: Style.m3primary
+              font.family: root.uiFont; font.pixelSize: root.fontPx(14)
+            }
+          }
+          Text {
+            Layout.fillWidth: true
+            text: "SMC Power"
+            color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(13); font.weight: Font.DemiBold
+          }
+        }
+        Repeater {
+          model: quickBatteryRoot.smcPower
+          delegate: RowLayout {
+            required property var modelData
+            Layout.fillWidth: true
+            spacing: 12
+            Text {
+              Layout.fillWidth: true
+              text: modelData.label || ""
+              color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(11); elide: Text.ElideRight
+            }
+            Text {
+              text: isFinite(modelData.value) ? Number(modelData.value).toFixed(2) + " W" : "–"
+              color: /heatpipe/i.test(modelData.label || "") ? Style.orange : Style.m3onSurface
+              font.family: root.uiSans; font.pixelSize: root.fontPx(12); font.weight: Font.DemiBold
+            }
+          }
+        }
+      }
     }
 
     // Facts card: two-column key/value grid.

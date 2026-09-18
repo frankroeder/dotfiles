@@ -1,0 +1,214 @@
+#!/usr/bin/env bash
+#
+# asahi-metrics
+#
+# One JSON snapshot of throughput, capacity, and uptime for the system
+# overview. CPU / RAM / sensors stay on asahi-cpu, asahi-memory, and
+# asahi-temperature. Deltas use a small state file, same idea as asahi-cpu.
+#
+# Tests: ASAHI_PROC_ROOT, ASAHI_SYS_ROOT, ASAHI_METRICS_STATE
+#
+
+set -euo pipefail
+
+if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
+  echo "usage: $0" >&2
+  exit 2
+fi
+
+proc_root="${ASAHI_PROC_ROOT:-/proc}"
+sys_root="${ASAHI_SYS_ROOT:-/sys}"
+state_file="${ASAHI_METRICS_STATE:-}"
+if [ -z "$state_file" ]; then
+  state_dir="${XDG_RUNTIME_DIR:-/tmp}/asahi-waybar"
+  if ! mkdir -p "$state_dir" || [ ! -w "$state_dir" ]; then
+    state_dir="/tmp/asahi-waybar-${UID:-$(id -u)}"
+    mkdir -p "$state_dir"
+  fi
+  state_file="$state_dir/metrics.stat"
+fi
+
+now_ms="$(date +%s%3N 2>/dev/null || true)"
+case "$now_ms" in
+  '' | *[!0-9]*) now_ms="$(awk 'BEGIN { print int(systime() * 1000) }')" ;;
+esac
+
+# On-disk types worth a capacity row. Allowlist keeps tmpfs/overlay/cgroup
+# out; `df -l` already drops network mounts.
+CAPACITY_TYPES='ext2 ext3 ext4 btrfs xfs f2fs zfs jfs reiserfs nilfs2 bcachefs vfat exfat ntfs ntfs3 hfsplus ufs'
+
+filesystems_json="$(
+  df -P -k -l -T 2>/dev/null | awk -v allow="$CAPACITY_TYPES" '
+    BEGIN {
+      n = split(allow, a, / /)
+      for (i = 1; i <= n; i++) ok[a[i]] = 1
+    }
+    NR == 1 { next }
+    {
+      device = $1
+      type = $2
+      total = $3 + 0
+      used = $4 + 0
+      mount = $7
+      for (i = 8; i <= NF; i++) mount = mount " " $i
+      if (mount != "/" && !(type in ok)) next
+      if (!(device in seen) || length(mount) < length(seen_mount[device])) {
+        if (!(device in seen)) order[++count] = device
+        seen[device] = 1
+        seen_mount[device] = mount
+        seen_total[device] = total * 1024
+        seen_used[device] = used * 1024
+        seen_type[device] = type
+      }
+    }
+    END {
+      printf "["
+      for (i = 1; i <= count; i++) {
+        d = order[i]
+        pct = seen_total[d] > 0 ? (100 * seen_used[d] / seen_total[d]) : -1
+        if (i > 1) printf ","
+        printf "{\"mount\":\"%s\",\"fstype\":\"%s\",\"total\":%d,\"used\":%d,\"percent\":%.1f}",
+          seen_mount[d], seen_type[d], seen_total[d], seen_used[d], pct
+      }
+      printf "]"
+    }
+  '
+)"
+[ -n "$filesystems_json" ] || filesystems_json="[]"
+
+# Physical disks: skip partitions, loop, ram, zram, floppy, optical.
+devices=""
+for block_path in "$sys_root"/class/block/*; do
+  [ -e "$block_path" ] || continue
+  device="${block_path##*/}"
+  [ -e "$block_path/partition" ] && continue
+  [ -e "$block_path/device" ] || continue
+  case "$device" in
+    loop*|ram*|zram*|fd*|sr*) continue ;;
+  esac
+  devices="$devices $device"
+done
+devices="${devices# }"
+
+disk_read=0
+disk_write=0
+if [ -r "$proc_root/diskstats" ] && [ -n "$devices" ]; then
+  disk_read="$(
+    awk -v want="$devices" '
+      BEGIN { n = split(want, a, / /); for (i = 1; i <= n; i++) ok[a[i]] = 1 }
+      (NF >= 10 && ($3 in ok)) { r += $6 + 0; w += $10 + 0 }
+      END { printf "%d %d", r * 512, w * 512 }
+    ' "$proc_root/diskstats"
+  )"
+  disk_write="${disk_read##* }"
+  disk_read="${disk_read%% *}"
+fi
+
+iface=""
+if [ -r "$proc_root/net/route" ]; then
+  iface="$(
+    awk 'NR > 1 && $2 == "00000000" {
+      flags = strtonum("0x" $4)
+      if (and(flags, 2) != 0) { print $1; exit }
+    }' "$proc_root/net/route" 2>/dev/null || true
+  )"
+fi
+# Busybox/mawk may lack strtonum; fall back to the first default route.
+if [ -z "$iface" ] && [ -r "$proc_root/net/route" ]; then
+  iface="$(awk 'NR > 1 && $2 == "00000000" { print $1; exit }' "$proc_root/net/route")"
+fi
+
+rx=0
+tx=0
+if [ -n "$iface" ] && [ -r "$proc_root/net/dev" ]; then
+  counters="$(
+    awk -v want="$iface" '
+      {
+        sep = index($0, ":")
+        if (sep < 1) next
+        name = $0
+        sub(/:.*/, "", name)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", name)
+        if (name != want) next
+        rest = substr($0, sep + 1)
+        gsub(/^[[:space:]]+/, "", rest)
+        n = split(rest, f, /[[:space:]]+/)
+        if (n >= 9) { printf "%s %s", f[1], f[9]; found = 1 }
+      }
+      END { if (!found) printf "0 0" }
+    ' "$proc_root/net/dev"
+  )"
+  rx="${counters%% *}"
+  tx="${counters##* }"
+fi
+rx="${rx:-0}"
+tx="${tx:-0}"
+disk_read="${disk_read:-0}"
+disk_write="${disk_write:-0}"
+
+prev_ms=0
+prev_read=0
+prev_write=0
+prev_rx=0
+prev_tx=0
+if [ -r "$state_file" ]; then
+  read -r prev_ms prev_read prev_write prev_rx prev_tx < "$state_file" || true
+fi
+printf '%s %s %s %s %s\n' "$now_ms" "$disk_read" "$disk_write" "$rx" "$tx" > "$state_file"
+
+elapsed=0
+if [ "$prev_ms" -gt 0 ] && [ "$now_ms" -gt "$prev_ms" ]; then
+  elapsed=$((now_ms - prev_ms))
+fi
+
+rate() {
+  local now="$1" prev="$2"
+  if [ "$elapsed" -le 0 ]; then
+    printf "0"
+    return
+  fi
+  awk -v n="$now" -v p="$prev" -v ms="$elapsed" 'BEGIN {
+    d = n - p
+    if (d < 0) d = 0
+    printf "%.0f", d * 1000 / ms
+  }'
+}
+
+read_bps="$(rate "$disk_read" "$prev_read")"
+write_bps="$(rate "$disk_write" "$prev_write")"
+rx_bps="$(rate "$rx" "$prev_rx")"
+tx_bps="$(rate "$tx" "$prev_tx")"
+
+uptime_s=0
+if [ -r "$proc_root/uptime" ]; then
+  uptime_s="$(awk '{ printf "%d", $1 + 0 }' "$proc_root/uptime")"
+fi
+
+devices_json="$(
+  awk -v want="$devices" 'BEGIN {
+    n = split(want, a, / /)
+    printf "["
+    for (i = 1; i <= n; i++) {
+      if (a[i] == "") continue
+      if (c++) printf ","
+      printf "\"%s\"", a[i]
+    }
+    printf "]"
+  }'
+)"
+
+jq -nc \
+  --argjson filesystems "$filesystems_json" \
+  --argjson devices "$devices_json" \
+  --argjson read_bps "$read_bps" \
+  --argjson write_bps "$write_bps" \
+  --arg iface "$iface" \
+  --argjson rx_bps "$rx_bps" \
+  --argjson tx_bps "$tx_bps" \
+  --argjson uptime_s "$uptime_s" \
+  '{
+    filesystems: $filesystems,
+    disk: {devices: $devices, read_bps: $read_bps, write_bps: $write_bps},
+    net: {iface: $iface, rx_bps: $rx_bps, tx_bps: $tx_bps},
+    uptime_s: $uptime_s
+  }'

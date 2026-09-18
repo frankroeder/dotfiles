@@ -61,11 +61,36 @@ for (let i = 0; i < rows.length; i++) {
 }
 assert(sawMultiGroup, "multi-sensor group is represented without an avg headline");
 
-const qmlPath = path.join(__dirname, "LauncherWindow.qml");
+assert(parsed.heatpipe && parsed.heatpipe.value === 4.22, "heatpipe watts from SMC power rail");
+assert((parsed.power || []).length >= 2, "power rails parsed");
+assert((parsed.fans || []).length === 2, "both fans parsed");
+assert(parsed.fans[0].value === 0 && parsed.fans[0].min === 2317, "idle fan keeps 0 RPM and min");
+assert(parsed.fans[1].value === 2400 && parsed.fans[1].max === 6800, "spinning fan keeps RPM window");
+assert(parsed.hottest && parsed.hottest.value === 44.20, "hottest is still the exposed °C peak");
+
+const withPath = rows.filter(function (r) { return r.path || (r.sensors || []).some(function (s) { return s.path; }); });
+assert(withPath.length === rows.length, "every display row keeps a sensor path for live updates");
+const again = shipped.tempDisplayRows(parsed.groups);
+assert(shipped.structureKey(rows) === shipped.structureKey(again), "structure key is stable across identical polls");
+const bumped = shipped.tempDisplayRows(parsed.groups);
+bumped[0].value = (bumped[0].value || 0) + 1;
+if ((bumped[0].sensors || []).length) bumped[0].sensors[0].value += 1;
+assert(shipped.structureKey(rows) === shipped.structureKey(bumped), "value-only changes do not retarget rows");
+const vals = shipped.valuesMap(rows);
+assert(Object.keys(vals).length >= rows.length, "values map covers each current reading");
+
+const qmlPath = path.join(__dirname, "panes/TempPane.qml");
 const qml = fs.readFileSync(qmlPath, "utf8");
-assert(qml.indexOf("TempDisplay.tempDisplayRows") !== -1, "LauncherWindow.qml uses shipped tempDisplayRows");
+assert(qml.indexOf("TempDisplay.tempDisplayRows") !== -1, "TempPane.qml uses shipped tempDisplayRows");
+assert(qml.indexOf("SMC Power") === -1, "TempPane does not host SMC power rails");
+assert(qml.indexOf("tempValues") !== -1 && qml.indexOf("barFill.ready") !== -1, "heat bars keep delegates and animate from the last width");
+assert(!/text:\s*"Fans"/.test(qml), "Fans card is not a separate group");
+assert(qml.indexOf("tempFans") !== -1 && qml.indexOf("tempUpdated") !== -1, "fan rows sit on the hero pill row");
 assert(!/avg\s*"\s*\+\s*modelData\.avg/.test(qml), "temp pane template has no avg + °C pair");
 assert(!/"avg " \+/.test(qml), "temp pane template does not render avg headline");
+const batQml = fs.readFileSync(path.join(__dirname, "panes/BatteryPane.qml"), "utf8");
+assert(batQml.indexOf("SMC Power") !== -1, "BatteryPane hosts SMC power rails");
+assert(batQml.indexOf("asahi-temperature") !== -1, "BatteryPane reads asahi-temperature --json");
 
 if (failed > 0) {
   console.log("\n" + failed + " assertion(s) failed");

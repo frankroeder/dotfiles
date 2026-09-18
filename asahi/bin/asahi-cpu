@@ -2,13 +2,17 @@
 
 set -euo pipefail
 
-state_dir="${XDG_RUNTIME_DIR:-/tmp}/asahi-waybar"
+state_dir="${ASAHI_CPU_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/asahi-waybar}"
 if ! mkdir -p "$state_dir" || [ ! -w "$state_dir" ]; then
   state_dir="/tmp/asahi-waybar-${UID:-$(id -u)}"
   mkdir -p "$state_dir"
 fi
 
 state_file="$state_dir/cpu.stat"
+hwmon_root="${ASAHI_HWMON_ROOT:-/sys/class/hwmon}"
+proc_stat="${ASAHI_PROC_STAT:-/proc/stat}"
+proc_loadavg="${ASAHI_PROC_LOADAVG:-/proc/loadavg}"
+cpufreq_root="${ASAHI_CPUFREQ_ROOT:-/sys/devices/system/cpu}"
 
 read_temp_raw() {
   local path="$1"
@@ -39,7 +43,7 @@ best_temp_sensor() {
   local best_path=""
   local d name inp val label
 
-  for d in /sys/class/hwmon/hwmon{0..99}; do
+  for d in "$hwmon_root"/hwmon{0..99}; do
     [ -d "$d" ] || continue
     name="$(cat "$d/name" 2>/dev/null || true)"
     [ -z "$only_name" ] || [ "$name" = "$only_name" ] || continue
@@ -92,38 +96,112 @@ class_for_temp() {
   fi
 }
 
-read -r _ user nice system idle iowait irq softirq steal _ < /proc/stat
+# Heatpipe watts (micro-W in sysfs): 15 W warning, 25 W critical — same
+# thresholds as the dashboard, because this is the SoC dissipation proxy.
+class_for_heatpipe() {
+  local current="$1"
+  local microwatts="$2"
 
-idle_all=$((idle + iowait))
-total=$((user + nice + system + idle + iowait + irq + softirq + steal))
+  if [ "$microwatts" -ge 25000000 ]; then
+    printf "critical\n"
+  elif [ "$microwatts" -ge 15000000 ] && [ "$current" = "normal" ]; then
+    printf "warning\n"
+  else
+    printf "%s\n" "$current"
+  fi
+}
 
-if [ -r "$state_file" ]; then
-  read -r previous_total previous_idle < "$state_file"
-else
-  previous_total="$total"
-  previous_idle="$idle_all"
-fi
+heatpipe_sensor() {
+  local d name inp label raw
 
-printf "%s %s\n" "$total" "$idle_all" > "$state_file"
+  for d in "$hwmon_root"/hwmon{0..99}; do
+    [ -d "$d" ] || continue
+    name="$(cat "$d/name" 2>/dev/null || true)"
+    [ "$name" = "macsmc_hwmon" ] || continue
+    for inp in "$d"/power*_input; do
+      [ -r "$inp" ] || continue
+      label="$(sensor_label "$inp")"
+      case "$label" in
+        [Hh]eatpipe*)
+          raw="$(read_temp_raw "$inp" || true)"
+          [ -n "$raw" ] || return 1
+          printf "%s\t%s\t%s\n" "$raw" "${name} / $label" "$inp"
+          return 0
+          ;;
+      esac
+    done
+  done
+  return 1
+}
 
-delta_total=$((total - previous_total))
-delta_idle=$((idle_all - previous_idle))
+# Per-cpu jiffies: first line is the aggregate (`cpu`), then `cpuN`.
+# Previous sample lives next to this file so the bar and a one-shot
+# CLI invocation can share a delta.
+cpu_usage="$(
+  awk -v state="$state_file" '
+    BEGIN {
+      while ((getline line < state) > 0) {
+        n = split(line, f, /[[:space:]]+/)
+        if (n >= 3) { prev_total[f[1]] = f[2] + 0; prev_idle[f[1]] = f[3] + 0 }
+        else if (n == 2) { prev_total["cpu"] = f[1] + 0; prev_idle["cpu"] = f[2] + 0 }
+      }
+      close(state)
+    }
+    $1 ~ /^cpu[0-9]*$/ {
+      idle = $5 + $6
+      total = $2 + $3 + $4 + $5 + $6 + $7 + $8 + $9
+      label = $1
+      labels[++count] = label
+      cur_total[label] = total
+      cur_idle[label] = idle
+      dt = total - (label in prev_total ? prev_total[label] : 0)
+      di = idle - (label in prev_idle ? prev_idle[label] : 0)
+      if (dt > 0 && di >= 0) pct[label] = int(100 * (dt - di) / dt)
+      else pct[label] = -1
+    }
+    END {
+      for (i = 1; i <= count; i++) {
+        label = labels[i]
+        printf "%s %d %d\n", label, cur_total[label], cur_idle[label] > state
+      }
+      overall = (pct["cpu"] >= 0 ? pct["cpu"] : 0)
+      printf "%d\n", overall
+      ncores = 0
+      for (i = 1; i <= count; i++) {
+        label = labels[i]
+        if (label == "cpu") continue
+        ncores++
+        printf "%s %d\n", toupper(label), (pct[label] >= 0 ? pct[label] : 0)
+      }
+      printf "CORES %d\n", ncores
+    }
+  ' "$proc_stat"
+)"
 
-if [ "$delta_total" -gt 0 ]; then
-  percentage=$((100 * (delta_total - delta_idle) / delta_total))
-else
-  percentage=0
-fi
+percentage="$(printf '%s\n' "$cpu_usage" | awk 'NR==1 { print $1; exit }')"
+core_count="$(printf '%s\n' "$cpu_usage" | awk '/^CORES / { print $2; exit }')"
+cores_json="$(
+  printf '%s\n' "$cpu_usage" | awk '
+    /^CPU[0-9]+ / { printf "%s{\"name\":\"%s\",\"percent\":%s}", (n++ ? "," : ""), $1, $2 }
+    END { print "" }
+  '
+)"
+cores_json="[${cores_json}]"
+[ -n "$percentage" ] || percentage=0
+[ -n "$core_count" ] || core_count=0
 
 class="normal"
 [ "$percentage" -ge 60 ] && class="warning"
 [ "$percentage" -ge 80 ] && class="critical"
 
-read -r load1 load5 load15 _ < /proc/loadavg
-cores="$(getconf _NPROCESSORS_ONLN 2>/dev/null || awk '/^processor/ { count++ } END { print count + 0 }' /proc/cpuinfo)"
+read -r load1 load5 load15 _ < "$proc_loadavg"
+cores="${core_count}"
+if [ "$cores" -eq 0 ]; then
+  cores="$(getconf _NPROCESSORS_ONLN 2>/dev/null || awk '/^processor/ { count++ } END { print count + 0 }' /proc/cpuinfo)"
+fi
 
 freq_paths=()
-for path in /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq; do
+for path in "$cpufreq_root"/cpu*/cpufreq/scaling_cur_freq; do
   [ -r "$path" ] || continue
   freq_paths+=("$path")
 done
@@ -157,23 +235,53 @@ if [ -n "$thermal" ]; then
   IFS=$'\t' read -r temp_raw temp_label temp_path <<< "$thermal"
 fi
 
+heatpipe="$(heatpipe_sensor || true)"
+heatpipe_raw=""
+heatpipe_label=""
+heatpipe_path=""
+heatpipe_w=""
+
+if [ -n "$heatpipe" ]; then
+  IFS=$'\t' read -r heatpipe_raw heatpipe_label heatpipe_path <<< "$heatpipe"
+  heatpipe_w="$(awk -v value="$heatpipe_raw" 'BEGIN { printf "%.1f", value / 1000000 }')"
+fi
+
+# Bar text stays CPU % only. The hottest exposed °C is a peripheral (Wi-Fi,
+# charge regulator) — not a die sensor — so it must not look like "CPU temp".
 if [ -n "$temp_raw" ]; then
-  temp_text=" $(format_temp "$temp_raw" 0)C"
   temp_line="Thermal $(format_temp "$temp_raw" 1) C (${temp_label})"
   temp_path_line="Sensor: $temp_path"
   class="$(class_for_temp "$class" "$temp_raw")"
 else
-  temp_text=""
   temp_line="Thermal n/a"
   temp_path_line="Sensor: n/a"
 fi
 
-tooltip="$(printf "CPU %d%%\nLoad 1/5/15: %s %s %s\nCores: %s\n%s\n%s\n%s" \
-  "$percentage" "$load1" "$load5" "$load15" "$cores" "$freq_line" "$temp_line" "$temp_path_line")"
+if [ -n "$heatpipe_w" ]; then
+  heatpipe_line="Heatpipe ${heatpipe_w} W (SoC dissipation; no die sensor)"
+  class="$(class_for_heatpipe "$class" "$heatpipe_raw")"
+else
+  heatpipe_line="Heatpipe n/a"
+fi
+
+tooltip="$(printf "CPU %d%%\nLoad 1/5/15: %s %s %s\nCores: %s\n%s\n%s\n%s\n%s" \
+  "$percentage" "$load1" "$load5" "$load15" "$cores" "$freq_line" "$temp_line" "$heatpipe_line" "$temp_path_line")"
+
+temp_c="null"
+if [ -n "$temp_raw" ]; then
+  temp_c="$(format_temp "$temp_raw" 1)"
+fi
+heatpipe_json="null"
+if [ -n "$heatpipe_w" ]; then
+  heatpipe_json="$heatpipe_w"
+fi
 
 jq -cn \
-  --arg text "CPU $percentage%$temp_text" \
+  --arg text "CPU $percentage%" \
   --arg tooltip "$tooltip" \
   --arg class "$class" \
   --argjson percentage "$percentage" \
-  '{text: $text, tooltip: $tooltip, class: $class, percentage: $percentage}'
+  --argjson cores "$cores_json" \
+  --argjson temp_c "$temp_c" \
+  --argjson heatpipe_w "$heatpipe_json" \
+  '{text: $text, tooltip: $tooltip, class: $class, percentage: $percentage, cores: $cores, temp_c: $temp_c, heatpipe_w: $heatpipe_w}'

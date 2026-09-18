@@ -18,7 +18,6 @@ import "arg_commands.js" as ArgCommands
 import "emoji.js" as Emoji
 import "dictcc-core.mjs" as DictCC
 import "launcher_layout.js" as LauncherGeom
-import "temp_display.js" as TempDisplay
 import "quick_models.js" as QuickModels
 import "gallery.js" as Gallery
 import "calc_history.js" as CalcHist

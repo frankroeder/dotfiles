@@ -1,4 +1,4 @@
-// CPU/MEM click panel: parse asahi-cpu / asahi-memory tooltips, ps, df.
+// CPU/MEM click panel: tooltips, ps, sensor JSON.
 // QML: import "../sys_panel.js" as Sys
 
 function parseCpuTooltip(tooltip) {
@@ -37,13 +37,6 @@ function parsePs(stdout, n) {
   return out
 }
 
-// df -h / → "Filesystem Size Used Avail Use% Mounted on"
-function parseDfRoot(stdout) {
-  const parts = (String(stdout || "").trim().split("\n").pop() || "").split(/\s+/)
-  const pct = Number(String(parts[4] || "").replace("%", ""))
-  return { size: parts[1] || "", used: parts[2] || "", pct: parts.length >= 6 && isFinite(pct) ? pct : -1 }
-}
-
 function hottest(sensors, n) {
   const list = (sensors || []).slice()
   list.sort(function (a, b) { return (b.value || 0) - (a.value || 0) })
@@ -67,14 +60,38 @@ function heat(c) {
   return !isFinite(v) ? 0 : v >= 70 ? 2 : v >= 50 ? 1 : 0
 }
 
+// Heatpipe watts: same 15 / 25 W bands as asahi-cpu (SoC dissipation proxy).
+function heatW(w) {
+  const v = Number(w)
+  return !isFinite(v) ? 0 : v >= 25 ? 2 : v >= 15 ? 1 : 0
+}
+
+function fanFraction(fan) {
+  const rpm = Number(fan && fan.value)
+  const min = Number(fan && fan.min)
+  const max = Number(fan && fan.max)
+  if (!isFinite(rpm) || !isFinite(min) || !isFinite(max) || max <= min) return 0
+  return Math.max(0, Math.min(1, (rpm - min) / (max - min)))
+}
+
+function pressureClass(percent, warning, critical) {
+  const v = Number(percent)
+  if (!isFinite(v)) return "normal"
+  if (v >= (critical == null ? 95 : critical)) return "critical"
+  if (v >= (warning == null ? 80 : warning)) return "warning"
+  return "normal"
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     parseCpuTooltip: parseCpuTooltip,
     parseMemTooltip: parseMemTooltip,
     parsePs: parsePs,
-    parseDfRoot: parseDfRoot,
     hottest: hottest,
     sparkPoints: sparkPoints,
-    heat: heat
+    heat: heat,
+    heatW: heatW,
+    fanFraction: fanFraction,
+    pressureClass: pressureClass
   }
 }

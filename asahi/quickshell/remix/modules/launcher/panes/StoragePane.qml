@@ -8,8 +8,6 @@ import Quickshell.Bluetooth
 import "../../menu" as Menu
 import "../../../"
 import "../quick_models.js" as QuickModels
-import "../temp_display.js" as TempDisplay
-import "../launcher_layout.js" as LauncherGeom
 
 // Storage pane: disks and home folder usage.
 // `root` is the LauncherWindow (fontPx, uiFont/uiSans, launcherGeom, quickMode, quickPaneKey, binDir, ...).
@@ -17,6 +15,29 @@ Item {
   property var root
   id: quickStorageRoot
   anchors.fill: parent
+  property real diskRead: 0
+  property real diskWrite: 0
+
+  Process {
+    id: ioProc
+    command: [root.binDir + "/asahi-metrics"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const data = JSON.parse(String(text || "").trim() || "{}")
+          quickStorageRoot.diskRead = (data.disk && data.disk.read_bps) || 0
+          quickStorageRoot.diskWrite = (data.disk && data.disk.write_bps) || 0
+        } catch (e) {}
+      }
+    }
+  }
+  Timer {
+    interval: 2000
+    running: root.quickMode && root.quickPaneKey === "storage"
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: if (!ioProc.running) ioProc.running = true
+  }
 
   function mountColor(pct) {
     if (pct >= 90) return Style.red
@@ -143,9 +164,8 @@ Item {
           Layout.fillWidth: true
           spacing: 4
           Text {
-            Layout.fillWidth: true
             text: "Storage"
-            color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(17); font.weight: Font.DemiBold; elide: Text.ElideRight
+            color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(17); font.weight: Font.DemiBold
           }
           Text {
             Layout.fillWidth: true
@@ -168,6 +188,7 @@ Item {
           }
           Item { Layout.fillHeight: true }
           RowLayout {
+            Layout.topMargin: 6
             spacing: 8
             Pill { icon: "󰑐"; label: "Refresh"; bg: Style.m3primaryContainer; fg: Style.m3primary; onClicked: root.scanStorage() }
             Chip {
@@ -176,7 +197,12 @@ Item {
               bg: Style.m3tertiaryContainer
             }
             Item { Layout.fillWidth: true }
-            Secondary { text: "Click a mount or folder to open it"; font.pixelSize: root.fontPx(9) }
+            Text {
+              text: "R " + QuickModels.formatRate(quickStorageRoot.diskRead)
+                + "   W " + QuickModels.formatRate(quickStorageRoot.diskWrite)
+              color: Style.m3onSurfaceVariant
+              font.family: root.uiSans; font.pixelSize: root.fontPx(12); font.weight: Font.Medium
+            }
           }
         }
       }

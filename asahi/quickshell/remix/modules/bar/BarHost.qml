@@ -73,7 +73,10 @@ Item {
   property real cpuPerc: 0
   property real memPerc: 0
   property string cpuTempText: ""
+  property real heatpipeW: -1
+  property var cpuCores: []
   property var cpuHistory: []
+  property var memHistory: []
   readonly property int maxGraphHist: 22
   property int wsWindowVersion: 0
   property int wsIconRefreshes: 0
@@ -169,8 +172,9 @@ Item {
           barWindow.cpuText = data.text || "CPU --%"
           barWindow.cpuTooltip = data.tooltip || ""
           barWindow.cpuPerc = data.percentage || 0
-          const m = (data.text || "").match(/(\d+)C/)
-          barWindow.cpuTempText = m ? m[1] : ""
+          barWindow.cpuTempText = (data.temp_c != null && isFinite(data.temp_c)) ? String(Math.round(data.temp_c)) : ""
+          barWindow.heatpipeW = (data.heatpipe_w != null && isFinite(data.heatpipe_w)) ? Number(data.heatpipe_w) : -1
+          barWindow.cpuCores = data.cores || []
           barWindow.cpuHistory.push(barWindow.cpuPerc)
           if (barWindow.cpuHistory.length > barWindow.maxGraphHist) barWindow.cpuHistory.shift()
         } catch (e) {}
@@ -189,6 +193,8 @@ Item {
           barWindow.memText = data.text || "Mem --%"
           barWindow.memTooltip = data.tooltip || ""
           barWindow.memPerc = data.percentage || 0
+          barWindow.memHistory.push(barWindow.memPerc)
+          if (barWindow.memHistory.length > barWindow.maxGraphHist) barWindow.memHistory.shift()
         } catch (e) {}
       }
     }

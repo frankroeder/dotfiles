@@ -1,7 +1,9 @@
 import QtQuick
 import "../../../"
+import "../sys_panel.js" as Sys
 
 // One CPU + RAM chip. Each half keeps its themed accent (peach / sky); click → SysPanel, right-click → btop.
+// Warning/critical tints follow CPU, RAM, and heatpipe pressure — Adaptive bar modes stay off the notch.
 Item {
   id: root
 
@@ -11,6 +13,14 @@ Item {
 
   implicitWidth: row.implicitWidth + 16
   implicitHeight: solidBar ? barHost.barSize : Style.barHeight
+
+  function accentFor(base, percent, heatpipe) {
+    const cpuMem = Sys.pressureClass(percent)
+    const pipe = heatpipe != null && heatpipe >= 0 ? Sys.heatW(heatpipe) : 0
+    if (cpuMem === "critical" || pipe === 2) return Style.red
+    if (cpuMem === "warning" || pipe === 1) return Style.yellow
+    return base
+  }
 
   Rectangle {
     anchors.fill: parent
@@ -43,8 +53,16 @@ Item {
     id: row
     anchors.centerIn: parent
     spacing: 10
-    Stat { icon: "󰍛"; accent: Style.orange; value: root.barHost ? root.barHost.cpuPerc : 0 }
-    Stat { icon: "󰘚"; accent: Style.sky; value: root.barHost ? root.barHost.memPerc : 0 }
+    Stat {
+      icon: "󰍛"
+      accent: root.accentFor(Style.orange, root.barHost ? root.barHost.cpuPerc : 0, root.barHost ? root.barHost.heatpipeW : -1)
+      value: root.barHost ? root.barHost.cpuPerc : 0
+    }
+    Stat {
+      icon: "󰘚"
+      accent: root.accentFor(Style.sky, root.barHost ? root.barHost.memPerc : 0, -1)
+      value: root.barHost ? root.barHost.memPerc : 0
+    }
   }
 
   MouseArea {

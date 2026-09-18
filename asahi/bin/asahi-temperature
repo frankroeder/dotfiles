@@ -2,22 +2,59 @@
 #
 # asahi-temperature
 #
-# Lists available temperature sensors using stable hwmon names/labels instead
-# of volatile hwmonN indices.
+# Lists hwmon sensors by stable device name and label, not volatile hwmonN
+# indices. Temperatures come from every chip; Apple Silicon also publishes
+# SMC power rails and fan RPMs on macsmc_hwmon. There is no SoC die °C in
+# sysfs — heatpipe watts are the dissipation estimate the fans follow.
+#
+# Usage: asahi-temperature [--json]
+# Tests: ASAHI_HWMON_ROOT=/path/to/hwmon
 #
 
 set -euo pipefail
+
+json=false
+for arg in "$@"; do
+  case "$arg" in
+    --json) json=true ;;
+    -h | --help)
+      echo "usage: $0 [--json]" >&2
+      exit 2
+      ;;
+    *)
+      echo "usage: $0 [--json]" >&2
+      exit 2
+      ;;
+  esac
+done
+
+hwmon_root="${ASAHI_HWMON_ROOT:-/sys/class/hwmon}"
 
 best_raw=""
 best_name=""
 best_label=""
 best_path=""
+heatpipe_raw=""
+heatpipe_name=""
+heatpipe_label=""
+heatpipe_path=""
+
+json_temps="[]"
+json_power="[]"
+json_fans="[]"
 
 read_value() {
   local path="$1"
 
   [ -r "$path" ] || return 1
   tr -d '\n' < "$path"
+}
+
+trim() {
+  local s="$1"
+  s="${s#"${s%%[![:space:]]*}"}"
+  s="${s%"${s##*[![:space:]]}"}"
+  printf "%s" "$s"
 }
 
 sensor_label() {
@@ -27,6 +64,7 @@ sensor_label() {
 
   sensor="${sensor%_input}"
   label="$(read_value "${input%_input}_label" 2>/dev/null || true)"
+  label="$(trim "${label:-}")"
   printf "%s\n" "${label:-$sensor}"
 }
 
@@ -47,6 +85,21 @@ sensor_desc() {
     macsmc_hwmon:WiFi/BT\ Module\ Temp)
       printf "SMC Wi-Fi/Bluetooth module temperature."
       ;;
+    macsmc_hwmon:Heatpipe\ Power)
+      printf "SMC estimate of SoC heatpipe dissipation; no die °C in sysfs."
+      ;;
+    macsmc_hwmon:Total\ System\ Power)
+      printf "SMC whole-machine power draw."
+      ;;
+    macsmc_hwmon:AC\ Input\ Power)
+      printf "Wall/adapter input power."
+      ;;
+    macsmc_hwmon:3.8\ V\ Rail\ Power)
+      printf "Always-on 3.8 V rail; often idle at 0 W."
+      ;;
+    macsmc_hwmon:Fan\ *)
+      printf "Live RPM; 0 means the SMC has stopped the fan."
+      ;;
     macsmc_battery:*)
       printf "Battery pack temperature from the SMC battery driver."
       ;;
@@ -56,6 +109,31 @@ sensor_desc() {
     tas2764:*)
       printf "Speaker amplifier chip; rises under audio load."
       ;;
+  esac
+}
+
+json_append() {
+  local bucket="$1"
+  local name="$2"
+  local label="$3"
+  local value="$4"
+  local unit="$5"
+  local path="$6"
+  local desc="$7"
+  local extra="${8:-}"
+
+  if [ "$json" != true ]; then
+    return
+  fi
+  [ -n "$extra" ] || extra='{}'
+
+  case "$bucket" in
+    temps) json_temps="$(jq -c --arg n "$name" --arg l "$label" --argjson v "$value" --arg u "$unit" --arg p "$path" --arg d "$desc" \
+      '. + [{name:$n,label:$l,value:$v,unit:$u,path:$p,desc:$d}]' <<<"$json_temps")" ;;
+    power) json_power="$(jq -c --arg n "$name" --arg l "$label" --argjson v "$value" --arg u "$unit" --arg p "$path" --arg d "$desc" \
+      '. + [{name:$n,label:$l,value:$v,unit:$u,path:$p,desc:$d}]' <<<"$json_power")" ;;
+    fans) json_fans="$(jq -c --arg n "$name" --arg l "$label" --argjson v "$value" --arg u "$unit" --arg p "$path" --arg d "$desc" --argjson x "$extra" \
+      '. + [{name:$n,label:$l,value:$v,unit:$u,path:$p,desc:$d} + $x]' <<<"$json_fans")" ;;
   esac
 }
 
@@ -74,8 +152,11 @@ print_sensor() {
   celsius="$(awk -v value="$raw" 'BEGIN { printf "%.2f", value / 1000 }')"
   desc="$(sensor_desc "$name" "$label")"
 
-  printf "  %-18s %-28s %7s°C   %s\n" "$name" "$label" "$celsius" "$input"
-  [ -n "$desc" ] && printf "    %s\n" "$desc"
+  if [ "$json" != true ]; then
+    printf "  %-18s %-28s %7s°C   %s\n" "$name" "$label" "$celsius" "$input"
+    [ -n "$desc" ] && printf "    %s\n" "$desc"
+  fi
+  json_append temps "$name" "$label" "$celsius" "C" "$input" "$desc"
 
   if [ -z "$best_raw" ] || [ "$raw" -gt "$best_raw" ]; then
     best_raw="$raw"
@@ -85,21 +166,93 @@ print_sensor() {
   fi
 }
 
-echo "============================================"
-echo "     Asahi Linux Temperature Sensors"
-echo "============================================"
-echo ""
-echo "Values are read from /sys/class/hwmon by device name and temp label."
-echo ""
+print_power() {
+  local hwmon="$1"
+  local input="$2"
+  local name label raw watts desc
 
-for hwmon in /sys/class/hwmon/hwmon{0..99}; do
+  raw="$(read_value "$input" 2>/dev/null || true)"
+  case "$raw" in
+    '' | *[!0-9-]*) return ;;
+  esac
+
+  name="$(read_value "$hwmon/name" 2>/dev/null || printf "unknown")"
+  label="$(sensor_label "$input")"
+  watts="$(awk -v value="$raw" 'BEGIN { printf "%.2f", value / 1000000 }')"
+  desc="$(sensor_desc "$name" "$label")"
+
+  if [ "$json" != true ]; then
+    printf "  %-18s %-28s %7s W   %s\n" "$name" "$label" "$watts" "$input"
+    [ -n "$desc" ] && printf "    %s\n" "$desc"
+  fi
+  json_append power "$name" "$label" "$watts" "W" "$input" "$desc"
+
+  case "$label" in
+    [Hh]eatpipe*)
+      heatpipe_raw="$raw"
+      heatpipe_name="$name"
+      heatpipe_label="$label"
+      heatpipe_path="$input"
+      ;;
+  esac
+}
+
+print_fan() {
+  local hwmon="$1"
+  local input="$2"
+  local name label raw rpm desc min max extra
+
+  raw="$(read_value "$input" 2>/dev/null || true)"
+  case "$raw" in
+    '' | *[!0-9-]*) return ;;
+  esac
+
+  name="$(read_value "$hwmon/name" 2>/dev/null || printf "unknown")"
+  label="$(sensor_label "$input")"
+  rpm="$raw"
+  desc="$(sensor_desc "$name" "$label")"
+  min="$(read_value "${input%_input}_min" 2>/dev/null || true)"
+  max="$(read_value "${input%_input}_max" 2>/dev/null || true)"
+  case "$min" in *[!0-9-]*) min="" ;; esac
+  case "$max" in *[!0-9-]*) max="" ;; esac
+
+  if [ "$json" != true ]; then
+    printf "  %-18s %-28s %7s RPM  %s\n" "$name" "$label" "$rpm" "$input"
+    if [ -n "$min" ] || [ -n "$max" ]; then
+      printf "    %s%s%s RPM\n" "${min:-?}" $'–' "${max:-?}"
+    elif [ -n "$desc" ]; then
+      printf "    %s\n" "$desc"
+    fi
+  fi
+  extra="{}"
+  if [ -n "$min" ] && [ -n "$max" ]; then
+    extra="$(jq -nc --argjson min "$min" --argjson max "$max" '{min:$min,max:$max}')"
+  fi
+  json_append fans "$name" "$label" "$rpm" "RPM" "$input" "$desc" "$extra"
+}
+
+emit_human_header() {
+  echo "============================================"
+  echo "     Asahi Linux Temperature Sensors"
+  echo "============================================"
+  echo ""
+  echo "Values are read from /sys/class/hwmon by device name and temp label."
+  echo "Apple Silicon has no SoC die °C in sysfs; heatpipe watts track dissipation."
+  echo ""
+}
+
+if [ "$json" != true ]; then
+  emit_human_header
+fi
+
+for hwmon in "$hwmon_root"/hwmon{0..99}; do
   [ -d "$hwmon" ] || continue
 
   printed_header=0
   for input in "$hwmon"/temp*_input; do
     [ -r "$input" ] || continue
 
-    if [ "$printed_header" -eq 0 ]; then
+    if [ "$printed_header" -eq 0 ] && [ "$json" != true ]; then
       name="$(read_value "$hwmon/name" 2>/dev/null || printf "unknown")"
       printf ">>> %s (%s)\n" "$name" "$hwmon"
       printed_header=1
@@ -108,11 +261,67 @@ for hwmon in /sys/class/hwmon/hwmon{0..99}; do
     print_sensor "$hwmon" "$input"
   done
 
-  [ "$printed_header" -eq 1 ] && echo ""
+  [ "$printed_header" -eq 1 ] && [ "$json" != true ] && echo ""
 done
+
+# Power rails and fans: macsmc_hwmon only. Other chips (HID batteries,
+# charger PSYs) publish zeros that are not useful in the overview.
+for hwmon in "$hwmon_root"/hwmon{0..99}; do
+  [ -d "$hwmon" ] || continue
+  name="$(read_value "$hwmon/name" 2>/dev/null || true)"
+  [ "$name" = "macsmc_hwmon" ] || continue
+
+  printed_header=0
+  for input in "$hwmon"/power*_input; do
+    [ -r "$input" ] || continue
+    if [ "$printed_header" -eq 0 ] && [ "$json" != true ]; then
+      printf ">>> %s power (%s)\n" "$name" "$hwmon"
+      printed_header=1
+    fi
+    print_power "$hwmon" "$input"
+  done
+  [ "$printed_header" -eq 1 ] && [ "$json" != true ] && echo ""
+
+  printed_header=0
+  for input in "$hwmon"/fan*_input; do
+    [ -r "$input" ] || continue
+    if [ "$printed_header" -eq 0 ] && [ "$json" != true ]; then
+      printf ">>> %s fans (%s)\n" "$name" "$hwmon"
+      printed_header=1
+    fi
+    print_fan "$hwmon" "$input"
+  done
+  [ "$printed_header" -eq 1 ] && [ "$json" != true ] && echo ""
+  break
+done
+
+if [ "$json" = true ]; then
+  hottest_json="null"
+  heatpipe_json="null"
+  if [ -n "$best_raw" ]; then
+    best_celsius="$(awk -v value="$best_raw" 'BEGIN { printf "%.2f", value / 1000 }')"
+    hottest_json="$(jq -nc --arg n "$best_name" --arg l "$best_label" --argjson v "$best_celsius" --arg p "$best_path" \
+      '{name:$n,label:$l,value:$v,unit:"C",path:$p}')"
+  fi
+  if [ -n "$heatpipe_raw" ]; then
+    heatpipe_w="$(awk -v value="$heatpipe_raw" 'BEGIN { printf "%.2f", value / 1000000 }')"
+    heatpipe_json="$(jq -nc --arg n "$heatpipe_name" --arg l "$heatpipe_label" --argjson v "$heatpipe_w" --arg p "$heatpipe_path" \
+      '{name:$n,label:$l,value:$v,unit:"W",path:$p}')"
+  fi
+  jq -nc --argjson temps "$json_temps" --argjson power "$json_power" --argjson fans "$json_fans" \
+    --argjson hottest "$hottest_json" --argjson heatpipe "$heatpipe_json" \
+    '{temps:$temps,power:$power,fans:$fans,hottest:$hottest,heatpipe:$heatpipe}'
+  exit 0
+fi
 
 if [ -n "$best_raw" ]; then
   best_celsius="$(awk -v value="$best_raw" 'BEGIN { printf "%.2f", value / 1000 }')"
   echo "Hottest:"
   printf "  %s / %s: %s°C   %s\n" "$best_name" "$best_label" "$best_celsius" "$best_path"
+fi
+
+if [ -n "$heatpipe_raw" ]; then
+  heatpipe_w="$(awk -v value="$heatpipe_raw" 'BEGIN { printf "%.2f", value / 1000000 }')"
+  echo "Heatpipe:"
+  printf "  %s / %s: %s W   %s\n" "$heatpipe_name" "$heatpipe_label" "$heatpipe_w" "$heatpipe_path"
 fi

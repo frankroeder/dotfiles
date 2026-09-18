@@ -8,7 +8,6 @@ import Quickshell.Bluetooth
 import "../../menu" as Menu
 import "../../../"
 import "../quick_models.js" as QuickModels
-import "../temp_display.js" as TempDisplay
 import "../launcher_layout.js" as LauncherGeom
 
 // Bluetooth pane: adapter, paired and discovered devices.

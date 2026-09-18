@@ -9,20 +9,66 @@ var GROUP_NAME_MAP = {
   nvme: "NVMe SSD"
 }
 
+function parseReading(line, unit) {
+  const escaped = unit.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const re = new RegExp("^\\s*(\\S+)\\s+(.+?)\\s+(-?\\d+(?:\\.\\d+)?) " + escaped + "\\s+(.+)$")
+  const sm = String(line || "").match(re)
+  if (!sm) return null
+  return { name: sm[1], label: sm[2].trim(), value: Number(sm[3]), path: sm[4].trim() }
+}
+
 function parseTemperatures(out) {
   const sensors = []
+  const power = []
+  const fans = []
+  let heatpipe = null
   let groupName = ""
   let groupPath = ""
+  let groupKind = "temp"
   let last = null
   const lines = String(out || "").split("\n")
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
-    if (line.indexOf("Hottest:") === 0) break
+    if (line.indexOf("Hottest:") === 0) continue
+    if (line.indexOf("Heatpipe:") === 0) continue
     const gm = line.match(/^>>> (.+?) \((.+)\)$/)
     if (gm) {
-      groupName = gm[1]
+      const rawName = gm[1]
+      groupKind = / power$/.test(rawName) ? "power" : / fans$/.test(rawName) ? "fans" : "temp"
+      groupName = rawName.replace(/ (power|fans)$/, "")
       groupPath = gm[2]
+      last = null
       continue
+    }
+    if (groupKind === "power") {
+      const rec = parseReading(line, "W")
+      if (rec) {
+        last = {
+          group: groupName, groupPath: groupPath, name: rec.name, label: rec.label,
+          displayLabel: rec.label, value: rec.value, unit: "W", path: rec.path, desc: ""
+        }
+        power.push(last)
+        if (/heatpipe/i.test(rec.label)) heatpipe = last
+        continue
+      }
+    }
+    if (groupKind === "fans") {
+      const rec = parseReading(line, "RPM")
+      if (rec) {
+        last = {
+          group: groupName, groupPath: groupPath, name: rec.name, label: rec.label,
+          displayLabel: rec.label, value: rec.value, unit: "RPM", path: rec.path,
+          desc: "", min: NaN, max: NaN
+        }
+        fans.push(last)
+        continue
+      }
+      const bounds = String(line).match(/^\s+(\d+)\s*[–-]\s*(\d+)\s*RPM/)
+      if (bounds && last && last.unit === "RPM") {
+        last.min = Number(bounds[1])
+        last.max = Number(bounds[2])
+        continue
+      }
     }
     const sm = line.match(/^\s*(\S+)\s+(.+?)\s+(-?\d+(?:\.\d+)?)°C\s+(.+)$/)
     if (sm) {
@@ -107,7 +153,7 @@ function parseTemperatures(out) {
   for (let s = 0; s < sensors.length; s++) {
     if (!hottest || sensors[s].value > hottest.value) hottest = sensors[s]
   }
-  return { sensors: sensors, groups: groups, hottest: hottest }
+  return { sensors: sensors, groups: groups, hottest: hottest, power: power, fans: fans, heatpipe: heatpipe }
 }
 
 function tempDisplayRows(groups) {
@@ -123,6 +169,7 @@ function tempDisplayRows(groups) {
         title: g.displayName || g.name || s.displayLabel || s.label || "",
         value: s.value,
         desc: s.desc || "",
+        path: s.path || "",
         sensors: []
       })
       continue
@@ -134,7 +181,8 @@ function tempDisplayRows(groups) {
         kind: "item",
         title: s.displayLabel || s.label || "",
         value: s.value,
-        desc: (si === 0 || !s.sharedDesc) ? (s.desc || "") : ""
+        desc: (si === 0 || !s.sharedDesc) ? (s.desc || "") : "",
+        path: s.path || ""
       })
     }
     rows.push({
@@ -148,10 +196,43 @@ function tempDisplayRows(groups) {
   return rows
 }
 
+function rowKey(row) {
+  return String((row && (row.path || row.title)) || "")
+}
+
+function structureKey(rows) {
+  const parts = []
+  const list = rows || []
+  for (let i = 0; i < list.length; i++) {
+    const r = list[i]
+    parts.push(r.kind || "", r.title || "", rowKey(r))
+    const kids = r.sensors || []
+    for (let j = 0; j < kids.length; j++) parts.push(rowKey(kids[j]), kids[j].title || "")
+  }
+  return parts.join("\0")
+}
+
+function valuesMap(rows) {
+  const m = {}
+  const list = rows || []
+  for (let i = 0; i < list.length; i++) {
+    const r = list[i]
+    if (r.value !== null && r.value !== undefined) m[rowKey(r)] = r.value
+    const kids = r.sensors || []
+    for (let j = 0; j < kids.length; j++) {
+      if (kids[j].value !== null && kids[j].value !== undefined) m[rowKey(kids[j])] = kids[j].value
+    }
+  }
+  return m
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     parseTemperatures: parseTemperatures,
     tempDisplayRows: tempDisplayRows,
+    rowKey: rowKey,
+    structureKey: structureKey,
+    valuesMap: valuesMap,
     GROUP_NAME_MAP: GROUP_NAME_MAP
   }
 }
