@@ -81,6 +81,11 @@ assert(Object.keys(vals).length >= rows.length, "values map covers each current 
 
 const qmlPath = path.join(__dirname, "panes/TempPane.qml");
 const qml = fs.readFileSync(qmlPath, "utf8");
+const src = fs.readFileSync(path.join(__dirname, "temp_display.js"), "utf8");
+assert(src.indexOf("\\0") === -1, "structureKey must not join on NUL (QML drops the function)");
+assert(qml.indexOf("No sensors parsed") === -1, "hero does not say 'No sensors parsed'");
+assert(qml.indexOf("hottestSensor = parsed.hottest") < qml.indexOf("TempDisplay.structureKey"),
+  "hero data is applied before structureKey so a QML helper miss still shows temps");
 assert(qml.indexOf("TempDisplay.tempDisplayRows") !== -1, "TempPane.qml uses shipped tempDisplayRows");
 assert(qml.indexOf("SMC Power") === -1, "TempPane does not host SMC power rails");
 assert(qml.indexOf("tempValues") !== -1 && qml.indexOf("barFill.ready") !== -1, "heat bars keep delegates and animate from the last width");

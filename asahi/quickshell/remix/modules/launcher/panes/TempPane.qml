@@ -30,17 +30,17 @@ Item {
   function parseTemperatures(out) {
     const parsed = TempDisplay.parseTemperatures(out)
     const rows = TempDisplay.tempDisplayRows(parsed.groups)
-    const nextKey = TempDisplay.structureKey(rows)
     quickTempRoot.tempSensors = parsed.sensors
     quickTempRoot.tempGroups = parsed.groups
+    quickTempRoot.hottestSensor = parsed.hottest
+    quickTempRoot.tempFans = parsed.fans || []
+    quickTempRoot.tempUpdated = Qt.formatTime(new Date(), "HH:mm:ss")
+    const nextKey = TempDisplay.structureKey(rows)
     if (nextKey !== quickTempRoot.tempStructureKey) {
       quickTempRoot.tempRows = rows
       quickTempRoot.tempStructureKey = nextKey
     }
     quickTempRoot.tempValues = TempDisplay.valuesMap(rows)
-    quickTempRoot.hottestSensor = parsed.hottest
-    quickTempRoot.tempFans = parsed.fans || []
-    quickTempRoot.tempUpdated = Qt.formatTime(new Date(), "HH:mm:ss")
   }
   function tempColor(value) {
     if (value >= 70) return Style.red
@@ -169,7 +169,7 @@ Item {
           Text {
             Layout.fillWidth: true
             text: quickTempRoot.hottestSensor ? quickTempRoot.hottestSensor.value.toFixed(1) + "°C"
-              : (quickTempRoot.tempOutput ? "No sensors parsed" : "Loading sensors…")
+              : (quickTempRoot.tempOutput ? "No sensors" : "Loading sensors…")
             color: quickTempRoot.hottestSensor ? quickTempRoot.tempColor(quickTempRoot.hottestSensor.value) : Style.m3onSurfaceVariant
             font.family: root.uiSans; font.pixelSize: root.fontPx(26); font.weight: Font.DemiBold
           }

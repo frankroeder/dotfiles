@@ -209,7 +209,9 @@ function structureKey(rows) {
     const kids = r.sensors || []
     for (let j = 0; j < kids.length; j++) parts.push(rowKey(kids[j]), kids[j].title || "")
   }
-  return parts.join("\0")
+  // ASCII delimiter: QML's JS import treats a NUL join as a non-function, and
+  // TempPane then never applies the parse (hero stuck on "No sensors parsed").
+  return parts.join("|")
 }
 
 function valuesMap(rows) {
