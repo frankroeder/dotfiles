@@ -4,11 +4,10 @@ import Quickshell.Wayland
 import Quickshell.Hyprland
 import Quickshell.Io
 
-// Abstract shader screensaver. Four fragment programs (plasma, fluid,
-// voronoi, kaleidoscope) cycle on a ~22 s timer with a soft cross-fade.
-// Each shader takes the live Asahi palette as uniforms, so swapping
-// `Asahi theme update <name>` recolours the saver mid-flight without
-// restart.
+// Theme-colored shader screensaver. Fragment programs cycle on a ~22 s
+// timer with a soft cross-fade. Each shader takes the live Asahi palette
+// as uniforms, so swapping `Asahi theme update <name>` recolours the
+// saver mid-flight without restart.
 //
 // Activation: IPC only. Bind your preferred trigger to e.g.
 //   qs -c screensaver ipc call saver toggle
@@ -30,6 +29,22 @@ ShellRoot {
     property bool active: false
     property bool panelVisible: false
     property int  shaderIndex: 0
+    // Previous index stays loaded through the cross-fade so only two
+    // fragment programs run at once (Asahi GPU, 3k panel).
+    property int  fadeFrom: 0
+
+    function setShader(n) {
+        const count = root.shaderCount
+        const idx = ((n % count) + count) % count
+        if (idx === root.shaderIndex) {
+            root.elapsed = 0
+            return
+        }
+        root.fadeFrom = root.shaderIndex
+        root.shaderIndex = idx
+        root.elapsed = 0
+        fadeHold.restart()
+    }
 
     // Adding a shader = one entry here + drop its .qsb in shaders/.
     // Index order is what the IPC `pick N` and 1..9 hotkeys map onto.
@@ -45,10 +60,10 @@ ShellRoot {
         "shaders/matrix.frag.qsb",
         "shaders/hexdump.frag.qsb",
         "shaders/buffer.frag.qsb",
-        "shaders/invaders.frag.qsb",
-        "shaders/fire.frag.qsb",
-        "shaders/terminal.frag.qsb",
-        "shaders/mrrobot.frag.qsb",
+        "shaders/voronoi.frag.qsb",
+        "shaders/starfield.frag.qsb",
+        "shaders/hypercube.frag.qsb",
+        "shaders/fireflies.frag.qsb",
         "life",  // sentinel — special-cased in the stack
         "ascii"  // sentinel — omarchy-style logo text effects (asciiContainer)
     ]
@@ -64,9 +79,21 @@ ShellRoot {
         transparentIndices.indexOf(root.shaderIndex) >= 0
 
     // Auto-cycle cadence. 22s reads as "look at this", longer than that
-    // and a fixed viewer notices the pattern repeating.
-    readonly property real cycleSec: 22.0
+    // and a fixed viewer notices the pattern repeating. Showcase is a
+    // fast labelled walk of every slot.
+    property bool showcasing: false
+    readonly property real cycleSec: showcasing ? 4.0 : 22.0
     readonly property real fadeMs:   1600
+
+    function shaderName(i) {
+        const s = String(root.shaderList[i] || "")
+        if (s === "life" || s === "ascii") return s
+        const slash = s.lastIndexOf("/")
+        const base = slash >= 0 ? s.slice(slash + 1) : s
+        return base.replace(".frag.qsb", "")
+    }
+
+    readonly property string shaderLabel: (root.shaderIndex + 1) + " / " + root.shaderCount + "   " + shaderName(root.shaderIndex)
 
     function parseColors(text) {
         const re = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"([^"]+)"/;
@@ -132,14 +159,14 @@ ShellRoot {
         function start():  void { Qt.callLater(() => root.setActive(true)); }
         function stop():   void { root.setActive(false); }
         function toggle(): void { Qt.callLater(() => root.setActive(!root.active)); }
-        function next():   void {
-            root.shaderIndex = (root.shaderIndex + 1) % root.shaderCount;
-            root.elapsed = 0;
-        }
-        function pick(i: int): void {
-            const n = ((i % root.shaderCount) + root.shaderCount) % root.shaderCount;
-            root.shaderIndex = n;
-            root.elapsed = 0;
+        function next():   void { root.setShader(root.shaderIndex + 1); }
+        function pick(i: int): void { root.setShader(i); }
+        function showcase(): void {
+            root.showcasing = true
+            if (root.active)
+                root.setShader(0)
+            else
+                Qt.callLater(() => root.setActive(true))
         }
     }
 
@@ -157,12 +184,17 @@ ShellRoot {
             root.armedFor += 0.016;
             // The ascii scene holds twice as long: it is the omarchy-style
             // headliner and runs several random effects back to back.
-            const slot = root.shaderIndex === root.asciiIndex ? root.cycleSec * 2 : root.cycleSec;
-            if (root.elapsed >= slot) {
-                root.elapsed = 0;
-                root.shaderIndex = (root.shaderIndex + 1) % root.shaderCount;
-            }
+            const slot = (!root.showcasing && root.shaderIndex === root.asciiIndex)
+                ? root.cycleSec * 2 : root.cycleSec;
+            if (root.elapsed >= slot)
+                root.setShader(root.shaderIndex + 1);
         }
+    }
+
+    Timer {
+        id: fadeHold
+        interval: root.fadeMs + 80
+        onTriggered: root.fadeFrom = root.shaderIndex
     }
 
     property string focusScreenName: ""
@@ -175,11 +207,18 @@ ShellRoot {
                 root.focusScreenName = screens.length ? screens[0].name : "";
             else
                 root.focusScreenName = mon.name;
-            // Open on the omarchy-style logo scene, then cycle into shaders.
-            root.shaderIndex = root.asciiIndex;
+            if (root.showcasing) {
+                root.shaderIndex = 0
+                root.fadeFrom = 0
+            } else {
+                // Open on the omarchy-style logo scene, then cycle into shaders.
+                root.shaderIndex = root.asciiIndex
+                root.fadeFrom = root.asciiIndex
+            }
             root.elapsed = 0;
             root.armedFor = 0;
         } else {
+            root.showcasing = false
             root.focusScreenName = "";
         }
     }
@@ -203,12 +242,9 @@ ShellRoot {
             Behavior on opacity { NumberAnimation { duration: root.fadeMs; easing.type: Easing.InOutQuad } }
         }
 
-        // Shader stack, cross-faded by opacity. Every entry in shaderList
-        // gets one ShaderEffect; only the active one is at opacity 1, the
-        // others fade in/out around it. They all run every frame even at
-        // opacity 0 — fine for a screensaver, nothing else is competing
-        // for GPU. The `life` sentinel entry is handled by lifeContainer
-        // below instead of the Repeater (it needs feedback wiring).
+        // Shader stack, cross-faded by opacity. Fragment programs only
+        // load for the current index and the one fading out. The `life`
+        // sentinel is handled by lifeContainer (feedback wiring).
         Item {
             id: stack
             anchors.fill: parent
@@ -220,10 +256,14 @@ ShellRoot {
                     required property int index
                     required property string modelData
                     anchors.fill: parent
-                    active: root.active && slotLoader.modelData.indexOf("shaders/") === 0
+                    active: root.active
+                            && slotLoader.modelData.indexOf("shaders/") === 0
+                            && (slotLoader.index === root.shaderIndex
+                                || slotLoader.index === root.fadeFrom)
                     sourceComponent: ShaderEffect {
                         anchors.fill: parent
-                        opacity: root.shaderIndex === slotLoader.index ? 1 : 0
+                        // Start at 0 so a freshly loaded slot fades in instead of popping.
+                        opacity: 0
                         Behavior on opacity { NumberAnimation { duration: root.fadeMs; easing.type: Easing.InOutQuad } }
                         property real  iTime: root.elapsed
                         property size  iResolution: Qt.size(width, height)
@@ -232,6 +272,9 @@ ShellRoot {
                         property color colAccent: root.accent
                         property color colSeal:   root.seal
                         fragmentShader: slotLoader.modelData
+                        Component.onCompleted: {
+                            opacity = Qt.binding(() => root.shaderIndex === slotLoader.index ? 1 : 0)
+                        }
                     }
                 }
             }
@@ -245,6 +288,7 @@ ShellRoot {
                 id: lifeContainer
                 anchors.fill: parent
                 opacity: root.shaderIndex === root.lifeIndex ? 1 : 0
+                visible: opacity > 0.001
                 Behavior on opacity { NumberAnimation { duration: root.fadeMs; easing.type: Easing.InOutQuad } }
 
                 ShaderEffect {
@@ -266,6 +310,8 @@ ShellRoot {
                     sourceItem: lifeEffect
                     recursive: true
                     live: root.active
+                          && (root.shaderIndex === root.lifeIndex
+                              || root.fadeFrom === root.lifeIndex)
                     smooth: false
                     hideSource: false
                     // Texture sized to grid so neighbour sampling lines up
@@ -480,19 +526,30 @@ ShellRoot {
             }
         }
 
-        // Thin theme strip across the bottom — like a slide footer. Pure
-        // QML, sits on top of the shader. Looks intentional; also reassures
-        // you the theme parser actually grabbed real colours.
-        Row {
+        // Name + theme strip. Name is how a live walk identifies the
+        // current program; the four chips are the live palette.
+        Column {
             anchors.bottom: parent.bottom
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottomMargin: 36
-            spacing: 14
-            opacity: 0.55
-            Rectangle { width: 36; height: 3; color: root.paper;  radius: 1 }
-            Rectangle { width: 36; height: 3; color: root.ink;    radius: 1 }
-            Rectangle { width: 36; height: 3; color: root.accent; radius: 1 }
-            Rectangle { width: 36; height: 3; color: root.seal;   radius: 1 }
+            spacing: 12
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: root.shaderLabel
+                color: root.ink
+                opacity: 0.78
+                font.family: "Noto Sans Mono"
+                font.pixelSize: 18
+            }
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: 14
+                opacity: 0.55
+                Rectangle { width: 36; height: 3; color: root.paper;  radius: 1 }
+                Rectangle { width: 36; height: 3; color: root.ink;    radius: 1 }
+                Rectangle { width: 36; height: 3; color: root.accent; radius: 1 }
+                Rectangle { width: 36; height: 3; color: root.seal;   radius: 1 }
+            }
         }
 
         // ---------- Dismissal ----------
@@ -521,29 +578,25 @@ ShellRoot {
             Keys.onPressed: (e) => {
                 if (root.armedFor < 0.25) { e.accepted = true; return; }
                 if (e.key === Qt.Key_0) {
-                    root.shaderIndex = root.asciiIndex;
-                    root.elapsed = 0;
+                    root.setShader(root.asciiIndex);
                     e.accepted = true;
                     return;
                 }
                 const maxKey = Qt.Key_1 + Math.min(root.shaderCount, 9) - 1;
                 if (e.key >= Qt.Key_1 && e.key <= maxKey) {
-                    root.shaderIndex = e.key - Qt.Key_1;
-                    root.elapsed = 0;
+                    root.setShader(e.key - Qt.Key_1);
                     e.accepted = true;
                     return;
                 }
                 if (e.key === Qt.Key_Right || e.key === Qt.Key_L || e.key === Qt.Key_Space
                     || (e.key === Qt.Key_Tab && !(e.modifiers & Qt.ShiftModifier))) {
-                    root.shaderIndex = (root.shaderIndex + 1) % root.shaderCount;
-                    root.elapsed = 0;
+                    root.setShader(root.shaderIndex + 1);
                     e.accepted = true;
                     return;
                 }
                 if (e.key === Qt.Key_Left || e.key === Qt.Key_H || e.key === Qt.Key_Backtab
                     || (e.key === Qt.Key_Tab && (e.modifiers & Qt.ShiftModifier))) {
-                    root.shaderIndex = (root.shaderIndex - 1 + root.shaderCount) % root.shaderCount;
-                    root.elapsed = 0;
+                    root.setShader(root.shaderIndex - 1);
                     e.accepted = true;
                     return;
                 }

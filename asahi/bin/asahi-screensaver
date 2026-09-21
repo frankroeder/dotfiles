@@ -4,9 +4,9 @@ set -u
 
 action="${1:-toggle}"
 case "$action" in
-  start|stop|toggle|next) ;;
+  start|stop|toggle|next|showcase) ;;
   *)
-    echo "usage: asahi-screensaver {start|stop|toggle|next}" >&2
+    echo "usage: asahi-screensaver {start|stop|toggle|next|showcase}" >&2
     exit 2
     ;;
 esac
@@ -34,7 +34,7 @@ wait_for_screensaver_ipc() {
 }
 
 case "$action" in
-  start|toggle|next)
+  start|toggle|next|showcase)
     if ! screensaver_running; then
       setsid -f qs -n -c screensaver >/dev/null 2>&1 || true
       wait_for_screensaver_ipc || {

@@ -6,10 +6,15 @@
 # Quickshell all have GL 3+ available.
 set -euo pipefail
 
-QSB="${QSB:-/usr/lib/qt6/bin/qsb}"
-if ! [ -x "$QSB" ]; then
+QSB="${QSB:-}"
+if [ -z "$QSB" ]; then
+    for cand in /usr/lib64/qt6/bin/qsb /usr/lib/qt6/bin/qsb; do
+        [ -x "$cand" ] && QSB="$cand" && break
+    done
+fi
+if [ -z "$QSB" ] || ! [ -x "$QSB" ]; then
     QSB="$(command -v qsb)" || {
-        echo "qsb not found. Install qt6-shadertools." >&2
+        echo "qsb not found. Install qt6-qtshadertools." >&2
         exit 1
     }
 fi
