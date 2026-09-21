@@ -5,8 +5,10 @@
 
 @import url("asahi-adaptive.css");
 
+/* The vertical-tab strip is #sidebar-container > sidebar-main — the custom
+   element carries no id, so only the container can be painted. */
 #navigator-toolbox,
-#sidebar-main,
+#sidebar-container,
 #sidebar-box {
   background-color: var(--asahi-bg) !important;
   color: var(--asahi-fg) !important;

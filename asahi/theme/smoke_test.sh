@@ -68,6 +68,15 @@ rg -q "lock_accent" "$STATE/hyprlock.conf" \
 rg -q -- "--urlbarview-background-color-selected" "$STATE/librewolf.css" \
   || { echo "librewolf.css missing urlbar highlight vars" >&2; exit 1; }
 
+# The vertical-tab strip is #sidebar-container; #sidebar-main is not an id.
+UCHROME="$DOTFILES/shared/librewolf/userChrome.css"
+rg -q "#sidebar-container" "$UCHROME" \
+  || { echo "userChrome.css must paint #sidebar-container" >&2; exit 1; }
+if rg -q "#sidebar-main" "$UCHROME"; then
+  echo "userChrome.css: #sidebar-main matches nothing" >&2
+  exit 1
+fi
+
 test -s "$HOME/.config/btop/themes/asahi-adaptive.theme" \
   || { echo "btop theme not installed" >&2; exit 1; }
 

@@ -139,9 +139,11 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   not a symlink. Unset portal `0` = light. Live: Ghostty `reload-config`, Quickshell `FileView`,
   Hyprland borders, btop SIGUSR2. **GTK3 and LibreWolf never repaint live** — do not add watchers.
   LibreWolf autoconfig has no XPCOM; `userChrome.css` is startup-only. Vertical-tabs sidebar is
-  shadow DOM — only inherited custom properties cross it. `write_librewolf_css` must emit names
-  current Firefox still reads (tests fail on the dead `--lwt-*` / `--toolbar-*` spellings; grep
-  both `omni.ja` files, exclude `chrome/devtools`, require a non-name char after the ident).
+  shadow DOM — only inherited custom properties cross it. Its strip is `#sidebar-container` >
+  `sidebar-main`; the custom element has no id (Firefox styles it by tag), so `#sidebar-main` in
+  `userChrome.css` matches nothing. `write_librewolf_css` must emit names current Firefox still
+  reads (tests fail on the dead `--lwt-*` / `--toolbar-*` spellings; grep both `omni.ja` files,
+  exclude `chrome/devtools`, require a non-name char after the ident).
   Tests: `asahi/theme/tests/test_palette.py`, `asahi/theme/smoke_test.sh`.
 - **sshd**: Fedora enables it; disable and mask `sshd.service` + `sshd.socket`. Re-check after a
   release upgrade.
