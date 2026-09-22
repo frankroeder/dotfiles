@@ -1,0 +1,29 @@
+#!/usr/bin/env zsh
+(
+  set -euo pipefail
+  msg_file="${HOME}/.dotfiles/git/gitmessage"
+  template=
+  [[ -f $msg_file && -r $msg_file ]] && template=$(<$msg_file)
+  diff=$(git diff --cached 2>/dev/null || true)
+  [[ -z $diff ]] && diff=$(git diff 2>/dev/null || true)
+  untracked=$(git ls-files --others --exclude-standard 2>/dev/null || true)
+  if [[ -n $untracked ]]; then
+    while IFS= read -r f; do
+      [[ -n $f ]] && diff+=$'\n'"$(git diff --no-index -- /dev/null "$f" 2>/dev/null || true)"
+    done <<<"$untracked"
+  fi
+  set +e
+  json=$(claude -p --model haiku --effort low --tools "" \
+    --no-session-persistence \
+    --output-format json \
+    --json-schema '{"type":"object","properties":{"message":{"type":"string"}},"required":["message"]}' \
+    "Write a conventional commit message for the current changes.
+---
+${template}
+=== GIT DIFF ===
+${diff}")
+  st=$?
+  set -e
+  (( st == 0 )) || exit $st
+  jq -r '.structured_output.message // empty' <<<"$json"
+)
