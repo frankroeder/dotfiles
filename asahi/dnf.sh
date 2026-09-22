@@ -16,9 +16,12 @@ if sudo dnf repolist --all 2>/dev/null | grep -q 'solopasha:hyprland'; then
 fi
 sudo dnf copr enable -y scottames/ghostty
 sudo dnf copr enable -y lionheartp/Hyprland
-sudo dnf copr enable -y errornointernet/quickshell
+# Fedora quickshell provides qs. quickshell-git conflicts; lionheartp's build is newer.
+if sudo dnf repolist --all 2>/dev/null | grep -q 'errornointernet:quickshell'; then
+  sudo dnf copr remove -y errornointernet/quickshell
+fi
 
-sudo dnf upgrade -y
+sudo dnf upgrade -y --exclude=quickshell
 sudo dnf remove -y kitty kitty-terminfo || true
 
 if ! sudo dnf repolist --all | grep -q '^librewolf'; then
@@ -100,7 +103,6 @@ sudo dnf install -y \
   tree \
   uv \
   v4l-utils \
-  quickshell-git \
   wf-recorder \
   wireplumber \
   wl-clipboard \
@@ -111,6 +113,8 @@ sudo dnf install -y \
   desktop-file-utils \
   qt6-qtwayland \
   zsh
+
+sudo dnf install -y --from-repo=fedora,updates quickshell
 
 # Grok Bot desktop agent: latest linux/arm64 RPM from Cursor's update API.
 bash "${DOTFILES_DIR}/asahi/grokbot.sh"

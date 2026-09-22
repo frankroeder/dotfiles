@@ -266,11 +266,11 @@ assert(
 );
 const externalFn = qml.slice(qml.indexOf("function externalOnlyMonitors()"), qml.indexOf("function rescanMonitors()"));
 assert(
-  /disabled = false/.test(externalFn),
-  "external-only enables the external before eDP-1 goes dark (the lua off rule sticks otherwise)"
+  /asahi-clamshell", "close"/.test(externalFn),
+  "external-only is clamshell close, so unplug restores eDP"
 );
 assert(
-  /QuickModels\.enabledMonitors/.test(externalFn),
+  /QuickModels\.enabledMonitors/.test(externalFn) && !/\|\| list\.find/.test(externalFn),
   "external-only picks an enabled output, never a disabled probe"
 );
 assert(

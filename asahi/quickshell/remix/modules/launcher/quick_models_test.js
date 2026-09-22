@@ -233,6 +233,14 @@ assert.strictEqual(M.parsePublicIp("2001:db8::1"), "2001:db8::1")
 
 // --- NetworkManager vpn listing (jkoestinger/omarchy-vpn) ---
 assert.deepStrictEqual(M.splitNmcliLine("home\\:vpn:uuid-1"), ["home:vpn", "uuid-1"])
+assert.deepStrictEqual(
+  M.nmcliFields("*:Cafe\\:5G:72:WPA2:5180 MHz"),
+  ["*", "Cafe:5G", "72", "WPA2", "5180 MHz"]
+)
+assert.deepStrictEqual(
+  M.nmcliFields("eth0:ethernet:connected:Wired\\:home"),
+  ["eth0", "ethernet", "connected", "Wired:home"]
+)
 assert.deepStrictEqual(M.parseNmcliConnections([
   "Work VPN:uuid-1:vpn:yes:/etc/NetworkManager/system-connections/work.nmconnection",
   "Home WG:uuid-2:wireguard:no:/etc/NetworkManager/system-connections/home.nmconnection",

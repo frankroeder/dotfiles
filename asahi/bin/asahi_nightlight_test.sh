@@ -113,6 +113,28 @@ rm -f "$tmp/state/nightlight.json"
 run toggle
 [ "$(cat "$tmp/temp")" = "1800" ] && pass "conf temperature 1800" || fail_at "got=$(cat "$tmp/temp")"
 
+# Temperature command succeeds but the reported K never moves.
+cat >"$tmp/bin/hyprctl" <<EOF
+#!/bin/sh
+echo "\$*" >> "$tmp/log"
+if [ "\$1" = hyprsunset ] && [ "\$2" = temperature ] && [ -z "\${3:-}" ]; then
+  cat "$tmp/temp"
+  exit 0
+fi
+exit 0
+EOF
+chmod +x "$tmp/bin/hyprctl"
+rm -f "$tmp/state/nightlight.json"
+printf '6000\n' >"$tmp/temp"
+rc=0
+run on || rc=$?
+[ "$rc" -ne 0 ] && pass "failed apply exits non-zero" || fail_at "failed apply rc=$rc"
+if [ -f "$tmp/state/nightlight.json" ] && [ "$(jq -r '.on' "$tmp/state/nightlight.json")" = "true" ]; then
+  fail_at "failed apply wrote on=true"
+else
+  pass "failed apply does not record on"
+fi
+
 bind="$ROOT/../hypr/conf.d/bindings.lua"
 if grep -q 'CONTROL + N' "$bind" && grep -q 'asahi-nightlight' "$bind"; then
   pass "Super+Ctrl+N bind"

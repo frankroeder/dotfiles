@@ -631,6 +631,24 @@ function splitNmcliLine(line) {
   return [unescapeNmcli(text), ""]
 }
 
+function nmcliFields(line) {
+  var fields = []
+  var rest = String(line || "")
+  while (true) {
+    var cut = -1
+    for (var i = 0; i < rest.length; i++) {
+      if (rest[i] === "\\") { i++; continue }
+      if (rest[i] === ":") { cut = i; break }
+    }
+    if (cut < 0) {
+      fields.push(unescapeNmcli(rest))
+      return fields
+    }
+    fields.push(unescapeNmcli(rest.substring(0, cut)))
+    rest = rest.substring(cut + 1)
+  }
+}
+
 function unescapeNmcli(value) {
   return String(value || "").replace(/\\(.)/g, "$1")
 }
@@ -859,7 +877,7 @@ function parseExternalTunnels(raw, profileNames) {
   var lines = String(raw || "").split("\n")
   for (var i = 0; i < lines.length; i++) {
     if (!lines[i]) continue
-    var p = lines[i].split(":")
+    var p = nmcliFields(lines[i])
     var type = p[1] || ""
     var state = p[2] || ""
     var conn = p.slice(3).join(":")
@@ -942,6 +960,7 @@ if (typeof module !== "undefined") {
     formatHeaderFreq: formatHeaderFreq,
     parsePublicIp: parsePublicIp,
     splitNmcliLine: splitNmcliLine,
+    nmcliFields: nmcliFields,
     unescapeNmcli: unescapeNmcli,
     isVolatileConnection: isVolatileConnection,
     parseNmcliConnections: parseNmcliConnections,

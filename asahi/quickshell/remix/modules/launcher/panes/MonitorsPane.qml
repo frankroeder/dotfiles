@@ -60,24 +60,20 @@ Item {
   // asahi-hdmi sync / monitor-scale apply / clamshell apply.
   function unmirrorMonitors() { quickMonitorsRoot.revertLayout("Unmirroring...") }
   function extendMonitors() { quickMonitorsRoot.revertLayout("Reloading monitors...") }
-  // Never leave zero outputs: the external must come up enabled (omitting
-  // disabled = false leaves monitors.lua's off rule in place) before eDP-1 goes
-  // dark, and its geometry comes from the saved snapshot, not "preferred".
+  property bool revertClamshell: false
   function externalOnlyMonitors() {
     const list = quickMonitorsRoot.mons || []
     const edp = list.find(m => m && m.name === "eDP-1")
     const external = QuickModels.enabledMonitors(list).find(m => m.name !== "eDP-1")
-      || list.find(m => m && m.name !== "eDP-1")
-    if (!external) { quickMonitorsRoot.monStatus = "No external"; return }
+    if (!external) { quickMonitorsRoot.monStatus = "No enabled external"; return }
     if (!edp || edp.disabled) { quickMonitorsRoot.monStatus = "Already external only"; return }
-    const f = QuickModels.enableMonitorFields(external, quickMonitorsRoot.monSaved)
     quickMonitorsRoot.keepLauncherOn(external)
-    quickMonitorsRoot.applyRevertable(
-      "hl.monitor({ output = " + quickMonitorsRoot.luaString(external.name)
-      + ", disabled = false, mode = " + quickMonitorsRoot.luaString(f.mode)
-      + ", position = " + quickMonitorsRoot.luaString(f.position)
-      + ", scale = " + f.scale + " })\nhl.monitor({ output = \"eDP-1\", disabled = true })",
-      "External only...")
+    quickMonitorsRoot.monStatus = "External only..."
+    quickMonitorsRoot.revertClamshell = true
+    Quickshell.execDetached([root.binDir + "/asahi-clamshell", "close"])
+    quickMonitorsRoot.revertLeft = 15
+    revertTimer.restart()
+    monDelay.restart()
   }
   function rescanMonitors() {
     quickMonitorsRoot.monStatus = "Rescanning..."
@@ -91,6 +87,7 @@ Item {
   // (Closing the launcher tears the pane down and cancels the timer too.)
   property int revertLeft: 0
   function applyRevertable(lua, status) {
+    quickMonitorsRoot.revertClamshell = false
     quickMonitorsRoot.monStatus = status
     Quickshell.execDetached(["hyprctl", "eval", lua])
     quickMonitorsRoot.revertLeft = 15
@@ -98,14 +95,23 @@ Item {
     monDelay.restart()
   }
   function revertLayout(status) {
+    const clamshell = quickMonitorsRoot.revertClamshell
+    quickMonitorsRoot.revertClamshell = false
     quickMonitorsRoot.disarmRevert()
     quickMonitorsRoot.monStatus = status
-    Quickshell.execDetached(["hyprctl", "reload"])
+    if (clamshell)
+      Quickshell.execDetached([root.binDir + "/asahi-clamshell", "open"])
+    else
+      Quickshell.execDetached(["hyprctl", "reload"])
     monDelay.restart()
   }
   function disarmRevert() {
     quickMonitorsRoot.revertLeft = 0
     revertTimer.stop()
+  }
+  function keepChange() {
+    quickMonitorsRoot.revertClamshell = false
+    quickMonitorsRoot.disarmRevert()
   }
   // Park the launcher on an output that survives the change, so Keep / Unmirror
   // stay visible and clickable (the panel is pinned to root.launcherScreen).
@@ -386,7 +392,7 @@ Item {
         visible: quickMonitorsRoot.revertLeft > 0
         label: "Keep " + quickMonitorsRoot.revertLeft + "s"
         tonal: true
-        onTapped: quickMonitorsRoot.disarmRevert()
+        onTapped: quickMonitorsRoot.keepChange()
       }
       ActionPill {
         label: quickMonitorsRoot.anyMirrored ? "Unmirror" : "Mirror"

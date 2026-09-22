@@ -21,10 +21,14 @@ read -r maxw maxh < <(jq -r '"\((.width / .scale - 80) | floor) \((.height / .sc
 w=$(( ${1:-1300} < maxw ? ${1:-1300} : maxw ))
 h=$(( ${2:-900} < maxh ? ${2:-900} : maxh ))
 
-# Maximized/fullscreen windows refuse resize + pin; drop that first.
-fs=$(jq -r .fullscreen <<<"$win")
-if [ "$fs" != 0 ]; then
-  hyprctl dispatch "hl.dsp.window.fullscreen({ mode = $fs, action = \"unset\" })" >/dev/null
+# JSON fullscreen is 1 maximized, 2 fullscreen. The dispatcher wants the names.
+fs=$(jq -r '.fullscreen // 0' <<<"$win")
+if [ "$fs" != 0 ] && [ "$fs" != "null" ]; then
+  case "$fs" in
+    1) fs_mode=maximized ;;
+    *) fs_mode=fullscreen ;;
+  esac
+  hyprctl dispatch "hl.dsp.window.fullscreen({ mode = \"$fs_mode\", action = \"unset\" })" >/dev/null
 fi
 # Float in its own call: inside one batch the resize/pin still see a tiled window.
 hyprctl dispatch 'hl.dsp.window.float({ action = "enable" })' >/dev/null

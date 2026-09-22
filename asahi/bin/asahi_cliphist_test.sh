@@ -45,6 +45,22 @@ else
 fi
 
 if command -v cliphist >/dev/null 2>&1; then
+  secret="asahi-cliphist-secret-$$"
+  printf '%s' "$secret" | CLIPBOARD_STATE=sensitive "$CLIP" store
+  if cliphist list | grep -F -- "$secret" >/dev/null; then
+    fail_at "sensitive clipboard was stored"
+  else
+    pass "CLIPBOARD_STATE=sensitive is dropped"
+  fi
+  printf '%s' "$secret" | CLIPBOARD_STATE=data "$CLIP" store
+  if cliphist list | grep -F -- "$secret" >/dev/null; then
+    pass "CLIPBOARD_STATE=data is stored"
+    del_id="$(cliphist list | grep -m1 -F -- "$secret" | cut -f1 || true)"
+    [ -n "$del_id" ] && "$CLIP" delete "$del_id"
+  else
+    fail_at "data clipboard was not stored"
+  fi
+
   marker="asahi-cliphist-delete-$$"
   printf '%s\n' "$marker" | cliphist store
   del_id="$(cliphist list | grep -m1 -F -- "$marker" | cut -f1 || true)"

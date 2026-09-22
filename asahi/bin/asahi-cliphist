@@ -104,8 +104,18 @@ sensitive_clipboard() {
   wl-paste --list-types 2>/dev/null | grep -qx 'x-kde-passwordManagerHint'
 }
 
-# `wl-paste --watch` hands us the new selection on stdin.
+# Watch sets CLIPBOARD_STATE. A second wl-paste from this child blocks.
 store_unless_sensitive() {
+  if [ -n "${CLIPBOARD_STATE+x}" ]; then
+    case "$CLIPBOARD_STATE" in
+      sensitive | nil | clear)
+        cat >/dev/null
+        return 0
+        ;;
+    esac
+    cliphist store
+    return
+  fi
   if sensitive_clipboard; then
     cat >/dev/null
     return 0
@@ -148,7 +158,7 @@ seed_current() {
 }
 
 ensure_watch() {
-  local started=0
+  local text_started=0
   if ! command -v cliphist >/dev/null 2>&1; then
     return 0
   fi
@@ -157,15 +167,13 @@ ensure_watch() {
   fi
   if ! watcher_running text; then
     start_watcher text
-    started=1
+    text_started=1
   fi
   if ! watcher_running image; then
     start_watcher image
-    started=1
   fi
-  # Seed only when watchers were missing — every-open seed re-stores
-  # the current selection and undoes a just-deleted row.
-  if [ "$started" -eq 1 ]; then
+  # Image-watcher restart must not re-store the current selection.
+  if [ "$text_started" -eq 1 ]; then
     seed_current
   fi
 }

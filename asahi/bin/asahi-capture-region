@@ -75,13 +75,23 @@ smart | *)
   if [[ $SELECTION =~ ^(-?[0-9]+),(-?[0-9]+)[[:space:]]([0-9]+)x([0-9]+)$ ]] && ((BASH_REMATCH[3] * BASH_REMATCH[4] < 20)); then
     click_x=${BASH_REMATCH[1]}
     click_y=${BASH_REMATCH[2]}
+    best=""
+    best_area=-1
     while IFS= read -r rect; do
       [[ $rect =~ ^(-?[0-9]+),(-?[0-9]+)[[:space:]]([0-9]+)x([0-9]+)$ ]] || continue
-      if ((click_x >= BASH_REMATCH[1] && click_x < BASH_REMATCH[1] + BASH_REMATCH[3] && click_y >= BASH_REMATCH[2] && click_y < BASH_REMATCH[2] + BASH_REMATCH[4])); then
-        SELECTION="${BASH_REMATCH[1]},${BASH_REMATCH[2]} ${BASH_REMATCH[3]}x${BASH_REMATCH[4]}"
-        break
+      rx=${BASH_REMATCH[1]}
+      ry=${BASH_REMATCH[2]}
+      rw=${BASH_REMATCH[3]}
+      rh=${BASH_REMATCH[4]}
+      if ((click_x >= rx && click_x < rx + rw && click_y >= ry && click_y < ry + rh)); then
+        area=$((rw * rh))
+        if ((best_area < 0 || area < best_area)); then
+          best="${rx},${ry} ${rw}x${rh}"
+          best_area=$area
+        fi
       fi
     done <<<"$RECTS"
+    [ -n "$best" ] && SELECTION=$best
   fi
   ;;
 esac

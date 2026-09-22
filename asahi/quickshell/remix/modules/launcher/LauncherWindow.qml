@@ -1946,9 +1946,10 @@ Scope {
     id: hidesFile
     path: root.hidesPath
     watchChanges: true
+    blockLoading: true
     printErrors: false
-    onLoaded: root.parseHides(text)
-    onTextChanged: if (root) root.parseHides(text)
+    onLoaded: root.parseHides(hidesFile.text())
+    onTextChanged: if (root) root.parseHides(hidesFile.text())
     onLoadFailed: root.parseHides("")
   }
 
@@ -1967,9 +1968,10 @@ Scope {
     id: nightStateFile
     path: root.nightStatePath
     watchChanges: true
+    blockLoading: true
     printErrors: false
-    onLoaded: root.parseNightState(text)
-    onTextChanged: if (root) root.parseNightState(text)
+    onLoaded: root.parseNightState(nightStateFile.text())
+    onTextChanged: if (root) root.parseNightState(nightStateFile.text())
     onLoadFailed: root.parseNightState("")
   }
 

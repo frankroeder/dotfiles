@@ -88,10 +88,6 @@ fi
 
 if [ -n "${ASAHI_BACKUP_DEVICE:-${BACKUP_DEVICE:-}}" ]; then
   device="${ASAHI_BACKUP_DEVICE:-$BACKUP_DEVICE}"
-elif [ -e "/dev/disk/by-label/${label}" ]; then
-  device="/dev/disk/by-label/${label}"
-elif [ -e /dev/sda1 ]; then
-  device="/dev/sda1"
 else
   device="/dev/disk/by-label/${label}"
 fi
@@ -155,7 +151,7 @@ ensure_mounted() {
 
   if [ ! -e "$device" ] && [ ! -e "$device_real" ]; then
     log "ERROR: backup disk not found: ${device}"
-    log "ERROR: plug in the USB (label '${label}' or /dev/sda1) and retry"
+    log "ERROR: plug in the USB labeled '${label}' and retry"
     exit 1
   fi
 

@@ -368,7 +368,7 @@ Item {
         const lines = (text || "").trim().split("\n").filter(l => l)
         const out = []; const seen = {}
         for (const line of lines) {
-          const p = line.split(":")
+          const p = QuickModels.nmcliFields(line)
           if (p.length < 3) continue
           const ssid = p[1] || ""
           if (!ssid || seen[ssid]) continue
@@ -429,7 +429,7 @@ Item {
         const devices = []
         const lines = (text || "").trim().split("\n").filter(l => l)
         for (const line of lines) {
-          const p = line.split(":")
+          const p = QuickModels.nmcliFields(line)
           if (p[1] === "wifi" && !quickNetworkRoot.wifiDevice) quickNetworkRoot.wifiDevice = p[0] || ""
           if (p[1] !== "ethernet") continue
           devices.push({ device: p[0] || "", state: p[2] || "", connection: p.slice(3).join(":") || "" })
@@ -455,7 +455,7 @@ Item {
         const lines = (text || "").trim().split("\n").filter(function(l) { return l.length > 0 })
         const out = []
         for (let i = 0; i < lines.length; i++) {
-          const p = lines[i].split(":")
+          const p = QuickModels.nmcliFields(lines[i])
           if (p.length >= 3) out.push({ type: p[0] || "", name: p[1] || "", device: p[2] || "" })
         }
         quickNetworkRoot.activeConnections = out

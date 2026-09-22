@@ -92,7 +92,10 @@ set_identity() {
 
 set_temperature() {
   local temp=$1
-  apply_temperature "$temp" || true
+  if ! apply_temperature "$temp"; then
+    notify-send -a nightlight -u critical -t 2000 "Night light failed" || true
+    return 1
+  fi
   write_state true "$temp"
   notify-send -a nightlight -t 1200 "Night light ${temp}K"
 }

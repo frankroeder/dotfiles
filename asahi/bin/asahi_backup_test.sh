@@ -17,6 +17,12 @@ else
   fail_at "bash -n (unmatched quote?)"
 fi
 
+if grep -q '/dev/sda1' "$BK"; then
+  fail_at "sda1 fallback still present"
+else
+  pass "no sda1 fallback"
+fi
+
 if "$BK" --help >/dev/null; then
   pass "help"
 else
