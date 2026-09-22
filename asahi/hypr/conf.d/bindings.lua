@@ -94,7 +94,7 @@ end, { desc = "Zoom reset" })
 -- Session and screenshots
 hl.bind(
   mod .. " + Escape",
-  hl.dsp.exec_cmd("hyprlock --config " .. configDir .. "/hyprlock.conf"),
+  hl.dsp.exec_cmd(scripts .. "/asahi-lock"),
   { desc = "Lock" }
 )
 hl.bind(

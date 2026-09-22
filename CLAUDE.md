@@ -69,6 +69,25 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   lid** after one. `after_sleep_cmd` only runs on a real `suspend exit`. Diagnose `journalctl -b -1` (`Lid closed.` → `Suspending...` →
   `PM: suspend entry` with no `suspend exit`). Do not add `asahi-hdmi sync` to resume. Test:
   `asahi/bin/asahi_hdmi_test.sh`.
+- **Lock guard**: every lock path (hypridle `lock_cmd`, Super+Escape, launcher `loginctl
+  lock-session`) runs `asahi-lock` = hyprlock in a restart loop (flock, 30 tries, stderr to
+  `~/.local/state/asahi/hyprlock.log`). hyprlock exits 0 only on unlock / compositor `finished`
+  after `locked`; a crash or `killall -9` exits non-zero and used to leave Hyprland's lockdead
+  screen with the session locked and no way in. `allow_session_lock_restore` lets the new one
+  retake the lock. Never auto-run `hl.clear_crashed_lockscreen()` (unlocks without a password).
+  hypridle `inhibit_sleep = 3` explicitly — mode 2 only picks lock-notify when `lock_cmd`
+  contains the string `hyprlock`; logind caps the wait at `InhibitDelayMaxSec`. TTY escape
+  (`Fn+Ctrl+Alt+F3`): `pkill -f asahi-lock; killall hyprlock`.
+- **Lid + DPMS (2026-09-22)**: Hyprland DPMS off is an aquamarine output disable — the DRM
+  connector's sysfs `enabled` reads `disabled` (verified live). logind counts a closed lid as
+  docked only while an external connector reads `enabled`, and re-checks after every event-loop
+  wakeup, so clamshell + 15-min blank = laptop-only lid → `Suspending...` with no new
+  `Lid closed.` → lid-closed s2idle → lockdead on lid open → lid re-close hung. Two guards:
+  `asahi-clamshell` holds a `handle-lid-switch` block inhibitor for the flag's lifetime, and
+  `asahi-hdmi-lid-inhibit.service` is enabled at boot behind an `ExecCondition` on HDMI `status`
+  (its `--why` must be one token — `--why=HDMI connected` made systemd run `connected`, exit 1,
+  no inhibitor ever). The external may DPMS off in clamshell; HPD survives it (Dell kept HPD
+  through 50 min). `./install.sh asahi-logind` after touching the unit.
 - **Clamshell / outputs**: never zero outputs — enable the external (`disabled = false`) before
   eDP-1 goes dark. `asahi-clamshell apply` on `config.reloaded` / `monitor.removed` brings eDP back
   if the external vanishes. `hl.on("monitor.added"/"removed")` hands **userdata**; read `.name`,

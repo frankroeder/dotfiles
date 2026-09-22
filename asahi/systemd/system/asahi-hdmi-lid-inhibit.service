@@ -3,4 +3,11 @@ Description=Inhibit lid-switch suspend while HDMI is connected
 After=systemd-logind.service
 
 [Service]
-ExecStart=/usr/bin/systemd-inhibit --what=handle-lid-switch --who=asahi-hdmi --why=HDMI connected --mode=block /usr/bin/sleep infinity
+# Enabled at boot too: the udev add at coldplug does not reliably start it.
+ExecCondition=/bin/sh -c 'grep -qx connected /sys/class/drm/card*-HDMI-A-*/status'
+# --why must be one token: systemd splits ExecStart on spaces, and an unquoted
+# "HDMI connected" ran `connected` as the command (exit 1, no inhibitor).
+ExecStart=/usr/bin/systemd-inhibit --what=handle-lid-switch --who=asahi-hdmi --why=HDMI-connected --mode=block /usr/bin/sleep infinity
+
+[Install]
+WantedBy=multi-user.target

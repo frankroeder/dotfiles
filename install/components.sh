@@ -478,6 +478,8 @@ comp_asahi_logind() {
   fi
   sudo udevadm control --reload-rules
   sudo systemctl daemon-reload
+  sudo systemctl enable asahi-hdmi-lid-inhibit.service
+  sudo systemctl reset-failed asahi-hdmi-lid-inhibit.service 2>/dev/null || true
   sudo systemctl kill -s HUP systemd-logind
   local live
   live="$(busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager HandlePowerKey 2>/dev/null || true)"
@@ -509,6 +511,7 @@ comp_asahi_system() {
   # reverted in the repo) still skips the tty1 password until it is removed.
   comp_asahi_getty
   comp_asahi_logind
+  comp_asahi_sshd
   sudo systemctl daemon-reload
   local rebuild_initramfs=0
   # Full panel height beside the notch (appledrm). No-op without that driver.
@@ -551,6 +554,23 @@ comp_asahi_system() {
     print_ok "initramfs rebuilt; reboot required for notch/fnmode/HID"
   fi
   comp_asahi_charge_limit
+}
+
+# Fedora enables sshd; nothing logs in remotely here, so mask both units.
+comp_asahi_sshd() {
+  require_linux
+  print_step "Masking sshd.service and sshd.socket"
+  if [ -n "$NOSUDO" ]; then
+    print_error "asahi-sshd needs systemctl mask; rerun without --no-sudo"
+    exit 1
+  fi
+  sudo systemctl disable --now sshd.service sshd.socket 2>/dev/null || true
+  sudo systemctl mask sshd.service sshd.socket
+  if [ "$(systemctl is-enabled sshd.service 2>/dev/null)" != masked ]; then
+    print_error "sshd.service is not masked"
+    exit 1
+  fi
+  print_ok "sshd masked"
 }
 
 # udev + oneshot so macsmc charge thresholds are writable and reapplied at boot.

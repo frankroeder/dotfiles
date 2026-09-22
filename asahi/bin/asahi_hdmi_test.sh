@@ -180,9 +180,11 @@ grep -q 'systemctl --no-block start asahi-hdmi-lid-inhibit.service' "$udev" \
   && grep -q 'systemctl --no-block stop asahi-hdmi-lid-inhibit.service' "$udev" \
   || fail_at "udev must start/stop lid-inhibit on HDMI status"
 grep -q 'handle-lid-switch' "$unit" || fail_at "unit must inhibit handle-lid-switch"
-grep -q WantedBy "$unit" && fail_at "lid-inhibit must not be enabled at boot"
+grep -q 'ExecStart=.*--why=[^ ]* --mode' "$unit" || fail_at "unit --why must be one token (systemd splits on spaces)"
+grep -q 'ExecCondition=.*HDMI-A-\*/status' "$unit" || fail_at "unit must gate on HDMI status at boot"
+grep -q 'WantedBy=multi-user.target' "$unit" || fail_at "lid-inhibit must be enabled at boot"
 grep -q 99-asahi-hdmi-lid-inhibit "$inst" || fail_at "asahi-logind must install lid-inhibit"
-grep -q 'systemctl enable asahi-hdmi-lid-inhibit' "$inst" && fail_at "must not enable lid-inhibit"
+grep -q 'systemctl enable asahi-hdmi-lid-inhibit' "$inst" || fail_at "asahi-logind must enable lid-inhibit"
 pass "HDMI lid-inhibit: udev holds handle-lid-switch, logind honors it"
 
 # HDMI unplugged: Hyprland must not keep a leftover enabled output.

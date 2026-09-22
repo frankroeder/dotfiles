@@ -295,12 +295,12 @@ check_getty() {
 check_sshd() {
   local enabled
   enabled=$(systemctl is-enabled sshd.service 2>/dev/null || true)
-  if [[ $enabled == "masked" || $enabled == "disabled" ]]; then
-    record PASS sshd "sshd.service is $enabled"
+  if [[ $enabled == "masked" ]]; then
+    record PASS sshd "sshd.service is masked"
   elif [[ -z $enabled ]]; then
     record SKIP sshd "systemctl did not report sshd.service"
   else
-    record FAIL sshd "sshd.service is $enabled (Fedora enables it; this machine masks it)"
+    record FAIL sshd "sshd.service is $enabled (Fedora enables it; ./install.sh asahi-sshd masks it)"
   fi
 }
 

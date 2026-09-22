@@ -9,6 +9,14 @@
 #
 # open also asahi-dpms on: lid-open that never reached sleep still unblanks.
 # That cannot kick a dead DCP (Hyprland already reports lit).
+#
+# While the flag exists a handle-lid-switch block inhibitor runs. logind counts
+# the closed lid as docked only while an external connector's sysfs `enabled`
+# reads enabled, and it re-checks after every event-loop wakeup. Hyprland's
+# DPMS off flips that attribute to disabled, so the 15-min blank in clamshell
+# turned the closed lid into laptop-only and logind suspended -- lid-closed
+# s2idle, the no-resume hang (2026-09-22). LidSwitchIgnoreInhibited=no in the
+# logind drop-in is what makes a user inhibitor count.
 
 set -euo pipefail
 bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
@@ -31,6 +39,15 @@ edp_on() {
   scale=$(saved_scale eDP-1)
   hyprctl eval "hl.monitor({ output = \"eDP-1\", disabled = false, mode = \"3024x1964@120.000\", position = \"0x0\", scale = ${scale:-1.333334} })" >/dev/null
 }
+inhibited() {
+  systemd-inhibit --list --no-legend 2>/dev/null | grep -q '^asahi-clamshell '
+}
+# Lives exactly as long as the flag; open removes the flag, the loop ends.
+inhibit() {
+  inhibited && return 0
+  systemd-inhibit --what=handle-lid-switch --who=asahi-clamshell --why="lid closed on an external" --mode=block \
+    bash -c 'while [ -e "$1" ]; do sleep 5; done' _ "$flag" >/dev/null 2>&1 &
+}
 case "${1:-status}" in
   close)
     # Without an external, logind owns the lid (HandleLidSwitch=suspend) and
@@ -39,6 +56,7 @@ case "${1:-status}" in
     external_on || exit 0
     "$bin/asahi-idle-brightness" off
     : >"$flag"
+    inhibit
     edp_off
     ;;
   open)
@@ -49,6 +67,7 @@ case "${1:-status}" in
     ;;
   apply)
     if [ -e "$flag" ]; then
+      inhibit
       if external_on; then edp_disabled || edp_off; else edp_on; fi
     fi
     ;;
