@@ -20,12 +20,13 @@ hl.monitor {
   scale = 1.875,
 }
 
--- Dell P2723DE: above the laptop, 1440p @ 1.25 (logical 2048x1152).
--- Not the UltraFine's left-side stack — y = -1152 so the bottom edge meets eDP-1.
+-- Dell P2723DE: left of the laptop, bottoms aligned, 1440p @ 1.25
+-- (logical 2048x1152). eDP-1 at 4/3 is 1473 tall, so y = 321.
+-- asahi-hdmi recomputes y from the session eDP scale (scale 2 → y = -170).
 hl.monitor {
   output = "desc:Dell Inc. DELL P2723DE 895ZNR3",
   mode = "2560x1440@59.95100",
-  position = "0x-1152",
+  position = "-2048x321",
   scale = 1.25,
 }
 

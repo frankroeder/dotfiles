@@ -615,6 +615,8 @@ comp_asahi_desktop() {
   replace_with_symlink "$DOTFILES/asahi/hypr"      "$HOME/.config/hypr"
   replace_with_symlink "$DOTFILES/asahi/quickshell" "$HOME/.config/quickshell"
   replace_with_symlink "$DOTFILES/asahi/ghostty"   "$HOME/.config/ghostty"
+  mkdir -p "$HOME/.config/Thunar"
+  link_if_exists "$DOTFILES/asahi/Thunar/uca.xml" "$HOME/.config/Thunar/uca.xml"
   mkdir -p "$HOME/.config/mpv"
   link_if_exists "$DOTFILES/mpv/mpv_asahi.conf" "$HOME/.config/mpv/mpv.conf"
   link_if_exists "$DOTFILES/asahi/environment.d/90-asahi.conf" "$HOME/.config/environment.d/90-asahi.conf"
@@ -885,6 +887,7 @@ comp_doctor() {
     check_link "$HOME/.config/hypr"
     check_link "$HOME/.config/quickshell"
     check_link "$HOME/.config/kwalletrc"
+    check_link "$HOME/.config/Thunar/uca.xml"
   fi
   print_step "Checking config symlinks"
   local l

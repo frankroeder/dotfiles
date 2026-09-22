@@ -45,7 +45,8 @@ is_enabled() {
 }
 
 # Same numbers as the desc: rules in asahi/hypr/conf.d/monitors.lua.
-# LG = left of eDP; Dell = above eDP. Never share one HDMI geometry.
+# Both sit left of eDP. LG keeps a fixed vertical offset; the Dell's
+# bottom edge meets eDP-1's. Never share one HDMI geometry.
 #
 # HDMI-A-1 is reused. After a cable swap the previous sink's description
 # can stick (LG name + Dell 1440p modes). A 4K modeset then fails EINVAL.
@@ -57,15 +58,25 @@ has_res() {
   return 1
 }
 
-# Offsets are derived, never pinned: the LG sits left of eDP-1 (right edge on
-# x = 0), the Dell above it (bottom edge on y = 0). Both follow the logical
-# size, so a saved scale cannot drop the output on top of the laptop panel.
+# Offsets are derived, never pinned. Both sit left of eDP-1 (right edge on
+# x = 0). The Dell's bottom meets eDP-1's bottom, so its y follows the
+# session eDP scale (3024x1964; unset = monitors.lua 4/3 → 1473).
+edp_logical_h() {
+  local sc
+  sc=$(saved_scale eDP-1)
+  [ -n "$sc" ] || sc=1.333333333333
+  awk -v s="$sc" 'BEGIN { printf "%d", int(1964 / s + 0.5) }'
+}
+
 lg_fields() {
   printf 'mode = "3840x2160@60.000", position = "%sx-360", scale = %s' "$(anchor_offset 3840 "$1")" "$1"
 }
 
 dell_fields() {
-  printf 'mode = "2560x1440@59.95100", position = "0x%s", scale = %s' "$(anchor_offset 1440 "$1")" "$1"
+  local x y
+  x="$(anchor_offset 2560 "$1")"
+  y="$(awk -v h="$(edp_logical_h)" -v s="$1" 'BEGIN { printf "%d", h - int(1440 / s + 0.5) }')"
+  printf 'mode = "2560x1440@59.95100", position = "%sx%s", scale = %s' "$x" "$y" "$1"
 }
 
 layout_fields() {

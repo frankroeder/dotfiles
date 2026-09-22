@@ -43,7 +43,7 @@ chmod +x "$tmp/bin/hyprctl"
 
 run() {
   PATH="$tmp/bin:$PATH" ASAHI_DRM_PATH="$drm" ASAHI_HDMI_SETTLE_S=0 \
-    ASAHI_HDMI_GEN="$gen" "$HOT" "$@"
+    ASAHI_SCALE_DIR="$tmp/scales" ASAHI_HDMI_GEN="$gen" "$HOT" "$@"
 }
 
 dell='[{"name":"eDP-1","disabled":false},{"name":"HDMI-A-1","disabled":true,"description":"Dell Inc. DELL P2723DE 895ZNR3"}]'
@@ -61,9 +61,18 @@ run added
 grep -q 'disabled = false' "$kw_log" || fail_at "added must pass disabled = false"
 grep -q 'mode = "2560x1440@59.95100"' "$kw_log" \
   || fail_at "added uses Dell mode (got $(tr '\n' ' ' <"$kw_log"))"
-grep -q 'position = "0x-1152"' "$kw_log" \
-  || fail_at "Dell abuts above eDP-1 (got $(tr '\n' ' ' <"$kw_log"))"
+grep -q 'position = "-2048x321"' "$kw_log" \
+  || fail_at "Dell sits left of eDP-1, bottoms aligned (got $(tr '\n' ' ' <"$kw_log"))"
 pass "added enables Dell with disabled = false"
+
+mkdir -p "$tmp/scales"
+printf '2\n' >"$tmp/scales/eDP-1"
+: >"$kw_log"
+run added
+grep -q 'position = "-2048x-170"' "$kw_log" \
+  || fail_at "Dell y follows eDP scale 2 (got $(tr '\n' ' ' <"$kw_log"))"
+pass "Dell bottoms follow eDP scale 2"
+rm -f "$tmp/scales/eDP-1"
 
 printf '[{"name":"HDMI-A-1","disabled":true,"description":"LG Electronics LG ULTRAFINE"}]\n' >"$mon_json"
 : >"$kw_log"
@@ -88,7 +97,7 @@ run sync
 grep -q 'disabled = false' "$kw_log" || fail_at "sync enables when HDMI is still disabled"
 pass "sync enables connected-but-disabled HDMI"
 
-printf '[{"name":"HDMI-A-1","disabled":false,"description":"Dell Inc. DELL P2723DE 895ZNR3","x":0,"y":-1152,"scale":1.25}]\n' >"$mon_json"
+printf '[{"name":"HDMI-A-1","disabled":false,"description":"Dell Inc. DELL P2723DE 895ZNR3","x":-2048,"y":321,"scale":1.25}]\n' >"$mon_json"
 : >"$kw_log"
 run sync
 if grep -q . "$kw_log"; then
@@ -100,9 +109,9 @@ fi
 printf '[{"name":"HDMI-A-1","disabled":false,"description":"Dell Inc. DELL P2723DE 895ZNR3","x":-2048,"y":-360,"scale":1.875}]\n' >"$mon_json"
 : >"$kw_log"
 run sync
-grep -q 'position = "0x-1152"' "$kw_log" && grep -q 'scale = 1.25' "$kw_log" \
+grep -q 'position = "-2048x321"' "$kw_log" && grep -q 'scale = 1.25' "$kw_log" \
   || fail_at "sync must not keep UltraFine geometry on the Dell (got $(tr '\n' ' ' <"$kw_log"))"
-grep -q -- '-2048' "$kw_log" && fail_at "Dell sync must not write LG x (got $(tr '\n' ' ' <"$kw_log"))"
+grep -q -- '-360' "$kw_log" && fail_at "Dell sync must not keep LG y (got $(tr '\n' ' ' <"$kw_log"))"
 pass "sync reapplies Dell layout after LG leftover"
 
 printf '[{"name":"HDMI-A-1","disabled":false,"description":"LG Electronics LG ULTRAFINE","x":0,"y":-1152,"scale":1.25,"availableModes":["3840x2160@60.00Hz","2560x1440@59.95Hz"]}]\n' >"$mon_json"
@@ -133,7 +142,7 @@ printf 'connected\n' >"$drm/card2-HDMI-A-1/status"
 printf '%s\n' "$dell" >"$mon_json"
 : >"$kw_log"
 PATH="$tmp/bin:$PATH" ASAHI_DRM_PATH="$drm" ASAHI_HDMI_SETTLE_S=1 \
-  ASAHI_HDMI_GEN="$gen" "$HOT" added HDMI-A-1 &
+  ASAHI_SCALE_DIR="$tmp/scales" ASAHI_HDMI_GEN="$gen" "$HOT" added HDMI-A-1 &
 first=$!
 sleep 0.15
 run removed
@@ -151,7 +160,7 @@ grep -q 'output = "HDMI-A-1"' "$cfg" && grep -q 'disabled = true' "$cfg" \
 grep -q 'asahi-hdmi' "$cfg" || fail_at "monitors.lua must call asahi-hdmi"
 grep -A4 'ULTRAFINE' "$cfg" | grep -q -- '-2048x-360' \
   || fail_at "monitors.lua LG position must match asahi-hdmi"
-grep -A4 'P2723DE' "$cfg" | grep -q -- '0x-1152' \
+grep -A4 'P2723DE' "$cfg" | grep -q -- '-2048x321' \
   || fail_at "monitors.lua Dell position must match asahi-hdmi"
 pass "monitors.lua disables HDMI until asahi-hdmi"
 
