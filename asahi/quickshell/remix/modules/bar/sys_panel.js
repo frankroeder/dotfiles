@@ -43,6 +43,14 @@ function hottest(sensors, n) {
   return list.slice(0, n == null ? 3 : n)
 }
 
+// hwmon labels like "temp1" say nothing; fall back to the chip name.
+function sensorLabel(s) {
+  const label = String((s && s.label) || "")
+  if (label && !/^temp\d+$/i.test(label)) return label
+  const name = String((s && s.name) || "")
+  return ({ tas2764: "Speaker amp", nvme: "NVMe SSD" })[name] || name || label
+}
+
 // Normalised 0..1 polyline for a Canvas of any size.
 function sparkPoints(history) {
   const h = history || []
@@ -88,6 +96,7 @@ if (typeof module !== "undefined" && module.exports) {
     parseMemTooltip: parseMemTooltip,
     parsePs: parsePs,
     hottest: hottest,
+    sensorLabel: sensorLabel,
     sparkPoints: sparkPoints,
     heat: heat,
     heatW: heatW,

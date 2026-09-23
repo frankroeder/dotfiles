@@ -135,6 +135,9 @@ Item {
               asynchronous: true
               sourceSize.width: 480
               sourceSize.height: 300
+              // Fade in once decoded instead of popping in tile by tile.
+              opacity: status === Image.Ready ? 1 : 0
+              Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
             }
             Rectangle {
               visible: shotsPane.videoMode

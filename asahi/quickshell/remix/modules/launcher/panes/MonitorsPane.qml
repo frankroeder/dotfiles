@@ -21,6 +21,7 @@ Item {
   implicitHeight: monLayout.implicitHeight
   // full port monitors (hypr all-j, list, mirror/extend/external/rescan, status, canvas, procs, guards; exact)
   property var mons: []
+  property string monRaw: ""
   property var monSaved: ({})
   property int monVersion: 0
   property string monStatus: ""
@@ -30,6 +31,12 @@ Item {
     if (!m) return "preferred"
     const rr = m.refreshRate ? "@" + Number(m.refreshRate).toFixed(3) : ""
     return (m.width || 0) + "x" + (m.height || 0) + rr
+  }
+  // Display text only; monitorMode() is the Hyprland mode string.
+  function monitorModeLabel(m) {
+    if (!m) return ""
+    const hz = m.refreshRate ? " · " + Math.round(Number(m.refreshRate) * 100) / 100 + " Hz" : ""
+    return (m.width || 0) + "×" + (m.height || 0) + hz
   }
   // Enabled only: `monitors all -j` lists disabled outputs, and picking one as
   // the mirror source (clamshell'd eDP-1) points the live display at nothing.
@@ -248,7 +255,12 @@ Item {
     command: ["hyprctl", "monitors", "all", "-j"]
     stdout: StdioCollector {
       onStreamFinished: {
-        try { quickMonitorsRoot.mons = JSON.parse((text || "").trim() || "[]") } catch(_) { quickMonitorsRoot.mons = [] }
+        // Same JSON → keep the array: a new one rebuilds every preview box
+        // (the 3 s poll made them blink out and spring back in).
+        const raw = (text || "").trim() || "[]"
+        if (raw === quickMonitorsRoot.monRaw) return
+        quickMonitorsRoot.monRaw = raw
+        try { quickMonitorsRoot.mons = JSON.parse(raw) } catch(_) { quickMonitorsRoot.mons = [] }
         let saved = quickMonitorsRoot.monSaved || {}
         for (const mon of (quickMonitorsRoot.mons || []))
           saved = QuickModels.rememberEnabledMonitor(saved, mon)
@@ -379,7 +391,7 @@ Item {
       Layout.fillWidth: true; spacing: 8
       Text { text: "󰍹"; color: Style.m3primary; font.pixelSize: root.fontPx(14); font.family: root.uiFont }
       Text {
-        text: ((quickMonitorsRoot.mons || []).length || 0) + " displays"
+        text: (quickMonitorsRoot.mons || []).length + ((quickMonitorsRoot.mons || []).length === 1 ? " display" : " displays")
         color: Style.m3onSurface; font.pixelSize: root.fontPx(13); font.family: root.uiSans; font.weight: Font.DemiBold
       }
       Text {
@@ -458,7 +470,7 @@ Item {
           }
           Text {
             Layout.fillWidth: true
-            text: quickMonitorsRoot.focusedMon ? quickMonitorsRoot.monitorMode(quickMonitorsRoot.focusedMon) : ""
+            text: quickMonitorsRoot.focusedMon ? quickMonitorsRoot.monitorModeLabel(quickMonitorsRoot.focusedMon) : ""
             color: Style.m3onSurfaceVariant; font.pixelSize: root.fontPx(10); font.family: root.uiSans; elide: Text.ElideRight
           }
           Text {
@@ -525,9 +537,14 @@ Item {
       Layout.preferredHeight: LauncherGeom.monitorsVizHeight(quickMonitorsRoot.height, root.launcherGeom)
       radius: Style.menuRadiusLg
       color: Style.m3container
+      clip: true
       Item {
         id: vizArea
         anchors.fill: parent; anchors.margins: 12
+        // Boxes snap while the card is still opening/laying out; only later
+        // topology changes (mirror, scale, toggle) glide.
+        property bool animate: false
+        Timer { interval: 700; running: vizArea.width > 0 && vizArea.height > 0; onTriggered: vizArea.animate = true }
         readonly property var geom: {
           const _ = quickMonitorsRoot.monVersion
           const mons = quickMonitorsRoot.mons || []
@@ -565,10 +582,10 @@ Item {
             border.color: vizMon.sel ? Style.m3primary : Style.m3outlineVariant
             opacity: modelData.disabled ? 0.45 : 1
             Behavior on color { ColorAnimation { duration: 120 } }
-            Behavior on x { Menu.MenuAnim {} }
-            Behavior on y { Menu.MenuAnim {} }
-            Behavior on width { Menu.MenuAnim {} }
-            Behavior on height { Menu.MenuAnim {} }
+            Behavior on x { enabled: vizArea.animate; Menu.MenuAnim {} }
+            Behavior on y { enabled: vizArea.animate; Menu.MenuAnim {} }
+            Behavior on width { enabled: vizArea.animate; Menu.MenuAnim {} }
+            Behavior on height { enabled: vizArea.animate; Menu.MenuAnim {} }
             Column {
               anchors.left: parent.left; anchors.top: parent.top
               anchors.margins: Math.max(4, Math.min(10, vizMon.width * 0.04))
@@ -656,7 +673,7 @@ Item {
                 }
                 Text {
                   Layout.fillWidth: true
-                  text: quickMonitorsRoot.monitorMode(modelData) + " · " + QuickModels.formatScale(modelData.scale || 1) + "× · "
+                  text: quickMonitorsRoot.monitorModeLabel(modelData) + " · " + QuickModels.formatScale(modelData.scale || 1) + "× · "
                     + (modelData.x || 0) + "," + (modelData.y || 0)
                   color: Style.m3onSurfaceVariant; font.pixelSize: root.fontPx(9); font.family: root.uiSans; elide: Text.ElideRight
                 }

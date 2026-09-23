@@ -651,6 +651,7 @@ Scope {
         Layout.fillWidth: true
         Layout.fillHeight: false
         Layout.preferredWidth: 1
+        Layout.alignment: Qt.AlignTop
         spacing: 8
         readonly property string rowValue: {
           if (modelData && (modelData.key === "Mem" || modelData.key === "Memory")) {
@@ -661,9 +662,12 @@ Scope {
           return (modelData && modelData.value) || "—"
         }
 
+        // Pinned to the label's line box so the glyph centres on the first
+        // text line instead of sitting low on its own taller line.
         Text {
           Layout.preferredWidth: quickHubRoot.ffIconWidth
           Layout.maximumWidth: quickHubRoot.ffIconWidth
+          Layout.preferredHeight: ffKey.implicitHeight
           Layout.alignment: Qt.AlignTop
           Layout.topMargin: 1
           text: modelData.icon || ""
@@ -671,8 +675,10 @@ Scope {
           font.pixelSize: root.fontPx(18)
           font.family: root.uiFont
           horizontalAlignment: Text.AlignHCenter
+          verticalAlignment: Text.AlignVCenter
         }
         Text {
+          id: ffKey
           Layout.preferredWidth: quickHubRoot.ffLabelWidth
           Layout.minimumWidth: quickHubRoot.ffLabelWidth
           Layout.maximumWidth: quickHubRoot.ffLabelWidth
@@ -764,9 +770,9 @@ Scope {
         const diskTotal = Number(diskBytes.total) || 0
         const out = display.output || {}
         const scaled = display.scaled || out
-        const refresh = out.refreshRate ? (" @ " + Math.round(out.refreshRate) + " Hz") : ""
+        const refresh = out.refreshRate ? (" · " + Math.round(out.refreshRate) + " Hz") : ""
         const scale = (out.width && scaled.width && out.width !== scaled.width)
-          ? (" @ " + (out.width / scaled.width).toFixed(2) + "x") : ""
+          ? (" · " + Number((out.width / scaled.width).toFixed(2)) + "×") : ""
         const batteryStatus = Array.isArray(bat.status) ? bat.status.join(", ") : (bat.status || "")
         quickHubRoot.ffTitle = (title.userName && title.hostName)
           ? (title.userName + "@" + title.hostName) : (host.name || "System")
@@ -780,7 +786,7 @@ Scope {
         // to short one-line facts that fit the leftover pane width.
         quickHubRoot.ffLeftRows = [
           quickHubRoot.ffRow("Host", "󰌢", Style.sky, host.name || host.family || "—"),
-          quickHubRoot.ffRow("Kernel", "󰣀", Style.teal, kernel.release || "—"),
+          quickHubRoot.ffRow("Kernel", "󰌽", Style.teal, kernel.release || "—"),
           quickHubRoot.ffRow("Pkgs", "󰏖", Style.mauve,
             (pkgs.flatpakUser || 0) + " flatpak · " + (pkgs.rpm || 0) + " rpm"),
           quickHubRoot.ffRow("CPU", "󰘚", Style.orange,
@@ -793,7 +799,7 @@ Scope {
         ]
         quickHubRoot.ffRightRows = [
           quickHubRoot.ffRow("Display", "󰍹", Style.sapphire,
-            (out.width || scaled.width || "?") + "x" + (out.height || scaled.height || "?")
+            (out.width || scaled.width || "?") + "×" + (out.height || scaled.height || "?")
               + scale + refresh
               + (display.name ? (" · " + display.name) : "")),
           quickHubRoot.ffRow("WM", "󰖯", Style.green, (wm.prettyName || wm.processName || "—")
@@ -924,11 +930,23 @@ Scope {
         color: Style.m3container
         GridLayout {
           id: ffInfoBody
-          anchors.fill: parent
+          // Rows keep their natural height and the slack becomes one even gap:
+          // stretching the grid parked it all under the wrapped Host row.
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: parent.top
           anchors.margins: 16
           columns: 2
           columnSpacing: 24
-          rowSpacing: 6
+          readonly property var cells: children.filter(c => c.modelData !== undefined)
+          readonly property int rowCount: Math.ceil(cells.length / 2)
+          readonly property real rowsH: {
+            let h = 0
+            for (let i = 0; i < cells.length; i += 2)
+              h += Math.max(cells[i].implicitHeight, i + 1 < cells.length ? cells[i + 1].implicitHeight : 0)
+            return h
+          }
+          rowSpacing: rowCount > 1 ? Math.max(6, (parent.height - 32 - rowsH) / (rowCount - 1)) : 6
           Repeater {
             model: quickHubRoot.ffGridRows
             delegate: ffInfoRowDelegate
@@ -976,18 +994,27 @@ Scope {
     return root.quickDetailFor(k)
   }
 
+  function navFor(target) {
+    return Data.categoryNav.find(n => n.target === target) || null
+  }
+
+  // Prefix modes borrow their category's glyph so the header reads the same
+  // whether the view was opened from the nav row or by typing the prefix.
   readonly property string sectionIcon: {
-    if (root.categoryFilter === "") return ""
-    for (let i = 0; i < Data.categoryNav.length; i++) {
-      if (Data.categoryNav[i].target === root.categoryFilter)
-        return Data.categoryNav[i].icon || ""
-    }
-    return ""
+    const q = root.query.trim()
+    const target = root.categoryFilter !== "" ? root.categoryFilter
+      : q.startsWith(":") ? "Actions"
+      : q.startsWith("?") ? "Keys"
+      : q.startsWith(";") ? "Emoji"
+      : (q.startsWith("@") || q.startsWith("!")) ? "Websearch"
+      : root.fileTerm(q) !== null ? Data.fileCategory : ""
+    if (target === "" && q.startsWith("=")) return "󰃬"
+    return root.navFor(target)?.icon || ""
   }
 
   readonly property string sectionName: {
     const q = root.query.trim()
-    if (root.categoryFilter !== "") return root.categoryFilter
+    if (root.categoryFilter !== "") return root.navFor(root.categoryFilter)?.title || root.categoryFilter
     if (q.startsWith("=")) return "Calculator"
     if (q.startsWith("!")) return "Web Search"
     if (q.startsWith("@")) return "Documentation"
@@ -2146,7 +2173,7 @@ Scope {
     if (q.startsWith("=")) {
       const res = calculate(q.substring(1))
       if (res !== null) {
-        return [{ id: "calc-" + res, name: "= " + res, comment: "Calculator — Enter to copy", icon: "󰃀", special: "calc", result: res }]
+        return [{ id: "calc-" + res, name: "= " + res, comment: "Calculator — Enter to copy", icon: "󰃬", special: "calc", result: res }]
       }
       return null
     }
@@ -2723,9 +2750,15 @@ Scope {
         }
       }
 
+      // Laid out at the card's target size, not its animated one: the width /
+      // height spring overshoots, and a filling layout squeezed and re-stretched
+      // the rows on every category switch. The card clips while it grows.
       ColumnLayout {
         id: launcherCol
-        anchors.fill: parent
+        anchors.top: parent.top
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: root.launcherGeom.cardWidth - 2 * root.launcherGeom.cardMargin
+        height: root.launcherGeom.cardHeight - 2 * root.launcherGeom.cardMargin
         spacing: root.launcherGeom.colSpacing
 
         Menu.MenuHeader {
@@ -3102,7 +3135,7 @@ Scope {
 
                     Text {
                       Layout.fillWidth: true
-                      text: delegateRoot.dName + (delegateRoot.dCat ? "  ›" : "")
+                      text: delegateRoot.dName
                       color: Style.m3onSurface
                       font.pixelSize: root.fontPx(14)
                       font.family: root.uiSans
@@ -3194,7 +3227,6 @@ Scope {
               boundsBehavior: Flickable.StopAtBounds
               contentHeight: Math.max(height, listArea.tileGeom.tileColumnHeight)
               interactive: contentHeight > height + 1
-              Behavior on width { NumberAnimation { duration: Style.menuAnimMs; easing.type: Easing.OutCubic } }
               ScrollBar.vertical: Menu.MenuScrollBar {}
 
               Grid {

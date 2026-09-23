@@ -118,8 +118,10 @@ Item {
         font.family: root.uiSans; font.pixelSize: root.fontPx(9); elide: Text.ElideRight
       }
     }
+    // Fixed width (not a share of the row) so bars line up between the
+    // expanded SMC card and the one-line header rows.
     Rectangle {
-      Layout.fillWidth: true; Layout.preferredWidth: 2; height: 6; radius: 3; color: Style.m3containerHigh
+      Layout.preferredWidth: Math.round(quickTempRoot.width * 0.26); height: 6; radius: 3; color: Style.m3containerHigh
       Rectangle {
         id: barFill
         property bool ready: false
@@ -234,10 +236,11 @@ Item {
       clip: true
       contentHeight: tempCol.implicitHeight
       boundsBehavior: Flickable.StopAtBounds
-      ScrollBar.vertical: Menu.MenuScrollBar {}
+      ScrollBar.vertical: Menu.MenuScrollBar { id: tempScroll }
       Column {
         id: tempCol
-        width: tempFlick.width
+        // Gutter so the scrollbar never paints over the cards.
+        width: tempFlick.width - (tempScroll.overflow ? tempScroll.implicitWidth + 4 : 0)
         spacing: 12
         Repeater {
           model: quickTempRoot.tempRows || []

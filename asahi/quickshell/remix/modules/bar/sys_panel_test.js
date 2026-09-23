@@ -20,6 +20,8 @@ if (ps.length !== 2 || ps[0].comm !== "firefox" || ps[1].comm !== "RDD Process")
 
 const hot = S.hottest([{ value: 40, label: "a" }, { value: 71, label: "b" }, { value: 55, label: "c" }], 2);
 if (hot[0].label !== "b" || hot[1].label !== "c") throw new Error("hottest");
+if (S.sensorLabel({ name: "tas2764", label: "temp1" }) !== "Speaker amp") throw new Error("sensorLabel generic");
+if (S.sensorLabel({ name: "macsmc_hwmon", label: "NAND Flash Temperature" }) !== "NAND Flash Temperature") throw new Error("sensorLabel keep");
 
 const pts = S.sparkPoints([0, 50, 100]);
 if (pts.length !== 3 || pts[0].y !== 1 || pts[2].y !== 0 || pts[2].x !== 1) throw new Error("spark " + JSON.stringify(pts));

@@ -153,9 +153,9 @@ Scope {
 
     Rectangle {
       anchors.fill: parent
-      radius: 8
-      color: Style.surface
-      border.color: root.accent
+      radius: Style.menuRadiusLg
+      color: Style.menuBg
+      border.color: Qt.alpha(root.accent, 0.45)
       border.width: 1
       opacity: root.visible ? 1 : 0
 
@@ -183,17 +183,18 @@ Scope {
             Layout.fillWidth: true
             Text {
               text: root.label
-              font.family: Style.fontFamily
+              font.family: Style.menuSans
               font.pixelSize: 13
-              font.bold: true
-              color: Style.text
+              font.weight: Font.DemiBold
+              color: Style.menuInk
               Layout.fillWidth: true
             }
             Text {
               text: root.value
-              font.family: Style.fontFamily
+              font.family: Style.menuSans
               font.pixelSize: 12
-              color: Style.textMuted
+              font.weight: Font.Medium
+              color: Style.menuInkDeep
             }
           }
 

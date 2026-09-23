@@ -23,10 +23,10 @@ PopupWindow {
 
   Rectangle {
     anchors.fill: parent
-    color: Style.mantle
+    color: Style.menuBg
     border.color: Style.menuSep
     border.width: 1
-    radius: Style.radiusSm
+    radius: Style.radius
     opacity: root.visible ? 1 : 0
     Behavior on color { ColorAnimation { duration: 140 } }
     Behavior on border.color { ColorAnimation { duration: 140 } }

@@ -63,8 +63,6 @@ Singleton {
   readonly property color wsBadgeVisibleBg:    themedAlpha("sky", 0.18)
   readonly property color wsBadgeOccupiedBg:   themedAlpha("text", 0.16)
   readonly property color wsBadgeEmptyBg:      themedAlpha("text", 0.08)
-  readonly property color wsBadgeBorder:       themedAlpha("text", 0.24)
-  readonly property color wsBadgeActiveBorder: themedAlpha("sky", 0.36)
   readonly property color wsBadgeActiveText:   themed("crust")
   readonly property color wsOccupiedText:   themed("text")
   readonly property color wsEmptyText:      themed("overlay1")

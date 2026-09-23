@@ -22,6 +22,9 @@ Item {
   property var wifiNetworks: []
   property bool wifiEnabled: true
   property string currentWifiSsid: ""
+  // False until the first asahi-network answer: show "Checking…" instead of
+  // flashing "No network" / "Not connected" for a frame.
+  property bool wifiChecked: false
   property bool wifiScanning: false
   property string wifiDevice: ""
   property string wifiLabel: "WiFi"
@@ -354,6 +357,7 @@ Item {
           const d = JSON.parse((text || "").trim() || "{}")
           quickNetworkRoot.wifiLabel = (d.text || "WiFi").replace(/<[^>]*>/g, "")
           quickNetworkRoot.wifiTooltip = d.tooltip || ""
+          quickNetworkRoot.wifiChecked = true
           const m = (d.tooltip || "").match(/^Connected to (.+)$/m)
           if (m) quickNetworkRoot.currentWifiSsid = m[1].trim()
         } catch (_) {}
@@ -456,7 +460,9 @@ Item {
         const out = []
         for (let i = 0; i < lines.length; i++) {
           const p = QuickModels.nmcliFields(lines[i])
-          if (p.length >= 3) out.push({ type: p[0] || "", name: p[1] || "", device: p[2] || "" })
+          // lo is always "active" in NM — noise, not a connection.
+          if (p.length >= 3 && p[0] !== "loopback")
+            out.push({ type: p[0] === "802-11-wireless" ? "wifi" : (p[0] === "802-3-ethernet" ? "ethernet" : p[0]), name: p[1] || "", device: p[2] || "" })
         }
         quickNetworkRoot.activeConnections = out
       }
@@ -678,8 +684,10 @@ Item {
   readonly property var signalGlyphs: ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"]
   function signalGlyph(pct) { return quickNetworkRoot.signalGlyphs[Math.max(0, Math.min(4, Math.ceil(pct / 20) - 1))] }
   // asahi-network tooltip lines minus the SSID + signal (both shown in the title row).
-  readonly property var wifiFacts: (quickNetworkRoot.wifiTooltip || "").split("\n")
-    .filter(function(l) { return l.trim() && !/^(Connected to|Signal:)/.test(l) })
+  // Blank rows before the first answer hold the grid's usual height.
+  readonly property var wifiFacts: !quickNetworkRoot.wifiChecked ? [" ", " ", " ", " ", " "]
+    : (quickNetworkRoot.wifiTooltip || "").split("\n")
+      .filter(function(l) { return l.trim() && !/^(Connected to|Signal:)/.test(l) })
 
   component Card: Rectangle {
     radius: Style.menuRadiusLg
@@ -722,7 +730,7 @@ Item {
     property bool clickable: false
     property int fixedWidth: 0
     signal clicked()
-    implicitWidth: fixedWidth > 0 ? fixedWidth : chipRow.implicitWidth + 20
+    implicitWidth: fixedWidth > 0 ? fixedWidth : chipRow.implicitWidth + 18
     implicitHeight: 28
     width: implicitWidth
     radius: Style.menuRadiusFull
@@ -834,7 +842,10 @@ Item {
             spacing: 8
             Text { text: "󰤨"; color: Style.m3primary; font.family: root.uiFont; font.pixelSize: root.fontPx(15) }
             CardTitle { text: "Wi-Fi" }
-            Secondary { text: QuickModels.wifiRadioStatus(quickNetworkRoot.wifiEnabled, quickNetworkRoot.currentWifiSsid) }
+            Secondary {
+              text: quickNetworkRoot.wifiChecked
+                ? QuickModels.wifiRadioStatus(quickNetworkRoot.wifiEnabled, quickNetworkRoot.currentWifiSsid) : "Checking…"
+            }
             Item { Layout.fillWidth: true }
             M3Switch { checked: quickNetworkRoot.wifiEnabled; onToggled: quickNetworkRoot.toggleWifi() }
           }
@@ -851,7 +862,7 @@ Item {
                 Text {
                   Layout.fillWidth: true
                   text: quickNetworkRoot.currentWifiSsid
-                    || (quickNetworkRoot.wifiEnabled ? "No network" : "—")
+                    || (!quickNetworkRoot.wifiChecked ? "Checking…" : (quickNetworkRoot.wifiEnabled ? "No network" : "—"))
                   color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(15)
                   font.weight: Font.DemiBold; elide: Text.ElideRight
                 }
@@ -870,14 +881,16 @@ Item {
                   model: quickNetworkRoot.wifiFacts
                   delegate: Secondary { required property var modelData; text: modelData }
                 }
-                Secondary { visible: quickNetworkRoot.wifiFacts.length === 0; text: "No connection details" }
+                Secondary { visible: quickNetworkRoot.wifiChecked && quickNetworkRoot.wifiFacts.length === 0; text: "No connection details" }
               }
               Secondary {
                 visible: !!quickNetworkRoot.wifiQrError && !quickNetworkRoot.wifiQrPath
                 Layout.fillWidth: true; text: quickNetworkRoot.wifiQrError; color: Style.red
               }
+              // Fixed height so the pills arriving with the first status do not push the page down.
               RowLayout {
                 Layout.topMargin: 2
+                Layout.preferredHeight: 32
                 spacing: 8
                 Pill {
                   visible: !!quickNetworkRoot.currentWifiSsid && !!quickNetworkRoot.wifiDevice && quickNetworkRoot.wifiEnabled
@@ -962,11 +975,11 @@ Item {
       }
     }
 
-    // Stats strip: throughput, latency, loss, public IP.
-    RowLayout {
-      Layout.fillHeight: false
+    // Stats strip: throughput, latency, loss, public IP. Flow wraps instead of
+    // widening the whole column past the pane (a RowLayout's minimum is the chip sum).
+    Flow {
       Layout.fillWidth: true
-      spacing: 8
+      spacing: 6
       Chip {
         icon: "󰕒"
         label: QuickModels.formatRate(quickNetworkRoot.netTxRate)
@@ -984,7 +997,6 @@ Item {
         icon: "󰀦"; label: "Loss " + loss
         bg: loss !== "--" && loss !== "0%" ? Qt.alpha(Style.red, 0.22) : Style.m3secondaryContainer
       }
-      Item { Layout.fillWidth: true }
       Chip {
         visible: !!quickNetworkRoot.vpnPublicIp
         icon: "󰩟"; label: quickNetworkRoot.vpnPublicIp
@@ -1121,12 +1133,13 @@ Item {
           clip: true
           spacing: 2
           boundsBehavior: Flickable.StopAtBounds
-          ScrollBar.vertical: Menu.MenuScrollBar {}
+          ScrollBar.vertical: Menu.MenuScrollBar { id: netScroll }
           model: quickNetworkRoot.wifiNetworks || []
           delegate: Column {
             id: netDelegate
             required property var modelData
-            width: netList.width
+            // Gutter so the scrollbar never sits on the connect buttons.
+            width: netList.width - (netScroll.overflow ? netScroll.implicitWidth + 4 : 0)
             spacing: 2
             Secondary {
               visible: !!netDelegate.modelData.section

@@ -148,7 +148,8 @@ Scope {
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "quickshell-notifications"
     anchors { bottom: true; right: true }
-    margins { bottom: 56; right: 36 }
+    // Right edge shared with the history sheet and the bar (barEdgeMargin).
+    margins { bottom: 56; right: Style.barEdgeMargin }
     implicitWidth: 380
     implicitHeight: toastColumn.implicitHeight
 
@@ -178,81 +179,96 @@ Scope {
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "quickshell-notification-center"
     anchors { top: true; right: true }
-    margins { top: 52; right: 12 }
+    margins { top: 52; right: Style.barEdgeMargin }
     implicitWidth: 420
-    implicitHeight: 520
+    // Grow with the list up to a cap instead of a fixed tall sheet.
+    implicitHeight: Math.max(180, Math.min(560, historyColumn.implicitHeight + historyHeader.implicitHeight + 14 * 2 + 21))
 
     Rectangle {
       anchors.fill: parent
-      radius: 8
-      color: Style.surface
-      border.color: Style.border
+      radius: Style.menuRadiusLg
+      color: Style.menuBg
+      border.color: Style.menuSep
       border.width: 1
 
       ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 12
+        anchors.margins: 14
         spacing: 10
 
         RowLayout {
+          id: historyHeader
           Layout.fillWidth: true
+          spacing: 8
           Text {
             text: "Notifications"
-            font.family: Style.fontFamily
-            font.pixelSize: 14
-            font.bold: true
-            color: Style.text
-            Layout.fillWidth: true
+            font.family: Style.menuSans
+            font.pixelSize: 15
+            font.weight: Font.DemiBold
+            color: Style.menuInk
           }
-          MouseArea {
-            width: 24
-            height: 24
-            cursorShape: Qt.PointingHandCursor
+          Rectangle {
+            visible: root.historyCount > 0
+            implicitWidth: countText.implicitWidth + 12
+            implicitHeight: 18
+            radius: 9
+            color: Style.m3primaryContainer
+            Text {
+              id: countText
+              anchors.centerIn: parent
+              text: root.historyCount
+              font.family: Style.menuSans
+              font.pixelSize: 11
+              font.weight: Font.DemiBold
+              color: Style.menuInk
+            }
+          }
+          Item { Layout.fillWidth: true }
+          HeaderButton {
+            glyph: root.dndEnabled ? "󰂛" : "󰂚"
+            tone: root.dndEnabled ? Style.yellow : Style.menuInkDeep
             onClicked: root.toggleDnd()
-            Text {
-              anchors.centerIn: parent
-              text: root.dndEnabled ? "󰂛" : "󰂚"
-              font.family: Style.fontFamily
-              font.pixelSize: 13
-              color: root.dndEnabled ? Style.yellow : Style.textMuted
-            }
           }
-          MouseArea {
-            width: 24
-            height: 24
-            cursorShape: Qt.PointingHandCursor
+          HeaderButton {
+            glyph: "󰆴"
+            tone: Style.menuInkDeep
             onClicked: root.clearHistory()
-            Text {
-              anchors.centerIn: parent
-              text: "󰆴"
-              font.family: Style.fontFamily
-              font.pixelSize: 13
-              color: Style.textMuted
-            }
           }
         }
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: Style.border; opacity: 0.65 }
+        Rectangle { Layout.fillWidth: true; height: 1; color: Style.menuSep }
 
         Flickable {
           Layout.fillWidth: true
           Layout.fillHeight: true
           clip: true
           contentHeight: historyColumn.implicitHeight
+          boundsBehavior: Flickable.StopAtBounds
 
           ColumnLayout {
             id: historyColumn
             width: parent.width
             spacing: 8
 
-            Text {
+            Column {
               visible: root.history.length === 0
-              text: "No notifications"
-              font.family: Style.fontFamily
-              font.pixelSize: 12
-              color: Style.textMuted
               Layout.alignment: Qt.AlignHCenter
-              Layout.topMargin: 130
+              Layout.topMargin: 28
+              spacing: 6
+              Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: root.dndEnabled ? "󰂛" : "󰂚"
+                font.family: Style.fontFamily
+                font.pixelSize: 26
+                color: Style.menuInkMuted
+              }
+              Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: root.dndEnabled ? "Do not disturb is on" : "No notifications"
+                font.family: Style.menuSans
+                font.pixelSize: 12
+                color: Style.menuInkDeep
+              }
             }
 
             Repeater {
@@ -271,6 +287,30 @@ Scope {
     }
   }
 
+  component HeaderButton: MouseArea {
+    id: hb
+    property string glyph: ""
+    property color tone: Style.menuInkDeep
+    implicitWidth: 28
+    implicitHeight: 28
+    hoverEnabled: true
+    cursorShape: Qt.PointingHandCursor
+    Rectangle {
+      anchors.fill: parent
+      radius: width / 2
+      color: hb.containsMouse ? Style.m3stateHover : "transparent"
+    }
+    Text {
+      anchors.centerIn: parent
+      text: hb.glyph
+      font.family: Style.fontFamily
+      font.pixelSize: 15
+      color: hb.tone
+    }
+  }
+
+  // Quiet card: hairline border, urgency as a slim left strip (critical also
+  // tints the border), app name demoted to the meta line next to the time.
   component NotificationCard: Rectangle {
     id: card
 
@@ -278,16 +318,18 @@ Scope {
     property bool compact: false
     property bool timeout: false
     readonly property color accent: root.urgencyColor(entry ? entry.urgency : 1)
+    readonly property bool critical: !!entry && entry.urgency === 2
     signal dismiss()
 
-    color: Style.surface2
-    radius: 8
-    border.color: card.accent
-    border.width: 2
-    implicitHeight: cardBody.implicitHeight + 18
+    color: card.compact ? Style.m3container : Style.menuBg
+    radius: Style.menuRadiusMd
+    border.color: card.critical ? Qt.alpha(Style.red, 0.55) : Style.menuSep
+    border.width: 1
+    implicitHeight: cardBody.implicitHeight + 22
+    clip: true
 
     Timer {
-      interval: card.entry && card.entry.urgency === 2 ? 9000 : 6000
+      interval: card.critical ? 9000 : 6000
       running: card.timeout
       repeat: false
       onTriggered: card.dismiss()
@@ -298,26 +340,29 @@ Scope {
         left: parent.left
         top: parent.top
         bottom: parent.bottom
-        margins: 2
+        topMargin: 10
+        bottomMargin: 10
+        leftMargin: 5
       }
-      width: 5
+      width: 3
       radius: 2
       color: card.accent
+      opacity: card.entry && card.entry.urgency === 0 ? 0.5 : 1
     }
 
     RowLayout {
       id: cardBody
       anchors.fill: parent
-      anchors.margins: 9
-      anchors.leftMargin: 14
-      spacing: 10
+      anchors.margins: 11
+      anchors.leftMargin: 16
+      spacing: 12
 
       Rectangle {
         Layout.preferredWidth: 36
         Layout.preferredHeight: 36
         Layout.alignment: Qt.AlignTop
-        radius: 6
-        color: Qt.rgba(0, 0, 0, 0.18)
+        radius: Style.menuRadiusMd - 2
+        color: Style.menuControlBg
 
         IconImage {
           anchors.centerIn: parent
@@ -339,55 +384,75 @@ Scope {
 
       ColumnLayout {
         Layout.fillWidth: true
-        spacing: 4
+        spacing: 2
 
         RowLayout {
           Layout.fillWidth: true
+          spacing: 6
           Text {
-            text: card.entry ? ((card.entry.appName ? card.entry.appName + "  " : "") + card.entry.summary) : ""
+            text: card.entry ? (card.entry.appName || "Notification") : ""
             textFormat: Text.PlainText
-            font.family: Style.fontFamily
-            font.pixelSize: 12
-            font.bold: true
-            color: Style.text
+            font.family: Style.menuSans
+            font.pixelSize: 11
+            font.weight: Font.Medium
+            color: Style.menuInkDeep
             elide: Text.ElideRight
             Layout.fillWidth: true
           }
           Text {
             text: card.entry ? card.entry.time : ""
-            font.family: Style.fontFamily
-            font.pixelSize: 10
-            color: Style.textMuted
+            font.family: Style.menuSans
+            font.pixelSize: 11
+            color: Style.menuInkMuted
           }
+        }
+
+        Text {
+          text: card.entry ? card.entry.summary : ""
+          visible: text.length > 0
+          textFormat: Text.PlainText
+          font.family: Style.menuSans
+          font.pixelSize: 13
+          font.weight: Font.DemiBold
+          color: Style.menuInk
+          elide: Text.ElideRight
+          Layout.fillWidth: true
         }
 
         Text {
           text: card.entry ? card.entry.body : ""
           visible: text.length > 0
           textFormat: Text.PlainText
-          font.family: Style.fontFamily
-          font.pixelSize: 11
-          color: Style.textAlt
+          font.family: Style.menuSans
+          font.pixelSize: 12
+          color: Style.menuInkDeep
           wrapMode: Text.Wrap
+          elide: Text.ElideRight
           maximumLineCount: card.compact ? 3 : 2
           Layout.fillWidth: true
         }
       }
 
       MouseArea {
-        Layout.preferredWidth: 20
-        Layout.preferredHeight: 20
+        id: closeMa
+        Layout.preferredWidth: 22
+        Layout.preferredHeight: 22
         Layout.alignment: Qt.AlignTop
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         onClicked: card.dismiss()
 
+        Rectangle {
+          anchors.fill: parent
+          radius: width / 2
+          color: closeMa.containsMouse ? Style.m3stateHover : "transparent"
+        }
         Text {
           anchors.centerIn: parent
           text: "󰅖"
           font.family: Style.fontFamily
-          font.pixelSize: 12
-          color: parent.containsMouse ? Style.red : Style.textMuted
+          font.pixelSize: 13
+          color: closeMa.containsMouse ? Style.red : Style.menuInkMuted
         }
       }
     }

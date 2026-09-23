@@ -43,7 +43,7 @@ format_a() {
 }
 
 format_c() {
-  awk -v value="$1" 'BEGIN { printf "%.1f C", value / 10 }'
+  awk -v value="$1" 'BEGIN { printf "%.1f °C", value / 10 }'
 }
 
 format_date_part() {
@@ -181,7 +181,7 @@ tooltip="$(printf "$tooltip_format" \
   "$cycle_count" "$(format_c "$temp")" \
   "$(format_v "$voltage_now")" "$(format_a "$current_now")" \
   "$start_threshold" "$end_threshold" "$charge_behaviour" \
-  "$ac_online" "$(format_w "$input_power_limit")" \
+  "$([ "$ac_online" = "1" ] && echo Yes || echo No)" "$(format_w "$input_power_limit")" \
   "$model" "$manufacture_year" "$(format_date_part "$manufacture_month")" "$(format_date_part "$manufacture_day")")"
 
 watts="$(awk -v value="$power_now" 'BEGIN { if (value < 0) value = -value; printf "%.1f", value / 1000000 }')"

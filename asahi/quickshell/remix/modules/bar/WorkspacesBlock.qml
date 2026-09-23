@@ -152,8 +152,8 @@ Item {
               color: isFocused
                 ? Style.wsBadgeActiveBg
                 : (wsButton.isHovered ? Style.wsBadgeHoverBg : (wsButton.isVisibleElsewhere ? Style.wsBadgeVisibleBg : (wsButton.isOccupied ? Style.wsBadgeOccupiedBg : Style.wsBadgeEmptyBg)))
-              border.width: 1
-              border.color: isFocused ? Style.wsBadgeActiveBorder : Style.wsBadgeBorder
+              // No ring: the button and block already draw an outline each.
+              border.width: 0
 
               Text {
                 anchors.fill: parent

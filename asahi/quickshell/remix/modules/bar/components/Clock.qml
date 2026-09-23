@@ -30,7 +30,7 @@ Item {
 
   property date viewMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   property date today: new Date()
-  implicitWidth: solidBar ? flatRow.implicitWidth + 16 : clockRow.implicitWidth + 14
+  implicitWidth: solidBar ? flatRow.implicitWidth + 12 : clockRow.implicitWidth + 14
   implicitHeight: solidBar ? Style.barHeight : 26
 
   function sameDay(a, b) {
@@ -89,10 +89,13 @@ Item {
   }
 
   onCalendarOpenChanged: if (root.calendarOpen) root.goToday()
+  // Flush right: the clock is the last item, so its outer pad would double
+  // the bar edge margin (left edge sits at barEdgeMargin, right drifted to ~2×).
   Row {
     id: flatRow
     visible: root.solidBar
-    anchors.centerIn: parent
+    anchors.right: parent.right
+    anchors.verticalCenter: parent.verticalCenter
     spacing: 8
 
     Text {
@@ -150,8 +153,10 @@ Item {
     id: calPopup
     visible: root.showCalendar
     color: "transparent"
+    // Right edge on the clock's (= bar edge margin), growing leftwards.
     anchor.item: root
-    anchor.edges: Edges.Bottom
+    anchor.edges: Edges.Bottom | Edges.Right
+    anchor.gravity: Edges.Bottom | Edges.Left
     implicitWidth: 340
     implicitHeight: 330
 
@@ -160,7 +165,7 @@ Item {
       color: Style.menuBg
       border.color: Style.menuSep
       border.width: 1
-      radius: Style.menuRadius
+      radius: Style.menuRadiusLg
 
       ColumnLayout {
         anchors.fill: parent
@@ -274,15 +279,15 @@ Item {
                   readonly property bool isToday: modelData && root.sameDay(new Date(modelData.y, modelData.m, modelData.d), root.today)
                   color: {
                     if (!modelData) return "transparent"
-                    if (isToday) return Qt.alpha(Style.menuSeal, 0.22)
+                    if (isToday) return Style.menuSeal
                     return dayMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
                   }
-                  border.width: isToday ? 1 : 0
-                  border.color: Style.menuSeal
+                  border.width: 0
                   Text {
                     anchors.centerIn: parent
                     text: modelData ? String(modelData.d) : ""
-                    color: parent.isToday ? Style.menuSeal : Style.menuInk
+                    // Filled "today" (M3 date picker): a 22% wash read as disabled on grey accents.
+                    color: parent.isToday ? Style.menuOnAccent : Style.menuInk
                     font.family: Style.fontFamily
                     font.pixelSize: 12
                     font.weight: parent.isToday ? Font.DemiBold : Font.Normal

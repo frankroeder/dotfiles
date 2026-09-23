@@ -86,7 +86,9 @@ PopupWindow {
 
   Rectangle {
     anchors.fill: parent
-    color: Style.m3surface
+    color: Style.menuBg
+    border.color: Style.menuSep
+    border.width: 1
     radius: Style.menuRadiusLg
 
     ColumnLayout {

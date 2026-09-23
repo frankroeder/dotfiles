@@ -171,7 +171,7 @@ Item {
             Layout.fillWidth: true
             text: quickStorageRoot.rootMount
               ? root.prettyBytes(quickStorageRoot.rootMount.used) + " / " + root.prettyBytes(quickStorageRoot.rootMount.total)
-                + " · " + quickStorageRoot.rootMount.mount
+                + " · " + (quickStorageRoot.rootMount.mount === "/" ? "root" : quickStorageRoot.rootMount.mount)
               : "Reading mount points…"
             color: Style.m3secondary; font.family: root.uiSans; font.pixelSize: root.fontPx(13); font.weight: Font.Medium; elide: Text.ElideRight
           }
@@ -229,7 +229,11 @@ Item {
             spacing: 8
             Text { text: "󰋊"; color: Style.m3secondary; font.family: root.uiFont; font.pixelSize: root.fontPx(14) }
             CardTitle { text: "Filesystems"; Layout.fillWidth: true }
-            Secondary { text: (root.storageMounts || []).length + " mounts"; font.pixelSize: root.fontPx(9) }
+            // The hero already shows "/" — count only the rows listed here.
+            Secondary {
+              text: quickStorageRoot.otherMounts.length + (quickStorageRoot.otherMounts.length === 1 ? " mount" : " mounts")
+              font.pixelSize: root.fontPx(9)
+            }
           }
           Flickable {
             Layout.fillWidth: true
@@ -237,10 +241,11 @@ Item {
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             contentHeight: mountCol.implicitHeight
-            ScrollBar.vertical: Menu.MenuScrollBar {}
+            ScrollBar.vertical: Menu.MenuScrollBar { id: mountScroll }
             Column {
               id: mountCol
-              width: parent.width
+              // Gutter so the scrollbar never sits on the size column.
+              width: parent.width - (mountScroll.overflow ? mountScroll.implicitWidth + 4 : 0)
               spacing: 2
               Secondary {
                 visible: (root.storageMounts || []).length === 0
@@ -335,10 +340,11 @@ Item {
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             contentHeight: dirCol.implicitHeight
-            ScrollBar.vertical: Menu.MenuScrollBar {}
+            ScrollBar.vertical: Menu.MenuScrollBar { id: dirScroll }
             Column {
               id: dirCol
-              width: parent.width
+              // Gutter so the scrollbar never sits on the size column.
+              width: parent.width - (dirScroll.overflow ? dirScroll.implicitWidth + 4 : 0)
               spacing: 2
               Secondary {
                 visible: (root.storageHomeDirs || []).length === 0

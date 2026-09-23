@@ -26,11 +26,13 @@ function parseTemperatures(out) {
   let groupPath = ""
   let groupKind = "temp"
   let last = null
+  let summary = false
   const lines = String(out || "").split("\n")
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
-    if (line.indexOf("Hottest:") === 0) continue
-    if (line.indexOf("Heatpipe:") === 0) continue
+    // Trailing "Hottest:" / "Heatpipe:" blocks repeat a sensor on the next line.
+    if (line.indexOf("Hottest:") === 0 || line.indexOf("Heatpipe:") === 0) { summary = true; continue }
+    if (summary) continue
     const gm = line.match(/^>>> (.+?) \((.+)\)$/)
     if (gm) {
       const rawName = gm[1]

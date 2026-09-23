@@ -35,10 +35,10 @@ PanelWindow {
     id: card
     width: parent.width
     implicitHeight: column.implicitHeight + 12
-    radius: Style.radiusLg
-    color: Style.barStripBg
+    radius: Style.menuRadiusLg
+    color: Style.menuBg
     border.width: 1
-    border.color: Style.barBorder
+    border.color: Style.menuSep
     opacity: root.shouldShow ? 1 : 0
     Behavior on opacity { NumberAnimation { duration: 140 } }
 

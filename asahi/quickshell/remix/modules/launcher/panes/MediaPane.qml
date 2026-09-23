@@ -494,10 +494,11 @@ Item {
       }
     }
 
-    // Stream mixer: one slider row per playback stream.
+    // Stream mixer: one slider row per playback stream. Sized to its rows
+    // (the spectrum takes the slack); shrinks to min and scrolls when crowded.
     Rectangle {
       Layout.fillWidth: true
-      Layout.fillHeight: true
+      Layout.preferredHeight: 24 + 28 + 6 + Math.max(1, (quickMediaRoot.displayStreams || []).length) * 38
       Layout.minimumHeight: 100
       radius: Style.menuRadiusLg
       color: Style.m3container
@@ -616,11 +617,12 @@ Item {
       }
     }
 
-    // Live cava spectrum: rounded bars, primary → tertiary across the row.
+    // Live cava spectrum: rounded bars mirrored about the midline, primary →
+    // tertiary across the row. Fills the height the mixer leaves.
     Rectangle {
       Layout.fillWidth: true
-      Layout.preferredHeight: 84
-      Layout.maximumHeight: 84
+      Layout.fillHeight: true
+      Layout.minimumHeight: 84
       radius: Style.menuRadiusLg
       color: Style.m3container
       ColumnLayout {
@@ -656,8 +658,7 @@ Item {
                 width: (parent.width - 23 * parent.spacing) / 24
                 height: parent.height
                 Rectangle {
-                  anchors.bottom: parent.bottom
-                  anchors.horizontalCenter: parent.horizontalCenter
+                  anchors.centerIn: parent
                   width: Math.min(12, parent.width)
                   radius: width / 2
                   height: Math.max(4, parent.height * (((quickMediaRoot.cavaValues && quickMediaRoot.cavaValues[index]) || 0) / 100))

@@ -319,10 +319,10 @@ Rectangle {
     Rectangle {
       id: card
       anchors.fill: parent
-      color: Style.surface
-      border.color: Style.barBorder
+      color: Style.menuBg
+      border.color: Style.menuSep
       border.width: 1
-      radius: Style.radius
+      radius: Style.menuRadiusLg
       implicitWidth: root.contentW + 28
       implicitHeight: Math.min(flick.contentHeight + 28, 720)
 

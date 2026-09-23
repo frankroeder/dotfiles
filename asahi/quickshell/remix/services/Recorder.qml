@@ -86,7 +86,8 @@ Singleton {
   Timer { interval: 1000; running: root.running; repeat: true; onTriggered: root.elapsed += 1 }
 
   onRunningChanged: {
-    if (running) root.elapsed = Math.max(0, Math.round(Date.now() / 1000) - root.startEpoch)
+    // start is 0 for a wf-recorder we did not launch: count from now, not from 1970.
+    if (running) root.elapsed = root.startEpoch > 0 ? Math.max(0, Math.round(Date.now() / 1000) - root.startEpoch) : 0
     else rescanDelay.restart()
   }
   Component.onCompleted: scanRecent()

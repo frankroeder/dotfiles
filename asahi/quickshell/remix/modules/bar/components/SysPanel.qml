@@ -72,6 +72,7 @@ PopupWindow {
     property string unit: "%"
     property real barMax: 100
     Layout.fillWidth: true
+    Layout.fillHeight: true
     implicitHeight: tileCol.implicitHeight + 24
     radius: Style.menuRadius
     color: Qt.alpha(accent, 0.09)
@@ -79,7 +80,9 @@ PopupWindow {
     border.width: 1
     ColumnLayout {
       id: tileCol
-      anchors.fill: parent
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: parent.top
       anchors.margins: 12
       spacing: 4
       Text {
@@ -91,7 +94,10 @@ PopupWindow {
         text: unit === "%" ? (Math.round(value) + "%") : (isFinite(value) ? value.toFixed(1) + " " + unit : "–")
         color: accent; font.family: Style.fontFamily; font.pixelSize: 22; font.weight: Font.DemiBold
       }
-      Text { text: detail; color: Style.menuInk; font.family: Style.fontFamily; font.pixelSize: 10; elide: Text.ElideRight; Layout.fillWidth: true }
+      Text {
+        text: detail; color: Style.menuInk; font.family: Style.fontFamily; font.pixelSize: 10
+        maximumLineCount: 2; elide: Text.ElideRight; Layout.fillWidth: true
+      }
       Rectangle {
         Layout.fillWidth: true
         height: 3; radius: 1.5
@@ -125,10 +131,13 @@ PopupWindow {
     color: Style.menuCardBg
     border.color: Style.menuSep
     border.width: 1
+    onPointsChanged: boxCanvas.requestPaint()
     Canvas {
       id: boxCanvas
       anchors.fill: parent
       anchors.margins: 8
+      onWidthChanged: requestPaint()
+      onHeightChanged: requestPaint()
       onPaint: {
         const ctx = getContext("2d")
         ctx.reset()
@@ -148,7 +157,6 @@ PopupWindow {
         ctx.lineWidth = 1.5
         ctx.stroke()
       }
-      Connections { target: parent; function onPointsChanged() { boxCanvas.requestPaint() } }
     }
   }
 
@@ -157,7 +165,7 @@ PopupWindow {
     color: Style.menuBg
     border.color: Style.menuSep
     border.width: 1
-    radius: Style.menuRadius
+    radius: Style.menuRadiusLg
 
     Flickable {
       id: flick
@@ -176,19 +184,18 @@ PopupWindow {
           spacing: 8
           StatTile {
             accent: Style.orange; caption: "CPU"; value: root.barHost ? root.barHost.cpuPerc : 0
-            detail: (root.cpu.freq ? root.cpu.freq : "")
-              + (root.cpu.cores ? (root.cpu.freq ? "  ·  " : "") + root.cpu.cores + " cores" : "")
+            detail: [root.cpu.freq, root.cpu.cores ? root.cpu.cores + " cores" : ""].filter(s => s).join("\n")
           }
           StatTile {
             accent: Style.sky; caption: "RAM"; value: root.barHost ? root.barHost.memPerc : 0
-            detail: (root.mem.ramUsed ? root.mem.ramUsed + " / " + root.mem.ramTotal + " GiB" : "")
-              + (root.mem.swapTotal ? "  ·  swap " + root.mem.swapUsed + " / " + root.mem.swapTotal : "")
+            detail: [root.mem.ramUsed ? root.mem.ramUsed + " / " + root.mem.ramTotal + " GiB" : "",
+              root.mem.swapTotal ? "swap " + root.mem.swapUsed + " / " + root.mem.swapTotal : ""].filter(s => s).join("\n")
           }
           StatTile {
             visible: root.heatpipeW >= 0
             accent: root.heatColors[Sys.heatW(root.heatpipeW)]
             caption: "HEAT"; unit: "W"; value: root.heatpipeW; barMax: 25
-            detail: "heatpipe · no die °C"
+            detail: "SoC heatpipe\nno die sensor"
           }
         }
 
@@ -232,6 +239,33 @@ PopupWindow {
           }
         }
 
+        // Processes (ps, instant) above the sensors (asahi-temperature, ~150 ms
+        // later) so the late sections extend the bottom instead of shoving rows down.
+        SectionTitle { text: "top processes"; visible: root.procs.length > 0 }
+        Repeater {
+          model: root.procs
+          Item {
+            required property var modelData
+            Layout.fillWidth: true
+            implicitHeight: 20
+            Rectangle {
+              anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom
+              width: parent.width * Math.min(1, modelData.cpu / root.topCpu)
+              radius: 4
+              color: Qt.alpha(Style.orange, 0.10)
+            }
+            RowLayout {
+              anchors.fill: parent
+              anchors.leftMargin: 8; anchors.rightMargin: 8
+              Text {
+                Layout.fillWidth: true; text: modelData.comm; color: Style.menuInk; font.family: Style.fontFamily; font.pixelSize: 11
+                elide: Text.ElideRight
+              }
+              Text { text: modelData.cpu.toFixed(1) + "%"; color: Style.menuInkDeep; font.family: Style.fontFamily; font.pixelSize: 10 }
+            }
+          }
+        }
+
         SectionTitle { text: "fans"; visible: root.fans.length > 0 }
         Repeater {
           model: root.fans
@@ -271,37 +305,12 @@ PopupWindow {
             Rectangle { width: 6; height: 6; radius: 3; color: root.heatColors[Sys.heat(modelData.value)] }
             Text {
               Layout.fillWidth: true
-              text: modelData.label || modelData.name || ""
+              text: Sys.sensorLabel(modelData)
               color: Style.menuInk; font.family: Style.fontFamily; font.pixelSize: 11; elide: Text.ElideRight
             }
             Text {
               text: (isFinite(modelData.value) ? modelData.value.toFixed(1) : "–") + "°C"
               color: root.heatColors[Sys.heat(modelData.value)]; font.family: Style.fontFamily; font.pixelSize: 11; font.weight: Font.DemiBold
-            }
-          }
-        }
-
-        SectionTitle { text: "top processes"; visible: root.procs.length > 0 }
-        Repeater {
-          model: root.procs
-          Item {
-            required property var modelData
-            Layout.fillWidth: true
-            implicitHeight: 20
-            Rectangle {
-              anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom
-              width: parent.width * Math.min(1, modelData.cpu / root.topCpu)
-              radius: 4
-              color: Qt.alpha(Style.orange, 0.10)
-            }
-            RowLayout {
-              anchors.fill: parent
-              anchors.leftMargin: 8; anchors.rightMargin: 8
-              Text {
-                Layout.fillWidth: true; text: modelData.comm; color: Style.menuInk; font.family: Style.fontFamily; font.pixelSize: 11
-                elide: Text.ElideRight
-              }
-              Text { text: modelData.cpu.toFixed(1) + "%"; color: Style.menuInkDeep; font.family: Style.fontFamily; font.pixelSize: 10 }
             }
           }
         }

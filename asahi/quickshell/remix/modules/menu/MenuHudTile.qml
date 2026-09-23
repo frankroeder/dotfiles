@@ -40,15 +40,15 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
       text: root.glyph
       color: root.selected ? Style.m3onSurface : root.tint
-      font.pixelSize: Math.round(root.glyphPx * 0.7)
+      font.pixelSize: Math.round(root.glyphPx * 0.82)
       font.family: root.fontFamily
-      width: 22
+      width: 24
       horizontalAlignment: Text.AlignHCenter
       Behavior on color { ColorAnimation { duration: Style.menuAnimMs } }
     }
     Text {
       anchors.verticalCenter: parent.verticalCenter
-      width: parent.width - 34
+      width: parent.width - 36
       text: root.label
       color: root.selected ? Style.m3onSurface : Style.m3onSurfaceVariant
       font.pixelSize: root.labelPx + 1

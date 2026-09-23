@@ -26,6 +26,8 @@ Item {
   property bool batHolding: false
   property int batThresholdEnd: 100
   property var smcPower: []
+  // Placeholder rows until the first read so the facts card below does not jump.
+  property bool smcLoaded: false
 
   readonly property var batDetailLines: {
     const lines = quickBatteryRoot.batLines || []
@@ -129,6 +131,7 @@ Item {
           const data = JSON.parse(String(text || "").trim() || "{}")
           quickBatteryRoot.smcPower = data.power || []
         } catch (e) { quickBatteryRoot.smcPower = [] }
+        quickBatteryRoot.smcLoaded = true
       }
     }
   }
@@ -285,7 +288,7 @@ Item {
 
     Rectangle {
       Layout.fillWidth: true
-      visible: (quickBatteryRoot.smcPower || []).length > 0
+      visible: !quickBatteryRoot.smcLoaded || (quickBatteryRoot.smcPower || []).length > 0
       implicitHeight: smcCol.implicitHeight + 24
       radius: Style.menuRadiusLg
       color: Style.m3container
@@ -312,7 +315,7 @@ Item {
           }
         }
         Repeater {
-          model: quickBatteryRoot.smcPower
+          model: quickBatteryRoot.smcLoaded ? quickBatteryRoot.smcPower : [{ label: " ", value: NaN }, { label: " ", value: NaN }, { label: " ", value: NaN }, { label: " ", value: NaN }]
           delegate: RowLayout {
             required property var modelData
             Layout.fillWidth: true
@@ -347,7 +350,7 @@ Item {
       Flickable {
         id: factFlick
         anchors.fill: parent
-        anchors.margins: 16
+        anchors.margins: 14
         clip: true
         contentHeight: factGrid.implicitHeight
         boundsBehavior: Flickable.StopAtBounds
@@ -357,7 +360,7 @@ Item {
           width: factFlick.width
           columns: 2
           columnSpacing: 24
-          rowSpacing: 10
+          rowSpacing: 6
           Repeater {
             model: quickBatteryRoot.batFacts
             delegate: RowLayout {
