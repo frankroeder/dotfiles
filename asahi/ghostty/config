@@ -35,6 +35,8 @@ shell-integration = zsh
 shell-integration-features = cursor,sudo,title,no-cursor
 keybind = shift+enter=text:\n
 keybind = super+alt+enter=toggle_quick_terminal
+# Hyprland Super+Shift+F owns fullscreen.
+keybind = ctrl+enter=unbind
 
 theme = asahi-adaptive
 # adaptive.conf (asahi-autotheme) sets window-theme=ghostty, titlebar colors,
