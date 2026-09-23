@@ -56,6 +56,8 @@ window_rule({ class = "^WebcamOverlay-(small|medium|large)$", title = "^WebcamOv
   float = true,
   pin = true,
   no_initial_focus = true,
+  no_focus = true,
+  no_follow_mouse = true,
   opacity = "1 1",
 })
 

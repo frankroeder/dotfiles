@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Read or set macsmc charge start/end thresholds (Asahi equivalent of
+# Read or set the macsmc charge end threshold (Asahi equivalent of
 # macOS `battery maintain 80`). Hibernate is not available; this is the
 # health control that actually exists on this hardware.
 #
@@ -41,19 +41,6 @@ clamp_end() {
   printf '%s' "$n"
 }
 
-start_for_end() {
-  local end="$1" start
-  if [ "$end" -ge 100 ]; then
-    printf '100'
-    return
-  fi
-  start=$((end - 5))
-  [ "$start" -lt 50 ] && start=50
-  [ "$start" -ge "$end" ] && start=$((end - 1))
-  [ "$start" -lt 1 ] && start=1
-  printf '%s' "$start"
-}
-
 chmod_sysfs() {
   local f p
   for f in charge_control_end_threshold charge_control_start_threshold charge_behaviour; do
@@ -65,10 +52,8 @@ chmod_sysfs() {
 }
 
 write_sysfs() {
-  local end="$1" start="$2"
-  [ -w "$end_path" ] && [ -w "$start_path" ] || return 1
-  printf '%s\n' "$end" >"$end_path"
-  printf '%s\n' "$start" >"$start_path"
+  [ -w "$end_path" ] || return 1
+  printf '%s\n' "$1" >"$end_path"
 }
 
 write_state() {
@@ -130,15 +115,18 @@ print_status() {
 }
 
 apply_end() {
-  local end start
+  local end
   end="$(clamp_end "$1")"
-  start="$(start_for_end "$end")"
   write_state "$end"
   if [ "$(id -u)" -eq 0 ]; then
     mkdir -p "$(dirname "$system_state")"
     printf '%s\n' "$end" >"$system_state"
   fi
-  if write_sysfs "$end" "$start"; then
+  if write_sysfs "$end"; then
+    if [ "$(current_end)" != "$end" ]; then
+      echo "asahi-charge-limit: SMC reports $(current_end)%, wanted $end%" >&2
+      return 1
+    fi
     print_status
     return 0
   fi

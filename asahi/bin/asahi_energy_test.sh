@@ -66,12 +66,10 @@ sysstate="$tmp/system-charge-limit"
 ASAHI_POWER_SUPPLY_PATH="$tmp/power" ASAHI_CHARGE_LIMIT_STATE="$state" \
   ASAHI_CHARGE_LIMIT_SYSTEM="$sysstate" "$ROOT/asahi-charge-limit" 80 >/dev/null
 [ "$(cat "$bat/charge_control_end_threshold")" = "80" ] || fail_at "charge-limit writes end 80"
-[ "$(cat "$bat/charge_control_start_threshold")" = "75" ] || fail_at "charge-limit writes start 75"
 [ "$(cat "$state")" = "80" ] || fail_at "charge-limit persists 80"
 ASAHI_POWER_SUPPLY_PATH="$tmp/power" ASAHI_CHARGE_LIMIT_STATE="$state" \
   ASAHI_CHARGE_LIMIT_SYSTEM="$sysstate" "$ROOT/asahi-charge-limit" 100 >/dev/null
 [ "$(cat "$bat/charge_control_end_threshold")" = "100" ] || fail_at "charge-limit writes end 100"
-[ "$(cat "$bat/charge_control_start_threshold")" = "100" ] || fail_at "charge-limit writes start 100"
 pass "asahi-charge-limit apply 80 then 100"
 
 # systemd/udev invoke this with no HOME (set -u must not abort).

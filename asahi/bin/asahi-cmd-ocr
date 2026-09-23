@@ -15,7 +15,8 @@ fi
 selection="$("$bin/asahi-capture-region" region || true)"
 [ -n "${selection:-}" ] || exit 0
 
-text="$(grim -g "$selection" - | tesseract stdin stdout --oem 1 --psm 6 -l "$langs" --dpi 300 -c preserve_interword_spaces=1 2>/dev/null || true)"
+# 2x capture: tesseract drops small text at native resolution.
+text="$(grim -s 2 -g "$selection" - | tesseract stdin stdout --oem 1 --psm 6 -l "$langs" --dpi 300 -c preserve_interword_spaces=1 2>/dev/null || true)"
 [ -n "$text" ] || {
   notify-send -a screenshot -u critical "No text found" "Try a tighter region" 2>/dev/null || true
   exit 1
