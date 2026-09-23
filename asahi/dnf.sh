@@ -116,7 +116,7 @@ sudo dnf install -y \
 
 sudo dnf install -y --from-repo=fedora,updates quickshell
 
-# Grok Bot desktop agent: latest linux/arm64 RPM from Cursor's update API.
+# Grok Bot desktop agent: latest linux/arm64 build from Cursor's update API.
 bash "${DOTFILES_DIR}/asahi/grokbot.sh"
 
 flatpak remote-add --user --if-not-exists flathub "$FLATHUB_REPO_URL"
