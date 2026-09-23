@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Asahi theme",
+  "version": "1.0",
+  "description": "Apply the Asahi wallpaper palette to LibreWolf while it is running.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "asahi-theme@dotfiles.local",
+      "strict_min_version": "128.0"
+    }
+  },
+  "permissions": ["nativeMessaging", "theme"],
+  "background": {
+    "scripts": ["background.js"]
+  }
+}

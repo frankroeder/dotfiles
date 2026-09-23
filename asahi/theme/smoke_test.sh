@@ -64,9 +64,13 @@ rg -q "accent_bg_color" "$STATE/gtk.css" \
 rg -q "lock_accent" "$STATE/hyprlock.conf" \
   || { echo "hyprlock.conf missing lock_accent" >&2; exit 1; }
 
-# Dead-vs-live Firefox variable names are asserted in tests/test_apply.py.
-rg -q -- "--urlbarview-background-color-selected" "$STATE/librewolf.css" \
-  || { echo "librewolf.css missing urlbar highlight vars" >&2; exit 1; }
+# Toolbar colors belong to the extension. The file keeps the sidebar tokens.
+rg -q -- "--asahi-bg:" "$STATE/librewolf.css" \
+  || { echo "librewolf.css missing --asahi-bg" >&2; exit 1; }
+if rg -q -- "--toolbar-field-background-color" "$STATE/librewolf.css"; then
+  echo "librewolf.css locks a color the theme extension must own" >&2
+  exit 1
+fi
 
 # The vertical-tab strip is #sidebar-container; #sidebar-main is not an id.
 UCHROME="$DOTFILES/shared/librewolf/userChrome.css"

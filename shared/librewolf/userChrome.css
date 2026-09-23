@@ -1,48 +1,14 @@
-/* LibreWolf chrome — colors come from asahi-adaptive.css (wallpaper theme).
-   Install copies a Catppuccin default; asahi-autotheme overwrites per profile.
-   Note: Firefox parses userChrome.css once at startup, so a wallpaper change
-   only lands in an already-running LibreWolf after a restart. */
+/* Toolbar, urlbar, tabs, and menus are painted by the asahi-theme extension
+   (browser.theme.update) so a wallpaper change can recolor a running window.
+   This file is still parsed once. The vertical-tab strip below uses variables
+   from asahi-adaptive.css and changes on the next start. */
 
 @import url("asahi-adaptive.css");
 
 /* The vertical-tab strip is #sidebar-container > sidebar-main — the custom
    element carries no id, so only the container can be painted. */
-#navigator-toolbox,
 #sidebar-container,
 #sidebar-box {
   background-color: var(--asahi-bg) !important;
   color: var(--asahi-fg) !important;
-}
-
-#navigator-toolbox {
-  border-bottom: 1px solid var(--asahi-border) !important;
-}
-
-#urlbar-background,
-#searchbar {
-  background-color: var(--asahi-surface) !important;
-  border-color: var(--asahi-border) !important;
-}
-
-#urlbar[focused] #urlbar-background {
-  border-color: var(--asahi-accent) !important;
-}
-
-.tab-background[selected],
-.tabbrowser-tab:not([selected]):hover .tab-background {
-  background-color: var(--asahi-surface) !important;
-}
-
-/* Highlights that resolve to GTK system colors, not to a themeable variable.
-   GTK only hands those to Firefox at startup, so pin them here instead. */
-menu:where([_moz-menuactive]:not([disabled])),
-menuitem:where([_moz-menuactive]:not([disabled])) {
-  background-color: var(--asahi-accent) !important;
-  color: var(--asahi-on-accent) !important;
-}
-
-.urlbar-input::selection,
-.searchbar-textbox::selection {
-  background-color: var(--asahi-accent) !important;
-  color: var(--asahi-on-accent) !important;
 }

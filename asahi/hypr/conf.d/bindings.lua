@@ -21,11 +21,14 @@ hl.bind(mod .. " + F", hl.dsp.window.fullscreen { mode = 1 }, { desc = "Toggle m
 hl.bind(mod .. " + SHIFT + F", hl.dsp.window.fullscreen(), { desc = "Toggle fullscreen" })
 hl.bind(mod .. " + P", hl.dsp.window.pseudo(), { desc = "Toggle pseudo" })
 hl.bind(mod .. " + R", hl.dsp.layout "togglesplit", { desc = "Toggle split" })
-hl.bind(mod .. " + SHIFT + P", hl.dsp.window.pin(), { desc = "Toggle pin window (always on top)" })
+hl.bind(mod .. " + SHIFT + P", hl.dsp.exec_cmd(scripts .. "/asahi-window-gesture pin"), { desc = "Toggle pin window (always on top)" })
 hl.bind(mod .. " + W", hl.dsp.group.toggle(), { desc = "Toggle group" })
+hl.bind(mod .. " + ALT + W", hl.dsp.window.move { out_of_group = true }, { desc = "Move window out of group" })
+hl.bind(mod .. " + ALT + SHIFT + W", hl.dsp.group.lock_active(), { desc = "Lock active group" })
 hl.bind(mod .. " + ALT + TAB", hl.dsp.group.next(), { desc = "Next window in group" })
 hl.bind(mod .. " + ALT + SHIFT + TAB", hl.dsp.group.prev(), { desc = "Previous window in group" })
 hl.bind(mod .. " + O", hl.dsp.exec_cmd(scripts .. "/asahi-window-pop"), { desc = "Pop window (float + center + pin)" })
+hl.bind(mod .. " + ALT + P", hl.dsp.exec_cmd(scripts .. "/asahi-window-gesture pip"), { desc = "Toggle picture-in-picture" })
 hl.bind(mod .. " + S", hl.dsp.workspace.toggle_special "scratch", { desc = "Toggle scratchpad" })
 hl.bind(
   mod .. " + SHIFT + S",
@@ -43,7 +46,7 @@ hl.bind(
 )
 
 -- Floating
-hl.bind(mod .. " + SHIFT + T", hl.dsp.window.float(), { desc = "Toggle floating" })
+hl.bind(mod .. " + SHIFT + T", hl.dsp.exec_cmd(scripts .. "/asahi-window-gesture float"), { desc = "Toggle floating" })
 hl.bind(mod .. " + C", hl.dsp.window.center(), { desc = "Center floating window" })
 
 -- Resize: the Super+ALT variant of the Super+HJKL focus grammar. Tiled, this

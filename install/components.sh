@@ -687,7 +687,24 @@ comp_asahi_desktop() {
     if [ ! -f "$profile/chrome/asahi-adaptive.css" ]; then
       cp -f "$DOTFILES/shared/librewolf/asahi-adaptive.css" "$profile/chrome/asahi-adaptive.css"
     fi
+    mkdir -p "$profile/extensions"
+    printf '%s\n' "$DOTFILES/shared/librewolf/asahi-theme" > "$profile/extensions/asahi-theme@dotfiles.local"
   done
+  local host_manifest hosts
+  host_manifest=$(mktemp)
+  cat >"$host_manifest" <<EOF
+{
+  "name": "asahi_theme",
+  "description": "Push the Asahi palette into LibreWolf.",
+  "path": "$DOTFILES/asahi/bin/asahi-librewolf-theme",
+  "type": "stdio",
+  "allowed_extensions": ["asahi-theme@dotfiles.local"]
+}
+EOF
+  hosts="$HOME/.librewolf/native-messaging-hosts"
+  mkdir -p "$hosts"
+  cp -f "$host_manifest" "$hosts/asahi_theme.json"
+  rm -f "$host_manifest"
   for profile in "$HOME"/.thunderbird/*.default*; do
     [ -d "$profile" ] || continue
     ln -sfn "$DOTFILES/asahi/thunderbird/user.js" "$profile/user.js"

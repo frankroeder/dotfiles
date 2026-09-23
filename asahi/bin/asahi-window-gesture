@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+# float | pin | pip
+#
+# Float is its own hyprctl call. A resize or pin in the same call still sees a
+# tiled window: pin is ignored, and the resize stretches the split (huge float,
+# tiny tile on the way back).
+
+set -euo pipefail
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
+
+cmd=${1:-}
+
+# mw mh scale mx my mode, then four extras.
+# float -> "W H". fit (extras left top right bottom) -> "W H X Y".
+# pip (extras win_w win_h) -> "W H X Y". overflows/unusable (extras x y w h) -> 0 or 1.
+geom() {
+  local ga=${7:-} gb=${8:-} gc=${9:-} gd=${10:-}
+  awk -v mw="$1" -v mh="$2" -v ms="$3" -v mx="$4" -v my="$5" -v mode="$6" \
+    -v a="$ga" -v b="$gb" -v c="$gc" -v d="$gd" '
+    function floor(x) { return (x == int(x)) ? x : (x < 0 ? int(x) - 1 : int(x)) }
+    BEGIN {
+      if (ms == 0) ms = 1
+      lw = mw / ms
+      lh = mh / ms
+      if (mode == "float") {
+        printf "%d %d\n", floor(lw * 2 / 5), floor(lh * 2 / 5)
+        exit
+      }
+      if (mode == "fit") {
+        gap = 10
+        printf "%d %d %d %d\n", floor(lw - a - c - gap * 2), floor(lh - b - d - gap * 2), floor(mx + a + gap), floor(my + b + gap)
+        exit
+      }
+      if (mode == "overflows" || mode == "unusable") {
+        over = (a < mx - 1 || b < my - 1 || a + c > mx + lw + 1 || b + d > my + lh + 1)
+        if (mode == "unusable" && (c < 200 || d < 150)) over = 1
+        printf "%d\n", over ? 1 : 0
+        exit
+      }
+      ww = a
+      wh = b
+      if (ww <= 0 || wh <= 0) { ww = 16; wh = 9 }
+      ph = floor(lh / 4)
+      pw = floor(ww * ph / wh)
+      printf "%d %d %d %d\n", pw, ph, floor(mx + lw - pw - 40), floor(my + lh * 0.04)
+    }
+  '
+}
+
+win=$(hyprctl activewindow -j)
+addr=$(jq -r '.address // empty' <<<"$win")
+[ -n "$addr" ] || exit 0
+
+unset_fullscreen() {
+  local fs mode
+  fs=$(jq -r '.fullscreen // 0' <<<"$win")
+  [ "$fs" != 0 ] && [ "$fs" != "null" ] || return 0
+  case "$fs" in
+    1) mode=maximized ;;
+    *) mode=fullscreen ;;
+  esac
+  hyprctl dispatch "hl.dsp.window.fullscreen({ mode = \"$mode\", action = \"unset\" })" >/dev/null
+}
+
+monitor_of_focus() {
+  local name
+  name=$(focused_monitor)
+  [ -n "$name" ] || return 1
+  hyprctl monitors -j | jq -r --arg n "$name" '.[] | select(.name == $n) | "\(.width) \(.height) \(.scale) \(.x) \(.y)"'
+}
+
+has_tag() {
+  jq -e --arg t "$1" '(.tags // []) | index($t) != null' <<<"$win" >/dev/null
+}
+
+# Super+F only hides a bad size. The size it restores has to fit the monitor,
+# including a tile that came back as a few pixels after leaving float.
+fit_window() {
+  local check=$1
+  local name line mw mh ms mx my rl rt rr rb wx wy ww wh flag fw fh fx fy
+  name=$(focused_monitor)
+  [ -n "$name" ] || return 0
+  line=$(hyprctl monitors -j | jq -r --arg n "$name" '.[] | select(.name == $n) | "\(.width) \(.height) \(.scale) \(.x) \(.y) \(.reserved[0] // 0) \(.reserved[1] // 0) \(.reserved[2] // 0) \(.reserved[3] // 0)"')
+  read -r mw mh ms mx my rl rt rr rb <<<"$line"
+  read -r wx wy ww wh < <(hyprctl activewindow -j | jq -r '"\(.at[0] // 0) \(.at[1] // 0) \(.size[0] // 0) \(.size[1] // 0)"')
+  # overflows/unusable reuse width/height/x/y slots: monitor origin is wx/wy of the call
+  flag=$(geom "$mw" "$mh" "$ms" "$mx" "$my" "$check" "$wx" "$wy" "$ww" "$wh")
+  [ "$flag" = "1" ] || return 0
+  read -r fw fh fx fy < <(geom "$mw" "$mh" "$ms" "$mx" "$my" fit "$rl" "$rt" "$rr" "$rb")
+  hyprctl dispatch "hl.dsp.window.resize({ x = $fw, y = $fh, relative = false })" >/dev/null
+  hyprctl dispatch "hl.dsp.window.move({ x = $fx, y = $fy, relative = false })" >/dev/null
+}
+
+float_on() {
+  unset_fullscreen
+  hyprctl dispatch 'hl.dsp.window.float({ action = "enable" })' >/dev/null
+}
+
+case "$cmd" in
+  float)
+    if [ "$(jq -r '.floating' <<<"$win")" = "true" ]; then
+      fit_window overflows
+      if [ "$(jq -r '.pinned' <<<"$win")" = "true" ]; then
+        hyprctl dispatch 'hl.dsp.window.pin({ action = "disable" })' >/dev/null
+      fi
+      hyprctl dispatch 'hl.dsp.window.float({ action = "disable" })' >/dev/null
+      hyprctl dispatch 'hl.dsp.window.tag({ tag = "-pip" })' >/dev/null
+      hyprctl dispatch 'hl.dsp.window.tag({ tag = "-pop" })' >/dev/null
+      fit_window unusable
+      exit 0
+    fi
+    read -r mw mh ms mx my < <(monitor_of_focus)
+    read -r w h < <(geom "$mw" "$mh" "$ms" 0 0 float)
+    float_on
+    hyprctl dispatch "hl.dsp.window.resize({ x = $w, y = $h, relative = false })" >/dev/null
+    hyprctl dispatch 'hl.dsp.window.center()' >/dev/null
+    ;;
+  pin)
+    if [ "$(jq -r '.floating' <<<"$win")" = "true" ]; then
+      hyprctl dispatch 'hl.dsp.window.pin()' >/dev/null
+      exit 0
+    fi
+    float_on
+    hyprctl dispatch "hl.dsp.window.pin({ action = \"on\", window = \"address:$addr\" })" >/dev/null
+    ;;
+  pip)
+    if has_tag pip; then
+      hyprctl dispatch 'hl.dsp.window.pin({ action = "disable" })' >/dev/null
+      hyprctl dispatch 'hl.dsp.window.float({ action = "disable" })' >/dev/null
+      hyprctl dispatch 'hl.dsp.window.tag({ tag = "-pip" })' >/dev/null
+      exit 0
+    fi
+    read -r mw mh ms mx my < <(monitor_of_focus)
+    read -r ww wh < <(jq -r '.size | "\(.[0] // 0) \(.[1] // 0)"' <<<"$win")
+    read -r w h x y < <(geom "$mw" "$mh" "$ms" "$mx" "$my" pip "$ww" "$wh")
+    float_on
+    hyprctl dispatch "hl.dsp.window.resize({ x = $w, y = $h, relative = false })" >/dev/null
+    hyprctl dispatch "hl.dsp.window.move({ x = $x, y = $y, relative = false })" >/dev/null
+    hyprctl dispatch "hl.dsp.window.pin({ action = \"on\", window = \"address:$addr\" })" >/dev/null
+    hyprctl dispatch 'hl.dsp.window.tag({ tag = "-pop" })' >/dev/null
+    hyprctl dispatch 'hl.dsp.window.tag({ tag = "+pip" })' >/dev/null
+    ;;
+  *)
+    echo "usage: asahi-window-gesture float|pin|pip" >&2
+    exit 2
+    ;;
+esac

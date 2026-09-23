@@ -66,13 +66,15 @@ class TestApplyWriters(unittest.TestCase):
         data = json.loads(path.read_text(encoding="utf-8"))
         self.assertEqual(data["BrowserThemeColor"], self.palette.background)
 
-    def test_librewolf_uses_live_variable_names(self):
+    def test_librewolf_leaves_chrome_colors_to_the_extension(self):
         path = self.root / "librewolf.css"
         write_librewolf_css(self.palette, path)
         text = path.read_text(encoding="utf-8")
-        self.assertIn("--urlbarview-background-color-selected", text)
-        self.assertIn("--toolbar-field-background-color", text)
-        # Pre-130 spellings fail silently, which is how highlights went stale.
+        self.assertIn("--asahi-bg:", text)
+        self.assertIn("--background-color-box:", text)
+        # These are what browser.theme.update sets. A copy here would win.
+        self.assertNotIn("--toolbar-field-background-color", text)
+        self.assertNotIn("--urlbarview-background-color-selected", text)
         for dead in ("--urlbarView-highlight", "--lwt-toolbar-field", "--arrowpanel-",
                      "--tab-selected-bgcolor", "--urlbar-box-bgcolor", "--toolbar-color:"):
             self.assertNotIn(dead, text)

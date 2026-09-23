@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Native host for the asahi-theme LibreWolf extension.
+# Speaks the browser protocol: 4-byte little-endian length, then JSON.
+# Sends colors.json now, then again whenever that file is replaced.
+#
+#   asahi-librewolf-theme [colors.json]
+
+set -euo pipefail
+
+colors=${1:-${XDG_STATE_HOME:-$HOME/.local/state}/asahi-theme/colors.json}
+
+send() {
+  local msg=$1
+  local len=${#msg}
+  local hex
+  printf -v hex '%08x' "$len"
+  printf "\\x${hex:6:2}\\x${hex:4:2}\\x${hex:2:2}\\x${hex:0:2}"
+  printf '%s' "$msg"
+}
+
+send_file() {
+  local msg
+  [ -f "$colors" ] || return 0
+  msg=$(jq -c . "$colors")
+  [ -n "$msg" ] || return 0
+  send "$msg"
+}
+
+send_file
+
+dir=$(dirname "$colors")
+base=$(basename "$colors")
+mkdir -p "$dir"
+inotifywait -q -m -e close_write,moved_to,create --format '%f' "$dir" | while read -r file; do
+  if [ "$file" = "$base" ]; then
+    send_file
+  fi
+done &
+watch=$!
+trap 'kill "$watch" 2>/dev/null || true' EXIT
+cat >/dev/null
