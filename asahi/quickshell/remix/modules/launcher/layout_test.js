@@ -395,8 +395,12 @@ assert(
   "↑↓ in Quick calls selectDeckIndex (pane follows the rail)"
 );
 assert(
-  /onPositionChanged:\s*root\.selectDeckIndex\(index\)/.test(launcherQmlOnly),
-  "hovering a rail row also switches the pane"
+  !/onPositionChanged:\s*root\.selectDeckIndex\(index\)/.test(launcherQmlOnly),
+  "hovering a rail row does not switch the pane"
+);
+assert(
+  /onClicked:\s*root\.selectDeckIndex\(index\)/.test(launcherQmlOnly),
+  "clicking a rail row selects the pane"
 );
 const qdlAt = launcherQmlOnly.indexOf("id: qdl");
 assert(qdlAt !== -1, "pane Loader id qdl exists");

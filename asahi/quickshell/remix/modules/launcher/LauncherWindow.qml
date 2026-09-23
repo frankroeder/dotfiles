@@ -3240,7 +3240,6 @@ Scope {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onPositionChanged: root.selectDeckIndex(index)
                     onClicked: root.selectDeckIndex(index)
                   }
                 }
