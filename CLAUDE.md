@@ -147,8 +147,9 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   (wf-recorder exits on SIGUSR1). IPC: `qs -c remix ipc call recording panel`.
 - **Wallpaper**: one picker, `WallpaperManager` (Super+Shift+W). `ipc: "wallpaper"` and
   `wallpaper: true` in `quickDeckHidden` — not a Quick tile; search still finds it. Browse:
-  `WallpaperCarousel` (prev/current/next; ←/→, Ctrl+h/l, wheel; ⏎/Apply/click applies,
-  Esc restores). Live preview is **opt-in** (`WallpaperService.liveMode`, default off): Shift /
+  `WallpaperCarousel` (skewed window fan: centre 16:9, neighbours are leaning
+  slices; ←/→, Ctrl+h/l, wheel, click a slice to select; ⏎/Apply/click the centre
+  applies, Esc restores). Live preview is **opt-in** (`WallpaperService.liveMode`, default off): Shift /
   Shift+←/→ / Live chip; ignore bare Shift in the search field. Debounce 70ms. Color index from
   cached thumbs → `wallpaper_colors.js`; filters on `WallpaperService.arranged(query)`. Test:
   `wallpaper_colors_test.js`.

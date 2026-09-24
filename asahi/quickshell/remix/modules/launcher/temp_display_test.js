@@ -93,7 +93,7 @@ assert(qml.indexOf("TempDisplay.tempDisplayRows") !== -1, "TempPane.qml uses shi
 assert(qml.indexOf("SMC Power") === -1, "TempPane does not host SMC power rails");
 assert(qml.indexOf("tempValues") !== -1 && qml.indexOf("barFill.ready") !== -1, "heat bars keep delegates and animate from the last width");
 assert(!/text:\s*"Fans"/.test(qml), "Fans card is not a separate group");
-assert(qml.indexOf("tempFans") !== -1 && qml.indexOf("tempUpdated") !== -1, "fan rows sit on the hero pill row");
+assert(qml.indexOf("tempFans") !== -1 && qml.indexOf("tempUpdated") === -1, "fan rows sit on the hero pill row");
 assert(!/avg\s*"\s*\+\s*modelData\.avg/.test(qml), "temp pane template has no avg + °C pair");
 assert(!/"avg " \+/.test(qml), "temp pane template does not render avg headline");
 const batQml = fs.readFileSync(path.join(__dirname, "panes/BatteryPane.qml"), "utf8");

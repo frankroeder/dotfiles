@@ -2,7 +2,9 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Io
 import "../../../"
+import "../life_span.js" as Life
 
 Item {
   id: root
@@ -30,6 +32,44 @@ Item {
 
   property date viewMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   property date today: new Date()
+  property var birthYear: null
+  property bool birthLoaded: false
+  property bool birthFieldReady: false
+  property bool birthFilePresent: false
+  readonly property string birthPath: Life.birthStorePath(Quickshell.env("XDG_STATE_HOME"), Quickshell.env("HOME"))
+  readonly property var life: Life.lifeSpan(root.birthYear, root.today)
+
+  function lifeColor(cls) {
+    if (cls === "now") return Style.menuSeal
+    if (cls === "lived") return Qt.alpha(Style.menuInk, 0.72)
+    return Qt.alpha(Style.menuInk, 0.14)
+  }
+
+  function applyBirthText(text, filePresent) {
+    root.birthLoaded = true
+    if (filePresent === true || filePresent === false) root.birthFilePresent = filePresent
+    root.birthYear = Life.resolveBirthYear(text, Quickshell.env("BIRTH_YEAR"), root.birthFilePresent)
+    root.syncBirthField()
+  }
+
+  // FileView can finish before the popup builds the field. Sync once the field exists.
+  function syncBirthField() {
+    if (!root.birthFieldReady) return
+    const shown = root.birthYear == null ? "" : String(root.birthYear)
+    if (birthField.text !== shown) birthField.text = shown
+  }
+
+  function commitBirth(raw) {
+    if (!root.birthLoaded) return
+    const text = String(raw == null ? "" : raw).trim()
+    const year = Life.decodeBirthYear(text)
+    if (text !== "" && year == null) return
+    root.birthFilePresent = true
+    root.birthYear = year
+    const encoded = Life.encodeBirthYear(year)
+    if (birthFile.text() !== encoded) birthFile.setText(encoded)
+  }
+
   implicitWidth: solidBar ? flatRow.implicitWidth + 12 : clockRow.implicitWidth + 14
   implicitHeight: solidBar ? Style.barHeight : 26
 
@@ -88,7 +128,30 @@ Item {
     return out
   }
 
-  onCalendarOpenChanged: if (root.calendarOpen) root.goToday()
+  onCalendarOpenChanged: if (root.calendarOpen) {
+    root.goToday()
+    birthFile.reload()
+  }
+
+  onShowCalendarChanged: if (!root.showCalendar) calendarKeys.active = false
+
+  Process {
+    id: ensureBirthDir
+    command: ["mkdir", "-p", root.birthPath.slice(0, root.birthPath.lastIndexOf("/"))]
+    running: true
+  }
+
+  FileView {
+    id: birthFile
+    path: root.birthPath
+    watchChanges: true
+    blockLoading: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.applyBirthText(birthFile.text(), true)
+    onTextChanged: if (root) root.applyBirthText(birthFile.text())
+    onLoadFailed: root.applyBirthText("", false)
+  }
   // Flush right: the clock is the last item, so its outer pad would double
   // the bar edge margin (left edge sits at barEdgeMargin, right drifted to ~2×).
   Row {
@@ -158,7 +221,20 @@ Item {
     anchor.edges: Edges.Bottom | Edges.Right
     anchor.gravity: Edges.Bottom | Edges.Left
     implicitWidth: 340
-    implicitHeight: 330
+    implicitHeight: calCol.implicitHeight + 24
+
+    Shortcut {
+      enabled: root.showCalendar
+      sequences: ["Escape"]
+      onActivated: root.calendarToggle()
+    }
+
+    // Keys only after the year field is focused. Grabbing on open makes
+    // Hyprland treat the opening click as outside and the popup vanishes.
+    HyprlandFocusGrab {
+      id: calendarKeys
+      windows: [calPopup]
+    }
 
     Rectangle {
       anchors.fill: parent
@@ -168,6 +244,7 @@ Item {
       radius: Style.menuRadiusLg
 
       ColumnLayout {
+        id: calCol
         anchors.fill: parent
         anchors.margins: 12
         spacing: 8
@@ -241,14 +318,13 @@ Item {
 
         ColumnLayout {
           Layout.fillWidth: true
-          Layout.fillHeight: true
           spacing: 3
           Repeater {
             model: root.weeks
             RowLayout {
               required property var modelData
               Layout.fillWidth: true
-              Layout.fillHeight: true
+              Layout.preferredHeight: 26
               spacing: 3
               readonly property bool weekIsCurrent: {
                 const days = modelData.days || []
@@ -260,7 +336,7 @@ Item {
               }
               Text {
                 Layout.preferredWidth: 18
-                Layout.fillHeight: true
+                Layout.preferredHeight: 26
                 verticalAlignment: Text.AlignVCenter
                 horizontalAlignment: Text.AlignHCenter
                 text: modelData.w ? String(modelData.w) : ""
@@ -274,7 +350,7 @@ Item {
                 Rectangle {
                   required property var modelData
                   Layout.fillWidth: true
-                  Layout.fillHeight: true
+                  Layout.preferredHeight: 26
                   radius: 6
                   readonly property bool isToday: modelData && root.sameDay(new Date(modelData.y, modelData.m, modelData.d), root.today)
                   color: {
@@ -311,6 +387,118 @@ Item {
           font.family: Style.fontFamily
           font.pixelSize: 11
           horizontalAlignment: Text.AlignHCenter
+        }
+
+        Rectangle {
+          Layout.fillWidth: true
+          Layout.preferredHeight: 1
+          color: Style.menuSep
+        }
+
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 8
+          Text {
+            text: "Life"
+            color: Style.menuInkDeep
+            font.family: Style.fontFamily
+            font.pixelSize: 10
+            font.letterSpacing: 0.6
+          }
+          Item { Layout.fillWidth: true }
+          Rectangle {
+            Layout.preferredWidth: 72
+            Layout.preferredHeight: 26
+            radius: 8
+            color: birthField.activeFocus ? Style.menuRowHi : Style.menuControlBg
+            border.color: birthField.activeFocus ? Style.menuSeal : Style.menuSep
+            border.width: 1
+            TextInput {
+              id: birthField
+              anchors.fill: parent
+              anchors.leftMargin: 6
+              anchors.rightMargin: 6
+              verticalAlignment: TextInput.AlignVCenter
+              horizontalAlignment: Text.AlignHCenter
+              color: Style.menuInk
+              font.family: Style.fontFamily
+              font.pixelSize: 12
+              clip: true
+              selectByMouse: true
+              maximumLength: 4
+              validator: RegularExpressionValidator { regularExpression: /[0-9]{0,4}/ }
+              Component.onCompleted: {
+                root.birthFieldReady = true
+                root.syncBirthField()
+              }
+              onActiveFocusChanged: calendarKeys.active = activeFocus && root.showCalendar
+              onTextEdited: if (text.length === 4) root.commitBirth(text)
+              // Return/Enter and focus loss; a partial year snaps back to the saved one.
+              onEditingFinished: {
+                root.commitBirth(text)
+                root.syncBirthField()
+              }
+              Text {
+                enabled: false
+                anchors.fill: parent
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                text: "year"
+                color: Style.menuInkDeep
+                font: parent.font
+                opacity: 0.7
+                visible: parent.text.length === 0 && !parent.activeFocus
+              }
+            }
+          }
+        }
+
+        RowLayout {
+          visible: root.life.set
+          Layout.fillWidth: true
+          Text {
+            text: root.life.yearsLeft + " years left"
+            color: Style.menuInk
+            font.family: Style.fontFamily
+            font.pixelSize: 13
+            font.weight: Font.Medium
+          }
+          Item { Layout.fillWidth: true }
+          Text {
+            text: root.life.percentLeft + "% left"
+            color: Style.menuSeal
+            font.family: Style.fontFamily
+            font.pixelSize: 13
+            font.weight: Font.Medium
+          }
+        }
+
+        Text {
+          visible: !root.life.set
+          Layout.fillWidth: true
+          text: "Enter a birth year"
+          color: Style.menuInkDeep
+          font.family: Style.fontFamily
+          font.pixelSize: 11
+          horizontalAlignment: Text.AlignHCenter
+        }
+
+        Grid {
+          visible: root.life.set
+          Layout.alignment: Qt.AlignHCenter
+          columns: 18
+          columnSpacing: 5
+          rowSpacing: 5
+          Repeater {
+            model: root.life.set ? root.life.cells : []
+            Rectangle {
+              required property string modelData
+              width: 6
+              height: 6
+              radius: 3
+              color: root.lifeColor(modelData)
+            }
+          }
         }
       }
     }

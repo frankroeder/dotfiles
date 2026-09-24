@@ -21,7 +21,6 @@ Item {
   property int batPercentage: 0
   property var batClass: []
   property var batLines: []
-  property string batUpdated: ""
   property string batTimeRemaining: ""
   property bool batHolding: false
   property int batThresholdEnd: 100
@@ -110,7 +109,6 @@ Item {
       }
 
       quickBatteryRoot.batLines = raw.length > 1 ? raw.slice(1) : []
-      quickBatteryRoot.batUpdated = Qt.formatTime(new Date(), "HH:mm:ss")
       quickBatteryRoot.batTimeRemaining = f.time || ""
       quickBatteryRoot.batHolding = !!data.holding
       quickBatteryRoot.batThresholdEnd = Number(data.threshold_end) || 0
@@ -261,8 +259,6 @@ Item {
               icon: "󰁹"; label: "Full 100%"; on: quickBatteryRoot.batThresholdEnd >= 99
               onClicked: { Quickshell.execDetached([root.binDir + "/asahi-charge-limit", "100"]); batDelay.restart() }
             }
-            Item { Layout.fillWidth: true }
-            Chip { icon: "󰥔"; label: quickBatteryRoot.batUpdated || "asahi-battery"; bg: Style.m3containerHigh }
           }
         }
       }

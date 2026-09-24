@@ -25,7 +25,6 @@ Item {
   property string tempStructureKey: ""
   property var hottestSensor: null
   property var tempFans: []
-  property string tempUpdated: ""
 
   function parseTemperatures(out) {
     const parsed = TempDisplay.parseTemperatures(out)
@@ -34,7 +33,6 @@ Item {
     quickTempRoot.tempGroups = parsed.groups
     quickTempRoot.hottestSensor = parsed.hottest
     quickTempRoot.tempFans = parsed.fans || []
-    quickTempRoot.tempUpdated = Qt.formatTime(new Date(), "HH:mm:ss")
     const nextKey = TempDisplay.structureKey(rows)
     if (nextKey !== quickTempRoot.tempStructureKey) {
       quickTempRoot.tempRows = rows
@@ -193,7 +191,6 @@ Item {
             spacing: 8
             Chip { icon: "󰔏"; label: (quickTempRoot.tempSensors || []).length + " sensors"; bg: Style.m3secondaryContainer }
             Chip { icon: "󰕰"; label: (quickTempRoot.tempGroups || []).length + " groups"; bg: Style.m3tertiaryContainer }
-            Chip { icon: "󰥔"; label: quickTempRoot.tempUpdated || "asahi-temperature"; bg: Style.m3containerHigh }
             Item { Layout.fillWidth: true }
             ColumnLayout {
               visible: (quickTempRoot.tempFans || []).length > 0
