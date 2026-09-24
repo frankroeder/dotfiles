@@ -115,6 +115,8 @@ rg -q "asahi-autotheme" "$DOTFILES/asahi/hypr/conf.d/autostart.lua" \
   || { echo "autostart.lua missing asahi-autotheme" >&2; exit 1; }
 rg -q "Settings=gtk" "$DOTFILES/asahi/xdg-desktop-portal/portals.conf" \
   || { echo "portals.conf must pin Settings=gtk" >&2; exit 1; }
+rg -q "Secret=gnome-keyring" "$DOTFILES/asahi/xdg-desktop-portal/portals.conf" \
+  || { echo "portals.conf must pin Secret=gnome-keyring (flatpak keyring)" >&2; exit 1; }
 rg -q "QT_QPA_PLATFORMTHEME" "$DOTFILES/asahi/hypr/conf.d/env.lua" \
   || { echo "env.lua missing QT_QPA_PLATFORMTHEME" >&2; exit 1; }
 

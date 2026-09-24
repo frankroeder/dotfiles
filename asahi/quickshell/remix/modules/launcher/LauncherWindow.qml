@@ -1265,17 +1265,18 @@ Scope {
   // Hover waits for a real pointer move after open / each layer change: Qt also
   // sends position events when rows reflow under a resting cursor (the cursor
   // shield over launcherBox swallows them until then).
-  property point lastPointer: Qt.point(-1, -1)
+  property point lastPointer: Qt.point(NaN, NaN)
   property bool pointerLive: false
   function pointerMoved(g) {
-    const seen = root.lastPointer.x >= 0
+    // NaN = unseen; global coords go negative on outputs left of / above eDP-1.
+    const seen = !isNaN(root.lastPointer.x)
     const moved = seen && (Math.abs(g.x - root.lastPointer.x) > 1 || Math.abs(g.y - root.lastPointer.y) > 1)
     if (!seen || moved) root.lastPointer = g
     if (moved) root.pointerLive = true
   }
 
   function openLauncher() {
-    root.lastPointer = Qt.point(-1, -1)
+    root.lastPointer = Qt.point(NaN, NaN)
     root.pointerLive = false
     root.openedByShortcut = false
     const mon = Hyprland.focusedMonitor
