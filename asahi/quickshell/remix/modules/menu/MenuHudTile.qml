@@ -24,31 +24,39 @@ Item {
     anchors.fill: parent
     anchors.margins: root.compact ? 2 : 4
     radius: Style.menuRadiusFull
-    color: root.selected ? Style.m3secondaryContainer : (root.hovered ? Style.m3stateHover : "transparent")
+    color: root.selected ? Style.menuSelFill : (root.hovered ? Style.m3stateHover : "transparent")
+    border.width: root.selected ? 1 : 0
+    border.color: Style.menuSelBorder
     Behavior on color { ColorAnimation { duration: Style.menuAnimMs } }
   }
 
   Row {
     visible: root.compact
     anchors.fill: parent
-    anchors.leftMargin: 16
+    anchors.leftMargin: 10
     anchors.rightMargin: 12
     anchors.topMargin: 4
     anchors.bottomMargin: 4
-    spacing: 12
-    Text {
+    spacing: 10
+    // Icon disc (Ryoku QsTile): own tint when idle, solid accent when selected.
+    Rectangle {
+      id: disc
       anchors.verticalCenter: parent.verticalCenter
-      text: root.glyph
-      color: root.selected ? Style.m3onSurface : root.tint
-      font.pixelSize: Math.round(root.glyphPx * 0.82)
-      font.family: root.fontFamily
-      width: 24
-      horizontalAlignment: Text.AlignHCenter
+      width: Math.min(parent.height - 4, Math.round(root.glyphPx * 1.35)); height: width; radius: width / 2
+      color: root.selected ? Style.m3primary : Qt.alpha(root.tint, root.hovered ? 0.22 : 0.14)
       Behavior on color { ColorAnimation { duration: Style.menuAnimMs } }
+      Text {
+        anchors.centerIn: parent
+        text: root.glyph
+        color: root.selected ? Style.m3onPrimary : root.tint
+        font.pixelSize: Math.round(root.glyphPx * 0.72)
+        font.family: root.fontFamily
+        Behavior on color { ColorAnimation { duration: Style.menuAnimMs } }
+      }
     }
     Text {
       anchors.verticalCenter: parent.verticalCenter
-      width: parent.width - 36
+      width: parent.width - disc.width - 10
       text: root.label
       color: root.selected ? Style.m3onSurface : Style.m3onSurfaceVariant
       font.pixelSize: root.labelPx + 1

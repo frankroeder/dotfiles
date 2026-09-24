@@ -237,16 +237,12 @@ assert(
   "monitors viz does not use rigid Layout.preferredHeight: 420"
 );
 assert(
-  /LauncherGeom\.monitorsVizHeight/.test(qml),
-  "monitors viz height comes from shipped monitorsVizHeight"
-);
-assert(
   /Layout\.maximumHeight:\s*root\.launcherGeom\.vizMax/.test(qml),
   "monitors viz max height uses adaptive launcherGeom.vizMax"
 );
 assert(
-  /Layout\.fillHeight:\s*false/.test(qml) && /launcherGeom\.monListMax/.test(qml),
-  "monitor list sizes to content (capped) so leftover height goes to the preview"
+  /Layout\.minimumHeight:\s*root\.launcherGeom\.vizMin/.test(qml),
+  "monitors canvas fills leftover height above adaptive launcherGeom.vizMin"
 );
 assert(
   /const s = Math\.min\(/.test(qml),

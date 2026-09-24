@@ -8,6 +8,8 @@ import Quickshell.Hyprland
 import Quickshell.Services.Mpris
 import Quickshell.Services.Pipewire
 import "../../menu" as Menu
+import "../../wallpaper" as Wallpaper
+import "../../wallpaper/wallpaper_thumbs.js" as WallThumbs
 import "../../../"
 import "../quick_models.js" as QuickModels
 import "../launcher_layout.js" as LauncherGeom
@@ -43,8 +45,9 @@ Item {
   function monitorPrimary() {
     return QuickModels.mirrorSource(quickMonitorsRoot.mons) || (quickMonitorsRoot.mons || [])[0] || null
   }
-  function monitorLogicalWidth(m) { return (m.width || 1920) / Math.max(0.25, m.scale || 1) }
-  function monitorLogicalHeight(m) { return (m.height || 1080) / Math.max(0.25, m.scale || 1) }
+  // Logical footprint: mode / scale, sides swapped for a 90°/270° transform.
+  function monitorLogicalWidth(m) { return ((m.transform || 0) % 2 ? (m.height || 1080) : (m.width || 1920)) / Math.max(0.25, m.scale || 1) }
+  function monitorLogicalHeight(m) { return ((m.transform || 0) % 2 ? (m.width || 1920) : (m.height || 1080)) / Math.max(0.25, m.scale || 1) }
   readonly property bool anyMirrored: (quickMonitorsRoot.mons || []).some(QuickModels.isMirroring)
 
   // Mirror carries the mirror field and nothing else. A mode here forces a DCP
@@ -66,7 +69,21 @@ Item {
   // back: it wipes eval'd rules and its config.reloaded hook re-runs
   // asahi-hdmi sync / monitor-scale apply / clamshell apply.
   function unmirrorMonitors() { quickMonitorsRoot.revertLayout("Unmirroring...") }
-  function extendMonitors() { quickMonitorsRoot.revertLayout("Reloading monitors...") }
+  // Extend = back to the configured layout: drop kept HDMI positions first,
+  // then reload (its asahi-hdmi sync reads the layout file).
+  function extendMonitors() {
+    const clamshell = quickMonitorsRoot.revertClamshell
+    quickMonitorsRoot.keepPositions = ({})
+    quickMonitorsRoot.revertClamshell = false
+    quickMonitorsRoot.revertLua = ""
+    quickMonitorsRoot.disarmRevert()
+    quickMonitorsRoot.monStatus = "Reloading monitors..."
+    const resets = (quickMonitorsRoot.mons || []).filter(m => /^HDMI/.test(m.name))
+      .map(m => root.binDir + "/asahi-hdmi reset " + m.name)
+    const last = clamshell ? root.binDir + "/asahi-clamshell open" : "hyprctl reload"
+    Quickshell.execDetached(["bash", "-c", resets.concat([last]).join("; ")])
+    monDelay.restart()
+  }
   property bool revertClamshell: false
   function externalOnlyMonitors() {
     const list = quickMonitorsRoot.mons || []
@@ -94,19 +111,28 @@ Item {
   // (Closing the launcher tears the pane down and cancels the timer too.)
   property int revertLeft: 0
   function applyRevertable(lua, status) {
+    quickMonitorsRoot.keepPositions = ({})
     quickMonitorsRoot.revertClamshell = false
+    quickMonitorsRoot.revertLua = ""
     quickMonitorsRoot.monStatus = status
     Quickshell.execDetached(["hyprctl", "eval", lua])
     quickMonitorsRoot.revertLeft = 15
     revertTimer.restart()
     monDelay.restart()
   }
+  // Lua that undoes a position-only change (arrange); reload would re-modeset HDMI.
+  property string revertLua: ""
   function revertLayout(status) {
+    quickMonitorsRoot.keepPositions = ({})
     const clamshell = quickMonitorsRoot.revertClamshell
+    const lua = quickMonitorsRoot.revertLua
     quickMonitorsRoot.revertClamshell = false
+    quickMonitorsRoot.revertLua = ""
     quickMonitorsRoot.disarmRevert()
     quickMonitorsRoot.monStatus = status
-    if (clamshell)
+    if (lua)
+      Quickshell.execDetached(["hyprctl", "eval", lua])
+    else if (clamshell)
       Quickshell.execDetached([root.binDir + "/asahi-clamshell", "open"])
     else
       Quickshell.execDetached(["hyprctl", "reload"])
@@ -116,8 +142,16 @@ Item {
     quickMonitorsRoot.revertLeft = 0
     revertTimer.stop()
   }
+  // Arranged positions waiting for Keep; Keep writes them via asahi-hdmi save
+  // (~/.local/state/asahi/monitor-layout.json) so replug / reload keep them.
+  property var keepPositions: ({})
   function keepChange() {
+    const kp = quickMonitorsRoot.keepPositions
+    for (const n of Object.keys(kp))
+      if (/^HDMI/.test(n)) Quickshell.execDetached([root.binDir + "/asahi-hdmi", "save", n, kp[n].x + "x" + kp[n].y])
+    quickMonitorsRoot.keepPositions = ({})
     quickMonitorsRoot.revertClamshell = false
+    quickMonitorsRoot.revertLua = ""
     quickMonitorsRoot.disarmRevert()
   }
   // Park the launcher on an output that survives the change, so Keep / Unmirror
@@ -223,6 +257,76 @@ Item {
     monAction.running = true
   }
 
+  // ---- Rotation (transform 0-3 = 0/90/180/270°), on probation like mirror ----
+  function setRotation(t) {
+    const m = quickMonitorsRoot.focusedMon
+    if (!m || (m.transform || 0) === t) return
+    quickMonitorsRoot.applyRevertable("hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name) + ", transform = " + t + " })",
+      m.name + " rotate " + (t * 90) + "°...")
+  }
+
+  // ---- Arrangement: drag a tile, snap on release, Apply sends positions ----
+  // draft = { name: {x, y} } logical px, only for outputs that moved.
+  property var draft: ({})
+  readonly property bool draftDirty: Object.keys(quickMonitorsRoot.draft).length > 0
+  function pos(m) { return quickMonitorsRoot.draft[m.name] || { x: m.x || 0, y: m.y || 0 } }
+  function box(m) { const p = quickMonitorsRoot.pos(m); return { x: p.x, y: p.y, w: quickMonitorsRoot.monitorLogicalWidth(m), h: quickMonitorsRoot.monitorLogicalHeight(m) } }
+  function dragTo(m, x, y) {
+    const d = Object.assign({}, quickMonitorsRoot.draft)
+    d[m.name] = { x: x, y: y }
+    quickMonitorsRoot.draft = d
+  }
+  // Snap to neighbours' edges (22 screen px); a tile touching nothing (or
+  // overlapping) goes flush against the nearest one with >= 25% edge overlap.
+  // Then shift everything so the mirror source (eDP-1) stays at 0,0.
+  function endDrag(m, s) {
+    const others = QuickModels.enabledMonitors(quickMonitorsRoot.mons).filter(o => o.name !== m.name).map(quickMonitorsRoot.box)
+    const b = quickMonitorsRoot.box(m), th = Math.max(8, 22 / Math.max(0.0001, s))
+    const xs = [0], ys = [0]
+    for (const o of others) { xs.push(o.x, o.x + o.w, o.x - b.w, o.x + o.w - b.w); ys.push(o.y, o.y + o.h, o.y - b.h, o.y + o.h - b.h) }
+    const snap = (v, list) => { const n = list.reduce((a, c) => Math.abs(c - v) < Math.abs(a - v) ? c : a); return Math.abs(n - v) <= th ? n : v }
+    let x = snap(b.x, xs), y = snap(b.y, ys)
+    // Edge contact without interior overlap.
+    const touches = o => {
+      const ox = Math.min(x + b.w, o.x + o.w) - Math.max(x, o.x), oy = Math.min(y + b.h, o.y + o.h) - Math.max(y, o.y)
+      return ox >= 0 && oy >= 0 && !(ox > 0 && oy > 0)
+    }
+    if (others.length && !others.some(touches)) {
+      const dist = o => Math.hypot(o.x + o.w / 2 - x - b.w / 2, o.y + o.h / 2 - y - b.h / 2)
+      const n = others.slice().sort((a, c) => dist(a) - dist(c))[0]
+      const dx = x + b.w / 2 - (n.x + n.w / 2), dy = y + b.h / 2 - (n.y + n.h / 2)
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        const ov = Math.max(1, Math.min(b.h, n.h) * 0.25)
+        x = dx >= 0 ? n.x + n.w : n.x - b.w
+        y = Math.max(n.y - b.h + ov, Math.min(y, n.y + n.h - ov))
+      } else {
+        const ov = Math.max(1, Math.min(b.w, n.w) * 0.25)
+        y = dy >= 0 ? n.y + n.h : n.y - b.h
+        x = Math.max(n.x - b.w + ov, Math.min(x, n.x + n.w - ov))
+      }
+    }
+    quickMonitorsRoot.dragTo(m, Math.round(x), Math.round(y))
+    const main = quickMonitorsRoot.monitorPrimary(), o0 = main ? quickMonitorsRoot.pos(main) : { x: 0, y: 0 }
+    const d = {}
+    for (const mon of QuickModels.enabledMonitors(quickMonitorsRoot.mons)) {
+      const q = quickMonitorsRoot.pos(mon), nx = q.x - o0.x, ny = q.y - o0.y
+      if (nx !== (mon.x || 0) || ny !== (mon.y || 0)) d[mon.name] = { x: nx, y: ny }
+    }
+    quickMonitorsRoot.draft = d
+  }
+  function applyDraft() {
+    const d = quickMonitorsRoot.draft
+    const calls = Object.keys(d).map(n => "hl.monitor({ output = " + quickMonitorsRoot.luaString(n)
+      + ", position = " + quickMonitorsRoot.luaString(d[n].x + "x" + d[n].y) + " })")
+    const undo = Object.keys(d).map(n => { const m = quickMonitorsRoot.mons.find(x => x.name === n)
+      return "hl.monitor({ output = " + quickMonitorsRoot.luaString(n) + ", position = " + quickMonitorsRoot.luaString((m.x || 0) + "x" + (m.y || 0)) + " })" })
+    quickMonitorsRoot.draft = ({})
+    if (!calls.length) return
+    quickMonitorsRoot.applyRevertable(calls.join("\n"), "Arranging...")
+    quickMonitorsRoot.revertLua = undo.join("\n")
+    quickMonitorsRoot.keepPositions = d
+  }
+
   // ---- Per-display enable/disable (guarded: never the last one) ----
   readonly property int enabledMonCount: QuickModels.enabledMonitors(quickMonitorsRoot.mons).length
   function toggleMonitor(m) {
@@ -291,8 +395,7 @@ Item {
   Component.onCompleted: Qt.callLater(function(){ if (!monScan.running) monScan.running = true })
 
 
-  // Segmented option pill (M3 tonal chip): selected = secondaryContainer,
-  // unselected = containerHigh so it stays visible inside a container card.
+  // Segmented option pill: selected = solid primary, idle = hairline outline.
   component OptionPill: Rectangle {
     id: optPill
     property string label: ""
@@ -301,17 +404,19 @@ Item {
     implicitWidth: Math.max(44, optPillLbl.implicitWidth + 20)
     implicitHeight: 24
     radius: Style.menuRadiusFull
-    color: optPill.active ? Style.m3secondaryContainer
-      : (optPillMa.containsMouse ? Qt.lighter(Style.m3containerHigh, 1.15) : Style.m3containerHigh)
-    Behavior on color { ColorAnimation { duration: 120 } }
+    color: optPill.active ? Style.m3primary
+      : (optPillMa.pressed ? Style.m3containerHigh : optPillMa.containsMouse ? Style.m3stateHover : "transparent")
+    border.width: optPill.active ? 0 : 1
+    border.color: optPillMa.containsMouse ? Style.m3outline : Style.m3outlineVariant
+    Behavior on color { ColorAnimation { duration: 90 } }
     Text {
       id: optPillLbl
       anchors.centerIn: parent
       text: optPill.label
       font.pixelSize: root.fontPx(9)
       font.family: root.uiSans
-      font.weight: optPill.active ? Font.DemiBold : Font.Normal
-      color: optPill.active ? Style.m3onSurface : Style.m3onSurfaceVariant
+      font.weight: optPill.active ? Font.DemiBold : Font.Medium
+      color: optPill.active ? Style.m3onPrimary : Style.m3onSurfaceVariant
     }
     MouseArea {
       id: optPillMa
@@ -322,7 +427,7 @@ Item {
     }
   }
 
-  // Header action pill (Mirror / Extend / External / Rescan).
+  // Header / footer action pill (Mirror / Extend / External / Rescan / Keep / Apply).
   component ActionPill: Rectangle {
     id: actPill
     property string label: ""
@@ -331,9 +436,11 @@ Item {
     implicitWidth: actPillLbl.implicitWidth + 26
     implicitHeight: 28
     radius: Style.menuRadiusFull
-    color: actPillMa.containsMouse ? Qt.lighter(actPill.tonal ? Style.m3primaryContainer : Style.m3containerHigh, 1.15)
-      : (actPill.tonal ? Style.m3primaryContainer : Style.m3container)
-    Behavior on color { ColorAnimation { duration: 120 } }
+    color: actPill.tonal ? (actPillMa.containsMouse ? Qt.lighter(Style.m3primary, 1.1) : Style.m3primary)
+      : (actPillMa.containsMouse ? Style.m3stateHover : "transparent")
+    border.width: actPill.tonal ? 0 : 1
+    border.color: actPillMa.containsMouse ? Style.m3outline : Style.m3outlineVariant
+    Behavior on color { ColorAnimation { duration: 90 } }
     Text {
       id: actPillLbl
       anchors.centerIn: parent
@@ -341,7 +448,7 @@ Item {
       font.pixelSize: root.fontPx(10)
       font.family: root.uiSans
       font.weight: Font.Medium
-      color: Style.m3onSurface
+      color: actPill.tonal ? Style.m3onPrimary : Style.m3onSurface
     }
     MouseArea {
       id: actPillMa
@@ -381,163 +488,90 @@ Item {
     }
   }
 
+  // Settings row: label (+ hint) on the left, control on the right, hairline divider above.
+  component SettingRow: Rectangle {
+    id: setRow
+    property string label: ""
+    property string hint: ""
+    default property alias control: setRowSlot.data
+    Layout.fillWidth: true
+    implicitHeight: Math.max(40, setRowSlot.childrenRect.height + 14, setRowText.implicitHeight + 14)
+    color: setRowHover.hovered ? Style.menuRowHi : "transparent"
+    HoverHandler { id: setRowHover }
+    Rectangle { anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right; anchors.leftMargin: 16; anchors.rightMargin: 16; height: 1; color: Style.menuHairline }
+    Column {
+      id: setRowText
+      anchors.left: parent.left; anchors.leftMargin: 16
+      anchors.verticalCenter: parent.verticalCenter
+      width: root.fontPx(84)
+      Text { text: setRow.label; color: Style.m3onSurface; font.pixelSize: root.fontPx(10); font.family: root.uiSans; font.weight: Font.Medium }
+      Text { visible: text !== ""; text: setRow.hint; color: Style.m3onSurfaceVariant; font.pixelSize: root.fontPx(8); font.family: root.uiSans }
+    }
+    Item {
+      id: setRowSlot
+      anchors.left: setRowText.right; anchors.right: parent.right; anchors.rightMargin: 16
+      anchors.verticalCenter: parent.verticalCenter
+      height: childrenRect.height
+    }
+  }
+
   ColumnLayout {
     id: monLayout
-    anchors.fill: parent; spacing: 8
+    anchors.fill: parent; spacing: 10
     clip: true
 
-    // Header: count + status, action pills.
+    // Header: title + count, action pills.
     RowLayout {
       Layout.fillWidth: true; spacing: 8
       Text { text: "󰍹"; color: Style.m3primary; font.pixelSize: root.fontPx(14); font.family: root.uiFont }
       Text {
-        text: (quickMonitorsRoot.mons || []).length + ((quickMonitorsRoot.mons || []).length === 1 ? " display" : " displays")
-        color: Style.m3onSurface; font.pixelSize: root.fontPx(13); font.family: root.uiSans; font.weight: Font.DemiBold
+        text: "Displays"
+        color: Style.m3onSurface; font.pixelSize: root.fontPx(14); font.family: root.uiSans; font.weight: Font.DemiBold
       }
-      Text {
-        text: "· " + (quickMonitorsRoot.monStatus || "Live layout")
-        readonly property bool bad: quickMonitorsRoot.monStatus.indexOf("fail") >= 0 || quickMonitorsRoot.monStatus.indexOf("No ") >= 0
-        color: bad ? Style.red : Style.m3onSurfaceVariant
-        font.pixelSize: root.fontPx(10); font.family: root.uiSans; Layout.fillWidth: true; elide: Text.ElideRight
+      Rectangle {
+        implicitWidth: countLbl.implicitWidth + 12; implicitHeight: 18; radius: 9
+        color: Style.m3primaryContainer
+        Text {
+          id: countLbl; anchors.centerIn: parent
+          text: QuickModels.enabledMonitors(quickMonitorsRoot.mons).length + "/" + (quickMonitorsRoot.mons || []).length
+          color: Style.m3primary; font.pixelSize: root.fontPx(8); font.family: root.uiSans; font.weight: Font.DemiBold
+        }
       }
-      ActionPill {
-        visible: quickMonitorsRoot.revertLeft > 0
-        label: "Keep " + quickMonitorsRoot.revertLeft + "s"
-        tonal: true
-        onTapped: quickMonitorsRoot.keepChange()
-      }
+      Item { Layout.fillWidth: true }
       ActionPill {
         label: quickMonitorsRoot.anyMirrored ? "Unmirror" : "Mirror"
         tonal: quickMonitorsRoot.anyMirrored
         onTapped: quickMonitorsRoot.anyMirrored ? quickMonitorsRoot.unmirrorMonitors() : quickMonitorsRoot.mirrorMonitors()
       }
-      ActionPill { label: "Extend"; tonal: quickMonitorsRoot.enabledMonCount > 1; onTapped: quickMonitorsRoot.extendMonitors() }
+      ActionPill { label: "Extend"; onTapped: quickMonitorsRoot.extendMonitors() }
       ActionPill { label: "External"; onTapped: quickMonitorsRoot.externalOnlyMonitors() }
       ActionPill { label: "Rescan"; onTapped: quickMonitorsRoot.rescanMonitors() }
     }
 
-    // Brightness card (hidden when brightnessctl reports nothing).
-    Rectangle {
-      Layout.fillWidth: true
-      visible: quickMonitorsRoot.brightness >= 0
-      implicitHeight: brightRow.implicitHeight + 16
-      radius: Style.menuRadiusLg
-      color: Style.m3container
-      RowLayout {
-        id: brightRow
-        anchors.fill: parent
-        anchors.leftMargin: 14; anchors.rightMargin: 14
-        spacing: 12
-        Text { text: "󰃟"; color: Style.m3primary; font.pixelSize: root.fontPx(14); font.family: root.uiFont }
-        Menu.MenuSlider {
-          Layout.fillWidth: true
-          value: Math.max(0, quickMonitorsRoot.brightness) / 100
-          onMoved: function(v) { quickMonitorsRoot.setBrightness(Math.round(v * 100)) }
-        }
-        Text {
-          text: quickMonitorsRoot.brightness + "%"
-          color: Style.m3onSurface; font.pixelSize: root.fontPx(11); font.family: root.uiSans; font.weight: Font.DemiBold
-          Layout.preferredWidth: root.fontPx(30)
-          horizontalAlignment: Text.AlignRight
-        }
-        Text {
-          text: QuickModels.brightnessName(quickMonitorsRoot.brightness)
-          color: Style.m3onSurfaceVariant; font.pixelSize: root.fontPx(10); font.family: root.uiSans
-          elide: Text.ElideRight; Layout.maximumWidth: 110
-        }
-      }
-    }
-
-    // Selected display: name + On switch, then Scale / Resolution / Refresh
-    // segmented rows. Scale pills are the Hyprland-legal values for this mode.
-    Rectangle {
-      Layout.fillWidth: true
-      visible: !!quickMonitorsRoot.focusedMon
-      implicitHeight: dispCol.implicitHeight + 20
-      radius: Style.menuPanelRadius
-      color: Style.m3container
-      ColumnLayout {
-        id: dispCol
-        anchors.fill: parent
-        anchors.margins: 10
-        anchors.leftMargin: 16; anchors.rightMargin: 16
-        spacing: 4
-        RowLayout {
-          Layout.fillWidth: true; spacing: 10
-          Text {
-            text: quickMonitorsRoot.focusedMon ? quickMonitorsRoot.focusedMon.name : ""
-            color: Style.m3onSurface; font.pixelSize: root.fontPx(12); font.family: root.uiSans; font.weight: Font.DemiBold
-          }
-          Text {
-            Layout.fillWidth: true
-            text: quickMonitorsRoot.focusedMon ? quickMonitorsRoot.monitorModeLabel(quickMonitorsRoot.focusedMon) : ""
-            color: Style.m3onSurfaceVariant; font.pixelSize: root.fontPx(10); font.family: root.uiSans; elide: Text.ElideRight
-          }
-          Text {
-            text: quickMonitorsRoot.focusedMon && quickMonitorsRoot.focusedMon.disabled ? "Off" : "On"
-            color: Style.m3onSurfaceVariant; font.pixelSize: root.fontPx(10); font.family: root.uiSans
-          }
-          ToggleSwitch {
-            on: !!quickMonitorsRoot.focusedMon && !quickMonitorsRoot.focusedMon.disabled
-            locked: on && quickMonitorsRoot.enabledMonCount <= 1
-            onToggled: quickMonitorsRoot.toggleMonitor(quickMonitorsRoot.focusedMon)
-          }
-        }
-        Repeater {
-          model: [
-            { label: "Scale", key: "scale" },
-            { label: "Resolution", key: "res" },
-            { label: "Refresh", key: "hz" }
-          ]
-          delegate: RowLayout {
-            id: optRow
-            required property var modelData
-            readonly property var opts: modelData.key === "scale" ? (quickMonitorsRoot.scaleValues || [])
-              : modelData.key === "res" ? (quickMonitorsRoot.resolutionOpts || []) : (quickMonitorsRoot.refreshOpts || [])
-            Layout.fillWidth: true; spacing: 8
-            visible: modelData.key === "scale" || opts.length > 1
-            Text {
-              text: modelData.label; Layout.preferredWidth: root.fontPx(52); Layout.alignment: Qt.AlignTop; topPadding: 4
-              color: Style.m3onSurfaceVariant; font.pixelSize: root.fontPx(10); font.family: root.uiSans
-            }
-            Flow {
-              Layout.fillWidth: true; spacing: 6
-              Repeater {
-                model: opts
-                delegate: OptionPill {
-                  required property var modelData
-                  required property int index
-                  readonly property var fm: quickMonitorsRoot.focusedMon
-                  readonly property string key: optRow.modelData.key
-                  label: key === "scale" ? QuickModels.formatScale(fm ? QuickModels.cleanScale(modelData, fm.width, fm.height) : modelData) + "×"
-                    : key === "res" ? modelData.label : QuickModels.formatRefresh(modelData)
-                  active: key === "scale" ? index === quickMonitorsRoot.activeScaleIdx
-                    : key === "res" ? (!!fm && modelData.width === fm.width && modelData.height === fm.height)
-                    : (!!fm && QuickModels.sameRefresh(modelData, fm.refreshRate))
-                  onTapped: {
-                    if (key === "scale") quickMonitorsRoot.setScale(modelData)
-                    else if (key === "res") quickMonitorsRoot.applyMode(modelData.width, modelData.height, modelData.best)
-                    else quickMonitorsRoot.applyMode(fm.width, fm.height, modelData)
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // Layout preview — uniform scale in logical coordinates, height capped so
-    // the list stays visible. Label density follows box height so text never clips.
+    // Arrangement canvas — uniform scale in logical coordinates fitted to 84%
+    // of the frame. Drag a tile to re-arrange (snaps on release, Apply below).
     Rectangle {
       Layout.fillWidth: true
       Layout.fillHeight: true
       Layout.minimumHeight: root.launcherGeom.vizMin
       Layout.maximumHeight: root.launcherGeom.vizMax
-      Layout.preferredHeight: LauncherGeom.monitorsVizHeight(quickMonitorsRoot.height, root.launcherGeom)
+      Layout.preferredHeight: root.launcherGeom.vizMax
       radius: Style.menuRadiusLg
       color: Style.m3container
+      border.width: 1; border.color: Style.m3outlineVariant
       clip: true
+      // Dot grid, like a design canvas.
+      Canvas {
+        id: dotGrid
+        anchors.fill: parent
+        readonly property color dot: Style.m3outlineVariant
+        onDotChanged: requestPaint()
+        onWidthChanged: requestPaint(); onHeightChanged: requestPaint()
+        onPaint: {
+          const ctx = getContext("2d"); ctx.reset(); ctx.fillStyle = dotGrid.dot
+          for (let x = 12; x < width; x += 18) for (let y = 12; y < height; y += 18) ctx.fillRect(x, y, 2, 2)
+        }
+      }
       Item {
         id: vizArea
         anchors.fill: parent; anchors.margins: 12
@@ -545,20 +579,25 @@ Item {
         // topology changes (mirror, scale, toggle) glide.
         property bool animate: false
         Timer { interval: 700; running: vizArea.width > 0 && vizArea.height > 0; onTriggered: vizArea.animate = true }
-        readonly property var geom: {
-          const _ = quickMonitorsRoot.monVersion
+        // Fitted to the draft layout; frozen while a drag is live so nothing
+        // rescales under the pointer.
+        property var frozen: null
+        readonly property var liveGeom: {
           const mons = quickMonitorsRoot.mons || []
-          let minX = 0, minY = 0, maxX = 0, maxY = 0
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
           for (const m of mons) {
-            minX = Math.min(minX, m.x || 0); minY = Math.min(minY, m.y || 0)
-            maxX = Math.max(maxX, (m.x || 0) + quickMonitorsRoot.monitorLogicalWidth(m))
-            maxY = Math.max(maxY, (m.y || 0) + quickMonitorsRoot.monitorLogicalHeight(m))
+            const p = quickMonitorsRoot.pos(m)
+            minX = Math.min(minX, p.x); minY = Math.min(minY, p.y)
+            maxX = Math.max(maxX, p.x + quickMonitorsRoot.monitorLogicalWidth(m))
+            maxY = Math.max(maxY, p.y + quickMonitorsRoot.monitorLogicalHeight(m))
           }
+          if (!mons.length) { minX = minY = 0; maxX = maxY = 1 }
           const spanX = Math.max(1, maxX - minX), spanY = Math.max(1, maxY - minY)
-          // Uniform scale keeps logical aspect; center leftover.
-          const s = Math.min(width / spanX, height / spanY)
+          // Uniform scale keeps logical aspect; 84% leaves room to drag; center leftover.
+          const s = Math.min(width * 0.84 / spanX, height * 0.84 / spanY)
           return { s: s, minX: minX, minY: minY, ox: (width - spanX * s) / 2, oy: (height - spanY * s) / 2 }
         }
+        readonly property var geom: vizArea.frozen || vizArea.liveGeom
         Text {
           visible: !(quickMonitorsRoot.mons || []).length
           anchors.centerIn: parent
@@ -571,126 +610,272 @@ Item {
             id: vizMon
             required property var modelData
             readonly property bool sel: !!quickMonitorsRoot.focusedMon && quickMonitorsRoot.focusedMon.name === modelData.name
+            readonly property bool off: !!modelData.disabled
+            readonly property bool builtin: modelData.name === "eDP-1"
+            readonly property bool mirrored: QuickModels.isMirroring(modelData)
+            readonly property var p: quickMonitorsRoot.pos(modelData)
             readonly property real h: height
-            x: vizArea.geom.ox + ((modelData.x || 0) - vizArea.geom.minX) * vizArea.geom.s + 1
-            y: vizArea.geom.oy + ((modelData.y || 0) - vizArea.geom.minY) * vizArea.geom.s + 1
-            width: Math.max(2, quickMonitorsRoot.monitorLogicalWidth(modelData) * vizArea.geom.s - 2)
-            height: Math.max(2, quickMonitorsRoot.monitorLogicalHeight(modelData) * vizArea.geom.s - 2)
+            x: vizArea.geom.ox + (vizMon.p.x - vizArea.geom.minX) * vizArea.geom.s + 1
+            y: vizArea.geom.oy + (vizMon.p.y - vizArea.geom.minY) * vizArea.geom.s + 1
+            width: Math.max(36, quickMonitorsRoot.monitorLogicalWidth(modelData) * vizArea.geom.s - 2)
+            height: Math.max(28, quickMonitorsRoot.monitorLogicalHeight(modelData) * vizArea.geom.s - 2)
+            z: vizDrag.active ? 2 : vizMon.sel ? 1 : 0
             radius: Style.menuRadiusMd
-            color: vizMon.sel ? Style.m3primaryContainer : (vizMonMa.containsMouse ? Qt.lighter(Style.m3containerHigh, 1.1) : Style.m3containerHigh)
-            border.width: vizMon.sel ? 2 : 1
-            border.color: vizMon.sel ? Style.m3primary : Style.m3outlineVariant
-            opacity: modelData.disabled ? 0.45 : 1
-            Behavior on color { ColorAnimation { duration: 120 } }
-            Behavior on x { enabled: vizArea.animate; Menu.MenuAnim {} }
-            Behavior on y { enabled: vizArea.animate; Menu.MenuAnim {} }
+            color: Style.m3containerHigh
+            opacity: vizMon.off ? 0.45 : 1
+            Behavior on x { enabled: vizArea.animate && !vizDrag.active; Menu.MenuAnim {} }
+            Behavior on y { enabled: vizArea.animate && !vizDrag.active; Menu.MenuAnim {} }
             Behavior on width { enabled: vizArea.animate; Menu.MenuAnim {} }
             Behavior on height { enabled: vizArea.animate; Menu.MenuAnim {} }
-            Column {
-              anchors.left: parent.left; anchors.top: parent.top
-              anchors.margins: Math.max(4, Math.min(10, vizMon.width * 0.04))
-              width: vizMon.width - 2 * anchors.margins
-              spacing: 2
-              Text {
-                width: parent.width
-                text: modelData.name || "mon"
-                color: Style.m3onSurface; font.family: root.uiSans; font.weight: Font.DemiBold
-                font.pixelSize: root.fontPx(vizMon.h >= 72 ? 12 : vizMon.h >= 44 ? 10 : 9)
-                elide: Text.ElideRight
+            // The live wallpaper as the "screen", dimmed so labels read on it.
+            ClippingRectangle {
+              anchors.fill: parent; anchors.margins: vizMon.sel ? 3 : 1
+              radius: Math.max(0, vizMon.radius - anchors.margins)
+              color: "transparent"
+              visible: !vizMon.off && Wallpaper.WallpaperService.currentWallpaper !== ""
+              // Cached picker thumbnail first (a 5K JPEG takes seconds to decode), original if missing.
+              Image {
+                readonly property string wall: Wallpaper.WallpaperService.currentWallpaper
+                property bool full: false
+                anchors.fill: parent
+                source: !wall ? "" : full ? "file://" + wall : "file://" + WallThumbs.thumbPath(wall, Wallpaper.WallpaperService.thumbCacheDir)
+                onWallChanged: full = false
+                onStatusChanged: if (status === Image.Error && !full) full = true
+                sourceSize.width: 480
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                cache: true
               }
-              Text {
-                visible: vizMon.h >= 44
-                width: parent.width
-                text: Math.round(quickMonitorsRoot.monitorLogicalWidth(modelData)) + "×"
-                  + Math.round(quickMonitorsRoot.monitorLogicalHeight(modelData)) + " · " + QuickModels.formatScale(modelData.scale || 1) + "×"
-                color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(9)
-                elide: Text.ElideRight
-              }
-              Text {
-                visible: vizMon.h >= 72
-                width: parent.width
-                text: (modelData.x || 0) + "," + (modelData.y || 0)
-                color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(9)
-                elide: Text.ElideRight
+              Rectangle { anchors.fill: parent; color: Style.m3surface; opacity: vizMon.sel ? 0.35 : vizHover.hovered ? 0.45 : 0.6; Behavior on opacity { NumberAnimation { duration: 90 } } }
+            }
+            Rectangle {
+              anchors.fill: parent; radius: parent.radius; color: "transparent"
+              border.width: vizMon.sel ? 2 : 1
+              border.color: vizMon.sel ? Style.m3primary : vizHover.hovered ? Style.m3outline : Style.m3outlineVariant
+              Behavior on border.color { ColorAnimation { duration: 90 } }
+            }
+            // Centered label chip: name, logical size · scale.
+            Rectangle {
+              anchors.centerIn: parent
+              width: Math.min(vizMon.width - 12, Math.max(vizName.implicitWidth, vizSub.implicitWidth) + 28)
+              height: vizLbl.implicitHeight + 10
+              radius: Style.menuRadiusMd
+              color: Style.m3surface
+              visible: vizMon.h >= 44
+              Column {
+                id: vizLbl
+                anchors.centerIn: parent
+                width: parent.width - 16
+                spacing: 1
+                Text {
+                  id: vizName
+                  width: parent.width; horizontalAlignment: Text.AlignHCenter
+                  text: modelData.name || "mon"
+                  color: Style.m3onSurface; font.family: root.uiSans; font.weight: Font.DemiBold
+                  font.pixelSize: root.fontPx(vizMon.h >= 72 ? 12 : 10)
+                  elide: Text.ElideRight
+                }
+                Text {
+                  id: vizSub
+                  width: parent.width; horizontalAlignment: Text.AlignHCenter
+                  text: vizMon.off ? "OFF" : vizMon.mirrored ? "MIRROR ← " + modelData.mirrorOf
+                    : Math.round(quickMonitorsRoot.monitorLogicalWidth(modelData)) + "×"
+                      + Math.round(quickMonitorsRoot.monitorLogicalHeight(modelData)) + " · " + QuickModels.formatScale(modelData.scale || 1) + "×"
+                  color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(9)
+                  elide: Text.ElideRight
+                }
               }
             }
-            MouseArea {
-              id: vizMonMa
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              onClicked: quickMonitorsRoot.selectedName = modelData.name
+            Text {
+              visible: vizMon.h < 44
+              anchors.centerIn: parent
+              text: modelData.name || "mon"
+              color: Style.m3onSurface; font.family: root.uiSans; font.weight: Font.DemiBold; font.pixelSize: root.fontPx(9)
+            }
+            // BUILT-IN badge (top-left) and active workspace (top-right).
+            Rectangle {
+              visible: vizMon.builtin && vizMon.h >= 72
+              anchors.left: parent.left; anchors.top: parent.top; anchors.margins: 8
+              width: builtinLbl.implicitWidth + 12; height: 16; radius: 8
+              color: Style.m3primary
+              Text { id: builtinLbl; anchors.centerIn: parent; text: "BUILT-IN"; color: Style.m3onPrimary; font.pixelSize: root.fontPx(7); font.family: root.uiSans; font.weight: Font.Bold; font.letterSpacing: 1.2 }
+            }
+            Rectangle {
+              visible: !vizMon.off && vizMon.h >= 72 && !!modelData.activeWorkspace
+              anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8
+              width: wsLbl.implicitWidth + 12; height: 16; radius: 8
+              color: Style.m3surface
+              Text { id: wsLbl; anchors.centerIn: parent; text: "WS " + (modelData.activeWorkspace ? modelData.activeWorkspace.name : ""); color: Style.m3onSurfaceVariant; font.pixelSize: root.fontPx(7); font.family: root.uiSans; font.weight: Font.Bold; font.letterSpacing: 1.2 }
+            }
+            HoverHandler { id: vizHover; cursorShape: vizDrag.active ? Qt.ClosedHandCursor : Qt.PointingHandCursor }
+            TapHandler { onTapped: quickMonitorsRoot.selectedName = modelData.name }
+            DragHandler {
+              id: vizDrag
+              target: null
+              enabled: !vizMon.off && !vizMon.mirrored
+              property point start
+              onActiveChanged: {
+                if (active) { vizArea.frozen = vizArea.liveGeom; quickMonitorsRoot.selectedName = modelData.name; start = Qt.point(vizMon.p.x, vizMon.p.y) }
+                else { quickMonitorsRoot.endDrag(modelData, vizArea.geom.s); vizArea.frozen = null }
+              }
+              onTranslationChanged: if (active) quickMonitorsRoot.dragTo(modelData,
+                start.x + translation.x / vizArea.geom.s, start.y + translation.y / vizArea.geom.s)
             }
           }
         }
       }
     }
-    Text {
-      Layout.fillWidth: true
-      text: "Mirror sources eDP-1 when on · Unmirror/Extend reload monitors.lua · Keep holds a change"
-      color: Style.m3outline; font.pixelSize: root.fontPx(9); font.family: root.uiSans
-      horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight
-    }
 
-    // Display list — content-sized (capped) so leftover height feeds the preview, not a gap.
-    Flickable {
+    // Selected display: header + label | control rows.
+    Rectangle {
       Layout.fillWidth: true
-      Layout.fillHeight: false
-      Layout.preferredHeight: Math.min(Math.max(monList.height, root.launcherGeom.minList), root.launcherGeom.monListMax)
-      Layout.maximumHeight: Math.min(Math.max(monList.height, root.launcherGeom.minList), root.launcherGeom.monListMax)
-      Layout.minimumHeight: root.launcherGeom.minList
+      visible: !!quickMonitorsRoot.focusedMon
+      implicitHeight: dispCol.implicitHeight + 8
+      radius: Style.menuRadiusLg
+      color: Style.m3container
       clip: true
-      boundsBehavior: Flickable.StopAtBounds
-      contentHeight: monList.height
-      ScrollBar.vertical: Menu.MenuScrollBar {}
-      Column { id: monList; width: parent.width; spacing: 0
+      ColumnLayout {
+        id: dispCol
+        anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
+        anchors.topMargin: 4
+        spacing: 0
+        readonly property var fm: quickMonitorsRoot.focusedMon
+        RowLayout {
+          Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16; Layout.preferredHeight: 44
+          spacing: 10
+          Text {
+            text: dispCol.fm && dispCol.fm.name === "eDP-1" ? "󰌢" : "󰍹"
+            color: Style.m3primary; font.pixelSize: root.fontPx(14); font.family: root.uiFont
+          }
+          Column {
+            Layout.fillWidth: true
+            Text {
+              width: parent.width
+              text: dispCol.fm ? dispCol.fm.name + (dispCol.fm.name === "eDP-1" ? "  Built-in display" : (dispCol.fm.make ? "  " + dispCol.fm.make + " " + (dispCol.fm.model || "") : "")) : ""
+              color: Style.m3onSurface; font.pixelSize: root.fontPx(11); font.family: root.uiSans; font.weight: Font.DemiBold; elide: Text.ElideRight
+            }
+            Text {
+              width: parent.width
+              text: dispCol.fm ? quickMonitorsRoot.monitorModeLabel(dispCol.fm) + " · " + QuickModels.formatScale(dispCol.fm.scale || 1) + "× · "
+                + (dispCol.fm.x || 0) + "," + (dispCol.fm.y || 0) : ""
+              color: Style.m3onSurfaceVariant; font.pixelSize: root.fontPx(9); font.family: root.uiSans; elide: Text.ElideRight
+            }
+          }
+          Text {
+            text: dispCol.fm && dispCol.fm.disabled ? "Off" : "On"
+            color: Style.m3onSurfaceVariant; font.pixelSize: root.fontPx(10); font.family: root.uiSans
+          }
+          ToggleSwitch {
+            on: !!dispCol.fm && !dispCol.fm.disabled
+            locked: on && quickMonitorsRoot.enabledMonCount <= 1
+            onToggled: quickMonitorsRoot.toggleMonitor(dispCol.fm)
+          }
+        }
+        // Brightness: the built-in backlight only (brightnessctl).
+        SettingRow {
+          label: "Brightness"; hint: QuickModels.brightnessName(quickMonitorsRoot.brightness)
+          visible: quickMonitorsRoot.brightness >= 0 && !!dispCol.fm && dispCol.fm.name === "eDP-1"
+          RowLayout {
+            width: parent.width; spacing: 12
+            Menu.MenuSlider {
+              Layout.fillWidth: true
+              value: Math.max(0, quickMonitorsRoot.brightness) / 100
+              onMoved: function(v) { quickMonitorsRoot.setBrightness(Math.round(v * 100)) }
+            }
+            Text {
+              text: quickMonitorsRoot.brightness + "%"
+              color: Style.m3onSurface; font.pixelSize: root.fontPx(10); font.family: root.uiSans; font.weight: Font.DemiBold
+              Layout.preferredWidth: root.fontPx(30); horizontalAlignment: Text.AlignRight
+            }
+          }
+        }
+        // Scale pills are the Hyprland-legal values for this mode.
         Repeater {
-          model: quickMonitorsRoot.mons || []
-          delegate: Rectangle {
-            id: monRow
+          model: [
+            { label: "Resolution", key: "res" },
+            { label: "Scale", key: "scale", hint: "logical size" },
+            { label: "Refresh", key: "hz" },
+            { label: "Rotation", key: "rot" }
+          ]
+          delegate: SettingRow {
+            id: optRow
             required property var modelData
-            readonly property bool sel: !!quickMonitorsRoot.focusedMon && quickMonitorsRoot.focusedMon.name === modelData.name
-            readonly property bool isOff: !!modelData.disabled
-            width: parent.width; height: 42
-            radius: Style.menuRadiusMd
-            color: monRow.sel ? Style.m3container : (monRowMa.containsMouse ? Style.m3stateHover : "transparent")
-            Behavior on color { ColorAnimation { duration: 120 } }
-            MouseArea { id: monRowMa; anchors.fill: parent; hoverEnabled: true; onClicked: quickMonitorsRoot.selectedName = modelData.name }
-            RowLayout {
-              anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 14; spacing: 12
-              Text {
-                text: modelData.name === "eDP-1" ? "󰌢" : "󰍹"
-                color: monRow.sel ? Style.m3primary : Style.m3onSurfaceVariant; font.pixelSize: root.fontPx(15); font.family: root.uiFont
-              }
-              ColumnLayout {
-                Layout.fillWidth: true; spacing: 1
-                Text {
-                  Layout.fillWidth: true
-                  text: (modelData.name || "?") + (modelData.mirrorOf && modelData.mirrorOf !== "none" ? " mirrors " + modelData.mirrorOf : "")
-                  color: monRow.isOff ? Style.m3onSurfaceVariant : Style.m3onSurface
-                  font.pixelSize: root.fontPx(11); font.family: root.uiSans; elide: Text.ElideRight
-                  font.weight: monRow.sel ? Font.DemiBold : Font.Medium
+            readonly property var opts: modelData.key === "scale" ? (quickMonitorsRoot.scaleValues || [])
+              : modelData.key === "res" ? (quickMonitorsRoot.resolutionOpts || [])
+              : modelData.key === "rot" ? [0, 1, 2, 3] : (quickMonitorsRoot.refreshOpts || [])
+            label: modelData.label; hint: modelData.hint || ""
+            // Rotation on externals only: a rotated eDP-1 breaks the bar's notch cutout.
+            visible: modelData.key === "scale" || opts.length > 1
+              && (modelData.key !== "rot" || (!!quickMonitorsRoot.focusedMon && quickMonitorsRoot.focusedMon.name !== "eDP-1"))
+            Flow {
+              width: parent.width; spacing: 6
+              Repeater {
+                model: optRow.opts
+                delegate: OptionPill {
+                  required property var modelData
+                  required property int index
+                  readonly property var fm: quickMonitorsRoot.focusedMon
+                  readonly property string key: optRow.modelData.key
+                  label: key === "scale" ? QuickModels.formatScale(fm ? QuickModels.cleanScale(modelData, fm.width, fm.height) : modelData) + "×"
+                    : key === "res" ? modelData.label : key === "rot" ? (modelData * 90) + "°" : QuickModels.formatRefresh(modelData)
+                  active: key === "scale" ? index === quickMonitorsRoot.activeScaleIdx
+                    : key === "res" ? (!!fm && modelData.width === fm.width && modelData.height === fm.height)
+                    : key === "rot" ? (!!fm && (fm.transform || 0) === modelData)
+                    : (!!fm && QuickModels.sameRefresh(modelData, fm.refreshRate))
+                  onTapped: {
+                    if (key === "scale") quickMonitorsRoot.setScale(modelData)
+                    else if (key === "res") quickMonitorsRoot.applyMode(modelData.width, modelData.height, modelData.best)
+                    else if (key === "rot") quickMonitorsRoot.setRotation(modelData)
+                    else quickMonitorsRoot.applyMode(fm.width, fm.height, modelData)
+                  }
                 }
-                Text {
-                  Layout.fillWidth: true
-                  text: quickMonitorsRoot.monitorModeLabel(modelData) + " · " + QuickModels.formatScale(modelData.scale || 1) + "× · "
-                    + (modelData.x || 0) + "," + (modelData.y || 0)
-                  color: Style.m3onSurfaceVariant; font.pixelSize: root.fontPx(9); font.family: root.uiSans; elide: Text.ElideRight
-                }
-              }
-              Text {
-                text: monRow.isOff ? "Off" : "On"
-                color: Style.m3onSurfaceVariant; font.pixelSize: root.fontPx(9); font.family: root.uiSans
-              }
-              // Enable/disable this display (guarded against the last one).
-              ToggleSwitch {
-                on: !monRow.isOff
-                locked: on && quickMonitorsRoot.enabledMonCount <= 1
-                onToggled: quickMonitorsRoot.toggleMonitor(modelData)
               }
             }
           }
         }
+      }
+    }
+
+    Item { Layout.fillHeight: true }
+
+    // Status bar: pulsing dot while a change is pending (unapplied drag or
+    // probation), status text, then Revert / Apply or Keep.
+    RowLayout {
+      id: statusBar
+      Layout.fillWidth: true; Layout.preferredHeight: 30
+      spacing: 10
+      readonly property bool pending: quickMonitorsRoot.draftDirty || quickMonitorsRoot.revertLeft > 0
+      Rectangle {
+        id: pulseDot
+        width: 8; height: 8; radius: 4
+        color: statusBar.pending ? Style.m3primary : Style.m3outline
+        SequentialAnimation on opacity {
+          id: pulse
+          running: statusBar.pending; loops: Animation.Infinite
+          onRunningChanged: if (!running) pulseDot.opacity = 1
+          NumberAnimation { to: 0.3; duration: 600 }
+          NumberAnimation { to: 1; duration: 600 }
+        }
+      }
+      Text {
+        Layout.fillWidth: true
+        readonly property bool bad: quickMonitorsRoot.monStatus.indexOf("fail") >= 0 || quickMonitorsRoot.monStatus.indexOf("No ") >= 0
+        text: quickMonitorsRoot.draftDirty ? "Unapplied layout changes"
+          : quickMonitorsRoot.revertLeft > 0 ? "Keep this layout? Reverting in " + quickMonitorsRoot.revertLeft + "s"
+          : (quickMonitorsRoot.monStatus && quickMonitorsRoot.monStatus !== "ok" ? quickMonitorsRoot.monStatus : "Layout matches your displays · drag to arrange")
+        color: bad ? Style.red : Style.m3onSurfaceVariant
+        font.pixelSize: root.fontPx(9); font.family: root.uiSans; elide: Text.ElideRight
+      }
+      ActionPill {
+        visible: quickMonitorsRoot.draftDirty || quickMonitorsRoot.revertLeft > 0
+        label: "Revert"
+        onTapped: quickMonitorsRoot.draftDirty ? (quickMonitorsRoot.draft = ({})) : quickMonitorsRoot.revertLayout("Reverted")
+      }
+      ActionPill {
+        visible: quickMonitorsRoot.draftDirty || quickMonitorsRoot.revertLeft > 0
+        tonal: true
+        label: quickMonitorsRoot.draftDirty ? "Apply" : "Keep " + quickMonitorsRoot.revertLeft + "s"
+        onTapped: quickMonitorsRoot.draftDirty ? quickMonitorsRoot.applyDraft() : quickMonitorsRoot.keepChange()
       }
     }
   }

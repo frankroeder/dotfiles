@@ -43,7 +43,7 @@ chmod +x "$tmp/bin/hyprctl"
 
 run() {
   PATH="$tmp/bin:$PATH" ASAHI_DRM_PATH="$drm" ASAHI_HDMI_SETTLE_S=0 \
-    ASAHI_SCALE_DIR="$tmp/scales" ASAHI_HDMI_GEN="$gen" "$HOT" "$@"
+    ASAHI_SCALE_DIR="$tmp/scales" ASAHI_HDMI_GEN="$gen" ASAHI_LAYOUT_FILE="$tmp/layout.json" "$HOT" "$@"
 }
 
 dell='[{"name":"eDP-1","disabled":false},{"name":"HDMI-A-1","disabled":true,"description":"Dell Inc. DELL P2723DE 895ZNR3"}]'
@@ -195,6 +195,21 @@ run sync
 grep -q 'disabled = true' "$kw_log" \
   || fail_at "sync must disable HDMI when DRM is disconnected (got $(tr '\n' ' ' <"$kw_log"))"
 pass "sync disables HDMI when DRM is disconnected"
+
+# Kept position (Displays pane drag + Keep): used while the scales match, dropped by reset.
+printf 'connected\n' >"$drm/card2-HDMI-A-1/status"
+printf '[{"name":"eDP-1","disabled":false,"scale":2},{"name":"HDMI-A-1","disabled":false,"description":"Dell Inc. DELL P2723DE 895ZNR3","x":1512,"y":0,"scale":1.25,"availableModes":["2560x1440@59.95Hz"]}]\n' >"$mon_json"
+rm -f "$tmp/layout.json"
+run save HDMI-A-1 1512x0 && [ -s "$tmp/layout.json" ] || fail_at "save should write the layout file"
+: >"$kw_log"
+run on
+grep -q 'position = "1512x0"' "$kw_log" || fail_at "on should use the kept position (got $(tr '\n' ' ' <"$kw_log"))"
+run save HDMI-A-1 'x;rm' 2>/dev/null && fail_at "save must reject a bad position" || true
+run reset HDMI-A-1
+: >"$kw_log"
+run on
+grep -q 'position = "-2048x' "$kw_log" || fail_at "reset should restore the derived position (got $(tr '\n' ' ' <"$kw_log"))"
+pass "kept position: save, on, reset"
 
 if [ "$fail" -ne 0 ]; then
   echo "asahi_hdmi_test.sh: FAILED"

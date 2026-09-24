@@ -94,7 +94,11 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   and an unknown name is a no-op (`asahi-hdmi` with no arg defaults to HDMI-A-1). Mirroring
   `HDMI-A-1` strands workspaces 1–4 — mirror eval is **only** `mirror = <source>` (no `mode` /
   `position`). Source must be an enabled output. Undo: Unmirror/Extend, `Super+Ctrl+Alt+R`, or the
-  Monitors pane 15 s auto-revert (unless Keep).
+  Monitors pane 15 s auto-revert (unless Keep). Pane drag-arrange sends **position-only**
+  `hl.monitor` and reverts by re-evaluating the old positions (a reload would re-modeset HDMI).
+  Keep → `asahi-hdmi save` into `~/.local/state/asahi/monitor-layout.json` (per sink desc, keyed
+  `<hdmi scale>@<eDP scale>`; `layout_fields` prefers it). Extend → `asahi-hdmi reset` + reload.
+  Hyprland has no primary display; eDP-1 is only the mirror source and the 0,0 anchor.
 - **Notch / fnmode**: `comp_asahi_system` writes `asahi-notch.conf` (`show_notch=1`) and
   `hid_apple fnmode=1`, then `dracut -f`. Reboot required. Live fnmode:
   `/sys/module/hid_apple/parameters/fnmode`.
@@ -107,7 +111,9 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   stay-awake, N night light, E emoji, V clipboard, K keybindings). `Super+Ctrl+Alt` restarts the
   stack. `Super+Ctrl+plus/minus` = display scale; `Super+Ctrl+Z` / `Super+Ctrl+Alt+Z` = cursor
   magnifier (`hl.config { cursor = { zoom_factor } }`, lua, not `hyprctl keyword`). Panels:
-  `quick()` in `bindings.lua` (`quickActions` in `LauncherWindow.qml`). Super+B/N are free. **Every
+  `quick()` in `bindings.lua` (`quickActions` in `LauncherWindow.qml`); the same combo again closes
+  (`openQuick`/`openCategory` toggle). Esc: one layer per press (Quick pane → home → close); opened
+  by a shortcut → closes (`openedByShortcut`). Super+B/N are free. **Every
   bind needs a `desc`** (`parseHyprBinds` drops descless ones). `code:NN` needs `bindCombo`
   `codeNames` — labels are **de(mac_nodeadkeys)** (`code:34/35` = `ü`/`+`, not `[]`).
 - **Monitor direction binds**: `Super+Ctrl+arrows` and `Super+Shift+Ctrl+HJKL` must

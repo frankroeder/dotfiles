@@ -15,9 +15,12 @@ name="${2:-HDMI-A-1}"
 settle_s="${ASAHI_HDMI_SETTLE_S:-2}"
 drm_path="${ASAHI_DRM_PATH:-/sys/class/drm}"
 gen_file="${ASAHI_HDMI_GEN:-${XDG_RUNTIME_DIR:-/tmp}/asahi-hdmi.gen}"
+# Positions kept from the launcher's Displays pane (drag + Keep), per sink.
+layout_file="${ASAHI_LAYOUT_FILE:-${XDG_STATE_HOME:-$HOME/.local/state}/asahi/monitor-layout.json}"
 
 usage() {
   echo "usage: $0 <added|removed|sync|on|off> [HDMI-A-1]" >&2
+  echo "       $0 save HDMI-A-1 <X>x<Y> | reset HDMI-A-1" >&2
   exit 2
 }
 
@@ -79,7 +82,7 @@ dell_fields() {
   printf 'mode = "2560x1440@59.95100", position = "%sx%s", scale = %s' "$x" "$y" "$1"
 }
 
-layout_fields() {
+derived_fields() {
   local desc modes sc
   sc=$(saved_scale "$name")
   desc="$(hypr_json | jq -r --arg n "$name" \
@@ -105,6 +108,58 @@ layout_fields() {
   *2560x1440*) dell_fields "${sc:-1.25}" ;;
   *) printf 'mode = "preferred", position = "auto", scale = %s' "${sc:-1.5}" ;;
   esac
+}
+
+# A kept position only holds for the scales it was arranged at (the Dell's
+# derived y follows eDP-1's height), so the key is "<hdmi scale>@<eDP scale>".
+sink_desc() {
+  hypr_json | jq -r --arg n "$name" '.[] | select(.name == $n) | (.description // "")'
+}
+
+layout_key() {
+  local edp
+  edp=$(saved_scale eDP-1)
+  awk -v h="$1" -v e="${edp:-1.333333333333}" 'BEGIN { printf "%.3f@%.3f", h, e }'
+}
+
+saved_pos() {
+  [ -s "$layout_file" ] || return 0
+  jq -r --arg d "$1" --arg k "$2" '.[$d] | select(.key == $k) | .pos // empty' "$layout_file" 2>/dev/null || true
+}
+
+layout_fields() {
+  local fields desc scale pos
+  fields="$(derived_fields)"
+  desc="$(sink_desc)"
+  scale="$(printf '%s' "$fields" | sed -n 's/.*scale = \([^, ]*\).*/\1/p')"
+  pos=""
+  [ -n "$desc" ] && [ -n "$scale" ] && pos="$(saved_pos "$desc" "$(layout_key "$scale")")"
+  if [[ "$pos" =~ ^-?[0-9]+x-?[0-9]+$ ]]; then
+    fields="$(printf '%s' "$fields" | sed "s/position = \"[^\"]*\"/position = \"$pos\"/")"
+  fi
+  printf '%s' "$fields"
+}
+
+save_layout() {
+  local pos="$1" desc scale tmp
+  [[ "$pos" =~ ^-?[0-9]+x-?[0-9]+$ ]] || { echo "bad position: $pos" >&2; exit 1; }
+  desc="$(sink_desc)"
+  [ -n "$desc" ] || { echo "no description for $name" >&2; exit 1; }
+  scale="$(hypr_json | jq -r --arg n "$name" '.[] | select(.name == $n) | .scale')"
+  mkdir -p "$(dirname "$layout_file")"
+  [ -s "$layout_file" ] || printf '{}\n' >"$layout_file"
+  tmp="$(mktemp "$layout_file.XXXXXX")"
+  jq --arg d "$desc" --arg k "$(layout_key "$scale")" --arg p "$pos" '.[$d] = { key: $k, pos: $p }' "$layout_file" >"$tmp"
+  mv "$tmp" "$layout_file"
+}
+
+reset_layout() {
+  local desc tmp
+  [ -s "$layout_file" ] || return 0
+  desc="$(sink_desc)"
+  tmp="$(mktemp "$layout_file.XXXXXX")"
+  jq --arg d "$desc" 'del(.[$d])' "$layout_file" >"$tmp"
+  mv "$tmp" "$layout_file"
 }
 
 # True when the live output already matches this sink's committed layout.
@@ -185,6 +240,12 @@ sync)
     bump_gen >/dev/null
     off_hdmi
   fi
+  ;;
+save)
+  save_layout "${3:-}"
+  ;;
+reset)
+  reset_layout
   ;;
 *)
   usage

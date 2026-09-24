@@ -161,7 +161,7 @@ Scope {
     { key: "screenshots", aliases: ["shots", "ss"], icon: "󰹑", name: "Screenshots", comment: "Open screenshot gallery", mode: "screenshots" },
     { key: "media", aliases: ["music", "audio"], icon: "󰝚", name: "Media", comment: "Open media and mixer", mode: "media" },
     { key: "network", aliases: ["wifi", "net", "vpn"], icon: "󰈀", name: "Network", comment: "Open network and VPN controls", mode: "network" },
-    { key: "monitors", aliases: ["display", "screen"], icon: "󰍹", name: "Monitors", comment: "Open monitor layout", mode: "monitors" },
+    { key: "monitors", aliases: ["display", "monitor", "screen"], icon: "󰍹", name: "Displays", comment: "Arrange displays, scale, refresh", mode: "monitors" },
     { key: "temp", aliases: ["temps", "temperature"], icon: "󰔄", name: "Temperatures", comment: "Open sensor view", mode: "temp" },
     { key: "battery", aliases: ["bat", "power", "charge"], icon: "󰁹", name: "Battery", comment: "Battery status, health, and power", mode: "battery" },
     { key: "bluetooth", aliases: ["bt"], icon: "󰂯", name: "Bluetooth", comment: "Open Bluetooth devices", mode: "bluetooth" },
@@ -1261,7 +1261,23 @@ Scope {
     })
   }
 
+  property bool openedByShortcut: false  // opened straight into a pane/category (IPC): Esc closes
+  // Hover waits for a real pointer move after open / each layer change: Qt also
+  // sends position events when rows reflow under a resting cursor (the cursor
+  // shield over launcherBox swallows them until then).
+  property point lastPointer: Qt.point(-1, -1)
+  property bool pointerLive: false
+  function pointerMoved(g) {
+    const seen = root.lastPointer.x >= 0
+    const moved = seen && (Math.abs(g.x - root.lastPointer.x) > 1 || Math.abs(g.y - root.lastPointer.y) > 1)
+    if (!seen || moved) root.lastPointer = g
+    if (moved) root.pointerLive = true
+  }
+
   function openLauncher() {
+    root.lastPointer = Qt.point(-1, -1)
+    root.pointerLive = false
+    root.openedByShortcut = false
     const mon = Hyprland.focusedMonitor
     launcherScreen = mon
       ? (Quickshell.screens.find(s => s.name === mon.name) ?? (Quickshell.screens.length > 0 ? Quickshell.screens[0] : null))
@@ -1282,7 +1298,9 @@ Scope {
   }
 
   function openCategory(cat) {
-    if (!root.shouldShow) root.openLauncher()
+    if (root.shouldShow && cat && root.categoryFilter === cat) { root.closeLauncher(); return }
+    if (!root.shouldShow) { root.openLauncher(); root.openedByShortcut = !!cat }
+    root.pointerLive = false
     root.categoryFilter = cat || ""
     root.setSearchQuery(root.categoryFilter === Data.fileCategory ? ">"
       : (root.categoryFilter === "Actions" ? ":"
@@ -1294,11 +1312,14 @@ Scope {
     root.focusLauncherInput()
   }
 
+  // Shortcuts toggle: the pane already showing closes the launcher.
   function openQuick(key) {
-    if (!root.shouldShow) root.openLauncher()
+    const k = key === "dashboard" ? "hub" : (key === "vpn" ? "network" : (key || "hub"))
+    if (root.shouldShow && root.quickMode && root.quickPaneKey === k) { root.closeLauncher(); return }
+    if (!root.shouldShow) { root.openLauncher(); root.openedByShortcut = true }
+    root.pointerLive = false
     root.categoryFilter = "Quick"
     root.setSearchQuery("")
-    const k = key === "dashboard" ? "hub" : (key === "vpn" ? "network" : (key || "hub"))
     const idx = (root.quickDeck || []).findIndex(function(t) { return t.mode === k || t.key === k })
     if (idx >= 0) root.selectDeckIndex(idx)
     else root.showQuickPane(k)
@@ -2258,17 +2279,16 @@ Scope {
       root.shotPreviewPath = ""
       return
     }
-    if (root.quickMode && root.quickPaneKey !== "hub") {
-      root.selectDeckIndex(0)
-      root.focusLauncherInput()
-      return
-    }
+    // One layer per press: Quick pane / category → home → close. Opened
+    // straight into a pane by a shortcut → close (back where you came from).
+    if (root.openedByShortcut) { root.shouldShow = false; return }
     if (root.argArmed) {
       root.clearArgument()
       root.focusLauncherInput()
       return
     }
     if (root.quickMode || root.categoryFilter !== "") {
+      root.pointerLive = false
       root.categoryFilter = ""
       root.setSearchQuery("")
       root.selectedIndex = 0
@@ -2281,6 +2301,7 @@ Scope {
 
   // ---------- Launcher port: scoring + category overview (following bjarneo launcher ref style) ----------
   function goUp() {
+    root.pointerLive = false
     if (root.quickMode && root.quickPaneKey !== "hub") {
       root.selectDeckIndex(0)
       return true
@@ -2699,7 +2720,11 @@ Scope {
       // Raycast placement: card near the top, dropping in from the top edge
       // with the caelestia drawer spring.
       readonly property int restY: root.launcherGeom.cardY
-      y: restY - Math.round((height + 24) * (1 - root.chromeReveal))
+      // Open: short drop + scale 0.92→1 from the top edge (Ryoku), on the spring.
+      y: restY - Math.round(24 * (1 - root.chromeReveal))
+      scale: 0.92 + 0.08 * root.chromeReveal
+      transformOrigin: Item.Top
+      Behavior on scale { Menu.MenuAnim {} }
       width: root.launcherGeom.cardWidth
       Behavior on width { Menu.MenuAnim {} }
       Behavior on y { Menu.MenuAnim {} }
@@ -3050,7 +3075,8 @@ Scope {
               ScrollBar.vertical: Menu.MenuScrollBar {}
               highlight: Rectangle {
                 radius: Style.menuRadiusLg
-                color: Style.m3stateHover
+                color: Style.menuSelFill
+                border.width: 1; border.color: Style.menuSelBorder
                 width: resultsList.width
                 height: resultsList.currentItem ? resultsList.currentItem.height - 2 : 0
                 y: resultsList.currentItem ? resultsList.currentItem.y + 1 : 0
@@ -3522,6 +3548,19 @@ Scope {
             }
           }
         }
+      }
+      // Cursor shield: after open / a layer change the card reflows under a
+      // resting pointer, and every row sliding past flips the cursor shape and
+      // hover. Swallow hover (not clicks) until the pointer really moves.
+      MouseArea {
+        anchors.fill: parent
+        anchors.margins: -launcherBox.cardMargin
+        z: 1000
+        enabled: !root.pointerLive
+        hoverEnabled: true
+        acceptedButtons: Qt.NoButton
+        cursorShape: Qt.ArrowCursor
+        onPositionChanged: (mouse) => root.pointerMoved(mapToGlobal(mouse.x, mouse.y))
       }
 
     }

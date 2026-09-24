@@ -134,6 +134,9 @@ Singleton {
   readonly property color m3tertiary:           themed("mauve")
   readonly property color m3tertiaryContainer:  themedAlpha("mauve", 0.22)
   readonly property color m3stateHover:         themedAlpha("text", 0.08)
+  // Selected row / tile: accent tint + hairline; dark themes need more fill to read.
+  readonly property color menuSelFill:   themedAlpha("accent", isDark ? 0.18 : 0.12)
+  readonly property color menuSelBorder: themedAlpha("accent", isDark ? 0.45 : 0.35)
   readonly property color m3shadow:             themedAlpha("crust", 0.55)
   readonly property int menuRadius: 12
   readonly property int menuPanelRadius: 28
