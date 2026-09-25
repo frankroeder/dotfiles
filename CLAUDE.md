@@ -209,11 +209,16 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   <module>`. Bar vanished → `asahi-debug` coredumps first.
 - **Stay awake**: one flag `$XDG_RUNTIME_DIR/asahi-stay-awake`, owned by `asahi-stay-awake`.
   hypridle listeners skip under it (`asahi-idle` checks `status`).
-- **Idle (macOS defaults)**: `hypridle.conf` → `asahi-idle <battery|ac> <saver|dim|off|sleep>`.
-  Battery 1/1.5/2/3 min, AC 3/5/10/11 min: screensaver → half-dim + kbd 10% under it → saver stop,
-  lock, display/kbd off → `systemctl suspend`. Sleep skips while a sink is RUNNING or any non-eDP
-  output is enabled. `asahi-idle wake` (on-resume + after_sleep) undoes all; a step that finishes
-  after a wake re-runs it. kbd-auto pauses while `asahi-idle-brightness` holds saved state.
+- **Idle (macOS defaults)**: `hypridle.conf` fires `asahi-idle at <secs>` at 60/90/120/180/300/600;
+  the step comes from the power source **at fire time** (unplug mid-idle still locks). Battery
+  1/1.5/2 min, AC 3/5/10 min: screensaver → half-dim + kbd 10% under it → lock, DPMS off + kbd off
+  (panel backlight is **not** zeroed) → `off` itself suspends 60 s later. The hyprlock surface map is
+  fake pointer motion (`simulateMouseMovement`): it fires on-resume and restarts every listener, so
+  `off` ignores wakes while locking (`$XDG_RUNTIME_DIR/asahi-idle-locking`) and then watches DPMS —
+  `key_press_enables_dpms` relights on input → `asahi-idle wake`. Saver/dim skip while locked. Sleep
+  skips while a sink is RUNNING or a non-eDP output is enabled. **Keyboard/trackpad cannot wake
+  s2idle** (MTP DockChannel has no wakeup source); lid and power button (SMC) can. Log:
+  `~/.local/state/asahi/idle.log`.
 - **Timers**: `asahi-timer add <dur> [label]` = transient `systemd-run --user --on-active`.
   Launcher `:timer 10m tea` (`arg_commands.js`, tested).
 - **Window pop**: Super+O → `asahi-window-pop` (float/resize/center/pin/`pop`); second press

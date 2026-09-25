@@ -8,7 +8,7 @@ action="${1:-}"
 state_dir="${ASAHI_IDLE_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-brightness}"
 
 usage() {
-  echo "usage: $0 <dim|off|restore>" >&2
+  echo "usage: $0 <dim|off|keyboard-off|restore>" >&2
   exit 2
 }
 
@@ -81,6 +81,14 @@ case "$action" in
       save_device display "$device"
       set_device "$device" 0
     fi
+    if device="$(keyboard_device)"; then
+      save_device keyboard "$device"
+      set_device "$device" 0
+    fi
+    ;;
+  keyboard-off)
+    # Idle display-off: DPMS powers the panel down; a zeroed panel backlight
+    # would stay black when a key press re-enables DPMS.
     if device="$(keyboard_device)"; then
       save_device keyboard "$device"
       set_device "$device" 0
