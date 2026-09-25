@@ -12,6 +12,8 @@ Item {
   property var barHost: null
   property bool calendarOpen: false
   signal calendarToggle()
+  property bool clickOpened: false
+  property bool yearFocused: false
 
   readonly property bool solidBar: barHost !== null && barHost !== undefined
   readonly property bool showCalendar: {
@@ -131,9 +133,7 @@ Item {
   onCalendarOpenChanged: if (root.calendarOpen) {
     root.goToday()
     birthFile.reload()
-  }
-
-  onShowCalendarChanged: if (!root.showCalendar) calendarKeys.active = false
+  } else root.clickOpened = false
 
   Process {
     id: ensureBirthDir
@@ -209,7 +209,10 @@ Item {
     anchors.fill: parent
     hoverEnabled: true
     cursorShape: Qt.PointingHandCursor
-    onClicked: root.calendarToggle()
+    onClicked: {
+      root.clickOpened = true
+      root.calendarToggle()
+    }
   }
 
   PopupWindow {
@@ -229,11 +232,14 @@ Item {
       onActivated: root.calendarToggle()
     }
 
-    // Keys only after the year field is focused. Grabbing on open makes
-    // Hyprland treat the opening click as outside and the popup vanishes.
+    // Click opens grab only once the year field is focused: grabbing on open
+    // makes Hyprland treat the opening click as outside and the popup vanishes.
+    // Keybind / IPC opens grab at once so Esc closes the calendar, not the app.
     HyprlandFocusGrab {
       id: calendarKeys
       windows: [calPopup]
+      active: root.showCalendar && (!root.clickOpened || root.yearFocused)
+      onCleared: if (!root.clickOpened && root.calendarOpen) root.calendarToggle()
     }
 
     Rectangle {
@@ -431,7 +437,7 @@ Item {
                 root.birthFieldReady = true
                 root.syncBirthField()
               }
-              onActiveFocusChanged: calendarKeys.active = activeFocus && root.showCalendar
+              onActiveFocusChanged: root.yearFocused = activeFocus
               onTextEdited: if (text.length === 4) root.commitBirth(text)
               // Return/Enter and focus loss; a partial year snaps back to the saved one.
               onEditingFinished: {

@@ -15,8 +15,19 @@ hl.bind(
   { desc = "Wallpaper picker" }
 )
 -- hl.bind(mod .. " + B", hl.dsp.exec_cmd(browser), { desc = "Browser" })
-hl.bind(mod .. " + Q", hl.dsp.window.close(), { desc = "Close window" })
-hl.bind(mod .. " + SHIFT + Q", hl.dsp.window.kill(), { desc = "Kill process" })
+-- Hyprland binds bypass layer keyboard focus: while a Quickshell overlay is up
+-- (launcher, quick panes, wallpaper, pkgman) Super+Q is inert — only Esc closes it.
+local overlays = { ["quickshell-launcher"] = true, ["quickshell-wallpaper"] = true, ["quickshell-pkgman"] = true }
+local function unless_overlay(dsp)
+  return function()
+    for _, l in ipairs(hl.get_layers()) do
+      if overlays[l.namespace] and l.mapped then return end
+    end
+    hl.dispatch(dsp())
+  end
+end
+hl.bind(mod .. " + Q", unless_overlay(hl.dsp.window.close), { desc = "Close window" })
+hl.bind(mod .. " + SHIFT + Q", unless_overlay(hl.dsp.window.kill), { desc = "Kill process" })
 hl.bind(mod .. " + F", hl.dsp.window.fullscreen { mode = 1 }, { desc = "Toggle maximized" })
 hl.bind(mod .. " + SHIFT + F", hl.dsp.window.fullscreen(), { desc = "Toggle fullscreen" })
 hl.bind(mod .. " + P", hl.dsp.window.pseudo(), { desc = "Toggle pseudo" })

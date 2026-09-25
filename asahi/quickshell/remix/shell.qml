@@ -16,6 +16,12 @@ ShellRoot {
 
   readonly property bool isRecording: Services.Recorder.running
   property bool calendarOpen: false
+  // Launcher is the topmost layer: bar popups close so none float over it or hold Esc.
+  readonly property bool launcherOpen: launcherLoader.item ? launcherLoader.item.shouldShow : false
+  onLauncherOpenChanged: if (launcherOpen) {
+    shell.calendarOpen = false
+    Services.Recorder.panelOpen = false
+  }
 
   System.Osd { id: osd }
   System.DimOverlay { id: dimOverlay }
@@ -69,6 +75,7 @@ ShellRoot {
         notificationCenter: notificationCenter
         isRecording: shell.isRecording
         calendarOpen: shell.calendarOpen
+        launcherOpen: shell.launcherOpen
         onCalendarToggle: shell.calendarOpen = !shell.calendarOpen
       }
     }

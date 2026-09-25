@@ -42,6 +42,20 @@ PopupWindow {
     Services.Recorder.panelOpen = false
   }
 
+  // Keybind / quick-menu opens have no click to swallow, so grab the keyboard
+  // there: Esc closes the panel instead of reaching the app underneath.
+  HyprlandFocusGrab {
+    windows: [root]
+    active: root.visible && !root.panelOpen
+    onCleared: root.close()
+  }
+
+  Shortcut {
+    enabled: root.visible
+    sequences: ["Escape"]
+    onActivated: root.close()
+  }
+
   component Pill: Rectangle {
     property string icon
     property string label

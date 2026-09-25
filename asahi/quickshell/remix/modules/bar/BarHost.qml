@@ -18,6 +18,11 @@ Item {
   property bool calendarOpen: false
   property bool sysPanelOpen: false
   property bool recPanelOpen: false
+  property bool launcherOpen: false
+  onLauncherOpenChanged: if (launcherOpen) {
+    barWindow.sysPanelOpen = false
+    barWindow.recPanelOpen = false
+  }
   signal calendarToggle()
   function toggleSysPanel(button) {
     if (button === Qt.RightButton) Quickshell.execDetached([barWindow.binDir + "/asahi-sysmon"])
