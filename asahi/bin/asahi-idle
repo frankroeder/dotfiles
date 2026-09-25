@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# hypridle steps with macOS laptop defaults (Lock Screen settings: display off
+# after 2 min on battery / 10 min on power adapter, password immediately,
+# pmset halfdim + sleep 1). hypridle.conf lists both timelines; each step
+# only runs on its own power source.
+#
+#   asahi-idle <battery|ac> saver   start the shader screensaver
+#   asahi-idle <battery|ac> dim     half-dim display (saver keeps running), lower keyboard backlight
+#   asahi-idle <battery|ac> off     stop saver, lock, then display + keyboard backlight off
+#   asahi-idle <battery|ac> sleep   s2idle, unless audio plays or an external is on
+#   asahi-idle wake                 hypridle on-resume: undo every step
+#
+# A step still running when wake fires (saver start takes seconds) re-runs
+# wake afterwards, so nothing lands on an active session.
+#
+# The stay-awake chip (asahi-stay-awake) skips every step.
+
+set -euo pipefail
+
+bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+source="${1:-}"
+step="${2:-}"
+stamp="${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-wake"
+log_file="${XDG_STATE_HOME:-$HOME/.local/state}/asahi/idle.log"
+
+log() {
+  mkdir -p "${log_file%/*}"
+  echo "$(date '+%F %T') $*" >> "$log_file"
+}
+
+wake() {
+  log wake
+  touch "$stamp"
+  "$bin/asahi-screensaver" stop || true
+  "$bin/asahi-dpms" on
+  "$bin/asahi-idle-brightness" restore
+}
+
+if [ "$source" = wake ]; then
+  wake
+  exit 0
+fi
+
+on_ac() {
+  local p
+  for p in /sys/class/power_supply/*; do
+    [ "$(cat "$p/type" 2>/dev/null)" = Mains ] && [ "$(cat "$p/online" 2>/dev/null)" = 1 ] && return 0
+  done
+  return 1
+}
+
+case "$source" in
+  battery) if on_ac; then exit 0; fi ;;
+  ac) if ! on_ac; then exit 0; fi ;;
+  *) echo "usage: $0 <battery|ac> <saver|dim|off|sleep>" >&2; exit 2 ;;
+esac
+
+if "$bin/asahi-stay-awake" status; then log "$source $step skipped: stay-awake"; exit 0; fi
+log "$source $step"
+
+started="$(mktemp)"
+trap 'rm -f "$started"' EXIT
+woke() { [ "$stamp" -nt "$started" ]; }
+
+case "$step" in
+  saver)
+    "$bin/asahi-screensaver" start
+    if woke; then log "$step raced a wake"; wake; fi
+    ;;
+  dim)
+    "$bin/asahi-idle-brightness" dim
+    if woke; then log "$step raced a wake"; wake; fi
+    ;;
+  off)
+    "$bin/asahi-screensaver" stop || true
+    loginctl lock-session
+    "$bin/asahi-idle-brightness" off
+    "$bin/asahi-dpms" off
+    if woke; then log "$step raced a wake"; wake; fi
+    ;;
+  sleep)
+    # macOS holds system sleep while audio plays (power assertion).
+    if pactl list sinks short 2>/dev/null | grep -q RUNNING; then log "sleep skipped: audio"; exit 0; fi
+    # Docked / HDMI: s2idle with an external output is the DCP hang path.
+    if hyprctl monitors -j 2>/dev/null | jq -e 'any(.[]; .name != "eDP-1")' >/dev/null; then log "sleep skipped: external"; exit 0; fi
+    systemctl suspend
+    ;;
+  *)
+    echo "usage: $0 <battery|ac> <saver|dim|off|sleep>" >&2
+    exit 2
+    ;;
+esac

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Drive kbd_backlight from the AOP ambient light sensor: on in the dark,
 # off in a bright room. Manual Search/LaunchA (or any other LED write)
-# pauses auto until lux moves enough. Lock, lid-close, and eDP DPMS-off
-# pause without treating idle-brightness writes as an override.
+# pauses auto until lux moves enough. Lock, lid-close, eDP DPMS-off and
+# idle dim pause without treating idle-brightness writes as an override.
 
 set -euo pipefail
 
@@ -194,6 +194,11 @@ lid_closed() {
   ((raw < LID_CLOSED_ANGLE))
 }
 
+# asahi-idle-brightness holds saved levels while idle-dimmed/off.
+idle_dimmed() {
+  compgen -G "${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-brightness/*" >/dev/null
+}
+
 internal_display_off() {
   local json
   json=$(hyprctl monitors -j 2>/dev/null) || return 1
@@ -245,7 +250,7 @@ tick() {
 
   # Pause without rewriting last_set so idle-brightness off/restore and the
   # lid bind do not look like a manual override when the session comes back.
-  if session_locked || lid_closed || internal_display_off; then
+  if session_locked || lid_closed || internal_display_off || idle_dimmed; then
     return 0
   fi
 

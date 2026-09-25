@@ -204,7 +204,12 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
 - **Quickshell launch**: never `qs -d` (EPIPE/`qFatal` if the parent is gone). `setsid -f qs -n -c
   <module>`. Bar vanished → `asahi-debug` coredumps first.
 - **Stay awake**: one flag `$XDG_RUNTIME_DIR/asahi-stay-awake`, owned by `asahi-stay-awake`.
-  hypridle listeners run through `unless`.
+  hypridle listeners skip under it (`asahi-idle` checks `status`).
+- **Idle (macOS defaults)**: `hypridle.conf` → `asahi-idle <battery|ac> <saver|dim|off|sleep>`.
+  Battery 1/1.5/2/3 min, AC 3/5/10/11 min: screensaver → half-dim + kbd 10% under it → saver stop,
+  lock, display/kbd off → `systemctl suspend`. Sleep skips while a sink is RUNNING or any non-eDP
+  output is enabled. `asahi-idle wake` (on-resume + after_sleep) undoes all; a step that finishes
+  after a wake re-runs it. kbd-auto pauses while `asahi-idle-brightness` holds saved state.
 - **Timers**: `asahi-timer add <dur> [label]` = transient `systemd-run --user --on-active`.
   Launcher `:timer 10m tea` (`arg_commands.js`, tested).
 - **Window pop**: Super+O → `asahi-window-pop` (float/resize/center/pin/`pop`); second press
