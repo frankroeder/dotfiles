@@ -18,7 +18,12 @@ Scope {
   property bool historyVisible: false
   property bool dndEnabled: false
   readonly property int historyCount: history.length
-  readonly property int maxHistory: 40
+  // Persisted across shell restarts; unread = arrived after the sheet was last opened/closed.
+  property real lastSeen: 0
+  property bool historyLoaded: false
+  readonly property int unreadCount: history.filter(e => (e.ts || 0) > lastSeen).length
+  readonly property string historyPath: Quickshell.env("HOME") + "/.local/state/asahi/notifications.json"
+  readonly property int maxHistory: 100
   readonly property int maxToasts: 4
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
 
@@ -63,9 +68,37 @@ Scope {
       summary: stripMarkup(n.summary || ""),
       body: stripMarkup(n.body || ""),
       urgency: Number(n.urgency) || 1,
+      ts: Date.now(),
       time: Qt.formatTime(new Date(), "HH:mm")
     }
   }
+
+  // Day, not hour: what you remember about a notification you hunt for is the day.
+  function dayLabel(ts) {
+    const d = new Date(ts || 0)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const days = Math.round((today - new Date(d).setHours(0, 0, 0, 0)) / 86400000)
+    if (days <= 0) return "Today"
+    if (days === 1) return "Yesterday"
+    if (days < 7) return Qt.formatDate(d, "dddd")
+    return Qt.formatDate(d, "d MMM yyyy")
+  }
+
+  // Focus the sender's window by class. Never runs anything the notification carried.
+  function focusApp(entry) {
+    Quickshell.execDetached(["sh", "-c",
+      "a=$(hyprctl clients -j | jq -r --arg d \"$1\" --arg n \"$2\" " +
+      "'[.[] | select((.class | ascii_downcase) as $c | $c == ($d | ascii_downcase) or $c == ($n | ascii_downcase))][0].address // empty'); " +
+      "[ -n \"$a\" ] && hyprctl dispatch \"hl.dsp.focus({ window = \\\"address:$a\\\" })\"",
+      "sh", entry.desktopEntry || "", entry.appName || ""])
+  }
+
+  function save() {
+    if (root.historyLoaded) histFile.setText(JSON.stringify({ lastSeen: root.lastSeen, history: root.history }))
+  }
+  onHistoryChanged: save()
+  onLastSeenChanged: save()
 
   function addHistory(entry) {
     let next = root.history.slice()
@@ -97,6 +130,7 @@ Scope {
   function toggleHistory() {
     historyScreen = focusedScreen()
     historyVisible = !historyVisible
+    lastSeen = Date.now()
   }
 
   function clearHistory() {
@@ -131,6 +165,25 @@ Scope {
     onNotification: (n) => root.handleNotification(n)
   }
 
+  // Private file (0600, non-atomic writes keep the mode); load only after it exists.
+  Process {
+    running: true
+    command: ["sh", "-c", "umask 077; mkdir -p \"$(dirname \"$1\")\" && touch \"$1\" && chmod 600 \"$1\"", "sh", root.historyPath]
+    onExited: histFile.path = root.historyPath
+  }
+
+  FileView {
+    id: histFile
+    atomicWrites: false
+    onLoaded: {
+      const raw = histFile.text().trim()
+      const saved = raw ? JSON.parse(raw) : {}
+      root.lastSeen = saved.lastSeen || 0
+      root.historyLoaded = true
+      root.history = root.history.concat(saved.history || []).slice(0, root.maxHistory)
+    }
+  }
+
   IpcHandler {
     target: "notifications"
     function toggleHistory(): void { root.toggleHistory() }
@@ -141,15 +194,18 @@ Scope {
   }
 
   PanelWindow {
-    visible: root.toasts.length > 0
+    // Top-right under the bar; the open sheet takes that spot, so toasts wait.
+    visible: root.toasts.length > 0 && !root.historyVisible
     color: "transparent"
     screen: root.toastScreen
-    exclusionMode: ExclusionMode.Ignore
+    // Normal + zone 0: sit below the bar's exclusive zone (44 or notch height).
+    exclusionMode: ExclusionMode.Normal
+    exclusiveZone: 0
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "quickshell-notifications"
-    anchors { bottom: true; right: true }
+    anchors { top: true; right: true }
     // Right edge shared with the history sheet and the bar (barEdgeMargin).
-    margins { bottom: 56; right: Style.barEdgeMargin }
+    margins { top: 8; right: Style.barEdgeMargin }
     implicitWidth: 380
     implicitHeight: toastColumn.implicitHeight
 
@@ -166,6 +222,7 @@ Scope {
           compact: false
           timeout: true
           onDismiss: root.removeToast(modelData.key)
+          onActivated: { root.focusApp(modelData); root.removeToast(modelData.key) }
         }
       }
     }
@@ -175,11 +232,12 @@ Scope {
     visible: root.historyVisible
     color: "transparent"
     screen: root.historyScreen
-    exclusionMode: ExclusionMode.Ignore
+    exclusionMode: ExclusionMode.Normal
+    exclusiveZone: 0
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "quickshell-notification-center"
     anchors { top: true; right: true }
-    margins { top: 52; right: Style.barEdgeMargin }
+    margins { top: 8; right: Style.barEdgeMargin }
     implicitWidth: 420
     // Grow with the list up to a cap instead of a fixed tall sheet.
     implicitHeight: Math.max(180, Math.min(560, historyColumn.implicitHeight + historyHeader.implicitHeight + 14 * 2 + 21))
@@ -273,12 +331,31 @@ Scope {
 
             Repeater {
               model: root.history
-              delegate: NotificationCard {
+              delegate: ColumnLayout {
+                required property var modelData
+                required property int index
+                readonly property string day: root.dayLabel(modelData.ts)
                 Layout.fillWidth: true
-                entry: modelData
-                compact: true
-                timeout: false
-                onDismiss: root.history = root.history.filter(item => item.key !== modelData.key)
+                spacing: 6
+
+                Text {
+                  visible: index === 0 || root.dayLabel(root.history[index - 1].ts) !== parent.day
+                  Layout.topMargin: index === 0 ? 0 : 6
+                  text: parent.day
+                  font.family: Style.menuSans
+                  font.pixelSize: 11
+                  font.weight: Font.DemiBold
+                  color: Style.menuInkMuted
+                }
+
+                NotificationCard {
+                  Layout.fillWidth: true
+                  entry: modelData
+                  compact: true
+                  timeout: false
+                  onDismiss: root.history = root.history.filter(item => item.key !== modelData.key)
+                  onActivated: { root.focusApp(modelData); root.historyVisible = false }
+                }
               }
             }
           }
@@ -320,6 +397,7 @@ Scope {
     readonly property color accent: root.urgencyColor(entry ? entry.urgency : 1)
     readonly property bool critical: !!entry && entry.urgency === 2
     signal dismiss()
+    signal activated()
 
     color: card.compact ? Style.m3container : Style.menuBg
     radius: Style.menuRadiusMd
@@ -333,6 +411,14 @@ Scope {
       running: card.timeout
       repeat: false
       onTriggered: card.dismiss()
+    }
+
+    // Under the row, so the close button (declared later) still wins its clicks.
+    MouseArea {
+      anchors.fill: parent
+      acceptedButtons: Qt.LeftButton | Qt.RightButton
+      cursorShape: Qt.PointingHandCursor
+      onClicked: (mouse) => mouse.button === Qt.RightButton ? card.dismiss() : card.activated()
     }
 
     Rectangle {

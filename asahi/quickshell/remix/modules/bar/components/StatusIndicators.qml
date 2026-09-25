@@ -421,11 +421,11 @@ RowLayout {
       }
 
       Text {
-        text: root.notificationCenter ? root.notificationCenter.historyCount : 0
+        text: root.notificationCenter ? root.notificationCenter.unreadCount : 0
         font.family: Style.fontFamily
         font.pixelSize: 11
         color: Style.textMuted
-        visible: root.notificationCenter && root.notificationCenter.historyCount > 0
+        visible: root.notificationCenter && root.notificationCenter.unreadCount > 0
       }
     }
 

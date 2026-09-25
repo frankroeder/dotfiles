@@ -25,7 +25,7 @@ ShellRoot {
 
   System.Osd { id: osd }
   System.DimOverlay { id: dimOverlay }
-  System.NotificationCenter { id: notificationCenter }
+  System.NotificationCenter { id: notifCenter }
   System.PkgManager {}
 
   // Bound in hypr/conf.d/bindings.lua as hl.dsp.global("quickshell:recorder-panel").
@@ -72,7 +72,7 @@ ShellRoot {
         id: barContent
         anchors.fill: parent
         barScreen: modelData
-        notificationCenter: notificationCenter
+        notificationCenter: notifCenter
         isRecording: shell.isRecording
         calendarOpen: shell.calendarOpen
         launcherOpen: shell.launcherOpen

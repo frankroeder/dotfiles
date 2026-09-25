@@ -174,7 +174,11 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
 - **sshd**: Fedora enables it; disable and mask `sshd.service` + `sshd.socket`. Re-check after a
   release upgrade.
 - **Notification images**: `localImage()` only `image:`/`file:`/`/…`. Summary/body are
-  `Text.PlainText` (no `<img src>`).
+  `Text.PlainText` (no `<img src>`). Toasts top-right, `ExclusionMode.Normal` + zone 0 (clears
+  bar/notch). History persists to `~/.local/state/asahi/notifications.json` (0600, non-atomic
+  writes keep the mode). Bell badge = unread since last sheet toggle. Click = focus sender by
+  class (never run notification actions); right-click dismisses. shell.qml id is `notifCenter` —
+  `notificationCenter: notificationCenter` self-binds to null.
 - **bash 5.3 / trailing `&&`**: an EXIT trap or function whose last command is `[[ -n $x ]] && …`
   returns 1 when `$x` is empty; under `set -e` that kills the script (`asahi-network` lost JSON
   this way). End traps on `|| true` / `if`; optional tail lines in `if` blocks. Interactive zsh
