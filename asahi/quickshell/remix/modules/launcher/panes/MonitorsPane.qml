@@ -65,7 +65,7 @@ Item {
     quickMonitorsRoot.applyRevertable(calls.join("\n"), "Mirroring to " + src.name + "...")
   }
   // A mirrored output leaves the layout, so the workspace rules pinned to it
-  // (ws 1-4 → HDMI-A-1 in monitors.lua) have no display. Reload is the way
+  // (ws 1-4 → the external in monitors.lua) have no display. Reload is the way
   // back: it wipes eval'd rules and its config.reloaded hook re-runs
   // asahi-hdmi sync / monitor-scale apply / clamshell apply.
   function unmirrorMonitors() { quickMonitorsRoot.revertLayout("Unmirroring...") }

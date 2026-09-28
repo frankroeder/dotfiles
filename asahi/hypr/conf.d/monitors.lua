@@ -7,9 +7,9 @@ hl.monitor {
   scale = 1.333334,
 }
 
--- Both externals arrive as HDMI-A-1. Rules are desc:-keyed so a sink
--- swap cannot inherit the other panel's geometry. asahi-hdmi reapplies
--- the matching block after link training (and on sync if identity drifted).
+-- Known panels are desc:-keyed, so HDMI-A-1 and a USB-C DP-* share
+-- geometry. asahi-hdmi reapplies the matching block after HDMI link
+-- training (and on sync if identity drifted).
 --
 -- LG UltraFine: left of the laptop, 4K @ 1.875 (logical 2048x1152).
 -- x must be -2048, not -2560 (that was 3840/1.5 and left a 512px cursor gap).
@@ -44,10 +44,8 @@ hl.monitor {
   scale = 1.5,
 }
 
-hl.workspace_rule { workspace = "1", monitor = "HDMI-A-1" }
-hl.workspace_rule { workspace = "2", monitor = "HDMI-A-1" }
-hl.workspace_rule { workspace = "3", monitor = "HDMI-A-1" }
-hl.workspace_rule { workspace = "4", monitor = "HDMI-A-1" }
+-- Workspaces 1-4 follow the external that is actually up. A static
+-- HDMI-A-1 name misses USB-C (DP-1). Retarget on add, remove, and reload.
 
 -- Lid: asahi-clamshell disables eDP-1 while an external is enabled (clamshell,
 -- persisted for the session). Without an external it is a no-op — logind
@@ -82,17 +80,74 @@ local function hdmi_cmd(action, m)
   hl.exec_cmd(hdmi .. " " .. action .. " " .. n)
 end
 
+-- prefer is the output that just appeared. A name not yet in the layout
+-- (HDMI still disabled) is remembered so the next switch creates 1-4 there.
+local function external_target(prefer)
+  local monitors = hl.get_monitors()
+  local function listed(name)
+    if type(monitors) ~= "table" or name == "" then
+      return false
+    end
+    for _, m in ipairs(monitors) do
+      if monitor_name(m) == name then
+        return true
+      end
+    end
+    return false
+  end
+
+  local want = monitor_name(prefer)
+  if want == "eDP-1" then
+    want = ""
+  end
+  if listed(want) then
+    return want, true
+  end
+  if type(monitors) == "table" then
+    for _, m in ipairs(monitors) do
+      local n = monitor_name(m)
+      if n ~= "" and n ~= "eDP-1" then
+        return n, true
+      end
+    end
+  end
+  if want ~= "" then
+    return want, false
+  end
+  return "", false
+end
+
+local function pin_external_workspaces(prefer)
+  local n, live = external_target(prefer)
+  if n == "" then
+    return
+  end
+  for i = 1, 4 do
+    local id = tostring(i)
+    hl.workspace_rule { workspace = id, monitor = n }
+    if live then
+      local ws = hl.get_workspace(id)
+      if ws and monitor_name(ws.monitor) ~= n then
+        hl.dispatch(hl.dsp.workspace.move { workspace = id, monitor = n })
+      end
+    end
+  end
+end
+
 hl.on("monitor.added", function(m)
   hdmi_cmd("added", m)
+  pin_external_workspaces(m)
 end)
 hl.on("monitor.removed", function(m)
   hdmi_cmd("removed", m)
   -- External gone while in clamshell: bring eDP-1 back, never zero outputs.
   hl.exec_cmd(clamshell .. " apply")
+  pin_external_workspaces()
 end)
 -- A reload re-applies the static rules above; restore the session overrides.
 hl.on("config.reloaded", function()
   hl.exec_cmd(hdmi .. " sync")
   hl.exec_cmd(scale .. " apply")
   hl.exec_cmd(clamshell .. " apply")
+  pin_external_workspaces()
 end)
