@@ -50,7 +50,7 @@ class TestApplyWriters(unittest.TestCase):
         text = path.read_text(encoding="utf-8")
         self.assertIn("$lock_bg = rgb(", text)
         self.assertIn("$lock_accent = rgb(", text)
-        self.assertIn("$lock_outer = rgba(", text)
+        self.assertIn("$lock_check = rgba(", text)
 
     def test_gtk_css_adwaita(self):
         path = self.root / "gtk.css"

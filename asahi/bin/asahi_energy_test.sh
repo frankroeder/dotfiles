@@ -48,8 +48,8 @@ echo "$out" | jq -e '.threshold_end == 80' >/dev/null || fail_at "battery thresh
 echo "$out" | jq -e '.percentage == 80' >/dev/null || fail_at "battery percentage 80"
 echo "$out" | jq -e '.class | index("holding")' >/dev/null || fail_at "battery class includes holding"
 echo "$out" | grep -q 'Holding at 75-80%' || fail_at "battery tooltip holding label"
-text=$(ASAHI_POWER_SUPPLY_PATH="$tmp/power" "$ROOT/asahi-battery" text)
-echo "$text" | grep -q '%' || fail_at "asahi-battery text has percent"
+lockline=$(ASAHI_POWER_SUPPLY_PATH="$tmp/power" "$ROOT/asahi-battery" lock)
+echo "$lockline" | grep -qx '80% · Holding' || fail_at "battery lock line while holding (got $lockline)"
 pass "asahi-battery reports charge-hold on macsmc-battery"
 
 printf 'Discharging\n' >"$bat/status"
@@ -57,6 +57,12 @@ printf '0\n' >"$ac/online"
 printf '100\n' >"$bat/charge_control_end_threshold"
 out=$(ASAHI_POWER_SUPPLY_PATH="$tmp/power" "$ROOT/asahi-battery")
 echo "$out" | jq -e '.holding == false' >/dev/null || fail_at "battery not holding while discharging"
+lockline=$(ASAHI_POWER_SUPPLY_PATH="$tmp/power" "$ROOT/asahi-battery" lock)
+echo "$lockline" | grep -qx '80% · Discharging' || fail_at "battery lock line while discharging (got $lockline)"
+printf 'Charging\n' >"$bat/status"
+printf '1\n' >"$ac/online"
+lockline=$(ASAHI_POWER_SUPPLY_PATH="$tmp/power" "$ROOT/asahi-battery" lock)
+echo "$lockline" | grep -qx '80% · Charging' || fail_at "battery lock line while charging (got $lockline)"
 pass "asahi-battery not holding while discharging"
 
 # --- asahi-charge-limit on mock sysfs ---

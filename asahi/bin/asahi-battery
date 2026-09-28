@@ -109,11 +109,6 @@ case "$status" in
 esac
 battery_text="$text ${capacity}%"
 
-if [ "${1:-}" = "text" ]; then
-  printf '%s\n' "$battery_text"
-  exit 0
-fi
-
 # Charge-hold: AC present, a cap below 100, and the pack is no longer
 # taking meaningful current (Not charging / Full-below-100 / trickle at cap).
 holding=false
@@ -137,6 +132,12 @@ if [ "$ac_online" = "1" ] && [ -n "$end_num" ] && [ "$end_num" -lt 99 ]; then
 fi
 display_status="$status"
 [ "$holding" = true ] && display_status="Holding"
+
+# Lock screen line: percent plus the charge state in words.
+if [ "${1:-}" = "lock" ]; then
+  printf '%s%% · %s\n' "$capacity" "$display_status"
+  exit 0
+fi
 
 status_class="$(printf "%s" "$display_status" | tr '[:upper:] ' '[:lower:]-')"
 classes_json="[\"$status_class\"]"

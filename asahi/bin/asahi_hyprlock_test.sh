@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Hyprlock.conf still wires wallpaper, battery, and uptime; every lock path
-# goes through the asahi-lock restart guard.
+# The session lock is hyprlock. Every lock path goes through the asahi-lock
+# restart guard.
 
 set -euo pipefail
 
@@ -10,16 +10,27 @@ pass() { printf 'ok  %s\n' "$1"; }
 fail_at() { printf 'FAIL %s\n' "$1"; fail=1; }
 
 conf="$ROOT/../hypr/hyprlock.conf"
-if grep -q 'lock-wallpaper' "$conf" && grep -q 'asahi-battery text' "$conf" && grep -q 'uptime -p' "$conf"; then
-  pass "hyprlock.conf has wallpaper, battery, uptime"
+if grep -q 'asahi-battery lock' "$conf" && grep -q '/proc/uptime' "$conf" && grep -q '/etc/hostname' "$conf"; then
+  pass "hyprlock.conf has uptime, hostname, and battery charge state"
 else
-  fail_at "hyprlock.conf missing wallpaper/battery/uptime"
+  fail_at "hyprlock.conf missing uptime/hostname/battery"
 fi
-
-if grep -q 'asahi-theme/hyprlock.conf' "$conf" && grep -q '\$lock_accent' "$conf"; then
+if grep -q 'blur_passes = 0' "$conf" && ! grep -q 'brightness =' "$conf"; then
+  pass "wallpaper dim is a veil, not blur brightness"
+else
+  fail_at "hyprlock.conf dims with blur brightness, which does not run when blur is off"
+fi
+if grep -q 'asahi-theme/hyprlock.conf' "$conf" && grep -q '\$lock_bg' "$conf" && grep -q 'lock-wallpaper' "$conf"; then
   pass "hyprlock.conf sources wallpaper-adaptive colors"
 else
-  fail_at "hyprlock.conf missing asahi-theme color source"
+  fail_at "hyprlock.conf missing theme or wallpaper"
+fi
+
+lock="$ROOT/asahi-lock"
+if grep -q 'hyprlock "$@"' "$lock" && grep -q 'run --no-fade-in' "$lock"; then
+  pass "asahi-lock runs hyprlock"
+else
+  fail_at "asahi-lock does not run hyprlock"
 fi
 
 theme="$ROOT/../hypr/hyprlock-theme.conf"
@@ -46,6 +57,17 @@ if grep -q 'systemd-inhibit --what=handle-lid-switch --who=asahi-clamshell' "$RO
   pass "asahi-clamshell holds a handle-lid-switch inhibitor"
 else
   fail_at "asahi-clamshell missing lid inhibitor"
+fi
+
+# The uptime program is the one in the conf, not a copy of it.
+uptime_prog=$(sed -n "s/.*awk '\\(.*\\)' \\/proc\\/uptime.*/\\1/p" "$conf")
+uptime_day=$(awk "$uptime_prog" <<<"90061 0")
+uptime_hour=$(awk "$uptime_prog" <<<"3661 0")
+uptime_min=$(awk "$uptime_prog" <<<"61 0")
+if [ "$uptime_day" = "up  1d  01h  01m" ] && [ "$uptime_hour" = "up  1h  01m" ] && [ "$uptime_min" = "up  1m" ]; then
+  pass "uptime label formats days, hours, and minutes"
+else
+  fail_at "uptime label formatted as [$uptime_day] [$uptime_hour] [$uptime_min]"
 fi
 
 # Fake hyprlock: fails twice, then unlocks (exit 0). The guard must run it 3x.
