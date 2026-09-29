@@ -109,7 +109,7 @@ sensitive_clipboard() {
 browser_focused() {
   local class
   class="$(hyprctl activewindow -j 2>/dev/null | jq -r '.class // ""' 2>/dev/null || true)"
-  [[ ${class,,} == *librewolf* || ${class,,} == *firefox* ]]
+  [[ ${class,,} == *firefox* ]]
 }
 
 # A single password-shaped token: upper + lower + digit/symbol, 12-128 chars,

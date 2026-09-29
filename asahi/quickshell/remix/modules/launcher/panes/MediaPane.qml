@@ -118,20 +118,18 @@ Item {
   }
   // Default switches are PERSISTED by WirePlumber (default-nodes state), so
   // a stray tap can silently break audio for every future stream — no-op on
-  // the already-active device and always notify so the change is visible.
+  // the already-active device.
   function setDefaultSink(node) {
     if (!node) return
     const key = QuickModels.audioNodeKey(node)
     if (key && key === QuickModels.audioNodeKey(quickMediaRoot.shownSink)) return
     Pipewire.preferredDefaultAudioSink = node
-    Quickshell.execDetached(["notify-send", "-a", "Audio", "Output device", QuickModels.nodeLabel(node)])
   }
   function setDefaultSource(node) {
     if (!node) return
     const key = QuickModels.audioNodeKey(node)
     if (key && key === QuickModels.audioNodeKey(quickMediaRoot.shownSource)) return
     Pipewire.preferredDefaultAudioSource = node
-    Quickshell.execDetached(["notify-send", "-a", "Audio", "Input device", QuickModels.nodeLabel(node)])
   }
   function startCava() {
     if (quickMediaRoot.cavaRunning) return

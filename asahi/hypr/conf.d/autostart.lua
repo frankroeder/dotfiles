@@ -6,7 +6,7 @@ hl.on("hyprland.start", function()
   -- gnome-keyring owns org.freedesktop.secrets (kwallet is disabled). SSH stays with keychain.
   hl.exec_cmd "~/.dotfiles/asahi/bin/asahi-gnome-keyring"
   -- Fallback dark until asahi-autotheme reads wallpaper lightness (gsettings + GTK + icons).
-  -- LibreWolf / GTK4 / Qt-via-gtk3 / nvim follow this portal signal, not quickshell hex.
+  -- Firefox / GTK4 / Qt-via-gtk3 / nvim follow this portal signal, not quickshell hex.
   hl.exec_cmd "gsettings set org.gnome.desktop.interface color-scheme prefer-dark"
   hl.exec_cmd "gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark"
   hl.exec_cmd "gsettings set org.gnome.desktop.interface icon-theme Papirus-Dark"

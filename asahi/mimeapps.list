@@ -1,4 +1,8 @@
 [Default Applications]
+text/html=org.mozilla.firefox.desktop
+application/xhtml+xml=org.mozilla.firefox.desktop
+x-scheme-handler/http=org.mozilla.firefox.desktop
+x-scheme-handler/https=org.mozilla.firefox.desktop
 text/plain=org.libreoffice.LibreOffice.writer.desktop
 application/x-extension-txt=org.libreoffice.LibreOffice.writer.desktop
 application/pdf=org.kde.okular.desktop
@@ -35,6 +39,10 @@ x-scheme-handler/grokbot=grok-bot.desktop
 x-scheme-handler/sand=grok-bot.desktop
 
 [Added Associations]
+text/html=org.mozilla.firefox.desktop;
+application/xhtml+xml=org.mozilla.firefox.desktop;
+x-scheme-handler/http=org.mozilla.firefox.desktop;
+x-scheme-handler/https=org.mozilla.firefox.desktop;
 text/plain=org.libreoffice.LibreOffice.writer.desktop;
 application/x-extension-txt=org.libreoffice.LibreOffice.writer.desktop;
 inode/directory=thunar.desktop;

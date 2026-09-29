@@ -13,7 +13,6 @@ yabai -m rule --add app='Zotero' title='Find Full Text' manage=off sub-layer=abo
 
 yabai -m rule --add title='(Picture in Picture|Picture-in-Picture)' manage=off
 yabai -m rule --add app="^Orion( RC)?$" title="^(General|Appearance|Browsing|Sync|(Password|Website|Extension)s|Privacy|Advanced|Completions)$" manage=off
-yabai -m rule --add app="^LibreWolf$" title="^(Settings|Preferences|General|Privacy|Advanced|Sync|Appearance|About).*" manage=off
 
 FLOAT_APPS="^(Dictionary|Podcasts|App Store|Calendar|Photos|Stickies|Vicinae|LuLu|Python|Archive Utility|Calculator)"
 yabai -m rule --add app="${FLOAT_APPS}" manage=off sub-layer=auto

@@ -304,19 +304,6 @@ comp_macos_apps() {
     bash "$DOTFILES/scripts/sketchybar_app_font.sh"
   fi
   replace_with_symlink "$DOTFILES/skhd" "$HOME/.config/skhd"
-  print_step "Linking LibreWolf config"
-  # Official macOS overrides path (not Application Support): https://librewolf.net/docs/settings/
-  mkdir -p "$HOME/.librewolf"
-  link_if_exists "$DOTFILES/shared/librewolf/librewolf.overrides.cfg" "$HOME/.librewolf/librewolf.overrides.cfg"
-  local profile
-  for profile in "$HOME/Library/Application Support/LibreWolf/Profiles/"*.default*; do
-    [ -d "$profile" ] || continue
-    mkdir -p "$profile/chrome"
-    ln -sfn "$DOTFILES/shared/librewolf/userChrome.css" "$profile/chrome/userChrome.css" || true
-    if [ ! -f "$profile/chrome/asahi-adaptive.css" ]; then
-      cp -f "$DOTFILES/shared/librewolf/asahi-adaptive.css" "$profile/chrome/asahi-adaptive.css" || true
-    fi
-  done
   if have sioyek; then
     print_ok "sioyek already installed"
   else
@@ -680,35 +667,33 @@ comp_asahi_desktop() {
       cp -f "$src" "$dest"
     fi
   done
-  mkdir -p "$HOME/.config/librewolf/librewolf"
-  link_if_exists "$DOTFILES/shared/librewolf/librewolf.overrides.cfg" "$HOME/.config/librewolf/librewolf/librewolf.overrides.cfg"
-  local profile
-  for profile in "$HOME"/.config/librewolf/librewolf/*.default*; do
-    [ -d "$profile" ] || continue
-    mkdir -p "$profile/chrome"
-    ln -sfn "$DOTFILES/shared/librewolf/userChrome.css" "$profile/chrome/userChrome.css"
-    # Copy (not symlink): asahi-autotheme overwrites this from the wallpaper palette.
-    if [ ! -f "$profile/chrome/asahi-adaptive.css" ]; then
-      cp -f "$DOTFILES/shared/librewolf/asahi-adaptive.css" "$profile/chrome/asahi-adaptive.css"
-    fi
-    mkdir -p "$profile/extensions"
-    printf '%s\n' "$DOTFILES/shared/librewolf/asahi-theme" > "$profile/extensions/asahi-theme@dotfiles.local"
-  done
-  local host_manifest hosts
-  host_manifest=$(mktemp)
-  cat >"$host_manifest" <<EOF
+  # Flatpak Firefox live theme: CaelestiaFox (signed, AMO) <- xdg-native-messaging-proxy <- asahi-firefox-theme.
+  # Host manifest lives on the host; the proxy searches ~/.config/mozilla/native-messaging-hosts.
+  mkdir -p "$HOME/.config/mozilla/native-messaging-hosts"
+  cat >"$HOME/.config/mozilla/native-messaging-hosts/caelestiafox.json" <<EOF
 {
-  "name": "asahi_theme",
-  "description": "Push the Asahi palette into LibreWolf.",
-  "path": "$DOTFILES/asahi/bin/asahi-librewolf-theme",
+  "name": "caelestiafox",
+  "description": "Push the Asahi palette into Firefox.",
+  "path": "$DOTFILES/asahi/bin/asahi-firefox-theme",
   "type": "stdio",
-  "allowed_extensions": ["asahi-theme@dotfiles.local"]
+  "allowed_extensions": ["caelestiafox@caelestia.org"]
 }
 EOF
-  hosts="$HOME/.librewolf/native-messaging-hosts"
-  mkdir -p "$hosts"
-  cp -f "$host_manifest" "$hosts/asahi_theme.json"
-  rm -f "$host_manifest"
+  local profile found=0
+  for profile in "$HOME"/.var/app/org.mozilla.firefox/config/mozilla/firefox/*.default*; do
+    [ -d "$profile" ] || continue
+    found=1
+    # Copies, not symlinks: the sandbox cannot see $DOTFILES.
+    cp -f "$DOTFILES/asahi/firefox/user.js" "$profile/user.js"
+    mkdir -p "$profile/extensions"
+    if [ ! -f "$profile/extensions/caelestiafox@caelestia.org.xpi" ]; then
+      curl -fsSL https://addons.mozilla.org/firefox/downloads/latest/caelestiafox/latest.xpi \
+        -o "$profile/extensions/caelestiafox@caelestia.org.xpi"
+    fi
+  done
+  if [ "$found" = 0 ]; then
+    print_warning "No Firefox profile yet; start Firefox once, then rerun for the adaptive theme"
+  fi
   for profile in "$HOME"/.thunderbird/*.default*; do
     [ -d "$profile" ] || continue
     ln -sfn "$DOTFILES/asahi/thunderbird/user.js" "$profile/user.js"

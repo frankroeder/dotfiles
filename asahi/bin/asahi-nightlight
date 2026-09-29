@@ -87,7 +87,6 @@ set_identity() {
   ensure_daemon || true
   hyprctl hyprsunset identity >/dev/null 2>&1 || true
   write_state false "$ON_TEMP"
-  notify-send -a nightlight -t 1200 "Night light off"
 }
 
 set_temperature() {
@@ -97,7 +96,6 @@ set_temperature() {
     return 1
   fi
   write_state true "$temp"
-  notify-send -a nightlight -t 1200 "Night light ${temp}K"
 }
 
 cmd="${1:-toggle}"

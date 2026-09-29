@@ -1,7 +1,7 @@
 """Build a semantic desktop palette from wallpaper representatives.
 
 Pipeline mirrors omagen's Source direction (closest-to-source) with contrast
-targets suited to Hyprland / Quickshell / Ghostty / LibreWolf.
+targets suited to Hyprland / Quickshell / Ghostty / Firefox.
 """
 
 from __future__ import annotations

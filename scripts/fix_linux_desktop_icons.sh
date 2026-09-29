@@ -20,7 +20,6 @@ fix_icon_name() {
   sed "s|^Icon=${icon_name}\\.png$|Icon=${icon_name}|" "$desktop_path" > "$local_path"
 }
 
-fix_icon_name "librewolf.desktop" "librewolf"
 # rm -f "${LOCAL_APPS_DIR}/thunderbird.desktop"
 
 if [[ -d "${FLATPAK_EXPORT_DIR}/applications" ]]; then

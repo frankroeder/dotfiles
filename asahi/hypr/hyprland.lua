@@ -4,7 +4,7 @@ configDir = os.getenv "HOME" .. "/.config/hypr"
 dotfilesDir = os.getenv "HOME" .. "/.dotfiles"
 
 terminal = "ghostty"
-browser = "librewolf"
+browser = "org.mozilla.firefox"
 filemanager = "thunar"
 mainMod = "SUPER"
 

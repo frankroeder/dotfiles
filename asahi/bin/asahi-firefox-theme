@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Native host for the asahi-theme LibreWolf extension.
+# Native host "caelestiafox" for the CaelestiaFox extension (AMO, signed).
+# Flatpak Firefox reaches it through xdg-native-messaging-proxy, so this runs on the host.
 # Speaks the browser protocol: 4-byte little-endian length, then JSON.
-# Sends colors.json now, then again whenever that file is replaced.
-#
-#   asahi-librewolf-theme [colors.json]
+# Sends firefox.json now, then again whenever that file is replaced.
+# Firefox passes the manifest path and extension id as arguments; both are ignored.
 
 set -euo pipefail
 
-colors=${1:-${XDG_STATE_HOME:-$HOME/.local/state}/asahi-theme/colors.json}
+scheme=${XDG_STATE_HOME:-$HOME/.local/state}/asahi-theme/firefox.json
 
 send() {
   local msg=$1
@@ -20,16 +20,16 @@ send() {
 
 send_file() {
   local msg
-  [ -f "$colors" ] || return 0
-  msg=$(jq -c . "$colors")
+  [ -f "$scheme" ] || return 0
+  msg=$(jq -c . "$scheme")
   [ -n "$msg" ] || return 0
   send "$msg"
 }
 
 send_file
 
-dir=$(dirname "$colors")
-base=$(basename "$colors")
+dir=$(dirname "$scheme")
+base=$(basename "$scheme")
 mkdir -p "$dir"
 inotifywait -q -m -e close_write,moved_to,create --format '%f' "$dir" | while read -r file; do
   if [ "$file" = "$base" ]; then

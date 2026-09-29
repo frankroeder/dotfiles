@@ -2,7 +2,7 @@
 """Generate and apply an Asahi desktop theme from a wallpaper image.
 
 Inspired by prettyletto/omagen: image → representatives → semantic palette →
-Quickshell / Ghostty / LibreWolf / Hyprland.
+Quickshell / Ghostty / Firefox / Hyprland.
 """
 
 from __future__ import annotations
@@ -65,7 +65,7 @@ def main() -> int:
     parser.add_argument(
         "--preview",
         action="store_true",
-        help="print palette JSON and retheme Ghostty only (asahi-adaptive + CSS + reload-config; no GTK/LibreWolf/colors.json)",
+        help="print palette JSON and retheme Ghostty only (asahi-adaptive + CSS + reload-config; no GTK/Firefox/colors.json)",
     )
     parser.add_argument("--no-apply", action="store_true", help="write files but skip live apply")
     parser.add_argument("--json", action="store_true", help="print colors.json to stdout")

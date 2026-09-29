@@ -435,7 +435,7 @@ Scope {
     copyClear.restart()
     Quickshell.execDetached([
       "sh", "-c",
-      "notify-send -a screenshot -t 900 'Copied' \"$(basename \"$1\")\"; exec wl-copy --foreground -t image/png < \"$1\"",
+      "exec wl-copy --foreground -t image/png < \"$1\"",
       "sh", p
     ])
   }
@@ -449,7 +449,7 @@ Scope {
     root.videos = (root.videos || []).filter(s => s.path !== p)
     Quickshell.execDetached([
       "sh", "-c",
-      "rm -f -- \"$1\" && notify-send -a screenshot -t 900 'Deleted' \"$(basename \"$1\")\"",
+      "rm -f -- \"$1\"",
       "sh", p
     ])
     Qt.callLater(root.scanShots)

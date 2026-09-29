@@ -9,4 +9,3 @@ if [[ "$systeminfo" == *"configProvider: hyprlang"* ]]; then
 fi
 
 hyprctl reload
-notify-send -a Hyprland -t 1500 "Hyprland reloaded"

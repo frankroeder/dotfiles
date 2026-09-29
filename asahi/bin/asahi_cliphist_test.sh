@@ -83,20 +83,20 @@ if command -v cliphist >/dev/null 2>&1; then
   run() { CLIPHIST_DB_PATH="$tmp/db" XDG_RUNTIME_DIR="$tmp" PATH="$tmp:$PATH" CLIPBOARD_STATE=data FAKE_CLASS="$1" "$CLIP" store; }
   pw='Tactful-Cartel9-Spinach'
   has() { CLIPHIST_DB_PATH="$tmp/db" cliphist list | grep -qF -- "$1"; }
-  # Proton flow: password copied in LibreWolf is dropped, its auto-clear ("") must
+  # Proton flow: password copied in Firefox is dropped, its auto-clear ("") must
   # not delete the entry before it.
   printf 'keep me' | run com.mitchellh.ghostty
-  printf '%s' "$pw" | run librewolf
-  if has "$pw"; then fail_at "password-shaped browser copy was stored"; else pass "password-shaped token copied in LibreWolf is dropped"; fi
-  printf '' | run librewolf
+  printf '%s' "$pw" | run org.mozilla.firefox
+  if has "$pw"; then fail_at "password-shaped browser copy was stored"; else pass "password-shaped token copied in Firefox is dropped"; fi
+  printf '' | run org.mozilla.firefox
   if has 'keep me'; then pass "auto-clear after a dropped secret keeps the older entry"; else fail_at "auto-clear deleted an unrelated entry"; fi
   printf '%s' "$pw" | run com.mitchellh.ghostty
   if has "$pw"; then pass "same token from another app is stored"; else fail_at "non-browser token was dropped"; fi
   printf '' | run com.mitchellh.ghostty
   if has "$pw"; then pass "empty write after a non-browser copy deletes nothing"; else fail_at "empty write deleted a non-browser entry"; fi
   # A browser secret the shape check misses (spaces) is removed on auto-clear.
-  printf 'correct horse battery' | run librewolf
-  printf '' | run librewolf
+  printf 'correct horse battery' | run org.mozilla.firefox
+  printf '' | run org.mozilla.firefox
   if has 'correct horse battery'; then fail_at "auto-clear left the stored browser secret"; else pass "auto-clear deletes the stored browser copy"; fi
   if has "$pw" && has 'keep me'; then pass "auto-clear deletes only that entry"; else fail_at "auto-clear deleted older entries"; fi
   if [ -z "$(find "$tmp" -maxdepth 2 -name 'store.*')" ]; then

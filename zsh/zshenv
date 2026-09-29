@@ -19,6 +19,8 @@ path=(
   # user-specific binaries for linux
   $HOME/bin
   $HOME/.local/bin
+  # flatpak app launchers (org.mozilla.firefox)
+  $HOME/.local/share/flatpak/exports/bin
   $path
 )
 
@@ -36,10 +38,10 @@ path=(
 if [[ "$OSTYPE" == "Darwin" ]]; then
   export BROWSER="open"
 elif [[ "$OSTYPE" == "Linux" ]]; then
-  if (( ${+commands[librewolf]} )); then
-    export BROWSER="librewolf"
-  elif (( ${+commands[firefox]} )); then
+  if (( ${+commands[firefox]} )); then
     export BROWSER="firefox"
+  elif (( ${+commands[org.mozilla.firefox]} )); then
+    export BROWSER="org.mozilla.firefox"
   fi
   # Fedora's /etc/profile.d/keychain.sh greps every private key in ~/.ssh
   # (google_compute_engine included) and on interactive login runs

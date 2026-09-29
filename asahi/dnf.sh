@@ -3,11 +3,9 @@
 
 set -euo pipefail
 
-LIBREWOLF_REPO_URL="https://repo.librewolf.net/librewolf.repo"
 FLATHUB_REPO_URL="https://dl.flathub.org/repo/flathub.flatpakrepo"
 FLATPAK_EXPORT_DIR="${HOME}/.local/share/flatpak/exports/share"
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-FEDORA_VERSION="$(rpm -E %fedora)"
 
 # solopasha/hyprland has no fedora-44-aarch64 metadata (404 on --refresh).
 # Hyprland wiki and this machine's packages use the lionheartp fork instead.
@@ -23,16 +21,6 @@ fi
 
 sudo dnf upgrade -y --exclude=quickshell
 sudo dnf remove -y kitty kitty-terminfo || true
-
-if ! sudo dnf repolist --all | grep -q '^librewolf'; then
-  if [ "$FEDORA_VERSION" -ge 41 ]; then
-    # dnf5 (Fedora 41+)
-    sudo dnf config-manager addrepo --from-repofile="$LIBREWOLF_REPO_URL"
-  else
-    # dnf4
-    sudo dnf config-manager --add-repo "$LIBREWOLF_REPO_URL"
-  fi
-fi
 
 sudo dnf makecache --refresh
 
@@ -72,7 +60,6 @@ sudo dnf install -y \
   keychain \
   jq \
   libnotify \
-  librewolf \
   make \
   mpv \
   neovim \
@@ -110,6 +97,7 @@ sudo dnf install -y \
   xdg-desktop-portal \
   xdg-desktop-portal-gtk \
   xdg-desktop-portal-hyprland \
+  xdg-native-messaging-proxy \
   desktop-file-utils \
   qt6-qtwayland \
   zsh
@@ -122,6 +110,7 @@ bash "${DOTFILES_DIR}/asahi/grokbot.sh"
 flatpak remote-add --user --if-not-exists flathub "$FLATHUB_REPO_URL"
 
 FLATPAK_APPS=(
+  org.mozilla.firefox
   com.protonvpn.www
   org.zotero.Zotero
   net.ankiweb.Anki
@@ -133,6 +122,8 @@ flatpak install --user -y flathub "${FLATPAK_APPS[@]}"
 
 # Signal defaults to a plaintext key store; use gnome-keyring (secrets component) instead.
 flatpak override --user --env=SIGNAL_PASSWORD_STORE=gnome-libsecret org.signal.Signal
+# CaelestiaFox reaches asahi-firefox-theme on the host through xdg-native-messaging-proxy.
+flatpak override --user --talk-name=org.freedesktop.NativeMessagingProxy org.mozilla.firefox
 
 bash "${DOTFILES_DIR}/scripts/fix_linux_desktop_icons.sh"
 

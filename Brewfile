@@ -33,8 +33,6 @@ brew "sketchybar", args:  ["HEAD"], restart_service: :changed
 brew "borders"
 brew "blueutil"
 
-cask "librewolf",
-     postinstall: "/usr/bin/xattr -dr com.apple.quarantine /Applications/LibreWolf.app"
 cask "vicinae"
 cask "ghostty"
 cask "musescore"

@@ -16,7 +16,3 @@ for _ in {1..30}; do
 done
 
 "$bin/asahi-start-quickshell"
-
-if command -v notify-send >/dev/null 2>&1; then
-  notify-send -a asahi-restart -t 1500 "quickshell restarted" 2>/dev/null || true
-fi

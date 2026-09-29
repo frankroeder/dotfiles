@@ -16,10 +16,10 @@ from theme.apply import (  # noqa: E402
     preview_ghostty,
     write_btop_theme,
     write_chromium_policy,
+    write_firefox_scheme,
     write_gtk_css,
     write_hyprland_lua,
     write_hyprlock_conf,
-    write_librewolf_css,
 )
 from theme.oklab import from_srgb8  # noqa: E402
 from theme.extract import Representative  # noqa: E402
@@ -69,18 +69,16 @@ class TestApplyWriters(unittest.TestCase):
         data = json.loads(path.read_text(encoding="utf-8"))
         self.assertEqual(data["BrowserThemeColor"], self.palette.background)
 
-    def test_librewolf_leaves_chrome_colors_to_the_extension(self):
-        path = self.root / "librewolf.css"
-        write_librewolf_css(self.palette, path)
-        text = path.read_text(encoding="utf-8")
-        self.assertIn("--asahi-bg:", text)
-        self.assertIn("--background-color-box:", text)
-        # These are what browser.theme.update sets. A copy here would win.
-        self.assertNotIn("--toolbar-field-background-color", text)
-        self.assertNotIn("--urlbarview-background-color-selected", text)
-        for dead in ("--urlbarView-highlight", "--lwt-toolbar-field", "--arrowpanel-",
-                     "--tab-selected-bgcolor", "--urlbar-box-bgcolor", "--toolbar-color:"):
-            self.assertNotIn(dead, text)
+    def test_firefox_scheme_is_caelestiafox_shaped(self):
+        path = self.root / "firefox.json"
+        write_firefox_scheme(self.palette, path)
+        msg = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(msg["mode"], self.palette.mode)
+        colours = msg["colours"]
+        self.assertEqual(colours["primary"], self.palette.accent.lstrip("#"))
+        self.assertEqual(colours["surfaceDim"], self.palette.mantle.lstrip("#"))
+        # CaelestiaFox prepends '#' itself.
+        self.assertTrue(all(len(c) == 6 and not c.startswith("#") for c in colours.values()))
 
     def test_btop_theme_keys(self):
         path = self.root / "btop.theme"

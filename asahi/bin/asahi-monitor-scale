@@ -61,8 +61,6 @@ apply_scale() {
   hyprctl eval "hl.monitor({ output = \"$name\", mode = \"$mode\", position = \"${x}x${y}\", scale = $scale })" >/dev/null
   mkdir -p "$dir"
   printf '%s\n' "$scale" >"$dir/$name"
-  notify-send -a Display -h string:x-canonical-private-synchronous:asahi-scale -t 1500 \
-    "$name scale $scale" "$(awk -v w="$W" -v h="$H" -v s="$scale" 'BEGIN { printf "%d×%d logical", w / s, h / s }')" 2>/dev/null || true
 }
 
 action="${1:-cycle}"

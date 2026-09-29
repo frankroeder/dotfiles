@@ -134,7 +134,7 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   `store_unless_sensitive` drops `x-kde-passwordManagerHint` (`wl-copy --sensitive`).
   `asahi-cliphist types` shows whether a copy carries the hint. `start_watcher` pkills the
   old `--watch cliphist store` form. Browser extensions (Proton Pass) never set the hint:
-  password-shaped tokens copied while LibreWolf is focused are dropped, and a 0-byte copy (Proton's
+  password-shaped tokens copied while Firefox is focused are dropped, and a 0-byte copy (Proton's
   auto-clear writes `""`) deletes the newest entry only if the previous copy was a *stored* browser
   copy (`$XDG_RUNTIME_DIR/asahi-cliphist/last-store`). The new store
   tests use `CLIPHIST_DB_PATH` + a fake `hyprctl`; the older ones still touch the real db.
@@ -184,14 +184,18 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   `source content vibrant calm mono` (`FLAVORS` is the source of truth; saturation is a fraction of
   gamut room, never a multiplier). Writes `~/.local/state/asahi-theme/`. GTK ini is a real file,
   not a symlink. Unset portal `0` = light. Live: Ghostty `reload-config`, Quickshell `FileView`,
-  Hyprland borders, btop SIGUSR2. **GTK3 and LibreWolf never repaint live** — do not add watchers.
-  LibreWolf autoconfig has no XPCOM; `userChrome.css` is startup-only. Vertical-tabs sidebar is
-  shadow DOM — only inherited custom properties cross it. Its strip is `#sidebar-container` >
-  `sidebar-main`; the custom element has no id (Firefox styles it by tag), so `#sidebar-main` in
-  `userChrome.css` matches nothing. `write_librewolf_css` must emit names current Firefox still
-  reads (tests fail on the dead `--lwt-*` / `--toolbar-*` spellings; grep both `omni.ja` files,
-  exclude `chrome/devtools`, require a non-name char after the ident).
+  Hyprland borders, btop SIGUSR2, Firefox. **GTK3 never repaints live** — do not add watchers.
   Tests: `asahi/theme/tests/test_palette.py`, `asahi/theme/smoke_test.sh`.
+- **Firefox (Flathub flatpak)**: release build enforces addon signing (`MOZ_REQUIRE_SIGNING`), so
+  live theme = signed AMO **CaelestiaFox** (`caelestiafox@caelestia.org`, `browser.theme.update`) +
+  native host `caelestiafox` = `asahi-firefox-theme` (streams `firefox.json` from
+  `write_firefox_scheme`: caelestia M3 keys, hex without `#`; Firefox passes manifest path + ext id as
+  args — ignore them). Sandbox can't run host scripts: `xdg-native-messaging-proxy` (dnf, D-Bus
+  activated) + `flatpak override --talk-name=org.freedesktop.NativeMessagingProxy`; host manifest in
+  `~/.config/mozilla/native-messaging-hosts/`. Profiles: `~/.var/app/org.mozilla.firefox/config/mozilla/firefox/`
+  — `asahi/firefox/user.js` + XPI are **copied** (sandbox can't see `$DOTFILES`); `user.js` sets
+  `widget.use-xdg-desktop-portal.native-messaging-proxy = 1` (default 0) and `autoDisableScopes = 14`.
+  `BROWSER=org.mozilla.firefox` (flatpak export; `~/.local/share/flatpak/exports/bin` is on PATH). Test: `asahi/bin/asahi_firefox_theme_test.sh`.
 - **sshd**: Fedora enables it; disable and mask `sshd.service` + `sshd.socket`. Re-check after a
   release upgrade.
 - **Notification images**: `localImage()` only `image:`/`file:`/`/…`. Summary/body are

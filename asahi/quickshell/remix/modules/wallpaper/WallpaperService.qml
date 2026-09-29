@@ -319,7 +319,7 @@ Singleton {
     applyProc.command = ["hyprctl", "hyprpaper", "wallpaper", "," + path + "," + root.defaultFit]
     applyProc.running = true
 
-    // Wallpaper-driven adaptive theme (Quickshell / Ghostty / LibreWolf / Hyprland)
+    // Wallpaper-driven adaptive theme (Quickshell / Ghostty / Firefox / Hyprland)
     themeProc.command = [root.autotheme, "--variant", root.flavor, path]
     if (themeProc.running) themeProc.running = false
     themeProc.running = true
@@ -380,8 +380,6 @@ Singleton {
         }
         const msg = err || "code " + code
         Quickshell.execDetached(["notify-send", "-a", "Wallpaper", "Hyprpaper apply failed", msg])
-      } else {
-        Quickshell.execDetached(["notify-send", "-a", "Wallpaper", "Wallpaper changed", root.currentWallpaper.split("/").pop()])
       }
     }
   }

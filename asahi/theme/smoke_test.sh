@@ -19,7 +19,7 @@ echo "== extract/apply =="
 asahi-autotheme --no-apply "$WALL" | tee "$OUT/apply.txt"
 
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}/asahi-theme"
-for f in colors.json colors.toml ghostty.theme hyprland.lua hyprlock.conf librewolf.css btop.theme gtk.css chromium-theme.json wallpaper screensaver-colors.toml theme.name; do
+for f in colors.json colors.toml ghostty.theme hyprland.lua hyprlock.conf firefox.json btop.theme gtk.css chromium-theme.json wallpaper screensaver-colors.toml theme.name; do
   test -s "$STATE/$f" || { echo "missing $STATE/$f" >&2; exit 1; }
 done
 
@@ -64,22 +64,8 @@ rg -q "accent_bg_color" "$STATE/gtk.css" \
 rg -q "lock_accent" "$STATE/hyprlock.conf" \
   || { echo "hyprlock.conf missing lock_accent" >&2; exit 1; }
 
-# Toolbar colors belong to the extension. The file keeps the sidebar tokens.
-rg -q -- "--asahi-bg:" "$STATE/librewolf.css" \
-  || { echo "librewolf.css missing --asahi-bg" >&2; exit 1; }
-if rg -q -- "--toolbar-field-background-color" "$STATE/librewolf.css"; then
-  echo "librewolf.css locks a color the theme extension must own" >&2
-  exit 1
-fi
-
-# The vertical-tab strip is #sidebar-container; #sidebar-main is not an id.
-UCHROME="$DOTFILES/shared/librewolf/userChrome.css"
-rg -q "#sidebar-container" "$UCHROME" \
-  || { echo "userChrome.css must paint #sidebar-container" >&2; exit 1; }
-if rg -q "#sidebar-main" "$UCHROME"; then
-  echo "userChrome.css: #sidebar-main matches nothing" >&2
-  exit 1
-fi
+jq -e '.colours.primary and (.mode == "dark" or .mode == "light")' "$STATE/firefox.json" >/dev/null \
+  || { echo "firefox.json missing colours.primary/mode" >&2; exit 1; }
 
 test -s "$HOME/.config/btop/themes/asahi-adaptive.theme" \
   || { echo "btop theme not installed" >&2; exit 1; }
