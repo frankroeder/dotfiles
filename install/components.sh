@@ -140,7 +140,8 @@ comp_nvim() {
   touch "$HOME/.localnvim.lua"
   replace_with_symlink "$DOTFILES/nvim" "$HOME/.config/nvim"
   print_step "Syncing Neovim plugins"
-  nvim --headless "+lua vim.pack.update()" "+qa" || print_error "nvim plugin sync failed"
+  # force: headless has no confirm buffer, so without it updates are fetched but never checked out.
+  nvim --headless "+lua vim.pack.update(nil, { force = true })" "+qa" || print_error "nvim plugin sync failed"
 }
 
 # agent_begin CLI NAME : if CLI is present announce the sync (return 0), else warn.
@@ -642,7 +643,7 @@ comp_asahi_desktop() {
   if ! systemctl --user mask swaync.service; then
     print_error "failed to mask swaync.service"
   fi
-  systemctl --user reset-failed swaync.service || true
+  systemctl --user reset-failed swaync.service 2>/dev/null || true
   mkdir -p "$HOME/.config/gtk-3.0" "$HOME/.config/gtk-4.0"
   mkdir -p "$HOME/.config/xdg-desktop-portal"
   mkdir -p "$HOME/.local/state/asahi-theme"
@@ -679,12 +680,13 @@ comp_asahi_desktop() {
   "allowed_extensions": ["caelestiafox@caelestia.org"]
 }
 EOF
+  # Read-only grant so the user.js symlink resolves inside the sandbox (same path as the host).
+  flatpak override --user --filesystem="$DOTFILES/asahi/firefox:ro" org.mozilla.firefox
   local profile found=0
   for profile in "$HOME"/.var/app/org.mozilla.firefox/config/mozilla/firefox/*.default*; do
     [ -d "$profile" ] || continue
     found=1
-    # Copies, not symlinks: the sandbox cannot see $DOTFILES.
-    cp -f "$DOTFILES/asahi/firefox/user.js" "$profile/user.js"
+    ln -sfn "$DOTFILES/asahi/firefox/user.js" "$profile/user.js"
     mkdir -p "$profile/extensions"
     if [ ! -f "$profile/extensions/caelestiafox@caelestia.org.xpi" ]; then
       curl -fsSL https://addons.mozilla.org/firefox/downloads/latest/caelestiafox/latest.xpi \
@@ -709,7 +711,8 @@ comp_asahi_wallpapers() {
   local dir="${ASAHI_WALLPAPERS_DIR:-$HOME/Pictures/wallpaper}"
   if [ -d "$dir/.git" ]; then
     print_step "Updating wallpapers"
-    git -C "$dir" pull --ff-only || print_warning "Failed to update wallpapers"
+    # --no-rebase: pull.rebase=true refuses a dirty tree (locally deleted wallpapers).
+    git -C "$dir" pull --ff-only --no-rebase || print_warning "Failed to update wallpapers"
   elif [ -e "$dir" ]; then
     print_warning "$dir already exists and is not a git checkout; skipping wallpaper clone"
   else

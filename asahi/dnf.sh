@@ -87,6 +87,7 @@ sudo dnf install -y \
   thunderbird \
   Thunar \
   tumbler \
+  tmux \
   tree \
   uv \
   v4l-utils \

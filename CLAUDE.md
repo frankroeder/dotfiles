@@ -193,7 +193,8 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   args — ignore them). Sandbox can't run host scripts: `xdg-native-messaging-proxy` (dnf, D-Bus
   activated) + `flatpak override --talk-name=org.freedesktop.NativeMessagingProxy`; host manifest in
   `~/.config/mozilla/native-messaging-hosts/`. Profiles: `~/.var/app/org.mozilla.firefox/config/mozilla/firefox/`
-  — `asahi/firefox/user.js` + XPI are **copied** (sandbox can't see `$DOTFILES`); `user.js` sets
+  — `asahi/firefox/user.js` is **symlinked** (`flatpak override --filesystem=$DOTFILES/asahi/firefox:ro`; the
+  sandbox sees nothing else of `$DOTFILES`), XPI is downloaded into the profile; `user.js` sets
   `widget.use-xdg-desktop-portal.native-messaging-proxy = 1` (default 0) and `autoDisableScopes = 14`.
   `BROWSER=org.mozilla.firefox` (flatpak export; `~/.local/share/flatpak/exports/bin` is on PATH). Test: `asahi/bin/asahi_firefox_theme_test.sh`.
 - **sshd**: Fedora enables it; disable and mask `sshd.service` + `sshd.socket`. Re-check after a

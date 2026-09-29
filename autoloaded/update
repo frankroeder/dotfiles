@@ -100,7 +100,7 @@ neovim_plug_update() {
   if [[ -d "$HOME/.fzf/" ]]; then
     (cd $HOME/.fzf && git pull && ./install --bin)
   fi
-  nvim --headless "+lua vim.pack.update()" "+qa"
+  nvim --headless "+lua vim.pack.update(nil, { force = true })" "+qa"
   nvim --headless foo "+MasonUpdate" "+qa";
 }
 
@@ -123,6 +123,11 @@ dnf_update() {
 flatpak_update() {
   flatpak update -y;
   flatpak uninstall --unused -y;
+}
+
+# Grok Bot cannot update itself on Linux (extracted AppImage); grokbot.sh fetches the latest.
+grok_bot_update() {
+  bash "$DOTFILES/asahi/grokbot.sh";
 }
 
 misc() {
@@ -157,6 +162,7 @@ run(){
     [ $commands[apt] ] && exec_routine apt_update
     [ $commands[dnf] ] && exec_routine dnf_update
     [ $commands[flatpak] ] && exec_routine flatpak_update
+    [ "$OSTYPE" = "Linux" ] && [ $commands[grok-bot] ] && exec_routine grok_bot_update
     success "Updates completed"
   else
     error "No internet access"
