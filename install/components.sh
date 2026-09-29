@@ -472,6 +472,10 @@ comp_asahi_logind() {
   sudo install -Dm644 "$src_sleep" /etc/systemd/sleep.conf.d/10-asahi-no-hibernate.conf
   sudo install -Dm644 "$src_udev" /etc/udev/rules.d/99-asahi-hdmi-lid-inhibit.rules
   sudo install -Dm644 "$src_unit" /etc/systemd/system/asahi-hdmi-lid-inhibit.service
+  # Failed suspend (apple-drm -22): stop logind's lid retry loop until lid opens.
+  sudo install -Dm644 "$DOTFILES/asahi/systemd/system/asahi-suspend-failed.service" /etc/systemd/system/asahi-suspend-failed.service
+  sudo install -Dm644 "$DOTFILES/asahi/systemd/system/systemd-suspend.service.d/10-asahi-onfailure.conf" \
+    /etc/systemd/system/systemd-suspend.service.d/10-asahi-onfailure.conf
   if ! cmp -s "$src_login" /etc/systemd/logind.conf.d/10-asahi-sleep.conf; then
     print_error "installed logind drop-in does not match $src_login"
     exit 1

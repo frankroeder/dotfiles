@@ -89,6 +89,8 @@ can_sleep() {
   if pactl list sinks short 2>/dev/null | grep -q RUNNING; then log "sleep skipped: audio"; return 1; fi
   # Docked / HDMI: s2idle with an external output is the DCP hang path.
   if hyprctl monitors -j 2>/dev/null | jq -e 'any(.[]; .name != "eDP-1")' >/dev/null; then log "sleep skipped: external"; return 1; fi
+  # Last suspend refused by the kernel: retrying only churns the DCP. A good lid suspend clears it.
+  if systemctl is-failed --quiet systemd-suspend.service; then log "sleep skipped: last suspend failed"; return 1; fi
 }
 
 case "$step" in

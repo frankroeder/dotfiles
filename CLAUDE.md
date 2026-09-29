@@ -69,6 +69,10 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   lid** after one. `after_sleep_cmd` only runs on a real `suspend exit`. Diagnose `journalctl -b -1` (`Lid closed.` → `Suspending...` →
   `PM: suspend entry` with no `suspend exit`). Do not add `asahi-hdmi sync` to resume. Test:
   `asahi/bin/asahi_hdmi_test.sh`.
+- **Failed suspend**: kernel can refuse s2idle (`apple-drm … failed to suspend: error -22`); logind
+  then re-suspends every `HoldoffTimeoutSec` while the lid is closed. `systemd-suspend.service`
+  `OnFailure=asahi-suspend-failed.service` blocks `handle-lid-switch` until lid open; `asahi-idle`
+  skips sleep while `systemd-suspend.service` is failed. Stay-awake does not gate lid suspend.
 - **Lock guard**: every lock path (hypridle `lock_cmd`, Super+Escape, launcher `loginctl
   lock-session`) runs `asahi-lock` = hyprlock in a restart loop (flock, 30 tries, stderr to
   `~/.local/state/asahi/hyprlock.log`). hyprlock exits 0 only on unlock / compositor `finished`

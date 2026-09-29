@@ -1,0 +1,8 @@
+[Unit]
+Description=Stop lid suspend retries after a failed suspend
+
+[Service]
+# When the kernel refuses s2idle (apple-drm -22), logind re-suspends every
+# HoldoffTimeoutSec while the lid stays closed. Block the lid handler until the
+# lid opens. Needs LidSwitchIgnoreInhibited=no; --why must be one token.
+ExecStart=/usr/bin/systemd-inhibit --what=handle-lid-switch --who=asahi-suspend-failed --why=suspend-failed --mode=block /bin/sh -c 'while busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager LidClosed | grep -q true; do sleep 5; done'
