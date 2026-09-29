@@ -104,23 +104,59 @@ sensitive_clipboard() {
   wl-paste --list-types 2>/dev/null | grep -qx 'x-kde-passwordManagerHint'
 }
 
+# Browser extensions (Proton Pass, Bitwarden) write passwords with plain
+# navigator.clipboard.writeText, so Firefox never adds the hint.
+browser_focused() {
+  local class
+  class="$(hyprctl activewindow -j 2>/dev/null | jq -r '.class // ""' 2>/dev/null || true)"
+  [[ ${class,,} == *librewolf* || ${class,,} == *firefox* ]]
+}
+
+# A single password-shaped token: upper + lower + digit/symbol, 12-128 chars,
+# no whitespace, not a URL.
+password_shaped() {
+  local s
+  s="$(cat "$1")"
+  [[ ${#s} -ge 12 && ${#s} -le 128 && $s != *[[:space:]]* && $s != *://* ]] || return 1
+  [[ $s == *[[:upper:]]* && $s == *[[:lower:]]* && $s == *[^[:alpha:]]* ]]
+}
+
 # Watch sets CLIPBOARD_STATE. A second wl-paste from this child blocks.
 store_unless_sensitive() {
-  if [ -n "${CLIPBOARD_STATE+x}" ]; then
-    case "$CLIPBOARD_STATE" in
-      sensitive | nil | clear)
-        cat >/dev/null
-        return 0
-        ;;
-    esac
-    cliphist store
-    return
+  local state="${CLIPBOARD_STATE-}" tmp last
+  if [ -z "${CLIPBOARD_STATE+x}" ] && sensitive_clipboard; then state=sensitive; fi
+  case "$state" in
+    sensitive | nil | clear)
+      cat >/dev/null
+      return 0
+      ;;
+  esac
+  # Stage in $XDG_RUNTIME_DIR (tmpfs), never on disk. `last` remembers what
+  # happened to the previous copy: dropped / browser / other.
+  mkdir -p -m 700 "$cache_dir"
+  tmp="$(mktemp "$cache_dir/store.XXXXXX")"
+  last="$cache_dir/last-store"
+  cat >"$tmp"
+  if [ ! -s "$tmp" ]; then
+    # Proton Pass auto-clear writes "" and only while its secret is still the
+    # selection, so the previous copy was that secret: delete it from history
+    # only if it was a browser copy that got stored (a dropped one never was).
+    if [ "$(cat "$last" 2>/dev/null || true)" = browser ]; then
+      CLIPBOARD_STATE=clear cliphist store </dev/null || true
+    fi
+    echo cleared >"$last"
+  elif [ "$(stat -c %s "$tmp")" -le 128 ] && browser_focused; then
+    if password_shaped "$tmp"; then
+      echo dropped >"$last"
+    else
+      cliphist store <"$tmp" || true
+      echo browser >"$last"
+    fi
+  else
+    cliphist store <"$tmp" || true
+    echo other >"$last"
   fi
-  if sensitive_clipboard; then
-    cat >/dev/null
-    return 0
-  fi
-  cliphist store
+  rm -f "$tmp"
 }
 
 watcher_running() {

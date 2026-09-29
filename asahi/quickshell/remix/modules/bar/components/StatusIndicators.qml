@@ -135,7 +135,7 @@ RowLayout {
 
   Rectangle {
     id: stayAwakeChip
-    width: solidBar ? stayAwakeGlyph.implicitWidth + 10 : 30
+    width: solidBar ? stayAwakeGlyph.implicitWidth + 6 : 30
     height: solidBar ? Style.barHeight : 30
     radius: solidBar ? 0 : Style.radius
     color: solidBar ? "transparent" : (stayAwakeMouse.containsMouse ? Style.panelWarningBg : Style.barBg)

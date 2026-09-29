@@ -79,6 +79,10 @@ Item {
       }
       Item { Layout.fillWidth: true }
       Pill {
+        icon: "󰅌"; label: "Copy"
+        onClicked: Quickshell.execDetached([root.binDir + "/asahi-cmd-screenshot", "smart", "--clip"])
+      }
+      Pill {
         icon: "󰄀"; label: "Smart"
         onClicked: { Quickshell.execDetached([root.binDir + "/asahi-cmd-screenshot", "smart"]); Qt.callLater(root.scanShots) }
       }

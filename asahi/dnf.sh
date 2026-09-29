@@ -126,9 +126,13 @@ FLATPAK_APPS=(
   org.zotero.Zotero
   net.ankiweb.Anki
   com.nextcloud.desktopclient.nextcloud
+  org.signal.Signal
 )
 
 flatpak install --user -y flathub "${FLATPAK_APPS[@]}"
+
+# Signal defaults to a plaintext key store; use gnome-keyring (secrets component) instead.
+flatpak override --user --env=SIGNAL_PASSWORD_STORE=gnome-libsecret org.signal.Signal
 
 bash "${DOTFILES_DIR}/scripts/fix_linux_desktop_icons.sh"
 

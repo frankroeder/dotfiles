@@ -78,6 +78,14 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   hypridle `inhibit_sleep = 3` explicitly — mode 2 only picks lock-notify when `lock_cmd`
   contains the string `hyprlock`; logind caps the wait at `InhibitDelayMaxSec`. TTY escape
   (`Fn+Ctrl+Alt+F3`): `pkill -f asahi-lock; killall hyprlock`.
+- **Lock look**: one centered row `[uptime/battery] [password] [clock/date]` at fixed offsets from
+  the centre (±800/832; left/right halign anchor to the monitor edge) on a flat full-width band
+  (`$lock_band`, scheme bg ~72%, bottom 340px); scheme fg/muted type. Hostname sits on a top fade
+  PNG (`lock-fade-top.png`, written by `write_hyprlock_conf` beside the colors; `halign = left` —
+  hyprlock mis-centers images wider than the monitor, and `rotate` shifts them). Label shadows are
+  too faint to help. Sizes are framebuffer px (no monitor scale): the row must fit the Dell 2560.
+  Preview without locking: nested `Hyprland -c <min.lua>` + `hyprctl output create headless` +
+  hyprlock + grim.
 - **Lid + DPMS (2026-09-22)**: Hyprland DPMS off is an aquamarine output disable — the DRM
   connector's sysfs `enabled` reads `disabled` (verified live). logind counts a closed lid as
   docked only while an external connector reads `enabled`, and re-checks after every event-loop
@@ -120,10 +128,16 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   `hl.get_monitor(dir)` first (nil on laptop-only). Generated in `bindings.lua`.
 - **Clipboard secrets**: `asahi-cliphist` watchers run `wl-paste --watch <self> store` so
   `store_unless_sensitive` drops `x-kde-passwordManagerHint` (`wl-copy --sensitive`).
-  `asahi-cliphist types` shows whether a given copy would be filtered. `start_watcher` pkills the
-  old `--watch cliphist store` form.
+  `asahi-cliphist types` shows whether a copy carries the hint. `start_watcher` pkills the
+  old `--watch cliphist store` form. Browser extensions (Proton Pass) never set the hint:
+  password-shaped tokens copied while LibreWolf is focused are dropped, and a 0-byte copy (Proton's
+  auto-clear writes `""`) deletes the newest entry only if the previous copy was a *stored* browser
+  copy (`$XDG_RUNTIME_DIR/asahi-cliphist/last-store`). The new store
+  tests use `CLIPHIST_DB_PATH` + a fake `hyprctl`; the older ones still touch the real db.
 - **Screenshots**: slurp + grim, no hyprpicker freeze. Super+F10/F11/F12 (window / smart / display)
-  and Super+mute/vol-/vol+; macOS aliases Super+Ctrl+Shift+3/4/5 (`code:12/13/14`). OCR/QR:
+  and Super+mute/vol-/vol+; macOS aliases Super+Ctrl+Shift+3/4/5 (`code:12/13/14`). Clipboard only
+  (`asahi-cmd-screenshot <mode> --clip`, nothing in ~/screenshots): Super+Ctrl+Shift+F10/F11/F12
+  and top row, gallery "Copy" pill. OCR/QR:
   Super+Shift/Ctrl+F11. Color: Super+Shift+F12. Record: Super+Alt+F11 region, Super+Alt+F12
   display, Super+Alt+Shift+F12 + webcam (`asahi-webcam`; Super+Alt+ü/+ resize = `code:34/35`).
   Test: `asahi/bin/asahi_webcam_test.sh`.
@@ -138,8 +152,10 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
 - **Night light**: Super+Ctrl+N → `asahi-nightlight` (hyprsunset). On = `hyprsunset.conf` 1500K;
   off = `hyprctl hyprsunset identity`. Identity profile so autostart tints nothing.
 - **Bar notch**: cutout is a hole (`BarModel.notchRegionInset`), not a spacer. Height is geometry
-  (3024x1964 → **74**). `BarHost.ccuCompact` shortens CCU when the right cluster does not fit;
-  `rightOthers` excludes CCU's own width. Anything added to the right cluster eats that budget.
+  (3024x1964 → **74**), width is the real cutout (370/3024 of logical width + 12). Overflow is
+  clipped at the wall; `ccuCompact` (reads compact-independent `fullWidth`) is the only give — the
+  clock always shows weekday + date. Chip pads are 6px, `barIconSlot` 26. Anything added to the
+  right cluster eats that budget.
 - **Bar tray**: `maxInline` 3, rest behind `+N` → `TrayPanel.qml`. Use `SystemTrayItem.NeedsAttention`
   (no `SystemTrayStatus`). Popups need `screen:` + `exclusionMode: ExclusionMode.Ignore`.
   `HyprlandFocusGrab` dies on `focusable: false`.
@@ -155,7 +171,8 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   `wallpaper: true` in `quickDeckHidden` — not a Quick tile; search still finds it. Browse:
   `WallpaperCarousel` (skewed window fan: centre 16:9, neighbours are leaning
   slices; ←/→, Ctrl+h/l, wheel, click a slice to select; ⏎/Apply/click the centre
-  applies, Esc restores). Live preview is **opt-in** (`WallpaperService.liveMode`, default off): Shift /
+  applies, Esc restores). The picker covers the windows with the wallpaper itself (blurred,
+  crisp while Live). Live preview is **opt-in** (`WallpaperService.liveMode`, default off): Shift /
   Shift+←/→ / Live chip; ignore bare Shift in the search field. Debounce 70ms. Color index from
   cached thumbs → `wallpaper_colors.js`; filters on `WallpaperService.arranged(query)`. Test:
   `wallpaper_colors_test.js`.

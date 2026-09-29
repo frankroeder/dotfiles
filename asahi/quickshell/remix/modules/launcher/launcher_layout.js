@@ -246,6 +246,7 @@ function launcherLayout(opts) {
   const monCaptionH = scaledPx(MON_CAPTION_H, scale, 12, 24)
   const monSpacing = scaledPx(MON_SPACING, scale, 6, 14)
   const rowH = scaledPx(ROW_H, scale, 36, 64)
+  const rowHTall = scaledPx(ROW_H_TALL, scale, 44, 80)
   const cardWidth = cardWidthFor(screenW, sideActive, compact)
 
   const bottomGap = Math.max(minBottom, roundPx(screenH * CARD_BOTTOM_FRAC))
@@ -268,7 +269,9 @@ function launcherLayout(opts) {
   let cardHeight = Math.min(roundPx(screenH * CARD_MAX_FRAC), maxCard)
   if (compact) {
     const rows = Math.max(COMPACT_ROWS_MIN, opts.rowCount == null ? 8 : Number(opts.rowCount) || 0)
-    const listH = rows * rowH
+    // Rows with a subtitle render at rowHTall; budgeting them at rowH hid the last one.
+    const tall = Math.min(rows, Math.max(0, Number(opts.tallRows) || 0))
+    const listH = (rows - tall) * rowH + tall * rowHTall
     const compactMax = Math.min(roundPx(screenH * CARD_COMPACT_MAX_FRAC), maxCard)
     cardHeight = Math.min(compactMax, chrome + listH)
   }
@@ -317,7 +320,7 @@ function launcherLayout(opts) {
     paneHeight: paneHeight,
     panePad: scaledPx(8, scale, 4, 14),
     rowH: rowH,
-    rowHTall: scaledPx(ROW_H_TALL, scale, 44, 80),
+    rowHTall: rowHTall,
     iconSlot: scaledPx(ICON_SLOT, scale, 22, 42),
     rowPad: scaledPx(ROW_PAD, scale, 8, 22),
     sideMin: scaledPx(SIDE_MIN, scale, 88, 160),

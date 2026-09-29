@@ -16,7 +16,7 @@ else
   fail_at "hyprlock.conf missing uptime/hostname/battery"
 fi
 if grep -q 'blur_passes = 0' "$conf" && ! grep -q 'brightness =' "$conf"; then
-  pass "wallpaper dim is a veil, not blur brightness"
+  pass "no blur brightness (does nothing while blur_passes is 0)"
 else
   fail_at "hyprlock.conf dims with blur brightness, which does not run when blur is off"
 fi

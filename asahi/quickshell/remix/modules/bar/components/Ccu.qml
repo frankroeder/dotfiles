@@ -20,7 +20,7 @@ Rectangle {
   border.width: solidBar ? 0 : 1
   border.color: solidBar ? "transparent" : (ccuMouse.containsMouse || popup.shouldShow ? Style.barHoverBorder : Style.barBorder)
   scale: solidBar ? 1.0 : (ccuMouse.containsMouse || popup.shouldShow ? 1.018 : 1.0)
-  implicitWidth: Math.max(68, chipBoxW + (solidBar ? 10 : 16))
+  implicitWidth: Math.max(56, chipBoxW + (solidBar ? 6 : 16))
   implicitHeight: solidBar ? Style.barHeight : 26
 
   Rectangle {
@@ -113,7 +113,7 @@ Rectangle {
 
   // What this chip would cost uncompacted — BarHost's cue, and independent of
   // `compact` so asking the question cannot change the answer.
-  readonly property real fullWidth: Math.max(68, root.fullBoxW + (solidBar ? 10 : 16))
+  readonly property real fullWidth: Math.max(56, root.fullBoxW + (solidBar ? 6 : 16))
 
   function usageColor(used) {
     if (used === null || used === undefined) return Style.textMuted

@@ -41,6 +41,10 @@ eq(detail("Chromium", "Chromium"), "", "a tooltip that only repeats the title is
 eq(detail("TelegramDesktop", "Telegram Desktop"), "", "whitespace-only difference counts as a repeat");
 eq(detail("btop", ""), "", "no tooltip → no subtitle");
 
+const spacer = ctx.notchSpacerWidth;
+eq(spacer("DP-1", 1512), 0, "external screen → no cutout");
+eq(spacer("eDP-1", 1512), 197, "@2x: 185 logical cutout + air");
+eq(spacer("eDP-1", 3024), 382, "@1x: 370 px cutout + air");
 const inset = ctx.notchRegionInset;
 eq(typeof inset, "function", "notchRegionInset exported");
 eq(inset(1492, 0), 0, "no notch → no reserved hole");

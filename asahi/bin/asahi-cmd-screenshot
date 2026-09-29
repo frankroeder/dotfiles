@@ -1,17 +1,29 @@
 #!/usr/bin/env bash
 # Save a PNG of a picked region. Geometry comes from asahi-capture-region.
+#   asahi-cmd-screenshot [mode] [--clip]
+# --clip copies to the clipboard only: nothing lands in the screenshot folder
+# (the notification thumbnail is one overwritten file under $XDG_RUNTIME_DIR).
 
 set -euo pipefail
 
 bin="$(cd "$(dirname "$0")" && pwd)"
 output_dir="${ASAHI_SCREENSHOT_DIR:-$HOME/screenshots}"
 mode="${1:-smart}"
-
-mkdir -p "$output_dir"
+clip=0
+[ "${2:-}" = "--clip" ] && clip=1
 
 selection="$("$bin/asahi-capture-region" "$mode" || true)"
 [ -n "$selection" ] || exit 0
 
+if [ "$clip" -eq 1 ]; then
+  file="${XDG_RUNTIME_DIR:-/tmp}/asahi-screenshot-clip.png"
+  grim -g "$selection" "$file"
+  wl-copy --type image/png <"$file"
+  notify-send -a screenshot -t 2500 -i "$file" "Screenshot copied" "Clipboard only, not saved" 2>/dev/null || true
+  exit 0
+fi
+
+mkdir -p "$output_dir"
 file="$output_dir/screenshot-$(date +'%Y-%m-%d_%H-%M-%S').png"
 grim -g "$selection" "$file"
 wl-copy --type image/png <"$file"

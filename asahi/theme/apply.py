@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import struct
 import subprocess
+import zlib
 from pathlib import Path
 
 from .palette import Palette
@@ -221,6 +223,27 @@ hl.config({{
     _atomic_write(path, content)
 
 
+def write_fade_png(path: Path, rgb: str, height: int, peak: float) -> None:
+    """Top-edge fade in `rgb`: alpha `peak` over the first 40% of rows (where the
+    text sits), easing to 0 at the last. 4000 wide covers a 3840 panel."""
+    r, g, b = (int(rgb[i:i + 2], 16) for i in (0, 2, 4))
+    width = 4000
+    rows = []
+    for y in range(height):
+        a = round(255 * peak * min(1.0, (height - y) / (0.6 * height)) ** 2)
+        rows.append(b"\x00" + bytes((r, g, b, a)) * width)
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)
+    png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", zlib.compress(b"".join(rows), 9)) + chunk(b"IEND", b"")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_bytes(png)
+    tmp.replace(path)
+
+
 def write_hyprlock_conf(p: Palette, path: Path) -> None:
     bg = _hex_rgb(p.background)
     fg = _hex_rgb(p.foreground)
@@ -236,8 +259,12 @@ $lock_accent = rgb({accent})
 $lock_muted = rgb({muted})
 $lock_fail = rgb({fail})
 $lock_check = rgba({ok}ee) rgba({teal}ee) 120deg
+$lock_ring = rgba({fg}66)
+$lock_band = rgba({bg}b8)
 """
     _atomic_write(path, content)
+    # Top fade behind the hostname, in the scheme's background.
+    write_fade_png(path.parent / "lock-fade-top.png", bg, 260, 0.6)
 
 
 def write_gtk_css(p: Palette, path: Path) -> None:

@@ -253,7 +253,8 @@ Scope {
     cmdVisible: !root.quickMode && !root.compactLauncher,
     rowCount: root.categoryFilter === ""
       ? Math.max(root.resultCount, (root.navRows || []).length)
-      : root.resultCount
+      : root.resultCount,
+    tallRows: (filteredApps.values || []).filter(function(it) { return !it.isCategory && !!it.comment }).length
   })
   function fontPx(size) {
     const boosted = size <= 9 ? size + 2 : size
@@ -3050,13 +3051,22 @@ Scope {
 
             readonly property real listFrac: root.quickMode ? 0.22
               : (root.sideActive ? 0.46 : 1.0)
-            // Icon + longest deck label ("Temperatures") + chevron. A
-            // fraction of a wide card left a hollow rail; size to type.
+            // Icon disc + longest deck label, measured in the selected
+            // (DemiBold) face MenuHudTile uses in compact mode.
+            TextMetrics {
+              id: railLabelMetrics
+              font.family: Style.menuSans
+              font.pixelSize: root.fontPx(11) + 1
+              font.weight: Font.DemiBold
+              text: (root.quickDeck || []).reduce(function(a, t) {
+                return (t.label || "").length > a.length ? t.label : a
+              }, "")
+            }
             readonly property int quickRailW: {
-              const chrome = 10 + 10 + 20 + 8
-              const label = Math.round(root.fontPx(11) * 8.4)
-              const want = chrome + label + 8
-              const cap = Math.round(width * 0.28)
+              // tile margins 2+2, row pads 10+12, disc, spacing 10
+              const chrome = 4 + 10 + 12 + 10 + Math.round(root.fontPx(24) * 1.35)
+              const want = chrome + Math.ceil(railLabelMetrics.advanceWidth) + 6
+              const cap = Math.round(width * 0.32)
               return Math.max(root.launcherGeom.sideMin, Math.min(want, cap))
             }
 

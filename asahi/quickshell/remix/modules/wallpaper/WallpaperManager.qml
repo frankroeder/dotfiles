@@ -5,12 +5,13 @@ import Quickshell.Hyprland
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Effects
 import "wallpaper_thumbs.js" as WallThumbs
 import "../menu" as Menu
 import "../../"
 
-// Wallpaper picker (Super+Shift+W): a skewed window carousel over the desktop,
-// live preview on the centre window; "All" expands the filter and the full grid.
+// Wallpaper picker (Super+Shift+W): a skewed window carousel over the (blurred)
+// wallpaper, which hides the windows; live preview on the centre window; "All" expands the filter and the full grid.
 Scope {
   id: root
 
@@ -55,7 +56,7 @@ Scope {
   }
 
   // Fullscreen fade of the preview wallpaper (above hyprpaper, below windows)
-  // so carousel browse does not pop the desktop. Starts after previewWaitMs.
+  // so the desktop does not pop when the picker closes on a preview. Starts after previewWaitMs.
   Variants {
     model: Quickshell.screens
     PanelWindow {
@@ -138,6 +139,46 @@ Scope {
     screen: root.pickerScreen
 
     anchors { top: true; bottom: true; left: true; right: true }
+
+    // Hide the windows: the picker sits on the wallpaper itself (the preview
+    // on top once one is applied), blurred unless live preview is on.
+    Item {
+      id: wallBackdrop
+      anchors.fill: parent
+      visible: false
+      Rectangle { anchors.fill: parent; color: Style.crust }
+      Image {
+        anchors.fill: parent
+        fillMode: Image.PreserveAspectCrop
+        asynchronous: true
+        cache: true
+        sourceSize.width: Math.max(1, wallpaperPanel.width)
+        sourceSize.height: Math.max(1, wallpaperPanel.height)
+        source: wallpaperPanel.visible && WallpaperService.currentWallpaper ? "file://" + WallpaperService.currentWallpaper : ""
+      }
+      Image {
+        id: backdropPreview
+        anchors.fill: parent
+        fillMode: Image.PreserveAspectCrop
+        asynchronous: true
+        cache: true
+        sourceSize.width: Math.max(1, wallpaperPanel.width)
+        sourceSize.height: Math.max(1, wallpaperPanel.height)
+        source: wallpaperPanel.visible && WallpaperService.fadePath ? "file://" + WallpaperService.fadePath : ""
+        opacity: WallpaperService.previewApplied && status === Image.Ready ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: WallpaperService.previewFadeMs; easing.type: Easing.OutCubic } }
+      }
+    }
+    MultiEffect {
+      anchors.fill: parent
+      source: wallBackdrop
+      visible: wallpaperPanel.visible
+      autoPaddingEnabled: false
+      blurEnabled: true
+      blurMax: 48
+      blur: WallpaperService.liveMode ? 0 : 0.7
+      Behavior on blur { NumberAnimation { duration: WallpaperService.previewFadeMs; easing.type: Easing.OutCubic } }
+    }
 
     Menu.MenuBackdrop { reveal: wallpaperPanel.visible ? 1 : 0 }
 

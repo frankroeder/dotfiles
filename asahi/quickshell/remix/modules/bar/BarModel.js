@@ -70,7 +70,7 @@ function notchSpacerWidth(screenName, logicalWidth) {
   if (String(screenName || "").indexOf("eDP") !== 0) return 0
   var width = Number(logicalWidth)
   if (!(width > 0)) return 0
-  // ~15% of panel width matches the physical cutout band on 14" Pro at 1.5 scale.
-  var spacer = Math.round(width * 0.15)
-  return Math.max(180, Math.min(spacer, Math.round(width * 0.22)))
+  // Camera cutout is 370 of 3024 px (185pt of 1512 on the 14" Pro), so a width
+  // fraction holds at every legal scale. +6px air per side.
+  return Math.ceil(width * 370 / 3024) + 12
 }

@@ -20,7 +20,7 @@ Rectangle {
   Behavior on border.color { ColorAnimation { duration: 140 } }
   scale: solidBar ? 1.0 : (volumeMouse.containsMouse ? 1.018 : 1.0)
 
-  implicitWidth: content.implicitWidth + (solidBar ? 10 : 14)
+  implicitWidth: content.implicitWidth + (solidBar ? 6 : 14)
   implicitHeight: solidBar ? Style.barHeight : 30
 
   Rectangle {

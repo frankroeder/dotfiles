@@ -212,7 +212,7 @@ Singleton {
   readonly property int barFontMicVolIcon: 21
   readonly property int barFontCaption: 12
   readonly property int barEdgeMargin: 10
-  readonly property int barIconSlot: 30
+  readonly property int barIconSlot: 26
   readonly property int barChipInset: 4
   readonly property int barWsIcon: 21
   readonly property int barWsSlot: 24

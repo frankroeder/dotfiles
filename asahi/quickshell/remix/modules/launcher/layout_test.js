@@ -121,6 +121,14 @@ assert(
   midCompactLong.cardHeight > midCompact.cardHeight,
   "long app list grows taller than the 8-row overview"
 );
+const systemRows = launcherLayout({
+  screenW: 1512, screenH: 982, sideActive: false, quickMode: false,
+  compact: true, rowCount: 5, tallRows: 5, headerVisible: true, tileCount: 5
+});
+assert(
+  systemRows.bodyHeight >= 5 * systemRows.rowHTall,
+  "5 subtitled System rows fit without scrolling (" + systemRows.bodyHeight + " >= " + 5 * systemRows.rowHTall + ")"
+);
 const twoHit = launcherLayout({
   screenW: 1920, screenH: 1080, sideActive: false, quickMode: false,
   compact: true, rowCount: 2, headerVisible: true, tileCount: 2
