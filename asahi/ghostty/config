@@ -20,6 +20,7 @@ confirm-close-surface = false
 
 working-directory = inherit
 window-inherit-working-directory = true
+tab-inherit-working-directory = true
 
 window-save-state = always
 
