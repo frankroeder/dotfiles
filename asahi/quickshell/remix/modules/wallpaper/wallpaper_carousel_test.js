@@ -63,6 +63,31 @@ assert(!shipped.carouselWindow(f1000, 0, 0, 0).nearby, "empty list has no window
 assert(shipped.carouselWindow(f1000, 20, 10, 10 + shipped.CAROUSEL_NEARBY).nearby, "a window 8 away is still drawn");
 assert(!shipped.carouselWindow(f1000, 20, 10, 10 + shipped.CAROUSEL_NEARBY + 1).nearby, "a window 9 away is not drawn");
 
+console.log("\n== resolveCarouselIndex (a tone filter must not drop the applied wallpaper) ==");
+assert(typeof shipped.resolveCarouselIndex === "function", "resolveCarouselIndex is exported");
+// 72 wallpapers, the applied one at index 40. Light keeps 12, and 40 is past
+// that end — the old carousel left currentIndex there, so the name went blank
+// and the palette said "indexing colors…" while the fan clamped onto another window.
+const library = [];
+for (let i = 0; i < 72; i++) library.push("/w/" + i + ".jpg");
+const applied = "/w/40.jpg";
+const light = ["/w/3.jpg", "/w/8.jpg", "/w/40.jpg", "/w/55.jpg", "/w/60.jpg", "/w/70.jpg"];
+assert(light.indexOf(applied) === 2 && library.indexOf(applied) === 40, "fixture: applied wallpaper is index 40 of 72 and index 2 of the light set");
+assert(shipped.resolveCarouselIndex(light, applied, applied) === 2,
+  "applied wallpaper keeps its row after Light shortens the list");
+assert(shipped.resolveCarouselIndex(light, "", applied) === 2,
+  "opening onto Light, with no browse yet, centres the applied wallpaper");
+assert(shipped.resolveCarouselIndex(light, "/w/8.jpg", applied) === 1,
+  "a browse that is still in the light set stays put");
+assert(shipped.resolveCarouselIndex(light, "/w/2.jpg", applied) === 2,
+  "a browse the filter drops falls back to the applied wallpaper");
+assert(shipped.resolveCarouselIndex(["/w/1.jpg", "/w/2.jpg"], "", "/w/40.jpg") === 0,
+  "applied wallpaper outside the filter centres the first match");
+assert(shipped.resolveCarouselIndex([], applied, applied) === -1,
+  "empty filter has nothing to centre");
+assert(shipped.resolveCarouselIndex(light, applied, "/w/3.jpg") === 2,
+  "an explicit browse wins over the applied wallpaper");
+
 assert(!shipped.carouselContains(28, 108, 390, 0, 0), "top-left corner is outside the lean");
 assert(shipped.carouselContains(28, 108, 390, 40, 0), "top edge inside the lean is a hit");
 assert(!shipped.carouselContains(28, 108, 390, 100, 380), "bottom-right corner is outside the lean");
@@ -123,6 +148,15 @@ assert(
   "WallpaperCarousel places each window via shipped carouselWindow"
 );
 assert(
+  /resolveCarouselIndex\(paths,\s*selectedPath,\s*anchorPath\)/.test(car)
+    && /root\.shownIndex/.test(car),
+  "the centred window follows the selected path when a filter replaces the list"
+);
+assert(
+  /carouselWindow\(\s*root\.frame,\s*\(root\.paths \|\| \[\]\)\.length,\s*root\.shownIndex/.test(car),
+  "the fan uses that resolved index, not a stale currentIndex"
+);
+assert(
   /WallThumbs\.carouselFrame\(/.test(car) && /carouselContains\(/.test(car),
   "frame size and the parallelogram hit test come from the shared script"
 );
@@ -148,6 +182,10 @@ const mgr = fs.readFileSync(path.join(__dirname, "WallpaperManager.qml"), "utf8"
 assert(
   /viewW:\s*parent\.width/.test(mgr),
   "compact picker viewW is the host column width"
+);
+assert(
+  /wallCarousel\.selectedPath = ""/.test(mgr),
+  "opening the picker drops the last browse so the applied wallpaper is centred"
 );
 assert(
   !/itemW:\s*Math\.floor\(\s*width\s*\/\s*3\s*\)/.test(mgr),

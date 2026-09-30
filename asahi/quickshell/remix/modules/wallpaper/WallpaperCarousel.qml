@@ -11,19 +11,28 @@ Item {
   id: root
   property var paths: []
   property int viewW: 0
-  property int currentIndex: 0
   property real fontScale: 1.0
   property string fontFamily: Style.menuSans
   property string iconFamily: Style.menuMono
   property bool live: true
   property string anchorPath: ""
+  // Path the user browsed to. Empty means "the applied wallpaper" so a filter
+  // that has not indexed it yet still centres it once the row appears.
+  property string selectedPath: ""
   property bool placed: false
   property string pendingPath: ""
   signal activated(string path)
 
   readonly property int _vw: viewW > 0 ? viewW : width
   readonly property var frame: WallThumbs.carouselFrame(_vw)
-  readonly property string currentPath: currentIndex >= 0 && currentIndex < (paths || []).length ? paths[currentIndex] : ""
+  // Resolved from the path, not a stored index: Dark/Light replaces `paths`
+  // with a shorter array and the old index used to fall off the end.
+  readonly property int shownIndex: WallThumbs.resolveCarouselIndex(paths, selectedPath, anchorPath)
+  readonly property string currentPath: {
+    const list = paths || []
+    const i = shownIndex
+    return i >= 0 && i < list.length ? list[i] : ""
+  }
 
   implicitWidth: _vw
   implicitHeight: (paths || []).length ? frame.height : 0
@@ -35,30 +44,39 @@ Item {
   function go(i) {
     if (i < 0 || i >= (paths || []).length) return
     placed = true
-    currentIndex = i
-    const p = pathAt(i)
-    if (live && p) WallpaperService.preview(p)
+    selectedPath = pathAt(i)
+    if (live && selectedPath) WallpaperService.preview(selectedPath)
   }
-  function next() { go(Math.min((paths || []).length - 1, currentIndex + 1)) }
-  function prev() { go(Math.max(0, currentIndex - 1)) }
+  function next() { go(Math.min((paths || []).length - 1, shownIndex + 1)) }
+  function prev() { go(Math.max(0, shownIndex - 1)) }
   function jumpTo(path) {
     const i = indexOfPath(path)
     if (i >= 0) { go(i); pendingPath = "" }
     else pendingPath = path || ""
   }
   function place() {
-    const i = indexOfPath(anchorPath)
-    if (i >= 0) { currentIndex = i; placed = true }
+    if ((paths || []).length === 0) return
+    // Pin the applied wallpaper when it is already in this list. Leaving the
+    // path empty when it is not (tone filter ahead of the color index) lets
+    // shownIndex pick it up the moment the row appears, instead of sticking
+    // to whichever window the fan clamped onto.
+    selectedPath = indexOfPath(anchorPath) >= 0 ? anchorPath : ""
+    placed = true
   }
   function settle() {
-    if (pendingPath) jumpTo(pendingPath)
-    else if (!placed) place()
+    if (pendingPath && indexOfPath(pendingPath) >= 0) { jumpTo(pendingPath); return }
+    if (!placed) place()
+    // Read the resolver directly. The currentPath binding may not have flushed
+    // yet inside onPathsChanged, and a Light click still has to arm preview
+    // on the window that just became the centre.
+    const p = pathAt(WallThumbs.resolveCarouselIndex(paths, selectedPath, anchorPath))
+    if (live && p && p !== WallpaperService.browsePath) WallpaperService.preview(p)
   }
-  function activate() { const p = pathAt(currentIndex); if (p) activated(p) }
+  function activate() { const p = currentPath; if (p) activated(p) }
   function recenter() {}
 
   onLiveChanged: if (!live) WallpaperService.stopPreview()
-  onAnchorPathChanged: { placed = false; settle() }
+  onAnchorPathChanged: { selectedPath = ""; placed = false; settle() }
   onPathsChanged: { settle() }
   Component.onCompleted: Qt.callLater(settle)
 
@@ -78,7 +96,7 @@ Item {
       required property int index
       required property var modelData
       readonly property string path: modelData ? ("" + modelData) : ""
-      readonly property var win: WallThumbs.carouselWindow(root.frame, (root.paths || []).length, root.currentIndex, index)
+      readonly property var win: WallThumbs.carouselWindow(root.frame, (root.paths || []).length, root.shownIndex, index)
       readonly property bool selected: win.selected
       readonly property bool applied: path !== "" && WallpaperService.currentWallpaper === path
       readonly property real skew: root.frame.skew

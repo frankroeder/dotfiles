@@ -174,6 +174,11 @@ assert(/handleKey\(event, true\)/.test(mgr), "the search field marks itself as t
 assert(/WallpaperFilterBar/.test(mgr) && /WallpaperPalette/.test(mgr) && /WallpaperFlavors/.test(mgr),
   "picker shows the filter bar, palette strip and flavour row");
 assert(/WallpaperService\.arranged\(root\.searchText\)/.test(mgr), "picker list goes through arrange()");
+const palette = fs.readFileSync(path.join(__dirname, "WallpaperPalette.qml"), "utf8");
+assert(
+  /visible:\s*root\.path !== "" && root\.swatches\.length === 0/.test(palette),
+  "the indexing line is for a real wallpaper, not an empty selection"
+);
 
 const launcher = fs.readFileSync(path.join(__dirname, "../launcher/LauncherWindow.qml"), "utf8");
 assert(/ipc:\s*"wallpaper"/.test(launcher),

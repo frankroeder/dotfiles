@@ -35,6 +35,9 @@ Scope {
         root.previewPath = ""
         root.showAll = false
         if (WallpaperService.wallpapers.length === 0) WallpaperService.rescan()
+        // Drop the last browse so the picker opens on the applied wallpaper,
+        // including when a tone filter is already on.
+        wallCarousel.selectedPath = ""
         wallCarousel.placed = false
         Qt.callLater(wallCarousel.place)
         wallBox.forceActiveFocus()

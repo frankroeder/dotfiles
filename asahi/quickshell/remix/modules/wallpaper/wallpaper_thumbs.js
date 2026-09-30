@@ -142,6 +142,26 @@ function carouselWindow(frame, count, index, i) {
   }
 }
 
+// Which row to centre after the path list changes. A Dark/Light filter replaces
+// the list with a shorter one; keeping the old numeric index then walks off the
+// end. The fan clamps onto some other window, while the name and the palette
+// follow the empty slot ("—" and "indexing colors…") and the applied wallpaper
+// is no longer the selection. Stay on the path the user is browsing when it
+// survives, otherwise the applied wallpaper, otherwise the first row.
+function resolveCarouselIndex(paths, selectedPath, anchorPath) {
+  const list = paths || []
+  if (list.length === 0) return -1
+  if (selectedPath) {
+    const at = list.indexOf(selectedPath)
+    if (at >= 0) return at
+  }
+  if (anchorPath) {
+    const at = list.indexOf(anchorPath)
+    if (at >= 0) return at
+  }
+  return 0
+}
+
 // Parallelogram hit test. Top edge runs [skew, width], bottom [0, width-skew],
 // so the top-left and bottom-right corners are outside the window.
 function carouselContains(skew, w, h, x, y) {
@@ -249,6 +269,7 @@ if (typeof module !== "undefined" && module.exports) {
     carouselFrame: carouselFrame,
     carouselWindow: carouselWindow,
     carouselContains: carouselContains,
+    resolveCarouselIndex: resolveCarouselIndex,
     CAROUSEL_NEARBY: CAROUSEL_NEARBY
   }
 }

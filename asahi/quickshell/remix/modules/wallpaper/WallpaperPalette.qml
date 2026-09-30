@@ -68,7 +68,9 @@ RowLayout {
 
     Text {
       anchors.centerIn: parent
-      visible: root.swatches.length === 0
+      // An empty path is "nothing centred", not a missing index. The indexing
+      // line is only for a real wallpaper whose thumbs have not been sampled.
+      visible: root.path !== "" && root.swatches.length === 0
       text: "indexing colors…"
       color: Style.m3outline
       font.family: root.fontFamily
