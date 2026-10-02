@@ -63,7 +63,11 @@ window_rule({ class = "^WebcamOverlay-(small|medium|large)$", title = "^WebcamOv
 
 -- ghostty scrolls by lines rather than pixels. Pin the terminal at 0.2
 -- (now also the global scroll_factor) so a later global bump cannot re-speed it.
-window_rule({ class = "^(com\\.mitchellh\\.ghostty)$" }, { scroll_touchpad = 0.2 })
+-- Bell attention and single-instance present() are xdg-activation requests; do not follow them.
+window_rule({ class = "^(com\\.mitchellh\\.ghostty)$" }, {
+  scroll_touchpad = 0.2,
+  focus_on_activate = false,
+})
 
 -- Quickshell (bar + popups + OSD + notif toast from NotificationServer in remix/shell.qml)
 layer_rule("^(quickshell.*)$", { blur = true, ignore_alpha = 0.3 })

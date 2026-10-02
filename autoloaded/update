@@ -80,6 +80,13 @@ gem_update() {
     return
   fi
 
+  # Distro ruby: native gems need ruby.h, yaml.h (psych), and on Fedora the gcc -specs= files in CFLAGS.
+  if [[ "$prefix" = /usr && $commands[dnf] ]]; then
+    rpm -q ruby-devel libyaml-devel redhat-rpm-config gcc make >/dev/null || sudo dnf install -y ruby-devel libyaml-devel redhat-rpm-config gcc make
+  elif [[ "$prefix" = /usr && $commands[apt] ]]; then
+    dpkg -s ruby-dev libyaml-dev build-essential >/dev/null 2>&1 || sudo apt install -y ruby-dev libyaml-dev build-essential
+  fi
+
   if [[ -w "$prefix" ]]; then
     gem update --system
     gem update
