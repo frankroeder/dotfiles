@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# External disks (USB / hotplug) for the launcher Storage pane. Everything goes through udisks (no root).
+#
+#   asahi-usb-storage list           JSON array, one entry per external disk
+#   asahi-usb-storage mount <part>   mount a partition
+#   asahi-usb-storage eject <disk>   unmount every partition, then power the disk off
+#
+# Adapted from https://github.com/HakataMike/omarchy-usb-storage
+
+set -euo pipefail
+
+# Negotiated USB link speed in Mb/s: walk up from the block node to the USB device that owns it.
+usb_speed() {
+  local dir
+  dir=$(readlink -f "/sys/block/$1")
+  while [[ -n $dir && ! -f $dir/speed ]]; do dir=${dir%/*}; done
+  if [[ -f $dir/speed ]]; then cat "$dir/speed"; else echo 0; fi
+}
+
+list() {
+  local disks speeds='{}' name
+  disks=$(lsblk -J -b -o NAME,PATH,TRAN,TYPE,SIZE,HOTPLUG,FSTYPE,LABEL,MOUNTPOINTS,MODEL,VENDOR,FSSIZE,FSUSED)
+  for name in $(jq -r '.blockdevices[] | select(.type == "disk" and (.tran == "usb" or .hotplug)) | .name' <<<"$disks"); do
+    speeds=$(jq --arg n "$name" --argjson s "$(usb_speed "$name")" '. + {($n): $s}' <<<"$speeds")
+  done
+  jq -c --argjson speeds "$speeds" '
+    [ .blockdevices[]
+      | select(.type == "disk" and (.tran == "usb" or .hotplug))
+      | . as $d
+      | {
+          path: $d.path,
+          size: $d.size,
+          name: ([$d.vendor, $d.model] | map(. // "" | gsub("^\\s+|\\s+$"; "") | select(. != "")) | join(" ")),
+          speed: ($speeds[$d.name] // 0),
+          partitions: [ ($d.children // [$d])[]
+            | select(.fstype != null)
+            | {
+                path, fstype,
+                label: (.label // ""),
+                mount: ((.mountpoints // []) | map(select(. != null)) | first // ""),
+                size: (.fssize // .size),
+                used: (.fsused // 0)
+              } ]
+        } ]' <<<"$disks"
+}
+
+eject() {
+  local disk=$1 part mounted
+  while read -r part mounted; do
+    if [[ -n $mounted ]]; then udisksctl unmount --no-user-interaction -b "$part" >/dev/null; fi
+  done < <(lsblk -lnpo PATH,MOUNTPOINT "$disk")
+  udisksctl power-off --no-user-interaction -b "$disk"
+}
+
+case "${1:-}" in
+  list) list ;;
+  mount) udisksctl mount --no-user-interaction -b "$2" ;;
+  eject) eject "$2" ;;
+  *)
+    echo "usage: ${0##*/} list | mount <part> | eject <disk>" >&2
+    exit 2
+    ;;
+esac

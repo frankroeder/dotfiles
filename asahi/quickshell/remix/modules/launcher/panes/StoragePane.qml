@@ -53,7 +53,43 @@ Item {
   }
   readonly property var otherMounts: (root.storageMounts || []).filter(function(m) { return m !== quickStorageRoot.rootMount })
 
-  Component.onCompleted: Qt.callLater(root.scanStorage)
+  Component.onCompleted: { Qt.callLater(root.scanStorage); listUsb() }
+
+  // External disks (USB / hotplug): listed on open, then on udev block events while the launcher shows.
+  property var usbDisks: []
+  property string usbError: ""
+  function listUsb() { if (!usbListProc.running) usbListProc.running = true }
+  function usbAction(args) {
+    if (usbActionProc.running) return
+    quickStorageRoot.usbError = ""
+    usbActionProc.command = [root.binDir + "/asahi-usb-storage"].concat(args)
+    usbActionProc.running = true
+  }
+  function usbSpeed(mbps) {
+    if (mbps >= 1000) return (mbps / 1000) + " Gb/s"
+    return mbps > 0 ? mbps + " Mb/s" : ""
+  }
+  Process {
+    id: usbListProc
+    command: [root.binDir + "/asahi-usb-storage", "list"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try { quickStorageRoot.usbDisks = JSON.parse(String(text || "").trim() || "[]") } catch (e) {}
+      }
+    }
+  }
+  Process {
+    // pdeathsig: udevadm dies with qs.
+    command: ["setpriv", "--pdeathsig", "TERM", "udevadm", "monitor", "--udev", "--subsystem-match=block"]
+    running: root.shouldShow
+    stdout: SplitParser { onRead: usbDebounce.restart() }
+  }
+  Timer { id: usbDebounce; interval: 600; onTriggered: quickStorageRoot.listUsb() }
+  Process {
+    id: usbActionProc
+    stderr: StdioCollector { onStreamFinished: quickStorageRoot.usbError = String(text || "").trim() }
+    onExited: quickStorageRoot.listUsb()
+  }
 
   // ---- M3 building blocks (caelestia look) ----
   component Pill: Rectangle {
@@ -190,7 +226,7 @@ Item {
           RowLayout {
             Layout.topMargin: 6
             spacing: 8
-            Pill { icon: "󰑐"; label: "Refresh"; bg: Style.m3primaryContainer; fg: Style.m3primary; onClicked: root.scanStorage() }
+            Pill { icon: "󰑐"; label: "Refresh"; bg: Style.m3primaryContainer; fg: Style.m3primary; onClicked: root.scanStorage(true) }
             Chip {
               icon: root.storageStatus === "scanning" ? "󰔟" : "󰥔"
               label: root.storageStatus === "scanning" ? "scanning…" : (root.storageUpdated ? "updated " + root.storageUpdated : "idle")
@@ -307,6 +343,127 @@ Item {
                   }
                 }
               }
+            }
+          }
+
+          // Connected external disks, only while one is plugged in.
+          ColumnLayout {
+            visible: quickStorageRoot.usbDisks.length > 0
+            Layout.fillWidth: true
+            spacing: 4
+            RowLayout {
+              Layout.fillWidth: true
+              spacing: 8
+              Text { text: "󰕓"; color: Style.m3secondary; font.family: root.uiFont; font.pixelSize: root.fontPx(14) }
+              CardTitle { text: "Devices"; Layout.fillWidth: true }
+              Secondary {
+                text: quickStorageRoot.usbDisks.length + (quickStorageRoot.usbDisks.length === 1 ? " disk" : " disks")
+                font.pixelSize: root.fontPx(9)
+              }
+            }
+            Repeater {
+              model: quickStorageRoot.usbDisks
+              delegate: Rectangle {
+                id: usbRowRoot
+                required property var modelData
+                Layout.fillWidth: true
+                implicitHeight: usbCol.implicitHeight + 12
+                radius: Style.menuRadiusMd
+                color: Style.m3containerHigh
+                ColumnLayout {
+                  id: usbCol
+                  anchors.fill: parent
+                  anchors.margins: 6
+                  anchors.leftMargin: 8
+                  spacing: 3
+                  RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+                    Text {
+                      Layout.fillWidth: true
+                      text: usbRowRoot.modelData.name || usbRowRoot.modelData.path
+                      color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(11)
+                      font.weight: Font.Medium; elide: Text.ElideRight
+                    }
+                    Secondary {
+                      text: [root.prettyBytes(usbRowRoot.modelData.size), quickStorageRoot.usbSpeed(usbRowRoot.modelData.speed)]
+                        .filter(function(x) { return x }).join(" · ")
+                      font.pixelSize: root.fontPx(9)
+                    }
+                    Rectangle {
+                      implicitWidth: 24; implicitHeight: 24; radius: 12
+                      color: ejectMa.containsMouse ? Style.m3stateHover : "transparent"
+                      Text {
+                        anchors.centerIn: parent
+                        text: "󰇪"; color: Style.m3onSurfaceVariant
+                        font.family: root.uiFont; font.pixelSize: root.fontPx(12)
+                      }
+                      MouseArea {
+                        id: ejectMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: quickStorageRoot.usbAction(["eject", usbRowRoot.modelData.path])
+                      }
+                    }
+                  }
+                  // One line per partition: click mounts, or opens once mounted.
+                  Repeater {
+                    model: usbRowRoot.modelData.partitions
+                    delegate: Item {
+                      id: partRoot
+                      required property var modelData
+                      Layout.fillWidth: true
+                      implicitHeight: partCol.implicitHeight
+                      ColumnLayout {
+                        id: partCol
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        spacing: 2
+                        RowLayout {
+                          Layout.fillWidth: true
+                          spacing: 6
+                          Secondary {
+                            Layout.fillWidth: true
+                            text: (partRoot.modelData.label || partRoot.modelData.path.replace("/dev/", "")) + " · " + partRoot.modelData.fstype
+                            color: partMa.containsMouse ? Style.m3onSurface : Style.m3onSurfaceVariant
+                            font.pixelSize: root.fontPx(9)
+                          }
+                          Secondary {
+                            text: partRoot.modelData.mount
+                              ? root.prettyBytes(partRoot.modelData.used) + " / " + root.prettyBytes(partRoot.modelData.size)
+                              : "mount"
+                            color: partRoot.modelData.mount ? Style.m3onSurfaceVariant : Style.m3primary
+                            font.pixelSize: root.fontPx(9)
+                          }
+                        }
+                        UsageBar {
+                          visible: !!partRoot.modelData.mount
+                          Layout.fillWidth: true
+                          implicitHeight: 3
+                          frac: partRoot.modelData.size > 0 ? partRoot.modelData.used / partRoot.modelData.size : 0
+                          accent: quickStorageRoot.mountColor(partRoot.modelData.size > 0 ? 100 * partRoot.modelData.used / partRoot.modelData.size : 0)
+                        }
+                      }
+                      MouseArea {
+                        id: partMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: partRoot.modelData.mount
+                          ? Quickshell.execDetached([root.binDir + "/asahi-launch", "xdg-open", partRoot.modelData.mount])
+                          : quickStorageRoot.usbAction(["mount", partRoot.modelData.path])
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            Text {
+              visible: quickStorageRoot.usbError !== ""
+              Layout.fillWidth: true
+              text: quickStorageRoot.usbError
+              color: Style.red; font.family: root.uiSans; font.pixelSize: root.fontPx(9); elide: Text.ElideRight
             }
           }
         }

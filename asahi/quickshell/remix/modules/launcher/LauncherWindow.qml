@@ -461,7 +461,11 @@ Scope {
   property string storageStatus: "idle"
   property string storageUpdated: ""
   property string storageError: ""
-  property bool storageScanHome: true
+  // Last full scan (df + du) persists here; reused until older than 2 days or Refresh.
+  readonly property string storageCachePath: Quickshell.env("HOME") + "/.local/state/asahi/storage.json"
+  readonly property real storageMaxAgeMs: 2 * 24 * 3600 * 1000
+  property real storageAt: 0
+  property string storageDfText: ""
 
   function parseStorageMounts(text) {
     const mounts = []
@@ -521,10 +525,6 @@ Scope {
     root.storageHomeDirs = dirs
   }
 
-  function scanStorageMountsOnly() {
-    storageDfProc.running = true
-  }
-
   function scanStorageHomeDirs() {
     const home = root.homeDir
     storageDuProc.command = [
@@ -537,12 +537,33 @@ Scope {
     storageDuProc.running = true
   }
 
-  function scanStorage() {
+  function scanStorage(force) {
     if (storageDfProc.running || storageDuProc.running) return
+    if (!force && Date.now() - root.storageAt < root.storageMaxAgeMs) return
     root.storageStatus = "scanning"
     root.storageError = ""
-    root.storageScanHome = true
     storageDfProc.running = true
+  }
+
+  function storageFinished(at) {
+    root.storageAt = at
+    root.storageStatus = "ready"
+    root.storageUpdated = Qt.formatDateTime(new Date(at), "ddd HH:mm")
+  }
+
+  FileView {
+    id: storageCacheFile
+    path: root.storageCachePath
+    blockLoading: true
+    printErrors: false
+    onLoaded: {
+      try {
+        const data = JSON.parse(storageCacheFile.text())
+        root.parseStorageMounts(data.df)
+        root.parseStorageHomeDirs(data.du)
+        root.storageFinished(Number(data.at) || 0)
+      } catch (e) {}
+    }
   }
 
   Process {
@@ -559,11 +580,8 @@ Scope {
       onStreamFinished: {
         try {
           root.parseStorageMounts(text)
-          if (root.storageScanHome) root.scanStorageHomeDirs()
-          else {
-            root.storageStatus = "ready"
-            root.storageUpdated = Qt.formatTime(new Date(), "HH:mm:ss")
-          }
+          root.storageDfText = text
+          root.scanStorageHomeDirs()
         } catch (e) {
           root.storageError = "Failed to parse mounts"
           root.storageStatus = "error"
@@ -585,8 +603,8 @@ Scope {
       onStreamFinished: {
         try {
           root.parseStorageHomeDirs(text)
-          root.storageStatus = "ready"
-          root.storageUpdated = Qt.formatTime(new Date(), "HH:mm:ss")
+          root.storageFinished(Date.now())
+          storageCacheFile.setText(JSON.stringify({ at: root.storageAt, df: root.storageDfText, du: text }))
         } catch (e) {
           root.storageError = "Failed to parse home folders"
           root.storageStatus = "error"
@@ -597,18 +615,6 @@ Scope {
       if (code !== 0 && root.storageHomeDirs.length === 0 && root.storageStatus === "scanning") {
         root.storageError = "du failed"
         root.storageStatus = "error"
-      }
-    }
-  }
-
-  Timer {
-    interval: 30000
-    running: root.shouldShow && root.quickMode && root.quickPaneKey === "storage"
-    repeat: true
-    onTriggered: {
-      if (!storageDfProc.running && !storageDuProc.running) {
-        root.storageScanHome = false
-        root.scanStorageMountsOnly()
       }
     }
   }
