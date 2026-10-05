@@ -158,7 +158,9 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
 - **Browser screenshare**: camera/mic work. Chromium needs
   `CHROMIUM_USER_FLAGS=--enable-features=WebRTCPipeWireCapturer` in `env.lua` and
   `environment.d/90-asahi.conf` (Fedora ignores `chromium-flags.conf`). No Google Chrome; Fedora
-  ships `hyprland-share-picker`.
+  ships `hyprland-share-picker`. xdph never reconnects to PipeWire: after a pipewire restart its
+  ScreenCast `Start` spins (~95% CPU) and every share hangs — drop-in
+  `xdg-desktop-portal-hyprland.service.d/10-asahi-pipewire.conf` (`PartOf=pipewire.service`).
 - **asahi-debug**: Fedora Asahi health (`asahi/bin/asahi-debug [--json]`). dnf/rpm,
   `wpa_supplicant`, asahi-audio, `speakersafetyd`, `kernel-16k`, HID, notch, sshd mask,
   no-hibernate. Not pacman/iwd/SDDM. Test: `asahi/bin/asahi_debug_test.sh`. Not part of

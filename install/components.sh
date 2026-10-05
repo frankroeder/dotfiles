@@ -668,6 +668,9 @@ comp_asahi_desktop() {
     "$HOME/.local/bin/asahi-brightness-keyboard-auto"
   ln -sfn "$DOTFILES/asahi/systemd/user/asahi-brightness-keyboard-auto.service" \
     "$HOME/.config/systemd/user/asahi-brightness-keyboard-auto.service"
+  mkdir -p "$HOME/.config/systemd/user/xdg-desktop-portal-hyprland.service.d"
+  link_if_exists "$DOTFILES/asahi/systemd/user/xdg-desktop-portal-hyprland.service.d/10-asahi-pipewire.conf" \
+    "$HOME/.config/systemd/user/xdg-desktop-portal-hyprland.service.d/10-asahi-pipewire.conf"
   systemctl --user daemon-reload
   systemctl --user enable asahi-brightness-keyboard-auto.service
   if systemctl --user is-active --quiet hyprland-session.target; then
