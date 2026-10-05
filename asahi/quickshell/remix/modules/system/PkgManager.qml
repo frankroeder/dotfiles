@@ -73,18 +73,21 @@ Scope {
     root.open = false
   }
 
+  // The bar's update chip calls this in-process (shell.qml); the keybind uses IPC.
+  function toggle() {
+    root.open = !root.open
+    if (root.open) {
+      root.tab = 0
+      root.query = ""
+      root.packages = []
+      root.status = "Type a name and search"
+      Qt.callLater(function () { searchField.forceActiveFocus() })
+    }
+  }
+
   IpcHandler {
     target: "pkgman"
-    function toggle(): void {
-      root.open = !root.open
-      if (root.open) {
-        root.tab = 0
-        root.query = ""
-        root.packages = []
-        root.status = "Type a name and search"
-        Qt.callLater(function () { searchField.forceActiveFocus() })
-      }
-    }
+    function toggle(): void { root.toggle() }
   }
 
   Process {

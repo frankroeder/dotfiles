@@ -17,9 +17,10 @@ end
 window_rule({ class = ".*" }, { opacity = "0.97 0.9" })
 
 -- Media and pickers stay fully opaque; the global 0.97/0.9 wash tints video.
+-- `opaque`, not opacity 1: rule opacity multiplies with inactive_opacity.
 window_rule({
   class = "^(zoom|vlc|mpv|org\\.kde\\.kdenlive|com\\.obsproject\\.Studio|imv|org\\.gnome\\.NautilusPreviewer)$",
-}, { opacity = "1 1" })
+}, { opaque = true })
 
 -- PiP: pin a 16:9 tile to the top-right. Title match only — a bare
 -- "Meet - …" rule would also float the main meeting window.
@@ -29,7 +30,7 @@ window_rule({ title = "(Picture.?in.?[Pp]icture)" }, {
   size = { 600, 338 },
   keep_aspect_ratio = true,
   border_size = 0,
-  opacity = "1 1",
+  opaque = true,
   move = { "(monitor_w-window_w-40)", "(monitor_h*0.04)" },
 })
 
@@ -58,7 +59,7 @@ window_rule({ class = "^WebcamOverlay-(small|medium|large)$", title = "^WebcamOv
   no_initial_focus = true,
   no_focus = true,
   no_follow_mouse = true,
-  opacity = "1 1",
+  opaque = true,
 })
 
 -- ghostty scrolls by lines rather than pixels. Pin the terminal at 0.2

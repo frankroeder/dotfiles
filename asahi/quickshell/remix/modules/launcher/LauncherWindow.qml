@@ -361,7 +361,7 @@ Scope {
   }
   Timer {
     interval: (root.quickMode && root.quickPaneKey === "hub") ? 800 : 2000
-    running: true
+    running: root.shouldShow
     repeat: true
     triggeredOnStart: true
     onTriggered: if (!sidebarProc.running) sidebarProc.running = true
@@ -603,7 +603,7 @@ Scope {
 
   Timer {
     interval: 30000
-    running: root.quickMode && root.quickPaneKey === "storage"
+    running: root.shouldShow && root.quickMode && root.quickPaneKey === "storage"
     repeat: true
     onTriggered: {
       if (!storageDfProc.running && !storageDuProc.running) {
@@ -622,8 +622,8 @@ Scope {
     property string ffTitle: "System"
     property string ffSubtitle: "fastfetch"
     property string ffUptime: ""
-    // Live wall clock next to the uptime pill; the hub Item is only instantiated while shown.
-    SystemClock { id: hubClock; precision: SystemClock.Seconds }
+    // Wall clock beside the uptime pill; ticks only while shown.
+    SystemClock { id: hubClock; precision: SystemClock.Seconds; enabled: root.shouldShow }
     property int ffDiskPct: 0
     property int ffMemPct: 0
     property real ffMemUsedBytes: 0
@@ -835,7 +835,7 @@ Scope {
     }
     Timer {
       interval: 60000
-      running: root.quickMode && root.quickPaneKey === "hub"
+      running: root.shouldShow && root.quickMode && root.quickPaneKey === "hub"
       repeat: true
       triggeredOnStart: true
       onTriggered: quickHubRoot.refreshFastfetch()
@@ -1116,7 +1116,9 @@ Scope {
   }
   onDictVersionChanged: root.resetDictSelection()
   onFileVersionChanged: { root.resetFileSelection(); if (root.fileMode) Qt.callLater(root.updateFilePreview) }
-  onDeVersionChanged: { if (resultsList) resultsList.currentIndex = 0; root.selectedIndex = 0 }
+  // App-dir changes only matter for the app list; in Quick mode the reset would destroy the open
+  // pane mid-action (Wi-Fi connect, BT pair, display revert).
+  onDeVersionChanged: if (!root.quickMode) { if (resultsList) resultsList.currentIndex = 0; root.selectedIndex = 0 }
   onShouldShowChanged: {
     if (root.shouldShow) {
       chromeHideKick.stop()
@@ -1288,6 +1290,7 @@ Scope {
     shouldShow = true
     root.categoryFilter = ""
     root.expandedQuickKey = ""
+    root.shotPreviewPath = ""
     root.setSearchQuery("")
     if (resultsList) resultsList.currentIndex = 0
     root.focusLauncherInput()
@@ -1630,18 +1633,17 @@ Scope {
     const raw = tokens.join(" ")
     const hasSlash = raw.indexOf("/") >= 0
     const hasGlob = raw.indexOf("*") >= 0 || raw.indexOf("?") >= 0
+    let pattern = tokens.join(".*")
     if (hasSlash) {
       args.push("--glob")
       args.push("--full-path")
-      const prefix = (raw[0] === "*" || raw[0] === "/") ? "" : "**/"
-      args.push(prefix + raw)
+      pattern = ((raw[0] === "*" || raw[0] === "/") ? "" : "**/") + raw
     } else if (hasGlob) {
       args.push("--glob")
-      args.push(raw)
-    } else {
-      args.push(tokens.join(".*"))
+      pattern = raw
     }
-    args.push(Quickshell.env("HOME"))
+    // "--": a term starting with "-" would otherwise parse as an fd option.
+    args.push("--", pattern, Quickshell.env("HOME"))
     return args
   }
 
@@ -1933,17 +1935,17 @@ Scope {
   }
 
   // --- Icon fallback index: one find over the XDG icon dirs into name -> path.
-  // SVGs are listed before PNGs so the first hit per name prefers scalable.
+  // SVGs first; awk keeps the first hit per name (~9k lines to JS instead of ~54k).
   function iconIndexScanCommand() {
     return [
       'dirs="$HOME/.icons $HOME/.local/share/icons";',
       'IFS=":"; for d in ${XDG_DATA_DIRS:-/usr/local/share:/usr/share}; do dirs="$dirs $d/icons"; done; unset IFS;',
-      'for ext in svg png; do',
+      '{ for ext in svg png; do',
       '  for base in $dirs; do',
       '    [ -d "$base" ] && find "$base" \\( -path "*/apps/*" -o -path "*/devices/*" \\) -name "*.$ext" 2>/dev/null;',
       '  done;',
       '  find /usr/share/pixmaps -maxdepth 1 -name "*.$ext" 2>/dev/null;',
-      'done'
+      'done; } | awk -F/ \'{ n = $NF; sub(/\\.[^.]*$/, "", n); if (!(n in seen)) { seen[n] = 1; print } }\''
     ].join(' ')
   }
 
@@ -2383,6 +2385,7 @@ Scope {
       mode: a.mode || "",
       ipc: a.ipc || "",
       command: a.command || [],
+      query: a.query || "",
       _t: (a.name || "").toLowerCase(),
       _k: ((a.key || "") + " " + (a.aliases || []).join(" ")).toLowerCase(),
       _c: "actions"
@@ -2883,7 +2886,7 @@ Scope {
               color: Style.menuAccent
               anchors.verticalCenter: parent ? parent.verticalCenter : undefined
               SequentialAnimation on opacity {
-                running: searchInput.activeFocus && searchInput.cursorVisible
+                running: root.shouldShow && searchInput.activeFocus && searchInput.cursorVisible
                 loops: Animation.Infinite
                 NumberAnimation { from: 1; to: 0.15; duration: 560; easing.type: Easing.InOutSine }
                 NumberAnimation { from: 0.15; to: 1; duration: 560; easing.type: Easing.InOutSine }
@@ -3395,6 +3398,8 @@ Scope {
                     visible: root.fileMode && resultsList.currentItem && resultsList.currentItem.modelData && root.isImageFile(resultsList.currentItem.modelData.path || "")
                     source: root.fileMode && resultsList.currentItem && resultsList.currentItem.modelData && root.isImageFile(resultsList.currentItem.modelData.path || "") && resultsList.currentItem.modelData.path ? "file://" + resultsList.currentItem.modelData.path : ""
                     fillMode: Image.PreserveAspectFit
+                    // Decode at preview size, not full resolution.
+                    sourceSize.width: 1024
                     asynchronous: true
                   }
 
@@ -3475,6 +3480,7 @@ Scope {
           height: parent.height * 0.82
           source: root.shotPreviewPath !== "" ? ("file://" + root.shotPreviewPath) : ""
           fillMode: Image.PreserveAspectFit
+          sourceSize.width: 2048
           asynchronous: true
         }
 

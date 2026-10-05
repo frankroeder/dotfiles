@@ -7,6 +7,8 @@ import "../../../"
 import "../../../services" as Services
 import "../../launcher/arg_commands.js" as ArgCommands
 
+// Click-only chips: stay awake, night light, recorder, timer, updates, notifications.
+// Stay-awake / night-light / timer state follows files their scripts write (FileView watches).
 RowLayout {
   id: root
 
@@ -15,99 +17,57 @@ RowLayout {
   property bool updatesAvailable: false
   property bool stayAwake: false
   property bool nightLightOn: false
-  property int nightLightTemp: 6500
-  // Soonest asahi-timer (systemd user timers); left ticks locally between polls.
+  // Soonest asahi-timer (systemd user timers); left ticks locally between syncs.
   property int timerCount: 0
   property int timerLeft: 0
-  property string timerLabel: ""
   property string timerUnit: ""
+  property bool timerArmed: false
   property var barHost: null
-  readonly property alias recChip: recChip
-  readonly property bool solidBar: barHost !== null && barHost !== undefined
 
+  readonly property string runtimeDir: Quickshell.env("XDG_RUNTIME_DIR") || "/tmp"
   readonly property string nightLightStatePath: Quickshell.env("HOME") + "/.local/state/asahi/nightlight.json"
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
+  readonly property color fg: barHost ? barHost.barForeground : Style.text
 
-  spacing: solidBar ? 2 : 6
+  spacing: 2
 
-  function refreshStayAwake() {
-    if (!stayAwakeProc.running) stayAwakeProc.running = true
+  // --- night light: asahi-nightlight rewrites nightlight.json in place.
+  function parseNightLight(raw) {
+    try { root.nightLightOn = !!JSON.parse(raw || "{}").on } catch (e) { root.nightLightOn = false }
+  }
+  FileView {
+    id: nightLightFile
+    path: root.nightLightStatePath
+    watchChanges: true
+    blockLoading: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.parseNightLight(nightLightFile.text())
+    onTextChanged: root.parseNightLight(nightLightFile.text())
+    onLoadFailed: root.nightLightOn = false
   }
 
-  function refreshNightLight() {
-    if (!nightLightProc.running) nightLightProc.running = true
+  // --- stay awake: asahi-stay-awake creates / removes a flag file (the watch sees both).
+  FileView {
+    path: root.runtimeDir + "/asahi-stay-awake"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.stayAwake = true
+    onLoadFailed: root.stayAwake = false
   }
 
-  function toggleNightLight() {
-    Quickshell.execDetached(["bash", binDir + "/asahi-nightlight", "toggle"])
-    nightLightRefresh.restart()
-  }
-
-  function toggleStayAwake() {
-    Quickshell.execDetached(["bash", root.binDir + "/asahi-stay-awake", "toggle"])
-    stayAwakeRefresh.restart()
-  }
-
-  Process {
-    id: nightLightProc
-    command: ["bash", root.binDir + "/asahi-nightlight", "status"]
-    stdout: StdioCollector {
-      onStreamFinished: {
-        try {
-          const data = JSON.parse(text.trim())
-          root.nightLightOn = !!data.on
-          root.nightLightTemp = data.temperature || 6500
-        } catch (e) {
-          root.nightLightOn = false
-        }
-      }
-    }
-  }
-
-  Timer {
-    interval: 3000
-    running: true
-    repeat: true
-    triggeredOnStart: true
-    onTriggered: root.refreshNightLight()
-  }
-
-  Timer {
-    id: nightLightRefresh
-    interval: 400
-    onTriggered: root.refreshNightLight()
-  }
-
-  Process {
-    id: stayAwakeProc
-    command: ["bash", root.binDir + "/asahi-stay-awake", "status"]
-    onExited: code => { root.stayAwake = (code === 0) }
-  }
-
-  Timer {
-    interval: 2000
-    running: true
-    repeat: true
-    triggeredOnStart: true
-    onTriggered: root.refreshStayAwake()
-  }
-
-  Timer {
-    id: stayAwakeRefresh
-    interval: 250
-    onTriggered: root.refreshStayAwake()
-  }
-
+  // --- timers: asahi-timer touches a stamp on add/cancel; tick locally while one runs.
+  function refreshTimers() { if (!timerProc.running) timerProc.running = true }
   Process {
     id: timerProc
-    command: ["bash", root.binDir + "/asahi-timer", "list", "--json"]
+    command: [root.binDir + "/asahi-timer", "list", "--json"]
     stdout: StdioCollector {
       onStreamFinished: {
         try {
           const list = JSON.parse(text.trim() || "[]")
           root.timerCount = list.length
           root.timerLeft = list.length ? list[0].left : 0
-          root.timerLabel = list.length ? list[0].label : ""
           root.timerUnit = list.length ? list[0].unit : ""
         } catch (e) {
           root.timerCount = 0
@@ -115,112 +75,79 @@ RowLayout {
       }
     }
   }
-
+  FileView {
+    path: root.runtimeDir + "/asahi-timer.stamp"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: root.refreshTimers()
+  }
   Timer {
-    interval: root.timerCount > 0 ? 1000 : 4000
+    // 1 s countdown while a timer runs (resync every 5 s); otherwise a slow safety poll.
+    interval: root.timerCount > 0 ? 1000 : 60000
     running: true
     repeat: true
     triggeredOnStart: true
     onTriggered: {
       if (root.timerCount > 0 && root.timerLeft > 0) root.timerLeft--
-      if (!timerProc.running && (root.timerCount === 0 || root.timerLeft % 5 === 0)) timerProc.running = true
+      if (root.timerCount === 0 || root.timerLeft % 5 === 0) root.refreshTimers()
     }
   }
-
   Timer {
-    id: timerRefresh
-    interval: 300
-    onTriggered: if (!timerProc.running) timerProc.running = true
+    id: disarmTimer
+    interval: 3000
+    onTriggered: root.timerArmed = false
   }
 
-  Rectangle {
-    id: stayAwakeChip
-    width: solidBar ? stayAwakeGlyph.implicitWidth + 6 : 30
-    height: solidBar ? Style.barHeight : 30
-    radius: solidBar ? 0 : Style.radius
-    color: solidBar ? "transparent" : (stayAwakeMouse.containsMouse ? Style.panelWarningBg : Style.barBg)
-    border.width: solidBar ? 0 : 1
-    border.color: root.stayAwake ? Style.yellow : (stayAwakeMouse.containsMouse ? Style.barHoverBorder : Style.barBorder)
-    Behavior on color { ColorAnimation { duration: 140 } }
-    Behavior on border.color { ColorAnimation { duration: 140 } }
-
-    Rectangle {
-      anchors.fill: parent
-      anchors.topMargin: Style.barChipInset
-      anchors.bottomMargin: Style.barChipInset
-      radius: Style.radiusSm
-      visible: solidBar
-      color: stayAwakeMouse.containsMouse ? Style.barStripHover : "transparent"
-      Behavior on color { ColorAnimation { duration: 120 } }
-    }
+  Item {
+    implicitWidth: stayAwakeGlyph.implicitWidth + 6
+    implicitHeight: Style.barHeight
 
     Text {
       id: stayAwakeGlyph
       anchors.centerIn: parent
       text: "󰅶"
       font.family: Style.fontFamily
-      font.pixelSize: solidBar ? Style.barFontGlyph : 15
-      color: root.stayAwake ? Style.yellow : (solidBar && barHost ? barHost.barForeground : Style.textMuted)
+      font.pixelSize: Style.barFontGlyph
+      color: root.stayAwake ? Style.yellow : root.fg
     }
 
+    HoverTint { lit: chipMouse1.containsMouse }
     MouseArea {
-      id: stayAwakeMouse
+      id: chipMouse1
       anchors.fill: parent
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
-      onClicked: root.toggleStayAwake()
+      onClicked: Quickshell.execDetached([root.binDir + "/asahi-stay-awake", "toggle"])
     }
-
-    TooltipWindow { target: stayAwakeChip; text: root.stayAwake ? "Stay awake (idle lock off)" : "Allow idle lock"; show: stayAwakeMouse.containsMouse }
   }
 
-  Rectangle {
-    id: nightChip
-    width: solidBar ? Style.barIconSlot : 26
-    height: solidBar ? Style.barHeight : 26
-    radius: solidBar ? 0 : Style.radius
-    color: solidBar ? "transparent" : (nightMouse.containsMouse ? Style.panelWarningBg : Style.barBg)
-    border.width: solidBar ? 0 : 1
-    border.color: root.nightLightOn ? Style.orange : (solidBar ? "transparent" : Style.barBorder)
-    visible: true
-
-    Rectangle {
-      anchors.fill: parent
-      anchors.topMargin: Style.barChipInset
-      anchors.bottomMargin: Style.barChipInset
-      radius: Style.radiusSm
-      visible: solidBar
-      color: nightMouse.containsMouse ? Style.barStripHover : "transparent"
-      Behavior on color { ColorAnimation { duration: 120 } }
-    }
+  // Only while on (Super+Ctrl+N / Quick): frees room next to the notch.
+  Item {
+    visible: root.nightLightOn
+    implicitWidth: Style.barIconSlot
+    implicitHeight: Style.barHeight
 
     Text {
-      id: nightGlyph
       anchors.centerIn: parent
-      text: root.nightLightOn ? "󰽥" : "󰖔"
+      text: "󰽥"
       font.family: Style.fontFamily
-      font.pixelSize: solidBar ? Style.barFontGlyph : 15
-      color: root.nightLightOn ? Style.orange : (solidBar && barHost ? barHost.barForeground : Style.textMuted)
+      font.pixelSize: Style.barFontGlyph
+      color: Style.orange
     }
 
+    HoverTint { lit: chipMouse2.containsMouse }
     MouseArea {
-      id: nightMouse
+      id: chipMouse2
       anchors.fill: parent
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
-      onClicked: root.toggleNightLight()
-    }
-
-    TooltipWindow {
-      target: nightChip
-      text: root.nightLightOn ? ("Night light " + root.nightLightTemp + "K") : "Night light off"
-      show: nightMouse.containsMouse
+      onClicked: Quickshell.execDetached([root.binDir + "/asahi-nightlight", "toggle"])
     }
   }
 
   // Recorder chip: only while recording, with the running clock. Click opens
   // the panel, right-click stops. Idle, the panel comes from Super+Alt+R.
-  Rectangle {
+  Item {
     id: recChip
     readonly property bool rec: Services.Recorder.running
     readonly property bool sameScreen: {
@@ -230,28 +157,11 @@ RowLayout {
       return mon.name === scr.name
     }
     readonly property bool panelShown: (root.barHost && root.barHost.recPanelOpen) || (Services.Recorder.panelOpen && sameScreen)
-    readonly property color tone: Style.red
     // Stays visible while the panel is open even after recording stops, so the chip
     // that opened it is still there to close it (it used to vanish and strand the popup).
     visible: rec || panelShown
-    Layout.preferredWidth: recRow.implicitWidth + (solidBar ? 8 : 12)
-    height: solidBar ? Style.barHeight : 26
-    radius: solidBar ? 0 : Style.radius
-    color: solidBar ? "transparent" : (recMouse.containsMouse ? Style.panelDangerBg : Style.barBg)
-    border.width: solidBar ? 0 : 1
-    border.color: solidBar ? "transparent" : (recMouse.containsMouse ? Style.red : Style.barBorder)
-    Behavior on color { ColorAnimation { duration: 140 } }
-    Behavior on border.color { ColorAnimation { duration: 140 } }
-
-    Rectangle {
-      anchors.fill: parent
-      anchors.topMargin: Style.barChipInset
-      anchors.bottomMargin: Style.barChipInset
-      radius: Style.radiusSm
-      visible: solidBar
-      color: recMouse.containsMouse ? Style.barStripHover : "transparent"
-      Behavior on color { ColorAnimation { duration: 120 } }
-    }
+    Layout.preferredWidth: recRow.implicitWidth + 8
+    implicitHeight: Style.barHeight
 
     RowLayout {
       id: recRow
@@ -259,7 +169,7 @@ RowLayout {
       spacing: 5
       Text {
         text: "󰑋"
-        font.family: Style.fontFamily; font.pixelSize: Style.barFontGlyph; color: recChip.tone
+        font.family: Style.fontFamily; font.pixelSize: Style.barFontGlyph; color: Style.red
         SequentialAnimation on opacity {
           running: recChip.rec
           loops: Animation.Infinite
@@ -270,12 +180,13 @@ RowLayout {
       Text {
         visible: recChip.rec
         text: Services.Recorder.fmtElapsed(Services.Recorder.elapsed)
-        font.family: Style.fontFamily; font.pixelSize: Style.barFontCaption; font.bold: true; color: recChip.tone
+        font.family: Style.fontFamily; font.pixelSize: Style.barFontCaption; font.bold: true; color: Style.red
       }
     }
 
+    HoverTint { lit: chipMouse3.containsMouse }
     MouseArea {
-      id: recMouse
+      id: chipMouse3
       anchors.fill: parent
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
@@ -291,122 +202,71 @@ RowLayout {
         else if (root.barHost) root.barHost.toggleRecPanel()
       }
     }
-    TooltipWindow {
-      target: recChip
-      text: recChip.rec
-        ? "Recording " + Services.Recorder.fmtElapsed(Services.Recorder.elapsed) + " — click for controls, right-click to stop"
-        : "Screen recorder"
-      show: recMouse.containsMouse
-    }
   }
 
-  Rectangle {
-    id: timerChip
-    Layout.preferredWidth: timerRow.implicitWidth + (solidBar ? 8 : 12)
-    height: solidBar ? Style.barHeight : 26
-    radius: solidBar ? 0 : Style.radius
-    color: solidBar ? "transparent" : (timerMouse.containsMouse ? Style.panelWarningBg : Style.barBg)
-    border.width: solidBar ? 0 : 1
-    border.color: solidBar ? "transparent" : (timerMouse.containsMouse ? Style.yellow : Style.barBorder)
+  // Timer chip: first click arms (turns red, "cancel?"), a second click within 3 s cancels.
+  Item {
     visible: root.timerCount > 0
-
-    Rectangle {
-      anchors.fill: parent
-      anchors.topMargin: Style.barChipInset
-      anchors.bottomMargin: Style.barChipInset
-      radius: Style.radiusSm
-      visible: solidBar
-      color: timerMouse.containsMouse ? Style.barStripHover : "transparent"
-      Behavior on color { ColorAnimation { duration: 120 } }
-    }
+    Layout.preferredWidth: timerRow.implicitWidth + 8
+    implicitHeight: Style.barHeight
 
     RowLayout {
       id: timerRow
       anchors.centerIn: parent
       spacing: 5
-      Text { text: "󰔛"; font.family: Style.fontFamily; font.pixelSize: Style.barFontGlyph; color: Style.yellow }
+      Text { text: "󰔛"; font.family: Style.fontFamily; font.pixelSize: Style.barFontGlyph; color: root.timerArmed ? Style.red : Style.yellow }
       Text {
-        text: ArgCommands.formatSeconds(root.timerLeft) + (root.timerCount > 1 ? " +" + (root.timerCount - 1) : "")
+        text: root.timerArmed ? "cancel?"
+          : ArgCommands.formatSeconds(root.timerLeft) + (root.timerCount > 1 ? " +" + (root.timerCount - 1) : "")
         font.family: Style.fontFamily
         font.pixelSize: Style.barFontCaption
         font.bold: true
-        color: solidBar && barHost ? barHost.barForeground : Style.text
+        color: root.timerArmed ? Style.red : root.fg
       }
     }
 
+    HoverTint { lit: chipMouse4.containsMouse }
     MouseArea {
-      id: timerMouse
+      id: chipMouse4
       anchors.fill: parent
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
       onClicked: {
+        if (!root.timerArmed) { root.timerArmed = true; disarmTimer.restart(); return }
+        root.timerArmed = false
+        disarmTimer.stop()
         Quickshell.execDetached([root.binDir + "/asahi-timer", "cancel", root.timerUnit])
-        timerRefresh.restart()
       }
     }
-    TooltipWindow { target: timerChip; text: root.timerLabel + " — click to cancel"; show: timerMouse.containsMouse }
   }
 
-  Rectangle {
-    id: updateChip
-    width: solidBar ? Style.barIconSlot : 26
-    height: solidBar ? Style.barHeight : 26
-    radius: solidBar ? 0 : Style.radius
-    color: solidBar ? "transparent" : (updateMouse.containsMouse ? Style.panelWarningBg : Style.barBg)
-    border.width: solidBar ? 0 : 1
-    border.color: solidBar ? "transparent" : (updateMouse.containsMouse ? Style.orange : Style.barBorder)
+  Item {
     visible: root.updatesAvailable
-    Behavior on color { ColorAnimation { duration: 140 } }
-    Behavior on border.color { ColorAnimation { duration: 140 } }
-
-    Rectangle {
-      anchors.fill: parent
-      anchors.topMargin: Style.barChipInset
-      anchors.bottomMargin: Style.barChipInset
-      radius: Style.radiusSm
-      visible: solidBar
-      color: updateMouse.containsMouse ? Style.barStripHover : "transparent"
-      Behavior on color { ColorAnimation { duration: 120 } }
-    }
+    implicitWidth: Style.barIconSlot
+    implicitHeight: Style.barHeight
 
     Text {
-      id: updateGlyph
       anchors.centerIn: parent
       text: "󰚰"
       font.family: Style.fontFamily
-      font.pixelSize: solidBar ? Style.barFontGlyph : 15
+      font.pixelSize: Style.barFontGlyph
       color: Style.orange
     }
 
+    HoverTint { lit: chipMouse5.containsMouse }
     MouseArea {
-      id: updateMouse
+      id: chipMouse5
       anchors.fill: parent
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
-      onClicked: Quickshell.execDetached(["qs", "-c", "remix", "ipc", "call", "pkgman", "toggle"])
+      onClicked: if (root.barHost) root.barHost.quickRequested("pkgman")
     }
-    TooltipWindow { target: updateChip; text: "dnf updates — click to open"; show: updateMouse.containsMouse }
   }
 
-  Rectangle {
-    Layout.preferredWidth: notifRow.implicitWidth + (solidBar ? 8 : 12)
-    height: solidBar ? Style.barHeight : 26
-    radius: solidBar ? 0 : Style.radius
-    border.width: solidBar ? 0 : 1
-    border.color: solidBar ? "transparent" : Style.barBorder
-    scale: solidBar ? 1.0 : (notifMouse.containsMouse ? 1.018 : 1.0)
-    color: solidBar ? "transparent" : (notifMouse.containsMouse ? Style.barHoverBg : Style.barBg)
+  Item {
     visible: root.notificationCenter !== null
-
-    Rectangle {
-      anchors.fill: parent
-      anchors.topMargin: Style.barChipInset
-      anchors.bottomMargin: Style.barChipInset
-      radius: Style.radiusSm
-      visible: solidBar
-      color: notifMouse.containsMouse ? Style.barStripHover : "transparent"
-      Behavior on color { ColorAnimation { duration: 120 } }
-    }
+    Layout.preferredWidth: notifRow.implicitWidth + 8
+    implicitHeight: Style.barHeight
 
     RowLayout {
       id: notifRow
@@ -416,7 +276,7 @@ RowLayout {
       Text {
         text: root.notificationCenter && root.notificationCenter.dndEnabled ? "󰂛" : "󰂚"
         font.family: Style.fontFamily
-        font.pixelSize: solidBar ? Style.barFontGlyph : 15
+        font.pixelSize: Style.barFontGlyph
         color: root.notificationCenter && root.notificationCenter.dndEnabled ? Style.yellow : Style.blueAlt
       }
 
@@ -429,8 +289,9 @@ RowLayout {
       }
     }
 
+    HoverTint { lit: chipMouse6.containsMouse }
     MouseArea {
-      id: notifMouse
+      id: chipMouse6
       anchors.fill: parent
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor

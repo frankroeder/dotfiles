@@ -2,38 +2,19 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
+import Quickshell.Services.UPower
 import "../../../"
 
-Rectangle {
+// UPower changes run asahi-battery (60 s fallback poll). Click: Quick > Battery.
+Item {
     id: root
 
     property var barHost: null
-    readonly property bool solidBar: barHost !== null && barHost !== undefined
-
     readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
 
-    color: solidBar ? "transparent" : (batMa.containsMouse ? Style.barHoverBg : Style.barBg)
-    radius: solidBar ? 0 : Style.radius
-    border.width: solidBar ? 0 : 1
-    border.color: solidBar ? "transparent" : (batMa.containsMouse ? Style.barHoverBorder : Style.barBorder)
-    Behavior on color { ColorAnimation { duration: 140 } }
-    Behavior on border.color { ColorAnimation { duration: 140 } }
-    scale: solidBar ? 1.0 : (batMa.containsMouse ? 1.018 : 1.0)
+    implicitWidth: row.implicitWidth + 6
+    implicitHeight: Style.barHeight
 
-    implicitWidth: row.implicitWidth + (solidBar ? 6 : 14)
-    implicitHeight: solidBar ? Style.barHeight : 26
-
-    Rectangle {
-        anchors.fill: parent
-        anchors.topMargin: Style.barChipInset
-        anchors.bottomMargin: Style.barChipInset
-        radius: Style.radiusSm
-        visible: solidBar
-        color: batMa.containsMouse ? Style.barStripHover : "transparent"
-        Behavior on color { ColorAnimation { duration: 120 } }
-    }
-
-    property string tooltip: ""
     property int percentage: 0
     property string iconGlyph: "󰁹"
     property string levelText: ""
@@ -41,7 +22,6 @@ Rectangle {
     function parseBatteryPayload(raw) {
         try {
             const data = JSON.parse(raw.trim())
-            root.tooltip = data.tooltip || ""
             root.percentage = typeof data.percentage === "number" ? data.percentage : 0
             const text = data.text || ""
             const iconMatch = text.match(/^(.+?)\s+(\d+)%/)
@@ -53,6 +33,8 @@ Rectangle {
             }
         } catch (e) {}
     }
+
+    HoverTint { lit: chipMouse.containsMouse }
 
     RowLayout {
         id: row
@@ -74,34 +56,36 @@ Rectangle {
         }
     }
 
+    function refresh() { if (!batProc.running) batProc.running = true }
+
     Process {
         id: batProc
-        command: ["bash", binDir + "/asahi-battery"]
+        command: [binDir + "/asahi-battery"]
         stdout: StdioCollector {
             onStreamFinished: root.parseBatteryPayload(text)
         }
     }
 
+    Connections {
+        target: UPower.displayDevice
+        ignoreUnknownSignals: true
+        function onPercentageChanged() { root.refresh() }
+        function onStateChanged() { root.refresh() }
+    }
+
     Timer {
-        interval: 5000
+        interval: 60000
         running: true
         repeat: true
         triggeredOnStart: true
-        onTriggered: batProc.running = true
+        onTriggered: root.refresh()
     }
 
     MouseArea {
-        id: batMa
+        id: chipMouse
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: Quickshell.execDetached(["qs", "-c", "remix", "ipc", "call", "launcher", "quick", "battery"])
-    }
-
-    TooltipWindow {
-        target: root
-        text: root.tooltip
-        show: batMa.containsMouse
-        maxWidth: 380
+        onClicked: if (root.barHost) root.barHost.quickRequested("battery")
     }
 }

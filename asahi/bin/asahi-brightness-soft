@@ -4,6 +4,8 @@
 
 set -euo pipefail
 
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
+
 monitor="${1:-}"
 step="${2:-}"
 [ -n "$monitor" ] || exit 1
@@ -32,12 +34,7 @@ fi
 
 target=""
 case "$step" in
-  raise)
-    if [ "$current" -lt 5 ]; then target=$((current + 1)); else target=$((current + 5)); fi
-    ;;
-  lower)
-    if [ "$current" -le 5 ]; then target=$((current - 1)); else target=$((current - 5)); fi
-    ;;
+  raise | lower) target=$(step_percent "$current" "$step") ;;
   +1) target=$((current + 1)) ;;
   -1) target=$((current - 1)) ;;
   [0-9]*%) target="${step%%%}" ;;

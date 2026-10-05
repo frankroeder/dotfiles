@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# Pin the active Wi-Fi profile to one band, or back to auto.
+# BCM4388 flaps between the 2.4/5 GHz BSSIDs of a band-steering AP
+# (ASSOC-REJECT status_code=16); pinning stops that. Reverts if the reconnect fails.
+# Idea from omarchy-mx-mac bin/omarchy-network-band.
+#   asahi-wifi-band [status [--json] | auto | 2.4 | 5]
+# `auto` without an active Wi-Fi clears every pinned profile.
+
+set -euo pipefail
+
+usage() {
+  echo "Usage: asahi-wifi-band [status [--json] | auto | 2.4 | 5]" >&2
+  exit 2
+}
+
+band_name() {
+  case "$1" in
+    bg) echo "2.4" ;;
+    a) echo "5" ;;
+    *) echo "auto" ;;
+  esac
+}
+
+# UUIDs, not names: names can repeat or contain the ':' / '\' that -t escapes.
+wifi_uuids() {
+  nmcli -t -f TYPE,UUID connection show "$@" 2>/dev/null | sed -n 's/^802-11-wireless://p' || true
+}
+
+action="${1:-status}"
+case "$action" in
+  status) ;;
+  auto) want="" ;;
+  2.4) want="bg" ;;
+  5) want="a" ;;
+  *) usage ;;
+esac
+
+uuid=$(wifi_uuids --active | sed q)
+if [ -z "$uuid" ]; then
+  if [ "$action" = auto ]; then
+    for u in $(wifi_uuids); do
+      if [ -n "$(nmcli -g 802-11-wireless.band connection show uuid "$u")" ]; then
+        nmcli connection modify uuid "$u" 802-11-wireless.band ""
+      fi
+    done
+    exit 0
+  fi
+  echo "asahi-wifi-band: no active Wi-Fi connection" >&2
+  exit 1
+fi
+name=$(nmcli -e no -g connection.id connection show uuid "$uuid")
+current=$(nmcli -g 802-11-wireless.band connection show uuid "$uuid")
+
+if [ "$action" = status ]; then
+  freq=$(nmcli -t -f IN-USE,FREQ dev wifi list --rescan no 2>/dev/null | awk -F: '$1 == "*" { print $2; exit }')
+  if [ "${2:-}" = "--json" ]; then
+    jq -cn --arg conn "$name" --arg band "$(band_name "$current")" --arg freq "$freq" \
+      '{connection:$conn, band:$band, freq:$freq}'
+  else
+    printf '%s: %s (now %s)\n' "$name" "$(band_name "$current")" "${freq:-?}"
+  fi
+  exit 0
+fi
+
+[ "$want" = "$current" ] && exit 0
+nmcli connection modify uuid "$uuid" 802-11-wireless.band "$want"
+if ! nmcli --wait 20 connection up uuid "$uuid" >/dev/null; then
+  echo "asahi-wifi-band: $(band_name "$want") failed for $name, reverting to $(band_name "$current")" >&2
+  nmcli connection modify uuid "$uuid" 802-11-wireless.band "$current"
+  nmcli --wait 20 connection up uuid "$uuid" >/dev/null || true
+  exit 1
+fi

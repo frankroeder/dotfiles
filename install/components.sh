@@ -481,9 +481,9 @@ comp_asahi_logind() {
     print_error "logind HandlePowerKey is still ${live:-unknown} after SIGHUP"
     exit 1
   fi
-  if grep -qx connected /sys/class/drm/card*-HDMI-A-*/status 2>/dev/null; then
+  if grep -qsx connected /sys/class/drm/card*-HDMI-A-*/status /sys/class/drm/card*-DP-*/status; then
     sudo systemctl start asahi-hdmi-lid-inhibit.service || {
-      print_error "asahi-hdmi-lid-inhibit.service failed to start with HDMI connected"
+      print_error "asahi-hdmi-lid-inhibit.service failed to start with an external display connected"
       exit 1
     }
   else
@@ -493,6 +493,19 @@ comp_asahi_logind() {
 
 comp_asahi_system() {
   require_linux
+  # Before dnf: a kernel update would rebuild m1n1 from Fedora DTBs and make Fedora's kernel
+  # the default, so fairydust would boot without USB-C DP alt mode.
+  if [[ $(uname -r) == *fairydust* ]]; then
+    print_step "Pinning m1n1 DTBs and the GRUB default to $(uname -r)"
+    sudo ln -sfn "$(uname -r)" /boot/dtbs/fairydust
+    sudo sed -i 's|^DTBS=.*|DTBS="/boot/dtbs/fairydust"|' /etc/sysconfig/update-m1n1
+    sudo sed -i 's/^UPDATEDEFAULT=.*/UPDATEDEFAULT=no/' /etc/sysconfig/kernel
+    if [ ! -e /boot/dtbs/fairydust/apple ] || ! grep -q '^DTBS="/boot/dtbs/fairydust"' /etc/sysconfig/update-m1n1 ||
+      ! grep -q '^UPDATEDEFAULT=no' /etc/sysconfig/kernel; then
+      print_error "fairydust pin not applied (/boot/dtbs/fairydust, update-m1n1 DTBS, UPDATEDEFAULT)"
+      exit 1
+    fi
+  fi
   bash "$DOTFILES/asahi/dnf.sh"
   # Console font, getty prompt included. This has to be vconsole.conf rather
   # than a setfont unit: systemd-vconsole-setup is udev-triggered and re-runs
@@ -504,6 +517,42 @@ comp_asahi_system() {
   comp_asahi_getty
   comp_asahi_logind
   comp_asahi_sshd
+  # RTC in UTC like macOS (LOCAL leaves every boot hours off until chrony).
+  sudo timedatectl set-local-rtc 0
+  if [ "$(timedatectl show -p LocalRTC --value)" != no ]; then
+    print_error "RTC still in local time"
+    exit 1
+  fi
+  if ! sudo install -Dm644 "$DOTFILES/asahi/systemd/system/plocate-updatedb.service.d/10-ac-only.conf" \
+    /etc/systemd/system/plocate-updatedb.service.d/10-ac-only.conf; then
+    print_error "failed to install the plocate AC-only drop-in"
+    exit 1
+  fi
+  # zram is the only swap: zstd + swap-friendly VM knobs.
+  print_step "zram: zstd + sysctl tuning"
+  sudo install -Dm644 "$DOTFILES/asahi/sysctl.d/99-asahi-zram.conf" /etc/sysctl.d/99-asahi-zram.conf
+  sudo sysctl -q -p /etc/sysctl.d/99-asahi-zram.conf
+  if ! cmp -s "$DOTFILES/asahi/zram-generator.conf.d/90-asahi.conf" /etc/systemd/zram-generator.conf.d/90-asahi.conf; then
+    sudo install -Dm644 "$DOTFILES/asahi/zram-generator.conf.d/90-asahi.conf" /etc/systemd/zram-generator.conf.d/90-asahi.conf
+    sudo systemctl daemon-reload
+    # Restarting zram0 swaps everything back in; when it holds a lot, wait for the reboot.
+    local zram_used_kib
+    zram_used_kib=$(awk '$1 == "/dev/zram0" { print $4 }' /proc/swaps)
+    if [ "${zram_used_kib:-0}" -lt 262144 ]; then
+      if ! sudo systemctl restart systemd-zram-setup@zram0.service; then
+        print_error "zram0 restart failed (systemctl status systemd-zram-setup@zram0)"
+        exit 1
+      fi
+    else
+      print_warning "zram0 holds more than 256 MiB; zstd applies after the next reboot"
+    fi
+  fi
+  if ! cmp -s "$DOTFILES/asahi/zram-generator.conf.d/90-asahi.conf" /etc/systemd/zram-generator.conf.d/90-asahi.conf ||
+    ! cmp -s "$DOTFILES/asahi/sysctl.d/99-asahi-zram.conf" /etc/sysctl.d/99-asahi-zram.conf ||
+    [ "$(sysctl -n vm.page-cluster)" != 0 ]; then
+    print_error "zram config not installed or sysctl tuning not active (want vm.page-cluster=0)"
+    exit 1
+  fi
   sudo systemctl daemon-reload
   local rebuild_initramfs=0
   # Full panel height beside the notch (appledrm). No-op without that driver.
@@ -650,6 +699,8 @@ comp_asahi_desktop() {
   mkdir -p "$HOME/.config/wireplumber/wireplumber.conf.d"
   link_if_exists "$DOTFILES/asahi/wireplumber/wireplumber.conf.d/bluetooth-a2dp-autoconnect.conf" \
     "$HOME/.config/wireplumber/wireplumber.conf.d/bluetooth-a2dp-autoconnect.conf"
+  link_if_exists "$DOTFILES/asahi/wireplumber/wireplumber.conf.d/asahi-mic.conf" \
+    "$HOME/.config/wireplumber/wireplumber.conf.d/asahi-mic.conf"
   # Settings portal is gtk (Hyprland does not implement appearance color-scheme).
   link_if_exists "$DOTFILES/asahi/xdg-desktop-portal/portals.conf" \
     "$HOME/.config/xdg-desktop-portal/portals.conf"

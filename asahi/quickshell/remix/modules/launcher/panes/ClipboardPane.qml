@@ -97,6 +97,13 @@ Item {
           clip: true
           onTextChanged: clipPane.filter = text
           Keys.onEscapePressed: { clipIn.text = ""; if (root.focusLauncherInput) root.focusLauncherInput() }
+          // Swallow keys the field leaves unhandled (arrows at its ends, Return); otherwise they reach the
+          // launcher tiles and leave the pane mid-filter. AfterItem: the cursor still moves.
+          Keys.priority: Keys.AfterItem
+          Keys.onPressed: event => {
+            if ([Qt.Key_Up, Qt.Key_Down, Qt.Key_Left, Qt.Key_Right, Qt.Key_Return, Qt.Key_Enter].indexOf(event.key) !== -1)
+              event.accepted = true
+          }
           Text {
             anchors.fill: parent
             text: "Filter clipboard"; color: Style.m3onSurfaceVariant; font: parent.font
@@ -172,6 +179,8 @@ Item {
                 anchors.fill: parent
                 source: modelData.thumb ? ("file://" + modelData.thumb) : ""
                 fillMode: Image.PreserveAspectCrop
+                // A 72x48 thumb; without sourceSize every full-size screenshot decodes to ~24 MB per row.
+                sourceSize.width: 160
                 asynchronous: true
               }
               Text {

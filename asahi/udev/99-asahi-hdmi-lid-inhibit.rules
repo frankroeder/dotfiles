@@ -1,7 +1,8 @@
 # logind only counts HDMI as docked when sysfs enabled=enabled. Hyprland
 # keeps the connector disabled until asahi-hdmi settles, so a live plug
 # (or a frozen compositor) looks laptop-only and lid-close s2idle-hangs.
-ACTION=="add|change", SUBSYSTEM=="drm", KERNEL=="card*-HDMI-A-*", ATTR{status}=="connected", \
-  RUN+="/usr/bin/systemctl --no-block start asahi-hdmi-lid-inhibit.service"
-ACTION=="change|remove", SUBSYSTEM=="drm", KERNEL=="card*-HDMI-A-*", ATTR{status}=="disconnected", \
-  RUN+="/usr/bin/systemctl --no-block stop asahi-hdmi-lid-inhibit.service"
+# USB-C DP too. Hotplug uevents arrive on the card (HOTPLUG=1), never on the connectors, and
+# sysfs status stays stale until Hyprland re-probes (after RUN): re-check 3 s later.
+# start/stop, never restart: the gap would let logind suspend the closed lid.
+ACTION=="change", SUBSYSTEM=="drm", KERNEL=="card[0-9]*", ENV{HOTPLUG}=="1", \
+  RUN+="/usr/bin/systemd-run --no-block --collect --on-active=3 /bin/sh -c 'if grep -qsx connected /sys/class/drm/card*-HDMI-A-*/status /sys/class/drm/card*-DP-*/status; then systemctl --no-block start asahi-hdmi-lid-inhibit.service; else systemctl --no-block stop asahi-hdmi-lid-inhibit.service; fi'"

@@ -6,6 +6,15 @@
 # readlink -f so a script invoked through a symlink (e.g. the
 # ~/.local/bin/asahi-battery-alertd link) still finds this file.
 
+# Volume/brightness key step: 1 % at or below 5 %, else 5 %. Lowering from 6-9 lands on 5 first
+# so the fine range is always reached (7 -> 5 -> 4). Callers clamp.
+step_percent() {
+  case "$2" in
+    raise) if [ "$1" -lt 5 ]; then echo $(($1 + 1)); else echo $(($1 + 5)); fi ;;
+    lower) if [ "$1" -le 5 ]; then echo $(($1 - 1)); elif [ "$1" -lt 10 ]; then echo 5; else echo $(($1 - 5)); fi ;;
+  esac
+}
+
 # Panel backlight. apple-panel-bl is the Asahi name; fall back to whatever
 # /sys/class/backlight offers so the scripts still work on other hardware.
 display_device() {

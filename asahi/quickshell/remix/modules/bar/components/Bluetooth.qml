@@ -1,40 +1,26 @@
 import QtQuick
 import QtQuick.Layouts
-import Quickshell
-import Quickshell.Io
+import Quickshell.Bluetooth
 import "../../../"
 
-Rectangle {
+// BlueZ adapter state (no polling). Click: Quick > Bluetooth.
+Item {
     id: root
 
     property var barHost: null
-    readonly property bool solidBar: barHost !== null && barHost !== undefined
 
-    readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
-
-    color: solidBar ? "transparent" : (ma.containsMouse ? Style.barHoverBg : Style.barBg)
-    radius: solidBar ? 0 : Style.radius
-    border.width: solidBar ? 0 : 1
-    border.color: solidBar ? "transparent" : Style.barBorder
-    Behavior on color { ColorAnimation { duration: 140 } }
-    Behavior on border.color { ColorAnimation { duration: 140 } }
-    scale: solidBar ? 1.0 : (ma.containsMouse ? 1.018 : 1.0)
-
-    implicitWidth: row.implicitWidth + (solidBar ? 6 : 14)
-    implicitHeight: solidBar ? Style.barHeight : 26
-
-    Rectangle {
-        anchors.fill: parent
-        anchors.topMargin: Style.barChipInset
-        anchors.bottomMargin: Style.barChipInset
-        radius: Style.radiusSm
-        visible: solidBar
-        color: ma.containsMouse ? Style.barStripHover : "transparent"
-        Behavior on color { ColorAnimation { duration: 120 } }
+    readonly property var adapter: Bluetooth.defaultAdapter
+    readonly property bool powered: !!(adapter && adapter.enabled)
+    readonly property bool anyConnected: {
+        const devs = (Bluetooth.devices && Bluetooth.devices.values) ? Bluetooth.devices.values : []
+        for (let i = 0; i < devs.length; i++) if (devs[i] && devs[i].connected) return true
+        return false
     }
 
-    property string text: "󰂯"
-    property string tooltip: ""
+    implicitWidth: row.implicitWidth + 6
+    implicitHeight: Style.barHeight
+
+    HoverTint { lit: chipMouse.containsMouse }
 
     RowLayout {
         id: row
@@ -42,47 +28,18 @@ Rectangle {
         spacing: 2
 
         Text {
-            text: root.text
+            text: !root.powered ? "󰂲" : (root.anyConnected ? "󰂱" : "󰂯")
             font.family: Style.fontFamily
             font.pixelSize: Style.barFontGlyph
             color: Style.magenta
         }
     }
 
-    Process {
-        id: btProc
-        command: [binDir + "/asahi-bluetooth"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    const data = JSON.parse(text.trim())
-                    root.text = data.text || "󰂯"
-                    root.tooltip = data.tooltip || ""
-                } catch (e) {}
-            }
-        }
-    }
-
-    Timer {
-        interval: 5000
-        running: true
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: btProc.running = true
-    }
-
     MouseArea {
-        id: ma
+        id: chipMouse
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: Quickshell.execDetached(["qs", "-c", "remix", "ipc", "call", "launcher", "quick", "bluetooth"])
-    }
-
-    TooltipWindow {
-        target: root
-        text: root.tooltip
-        show: ma.containsMouse
-        maxWidth: 380
+        onClicked: if (root.barHost) root.barHost.quickRequested("bluetooth")
     }
 }

@@ -67,10 +67,8 @@ Singleton {
   readonly property color wsOccupiedText:   themed("text")
   readonly property color wsEmptyText:      themed("overlay1")
 
-  readonly property color barBg:          themedAlpha("surface0", 0.86)
   readonly property color barHoverBg:     themedAlpha("surface1", 0.92)
   readonly property color barBorder:      themedAlpha("text", 0.10)
-  readonly property color barHoverBorder: themedAlpha("sky", 0.34)
 
   readonly property color barStripBg:     themed("mantle")
   readonly property color barStripText:   themed("text")
@@ -94,7 +92,6 @@ Singleton {
   readonly property color panelAccentBorder:    themedAlpha("accent", 0.40)
   readonly property color panelSuccessBg:       themedAlpha("green", 0.16)
   readonly property color panelDangerBg:        themedAlpha("red", 0.15)
-  readonly property color panelWarningBg:       themedAlpha("peach", 0.16)
   readonly property color panelDivider:         themedAlpha("text", 0.10)
 
   // Launcher / menu — omarchy [menu]: focus + selected-text = accent,

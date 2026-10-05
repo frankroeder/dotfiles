@@ -5,7 +5,8 @@ import Quickshell
 import Quickshell.Io
 
 // Screen recorder state for the bar chip and its panel. Polls
-// `asahi-cmd-record status --json` (1 s while recording, 3 s idle), ticks
+// `asahi-cmd-record status --json` (1 s while recording, 30 s idle — start/stop
+// push `ipc call recording refresh`, and our own start/stop poke), ticks
 // the elapsed clock locally, and lists recent recordings.
 Singleton {
   id: root
@@ -80,7 +81,7 @@ Singleton {
     }
   }
 
-  Timer { interval: root.running ? 1000 : 3000; running: true; repeat: true; triggeredOnStart: true; onTriggered: root.refresh() }
+  Timer { interval: root.running ? 1000 : 30000; running: true; repeat: true; triggeredOnStart: true; onTriggered: root.refresh() }
   Timer { id: poke; interval: 600; onTriggered: root.refresh() }
   Timer { id: rescanDelay; interval: 400; onTriggered: root.scanRecent() }
   Timer { interval: 1000; running: root.running; repeat: true; onTriggered: root.elapsed += 1 }

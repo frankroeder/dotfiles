@@ -1,13 +1,14 @@
 [Unit]
-Description=Inhibit lid-switch suspend while HDMI is connected
+Description=Inhibit lid-switch suspend while an external display (HDMI or USB-C DP) is connected
 After=systemd-logind.service
 
 [Service]
-# Enabled at boot too: the udev add at coldplug does not reliably start it.
-ExecCondition=/bin/sh -c 'grep -qx connected /sys/class/drm/card*-HDMI-A-*/status'
+# Enabled at boot: udev only re-checks on card hotplug (change) uevents, never at coldplug.
+# USB-C too: a DPMS-off external reads disabled, so logind sees laptop-only.
+ExecCondition=/bin/sh -c 'grep -qsx connected /sys/class/drm/card*-HDMI-A-*/status /sys/class/drm/card*-DP-*/status'
 # --why must be one token: systemd splits ExecStart on spaces, and an unquoted
 # "HDMI connected" ran `connected` as the command (exit 1, no inhibitor).
-ExecStart=/usr/bin/systemd-inhibit --what=handle-lid-switch --who=asahi-hdmi --why=HDMI-connected --mode=block /usr/bin/sleep infinity
+ExecStart=/usr/bin/systemd-inhibit --what=handle-lid-switch --who=asahi-hdmi --why=external-display-connected --mode=block /usr/bin/sleep infinity
 
 [Install]
 WantedBy=multi-user.target

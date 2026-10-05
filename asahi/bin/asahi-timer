@@ -53,6 +53,9 @@ list_timers() {
       ] | sort_by(.left)'
 }
 
+# The bar watches this instead of polling the timer list.
+stamp="${XDG_RUNTIME_DIR:-/tmp}/asahi-timer.stamp"
+
 case "${1:-list}" in
   add)
     dur="${2:-}"
@@ -66,6 +69,7 @@ case "${1:-list}" in
       bash -c "$bin/asahi-notification-sound; notify-send -a 'Asahi Timer' -u critical -i alarm-symbolic -t 0 \"\$1\" \"\$2\"" \
       _ "$label" "$(fmt_left "$secs") elapsed"
     notify-send -a "Asahi Timer" -t 2500 -i alarm-symbolic "$label" "Rings in $(fmt_left "$secs")"
+    touch "$stamp"
     ;;
   list)
     if [ "${2:-}" = "--json" ]; then
@@ -86,6 +90,7 @@ case "${1:-list}" in
     for u in $units; do
       systemctl --user stop "$u" 2>/dev/null || true
     done
+    touch "$stamp"
     ;;
   *)
     echo "usage: asahi-timer {add <duration> [label]|list [--json]|cancel [unit|all]}" >&2

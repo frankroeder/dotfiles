@@ -33,7 +33,7 @@ Item {
   }
   Timer {
     interval: 2000
-    running: root.quickMode && root.quickPaneKey === "storage"
+    running: root.shouldShow && root.quickMode && root.quickPaneKey === "storage"
     repeat: true
     triggeredOnStart: true
     onTriggered: if (!ioProc.running) ioProc.running = true

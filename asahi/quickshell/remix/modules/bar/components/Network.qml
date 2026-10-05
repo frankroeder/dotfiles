@@ -6,38 +6,17 @@ import "../../../"
 import "../BarModel.js" as BarModel
 
 // Underlay icon (wifi / ethernet) plus a same-size VPN glyph and uptime.
-// Full overview lives in the launcher's Quick > Network.
-Rectangle {
+// Full overview lives in the launcher's Quick > Network (click).
+Item {
     id: root
 
     property var barHost: null
-    readonly property bool solidBar: barHost !== null && barHost !== undefined
-
     readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
 
-    color: solidBar ? "transparent" : (ma.containsMouse ? Style.barHoverBg : Style.barBg)
-    radius: solidBar ? 0 : Style.radius
-    border.width: solidBar ? 0 : 1
-    border.color: solidBar ? "transparent" : Style.barBorder
-    Behavior on color { ColorAnimation { duration: 140 } }
-    Behavior on border.color { ColorAnimation { duration: 140 } }
-    scale: solidBar ? 1.0 : (ma.containsMouse ? 1.018 : 1.0)
-
-    implicitWidth: content.implicitWidth + (solidBar ? 6 : 14)
-    implicitHeight: solidBar ? Style.barHeight : 26
-
-    Rectangle {
-        anchors.fill: parent
-        anchors.topMargin: Style.barChipInset
-        anchors.bottomMargin: Style.barChipInset
-        radius: Style.radiusSm
-        visible: solidBar
-        color: ma.containsMouse ? Style.barStripHover : "transparent"
-        Behavior on color { ColorAnimation { duration: 120 } }
-    }
+    implicitWidth: content.implicitWidth + 6
+    implicitHeight: Style.barHeight
 
     property string text: "󰤨"
-    property string tooltip: ""
     property bool vpnUp: false
     property int vpnSince: 0
     property int nowTick: 0
@@ -46,6 +25,8 @@ Rectangle {
         nowTick
         return BarModel.formatAge(root.vpnSince, Date.now() / 1000)
     }
+
+    HoverTint { lit: chipMouse.containsMouse }
 
     RowLayout {
         id: content
@@ -76,15 +57,16 @@ Rectangle {
         }
     }
 
+    function refresh() { if (!netProc.running) netProc.running = true }
+
     Process {
         id: netProc
-        command: ["bash", binDir + "/asahi-network"]
+        command: [binDir + "/asahi-network", "--bar"]
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
                     const data = JSON.parse(text.trim())
                     root.text = data.text || "󰤮"
-                    root.tooltip = data.tooltip || ""
                     root.vpnUp = !!data.vpn
                     root.vpnSince = Number(data.vpnSince) || 0
                 } catch (e) {}
@@ -92,11 +74,26 @@ Rectangle {
         }
     }
 
+    // nmcli monitor pushes state changes; the slow poll only tracks Wi-Fi signal.
+    Process {
+        running: true
+        // pdeathsig: nmcli dies with qs (a SIGTERMed qs would orphan it).
+        command: ["setpriv", "--pdeathsig", "TERM", "nmcli", "monitor"]
+        stdout: SplitParser { onRead: changeDebounce.restart() }
+    }
+
     Timer {
-        interval: 5000
+        id: changeDebounce
+        interval: 500
+        onTriggered: root.refresh()
+    }
+
+    Timer {
+        interval: 30000
         running: true
         repeat: true
-        onTriggered: netProc.running = true
+        triggeredOnStart: true
+        onTriggered: root.refresh()
     }
 
     Timer {
@@ -107,21 +104,12 @@ Rectangle {
         onTriggered: root.nowTick++
     }
 
-    Component.onCompleted: netProc.running = true
-
     MouseArea {
-        id: ma
+        id: chipMouse
         anchors.fill: parent
         anchors.margins: -2
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: Quickshell.execDetached(["qs", "-c", "remix", "ipc", "call", "launcher", "quick", "network"])
-    }
-
-    TooltipWindow {
-        target: root
-        text: root.tooltip
-        show: ma.containsMouse
-        maxWidth: 380
+        onClicked: if (root.barHost) root.barHost.quickRequested("network")
     }
 }

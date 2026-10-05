@@ -102,6 +102,11 @@ function isAudioSource(node) {
     || mediaClass.indexOf("Source") !== -1
 }
 
+// asahi-audio's filter-chain streams (effect_output.*) are not apps.
+function isDspStream(node) {
+  return /^effect_output\./.test(String((node && node.name) || ""))
+}
+
 function audioNodeKey(node) {
   if (!node) return ""
   if (node.id != null && String(node.id) !== "") return "id:" + String(node.id)
@@ -923,6 +928,7 @@ if (typeof module !== "undefined") {
     rawStreamLabel: rawStreamLabel,
     isPlaybackStream: isPlaybackStream,
     isAudioSource: isAudioSource,
+    isDspStream: isDspStream,
     audioNodeKey: audioNodeKey,
     matchNodeByName: matchNodeByName,
     resolveDefaultNode: resolveDefaultNode,

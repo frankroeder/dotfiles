@@ -11,7 +11,8 @@
 # XDG_RUNTIME_DIR so a reload does not snap back to monitors.lua.
 
 set -euo pipefail
-. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
+bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+. "$bin/lib/common.sh"
 
 presets=(1 1.25 1.333334 1.5 1.6 1.75 1.875 2 2.25 2.5)
 dir="${ASAHI_SCALE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/asahi-monitor-scale}"
@@ -63,6 +64,15 @@ apply_scale() {
   printf '%s\n' "$scale" >"$dir/$name"
 }
 
+# eDP-1's logical size anchors the externals: re-place USB-C outputs. HDMI is re-placed only by
+# asahi-hdmi sync on reload.
+place_dp() {
+  local dp
+  for dp in $(hyprctl monitors -j | jq -r '.[] | select(.name | startswith("DP")) | .name'); do
+    "$bin/asahi-hdmi" place "$dp" || true
+  done
+}
+
 action="${1:-cycle}"
 case "$action" in
   apply)
@@ -74,6 +84,7 @@ case "$action" in
       W=$(jq -r .width <<<"$json"); H=$(jq -r .height <<<"$json")
       apply_scale "$name" "$(tr -d '[:space:]' <"$f")" "$json"
     done
+    place_dp
     exit 0
     ;;
   set) target=${2:?scale}; name="${3:-$(focused_monitor)}" ;;
@@ -101,3 +112,4 @@ esac
 
 [ "$new" = "$cur" ] && exit 0
 apply_scale "$name" "$new" "$json"
+if [ "$name" = eDP-1 ]; then place_dp; fi

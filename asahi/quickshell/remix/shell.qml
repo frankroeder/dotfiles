@@ -26,7 +26,7 @@ ShellRoot {
   System.Osd { id: osd }
   System.DimOverlay { id: dimOverlay }
   System.NotificationCenter { id: notifCenter }
-  System.PkgManager {}
+  System.PkgManager { id: pkgManager }
 
   // Bound in hypr/conf.d/bindings.lua as hl.dsp.global("quickshell:recorder-panel").
   GlobalShortcut {
@@ -77,6 +77,11 @@ ShellRoot {
         calendarOpen: shell.calendarOpen
         launcherOpen: shell.launcherOpen
         onCalendarToggle: shell.calendarOpen = !shell.calendarOpen
+        onQuickRequested: key => {
+          if (key === "pkgman") { pkgManager.toggle(); return }
+          const l = launcherLoader.item
+          if (l && l.openQuick) l.openQuick(key)
+        }
       }
     }
   }

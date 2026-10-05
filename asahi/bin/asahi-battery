@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2154  # read_value / read_number assign through printf -v
 
 set -euo pipefail
 
@@ -6,24 +7,21 @@ supply_root="${ASAHI_POWER_SUPPLY_PATH:-/sys/class/power_supply}"
 bat_path="${supply_root}/${ASAHI_BATTERY_DEVICE:-macsmc-battery}"
 ac_path="${supply_root}/${ASAHI_AC_DEVICE:-macsmc-ac}"
 
+# Builtin reads into a named variable (no fork per sysfs file).
+# read_value <var> <path>: first line, or n/a when unreadable.
 read_value() {
-  local path="$1"
-
-  if [ -r "$path" ]; then
-    tr -d '\n' < "$path"
-  else
-    printf "n/a"
+  local _v="n/a"
+  if [ -r "$2" ]; then
+    _v=""
+    IFS= read -r _v < "$2" || true
   fi
+  printf -v "$1" '%s' "$_v"
 }
 
+# read_number <var> <path>: like read_value, but 0 for missing/empty values.
 read_number() {
-  local value
-
-  value="$(read_value "$1")"
-  case "$value" in
-    '' | n/a) printf "0\n" ;;
-    *) printf "%s\n" "$value" ;;
-  esac
+  read_value "$1" "$2"
+  case "${!1}" in '' | n/a) printf -v "$1" '0' ;; esac
 }
 
 format_wh() {
@@ -72,29 +70,29 @@ if [ ! -d "$bat_path" ]; then
   exit 0
 fi
 
-capacity="$(read_number "$bat_path/capacity")"
-status="$(read_value "$bat_path/status")"
-capacity_level="$(read_value "$bat_path/capacity_level")"
-cycle_count="$(read_value "$bat_path/cycle_count")"
-health="$(read_value "$bat_path/health")"
-model="$(read_value "$bat_path/model_name")"
-charge_behaviour="$(read_value "$bat_path/charge_behaviour")"
-start_threshold="$(read_value "$bat_path/charge_control_start_threshold")"
-end_threshold="$(read_value "$bat_path/charge_control_end_threshold")"
-energy_now="$(read_number "$bat_path/energy_now")"
-energy_full="$(read_number "$bat_path/energy_full")"
-energy_design="$(read_number "$bat_path/energy_full_design")"
-power_now="$(read_number "$bat_path/power_now")"
-voltage_now="$(read_number "$bat_path/voltage_now")"
-current_now="$(read_number "$bat_path/current_now")"
-temp="$(read_number "$bat_path/temp")"
-time_empty="$(read_number "$bat_path/time_to_empty_now")"
-time_full="$(read_number "$bat_path/time_to_full_now")"
-manufacture_year="$(read_value "$bat_path/manufacture_year")"
-manufacture_month="$(read_value "$bat_path/manufacture_month")"
-manufacture_day="$(read_value "$bat_path/manufacture_day")"
-ac_online="$(read_value "$ac_path/online")"
-input_power_limit="$(read_number "$ac_path/input_power_limit")"
+read_number capacity "$bat_path/capacity"
+read_value status "$bat_path/status"
+read_value capacity_level "$bat_path/capacity_level"
+read_value cycle_count "$bat_path/cycle_count"
+read_value health "$bat_path/health"
+read_value model "$bat_path/model_name"
+read_value charge_behaviour "$bat_path/charge_behaviour"
+read_value start_threshold "$bat_path/charge_control_start_threshold"
+read_value end_threshold "$bat_path/charge_control_end_threshold"
+read_number energy_now "$bat_path/energy_now"
+read_number energy_full "$bat_path/energy_full"
+read_number energy_design "$bat_path/energy_full_design"
+read_number power_now "$bat_path/power_now"
+read_number voltage_now "$bat_path/voltage_now"
+read_number current_now "$bat_path/current_now"
+read_number temp "$bat_path/temp"
+read_number time_empty "$bat_path/time_to_empty_now"
+read_number time_full "$bat_path/time_to_full_now"
+read_value manufacture_year "$bat_path/manufacture_year"
+read_value manufacture_month "$bat_path/manufacture_month"
+read_value manufacture_day "$bat_path/manufacture_day"
+read_value ac_online "$ac_path/online"
+read_number input_power_limit "$ac_path/input_power_limit"
 
 default_icons=("󰁺" "󰁻" "󰁼" "󰁽" "󰁾" "󰁿" "󰂀" "󰂁" "󰂂" "󰁹")
 charging_icons=("󰢜" "󰂆" "󰂇" "󰂈" "󰢝" "󰂉" "󰢞" "󰂊" "󰂋" "󰂅")

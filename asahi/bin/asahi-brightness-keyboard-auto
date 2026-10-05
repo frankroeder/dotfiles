@@ -180,13 +180,17 @@ session_locked() {
   return 1
 }
 
+# Lid-angle sensor path, cached across ticks (find_las forks).
+las_path=""
 lid_closed() {
-  local path raw
-  path=$(find_las || true)
-  if [[ -z $path ]]; then
+  local raw
+  if [[ ! -r ${las_path:-} ]]; then
+    las_path=$(find_las || true)
+  fi
+  if [[ -z $las_path ]]; then
     return 1
   fi
-  raw=$(<"$path") || return 1
+  raw=$(<"$las_path") || return 1
   raw=${raw%%.*}
   if [[ ! $raw =~ ^-?[0-9]+$ ]]; then
     return 1
@@ -250,7 +254,8 @@ tick() {
 
   # Pause without rewriting last_set so idle-brightness off/restore and the
   # lid bind do not look like a manual override when the session comes back.
-  if session_locked || lid_closed || internal_display_off || idle_dimmed; then
+  # Cheap sysfs checks first; the locked / display-off checks fork.
+  if lid_closed || idle_dimmed || session_locked || internal_display_off; then
     return 0
   fi
 
@@ -287,15 +292,18 @@ if ((once)); then
   exit 0
 fi
 
+# Paths are cached; rediscover only when one disappears (driver reload, resume).
 while true; do
   sleep "$POLL_SECONDS"
-  als_path=$(find_als || true)
-  kbd_path=$(find_kbd || true)
-  if [[ -z $als_path || -z $kbd_path ]]; then
-    continue
+  if [[ ! -r $als_path || ! -r $kbd_path/max_brightness ]]; then
+    als_path=$(find_als || true)
+    kbd_path=$(find_kbd || true)
+    if [[ -z $als_path || -z $kbd_path ]]; then
+      continue
+    fi
+    device=$(basename "$kbd_path")
+    max=$(<"$kbd_path/max_brightness")
   fi
-  device=$(basename "$kbd_path")
-  max=$(<"$kbd_path/max_brightness")
   if [[ ! $max =~ ^[1-9][0-9]*$ ]]; then
     continue
   fi

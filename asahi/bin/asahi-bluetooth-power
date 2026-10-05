@@ -3,6 +3,7 @@
 # reboot; systemd-rfkill restores the soft block. Unblocking lets AutoEnable
 # (BlueZ default) bring the adapter up — bluetoothctl power on fails while
 # the block is set.
+# Off powers down via BlueZ first: rfkill on a live BCM43xx radio can wedge it.
 
 set -euo pipefail
 
@@ -32,6 +33,13 @@ wait_powered() {
   done
 }
 
+# bluetoothctl returns once BlueZ confirms power-off (5 s cap); then rfkill-block so the
+# soft block survives reboot.
+power_off() {
+  timeout 5s bluetoothctl power off >/dev/null 2>&1 || true
+  rfkill block bluetooth
+}
+
 power_on() {
   rfkill unblock bluetooth
   wait_powered && return 0
@@ -43,10 +51,10 @@ power_on() {
 
 case "${1:-}" in
   on) power_on ;;
-  off) rfkill block bluetooth ;;
+  off) power_off ;;
   toggle)
     if powered; then
-      rfkill block bluetooth
+      power_off
     else
       power_on
     fi

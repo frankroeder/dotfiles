@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Wayland
 import "../../../"
@@ -15,11 +16,7 @@ Rectangle {
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
   readonly property int contentW: 440
 
-  color: solidBar ? "transparent" : (ccuMouse.containsMouse || popup.shouldShow ? Style.barHoverBg : Style.barBg)
-  radius: solidBar ? 0 : Style.radius
-  border.width: solidBar ? 0 : 1
-  border.color: solidBar ? "transparent" : (ccuMouse.containsMouse || popup.shouldShow ? Style.barHoverBorder : Style.barBorder)
-  scale: solidBar ? 1.0 : (ccuMouse.containsMouse || popup.shouldShow ? 1.018 : 1.0)
+  color: "transparent"
   implicitWidth: Math.max(56, chipBoxW + (solidBar ? 6 : 16))
   implicitHeight: solidBar ? Style.barHeight : 26
 
@@ -29,13 +26,11 @@ Rectangle {
     anchors.bottomMargin: Style.barChipInset
     radius: Style.radiusSm
     visible: solidBar
-    color: (ccuMouse.containsMouse || popup.shouldShow) ? Style.barStripHover : "transparent"
+    // Lit on hover and while the usage popup is open.
+    color: ccuMouse.containsMouse || popup.shouldShow ? Style.barStripHover : "transparent"
     Behavior on color { ColorAnimation { duration: 120 } }
   }
   visible: available
-  Behavior on color { ColorAnimation { duration: 140 } }
-  Behavior on border.color { ColorAnimation { duration: 140 } }
-  Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
   property bool available: true
   property var usedPct: null
@@ -258,10 +253,12 @@ Rectangle {
     }
   }
 
+  // Only drives the popup's "updated N min ago" labels: tick while it shows.
   Timer {
     interval: 30000
-    running: root.updatedAt > 0
+    running: root.updatedAt > 0 && popup.shouldShow
     repeat: true
+    triggeredOnStart: true
     onTriggered: root.clockTick++
   }
 
@@ -315,6 +312,20 @@ Rectangle {
     anchor.edges: Edges.Bottom
     implicitWidth: card.implicitWidth
     implicitHeight: card.implicitHeight
+
+    // Whitelist the bar window too, else the click that opened this counts as outside and closes it.
+    // Esc is an app-wide shortcut: the grab may leave keyboard focus on the bar.
+    HyprlandFocusGrab {
+      windows: [popup, popup.anchor.window]
+      active: popup.visible
+      onCleared: popup.shouldShow = false
+    }
+    Shortcut {
+      enabled: popup.visible
+      sequences: ["Escape"]
+      context: Qt.ApplicationShortcut
+      onActivated: popup.shouldShow = false
+    }
 
     Rectangle {
       id: card

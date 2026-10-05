@@ -22,6 +22,7 @@ end
 
 load_config "env"
 load_config "monitors"
+load_config "monitor-removal"
 load_config "input"
 load_config "asahi"
 load_config "general"

@@ -2,7 +2,8 @@
 # Fedora Asahi Remix health report. Apple Silicon only.
 # Usage: asahi-debug [--json]
 #
-# Path prefixes (tests): ASAHI_DIAG_ROOT, ASAHI_PROC_ROOT, ASAHI_SYS_ROOT.
+# Path prefixes (tests): ASAHI_DIAG_ROOT, ASAHI_PROC_ROOT, ASAHI_SYS_ROOT;
+# ASAHI_UNAME_R pins the kernel release.
 # Empty diag root means the real filesystem. Does not require pacman, iwd,
 # SDDM, or a running Hyprland — those are Arch/omarchy product checks.
 
@@ -83,11 +84,22 @@ check_fedora() {
 
 check_kernel() {
   local release q
-  release=$(/usr/bin/uname -r)
+  release=${ASAHI_UNAME_R:-$(/usr/bin/uname -r)}
   if [[ $release == *asahi* ]]; then
     record PASS kernel "$release"
+  elif [[ $release == *fairydust* ]]; then
+    # Self-built AsahiLinux/linux fairydust branch (~/linux-fairydust): USB-C DP alt mode.
+    record PASS kernel "$release (self-built fairydust, patches in asahi/kernel/)"
+    # kernel-16k updates must not rebuild m1n1 or take the GRUB default; the pin follows uname -r.
+    if grep -q '^DTBS="/boot/dtbs/fairydust"' "$(diag_path /etc/sysconfig/update-m1n1)" 2>/dev/null &&
+      grep -q '^UPDATEDEFAULT=no' "$(diag_path /etc/sysconfig/kernel)" 2>/dev/null &&
+      [[ $(readlink "$(diag_path /boot/dtbs/fairydust)") == "$release" ]]; then
+      record PASS fairydust-pin "m1n1 DTBS and GRUB default pinned to $release"
+    else
+      record WARN fairydust-pin "next kernel-16k update drops DP alt mode (m1n1 DTBs / GRUB default) — ./install.sh asahi-system"
+    fi
   else
-    record FAIL kernel "uname -r is '$release' (expected an asahi kernel)"
+    record FAIL kernel "uname -r is '$release' (expected an asahi or fairydust kernel)"
   fi
   q=$(rpm_query kernel-16k)
   if [[ $q == kernel-16k-* ]]; then
@@ -178,7 +190,54 @@ check_audio() {
   if systemctl is-active --quiet speakersafetyd 2>/dev/null; then
     record PASS speakersafetyd "speaker protection service is active"
   else
-    record FAIL speakersafetyd "speakersafetyd is not active — speakers are not protected"
+    record FAIL speakersafetyd \
+      "not active — speakers locked; sudo systemctl reset-failed speakersafetyd && sudo systemctl start speakersafetyd"
+  fi
+
+  # asahi-mic.conf: MONO relabel of the AUX0 DSP mic (stereo recorders: left only).
+  if wpctl inspect @DEFAULT_AUDIO_SOURCE@ 2>/dev/null | grep -q 'node.name = "asahi_mic"'; then
+    record PASS asahi-mic "default source is asahi_mic (MONO)"
+  else
+    record WARN asahi-mic "default source is not asahi_mic — stereo recorders may get the mic on the left only"
+  fi
+
+  # Amps can lock (e.g. 96 kHz playback) while the service looks active; the kernel log says.
+  local amps
+  if [[ -n $diag_root ]]; then
+    record SKIP speaker-volumes "kernel log not mocked"
+  else
+    amps=$(journalctl -k -b -q --no-pager -o cat -g 'Speaker volumes (un)?locked' 2>/dev/null | tail -n 1)
+    if [[ $amps == *unlocked* ]]; then
+      record PASS speaker-volumes "speaker amps unlocked"
+    elif [[ -n $amps ]]; then
+      record FAIL speaker-volumes "${amps#*: } — sudo systemctl reset-failed speakersafetyd && sudo systemctl start speakersafetyd"
+    else
+      record WARN speaker-volumes "no 'Speaker volumes' kernel message this boot"
+    fi
+  fi
+}
+
+check_rtc() {
+  local local_rtc
+  if [[ -n $diag_root ]]; then
+    record SKIP rtc "timedatectl not mocked"
+    return
+  fi
+  local_rtc=$(timedatectl show -p LocalRTC --value 2>/dev/null || true)
+  case "$local_rtc" in
+    no) record PASS rtc "RTC in UTC" ;;
+    yes) record WARN rtc "RTC in local time (macOS keeps UTC; boots start hours off) — ./install.sh asahi-system" ;;
+    *) record WARN rtc "timedatectl gave no LocalRTC answer" ;;
+  esac
+}
+
+check_zram() {
+  local algo
+  algo=$(cat "$sys_root/block/zram0/comp_algorithm" 2>/dev/null || true)
+  if [[ $algo == *"[zstd]"* ]]; then
+    record PASS zram "zram0 uses zstd"
+  else
+    record WARN zram "zram0 is not zstd (${algo:-missing}) — ./install.sh asahi-system"
   fi
 }
 
@@ -413,6 +472,8 @@ check_wifi_powersave
 check_wifi_link
 check_audio
 check_pipewire_rt
+check_zram
+check_rtc
 check_bluetooth
 check_gpu
 check_backlight

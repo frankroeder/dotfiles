@@ -1,40 +1,20 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Io
+import Quickshell.Services.Pipewire
 import "../../../"
 
-Rectangle {
+// Default sink volume, bound to PipeWire (no polling). Click: mute; wheel: step.
+Item {
   id: root
 
   property var barHost: null
-  readonly property bool solidBar: barHost !== null && barHost !== undefined
-
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
 
-  color: solidBar ? "transparent" : (volumeMouse.containsMouse ? Style.barHoverBg : Style.barBg)
-  radius: solidBar ? 0 : Style.radius
-  border.width: solidBar ? 0 : 1
-  border.color: solidBar ? "transparent" : (volumeMouse.containsMouse ? Style.barHoverBorder : Style.barBorder)
-  Behavior on color { ColorAnimation { duration: 140 } }
-  Behavior on border.color { ColorAnimation { duration: 140 } }
-  scale: solidBar ? 1.0 : (volumeMouse.containsMouse ? 1.018 : 1.0)
-
-  implicitWidth: content.implicitWidth + (solidBar ? 6 : 14)
-  implicitHeight: solidBar ? Style.barHeight : 30
-
-  Rectangle {
-    anchors.fill: parent
-    anchors.topMargin: Style.barChipInset
-    anchors.bottomMargin: Style.barChipInset
-    radius: Style.radiusSm
-    visible: solidBar
-    color: volumeMouse.containsMouse ? Style.barStripHover : "transparent"
-    Behavior on color { ColorAnimation { duration: 120 } }
-  }
-
-  property bool muted: false
-  property int percentage: -1
+  readonly property var sink: Pipewire.defaultAudioSink
+  PwObjectTracker { objects: [root.sink] }
+  readonly property bool muted: !!(sink && sink.audio && sink.audio.muted)
+  readonly property int percentage: sink && sink.audio ? Math.round(sink.audio.volume * 100) : -1
 
   function outputIcon(pct, isMuted) {
     if (isMuted) return "󰖁"
@@ -43,8 +23,10 @@ Rectangle {
     return "󰕾"
   }
 
-  readonly property string iconGlyph: outputIcon(percentage, muted)
-  readonly property string levelText: percentage >= 0 ? percentage + "%" : "--%"
+  implicitWidth: content.implicitWidth + 6
+  implicitHeight: Style.barHeight
+
+  HoverTint { lit: chipMouse.containsMouse }
 
   RowLayout {
     id: content
@@ -52,64 +34,36 @@ Rectangle {
     spacing: 4
 
     Text {
-      text: root.iconGlyph
+      text: root.outputIcon(root.percentage, root.muted)
       font.family: Style.fontFamily
       font.pixelSize: Style.barFontMicVolIcon
       color: root.muted ? Style.red : Style.green
     }
 
     Text {
-      text: root.levelText
+      text: root.percentage >= 0 ? root.percentage + "%" : "--%"
       font.family: Style.fontFamily
       font.pixelSize: Style.barFontBody
       color: barHost ? barHost.barForeground : Style.text
     }
   }
 
-  Process {
-    id: audioProc
-    command: ["bash", binDir + "/asahi-audio", "output"]
-    stdout: StdioCollector {
-      onStreamFinished: {
-        try {
-          const data = JSON.parse(text.trim())
-          root.muted = (data.class || []).includes("muted")
-          if (typeof data.percentage === "number") root.percentage = data.percentage
-        } catch (e) {
-          root.percentage = -1
-        }
-      }
-    }
-  }
-
-  Timer {
-    interval: 2000
-    running: true
-    repeat: true
-    onTriggered: audioProc.running = true
-  }
-
-  Component.onCompleted: audioProc.running = true
-
-  Timer {
-    id: refreshDelay
-    interval: 250
-    onTriggered: audioProc.running = true
-  }
+  // One step per wheel notch (120); trackpad swipes accumulate, horizontal ones are ignored.
+  property real wheelAcc: 0
 
   MouseArea {
-    id: volumeMouse
+    id: chipMouse
     anchors.fill: parent
     hoverEnabled: true
     cursorShape: Qt.PointingHandCursor
-    onClicked: {
-      Quickshell.execDetached(["bash", "-c", binDir + "/asahi-media-control output-volume mute-toggle"])
-      refreshDelay.restart()
-    }
+    onClicked: Quickshell.execDetached([root.binDir + "/asahi-media-control", "output-volume", "mute-toggle"])
     onWheel: wheel => {
-      const direction = wheel.angleDelta.y > 0 ? "raise" : "lower"
-      Quickshell.execDetached(["bash", "-c", binDir + "/asahi-media-control output-volume " + direction])
-      refreshDelay.restart()
+      if (Math.abs(wheel.angleDelta.x) > Math.abs(wheel.angleDelta.y)) return
+      root.wheelAcc += wheel.angleDelta.y
+      if (Math.abs(root.wheelAcc) < 120) return
+      const direction = root.wheelAcc > 0 ? "raise" : "lower"
+      root.wheelAcc = 0
+      Quickshell.execDetached([root.binDir + "/asahi-media-control", "output-volume", direction])
     }
   }
 }

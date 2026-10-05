@@ -5,10 +5,10 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Widgets
 import Quickshell.Hyprland
-import Quickshell.Services.Mpris
 import Quickshell.Services.Pipewire
 import "../../menu" as Menu
 import "../../../"
+import "../../../services" as Services
 import "../quick_models.js" as QuickModels
 import "../launcher_layout.js" as LauncherGeom
 
@@ -18,20 +18,12 @@ Item {
   property var root
   id: quickMediaRoot
   anchors.fill: parent
-  // fuller media port (Mpris+controls+active, wpctl, cava, streams; procs/timers/guards)
-  property var cavaValues: []
-  property bool cavaRunning: false
-  property string cavaStatus: "idle"
-  property real cavaLast: 0
-  property real cavaStartedAt: 0
-  readonly property string cavaDir: "/tmp/quickshell-remix-" + (Quickshell.env("USER") || "user")
-  readonly property string cavaCfg: quickMediaRoot.cavaDir + "/cava.conf"
-  readonly property string cavaFrame: quickMediaRoot.cavaDir + "/cava-frame"
-  readonly property var activeP: {
-    const list = (Mpris.players && Mpris.players.values) ? Mpris.players.values : []
-    for (let i=0; i<list.length; i++) if (list[i] && list[i].isPlaying) return list[i]
-    return list.length > 0 ? list[0] : null
-  }
+  // Shared cava (Services.Cava), held only while the launcher shows this pane.
+  readonly property bool cavaWanted: root.shouldShow
+  onCavaWantedChanged: Services.Cava.hold(quickMediaRoot, quickMediaRoot.cavaWanted)
+  readonly property string cavaStatus: Services.Cava.missing ? "cava not installed"
+    : !Services.Cava.values.length ? "starting" : Services.Cava.active ? "active" : "waiting for audio"
+  readonly property var activeP: Services.Players.active
   // Native Pipewire mixer (omarchy.audio port): live nodes instead of the
   // old 3s `wpctl status` poll — sliders track and write volumes directly.
   readonly property var pwNodes: Pipewire.nodes ? Pipewire.nodes.values : []
@@ -62,7 +54,7 @@ Item {
     const nodes = quickMediaRoot.pwNodes || []
     for (let i = 0; i < nodes.length; i++) {
       const n = nodes[i]
-      if (n && n.isStream && QuickModels.isPlaybackStream(n)) list.push(n)
+      if (n && n.isStream && QuickModels.isPlaybackStream(n) && !QuickModels.isDspStream(n)) list.push(n)
     }
     return list
   }
@@ -131,33 +123,6 @@ Item {
     if (key && key === QuickModels.audioNodeKey(quickMediaRoot.shownSource)) return
     Pipewire.preferredDefaultAudioSource = node
   }
-  function startCava() {
-    if (quickMediaRoot.cavaRunning) return
-    quickMediaRoot.cavaRunning = true; quickMediaRoot.cavaStatus = "starting"; quickMediaRoot.cavaLast=0; quickMediaRoot.cavaValues=[]
-    quickMediaRoot.cavaStartedAt = Date.now()
-    Quickshell.execDetached([
-      "sh", "-c",
-      "dir=$1;cfg=$2;frm=$3; if ! command -v cava >/dev/null 2>&1; then echo 'cava missing' >/tmp/quickshell-cava.err; exit 0; fi; " +
-      "pkill -f \"cava -p $cfg\" 2>/dev/null||true; mkdir -p \"$dir\"; " +
-      "printf '%s\n' '[general]' 'bars=24' 'framerate=30' 'autosens=1' 'sensitivity=180' '' '[input]' 'method=pulse' 'source=auto' '' " +
-      "'[output]' 'method=raw' 'raw_target=/dev/stdout' 'data_format=ascii' 'ascii_max_range=100' 'bar_delimiter=59' 'frame_delimiter=10' > \"$cfg\"; " +
-      ": > \"$frm\"; (stdbuf -oL cava -p \"$cfg\" 2>/dev/null | while IFS= read -r ln; do printf '%s\n' \"$ln\" > \"$frm\"; done) &",
-      "sh", quickMediaRoot.cavaDir, quickMediaRoot.cavaCfg, quickMediaRoot.cavaFrame
-    ])
-  }
-  function stopCava() {
-    if (!quickMediaRoot.cavaRunning) return
-    quickMediaRoot.cavaRunning=false; quickMediaRoot.cavaStatus="idle"; quickMediaRoot.cavaLast=0
-    Quickshell.execDetached(["pkill","-f","cava -p "+quickMediaRoot.cavaCfg])
-  }
-  function updCava(ln) {
-    ln=(ln||"").trim(); if(!ln) return
-    const ps = ln.split(/[;,\t ]+/); const vs=[]
-    for (let i=0; i<ps.length && i<24; i++) vs.push( Math.max(0,Math.min(100, parseInt(ps[i])||0 )) )
-    while(vs.length<24) vs.push(0)
-    quickMediaRoot.cavaValues=vs; quickMediaRoot.cavaLast=Date.now()
-    quickMediaRoot.cavaStatus = vs.some(v => v > 0) ? "active" : "waiting for audio"
-  }
   // Binds the candidate nodes so .audio/.properties/.description are live.
   PwObjectTracker { objects: [quickMediaRoot.pwSink, quickMediaRoot.pwSource] }
   PwObjectTracker { objects: quickMediaRoot.displaySinks }
@@ -180,7 +145,7 @@ Item {
   }
   Timer {
     interval: 700
-    running: root.quickMode && root.quickPaneKey === "media"
+    running: root.shouldShow && root.quickMode && root.quickPaneKey === "media"
     repeat: true
     triggeredOnStart: true
     onTriggered: {
@@ -189,35 +154,18 @@ Item {
     }
   }
 
-  Process {
-    id: cavaRd
-    command: ["sh","-c","cat \"$1\" 2>/dev/null || true", "sh", quickMediaRoot.cavaFrame]
-    stdout: StdioCollector { onStreamFinished: quickMediaRoot.updCava(text) }
-  }
-  Timer {
-    interval: 90; running: root.quickMode && root.quickPaneKey === "media"; repeat: true; triggeredOnStart: true
-    onTriggered: {
-      if (quickMediaRoot.cavaRunning && quickMediaRoot.cavaLast>0 && Date.now()-quickMediaRoot.cavaLast > 3000) quickMediaRoot.cavaRunning=false
-      // No frame ever arrived: cava is likely not installed (see /tmp/quickshell-cava.err).
-      if (quickMediaRoot.cavaRunning && quickMediaRoot.cavaLast===0 && quickMediaRoot.cavaStartedAt>0
-          && Date.now()-quickMediaRoot.cavaStartedAt > 3000 && quickMediaRoot.cavaStatus === "starting")
-        quickMediaRoot.cavaStatus = "cava not installed"
-      if (!quickMediaRoot.cavaRunning) quickMediaRoot.startCava()
-      if (!cavaRd.running) cavaRd.running = true
-    }
-  }
   Component.onCompleted: {
     if (quickMediaRoot.pwSink) quickMediaRoot.heldSink = quickMediaRoot.pwSink
     if (quickMediaRoot.pwSource) quickMediaRoot.heldSource = quickMediaRoot.pwSource
     quickMediaRoot.refreshAudioModels()
-    quickMediaRoot.startCava()
+    Services.Cava.hold(quickMediaRoot, quickMediaRoot.cavaWanted)
   }
-  Component.onDestruction: quickMediaRoot.stopCava()
+  Component.onDestruction: Services.Cava.hold(quickMediaRoot, false)
 
   // Mpris only re-estimates `position` on demand: nudge it once a second while playing.
   Timer {
     interval: 1000; repeat: true
-    running: root.quickMode && root.quickPaneKey === "media" && !!quickMediaRoot.activeP && quickMediaRoot.activeP.isPlaying
+    running: root.shouldShow && root.quickMode && root.quickPaneKey === "media" && !!quickMediaRoot.activeP && quickMediaRoot.activeP.isPlaying
     onTriggered: quickMediaRoot.activeP.positionChanged()
   }
   function fmtTime(s) {
@@ -659,7 +607,7 @@ Item {
                   anchors.centerIn: parent
                   width: Math.min(12, parent.width)
                   radius: width / 2
-                  height: Math.max(4, parent.height * (((quickMediaRoot.cavaValues && quickMediaRoot.cavaValues[index]) || 0) / 100))
+                  height: Math.max(4, parent.height * ((Services.Cava.values[index] || 0) / 100))
                   color: quickMediaRoot.cavaStatus === "active"
                     ? quickMediaRoot.mix(Style.m3primary, Style.m3tertiary, index / 23) : Style.m3outlineVariant
                   Behavior on height { NumberAnimation { duration: 60; easing.type: Easing.OutQuad } }

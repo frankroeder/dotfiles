@@ -172,10 +172,12 @@ start_watcher() {
   fi
   # Pre-filter watchers stored secrets too — replace them rather than stack up.
   pkill -f -- "[w]l-paste --type ${kind} --watch cliphist store" >/dev/null 2>&1 || true
+  # Close the lock fd: wl-paste would inherit it and hold the flock forever, so every later
+  # `watch` would bail and a dead watcher would never restart.
   if command -v setsid >/dev/null 2>&1; then
-    setsid -f wl-paste --type "$kind" --watch "$self" store >/dev/null 2>&1 || true
+    setsid -f wl-paste --type "$kind" --watch "$self" store >/dev/null 2>&1 {watch_lock}>&- || true
   else
-    wl-paste --type "$kind" --watch "$self" store >/dev/null 2>&1 &
+    wl-paste --type "$kind" --watch "$self" store >/dev/null 2>&1 {watch_lock}>&- &
   fi
 }
 
@@ -201,6 +203,9 @@ ensure_watch() {
   if ! command -v wl-paste >/dev/null 2>&1; then
     return 0
   fi
+  # The launcher may call `watch` twice at once; the flock stops both starting a watcher per type.
+  exec {watch_lock}>"${XDG_RUNTIME_DIR:-/tmp}/asahi-cliphist-watch.lock"
+  flock -n "$watch_lock" || return 0
   if ! watcher_running text; then
     start_watcher text
     text_started=1

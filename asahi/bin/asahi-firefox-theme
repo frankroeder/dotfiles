@@ -36,6 +36,10 @@ inotifywait -q -m -e close_write,moved_to,create --format '%f' "$dir" | while re
     send_file
   fi
 done &
-watch=$!
-trap 'kill "$watch" 2>/dev/null || true' EXIT
-cat >/dev/null
+# pkill -P: $! is only the while-loop end of the pipeline; inotifywait would outlive Firefox.
+trap 'pkill -P $$ 2>/dev/null || true' EXIT
+trap 'exit 0' INT TERM HUP
+# bash runs traps only after a foreground child exits; `wait` is interruptible, so TERM acts
+# at once. Async jobs get /dev/null as stdin unless redirected (<&0).
+cat <&0 >/dev/null &
+wait $!

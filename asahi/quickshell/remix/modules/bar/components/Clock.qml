@@ -15,7 +15,6 @@ Item {
   property bool clickOpened: false
   property bool yearFocused: false
 
-  readonly property bool solidBar: barHost !== null && barHost !== undefined
   readonly property bool showCalendar: {
     if (!root.calendarOpen) return false
     const mon = Hyprland.focusedMonitor
@@ -72,8 +71,8 @@ Item {
     if (birthFile.text() !== encoded) birthFile.setText(encoded)
   }
 
-  implicitWidth: solidBar ? flatRow.implicitWidth + 12 : clockRow.implicitWidth + 14
-  implicitHeight: solidBar ? Style.barHeight : 26
+  implicitWidth: flatRow.implicitWidth + 12
+  implicitHeight: Style.barHeight
 
   function sameDay(a, b) {
     return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
@@ -156,7 +155,6 @@ Item {
   // the bar edge margin (left edge sits at barEdgeMargin, right drifted to ~2×).
   Row {
     id: flatRow
-    visible: root.solidBar
     anchors.right: parent.right
     anchors.verticalCenter: parent.verticalCenter
     spacing: 8
@@ -177,35 +175,9 @@ Item {
     }
   }
 
-  Rectangle {
-    visible: !root.solidBar
-    anchors.fill: parent
-    color: Style.barBg
-    radius: Style.radius
-    border.width: 1
-    border.color: Style.barBorder
-
-    RowLayout {
-      id: clockRow
-      anchors.centerIn: parent
-      spacing: 6
-
-      Text {
-        text: root.dateLine
-        font.family: Style.fontFamily
-        font.pixelSize: Style.barFontBody
-        color: Style.cyan
-      }
-      Text {
-        text: root.timeLine
-        font.family: Style.fontFamily
-        font.pixelSize: Style.barFontBody
-        color: Style.cyan
-      }
-    }
-  }
-
+  HoverTint { lit: clockMouse.containsMouse || root.showCalendar }
   MouseArea {
+    id: clockMouse
     anchors.fill: parent
     hoverEnabled: true
     cursorShape: Qt.PointingHandCursor
@@ -362,7 +334,7 @@ Item {
                   color: {
                     if (!modelData) return "transparent"
                     if (isToday) return Style.menuSeal
-                    return dayMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
+                    return Style.menuControlBg
                   }
                   border.width: 0
                   Text {
@@ -373,12 +345,6 @@ Item {
                     font.family: Style.fontFamily
                     font.pixelSize: 12
                     font.weight: parent.isToday ? Font.DemiBold : Font.Normal
-                  }
-                  MouseArea {
-                    id: dayMa
-                    anchors.fill: parent
-                    hoverEnabled: !!modelData
-                    enabled: !!modelData
                   }
                 }
               }

@@ -20,14 +20,20 @@ layout_file="${ASAHI_LAYOUT_FILE:-${XDG_STATE_HOME:-$HOME/.local/state}/asahi/mo
 
 usage() {
   echo "usage: $0 <added|removed|sync|on|off> [HDMI-A-1]" >&2
-  echo "       $0 save HDMI-A-1 <X>x<Y> | reset HDMI-A-1" >&2
+  echo "       $0 save <HDMI-A-1|DP-1> <X>x<Y> | reset <name> | place DP-1" >&2
   exit 2
 }
 
-[[ "$name" =~ ^HDMI[A-Za-z0-9._-]*$ ]] || {
+[[ "$name" =~ ^(HDMI|DP)[A-Za-z0-9._-]*$ ]] || {
   echo "refusing monitor name: $name" >&2
   exit 1
 }
+# USB-C DP has no enable gate (Hyprland enables it from the desc rule): only its position is
+# ours. The HDMI actions read HDMI's drm status and could disable DP.
+if [[ "$name" =~ ^DP ]] && [[ ! "$action" =~ ^(place|save|reset)$ ]]; then
+  echo "$action is HDMI-only (DP outputs: place, save, reset)" >&2
+  exit 1
+fi
 
 drm_connected() {
   local f
@@ -239,6 +245,14 @@ sync)
   else
     bump_gen >/dev/null
     off_hdmi
+  fi
+  ;;
+place)
+  # Position only: a partial hl.monitor merges with the live mode/scale (no modeset). The desc
+  # rules assume eDP at 4/3, so re-derive from the session eDP scale or the kept layout.
+  pos="$(layout_fields | sed -n 's/.*position = "\([^"]*\)".*/\1/p')"
+  if [[ "$pos" =~ ^-?[0-9]+x-?[0-9]+$ ]] && is_enabled; then
+    eval_monitor "position = \"$pos\""
   fi
   ;;
 save)

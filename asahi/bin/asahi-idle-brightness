@@ -73,14 +73,11 @@ case "$action" in
     fi
     ;;
   off)
+    # Every backlight, the panel included.
     for device in $(brightness_devices); do
       save_device "display-$device" "$device"
       set_device "$device" 0
     done
-    if device="$(display_device)"; then
-      save_device display "$device"
-      set_device "$device" 0
-    fi
     if device="$(keyboard_device)"; then
       save_device keyboard "$device"
       set_device "$device" 0
@@ -95,9 +92,6 @@ case "$action" in
     fi
     ;;
   restore)
-    if device="$(display_device)"; then
-      restore_device display "$device"
-    fi
     for statef in "$state_dir"/display-*; do
       [ -s "$statef" ] || continue
       bname=$(basename "$statef")

@@ -1,2 +1,3 @@
 singleton Players 1.0 Players.qml
 singleton Recorder 1.0 Recorder.qml
+singleton Cava 1.0 Cava.qml

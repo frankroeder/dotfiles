@@ -68,7 +68,17 @@ case "${1:-status}" in
   apply)
     if [ -e "$flag" ]; then
       inhibit
-      if external_on; then edp_disabled || edp_off; else edp_on; fi
+      if external_on; then
+        edp_disabled || edp_off
+      else
+        # Undocked with the lid closed: the flag's inhibitor would block lid suspend forever (battery
+        # drain). eDP back first (never zero outputs); after a 10 s grace (hotplug bounce, reload
+        # re-enabling HDMI) drop the flag so logind suspends, unless an external came back.
+        edp_on
+        sleep 10
+        [ -e "$flag" ] || exit 0  # lid opened meanwhile: open owns eDP now
+        if external_on; then edp_off; else rm -f "$flag"; fi
+      fi
     fi
     ;;
   status) [ -e "$flag" ] ;;

@@ -11,6 +11,16 @@ Item {
 
   required property var controller
 
+  // One step per wheel notch (120): trackpad swipes accumulate, horizontal ones are ignored.
+  property real wheelAcc: 0
+  function wheelStep(wheel) {
+    if (Math.abs(wheel.angleDelta.x) > Math.abs(wheel.angleDelta.y)) return
+    root.wheelAcc += wheel.angleDelta.y
+    if (Math.abs(root.wheelAcc) < 120) return
+    root.controller.cycleWorkspace(root.wheelAcc < 0)
+    root.wheelAcc = 0
+  }
+
   readonly property int focusedWorkspaceId: (controller.wsWindowVersion, Hyprland.focusedWorkspace?.id ?? 1)
   readonly property var visibleWorkspaces: {
     controller.wsWindowVersion
@@ -218,7 +228,7 @@ Item {
             cursorShape: Qt.PointingHandCursor
             acceptedButtons: Qt.LeftButton
             onClicked: controller.activateWorkspace(wsButton.wsId)
-            onWheel: wheel => controller.cycleWorkspace(wheel.angleDelta.y < 0)
+            onWheel: wheel => root.wheelStep(wheel)
           }
         }
       }
@@ -250,7 +260,7 @@ Item {
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         onClicked: Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.workspace.toggle_special(\"scratch\")"])
-        onWheel: wheel => controller.cycleWorkspace(wheel.angleDelta.y < 0)
+        onWheel: wheel => root.wheelStep(wheel)
       }
     }
   }

@@ -44,6 +44,14 @@ if [ "$(tty)" = "/dev/tty1" ]; then
     unset _kc
   fi
   if (( ${+commands[start-hyprland]} )); then
+    # Asahi: with an external display attached, apple-drm can bind after a fast login
+    # (~30 s seen on an M2 Pro) and Hyprland would open simpledrm (omarchy-mac #679).
+    if grep -qa 'apple,' /proc/device-tree/compatible 2>/dev/null; then
+      udevadm wait --timeout=30 /dev/dri/by-path/platform-soc:display-subsystem-card 2>/dev/null
+    fi
+    # Lmod (openmpi) exports BASH_ENV: every bash the session forks sources it (13 ms vs 1.2 ms).
+    # Terminals re-source /etc/profile, so `module` still works there.
+    unset BASH_ENV
     exec start-hyprland
   fi
 fi

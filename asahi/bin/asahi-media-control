@@ -16,12 +16,12 @@ brightness_step() {
   local current="$1" action="$2" target
   case "$action" in
     raise)
-      if [ "$current" -lt 5 ]; then target=$((current + 1)); else target=$((current + 5)); fi
+      target=$(step_percent "$current" raise)
       [ "$target" -gt 100 ] && target=100
       printf '%s%%\n' "$target"
       ;;
     lower)
-      if [ "$current" -le 5 ]; then target=$((current - 1)); else target=$((current - 5)); fi
+      target=$(step_percent "$current" lower)
       [ "$target" -lt 1 ] && target=1
       printf '%s%%\n' "$target"
       ;;
@@ -42,6 +42,15 @@ brightness_step() {
   esac
 }
 
+# 1 % steps below 5 % (step_percent). Clamp at 0; wpctl -l 1 caps at 100 %.
+volume_step() {
+  local node="$1" action="$2" current target
+  current=$(wpctl get-volume "$node" | awk '{ printf "%d", $2 * 100 + 0.5 }')
+  target=$(step_percent "$current" "$action")
+  [ "$target" -lt 0 ] && target=0
+  wpctl set-volume -l 1 "$node" "$target%"
+}
+
 current_percent() {
   brightnessctl --device="$1" -m 2>/dev/null | awk -F, '{ gsub("%", "", $4); print $4; found=1 } END { exit !found }'
 }
@@ -59,8 +68,7 @@ show_osd() {
 case "$target" in
   output-volume)
     case "$action" in
-      raise) wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+ ;;
-      lower) wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%- ;;
+      raise | lower) volume_step @DEFAULT_AUDIO_SINK@ "$action" ;;
       mute-toggle) wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle ;;
       +1) wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 1%+ ;;
       -1) wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 1%- ;;
@@ -104,8 +112,7 @@ case "$target" in
     fi
 
     case "$action" in
-      raise) wpctl set-volume -l 1 @DEFAULT_AUDIO_SOURCE@ 5%+ ;;
-      lower) wpctl set-volume -l 1 @DEFAULT_AUDIO_SOURCE@ 5%- ;;
+      raise | lower) volume_step @DEFAULT_AUDIO_SOURCE@ "$action" ;;
       +1) wpctl set-volume -l 1 @DEFAULT_AUDIO_SOURCE@ 1%+ ;;
       -1) wpctl set-volume -l 1 @DEFAULT_AUDIO_SOURCE@ 1%- ;;
     esac

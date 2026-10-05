@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import Quickshell.Services.SystemTray
 import "../BarModel.js" as BarModel
 import "../../../"
@@ -46,14 +47,7 @@ Item {
           NumberAnimation { target: slot; property: "scale"; from: 0.5; to: 1; duration: 180; easing.type: Easing.OutBack }
         }
 
-        Rectangle {
-          anchors.fill: parent
-          anchors.topMargin: Style.barChipInset
-          anchors.bottomMargin: Style.barChipInset
-          radius: Style.radiusSm
-          color: iconMouse.containsMouse ? Style.barStripHover : "transparent"
-          Behavior on color { ColorAnimation { duration: 120 } }
-        }
+        HoverTint { lit: iconMouse.containsMouse }
 
         Image {
           id: iconImage
@@ -77,7 +71,7 @@ Item {
         }
 
         // SNI's NeedsAttention, which the bar used to discard. A dot, not a colour wash
-        // over the app's own icon.
+        // over the app's own icon. Static: a pulse redraws the bar every frame.
         Rectangle {
           anchors.horizontalCenter: parent.horizontalCenter
           anchors.bottom: parent.bottom
@@ -87,13 +81,6 @@ Item {
           radius: 2
           color: Style.orange
           visible: slot.needsAttention
-
-          SequentialAnimation on opacity {
-            running: slot.needsAttention
-            loops: Animation.Infinite
-            NumberAnimation { from: 1.0; to: 0.25; duration: 900; easing.type: Easing.InOutSine }
-            NumberAnimation { from: 0.25; to: 1.0; duration: 900; easing.type: Easing.InOutSine }
-          }
         }
 
         MouseArea {
@@ -104,8 +91,9 @@ Item {
           hoverEnabled: true
 
           onClicked: (mouse) => {
+            // display() wants window coordinates; slot.x is relative to the strip.
             if (mouse.button === Qt.RightButton || slot.modelData.onlyMenu)
-              slot.modelData.display(root.QsWindow.window, slot.x + slot.width / 2, root.barHeight)
+              slot.modelData.display(root.QsWindow.window, slot.mapToItem(null, slot.width / 2, 0).x, root.barHeight)
             else if (mouse.button === Qt.MiddleButton)
               slot.modelData.secondaryActivate()
             else
@@ -113,6 +101,7 @@ Item {
           }
         }
 
+        // The tray's only text: which app an icon belongs to.
         TooltipWindow {
           target: slot
           text: String(slot.modelData.tooltipTitle || slot.modelData.title || "")
@@ -128,7 +117,8 @@ Item {
       height: Style.barHeight - 2 * Style.barChipInset
       anchors.verticalCenter: parent.verticalCenter
       radius: height / 2
-      visible: root.overflowCount > 0
+      // Stay visible while the panel is open: overflow can drop to 0 meanwhile, and this chip closes it.
+      visible: root.overflowCount > 0 || trayPanel.shouldShow
       color: (overflowMouse.containsMouse || trayPanel.shouldShow) ? Style.barStripHover : "transparent"
       border.width: 1
       border.color: root.attention ? Style.orange : Style.barBorder
@@ -157,6 +147,7 @@ Item {
     id: trayPanel
     trayItems: root.items
     panelScreen: root.trayScreen
+    barWindow: root.QsWindow.window
     barHeight: root.barHeight
   }
 }

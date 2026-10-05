@@ -69,8 +69,8 @@ Item {
   // back: it wipes eval'd rules and its config.reloaded hook re-runs
   // asahi-hdmi sync / monitor-scale apply / clamshell apply.
   function unmirrorMonitors() { quickMonitorsRoot.revertLayout("Unmirroring...") }
-  // Extend = back to the configured layout: drop kept HDMI positions first,
-  // then reload (its asahi-hdmi sync reads the layout file).
+  // Extend = back to the configured layout: drop kept HDMI / DP positions first,
+  // then reload (config.reloaded runs asahi-hdmi sync / place, which read the layout file).
   function extendMonitors() {
     const clamshell = quickMonitorsRoot.revertClamshell
     quickMonitorsRoot.keepPositions = ({})
@@ -78,7 +78,7 @@ Item {
     quickMonitorsRoot.revertLua = ""
     quickMonitorsRoot.disarmRevert()
     quickMonitorsRoot.monStatus = "Reloading monitors..."
-    const resets = (quickMonitorsRoot.mons || []).filter(m => /^HDMI/.test(m.name))
+    const resets = (quickMonitorsRoot.mons || []).filter(m => /^(HDMI|DP)/.test(m.name))
       .map(m => root.binDir + "/asahi-hdmi reset " + m.name)
     const last = clamshell ? root.binDir + "/asahi-clamshell open" : "hyprctl reload"
     Quickshell.execDetached(["bash", "-c", resets.concat([last]).join("; ")])
@@ -108,7 +108,8 @@ Item {
   // Mirror / external-only / disable can strand the session on an output that
   // no longer takes input, and the pill that undoes it is then unreachable. So
   // every such change is on probation: `Keep` disarms it, silence reverts it.
-  // (Closing the launcher tears the pane down and cancels the timer too.)
+  // Closing the launcher keeps the pane and its countdown; destroying the pane (tile switch,
+  // reopen) reverts at once, never leaving an unconfirmed mirror / eDP-off behind.
   property int revertLeft: 0
   function applyRevertable(lua, status) {
     quickMonitorsRoot.keepPositions = ({})
@@ -148,7 +149,7 @@ Item {
   function keepChange() {
     const kp = quickMonitorsRoot.keepPositions
     for (const n of Object.keys(kp))
-      if (/^HDMI/.test(n)) Quickshell.execDetached([root.binDir + "/asahi-hdmi", "save", n, kp[n].x + "x" + kp[n].y])
+      if (/^(HDMI|DP)/.test(n)) Quickshell.execDetached([root.binDir + "/asahi-hdmi", "save", n, kp[n].x + "x" + kp[n].y])
     quickMonitorsRoot.keepPositions = ({})
     quickMonitorsRoot.revertClamshell = false
     quickMonitorsRoot.revertLua = ""
@@ -160,6 +161,7 @@ Item {
     const scr = m ? Quickshell.screens.find(s => s.name === m.name) : null
     if (scr) root.launcherScreen = scr
   }
+  Component.onDestruction: if (quickMonitorsRoot.revertLeft > 0) quickMonitorsRoot.revertLayout("Reverted")
   Timer {
     id: revertTimer
     interval: 1000; repeat: true
@@ -385,7 +387,7 @@ Item {
   }
   Timer { interval: 900; id: monDelay; onTriggered: monScan.running = true }
   Timer {
-    interval: 3000; running: root.quickMode && root.quickPaneKey === "monitors"; repeat: true; triggeredOnStart: true
+    interval: 3000; running: root.shouldShow && root.quickMode && root.quickPaneKey === "monitors"; repeat: true; triggeredOnStart: true
     onTriggered: {
       if (!monScan.running) monScan.running = true
       if (!brightProc.running) brightProc.running = true
@@ -851,7 +853,7 @@ Item {
         color: statusBar.pending ? Style.m3primary : Style.m3outline
         SequentialAnimation on opacity {
           id: pulse
-          running: statusBar.pending; loops: Animation.Infinite
+          running: root.shouldShow && statusBar.pending; loops: Animation.Infinite
           onRunningChanged: if (!running) pulseDot.opacity = 1
           NumberAnimation { to: 0.3; duration: 600 }
           NumberAnimation { to: 1; duration: 600 }

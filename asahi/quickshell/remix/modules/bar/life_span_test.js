@@ -229,8 +229,8 @@ eq(qml.indexOf("lifeCanvas") === -1, true, "week canvas is gone");
 eq(qml.indexOf("grabFocus:") === -1, true, "popup is not a Qt grab popup");
 has("HyprlandFocusGrab", "Hyprland keyboard grab is installed");
 has("windows: [calPopup]", "grab includes the calendar popup");
-has("calendarKeys.active = activeFocus && root.showCalendar", "grab starts when the year field is focused");
-eq(qml.indexOf("onCleared") === -1, true, "a focus clear does not close the calendar");
+has("active: root.showCalendar && (!root.clickOpened || root.yearFocused)", "click-opened: grab only once the year field is focused");
+has("onCleared: if (!root.clickOpened && root.calendarOpen) root.calendarToggle()", "focus clear closes only a keybind-opened calendar");
 eq(qml.split("Life.lifeSpan(").length, 2, "calendar calls lifeSpan once");
 
 if (failed) {

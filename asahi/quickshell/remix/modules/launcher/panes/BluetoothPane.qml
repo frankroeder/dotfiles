@@ -23,6 +23,12 @@ Item {
   property int btConnectedCount: 0
   property string btUpdated: ""
   property bool btScanRequested: false
+  // quickshell drops a stop sent before BlueZ confirmed the start: re-send it once a second, 3 times.
+  property int btStopTries: 0
+  // Closing the launcher only hides this pane (the next open destroys it), so stop the scan here:
+  // a scan left running holds the shared BCM4388 radio in inquiry (A2DP stutter).
+  readonly property bool launcherShown: root ? root.shouldShow : false
+  onLauncherShownChanged: if (!launcherShown && btScanRequested) stopScan()
   readonly property bool btDiscovering: Bluetooth.defaultAdapter ? Bluetooth.defaultAdapter.discovering : false
 
   // Address -> "connecting" | "disconnecting" | "forgetting" (omarchy's
@@ -118,8 +124,9 @@ Item {
     btActionProc.action = "pair"
     btActionProc.targetMac = mac
     btActionProc.targetName = name || "device"
-    // Stay open: the row should move from Discovered to Paired in place.
-    btActionProc.command = ["bash", "-c",
+    // Stay open (the row moves to Paired in place). A transient unit: a tile switch destroys the pane
+    // and kills its Process, which would cut the chain after `pair` (never trusted / connected).
+    btActionProc.command = ["systemd-run", "--user", "--wait", "--quiet", "--collect", "bash", "-c",
       root.shQuote(root.binDir + "/asahi-bluetooth-power") + " on >/dev/null 2>&1 || true; " +
       "timeout 20s bluetoothctl pair " + root.shQuote(mac) +
       " && bluetoothctl trust " + root.shQuote(mac) +
@@ -132,8 +139,8 @@ Item {
     btActionProc.action = "forget"
     btActionProc.targetMac = mac
     btActionProc.targetName = name || "device"
-    // Disconnect first so a connected device can be removed cleanly.
-    btActionProc.command = ["bash", "-c",
+    // Disconnect first; a transient unit so `remove` still runs if the pane goes away.
+    btActionProc.command = ["systemd-run", "--user", "--wait", "--quiet", "--collect", "bash", "-c",
       "timeout 10s bluetoothctl disconnect " + root.shQuote(mac) + " >/dev/null 2>&1; " +
       "timeout 10s bluetoothctl remove " + root.shQuote(mac)]
     btActionProc.running = true
@@ -141,8 +148,14 @@ Item {
   function toggleScan() {
     const a = Bluetooth.defaultAdapter
     if (!a) return
-    quickBtRoot.btScanRequested = !quickBtRoot.btScanRequested
-    a.discovering = quickBtRoot.btScanRequested
+    if (quickBtRoot.btScanRequested) { quickBtRoot.stopScan(); return }
+    quickBtRoot.btScanRequested = true
+    a.discovering = true
+  }
+  function stopScan() {
+    quickBtRoot.btScanRequested = false
+    quickBtRoot.btStopTries = 3
+    if (Bluetooth.defaultAdapter) Bluetooth.defaultAdapter.discovering = false
   }
 
   Process {
@@ -207,7 +220,7 @@ Item {
   }
   Timer {
     interval: 4000
-    running: root.quickMode && root.quickPaneKey === "bluetooth"
+    running: root.shouldShow && root.quickMode && root.quickPaneKey === "bluetooth"
     repeat: true
     triggeredOnStart: true
     onTriggered: {
@@ -223,8 +236,18 @@ Item {
     running: quickBtRoot.btScanRequested && quickBtRoot.btOn && !quickBtRoot.btDiscovering
     onTriggered: { if (Bluetooth.defaultAdapter) Bluetooth.defaultAdapter.discovering = true }
   }
+  Timer {
+    interval: 1000
+    repeat: true
+    running: quickBtRoot.btStopTries > 0
+    onTriggered: {
+      quickBtRoot.btStopTries--
+      if (!quickBtRoot.btScanRequested && quickBtRoot.btDiscovering && Bluetooth.defaultAdapter) Bluetooth.defaultAdapter.discovering = false
+    }
+  }
+  // Stop also while a retry is pending: BlueZ may have dropped the first stop.
   Component.onDestruction: {
-    if (quickBtRoot.btScanRequested && Bluetooth.defaultAdapter && Bluetooth.defaultAdapter.discovering)
+    if ((quickBtRoot.btScanRequested || quickBtRoot.btStopTries > 0) && Bluetooth.defaultAdapter)
       Bluetooth.defaultAdapter.discovering = false
   }
   function refreshBt() {
@@ -233,6 +256,8 @@ Item {
   }
   function toggleBt() {
     const next = quickBtRoot.btOn ? "off" : "on"
+    // Otherwise the keep-alive timer restarts the scan at the next power-on.
+    if (next === "off" && quickBtRoot.btScanRequested) quickBtRoot.stopScan()
     Quickshell.execDetached([root.binDir + "/asahi-bluetooth-power", next])
     quickBtRoot.btOn = !quickBtRoot.btOn
     btDelay.restart()

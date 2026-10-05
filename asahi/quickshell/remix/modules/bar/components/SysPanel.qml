@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import "../../../"
 import "../sys_panel.js" as Sys
@@ -41,6 +42,20 @@ PopupWindow {
   }
 
   Timer { interval: 2000; repeat: true; triggeredOnStart: true; running: root.panelOpen; onTriggered: root.refresh() }
+
+  // Whitelist the bar window too, else the click that opened this counts as outside and closes it.
+  // Esc is an app-wide shortcut: the grab may leave keyboard focus on the bar.
+  HyprlandFocusGrab {
+    windows: [root, root.anchor.window]
+    active: root.visible
+    onCleared: if (root.barHost) root.barHost.sysPanelOpen = false
+  }
+  Shortcut {
+    enabled: root.visible
+    sequences: ["Escape"]
+    context: Qt.ApplicationShortcut
+    onActivated: if (root.barHost) root.barHost.sysPanelOpen = false
+  }
 
   Process {
     id: psProc

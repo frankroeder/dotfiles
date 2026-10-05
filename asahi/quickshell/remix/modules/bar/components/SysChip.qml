@@ -27,7 +27,8 @@ Item {
     anchors.topMargin: Style.barChipInset
     anchors.bottomMargin: Style.barChipInset
     radius: Style.radiusSm
-    color: chipMa.containsMouse ? Style.barStripHover : "transparent"
+    // Lit on hover and while its panel is open.
+    color: chipMa.containsMouse || (root.barHost && root.barHost.sysPanelOpen) ? Style.barStripHover : "transparent"
     Behavior on color { ColorAnimation { duration: 120 } }
   }
 

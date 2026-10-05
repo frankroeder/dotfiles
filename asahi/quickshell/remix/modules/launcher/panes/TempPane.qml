@@ -67,7 +67,7 @@ Item {
     }
   }
   Timer {
-    interval: 2500; running: root.quickMode && root.quickPaneKey === "temp"; repeat: true; triggeredOnStart: true
+    interval: 2500; running: root.shouldShow && root.quickMode && root.quickPaneKey === "temp"; repeat: true; triggeredOnStart: true
     onTriggered: if (!tProc.running) tProc.running = true
   }
 

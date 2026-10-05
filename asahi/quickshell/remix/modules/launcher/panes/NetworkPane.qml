@@ -148,6 +148,38 @@ Item {
     stdout: StdioCollector { onStreamFinished: if (text.trim()) quickNetworkRoot.wifiQrPath = "file://" + text.trim() + "?" + Date.now() }
     stderr: StdioCollector { onStreamFinished: if (text.trim()) quickNetworkRoot.wifiQrError = text.trim().replace(/^asahi-wifi-qr: /, "") }
   }
+  // asahi-wifi-band pins the profile to 2.4/5 GHz (band-steering flaps). Cycles auto → 5 → 2.4.
+  property string wifiBand: ""
+  onCurrentWifiSsidChanged: refreshBand()
+  function refreshBand() {
+    if (!quickNetworkRoot.currentWifiSsid) { quickNetworkRoot.wifiBand = ""; return }
+    if (!bandProc.running) bandProc.running = true
+  }
+  function cycleBand() {
+    if (bandSetProc.running) return
+    const next = ({ "auto": "5", "5": "2.4" })[quickNetworkRoot.wifiBand] || "auto"
+    // A transient unit: destroying the pane mid-switch must not kill the script before its revert.
+    bandSetProc.command = ["systemd-run", "--user", "--wait", "--quiet", "--collect",
+      root.binDir + "/asahi-wifi-band", next]
+    bandSetProc.running = true
+  }
+  Process {
+    id: bandProc
+    command: [root.binDir + "/asahi-wifi-band", "status", "--json"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        quickNetworkRoot.wifiBand = text.trim() ? JSON.parse(text).band : ""
+      }
+    }
+  }
+  Process {
+    id: bandSetProc
+    onExited: function(code) {
+      if (code !== 0) quickNetworkRoot.notifyNet("Wi-Fi band", "Switch failed; kept the previous band")
+      quickNetworkRoot.refreshBand()
+      Qt.callLater(quickNetworkRoot.scanWifi)
+    }
+  }
   // Optimistic toggle with a settle window: while radioSettle runs, the
   // periodic power poll must not overwrite the button state (nmcli reports
   // the OLD radio state for a moment, which made the button flip-flop),
@@ -306,12 +338,16 @@ Item {
     quickNetworkRoot.requestConnect(net.ssid, net.sec)
   }
   function requestConnect(ssid, sec) {
+    // One attempt at a time: a second tap would overwrite targetSsid.
+    if (connectProc.running || savedCheckProc.running) return
     quickNetworkRoot.pendingSec = sec || ""
     if (!sec) { quickNetworkRoot.doConnect(ssid, null); return }
     savedCheckProc.targetSsid = ssid
     savedCheckProc.command = [
       "bash", "-c",
-      "nmcli -g NAME connection show | grep -Fx " + root.shQuote(ssid) + " >/dev/null && echo saved || echo new"
+      // -e no: names with ':' or '\\' print unescaped, so grep -Fx matches (a miss would
+      // treat a saved profile as new and delete it after a failed connect).
+      "nmcli -e no -g NAME connection show | grep -Fx " + root.shQuote(ssid) + " >/dev/null && echo saved || echo new"
     ]
     savedCheckProc.running = true
   }
@@ -492,13 +528,12 @@ Item {
       if (code === 0) {
         quickNetworkRoot.notifyNet("Connected", connectProc.targetSsid)
         quickNetworkRoot.currentWifiSsid = connectProc.targetSsid
-      } else if (quickNetworkRoot.pendingSec) {
-        // A failed secured attempt leaves a half-baked profile behind that
-        // would silently reuse the bad passphrase on retry — drop it and
-        // re-open the prompt with the reason (omarchy's reprompt path).
+      } else if (connectProc.usedPassword) {
+        // A failed connect with a typed passphrase: drop the new profile and re-prompt.
+        // Never a saved one (out of range / DHCP timeout would delete its settings).
         Quickshell.execDetached(["nmcli", "connection", "delete", "id", connectProc.targetSsid])
         quickNetworkRoot.pendingSsid = connectProc.targetSsid
-        quickNetworkRoot.passwordError = connectProc.usedPassword ? "Wrong password — try again" : "Passphrase required"
+        quickNetworkRoot.passwordError = "Wrong password — try again"
         quickNetworkRoot.showPasswordPrompt = true
       } else {
         quickNetworkRoot.notifyNet("Could not connect", connectProc.targetSsid)
@@ -673,9 +708,10 @@ Item {
     }
   }
 
-  Timer { interval: 6000; running: root.quickMode && root.quickPaneKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: quickNetworkRoot.scanWifi() }
-  Timer { interval: 1500; running: root.quickMode && root.quickPaneKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: quickNetworkRoot.sampleThroughput() }
-  Timer { interval: 4000; running: root.quickMode && root.quickPaneKey === "network"; repeat: true; triggeredOnStart: true; onTriggered: { if (!pingProc.running) pingProc.running = true } }
+  readonly property bool live: root.shouldShow && root.quickMode && root.quickPaneKey === "network"
+  Timer { interval: 6000; running: quickNetworkRoot.live; repeat: true; triggeredOnStart: true; onTriggered: quickNetworkRoot.scanWifi() }
+  Timer { interval: 1500; running: quickNetworkRoot.live; repeat: true; triggeredOnStart: true; onTriggered: quickNetworkRoot.sampleThroughput() }
+  Timer { interval: 4000; running: quickNetworkRoot.live; repeat: true; triggeredOnStart: true; onTriggered: { if (!pingProc.running) pingProc.running = true } }
 
   Component.onCompleted: Qt.callLater(quickNetworkRoot.scanWifi)
 
@@ -902,6 +938,14 @@ Item {
                   icon: "󰐲"; label: quickNetworkRoot.wifiQrPath ? "Hide QR" : "Share QR"
                   bg: quickNetworkRoot.wifiQrPath ? Style.m3primaryContainer : Style.m3secondaryContainer
                   onClicked: quickNetworkRoot.toggleWifiQr()
+                }
+                Pill {
+                  visible: (!!quickNetworkRoot.wifiBand || bandSetProc.running) && quickNetworkRoot.wifiEnabled
+                  icon: "󰖩"
+                  label: bandSetProc.running ? "Switching…"
+                    : (quickNetworkRoot.wifiBand === "auto" ? "Band auto" : quickNetworkRoot.wifiBand + " GHz")
+                  bg: quickNetworkRoot.wifiBand === "auto" ? Style.m3secondaryContainer : Style.m3primaryContainer
+                  onClicked: quickNetworkRoot.cycleBand()
                 }
               }
             }
@@ -1241,7 +1285,12 @@ Item {
     radius: Style.menuRadiusLg
     color: Qt.rgba(0, 0, 0, 0.55)
     visible: quickNetworkRoot.showPasswordPrompt
-    onVisibleChanged: if (visible) { netPassInput.text = ""; netPassInput.forceActiveFocus() }
+    // Clear the field and hand focus back on hide; otherwise keystrokes go into the invisible input.
+    onVisibleChanged: {
+      netPassInput.text = ""
+      if (visible) netPassInput.forceActiveFocus()
+      else root.focusLauncherInput()
+    }
     z: 20
     MouseArea { anchors.fill: parent; onClicked: quickNetworkRoot.showPasswordPrompt = false }
     Rectangle {
@@ -1287,7 +1336,18 @@ Item {
             font.pixelSize: root.fontPx(12)
             echoMode: TextInput.Password
             verticalAlignment: TextInput.AlignVCenter
-            onAccepted: quickNetworkRoot.doConnect(quickNetworkRoot.pendingSsid, text)
+            // Keep keys in the dialog: unhandled arrows, Esc and Return would reach the launcher (tile
+            // navigation destroys the pane and the typed passphrase).
+            Keys.onPressed: event => {
+              if (event.key === Qt.Key_Escape) { quickNetworkRoot.showPasswordPrompt = false; event.accepted = true }
+              // Not onAccepted: Return would still bubble on.
+              else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                quickNetworkRoot.doConnect(quickNetworkRoot.pendingSsid, text); event.accepted = true
+              }
+              else if (event.key === Qt.Key_Up || event.key === Qt.Key_Down) event.accepted = true
+              else if ((event.key === Qt.Key_Left && cursorPosition === 0)
+                       || (event.key === Qt.Key_Right && cursorPosition === text.length)) event.accepted = true
+            }
           }
         }
         RowLayout {

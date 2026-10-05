@@ -134,7 +134,8 @@ function parseTimer(term) {
   const clock = dur.match(/^(\d+):(\d{1,2})$/)
   if (clock) {
     secs = Number(clock[1]) * 60 + Number(clock[2])
-  } else if (/^(\d+[hms]?)+$/.test(dur)) {
+  } else if (/^(?:\d+[hms])*\d+[hms]?$/.test(dur)) {
+    // Only the last group may omit its unit: `(\d+[hms]?)+` backtracked exponentially.
     const re = /(\d+)([hms]?)/g
     let p
     while ((p = re.exec(dur)) !== null) {

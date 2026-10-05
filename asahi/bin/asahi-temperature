@@ -39,9 +39,7 @@ heatpipe_name=""
 heatpipe_label=""
 heatpipe_path=""
 
-json_temps="[]"
-json_power="[]"
-json_fans="[]"
+json_rows=()
 
 read_value() {
   local path="$1"
@@ -127,14 +125,8 @@ json_append() {
   fi
   [ -n "$extra" ] || extra='{}'
 
-  case "$bucket" in
-    temps) json_temps="$(jq -c --arg n "$name" --arg l "$label" --argjson v "$value" --arg u "$unit" --arg p "$path" --arg d "$desc" \
-      '. + [{name:$n,label:$l,value:$v,unit:$u,path:$p,desc:$d}]' <<<"$json_temps")" ;;
-    power) json_power="$(jq -c --arg n "$name" --arg l "$label" --argjson v "$value" --arg u "$unit" --arg p "$path" --arg d "$desc" \
-      '. + [{name:$n,label:$l,value:$v,unit:$u,path:$p,desc:$d}]' <<<"$json_power")" ;;
-    fans) json_fans="$(jq -c --arg n "$name" --arg l "$label" --argjson v "$value" --arg u "$unit" --arg p "$path" --arg d "$desc" --argjson x "$extra" \
-      '. + [{name:$n,label:$l,value:$v,unit:$u,path:$p,desc:$d} + $x]' <<<"$json_fans")" ;;
-  esac
+  # Collected here and built by one jq at the end (not one jq fork per sensor).
+  json_rows+=("$bucket" "$name" "$label" "$value" "$unit" "$path" "$desc" "$extra")
 }
 
 print_sensor() {
@@ -308,9 +300,11 @@ if [ "$json" = true ]; then
     heatpipe_json="$(jq -nc --arg n "$heatpipe_name" --arg l "$heatpipe_label" --argjson v "$heatpipe_w" --arg p "$heatpipe_path" \
       '{name:$n,label:$l,value:$v,unit:"W",path:$p}')"
   fi
-  jq -nc --argjson temps "$json_temps" --argjson power "$json_power" --argjson fans "$json_fans" \
-    --argjson hottest "$hottest_json" --argjson heatpipe "$heatpipe_json" \
-    '{temps:$temps,power:$power,fans:$fans,hottest:$hottest,heatpipe:$heatpipe}'
+  jq -nc --argjson hottest "$hottest_json" --argjson heatpipe "$heatpipe_json" '
+    [$ARGS.positional as $a | range(0; $a | length; 8) | $a[.:. + 8]
+      | {b: .[0], o: ({name: .[1], label: .[2], value: (.[3] | tonumber), unit: .[4], path: .[5], desc: .[6]} + (.[7] | fromjson))}] as $rows
+    | {temps: [$rows[] | select(.b == "temps") | .o], power: [$rows[] | select(.b == "power") | .o],
+       fans: [$rows[] | select(.b == "fans") | .o], hottest: $hottest, heatpipe: $heatpipe}' --args "${json_rows[@]}"
   exit 0
 fi
 

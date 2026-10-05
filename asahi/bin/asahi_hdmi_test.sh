@@ -174,11 +174,14 @@ unit="$ROOT/../systemd/system/asahi-hdmi-lid-inhibit.service"
 inst="$ROOT/../../install/components.sh"
 grep -q '^LidSwitchIgnoreInhibited=no' "$login" || fail_at "need LidSwitchIgnoreInhibited=no"
 grep -q '^HandleLidSwitch=' "$login" && fail_at "must not set HandleLidSwitch"
-grep -q 'KERNEL=="card\*-HDMI-A-\*"' "$udev" || fail_at "udev must match HDMI-A"
+grep -q 'KERNEL=="card\[0-9\]\*", ENV{HOTPLUG}=="1"' "$udev" || fail_at "udev must match the card's HOTPLUG uevent (connectors get none)"
+grep -q 'card\*-HDMI-A-\*/status /sys/class/drm/card\*-DP-\*/status' "$udev" || fail_at "udev must re-check HDMI-A and USB-C DP"
+grep -q 'systemd-run --no-block --collect --on-active=' "$udev" || fail_at "udev must re-check later (sysfs status is stale inside RUN)"
 grep -q eDP "$udev" && fail_at "udev must not mention eDP"
 grep -q 'systemctl --no-block start asahi-hdmi-lid-inhibit.service' "$udev" \
   && grep -q 'systemctl --no-block stop asahi-hdmi-lid-inhibit.service' "$udev" \
-  || fail_at "udev must start/stop lid-inhibit on HDMI status"
+  || fail_at "udev must start lid-inhibit while an external is connected and stop it otherwise"
+grep -q 'card\*-DP-\*/status' "$unit" || fail_at "lid-inhibit ExecCondition must cover USB-C DP"
 grep -q 'handle-lid-switch' "$unit" || fail_at "unit must inhibit handle-lid-switch"
 grep -q 'ExecStart=.*--why=[^ ]* --mode' "$unit" || fail_at "unit --why must be one token (systemd splits on spaces)"
 grep -q 'ExecCondition=.*HDMI-A-\*/status' "$unit" || fail_at "unit must gate on HDMI status at boot"
@@ -210,6 +213,19 @@ run reset HDMI-A-1
 run on
 grep -q 'position = "-2048x' "$kw_log" || fail_at "reset should restore the derived position (got $(tr '\n' ' ' <"$kw_log"))"
 pass "kept position: save, on, reset"
+
+# USB-C DP: position only, derived from the session eDP scale (2 -> Dell bottom-aligned at y = -170).
+mkdir -p "$tmp/scales"
+printf '2\n' >"$tmp/scales/eDP-1"
+printf '[{"name":"eDP-1","disabled":false,"scale":2},{"name":"DP-1","disabled":false,"description":"Dell Inc. DELL P2723DE 895ZNR3","x":-2048,"y":321,"scale":1.25,"availableModes":["2560x1440@59.95Hz"]}]\n' >"$mon_json"
+: >"$kw_log"
+run place DP-1
+grep -qx 'hl.monitor({ output = "DP-1", position = "-2048x-170" })' "$kw_log" \
+  || fail_at "place DP-1 should move the Dell to -2048x-170 (got $(tr '\n' ' ' <"$kw_log"))"
+run added DP-1 2>/dev/null && fail_at "DP must not take the HDMI enable path" || true
+run save DP-1 -2048x-100 && run place DP-1 && grep -q 'position = "-2048x-100"' "$kw_log" \
+  || fail_at "place DP-1 should use the kept position"
+pass "DP-1: place derives / keeps the position, refuses HDMI actions"
 
 if [ "$fail" -ne 0 ]; then
   echo "asahi_hdmi_test.sh: FAILED"

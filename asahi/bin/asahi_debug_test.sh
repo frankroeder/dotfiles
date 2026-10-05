@@ -24,6 +24,9 @@ else
   pass "refuses without Apple device-tree"
 fi
 
+# Pin the kernel name; the live one may be a self-built fairydust.
+export ASAHI_UNAME_R=7.1.13-402.asahi.fc44.aarch64+16k
+
 # A mocked Apple tree plus command stubs — Fedora checks, not pacman/iwd/SDDM.
 diag="$tmp/root"
 proc="$tmp/proc"
@@ -134,6 +137,11 @@ echo "$out" | jq -e '[.checks[] | select(.id=="audio-dsp" and .status=="PASS")] 
 echo "$out" | jq -e '[.checks[] | select(.id=="logind-lid" and .status=="PASS")] | length == 1' >/dev/null \
   || fail_at "logind-lid PASS"
 pass "mocked Fedora Asahi tree is all PASS"
+
+out=$(ASAHI_UNAME_R=7.1.13-fairydust+ PATH="$bin:$PATH" ASAHI_DIAG_ROOT="$diag" ASAHI_PROC_ROOT="$proc" \
+  ASAHI_SYS_ROOT="$sys" "$ROOT/asahi-debug" --json) || true
+echo "$out" | jq -e '[.checks[] | select(.id=="kernel" and .status=="PASS")] | length == 1' >/dev/null \
+  && pass "self-built fairydust kernel is PASS" || fail_at "fairydust kernel PASS"
 
 # iwd is a warning, not the required backend.
 cat >"$bin/NetworkManager" <<'EOF'

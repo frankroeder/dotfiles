@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Wayland
 import Quickshell.Services.SystemTray
 import "../BarModel.js" as BarModel
@@ -16,9 +17,31 @@ PanelWindow {
   property var panelScreen: null
   property int barHeight: Style.barHeight
 
+  // The bar this panel opens from (focus-grab whitelist).
+  property var barWindow: null
+  // App menus take their own grab: drop ours while one is open (QsMenuAnchor reports the close;
+  // item.display() does not).
+  property bool menuShown: false
+  QsMenuAnchor {
+    id: menuAnchor
+    anchor.window: root
+    onClosed: root.menuShown = false
+  }
+  // Below the row's menu button, in window coordinates (the rows sit inside card and list).
+  function openMenu(item, button) {
+    if (!item.menu) return
+    const p = button.mapToItem(null, 0, button.height)
+    root.menuShown = true
+    menuAnchor.menu = item.menu
+    menuAnchor.anchor.rect.x = p.x
+    menuAnchor.anchor.rect.y = p.y
+    menuAnchor.open()
+  }
+
   visible: shouldShow
   color: "transparent"
-  focusable: false
+  // Focusable for the grab below (HyprlandFocusGrab dies on focusable: false).
+  focusable: true
   screen: root.panelScreen
   exclusionMode: ExclusionMode.Ignore
 
@@ -27,6 +50,20 @@ PanelWindow {
 
   implicitWidth: 320
   implicitHeight: card.implicitHeight
+
+  // Whitelist the bar window too, else the click that opened this counts as outside and closes it.
+  // Esc is an app-wide shortcut: the grab may leave keyboard focus on the bar.
+  HyprlandFocusGrab {
+    windows: [root, root.barWindow]
+    active: root.visible && !root.menuShown
+    onCleared: root.shouldShow = false
+  }
+  Shortcut {
+    enabled: root.visible
+    sequences: ["Escape"]
+    context: Qt.ApplicationShortcut
+    onActivated: root.shouldShow = false
+  }
 
   WlrLayershell.namespace: "quickshell-tray"
   WlrLayershell.layer: WlrLayer.Overlay
@@ -126,7 +163,7 @@ PanelWindow {
               anchors.fill: parent
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
-              onClicked: row.modelData.display(root, menuButton.x, row.y + row.height)
+              onClicked: root.openMenu(row.modelData, menuButton)
             }
           }
 
@@ -137,9 +174,9 @@ PanelWindow {
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: {
-              if (row.modelData.onlyMenu) row.modelData.display(root, menuButton.x, row.y + row.height)
-              else row.modelData.activate()
-              root.shouldShow = false
+              // A menu is a child of this panel: hiding it here would close the menu with it.
+              if (row.modelData.onlyMenu) root.openMenu(row.modelData, menuButton)
+              else { row.modelData.activate(); root.shouldShow = false }
             }
           }
         }

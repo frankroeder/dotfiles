@@ -17,6 +17,12 @@ Item {
   property var root
   anchors.fill: parent
   readonly property bool videoMode: root.galleryKind === "videos"
+  // Close first: grim would capture the launcher and slurp's Esc would land on it.
+  function captureAfterClose(args) {
+    root.closeLauncher()
+    Quickshell.execDetached(["sh", "-c", "sleep " + (Style.menuAnimOutMs / 1000 + 0.15) + "; exec \"$0\" \"$@\""]
+      .concat([root.binDir + "/asahi-cmd-screenshot"], args))
+  }
   readonly property var items: shotsPane.videoMode ? (root.videos || []) : (root.shots || [])
 
   // Full-round pill: segmented tab (selected) or action button.
@@ -80,15 +86,15 @@ Item {
       Item { Layout.fillWidth: true }
       Pill {
         icon: "󰅌"; label: "Copy"
-        onClicked: Quickshell.execDetached([root.binDir + "/asahi-cmd-screenshot", "smart", "--clip"])
+        onClicked: shotsPane.captureAfterClose(["smart", "--clip"])
       }
       Pill {
         icon: "󰄀"; label: "Smart"
-        onClicked: { Quickshell.execDetached([root.binDir + "/asahi-cmd-screenshot", "smart"]); Qt.callLater(root.scanShots) }
+        onClicked: shotsPane.captureAfterClose(["smart"])
       }
       Pill {
         icon: "󰩬"; label: "Capture"; bg: Style.m3primaryContainer
-        onClicked: { Quickshell.execDetached([root.binDir + "/asahi-cmd-screenshot", "region"]); Qt.callLater(root.scanShots) }
+        onClicked: shotsPane.captureAfterClose(["region"])
       }
     }
 

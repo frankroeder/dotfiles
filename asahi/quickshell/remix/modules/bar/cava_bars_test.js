@@ -13,6 +13,6 @@ if (C.barHeight(100, 16) !== 16) throw new Error("max height");
 
 const media = fs.readFileSync(path.join(__dirname, "components/MediaPlayer.qml"), "utf8");
 if (media.indexOf("cava_bars.js") === -1) throw new Error("MediaPlayer must import cava_bars.js");
-if (media.indexOf("pkill") === -1) throw new Error("MediaPlayer must stop cava when FULL mode ends");
+if (media.indexOf("Cava.hold(root, false)") === -1) throw new Error("MediaPlayer must release the shared cava");
 
 console.log("ok  cava_bars.js + MediaPlayer.qml");

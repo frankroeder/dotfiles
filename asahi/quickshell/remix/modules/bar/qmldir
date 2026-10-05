@@ -1,4 +1,3 @@
 module bar
 BarHost 1.0 BarHost.qml
 WorkspacesBlock 1.0 WorkspacesBlock.qml
-WidgetButton 1.0 WidgetButton.qml

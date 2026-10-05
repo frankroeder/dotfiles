@@ -62,12 +62,16 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   without a Hyprland-enabled external (do not DPMS-blank eDP there — races s2idle, `8000000a`,
   hangs). HDMI-A-1 stays `disabled = true` in `monitors.lua` until `asahi-hdmi` (~2s) sets
   `disabled = false`. logind does not count that cable as docked, so
-  `asahi-hdmi-lid-inhibit.service` (udev on HDMI `status`) holds `handle-lid-switch`; the drop-in
+  `asahi-hdmi-lid-inhibit.service` holds `handle-lid-switch` while an HDMI/DP connector reads
+  `connected` (udev: the **card's** `HOTPLUG=1` uevent — connectors never get one — re-checked 3 s
+  later via `systemd-run`: sysfs `status` is stale until Hyprland probes; start/stop, never restart,
+  the gap lets logind suspend); the drop-in
   sets `LidSwitchIgnoreInhibited=no`. `asahi-dpms` only touches Hyprland-enabled outputs. Two hangs,
   one recovery (hold power ~10s, wait ~15s, tap power): laptop-only lid close can reach s2idle and
   never exit, and a live HDMI plug can freeze DCP (`valid_mode:0` + eDP flip) — **do not close the
-  lid** after one. `after_sleep_cmd` only runs on a real `suspend exit`. Diagnose `journalctl -b -1` (`Lid closed.` → `Suspending...` →
-  `PM: suspend entry` with no `suspend exit`). Do not add `asahi-hdmi sync` to resume. Test:
+  lid** after one. `after_sleep_cmd` only runs on a real `suspend exit`. Diagnose `journalctl -b -1`
+  (`Lid closed.` → `Suspending...` → `PM: suspend entry` with no `suspend exit`). Do not add
+  `asahi-hdmi sync` to resume. Test:
   `asahi/bin/asahi_hdmi_test.sh`.
 - **Failed suspend**: kernel can refuse s2idle (`apple-drm … failed to suspend: error -22`); logind
   then re-suspends every `HoldoffTimeoutSec` while the lid is closed. `systemd-suspend.service`
@@ -96,21 +100,27 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   wakeup, so clamshell + 15-min blank = laptop-only lid → `Suspending...` with no new
   `Lid closed.` → lid-closed s2idle → lockdead on lid open → lid re-close hung. Two guards:
   `asahi-clamshell` holds a `handle-lid-switch` block inhibitor for the flag's lifetime, and
-  `asahi-hdmi-lid-inhibit.service` is enabled at boot behind an `ExecCondition` on HDMI `status`
+  `asahi-hdmi-lid-inhibit.service` is enabled at boot behind an `ExecCondition` on HDMI/DP `status`
   (its `--why` must be one token — `--why=HDMI connected` made systemd run `connected`, exit 1,
   no inhibitor ever). The external may DPMS off in clamshell; HPD survives it (Dell kept HPD
   through 50 min). `./install.sh asahi-logind` after touching the unit.
 - **Clamshell / outputs**: never zero outputs — enable the external (`disabled = false`) before
   eDP-1 goes dark. `asahi-clamshell apply` on `config.reloaded` / `monitor.removed` brings eDP back
-  if the external vanishes. `hl.on("monitor.added"/"removed")` hands **userdata**; read `.name`,
-  and an unknown name is a no-op (`asahi-hdmi` with no arg defaults to HDMI-A-1). Mirroring
+  if the external vanishes; after a 10 s grace it drops the flag (its inhibitor ends, logind suspends
+  the closed lid) unless the external came back (eDP off again) or the lid opened (flag gone).
+  `hl.on("monitor.added"/"removed")` hands **userdata**; read `.name`, and an unknown name is a
+  no-op (`asahi-hdmi` with no arg defaults to HDMI-A-1). Mirroring
   `HDMI-A-1` strands workspaces 1–4 — mirror eval is **only** `mirror = <source>` (no `mode` /
   `position`). Source must be an enabled output. Undo: Unmirror/Extend, `Super+Ctrl+Alt+R`, or the
   Monitors pane 15 s auto-revert (unless Keep). Pane drag-arrange sends **position-only**
-  `hl.monitor` and reverts by re-evaluating the old positions (a reload would re-modeset HDMI).
+  `hl.monitor` (partial rules merge with the live mode/scale) and reverts by re-evaluating the old
+  positions (a reload would re-modeset HDMI).
   Keep → `asahi-hdmi save` into `~/.local/state/asahi/monitor-layout.json` (per sink desc, keyed
   `<hdmi scale>@<eDP scale>`; `layout_fields` prefers it). Extend → `asahi-hdmi reset` + reload.
-  Hyprland has no primary display; eDP-1 is only the mirror source and the 0,0 anchor.
+  Hyprland has no primary display; eDP-1 is only the mirror source and the 0,0 anchor. USB-C
+  (`DP-*`) has no enable gate; `asahi-hdmi place DP-1` re-derives its position (eDP scale / kept
+  layout — the desc rules assume eDP at 4/3) on add, reload and eDP scale changes. DP refuses the HDMI
+  actions (added/sync/on/off).
 - **Notch / fnmode**: `comp_asahi_system` writes `asahi-notch.conf` (`show_notch=1`) and
   `hid_apple fnmode=1`, then `dracut -f`. Reboot required. Live fnmode:
   `/sys/module/hid_apple/parameters/fnmode`.
@@ -162,12 +172,33 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   right cluster eats that budget.
 - **Bar tray**: `maxInline` 3, rest behind `+N` → `TrayPanel.qml`. Use `SystemTrayItem.NeedsAttention`
   (no `SystemTrayStatus`). Popups need `screen:` + `exclusionMode: ExclusionMode.Ignore`.
-  `HyprlandFocusGrab` dies on `focusable: false`.
+  SysPanel / CCU / tray `+N` close on Esc or click-outside: `HyprlandFocusGrab` whitelists the popup
+  **and the bar window** (else the opening click counts as outside) — `QsWindow.window` needs
+  `import Quickshell` (without it QsWindow is undefined and tray menus silently break); an Item is
+  dropped. Esc is a `Qt.ApplicationShortcut` (the grab may focus the bar). App menus take their own
+  popup grab: TrayPanel opens them via `QsMenuAnchor` and drops its grab until `closed`.
+  `HyprlandFocusGrab` dies on `focusable: false`. Attention dot is static (a pulse redraws the bar
+  every frame). Menu positions are window coords (`mapToItem(null, …)`).
+- **Bar = click to act, event-driven**: hover tint (`HoverTint`), tooltip only on tray icons,
+  night-light chip only while on. Vol/mic bind Pipewire (+`PwObjectTracker`), BT binds BlueZ,
+  battery = UPower (60 s fallback), network = `nmcli monitor` (+30 s signal poll), CPU/RAM/heatpipe
+  in-process `FileView`; `asahi-cpu`/`-memory` only while SysPanel is open. Stay-awake / night light
+  / timer watch files (FileView's directory watch sees create/delete). Long-lived children get
+  `setpriv --pdeathsig TERM` (a SIGTERMed qs orphans them). Chip clicks →
+  `barHost.quickRequested(key)` → shell.qml (no `qs ipc` client per click). Wheel steps accumulate
+  to 120, horizontal swipes ignored. Visualizers share one cava (`services/Cava.qml`, `hold()`);
+  hidden items bound to it still repaint, so bars exist only while shown. One bar per screen —
+  every poll doubles when docked.
 - **Launcher quick panes**: one file each in `quickshell/remix/modules/launcher/panes/`;
   `LauncherWindow.qml` does `Panes.XPane { root: launcherSelf }` (`root` inside a pane is that
   property, not the launcher id). Shared M3 widgets in `modules/menu`. A visible Quick tile **must
   have a pane** (`quickPaneKey` falls back to `t.key`); paneless actions go in `quickDeckHidden`
-  (`wallpaper_carousel_test.js` derives that list).
+  (`wallpaper_carousel_test.js` derives that list). Any close keeps the pane alive (the next open
+  destroys it): poll Timers, `SystemClock` and looping animations gate on `root.shouldShow`;
+  countdowns (Monitors revert) and BT stop-retries must not. Must-finish actions run as
+  `systemd-run --user --wait --quiet --collect` (exit code passes through — Wi-Fi band, BT
+  pair/forget); `MonitorsPane` reverts on destruction. A failed connect deletes only a profile it
+  just created with a typed passphrase.
 - **Recorder**: Super+Alt+R toggles `RecordPanel`. Bar REC chip only while recording (click =
   panel, right-click = stop). `asahi-cmd-record status --json` via `Recorder` singleton. No pause
   (wf-recorder exits on SIGUSR1). IPC: `qs -c remix ipc call recording panel`.
@@ -211,15 +242,49 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   helpers without `set -e` are fine.
 - **Apple HID race**: dockchannel-hid binds `hid-generic` first; `asahi/dracut.conf.d/10-asahi-hid.conf`
   force-loads `hid_apple` only (`hid_magicmouse` is builtin). Verify
-  `/sys/bus/hid/drivers/` + `readlink -f /sys/bus/hid/devices/*/driver`.
+  `/sys/bus/hid/drivers/` + `readlink -f /sys/bus/hid/devices/*/driver`. Live trackpad recovery:
+  `sudo udevadm trigger --action=add /dev/input/eventN` (input node, not drm).
 - **Audio**: Fedora Asahi already ships the stack — do not port omarchy's Apple audio.sh. RT check
-  is the **thread**: `ps -eLo comm,rtprio,cls | grep data-loop` → `20 RR`.
+  is the **thread**: `ps -eLo comm,rtprio,cls | grep data-loop` → `20 RR`. Mic:
+  `effect_output.j414-mic` is 1ch `AUX0` (stereo recorders: left only) →
+  `asahi/wireplumber/wireplumber.conf.d/asahi-mic.conf`: a software-dsp copy stage publishes MONO
+  `asahi_mic` (default, prio 2010) and `hide-parent` hides AUX0 — one mic, one mute. Not a loopback
+  (AUX0 stayed visible: mute bypass); daemon `node.rules` can't remap a filter's channels. A new
+  filter node reports 2 `channelVolumes` until its first capture (bar mic chip reads 0 % / unmuted)
+  — prime once: `timeout 1 pw-record --target asahi_mic /dev/null`. The headset jack source stays
+  listed (port `not available`). Never override asahi-audio's node scripts (a `software-dsp.lua`
+  overlay hung WirePlumber upstream). 96 kHz playback can lock speakersafetyd (kernel: `Speaker
+  volumes locked`): `sudo systemctl reset-failed speakersafetyd && sudo systemctl start speakersafetyd`.
 - **Trackpad**: `tap_to_click = true` (omarchy uses false on Asahi). No touchpad toggle;
   `disable_while_typing` only. Pointer feel is the `hl.device` curve on `apple-mtp-multi-touch` in
   `input.lua` (libinput ignores `sensitivity` under a custom profile). `hyprctl reload` does **not**
   reset a device — keep that explicit rule or a bad `hyprctl eval 'hl.device({…})'` survives until
   reboot. `hl.device` checks field names, not values. Terminal scroll: `scroll_touchpad = 0.2` for
-  Ghostty in `rules.lua` (also the global factor — keep the rule).
+  Ghostty in `rules.lua` (also the global factor — keep the rule). DWT works out of the box: stock
+  `50-system-apple.quirks` `[Apple Laptop Keyboard (MTP)]` tags the keyboard internal — no local quirk.
+- **Bluetooth off**: `asahi-bluetooth-power` `bluetoothctl power off` (blocks until BlueZ confirms), then
+  `rfkill block` — blocking a live BCM43xx radio can wedge it until reboot.
+- **zram**: only swap. `asahi-system` installs zstd (`zram-generator.conf.d`) +
+  `sysctl.d/99-asahi-zram.conf` (swappiness 150, page-cluster 0, watermark boost 0 / scale 125).
+- **Wi-Fi band**: `asahi-wifi-band [status|auto|2.4|5]` pins the profile's band (the AP band-steers
+  between its 2.4/5 GHz BSSIDs), reverts if the reconnect fails; Network pane "Band" pill cycles
+  auto → 5 → 2.4. BCM4388 resume fix (omarchy-mac) not ported: post-resume rejects recover in
+  6–30 s. Test: `asahi/bin/asahi_wifi_band_test.sh` (fake nmcli).
+- **Kernel**: self-built `fairydust` (USB-C DP alt mode) in `~/linux-fairydust`, 16k pages;
+  `asahi-debug` accepts `*fairydust*`. Patches in `asahi/kernel/` (re-apply with `git am` on a local
+  branch): brcmfmac `roam_delta` init (`WLC_SET_ROAM_DELTA error (-52)`), dcp HPD re-sample on resume
+  (HDMI-on-resume untested), j414s DTS disabling AVD + its DART (no avd-fw on Fedora; the failed
+  probe keeps `avd_sys` powered — needs `make dtbs && sudo make dtbs_install && sudo update-m1n1`).
+  USB-C display = `card2-DP-1`; no `ddc` link on DP or HDMI. The roam fix is in
+  `/lib/modules/7.1.13-fairydust+/updates/`, which depmod prefers: delete it on the next full rebuild.
+- **m1n1 DTB pin**: m1n1 `boot.bin` carries ONE device-tree set. On each kernel add/remove grubby's
+  `10-devicetree.install` re-points `/boot/dtb` to the newest Fedora `dtb-*` and
+  `15-update-m1n1.install` rebuilds `boot.bin` — fairydust then boots without DP alt mode (no
+  `/proc/device-tree/aliases/dcpext1`). `asahi-system` (before dnf) links `/boot/dtbs/fairydust` →
+  the running release, sets `DTBS="/boot/dtbs/fairydust"` in `/etc/sysconfig/update-m1n1` and
+  `UPDATEDEFAULT=no` in `/etc/sysconfig/kernel`; rerun after a new fairydust (`asahi-debug` WARNs
+  `fairydust-pin`). Recovery: fix the pin, `sudo update-m1n1`; worst case swap `m1n1/boot.bin` and
+  `boot.bin.old` on the ESP.
 - **WM defaults**: `general.lua` — `dwindle.force_split = 2`, `hide_special_on_workspace_change`,
   `allow_session_lock_restore`, `on_focus_under_fullscreen`, `initial_workspace_tracking = 0`,
   `anr_missed_pings = 3`, `group`/`groupbar` themed to the Catppuccin borders (Super+W groups),
@@ -227,23 +292,35 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   Validate keys against `/usr/share/hypr/stubs/hl.meta.lua`, then
   `hyprctl reload && hyprctl configerrors`. Lua dispatchers: `hyprctl dispatch 'hl.dsp.…({…})'`
   (legacy `dispatch <name> <args>` is dead). Float is its own call; maximized refuses resize+pin.
+  Window-rule `opacity` multiplies with `inactive_opacity` — use `opaque = true` for media/PiP/
+  webcam. Capture binds (screenshot/record/picker) must not be `locked` (recording from the lock
+  screen keeps running after unlock).
 - **asahi/bin**: helpers in `asahi/bin/lib/common.sh`, sourced via
   `$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh`. `asahi-launch` is the only
   `uwsm-app`/`setsid` site. Sibling paths through that dirname, not `$HOME/.dotfiles`.
   `components.sh` chmods `asahi/bin/*` and skips `lib/` (a dir) — keep sourced files there.
 - **Quickshell launch**: never `qs -d` (EPIPE/`qFatal` if the parent is gone). `setsid -f qs -n -c
-  <module>`. Bar vanished → `asahi-debug` coredumps first.
+  <module>`. Bar vanished → `asahi-debug` coredumps first. qs reloads on save (log:
+  `/run/user/$UID/quickshell/by-pid/<pid>/log.log`). `grim` blocks on a DPMS-off output — always
+  `timeout`. zprofile unsets Lmod's `BASH_ENV` (13 ms → 1.2 ms per bash start).
 - **Stay awake**: one flag `$XDG_RUNTIME_DIR/asahi-stay-awake`, owned by `asahi-stay-awake`.
   hypridle listeners skip under it (`asahi-idle` checks `status`).
-- **Idle (macOS defaults)**: `hypridle.conf` fires `asahi-idle at <secs>` at 60/90/120/180/300/600;
-  the step comes from the power source **at fire time** (unplug mid-idle still locks). Battery
-  1/1.5/2 min, AC 3/5/10 min: screensaver → half-dim + kbd 10% under it → lock, DPMS off + kbd off
-  (panel backlight is **not** zeroed) → `off` itself suspends 60 s later. The hyprlock surface map is
+- **Idle (macOS-shaped)**: `hypridle.conf` fires `asahi-idle at <secs>` at 150/180/300/600; the
+  step comes from the power source **at fire time** (unplug mid-idle still locks). Battery: dim +
+  kbd 10% at 2.5 min → lock, DPMS off + kbd off at 5 min, no saver (longer than macOS's 2 min by
+  choice; dim halfway like macOS). AC: saver 3 → dim 5 → off 10 min. Panel backlight is **not**
+  zeroed; `off` itself suspends 60 s later. The hyprlock surface map is
   fake pointer motion (`simulateMouseMovement`): it fires on-resume and restarts every listener, so
   `off` ignores wakes while locking (`$XDG_RUNTIME_DIR/asahi-idle-locking`) and then watches DPMS —
   `key_press_enables_dpms` relights on input → `asahi-idle wake`. Saver/dim skip while locked. Sleep
-  skips while a sink is RUNNING or a non-eDP output is enabled. **Keyboard/trackpad cannot wake
-  s2idle** (MTP DockChannel has no wakeup source); lid and power button (SMC) can. Log:
+  skips while a running sink carries signal (`pw-record -P '{ stream.capture.sink = true }'` of its
+  monitor — without that property pw-record falls back to the mic; the monitor is pre-volume, so
+  muted playback counts, silent page streams don't) or a non-eDP output is enabled. `off` is
+  single-instance (flock), retries sleep every minute and flags locking *before* stopping the saver
+  (its unmap fakes motion too); the flag is honoured ≤15 s; hypridle's wake burst coalesces (flock).
+  Saver ~30 fps.
+  **Keyboard/trackpad cannot wake s2idle** (MTP DockChannel has no wakeup source); lid and power
+  button (SMC) can. Log:
   `~/.local/state/asahi/idle.log`.
 - **Timers**: `asahi-timer add <dur> [label]` = transient `systemd-run --user --on-active`.
   Launcher `:timer 10m tea` (`arg_commands.js`, tested).
@@ -252,6 +329,8 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
 - **Display scale**: Super+Ctrl+plus/minus → `asahi-monitor-scale`. Legal scales are 1/120
   divisors (eDP-1: 1 / 1.333333 / 2). Saved per output name under `$XDG_RUNTIME_DIR`; HDMI-A-1 is
   reused by both sinks. Positions are **derived** (`anchor_offset` in `lib/common.sh`), never pinned.
+- **Refresh rate**: eDP-1 stays 120 Hz (`monitors.lua`); a battery 60 Hz switch saved ~3 W only
+  during video — do not re-add. Wi-Fi power save: no gain, stays off.
 - **Speed test**: `asahi-speedtest [--json]` — Cloudflare 50 MB down / 25 MB up (~20 s; 100 MB is
   403). Network pane button.
 - **Wi-Fi QR**: `asahi-wifi-qr` → `$XDG_RUNTIME_DIR` mode 600; `nmcli -s` for the PSK.

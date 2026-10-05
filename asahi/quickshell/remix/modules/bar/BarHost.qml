@@ -24,6 +24,9 @@ Item {
     barWindow.recPanelOpen = false
   }
   signal calendarToggle()
+  // Chip clicks open their Quick pane (updates chip: PkgManager) through shell.qml in-process,
+  // no `qs ipc` client fork per click.
+  signal quickRequested(string key)
   function toggleSysPanel(button) {
     if (button === Qt.RightButton) Quickshell.execDetached([barWindow.binDir + "/asahi-sysmon"])
     else {
@@ -70,14 +73,11 @@ Item {
   implicitHeight: notchFloor
 
   // State shared with workspace block and left widgets
-  property string cpuText: ""
   property string cpuTooltip: ""
-  property string memText: ""
   property string memTooltip: ""
   property bool updatesAvailable: false
   property real cpuPerc: 0
   property real memPerc: 0
-  property string cpuTempText: ""
   property real heatpipeW: -1
   property var cpuCores: []
   property var cpuHistory: []
@@ -96,6 +96,48 @@ Item {
 
   function refreshCpu() { if (!cpuScriptProc.running) cpuScriptProc.running = true }
   function refreshMem() { if (!memScriptProc.running) memScriptProc.running = true }
+
+  // CPU / RAM / heatpipe sampled in-process (forking asahi-cpu/-memory every tick was most of the
+  // bar's CPU); the scripts only feed SysPanel's per-core list, so they run only while it is open.
+  property real cpuPrevTotal: 0
+  property real cpuPrevIdle: 0
+  property string heatpipePath: ""
+  function sampleStats() {
+    procStat.reload()
+    const f = procStat.text().split("\n", 1)[0].trim().split(/\s+/)
+    let total = 0
+    for (let i = 1; i <= 8; i++) total += Number(f[i]) || 0
+    const idle = (Number(f[4]) || 0) + (Number(f[5]) || 0)
+    const dt = total - cpuPrevTotal
+    if (cpuPrevTotal > 0 && dt > 0) cpuPerc = Math.max(0, Math.round(100 * (dt - (idle - cpuPrevIdle)) / dt))
+    cpuPrevTotal = total
+    cpuPrevIdle = idle
+    cpuHistory.push(cpuPerc)
+    if (cpuHistory.length > maxGraphHist) cpuHistory.shift()
+
+    procMeminfo.reload()
+    const mt = /MemTotal:\s+(\d+)/.exec(procMeminfo.text())
+    const ma = /MemAvailable:\s+(\d+)/.exec(procMeminfo.text())
+    if (mt && ma) memPerc = Math.floor(100 * (Number(mt[1]) - Number(ma[1])) / Number(mt[1]))
+    memHistory.push(memPerc)
+    if (memHistory.length > maxGraphHist) memHistory.shift()
+
+    if (heatpipePath !== "") {
+      heatpipeFile.reload()
+      const uw = Number(heatpipeFile.text().trim())
+      heatpipeW = isFinite(uw) && heatpipeFile.text().trim() !== "" ? Math.round(uw / 100000) / 10 : -1
+    }
+  }
+  FileView { id: procStat; path: "/proc/stat"; blockLoading: true }
+  FileView { id: procMeminfo; path: "/proc/meminfo"; blockLoading: true }
+  FileView { id: heatpipeFile; path: barWindow.heatpipePath; blockLoading: true }
+  Process {
+    running: true
+    command: ["sh", "-c", "for f in /sys/class/hwmon/hwmon*/power*_label; do " +
+      "case $(cat \"$f\") in Heatpipe*) echo \"${f%_label}_input\"; exit;; esac; done"]
+    stdout: StdioCollector { onStreamFinished: barWindow.heatpipePath = text.trim() }
+  }
+  onSysPanelOpenChanged: if (sysPanelOpen) { refreshCpu(); refreshMem() }
 
   function refreshWorkspaceIcons(retries) {
     wsWindowVersion = (wsWindowVersion + 1) % 10000
@@ -174,18 +216,11 @@ Item {
       onStreamFinished: {
         try {
           const data = JSON.parse(text.trim())
-          barWindow.cpuText = data.text || "CPU --%"
           barWindow.cpuTooltip = data.tooltip || ""
-          barWindow.cpuPerc = data.percentage || 0
-          barWindow.cpuTempText = (data.temp_c != null && isFinite(data.temp_c)) ? String(Math.round(data.temp_c)) : ""
-          barWindow.heatpipeW = (data.heatpipe_w != null && isFinite(data.heatpipe_w)) ? Number(data.heatpipe_w) : -1
           barWindow.cpuCores = data.cores || []
-          barWindow.cpuHistory.push(barWindow.cpuPerc)
-          if (barWindow.cpuHistory.length > barWindow.maxGraphHist) barWindow.cpuHistory.shift()
         } catch (e) {}
       }
     }
-    Component.onCompleted: barWindow.refreshCpu()
   }
 
   Process {
@@ -195,15 +230,10 @@ Item {
       onStreamFinished: {
         try {
           const data = JSON.parse(text.trim())
-          barWindow.memText = data.text || "Mem --%"
           barWindow.memTooltip = data.tooltip || ""
-          barWindow.memPerc = data.percentage || 0
-          barWindow.memHistory.push(barWindow.memPerc)
-          if (barWindow.memHistory.length > barWindow.maxGraphHist) barWindow.memHistory.shift()
         } catch (e) {}
       }
     }
-    Component.onCompleted: barWindow.refreshMem()
   }
 
   Process {
@@ -230,7 +260,11 @@ Item {
     interval: 3000
     running: true
     repeat: true
-    onTriggered: { barWindow.refreshCpu(); barWindow.refreshMem() }
+    triggeredOnStart: true
+    onTriggered: {
+      barWindow.sampleStats()
+      if (barWindow.sysPanelOpen) { barWindow.refreshCpu(); barWindow.refreshMem() }
+    }
   }
 
   Timer {
@@ -245,7 +279,8 @@ Item {
     target: Hyprland
     function onRawEvent(event) {
       const n = event.name || ""
-      if (["openwindow", "closewindow", "movewindow", "workspace", "focusedmon", "activewindow"].some(x => n.includes(x)))
+      // Not activewindow: it fires on every pointer crossing and changes no icon.
+      if (["openwindow", "closewindow", "movewindow", "workspace", "focusedmon"].some(x => n.includes(x)))
         barWindow.refreshWorkspaceIcons(n.includes("openwindow") ? 8 : 0)
     }
   }

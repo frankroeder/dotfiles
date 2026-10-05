@@ -25,6 +25,9 @@ assert.strictEqual(M.isPlaybackStream({ isStream: true, isSink: true }), true)
 assert.strictEqual(M.isPlaybackStream({ isStream: true, isSink: false, type: "Stream/Input/Audio" }), false)
 assert.strictEqual(M.isPlaybackStream({ isStream: false, isSink: true }), false)
 
+assert.strictEqual(M.isDspStream({ name: "effect_output.j414-convolver", isStream: true }), true)
+assert.strictEqual(M.isDspStream({ name: "Firefox", isStream: true }), false)
+
 const sinkA = { id: 12, name: "alsa_output.speaker" }
 const sinkB = { id: 13, name: "bluez_output.AA" }
 const sameSinks = [sinkA, sinkB]

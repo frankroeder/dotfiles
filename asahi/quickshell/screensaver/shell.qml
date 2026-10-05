@@ -174,14 +174,15 @@ ShellRoot {
     property real elapsed: 0
     property real armedFor: 0
 
+    // ~30 fps: 60 fps full-res shaders cost ~2.3 W SoC (measured); same speed, half the frames.
     Timer {
         id: tick
-        interval: 16
+        interval: 33
         repeat: true
         running: root.active
         onTriggered: {
-            root.elapsed += 0.016;
-            root.armedFor += 0.016;
+            root.elapsed += 0.033;
+            root.armedFor += 0.033;
             // The ascii scene holds twice as long: it is the omarchy-style
             // headliner and runs several random effects back to back.
             const slot = (!root.showcasing && root.shaderIndex === root.asciiIndex)

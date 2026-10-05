@@ -135,7 +135,7 @@ Item {
   }
   Timer {
     interval: 3000
-    running: root.quickMode && root.quickPaneKey === "battery"
+    running: root.shouldShow && root.quickMode && root.quickPaneKey === "battery"
     repeat: true
     triggeredOnStart: true
     onTriggered: {

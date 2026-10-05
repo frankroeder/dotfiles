@@ -80,6 +80,16 @@ local function hdmi_cmd(action, m)
   hl.exec_cmd(hdmi .. " " .. action .. " " .. n)
 end
 
+-- USB-C (DP-*) needs no enable gate, but its desc rule assumes eDP at 4/3: `asahi-hdmi place`
+-- re-derives the position from the session eDP scale. On reload `asahi-monitor-scale apply`
+-- places DP after re-applying the scales; doing it from config.reloaded too would race.
+local function dp_place(m)
+  local n = monitor_name(m)
+  if n:match "^DP" then
+    hl.exec_cmd(hdmi .. " place " .. n)
+  end
+end
+
 -- prefer is the output that just appeared. A name not yet in the layout
 -- (HDMI still disabled) is remembered so the next switch creates 1-4 there.
 local function external_target(prefer)
@@ -136,6 +146,7 @@ end
 
 hl.on("monitor.added", function(m)
   hdmi_cmd("added", m)
+  dp_place(m)
   pin_external_workspaces(m)
 end)
 hl.on("monitor.removed", function(m)

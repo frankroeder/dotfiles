@@ -1,42 +1,25 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Io
+import Quickshell.Services.Pipewire
 import "../../../"
 
-Rectangle {
+// Default source volume, bound to PipeWire (no polling). Click: mute; wheel: step.
+Item {
   id: root
 
   property var barHost: null
-  readonly property bool solidBar: barHost !== null && barHost !== undefined
-
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
 
-  color: solidBar ? "transparent" : (micMouse.containsMouse ? Style.barHoverBg : Style.barBg)
-  radius: solidBar ? 0 : Style.radius
-  border.width: solidBar ? 0 : 1
-  border.color: solidBar ? "transparent" : (micMouse.containsMouse ? Style.barHoverBorder : Style.barBorder)
-  Behavior on color { ColorAnimation { duration: 140 } }
-  Behavior on border.color { ColorAnimation { duration: 140 } }
-  scale: solidBar ? 1.0 : (micMouse.containsMouse ? 1.018 : 1.0)
+  readonly property var source: Pipewire.defaultAudioSource
+  PwObjectTracker { objects: [root.source] }
+  readonly property bool muted: !!(source && source.audio && source.audio.muted)
+  readonly property int level: source && source.audio ? Math.round(source.audio.volume * 100) : -1
 
-  implicitWidth: content.implicitWidth + (solidBar ? 6 : 14)
-  implicitHeight: solidBar ? Style.barHeight : 30
+  implicitWidth: content.implicitWidth + 6
+  implicitHeight: Style.barHeight
 
-  Rectangle {
-    anchors.fill: parent
-    anchors.topMargin: Style.barChipInset
-    anchors.bottomMargin: Style.barChipInset
-    radius: Style.radiusSm
-    visible: solidBar
-    color: micMouse.containsMouse ? Style.barStripHover : "transparent"
-    Behavior on color { ColorAnimation { duration: 120 } }
-  }
-
-  property bool muted: false
-  property int level: -1
-  readonly property string iconGlyph: muted ? "󰍭" : "󰍬"
-  readonly property string levelText: level >= 0 ? level + "%" : "--%"
+  HoverTint { lit: chipMouse.containsMouse }
 
   RowLayout {
     id: content
@@ -44,58 +27,36 @@ Rectangle {
     spacing: 4
 
     Text {
-      text: root.iconGlyph
+      text: root.muted ? "󰍭" : "󰍬"
       font.family: Style.fontFamily
       font.pixelSize: Style.barFontMicVolIcon
       color: root.muted ? Style.red : Style.blueAlt
     }
 
     Text {
-      text: root.levelText
+      text: root.level >= 0 ? root.level + "%" : "--%"
       font.family: Style.fontFamily
       font.pixelSize: Style.barFontBody
       color: barHost ? barHost.barForeground : Style.text
     }
   }
 
-  Process {
-    id: micProc
-    command: ["bash", binDir + "/asahi-audio", "input"]
-    stdout: StdioCollector {
-      onStreamFinished: {
-        try {
-          const data = JSON.parse(text.trim())
-          root.muted = (data.class || []).includes("muted")
-          if (typeof data.percentage === "number") root.level = data.percentage
-        } catch (e) {}
-      }
-    }
-  }
-
-  Timer {
-    interval: 2000
-    running: true
-    repeat: true
-    onTriggered: micProc.running = true
-  }
-
-  Component.onCompleted: micProc.running = true
+  // One step per wheel notch (120); trackpad swipes accumulate, horizontal ones are ignored.
+  property real wheelAcc: 0
 
   MouseArea {
-    id: micMouse
+    id: chipMouse
     anchors.fill: parent
     hoverEnabled: true
     cursorShape: Qt.PointingHandCursor
-    onClicked: Quickshell.execDetached(["bash", "-c", binDir + "/asahi-media-control input-volume mute-toggle"])
+    onClicked: Quickshell.execDetached([root.binDir + "/asahi-media-control", "input-volume", "mute-toggle"])
     onWheel: wheel => {
-      const direction = wheel.angleDelta.y > 0 ? "raise" : "lower"
-      Quickshell.execDetached(["bash", "-c", binDir + "/asahi-media-control input-volume " + direction])
+      if (Math.abs(wheel.angleDelta.x) > Math.abs(wheel.angleDelta.y)) return
+      root.wheelAcc += wheel.angleDelta.y
+      if (Math.abs(root.wheelAcc) < 120) return
+      const direction = root.wheelAcc > 0 ? "raise" : "lower"
+      root.wheelAcc = 0
+      Quickshell.execDetached([root.binDir + "/asahi-media-control", "input-volume", direction])
     }
-  }
-
-  TooltipWindow {
-    target: root
-    text: "Microphone\nClick: mute\nScroll: adjust"
-    show: micMouse.containsMouse
   }
 }
