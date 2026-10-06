@@ -1,0 +1,10 @@
+[Unit]
+Description=Hourly check whether a Time Machine backup is due
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=1h
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

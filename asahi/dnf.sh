@@ -76,6 +76,7 @@ sudo dnf install -y \
   pipewire-alsa \
   playerctl \
   speakersafetyd \
+  restic \
   ripgrep \
   slurp \
   tesseract \

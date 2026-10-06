@@ -195,6 +195,70 @@ else
 fi
 unset UNWRITABLE_MOUNT
 
+# LUKS device path: stub lsblk/udisksctl/findmnt; FAKE_FS = fstype of the device.
+lbin="$tmp/lbin"
+mkdir -p "$lbin"
+udisks_log="$tmp/udisks.log"
+cat >"$lbin/lsblk" <<EOF
+#!/bin/bash
+case "\$*" in
+  *-dno*) echo "\$FAKE_FS" ;;
+  *-rsno*) echo "\$4 \$FAKE_FS" ;;
+  *-rno*) [ -e "$tmp/unlocked" ] && echo "/dev/dm-9 crypt" ;;
+esac
+exit 0
+EOF
+cat >"$lbin/udisksctl" <<EOF
+#!/bin/bash
+printf '%s\n' "\$*" >>"$udisks_log"
+case "\$1" in
+  unlock) touch "$tmp/unlocked"; echo "Unlocked \$3 as /dev/dm-9." ;;
+  mount) echo "Mounted \$3 at $tmp/vol-luks" ;;
+  lock) rm -f "$tmp/unlocked" ;;
+esac
+EOF
+cat >"$lbin/findmnt" <<'EOF'
+#!/bin/sh
+exit 1
+EOF
+chmod +x "$lbin"/*
+dev="$tmp/fake-dev"
+: >"$dev"
+mkdir -p "$tmp/vol-luks"
+
+run_dev() {
+  : >"$udisks_log"
+  PATH="$lbin:$bin:$PATH" \
+    ASAHI_BACKUP_DEVICE="$dev" \
+    ASAHI_BACKUP_SOURCE="$src/" \
+    ASAHI_BACKUP_LOG_DIR="$tmp/logs-dev" \
+    ASAHI_BACKUP_LABEL=asahi-backup-test-nolabel \
+    "$BK" "$@"
+}
+
+if FAKE_FS=ext4 run_dev >/dev/null 2>&1; then
+  fail_at "backup onto unencrypted drive did not refuse"
+else
+  pass "backup refuses unencrypted drive"
+fi
+
+if FAKE_FS=crypto_LUKS run_dev --unmount >/dev/null 2>&1; then
+  pass "LUKS backup exits 0"
+else
+  fail_at "LUKS backup failed: $(cat "$udisks_log")"
+fi
+if grep -q "^unlock -b $dev" "$udisks_log" && grep -q '^mount -b /dev/dm-9' "$udisks_log" \
+  && grep -q "^lock -b $dev" "$udisks_log"; then
+  pass "LUKS unlock → mount cleartext → lock"
+else
+  fail_at "LUKS udisks calls wrong: $(cat "$udisks_log")"
+fi
+if [ -d "$tmp/vol-luks/fedora-home-backup-${stamp}" ]; then
+  pass "LUKS backup wrote snapshot on cleartext mount"
+else
+  fail_at "LUKS snapshot missing: $(ls -la "$tmp/vol-luks")"
+fi
+
 if [ "$fail" -ne 0 ]; then
   echo "$fail failed"
   exit 1

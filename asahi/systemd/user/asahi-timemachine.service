@@ -1,0 +1,9 @@
+[Unit]
+Description=Time Machine backup (restic)
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/asahi-timemachine run
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=8h

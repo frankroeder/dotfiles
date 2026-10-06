@@ -8,6 +8,14 @@
 # Dest mkdir/ln/cp also use sudo when the volume is not user-writable
 # (udisks leaves ext4 as root:root 755; previous snapshots are root-owned).
 #
+# Encryption: the USB partition is LUKS2; udisks asks for the password on
+# unlock (backup and restore). Backup refuses an unencrypted drive.
+# One-time setup (ERASES the drive; sdX1 = the USB partition):
+#   sudo cryptsetup luksFormat --type luks2 --label LinuxDrive /dev/sdX1
+#   udisksctl unlock -b /dev/sdX1          # prints the cleartext /dev/dm-N
+#   sudo mkfs.ext4 -L LinuxDrive /dev/dm-N
+#   udisksctl lock -b /dev/sdX1
+#
 # Usage:
 #   asahi-backup [--unmount|-u] [--dry-run|-n] [--help|-h]
 #   asahi-backup restore [--unmount|-u] [--dry-run|-n] [--delete]
@@ -47,6 +55,7 @@ backup   dated rsync of ${source_dir} to USB volume '${label}'
 restore  interactive restore into \$HOME from a snapshot on '${label}'
 
 restore refuses to run unless a snapshot is at most ${recent_days} day(s) old.
+the drive must be LUKS-encrypted; the password is asked on unlock.
 EOF
 }
 
@@ -132,6 +141,32 @@ resolve_device_real() {
   readlink -f "$device" 2>/dev/null || printf '%s' "$device"
 }
 
+# LUKS: unlock (udisks prompts for the password), then mount the cleartext device.
+# by-label may also point straight at an unlocked cleartext fs — find its LUKS parent.
+unlock_if_luks() {
+  local clear_dev
+  if [ "$(lsblk -dno FSTYPE "$device_real" 2>/dev/null)" != "crypto_LUKS" ]; then
+    luks_dev="$(lsblk -rsno PATH,FSTYPE "$device_real" 2>/dev/null | awk '$2 == "crypto_LUKS" {print $1; exit}')"
+    return 0
+  fi
+  luks_dev="$device_real"
+  clear_dev="$(lsblk -rno PATH,TYPE "$luks_dev" | awk '$2 == "crypt" {print $1; exit}')"
+  if [ -z "$clear_dev" ]; then
+    log "unlocking ${luks_dev} (backup password)"
+    if ! udisksctl unlock -b "$luks_dev"; then
+      log "ERROR: udisksctl unlock failed (wrong password?)"
+      exit 1
+    fi
+    clear_dev="$(lsblk -rno PATH,TYPE "$luks_dev" | awk '$2 == "crypt" {print $1; exit}')"
+  fi
+  if [ -z "$clear_dev" ]; then
+    log "ERROR: no cleartext device after unlocking ${luks_dev}"
+    exit 1
+  fi
+  log "unlocked ${luks_dev} → ${clear_dev}"
+  device_real="$clear_dev"
+}
+
 ensure_mounted() {
   local mount_out contents
 
@@ -155,8 +190,17 @@ ensure_mounted() {
     exit 1
   fi
 
+  unlock_if_luks
+  if [ -z "$luks_dev" ]; then
+    if [[ "$mode" == "backup" ]]; then
+      log "ERROR: ${device_real} is not LUKS-encrypted — refusing an unencrypted backup"
+      log "ERROR: see the one-time setup in the header of $0"
+      exit 1
+    fi
+    log "WARN: ${device_real} is not encrypted (restoring from a plain drive)"
+  fi
+
   mount_point="$(findmnt -n -o TARGET "$device_real" 2>/dev/null | head -n1 || true)"
-  [ -n "$mount_point" ] || mount_point="$(findmnt -n -o TARGET "$device" 2>/dev/null | head -n1 || true)"
 
   if [ -z "$mount_point" ]; then
     log "mounting ${device_real}"
@@ -193,6 +237,10 @@ maybe_unmount() {
   if (( unmount && ! dry_run )); then
     log "unmounting ${device_real}"
     udisksctl unmount -b "$device_real" | tee -a "$log_file"
+    if [ -n "$luks_dev" ]; then
+      log "locking ${luks_dev}"
+      udisksctl lock -b "$luks_dev" | tee -a "$log_file"
+    fi
   fi
 }
 
@@ -660,6 +708,7 @@ do_restore() {
 need_cmd udisksctl
 need_cmd rsync
 need_cmd findmnt
+need_cmd lsblk
 need_cmd tee
 need_cmd date
 
@@ -673,6 +722,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 device_real=""
+luks_dev=""
 mount_point=""
 selected_snapshot=""
 selected_top=()

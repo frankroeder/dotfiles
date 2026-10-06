@@ -6,7 +6,7 @@
       "version": "2.0.0 - 3.0.0"
     },
     "base16-nvim": {
-      "rev": "feefc7e2a7bc7c2d814be1cc4b37ed599c52dad1",
+      "rev": "7183774e90841f4bd27a47cb6e75cf532fd1192d",
       "src": "https://github.com/RRethy/base16-nvim"
     },
     "blink-cmp-words": {
@@ -27,11 +27,11 @@
       "src": "https://github.com/stevearc/conform.nvim"
     },
     "fzf-lua": {
-      "rev": "eab53acb3fd36479f084f854b4418d02b5c70382",
+      "rev": "c5e1465b6fc37a98a4b88d883f26050d663048b9",
       "src": "https://github.com/ibhagwan/fzf-lua"
     },
     "gitsigns.nvim": {
-      "rev": "070a5d7b985546cc57e1fc61e5bc507fecac6045",
+      "rev": "851a051e2bd2caba97e23314c68d69f1b1cf5d19",
       "src": "https://github.com/lewis6991/gitsigns.nvim"
     },
     "lazydev.nvim": {
@@ -84,7 +84,7 @@
       "src": "https://github.com/folke/snacks.nvim"
     },
     "vim-latex": {
-      "rev": "16a5609d17a436db7f48046d91747fd6a9d75c74",
+      "rev": "bbfa1501287b65e8803d5cc1007db2c2351c4453",
       "src": "https://github.com/lervag/vim-latex"
     }
   }

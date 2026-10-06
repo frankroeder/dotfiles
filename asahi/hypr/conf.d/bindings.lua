@@ -76,6 +76,7 @@ hl.bind(mod .. " + CONTROL + W", hl.dsp.exec_cmd(quick "network"), { desc = "Net
 hl.bind(mod .. " + CONTROL + P", hl.dsp.exec_cmd(quick "battery"), { desc = "Power" })
 hl.bind(mod .. " + CONTROL + S", hl.dsp.exec_cmd(quick "screenshots"), { desc = "Screenshot gallery" })
 hl.bind(mod .. " + CONTROL + V", hl.dsp.exec_cmd(quick "clipboard"), { desc = "Clipboard history" })
+hl.bind(mod .. " + CONTROL + R", hl.dsp.exec_cmd(quick "backup"), { desc = "Backup / restore" })
 hl.bind(mod .. " + CONTROL + T", hl.dsp.exec_cmd(scripts .. "/asahi-sysmon"), { desc = "Activity monitor" })
 hl.bind(mod .. " + CONTROL + I", hl.dsp.exec_cmd(scripts .. "/asahi-stay-awake toggle"), { desc = "Stay awake" })
 hl.bind(mod .. " + CONTROL + N", hl.dsp.exec_cmd(scripts .. "/asahi-nightlight"), { desc = "Night light" })

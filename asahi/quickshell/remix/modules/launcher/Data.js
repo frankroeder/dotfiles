@@ -58,6 +58,7 @@ const deckTints = {
   battery: "green",
   bluetooth: "blue",
   storage: "yellow",
+  backup: "teal",
   clipboard: "lavender",
   packages: "green",
   screensaver: "mauve",

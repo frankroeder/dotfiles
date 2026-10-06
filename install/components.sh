@@ -668,6 +668,9 @@ comp_asahi_desktop() {
     "$HOME/.local/bin/asahi-brightness-keyboard-auto"
   ln -sfn "$DOTFILES/asahi/systemd/user/asahi-brightness-keyboard-auto.service" \
     "$HOME/.config/systemd/user/asahi-brightness-keyboard-auto.service"
+  ln -sfn "$DOTFILES/asahi/bin/asahi-timemachine" "$HOME/.local/bin/asahi-timemachine"
+  ln -sfn "$DOTFILES/asahi/systemd/user/asahi-timemachine.service" "$HOME/.config/systemd/user/asahi-timemachine.service"
+  ln -sfn "$DOTFILES/asahi/systemd/user/asahi-timemachine.timer" "$HOME/.config/systemd/user/asahi-timemachine.timer"
   mkdir -p "$HOME/.config/systemd/user/xdg-desktop-portal-hyprland.service.d"
   link_if_exists "$DOTFILES/asahi/systemd/user/xdg-desktop-portal-hyprland.service.d/10-asahi-pipewire.conf" \
     "$HOME/.config/systemd/user/xdg-desktop-portal-hyprland.service.d/10-asahi-pipewire.conf"
@@ -735,7 +738,11 @@ comp_asahi_desktop() {
 }
 EOF
   # Read-only grant so the user.js symlink resolves inside the sandbox (same path as the host).
-  flatpak override --user --filesystem="$DOTFILES/asahi/firefox:ro" org.mozilla.firefox
+  flatpak override --user --filesystem="$DOTFILES/asahi/firefox:ro" --filesystem="$HOME/Downloads" org.mozilla.firefox
+  # Wake locks as Wayland idle inhibitors: Hyprland honours them only while the window is visible
+  # and drops them with the surface. The default portal → org.freedesktop.ScreenSaver path left
+  # stale locks in hypridle (no dim/lock/sleep for hours, nothing in `hyprctl clients`).
+  flatpak override --user --env=MOZ_WAKE_LOCK_TYPE=WaylandIdleInhibit org.mozilla.firefox
   local profile found=0
   for profile in "$HOME"/.var/app/org.mozilla.firefox/config/mozilla/firefox/*.default*; do
     [ -d "$profile" ] || continue

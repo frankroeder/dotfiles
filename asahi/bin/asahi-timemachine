@@ -1,0 +1,241 @@
+#!/usr/bin/env bash
+# Time Machine-style home backup with restic (encrypted, deduplicated). Idea from
+# jankeesvw/omarchy-time-machine. One repo, two ways to reach it:
+#   1. the drive (label $TM_LABEL) plugged into this laptop  → local path, udisks mount (never unmounted)
+#   2. the same drive on another machine, reachable over SFTP → $TM_SFTP:$TM_SFTP_PATH
+#
+#   asahi-timemachine init                    one-time: sftp-only ssh key, password, repo, timer
+#   asahi-timemachine run [--force]           backup + forget (timer: skips if last ok < $TM_MIN_AGE_H)
+#   asahi-timemachine start                   run --force as a transient unit (launcher button)
+#   asahi-timemachine status                  JSON state + live progress (percent, ETA)
+#   asahi-timemachine overview                snapshots + old rsync snapshots + drive space (cached in state)
+#   asahi-timemachine ls <snap> [dir]         JSON entries of one directory (default: $HOME)
+#   asahi-timemachine restore <snap> <path>   → ~/Restored/<snap date>-<snap>/<path> (never overwrites)
+#
+# Machine-specific settings live outside the repo in ~/.config/asahi-timemachine/config
+# (shell vars, sourced):  TM_SFTP=user@host  TM_PORT=22  TM_SFTP_PATH=/mnt/<drive>/restic-asahi
+#                          TM_NAME=<display name>  TM_LABEL=<fs label>  TM_DIR=restic-asahi  TM_MIN_AGE_H=72
+# A fresh local drive needs "$TM_DIR" created (owned by you) before `init`.
+# Password: ~/.config/asahi-timemachine/password. Keep a copy outside this laptop —
+# without it the repo cannot be read.
+
+set -euo pipefail
+
+cfg="${XDG_CONFIG_HOME:-$HOME/.config}/asahi-timemachine"
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/asahi"
+state="$state_dir/timemachine.json"
+progress="$state_dir/timemachine.progress"
+lock="$state_dir/timemachine.lock"
+key="$cfg/id_ed25519"
+
+TM_SFTP="" TM_NAME="" TM_SFTP_PATH="" TM_PORT=22 TM_LABEL="LinuxDrive" TM_DIR="restic-asahi" TM_MIN_AGE_H=72
+# shellcheck source=/dev/null
+[ -f "$cfg/config" ] && . "$cfg/config"
+
+export RESTIC_PASSWORD_FILE="$cfg/password"
+export RESTIC_PROGRESS_FPS=0.5
+mkdir -p "$state_dir"
+repo="" target=""
+
+r() {
+  # -F /dev/null + no agent: only the sftp-only key, never ~/.ssh/config's main key.
+  # --retry-lock: the pane's ls/overview may hold a lock while forget wants one.
+  restic -r "$repo" --retry-lock 2m -o sftp.command="ssh -F /dev/null -i $key -o IdentitiesOnly=yes -o IdentityAgent=none \
+-o BatchMode=yes -o LogLevel=ERROR -o ConnectTimeout=10 -o ServerAliveInterval=30 -p $TM_PORT ${TM_SFTP} -s sftp" "$@"
+}
+
+# Merge a jq expression into the state file (atomic mv; flock: run and the pane's overview both write).
+put() {
+  (
+    flock 8
+    local cur='{}'
+    [ -s "$state" ] && cur="$(cat "$state")"
+    jq "$@" <<<"$cur" >"$state.tmp" && mv "$state.tmp" "$state"
+  ) 8>"$state.lock"
+}
+
+notify() {
+  notify-send -a "Time Machine" -i drive-harddisk "$@" 2>/dev/null || true
+}
+
+# Sets repo/target: local drive first (faster), else SFTP. Returns 1 if neither is there.
+pick_repo() {
+  local dev="/dev/disk/by-label/$TM_LABEL" mnt=""
+  if [ -e "$dev" ]; then
+    dev="$(readlink -f "$dev")"
+    # Another command may be mounting it right now: re-check instead of trusting the mount result.
+    findmnt -n "$dev" >/dev/null || udisksctl mount -b "$dev" >/dev/null 2>&1 || true
+    mnt="$(findmnt -n -o TARGET "$dev" | head -n 1 || true)"
+  fi
+  if [ -n "$mnt" ] && [ -d "$mnt/$TM_DIR" ]; then
+    repo="$mnt/$TM_DIR" target="local"
+  elif [ -n "$TM_SFTP" ] && timeout 5 bash -c "</dev/tcp/${TM_SFTP#*@}/$TM_PORT" 2>/dev/null; then
+    repo="sftp:${TM_SFTP}:${TM_SFTP_PATH}" target="sftp"
+  else
+    return 1
+  fi
+}
+
+need_repo() {
+  pick_repo || { echo "asahi-timemachine: no backup repo ($TM_DIR on drive $TM_LABEL, or SFTP host) reachable" >&2; exit 1; }
+}
+
+where() { [ "$target" = local ] && echo "$TM_LABEL (USB)" || echo "${TM_NAME:-${TM_SFTP#*@}}"; }
+
+hms() {
+  local s=${1%.*}
+  (( s >= 3600 )) && printf '%dh %02dm' $((s / 3600)) $((s % 3600 / 60)) || printf '%dm %02ds' $((s / 60)) $((s % 60))
+}
+
+cmd_init() {
+  mkdir -p "$cfg" && chmod 700 "$cfg"
+  if [ -n "$TM_SFTP" ]; then
+    [ -f "$key" ] || ssh-keygen -q -t ed25519 -N "" -C "asahi-timemachine@$(hostname)" -f "$key"
+    # sftp-only: no shell or port forwarding with this key. Not a sandbox — it still reads and
+    # writes everything that user can (a chroot would need a dedicated user + sshd_config).
+    local pub
+    pub="$(cat "$key.pub")"
+    ssh -p "$TM_PORT" "$TM_SFTP" "mkdir -p ~/.ssh && touch ~/.ssh/authorized_keys && grep -qF '$pub' ~/.ssh/authorized_keys \
+      || echo 'restrict,command=\"internal-sftp\" $pub' >>~/.ssh/authorized_keys"
+  fi
+  if [ ! -f "$RESTIC_PASSWORD_FILE" ]; then
+    (umask 077 && head -c 32 /dev/urandom | base64 >"$RESTIC_PASSWORD_FILE")
+    echo "new password in $RESTIC_PASSWORD_FILE — store a copy in your password manager"
+  fi
+  need_repo
+  if r cat config >/dev/null 2>&1; then echo "repo exists: $repo"; else r init; fi
+  systemctl --user daemon-reload
+  systemctl --user enable --now asahi-timemachine.timer
+}
+
+cmd_run() {
+  local force=0 started rc=0 summary err prune=()
+  [ "${1:-}" = "--force" ] && force=1
+  exec 9>"$lock"
+  # -w: a `status` lock probe can hold it for a moment.
+  flock -w 5 9 || { echo "asahi-timemachine: already running" >&2; exit 0; }
+
+  if (( ! force )) && [ -s "$state" ]; then
+    local last
+    last="$(jq -r '.last_success // empty' "$state")"
+    if [ -n "$last" ] && (( $(date +%s) - $(date -d "$last" +%s) < TM_MIN_AGE_H * 3600 )); then
+      exit 0
+    fi
+  fi
+  if ! pick_repo; then
+    put '.state = "offline" | .checked = (now | todate)'
+    (( force )) && notify "Backup skipped" "Backup drive not connected and backup host not reachable"
+    exit 0
+  fi
+
+  started="$(date -Is)"
+  : >"$progress"
+  put --arg s "$started" '.state = "running" | .started = $s | del(.error)'
+  notify "Backup started" "Home → $(where)"
+  r backup --json --exclude-caches --one-file-system --tag asahi \
+    --exclude="$HOME/Restored" \
+    --exclude='.cache' --exclude='node_modules' --exclude='.venv' --exclude='.npm' --exclude='.yarn' \
+    --exclude='cache' --exclude='build' --exclude='.thumbnails' --exclude='*.tmp' \
+    --exclude='.local/share/Trash' --exclude='Nextcloud' \
+    "$HOME" >"$progress" 2>"$progress.err" || rc=$?
+  # rc 3 = some files unreadable, snapshot still written.
+  if (( rc != 0 && rc != 3 )); then
+    # restic --json errors are JSON lines; show their message.
+    err="$(grep -v '^$' "$progress.err" | tail -n 3 | jq -Rr '(fromjson? | .message?) // .' | tr '\n' ' ' || true)"
+    put --arg s "$started" --arg e "${err:-restic exited $rc}" --argjson rc "$rc" \
+      '.state = "failed" | .error = $e | .last_run = {started: $s, finished: (now | todate), rc: $rc}'
+    notify -u critical "Backup failed" "${err:-restic exited $rc}"
+    exit "$rc"
+  fi
+  summary="$(grep '"message_type":"summary"' "$progress" || echo '{}')"
+  put --arg s "$started" --argjson sum "$summary" \
+    '.state = "ok" | .last_success = (now | todate) | .last_run = {started: $s, finished: (now | todate), rc: 0} + $sum'
+  notify "Backup done" "+$(jq -r '.data_added // 0' <<<"$summary" | numfmt --to=iec --suffix=B) in \
+$(hms "$(jq -r '.total_duration // 0' <<<"$summary")") → $(where)"
+
+  # Housekeeping; the snapshot is already saved, so failures here only get logged.
+  # Prune (repacks, slow over SFTP) at most weekly.
+  if [ -z "$(jq -r '.last_prune // empty' "$state")" ] \
+    || (( $(date +%s) - $(date -d "$(jq -r .last_prune "$state")" +%s) > 7 * 86400 )); then
+    prune=(--prune)
+  fi
+  if r forget --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --keep-yearly 3 "${prune[@]}" >>"$progress.err" 2>&1 \
+    && (( ${#prune[@]} )); then
+    put '.last_prune = (now | todate)'
+  fi
+  overview >/dev/null || true
+}
+
+cmd_status() {
+  local locked=false prog='{}' drive=false
+  if ! flock -n "$lock" true 2>/dev/null; then
+    locked=true
+    # stdout holds only status lines (+ the final summary); drop a half-written last line.
+    prog="$(tail -n 1 "$progress" 2>/dev/null | jq -c . 2>/dev/null || true)"
+    [ -n "$prog" ] || prog='{}'
+  fi
+  [ -e "/dev/disk/by-label/$TM_LABEL" ] && drive=true
+  # A "running" state with a free lock is a killed run.
+  { cat "$state" 2>/dev/null || echo '{}'; } | jq --argjson locked "$locked" --argjson p "$prog" --argjson h "$TM_MIN_AGE_H" \
+    --arg label "$TM_LABEL" --arg host "${TM_NAME:-${TM_SFTP#*@}}" --argjson drive "$drive" \
+    --argjson ready "$([ -f "$RESTIC_PASSWORD_FILE" ] && echo true || echo false)" \
+    '. + {running: ($locked and .state == "running"), ready: $ready, min_age_h: $h,
+          percent: ($p.percent_done // null), eta: ($p.seconds_remaining // null),
+          bytes_done: ($p.bytes_done // null), bytes_total: ($p.total_bytes // null),
+          files_done: ($p.files_done // null), files_total: ($p.total_files // null),
+          next_due: (if .last_success then ((.last_success | fromdate) + $h * 3600 | todate) else null end),
+          dest: {label: $label, host: $host, drive: $drive}}
+     | if .state == "running" and ($locked | not) then .state = "interrupted" else . end'
+}
+
+# Snapshots + old rsync snapshots + drive space, cached in the state file (pane shows it at once).
+overview() {
+  local snaps legacy disk out
+  snaps="$(r snapshots --json --tag asahi | jq '[.[] | {id: .short_id, time, hostname, paths,
+    files: (.summary.total_files_processed // null), bytes: (.summary.total_bytes_processed // null),
+    added: (.summary.data_added // null)}] | sort_by(.time) | reverse')"
+  if [ "$target" = local ]; then
+    legacy="$(cd "${repo%/*}" && ls -d fedora-home-backup-20* 2>/dev/null | jq -R . | jq -s . || true)"
+    disk="$(df -B1 --output=size,used,avail "$repo" | awk 'NR == 2 {printf "{\"size\":%s,\"used\":%s,\"avail\":%s}", $1, $2, $3}')"
+  else
+    # One SFTP session for both; "-" = keep going if a command fails.
+    out="$(printf -- '-ls -1 %s\n-df %s\n' "${TM_SFTP_PATH%/*}" "$TM_SFTP_PATH" \
+      | timeout 20 sftp -q -b - -F /dev/null -i "$key" -o IdentitiesOnly=yes -o IdentityAgent=none \
+        -o BatchMode=yes -o LogLevel=ERROR -P "$TM_PORT" "$TM_SFTP" 2>/dev/null || true)"
+    legacy="$(grep -o 'fedora-home-backup-20[0-9-]*$' <<<"$out" | jq -R . | jq -s . || true)"
+    disk="$(awk '$1 ~ /^[0-9]+$/ {printf "{\"size\":%s,\"used\":%s,\"avail\":%s}", $1 * 1024, $2 * 1024, $3 * 1024}' <<<"$out")"
+  fi
+  put --argjson sn "$snaps" --argjson leg "${legacy:-[]}" --argjson d "${disk:-null}" --arg w "$(where)" --arg t "$target" \
+    '.overview = {snapshots: $sn, legacy: $leg, disk: $d, where: $w, target: $t, updated: (now | todate)}'
+  jq .overview "$state"
+}
+
+cmd_ls() {
+  local snap="$1" dir="${2:-$HOME}"
+  need_repo
+  r ls --json "$snap" "$dir" | jq -s --arg d "${dir%/}" '[.[] | select(.struct_type == "node" and .path != $d)
+    | {name, type, path, size: (.size // 0), mtime}] | sort_by(.type != "dir", (.name | ascii_downcase))'
+}
+
+cmd_restore() {
+  local snap="$1" path="$2" day target_dir
+  need_repo
+  day="$(r snapshots --json "$snap" | jq -r '.[0].time[:10]')"
+  target_dir="$HOME/Restored/${day}-${snap}"
+  mkdir -p "$target_dir"
+  # --include takes a pattern: escape glob characters so "a[1].txt" means that file.
+  r restore "$snap" --include "$(sed 's/[][*?\\]/\\&/g' <<<"$path")" --target "$target_dir" >&2
+  printf '%s\n' "$target_dir$path"
+  notify "Restored" "${path/#$HOME/\~} → ${target_dir/#$HOME/\~}"
+}
+
+case "${1:-}" in
+  init) cmd_init ;;
+  run) shift; cmd_run "$@" ;;
+  start) systemd-run --user --quiet --collect --unit="asahi-timemachine-now-$$" "$(readlink -f "$0")" run --force ;;
+  status) cmd_status ;;
+  overview) need_repo; overview ;;
+  ls) shift; cmd_ls "$@" ;;
+  restore) shift; cmd_restore "$@" ;;
+  *) sed -n '2,21p' "$0" >&2; exit 2 ;;
+esac

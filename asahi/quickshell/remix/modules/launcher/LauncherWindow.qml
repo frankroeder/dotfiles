@@ -166,6 +166,7 @@ Scope {
     { key: "battery", aliases: ["bat", "power", "charge"], icon: "󰁹", name: "Battery", comment: "Battery status, health, and power", mode: "battery" },
     { key: "bluetooth", aliases: ["bt"], icon: "󰂯", name: "Bluetooth", comment: "Open Bluetooth devices", mode: "bluetooth" },
     { key: "storage", aliases: ["disk", "space"], icon: "󰋊", name: "Storage", comment: "Disk usage and home folders", mode: "storage" },
+    { key: "backup", aliases: ["time machine", "restic", "restore", "snapshot"], icon: "󰁯", name: "Backup", comment: "Time Machine: back up, browse, restore", mode: "backup" },
     { key: "clipboard", aliases: ["clip", "cliphist", "paste"], icon: "󰅌", name: "Clipboard", comment: "cliphist history — copy, delete, wipe", mode: "clipboard" },
     { key: "packages", aliases: ["pkg", "dnf", "pkgman"], icon: "󰏖", name: "Packages", comment: "Search and manage dnf packages", ipc: "pkgman" },
     { key: "screensaver", aliases: ["saver"], icon: "󱄄", name: "Screensaver", comment: "Shader idle display", command: [root.binDir + "/asahi-screensaver", "toggle"] },
@@ -971,6 +972,7 @@ Scope {
   Component { id: quickBatteryComp; Panes.BatteryPane { root: launcherSelf } }
   Component { id: quickBtComp; Panes.BluetoothPane { root: launcherSelf } }
   Component { id: quickStorageComp; Panes.StoragePane { root: launcherSelf } }
+  Component { id: quickBackupComp; Panes.BackupPane { root: launcherSelf } }
   Component { id: quickClipboardComp; Panes.ClipboardPane { root: launcherSelf } }
 
   Component { id: quickDefaultComp; Item {
@@ -990,6 +992,7 @@ Scope {
       case "battery": return quickBatteryComp
       case "bluetooth": return quickBtComp
       case "storage": return quickStorageComp
+      case "backup": return quickBackupComp
       case "clipboard": return quickClipboardComp
       default: return quickDefaultComp
     }

@@ -129,7 +129,7 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
 - **Keybinding grammar**: Bare Super = focused window / navigate; Super+Shift = inverse (move vs
   focus); Super+Alt = variant (focus→resize, capture→record). `Super+Alt+HJKL` moves the **shared
   split border** — label by direction, never grow/shrink. `Super+Ctrl+<letter>` = system panel
-  (A audio, B bluetooth, D display, W network, P power, S screenshot gallery, T activity, I
+  (A audio, B bluetooth, D display, W network, P power, R backup, S screenshot gallery, T activity, I
   stay-awake, N night light, E emoji, V clipboard, K keybindings). `Super+Ctrl+Alt` restarts the
   stack. `Super+Ctrl+plus/minus` = display scale; `Super+Ctrl+Z` / `Super+Ctrl+Alt+Z` = cursor
   magnifier (`hl.config { cursor = { zoom_factor } }`, lua, not `hyprctl keyword`). Panels:
@@ -230,6 +230,15 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   sandbox sees nothing else of `$DOTFILES`), XPI is downloaded into the profile; `user.js` sets
   `widget.use-xdg-desktop-portal.native-messaging-proxy = 1` (default 0) and `autoDisableScopes = 14`.
   `BROWSER=org.mozilla.firefox` (flatpak export; `~/.local/share/flatpak/exports/bin` is on PATH). Test: `asahi/bin/asahi_firefox_theme_test.sh`.
+- **Firefox wake locks (2026-10-05)**: flatpak override `MOZ_WAKE_LOCK_TYPE=WaylandIdleInhibit`
+  (`comp_asahi_desktop`). Default path = portal Inhibit → xdg-desktop-portal-gtk →
+  `org.freedesktop.ScreenSaver.Inhibit` on hypridle; Firefox left 3 of those open (no media playing)
+  and hypridle skipped every listener for ~5 h (idle.log silent = no `asahi-idle at` call at all).
+  Wayland inhibitors bind to the window (only while visible, gone with it) and show as
+  `inhibitingIdle` in `hyprctl clients`. Diagnose D-Bus ones: `busctl --user tree
+  org.freedesktop.impl.portal.desktop.gtk` (open `request/<sender>/t/*`; owner via
+  `busctl --user status :1.N`), release with `busctl --user call … org.freedesktop.impl.portal.Request
+  Close` (gtk then sends `UnInhibit`). Verify a running Firefox: `MOZ_LOG=LinuxWakeLock:5,sync`.
 - **sshd**: Fedora enables it; disable and mask `sshd.service` + `sshd.socket`. Re-check after a
   release upgrade.
 - **Notification images**: `localImage()` only `image:`/`file:`/`/…`. Summary/body are
@@ -324,6 +333,24 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   **Keyboard/trackpad cannot wake s2idle** (MTP DockChannel has no wakeup source); lid and power
   button (SMC) can. Log:
   `~/.local/state/asahi/idle.log`.
+- **Time Machine**: `asahi-timemachine` = restic, one repo (`$TM_DIR` on the drive labelled `$TM_LABEL`)
+  reached either locally (drive on this laptop → udisks mount, never unmounted: eject it yourself) or
+  over SFTP (drive on the backup host). Host/path/port live **only** in
+  `~/.config/asahi-timemachine/config` — never commit them. Own key `id_ed25519` there is
+  `restrict,command="internal-sftp"` on the host (no shell, but full file access as that user — not
+  a sandbox); ssh runs `-F /dev/null` + no agent (else the main key sneaks in and gets a shell).
+  Password file beside it (copy in the password manager). Hourly timer, backs up only if last ok >
+  `TM_MIN_AGE_H` (72); offline = skip, not fail; `last_success` is set as soon as the snapshot is
+  saved (forget/prune ≤ weekly may fail without failing the run); notifications on start/done/fail.
+  State `~/.local/state/asahi/timemachine.json` = flock + atomic `mv` (FileView follows renames;
+  `status` only reads it and adds restic percent/ETA). `overview` caches snapshots + old rsync dirs +
+  drive df (one SFTP session). Bar `BackupChip` (left of the notch, after SysChip) only while running /
+  failed. Quick pane `backup` (Super+Ctrl+R): overview tiles, 30-day strip, snapshots, browse, restore
+  → `~/Restored/<date>-<id>/<abs path>` (never overwrites; restore runs in a transient unit **without**
+  `--pipe` — a dead client would SIGPIPE it). The old rsync snapshots `fedora-home-backup-*` on that
+  drive are `chattr +i` — never delete (2026-09-28 is the last full one). No sleep inhibitor (lid
+  close must still suspend). After install: `asahi-timemachine init` (key, password, repo, timer).
+  Test: `asahi/bin/asahi_timemachine_test.sh`.
 - **Timers**: `asahi-timer add <dur> [label]` = transient `systemd-run --user --on-active`.
   Launcher `:timer 10m tea` (`arg_commands.js`, tested).
 - **Window pop**: Super+O → `asahi-window-pop` (float/resize/center/pin/`pop`); second press

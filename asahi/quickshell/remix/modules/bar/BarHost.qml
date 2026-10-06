@@ -340,11 +340,15 @@ Item {
       onPressed: function(button) { barWindow.toggleSysPanel(button) }
     }
 
+    // Backup progress / failure; hidden (and out of the Row) otherwise.
+    BarComponents.BackupChip { id: backupBlock; barHost: barWindow }
+
     BarComponents.MediaPlayer {
       id: mediaBlock
       barHost: barWindow
       maxChipWidth: Math.max(64,
         leftRegion.width - wsBlock.implicitWidth - sysBlock.implicitWidth
+          - (backupBlock.visible ? backupBlock.implicitWidth + leftSection.spacing : 0)
           - 2 * leftSection.spacing)
     }
   }
