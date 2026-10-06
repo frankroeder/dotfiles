@@ -5,6 +5,7 @@ import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Wayland
 import "../../../"
+import "../BarModel.js" as BarModel
 
 // CCu chip: Grok/Cursor overview from asahi-ccu, matching sketchybar ccu.lua.
 Rectangle {
@@ -310,6 +311,7 @@ Rectangle {
     color: "transparent"
     anchor.item: root
     anchor.edges: Edges.Bottom
+    anchor.margins.bottom: -BarModel.popupDrop(root.barHost ? root.barHost.height : Style.barHeight, Style.barHeight)  // negative = below
     implicitWidth: card.implicitWidth
     implicitHeight: card.implicitHeight
 
@@ -330,9 +332,7 @@ Rectangle {
     Rectangle {
       id: card
       anchors.fill: parent
-      color: Style.menuBg
-      border.color: Style.menuSep
-      border.width: 1
+      color: Style.m3surfaceSolid
       radius: Style.menuRadiusLg
       implicitWidth: root.contentW + 28
       implicitHeight: Math.min(flick.contentHeight + 28, 720)
@@ -361,7 +361,7 @@ Rectangle {
               anchors.left: parent.left
               anchors.verticalCenter: parent.verticalCenter
               text: "AGENT USAGE"
-              font { family: Style.fontFamily; pixelSize: 13; bold: true }
+              font { family: Style.menuSans; pixelSize: 13; bold: true }
               color: Style.text
             }
             Text {

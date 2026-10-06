@@ -59,7 +59,7 @@ Item {
     radius: Style.radiusSm
     border.width: 1
     border.color: Qt.alpha(Style.text, 0.08)
-    implicitHeight: Style.barHeight - 2
+    implicitHeight: Style.barHeight - 2 * Style.barChipInset
     implicitWidth: wsContent.implicitWidth + 10 + (specialBadge.visible ? Style.barWsSlot + 8 : 0)
 
     Rectangle {
@@ -97,7 +97,7 @@ Item {
       x: actualLeft
       y: (workspacesBlock.height - height) / 2
       width: Math.max(0, actualRight - actualLeft)
-      height: workspacesBlock.height - 6
+      height: workspacesBlock.height - 4
       radius: Style.radiusSm
       color: Style.wsActive
       border.width: 1
@@ -141,7 +141,7 @@ Item {
           readonly property int overflowCount: Math.max(0, windows.length - shownWindows.length)
 
           implicitWidth: wsInner.implicitWidth + 8
-          implicitHeight: workspacesBlock.height - 6
+          implicitHeight: workspacesBlock.height - 4
           radius: Style.radiusSm
           color: isFocused ? "transparent" : (isHovered ? Style.wsHoverBg : (isVisibleElsewhere ? Style.wsVisibleBg : (isOccupied ? Style.wsOccupiedBg : Style.wsEmptyBg)))
           border.width: 1
@@ -156,9 +156,10 @@ Item {
             spacing: 4
 
             Rectangle {
-              width: Style.barWsSlot
-              height: Style.barWsSlot
-              radius: Style.barWsSlot / 2
+              anchors.verticalCenter: parent.verticalCenter
+              width: wsButton.height - 4
+              height: width
+              radius: width / 2
               color: isFocused
                 ? Style.wsBadgeActiveBg
                 : (wsButton.isHovered ? Style.wsBadgeHoverBg : (wsButton.isVisibleElsewhere ? Style.wsBadgeVisibleBg : (wsButton.isOccupied ? Style.wsBadgeOccupiedBg : Style.wsBadgeEmptyBg)))

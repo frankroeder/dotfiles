@@ -220,12 +220,23 @@ printf '2\n' >"$tmp/scales/eDP-1"
 printf '[{"name":"eDP-1","disabled":false,"scale":2},{"name":"DP-1","disabled":false,"description":"Dell Inc. DELL P2723DE 895ZNR3","x":-2048,"y":321,"scale":1.25,"availableModes":["2560x1440@59.95Hz"]}]\n' >"$mon_json"
 : >"$kw_log"
 run place DP-1
-grep -qx 'hl.monitor({ output = "DP-1", position = "-2048x-170" })' "$kw_log" \
-  || fail_at "place DP-1 should move the Dell to -2048x-170 (got $(tr '\n' ' ' <"$kw_log"))"
+grep -qx 'hl.monitor({ output = "DP-1", position = "-2048x-170", scale = 1.25 })' "$kw_log" \
+  || fail_at "place DP-1 should move the Dell to -2048x-170 at scale 1.25 (got $(tr '\n' ' ' <"$kw_log"))"
 run added DP-1 2>/dev/null && fail_at "DP must not take the HDMI enable path" || true
 run save DP-1 -2048x-100 && run place DP-1 && grep -q 'position = "-2048x-100"' "$kw_log" \
   || fail_at "place DP-1 should use the kept position"
 pass "DP-1: place derives / keeps the position, refuses HDMI actions"
+
+# Scale 1 kept layout, no scale file: do not apply the 1.25 anchor (x=-2048 overlaps).
+rm -f "$tmp/scales/DP-1"
+printf '2\n' >"$tmp/scales/eDP-1"
+printf '%s\n' '{"Dell Inc. DELL P2723DE 895ZNR3":{"key":"1.000@2.000","pos":"-2560x-458"}}' >"$tmp/layout.json"
+printf '[{"name":"eDP-1","disabled":false,"scale":2},{"name":"DP-1","disabled":false,"description":"Dell Inc. DELL P2723DE 895ZNR3","x":-2048,"y":0,"scale":1,"width":2560,"height":1440,"availableModes":["2560x1440@59.95Hz"]}]\n' >"$mon_json"
+: >"$kw_log"
+run place DP-1
+grep -qx 'hl.monitor({ output = "DP-1", position = "-2560x-458", scale = 1.000 })' "$kw_log" \
+  || fail_at "place must restore scale 1 with its kept position (got $(tr '\n' ' ' <"$kw_log"))"
+pass "DP-1 scale 1 kept layout is not placed at the 1.25 anchor"
 
 if [ "$fail" -ne 0 ]; then
   echo "asahi_hdmi_test.sh: FAILED"

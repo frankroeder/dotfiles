@@ -462,6 +462,7 @@ Item {
       clip: true
 
       Flickable {
+        id: btFlick
         anchors.fill: parent
         anchors.margins: 8
         clip: true
@@ -473,111 +474,129 @@ Item {
           id: btCol
           width: parent.width
           spacing: 2
-          Repeater {
-            model: quickBtRoot.btRows || []
-            delegate: Column {
-              id: btDelegate
-              required property var modelData
-              readonly property bool busy: (modelData.pending || "") !== ""
-              width: parent.width
-              spacing: 2
-              Secondary {
-                visible: !!btDelegate.modelData.section
-                text: btDelegate.modelData.section || ""
-                font.pixelSize: root.fontPx(9)
-                font.weight: Font.Medium
-                leftPadding: 10; topPadding: 8; bottomPadding: 2
-              }
-              Rectangle {
-                id: btRow
-                width: btDelegate.width
-                height: 48
-                radius: Style.menuRadiusMd
-                color: btd.containsMouse ? Style.m3stateHover : "transparent"
-                opacity: btDelegate.busy ? 0.65 : 1
-                Behavior on color { ColorAnimation { duration: 120 } }
-                Behavior on opacity { NumberAnimation { duration: 120 } }
-                MouseArea { id: btd; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.NoButton }
+          Column {
+            id: btRowsCol
+            width: parent.width
+            spacing: 2
+            Repeater {
+              model: quickBtRoot.btRows || []
+              delegate: Column {
+                id: btDelegate
+                required property var modelData
+                readonly property bool busy: (modelData.pending || "") !== ""
+                width: parent.width
+                spacing: 2
+                // Section caption: the tracked caps used by SysPanel / recorder.
+                Secondary {
+                  visible: !!btDelegate.modelData.section
+                  text: btDelegate.modelData.section || ""
+                  font.pixelSize: root.fontPx(8)
+                  font.weight: Font.DemiBold
+                  font.letterSpacing: 1.2
+                  font.capitalization: Font.AllUppercase
+                  leftPadding: 10; topPadding: 8; bottomPadding: 4
+                }
+                Rectangle {
+                  id: btRow
+                  width: btDelegate.width
+                  height: Math.max(48, btText.implicitHeight + 16)
+                  radius: Style.menuRadiusMd
+                  color: btd.containsMouse ? Style.m3stateHover : "transparent"
+                  opacity: btDelegate.busy ? 0.65 : 1
+                  Behavior on color { ColorAnimation { duration: 120 } }
+                  Behavior on opacity { NumberAnimation { duration: 120 } }
+                  MouseArea { id: btd; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.NoButton }
 
-                RowLayout {
-                  anchors.fill: parent
-                  anchors.leftMargin: 10; anchors.rightMargin: 8
-                  spacing: 10
-                  Text {
-                    Layout.preferredWidth: 26
-                    text: quickBtRoot.devGlyph(btDelegate.modelData.icon, btDelegate.modelData.connected)
-                    color: btDelegate.modelData.connected ? Style.m3primary : Style.m3onSurfaceVariant
-                    font.family: root.uiFont; font.pixelSize: root.fontPx(16)
-                    horizontalAlignment: Text.AlignHCenter
-                  }
-                  ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 0
-                    Text {
-                      Layout.fillWidth: true
-                      text: btDelegate.modelData.label
-                      color: Style.m3onSurface
-                      font.family: root.uiSans; font.pixelSize: root.fontPx(11)
-                      font.weight: btDelegate.modelData.connected ? Font.DemiBold : Font.Medium
-                      elide: Text.ElideRight
-                    }
-                    Secondary {
-                      Layout.fillWidth: true
-                      text: {
-                        const p = btDelegate.modelData.pending || ""
-                        if (p === "connecting") return "Connecting…"
-                        if (p === "disconnecting") return "Disconnecting…"
-                        if (p === "forgetting") return "Forgetting…"
-                        if (btDelegate.modelData.connected) return "Connected"
-                        return btDelegate.modelData.paired ? "Paired" : btDelegate.modelData.address
+                  RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 10; anchors.rightMargin: 8
+                    spacing: 10
+                    // Glyph tile, same as the recorder / battery fact rows.
+                    Rectangle {
+                      implicitWidth: Math.round(root.fontPx(16) * 1.9); implicitHeight: implicitWidth
+                      radius: Style.menuRadiusMd
+                      color: btDelegate.modelData.connected ? Style.m3primaryContainer : Style.m3containerHigh
+                      Text {
+                        anchors.centerIn: parent
+                        text: quickBtRoot.devGlyph(btDelegate.modelData.icon, btDelegate.modelData.connected)
+                        color: btDelegate.modelData.connected ? Style.m3primary : Style.m3onSurfaceVariant
+                        font.family: root.uiFont; font.pixelSize: root.fontPx(14)
                       }
-                      color: btDelegate.busy ? Style.m3primary : (btDelegate.modelData.connected ? Style.green : Style.m3onSurfaceVariant)
-                      font.pixelSize: root.fontPx(9)
                     }
-                  }
-                  Chip {
-                    visible: btDelegate.modelData.connected && btDelegate.modelData.batteryAvailable
-                    icon: btDelegate.modelData.battery < 20 ? "󰁺" : "󰁹"
-                    label: btDelegate.modelData.battery + "%"
-                    bg: btDelegate.modelData.battery < 20 ? Qt.alpha(Style.red, 0.22) : Style.m3secondaryContainer
-                  }
-                  // Forget (omarchy's 'x'): only for remembered devices, hidden while an action is in flight.
-                  IconBtn {
-                    visible: btDelegate.modelData.paired && !btDelegate.busy
-                    icon: "󰩹"
-                    hot: Style.red
-                    onClicked: quickBtRoot.btForget(btDelegate.modelData.address, btDelegate.modelData.label)
-                  }
-                  LinkBtn {
-                    active: btDelegate.modelData.connected
-                    busy: btDelegate.busy
-                    onClicked: {
-                      const dev = btDelegate.modelData
-                      if (dev.connected) quickBtRoot.btDisconnect(dev.address, dev.label)
-                      else if (dev.paired) quickBtRoot.btConnect(dev.address, dev.label)
-                      else quickBtRoot.btPair(dev.address, dev.label)
+                    ColumnLayout {
+                      id: btText
+                      Layout.fillWidth: true
+                      spacing: 0
+                      Text {
+                        Layout.fillWidth: true
+                        text: btDelegate.modelData.label
+                        color: Style.m3onSurface
+                        font.family: root.uiSans; font.pixelSize: root.fontPx(11)
+                        font.weight: btDelegate.modelData.connected ? Font.DemiBold : Font.Medium
+                        elide: Text.ElideRight
+                      }
+                      Secondary {
+                        Layout.fillWidth: true
+                        text: {
+                          const p = btDelegate.modelData.pending || ""
+                          if (p === "connecting") return "Connecting…"
+                          if (p === "disconnecting") return "Disconnecting…"
+                          if (p === "forgetting") return "Forgetting…"
+                          if (btDelegate.modelData.connected) return "Connected"
+                          return btDelegate.modelData.paired ? "Paired" : btDelegate.modelData.address
+                        }
+                        color: btDelegate.busy ? Style.m3primary : (btDelegate.modelData.connected ? Style.green : Style.m3onSurfaceVariant)
+                        font.pixelSize: root.fontPx(9)
+                      }
+                    }
+                    Chip {
+                      visible: btDelegate.modelData.connected && btDelegate.modelData.batteryAvailable
+                      icon: btDelegate.modelData.battery < 20 ? "󰁺" : "󰁹"
+                      label: btDelegate.modelData.battery + "%"
+                      bg: btDelegate.modelData.battery < 20 ? Qt.alpha(Style.red, 0.22) : Style.m3secondaryContainer
+                    }
+                    // Forget (omarchy's 'x'): only for remembered devices, hidden while an action is in flight.
+                    IconBtn {
+                      visible: btDelegate.modelData.paired && !btDelegate.busy
+                      icon: "󰩹"
+                      hot: Style.red
+                      onClicked: quickBtRoot.btForget(btDelegate.modelData.address, btDelegate.modelData.label)
+                    }
+                    LinkBtn {
+                      active: btDelegate.modelData.connected
+                      busy: btDelegate.busy
+                      onClicked: {
+                        const dev = btDelegate.modelData
+                        if (dev.connected) quickBtRoot.btDisconnect(dev.address, dev.label)
+                        else if (dev.paired) quickBtRoot.btConnect(dev.address, dev.label)
+                        else quickBtRoot.btPair(dev.address, dev.label)
+                      }
                     }
                   }
                 }
               }
             }
           }
-          // Empty states.
-          Column {
+          // Empty / off state, centred in whatever the rows leave of the card.
+          Item {
             visible: !quickBtRoot.btOn || !quickBtRoot.btRows || quickBtRoot.btRows.length === 0
             width: parent.width
-            topPadding: 40
-            spacing: 6
-            Text {
-              anchors.horizontalCenter: parent.horizontalCenter
-              text: !quickBtRoot.btOn ? "󰂲" : (quickBtRoot.btScanRequested ? "󰐷" : "󰂯")
-              color: Style.m3outline; font.family: root.uiFont; font.pixelSize: root.fontPx(30)
-            }
-            Secondary {
-              anchors.horizontalCenter: parent.horizontalCenter
-              text: !quickBtRoot.btOn ? "Bluetooth is off"
-                : (quickBtRoot.btScanRequested ? "Scanning for devices…" : "No devices. Tap Scan to discover.")
-              font.pixelSize: root.fontPx(11)
+            height: Math.max(btEmpty.implicitHeight + 32, btFlick.height - btRowsCol.height - btCol.spacing)
+            Menu.MenuEmptyState {
+              id: btEmpty
+              anchors.centerIn: parent
+              fontScale: root.uiFontScale
+              iconFamily: root.uiFont
+              fontFamily: root.uiSans
+              glyph: !quickBtRoot.btOn ? "󰂲" : (quickBtRoot.btScanRequested ? "󰐷" : "󰂯")
+              tint: quickBtRoot.btOn ? Style.m3primary : Style.m3onSurfaceVariant
+              title: !quickBtRoot.btOn ? "Bluetooth is off"
+                : (quickBtRoot.btScanRequested ? "Scanning for devices…" : "No devices yet")
+              detail: !quickBtRoot.btOn ? "Paired devices reconnect once it is back on."
+                : (quickBtRoot.btScanRequested ? "Put the device in pairing mode." : "Scan to discover devices nearby.")
+              actionIcon: !quickBtRoot.btOn ? "󰂯" : "󰐷"
+              actionLabel: !quickBtRoot.btOn ? "Turn on" : (quickBtRoot.btScanRequested ? "" : "Scan")
+              onAction: quickBtRoot.btOn ? quickBtRoot.toggleScan() : quickBtRoot.toggleBt()
             }
           }
         }

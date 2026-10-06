@@ -456,15 +456,17 @@ Item {
               required property var modelData
               readonly property bool sel: !!tmRoot.selected && tmRoot.selected.id === modelData.id
               width: snapList.width - (snapScroll.overflow ? snapScroll.implicitWidth + 4 : 0)
-              height: 44
+              // Two lines at the pane's type scale (44 clipped on the 1440p panel).
+              height: Math.max(44, snapCol.implicitHeight + 14)
               radius: Style.menuRadiusMd
               color: sel ? Style.m3secondaryContainer : (sma.containsMouse && !modelData.legacy ? Style.m3stateHover : "transparent")
               Behavior on color { ColorAnimation { duration: 120 } }
               ColumnLayout {
-                anchors.fill: parent
+                id: snapCol
+                anchors.left: parent.left; anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
                 anchors.leftMargin: 10; anchors.rightMargin: 10
                 spacing: 2
-                Item { Layout.fillHeight: true }
                 Text {
                   Layout.fillWidth: true
                   text: Qt.formatDateTime(new Date(snapRow.modelData.time), snapRow.modelData.legacy ? "ddd d MMM yyyy" : "ddd d MMM · HH:mm")
@@ -478,7 +480,6 @@ Item {
                       + (snapRow.modelData.added !== null && snapRow.modelData.added !== undefined ? " · +" + root.prettyBytes(snapRow.modelData.added) : "")
                   font.pixelSize: root.fontPx(9)
                 }
-                Item { Layout.fillHeight: true }
               }
               MouseArea {
                 id: sma
@@ -537,17 +538,6 @@ Item {
             text: tmRoot.restoreMsg
             color: tmRoot.restoreFailed ? Style.red : Style.m3primary
           }
-          Secondary {
-            visible: tmRoot.browsing || tmRoot.entries.length === 0
-            Layout.fillWidth: true
-            wrapMode: Text.Wrap
-            text: tmRoot.browsing ? "Listing…"
-              : tmRoot.browseFailed ? "Could not list this folder (backup drive / host not reachable?)"
-              : tmRoot.selected ? "Empty folder"
-              : tmRoot.snapshots.length === 0 ? "Files of a snapshot show up here once one exists. Restores land in ~/Restored, never over your files."
-              : "Pick a snapshot on the left."
-            leftPadding: 8
-          }
           ListView {
             id: entryList
             Layout.fillWidth: true
@@ -562,7 +552,7 @@ Item {
               required property var modelData
               readonly property bool isDir: modelData.type === "dir"
               width: entryList.width - (entryScroll.overflow ? entryScroll.implicitWidth + 4 : 0)
-              height: 36
+              height: Math.max(36, root.fontPx(11) + 18)
               radius: Style.menuRadiusMd
               color: ema.containsMouse ? Style.m3stateHover : "transparent"
               Behavior on color { ColorAnimation { duration: 120 } }
@@ -611,6 +601,29 @@ Item {
               }
             }
           }
+        }
+        // Listing / empty / unreachable: one centred state instead of a stray line top-left.
+        Menu.MenuEmptyState {
+          anchors.centerIn: parent
+          anchors.verticalCenterOffset: Math.round(root.fontPx(12))
+          visible: tmRoot.browsing || tmRoot.entries.length === 0
+          fontScale: root.uiFontScale
+          iconFamily: root.uiFont
+          fontFamily: root.uiSans
+          maxWidth: parent.width - 48
+          glyph: tmRoot.browsing ? "󰔟" : tmRoot.browseFailed ? "󰅛" : tmRoot.selected ? "󰉖" : "󰃭"
+          tint: tmRoot.browseFailed ? Style.red : Style.m3tertiary
+          title: tmRoot.browsing ? "Listing…"
+            : tmRoot.browseFailed ? "Backup not reachable"
+            : tmRoot.selected ? "Empty folder"
+            : tmRoot.snapshots.length === 0 ? "No snapshot yet" : "Pick a snapshot"
+          detail: tmRoot.browsing ? ""
+            : tmRoot.browseFailed ? "Could not list this folder — is the backup drive or host online?"
+            : tmRoot.selected ? ""
+            : "Browse its files here. Restores land in ~/Restored, never over your files."
+          actionIcon: "󰑐"
+          actionLabel: tmRoot.browseFailed ? "Retry" : ""
+          onAction: tmRoot.browse(tmRoot.browsePath || tmRoot.home)
         }
       }
     }

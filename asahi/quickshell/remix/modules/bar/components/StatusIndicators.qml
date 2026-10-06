@@ -283,7 +283,7 @@ RowLayout {
       Text {
         text: root.notificationCenter ? root.notificationCenter.unreadCount : 0
         font.family: Style.fontFamily
-        font.pixelSize: 11
+        font.pixelSize: Style.barFontCaption
         color: Style.textMuted
         visible: root.notificationCenter && root.notificationCenter.unreadCount > 0
       }

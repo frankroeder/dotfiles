@@ -214,15 +214,24 @@ Item {
     }
   }
 
+  // Row heights follow the type scale so the cards never clip on the larger panel.
+  readonly property int devRowH: Math.max(30, root.fontPx(11) + 12)
+  readonly property int streamRowH: Math.max(36, root.fontPx(11) + 18)
+
   ColumnLayout {
     id: mediaCol
     anchors.fill: parent
     spacing: 10
 
     // Now playing: cover art (or glyph tile), title / artist / album, progress, round controls.
+    // Grows with spare height up to 3 rows; the spectrum takes the rest.
     Rectangle {
       Layout.fillWidth: true
-      Layout.preferredHeight: npRow.implicitHeight + 24
+      Layout.fillHeight: true
+      // From the text, not npRow: the art sizes from this card, so npRow would ratchet it.
+      Layout.minimumHeight: Math.max(80, npText.implicitHeight + 24)
+      Layout.preferredHeight: Layout.maximumHeight
+      Layout.maximumHeight: Math.max(Layout.minimumHeight, Math.round(root.launcherGeom.rowHTall * 3))
       radius: Style.menuPanelRadius
       color: Style.m3container
       readonly property var p: quickMediaRoot.activeP
@@ -235,18 +244,21 @@ Item {
         anchors.margins: 12
         spacing: 14
         Rectangle {
-          width: 56; height: 56; radius: Style.menuRadiusLg
+          readonly property int side: Math.max(56, npCard.height - 24)
+          Layout.preferredWidth: side; Layout.preferredHeight: side
+          radius: Style.menuRadiusLg
           color: Style.m3primaryContainer
-          Text { anchors.centerIn: parent; visible: !npCard.hasArt; text: "󰝚"; color: Style.m3primary; font.family: root.uiFont; font.pixelSize: 28 }
+          Text { anchors.centerIn: parent; visible: !npCard.hasArt; text: "󰝚"; color: Style.m3primary; font.family: root.uiFont; font.pixelSize: Math.round(parent.side * 0.45) }
           ClippingRectangle {
             anchors.fill: parent; radius: Style.menuRadiusLg; color: "transparent"; visible: npCard.hasArt
             Image {
               anchors.fill: parent; source: npCard.hasArt ? npCard.p.trackArtUrl : ""
-              fillMode: Image.PreserveAspectCrop; asynchronous: true; sourceSize: Qt.size(128, 128)
+              fillMode: Image.PreserveAspectCrop; asynchronous: true; sourceSize: Qt.size(256, 256)
             }
           }
         }
         ColumnLayout {
+          id: npText
           Layout.fillWidth: true
           spacing: 3
           Text {
@@ -287,29 +299,27 @@ Item {
           }
         }
         RoundBtn {
-          icon: "󰒮"; enabledLook: !!(npCard.p && npCard.p.canGoPrevious)
+          icon: "󰒮"; size: root.fontPx(26); enabledLook: !!(npCard.p && npCard.p.canGoPrevious)
           onClicked: { const p = quickMediaRoot.activeP; if (p && p.canGoPrevious) p.previous() }
         }
         RoundBtn {
-          icon: npCard.p && npCard.p.isPlaying ? "󰏤" : "󰐊"; size: 44
+          icon: npCard.p && npCard.p.isPlaying ? "󰏤" : "󰐊"; size: root.fontPx(34)
           bg: Style.m3primary; fg: Style.m3onPrimary; enabledLook: !!(npCard.p && npCard.p.canTogglePlaying)
           onClicked: { const p = quickMediaRoot.activeP; if (p && p.canTogglePlaying) p.togglePlaying() }
         }
         RoundBtn {
-          icon: "󰒭"; enabledLook: !!(npCard.p && npCard.p.canGoNext)
+          icon: "󰒭"; size: root.fontPx(26); enabledLook: !!(npCard.p && npCard.p.canGoNext)
           onClicked: { const p = quickMediaRoot.activeP; if (p && p.canGoNext) p.next() }
         }
       }
     }
 
     // Output / input: header with mute + big percent, master slider, M3 radio device list.
+    // Sized to the content, every device shown (no scrolling). fillHeight stays false
+    // explicitly: layouts inherit it from the cards' row-filling.
     RowLayout {
       Layout.fillWidth: true
-      // header + slider + divider + up to 3 device rows; longer lists scroll
-      readonly property int devRows: Math.min(3, Math.max(1, (quickMediaRoot.displaySinks || []).length,
-        (quickMediaRoot.displaySources || []).length))
-      Layout.preferredHeight: 104 + 30 * devRows
-      Layout.maximumHeight: Layout.preferredHeight
+      Layout.fillHeight: false
       spacing: 10
       Repeater {
         model: [
@@ -326,9 +336,11 @@ Item {
           readonly property real vol: isOut ? quickMediaRoot.outVol : quickMediaRoot.inVol
           Layout.fillWidth: true
           Layout.fillHeight: true
+          implicitHeight: devInner.implicitHeight + 24
           radius: Style.menuRadiusLg
           color: Style.m3container
           ColumnLayout {
+            id: devInner
             anchors.fill: parent
             anchors.margins: 12
             spacing: 6
@@ -372,65 +384,58 @@ Item {
               onMoved: function(v) { devCard.isOut ? quickMediaRoot.setOutVol(v) : quickMediaRoot.setInVol(v) }
             }
             Menu.MenuDivider { Layout.fillWidth: true }
-            Flickable {
+            // Every device listed (the card grows to fit; no scrolling).
+            Column {
+              id: deviceCol
               Layout.fillWidth: true
-              Layout.fillHeight: true
-              clip: true
-              contentHeight: deviceCol.implicitHeight
-              boundsBehavior: Flickable.StopAtBounds
-              ScrollBar.vertical: Menu.MenuScrollBar {}
-              Column {
-                id: deviceCol
-                width: parent.width
-                spacing: 0
-                Repeater {
-                  model: devCard.devItems
-                  delegate: Rectangle {
-                    id: devRow
-                    required property var modelData
-                    readonly property bool active: QuickModels.audioNodeKey(devCard.activeNode) === QuickModels.audioNodeKey(modelData)
-                      && QuickModels.audioNodeKey(modelData) !== ""
-                    width: parent.width
-                    height: 30
-                    radius: Style.menuRadiusMd
-                    color: devMa.containsMouse ? Style.m3stateHover : "transparent"
-                    Behavior on color { ColorAnimation { duration: 120 } }
-                    RowLayout {
-                      anchors.fill: parent
-                      anchors.leftMargin: 8
-                      anchors.rightMargin: 10
-                      spacing: 10
-                      Rectangle {
-                        width: 16; height: 16; radius: 8
-                        color: "transparent"
-                        border.width: 2
-                        border.color: devRow.active ? Style.m3primary : Style.m3outline
-                        Behavior on border.color { ColorAnimation { duration: 120 } }
-                        Rectangle { anchors.centerIn: parent; width: 8; height: 8; radius: 4; color: Style.m3primary; visible: devRow.active }
-                      }
-                      Text {
-                        text: devCard.isOut ? QuickModels.sinkGlyph(devRow.modelData) : QuickModels.sourceGlyph(devRow.modelData)
-                        color: devRow.active ? Style.m3primary : Style.m3onSurfaceVariant; font.family: root.uiFont; font.pixelSize: root.fontPx(11)
-                      }
-                      Text {
-                        Layout.fillWidth: true
-                        text: QuickModels.nodeLabel(devRow.modelData)
-                        color: devRow.active ? Style.m3onSurface : Style.m3onSurfaceVariant
-                        font.family: root.uiSans; font.pixelSize: root.fontPx(11); elide: Text.ElideRight
-                        font.weight: devRow.active ? Font.Medium : Font.Normal
-                      }
-                      Text {
-                        text: devRow.modelData && devRow.modelData.audio ? quickMediaRoot.pct(devRow.modelData.audio.volume) : ""
-                        color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(10)
-                      }
+              spacing: 0
+              Repeater {
+                model: devCard.devItems
+                delegate: Rectangle {
+                  id: devRow
+                  required property var modelData
+                  readonly property bool active: QuickModels.audioNodeKey(devCard.activeNode) === QuickModels.audioNodeKey(modelData)
+                    && QuickModels.audioNodeKey(modelData) !== ""
+                  width: parent.width
+                  height: quickMediaRoot.devRowH
+                  radius: Style.menuRadiusMd
+                  color: devMa.containsMouse ? Style.m3stateHover : "transparent"
+                  Behavior on color { ColorAnimation { duration: 120 } }
+                  RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 10
+                    spacing: 10
+                    Rectangle {
+                      width: 16; height: 16; radius: 8
+                      color: "transparent"
+                      border.width: 2
+                      border.color: devRow.active ? Style.m3primary : Style.m3outline
+                      Behavior on border.color { ColorAnimation { duration: 120 } }
+                      Rectangle { anchors.centerIn: parent; width: 8; height: 8; radius: 4; color: Style.m3primary; visible: devRow.active }
                     }
-                    MouseArea {
-                      id: devMa
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      cursorShape: Qt.PointingHandCursor
-                      onClicked: devCard.isOut ? quickMediaRoot.setDefaultSink(devRow.modelData) : quickMediaRoot.setDefaultSource(devRow.modelData)
+                    Text {
+                      text: devCard.isOut ? QuickModels.sinkGlyph(devRow.modelData) : QuickModels.sourceGlyph(devRow.modelData)
+                      color: devRow.active ? Style.m3primary : Style.m3onSurfaceVariant; font.family: root.uiFont; font.pixelSize: root.fontPx(11)
                     }
+                    Text {
+                      Layout.fillWidth: true
+                      text: QuickModels.nodeLabel(devRow.modelData)
+                      color: devRow.active ? Style.m3onSurface : Style.m3onSurfaceVariant
+                      font.family: root.uiSans; font.pixelSize: root.fontPx(11); elide: Text.ElideRight
+                      font.weight: devRow.active ? Font.Medium : Font.Normal
+                    }
+                    Text {
+                      text: devRow.modelData && devRow.modelData.audio ? quickMediaRoot.pct(devRow.modelData.audio.volume) : ""
+                      color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(10)
+                    }
+                  }
+                  MouseArea {
+                    id: devMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: devCard.isOut ? quickMediaRoot.setDefaultSink(devRow.modelData) : quickMediaRoot.setDefaultSource(devRow.modelData)
                   }
                 }
               }
@@ -440,15 +445,15 @@ Item {
       }
     }
 
-    // Stream mixer: one slider row per playback stream. Sized to its rows
-    // (the spectrum takes the slack); shrinks to min and scrolls when crowded.
+    // Stream mixer: one slider row per playback stream. Sized to its rows (up to 4,
+    // then it scrolls); the spectrum takes the slack.
     Rectangle {
       Layout.fillWidth: true
-      Layout.preferredHeight: 24 + 28 + 6 + Math.max(1, (quickMediaRoot.displayStreams || []).length) * 38
-      Layout.minimumHeight: 100
+      Layout.preferredHeight: mixInner.implicitHeight + 24
       radius: Style.menuRadiusLg
       color: Style.m3container
       ColumnLayout {
+        id: mixInner
         anchors.fill: parent
         anchors.margins: 12
         spacing: 6
@@ -486,7 +491,7 @@ Item {
         }
         Text {
           Layout.fillWidth: true
-          Layout.fillHeight: true
+          Layout.preferredHeight: quickMediaRoot.streamRowH
           visible: (quickMediaRoot.displayStreams || []).length === 0
           text: "No active streams"
           color: Style.m3outline; font.family: root.uiSans; font.pixelSize: root.fontPx(11)
@@ -494,7 +499,7 @@ Item {
         }
         Flickable {
           Layout.fillWidth: true
-          Layout.fillHeight: true
+          Layout.preferredHeight: Math.min(streamCol.implicitHeight, 4 * (quickMediaRoot.streamRowH + 2))
           visible: (quickMediaRoot.displayStreams || []).length > 0
           clip: true
           contentHeight: streamCol.implicitHeight
@@ -513,7 +518,7 @@ Item {
                 readonly property bool muted: streamRow.audio ? streamRow.audio.muted : false
                 readonly property real vol: streamRow.audio ? streamRow.audio.volume : 0
                 width: parent.width
-                height: 36
+                height: quickMediaRoot.streamRowH
                 radius: Style.menuRadiusMd
                 color: streamMa.containsMouse ? Style.m3stateHover : "transparent"
                 Behavior on color { ColorAnimation { duration: 120 } }
@@ -564,7 +569,7 @@ Item {
     }
 
     // Live cava spectrum: rounded bars mirrored about the midline, primary →
-    // tertiary across the row. Fills the height the mixer leaves.
+    // tertiary across the row. Takes the slack Now playing leaves.
     Rectangle {
       Layout.fillWidth: true
       Layout.fillHeight: true
@@ -603,11 +608,14 @@ Item {
                 required property int index
                 width: (parent.width - 23 * parent.spacing) / 24
                 height: parent.height
+                // Idle: a low static wave so the card reads as a resting visualizer.
+                readonly property real idleFrac: 0.04 + 0.05 * (1 + Math.sin(index * 0.55)) / 2
                 Rectangle {
                   anchors.centerIn: parent
                   width: Math.min(12, parent.width)
                   radius: width / 2
-                  height: Math.max(4, parent.height * ((Services.Cava.values[index] || 0) / 100))
+                  height: Math.max(4, parent.height * (quickMediaRoot.cavaStatus === "active"
+                    ? (Services.Cava.values[index] || 0) / 100 : parent.idleFrac))
                   color: quickMediaRoot.cavaStatus === "active"
                     ? quickMediaRoot.mix(Style.m3primary, Style.m3tertiary, index / 23) : Style.m3outlineVariant
                   Behavior on height { NumberAnimation { duration: 60; easing.type: Easing.OutQuad } }

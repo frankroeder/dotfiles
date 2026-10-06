@@ -9,6 +9,7 @@ import "../../menu" as Menu
 import "../../../"
 import "../quick_models.js" as QuickModels
 import "../launcher_layout.js" as LauncherGeom
+import "../gallery.js" as Gallery
 
 // Screenshots / recordings gallery pane (M3 caelestia look).
 // `root` is the LauncherWindow (fontPx, uiFont/uiSans, launcherGeom, quickMode, quickPaneKey, binDir, ...).
@@ -140,11 +141,10 @@ Item {
             Image {
               anchors.fill: parent
               visible: !shotsPane.videoMode
-              source: !shotsPane.videoMode && modelData.path ? ("file://" + modelData.path) : ""
+              // Cached thumb (made by the scan); a full PNG decode per tile made the grid crawl.
+              source: !shotsPane.videoMode && modelData.path ? ("file://" + Gallery.thumbPath(modelData.path, Quickshell.env("HOME"))) : ""
               fillMode: Image.PreserveAspectCrop
               asynchronous: true
-              sourceSize.width: 480
-              sourceSize.height: 300
               // Fade in once decoded instead of popping in tile by tile.
               opacity: status === Image.Ready ? 1 : 0
               Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
@@ -241,29 +241,16 @@ Item {
       }
 
       // Empty state.
-      ColumnLayout {
+      Menu.MenuEmptyState {
         anchors.centerIn: parent
         visible: shotsPane.items.length === 0
-        spacing: 10
-        Rectangle {
-          Layout.alignment: Qt.AlignHCenter
-          width: 76; height: 76; radius: Style.menuRadiusLg
-          color: Style.m3primaryContainer
-          Text {
-            anchors.centerIn: parent; text: shotsPane.videoMode ? "󰕧" : "󰹑"; color: Style.m3primary
-            font.family: root.uiFont; font.pixelSize: 38
-          }
-        }
-        Text {
-          Layout.alignment: Qt.AlignHCenter
-          text: shotsPane.videoMode ? "No recordings yet" : "No screenshots yet"
-          color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(14); font.weight: Font.DemiBold
-        }
-        Text {
-          Layout.alignment: Qt.AlignHCenter
-          text: shotsPane.videoMode ? "Recordings from the bar land in ~/Videos" : "Capture one above · saved to ~/screenshots"
-          color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(10)
-        }
+        fontScale: root.uiFontScale
+        iconFamily: root.uiFont
+        fontFamily: root.uiSans
+        glyph: shotsPane.videoMode ? "󰕧" : "󰹑"
+        tint: Style.m3primary
+        title: shotsPane.videoMode ? "No recordings yet" : "No screenshots yet"
+        detail: shotsPane.videoMode ? "Recordings from the bar land in ~/Videos." : "Capture one above · saved to ~/screenshots."
       }
     }
 

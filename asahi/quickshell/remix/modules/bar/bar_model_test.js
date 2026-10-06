@@ -66,6 +66,11 @@ eq(notch("eDP-1", 3024, 1964), 74, "native: the full 74-row strip, not 64");
 eq(notch("eDP-1", 1512, 982), 37, "@2x: 74 physical rows = 37 logical");
 eq(notch("eDP-1", 2268, 1473), 56, "@1.333: covers the strip instead of stopping at 48");
 
+const drop = ctx.popupDrop;
+eq(drop(37, 36), 7, "@2x notch bar: 36px chip clears the 37px bar by 6px");
+eq(drop(56, 36), 16, "@1.333 notch bar: drop covers the taller bar, not just the chip");
+eq(drop(36, 36), 6, "external bar: plain gap");
+
 if (failed) {
   console.log(failed + " failed");
   process.exit(1);

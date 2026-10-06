@@ -19,6 +19,8 @@ Singleton {
   readonly property string lockWallpaper: stateHome + "/asahi/lock-wallpaper"
   property int thumbsEpoch: 0
   readonly property string thumbCacheDir: WallThumbs.cacheDir(Quickshell.env("HOME"))
+  property int hqEpoch: 0
+  readonly property string hqCacheDir: WallThumbs.hqCacheDir(Quickshell.env("HOME"))
 
   // Live preview (caelestia Wallpapers.preview): the carousel's centre item is
   // shown on the desktop, its palette is applied to the shell without touching
@@ -165,6 +167,12 @@ Singleton {
     return WallThumbs.previewSource(original, root.thumbCacheDir, root.thumbsEpoch > 0)
   }
 
+  // Picker centre window: 1920×1080 cache, built after the small thumbs. "" until ready.
+  function hqSource(original) {
+    const _ = root.hqEpoch
+    return WallThumbs.previewSource(original, root.hqCacheDir, root.hqEpoch > 0)
+  }
+
   function rebuildThumbs() {
     const paths = []
     for (let i = 0; i < root.wallpapers.length; i++) paths.push(root.wallpapers[i])
@@ -262,7 +270,15 @@ Singleton {
     onExited: {
       if (root.thumbsEpoch === 0) root.thumbsEpoch = 1
       root.rebuildColorIndex()   // the index samples the thumbs, so it waits for them
+      hqProc.command = ["sh", "-c", WallThumbs.thumbBatchScript(root.wallpapers, root.hqCacheDir, WallThumbs.HQ_W, WallThumbs.HQ_H)]
+      hqProc.running = true
     }
+  }
+
+  Process {
+    id: hqProc
+    running: false
+    onExited: root.hqEpoch += 1
   }
 
   // Ensure local wallpaper state exists (silences first-run FileView warn)

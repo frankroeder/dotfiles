@@ -54,10 +54,18 @@ assert(
 );
 const infoBody = qml.match(/id:\s*ffInfoBody[\s\S]{0,250}/);
 assert(!!infoBody, "hub declares ffInfoBody");
-const factsCard = qml.match(/\/\/ Facts card\.[\s\S]{0,200}id:\s*ffInfoBody/);
+const factsCard = qml.match(/\/\/ Facts card[\s\S]{0,700}id:\s*ffInfoBody/);
 assert(
   !!factsCard && /Layout\.fillHeight:\s*true/.test(factsCard[0]),
-  "hub facts card fills leftover pane height instead of packing at the top"
+  "hub facts card takes the spare pane height (nothing piles up under it)"
+);
+assert(
+  /id:\s*ffInfoBody[\s\S]{0,200}anchors\.verticalCenter:\s*parent\.verticalCenter/.test(qml),
+  "hub fact rows stay centred in the card"
+);
+assert(
+  /rowSpacing:[\s\S]{0,40}Math\.min\(2 \* baseGap,\s*Math\.max\(baseGap,/.test(qml),
+  "hub fact row gap flexes between baseGap and 2x baseGap (never the old unbounded stretch)"
 );
 const valueBlock = qml.match(/text:\s*rowValue[\s\S]{0,800}/);
 assert(!!valueBlock, "hub value Text binds rowValue");
@@ -83,16 +91,17 @@ assert(
   "hub fact labels are left-aligned (Display must not become Displ...)"
 );
 assert(
-  /ffLabelWidth:\s*Math\.max\(68/.test(qml),
-  "hub fact label column is wide enough for Display / Kernel"
+  /ffLabelWidth:\s*Math\.max\(68,\s*Math\.round\(root\.fontPx\(10\)/.test(qml),
+  "hub fact label column tracks the fact text size"
 );
 assert(
-  /ffIconWidth:\s*Math\.max\(32/.test(qml) && /font\.pixelSize:\s*root\.fontPx\(18\)/.test(qml),
-  "hub fastfetch fact icons are enlarged"
+  /ffIconWidth:\s*Math\.max\(32,\s*root\.fontPx\(18\)/.test(qml) && /color:\s*Qt\.alpha\(modelData\.accent/.test(qml),
+  "hub fact icons sit in tinted tiles that scale with the type"
 );
 assert(
-  /Layout\.preferredHeight:\s*Math\.round\(root\.launcherGeom\.rowHTall \* 2\.7\)/.test(qml),
-  "hub meters height follows adaptive rowHTall"
+  /Layout\.minimumHeight:\s*Math\.round\(root\.launcherGeom\.rowHTall \* 2\.7\)/.test(qml)
+    && /Layout\.maximumHeight:\s*Math\.round\(root\.launcherGeom\.rowHTall \* 3\.6\)/.test(qml),
+  "hub meters height follows adaptive rowHTall (2.7–3.6 rows)"
 );
 
 const maxLen = Math.max.apply(null, lines.map(function (l) { return l.length; }));

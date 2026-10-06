@@ -6,12 +6,14 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../menu" as Menu
+import "../launcher/launcher_layout.js" as LauncherGeom
 import "../../"
 
 Scope {
   id: root
 
   property bool open: false
+  property var pkgScreen: null
   property int tab: 0 // 0 search 1 installed 2 updates
   property string query: ""
   property var packages: []
@@ -19,6 +21,10 @@ Scope {
   property bool loading: false
   property string status: ""
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
+  // Launcher geometry and type scale for the screen, so this card matches the launcher.
+  readonly property var geom: LauncherGeom.launcherLayout({ screenW: pkgPanel.width || 1920, screenH: pkgPanel.height || 1080,
+    tileCount: 11, sideActive: true, quickMode: true, headerVisible: false, hubMode: false })
+  function px(n) { return Math.round(n * root.geom.fontScale) }
   readonly property var selectedNames: {
     const out = []
     for (const k in root.selected) out.push(k)
@@ -75,6 +81,7 @@ Scope {
 
   // The bar's update chip calls this in-process (shell.qml); the keybind uses IPC.
   function toggle() {
+    if (!root.open) root.pkgScreen = root.focusedScreen()
     root.open = !root.open
     if (root.open) {
       root.tab = 0
@@ -120,12 +127,35 @@ Scope {
     }
   }
 
+  // Tonal pill button (recorder / launcher panes).
+  component Pill: Rectangle {
+    id: pill
+    property string icon: ""
+    property string label: ""
+    property color bg: Style.m3containerHigh
+    property color fg: Style.m3onSurface
+    signal clicked()
+    implicitWidth: pillRow.implicitWidth + root.px(22)
+    implicitHeight: root.px(30)
+    radius: height / 2
+    color: pillMa.containsMouse ? Qt.lighter(bg, 1.12) : bg
+    Behavior on color { ColorAnimation { duration: 120 } }
+    Row {
+      id: pillRow
+      anchors.centerIn: parent
+      spacing: root.px(6)
+      Text { visible: pill.icon !== ""; text: pill.icon; color: pill.fg; font.family: Style.menuMono; font.pixelSize: root.px(13); anchors.verticalCenter: parent.verticalCenter }
+      Text { text: pill.label; color: pill.fg; font.family: Style.menuSans; font.pixelSize: root.px(11); font.weight: Font.DemiBold; anchors.verticalCenter: parent.verticalCenter }
+    }
+    MouseArea { id: pillMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: pill.clicked() }
+  }
+
   PanelWindow {
     id: pkgPanel
     visible: root.open
     focusable: true
     color: "transparent"
-    screen: root.focusedScreen()
+    screen: root.pkgScreen
 
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
@@ -146,101 +176,110 @@ Scope {
         onClicked: root.open = false
       }
 
+    // Same footprint as the launcher card on this screen.
     Menu.MenuCard {
-      anchors.centerIn: parent
-      width: Math.min(920, parent.width * 0.9)
-      height: Math.min(680, parent.height * 0.82)
-      cardMargin: 18
+      anchors.horizontalCenter: parent.horizontalCenter
+      y: root.geom.cardY
+      width: root.geom.cardWidth
+      height: root.geom.cardHeight
+      cardMargin: root.geom.cardMargin
 
       ColumnLayout {
         anchors.fill: parent
-        spacing: 10
+        spacing: root.px(10)
 
+        // Header: glyph tile, title + status, tabs.
         RowLayout {
           Layout.fillWidth: true
-          spacing: 10
-          Text {
-            text: "󰏖"
-            color: Style.menuSeal
-            font.family: Style.fontFamily
-            font.pixelSize: 20
+          spacing: root.px(12)
+          Rectangle {
+            width: root.px(40); height: width; radius: Style.menuRadiusMd
+            color: Style.m3primaryContainer
+            Text { anchors.centerIn: parent; text: "󰏖"; color: Style.m3primary; font.family: Style.menuMono; font.pixelSize: root.px(20) }
           }
-          Text {
+          ColumnLayout {
             Layout.fillWidth: true
-            text: "Packages"
-            color: Style.menuInk
-            font.family: Style.menuMono
-            font.pixelSize: 16
-            font.letterSpacing: 0.15
-            font.weight: Font.Medium
+            spacing: 0
+            Text { text: "Packages"; color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: root.px(16); font.weight: Font.DemiBold }
+            Text {
+              Layout.fillWidth: true
+              text: root.loading ? (root.tab === 2 ? "Checking for updates…" : "Searching…") : root.status
+              color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: root.px(10); elide: Text.ElideRight
+            }
           }
-          Text {
-            text: root.loading ? "searching…" : root.status
-            color: Style.menuInkDeep
-            font.family: Style.fontFamily
-            font.pixelSize: 11
-          }
-        }
-
-        RowLayout {
-          Layout.fillWidth: true
-          spacing: 6
-          Repeater {
-            model: [
-              { id: 0, label: "Search" },
-              { id: 1, label: "Installed" },
-              { id: 2, label: "Updates" }
-            ]
-            Rectangle {
-              required property var modelData
-              height: 28
-              width: tabLbl.implicitWidth + 18
-              radius: 8
-              color: root.tab === modelData.id ? Style.menuRowSel : (tabMa.containsMouse ? Style.menuRowHi : Style.menuControlBg)
-              border.width: 1
-              border.color: root.tab === modelData.id ? Style.menuSeal : Style.menuSep
-              Text {
-                id: tabLbl
-                anchors.centerIn: parent
-                text: modelData.label
-                color: Style.menuInk
-                font.family: Style.fontFamily
-                font.pixelSize: 12
-              }
-              MouseArea {
-                id: tabMa
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                  root.tab = modelData.id
-                  if (modelData.id === 2 || (modelData.id === 1 && root.query.trim() === "")) root.runQuery()
-                  else if (modelData.id === 0 && root.query.trim().length >= 2) root.runQuery()
+          // Segmented tabs.
+          Rectangle {
+            implicitWidth: tabRow.implicitWidth + root.px(8)
+            implicitHeight: root.px(36)
+            radius: height / 2
+            color: Style.m3container
+            Row {
+              id: tabRow
+              anchors.centerIn: parent
+              spacing: root.px(2)
+              Repeater {
+                model: [
+                  { id: 0, label: "Search", icon: "󰍉" },
+                  { id: 1, label: "Installed", icon: "󰏗" },
+                  { id: 2, label: "Updates", icon: "󰚰" }
+                ]
+                Rectangle {
+                  required property var modelData
+                  readonly property bool on: root.tab === modelData.id
+                  implicitWidth: tabInner.implicitWidth + root.px(22)
+                  implicitHeight: root.px(28)
+                  radius: height / 2
+                  color: on ? Style.m3primary : (tabMa.containsMouse ? Style.m3stateHover : "transparent")
+                  Behavior on color { ColorAnimation { duration: 120 } }
+                  Row {
+                    id: tabInner
+                    anchors.centerIn: parent
+                    spacing: root.px(5)
+                    Text { text: modelData.icon; color: on ? Style.m3onPrimary : Style.m3onSurfaceVariant; font.family: Style.menuMono; font.pixelSize: root.px(12); anchors.verticalCenter: parent.verticalCenter }
+                    Text { text: modelData.label; color: on ? Style.m3onPrimary : Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: root.px(11); font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter }
+                  }
+                  MouseArea {
+                    id: tabMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                      root.tab = modelData.id
+                      if (modelData.id === 2 || (modelData.id === 1 && root.query.trim() === "")) root.runQuery()
+                      else if (modelData.id === 0 && root.query.trim().length >= 2) root.runQuery()
+                    }
+                  }
                 }
               }
             }
           }
-          Item { Layout.fillWidth: true }
         }
 
+        // Search field (launcher search pill).
         Rectangle {
           Layout.fillWidth: true
-          height: 36
-          radius: 8
-          color: Style.menuControlBg
-          border.color: searchField.activeFocus ? Style.menuSeal : Style.menuSep
-          border.width: 1
+          implicitHeight: root.px(40)
+          radius: height / 2
+          color: Style.m3container
+          border.width: searchField.activeFocus ? 1 : 0
+          border.color: Style.menuSelBorder
           visible: root.tab !== 2
+          Text {
+            id: searchGlyph
+            anchors.left: parent.left; anchors.leftMargin: root.px(14)
+            anchors.verticalCenter: parent.verticalCenter
+            text: "󰍉"; color: Style.m3onSurfaceVariant; font.family: Style.menuMono; font.pixelSize: root.px(14)
+          }
           TextInput {
             id: searchField
-            anchors.fill: parent
-            anchors.leftMargin: 12
-            anchors.rightMargin: 12
-            verticalAlignment: Text.AlignVCenter
-            color: Style.menuInk
-            font.family: Style.fontFamily
-            font.pixelSize: 13
+            anchors.left: searchGlyph.right; anchors.leftMargin: root.px(10)
+            anchors.right: parent.right; anchors.rightMargin: root.px(14)
+            anchors.verticalCenter: parent.verticalCenter
+            color: Style.m3onSurface
+            font.family: Style.menuSans
+            font.pixelSize: root.px(13)
             clip: true
+            selectByMouse: true
             text: root.query
             onTextChanged: {
               root.query = text
@@ -248,125 +287,165 @@ Scope {
             }
             Keys.onReturnPressed: root.runQuery()
             Keys.onEscapePressed: root.open = false
+            Text {
+              anchors.fill: parent
+              verticalAlignment: Text.AlignVCenter
+              visible: !parent.text
+              text: root.tab === 1 ? "Filter installed packages" : "Search dnf packages"
+              color: Style.m3onSurfaceVariant
+              font: parent.font
+            }
           }
         }
 
-        ListView {
-          id: pkgList
+        // Results, in one container card like the launcher lists.
+        Rectangle {
           Layout.fillWidth: true
           Layout.fillHeight: true
+          radius: Style.menuRadiusLg
+          color: Style.m3container
           clip: true
-          spacing: 4
-          boundsBehavior: Flickable.StopAtBounds
-          model: root.packages
-          ScrollBar.vertical: Menu.MenuScrollBar {}
-          delegate: Rectangle {
-            required property var modelData
-            width: pkgList.width
-            height: 52
-            radius: 8
-            color: root.isSelected(modelData.name) ? Style.menuRowSel : (rowMa.containsMouse ? Style.menuRowHi : Style.menuControlBg)
-            border.width: 1
-            border.color: root.isSelected(modelData.name) ? Style.menuSeal : Style.menuSep
-            RowLayout {
-              anchors.fill: parent
-              anchors.margins: 10
-              spacing: 10
-              Text {
-                text: root.isSelected(modelData.name) ? "󰄲" : "󰄱"
-                color: root.isSelected(modelData.name) ? Style.menuSeal : Style.menuInkDeep
-                font.pixelSize: 16
+
+          ListView {
+            id: pkgList
+            anchors.fill: parent
+            anchors.margins: root.px(6)
+            clip: true
+            spacing: root.px(2)
+            boundsBehavior: Flickable.StopAtBounds
+            model: root.packages
+            ScrollBar.vertical: Menu.MenuScrollBar { id: pkgScroll }
+            delegate: Rectangle {
+              id: pkgRow
+              required property var modelData
+              readonly property bool sel: root.isSelected(modelData.name)
+              width: pkgList.width - pkgScroll.width
+              height: pkgText.implicitHeight + root.px(16)
+              radius: Style.menuRadiusMd
+              color: sel ? Style.menuSelFill : (rowMa.containsMouse ? Style.m3stateHover : "transparent")
+              border.width: sel ? 1 : 0
+              border.color: Style.menuSelBorder
+              Behavior on color { ColorAnimation { duration: 120 } }
+              RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: root.px(8); anchors.rightMargin: root.px(12)
+                spacing: root.px(10)
+                Rectangle {
+                  width: root.px(30); height: width; radius: Style.menuRadiusMd
+                  color: pkgRow.sel ? Style.m3primary : Style.m3containerHigh
+                  Text {
+                    anchors.centerIn: parent
+                    text: pkgRow.sel ? "󰄬" : "󰏗"
+                    color: pkgRow.sel ? Style.m3onPrimary : Style.m3onSurfaceVariant
+                    font.family: Style.menuMono; font.pixelSize: root.px(14)
+                  }
+                }
+                ColumnLayout {
+                  id: pkgText
+                  Layout.fillWidth: true
+                  spacing: 1
+                  Text {
+                    Layout.fillWidth: true
+                    text: pkgRow.modelData.name
+                    color: Style.m3onSurface
+                    font.family: Style.menuSans; font.pixelSize: root.px(12); font.weight: Font.Medium
+                    elide: Text.ElideRight
+                  }
+                  Text {
+                    Layout.fillWidth: true
+                    visible: text !== ""
+                    text: pkgRow.modelData.summary || pkgRow.modelData.repo || ""
+                    color: Style.m3onSurfaceVariant
+                    font.family: Style.menuSans; font.pixelSize: root.px(10)
+                    elide: Text.ElideRight
+                  }
+                }
+                // Version chip.
+                Rectangle {
+                  visible: !!pkgRow.modelData.version
+                  implicitWidth: verLbl.implicitWidth + root.px(14); implicitHeight: root.px(22)
+                  radius: height / 2
+                  color: Style.m3secondaryContainer
+                  Text {
+                    id: verLbl
+                    anchors.centerIn: parent
+                    text: pkgRow.modelData.version || ""
+                    color: Style.m3onSurface; font.family: Style.menuMono; font.pixelSize: root.px(9)
+                  }
+                }
               }
-              ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 2
-                Text {
-                  Layout.fillWidth: true
-                  text: modelData.name + (modelData.version ? "  " + modelData.version : "")
-                  color: Style.menuInk
-                  font.family: Style.fontFamily
-                  font.pixelSize: 13
-                  elide: Text.ElideRight
-                }
-                Text {
-                  Layout.fillWidth: true
-                  text: modelData.summary || modelData.repo || ""
-                  color: Style.menuInkDeep
-                  font.family: Style.fontFamily
-                  font.pixelSize: 11
-                  elide: Text.ElideRight
-                }
+              MouseArea {
+                id: rowMa
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.toggleSelect(pkgRow.modelData)
               }
             }
-            MouseArea {
-              id: rowMa
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              onClicked: root.toggleSelect(modelData)
-            }
+          }
+
+          Menu.MenuEmptyState {
+            anchors.centerIn: parent
+            visible: root.packages.length === 0
+            fontScale: root.geom.fontScale
+            glyph: root.loading ? "󰔟" : root.tab === 2 ? "󰚰" : root.tab === 1 ? "󰏗" : "󰏖"
+            tint: Style.m3primary
+            title: root.loading ? (root.tab === 2 ? "Checking for updates…" : "Searching…")
+              : root.tab === 2 ? (root.status === "No packages" ? "Everything is up to date" : "Updates")
+              : root.status === "No packages" ? "No matches"
+              : root.tab === 1 ? "Installed packages" : "Find a package"
+            detail: root.loading ? ""
+              : root.tab === 2 ? ""
+              : root.status === "No packages" ? "Try another name."
+              : root.tab === 1 ? "Type to filter, then click rows to queue a removal."
+              : "Type at least two letters. Click rows to queue them."
           }
         }
 
+        // Footer: queue + actions. Install / remove run in Ghostty via sudo dnf.
         RowLayout {
           Layout.fillWidth: true
-          spacing: 8
+          spacing: root.px(8)
           Text {
-            text: root.selectedNames.length ? root.selectedNames.length + " queued" : "Click to queue"
-            color: Style.menuInkDeep
-            font.family: Style.fontFamily
-            font.pixelSize: 11
+            text: root.selectedNames.length ? root.selectedNames.length + " queued" : "Nothing queued"
+            color: root.selectedNames.length ? Style.m3onSurface : Style.m3onSurfaceVariant
+            font.family: Style.menuSans; font.pixelSize: root.px(11); font.weight: Font.Medium
           }
-          Item { Layout.fillWidth: true }
-          Rectangle {
-            visible: root.tab !== 1
-            height: 30; width: instLbl.implicitWidth + 16; radius: 8
-            color: instMa.containsMouse ? Style.panelSuccessBg : Style.menuControlBg
-            border.color: Style.menuSep
-            Text { id: instLbl; anchors.centerIn: parent; text: "install"; color: Style.green; font.family: Style.fontFamily; font.pixelSize: 12 }
-            MouseArea { id: instMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.applyQueue("install") }
+          Text {
+            Layout.fillWidth: true
+            text: "· runs in Ghostty via sudo dnf"
+            color: Style.m3onSurfaceVariant
+            font.family: Style.menuSans; font.pixelSize: root.px(10)
+            elide: Text.ElideRight
           }
-          Rectangle {
+          Pill {
+            visible: root.selectedNames.length > 0
+            icon: "󰅖"; label: "Clear"
+            onClicked: root.clearQueue()
+          }
+          Pill {
+            visible: root.tab === 0
+            icon: "󰇚"; label: "Install"
+            bg: Style.m3primary; fg: Style.m3onPrimary
+            onClicked: root.applyQueue("install")
+          }
+          Pill {
             visible: root.tab === 1
-            height: 30; width: rmLbl.implicitWidth + 16; radius: 8
-            color: rmMa.containsMouse ? Style.panelDangerBg : Style.menuControlBg
-            border.color: Style.menuSep
-            Text { id: rmLbl; anchors.centerIn: parent; text: "remove"; color: Style.red; font.family: Style.fontFamily; font.pixelSize: 12 }
-            MouseArea { id: rmMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.applyQueue("remove") }
+            icon: "󰆴"; label: "Remove"
+            bg: Qt.alpha(Style.red, 0.18); fg: Style.red
+            onClicked: root.applyQueue("remove")
           }
-          Rectangle {
+          Pill {
             visible: root.tab === 2
-            height: 30; width: upLbl.implicitWidth + 16; radius: 8
-            color: upMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
-            border.color: Style.menuSep
-            Text { id: upLbl; anchors.centerIn: parent; text: "upgrade selected"; color: Style.menuInk; font.family: Style.fontFamily; font.pixelSize: 12 }
-            MouseArea { id: upMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.applyQueue("upgrade") }
+            icon: "󰚰"; label: "Upgrade selected"
+            onClicked: root.applyQueue("upgrade")
           }
-          Rectangle {
+          Pill {
             visible: root.tab === 2
-            height: 30; width: allLbl.implicitWidth + 16; radius: 8
-            color: allMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
-            border.color: Style.menuSep
-            Text { id: allLbl; anchors.centerIn: parent; text: "upgrade all"; color: Style.menuInk; font.family: Style.fontFamily; font.pixelSize: 12 }
-            MouseArea { id: allMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.applyQueue("upgrade-all") }
+            icon: "󰚰"; label: "Upgrade all"
+            bg: Style.m3primary; fg: Style.m3onPrimary
+            onClicked: root.applyQueue("upgrade-all")
           }
-          Rectangle {
-            height: 30; width: clrLbl.implicitWidth + 16; radius: 8
-            color: clrMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
-            border.color: Style.menuSep
-            Text { id: clrLbl; anchors.centerIn: parent; text: "clear"; color: Style.menuInkDeep; font.family: Style.fontFamily; font.pixelSize: 12 }
-            MouseArea { id: clrMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.clearQueue() }
-          }
-        }
-
-        Text {
-          Layout.fillWidth: true
-          text: "Install and remove run in Ghostty via sudo dnf — no password in Quickshell."
-          color: Style.menuInkDeep
-          font.family: Style.fontFamily
-          font.pixelSize: 10
-          opacity: 0.75
-          wrapMode: Text.WordWrap
         }
       }
     }

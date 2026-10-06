@@ -53,4 +53,8 @@ if [ -d "$HOME/.cache/thumbnails" ]; then
   rm -rfv "$HOME/.cache/thumbnails"/*
 fi
 
+# Asahi quickshell previews (wallpaper picker tiers, screenshot gallery): rebuilt on the
+# next scan; also drops thumbs of deleted wallpapers and old size-versioned dirs.
+rm -rf "$HOME/.cache/asahi/wallpaper-thumbs" "$HOME/.cache/asahi/shot-thumbs"
+
 echo "Trash emptied and caches cleaned (Linux)"

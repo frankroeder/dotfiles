@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
 import "../../../"
+import "../BarModel.js" as BarModel
 import "../../../services" as Services
 
 // Recorder chip popup (caelestia utilities Record card): start modes when
@@ -29,6 +30,7 @@ PopupWindow {
   visible: root.panelOpen || (Services.Recorder.panelOpen && root.sameScreen)
   color: "transparent"
   anchor.edges: Edges.Bottom
+  anchor.margins.bottom: -BarModel.popupDrop(root.barHost ? root.barHost.height : Style.barHeight, Style.barHeight)  // negative = below
   implicitWidth: 380
   implicitHeight: col.implicitHeight + 32
 
@@ -56,24 +58,40 @@ PopupWindow {
     onActivated: root.close()
   }
 
-  component Pill: Rectangle {
+  // Mode tile: glyph tile + label on the container tone, like the launcher pane cards.
+  component ModeTile: Rectangle {
     property string icon
     property string label
-    property color bg: Style.m3containerHigh
-    property color fg: Style.m3onSurface
+    property color tint: Style.m3primary
     signal clicked()
     Layout.fillWidth: true
-    implicitHeight: 40
-    radius: Style.menuRadiusFull
-    color: ma.containsMouse ? Qt.lighter(bg, 1.15) : bg
+    implicitHeight: 54
+    radius: Style.menuRadiusLg
+    color: ma.containsMouse ? Style.m3containerHigh : Style.m3container
     Behavior on color { ColorAnimation { duration: 120 } }
     Row {
-      anchors.centerIn: parent
-      spacing: 8
-      Text { text: icon; color: fg; font.family: Style.fontFamily; font.pixelSize: 16; anchors.verticalCenter: parent.verticalCenter }
-      Text { text: label; color: fg; font.family: Style.menuSans; font.pixelSize: 12; font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter }
+      anchors.left: parent.left
+      anchors.leftMargin: 8
+      anchors.verticalCenter: parent.verticalCenter
+      spacing: 10
+      Rectangle {
+        width: 38; height: 38; radius: Style.menuRadiusMd
+        color: Qt.alpha(tint, 0.16)
+        Text { anchors.centerIn: parent; text: icon; color: tint; font.family: Style.menuMono; font.pixelSize: 22 }
+      }
+      Text { text: label; color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: 13; font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter }
     }
     MouseArea { id: ma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
+  }
+
+  // Same small tracked caps as SysPanel's section titles.
+  component Caption: Text {
+    color: Style.menuInkDeep
+    font.family: Style.menuSans
+    font.pixelSize: 10
+    font.weight: Font.DemiBold
+    font.letterSpacing: 1.2
+    font.capitalization: Font.AllUppercase
   }
 
   component RoundBtn: Rectangle {
@@ -92,17 +110,15 @@ PopupWindow {
     property color tone: Style.m3onSurfaceVariant
     signal clicked()
     color: ima.containsMouse ? Style.m3onSurface : tone
-    font.family: Style.fontFamily
-    font.pixelSize: 15
+    font.family: Style.menuMono
+    font.pixelSize: 18
     leftPadding: 4; rightPadding: 4
     MouseArea { id: ima; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
   }
 
   Rectangle {
     anchors.fill: parent
-    color: Style.menuBg
-    border.color: Style.menuSep
-    border.width: 1
+    color: Style.m3surfaceSolid
     radius: Style.menuRadiusLg
 
     ColumnLayout {
@@ -116,17 +132,17 @@ PopupWindow {
         Layout.fillWidth: true
         spacing: 12
         Rectangle {
-          width: 40; height: 40; radius: 20
-          color: root.rec ? Style.red : Style.m3secondaryContainer
+          width: 44; height: 44; radius: Style.menuRadiusMd
+          color: root.rec ? Style.red : Qt.alpha(Style.red, 0.16)
           Behavior on color { ColorAnimation { duration: 160 } }
-          Text { anchors.centerIn: parent; text: "󰑋"; color: root.rec ? Style.m3onPrimary : Style.m3onSurface; font.family: Style.fontFamily; font.pixelSize: 20 }
+          Text { anchors.centerIn: parent; text: "󰑊"; color: root.rec ? Style.m3onPrimary : Style.red; font.family: Style.menuMono; font.pixelSize: 26 }
         }
         ColumnLayout {
           Layout.fillWidth: true
           spacing: 1
-          Text { text: "Screen recorder"; color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: 14; font.weight: Font.DemiBold }
+          Text { Layout.fillWidth: true; text: "Screen recorder"; color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: 14; font.weight: Font.DemiBold }
           Text {
-            text: root.rec ? "Recording…" : "Ready"
+            text: root.rec ? "Recording…" : "Ready · saves to ~/Videos"
             color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: 11
           }
         }
@@ -139,7 +155,7 @@ PopupWindow {
         // Always-present close affordance: the bar chip that opens this panel can
         // disappear out from under it (e.g. recording stops), so closing must not
         // depend on clicking back on the chip.
-        IconBtn { text: "󰅖"; font.pixelSize: 18; onClicked: root.close() }
+        IconBtn { text: "󰅖"; font.pixelSize: 22; onClicked: root.close() }
       }
 
       // Running: file + size, pause / stop.
@@ -178,48 +194,68 @@ PopupWindow {
         columns: 2
         columnSpacing: 8
         rowSpacing: 8
-        Pill { icon: "󰍹"; label: "Display"; bg: Style.m3primaryContainer; onClicked: { root.close(); Services.Recorder.start("fullscreen", false) } }
-        Pill { icon: "󰩬"; label: "Region"; onClicked: { root.close(); Services.Recorder.start("region", false) } }
-        Pill { icon: "󰄀"; label: "Display + cam"; onClicked: { root.close(); Services.Recorder.start("fullscreen", true) } }
-        Pill { icon: "󰄀"; label: "Region + cam"; onClicked: { root.close(); Services.Recorder.start("region", true) } }
+        ModeTile { icon: "󰍹"; label: "Display"; onClicked: { root.close(); Services.Recorder.start("fullscreen", false) } }
+        ModeTile { icon: "󰩬"; label: "Region"; onClicked: { root.close(); Services.Recorder.start("region", false) } }
+        ModeTile { icon: "󰄀"; label: "Display + cam"; tint: Style.m3tertiary; onClicked: { root.close(); Services.Recorder.start("fullscreen", true) } }
+        ModeTile { icon: "󰄀"; label: "Region + cam"; tint: Style.m3tertiary; onClicked: { root.close(); Services.Recorder.start("region", true) } }
       }
 
-      // Recent recordings.
+      // Recent recordings, in one container card like the launcher lists.
       RowLayout {
         Layout.fillWidth: true
         Layout.topMargin: 2
-        Text { text: "Recent"; color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: 11; font.weight: Font.Medium }
+        Caption { text: "Recent" }
         Item { Layout.fillWidth: true }
         IconBtn { text: "󰉋"; onClicked: { root.close(); Services.Recorder.revealFolder() } }
       }
-      Text {
-        visible: (Services.Recorder.recent || []).length === 0
-        text: "No recordings yet"
-        color: Style.m3outline; font.family: Style.menuSans; font.pixelSize: 11
-      }
-      Repeater {
-        model: Services.Recorder.recent
-        delegate: Rectangle {
-          required property var modelData
-          readonly property bool armed: root.confirmDelete === modelData.path
-          Layout.fillWidth: true
-          implicitHeight: 34
-          radius: Style.menuRadiusMd
-          color: rowMa.containsMouse ? Style.m3stateHover : "transparent"
-          MouseArea { id: rowMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { root.close(); Services.Recorder.open(modelData.path) } }
-          RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 10; anchors.rightMargin: 6
-            spacing: 6
-            Text { text: "󰕧"; color: Style.m3primary; font.family: Style.fontFamily; font.pixelSize: 14 }
-            Text { Layout.fillWidth: true; text: modelData.label; color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: 12; elide: Text.ElideMiddle }
-            Text { text: Services.Recorder.fmtBytes(modelData.bytes); color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: 10 }
-            IconBtn {
-              text: armed ? "󰆴" : "󰩹"
-              tone: armed ? Style.red : Style.m3onSurfaceVariant
-              onClicked: {
-                if (armed) { Services.Recorder.remove(modelData.path); root.confirmDelete = "" }
-                else root.confirmDelete = modelData.path
+      Rectangle {
+        Layout.fillWidth: true
+        implicitHeight: recentCol.implicitHeight + 12
+        radius: Style.menuRadiusLg
+        color: Style.m3container
+        ColumnLayout {
+          id: recentCol
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: parent.top
+          anchors.margins: 6
+          spacing: 2
+          Text {
+            visible: (Services.Recorder.recent || []).length === 0
+            Layout.fillWidth: true
+            Layout.margins: 8
+            text: "No recordings yet"
+            color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: 11
+          }
+          Repeater {
+            model: Services.Recorder.recent
+            delegate: Rectangle {
+              required property var modelData
+              readonly property bool armed: root.confirmDelete === modelData.path
+              Layout.fillWidth: true
+              implicitHeight: 44
+              radius: Style.menuRadiusMd
+              color: rowMa.containsMouse ? Style.m3stateHover : "transparent"
+              MouseArea { id: rowMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { root.close(); Services.Recorder.open(modelData.path) } }
+              RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 6; anchors.rightMargin: 6
+                spacing: 10
+                Rectangle {
+                  width: 32; height: 32; radius: Style.menuRadiusMd
+                  color: Style.m3primaryContainer
+                  Text { anchors.centerIn: parent; text: "󰕧"; color: Style.m3primary; font.family: Style.menuMono; font.pixelSize: 18 }
+                }
+                Text { Layout.fillWidth: true; text: modelData.label; color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: 12; elide: Text.ElideMiddle }
+                Text { text: Services.Recorder.fmtBytes(modelData.bytes); color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: 11 }
+                IconBtn {
+                  text: armed ? "󰆴" : "󰩹"
+                  tone: armed ? Style.red : Style.m3onSurfaceVariant
+                  onClicked: {
+                    if (armed) { Services.Recorder.remove(modelData.path); root.confirmDelete = "" }
+                    else root.confirmDelete = modelData.path
+                  }
+                }
               }
             }
           }

@@ -128,20 +128,39 @@ layout_key() {
   awk -v h="$1" -v e="${edp:-1.333333333333}" 'BEGIN { printf "%.3f@%.3f", h, e }'
 }
 
-saved_pos() {
+# "outputScale pos" for this sink when the entry was kept at the current eDP
+# scale. Empty when none. The output scale lives in the key: a reload that
+# only knows the monitors.lua default (Dell 1.25) must not apply that
+# default's x to a scale-1 panel (2560px at x=-2048 overlaps eDP-1).
+saved_entry() {
   [ -s "$layout_file" ] || return 0
-  jq -r --arg d "$1" --arg k "$2" '.[$d] | select(.key == $k) | .pos // empty' "$layout_file" 2>/dev/null || true
+  local desc edp
+  desc="$(sink_desc)"
+  [ -n "$desc" ] || return 0
+  edp="$(saved_scale eDP-1)"
+  [ -n "$edp" ] || edp=1.333333333333
+  jq -r --arg d "$desc" --arg e "$edp" '
+    .[$d] | select(type == "object" and .key != null and .pos != null)
+    | (.key | split("@")) as $p
+    | select($p | length == 2)
+    | select((($p[1] | tonumber) - ($e | tonumber) | fabs) < 0.02)
+    | "\($p[0]) \(.pos)"
+  ' "$layout_file" 2>/dev/null || true
 }
 
 layout_fields() {
-  local fields desc scale pos
+  local fields entry es ep file_scale
   fields="$(derived_fields)"
-  desc="$(sink_desc)"
-  scale="$(printf '%s' "$fields" | sed -n 's/.*scale = \([^, ]*\).*/\1/p')"
-  pos=""
-  [ -n "$desc" ] && [ -n "$scale" ] && pos="$(saved_pos "$desc" "$(layout_key "$scale")")"
-  if [[ "$pos" =~ ^-?[0-9]+x-?[0-9]+$ ]]; then
-    fields="$(printf '%s' "$fields" | sed "s/position = \"[^\"]*\"/position = \"$pos\"/")"
+  file_scale="$(saved_scale "$name")"
+  entry="$(saved_entry)"
+  if [[ "$entry" =~ ^([0-9.]+)[[:space:]]+(-?[0-9]+x-?[0-9]+)$ ]]; then
+    es="${BASH_REMATCH[1]}"
+    ep="${BASH_REMATCH[2]}"
+    # A session scale file that disagrees was set after Keep: re-derive at
+    # that scale. Otherwise the kept scale and position are the layout.
+    if [ -z "$file_scale" ] || awk -v a="$file_scale" -v b="$es" 'BEGIN { exit !((a - b) < 0.02 && (b - a) < 0.02) }'; then
+      fields="$(printf '%s' "$fields" | sed -e "s/position = \"[^\"]*\"/position = \"$ep\"/" -e "s/scale = [^ ,]*/scale = $es/")"
+    fi
   fi
   printf '%s' "$fields"
 }
@@ -248,11 +267,13 @@ sync)
   fi
   ;;
 place)
-  # Position only: a partial hl.monitor merges with the live mode/scale (no modeset). The desc
-  # rules assume eDP at 4/3, so re-derive from the session eDP scale or the kept layout.
-  pos="$(layout_fields | sed -n 's/.*position = "\([^"]*\)".*/\1/p')"
-  if [[ "$pos" =~ ^-?[0-9]+x-?[0-9]+$ ]] && is_enabled; then
-    eval_monitor "position = \"$pos\""
+  # Scale and position in one eval. A position-only update keeps the live
+  # scale, so the 1.25 anchor (-2048) on a scale-1 Dell overlaps eDP-1.
+  fields="$(layout_fields)"
+  pos="$(printf '%s' "$fields" | sed -n 's/.*position = "\([^"]*\)".*/\1/p')"
+  scale="$(printf '%s' "$fields" | sed -n 's/.*scale = \([^, ]*\).*/\1/p')"
+  if [[ "$pos" =~ ^-?[0-9]+x-?[0-9]+$ ]] && [[ "$scale" =~ ^[0-9.]+$ ]] && is_enabled; then
+    eval_monitor "position = \"$pos\", scale = $scale"
   fi
   ;;
 save)

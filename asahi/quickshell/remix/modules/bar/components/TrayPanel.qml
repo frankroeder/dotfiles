@@ -73,9 +73,7 @@ PanelWindow {
     width: parent.width
     implicitHeight: column.implicitHeight + 12
     radius: Style.menuRadiusLg
-    color: Style.menuBg
-    border.width: 1
-    border.color: Style.menuSep
+    color: Style.m3surfaceSolid
     opacity: root.shouldShow ? 1 : 0
     Behavior on opacity { NumberAnimation { duration: 140 } }
 
@@ -94,7 +92,7 @@ PanelWindow {
           width: column.width - 12
           height: 42
           radius: Style.radiusSm
-          color: rowMouse.containsMouse ? Style.barStripHover : "transparent"
+          color: rowMouse.containsMouse ? Style.menuRowHi : "transparent"
           Behavior on color { ColorAnimation { duration: 120 } }
 
           readonly property string detail: BarModel.trayDetail(row.modelData.title, row.modelData.tooltipTitle)
@@ -148,7 +146,7 @@ PanelWindow {
             height: 24
             radius: Style.radiusSm
             visible: row.modelData.hasMenu
-            color: menuMouse.containsMouse ? Style.barHoverBg : "transparent"
+            color: menuMouse.containsMouse ? Style.menuRowHi : "transparent"
 
             Text {
               anchors.centerIn: parent

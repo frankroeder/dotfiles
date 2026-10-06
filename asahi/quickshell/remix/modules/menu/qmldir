@@ -14,3 +14,4 @@ MenuHudDial 1.0 MenuHudDial.qml
 MenuHudTile 1.0 MenuHudTile.qml
 MenuAnim 1.0 MenuAnim.qml
 MenuSlider 1.0 MenuSlider.qml
+MenuEmptyState 1.0 MenuEmptyState.qml

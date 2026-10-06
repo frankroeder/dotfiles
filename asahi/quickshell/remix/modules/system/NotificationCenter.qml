@@ -198,7 +198,7 @@ Scope {
     visible: root.toasts.length > 0 && !root.historyVisible
     color: "transparent"
     screen: root.toastScreen
-    // Normal + zone 0: sit below the bar's exclusive zone (44 or notch height).
+    // Normal + zone 0: sit below the bar's exclusive zone (notch floor).
     exclusionMode: ExclusionMode.Normal
     exclusiveZone: 0
     WlrLayershell.layer: WlrLayer.Overlay

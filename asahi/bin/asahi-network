@@ -181,7 +181,7 @@ if [ "$type" = "wifi" ]; then
   # Bar only shows the wifi symbol (no text label)
   text="$icon"
 elif [ "$type" = "ethernet" ]; then
-  icon="󰀂"
+  icon="󰈀"
   tooltip=$(build_ethernet_tooltip "$dev" "$conn")
   class="connected"
   pct=100

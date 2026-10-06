@@ -1244,11 +1244,20 @@ Item {
               }
             }
           }
-          Secondary {
+          Menu.MenuEmptyState {
             visible: (quickNetworkRoot.wifiNetworks || []).length === 0
             anchors.centerIn: parent
-            text: !quickNetworkRoot.wifiEnabled ? "Turn Wi-Fi on to see networks"
-              : (quickNetworkRoot.wifiScanning ? "Scanning…" : "No networks found. Rescan.")
+            fontScale: root.uiFontScale
+            iconFamily: root.uiFont
+            fontFamily: root.uiSans
+            glyph: !quickNetworkRoot.wifiEnabled ? "󰤮" : (quickNetworkRoot.wifiScanning ? "󰐷" : "󰤯")
+            tint: quickNetworkRoot.wifiEnabled ? Style.m3primary : Style.m3onSurfaceVariant
+            title: !quickNetworkRoot.wifiEnabled ? "Networks hidden"
+              : (quickNetworkRoot.wifiScanning ? "Scanning…" : "No networks found")
+            detail: !quickNetworkRoot.wifiEnabled ? "Turn on Wi-Fi to see networks nearby." : ""
+            actionIcon: !quickNetworkRoot.wifiEnabled ? "󰤨" : "󰑐"
+            actionLabel: !quickNetworkRoot.wifiEnabled ? "Turn on Wi-Fi" : (quickNetworkRoot.wifiScanning ? "" : "Rescan")
+            onAction: quickNetworkRoot.wifiEnabled ? quickNetworkRoot.rescanWifi() : quickNetworkRoot.toggleWifi()
           }
         }
       }

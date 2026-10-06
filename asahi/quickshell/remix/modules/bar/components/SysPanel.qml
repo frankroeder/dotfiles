@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import "../../../"
+import "../BarModel.js" as BarModel
 import "../sys_panel.js" as Sys
 
 // CPU / RAM chip popup: tiles, history, cores, fans, sensors, processes.
@@ -28,6 +29,7 @@ PopupWindow {
   visible: root.panelOpen
   color: "transparent"
   anchor.edges: Edges.Bottom
+  anchor.margins.bottom: -BarModel.popupDrop(root.barHost ? root.barHost.height : Style.barHeight, Style.barHeight)  // negative = below
   implicitWidth: 400
   implicitHeight: Math.min(640, col.implicitHeight + 32)
 
@@ -102,7 +104,7 @@ PopupWindow {
       spacing: 4
       Text {
         text: caption
-        color: Style.menuInkDeep; font.family: Style.fontFamily; font.pixelSize: 9
+        color: Style.menuInkDeep; font.family: Style.menuSans; font.pixelSize: 10; font.weight: Font.DemiBold
         font.letterSpacing: 1.2; font.capitalization: Font.AllUppercase
       }
       Text {
@@ -129,12 +131,13 @@ PopupWindow {
   component SectionTitle: Text {
     Layout.fillWidth: true
     Layout.topMargin: 4
+    // Same small tracked caps as the tile captions above.
     color: Style.menuInkDeep
-    font.family: Style.fontFamily
-    font.pixelSize: 9
-    font.letterSpacing: 1.6
+    font.family: Style.menuSans
+    font.pixelSize: 10
+    font.weight: Font.DemiBold
+    font.letterSpacing: 1.2
     font.capitalization: Font.AllUppercase
-    opacity: 0.8
   }
 
   component SparkBox: Rectangle {
@@ -177,9 +180,7 @@ PopupWindow {
 
   Rectangle {
     anchors.fill: parent
-    color: Style.menuBg
-    border.color: Style.menuSep
-    border.width: 1
+    color: Style.m3surfaceSolid
     radius: Style.menuRadiusLg
 
     Flickable {

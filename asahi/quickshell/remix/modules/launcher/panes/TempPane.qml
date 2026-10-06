@@ -154,7 +154,7 @@ Item {
         spacing: 18
         Menu.MenuHudDial {
           readonly property real hot: quickTempRoot.hottestSensor ? quickTempRoot.hottestSensor.value : 0
-          Layout.preferredWidth: 118; Layout.preferredHeight: 118
+          Layout.preferredWidth: Math.round(90 * root.uiFontScale); Layout.preferredHeight: Layout.preferredWidth
           value: Math.max(0, Math.min(100, hot))
           accent: quickTempRoot.hottestSensor ? quickTempRoot.tempColor(hot) : Style.m3outline
           label: "Hottest"

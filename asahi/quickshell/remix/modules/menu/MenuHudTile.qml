@@ -49,7 +49,7 @@ Item {
         anchors.centerIn: parent
         text: root.glyph
         color: root.selected ? Style.m3onPrimary : root.tint
-        font.pixelSize: Math.round(root.glyphPx * 0.72)
+        font.pixelSize: Math.max(1, Math.round(disc.width * 0.62))
         font.family: root.fontFamily
         Behavior on color { ColorAnimation { duration: Style.menuAnimMs } }
       }

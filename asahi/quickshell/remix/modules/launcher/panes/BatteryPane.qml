@@ -18,7 +18,7 @@ Item {
 
   property string batIcon: "󰁹"
   property string batStatus: ""
-  property int batPercentage: 0
+  property int batPercentage: -1  // -1 until the first read (no red "0%" flash)
   property var batClass: []
   property var batLines: []
   property string batTimeRemaining: ""
@@ -54,14 +54,19 @@ Item {
       "Charge limits": "󰂅", "Mode": "󰒓", "AC online": "󰚥", "Input limit": "󰚥", "Model": "󰘚", "Mfg": "󰃭", "Power": "󱐋" }
     return g[key] || "󰋼"
   }
-  readonly property var batFacts: factPairs(quickBatteryRoot.batDetailLines).filter(function(f) { return f.k.indexOf("Time") !== 0 })
   readonly property var batChips: {
     const all = factPairs(quickBatteryRoot.batLines)
     return all.filter(function(f) { return ["Health", "Cycles", "Power", "Temp"].indexOf(f.k) >= 0 })
   }
+  // The chip row already shows Health / Cycles / Power / Temp.
+  readonly property var batFacts: {
+    const chipKeys = quickBatteryRoot.batChips.map(function(f) { return f.k })
+    return factPairs(quickBatteryRoot.batDetailLines).filter(function(f) { return f.k.indexOf("Time") !== 0 && chipKeys.indexOf(f.k) < 0 })
+  }
   readonly property bool batCharging: (quickBatteryRoot.batClass || []).indexOf("charging") >= 0
   function ringColor() {
     if (quickBatteryRoot.batCharging) return Style.yellow
+    if (quickBatteryRoot.batPercentage < 0) return Style.m3onSurfaceVariant
     if (quickBatteryRoot.batPercentage < 20) return Style.red
     return Style.green
   }
@@ -209,8 +214,8 @@ Item {
         anchors.margins: 14
         spacing: 18
         Menu.MenuHudDial {
-          Layout.preferredWidth: 132; Layout.preferredHeight: 132
-          value: quickBatteryRoot.batPercentage
+          Layout.preferredWidth: Math.round(100 * root.uiFontScale); Layout.preferredHeight: Layout.preferredWidth
+          value: Math.max(0, quickBatteryRoot.batPercentage)
           accent: quickBatteryRoot.ringColor()
           label: "Battery"
           icon: quickBatteryRoot.batIcon
@@ -223,7 +228,7 @@ Item {
           RowLayout {
             spacing: 12
             Text {
-              text: quickBatteryRoot.batPercentage + "%"
+              text: quickBatteryRoot.batPercentage < 0 ? "—" : quickBatteryRoot.batPercentage + "%"
               color: quickBatteryRoot.ringColor()
               font.family: root.uiSans; font.pixelSize: root.fontPx(30); font.weight: Font.DemiBold
             }
@@ -331,10 +336,12 @@ Item {
       }
     }
 
-    // Facts card: two-column key/value grid.
+    // Facts card fills the rest: row gaps flex baseGap..2×baseGap with the rows centred,
+    // and a pane too short for the rows scrolls.
     Rectangle {
       Layout.fillWidth: true
       Layout.fillHeight: true
+      Layout.minimumHeight: 96
       radius: Style.menuPanelRadius
       color: Style.m3container
       Text {
@@ -354,9 +361,13 @@ Item {
         GridLayout {
           id: factGrid
           width: factFlick.width
+          y: Math.max(0, Math.round((factFlick.height - implicitHeight) / 2))
           columns: 2
           columnSpacing: 24
-          rowSpacing: 6
+          readonly property int rowCount: Math.ceil(quickBatteryRoot.batFacts.length / 2)
+          readonly property real rowH: children.reduce((m, c) => Math.max(m, c.implicitHeight), 0)
+          rowSpacing: rowCount > 1 ? Math.floor(Math.min(2 * baseGap, Math.max(baseGap, (factFlick.height - rowH * rowCount) / (rowCount - 1)))) : baseGap
+          readonly property int baseGap: Math.max(10, Math.round(root.fontPx(7)))
           Repeater {
             model: quickBatteryRoot.batFacts
             delegate: RowLayout {
@@ -364,7 +375,7 @@ Item {
               Layout.fillWidth: true
               spacing: 10
               Rectangle {
-                width: 30; height: 30; radius: Style.menuRadiusMd
+                width: Math.max(30, Math.round(root.fontPx(13) * 1.9)); height: width; radius: Style.menuRadiusMd
                 color: Style.m3primaryContainer
                 Text {
                   anchors.centerIn: parent; text: quickBatteryRoot.factGlyph(modelData.k); color: Style.m3primary

@@ -88,8 +88,16 @@ case "$action" in
     exit 0
     ;;
   set) target=${2:?scale}; name="${3:-$(focused_monitor)}" ;;
+  remember)
+    # Record a scale the Displays pane already applied. Do not move the output.
+    target=${2:?scale}; name="${3:-$(focused_monitor)}"
+    [ -n "$name" ] || { echo "asahi-monitor-scale: no output" >&2; exit 1; }
+    mkdir -p "$dir"
+    printf '%s\n' "$target" >"$dir/$name"
+    exit 0
+    ;;
   up | down | cycle | status) name="${2:-$(focused_monitor)}" ;;
-  *) echo "usage: asahi-monitor-scale {up|down|cycle|set <scale>|apply|status} [output]" >&2; exit 2 ;;
+  *) echo "usage: asahi-monitor-scale {up|down|cycle|set <scale>|remember <scale>|apply|status} [output]" >&2; exit 2 ;;
 esac
 
 [ -n "$name" ] || { echo "asahi-monitor-scale: no focused monitor" >&2; exit 1; }

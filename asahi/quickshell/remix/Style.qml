@@ -58,7 +58,7 @@ Singleton {
   readonly property color wsEmptyBg:        themedAlpha("text", 0.04)
   readonly property color wsInactiveBorder: themedAlpha("text", 0.14)
   readonly property color wsVisibleBorder:  themedAlpha("sky", 0.30)
-  readonly property color wsBadgeActiveBg:     themedAlpha("crust", 0.30)
+  readonly property color wsBadgeActiveBg:     accent
   readonly property color wsBadgeHoverBg:      themedAlpha("sky", 0.24)
   readonly property color wsBadgeVisibleBg:    themedAlpha("sky", 0.18)
   readonly property color wsBadgeOccupiedBg:   themedAlpha("text", 0.16)
@@ -117,6 +117,8 @@ Singleton {
   readonly property color menuSuccessWash: themedAlpha("green", 0.28)
   // Material 3 roles (caelestia-style panels) mapped onto the wallpaper palette.
   readonly property color m3surface:            themedAlpha("base", 0.96)
+  // Bar popups are xdg popups (no layer blur): opaque, or windows bleed through.
+  readonly property color m3surfaceSolid:       themed("base")
   readonly property color m3container:          themed("surface0")
   readonly property color m3containerHigh:      themed("surface1")
   readonly property color m3onSurface:          themed("text")
@@ -211,7 +213,7 @@ Singleton {
   readonly property int barEdgeMargin: 10
   readonly property int barIconSlot: 26
   readonly property int barChipInset: 4
-  readonly property int barWsIcon: 21
+  readonly property int barWsIcon: 20
   readonly property int barWsSlot: 24
 
   readonly property string fontFamily: "JetBrainsMono Nerd Font"

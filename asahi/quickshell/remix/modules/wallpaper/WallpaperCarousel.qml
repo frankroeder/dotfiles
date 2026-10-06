@@ -24,7 +24,8 @@ Item {
   signal activated(string path)
 
   readonly property int _vw: viewW > 0 ? viewW : width
-  readonly property var frame: WallThumbs.carouselFrame(_vw)
+  property int maxExpandedW: 768
+  readonly property var frame: WallThumbs.carouselFrame(_vw, maxExpandedW)
   // Resolved from the path, not a stored index: Dark/Light replaces `paths`
   // with a shorter array and the old index used to fall off the end.
   readonly property int shownIndex: WallThumbs.resolveCarouselIndex(paths, selectedPath, anchorPath)
@@ -165,6 +166,17 @@ Item {
                 smooth: true
                 retainWhileLoading: true
               }
+              // Centre window: the 1920×1080 cache tier (the 640×360 thumb is blurry that
+              // large). The thumb shows until it loads.
+              Image {
+                anchors.fill: parent
+                visible: slice.selected && status === Image.Ready
+                source: slice.selected && slice.path ? WallpaperService.hqSource(slice.path) : ""
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                cache: true
+                smooth: true
+              }
               Rectangle {
                 anchors.fill: parent
                 color: "#000000"
@@ -199,16 +211,22 @@ Item {
               }
             }
 
+            // Applied wallpaper: a labelled chip (a bare dot read as a speck of dust).
             Rectangle {
               visible: slice.applied
-              x: slice.skew + 10
-              y: 10
-              width: 10
-              height: 10
-              radius: 5
-              color: Style.m3primary
-              border.width: 2
-              border.color: Style.m3surface
+              x: slice.skew + 12
+              y: 12
+              width: curRow.implicitWidth + 18
+              height: 26
+              radius: height / 2
+              color: Style.m3surface
+              Row {
+                id: curRow
+                anchors.centerIn: parent
+                spacing: 5
+                Text { text: "󰄬"; color: Style.m3primary; font.family: root.iconFamily; font.pixelSize: 13; anchors.verticalCenter: parent.verticalCenter }
+                Text { text: "Current"; color: Style.m3onSurface; font.family: root.fontFamily; font.pixelSize: 12; font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter }
+              }
             }
 
             MouseArea {

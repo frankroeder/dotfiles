@@ -331,7 +331,7 @@ Item {
     anchors.verticalCenter: parent.verticalCenter
     spacing: 2
 
-    WorkspacesBlock { id: wsBlock; controller: barWindow }
+    WorkspacesBlock { id: wsBlock; controller: barWindow; anchors.verticalCenter: parent.verticalCenter }
 
     // One CPU + RAM chip: click opens SysPanel, right-click btop.
     BarComponents.SysChip {
@@ -370,7 +370,7 @@ Item {
 
     BarComponents.SystemTray {
       id: trayBlock
-      barHeight: Math.max(44, barWindow.notchFloor)
+      barHeight: barWindow.notchFloor
       trayScreen: barWindow.barScreen
     }
 

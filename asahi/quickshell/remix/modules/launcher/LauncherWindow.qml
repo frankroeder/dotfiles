@@ -258,8 +258,7 @@ Scope {
     tallRows: (filteredApps.values || []).filter(function(it) { return !it.isCategory && !!it.comment }).length
   })
   function fontPx(size) {
-    const boosted = size <= 9 ? size + 2 : size
-    return Math.round(boosted * root.uiFontScale)
+    return Math.round(size * root.uiFontScale)
   }
   function tintColor(token) {
     switch (token) {
@@ -303,7 +302,7 @@ Scope {
     const home = root.homeDir
     if (!path) return ""
     if (path === home) return "~"
-    return path.indexOf(home + "/") === 0 ? "~" + path.substring(home.length + 1) : path
+    return path.indexOf(home + "/") === 0 ? "~/" + path.substring(home.length + 1) : path
   }
   // menu* from old feature for exact tile colors/behaviors in quick ports
   readonly property color menuTileBg: Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.03)
@@ -436,7 +435,7 @@ Scope {
     copyClear.restart()
     Quickshell.execDetached([
       "sh", "-c",
-      "exec wl-copy --foreground -t image/png < \"$1\"",
+      "exec wl-copy --foreground -t \"$(file -b --mime-type \"$1\")\" < \"$1\"",  // PNG or JPEG
       "sh", p
     ])
   }
@@ -450,8 +449,8 @@ Scope {
     root.videos = (root.videos || []).filter(s => s.path !== p)
     Quickshell.execDetached([
       "sh", "-c",
-      "rm -f -- \"$1\"",
-      "sh", p
+      "rm -f -- \"$1\" \"$2\"",
+      "sh", p, Gallery.thumbPath(p, Quickshell.env("HOME"))
     ])
     Qt.callLater(root.scanShots)
   }
@@ -637,8 +636,8 @@ Scope {
     property real ffMemTotalBytes: 0
     property var ffLeftRows: []
     property var ffRightRows: []
-    readonly property int ffIconWidth: Math.max(32, root.fontPx(18) + 8)
-    readonly property int ffLabelWidth: Math.max(68, Math.round(root.fontPx(8) * 5.6))
+    readonly property int ffIconWidth: Math.max(32, root.fontPx(18) + 12)
+    readonly property int ffLabelWidth: Math.max(68, Math.round(root.fontPx(10) * 4.8))
     readonly property var ffGridRows: {
       const left = quickHubRoot.ffLeftRows || []
       const right = quickHubRoot.ffRightRows || []
@@ -670,31 +669,29 @@ Scope {
           return (modelData && modelData.value) || "—"
         }
 
-        // Pinned to the label's line box so the glyph centres on the first
-        // text line instead of sitting low on its own taller line.
-        Text {
+        // Tinted glyph tile, same as the Battery / Bluetooth / recorder rows.
+        Rectangle {
           Layout.preferredWidth: quickHubRoot.ffIconWidth
-          Layout.maximumWidth: quickHubRoot.ffIconWidth
-          Layout.preferredHeight: ffKey.implicitHeight
-          Layout.alignment: Qt.AlignTop
-          Layout.topMargin: 1
-          text: modelData.icon || ""
-          color: modelData.accent || Style.m3onSurfaceVariant
-          font.pixelSize: root.fontPx(18)
-          font.family: root.uiFont
-          horizontalAlignment: Text.AlignHCenter
-          verticalAlignment: Text.AlignVCenter
+          Layout.preferredHeight: quickHubRoot.ffIconWidth
+          Layout.alignment: Qt.AlignVCenter
+          radius: Style.menuRadiusMd
+          color: Qt.alpha(modelData.accent || Style.m3onSurfaceVariant, 0.14)
+          Text {
+            anchors.centerIn: parent
+            text: modelData.icon || ""
+            color: modelData.accent || Style.m3onSurfaceVariant
+            font.pixelSize: root.fontPx(15)
+            font.family: root.uiFont
+          }
         }
         Text {
-          id: ffKey
           Layout.preferredWidth: quickHubRoot.ffLabelWidth
           Layout.minimumWidth: quickHubRoot.ffLabelWidth
           Layout.maximumWidth: quickHubRoot.ffLabelWidth
-          Layout.alignment: Qt.AlignTop
-          Layout.topMargin: 1
+          Layout.alignment: Qt.AlignVCenter
           text: (modelData.key || "")
           color: Style.m3onSurfaceVariant
-          font.pixelSize: root.fontPx(9)
+          font.pixelSize: root.fontPx(10)
           font.family: root.uiSans
           font.weight: Font.Medium
           horizontalAlignment: Text.AlignLeft
@@ -702,11 +699,10 @@ Scope {
         }
         Text {
           Layout.fillWidth: true
-          Layout.alignment: Qt.AlignTop
-          Layout.topMargin: 1
+          Layout.alignment: Qt.AlignVCenter
           text: rowValue
           color: Style.m3onSurface
-          font.pixelSize: root.fontPx(9)
+          font.pixelSize: root.fontPx(10)
           font.family: root.uiSans
           // Guard on width so the first 0-wide pass does not wrap
           // one grapheme per line. Shared GridLayout rows keep wrap aligned.
@@ -793,7 +789,9 @@ Scope {
         // Header already shows user@host, OS, and uptime — keep the well
         // to short one-line facts that fit the leftover pane width.
         quickHubRoot.ffLeftRows = [
-          quickHubRoot.ffRow("Host", "󰌢", Style.sky, host.name || host.family || "—"),
+          // "Apple MacBook Pro (14-inch, M2 Pro, 2023)" → "MacBook Pro 14″ · 2023" (CPU row names the chip).
+          quickHubRoot.ffRow("Host", "󰌢", Style.sky, (host.name || host.family || "—")
+            .replace(/^Apple (.+) \((\d+)-inch, [^,]+, (\d{4})\)$/, "$1 $2″ · $3")),
           quickHubRoot.ffRow("Kernel", "󰌽", Style.teal, kernel.release || "—"),
           quickHubRoot.ffRow("Pkgs", "󰏖", Style.mauve,
             (pkgs.flatpakUser || 0) + " flatpak · " + (pkgs.rpm || 0) + " rpm"),
@@ -897,17 +895,20 @@ Scope {
       }
 
       // Gauges: CPU / memory / storage / battery rings.
+      // Spare pane height grows the rings up to a cap; the rest goes to the facts card.
       RowLayout {
         Layout.fillWidth: true
-        Layout.preferredHeight: Math.round(root.launcherGeom.rowHTall * 2.7)
-        Layout.maximumHeight: Layout.preferredHeight
+        Layout.fillHeight: true
+        Layout.minimumHeight: Math.round(root.launcherGeom.rowHTall * 2.7)
+        Layout.preferredHeight: Layout.maximumHeight
+        Layout.maximumHeight: Math.round(root.launcherGeom.rowHTall * 3.6)
         spacing: 12
         Repeater {
           model: [
             { label: "CPU", icon: "󰘚", key: "cpu", r: Style.menuRadiusLg },
             { label: "Memory", icon: "󰍛", key: "ram", r: Style.menuRadiusLg },
             { label: "Storage", icon: "󰋊", key: "disk", r: Style.menuRadiusLg },
-            { label: "Battery", icon: "󰁹", key: "bat", r: Style.menuPanelRadius }
+            { label: "Battery", icon: "󰁹", key: "bat", r: Style.menuRadiusLg }
           ]
           delegate: Rectangle {
             required property var modelData
@@ -919,7 +920,7 @@ Scope {
               anchors.fill: parent
               anchors.margins: 12
               value: ({ cpu: root.sidebarCpu, ram: root.sidebarMem, disk: quickHubRoot.ffDiskPct, bat: root.sidebarBat })[modelData.key]
-              accent: ({ cpu: Style.m3primary, ram: Style.m3tertiary, disk: Style.m3secondary,
+              accent: ({ cpu: Style.orange, ram: Style.sky, disk: Style.m3secondary,
                 bat: root.sidebarBat < 20 && root.sidebarBatStatus !== "Charging" ? Style.red : Style.green })[modelData.key]
               label: modelData.label
               icon: modelData.icon
@@ -930,19 +931,20 @@ Scope {
         }
       }
 
-      // Facts card.
+      // Facts card: fills the rest. Row gaps flex between baseGap and 2× baseGap and the
+      // rows stay centred, so spare height neither piles up below nor stretches the list.
       Rectangle {
+        id: ffInfoCard
         Layout.fillWidth: true
         Layout.fillHeight: true
+        Layout.minimumHeight: Math.max(72, ffInfoBody.rowsH + ffInfoBody.baseGap * Math.max(0, ffInfoBody.rowCount - 1) + 32)
         radius: Style.menuPanelRadius
         color: Style.m3container
         GridLayout {
           id: ffInfoBody
-          // Rows keep their natural height and the slack becomes one even gap:
-          // stretching the grid parked it all under the wrapped Host row.
           anchors.left: parent.left
           anchors.right: parent.right
-          anchors.top: parent.top
+          anchors.verticalCenter: parent.verticalCenter
           anchors.margins: 16
           columns: 2
           columnSpacing: 24
@@ -954,7 +956,10 @@ Scope {
               h += Math.max(cells[i].implicitHeight, i + 1 < cells.length ? cells[i + 1].implicitHeight : 0)
             return h
           }
-          rowSpacing: rowCount > 1 ? Math.max(6, (parent.height - 32 - rowsH) / (rowCount - 1)) : 6
+          readonly property int baseGap: Math.max(10, Math.round(root.fontPx(7)))
+          rowSpacing: rowCount > 1
+            ? Math.round(Math.min(2 * baseGap, Math.max(baseGap, (ffInfoCard.height - 32 - rowsH) / (rowCount - 1))))
+            : baseGap
           Repeater {
             model: quickHubRoot.ffGridRows
             delegate: ffInfoRowDelegate
@@ -3095,12 +3100,14 @@ Scope {
               currentIndex: 0
               highlightFollowsCurrentItem: false
               pixelAligned: true
-              ScrollBar.vertical: Menu.MenuScrollBar {}
+              ScrollBar.vertical: Menu.MenuScrollBar { id: resultsScroll }
+              // Rows stop short of the scrollbar (0 wide when nothing overflows).
+              readonly property real rowW: width - resultsScroll.width
               highlight: Rectangle {
-                radius: Style.menuRadiusLg
+                radius: Style.menuRadiusFull
                 color: Style.menuSelFill
                 border.width: 1; border.color: Style.menuSelBorder
-                width: resultsList.width
+                width: resultsList.rowW
                 height: resultsList.currentItem ? resultsList.currentItem.height - 2 : 0
                 y: resultsList.currentItem ? resultsList.currentItem.y + 1 : 0
                 Behavior on y { Menu.MenuAnim {} }
@@ -3114,7 +3121,7 @@ Scope {
                 id: delegateRoot
                 required property var modelData
                 required property int index
-                width: resultsList.width
+                width: resultsList.rowW
                 readonly property string dName: modelData.name || modelData.title || "?"
                 readonly property string dSub: modelData.comment || ""
                 readonly property bool dCat: !!modelData.isCategory
@@ -3378,7 +3385,7 @@ Scope {
                     return it && it.path ? Data.basename(it.path) : "File preview"
                   }
                   color: Style.menuInk
-                  font.family: root.uiFont
+                  font.family: root.uiSans
                   font.pixelSize: root.fontPx(14)
                   elide: Text.ElideRight
                 }

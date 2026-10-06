@@ -60,8 +60,8 @@ ShellRoot {
       anchors.top: true
       anchors.left: true
       anchors.right: true
-      implicitHeight: Math.max(44, barContent.notchFloor)
-      exclusiveZone: Math.max(44, barContent.notchFloor)
+      implicitHeight: barContent.notchFloor
+      exclusiveZone: barContent.notchFloor
       color: barContent.barBackground
       surfaceFormat.opaque: true
 

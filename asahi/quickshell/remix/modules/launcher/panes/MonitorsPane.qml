@@ -251,6 +251,7 @@ Item {
     const newH = parsed ? parsed.height / s : quickMonitorsRoot.monitorLogicalHeight(m)
     const pos = QuickModels.abutPosition(m, newW, newH, quickMonitorsRoot.mons)
     quickMonitorsRoot.monStatus = status
+    Quickshell.execDetached([root.binDir + "/asahi-monitor-scale", "remember", String(scale), m.name])
     monAction.command = ["hyprctl", "eval",
       "hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name)
       + ", mode = " + quickMonitorsRoot.luaString(mode)

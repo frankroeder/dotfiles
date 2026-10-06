@@ -104,6 +104,7 @@ Item {
         // The tray's only text: which app an icon belongs to.
         TooltipWindow {
           target: slot
+          barHeight: root.barHeight
           text: String(slot.modelData.tooltipTitle || slot.modelData.title || "")
           show: iconMouse.containsMouse
         }

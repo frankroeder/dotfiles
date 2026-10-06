@@ -74,3 +74,9 @@ function notchSpacerWidth(screenName, logicalWidth) {
   // fraction holds at every legal scale. +6px air per side.
   return Math.ceil(width * 370 / 3024) + 12
 }
+
+// How far a bar popup hangs below its chip: chips are centred in the bar (taller on
+// the eDP notch bar at 1.333×), so clear the bar bottom by `gap`, not just the chip.
+function popupDrop(barH, chipH, gap) {
+  return Math.max(0, Math.ceil((barH - chipH) / 2)) + (gap === undefined ? 6 : gap)
+}

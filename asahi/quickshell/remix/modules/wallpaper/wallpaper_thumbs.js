@@ -14,6 +14,14 @@ function cacheDir(home) {
   return h + "/.cache/asahi/wallpaper-thumbs/" + THUMB_W + "x" + THUMB_H
 }
 
+// Sharp tier for the picker's centre window (decoding the original there lagged).
+var HQ_W = 1920
+var HQ_H = 1080
+function hqCacheDir(home) {
+  const h = String(home || "").replace(/\/$/, "")
+  return h + "/.cache/asahi/wallpaper-thumbs/" + HQ_W + "x" + HQ_H
+}
+
 function thumbName(original) {
   const s = String(original || "")
   let h = 2166136261
@@ -93,12 +101,15 @@ var CAROUSEL_SLICE_GAP = -30
 var CAROUSEL_SKEW = 28
 var CAROUSEL_NEARBY = 8
 
-function carouselFrame(viewW) {
+// maxW caps the centre window (default: Ryoku's 768); the picker raises it to the
+// height left above its card on big screens.
+function carouselFrame(viewW, maxW) {
   const w = Math.max(0, Math.floor(Number(viewW) || 0))
   if (w <= 0) {
     return { viewW: 0, expandedW: 0, expandedH: 0, sliceW: 0, sliceH: 0, gap: 0, skew: 0, step: 0, height: 0 }
   }
-  const expandedW = Math.max(1, Math.min(CAROUSEL_EXPANDED_W, Math.round(w * 0.46)))
+  const capW = Math.max(1, Math.round(Number(maxW) || CAROUSEL_EXPANDED_W))
+  const expandedW = Math.max(1, Math.min(capW, Math.round(w * 0.52)))
   const s = expandedW / CAROUSEL_EXPANDED_W
   const expandedH = Math.max(1, Math.round(CAROUSEL_EXPANDED_H * s))
   const sliceW = Math.max(1, Math.round(CAROUSEL_SLICE_W * s))
@@ -255,6 +266,7 @@ if (typeof module !== "undefined" && module.exports) {
     WHEEL_PIXEL_BOOST: WHEEL_PIXEL_BOOST,
     WHEEL_ROW_BOOST: WHEEL_ROW_BOOST,
     cacheDir: cacheDir,
+    hqCacheDir: hqCacheDir,
     thumbName: thumbName,
     thumbPath: thumbPath,
     previewSource: previewSource,

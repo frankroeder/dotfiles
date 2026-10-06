@@ -36,7 +36,7 @@ Item {
         Text {
             text: root.text
             font.family: Style.fontFamily
-            font.pixelSize: Style.barFontGlyph
+            font.pixelSize: Style.barFontMicVolIcon
             color: Style.blueAlt
         }
 
@@ -44,7 +44,7 @@ Item {
             visible: root.vpnUp
             text: "󰯄"
             font.family: Style.fontFamily
-            font.pixelSize: Style.barFontGlyph
+            font.pixelSize: Style.barFontMicVolIcon
             color: Style.green
         }
 

@@ -8,7 +8,11 @@ if (G.label("/home/x/screenshots/screenshot-2026-09-14_12-00-00.png") !== "2026-
 if (G.label("/home/x/Videos/recording-2026-09-14_12-00-00.mp4") !== "2026-09-14_12-00-00") throw new Error("rec label");
 
 const shotCmd = G.scanCommand("shots", "/home/x/");
-if (shotCmd.indexOf("\"/home/x/screenshots\"") === -1 || shotCmd.indexOf("screenshot-*.png") === -1) throw new Error("shot cmd " + shotCmd);
+if (shotCmd.indexOf("\"/home/x/screenshots\"") === -1 || shotCmd.indexOf("-iname '*.png'") === -1 || shotCmd.indexOf("-iname '*.jpg'") === -1) throw new Error("shot cmd lists every image in the folder: " + shotCmd);
+if (shotCmd.indexOf("sort -rn") === -1) throw new Error("shots newest (mtime) first");
+if (shotCmd.indexOf("rm -f") === -1 || shotCmd.indexOf("/.cache/asahi/shot-thumbs") === -1) throw new Error("scan prunes orphaned thumbs");
+if (G.thumbPath("/home/x/screenshots/a.png", "/home/x") !== "/home/x/.cache/asahi/shot-thumbs/a.png.jpg") throw new Error("thumb path keeps the extension");
+if (G.label("/x/screenshot_2026-05-21_21-42-14.png") !== "2026-05-21_21-42-14") throw new Error("underscore shot label");
 const vidCmd = G.scanCommand("videos", "/home/x");
 if (vidCmd.indexOf("\"/home/x/Videos\"") === -1 || vidCmd.indexOf("recording-*.mp4") === -1) throw new Error("vid cmd " + vidCmd);
 

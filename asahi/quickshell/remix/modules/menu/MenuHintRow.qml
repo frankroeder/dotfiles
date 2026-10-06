@@ -12,12 +12,14 @@ RowLayout {
   spacing: 10
   implicitHeight: Math.round(22 * root.fontScale)
 
+  property var keys: [
+    { key: root.gridNav ? "hjkl" : "↑↓", label: "navigate" },
+    { key: "⏎", label: "open" },
+    { key: "esc", label: "close" }
+  ]
+
   Repeater {
-    model: [
-      { key: root.gridNav ? "hjkl" : "↑↓", label: "navigate" },
-      { key: "⏎", label: "open" },
-      { key: "esc", label: "close" }
-    ]
+    model: root.keys
     delegate: Row {
       required property var modelData
       spacing: 6

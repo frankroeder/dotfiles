@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import "../../../"
+import "../BarModel.js" as BarModel
 import "../life_span.js" as Life
 
 Item {
@@ -162,7 +163,7 @@ Item {
     Text {
       text: root.dateLine
       font.family: Style.fontFamily
-      font.pixelSize: Style.barFontBody
+      font.pixelSize: Style.barFontCaption
       color: Style.barStripMuted
       anchors.verticalCenter: parent.verticalCenter
     }
@@ -195,6 +196,7 @@ Item {
     anchor.item: root
     anchor.edges: Edges.Bottom | Edges.Right
     anchor.gravity: Edges.Bottom | Edges.Left
+    anchor.margins.bottom: -BarModel.popupDrop(root.barHost ? root.barHost.height : Style.barHeight, Style.barHeight)  // negative = below
     implicitWidth: 340
     implicitHeight: calCol.implicitHeight + 24
 
@@ -216,9 +218,7 @@ Item {
 
     Rectangle {
       anchors.fill: parent
-      color: Style.menuBg
-      border.color: Style.menuSep
-      border.width: 1
+      color: Style.m3surfaceSolid
       radius: Style.menuRadiusLg
 
       ColumnLayout {
@@ -240,8 +240,8 @@ Item {
             Layout.fillWidth: true
             text: root.monthLabel()
             color: Style.menuInk
-            font.family: Style.fontFamily
-            font.pixelSize: 14
+            font.family: Style.menuSans
+            font.pixelSize: 13
             font.weight: Font.Medium
           }
           Rectangle {

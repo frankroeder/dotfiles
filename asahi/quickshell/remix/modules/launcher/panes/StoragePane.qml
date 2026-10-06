@@ -524,7 +524,7 @@ Item {
                     spacing: 10
                     Text {
                       Layout.preferredWidth: 22
-                      text: dirRowRoot.modelData.name.indexOf("~.") === 0 ? "󰉖" : "󰉋"
+                      text: dirRowRoot.modelData.name.indexOf("~/.") === 0 ? "󰉖" : "󰉋"
                       color: Style.m3tertiary; font.family: root.uiFont; font.pixelSize: root.fontPx(14)
                       horizontalAlignment: Text.AlignHCenter
                     }
