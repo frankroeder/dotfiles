@@ -7,14 +7,17 @@
 #   asahi-timemachine init                    one-time: sftp-only ssh key, password, repo, timer
 #   asahi-timemachine run [--force]           backup + forget (timer: skips if last ok < $TM_MIN_AGE_H)
 #   asahi-timemachine start                   run --force as a transient unit (launcher button)
+#   asahi-timemachine stop                    stop a running backup (timer or start)
+#   asahi-timemachine check                   restic check + 1% of the data (also monthly after a backup)
+#   asahi-timemachine log [n]                 last n journal lines of backup runs (restic errors, forget)
 #   asahi-timemachine status                  JSON state + live progress (percent, ETA)
 #   asahi-timemachine overview                snapshots + old rsync snapshots + drive space (cached in state)
-#   asahi-timemachine ls <snap> [dir]         JSON entries of one directory (default: $HOME)
+#   asahi-timemachine ls <snap> [dir]         JSON entries of one directory (default: $HOME); exit 4 = not in snap
 #   asahi-timemachine restore <snap> <path>   → ~/Restored/<snap date>-<snap>/<path> (never overwrites)
 #
 # Machine-specific settings live outside the repo in ~/.config/asahi-timemachine/config
 # (shell vars, sourced):  TM_SFTP=user@host  TM_PORT=22  TM_SFTP_PATH=/mnt/<drive>/restic-asahi
-#                          TM_NAME=<display name>  TM_LABEL=<fs label>  TM_DIR=restic-asahi  TM_MIN_AGE_H=72
+#                          TM_NAME=<display name>  TM_LABEL=<fs label>  TM_DIR=restic-asahi  TM_MIN_AGE_H=72  TM_WARN_D=10
 # A fresh local drive needs "$TM_DIR" created (owned by you) before `init`.
 # Password: ~/.config/asahi-timemachine/password. Keep a copy outside this laptop —
 # without it the repo cannot be read.
@@ -28,7 +31,7 @@ progress="$state_dir/timemachine.progress"
 lock="$state_dir/timemachine.lock"
 key="$cfg/id_ed25519"
 
-TM_SFTP="" TM_NAME="" TM_SFTP_PATH="" TM_PORT=22 TM_LABEL="LinuxDrive" TM_DIR="restic-asahi" TM_MIN_AGE_H=72
+TM_SFTP="" TM_NAME="" TM_SFTP_PATH="" TM_PORT=22 TM_LABEL="LinuxDrive" TM_DIR="restic-asahi" TM_MIN_AGE_H=72 TM_WARN_D=10
 # shellcheck source=/dev/null
 [ -f "$cfg/config" ] && . "$cfg/config"
 
@@ -82,6 +85,25 @@ need_repo() {
 
 where() { [ "$target" = local ] && echo "$TM_LABEL (USB)" || echo "${TM_NAME:-${TM_SFTP#*@}}"; }
 
+# True when the state timestamp $1 is unset or older than $2 days.
+due() {
+  local t
+  t="$(jq -r --arg k "$1" '.[$k] // empty' "$state")"
+  [ -z "$t" ] || (( $(date +%s) - $(date -d "$t" +%s) > $2 * 86400 ))
+}
+
+# macOS-style "no backup for N days": flag for the bar chip + one critical notification per stale
+# last_success (a success clears the flag). Never-succeeded repos stay quiet.
+overdue() {
+  local last
+  last="$(jq -r '.last_success // empty' "$state")"
+  if [ -z "$last" ] || ! due last_success "$TM_WARN_D"; then return 0; fi
+  put '.overdue = true'
+  [ "$(jq -r '.warned // empty' "$state")" = "$last" ] && return 0
+  put --arg l "$last" '.warned = $l'
+  notify -u critical "No backup for $TM_WARN_D days" "Last one $(date -d "$last" '+%a %-d %b'). Connect $TM_LABEL or reach ${TM_NAME:-the backup host}."
+}
+
 hms() {
   local s=${1%.*}
   (( s >= 3600 )) && printf '%dh %02dm' $((s / 3600)) $((s % 3600 / 60)) || printf '%dm %02ds' $((s / 60)) $((s % 60))
@@ -108,8 +130,17 @@ cmd_init() {
   systemctl --user enable --now asahi-timemachine.timer
 }
 
+# Nothing to back up to: drive not here, host down, or the host up without its drive (restic rc 10).
+# The timer retries hourly; only "Back up now" says so.
+offline() {
+  put '.state = "offline" | .checked = (now | todate)'
+  (( force )) && notify "Backup skipped" "Backup drive not connected and backup host not reachable"
+  overdue
+  exit 0
+}
+
 cmd_run() {
-  local force=0 started rc=0 summary err prune=()
+  local force=0 started rc=0 summary err unreadable stats prune=()
   [ "${1:-}" = "--force" ] && force=1
   exec 9>"$lock"
   # -w: a `status` lock probe can hold it for a moment.
@@ -122,48 +153,87 @@ cmd_run() {
       exit 0
     fi
   fi
-  if ! pick_repo; then
-    put '.state = "offline" | .checked = (now | todate)'
-    (( force )) && notify "Backup skipped" "Backup drive not connected and backup host not reachable"
-    exit 0
-  fi
+  pick_repo || offline
 
   started="$(date -Is)"
   : >"$progress"
   put --arg s "$started" '.state = "running" | .started = $s | del(.error)'
-  notify "Backup started" "Home → $(where)"
-  r backup --json --exclude-caches --one-file-system --tag asahi \
-    --exclude="$HOME/Restored" \
+  (( force )) && notify "Backup started" "Home → $(where)"
+  # A run killed mid-way (power loss, kill -9) leaves its lock behind; unlock drops only stale ones.
+  r unlock >/dev/null 2>&1 || true
+  # Build products (*.o, *.ko, kbuild's .*.cmd: ~28 GB of ~/linux-fairydust, all new on every rebuild),
+  # reinstallable flatpak apps (their data is ~/.var) and trash. `touch <dir>/.nobackup` skips a folder.
+  r backup --json --exclude-caches --exclude-if-present .nobackup --one-file-system --tag asahi \
+    --exclude="$HOME/Restored" --exclude="$HOME/.local/share/flatpak" \
     --exclude='.cache' --exclude='node_modules' --exclude='.venv' --exclude='.npm' --exclude='.yarn' \
     --exclude='cache' --exclude='build' --exclude='.thumbnails' --exclude='*.tmp' \
-    --exclude='.local/share/Trash' --exclude='Nextcloud' \
+    --exclude='*.o' --exclude='*.ko' --exclude='.*.cmd' \
+    --exclude='.local/share/Trash' --exclude='.Trash' --exclude='.Trash-*' --exclude='Nextcloud' \
     "$HOME" >"$progress" 2>"$progress.err" || rc=$?
+  # The file is overwritten next run; the journal keeps it (`asahi-timemachine log`).
+  cat "$progress.err" >&2
   # rc 3 = some files unreadable, snapshot still written.
   if (( rc != 0 && rc != 3 )); then
+    (( rc == 10 )) && offline
     # restic --json errors are JSON lines; show their message.
     err="$(grep -v '^$' "$progress.err" | tail -n 3 | jq -Rr '(fromjson? | .message?) // .' | tr '\n' ' ' || true)"
-    put --arg s "$started" --arg e "${err:-restic exited $rc}" --argjson rc "$rc" \
+    err="${err:-restic exited $rc}"
+    # Lid closed (s2idle stops restic's lock refresh) or the network went away mid-run: nothing is
+    # broken, the next hourly check retries. Only a reachable repo failing is "failed".
+    if grep -q 'refresh lock' "$progress.err" || ! pick_repo; then
+      put --arg s "$started" --arg e "$err" --argjson rc "$rc" \
+        '.state = "interrupted" | .error = $e | .last_run = {started: $s, finished: (now | todate), rc: $rc}'
+      (( force )) && notify "Backup interrupted" "Retries within the hour"
+      overdue
+      exit 0
+    fi
+    put --arg s "$started" --arg e "$err" --argjson rc "$rc" \
       '.state = "failed" | .error = $e | .last_run = {started: $s, finished: (now | todate), rc: $rc}'
-    notify -u critical "Backup failed" "${err:-restic exited $rc}"
+    # The timer retries hourly: the same error notifies once ("Back up now" always does).
+    if (( force )) || [ "$(jq -r '.notified_error // empty' "$state")" != "$err" ]; then
+      put --arg e "$err" '.notified_error = $e'
+      notify -u critical "Backup failed" "$err"
+    fi
+    overdue
     exit "$rc"
   fi
   summary="$(grep '"message_type":"summary"' "$progress" || echo '{}')"
-  put --arg s "$started" --argjson sum "$summary" \
-    '.state = "ok" | .last_success = (now | todate) | .last_run = {started: $s, finished: (now | todate), rc: 0} + $sum'
+  unreadable="$(grep -c '"message_type":"error"' "$progress.err" || true)"
+  # housekeeping: `status` reports "cleaning" while forget/prune/check still hold the repo.
+  put --arg s "$started" --argjson sum "$summary" --argjson u "$unreadable" \
+    '.state = "ok" | .last_success = (now | todate) | .housekeeping = true
+     | .last_run = {started: $s, finished: (now | todate), rc: 0, unreadable: $u} + $sum
+     | del(.overdue, .notified_error)'
   notify "Backup done" "+$(jq -r '.data_added // 0' <<<"$summary" | numfmt --to=iec --suffix=B) in \
-$(hms "$(jq -r '.total_duration // 0' <<<"$summary")") → $(where)"
+$(hms "$(jq -r '.total_duration // 0' <<<"$summary")") → $(where)$( (( unreadable )) && echo " · $unreadable files unreadable")"
 
   # Housekeeping; the snapshot is already saved, so failures here only get logged.
   # Prune (repacks, slow over SFTP) at most weekly.
-  if [ -z "$(jq -r '.last_prune // empty' "$state")" ] \
-    || (( $(date +%s) - $(date -d "$(jq -r .last_prune "$state")" +%s) > 7 * 86400 )); then
-    prune=(--prune)
-  fi
-  if r forget --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --keep-yearly 3 "${prune[@]}" >>"$progress.err" 2>&1 \
+  due last_prune 7 && prune=(--prune)
+  if r forget --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --keep-yearly 3 "${prune[@]}" >&2 \
     && (( ${#prune[@]} )); then
     put '.last_prune = (now | todate)'
   fi
+  if due last_check 30; then verify || true; fi
+  # Repo size after dedup + compression (pane's drive row).
+  if stats="$(r stats --json --mode raw-data --tag asahi 2>/dev/null)"; then
+    put --argjson s "$stats" '.repo = {size: $s.total_size, raw: ($s.total_uncompressed_size // $s.total_size)}'
+  fi
   overview >/dev/null || true
+  put 'del(.housekeeping)'
+}
+
+# Integrity check (monthly after a backup, or `check`): index + trees + a random 1% of the data packs,
+# with a fresh cache so it reads the repo, not our copy. Dropping offline mid-check is not damage;
+# real damage nags every run until fixed.
+verify() {
+  if r check --read-data-subset=1% >"$state_dir/timemachine-check.log" 2>&1; then
+    put '.last_check = (now | todate) | del(.check_error)'
+  elif pick_repo; then
+    put --arg e "$(grep -v '^$' "$state_dir/timemachine-check.log" | tail -n 1)" '.check_error = $e'
+    notify -u critical "Backup check failed" "restic check found problems — see ~/.local/state/asahi/timemachine-check.log"
+    return 1
+  fi
 }
 
 cmd_status() {
@@ -179,7 +249,9 @@ cmd_status() {
   { cat "$state" 2>/dev/null || echo '{}'; } | jq --argjson locked "$locked" --argjson p "$prog" --argjson h "$TM_MIN_AGE_H" \
     --arg label "$TM_LABEL" --arg host "${TM_NAME:-${TM_SFTP#*@}}" --argjson drive "$drive" \
     --argjson ready "$([ -f "$RESTIC_PASSWORD_FILE" ] && echo true || echo false)" \
-    '. + {running: ($locked and .state == "running"), ready: $ready, min_age_h: $h,
+    --arg timer "$(systemctl --user is-active asahi-timemachine.timer 2>/dev/null || true)" \
+    '. + {running: ($locked and .state == "running"), cleaning: ($locked and .housekeeping == true),
+          ready: $ready, min_age_h: $h, timer: $timer,
           percent: ($p.percent_done // null), eta: ($p.seconds_remaining // null),
           bytes_done: ($p.bytes_done // null), bytes_total: ($p.total_bytes // null),
           files_done: ($p.files_done // null), files_total: ($p.total_files // null),
@@ -212,19 +284,33 @@ overview() {
 
 cmd_ls() {
   local snap="$1" dir="${2:-$HOME}"
+  local out
   need_repo
-  r ls --json "$snap" "$dir" | jq -s --arg d "${dir%/}" '[.[] | select(.struct_type == "node" and .path != $d)
-    | {name, type, path, size: (.size // 0), mtime}] | sort_by(.type != "dir", (.name | ascii_downcase))'
+  out="$(r ls --json "$snap" "$dir")"
+  # A folder this snapshot does not have (opened in another one): exit 4, not an empty listing.
+  jq -e -s --arg d "${dir%/}" '$d == "" or any(.[]; .struct_type == "node" and .path == $d)' <<<"$out" >/dev/null || exit 4
+  jq -s --arg d "${dir%/}" '[.[] | select(.struct_type == "node" and .path != $d)
+    | {name, type, path, size: (.size // 0), mtime}] | sort_by(.type != "dir", (.name | ascii_downcase))' <<<"$out"
 }
 
 cmd_restore() {
-  local snap="$1" path="$2" day target_dir
+  local snap="$1" path="$2" day target_dir rc=0
   need_repo
   day="$(r snapshots --json "$snap" | jq -r '.[0].time[:10]')"
   target_dir="$HOME/Restored/${day}-${snap}"
+  # restic overwrites by default: restoring the same path again must not clobber an edited first copy.
+  [ -e "$target_dir$path" ] && target_dir+="-$(date +%H%M%S)"
   mkdir -p "$target_dir"
   # --include takes a pattern: escape glob characters so "a[1].txt" means that file.
-  r restore "$snap" --include "$(sed 's/[][*?\\]/\\&/g' <<<"$path")" --target "$target_dir" >&2
+  r restore "$snap" --include "$(sed 's/[][*?\\]/\\&/g' <<<"$path")" --target "$target_dir" >&2 || rc=$?
+  # A name restic lists as "�" (not UTF-8) matches no --include: rc 0 and nothing restored.
+  if (( rc )) || ! { [ -e "$target_dir$path" ] || [ -L "$target_dir$path" ]; }; then
+    find "$target_dir" -depth -type d -empty -delete 2>/dev/null || true
+    notify -u critical "Restore failed" "${path/#$HOME/\~}$( (( rc )) || echo ': nothing matched — restore its folder instead')"
+    exit 1
+  fi
+  # The pane runs this in a transient unit (no stdout): it reads the path from the state file.
+  put --arg p "$target_dir$path" '.last_restore = $p'
   printf '%s\n' "$target_dir$path"
   notify "Restored" "${path/#$HOME/\~} → ${target_dir/#$HOME/\~}"
 }
@@ -232,10 +318,16 @@ cmd_restore() {
 case "${1:-}" in
   init) cmd_init ;;
   run) shift; cmd_run "$@" ;;
-  start) systemd-run --user --quiet --collect --unit="asahi-timemachine-now-$$" "$(readlink -f "$0")" run --force ;;
+  # Same niceness as the timer's service unit.
+  start) systemd-run --user --quiet --collect --unit="asahi-timemachine-now-$$" -p Nice=10 -p CPUWeight=idle \
+    -p IOSchedulingClass=idle "$(readlink -f "$0")" run --force ;;
+  # SIGTERM: restic removes its lock; the state left at "running" reads as interrupted.
+  stop) systemctl --user stop asahi-timemachine.service 'asahi-timemachine-now-*.service' ;;
+  check) need_repo; rc=0; verify || rc=$?; cat "$state_dir/timemachine-check.log"; exit "$rc" ;;
+  log) journalctl --user -u asahi-timemachine.service -u 'asahi-timemachine-now-*' -n "${2:-200}" --no-pager ;;
   status) cmd_status ;;
   overview) need_repo; overview ;;
   ls) shift; cmd_ls "$@" ;;
   restore) shift; cmd_restore "$@" ;;
-  *) sed -n '2,21p' "$0" >&2; exit 2 ;;
+  *) sed -n '2,24p' "$0" >&2; exit 2 ;;
 esac

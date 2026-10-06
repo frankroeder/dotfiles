@@ -92,8 +92,10 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   PNG (`lock-fade-top.png`, written by `write_hyprlock_conf` beside the colors; `halign = left` —
   hyprlock mis-centers images wider than the monitor, and `rotate` shifts them). Label shadows are
   too faint to help. Sizes are framebuffer px (no monitor scale): the row must fit the Dell 2560.
+  Two input-fields share the input: outer 832 = ring only (transparent font), inner 624 = dots/text
+  (hyprlock pads dots only `(h - dot)/2`; one field ran dots under the `de` label) — 13 dots max.
   Preview without locking: nested `Hyprland -c <min.lua>` + `hyprctl output create headless` +
-  hyprlock + grim.
+  hyprlock + grim; type via live `hl.dsp.send_shortcut` to `class:^(aquamarine)$` (never Enter: PAM).
 - **Lid + DPMS (2026-09-22)**: Hyprland DPMS off is an aquamarine output disable — the DRM
   connector's sysfs `enabled` reads `disabled` (verified live). logind counts a closed lid as
   docked only while an external connector reads `enabled`, and re-checks after every event-loop
@@ -340,14 +342,27 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   `restrict,command="internal-sftp"` on the host (no shell, but full file access as that user — not
   a sandbox); ssh runs `-F /dev/null` + no agent (else the main key sneaks in and gets a shell).
   Password file beside it (copy in the password manager). Hourly timer, backs up only if last ok >
-  `TM_MIN_AGE_H` (72); offline = skip, not fail; `last_success` is set as soon as the snapshot is
-  saved (forget/prune ≤ weekly may fail without failing the run); notifications on start/done/fail.
+  `TM_MIN_AGE_H` (72); offline (also restic rc 10: host up, drive on it not mounted) = skip, not fail.
+  A run dying on `refresh lock` (lid close) or an unreachable repo = `interrupted` (silent, retries);
+  only a reachable repo failing is `failed` (critical, **once per error text** — the timer retries
+  hourly). Start/interrupted/skipped notify only for `start` (`--force`). `last_success` is set as soon
+  as the snapshot is saved (`housekeeping` flag → `status.cleaning` while forget/prune ≤ weekly,
+  `check` 1% ≤ monthly (~20 s; damage = critical every run) and `stats` hold the repo). No success for
+  `TM_WARN_D` (10) days → `.overdue` + one critical notification per stale `last_success`. `r unlock`
+  before backup (a killed run's lock blocked prune). Excludes `*.o *.ko .*.cmd` (~28 GB of
+  `~/linux-fairydust`), `~/.local/share/flatpak`, `~/.Trash` (`del`'s trash); `.nobackup` skips a dir.
+  restic stderr is also copied to the journal: `asahi-timemachine log`. `stop` = `systemctl stop` (state
+  left `running` reads `interrupted`). `IOSchedulingClass` alone is weak on mq-deadline — units also
+  get `CPUWeight=idle` (`start` passes the same props).
   State `~/.local/state/asahi/timemachine.json` = flock + atomic `mv` (FileView follows renames;
   `status` only reads it and adds restic percent/ETA). `overview` caches snapshots + old rsync dirs +
   drive df (one SFTP session). Bar `BackupChip` (left of the notch, after SysChip) only while running /
-  failed. Quick pane `backup` (Super+Ctrl+R): overview tiles, 30-day strip, snapshots, browse, restore
-  → `~/Restored/<date>-<id>/<abs path>` (never overwrites; restore runs in a transient unit **without**
-  `--pipe` — a dead client would SIGPIPE it). The old rsync snapshots `fedora-home-backup-*` on that
+  failed / check_error (red) / overdue (orange). Quick pane `backup` (Super+Ctrl+R): overview tiles,
+  30-day strip, snapshots, browse (listings cached per snap|path; `ls` exit 4 = folder not in that
+  snapshot), restore → `~/Restored/<date>-<id>[-HHMMSS]/<abs path>` (a re-restore gets a new folder —
+  restic's default `--overwrite always`; nothing matched (non-UTF-8 `�` name) = exit 1; real path in
+  `.last_restore`, since the transient unit runs **without** `--pipe` — a dead client would SIGPIPE
+  it). Names/errors are `Text.PlainText`. The old rsync snapshots `fedora-home-backup-*` on that
   drive are `chattr +i` — never delete (2026-09-28 is the last full one). No sleep inhibitor (lid
   close must still suspend). After install: `asahi-timemachine init` (key, password, repo, timer).
   Test: `asahi/bin/asahi_timemachine_test.sh`.

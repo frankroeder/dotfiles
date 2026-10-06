@@ -4,8 +4,8 @@ import Quickshell.Io
 import "../../../"
 
 // Backup chip (left of the notch, after CPU/RAM): only while asahi-timemachine runs
-// (glyph · percent · ETA over a thin progress bar) or after a failure (red glyph).
-// Click opens the Backup pane.
+// (glyph · percent · ETA over a thin progress bar), after a failure or a failed integrity check
+// (red glyph), or when no backup succeeded for TM_WARN_D days (orange). Click opens the Backup pane.
 Item {
   id: chip
   property var barHost: null
@@ -15,6 +15,8 @@ Item {
   // --- backup: asahi-timemachine replaces timemachine.json atomically. While it says "running",
   // poll `status` (percent / ETA from restic); the poll also catches a killed run ("interrupted").
   property string backupState: ""
+  property bool backupBad: false        // check_error: the repo itself is damaged
+  property bool backupOverdue: false    // set by the hourly timer run, cleared by a success
   property bool backupRunning: false
   property real backupPct: 0
   property real backupEta: -1
@@ -30,7 +32,12 @@ Item {
     onLoadFailed: chip.backupState = ""
   }
   function parseBackup(raw) {
-    try { chip.backupState = JSON.parse(raw || "{}").state || "" } catch (e) {}
+    try {
+      const st = JSON.parse(raw || "{}")
+      chip.backupState = st.state || ""
+      chip.backupBad = !!st.check_error
+      chip.backupOverdue = !!st.overdue
+    } catch (e) {}
     if (chip.backupState === "running" && !backupProc.running) backupProc.running = true
     if (chip.backupState !== "running") chip.backupRunning = false
   }
@@ -62,7 +69,8 @@ Item {
     return s >= 3600 ? Math.floor(s / 3600) + "h" + ("0" + Math.floor(s % 3600 / 60)).slice(-2) : Math.max(1, Math.round(s / 60)) + "m"
   }
 
-  visible: chip.backupRunning || chip.backupState === "failed"
+  readonly property bool backupAlarm: chip.backupState === "failed" || chip.backupBad
+  visible: chip.backupRunning || chip.backupAlarm || chip.backupOverdue
   implicitWidth: backupRow.implicitWidth + 12
   implicitHeight: Style.barHeight
 
@@ -75,7 +83,7 @@ Item {
       text: chip.backupRunning ? "󰁯" : "󱙄"
       font.family: Style.fontFamily
       font.pixelSize: Style.barFontGlyph
-      color: chip.backupRunning ? chip.fg : Style.red
+      color: chip.backupRunning ? chip.fg : chip.backupAlarm ? Style.red : Style.orange
     }
     Text {
       visible: chip.backupRunning

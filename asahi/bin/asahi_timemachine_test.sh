@@ -12,12 +12,19 @@ fail_at() { printf 'FAIL %s\n' "$1"; fail=1; }
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$tmp/bin" "$tmp/cfg/asahi-timemachine" "$tmp/home"
-# FAKE_FAIL=<subcommand>: that restic subcommand exits 1 without any stderr (e.g. SIGKILL / OOM).
+# FAKE_FAIL=<subcommand>: that restic subcommand exits ${FAKE_RC:-1}, printing $FAKE_ERR (default: nothing,
+# e.g. SIGKILL / OOM). Restore creates the --include path under --target unless FAKE_RESTORE_EMPTY is set.
 cat >"$tmp/bin/restic" <<'EOF'
 #!/bin/bash
 echo "restic $*" >>"$TM_LOG"
-case "$*" in *" $FAKE_FAIL "*) [ -n "$FAKE_FAIL" ] && exit 1 ;; esac
+case "$*" in *" $FAKE_FAIL "*) [ -n "$FAKE_FAIL" ] && { [ -n "$FAKE_ERR" ] && echo "$FAKE_ERR" >&2; exit "${FAKE_RC:-1}"; } ;; esac
 case "$*" in
+  *" restore "*)
+    [ -n "$FAKE_RESTORE_EMPTY" ] && exit 0
+    while [ $# -gt 0 ]; do case "$1" in --include) inc="$2"; shift ;; --target) tgt="$2"; shift ;; esac; shift; done
+    inc="$(printf '%s' "$inc" | sed 's/\\\(.\)/\1/g')"
+    mkdir -p "$tgt$(dirname "$inc")" && touch "$tgt$inc" ;;
+  *" stats "*) echo '{"total_size":500,"total_uncompressed_size":900}' ;;
   *" ls "*) printf '%s\n' '{"struct_type":"snapshot"}' \
     '{"struct_type":"node","name":"h","type":"dir","path":"/h","mtime":"x"}' \
     '{"struct_type":"node","name":"b.txt","type":"file","path":"/h/b.txt","size":3,"mtime":"x"}' \
@@ -94,6 +101,13 @@ if [ "$(tm ls aa /h | jq -c 'map(.name)')" = '["A","b.txt"]' ]; then
 else
   fail_at "ls: $(tm ls aa /h)"
 fi
+rc=0
+tm ls aa /nope >/dev/null || rc=$?
+if [ "$rc" = 4 ]; then
+  pass "ls: folder not in the snapshot → exit 4"
+else
+  fail_at "ls missing: rc=$rc"
+fi
 
 ov="$(tm overview)"
 if [ "$(jq -c '[.snapshots[0].id, .legacy, .disk.avail]' <<<"$ov")" = '["bb",["fedora-home-backup-2026-09-28"],614400]' ]; then
@@ -109,25 +123,40 @@ fi
 
 : >"$tmp/restic.log"
 out="$(tm restore aa '/h/a[1].txt')"
-if grep -qF -- '--include /h/a\[1\].txt' "$tmp/restic.log" && [ "$out" = "$tmp/home/Restored/2026-10-01-aa/h/a[1].txt" ]; then
-  pass "restore: glob characters escaped, target under ~/Restored"
+if grep -qF -- '--include /h/a\[1\].txt' "$tmp/restic.log" && [ "$out" = "$tmp/home/Restored/2026-10-01-aa/h/a[1].txt" ] \
+  && [ -e "$out" ] && [ "$(jq -r .last_restore "$state")" = "$out" ]; then
+  pass "restore: glob characters escaped, target under ~/Restored, recorded as last_restore"
 else
   fail_at "restore: $out / $(cat "$tmp/restic.log")"
+fi
+out2="$(tm restore aa '/h/a[1].txt')"
+if [ "$out2" != "$out" ] && [ -e "$out2" ] && [ "${out2#"$tmp/home/Restored/2026-10-01-aa-"}" != "$out2" ]; then
+  pass "restore: same path again → new folder, first copy untouched"
+else
+  fail_at "restore twice: $out2"
+fi
+rc=0
+FAKE_RESTORE_EMPTY=1 tm restore bb '/h/x.txt' >/dev/null 2>&1 || rc=$?
+if [ "$rc" = 1 ] && [ ! -e "$tmp/home/Restored/2026-10-01-bb" ] && grep -q 'notify .*Restore failed' "$tmp/restic.log"; then
+  pass "restore: nothing matched → exit 1, empty folder removed, notification"
+else
+  fail_at "restore empty: rc=$rc $(ls "$tmp/home/Restored")"
 fi
 
 : >"$tmp/restic.log"
 tm run --force >/dev/null
 if [ "$(jq -r '.state + " " + (.overview.legacy | join(","))' "$state")" = "ok fedora-home-backup-2026-09-28" ] \
   && grep -q 'Backup started' "$tmp/restic.log" && grep -q 'Backup done' "$tmp/restic.log" \
-  && grep -q 'forget .*--prune' "$tmp/restic.log"; then
-  pass "run: ok state, legacy list, start/done notifications, first run prunes"
+  && grep -q 'forget .*--prune' "$tmp/restic.log" && grep -q 'restic .* unlock' "$tmp/restic.log" \
+  && grep -q 'check --read-data-subset' "$tmp/restic.log" && [ "$(jq -c '[.repo.size, .last_run.unreadable, .housekeeping]' "$state")" = '[500,0,null]' ]; then
+  pass "run: ok state, legacy list, start/done notifications, unlock, first run prunes + checks, repo size"
 else
   fail_at "run: $(cat "$state") / $(cat "$tmp/restic.log")"
 fi
 : >"$tmp/restic.log"
 tm run --force >/dev/null
-if grep -q 'forget' "$tmp/restic.log" && ! grep -q -- '--prune' "$tmp/restic.log"; then
-  pass "prune at most weekly"
+if grep -q 'forget' "$tmp/restic.log" && ! grep -q -- '--prune' "$tmp/restic.log" && ! grep -q ' check ' "$tmp/restic.log"; then
+  pass "prune at most weekly, check at most monthly"
 else
   fail_at "prune: $(cat "$tmp/restic.log")"
 fi
@@ -150,6 +179,61 @@ if [ "$rc" = 1 ] && [ "$(jq -r '.state + " " + .error' "$state")" = "failed rest
 else
   fail_at "backup fail: rc=$rc $(cat "$state") / $(cat "$tmp/restic.log")"
 fi
+
+: >"$tmp/restic.log"
+rc=0
+FAKE_FAIL=backup FAKE_RC=10 tm run --force >/dev/null 2>&1 || rc=$?
+if [ "$rc" = 0 ] && [ "$(jq -r .state "$state")" = offline ] && ! grep -q 'critical' "$tmp/restic.log"; then
+  pass "rc 10 (host up, drive on it missing) → offline, not failed"
+else
+  fail_at "rc 10: rc=$rc $(cat "$state")"
+fi
+
+# Timer runs below: make a backup due.
+jq --arg t "$(date -u -d '-4 days' +%FT%TZ)" '.last_success = $t' "$state" >"$state.x" && mv "$state.x" "$state"
+: >"$tmp/restic.log"
+rc=0
+FAKE_FAIL=backup FAKE_ERR='Fatal: failed to refresh lock in time' tm run >/dev/null 2>&1 || rc=$?
+if [ "$rc" = 0 ] && [ "$(jq -r .state "$state")" = interrupted ] && ! grep -q 'notify' "$tmp/restic.log"; then
+  pass "lid close mid-run (lock refresh) → interrupted, timer run silent"
+else
+  fail_at "interrupted: rc=$rc $(cat "$state") / $(cat "$tmp/restic.log")"
+fi
+
+: >"$tmp/restic.log"
+FAKE_FAIL=backup FAKE_ERR='boom' tm run >/dev/null 2>&1 || true
+FAKE_FAIL=backup FAKE_ERR='boom' tm run >/dev/null 2>&1 || true
+if [ "$(grep -c 'critical Backup failed' "$tmp/restic.log")" = 1 ] && ! grep -q 'Backup started' "$tmp/restic.log"; then
+  pass "same failure on hourly retries → one critical notification, no start notices"
+else
+  fail_at "notify once: $(cat "$tmp/restic.log")"
+fi
+
+: >"$tmp/restic.log"
+jq --arg t "$(date -u -d '-11 days' +%FT%TZ)" '.state = "ok" | .last_success = $t | del(.warned, .overdue)' "$state" >"$state.x" && mv "$state.x" "$state"
+FAKE_OFFLINE=1 tm run >/dev/null
+FAKE_OFFLINE=1 tm run >/dev/null
+if [ "$(jq -r .overdue "$state")" = true ] && [ "$(grep -c 'critical No backup for 10 days' "$tmp/restic.log")" = 1 ]; then
+  pass "offline for > 10 days → overdue flag, one critical notification"
+else
+  fail_at "overdue: $(cat "$state") / $(cat "$tmp/restic.log")"
+fi
+tm run --force >/dev/null 2>&1
+if [ "$(jq -r '.overdue // "cleared"' "$state")" = cleared ]; then
+  pass "success clears overdue"
+else
+  fail_at "overdue clear: $(cat "$state")"
+fi
+
+jq '.housekeeping = true' "$state" >"$state.x" && mv "$state.x" "$state"
+flock "$tmp/state/asahi/timemachine.lock" sleep 3 &
+sleep 0.5
+if [ "$(tm status | jq -c '[.running, .cleaning]')" = '[false,true]' ]; then
+  pass "status: lock held after the snapshot → cleaning, not running"
+else
+  fail_at "cleaning: $(tm status | jq -c '[.running, .cleaning, .state]')"
+fi
+wait
 
 if [ "$fail" -ne 0 ]; then
   echo "failed"

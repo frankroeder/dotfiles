@@ -31,9 +31,14 @@ Item {
   property var entries: []
   property bool browsing: false
   property bool browseFailed: false
+  property bool browseMissing: false       // folder not in this snapshot (ls exit 4)
+  // Listings per "snap|path": going back or re-picking a snapshot is instant (each ls re-reads the repo).
+  property var lsCache: ({})
+  property string lsKey: ""                // folder shown
+  property string lsRunKey: ""             // folder the running ls lists
   property string restoreMsg: ""
   property bool restoreFailed: false
-  property string restoreTarget: ""
+  property bool restoreDone: false
   readonly property string home: Quickshell.env("HOME")
 
   function ago(iso) {
@@ -42,7 +47,9 @@ Item {
     if (s < 90) return "just now"
     if (s < 5400) return Math.round(s / 60) + " min ago"
     if (s < 129600) return Math.round(s / 3600) + " h ago"
-    return Math.round(s / 86400) + " days ago"
+    if (s < 86400 * 60) return Math.round(s / 86400) + " days ago"
+    if (s < 86400 * 730) return Math.round(s / (86400 * 30.4)) + " months ago"
+    return Math.round(s / (86400 * 365)) + " years ago"
   }
   function due(iso) {
     if (!iso) return "now"
@@ -85,17 +92,25 @@ Item {
   function browse(path) {
     if (!selected) return
     browsePath = path
+    browseFailed = false
+    browseMissing = false
+    lsKey = selected.id + "|" + path
+    if (lsCache[lsKey]) {
+      entries = lsCache[lsKey]
+      browsing = false
+      return
+    }
     browsing = true
     entries = []
-    browseFailed = false
+    lsRunKey = lsKey
     // exec restarts a listing still running for the previous folder (assigning command would not).
     lsProc.exec([helper, "ls", selected.id, path])
   }
   function restore(path) {
     if (restoreProc.running || !selected) return
     restoreFailed = false
+    restoreDone = false
     restoreMsg = "Restoring " + tilde(path) + "…"
-    restoreTarget = "~/Restored/" + selected.time.slice(0, 10) + "-" + selected.id + path
     // Transient unit: closing the launcher must not kill a half-done restore.
     restoreProc.command = ["systemd-run", "--user", "--wait", "--quiet", "--collect",
       helper, "restore", selected.id, path]
@@ -110,9 +125,10 @@ Item {
         try {
           const raw = String(text || "").trim()
           if (!raw) return
-          const was = !!tmRoot.status.running
+          // Re-read snapshots once forget/prune let go of the repo, not right after the backup.
+          const was = !!(tmRoot.status.running || tmRoot.status.cleaning)
           tmRoot.status = JSON.parse(raw)
-          if (was && !tmRoot.status.running) tmRoot.listSnapshots()
+          if (was && !tmRoot.status.running && !tmRoot.status.cleaning) tmRoot.listSnapshots()
           const cached = (tmRoot.status.overview || {}).snapshots
           if (tmRoot.snapshots.length === 0 && cached) tmRoot.useSnapshots(cached)
         } catch (e) {}
@@ -144,25 +160,39 @@ Item {
   Process {
     id: lsProc
     stdout: StdioCollector {
+      // Empty stdout = failed / missing folder (onExited tells which). Only a listing for the
+      // folder still shown lands on screen; a finished one is cached either way.
       onStreamFinished: {
-        try { tmRoot.entries = JSON.parse(String(text || "").trim() || "[]") } catch (e) { tmRoot.entries = [] }
+        let list = null
+        try { list = JSON.parse(String(text || "").trim()) } catch (e) {}
+        if (list) tmRoot.lsCache[tmRoot.lsRunKey] = list
+        if (tmRoot.lsRunKey !== tmRoot.lsKey) return
+        tmRoot.entries = list || []
         tmRoot.browsing = false
       }
     }
-    onExited: function(code) { tmRoot.browseFailed = code !== 0 }
+    onExited: function(code) {
+      if (tmRoot.lsRunKey !== tmRoot.lsKey) return
+      tmRoot.browseMissing = code === 4
+      tmRoot.browseFailed = code !== 0 && code !== 4
+      tmRoot.browsing = false
+    }
   }
   Process {
     id: restoreProc
+    // The helper records the real target (it never reuses a folder) as last_restore in the state file.
     onExited: function(code) {
       tmRoot.restoreFailed = code !== 0
-      tmRoot.restoreMsg = code === 0 ? "Restored → " + tmRoot.restoreTarget : "Restore failed (exit " + code + ")"
+      tmRoot.restoreDone = code === 0
+      tmRoot.restoreMsg = code === 0 ? "Restored" : "Restore failed (exit " + code + ")"
+      if (!statusProc.running) statusProc.running = true
     }
   }
   Component.onCompleted: listSnapshots()
 
   readonly property string tmState: status.running ? "running" : (status.state || (status.ready ? "idle" : "setup"))
-  readonly property color stateColor: tmState === "failed" || tmState === "interrupted" ? Style.red
-    : tmState === "offline" ? Style.orange : Style.m3secondary
+  readonly property color stateColor: tmState === "failed" ? Style.red
+    : tmState === "offline" || tmState === "interrupted" || status.overdue ? Style.orange : Style.m3secondary
 
   // ---- M3 building blocks (same look as StoragePane) ----
   component Pill: Rectangle {
@@ -248,6 +278,8 @@ Item {
             text: tmRoot.status.running
               ? root.prettyBytes(tmRoot.status.bytes_done || 0) + " / " + root.prettyBytes(tmRoot.status.bytes_total || 0)
                 + " → " + tmRoot.destName
+              : tmRoot.status.cleaning ? "Snapshot saved · thinning out old ones…"
+              : tmRoot.tmState === "interrupted" ? "Interrupted (stopped, lid closed or network lost) — retries within the hour"
               : tmRoot.tmState === "offline" ? "Backup drive not connected, host not reachable — retries hourly"
               : tmRoot.status.last_run && tmRoot.status.last_run.data_added !== undefined
                 ? "Last run added " + root.prettyBytes(tmRoot.status.last_run.data_added)
@@ -266,21 +298,34 @@ Item {
               : ""
             font.pixelSize: root.fontPx(10)
           }
+          // Most urgent problem only: failed run, damaged repo, overdue, schedule off, unreadable files.
           Text {
-            visible: !!tmRoot.status.error && tmRoot.tmState === "failed"
+            readonly property bool bad: tmRoot.tmState === "failed" || !!tmRoot.status.check_error
+            readonly property var lr: tmRoot.status.last_run || {}
+            visible: text !== ""
             Layout.fillWidth: true
-            text: tmRoot.status.error || ""
-            color: Style.red; font.family: root.uiSans; font.pixelSize: root.fontPx(10); elide: Text.ElideRight
+            text: tmRoot.tmState === "failed" && tmRoot.status.error ? tmRoot.status.error
+              : tmRoot.status.check_error ? "Integrity check failed: " + tmRoot.status.check_error
+              : tmRoot.status.overdue ? "No backup since " + Qt.formatDate(new Date(tmRoot.status.last_success), "d MMM")
+                + " — connect " + (tmRoot.status.dest ? tmRoot.status.dest.label : "the drive") + " or reach " + (tmRoot.status.dest ? tmRoot.status.dest.host : "the host")
+              : tmRoot.status.timer && tmRoot.status.timer !== "active" ? "Hourly schedule is " + tmRoot.status.timer + " — asahi-timemachine init"
+              : lr.unreadable ? lr.unreadable + " files could not be read last run — asahi-timemachine log"
+              : ""
+            textFormat: Text.PlainText
+            color: bad ? Style.red : Style.orange; font.family: root.uiSans; font.pixelSize: root.fontPx(10); elide: Text.ElideRight
           }
           Item { Layout.fillHeight: true }
           RowLayout {
             Layout.topMargin: 6
             spacing: 8
             Pill {
-              icon: tmRoot.status.running ? "󰔟" : "󰁯"
-              label: tmRoot.status.running ? "Backing up…" : "Back up now"
+              icon: tmRoot.status.running ? "󰓛" : "󰁯"
+              label: tmRoot.status.running ? "Stop" : "Back up now"
               bg: Style.m3primaryContainer; fg: Style.m3primary
-              onClicked: if (!tmRoot.status.running && tmRoot.tmState !== "setup") Quickshell.execDetached([tmRoot.helper, "start"])
+              onClicked: {
+                if (tmRoot.status.running) Quickshell.execDetached([tmRoot.helper, "stop"])
+                else if (tmRoot.tmState !== "setup" && !tmRoot.status.cleaning) Quickshell.execDetached([tmRoot.helper, "start"])
+              }
             }
             Pill {
               icon: "󰉋"; label: "Restored"
@@ -360,7 +405,8 @@ Item {
           spacing: 10
           Text { text: "󰋊"; color: Style.m3tertiary; font.family: root.uiFont; font.pixelSize: root.fontPx(14) }
           Text {
-            text: tmRoot.ov.disk ? root.prettyBytes(tmRoot.ov.disk.avail) + " free of " + root.prettyBytes(tmRoot.ov.disk.size) : "Drive space unknown"
+            text: (tmRoot.ov.disk ? root.prettyBytes(tmRoot.ov.disk.avail) + " free of " + root.prettyBytes(tmRoot.ov.disk.size) : "Drive space unknown")
+              + (tmRoot.status.repo ? " · backups " + root.prettyBytes(tmRoot.status.repo.size) : "")
             color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(11); font.weight: Font.Medium
           }
           Rectangle {
@@ -374,7 +420,8 @@ Item {
             }
           }
           Secondary {
-            text: "keep 7 daily · 4 weekly · 12 monthly · 3 yearly"
+            text: "keep 7 daily · 4 weekly · 12 monthly · 3 yearly · "
+              + (tmRoot.status.last_check ? "verified " + tmRoot.ago(tmRoot.status.last_check) : "not verified yet")
             font.pixelSize: root.fontPx(9)
           }
         }
@@ -436,6 +483,7 @@ Item {
             visible: tmRoot.snapshots.length === 0
             Layout.fillWidth: true
             wrapMode: Text.Wrap
+            textFormat: Text.PlainText
             text: tmRoot.snapsState === "error" ? "Could not list snapshots" + (tmRoot.snapError ? ": " + tmRoot.snapError : "")
               : tmRoot.status.running ? "The first snapshot appears when the running backup finishes."
               : tmRoot.snapsState === "loading" ? "Reading snapshots…"
@@ -523,6 +571,7 @@ Item {
             CardTitle {
               Layout.fillWidth: true
               text: tmRoot.browsePath ? tmRoot.tilde(tmRoot.browsePath) : "Browse"
+              textFormat: Text.PlainText
               elide: Text.ElideMiddle
             }
             Pill {
@@ -532,11 +581,24 @@ Item {
               onClicked: tmRoot.restore(tmRoot.browsePath)
             }
           }
-          Secondary {
+          RowLayout {
             visible: tmRoot.restoreMsg !== ""
             Layout.fillWidth: true
-            text: tmRoot.restoreMsg
-            color: tmRoot.restoreFailed ? Style.red : Style.m3primary
+            spacing: 8
+            Secondary {
+              Layout.fillWidth: true
+              text: tmRoot.restoreDone && tmRoot.status.last_restore ? "Restored → " + tmRoot.tilde(tmRoot.status.last_restore) : tmRoot.restoreMsg
+              textFormat: Text.PlainText
+              color: tmRoot.restoreFailed ? Style.red : Style.m3primary
+              elide: Text.ElideMiddle
+            }
+            // Open the folder holding the restored copy.
+            Pill {
+              visible: tmRoot.restoreDone && !!tmRoot.status.last_restore
+              icon: "󰉋"; label: "Open"
+              onClicked: Quickshell.execDetached([root.binDir + "/asahi-launch", "xdg-open",
+                tmRoot.status.last_restore.replace(/\/[^\/]+$/, "")])
+            }
           }
           ListView {
             id: entryList
@@ -577,6 +639,7 @@ Item {
                 Text {
                   Layout.fillWidth: true
                   text: entryRow.modelData.name
+                  textFormat: Text.PlainText
                   color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(11); elide: Text.ElideMiddle
                 }
                 Secondary {
@@ -611,19 +674,21 @@ Item {
           iconFamily: root.uiFont
           fontFamily: root.uiSans
           maxWidth: parent.width - 48
-          glyph: tmRoot.browsing ? "󰔟" : tmRoot.browseFailed ? "󰅛" : tmRoot.selected ? "󰉖" : "󰃭"
+          glyph: tmRoot.browsing ? "󰔟" : tmRoot.browseFailed ? "󰅛" : tmRoot.browseMissing ? "󰉗" : tmRoot.selected ? "󰉖" : "󰃭"
           tint: tmRoot.browseFailed ? Style.red : Style.m3tertiary
           title: tmRoot.browsing ? "Listing…"
             : tmRoot.browseFailed ? "Backup not reachable"
+            : tmRoot.browseMissing ? "Not in this snapshot"
             : tmRoot.selected ? "Empty folder"
             : tmRoot.snapshots.length === 0 ? "No snapshot yet" : "Pick a snapshot"
           detail: tmRoot.browsing ? ""
             : tmRoot.browseFailed ? "Could not list this folder — is the backup drive or host online?"
+            : tmRoot.browseMissing ? "This folder did not exist yet (or was excluded) when this snapshot was taken."
             : tmRoot.selected ? ""
             : "Browse its files here. Restores land in ~/Restored, never over your files."
-          actionIcon: "󰑐"
-          actionLabel: tmRoot.browseFailed ? "Retry" : ""
-          onAction: tmRoot.browse(tmRoot.browsePath || tmRoot.home)
+          actionIcon: tmRoot.browseMissing ? "󰋜" : "󰑐"
+          actionLabel: tmRoot.browseFailed ? "Retry" : tmRoot.browseMissing ? "Home" : ""
+          onAction: tmRoot.browse(tmRoot.browseMissing ? tmRoot.home : (tmRoot.browsePath || tmRoot.home))
         }
       }
     }
