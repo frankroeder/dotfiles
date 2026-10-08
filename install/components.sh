@@ -507,6 +507,12 @@ comp_asahi_system() {
     fi
   fi
   bash "$DOTFILES/asahi/dnf.sh"
+  # tty1 getty is the auth gate. These two lines unlock the login keyring
+  # with that password. There is no display manager to do it.
+  if ! rpm -q gnome-keyring-pam >/dev/null 2>&1 || ! sudo "$DOTFILES/asahi/bin/asahi-keyring-pam" /etc/pam.d/login; then
+    print_error "pam_gnome_keyring not set up in /etc/pam.d/login (gnome-keyring-pam missing?)"
+    exit 1
+  fi
   # Console font, getty prompt included. This has to be vconsole.conf rather
   # than a setfont unit: systemd-vconsole-setup is udev-triggered and re-runs
   # as the DRM devices appear, so it overwrites anything a service set earlier.

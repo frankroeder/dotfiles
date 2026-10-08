@@ -382,8 +382,12 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   `exec-once` in `autostart.lua`. Verify no `app-gnome\x2dkeyring\x2dssh@autostart.service` under
   the user generator.late.
 - **Secrets**: `asahi/kwalletrc` disables kwallet. `gnome-keyring-daemon --components=secrets`
-  only; SSH is keychain. Do not start gnome-keyring ssh. Flatpaks (Zotero) reach it only via the
-  Secret portal — `portals.conf` pins `Secret=gnome-keyring` (its `.portal` is `UseIn=gnome`).
+  only; SSH is keychain. Do not start gnome-keyring ssh. The login keyring password is the
+  login password; `pam_gnome_keyring` in `/etc/pam.d/login` (`auth` optional, `session` optional
+  `auto_start`, applied by `asahi-keyring-pam`) unlocks it at the tty1 prompt. Do not seed an
+  empty-password or `[keyring]` text keyring (unencrypted; `asahi-debug` WARNs, never auto-delete:
+  it may hold secrets). Flatpaks (Zotero) reach it only via the Secret portal —
+  `portals.conf` pins `Secret=gnome-keyring` (its `.portal` is `UseIn=gnome`).
 - **SSH / keychain**: Fedora's `/etc/profile.d/keychain.sh` prompts every key on tty1 — export
   `KEYCHAIN_DONE=1` from `zshenv`. `asahi-ssh-keychain`: no `--quick`, drop a stale pidfile
   without killing a reused PID, start an **empty** `--noask` agent. First `git`/`ssh` unlocks via

@@ -47,6 +47,7 @@ sudo dnf install -y \
   google-noto-color-emoji-fonts \
   grim \
   gnome-keyring \
+  gnome-keyring-pam \
   hyprpicker \
   gwenview \
   hypridle \

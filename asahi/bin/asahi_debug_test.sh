@@ -58,6 +58,9 @@ printf 'wifi.powersave = 2\n' >"$diag/etc/NetworkManager/conf.d/asahi-wifi-power
 printf '[Sleep]\nAllowHibernation=no\n' >"$diag/etc/systemd/sleep.conf.d/10-asahi-no-hibernate.conf"
 printf '[Login]\nHandlePowerKey=ignore\nLidSwitchIgnoreInhibited=no\n' \
   >"$diag/etc/systemd/logind.conf.d/10-asahi-sleep.conf"
+mkdir -p "$diag/etc/pam.d"
+printf '%s\n' 'auth       optional     pam_gnome_keyring.so' 'session    optional     pam_gnome_keyring.so auto_start' \
+  >"$diag/etc/pam.d/login"
 : >"$diag/etc/udev/rules.d/99-asahi-charge-limit.rules"
 : >"$diag/etc/udev/rules.d/99-asahi-hdmi-lid-inhibit.rules"
 : >"$diag/etc/systemd/system/asahi-charge-limit.service"
@@ -164,6 +167,18 @@ echo "$out" | jq -e '[.checks[] | select(.id=="getty-autologin" and .status=="FA
   || fail_at "getty-autologin FAIL when leftover drop-in exists"
 pass "leftover tty1 autologin is FAIL"
 rm -f "$diag/etc/systemd/system/getty@tty1.service.d/10-asahi-autologin.conf"
+
+keyrings="$diag$HOME/.local/share/keyrings"
+mkdir -p "$keyrings"
+printf '%s\n' '[keyring]' 'display-name=Default keyring' >"$keyrings/Default_keyring.keyring"
+mv "$diag/etc/pam.d/login" "$diag/etc/pam.d/login.off"
+out=$(PATH="$bin:$PATH" ASAHI_DIAG_ROOT="$diag" ASAHI_PROC_ROOT="$proc" \
+  ASAHI_SYS_ROOT="$sys" "$ROOT/asahi-debug" --json) || true
+echo "$out" | jq -e '[.checks[] | select(.id=="keyring-pam" and .status=="FAIL")] | length == 1' >/dev/null &&
+  echo "$out" | jq -e '[.checks[] | select(.id=="keyring-plaintext" and .status=="WARN")] | length == 1' >/dev/null &&
+  pass "missing keyring PAM is FAIL, plaintext keyring is WARN" || fail_at "keyring checks (got $out)"
+mv "$diag/etc/pam.d/login.off" "$diag/etc/pam.d/login"
+rm -f "$keyrings/Default_keyring.keyring"
 
 if grep -Eiq '[[:space:]]pacman([[:space:]]|$)|systemctl[^[:space:]]* sddm' "$ROOT/asahi-debug"; then
   fail_at "asahi-debug still calls pacman or sddm"

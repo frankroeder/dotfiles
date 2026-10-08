@@ -351,6 +351,21 @@ check_getty() {
   fi
 }
 
+check_keyring() {
+  local pam plain
+  pam=$(diag_path /etc/pam.d/login)
+  if grep -q '^auth.*pam_gnome_keyring' "$pam" 2>/dev/null && grep -q '^session.*pam_gnome_keyring.*auto_start' "$pam"; then
+    record PASS keyring-pam "pam_gnome_keyring unlocks the login keyring at tty1"
+  else
+    record FAIL keyring-pam "pam_gnome_keyring missing in /etc/pam.d/login (./install.sh asahi-system)"
+  fi
+  # Text keyrings ([keyring] header) store secrets unencrypted; the old startup script seeded one.
+  plain=$(grep -lx '\[keyring\]' "$(diag_path "$HOME/.local/share/keyrings")"/*.keyring 2>/dev/null || true)
+  if [[ -n $plain ]]; then
+    record WARN keyring-plaintext "${plain//$'\n'/ } is unencrypted (move its items to login, then delete)"
+  fi
+}
+
 check_sshd() {
   local enabled
   enabled=$(systemctl is-enabled sshd.service 2>/dev/null || true)
@@ -482,6 +497,7 @@ check_hid
 check_notch
 check_sshd
 check_getty
+check_keyring
 check_hibernate
 check_logind
 check_charge_limit

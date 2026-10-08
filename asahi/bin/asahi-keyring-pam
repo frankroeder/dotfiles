@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Add pam_gnome_keyring to the tty login PAM stack (no display manager). Idempotent.
+# auth goes after postlogin, the last auth line, so the password is already collected.
+set -euo pipefail
+
+file=${1:-/etc/pam.d/login}
+grep -q '^auth.*pam_gnome_keyring' "$file" ||
+  sed -i '/^auth.*postlogin/a auth       optional     pam_gnome_keyring.so' "$file"
+grep -q '^session.*pam_gnome_keyring' "$file" ||
+  echo 'session    optional     pam_gnome_keyring.so auto_start' >>"$file"
+grep -q '^auth.*pam_gnome_keyring' "$file"
