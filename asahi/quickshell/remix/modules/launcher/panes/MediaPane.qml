@@ -92,9 +92,12 @@ Item {
   readonly property real inVol: quickMediaRoot.shownSource && quickMediaRoot.shownSource.audio ? quickMediaRoot.shownSource.audio.volume : 0
   readonly property bool inMuted: quickMediaRoot.shownSource && quickMediaRoot.shownSource.audio ? quickMediaRoot.shownSource.audio.muted : false
 
+  // Moving the output slider unmutes (like the volume keys); the input slider leaves mic mute alone.
   function setOutVol(v) {
     const s = quickMediaRoot.shownSink
-    if (s && s.audio) s.audio.volume = Math.max(0, Math.min(1, v))
+    if (!s || !s.audio) return
+    s.audio.volume = Math.max(0, Math.min(1, v))
+    if (s.audio.muted) s.audio.muted = false  // only a real unmute: writing it every move clicked
   }
   function setInVol(v) {
     const s = quickMediaRoot.shownSource

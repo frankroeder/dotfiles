@@ -22,6 +22,13 @@ ShellRoot {
     shell.calendarOpen = false
     Services.Recorder.panelOpen = false
   }
+  // Calendar and notification sheet are one-at-a-time: a click-opened calendar has no focus grab
+  // yet, so opening the sheet would leave it up.
+  onCalendarOpenChanged: if (calendarOpen) notifCenter.historyVisible = false
+  Connections {
+    target: notifCenter
+    function onHistoryVisibleChanged() { if (notifCenter.historyVisible) shell.calendarOpen = false }
+  }
 
   System.Osd { id: osd }
   System.DimOverlay { id: dimOverlay }
@@ -41,6 +48,13 @@ ShellRoot {
     function refresh(): void { Services.Recorder.refresh() }
     function panel(): void { Services.Recorder.panelOpen = !Services.Recorder.panelOpen }
     function toggle(): void { Services.Recorder.panelOpen = !Services.Recorder.panelOpen }
+  }
+
+  // `qs ipc call media panel`: the media popup on the focused screen's bar (BarHost.mediaPing).
+  property int mediaPing: 0
+  IpcHandler {
+    target: "media"
+    function panel(): void { shell.mediaPing++ }
   }
 
   IpcHandler {
@@ -76,6 +90,7 @@ ShellRoot {
         isRecording: shell.isRecording
         calendarOpen: shell.calendarOpen
         launcherOpen: shell.launcherOpen
+        mediaPing: shell.mediaPing
         onCalendarToggle: shell.calendarOpen = !shell.calendarOpen
         onQuickRequested: key => {
           if (key === "pkgman") { pkgManager.toggle(); return }

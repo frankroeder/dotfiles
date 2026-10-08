@@ -334,6 +334,8 @@ Rectangle {
       anchors.fill: parent
       color: Style.m3surfaceSolid
       radius: Style.menuRadiusLg
+      border.color: Style.popupBorder
+      border.width: Style.popupBorderWidth
       implicitWidth: root.contentW + 28
       implicitHeight: Math.min(flick.contentHeight + 28, 720)
 

@@ -220,6 +220,8 @@ Item {
       anchors.fill: parent
       color: Style.m3surfaceSolid
       radius: Style.menuRadiusLg
+      border.color: Style.popupBorder
+      border.width: Style.popupBorderWidth
 
       ColumnLayout {
         id: calCol

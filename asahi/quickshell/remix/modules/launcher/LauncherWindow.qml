@@ -1581,6 +1581,14 @@ Scope {
     } else if (entry.command && entry.command.length > 0) {
       Quickshell.execDetached(entry.command)
     } else if (entry.exec) {
+      // Logout / Restart / Shutdown (`confirm`): the first Enter / click only arms it for 3 s.
+      if (entry.confirm && root.armedExec !== entry.exec) {
+        root.armedExec = entry.exec
+        disarmExec.restart()
+        if (root.osd && root.osd.toast) root.osd.toast(entry.icon || "󰐥", entry.title, "Again to confirm", 3000)
+        return
+      }
+      root.armedExec = ""
       if (entry.exec.indexOf("asahi-") === 0 && entry.exec.indexOf(" ") < 0) {
         Quickshell.execDetached([root.binDir + "/" + entry.exec])
       } else {
@@ -1589,6 +1597,9 @@ Scope {
     }
     shouldShow = false
   }
+
+  property string armedExec: ""
+  Timer { id: disarmExec; interval: 3000; onTriggered: root.armedExec = "" }
 
   function dictTerm(q) {
     const value = (q || "").trim()

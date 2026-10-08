@@ -51,6 +51,12 @@ volume_step() {
   wpctl set-volume -l 1 "$node" "$target%"
 }
 
+unmute_if_muted() {
+  if wpctl get-volume "$1" | grep -q MUTED; then
+    wpctl set-mute "$1" 0
+  fi
+}
+
 current_percent() {
   brightnessctl --device="$1" -m 2>/dev/null | awk -F, '{ gsub("%", "", $4); print $4; found=1 } END { exit !found }'
 }
@@ -73,6 +79,9 @@ case "$target" in
       +1) wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 1%+ ;;
       -1) wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 1%- ;;
     esac
+    # Changing the output level unmutes it (the mic stays muted: no silent unmute of a source).
+    # Only when it really is muted: a set-mute on every step made the speakers click.
+    case "$action" in raise | lower | +1 | -1) unmute_if_muted @DEFAULT_AUDIO_SINK@ ;; esac
     show_osd volume
     ;;
   output-switch)

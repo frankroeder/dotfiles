@@ -1,100 +1,101 @@
 import QtQuick
+import Quickshell.Widgets
 import "../../../"
 import "../../../services" as Services
-import "../cava_bars.js" as CavaBars
 
+// Now-playing chip (serpantinum MediaFace): art thumb + title / artist. Click = MediaPanel,
+// middle = play/pause, right = next. Accent thumb ring while playing; title scrolls on hover only
+// (a free-running marquee would repaint the bar every frame).
 Item {
   id: root
 
   property var barHost: null
-  property real maxChipWidth: 280
-  property bool fullMode: false
-  // Notch budget from BarHost; 280 caps the chip on notchless externals.
-  readonly property int chipCap: Math.min(root.maxChipWidth, 280)
-  readonly property int chipPad: 10
+  property real maxChipWidth: 260
+  property bool panelOpen: false
+  signal toggled()
+  // Notch budget from BarHost; 260 caps the chip on notchless externals.
+  readonly property int chipCap: Math.min(root.maxChipWidth, 260)
+  readonly property int thumb: Style.barHeight - 2 * Style.barChipInset - 6
+  readonly property real textMax: root.chipCap - root.thumb - 22
 
-  implicitWidth: Math.min(root.chipCap, contentCol.implicitWidth + root.chipPad)
+  // Uncapped wish (BarHost's temperature-fits check must not depend on the cap it feeds).
+  readonly property real naturalWidth: root.thumb + 22 + Math.max(titleText.implicitWidth, artistText.implicitWidth)
+  implicitWidth: Math.min(root.chipCap, root.naturalWidth)
   implicitHeight: Style.barHeight
 
-  property bool hasMedia: Services.Players.hasPlayer
-  property string mediaText: {
-    if (!hasMedia) return ""
-    const title = Services.Players.title || "Media"
-    const artist = Services.Players.artist || ""
-    return (Services.Players.isPlaying ? " " : " ") + (artist ? artist + " - " + title : title)
-  }
-
+  readonly property bool hasMedia: Services.Players.hasPlayer
+  readonly property bool playing: Services.Players.isPlaying
   visible: hasMedia
-  onHasMediaChanged: if (!root.hasMedia) root.fullMode = false
 
-  // The shared cava (Services.Cava) runs only while this visualizer shows and music plays.
-  readonly property bool cavaWanted: root.fullMode && root.visible && Services.Players.isPlaying
-  onCavaWantedChanged: Services.Cava.hold(root, root.cavaWanted)
-  Component.onDestruction: Services.Cava.hold(root, false)
+  HoverTint { lit: chipMouse.containsMouse || root.panelOpen }
 
-  HoverTint { lit: chipMouse.containsMouse }
-
-  Column {
-    id: contentCol
-    anchors.centerIn: parent
-    spacing: 1
-
+  Rectangle {
+    id: thumbBox
+    x: 6
+    anchors.verticalCenter: parent.verticalCenter
+    width: root.thumb; height: root.thumb; radius: 7
+    color: Style.m3primaryContainer
+    border.width: 1.5
+    border.color: root.playing ? Style.accent : Style.surface1
+    Behavior on border.color { ColorAnimation { duration: 200 } }
     Text {
-      id: titleText
-      text: root.mediaText
+      anchors.centerIn: parent
+      visible: Services.Players.artUrl === ""
+      text: "󰎈"
+      color: Style.accent
       font.family: Style.fontFamily
-      font.pixelSize: Style.barFontBody
-      color: barHost ? barHost.barForeground : Style.text
-      elide: Text.ElideRight
-      width: Math.min(implicitWidth, root.chipCap - root.chipPad)
+      font.pixelSize: 14
     }
-
-    Row {
-      visible: root.fullMode
-      width: titleText.width
-      height: 10
-      spacing: 1
-      Repeater {
-        // Bars exist only in full mode: invisible items bound to Cava.values (held e.g. by the media
-        // pane) would still repaint the bar window at cava's 30 fps.
-        model: root.fullMode ? 24 : 0
-        Rectangle {
-          required property int index
-          width: Math.max(2, (parent.width - 23) / 24)
-          anchors.bottom: parent.bottom
-          height: CavaBars.barHeight((Services.Cava.values[index] || 0), 10)
-          radius: 1
-          color: Style.teal
-        }
+    ClippingRectangle {
+      anchors.fill: parent
+      anchors.margins: 1.5
+      radius: 6
+      color: "transparent"
+      visible: Services.Players.artUrl !== ""
+      Image {
+        anchors.fill: parent
+        source: Services.Players.artUrl
+        fillMode: Image.PreserveAspectCrop
+        asynchronous: true
+        sourceSize: Qt.size(64, 64)
       }
     }
   }
 
-  Rectangle {
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.bottom: parent.bottom
-    anchors.leftMargin: 6
-    anchors.rightMargin: 6
-    anchors.bottomMargin: 3
-    height: 2
-    radius: 1
-    color: Qt.alpha(Style.text, 0.12)
-    visible: !root.fullMode && Services.Players.progress > 0
+  Item {
+    id: textBox
+    anchors.left: thumbBox.right
+    anchors.leftMargin: 8
+    anchors.verticalCenter: parent.verticalCenter
+    width: Math.min(root.textMax, Math.max(titleText.implicitWidth, artistText.implicitWidth))
+    height: titleText.height + artistText.height - 2
+    clip: true
 
-    Rectangle {
-      width: parent.width * Math.max(0, Math.min(1, Services.Players.progress))
-      height: parent.height
-      radius: parent.radius
-      color: Style.teal
-      Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+    Text {
+      id: titleText
+      // Overflowing titles slide to their end while hovered, then back.
+      readonly property real overflow: Math.max(0, implicitWidth - textBox.width)
+      readonly property bool sliding: chipMouse.containsMouse && overflow > 0
+      x: sliding ? -overflow : 0
+      width: sliding ? implicitWidth : textBox.width
+      elide: sliding ? Text.ElideNone : Text.ElideRight
+      Behavior on x { NumberAnimation { duration: Math.max(400, titleText.overflow * 18); easing.type: Easing.InOutSine } }
+      text: Services.Players.title || "Media"
+      font.family: Style.menuSans
+      font.pixelSize: Style.barFontCaption + 1
+      font.weight: Font.DemiBold
+      color: root.barHost ? root.barHost.barForeground : Style.text
     }
-  }
-
-  Timer {
-    id: clickWait
-    interval: 220
-    onTriggered: Services.Players.playPause()
+    Text {
+      id: artistText
+      y: titleText.height - 2
+      width: textBox.width
+      text: Services.Players.artist || Services.Players.active?.identity || ""
+      font.family: Style.menuSans
+      font.pixelSize: Style.barFontCaption - 1
+      color: Style.barStripMuted
+      elide: Text.ElideRight
+    }
   }
 
   MouseArea {
@@ -103,16 +104,10 @@ Item {
     hoverEnabled: true
     cursorShape: Qt.PointingHandCursor
     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-
     onClicked: (mouse) => {
       if (mouse.button === Qt.RightButton) Services.Players.next()
-      else if (mouse.button === Qt.MiddleButton) Services.Players.previous()
-      else clickWait.restart()
-    }
-    onDoubleClicked: (mouse) => {
-      if (mouse.button !== Qt.LeftButton) return
-      clickWait.stop()
-      root.fullMode = !root.fullMode
+      else if (mouse.button === Qt.MiddleButton) Services.Players.playPause()
+      else root.toggled()
     }
   }
 }

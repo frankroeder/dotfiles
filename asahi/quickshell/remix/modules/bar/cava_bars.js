@@ -1,4 +1,4 @@
-// ASCII cava frame ("v;v;...;v\n", ascii_max_range=100, 24 bars) → bar values for the media chip.
+// ASCII cava frame ("v;v;...;v\n", ascii_max_range=100, 24 bars) → bar values for the media popup.
 // QML: import "../cava_bars.js" as CavaBars
 
 function parseFrame(line) {

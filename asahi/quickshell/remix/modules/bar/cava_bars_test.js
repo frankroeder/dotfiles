@@ -11,8 +11,8 @@ if (C.parseFrame("").length !== 24) throw new Error("empty");
 if (C.barHeight(0, 16) !== 2) throw new Error("min height");
 if (C.barHeight(100, 16) !== 16) throw new Error("max height");
 
-const media = fs.readFileSync(path.join(__dirname, "components/MediaPlayer.qml"), "utf8");
-if (media.indexOf("cava_bars.js") === -1) throw new Error("MediaPlayer must import cava_bars.js");
-if (media.indexOf("Cava.hold(root, false)") === -1) throw new Error("MediaPlayer must release the shared cava");
+const media = fs.readFileSync(path.join(__dirname, "components/MediaPanel.qml"), "utf8");
+if (media.indexOf("cava_bars.js") === -1) throw new Error("MediaPanel must import cava_bars.js");
+if (media.indexOf("Cava.hold(root, false)") === -1) throw new Error("MediaPanel must release the shared cava");
 
-console.log("ok  cava_bars.js + MediaPlayer.qml");
+console.log("ok  cava_bars.js + MediaPanel.qml");

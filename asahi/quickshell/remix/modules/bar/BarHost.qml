@@ -1,4 +1,5 @@
 import QtQuick
+import QtQml.Models
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
@@ -18,27 +19,58 @@ Item {
   property bool calendarOpen: false
   property bool sysPanelOpen: false
   property bool recPanelOpen: false
+  property bool mediaPanelOpen: false
   property bool launcherOpen: false
   onLauncherOpenChanged: if (launcherOpen) {
     barWindow.sysPanelOpen = false
     barWindow.recPanelOpen = false
+    barWindow.mediaPanelOpen = false
   }
   signal calendarToggle()
   // Chip clicks open their Quick pane (updates chip: PkgManager) through shell.qml in-process,
   // no `qs ipc` client fork per click.
   signal quickRequested(string key)
+  // The notification sheet and this bar's popups are one-at-a-time (the bell click is inside the
+  // whitelisted bar window, so their focus grabs never clear). Calendar: shell.qml.
+  function closeHistory() { if (barWindow.notificationCenter) barWindow.notificationCenter.historyVisible = false }
+  Connections {
+    target: barWindow.notificationCenter
+    function onHistoryVisibleChanged() {
+      if (!barWindow.notificationCenter.historyVisible) return
+      barWindow.sysPanelOpen = false
+      barWindow.recPanelOpen = false
+      barWindow.mediaPanelOpen = false
+    }
+  }
   function toggleSysPanel(button) {
     if (button === Qt.RightButton) Quickshell.execDetached([barWindow.binDir + "/asahi-sysmon"])
     else {
       if (barWindow.calendarOpen) barWindow.calendarToggle()
       barWindow.recPanelOpen = false
+      barWindow.mediaPanelOpen = false
+      barWindow.closeHistory()
       barWindow.sysPanelOpen = !barWindow.sysPanelOpen
     }
   }
   function toggleRecPanel() {
     if (barWindow.calendarOpen) barWindow.calendarToggle()
     barWindow.sysPanelOpen = false
+    barWindow.mediaPanelOpen = false
+    barWindow.closeHistory()
     barWindow.recPanelOpen = !barWindow.recPanelOpen
+  }
+  // IPC `media panel` (shell.qml): only the bar on the focused monitor answers.
+  property int mediaPing: 0
+  onMediaPingChanged: {
+    const mon = Hyprland.focusedMonitor
+    if (!mon || !barWindow.barScreen || mon.name === barWindow.barScreen.name) barWindow.toggleMediaPanel()
+  }
+  function toggleMediaPanel() {
+    if (barWindow.calendarOpen) barWindow.calendarToggle()
+    barWindow.sysPanelOpen = false
+    barWindow.recPanelOpen = false
+    barWindow.closeHistory()
+    barWindow.mediaPanelOpen = !barWindow.mediaPanelOpen
   }
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
@@ -64,8 +96,14 @@ Item {
   // cannot change the question.
   readonly property real rightOthers: trayBlock.implicitWidth + statusBlock.implicitWidth
     + micBlock.implicitWidth + volBlock.implicitWidth + netBlock.implicitWidth
-    + btBlock.implicitWidth + battBlock.implicitWidth + clockBlock.implicitWidth
-    + 9 * rightSection.spacing
+    + btBlock.implicitWidth + battBlock.implicitWidth + clockBlock.implicitWidth + notifBlock.implicitWidth
+    + 10 * rightSection.spacing
+  // Temperature in the CPU / RAM chip only when it fits: with media playing the chip must keep
+  // 200 px (its natural width, not the capped one — that would make the answer change the question).
+  readonly property real leftSpare: leftRegion.width - wsBlock.implicitWidth - sysBlock.baseWidth
+    - (backupBlock.visible ? backupBlock.implicitWidth + leftSection.spacing : 0) - 2 * leftSection.spacing
+  readonly property bool showTemp: tempAvg > 0
+    && leftSpare - (mediaBlock.hasMedia ? Math.min(mediaBlock.naturalWidth, 200) : 0) >= sysBlock.tempWidth
   readonly property bool ccuCompact: notchInset > 0
     && rightOthers + ccuBlock.fullWidth > rightRegion.width
 
@@ -127,6 +165,28 @@ Item {
       const uw = Number(heatpipeFile.text().trim())
       heatpipeW = isFinite(uw) && heatpipeFile.text().trim() !== "" ? Math.round(uw / 100000) / 10 : -1
     }
+
+    // Average of the SMC system temperatures (Asahi exposes no SoC die °C), millidegrees.
+    let sum = 0, n = 0
+    for (let i = 0; i < tempFiles.count; i++) {
+      const fv = tempFiles.objectAt(i)
+      fv.reload()
+      const v = Number(fv.text().trim())
+      if (fv.text().trim() !== "" && isFinite(v)) { sum += v; n++ }
+    }
+    tempAvg = n > 0 ? Math.round(sum / n / 1000) : -1
+  }
+  property real tempAvg: -1
+  property var tempPaths: []
+  Instantiator {
+    id: tempFiles
+    model: barWindow.tempPaths
+    delegate: FileView { required property string modelData; path: modelData; blockLoading: true }
+  }
+  Process {
+    running: true
+    command: ["sh", "-c", "for d in /sys/class/hwmon/hwmon*; do [ \"$(cat \"$d/name\")\" = macsmc_hwmon ] && ls \"$d\"/temp*_input; done"]
+    stdout: StdioCollector { onStreamFinished: barWindow.tempPaths = text.split("\n").filter(p => p !== "") }
   }
   FileView { id: procStat; path: "/proc/stat"; blockLoading: true }
   FileView { id: procMeminfo; path: "/proc/meminfo"; blockLoading: true }
@@ -308,6 +368,22 @@ Item {
     }
   }
 
+  // Chips that appear / vanish (media, backup, tray, timer…) slide their neighbours instead of
+  // jumping (upstream BarModule: 300 ms OutCubic, fade 180 ms). Off for the first second so the
+  // bar does not cascade in on start or reload.
+  property bool chipAnim: false
+  Timer { interval: 1000; running: true; onTriggered: barWindow.chipAnim = true }
+  Transition {
+    id: chipMove
+    enabled: barWindow.chipAnim
+    NumberAnimation { properties: "x"; duration: 300; easing.type: Easing.OutCubic }
+  }
+  Transition {
+    id: chipAdd
+    enabled: barWindow.chipAnim
+    NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 180; easing.type: Easing.OutCubic }
+  }
+
   Item {
     id: barContent
     anchors.fill: parent
@@ -330,6 +406,8 @@ Item {
     anchors.left: parent.left
     anchors.verticalCenter: parent.verticalCenter
     spacing: 2
+    move: chipMove
+    add: chipAdd
 
     WorkspacesBlock { id: wsBlock; controller: barWindow; anchors.verticalCenter: parent.verticalCenter }
 
@@ -346,6 +424,8 @@ Item {
     BarComponents.MediaPlayer {
       id: mediaBlock
       barHost: barWindow
+      panelOpen: barWindow.mediaPanelOpen
+      onToggled: barWindow.toggleMediaPanel()
       maxChipWidth: Math.max(64,
         leftRegion.width - wsBlock.implicitWidth - sysBlock.implicitWidth
           - (backupBlock.visible ? backupBlock.implicitWidth + leftSection.spacing : 0)
@@ -362,11 +442,29 @@ Item {
     width: barWindow.notchInset > 0 ? barContent.width - barWindow.notchInset : barContent.width
     clip: true
 
+  // Bell right of the notch: pinned to the cutout's wall on the notched panel; elsewhere it leads
+  // the right cluster. The clock stays rightmost; the left belongs to the media chip.
+  BarComponents.Notifications {
+    id: notifNotch
+    visible: barWindow.notchInset > 0 && barWindow.notificationCenter !== null
+    anchors.left: parent.left
+    anchors.verticalCenter: parent.verticalCenter
+    notificationCenter: barWindow.notificationCenter
+  }
+
   Row {
     id: rightSection
     anchors.right: parent.right
     anchors.verticalCenter: parent.verticalCenter
     spacing: 2
+    move: chipMove
+    add: chipAdd
+
+    BarComponents.Notifications {
+      id: notifBlock
+      visible: barWindow.notchInset === 0 && barWindow.notificationCenter !== null
+      notificationCenter: barWindow.notificationCenter
+    }
 
     BarComponents.SystemTray {
       id: trayBlock
@@ -376,7 +474,6 @@ Item {
 
     BarComponents.StatusIndicators {
       id: statusBlock
-      notificationCenter: barWindow.notificationCenter
       isRecording: barWindow.isRecording
       updatesAvailable: barWindow.updatesAvailable
       barHost: barWindow
@@ -399,6 +496,7 @@ Item {
       calendarOpen: barWindow.calendarOpen
       onCalendarToggle: {
         barWindow.sysPanelOpen = false
+        barWindow.mediaPanelOpen = false
         barWindow.calendarToggle()
       }
     }
@@ -410,6 +508,12 @@ Item {
     barHost: barWindow
     panelOpen: barWindow.sysPanelOpen
     anchor.item: sysBlock
+  }
+
+  BarComponents.MediaPanel {
+    barHost: barWindow
+    panelOpen: barWindow.mediaPanelOpen
+    anchor.item: mediaBlock
   }
 
   BarComponents.RecordPanel {

@@ -7,12 +7,11 @@ import "../../../"
 import "../../../services" as Services
 import "../../launcher/arg_commands.js" as ArgCommands
 
-// Click-only chips: stay awake, night light, recorder, timer, updates, notifications.
+// Click-only chips: stay awake, night light, recorder, timer, updates (bell: Notifications.qml).
 // Stay-awake / night-light / timer state follows files their scripts write (FileView watches).
 RowLayout {
   id: root
 
-  property var notificationCenter: null
   property bool isRecording: false
   property bool updatesAvailable: false
   property bool stayAwake: false
@@ -260,48 +259,6 @@ RowLayout {
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
       onClicked: if (root.barHost) root.barHost.quickRequested("pkgman")
-    }
-  }
-
-  Item {
-    visible: root.notificationCenter !== null
-    Layout.preferredWidth: notifRow.implicitWidth + 8
-    implicitHeight: Style.barHeight
-
-    RowLayout {
-      id: notifRow
-      anchors.centerIn: parent
-      spacing: 5
-
-      Text {
-        text: root.notificationCenter && root.notificationCenter.dndEnabled ? "󰂛" : "󰂚"
-        font.family: Style.fontFamily
-        font.pixelSize: Style.barFontGlyph
-        color: root.notificationCenter && root.notificationCenter.dndEnabled ? Style.yellow : Style.blueAlt
-      }
-
-      Text {
-        text: root.notificationCenter ? root.notificationCenter.unreadCount : 0
-        font.family: Style.fontFamily
-        font.pixelSize: Style.barFontCaption
-        color: Style.textMuted
-        visible: root.notificationCenter && root.notificationCenter.unreadCount > 0
-      }
-    }
-
-    HoverTint { lit: chipMouse6.containsMouse }
-    MouseArea {
-      id: chipMouse6
-      anchors.fill: parent
-      hoverEnabled: true
-      cursorShape: Qt.PointingHandCursor
-      acceptedButtons: Qt.LeftButton | Qt.RightButton
-
-      onClicked: (mouse) => {
-        if (!root.notificationCenter) return
-        if (mouse.button === Qt.RightButton) root.notificationCenter.toggleDnd()
-        else root.notificationCenter.toggleHistory()
-      }
     }
   }
 }

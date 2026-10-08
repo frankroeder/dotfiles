@@ -67,6 +67,11 @@ Singleton {
   readonly property color wsOccupiedText:   themed("text")
   readonly property color wsEmptyText:      themed("overlay1")
 
+  // Bar popups (CCU, calendar, SysPanel, media, notification sheet / toasts) float over windows of
+  // the same dark tone: one clearly visible outline separates them.
+  readonly property color popupBorder:    themedAlpha("overlay1", 0.6)
+  readonly property int popupBorderWidth: 2
+
   readonly property color barHoverBg:     themedAlpha("surface1", 0.92)
   readonly property color barBorder:      themedAlpha("text", 0.10)
 
@@ -204,7 +209,7 @@ Singleton {
   readonly property int radiusSm: 6
   readonly property int radiusLg: 14
 
-  readonly property int barHeight: 36
+  readonly property int barHeight: 40
   readonly property int barFontBody: 15
   readonly property int barFontIcon: 23
   readonly property int barFontGlyph: 23

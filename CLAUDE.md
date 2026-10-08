@@ -173,7 +173,15 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   (3024x1964 → **74**), width is the real cutout (370/3024 of logical width + 12). Overflow is
   clipped at the wall; `ccuCompact` (reads compact-independent `fullWidth`) is the only give — the
   clock always shows weekday + date. Chip pads are 6px, `barIconSlot` 26. Anything added to the
-  right cluster eats that budget.
+  right cluster eats that budget. Bar = `max(Style.barHeight 40, notch)` (notch is 37 logical at
+  scale 2) — 40 fits the two-line media chip. Left cluster: workspaces → SysChip → BackupChip →
+  media (gets the leftover, `maxChipWidth`). Bell (`Notifications.qml`): on the notched panel pinned
+  to the right wall of the cutout (`notifNotch`), elsewhere the first right chip (`notifBlock`);
+  counted in `rightOthers`. Clock stays rightmost; at the left the bell starved the media chip.
+  SysChip adds the average SMC temperature (`tempAvg`: mean of macsmc_hwmon `temp*_input`, read
+  in-process — no SoC die °C on Asahi) only while it fits (`showTemp`: with media playing the chip
+  keeps ≥ 200 px; computed from `baseWidth` / `naturalWidth`, never the capped widths).
+  Volume / Microphone chips: click = mute, wheel = step, right-click = Media quick pane.
 - **Bar tray**: `maxInline` 3, rest behind `+N` → `TrayPanel.qml`. Use `SystemTrayItem.NeedsAttention`
   (no `SystemTrayStatus`). Popups need `screen:` + `exclusionMode: ExclusionMode.Ignore`.
   SysPanel / CCU / tray `+N` close on Esc or click-outside: `HyprlandFocusGrab` whitelists the popup
@@ -183,7 +191,8 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   popup grab: TrayPanel opens them via `QsMenuAnchor` and drops its grab until `closed`.
   `HyprlandFocusGrab` dies on `focusable: false`. Attention dot is static (a pulse redraws the bar
   every frame). Menu positions are window coords (`mapToItem(null, …)`).
-- **Bar = click to act, event-driven**: hover tint (`HoverTint`), tooltip only on tray icons,
+- **Bar = click to act, event-driven**: chips appearing / vanishing slide neighbours (Row
+  `move`/`add` transitions, off for the first second). Hover tint (`HoverTint`), tooltip only on tray icons,
   night-light chip only while on. Vol/mic bind Pipewire (+`PwObjectTracker`), BT binds BlueZ,
   battery = UPower (60 s fallback), network = `nmcli monitor` (+30 s signal poll), CPU/RAM/heatpipe
   in-process `FileView`; `asahi-cpu`/`-memory` only while SysPanel is open. Stay-awake / night light
@@ -193,6 +202,17 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   to 120, horizontal swipes ignored. Visualizers share one cava (`services/Cava.qml`, `hold()`);
   hidden items bound to it still repaint, so bars exist only while shown. One bar per screen —
   every poll doubles when docked.
+- **Media chip / popup**: chip = art thumb (accent ring while playing) + title/artist; title slides
+  only on hover (no free-running marquee). Click = `MediaPanel` (compact serpantinum `MusicPopup`,
+  checked against its source: blurred art + 0.55/0.72/0.90 wash, grooved vinyl 25 s/turn (0.9 when
+  paused), `WavySeekBar` = upstream constants at 16 ms only while shown + playing, surface0
+  transport 32/43/32, shuffle/loop if supported, cava strip),
+  middle = play/pause, right = next. `Players.pinned` = source pill cycle (2+ players). Firefox MPRIS
+  has no length → no seek bar. Seek holds the target 1 s (no jump back). An Item stays `visible`
+  inside a hidden PopupWindow: gate per-frame work on the window (`WavySeekBar.live: root.visible` —
+  without it the 16 ms wave repainted while closed, +1.4 % CPU; open popup ≈ 19 % of a core). IPC `media panel` toggles
+  it on the focused screen (shell `mediaPing` → BarHost). Rounded content needs `ClippingRectangle`
+  (`clip` is rectangular: the blurred art's corners showed past the card radius).
 - **Launcher quick panes**: one file each in `quickshell/remix/modules/launcher/panes/`;
   `LauncherWindow.qml` does `Panes.XPane { root: launcherSelf }` (`root` inside a pane is that
   property, not the launcher id). Shared M3 widgets in `modules/menu`. A visible Quick tile **must
@@ -244,9 +264,24 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
 - **sshd**: Fedora enables it; disable and mask `sshd.service` + `sshd.socket`. Re-check after a
   release upgrade.
 - **Notification images**: `localImage()` only `image:`/`file:`/`/…`. Summary/body are
-  `Text.PlainText` (no `<img src>`). Toasts top-right, `ExclusionMode.Normal` + zone 0 (clears
-  bar/notch). History persists to `~/.local/state/asahi/notifications.json` (0600, non-atomic
-  writes keep the mode). Bell badge = unread since last sheet toggle. Click = focus sender by
+  `Text.PlainText` (no `<img src>`). Toasts top-centre (only `top` anchored → layer-shell centres
+  them under the notch; they drop in from y −24), `ExclusionMode.Normal` + zone 0 (clears
+  bar/notch). Bar popups and toasts share `Style.popupBorder` (overlay1 @ 0.6, `popupBorderWidth` 2 px) — without it
+  they vanished against dark windows; in-sheet history cards keep the hairline. History persists to `~/.local/state/asahi/notifications.json` (0600, non-atomic
+  writes keep the mode). History sheet hangs top-right (toasts are top-centre, no overlap); its trash
+  needs two clicks within 3 s ("Clear all?") — one stray click used to wipe everything; Esc / click outside closes it (focus grab; the bell click that ends
+  the grab is ignored for 300 ms). Load never writes the file back (only real changes save). Bell
+  badge = unread since the sheet last opened/closed. Toasts: `ListView` over
+  `ScriptModel { values: root.toasts }` (keeps cards — a Repeater on the array rebuilt them and
+  restarted every timer); enter/leave animate `fade`, not `opacity` (swipe binds it). Timeout:
+  critical never, app `expire` (seconds) else 6 s, paused on hover / drag; swipe past 18 % dismisses;
+  times relative ("now", "N min ago"); an identical repeat (app + summary + body) within 100 ms is
+  dropped, different ones arriving together are kept. Super+(Shift+)comma `dismissOne`/`dismissAll`
+  only touch popups — history is cleared only by the sheet's trash button (they used to wipe it).
+  Sheet and bar popups (calendar: shell.qml; sys / rec / media: BarHost) close each other; the sheet's
+  focus grab arms 200 ms after opening (an unmapping popup would clear it at once). Toast window
+  lingers 260 ms after the last toast so its leave animation plays. History groups per day by app
+  (`historyGroups`): 2+ from one app collapse to the newest card + header (count, Show all, ✕ group). Click = focus sender by
   class (never run notification actions); right-click dismisses. shell.qml id is `notifCenter` —
   `notificationCenter: notificationCenter` self-binds to null.
 - **bash 5.3 / trailing `&&`**: an EXIT trap or function whose last command is `[[ -n $x ]] && …`
@@ -257,6 +292,10 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   force-loads `hid_apple` only (`hid_magicmouse` is builtin). Verify
   `/sys/bus/hid/drivers/` + `readlink -f /sys/bus/hid/devices/*/driver`. Live trackpad recovery:
   `sudo udevadm trigger --action=add /dev/input/eventN` (input node, not drm).
+- **Volume keys**: `asahi-media-control output-volume raise|lower|+1|-1` unmutes the sink (Media pane
+  output slider too) **only if it is muted** — a `set-mute 0` on every step clicked the speakers
+  (`unmute_if_muted`); the mic is never unmuted by a level change. Launcher Logout / Restart / Shutdown
+  carry `confirm: true` (Data.js): first Enter arms for 3 s (OSD "Again to confirm"), second runs.
 - **Audio**: Fedora Asahi already ships the stack — do not port omarchy's Apple audio.sh. RT check
   is the **thread**: `ps -eLo comm,rtprio,cls | grep data-loop` → `20 RR`. Mic:
   `effect_output.j414-mic` is 1ch `AUX0` (stereo recorders: left only) →

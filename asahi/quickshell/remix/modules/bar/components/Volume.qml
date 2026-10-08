@@ -56,7 +56,12 @@ Item {
     anchors.fill: parent
     hoverEnabled: true
     cursorShape: Qt.PointingHandCursor
-    onClicked: Quickshell.execDetached([root.binDir + "/asahi-media-control", "output-volume", "mute-toggle"])
+    acceptedButtons: Qt.LeftButton | Qt.RightButton
+    // Click = mute, right-click = Media overview (devices, mixer).
+    onClicked: mouse => {
+      if (mouse.button === Qt.RightButton) { if (root.barHost) root.barHost.quickRequested("media") }
+      else Quickshell.execDetached([root.binDir + "/asahi-media-control", "output-volume", "mute-toggle"])
+    }
     onWheel: wheel => {
       if (Math.abs(wheel.angleDelta.x) > Math.abs(wheel.angleDelta.y)) return
       root.wheelAcc += wheel.angleDelta.y
