@@ -1,10 +1,3 @@
-local gh = require("pack_helpers").gh
-local utils = require "utils"
-
-vim.pack.add {
-  gh "nvim-lua/plenary.nvim",
-}
-
 if #vim.api.nvim_list_uis() > 0 then
   pcall(vim.cmd.packadd, "fzf-lua")
 end
@@ -34,19 +27,57 @@ local default_opts = {
     --     "grok-build-0.1",
     --   },
     -- },
+    anthropic = {
+      name = "anthropic",
+      endpoint = "https://api.anthropic.com/v1/messages",
+      model_endpoint = "https://api.anthropic.com/v1/models",
+      api_key = os.getenv("ANTHROPIC_API_KEY"),
+      params = {
+        chat = { max_tokens = 16000 },
+        command = { max_tokens = 16000 },
+      },
+      topic = {
+        model = "claude-haiku-5-5",
+        params = {
+          max_tokens = 1024,
+          output_config = { effort = "low" },
+        },
+      },
+      headers = function(self)
+        return {
+          ["Content-Type"] = "application/json",
+          ["x-api-key"] = self.api_key,
+          ["anthropic-version"] = "2023-06-01",
+        }
+      end,
+      models = {
+        "claude-haiku-5-5",
+        "claude-opus-5-5",
+        "claude-sonnet-5-5",
+      },
+      preprocess_payload = function(payload)
+        for _, message in ipairs(payload.messages) do
+          message.content = message.content:gsub("^%s*(.-)%s*$", "%1")
+        end
+        if payload.messages[1] and payload.messages[1].role == "system" then
+          payload.system = payload.messages[1].content
+          table.remove(payload.messages, 1)
+        end
+        return payload
+      end,
+    },
     grok = {
       type = "acp",
       name = "grok",
       command = { "grok", "agent", "stdio" },
       cli_command = { "grok" },
-      models = {},
+      models = { "grok-4.7", "grok-build" },
       always_approve = false,
     },
   },
   cmd_prefix = "Prt",
   user_input_ui = "buffer",
   toggle_target = "",
-  online_model_selection = true,
   command_auto_select_response = true,
   show_context_hints = true,
   model_cache_expiry_hours = 0,
