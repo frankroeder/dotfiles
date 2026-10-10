@@ -235,6 +235,18 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   Shift+←/→ / Live chip; ignore bare Shift in the search field. Debounce 70ms. Color index from
   cached thumbs → `wallpaper_colors.js`; filters on `WallpaperService.arranged(query)`. Test:
   `wallpaper_colors_test.js`.
+- **Wallpaper span** (idea: omarchy-wallpaper-cutter): `asahi-wallpaper-span` cuts the current
+  wallpaper across the live layout (logical px, cover over the bounding box, native-res slices in
+  `~/.cache/asahi/wallpaper-span/`, only the live set kept). Bezel `gap` (default 0, one value for
+  all seams; Monitors pane slider 0-128 px in 8 px steps, cut 400 ms after the drag rests): each
+  seam of touching outputs becomes a strip, outputs past it move by `gap`. EDID mm are not used (LG
+  reports 700x400). hyprpaper keeps per-monitor entries over the `,path` wildcard — every set
+  (`apply` / `show`) names each output; all `WallpaperService` desktop sets go through the script.
+  `sync` puts the current wallpaper back on every output (cut while spanning; no-op and no state
+  write when it already shows): on `WallpaperService.screenLayout` changes (Quickshell.screens
+  geometry, 1.5 s debounce), at shell start, and after Super+Ctrl+Alt+P (hyprpaper restarts on its
+  random slideshow image). Monitors pane: header `Span` pill (tonal = on), gap row only while on;
+  tiles show the slices. Picker previews stay uncut. Test: `asahi/bin/asahi_wallpaper_span_test.py`.
 - **Autotheme**: Hyprland has no portal Settings — `portals.conf` pins Settings to gtk. Flavours
   `source content vibrant calm mono` (`FLAVORS` is the source of truth; saturation is a fraction of
   gamut room, never a multiplier). Writes `~/.local/state/asahi-theme/`. GTK ini is a real file,

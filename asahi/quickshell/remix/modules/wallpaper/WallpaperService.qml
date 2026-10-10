@@ -108,14 +108,22 @@ Singleton {
   // when the current load exits. Otherwise fast browsing leaves the desktop one
   // step behind the centre tile (or on a preview after closing).
   property string wallQueued: ""
+  // asahi-wallpaper-span sets every output by name (hyprpaper keeps per-monitor entries over the
+  // `,path` wildcard): `apply` cuts the current wallpaper across displays while spanning, a
+  // browsed preview is `show`n uncut.
+  readonly property string spanBin: Quickshell.env("HOME") + "/.dotfiles/asahi/bin/asahi-wallpaper-span"
   function showOnDesktop(path) {
     if (previewWallProc.running) { root.wallQueued = path; return }
     root.wallQueued = ""
-    previewWallProc.command = ["sh", "-c",
-      "hyprctl hyprpaper wallpaper \",$1,$2\" >/dev/null 2>&1; hyprctl hyprpaper unload unused >/dev/null 2>&1",
-      "sh", path, root.defaultFit]
+    previewWallProc.command = [root.spanBin, path === root.currentWallpaper ? "apply" : "show", path]
     previewWallProc.running = true
   }
+  // Any output added / removed / moved / rescaled: `sync` puts the current wallpaper back on every
+  // output (re-cut while spanning; a no-op when unchanged). Debounced: asahi-hdmi and the Monitors
+  // pane move outputs in several steps.
+  readonly property string screenLayout: Quickshell.screens.map(s => s.name + "@" + s.x + "," + s.y + ":" + s.width + "x" + s.height).join(" ")
+  onScreenLayoutChanged: spanSync.restart()
+  Timer { id: spanSync; interval: 1500; onTriggered: Quickshell.execDetached([root.spanBin, "sync"]) }
   function randomWallpaper() {
     const n = root.wallpapers.length
     return n ? root.wallpapers[Math.floor(Math.random() * n)] : ""
@@ -311,6 +319,7 @@ Singleton {
 
   Component.onCompleted: {
     scanner.running = true
+    spanSync.restart()   // hyprpaper starts beside us at login: heal a set that raced it
   }
 
   function rescan() {
@@ -331,8 +340,8 @@ Singleton {
     saveProcess.command = ["sh", "-c", "mkdir -p \"$(dirname \"$1\")\" \"$(dirname \"$3\")\" && printf \"%s\" \"$2\" > \"$1\" && ln -sfn \"$2\" \"$3\"", "sh", root.wallpaperConf, path, root.lockWallpaper]
     saveProcess.running = true
 
-    // Apply directly (hyprpaper preload IPC returns invalid+exit1 here; wallpaper= cmd works and changes it, matching asahi-wallpaper-menu)
-    applyProc.command = ["hyprctl", "hyprpaper", "wallpaper", "," + path + "," + root.defaultFit]
+    // Apply directly (hyprpaper preload IPC returns invalid+exit1 here; wallpaper= cmd works and changes it).
+    applyProc.command = [root.spanBin, "apply", path]
     applyProc.running = true
 
     // Wallpaper-driven adaptive theme (Quickshell / Ghostty / Firefox / Hyprland)

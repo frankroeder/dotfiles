@@ -397,6 +397,27 @@ Item {
 
   Component.onCompleted: Qt.callLater(function(){ if (!monScan.running) monScan.running = true })
 
+  // ---- Span wallpaper (asahi-wallpaper-span, idea: omarchy-wallpaper-cutter) ----
+  // One image across the layout; the bezel gap (logical px) widens every seam. The script writes
+  // its state atomically; the tiles show the real slices while spanning.
+  property var span: ({})
+  FileView {
+    path: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/asahi/wallpaper-span.json"
+    watchChanges: true
+    onFileChanged: reload()
+    onLoaded: {
+      try { quickMonitorsRoot.span = JSON.parse(text()) } catch (_) { quickMonitorsRoot.span = ({}) }
+      if (!gapSet.running) quickMonitorsRoot.spanGap = quickMonitorsRoot.span.gap || 0
+    }
+    onLoadFailed: quickMonitorsRoot.span = ({})
+  }
+  function spanSlice(name) { const sp = quickMonitorsRoot.span; return sp.enabled && sp.outputs ? (sp.outputs[name] || "") : "" }
+  function spanRun(args) { Quickshell.execDetached([root.binDir + "/asahi-wallpaper-span"].concat(args)) }
+  // Bezel gap slider: 0-128 logical px in 8 px steps, cut once the drag rests (a cut is ~0.7 s).
+  property int spanGap: 0
+  readonly property int spanGapMax: 128
+  readonly property int spanGapStep: 8
+  Timer { id: gapSet; interval: 400; onTriggered: quickMonitorsRoot.spanRun(["gap", String(quickMonitorsRoot.spanGap)]) }
 
   // Segmented option pill: selected = solid primary, idle = hairline outline.
   component OptionPill: Rectangle {
@@ -496,12 +517,13 @@ Item {
     id: setRow
     property string label: ""
     property string hint: ""
+    property bool divider: true
     default property alias control: setRowSlot.data
     Layout.fillWidth: true
     implicitHeight: Math.max(40, setRowSlot.childrenRect.height + 14, setRowText.implicitHeight + 14)
     color: setRowHover.hovered ? Style.menuRowHi : "transparent"
     HoverHandler { id: setRowHover }
-    Rectangle { anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right; anchors.leftMargin: 16; anchors.rightMargin: 16; height: 1; color: Style.menuHairline }
+    Rectangle { visible: setRow.divider; anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right; anchors.leftMargin: 16; anchors.rightMargin: 16; height: 1; color: Style.menuHairline }
     Column {
       id: setRowText
       anchors.left: parent.left; anchors.leftMargin: 16
@@ -547,6 +569,12 @@ Item {
         onTapped: quickMonitorsRoot.anyMirrored ? quickMonitorsRoot.unmirrorMonitors() : quickMonitorsRoot.mirrorMonitors()
       }
       ActionPill { label: "Extend"; onTapped: quickMonitorsRoot.extendMonitors() }
+      // Tonal while one wallpaper spans the displays.
+      ActionPill {
+        label: "Span"
+        tonal: !!quickMonitorsRoot.span.enabled
+        onTapped: quickMonitorsRoot.spanRun([tonal ? "off" : "on"])
+      }
       ActionPill { label: "External"; onTapped: quickMonitorsRoot.externalOnlyMonitors() }
       ActionPill { label: "Rescan"; onTapped: quickMonitorsRoot.rescanMonitors() }
     }
@@ -637,11 +665,14 @@ Item {
               color: "transparent"
               visible: !vizMon.off && Wallpaper.WallpaperService.currentWallpaper !== ""
               // Cached picker thumbnail first (a 5K JPEG takes seconds to decode), original if missing.
+              // Spanning: this output's own slice.
               Image {
                 readonly property string wall: Wallpaper.WallpaperService.currentWallpaper
+                readonly property string slice: quickMonitorsRoot.spanSlice(vizMon.modelData.name)
                 property bool full: false
                 anchors.fill: parent
-                source: !wall ? "" : full ? "file://" + wall : "file://" + WallThumbs.thumbPath(wall, Wallpaper.WallpaperService.thumbCacheDir)
+                source: slice ? "file://" + slice
+                  : !wall ? "" : full ? "file://" + wall : "file://" + WallThumbs.thumbPath(wall, Wallpaper.WallpaperService.thumbCacheDir)
                 onWallChanged: full = false
                 onStatusChanged: if (status === Image.Error && !full) full = true
                 sourceSize.width: 480
@@ -724,6 +755,37 @@ Item {
               onTranslationChanged: if (active) quickMonitorsRoot.dragTo(modelData,
                 start.x + translation.x / vizArea.geom.s, start.y + translation.y / vizArea.geom.s)
             }
+          }
+        }
+      }
+    }
+
+    // Bezel gap while spanning: one value for every seam.
+    Rectangle {
+      Layout.fillWidth: true
+      visible: !!quickMonitorsRoot.span.enabled
+      implicitHeight: gapRow.implicitHeight
+      radius: Style.menuRadiusLg
+      color: Style.m3container
+      SettingRow {
+        id: gapRow
+        anchors.left: parent.left; anchors.right: parent.right
+        divider: false
+        label: "Bezel gap"; hint: "between displays"
+        RowLayout {
+          width: parent.width; spacing: 12
+          Menu.MenuSlider {
+            Layout.fillWidth: true
+            value: Math.min(1, quickMonitorsRoot.spanGap / quickMonitorsRoot.spanGapMax)
+            onMoved: function(v) {
+              quickMonitorsRoot.spanGap = Math.round(v * quickMonitorsRoot.spanGapMax / quickMonitorsRoot.spanGapStep) * quickMonitorsRoot.spanGapStep
+              gapSet.restart()
+            }
+          }
+          Text {
+            text: quickMonitorsRoot.spanGap ? quickMonitorsRoot.spanGap + " px" : "None"
+            color: Style.m3onSurface; font.pixelSize: root.fontPx(10); font.family: root.uiSans; font.weight: Font.DemiBold
+            Layout.preferredWidth: root.fontPx(40); horizontalAlignment: Text.AlignRight
           }
         }
       }

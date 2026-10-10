@@ -189,7 +189,8 @@ hl.bind(
 )
 hl.bind(
   mod .. " + CONTROL + ALT + P",
-  hl.dsp.exec_cmd(scripts .. "/asahi-restart-app hyprpaper"),
+  -- hyprpaper restarts on its config's random slideshow image: sync puts the (spanned) wallpaper back.
+  hl.dsp.exec_cmd(scripts .. "/asahi-restart-app hyprpaper; sleep 2; " .. scripts .. "/asahi-wallpaper-span sync"),
   { desc = "Restart hyprpaper" }
 )
 hl.bind(

@@ -1,0 +1,156 @@
+#!/usr/bin/env python3
+"""Span one wallpaper across every display (idea: renanmt/omarchy-wallpaper-cutter).
+
+The live Hyprland layout (logical px) is the canvas: the image covers the bounding box of all
+enabled outputs and each output shows its own slice, cut at native resolution. `gap` (logical px,
+default 0) is bezel compensation: every seam between touching outputs becomes a strip of that
+width and the image behind it is dropped. EDID mm are not used (the LG reports 700x400).
+
+  asahi-wallpaper-span on | off | status
+  asahi-wallpaper-span gap <px>       bezel gap (Monitors pane slider)
+  asahi-wallpaper-span apply [PATH]   cut + set while spanning, else same as show
+  asahi-wallpaper-span show PATH      uncut on every output (picker preview)
+  asahi-wallpaper-span sync           make hyprpaper show the current wallpaper again (layout change,
+                                      hyprpaper restart); a no-op when it already does
+
+hyprpaper keeps per-monitor entries over the `,path` wildcard, so every set names each output.
+"""
+
+import fcntl
+import hashlib
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+STATE_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state"))
+STATE = STATE_DIR / "asahi/wallpaper-span.json"
+CURRENT = STATE_DIR / "quickshell/wallpaper.conf"
+CACHE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "asahi/wallpaper-span"
+
+
+# ---- geometry (logical px) ----
+
+def outputs(monitors):
+  """Enabled, non-mirrored outputs as logical rects plus their native pixel size."""
+  out = []
+  for m in monitors:
+    if m.get("disabled") or m.get("mirrorOf") not in (None, "", "none"):
+      continue
+    pw, ph = (m["height"], m["width"]) if m.get("transform", 0) % 2 else (m["width"], m["height"])
+    out.append({"name": m["name"], "x": m["x"], "y": m["y"], "w": pw / m["scale"], "h": ph / m["scale"], "pw": pw, "ph": ph})
+  return out
+
+
+def seams(rects, axis):
+  """Coordinates where one output ends and a touching one starts (sharing more than a corner)."""
+  pos, size, opos, osize = ("x", "w", "y", "h") if axis == "x" else ("y", "h", "x", "w")
+  return {round(b[pos]) for a in rects for b in rects
+          if abs(a[pos] + a[size] - b[pos]) <= 1 and min(a[opos] + a[osize], b[opos] + b[osize]) - max(a[opos], b[opos]) > 1}
+
+
+def frames(rects, gap=0):
+  """Each seam inserts a `gap` strip into the canvas: outputs past it move by `gap`."""
+  sx, sy = seams(rects, "x"), seams(rects, "y")
+  return [dict(r, x=r["x"] + gap * sum(s <= r["x"] + 1 for s in sx), y=r["y"] + gap * sum(s <= r["y"] + 1 for s in sy)) for r in rects]
+
+
+def crops(frs, iw, ih):
+  """Source-pixel (w, h, x, y) per output: the image covers the frames' bounding box, centred."""
+  x0, y0 = min(f["x"] for f in frs), min(f["y"] for f in frs)
+  bw, bh = max(f["x"] + f["w"] for f in frs) - x0, max(f["y"] + f["h"] for f in frs) - y0
+  s = max(bw / iw, bh / ih)  # logical px per source px
+  ox, oy = x0 + (bw - iw * s) / 2, y0 + (bh - ih * s) / 2
+  out = {}
+  for f in frs:
+    w, h = min(iw, round(f["w"] / s)), min(ih, round(f["h"] / s))
+    out[f["name"]] = (w, h, min(max(0, round((f["x"] - ox) / s)), iw - w), min(max(0, round((f["y"] - oy) / s)), ih - h))
+  return out
+
+
+# ---- hyprpaper / magick ----
+
+def run(*cmd):
+  return subprocess.run(cmd, capture_output=True, text=True, check=True).stdout
+
+
+def set_wallpapers(mapping, wildcard):
+  for name, path in mapping.items():
+    run("hyprctl", "hyprpaper", "wallpaper", f"{name},{path},cover")
+  run("hyprctl", "hyprpaper", "wallpaper", f",{wildcard},cover")  # outputs plugged in later
+
+
+def active():
+  return dict(line.split(": ", 1) for line in run("hyprctl", "hyprpaper", "listactive").splitlines() if ": " in line)
+
+
+def image_size(path):
+  w, h, orient = run("magick", "identify", "-ping", "-format", "%w %h %[EXIF:Orientation]|", path).split("|")[0].split(" ")
+  return (int(h), int(w)) if orient in ("5", "6", "7", "8") else (int(w), int(h))  # EXIF rotation swaps sides
+
+
+def show(path, rects):
+  """The image uncut on every output; a no-op when hyprpaper already shows it."""
+  if any(active().get(r["name"]) != path for r in rects):
+    set_wallpapers({r["name"]: path for r in rects}, path)
+
+
+def cut(path, gap, rects):
+  """Slices for the live layout; files are keyed by image + layout, so an unchanged layout is a no-op."""
+  frs = frames(rects, gap)
+  key = hashlib.sha1(json.dumps([path, os.path.getmtime(path), frs]).encode()).hexdigest()[:12]
+  slices = {f["name"]: str(CACHE / f"{key}-{f['name']}.png") for f in frs}
+  if all(active().get(n) == p and os.path.exists(p) for n, p in slices.items()):
+    return slices
+  boxes = crops(frs, *image_size(path))
+  jobs = [subprocess.Popen(["magick", f"{path}[0]", "-auto-orient", "-crop", "{}x{}+{}+{}".format(*boxes[f["name"]]), "+repage",
+                            "-resize", f"{f['pw']}x{f['ph']}!", "-strip", "-define", "png:compression-level=1", f"PNG24:{slices[f['name']]}"])
+          for f in frs if not os.path.exists(slices[f["name"]])]
+  if any(j.wait() for j in jobs):
+    sys.exit("magick failed")
+  set_wallpapers(slices, path)
+  return slices
+
+
+# ---- commands ----
+
+def main(cmd="status", arg=""):
+  CACHE.mkdir(parents=True, exist_ok=True)
+  with open(CACHE / ".lock", "w") as lock:
+    fcntl.flock(lock, fcntl.LOCK_EX)  # the shell's sync and the picker's apply can overlap
+    st = {"enabled": False, "gap": 0, "outputs": {}}
+    if STATE.exists():
+      st.update(json.loads(STATE.read_text()))
+    before = json.dumps(st)
+    current = CURRENT.read_text().strip() if CURRENT.exists() else ""
+    path = arg if cmd in ("apply", "show") and arg else current
+    if cmd == "status":
+      print(json.dumps(st))
+      return
+    if cmd in ("on", "off"):
+      st["enabled"] = cmd == "on"
+    elif cmd == "gap" and arg.isdigit():
+      st["gap"] = int(arg)
+    elif cmd not in ("apply", "show", "sync"):
+      sys.exit(__doc__)
+    if not os.path.isfile(path):
+      sys.exit(f"no wallpaper: {path!r}")
+    rects = outputs(json.loads(run("hyprctl", "monitors", "-j")))  # none mid-hotplug: save only, the next sync catches up
+    spanning = st["enabled"] and cmd != "show" and bool(rects)
+    if spanning:
+      st["outputs"] = cut(path, st["gap"], rects)
+    elif rects:
+      show(path, rects)
+    if json.dumps(st) != before:  # previews and no-op syncs leave the pane's FileView alone
+      STATE.parent.mkdir(parents=True, exist_ok=True)
+      STATE.with_suffix(".tmp").write_text(json.dumps(st, indent=2) + "\n")
+      os.replace(STATE.with_suffix(".tmp"), STATE)  # atomic: the Monitors pane FileView follows the rename
+    if spanning:  # prune after the state names the new slices
+      for p in CACHE.glob("*.png"):
+        if str(p) not in st["outputs"].values():
+          p.unlink()
+
+
+if __name__ == "__main__":
+  main(*sys.argv[1:3])
