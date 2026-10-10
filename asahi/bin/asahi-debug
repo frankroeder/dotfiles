@@ -89,7 +89,7 @@ check_kernel() {
     record PASS kernel "$release"
   elif [[ $release == *fairydust* ]]; then
     # Self-built AsahiLinux/linux fairydust branch (~/linux-fairydust): USB-C DP alt mode.
-    record PASS kernel "$release (self-built fairydust, patches in asahi/kernel/)"
+    record PASS kernel "$release (self-built fairydust, local patches in ~/linux-fairydust)"
     # kernel-16k updates must not rebuild m1n1 or take the GRUB default; the pin follows uname -r.
     if grep -q '^DTBS="/boot/dtbs/fairydust"' "$(diag_path /etc/sysconfig/update-m1n1)" 2>/dev/null &&
       grep -q '^UPDATEDEFAULT=no' "$(diag_path /etc/sysconfig/kernel)" 2>/dev/null &&

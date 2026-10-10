@@ -77,3 +77,9 @@ saved_scale() {
 anchor_offset() {
   awk -v n="$1" -v s="$2" 'BEGIN { printf "%d", -n / s }'
 }
+
+# logind's lid state (Apple SMC switch).
+lid_closed() {
+  busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager LidClosed 2>/dev/null \
+    | grep -q true
+}

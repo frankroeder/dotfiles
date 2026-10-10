@@ -60,7 +60,8 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   `HandleLidSwitch` — laptop-only close is logind `suspend`; docked (`sysfs enabled=enabled`) is
   `HandleLidSwitchDocked=ignore` and `asahi-clamshell` disables eDP-1. Clamshell close is a no-op
   without a Hyprland-enabled external (do not DPMS-blank eDP there — races s2idle, `8000000a`,
-  hangs). HDMI-A-1 stays `disabled = true` in `monitors.lua` until `asahi-hdmi` (~2s) sets
+  hangs) — unless a block inhibitor (`asahi-hdmi`: cable in, output not enabled) stops the suspend:
+  then close waits 5 s for the external (→ clamshell), else blanks + locks. HDMI-A-1 stays `disabled = true` in `monitors.lua` until `asahi-hdmi` (~2s) sets
   `disabled = false`. logind does not count that cable as docked, so
   `asahi-hdmi-lid-inhibit.service` holds `handle-lid-switch` while an HDMI/DP connector reads
   `connected` (udev: the **card's** `HOTPLUG=1` uevent — connectors never get one — re-checked 3 s
@@ -69,14 +70,19 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   sets `LidSwitchIgnoreInhibited=no`. `asahi-dpms` only touches Hyprland-enabled outputs. Two hangs,
   one recovery (hold power ~10s, wait ~15s, tap power): laptop-only lid close can reach s2idle and
   never exit, and a live HDMI plug can freeze DCP (`valid_mode:0` + eDP flip) — **do not close the
-  lid** after one. `after_sleep_cmd` only runs on a real `suspend exit`. Diagnose `journalctl -b -1`
+  lid** after one. `after_sleep_cmd` also runs after a refused suspend. Diagnose `journalctl -b -1`
   (`Lid closed.` → `Suspending...` → `PM: suspend entry` with no `suspend exit`). Do not add
   `asahi-hdmi sync` to resume. Test:
   `asahi/bin/asahi_hdmi_test.sh`.
-- **Failed suspend**: kernel can refuse s2idle (`apple-drm … failed to suspend: error -22`); logind
-  then re-suspends every `HoldoffTimeoutSec` while the lid is closed. `systemd-suspend.service`
+- **Failed suspend**: kernel can refuse s2idle (`apple-drm … failed to suspend: error -22`). Cause
+  (2026-10-09): USB-C unplug while DP-1 is on — poweroff's clear swap times out and silently sets
+  `dcp->crashed`, `dcp_crtc_atomic_check` then rejects the suspend's disable-all until reboot
+  (dcp atomic_check fix in `~/linux-fairydust`). Signature: aquamarine `Cannot commit a disconnected output`, no dcpext
+  `dcp_poweroff() done`. logind then re-suspends every `HoldoffTimeoutSec` while the lid is closed. `systemd-suspend.service`
   `OnFailure=asahi-suspend-failed.service` blocks `handle-lid-switch` until lid open; `asahi-idle`
-  skips sleep while `systemd-suspend.service` is failed. Stay-awake does not gate lid suspend.
+  skips sleep while `systemd-suspend.service` is failed. `asahi-idle wake` (after_sleep) keeps the
+  panel dark while the lid is closed (outside clamshell; lid open relights via `asahi-clamshell
+  open`). Stay-awake does not gate lid suspend.
 - **Lock guard**: every lock path (hypridle `lock_cmd`, Super+Escape, launcher `loginctl
   lock-session`) runs `asahi-lock` = hyprlock in a restart loop (flock, 30 tries, stderr to
   `~/.local/state/asahi/hyprlock.log`). hyprlock exits 0 only on unlock / compositor `finished`
@@ -335,12 +341,12 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   auto → 5 → 2.4. BCM4388 resume fix (omarchy-mac) not ported: post-resume rejects recover in
   6–30 s. Test: `asahi/bin/asahi_wifi_band_test.sh` (fake nmcli).
 - **Kernel**: self-built `fairydust` (USB-C DP alt mode) in `~/linux-fairydust`, 16k pages;
-  `asahi-debug` accepts `*fairydust*`. Patches in `asahi/kernel/` (re-apply with `git am` on a local
-  branch): brcmfmac `roam_delta` init (`WLC_SET_ROAM_DELTA error (-52)`), dcp HPD re-sample on resume
-  (HDMI-on-resume untested), j414s DTS disabling AVD + its DART (no avd-fw on Fedora; the failed
+  `asahi-debug` accepts `*fairydust*`. Local fixes live only in `~/linux-fairydust` (never in this
+  repo): brcmfmac `roam_delta` init (`WLC_SET_ROAM_DELTA error (-52)`), dcp HPD re-sample on resume
+  (HDMI-on-resume untested), dcp atomic_check passes a CRTC that stays off, j414s DTS disabling AVD + its DART (no avd-fw on Fedora; the failed
   probe keeps `avd_sys` powered — needs `make dtbs && sudo make dtbs_install && sudo update-m1n1`).
-  USB-C display = `card2-DP-1`; no `ddc` link on DP or HDMI. The roam fix is in
-  `/lib/modules/7.1.13-fairydust+/updates/`, which depmod prefers: delete it on the next full rebuild.
+  USB-C display = `card2-DP-1`; no `ddc` link on DP or HDMI. The roam fix (and
+  `appledrm.ko` with the two dcp fixes) is in `/lib/modules/7.1.13-fairydust+/updates/`, which depmod prefers: delete it on the next full rebuild.
 - **m1n1 DTB pin**: m1n1 `boot.bin` carries ONE device-tree set. On each kernel add/remove grubby's
   `10-devicetree.install` re-points `/boot/dtb` to the newest Fedora `dtb-*` and
   `15-update-m1n1.install` rebuilds `boot.bin` — fairydust then boots without DP alt mode (no

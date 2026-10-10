@@ -49,7 +49,8 @@ hl.monitor {
 
 -- Lid: asahi-clamshell disables eDP-1 while an external is enabled (clamshell,
 -- persisted for the session). Without an external it is a no-op — logind
--- suspends; do not DPMS-blank here (races s2idle, hangs DCP). Apple Silicon names
+-- suspends; do not DPMS-blank here (races s2idle, hangs DCP). Only when a block
+-- inhibitor stops that suspend does close blank + lock itself. Apple Silicon names
 -- this switch "Apple SMC power/lid events", not "Lid Switch".
 -- locked = true so the bind still fires on the lock screen.
 local clamshell = dotfilesDir .. "/asahi/bin/asahi-clamshell"

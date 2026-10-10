@@ -26,6 +26,7 @@
 set -euo pipefail
 
 bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+. "$bin/lib/common.sh"
 cmd="${1:-}"
 secs="${2:-}"
 step=""
@@ -47,6 +48,9 @@ wake() {
   # A step's own "raced a wake" re-run waits for the lock instead, so its undo is not lost.
   exec {wake_lock}>"${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-wake.lock"
   if [ "$cmd" = wake ]; then flock -n "$wake_lock" || return 0; else flock -w 5 "$wake_lock" || true; fi
+  # Lid closed, no clamshell: keep the panel dark (a refused suspend ran after_sleep and lit the
+  # closed panel for an hour). asahi-clamshell open relights it on lid open.
+  if lid_closed && ! "$bin/asahi-clamshell" status; then log "wake kept dark: lid closed"; return 0; fi
   log wake
   "$bin/asahi-screensaver" stop || true
   "$bin/asahi-dpms" on

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Lid handling, external displays only. Close = eDP-1 disabled (kept off for
 # the session, survives hyprctl reload), open = eDP-1 back. Without an external
-# this does nothing: logind suspends on lid close and owns that path alone.
+# this does nothing: logind suspends on lid close and owns that path alone --
+# unless a block inhibitor stops that suspend, then close blanks and locks.
 #
 #   asahi-clamshell close|open
 #   asahi-clamshell apply     re-assert the state (config.reloaded, monitor.removed)
@@ -48,12 +49,29 @@ inhibit() {
   systemd-inhibit --what=handle-lid-switch --who=asahi-clamshell --why="lid closed on an external" --mode=block \
     bash -c 'while [ -e "$1" ]; do sleep 5; done' _ "$flag" >/dev/null 2>&1 &
 }
+# Someone else's block inhibitor (asahi-hdmi: cable in, output not enabled) stops logind's lid suspend.
+lid_blocked() {
+  busctl --json=short call org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager ListInhibitors \
+    | jq -e '.data[0] | any(.[3] == "block" and .[1] != "asahi-clamshell" and (.[0] | test("sleep|handle-lid-switch")))' >/dev/null
+}
 case "${1:-status}" in
   close)
     # Without an external, logind owns the lid (HandleLidSwitch=suspend) and
     # hypridle quiesces the DCP in before_sleep_cmd. Blanking eDP-1 here too
     # raced that into a failed modeset and hung the machine — so do nothing.
-    external_on || exit 0
+    # Unless a block inhibitor means no suspend comes: give asahi-hdmi time to
+    # enable the external (then clamshell below), else blank and lock here.
+    if ! external_on; then
+      lid_blocked || exit 0
+      sleep 5
+      lid_closed && lid_blocked || exit 0
+      if ! external_on; then
+        "$bin/asahi-idle-brightness" off
+        "$bin/asahi-dpms" off
+        loginctl lock-session
+        exit 0
+      fi
+    fi
     "$bin/asahi-idle-brightness" off
     : >"$flag"
     inhibit
