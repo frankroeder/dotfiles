@@ -15,6 +15,25 @@ hl.bind(
   { desc = "Wallpaper picker" }
 )
 -- hl.bind(mod .. " + B", hl.dsp.exec_cmd(browser), { desc = "Browser" })
+-- Writing tools on the visual (primary) selection: proofread / rewrite / concise.
+hl.bind(mod .. " + SHIFT + E", hl.dsp.global "quickshell:writing-tools", { desc = "Writing tools" })
+-- The card never takes keyboard focus (QtQuick fields drop their selection on focus loss), so
+-- its keys live in this submap; Quickshell enters it on open and resets it on close. No desc:
+-- card-only keys stay out of the Keybindings panel. Escape also resets here, in case qs died.
+hl.define_submap("writing", function()
+  local keys = { ["1"] = "1", ["2"] = "2", ["3"] = "3", Up = "up", Down = "down", Return = "enter", R = "retry",
+    ["CONTROL + C"] = "copy" }
+  for k, name in pairs(keys) do
+    hl.bind(k, hl.dsp.global("quickshell:writing-" .. name))
+  end
+  hl.bind(mod .. " + SHIFT + E", hl.dsp.global "quickshell:writing-tools")
+  hl.bind("Escape", function()
+    hl.dispatch(hl.dsp.global "quickshell:writing-escape")
+    hl.dispatch(hl.dsp.submap "reset")
+  end)
+  -- Any other key is swallowed: it would otherwise type over the source selection.
+  hl.bind("catchall", function() end)
+end)
 -- Hyprland binds bypass layer keyboard focus: while a Quickshell overlay is up
 -- (launcher, quick panes, wallpaper, pkgman) Super+Q is inert — only Esc closes it.
 local overlays = { ["quickshell-launcher"] = true, ["quickshell-wallpaper"] = true, ["quickshell-pkgman"] = true }

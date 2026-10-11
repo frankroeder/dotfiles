@@ -423,6 +423,21 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   drive are `chattr +i` — never delete (2026-09-28 is the last full one). No sleep inhibitor (lid
   close must still suspend). After install: `asahi-timemachine init` (key, password, repo, timer).
   Test: `asahi/bin/asahi_timemachine_test.sh`.
+- **Writing tools**: Super+Shift+E → `modules/writing/WritingTools.qml` (GlobalShortcut `writing-tools`).
+  `asahi-writing-tools capture` copies the focused window's live selection (`send_shortcut` Ctrl+C behind a
+  `--sensitive` marker, previous clipboard restored): primary misses keyboard selections (Firefox Ctrl+A
+  kept the last mouse word); terminals use primary (Ctrl+C = SIGINT). Plus
+  `activewindow` + `cursorpos`; picker at the cursor (1/2/3 = Proofread/Rewrite/Concise) morphs into
+  original/suggestion with a word diff + char marks inside one-word swaps (`writing_diff.js`, test
+  `writing_diff_test.js`). `run` = Anthropic API streamed (curl SSE → `{delta}`/`{stop}`/`{error}` lines),
+  `claude-haiku-5-5`, `ANTHROPIC_API_KEY` from the session env, else `zsh -ic` (fd 3 only).
+  The card **never takes keyboard focus** (`WlrKeyboardFocus.None`) — QtQuick fields drop their
+  selection on focus loss — so Replace is just `wl-copy` + `send_shortcut` Ctrl+V to the source address.
+  Card keys = Hyprland submap `writing` (`bindings.lua`, no desc → not in the Keys panel; Escape also
+  resets it; `catchall` swallows other keys so typing can't overwrite the selection); qs enters it on
+  open, resets on every close and on destruction. Pane drag-select is its own MouseArea (`select()`),
+  not `selectByMouse`: Qt's mouse selection claims primary and GTK then drops the source selection.
+  Replace off for terminals and truncated (>20000 chars) captures.
 - **Timers**: `asahi-timer add <dur> [label]` = transient `systemd-run --user --on-active`.
   Launcher `:timer 10m tea` (`arg_commands.js`, tested).
 - **Window pop**: Super+O → `asahi-window-pop` (float/resize/center/pin/`pop`); second press

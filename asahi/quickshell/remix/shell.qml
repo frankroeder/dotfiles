@@ -8,6 +8,7 @@ import QtQuick
 import "modules/bar"
 import "modules/system" as System
 import "modules/wallpaper"
+import "modules/writing" as Writing
 import "services" as Services
 import "."
 
@@ -139,4 +140,5 @@ ShellRoot {
   }
 
   WallpaperManager {}
+  Writing.WritingTools {}
 }
