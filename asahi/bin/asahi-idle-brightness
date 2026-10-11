@@ -57,7 +57,7 @@ case "$action" in
       if [ -s "$dstate" ]; then
         val=$(<"$dstate")
         dimval=$(( val * 45 / 100 ))
-        [ "$dimval" -lt 1 ] && dimval=1
+        [ "$dimval" -lt 1 ] && [ "$val" -gt 0 ] && dimval=1
         set_device "$device" "$dimval"
       fi
     done
