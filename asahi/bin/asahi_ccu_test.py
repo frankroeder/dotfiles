@@ -334,6 +334,16 @@ st_c = ccu.cursor_state({
 eq(st_c["tier"], "Pro", "cursor_state plan")
 eq(len(st_c["extras"]), 3, "cursor_state extras include spend")
 
+gb = ccu.grokbot_usage.build_payload({"usagePercent": 42, "nextResetTimestampUtc": str((now + 86400) * 1000), "grokPlanLabel": "SuperGrok"})
+eq(round(gb["utilization"]), 42, "grokbot percent usagePercent")
+eq(gb["reset_unix"], now + 86400, "grokbot reset from ms string")
+eq(ccu.grokbot_usage.build_payload({"hasAvailableUsage": False})["utilization"], 100.0, "grokbot exhausted without percent")
+st_b = ccu.grokbot_state(gb)
+eq(st_b["tier"], "SuperGrok", "grokbot_state plan")
+eq(round(st_b["weekly"]["used"], 2), 0.42, "grokbot_state weekly used")
+eq(ccu.grokbot_state({"error": "http_401: x"})["status"], "auth_error", "grokbot_state auth error")
+eq(len(ccu.grokbot_usage.checksum()), 8 + 36, "grokbot checksum = 8 b64 chars + uuid")
+
 src = SRC.read_text()
 qml = Path(__file__).resolve().parent.parent / "quickshell" / "remix" / "modules" / "bar" / "components" / "Ccu.qml"
 qml_src = qml.read_text()

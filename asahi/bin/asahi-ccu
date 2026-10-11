@@ -4,11 +4,12 @@
 Mirrors sketchybar/top/items/ccu.lua using the same helpers:
 
   sketchybar/helpers/grok_usage.py
+  sketchybar/helpers/grokbot_usage.py
   sketchybar/helpers/cursor_usage.py
   sketchybar/helpers/claude_usage.py
   sketchybar/helpers/ccu_cost.py
 
-Grok + Cursor + Claude are the bar chips; Codex stays in the popup.
+Grok + Cursor + Claude are the bar chips; Grok Bot and Codex stay in the popup.
 Always prints one JSON object for Quickshell.
 """
 
@@ -34,6 +35,7 @@ import ccu_cost  # noqa: E402
 import claude_usage  # noqa: E402
 import cursor_usage  # noqa: E402
 import grok_usage  # noqa: E402
+import grokbot_usage  # noqa: E402
 
 CACHE_PATH = Path.home() / ".cache" / "asahi" / "ccu.json"
 LAST_PATH = Path.home() / ".cache" / "asahi" / "ccu.last.json"
@@ -80,6 +82,14 @@ PROVIDER_DEFS = (
     "bin": "grok",
     "bar": True,
     "url": GROK_USAGE,
+  },
+  {
+    "id": "grokbot",
+    "label": "Grok Bot",
+    "accent": "blue",
+    "detect": "grokbot",
+    "bar": False,
+    "url": "",
   },
   {
     "id": "cursor",
@@ -143,6 +153,8 @@ def detected_providers() -> list[dict[str, Any]]:
   for spec in PROVIDER_DEFS:
     if spec.get("detect") == "cursor":
       ok = has_cursor()
+    elif spec.get("detect") == "grokbot":
+      ok = path_exists(grokbot_usage.SECRETS_PATH)
     elif spec.get("bin"):
       ok = has_bin(str(spec["bin"]))
     else:
@@ -784,6 +796,19 @@ def claude_state(result: dict[str, Any] | None) -> dict[str, Any]:
   return st
 
 
+def grokbot_state(result: dict[str, Any] | None) -> dict[str, Any]:
+  st = codex_state()
+  if not result:
+    st["status"] = "unavailable"
+    return st
+  if result.get("error"):
+    st["status"] = tidy_error(result["error"])
+    return st
+  st["weekly"] = from_helper_window({"utilization": result.get("utilization"), "reset_unix": result.get("reset_unix")})
+  st["tier"] = result.get("plan")
+  return st
+
+
 def codex_state(_result: dict[str, Any] | None = None) -> dict[str, Any]:
   return {
     "weekly": None,
@@ -920,21 +945,25 @@ def build() -> dict[str, Any]:
   want_claude = "claude" in ids
   want_grok = "grok" in ids
   want_cursor = "cursor" in ids
+  want_grokbot = "grokbot" in ids
   want_codex = "codex" in ids
 
   cache = load_cache()
   cached_claude = cache.get("claude") if isinstance(cache.get("claude"), dict) else None
   cached_grok = cache.get("grok") if isinstance(cache.get("grok"), dict) else None
   cached_cursor = cache.get("cursor") if isinstance(cache.get("cursor"), dict) else None
+  cached_grokbot = cache.get("grokbot") if isinstance(cache.get("grokbot"), dict) else None
 
   fresh_claude: dict[str, Any] | None = None
   fresh_grok: dict[str, Any] | None = None
   fresh_cursor: dict[str, Any] | None = None
+  fresh_grokbot: dict[str, Any] | None = None
   fresh_cost: dict[str, Any] | None = None
-  with ThreadPoolExecutor(max_workers=4) as pool:
+  with ThreadPoolExecutor(max_workers=5) as pool:
     fut_c = pool.submit(call_helper, claude_usage.fetch_usage) if want_claude else None
     fut_g = pool.submit(call_helper, grok_usage.fetch_usage) if want_grok else None
     fut_u = pool.submit(call_helper, cursor_usage.fetch_usage) if want_cursor else None
+    fut_b = pool.submit(call_helper, grokbot_usage.fetch_usage) if want_grokbot else None
     fut_cost = pool.submit(call_helper, ccu_cost.fetch_cost)
     if fut_c is not None:
       fresh_claude = fut_c.result()
@@ -942,11 +971,14 @@ def build() -> dict[str, Any]:
       fresh_grok = fut_g.result()
     if fut_u is not None:
       fresh_cursor = fut_u.result()
+    if fut_b is not None:
+      fresh_grokbot = fut_b.result()
     fresh_cost = fut_cost.result()
 
   claude = pick_provider(fresh_claude, cached_claude) if want_claude else None
   grok = pick_provider(fresh_grok, cached_grok) if want_grok else None
   cursor = pick_provider(fresh_cursor, cached_cursor) if want_cursor else None
+  grokbot = pick_provider(fresh_grokbot, cached_grokbot) if want_grokbot else None
 
   now = int(time.time())
   times = cache_times(cache)
@@ -955,6 +987,7 @@ def build() -> dict[str, Any]:
     ("claude", claude, cached_claude, fresh_claude),
     ("grok", grok, cached_grok, fresh_grok),
     ("cursor", cursor, cached_cursor, fresh_cursor),
+    ("grokbot", grokbot, cached_grokbot, fresh_grokbot),
   ):
     if val and not val.get("error"):
       parts[key] = val
@@ -977,6 +1010,7 @@ def build() -> dict[str, Any]:
   builders = {
     "grok": lambda: grok_state(grok),
     "cursor": lambda: cursor_state(cursor),
+    "grokbot": lambda: grokbot_state(grokbot),
     "claude": lambda: claude_state(claude),
     "codex": lambda: codex_state(),
   }
@@ -984,6 +1018,7 @@ def build() -> dict[str, Any]:
     "claude": is_fresh(fresh_claude, want_claude),
     "grok": is_fresh(fresh_grok, want_grok),
     "cursor": is_fresh(fresh_cursor, want_cursor),
+    "grokbot": is_fresh(fresh_grokbot, want_grokbot),
     "codex": True,
   }
 
