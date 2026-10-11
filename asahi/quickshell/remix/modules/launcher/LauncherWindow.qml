@@ -1533,6 +1533,8 @@ Scope {
       if (copy) Quickshell.execDetached(["sh", "-c", "printf %s \"$1\" | wl-copy", "sh", copy])
     } else if (entry.special === "file" && entry.path) {
       Quickshell.execDetached([binDir + "/asahi-launch", "xdg-open", entry.path])
+    } else if (entry.special === "url") {
+      Quickshell.execDetached([binDir + "/asahi-launch"].concat(entry.app ? ["gtk-launch", entry.app, entry.url] : ["xdg-open", entry.url]))
     } else if (entry.special === "emoji") {
       const copy = entry.copy || entry.glyph || ""
       if (copy) Quickshell.execDetached(["sh", "-c", "printf %s \"$1\" | wl-copy", "sh", copy])
@@ -2209,9 +2211,22 @@ Scope {
     webVersion++
   }
 
+  // Default browser (xdg-open) first, then every WebBrowser desktop entry (gtk-launch fills %u, flatpak too).
+  function urlResults(url) {
+    const out = [{ id: "url", name: url, comment: "Enter to open in default browser", icon: "󰖟", special: "url", url: url }]
+    for (const a of DesktopEntries.applications.values || []) {
+      if (a.noDisplay || root.isHiddenApp(a) || (a.categories || []).indexOf("WebBrowser") < 0) continue
+      out.push({ id: "url-" + a.id, name: a.name, comment: url, icon: "󰖟", rawIcon: a.icon || "", special: "url", url: url, app: a.id })
+    }
+    return out
+  }
+
   function getSpecialResults(qq) {
     const q = (qq || "").trim()
     if (!q) return null
+    // Pasted URL (http(s)://, www., localhost:<port>): anchored regex fails on the first char for normal queries.
+    if (/^(https?:\/\/|www\.)\S+$|^localhost:\d+([\/?#]\S*)?$/i.test(q))
+      return root.urlResults(/^https?:/i.test(q) ? q : (/^www\./i.test(q) ? "https://" : "http://") + q)
     const actionResults = getActionResults(q)
     if (actionResults) return actionResults
     const emojiResults = getEmojiResults(q)
