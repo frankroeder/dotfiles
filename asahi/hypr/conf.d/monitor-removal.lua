@@ -29,11 +29,6 @@ hl.on("monitor.focused", function(monitor)
   if not leaving or not monitor or leaving.name == monitor.name then
     return
   end
-  -- An open scratchpad already comes along to the front of the next monitor.
-  if hl.get_active_special_workspace(leaving) then
-    return
-  end
-
   left_behind = selector(hl.get_active_workspace(leaving))
   local seen = generation
   later(function()

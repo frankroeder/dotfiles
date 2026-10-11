@@ -57,12 +57,6 @@ hl.config {
     anr_missed_pings = 3,
   },
 
-  binds = {
-    -- Leaving a workspace hides the scratchpad (SUPER+S) instead of letting
-    -- it trail along onto the next one.
-    hide_special_on_workspace_change = true,
-  },
-
   cursor = {
     -- no_hardware_cursors lives in asahi.lua; these two are taste, not Asahi.
     hide_on_key_press = true,

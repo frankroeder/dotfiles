@@ -69,15 +69,14 @@ const deckTints = {
   nightlight: "yellow",
   reload: "sapphire",
   hypr: "blue",
-  lock: "maroon",
-  scratch: "lavender"
+  lock: "maroon"
 }
 
 const categoryNav = [
   { title: "Quick", icon: "󱎫", category: "Browse", isCategory: true, target: "Quick", tint: categoryTints.Quick, keywords: "quick settings dashboard hub overview battery audio wifi bt display media screenshots wallpaper storage disk space du clipboard cliphist packages dnf" },
   { title: "Apps", icon: "󰀻", category: "Browse", isCategory: true, target: "App", tint: categoryTints.App, keywords: "apps applications launcher programs software desktop" },
   { title: "Files", icon: "󰉋", category: "Browse", isCategory: true, target: fileCategory, tint: categoryTints.Files, keywords: "files file search find folder browse path fd", accessory: ">" },
-  { title: "Actions", icon: "󰜎", category: "Browse", isCategory: true, target: "Actions", tint: categoryTints.Actions, keywords: "actions colon commands run reload lock scratch hypr wallpaper dashboard clipboard packages dnf", accessory: ":" },
+  { title: "Actions", icon: "󰜎", category: "Browse", isCategory: true, target: "Actions", tint: categoryTints.Actions, keywords: "actions colon commands run reload lock hypr wallpaper dashboard clipboard packages dnf", accessory: ":" },
   { title: "Keyboard Shortcuts", icon: "󰌌", category: "Browse", isCategory: true, target: "Keys", tint: categoryTints.Keys, keywords: "keys keyboard shortcuts bindings hotkeys binds hyprland super mod cheatsheet", accessory: "?" },
   { title: "Emoji", icon: "󰱨", category: "Browse", isCategory: true, target: "Emoji", tint: categoryTints.Emoji, keywords: "emoji emote smiley unicode symbols faces", accessory: ";" },
   { title: "Websearch", icon: "󰖟", category: "Browse", isCategory: true, target: "Websearch", tint: categoryTints.Websearch, keywords: "web search documentation engines kagi docs translate wiki", accessory: "@" },

@@ -31,8 +31,8 @@ PopupWindow {
   anchor.edges: Edges.Bottom | Edges.Left
   anchor.gravity: Edges.Bottom | Edges.Right
   anchor.margins.bottom: -BarModel.popupDrop(root.barHost ? root.barHost.height : Style.barHeight, Style.barHeight)  // negative = below
-  implicitWidth: 380
-  implicitHeight: col.implicitHeight + 32
+  implicitWidth: 460
+  implicitHeight: col.implicitHeight + 36
 
   function close() { if (root.barHost) root.barHost.mediaPanelOpen = false }
   function fmtTime(s) {
@@ -158,19 +158,19 @@ PopupWindow {
     ColumnLayout {
       id: col
       anchors.fill: parent
-      anchors.margins: 16
-      spacing: 10
+      anchors.margins: 18
+      spacing: 12
 
       RowLayout {
         Layout.fillWidth: true
-        spacing: 14
+        spacing: 16
 
         // Vinyl disc (upstream MusicPopup): round cover in a record with grooves and an accent-ringed
         // label; one turn per 25 s while shown, paused (and shrunk to 0.9) when not playing; a soft
         // accent glow sits behind it while playing.
         Item {
-          Layout.preferredWidth: 100
-          Layout.preferredHeight: 100
+          Layout.preferredWidth: 124
+          Layout.preferredHeight: 124
           Rectangle {
             anchors.centerIn: parent
             width: disc.width + 12; height: width; radius: width / 2
@@ -184,7 +184,7 @@ PopupWindow {
           Rectangle {
             id: disc
             anchors.centerIn: parent
-            width: 88; height: 88; radius: width / 2
+            width: 110; height: 110; radius: width / 2
             color: Style.surface1
             scale: root.playing ? 1.0 : 0.9
             Behavior on scale { SpringAnimation { spring: 5.2; damping: 0.35; mass: 0.75 } }
@@ -260,8 +260,8 @@ PopupWindow {
             readonly property bool many: Services.Players.list.length > 1
             Layout.bottomMargin: 4
             implicitWidth: srcRow.implicitWidth + 16
-            implicitHeight: 20
-            radius: 10
+            implicitHeight: 22
+            radius: 11
             color: srcMa.containsMouse && many ? Style.m3containerHigh : Qt.alpha(Style.m3container, 0.8)
             Row {
               id: srcRow
@@ -270,21 +270,21 @@ PopupWindow {
               Text {
                 text: root.playing ? "󰐊" : "󰏤"
                 color: root.playing ? Style.m3primary : Style.m3onSurfaceVariant
-                font.family: Style.fontFamily; font.pixelSize: 10
+                font.family: Style.fontFamily; font.pixelSize: 11
                 anchors.verticalCenter: parent.verticalCenter
               }
               Text {
                 text: (root.p ? root.p.identity || "Player" : "")
                   + (parent.parent.many ? "  ·  " + (Services.Players.list.indexOf(root.p) + 1) + "/" + Services.Players.list.length : "")
                 color: Style.m3onSurfaceVariant
-                font.family: Style.menuSans; font.pixelSize: 10; font.weight: Font.Medium
+                font.family: Style.menuSans; font.pixelSize: 11; font.weight: Font.Medium
                 anchors.verticalCenter: parent.verticalCenter
               }
               Text {
                 visible: parent.parent.many
                 text: "󰑐"
                 color: Style.m3onSurfaceVariant
-                font.family: Style.fontFamily; font.pixelSize: 10
+                font.family: Style.fontFamily; font.pixelSize: 11
                 anchors.verticalCenter: parent.verticalCenter
               }
             }
@@ -301,7 +301,7 @@ PopupWindow {
             Layout.fillWidth: true
             text: root.p ? (root.p.trackTitle || "Unknown track") : ""
             color: Style.m3onSurface
-            font.family: Style.menuSans; font.pixelSize: 16; font.weight: Font.Bold
+            font.family: Style.menuSans; font.pixelSize: 18; font.weight: Font.Bold
             wrapMode: Text.Wrap
             maximumLineCount: 2
             elide: Text.ElideRight
@@ -311,7 +311,7 @@ PopupWindow {
             visible: text !== ""
             text: root.p ? root.p.trackArtist || "" : ""
             color: Style.m3onSurfaceVariant
-            font.family: Style.menuSans; font.pixelSize: 12; font.weight: Font.Medium
+            font.family: Style.menuSans; font.pixelSize: 14; font.weight: Font.Medium
             elide: Text.ElideRight
           }
           Text {
@@ -319,7 +319,7 @@ PopupWindow {
             visible: text !== ""
             text: root.p ? root.p.trackAlbum || "" : ""
             color: Style.m3outline
-            font.family: Style.menuSans; font.pixelSize: 11
+            font.family: Style.menuSans; font.pixelSize: 12
             elide: Text.ElideRight
           }
         }
@@ -346,44 +346,44 @@ PopupWindow {
         Text {
           text: root.fmtTime(root.pos)
           color: Style.m3onSurfaceVariant
-          font.family: Style.menuSans; font.pixelSize: 11; font.bold: true; font.features: { "tnum": 1 }
+          font.family: Style.menuSans; font.pixelSize: 12; font.bold: true; font.features: { "tnum": 1 }
         }
         Item { Layout.fillWidth: true }
         Text {
           text: root.fmtTime(root.hasLen ? root.p.length : 0)
           color: Style.m3onSurfaceVariant
-          font.family: Style.menuSans; font.pixelSize: 11; font.bold: true; font.features: { "tnum": 1 }
+          font.family: Style.menuSans; font.pixelSize: 12; font.bold: true; font.features: { "tnum": 1 }
         }
       }
 
       // Transport: shuffle · prev · play · next · loop (shuffle / loop only if the player has them).
       RowLayout {
         Layout.alignment: Qt.AlignHCenter
-        spacing: 18
+        spacing: 22
         CtlBtn {
-          icon: "󰒟"; size: 28
+          icon: "󰒟"; size: 32
           visible: !!(root.p && root.p.shuffleSupported)
           active: !!(root.p && root.p.shuffle)
           available: !!(root.p && root.p.canControl)
           onClicked: root.p.shuffle = !root.p.shuffle
         }
         CtlBtn {
-          icon: "󰒮"
+          icon: "󰒮"; size: 36
           available: !!(root.p && root.p.canGoPrevious)
           onClicked: root.p.previous()
         }
         CtlBtn {
-          icon: root.playing ? "󰏤" : "󰐊"; size: 43; primary: true
+          icon: root.playing ? "󰏤" : "󰐊"; size: 52; primary: true
           available: !!(root.p && root.p.canTogglePlaying)
           onClicked: root.p.togglePlaying()
         }
         CtlBtn {
-          icon: "󰒭"
+          icon: "󰒭"; size: 36
           available: !!(root.p && root.p.canGoNext)
           onClicked: root.p.next()
         }
         CtlBtn {
-          icon: root.p && root.p.loopState === MprisLoopState.Track ? "󰑘" : "󰑖"; size: 28
+          icon: root.p && root.p.loopState === MprisLoopState.Track ? "󰑘" : "󰑖"; size: 32
           visible: !!(root.p && root.p.loopSupported)
           active: !!(root.p && root.p.loopState !== MprisLoopState.None)
           available: !!(root.p && root.p.canControl)
@@ -395,7 +395,7 @@ PopupWindow {
       // Cava strip: bars exist only while playing (see cavaWanted), otherwise a flat hairline.
       Item {
         Layout.fillWidth: true
-        Layout.preferredHeight: 18
+        Layout.preferredHeight: 22
         Row {
           anchors.fill: parent
           spacing: 3
@@ -405,7 +405,7 @@ PopupWindow {
               required property int index
               width: (parent.width - 23 * 3) / 24
               anchors.bottom: parent.bottom
-              height: CavaBars.barHeight(Services.Cava.values[index] || 0, 18)
+              height: CavaBars.barHeight(Services.Cava.values[index] || 0, 22)
               radius: 1.5
               color: Qt.alpha(Style.m3primary, 0.55)
             }

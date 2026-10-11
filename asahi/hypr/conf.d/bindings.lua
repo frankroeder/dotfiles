@@ -59,12 +59,6 @@ hl.bind(mod .. " + ALT + TAB", hl.dsp.group.next(), { desc = "Next window in gro
 hl.bind(mod .. " + ALT + SHIFT + TAB", hl.dsp.group.prev(), { desc = "Previous window in group" })
 hl.bind(mod .. " + O", hl.dsp.exec_cmd(scripts .. "/asahi-window-pop"), { desc = "Pop window (float + center + pin)" })
 hl.bind(mod .. " + ALT + P", hl.dsp.exec_cmd(scripts .. "/asahi-window-gesture pip"), { desc = "Toggle picture-in-picture" })
-hl.bind(mod .. " + S", hl.dsp.workspace.toggle_special "scratch", { desc = "Toggle scratchpad" })
-hl.bind(
-  mod .. " + SHIFT + S",
-  hl.dsp.window.move { workspace = "special:scratch", silent = true },
-  { desc = "Move to scratchpad" }
-)
 hl.bind(
   mod .. " + ALT + Return",
   hl.dsp.send_shortcut {

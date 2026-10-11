@@ -13,8 +13,8 @@ Item {
   property real maxChipWidth: 260
   property bool panelOpen: false
   signal toggled()
-  // Notch budget from BarHost; 260 caps the chip on notchless externals.
-  readonly property int chipCap: Math.min(root.maxChipWidth, 260)
+  // Notch budget from BarHost; 380 caps the chip on notchless externals.
+  readonly property int chipCap: Math.min(root.maxChipWidth, 380)
   readonly property int thumb: Style.barHeight - 2 * Style.barChipInset - 6
   readonly property real textMax: root.chipCap - root.thumb - 22
 

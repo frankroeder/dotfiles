@@ -206,7 +206,11 @@ Item {
     if (wsIconRefreshes > 0 && !wsIconRefreshTimer.running) wsIconRefreshTimer.restart()
   }
 
-  function refreshHyprClients() { if (!hyprClientsProc.running) hyprClientsProc.running = true }
+  // refreshMonitors: Quickshell applies `workspace` before `focusedmon` (stale activeWorkspace).
+  function refreshHyprClients() {
+    Hyprland.refreshMonitors()
+    if (!hyprClientsProc.running) hyprClientsProc.running = true
+  }
 
   function activateWorkspace(wsId) {
     // Hyprland 0.56 lua treats `dispatch workspace N` as `hl.dispatch(workspace N)` (syntax error).
@@ -339,8 +343,9 @@ Item {
     target: Hyprland
     function onRawEvent(event) {
       const n = event.name || ""
-      // Not activewindow: it fires on every pointer crossing and changes no icon.
-      if (["openwindow", "closewindow", "movewindow", "workspace", "focusedmon"].some(x => n.includes(x)))
+      // Not activewindow: it fires on every pointer crossing (the glyph follows activeToplevel).
+      if (["openwindow", "closewindow", "movewindow", "workspace", "focusedmon", "changefloatingmode", "fullscreen", "pin",
+           "togglegroup", "moveintogroup", "moveoutofgroup"].some(x => n.includes(x)))
         barWindow.refreshWorkspaceIcons(n.includes("openwindow") ? 8 : 0)
     }
   }
@@ -405,7 +410,7 @@ Item {
     id: leftSection
     anchors.left: parent.left
     anchors.verticalCenter: parent.verticalCenter
-    spacing: 2
+    spacing: 8
     move: chipMove
     add: chipAdd
 

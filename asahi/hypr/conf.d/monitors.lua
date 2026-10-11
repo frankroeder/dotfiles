@@ -44,7 +44,7 @@ hl.monitor {
   scale = 1.5,
 }
 
--- Workspaces 1-4 follow the external that is actually up. A static
+-- Workspaces 1-5 follow the external that is actually up, 6-10 stay on eDP-1. A static
 -- HDMI-A-1 name misses USB-C (DP-1). Retarget on add, remove, and reload.
 
 -- Lid: asahi-clamshell disables eDP-1 while an external is enabled (clamshell,
@@ -92,7 +92,7 @@ local function dp_place(m)
 end
 
 -- prefer is the output that just appeared. A name not yet in the layout
--- (HDMI still disabled) is remembered so the next switch creates 1-4 there.
+-- (HDMI still disabled) is remembered so the next switch creates 1-5 there.
 local function external_target(prefer)
   local monitors = hl.get_monitors()
   local function listed(name)
@@ -133,13 +133,29 @@ local function pin_external_workspaces(prefer)
   if n == "" then
     return
   end
-  for i = 1, 4 do
+  -- eDP-1 is off in clamshell: leave 6-10 where they are.
+  local edp = hl.get_monitor "eDP-1" ~= nil
+  for i = 1, 10 do
     local id = tostring(i)
-    hl.workspace_rule { workspace = id, monitor = n }
-    if live then
-      local ws = hl.get_workspace(id)
-      if ws and monitor_name(ws.monitor) ~= n then
-        hl.dispatch(hl.dsp.workspace.move { workspace = id, monitor = n })
+    local target = i <= 5 and n or (edp and "eDP-1" or nil)
+    if target then
+      local first = i == 1 or i == 6
+      hl.workspace_rule { workspace = id, monitor = target, default = first, persistent = first }
+      if live then
+        local ws = hl.get_workspace(id)
+        if ws and monitor_name(ws.monitor) ~= target then
+          hl.dispatch(hl.dsp.workspace.move { workspace = id, monitor = target })
+        end
+      end
+    end
+  end
+  -- Off an empty stray workspace (a fresh external gets 11) onto 1 / 6; set_workspace needs them to exist.
+  if live then
+    for name, first in pairs { [n] = 1, ["eDP-1"] = 6 } do
+      local m = hl.get_monitor(name)
+      local ws = m and m.active_workspace
+      if ws and ws.id ~= first and ws.windows == 0 and hl.get_workspace(tostring(first)) then
+        m:set_workspace { workspace = first }
       end
     end
   end

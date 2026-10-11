@@ -118,7 +118,7 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   the closed lid) unless the external came back (eDP off again) or the lid opened (flag gone).
   `hl.on("monitor.added"/"removed")` hands **userdata**; read `.name`, and an unknown name is a
   no-op (`asahi-hdmi` with no arg defaults to HDMI-A-1). Mirroring
-  `HDMI-A-1` strands workspaces 1–4 — mirror eval is **only** `mirror = <source>` (no `mode` /
+  `HDMI-A-1` strands workspaces 1–5 — mirror eval is **only** `mirror = <source>` (no `mode` /
   `position`). Source must be an enabled output. Undo: Unmirror/Extend, `Super+Ctrl+Alt+R`, or the
   Monitors pane 15 s auto-revert (unless Keep). Pane drag-arrange sends **position-only**
   `hl.monitor` (partial rules merge with the live mode/scale) and reverts by re-evaluating the old
@@ -143,7 +143,7 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   magnifier (`hl.config { cursor = { zoom_factor } }`, lua, not `hyprctl keyword`). Panels:
   `quick()` in `bindings.lua` (`quickActions` in `LauncherWindow.qml`); the same combo again closes
   (`openQuick`/`openCategory` toggle). Esc: one layer per press (Quick pane → home → close); opened
-  by a shortcut → closes (`openedByShortcut`). Super+B/N are free. **Every
+  by a shortcut → closes (`openedByShortcut`). Super+B/N/S are free. **Every
   bind needs a `desc`** (`parseHyprBinds` drops descless ones). `code:NN` needs `bindCombo`
   `codeNames` — labels are **de(mac_nodeadkeys)** (`code:34/35` = `ü`/`+`, not `[]`).
 - **Monitor direction binds**: `Super+Ctrl+arrows` and `Super+Shift+Ctrl+HJKL` must
@@ -188,6 +188,19 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   in-process — no SoC die °C on Asahi) only while it fits (`showTemp`: with media playing the chip
   keeps ≥ 200 px; computed from `baseWidth` / `naturalWidth`, never the capped widths).
   Volume / Microphone chips: click = mute, wheel = step, right-click = Media quick pane.
+- **Workspaces**: `monitors.lua` pins 1–5 to the live external and 6–10 to eDP-1 (clamshell: 1–5
+  only); 1 / 6 are `default` + `persistent` so `Monitor:set_workspace` (keeps focus, existing
+  workspaces only) can move a monitor off an empty stray id (a fresh external comes up on 11). No
+  scratchpad / special workspaces. Bar `WorkspacesBlock`: this bar's monitor only
+  (`Hyprland.monitorFor`), numbers in one tray; the active one is a sliding capsule with a state
+  glyph instead of its number (fullscreen > maximized > pinned/PiP > floating > grouped > tiled; from
+  `activeToplevel`, else lowest `focusHistoryID`) and one icon per app class (count badge, 4 + `+N`).
+  Widths are computed, not measured: capsule, items and `chipMove` share 300 ms OutCubic, and
+  `implicitWidth` is the final width. Click the active one = icons on every workspace, flag file
+  `~/.local/state/asahi/bar-workspace-icons` (all bars, survives restarts). `ScriptModel`s keep
+  items alive (a JS-array Repeater rebuilds them and kills the animations). `refreshHyprClients`
+  calls `Hyprland.refreshMonitors()`: Quickshell applies `workspace` before `focusedmon`, so a
+  cross-monitor switch left the old monitor's `activeWorkspace` wrong.
 - **Bar tray**: `maxInline` 3, rest behind `+N` → `TrayPanel.qml`. Use `SystemTrayItem.NeedsAttention`
   (no `SystemTrayStatus`). Popups need `screen:` + `exclusionMode: ExclusionMode.Ignore`.
   SysPanel / CCU / tray `+N` close on Esc or click-outside: `HyprlandFocusGrab` whitelists the popup
@@ -212,7 +225,7 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   only on hover (no free-running marquee). Click = `MediaPanel` (compact serpantinum `MusicPopup`,
   checked against its source: blurred art + 0.55/0.72/0.90 wash, grooved vinyl 25 s/turn (0.9 when
   paused), `WavySeekBar` = upstream constants at 16 ms only while shown + playing, surface0
-  transport 32/43/32, shuffle/loop if supported, cava strip),
+  transport 36/52/36 (card 460 wide, disc 110), shuffle/loop if supported, cava strip),
   middle = play/pause, right = next. `Players.pinned` = source pill cycle (2+ players). Firefox MPRIS
   has no length → no seek bar. Seek holds the target 1 s (no jump back). An Item stays `visible`
   inside a hidden PopupWindow: gate per-frame work on the window (`WavySeekBar.live: root.visible` —
@@ -355,7 +368,7 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   `UPDATEDEFAULT=no` in `/etc/sysconfig/kernel`; rerun after a new fairydust (`asahi-debug` WARNs
   `fairydust-pin`). Recovery: fix the pin, `sudo update-m1n1`; worst case swap `m1n1/boot.bin` and
   `boot.bin.old` on the ESP.
-- **WM defaults**: `general.lua` — `dwindle.force_split = 2`, `hide_special_on_workspace_change`,
+- **WM defaults**: `general.lua` — `dwindle.force_split = 2`,
   `allow_session_lock_restore`, `on_focus_under_fullscreen`, `initial_workspace_tracking = 0`,
   `anr_missed_pings = 3`, `group`/`groupbar` themed to the Catppuccin borders (Super+W groups),
   `hl.gesture` 3-finger workspace swipe (`scale 0.75`, `workspace_swipe_cancel_ratio = 0.25`).

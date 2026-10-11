@@ -46,26 +46,14 @@ Singleton {
   readonly property color controlBg: themed("surface0")
   readonly property color wsNumBg:   themed("surface0")
 
-  readonly property color wsBg:             themedAlpha("base", 0.72)
-  readonly property color wsBorder:         themedAlpha("text", 0.07)
+  // Bar widget groups (workspaces, CPU / RAM / temp): one tray each.
+  readonly property color barGroupBg:       themedAlpha("base", 0.55)
+  readonly property color barGroupBorder:   themedAlpha("text", 0.10)
   readonly property color wsActive:         accent
   readonly property color wsActiveAlt:      { const _ = themeGeneration; return Qt.lighter(Wallpaper.DefaultTheme.accent, 1.08) }
-  readonly property color wsActiveBorder:   themedAlpha("accent", 0.45)
-  readonly property color wsActiveBg:       themedAlpha("accent", 0.20)
   readonly property color wsHoverBg:        themedAlpha("text", 0.10)
-  readonly property color wsOccupiedBg:     themedAlpha("text", 0.10)
-  readonly property color wsVisibleBg:      themedAlpha("sky", 0.14)
-  readonly property color wsEmptyBg:        themedAlpha("text", 0.04)
-  readonly property color wsInactiveBorder: themedAlpha("text", 0.14)
-  readonly property color wsVisibleBorder:  themedAlpha("sky", 0.30)
-  readonly property color wsBadgeActiveBg:     accent
-  readonly property color wsBadgeHoverBg:      themedAlpha("sky", 0.24)
-  readonly property color wsBadgeVisibleBg:    themedAlpha("sky", 0.18)
-  readonly property color wsBadgeOccupiedBg:   themedAlpha("text", 0.16)
-  readonly property color wsBadgeEmptyBg:      themedAlpha("text", 0.08)
   readonly property color wsBadgeActiveText:   themed("crust")
   readonly property color wsOccupiedText:   themed("text")
-  readonly property color wsEmptyText:      themed("overlay1")
 
   // Bar popups (CCU, calendar, SysPanel, media, notification sheet / toasts) float over windows of
   // the same dark tone: one clearly visible outline separates them.
@@ -219,7 +207,6 @@ Singleton {
   readonly property int barIconSlot: 26
   readonly property int barChipInset: 4
   readonly property int barWsIcon: 20
-  readonly property int barWsSlot: 24
 
   readonly property string fontFamily: "JetBrainsMono Nerd Font"
   readonly property int fontSize: 16
