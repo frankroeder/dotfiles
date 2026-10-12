@@ -20,6 +20,9 @@ Item {
   anchors.fill: parent
   // full port of network from old (wifi enable/scan/list/conn + tooltip/ssid, eth toggle, refresh, state/procs; compressed)
   property var wifiNetworks: []
+  // Diffed by ssid: a reassigned JS-array model resets the ListView and
+  // jumped the scrolled list back to the top whenever a network appeared.
+  ScriptModel { id: wifiNetworksModel; objectProp: "ssid"; values: quickNetworkRoot.wifiNetworks || [] }
   property bool wifiEnabled: true
   property string currentWifiSsid: ""
   // False until the first asahi-network answer: show "Checking…" instead of
@@ -1178,7 +1181,7 @@ Item {
           spacing: 2
           boundsBehavior: Flickable.StopAtBounds
           ScrollBar.vertical: Menu.MenuScrollBar { id: netScroll }
-          model: quickNetworkRoot.wifiNetworks || []
+          model: wifiNetworksModel
           delegate: Column {
             id: netDelegate
             required property var modelData
