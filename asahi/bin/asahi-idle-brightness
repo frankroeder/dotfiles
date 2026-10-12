@@ -8,7 +8,7 @@ action="${1:-}"
 state_dir="${ASAHI_IDLE_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-brightness}"
 
 usage() {
-  echo "usage: $0 <dim|off|keyboard-off|restore>" >&2
+  echo "usage: $0 <dim|off|keyboard-off|keyboard-restore|restore>" >&2
   exit 2
 }
 
@@ -32,6 +32,14 @@ save_device() {
   brightnessctl --device="$device" get > "$state"
 }
 
+# Keys fade; the panel snaps. Never two of us at once: an off fade racing a restore fade
+# would land between them and read as a manual change to asahi-brightness-keyboard-auto.
+fade_device() {
+  local current
+  current=$(brightnessctl --device="$1" get 2>/dev/null) || return 0
+  fade_brightness "$1" "$current" "$2"
+}
+
 set_device() {
   local device="$1"
   local value="$2"
@@ -41,13 +49,17 @@ set_device() {
 restore_device() {
   local name="$1"
   local device="$2"
+  local setter="${3:-set_device}"
   local state="$state_dir/$name"
   local value
   [ -s "$state" ] || return 0
   value="$(<"$state")"
-  set_device "$device" "$value"
+  "$setter" "$device" "$value"
   rm -f "$state"
 }
+
+exec {lock_fd}>"${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-brightness.lock"
+flock -w 2 "$lock_fd" || true
 
 case "$action" in
   dim)
@@ -68,7 +80,7 @@ case "$action" in
       max=$(brightnessctl --device="$device" max 2>/dev/null || echo "")
       if [ -n "$cur" ] && [ -n "$max" ] && [ "$cur" -gt $(( max / 10 )) ]; then
         save_device keyboard "$device"
-        set_device "$device" $(( max / 10 ))
+        fade_device "$device" $(( max / 10 ))
       fi
     fi
     ;;
@@ -80,7 +92,7 @@ case "$action" in
     done
     if device="$(keyboard_device)"; then
       save_device keyboard "$device"
-      set_device "$device" 0
+      fade_device "$device" 0
     fi
     ;;
   keyboard-off)
@@ -88,7 +100,13 @@ case "$action" in
     # would stay black when a key press re-enables DPMS.
     if device="$(keyboard_device)"; then
       save_device keyboard "$device"
-      set_device "$device" 0
+      fade_device "$device" 0
+    fi
+    ;;
+  keyboard-restore)
+    # hypridle 150 s keys-off listener: relight the keys only, the display has its own steps.
+    if device="$(keyboard_device)"; then
+      restore_device keyboard "$device" fade_device
     fi
     ;;
   restore)
@@ -99,7 +117,7 @@ case "$action" in
       restore_device "$bname" "$dev"
     done
     if device="$(keyboard_device)"; then
-      restore_device keyboard "$device"
+      restore_device keyboard "$device" fade_device
     fi
     ;;
   *)

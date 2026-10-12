@@ -53,6 +53,19 @@ keyboard_device() {
   return 1
 }
 
+# Ramp a backlight/LED from -> to in FADE_STEPS writes ~25 ms apart (~0.3 s, macOS fades the keys).
+# Smoothstep easing f(t) = 3t² - 2t³ with t = i/steps: slow start and end, no jump at low levels.
+fade_brightness() {
+  local device=$1 from=$2 to=$3 steps=${FADE_STEPS:-10} i value last=$2
+  for ((i = 1; i <= steps; i++)); do
+    value=$((from + (to - from) * (3 * i * i * steps - 2 * i * i * i) / (steps * steps * steps)))
+    if ((value == last)); then continue; fi
+    brightnessctl --quiet --device="$device" set "$value" >/dev/null 2>&1 || return 0
+    last=$value
+    if ((i < steps)); then sleep 0.025; fi
+  done
+}
+
 # Empty when Hyprland is not reachable. Must never return non-zero: callers do
 # `mon="$(focused_monitor)"` under `set -euo pipefail`, where a failing pipeline
 # aborts the script before their own `[ -n "$mon" ]` guard can report it.

@@ -240,10 +240,11 @@ auto="$ROOT/asahi-brightness-keyboard-auto"
 
 [[ $($auto --map-lux 0) == 100 ]] || fail_at "pitch dark lights the keyboard fully (got $($auto --map-lux 0))"
 [[ $($auto --map-lux 8) == 100 ]] || fail_at "dim indoor still uses full keyboard light (got $($auto --map-lux 8))"
-[[ $($auto --map-lux 94) == 50 ]] || fail_at "mid lux maps to half keyboard light (got $($auto --map-lux 94))"
+[[ $($auto --map-lux 38) == 50 ]] || fail_at "geometric mid lux maps to half keyboard light (got $($auto --map-lux 38))"
+[[ $($auto --map-lux 94) == 21 ]] || fail_at "lux maps on a log scale (got $($auto --map-lux 94))"
 [[ $($auto --map-lux 180) == 0 ]] || fail_at "bright room turns the keyboard light off (got $($auto --map-lux 180))"
 [[ $($auto --map-lux 400) == 0 ]] || fail_at "daylight keeps the keyboard light off (got $($auto --map-lux 400))"
-pass "ambient lux maps inversely onto keyboard backlight"
+pass "ambient log(lux) maps inversely onto keyboard backlight"
 
 if $auto --map-lux >/dev/null 2>&1; then
   fail_at "map-lux without a value should fail"
@@ -305,6 +306,91 @@ if ASAHI_IIO_DEVICES_DIR=$fake_iio lid_closed; then
 else
   fail_at "lid_closed should be true at 8 degrees"
 fi
+
+# tick: hysteresis, shadow filter, fade, override pause, eDP-off pause; no brightnessctl when steady.
+. "$ROOT/lib/common.sh"
+eval "$(sed -n '/^lux_table()/,/^}/p; /^lux_to_percent()/,/^}/p; /^lux_moved()/,/^}/p; /^lux_settled()/,/^}/p; /^idle_dimmed()/,/^}/p; /^internal_display_off()/,/^}/p; /^tick()/,/^}/p; /^lid_closed()/,/^}/p' "$auto")"
+session_locked() { return 1; }
+DARK_LUX=8 BRIGHT_LUX=180 DEADBAND_PERCENT=4 OVERRIDE_LUX_DELTA=20 OVERRIDE_LUX_RATIO=40 HYST_LUX_DELTA=5 HYST_LUX_RATIO=25
+lux_table
+mkdir -p "$fake_leds/kbd_backlight" "$tmp/drm/card2-eDP-1" "$tmp/kbd-bin" "$tmp/kbd-run"
+printf '255\n' >"$fake_leds/kbd_backlight/max_brightness"
+printf '0\n' >"$fake_leds/kbd_backlight/brightness"
+printf 'enabled\n' >"$tmp/drm/card2-eDP-1/enabled"
+kbd_calls="$tmp/kbd-calls"
+cat >"$tmp/kbd-bin/brightnessctl" <<EOF
+#!/bin/sh
+for a; do last=\$a; done
+echo "\$last" >>"$kbd_calls"
+echo "\$last" >"$fake_leds/kbd_backlight/brightness"
+EOF
+chmod +x "$tmp/kbd-bin/brightnessctl"
+als_path="$fake_iio/iio:device1/in_illuminance_input" kbd_path="$fake_leds/kbd_backlight" device=kbd_backlight max=255
+las_path="$fake_iio/iio:device0/in_angl_raw"
+printf '124\n' >"$las_path"
+last_set="" paused=0 pause_lux=0 decided_lux="" seen_lux=""
+kbd_tick() {
+  printf '%s\n' "$1" >"$als_path"
+  : >"$kbd_calls"
+  PATH="$tmp/kbd-bin:$PATH" XDG_RUNTIME_DIR="$tmp/kbd-run" ASAHI_DRM_DIR="$tmp/drm" tick
+  read -r kbd_now <"$kbd_path/brightness"
+  kbd_n=$(wc -l <"$kbd_calls")
+}
+kbd_tick 4;   [[ $kbd_now == 255 && $kbd_n -gt 1 ]] || fail_at "dark room fades the keys on (got $kbd_now, $kbd_n writes)"
+[[ $(sed -n 1p "$kbd_calls") == 7 ]] || fail_at "smoothstep fade starts with a small step (got $(sed -n 1p "$kbd_calls"))"
+kbd_tick 6;   [[ $kbd_now == 255 && $kbd_n == 0 ]] || fail_at "steady dark tick calls brightnessctl ($kbd_n)"
+kbd_tick 120; [[ $kbd_now == 255 && $kbd_n == 0 ]] || fail_at "one bright reading changed the keys"
+kbd_tick 4;   [[ $kbd_now == 255 && $kbd_n == 0 ]] || fail_at "shadow/flash reading changed the keys"
+kbd_tick 120; kbd_tick 120; [[ $kbd_now == 33 ]] || fail_at "two readings at 120 lux dim the keys to 13 % (got $kbd_now)"
+kbd_tick 140; kbd_tick 140; [[ $kbd_now == 33 && $kbd_n == 0 ]] || fail_at "noise inside the hysteresis band stepped the keys (got $kbd_now)"
+kbd_tick 300; kbd_tick 300; [[ $kbd_now == 0 ]] || fail_at "bright room turns the keys off (got $kbd_now)"
+pass "keyboard auto: log curve, hysteresis, shadow filter, fade, no idle writes"
+printf '100\n' >"$kbd_path/brightness"
+kbd_tick 305; [[ $paused == 1 ]] || fail_at "a manual LED change pauses auto"
+kbd_tick 320; kbd_tick 320; [[ $kbd_now == 100 && $kbd_n == 0 ]] || fail_at "small lux drift ended the manual override (got $kbd_now)"
+printf 'disabled\n' >"$tmp/drm/card2-eDP-1/enabled"
+kbd_tick 4; kbd_tick 4; [[ $kbd_now == 100 && $kbd_n == 0 ]] || fail_at "eDP DPMS off must pause auto (got $kbd_now)"
+printf 'enabled\n' >"$tmp/drm/card2-eDP-1/enabled"
+kbd_tick 4;   [[ $kbd_now == 255 && $paused == 0 ]] || fail_at "a large settled lux move ends the manual override (got $kbd_now)"
+pass "keyboard auto: manual override and eDP-off pause"
+
+# A write under asahi-idle-brightness's lock while auto waits for it wins (no fade over it).
+kbd_tick 300
+( flock 9; sleep 0.3; echo 77 >"$kbd_path/brightness" ) 9>"$tmp/kbd-run/asahi-idle-brightness.lock" &
+sleep 0.1
+kbd_tick 300; wait
+[[ $kbd_now == 77 && $kbd_n == 0 ]] || fail_at "auto faded over a write made under the idle lock (got $kbd_now, $kbd_n writes)"
+kbd_tick 300; [[ $paused == 1 ]] || fail_at "a key press under the lock reads as a manual change"
+pass "keyboard auto: fade waits for the idle lock"
+
+# Keyboard key while idled off: step from the saved level, resume restore is then a no-op.
+mkdir -p "$tmp/mc-bin" "$tmp/mc-state" "$tmp/mc-run"
+cat >"$tmp/mc-bin/brightnessctl" <<EOS
+#!/usr/bin/env bash
+v=\$(<"$tmp/mc-led") cmd="" val=""
+for a; do
+  case "\$a" in -m) cmd=m ;; info|get|max) cmd=\$a ;; set) cmd=set ;; -*) ;; *) val=\$a ;; esac
+done
+case "\$cmd" in
+  m) printf 'kbd_backlight,leds,%s,%s%%,255\n' "\$v" \$(( (v * 100 + 127) / 255 )) ;;
+  get) echo "\$v" ;;
+  max) echo 255 ;;
+  set) [[ \$val == *% ]] && val=\$(( \${val%\%} * 255 / 100 )); echo "\$val" >"$tmp/mc-led" ;;
+esac
+exit 0
+EOS
+chmod +x "$tmp/mc-bin/brightnessctl"
+cp "$tmp/bin/qs" "$tmp/mc-bin/qs"
+mc() { PATH="$tmp/mc-bin:$PATH" XDG_RUNTIME_DIR="$tmp/mc-run" ASAHI_IDLE_STATE_DIR="$tmp/mc-state" "$ROOT/$@"; }
+echo 0 >"$tmp/mc-led"; echo 128 >"$tmp/mc-state/keyboard"
+mc asahi-media-control keyboard-brightness raise
+[[ $(<"$tmp/mc-led") == 140 && ! -e $tmp/mc-state/keyboard ]] \
+  || fail_at "key while idled off steps from the saved 50 % to 55 % (got $(<"$tmp/mc-led"))"
+mc asahi-idle-brightness keyboard-restore
+[[ $(<"$tmp/mc-led") == 140 ]] || fail_at "resume restore undid the key press (got $(<"$tmp/mc-led"))"
+mc asahi-media-control keyboard-brightness raise
+[[ $(<"$tmp/mc-led") == 153 ]] || fail_at "plain key raise 55 % -> 60 % (got $(<"$tmp/mc-led"))"
+pass "keyboard key while idled off steps from the saved level"
 
 unit="$ROOT/../systemd/user/asahi-brightness-keyboard-auto.service"
 grep -Fx 'ExecStart=%h/.local/bin/asahi-brightness-keyboard-auto' "$unit" >/dev/null \

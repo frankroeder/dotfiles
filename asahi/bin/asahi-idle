@@ -10,6 +10,7 @@
 #   off     stop saver, lock, display (DPMS) + keyboard backlight off,
 #           s2idle a minute later unless input brings the display back
 #   asahi-idle wake   hypridle on-resume / after_sleep: undo every step
+#   asahi-idle keys   150 s keys-off listener on-resume: relight the keyboard only
 #
 # A step still running when wake fires (saver start takes seconds) re-runs
 # wake afterwards, so nothing lands on an active session.
@@ -63,6 +64,15 @@ if [ "$cmd" = wake ]; then
   exit 0
 fi
 
+# Same guards as wake: not on the lock surface's fake motion (off would flash the keys before its
+# keyboard-off), not under a closed lid (clamshell keeps them for asahi-clamshell open).
+if [ "$cmd" = keys ]; then
+  if [ -n "$(find "$locking" -newermt '-15 seconds' 2>/dev/null)" ]; then exit 0; fi
+  if lid_closed; then exit 0; fi
+  "$bin/asahi-idle-brightness" keyboard-restore
+  exit 0
+fi
+
 on_ac() {
   local p
   for p in /sys/class/power_supply/*; do
@@ -72,7 +82,7 @@ on_ac() {
 }
 
 if [ "$cmd" != at ] || [[ ! $secs =~ ^[0-9]+$ ]]; then
-  echo "usage: $0 at <idle seconds> | $0 wake" >&2
+  echo "usage: $0 at <idle seconds> | $0 wake | $0 keys" >&2
   exit 2
 fi
 

@@ -133,7 +133,11 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   `hid_apple fnmode=1`, then `dracut -f`. Reboot required. Live fnmode:
   `/sys/module/hid_apple/parameters/fnmode`.
 - **Keyboard / display brightness**: `XF86Search` / `XF86LaunchA` (Shift = fine). Display stays on
-  `XF86MonBrightness*` (Shift = fine).
+  `XF86MonBrightness*` (Shift = fine). Keys auto = `asahi-brightness-keyboard-auto`: log(lux) 8→180,
+  re-derived only after a 25 % lux move seen twice in a row (shadow filter), smoothstep fades
+  (`fade_brightness`), steady tick forks nothing. Auto fade, idle off/restore and the keyboard keys share
+  `$XDG_RUNTIME_DIR/asahi-idle-brightness.lock`; a key while idled off steps from the saved level. hypridle 150 s listener (`ignore_inhibit`) fades keys off; `asahi-idle keys`
+  relights (not on the lock surface's fake motion, not under a closed lid).
 - **Keybinding grammar**: Bare Super = focused window / navigate; Super+Shift = inverse (move vs
   focus); Super+Alt = variant (focus→resize, capture→record). `Super+Alt+HJKL` moves the **shared
   split border** — label by direction, never grow/shrink. `Super+Ctrl+<letter>` = system panel

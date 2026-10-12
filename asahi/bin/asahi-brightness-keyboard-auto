@@ -3,8 +3,15 @@
 # off in a bright room. Manual Search/LaunchA (or any other LED write)
 # pauses auto until lux moves enough. Lock, lid-close, eDP DPMS-off and
 # idle dim pause without treating idle-brightness writes as an override.
+# Level follows log(lux) (perceived light), 100 % at DARK_LUX down to 0 % at BRIGHT_LUX.
+# Hysteresis: a level is re-derived only after lux moved max(5, 25 %) from the
+# last decision, and only when two readings in a row agree (a hand shadow is one).
+# Changes fade (fade_brightness). A steady tick forks nothing but sleep: sysfs
+# reads only, lock check only before a write.
 
 set -euo pipefail
+
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
 
 POLL_SECONDS=5
 DARK_LUX=8
@@ -12,6 +19,8 @@ BRIGHT_LUX=180
 DEADBAND_PERCENT=4
 OVERRIDE_LUX_DELTA=20
 OVERRIDE_LUX_RATIO=40
+HYST_LUX_DELTA=5
+HYST_LUX_RATIO=25
 LID_CLOSED_ANGLE="${ASAHI_LID_CLOSED_ANGLE:-30}"
 
 once=0
@@ -50,20 +59,38 @@ while (($#)); do
   esac
 done
 
-lux_to_percent() {
-  local lux=$1
-  if ((lux < 0)); then
-    lux=0
-  fi
+# lux_pct[lux] for 0..BRIGHT_LUX, one awk at startup (bash has no log).
+lux_table() {
+  mapfile -t lux_pct < <(awk -v d="$DARK_LUX" -v b="$BRIGHT_LUX" \
+    'BEGIN { for (l = 0; l <= b; l++) printf "%d\n", (l <= d ? 100 : 100 * log(b / l) / log(b / d)) + 0.5 }')
+}
 
-  if ((lux <= DARK_LUX)); then
-    echo 100
-  elif ((lux >= BRIGHT_LUX)); then
-    echo 0
+# Sets percent (no subshell).
+lux_to_percent() {
+  if (($1 >= BRIGHT_LUX)); then
+    percent=0
   else
-    echo $(((100 * (BRIGHT_LUX - lux)) / (BRIGHT_LUX - DARK_LUX)))
+    percent=${lux_pct[$1]}
   fi
 }
+
+# True when to is at least max(delta, ratio % of from) away from from.
+lux_moved() {
+  local from=$1 threshold=$3 delta=$(($2 - $1))
+  delta=${delta#-}
+  if ((from * $4 / 100 > threshold)); then
+    threshold=$((from * $4 / 100))
+  fi
+  ((delta >= threshold))
+}
+
+# This and the previous reading both moved past the band, on the same side.
+lux_settled() {
+  lux_moved "$1" "$lux" "$2" "$3" && lux_moved "$1" "$prev_lux" "$2" "$3" \
+    && (((lux > $1) == (prev_lux > $1)))
+}
+
+lux_table
 
 if [[ -n $map_lux ]]; then
   if [[ ! $map_lux =~ ^[0-9]+$ ]]; then
@@ -71,6 +98,7 @@ if [[ -n $map_lux ]]; then
     exit 1
   fi
   lux_to_percent "$map_lux"
+  echo "$percent"
   exit 0
 fi
 
@@ -164,6 +192,8 @@ fi
 last_set=""
 paused=0
 pause_lux=0
+decided_lux=""
+seen_lux=""
 
 session_locked() {
   local hint session
@@ -190,7 +220,7 @@ lid_closed() {
   if [[ -z $las_path ]]; then
     return 1
   fi
-  raw=$(<"$las_path") || return 1
+  read -r raw <"$las_path" || return 1
   raw=${raw%%.*}
   if [[ ! $raw =~ ^-?[0-9]+$ ]]; then
     return 1
@@ -203,63 +233,37 @@ idle_dimmed() {
   compgen -G "${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-brightness/*" >/dev/null
 }
 
+# Hyprland DPMS off disables the aquamarine output: the eDP connector reads `disabled`.
 internal_display_off() {
-  local json
-  json=$(hyprctl monitors -j 2>/dev/null) || return 1
-  printf '%s' "$json" | jq -e \
-    '.[] | select(.name == "eDP-1" and (.dpmsStatus == false or .disabled == true))' \
-    >/dev/null 2>&1
-}
-
-read_lux() {
-  local raw
-  raw=$(<"$als_path") || return 1
-  raw=${raw%%.*}
-  if [[ ! $raw =~ ^[0-9]+$ ]]; then
-    return 1
-  fi
-  printf '%s\n' "$raw"
-}
-
-apply_percent() {
-  local percent=$1
-  local target current delta
-
-  if ((percent < 0)); then
-    percent=0
-  fi
-  if ((percent > 100)); then
-    percent=100
-  fi
-  target=$((max * percent / 100))
-
-  current=$(brightnessctl --device="$device" get) || return 0
-  delta=$((current - target))
-  if ((delta < 0)); then
-    delta=$((-delta))
-  fi
-  if ((delta * 100 < max * DEADBAND_PERCENT)); then
-    last_set=$current
-    return 0
-  fi
-
-  brightnessctl --quiet --device="$device" set "$target" >/dev/null
-  last_set=$(brightnessctl --device="$device" get || echo "$target")
+  local f state
+  for f in "${ASAHI_DRM_DIR:-/sys/class/drm}"/card*-eDP-*/enabled; do
+    [[ -r $f ]] || continue
+    read -r state <"$f" || continue
+    if [[ $state == disabled ]]; then
+      return 0
+    fi
+  done
+  return 1
 }
 
 tick() {
-  local lux current delta threshold
+  local raw current target delta now
 
-  lux=$(read_lux) || return 0
+  read -r raw <"$als_path" || return 0
+  lux=${raw%%.*}
+  if [[ ! $lux =~ ^[0-9]+$ ]]; then
+    return 0
+  fi
+  prev_lux=${seen_lux:-$lux}
+  seen_lux=$lux
 
   # Pause without rewriting last_set so idle-brightness off/restore and the
   # lid bind do not look like a manual override when the session comes back.
-  # Cheap sysfs checks first; the locked / display-off checks fork.
-  if lid_closed || idle_dimmed || session_locked || internal_display_off; then
+  if lid_closed || idle_dimmed || internal_display_off; then
     return 0
   fi
 
-  current=$(brightnessctl --device="$device" get) || return 0
+  read -r current <"$kbd_path/brightness" || return 0
 
   if [[ -n $last_set && $current != "$last_set" ]]; then
     paused=1
@@ -269,21 +273,41 @@ tick() {
   fi
 
   if ((paused)); then
-    delta=$((lux - pause_lux))
-    if ((delta < 0)); then
-      delta=$((-delta))
-    fi
-    threshold=$OVERRIDE_LUX_DELTA
-    if ((pause_lux * OVERRIDE_LUX_RATIO / 100 > threshold)); then
-      threshold=$((pause_lux * OVERRIDE_LUX_RATIO / 100))
-    fi
-    if ((delta < threshold)); then
+    if ! lux_settled "$pause_lux" "$OVERRIDE_LUX_DELTA" "$OVERRIDE_LUX_RATIO"; then
       return 0
     fi
     paused=0
+  elif [[ -n $decided_lux ]] && ! lux_settled "$decided_lux" "$HYST_LUX_DELTA" "$HYST_LUX_RATIO"; then
+    return 0
   fi
 
-  apply_percent "$(lux_to_percent "$lux")"
+  lux_to_percent "$lux"
+  target=$((max * percent / 100))
+  delta=$((current - target))
+  delta=${delta#-}
+  # A bright room is always off: 2 % keys must not hide inside the deadband.
+  if ((target > 0 && delta * 100 < max * DEADBAND_PERCENT)); then
+    last_set=$current
+    decided_lux=$lux
+    return 0
+  fi
+
+  # Forks: only on an actual change. Retried next tick while locked.
+  if session_locked; then
+    return 0
+  fi
+  # asahi-idle-brightness's lock: an idle off/restore or a key press must not interleave with our
+  # fade. Whatever wrote the LED while we waited wins; the next tick sorts it out.
+  {
+    flock -w 2 9 || true
+    read -r now <"$kbd_path/brightness" || return 0
+    if idle_dimmed || [[ $now != "$current" ]]; then
+      return 0
+    fi
+    fade_brightness "$device" "$current" "$target"
+  } 9>"${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-brightness.lock"
+  read -r last_set <"$kbd_path/brightness" || last_set=$target
+  decided_lux=$lux
 }
 
 tick

@@ -149,6 +149,15 @@ case "$target" in
     ;;
   keyboard-brightness)
     device="$(keyboard_device)"
+    # Keys idled off (asahi-idle-brightness): this press is also the wake. Take its lock and its
+    # saved level first, so the step starts from that level and the resume restore cannot undo it.
+    exec {lock_fd}>"${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-brightness.lock"
+    flock -w 2 "$lock_fd" || true
+    saved="${ASAHI_IDLE_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-brightness}/keyboard"
+    if [ -s "$saved" ]; then
+      brightnessctl --quiet --device="$device" set "$(<"$saved")"
+      rm -f "$saved"
+    fi
     current="$(current_percent "$device" || echo 0)"
     brightnessctl --quiet --device="$device" set "$(brightness_step "$current" "$action")"
     show_osd keyboard
