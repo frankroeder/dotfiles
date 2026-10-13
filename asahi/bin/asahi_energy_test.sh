@@ -456,6 +456,18 @@ grep -q 'monitor = "eDP-1"' "$clam_disp" || fail_at "open must DPMS-on eDP (got 
 grep -q HDMI "$clam_disp" && fail_at "open must not DPMS a disconnected HDMI" \
   || pass "open unblanks eDP"
 
+# USB-C unplugged in clamshell: Hyprland lists only FALLBACK, which is not an external.
+printf '#!/bin/sh\nexit 0\n' >"$clam_dir/bin/systemd-inhibit"
+printf '#!/bin/sh\nexit 0\n' >"$clam_dir/bin/sleep"
+chmod +x "$clam_dir/bin/systemd-inhibit" "$clam_dir/bin/sleep"
+printf '[{"name":"FALLBACK","disabled":false,"dpmsStatus":true}]\n' >"$clam_mon"
+: >"$clam_dir/flag"
+: >"$clam_eval"
+run_clam apply
+grep -q 'output = "eDP-1", disabled = false' "$clam_eval" || fail_at "FALLBACK-only apply must re-enable eDP"
+[ ! -e "$clam_dir/flag" ] && pass "FALLBACK is not an external: apply re-enables eDP, drops the flag" \
+  || fail_at "FALLBACK kept the clamshell flag (lid inhibitor stays up)"
+
 # --- launcher / system menu still has no Hibernate ---
 grep -q 'title: "Hibernate"' "$ROOT/../quickshell/remix/modules/launcher/Data.js" \
   && fail_at "launcher still lists Hibernate" \

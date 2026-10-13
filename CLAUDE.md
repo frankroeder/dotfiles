@@ -116,6 +116,8 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   eDP-1 goes dark. `asahi-clamshell apply` on `config.reloaded` / `monitor.removed` brings eDP back
   if the external vanishes; after a 10 s grace it drops the flag (its inhibitor ends, logind suspends
   the closed lid) unless the external came back (eDP off again) or the lid opened (flag gone).
+  With no real output left Hyprland lists an enabled `FALLBACK` — `external_on` must not count it
+  (it kept eDP off and a closed lid awake for hours after a clamshell USB-C unplug).
   `hl.on("monitor.added"/"removed")` hands **userdata**; read `.name`, and an unknown name is a
   no-op (`asahi-hdmi` with no arg defaults to HDMI-A-1). Mirroring
   `HDMI-A-1` strands workspaces 1–5 — mirror eval is **only** `mirror = <source>` (no `mode` /

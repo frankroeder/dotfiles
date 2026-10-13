@@ -25,8 +25,9 @@ bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
 flag="${ASAHI_CLAMSHELL_FLAG:-${XDG_RUNTIME_DIR:-/tmp}/asahi-clamshell}"
 
+# FALLBACK is Hyprland's placeholder after the last real output goes (unplug in clamshell); counting it kept eDP off + the lid awake.
 external_on() {
-  hyprctl monitors -j | jq -e '.[] | select(.name != "eDP-1" and .disabled != true)' >/dev/null
+  hyprctl monitors -j | jq -e '.[] | select(.name != "eDP-1" and .name != "FALLBACK" and .disabled != true)' >/dev/null
 }
 edp_disabled() {
   hyprctl monitors all -j | jq -e '.[] | select(.name == "eDP-1" and .disabled == true)' >/dev/null
