@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
+# CPU snapshot for the bar's SysPanel (only while it is open): {tooltip, cores}. sys_panel.js
+# parseCpuTooltip reads the Load / Cores / Freq avg / Thermal lines; keep their format.
 
 set -euo pipefail
 
-state_dir="${ASAHI_CPU_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/asahi-waybar}"
-if ! mkdir -p "$state_dir" || [ ! -w "$state_dir" ]; then
-  state_dir="/tmp/asahi-waybar-${UID:-$(id -u)}"
-  mkdir -p "$state_dir"
-fi
+state_dir="${ASAHI_CPU_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/asahi-cpu}"
+mkdir -p "$state_dir"
 
 state_file="$state_dir/cpu.stat"
 hwmon_root="${ASAHI_HWMON_ROOT:-/sys/class/hwmon}"
@@ -83,34 +82,6 @@ format_temp() {
   awk -v value="$1" -v decimals="$2" 'BEGIN { printf "%.*f", decimals, value / 1000 }'
 }
 
-class_for_temp() {
-  local current="$1"
-  local value="$2"
-
-  if [ "$value" -ge 80000 ]; then
-    printf "critical\n"
-  elif [ "$value" -ge 65000 ] && [ "$current" = "normal" ]; then
-    printf "warning\n"
-  else
-    printf "%s\n" "$current"
-  fi
-}
-
-# Heatpipe watts (micro-W in sysfs): 15 W warning, 25 W critical — same
-# thresholds as the dashboard, because this is the SoC dissipation proxy.
-class_for_heatpipe() {
-  local current="$1"
-  local microwatts="$2"
-
-  if [ "$microwatts" -ge 25000000 ]; then
-    printf "critical\n"
-  elif [ "$microwatts" -ge 15000000 ] && [ "$current" = "normal" ]; then
-    printf "warning\n"
-  else
-    printf "%s\n" "$current"
-  fi
-}
-
 heatpipe_sensor() {
   local d name inp label raw
 
@@ -135,7 +106,7 @@ heatpipe_sensor() {
 }
 
 # Per-cpu jiffies: first line is the aggregate (`cpu`), then `cpuN`.
-# Previous sample lives next to this file so the bar and a one-shot
+# Previous sample lives in the state dir so the panel and a one-shot
 # CLI invocation can share a delta.
 cpu_usage="$(
   awk -v state="$state_file" '
@@ -190,10 +161,6 @@ cores_json="[${cores_json}]"
 [ -n "$percentage" ] || percentage=0
 [ -n "$core_count" ] || core_count=0
 
-class="normal"
-[ "$percentage" -ge 60 ] && class="warning"
-[ "$percentage" -ge 80 ] && class="critical"
-
 read -r load1 load5 load15 _ < "$proc_loadavg"
 cores="${core_count}"
 if [ "$cores" -eq 0 ]; then
@@ -236,22 +203,16 @@ if [ -n "$thermal" ]; then
 fi
 
 heatpipe="$(heatpipe_sensor || true)"
-heatpipe_raw=""
-heatpipe_label=""
-heatpipe_path=""
 heatpipe_w=""
-
 if [ -n "$heatpipe" ]; then
-  IFS=$'\t' read -r heatpipe_raw heatpipe_label heatpipe_path <<< "$heatpipe"
-  heatpipe_w="$(awk -v value="$heatpipe_raw" 'BEGIN { printf "%.1f", value / 1000000 }')"
+  heatpipe_w="$(awk -v value="${heatpipe%%$'\t'*}" 'BEGIN { printf "%.1f", value / 1000000 }')"
 fi
 
-# Bar text stays CPU % only. The hottest exposed °C is a peripheral (Wi-Fi,
-# charge regulator) — not a die sensor — so it must not look like "CPU temp".
+# The hottest exposed °C is a peripheral (Wi-Fi, charge regulator) — not a die
+# sensor — so the line names its source instead of "CPU temp".
 if [ -n "$temp_raw" ]; then
   temp_line="Thermal $(format_temp "$temp_raw" 1) C (${temp_label})"
   temp_path_line="Sensor: $temp_path"
-  class="$(class_for_temp "$class" "$temp_raw")"
 else
   temp_line="Thermal n/a"
   temp_path_line="Sensor: n/a"
@@ -259,7 +220,6 @@ fi
 
 if [ -n "$heatpipe_w" ]; then
   heatpipe_line="Heatpipe ${heatpipe_w} W (SoC dissipation; no die sensor)"
-  class="$(class_for_heatpipe "$class" "$heatpipe_raw")"
 else
   heatpipe_line="Heatpipe n/a"
 fi
@@ -267,21 +227,4 @@ fi
 tooltip="$(printf "CPU %d%%\nLoad 1/5/15: %s %s %s\nCores: %s\n%s\n%s\n%s\n%s" \
   "$percentage" "$load1" "$load5" "$load15" "$cores" "$freq_line" "$temp_line" "$heatpipe_line" "$temp_path_line")"
 
-temp_c="null"
-if [ -n "$temp_raw" ]; then
-  temp_c="$(format_temp "$temp_raw" 1)"
-fi
-heatpipe_json="null"
-if [ -n "$heatpipe_w" ]; then
-  heatpipe_json="$heatpipe_w"
-fi
-
-jq -cn \
-  --arg text "CPU $percentage%" \
-  --arg tooltip "$tooltip" \
-  --arg class "$class" \
-  --argjson percentage "$percentage" \
-  --argjson cores "$cores_json" \
-  --argjson temp_c "$temp_c" \
-  --argjson heatpipe_w "$heatpipe_json" \
-  '{text: $text, tooltip: $tooltip, class: $class, percentage: $percentage, cores: $cores, temp_c: $temp_c, heatpipe_w: $heatpipe_w}'
+jq -cn --arg tooltip "$tooltip" --argjson cores "$cores_json" '{tooltip: $tooltip, cores: $cores}'

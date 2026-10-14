@@ -2,7 +2,8 @@
 
 set -euo pipefail
 
-. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
+bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+. "$bin/lib/common.sh"
 
 target="${1:-}"
 action="${2:-}"
@@ -71,6 +72,18 @@ show_osd() {
   qs -c remix ipc call osd "$function" "$@" >/dev/null 2>&1 || true
 }
 
+# Idle-dimmed / idled off (asahi-idle-brightness): this press is also the wake. Take its lock and its
+# saved level first, so the step starts from that level and the resume restore cannot undo it.
+take_idle_level() {
+  local saved="${ASAHI_IDLE_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-brightness}/$2"
+  exec {idle_fd}>"$(brightness_lock)"
+  flock -w 2 "$idle_fd" || true
+  if [ -s "$saved" ]; then
+    brightnessctl --quiet --device="$1" set "$(<"$saved")"
+    rm -f "$saved"
+  fi
+}
+
 case "$target" in
   output-volume)
     case "$action" in
@@ -137,27 +150,20 @@ case "$target" in
     monitor="$(focused_monitor || true)"
     if [ -n "$monitor" ] && ! monitor_is_internal "$monitor"; then
       # Asahi HDMI has no DDC I2C. Never fall through to apple-panel-bl.
-      percent="$("$(dirname "$0")/asahi-brightness-soft" "$monitor" "$action")"
+      percent="$("$bin/asahi-brightness-soft" "$monitor" "$action")"
       show_osd brightnessSet "$percent"
       exit 0
     fi
 
     device="$(display_device)"
+    take_idle_level "$device" "display-$device"
     current="$(current_percent "$device")"
     brightnessctl --quiet --device="$device" set "$(brightness_step "$current" "$action")"
     show_osd brightnessSet "$(current_percent "$device")"
     ;;
   keyboard-brightness)
     device="$(keyboard_device)"
-    # Keys idled off (asahi-idle-brightness): this press is also the wake. Take its lock and its
-    # saved level first, so the step starts from that level and the resume restore cannot undo it.
-    exec {lock_fd}>"${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-brightness.lock"
-    flock -w 2 "$lock_fd" || true
-    saved="${ASAHI_IDLE_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-brightness}/keyboard"
-    if [ -s "$saved" ]; then
-      brightnessctl --quiet --device="$device" set "$(<"$saved")"
-      rm -f "$saved"
-    fi
+    take_idle_level "$device" keyboard
     current="$(current_percent "$device" || echo 0)"
     brightnessctl --quiet --device="$device" set "$(brightness_step "$current" "$action")"
     show_osd keyboard

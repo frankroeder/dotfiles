@@ -9,16 +9,19 @@ if ! command -v qrencode >/dev/null 2>&1; then
   exit 1
 fi
 
-name="${1:-$(nmcli -t -f NAME,TYPE connection show --active | awk -F: '$2 == "802-11-wireless" { print $1; exit }')}"
-if [ -z "$name" ]; then
+# UUID, not NAME: -t escapes ':' in names, so splitting on ':' broke on "Cafe: 5G".
+uuid=$(nmcli -t -f TYPE,UUID connection show --active | awk -F: '$1 == "802-11-wireless" { print $2; exit }' || true)
+if [ -z "$uuid" ]; then
   echo "asahi-wifi-qr: no active Wi-Fi connection" >&2
   exit 1
 fi
+name=$(nmcli -e no -g connection.id connection show uuid "$uuid")
 
 esc() { printf '%s' "$1" | sed 's/[\\;,":]/\\&/g'; }
 
-ssid=$(nmcli -g 802-11-wireless.ssid connection show "$name")
-keymgmt=$(nmcli -g 802-11-wireless-security.key-mgmt connection show "$name" || true)
+# -e no: plain -g escapes ":" and backslashes itself, and esc() would escape them twice.
+ssid=$(nmcli -e no -g 802-11-wireless.ssid connection show uuid "$uuid")
+keymgmt=$(nmcli -g 802-11-wireless-security.key-mgmt connection show uuid "$uuid" || true)
 case "$keymgmt" in
   wpa-psk | sae) auth=WPA ;;
   wpa-eap | wpa-eap-suite-b-192 | ieee8021x)
@@ -30,7 +33,7 @@ case "$keymgmt" in
 esac
 psk=""
 if [ "$auth" = WPA ]; then
-  psk=$(nmcli -s -g 802-11-wireless-security.psk connection show "$name" || true)
+  psk=$(nmcli -s -e no -g 802-11-wireless-security.psk connection show uuid "$uuid" || true)
 fi
 
 out="${XDG_RUNTIME_DIR:-/tmp}/asahi-wifi-qr.png"

@@ -931,7 +931,6 @@ def empty_payload(error: str | None = None) -> dict[str, Any]:
     "links": [],
     "overview": [],
     "chips": [],
-    "chip_chars": 0,
     "updated_at": 0,
   }
 
@@ -946,7 +945,6 @@ def build() -> dict[str, Any]:
   want_grok = "grok" in ids
   want_cursor = "cursor" in ids
   want_grokbot = "grokbot" in ids
-  want_codex = "codex" in ids
 
   cache = load_cache()
   cached_claude = cache.get("claude") if isinstance(cache.get("claude"), dict) else None
@@ -1110,7 +1108,6 @@ def build() -> dict[str, Any]:
     "links": links,
     "overview": overview,
     "chips": chips,
-    "chip_chars": max((len(c["text"]) for c in chips), default=0),
     "updated_at": now,
   }
 

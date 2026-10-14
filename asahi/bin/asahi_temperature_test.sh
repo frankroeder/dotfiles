@@ -76,7 +76,8 @@ echo "$js" | jq -e '[.temps[].name] | index("nvme") and index("macsmc_battery")'
 echo "$js" | jq -e '[.power[].name] | unique == ["macsmc_hwmon"]' >/dev/null || fail_at "json power is macsmc only"
 pass "json output"
 
-empty=$(mktemp -d)
+empty="$tmp/empty"
+mkdir -p "$empty"
 empty_js=$(ASAHI_HWMON_ROOT="$empty" "$ROOT/asahi-temperature" --json)
 echo "$empty_js" | jq -e '.temps == [] and .heatpipe == null and .hottest == null' >/dev/null || fail_at "empty tree is empty json"
 pass "empty hwmon tree"

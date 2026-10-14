@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fixture tests for asahi-cpu heatpipe + per-core JSON. No live writes.
+# Fixture tests for asahi-cpu {tooltip, cores} JSON. No live writes.
 
 set -euo pipefail
 
@@ -47,16 +47,17 @@ out=$(
   "$ROOT/asahi-cpu"
 )
 
-echo "$out" | jq -e '.percentage >= 0 and .percentage <= 100' >/dev/null || fail_at "percentage band"
+# Only tooltip + cores are read (BarHost); sys_panel.js parseCpuTooltip parses these tooltip lines.
+echo "$out" | jq -e 'keys == ["cores", "tooltip"]' >/dev/null || fail_at "json is {tooltip, cores}"
 echo "$out" | jq -e '.cores | length == 2' >/dev/null || fail_at "two cores"
-echo "$out" | jq -e '.cores[0].name == "CPU0"' >/dev/null || fail_at "core0 name"
-echo "$out" | jq -e '.heatpipe_w == 18.0' >/dev/null || fail_at "heatpipe watts"
-echo "$out" | jq -e '.temp_c == 44.2' >/dev/null || fail_at "hottest exposed temp"
-echo "$out" | jq -e '.class == "warning"' >/dev/null || fail_at "15 W heatpipe is warning"
-echo "$out" | jq -e '.text | test("CPU [0-9]+%")' >/dev/null || fail_at "text is CPU percent"
-echo "$out" | jq -e '.text | test("C$") | not' >/dev/null || fail_at "text must not append peripheral °C"
-echo "$out" | jq -r '.tooltip' | grep -q 'Heatpipe 18.0 W' || fail_at "tooltip names heatpipe"
-echo "$out" | jq -r '.tooltip' | grep -q 'no die sensor' || fail_at "tooltip explains missing die sensor"
+echo "$out" | jq -e '.cores[0].name == "CPU0" and (.cores[0].percent | . >= 0 and . <= 100)' >/dev/null || fail_at "core0 name/percent"
+tip=$(echo "$out" | jq -r '.tooltip')
+grep -qx 'Load 1/5/15: 0.10 0.20 0.30' <<<"$tip" || fail_at "tooltip load line"
+grep -qx 'Cores: 2' <<<"$tip" || fail_at "tooltip cores line"
+grep -q '^Freq avg 1.20 GHz' <<<"$tip" || fail_at "tooltip freq line"
+grep -q '^Thermal 44.2 C' <<<"$tip" || fail_at "tooltip thermal line"
+grep -q 'Heatpipe 18.0 W' <<<"$tip" || fail_at "tooltip names heatpipe"
+grep -q 'no die sensor' <<<"$tip" || fail_at "tooltip explains missing die sensor"
 pass "asahi-cpu json"
 
 if [ "$fail" -ne 0 ]; then

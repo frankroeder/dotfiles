@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-bin="$(cd "$(dirname "$0")" && pwd)"
+bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 langs="${ASAHI_OCR_LANGS:-eng}"
 
 if ! command -v tesseract >/dev/null 2>&1; then
@@ -15,8 +15,9 @@ fi
 selection="$("$bin/asahi-capture-region" region || true)"
 [ -n "${selection:-}" ] || exit 0
 
-# 2x capture: tesseract drops small text at native resolution.
-text="$(grim -s 2 -g "$selection" - | tesseract stdin stdout --oem 1 --psm 6 -l "$langs" --dpi 300 -c preserve_interword_spaces=1 2>/dev/null || true)"
+# 2x capture: tesseract drops small text at native resolution. timeout: grim blocks on a DPMS-off output.
+text="$(timeout 5 grim -s 2 -g "$selection" - |
+  tesseract stdin stdout --oem 1 --psm 6 -l "$langs" --dpi 300 -c preserve_interword_spaces=1 2>/dev/null || true)"
 [ -n "$text" ] || {
   notify-send -a screenshot -u critical "No text found" "Try a tighter region" 2>/dev/null || true
   exit 1

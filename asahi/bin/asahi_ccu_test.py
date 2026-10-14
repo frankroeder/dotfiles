@@ -7,14 +7,20 @@ import os
 import sys
 import time
 from importlib.machinery import SourceFileLoader
+from importlib.util import module_from_spec, spec_from_loader
 from pathlib import Path
 
 os.environ["TZ"] = "UTC"
 if hasattr(time, "tzset"):
   time.tzset()
 
+# No __pycache__ next to the scripts. load_module() is deprecated: spec + exec_module.
+sys.dont_write_bytecode = True
 SRC = Path(__file__).resolve().parent / "asahi-ccu"
-ccu = SourceFileLoader("asahi_ccu", str(SRC)).load_module()
+loader = SourceFileLoader("asahi_ccu", str(SRC))
+ccu = module_from_spec(spec_from_loader("asahi_ccu", loader))
+sys.modules["asahi_ccu"] = ccu
+loader.exec_module(ccu)
 
 FAILED = 0
 

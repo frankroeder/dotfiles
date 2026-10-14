@@ -100,6 +100,12 @@ stop_recording() {
 
 audio_device() {
   local sink
+  # With the webcam it is a face-cam take: record the voice (default source, asahi_mic) rather than
+  # what plays. wf-recorder takes one audio device; omarchy mixes both through a null sink.
+  if ((webcam)); then
+    pactl get-default-source 2>/dev/null || true
+    return 0
+  fi
   sink="$(pactl get-default-sink 2>/dev/null || true)"
   [ -n "$sink" ] || return 0
   if pactl list sources short 2>/dev/null | grep -qF "${sink}.monitor"; then

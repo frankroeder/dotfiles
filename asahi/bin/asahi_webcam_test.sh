@@ -11,6 +11,9 @@ fail_at() { printf 'FAIL %s\n' "$1"; fail=1; }
 tmp=$(mktemp -d)
 cleanup() { rm -rf "$tmp" || true; }
 trap cleanup EXIT
+# Pid / region files of a live overlay or recording are never read or removed.
+export XDG_RUNTIME_DIR="$tmp/run"
+mkdir -p "$XDG_RUNTIME_DIR"
 
 chmod +x "$ROOT/asahi-webcam" "$ROOT/asahi-cmd-record"
 
@@ -40,10 +43,15 @@ echo "$out" | grep -q '/dev/video0' || fail_at "list prints /dev/video0 (got $ou
 echo "$out" | grep -q 'apple-isp' || fail_at "list prints apple-isp"
 pass "webcam list via v4l2-ctl"
 
+sleep 30 &
+overlay=$!
+echo "$overlay" >"$XDG_RUNTIME_DIR/asahi-webcam.pid"
 dry=$(ASAHI_WEBCAM_DRY_RUN=1 PATH="$tmp/bin:$PATH" "$ROOT/asahi-webcam" overlay start --device /dev/video0 --size small)
 echo "$dry" | grep -q 'av://v4l2:/dev/video0' || fail_at "dry-run mpv v4l2 url"
 echo "$dry" | grep -q 'WebcamOverlay-small' || fail_at "dry-run app-id small"
-pass "overlay start dry-run"
+kill -0 "$overlay" 2>/dev/null && [ -e "$XDG_RUNTIME_DIR/asahi-webcam.pid" ] || fail_at "dry run stopped the running overlay"
+kill "$overlay" 2>/dev/null || true
+pass "overlay start dry-run leaves a running overlay alone"
 
 # Resize: mocked hyprctl clients + monitors
 kw="$tmp/hypr.log"

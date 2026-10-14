@@ -3,7 +3,7 @@
 #
 #   asahi-monitor-scale up|down|cycle [output]
 #   asahi-monitor-scale set <scale> [output]
-#   asahi-monitor-scale apply               re-eval saved scales (config.reloaded)
+#   asahi-monitor-scale apply               re-eval saved scales but HDMI's (config.reloaded)
 #   asahi-monitor-scale status [output]     "<name> <scale> <legal scales...>"
 #
 # Legal = logical size divides the mode evenly, in 1/120 units like
@@ -79,6 +79,8 @@ case "$action" in
     for f in "$dir"/*; do
       [ -s "$f" ] || continue
       name=$(basename "$f")
+      # HDMI is asahi-hdmi sync's on reload (it reads the saved scale too): one writer per output.
+      case "$name" in HDMI*) continue ;; esac
       json=$(mon_json "$name")
       [ -n "$json" ] || continue
       W=$(jq -r .width <<<"$json"); H=$(jq -r .height <<<"$json")

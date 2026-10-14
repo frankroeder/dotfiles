@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-bin="$(cd "$(dirname "$0")" && pwd)"
+bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 output_dir="${ASAHI_SCREENSHOT_DIR:-$HOME/screenshots}"
 mode="${1:-smart}"
 clip=0
@@ -15,9 +15,16 @@ clip=0
 selection="$("$bin/asahi-capture-region" "$mode" || true)"
 [ -n "$selection" ] || exit 0
 
+# grim blocks on a DPMS-off output.
+shot() {
+  timeout 5 grim -g "$selection" "$1" && return 0
+  notify-send -a screenshot -u critical "Screenshot failed" "grim failed or timed out (display off?)" 2>/dev/null || true
+  exit 1
+}
+
 if [ "$clip" -eq 1 ]; then
   file="${XDG_RUNTIME_DIR:-/tmp}/asahi-screenshot-clip.png"
-  grim -g "$selection" "$file"
+  shot "$file"
   wl-copy --type image/png <"$file"
   notify-send -a screenshot -t 2500 -i "$file" "Screenshot copied" "Clipboard only, not saved" 2>/dev/null || true
   exit 0
@@ -25,6 +32,6 @@ fi
 
 mkdir -p "$output_dir"
 file="$output_dir/screenshot-$(date +'%Y-%m-%d_%H-%M-%S').png"
-grim -g "$selection" "$file"
+shot "$file"
 wl-copy --type image/png <"$file"
 notify-send -a screenshot -t 2500 -i "$file" "Screenshot saved" "$file" 2>/dev/null || true

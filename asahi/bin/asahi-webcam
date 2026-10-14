@@ -4,8 +4,6 @@
 
 set -euo pipefail
 
-. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
-
 pid_file="${XDG_RUNTIME_DIR:-/tmp}/asahi-webcam.pid"
 region_file="${XDG_RUNTIME_DIR:-/tmp}/asahi-record-region"
 margin=40
@@ -85,12 +83,6 @@ stop_overlay() {
     kill -0 "$pid" 2>/dev/null && kill -KILL "$pid" 2>/dev/null || true
   fi
   rm -f "$pid_file" "$region_file"
-}
-
-hypr_dispatch() {
-  local lua="$1"
-  shift
-  hyprctl dispatch "$lua" >/dev/null 2>&1 || hyprctl dispatch "$@" >/dev/null
 }
 
 resize_overlay() {
@@ -212,12 +204,8 @@ resize_overlay() {
   fi
 
   window="address:$address"
-  hypr_dispatch \
-    "hl.dsp.window.resize({ window = \"$window\", x = $target_width, y = $target_height })" \
-    resizewindowpixel "exact $target_width $target_height,$window"
-  hypr_dispatch \
-    "hl.dsp.window.move({ window = \"$window\", x = $target_x, y = $target_y })" \
-    movewindowpixel "exact $target_x $target_y,$window"
+  hyprctl dispatch "hl.dsp.window.resize({ window = \"$window\", x = $target_width, y = $target_height })" >/dev/null
+  hyprctl dispatch "hl.dsp.window.move({ window = \"$window\", x = $target_x, y = $target_y })" >/dev/null
 }
 
 start_overlay() {
@@ -250,7 +238,6 @@ start_overlay() {
       ;;
   esac
 
-  stop_overlay
   if [[ -z $device ]]; then
     device=$(first_device)
   fi
@@ -282,6 +269,8 @@ start_overlay() {
     exit 1
   fi
 
+  # After the dry run: it must not kill a live overlay.
+  stop_overlay
   setsid mpv "av://v4l2:$device" \
     --profile=low-latency --untimed --no-cache \
     --demuxer-lavf-o="$capture_options" \

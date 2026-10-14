@@ -10,6 +10,9 @@ fail_at() { printf 'FAIL %s\n' "$1"; fail=1; }
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
+# Locks, saved idle levels and pid files stay in the scratch dir, never the session's.
+export XDG_RUNTIME_DIR="$tmp/run"
+mkdir -p "$XDG_RUNTIME_DIR"
 
 # --- asahi-battery: Apple Silicon sysfs, charge-hold ---
 bat="$tmp/power/macsmc-battery"
@@ -82,7 +85,7 @@ pass "asahi-charge-limit apply 80 then 100"
 env -u HOME -u XDG_STATE_HOME ASAHI_POWER_SUPPLY_PATH="$tmp/power" \
   ASAHI_CHARGE_LIMIT_SYSTEM="$sysstate" "$ROOT/asahi-charge-limit" apply >/dev/null \
   || fail_at "apply without HOME"
-env -u HOME -u XDG_STATE_HOME "$ROOT/asahi-charge-limit" udev \
+env -u HOME -u XDG_STATE_HOME ASAHI_POWER_SUPPLY_PATH="$tmp/power" "$ROOT/asahi-charge-limit" udev \
   || fail_at "udev without HOME"
 pass "asahi-charge-limit apply/udev work without HOME"
 
@@ -292,24 +295,24 @@ else
 fi
 
 eval "$(sed -n '/^find_las()/,/^}/p' "$auto")"
-eval "$(sed -n '/^lid_closed()/,/^}/p' "$auto")"
+eval "$(sed -n '/^lid_angle_closed()/,/^}/p' "$auto")"
 LID_CLOSED_ANGLE=30
 printf '124\n' >"$fake_iio/iio:device0/in_angl_raw"
-if ASAHI_IIO_DEVICES_DIR=$fake_iio lid_closed; then
-  fail_at "lid_closed should be false at 124 degrees"
+if ASAHI_IIO_DEVICES_DIR=$fake_iio lid_angle_closed; then
+  fail_at "lid_angle_closed should be false at 124 degrees"
 else
-  pass "lid_closed is false when the lid angle is open"
+  pass "lid_angle_closed is false when the lid angle is open"
 fi
 printf '8\n' >"$fake_iio/iio:device0/in_angl_raw"
-if ASAHI_IIO_DEVICES_DIR=$fake_iio lid_closed; then
-  pass "lid_closed is true when the lid angle is shut"
+if ASAHI_IIO_DEVICES_DIR=$fake_iio lid_angle_closed; then
+  pass "lid_angle_closed is true when the lid angle is shut"
 else
-  fail_at "lid_closed should be true at 8 degrees"
+  fail_at "lid_angle_closed should be true at 8 degrees"
 fi
 
 # tick: hysteresis, shadow filter, fade, override pause, eDP-off pause; no brightnessctl when steady.
 . "$ROOT/lib/common.sh"
-eval "$(sed -n '/^lux_table()/,/^}/p; /^lux_to_percent()/,/^}/p; /^lux_moved()/,/^}/p; /^lux_settled()/,/^}/p; /^idle_dimmed()/,/^}/p; /^internal_display_off()/,/^}/p; /^tick()/,/^}/p; /^lid_closed()/,/^}/p' "$auto")"
+eval "$(sed -n '/^lux_table()/,/^}/p; /^lux_to_percent()/,/^}/p; /^lux_moved()/,/^}/p; /^lux_settled()/,/^}/p; /^idle_dimmed()/,/^}/p; /^internal_display_off()/,/^}/p; /^tick()/,/^}/p; /^lid_angle_closed()/,/^}/p' "$auto")"
 session_locked() { return 1; }
 DARK_LUX=8 BRIGHT_LUX=180 DEADBAND_PERCENT=4 OVERRIDE_LUX_DELTA=20 OVERRIDE_LUX_RATIO=40 HYST_LUX_DELTA=5 HYST_LUX_RATIO=25
 lux_table
@@ -392,6 +395,16 @@ mc asahi-media-control keyboard-brightness raise
 [[ $(<"$tmp/mc-led") == 153 ]] || fail_at "plain key raise 55 % -> 60 % (got $(<"$tmp/mc-led"))"
 pass "keyboard key while idled off steps from the saved level"
 
+# Display key while idle-dimmed: same (a lower used to end at the pre-dim level after the restore).
+cp "$tmp/bin/hyprctl" "$tmp/mc-bin/hyprctl"
+echo 69 >"$tmp/mc-led"; echo 153 >"$tmp/mc-state/display-apple-panel-bl"
+mc asahi-media-control brightness lower
+[[ $(<"$tmp/mc-led") == 140 && ! -e $tmp/mc-state/display-apple-panel-bl ]] \
+  || fail_at "display key while dimmed steps from the saved 60 % to 55 % (got $(<"$tmp/mc-led"))"
+mc asahi-idle-brightness restore
+[[ $(<"$tmp/mc-led") == 140 ]] || fail_at "resume restore undid the display key (got $(<"$tmp/mc-led"))"
+pass "display key while idle-dimmed steps from the saved level"
+
 unit="$ROOT/../systemd/user/asahi-brightness-keyboard-auto.service"
 grep -Fx 'ExecStart=%h/.local/bin/asahi-brightness-keyboard-auto' "$unit" >/dev/null \
   || fail_at "ALS unit ExecStart points at the local helper"
@@ -407,14 +420,17 @@ grep -e "kbd_backlight' set 30%" "$ROOT/../../install/components.sh" >/dev/null 
   && fail_at "asahi-system still forces a one-shot 30% keyboard backlight" \
   || pass "asahi-desktop enables ALS keyboard backlight; no 30% oneshot"
 
-# --- asahi-clamshell: laptop-only close is a no-op; open unblanks ---
+# --- asahi-clamshell: lid paths with fake hyprctl / busctl / loginctl / brightnessctl / sleep ---
+# The real ones would read the live lid and inhibitors, and could zero the backlight and lock the session.
 clam_dir="$tmp/clam"
 mkdir -p "$clam_dir/bin" "$clam_dir/idle"
 clam_eval="$clam_dir/eval.log"
 clam_disp="$clam_dir/dispatch.log"
 clam_mon="$clam_dir/mon.json"
+export CLAM_LOG="$clam_dir/calls.log" FAKE_LID=false FAKE_BLOCK=""
 : >"$clam_eval"
 : >"$clam_disp"
+: >"$CLAM_LOG"
 cat >"$clam_dir/bin/hyprctl" <<'EOF'
 #!/bin/sh
 if [ "$1" = monitors ]; then
@@ -432,7 +448,29 @@ if [ "$1" = dispatch ]; then
 fi
 exit 0
 EOF
-chmod +x "$clam_dir/bin/hyprctl"
+cat >"$clam_dir/bin/busctl" <<'EOF'
+#!/bin/sh
+case "$*" in
+  *LidClosed*) echo "b $FAKE_LID" ;;
+  *ListInhibitors*)
+    if [ -n "$FAKE_BLOCK" ]; then
+      echo '{"type":"a(ssssuu)","data":[[["handle-lid-switch","asahi-hdmi","connected","block",0,1]]]}'
+    else
+      echo '{"type":"a(ssssuu)","data":[[]]}'
+    fi
+    ;;
+esac
+EOF
+cat >"$clam_dir/bin/brightnessctl" <<'EOF'
+#!/bin/sh
+echo "brightnessctl $*" >> "$CLAM_LOG"
+case "$*" in *" get") echo 50 ;; *" max") echo 100 ;; esac
+exit 0
+EOF
+printf '#!/bin/sh\necho "loginctl $*" >> "$CLAM_LOG"\n' >"$clam_dir/bin/loginctl"
+printf '#!/bin/sh\nexit 0\n' >"$clam_dir/bin/systemd-inhibit"
+printf '#!/bin/sh\nexit 0\n' >"$clam_dir/bin/sleep"
+chmod +x "$clam_dir/bin/"*
 run_clam() {
   PATH="$clam_dir/bin:$PATH" ASAHI_CLAMSHELL_FLAG="$clam_dir/flag" \
     ASAHI_IDLE_STATE_DIR="$clam_dir/idle" HYPR_MONITORS_JSON="$clam_mon" \
@@ -443,11 +481,20 @@ run_clam() {
 printf '[{"name":"eDP-1","disabled":false,"dpmsStatus":true}]\n' >"$clam_mon"
 run_clam close
 [ ! -e "$clam_dir/flag" ] || fail_at "laptop-only close must not set the clamshell flag"
-if grep -q . "$clam_eval"; then
-  fail_at "laptop-only close must not eval/DPMS eDP (got $(tr '\n' ' ' <"$clam_eval"))"
+if grep -q . "$clam_eval" || grep -q . "$CLAM_LOG"; then
+  fail_at "laptop-only close must not eval eDP, dim or lock (got $(cat "$clam_eval" "$CLAM_LOG" | tr '\n' ' '))"
 else
   pass "laptop-only close is a no-op"
 fi
+
+# Someone else's block inhibitor (cable in, external not up) stops logind's suspend: blank + lock.
+FAKE_LID=true FAKE_BLOCK=1
+: >"$clam_disp"
+run_clam close
+grep -q 'loginctl lock-session' "$CLAM_LOG" || fail_at "blocked laptop-only close must lock"
+grep -q 'action = "disable", monitor = "eDP-1"' "$clam_disp" || fail_at "blocked laptop-only close must DPMS eDP off"
+[ ! -e "$clam_dir/flag" ] && pass "blocked laptop-only close blanks and locks" || fail_at "blocked close set the flag"
+FAKE_LID=false FAKE_BLOCK=""
 
 printf '[{"name":"eDP-1","disabled":false,"dpmsStatus":false}]\n' >"$clam_mon"
 : >"$clam_disp"
@@ -457,16 +504,23 @@ grep -q HDMI "$clam_disp" && fail_at "open must not DPMS a disconnected HDMI" \
   || pass "open unblanks eDP"
 
 # USB-C unplugged in clamshell: Hyprland lists only FALLBACK, which is not an external.
-printf '#!/bin/sh\nexit 0\n' >"$clam_dir/bin/systemd-inhibit"
-printf '#!/bin/sh\nexit 0\n' >"$clam_dir/bin/sleep"
-chmod +x "$clam_dir/bin/systemd-inhibit" "$clam_dir/bin/sleep"
 printf '[{"name":"FALLBACK","disabled":false,"dpmsStatus":true}]\n' >"$clam_mon"
 : >"$clam_dir/flag"
 : >"$clam_eval"
+echo 300 >"$clam_dir/idle/display-test-bl"
 run_clam apply
 grep -q 'output = "eDP-1", disabled = false' "$clam_eval" || fail_at "FALLBACK-only apply must re-enable eDP"
 [ ! -e "$clam_dir/flag" ] && pass "FALLBACK is not an external: apply re-enables eDP, drops the flag" \
   || fail_at "FALLBACK kept the clamshell flag (lid inhibitor stays up)"
+grep -q 'device=test-bl set 300' "$CLAM_LOG" && [ ! -e "$clam_dir/idle/display-test-bl" ] \
+  && pass "lid open: apply restores the backlight close zeroed" || fail_at "apply did not restore the backlight"
+FAKE_LID=true
+: >"$clam_dir/flag"
+echo 300 >"$clam_dir/idle/display-test-bl"
+run_clam apply
+[ -e "$clam_dir/idle/display-test-bl" ] && pass "lid closed: apply leaves the backlight to open" \
+  || fail_at "apply relit the closed panel"
+FAKE_LID=false
 
 # --- launcher / system menu still has no Hibernate ---
 grep -q 'title: "Hibernate"' "$ROOT/../quickshell/remix/modules/launcher/Data.js" \

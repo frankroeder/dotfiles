@@ -29,7 +29,9 @@ cat >"$tmp/slurp" <<'EOF'
 cat >/dev/null
 printf '%s\n' "$SLURP_OUT"
 EOF
-chmod +x "$tmp/hyprctl" "$tmp/slurp" "$CAP"
+# The real pkill would cancel a live slurp picker ("second invocation cancels").
+printf '#!/bin/sh\nexit 1\n' >"$tmp/pkill"
+chmod +x "$tmp/hyprctl" "$tmp/slurp" "$tmp/pkill" "$CAP"
 
 run() {
   PATH="$tmp:$PATH" SLURP_OUT="$1" "$CAP" smart

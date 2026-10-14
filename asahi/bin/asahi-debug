@@ -126,8 +126,7 @@ check_packages() {
 }
 
 check_wifi_backend() {
-  local conf printed
-  conf=$(diag_path /etc/NetworkManager/conf.d)
+  local printed
   printed=$(NetworkManager --print-config 2>/dev/null || true)
   if grep -q 'wifi.backend=wpa_supplicant' <<<"$printed"; then
     record PASS wifi-backend "NetworkManager uses wpa_supplicant (Fedora Asahi default)"
@@ -146,7 +145,7 @@ check_wifi_powersave() {
   if [[ -r $conf ]] && grep -qE 'wifi\.powersave[[:space:]]*=[[:space:]]*2' "$conf"; then
     record PASS wifi-powersave "asahi-wifi-powersave.conf disables idle naps"
   else
-    record WARN wifi-powersave "no asahi-wifi-powersave.conf with wifi.powersave=2"
+    record WARN wifi-powersave "no asahi-wifi-powersave.conf with wifi.powersave=2 (./install.sh asahi-system)"
   fi
 }
 

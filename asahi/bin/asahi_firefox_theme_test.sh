@@ -5,6 +5,7 @@ set -euo pipefail
 root=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
 host=$root/asahi-firefox-theme
 state=$(mktemp -d)
+trap 'kill "${HOST_PID:-}" 2>/dev/null || true; rm -rf "$state"' EXIT
 dir=$state/asahi-theme
 mkdir -p "$dir"
 scheme=$dir/firefox.json

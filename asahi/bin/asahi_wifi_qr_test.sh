@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Wi-Fi QR: nopass when key-mgmt is missing, PSK stays off qrencode's argv, mode 600.
+# Wi-Fi QR: nopass when key-mgmt is missing, PSK stays off qrencode's argv, mode 600, lookup by UUID.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -17,19 +17,23 @@ cat >"$tmp/nmcli" <<'EOF'
 printf '%s\n' "$*" >> "$ASAHI_WIFI_QR_TEST_DIR/nmcli.log"
 case "$*" in
   *"connection show --active"*)
-    printf '%s\n' 'Cafe:802-11-wireless'
+    printf '%s\n' '802-3-ethernet:0000' '802-11-wireless:1111-2222'
     ;;
-  *"802-11-wireless.ssid"*)
+  *"connection.id connection show uuid 1111-2222"*)
+    printf '%s\n' 'Cafe: 5G'
+    ;;
+  *"802-11-wireless.ssid connection show uuid 1111-2222"*)
     printf '%s\n' 'Cafe'
     ;;
-  *"key-mgmt"*)
+  *"key-mgmt connection show uuid 1111-2222"*)
     if [ -f "$ASAHI_WIFI_QR_TEST_DIR/keymgmt_fail" ]; then
       exit 10
     fi
     cat "$ASAHI_WIFI_QR_TEST_DIR/keymgmt"
     ;;
-  *"wireless-security.psk"*)
-    printf '%s\n' 'super secret'
+  *"wireless-security.psk connection show uuid 1111-2222"*)
+    # Real nmcli -g escapes ':' unless -e no.
+    case "$*" in *"-e no"*) printf '%s\n' 'super:secret' ;; *) printf '%s\n' 'super\:secret' ;; esac
     ;;
   *) exit 1 ;;
 esac
@@ -63,14 +67,14 @@ payload=$(cat "$tmp/payload")
 mode=$(stat -c %a "$out")
 [ "$payload" = "WIFI:T:nopass;S:Cafe;P:;;" ] && pass "missing key-mgmt is nopass" || fail_at "nopass payload=$payload"
 [ "$mode" = "600" ] && pass "png is 600 after qrencode left it 644" || fail_at "mode=$mode"
-grep -q 'super secret' "$tmp/argv" && fail_at "secret in argv" || pass "nopass argv has no secret"
+grep -q 'super' "$tmp/argv" && fail_at "secret in argv" || pass "nopass argv has no secret"
 
 rm -f "$tmp/keymgmt_fail"
 printf '%s\n' 'wpa-psk' >"$tmp/keymgmt"
 out=$(run)
 payload=$(cat "$tmp/payload")
 argv=$(cat "$tmp/argv")
-[ "$payload" = "WIFI:T:WPA;S:Cafe;P:super secret;;" ] && pass "psk is in the payload" || fail_at "wpa payload=$payload"
+[ "$payload" = 'WIFI:T:WPA;S:Cafe;P:super\:secret;;' ] && pass "psk is in the payload, ':' escaped once" || fail_at "wpa payload=$payload"
 case "$argv" in
   *secret*) fail_at "psk leaked into argv: $argv" ;;
   *) pass "psk is not in qrencode argv" ;;
@@ -83,6 +87,8 @@ if PATH="$tmp:$PATH" XDG_RUNTIME_DIR="$tmp/run" "$QR" >/dev/null 2>"$tmp/err"; t
 else
   pass "enterprise has no shareable PSK"
 fi
+# A ':' in the name (nmcli -t escapes it) must not break the lookup: queries go by UUID.
+grep -q 'Cafe: 5G has no shareable PSK' "$tmp/err" && pass "name with ':' resolved via UUID" || fail_at "err: $(cat "$tmp/err")"
 
 if [ "$fail" -ne 0 ]; then
   exit 1

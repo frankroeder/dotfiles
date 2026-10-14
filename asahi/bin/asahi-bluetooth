@@ -3,7 +3,10 @@ set -euo pipefail
 
 # JSON {text, tooltip, class, percentage}
 
-powered=$(bluetoothctl show 2>/dev/null | awk -F': ' '/Powered:/ {print $2}' | head -1 || echo "no")
+# A wedged BlueZ must not hang the pane (asahi-bluetooth-power uses the same cap).
+bt() { timeout 2s bluetoothctl "$@" 2>/dev/null || true; }
+
+powered=$(bt show | awk -F': ' '/Powered:/ {print $2}' | head -1 || echo "no")
 if rfkill list bluetooth 2>/dev/null | grep -q 'Soft blocked: yes'; then
   powered="no"
 fi
@@ -18,8 +21,8 @@ if [ "$powered" != "yes" ]; then
   exit 0
 fi
 
-alias=$(bluetoothctl show 2>/dev/null | awk -F': ' '/Alias:/ {print $2; exit}' || echo "Bluetooth")
-num=$(bluetoothctl devices Connected 2>/dev/null | wc -l || echo 0)
+alias=$(bt show | awk -F': ' '/Alias:/ {print $2; exit}' || echo "Bluetooth")
+num=$(bt devices Connected | wc -l || echo 0)
 
 tooltip="$alias"
 if [ "$num" -gt 0 ]; then
@@ -27,21 +30,19 @@ if [ "$num" -gt 0 ]; then
   # list a few
   while read -r _ mac name; do
     [ -z "$mac" ] && continue
-    bat=$(bluetoothctl info "$mac" 2>/dev/null | awk -F': ' '/Battery Percentage:/ {print $2; exit}' || echo "")
+    bat=$(bt info "$mac" | awk -F': ' '/Battery Percentage:/ {print $2; exit}' || echo "")
     if [ -n "$bat" ]; then
       tooltip+=$'\n'"  $name ${bat}%"
     else
       tooltip+=$'\n'"  $name"
     fi
-  done < <(bluetoothctl devices Connected 2>/dev/null | head -5)
+  done < <(bt devices Connected | head -5)
 else
   tooltip+=$'\n'"0 connected"
 fi
 
 # Bar text = single clean symbol only
-if [ "$powered" != "yes" ]; then
-  bar_icon="󰂲"
-elif [ "$num" -gt 0 ]; then
+if [ "$num" -gt 0 ]; then
   bar_icon="󰂱"
 else
   bar_icon="󰂯"

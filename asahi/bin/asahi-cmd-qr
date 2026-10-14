@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-bin="$(cd "$(dirname "$0")" && pwd)"
+bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
 if ! command -v zbarimg >/dev/null 2>&1; then
   notify-send -a screenshot -u critical "QR unavailable" "Install zbar (asahi/dnf.sh)" 2>/dev/null || true
@@ -15,16 +15,12 @@ fi
 selection="$("$bin/asahi-capture-region" region || true)"
 [ -n "${selection:-}" ] || exit 0
 
-# QR only — other symbologies false-positive on dense UI chrome.
-result="$(grim -g "$selection" - | zbarimg -q --raw -Sdisable -Sqrcode.enable - 2>/dev/null || true)"
+# QR only — other symbologies false-positive on dense UI chrome. timeout: grim blocks on a DPMS-off output.
+result="$(timeout 5 grim -g "$selection" - | zbarimg -q --raw -Sdisable -Sqrcode.enable - 2>/dev/null || true)"
 if [ -z "$result" ]; then
   notify-send -a screenshot -u critical "No QR code found" "Select a region containing a QR code" 2>/dev/null || true
   exit 1
 fi
 
-if wl-copy --help 2>&1 | grep -q -- '--sensitive'; then
-  printf '%s' "$result" | wl-copy --sensitive
-else
-  printf '%s' "$result" | wl-copy
-fi
+printf '%s' "$result" | wl-copy --sensitive
 notify-send -a screenshot -t 2500 "QR code copied to clipboard" 2>/dev/null || true
