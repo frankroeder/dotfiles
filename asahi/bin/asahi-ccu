@@ -41,7 +41,7 @@ CACHE_PATH = Path.home() / ".cache" / "asahi" / "ccu.json"
 LAST_PATH = Path.home() / ".cache" / "asahi" / "ccu.last.json"
 LOCK_PATH = Path.home() / ".cache" / "asahi" / "ccu.lock"
 LAST_TTL_SEC = 20
-# The cost scan reads every transcript (~4 s CPU): reuse it for 10 min (popup cost figures lag that much).
+# The cost scan reads every transcript (~2–4 s CPU): reuse it for 10 min (popup cost figures lag that much).
 COST_PATH = Path.home() / ".cache" / "asahi" / "ccu.cost.json"
 COST_TTL_SEC = 600
 

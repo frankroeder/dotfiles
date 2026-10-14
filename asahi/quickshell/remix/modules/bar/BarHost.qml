@@ -165,8 +165,8 @@ Item {
     return candidates.length > 0 ? candidates[0].charAt(0).toUpperCase() : "?"
   }
 
-  // Chips that appear / vanish (media, backup, tray, timer…) slide their neighbours instead of
-  // jumping (upstream BarModule: 300 ms OutCubic, fade 180 ms). Off for the first second so the
+  // Chips that appear / vanish in the left cluster (media, backup…) slide their neighbours instead of
+  // jumping; the right cluster only fades new chips in (see rightSection) (upstream BarModule: 300 ms OutCubic, fade 180 ms). Off for the first second so the
   // bar does not cascade in on start or reload.
   property bool chipAnim: false
   Timer { interval: 1000; running: true; onTriggered: barWindow.chipAnim = true }

@@ -241,8 +241,9 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   popup grab: TrayPanel opens them via `QsMenuAnchor` and drops its grab until `closed`.
   `HyprlandFocusGrab` dies on `focusable: false`. Attention dot is static (a pulse redraws the bar
   every frame). Menu positions are window coords (`mapToItem(null, …)`).
-- **Bar = click to act, event-driven**: chips appearing / vanishing slide neighbours (Row
-  `move`/`add` transitions, off for the first second). Hover tint (`HoverTint`), tooltip only on tray icons,
+- **Bar = click to act, event-driven**: chips appearing / vanishing slide their left-cluster
+  neighbours (Row `move`/`add`, off for the first second); the right cluster, anchored right, only fades new chips
+  in (`add`): `move` there animated from the old in-row x and the clock side jumped (REC chip). Hover tint (`HoverTint`), tooltip only on tray icons,
   night-light chip only while on. The REC dot blinks on the elapsed tick (no animation). The mic glyph
   turns orange while an app records from it (`PwNodeLinkTracker`). Vol/mic
   (`AudioChip`, `input`) bind Pipewire (+`PwObjectTracker`), BT binds BlueZ,
@@ -587,7 +588,7 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   (exit > 1).
 
 ## Shared
-- **CCU**: one core, `sketchybar/helpers/ccu_common.py`. `asahi-ccu` reuses the cost scan (every transcript, ~2 s CPU) for 10 min
+- **CCU**: one core, `sketchybar/helpers/ccu_common.py`. `asahi-ccu` reuses the cost scan (every transcript, ~2–4 s CPU) for 10 min
   (`~/.cache/asahi/ccu.cost.json`, dropped at midnight): popup cost figures lag up to that. Front-ends: Lua literal (sketchybar) or
   `--json` (`asahi-ccu`). `ccu_cost.py` is JSON-only (reserved keys). Test:
   `python3 asahi/bin/asahi_ccu_test.py`.
