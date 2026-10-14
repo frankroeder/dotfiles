@@ -129,7 +129,7 @@ local spell = function()
     return
   end
 
-  local lang = vim.bo[bufnr()].spelllang
+  local lang = vim.split(vim.bo[bufnr()].spelllang, ",", { plain = true })[1]
   return lang ~= "" and sl "StatusLineDim" .. ("[%s]"):format(lang) or nil
 end
 
