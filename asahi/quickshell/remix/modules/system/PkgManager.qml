@@ -52,6 +52,7 @@ Scope {
   }
 
   function runQuery() {
+    pkgProc.running = false  // a busy run would land its old rows first (Process queues the restart)
     root.loading = true
     root.status = ""
     if (root.tab === 0) {
@@ -79,18 +80,23 @@ Scope {
     root.open = false
   }
 
-  // The bar's update chip calls this in-process (shell.qml); the keybind uses IPC.
-  function toggle() {
+  // The bar's update chip calls this in-process (shell.qml) with startTab 2: it opens on Updates and
+  // checks at once. The keybind / launcher use IPC (Search).
+  function toggle(startTab) {
     if (!root.open) root.pkgScreen = root.focusedScreen()
     root.open = !root.open
     if (root.open) {
-      root.tab = 0
+      root.tab = startTab || 0
       root.query = ""
       root.packages = []
       root.status = "Type a name and search"
-      Qt.callLater(function () { searchField.forceActiveFocus() })
+      if (root.tab === 2) root.runQuery()
+      else Qt.callLater(function () { searchField.forceActiveFocus() })
     }
   }
+
+  // A run left over from before a close would land its rows (and clear the spinner) after a reopen.
+  onOpenChanged: if (!root.open) pkgProc.running = false
 
   IpcHandler {
     target: "pkgman"
@@ -103,13 +109,14 @@ Scope {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
+        if (!text) return  // killed (panel closed): asahi-pkg always prints JSON otherwise
         root.loading = false
         try {
           const data = JSON.parse(text || "{}")
           root.packages = data.packages || []
           if (data.error === "empty-query") root.status = "Type a package name"
           else if (root.packages.length === 0) root.status = "No packages"
-          else root.status = root.packages.length + " packages"
+          else root.status = root.packages.length + (root.packages.length === 1 ? " package" : " packages")
         } catch (e) {
           root.packages = []
           root.status = "Parse failed"
@@ -127,28 +134,7 @@ Scope {
     }
   }
 
-  // Tonal pill button (recorder / launcher panes).
-  component Pill: Rectangle {
-    id: pill
-    property string icon: ""
-    property string label: ""
-    property color bg: Style.m3containerHigh
-    property color fg: Style.m3onSurface
-    signal clicked()
-    implicitWidth: pillRow.implicitWidth + root.px(22)
-    implicitHeight: root.px(30)
-    radius: height / 2
-    color: pillMa.containsMouse ? Qt.lighter(bg, 1.12) : bg
-    Behavior on color { ColorAnimation { duration: 120 } }
-    Row {
-      id: pillRow
-      anchors.centerIn: parent
-      spacing: root.px(6)
-      Text { visible: pill.icon !== ""; text: pill.icon; color: pill.fg; font.family: Style.menuMono; font.pixelSize: root.px(13); anchors.verticalCenter: parent.verticalCenter }
-      Text { text: pill.label; color: pill.fg; font.family: Style.menuSans; font.pixelSize: root.px(11); font.weight: Font.DemiBold; anchors.verticalCenter: parent.verticalCenter }
-    }
-    MouseArea { id: pillMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: pill.clicked() }
-  }
+  component Pill: Menu.MenuPill { fontScale: root.geom.fontScale }
 
   PanelWindow {
     id: pkgPanel
@@ -244,9 +230,12 @@ Scope {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
+                      // The old tab's rows never stay (Installed filters by the query, Updates ignores it).
+                      pkgProc.running = false
                       root.tab = modelData.id
-                      if (modelData.id === 2 || (modelData.id === 1 && root.query.trim() === "")) root.runQuery()
-                      else if (modelData.id === 0 && root.query.trim().length >= 2) root.runQuery()
+                      root.packages = []
+                      root.status = "Type a name and search"
+                      if (modelData.id !== 0 || root.query.trim().length >= 2) root.runQuery()
                     }
                   }
                 }

@@ -73,16 +73,22 @@ cmd_updates() {
   python3 - <<'PY'
 import json, subprocess
 
+# No --cacheonly: as a user that reads ~/.cache/libdnf5 even when expired (days old); without it dnf
+# refreshes after metadata_expire (from the root cache dnf-makecache keeps fresh, else the network).
 proc = subprocess.run(
-    ["dnf", "check-update", "--cacheonly", "-q"],
+    ["dnf", "check-update", "-q"],
     capture_output=True, text=True
 )
+# Offline with expired metadata dnf fails (1): fall back to the cache instead of "no updates".
+if proc.returncode not in (0, 100):
+    proc = subprocess.run(["dnf", "check-update", "--cacheonly", "-q"], capture_output=True, text=True)
 # dnf5: 100 = updates available, 0 = none
 rows = []
-skip = {"upgrades", "available", "obsoleting", "removing"}
+# Section headings; obsoleted packages are indented under "Obsoleting packages" (they are not updates).
+skip = {"upgrades", "available", "obsoleting", "obsoleting packages", "removing"}
 for line in (proc.stdout or "").splitlines():
     s = line.strip()
-    if not s or s.lower() in skip:
+    if not s or line.startswith(" ") or s.lower() in skip:
         continue
     parts = s.split()
     if len(parts) < 2:
@@ -110,7 +116,8 @@ PY
 launch_tui() {
   local bin
   bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/asahi-launch-tui"
-  exec "$bin" "$@"
+  # Keep the window after dnf exits: errors, "Nothing to do" or an answered N closed it at once.
+  ASAHI_TUI_WAIT=1 exec "$bin" "$@"
 }
 
 cmd="${1:-}"

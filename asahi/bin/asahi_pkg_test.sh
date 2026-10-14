@@ -45,6 +45,23 @@ else
   fail_at "updates JSON: $upd"
 fi
 
+# dnf5 lists obsoleted packages indented under "Obsoleting packages": neither is an update row.
+fake="$(mktemp -d)"
+trap 'rm -rf "$fake"' EXIT
+cat >"$fake/dnf" <<'EOF'
+#!/usr/bin/env bash
+printf 'Upgrades\nkernel-16k.aarch64  6.17.1-400.fc44  copr:kernel\n\nObsoleting packages\n'
+printf 'newtool.aarch64  2.0-1.fc44  updates\n    oldtool.aarch64  1.0-1.fc44  updates\n'
+exit 100
+EOF
+chmod +x "$fake/dnf"
+names="$(PATH="$fake:$PATH" "$PKG" updates | jq -c '[.packages[].name]')"
+if [ "$names" = '["kernel-16k","newtool"]' ]; then
+  pass "updates skips obsoletes headings and obsoleted rows"
+else
+  fail_at "updates with obsoletes: $names"
+fi
+
 qml="$ROOT/../quickshell/remix/modules/system/PkgManager.qml"
 if grep -q 'target: "pkgman"' "$qml" && grep -q 'asahi-pkg' "$qml"; then
   pass "PkgManager.qml talks to asahi-pkg"
