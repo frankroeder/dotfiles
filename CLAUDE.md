@@ -39,7 +39,8 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
 
 - **QML singletons**: `pragma Singleton` is ignored without `qmldir`. `import "File.qml" as X`
   silently falls back to white/black. Register (`singleton Name File.qml`), module-import,
-  reference by name. Prefer Quickshell `Singleton` (reloadable). Never `Foo {}` construct them.
+  reference by name. Prefer Quickshell `Singleton` (reloadable). Never `Foo {}` construct them. A singleton
+  added while qs runs stays `undefined` across hot reloads: restart qs (Super+Ctrl+Alt+W).
 - **Lock on boot**: getty on tty1 is the auth gate — do not hyprlock after Hyprland starts, and
   do not `agetty --autologin` (zsh/zprofile can fall through to an unauthenticated shell).
   Leftover `/etc/systemd/system/getty@tty1.service.d/10-asahi-autologin.conf`:
@@ -244,14 +245,16 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   night-light chip only while on. The REC dot blinks on the elapsed tick (no animation). The mic glyph
   turns orange while an app records from it (`PwNodeLinkTracker`). Vol/mic
   (`AudioChip`, `input`) bind Pipewire (+`PwObjectTracker`), BT binds BlueZ,
-  battery = UPower (60 s fallback), network = `nmcli monitor` (+30 s signal poll), CPU/RAM/heatpipe
-  in-process `FileView`; `asahi-cpu` (`{tooltip, cores}`) / `-memory` only while SysPanel is open. Stay-awake / night light
+  battery = `UPower.displayDevice` in QML (glyph and percent, no script or poll), network = `nmcli monitor` (+30 s
+  signal poll), CPU/RAM/heatpipe in-process `FileView`; `asahi-cpu` (`{tooltip, cores}`) / `-memory` only while SysPanel is open. Stay-awake / night light
   / timer watch files (FileView's directory watch sees create/delete). Long-lived children get
   `setpriv --pdeathsig TERM` (a SIGTERMed qs orphans them). Chip clicks →
   `barHost.quickRequested(key)` → shell.qml (no `qs ipc` client per click). Wheel steps accumulate
   to 120, horizontal swipes ignored. Visualizers share one cava (`services/Cava.qml`, `hold()`);
-  hidden items bound to it still repaint, so bars exist only while shown. One bar per screen —
-  every poll doubles when docked.
+  hidden items bound to it still repaint, so bars exist only while shown. One bar per screen, one
+  fetch: stats, network, update checks and `hyprctl clients` live in `services/BarData.qml` and every
+  bar binds to it (each bar polled on its own before: two dnf checks, two nmcli monitors, 2× forks per
+  window event); BarHost re-exports them under the old names.
 - **Media chip / popup**: chip = art thumb (accent ring while playing) + title/artist; title slides
   only on hover (no free-running marquee). Click = `MediaPanel` (compact serpantinum `MusicPopup`,
   checked against its source: blurred art + 0.55/0.72/0.90 wash, grooved vinyl 25 s/turn (0.9 when
