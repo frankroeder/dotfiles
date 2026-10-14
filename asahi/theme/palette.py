@@ -224,7 +224,7 @@ def build_palette(
     else:
         bg_l = clamp(s.L, 0.90, 0.97)
         bg_c = clamp(s.C * 0.45, 0.0, 0.030) * fl.surface_c
-        accent_l = clamp(a.L + fl.accent_dl, 0.40, 0.50)
+        accent_l = clamp(a.L + fl.accent_dl, 0.40, 0.49)
         accent_c = _saturate(clamp(a.C, 0.0, 0.20), accent_l, a.H, fl.accent_sat)
         fg_c = clamp(f.C * 0.40, 0.0, 0.065) * fl.surface_c
         sel_c = clamp(sel.C * 0.50, 0.020, 0.095) * fl.surface_c
@@ -254,7 +254,8 @@ def build_palette(
         subtext1 = hex_from_oklch(0.35, fg_c * 0.7, f.H)
 
     # ANSI slots and named accents (rosewater … lavender): the family hue tinted by the
-    # wallpaper's nearest one, chroma by flavour. Light-mode L keeps them >= 4.5:1 on background.
+    # wallpaper's nearest one, chroma by flavour. Light mode: ANSI slots >= 4.5:1 on background, named
+    # accents (UI tints) >= 3:1.
     wall_hues = {fam: _nearest_hue(reps, th) for fam, th in HUES.items()}
 
     def tone(fam: str, dark_l: float, light_l: float, c: float) -> str:

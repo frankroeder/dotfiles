@@ -250,6 +250,8 @@ class TestContrast(unittest.TestCase):
             if p.mode == "light":
                 for key in ("red", "orange", "yellow", "green", "cyan", "blue", "magenta"):
                     self.assertGreaterEqual(contrast(getattr(p, key), p.background), 4.5, f"{label}: {key}")
+                for key in ("rosewater", "flamingo", "mauve", "maroon", "sky", "sapphire", "lavender"):
+                    self.assertGreaterEqual(contrast(getattr(p, key), p.background), 3.0, f"{label}: {key}")
 
 
 if __name__ == "__main__":
