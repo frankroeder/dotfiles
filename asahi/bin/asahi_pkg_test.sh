@@ -61,6 +61,16 @@ else
   fail_at "updates with obsoletes: $names"
 fi
 
+# A query that crashes (here python3) still prints JSON, so the panel's spinner stops.
+printf '#!/bin/sh\nexit 1\n' >"$fake/python3"
+chmod +x "$fake/python3"
+crash="$(PATH="$fake:$PATH" "$PKG" updates || true)"
+if echo "$crash" | jq -e '.error != "" and (.packages | length) == 0' >/dev/null 2>&1; then
+  pass "a crashed query still prints JSON"
+else
+  fail_at "crashed query printed: '$crash'"
+fi
+
 qml="$ROOT/../quickshell/remix/modules/system/PkgManager.qml"
 if grep -q 'target: "pkgman"' "$qml" && grep -q 'asahi-pkg' "$qml"; then
   pass "PkgManager.qml talks to asahi-pkg"

@@ -120,8 +120,15 @@ launch_tui() {
   ASAHI_TUI_WAIT=1 exec "$bin" "$@"
 }
 
+# PkgManager's spinner waits for JSON: a query that dies (dnf or python crash) still answers.
+query_failed() {
+  local rc=$?
+  if [ "$rc" -ne 0 ]; then printf '{"error":"asahi-pkg failed (%s)","packages":[]}\n' "$rc"; fi
+}
+
 cmd="${1:-}"
 shift || true
+case "$cmd" in search | installed | updates) trap query_failed EXIT ;; esac
 case "$cmd" in
   search) cmd_search "${1:-}" ;;
   installed) cmd_installed "${1:-}" ;;
