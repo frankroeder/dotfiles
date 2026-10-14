@@ -71,7 +71,7 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   `connected` (udev: the **card's** `HOTPLUG=1` uevent — connectors never get one — re-checked 3 s
   later via `systemd-run`: sysfs `status` is stale until Hyprland probes; start/stop, never restart,
   the gap lets logind suspend); the drop-in
-  sets `LidSwitchIgnoreInhibited=no`. `asahi-dpms` only touches Hyprland-enabled outputs. Two hangs,
+  sets `LidSwitchIgnoreInhibited=no`. `asahi-dpms` only touches Hyprland-enabled outputs in the other state (a redundant enable flashes the panel). Two hangs,
   one recovery (hold power ~10s, wait ~15s, tap power): laptop-only lid close can reach s2idle and
   never exit, and a live HDMI plug can freeze DCP (`valid_mode:0` + eDP flip) — **do not close the
   lid** after one. `after_sleep_cmd` also runs after a refused suspend. Diagnose `journalctl -b -1`
@@ -155,7 +155,7 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   split border** — label by direction, never grow/shrink. `Super+Ctrl+<letter>` = system panel
   (A audio, B bluetooth, C calendar, D display, W network, P power, R backup, S screenshot gallery, T
   activity, I stay-awake, N night light, E emoji, V clipboard, K keybindings). `Super+Ctrl+Alt`
-  restarts the stack. `Super+Ctrl+plus/minus` = display scale; `Super+Ctrl+Z` / `+Shift+Z` /
+  + R reloads Hyprland, + W/P/I restart Quickshell / hyprpaper / hypridle (+S suspends, +Z magnifier reset). `Super+Ctrl+plus/minus` = display scale; `Super+Ctrl+Z` / `+Shift+Z` /
   `+Alt+Z` = cursor magnifier in / out / reset (`hl.config { cursor = { zoom_factor } }`, lua, not `hyprctl keyword`). Panels:
   `quick()` in `bindings.lua` (`quickActions` in `LauncherWindow.qml`); the same combo again closes
   (`openQuick`/`openCategory` toggle). Esc: one layer per press (Quick pane → home → close); opened
@@ -163,7 +163,8 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   Super+Alt+N send without following, Super+Y back-and-forth. Super+Alt+F = fullscreen inside the tile
   (`fullscreen_state` client 2), Super+Alt+arrows join the neighbouring group, Alt+Tab cycles windows. Lock / media / lid binds are
   `submap_universal` (the writing-tools submap's catchall swallowed them). Super+B/N/S are free. **Every
-  bind needs a `desc`** (`Data.parseHyprBinds` drops descless ones; tested in `data_test.js`). `code:NN` needs
+  bind needs a `desc`** (`Data.parseHyprBinds` drops descless ones; tested in `data_test.js`) — except the lid
+  switches and the writing submap. `code:NN` needs
   `bindCombo` `codeNames` — labels are **de(mac_nodeadkeys)** (`code:34/35` = `ü`/`+`, not `[]`).
 - **Monitor direction binds**: `Super+Ctrl+arrows` and `Super+Shift+Ctrl+HJKL` must
   `hl.get_monitor(dir)` first (nil on laptop-only). Generated in `bindings.lua`.
@@ -195,7 +196,8 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   no-hibernate (Wi-Fi radio switched off on purpose is PASS). Not pacman/iwd/SDDM. Test: `asahi/bin/asahi_debug_test.sh`. Not part of
   `make doctor`; must not flag Hyprland on generic Linux.
 - **Night light**: Super+Ctrl+N → `asahi-nightlight` (hyprsunset). On = `hyprsunset.conf` 1500K;
-  off = `hyprctl hyprsunset identity`. Identity profile so autostart tints nothing.
+  off = `hyprctl hyprsunset identity`. Identity profile so autostart tints nothing; autostart also drops the
+  last session's `nightlight.json` (the chip showed on with no tint).
 - **Bar notch**: cutout is a hole (`BarModel.notchRegionInset`), not a spacer. Height is geometry
   (3024x1964 → **74**), width is the real cutout (370/3024 of logical width + 12). Overflow is
   clipped at the wall; `ccuCompact` (reads compact-independent `fullWidth`, the widest provider's
@@ -228,7 +230,8 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
 - **Bar tray**: `maxInline` 3, rest behind `+N` → `TrayPanel.qml`. Use `SystemTrayItem.NeedsAttention`
   (no `SystemTrayStatus`). Popups need `screen:` + `exclusionMode: ExclusionMode.Ignore`.
   Bar popups are one at a time: `BarHost.openPanel` ("sys", "rec", "media", "ccu", "tray"; the
-  launcher, the calendar and the notification sheet clear it). Every bar popup (calendar and
+  launcher, the calendar and the notification sheet clear it; keybind / IPC opens reach the focused bar's
+  `requestPanel` through shell signals — no second open flag; not counters: a bar created later replayed them). Every bar popup (calendar and
   RecordPanel too) closes on Esc or click-outside: `HyprlandFocusGrab` whitelists the popup
   **and the bar window** (else the opening click counts as outside) — `QsWindow.window` needs
   `import Quickshell` (without it QsWindow is undefined and tray menus silently break); an Item is
@@ -258,7 +261,7 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   has no length → no seek bar. Seek holds the target 1 s (no jump back). An Item stays `visible`
   inside a hidden PopupWindow: gate per-frame work on the window (`WavySeekBar.live: root.visible` —
   without it the 16 ms wave repainted while closed, +1.4 % CPU; open popup ≈ 19 % of a core). IPC `media panel` toggles
-  it on the focused screen (shell `mediaPing` → BarHost). Rounded content needs `ClippingRectangle`
+  it on the focused screen (shell `mediaPanelRequested` → `BarHost.requestPanel`). Rounded content needs `ClippingRectangle`
   (`clip` is rectangular: the blurred art's corners showed past the card radius).
 - **Launcher quick panes**: one file each in `quickshell/remix/modules/launcher/panes/`;
   `LauncherWindow.qml` does `Panes.XPane { root: launcherSelf }` (`root` inside a pane is that
@@ -290,7 +293,8 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   Update checks (chip every 30 min, Updates tab) run `dnf check-update` **without** `--cacheonly`: as a
   user that read the days-old `~/.cache/libdnf5`; offline (exit 1) they fall back to `--cacheonly`. Rows
   indented under "Obsoleting packages" are not updates. A new query first stops a busy one (`running = true`
-  on a busy Process waits, delivers the old rows, then restarts). Install/remove/upgrade open Ghostty via `asahi-launch-tui` with `ASAHI_TUI_WAIT=1`
+  on a busy Process waits, delivers the old rows, then restarts). quickshell is excluded on the lionheartp copr
+  (`dnf.sh` setopt; its newer build showed as an update and Upgrade all would install it). Install/remove/upgrade open Ghostty via `asahi-launch-tui` with `ASAHI_TUI_WAIT=1`
   (`--wait-after-command`: dnf's result stays readable). Test: `asahi/bin/asahi_pkg_test.sh`.
 - **Wallpaper**: one picker, `WallpaperManager` (Super+Shift+W). `ipc: "wallpaper"` and
   `wallpaper: true` in `quickDeckHidden` — not a Quick tile; search still finds it. Browse:
@@ -376,8 +380,8 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   hover / drag; swipe past 18 % dismisses; one "Asahi Battery" toast at a time (its critical alert
   repeats every minute); low urgency (0) stays low;
   times relative ("now", "N min ago"); an identical repeat (app + summary + body) within 100 ms is
-  dropped, different ones arriving together are kept. Super+(Shift+)comma `dismissOne`/`dismissAll`
-  only touch popups — history is cleared only by the sheet's trash button (they used to wipe it).
+  dropped, different ones arriving together are kept. Super+comma `dismissOne` closes the newest popup;
+  Super+Shift+comma `dismissAll` clears popups and the saved list (popups only looked broken: they time out).
   Sheet and bar popups (calendar: shell.qml; sys / rec / media: BarHost) close each other; the sheet's
   focus grab arms 200 ms after opening (an unmapping popup would clear it at once). Toast window
   lingers 260 ms after the last toast so its leave animation plays. History groups per day by app
@@ -442,7 +446,7 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
 - **WM defaults**: `general.lua` — `dwindle.force_split = 2`,
   `allow_session_lock_restore`, `on_focus_under_fullscreen`, `initial_workspace_tracking = 0`,
   `anr_missed_pings = 3`, `group`/`groupbar` themed to the Catppuccin borders (Super+W groups),
-  `hl.gesture` 3-finger workspace swipe (`scale 0.75`, `workspace_swipe_cancel_ratio = 0.25`).
+  `hl.gesture` 3-finger workspace swipe (`scale 0.75`; `workspace_swipe_cancel_ratio = 0.25` in `input.lua`).
   Validate keys against `/usr/share/hypr/stubs/hl.meta.lua`, then
   `hyprctl reload && hyprctl configerrors` (`Hyprland --verify-config -c asahi/hypr/hyprland.lua` checks
   without reloading, but still runs the reload hooks — asahi-hdmi sync, monitor-scale/clamshell apply —
@@ -578,7 +582,8 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   (exit > 1).
 
 ## Shared
-- **CCU**: one core, `sketchybar/helpers/ccu_common.py`. Front-ends: Lua literal (sketchybar) or
+- **CCU**: one core, `sketchybar/helpers/ccu_common.py`. `asahi-ccu` reuses the cost scan (every transcript, ~2 s CPU) for 10 min
+  (`~/.cache/asahi/ccu.cost.json`, dropped at midnight): popup cost figures lag up to that. Front-ends: Lua literal (sketchybar) or
   `--json` (`asahi-ccu`). `ccu_cost.py` is JSON-only (reserved keys). Test:
   `python3 asahi/bin/asahi_ccu_test.py`.
 - **Lua tests**: `sketchybar/top/tests/prelude.lua` — five-line `dofile` bootstrap in its header.
