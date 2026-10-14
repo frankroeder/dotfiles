@@ -17,9 +17,9 @@ Rectangle {
   readonly property int contentW: 440
 
   color: "transparent"
-  // As wide as the chip on show: a box sized for the widest provider left a gap before the mic.
+  // Fixed width, so nothing shifts as chips rotate (every 10 s): the widest chip, measured. The text is
+  // right-aligned against the mic; a shorter chip leaves its slack on the left, by the status icons.
   implicitWidth: Math.max(56, chipBoxW + 6)
-  Behavior on implicitWidth { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
   implicitHeight: Style.barHeight
 
   Rectangle {
@@ -97,7 +97,13 @@ Rectangle {
     for (let i = 0; i < list.length; i++) w = Math.max(w, chipMetrics.advanceWidth(root.squeeze(list[i].text)))
     return Math.ceil(w)
   }
-  readonly property int chipBoxW: Math.ceil(chipMetrics.advanceWidth(root.chipText))
+  readonly property int compactBoxW: {
+    const list = root.chips || []
+    let w = 0
+    for (let i = 0; i < list.length; i++) w = Math.max(w, chipMetrics.advanceWidth(root.providerOf(list[i]) + " 100%"))
+    return Math.ceil(w)
+  }
+  readonly property int chipBoxW: root.compact ? root.compactBoxW : root.fullBoxW
 
   // What this chip would cost uncompacted — BarHost's cue, and independent of
   // `compact` so asking the question cannot change the answer.
@@ -194,11 +200,12 @@ Rectangle {
     root.chipIndex = (root.chipIndex + 1) % root.chips.length
   }
 
-  // The chip box follows the text, so the provider name starts at the same place.
+  // Right-aligned in the fixed box: the chip always meets the mic, the slack sits on the left.
   Text {
     x: 3
     anchors.verticalCenter: parent.verticalCenter
     width: root.chipBoxW
+    horizontalAlignment: Text.AlignRight
     text: root.chipText
     font { family: Style.fontFamily; pixelSize: Style.barFontBody }
     color: root.valueColor

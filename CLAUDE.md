@@ -200,7 +200,8 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   (3024x1964 → **74**), width is the real cutout (370/3024 of logical width + 12). Overflow is
   clipped at the wall; `ccuCompact` (reads compact-independent `fullWidth`, the widest provider's
   measured text) is the only give — the clock always shows weekday + date, both in the same size and
-  colour. The usage chip is as wide as the chip on show (a widest-provider box left a gap before the mic).
+  colour. The usage chip has a fixed width, the widest provider's measured text, right-aligned against the
+  mic (a width that followed the text shifted the bar at every 10 s rotation; the old estimate left a gap).
   Chip pads are 6px, `barIconSlot` 26. Anything added to the
   right cluster eats that budget. Bar = `max(Style.barHeight 40, notch)` (notch is 37 logical at
   scale 2) — 40 fits the two-line media chip. Left cluster: workspaces → SysChip → BackupChip →
