@@ -700,6 +700,8 @@ comp_asahi_desktop() {
   replace_with_symlink "$DOTFILES/asahi/ghostty"   "$HOME/.config/ghostty"
   mkdir -p "$HOME/.config/Thunar"
   link_if_exists "$DOTFILES/asahi/Thunar/uca.xml" "$HOME/.config/Thunar/uca.xml"
+  # No thunar-volman: Thunar --daemon would try to spawn it on every udev add (journal spam).
+  xfconf-query -c thunar -p /misc-volume-management -n -t bool -s false || true
   mkdir -p "$HOME/.config/mpv"
   link_if_exists "$DOTFILES/mpv/mpv_asahi.conf" "$HOME/.config/mpv/mpv.conf"
   link_if_exists "$DOTFILES/asahi/environment.d/90-asahi.conf" "$HOME/.config/environment.d/90-asahi.conf"

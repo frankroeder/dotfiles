@@ -12,4 +12,16 @@
 	<startup-notify/>
 	<directories/>
 </action>
+<action>
+	<icon></icon>
+	<name>unzip there</name>
+	<submenu></submenu>
+	<unique-id>1791967284062354-1</unique-id>
+	<command>bn=`basename -s .zip %n`;mkdir &quot;$bn&quot;&amp;&amp;unzip -d&quot;$bn&quot; -qqnXK %f
+</command>
+	<description>extract in a new directory named as the zip file without extension</description>
+	<range>*</range>
+	<patterns>*.zip</patterns>
+	<other-files/>
+</action>
 </actions>
