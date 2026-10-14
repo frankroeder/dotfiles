@@ -64,12 +64,13 @@ apply_scale() {
   printf '%s\n' "$scale" >"$dir/$name"
 }
 
-# eDP-1's logical size anchors the externals: re-place USB-C outputs. HDMI is re-placed only by
-# asahi-hdmi sync on reload.
-place_dp() {
-  local dp
-  for dp in $(hyprctl monitors -j | jq -r '.[] | select(.name | startswith("DP")) | .name'); do
-    "$bin/asahi-hdmi" place "$dp" || true
+# eDP-1's logical size anchors the externals: re-place the enabled ones matching $1. On reload
+# (apply) only USB-C, HDMI is asahi-hdmi sync's then; after an eDP scale change HDMI too (nothing else
+# moved it: its y and its kept layout, keyed by the eDP scale, went stale).
+place_externals() {
+  local out
+  for out in $(hyprctl monitors -j | jq -r --arg re "$1" '.[] | select(.name | test($re)) | .name'); do
+    "$bin/asahi-hdmi" place "$out" || true
   done
 }
 
@@ -86,7 +87,7 @@ case "$action" in
       W=$(jq -r .width <<<"$json"); H=$(jq -r .height <<<"$json")
       apply_scale "$name" "$(tr -d '[:space:]' <"$f")" "$json"
     done
-    place_dp
+    place_externals '^DP'
     exit 0
     ;;
   set) target=${2:?scale}; name="${3:-$(focused_monitor)}" ;;
@@ -122,4 +123,4 @@ esac
 
 [ "$new" = "$cur" ] && exit 0
 apply_scale "$name" "$new" "$json"
-if [ "$name" = eDP-1 ]; then place_dp; fi
+if [ "$name" = eDP-1 ]; then place_externals '^(DP|HDMI)'; fi
