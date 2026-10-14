@@ -7,10 +7,11 @@ function tokenize(s) {
   return String(s).match(/\s+|[^\s.,;:!?()\[\]{}"“”„«»…]+|\S/g) || []
 }
 
-// Model output → replacement text: drop stray fences / <text> tags, keep the
-// selection's own leading and trailing whitespace (a selected trailing newline stays).
+// Model output → replacement text: drop stray fences (unless the selection has its own) / <text> tags,
+// keep the selection's own leading and trailing whitespace (a selected trailing newline stays).
 function fitOutput(original, output) {
-  var s = String(output).replace(/^\s*```[a-z]*\n/, "").replace(/\n```\s*$/, "")
+  var s = String(output)
+  if (!/```/.test(original)) s = s.replace(/^\s*```[a-z]*\n/, "").replace(/\n```\s*$/, "")
   s = s.replace(/^\s*<text>\s*/, "").replace(/\s*<\/text>\s*$/, "").trim()
   var o = String(original)
   return o.match(/^\s*/)[0] + s + o.match(/\s*$/)[0]
@@ -43,14 +44,15 @@ function lcs(a2, b2) {
 
 // Character marks inside one replaced block ("tomorow" → "tomorrow": only the "r").
 // null when the two sides share too little: then the whole block is the change.
+// Code points, not UTF-16 units: an emoji must not split into two broken halves.
 function charDiff(a, b) {
-  var raw = lcs(a.split(""), b.split("")), out = [], same = 0
+  var A = Array.from(a), B = Array.from(b), raw = lcs(A, B), out = [], same = 0
   raw.forEach(function (t) {
     if (t[0] === "eq") same++
     if (out.length && out[out.length - 1].op === t[0]) out[out.length - 1].text += t[1]
     else out.push({ op: t[0], text: t[1] })
   })
-  return 2 * same / (a.length + b.length) >= 0.5 ? out : null
+  return 2 * same / (A.length + B.length) >= 0.5 ? out : null
 }
 
 // [{op: "eq"|"del"|"ins", text, chars?}], dels before inss inside a change block.

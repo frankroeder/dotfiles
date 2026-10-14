@@ -101,7 +101,7 @@ wipe_all() {
 # text (that is what `wl-copy --sensitive` does, e.g. asahi-cmd-qr). Anything
 # carrying it must never reach the history.
 sensitive_clipboard() {
-  wl-paste --list-types 2>/dev/null | grep -qx 'x-kde-passwordManagerHint'
+  timeout 2 wl-paste --list-types 2>/dev/null | grep -qx 'x-kde-passwordManagerHint'
 }
 
 # Browser extensions (Proton Pass, Bitwarden) write passwords with plain
@@ -127,16 +127,23 @@ store_unless_sensitive() {
   if [ -z "${CLIPBOARD_STATE+x}" ] && sensitive_clipboard; then state=sensitive; fi
   case "$state" in
     sensitive | nil | clear)
-      cat >/dev/null
+      timeout 5 cat >/dev/null || true
       return 0
       ;;
   esac
+  # asahi-writing-tools reads a selection with Ctrl+C: not a user copy.
+  if [ -n "$(find "$cache_dir/skip" -newermt '-2 seconds' 2>/dev/null)" ]; then
+    timeout 5 cat >/dev/null || true
+    return 0
+  fi
   # Stage in $XDG_RUNTIME_DIR (tmpfs), never on disk. `last` remembers what
   # happened to the previous copy: dropped / browser / other.
   mkdir -p -m 700 "$cache_dir"
   tmp="$(mktemp "$cache_dir/store.XXXXXX")"
   last="$cache_dir/last-store"
-  cat >"$tmp"
+  # Bounded reads (omarchy #9488): an app that never closes its clipboard pipe would hang this watcher
+  # child, and with it the history for the rest of the session.
+  timeout 5 cat >"$tmp" || { rm -f "$tmp"; return 0; }
   if [ ! -s "$tmp" ]; then
     # Proton Pass auto-clear writes "" and only while its secret is still the
     # selection, so the previous copy was that secret: delete it from history
@@ -174,11 +181,7 @@ start_watcher() {
   pkill -f -- "[w]l-paste --type ${kind} --watch cliphist store" >/dev/null 2>&1 || true
   # Close the lock fd: wl-paste would inherit it and hold the flock forever, so every later
   # `watch` would bail and a dead watcher would never restart.
-  if command -v setsid >/dev/null 2>&1; then
-    setsid -f wl-paste --type "$kind" --watch "$self" store >/dev/null 2>&1 {watch_lock}>&- || true
-  else
-    wl-paste --type "$kind" --watch "$self" store >/dev/null 2>&1 {watch_lock}>&- &
-  fi
+  setsid -f wl-paste --type "$kind" --watch "$self" store >/dev/null 2>&1 {watch_lock}>&- || true
 }
 
 seed_current() {
@@ -189,7 +192,7 @@ seed_current() {
   if sensitive_clipboard; then
     return 0
   fi
-  text="$(wl-paste --type text --no-newline 2>/dev/null || true)"
+  text="$(timeout 2 wl-paste --type text --no-newline 2>/dev/null || true)"
   if [ -n "$text" ]; then
     printf '%s' "$text" | cliphist store >/dev/null 2>&1 || true
   fi

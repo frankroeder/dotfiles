@@ -21,26 +21,34 @@ shortcut() {
 
 # Copy the window's live selection: primary misses keyboard selections (Firefox Ctrl+A keeps the
 # last mouse one). A sensitive marker (cliphist skips it) tells "nothing selected" from old clipboard
-# text; the previous clipboard (first type) is restored afterwards.
+# text. The previous clipboard comes back as one type: UTF-8 text if offered (a browser offers
+# text/html first), else the first other type. Always --sensitive: a storable copy is already in
+# history, and a browser password (no hint, dropped only while Firefox is focused) must not land there.
+# `; printf .` keeps a selected trailing newline ($(...) strips it, and Replace would join the next line).
 copy_selection() {
-  local address="$1" tmp type text=""
-  tmp="$(mktemp)"
-  type="$(timeout 1 wl-paste --list-types 2>/dev/null | head -n 1 || true)"
+  local address="$1" tmp types type text=""
+  tmp="$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/asahi-writing-tools.XXXXXX")"
+  types="$(timeout 1 wl-paste --list-types 2>/dev/null || true)"
+  type="$(grep -m1 -x 'text/plain;charset=utf-8' <<<"$types" || grep -m1 -vx 'x-kde-passwordManagerHint' <<<"$types" || true)"
   [[ -n $type ]] && timeout 1 wl-paste --no-newline --type "$type" > "$tmp" 2>/dev/null || true
   printf '%s' "$marker" | wl-copy --sensitive
+  # The app's copy is ours, not the user's: asahi-cliphist skips it (flag < 2 s old), so history
+  # does not end with the selection while the clipboard holds the restored content.
+  mkdir -p -m 700 "${XDG_RUNTIME_DIR:-/tmp}/asahi-cliphist" && touch "${XDG_RUNTIME_DIR:-/tmp}/asahi-cliphist/skip"
   shortcut "$address" C
   for _ in 1 2 3 4 5 6 7 8 9 10; do
     sleep 0.05
-    text="$(timeout 1 wl-paste --no-newline 2>/dev/null || true)"
+    text="$(timeout 1 wl-paste --no-newline 2>/dev/null; printf .)"
+    text="${text%.}"
     if [[ $text != "$marker" ]]; then break; fi
   done
-  if [[ -n $type ]]; then wl-copy --type "$type" < "$tmp"; else wl-copy --clear; fi
+  if [[ -n $type ]]; then wl-copy --sensitive --type "$type" < "$tmp"; else wl-copy --clear; fi
   rm -f "$tmp"
   [[ $text == "$marker" ]] || printf '%s' "$text"
 }
 
 capture() {
-  local text win cur address class terminal=false
+  local text="" win cur address class terminal=false
   win="$(hyprctl activewindow -j 2>/dev/null || echo '{}')"
   cur="$(hyprctl cursorpos -j 2>/dev/null || echo '{}')"
   address="$(jq -r '.address // ""' <<< "$win")"
@@ -48,10 +56,11 @@ capture() {
   # Ctrl+C in a terminal interrupts its program: there the (mouse) primary selection is the selection.
   if [[ ${class,,} =~ $terminals ]]; then
     terminal=true
-    text="$(timeout 2 wl-paste --primary --no-newline 2>/dev/null || true)"
+    text="$(timeout 2 wl-paste --primary --no-newline 2>/dev/null; printf .)"
   elif [[ -n $address ]]; then
-    text="$(copy_selection "$address")"
+    text="$(copy_selection "$address"; printf .)"
   fi
+  text="${text%.}"
   jq -cn --arg text "${text:0:max_chars}" --arg address "$address" --arg class "$class" --argjson cur "$cur" \
     --argjson terminal "$terminal" --argjson truncated "$(((${#text} > max_chars) ? 1 : 0))" \
     '{text: $text, truncated: ($truncated == 1), terminal: $terminal, address: $address, class: $class,
@@ -86,6 +95,7 @@ run() {
     echo '{"error":"ANTHROPIC_API_KEY is not set (session env or interactive zsh)"}'
     return
   fi
+  # The key goes in through a header file: on curl's command line any process could read it.
   jq -cn --arg model "${ASAHI_WRITING_MODEL:-claude-haiku-5-5}" --arg system "$common"$'\n\n'"$instr" \
     --arg text "<text>"$'\n'"$text"$'\n'"</text>" \
     '{model: $model, max_tokens: 16000, stream: true, system: $system,
@@ -93,7 +103,7 @@ run() {
       messages: [{role: "user", content: $text}]}' |
     curl -sN https://api.anthropic.com/v1/messages \
       -H "content-type: application/json" -H "anthropic-version: 2023-06-01" \
-      -H "x-api-key: $ANTHROPIC_API_KEY" --data-binary @- |
+      -H @<(printf 'x-api-key: %s\n' "$ANTHROPIC_API_KEY") --data-binary @- |
     # SSE "data:" lines; an HTTP error arrives as one bare JSON line.
     sed -u 's/^data: //' | grep --line-buffered '^{' |
     jq --unbuffered -c 'if .type == "content_block_delta" and .delta.type == "text_delta" then {delta: .delta.text}

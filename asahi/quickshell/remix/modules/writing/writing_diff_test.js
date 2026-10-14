@@ -83,5 +83,9 @@ eq(ctx.html(ops, "new", colors).includes('#090">\'</span>'), true, "apostrophe a
 ops = ctx.diff("its gonna be", "it's going to be");
 eq(ops[0].chars, undefined, "multi-word block: no char marks");
 
+eq(ctx.fitOutput("Run this:\n```\nls\n```", "Run this:\n```\nls -l\n```"), "Run this:\n```\nls -l\n```", "fitOutput keeps the selection's own fences");
+ops = ctx.diff("😀a", "😃a");
+eq(ops[0].chars, [{ op: "del", text: "😀" }, { op: "ins", text: "😃" }, { op: "eq", text: "a" }], "char marks never split an emoji");
+
 if (failed) { console.log(failed + " failed"); process.exit(1); }
 console.log("all ok");

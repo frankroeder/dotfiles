@@ -26,6 +26,7 @@ Scope {
   property string output: ""
   property bool busy: false
   property string error: ""
+  property string stopReason: ""
   property var ops: []
   property string suggestion: ""
   property int pickIndex: 0
@@ -52,6 +53,7 @@ Scope {
     const c = (cap.class || "").split(".").pop()
     return c ? c.charAt(0).toUpperCase() + c.slice(1) : ""
   }
+  readonly property int changeCount: Diff.changes(root.ops)
   readonly property int wordCount: original.trim() === "" ? 0 : original.trim().split(/\s+/).length
 
   // The screen under the cursor (where the selection was made).
@@ -106,14 +108,15 @@ Scope {
     if (k === "enter") root.canReplace ? root.replace() : root.copyAll()
     else if (k === "retry" && !root.busy) root.start(root.mode)
     // A selection in the suggestion copies just that and keeps the card; else copy all and close.
-    else if (k === "copy") sugPane.edit.selectedText !== "" ? root.copy(sugPane.edit.selectedText) : root.copyAll()
+    // Rich text selects line breaks as U+2029.
+    else if (k === "copy") sugPane.edit.selectedText !== "" ? root.copy(sugPane.edit.selectedText.replace(/[\u2028\u2029]/g, "\n")) : root.copyAll()
   }
 
   function start(key) {
     if (!root.hasText) return
     root.mode = key
     root.phase = "result"
-    root.output = root.suggestion = root.error = ""
+    root.output = root.suggestion = root.error = root.stopReason = ""
     root.ops = []
     root.busy = true
     root.stopRun()
@@ -127,19 +130,22 @@ Scope {
     try { ev = JSON.parse(line) } catch (e) { return }
     if (ev.delta !== undefined) root.output += ev.delta
     else if (ev.error) root.error = ev.error
-    else if (ev.stop === "refusal") root.error = "The model declined this text."
+    else if (ev.stop) root.stopReason = ev.stop
   }
 
   function finish() {
     root.busy = false
-    if (root.error === "" && root.output.trim() === "") root.error = "No response (network or API error)."
+    // Only end_turn is complete: a dropped stream or max_tokens is cut off, and Replace would drop the rest.
+    if (root.error === "" && (root.stopReason !== "end_turn" || root.output.trim() === ""))
+      root.error = root.stopReason === "refusal" ? "The model declined this text."
+        : root.stopReason ? "Stopped early (" + root.stopReason + ")." : "No complete response (network or API error)."
     if (root.error !== "") return
     root.suggestion = Diff.fitOutput(root.original, root.output)
     root.ops = Diff.diff(root.original, root.suggestion)
   }
 
   function copy(text) {
-    Quickshell.execDetached(["sh", "-c", "printf %s \"$1\" | wl-copy", "sh", text])
+    Quickshell.execDetached(["wl-copy", "--", text])
   }
 
   function copyAll() {
@@ -414,6 +420,7 @@ Scope {
             Text {
               Layout.fillWidth: true
               visible: root.hasText
+              textFormat: Text.PlainText
               text: root.original.trim().replace(/\s+/g, " ")
               color: Style.m3onSurfaceVariant
               font.family: Style.menuSans; font.pixelSize: 13; font.italic: true
@@ -499,7 +506,7 @@ Scope {
                 text: root.error !== "" ? "Failed"
                   : root.busy ? "Thinking…"
                   : root.ops.length === 0 ? ""
-                  : Diff.changes(root.ops) === 0 ? "No changes" : Diff.changes(root.ops) + (Diff.changes(root.ops) === 1 ? " change" : " changes")
+                  : root.changeCount === 0 ? "No changes" : root.changeCount + (root.changeCount === 1 ? " change" : " changes")
                 SequentialAnimation on opacity {
                   running: root.busy && root.open
                   loops: Animation.Infinite
