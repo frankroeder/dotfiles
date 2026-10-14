@@ -140,7 +140,7 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   Hyprland has no primary display; eDP-1 is only the mirror source and the 0,0 anchor. USB-C
   (`DP-*`) has no enable gate; `asahi-hdmi place DP-1` re-derives its position (eDP scale / kept
   layout — the desc rules assume eDP at 4/3) on add, reload and eDP scale changes; an eDP scale change re-places
-  HDMI the same way (on reload HDMI stays `asahi-hdmi sync`'s: one writer per output). DP refuses the HDMI
+  HDMI the same way (mirrors are skipped: no position of their own) (on reload HDMI stays `asahi-hdmi sync`'s: one writer per output). DP refuses the HDMI
   actions (added/sync/on/off).
 - **Notch / fnmode**: `comp_asahi_system` writes `asahi-notch.conf` (`show_notch=1`) and
   `hid_apple fnmode=1`, then `dracut -f`. Reboot required. Live fnmode:
@@ -301,7 +301,7 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   on a busy Process waits, delivers the old rows, then restarts). quickshell is excluded on the lionheartp copr
   (`dnf.sh` setopt; its newer build showed as an update and Upgrade all would install it). Install/remove/upgrade open Ghostty via `asahi-launch-tui` with `ASAHI_TUI_WAIT=1`
   (`--wait-after-command`: dnf's result stays readable). A query that crashes still prints `{error, packages: []}`
-  (EXIT trap), so the spinner stops. Test: `asahi/bin/asahi_pkg_test.sh`.
+  (EXIT trap): the spinner stops and the status reads "Query failed: …". Test: `asahi/bin/asahi_pkg_test.sh`.
 - **Wallpaper**: one picker, `WallpaperManager` (Super+Shift+W). `ipc: "wallpaper"` and
   `wallpaper: true` in `quickDeckHidden` — not a Quick tile; search still finds it. Browse:
   `WallpaperCarousel` (skewed window fan: centre 16:9, neighbours are leaning

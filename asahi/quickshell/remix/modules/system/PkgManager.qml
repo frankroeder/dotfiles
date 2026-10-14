@@ -115,6 +115,7 @@ Scope {
           const data = JSON.parse(text || "{}")
           root.packages = data.packages || []
           if (data.error === "empty-query") root.status = "Type a package name"
+          else if (data.error) root.status = "Query failed: " + data.error
           else if (root.packages.length === 0) root.status = "No packages"
           else root.status = root.packages.length + (root.packages.length === 1 ? " package" : " packages")
         } catch (e) {

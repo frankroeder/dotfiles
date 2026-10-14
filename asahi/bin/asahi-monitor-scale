@@ -69,7 +69,8 @@ apply_scale() {
 # moved it: its y and its kept layout, keyed by the eDP scale, went stale).
 place_externals() {
   local out
-  for out in $(hyprctl monitors -j | jq -r --arg re "$1" '.[] | select(.name | test($re)) | .name'); do
+  # A mirror has no position of its own: leave it alone.
+  for out in $(hyprctl monitors -j | jq -r --arg re "$1" '.[] | select((.name | test($re)) and (.mirrorOf // "none") == "none") | .name'); do
     "$bin/asahi-hdmi" place "$out" || true
   done
 }
