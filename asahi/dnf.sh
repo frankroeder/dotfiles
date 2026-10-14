@@ -5,24 +5,12 @@ set -euo pipefail
 
 FLATHUB_REPO_URL="https://dl.flathub.org/repo/flathub.flatpakrepo"
 FLATPAK_EXPORT_DIR="${HOME}/.local/share/flatpak/exports/share"
-DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# solopasha/hyprland has no fedora-44-aarch64 metadata (404 on --refresh).
-# Hyprland wiki and this machine's packages use the lionheartp fork instead.
-if sudo dnf repolist --all 2>/dev/null | grep -q 'solopasha:hyprland'; then
-  sudo dnf copr remove -y solopasha/hyprland
-fi
 sudo dnf copr enable -y scottames/ghostty
 sudo dnf copr enable -y lionheartp/Hyprland
-# Fedora quickshell provides qs. quickshell-git conflicts; lionheartp's build is newer.
-if sudo dnf repolist --all 2>/dev/null | grep -q 'errornointernet:quickshell'; then
-  sudo dnf copr remove -y errornointernet/quickshell
-fi
 
-sudo dnf upgrade -y --exclude=quickshell
-sudo dnf remove -y kitty kitty-terminfo || true
-
-sudo dnf makecache --refresh
+# quickshell stays Fedora's (provides qs): lionheartp/Hyprland ships its own, newer build.
+sudo dnf upgrade -y --refresh --exclude=quickshell
 
 # No comments inside this argv — bash treats `#` as ending the command.
 sudo dnf install -y \
@@ -71,10 +59,12 @@ sudo dnf install -y \
   NetworkManager-openconnect \
   okular \
   papirus-icon-theme \
+  pavucontrol \
   pipewire \
   pipewire-pulseaudio \
   pipewire-utils \
   pipewire-alsa \
+  pulseaudio-utils \
   playerctl \
   speakersafetyd \
   restic \
@@ -91,6 +81,7 @@ sudo dnf install -y \
   tumbler \
   tmux \
   tree \
+  upower \
   uv \
   v4l-utils \
   wf-recorder \
@@ -107,8 +98,8 @@ sudo dnf install -y \
 
 sudo dnf install -y --from-repo=fedora,updates quickshell
 
-# Grok Bot desktop agent: latest linux/arm64 build from Cursor's update API.
-bash "${DOTFILES_DIR}/asahi/grokbot.sh"
+# After the install: hyprland Recommends kitty (Ghostty is the terminal here).
+sudo dnf remove -y kitty kitty-terminfo || true
 
 flatpak remote-add --user --if-not-exists flathub "$FLATHUB_REPO_URL"
 
@@ -119,6 +110,7 @@ FLATPAK_APPS=(
   net.ankiweb.Anki
   com.nextcloud.desktopclient.nextcloud
   org.signal.Signal
+  org.libreoffice.LibreOffice
 )
 
 flatpak install --user -y flathub "${FLATPAK_APPS[@]}"
@@ -127,8 +119,6 @@ flatpak install --user -y flathub "${FLATPAK_APPS[@]}"
 flatpak override --user --env=SIGNAL_PASSWORD_STORE=gnome-libsecret org.signal.Signal
 # CaelestiaFox reaches asahi-firefox-theme on the host through xdg-native-messaging-proxy.
 flatpak override --user --talk-name=org.freedesktop.NativeMessagingProxy org.mozilla.firefox
-
-bash "${DOTFILES_DIR}/scripts/fix_linux_desktop_icons.sh"
 
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then
   gtk-update-icon-cache -q "${FLATPAK_EXPORT_DIR}/icons/hicolor" >/dev/null 2>&1 || true
@@ -141,7 +131,11 @@ sudo systemctl enable --now cups cups-browsed
 # Skip: power-profiles-daemon (no Apple Silicon backend), seahorse/gdm,
 # NetworkManager-vpnc, NetworkManager-openconnect-gnome (nmcli --ask is enough).
 
-sudo systemctl enable --now speakersafetyd >/dev/null 2>&1 || true
+# The only enabler of speakersafetyd: without it the kernel keeps the speakers locked.
+sudo systemctl enable --now speakersafetyd || {
+  echo "speakersafetyd did not start (speakers stay locked): systemctl status speakersafetyd" >&2
+  exit 1
+}
 
 systemctl --user daemon-reload
 systemctl --user enable --now pipewire.socket pipewire-pulse.socket wireplumber.service

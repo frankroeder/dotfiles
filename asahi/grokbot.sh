@@ -11,7 +11,8 @@ if [ "$(uname -m)" != "aarch64" ]; then
 fi
 
 api="https://api2.cursor.sh/updates/api/update/linux-arm64/sand/0.0.0/stable"
-mapfile -t meta < <(curl -fsSL -A "Mozilla/5.0" "$api" | python3 -c '
+json="$(curl -fsSL -A "Mozilla/5.0" "$api")" || { echo "Grok Bot: update API request failed ($api)" >&2; exit 1; }
+mapfile -t meta < <(python3 -c '
 import json, sys
 data = json.load(sys.stdin)
 ver = str(data.get("version") or data.get("productVersion") or "")
@@ -22,7 +23,8 @@ if not ver or not url:
 print(ver)
 print(url)
 print(sha)
-')
+' <<<"$json")
+[ "${#meta[@]}" -eq 3 ] || { echo "Grok Bot: could not parse update metadata" >&2; exit 1; }
 ver="${meta[0]}"
 url="${meta[1]}"
 sha="${meta[2]}"

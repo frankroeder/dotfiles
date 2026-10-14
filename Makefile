@@ -7,7 +7,7 @@ MAKEFLAGS += --warn-undefined-variables
 MAKEFLAGS += --no-builtin-rules
 
 NOSUDO ?=
-DOTFILES := $(PWD)
+DOTFILES := $(CURDIR)
 OSTYPE := $(shell uname -s)
 ARCHITECTURE := $(shell uname -m)
 INSTALL := $(DOTFILES)/install.sh
@@ -99,9 +99,28 @@ smoke: ## Syntax-check installer scripts
 	@bash -n $(DOTFILES)/linux/apt.sh
 	@bash -n $(DOTFILES)/scripts/nvim.sh
 	@bash -n $(DOTFILES)/scripts/tree-sitter.sh
+ifeq ($(OSTYPE), Linux)
+	@bash -n $(DOTFILES)/asahi/dnf.sh
+	@bash -n $(DOTFILES)/asahi/grokbot.sh
+# asahi/bin: bash -n each bash script (dirs like lib/ skipped), compile() the python ones (no bytecode).
+	@py=(); for f in $(DOTFILES)/asahi/bin/* $(DOTFILES)/asahi/bin/lib/*.sh; do \
+		[ -f "$$f" ] || continue; \
+		case "$$(head -n 1 "$$f")" in *python*) py+=("$$f") ;; *) bash -n "$$f" ;; esac; \
+	done; \
+	uv run --no-project python -c 'import sys; [compile(open(f).read(), f, "exec") for f in sys.argv[1:]]' "$${py[@]}"
+endif
 	@bash $(DOTFILES)/install/icloud_test.sh
 	@bash $(DOTFILES)/install/after_test.sh
 	@echo ok
+
+.PHONY: test-asahi
+test-asahi: ## Run every Asahi test (fakes or read-only): Quickshell JS, asahi/bin shell + Python, theme, Lua syntax
+	@for t in $$(find $(DOTFILES)/asahi -name '*_test.js' | sort); do node "$$t" >/dev/null || { echo "FAIL $$t"; exit 1; }; done
+	@for t in $(DOTFILES)/asahi/bin/*_test.sh; do bash "$$t" >/dev/null || { echo "FAIL $$t"; exit 1; }; done
+	@for t in $(DOTFILES)/asahi/bin/*_test.py; do uv run --no-project python "$$t" >/dev/null 2>&1 || { echo "FAIL $$t"; exit 1; }; done
+	@uv run --no-project --with pytest python -m pytest -q $(DOTFILES)/asahi/theme/tests >/dev/null || { echo "FAIL asahi/theme/tests"; exit 1; }
+	@for f in $(DOTFILES)/asahi/hypr/hyprland.lua $(DOTFILES)/asahi/hypr/conf.d/*.lua; do luac -p "$$f"; done
+	@echo "asahi tests: all ok"
 
 .PHONY: test
 test: smoke ## Test installation in a container (podman|docker|macOS container)
@@ -111,14 +130,14 @@ ifeq ($(CONTAINER_CMD),container)
 	@container system start
 endif
 ifeq ($(NOSUDO), 1)
-	$(CONTAINER_CMD) $(CONTAINER_BUILD_CMD) -t dotfiles -f $(DOTFILES)/docker/Dockerfile $(PWD)
+	$(CONTAINER_CMD) $(CONTAINER_BUILD_CMD) -t dotfiles -f $(DOTFILES)/docker/Dockerfile $(DOTFILES)
 	-$(CONTAINER_CMD) rm -f maketest 2>/dev/null || true
 	# Override CMD (/bin/bash): detached bash exits immediately → --rm deletes container before exec
 	$(CONTAINER_CMD) run --name maketest --detach --rm dotfiles:latest sleep infinity
 	# No -t: apple container fails exec when make has no pty ("fd is not a pty")
 	$(CONTAINER_CMD) exec maketest /bin/bash -c "make NOSUDO=$(NOSUDO) minimal && ./install/check.sh"
 else
-	$(CONTAINER_CMD) $(CONTAINER_BUILD_CMD) -t dotfiles_sudo -f $(DOTFILES)/docker/sudoer.Dockerfile $(PWD)
+	$(CONTAINER_CMD) $(CONTAINER_BUILD_CMD) -t dotfiles_sudo -f $(DOTFILES)/docker/sudoer.Dockerfile $(DOTFILES)
 	-$(CONTAINER_CMD) rm -f maketest_sudo 2>/dev/null || true
 	$(CONTAINER_CMD) run --name maketest_sudo --detach --rm dotfiles_sudo:latest sleep infinity
 	$(CONTAINER_CMD) exec maketest_sudo /bin/bash -c "make linux && ./install/check.sh"
@@ -155,7 +174,4 @@ ifeq ($(OSTYPE), Darwin)
 	-@rm -rf $(HOME)/.config/yabai
 	-@rm -rf $(HOME)/.config/borders
 	-@sudo battery uninstall 2>/dev/null || true
-endif
-ifeq ($(OSTYPE), Linux)
-	-@sudo dnf remove -y grok-bot
 endif

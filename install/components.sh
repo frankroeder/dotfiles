@@ -447,30 +447,35 @@ comp_asahi_logind() {
     print_error "asahi-logind writes /etc/systemd; rerun without --no-sudo"
     exit 1
   fi
-  local src_login src_sleep src_udev src_unit
+  local src_login src_sleep src_udev src_unit src_failed src_onfail
   src_login="$DOTFILES/asahi/systemd/logind.conf.d/10-asahi-sleep.conf"
   src_sleep="$DOTFILES/asahi/systemd/sleep.conf.d/10-asahi-no-hibernate.conf"
   src_udev="$DOTFILES/asahi/udev/99-asahi-hdmi-lid-inhibit.rules"
   src_unit="$DOTFILES/asahi/systemd/system/asahi-hdmi-lid-inhibit.service"
-  [ -f "$src_login" ] && [ -f "$src_sleep" ] && [ -f "$src_udev" ] && [ -f "$src_unit" ] || {
+  # Failed suspend (apple-drm -22): stop logind's lid retry loop until lid opens.
+  src_failed="$DOTFILES/asahi/systemd/system/asahi-suspend-failed.service"
+  src_onfail="$DOTFILES/asahi/systemd/system/systemd-suspend.service.d/10-asahi-onfailure.conf"
+  [ -f "$src_login" ] && [ -f "$src_sleep" ] && [ -f "$src_udev" ] && [ -f "$src_unit" ] &&
+    [ -f "$src_failed" ] && [ -f "$src_onfail" ] || {
     print_error "missing Asahi systemd drop-ins under $DOTFILES/asahi/systemd"
     exit 1
   }
-  sudo install -Dm644 "$src_login" /etc/systemd/logind.conf.d/10-asahi-sleep.conf
-  sudo install -Dm644 "$src_sleep" /etc/systemd/sleep.conf.d/10-asahi-no-hibernate.conf
-  sudo install -Dm644 "$src_udev" /etc/udev/rules.d/99-asahi-hdmi-lid-inhibit.rules
-  sudo install -Dm644 "$src_unit" /etc/systemd/system/asahi-hdmi-lid-inhibit.service
-  # Failed suspend (apple-drm -22): stop logind's lid retry loop until lid opens.
-  sudo install -Dm644 "$DOTFILES/asahi/systemd/system/asahi-suspend-failed.service" /etc/systemd/system/asahi-suspend-failed.service
-  sudo install -Dm644 "$DOTFILES/asahi/systemd/system/systemd-suspend.service.d/10-asahi-onfailure.conf" \
-    /etc/systemd/system/systemd-suspend.service.d/10-asahi-onfailure.conf
+  sudo_install "$src_login" /etc/systemd/logind.conf.d/10-asahi-sleep.conf
+  sudo_install "$src_sleep" /etc/systemd/sleep.conf.d/10-asahi-no-hibernate.conf
+  sudo_install "$src_udev" /etc/udev/rules.d/99-asahi-hdmi-lid-inhibit.rules
+  sudo_install "$src_unit" /etc/systemd/system/asahi-hdmi-lid-inhibit.service
+  sudo_install "$src_failed" /etc/systemd/system/asahi-suspend-failed.service
+  sudo_install "$src_onfail" /etc/systemd/system/systemd-suspend.service.d/10-asahi-onfailure.conf
   if ! cmp -s "$src_login" /etc/systemd/logind.conf.d/10-asahi-sleep.conf; then
     print_error "installed logind drop-in does not match $src_login"
     exit 1
   fi
   sudo udevadm control --reload-rules
   sudo systemctl daemon-reload
-  sudo systemctl enable asahi-hdmi-lid-inhibit.service
+  sudo systemctl enable asahi-hdmi-lid-inhibit.service || {
+    print_error "failed to enable asahi-hdmi-lid-inhibit.service"
+    exit 1
+  }
   sudo systemctl reset-failed asahi-hdmi-lid-inhibit.service 2>/dev/null || true
   sudo systemctl kill -s HUP systemd-logind
   local live
@@ -506,7 +511,9 @@ comp_asahi_system() {
       exit 1
     fi
   fi
-  bash "$DOTFILES/asahi/dnf.sh"
+  bash "$DOTFILES/asahi/dnf.sh" || { print_error "asahi/dnf.sh failed (packages, flatpaks or services)"; exit 1; }
+  # Grok Bot desktop agent from Cursor's update API: third-party and optional.
+  bash "$DOTFILES/asahi/grokbot.sh" || print_warning "Grok Bot install failed (optional; rerun asahi/grokbot.sh)"
   # tty1 getty is the auth gate. These two lines unlock the login keyring
   # with that password. There is no display manager to do it.
   if ! rpm -q gnome-keyring-pam >/dev/null 2>&1 || ! sudo "$DOTFILES/asahi/bin/asahi-keyring-pam" /etc/pam.d/login; then
@@ -516,8 +523,11 @@ comp_asahi_system() {
   # Console font, getty prompt included. This has to be vconsole.conf rather
   # than a setfont unit: systemd-vconsole-setup is udev-triggered and re-runs
   # as the DRM devices appear, so it overwrites anything a service set earlier.
-  sudo install -Dm644 "$DOTFILES/asahi/vconsole.conf" /etc/vconsole.conf
-  sudo systemctl restart systemd-vconsole-setup.service
+  sudo_install "$DOTFILES/asahi/vconsole.conf" /etc/vconsole.conf
+  sudo systemctl restart systemd-vconsole-setup.service || {
+    print_error "systemd-vconsole-setup failed (KEYMAP/FONT in asahi/vconsole.conf)"
+    exit 1
+  }
   # Getty is the auth gate. A leftover agetty --autologin drop-in (tried, then
   # reverted in the repo) still skips the tty1 password until it is removed.
   comp_asahi_getty
@@ -529,17 +539,17 @@ comp_asahi_system() {
     print_error "RTC still in local time"
     exit 1
   fi
-  if ! sudo install -Dm644 "$DOTFILES/asahi/systemd/system/plocate-updatedb.service.d/10-ac-only.conf" \
-    /etc/systemd/system/plocate-updatedb.service.d/10-ac-only.conf; then
-    print_error "failed to install the plocate AC-only drop-in"
-    exit 1
-  fi
+  sudo_install "$DOTFILES/asahi/systemd/system/plocate-updatedb.service.d/10-ac-only.conf" \
+    /etc/systemd/system/plocate-updatedb.service.d/10-ac-only.conf
+  # Wi-Fi power save off (idle naps add latency, no gain here). NetworkManager reads it at start.
+  sudo_install "$DOTFILES/asahi/NetworkManager/conf.d/asahi-wifi-powersave.conf" \
+    /etc/NetworkManager/conf.d/asahi-wifi-powersave.conf
   # zram is the only swap: zstd + swap-friendly VM knobs.
   print_step "zram: zstd + sysctl tuning"
-  sudo install -Dm644 "$DOTFILES/asahi/sysctl.d/99-asahi-zram.conf" /etc/sysctl.d/99-asahi-zram.conf
+  sudo_install "$DOTFILES/asahi/sysctl.d/99-asahi-zram.conf" /etc/sysctl.d/99-asahi-zram.conf
   sudo sysctl -q -p /etc/sysctl.d/99-asahi-zram.conf
   if ! cmp -s "$DOTFILES/asahi/zram-generator.conf.d/90-asahi.conf" /etc/systemd/zram-generator.conf.d/90-asahi.conf; then
-    sudo install -Dm644 "$DOTFILES/asahi/zram-generator.conf.d/90-asahi.conf" /etc/systemd/zram-generator.conf.d/90-asahi.conf
+    sudo_install "$DOTFILES/asahi/zram-generator.conf.d/90-asahi.conf" /etc/systemd/zram-generator.conf.d/90-asahi.conf
     sudo systemctl daemon-reload
     # Restarting zram0 swaps everything back in; when it holds a lot, wait for the reboot.
     local zram_used_kib
@@ -565,7 +575,7 @@ comp_asahi_system() {
   if modinfo appledrm >/dev/null 2>&1; then
     if [ ! -f /etc/modprobe.d/asahi-notch.conf ] || ! cmp -s "$DOTFILES/asahi/modprobe.d/asahi-notch.conf" /etc/modprobe.d/asahi-notch.conf; then
       print_step "Enabling Asahi notch area (full display height)"
-      sudo install -Dm644 "$DOTFILES/asahi/modprobe.d/asahi-notch.conf" /etc/modprobe.d/asahi-notch.conf
+      sudo_install "$DOTFILES/asahi/modprobe.d/asahi-notch.conf" /etc/modprobe.d/asahi-notch.conf
       rebuild_initramfs=1
     fi
   fi
@@ -574,7 +584,7 @@ comp_asahi_system() {
     local hid_dst=/etc/modprobe.d/hid_apple.conf
     if [ ! -f "$hid_dst" ] || grep -q 'fnmode=2' "$hid_dst"; then
       print_step "hid_apple fnmode=1 (media keys on the top row)"
-      sudo install -Dm644 "$DOTFILES/asahi/modprobe.d/hid_apple.conf" "$hid_dst"
+      sudo_install "$DOTFILES/asahi/modprobe.d/hid_apple.conf" "$hid_dst"
       rebuild_initramfs=1
       if [ -f /sys/module/hid_apple/parameters/fnmode ]; then
         echo 1 | sudo tee /sys/module/hid_apple/parameters/fnmode >/dev/null || true
@@ -588,7 +598,7 @@ comp_asahi_system() {
     local hid_dracut=/etc/dracut.conf.d/10-asahi-hid.conf
     if ! cmp -s "$DOTFILES/asahi/dracut.conf.d/10-asahi-hid.conf" "$hid_dracut" 2>/dev/null; then
       print_step "Early-loading Apple HID modules from the initramfs"
-      sudo install -Dm644 "$DOTFILES/asahi/dracut.conf.d/10-asahi-hid.conf" "$hid_dracut"
+      sudo_install "$DOTFILES/asahi/dracut.conf.d/10-asahi-hid.conf" "$hid_dracut"
       rebuild_initramfs=1
     fi
   fi
@@ -597,7 +607,7 @@ comp_asahi_system() {
       print_error "dracut not found; cannot rebuild initramfs for notch/fnmode/HID"
       exit 1
     fi
-    sudo dracut -f
+    sudo dracut -f || { print_error "dracut -f failed; initramfs not rebuilt for notch/fnmode/HID"; exit 1; }
     print_ok "initramfs rebuilt; reboot required for notch/fnmode/HID"
   fi
   comp_asahi_charge_limit
@@ -628,17 +638,14 @@ comp_asahi_charge_limit() {
     print_warning "asahi-charge-limit needs /etc/udev and /var/lib/asahi; skipping"
     return 0
   fi
-  sudo install -Dm644 "$DOTFILES/asahi/udev/99-asahi-charge-limit.rules" \
-    /etc/udev/rules.d/99-asahi-charge-limit.rules
-  sudo install -Dm755 "$DOTFILES/asahi/bin/asahi-charge-limit" \
-    /usr/local/libexec/asahi-charge-limit
-  sudo install -Dm644 "$DOTFILES/asahi/systemd/system/asahi-charge-limit.service" \
-    /etc/systemd/system/asahi-charge-limit.service
-  sudo install -d -m 2775 -o root -g wheel /var/lib/asahi
+  sudo_install "$DOTFILES/asahi/udev/99-asahi-charge-limit.rules" /etc/udev/rules.d/99-asahi-charge-limit.rules
+  sudo_install "$DOTFILES/asahi/bin/asahi-charge-limit" /usr/local/libexec/asahi-charge-limit 755
+  sudo_install "$DOTFILES/asahi/systemd/system/asahi-charge-limit.service" /etc/systemd/system/asahi-charge-limit.service
+  sudo install -d -m 2775 -o root -g wheel /var/lib/asahi || { print_error "failed to create /var/lib/asahi"; exit 1; }
   sudo udevadm control --reload-rules
   sudo udevadm trigger -s power_supply --action=add || true
   sudo systemctl daemon-reload
-  sudo systemctl enable asahi-charge-limit.service
+  sudo systemctl enable asahi-charge-limit.service || { print_error "failed to enable asahi-charge-limit.service"; exit 1; }
   if [ -r /sys/class/power_supply/macsmc-battery/charge_control_end_threshold ]; then
     sudo systemctl start asahi-charge-limit.service || true
   fi
@@ -681,7 +688,10 @@ comp_asahi_desktop() {
   link_if_exists "$DOTFILES/asahi/systemd/user/xdg-desktop-portal-hyprland.service.d/10-asahi-pipewire.conf" \
     "$HOME/.config/systemd/user/xdg-desktop-portal-hyprland.service.d/10-asahi-pipewire.conf"
   systemctl --user daemon-reload
-  systemctl --user enable asahi-brightness-keyboard-auto.service
+  systemctl --user enable asahi-brightness-keyboard-auto.service || {
+    print_error "failed to enable asahi-brightness-keyboard-auto.service"
+    exit 1
+  }
   if systemctl --user is-active --quiet hyprland-session.target; then
     systemctl --user start asahi-brightness-keyboard-auto.service || true
   fi
@@ -771,7 +781,14 @@ EOF
 
 comp_asahi_battery_alerts() {
   print_step "Installing Asahi battery alerts"
-  DOTFILES="$DOTFILES" bash "$DOTFILES/scripts/asahi-battery-alerts.sh"
+  have notify-send || { print_error "notify-send is required (libnotify, asahi/dnf.sh)"; exit 1; }
+  link_if_exists "$DOTFILES/asahi/bin/asahi-battery-alertd" "$HOME/.local/bin/asahi-battery-alertd"
+  link_if_exists "$DOTFILES/asahi/systemd/user/asahi-battery-alertd.service" "$HOME/.config/systemd/user/asahi-battery-alertd.service"
+  systemctl --user daemon-reload
+  systemctl --user enable --now asahi-battery-alertd.service || {
+    print_error "asahi-battery-alertd.service failed to enable/start"
+    exit 1
+  }
 }
 
 comp_asahi_wallpapers() {
@@ -786,6 +803,16 @@ comp_asahi_wallpapers() {
     print_step "Downloading wallpapers"
     mkdir -p "$HOME/Pictures"
     git clone https://github.com/mylinuxforwork/wallpaper.git "$dir"
+  fi
+  # First run: hyprpaper starts on the lock-wallpaper link, which the picker only writes on a pick.
+  local state="${XDG_STATE_HOME:-$HOME/.local/state}" first
+  if [ ! -s "$state/quickshell/wallpaper.conf" ]; then
+    first=$(find "$dir" -maxdepth 1 -type f \( -iname '*.jpg' -o -iname '*.png' \) 2>/dev/null | sort | head -n 1)
+    if [ -n "$first" ]; then
+      mkdir -p "$state/quickshell" "$state/asahi"
+      printf '%s' "$first" >"$state/quickshell/wallpaper.conf"
+      ln -sfn "$first" "$state/asahi/lock-wallpaper"
+    fi
   fi
 }
 

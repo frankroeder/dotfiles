@@ -73,7 +73,13 @@ ensure_sudo() {
   else
     sudo -v
   fi
-  ( while true; do sudo -n true; sleep 1200; kill -0 "$$" || exit; done 2>/dev/null & )
+  # Under sudo's default 5 min timestamp_timeout.
+  ( while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null & )
+}
+
+# sudo_install SRC DST [MODE] : install as root (default 644); a failure stops the installer.
+sudo_install() {
+  sudo install -Dm"${3:-644}" "$1" "$2" || { print_error "failed to install $2"; exit 1; }
 }
 
 # --- symlink helpers (ported from the Makefile) -----------------------------

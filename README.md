@@ -59,7 +59,7 @@ cd ~/.dotfiles
 make asahi
 ```
 
-This applies a minimal Hyprland desktop with Ghostty, Quickshell, Mako, Hypridle, and Hyprlock.
+This applies a minimal Hyprland desktop with Ghostty, Quickshell (bar, launcher, notifications), Hypridle, and Hyprlock.
 
 Credits: the Asahi setup draws from [Omarchy](https://github.com/basecamp/omarchy) and [Omarchy Mac](https://github.com/omarchy-mac/omarchy-mac);
 the Quickshell launcher and Displays pane take design cues from [Ryoku](https://github.com/Ryoku-dev/ryoku).
