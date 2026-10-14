@@ -23,8 +23,7 @@ screensaver_running() {
 }
 
 wait_for_screensaver_ipc() {
-  local attempt
-  for attempt in $(seq 1 50); do
+  for _ in $(seq 1 50); do
     if qs -c screensaver ipc call saver stop >/dev/null 2>&1; then
       return 0
     fi

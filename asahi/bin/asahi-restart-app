@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
+# Restart a session daemon (bindings: hyprpaper, hypridle): stop it, wait until it is gone, start it
+# again through asahi-launch.
 
 set -euo pipefail
 
+bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 app_name="${1:-}"
 
 if [ -z "$app_name" ]; then
@@ -11,31 +14,13 @@ fi
 
 shift
 
-# Align with autostart.lua ("qs -c remix") + hypr bindings: process often runs as argv0=qs
-# (symlink), while calls may pass "quickshell". Kill both variants + wait on either to
-# prevent duplicate bars (the reported restart bug). Prefer "qs" for restart start.
-kill_names=("$app_name")
-start_name="$app_name"
-if [ "$app_name" = "quickshell" ] || [ "$app_name" = "qs" ]; then
-  kill_names=("qs" "quickshell")
-  start_name="qs"
-fi
-for kn in "${kill_names[@]}"; do pkill -x "$kn" 2>/dev/null || true; done
-
+pkill -x "$app_name" 2>/dev/null || true
 for _ in {1..30}; do
-  still=0
-  for kn in "${kill_names[@]}"; do
-    if pgrep -x "$kn" >/dev/null 2>&1; then still=1; break; fi
-  done
-  if [ $still -eq 0 ]; then break; fi
+  pgrep -x "$app_name" >/dev/null 2>&1 || break
   sleep 0.1
 done
 
-if command -v uwsm-app >/dev/null 2>&1; then
-  setsid uwsm-app -- "$start_name" "$@" >/dev/null 2>&1 &
-else
-  setsid "$start_name" "$@" >/dev/null 2>&1 &
-fi
+"$bin/asahi-launch" "$app_name" "$@" >/dev/null 2>&1 &
 
 if command -v notify-send >/dev/null 2>&1; then
   notify-send -a asahi-restart -t 1500 "${app_name} restarted" 2>/dev/null || true

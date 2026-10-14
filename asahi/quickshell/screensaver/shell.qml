@@ -6,8 +6,8 @@ import Quickshell.Io
 
 // Theme-colored shader screensaver. Fragment programs cycle on a ~22 s
 // timer with a soft cross-fade. Each shader takes the live Asahi palette
-// as uniforms, so swapping `Asahi theme update <name>` recolours the
-// saver mid-flight without restart.
+// as uniforms, so a new asahi-autotheme palette recolours the saver
+// mid-flight without restart.
 //
 // Activation: IPC only. Bind your preferred trigger to e.g.
 //   qs -c screensaver ipc call saver toggle
@@ -104,15 +104,13 @@ ShellRoot {
             const k = m[1], v = m[2];
             if (k === "background")      root.paper  = v;
             else if (k === "foreground") root.ink    = v;
-            else if (k === "color4")     root.accent = v;
             else if (k === "color1")     root.seal   = v;
             else if (k === "accent")     root.accent = v;
         }
     }
 
-    // Asahi theme updates the palette via atomic rm+mv on theme set, which
-    // races inotify on the file itself. Watch the sibling theme.name
-    // Reload palette when theme.name changes.
+    // asahi-autotheme writes the palette atomically (rename), which inotify on
+    // the file itself misses; it bumps theme.name afterwards, so watch that.
     FileView {
         id: paletteFile
         path: root.colorsPath
@@ -122,7 +120,7 @@ ShellRoot {
         id: themeMarker
         path: root.themeNamePath
         watchChanges: true
-        onFileChanged: { reload(); paletteFile.reload(); }
+        onFileChanged: paletteFile.reload()
     }
 
     // ---------- ASCII branding (omarchy-style saver scene) ----------
@@ -140,7 +138,6 @@ ShellRoot {
         }
     }
 
-    Component.onCompleted: { paletteFile.reload(); logoFile.reload(); }
 
     function setActive(on: bool): void {
         if (root.active === on && root.panelVisible === on)
@@ -310,14 +307,19 @@ ShellRoot {
                     id: lifeSource
                     sourceItem: lifeEffect
                     recursive: true
-                    live: root.active
-                          && (root.shaderIndex === root.lifeIndex
-                              || root.fadeFrom === root.lifeIndex)
+                    // Not live: a live recursive source re-renders every frame (120 fps on eDP-1, and
+                    // the simulation ran at the refresh rate). One generation per 30 fps tick instead.
+                    live: false
                     smooth: false
                     hideSource: false
                     // Texture sized to grid so neighbour sampling lines up
                     // with cells regardless of window resolution.
                     textureSize: Qt.size(192, 108)
+                }
+                Connections {
+                    target: root
+                    enabled: root.active && (root.shaderIndex === root.lifeIndex || root.fadeFrom === root.lifeIndex)
+                    function onElapsedChanged() { lifeSource.scheduleUpdate() }
                 }
             }
 
@@ -483,11 +485,12 @@ ShellRoot {
 
                 onVisibleChanged: if (visible) restart()
 
-                Timer {
-                    interval: 33
-                    repeat: true
-                    running: asciiContainer.visible && root.active
-                    onTriggered: {
+                // Stepped by the shared tick: a second 33 ms timer ran out of phase with it, so every
+                // tick cost two frames (60 fps instead of 30).
+                Connections {
+                    target: root
+                    enabled: asciiContainer.visible && root.active
+                    function onElapsedChanged() {
                         asciiContainer.t += 0.033
                         if (asciiContainer.t > asciiContainer.dur + 2.6) asciiContainer.restart()
                         else asciiContainer.step()
@@ -614,7 +617,6 @@ ShellRoot {
             required property var modelData
             screen: modelData
             visible: root.panelVisible
-            focusable: root.active && modelData.name === root.focusScreenName
             color: "transparent"
             anchors { top: true; bottom: true; left: true; right: true }
             WlrLayershell.layer: WlrLayer.Overlay
@@ -623,9 +625,11 @@ ShellRoot {
                 ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
             exclusionMode: ExclusionMode.Ignore
 
+            // A Loader is a focus scope: without `focus` its Keys item never got focus (keys did nothing).
             Loader {
                 anchors.fill: parent
                 active: root.active
+                focus: true
                 sourceComponent: SaverSurface {}
             }
         }

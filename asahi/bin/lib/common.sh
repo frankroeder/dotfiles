@@ -96,3 +96,12 @@ lid_closed() {
   busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager LidClosed 2>/dev/null \
     | grep -q true
 }
+
+# An enabled output besides eDP-1. FALLBACK is Hyprland's placeholder once no real output is left
+# (USB-C unplug in clamshell): counting it kept eDP off and the closed lid awake.
+external_on() {
+  hyprctl monitors -j 2>/dev/null | jq -e 'any(.[]; .name != "eDP-1" and .name != "FALLBACK" and .disabled != true)' >/dev/null
+}
+
+# asahi-idle-brightness's lock: idle dim/off/restore, the brightness keys and keyboard auto never interleave.
+brightness_lock() { printf '%s\n' "${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-brightness.lock"; }

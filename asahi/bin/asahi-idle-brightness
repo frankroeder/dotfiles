@@ -58,7 +58,7 @@ restore_device() {
   rm -f "$state"
 }
 
-exec {lock_fd}>"${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-brightness.lock"
+exec {lock_fd}>"$(brightness_lock)"
 flock -w 2 "$lock_fd" || true
 
 case "$action" in

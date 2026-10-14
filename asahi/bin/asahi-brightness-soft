@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Software brightness for a Hyprland output with no DDC (Asahi HDMI).
-# Usage: asahi-brightness-soft <monitor> [+N%|N%-|N%|raise|lower|+1|-1]
+# Usage: asahi-brightness-soft <monitor> [N%|raise|lower|+1|-1]
 
 set -euo pipefail
 

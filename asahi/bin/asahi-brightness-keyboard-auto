@@ -210,9 +210,9 @@ session_locked() {
   return 1
 }
 
-# Lid-angle sensor path, cached across ticks (find_las forks).
+# Lid-angle sensor path, cached across ticks (find_las forks). Not common.sh's lid_closed (logind, forks busctl).
 las_path=""
-lid_closed() {
+lid_angle_closed() {
   local raw
   if [[ ! -r ${las_path:-} ]]; then
     las_path=$(find_las || true)
@@ -259,7 +259,7 @@ tick() {
 
   # Pause without rewriting last_set so idle-brightness off/restore and the
   # lid bind do not look like a manual override when the session comes back.
-  if lid_closed || idle_dimmed || internal_display_off; then
+  if lid_angle_closed || idle_dimmed || internal_display_off; then
     return 0
   fi
 
@@ -305,7 +305,7 @@ tick() {
       return 0
     fi
     fade_brightness "$device" "$current" "$target"
-  } 9>"${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-brightness.lock"
+  } 9>"$(brightness_lock)"
   read -r last_set <"$kbd_path/brightness" || last_set=$target
   decided_lux=$lux
 }

@@ -2,7 +2,6 @@
 Description=Asahi keyboard backlight from ambient light
 After=hyprland-session.target
 PartOf=hyprland-session.target
-ConditionEnvironment=WAYLAND_DISPLAY
 
 [Service]
 Type=simple

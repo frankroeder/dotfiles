@@ -3,7 +3,6 @@
 #
 #   asahi-stay-awake on|off|toggle
 #   asahi-stay-awake status            exit 0 when awake mode is on
-#   asahi-stay-awake unless <cmd...>   run cmd only when awake mode is off (hypridle)
 set -u
 
 flag="${XDG_RUNTIME_DIR:-/tmp}/asahi-stay-awake"
@@ -13,13 +12,8 @@ case "${1:-status}" in
   off) rm -f "$flag" ;;
   toggle) if [ -e "$flag" ]; then rm -f "$flag"; else : >"$flag"; fi ;;
   status) [ -e "$flag" ] ;;
-  unless)
-    shift
-    [ -e "$flag" ] && exit 0
-    exec "$@"
-    ;;
   *)
-    echo "usage: asahi-stay-awake {on|off|toggle|status|unless <cmd...>}" >&2
+    echo "usage: asahi-stay-awake {on|off|toggle|status}" >&2
     exit 2
     ;;
 esac

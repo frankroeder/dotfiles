@@ -25,10 +25,6 @@ bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
 flag="${ASAHI_CLAMSHELL_FLAG:-${XDG_RUNTIME_DIR:-/tmp}/asahi-clamshell}"
 
-# FALLBACK is Hyprland's placeholder after the last real output goes (unplug in clamshell); counting it kept eDP off + the lid awake.
-external_on() {
-  hyprctl monitors -j | jq -e '.[] | select(.name != "eDP-1" and .name != "FALLBACK" and .disabled != true)' >/dev/null
-}
 edp_disabled() {
   hyprctl monitors all -j | jq -e '.[] | select(.name == "eDP-1" and .disabled == true)' >/dev/null
 }
@@ -93,10 +89,16 @@ case "${1:-status}" in
         # Undocked with the lid closed: the flag's inhibitor would block lid suspend forever (battery
         # drain). eDP back first (never zero outputs); after a 10 s grace (hotplug bounce, reload
         # re-enabling HDMI) drop the flag so logind suspends, unless an external came back.
+        # The backlight close zeroed comes back only with the lid open (else open restores it).
         edp_on
         sleep 10
         [ -e "$flag" ] || exit 0  # lid opened meanwhile: open owns eDP now
-        if external_on; then edp_off; else rm -f "$flag"; fi
+        if external_on; then
+          edp_off
+        else
+          rm -f "$flag"
+          lid_closed || "$bin/asahi-idle-brightness" restore
+        fi
       fi
     fi
     ;;

@@ -6,11 +6,15 @@
 #   battery: dim 150 s, off 300 s     AC: saver 180 s, dim 300 s, off 600 s
 #
 #   saver   start the shader screensaver
-#   dim     half-dim display (saver keeps running), lower keyboard backlight
+#   dim     half-dim display (saver keeps running), lower keyboard backlight; already locked
+#           (Super+Escape, then away): off instead, the lock screen does not stay lit until off
 #   off     stop saver, lock, display (DPMS) + keyboard backlight off,
 #           s2idle a minute later unless input brings the display back
 #   asahi-idle wake   hypridle on-resume / after_sleep: undo every step
 #   asahi-idle keys   150 s keys-off listener on-resume: relight the keyboard only
+#   asahi-idle sleep  manual suspend (bind, launcher); refused (exit 1) while an external is on
+#   asahi-idle mark   before_sleep: note time + charge; the first wake after resume logs the drain
+#   asahi-idle why    what keeps the session awake right now
 #
 # A step still running when wake fires (saver start takes seconds) re-runs
 # wake afterwards, so nothing lands on an active session.
@@ -33,6 +37,8 @@ secs="${2:-}"
 step=""
 stamp="${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-wake"
 locking="${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-locking"
+failed_note="${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-suspend-failed"
+sleep_mark="${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-sleep-mark"
 log_file="${XDG_STATE_HOME:-$HOME/.local/state}/asahi/idle.log"
 
 log() {
@@ -40,7 +46,21 @@ log() {
   echo "$(date '+%F %T') $*" >> "$log_file"
 }
 
+battery_uwh() { cat /sys/class/power_supply/macsmc-battery/energy_now 2>/dev/null || echo 0; }
+
+# First wake after a suspend: what the sleep cost (s2idle drain; a gain means it charged).
+log_sleep_drain() {
+  local t0 e0 dt
+  read -r t0 e0 <"$sleep_mark" || true
+  rm -f "$sleep_mark"
+  dt=$(( $(date +%s) - ${t0:-0} ))
+  if ((dt < 60 || dt > 7 * 86400)); then return 0; fi
+  log "slept $((dt / 3600))h$((dt % 3600 / 60))m, $(awk -v a="${e0:-0}" -v b="$(battery_uwh)" -v t="$dt" \
+    'BEGIN { d = (a - b) / 1e6; if (d > 0) printf "used %.2f Wh (%.2f W)", d, d * 3600 / t; else printf "gained %.2f Wh", -d }')"
+}
+
 wake() {
+  if [ -f "$sleep_mark" ]; then log_sleep_drain; fi
   # Ignore wakes while off locks (the lock surface fakes motion). Only a flag <15 s old counts:
   # an off killed mid-lock leaves the flag behind and must not swallow every later wake.
   if [ -n "$(find "$locking" -newermt '-15 seconds' 2>/dev/null)" ]; then log "wake ignored: lock surface"; return 0; fi
@@ -49,11 +69,13 @@ wake() {
   # A step's own "raced a wake" re-run waits for the lock instead, so its undo is not lost.
   exec {wake_lock}>"${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-wake.lock"
   if [ "$cmd" = wake ]; then flock -n "$wake_lock" || return 0; else flock -w 5 "$wake_lock" || true; fi
+  # The saver goes first, also under a closed lid (it lights nothing): a lid lock left it running
+  # under hyprlock, its timers waking the CPU, and it showed again after unlock.
+  "$bin/asahi-screensaver" stop || true
   # Lid closed, no clamshell: keep the panel dark (a refused suspend ran after_sleep and lit the
   # closed panel for an hour). asahi-clamshell open relights it on lid open.
   if lid_closed && ! "$bin/asahi-clamshell" status; then log "wake kept dark: lid closed"; return 0; fi
   log wake
-  "$bin/asahi-screensaver" stop || true
   "$bin/asahi-dpms" on
   # In clamshell keep the closed panel dark; asahi-clamshell open restores it on lid open.
   "$bin/asahi-clamshell" status || "$bin/asahi-idle-brightness" restore
@@ -73,16 +95,50 @@ if [ "$cmd" = keys ]; then
   exit 0
 fi
 
+if [ "$cmd" = mark ]; then
+  echo "$(date +%s) $(battery_uwh)" >"$sleep_mark"
+  exit 0
+fi
+
+# What keeps the session awake: idle steps (stay-awake, inhibitors) and sleep (external, failed
+# suspend, audio). Read-only.
+if [ "$cmd" = why ]; then
+  if "$bin/asahi-stay-awake" status; then echo "stay-awake is on (Super+Ctrl+I): every idle step skips"; fi
+  hyprctl clients -j 2>/dev/null | jq -r '.[] | select(.inhibitingIdle) | "window inhibits idle: \(.class) — \(.title)"' || true
+  systemd-inhibit --list --no-legend 2>/dev/null | awk '$NF == "block" && /idle|sleep/ { print "inhibitor: " $0 }' || true
+  # Portal Inhibit calls end up on hypridle's ScreenSaver.Inhibit, in neither list above (Firefox kept
+  # three open for ~5 h): open gtk portal requests and who holds them.
+  busctl --user tree --list org.freedesktop.impl.portal.desktop.gtk 2>/dev/null \
+    | awk -F/ '$6 == "request" && NF == 9 { print $7 }' | sort -u | while read -r sender; do
+      echo "portal inhibit request held by $(busctl --user status ":${sender//_/.}" 2>/dev/null | sed -n 's/^Comm=//p') (:${sender//_/.})"
+    done || true
+  if external_on; then echo "external display on: no idle sleep (DCP hang path)"; fi
+  if systemctl is-failed --quiet systemd-suspend.service; then echo "last suspend failed: idle sleep off until reboot"; fi
+  if pactl list sink-inputs short 2>/dev/null | grep -q .; then echo "audio streams open: sleep waits while they carry sound"; fi
+  exit 0
+fi
+
+# Manual sleep. s2idle with an external output is the DCP hang path. before_sleep_cmd locks.
+if [ "$cmd" = sleep ]; then
+  if external_on; then
+    log "sleep refused: external"
+    notify-send -a idle -u normal "Sleep blocked" "Disconnect the external display first (DCP hang path)" || true
+    exit 1
+  fi
+  log "sleep (manual)"
+  exec systemctl suspend
+fi
+
 on_ac() {
   local p
-  for p in /sys/class/power_supply/*; do
+  for p in "${ASAHI_PSY_DIR:-/sys/class/power_supply}"/*; do
     [ "$(cat "$p/type" 2>/dev/null)" = Mains ] && [ "$(cat "$p/online" 2>/dev/null)" = 1 ] && return 0
   done
   return 1
 }
 
 if [ "$cmd" != at ] || [[ ! $secs =~ ^[0-9]+$ ]]; then
-  echo "usage: $0 at <idle seconds> | $0 wake | $0 keys" >&2
+  echo "usage: $0 at <idle seconds> | $0 wake | $0 keys | $0 sleep | $0 mark | $0 why" >&2
   exit 2
 fi
 
@@ -102,6 +158,7 @@ trap 'rm -f "$started"; [ "$step" = off ] && rm -f "$locking" || true' EXIT
 woke() { [ "$stamp" -nt "$started" ]; }
 
 locked() { pidof hyprlock >/dev/null; }
+if [ "$step" = dim ] && locked; then step=off; log "locked: dim goes dark (off)"; fi
 display_lit() { hyprctl monitors -j 2>/dev/null | jq -e 'any(.[]; .dpmsStatus)' >/dev/null; }
 
 # Browser tabs keep silent streams RUNNING for hours, so RUNNING is not playback: record ~1 s of
@@ -130,9 +187,15 @@ can_sleep() {
   # macOS holds system sleep while audio plays (power assertion).
   if playing; then why="audio ($(stream_apps))"
   # Docked / HDMI: s2idle with an external output is the DCP hang path.
-  elif hyprctl monitors -j 2>/dev/null | jq -e 'any(.[]; .name != "eDP-1")' >/dev/null; then why=external
+  elif external_on; then why=external
   # Last suspend refused by the kernel: retrying only churns the DCP. A good lid suspend clears it.
-  elif systemctl is-failed --quiet systemd-suspend.service; then why="last suspend failed"
+  # Say so once per boot: this kept the SoC awake on battery for ~33 h without a word.
+  elif systemctl is-failed --quiet systemd-suspend.service; then
+    why="last suspend failed"
+    if [ ! -e "$failed_note" ]; then
+      : >"$failed_note"
+      notify-send -a idle -u critical "Sleep disabled" "Suspend is failing — reboot to restore sleep" || true
+    fi
   fi
   [ -z "$why" ] && return 0
   [ "${1:-}" = quiet ] || log "sleep skipped: $why"
@@ -147,7 +210,6 @@ case "$step" in
     if woke; then log "$step raced a wake"; wake; fi
     ;;
   dim)
-    if locked; then log "dim skipped: locked"; exit 0; fi
     "$bin/asahi-idle-brightness" dim
     if woke; then log "$step raced a wake"; wake; fi
     ;;
@@ -176,14 +238,15 @@ case "$step" in
       if display_lit; then log "input relit display"; wake; exit 0; fi
       sleep 1
     done
-    if can_sleep; then log sleep; systemctl suspend; exit 0; fi
+    # A refused suspend (another block inhibitor, polkit) falls through to the retry loop.
+    if can_sleep; then log sleep; systemctl suspend && exit 0; log "suspend refused"; fi
     # Not asleep yet: keep watching for input, retry sleep once a minute.
     tries=0
     while ! woke; do
       if display_lit; then log "input relit display"; wake; exit 0; fi
       tries=$((tries + 1))
-      if ((tries % 30 == 0)) && can_sleep quiet; then log "sleep (retry)"; systemctl suspend; exit 0; fi
-      sleep 2
+      if ((tries % 12 == 0)) && can_sleep quiet; then log "sleep (retry)"; systemctl suspend && exit 0; log "suspend refused"; fi
+      sleep 5
     done
     ;;
 esac
