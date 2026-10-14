@@ -22,6 +22,7 @@ Item {
   // (shell.qml) and the notification sheet close it, and opening it closes them.
   property string openPanel: ""
   onLauncherOpenChanged: if (launcherOpen) barWindow.openPanel = ""
+  onCalendarOpenChanged: if (calendarOpen) barWindow.openPanel = ""
   signal calendarToggle()
   // Chip clicks open their Quick pane (updates chip: PkgManager's Updates tab) through shell.qml in-process,
   // no `qs ipc` client fork per click.
@@ -36,13 +37,13 @@ Item {
     barWindow.closeHistory()
     barWindow.openPanel = barWindow.openPanel === name ? "" : name
   }
-  // IPC `media panel` (shell.qml): only the bar on the focused monitor answers, and only with a
-  // player (else the flag stays set and the popup opens unasked with the next track).
-  property int mediaPing: 0
-  onMediaPingChanged: {
+  // IPC `media panel` / Super+Alt+R (shell.qml signals): only the bar on the focused monitor answers; media
+  // only with a player.
+  function requestPanel(name) {
     const mon = Hyprland.focusedMonitor
-    if (mediaBlock.hasMedia && (!mon || !barWindow.barScreen || mon.name === barWindow.barScreen.name))
-      barWindow.togglePanel("media")
+    if (mon && barWindow.barScreen && mon.name !== barWindow.barScreen.name) return
+    if (name === "media" && !mediaBlock.hasMedia) return
+    barWindow.togglePanel(name)
   }
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
@@ -440,7 +441,8 @@ Item {
     anchors.right: parent.right
     anchors.verticalCenter: parent.verticalCenter
     spacing: 2
-    move: chipMove
+    // No `move` here: the Row is anchored right, so it shifts at once while `move` animated the
+    // children from their old in-row x — everything right of a new chip (REC) jumped and slid back.
     add: chipAdd
 
     BarComponents.Notifications {
@@ -478,10 +480,7 @@ Item {
       id: clockBlock
       barHost: barWindow
       calendarOpen: barWindow.calendarOpen
-      onCalendarToggle: {
-        barWindow.openPanel = ""
-        barWindow.calendarToggle()
-      }
+      onCalendarToggle: barWindow.calendarToggle()
     }
   }
   }

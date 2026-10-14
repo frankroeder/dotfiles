@@ -21,12 +21,10 @@ ShellRoot {
   readonly property bool launcherOpen: launcherLoader.item ? launcherLoader.item.shouldShow : false
   onLauncherOpenChanged: if (launcherOpen) {
     shell.calendarOpen = false
-    Services.Recorder.panelOpen = false
     // Its focus grab would keep the launcher's keyboard input.
     notifCenter.historyVisible = false
   }
-  // Calendar and notification sheet are one-at-a-time: a click-opened calendar has no focus grab
-  // yet, so opening the sheet would leave it up.
+  // Calendar and notification sheet are one-at-a-time.
   onCalendarOpenChanged: if (calendarOpen) notifCenter.historyVisible = false
   Connections {
     target: notifCenter
@@ -45,21 +43,23 @@ ShellRoot {
     appid: "quickshell"
     name: "recorder-panel"
     description: "Toggle screen recorder panel"
-    onPressed: Services.Recorder.panelOpen = !Services.Recorder.panelOpen
+    onPressed: shell.recPanelRequested()
   }
 
   IpcHandler {
     target: "recording"
     function refresh(): void { Services.Recorder.refresh() }
-    function panel(): void { Services.Recorder.panelOpen = !Services.Recorder.panelOpen }
-    function toggle(): void { Services.Recorder.panelOpen = !Services.Recorder.panelOpen }
+    function panel(): void { shell.recPanelRequested() }
+    function toggle(): void { shell.recPanelRequested() }
   }
 
-  // `qs ipc call media panel`: the media popup on the focused screen's bar (BarHost.mediaPing).
-  property int mediaPing: 0
+  // `qs ipc call media panel` / Super+Alt+R: the media / recorder popup on the focused screen's bar
+  // (BarHost.requestPanel). Signals, not counters: a bar created later (display plug) replayed a counter.
+  signal mediaPanelRequested()
+  signal recPanelRequested()
   IpcHandler {
     target: "media"
-    function panel(): void { shell.mediaPing++ }
+    function panel(): void { shell.mediaPanelRequested() }
   }
 
   IpcHandler {
@@ -95,12 +95,16 @@ ShellRoot {
         isRecording: shell.isRecording
         calendarOpen: shell.calendarOpen
         launcherOpen: shell.launcherOpen
-        mediaPing: shell.mediaPing
         onCalendarToggle: shell.calendarOpen = !shell.calendarOpen
         onQuickRequested: key => {
           if (key === "updates") { pkgManager.toggle(2); return }
           const l = launcherLoader.item
           if (l && l.openQuick) l.openQuick(key)
+        }
+        Connections {
+          target: shell
+          function onMediaPanelRequested() { barContent.requestPanel("media") }
+          function onRecPanelRequested() { barContent.requestPanel("rec") }
         }
       }
     }

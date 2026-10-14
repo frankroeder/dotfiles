@@ -3,7 +3,6 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 
 // Screen recorder state for the bar chip and its panel. `asahi-cmd-record status --json` runs at
 // start, on the script's `ipc call recording refresh` (start / stop / failure), after our own
@@ -21,11 +20,6 @@ Singleton {
   property real bytes: 0
   property int elapsed: 0
   property var recent: []
-  // Global panel toggle for the IPC / launcher entry; the bar chip has its own per-screen toggle.
-  // It shows on the monitor focused when it opened (panelScreen).
-  property bool panelOpen: false
-  property string panelScreen: ""
-  onPanelOpenChanged: if (panelOpen) panelScreen = Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name : ""
 
   function refresh() { if (!statusProc.running) statusProc.running = true }
   function scanRecent() { if (!recentProc.running) recentProc.running = true }

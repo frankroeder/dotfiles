@@ -148,12 +148,7 @@ RowLayout {
   Item {
     id: recChip
     readonly property bool rec: Services.Recorder.running
-    readonly property bool sameScreen: {
-      const want = Services.Recorder.panelScreen
-      const scr = root.barHost ? root.barHost.barScreen : null
-      return want === "" || !scr || scr.name === want
-    }
-    readonly property bool panelShown: (root.barHost && root.barHost.openPanel === "rec") || (Services.Recorder.panelOpen && sameScreen)
+    readonly property bool panelShown: !!root.barHost && root.barHost.openPanel === "rec"
     // Stays visible while the panel is open even after recording stops, so the chip
     // that opened it is still there to close it (it used to vanish and strand the popup).
     visible: rec || panelShown
@@ -186,12 +181,6 @@ RowLayout {
       acceptedButtons: Qt.LeftButton | Qt.RightButton
       onClicked: function(mouse) {
         if (mouse.button === Qt.RightButton && recChip.rec) Services.Recorder.stop()
-        else if (recChip.panelShown) {
-          // Close however it was opened (bar click or the global keybind), not just
-          // this bar's own flag — otherwise a keybind-opened panel wouldn't budge.
-          if (root.barHost) root.barHost.openPanel = ""
-          Services.Recorder.panelOpen = false
-        }
         else if (root.barHost) root.barHost.togglePanel("rec")
       }
     }
