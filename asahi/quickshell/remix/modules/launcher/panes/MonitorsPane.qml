@@ -747,7 +747,8 @@ Item {
     // Wallpaper span (one image across the displays) and, while on, its bezel gap: one value for every seam.
     Rectangle {
       Layout.fillWidth: true
-      visible: quickMonitorsRoot.enabledMonCount > 1 || !!quickMonitorsRoot.span.enabled
+      // Not while mirroring: span skips mirrored outputs, the switch would do nothing visible.
+      visible: (quickMonitorsRoot.enabledMonCount > 1 && quickMonitorsRoot.displayMode !== "mirror") || !!quickMonitorsRoot.span.enabled
       implicitHeight: spanCol.implicitHeight
       radius: Style.menuRadiusLg
       color: Style.m3container
@@ -773,7 +774,8 @@ Item {
               Layout.fillWidth: true
               value: Math.min(1, quickMonitorsRoot.spanGap / quickMonitorsRoot.spanGapMax)
               onMoved: function(v) {
-                quickMonitorsRoot.spanGap = Math.round(v * quickMonitorsRoot.spanGapMax / quickMonitorsRoot.spanGapStep) * quickMonitorsRoot.spanGapStep
+                const step = quickMonitorsRoot.spanGapStep
+                quickMonitorsRoot.spanGap = Math.round(v * quickMonitorsRoot.spanGapMax / step) * step
                 gapSet.restart()
               }
             }

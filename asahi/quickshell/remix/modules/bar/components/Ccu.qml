@@ -103,7 +103,10 @@ Rectangle {
     for (let i = 0; i < list.length; i++) w = Math.max(w, chipMetrics.advanceWidth(root.providerOf(list[i]) + " 100%"))
     return Math.ceil(w)
   }
-  readonly property int chipBoxW: root.compact ? root.compactBoxW : root.fullBoxW
+  // Never narrower than the text on show: before the first asahi-ccu answer (no chips) the box would be
+  // 0 wide and "CCu" / "CCu ?" elided to nothing.
+  readonly property int chipBoxW: Math.max(root.compact ? root.compactBoxW : root.fullBoxW,
+    Math.ceil(chipMetrics.advanceWidth(root.chipText)))
 
   // What this chip would cost uncompacted — BarHost's cue, and independent of
   // `compact` so asking the question cannot change the answer.
@@ -202,7 +205,8 @@ Rectangle {
 
   // Right-aligned in the fixed box: the chip always meets the mic, the slack sits on the left.
   Text {
-    x: 3
+    anchors.right: parent.right
+    anchors.rightMargin: 3
     anchors.verticalCenter: parent.verticalCenter
     width: root.chipBoxW
     horizontalAlignment: Text.AlignRight

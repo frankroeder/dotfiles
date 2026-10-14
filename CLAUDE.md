@@ -130,7 +130,7 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   `hl.on("monitor.added"/"removed")` hands **userdata**; read `.name`, and an unknown name is a
   no-op (`asahi-hdmi` with no arg defaults to HDMI-A-1). Mirroring
   `HDMI-A-1` strands workspaces 1–5 — mirror eval is **only** `mirror = <source>` (no `mode` /
-  `position`). Source must be an enabled output. Undo: Unmirror/Extend, `Super+Ctrl+Alt+R`, or the
+  `position`). Source must be an enabled output. Undo: tap the filled Mirror pill, or Extend, `Super+Ctrl+Alt+R`, or the
   Monitors pane 15 s auto-revert (unless Keep). Pane drag-arrange sends **position-only**
   `hl.monitor` (partial rules merge with the live mode/scale) and reverts by re-evaluating the old
   positions (a reload would re-modeset HDMI).
@@ -442,8 +442,8 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   Validate keys against `/usr/share/hypr/stubs/hl.meta.lua`, then
   `hyprctl reload && hyprctl configerrors` (`Hyprland --verify-config -c asahi/hypr/hyprland.lua` checks
   without reloading, but still runs the reload hooks — asahi-hdmi sync, monitor-scale/clamshell apply —
-  against `$HYPRLAND_INSTANCE_SIGNATURE`; prefix `HYPRLAND_INSTANCE_SIGNATURE=none` to keep them off the
-  session). Lua dispatchers: `hyprctl dispatch 'hl.dsp.…({…})'`
+  against `$HYPRLAND_INSTANCE_SIGNATURE`; `HYPRLAND_INSTANCE_SIGNATURE=none` makes their hyprctl calls fail,
+  but `asahi-hdmi sync` still bumps `$XDG_RUNTIME_DIR/asahi-hdmi.gen`: not during an HDMI settle). Lua dispatchers: `hyprctl dispatch 'hl.dsp.…({…})'`
   (legacy `dispatch <name> <args>` is dead). Float is its own call; maximized refuses resize+pin.
   Window-rule `opacity` multiplies with `inactive_opacity` — use `opaque = true` for media/PiP/
   webcam. Capture binds (screenshot/record/picker) must not be `locked` (recording from the lock
