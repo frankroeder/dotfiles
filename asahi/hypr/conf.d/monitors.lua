@@ -52,10 +52,12 @@ hl.monitor {
 -- suspends; do not DPMS-blank here (races s2idle, hangs DCP). Only when a block
 -- inhibitor stops that suspend does close blank + lock itself. Apple Silicon names
 -- this switch "Apple SMC power/lid events", not "Lid Switch".
--- locked = true so the bind still fires on the lock screen.
+-- locked = true so the bind still fires on the lock screen; submap_universal so the writing-tools
+-- submap (catchall) cannot swallow it.
 local clamshell = dotfilesDir .. "/asahi/bin/asahi-clamshell"
-hl.bind("switch:on:Apple SMC power/lid events", hl.dsp.exec_cmd(clamshell .. " close"), { locked = true })
-hl.bind("switch:off:Apple SMC power/lid events", hl.dsp.exec_cmd(clamshell .. " open"), { locked = true })
+local lid_opts = { locked = true, submap_universal = true }
+hl.bind("switch:on:Apple SMC power/lid events", hl.dsp.exec_cmd(clamshell .. " close"), lid_opts)
+hl.bind("switch:off:Apple SMC power/lid events", hl.dsp.exec_cmd(clamshell .. " open"), lid_opts)
 
 local hdmi = dotfilesDir .. "/asahi/bin/asahi-hdmi"
 local scale = dotfilesDir .. "/asahi/bin/asahi-monitor-scale"
@@ -107,8 +109,9 @@ local function external_target(prefer)
     return false
   end
 
+  -- FALLBACK is Hyprland's placeholder once no real output is left: never an external.
   local want = monitor_name(prefer)
-  if want == "eDP-1" then
+  if want == "eDP-1" or want == "FALLBACK" then
     want = ""
   end
   if listed(want) then
@@ -117,7 +120,7 @@ local function external_target(prefer)
   if type(monitors) == "table" then
     for _, m in ipairs(monitors) do
       local n = monitor_name(m)
-      if n ~= "" and n ~= "eDP-1" then
+      if n ~= "" and n ~= "eDP-1" and n ~= "FALLBACK" then
         return n, true
       end
     end

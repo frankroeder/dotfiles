@@ -15,6 +15,9 @@ local function layer_rule(namespace, props)
 end
 
 window_rule({ class = ".*" }, { opacity = "0.97 0.9" })
+-- Apps asking to maximize themselves (Firefox, LibreOffice, Electron) stay in their tile; Super+F still
+-- maximizes (omarchy / Ryoku do the same). Maximized windows refuse resize and pin.
+window_rule({ class = ".*" }, { suppress_event = "maximize" })
 
 -- Media and pickers stay fully opaque; the global 0.97/0.9 wash tints video.
 -- `opaque`, not opacity 1: rule opacity multiplies with inactive_opacity.
@@ -34,8 +37,11 @@ window_rule({ title = "(Picture.?in.?[Pp]icture)" }, {
   move = { "(monitor_w-window_w-40)", "(monitor_h*0.04)" },
 })
 
+-- Empty XWayland floaters (drag-and-drop helpers) must not steal focus mid-drag (omarchy, Ryoku).
+window_rule({ class = "^$", title = "^$", xwayland = true, float = true, fullscreen = false, pin = false }, { no_focus = true })
+
 window_rule({ class = "^(zoom)$" }, { float = true })
-window_rule({ class = "^(blueman-manager|nm-connection-editor)$" }, { float = true, center = true })
+window_rule({ class = "^(blueman-manager|nm-connection-editor|org\\.pulseaudio\\.pavucontrol)$" }, { float = true, center = true })
 window_rule({ class = "^(gcr-prompter)$" }, { float = true, center = true })
 window_rule({ class = "^(xdg-desktop-portal-gtk)$" }, { float = true, center = true })
 
@@ -70,29 +76,18 @@ window_rule({ class = "^(com\\.mitchellh\\.ghostty)$" }, {
   focus_on_activate = false,
 })
 
--- Quickshell (bar + popups + OSD + notif toast from NotificationServer in remix/shell.qml)
+-- Quickshell popups, OSD and notification toasts (the bar is `asahi-bar`: opaque, no blur)
 layer_rule("^(quickshell.*)$", { blur = true, ignore_alpha = 0.3 })
 -- Launcher / wallpaper overlays: blur only under the card (the scrim is ~0.12 alpha
 -- and stays below ignore_alpha), so the desktop behind stays readable.
 layer_rule("^(quickshell-launcher|quickshell-wallpaper|quickshell-pkgman)$", { blur = true, ignore_alpha = 0.5, xray = false })
 layer_rule("^asahi-dim$", { no_anim = true, animation = "none" })
 
-window_rule(
-  { class = "^(pavucontrol|easyeffects|gnome-control-center|nm-applet)$" },
-  { float = true, center = true }
-)
-window_rule(
-  { class = "^(org.pwmt.zathura|sioyek|evince|okular)$" },
-  { opacity = "0.98 0.92", pseudo = false }
-)
+window_rule({ class = "^(org\\.kde\\.okular|org\\.gnome\\.Evince)$" }, { opacity = "0.98 0.92" })
 window_rule(
   { class = ".*", title = ".*(Open File|Save As|Choose|Preferences|Properties|Dialog).*" },
   { float = true, center = true }
 )
-window_rule(
-  { class = "^(hyprland-share-picker)$" },
-  { float = true, center = true, opacity = 1.0, pseudo = false }
-)
+window_rule({ class = "^(hyprland-share-picker)$" }, { float = true, center = true, opaque = true })
 
-layer_rule("^(gtk-layer-shell)$", { blur = true, ignore_alpha = 0.3 }) -- notifications removed (mako purged; QS notif toast covered by quickshell.*)
 layer_rule("^(ghostty-quick-terminal)$", { blur = true, ignore_alpha = 0.05, xray = false })

@@ -6,7 +6,16 @@ local function quick(key)
 end
 
 -- Apps and windows
-hl.bind(mod .. " + T", hl.dsp.exec_cmd(launch(terminal)), { desc = "Terminal" })
+-- On a focused Ghostty, Super+T is its own new-window key (ctrl+shift+n): the window inherits the
+-- cwd (window-inherit-working-directory). Anywhere else a fresh terminal.
+hl.bind(mod .. " + T", function()
+  local w = hl.get_active_window()
+  if w and w.class == "com.mitchellh.ghostty" then
+    hl.dispatch(hl.dsp.send_shortcut { mods = "CTRL + SHIFT", key = "N", window = "address:" .. w.address })
+  else
+    hl.dispatch(hl.dsp.exec_cmd(launch(terminal)))
+  end
+end, { desc = "Terminal (new window in the focused terminal's directory)" })
 hl.bind(mod .. " + Z", hl.dsp.exec_cmd(launch(filemanager)), { desc = "Filemanager" })
 hl.bind(mod .. " + SPACE", hl.dsp.global "quickshell:launcher-toggle", { desc = "Launcher" })
 hl.bind(
@@ -15,7 +24,7 @@ hl.bind(
   { desc = "Wallpaper picker" }
 )
 -- hl.bind(mod .. " + B", hl.dsp.exec_cmd(browser), { desc = "Browser" })
--- Writing tools on the visual (primary) selection: proofread / rewrite / concise.
+-- Writing tools on the selection (copied with Ctrl+C; primary in terminals): proofread / rewrite / concise.
 hl.bind(mod .. " + SHIFT + E", hl.dsp.global "quickshell:writing-tools", { desc = "Writing tools" })
 -- The card never takes keyboard focus (QtQuick fields drop their selection on focus loss), so
 -- its keys live in this submap; Quickshell enters it on open and resets it on close. No desc:
@@ -47,7 +56,7 @@ local function unless_overlay(dsp)
 end
 hl.bind(mod .. " + Q", unless_overlay(hl.dsp.window.close), { desc = "Close window" })
 hl.bind(mod .. " + SHIFT + Q", unless_overlay(hl.dsp.window.kill), { desc = "Kill process" })
-hl.bind(mod .. " + F", hl.dsp.window.fullscreen { mode = 1 }, { desc = "Toggle maximized" })
+hl.bind(mod .. " + F", hl.dsp.window.fullscreen { mode = "maximized" }, { desc = "Toggle maximized" })
 hl.bind(mod .. " + SHIFT + F", hl.dsp.window.fullscreen(), { desc = "Toggle fullscreen" })
 hl.bind(mod .. " + P", hl.dsp.window.pseudo(), { desc = "Toggle pseudo" })
 hl.bind(mod .. " + R", hl.dsp.layout "togglesplit", { desc = "Toggle split" })
@@ -58,6 +67,24 @@ hl.bind(mod .. " + ALT + SHIFT + W", hl.dsp.group.lock_active(), { desc = "Lock 
 hl.bind(mod .. " + ALT + TAB", hl.dsp.group.next(), { desc = "Next window in group" })
 hl.bind(mod .. " + ALT + SHIFT + TAB", hl.dsp.group.prev(), { desc = "Previous window in group" })
 hl.bind(mod .. " + O", hl.dsp.exec_cmd(scripts .. "/asahi-window-pop"), { desc = "Pop window (float + center + pin)" })
+-- Variants of fullscreen / move (omarchy): the app goes fullscreen inside its tile (a video fills it,
+-- the layout stays), and Super+Alt+arrows join the neighbouring group.
+hl.bind(mod .. " + ALT + F", function()
+  local w = hl.get_active_window()
+  if w then hl.dispatch(hl.dsp.window.fullscreen_state { internal = 0, client = w.fullscreen_client == 2 and 0 or 2 }) end
+end, { desc = "Fullscreen inside the tile" })
+for key, dir in pairs { left = "l", right = "r", up = "u", down = "d" } do
+  hl.bind(mod .. " + ALT + " .. key, hl.dsp.window.move { into_group = dir }, { desc = "Move into group " .. key })
+end
+-- Alt+Tab cycles the windows on this workspace (Super+Tab is the workspace).
+hl.bind("ALT + TAB", function()
+  hl.dispatch(hl.dsp.window.cycle_next())
+  hl.dispatch(hl.dsp.window.bring_to_top())
+end, { desc = "Next window" })
+hl.bind("ALT + SHIFT + TAB", function()
+  hl.dispatch(hl.dsp.window.cycle_next { next = false })
+  hl.dispatch(hl.dsp.window.bring_to_top())
+end, { desc = "Previous window" })
 hl.bind(mod .. " + ALT + P", hl.dsp.exec_cmd(scripts .. "/asahi-window-gesture pip"), { desc = "Toggle picture-in-picture" })
 hl.bind(
   mod .. " + ALT + Return",
@@ -76,10 +103,10 @@ hl.bind(mod .. " + C", hl.dsp.window.center(), { desc = "Center floating window"
 -- Resize: the Super+ALT variant of the Super+HJKL focus grammar. Tiled, this
 -- pushes the shared border in that direction, so it grows the left/top window
 -- and shrinks the right/bottom one — the direction is the constant, not "grow".
-hl.bind(mod .. " + ALT + H", hl.dsp.window.resize { x = -100, y = 0, relative = true }, { desc = "Resize edge left" })
-hl.bind(mod .. " + ALT + L", hl.dsp.window.resize { x = 100, y = 0, relative = true }, { desc = "Resize edge right" })
-hl.bind(mod .. " + ALT + K", hl.dsp.window.resize { x = 0, y = -100, relative = true }, { desc = "Resize edge up" })
-hl.bind(mod .. " + ALT + J", hl.dsp.window.resize { x = 0, y = 100, relative = true }, { desc = "Resize edge down" })
+hl.bind(mod .. " + ALT + H", hl.dsp.window.resize { x = -100, y = 0, relative = true }, { repeating = true, desc = "Resize edge left" })
+hl.bind(mod .. " + ALT + L", hl.dsp.window.resize { x = 100, y = 0, relative = true }, { repeating = true, desc = "Resize edge right" })
+hl.bind(mod .. " + ALT + K", hl.dsp.window.resize { x = 0, y = -100, relative = true }, { repeating = true, desc = "Resize edge up" })
+hl.bind(mod .. " + ALT + J", hl.dsp.window.resize { x = 0, y = 100, relative = true }, { repeating = true, desc = "Resize edge down" })
 
 -- System panels and toggles: omarchy's Super+Ctrl+<letter> family.
 hl.bind(mod .. " + CONTROL + A", hl.dsp.exec_cmd(quick "media"), { desc = "Audio" })
@@ -103,11 +130,7 @@ hl.bind(
   hl.dsp.exec_cmd "qs -c remix ipc call launcher openCategory Keys",
   { desc = "Keybindings" }
 )
-hl.bind(
-  mod .. " + CONTROL + ALT + D",
-  hl.dsp.exec_cmd "qs -c remix ipc call calendar toggle",
-  { desc = "Calendar" }
-)
+hl.bind(mod .. " + CONTROL + C", hl.dsp.exec_cmd "qs -c remix ipc call calendar toggle", { desc = "Calendar" })
 hl.bind(mod .. " + CONTROL + plus", hl.dsp.exec_cmd(scripts .. "/asahi-monitor-scale up"), { desc = "Display scale up" })
 hl.bind(mod .. " + CONTROL + minus", hl.dsp.exec_cmd(scripts .. "/asahi-monitor-scale down"), { desc = "Display scale down" })
 
@@ -115,26 +138,26 @@ hl.bind(mod .. " + CONTROL + minus", hl.dsp.exec_cmd(scripts .. "/asahi-monitor-
 hl.bind(mod .. " + CONTROL + Z", function()
   hl.config { cursor = { zoom_factor = hl.get_config "cursor.zoom_factor" + 1 } }
 end, { desc = "Zoom in" })
+hl.bind(mod .. " + CONTROL + SHIFT + Z", function()
+  hl.config { cursor = { zoom_factor = math.max(1, hl.get_config "cursor.zoom_factor" - 1) } }
+end, { desc = "Zoom out" })
 hl.bind(mod .. " + CONTROL + ALT + Z", function()
   hl.config { cursor = { zoom_factor = 1 } }
 end, { desc = "Zoom reset" })
 
 -- Session and screenshots
-hl.bind(
-  mod .. " + Escape",
-  hl.dsp.exec_cmd(scripts .. "/asahi-lock"),
-  { desc = "Lock" }
-)
+-- submap_universal: the writing-tools submap's catchall must not swallow lock / media / lid.
+-- `locked`: on Hyprland's lockdead screen (hyprlock gone, asahi-lock out of retries) the same key starts a
+-- new hyprlock that retakes the lock, instead of a TTY. While locked asahi-lock exits at once (flock/pidof).
+hl.bind(mod .. " + Escape", hl.dsp.exec_cmd(scripts .. "/asahi-lock"), { locked = true, submap_universal = true, desc = "Lock" })
 hl.bind(
   mod .. " + SHIFT + Escape",
   hl.dsp.exec_cmd "qs -c remix ipc call launcher openCategory System",
   { desc = "System menu" }
 )
-hl.bind(
-  mod .. " + CONTROL + ALT + S",
-  hl.dsp.exec_cmd "loginctl lock-session && systemctl suspend",
-  { desc = "Suspend" }
-) -- s2idle only (Asahi: no disk hibernation)
+-- s2idle only (no disk hibernation); asahi-idle sleep refuses with an external display on (DCP hang
+-- path). before_sleep_cmd locks.
+hl.bind(mod .. " + CONTROL + ALT + S", hl.dsp.exec_cmd(scripts .. "/asahi-idle sleep"), { desc = "Suspend" })
 
 -- Mac capture row: Super+F10/F11/F12 (and bare media keys when fnmode=1).
 hl.bind(mod .. " + F10", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot windows"), { desc = "Screenshot window" })
@@ -163,10 +186,6 @@ hl.bind(mod .. " + SHIFT + XF86AudioRaiseVolume", hl.dsp.exec_cmd "hyprpicker -a
 hl.bind(mod .. " + ALT + XF86AudioLowerVolume", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record region"), { desc = "Record region (top row)" })
 hl.bind(mod .. " + ALT + XF86AudioRaiseVolume", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record fullscreen"), { desc = "Record display (top row)" })
 hl.bind(mod .. " + ALT + SHIFT + XF86AudioRaiseVolume", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record webcam"), { desc = "Record display with webcam (top row)" })
--- macOS muscle memory: Cmd+Shift+Ctrl+3/4/5 as aliases for the row above.
-hl.bind(mod .. " + CONTROL + SHIFT + code:12", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot fullscreen"), { desc = "Screenshot display (Cmd+Shift+Ctrl+3)" })
-hl.bind(mod .. " + CONTROL + SHIFT + code:13", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot smart"), { desc = "Screenshot smart (Cmd+Shift+Ctrl+4)" })
-hl.bind(mod .. " + CONTROL + SHIFT + code:14", hl.dsp.global "quickshell:recorder-panel", { desc = "Capture menu (Cmd+Shift+Ctrl+5)" })
 
 -- Notifications: the whole family lives on comma.
 hl.bind(
@@ -202,7 +221,7 @@ hl.bind(
 )
 hl.bind(
   mod .. " + CONTROL + ALT + P",
-  -- hyprpaper restarts on its config's random slideshow image: sync puts the (spanned) wallpaper back.
+  -- hyprpaper restarts on the current wallpaper (lock-wallpaper link): sync re-cuts it while spanning.
   hl.dsp.exec_cmd(scripts .. "/asahi-restart-app hyprpaper; sleep 2; " .. scripts .. "/asahi-wallpaper-span sync"),
   { desc = "Restart hyprpaper" }
 )
@@ -249,7 +268,9 @@ for i = 1, 10 do
     hl.dsp.window.move { workspace = i },
     { desc = "Move to workspace " .. i }
   )
+  hl.bind(mod .. " + ALT + " .. key, hl.dsp.window.move { workspace = i, follow = false }, { desc = "Send to workspace " .. i })
 end
+hl.bind(mod .. " + Y", hl.dsp.focus { workspace = "previous_per_monitor" }, { desc = "Last workspace (back and forth)" })
 hl.bind(mod .. " + TAB", hl.dsp.focus { workspace = "e+1" }, { desc = "Next workspace" })
 hl.bind(mod .. " + SHIFT + TAB", hl.dsp.focus { workspace = "e-1" }, { desc = "Previous workspace" })
 
@@ -297,6 +318,7 @@ hl.bind(mod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true, desc = "R
 -- Media
 local function media_bind(key, action, opts)
   opts.locked = true
+  opts.submap_universal = true
   hl.bind(key, hl.dsp.exec_cmd(scripts .. "/asahi-media-control " .. action), opts)
 end
 
@@ -318,6 +340,8 @@ media_bind(
 )
 
 media_bind("XF86AudioMute", "output-volume mute-toggle", { desc = "Mute" })
+-- F6 (moon) sends XF86Sleep; logind leaves it alone (handle-suspend-key lock in autostart.lua): Do Not Disturb.
+hl.bind("XF86Sleep", hl.dsp.exec_cmd "qs -c remix ipc call notifications toggleDnd", { desc = "Do not disturb" })
 media_bind("SHIFT + XF86AudioMute", "output-switch", { desc = "Switch audio output" })
 media_bind("XF86AudioMicMute", "input-volume mute-toggle", { desc = "Mic mute" })
 

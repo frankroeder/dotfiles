@@ -1,8 +1,7 @@
-local terminal = "ghostty"
-
 hl.on("hyprland.start", function()
-  hl.exec_cmd "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE HYPRLAND_INSTANCE_SIGNATURE"
-  hl.exec_cmd "systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE HYPRLAND_INSTANCE_SIGNATURE"
+  -- --systemd also imports into the user manager (no separate `systemctl --user import-environment`).
+  hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP"
+    .. " XDG_SESSION_TYPE HYPRLAND_INSTANCE_SIGNATURE")
   -- gnome-keyring owns org.freedesktop.secrets (kwallet is disabled). SSH stays with keychain.
   hl.exec_cmd "~/.dotfiles/asahi/bin/asahi-gnome-keyring"
   -- Fallback dark until asahi-autotheme reads wallpaper lightness (gsettings + GTK + icons).
@@ -16,9 +15,16 @@ hl.on("hyprland.start", function()
   hl.exec_cmd "systemctl --user restart xdg-desktop-portal-hyprland.service xdg-desktop-portal-gtk.service xdg-desktop-portal.service"
   hl.exec_cmd "~/.dotfiles/asahi/bin/asahi-ssh-keychain"
   hl.exec_cmd "playerctld"
+  -- F6 (moon) is KEY_SLEEP: logind suspended on a tap, past every asahi-idle guard (external display,
+  -- audio). This block lock makes logind leave the key to Hyprland (XF86Sleep = Do Not Disturb) for the
+  -- session only; active sessions may take it without root (polkit inhibit-handle-suspend-key).
+  hl.exec_cmd "systemd-inhibit --what=handle-suspend-key --who=Hyprland --why=F6-is-Do-Not-Disturb --mode=block sleep infinity"
   hl.exec_cmd "~/.dotfiles/asahi/bin/asahi-cliphist watch"
   hl.exec_cmd "hyprpaper"
   hl.exec_cmd "~/.dotfiles/asahi/bin/asahi-start-quickshell"
+  -- Not Fedora's hypridle.service: hyprlock, the saver and asahi-idle's loops would live in the unit's
+  -- cgroup (a crash restart kills the lock screen: lockdead), and `qs ipc` from the unit's env (no
+  -- QT_QPA_PLATFORM) cannot find the shell, so dim and saver would fail silently.
   hl.exec_cmd "hypridle"
   -- Identity profile in hyprsunset.conf: no tint until Super+Ctrl+N.
   hl.exec_cmd "hyprsunset"

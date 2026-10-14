@@ -13,10 +13,3 @@ hl.animation { leaf = "windows", enabled = true, speed = 5, bezier = "ilyaEase",
 hl.animation { leaf = "layers", enabled = true, speed = 5, bezier = "ilyaEase", style = "fade" }
 hl.animation { leaf = "fade", enabled = true, speed = 5, bezier = "ilyaEase" }
 hl.animation { leaf = "workspaces", enabled = true, speed = 5, bezier = "ilyaEase", style = "slide" }
-hl.animation {
-  leaf = "specialWorkspace",
-  enabled = true,
-  speed = 5,
-  bezier = "ilyaEase",
-  style = "fade",
-}
