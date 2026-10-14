@@ -41,6 +41,9 @@ CACHE_PATH = Path.home() / ".cache" / "asahi" / "ccu.json"
 LAST_PATH = Path.home() / ".cache" / "asahi" / "ccu.last.json"
 LOCK_PATH = Path.home() / ".cache" / "asahi" / "ccu.lock"
 LAST_TTL_SEC = 20
+# The cost scan reads every transcript (~4 s CPU): reuse it for 10 min (popup cost figures lag that much).
+COST_PATH = Path.home() / ".cache" / "asahi" / "ccu.cost.json"
+COST_TTL_SEC = 600
 
 CLAUDE_USAGE = "https://claude.ai/settings/usage"
 GROK_USAGE = "https://grok.com/?_s=usage"
@@ -183,6 +186,17 @@ def save_cache(parts: dict[str, Any]) -> None:
     CACHE_PATH.write_text(json.dumps(parts))
   except OSError:
     pass
+
+
+def cached_cost() -> dict[str, Any] | None:
+  try:
+    if time.time() - COST_PATH.stat().st_mtime > COST_TTL_SEC:
+      return None
+    raw = json.loads(COST_PATH.read_text())
+  except (OSError, json.JSONDecodeError):
+    return None
+  # A scan from before midnight would show yesterday as today.
+  return raw if isinstance(raw, dict) and raw.get("as_of") == time.strftime("%Y-%m-%d") else None
 
 
 def cache_times(cache: dict[str, Any]) -> dict[str, int]:
@@ -956,13 +970,13 @@ def build() -> dict[str, Any]:
   fresh_grok: dict[str, Any] | None = None
   fresh_cursor: dict[str, Any] | None = None
   fresh_grokbot: dict[str, Any] | None = None
-  fresh_cost: dict[str, Any] | None = None
+  fresh_cost: dict[str, Any] | None = cached_cost()
   with ThreadPoolExecutor(max_workers=5) as pool:
     fut_c = pool.submit(call_helper, claude_usage.fetch_usage) if want_claude else None
     fut_g = pool.submit(call_helper, grok_usage.fetch_usage) if want_grok else None
     fut_u = pool.submit(call_helper, cursor_usage.fetch_usage) if want_cursor else None
     fut_b = pool.submit(call_helper, grokbot_usage.fetch_usage) if want_grokbot else None
-    fut_cost = pool.submit(call_helper, ccu_cost.fetch_cost)
+    fut_cost = pool.submit(call_helper, ccu_cost.fetch_cost) if fresh_cost is None else None
     if fut_c is not None:
       fresh_claude = fut_c.result()
     if fut_g is not None:
@@ -971,7 +985,11 @@ def build() -> dict[str, Any]:
       fresh_cursor = fut_u.result()
     if fut_b is not None:
       fresh_grokbot = fut_b.result()
-    fresh_cost = fut_cost.result()
+    if fut_cost is not None:
+      fresh_cost = fut_cost.result()
+      if not fresh_cost.get("error"):
+        COST_PATH.parent.mkdir(parents=True, exist_ok=True)
+        COST_PATH.write_text(json.dumps(fresh_cost))
 
   claude = pick_provider(fresh_claude, cached_claude) if want_claude else None
   grok = pick_provider(fresh_grok, cached_grok) if want_grok else None

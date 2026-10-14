@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke tests for asahi-pkg JSON. Read-only dnf queries.
+# Smoke tests for asahi-pkg JSON. Read-only dnf queries; `updates` (it refreshes metadata) runs on a fake dnf.
 
 set -euo pipefail
 
@@ -38,13 +38,6 @@ else
   fail_at "installed JSON: $inst"
 fi
 
-upd="$("$PKG" updates)"
-if echo "$upd" | jq -e 'has("packages") and has("available")' >/dev/null; then
-  pass "updates JSON shape"
-else
-  fail_at "updates JSON: $upd"
-fi
-
 # dnf5 lists obsoleted packages indented under "Obsoleting packages": neither is an update row.
 fake="$(mktemp -d)"
 trap 'rm -rf "$fake"' EXIT
@@ -55,7 +48,13 @@ printf 'newtool.aarch64  2.0-1.fc44  updates\n    oldtool.aarch64  1.0-1.fc44  u
 exit 100
 EOF
 chmod +x "$fake/dnf"
-names="$(PATH="$fake:$PATH" "$PKG" updates | jq -c '[.packages[].name]')"
+upd="$(PATH="$fake:$PATH" "$PKG" updates)"
+if echo "$upd" | jq -e 'has("packages") and has("available")' >/dev/null; then
+  pass "updates JSON shape"
+else
+  fail_at "updates JSON: $upd"
+fi
+names="$(jq -c '[.packages[].name]' <<<"$upd")"
 if [ "$names" = '["kernel-16k","newtool"]' ]; then
   pass "updates skips obsoletes headings and obsoleted rows"
 else

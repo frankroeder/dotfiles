@@ -9,8 +9,10 @@ FLATPAK_EXPORT_DIR="${HOME}/.local/share/flatpak/exports/share"
 sudo dnf copr enable -y scottames/ghostty
 sudo dnf copr enable -y lionheartp/Hyprland
 
-# quickshell stays Fedora's (provides qs): lionheartp/Hyprland ships its own, newer build.
-sudo dnf upgrade -y --refresh --exclude=quickshell
+# quickshell stays Fedora's (provides qs): lionheartp/Hyprland ships its own, newer build. Excluded on the
+# repo itself, else every update check (bar chip, Upgrade all, zsh `update`) offers it.
+sudo dnf config-manager setopt 'copr:copr.fedorainfracloud.org:lionheartp:Hyprland.excludepkgs=quickshell*'
+sudo dnf upgrade -y --refresh
 
 # No comments inside this argv — bash treats `#` as ending the command.
 sudo dnf install -y \
@@ -117,6 +119,7 @@ FLATPAK_APPS=(
 # Locale extensions (hunspell dictionaries, langpacks) in English and German, not just the system locale.
 flatpak config --user --set languages "en;de"
 flatpak install --user -y flathub "${FLATPAK_APPS[@]}"
+flatpak update --user -y
 
 # Signal defaults to a plaintext key store; use gnome-keyring (secrets component) instead.
 flatpak override --user --env=SIGNAL_PASSWORD_STORE=gnome-libsecret org.signal.Signal

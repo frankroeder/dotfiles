@@ -166,12 +166,15 @@ layout_fields() {
 }
 
 save_layout() {
-  local pos="$1" desc scale tmp
+  local pos="$1" desc scale tmp lock
   [[ "$pos" =~ ^-?[0-9]+x-?[0-9]+$ ]] || { echo "bad position: $pos" >&2; exit 1; }
   desc="$(sink_desc)"
   [ -n "$desc" ] || { echo "no description for $name" >&2; exit 1; }
   scale="$(hypr_json | jq -r --arg n "$name" '.[] | select(.name == $n) | .scale')"
   mkdir -p "$(dirname "$layout_file")"
+  # The Monitors pane's Keep saves every external at once: one writer at a time, or an entry is lost.
+  exec {lock}>"$layout_file.lock"
+  flock "$lock"
   [ -s "$layout_file" ] || printf '{}\n' >"$layout_file"
   tmp="$(mktemp "$layout_file.XXXXXX")"
   jq --arg d "$desc" --arg k "$(layout_key "$scale")" --arg p "$pos" '.[$d] = { key: $k, pos: $p }' "$layout_file" >"$tmp"

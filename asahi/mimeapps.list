@@ -40,7 +40,6 @@ x-scheme-handler/sand=grok-bot.desktop
 x-scheme-handler/mailto=net.thunderbird.Thunderbird.desktop
 x-scheme-handler/mid=net.thunderbird.Thunderbird.desktop
 message/rfc822=net.thunderbird.Thunderbird.desktop
-application/zip=userapp-unzip-CXPTW3.desktop
 
 [Added Associations]
 text/html=org.mozilla.firefox.desktop;
@@ -60,7 +59,6 @@ application/x-extension-rss=net.thunderbird.Thunderbird.desktop;
 x-scheme-handler/mailto=net.thunderbird.Thunderbird.desktop;
 x-scheme-handler/mid=net.thunderbird.Thunderbird.desktop;
 message/rfc822=net.thunderbird.Thunderbird.desktop;
-application/zip=userapp-unzip-MMTWW3.desktop;userapp-unzip-CXPTW3.desktop;
 
 [Removed Associations]
 application/zip=google-maps-geo-handler.desktop;
