@@ -24,3 +24,6 @@ user_pref("mail.identity.id1.reply_on_top", 1);
 user_pref("mail.identity.id1.sign_mail", false);
 
 user_pref("calendar.timezone.useSystemTimezone", true);
+
+// Spell check English + German at once (de_DE from hunspell-de: /usr/lib64/thunderbird/dictionaries -> /usr/share/hunspell).
+user_pref("spellchecker.dictionary", "en-US,de-DE");
