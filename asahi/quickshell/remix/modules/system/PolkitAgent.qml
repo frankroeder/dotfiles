@@ -13,6 +13,11 @@ Scope {
   id: root
 
   readonly property var flow: agent.flow
+  property var authScreen: null
+  onFlowChanged: if (flow) {
+    const mon = Hyprland.focusedMonitor
+    authScreen = (mon && Quickshell.screens.find(s => s.name === mon.name)) || Quickshell.screens[0] || null
+  }
   property bool wrong: false
 
   PolkitAgent {
@@ -40,10 +45,7 @@ Scope {
   PanelWindow {
     id: win
     visible: agent.isActive && root.flow !== null
-    screen: {
-      const mon = Hyprland.focusedMonitor
-      return (mon && Quickshell.screens.find(s => s.name === mon.name)) || Quickshell.screens[0] || null
-    }
+    screen: root.authScreen
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
     anchors { top: true; bottom: true; left: true; right: true }

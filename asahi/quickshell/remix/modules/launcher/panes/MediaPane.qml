@@ -350,6 +350,7 @@ Item {
                 Text {
                   Layout.fillWidth: true
                   text: devCard.activeNode ? QuickModels.nodeLabel(devCard.activeNode) : devCard.modelData.empty
+                  textFormat: Text.PlainText
                   color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(10); elide: Text.ElideRight
                 }
               }
@@ -408,6 +409,7 @@ Item {
                     Text {
                       Layout.fillWidth: true
                       text: QuickModels.nodeLabel(devRow.modelData)
+                      textFormat: Text.PlainText
                       color: devRow.active ? Style.m3onSurface : Style.m3onSurfaceVariant
                       font.family: root.uiSans; font.pixelSize: root.fontPx(11); elide: Text.ElideRight
                       font.weight: devRow.active ? Font.Medium : Font.Normal

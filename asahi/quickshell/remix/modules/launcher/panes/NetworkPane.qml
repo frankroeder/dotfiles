@@ -344,7 +344,8 @@ Item {
   // external editor. A typed passphrase runs as a transient unit that deletes the
   // profile `connect` just created when it fails: a pane switch mid-connect used to
   // leave that wrong-passphrase profile, which later taps connected without a prompt.
-  // SSID / PSK reach it through the environment (-E NAME copies ours), not systemd-run's argv.
+  // SSID / PSK reach it through the environment (-E NAME copies ours), not systemd-run's argv
+  // (nmcli's own argv still carries the PSK while it runs).
   function doConnect(ssid, pass) {
     quickNetworkRoot.showPasswordPrompt = false
     quickNetworkRoot.passwordError = ""
@@ -745,6 +746,7 @@ Item {
     font.family: quickNetworkRoot.root.uiSans
     font.pixelSize: quickNetworkRoot.root.fontPx(10)
     elide: Text.ElideRight
+    textFormat: Text.PlainText  // SSIDs, connection names
   }
 
   ColumnLayout {
@@ -985,7 +987,7 @@ Item {
             spacing: 10
             Text { text: "󰯄"; color: Style.green; font.family: root.uiFont; font.pixelSize: root.fontPx(14) }
             Text {
-              text: modelData.connection || modelData.device; color: Style.m3onSurface
+              text: modelData.connection || modelData.device; color: Style.m3onSurface; textFormat: Text.PlainText
               font.family: root.uiSans; font.pixelSize: root.fontPx(11); font.weight: Font.Medium; elide: Text.ElideRight
             }
             Secondary { Layout.fillWidth: true; text: "External tunnel  ·  " + (modelData.device || "") }

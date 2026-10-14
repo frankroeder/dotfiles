@@ -409,6 +409,7 @@ Scope {
                   elide: Text.ElideRight
                   color: Style.m3onSurfaceVariant
                   font.family: Style.menuSans; font.pixelSize: 12
+                  textFormat: Text.PlainText
                   text: !root.hasText ? "Select some text first"
                     : root.wordCount + (root.wordCount === 1 ? " word" : " words")
                       + (root.appName ? " · " + root.appName : "")

@@ -142,8 +142,8 @@ Scope {
     }
     if (left) { wallCarousel.step(-1); return true }
     if (right) { wallCarousel.step(1); return true }
-    if (event.key === Qt.Key_Home) { wallCarousel.go(0); return true }
-    if (event.key === Qt.Key_End) { wallCarousel.go(root.filteredWallpapers.length - 1); return true }
+    if (!typing && event.key === Qt.Key_Home) { wallCarousel.go(0); return true }
+    if (!typing && event.key === Qt.Key_End) { wallCarousel.go(root.filteredWallpapers.length - 1); return true }
     if (event.key === Qt.Key_PageUp) { wallCarousel.step(-10); return true }
     if (event.key === Qt.Key_PageDown) { wallCarousel.step(10); return true }
     if (root.showAll && event.key === Qt.Key_Up) { wallCarousel.step(-root.gridColumns); return true }

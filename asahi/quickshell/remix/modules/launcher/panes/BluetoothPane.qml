@@ -284,6 +284,7 @@ Item {
     font.family: quickBtRoot.root.uiSans
     font.pixelSize: quickBtRoot.root.fontPx(10)
     elide: Text.ElideRight
+    textFormat: Text.PlainText  // device names
   }
 
   ColumnLayout {

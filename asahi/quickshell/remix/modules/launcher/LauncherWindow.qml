@@ -1260,7 +1260,6 @@ Scope {
     if (!root.shouldShow) { root.openLauncher(); root.openedByShortcut = true }
     root.pointerLive = false
     const idx = Math.max(0, (root.quickDeck || []).findIndex(function(t) { return t.mode === k || t.key === k }))
-    // Clear the field first: clearing it inside Quick resets the rail to the Hub.
     root.setSearchQuery("")
     root.quickStartIndex = idx
     root.categoryFilter = "Quick"
@@ -2165,10 +2164,6 @@ Scope {
   // ---------- Launcher port: scoring + category overview (following bjarneo launcher ref style) ----------
   function goUp() {
     root.pointerLive = false
-    if (root.quickMode && root.quickPaneKey !== "hub") {
-      root.selectDeckIndex(0)
-      return true
-    }
     if (root.argArmed) {
       root.clearArgument()
       return true

@@ -730,7 +730,7 @@ Item {
             DragHandler {
               id: vizDrag
               target: null
-              enabled: !vizMon.off && !vizMon.mirrored
+              enabled: !vizMon.off && !vizMon.mirrored && quickMonitorsRoot.revertLeft === 0
               property point start
               onActiveChanged: {
                 if (active) { vizArea.frozen = vizArea.liveGeom; quickMonitorsRoot.selectedName = modelData.name; start = Qt.point(vizMon.p.x, vizMon.p.y) }

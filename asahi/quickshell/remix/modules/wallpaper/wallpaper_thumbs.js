@@ -213,7 +213,7 @@ function thumbBatchScript(originals, dir, w, h) {
     if (inFlight % 4 === 0) lines.push("wait")
   }
   lines.push("wait")
-  if (keep.length) lines.push("cd " + shellQuote(dir) + " && ls | grep '\\.jpg$' | grep -vxF" + keep.join("") + " | xargs -r rm -f --")
+  if (keep.length) lines.push("cd " + shellQuote(dir) + " && ls | grep '\\.jpg$' | grep -vxF" + keep.join("") + " | xargs -r -d '\\n' rm -f --")
   lines.push("echo THUMBS_DONE")
   return lines.join("\n")
 }

@@ -336,6 +336,7 @@ Scope {
                   Text {
                     Layout.fillWidth: true
                     text: pkgRow.modelData.name
+                    textFormat: Text.PlainText
                     color: Style.m3onSurface
                     font.family: Style.menuSans; font.pixelSize: root.px(12); font.weight: Font.Medium
                     elide: Text.ElideRight
@@ -344,6 +345,7 @@ Scope {
                     Layout.fillWidth: true
                     visible: text !== ""
                     text: pkgRow.modelData.summary || pkgRow.modelData.repo || ""
+                    textFormat: Text.PlainText
                     color: Style.m3onSurfaceVariant
                     font.family: Style.menuSans; font.pixelSize: root.px(10)
                     elide: Text.ElideRight
@@ -359,6 +361,7 @@ Scope {
                     id: verLbl
                     anchors.centerIn: parent
                     text: pkgRow.modelData.version || ""
+                    textFormat: Text.PlainText
                     color: Style.m3onSurface; font.family: Style.menuMono; font.pixelSize: root.px(9)
                   }
                 }
