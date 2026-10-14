@@ -210,10 +210,6 @@ function formatScale(scale) {
   return String(rounded).replace(/(\.\d*?[1-9])0+$/, "$1")
 }
 
-function normalizeScale(scale) {
-  return formatScale(scale)
-}
-
 function gcd(a, b) {
   while (b) {
     var remainder = a % b
@@ -606,7 +602,6 @@ function formatHeaderFreq(mhz) {
 
 // ---------- vpn (jkoestinger/omarchy-vpn NetworkManager model) ----------
 // Glyphs from codepoints so the file survives editors that mangle nerd-font chars.
-var GLYPH_VPN = String.fromCodePoint(0xF0582)
 var GLYPH_LOCK = String.fromCodePoint(0xF033E)
 var GLYPH_SHIELD = String.fromCodePoint(0xF0498)
 var GLYPH_SHIELD_LOCK = String.fromCodePoint(0xF099D)
@@ -770,10 +765,6 @@ function needsUsername(profile) {
   return !isWireGuard(profile) && !isOpenConnect(profile)
 }
 
-function usernameSetting(profile) {
-  return isVpnc(profile) ? "Xauth username" : "username"
-}
-
 function nmKindLabel(profile) {
   if (isWireGuard(profile)) return "WireGuard"
   if (isOpenConnect(profile)) return "OpenConnect"
@@ -801,14 +792,14 @@ function mergeVpnDetails(connections, details) {
   return usable
 }
 
-function nmTargets(profiles, authScript) {
+function nmTargets(profiles) {
   var targets = []
   for (var i = 0; i < (profiles || []).length; i++) {
     var profile = profiles[i]
     var glyph = GLYPH_LOCK
     if (isWireGuard(profile)) glyph = GLYPH_SHIELD
     else if (isOpenConnect(profile) || isVpnc(profile)) glyph = GLYPH_SHIELD_LOCK
-    var target = {
+    targets.push({
       key: "profile:" + profile.uuid,
       label: profile.name,
       detail: profile.active
@@ -823,11 +814,7 @@ function nmTargets(profiles, authScript) {
       hasUsername: profile.hasUsername,
       gateway: profile.gateway || "",
       active: !!profile.active
-    }
-    if (isOpenConnect(profile) && String(authScript || "") !== "") {
-      target.command = [String(authScript), profile.uuid]
-    }
-    targets.push(target)
+    })
   }
   return targets
 }
@@ -837,20 +824,6 @@ function nmSummary(profiles) {
     if (profiles[i].active) return profiles[i].name
   }
   return (profiles || []).length === 0 ? "No profiles" : "Not connected"
-}
-
-function nmDetails(profiles) {
-  var rows = []
-  for (var i = 0; i < (profiles || []).length; i++) {
-    if (!profiles[i].active) continue
-    rows.push({ label: "Profile", value: profiles[i].name })
-    rows.push({ label: "Type", value: nmKindLabel(profiles[i]) })
-    if ((isOpenConnect(profiles[i]) || isVpnc(profiles[i])) && profiles[i].gateway) {
-      rows.push({ label: "Gateway", value: profiles[i].gateway })
-    }
-  }
-  if (rows.length > 0) rows.push({ label: "Managed by", value: "NetworkManager" })
-  return rows
 }
 
 function activeNmProfile(profiles) {
@@ -917,8 +890,16 @@ function wifiRadioStatus(enabled, ssid) {
   return "Not connected"
 }
 
+// nmcli SECURITY for a scanned network: "" / "--" is open; OWE ("Enhanced Open") is encrypted but has
+// no password (asking for one looped on "wrong password"). Everything else (WEP, WPA*, 802.1X) asks.
+function wifiNeedsPassword(sec) {
+  var s = String(sec || "").trim()
+  return s !== "" && s !== "--" && s !== "OWE"
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
+    wifiNeedsPassword: wifiNeedsPassword,
     nodeProps: nodeProps,
     friendlyDeviceLabel: friendlyDeviceLabel,
     nodeLabel: nodeLabel,
@@ -935,7 +916,6 @@ if (typeof module !== "undefined") {
     sameAudioNodes: sameAudioNodes,
     adoptAudioNodes: adoptAudioNodes,
     clampBrightness: clampBrightness,
-    normalizeScale: normalizeScale,
     cleanScale: cleanScale,
     formatScale: formatScale,
     logicalSize: logicalSize,
@@ -977,16 +957,13 @@ if (typeof module !== "undefined") {
     isOpenConnectService: isOpenConnectService,
     isVpncService: isVpncService,
     needsUsername: needsUsername,
-    usernameSetting: usernameSetting,
     nmKindLabel: nmKindLabel,
     mergeVpnDetails: mergeVpnDetails,
     nmTargets: nmTargets,
     nmSummary: nmSummary,
-    nmDetails: nmDetails,
     activeNmProfile: activeNmProfile,
     filterRunnableProfiles: filterRunnableProfiles,
     parseExternalTunnels: parseExternalTunnels,
-    GLYPH_VPN: GLYPH_VPN,
     GLYPH_LOCK: GLYPH_LOCK,
     GLYPH_SHIELD: GLYPH_SHIELD,
     GLYPH_SHIELD_LOCK: GLYPH_SHIELD_LOCK,

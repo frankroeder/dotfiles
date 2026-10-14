@@ -1,4 +1,4 @@
-// Calculator input history (bash-style). Newest first.
+// Calculator: evaluation and input history (bash-style, newest first).
 // QML: import "calc_history.js" as CalcHist
 // Node: require("./calc_history.js")
 
@@ -32,6 +32,24 @@ function step(history, draft, index, delta) {
   return { index: next, text: h[next] }
 }
 
+// "=" query → result string, or null. Arithmetic only: it runs eval() on every keystroke, so a pasted
+// expression must never reach code (it used to see the launcher's ids).
+function calculate(expr) {
+  expr = String(expr || "").trim()
+  if (!expr || !/^(?:[\d\s+\-*\/%^().]|pi|π|e|sqrt)*$/i.test(expr)) return null
+  try {
+    let e = expr.replace(/π/g, "Math.PI").replace(/pi/gi, "Math.PI")
+    e = e.replace(/e\b/g, "Math.E")
+    e = e.replace(/sqrt\(/gi, "Math.sqrt(")
+    e = e.replace(/\^/g, "**")
+    const val = eval(e)
+    if (typeof val === "number" && isFinite(val)) {
+      return Number.isInteger(val) ? val.toString() : parseFloat(val.toFixed(8)).toString()
+    }
+    return null
+  } catch (_) { return null }
+}
+
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { MAX: MAX, push: push, step: step }
+  module.exports = { MAX: MAX, push: push, step: step, calculate: calculate }
 }

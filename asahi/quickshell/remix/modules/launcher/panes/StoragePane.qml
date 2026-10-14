@@ -3,8 +3,6 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
-import Quickshell.Widgets
-import Quickshell.Bluetooth
 import "../../menu" as Menu
 import "../../../"
 import "../quick_models.js" as QuickModels
@@ -92,56 +90,8 @@ Item {
   }
 
   // ---- M3 building blocks (caelestia look) ----
-  component Pill: Rectangle {
-    property string icon
-    property string label
-    property color bg: Style.m3containerHigh
-    property color fg: Style.m3onSurface
-    signal clicked()
-    implicitWidth: pillRow.implicitWidth + 24
-    implicitHeight: 32
-    radius: Style.menuRadiusFull
-    color: pillMa.containsMouse ? Qt.lighter(bg, 1.15) : bg
-    Behavior on color { ColorAnimation { duration: 120 } }
-    Row {
-      id: pillRow
-      anchors.centerIn: parent
-      spacing: 6
-      Text {
-        visible: !!parent.parent.icon; text: parent.parent.icon; color: parent.parent.fg
-        font.family: quickStorageRoot.root.uiFont; font.pixelSize: quickStorageRoot.root.fontPx(12); anchors.verticalCenter: parent.verticalCenter
-      }
-      Text {
-        text: parent.parent.label; color: parent.parent.fg; font.weight: Font.Medium
-        font.family: quickStorageRoot.root.uiSans; font.pixelSize: quickStorageRoot.root.fontPx(10); anchors.verticalCenter: parent.verticalCenter
-      }
-    }
-    MouseArea { id: pillMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
-  }
-
-  component Chip: Rectangle {
-    property string icon
-    property string label
-    property color bg: Style.m3secondaryContainer
-    property color fg: Style.m3onSurface
-    implicitWidth: chipRow.implicitWidth + 20
-    implicitHeight: 28
-    radius: Style.menuRadiusFull
-    color: bg
-    Row {
-      id: chipRow
-      anchors.centerIn: parent
-      spacing: 6
-      Text {
-        text: parent.parent.icon; color: parent.parent.fg
-        font.family: quickStorageRoot.root.uiFont; font.pixelSize: quickStorageRoot.root.fontPx(11); anchors.verticalCenter: parent.verticalCenter
-      }
-      Text {
-        text: parent.parent.label; color: parent.parent.fg; font.weight: Font.Medium
-        font.family: quickStorageRoot.root.uiSans; font.pixelSize: quickStorageRoot.root.fontPx(10); anchors.verticalCenter: parent.verticalCenter
-      }
-    }
-  }
+  component Pill: Menu.MenuPill { fontScale: quickStorageRoot.root.uiFontScale }
+  component Chip: Menu.MenuChip { fontScale: quickStorageRoot.root.uiFontScale }
 
   // Thin usage bar: containerHigh track, accent fill.
   component UsageBar: Rectangle {
@@ -272,22 +222,28 @@ Item {
             }
           }
           Flickable {
+            id: mountFlick
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             contentHeight: mountCol.implicitHeight
             ScrollBar.vertical: Menu.MenuScrollBar { id: mountScroll }
+            // Parented to the Flickable itself: centred over the list, not scrolled with it.
+            Menu.MenuEmptyState {
+              parent: mountFlick
+              anchors.centerIn: parent
+              visible: quickStorageRoot.otherMounts.length === 0
+              fontScale: root.uiFontScale
+              glyph: "󰋊"
+              tint: Style.m3secondary
+              title: root.storageStatus === "scanning" ? "Reading mount points…" : "No other mounts"
+            }
             Column {
               id: mountCol
               // Gutter so the scrollbar never sits on the size column.
               width: parent.width - (mountScroll.overflow ? mountScroll.implicitWidth + 4 : 0)
               spacing: 2
-              Secondary {
-                visible: (root.storageMounts || []).length === 0
-                text: root.storageStatus === "scanning" ? "Reading mount points…" : "No mounts"
-                leftPadding: 8; topPadding: 6
-              }
               Repeater {
                 model: quickStorageRoot.otherMounts
                 delegate: Rectangle {
@@ -313,6 +269,7 @@ Item {
                       Text {
                         Layout.fillWidth: true
                         text: mountRowRoot.modelData.mount
+                        textFormat: Text.PlainText
                         color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(11)
                         font.weight: Font.Medium; elide: Text.ElideMiddle
                       }
@@ -382,6 +339,7 @@ Item {
                     Text {
                       Layout.fillWidth: true
                       text: usbRowRoot.modelData.name || usbRowRoot.modelData.path
+                      textFormat: Text.PlainText
                       color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(11)
                       font.weight: Font.Medium; elide: Text.ElideRight
                     }
@@ -390,21 +348,10 @@ Item {
                         .filter(function(x) { return x }).join(" · ")
                       font.pixelSize: root.fontPx(9)
                     }
-                    Rectangle {
-                      implicitWidth: 24; implicitHeight: 24; radius: 12
-                      color: ejectMa.containsMouse ? Style.m3stateHover : "transparent"
-                      Text {
-                        anchors.centerIn: parent
-                        text: "󰇪"; color: Style.m3onSurfaceVariant
-                        font.family: root.uiFont; font.pixelSize: root.fontPx(12)
-                      }
-                      MouseArea {
-                        id: ejectMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: quickStorageRoot.usbAction(["eject", usbRowRoot.modelData.path])
-                      }
+                    Menu.MenuIconBtn {
+                      implicitWidth: 24; implicitHeight: 24; iconPx: 12; fontScale: root.uiFontScale
+                      icon: "󰇪"
+                      onClicked: quickStorageRoot.usbAction(["eject", usbRowRoot.modelData.path])
                     }
                   }
                   // One line per partition: click mounts, or opens once mounted.
@@ -426,6 +373,7 @@ Item {
                           Secondary {
                             Layout.fillWidth: true
                             text: (partRoot.modelData.label || partRoot.modelData.path.replace("/dev/", "")) + " · " + partRoot.modelData.fstype
+                            textFormat: Text.PlainText
                             color: partMa.containsMouse ? Style.m3onSurface : Style.m3onSurfaceVariant
                             font.pixelSize: root.fontPx(9)
                           }
@@ -463,6 +411,7 @@ Item {
               visible: quickStorageRoot.usbError !== ""
               Layout.fillWidth: true
               text: quickStorageRoot.usbError
+              textFormat: Text.PlainText
               color: Style.red; font.family: root.uiSans; font.pixelSize: root.fontPx(9); elide: Text.ElideRight
             }
           }
@@ -492,22 +441,27 @@ Item {
             }
           }
           Flickable {
+            id: dirFlick
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             contentHeight: dirCol.implicitHeight
             ScrollBar.vertical: Menu.MenuScrollBar { id: dirScroll }
+            Menu.MenuEmptyState {
+              parent: dirFlick
+              anchors.centerIn: parent
+              visible: (root.storageHomeDirs || []).length === 0
+              fontScale: root.uiFontScale
+              glyph: "󰋜"
+              tint: Style.m3tertiary
+              title: root.storageStatus === "scanning" ? "Sizing folders…" : "No folders"
+            }
             Column {
               id: dirCol
               // Gutter so the scrollbar never sits on the size column.
               width: parent.width - (dirScroll.overflow ? dirScroll.implicitWidth + 4 : 0)
               spacing: 2
-              Secondary {
-                visible: (root.storageHomeDirs || []).length === 0
-                text: root.storageStatus === "scanning" ? "Sizing folders…" : "No folders"
-                leftPadding: 8; topPadding: 6
-              }
               Repeater {
                 model: root.storageHomeDirs || []
                 delegate: Rectangle {
@@ -537,6 +491,7 @@ Item {
                         Text {
                           Layout.fillWidth: true
                           text: dirRowRoot.modelData.name
+                          textFormat: Text.PlainText
                           color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(11)
                           font.weight: Font.Medium; elide: Text.ElideMiddle
                         }

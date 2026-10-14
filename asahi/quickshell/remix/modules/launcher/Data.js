@@ -2,6 +2,8 @@
 
 // Sentinels for category drills that pivot to special handling.
 const fileCategory = "Files"
+// Query prefix of each prefixed category: typing it enters the category, entering it types it.
+const categoryPrefix = { Files: ">", Actions: ":", Keys: "?", Websearch: "@", Emoji: ";" }
 
 // fd excludes (same as launcher ref for build dirs).
 const fdExcludes = [
@@ -101,8 +103,9 @@ function deckTint(key) {
 
 const localItems = [
   // System / Session (reached via System category)
-  { title: "Lock Screen", icon: "󰌾", category: "System", keywords: "lock screen security", comment: "Lock the current session", command: ["loginctl", "lock-session"] },
-  { title: "Suspend", icon: "󰒲", category: "System", keywords: "suspend sleep", comment: "Sleep until next wake (s2idle; no hibernate on Asahi)", exec: "systemctl suspend" },
+  { title: "Lock Screen", icon: "󰌾", category: "System", keywords: "lock screen security", comment: "Lock the current session", command: ["asahi-lock"] },
+  // asahi-idle sleep refuses while an external display is on (the DCP hang path) and says so.
+  { title: "Suspend", icon: "󰒲", category: "System", keywords: "suspend sleep", comment: "Sleep until next wake (s2idle; no hibernate on Asahi)", command: ["asahi-idle", "sleep"] },
   { title: "Logout", icon: "󰍃", category: "System", keywords: "logout exit session", comment: "End the Hyprland session", exec: "hyprctl dispatch 'hl.dsp.exit()'", confirm: true },
   { title: "Restart", icon: "󰜉", category: "System", keywords: "restart reboot", comment: "Reboot the machine", exec: "systemctl reboot", confirm: true },
   { title: "Shutdown", icon: "󰐥", category: "System", keywords: "shutdown poweroff", comment: "Power off the machine", exec: "systemctl poweroff", confirm: true },
@@ -131,7 +134,8 @@ function dirname(p) {
   return s >= 0 ? p.substring(0, s) : ""
 }
 function tildify(p, homeDir) {
-  return (homeDir && p.indexOf(homeDir) === 0) ? "~" + p.substring(homeDir.length) : p
+  if (!homeDir || !p) return p || ""
+  return p === homeDir || p.indexOf(homeDir + "/") === 0 ? "~" + p.substring(homeDir.length) : p
 }
 function fileExt(path) {
   const name = basename(path)
@@ -142,11 +146,6 @@ function fileExt(path) {
 function fileIcon(path) {
   return fileIcons[fileExt(path)] || "󰈔"
 }
-function itemKey(item) {
-  if (!item) return ""
-  return item.path || item.exec || item.command || (item.title + "|" + item.category)
-}
-
 // Acronym of a text: first letters of camelCase/word-split tokens.
 // "Visual Studio Code" / "code-oss" -> "vsc" / "co", so "ff" hits Firefox.
 function acronym(text) {
@@ -167,4 +166,65 @@ function desktopKeywords(entry) {
     if (entry && entry.keywords && typeof entry.keywords.join === "function") return entry.keywords.join(" ")
   } catch (e) {}
   return ""
+}
+
+// `hyprctl binds` (text) → [{ combo, desc }] for the Keys panel. Descless binds are dropped (card-only
+// submap keys); labels follow de(mac_nodeadkeys).
+function bindCombo(b) {
+  let key = String(b.key || "")
+  // Lua binds may report "SUPER + <key>"; mods are carried in modmask.
+  const plus = key.lastIndexOf(" + ")
+  if (plus >= 0) key = key.slice(plus + 3)
+  if (!key && b.keycode && b.keycode !== "0") key = "code:" + b.keycode
+  if (!key || key.indexOf("switch:") === 0) return ""
+  const mouseNames = {
+    "mouse:272": "LeftClick", "mouse:273": "RightClick", "mouse:274": "MiddleClick",
+    "mouse_down": "ScrollDown", "mouse_up": "ScrollUp"
+  }
+  if (mouseNames[key]) key = mouseNames[key]
+  // Binds given as raw keycodes would otherwise read "code:12".
+  // Labels follow de(mac_nodeadkeys): AD11 is "ü", AD12 is "+".
+  const codeNames = {
+    "code:12": "3", "code:13": "4", "code:14": "5",
+    "code:34": "ü", "code:35": "+"
+  }
+  if (codeNames[key]) key = codeNames[key]
+  // Media / brightness keysyms: "XF86AudioLowerVolume" → "LowerVolume", "XF86MonBrightnessUp" → "BrightnessUp".
+  key = key.replace(/^XF86(Audio|Mon)?/, "")
+  const mask = Number(b.modmask) || 0
+  const parts = []
+  if (mask & 64) parts.push("Super")
+  if (mask & 4) parts.push("Ctrl")
+  if (mask & 8) parts.push("Alt")
+  if (mask & 1) parts.push("Shift")
+  parts.push(key)
+  return parts.join("+")
+}
+
+function parseHyprBinds(text) {
+  const rows = []
+  const seen = {}
+  const lines = String(text || "").split("\n")
+  let cur = null
+  const flush = function() {
+    if (!cur) return
+    const desc = (cur.description || "").trim()
+    const combo = bindCombo(cur)
+    // Repeat variants (binde) duplicate their base bind; keep the first.
+    const dedup = combo + "|" + desc
+    if (desc && combo && !seen[dedup]) {
+      seen[dedup] = true
+      rows.push({ combo: combo, desc: desc })
+    }
+    cur = null
+  }
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (line.indexOf("bind") === 0) { flush(); cur = {}; continue }
+    if (!cur) continue
+    const m = line.match(/^\t([a-z]+): ?(.*)$/)
+    if (m) cur[m[1]] = m[2]
+  }
+  flush()
+  return rows
 }

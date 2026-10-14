@@ -3,12 +3,10 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
-import Quickshell.Widgets
 import Quickshell.Bluetooth
 import "../../menu" as Menu
 import "../../../"
 import "../quick_models.js" as QuickModels
-import "../launcher_layout.js" as LauncherGeom
 
 // Bluetooth pane: adapter, paired and discovered devices.
 // `root` is the LauncherWindow (fontPx, uiFont/uiSans, launcherGeom, quickMode, quickPaneKey, binDir, ...).
@@ -16,7 +14,10 @@ Item {
   property var root
   id: quickBtRoot
   anchors.fill: parent
-  property bool btOn: Bluetooth.defaultAdapter && Bluetooth.defaultAdapter.enabled
+  // Live from BlueZ; never assigned (a `bluetoothctl show` poll and the optimistic toggle broke this binding).
+  readonly property bool btOn: !!Bluetooth.defaultAdapter && Bluetooth.defaultAdapter.enabled
+  // A power toggle takes seconds (BlueZ confirms, then rfkill): the switch dims, the status says so.
+  readonly property bool btPowerBusy: btPowerProc.running
   property var btDevs: (Bluetooth.devices && Bluetooth.devices.values) ? Bluetooth.devices.values : []
   property string btAlias: "Bluetooth"
   property string btTooltip: ""
@@ -159,11 +160,6 @@ Item {
   }
 
   Process {
-    id: btStat
-    command: ["sh", "-c", "bluetoothctl show 2>/dev/null || true"]
-    stdout: StdioCollector { onStreamFinished: quickBtRoot.btOn = (text || "").indexOf("Powered: yes") !== -1 }
-  }
-  Process {
     id: btJsonProc
     command: [root.binDir + "/asahi-bluetooth"]
     stdout: StdioCollector {
@@ -203,7 +199,7 @@ Item {
       if (!btJsonProc.running) btJsonProc.running = true
     }
   }
-  Timer { id: btDelay; interval: 500; onTriggered: { if (btStat) btStat.running = true; if (btJsonProc) btJsonProc.running = true } }
+  Timer { id: btDelay; interval: 500; onTriggered: if (!btJsonProc.running) btJsonProc.running = true }
   // Pending-state failsafe (omarchy's pendingTimeout): if BlueZ never
   // reports the transition, stop showing spinner text after 20s.
   Timer { id: btPendingTimeout; interval: 20000; onTriggered: quickBtRoot.btPending = ({}) }
@@ -223,10 +219,7 @@ Item {
     running: root.shouldShow && root.quickMode && root.quickPaneKey === "bluetooth"
     repeat: true
     triggeredOnStart: true
-    onTriggered: {
-      if (!btJsonProc.running) btJsonProc.running = true
-      if (!btStat.running) btStat.running = true
-    }
+    onTriggered: if (!btJsonProc.running) btJsonProc.running = true
   }
   // BlueZ discovery sessions time out on their own; keep the scan alive
   // while it is requested (omarchy's discoveryRetry).
@@ -250,20 +243,21 @@ Item {
     if ((quickBtRoot.btScanRequested || quickBtRoot.btStopTries > 0) && Bluetooth.defaultAdapter)
       Bluetooth.defaultAdapter.discovering = false
   }
-  function refreshBt() {
-    if (btStat && !btStat.running) btStat.running = true
-    if (btJsonProc && !btJsonProc.running) btJsonProc.running = true
-  }
   function toggleBt() {
+    if (btPowerProc.running) return
     const next = quickBtRoot.btOn ? "off" : "on"
     // Otherwise the keep-alive timer restarts the scan at the next power-on.
     if (next === "off" && quickBtRoot.btScanRequested) quickBtRoot.stopScan()
-    Quickshell.execDetached([root.binDir + "/asahi-bluetooth-power", next])
-    quickBtRoot.btOn = !quickBtRoot.btOn
-    btDelay.restart()
+    btPowerProc.target = next
+    // A transient unit: a pane switch must not kill `off` between the BlueZ power-off and the rfkill block.
+    btPowerProc.command = ["systemd-run", "--user", "--wait", "--quiet", "--collect", root.binDir + "/asahi-bluetooth-power", next]
+    btPowerProc.running = true
   }
-
-  Component.onCompleted: quickBtRoot.refreshBt()
+  Process {
+    id: btPowerProc
+    property string target: ""
+    onExited: btDelay.restart()
+  }
 
   // Nerd glyph by BlueZ device icon name (caelestia getBluetoothIcon).
   function devGlyph(icon, connected) {
@@ -279,112 +273,11 @@ Item {
     return connected ? "󰂱" : "󰂯"
   }
 
-  // ---- M3 building blocks (caelestia look) ----
-  component Pill: Rectangle {
-    property string icon
-    property string label
-    property color bg: Style.m3containerHigh
-    property color fg: Style.m3onSurface
-    signal clicked()
-    implicitWidth: pillRow.implicitWidth + 24
-    implicitHeight: 32
-    radius: Style.menuRadiusFull
-    color: pillMa.containsMouse ? Qt.lighter(bg, 1.15) : bg
-    Behavior on color { ColorAnimation { duration: 120 } }
-    Row {
-      id: pillRow
-      anchors.centerIn: parent
-      spacing: 6
-      Text {
-        visible: !!parent.parent.icon; text: parent.parent.icon; color: parent.parent.fg
-        font.family: quickBtRoot.root.uiFont; font.pixelSize: quickBtRoot.root.fontPx(12); anchors.verticalCenter: parent.verticalCenter
-      }
-      Text {
-        text: parent.parent.label; color: parent.parent.fg; font.weight: Font.Medium
-        font.family: quickBtRoot.root.uiSans; font.pixelSize: quickBtRoot.root.fontPx(10); anchors.verticalCenter: parent.verticalCenter
-      }
-    }
-    MouseArea { id: pillMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
-  }
-
-  component Chip: Rectangle {
-    property string icon
-    property string label
-    property color bg: Style.m3secondaryContainer
-    property color fg: Style.m3onSurface
-    implicitWidth: chipRow.implicitWidth + 18
-    implicitHeight: 24
-    radius: Style.menuRadiusFull
-    color: bg
-    Row {
-      id: chipRow
-      anchors.centerIn: parent
-      spacing: 5
-      Text {
-        text: parent.parent.icon; color: parent.parent.fg
-        font.family: quickBtRoot.root.uiFont; font.pixelSize: quickBtRoot.root.fontPx(10); anchors.verticalCenter: parent.verticalCenter
-      }
-      Text {
-        text: parent.parent.label; color: parent.parent.fg; font.weight: Font.Medium
-        font.family: quickBtRoot.root.uiSans; font.pixelSize: quickBtRoot.root.fontPx(9); anchors.verticalCenter: parent.verticalCenter
-      }
-    }
-  }
-
-  // Round link / link_off button: filled m3primary while connected (caelestia).
-  component LinkBtn: Rectangle {
-    property bool active: false
-    property bool busy: false
-    signal clicked()
-    width: 32; height: 32; radius: 16
-    color: active ? Style.m3primary : (linkMa.containsMouse && !busy ? Style.m3stateHover : "transparent")
-    opacity: busy ? 0.6 : 1
-    Behavior on color { ColorAnimation { duration: 120 } }
-    Text {
-      anchors.centerIn: parent
-      text: parent.busy ? "󰔟" : (parent.active ? "󰌷" : "󰌸")
-      color: parent.active ? Style.m3onPrimary : Style.m3onSurface
-      font.family: quickBtRoot.root.uiFont; font.pixelSize: quickBtRoot.root.fontPx(14)
-    }
-    MouseArea {
-      id: linkMa; anchors.fill: parent; hoverEnabled: true
-      cursorShape: parent.busy ? Qt.ArrowCursor : Qt.PointingHandCursor
-      onClicked: if (!parent.busy) parent.clicked()
-    }
-  }
-
-  component IconBtn: Rectangle {
-    property string icon
-    property color tone: Style.m3onSurfaceVariant
-    property color hot: Style.m3onSurface
-    signal clicked()
-    width: 30; height: 30; radius: 15
-    color: iconMa.containsMouse ? Style.m3stateHover : "transparent"
-    Text {
-      anchors.centerIn: parent; text: parent.icon; color: iconMa.containsMouse ? parent.hot : parent.tone
-      font.family: quickBtRoot.root.uiFont; font.pixelSize: quickBtRoot.root.fontPx(13)
-    }
-    MouseArea { id: iconMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
-  }
-
-  // M3 switch: 34x18 track, 14 knob, m3primary when on.
-  component M3Switch: Rectangle {
-    property bool checked: false
-    signal toggled()
-    width: 34; height: 18; radius: 9
-    color: checked ? Style.m3primary : Style.m3containerHigh
-    border.width: checked ? 0 : 1
-    border.color: Style.m3outline
-    Behavior on color { ColorAnimation { duration: 160 } }
-    Rectangle {
-      width: 14; height: 14; radius: 7
-      x: parent.checked ? parent.width - width - 2 : 2
-      anchors.verticalCenter: parent.verticalCenter
-      color: parent.checked ? Style.m3onPrimary : Style.m3outline
-      Behavior on x { Menu.MenuAnim {} }
-    }
-    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: parent.toggled() }
-  }
+  // ---- M3 building blocks (shared menu widgets) ----
+  component Pill: Menu.MenuPill { fontScale: quickBtRoot.root.uiFontScale }
+  component Chip: Menu.MenuChip { fontScale: quickBtRoot.root.uiFontScale }
+  component IconBtn: Menu.MenuIconBtn { fontScale: quickBtRoot.root.uiFontScale }
+  component LinkBtn: Menu.MenuLinkBtn { fontScale: quickBtRoot.root.uiFontScale }
 
   component Secondary: Text {
     color: Style.m3onSurfaceVariant
@@ -428,6 +321,7 @@ Item {
           Secondary {
             Layout.fillWidth: true
             text: {
+              if (quickBtRoot.btPowerBusy) return btPowerProc.target === "on" ? "Turning on…" : "Turning off…"
               if (!quickBtRoot.btOn) return "Bluetooth is off"
               const extra = (quickBtRoot.btTooltip || "").split("\n").slice(2).join(" · ").trim()
               const n = quickBtRoot.btConnectedCount
@@ -441,14 +335,17 @@ Item {
           visible: quickBtRoot.btOn
           icon: quickBtRoot.btScanRequested ? "󰔟" : "󰐷"
           label: quickBtRoot.btScanRequested ? "Scanning…" : "Scan"
-          bg: quickBtRoot.btScanRequested ? Style.m3primaryContainer : Style.m3containerHigh
-          fg: quickBtRoot.btScanRequested ? Style.m3primary : Style.m3onSurface
+          selected: quickBtRoot.btScanRequested
           onClicked: quickBtRoot.toggleScan()
         }
         Row {
           spacing: 8
           Secondary { text: "Enabled"; font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter }
-          M3Switch { checked: quickBtRoot.btOn; onToggled: quickBtRoot.toggleBt(); anchors.verticalCenter: parent.verticalCenter }
+          Menu.MenuSwitch {
+            anchors.verticalCenter: parent.verticalCenter
+            checked: quickBtRoot.btOn; locked: quickBtRoot.btPowerBusy
+            onToggled: quickBtRoot.toggleBt()
+          }
         }
       }
     }
@@ -479,7 +376,8 @@ Item {
             width: parent.width
             spacing: 2
             Repeater {
-              model: quickBtRoot.btRows || []
+              // Diffed by address: a JS-array model rebuilt every row on each refresh tick.
+              model: ScriptModel { objectProp: "address"; values: quickBtRoot.btRows }
               delegate: Column {
                 id: btDelegate
                 required property var modelData
@@ -529,6 +427,7 @@ Item {
                       spacing: 0
                       Text {
                         Layout.fillWidth: true
+                        textFormat: Text.PlainText
                         text: btDelegate.modelData.label
                         color: Style.m3onSurface
                         font.family: root.uiSans; font.pixelSize: root.fontPx(11)

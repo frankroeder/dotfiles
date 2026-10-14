@@ -4,15 +4,11 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import Quickshell.Widgets
-import Quickshell.Hyprland
-import Quickshell.Services.Mpris
-import Quickshell.Services.Pipewire
 import "../../menu" as Menu
 import "../../wallpaper" as Wallpaper
 import "../../wallpaper/wallpaper_thumbs.js" as WallThumbs
 import "../../../"
 import "../quick_models.js" as QuickModels
-import "../launcher_layout.js" as LauncherGeom
 
 // Monitors pane: layout preview, per-display scale / mode / refresh, brightness, on/off.
 // `root` is the LauncherWindow (fontPx, uiFont/uiSans, launcherGeom, quickMode, quickPaneKey, binDir, ...).
@@ -25,16 +21,10 @@ Item {
   property var mons: []
   property string monRaw: ""
   property var monSaved: ({})
-  property int monVersion: 0
   property string monStatus: ""
 
   function luaString(value) { return "\"" + String(value || "").replace(/\\/g, "\\\\").replace(/"/g, "\\\"") + "\"" }
-  function monitorMode(m) {
-    if (!m) return "preferred"
-    const rr = m.refreshRate ? "@" + Number(m.refreshRate).toFixed(3) : ""
-    return (m.width || 0) + "x" + (m.height || 0) + rr
-  }
-  // Display text only; monitorMode() is the Hyprland mode string.
+  // Display text only; QuickModels.monitorModeString is the Hyprland mode string.
   function monitorModeLabel(m) {
     if (!m) return ""
     const hz = m.refreshRate ? " · " + Math.round(Number(m.refreshRate) * 100) / 100 + " Hz" : ""
@@ -49,6 +39,14 @@ Item {
   function monitorLogicalWidth(m) { return ((m.transform || 0) % 2 ? (m.height || 1080) : (m.width || 1920)) / Math.max(0.25, m.scale || 1) }
   function monitorLogicalHeight(m) { return ((m.transform || 0) % 2 ? (m.width || 1920) : (m.height || 1080)) / Math.max(0.25, m.scale || 1) }
   readonly property bool anyMirrored: (quickMonitorsRoot.mons || []).some(QuickModels.isMirroring)
+  // The layout mode the header highlights: mirror, external only (eDP-1 off), extend (2+ outputs).
+  readonly property string displayMode: {
+    const list = quickMonitorsRoot.mons || []
+    if (quickMonitorsRoot.anyMirrored) return "mirror"
+    const edp = list.find(m => m && m.name === "eDP-1")
+    if (edp && edp.disabled && quickMonitorsRoot.enabledMonCount > 0) return "external"
+    return quickMonitorsRoot.enabledMonCount > 1 ? "extend" : ""
+  }
 
   // Mirror carries the mirror field and nothing else. A mode here forces a DCP
   // modeset (see asahi-hdmi: an HDMI modeset at the wrong moment freezes the
@@ -56,6 +54,7 @@ Item {
   // whenever the mirror does not take ("layout is set up incorrectly").
   // Hyprland owns a mirror's geometry.
   function mirrorMonitors() {
+    if (quickMonitorsRoot.blockedByRevert()) return
     const src = QuickModels.mirrorSource(quickMonitorsRoot.mons)
     const targets = QuickModels.mirrorTargets(quickMonitorsRoot.mons, src)
     if (!src || !targets.length) { quickMonitorsRoot.monStatus = "Nothing to mirror"; return }
@@ -71,8 +70,10 @@ Item {
   function unmirrorMonitors() { quickMonitorsRoot.revertLayout("Unmirroring...") }
   // Extend = back to the configured layout: drop kept HDMI / DP positions first,
   // then reload (config.reloaded runs asahi-hdmi sync / place, which read the layout file).
+  // External only leaves the clamshell flag (also once kept) and the reload's clamshell apply
+  // would turn eDP-1 off again: open it first, unless the lid really is closed (then the flag's
+  // inhibitor is what keeps the closed lid from suspending).
   function extendMonitors() {
-    const clamshell = quickMonitorsRoot.revertClamshell
     quickMonitorsRoot.keepPositions = ({})
     quickMonitorsRoot.revertClamshell = false
     quickMonitorsRoot.revertLua = ""
@@ -80,12 +81,14 @@ Item {
     quickMonitorsRoot.monStatus = "Reloading monitors..."
     const resets = (quickMonitorsRoot.mons || []).filter(m => /^(HDMI|DP)/.test(m.name))
       .map(m => root.binDir + "/asahi-hdmi reset " + m.name)
-    const last = clamshell ? root.binDir + "/asahi-clamshell open" : "hyprctl reload"
-    Quickshell.execDetached(["bash", "-c", resets.concat([last]).join("; ")])
+    const cs = root.binDir + "/asahi-clamshell"
+    const open = ". " + root.binDir + "/lib/common.sh; " + cs + " status && ! lid_closed && " + cs + " open"
+    Quickshell.execDetached(["bash", "-c", resets.concat([open, "hyprctl reload"]).join("; ")])
     monDelay.restart()
   }
   property bool revertClamshell: false
   function externalOnlyMonitors() {
+    if (quickMonitorsRoot.blockedByRevert()) return
     const list = quickMonitorsRoot.mons || []
     const edp = list.find(m => m && m.name === "eDP-1")
     const external = QuickModels.enabledMonitors(list).find(m => m.name !== "eDP-1")
@@ -141,7 +144,14 @@ Item {
   }
   function disarmRevert() {
     quickMonitorsRoot.revertLeft = 0
+    quickMonitorsRoot.refused = false
     revertTimer.stop()
+  }
+  // One change on probation at a time: a second one would overwrite the first one's undo.
+  property bool refused: false
+  function blockedByRevert() {
+    if (quickMonitorsRoot.revertLeft > 0) quickMonitorsRoot.refused = true
+    return quickMonitorsRoot.revertLeft > 0
   }
   // Arranged positions waiting for Keep; Keep writes them via asahi-hdmi save
   // (~/.local/state/asahi/monitor-layout.json) so replug / reload keep them.
@@ -154,6 +164,7 @@ Item {
     quickMonitorsRoot.revertClamshell = false
     quickMonitorsRoot.revertLua = ""
     quickMonitorsRoot.disarmRevert()
+    quickMonitorsRoot.monStatus = "Kept"
   }
   // Park the launcher on an output that survives the change, so Keep / Unmirror
   // stay visible and clickable (the panel is pinned to root.launcherScreen).
@@ -219,7 +230,7 @@ Item {
     if (!m) { quickMonitorsRoot.monStatus = "No focused monitor"; return }
     const clean = QuickModels.cleanScale(scale, m.width, m.height)
     if (!clean) { quickMonitorsRoot.monStatus = "Invalid scale"; return }
-    quickMonitorsRoot.applyMonitorConfig(m, quickMonitorsRoot.monitorMode(m), clean, m.name + " scale " + clean + "...")
+    quickMonitorsRoot.applyMonitorConfig(m, QuickModels.monitorModeString(m), clean, m.name + " scale " + clean + "...")
   }
 
   // ---- Resolution / refresh for the focused monitor ----
@@ -245,6 +256,7 @@ Item {
   // monitor positions in monitors.lua — auto would rearrange the layout).
   // Re-abut after a size change so a leftover x/y cannot open a cursor gap.
   function applyMonitorConfig(m, mode, scale, status) {
+    if (quickMonitorsRoot.blockedByRevert()) return
     const parsed = QuickModels.parseModeString(mode)
     const s = Math.max(0.25, Number(scale) || 1)
     const newW = parsed ? parsed.width / s : quickMonitorsRoot.monitorLogicalWidth(m)
@@ -263,7 +275,7 @@ Item {
   // ---- Rotation (transform 0-3 = 0/90/180/270°), on probation like mirror ----
   function setRotation(t) {
     const m = quickMonitorsRoot.focusedMon
-    if (!m || (m.transform || 0) === t) return
+    if (!m || (m.transform || 0) === t || quickMonitorsRoot.blockedByRevert()) return
     quickMonitorsRoot.applyRevertable("hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name) + ", transform = " + t + " })",
       m.name + " rotate " + (t * 90) + "°...")
   }
@@ -318,6 +330,7 @@ Item {
     quickMonitorsRoot.draft = d
   }
   function applyDraft() {
+    if (quickMonitorsRoot.blockedByRevert()) return
     const d = quickMonitorsRoot.draft
     const calls = Object.keys(d).map(n => "hl.monitor({ output = " + quickMonitorsRoot.luaString(n)
       + ", position = " + quickMonitorsRoot.luaString(d[n].x + "x" + d[n].y) + " })")
@@ -333,7 +346,7 @@ Item {
   // ---- Per-display enable/disable (guarded: never the last one) ----
   readonly property int enabledMonCount: QuickModels.enabledMonitors(quickMonitorsRoot.mons).length
   function toggleMonitor(m) {
-    if (!m || !m.name) return
+    if (!m || !m.name || quickMonitorsRoot.blockedByRevert()) return
     if (!m.disabled && quickMonitorsRoot.enabledMonCount <= 1) {
       quickMonitorsRoot.monStatus = "Won't disable the last display"
       return
@@ -362,8 +375,9 @@ Item {
     command: ["hyprctl", "monitors", "all", "-j"]
     stdout: StdioCollector {
       onStreamFinished: {
-        // Same JSON → keep the array: a new one rebuilds every preview box
-        // (the 3 s poll made them blink out and spring back in).
+        // A "..." status (rescan, mirror, external only) is done once a scan answers.
+        if (quickMonitorsRoot.monStatus.endsWith("...")) quickMonitorsRoot.monStatus = ""
+        // Same JSON → keep the array (every binding on mons would re-evaluate).
         const raw = (text || "").trim() || "[]"
         if (raw === quickMonitorsRoot.monRaw) return
         quickMonitorsRoot.monRaw = raw
@@ -372,7 +386,6 @@ Item {
         for (const mon of (quickMonitorsRoot.mons || []))
           saved = QuickModels.rememberEnabledMonitor(saved, mon)
         quickMonitorsRoot.monSaved = saved
-        quickMonitorsRoot.monVersion = (quickMonitorsRoot.monVersion + 1) % 1000
       }
     }
   }
@@ -394,8 +407,6 @@ Item {
       if (!brightProc.running) brightProc.running = true
     }
   }
-
-  Component.onCompleted: Qt.callLater(function(){ if (!monScan.running) monScan.running = true })
 
   // ---- Span wallpaper (asahi-wallpaper-span, idea: omarchy-wallpaper-cutter) ----
   // One image across the layout; the bezel gap (logical px) widens every seam. The script writes
@@ -483,35 +494,6 @@ Item {
     }
   }
 
-  // M3 switch: 34x18 track, 14 knob, primary when on. `locked` = last enabled display.
-  component ToggleSwitch: Rectangle {
-    id: sw
-    property bool on: false
-    property bool locked: false
-    signal toggled()
-    implicitWidth: 34; implicitHeight: 18
-    radius: Style.menuRadiusFull
-    color: sw.on ? Style.m3primary : Style.m3containerHigh
-    border.width: sw.on ? 0 : 1
-    border.color: Style.m3outline
-    opacity: sw.locked ? 0.45 : 1
-    Behavior on color { ColorAnimation { duration: 120 } }
-    Rectangle {
-      x: sw.on ? sw.width - width - 2 : 2
-      anchors.verticalCenter: parent.verticalCenter
-      width: 14; height: 14; radius: 7
-      color: sw.on ? Style.m3onPrimary : Style.m3outline
-      Behavior on x { Menu.MenuAnim { effects: true } }
-    }
-    MouseArea {
-      anchors.fill: parent
-      anchors.margins: -4
-      hoverEnabled: true
-      cursorShape: sw.locked ? Qt.ArrowCursor : Qt.PointingHandCursor
-      onClicked: if (!sw.locked) sw.toggled()
-    }
-  }
-
   // Settings row: label (+ hint) on the left, control on the right, hairline divider above.
   component SettingRow: Rectangle {
     id: setRow
@@ -563,19 +545,15 @@ Item {
         }
       }
       Item { Layout.fillWidth: true }
+      // One mode at a time, the current one filled. Tapping a filled Mirror unmirrors. Span is a
+      // wallpaper setting, not a layout mode: it is the switch above the bezel gap below.
       ActionPill {
-        label: quickMonitorsRoot.anyMirrored ? "Unmirror" : "Mirror"
-        tonal: quickMonitorsRoot.anyMirrored
+        label: "Mirror"
+        tonal: quickMonitorsRoot.displayMode === "mirror"
         onTapped: quickMonitorsRoot.anyMirrored ? quickMonitorsRoot.unmirrorMonitors() : quickMonitorsRoot.mirrorMonitors()
       }
-      ActionPill { label: "Extend"; onTapped: quickMonitorsRoot.extendMonitors() }
-      // Tonal while one wallpaper spans the displays.
-      ActionPill {
-        label: "Span"
-        tonal: !!quickMonitorsRoot.span.enabled
-        onTapped: quickMonitorsRoot.spanRun([tonal ? "off" : "on"])
-      }
-      ActionPill { label: "External"; onTapped: quickMonitorsRoot.externalOnlyMonitors() }
+      ActionPill { label: "Extend"; tonal: quickMonitorsRoot.displayMode === "extend"; onTapped: quickMonitorsRoot.extendMonitors() }
+      ActionPill { label: "External"; tonal: quickMonitorsRoot.displayMode === "external"; onTapped: quickMonitorsRoot.externalOnlyMonitors() }
       ActionPill { label: "Rescan"; onTapped: quickMonitorsRoot.rescanMonitors() }
     }
 
@@ -629,14 +607,20 @@ Item {
           return { s: s, minX: minX, minY: minY, ox: (width - spanX * s) / 2, oy: (height - spanY * s) / 2 }
         }
         readonly property var geom: vizArea.frozen || vizArea.liveGeom
-        Text {
+        Menu.MenuEmptyState {
           visible: !(quickMonitorsRoot.mons || []).length
           anchors.centerIn: parent
-          text: "Loading… rescan"
-          color: Style.m3outline; font.pixelSize: root.fontPx(10); font.family: root.uiSans
+          fontScale: root.uiFontScale
+          glyph: "󰍹"
+          tint: Style.m3primary
+          title: "Loading displays…"
+          actionIcon: "󰑐"
+          actionLabel: "Rescan"
+          onAction: quickMonitorsRoot.rescanMonitors()
         }
         Repeater {
-          model: quickMonitorsRoot.mons || []
+          // Diffed by output name: boxes keep their delegates (and glide) when a scan changes them.
+          model: ScriptModel { objectProp: "name"; values: quickMonitorsRoot.mons || [] }
           delegate: Rectangle {
             id: vizMon
             required property var modelData
@@ -760,32 +744,44 @@ Item {
       }
     }
 
-    // Bezel gap while spanning: one value for every seam.
+    // Wallpaper span (one image across the displays) and, while on, its bezel gap: one value for every seam.
     Rectangle {
       Layout.fillWidth: true
-      visible: !!quickMonitorsRoot.span.enabled
-      implicitHeight: gapRow.implicitHeight
+      visible: quickMonitorsRoot.enabledMonCount > 1 || !!quickMonitorsRoot.span.enabled
+      implicitHeight: spanCol.implicitHeight
       radius: Style.menuRadiusLg
       color: Style.m3container
-      SettingRow {
-        id: gapRow
+      ColumnLayout {
+        id: spanCol
         anchors.left: parent.left; anchors.right: parent.right
-        divider: false
-        label: "Bezel gap"; hint: "between displays"
-        RowLayout {
-          width: parent.width; spacing: 12
-          Menu.MenuSlider {
-            Layout.fillWidth: true
-            value: Math.min(1, quickMonitorsRoot.spanGap / quickMonitorsRoot.spanGapMax)
-            onMoved: function(v) {
-              quickMonitorsRoot.spanGap = Math.round(v * quickMonitorsRoot.spanGapMax / quickMonitorsRoot.spanGapStep) * quickMonitorsRoot.spanGapStep
-              gapSet.restart()
-            }
+        spacing: 0
+        SettingRow {
+          divider: false
+          label: "Span"; hint: "one wallpaper across"
+          Menu.MenuSwitch {
+            anchors.right: parent.right
+            checked: !!quickMonitorsRoot.span.enabled
+            onToggled: quickMonitorsRoot.spanRun([checked ? "off" : "on"])
           }
-          Text {
-            text: quickMonitorsRoot.spanGap ? quickMonitorsRoot.spanGap + " px" : "None"
-            color: Style.m3onSurface; font.pixelSize: root.fontPx(10); font.family: root.uiSans; font.weight: Font.DemiBold
-            Layout.preferredWidth: root.fontPx(40); horizontalAlignment: Text.AlignRight
+        }
+        SettingRow {
+          visible: !!quickMonitorsRoot.span.enabled
+          label: "Bezel gap"; hint: "between displays"
+          RowLayout {
+            width: parent.width; spacing: 12
+            Menu.MenuSlider {
+              Layout.fillWidth: true
+              value: Math.min(1, quickMonitorsRoot.spanGap / quickMonitorsRoot.spanGapMax)
+              onMoved: function(v) {
+                quickMonitorsRoot.spanGap = Math.round(v * quickMonitorsRoot.spanGapMax / quickMonitorsRoot.spanGapStep) * quickMonitorsRoot.spanGapStep
+                gapSet.restart()
+              }
+            }
+            Text {
+              text: quickMonitorsRoot.spanGap ? quickMonitorsRoot.spanGap + " px" : "None"
+              color: Style.m3onSurface; font.pixelSize: root.fontPx(10); font.family: root.uiSans; font.weight: Font.DemiBold
+              Layout.preferredWidth: root.fontPx(40); horizontalAlignment: Text.AlignRight
+            }
           }
         }
       }
@@ -830,9 +826,10 @@ Item {
             text: dispCol.fm && dispCol.fm.disabled ? "Off" : "On"
             color: Style.m3onSurfaceVariant; font.pixelSize: root.fontPx(10); font.family: root.uiSans
           }
-          ToggleSwitch {
-            on: !!dispCol.fm && !dispCol.fm.disabled
-            locked: on && quickMonitorsRoot.enabledMonCount <= 1
+          // Locked on the last enabled display.
+          Menu.MenuSwitch {
+            checked: !!dispCol.fm && !dispCol.fm.disabled
+            locked: checked && quickMonitorsRoot.enabledMonCount <= 1
             onToggled: quickMonitorsRoot.toggleMonitor(dispCol.fm)
           }
         }
@@ -869,6 +866,9 @@ Item {
               : modelData.key === "res" ? (quickMonitorsRoot.resolutionOpts || [])
               : modelData.key === "rot" ? [0, 1, 2, 3] : (quickMonitorsRoot.refreshOpts || [])
             label: modelData.label; hint: modelData.hint || ""
+            // A disabled output takes no mode / scale / rotation (the rule would enable it): enable it first.
+            enabled: !!quickMonitorsRoot.focusedMon && !quickMonitorsRoot.focusedMon.disabled
+            opacity: enabled ? 1 : 0.45
             // Rotation on externals only: a rotated eDP-1 breaks the bar's notch cutout.
             visible: modelData.key === "scale" || opts.length > 1
               && (modelData.key !== "rot" || (!!quickMonitorsRoot.focusedMon && quickMonitorsRoot.focusedMon.name !== "eDP-1"))
@@ -924,9 +924,12 @@ Item {
       }
       Text {
         Layout.fillWidth: true
-        readonly property bool bad: quickMonitorsRoot.monStatus.indexOf("fail") >= 0 || quickMonitorsRoot.monStatus.indexOf("No ") >= 0
+        readonly property bool bad: quickMonitorsRoot.refused
+          || quickMonitorsRoot.monStatus.indexOf("fail") >= 0 || quickMonitorsRoot.monStatus.indexOf("No ") >= 0
         text: quickMonitorsRoot.draftDirty ? "Unapplied layout changes"
-          : quickMonitorsRoot.revertLeft > 0 ? "Keep this layout? Reverting in " + quickMonitorsRoot.revertLeft + "s"
+          : quickMonitorsRoot.revertLeft > 0
+            ? (quickMonitorsRoot.refused ? "Keep or revert first · reverting in " : "Keep this layout? Reverting in ")
+              + quickMonitorsRoot.revertLeft + "s"
           : (quickMonitorsRoot.monStatus && quickMonitorsRoot.monStatus !== "ok" ? quickMonitorsRoot.monStatus : "Layout matches your displays · drag to arrange")
         color: bad ? Style.red : Style.m3onSurfaceVariant
         font.pixelSize: root.fontPx(9); font.family: root.uiSans; elide: Text.ElideRight

@@ -383,8 +383,12 @@ assert(
   "no per-pane title/close row above the pane Loader"
 );
 assert(
-  /function selectDeckIndex\(/.test(launcherQmlOnly) && /function showQuickPane\(/.test(launcherQmlOnly),
-  "Quick rail has selectDeckIndex + showQuickPane"
+  /function selectDeckIndex\(/.test(launcherQmlOnly) && !/expandedQuickKey/.test(launcherQmlOnly),
+  "Quick rail selection alone picks the pane (selectDeckIndex, no expandedQuickKey fallback)"
+);
+assert(
+  /root\.quickStartIndex = idx[\s\S]{0,80}root\.categoryFilter = "Quick"/.test(launcherQmlOnly),
+  "openQuick picks the pane before entering Quick (no throwaway Hub on shortcut opens)"
 );
 assert(
   /list\[Math\.max\(0, Math\.min\(list\.length - 1, root\.selectedIndex\)\)\]/.test(launcherQmlOnly),

@@ -3,8 +3,6 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
-import Quickshell.Widgets
-import Quickshell.Bluetooth
 import "../../menu" as Menu
 import "../../../"
 import "../temp_display.js" as TempDisplay
@@ -71,27 +69,7 @@ Item {
     onTriggered: if (!tProc.running) tProc.running = true
   }
 
-  Component.onCompleted: Qt.callLater(function(){ if (!tProc.running) tProc.running = true })
-
-  // Full-round fact chip: glyph + text on a tonal container.
-  component Chip: Rectangle {
-    property string icon: ""
-    property string label: ""
-    property color bg: Style.m3secondaryContainer
-    implicitWidth: chipRow.implicitWidth + 22; implicitHeight: chipRow.implicitHeight + 12
-    radius: Style.menuRadiusFull; color: bg
-    Row {
-      id: chipRow; anchors.centerIn: parent; spacing: 6
-      Text {
-        visible: icon !== ""; text: icon; color: Style.m3onSurface
-        font.family: root.uiFont; font.pixelSize: root.fontPx(11); anchors.verticalCenter: parent.verticalCenter
-      }
-      Text {
-        text: label; color: Style.m3onSurface
-        font.family: root.uiSans; font.pixelSize: root.fontPx(11); font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter
-      }
-    }
-  }
+  component Chip: Menu.MenuChip { fontScale: root.uiFontScale }
 
   // Sensor row: name + description, thin heat bar, °C value coloured by heat.
   // Width is bound to tempValues[sensorKey] so live polls do not rebuild the row

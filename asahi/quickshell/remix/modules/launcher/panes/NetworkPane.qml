@@ -3,14 +3,9 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
-import Quickshell.Widgets
-import Quickshell.Hyprland
-import Quickshell.Services.Mpris
-import Quickshell.Services.Pipewire
 import "../../menu" as Menu
 import "../../../"
 import "../quick_models.js" as QuickModels
-import "../launcher_layout.js" as LauncherGeom
 
 // Network pane: Wi-Fi / LAN / VPN state and controls, network list, tools.
 // `root` is the LauncherWindow (fontPx, uiFont/uiSans, launcherGeom, quickMode, quickPaneKey, binDir, ...).
@@ -25,12 +20,12 @@ Item {
   ScriptModel { id: wifiNetworksModel; objectProp: "ssid"; values: quickNetworkRoot.wifiNetworks || [] }
   property bool wifiEnabled: true
   property string currentWifiSsid: ""
+  property bool wifiScanned: false
   // False until the first asahi-network answer: show "Checking…" instead of
   // flashing "No network" / "Not connected" for a frame.
   property bool wifiChecked: false
   property bool wifiScanning: false
   property string wifiDevice: ""
-  property string wifiLabel: "WiFi"
   property string wifiTooltip: ""
   property string ethDevice: ""
   property string ethState: ""
@@ -40,7 +35,6 @@ Item {
   property var activeConnections: []
   property bool showPasswordPrompt: false
   property string pendingSsid: ""
-  property string pendingSec: ""
   property string passwordError: ""
   property string connectingSsid: ""
 
@@ -109,13 +103,7 @@ Item {
   function notifyNet(title, body) {
     Quickshell.execDetached(["notify-send", "-a", "Network", title, body])
   }
-  function openNetworkEditor() {
-    root.execAndClose([root.binDir + "/asahi-launch", "nm-connection-editor"])
-  }
-  function rescanWifi() {
-    Quickshell.execDetached(["nmcli", "device", "wifi", "rescan"])
-    Qt.callLater(quickNetworkRoot.scanWifi)
-  }
+  function rescanWifi() { quickNetworkRoot.scanWifi(true) }
   function disconnectWifi() {
     if (!quickNetworkRoot.wifiDevice) return
     Quickshell.execDetached(["nmcli", "device", "disconnect", quickNetworkRoot.wifiDevice])
@@ -214,7 +202,7 @@ Item {
   function toggleEth() {
     if (quickNetworkRoot.ethConnected) Quickshell.execDetached(["nmcli", "device", "disconnect", quickNetworkRoot.ethDevice])
     else Quickshell.execDetached(["nmcli", "device", "connect", quickNetworkRoot.ethDevice])
-    Qt.callLater(function() { if (ethCheck && !ethCheck.running) ethCheck.running = true })
+    Qt.callLater(function() { ethCheck.running = true })
   }
   function disconnectSsid(ssid) {
     Quickshell.execDetached(["nmcli", "con", "down", "id", ssid])
@@ -235,7 +223,7 @@ Item {
     const merged = QuickModels.mergeVpnDetails(connections, details || {})
     const runnable = QuickModels.filterRunnableProfiles(merged, quickNetworkRoot.vpnTools)
     quickNetworkRoot.vpnProfiles = runnable
-    let targets = QuickModels.nmTargets(runnable, "")
+    let targets = QuickModels.nmTargets(runnable)
     let hasTuhh = false
     for (let i = 0; i < targets.length; i++) {
       if ((targets[i].gateway || "").indexOf("tuhh.de") !== -1 || targets[i].label === "TUHH-VPN")
@@ -270,18 +258,8 @@ Item {
     vpnListProc.running = true
   }
   function startVpnUp(target) {
-    if (quickNetworkRoot.isTuhhTarget(target)) {
-      quickNetworkRoot.launchTuhhVpn()
-      return
-    } else if (QuickModels.needsUsername(target) && target.hasUsername === false) {
-      quickNetworkRoot.vpnError = "\"" + target.label + "\" has no username"
-      quickNetworkRoot.vpnBusy = false
-      quickNetworkRoot.vpnStage = ""
-      return
-    } else {
-      vpnConnectProc.command = ["nmcli"].concat(target.args || [])
-      quickNetworkRoot.vpnStatus = "Connecting to " + target.label + "…"
-    }
+    vpnConnectProc.command = ["nmcli"].concat(target.args || [])
+    quickNetworkRoot.vpnStatus = "Connecting to " + target.label + "…"
     quickNetworkRoot.vpnError = ""
     quickNetworkRoot.vpnBusy = true
     vpnConnectProc.running = true
@@ -300,6 +278,11 @@ Item {
       quickNetworkRoot.vpnBusy = true
       vpnConnectProc.command = ["nmcli", "connection", "down", "uuid", target.uuid]
       vpnConnectProc.running = true
+      return
+    }
+    // Refuse before the handover: a profile without its username used to drop the working VPN first.
+    if (QuickModels.needsUsername(target) && target.hasUsername === false) {
+      quickNetworkRoot.vpnError = "\"" + target.label + "\" has no username"
       return
     }
     const active = QuickModels.activeNmProfile(quickNetworkRoot.vpnProfiles)
@@ -323,8 +306,11 @@ Item {
   }
   function maybeFetchPublicIp() {
     const ext = (quickNetworkRoot.vpnExternal[0] && quickNetworkRoot.vpnExternal[0].device) || ""
-    const key = quickNetworkRoot.vpnSummary + "|" + ext
+    // Another Wi-Fi / LAN / tunnel is another public IP: refetch, and drop the old one meanwhile.
+    const key = [quickNetworkRoot.vpnSummary, ext, quickNetworkRoot.currentWifiSsid,
+      quickNetworkRoot.ethConnected ? quickNetworkRoot.ethConnection : ""].join("|")
     if (key === quickNetworkRoot.vpnIpKey && quickNetworkRoot.vpnPublicIp) return
+    if (key !== quickNetworkRoot.vpnIpKey) quickNetworkRoot.vpnPublicIp = ""
     quickNetworkRoot.vpnIpKey = key
     const xhr = new XMLHttpRequest()
     xhr.onreadystatechange = function() {
@@ -343,8 +329,7 @@ Item {
   function requestConnect(ssid, sec) {
     // One attempt at a time: a second tap would overwrite targetSsid.
     if (connectProc.running || savedCheckProc.running) return
-    quickNetworkRoot.pendingSec = sec || ""
-    if (!sec) { quickNetworkRoot.doConnect(ssid, null); return }
+    if (!QuickModels.wifiNeedsPassword(sec)) { quickNetworkRoot.doConnect(ssid, null); return }
     savedCheckProc.targetSsid = ssid
     savedCheckProc.command = [
       "bash", "-c",
@@ -356,34 +341,40 @@ Item {
   }
   // Stays open (omarchy behavior): the row shows "Connecting…", failures
   // reopen the passphrase prompt with the reason instead of bailing to an
-  // external editor.
+  // external editor. A typed passphrase runs as a transient unit that deletes the
+  // profile `connect` just created when it fails: a pane switch mid-connect used to
+  // leave that wrong-passphrase profile, which later taps connected without a prompt.
+  // SSID / PSK reach it through the environment (-E NAME copies ours), not systemd-run's argv.
   function doConnect(ssid, pass) {
     quickNetworkRoot.showPasswordPrompt = false
     quickNetworkRoot.passwordError = ""
     quickNetworkRoot.connectingSsid = ssid
     connectProc.targetSsid = ssid
-    connectProc.usedPassword = !!(pass && pass.length)
-    let cmd = "nmcli dev wifi connect " + root.shQuote(ssid)
-    if (pass && pass.length) cmd += " password " + root.shQuote(pass)
-    connectProc.command = ["bash", "-c", cmd]
+    connectProc.usedPassword = !!pass
+    connectProc.environment = pass ? { SSID: ssid, PSK: pass } : {}
+    connectProc.command = pass
+      ? ["systemd-run", "--user", "--wait", "--quiet", "--collect", "-E", "SSID", "-E", "PSK", "bash", "-c",
+        "nmcli dev wifi connect \"$SSID\" password \"$PSK\" || { nmcli connection delete id \"$SSID\"; exit 1; }"]
+      : ["nmcli", "dev", "wifi", "connect", ssid]
     connectProc.running = true
   }
 
-  function scanWifi() {
+  // `rescan` forces a fresh scan (Rescan pill); the poll takes NetworkManager's list (auto: a forced
+  // off-channel scan every 6 s skewed the latency chips and starved Bluetooth on the shared radio).
+  function scanWifi(rescan) {
     // Radio off (or still settling after a toggle): no point scanning —
     // repeated failed scans while off were a major source of list churn.
     if (quickNetworkRoot.wifiEnabled && !radioSettle.running) {
       quickNetworkRoot.wifiScanning = true
-      wifiListProc.command = quickNetworkRoot.wifiDevice
-        ? ["nmcli", "-w", "8", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY,FREQ", "dev", "wifi", "list", "ifname", quickNetworkRoot.wifiDevice, "--rescan", "yes"]
-        : ["nmcli", "-w", "8", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY,FREQ", "dev", "wifi", "list", "--rescan", "yes"]
+      wifiListProc.command = ["nmcli", "-w", "8", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY,FREQ", "dev", "wifi", "list"]
+        .concat(quickNetworkRoot.wifiDevice ? ["ifname", quickNetworkRoot.wifiDevice] : [], ["--rescan", rescan ? "yes" : "auto"])
       if (!wifiListProc.running) wifiListProc.running = true
     }
-    if (typeof wifiProc !== 'undefined' && wifiProc) wifiProc.running = true
-    if (typeof wifiPowerCheck !== 'undefined' && wifiPowerCheck) wifiPowerCheck.running = true
-    if (typeof ethCheck !== 'undefined' && ethCheck) ethCheck.running = true
-    if (typeof activeConnProc !== 'undefined' && activeConnProc) activeConnProc.running = true
-    if (typeof savedWifiProc !== 'undefined' && savedWifiProc && !savedWifiProc.running) savedWifiProc.running = true
+    wifiProc.running = true
+    wifiPowerCheck.running = true
+    ethCheck.running = true
+    activeConnProc.running = true
+    savedWifiProc.running = true
     quickNetworkRoot.refreshVpn()
   }
 
@@ -394,11 +385,11 @@ Item {
       onStreamFinished: {
         try {
           const d = JSON.parse((text || "").trim() || "{}")
-          quickNetworkRoot.wifiLabel = (d.text || "WiFi").replace(/<[^>]*>/g, "")
           quickNetworkRoot.wifiTooltip = d.tooltip || ""
           quickNetworkRoot.wifiChecked = true
+          // Fast first answer while the first scan runs; after that the scan's in-use row owns the SSID.
           const m = (d.tooltip || "").match(/^Connected to (.+)$/m)
-          if (m) quickNetworkRoot.currentWifiSsid = m[1].trim()
+          if (m && !quickNetworkRoot.wifiScanned) quickNetworkRoot.currentWifiSsid = m[1].trim()
         } catch (_) {}
       }
     }
@@ -406,51 +397,53 @@ Item {
   Process {
     id: wifiListProc
     command: ["true"]  // set dynamically in scanWifi before .running (avoids init-time wifiDevice + ensures reactive)
-    stdout: StdioCollector { onStreamFinished: {
-        quickNetworkRoot.wifiScanning = false
-        const lines = (text || "").trim().split("\n").filter(l => l)
-        const out = []; const seen = {}
-        for (const line of lines) {
-          const p = QuickModels.nmcliFields(line)
-          if (p.length < 3) continue
-          const ssid = p[1] || ""
-          if (!ssid || seen[ssid]) continue
-          seen[ssid] = true
-          const inUse = p[0] === "*"
-          const isCurrent = inUse || (ssid === quickNetworkRoot.currentWifiSsid)
-          out.push({
-            ssid: ssid, signal: parseInt(p[2])||0, sec: p[3]||"", active: isCurrent,
-            known: quickNetworkRoot.savedWifi[ssid] === true,
-            band: QuickModels.formatHeaderFreq(p[4] || "")
-          })
-        }
-        // A scan can momentarily report only the active AP; keep the last list.
-        let next = out
-        if (out.length === 1 && out[0].active && (quickNetworkRoot.wifiNetworks || []).length > 1) {
-          next = [out[0]].concat((quickNetworkRoot.wifiNetworks || []).filter(n => n.ssid !== out[0].ssid))
-        }
-        // omarchy ordering: connected, then known, then by signal.
-        next.sort(function(a, b) {
-          if (a.active !== b.active) return a.active ? -1 : 1
-          if (a.known !== b.known) return a.known ? -1 : 1
-          return b.signal - a.signal
-        })
-        next = next.slice(0, 20)
-        for (let i = 0; i < next.length; i++) {
-          const curKnown = next[i].active || next[i].known
-          const prevKnown = i > 0 ? (next[i - 1].active || next[i - 1].known) : null
-          next[i].section = ""
-          if (i === 0 && curKnown) next[i].section = "Known networks"
-          else if (!curKnown && (i === 0 || prevKnown)) next[i].section = "Other networks"
-        }
-        // Only reassign when contents actually changed — a fresh array per
-        // 6s poll rebuilt every Repeater row and made the list twitch.
-        if (JSON.stringify(next) !== JSON.stringify(quickNetworkRoot.wifiNetworks))
-          quickNetworkRoot.wifiNetworks = next
-      }
-    }
+    stdout: StdioCollector { id: wifiListOut; waitForEnd: true }
     stderr: StdioCollector {}
-    onExited: (code) => { if (code !== 0) quickNetworkRoot.wifiScanning = false }
+    onExited: function(code) {
+      quickNetworkRoot.wifiScanning = false
+      // A failed / timed-out scan keeps the last list and SSID.
+      if (code !== 0) return
+      const rows = (wifiListOut.text || "").trim().split("\n").filter(l => l).map(l => QuickModels.nmcliFields(l))
+      // The SSID is the in-use row's, so a dropped link clears it (the status tooltip never did).
+      const inUse = rows.find(p => p[0] === "*")
+      quickNetworkRoot.currentWifiSsid = inUse ? inUse[1] || "" : ""
+      quickNetworkRoot.wifiScanned = true
+      const out = []; const seen = {}
+      for (const p of rows) {
+        if (p.length < 3) continue
+        const ssid = p[1] || ""
+        if (!ssid || seen[ssid]) continue
+        seen[ssid] = true
+        out.push({
+          ssid: ssid, signal: parseInt(p[2])||0, sec: p[3]||"", active: ssid === quickNetworkRoot.currentWifiSsid,
+          known: quickNetworkRoot.savedWifi[ssid] === true,
+          band: QuickModels.formatHeaderFreq(p[4] || "")
+        })
+      }
+      // A scan can momentarily report only the active AP; keep the last list.
+      let next = out
+      if (out.length === 1 && out[0].active && (quickNetworkRoot.wifiNetworks || []).length > 1) {
+        next = [out[0]].concat((quickNetworkRoot.wifiNetworks || []).filter(n => n.ssid !== out[0].ssid))
+      }
+      // omarchy ordering: connected, then known, then by signal.
+      next.sort(function(a, b) {
+        if (a.active !== b.active) return a.active ? -1 : 1
+        if (a.known !== b.known) return a.known ? -1 : 1
+        return b.signal - a.signal
+      })
+      next = next.slice(0, 20)
+      for (let i = 0; i < next.length; i++) {
+        const curKnown = next[i].active || next[i].known
+        const prevKnown = i > 0 ? (next[i - 1].active || next[i - 1].known) : null
+        next[i].section = ""
+        if (i === 0 && curKnown) next[i].section = "Known networks"
+        else if (!curKnown && (i === 0 || prevKnown)) next[i].section = "Other networks"
+      }
+      // Only reassign when contents actually changed — a fresh array per
+      // 6s poll rebuilt every Repeater row and made the list twitch.
+      if (JSON.stringify(next) !== JSON.stringify(quickNetworkRoot.wifiNetworks))
+        quickNetworkRoot.wifiNetworks = next
+    }
   }
   Process {
     id: wifiPowerCheck
@@ -461,6 +454,11 @@ Item {
         // radio state, which flip-flopped the Enable/Disable button.
         if (radioProc.running || radioSettle.running) return
         quickNetworkRoot.wifiEnabled = (text || "").trim().indexOf("enabled") !== -1
+        // Radio off, also from outside the pane: no stale list or "Connected".
+        if (!quickNetworkRoot.wifiEnabled) {
+          quickNetworkRoot.wifiNetworks = []
+          quickNetworkRoot.currentWifiSsid = ""
+        }
       }
     }
   }
@@ -532,9 +530,8 @@ Item {
         quickNetworkRoot.notifyNet("Connected", connectProc.targetSsid)
         quickNetworkRoot.currentWifiSsid = connectProc.targetSsid
       } else if (connectProc.usedPassword) {
-        // A failed connect with a typed passphrase: drop the new profile and re-prompt.
-        // Never a saved one (out of range / DHCP timeout would delete its settings).
-        Quickshell.execDetached(["nmcli", "connection", "delete", "id", connectProc.targetSsid])
+        // A failed connect with a typed passphrase (the unit dropped its new profile): re-prompt.
+        // Saved profiles never get here (out of range / DHCP timeout must not delete their settings).
         quickNetworkRoot.pendingSsid = connectProc.targetSsid
         quickNetworkRoot.passwordError = "Wrong password — try again"
         quickNetworkRoot.showPasswordPrompt = true
@@ -716,8 +713,6 @@ Item {
   Timer { interval: 1500; running: quickNetworkRoot.live; repeat: true; triggeredOnStart: true; onTriggered: quickNetworkRoot.sampleThroughput() }
   Timer { interval: 4000; running: quickNetworkRoot.live; repeat: true; triggeredOnStart: true; onTriggered: { if (!pingProc.running) pingProc.running = true } }
 
-  Component.onCompleted: Qt.callLater(quickNetworkRoot.scanWifi)
-
   // ---- M3 building blocks (caelestia look) ----
   readonly property var activeNet: (quickNetworkRoot.wifiNetworks || []).find(function(n) { return n.active }) || null
   readonly property var signalGlyphs: ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"]
@@ -733,115 +728,11 @@ Item {
     color: Style.m3container
   }
 
-  component Pill: Rectangle {
-    property string icon
-    property string label
-    property color bg: Style.m3containerHigh
-    property color fg: Style.m3onSurface
-    signal clicked()
-    implicitWidth: pillRow.implicitWidth + 24
-    implicitHeight: 32
-    radius: Style.menuRadiusFull
-    color: pillMa.containsMouse ? Qt.lighter(bg, 1.15) : bg
-    Behavior on color { ColorAnimation { duration: 120 } }
-    Row {
-      id: pillRow
-      anchors.centerIn: parent
-      spacing: 6
-      Text {
-        visible: !!parent.parent.icon; text: parent.parent.icon; color: parent.parent.fg
-        font.family: quickNetworkRoot.root.uiFont; font.pixelSize: quickNetworkRoot.root.fontPx(12); anchors.verticalCenter: parent.verticalCenter
-      }
-      Text {
-        text: parent.parent.label; color: parent.parent.fg; font.weight: Font.Medium
-        font.family: quickNetworkRoot.root.uiSans; font.pixelSize: quickNetworkRoot.root.fontPx(10); anchors.verticalCenter: parent.verticalCenter
-      }
-    }
-    MouseArea { id: pillMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
-  }
-
-  // Stats chip: icon + Medium label in a tonal pill; optional click (public IP copies).
-  component Chip: Rectangle {
-    property string icon
-    property string label
-    property color bg: Style.m3secondaryContainer
-    property color fg: Style.m3onSurface
-    property bool clickable: false
-    property int fixedWidth: 0
-    signal clicked()
-    implicitWidth: fixedWidth > 0 ? fixedWidth : chipRow.implicitWidth + 18
-    implicitHeight: 28
-    width: implicitWidth
-    radius: Style.menuRadiusFull
-    color: clickable && chipMa.containsMouse ? Qt.lighter(bg, 1.15) : bg
-    Row {
-      id: chipRow
-      anchors.centerIn: parent
-      spacing: 6
-      Text {
-        text: parent.parent.icon; color: parent.parent.fg
-        font.family: quickNetworkRoot.root.uiFont; font.pixelSize: quickNetworkRoot.root.fontPx(11); anchors.verticalCenter: parent.verticalCenter
-      }
-      Text {
-        text: parent.parent.label; color: parent.parent.fg; font.weight: Font.Medium
-        font.family: quickNetworkRoot.root.uiSans; font.pixelSize: quickNetworkRoot.root.fontPx(10); anchors.verticalCenter: parent.verticalCenter
-      }
-    }
-    MouseArea {
-      id: chipMa; anchors.fill: parent; hoverEnabled: parent.clickable; enabled: parent.clickable
-      cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked()
-    }
-  }
-
-  // Round link / link_off button: filled m3primary while connected (caelestia).
-  component LinkBtn: Rectangle {
-    property bool active: false
-    property bool busy: false
-    signal clicked()
-    width: 32; height: 32; radius: 16
-    color: active ? Style.m3primary : (linkMa.containsMouse ? Style.m3stateHover : "transparent")
-    Behavior on color { ColorAnimation { duration: 120 } }
-    Text {
-      anchors.centerIn: parent
-      text: parent.busy ? "󰔟" : (parent.active ? "󰌷" : "󰌸")
-      color: parent.active ? Style.m3onPrimary : Style.m3onSurface
-      font.family: quickNetworkRoot.root.uiFont; font.pixelSize: quickNetworkRoot.root.fontPx(14)
-    }
-    MouseArea { id: linkMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
-  }
-
-  component IconBtn: Rectangle {
-    property string icon
-    property color tone: Style.m3onSurfaceVariant
-    property color hot: Style.m3onSurface
-    signal clicked()
-    width: 30; height: 30; radius: 15
-    color: iconMa.containsMouse ? Style.m3stateHover : "transparent"
-    Text {
-      anchors.centerIn: parent; text: parent.icon; color: iconMa.containsMouse ? parent.hot : parent.tone
-      font.family: quickNetworkRoot.root.uiFont; font.pixelSize: quickNetworkRoot.root.fontPx(13)
-    }
-    MouseArea { id: iconMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
-  }
-
-  // M3 switch: 34x18 track, 14 knob, m3primary when on.
-  component M3Switch: Rectangle {
-    property bool checked: false
-    signal toggled()
-    width: 34; height: 18; radius: 9
-    color: checked ? Style.m3primary : Style.m3containerHigh
-    border.width: checked ? 0 : 1
-    border.color: Style.m3outline
-    Behavior on color { ColorAnimation { duration: 160 } }
-    Rectangle {
-      width: 14; height: 14; radius: 7
-      x: parent.checked ? parent.width - width - 2 : 2
-      anchors.verticalCenter: parent.verticalCenter
-      color: parent.checked ? Style.m3onPrimary : Style.m3outline
-      Behavior on x { Menu.MenuAnim {} }
-    }
-    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: parent.toggled() }
-  }
+  component Pill: Menu.MenuPill { fontScale: quickNetworkRoot.root.uiFontScale }
+  // Stats chip: `fixedWidth` for the live rates, `clickable` for the public IP (copies).
+  component Chip: Menu.MenuChip { fontScale: quickNetworkRoot.root.uiFontScale }
+  component LinkBtn: Menu.MenuLinkBtn { fontScale: quickNetworkRoot.root.uiFontScale }
+  component IconBtn: Menu.MenuIconBtn { fontScale: quickNetworkRoot.root.uiFontScale }
 
   component CardTitle: Text {
     color: Style.m3onSurface
@@ -886,7 +777,7 @@ Item {
                 ? QuickModels.wifiRadioStatus(quickNetworkRoot.wifiEnabled, quickNetworkRoot.currentWifiSsid) : "Checking…"
             }
             Item { Layout.fillWidth: true }
-            M3Switch { checked: quickNetworkRoot.wifiEnabled; onToggled: quickNetworkRoot.toggleWifi() }
+            Menu.MenuSwitch { checked: quickNetworkRoot.wifiEnabled; onToggled: quickNetworkRoot.toggleWifi() }
           }
           RowLayout {
             Layout.fillHeight: false
@@ -900,6 +791,7 @@ Item {
                 spacing: 8
                 Text {
                   Layout.fillWidth: true
+                  textFormat: Text.PlainText
                   text: quickNetworkRoot.currentWifiSsid
                     || (!quickNetworkRoot.wifiChecked ? "Checking…" : (quickNetworkRoot.wifiEnabled ? "No network" : "—"))
                   color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(15)
@@ -939,7 +831,7 @@ Item {
                 Pill {
                   visible: !!quickNetworkRoot.currentWifiSsid && quickNetworkRoot.wifiEnabled
                   icon: "󰐲"; label: quickNetworkRoot.wifiQrPath ? "Hide QR" : "Share QR"
-                  bg: quickNetworkRoot.wifiQrPath ? Style.m3primaryContainer : Style.m3secondaryContainer
+                  bg: Style.m3secondaryContainer; selected: !!quickNetworkRoot.wifiQrPath
                   onClicked: quickNetworkRoot.toggleWifiQr()
                 }
                 Pill {
@@ -947,7 +839,7 @@ Item {
                   icon: "󰖩"
                   label: bandSetProc.running ? "Switching…"
                     : (quickNetworkRoot.wifiBand === "auto" ? "Band auto" : quickNetworkRoot.wifiBand + " GHz")
-                  bg: quickNetworkRoot.wifiBand === "auto" ? Style.m3secondaryContainer : Style.m3primaryContainer
+                  bg: Style.m3secondaryContainer; selected: !!quickNetworkRoot.wifiBand && quickNetworkRoot.wifiBand !== "auto"
                   onClicked: quickNetworkRoot.cycleBand()
                 }
               }
@@ -1166,7 +1058,6 @@ Item {
             }
           }
           Item { Layout.fillWidth: true }
-          IconBtn { icon: "󰑐"; onClicked: { quickNetworkRoot.scanWifi(); if (ethCheck && !ethCheck.running) ethCheck.running = true } }
           Pill {
             icon: quickNetworkRoot.wifiScanning ? "󰔟" : "󰤨"; label: "Rescan networks"
             bg: Style.m3primaryContainer
@@ -1217,6 +1108,7 @@ Item {
                   font.family: root.uiFont; font.pixelSize: root.fontPx(11)
                 }
                 Text {
+                  textFormat: Text.PlainText
                   text: netDelegate.modelData.ssid
                   color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(11)
                   font.weight: netDelegate.modelData.active ? Font.Medium : Font.Normal; elide: Text.ElideRight
@@ -1295,7 +1187,7 @@ Item {
   Rectangle {
     anchors.fill: parent
     radius: Style.menuRadiusLg
-    color: Qt.rgba(0, 0, 0, 0.55)
+    color: Style.menuDim
     visible: quickNetworkRoot.showPasswordPrompt
     // Clear the field and hand focus back on hide; otherwise keystrokes go into the invisible input.
     onVisibleChanged: {
@@ -1323,6 +1215,7 @@ Item {
           Text { text: "󰌾"; color: Style.m3primary; font.family: root.uiFont; font.pixelSize: root.fontPx(16) }
           Text {
             Layout.fillWidth: true
+            textFormat: Text.PlainText
             text: quickNetworkRoot.pendingSsid
             color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(14); font.weight: Font.DemiBold; elide: Text.ElideRight
           }
@@ -1356,7 +1249,9 @@ Item {
               else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
                 quickNetworkRoot.doConnect(quickNetworkRoot.pendingSsid, text); event.accepted = true
               }
-              else if (event.key === Qt.Key_Up || event.key === Qt.Key_Down) event.accepted = true
+              // Tab would move focus to the launcher: the rest of the passphrase landed, readable, in its search field.
+              else if (event.key === Qt.Key_Up || event.key === Qt.Key_Down || event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab)
+                event.accepted = true
               else if ((event.key === Qt.Key_Left && cursorPosition === 0)
                        || (event.key === Qt.Key_Right && cursorPosition === text.length)) event.accepted = true
             }

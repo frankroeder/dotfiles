@@ -1,13 +1,9 @@
 #!/usr/bin/env node
 "use strict";
 
+// Hub (Quick > Dashboard) layout guards on LauncherWindow.qml.
 const fs = require("fs");
 const path = require("path");
-
-const shipped = require("./hub_logo.js");
-if (typeof shipped.parseLogo !== "function") {
-  throw new Error("shipped hub_logo.js did not export parseLogo");
-}
 
 let failed = 0;
 function assert(cond, msg) {
@@ -18,35 +14,9 @@ function assert(cond, msg) {
   }
 }
 
-const fixturePath = path.join(__dirname, "fixtures", "fastfetch_title.stdout");
-const stdout = fs.readFileSync(fixturePath, "utf8");
-console.log("fixture " + fixturePath + " bytes " + stdout.length);
-
-const lines = shipped.parseLogo(stdout);
-const joined = shipped.logoText(stdout);
-console.log("parsed " + lines.length + " logo lines");
-console.log("first " + JSON.stringify(lines[0] || ""));
-console.log("joined-head " + JSON.stringify(joined.slice(0, 80)));
-
-assert(lines.length >= 4, "at least 4 non-empty logo-art lines (got " + lines.length + ")");
-assert(
-  lines.every(function (l) { return l.indexOf("\u001b") === -1 && !/\x1b\[[0-9;]*[A-Za-z]/.test(l); }),
-  "no CSI / ESC in parsed logo lines"
-);
-assert(
-  lines.every(function (l) { return !/[A-Za-z0-9._-]+@[A-Za-z0-9._-]+/.test(l); }),
-  "no user@host title in parsed logo lines"
-);
-assert(joined === lines.join("\n"), "logoText is join of parseLogo lines (hub logo field)");
-assert(
-  lines.some(function (l) { return l.indexOf("@") >= 0; }),
-  "Fedora small-logo art still contains @ glyphs (not dropped as title)"
-);
-
 const qmlPath = path.join(__dirname, "LauncherWindow.qml");
 const qml = fs.readFileSync(qmlPath, "utf8");
-// The hub shows the OS as a logo tile (caelestia User card); the ASCII art
-// parser stays available for other consumers but is not wired into the QML.
+// The hub shows the OS as a logo tile (caelestia User card), not fastfetch's ASCII art.
 assert(qml.indexOf("ffLogoText") === -1, "hub no longer binds the fastfetch ASCII logo");
 assert(
   qml.indexOf('indexOf("@")') === -1,
@@ -77,11 +47,6 @@ assert(
   /maximumLineCount:\s*width\s*>\s*80\s*\?\s*2\s*:\s*1/.test(valueBlock[0]),
   "hub info values may wrap two lines in a shared grid row"
 );
-const minLead = Math.min.apply(null, lines.map(function (l) {
-  const m = l.match(/^(\s*)/);
-  return m ? m[1].length : 0;
-}));
-assert(minLead === 0, "logo shared leading indent is stripped (got " + minLead + ")");
 assert(
   /id:\s*ffInfoBody[\s\S]{0,80}GridLayout/.test(qml) || /GridLayout\s*\{\s*id:\s*ffInfoBody/.test(qml),
   "hub facts sit in a shared GridLayout so wrapped rows stay aligned"
@@ -103,13 +68,6 @@ assert(
     && /Layout\.maximumHeight:\s*Math\.round\(root\.launcherGeom\.rowHTall \* 3\.6\)/.test(qml),
   "hub meters height follows adaptive rowHTall (2.7–3.6 rows)"
 );
-
-const maxLen = Math.max.apply(null, lines.map(function (l) { return l.length; }));
-assert(
-  lines.every(function (l) { return !/\.+$/.test(l); }),
-  "parsed logo lines have trailing shade dots stripped"
-);
-assert(maxLen <= 36, "shade-trimmed logo max width <= 36 cols (got " + maxLen + ")");
 
 if (failed > 0) {
   console.log("\n" + failed + " assertion(s) failed");

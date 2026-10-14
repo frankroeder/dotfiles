@@ -2,13 +2,9 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Io
 import Quickshell.Widgets
-import Quickshell.Bluetooth
 import "../../menu" as Menu
 import "../../../"
-import "../quick_models.js" as QuickModels
-import "../launcher_layout.js" as LauncherGeom
 import "../gallery.js" as Gallery
 
 // Screenshots / recordings gallery pane (M3 caelestia look).
@@ -26,45 +22,11 @@ Item {
   }
   readonly property var items: shotsPane.videoMode ? (root.videos || []) : (root.shots || [])
 
-  // Full-round pill: segmented tab (selected) or action button.
-  component Pill: Rectangle {
-    property string icon
-    property string label
-    property bool selected: false
-    property color bg: Style.m3container
-    property color fg: Style.m3onSurface
-    signal clicked()
-    implicitWidth: pillRow.implicitWidth + 24; implicitHeight: 32
-    radius: Style.menuRadiusFull
-    color: selected ? Style.m3secondaryContainer : (pma.containsMouse ? Qt.lighter(bg, 1.15) : bg)
-    Behavior on color { ColorAnimation { duration: 120 } }
-    Row {
-      id: pillRow; anchors.centerIn: parent; spacing: 7
-      Text {
-        text: parent.parent.icon; color: parent.parent.fg; font.family: root.uiFont; font.pixelSize: root.fontPx(12)
-        anchors.verticalCenter: parent.verticalCenter
-      }
-      Text {
-        text: parent.parent.label; color: parent.parent.fg; font.family: root.uiSans; font.pixelSize: root.fontPx(10)
-        font.weight: parent.parent.selected ? Font.DemiBold : Font.Medium; anchors.verticalCenter: parent.verticalCenter
-      }
-    }
-    MouseArea { id: pma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
-  }
-
+  // Segmented tab (selected) or action pill, on the pane background.
+  component Pill: Menu.MenuPill { fontScale: root.uiFontScale; bg: Style.m3container }
   // Small round icon button floating over a thumbnail.
-  component IconBtn: Rectangle {
-    property string icon
-    property color tone: Style.m3onSurface
-    signal clicked()
-    width: 28; height: 28; radius: 14
-    color: ima.containsMouse ? Style.m3containerHigh : Style.m3surface
-    Behavior on color { ColorAnimation { duration: 120 } }
-    Text { anchors.centerIn: parent; text: parent.icon; color: parent.tone; font.family: root.uiFont; font.pixelSize: root.fontPx(12) }
-    MouseArea {
-      id: ima; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-      onClicked: (mouse) => { mouse.accepted = true; parent.clicked() }
-    }
+  component IconBtn: Menu.MenuIconBtn {
+    fontScale: root.uiFontScale; implicitWidth: 28; implicitHeight: 28; iconPx: 12; tone: Style.m3onSurface; bg: Style.m3surface
   }
 
   ColumnLayout {
@@ -127,6 +89,8 @@ Item {
           readonly property bool copied: root.copiedShot === modelData.path
           width: shotGrid.cellWidth
           height: shotGrid.cellHeight
+          // reuseItems: an armed delete must not carry over to the next file this cell shows.
+          GridView.onPooled: delArm.stop()
 
           ClippingRectangle {
             id: tile
@@ -224,7 +188,16 @@ Item {
               IconBtn { visible: !shotsPane.videoMode; icon: "󰋲"; onClicked: root.previewShot(cell.modelData.path) }
               IconBtn { visible: !shotsPane.videoMode; icon: "󰆏"; onClicked: root.copyShot(cell.modelData.path) }
               IconBtn { icon: "󰏌"; onClicked: root.openShot(cell.modelData.path) }
-              IconBtn { icon: "󰆴"; tone: Style.red; onClicked: root.deleteShot(cell.modelData.path) }
+              // Deleting takes two clicks (the first arms it red for 3 s); the file goes to the trash.
+              IconBtn {
+                icon: "󰆴"; tone: delArm.running ? Style.m3onPrimary : Style.red; bg: delArm.running ? Style.red : Style.m3surface
+                onClicked: {
+                  if (!delArm.running) { delArm.restart(); return }
+                  delArm.stop()
+                  root.deleteShot(cell.modelData.path)
+                }
+                Timer { id: delArm; interval: 3000 }
+              }
             }
           }
           // Outline on hover / copied.

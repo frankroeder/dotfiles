@@ -278,17 +278,14 @@ const merged = M.mergeVpnDetails(
 assert.strictEqual(merged[0].kind, "openconnect")
 assert.strictEqual(merged[0].gateway, "any1.rz.tuhh.de")
 
-const helper = "/dotfiles/asahi/bin/asahi-openconnect-auth"
 const ocTargets = M.nmTargets([
   { name: "TUHH-VPN", uuid: "uuid-oc", kind: "openconnect", active: false, gateway: "any1.rz.tuhh.de" },
   { name: "Home", uuid: "uuid-wg", kind: "wireguard", active: false }
-], helper)
-assert.deepStrictEqual(ocTargets[0].command, [helper, "uuid-oc"])
+])
 assert.strictEqual(ocTargets[0].detail, "OpenConnect profile")
 assert.strictEqual(ocTargets[0].glyph, M.GLYPH_SHIELD_LOCK)
-assert.strictEqual(ocTargets[1].command, undefined)
+assert.strictEqual(ocTargets[0].gateway, "any1.rz.tuhh.de")
 assert.deepStrictEqual(ocTargets[1].args, ["connection", "up", "uuid", "uuid-wg"])
-assert.strictEqual(M.nmTargets([{ name: "Work", uuid: "uuid-oc", kind: "openconnect", active: false }])[0].command, undefined)
 
 const ovpn = M.nmTargets([
   { name: "Work", uuid: "uuid-1", kind: "vpn", active: false, hasUsername: false }
@@ -297,12 +294,6 @@ assert.strictEqual(ovpn[0].detail, "No username set")
 assert.strictEqual(M.nmSummary([]), "No profiles")
 assert.strictEqual(M.nmSummary([{ name: "Work", active: false }]), "Not connected")
 assert.strictEqual(M.nmSummary([{ name: "TUHH-VPN", active: true }]), "TUHH-VPN")
-
-const ocLive = M.nmDetails([
-  { name: "TUHH-VPN", uuid: "uuid-oc", kind: "openconnect", active: true, gateway: "any1.rz.tuhh.de" }
-])
-assert.deepStrictEqual(ocLive[1], { label: "Type", value: "OpenConnect" })
-assert.deepStrictEqual(ocLive[2], { label: "Gateway", value: "any1.rz.tuhh.de" })
 
 assert.deepStrictEqual(M.filterRunnableProfiles(
   [{ kind: "openconnect" }, { kind: "wireguard" }, { kind: "vpn" }],

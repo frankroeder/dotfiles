@@ -2,13 +2,9 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Io
 import Quickshell.Widgets
-import Quickshell.Bluetooth
 import "../../menu" as Menu
 import "../../../"
-import "../quick_models.js" as QuickModels
-import "../launcher_layout.js" as LauncherGeom
 
 // Clipboard pane: cliphist history (M3 caelestia look).
 // `root` is the LauncherWindow (fontPx, uiFont/uiSans, launcherGeom, quickMode, quickPaneKey, binDir, ...).
@@ -32,43 +28,7 @@ Item {
     return m ? (m[2] + " · " + m[3] + " · " + m[1]) : (s || "image")
   }
 
-  component Pill: Rectangle {
-    property string icon
-    property string label
-    property color fg: Style.m3onSurface
-    property color hoverBg: Style.m3containerHigh
-    signal clicked()
-    implicitWidth: pillRow.implicitWidth + 24; implicitHeight: 32
-    radius: Style.menuRadiusFull
-    color: pma.containsMouse ? hoverBg : Style.m3container
-    Behavior on color { ColorAnimation { duration: 120 } }
-    Row {
-      id: pillRow; anchors.centerIn: parent; spacing: 7
-      Text {
-        text: parent.parent.icon; color: parent.parent.fg; font.family: root.uiFont; font.pixelSize: root.fontPx(12)
-        anchors.verticalCenter: parent.verticalCenter
-      }
-      Text {
-        text: parent.parent.label; color: parent.parent.fg; font.family: root.uiSans; font.pixelSize: root.fontPx(10)
-        font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter
-      }
-    }
-    MouseArea { id: pma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
-  }
-
-  component IconBtn: Rectangle {
-    property string icon
-    property color tone: Style.m3onSurfaceVariant
-    signal clicked()
-    width: 30; height: 30; radius: 15
-    color: ima.containsMouse ? Style.m3stateHover : "transparent"
-    Behavior on color { ColorAnimation { duration: 120 } }
-    Text { anchors.centerIn: parent; text: parent.icon; color: parent.tone; font.family: root.uiFont; font.pixelSize: root.fontPx(13) }
-    MouseArea {
-      id: ima; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-      onClicked: (mouse) => { mouse.accepted = true; parent.clicked() }
-    }
-  }
+  component IconBtn: Menu.MenuIconBtn { fontScale: root.uiFontScale }
 
   ColumnLayout {
     anchors.fill: parent
@@ -97,11 +57,12 @@ Item {
           clip: true
           onTextChanged: clipPane.filter = text
           Keys.onEscapePressed: { clipIn.text = ""; if (root.focusLauncherInput) root.focusLauncherInput() }
-          // Swallow keys the field leaves unhandled (arrows at its ends, Return); otherwise they reach the
-          // launcher tiles and leave the pane mid-filter. AfterItem: the cursor still moves.
+          // Swallow keys the field leaves unhandled (arrows at its ends, Return, Tab); otherwise they reach the
+          // launcher tiles (Tab: its focus chain) and leave the pane mid-filter. AfterItem: the cursor still moves.
           Keys.priority: Keys.AfterItem
           Keys.onPressed: event => {
-            if ([Qt.Key_Up, Qt.Key_Down, Qt.Key_Left, Qt.Key_Right, Qt.Key_Return, Qt.Key_Enter].indexOf(event.key) !== -1)
+            if ([Qt.Key_Up, Qt.Key_Down, Qt.Key_Left, Qt.Key_Right, Qt.Key_Return, Qt.Key_Enter, Qt.Key_Tab, Qt.Key_Backtab]
+                .indexOf(event.key) !== -1)
               event.accepted = true
           }
           Text {
@@ -122,7 +83,18 @@ Item {
           color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(10); font.weight: Font.Medium
         }
       }
-      Pill { icon: "󰩹"; label: "Wipe"; fg: Style.red; hoverBg: Style.panelDangerBg; onClicked: root.wipeClips() }
+      // Wiping the whole history takes two clicks (the first arms it for 3 s), like the notification sheet's trash.
+      Menu.MenuPill {
+        icon: "󰩹"; label: wipeArm.running ? "Wipe all?" : "Wipe"
+        fg: Style.red; bg: wipeArm.running ? Style.panelDangerBg : Style.m3container
+        fontScale: root.uiFontScale
+        onClicked: {
+          if (!wipeArm.running) { wipeArm.restart(); return }
+          wipeArm.stop()
+          root.wipeClips()
+        }
+        Timer { id: wipeArm; interval: 3000 }
+      }
     }
 
     // History card.
@@ -151,13 +123,14 @@ Item {
           width: clipList.width - 10
           height: isImage ? 64 : 42
           radius: Style.menuRadiusMd
-          color: clipMa.containsMouse ? Style.m3stateHover : "transparent"
+          color: rowHover.hovered ? Style.m3stateHover : "transparent"
           Behavior on color { ColorAnimation { duration: 120 } }
 
+          // Row HoverHandler (not a MouseArea's containsMouse): the IconBtn MouseAreas steal that hover,
+          // which hid the buttons while clicks fell through to the row (copy instead of delete).
+          HoverHandler { id: rowHover }
           MouseArea {
-            id: clipMa
             anchors.fill: parent
-            hoverEnabled: true
             acceptedButtons: Qt.LeftButton | Qt.RightButton
             cursorShape: Qt.PointingHandCursor
             onClicked: function (mouse) {
@@ -174,7 +147,7 @@ Item {
             ClippingRectangle {
               visible: row.isImage
               Layout.preferredWidth: 72; Layout.preferredHeight: 48
-              radius: 8; color: Style.m3containerHigh
+              radius: Style.menuRadiusMd; color: Style.m3containerHigh
               Image {
                 anchors.fill: parent
                 source: modelData.thumb ? ("file://" + modelData.thumb) : ""
@@ -195,6 +168,7 @@ Item {
             }
             Text {
               Layout.fillWidth: true
+              textFormat: Text.PlainText
               text: row.isImage ? clipPane.imageHint(modelData.preview) : (modelData.preview || "")
               color: Style.m3onSurface
               font.family: !row.isImage && clipPane.looksCode(modelData.preview) ? root.uiFont : root.uiSans
@@ -220,41 +194,26 @@ Item {
               }
             }
             Text {
-              visible: !row.copied && !clipMa.containsMouse
+              visible: !row.copied && !rowHover.hovered
               text: "#" + (row.index + 1)
               color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(9)
             }
-            IconBtn { visible: clipMa.containsMouse; icon: "󰆏"; onClicked: root.copyClip(row.modelData.id) }
-            IconBtn { visible: clipMa.containsMouse; icon: "󰆴"; tone: Style.red; onClicked: root.deleteClip(row.modelData.id) }
+            IconBtn { visible: rowHover.hovered; icon: "󰆏"; onClicked: root.copyClip(row.modelData.id) }
+            IconBtn { visible: rowHover.hovered; icon: "󰆴"; tone: Style.red; onClicked: root.deleteClip(row.modelData.id) }
           }
         }
       }
 
       // Empty / missing state.
-      ColumnLayout {
+      Menu.MenuEmptyState {
         anchors.centerIn: parent
         visible: clipPane.filtered.length === 0
-        spacing: 10
-        Rectangle {
-          Layout.alignment: Qt.AlignHCenter
-          width: 76; height: 76; radius: Style.menuRadiusLg
-          color: clipPane.missing ? Style.panelDangerBg : Style.m3primaryContainer
-          Text {
-            anchors.centerIn: parent; text: clipPane.missing ? "󰅚" : "󰅌"
-            color: clipPane.missing ? Style.red : Style.m3primary; font.family: root.uiFont; font.pixelSize: 38
-          }
-        }
-        Text {
-          Layout.alignment: Qt.AlignHCenter
-          text: clipPane.missing ? "cliphist is not installed" : (clipPane.filter ? "No matching entries" : "Clipboard history is empty")
-          color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(14); font.weight: Font.DemiBold
-        }
-        Text {
-          Layout.alignment: Qt.AlignHCenter
-          text: clipPane.missing ? "Install cliphist + wl-clipboard to keep a history"
-            : (clipPane.filter ? "Try a shorter filter" : "Copy something and it shows up here")
-          color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(10)
-        }
+        fontScale: root.uiFontScale
+        glyph: clipPane.missing ? "󰅚" : "󰅌"
+        tint: clipPane.missing ? Style.red : Style.m3primary
+        title: clipPane.missing ? "cliphist is not installed" : (clipPane.filter ? "No matching entries" : "Clipboard history is empty")
+        detail: clipPane.missing ? "Install cliphist + wl-clipboard to keep a history"
+          : (clipPane.filter ? "Try a shorter filter" : "Copy something and it shows up here")
       }
     }
 

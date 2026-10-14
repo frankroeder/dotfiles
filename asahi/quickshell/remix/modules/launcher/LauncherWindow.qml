@@ -5,12 +5,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Wayland
-import Quickshell.Widgets
-import "../wallpaper" as Wallpaper
 import "../menu" as Menu
-import Quickshell.Bluetooth
-import Quickshell.Services.Mpris
-import Quickshell.Services.Pipewire
 import "../../"
 import "Data.js" as Data
 import "websearch.js" as WebSearch
@@ -18,7 +13,6 @@ import "arg_commands.js" as ArgCommands
 import "emoji.js" as Emoji
 import "dictcc-core.mjs" as DictCC
 import "launcher_layout.js" as LauncherGeom
-import "quick_models.js" as QuickModels
 import "gallery.js" as Gallery
 import "calc_history.js" as CalcHist
 import "panes" as Panes
@@ -26,7 +20,6 @@ import "panes" as Panes
 Scope {
   id: root
 
-  property var theme: Wallpaper.DefaultTheme
   // Panes take the launcher as `root`; inside their scope `root` is that
   // property, so hand it over under a different name.
   readonly property var launcherSelf: root
@@ -108,27 +101,22 @@ Scope {
   // Launcher palette state (category overview + drills + query shapes)
   property string categoryFilter: ""
   readonly property bool fileMode: root.categoryFilter === Data.fileCategory || root.fileTerm(root.query) !== null
-  readonly property bool previewActive: root.fileMode
   readonly property bool quickMode: root.categoryFilter === "Quick"
-  property string expandedQuickKey: ""
+  // The pane is the selected deck tile (Dashboard's mode is "hub"); openQuick picks it via quickStartIndex.
+  property int quickStartIndex: 0
   readonly property string quickPaneKey: {
     if (!root.quickMode) return ""
     const list = root.quickDeck || []
     const t = list[Math.max(0, Math.min(list.length - 1, root.selectedIndex))]
-    if (t && (t.mode || t.key))
-      return (t.mode === "dashboard" || t.key === "dashboard") ? "hub" : String(t.mode || t.key)
-    const k = root.expandedQuickKey
-    if (k === "" || k === "dashboard") return "hub"
-    return k
+    return t ? String(t.mode || t.key) : ""
   }
-  readonly property bool quickDetailActive: root.quickMode
   onQuickPaneKeyChanged: {
     if (!root.quickMode) return
     if (root.quickPaneKey === "screenshots") root.scanShots()
     if (root.quickPaneKey === "storage") root.scanStorage()
     if (root.quickPaneKey === "clipboard") root.scanClips()
   }
-  readonly property bool sideActive: root.previewActive || root.quickMode
+  readonly property bool sideActive: root.fileMode || root.quickMode
   readonly property int quickGridCols: 1
 
   // Scoring (ported from launcher ref, tuned for small set)
@@ -180,15 +168,10 @@ Scope {
     { key: "scale", aliases: ["zoom", "hidpi"], icon: "󰍹", name: "Display scale", comment: "Super+Ctrl+plus/minus · cycle the focused display through legal scales", command: [root.binDir + "/asahi-monitor-scale", "cycle"] },
     { key: "reload", aliases: ["qs"], icon: "󰑐", name: "Reload Quickshell", comment: "Restart QS", command: [root.binDir + "/asahi-restart-quickshell"] },
     { key: "hypr", aliases: ["hyprland"], icon: "󰑓", name: "Reload Hyprland", comment: "Reload Hyprland config", command: [root.binDir + "/asahi-reload-hyprland"] },
-    { key: "lock", aliases: ["lockscreen"], icon: "󰌾", name: "Lock", comment: "Lock session", command: ["loginctl", "lock-session"] },
+    { key: "lock", aliases: ["lockscreen"], icon: "󰌾", name: "Lock", comment: "Lock session", command: ["asahi-lock"] },
     { key: "timer", aliases: ["reminder", "alarm", "countdown"], icon: "󰔛", name: "Timer", comment: ":timer 10m tea · 1:30 · 1h15m", query: ":timer " }
   ]
 
-  readonly property var quickTiles: root.quickActions.filter(function(a) {
-    return !!a.mode
-  }).map(function(a) {
-    return { key: a.key, glyph: a.icon, label: a.name, sub: a.comment, mode: a.mode }
-  })
   readonly property var quickDeckHidden: ({
     // Standalone picker (Super+Shift+W), like packages/recorder: still searchable
     // as an action, just not a Quick tile.
@@ -226,7 +209,6 @@ Scope {
 
   // --- live data + exact hub/lower + side windows (ported from old featuremenu; now the only place, module removed)
   readonly property real uiFontScale: root.launcherGeom.fontScale
-  readonly property real quickOverviewScale: 1.0
   readonly property int launcherScreenH: {
     const scr = launcherPanel.screen || root.launcherScreen
     if (scr && scr.height > 1) return scr.height
@@ -278,7 +260,6 @@ Scope {
   function itemTintColor(item) {
     return root.tintColor(Data.itemTint(item))
   }
-  function quickPx(size) { return Math.round(size * root.uiFontScale * root.quickOverviewScale) }
   function execAndClose(cmd) {
     Quickshell.execDetached(cmd)
     root.closeLauncher()
@@ -296,16 +277,7 @@ Scope {
     used = Number(used) || 0
     return total > 0 ? Math.round(used * 100 / total) : 0
   }
-  function storageTildify(path) {
-    const home = root.homeDir
-    if (!path) return ""
-    if (path === home) return "~"
-    return path.indexOf(home + "/") === 0 ? "~/" + path.substring(home.length + 1) : path
-  }
-  // menu* from old feature for exact tile colors/behaviors in quick ports
-  readonly property color menuTileBg: Qt.rgba(Style.menuInk.r, Style.menuInk.g, Style.menuInk.b, 0.03)
-  readonly property color menuDangerBg: Qt.rgba(Style.red.r, Style.red.g, Style.red.b, 0.16)
-  readonly property color menuSuccessBg: Qt.rgba(Style.green.r, Style.green.g, Style.green.b, 0.16)
+  property string hubFastfetch: ""
   property int sidebarCpu: 0
   property int sidebarMem: 0
   property int sidebarBat: 100
@@ -357,9 +329,10 @@ Scope {
       }
     }
   }
+  // Only the Hub gauges read these.
   Timer {
-    interval: (root.quickMode && root.quickPaneKey === "hub") ? 800 : 2000
-    running: root.shouldShow
+    interval: 800
+    running: root.shouldShow && root.quickMode && root.quickPaneKey === "hub"
     repeat: true
     triggeredOnStart: true
     onTriggered: if (!sidebarProc.running) sidebarProc.running = true
@@ -445,12 +418,13 @@ Scope {
     if (root.copiedShot === p) root.copiedShot = ""
     root.shots = (root.shots || []).filter(s => s.path !== p)
     root.videos = (root.videos || []).filter(s => s.path !== p)
+    // To the XDG trash (undoable; emptytrash clears it), the cached thumbnail goes for good. No rescan:
+    // the list is already filtered, and a scan racing the detached delete brought the tile back.
     Quickshell.execDetached([
       "sh", "-c",
-      "rm -f -- \"$1\" \"$2\"",
+      "gio trash -- \"$1\"; rm -f -- \"$2\"",
       "sh", p, Gallery.thumbPath(p, Quickshell.env("HOME"))
     ])
-    Qt.callLater(root.scanShots)
   }
 
   property var storageMounts: []
@@ -510,7 +484,7 @@ Scope {
       if (!path) continue
       dirs.push({
         path: path,
-        name: root.storageTildify(path),
+        name: Data.tildify(path, root.homeDir),
         bytes: bytes,
         pct: total > 0 ? Math.round(bytes * 100 / total) : 0
       })
@@ -525,12 +499,11 @@ Scope {
 
   function scanStorageHomeDirs() {
     const home = root.homeDir
+    // One walk of $HOME: depth-1 entries plus the home line itself, which becomes TOTAL.
     storageDuProc.command = [
       "sh", "-c",
-      "home=\"" + home.replace(/"/g, '\\"') + "\"; " +
-      "printf 'TOTAL %s\\n' \"$(du -sb \"$home\" 2>/dev/null | awk '{print $1}')\"; " +
-      "for e in \"$home\"/* \"$home\"/.[!.]*; do " +
-      "[ -e \"$e\" ] || continue; du -sb \"$e\" 2>/dev/null; done | sort -rn | head -20"
+      "du -ab -d1 \"$1\" 2>/dev/null | sort -rn | awk -F'\\t' -v h=\"$1\" '$2 == h { print \"TOTAL \" $1; next } { print }' | head -21",
+      "sh", home
     ]
     storageDuProc.running = true
   }
@@ -660,8 +633,8 @@ Scope {
         spacing: 8
         readonly property string rowValue: {
           if (modelData && (modelData.key === "Mem" || modelData.key === "Memory")) {
-            return quickHubRoot.prettyBytes(quickHubRoot.ffMemTotalBytes * root.sidebarMem / 100)
-              + " / " + quickHubRoot.prettyBytes(quickHubRoot.ffMemTotalBytes)
+            return root.prettyBytes(quickHubRoot.ffMemTotalBytes * root.sidebarMem / 100)
+              + " / " + root.prettyBytes(quickHubRoot.ffMemTotalBytes)
               + " (" + root.sidebarMem + "%)"
           }
           return (modelData && modelData.value) || "—"
@@ -711,19 +684,6 @@ Scope {
       }
     }
 
-    function prettyBytes(bytes) {
-      let value = Number(bytes) || 0
-      if (value <= 0) return "0 B"
-      const units = ["B", "KiB", "MiB", "GiB", "TiB"]
-      let idx = 0
-      while (value >= 1024 && idx < units.length - 1) { value /= 1024; idx++ }
-      return value.toFixed(idx >= 2 && value < 100 ? 1 : 0) + " " + units[idx]
-    }
-    function pct(used, total) {
-      total = Number(total) || 0
-      used = Number(used) || 0
-      return total > 0 ? Math.round(used * 100 / total) : 0
-    }
     function formatUptime(ms) {
       const sec = Math.max(0, Math.floor(Number(ms) / 1000))
       const days = Math.floor(sec / 86400)
@@ -759,7 +719,6 @@ Scope {
         const displays = one("Display") || []
         const display = displays.length > 0 ? displays[0] : {}
         const wm = one("WM") || {}
-        const shell = one("Shell") || {}
         const ips = one("LocalIp") || []
         const ip = ips.find(x => x.defaultRoute && x.defaultRoute.ipv4) || ips[0] || {}
         const bats = one("Battery") || []
@@ -780,8 +739,8 @@ Scope {
           ? (title.userName + "@" + title.hostName) : (host.name || "System")
         quickHubRoot.ffSubtitle = os.prettyName || os.name || "fastfetch"
         quickHubRoot.ffUptime = quickHubRoot.formatUptime(uptime.uptime)
-        quickHubRoot.ffDiskPct = quickHubRoot.pct(diskUsed, diskTotal)
-        quickHubRoot.ffMemPct = quickHubRoot.pct(memUsed, memTotal)
+        quickHubRoot.ffDiskPct = root.storagePct(diskUsed, diskTotal)
+        quickHubRoot.ffMemPct = root.storagePct(memUsed, memTotal)
         quickHubRoot.ffMemUsedBytes = memUsed
         quickHubRoot.ffMemTotalBytes = memTotal
         // Header already shows user@host, OS, and uptime — keep the well
@@ -793,12 +752,12 @@ Scope {
           quickHubRoot.ffRow("Kernel", "󰌽", Style.teal, kernel.release || "—"),
           quickHubRoot.ffRow("Pkgs", "󰏖", Style.mauve,
             (pkgs.flatpakUser || 0) + " flatpak · " + (pkgs.rpm || 0) + " rpm"),
-          quickHubRoot.ffRow("CPU", "󰘚", Style.orange,
+          quickHubRoot.ffRow("CPU", "󰍛", Style.orange,
             (cpu.cpu || "—") + (cpu.cores && cpu.cores.logical ? (" (" + cpu.cores.logical + ")") : "")),
           quickHubRoot.ffRow("GPU", "󰢮", Style.menuIndigo,
             (gpu.name || "—") + (gpu.coreCount ? (" (" + gpu.coreCount + ")") : "")),
-          quickHubRoot.ffRow("Mem", "󰍛", Style.lavender,
-            quickHubRoot.prettyBytes(memUsed) + " / " + quickHubRoot.prettyBytes(memTotal)
+          quickHubRoot.ffRow("Mem", "󰘚", Style.lavender,
+            root.prettyBytes(memUsed) + " / " + root.prettyBytes(memTotal)
               + " (" + quickHubRoot.ffMemPct + "%)")
         ]
         quickHubRoot.ffRightRows = [
@@ -809,9 +768,10 @@ Scope {
           quickHubRoot.ffRow("WM", "󰖯", Style.green, (wm.prettyName || wm.processName || "—")
             + (wm.version ? " " + wm.version : "")
             + (wm.protocolName ? " (" + wm.protocolName + ")" : "")),
-          quickHubRoot.ffRow("Shell", "󰆍", Style.yellow, shell.prettyName || shell.processName || "—"),
+          // fastfetch's parent is qs, not the user's shell.
+          quickHubRoot.ffRow("Shell", "󰆍", Style.yellow, (Quickshell.env("SHELL") || "").split("/").pop() || "—"),
           quickHubRoot.ffRow("Disk", "󰋊", Style.menuIndigo,
-            quickHubRoot.prettyBytes(diskUsed) + " / " + quickHubRoot.prettyBytes(diskTotal)
+            root.prettyBytes(diskUsed) + " / " + root.prettyBytes(diskTotal)
               + (disk.filesystem ? (" · " + disk.filesystem) : "")),
           quickHubRoot.ffRow("IP", "󰩠", Style.cyan, ip.ipv4 || "—"),
           quickHubRoot.ffRow("Bat", "󰁹", Style.green,
@@ -829,12 +789,11 @@ Scope {
 
     Process {
       id: ffProc
-      // Explicit structure: the user config's default module list lacks most
-      // of what parseFastfetch reads (Host, Packages, GPU, Display, LocalIp,
-      // Theme, Battery, PowerAdapter, Locale), leaving dashes on the card.
+      // Explicit structure: exactly the modules parseFastfetch reads (the user config's default
+      // module list lacks most of them, leaving dashes on the card).
       command: ["fastfetch", "--format", "json", "--structure",
-        "Title:OS:Host:Kernel:Uptime:Packages:Shell:Display:WM:Theme:CPU:GPU:Memory:Disk:LocalIp:Battery:PowerAdapter:Locale"]
-      stdout: StdioCollector { onStreamFinished: quickHubRoot.parseFastfetch(text) }
+        "Title:OS:Host:Kernel:Uptime:Packages:Display:WM:CPU:GPU:Memory:Disk:LocalIp:Battery"]
+      stdout: StdioCollector { onStreamFinished: { root.hubFastfetch = text; quickHubRoot.parseFastfetch(text) } }
     }
     Timer {
       interval: 60000
@@ -843,7 +802,8 @@ Scope {
       triggeredOnStart: true
       onTriggered: quickHubRoot.refreshFastfetch()
     }
-    Component.onCompleted: Qt.callLater(quickHubRoot.refreshFastfetch)
+    // The last answer first (the card stayed blank until fastfetch returned); the Timer refreshes it.
+    Component.onCompleted: if (root.hubFastfetch) quickHubRoot.parseFastfetch(root.hubFastfetch)
 
     ColumnLayout {
       anchors.fill: parent
@@ -903,8 +863,8 @@ Scope {
         spacing: 12
         Repeater {
           model: [
-            { label: "CPU", icon: "󰘚", key: "cpu", r: Style.menuRadiusLg },
-            { label: "Memory", icon: "󰍛", key: "ram", r: Style.menuRadiusLg },
+            { label: "CPU", icon: "󰍛", key: "cpu", r: Style.menuRadiusLg },
+            { label: "Memory", icon: "󰘚", key: "ram", r: Style.menuRadiusLg },
             { label: "Storage", icon: "󰋊", key: "disk", r: Style.menuRadiusLg },
             { label: "Battery", icon: "󰁹", key: "bat", r: Style.menuRadiusLg }
           ]
@@ -984,8 +944,7 @@ Scope {
   } }
 
   function quickDetailFor(key) {
-    const k = (key === "dashboard" || key === "hub") ? "hub" : key
-    switch (k) {
+    switch (key) {
       case "hub": return quickHubComp
       case "screenshots": return quickScreenshotsComp
       case "media": return quickMediaComp
@@ -1045,20 +1004,6 @@ Scope {
     if (root.argArmed) return "type argument · ↩ go · tab results"
     if (root.fileMode) return "↑↓ / tab · open file · esc back"
     return "↓ / tab · ↩ open · esc close"
-  }
-
-  readonly property string headerText: {
-    const q = root.query.trim()
-    if (root.categoryFilter !== "") return "› " + root.categoryFilter.toUpperCase()
-    if (q.startsWith("=")) return "Calculator"
-    if (q.startsWith("!")) return "Web Search"
-    if (q.startsWith("@")) return "Documentation"
-    if (q.startsWith(":")) return "Actions"
-    if (q.startsWith("?")) return "› KEYS"
-    if (q.startsWith(";")) return "› EMOJI"
-    if (root.fileTerm(q) !== null) return "File Search"
-    if (root.dictTerm(q) !== null) return "Dictionary"
-    return "LAUNCHER"
   }
 
   readonly property string resultText: {
@@ -1145,32 +1090,17 @@ Scope {
   }
 
   onCategoryFilterChanged: {
-    if (resultsList) resultsList.currentIndex = 0
-    root.selectedIndex = 0
+    // openQuick picks its pane first: entering Quick on index 0 would build the Hub just to drop it.
+    const start = root.categoryFilter === "Quick" ? root.quickStartIndex : 0
+    root.quickStartIndex = 0
+    if (resultsList) resultsList.currentIndex = start
+    root.selectedIndex = start
     if (root.categoryFilter === "Keys") root.scanKeyBinds()
     if (root.fileMode) root.scheduleFileLookup()
     else { root.fileItems=[]; root.fileStatus=""; root.filePreviewText=""; root.filePreviewMeta=""; root.pdfPreviewPath=""; root.pdfPreviewVersion=0 }
-    if (root.categoryFilter === "Quick") {
-      root.setSearchQuery("")
-      if (root.expandedQuickKey === "") root.expandedQuickKey = "hub"
-    } else {
-      root.expandedQuickKey = ""
-    }
-    if (root.categoryFilter === Data.fileCategory && (root.query || "").trim() === "") {
-      root.setSearchQuery(">")
-    }
-    if (root.categoryFilter === "Actions" && !(root.query || "").trim().startsWith(":")) {
-      root.setSearchQuery(":")
-    }
-    if (root.categoryFilter === "Keys" && !(root.query || "").trim().startsWith("?")) {
-      root.setSearchQuery("?")
-    }
-    if (root.categoryFilter === "Websearch" && !(root.query || "").trim().startsWith("@")) {
-      root.setSearchQuery("@")
-    }
-    if (root.categoryFilter === "Emoji" && !(root.query || "").trim().startsWith(";")) {
-      root.setSearchQuery(";")
-    }
+    if (root.categoryFilter === "Quick") root.setSearchQuery("")
+    const prefix = Data.categoryPrefix[root.categoryFilter]
+    if (prefix && (root.query || "").trim() === "") root.setSearchQuery(prefix)
     if (root.shouldShow) root.focusLauncherInput()
   }
 
@@ -1301,7 +1231,6 @@ Scope {
     launcherWorkspaceId = Hyprland.focusedWorkspace?.id ?? 1
     shouldShow = true
     root.categoryFilter = ""
-    root.expandedQuickKey = ""
     root.shotPreviewPath = ""
     root.setSearchQuery("")
     if (resultsList) resultsList.currentIndex = 0
@@ -1319,13 +1248,8 @@ Scope {
     if (!root.shouldShow) { root.openLauncher(); root.openedByShortcut = !!cat }
     root.pointerLive = false
     root.categoryFilter = cat || ""
-    root.setSearchQuery(root.categoryFilter === Data.fileCategory ? ">"
-      : (root.categoryFilter === "Actions" ? ":"
-        : (root.categoryFilter === "Keys" ? "?"
-          : (root.categoryFilter === "Websearch" ? "@"
-            : (root.categoryFilter === "Emoji" ? ";" : "")))))
+    root.setSearchQuery(Data.categoryPrefix[root.categoryFilter] || "")
     root.selectedIndex = 0
-    root.expandedQuickKey = ""
     root.focusLauncherInput()
   }
 
@@ -1335,11 +1259,12 @@ Scope {
     if (root.shouldShow && root.quickMode && root.quickPaneKey === k) { root.closeLauncher(); return }
     if (!root.shouldShow) { root.openLauncher(); root.openedByShortcut = true }
     root.pointerLive = false
-    root.categoryFilter = "Quick"
+    const idx = Math.max(0, (root.quickDeck || []).findIndex(function(t) { return t.mode === k || t.key === k }))
+    // Clear the field first: clearing it inside Quick resets the rail to the Hub.
     root.setSearchQuery("")
-    const idx = (root.quickDeck || []).findIndex(function(t) { return t.mode === k || t.key === k })
-    if (idx >= 0) root.selectDeckIndex(idx)
-    else root.showQuickPane(k)
+    root.quickStartIndex = idx
+    root.categoryFilter = "Quick"
+    root.selectDeckIndex(idx)
   }
 
   function closeLauncher() {
@@ -1381,15 +1306,6 @@ Scope {
     root.appUsageVersion++
   }
 
-  function showQuickPane(key) {
-    const k = (key === "dashboard" || key === "hub") ? "hub" : (key || "hub")
-    if (!root.quickMode) { root.categoryFilter = "Quick"; root.setSearchQuery("") }
-    root.expandedQuickKey = k
-    if (k === "screenshots") root.scanShots()
-    if (k === "storage") root.scanStorage()
-    if (k === "clipboard") root.scanClips()
-  }
-
   // Rail highlight and the right-hand pane stay in lockstep (↑↓ already switches).
   function selectDeckIndex(i) {
     const list = root.quickDeck || []
@@ -1400,15 +1316,11 @@ Scope {
     if (idx === root.selectedIndex) return
     root.selectedIndex = idx
     if (resultsList) resultsList.currentIndex = idx
-    const t = list[idx]
-    if (t && t.mode) root.showQuickPane(t.mode || t.key)
   }
 
   function expandQuick(key) {
-    const k = (key === "dashboard" || key === "hub") ? "hub" : key
-    const idx = (root.quickDeck || []).findIndex(function(t) { return t.key === k || t.mode === k })
+    const idx = (root.quickDeck || []).findIndex(function(t) { return t.key === key || t.mode === key })
     if (idx >= 0) root.selectDeckIndex(idx)
-    else root.showQuickPane(k)
   }
 
   function resolveCmd(c) {
@@ -1469,17 +1381,7 @@ Scope {
     if (actions.length === 0) {
       return [{ id: "action-empty", name: "No action found", comment: term, glyph: "󰅙", special: "noop" }]
     }
-    return actions.map(a => ({
-      id: "action-" + a.key,
-      name: root.actionLabel(a),
-      comment: a.comment || "",
-      glyph: root.actionGlyph(a),
-      special: "action",
-      mode: a.mode || "",
-      ipc: a.ipc || "",
-      query: a.query || "",
-      command: a.command || []
-    }))
+    return actions.map(a => root.mapActionEntry(a))
   }
 
   function launchDesktopEntry(entry) {
@@ -1505,13 +1407,8 @@ Scope {
       const tgt = entry.target || entry.category || ""
       if (tgt) {
         root.categoryFilter = tgt
-        root.setSearchQuery(tgt === Data.fileCategory ? ">"
-          : (tgt === "Actions" ? ":"
-            : (tgt === "Keys" ? "?"
-              : (tgt === "Websearch" ? "@"
-                : (tgt === "Emoji" ? ";" : "")))))
+        root.setSearchQuery(Data.categoryPrefix[tgt] || "")
         root.selectedIndex = 0
-        root.expandedQuickKey = ""
         if (tgt === Data.fileCategory) root.scheduleFileLookup()
         return
       }
@@ -1543,9 +1440,7 @@ Scope {
         return
       }
       if (entry.mode) {
-        root.categoryFilter = "Quick"
-        root.setSearchQuery("")
-        root.expandQuick(entry.mode)
+        root.openQuick(entry.mode)
         return
       } else if (entry.ipc) {
         Quickshell.execDetached(["qs", "-c", "remix", "ipc", "call", entry.ipc, "toggle"])
@@ -1579,7 +1474,7 @@ Scope {
       Qt.callLater(() => root.launchDesktopEntry(entry))
       return
     } else if (entry.command && entry.command.length > 0) {
-      Quickshell.execDetached(entry.command)
+      Quickshell.execDetached(root.resolveCmd(entry.command))
     } else if (entry.exec) {
       // Logout / Restart / Shutdown (`confirm`): the first Enter / click only arms it for 3 s.
       if (entry.confirm && root.armedExec !== entry.exec) {
@@ -1630,6 +1525,8 @@ Scope {
     const term = fileTerm(root.query)
     fileDebounce.stop()
     if (term === null) {
+      // Already idle: no version bump (each bump re-runs computeFiltered on every keystroke).
+      if (root.filePendingTerm === "" && root.fileStatus === "" && root.fileItems.length === 0) return
       root.filePendingTerm = ""
       root.fileStatus = ""
       root.fileItems = []
@@ -1731,7 +1628,7 @@ Scope {
     return {
       id: "file-" + path,
       name: name,
-      comment: root.displayFilePath(parent),
+      comment: Data.tildify(parent, root.homeDir),
       accessory: isDirectory ? "DIR" : "",
       icon: "",
       glyph: root.fileGlyph(name, isDirectory),
@@ -1739,12 +1636,6 @@ Scope {
       path: path,
       isDirectory: isDirectory
     }
-  }
-
-  function displayFilePath(path) {
-    const home = Quickshell.env("HOME")
-    if (path === home) return "~"
-    return path.startsWith(home + "/") ? "~" + path.substring(home.length) : path
   }
 
   function sortFileResults(items, term) {
@@ -1795,6 +1686,7 @@ Scope {
     const term = dictTerm(root.query)
     dictDebounce.stop()
     if (term === null) {
+      if (root.dictPendingTerm === "" && root.dictStatus === "" && root.dictItems.length === 0) return
       root.abortDictXhr()
       root.dictPendingTerm = ""
       root.dictStatus = ""
@@ -2025,6 +1917,7 @@ Scope {
     watchChanges: true
     blockLoading: true
     printErrors: false
+    onFileChanged: reload()
     onLoaded: root.parseHides(hidesFile.text())
     onTextChanged: if (root) root.parseHides(hidesFile.text())
     onLoadFailed: root.parseHides("")
@@ -2047,6 +1940,7 @@ Scope {
     watchChanges: true
     blockLoading: true
     printErrors: false
+    onFileChanged: reload()
     onLoaded: root.parseNightState(nightStateFile.text())
     onTextChanged: if (root) root.parseNightState(nightStateFile.text())
     onLoadFailed: root.parseNightState("")
@@ -2057,69 +1951,11 @@ Scope {
     if (!keyBindsProc.running) keyBindsProc.running = true
   }
 
-  function bindCombo(b) {
-    let key = String(b.key || "")
-    // Lua binds may report "SUPER + <key>"; mods are carried in modmask.
-    const plus = key.lastIndexOf(" + ")
-    if (plus >= 0) key = key.slice(plus + 3)
-    if (!key && b.keycode && b.keycode !== "0") key = "code:" + b.keycode
-    if (!key || key.indexOf("switch:") === 0) return ""
-    const mouseNames = {
-      "mouse:272": "LeftClick", "mouse:273": "RightClick", "mouse:274": "MiddleClick",
-      "mouse_down": "ScrollDown", "mouse_up": "ScrollUp"
-    }
-    if (mouseNames[key]) key = mouseNames[key]
-    // Binds given as raw keycodes would otherwise read "code:12".
-    // Labels follow de(mac_nodeadkeys): AD11 is "ü", AD12 is "+".
-    const codeNames = {
-      "code:12": "3", "code:13": "4", "code:14": "5",
-      "code:34": "ü", "code:35": "+"
-    }
-    if (codeNames[key]) key = codeNames[key]
-    const mask = Number(b.modmask) || 0
-    const parts = []
-    if (mask & 64) parts.push("Super")
-    if (mask & 4) parts.push("Ctrl")
-    if (mask & 8) parts.push("Alt")
-    if (mask & 1) parts.push("Shift")
-    parts.push(key)
-    return parts.join("+")
-  }
-
-  function parseHyprBinds(text) {
-    const rows = []
-    const seen = {}
-    const lines = String(text || "").split("\n")
-    let cur = null
-    const flush = function() {
-      if (!cur) return
-      const desc = (cur.description || "").trim()
-      const combo = root.bindCombo(cur)
-      // Repeat variants (binde) duplicate their base bind; keep the first.
-      const dedup = combo + "|" + desc
-      if (desc && combo && !seen[dedup]) {
-        seen[dedup] = true
-        rows.push({ combo: combo, desc: desc })
-      }
-      cur = null
-    }
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]
-      if (line.indexOf("bind") === 0) { flush(); cur = {}; continue }
-      if (!cur) continue
-      const m = line.match(/^\t([a-z]+): ?(.*)$/)
-      if (m) cur[m[1]] = m[2]
-    }
-    flush()
-    root.keyBinds = rows
-    root.keysVersion++
-  }
-
   Process {
     id: keyBindsProc
     command: ["hyprctl", "binds"]
     stdout: StdioCollector {
-      onStreamFinished: root.parseHyprBinds(text)
+      onStreamFinished: { root.keyBinds = Data.parseHyprBinds(text); root.keysVersion++ }
     }
   }
 
@@ -2181,22 +2017,6 @@ Scope {
 
   Component.onCompleted: iconIndexScan.running = true
 
-  function calculate(expr) {
-    expr = (expr || "").trim()
-    if (!expr) return null
-    try {
-      let e = expr.replace(/π/g, "Math.PI").replace(/pi/gi, "Math.PI")
-      e = e.replace(/e\b/g, "Math.E")
-      e = e.replace(/sqrt\(/gi, "Math.sqrt(")
-      e = e.replace(/\^/g, "**")
-      const val = eval(e)
-      if (typeof val === "number" && isFinite(val)) {
-        return Number.isInteger(val) ? val.toString() : parseFloat(val.toFixed(8)).toString()
-      }
-      return null
-    } catch (_) { return null }
-  }
-
   function parseWebsearchConfig(text) {
     try {
       const parsed = WebSearch.parseConfig(text, root.webIconBase)
@@ -2234,7 +2054,7 @@ Scope {
     const dictResults = getDictResults(q)
     if (dictResults) return dictResults
     if (q.startsWith("=")) {
-      const res = calculate(q.substring(1))
+      const res = CalcHist.calculate(q.substring(1))
       if (res !== null) {
         return [{ id: "calc-" + res, name: "= " + res, comment: "Calculator — Enter to copy", icon: "󰃬", special: "calc", result: res }]
       }
@@ -2321,6 +2141,8 @@ Scope {
       root.shotPreviewPath = ""
       return
     }
+    // A pane with its own layer (Backup: subfolder → snapshot home) takes the press first.
+    if (root.quickMode && qdl.item && qdl.item.handleEscape && qdl.item.handleEscape()) return
     // One layer per press: Quick pane / category → home → close. Opened
     // straight into a pane by a shortcut → close (back where you came from).
     if (root.openedByShortcut) { root.shouldShow = false; return }
@@ -2334,7 +2156,6 @@ Scope {
       root.categoryFilter = ""
       root.setSearchQuery("")
       root.selectedIndex = 0
-      root.expandedQuickKey = ""
       root.focusLauncherInput()
       return
     }
@@ -2356,7 +2177,6 @@ Scope {
       root.categoryFilter = ""
       root.setSearchQuery("")
       root.selectedIndex = 0
-      root.expandedQuickKey = ""
       return true
     }
     return false
@@ -2415,6 +2235,7 @@ Scope {
   function mapActionEntry(a) {
     return {
       id: "action-" + a.key,
+      key: a.key,
       title: root.actionLabel(a),
       comment: a.comment || "",
       glyph: root.actionGlyph(a),
@@ -2425,8 +2246,7 @@ Scope {
       command: a.command || [],
       query: a.query || "",
       _t: (a.name || "").toLowerCase(),
-      _k: ((a.key || "") + " " + (a.aliases || []).join(" ")).toLowerCase(),
-      _c: "actions"
+      _k: ((a.key || "") + " " + (a.aliases || []).join(" ")).toLowerCase()
     }
   }
 
@@ -2570,6 +2390,11 @@ Scope {
       }
     }
 
+    // Typing on the root (it drills into Apps) also finds the Quick panes and actions, Spotlight-style
+    // ("bluet" → Bluetooth pane, "wall" → Wallpapers).
+    if (tokens.length > 0 && (filter === "" || filter === "App"))
+      for (const a of root.quickActions) pool.push(root.mapActionEntry(a))
+
     // Empty query: for App drill use limited usage tail (no flood); for other drills use pool; root: nav only
     if (tokens.length === 0) {
       if (filter !== "" && filter !== "Quick") {
@@ -2602,7 +2427,8 @@ Scope {
     for (let i = 0; i < pool.length; i++) {
       const it = pool[i]
       const s = root.scoreItem(it, tokens)
-      if (s > 0) scored.push({ s: s, p: root.primaryScore(it, tokens), u: it.special === "app" ? root.appScore(it.raw) : 0, item: it })
+      // Usage breaks ties; actions sit just below apps on an equal score ("s" must not start the screensaver).
+      if (s > 0) scored.push({ s: s, p: root.primaryScore(it, tokens), u: it.special === "app" ? root.appScore(it.raw) : it.special === "action" ? -1 : 0, item: it })
     }
     scored.sort((a, b) => {
       if (b.p !== a.p) return b.p - a.p
@@ -2641,10 +2467,27 @@ Scope {
   property string pdfPreviewPath: ""
   property int pdfPreviewVersion: 0
 
+  function currentFilePath() {
+    const it = resultsList.currentItem ? resultsList.currentItem.modelData : null
+    return it && it.path ? it.path : ""
+  }
+  // A preview process still busy with an older selection ignores `running = true`; each one records the
+  // path it started for and, on exit, re-runs the preview if the selection moved on (fast ↑↓).
+  function startPreview(proc, path, command) {
+    if (proc.running) return
+    proc.forPath = path
+    proc.command = command
+    proc.running = true
+  }
+  function previewStale(proc) {
+    if (proc.forPath === root.currentFilePath()) return false
+    root.updateFilePreview()
+    return true
+  }
+
   function updateFilePreview() {
     if (!root.fileMode) { root.filePreviewText = ""; root.filePreviewMeta = ""; root.pdfPreviewPath = ""; root.pdfPreviewVersion=0; return }
-    const it = resultsList.currentItem ? resultsList.currentItem.modelData : null
-    const p = it && it.path ? it.path : ""
+    const p = root.currentFilePath()
     if (!p) { root.filePreviewText = ""; root.filePreviewMeta = ""; root.pdfPreviewPath = ""; root.pdfPreviewVersion=0; return }
     if (root.isImageFile(p)) { root.filePreviewText = ""; root.filePreviewMeta = ""; root.pdfPreviewPath = ""; root.pdfPreviewVersion=0; return }
     if (root.isTextFile(p)) {
@@ -2652,8 +2495,7 @@ Scope {
       root.filePreviewMeta = ""
       root.pdfPreviewPath = ""
       root.pdfPreviewVersion = 0
-      headProc.command = ["head", "-c", "2048", p]
-      headProc.running = true
+      root.startPreview(headProc, p, ["head", "-c", "2048", p])
       return
     }
     if (root.isPdfFile(p)) {
@@ -2662,8 +2504,7 @@ Scope {
       root.pdfPreviewVersion = 0
       root.pdfPreviewPath = ""
       const base = "/tmp/launcher-pdf-" + (p ? Qt.md5(p) : Date.now())
-      pdfProc.command = ["pdftoppm", "-png", "-f", "1", "-l", "1", "-r", "100", "-singlefile", p, base]
-      pdfProc.running = true
+      root.startPreview(pdfProc, p, ["pdftoppm", "-png", "-f", "1", "-l", "1", "-r", "100", "-singlefile", p, base])
       // on success, pdfProc onExited sets pdfPreviewPath and bumps version
       return
     }
@@ -2671,28 +2512,34 @@ Scope {
     root.filePreviewText = ""
     root.pdfPreviewPath = ""
     root.pdfPreviewVersion = 0
-    metaProc.command = ["sh", "-c", "stat -c 'SIZE %s B  MTIME %y' \"$1\" 2>/dev/null; printf 'MIME '; file -b --mime-type \"$1\" 2>/dev/null", "sh", p]
-    metaProc.running = true
+    root.startPreview(metaProc, p,
+      ["sh", "-c", "stat -c 'SIZE %s B  MTIME %y' \"$1\" 2>/dev/null; printf 'MIME '; file -b --mime-type \"$1\" 2>/dev/null", "sh", p])
   }
 
   Process {
     id: headProc
+    property string forPath: ""
     stdout: StdioCollector { id: headOut }
     onExited: code => {
+      if (root.previewStale(headProc)) return
       if (code === 0) root.filePreviewText = (headOut.text || "").replace(/\0/g, "")
     }
   }
   Process {
     id: metaProc
+    property string forPath: ""
     stdout: StdioCollector { id: metaOut }
     onExited: code => {
+      if (root.previewStale(metaProc)) return
       if (code === 0) root.filePreviewMeta = (metaOut.text || "").trim()
     }
   }
 
   Process {
     id: pdfProc
+    property string forPath: ""
     onExited: code => {
+      if (root.previewStale(pdfProc)) return
       if (code !== 0) {
         root.filePreviewMeta = "PDF preview failed (need pdftoppm?)"
         root.pdfPreviewPath = ""
@@ -2785,7 +2632,6 @@ Scope {
           return
         }
         if (!root.quickMode) return
-        const max = Math.max(0, root.resultCount - 1)
         const cols = root.quickGridCols
         const hjkl = {}
         hjkl[Qt.Key_H] = Qt.Key_Left
@@ -2808,11 +2654,14 @@ Scope {
         } else if (qk === Qt.Key_Return || qk === Qt.Key_Enter) {
           root.launchCurrent()
           event.accepted = true
+        } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
+          // Tab steps the rail (it used to move focus out of the card).
+          root.selectDeckIndex(root.selectedIndex + (event.key === Qt.Key_Backtab || (event.modifiers & Qt.ShiftModifier) ? -1 : 1))
+          event.accepted = true
         } else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32
           && event.text.charCodeAt(0) !== 127
           && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))) {
           root.categoryFilter = ""
-          root.expandedQuickKey = ""
           root.setSearchQuery(event.text)
           event.accepted = true
         }
@@ -2980,15 +2829,8 @@ Scope {
             Keys.onReturnPressed: root.launchCurrent()
             Keys.onEnterPressed: root.launchCurrent()
 
+            // Esc is onEscapePressed above. Quick mode hides this field and focuses launcherBox.
             Keys.onPressed: event => {
-              // Esc: unwind category (like launcher) then close
-              // cascade: first collapse quick side detail (bjarneo: if(quickExpanded) clear
-              // else if(query) else if(!goUp)close), then cat, then close
-              if (event.key === Qt.Key_Escape) {
-                root.handleEscape()
-                event.accepted = true
-                return
-              }
               if (event.key === Qt.Key_Backspace && root.argArmed && (searchInput.text || "") === "") {
                 root.clearArgument()
                 event.accepted = true
@@ -2998,29 +2840,6 @@ Scope {
                 if (root.goUp()) { event.accepted = true; return; }
               }
               const max = Math.max(0, root.resultCount - 1)
-              if (root.quickMode) {
-                const cols = root.quickGridCols
-                const hjkl = {}
-                hjkl[Qt.Key_H] = Qt.Key_Left
-                hjkl[Qt.Key_J] = Qt.Key_Down
-                hjkl[Qt.Key_K] = Qt.Key_Up
-                hjkl[Qt.Key_L] = Qt.Key_Right
-                const qk = hjkl[event.key] !== undefined ? hjkl[event.key] : event.key
-                if (qk === Qt.Key_Down) {
-                  event.accepted = true; root.selectDeckIndex(root.selectedIndex + cols)
-                } else if (qk === Qt.Key_Up) {
-                  event.accepted = true; root.selectDeckIndex(root.selectedIndex - cols)
-                } else if (qk === Qt.Key_Left) {
-                  event.accepted = true; root.selectDeckIndex(root.selectedIndex - 1)
-                } else if (qk === Qt.Key_Right) {
-                  event.accepted = true; root.selectDeckIndex(root.selectedIndex + 1)
-                } else if (event.key === Qt.Key_Tab && !(event.modifiers & Qt.ShiftModifier)) {
-                  event.accepted = true; root.selectDeckIndex(root.selectedIndex + 1)
-                } else if (event.key === Qt.Key_Backtab || (event.key === Qt.Key_Tab && (event.modifiers & Qt.ShiftModifier))) {
-                  event.accepted = true; root.selectDeckIndex(root.selectedIndex - 1)
-                }
-                return
-              }
               if (event.key === Qt.Key_Tab && !(event.modifiers & Qt.ShiftModifier) && root.tryArmArgument()) {
                 event.accepted = true
                 return
@@ -3029,11 +2848,11 @@ Scope {
               const ctrl = !!(event.modifiers & Qt.ControlModifier)
               const ctrlDown = ctrl && event.key === Qt.Key_J
               const ctrlUp = ctrl && event.key === Qt.Key_K
-              if (!root.quickMode && (event.key === Qt.Key_Up || ctrlUp) && root.walkCalcHistory(1)) {
+              if ((event.key === Qt.Key_Up || ctrlUp) && root.walkCalcHistory(1)) {
                 event.accepted = true
                 return
               }
-              if (!root.quickMode && (event.key === Qt.Key_Down || ctrlDown) && root.walkCalcHistory(-1)) {
+              if ((event.key === Qt.Key_Down || ctrlDown) && root.walkCalcHistory(-1)) {
                 event.accepted = true
                 return
               }
@@ -3139,7 +2958,9 @@ Scope {
               }
 
               onCountChanged: if (!root.quickMode) root.resultCount = count
-              onCurrentIndexChanged: if (currentIndex >= 0) root.selectedIndex = currentIndex
+              // Hidden in Quick, where selectedIndex is the rail's: its model reset wrapped deck index 8+
+              // (Storage, Backup, Clipboard; Super+Ctrl+R / V opened Dashboard, Screenshots, Media instead).
+              onCurrentIndexChanged: if (currentIndex >= 0 && !root.quickMode) root.selectedIndex = currentIndex
 
               delegate: Item {
                 id: delegateRoot
@@ -3215,6 +3036,7 @@ Scope {
 
                     Text {
                       Layout.fillWidth: true
+                      textFormat: Text.PlainText
                       text: delegateRoot.dName
                       color: Style.m3onSurface
                       font.pixelSize: root.fontPx(14)
@@ -3226,6 +3048,7 @@ Scope {
                     Text {
                       Layout.fillWidth: true
                       visible: delegateRoot.dSub !== "" && !delegateRoot.dCat && !root.fileMode
+                      textFormat: Text.PlainText
                       text: delegateRoot.dSub
                       color: Style.m3outline
                       font.pixelSize: root.fontPx(11)
@@ -3236,6 +3059,7 @@ Scope {
                   }
 
                   Text {
+                    textFormat: Text.PlainText
                     text: root.fileMode && modelData.path
                       ? Data.tildify(Data.dirname(modelData.path), root.homeDir)
                       : delegateRoot.dAcc
@@ -3300,7 +3124,7 @@ Scope {
               anchors.top: parent.top
               anchors.bottom: parent.bottom
               anchors.left: parent.left
-              width: root.quickDetailActive
+              width: root.quickMode
                 ? parent.quickRailW
                 : parent.width * parent.listFrac
               clip: true
@@ -3317,7 +3141,7 @@ Scope {
                 rowSpacing: listArea.tileGeom.tileGap
                 columnSpacing: listArea.tileGeom.tileGap
                 clip: true
-                readonly property bool colMode: root.quickDetailActive
+                readonly property bool colMode: root.quickMode
                 readonly property int tileH: listArea.tileGeom.tileH
                 Timer { interval: 0; running: root.quickMode; repeat: false; onTriggered: root.resultCount = (root.quickDeck || []).length }
 
@@ -3362,11 +3186,11 @@ Scope {
             // mid hairline sep (ref style between compressed grid and detail)
             Rectangle {
               id: quickSep
-              visible: root.quickDetailActive
+              visible: root.quickMode
               anchors.top: parent.top; anchors.bottom: parent.bottom
               anchors.left: quickSide.right; anchors.leftMargin: 12
               width: 1; color: Style.menuSep
-              opacity: root.quickDetailActive ? 1 : 0
+              opacity: root.quickMode ? 1 : 0
               Behavior on opacity { NumberAnimation { duration: Style.menuAnimMs } }
             }
 
@@ -3375,29 +3199,29 @@ Scope {
               visible: root.sideActive
               anchors.top: parent.top
               anchors.bottom: parent.bottom
-              anchors.left: root.quickMode && root.quickDetailActive ? quickSep.right : (root.quickMode ? quickSide.right : resultsList.right)
-              anchors.leftMargin: root.quickDetailActive ? root.launcherGeom.sidePad : root.launcherGeom.panePad
+              anchors.left: root.quickMode ? quickSep.right : resultsList.right
+              anchors.leftMargin: root.quickMode ? root.launcherGeom.sidePad : root.launcherGeom.panePad
               anchors.right: parent.right
 
               // Quick pane body: left rail is the selection indicator; no title/close row.
               Item {
                 id: qDetailSide
-                visible: root.quickDetailActive
+                visible: root.quickMode
                 anchors.fill: parent
                 clip: true
-                opacity: root.quickDetailActive ? 1 : 0
+                opacity: root.quickMode ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: Style.menuAnimMs; easing.type: Easing.OutCubic } }
                 Loader {
                   id: qdl
                   anchors.fill: parent
-                  active: root.quickDetailActive
+                  active: root.quickMode
                   sourceComponent: root.quickPaneComp
                 }
               }
 
               // file preview (only when not quick detail)
               ColumnLayout {
-                visible: root.previewActive && !root.quickDetailActive
+                visible: root.fileMode && !root.quickMode
                 anchors.fill: parent
                 spacing: 6
 
@@ -3457,6 +3281,7 @@ Scope {
                     anchors.fill: parent
                     anchors.margins: 4
                     visible: root.fileMode && resultsList.currentItem && resultsList.currentItem.modelData && root.isTextFile(resultsList.currentItem.modelData.path || "")
+                    textFormat: Text.PlainText
                     text: root.filePreviewText
                     color: Style.menuInkDeep
                     font.family: root.uiFont
@@ -3530,79 +3355,12 @@ Scope {
           anchors.bottomMargin: 28
           spacing: 10
 
-          Rectangle {
-            width: 96
-            height: 34
-            radius: Style.radiusLg
-            color: copyShotPreviewMa.containsMouse ? root.menuSuccessBg : Style.menuControlBg
-            border.width: 1
-            border.color: copyShotPreviewMa.containsMouse ? Style.green : Style.menuSep
-            Text {
-              anchors.centerIn: parent
-              text: "Copy"
-              color: copyShotPreviewMa.containsMouse ? Style.green : Style.menuInk
-              font.pixelSize: root.fontPx(11)
-              font.bold: true
-              font.family: root.uiFont
-            }
-            MouseArea {
-              id: copyShotPreviewMa
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              onClicked: (mouse) => { mouse.accepted = true; root.copyShot(root.shotPreviewPath) }
-            }
-          }
-
-          Rectangle {
-            width: 96
-            height: 34
-            radius: Style.radiusLg
-            color: openShotPreviewMa.containsMouse ? Style.menuRowSel : Style.menuControlBg
-            border.width: 1
-            border.color: openShotPreviewMa.containsMouse ? Style.menuSeal : Style.menuSep
-            Text {
-              anchors.centerIn: parent
-              text: "Open"
-              color: openShotPreviewMa.containsMouse ? Style.menuSeal : Style.menuInk
-              font.pixelSize: root.fontPx(11)
-              font.bold: true
-              font.family: root.uiFont
-            }
-            MouseArea {
-              id: openShotPreviewMa
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              onClicked: root.openShot(root.shotPreviewPath)
-            }
-          }
-
-          Rectangle {
-            width: 96
-            height: 34
-            radius: Style.radiusLg
-            color: deleteShotPreviewMa.containsMouse ? root.menuDangerBg : Style.menuControlBg
-            border.width: 1
-            border.color: deleteShotPreviewMa.containsMouse ? Style.red : Style.menuSep
-            Text {
-              anchors.centerIn: parent
-              text: "Delete"
-              color: deleteShotPreviewMa.containsMouse ? Style.red : Style.menuInk
-              font.pixelSize: root.fontPx(11)
-              font.bold: true
-              font.family: root.uiFont
-            }
-            MouseArea {
-              id: deleteShotPreviewMa
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              onClicked: (mouse) => {
-                mouse.accepted = true
-                root.deleteShot(root.shotPreviewPath)
-              }
-            }
+          // Same pills as the gallery pane's header (Copy uses its glyph).
+          Menu.MenuPill { icon: "󰅌"; label: "Copy"; fontScale: root.uiFontScale; onClicked: root.copyShot(root.shotPreviewPath) }
+          Menu.MenuPill { icon: "󰏌"; label: "Open"; fontScale: root.uiFontScale; onClicked: root.openShot(root.shotPreviewPath) }
+          Menu.MenuPill {
+            icon: "󰆴"; label: "Delete"; fg: Style.red; fontScale: root.uiFontScale
+            onClicked: root.deleteShot(root.shotPreviewPath)
           }
         }
       }

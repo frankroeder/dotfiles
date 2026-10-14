@@ -50,6 +50,13 @@ assert(
 );
 assert(/special === "calc"[\s\S]{0,280}pushCalcHistory/.test(qml), "Enter on a calc result stores the expression");
 
+// calculate: arithmetic evaluates, anything else never reaches eval.
+assert(H.calculate("2^10 + sqrt(16)") === "1028", "power and sqrt");
+assert(H.calculate("(1+2)*pi") === "9.42477796", "pi, rounded to 8 places");
+assert(H.calculate("7/0") === null, "non-finite is no result");
+assert(H.calculate("root.closeLauncher()") === null && H.calculate("Qt.quit()") === null, "code is rejected");
+assert(H.calculate("x = 1") === null, "assignment is rejected");
+
 if (failed > 0) {
   console.log("\n" + failed + " assertion(s) failed");
   process.exit(1);

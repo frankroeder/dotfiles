@@ -186,21 +186,17 @@ function launcherChrome(opts) {
   const margin = opts.cardMargin == null ? CARD_MARGIN : opts.cardMargin
   const spacing = opts.colSpacing == null ? COL_SPACING : opts.colSpacing
   const headerH = headerVisible ? headerHeight(fontScale) : 0
-  const hintH = hintHeight(fontScale)
   const searchH = quickMode ? 0 : (opts.searchH == null ? SEARCH_H : opts.searchH)
-  const searchDiv = 0
   const cmdH = quickMode || opts.cmdVisible === false ? 0 : cmdLineHeight(fontScale)
 
+  // Header (+ its divider), search pill, command line: the card has no footer hint row any more.
   const parts = []
   if (headerH > 0) {
     parts.push(headerH)
     parts.push(DIVIDER_H)
   }
   if (searchH > 0) parts.push(searchH)
-  if (searchDiv > 0) parts.push(searchDiv)
-  parts.push(DIVIDER_H)
   if (cmdH > 0) parts.push(cmdH)
-  parts.push(hintH)
 
   const itemCount = parts.length + 1
   const gap = spacing * Math.max(0, itemCount - 1)
@@ -211,7 +207,6 @@ function launcherChrome(opts) {
     chrome: chrome,
     innerChrome: inner,
     headerH: headerH,
-    hintH: hintH,
     searchH: searchH,
     cmdH: cmdH,
     cardMargin: margin,

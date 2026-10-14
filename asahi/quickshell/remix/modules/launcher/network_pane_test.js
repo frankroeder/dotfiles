@@ -85,6 +85,12 @@ check(
   "Network pane does not keep a local fmtRate"
 );
 
+// Which scanned networks ask for a password (nmcli SECURITY strings).
+check(!M.wifiNeedsPassword("") && !M.wifiNeedsPassword("--"), "open networks connect without a password");
+check(!M.wifiNeedsPassword("OWE"), "OWE (Enhanced Open) connects without a password");
+check(M.wifiNeedsPassword("WPA2") && M.wifiNeedsPassword("WPA2 WPA3") && M.wifiNeedsPassword("WPA3")
+  && M.wifiNeedsPassword("WEP") && M.wifiNeedsPassword("WPA2 802.1X"), "WEP / WPA / enterprise ask for credentials");
+
 if (failed > 0) {
   console.log("\n" + failed + " assertion(s) failed");
   process.exit(1);

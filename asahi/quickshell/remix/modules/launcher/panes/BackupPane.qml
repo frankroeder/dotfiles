@@ -102,9 +102,18 @@ Item {
     }
     browsing = true
     entries = []
+    // One listing at a time: a killed run's empty output and exit code landed on the new folder.
+    // lsProc's onExited lists the folder shown by then.
+    if (lsProc.running) return
     lsRunKey = lsKey
-    // exec restarts a listing still running for the previous folder (assigning command would not).
-    lsProc.exec([helper, "ls", selected.id, path])
+    lsProc.command = [helper, "ls", selected.id, path]
+    lsProc.running = true
+  }
+  // Launcher Esc hook (true = handled): out of a snapshot folder back to its top before the pane closes.
+  function handleEscape() {
+    if (!selected || browsePath === "" || browsePath === home) return false
+    browse(home)
+    return true
   }
   function restore(path) {
     if (restoreProc.running || !selected) return
@@ -147,8 +156,11 @@ Item {
     command: [tmRoot.helper, "overview"]
     stdout: StdioCollector {
       onStreamFinished: {
+        const raw = String(text || "").trim()
+        // Offline: no output (onExited flags the error); keep the overview cached in the state file.
+        if (!raw) return
         try {
-          tmRoot.liveOv = JSON.parse(String(text || "").trim() || "{}")
+          tmRoot.liveOv = JSON.parse(raw)
           tmRoot.useSnapshots(tmRoot.liveOv.snapshots || [])
           tmRoot.snapsState = "ok"
         } catch (e) { tmRoot.snapsState = "error" }
@@ -172,7 +184,8 @@ Item {
       }
     }
     onExited: function(code) {
-      if (tmRoot.lsRunKey !== tmRoot.lsKey) return
+      // Another folder was picked meanwhile: list that one now.
+      if (tmRoot.lsRunKey !== tmRoot.lsKey) { Qt.callLater(tmRoot.browse, tmRoot.browsePath); return }
       tmRoot.browseMissing = code === 4
       tmRoot.browseFailed = code !== 0 && code !== 4
       tmRoot.browsing = false
@@ -195,32 +208,7 @@ Item {
     : tmState === "offline" || tmState === "interrupted" || status.overdue ? Style.orange : Style.m3secondary
 
   // ---- M3 building blocks (same look as StoragePane) ----
-  component Pill: Rectangle {
-    property string icon
-    property string label
-    property color bg: Style.m3containerHigh
-    property color fg: Style.m3onSurface
-    signal clicked()
-    implicitWidth: pillRow.implicitWidth + 24
-    implicitHeight: 32
-    radius: Style.menuRadiusFull
-    color: pillMa.containsMouse ? Qt.lighter(bg, 1.15) : bg
-    Behavior on color { ColorAnimation { duration: 120 } }
-    Row {
-      id: pillRow
-      anchors.centerIn: parent
-      spacing: 6
-      Text {
-        visible: !!parent.parent.icon; text: parent.parent.icon; color: parent.parent.fg
-        font.family: tmRoot.root.uiFont; font.pixelSize: tmRoot.root.fontPx(12); anchors.verticalCenter: parent.verticalCenter
-      }
-      Text {
-        text: parent.parent.label; color: parent.parent.fg; font.weight: Font.Medium
-        font.family: tmRoot.root.uiSans; font.pixelSize: tmRoot.root.fontPx(10); anchors.verticalCenter: parent.verticalCenter
-      }
-    }
-    MouseArea { id: pillMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
-  }
+  component Pill: Menu.MenuPill { fontScale: tmRoot.root.uiFontScale }
   component CardTitle: Text {
     color: Style.m3onSurface
     font.family: tmRoot.root.uiSans
@@ -479,17 +467,6 @@ Item {
             Text { text: "󰃭"; color: Style.m3secondary; font.family: root.uiFont; font.pixelSize: root.fontPx(14) }
             CardTitle { text: "Snapshots"; Layout.fillWidth: true }
           }
-          Secondary {
-            visible: tmRoot.snapshots.length === 0
-            Layout.fillWidth: true
-            wrapMode: Text.Wrap
-            textFormat: Text.PlainText
-            text: tmRoot.snapsState === "error" ? "Could not list snapshots" + (tmRoot.snapError ? ": " + tmRoot.snapError : "")
-              : tmRoot.status.running ? "The first snapshot appears when the running backup finishes."
-              : tmRoot.snapsState === "loading" ? "Reading snapshots…"
-              : "No restic snapshots yet"
-            color: tmRoot.snapsState === "error" ? Style.red : Style.m3onSurfaceVariant
-          }
           ListView {
             id: snapList
             Layout.fillWidth: true
@@ -539,6 +516,20 @@ Item {
             }
           }
         }
+        Menu.MenuEmptyState {
+          anchors.centerIn: parent
+          anchors.verticalCenterOffset: Math.round(root.fontPx(12))
+          visible: tmRoot.rows.length === 0
+          fontScale: root.uiFontScale
+          maxWidth: parent.width - 32
+          glyph: tmRoot.snapsState === "error" ? "󰅛" : tmRoot.status.running ? "󰁯" : tmRoot.snapsState === "loading" ? "󰔟" : "󰃭"
+          tint: tmRoot.snapsState === "error" ? Style.red : Style.m3secondary
+          title: tmRoot.snapsState === "error" ? "Could not list snapshots"
+            : tmRoot.status.running ? "First backup running"
+            : tmRoot.snapsState === "loading" ? "Reading snapshots…" : "No snapshots yet"
+          detail: tmRoot.snapsState === "error" ? tmRoot.snapError
+            : tmRoot.status.running ? "The first snapshot appears when the running backup finishes." : ""
+        }
       }
 
       Rectangle {
@@ -554,18 +545,11 @@ Item {
           RowLayout {
             Layout.fillWidth: true
             spacing: 8
-            Rectangle {
-              implicitWidth: 26; implicitHeight: 26; radius: 13
+            Menu.MenuIconBtn {
               visible: tmRoot.browsePath !== "" && tmRoot.browsePath !== tmRoot.home
-              color: upMa.containsMouse ? Style.m3stateHover : "transparent"
-              Text { anchors.centerIn: parent; text: "󰁍"; color: Style.m3onSurface; font.family: root.uiFont; font.pixelSize: root.fontPx(13) }
-              MouseArea {
-                id: upMa
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: tmRoot.browse(tmRoot.browsePath.replace(/\/[^\/]+$/, "") || "/")
-              }
+              implicitWidth: 26; implicitHeight: 26; fontScale: root.uiFontScale
+              icon: "󰁍"; tone: Style.m3onSurface
+              onClicked: tmRoot.browse(tmRoot.browsePath.replace(/\/[^\/]+$/, "") || "/")
             }
             Text { text: "󰉋"; color: Style.m3tertiary; font.family: root.uiFont; font.pixelSize: root.fontPx(14) }
             CardTitle {
@@ -575,7 +559,7 @@ Item {
               elide: Text.ElideMiddle
             }
             Pill {
-              visible: tmRoot.browsePath.length > tmRoot.home.length
+              visible: tmRoot.browsePath.length > tmRoot.home.length && !tmRoot.browseMissing && !tmRoot.browseFailed
               icon: "󰦛"; label: "Restore folder"
               bg: Style.m3tertiaryContainer
               onClicked: tmRoot.restore(tmRoot.browsePath)
@@ -616,12 +600,12 @@ Item {
               width: entryList.width - (entryScroll.overflow ? entryScroll.implicitWidth + 4 : 0)
               height: Math.max(36, root.fontPx(11) + 18)
               radius: Style.menuRadiusMd
-              color: ema.containsMouse ? Style.m3stateHover : "transparent"
+              color: entryHover.hovered ? Style.m3stateHover : "transparent"
               Behavior on color { ColorAnimation { duration: 120 } }
+              // Row HoverHandler: the restore button's MouseArea would steal a row MouseArea's hover.
+              HoverHandler { id: entryHover }
               MouseArea {
-                id: ema
                 anchors.fill: parent
-                hoverEnabled: true
                 cursorShape: entryRow.isDir ? Qt.PointingHandCursor : Qt.ArrowCursor
                 onClicked: if (entryRow.isDir) tmRoot.browse(entryRow.modelData.path)
               }
@@ -648,18 +632,11 @@ Item {
                   font.pixelSize: root.fontPx(9)
                 }
                 // Restore just this entry.
-                Rectangle {
-                  implicitWidth: 26; implicitHeight: 26; radius: 13
-                  opacity: ema.containsMouse || rma.containsMouse ? 1 : 0
-                  color: rma.containsMouse ? Style.m3tertiaryContainer : "transparent"
-                  Text { anchors.centerIn: parent; text: "󰦛"; color: Style.m3onSurface; font.family: root.uiFont; font.pixelSize: root.fontPx(12) }
-                  MouseArea {
-                    id: rma
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: tmRoot.restore(entryRow.modelData.path)
-                  }
+                Menu.MenuIconBtn {
+                  implicitWidth: 26; implicitHeight: 26; iconPx: 12; fontScale: root.uiFontScale
+                  icon: "󰦛"; tone: Style.m3onSurface
+                  opacity: entryHover.hovered ? 1 : 0
+                  onClicked: tmRoot.restore(entryRow.modelData.path)
                 }
               }
             }

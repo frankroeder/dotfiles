@@ -4,13 +4,11 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import Quickshell.Widgets
-import Quickshell.Hyprland
 import Quickshell.Services.Pipewire
 import "../../menu" as Menu
 import "../../../"
 import "../../../services" as Services
 import "../quick_models.js" as QuickModels
-import "../launcher_layout.js" as LauncherGeom
 
 // Media pane: now playing, sink/source pickers with volume, stream mixer, cava.
 // `root` is the LauncherWindow (fontPx, uiFont/uiSans, launcherGeom, quickMode, quickPaneKey, binDir, ...).
@@ -179,30 +177,15 @@ Item {
   function mix(a, b, t) { return Qt.rgba(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t, 1) }
 
   // M3 widgets shared by the cards below (caelestia look, same as RecordPanel).
-  component RoundBtn: Rectangle {
-    property string icon
+  // Transport button: `size` px disc, glyph at half that; dimmed while the player cannot do it.
+  component RoundBtn: Menu.MenuIconBtn {
     property int size: 36
-    property color bg: Style.m3containerHigh
-    property color fg: Style.m3onSurface
     property bool enabledLook: true
-    signal clicked()
-    width: size; height: size; radius: size / 2
-    color: rma.containsMouse ? Qt.lighter(bg, 1.15) : bg
+    implicitWidth: size; implicitHeight: size; iconPx: Math.round(size / 2)
+    bg: Style.m3containerHigh; tone: Style.m3onSurface
     opacity: enabledLook ? 1 : 0.4
-    Behavior on color { ColorAnimation { duration: 120 } }
-    Text { anchors.centerIn: parent; text: parent.icon; color: parent.fg; font.family: root.uiFont; font.pixelSize: parent.size * 0.5 }
-    MouseArea { id: rma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
   }
-  component IconBtn: Rectangle {
-    property string icon
-    property color tone: Style.m3onSurfaceVariant
-    signal clicked()
-    width: 30; height: 30; radius: 15
-    color: ima.containsMouse ? Style.m3stateHover : "transparent"
-    Behavior on color { ColorAnimation { duration: 120 } }
-    Text { anchors.centerIn: parent; text: parent.icon; color: parent.tone; font.family: root.uiFont; font.pixelSize: root.fontPx(13) }
-    MouseArea { id: ima; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
-  }
+  component IconBtn: Menu.MenuIconBtn { fontScale: root.uiFontScale }
   component CardTitle: Row {
     property string icon
     property string label
@@ -238,7 +221,7 @@ Item {
       radius: Style.menuPanelRadius
       color: Style.m3container
       readonly property var p: quickMediaRoot.activeP
-      readonly property bool hasArt: !!(p && p.trackArtUrl && String(p.trackArtUrl) !== "")
+      readonly property bool hasArt: Services.Players.artUrl !== ""
       readonly property bool hasLen: !!(p && p.lengthSupported && p.length > 0)
       id: npCard
       RowLayout {
@@ -255,7 +238,7 @@ Item {
           ClippingRectangle {
             anchors.fill: parent; radius: Style.menuRadiusLg; color: "transparent"; visible: npCard.hasArt
             Image {
-              anchors.fill: parent; source: npCard.hasArt ? npCard.p.trackArtUrl : ""
+              anchors.fill: parent; source: Services.Players.artUrl
               fillMode: Image.PreserveAspectCrop; asynchronous: true; sourceSize: Qt.size(256, 256)
             }
           }
@@ -266,6 +249,7 @@ Item {
           spacing: 3
           Text {
             Layout.fillWidth: true
+            textFormat: Text.PlainText
             text: npCard.p ? (npCard.p.trackTitle || "Unknown track") : "Nothing playing"
             color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(15); font.weight: Font.DemiBold; elide: Text.ElideRight
           }
@@ -307,7 +291,7 @@ Item {
         }
         RoundBtn {
           icon: npCard.p && npCard.p.isPlaying ? "󰏤" : "󰐊"; size: root.fontPx(34)
-          bg: Style.m3primary; fg: Style.m3onPrimary; enabledLook: !!(npCard.p && npCard.p.canTogglePlaying)
+          bg: Style.m3primary; tone: Style.m3onPrimary; enabledLook: !!(npCard.p && npCard.p.canTogglePlaying)
           onClicked: { const p = quickMediaRoot.activeP; if (p && p.canTogglePlaying) p.togglePlaying() }
         }
         RoundBtn {
@@ -469,27 +453,12 @@ Item {
             color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(10)
           }
           Item { Layout.fillWidth: true }
-          // Tonal pill: the full mixer (profiles, ports) lives in pavucontrol.
-          Rectangle {
-            implicitWidth: pavuRow.implicitWidth + 24; implicitHeight: 28
-            radius: Style.menuRadiusFull
-            color: pavuMa.containsMouse ? Qt.lighter(Style.m3secondaryContainer, 1.15) : Style.m3secondaryContainer
-            Behavior on color { ColorAnimation { duration: 120 } }
-            Row {
-              id: pavuRow; anchors.centerIn: parent; spacing: 6
-              Text {
-                text: "󰕾"; color: Style.m3onSurface; font.family: root.uiFont; font.pixelSize: root.fontPx(12)
-                anchors.verticalCenter: parent.verticalCenter
-              }
-              Text {
-                text: "pavucontrol"; color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(10)
-                font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter
-              }
-            }
-            MouseArea {
-              id: pavuMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-              onClicked: root.execAndClose(["pavucontrol"])
-            }
+          // Tonal pill: the full mixer (profiles, ports) lives in pavucontrol. Shown only once it is
+          // installed (asahi/dnf.sh): a missing one made it a dead button.
+          Menu.MenuPill {
+            visible: DesktopEntries.byId("org.pulseaudio.pavucontrol") !== null
+            icon: "󰕾"; label: "pavucontrol"; bg: Style.m3secondaryContainer; fontScale: root.uiFontScale
+            onClicked: root.execAndClose(["pavucontrol"])
           }
         }
         Text {
@@ -541,6 +510,7 @@ Item {
                   }
                   Text {
                     Layout.preferredWidth: Math.round(parent.width * 0.28)
+                    textFormat: Text.PlainText
                     text: QuickModels.friendlyDeviceLabel(QuickModels.rawStreamLabel(streamRow.modelData)) || "Stream"
                     color: streamRow.muted ? Style.m3onSurfaceVariant : Style.m3onSurface
                     font.family: root.uiSans; font.pixelSize: root.fontPx(11); font.weight: Font.Medium; elide: Text.ElideRight

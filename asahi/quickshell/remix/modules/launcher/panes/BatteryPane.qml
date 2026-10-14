@@ -3,8 +3,6 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
-import Quickshell.Widgets
-import Quickshell.Bluetooth
 import "../../menu" as Menu
 import "../../../"
 
@@ -44,7 +42,12 @@ Item {
       const parts = lines[i].split("|")
       for (let j = 0; j < parts.length; j++) {
         const idx = parts[j].indexOf(":")
-        if (idx > 0) out.push({ k: parts[j].substring(0, idx).trim(), v: parts[j].substring(idx + 1).trim() })
+        if (idx <= 0) continue
+        const k = parts[j].substring(0, idx).trim()
+        const v = parts[j].substring(idx + 1).trim()
+        // Mode is sysfs charge_behaviour: every mode, the active one in brackets ("[auto] inhibit-charge").
+        const active = k === "Mode" ? /\[([^\]]+)\]/.exec(v) : null
+        out.push({ k: k, v: active ? active[1] : v })
       }
     }
     return out
@@ -93,28 +96,9 @@ Item {
       const statusMatch = (raw[0] || "").match(/\(([^)]+)\)/)
       quickBatteryRoot.batStatus = statusMatch ? statusMatch[1] : ""
 
-      const f = {}
-      for (let i = 1; i < raw.length; i++) {
-        const line = raw[i]
-        if (line.indexOf("Power:") === 0) f.power = line.substring(6).trim()
-        else if (line.indexOf("Time") === 0) f.time = line.replace(/^Time[^:]*:\s*/, "")
-        else if (line.indexOf("Energy:") === 0) {
-          const em = line.match(/Energy:\s*([^/]+)\s*\/\s*(.+)/)
-          if (em) { f.energyNow = em[1].trim(); f.energyFull = em[2].trim() }
-        } else if (line.indexOf("Design:") === 0) {
-          const dm = line.match(/Health:\s*([^(]+)\(([^)]+)\)/)
-          if (dm) { f.health = dm[1].trim(); f.healthLabel = dm[2].trim() }
-        } else if (line.indexOf("Cycles:") === 0) {
-          const cm = line.match(/Cycles:\s*([^|]+)\|\s*Temp:\s*(.+)/)
-          if (cm) { f.cycles = cm[1].trim(); f.temp = cm[2].trim() }
-        } else if (line.indexOf("Model:") === 0) {
-          const mm = line.match(/Model:\s*([^|]+)\|\s*Mfg:\s*(.+)/)
-          if (mm) { f.model = mm[1].trim(); f.mfg = mm[2].trim() }
-        }
-      }
-
-      quickBatteryRoot.batLines = raw.length > 1 ? raw.slice(1) : []
-      quickBatteryRoot.batTimeRemaining = f.time || ""
+      quickBatteryRoot.batLines = raw.slice(1)
+      const time = quickBatteryRoot.batLines.find(function(line) { return line.indexOf("Time") === 0 })
+      quickBatteryRoot.batTimeRemaining = time ? time.replace(/^Time[^:]*:\s*/, "") : ""
       quickBatteryRoot.batHolding = !!data.holding
       quickBatteryRoot.batThresholdEnd = Number(data.threshold_end) || 0
     } catch (_) {}
@@ -149,54 +133,9 @@ Item {
     }
   }
   Timer { id: batDelay; interval: 400; onTriggered: { if (!batProc.running) batProc.running = true } }
-  Component.onCompleted: Qt.callLater(function() {
-    if (!batProc.running) batProc.running = true
-    if (!smcProc.running) smcProc.running = true
-  })
 
-  // Full-round fact chip: glyph + text on a tonal container.
-  component Chip: Rectangle {
-    property string icon: ""
-    property string label: ""
-    property color bg: Style.m3secondaryContainer
-    implicitWidth: chipRow.implicitWidth + 22; implicitHeight: chipRow.implicitHeight + 12
-    radius: Style.menuRadiusFull; color: bg
-    Row {
-      id: chipRow; anchors.centerIn: parent; spacing: 6
-      Text {
-        visible: icon !== ""; text: icon; color: Style.m3onSurface
-        font.family: root.uiFont; font.pixelSize: root.fontPx(11); anchors.verticalCenter: parent.verticalCenter
-      }
-      Text {
-        text: label; color: Style.m3onSurface
-        font.family: root.uiSans; font.pixelSize: root.fontPx(11); font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter
-      }
-    }
-  }
-
-  // Tonal action pill; `on` paints it in the primary container.
-  component Pill: Rectangle {
-    property string icon: ""
-    property string label: ""
-    property bool on: false
-    signal clicked()
-    implicitWidth: pillRow.implicitWidth + 28; implicitHeight: 36
-    radius: Style.menuRadiusFull
-    color: on ? Style.m3primaryContainer : (pillMa.containsMouse ? Qt.lighter(Style.m3containerHigh, 1.15) : Style.m3containerHigh)
-    Behavior on color { ColorAnimation { duration: 120 } }
-    Row {
-      id: pillRow; anchors.centerIn: parent; spacing: 8
-      Text {
-        text: icon; color: on ? Style.m3primary : Style.m3onSurface
-        font.family: root.uiFont; font.pixelSize: root.fontPx(12); anchors.verticalCenter: parent.verticalCenter
-      }
-      Text {
-        text: label; color: on ? Style.m3primary : Style.m3onSurface
-        font.family: root.uiSans; font.pixelSize: root.fontPx(11); font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter
-      }
-    }
-    MouseArea { id: pillMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
-  }
+  component Chip: Menu.MenuChip { fontScale: root.uiFontScale }
+  component Pill: Menu.MenuPill { fontScale: root.uiFontScale }
 
   ColumnLayout {
     anchors.fill: parent
@@ -257,11 +196,11 @@ Item {
             Layout.topMargin: 8
             spacing: 8
             Pill {
-              icon: "󰁾"; label: "Hold 80%"; on: quickBatteryRoot.batThresholdEnd === 80
+              icon: "󰁾"; label: "Hold 80%"; selected: quickBatteryRoot.batThresholdEnd === 80
               onClicked: { Quickshell.execDetached([root.binDir + "/asahi-charge-limit", "80"]); batDelay.restart() }
             }
             Pill {
-              icon: "󰁹"; label: "Full 100%"; on: quickBatteryRoot.batThresholdEnd >= 99
+              icon: "󰁹"; label: "Full 100%"; selected: quickBatteryRoot.batThresholdEnd >= 99
               onClicked: { Quickshell.execDetached([root.binDir + "/asahi-charge-limit", "100"]); batDelay.restart() }
             }
           }
@@ -342,7 +281,7 @@ Item {
       Layout.fillWidth: true
       Layout.fillHeight: true
       Layout.minimumHeight: 96
-      radius: Style.menuPanelRadius
+      radius: Style.menuRadiusLg
       color: Style.m3container
       Text {
         anchors.centerIn: parent
