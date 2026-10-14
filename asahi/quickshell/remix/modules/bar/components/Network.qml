@@ -1,24 +1,23 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Io
 import "../../../"
+import "../../../services" as Services
 import "../BarModel.js" as BarModel
 
-// Underlay icon (wifi / ethernet) plus a same-size VPN glyph and uptime.
-// Full overview lives in the launcher's Quick > Network (click).
+// Underlay icon (wifi / ethernet) plus a same-size VPN glyph and uptime, from the shared BarData
+// (one nmcli monitor for every bar). Full overview lives in the launcher's Quick > Network (click).
 Item {
     id: root
 
     property var barHost: null
-    readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
 
     implicitWidth: content.implicitWidth + 6
     implicitHeight: Style.barHeight
 
-    property string text: "󰤨"
-    property bool vpnUp: false
-    property int vpnSince: 0
+    readonly property string text: Services.BarData.netText
+    readonly property bool vpnUp: Services.BarData.vpnUp
+    readonly property int vpnSince: Services.BarData.vpnSince
     property int nowTick: 0
 
     readonly property string vpnAge: {
@@ -55,45 +54,6 @@ Item {
             font.pixelSize: Style.barFontCaption
             color: Style.green
         }
-    }
-
-    function refresh() { if (!netProc.running) netProc.running = true }
-
-    Process {
-        id: netProc
-        command: [binDir + "/asahi-network", "--bar"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    const data = JSON.parse(text.trim())
-                    root.text = data.text || "󰤮"
-                    root.vpnUp = !!data.vpn
-                    root.vpnSince = Number(data.vpnSince) || 0
-                } catch (e) {}
-            }
-        }
-    }
-
-    // nmcli monitor pushes state changes; the slow poll only tracks Wi-Fi signal.
-    Process {
-        running: true
-        // pdeathsig: nmcli dies with qs (a SIGTERMed qs would orphan it).
-        command: ["setpriv", "--pdeathsig", "TERM", "nmcli", "monitor"]
-        stdout: SplitParser { onRead: changeDebounce.restart() }
-    }
-
-    Timer {
-        id: changeDebounce
-        interval: 500
-        onTriggered: root.refresh()
-    }
-
-    Timer {
-        interval: 30000
-        running: true
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: root.refresh()
     }
 
     Timer {

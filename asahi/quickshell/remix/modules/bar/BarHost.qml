@@ -3,11 +3,11 @@ import QtQml.Models
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
-import Quickshell.Io
 import Quickshell.Widgets
 import "../../"
 import "BarModel.js" as BarModel
 import "components" as BarComponents
+import "../../services" as Services
 
 // Bar content (PanelWindow wrapper lives in shell.qml so Variants injects modelData correctly).
 Item {
@@ -48,7 +48,7 @@ Item {
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
   readonly property int barSize: Style.barHeight
-  readonly property bool appleSiliconHost: appleProbe.appleSiliconHost
+  readonly property bool appleSiliconHost: Services.BarData.appleSiliconHost
   readonly property color barForeground: Style.barStripText
   readonly property color barBackground: Style.barStripBg
 
@@ -83,20 +83,19 @@ Item {
   implicitWidth: parent ? parent.width : 0
   implicitHeight: notchFloor
 
-  // State shared with workspace block and left widgets
-  property string cpuTooltip: ""
-  property string memTooltip: ""
-  property bool updatesAvailable: false
-  property real cpuPerc: 0
-  property real memPerc: 0
-  property real heatpipeW: -1
-  property var cpuCores: []
-  property var cpuHistory: []
-  property var memHistory: []
-  readonly property int maxGraphHist: 22
-  property int wsWindowVersion: 0
-  property int wsIconRefreshes: 0
-  property var hyprClients: []
+  // Shared with every bar (services/BarData.qml): read here so the chips and panels keep their names.
+  readonly property string cpuTooltip: Services.BarData.cpuTooltip
+  readonly property string memTooltip: Services.BarData.memTooltip
+  readonly property bool updatesAvailable: Services.BarData.updatesAvailable
+  readonly property real cpuPerc: Services.BarData.cpuPerc
+  readonly property real memPerc: Services.BarData.memPerc
+  readonly property real heatpipeW: Services.BarData.heatpipeW
+  readonly property real tempAvg: Services.BarData.tempAvg
+  readonly property var cpuCores: Services.BarData.cpuCores
+  readonly property var cpuHistory: Services.BarData.cpuHistory
+  readonly property var memHistory: Services.BarData.memHistory
+  readonly property int wsWindowVersion: Services.BarData.wsWindowVersion
+  readonly property var hyprClients: Services.BarData.hyprClients
 
   function fmt2(n) {
     n = Math.round(n)
@@ -105,85 +104,14 @@ Item {
     return n < 10 ? "0" + n : "" + n
   }
 
-  function refreshCpu() { if (!cpuScriptProc.running) cpuScriptProc.running = true }
-  function refreshMem() { if (!memScriptProc.running) memScriptProc.running = true }
-
-  // CPU / RAM / heatpipe sampled in-process (forking asahi-cpu/-memory every tick was most of the
-  // bar's CPU); the scripts only feed SysPanel's per-core list, so they run only while it is open.
-  property real cpuPrevTotal: 0
-  property real cpuPrevIdle: 0
-  property string heatpipePath: ""
-  function sampleStats() {
-    procStat.reload()
-    const f = procStat.text().split("\n", 1)[0].trim().split(/\s+/)
-    let total = 0
-    for (let i = 1; i <= 8; i++) total += Number(f[i]) || 0
-    const idle = (Number(f[4]) || 0) + (Number(f[5]) || 0)
-    const dt = total - cpuPrevTotal
-    if (cpuPrevTotal > 0 && dt > 0) cpuPerc = Math.max(0, Math.round(100 * (dt - (idle - cpuPrevIdle)) / dt))
-    cpuPrevTotal = total
-    cpuPrevIdle = idle
-    cpuHistory.push(cpuPerc)
-    if (cpuHistory.length > maxGraphHist) cpuHistory.shift()
-
-    procMeminfo.reload()
-    const mt = /MemTotal:\s+(\d+)/.exec(procMeminfo.text())
-    const ma = /MemAvailable:\s+(\d+)/.exec(procMeminfo.text())
-    if (mt && ma) memPerc = Math.floor(100 * (Number(mt[1]) - Number(ma[1])) / Number(mt[1]))
-    memHistory.push(memPerc)
-    if (memHistory.length > maxGraphHist) memHistory.shift()
-
-    if (heatpipePath !== "") {
-      heatpipeFile.reload()
-      const uw = Number(heatpipeFile.text().trim())
-      heatpipeW = isFinite(uw) && heatpipeFile.text().trim() !== "" ? Math.round(uw / 100000) / 10 : -1
-    }
-
-    // Average of the SMC system temperatures (Asahi exposes no SoC die °C), millidegrees.
-    let sum = 0, n = 0
-    for (let i = 0; i < tempFiles.count; i++) {
-      const fv = tempFiles.objectAt(i)
-      fv.reload()
-      const v = Number(fv.text().trim())
-      if (fv.text().trim() !== "" && isFinite(v)) { sum += v; n++ }
-    }
-    tempAvg = n > 0 ? Math.round(sum / n / 1000) : -1
-  }
-  property real tempAvg: -1
-  property var tempPaths: []
-  Instantiator {
-    id: tempFiles
-    model: barWindow.tempPaths
-    delegate: FileView { required property string modelData; path: modelData; blockLoading: true }
-  }
-  Process {
-    running: true
-    command: ["sh", "-c", "for d in /sys/class/hwmon/hwmon*; do [ \"$(cat \"$d/name\")\" = macsmc_hwmon ] && ls \"$d\"/temp*_input; done"]
-    stdout: StdioCollector { onStreamFinished: barWindow.tempPaths = text.split("\n").filter(p => p !== "") }
-  }
-  FileView { id: procStat; path: "/proc/stat"; blockLoading: true }
-  FileView { id: procMeminfo; path: "/proc/meminfo"; blockLoading: true }
-  FileView { id: heatpipeFile; path: barWindow.heatpipePath; blockLoading: true }
-  Process {
-    running: true
-    command: ["sh", "-c", "for f in /sys/class/hwmon/hwmon*/power*_label; do " +
-      "case $(cat \"$f\") in Heatpipe*) echo \"${f%_label}_input\"; exit;; esac; done"]
-    stdout: StdioCollector { onStreamFinished: barWindow.heatpipePath = text.trim() }
-  }
-  onOpenPanelChanged: if (openPanel === "sys") { refreshCpu(); refreshMem() }
-
-  function refreshWorkspaceIcons(retries) {
-    wsWindowVersion = (wsWindowVersion + 1) % 10000
-    refreshHyprClients()
-    if (retries > wsIconRefreshes) wsIconRefreshes = retries
-    if (wsIconRefreshes > 0 && !wsIconRefreshTimer.running) wsIconRefreshTimer.restart()
+  // SysPanel's per-core list and tooltips fork scripts: only while this bar's panel is open.
+  Timer {
+    interval: 3000; repeat: true; triggeredOnStart: true
+    running: barWindow.openPanel === "sys"
+    onTriggered: Services.BarData.refreshDetail()
   }
 
-  // refreshMonitors: Quickshell applies `workspace` before `focusedmon` (stale activeWorkspace).
-  function refreshHyprClients() {
-    Hyprland.refreshMonitors()
-    if (!hyprClientsProc.running) hyprClientsProc.running = true
-  }
+  function refreshWorkspaceIcons(retries) { Services.BarData.refreshWorkspaceIcons(retries) }
 
   function activateWorkspace(wsId) {
     // Hyprland 0.56 lua treats `dispatch workspace N` as `hl.dispatch(workspace N)` (syntax error).
@@ -235,118 +163,6 @@ Item {
   function appFallbackText(t) {
     const candidates = appCandidates(t)
     return candidates.length > 0 ? candidates[0].charAt(0).toUpperCase() : "?"
-  }
-
-  QtObject { id: appleProbe; property bool appleSiliconHost: false }
-  Process {
-    running: true
-    command: ["bash", "-c", "grep -qi apple /proc/device-tree/compatible 2>/dev/null && echo yes || echo no"]
-    stdout: StdioCollector {
-      onStreamFinished: appleProbe.appleSiliconHost = text.trim() === "yes"
-    }
-  }
-
-  Process {
-    id: cpuScriptProc
-    command: [binDir + "/asahi-cpu"]
-    stdout: StdioCollector {
-      onStreamFinished: {
-        try {
-          const data = JSON.parse(text.trim())
-          barWindow.cpuTooltip = data.tooltip || ""
-          barWindow.cpuCores = data.cores || []
-        } catch (e) {}
-      }
-    }
-  }
-
-  Process {
-    id: memScriptProc
-    command: [binDir + "/asahi-memory"]
-    stdout: StdioCollector {
-      onStreamFinished: {
-        try {
-          const data = JSON.parse(text.trim())
-          barWindow.memTooltip = data.tooltip || ""
-        } catch (e) {}
-      }
-    }
-  }
-
-  Process {
-    id: hyprClientsProc
-    command: ["hyprctl", "clients", "-j"]
-    stdout: StdioCollector {
-      onStreamFinished: {
-        try {
-          barWindow.hyprClients = JSON.parse(text.trim())
-          barWindow.wsWindowVersion = (barWindow.wsWindowVersion + 1) % 10000
-        } catch (e) {}
-      }
-    }
-    Component.onCompleted: barWindow.refreshHyprClients()
-  }
-
-  Process {
-    id: updatesProc
-    // No --cacheonly: as a user it reads ~/.cache/libdnf5 even when days old (asahi-pkg updates).
-    // Offline (exit 1) falls back to the cache, so known updates do not vanish from the bar.
-    command: ["sh", "-c", "dnf check-update -q >/dev/null 2>&1; c=$?; "
-      + "[ $c = 1 ] && { dnf check-update --cacheonly -q >/dev/null 2>&1; c=$?; }; [ $c = 100 ] && echo 1 || echo 0"]
-    stdout: StdioCollector { onStreamFinished: barWindow.updatesAvailable = text.trim() === "1" }
-  }
-
-  Timer {
-    interval: 3000
-    running: true
-    repeat: true
-    triggeredOnStart: true
-    onTriggered: {
-      barWindow.sampleStats()
-      if (barWindow.openPanel === "sys") { barWindow.refreshCpu(); barWindow.refreshMem() }
-    }
-  }
-
-  Timer {
-    interval: 1800000
-    running: true
-    repeat: true
-    triggeredOnStart: true
-    onTriggered: if (!updatesProc.running) updatesProc.running = true
-  }
-
-  Connections {
-    target: Hyprland
-    function onRawEvent(event) {
-      const n = event.name || ""
-      // Not activewindow: it fires on every pointer crossing (the glyph follows activeToplevel).
-      if (["openwindow", "closewindow", "movewindow", "workspace", "focusedmon", "changefloatingmode", "fullscreen", "pin",
-           "togglegroup", "moveintogroup", "moveoutofgroup"].some(x => n.includes(x)))
-        barWindow.refreshWorkspaceIcons(n.includes("openwindow") ? 8 : 0)
-    }
-  }
-
-  Connections {
-    target: Hyprland.toplevels
-    ignoreUnknownSignals: true
-    function onValuesChanged() { barWindow.refreshWorkspaceIcons(4) }
-  }
-
-  Connections {
-    target: Hyprland.workspaces
-    ignoreUnknownSignals: true
-    function onValuesChanged() { barWindow.refreshWorkspaceIcons(0) }
-  }
-
-  Timer {
-    id: wsIconRefreshTimer
-    interval: 180
-    repeat: true
-    onTriggered: {
-      barWindow.wsIconRefreshes--
-      barWindow.refreshWorkspaceIcons(0)
-      if (barWindow.wsIconRefreshes <= 0) stop()
-    }
   }
 
   // Chips that appear / vanish (media, backup, tray, timer…) slide their neighbours instead of
