@@ -16,7 +16,8 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
 
 # Executing
 
-- Run smoketests; inspect outputs; verify symlinks.
+- Run smoketests; inspect outputs; verify symlinks. Asahi: `make test-asahi` runs every Asahi test
+  (Quickshell JS, `asahi/bin` shell + Python, theme pytest, Lua syntax; ~20 s; fakes or read-only checks).
 - Required-step failures must fail the installer (not warn-only).
 - doctor must not flag Hyprland on generic Linux.
 
@@ -52,7 +53,10 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   `systemd-vconsole-setup`.
 - **Sleep / lid / HDMI**: Asahi is s2idle only (`freeze`/`mem`; zram is not a resume image). No
   Hibernate row; logind/sleep drop-ins ignore hibernate keys; `systemctl suspend`. Power tap:
-  `HandlePowerKey`/`…LongPress=ignore` in `asahi/systemd/logind.conf.d/10-asahi-sleep.conf`
+  `HandlePowerKey`/`…LongPress=ignore` in `asahi/systemd/logind.conf.d/10-asahi-sleep.conf`; F6 (moon)
+  is KEY_SLEEP (a tap suspended past every idle guard): `autostart.lua` holds a session
+  `systemd-inhibit --what=handle-suspend-key` block lock (no root: polkit allows active sessions; no
+  drop-in to install) and Hyprland binds `XF86Sleep` to Do Not Disturb
   (`./install.sh asahi-logind` also installs the udev rule + inhibit unit; HUP logind, never restart
   it; never `udevadm trigger` drm — that hotplugs HDMI). `InhibitDelayMaxSec=15` gives hyprlock time
   on lid close. gsettings `power-button-action` is a GNOME no-op here. ~10s hold is SMC force-reset.
@@ -80,17 +84,22 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   (dcp atomic_check fix in `~/linux-fairydust`). Signature: aquamarine `Cannot commit a disconnected output`, no dcpext
   `dcp_poweroff() done`. logind then re-suspends every `HoldoffTimeoutSec` while the lid is closed. `systemd-suspend.service`
   `OnFailure=asahi-suspend-failed.service` blocks `handle-lid-switch` until lid open; `asahi-idle`
-  skips sleep while `systemd-suspend.service` is failed. `asahi-idle wake` (after_sleep) keeps the
+  skips sleep while `systemd-suspend.service` is failed (one critical "Sleep disabled" notification
+  per boot — it once silently kept the SoC awake for 33 h). `asahi-idle wake` (after_sleep) keeps the
   panel dark while the lid is closed (outside clamshell; lid open relights via `asahi-clamshell
   open`). Stay-awake does not gate lid suspend.
-- **Lock guard**: every lock path (hypridle `lock_cmd`, Super+Escape, launcher `loginctl
-  lock-session`) runs `asahi-lock` = hyprlock in a restart loop (flock, 30 tries, stderr to
+- **Lock guard**: every lock path (hypridle `lock_cmd`, Super+Escape, launcher Lock — direct,
+  not `loginctl lock-session`, so it works without hypridle) runs `asahi-lock` = hyprlock in a restart loop (flock, 30 tries, stderr to
   `~/.local/state/asahi/hyprlock.log`). hyprlock exits 0 only on unlock / compositor `finished`
   after `locked`; a crash or `killall -9` exits non-zero and used to leave Hyprland's lockdead
   screen with the session locked and no way in. `allow_session_lock_restore` lets the new one
   retake the lock. Never auto-run `hl.clear_crashed_lockscreen()` (unlocks without a password).
   hypridle `inhibit_sleep = 3` explicitly — mode 2 only picks lock-notify when `lock_cmd`
-  contains the string `hyprlock`; logind caps the wait at `InhibitDelayMaxSec`. TTY escape
+  contains the string `hyprlock`; logind caps the wait at `InhibitDelayMaxSec`. Super+Escape is a
+  `locked` bind: on the lockdead screen (guard out of retries) it starts a fresh
+  hyprlock; while one runs asahi-lock exits at once (flock / pidof). Verified in a nested session
+  (kill -9 guard + hyprlock → lockdead): a non-`locked` bind does nothing there, the `locked` one
+  re-locks. Nested Hyprland gets no modifiers from `send_shortcut` — test with a plain key. TTY escape
   (`Fn+Ctrl+Alt+F3`): `pkill -f asahi-lock; killall hyprlock`.
 - **Lock look**: one centered row `[uptime/battery] [password] [clock/date]` at fixed offsets from
   the centre (±800/832; left/right halign anchor to the monitor edge) on a flat full-width band
@@ -138,32 +147,38 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   `XF86MonBrightness*` (Shift = fine). Keys auto = `asahi-brightness-keyboard-auto`: log(lux) 8→180,
   re-derived only after a 25 % lux move seen twice in a row (shadow filter), smoothstep fades
   (`fade_brightness`), steady tick forks nothing. Auto fade, idle off/restore and the keyboard keys share
-  `$XDG_RUNTIME_DIR/asahi-idle-brightness.lock`; a key while idled off steps from the saved level. hypridle 150 s listener (`ignore_inhibit`) fades keys off; `asahi-idle keys`
+  `$XDG_RUNTIME_DIR/asahi-idle-brightness.lock` (`brightness_lock` in `lib/common.sh`); a key (keyboard or
+  display) while idled off / dimmed steps from the saved level. hypridle 150 s listener (`ignore_inhibit`) fades keys off; `asahi-idle keys`
   relights (not on the lock surface's fake motion, not under a closed lid).
 - **Keybinding grammar**: Bare Super = focused window / navigate; Super+Shift = inverse (move vs
   focus); Super+Alt = variant (focus→resize, capture→record). `Super+Alt+HJKL` moves the **shared
   split border** — label by direction, never grow/shrink. `Super+Ctrl+<letter>` = system panel
-  (A audio, B bluetooth, D display, W network, P power, R backup, S screenshot gallery, T activity, I
-  stay-awake, N night light, E emoji, V clipboard, K keybindings). `Super+Ctrl+Alt` restarts the
-  stack. `Super+Ctrl+plus/minus` = display scale; `Super+Ctrl+Z` / `Super+Ctrl+Alt+Z` = cursor
-  magnifier (`hl.config { cursor = { zoom_factor } }`, lua, not `hyprctl keyword`). Panels:
+  (A audio, B bluetooth, C calendar, D display, W network, P power, R backup, S screenshot gallery, T
+  activity, I stay-awake, N night light, E emoji, V clipboard, K keybindings). `Super+Ctrl+Alt`
+  restarts the stack. `Super+Ctrl+plus/minus` = display scale; `Super+Ctrl+Z` / `+Shift+Z` /
+  `+Alt+Z` = cursor magnifier in / out / reset (`hl.config { cursor = { zoom_factor } }`, lua, not `hyprctl keyword`). Panels:
   `quick()` in `bindings.lua` (`quickActions` in `LauncherWindow.qml`); the same combo again closes
   (`openQuick`/`openCategory` toggle). Esc: one layer per press (Quick pane → home → close); opened
-  by a shortcut → closes (`openedByShortcut`). Super+B/N/S are free. **Every
-  bind needs a `desc`** (`parseHyprBinds` drops descless ones). `code:NN` needs `bindCombo`
-  `codeNames` — labels are **de(mac_nodeadkeys)** (`code:34/35` = `ü`/`+`, not `[]`).
+  by a shortcut → closes (`openedByShortcut`). Workspaces: Super+N go, Super+Ctrl+N move,
+  Super+Alt+N send without following, Super+Y back-and-forth. Super+Alt+F = fullscreen inside the tile
+  (`fullscreen_state` client 2), Super+Alt+arrows join the neighbouring group, Alt+Tab cycles windows. Lock / media / lid binds are
+  `submap_universal` (the writing-tools submap's catchall swallowed them). Super+B/N/S are free. **Every
+  bind needs a `desc`** (`Data.parseHyprBinds` drops descless ones; tested in `data_test.js`). `code:NN` needs
+  `bindCombo` `codeNames` — labels are **de(mac_nodeadkeys)** (`code:34/35` = `ü`/`+`, not `[]`).
 - **Monitor direction binds**: `Super+Ctrl+arrows` and `Super+Shift+Ctrl+HJKL` must
   `hl.get_monitor(dir)` first (nil on laptop-only). Generated in `bindings.lua`.
 - **Clipboard secrets**: `asahi-cliphist` watchers run `wl-paste --watch <self> store` so
-  `store_unless_sensitive` drops `x-kde-passwordManagerHint` (`wl-copy --sensitive`).
+  `store_unless_sensitive` drops `x-kde-passwordManagerHint` (`wl-copy --sensitive`). Every clipboard read
+  there is under `timeout` (an app that never closed its pipe hung the watcher and history for the session).
   `asahi-cliphist types` shows whether a copy carries the hint. `start_watcher` pkills the
   old `--watch cliphist store` form. Browser extensions (Proton Pass) never set the hint:
   password-shaped tokens copied while Firefox is focused are dropped, and a 0-byte copy (Proton's
   auto-clear writes `""`) deletes the newest entry only if the previous copy was a *stored* browser
-  copy (`$XDG_RUNTIME_DIR/asahi-cliphist/last-store`). The new store
-  tests use `CLIPHIST_DB_PATH` + a fake `hyprctl`; the older ones still touch the real db.
+  copy (`$XDG_RUNTIME_DIR/asahi-cliphist/last-store`). `asahi-writing-tools` touches
+  `$XDG_RUNTIME_DIR/asahi-cliphist/skip` before its Ctrl+C: store skips while it is < 2 s old. The store
+  tests run on a scratch db (`CLIPHIST_DB_PATH`) + runtime dir with fake `wl-paste`/`hyprctl`.
 - **Screenshots**: slurp + grim, no hyprpicker freeze. Super+F10/F11/F12 (window / smart / display)
-  and Super+mute/vol-/vol+; macOS aliases Super+Ctrl+Shift+3/4/5 (`code:12/13/14`). Clipboard only
+  and Super+mute/vol-/vol+ — our own keys only, no macOS Cmd+Shift+3/4/5 duplicates. Clipboard only
   (`asahi-cmd-screenshot <mode> --clip`, nothing in ~/screenshots): Super+Ctrl+Shift+F10/F11/F12
   and top row, gallery "Copy" pill. OCR/QR:
   Super+Shift/Ctrl+F11. Color: Super+Shift+F12. Record: Super+Alt+F11 region, Super+Alt+F12
@@ -183,8 +198,10 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   off = `hyprctl hyprsunset identity`. Identity profile so autostart tints nothing.
 - **Bar notch**: cutout is a hole (`BarModel.notchRegionInset`), not a spacer. Height is geometry
   (3024x1964 → **74**), width is the real cutout (370/3024 of logical width + 12). Overflow is
-  clipped at the wall; `ccuCompact` (reads compact-independent `fullWidth`) is the only give — the
-  clock always shows weekday + date. Chip pads are 6px, `barIconSlot` 26. Anything added to the
+  clipped at the wall; `ccuCompact` (reads compact-independent `fullWidth`, the widest provider's
+  measured text) is the only give — the clock always shows weekday + date, both in the same size and
+  colour. The usage chip is as wide as the chip on show (a widest-provider box left a gap before the mic).
+  Chip pads are 6px, `barIconSlot` 26. Anything added to the
   right cluster eats that budget. Bar = `max(Style.barHeight 40, notch)` (notch is 37 logical at
   scale 2) — 40 fits the two-line media chip. Left cluster: workspaces → SysChip → BackupChip →
   media (gets the leftover, `maxChipWidth`). Bell (`Notifications.qml`): on the notched panel pinned
@@ -209,7 +226,9 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   cross-monitor switch left the old monitor's `activeWorkspace` wrong.
 - **Bar tray**: `maxInline` 3, rest behind `+N` → `TrayPanel.qml`. Use `SystemTrayItem.NeedsAttention`
   (no `SystemTrayStatus`). Popups need `screen:` + `exclusionMode: ExclusionMode.Ignore`.
-  SysPanel / CCU / tray `+N` close on Esc or click-outside: `HyprlandFocusGrab` whitelists the popup
+  Bar popups are one at a time: `BarHost.openPanel` ("sys", "rec", "media", "ccu", "tray"; the
+  launcher, the calendar and the notification sheet clear it). Every bar popup (calendar and
+  RecordPanel too) closes on Esc or click-outside: `HyprlandFocusGrab` whitelists the popup
   **and the bar window** (else the opening click counts as outside) — `QsWindow.window` needs
   `import Quickshell` (without it QsWindow is undefined and tray menus silently break); an Item is
   dropped. Esc is a `Qt.ApplicationShortcut` (the grab may focus the bar). App menus take their own
@@ -218,9 +237,11 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   every frame). Menu positions are window coords (`mapToItem(null, …)`).
 - **Bar = click to act, event-driven**: chips appearing / vanishing slide neighbours (Row
   `move`/`add` transitions, off for the first second). Hover tint (`HoverTint`), tooltip only on tray icons,
-  night-light chip only while on. Vol/mic bind Pipewire (+`PwObjectTracker`), BT binds BlueZ,
+  night-light chip only while on. The REC dot blinks on the elapsed tick (no animation). The mic glyph
+  turns orange while an app records from it (`PwNodeLinkTracker`). Vol/mic
+  (`AudioChip`, `input`) bind Pipewire (+`PwObjectTracker`), BT binds BlueZ,
   battery = UPower (60 s fallback), network = `nmcli monitor` (+30 s signal poll), CPU/RAM/heatpipe
-  in-process `FileView`; `asahi-cpu`/`-memory` only while SysPanel is open. Stay-awake / night light
+  in-process `FileView`; `asahi-cpu` (`{tooltip, cores}`) / `-memory` only while SysPanel is open. Stay-awake / night light
   / timer watch files (FileView's directory watch sees create/delete). Long-lived children get
   `setpriv --pdeathsig TERM` (a SIGTERMed qs orphans them). Chip clicks →
   `barHost.quickRequested(key)` → shell.qml (no `qs ipc` client per click). Wheel steps accumulate
@@ -240,24 +261,45 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   (`clip` is rectangular: the blurred art's corners showed past the card radius).
 - **Launcher quick panes**: one file each in `quickshell/remix/modules/launcher/panes/`;
   `LauncherWindow.qml` does `Panes.XPane { root: launcherSelf }` (`root` inside a pane is that
-  property, not the launcher id). Shared M3 widgets in `modules/menu`. A visible Quick tile **must
-  have a pane** (`quickPaneKey` falls back to `t.key`); paneless actions go in `quickDeckHidden`
-  (`wallpaper_carousel_test.js` derives that list). Any close keeps the pane alive (the next open
+  property, not the launcher id). Shared M3 widgets in `modules/menu` — `MenuPill` / `MenuChip` /
+  `MenuIconBtn` / `MenuLinkBtn` take `fontScale` (`MenuSwitch` has fixed size); a pane keeps its call sites with
+  `component Pill: Menu.MenuPill { fontScale: root.uiFontScale }`. Selected = primary container +
+  `menuSelBorder` hairline; hover = `m3stateHover` layer (`Qt.lighter` is invisible on light fills).
+  A visible Quick tile **must have a pane** (`quickPaneKey` = the selected deck tile's `mode || key`);
+  paneless actions go in `quickDeckHidden` (`wallpaper_carousel_test.js` derives that list).
+  `openQuick` sets `quickStartIndex` before entering Quick (index 0 would build the Hub first). In Quick
+  the hidden app list (`resultsList`) must not write `selectedIndex`: its model reset wrapped deck index 8+
+  (Super+Ctrl+R / V opened Screenshots / Media instead of Backup / Clipboard; verified for all 11 panes).
+  Typing on the root (it drills into Apps) also finds `quickActions` (panes, pickers; ranked just
+  below apps on an equal score, no category bonus). A pane may
+  define `handleEscape()` (Backup: subfolder → snapshot home) — LauncherWindow asks it first. Tab
+  in Quick steps the rail; pane text fields swallow Tab (it leaked a Wi-Fi passphrase into the
+  search). `=` only evals arithmetic (a pasted expression reached launcher ids). Any close keeps the pane alive (the next open
   destroys it): poll Timers, `SystemClock` and looping animations gate on `root.shouldShow`;
   countdowns (Monitors revert) and BT stop-retries must not. Must-finish actions run as
   `systemd-run --user --wait --quiet --collect` (exit code passes through — Wi-Fi band, BT
   pair/forget); `MonitorsPane` reverts on destruction. A failed connect deletes only a profile it
-  just created with a typed passphrase.
+  just created with a typed passphrase. OWE ("Enhanced Open", nmcli `OWE`) connects without a password.
 - **Recorder**: Super+Alt+R toggles `RecordPanel`. Bar REC chip only while recording (click =
-  panel, right-click = stop). `asahi-cmd-record status --json` via `Recorder` singleton. No pause
+  panel, right-click = stop). `asahi-cmd-record status --json` via `Recorder` singleton: at start, on the
+  script's `ipc call recording refresh`, and 1 s while recording — idle, nothing polls. Webcam takes record
+  the default source (voice); screen takes the default sink's monitor (wf-recorder takes one device). No pause
   (wf-recorder exits on SIGUSR1). IPC: `qs -c remix ipc call recording panel`.
+- **Packages**: `PkgManager.qml` (launcher, bar updates chip → Updates tab) over `asahi-pkg` (dnf5 JSON).
+  Update checks (chip every 30 min, Updates tab) run `dnf check-update` **without** `--cacheonly`: as a
+  user that read the days-old `~/.cache/libdnf5`; offline (exit 1) they fall back to `--cacheonly`. Rows
+  indented under "Obsoleting packages" are not updates. A new query first stops a busy one (`running = true`
+  on a busy Process waits, delivers the old rows, then restarts). Install/remove/upgrade open Ghostty via `asahi-launch-tui` with `ASAHI_TUI_WAIT=1`
+  (`--wait-after-command`: dnf's result stays readable). Test: `asahi/bin/asahi_pkg_test.sh`.
 - **Wallpaper**: one picker, `WallpaperManager` (Super+Shift+W). `ipc: "wallpaper"` and
   `wallpaper: true` in `quickDeckHidden` — not a Quick tile; search still finds it. Browse:
   `WallpaperCarousel` (skewed window fan: centre 16:9, neighbours are leaning
   slices; ←/→, Ctrl+h/l, wheel, click a slice to select; ⏎/Apply/click the centre
   applies, Esc restores). The picker covers the windows with the wallpaper itself (blurred,
   crisp while Live). Live preview is **opt-in** (`WallpaperService.liveMode`, default off): Shift /
-  Shift+←/→ / Live chip; ignore bare Shift in the search field. Debounce 70ms. Color index from
+  Shift+←/→ / Live chip turn it on (Esc / the chip turn it off); ignore bare Shift in the search
+  field. Live previews never reach hyprpaper (the picker and the fade overlay cover it); applies are
+  one queued `apply`. Wheel/trackpad steps accumulate to 120. Debounce 70ms. Color index from
   cached thumbs → `wallpaper_colors.js`; filters on `WallpaperService.arranged(query)`. Test:
   `wallpaper_colors_test.js`.
 - **Wallpaper span** (idea: omarchy-wallpaper-cutter): `asahi-wallpaper-span` cuts the current
@@ -266,18 +308,26 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   all seams; Monitors pane slider 0-128 px in 8 px steps, cut 400 ms after the drag rests): each
   seam of touching outputs becomes a strip, outputs past it move by `gap`. EDID mm are not used (LG
   reports 700x400). hyprpaper keeps per-monitor entries over the `,path` wildcard — every set
-  (`apply` / `show`) names each output; all `WallpaperService` desktop sets go through the script.
+  (`apply` / `sync`) names each output; all `WallpaperService` desktop sets go through the script.
   `sync` puts the current wallpaper back on every output (cut while spanning; no-op and no state
   write when it already shows): on `WallpaperService.screenLayout` changes (Quickshell.screens
-  geometry, 1.5 s debounce), at shell start, and after Super+Ctrl+Alt+P (hyprpaper restarts on its
-  random slideshow image). Monitors pane: header `Span` pill (tonal = on), gap row only while on;
+  geometry, 1.5 s debounce), at shell start, and after Super+Ctrl+Alt+P (hyprpaper starts on
+  `~/.local/state/asahi/lock-wallpaper`, the current image; no slideshow). One output: no cut (plain set, `outputs` cleared); slices are written to
+  `.tmp` and renamed. Monitors pane: the header fills the current layout mode (Mirror / Extend /
+  External); Span is a switch in its own row (2+ displays, or while on), the gap row only while on;
   tiles show the slices. Picker previews stay uncut. Test: `asahi/bin/asahi_wallpaper_span_test.py`.
 - **Autotheme**: Hyprland has no portal Settings — `portals.conf` pins Settings to gtk. Flavours
   `source content vibrant calm mono` (`FLAVORS` is the source of truth; saturation is a fraction of
-  gamut room, never a multiplier). Writes `~/.local/state/asahi-theme/`. GTK ini is a real file,
+  gamut room, never a multiplier). Every ANSI / named color stays in its hue family (`HUES`,
+  `_family_hue`: red stays red on any wallpaper; red/orange lean only 25 % toward it, they mean critical vs
+  warning); text ladders are WCAG-sized (subtext0 ≥ 4.5:1 on
+  base, text on accent = crust). A bare run keeps the saved flavour (colors.json `variant`) and
+  prefers `quickshell/wallpaper.conf`; runs hold `asahi-theme/.lock`. Writes
+  `~/.local/state/asahi-theme/` (no colors.toml / Chromium policy any more). GTK ini is a real file,
   not a symlink. Unset portal `0` = light. Live: Ghostty `reload-config`, Quickshell `FileView`,
   Hyprland borders, btop SIGUSR2, Firefox. **GTK3 never repaints live** — do not add watchers.
-  Tests: `asahi/theme/tests/test_palette.py`, `asahi/theme/smoke_test.sh`.
+  Tests: `asahi/theme/tests/test_palette.py`, `asahi/theme/smoke_test.sh` (no argument = the saved wallpaper
+  and flavour: it rewrites the live state unchanged; it used to skip silently on a missing example).
 - **Firefox (Flathub flatpak)**: release build enforces addon signing (`MOZ_REQUIRE_SIGNING`), so
   live theme = signed AMO **CaelestiaFox** (`caelestiafox@caelestia.org`, `browser.theme.update`) +
   native host `caelestiafox` = `asahi-firefox-theme` (streams `firefox.json` from
@@ -300,25 +350,35 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   Close` (gtk then sends `UnInhibit`). Verify a running Firefox: `MOZ_LOG=LinuxWakeLock:5,sync`.
 - **sshd**: Fedora enables it; disable and mask `sshd.service` + `sshd.socket`. Re-check after a
   release upgrade.
-- **Notification images**: `localImage()` only `image:`/`file:`/`/…`. Summary/body are
+- **Notification images**: `localImage()` only `image:`/`file:`/`/…`, never `image://qsimage/` (image data dies
+  with the Notification, which Quickshell frees right after `onNotification`: the card showed an empty box —
+  app icon instead). `appLabel()`: app name, else the desktop entry's Name (Firefox / Ghostty send none).
+  `stripMarkup` drops known tags only (`Jane <jane@…>` is text). Summary/body are
   `Text.PlainText` (no `<img src>`). Toasts top-centre (only `top` anchored → layer-shell centres
   them under the notch; they drop in from y −24), `ExclusionMode.Normal` + zone 0 (clears
   bar/notch). Bar popups and toasts share `Style.popupBorder` (overlay1 @ 0.6, `popupBorderWidth` 2 px) — without it
   they vanished against dark windows; in-sheet history cards keep the hairline. History persists to `~/.local/state/asahi/notifications.json` (0600, non-atomic
   writes keep the mode). History sheet hangs top-right (toasts are top-centre, no overlap); its trash
   needs two clicks within 3 s ("Clear all?") — one stray click used to wipe everything; Esc / click outside closes it (focus grab; the bell click that ends
-  the grab is ignored for 300 ms). Load never writes the file back (only real changes save). Bell
+  the grab is ignored for 300 ms). Load never writes the file back (only real changes save); Do Not
+  Disturb is saved there too (a QML save reloads qs and used to turn it off). Critical cards carry a
+  static red tint (a pulse repainted every frame while an alert stayed up). Bell
   badge = unread since the sheet last opened/closed. Toasts: `ListView` over
   `ScriptModel { values: root.toasts }` (keeps cards — a Repeater on the array rebuilt them and
-  restarted every timer); enter/leave animate `fade`, not `opacity` (swipe binds it). Timeout:
-  critical never, app `expire` (seconds) else 6 s, paused on hover / drag; swipe past 18 % dismisses;
+  restarted every timer); enter/leave animate `fade`, not `opacity` (swipe binds it); the window keeps
+  its height 260 ms after a change (`toastHold`: contentHeight drops at once and clipped the leave
+  animation). Timeout: critical never, app `expire` (ms, the raw `notify-send -t`) else 6 s, paused on
+  hover / drag; swipe past 18 % dismisses; one "Asahi Battery" toast at a time (its critical alert
+  repeats every minute); low urgency (0) stays low;
   times relative ("now", "N min ago"); an identical repeat (app + summary + body) within 100 ms is
   dropped, different ones arriving together are kept. Super+(Shift+)comma `dismissOne`/`dismissAll`
   only touch popups — history is cleared only by the sheet's trash button (they used to wipe it).
   Sheet and bar popups (calendar: shell.qml; sys / rec / media: BarHost) close each other; the sheet's
   focus grab arms 200 ms after opening (an unmapping popup would clear it at once). Toast window
   lingers 260 ms after the last toast so its leave animation plays. History groups per day by app
-  (`historyGroups`): 2+ from one app collapse to the newest card + header (count, Show all, ✕ group). Click = focus sender by
+  (`historyGroups`, built only while the sheet is open — day labels stay fresh past midnight): 2+ from
+  one app collapse to the newest card + header (count, Show all, ✕ group). Opening the launcher closes
+  the sheet (its focus grab kept the launcher's keys). Click = focus sender by
   class (never run notification actions); right-click dismisses. shell.qml id is `notifCenter` —
   `notificationCenter: notificationCenter` self-binds to null.
 - **bash 5.3 / trailing `&&`**: an EXIT trap or function whose last command is `[[ -n $x ]] && …`
@@ -379,38 +439,61 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   `anr_missed_pings = 3`, `group`/`groupbar` themed to the Catppuccin borders (Super+W groups),
   `hl.gesture` 3-finger workspace swipe (`scale 0.75`, `workspace_swipe_cancel_ratio = 0.25`).
   Validate keys against `/usr/share/hypr/stubs/hl.meta.lua`, then
-  `hyprctl reload && hyprctl configerrors`. Lua dispatchers: `hyprctl dispatch 'hl.dsp.…({…})'`
+  `hyprctl reload && hyprctl configerrors` (`Hyprland --verify-config -c asahi/hypr/hyprland.lua` checks
+  without reloading, but still runs the reload hooks — asahi-hdmi sync, monitor-scale/clamshell apply —
+  against `$HYPRLAND_INSTANCE_SIGNATURE`; prefix `HYPRLAND_INSTANCE_SIGNATURE=none` to keep them off the
+  session). Lua dispatchers: `hyprctl dispatch 'hl.dsp.…({…})'`
   (legacy `dispatch <name> <args>` is dead). Float is its own call; maximized refuses resize+pin.
   Window-rule `opacity` multiplies with `inactive_opacity` — use `opaque = true` for media/PiP/
   webcam. Capture binds (screenshot/record/picker) must not be `locked` (recording from the lock
-  screen keeps running after unlock).
+  screen keeps running after unlock). `suppress_event = "maximize"` for every class: apps that
+  maximize themselves stay in their tile (Super+F still maximizes).
 - **asahi/bin**: helpers in `asahi/bin/lib/common.sh`, sourced via
   `$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh`. `asahi-launch` is the only
   `uwsm-app`/`setsid` site. Sibling paths through that dirname, not `$HOME/.dotfiles`.
   `components.sh` chmods `asahi/bin/*` and skips `lib/` (a dir) — keep sourced files there.
+- **Untrusted text**: a `Text` showing outside strings (track titles, SSIDs, Bluetooth names, clipboard,
+  tray titles, file names and previews, notification text) sets `textFormat: Text.PlainText`. The default
+  AutoText renders `<img src=http…>`: a remote fetch without a click (omarchy PR #8397).
 - **Quickshell launch**: never `qs -d` (EPIPE/`qFatal` if the parent is gone). `setsid -f qs -n -c
   <module>`. Bar vanished → `asahi-debug` coredumps first. qs reloads on save (log:
   `/run/user/$UID/quickshell/by-pid/<pid>/log.log`). `grim` blocks on a DPMS-off output — always
   `timeout`. zprofile unsets Lmod's `BASH_ENV` (13 ms → 1.2 ms per bash start).
+- **Polkit**: `modules/system/PolkitAgent.qml` (Quickshell `PolkitAgent`) answers polkit — pkexec and GUI
+  admin prompts had no agent and failed silently. One card on the focused screen; Enter submits, Esc cancels.
 - **Stay awake**: one flag `$XDG_RUNTIME_DIR/asahi-stay-awake`, owned by `asahi-stay-awake`.
   hypridle listeners skip under it (`asahi-idle` checks `status`).
-- **Idle (macOS-shaped)**: `hypridle.conf` fires `asahi-idle at <secs>` at 150/180/300/600; the
+- **Idle (macOS-shaped)**: hypridle is a plain `exec-once`, **not** Fedora's `hypridle.service`: hyprlock, the
+  saver and asahi-idle's loops would live in the unit's cgroup (a crash restart kills the lock screen →
+  lockdead), and `qs ipc` matches instances by display string — the session's `QT_QPA_PLATFORM=wayland;xcb`
+  reads as unknown, so a caller without it (systemd units, a bare shell) finds no shell unless it passes
+  `--any-display`. Super+Ctrl+Alt+I = `asahi-restart-app hypridle` (→ `asahi-launch` → a uwsm-app scope:
+  no Restart=, the session env is inherited). `hypridle.conf` fires `asahi-idle at <secs>` at 150/180/300/600; the
   step comes from the power source **at fire time** (unplug mid-idle still locks). Battery: dim +
   kbd 10% at 2.5 min → lock, DPMS off + kbd off at 5 min, no saver (longer than macOS's 2 min by
   choice; dim halfway like macOS). AC: saver 3 → dim 5 → off 10 min. Panel backlight is **not**
   zeroed; `off` itself suspends 60 s later. The hyprlock surface map is
   fake pointer motion (`simulateMouseMovement`): it fires on-resume and restarts every listener, so
   `off` ignores wakes while locking (`$XDG_RUNTIME_DIR/asahi-idle-locking`) and then watches DPMS —
-  `key_press_enables_dpms` relights on input → `asahi-idle wake`. Saver/dim skip while locked. Sleep
-  skips while a running sink carries signal (`pw-record -P '{ stream.capture.sink = true }'` of its
+  `key_press_enables_dpms` relights on input → `asahi-idle wake`. Saver skips while locked; a dim
+  threshold while already locked (Super+Escape, then away) runs `off` instead (DPMS off, suspend a
+  minute later): the lock screen no longer stays lit until the off threshold. Sleep skips while a
+  running sink carries signal (`pw-record -P '{ stream.capture.sink = true }'` of its
   monitor — without that property pw-record falls back to the mic; the monitor is pre-volume, so
-  muted playback counts, silent page streams don't) or a non-eDP output is enabled. `off` is
-  single-instance (flock), retries sleep every minute and flags locking *before* stopping the saver
+  muted playback counts, silent page streams don't) or an external output is enabled (`external_on` in
+  `lib/common.sh`, shared with `asahi-clamshell`; Hyprland's `FALLBACK` placeholder is not one). `off` is
+  single-instance (flock), polls input every 5 s, retries sleep every minute (a refused `systemctl
+  suspend` keeps the loop alive) and flags locking *before* stopping the saver
   (its unmap fakes motion too); the flag is honoured ≤15 s; hypridle's wake burst coalesces (flock).
-  Saver ~30 fps.
+  Saver ~30 fps: one shared 33 ms tick drives every scene (the ascii scene's own timer doubled its
+  frames; Life's recursive source is not `live` — it re-rendered at 120 Hz — and steps once per tick; a
+  recursive texture costs one extra frame per update, so it renders ~60 fps).
+  Saver keys need `focus: true` on its Loader (a focus scope) and no `focusable:` (it overrides
+  `WlrLayershell.keyboardFocus`). `asahi-idle wake` stops the saver before the lid check.
   **Keyboard/trackpad cannot wake s2idle** (MTP DockChannel has no wakeup source); lid and power
-  button (SMC) can. Log:
-  `~/.local/state/asahi/idle.log`.
+  button (SMC) can. Manual sleep (Super+Ctrl+Alt+S, launcher Suspend) is `asahi-idle sleep`: refused
+  with a notification while an external is on. Log: `~/.local/state/asahi/idle.log`. Test:
+  `asahi/bin/asahi_idle_test.sh` (fake power supply via `ASAHI_PSY_DIR`, lock state via `FAKE_LOCKED`).
 - **Time Machine**: `asahi-timemachine` = restic, one repo (`$TM_DIR` on the drive labelled `$TM_LABEL`)
   reached either locally (drive on this laptop → udisks mount, never unmounted: eject it yourself) or
   over SFTP (drive on the backup host). Host/path/port live **only** in
@@ -444,12 +527,16 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   Test: `asahi/bin/asahi_timemachine_test.sh`.
 - **Writing tools**: Super+Shift+E → `modules/writing/WritingTools.qml` (GlobalShortcut `writing-tools`).
   `asahi-writing-tools capture` copies the focused window's live selection (`send_shortcut` Ctrl+C behind a
-  `--sensitive` marker, previous clipboard restored): primary misses keyboard selections (Firefox Ctrl+A
+  `--sensitive` marker, previous clipboard restored **always** `--sensitive` — a browser password has no
+  hint and would land in cliphist; `; printf .` keeps a trailing newline): primary misses keyboard selections (Firefox Ctrl+A
   kept the last mouse word); terminals use primary (Ctrl+C = SIGINT). Plus
   `activewindow` + `cursorpos`; picker at the cursor (1/2/3 = Proofread/Rewrite/Concise) morphs into
   original/suggestion with a word diff + char marks inside one-word swaps (`writing_diff.js`, test
-  `writing_diff_test.js`). `run` = Anthropic API streamed (curl SSE → `{delta}`/`{stop}`/`{error}` lines),
-  `claude-haiku-5-5`, `ANTHROPIC_API_KEY` from the session env, else `zsh -ic` (fd 3 only).
+  `writing_diff_test.js`; capture: `asahi/bin/asahi_writing_tools_test.sh`). `run` = Anthropic API
+  streamed (curl SSE → `{delta}`/`{stop}`/`{error}` lines),
+  `claude-haiku-5-5`, `ANTHROPIC_API_KEY` from the session env, else `zsh -ic` (fd 3 only); curl gets it as a
+  header file (`-H @<(printf …)`, never argv). Only `end_turn` is a result: a dropped stream or `max_tokens`
+  is an error (Replace would drop the rest of the selection). `fitOutput` keeps fences the selection has.
   The card **never takes keyboard focus** (`WlrKeyboardFocus.None`) — QtQuick fields drop their
   selection on focus loss — so Replace is just `wl-copy` + `send_shortcut` Ctrl+V to the source address.
   Card keys = Hyprland submap `writing` (`bindings.lua`, no desc → not in the Keys panel; Escape also
