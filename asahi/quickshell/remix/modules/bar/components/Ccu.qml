@@ -17,9 +17,10 @@ Rectangle {
   readonly property int contentW: 440
 
   color: "transparent"
-  // Fixed width, so nothing shifts as chips rotate (every 10 s): the widest chip, measured. The text is
-  // right-aligned against the mic; a shorter chip leaves its slack on the left, by the status icons.
-  implicitWidth: Math.max(56, chipBoxW + 6)
+  // Fixed width, so nothing shifts as chips rotate (every 10 s): the widest chip, measured, plus the same
+  // 8 px pad on both sides. The text is centred, so a shorter chip splits its slack evenly.
+  readonly property int chipPad: 8
+  implicitWidth: Math.max(56, chipBoxW + 2 * chipPad)
   implicitHeight: Style.barHeight
 
   Rectangle {
@@ -110,7 +111,7 @@ Rectangle {
 
   // What this chip would cost uncompacted — BarHost's cue, and independent of
   // `compact` so asking the question cannot change the answer.
-  readonly property real fullWidth: Math.max(56, root.fullBoxW + 6)
+  readonly property real fullWidth: Math.max(56, root.fullBoxW + 2 * root.chipPad)
 
   function usageColor(used) {
     if (used === null || used === undefined) return Style.textMuted
@@ -203,13 +204,11 @@ Rectangle {
     root.chipIndex = (root.chipIndex + 1) % root.chips.length
   }
 
-  // Right-aligned in the fixed box: the chip always meets the mic, the slack sits on the left.
+  // Centred in the fixed box: equal room to the status icons and to the mic.
   Text {
-    anchors.right: parent.right
-    anchors.rightMargin: 3
-    anchors.verticalCenter: parent.verticalCenter
+    anchors.centerIn: parent
     width: root.chipBoxW
-    horizontalAlignment: Text.AlignRight
+    horizontalAlignment: Text.AlignHCenter
     text: root.chipText
     font { family: Style.fontFamily; pixelSize: Style.barFontBody }
     color: root.valueColor

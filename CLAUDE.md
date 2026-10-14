@@ -192,7 +192,7 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   `xdg-desktop-portal-hyprland.service.d/10-asahi-pipewire.conf` (`PartOf=pipewire.service`).
 - **asahi-debug**: Fedora Asahi health (`asahi/bin/asahi-debug [--json]`). dnf/rpm,
   `wpa_supplicant`, asahi-audio, `speakersafetyd`, `kernel-16k`, HID, notch, sshd mask,
-  no-hibernate. Not pacman/iwd/SDDM. Test: `asahi/bin/asahi_debug_test.sh`. Not part of
+  no-hibernate (Wi-Fi radio switched off on purpose is PASS). Not pacman/iwd/SDDM. Test: `asahi/bin/asahi_debug_test.sh`. Not part of
   `make doctor`; must not flag Hyprland on generic Linux.
 - **Night light**: Super+Ctrl+N → `asahi-nightlight` (hyprsunset). On = `hyprsunset.conf` 1500K;
   off = `hyprctl hyprsunset identity`. Identity profile so autostart tints nothing.
@@ -200,8 +200,8 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   (3024x1964 → **74**), width is the real cutout (370/3024 of logical width + 12). Overflow is
   clipped at the wall; `ccuCompact` (reads compact-independent `fullWidth`, the widest provider's
   measured text) is the only give — the clock always shows weekday + date, both in the same size and
-  colour. The usage chip has a fixed width, the widest provider's measured text, right-aligned against the
-  mic (a width that followed the text shifted the bar at every 10 s rotation; the old estimate left a gap).
+  colour. The usage chip has a fixed width (the widest provider's measured text + 8 px each side), text
+  centred (a width that followed the text shifted the bar at every 10 s rotation; right-aligned text hit the mic).
   Chip pads are 6px, `barIconSlot` 26. Anything added to the
   right cluster eats that budget. Bar = `max(Style.barHeight 40, notch)` (notch is 37 logical at
   scale 2) — 40 fits the two-line media chip. Left cluster: workspaces → SysChip → BackupChip →
