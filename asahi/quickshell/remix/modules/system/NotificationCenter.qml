@@ -213,15 +213,14 @@ Scope {
     dndEnabled = !dndEnabled
   }
 
-  // Keys (Super+comma / Super+Shift+comma) dismiss popups only: they used to delete the saved
-  // history too (the newest entry, or all of it), which lost it silently. Clearing it is the
-  // sheet's trash button (clearHistory / IPC `clear`).
+  // Super+comma dismisses the newest popup; Super+Shift+comma dismisses everything, popups and the
+  // saved list (popups only did nothing once they had timed out).
   function dismissOne() {
     if (root.toasts.length > 0) root.removeToast(root.toasts[0].key)
   }
 
   function dismissAll() {
-    root.toasts = []
+    root.clearHistory()
   }
 
   NotificationServer {
