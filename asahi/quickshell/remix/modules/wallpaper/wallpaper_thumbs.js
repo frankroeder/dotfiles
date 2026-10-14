@@ -191,14 +191,18 @@ function carouselContains(skew, w, h, x, y) {
 
 // Converts run 4-wide (backgrounded, `wait` every 4 files) so a cold cache
 // fills in seconds instead of minutes; a warm cache is just N stat checks.
+// The finished pass then deletes the thumbs of wallpapers that are gone (deleted /
+// renamed: they piled up). An empty list prunes nothing — a failed scan must not wipe the cache.
 function thumbBatchScript(originals, dir, w, h) {
   const lines = ["mkdir -p " + shellQuote(dir)]
   const list = originals || []
+  const keep = []
   let inFlight = 0
   for (let i = 0; i < list.length; i++) {
     const src = list[i]
     if (!src) continue
     const dest = thumbPath(src, dir)
+    keep.push(" -e " + shellQuote(thumbName(src) + ".jpg"))
     const cmd = convertCommand(src, dest, w, h)
     lines.push(
       "if [ ! -f " + shellQuote(dest) + " ] || [ " + shellQuote(src) + " -nt " + shellQuote(dest) + " ]; then"
@@ -209,6 +213,7 @@ function thumbBatchScript(originals, dir, w, h) {
     if (inFlight % 4 === 0) lines.push("wait")
   }
   lines.push("wait")
+  if (keep.length) lines.push("cd " + shellQuote(dir) + " && ls | grep '\\.jpg$' | grep -vxF" + keep.join("") + " | xargs -r rm -f --")
   lines.push("echo THUMBS_DONE")
   return lines.join("\n")
 }

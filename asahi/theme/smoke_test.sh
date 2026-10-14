@@ -6,20 +6,22 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 export DOTFILES="${DOTFILES:-$ROOT}"
 export PATH="$DOTFILES/asahi/bin:$PATH"
 
-WALL="${1:-$HOME/Pictures/wallpaper/aesthetic_deer.jpg}"
-if [[ ! -f "$WALL" ]]; then
-  echo "skip: wallpaper not found: $WALL" >&2
-  exit 0
+# Default: the saved wallpaper and flavour, so the run rewrites the live state unchanged (a fixed
+# example wallpaper was missing here and the test skipped silently with exit 0).
+WALL="${1:-}"
+if [[ -n "$WALL" && ! -f "$WALL" ]]; then
+  echo "wallpaper not found: $WALL" >&2
+  exit 1
 fi
 
 OUT="${2:-$(mktemp -d /tmp/asahi-autotheme-smoke.XXXXXX)}"
 mkdir -p "$OUT"
 
 echo "== extract/apply =="
-asahi-autotheme --no-apply "$WALL" | tee "$OUT/apply.txt"
+asahi-autotheme --no-apply ${WALL:+"$WALL"} | tee "$OUT/apply.txt"
 
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}/asahi-theme"
-for f in colors.json colors.toml ghostty.theme hyprland.lua hyprlock.conf firefox.json btop.theme gtk.css chromium-theme.json wallpaper screensaver-colors.toml theme.name; do
+for f in colors.json ghostty.theme hyprland.lua hyprlock.conf firefox.json btop.theme gtk.css wallpaper screensaver-colors.toml theme.name; do
   test -s "$STATE/$f" || { echo "missing $STATE/$f" >&2; exit 1; }
 done
 
@@ -57,12 +59,10 @@ rg -q "window_bg_color" "$HOME/.config/ghostty/adaptive.css" \
   "$DOTFILES/asahi/ghostty/adaptive.css" 2>/dev/null \
   || { echo "adaptive.css missing Adwaita vars" >&2; exit 1; }
 
-rg -q "BrowserThemeColor" "$STATE/chromium-theme.json" \
-  || { echo "chromium-theme.json missing BrowserThemeColor" >&2; exit 1; }
 rg -q "accent_bg_color" "$STATE/gtk.css" \
   || { echo "gtk.css missing accent_bg_color" >&2; exit 1; }
-rg -q "lock_accent" "$STATE/hyprlock.conf" \
-  || { echo "hyprlock.conf missing lock_accent" >&2; exit 1; }
+rg -q "lock_band" "$STATE/hyprlock.conf" \
+  || { echo "hyprlock.conf missing lock_band" >&2; exit 1; }
 
 jq -e '.colours.primary and (.mode == "dark" or .mode == "light")' "$STATE/firefox.json" >/dev/null \
   || { echo "firefox.json missing colours.primary/mode" >&2; exit 1; }
@@ -77,15 +77,15 @@ test -s "$HOME/.config/gtk-4.0/asahi-adaptive.css" \
 
 echo "== dry-run flavours =="
 for v in source content vibrant calm mono; do
-  asahi-autotheme --dry-run --variant "$v" "$WALL" >/dev/null
+  asahi-autotheme --dry-run --variant "$v" ${WALL:+"$WALL"} >/dev/null
   echo "  $v ok"
 done
 
 echo "== dry-run mode override =="
-asahi-autotheme --dry-run --mode auto "$WALL" | rg -q '"mode": "(dark|light)"' \
+asahi-autotheme --dry-run --mode auto ${WALL:+"$WALL"} | rg -q '"mode": "(dark|light)"' \
   || { echo "--mode auto derived no mode" >&2; exit 1; }
 for m in dark light; do
-  asahi-autotheme --dry-run --mode "$m" "$WALL" | rg -q "\"mode\": \"$m\"" \
+  asahi-autotheme --dry-run --mode "$m" ${WALL:+"$WALL"} | rg -q "\"mode\": \"$m\"" \
     || { echo "--mode $m was not honoured" >&2; exit 1; }
   echo "  $m ok"
 done

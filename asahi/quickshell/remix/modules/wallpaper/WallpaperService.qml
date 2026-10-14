@@ -11,9 +11,6 @@ Singleton {
 
   property list<string> wallpapers: []
   property string currentWallpaper: ""
-  property string backend: "hyprpaper"
-  property string defaultFit: "cover"   // default fit mode passed to hyprpaper (cover, stretch, etc.)
-  property bool hyprpaperIpcErrorShown: false   // show the "restart hyprpaper" message only once per session
   readonly property string stateHome: Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")
   property string wallpaperConf: stateHome + "/quickshell/wallpaper.conf"
   readonly property string lockWallpaper: stateHome + "/asahi/lock-wallpaper"
@@ -25,16 +22,20 @@ Singleton {
   // Live preview (caelestia Wallpapers.preview): the carousel's centre item is
   // shown on the desktop, its palette is applied to the shell without touching
   // colors.json, and Ghostty is rethemed (`asahi-autotheme --preview`).
-  // stopPreview() restores all three; commitPreview() applies for real.
+  // stopPreview() restores all three; setWallpaper() applies for real.
+  // The desktop is WallpaperManager's fade (picker backdrop + a Bottom-layer overlay
+  // on the other screens): hyprpaper only ever loads applied wallpapers.
   //
   // Opt-in: Shift in the picker arms it, and from then on every preselected
   // wallpaper repaints in real time. Disarmed, browsing is thumbnails only —
-  // no hyprpaper churn and no autotheme per keystroke.
+  // no full-size decode and no autotheme per keystroke.
   property bool liveMode: false
   property string browsePath: ""    // centre tile, previewed only while armed
   property string previewPath: ""
   property bool previewApplied: false
-  property string fadePath: ""
+  property string fadePath: ""      // the fade's image: the live preview, or the wallpaper being applied
+  readonly property bool applying: applyProc.running || root.applyQueued !== ""   // hyprpaper does not have it yet
+  readonly property bool fadeShown: root.previewApplied || root.applying
   // A full autotheme pass is ~110ms, so this only has to swallow key-repeat:
   // the timer restarts per browse step and fires once the user pauses.
   readonly property int previewWaitMs: 70
@@ -82,10 +83,7 @@ Singleton {
     root.previewPath = ""
     const wasApplied = root.previewApplied
     root.previewApplied = false
-    if (wasApplied) {
-      if (root.currentWallpaper) root.showOnDesktop(root.currentWallpaper)
-      DefaultTheme.reloadFromDisk()
-    }
+    if (wasApplied) DefaultTheme.reloadFromDisk()
     if (!root.currentWallpaper) { root.flavorDirty = false; return }
     // A flavour picked mid-preview is a lasting choice, so commit it here — the
     // preview only ever painted the shell, colors.json still holds the old one.
@@ -95,28 +93,17 @@ Singleton {
     previewThemeProc.command = [root.autotheme, "--preview", "--variant", root.flavor, root.currentWallpaper]
     previewThemeProc.running = true
   }
-  function commitPreview() {
-    const p = root.previewPath
-    previewDebounce.stop()
-    previewThemeDelay.stop()
-    root.previewPath = ""
-    root.previewApplied = false
-    if (p) root.setWallpaper(p)
-  }
-  // hyprpaper takes up to a second per full-size image and a Process ignores
-  // `running = true` while busy, so keep only the newest request and replay it
-  // when the current load exits. Otherwise fast browsing leaves the desktop one
-  // step behind the centre tile (or on a preview after closing).
-  property string wallQueued: ""
   // asahi-wallpaper-span sets every output by name (hyprpaper keeps per-monitor entries over the
-  // `,path` wildcard): `apply` cuts the current wallpaper across displays while spanning, a
-  // browsed preview is `show`n uncut.
+  // `,path` wildcard) and cuts the wallpaper across displays while spanning. hyprpaper takes up to
+  // a second per image and a busy Process ignores `running = true`, so the newest request waits in
+  // one slot and runs when the current one exits (a dropped one left hyprpaper on A while the theme
+  // and lock screen said B).
   readonly property string spanBin: Quickshell.env("HOME") + "/.dotfiles/asahi/bin/asahi-wallpaper-span"
-  function showOnDesktop(path) {
-    if (previewWallProc.running) { root.wallQueued = path; return }
-    root.wallQueued = ""
-    previewWallProc.command = [root.spanBin, path === root.currentWallpaper ? "apply" : "show", path]
-    previewWallProc.running = true
+  property string applyQueued: ""
+  function apply(path) {
+    if (applyProc.running) { root.applyQueued = path; return }
+    applyProc.command = [root.spanBin, "apply", path]
+    applyProc.running = true
   }
   // Any output added / removed / moved / rescaled: `sync` puts the current wallpaper back on every
   // output (re-cut while spanning; a no-op when unchanged). Debounced: asahi-hdmi and the Monitors
@@ -124,9 +111,9 @@ Singleton {
   readonly property string screenLayout: Quickshell.screens.map(s => s.name + "@" + s.x + "," + s.y + ":" + s.width + "x" + s.height).join(" ")
   onScreenLayoutChanged: spanSync.restart()
   Timer { id: spanSync; interval: 1500; onTriggered: Quickshell.execDetached([root.spanBin, "sync"]) }
-  function randomWallpaper() {
-    const n = root.wallpapers.length
-    return n ? root.wallpapers[Math.floor(Math.random() * n)] : ""
+  function randomWallpaper(list) {
+    const l = list || root.wallpapers
+    return l.length ? l[Math.floor(Math.random() * l.length)] : ""
   }
 
   Timer {
@@ -136,7 +123,6 @@ Singleton {
       if (root.previewPath === "" || (root.previewPath === root.currentWallpaper && !root.previewApplied)) return
       root.fadePath = root.previewPath
       root.previewApplied = true
-      root.showOnDesktop(root.previewPath)
       previewThemeDelay.restart()
     }
   }
@@ -155,17 +141,6 @@ Singleton {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: if (root.previewPath !== "") DefaultTheme.applyJson(text)
-    }
-  }
-  Process {
-    id: previewWallProc
-    onExited: function() {
-      const p = root.wallQueued
-      root.wallQueued = ""
-      if (!p) return
-      // A stale preview must not overtake a wallpaper applied meanwhile.
-      if (root.previewPath === "" && p !== root.currentWallpaper) return
-      root.showOnDesktop(p)
     }
   }
 
@@ -307,8 +282,8 @@ Singleton {
       const saved = configFile.text().trim()
       if (saved === "") return
       root.currentWallpaper = saved
-      // Re-assert on load: heals a desktop left on a preview if the shell died mid-browse.
-      root.showOnDesktop(saved)
+      // Set the saved one at once (cut while spanning; spanSync heals a race with hyprpaper's start).
+      Quickshell.execDetached([root.spanBin, "apply", saved])
       Quickshell.execDetached([
         "sh", "-c",
         "mkdir -p \"$(dirname \"$2\")\" && [ -f \"$1\" ] && ln -sfn \"$1\" \"$2\"",
@@ -332,7 +307,6 @@ Singleton {
     previewThemeDelay.stop()
     root.previewPath = ""
     root.previewApplied = false
-    root.wallQueued = ""
     root.flavorDirty = false   // the autotheme call below writes the flavour anyway
     currentWallpaper = path
 
@@ -340,9 +314,9 @@ Singleton {
     saveProcess.command = ["sh", "-c", "mkdir -p \"$(dirname \"$1\")\" \"$(dirname \"$3\")\" && printf \"%s\" \"$2\" > \"$1\" && ln -sfn \"$2\" \"$3\"", "sh", root.wallpaperConf, path, root.lockWallpaper]
     saveProcess.running = true
 
-    // Apply directly (hyprpaper preload IPC returns invalid+exit1 here; wallpaper= cmd works and changes it).
-    applyProc.command = [root.spanBin, "apply", path]
-    applyProc.running = true
+    // The fade shows it until hyprpaper has it (the old wallpaper used to stay ~1 s, then pop).
+    root.fadePath = path
+    root.apply(path)
 
     // Wallpaper-driven adaptive theme (Quickshell / Ghostty / Firefox / Hyprland)
     themeProc.command = [root.autotheme, "--variant", root.flavor, path]
@@ -350,62 +324,23 @@ Singleton {
     themeProc.running = true
   }
 
-  // Preload step
-  Process {
-    id: preloadProc
-    stdout: StdioCollector {}
-    stderr: StdioCollector {}
-    onExited: (code) => {
-      if (code !== 0) {
-        const err = (stderr.text + stdout.text).trim()
-        console.warn("hyprpaper preload failed (code " + code + "):", err)
-        if (err.includes("invalid hyprpaper request")) {
-            if (!root.hyprpaperIpcErrorShown) {
-                root.hyprpaperIpcErrorShown = true
-                console.warn("hyprpaper IPC not enabled. Raw error:", err)
-                Quickshell.execDetached([
-                    "notify-send", "-a", "Wallpaper",
-                    "Hyprpaper IPC not enabled",
-                    "Wallpaper saved. Restart hyprpaper to apply:\n  pkill hyprpaper && hyprpaper &"
-                ])
-            }
-            return
-        }
-        const msg = err || "code " + code
-        Quickshell.execDetached(["notify-send", "-a", "Wallpaper", "Hyprpaper preload failed", msg])
-        return
-      }
-      // Simple global apply (no jq dependency)
-      // Format: hyprctl hyprpaper wallpaper ",<path>,<fit_mode>"
-      applyProc.command = ["hyprctl", "hyprpaper", "wallpaper", "," + root.currentWallpaper + "," + root.defaultFit]
-      applyProc.running = true
-    }
-  }
-
-  // Apply step
   Process {
     id: applyProc
-    stdout: StdioCollector {}
     stderr: StdioCollector {}
     onExited: (code) => {
       if (code !== 0) {
-        const err = (stderr.text + stdout.text).trim()
-        console.warn("hyprpaper wallpaper apply failed (code " + code + "):", err)
-        if (err.includes("invalid hyprpaper request")) {
-            if (!root.hyprpaperIpcErrorShown) {
-                root.hyprpaperIpcErrorShown = true
-                console.warn("hyprpaper IPC not enabled. Raw error:", err)
-                Quickshell.execDetached([
-                    "notify-send", "-a", "Wallpaper",
-                    "Hyprpaper IPC not enabled",
-                    "Wallpaper saved. Restart hyprpaper to apply:\n  pkill hyprpaper && hyprpaper &"
-                ])
-            }
-            return
-        }
-        const msg = err || "code " + code
-        Quickshell.execDetached(["notify-send", "-a", "Wallpaper", "Hyprpaper apply failed", msg])
+        const err = stderr.text.trim()
+        console.warn("asahi-wallpaper-span apply failed (code " + code + "):", err)
+        // Last line only: the whole Python traceback made an unreadable notification.
+        Quickshell.execDetached(["notify-send", "-a", "Wallpaper", "Wallpaper apply failed", err.split("\n").pop() || "exit code " + code])
       }
+    }
+    // The queued one runs once this one is done. Not onExited: a binary that fails to start never exits.
+    onRunningChanged: {
+      if (running || !root.applyQueued) return
+      const next = root.applyQueued
+      root.applyQueued = ""
+      root.apply(next)
     }
   }
 

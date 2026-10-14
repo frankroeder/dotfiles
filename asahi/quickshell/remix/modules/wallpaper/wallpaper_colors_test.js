@@ -169,7 +169,7 @@ assert((svc.match(/"--variant", root\.flavor/g) || []).length >= 3,
 assert(/previewWaitMs: 70/.test(svc), "armed preview is real-time (key-repeat coalescing only)");
 
 const mgr = fs.readFileSync(path.join(__dirname, "WallpaperManager.qml"), "utf8");
-assert(/Qt\.Key_Shift/.test(mgr), "Shift toggles live preview in the picker");
+assert(/Qt\.Key_Shift/.test(mgr), "Shift arms live preview in the picker");
 assert(/handleKey\(event, true\)/.test(mgr), "the search field marks itself as typing so Shift stays a modifier");
 assert(/WallpaperFilterBar/.test(mgr) && /WallpaperPalette/.test(mgr) && /WallpaperFlavors/.test(mgr),
   "picker shows the filter bar, palette strip and flavour row");

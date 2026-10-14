@@ -71,6 +71,26 @@ if (haveConvert) {
   console.log("skip  size compare (no convert)");
 }
 
+// Prune: the finished pass deletes thumbs of wallpapers that are gone, nothing else.
+const pruneDir = path.join(scratch, "prune");
+fs.mkdirSync(pruneDir, { recursive: true });
+const live = path.join(scratch, "live wall.png");
+fs.writeFileSync(live, "x");
+const old = new Date(Date.now() - 60000);
+fs.utimesSync(live, old, old);   // older than its thumb: no convert runs
+const liveThumb = shipped.thumbPath(live, pruneDir);
+fs.writeFileSync(liveThumb, "thumb");
+const orphan = path.join(pruneDir, shipped.thumbName("/gone/renamed.jpg") + ".jpg");
+fs.writeFileSync(orphan, "thumb");
+fs.writeFileSync(path.join(pruneDir, "colors.tsv"), "");
+const pass = spawnSync("sh", ["-c", shipped.thumbBatchScript([live], pruneDir)], { encoding: "utf8" });
+assert(pass.status === 0 && /THUMBS_DONE/.test(pass.stdout), "batch pass with a prune still finishes");
+assert(!fs.existsSync(orphan), "a thumb whose wallpaper is gone is deleted");
+assert(fs.existsSync(liveThumb), "a listed wallpaper keeps its thumb (path with a space)");
+assert(fs.existsSync(path.join(pruneDir, "colors.tsv")), "the color index beside the thumbs is kept");
+spawnSync("sh", ["-c", shipped.thumbBatchScript([], pruneDir)], { encoding: "utf8" });
+assert(fs.existsSync(liveThumb), "an empty scan prunes nothing");
+
 assert(typeof shipped.wheelStep === "function", "shipped wallpaper_thumbs.js exports wheelStep");
 assert(typeof shipped.clampedContentY === "function", "shipped wallpaper_thumbs.js exports clampedContentY");
 assert(shipped.wheelStep(10, 0, 100) === 20, "touchpad pixel delta is boosted 2x (got " + shipped.wheelStep(10, 0, 100) + ")");

@@ -11,8 +11,11 @@ from dataclasses import asdict, dataclass
 from .extract import Representative
 from .oklab import clamp, hex_from_oklch, hue_distance, max_chroma
 
-
 LIGHT_MODE_THRESHOLD = 0.62
+
+# ANSI hue families (OKLCH degrees). Every named color belongs to one, so red stays
+# red (critical), yellow yellow (warning) and green green (ok) on any wallpaper.
+HUES = {"red": 25, "orange": 55, "yellow": 95, "green": 145, "cyan": 195, "blue": 255, "magenta": 320}
 
 
 @dataclass(frozen=True)
@@ -29,7 +32,7 @@ class Flavor:
     accent_dl: float = 0.0    # accent lightness offset
     surface_c: float = 1.0    # background / surface / selection tint multiplier
     ansi_sat: float = 0.0     # same axis as accent_sat, for the ANSI + named colors
-    fidelity: bool = False    # keep wallpaper hues instead of snapping to ANSI slots
+    fidelity: bool = False    # follow wallpaper hues more closely inside each ANSI hue family
 
 
 # Five, deliberately far apart. The axes that actually read on a desktop are how
@@ -39,7 +42,7 @@ class Flavor:
 FLAVORS: dict[str, Flavor] = {
     # closest to the wallpaper: its own chroma, its own surface tint
     "source": Flavor(),
-    # the whole desktop washed in the wallpaper's hues, kept verbatim
+    # the whole desktop washed in the wallpaper's hues, followed closely
     "content": Flavor(accent_sat=0.30, surface_c=1.60, ansi_sat=0.15, fidelity=True),
     # gamut-edge accents on deliberately neutral panels — the opposite of content
     "vibrant": Flavor(accent_sat=0.95, accent_dl=0.05, surface_c=0.45, ansi_sat=0.75),
@@ -138,38 +141,28 @@ def _pick(reps: list[Representative], prefer: str) -> Representative:
         chromatic = [r for r in reps if r.chroma >= 0.02]
         pool = chromatic or reps
         return max(pool, key=lambda r: (r.weight, r.chroma))
-    return sorted(reps, key=lambda r: (abs(r.L - 0.45), r.chroma))[0]
+    return min(reps, key=lambda r: (abs(r.L - 0.45), r.chroma))
 
 
-def _ansi(h: float, mode: str, role: str, fl: Flavor) -> str:
-    # Target hues roughly match terminal ANSI expectations, tinted by wallpaper hue families.
-    targets = {
-        "red": (25, 0.66, 0.52, 1.00),
-        "orange": (55, 0.68, 0.53, 0.88),
-        "yellow": (95, 0.70, 0.55, 0.78),
-        "green": (145, 0.63, 0.47, 0.64),
-        "cyan": (195, 0.71, 0.56, 0.70),
-        "blue": (255, 0.67, 0.50, 0.62),
-        "magenta": (320, 0.68, 0.51, 0.84),
-        "brown": (55, 0.52, 0.42, 0.44),
-    }
-    th, dark_l, light_l, chroma_scale = targets[role]
-    l = dark_l if mode == "dark" else light_l
-    # Bias hue toward nearest wallpaper family when close enough; `content` keeps it verbatim.
-    if h is None:
-        hue = th
-    elif fl.fidelity:
-        hue = h
-    else:
-        hue = 0.35 * th + 0.65 * h if hue_distance(th, h) < 55 else th
-    return hex_from_oklch(l, _saturate(0.12 * chroma_scale, l, hue, fl.ansi_sat), hue)
-
-
-def _nearest_hue(reps: list[Representative], target: float) -> float:
+def _nearest_hue(reps: list[Representative], target: float) -> float | None:
+    """Hue of the colorful sample closest to `target`; None when the wallpaper has no color."""
     chromatic = [r for r in reps if r.chroma >= 0.03]
-    pool = chromatic or reps
-    best = min(pool, key=lambda r: hue_distance(r.hue, target))
-    return best.hue
+    if not chromatic:
+        return None
+    return min(chromatic, key=lambda r: hue_distance(r.hue, target)).hue
+
+
+def _toward(th: float, h: float, k: float = 0.65) -> float:
+    """Turn hue `th` by `k` toward `h` along the short arc (a plain average breaks at 0/360)."""
+    return (th + k * ((h - th + 180) % 360 - 180)) % 360
+
+
+def _family_hue(th: float, h: float | None, k: float) -> float:
+    """Family hue `th` turned the fraction `k` toward the wallpaper's `h` when that is within 55°;
+    otherwise, or with no color, `th`."""
+    if h is None or hue_distance(th, h) >= 55:
+        return th
+    return _toward(th, h, k)
 
 
 def build_palette(
@@ -193,10 +186,13 @@ def build_palette(
     sel = selection.lab.to_oklch()
     m = muted.lab.to_oklch()
 
+    # Lightness ladders are Catppuccin-ordered (dark: text > subtext1 > subtext0 > overlays,
+    # light the inverse) and sized for WCAG: subtext0 >= 4.5:1 on base/mantle, >= 3:1 on
+    # surface0/1; the accent >= 4.5:1 against crust, which carries text on accent.
     if mode == "dark":
         bg_l = clamp(s.L, 0.11, 0.24)
         bg_c = clamp(s.C, 0.0, 0.055) * fl.surface_c
-        accent_l = clamp(a.L + fl.accent_dl, 0.58, 0.75)
+        accent_l = clamp(a.L + fl.accent_dl, 0.64, 0.78)
         accent_c = _saturate(clamp(a.C, 0.0, 0.22), accent_l, a.H, fl.accent_sat)
         fg_c = clamp(f.C * 0.45, 0.0, 0.075) * fl.surface_c
         sel_c = clamp(sel.C * 0.55, 0.025, 0.11) * fl.surface_c
@@ -211,7 +207,7 @@ def build_palette(
         bright_foreground = hex_from_oklch(0.98, fg_c * 0.45, f.H)
         accent_hex = hex_from_oklch(accent_l, accent_c, a.H)
         selection_hex = hex_from_oklch(bg_l + 0.16, sel_c, sel.H)
-        muted_hex = hex_from_oklch(bg_l + 0.22, muted_c, m.H)
+        muted_hex = hex_from_oklch(bg_l + 0.30, muted_c, m.H)   # overlay0, terminal color 8
         # Catppuccin surfaces
         crust = darker_background
         mantle = dark_background
@@ -223,12 +219,12 @@ def build_palette(
         overlay1 = dark_foreground
         overlay2 = hex_from_oklch(0.70, fg_c * 0.6, f.H)
         text = foreground_hex
-        subtext0 = dark_foreground
-        subtext1 = light_foreground
+        subtext0 = hex_from_oklch(0.72, fg_c * 0.85, f.H)
+        subtext1 = hex_from_oklch(0.80, fg_c * 0.70, f.H)
     else:
         bg_l = clamp(s.L, 0.90, 0.97)
         bg_c = clamp(s.C * 0.45, 0.0, 0.030) * fl.surface_c
-        accent_l = clamp(a.L + fl.accent_dl, 0.43, 0.60)
+        accent_l = clamp(a.L + fl.accent_dl, 0.40, 0.50)
         accent_c = _saturate(clamp(a.C, 0.0, 0.20), accent_l, a.H, fl.accent_sat)
         fg_c = clamp(f.C * 0.40, 0.0, 0.065) * fl.surface_c
         sel_c = clamp(sel.C * 0.50, 0.020, 0.095) * fl.surface_c
@@ -252,40 +248,30 @@ def build_palette(
         surface2 = hex_from_oklch(bg_l - 0.22, bg_c * 1.15, s.H)
         overlay0 = muted_hex
         overlay1 = dark_foreground
-        overlay2 = hex_from_oklch(0.50, fg_c * 0.6, f.H)
+        overlay2 = hex_from_oklch(0.55, fg_c * 0.6, f.H)   # terminal color 8
         text = foreground_hex
-        subtext0 = dark_foreground
+        subtext0 = hex_from_oklch(0.38, fg_c * 0.85, f.H)
         subtext1 = hex_from_oklch(0.35, fg_c * 0.7, f.H)
 
-    # Named accents (rosewater … lavender) follow the flavour like the ANSI slots do.
-    def _named(l: float, c: float, h: float) -> str:
-        return hex_from_oklch(l, _saturate(c, l, h, fl.ansi_sat), h)
+    # ANSI slots and named accents (rosewater … lavender): the family hue tinted by the
+    # wallpaper's nearest one, chroma by flavour. Light-mode L keeps them >= 4.5:1 on background.
+    wall_hues = {fam: _nearest_hue(reps, th) for fam, th in HUES.items()}
 
-    red_h = _nearest_hue(reps, 25)
-    yellow_h = _nearest_hue(reps, 95)
-    green_h = _nearest_hue(reps, 145)
-    cyan_h = _nearest_hue(reps, 195)
-    blue_h = _nearest_hue(reps, 255)
-    magenta_h = _nearest_hue(reps, 320)
-    orange_h = _nearest_hue(reps, 55)
+    def tone(fam: str, dark_l: float, light_l: float, c: float) -> str:
+        # Red and orange are 30° apart and mean critical vs warning: they lean a quarter of the way.
+        # `content` follows the wallpaper 90% (never 100%: that sat on the family edge).
+        k = 0.25 if fam in ("red", "orange") else 0.9 if fl.fidelity else 0.65
+        hue = _family_hue(HUES[fam], wall_hues[fam], k)
+        l = dark_l if mode == "dark" else light_l
+        return hex_from_oklch(l, _saturate(c, l, hue, fl.ansi_sat), hue)
 
-    red = _ansi(red_h, mode, "red", fl)
-    orange = _ansi(orange_h, mode, "orange", fl)
-    yellow = _ansi(yellow_h, mode, "yellow", fl)
-    green = _ansi(green_h, mode, "green", fl)
-    cyan = _ansi(cyan_h, mode, "cyan", fl)
-    blue = _ansi(blue_h, mode, "blue", fl)
-    magenta = _ansi(magenta_h, mode, "magenta", fl)
-    brown = _ansi(orange_h, mode, "brown", fl)
-
-    def brighten(role: str, h: float) -> str:
-        # Keep ANSI family hue (target-biased), lift L/C for bright slots.
-        targets = {
-            "red": 25, "yellow": 95, "green": 145, "cyan": 195, "blue": 255, "magenta": 320,
-        }
-        th = targets[role]
-        use_h = h if fl.fidelity else ((0.35 * th + 0.65 * h) if hue_distance(th, h) < 55 else th)
-        return _named(0.78 if mode == "dark" else 0.48, 0.14, use_h)
+    red = tone("red", 0.66, 0.48, 0.12)
+    orange = tone("orange", 0.68, 0.48, 0.12 * 0.88)
+    yellow = tone("yellow", 0.70, 0.46, 0.12 * 0.78)
+    green = tone("green", 0.63, 0.47, 0.12 * 0.64)
+    cyan = tone("cyan", 0.71, 0.47, 0.12 * 0.70)
+    blue = tone("blue", 0.67, 0.47, 0.12 * 0.62)
+    magenta = tone("magenta", 0.68, 0.48, 0.12 * 0.84)
 
     return Palette(
         mode=mode,
@@ -309,13 +295,13 @@ def build_palette(
         cyan=cyan,
         blue=blue,
         magenta=magenta,
-        brown=brown,
-        bright_red=brighten("red", red_h),
-        bright_yellow=brighten("yellow", yellow_h),
-        bright_green=brighten("green", green_h),
-        bright_cyan=brighten("cyan", cyan_h),
-        bright_blue=brighten("blue", blue_h),
-        bright_magenta=brighten("magenta", magenta_h),
+        brown=tone("orange", 0.52, 0.42, 0.12 * 0.44),
+        bright_red=tone("red", 0.78, 0.48, 0.14),
+        bright_yellow=tone("yellow", 0.78, 0.48, 0.14),
+        bright_green=tone("green", 0.78, 0.48, 0.14),
+        bright_cyan=tone("cyan", 0.78, 0.48, 0.14),
+        bright_blue=tone("blue", 0.78, 0.48, 0.14),
+        bright_magenta=tone("magenta", 0.78, 0.48, 0.14),
         crust=crust,
         mantle=mantle,
         base=base,
@@ -328,14 +314,14 @@ def build_palette(
         text=text,
         subtext0=subtext0,
         subtext1=subtext1,
-        rosewater=_named(0.90 if mode == "dark" else 0.55, 0.04, a.H),
-        flamingo=_named(0.84 if mode == "dark" else 0.52, 0.06, red_h),
+        rosewater=tone("red", 0.90, 0.55, 0.04),
+        flamingo=tone("red", 0.84, 0.52, 0.06),
         pink=magenta,
-        mauve=_named(0.72 if mode == "dark" else 0.50, 0.12, magenta_h),
-        maroon=_named(0.68 if mode == "dark" else 0.48, 0.10, red_h),
+        mauve=tone("magenta", 0.72, 0.50, 0.12),
+        maroon=tone("red", 0.68, 0.48, 0.10),
         peach=orange,
         teal=cyan,
-        sky=_named(0.78 if mode == "dark" else 0.55, 0.10, cyan_h),
-        sapphire=_named(0.70 if mode == "dark" else 0.48, 0.11, blue_h),
-        lavender=_named(0.78 if mode == "dark" else 0.52, 0.09, blue_h),
+        sky=tone("cyan", 0.78, 0.55, 0.10),
+        sapphire=tone("blue", 0.70, 0.48, 0.11),
+        lavender=tone("blue", 0.78, 0.52, 0.09),
     )

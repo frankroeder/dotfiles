@@ -18,6 +18,7 @@ Scope {
 
   property string searchText: ""
   property bool showAll: false
+  readonly property int gridColumns: 4
   property string previewPath: ""
   property var pickerScreen: null
   readonly property string uiFont: Style.menuMono
@@ -40,8 +41,9 @@ Scope {
         root.showAll = false
         if (WallpaperService.wallpapers.length === 0) WallpaperService.rescan()
         // Drop the last browse so the picker opens on the applied wallpaper,
-        // including when a tone filter is already on.
+        // including when a tone filter is already on (and Shift previews that one, not the old browse).
         wallCarousel.selectedPath = ""
+        WallpaperService.browsePath = WallpaperService.currentWallpaper
         wallCarousel.placed = false
         Qt.callLater(wallCarousel.place)
         wallBox.forceActiveFocus()
@@ -62,8 +64,25 @@ Scope {
     wallpaperPanel.visible = false
   }
 
-  // Fullscreen fade of the preview wallpaper (above hyprpaper, below windows)
-  // so the desktop does not pop when the picker closes on a preview. Starts after previewWaitMs.
+  // WallpaperService.fadePath over the applied wallpaper while it is live-previewed or being applied.
+  // retainWhileLoading keeps the last preview painted while the next one decodes (an empty Image
+  // flashed the applied wallpaper on every step); the source drops once faded out, so a new fade
+  // never starts on a stale image.
+  component FadeImage: Image {
+    property bool active: true
+    readonly property bool show: WallpaperService.fadeShown && implicitWidth > 0   // > 0: an image is painted
+    fillMode: Image.PreserveAspectCrop
+    asynchronous: true
+    cache: true
+    retainWhileLoading: true
+    source: active && (WallpaperService.fadeShown || opacity > 0.01) && WallpaperService.fadePath
+      ? "file://" + WallpaperService.fadePath : ""
+    opacity: show ? 1 : 0
+    Behavior on opacity { NumberAnimation { duration: WallpaperService.previewFadeMs; easing.type: Easing.OutCubic } }
+  }
+
+  // Fullscreen fade (above hyprpaper, below windows): the desktop shows the preview without
+  // hyprpaper decoding every browsed original, and an applied wallpaper shows before hyprpaper has it.
   Variants {
     model: Quickshell.screens
     PanelWindow {
@@ -77,23 +96,14 @@ Scope {
       WlrLayershell.layer: WlrLayer.Bottom
       WlrLayershell.namespace: "asahi-wall-preview"
       anchors { left: true; right: true; top: true; bottom: true }
-      visible: fadeImg.opacity > 0.01 || WallpaperService.previewApplied
+      visible: fadeImg.opacity > 0.01 || WallpaperService.fadeShown
 
-      Image {
+      FadeImage {
         id: fadeImg
         anchors.fill: parent
-        fillMode: Image.PreserveAspectCrop
-        asynchronous: true
-        cache: true
         sourceSize.width: Math.max(1, modelData.width)
         sourceSize.height: Math.max(1, modelData.height)
-        source: WallpaperService.fadePath ? ("file://" + WallpaperService.fadePath) : ""
-        readonly property bool show: WallpaperService.previewApplied && fadeImg.status === Image.Ready
-        opacity: fadeImg.show ? 1 : 0
         scale: fadeImg.show ? 1 : 1.04
-        Behavior on opacity {
-          NumberAnimation { duration: WallpaperService.previewFadeMs; easing.type: Easing.OutCubic }
-        }
         Behavior on scale {
           NumberAnimation { duration: WallpaperService.previewFadeMs + 80; easing.type: Easing.OutCubic }
         }
@@ -107,8 +117,9 @@ Scope {
       Qt.callLater(() => wallpaperGrid.positionViewAtIndex(wallCarousel.shownIndex, GridView.Contain))
     } else { root.searchText = ""; wallSearchInput.text = ""; wallBox.forceActiveFocus() }
   }
-  // Shared by the card and the search field: Shift arms live preview, ←/→ or
-  // Ctrl+h/j/k/l browse, ⏎ applies, Esc unwinds.
+  // Shared by the card and the search field: Shift arms live preview (never disarms: as a toggle it
+  // flickered off and on for Shift+→; Esc / the Live chip turn it off), ←/→ or Ctrl+h/j/k/l browse,
+  // Home/End and PageUp/PageDown jump, ↑/↓ move a row in the All grid, ⏎ applies, Esc unwinds.
   // `typing` is the search field, where Shift is just a modifier for capitals —
   // only the Shift+arrow form arms live preview there.
   function handleKey(event, typing) {
@@ -118,7 +129,7 @@ Scope {
     const right = event.key === Qt.Key_Right || (ctrl && (event.key === Qt.Key_L || event.key === Qt.Key_J))
     if (event.key === Qt.Key_Shift) {
       if (typing || event.isAutoRepeat) return false
-      WallpaperService.setLive(!WallpaperService.liveMode)
+      WallpaperService.setLive(true)
       return true
     }
     if (shift && (left || right)) WallpaperService.setLive(true)
@@ -129,8 +140,14 @@ Scope {
       else root.close()
       return true
     }
-    if (left) { wallCarousel.prev(); return true }
-    if (right) { wallCarousel.next(); return true }
+    if (left) { wallCarousel.step(-1); return true }
+    if (right) { wallCarousel.step(1); return true }
+    if (event.key === Qt.Key_Home) { wallCarousel.go(0); return true }
+    if (event.key === Qt.Key_End) { wallCarousel.go(root.filteredWallpapers.length - 1); return true }
+    if (event.key === Qt.Key_PageUp) { wallCarousel.step(-10); return true }
+    if (event.key === Qt.Key_PageDown) { wallCarousel.step(10); return true }
+    if (root.showAll && event.key === Qt.Key_Up) { wallCarousel.step(-root.gridColumns); return true }
+    if (root.showAll && event.key === Qt.Key_Down) { wallCarousel.step(root.gridColumns); return true }
     if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { wallCarousel.activate(); return true }
     return false
   }
@@ -165,17 +182,11 @@ Scope {
         sourceSize.height: Math.max(1, wallpaperPanel.height)
         source: wallpaperPanel.visible && WallpaperService.currentWallpaper ? "file://" + WallpaperService.currentWallpaper : ""
       }
-      Image {
-        id: backdropPreview
+      FadeImage {
         anchors.fill: parent
-        fillMode: Image.PreserveAspectCrop
-        asynchronous: true
-        cache: true
+        active: wallpaperPanel.visible
         sourceSize.width: Math.max(1, wallpaperPanel.width)
         sourceSize.height: Math.max(1, wallpaperPanel.height)
-        source: wallpaperPanel.visible && WallpaperService.fadePath ? "file://" + WallpaperService.fadePath : ""
-        opacity: WallpaperService.previewApplied && status === Image.Ready ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: WallpaperService.previewFadeMs; easing.type: Easing.OutCubic } }
       }
     }
     MultiEffect {
@@ -297,7 +308,10 @@ Scope {
             RowLayout {
               Layout.fillWidth: true
               spacing: 8
-              Text { text: "󰍉"; color: Style.m3onSurfaceVariant; font.family: root.uiFont; font.pixelSize: 13 }
+              Text {
+                text: (wallCarousel.shownIndex + 1) + " / " + root.filteredWallpapers.length
+                color: Style.m3onSurfaceVariant; font.family: root.uiFont; font.pixelSize: 12
+              }
               Text {
                 Layout.fillWidth: true
                 text: (wallCarousel.currentPath || "").split("/").pop() || "—"
@@ -311,7 +325,10 @@ Scope {
                   Text { text: "󰒝"; color: Style.m3primary; font.family: root.uiFont; font.pixelSize: 13; anchors.verticalCenter: parent.verticalCenter }
                   Text { text: "Shuffle"; color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: 12; font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter }
                 }
-                MouseArea { id: shuffleMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: wallCarousel.jumpTo(WallpaperService.randomWallpaper()) }
+                MouseArea {
+                  id: shuffleMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                  onClicked: wallCarousel.jumpTo(WallpaperService.randomWallpaper(root.filteredWallpapers))   // honours the filters
+                }
               }
               Rectangle {
                 implicitWidth: applyRow.implicitWidth + 22; implicitHeight: 30; radius: Style.menuRadiusFull
@@ -397,7 +414,7 @@ Scope {
                 GridView {
                   id: wallpaperGrid
                   anchors.fill: parent
-                  cellWidth: Math.max(1, Math.floor((Math.max(0, width - rightMargin)) / 4))
+                  cellWidth: Math.max(1, Math.floor((Math.max(0, width - rightMargin)) / root.gridColumns))
                   cellHeight: cellWidth * 0.62 + 8
                   clip: true
                   boundsBehavior: Flickable.StopAtBounds

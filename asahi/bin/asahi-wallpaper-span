@@ -8,8 +8,7 @@ width and the image behind it is dropped. EDID mm are not used (the LG reports 7
 
   asahi-wallpaper-span on | off | status
   asahi-wallpaper-span gap <px>       bezel gap (Monitors pane slider)
-  asahi-wallpaper-span apply [PATH]   cut + set while spanning, else same as show
-  asahi-wallpaper-span show PATH      uncut on every output (picker preview)
+  asahi-wallpaper-span apply [PATH]   cut + set while spanning (2+ outputs), else uncut on every output
   asahi-wallpaper-span sync           make hyprpaper show the current wallpaper again (layout change,
                                       hyprpaper restart); a no-op when it already does
 
@@ -36,7 +35,8 @@ def outputs(monitors):
   """Enabled, non-mirrored outputs as logical rects plus their native pixel size."""
   out = []
   for m in monitors:
-    if m.get("disabled") or m.get("mirrorOf") not in (None, "", "none"):
+    # FALLBACK: Hyprland's placeholder while no real output is left
+    if m.get("disabled") or m.get("mirrorOf") not in (None, "", "none") or m["name"] == "FALLBACK":
       continue
     pw, ph = (m["height"], m["width"]) if m.get("transform", 0) % 2 else (m["width"], m["height"])
     out.append({"name": m["name"], "x": m["x"], "y": m["y"], "w": pw / m["scale"], "h": ph / m["scale"], "pw": pw, "ph": ph})
@@ -104,11 +104,18 @@ def cut(path, gap, rects):
   if all(active().get(n) == p and os.path.exists(p) for n, p in slices.items()):
     return slices
   boxes = crops(frs, *image_size(path))
+  todo = [f for f in frs if not os.path.exists(slices[f["name"]])]
+  # magick writes .tmp.png, renamed once every job succeeded: a failed run left a truncated slice that the exists-checks
+  # reused forever. Leftover tmps match *.png, so the prune drops them.
+  tmp = {f["name"]: slices[f["name"]].removesuffix(".png") + ".tmp.png" for f in todo}
   jobs = [subprocess.Popen(["magick", f"{path}[0]", "-auto-orient", "-crop", "{}x{}+{}+{}".format(*boxes[f["name"]]), "+repage",
-                            "-resize", f"{f['pw']}x{f['ph']}!", "-strip", "-define", "png:compression-level=1", f"PNG24:{slices[f['name']]}"])
-          for f in frs if not os.path.exists(slices[f["name"]])]
-  if any(j.wait() for j in jobs):
+                            "-resize", f"{f['pw']}x{f['ph']}!", "-strip", "-define", "png:compression-level=1", f"PNG24:{tmp[f['name']]}"])
+          for f in todo]
+  codes = [j.wait() for j in jobs]  # every job, not just up to the first failure
+  if any(codes):
     sys.exit("magick failed")
+  for name, t in tmp.items():
+    os.replace(t, slices[name])
   set_wallpapers(slices, path)
   return slices
 
@@ -124,7 +131,7 @@ def main(cmd="status", arg=""):
       st.update(json.loads(STATE.read_text()))
     before = json.dumps(st)
     current = CURRENT.read_text().strip() if CURRENT.exists() else ""
-    path = arg if cmd in ("apply", "show") and arg else current
+    path = arg if cmd == "apply" and arg else current
     if cmd == "status":
       print(json.dumps(st))
       return
@@ -132,17 +139,18 @@ def main(cmd="status", arg=""):
       st["enabled"] = cmd == "on"
     elif cmd == "gap" and arg.isdigit():
       st["gap"] = int(arg)
-    elif cmd not in ("apply", "show", "sync"):
+    elif cmd not in ("apply", "sync"):
       sys.exit(__doc__)
     if not os.path.isfile(path):
       sys.exit(f"no wallpaper: {path!r}")
     rects = outputs(json.loads(run("hyprctl", "monitors", "-j")))  # none mid-hotplug: save only, the next sync catches up
-    spanning = st["enabled"] and cmd != "show" and bool(rects)
+    spanning = st["enabled"] and len(rects) > 1  # one output: hyprpaper's cover is the same picture
     if spanning:
       st["outputs"] = cut(path, st["gap"], rects)
     elif rects:
       show(path, rects)
-    if json.dumps(st) != before:  # previews and no-op syncs leave the pane's FileView alone
+      st["outputs"] = {}  # nothing cut on screen: the Monitors pane tiles fall back to the thumbnail
+    if json.dumps(st) != before:  # no-op syncs leave the pane's FileView alone
       STATE.parent.mkdir(parents=True, exist_ok=True)
       STATE.with_suffix(".tmp").write_text(json.dumps(st, indent=2) + "\n")
       os.replace(STATE.with_suffix(".tmp"), STATE)  # atomic: the Monitors pane FileView follows the rename

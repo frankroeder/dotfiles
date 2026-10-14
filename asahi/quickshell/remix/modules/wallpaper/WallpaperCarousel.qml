@@ -11,7 +11,6 @@ Item {
   id: root
   property var paths: []
   property int viewW: 0
-  property real fontScale: 1.0
   property string fontFamily: Style.menuSans
   property string iconFamily: Style.menuMono
   property bool live: true
@@ -36,7 +35,7 @@ Item {
   }
 
   implicitWidth: _vw
-  implicitHeight: (paths || []).length ? frame.height : 0
+  implicitHeight: frame.height   // also with no matches: collapsing made the card jump
   height: implicitHeight
   clip: true
 
@@ -48,8 +47,8 @@ Item {
     selectedPath = pathAt(i)
     if (live && selectedPath) WallpaperService.preview(selectedPath)
   }
-  function next() { go(Math.min((paths || []).length - 1, shownIndex + 1)) }
-  function prev() { go(Math.max(0, shownIndex - 1)) }
+  // Relative move, clamped to the list: ←/→ 1, PageUp/PageDown 10, ↑/↓ a row of the All grid.
+  function step(d) { go(Math.max(0, Math.min((paths || []).length - 1, shownIndex + d))) }
   function jumpTo(path) {
     const i = indexOfPath(path)
     if (i >= 0) { go(i); pendingPath = "" }
@@ -74,20 +73,35 @@ Item {
     if (live && p && p !== WallpaperService.browsePath) WallpaperService.preview(p)
   }
   function activate() { const p = currentPath; if (p) activated(p) }
-  function recenter() {}
 
   onLiveChanged: if (!live) WallpaperService.stopPreview()
   onAnchorPathChanged: { selectedPath = ""; placed = false; settle() }
   onPathsChanged: { settle() }
   Component.onCompleted: Qt.callLater(settle)
 
+  // One step per wheel notch (120): a trackpad swipe sends dozens of small deltas, which used to
+  // step once each and jump dozens of wallpapers.
+  property real wheelAcc: 0
   WheelHandler {
     acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
     onWheel: function(ev) {
-      const d = Math.abs(ev.angleDelta.x) > Math.abs(ev.angleDelta.y) ? ev.angleDelta.x : ev.angleDelta.y
-      if (d < 0) root.next()
-      else if (d > 0) root.prev()
+      root.wheelAcc += Math.abs(ev.angleDelta.x) > Math.abs(ev.angleDelta.y) ? ev.angleDelta.x : ev.angleDelta.y
+      if (Math.abs(root.wheelAcc) < 120) return
+      root.step(root.wheelAcc < 0 ? 1 : -1)
+      root.wheelAcc = 0
     }
+  }
+
+  // Catches clicks between the slanted slices: they fell through to the picker's close-on-click.
+  MouseArea { anchors.fill: parent }
+
+  Text {
+    anchors.centerIn: parent
+    visible: (root.paths || []).length === 0
+    text: "No matches"
+    color: Style.m3onSurfaceVariant
+    font.family: root.fontFamily
+    font.pixelSize: 16
   }
 
   Repeater {

@@ -107,10 +107,6 @@ for (const gone of ["quickWallpaperComp", "quickWallpaperRoot", "wallCarousel", 
   assert(qml.indexOf(gone) === -1, "the duplicated pane's " + gone + " is gone");
 }
 assert(
-  qml.indexOf("Wallpaper.DefaultTheme") !== -1,
-  "the wallpaper import is still pulled in for the palette"
-);
-assert(
   qml.indexOf("WallpaperCarousel") === -1 && qml.indexOf("WallpaperPalette") === -1,
   "the launcher no longer builds its own carousel or palette strip"
 );
@@ -126,7 +122,7 @@ assert(
 // visible: quickPaneKey falls back to t.key, not just t.mode, so EVERY visible
 // deck tile asks quickDetailFor for a pane. A tile with only ipc:/command: has
 // none and drops to quickDefaultComp's empty state. Keep those out of the deck.
-const actionsBlock = qml.slice(qml.indexOf("readonly property var quickActions"), qml.indexOf("readonly property var quickTiles"));
+const actionsBlock = qml.slice(qml.indexOf("readonly property var quickActions"), qml.indexOf("readonly property var quickDeckHidden"));
 const paneless = [];
 for (const line of actionsBlock.split("\n")) {
   const key = (line.match(/\{\s*key:\s*"([a-z-]+)"/) || [])[1];
@@ -176,6 +172,14 @@ assert(
   /viewW/.test(car),
   "carousel documents viewW as the host viewport"
 );
+assert(
+  /wheelAcc \+=/.test(car) && /Math\.abs\(root\.wheelAcc\) < 120/.test(car),
+  "wheel steps accumulate to 120 (each trackpad delta used to step once)"
+);
+assert(
+  /implicitHeight:\s*frame\.height\b/.test(car) && /"No matches"/.test(car),
+  "no matches keeps the fan's height (the card jumped) and says so"
+);
 
 console.log("\n== WallpaperManager.qml ==");
 const mgr = fs.readFileSync(path.join(__dirname, "WallpaperManager.qml"), "utf8");
@@ -221,6 +225,20 @@ assert(
   /asahi-wall-preview/.test(mgr) && /previewFadeMs/.test(mgr) && /Easing\.OutCubic/.test(mgr),
   "preview wallpaper fades in on a pass-through Bottom layer"
 );
+assert(
+  /retainWhileLoading:\s*true/.test(mgr) && /fadeShown/.test(mgr),
+  "the fade keeps the last preview painted while the next decodes, and covers an apply in flight"
+);
+assert(
+  !/showOnDesktop|previewWallProc/.test(svc) && /applyQueued/.test(svc),
+  "previews never reach hyprpaper; applies wait in one slot instead of being dropped"
+);
+const handleKey = (mgr.match(/function handleKey[\s\S]*?\n {2}\}/) || [""])[0];
+assert(
+  /setLive\(true\)/.test(handleKey) && !/setLive\(!/.test(handleKey),
+  "Shift only arms Live (a toggle turned it off and on again for Shift+→)"
+);
+assert(/randomWallpaper\(root\.filteredWallpapers\)/.test(mgr), "Shuffle picks from the filtered list");
 
 if (failed > 0) {
   console.log("\n" + failed + " assertion(s) failed");

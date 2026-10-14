@@ -8,6 +8,7 @@ Quickshell / Ghostty / Firefox / Hyprland.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import os
 import sys
@@ -30,20 +31,20 @@ def resolve_wallpaper(explicit: str | None) -> Path:
             raise SystemExit(f"wallpaper not found: {path}")
         return path
 
-    state = state_dir() / "wallpaper"
-    if state.is_file():
-        saved = state.read_text(encoding="utf-8").strip()
-        if saved and Path(saved).is_file():
-            return Path(saved)
-
-    qs = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state"))
-    qs_wall = qs / "quickshell" / "wallpaper.conf"
-    if qs_wall.is_file():
-        saved = qs_wall.read_text(encoding="utf-8").strip()
+    # The image on screen (Quickshell's choice) first, then the last one themed.
+    for saved_file in (state_dir().parent / "quickshell" / "wallpaper.conf", state_dir() / "wallpaper"):
+        saved = saved_file.read_text(encoding="utf-8").strip() if saved_file.is_file() else ""
         if saved and Path(saved).is_file():
             return Path(saved)
 
     raise SystemExit("no wallpaper path given and none saved in state")
+
+
+def saved_variant() -> str:
+    # colors.json records the flavour, so a bare run (login autostart) keeps it.
+    colors = state_dir() / "colors.json"
+    variant = json.loads(colors.read_text(encoding="utf-8")).get("variant") if colors.is_file() else None
+    return variant if variant in FLAVORS else "source"
 
 
 def main() -> int:
@@ -51,9 +52,8 @@ def main() -> int:
     parser.add_argument("wallpaper", nargs="?", help="image path (default: current wallpaper)")
     parser.add_argument(
         "--variant",
-        default="source",
         choices=tuple(FLAVORS),
-        help="flavour: how strong and how colorful (matugen scheme-* analogue)",
+        help="flavour: how strong and how colorful (matugen scheme-* analogue; default: the saved one, else source)",
     )
     parser.add_argument(
         "--mode",
@@ -71,9 +71,14 @@ def main() -> int:
     parser.add_argument("--json", action="store_true", help="print colors.json to stdout")
     args = parser.parse_args()
 
+    if not args.dry_run:
+        # One theme write at a time (login autostart, picker, flavour chip): the fd stays open,
+        # so the lock is held until this process exits.
+        fcntl.flock(os.open(state_dir() / ".lock", os.O_CREAT | os.O_RDWR, 0o644), fcntl.LOCK_EX)
+
     wallpaper = resolve_wallpaper(args.wallpaper)
     reps = extract_representatives(str(wallpaper))
-    palette = build_palette(reps, str(wallpaper), variant=args.variant, mode=args.mode)
+    palette = build_palette(reps, str(wallpaper), variant=args.variant or saved_variant(), mode=args.mode)
 
     if args.dry_run or args.preview:
         if args.preview:
