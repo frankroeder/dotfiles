@@ -49,9 +49,12 @@ PopupWindow {
 
   // Whitelist the bar window too, else the click that opened this counts as outside and closes it.
   // Esc is an app-wide shortcut: the grab may leave keyboard focus on the bar.
+  // Armed once the popup is mapped: armed at show time its surface was not whitelisted yet, and every
+  // click inside closed it (no button in a bar popup worked).
+  Timer { id: grabArm; interval: 150; running: root.visible }
   HyprlandFocusGrab {
     windows: [root, root.anchor.window]
-    active: root.visible
+    active: root.visible && !grabArm.running
     onCleared: root.close()
   }
   Shortcut {

@@ -196,9 +196,11 @@ Item {
 
     // Whitelist the bar window too, else the click that opened this counts as outside and closes it.
     // Esc is an app-wide shortcut: the grab may leave keyboard focus on the bar.
+    // Armed once mapped (see SysPanel): armed at show time, clicks inside closed the popup.
+    Timer { id: grabArm; interval: 150; running: root.showCalendar }
     HyprlandFocusGrab {
       windows: [calPopup, calPopup.anchor.window]
-      active: root.showCalendar
+      active: root.showCalendar && !grabArm.running
       onCleared: if (root.calendarOpen) root.calendarToggle()
     }
     Shortcut {
