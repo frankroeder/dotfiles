@@ -44,8 +44,8 @@ hl.define_submap("writing", function()
   hl.bind("catchall", function() end)
 end)
 -- Hyprland binds bypass layer keyboard focus: while a Quickshell overlay is up
--- (launcher, quick panes, wallpaper, pkgman) Super+Q is inert — only Esc closes it.
-local overlays = { ["quickshell-launcher"] = true, ["quickshell-wallpaper"] = true, ["quickshell-pkgman"] = true }
+-- (launcher, quick panes, wallpaper, pkgman, polkit) Super+Q is inert — only Esc closes it.
+local overlays = { ["quickshell-launcher"] = true, ["quickshell-wallpaper"] = true, ["quickshell-pkgman"] = true, ["quickshell-polkit"] = true }
 local function unless_overlay(dsp)
   return function()
     for _, l in ipairs(hl.get_layers()) do
@@ -341,7 +341,7 @@ media_bind(
 
 media_bind("XF86AudioMute", "output-volume mute-toggle", { desc = "Mute" })
 -- F6 (moon) sends XF86Sleep; logind leaves it alone (handle-suspend-key lock in autostart.lua): Do Not Disturb.
-hl.bind("XF86Sleep", hl.dsp.exec_cmd "qs -c remix ipc call notifications toggleDnd", { desc = "Do not disturb" })
+hl.bind("XF86Sleep", hl.dsp.exec_cmd "qs -c remix ipc call notifications toggleDnd", { submap_universal = true, desc = "Do not disturb" })
 media_bind("SHIFT + XF86AudioMute", "output-switch", { desc = "Switch audio output" })
 media_bind("XF86AudioMicMute", "input-volume mute-toggle", { desc = "Mic mute" })
 
@@ -353,7 +353,7 @@ media_bind("XF86AudioPrev", "playerctl previous", { desc = "Previous track" })
 hl.bind(
   "Caps_Lock",
   hl.dsp.exec_cmd("sleep 0.08; " .. scripts .. "/asahi-media-control caps-lock show"),
-  { locked = true, desc = "Caps lock OSD" }
+  { locked = true, submap_universal = true, desc = "Caps lock OSD" }
 )
 
 -- Display Brightness

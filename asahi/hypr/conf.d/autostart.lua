@@ -18,7 +18,7 @@ hl.on("hyprland.start", function()
   -- F6 (moon) is KEY_SLEEP: logind suspended on a tap, past every asahi-idle guard (external display,
   -- audio). This block lock makes logind leave the key to Hyprland (XF86Sleep = Do Not Disturb) for the
   -- session only; active sessions may take it without root (polkit inhibit-handle-suspend-key).
-  hl.exec_cmd "systemd-inhibit --what=handle-suspend-key --who=Hyprland --why=F6-is-Do-Not-Disturb --mode=block sleep infinity"
+  hl.exec_cmd "setpriv --pdeathsig TERM systemd-inhibit --what=handle-suspend-key --who=Hyprland --why=F6-is-Do-Not-Disturb --mode=block sleep infinity"
   hl.exec_cmd "~/.dotfiles/asahi/bin/asahi-cliphist watch"
   hl.exec_cmd "hyprpaper"
   hl.exec_cmd "~/.dotfiles/asahi/bin/asahi-start-quickshell"
@@ -26,8 +26,9 @@ hl.on("hyprland.start", function()
   -- cgroup (a crash restart kills the lock screen: lockdead), and `qs ipc` from the unit's env (no
   -- QT_QPA_PLATFORM) cannot find the shell, so dim and saver would fail silently.
   hl.exec_cmd "hypridle"
-  -- Identity profile in hyprsunset.conf: no tint until Super+Ctrl+N.
-  hl.exec_cmd "hyprsunset"
+  -- Identity profile in hyprsunset.conf: no tint until Super+Ctrl+N. The last session's state would
+  -- show the bar chip lit without a tint.
+  hl.exec_cmd "rm -f ~/.local/state/asahi/nightlight.json; hyprsunset"
   hl.exec_cmd(dotfilesDir .. "/asahi/bin/asahi-hdmi sync")
   -- Restore wallpaper-adaptive theme (Quickshell / Ghostty / borders / browsers / gsettings).
   hl.exec_cmd(dotfilesDir .. "/asahi/bin/asahi-autotheme")
