@@ -4,22 +4,34 @@ import Quickshell
 import Quickshell.Services.Pipewire
 import "../../../"
 
-// Default sink volume, bound to PipeWire (no polling). Click: mute; wheel: step.
+// Default sink (or source, `input`) volume, bound to PipeWire (no polling). Click: mute; wheel: step;
+// right-click: Media overview (devices, mixer).
 Item {
   id: root
 
   property var barHost: null
+  property bool input: false
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
+  readonly property string control: root.input ? "input-volume" : "output-volume"
 
-  readonly property var sink: Pipewire.defaultAudioSink
-  PwObjectTracker { objects: [root.sink] }
-  readonly property bool muted: !!(sink && sink.audio && sink.audio.muted)
-  readonly property int percentage: sink && sink.audio ? Math.round(sink.audio.volume * 100) : -1
+  readonly property var node: root.input ? Pipewire.defaultAudioSource : Pipewire.defaultAudioSink
+  PwObjectTracker { objects: [root.node] }
+  readonly property bool muted: !!(node && node.audio && node.audio.muted)
+  readonly property int percentage: node && node.audio ? Math.round(node.audio.volume * 100) : -1
 
-  function outputIcon(pct, isMuted) {
-    if (isMuted) return "󰖁"
-    if (pct <= 30) return "󰕿"
-    if (pct <= 60) return "󰖀"
+  // Mic in use (an app records from it): orange glyph, macOS's privacy dot. Muted stays red.
+  PwNodeLinkTracker { id: links; node: root.input ? root.node : null }
+  readonly property bool inUse: {
+    const groups = links.linkGroups
+    for (let i = 0; i < groups.length; i++) if (groups[i].source && groups[i].source.id === root.node.id) return true
+    return false
+  }
+
+  readonly property string glyph: {
+    if (root.input) return root.muted ? "󰍭" : "󰍬"
+    if (root.muted) return "󰖁"
+    if (root.percentage <= 30) return "󰕿"
+    if (root.percentage <= 60) return "󰖀"
     return "󰕾"
   }
 
@@ -34,10 +46,10 @@ Item {
     spacing: 4
 
     Text {
-      text: root.outputIcon(root.percentage, root.muted)
+      text: root.glyph
       font.family: Style.fontFamily
       font.pixelSize: Style.barFontMicVolIcon
-      color: root.muted ? Style.red : Style.green
+      color: root.muted ? Style.red : root.inUse ? Style.orange : root.input ? Style.blueAlt : Style.green
     }
 
     Text {
@@ -57,10 +69,9 @@ Item {
     hoverEnabled: true
     cursorShape: Qt.PointingHandCursor
     acceptedButtons: Qt.LeftButton | Qt.RightButton
-    // Click = mute, right-click = Media overview (devices, mixer).
     onClicked: mouse => {
       if (mouse.button === Qt.RightButton) { if (root.barHost) root.barHost.quickRequested("media") }
-      else Quickshell.execDetached([root.binDir + "/asahi-media-control", "output-volume", "mute-toggle"])
+      else Quickshell.execDetached([root.binDir + "/asahi-media-control", root.control, "mute-toggle"])
     }
     onWheel: wheel => {
       if (Math.abs(wheel.angleDelta.x) > Math.abs(wheel.angleDelta.y)) return
@@ -68,7 +79,7 @@ Item {
       if (Math.abs(root.wheelAcc) < 120) return
       const direction = root.wheelAcc > 0 ? "raise" : "lower"
       root.wheelAcc = 0
-      Quickshell.execDetached([root.binDir + "/asahi-media-control", "output-volume", direction])
+      Quickshell.execDetached([root.binDir + "/asahi-media-control", root.control, direction])
     }
   }
 }

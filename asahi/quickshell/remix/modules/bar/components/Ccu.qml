@@ -12,21 +12,21 @@ Rectangle {
   id: root
 
   property var barHost: null
-  readonly property bool solidBar: barHost !== null && barHost !== undefined
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
   readonly property int contentW: 440
 
   color: "transparent"
-  implicitWidth: Math.max(56, chipBoxW + (solidBar ? 6 : 16))
-  implicitHeight: solidBar ? Style.barHeight : 26
+  // As wide as the chip on show: a box sized for the widest provider left a gap before the mic.
+  implicitWidth: Math.max(56, chipBoxW + 6)
+  Behavior on implicitWidth { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+  implicitHeight: Style.barHeight
 
   Rectangle {
     anchors.fill: parent
     anchors.topMargin: Style.barChipInset
     anchors.bottomMargin: Style.barChipInset
     radius: Style.radiusSm
-    visible: solidBar
     // Lit on hover and while the usage popup is open.
     color: ccuMouse.containsMouse || popup.shouldShow ? Style.barStripHover : "transparent"
     Behavior on color { ColorAnimation { duration: 120 } }
@@ -36,14 +36,10 @@ Rectangle {
   property bool available: true
   property var usedPct: null
   property bool hasError: false
-  property var rows: []
   property var links: []
   property var overview: []
   property var chips: []
   property int chipIndex: 0
-  property int chipChars: 0
-  property int providerIndex: 0
-  property double lastFetch: 0
   property double updatedAt: 0
   property int clockTick: 0
 
@@ -53,16 +49,17 @@ Rectangle {
     const i = Math.max(0, Math.min(root.chipIndex, list.length - 1))
     return list[i]
   }
-  readonly property var provider: {
-    const list = root.overview || []
-    if (list.length === 0) return null
-    const i = Math.max(0, Math.min(root.providerIndex, list.length - 1))
-    return list[i]
-  }
-  // asahi-ccu's full chip is "Grok    27% · 17h 30m" (~190px — a quarter of the right
+  readonly property var provider: (root.overview || [])[0] || null
+  // The full chip is "Grok 27% · 17h 30m" (~150px — a quarter of the right
   // cluster). When the notch leaves the bar too little room, BarHost sets `compact` and
   // the reset time drops, leaving "Grok 27%". Either way the detail is in the popup.
   property bool compact: false
+
+  // asahi-ccu pads chips into a monospace column (sketchybar); the bar font is proportional,
+  // where the padding shows as gaps ("Grok    27%").
+  function squeeze(t) {
+    return String(t || "").replace(/\s+/g, " ").trim()
+  }
 
   function providerOf(chip) {
     return String((chip && chip.text) || "").trim().split(/\s+/)[0] || ""
@@ -70,7 +67,7 @@ Rectangle {
 
   readonly property string chipText: {
     if (!root.compact && root.currentChip && root.currentChip.text)
-      return root.currentChip.text
+      return root.squeeze(root.currentChip.text)
     const name = root.providerOf(root.currentChip)
     if (name === "") return root.hasError ? "CCu ?" : "CCu"
     if (!root.hasValue) return name
@@ -92,24 +89,19 @@ Rectangle {
     font.pixelSize: Style.barFontBody
   }
 
-  readonly property real charAdvance: chipMetrics.averageCharacterWidth > 0
-    ? chipMetrics.averageCharacterWidth
-    : Style.barFontBody * 0.62
-
-  // Both boxes are sized for the widest chip, so neither jitters as chips rotate.
-  readonly property int fullBoxW: Math.ceil(Math.max(root.chipChars, 8) * root.charAdvance)
-  readonly property int compactBoxW: {
+  // Measured text widths (the old average-character estimate overshot proportional digits).
+  // fullBoxW is the widest uncompacted chip: BarHost's worst case for the notch budget.
+  readonly property int fullBoxW: {
     const list = root.chips || []
-    let n = 8
-    for (let i = 0; i < list.length; i++)
-      n = Math.max(n, root.providerOf(list[i]).length + 5)   // " 100%"
-    return Math.ceil(n * root.charAdvance)
+    let w = 0
+    for (let i = 0; i < list.length; i++) w = Math.max(w, chipMetrics.advanceWidth(root.squeeze(list[i].text)))
+    return Math.ceil(w)
   }
-  readonly property int chipBoxW: root.compact ? root.compactBoxW : root.fullBoxW
+  readonly property int chipBoxW: Math.ceil(chipMetrics.advanceWidth(root.chipText))
 
   // What this chip would cost uncompacted — BarHost's cue, and independent of
   // `compact` so asking the question cannot change the answer.
-  readonly property real fullWidth: Math.max(56, root.fullBoxW + (solidBar ? 6 : 16))
+  readonly property real fullWidth: Math.max(56, root.fullBoxW + 6)
 
   function usageColor(used) {
     if (used === null || used === undefined) return Style.textMuted
@@ -182,28 +174,19 @@ Rectangle {
     return segs
   }
 
-  function refresh() {
-    if (ccuProc.running) return
-    const now = Date.now()
-    if (root.lastFetch > 0 && now - root.lastFetch < 15000) return
-    root.lastFetch = now
-    ccuProc.running = true
-  }
+  function refresh() { if (!ccuProc.running) ccuProc.running = true }
+  function closePopup() { if (popup.shouldShow) root.barHost.openPanel = "" }
 
   function apply(data) {
     root.available = data.visible !== false
     root.usedPct = (data.percentage === null || data.percentage === undefined) ? null : data.percentage
     root.hasError = !!data.error
-    root.rows = data.rows || []
     root.links = data.links || []
     root.overview = data.overview || []
     root.chips = data.chips || []
-    root.chipChars = Number(data.chip_chars) || 0
     root.updatedAt = Number(data.updated_at) || 0
     if (root.chipIndex >= root.chips.length)
       root.chipIndex = 0
-    if (root.providerIndex >= root.overview.length)
-      root.providerIndex = 0
   }
 
   function nextChip() {
@@ -211,22 +194,18 @@ Rectangle {
     root.chipIndex = (root.chipIndex + 1) % root.chips.length
   }
 
-  RowLayout {
-    id: row
-    anchors.centerIn: parent
-    spacing: 4
-
-    Text {
-      text: root.chipText
-      width: root.chipBoxW
-      font { family: Style.fontFamily; pixelSize: Style.barFontBody }
-      color: root.valueColor
-      opacity: root.chipFresh ? 1 : 0.45
-      horizontalAlignment: Text.AlignLeft
-      verticalAlignment: Text.AlignVCenter
-      Behavior on color { ColorAnimation { duration: 200 } }
-      Behavior on opacity { NumberAnimation { duration: 160 } }
-    }
+  // The chip box follows the text, so the provider name starts at the same place.
+  Text {
+    x: 3
+    anchors.verticalCenter: parent.verticalCenter
+    width: root.chipBoxW
+    text: root.chipText
+    font { family: Style.fontFamily; pixelSize: Style.barFontBody }
+    color: root.valueColor
+    opacity: root.chipFresh ? 1 : 0.45
+    elide: Text.ElideRight
+    Behavior on color { ColorAnimation { duration: 200 } }
+    Behavior on opacity { NumberAnimation { duration: 160 } }
   }
 
   Process {
@@ -248,10 +227,7 @@ Rectangle {
     running: true
     repeat: true
     triggeredOnStart: true
-    onTriggered: {
-      root.lastFetch = 0
-      root.refresh()
-    }
+    onTriggered: root.refresh()
   }
 
   // Only drives the popup's "updated N min ago" labels: tick while it shows.
@@ -296,17 +272,14 @@ Rectangle {
         if (url) Quickshell.execDetached(["xdg-open", url])
         return
       }
-      popup.shouldShow = !popup.shouldShow
-      if (popup.shouldShow) {
-        root.lastFetch = 0
-        root.refresh()
-      }
+      if (root.barHost) root.barHost.togglePanel("ccu")
+      if (popup.shouldShow) root.refresh()
     }
   }
 
   PopupWindow {
     id: popup
-    property bool shouldShow: false
+    readonly property bool shouldShow: !!root.barHost && root.barHost.openPanel === "ccu"
     visible: shouldShow
     color: "transparent"
     anchor.item: root
@@ -320,13 +293,13 @@ Rectangle {
     HyprlandFocusGrab {
       windows: [popup, popup.anchor.window]
       active: popup.visible
-      onCleared: popup.shouldShow = false
+      onCleared: root.closePopup()
     }
     Shortcut {
       enabled: popup.visible
       sequences: ["Escape"]
       context: Qt.ApplicationShortcut
-      onActivated: popup.shouldShow = false
+      onActivated: root.closePopup()
     }
 
     Rectangle {

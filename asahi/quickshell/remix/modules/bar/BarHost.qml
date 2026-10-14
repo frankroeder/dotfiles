@@ -17,60 +17,32 @@ Item {
   property var notificationCenter: null
   property bool isRecording: false
   property bool calendarOpen: false
-  property bool sysPanelOpen: false
-  property bool recPanelOpen: false
-  property bool mediaPanelOpen: false
   property bool launcherOpen: false
-  onLauncherOpenChanged: if (launcherOpen) {
-    barWindow.sysPanelOpen = false
-    barWindow.recPanelOpen = false
-    barWindow.mediaPanelOpen = false
-  }
+  // One bar popup at a time: "", "sys", "rec", "media", "ccu" or "tray". The calendar
+  // (shell.qml) and the notification sheet close it, and opening it closes them.
+  property string openPanel: ""
+  onLauncherOpenChanged: if (launcherOpen) barWindow.openPanel = ""
   signal calendarToggle()
-  // Chip clicks open their Quick pane (updates chip: PkgManager) through shell.qml in-process,
+  // Chip clicks open their Quick pane (updates chip: PkgManager's Updates tab) through shell.qml in-process,
   // no `qs ipc` client fork per click.
   signal quickRequested(string key)
-  // The notification sheet and this bar's popups are one-at-a-time (the bell click is inside the
-  // whitelisted bar window, so their focus grabs never clear). Calendar: shell.qml.
   function closeHistory() { if (barWindow.notificationCenter) barWindow.notificationCenter.historyVisible = false }
   Connections {
     target: barWindow.notificationCenter
-    function onHistoryVisibleChanged() {
-      if (!barWindow.notificationCenter.historyVisible) return
-      barWindow.sysPanelOpen = false
-      barWindow.recPanelOpen = false
-      barWindow.mediaPanelOpen = false
-    }
+    function onHistoryVisibleChanged() { if (barWindow.notificationCenter.historyVisible) barWindow.openPanel = "" }
   }
-  function toggleSysPanel(button) {
-    if (button === Qt.RightButton) Quickshell.execDetached([barWindow.binDir + "/asahi-sysmon"])
-    else {
-      if (barWindow.calendarOpen) barWindow.calendarToggle()
-      barWindow.recPanelOpen = false
-      barWindow.mediaPanelOpen = false
-      barWindow.closeHistory()
-      barWindow.sysPanelOpen = !barWindow.sysPanelOpen
-    }
-  }
-  function toggleRecPanel() {
+  function togglePanel(name) {
     if (barWindow.calendarOpen) barWindow.calendarToggle()
-    barWindow.sysPanelOpen = false
-    barWindow.mediaPanelOpen = false
     barWindow.closeHistory()
-    barWindow.recPanelOpen = !barWindow.recPanelOpen
+    barWindow.openPanel = barWindow.openPanel === name ? "" : name
   }
-  // IPC `media panel` (shell.qml): only the bar on the focused monitor answers.
+  // IPC `media panel` (shell.qml): only the bar on the focused monitor answers, and only with a
+  // player (else the flag stays set and the popup opens unasked with the next track).
   property int mediaPing: 0
   onMediaPingChanged: {
     const mon = Hyprland.focusedMonitor
-    if (!mon || !barWindow.barScreen || mon.name === barWindow.barScreen.name) barWindow.toggleMediaPanel()
-  }
-  function toggleMediaPanel() {
-    if (barWindow.calendarOpen) barWindow.calendarToggle()
-    barWindow.sysPanelOpen = false
-    barWindow.recPanelOpen = false
-    barWindow.closeHistory()
-    barWindow.mediaPanelOpen = !barWindow.mediaPanelOpen
+    if (mediaBlock.hasMedia && (!mon || !barWindow.barScreen || mon.name === barWindow.barScreen.name))
+      barWindow.togglePanel("media")
   }
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
@@ -197,7 +169,7 @@ Item {
       "case $(cat \"$f\") in Heatpipe*) echo \"${f%_label}_input\"; exit;; esac; done"]
     stdout: StdioCollector { onStreamFinished: barWindow.heatpipePath = text.trim() }
   }
-  onSysPanelOpenChanged: if (sysPanelOpen) { refreshCpu(); refreshMem() }
+  onOpenPanelChanged: if (openPanel === "sys") { refreshCpu(); refreshMem() }
 
   function refreshWorkspaceIcons(retries) {
     wsWindowVersion = (wsWindowVersion + 1) % 10000
@@ -316,7 +288,10 @@ Item {
 
   Process {
     id: updatesProc
-    command: ["sh", "-c", "dnf check-update --cacheonly -q >/dev/null 2>&1; c=$?; [ \"$c\" = 100 ] && echo 1 || echo 0"]
+    // No --cacheonly: as a user it reads ~/.cache/libdnf5 even when days old (asahi-pkg updates).
+    // Offline (exit 1) falls back to the cache, so known updates do not vanish from the bar.
+    command: ["sh", "-c", "dnf check-update -q >/dev/null 2>&1; c=$?; "
+      + "[ $c = 1 ] && { dnf check-update --cacheonly -q >/dev/null 2>&1; c=$?; }; [ $c = 100 ] && echo 1 || echo 0"]
     stdout: StdioCollector { onStreamFinished: barWindow.updatesAvailable = text.trim() === "1" }
   }
 
@@ -327,7 +302,7 @@ Item {
     triggeredOnStart: true
     onTriggered: {
       barWindow.sampleStats()
-      if (barWindow.sysPanelOpen) { barWindow.refreshCpu(); barWindow.refreshMem() }
+      if (barWindow.openPanel === "sys") { barWindow.refreshCpu(); barWindow.refreshMem() }
     }
   }
 
@@ -420,7 +395,10 @@ Item {
     BarComponents.SysChip {
       id: sysBlock
       barHost: barWindow
-      onPressed: function(button) { barWindow.toggleSysPanel(button) }
+      onPressed: function(button) {
+        if (button === Qt.RightButton) Quickshell.execDetached([barWindow.binDir + "/asahi-sysmon"])
+        else barWindow.togglePanel("sys")
+      }
     }
 
     // Backup progress / failure; hidden (and out of the Row) otherwise.
@@ -429,8 +407,8 @@ Item {
     BarComponents.MediaPlayer {
       id: mediaBlock
       barHost: barWindow
-      panelOpen: barWindow.mediaPanelOpen
-      onToggled: barWindow.toggleMediaPanel()
+      panelOpen: barWindow.openPanel === "media"
+      onToggled: barWindow.togglePanel("media")
       maxChipWidth: Math.max(64,
         leftRegion.width - wsBlock.implicitWidth - sysBlock.implicitWidth
           - (backupBlock.visible ? backupBlock.implicitWidth + leftSection.spacing : 0)
@@ -475,6 +453,7 @@ Item {
       id: trayBlock
       barHeight: barWindow.notchFloor
       trayScreen: barWindow.barScreen
+      barHost: barWindow
     }
 
     BarComponents.StatusIndicators {
@@ -490,8 +469,8 @@ Item {
       compact: barWindow.ccuCompact
     }
 
-    BarComponents.Microphone { id: micBlock; barHost: barWindow }
-    BarComponents.Volume { id: volBlock; barHost: barWindow }
+    BarComponents.AudioChip { id: micBlock; input: true; barHost: barWindow }
+    BarComponents.AudioChip { id: volBlock; barHost: barWindow }
     BarComponents.Network { id: netBlock; barHost: barWindow }
     BarComponents.Bluetooth { id: btBlock; barHost: barWindow }
     BarComponents.Battery { id: battBlock; barHost: barWindow }
@@ -500,8 +479,7 @@ Item {
       barHost: barWindow
       calendarOpen: barWindow.calendarOpen
       onCalendarToggle: {
-        barWindow.sysPanelOpen = false
-        barWindow.mediaPanelOpen = false
+        barWindow.openPanel = ""
         barWindow.calendarToggle()
       }
     }
@@ -511,19 +489,19 @@ Item {
 
   BarComponents.SysPanel {
     barHost: barWindow
-    panelOpen: barWindow.sysPanelOpen
+    panelOpen: barWindow.openPanel === "sys"
     anchor.item: sysBlock
   }
 
   BarComponents.MediaPanel {
     barHost: barWindow
-    panelOpen: barWindow.mediaPanelOpen
+    panelOpen: barWindow.openPanel === "media"
     anchor.item: mediaBlock
   }
 
   BarComponents.RecordPanel {
     barHost: barWindow
-    panelOpen: barWindow.recPanelOpen
+    panelOpen: barWindow.openPanel === "rec"
     anchor.item: statusBlock
   }
 }

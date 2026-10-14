@@ -13,16 +13,11 @@ Item {
   property var barHost: null
   property bool calendarOpen: false
   signal calendarToggle()
-  property bool clickOpened: false
-  property bool yearFocused: false
 
-  readonly property bool showCalendar: {
-    if (!root.calendarOpen) return false
-    const mon = Hyprland.focusedMonitor
-    const scr = barHost ? barHost.barScreen : null
-    if (!mon || !scr) return true
-    return mon.name === scr.name
-  }
+  // On the monitor that was focused when it opened, not wherever focus wanders while it is up.
+  property string openedOn: ""
+  readonly property bool showCalendar: root.calendarOpen
+    && (root.openedOn === "" || !barHost || !barHost.barScreen || barHost.barScreen.name === root.openedOn)
 
   SystemClock {
     id: clock
@@ -131,9 +126,10 @@ Item {
   }
 
   onCalendarOpenChanged: if (root.calendarOpen) {
+    root.openedOn = Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name : ""
     root.goToday()
     birthFile.reload()
-  } else root.clickOpened = false
+  }
 
   Process {
     id: ensureBirthDir
@@ -160,11 +156,12 @@ Item {
     anchors.verticalCenter: parent.verticalCenter
     spacing: 8
 
+    // Date and time share one size and colour (the smaller muted date read as a different widget).
     Text {
       text: root.dateLine
       font.family: Style.fontFamily
-      font.pixelSize: Style.barFontCaption
-      color: Style.barStripMuted
+      font.pixelSize: Style.barFontBody
+      color: barHost ? barHost.barForeground : Style.barStripText
       anchors.verticalCenter: parent.verticalCenter
     }
     Text {
@@ -182,10 +179,7 @@ Item {
     anchors.fill: parent
     hoverEnabled: true
     cursorShape: Qt.PointingHandCursor
-    onClicked: {
-      root.clickOpened = true
-      root.calendarToggle()
-    }
+    onClicked: root.calendarToggle()
   }
 
   PopupWindow {
@@ -200,20 +194,18 @@ Item {
     implicitWidth: 340
     implicitHeight: calCol.implicitHeight + 24
 
+    // Whitelist the bar window too, else the click that opened this counts as outside and closes it.
+    // Esc is an app-wide shortcut: the grab may leave keyboard focus on the bar.
+    HyprlandFocusGrab {
+      windows: [calPopup, calPopup.anchor.window]
+      active: root.showCalendar
+      onCleared: if (root.calendarOpen) root.calendarToggle()
+    }
     Shortcut {
       enabled: root.showCalendar
       sequences: ["Escape"]
+      context: Qt.ApplicationShortcut
       onActivated: root.calendarToggle()
-    }
-
-    // Click opens grab only once the year field is focused: grabbing on open
-    // makes Hyprland treat the opening click as outside and the popup vanishes.
-    // Keybind / IPC opens grab at once so Esc closes the calendar, not the app.
-    HyprlandFocusGrab {
-      id: calendarKeys
-      windows: [calPopup]
-      active: root.showCalendar && (!root.clickOpened || root.yearFocused)
-      onCleared: if (!root.clickOpened && root.calendarOpen) root.calendarToggle()
     }
 
     Rectangle {
@@ -405,7 +397,6 @@ Item {
                 root.birthFieldReady = true
                 root.syncBirthField()
               }
-              onActiveFocusChanged: root.yearFocused = activeFocus
               onTextEdited: if (text.length === 4) root.commitBirth(text)
               // Return/Enter and focus loss; a partial year snaps back to the saved one.
               onEditingFinished: {

@@ -3,11 +3,12 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 
-// Screen recorder state for the bar chip and its panel. Polls
-// `asahi-cmd-record status --json` (1 s while recording, 30 s idle — start/stop
-// push `ipc call recording refresh`, and our own start/stop poke), ticks
-// the elapsed clock locally, and lists recent recordings.
+// Screen recorder state for the bar chip and its panel. `asahi-cmd-record status --json` runs at
+// start, on the script's `ipc call recording refresh` (start / stop / failure), after our own
+// start/stop (poke) and every second while recording; idle, nothing polls. Ticks the elapsed clock
+// locally and lists recent recordings.
 Singleton {
   id: root
 
@@ -21,7 +22,10 @@ Singleton {
   property int elapsed: 0
   property var recent: []
   // Global panel toggle for the IPC / launcher entry; the bar chip has its own per-screen toggle.
+  // It shows on the monitor focused when it opened (panelScreen).
   property bool panelOpen: false
+  property string panelScreen: ""
+  onPanelOpenChanged: if (panelOpen) panelScreen = Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name : ""
 
   function refresh() { if (!statusProc.running) statusProc.running = true }
   function scanRecent() { if (!recentProc.running) recentProc.running = true }
@@ -35,7 +39,7 @@ Singleton {
   function stop() { Quickshell.execDetached([root.binDir + "/asahi-cmd-record", "stop"]); poke.restart() }
   function open(path) { Quickshell.execDetached(["xdg-open", path]) }
   function revealFolder() { Quickshell.execDetached(["xdg-open", root.videosDir]) }
-  function remove(path) { Quickshell.execDetached(["rm", "-f", path]); rescanDelay.restart() }
+  function remove(path) { Quickshell.execDetached(["gio", "trash", "--", path]); rescanDelay.restart() }
 
   function fmtElapsed(s) {
     s = Math.max(0, Math.floor(s))
@@ -81,7 +85,7 @@ Singleton {
     }
   }
 
-  Timer { interval: root.running ? 1000 : 30000; running: true; repeat: true; triggeredOnStart: true; onTriggered: root.refresh() }
+  Timer { interval: 1000; running: root.running; repeat: true; onTriggered: root.refresh() }
   Timer { id: poke; interval: 600; onTriggered: root.refresh() }
   Timer { id: rescanDelay; interval: 400; onTriggered: root.scanRecent() }
   Timer { interval: 1000; running: root.running; repeat: true; onTriggered: root.elapsed += 1 }
@@ -91,5 +95,5 @@ Singleton {
     if (running) root.elapsed = root.startEpoch > 0 ? Math.max(0, Math.round(Date.now() / 1000) - root.startEpoch) : 0
     else rescanDelay.restart()
   }
-  Component.onCompleted: scanRecent()
+  Component.onCompleted: { scanRecent(); refresh() }
 }

@@ -32,7 +32,7 @@ Item {
     anchors.bottomMargin: Style.barChipInset
     radius: height / 2
     // Group tray; lit on hover and while its panel is open.
-    color: chipMa.containsMouse || (root.barHost && root.barHost.sysPanelOpen) ? Style.barStripHover : Style.barGroupBg
+    color: chipMa.containsMouse || (root.barHost && root.barHost.openPanel === "sys") ? Style.barStripHover : Style.barGroupBg
     border.width: 1
     border.color: Style.barGroupBorder
     Behavior on color { ColorAnimation { duration: 120 } }

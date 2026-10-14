@@ -71,7 +71,7 @@ Item {
 
   readonly property bool backupAlarm: chip.backupState === "failed" || chip.backupBad
   visible: chip.backupRunning || chip.backupAlarm || chip.backupOverdue
-  implicitWidth: backupRow.implicitWidth + 12
+  implicitWidth: backupRow.implicitWidth + 6
   implicitHeight: Style.barHeight
 
   Row {

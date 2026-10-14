@@ -12,7 +12,10 @@ import "../../../"
 PanelWindow {
   id: root
 
-  property bool shouldShow: false
+  property var barHost: null
+  // BarHost's one-popup-at-a-time slot.
+  readonly property bool shouldShow: !!root.barHost && root.barHost.openPanel === "tray"
+  function close() { if (root.shouldShow) root.barHost.openPanel = "" }
   property var trayItems: []
   property var panelScreen: null
   property int barHeight: Style.barHeight
@@ -56,13 +59,13 @@ PanelWindow {
   HyprlandFocusGrab {
     windows: [root, root.barWindow]
     active: root.visible && !root.menuShown
-    onCleared: root.shouldShow = false
+    onCleared: root.close()
   }
   Shortcut {
     enabled: root.visible
     sequences: ["Escape"]
     context: Qt.ApplicationShortcut
-    onActivated: root.shouldShow = false
+    onActivated: root.close()
   }
 
   WlrLayershell.namespace: "quickshell-tray"
@@ -74,6 +77,8 @@ PanelWindow {
     implicitHeight: column.implicitHeight + 12
     radius: Style.menuRadiusLg
     color: Style.m3surfaceSolid
+    border.color: Style.popupBorder
+    border.width: Style.popupBorderWidth
     opacity: root.shouldShow ? 1 : 0
     Behavior on opacity { NumberAnimation { duration: 140 } }
 
@@ -119,6 +124,7 @@ PanelWindow {
 
             Text {
               width: parent.width
+              textFormat: Text.PlainText
               text: String(row.modelData.title || row.modelData.id || "")
               elide: Text.ElideRight
               font.family: Style.fontFamily
@@ -174,7 +180,7 @@ PanelWindow {
             onClicked: {
               // A menu is a child of this panel: hiding it here would close the menu with it.
               if (row.modelData.onlyMenu) root.openMenu(row.modelData, menuButton)
-              else { row.modelData.activate(); root.shouldShow = false }
+              else { row.modelData.activate(); root.close() }
             }
           }
         }

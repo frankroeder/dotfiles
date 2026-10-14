@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Io
 import "../../../"
 import "../../../services" as Services
@@ -80,17 +79,17 @@ RowLayout {
     printErrors: false
     onFileChanged: root.refreshTimers()
   }
+  // 1 s countdown while a timer runs (resync every 5 s catches expiry); new timers touch the stamp.
   Timer {
-    // 1 s countdown while a timer runs (resync every 5 s); otherwise a slow safety poll.
-    interval: root.timerCount > 0 ? 1000 : 60000
-    running: true
+    interval: 1000
+    running: root.timerCount > 0
     repeat: true
-    triggeredOnStart: true
     onTriggered: {
-      if (root.timerCount > 0 && root.timerLeft > 0) root.timerLeft--
-      if (root.timerCount === 0 || root.timerLeft % 5 === 0) root.refreshTimers()
+      if (root.timerLeft > 0) root.timerLeft--
+      if (root.timerLeft % 5 === 0) root.refreshTimers()
     }
   }
+  Component.onCompleted: root.refreshTimers()
   Timer {
     id: disarmTimer
     interval: 3000
@@ -150,12 +149,11 @@ RowLayout {
     id: recChip
     readonly property bool rec: Services.Recorder.running
     readonly property bool sameScreen: {
-      const mon = Hyprland.focusedMonitor
+      const want = Services.Recorder.panelScreen
       const scr = root.barHost ? root.barHost.barScreen : null
-      if (!mon || !scr) return true
-      return mon.name === scr.name
+      return want === "" || !scr || scr.name === want
     }
-    readonly property bool panelShown: (root.barHost && root.barHost.recPanelOpen) || (Services.Recorder.panelOpen && sameScreen)
+    readonly property bool panelShown: (root.barHost && root.barHost.openPanel === "rec") || (Services.Recorder.panelOpen && sameScreen)
     // Stays visible while the panel is open even after recording stops, so the chip
     // that opened it is still there to close it (it used to vanish and strand the popup).
     visible: rec || panelShown
@@ -169,12 +167,8 @@ RowLayout {
       Text {
         text: "󰑋"
         font.family: Style.fontFamily; font.pixelSize: Style.barFontGlyph; color: Style.red
-        SequentialAnimation on opacity {
-          running: recChip.rec
-          loops: Animation.Infinite
-          NumberAnimation { from: 1; to: 0.25; duration: 700; easing.type: Easing.InOutSine }
-          NumberAnimation { from: 0.25; to: 1; duration: 700; easing.type: Easing.InOutSine }
-        }
+        // 1 Hz blink on the repaint the elapsed clock causes anyway (a pulse redrew the bar every frame).
+        opacity: recChip.rec && Services.Recorder.elapsed % 2 ? 0.35 : 1
       }
       Text {
         visible: recChip.rec
@@ -195,10 +189,10 @@ RowLayout {
         else if (recChip.panelShown) {
           // Close however it was opened (bar click or the global keybind), not just
           // this bar's own flag — otherwise a keybind-opened panel wouldn't budge.
-          if (root.barHost) root.barHost.recPanelOpen = false
+          if (root.barHost) root.barHost.openPanel = ""
           Services.Recorder.panelOpen = false
         }
-        else if (root.barHost) root.barHost.toggleRecPanel()
+        else if (root.barHost) root.barHost.togglePanel("rec")
       }
     }
   }
@@ -246,7 +240,7 @@ RowLayout {
 
     Text {
       anchors.centerIn: parent
-      text: "󰚰"
+      text: "󰏖"
       font.family: Style.fontFamily
       font.pixelSize: Style.barFontGlyph
       color: Style.orange
@@ -258,7 +252,7 @@ RowLayout {
       anchors.fill: parent
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
-      onClicked: if (root.barHost) root.barHost.quickRequested("pkgman")
+      onClicked: if (root.barHost) root.barHost.quickRequested("updates")
     }
   }
 }

@@ -68,7 +68,7 @@ function heat(c) {
   return !isFinite(v) ? 0 : v >= 70 ? 2 : v >= 50 ? 1 : 0
 }
 
-// Heatpipe watts: same 15 / 25 W bands as asahi-cpu (SoC dissipation proxy).
+// Heatpipe watts (SoC dissipation proxy): warm from 15 W, hot from 25 W.
 function heatW(w) {
   const v = Number(w)
   return !isFinite(v) ? 0 : v >= 25 ? 2 : v >= 15 ? 1 : 0

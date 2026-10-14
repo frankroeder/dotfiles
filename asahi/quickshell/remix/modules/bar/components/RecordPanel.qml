@@ -17,14 +17,12 @@ PopupWindow {
   property string confirmDelete: ""
   readonly property bool rec: Services.Recorder.running
 
-  // The keybind/IPC toggle is one flag shared by every screen's panel (there's
-  // no per-screen state to target); restrict it to the currently focused
-  // monitor, same trick as Clock.qml's calendar dropdown.
+  // The keybind/IPC toggle is one flag shared by every screen's panel: show it on the
+  // monitor that was focused when it opened (Recorder.panelScreen).
   readonly property bool sameScreen: {
-    const mon = Hyprland.focusedMonitor
+    const want = Services.Recorder.panelScreen
     const scr = root.barHost ? root.barHost.barScreen : null
-    if (!mon || !scr) return true
-    return mon.name === scr.name
+    return want === "" || !scr || scr.name === want
   }
 
   visible: root.panelOpen || (Services.Recorder.panelOpen && root.sameScreen)
@@ -40,21 +38,22 @@ PopupWindow {
   }
 
   function close() {
-    if (root.barHost) root.barHost.recPanelOpen = false
+    if (root.barHost && root.barHost.openPanel === "rec") root.barHost.openPanel = ""
     Services.Recorder.panelOpen = false
   }
 
-  // Keybind / quick-menu opens have no click to swallow, so grab the keyboard
-  // there: Esc closes the panel instead of reaching the app underneath.
+  // Whitelist the bar window too, else the click that opened this counts as outside and closes it.
+  // Esc is an app-wide shortcut: the grab may leave keyboard focus on the bar.
   HyprlandFocusGrab {
-    windows: [root]
-    active: root.visible && !root.panelOpen
+    windows: [root, root.anchor.window]
+    active: root.visible
     onCleared: root.close()
   }
 
   Shortcut {
     enabled: root.visible
     sequences: ["Escape"]
+    context: Qt.ApplicationShortcut
     onActivated: root.close()
   }
 
@@ -120,6 +119,8 @@ PopupWindow {
     anchors.fill: parent
     color: Style.m3surfaceSolid
     radius: Style.menuRadiusLg
+    border.color: Style.popupBorder
+    border.width: Style.popupBorderWidth
 
     ColumnLayout {
       id: col

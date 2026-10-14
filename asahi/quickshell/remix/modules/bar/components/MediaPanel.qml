@@ -34,7 +34,7 @@ PopupWindow {
   implicitWidth: 460
   implicitHeight: col.implicitHeight + 36
 
-  function close() { if (root.barHost) root.barHost.mediaPanelOpen = false }
+  function close() { if (root.barHost && root.barHost.openPanel === "media") root.barHost.openPanel = "" }
   function fmtTime(s) {
     s = Math.max(0, Math.round(s || 0))
     const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = ("0" + (s % 60)).slice(-2)
@@ -274,6 +274,7 @@ PopupWindow {
                 anchors.verticalCenter: parent.verticalCenter
               }
               Text {
+                textFormat: Text.PlainText
                 text: (root.p ? root.p.identity || "Player" : "")
                   + (parent.parent.many ? "  ·  " + (Services.Players.list.indexOf(root.p) + 1) + "/" + Services.Players.list.length : "")
                 color: Style.m3onSurfaceVariant
@@ -299,6 +300,7 @@ PopupWindow {
           }
           Text {
             Layout.fillWidth: true
+            textFormat: Text.PlainText
             text: root.p ? (root.p.trackTitle || "Unknown track") : ""
             color: Style.m3onSurface
             font.family: Style.menuSans; font.pixelSize: 18; font.weight: Font.Bold
@@ -309,6 +311,7 @@ PopupWindow {
           Text {
             Layout.fillWidth: true
             visible: text !== ""
+            textFormat: Text.PlainText
             text: root.p ? root.p.trackArtist || "" : ""
             color: Style.m3onSurfaceVariant
             font.family: Style.menuSans; font.pixelSize: 14; font.weight: Font.Medium
@@ -317,6 +320,7 @@ PopupWindow {
           Text {
             Layout.fillWidth: true
             visible: text !== ""
+            textFormat: Text.PlainText
             text: root.p ? root.p.trackAlbum || "" : ""
             color: Style.m3outline
             font.family: Style.menuSans; font.pixelSize: 12

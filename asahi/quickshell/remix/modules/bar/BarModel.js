@@ -1,10 +1,6 @@
 // Notch + layout helpers adapted from omarchy-mac (quattro). Apple notched panels
 // expose rows above the 16:10 area; the bar must be at least that tall on eDP-1.
 
-function isPlainObject(value) {
-  return !!value && typeof value === "object" && !Array.isArray(value)
-}
-
 // The cutout is exactly the rows the panel carries above its 16:10 area: 3024x1964
 // is 1964 - 1890 = 74 physical rows, which is also macOS's 37pt menu bar at 2x. A
 // per-panel lookup table used to override this with 64 and left a 10px band of window

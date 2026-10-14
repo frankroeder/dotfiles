@@ -33,6 +33,8 @@ PopupWindow {
   implicitWidth: 400
   implicitHeight: Math.min(640, col.implicitHeight + 32)
 
+  function close() { if (root.barHost && root.barHost.openPanel === "sys") root.barHost.openPanel = "" }
+
   function refresh() {
     if (!root.barHost) return
     root.cpu = Sys.parseCpuTooltip(root.barHost.cpuTooltip)
@@ -50,13 +52,13 @@ PopupWindow {
   HyprlandFocusGrab {
     windows: [root, root.anchor.window]
     active: root.visible
-    onCleared: if (root.barHost) root.barHost.sysPanelOpen = false
+    onCleared: root.close()
   }
   Shortcut {
     enabled: root.visible
     sequences: ["Escape"]
     context: Qt.ApplicationShortcut
-    onActivated: if (root.barHost) root.barHost.sysPanelOpen = false
+    onActivated: root.close()
   }
 
   Process {

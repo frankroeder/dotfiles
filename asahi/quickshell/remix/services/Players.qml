@@ -26,7 +26,6 @@ Singleton {
     readonly property bool isPlaying: active?.isPlaying ?? false
     readonly property string title: active?.trackTitle ?? ""
     readonly property string artist: active?.trackArtist ?? ""
-    readonly property real progress: active && active.length > 0 ? active.position / active.length : 0
     // Browsers often leave trackArtUrl empty but carry mpris:artUrl in the metadata.
     readonly property string artUrl: {
         const p = active
@@ -34,14 +33,7 @@ Singleton {
         return String(p.trackArtUrl || (p.metadata && p.metadata["mpris:artUrl"]) || "")
     }
 
-    // MprisPlayer.position is computed on read but never notifies while playing: emit
-    // positionChanged so bound progress bars re-read it.
-    Timer {
-        interval: 2000
-        repeat: true
-        running: root.isPlaying
-        onTriggered: root.active.positionChanged()
-    }
+    // MprisPlayer.position never notifies while playing: MediaPanel / MediaPane tick it while shown.
 
     function playPause() { if (active?.canTogglePlaying) active.togglePlaying() }
     function next()      { if (active?.canGoNext)     active.next() }

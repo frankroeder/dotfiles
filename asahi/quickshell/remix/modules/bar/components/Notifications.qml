@@ -12,7 +12,7 @@ Item {
   readonly property int unread: root.notificationCenter ? root.notificationCenter.unreadCount : 0
 
   visible: root.notificationCenter !== null
-  implicitWidth: notifRow.implicitWidth + 12
+  implicitWidth: notifRow.implicitWidth + 6
   implicitHeight: Style.barHeight
 
   RowLayout {

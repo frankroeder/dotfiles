@@ -31,7 +31,7 @@ Item {
             text: !root.powered ? "󰂲" : (root.anyConnected ? "󰂱" : "󰂯")
             font.family: Style.fontFamily
             font.pixelSize: Style.barFontMicVolIcon
-            color: Style.magenta
+            color: root.powered ? Style.magenta : Style.textMuted
         }
     }
 

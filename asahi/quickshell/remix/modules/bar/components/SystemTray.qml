@@ -15,6 +15,7 @@ Item {
   property int maxInline: 3
   property int barHeight: Style.barHeight
   property var trayScreen: null
+  property var barHost: null
 
   readonly property var items: SystemTray.items.values
   readonly property int overflowCount: Math.max(0, root.items.length - root.maxInline)
@@ -30,7 +31,8 @@ Item {
     spacing: 2
 
     Repeater {
-      model: root.items.slice(0, root.maxInline)
+      // ScriptModel keeps existing slots: a JS array rebuilt (and re-animated) every icon on any change.
+      model: ScriptModel { values: root.items.slice(0, root.maxInline) }
 
       delegate: Item {
         id: slot
@@ -139,13 +141,14 @@ Item {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: trayPanel.shouldShow = !trayPanel.shouldShow
+        onClicked: if (root.barHost) root.barHost.togglePanel("tray")
       }
     }
   }
 
   TrayPanel {
     id: trayPanel
+    barHost: root.barHost
     trayItems: root.items
     panelScreen: root.trayScreen
     barWindow: root.QsWindow.window

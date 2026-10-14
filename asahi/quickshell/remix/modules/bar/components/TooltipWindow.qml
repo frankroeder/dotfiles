@@ -28,14 +28,15 @@ PopupWindow {
     anchors.fill: parent
     color: Style.m3surfaceSolid
     radius: Style.menuRadiusLg
-    opacity: root.visible ? 1 : 0
-    Behavior on color { ColorAnimation { duration: 140 } }
+    border.color: Style.popupBorder
+    border.width: Style.popupBorderWidth
   }
 
   Text {
     id: textItem
     x: root.pad
     y: root.pad
+    textFormat: Text.PlainText
     text: root.text
     font.family: Style.fontFamily
     font.pixelSize: Style.fontSizeTiny

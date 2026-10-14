@@ -80,6 +80,7 @@ Item {
       width: sliding ? implicitWidth : textBox.width
       elide: sliding ? Text.ElideNone : Text.ElideRight
       Behavior on x { NumberAnimation { duration: Math.max(400, titleText.overflow * 18); easing.type: Easing.InOutSine } }
+      textFormat: Text.PlainText
       text: Services.Players.title || "Media"
       font.family: Style.menuSans
       font.pixelSize: Style.barFontCaption + 1
@@ -90,6 +91,7 @@ Item {
       id: artistText
       y: titleText.height - 2
       width: textBox.width
+      textFormat: Text.PlainText
       text: Services.Players.artist || Services.Players.active?.identity || ""
       font.family: Style.menuSans
       font.pixelSize: Style.barFontCaption - 1
