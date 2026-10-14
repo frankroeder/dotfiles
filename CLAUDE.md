@@ -340,6 +340,10 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   sandbox sees nothing else of `$DOTFILES`), XPI is downloaded into the profile; `user.js` sets
   `widget.use-xdg-desktop-portal.native-messaging-proxy = 1` (default 0) and `autoDisableScopes = 14`.
   `BROWSER=org.mozilla.firefox` (flatpak export; `~/.local/share/flatpak/exports/bin` is on PATH). Test: `asahi/bin/asahi_firefox_theme_test.sh`.
+- **Spell check = English + German everywhere**: flatpak `languages en;de` (`dnf.sh`; existing installs need
+  `flatpak update` of the `.Locale` refs) — else the sandbox `de_DE.dic` is a dangling symlink. Host `hunspell-de`
+  (Thunderbird links `/usr/share/hunspell`, Sonnet). Firefox `spellchecker.dictionary` `en-US,de-DE` (user.js;
+  per-site picks live in `content-prefs.sqlite`). nvim `<Space>ts` = `en_us,de` on/off.
 - **Firefox wake locks (2026-10-05)**: flatpak override `MOZ_WAKE_LOCK_TYPE=WaylandIdleInhibit`
   (`comp_asahi_desktop`). Default path = portal Inhibit → xdg-desktop-portal-gtk →
   `org.freedesktop.ScreenSaver.Inhibit` on hypridle; Firefox left 3 of those open (no media playing)

@@ -45,6 +45,7 @@ sudo dnf install -y \
   hyprsunset \
   git \
   htop \
+  hunspell-de \
   ImageMagick \
   keychain \
   jq \
@@ -113,6 +114,8 @@ FLATPAK_APPS=(
   org.libreoffice.LibreOffice
 )
 
+# Locale extensions (hunspell dictionaries, langpacks) in English and German, not just the system locale.
+flatpak config --user --set languages "en;de"
 flatpak install --user -y flathub "${FLATPAK_APPS[@]}"
 
 # Signal defaults to a plaintext key store; use gnome-keyring (secrets component) instead.

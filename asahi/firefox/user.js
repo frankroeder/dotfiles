@@ -8,6 +8,8 @@ user_pref("extensions.autoDisableScopes", 14);
 // Session: restore previous windows/tabs on start (guide default 1 = homepage).
 user_pref("browser.startup.page", 3);
 user_pref("browser.sessionstore.resume_from_crash", true);
+// Spell check English + German at once (de_DE comes from the flatpak Locale, `flatpak config languages en;de`).
+user_pref("spellchecker.dictionary", "en-US,de-DE");
 
 // Hardening subset of https://brainfucksec.github.io/firefox-hardening-guide-2026
 // Skipped on purpose (breakage / conflicts): resistFingerprinting (forces light scheme, breaks
