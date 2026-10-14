@@ -39,37 +39,10 @@ Singleton {
   property color lavender:  "#b4befe"
 
   property string mode: "dark"
-  readonly property bool isDark: mode === "dark"
   property string wallpaper: ""
   property string variant: "source"
   property color accent: blue
   property int generation: 0
-
-  readonly property color bgBase: base
-  readonly property color bgSurface: surface0
-  readonly property color bgOverlay: "#88000000"
-  readonly property color bgHover: surface1
-  readonly property color bgSelected: surface2
-  readonly property color bgBorder: surface1
-
-  readonly property color textPrimary: text
-  readonly property color textSecondary: subtext1
-  readonly property color textMuted: subtext0
-
-  readonly property color accentPrimary: accent
-  readonly property color accentCyan: sky
-  readonly property color accentGreen: green
-  readonly property color accentOrange: peach
-  readonly property color accentRed: red
-  readonly property color primary: accent
-  readonly property color onPrimary: crust
-
-  readonly property color urgencyLow: subtext0
-  readonly property color urgencyNormal: accent
-  readonly property color urgencyCritical: red
-  readonly property color batteryGood: green
-  readonly property color batteryWarning: peach
-  readonly property color batteryCritical: red
 
   function applyJson(text) {
     if (!text || !String(text).trim()) return false

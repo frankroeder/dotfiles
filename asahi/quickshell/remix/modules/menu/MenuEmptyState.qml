@@ -34,6 +34,7 @@ Column {
     anchors.horizontalCenter: parent.horizontalCenter
     visible: root.title !== ""
     text: root.title
+    textFormat: Text.PlainText
     color: Style.m3onSurface
     font.family: root.fontFamily; font.pixelSize: Math.round(13 * root.fontScale); font.weight: Font.DemiBold
   }
@@ -42,6 +43,7 @@ Column {
     visible: root.detail !== ""
     width: Math.min(implicitWidth, root.maxWidth)
     text: root.detail
+    textFormat: Text.PlainText
     color: Style.m3onSurfaceVariant
     font.family: root.fontFamily; font.pixelSize: Math.round(11 * root.fontScale)
     wrapMode: Text.Wrap

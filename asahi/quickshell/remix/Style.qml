@@ -7,7 +7,6 @@ import "modules/wallpaper" as Wallpaper
 // bumps so every binding below re-evaluates after asahi-autotheme.
 Singleton {
   readonly property int themeGeneration: Wallpaper.DefaultTheme.generation
-  readonly property string mode: Wallpaper.DefaultTheme.mode
   readonly property bool isDark: Wallpaper.DefaultTheme.mode === "dark"
 
   function themed(name) {
@@ -22,15 +21,11 @@ Singleton {
 
   readonly property color accent: themed("accent")
 
-  readonly property color bg:        themed("base")
-  readonly property color surface:   themed("base")
   readonly property color moduleBg:  themed("surface0")
-  readonly property color border:    themed("surface1")
 
   readonly property color text:      themed("text")
   readonly property color textMuted: themed("subtext0")
   readonly property color textAlt:   themed("subtext1")
-  readonly property color muted:     themed("overlay0")
 
   readonly property color red:       themed("red")
   readonly property color green:     themed("green")
@@ -41,10 +36,6 @@ Singleton {
   readonly property color magenta:   themed("mauve")
   readonly property color orange:    themed("peach")
   readonly property color lavender:  themed("lavender")
-
-  readonly property color hoverBg:   themed("surface1")
-  readonly property color controlBg: themed("surface0")
-  readonly property color wsNumBg:   themed("surface0")
 
   // Bar widget groups (workspaces, CPU / RAM / temp): one tray each.
   readonly property color barGroupBg:       themedAlpha("base", 0.55)
@@ -60,32 +51,15 @@ Singleton {
   readonly property color popupBorder:    themedAlpha("overlay1", 0.6)
   readonly property int popupBorderWidth: 2
 
-  readonly property color barHoverBg:     themedAlpha("surface1", 0.92)
   readonly property color barBorder:      themedAlpha("text", 0.10)
 
   readonly property color barStripBg:     themed("mantle")
   readonly property color barStripText:   themed("text")
   readonly property color barStripMuted:  themed("subtext0")
-  readonly property color barStripActive: themed("red")
   readonly property color barStripHover:  themedAlpha("text", 0.10)
 
-  readonly property color panelOverlay:         themedAlpha("crust", 0.76)
-  readonly property color panelBg:              themedAlpha("base", 0.98)
-  readonly property color panelSidebarBg:       themedAlpha("crust", 0.96)
-  readonly property color panelMainBg:          themed("base")
-  readonly property color panelCardBg:          themedAlpha("surface0", 0.74)
-  readonly property color panelCardHover:       themedAlpha("surface1", 0.82)
-  readonly property color panelCardActive:      themedAlpha("accent", 0.18)
-  readonly property color panelCardBorder:      themedAlpha("text", 0.09)
-  readonly property color panelCardBorderHover: themedAlpha("accent", 0.32)
-  readonly property color panelInputBg:         themedAlpha("surface0", 0.92)
-  readonly property color panelControlBg:       themedAlpha("surface1", 0.54)
-  readonly property color panelControlHover:    themedAlpha("surface2", 0.62)
-  readonly property color panelAccentBg:        themedAlpha("accent", 0.20)
-  readonly property color panelAccentBorder:    themedAlpha("accent", 0.40)
   readonly property color panelSuccessBg:       themedAlpha("green", 0.16)
   readonly property color panelDangerBg:        themedAlpha("red", 0.15)
-  readonly property color panelDivider:         themedAlpha("text", 0.10)
 
   // Launcher / menu — omarchy [menu]: focus + selected-text = accent,
   // selected-background = foreground @ 0.08.
@@ -93,11 +67,9 @@ Singleton {
   readonly property color menuInk:     themed("text")
   readonly property color menuInkDeep: themed("subtext0")
   readonly property color menuInkMuted: themed("overlay1")
-  readonly property color menuSumi:    themed("overlay0")
   readonly property color menuAccent:  accent
   readonly property color menuSeal:    accent
   readonly property color menuIndigo:  themed("sapphire")
-  readonly property color menuSealAlt: themed("teal")
   readonly property color menuSep:     themedAlpha("text", 0.08)
   readonly property color menuHairline: themedAlpha("text", 0.08)
   readonly property color menuRowHi:   themedAlpha("text", 0.04)
@@ -107,7 +79,6 @@ Singleton {
   readonly property color menuControlBg: themedAlpha("text", 0.05)
   readonly property color menuOnAccent: themed("crust")
   readonly property color menuOverlayLight: Qt.rgba(1, 1, 1, 0.92)
-  readonly property color menuSuccessWash: themedAlpha("green", 0.28)
   // Material 3 roles (caelestia-style panels) mapped onto the wallpaper palette.
   readonly property color m3surface:            themedAlpha("base", 0.96)
   // Bar popups are xdg popups (no layer blur): opaque, or windows bleed through.
@@ -136,18 +107,16 @@ Singleton {
   readonly property int menuRadiusMd: 12
   readonly property int menuRadiusFull: 999
   readonly property int menuRail: 2
-  readonly property real menuTitleSpacing: 0.2
-  readonly property real menuLabelSpacing: 0.1
   // Anim: M3 expressive spatial spring + effects curve.
   readonly property int menuAnimMs: 200
   readonly property int menuAnimOutMs: 260
   readonly property int menuSpringMs: 500
   readonly property var menuSpring: [0.38, 1.21, 0.22, 1, 1, 1]
   readonly property var menuEffects: [0.34, 0.8, 0.34, 1, 1, 1]
-  readonly property string menuMono: "JetBrainsMono Nerd Font"
+  // Glyphs and monospace text (file previews): the Nerd Font dnf.sh installs (Ghostty / hyprlock use it too).
+  readonly property string menuMono: "Cascadia Mono NF"
   readonly property string menuSans: "Adwaita Sans"
   readonly property string menuDisplay: "Adwaita Sans"
-  readonly property string menuSerif: "serif"
 
   readonly property int scrollbarWidth: 5
   readonly property color scrollbarThumb: themedAlpha("text", 0.28)
@@ -171,27 +140,6 @@ Singleton {
   readonly property color maroon:     themed("maroon")
   readonly property color teal:       themed("teal")
   readonly property color sapphire:   themed("sapphire")
-  readonly property color bgOverlay:  themed("bgOverlay")
-  readonly property color bgSelected: themed("bgSelected")
-  readonly property color bgBase:     themed("bgBase")
-  readonly property color bgSurface:  themed("bgSurface")
-  readonly property color bgHover:    themed("bgHover")
-  readonly property color bgBorder:   themed("bgBorder")
-  readonly property color textPrimary:   themed("textPrimary")
-  readonly property color textSecondary: themed("textSecondary")
-  readonly property color accentPrimary: accent
-  readonly property color accentCyan:    themed("sky")
-  readonly property color accentGreen:   themed("green")
-  readonly property color accentOrange:  themed("peach")
-  readonly property color accentRed:     themed("red")
-  readonly property color primary:         accent
-  readonly property color onPrimary:       themed("crust")
-  readonly property color urgencyLow:      themed("subtext0")
-  readonly property color urgencyNormal:   accent
-  readonly property color urgencyCritical: themed("red")
-  readonly property color batteryGood:     themed("green")
-  readonly property color batteryWarning:  themed("peach")
-  readonly property color batteryCritical: themed("red")
 
   readonly property int radius: 8
   readonly property int radiusSm: 6
@@ -199,7 +147,6 @@ Singleton {
 
   readonly property int barHeight: 40
   readonly property int barFontBody: 15
-  readonly property int barFontIcon: 23
   readonly property int barFontGlyph: 23
   readonly property int barFontMicVolIcon: 21
   readonly property int barFontCaption: 12
@@ -208,8 +155,8 @@ Singleton {
   readonly property int barChipInset: 4
   readonly property int barWsIcon: 20
 
-  readonly property string fontFamily: "JetBrainsMono Nerd Font"
-  readonly property int fontSize: 16
-  readonly property int fontSizeSm: 13
+  // Bar / popups / OSD text. Noto Sans has tabular digits, so the zero-padded percentages keep their
+  // width as they change (Adwaita Sans does not); glyphs fall back to the Nerd Font.
+  readonly property string fontFamily: "Noto Sans"
   readonly property int fontSizeTiny: 12
 }
