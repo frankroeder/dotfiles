@@ -98,7 +98,10 @@ cat >"$bin/NetworkManager" <<'EOF'
 EOF
 cat >"$bin/nmcli" <<'EOF'
 #!/bin/sh
-echo "wlan0:wifi:connected"
+case "$*" in
+  "radio wifi") echo "${FAKE_WIFI_RADIO:-enabled}" ;;
+  *) echo "wlan0:wifi:${FAKE_WIFI_STATE:-connected}" ;;
+esac
 EOF
 cat >"$bin/wpctl" <<'EOF'
 #!/bin/sh
@@ -145,6 +148,15 @@ out=$(ASAHI_UNAME_R=7.1.13-fairydust+ PATH="$bin:$PATH" ASAHI_DIAG_ROOT="$diag" 
   ASAHI_SYS_ROOT="$sys" "$ROOT/asahi-debug" --json) || true
 echo "$out" | jq -e '[.checks[] | select(.id=="kernel" and .status=="PASS")] | length == 1' >/dev/null \
   && pass "self-built fairydust kernel is PASS" || fail_at "fairydust kernel PASS"
+
+# Wi-Fi switched off on purpose (on ethernet) is fine; unavailable with the radio on is not.
+wifi_status() {
+  FAKE_WIFI_STATE="$1" FAKE_WIFI_RADIO="$2" PATH="$bin:$PATH" ASAHI_DIAG_ROOT="$diag" ASAHI_PROC_ROOT="$proc" \
+    ASAHI_SYS_ROOT="$sys" "$ROOT/asahi-debug" --json | jq -r '.checks[] | select(.id=="wifi-link") | .status' || true
+}
+[ "$(wifi_status unavailable disabled)" = PASS ] && pass "Wi-Fi radio off is PASS" || fail_at "radio off should PASS"
+[ "$(wifi_status unavailable enabled)" = WARN ] && pass "Wi-Fi unavailable with radio on is WARN" || fail_at "unavailable should WARN"
+[ "$(wifi_status disconnected enabled)" = PASS ] && pass "Wi-Fi up, not connected is PASS" || fail_at "disconnected should PASS"
 
 # iwd is a warning, not the required backend.
 cat >"$bin/NetworkManager" <<'EOF'

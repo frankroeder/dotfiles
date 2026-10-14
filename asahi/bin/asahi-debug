@@ -163,8 +163,13 @@ check_wifi_link() {
   fi
   device=${wifi_line%%:*}
   state=${wifi_line##*:}
+  # The device being there is what matters (driver + firmware up); off or idle on purpose is fine.
   if [[ $state == "connected" ]]; then
     record PASS wifi-link "Wi-Fi device $device is connected"
+  elif [[ $state == "disconnected" ]]; then
+    record PASS wifi-link "Wi-Fi device $device is up, not connected"
+  elif [[ $state == "unavailable" && $(nmcli radio wifi 2>/dev/null) == disabled ]]; then
+    record PASS wifi-link "Wi-Fi device $device is present, radio switched off"
   else
     record WARN wifi-link "Wi-Fi device $device is $state"
   fi
