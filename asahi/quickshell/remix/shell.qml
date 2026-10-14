@@ -22,6 +22,8 @@ ShellRoot {
   onLauncherOpenChanged: if (launcherOpen) {
     shell.calendarOpen = false
     Services.Recorder.panelOpen = false
+    // Its focus grab would keep the launcher's keyboard input.
+    notifCenter.historyVisible = false
   }
   // Calendar and notification sheet are one-at-a-time: a click-opened calendar has no focus grab
   // yet, so opening the sheet would leave it up.
@@ -35,6 +37,8 @@ ShellRoot {
   System.DimOverlay { id: dimOverlay }
   System.NotificationCenter { id: notifCenter }
   System.PkgManager { id: pkgManager }
+  // Answers polkit (GUI admin prompts, pkexec); nothing did before.
+  System.PolkitAgent {}
 
   // Bound in hypr/conf.d/bindings.lua as hl.dsp.global("quickshell:recorder-panel").
   GlobalShortcut {
@@ -94,7 +98,7 @@ ShellRoot {
         mediaPing: shell.mediaPing
         onCalendarToggle: shell.calendarOpen = !shell.calendarOpen
         onQuickRequested: key => {
-          if (key === "pkgman") { pkgManager.toggle(); return }
+          if (key === "updates") { pkgManager.toggle(2); return }
           const l = launcherLoader.item
           if (l && l.openQuick) l.openQuick(key)
         }

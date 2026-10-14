@@ -75,6 +75,9 @@ Scope {
     interval: 1100
     onTriggered: root.visible = false
   }
+  // The window stays mapped while the card fades out (it used to unmap at once: no fade-out).
+  Timer { id: osdLinger; interval: 140 }
+  onVisibleChanged: if (!root.visible) osdLinger.restart()
 
   Process {
     id: osdProc
@@ -95,8 +98,6 @@ Scope {
           } else {
             root.show("volume", muted ? "󰍭" : "󰍬", "Microphone", pct, muted ? "Muted" : pct + "%")
           }
-        } else if (root.pending === "brightness") {
-          root.show("brightness", "󰃠", "Brightness", Number(t) || 0, t + "%")
         } else if (root.pending === "keyboard") {
           root.show("brightness", "󰌌", "Keyboard", Number(t) || 0, t + "%")
         } else if (root.pending === "caps") {
@@ -111,9 +112,6 @@ Scope {
     target: "osd"
     function volume(): void { root.query("volume", ["bash", root.binDir + "/asahi-audio", "output"]) }
     function mic(): void { root.query("mic", ["bash", root.binDir + "/asahi-audio", "input"]) }
-    function brightness(): void {
-      root.query("brightness", ["bash", "-c", "brightnessctl -m | awk -F, '{gsub(/%/, \"\", $4); print $4}'"])
-    }
     function brightnessSet(value: string): void {
       const n = Number(value)
       root.show("brightness", "󰃠", "Brightness", n || 0, (Number.isFinite(n) ? String(n) : value) + "%")
@@ -139,7 +137,7 @@ Scope {
 
   PanelWindow {
     id: osdWindow
-    visible: root.visible
+    visible: root.visible || osdLinger.running
     focusable: false
     color: "transparent"
     screen: root.osdScreen

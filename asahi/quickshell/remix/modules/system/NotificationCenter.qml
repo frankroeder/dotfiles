@@ -38,8 +38,9 @@ Scope {
     return Style.blueAlt
   }
 
+  // Known tags only: body markup is off, so "Jane <jane@example.org>" or Vec<String> is plain text.
   function stripMarkup(value) {
-    return String(value || "").replace(/<[^>]*>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    return String(value || "").replace(/<\/?(b|i|u|a|img|span|br)\b[^>]*>/gi, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
   }
 
   // Any app on the bus can set image-path, and IconImage will fetch an http
@@ -48,7 +49,16 @@ Scope {
   // which returns "" for a URL.)
   function localImage(value) {
     const s = String(value || "")
+    // Image data lives as long as the Notification, which Quickshell frees right after
+    // onNotification (never tracked): the handle is dead before the card loads it.
+    if (s.startsWith("image://qsimage/")) return false
     return s.startsWith("image:") || s.startsWith("file:") || s.startsWith("/")
+  }
+
+  // Firefox and Ghostty send no app name, only a desktop entry id: show the entry's Name.
+  function appLabel(e) {
+    const d = e.desktopEntry ? DesktopEntries.byId(e.desktopEntry) : null
+    return e.appName || (d && d.name) || e.desktopEntry || "Notification"
   }
 
   function iconFor(entry) {
@@ -67,11 +77,10 @@ Scope {
       image: String(n.image || ""),
       summary: stripMarkup(n.summary || ""),
       body: stripMarkup(n.body || ""),
-      urgency: Number(n.urgency) || 1,
-      // App-requested lifetime (Quickshell: seconds; <= 0 = server default).
+      urgency: Number(n.urgency),
+      // App-requested lifetime: the raw D-Bus value in ms (notify-send -t); <= 0 = server default.
       expire: Number(n.expireTimeout) || 0,
-      ts: Date.now(),
-      time: Qt.formatTime(new Date(), "HH:mm")
+      ts: Date.now()
     }
   }
 
@@ -88,10 +97,13 @@ Scope {
   // History grouped per day by app (upstream NotificationManager): groups keep the order of their
   // newest entry; a group with several shows the newest card until expanded.
   property var expandedGroups: ({})
+  // Built only while the sheet is open: day labels are fresh on every open (they went stale past
+  // midnight), and a hidden sheet no longer rebuilds every card per notification.
   readonly property var historyGroups: {
     const out = [], idx = {}
+    if (!root.historyVisible) return out
     for (const e of root.history) {
-      const day = root.dayLabel(e.ts), app = e.appName || e.desktopEntry || "Notification"
+      const day = root.dayLabel(e.ts), app = root.appLabel(e)
       const k = day + "|" + app
       if (idx[k] === undefined) { idx[k] = out.length; out.push({ key: k, day: day, app: app, items: [] }) }
       out[idx[k]].items.push(e)
@@ -131,10 +143,12 @@ Scope {
   }
 
   function save() {
-    if (root.historyLoaded) histFile.setText(JSON.stringify({ lastSeen: root.lastSeen, history: root.history }))
+    if (root.historyLoaded) histFile.setText(JSON.stringify({ lastSeen: root.lastSeen, dnd: root.dndEnabled, history: root.history }))
   }
   onHistoryChanged: save()
   onLastSeenChanged: save()
+  // Saved too: any QML save reloads the shell, which silently turned Do Not Disturb off.
+  onDndEnabledChanged: save()
 
   function addHistory(entry) {
     let next = root.history.slice()
@@ -145,6 +159,8 @@ Scope {
 
   function addToast(entry) {
     let next = root.toasts.slice()
+    // The battery daemon repeats its critical alert every minute: replace, never stack (as history).
+    if (entry.appName === "Asahi Battery") next = next.filter(item => item.appName !== "Asahi Battery")
     next.unshift(entry)
     root.toasts = next.slice(0, root.maxToasts)
   }
@@ -152,8 +168,11 @@ Scope {
   function removeToast(key) {
     root.toasts = root.toasts.filter(item => item.key !== key)
   }
-  Timer { id: toastLinger; interval: 260 }
-  onToastsChanged: if (root.toasts.length === 0) toastLinger.restart()
+  // The toast window keeps its old height 260 ms after a change: contentHeight drops at once, which
+  // clipped the leave animation (and the cards sliding up) to nothing.
+  property real toastHold: 0
+  Timer { id: toastLinger; interval: 260; onTriggered: root.toastHold = 0 }
+  onToastsChanged: { root.toastHold = toastList.height; toastLinger.restart() }
 
   property var lastEntry: null
   function handleNotification(n) {
@@ -228,6 +247,7 @@ Scope {
       const raw = histFile.text().trim()
       const saved = raw ? JSON.parse(raw) : {}
       root.lastSeen = saved.lastSeen || 0
+      root.dndEnabled = !!saved.dnd
       root.history = root.history.concat(saved.history || []).slice(0, root.maxHistory)
       // Only after the merge: loading must not write the file back (a second instance or a
       // config reload re-saving on load could race a write and persist a short history).
@@ -259,7 +279,7 @@ Scope {
     anchors { top: true }
     margins { top: 6 }
     implicitWidth: 380
-    implicitHeight: Math.max(1, toastList.contentHeight)
+    implicitHeight: Math.max(1, root.toastHold, toastList.contentHeight)
 
     // ScriptModel diffs root.toasts by object: existing cards (and their timers) survive a new
     // toast arriving; enter / leave / shift animate (upstream NotificationPopups transitions).
@@ -559,7 +579,7 @@ Scope {
     readonly property int lifeMs: {
       if (!card.entry || card.critical) return 0
       const e = Number(card.entry.expire) || 0
-      return e > 0 ? Math.round(e > 600 ? e : e * 1000) : 6000
+      return e > 0 ? e : 6000
     }
     Timer {
       interval: Math.max(1000, card.lifeMs)
@@ -582,20 +602,13 @@ Scope {
       ScriptAction { script: card.dismiss() }
     }
 
-    // Critical: slow red pulse instead of a static border only.
+    // Critical: a static red tint (a pulse repainted every frame for as long as a battery or timer
+    // alert stayed up; same rule as the bar's attention dot).
     Rectangle {
       anchors.fill: parent
       radius: parent.radius
       visible: card.critical
-      color: Qt.alpha(Style.red, 0.08)
-      SequentialAnimation on opacity {
-        // Toasts animate while shown; history cards only while the sheet is open (a card inside the
-        // hidden sheet window stays `visible` and would pulse forever).
-        running: card.critical && (card.timeout || root.historyVisible)
-        loops: Animation.Infinite
-        NumberAnimation { from: 1; to: 0.4; duration: 1800; easing.type: Easing.InOutSine }
-        NumberAnimation { from: 0.4; to: 1; duration: 1800; easing.type: Easing.InOutSine }
-      }
+      color: Qt.alpha(Style.red, 0.07)
     }
 
     // Under the row, so the close button (declared later) still wins its clicks.
@@ -679,7 +692,7 @@ Scope {
           Layout.fillWidth: true
           spacing: 6
           Text {
-            text: card.entry ? (card.entry.appName || "Notification") : ""
+            text: card.entry ? root.appLabel(card.entry) : ""
             textFormat: Text.PlainText
             font.family: Style.menuSans
             font.pixelSize: 11
