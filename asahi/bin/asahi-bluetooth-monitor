@@ -41,7 +41,6 @@ RECEIVERS = {
   0xC539: "lightspeed", 0xC53A: "lightspeed", 0xC53D: "lightspeed", 0xC53F: "lightspeed", 0xC541: "lightspeed",
   0xC545: "lightspeed", 0xC547: "lightspeed",
 }
-RECEIVER_NAMES = {"unifying": "Unifying receiver", "bolt": "Bolt receiver", "nano": "Nano receiver", "lightspeed": "Lightspeed receiver"}
 
 # HID++ 2.0 features
 NAME, BATTERY, VOLTAGE, UNIFIED, HOSTS = 0x0005, 0x1000, 0x1001, 0x1004, 0x1815
@@ -72,7 +71,7 @@ PCI_VENDORS = {0x14E4: "Broadcom", 0x8086: "Intel", 0x14C3: "MediaTek", 0x17CB: 
 VOLTAGE_CURVE = [(4186, 100), (4067, 90), (3989, 80), (3922, 70), (3859, 60), (3811, 50), (3778, 40), (3751, 30),
                  (3717, 20), (3671, 10), (3646, 5), (3579, 2), (3500, 0)]
 
-MAX_EVENTS, DRAIN_BUDGET, MAX_NAME, MAX_DUMP, MAX_BLUEZ = 256, 512, 64, 512 * 1024, 256
+DRAIN_BUDGET, MAX_NAME, MAX_DUMP, MAX_BLUEZ = 512, 64, 512 * 1024, 256
 CLOSED_INTERVAL, OPEN_INTERVAL = 60, 10
 DIE_WITH_US = ["setpriv", "--pdeathsig", "TERM"]  # children die with this helper
 DEVICE_TYPES = {0: "keyboard", 1: "remote", 2: "numpad", 3: "mouse", 4: "touchpad", 5: "trackball", 6: "presenter"}  # 0x0005 fn 2
@@ -88,7 +87,8 @@ class HidppError(Exception):
 
 
 class Timeout(Exception):
-  pass
+  def __init__(self):
+    super().__init__("no reply")
 
 
 # ---- small helpers ----
@@ -101,11 +101,7 @@ def clean(text, limit=MAX_NAME):
 
 
 def read_text(path, limit=4096):
-  try:
-    with open(path, "rb") as f:
-      return f.read(limit).decode("utf-8", "replace")
-  except OSError:
-    return ""
+  return read_bytes(path, limit).decode("utf-8", "replace")
 
 
 def read_bytes(path, limit=4096):
@@ -169,12 +165,12 @@ def dpi_range(choices):
   return {"min": choices[0], "max": choices[-1], "step": 0, "choices": choices}
 
 
-def smartshift_state(wheel_mode, auto, enhanced):
+def smartshift_state(wheel_mode, auto):
   if wheel_mode == 1:
-    return {"mode": "freespin", "enhanced": enhanced}
+    return {"mode": "freespin"}
   if auto in (0, 0xFF):
-    return {"mode": "ratchet", "enhanced": enhanced}
-  return {"mode": "smartshift", "threshold": auto, "enhanced": enhanced}
+    return {"mode": "ratchet"}
+  return {"mode": "smartshift", "threshold": auto}
 
 
 def battery_state(battery, low_at, critical_at):
@@ -198,7 +194,7 @@ def battery_alert(devices):
       best = d
   if best is None:
     return {"state": "ok"}
-  return {"state": best["state"], "kind": best["kind"], "name": best["name"], "percent": best["battery"].get("percent")}
+  return {"state": best["state"], "kind": best["kind"]}
 
 
 def lowest_battery(devices):
@@ -206,7 +202,7 @@ def lowest_battery(devices):
   if not shown:
     return None
   d = min(shown, key=lambda x: x["battery"]["percent"])
-  return {"name": d["name"], "percent": d["battery"]["percent"], "charging": bool(d["battery"].get("charging"))}
+  return {"name": d["name"], "percent": d["battery"]["percent"]}
 
 
 def run_bounded(argv, timeout=3.0, limit=MAX_DUMP):
@@ -260,15 +256,14 @@ def discover(sysfs="/sys/class/hidraw"):
 class Node:
   def __init__(self, path, short=True):
     self.fd = os.open(path, os.O_RDWR | os.O_NONBLOCK | os.O_CLOEXEC)
-    self.events = []
+    self.notice = False  # a HID++ 1.0 connection notice (sub-ID 0x41) went by: a device came or went
     self.short = short  # False: the device only takes long reports
 
   def close(self):
     os.close(self.fd)
 
   def note(self, data):
-    if len(self.events) < MAX_EVENTS:
-      self.events.append(data)
+    self.notice = self.notice or (len(data) >= 3 and data[0] in (SHORT, LONG) and data[2] == 0x41)
 
   def drain(self):
     for _ in range(DRAIN_BUDGET):
@@ -279,7 +274,7 @@ class Node:
 
   def request(self, dev, b2, b3, params=b"", timeout=1.5, echo=None):
     """One request, then wait for its reply (payload[0] == `echo` when given: register reads of another slot
-    do not count); other reports are kept as events. Returns the payload (byte 4 on)."""
+    do not count); other reports only count as notices. Returns the payload (byte 4 on)."""
     self.drain()
     params = bytes(params)
     long = len(params) > 3 or not self.short
@@ -309,12 +304,6 @@ class Receiver:
   def register(self, reg, params=b"", long=True):
     params = bytes(params)
     return self.node.request(0xFF, 0x83 if long else 0x81, reg, params.ljust(3, b"\0"), timeout=1.0, echo=params[0] if params else None)
-
-  def connected_count(self):
-    try:
-      return self.register(0x02, long=False)[1]
-    except (HidppError, Timeout):
-      return None
 
   def paired(self):
     """[(slot, wpid, kind, codename)] from the pairing register 0xB5."""
@@ -409,7 +398,7 @@ class Device:
       full = charging and r[2] & 0x03 == 0x01
       pct = 100 if full else voltage_percent(mv)
       return {"percent": pct, "level": level_for(pct), "status": "full" if full else "charging" if charging else "discharging",
-              "charging": charging and not full, "external_power": charging, "voltage": mv}
+              "charging": charging and not full, "external_power": charging}
     return None
 
   def dpi(self):
@@ -421,17 +410,17 @@ class Device:
     return dict(dpi_range(choices), value=value or default, default=default)
 
   def smartshift(self):
-    for fid, fn, enhanced in ((SMARTSHIFT2, 1, True), (SMARTSHIFT, 0, False)):
+    for fid, fn in ((SMARTSHIFT2, 1), (SMARTSHIFT, 0)):
       if self.has(fid):
         r = self.call(fid, fn)
-        return smartshift_state(r[0], r[1], enhanced)
+        return smartshift_state(r[0], r[1])
     return None
 
   def wheel(self):
     if not self.has(WHEEL):
       return None
     m = self.call(WHEEL, 1)[0]
-    return {"invert": bool(m & 0x04), "hires": bool(m & 0x02), "raw": m}
+    return {"invert": bool(m & 0x04), "hires": bool(m & 0x02)}
 
   def fn_feature(self):
     return next((f for f in FN_FEATURES if self.has(f)), None)
@@ -492,11 +481,11 @@ def bt_adapters(sysfs="/sys/class/bluetooth"):
       v = int(vid, 16)
       vendor = INTERNAL_BT_VENDORS.get(v) or strip_corp(clean(read_text(os.path.join(usb, "manufacturer")), 40))
       builtin = read_text(os.path.join(usb, "removable")).strip() == "fixed" or v in INTERNAL_BT_VENDORS
-      out.append({"id": name, "builtin": builtin, "bus": "usb", "vendor": vendor})
+      out.append({"id": name, "builtin": builtin, "vendor": vendor})
     else:
       pv = read_text(os.path.join(dev, "vendor")).strip()
       vendor = PCI_VENDORS.get(int(pv, 16), "") if pv.startswith("0x") else ""
-      out.append({"id": name, "builtin": True, "bus": "pci" if "/pci" in dev else "other", "vendor": vendor})
+      out.append({"id": name, "builtin": True, "vendor": vendor})
   return out
 
 
@@ -539,12 +528,12 @@ def parse_upower(text, sysfs="/sys/class/power_supply", skip_hidpp=True):
       continue
     charging = state in ("charging", "pending-charge")
     addr = address_of(native)
-    d = {"id": "up-" + path.rsplit("/", 1)[-1], "key": "up:" + (f.get("serial") or native or path)[:120], "kind": UPOWER_KINDS[kind],
+    d = {"id": "up-" + path.rsplit("/", 1)[-1], "kind": UPOWER_KINDS[kind],
          "name": clean(f.get("model") or f.get("vendor") or UPOWER_KINDS[kind].capitalize()), "online": True,
          "battery": {"percent": (pct or None) if coarse else pct, "level": coarse or level_for(pct),
                      "status": "full" if state == "fully-charged" else "charging" if charging else "discharging",
                      "charging": charging, "external_power": charging or state == "fully-charged"},
-         "receiver": None, "slot": None, "connection": upower_connection(native, sysfs), "source": "upower", "native": native[:120]}
+         "connection": upower_connection(native, sysfs), "native": native[:120]}
     if addr:
       d["address"] = addr
     out.append(d)
@@ -571,13 +560,13 @@ def parse_bluez(text):
     pct = ((ifaces.get("org.bluez.Battery1") or {}).get("Percentage") or {}).get("data")
     battery = {"percent": pct, "level": level_for(pct), "status": "discharging", "charging": False, "external_power": False} \
       if isinstance(pct, int) else None
-    out.append({"id": "bt-" + addr.replace(":", ""), "key": "bt:" + addr, "address": addr, "kind": kind, "name": name, "online": True,
-                "battery": battery, "receiver": None, "slot": None, "connection": "bluetooth", "source": "bluez", "native": path[:120]})
+    out.append({"id": "bt-" + addr.replace(":", ""), "address": addr, "kind": kind, "name": name, "online": True,
+                "battery": battery, "connection": "bluetooth", "source": "bluez", "native": path[:120]})
   return out[:MAX_BLUEZ]
 
 
 def merge(devices, extra):
-  """Append `extra` entries whose name, address or native path an earlier source already has (first source wins)."""
+  """Append `extra` entries whose name, address or native path is not already known (first source wins)."""
   names = {d["name"].casefold() for d in devices}
   addrs = {d["address"] for d in devices if d.get("address")}
   natives = {d["native"] for d in devices if d.get("native")}
@@ -653,9 +642,8 @@ class Monitor:
   def read_device(self, dev, did, wpid):
     skey = f"{wpid:04x}"
     proto = dev.ping()
-    d = {"id": did, "key": skey, "wpid": skey, "online": proto is not None, "battery": None}
+    d = {"id": did, "wpid": skey, "online": proto is not None, "battery": None}
     came_back = d["online"] and self.online.get(skey) is False
-    self.online[skey] = d["online"]
     if proto is None:
       return d
     d["protocol"] = proto
@@ -664,7 +652,7 @@ class Monitor:
       return d
     if came_back:
       self.reapply(dev, skey)
-    for field in ("name", "kind", "battery", "dpi", "smartshift", "wheel", "fnswap"):
+    for field in ("name", "battery", "dpi", "smartshift", "wheel", "fnswap", "kind"):
       try:
         v = getattr(dev, field)()
       except (HidppError, IndexError):  # unsupported / short reply: skip the field
@@ -686,11 +674,10 @@ class Monitor:
       except PermissionError:
         denied.append(n["node"])
         if n["family"]:
-          receivers.append({"id": "r-" + n["node"], "family": n["family"], "name": RECEIVER_NAMES[n["family"]], "node": n["node"],
-                            "max_devices": 6, "connected": None, "devices": [], "denied": True})
+          receivers.append({"id": "r-" + n["node"], "family": n["family"], "max_devices": 6, "devices": [], "denied": True})
         else:
-          d = {"id": n["node"] + "-direct", "key": f"{n['product']:04x}", "kind": kind_from_name(n["name"]), "name": n["name"],
-               "online": True, "battery": None, "receiver": None, "slot": None, "connection": conn, "denied": True}
+          d = {"id": n["node"] + "-direct", "kind": kind_from_name(n["name"]), "name": n["name"],
+               "online": True, "battery": None, "connection": conn, "denied": True}
           if conn == "bluetooth" and n["uniq"]:
             d["address"] = n["uniq"].upper()
           devices.append(d)
@@ -703,14 +690,14 @@ class Monitor:
           slots = rcv.paired()
           for slot, wpid, kind, codename in slots:
             d = self.read_device(self.device(n["path"], slot, wpid), f"{n['node']}-{slot}", wpid)
+            kind = d.get("kind") or kind
             d.update(kind=kind, name=d.get("name") or codename or kind.capitalize(), receiver=rid, slot=slot, connection=n["family"])
             devices.append(d)
             ids.append(d["id"])
-          receivers.append({"id": rid, "family": n["family"], "name": RECEIVER_NAMES[n["family"]], "node": n["node"],
-                            "max_devices": 6, "connected": rcv.connected_count(), "devices": ids})
+          receivers.append({"id": rid, "family": n["family"], "max_devices": 6, "devices": ids})
         else:
           d = self.read_device(self.device(n["path"], 0xFF, n["product"]), n["node"] + "-direct", n["product"])
-          d.update(kind=d.get("kind") or kind_from_name(n["name"]), name=d.get("name") or n["name"], receiver=None, slot=None, connection=conn)
+          d.update(kind=d.get("kind") or kind_from_name(n["name"]), name=d.get("name") or n["name"], connection=conn)
           if conn == "bluetooth" and n["uniq"]:
             d["address"] = n["uniq"].upper()
           devices.append(d)
@@ -718,19 +705,24 @@ class Monitor:
         self.drop(n["path"])
     for path in set(self.nodes) - live:
       self.drop(path)
-    seen = {d["key"] for d in devices if d.get("online") and not d.get("denied")}
-    for skey in self.online:  # unplugged / out of range: settings go back once it answers again
-      self.online[skey] = skey in seen
+    # Gone (asleep, unplugged, out of range) = False: remembered settings go back once it answers again.
+    seen = {d["wpid"] for d in devices if d.get("online") and "wpid" in d}
+    self.online = {k: k in seen for k in set(self.online) | {d["wpid"] for d in devices if "wpid" in d}}
     for node in self.nodes.values():  # notices seen while scanning are covered by this scan
-      node.events = []
+      node.notice = False
     return devices, receivers, denied
 
   def scan(self):
     self.by_id = {}
     try:
       devices, receivers, denied = self.scan_hidpp()
-      if self.settings["other_devices"]:  # denied hidraw: the kernel's own HID++ batteries stand in
-        merge(devices, parse_upower(run_bounded(["upower", "--dump"]), skip_hidpp=not denied))
+      if self.settings["other_devices"]:
+        # Denied hidraw: the kernel driver's HID++ batteries stand in (a denied direct node gets its own by name).
+        up = parse_upower(run_bounded(["upower", "--dump"]), skip_hidpp=not denied)
+        for d in devices:
+          if d.get("denied"):
+            d["battery"] = next((u["battery"] for u in up if u["name"].casefold() == d["name"].casefold()), None)
+        merge(devices, up)
         merge(devices, parse_bluez(run_bounded(BUSCTL, limit=4 * MAX_DUMP)))
       adapters, error = bt_adapters(), ""
     except (OSError, ValueError, KeyError, IndexError, TypeError) as e:  # one bad parse must not kill the bar's data source
@@ -761,8 +753,10 @@ class Monitor:
       if key in s:
         try:
           self.apply(dev, key, s[key], s)
-        except (HidppError, Timeout, ValueError, TypeError):
+        except (HidppError, ValueError, TypeError):
           pass
+        except Timeout:  # stopped answering
+          return
 
   def apply(self, dev, key, value, stored):
     if key == "dpi":
@@ -788,14 +782,13 @@ class Monitor:
       if key == "threshold":
         value = max(1, min(50, int(value)))
       self.apply(dev, key, value, stored)
+      if key == "threshold":
+        stored.update(threshold=value, smartshift="smartshift")
+      else:
+        stored[key] = value
+      save_settings(self.settings, self.state)
     except (HidppError, Timeout, ValueError, TypeError, OSError) as e:
       self.message = ("errChange", [f"{key}: {e}"[:80]])
-      return
-    if key == "threshold":
-      stored.update(threshold=value, smartshift="smartshift")
-    else:
-      stored[key] = value
-    save_settings(self.settings, self.state)
 
   def thresholds(self, low_at, critical_at):
     low = max(5, min(60, int(low_at)))
@@ -847,8 +840,7 @@ class Monitor:
         self.drop(path)
         hit = True
         continue
-      hit = hit or any(len(e) >= 3 and e[0] in (SHORT, LONG) and e[2] == 0x41 for e in node.events)
-      node.events = []
+      hit, node.notice = hit or node.notice, False
     return hit
 
   def run(self, stdin):
@@ -871,15 +863,10 @@ class Monitor:
         next_scan = time.monotonic() + (OPEN_INTERVAL if self.opened else CLOSED_INTERVAL)
       # A receiver's node also carries every DJ input report (mouse moves, keys): after a wake-up without a notice
       # the nodes sit out a second instead of waking this loop 100+ times a second.
-      muted = time.monotonic() < self.mute_until
-      fds = [stdin] + ([watch.stdout] if watch else []) + ([] if muted else [n.fd for n in self.nodes.values()])
-      try:
-        timeout = max(0.1, next_scan - time.monotonic())
-        ready = select.select(fds, [], [], min(timeout, self.mute_until - time.monotonic()) if muted else timeout)[0]
-      except (OSError, ValueError):
-        for path in list(self.nodes):
-          self.drop(path)
-        continue
+      muted = self.mute_until - time.monotonic()  # > 0: seconds the nodes still sit out
+      fds = [stdin] + ([watch.stdout] if watch else []) + ([] if muted > 0 else [n.fd for n in self.nodes.values()])
+      timeout = max(0.1, next_scan - time.monotonic())
+      ready = select.select(fds, [], [], min(timeout, muted) if muted > 0 else timeout)[0]
       soon = time.monotonic() + 1
       for fd in ready:
         if fd is stdin:

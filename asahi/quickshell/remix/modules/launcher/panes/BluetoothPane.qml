@@ -30,7 +30,7 @@ Item {
   // Closing the launcher only hides this pane (the next open destroys it), so stop the scan here:
   // a scan left running holds the shared BCM4388 radio in inquiry (A2DP stutter).
   readonly property bool launcherShown: root ? root.shouldShow : false
-  onLauncherShownChanged: if (!launcherShown && btScanRequested) stopScan()
+  onLauncherShownChanged: if (!launcherShown) btScanRequested = false
   readonly property bool btDiscovering: Bluetooth.defaultAdapter ? Bluetooth.defaultAdapter.discovering : false
 
   // Monitor snapshot: the helper rescans every 10 s while this pane is up (60 s otherwise).
@@ -38,7 +38,6 @@ Item {
   Binding { target: Services.BtMonitor; property: "paneOpen"; value: quickBtRoot.launcherShown }
   // A Loader-destroyed pane does not restore the Binding: the helper would stay on its 10 s rescans.
   Component.onDestruction: Services.BtMonitor.paneOpen = false
-  readonly property var adapterInfo: (mon.adapters || [])[0] || null
   readonly property var mapLinks: BtModel.mapLinks(mon)
   readonly property bool logitechSeen: (mon.receivers || []).length > 0 || (mon.devices || []).some(d => !!d.wpid || !!d.denied)
   property bool settingsOpen: false
@@ -106,15 +105,6 @@ Item {
     }
     return BtModel.paneRows(bluez, quickBtRoot.mon, quickBtRoot.btScanRequested || quickBtRoot.btDiscovering)
   }
-  readonly property var rowCounts: {
-    let on = 0, known = 0
-    for (const r of btRows) {
-      if (!r.connected && !r.paired && !r.wired) continue
-      known++
-      if (r.connected) on++
-    }
-    return { on: on, known: known }
-  }
 
   function btNotify(titleKey, body) {
     Quickshell.execDetached(["notify-send", "-a", "Bluetooth", quickBtRoot.t(titleKey), body])
@@ -176,15 +166,11 @@ Item {
     quickBtRoot.forgetArmed = ""
     quickBtRoot.btForget(mac, name)
   }
-  function toggleScan() {
-    if (quickBtRoot.btScanRequested) quickBtRoot.stopScan()
-    else quickBtRoot.btScanRequested = true
-  }
-  function stopScan() { quickBtRoot.btScanRequested = false }
+  function toggleScan() { quickBtRoot.btScanRequested = !quickBtRoot.btScanRequested }
 
   // The discovery session lives as long as this bluetoothctl (BlueZ ends it with its client): no stop
   // call that quickshell could drop, and a closed launcher / destroyed pane / dead qs ends it too.
-  readonly property bool scanWanted: btScanRequested && btOn && launcherShown
+  readonly property bool scanWanted: btScanRequested && btOn  // a hidden launcher clears the request
   onScanWantedChanged: scanProc.running = scanWanted
   Process {
     id: scanProc
@@ -201,28 +187,23 @@ Item {
 
   // A headset that just connected becomes the output (upstream): its sink appears a moment after `connect`;
   // look for it by MAC (bluez_output.AA_BB_…) or name, 8 × 500 ms. WirePlumber persists the choice.
-  property string audioMac: ""
-  property string audioName: ""
-  property int audioTries: 0
-  function followAudio(mac, name) {
-    quickBtRoot.audioMac = mac
-    quickBtRoot.audioName = name
-    quickBtRoot.audioTries = 8
-    audioTimer.restart()
-  }
+  function followAudio(mac, label) { audioTimer.mac = mac; audioTimer.label = label; audioTimer.tries = 8; audioTimer.restart() }
   Timer {
     id: audioTimer
+    property string mac: ""
+    property string label: ""
+    property int tries: 0
     interval: 500
     repeat: true
     onTriggered: {
-      const key = quickBtRoot.audioMac.replace(/:/g, "_").toUpperCase()
+      const key = mac.replace(/:/g, "_").toUpperCase()
       const nodes = Pipewire.nodes ? Pipewire.nodes.values : []
       const sink = nodes.find(n => n && n.isSink && !n.isStream
-        && (String(n.name || "").toUpperCase().indexOf(key) >= 0 || String(n.description || "") === quickBtRoot.audioName))
+        && (String(n.name || "").toUpperCase().indexOf(key) >= 0 || String(n.description || "") === label))
       if (sink) {
         if (Pipewire.defaultAudioSink !== sink) Pipewire.preferredDefaultAudioSink = sink
         stop()
-      } else if (--quickBtRoot.audioTries <= 0) stop()
+      } else if (--tries <= 0) stop()
     }
   }
 
@@ -279,7 +260,7 @@ Item {
     if (btPowerProc.running) return
     const next = quickBtRoot.btOn ? "off" : "on"
     // Otherwise the scan restarts at the next power-on.
-    if (next === "off" && quickBtRoot.btScanRequested) quickBtRoot.stopScan()
+    if (next === "off") quickBtRoot.btScanRequested = false
     btPowerProc.target = next
     // A transient unit: a pane switch must not kill `off` between the BlueZ power-off and the rfkill block.
     btPowerProc.command = ["systemd-run", "--user", "--wait", "--quiet", "--collect", root.binDir + "/asahi-bluetooth-power", next]
@@ -325,16 +306,16 @@ Item {
     if (btPowerBusy) return t(btPowerProc.target === "on" ? "turningOn" : "turningOff")
     if (!btOn) return t("btOffHint")
     if (!mon.updated) return t("looking")
-    const parts = [t("connectedOf", [rowCounts.on, rowCounts.known])]
+    const known = btRows.filter(r => r.connected || r.paired || r.wired)
+    const parts = [t("connectedOf", [known.filter(r => r.connected).length, known.length])]
     const nr = (mon.receivers || []).length
     if (nr) parts.push(I18n.trn(lang, "receiversN", nr, [nr]))
-    const a = adapterInfo
+    const a = (mon.adapters || [])[0]
     if (a) parts.push(t(a.builtin ? "btBuiltin" : "btDongle") + (a.vendor ? " · " + a.vendor : ""))
     return parts.join(" · ")
   }
   // Second header line (upstream's hero detail): lowest battery, missing access.
   readonly property string headDetail: {
-    if (!btOn && !mon.updated) return ""
     const parts = []
     const low = mon.lowest
     if (low && low.percent < 100) parts.push(t("lowestBattery", [low.percent]) + " · " + low.name)
@@ -369,6 +350,23 @@ Item {
     wrapMode: Text.WordWrap
     elide: Text.ElideNone
   }
+  // Title + hint, a switch at the right (settings rows, HID++ toggles).
+  component SwitchRow: RowLayout {
+    id: sr
+    property string title
+    property string hint
+    property bool checked
+    signal toggled()
+    Layout.fillWidth: true
+    spacing: 10
+    ColumnLayout {
+      Layout.fillWidth: true
+      spacing: 0
+      Label { text: sr.title; Layout.fillWidth: true }
+      Hint { text: sr.hint }
+    }
+    Menu.MenuSwitch { checked: sr.checked; onToggled: sr.toggled() }
+  }
   // Section caption: the tracked caps used by SysPanel / recorder.
   component Caption: Secondary {
     font.pixelSize: quickBtRoot.root.fontPx(8)
@@ -402,7 +400,7 @@ Item {
     }
 
     RowLayout {
-      visible: !!hs.dev.dpi && hs.dev.dpi.max > 0
+      visible: !!hs.dev.dpi && hs.dev.dpi.max > hs.dev.dpi.min
       Layout.fillWidth: true
       spacing: 8
       Label { text: quickBtRoot.t("dpi"); Layout.fillWidth: true }
@@ -414,7 +412,7 @@ Item {
       }
     }
     Menu.MenuSlider {
-      visible: !!hs.dev.dpi && hs.dev.dpi.max > 0
+      visible: !!hs.dev.dpi && hs.dev.dpi.max > hs.dev.dpi.min
       Layout.fillWidth: true
       Layout.bottomMargin: 6
       value: hs.dev.dpi ? BtModel.dpiFrac(hs.dev.dpi, hs.dpiShown) : 0
@@ -448,29 +446,23 @@ Item {
       onMoved: v => { hs.thrPreview = Math.round(1 + v * 49); thrCommit.restart() }
     }
     Hint { visible: hs.ssMode === "smartshift"; text: quickBtRoot.t("sensitivityHint"); Layout.bottomMargin: 6 }
-    Repeater {
-      model: [
-        ["invert", "natural", "naturalHint", !!hs.dev.wheel, !!hs.dev.wheel && hs.dev.wheel.invert],
-        ["hires", "hires", "hiresHint", !!hs.dev.wheel, !!hs.dev.wheel && hs.dev.wheel.hires],
-        ["fnswap", "fnswap", !!hs.dev.fnswap && hs.dev.fnswap.on ? "fnswapOn" : "fnswapOff", !!hs.dev.fnswap, !!hs.dev.fnswap && hs.dev.fnswap.on]
-      ]
-      RowLayout {
-        required property var modelData
-        visible: modelData[3]
-        Layout.fillWidth: true
-        Layout.bottomMargin: 4
-        spacing: 10
-        ColumnLayout {
-          Layout.fillWidth: true
-          spacing: 0
-          Label { text: quickBtRoot.t(modelData[1]); Layout.fillWidth: true }
-          Hint { text: quickBtRoot.t(modelData[2]) }
-        }
-        Menu.MenuSwitch {
-          checked: modelData[4]
-          onToggled: Services.BtMonitor.setValue(hs.dev.id, modelData[0], !modelData[4])
-        }
-      }
+    SwitchRow {
+      visible: !!hs.dev.wheel
+      title: quickBtRoot.t("natural"); hint: quickBtRoot.t("naturalHint")
+      checked: !!hs.dev.wheel && hs.dev.wheel.invert
+      onToggled: Services.BtMonitor.setValue(hs.dev.id, "invert", !checked)
+    }
+    SwitchRow {
+      visible: !!hs.dev.wheel
+      title: quickBtRoot.t("hires"); hint: quickBtRoot.t("hiresHint")
+      checked: !!hs.dev.wheel && hs.dev.wheel.hires
+      onToggled: Services.BtMonitor.setValue(hs.dev.id, "hires", !checked)
+    }
+    SwitchRow {
+      visible: !!hs.dev.fnswap
+      title: quickBtRoot.t("fnswap"); hint: quickBtRoot.t(checked ? "fnswapOn" : "fnswapOff")
+      checked: !!hs.dev.fnswap && hs.dev.fnswap.on
+      onToggled: Services.BtMonitor.setValue(hs.dev.id, "fnswap", !checked)
     }
   }
 
@@ -512,7 +504,7 @@ Item {
           Secondary { Layout.fillWidth: true; text: quickBtRoot.headStatus; font.pixelSize: root.fontPx(11) }
           Secondary {
             Layout.fillWidth: true; visible: text !== ""; text: quickBtRoot.headDetail; font.pixelSize: root.fontPx(10)
-            color: quickBtRoot.stateColor(Services.BtMonitor.alert.state === "ok" ? "" : Services.BtMonitor.alert.state)
+            color: quickBtRoot.stateColor(Services.BtMonitor.alert.state)
           }
         }
         Pill {
@@ -745,7 +737,8 @@ Item {
                 id: btDelegate
                 required property var modelData
                 readonly property bool busy: (modelData.pending || "") !== ""
-                readonly property bool settingsShown: quickBtRoot.expandedUid === modelData.uid && BtModel.hasSettings(modelData.mon)
+                readonly property bool hasSettings: BtModel.hasSettings(modelData.mon)
+                readonly property bool settingsShown: quickBtRoot.expandedUid === modelData.uid && hasSettings
                 width: parent.width
                 spacing: 2
                 Caption {
@@ -764,8 +757,8 @@ Item {
                   // Hover; a row with HID++ settings opens them on click (its buttons take their own clicks).
                   MouseArea {
                     id: btd; anchors.fill: parent; hoverEnabled: true
-                    cursorShape: BtModel.hasSettings(btDelegate.modelData.mon) ? Qt.PointingHandCursor : Qt.ArrowCursor
-                    onClicked: if (BtModel.hasSettings(btDelegate.modelData.mon))
+                    cursorShape: btDelegate.hasSettings ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    onClicked: if (btDelegate.hasSettings)
                       quickBtRoot.expandedUid = btDelegate.settingsShown ? "" : btDelegate.modelData.uid
                   }
 
@@ -820,7 +813,7 @@ Item {
                       onClicked: Services.BtMonitor.allowAccess()
                     }
                     IconBtn {
-                      visible: BtModel.hasSettings(btDelegate.modelData.mon)
+                      visible: btDelegate.hasSettings
                       icon: btDelegate.settingsShown ? BtModel.GLYPH_CHEVRON_DOWN : BtModel.GLYPH_CHEVRON_RIGHT
                       onClicked: quickBtRoot.expandedUid = btDelegate.settingsShown ? "" : btDelegate.modelData.uid
                     }
@@ -835,7 +828,7 @@ Item {
                       onClicked: quickBtRoot.armForget(btDelegate.modelData.address, btDelegate.modelData.label)
                     }
                     LinkBtn {
-                      visible: !btDelegate.modelData.wired
+                      visible: !btDelegate.modelData.wired && quickBtRoot.btOn  // connect needs the radio on
                       active: btDelegate.modelData.connected
                       busy: btDelegate.busy
                       onClicked: {
@@ -867,7 +860,7 @@ Item {
           }
           // Empty / off state, centred in whatever the map and rows leave of the card.
           Item {
-            visible: !quickBtRoot.settingsOpen && (!quickBtRoot.btOn || !quickBtRoot.btRows || quickBtRoot.btRows.length === 0)
+            visible: !quickBtRoot.settingsOpen && (!quickBtRoot.btOn || quickBtRoot.btRows.length === 0)
             width: parent.width
             height: Math.max(btEmpty.implicitHeight + 32, btFlick.height - btRowsCol.height - (mapCol.visible ? mapCol.height : 0) - 2 * btCol.spacing)
             Menu.MenuEmptyState {
@@ -956,35 +949,17 @@ Item {
             }
 
             Caption { text: quickBtRoot.t("devices") }
-            RowLayout {
-              Layout.fillWidth: true
+            SwitchRow {
               Layout.leftMargin: 10; Layout.rightMargin: 10
-              spacing: 10
-              ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 0
-                Label { text: quickBtRoot.t("otherDevices") }
-                Hint { text: quickBtRoot.t("otherDevicesHint") }
-              }
-              Menu.MenuSwitch {
-                checked: quickBtRoot.mon.other_devices !== false
-                onToggled: Services.BtMonitor.setOptions({ other_devices: quickBtRoot.mon.other_devices === false })
-              }
+              title: quickBtRoot.t("otherDevices"); hint: quickBtRoot.t("otherDevicesHint")
+              checked: quickBtRoot.mon.other_devices !== false
+              onToggled: Services.BtMonitor.setOptions({ other_devices: !checked })
             }
-            RowLayout {
-              Layout.fillWidth: true
+            SwitchRow {
               Layout.leftMargin: 10; Layout.rightMargin: 10
-              spacing: 10
-              ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 0
-                Label { text: quickBtRoot.t("barTooltip") }
-                Hint { text: quickBtRoot.t("barTooltipHint") }
-              }
-              Menu.MenuSwitch {
-                checked: !!quickBtRoot.mon.bar_tooltip
-                onToggled: Services.BtMonitor.setOptions({ bar_tooltip: !quickBtRoot.mon.bar_tooltip })
-              }
+              title: quickBtRoot.t("barTooltip"); hint: quickBtRoot.t("barTooltipHint")
+              checked: !!quickBtRoot.mon.bar_tooltip
+              onToggled: Services.BtMonitor.setOptions({ bar_tooltip: !checked })
             }
 
             Caption { visible: quickBtRoot.logitechSeen; text: quickBtRoot.t("access") }

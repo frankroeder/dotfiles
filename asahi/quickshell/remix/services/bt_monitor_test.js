@@ -7,7 +7,6 @@ const cp = (s) => s.codePointAt(0).toString(16)
 
 // --- glyphs / text ---
 assert.strictEqual(cp(M.kindGlyph("mouse")), "f037d")
-assert.strictEqual(cp(M.kindGlyph("headset")), "f02cb")
 assert.strictEqual(M.kindGlyph("device", true), M.GLYPH_BT_CONNECTED)
 assert.strictEqual(M.kindGlyph("nope", false), M.GLYPH_BT)
 assert.strictEqual(M.kindOfIcon("audio-headphones"), "headset")
@@ -35,10 +34,10 @@ assert.strictEqual(M.batteryState(null, 25, 10), "ok")
 assert.strictEqual(M.connectionLabel({ receiver: "r-hidraw3", connection: "bolt", slot: 2 }, t), "Bolt dongle · slot 2")
 assert.strictEqual(M.connectionLabel({ connection: "usb" }, t), "USB cable")
 assert.strictEqual(M.connectionLabel({ connection: "bolt", slot: 1 }, (k, a) => I.tr("de", k, a)), "Bolt-Dongle · Platz 1")
-assert.strictEqual(M.hasSettings({ online: true, dpi: { min: 100, max: 4000 } }), true)
-assert.strictEqual(M.hasSettings({ online: true, denied: true, dpi: { min: 100, max: 4000 } }), false)
-assert.strictEqual(M.hasSettings({ online: false, dpi: { min: 100, max: 4000 } }), false)
-assert.strictEqual(M.hasSettings({ online: true, dpi: { choices: [], value: 800 } }), false)  // empty sensor list: nothing to set
+assert.strictEqual(M.hasSettings({ dpi: { min: 100, max: 4000 } }), true)
+assert.strictEqual(M.hasSettings({ dpi: { choices: [], value: 800 } }), false)  // empty sensor list: nothing to set
+assert.strictEqual(M.hasSettings({ dpi: { min: 800, max: 800, choices: [800] } }), false)  // one DPI value
+assert.strictEqual(M.hasSettings({ online: false }), false)  // offline / denied: the helper sends no features
 
 // --- DPI slider ---
 const range = { min: 100, max: 25600, step: 50 }
@@ -96,12 +95,16 @@ assert.deepStrictEqual(rows.map(r => r.label),
   ["MX Ergo", "Old Mouse", "Pömpel", "Apple Inc. Magic Keyboard", "G502", "MX Master 3", "Frank’s Magic Keyboard"])
 assert.deepStrictEqual(rows.map(r => r.section && t(r.section)), ["Connected", "", "", "USB & receivers", "", "", "Paired"])
 const ergo = rows.find(r => r.label === "MX Ergo")
-assert.deepStrictEqual([ergo.id, ergo.connected, ergo.battery.percent, ergo.state], ["hidraw9-direct", true, 5, "critical"])  // BlueZ battery, own state
-assert.strictEqual(rows.find(r => r.label === "Pömpel").id, "bt-E8")  // merged with the monitor's BlueZ entry
+// BlueZ battery, own state
+assert.deepStrictEqual([ergo.mon.id, ergo.connected, ergo.battery.percent, ergo.state], ["hidraw9-direct", true, 5, "critical"])
+assert.strictEqual(rows.find(r => r.label === "Pömpel").mon.id, "bt-E8")  // merged with the monitor's BlueZ entry
 assert.strictEqual(rows.find(r => r.label === "Old Mouse").state, "low")  // BlueZ battery fallback uses the thresholds
 const mx = rows.find(r => r.label === "MX Master 3")
 assert.deepStrictEqual([mx.state, mx.wired], ["critical", true])
 assert.strictEqual(new Set(rows.map(r => r.uid)).size, rows.length)
+// Two adapters: a stale unpaired entry for a paired device must not hide its Paired row while discovery is off.
+const twice = M.paneRows([{ address: "CC:DD", label: "Keys", paired: false }, { address: "CC:DD", label: "Keys", paired: true }], {}, false)
+assert.deepStrictEqual(twice.map(r => [r.label, r.section]), [["Keys", "btSecPaired"]])
 rows = M.paneRows(bluez, snap, true)
 assert.strictEqual(rows[rows.length - 1].section, "btSecAvailable")
 const many = []

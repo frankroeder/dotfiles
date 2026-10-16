@@ -48,9 +48,9 @@ eq(bm.parse_dpi_list(bytes([0x01, 0x90, 0x03, 0x20, 0x06, 0x40, 0, 0])), [400, 8
 eq(bm.dpi_range([100, 150, 200]), {"min": 100, "max": 200, "step": 50}, "dpi range: even steps")
 eq(bm.dpi_range([400, 800, 1600])["step"], 0, "dpi range: uneven = choices")
 eq(bm.dpi_range([]), {"choices": []}, "dpi range: empty")
-eq(bm.smartshift_state(1, 20, True)["mode"], "freespin", "smartshift: wheel mode 1 = free spin")
-eq(bm.smartshift_state(2, 0xFF, False)["mode"], "ratchet", "smartshift: auto 0xFF = ratchet")
-eq(bm.smartshift_state(2, 30, True), {"mode": "smartshift", "threshold": 30, "enhanced": True}, "smartshift: threshold")
+eq(bm.smartshift_state(1, 20)["mode"], "freespin", "smartshift: wheel mode 1 = free spin")
+eq(bm.smartshift_state(2, 0xFF)["mode"], "ratchet", "smartshift: auto 0xFF = ratchet")
+eq(bm.smartshift_state(2, 30), {"mode": "smartshift", "threshold": 30}, "smartshift: threshold")
 eq([bm.level_for(p) for p in (None, 5, 20, 50, 90)], ["unknown", "critical", "low", "good", "full"], "level_for")
 eq((bm.voltage_percent(3922), bm.voltage_percent(5000), bm.voltage_percent(3000)), (70, 100, 0), "voltage curve")
 eq(bm.kind_from_name("Logitech G502 HERO Gaming Mouse"), "mouse", "kind from HID name")
@@ -70,12 +70,12 @@ devs = [
   {"name": "Pad", "kind": "gamepad", "online": False, "state": "critical", "battery": {"percent": 2}},
   {"name": "Buds", "kind": "headset", "online": False, "state": "critical", "battery": {"percent": 4}},
 ]
-eq(bm.battery_alert(devs), {"state": "low", "kind": "mouse", "name": "Mouse", "percent": 18}, "alert: worst visible online")
+eq(bm.battery_alert(devs), {"state": "low", "kind": "mouse"}, "alert: worst online")
 tie = [{"name": "Kbd", "kind": "keyboard", "online": True, "state": "low", "battery": {"percent": 12}},
        {"name": "Pad", "kind": "gamepad", "online": True, "state": "low", "battery": {"percent": 11}},
        {"name": "Mouse", "kind": "mouse", "online": True, "state": "low", "battery": {"percent": 24}}]
-eq(bm.battery_alert(tie)["name"], "Mouse", "alert: a mouse at the same level takes over (upstream)")
-eq(bm.battery_alert(tie[:2])["name"], "Kbd", "alert: else the first device at the worst level (upstream)")
+eq(bm.battery_alert(tie)["kind"], "mouse", "alert: a mouse at the same level takes over (upstream)")
+eq(bm.battery_alert(tie[:2])["kind"], "keyboard", "alert: else the first device at the worst level (upstream)")
 eq(bm.battery_alert(devs[2:]), {"state": "ok"}, "alert: offline devices never warn")
 eq(bm.lowest_battery(devs)["name"], "Mouse", "lowest: online only")
 
@@ -145,7 +145,7 @@ Daemon:
 """
 up = bm.parse_upower(dump, sysfs=str(tmp / "psy"))
 eq([d["name"] for d in up], ["Apple Inc. Magic Keyboard", "Magic Keyboard", "Pömpel"], "upower: peripherals only (no AC / laptop / hidpp / absent / display)")
-eq((up[0]["connection"], up[0]["key"], up[0]["battery"]["status"], up[0]["battery"]["external_power"]), ("usb", "up:SER", "full", True),
+eq((up[0]["connection"], up[0]["battery"]["status"], up[0]["battery"]["external_power"]), ("usb", "full", True),
    "upower: USB-cabled keyboard via sysfs, charged")
 eq((up[1]["connection"], up[1]["address"], up[1]["battery"]["percent"]), ("bluetooth", "B0:BE:83:F2:07:42", 18), "upower: BT keyboard, int percent")
 eq((up[2]["battery"]["percent"], up[2]["battery"]["level"], up[2]["kind"]), (None, "low", "headset"), "upower: coarse level, 0% = unknown percent")
@@ -199,9 +199,9 @@ for name, target in (("hci0", "dev/platform/soc/pcie/pci0000:00/0000:01:00.1"), 
   os.symlink(tmp / target, bt / name / "device")
 (bt / "hci0:11").mkdir()
 eq(bm.bt_adapters(str(bt)), [
-  {"id": "hci0", "builtin": True, "bus": "pci", "vendor": "Broadcom"},
-  {"id": "hci1", "builtin": True, "bus": "usb", "vendor": "Intel"},
-  {"id": "hci2", "builtin": False, "bus": "usb", "vendor": "Cambridge Silicon Radio"},
+  {"id": "hci0", "builtin": True, "vendor": "Broadcom"},
+  {"id": "hci1", "builtin": True, "vendor": "Intel"},
+  {"id": "hci2", "builtin": False, "vendor": "Cambridge Silicon Radio"},
 ], "adapters: PCI Broadcom, internal Intel on USB, a USB stick; connections skipped")
 
 HIDPP_DESC = bytes.fromhex("0600ff0901a1018510750895061500 26ff00 0901 8100 c0".replace(" ", ""))
@@ -273,8 +273,8 @@ eq(dev.ping(), 4.5, "ping: protocol 4.5")
 eq(dev.name(), "MX Master 3", "name: chunked 0x0005")
 eq(dev.battery(), {"percent": 42, "level": "good", "status": "discharging", "charging": False, "external_power": False}, "battery: unified 0x1004")
 eq(dev.dpi(), {"min": 200, "max": 4000, "step": 50, "value": 1600, "default": 1000}, "dpi: range + current/default")
-eq(dev.smartshift(), {"mode": "smartshift", "threshold": 20, "enhanced": True}, "smartshift: enhanced 0x2111")
-eq(dev.wheel(), {"invert": False, "hires": True, "raw": 2}, "wheel: mode bits")
+eq(dev.smartshift(), {"mode": "smartshift", "threshold": 20}, "smartshift: enhanced 0x2111")
+eq(dev.wheel(), {"invert": False, "hires": True}, "wheel: mode bits")
 eq(dev.fnswap(), {"on": True}, "fnswap: per host 0x40A3 (host from 0x1815)")
 eq(node.sent[-1][3][:1], bytes([1]), "fnswap: asks for the current host")
 dev.set_wheel_bit(0x04, True)
@@ -327,7 +327,6 @@ uni = FakeReceiver("unifying", {
   (0x02, b""): bytes([0, 1, 0]),
 })
 eq(uni.paired(), [(1, 0x4082, "mouse", "M3X")], "unifying: slot 1 paired, empty slot skipped")
-eq(uni.connected_count(), 1, "unifying: connected count")
 bolt = FakeReceiver("bolt", {
   (0xB5, bytes([0x52])): bytes([0x52, 0x01, 0x8A, 0x40]),
   (0xB5, bytes([0x62, 0x01])): bytes([0x62, 0x01, 7]) + b"MX Keys",
@@ -340,7 +339,7 @@ eq(nano.paired(), [(1, 0x407A, "mouse", "")], "nano: a slot without a name regis
 a, b = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
 a.setblocking(False)
 n = bm.Node.__new__(bm.Node)
-n.fd, n.events, n.short = a.fileno(), [], True
+n.fd, n.notice, n.short = a.fileno(), False, True
 reply_ok = bytes([0x11, 0x01, 0x03, 0x1E, 0x2A]) + b"\0" * 15
 def device_side():  # a flooding device: unrelated reports must neither stall nor grow the queue
   for _ in range(600):
@@ -350,13 +349,12 @@ sender = threading.Thread(target=device_side)
 sender.start()
 eq(n.request(1, 0x03, 0x1E, [0], timeout=10), reply_ok[4:], "socket: reply found after a flood")
 sender.join()
-eq(len(n.events), bm.MAX_EVENTS, "socket: event queue capped")
-n.events = []  # a scan clears them
+eq(n.notice, False, "socket: a flood without notices leaves no notice")
 b.send(bytes([0x10, 0x01, 0x41, 0x04, 0x01, 0x82, 0x40]))
 m = bm.Monitor(out=io.StringIO(), state=str(tmp / "state.json"))
 m.nodes = {"x": n}
 eq(m.wants_refresh(), True, "socket: 0x41 connection notice wants a rescan")
-eq(n.events, [], "socket: drained")
+eq(n.notice, False, "socket: drained, notice consumed")
 threading.Timer(0.1, b.send, [bytes([0x11, 0x01, 0xFF, 0x03, 0x1E, 0x09]) + b"\0" * 14]).start()  # after the request (it drains first)
 try:
   n.request(1, 0x03, 0x1E)
@@ -375,7 +373,7 @@ b.close()
 a, b = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
 a.setblocking(False)
 n = bm.Node.__new__(bm.Node)
-n.fd, n.events, n.short = a.fileno(), [], False
+n.fd, n.notice, n.short = a.fileno(), False, False
 threading.Timer(0.1, b.send, [bytes([0x11, 0xFF, 0x00, 0x1E, 4, 2]) + b"\0" * 14]).start()
 eq(n.request(0xFF, 0x00, 0x1E, [0, 0, 7])[:2], bytes([4, 2]), "long-only node: request answered")
 sent = b.recv(64)
@@ -388,7 +386,7 @@ master, slave = os.openpty()
 os.set_blocking(master, False)
 os.close(slave)
 gone = bm.Node.__new__(bm.Node)
-gone.fd, gone.events, gone.short = master, [], True
+gone.fd, gone.notice, gone.short = master, False, True
 m = bm.Monitor(out=io.StringIO(), state=str(tmp / "state.json"))
 m.nodes = {"/dev/hidraw8": gone}
 eq((m.wants_refresh(), list(m.nodes)), (True, []), "unplug: the failing node is dropped and a rescan follows (no crash)")
@@ -414,6 +412,7 @@ saved = json.loads(state.read_text())
 eq((saved["low_at"], saved["critical_at"], "hidden" in saved), (30, 30, False), "state: thresholds (critical ≤ low), no hidden list")
 m.handle(json.dumps({"cmd": "set", "device": "nope", "key": "dpi", "value": 800}))
 eq(m.message, ("errNotConnected", []), "set: unknown device")
+eq(str(bm.Timeout()), "no reply", "timeout: says so in the pane's error text")
 
 wheel_mode[0] = 0x02
 m.by_id = {"hidraw0-1": (dev, "4082")}
@@ -435,7 +434,7 @@ eq((bm.load_settings(str(tmp / "odd.json"))["devices"], bm.load_settings(str(tmp
    "state: non-dict device entries and wrong types dropped")
 
 bm.discover = lambda sysfs=None: []
-bm.bt_adapters = lambda sysfs=None: [{"id": "hci0", "builtin": True, "bus": "pci", "vendor": "Broadcom"}]
+bm.bt_adapters = lambda sysfs=None: [{"id": "hci0", "builtin": True, "vendor": "Broadcom"}]
 bm.run_bounded = lambda argv, **kw: dump if argv[0] == "upower" else bluez
 bm.upower_connection = lambda native, sysfs=None: "bluetooth" if bm.address_of(native) or native.startswith("/org/bluez/") else "usb"
 m.scan()
@@ -443,7 +442,7 @@ snap = m.snap
 eq([d["name"] for d in snap["devices"]], ["Apple Inc. Magic Keyboard", "Magic Keyboard", "Pömpel", "Pad"], "scan: UPower then new BlueZ devices")
 eq([d.get("address") for d in snap["devices"]][1:], ["B0:BE:83:F2:07:42", "E8:85:4B:18:75:5D", "11:22:33:44:55:66"],
    "scan: Bluetooth devices carry their address (the pane merges by it)")
-eq(snap["alert"], {"state": "critical", "kind": "keyboard", "name": "Magic Keyboard", "percent": 18}, "scan: alert = first critical (30/30)")
+eq(snap["alert"], {"state": "critical", "kind": "keyboard"}, "scan: alert = first critical (30/30)")
 eq(snap["devices"][1]["state"], "critical", "scan: 18 % ≤ critical 30")
 eq(snap["devices"][3]["adapter"], "hci0", "scan: Bluetooth devices name their adapter")
 eq("native" in snap["devices"][2], False, "scan: native paths stay internal")
@@ -550,7 +549,7 @@ def emulated():
   emu = Emulator(b)
   emu.start()
   node = bm.Node.__new__(bm.Node)
-  node.fd, node.events, node.short, node.sock = a.fileno(), [], True, a  # keep the socket object alive
+  node.fd, node.notice, node.short, node.sock = a.fileno(), False, True, a  # keep the socket object alive
   return node, emu
 
 
@@ -562,10 +561,10 @@ e2e.handle(json.dumps({"cmd": "options", "other_devices": False}))
 e2e.nodes["/dev/hidraw9"] = node
 e2e.scan()
 s = e2e.snap
-eq(s["receivers"], [{"id": "r-hidraw9", "family": "bolt", "name": "Bolt receiver", "node": "hidraw9", "max_devices": 6, "connected": 1,
-                     "devices": ["hidraw9-1"]}], "e2e: receiver, slot echo skips the other slot's reply")
+eq(s["receivers"], [{"id": "r-hidraw9", "family": "bolt", "max_devices": 6, "devices": ["hidraw9-1"]}],
+   "e2e: receiver, slot echo skips the other slot's reply")
 d = s["devices"][0]
-eq((d["id"], d["key"], d["name"], d["kind"], d["protocol"], d["connection"], d["slot"]),
+eq((d["id"], d["wpid"], d["name"], d["kind"], d["protocol"], d["connection"], d["slot"]),
    ("hidraw9-1", "4082", "MX Master 3", "mouse", 4.5, "bolt", 1), "e2e: device identity")
 eq((d["battery"]["percent"], d["dpi"]["value"], d["dpi"]["max"], d["smartshift"]["threshold"], d["wheel"]["hires"]),
    (55, 1600, 4000, 20, True), "e2e: battery, DPI, SmartShift, wheel read")
@@ -602,6 +601,27 @@ replug = {}
 e2e.node = lambda path, short=True: e2e.nodes.setdefault(path, replug.setdefault("node", emulated())[0])
 e2e.scan()
 eq(replug["node"][1].writes, [("dpi", 3200), ("smartshift", (1, 0))], "replug: remembered settings reapplied")
+
+# One wpid twice in one scan (a mouse on two receivers / Bolt + Bluetooth): the online copy must not reapply each scan.
+twin = bm.Monitor(out=io.StringIO(), state=str(tmp / "e2e.json"))
+twin.settings["other_devices"] = False
+twin.online = {"4082": True}
+asleep, awake = emulated(), emulated()
+asleep[1].online = False
+twin.nodes = {"/dev/hidraw10": asleep[0], "/dev/hidraw11": awake[0]}
+bm.discover = lambda sysfs=None: [dict(plugged()[0], node=n, path="/dev/" + n) for n in ("hidraw10", "hidraw11")]
+twin.scan()
+twin.scan()
+eq((awake[1].writes, twin.online), ([], {"4082": True}), "same wpid twice: no reapply while one copy stays online")
+
+# Denied direct node: UPower's kernel battery of the same device stands in (alerts work before "Allow access").
+bm.discover = lambda sysfs=None: [{"node": "hidraw6", "path": "/nonexistent/hidraw6", "bus": 5, "product": 0xB034, "family": None,
+                                   "name": "MX Master 3", "uniq": "aa:bb:cc:dd:ee:01", "short": False}]
+den = bm.Monitor(out=io.StringIO(), state=str(tmp / "den.json"))
+den.node = lambda path, short=True: (_ for _ in ()).throw(PermissionError(13, "denied"))
+den.scan()
+mx = [d for d in den.snap["devices"] if d["name"] == "MX Master 3"]
+eq((len(mx), mx[0]["denied"], mx[0]["battery"]["percent"], mx[0]["state"]), (1, True, 50, "ok"), "denied: kernel battery on the denied row, no duplicate")
 
 shutil.rmtree(tmp)
 

@@ -445,7 +445,8 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   It alone writes `~/.local/state/asahi/bluetooth-monitor.json` (thresholds 25/10 %, other devices, language,
   bar tooltip, HID++ settings per wpid — reapplied when a device seen gone (asleep, unplugged, out of range)
   answers again; a first sighting keeps its own, as upstream). Errors (`message_code` / `message_args`) last one
-  snapshot. While hidraw is denied, UPower's `hidpp_battery` rows (the kernel driver) stand in. No hiding of
+  snapshot. While hidraw is denied, UPower's `hidpp_battery` rows (the kernel driver) stand in, a denied direct node takes
+  the one with its name. No hiding of
   devices (dropped: little use, much UI). The pane merges BlueZ rows with monitor devices by address (one row per
   address), the rest are "USB & receivers" (40 rows per section); a UPower battery on a cable reads `usb` via
   sysfs (upstream: wireless). Receivers show 6 slots (upstream). Bar chip (upstream's batteryAlert): the first

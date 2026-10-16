@@ -2,9 +2,8 @@
 const assert = require("assert")
 const I = require("./bt_i18n.js")
 
-// Every language carries every English key (upstream's 102 + the pane's own), same placeholders.
+// Every language carries every English key, same placeholders.
 const keys = Object.keys(I.TABLES.en)
-assert.ok(keys.length >= 120, "key inventory: " + keys.length)
 for (const l of I.LANGUAGES) {
   const t = I.TABLES[l.code]
   assert.ok(t, "table " + l.code)

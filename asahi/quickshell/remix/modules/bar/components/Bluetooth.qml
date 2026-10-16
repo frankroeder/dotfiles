@@ -4,7 +4,7 @@ import Quickshell.Bluetooth
 import "../../../"
 import "../../../services" as Services
 
-// BlueZ adapter state (no polling). A visible peripheral at or below its alert threshold
+// BlueZ adapter state (no polling). An online peripheral at or below its alert threshold
 // (asahi-bluetooth-monitor, any connection) shows that device's glyph instead: orange low, red critical.
 // Click: Quick > Bluetooth; right-click: rescan now (upstream's refresh). Tooltip: upstream's battery list (pane setting).
 Item {

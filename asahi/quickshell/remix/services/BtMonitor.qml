@@ -9,7 +9,7 @@ import "bt_i18n.js" as I18n
 // Peripheral batteries and connection paths (asahi-bluetooth-monitor, port of
 // uBruckhaus/omarchy-bluetooth-monitor): one long-lived helper for the bar chip and the Bluetooth pane.
 // It rescans on UPower / HID++ events and our commands, else every 60 s (10 s while `paneOpen`), and owns
-// the hidden list, the alert thresholds and the remembered HID++ settings (single writer).
+// the alert thresholds, the options and the remembered HID++ settings (single writer).
 Singleton {
   id: root
 
@@ -31,7 +31,7 @@ Singleton {
   function refresh() { root.send({ cmd: "refresh" }) }
   function setValue(id, key, value) { root.send({ cmd: "set", device: id, key: key, value: value }) }
   function setThresholds(lowAt, criticalAt) { root.send({ cmd: "thresholds", low_at: lowAt, critical_at: criticalAt }) }
-  // {other_devices: bool} (UPower + BlueZ in the map / alerts) and / or {language: "auto" | code} (pane strings).
+  // {other_devices, bar_tooltip: bool} and / or {language: "auto" | code} (pane strings).
   function setOptions(opts) { root.send(Object.assign({ cmd: "options" }, opts)) }
   // pkexec (PolkitAgent prompts) installs the Logitech hidraw uaccess rule; the next scan opens the nodes.
   function allowAccess() { if (!accessProc.running) accessProc.running = true }

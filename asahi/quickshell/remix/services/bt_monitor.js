@@ -76,8 +76,9 @@ function connectionLabel(d, t) {
   return t("conn_" + (d.connection || "bluetooth")) + (d.slot ? " · " + t("slotN", [d.slot]) : "")
 }
 
+// The helper only reads features of online, allowed devices; a one-value DPI list has nothing to set.
 function hasSettings(d) {
-  return !!(d && d.online && !d.denied && ((d.dpi && d.dpi.max > 0) || d.smartshift || d.wheel || d.fnswap))
+  return !!(d && ((d.dpi && d.dpi.max > d.dpi.min) || d.smartshift || d.wheel || d.fnswap))
 }
 
 // Bar tooltip (upstream's): a title, then "● name  battery" per online device (⚡ = charging);
@@ -91,9 +92,8 @@ function tooltipText(snap, t) {
   for (var i = 0; i < devices.length; i++) {
     var d = devices[i]
     if (!d.online) continue
-    var b = d.battery
-    var text = b ? batteryText(b, t) + (b.charging ? " ⚡" : "") : t("noBattery")
-    lines.push("● " + (d.name || t("unnamed")) + "  " + text)
+    var text = batteryText(d.battery, t)
+    lines.push("● " + (d.name || t("unnamed")) + "  " + (text ? text + (d.battery.charging ? " ⚡" : "") : t("noBattery")))
   }
   return lines.join("\n")
 }
@@ -158,7 +158,7 @@ function mapLinks(snap) {
 
 // Pane rows: BlueZ rows (primitives built from Quickshell.Bluetooth) enriched by address with the monitor's
 // device (battery, kind, HID++ settings), then monitor devices BlueZ does not list (USB, receivers).
-// One row per address (two adapters list a device twice; the connected entry wins).
+// One row per address (two adapters list a device twice; connected, then paired wins).
 // Sections (keys): Connected / USB & receivers / Paired / Available (only while `showDiscovered`), 40 rows each.
 function paneRows(bluez, snap, showDiscovered) {
   var s = snap || {}
@@ -167,8 +167,10 @@ function paneRows(bluez, snap, showDiscovered) {
   var byAddr = {}, used = {}, seenAddr = {}
   mon.forEach(function(d) { if (d.address) byAddr[String(d.address).toUpperCase()] = d })
   var connected = [], wired = [], paired = [], discovered = []
-  var entries = (bluez || []).slice().sort(function(a, b) { return (b.connected ? 1 : 0) - (a.connected ? 1 : 0) })
+  var rank = function(b) { return (b.connected ? 2 : 0) + (b.paired ? 1 : 0) }
+  var entries = (bluez || []).slice().sort(function(a, b) { return rank(b) - rank(a) })
   entries.forEach(function(b) {
+    if (!b.connected && !b.paired && !showDiscovered) return
     var addr = String(b.address || "").toUpperCase()
     if (seenAddr[addr]) return
     seenAddr[addr] = true
@@ -177,20 +179,20 @@ function paneRows(bluez, snap, showDiscovered) {
     var battery = m && m.battery ? m.battery
       : (b.connected && b.batteryAvailable ? { percent: b.battery, charging: false } : null)
     var row = {
-      uid: addr, address: b.address || "", id: m ? m.id : "", label: b.label,
+      uid: addr, address: b.address || "", label: b.label,
       kind: m ? m.kind : kindOfIcon(b.icon), connected: !!b.connected, paired: !!b.paired, wired: false,
       mon: m, battery: battery, state: m && m.battery ? m.state : batteryState(battery, lowAt, criticalAt),
       pending: b.pending || "", section: ""
     }
     if (row.connected) connected.push(row)
     else if (row.paired) paired.push(row)
-    else if (showDiscovered) discovered.push(row)
+    else discovered.push(row)
   })
   mon.forEach(function(m) {
     if (used[m.id]) return
     if (m.connection === "bluetooth" && m.source === "bluez") return  // BlueZ rows cover these (or filtered them)
     wired.push({
-      uid: m.id, address: "", id: m.id, label: m.name, kind: m.kind, connected: !!m.online, paired: false,
+      uid: m.id, address: "", label: m.name, kind: m.kind, connected: !!m.online, paired: false,
       wired: true, mon: m, battery: m.battery || null, state: m.state || "ok", pending: "", section: ""
     })
   })
@@ -212,6 +214,6 @@ if (typeof module !== "undefined" && module.exports) {
     kindGlyph: kindGlyph, kindOfIcon: kindOfIcon, batteryGlyph: batteryGlyph, batteryText: batteryText, batteryState: batteryState,
     connectionLabel: connectionLabel, hasSettings: hasSettings, tooltipText: tooltipText, dpiFrac: dpiFrac, dpiAt: dpiAt,
     mapLinks: mapLinks, paneRows: paneRows,
-    GLYPH_BT: GLYPH_BT, GLYPH_BT_CONNECTED: GLYPH_BT_CONNECTED, GLYPH_LAPTOP: GLYPH_LAPTOP, GLYPH_USB: GLYPH_USB
+    GLYPH_BT: GLYPH_BT, GLYPH_BT_CONNECTED: GLYPH_BT_CONNECTED
   }
 }
