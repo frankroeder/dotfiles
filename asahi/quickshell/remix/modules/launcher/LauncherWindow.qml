@@ -2662,6 +2662,11 @@ Scope {
           return
         }
         if (!root.quickMode) return
+        // A pane may step back one layer on Backspace (Bluetooth: settings / open device); others ignore it.
+        if (event.key === Qt.Key_Backspace && qdl.item && qdl.item.handleBackspace && qdl.item.handleBackspace()) {
+          event.accepted = true
+          return
+        }
         const cols = root.quickGridCols
         const hjkl = {}
         hjkl[Qt.Key_H] = Qt.Key_Left

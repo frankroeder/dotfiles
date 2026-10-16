@@ -1,0 +1,896 @@
+#!/usr/bin/env python3
+"""Peripheral batteries and connection paths for the bar Bluetooth chip and the Bluetooth pane
+(port of uBruckhaus/omarchy-bluetooth-monitor, standard library only).
+
+Long-lived child of Quickshell (services/BtMonitor.qml): one JSON snapshot per line on stdout, one JSON
+command per line on stdin. Sources, the first one wins on a name / address clash:
+  Logitech HID++ over /dev/hidraw: receivers (Unifying / Bolt / Nano / Lightspeed slots) and wired or
+    Bluetooth devices: name, battery, DPI, SmartShift, wheel, Fn swap
+  `upower --dump`: every other peripheral battery
+  BlueZ GetManagedObjects (busctl): connected devices without a battery reading (AirPods)
+Rescans on `upower --monitor` output, HID++ connection notices and commands, else every 60 s (10 s while
+the pane is open). hidraw is root-only until `asahi-logitech-access` (pkexec, pane "Allow") adds the
+uaccess rule; denied nodes are listed with `denied`. This helper is the only writer of its state file
+(hidden keys, alert thresholds, remembered HID++ settings, reapplied when a device comes back).
+
+  asahi-bluetooth-monitor           run; stdin {"cmd": open | closed | refresh | set | hide | thresholds}
+  asahi-bluetooth-monitor --once    print one snapshot
+"""
+
+import itertools
+import json
+import os
+import re
+import select
+import signal
+import socket
+import subprocess
+import sys
+import time
+
+STATE = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "asahi/bluetooth-monitor.json")
+
+VENDOR = 0x046D
+SW_ID = 0x0E
+SHORT, LONG = 0x10, 0x11
+SHORT_LEN, LONG_LEN = 7, 20
+
+RECEIVERS = {
+  0xC52B: "unifying", 0xC532: "unifying", 0xC548: "bolt",
+  0xC52F: "nano", 0xC531: "nano", 0xC534: "nano", 0xC535: "nano", 0xC537: "nano",
+  0xC539: "lightspeed", 0xC53A: "lightspeed", 0xC53D: "lightspeed", 0xC53F: "lightspeed", 0xC541: "lightspeed",
+  0xC545: "lightspeed", 0xC547: "lightspeed",
+}
+RECEIVER_NAMES = {"unifying": "Unifying receiver", "bolt": "Bolt receiver", "nano": "Nano receiver", "lightspeed": "Lightspeed receiver"}
+
+# HID++ 2.0 features
+NAME, BATTERY, VOLTAGE, UNIFIED, HOSTS = 0x0005, 0x1000, 0x1001, 0x1004, 0x1815
+DPI, SMARTSHIFT, SMARTSHIFT2, WHEEL = 0x2201, 0x2110, 0x2111, 0x2121
+FN_FEATURES = (0x40A3, 0x40A2, 0x40A0)  # per host, new, legacy
+
+PAIR_KINDS = {1: "keyboard", 2: "mouse", 3: "numpad", 4: "presenter", 7: "remote", 8: "trackball", 9: "touchpad",
+              10: "tablet", 11: "gamepad", 12: "joystick", 13: "headset"}
+NAME_KINDS = (("keyboard", "keyboard"), ("trackball", "trackball"), ("mouse", "mouse"), ("trackpad", "touchpad"),
+              ("touchpad", "touchpad"), ("headset", "headset"), ("controller", "gamepad"), ("gamepad", "gamepad"))
+UPOWER_KINDS = {
+  "mouse": "mouse", "keyboard": "keyboard", "touchpad": "touchpad", "tablet": "tablet", "pen": "pen",
+  "gaming-input": "gamepad", "headset": "headset", "headphones": "headset", "speakers": "speaker", "other-audio": "speaker",
+  "remote-control": "remote", "phone": "phone", "media-player": "media", "wearable": "wearable", "toy": "toy",
+  "camera": "camera", "bluetooth-generic": "device", "printer": "device", "scanner": "device", "video": "device",
+  "modem": "device", "network": "device",
+}
+BLUEZ_KINDS = {
+  "audio-headphones": "headset", "audio-headset": "headset", "audio-card": "speaker", "input-keyboard": "keyboard",
+  "input-mouse": "mouse", "input-tablet": "tablet", "input-gaming": "gamepad", "phone": "phone",
+  "camera-video": "camera", "camera-photo": "camera", "multimedia-player": "media", "": "device",
+}
+# USB Bluetooth from internal Wi-Fi/BT card makers counts as built in; PCI vendors only name the chip.
+INTERNAL_BT_VENDORS = {0x8087: "Intel", 0x0E8D: "MediaTek", 0x13D3: "AzureWave", 0x0489: "Foxconn",
+                       0x0CF3: "Qualcomm Atheros", 0x04CA: "Lite-On", 0x105B: "Foxconn"}
+PCI_VENDORS = {0x14E4: "Broadcom", 0x8086: "Intel", 0x14C3: "MediaTek", 0x17CB: "Qualcomm"}
+
+VOLTAGE_CURVE = [(4186, 100), (4067, 90), (3989, 80), (3922, 70), (3859, 60), (3811, 50), (3778, 40), (3751, 30),
+                 (3717, 20), (3671, 10), (3646, 5), (3579, 2), (3500, 0)]
+
+MAX_EVENTS, DRAIN_BUDGET, MAX_NAME, MAX_DUMP, MAX_BLUEZ, MAX_HIDDEN = 256, 512, 64, 512 * 1024, 256, 500
+CLOSED_INTERVAL, OPEN_INTERVAL = 60, 10
+DIE_WITH_US = ["setpriv", "--pdeathsig", "TERM"]  # children die with this helper
+BUSCTL = ["busctl", "--system", "--json=short", "call", "org.bluez", "/", "org.freedesktop.DBus.ObjectManager", "GetManagedObjects"]
+
+
+class HidppError(Exception):
+  def __init__(self, code):
+    super().__init__(f"HID++ error 0x{code:02x}")
+    self.code = code
+
+
+class Timeout(Exception):
+  pass
+
+
+# ---- small helpers ----
+
+def clean(text, limit=MAX_NAME):
+  """Plain text for names: up to the first NUL, printable only, no markup characters."""
+  if isinstance(text, bytes):
+    text = text.split(b"\0", 1)[0].decode("utf-8", "replace")
+  return "".join(c for c in str(text) if c.isprintable() and c not in "<>&").strip()[:limit]
+
+
+def read_text(path, limit=4096):
+  try:
+    with open(path, "rb") as f:
+      return f.read(limit).decode("utf-8", "replace")
+  except OSError:
+    return ""
+
+
+def read_bytes(path, limit=4096):
+  try:
+    with open(path, "rb") as f:
+      return f.read(limit)
+  except OSError:
+    return b""
+
+
+def parse_uevent(text):
+  return dict(line.split("=", 1) for line in text.splitlines() if "=" in line)
+
+
+def kind_from_name(name):
+  n = name.lower()
+  return next((kind for word, kind in NAME_KINDS if word in n), "device")
+
+
+def level_for(pct):
+  if pct is None:
+    return "unknown"
+  return "critical" if pct <= 5 else "low" if pct <= 20 else "full" if pct >= 90 else "good"
+
+
+def voltage_percent(mv):
+  if mv >= VOLTAGE_CURVE[0][0]:
+    return 100
+  for (v1, p1), (v0, p0) in itertools.pairwise(VOLTAGE_CURVE):
+    if mv >= v0:
+      return round(p0 + (p1 - p0) * (mv - v0) / (v1 - v0))
+  return 0
+
+
+def parse_dpi_list(raw):
+  """0x2201 sensor DPI list: big-endian u16 values up to a 0; 0b111 in the top bits = step to the next value."""
+  out, i = [], 0
+  while i + 1 < len(raw) and len(out) < 2000:
+    v = raw[i] << 8 | raw[i + 1]
+    i += 2
+    if v == 0:
+      break
+    if v >> 13 == 0b111:
+      step = v & 0x1FFF
+      if not out or not step or i + 1 >= len(raw):
+        break
+      last = raw[i] << 8 | raw[i + 1]
+      i += 2
+      out.extend(range(out[-1] + step, last + 1, step))
+    else:
+      out.append(v)
+  return out[:2000]
+
+
+def dpi_range(choices):
+  if not choices:
+    return {"choices": []}
+  steps = {b - a for a, b in itertools.pairwise(choices)}
+  if len(steps) == 1:
+    return {"min": choices[0], "max": choices[-1], "step": steps.pop()}
+  return {"min": choices[0], "max": choices[-1], "step": 0, "choices": choices}
+
+
+def smartshift_state(wheel_mode, auto, enhanced):
+  if wheel_mode == 1:
+    return {"mode": "freespin", "enhanced": enhanced}
+  if auto in (0, 0xFF):
+    return {"mode": "ratchet", "enhanced": enhanced}
+  return {"mode": "smartshift", "threshold": auto, "enhanced": enhanced}
+
+
+def battery_state(battery, low_at, critical_at):
+  """ok / low / critical for the bar chip and the pane (both thresholds inclusive); charging is ok."""
+  if not battery or battery.get("charging"):
+    return "ok"
+  pct = battery.get("percent")
+  if pct is not None:
+    return "critical" if pct <= critical_at else "low" if pct <= low_at else "ok"
+  return {"critical": "critical", "empty": "critical", "low": "low"}.get(battery.get("level"), "ok")
+
+
+def battery_alert(devices):
+  """Upstream's batteryAlert: the first visible online device at the worst level; a mouse at that level takes over."""
+  rank = {"ok": 0, "low": 1, "critical": 2}
+  best = None
+  for d in devices:
+    if d.get("hidden") or not d.get("online") or not rank[d["state"]]:
+      continue
+    if best is None or rank[d["state"]] > rank[best["state"]] or (rank[d["state"]] == rank[best["state"]] and d["kind"] == "mouse"):
+      best = d
+  if best is None:
+    return {"state": "ok"}
+  return {"state": best["state"], "kind": best["kind"], "name": best["name"], "percent": best["battery"].get("percent")}
+
+
+def lowest_battery(devices):
+  shown = [d for d in devices if not d.get("hidden") and d.get("online") and (d.get("battery") or {}).get("percent") is not None]
+  if not shown:
+    return None
+  d = min(shown, key=lambda x: x["battery"]["percent"])
+  return {"name": d["name"], "percent": d["battery"]["percent"], "charging": bool(d["battery"].get("charging"))}
+
+
+def run_bounded(argv, timeout=3.0, limit=MAX_DUMP):
+  """stdout of a child under one deadline and byte cap (a wedged upower / busctl must not stall scans)."""
+  try:
+    p = subprocess.Popen(DIE_WITH_US + argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+  except OSError:
+    return ""
+  out, deadline = b"", time.monotonic() + timeout
+  while len(out) < limit and (left := deadline - time.monotonic()) > 0:
+    if not select.select([p.stdout], [], [], left)[0]:
+      break
+    chunk = os.read(p.stdout.fileno(), 65536)
+    if not chunk:
+      break
+    out += chunk
+  p.kill()
+  p.wait()
+  p.stdout.close()
+  return out[:limit].decode("utf-8", "replace")
+
+
+# ---- HID++ transport ----
+
+def is_hidpp(desc):
+  """Vendor usage page 0xFF00 plus the short (0x10) or long (0x11) HID++ report."""
+  return b"\x06\x00\xff" in desc and (b"\x85\x10" in desc or b"\x85\x11" in desc)
+
+
+def discover(sysfs="/sys/class/hidraw"):
+  """Logitech HID++ hidraw nodes; devices behind a receiver (DJ children) are reached through it."""
+  nodes = []
+  for name in sorted(os.listdir(sysfs)) if os.path.isdir(sysfs) else []:
+    dev = os.path.join(sysfs, name, "device")
+    ev = parse_uevent(read_text(os.path.join(dev, "uevent")))
+    try:
+      bus, vid, pid = (int(x, 16) for x in ev.get("HID_ID", "").split(":"))
+    except ValueError:
+      continue
+    parent = os.path.basename(os.path.dirname(os.path.realpath(dev)))
+    if vid != VENDOR or (parent.count(":") == 2 and "." in parent):
+      continue
+    if not is_hidpp(read_bytes(os.path.join(dev, "report_descriptor"))):
+      continue
+    nodes.append({"node": name, "path": "/dev/" + name, "bus": bus, "product": pid, "family": RECEIVERS.get(pid) if bus == 3 else None,
+                  "name": clean(ev.get("HID_NAME", "")), "uniq": ev.get("HID_UNIQ", "")})
+  return nodes
+
+
+class Node:
+  def __init__(self, path):
+    self.fd = os.open(path, os.O_RDWR | os.O_NONBLOCK | os.O_CLOEXEC)
+    self.events = []
+
+  def close(self):
+    os.close(self.fd)
+
+  def note(self, data):
+    if len(self.events) < MAX_EVENTS:
+      self.events.append(data)
+
+  def drain(self):
+    for _ in range(DRAIN_BUDGET):
+      try:
+        self.note(os.read(self.fd, 64))
+      except BlockingIOError:
+        return
+
+  def request(self, dev, b2, b3, params=b"", timeout=1.5, echo=None):
+    """One request, then wait for its reply (payload[0] == `echo` when given: register reads of another slot
+    do not count); other reports are kept as events. Returns the payload (byte 4 on)."""
+    self.drain()
+    params = bytes(params)
+    long = len(params) > 3
+    size = LONG_LEN if long else SHORT_LEN
+    os.write(self.fd, (bytes([LONG if long else SHORT, dev, b2, b3]) + params).ljust(size, b"\0")[:size])
+    deadline = time.monotonic() + timeout
+    while (left := deadline - time.monotonic()) > 0:
+      if not select.select([self.fd], [], [], left)[0]:
+        break
+      try:
+        data = os.read(self.fd, 64)
+      except BlockingIOError:
+        continue
+      if len(data) >= SHORT_LEN and data[0] in (SHORT, LONG) and data[1] in (dev, dev ^ 0xFF):
+        if data[2] in (0x8F, 0xFF) and data[3] == b2 and data[4] == b3:  # HID++ 1.0 / 2.0 error
+          raise HidppError(data[5])
+        if data[2] == b2 and data[3] == b3 and (echo is None or data[4] == echo):
+          return data[4:]
+      self.note(data)
+    raise Timeout()
+
+
+class Receiver:
+  def __init__(self, node, family):
+    self.node, self.family = node, family
+
+  def register(self, reg, params=b"", long=True):
+    params = bytes(params)
+    return self.node.request(0xFF, 0x83 if long else 0x81, reg, params.ljust(3, b"\0"), timeout=1.0, echo=params[0] if params else None)
+
+  def connected_count(self):
+    try:
+      return self.register(0x02, long=False)[1]
+    except (HidppError, Timeout):
+      return None
+
+  def paired(self):
+    """[(slot, wpid, kind, codename)] from the pairing register 0xB5."""
+    out = []
+    for slot in range(1, 7):
+      try:
+        if self.family == "bolt":
+          info = self.register(0xB5, [0x50 + slot])
+          kind, wpid = info[1] & 0x0F, info[2] | info[3] << 8
+          raw = self.register(0xB5, [0x60 + slot, 0x01])
+          name = raw[3:3 + min(raw[2], 14)]
+        else:
+          info = self.register(0xB5, [0x20 + slot - 1])
+          wpid, kind = info[3] << 8 | info[4], info[7] & 0x0F
+          raw = self.register(0xB5, [0x40 + slot - 1])
+          name = raw[2:2 + min(raw[1], 16)]
+      except (HidppError, Timeout):
+        continue
+      if wpid not in (0, 0xFFFF):
+        out.append((slot, wpid, PAIR_KINDS.get(kind, "device"), clean(bytes(name))))
+    return out
+
+
+class Device:
+  """HID++ 2.0 device at `index` (receiver slot, 0xFF when attached directly) with a feature-index cache."""
+
+  def __init__(self, node, index):
+    self.node, self.index, self.features = node, index, {}
+
+  def ping(self):
+    try:
+      r = self.node.request(self.index, 0x00, 0x10 | SW_ID, [0, 0, int(time.monotonic() * 1000) & 0xFF], timeout=2.0)
+      return r[0] + r[1] / 10
+    except HidppError as e:
+      return 1.0 if e.code == 0x01 else None  # 0x01 invalid sub-ID: a HID++ 1.0 device
+    except Timeout:
+      return None
+
+  def feature(self, fid):
+    if fid not in self.features:
+      try:
+        idx = self.node.request(self.index, 0x00, SW_ID, [fid >> 8, fid & 0xFF, 0], timeout=2.0)[0]
+      except HidppError:
+        idx = 0
+      self.features[fid] = idx or None
+    return self.features[fid]
+
+  def has(self, fid):
+    return self.feature(fid) is not None
+
+  def call(self, fid, fn, params=b""):
+    idx = self.feature(fid)
+    if idx is None:
+      raise HidppError(0x02)
+    return self.node.request(self.index, idx, fn << 4 | SW_ID, params, timeout=2.0)
+
+  def name(self):
+    if not self.has(NAME):
+      return None
+    n, out = self.call(NAME, 0)[0], b""
+    while len(out) < min(n, MAX_NAME):
+      chunk = self.call(NAME, 1, [len(out)])
+      if not chunk.strip(b"\0"):
+        break
+      out += chunk
+    return clean(out[:n])
+
+  def battery(self):
+    if self.has(UNIFIED):
+      r = self.call(UNIFIED, 1)
+      return {"percent": r[0] or None, "level": {8: "full", 4: "good", 2: "low", 1: "critical"}.get(r[1], "empty"),
+              "status": {0: "discharging", 1: "charging", 2: "charging", 3: "full", 4: "error"}.get(r[2], "unknown"),
+              "charging": r[2] in (1, 2), "external_power": bool(r[3])}
+    if self.has(BATTERY):
+      r = self.call(BATTERY, 0)
+      status = {0: "discharging", 1: "charging", 2: "charging", 3: "full", 4: "charging", 5: "error", 6: "error"}.get(r[2], "unknown")
+      return {"percent": r[0], "level": level_for(r[0]), "status": status, "charging": r[2] in (1, 2, 4), "external_power": r[2] in (1, 2, 3, 4)}
+    if self.has(VOLTAGE):
+      r = self.call(VOLTAGE, 0)
+      mv, charging = r[0] << 8 | r[1], bool(r[2] & 0x80)
+      full = charging and r[2] & 0x03 == 0x01
+      pct = 100 if full else voltage_percent(mv)
+      return {"percent": pct, "level": level_for(pct), "status": "full" if full else "charging" if charging else "discharging",
+              "charging": charging and not full, "external_power": charging, "voltage": mv}
+    return None
+
+  def dpi(self):
+    if not self.has(DPI):
+      return None
+    choices = parse_dpi_list(self.call(DPI, 1, [0])[1:])
+    r = self.call(DPI, 2, [0])
+    value, default = r[1] << 8 | r[2], r[3] << 8 | r[4]
+    return dict(dpi_range(choices), value=value or default, default=default)
+
+  def smartshift(self):
+    for fid, fn, enhanced in ((SMARTSHIFT2, 1, True), (SMARTSHIFT, 0, False)):
+      if self.has(fid):
+        r = self.call(fid, fn)
+        return smartshift_state(r[0], r[1], enhanced)
+    return None
+
+  def wheel(self):
+    if not self.has(WHEEL):
+      return None
+    m = self.call(WHEEL, 1)[0]
+    return {"invert": bool(m & 0x04), "hires": bool(m & 0x02), "raw": m}
+
+  def fn_feature(self):
+    return next((f for f in FN_FEATURES if self.has(f)), None)
+
+  def host(self):
+    try:
+      return self.call(HOSTS, 0)[3]
+    except (HidppError, Timeout):
+      return 0xFF
+
+  def fnswap(self):
+    f = self.fn_feature()
+    if f is None:
+      return None
+    if f == 0x40A3:
+      return {"on": bool(self.call(f, 0, [self.host()])[1] & 1)}
+    return {"on": bool(self.call(f, 0)[0] & 1)}
+
+  def set_dpi(self, value):
+    self.call(DPI, 3, [0, value >> 8 & 0xFF, value & 0xFF])
+
+  def set_smartshift(self, mode, threshold=10):
+    if mode not in ("smartshift", "ratchet", "freespin"):
+      raise ValueError(mode)
+    auto = 0xFF if mode == "ratchet" else max(1, min(50, int(threshold))) if mode == "smartshift" else 0
+    fid, fn = (SMARTSHIFT2, 2) if self.has(SMARTSHIFT2) else (SMARTSHIFT, 1)
+    self.call(fid, fn, [1 if mode == "freespin" else 2, auto, 0])
+
+  def set_wheel_bit(self, bit, on):
+    m = self.call(WHEEL, 1)[0]
+    self.call(WHEEL, 2, [m | bit if on else m & ~bit])
+
+  def set_fnswap(self, on):
+    f = self.fn_feature()
+    if f is None:
+      raise HidppError(0x02)
+    self.call(f, 1, [self.host(), int(on)] if f == 0x40A3 else [int(on)])
+
+
+# ---- Bluetooth adapters, UPower, BlueZ ----
+
+def strip_corp(name):
+  for suffix in (" Inc.", " Inc", " Corp.", " Corporation", " Co., Ltd.", ", Inc."):
+    name = name.removesuffix(suffix)
+  return name
+
+
+def bt_adapters(sysfs="/sys/class/bluetooth"):
+  """Built in = not on USB, a fixed USB port, or an internal Wi-Fi/BT card maker; else a USB stick."""
+  out = []
+  for name in sorted(os.listdir(sysfs)) if os.path.isdir(sysfs) else []:
+    if ":" in name:  # hci0:11 = a connection
+      continue
+    dev = os.path.realpath(os.path.join(sysfs, name, "device"))
+    usb = os.path.dirname(dev)
+    vid = read_text(os.path.join(usb, "idVendor")).strip()
+    if vid:
+      v = int(vid, 16)
+      vendor = INTERNAL_BT_VENDORS.get(v) or strip_corp(clean(read_text(os.path.join(usb, "manufacturer")), 40))
+      builtin = read_text(os.path.join(usb, "removable")).strip() == "fixed" or v in INTERNAL_BT_VENDORS
+      out.append({"id": name, "builtin": builtin, "bus": "usb", "vendor": vendor})
+    else:
+      pv = read_text(os.path.join(dev, "vendor")).strip()
+      vendor = PCI_VENDORS.get(int(pv, 16), "") if pv.startswith("0x") else ""
+      out.append({"id": name, "builtin": True, "bus": "pci" if "/pci" in dev else "other", "vendor": vendor})
+  return out
+
+
+def address_of(native):
+  """MAC from a BlueZ object path (/org/bluez/hci0/dev_AA_BB_…) or a kernel HID battery (hid-aa:bb:…-battery)."""
+  m = re.search(r"dev_((?:[0-9A-Fa-f]{2}_){5}[0-9A-Fa-f]{2})", native) or re.search(r"((?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2})", native)
+  return m.group(1).replace("_", ":").upper() if m else ""
+
+
+def upower_connection(native, sysfs="/sys/class/power_supply"):
+  if native.startswith("/org/bluez/") or "bluez" in native or address_of(native):
+    return "bluetooth"
+  real = os.path.realpath(os.path.join(sysfs, native, "device")) if native and "/" not in native else ""
+  return "bluetooth" if "/bluetooth/" in real else "usb" if "/usb" in real else "wireless"
+
+
+def parse_upower(text, sysfs="/sys/class/power_supply"):
+  out = []
+  for block in ("\n" + text.split("\nDaemon:", 1)[0]).split("\nDevice: ")[1:]:
+    lines = block.splitlines()
+    path = lines[0].strip()
+    if not path.startswith("/org/freedesktop/UPower/devices/") or path.endswith("/DisplayDevice"):
+      continue
+    f, kind = {}, None
+    for line in lines[1:]:
+      s = line.strip()
+      if ":" in s:
+        k, v = s.split(":", 1)
+        f.setdefault(k.strip(), v.strip())
+      elif kind is None and re.fullmatch(r"[a-z][a-z-]*", s):
+        kind = s
+    native = f.get("native-path", "")
+    if kind not in UPOWER_KINDS or f.get("present", "yes") != "yes" or native.startswith("hidpp_battery"):  # HID++ covers those
+      continue
+    m = re.match(r"\d+", f.get("percentage", ""))
+    pct = max(0, min(100, int(m.group()))) if m else None
+    coarse = {"critical": "critical", "low": "low", "normal": "good", "high": "good", "full": "full"}.get(f.get("battery-level", ""))
+    state = f.get("state", "")
+    if (pct is None and not coarse) or (pct == 0 and not coarse and state in ("", "unknown")):
+      continue
+    charging = state in ("charging", "pending-charge")
+    addr = address_of(native)
+    d = {"id": "up-" + path.rsplit("/", 1)[-1], "key": "up:" + (f.get("serial") or native or path)[:120], "kind": UPOWER_KINDS[kind],
+         "name": clean(f.get("model") or f.get("vendor") or UPOWER_KINDS[kind].capitalize()), "online": True,
+         "battery": {"percent": (pct or None) if coarse else pct, "level": coarse or level_for(pct),
+                     "status": "full" if state == "fully-charged" else "charging" if charging else "discharging",
+                     "charging": charging, "external_power": charging or state == "fully-charged"},
+         "receiver": None, "slot": None, "connection": upower_connection(native, sysfs), "source": "upower", "native": native[:120]}
+    if addr:
+      d["address"] = addr
+    out.append(d)
+  return out
+
+
+def parse_bluez(text):
+  """Paired + connected BlueZ devices (Battery1 percentage when BlueZ has one)."""
+  try:
+    objs = json.loads(text)["data"][0]
+  except (ValueError, KeyError, IndexError, TypeError):
+    return []
+  out = []
+  for path in sorted(objs)[:MAX_BLUEZ] if isinstance(objs, dict) else []:
+    ifaces = objs[path] if isinstance(objs[path], dict) else {}
+    p = {k: v.get("data") for k, v in (ifaces.get("org.bluez.Device1") or {}).items() if isinstance(v, dict)}
+    if p.get("Paired") is not True or p.get("Connected") is not True:
+      continue
+    kind = BLUEZ_KINDS.get(str(p.get("Icon") or ""))
+    addr = str(p.get("Address") or "").upper()
+    name = clean(p.get("Alias") or p.get("Name") or "")
+    if kind is None or not addr or not name:
+      continue
+    pct = ((ifaces.get("org.bluez.Battery1") or {}).get("Percentage") or {}).get("data")
+    battery = {"percent": pct, "level": level_for(pct), "status": "discharging", "charging": False, "external_power": False} \
+      if isinstance(pct, int) else None
+    out.append({"id": "bt-" + addr.replace(":", ""), "key": "bt:" + addr, "address": addr, "kind": kind, "name": name, "online": True,
+                "battery": battery, "receiver": None, "slot": None, "connection": "bluetooth", "source": "bluez", "native": path[:120]})
+  return out
+
+
+def merge(devices, extra):
+  """Append `extra` entries whose name, address or native path is not already known (first source wins)."""
+  names = {d["name"].casefold() for d in devices}
+  addrs = {d["address"] for d in devices if d.get("address")}
+  natives = {d["native"] for d in devices if d.get("native")}
+  for d in extra:
+    if d["name"].casefold() in names or d.get("address") in addrs or d.get("native") in natives:
+      continue
+    devices.append(d)
+    names.add(d["name"].casefold())
+    if d.get("address"):
+      addrs.add(d["address"])
+  return devices
+
+
+def adapter_of(d, adapters):
+  m = re.match(r"/org/bluez/(hci\d+)/", d.get("native", ""))
+  return m.group(1) if m else adapters[0]["id"] if adapters else None
+
+
+# ---- state file (hidden keys, thresholds, remembered HID++ settings) ----
+
+def load_settings(path=STATE):
+  s = {"hidden": [], "low_at": 25, "critical_at": 10, "other_devices": True, "language": "auto", "bar_tooltip": True, "devices": {}}
+  try:
+    with open(path) as f:
+      raw = json.loads(f.read(256 * 1024))
+  except (OSError, ValueError):
+    return s
+  if isinstance(raw, dict):
+    s.update({k: raw[k] for k in s if isinstance(raw.get(k), type(s[k]))})
+  return s
+
+
+def save_settings(s, path=STATE):
+  os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
+  tmp = path + ".tmp"
+  with open(tmp, "w") as f:
+    json.dump(s, f, indent=2, sort_keys=True)
+  os.replace(tmp, path)
+
+
+# ---- monitor ----
+
+class Monitor:
+  def __init__(self, out=sys.stdout, state=STATE):
+    self.out, self.state = out, state
+    self.nodes = {}   # hidraw path -> Node
+    self.devs = {}    # (path, index, wpid) -> Device
+    self.online = {}  # device id -> online at the last scan (reapply when it comes back)
+    self.by_id = {}   # device id -> (Device, settings key)
+    self.settings = load_settings(state)
+    self.opened = False
+    self.message = ("", [])  # (code, args) for the pane's bt_i18n: errNotConnected, errChange
+    self.snap = {}
+
+  def node(self, path):
+    if path not in self.nodes:
+      self.nodes[path] = Node(path)
+    return self.nodes[path]
+
+  def drop(self, path):
+    node = self.nodes.pop(path, None)
+    if node:
+      node.close()
+    self.devs = {k: v for k, v in self.devs.items() if k[0] != path}
+
+  def device(self, path, index, wpid):
+    key = (path, index, wpid)
+    if key not in self.devs:
+      self.devs[key] = Device(self.node(path), index)
+    return self.devs[key]
+
+  def read_device(self, dev, did, wpid):
+    skey = f"{wpid:04x}"
+    proto = dev.ping()
+    d = {"id": did, "key": skey, "wpid": skey, "online": proto is not None, "battery": None}
+    came_back = d["online"] and self.online.get(did) is False
+    self.online[did] = d["online"]
+    if proto is None:
+      return d
+    d["protocol"] = proto
+    self.by_id[did] = (dev, skey)
+    if proto < 2:  # HID++ 1.0: no feature table
+      return d
+    if came_back:
+      self.reapply(dev, skey)
+    for field in ("name", "battery", "dpi", "smartshift", "wheel", "fnswap"):
+      try:
+        v = getattr(dev, field)()
+      except (HidppError, Timeout):
+        continue
+      if v is not None:
+        d[field] = v
+    return d
+
+  def scan_hidpp(self):
+    devices, receivers, denied = [], [], []
+    live = set()
+    for n in discover():
+      live.add(n["path"])
+      conn = "bluetooth" if n["bus"] == 5 else "usb"
+      try:
+        node = self.node(n["path"])
+      except PermissionError:
+        denied.append(n["node"])
+        if n["family"]:
+          receivers.append({"id": "r-" + n["node"], "family": n["family"], "name": RECEIVER_NAMES[n["family"]], "node": n["node"],
+                            "max_devices": 6, "connected": None, "devices": [], "denied": True})
+        else:
+          devices.append({"id": n["node"] + "-direct", "key": f"{n['product']:04x}", "kind": kind_from_name(n["name"]), "name": n["name"],
+                          "online": True, "battery": None, "receiver": None, "slot": None, "connection": conn, "denied": True})
+        continue
+      except OSError:
+        continue
+      try:
+        if n["family"]:
+          rcv, rid, ids = Receiver(node, n["family"]), "r-" + n["node"], []
+          slots = rcv.paired()
+          for slot, wpid, kind, codename in slots:
+            d = self.read_device(self.device(n["path"], slot, wpid), f"{n['node']}-{slot}", wpid)
+            d.update(kind=kind, name=d.get("name") or codename or kind.capitalize(), receiver=rid, slot=slot, connection=n["family"])
+            devices.append(d)
+            ids.append(d["id"])
+          receivers.append({"id": rid, "family": n["family"], "name": RECEIVER_NAMES[n["family"]], "node": n["node"],
+                            "max_devices": 6, "connected": rcv.connected_count(), "devices": ids})
+        else:
+          d = self.read_device(self.device(n["path"], 0xFF, n["product"]), n["node"] + "-direct", n["product"])
+          d.update(kind=kind_from_name(n["name"]), name=d.get("name") or n["name"], receiver=None, slot=None, connection=conn)
+          if conn == "bluetooth" and n["uniq"]:
+            d["address"] = n["uniq"].upper()
+          devices.append(d)
+      except OSError:  # unplugged mid-scan
+        self.drop(n["path"])
+    for path in set(self.nodes) - live:
+      self.drop(path)
+    for node in self.nodes.values():  # notices seen while scanning are covered by this scan
+      node.events = []
+    return devices, receivers, denied
+
+  def scan(self):
+    self.by_id = {}
+    try:
+      devices, receivers, denied = self.scan_hidpp()
+      if self.settings["other_devices"]:
+        merge(devices, parse_upower(run_bounded(["upower", "--dump"])))
+        merge(devices, parse_bluez(run_bounded(BUSCTL)))
+      adapters, error = bt_adapters(), ""
+    except (OSError, ValueError, KeyError, IndexError, TypeError) as e:  # one bad parse must not kill the bar's data source
+      devices, receivers, denied, adapters, error = [], [], [], [], str(e)[:200]
+    s = self.settings
+    hidden = set(s["hidden"])
+    for d in devices:
+      if d.get("address"):
+        d["key"] = "bt:" + d["address"]  # one key per Bluetooth device: the pane hides BlueZ rows by address
+      d["hidden"] = d["key"] in hidden
+      d["state"] = battery_state(d.get("battery"), s["low_at"], s["critical_at"])
+      if d["connection"] == "bluetooth":
+        d["adapter"] = adapter_of(d, adapters)
+      d.pop("native", None)
+    # error / permission (only denied Logitech nodes) / none / ok
+    only_denied = denied and all(d.get("denied") for d in devices) and all(r.get("denied") for r in receivers)
+    phase = "error" if error else "permission" if only_denied else "none" if not devices and not receivers else "ok"
+    self.snap = {"devices": devices, "receivers": receivers, "adapters": adapters, "denied": denied,
+                 "alert": battery_alert(devices), "lowest": lowest_battery(devices), "hidden": sorted(hidden),
+                 "low_at": s["low_at"], "critical_at": s["critical_at"], "host": socket.gethostname()[:40],
+                 "other_devices": s["other_devices"], "language": s["language"], "bar_tooltip": s["bar_tooltip"], "phase": phase,
+                 "message_code": self.message[0], "message_args": self.message[1], "error": error, "updated": int(time.time())}
+
+  def emit(self):
+    self.out.write(json.dumps(self.snap, ensure_ascii=False) + "\n")
+    self.out.flush()
+
+  def reapply(self, dev, skey):
+    s = self.settings["devices"].get(skey, {})
+    for key in ("dpi", "smartshift", "invert", "hires", "fnswap"):
+      if key in s:
+        try:
+          self.apply(dev, key, s[key], s)
+        except (HidppError, Timeout, ValueError, TypeError):
+          pass
+
+  def apply(self, dev, key, value, stored):
+    if key == "dpi":
+      dev.set_dpi(int(value))
+    elif key == "smartshift":
+      dev.set_smartshift(str(value), stored.get("threshold", 10))
+    elif key == "threshold":
+      dev.set_smartshift("smartshift", value)
+    elif key in ("invert", "hires"):
+      dev.set_wheel_bit(0x04 if key == "invert" else 0x02, bool(value))
+    elif key == "fnswap":
+      dev.set_fnswap(bool(value))
+    else:
+      raise ValueError(f"unknown setting {key}")
+
+  def set(self, did, key, value):
+    if did not in self.by_id:
+      self.message = ("errNotConnected", [])
+      return
+    dev, skey = self.by_id[did]
+    stored = self.settings["devices"].setdefault(skey, {})
+    try:
+      if key == "threshold":
+        value = max(1, min(50, int(value)))
+      self.apply(dev, key, value, stored)
+    except (HidppError, Timeout, ValueError, TypeError, OSError) as e:
+      self.message = ("errChange", [f"{key}: {e}"[:80]])
+      return
+    if key == "threshold":
+      stored.update(threshold=value, smartshift="smartshift")
+    else:
+      stored[key] = value
+    save_settings(self.settings, self.state)
+    self.message = ("", [])
+
+  def hide(self, key, on):
+    hidden = set(self.settings["hidden"])
+    (hidden.add if on else hidden.discard)(key)
+    self.settings["hidden"] = sorted(hidden)[:MAX_HIDDEN]
+    save_settings(self.settings, self.state)
+
+  def thresholds(self, low_at, critical_at):
+    low = max(5, min(60, int(low_at)))
+    self.settings.update(low_at=low, critical_at=max(1, min(low, int(critical_at))))
+    save_settings(self.settings, self.state)
+
+  def options(self, c):
+    if "other_devices" in c:
+      self.settings["other_devices"] = bool(c["other_devices"])
+    if "bar_tooltip" in c:
+      self.settings["bar_tooltip"] = bool(c["bar_tooltip"])
+    if isinstance(c.get("language"), str):
+      self.settings["language"] = c["language"][:8]
+    save_settings(self.settings, self.state)
+
+  def handle(self, line):
+    """One stdin command; True when a rescan should follow."""
+    try:
+      c = json.loads(line)
+    except ValueError:
+      return False
+    if not isinstance(c, dict):
+      return False
+    cmd = c.get("cmd")
+    if cmd == "open":
+      self.opened = True
+    elif cmd == "closed":
+      self.opened = False
+      return False
+    elif cmd == "set":
+      self.set(str(c.get("device", "")), str(c.get("key", "")), c.get("value"))
+    elif cmd == "hide" and c.get("key"):
+      self.hide(str(c["key"])[:160], bool(c.get("on")))
+    elif cmd == "options":
+      self.options(c)
+    elif cmd == "thresholds":
+      try:
+        self.thresholds(c.get("low_at"), c.get("critical_at"))
+      except (TypeError, ValueError):
+        return False
+    return True
+
+  def wants_refresh(self):
+    """Drain every node; a HID++ 1.0 connection notice (sub-ID 0x41) means a device came or went."""
+    hit = False
+    for node in self.nodes.values():
+      node.drain()
+      hit = hit or any(len(e) >= 3 and e[0] in (SHORT, LONG) and e[2] == 0x41 for e in node.events)
+      node.events = []
+    return hit
+
+  def run(self, stdin):
+    try:
+      watch = subprocess.Popen(DIE_WITH_US + ["upower", "--monitor"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    except OSError:
+      watch = None
+    try:
+      self.loop(stdin, watch)
+    finally:
+      if watch:
+        watch.kill()
+
+  def loop(self, stdin, watch):
+    next_scan, buf = 0.0, b""
+    while True:
+      if time.monotonic() >= next_scan:
+        self.scan()
+        self.emit()
+        next_scan = time.monotonic() + (OPEN_INTERVAL if self.opened else CLOSED_INTERVAL)
+      fds = [stdin] + ([watch.stdout] if watch else []) + [n.fd for n in self.nodes.values()]
+      try:
+        ready = select.select(fds, [], [], max(0.1, next_scan - time.monotonic()))[0]
+      except (OSError, ValueError):
+        for path in list(self.nodes):
+          self.drop(path)
+        continue
+      soon = time.monotonic() + 1
+      for fd in ready:
+        if fd is stdin:
+          data = os.read(stdin.fileno(), 65536)
+          if not data:  # Quickshell went away
+            return
+          *lines, buf = (buf + data).split(b"\n")
+          buf = buf[-65536:]
+          wants = [self.handle(line) for line in lines]  # every command, no short-circuit
+          if any(wants):
+            next_scan = min(next_scan, time.monotonic() + 0.05)
+        elif watch and fd is watch.stdout:
+          if os.read(watch.stdout.fileno(), 65536):
+            next_scan = min(next_scan, soon)
+          else:  # upower --monitor ended: the timer remains
+            watch.wait()
+            watch = None
+        elif self.wants_refresh():
+          next_scan = min(next_scan, soon)
+          break  # every node was drained
+
+
+def main():
+  signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+  m = Monitor()
+  if "--once" in sys.argv[1:]:
+    m.scan()
+    m.emit()
+    return
+  try:
+    m.run(sys.stdin.buffer)
+  except BrokenPipeError:
+    pass
+
+
+if __name__ == "__main__":
+  main()

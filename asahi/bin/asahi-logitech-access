@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Grant the seat user Logitech hidraw access (Bluetooth pane "Allow" → pkexec): installs
+# 42-asahi-logitech-hidraw.rules and re-applies it to the Logitech hidraw nodes only.
+# Revoke: sudo rm /etc/udev/rules.d/42-asahi-logitech-hidraw.rules && sudo udevadm control --reload-rules
+#   && sudo udevadm trigger --action=change --subsystem-match=hidraw
+set -euo pipefail
+
+rules="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../udev/42-asahi-logitech-hidraw.rules"
+install -m 0644 "$rules" /etc/udev/rules.d/42-asahi-logitech-hidraw.rules
+udevadm control --reload-rules
+for node in /sys/class/hidraw/hidraw*; do
+  if grep -qi '^HID_ID=000[35]:0000046D:' "$node/device/uevent" 2>/dev/null; then
+    udevadm trigger --action=change "$node"
+  fi
+done
+udevadm settle --timeout=5 || true

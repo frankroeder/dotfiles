@@ -1,0 +1,9 @@
+# Logitech HID++ for asahi-bluetooth-monitor (battery, DPI, SmartShift, wheel, Fn swap): hidraw of USB
+# devices / receivers with vendor 046d and of Logitech Bluetooth devices, for the user at the seat only
+# (uaccess) — the scope of Solaar's rule. Installed by asahi-logitech-access (Bluetooth pane, pkexec).
+# Before 73-seat-late.rules, which turns the tag into the ACL.
+ACTION=="remove", GOTO="asahi_logitech_end"
+SUBSYSTEM!="hidraw", GOTO="asahi_logitech_end"
+ATTRS{idVendor}=="046d", TAG+="uaccess"
+KERNELS=="0005:046D:*", TAG+="uaccess"
+LABEL="asahi_logitech_end"
