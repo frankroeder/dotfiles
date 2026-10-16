@@ -6,6 +6,9 @@ import Quickshell.Io
 import "../../menu" as Menu
 import "../../../"
 import "../quick_models.js" as QuickModels
+// Qualified on purpose: shell.qml loads the launcher by Loader source, so qs never scans this directory and a bare
+// sibling type (LanDevices) is "not a type" in the live shell (an offscreen file: harness hides that).
+import "." as Panes
 
 // Network pane: Wi-Fi / LAN / VPN state and controls, network list, tools.
 // `root` is the LauncherWindow (fontPx, uiFont/uiSans, launcherGeom, quickMode, quickPaneKey, binDir, ...).
@@ -32,7 +35,6 @@ Item {
   property string ethConnection: ""
   property bool ethConnected: false
   property var ethDevices: []
-  property var activeConnections: []
   property bool showPasswordPrompt: false
   property string pendingSsid: ""
   property string passwordError: ""
@@ -69,6 +71,37 @@ Item {
   property string statsDevice: ""
   property var routerPings: []
   property var netPings: []
+
+  // Devices on this LAN (asahi-lan watch, idea: uBruckhaus/omarchy-wlan-monitor): one collector while the Devices tab is
+  // shown (it pings a trusted network once on start, never in the background), a JSON line per change; edits (trust,
+  // rename, pin, grouping) go back as JSON lines on its stdin.
+  property string netTab: "networks"  // networks | devices
+  // The last tab survives closing the pane (the grouping already lives in lan.json).
+  FileView {
+    id: tabFile
+    path: Quickshell.env("HOME") + "/.local/state/asahi/network-tab"
+    blockLoading: true
+    printErrors: false
+    onLoaded: {
+      const t = tabFile.text().trim()
+      if (t === "devices") quickNetworkRoot.netTab = t
+    }
+  }
+  onNetTabChanged: if (tabFile.text().trim() !== netTab) tabFile.setText(netTab)
+  property var lan: ({})
+  function lanCmd(cmd) {
+    if (lanProc.running) lanProc.write((typeof cmd === "string" ? cmd : JSON.stringify(cmd)) + "\n")
+  }
+  // Launcher Esc: the Devices layers (rename, open row, search) first.
+  function handleEscape() { return quickNetworkRoot.netTab === "devices" && lanDevices.handleEscape() }
+  Process {
+    id: lanProc
+    // pdeathsig: the collector (it shares port 5353 with avahi) dies with qs.
+    command: ["setpriv", "--pdeathsig", "TERM", root.binDir + "/asahi-lan", "watch"]
+    running: quickNetworkRoot.live && quickNetworkRoot.netTab === "devices"
+    stdinEnabled: true
+    stdout: SplitParser { onRead: line => quickNetworkRoot.lan = JSON.parse(line) }
+  }
 
   function pingAvg(samples) {
     let total = 0, count = 0
@@ -374,7 +407,6 @@ Item {
     wifiProc.running = true
     wifiPowerCheck.running = true
     ethCheck.running = true
-    activeConnProc.running = true
     savedWifiProc.running = true
     quickNetworkRoot.refreshVpn()
   }
@@ -486,23 +518,6 @@ Item {
         const profiles = quickNetworkRoot.vpnProfiles || []
         for (let i = 0; i < profiles.length; i++) names[profiles[i].name] = true
         quickNetworkRoot.vpnExternal = QuickModels.parseExternalTunnels(text || "", names)
-      }
-    }
-  }
-  Process {
-    id: activeConnProc
-    command: ["nmcli", "-t", "-f", "TYPE,NAME,DEVICE", "connection", "show", "--active"]
-    stdout: StdioCollector {
-      onStreamFinished: {
-        const lines = (text || "").trim().split("\n").filter(function(l) { return l.length > 0 })
-        const out = []
-        for (let i = 0; i < lines.length; i++) {
-          const p = QuickModels.nmcliFields(lines[i])
-          // lo is always "active" in NM — noise, not a connection.
-          if (p.length >= 3 && p[0] !== "loopback")
-            out.push({ type: p[0] === "802-11-wireless" ? "wifi" : (p[0] === "802-3-ethernet" ? "ethernet" : p[0]), name: p[1] || "", device: p[2] || "" })
-        }
-        quickNetworkRoot.activeConnections = out
       }
     }
   }
@@ -718,11 +733,14 @@ Item {
   readonly property var activeNet: (quickNetworkRoot.wifiNetworks || []).find(function(n) { return n.active }) || null
   readonly property var signalGlyphs: ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"]
   function signalGlyph(pct) { return quickNetworkRoot.signalGlyphs[Math.max(0, Math.min(4, Math.ceil(pct / 20) - 1))] }
-  // asahi-network tooltip lines minus the SSID + signal (both shown in the title row).
+  // asahi-network tooltip lines minus the SSID + signal (title row) and the VPN (VPN card).
   // Blank rows before the first answer hold the grid's usual height.
   readonly property var wifiFacts: !quickNetworkRoot.wifiChecked ? [" ", " ", " ", " ", " "]
     : (quickNetworkRoot.wifiTooltip || "").split("\n")
-      .filter(function(l) { return l.trim() && !/^(Connected to|Signal:)/.test(l) })
+      .filter(function(l) { return l.trim() && !/^(Connected to|Signal:|VPN:)/.test(l) })
+  // The live tunnel, NM profile or not (the Proton app's WireGuard connection is an "external" one): "ProtonVPN DE#609 · up 3m".
+  readonly property bool vpnUp: !!QuickModels.activeNmProfile(quickNetworkRoot.vpnProfiles) || (quickNetworkRoot.vpnExternal || []).length > 0
+  readonly property string vpnLine: ((quickNetworkRoot.wifiTooltip || "").match(/^VPN: (.+)$/m) || ["", ""])[1].replace(" (external tunnel)", "")
 
   component Card: Rectangle {
     radius: Style.menuRadiusLg
@@ -897,21 +915,6 @@ Item {
               || ((quickNetworkRoot.ethDevices || []).length > 1 ? quickNetworkRoot.ethDevices.length + " ethernet devices" : "No active LAN")
           }
           Item { Layout.fillHeight: true }
-          // Active NM connections (type · name · device).
-          Repeater {
-            model: quickNetworkRoot.activeConnections || []
-            delegate: RowLayout {
-              Layout.fillHeight: false
-              required property var modelData
-              Layout.fillWidth: true
-              spacing: 6
-              Text { text: "󰒢"; color: Style.green; font.family: root.uiFont; font.pixelSize: root.fontPx(10) }
-              Secondary {
-                Layout.fillWidth: true
-                text: (modelData.name || "") + "  ·  " + (modelData.device || "") + "  ·  " + (modelData.type || "")
-              }
-            }
-          }
         }
       }
     }
@@ -961,13 +964,13 @@ Item {
           Layout.leftMargin: 2
           spacing: 8
           Text {
-            text: "󰦝"; color: QuickModels.activeNmProfile(quickNetworkRoot.vpnProfiles) ? Style.m3primary : Style.m3onSurfaceVariant
+            text: "󰦝"; color: quickNetworkRoot.vpnUp ? Style.m3primary : Style.m3onSurfaceVariant
             font.family: root.uiFont; font.pixelSize: root.fontPx(15)
           }
           CardTitle { text: "VPN" }
           Secondary {
-            text: quickNetworkRoot.vpnSummary
-            color: QuickModels.activeNmProfile(quickNetworkRoot.vpnProfiles) ? Style.green : Style.m3onSurfaceVariant
+            text: quickNetworkRoot.vpnUp ? (quickNetworkRoot.vpnLine || "Connected") : quickNetworkRoot.vpnSummary
+            color: quickNetworkRoot.vpnUp ? Style.green : Style.m3onSurfaceVariant
           }
           Item { Layout.fillWidth: true }
           Secondary {
@@ -990,7 +993,10 @@ Item {
               text: modelData.connection || modelData.device; color: Style.m3onSurface; textFormat: Text.PlainText
               font.family: root.uiSans; font.pixelSize: root.fontPx(11); font.weight: Font.Medium; elide: Text.ElideRight
             }
-            Secondary { Layout.fillWidth: true; text: "External tunnel  ·  " + (modelData.device || "") }
+            Secondary {
+              Layout.fillWidth: true
+              text: ({ wireguard: "WireGuard", tun: "Tunnel", vpn: "VPN" }[modelData.type] || modelData.type) + "  ·  " + (modelData.device || "")
+            }
           }
         }
         Repeater {
@@ -1050,24 +1056,62 @@ Item {
           Layout.fillWidth: true
           Layout.leftMargin: 2
           spacing: 8
-          Text { text: "󰖩"; color: Style.m3onSurfaceVariant; font.family: root.uiFont; font.pixelSize: root.fontPx(15) }
-          CardTitle { text: "Networks" }
-          Secondary {
-            text: {
-              const n = (quickNetworkRoot.wifiNetworks || []).length
-              if (!quickNetworkRoot.wifiEnabled) return ""
-              return quickNetworkRoot.wifiScanning && n === 0 ? "Scanning…" : n + " network" + (n === 1 ? "" : "s") + " available"
+          // Tabs: Wi-Fi networks nearby, the devices on this LAN. A static model: one that read `lan` rebuilt both pills
+          // on every snapshot.
+          Repeater {
+            model: [{ key: "networks", icon: "󰖩", label: "Networks" }, { key: "devices", icon: "󰉹", label: "Devices" }]
+            delegate: Pill {
+              required property var modelData
+              readonly property int count: modelData.key === "devices" ? (quickNetworkRoot.lan.total || 0)
+                : (quickNetworkRoot.wifiEnabled ? (quickNetworkRoot.wifiNetworks || []).length : 0)
+              icon: modelData.icon
+              label: modelData.label + (count ? " " + count : "")
+              selected: quickNetworkRoot.netTab === modelData.key
+              bg: "transparent"; fg: Style.m3onSurfaceVariant
+              onClicked: quickNetworkRoot.netTab = modelData.key
             }
           }
           Item { Layout.fillWidth: true }
           Pill {
+            visible: quickNetworkRoot.netTab === "networks"
             icon: quickNetworkRoot.wifiScanning ? "󰔟" : "󰤨"; label: "Rescan networks"
             bg: Style.m3primaryContainer
             onClicked: quickNetworkRoot.rescanWifi()
           }
+          // Trust = this network may be pinged (once per opening) and gets NEW badges; untrusted ones never are.
+          Pill {
+            visible: quickNetworkRoot.netTab === "devices" && !!quickNetworkRoot.lan.can_trust
+            icon: "󰒘"; label: quickNetworkRoot.lan.trusted ? "Trusted" : "Trust"
+            selected: !!quickNetworkRoot.lan.trusted; bg: Style.m3secondaryContainer
+            onClicked: quickNetworkRoot.lanCmd(quickNetworkRoot.lan.trusted ? "untrust" : "trust")
+          }
+          Pill {
+            visible: quickNetworkRoot.netTab === "devices" && !!quickNetworkRoot.lan.active
+            icon: "󰕰"; label: (quickNetworkRoot.lan.view || {}).mode === "type" ? "By type" : "No groups"
+            bg: Style.m3secondaryContainer
+            onClicked: lanDevices.toggleMode()
+          }
+          Pill {
+            visible: quickNetworkRoot.netTab === "devices" && !!quickNetworkRoot.lan.active
+            icon: quickNetworkRoot.lan.scanning ? "󰔟" : "󰑐"
+            // Untrusted networks are never pinged: Refresh only asks for the names again.
+            label: quickNetworkRoot.lan.scanning ? "Scanning…" : (quickNetworkRoot.lan.trusted ? "Rescan" : "Refresh")
+            bg: Style.m3primaryContainer
+            onClicked: quickNetworkRoot.lanCmd("rescan")
+          }
+        }
+        Panes.LanDevices {
+          id: lanDevices
+          visible: quickNetworkRoot.netTab === "devices"
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          root: quickNetworkRoot.root
+          lan: quickNetworkRoot.lan
+          onCommand: cmd => quickNetworkRoot.lanCmd(cmd)
         }
         ListView {
           id: netList
+          visible: quickNetworkRoot.netTab === "networks"
           Layout.fillWidth: true
           Layout.fillHeight: true
           clip: true

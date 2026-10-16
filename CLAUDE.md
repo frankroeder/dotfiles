@@ -435,6 +435,12 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   `rfkill block` — blocking a live BCM43xx radio can wedge it until reboot.
 - **zram**: only swap. `asahi-system` installs zstd (`zram-generator.conf.d`) +
   `sysctl.d/99-asahi-zram.conf` (swappiness 150, page-cluster 0, watermark boost 0 / scale 125).
+- **Wi-Fi scans refused (2026-10-16)**: Networks list shows only the connected AP; kernel `brcmf_cfg80211_scan: Scanning
+  suppressed: status (4)`, wpa_supplicant `CTRL-EVENT-SCAN-FAILED ret=-11`, `nmcli … --rescan yes` still exits 0. Cause: a
+  DHCP restart on an already-activated link (the Proton VPN app's `device-reapply` of `ipv4.routes`): NM sends nl80211
+  `CRIT_PROTOCOL_START` (DHCP) but `…_STOP` only on activation, and brcmfmac clears its scan-suppress bit only on STOP
+  (it ignores the 5 s duration). A plain `nmcli device reapply wld0` does not help; `nmcli connection up id "<ssid>"`
+  (reconnect, a few seconds, Proton's tunnel survives) does. Proper fix would be kernel-side (`~/linux-fairydust`).
 - **Wi-Fi band**: `asahi-wifi-band [status|auto|2.4|5]` pins the profile's band (the AP band-steers
   between its 2.4/5 GHz BSSIDs), reverts if the reconnect fails; Network pane "Band" pill cycles
   auto → 5 → 2.4. BCM4388 resume fix (omarchy-mac) not ported: post-resume rejects recover in
@@ -573,6 +579,21 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   reused by both sinks. Positions are **derived** (`anchor_offset` in `lib/common.sh`), never pinned.
 - **Refresh rate**: eDP-1 stays 120 Hz (`monitors.lua`); a battery 60 Hz switch saved ~3 W only
   during video — do not re-add. Wi-Fi power save: no gain, stays off.
+- **LAN devices** (idea: uBruckhaus/omarchy-wlan-monitor): Network pane tabs Networks / Devices (`panes/LanDevices.qml`,
+  `lan_models.js`). The pane layout stays the same on both tabs (VPN card + tools always shown: hiding them made it jump).
+  Scope he wants: who is on this LAN, find printers away from home — no map, no FRITZ!Box mesh / rates / signal (removed).
+  `asahi-lan watch` (stdlib Python, `setpriv --pdeathsig`) runs **only while Devices is shown**; JSON line per change,
+  commands as JSON lines on its stdin. No background timer, no toasts. Sources: `ip -j neigh`, PTR at the router, OUI
+  (hwdata), mDNS on its own socket **bound to 224.0.0.251:5353 beside avahi** (SO_REUSEADDR; the group address, so avahi
+  keeps its unicast answers): firewalld `public` drops legacy-unicast answers to an ephemeral port — no avahi-tools. A
+  host heard only over mDNS (a printer) gets one unicast mDNS question so the kernel ARPs it (MAC → row). **Untrusted
+  networks are never pinged**; Rescan there is "Refresh". Trust (SSID + router MAC) = one ping-socket sweep of the /24
+  when the tab opens and on Rescan, NEW badges (first 10 min after Trust = known). Printers: model from TXT, admin page
+  from the IPP `adminurl` (rebuilt on the device IP). Row actions: Ping (`ping -c 4`, on click), SSH (Ghostty `ssh <ip>`,
+  stays open on failure), web, rename / pin; no settings menu, no hide, no Markdown copy (he cut them). Store `~/.local/state/asahi/lan.json` (flock, 0600; also the
+  grouping), last tab `~/.local/state/asahi/network-tab`. A VPN that blocks the LAN → banner. Panes load via `Loader`
+  source, so a pane imports siblings qualified (`import "." as Panes`). Test: `asahi/bin/asahi_lan_test.py`,
+  `lan_models_test.js`.
 - **Speed test**: `asahi-speedtest [--json]` — Cloudflare 50 MB down / 25 MB up (~20 s; 100 MB is
   403). Network pane button.
 - **Wi-Fi QR**: `asahi-wifi-qr` → `$XDG_RUNTIME_DIR` mode 600; `nmcli -s` for the PSK.

@@ -1,0 +1,749 @@
+#!/usr/bin/env python3
+"""Who is on the LAN, for the Network pane's Devices tab (rules and ideas: uBruckhaus/omarchy-wlan-monitor, MIT).
+
+Sources: kernel neighbour table, reverse DNS at the router, mDNS (own queries on 5353, no avahi-tools), OUI vendor.
+Runs only while the Devices tab is shown. Untrusted networks (public, campus) are never pinged; a host heard over mDNS
+(printer, Mac, TV) gets one unicast mDNS question so the kernel learns its MAC and it gets a row. A trusted network
+(SSID + router MAC) gets one paced ICMP sweep of the /24 when the tab opens and on Rescan, nothing periodic, plus NEW
+badges (whatever shows up in the first 10 min after Trust counts as known).
+
+  asahi-lan watch              one JSON line per change (3 s tick); commands on stdin (Monitor.handle)
+  asahi-lan --once             one snapshot (a trusted network gets its sweep, as when the tab opens)
+
+State ~/.local/state/asahi/lan.json (names, pins, trust, grouping; flock, 0600).
+"""
+import fcntl
+import ipaddress
+import json
+import os
+import re
+import select
+import socket
+import struct
+import subprocess
+import sys
+import time
+from contextlib import contextmanager
+from pathlib import Path
+
+TICK = 3.0
+MDNS_EVERY = 60
+LAN_CHECK_EVERY, LAN_CHECK_BLOCKED = 30, 8
+ONLINE_GRACE = 45  # an ICMP reply keeps a STALE neighbour online this long
+SLEEPING_KEEP = 600  # gone from the neighbour table: listed as asleep this long (pinned: always)
+BASELINE = 600  # devices seen within 10 min of Trust are known, later ones are new
+PTR_TTL, PTR_NEG_TTL = 600, 300
+ACTIVE = {"REACHABLE", "PERMANENT", "NOARP"}  # not DELAY / PROBE: a swept host that left sits there ~8 s
+MDNS = ("224.0.0.251", 5353)
+ECHO = struct.pack("!BBHHH", 8, 0, 0, 0, 1) + b"asahi-lan"  # ping socket: the kernel fills id + checksum
+
+STATE = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local/state") / "asahi"
+STORE, LOCK = STATE / "lan.json", STATE / "lan.lock"
+OUI_FILE = Path("/usr/share/hwdata/oui.txt")
+
+KIND_LABELS = {
+  "router": "Router", "computer": "Computer", "laptop": "Laptop", "phone": "Phone", "tablet": "Tablet", "watch": "Watch",
+  "tv": "TV", "speaker": "Speaker", "printer": "Printer", "console": "Game console", "camera": "Camera", "light": "Lighting",
+  "nas": "Storage / server", "appliance": "Appliance", "smarthome": "Smart-home device", "unknown": "Device"}
+KIND_GROUPS = {"phone": "mobile", "tablet": "mobile", "watch": "mobile", "computer": "computers", "laptop": "computers",
+  "tv": "media", "speaker": "media", "console": "media", "smarthome": "smarthome", "light": "smarthome", "appliance": "smarthome",
+  "camera": "smarthome", "printer": "office", "nas": "office", "router": "network"}
+# Matched against name + hostnames + model, lowercased, '_' and '-' as spaces. First hit wins.
+NAME_RULES = [(k, re.compile(p)) for k, p in (
+  ("router", r"repeater|fritz!?box|fritz!?repeater|mesh|access ?point|router"),
+  ("tablet", r"ipad|tablet|galaxy ?tab|kindle|fire ?hd"),
+  ("watch", r"watch"),
+  ("phone", r"iphone|android(?! ?tv)|galaxy|pixel|smartphone|handy|phone"),
+  ("laptop", r"macbook|laptop|notebook|thinkpad|surface|chromebook"),
+  ("computer", r"imac|\bmac\b|mac ?mini|mac ?studio|mac ?pro|desktop|\bpc\b|workstation|omarchy|raspberry"),
+  ("tv", r"\btv\b|webos|bravia|fire ?tv|chromecast|roku|television|tizen|android ?tv|shield"),
+  ("speaker", r"soundbar|speaker|sonos|homepod|\becho\b|alexa|ambeo|\bbose\b|nest (audio|mini)|google home"),
+  ("printer", r"printer|drucker|laserjet|officejet|deskjet|\bepson|\bbrother|\bcanon|\bhl \w|\bmfc \w"),
+  ("console", r"playstation|\bps[345]\b|xbox|nintendo"),
+  ("camera", r"camera|\bcam\b|doorbell|reolink|eufy|arlo|hikvision"),
+  ("light", r"\bhue\b|tradfri|nanoleaf|\bwiz\b|lamp|light|bulb"),
+  ("nas", r"\bnas\b|synology|diskstation|qnap|truenas|unraid|server"),
+  ("appliance", r"coffee|kaffee|espresso|\bep\d{4}|washer|dryer|dishwasher|fridge|oven|vacuum|roborock|roomba|stove|ofen"))]
+SERVICE_RULES = [
+  ("printer", {"_ipp._tcp", "_ipps._tcp", "_printer._tcp", "_pdl-datastream._tcp", "_uscan._tcp", "_scanner._tcp"}),
+  ("light", {"_hue._tcp"}),
+  ("tv", {"_googlecast._tcp", "_androidtvremote2._tcp", "_lgwebos._tcp", "_amzn-wplay._tcp"}),
+  ("speaker", {"_spotify-connect._tcp", "_raop._tcp", "_sonos._tcp", "_airplay._tcp"}),
+  ("smarthome", {"_hap._tcp", "_matter._tcp", "_matterc._udp", "_esphomelib._tcp", "_shelly._tcp", "_miio._udp"}),
+  ("nas", {"_smb._tcp", "_afpovertcp._tcp", "_adisk._tcp", "_nfs._tcp"}),
+  ("computer", {"_workstation._tcp", "_ssh._tcp", "_sftp-ssh._tcp"})]
+VENDOR_RULES = [(k, re.compile(p)) for k, p in (
+  ("smarthome", r"espressif|tuya|shelly|allterco|microchip|silicon lab|itead|sonoff|meross|particle|texas instruments|nordic|beken|bouffalo"),
+  ("light", r"signify|philips hue|lumi united|nanoleaf"),
+  ("speaker", r"sonos|sennheiser|sonova|bose|harman|denon|yamaha|bang|bluesound"),
+  ("console", r"nintendo|sony interactive"),
+  ("printer", r"brother|epson|canon|hewlett|hp inc|kyocera|lexmark|xerox"),
+  ("nas", r"synology|qnap|western digital"),
+  ("appliance", r"versuni|miele|bsh|irobot|roborock|dreame|ecovacs|dyson"),
+  ("router", r"\bavm\b|fritz|ubiquiti|netgear|linksys|ruckus|eero|zyxel|mikrotik"),
+  ("computer", r"raspberry|intel|foxconn|mediatek|liteon|azurewave|framework"))]
+# Instance name preference; TXT fn (Chromecast friendly name) beats all of them.
+NAME_SERVICES = ["_device-info._tcp", "_companion-link._tcp", "_airplay._tcp", "_raop._tcp", "_googlecast._tcp", "_hap._tcp",
+  "_ipp._tcp", "_ipps._tcp", "_printer._tcp", "_pdl-datastream._tcp", "_sonos._tcp", "_spotify-connect._tcp", "_smb._tcp",
+  "_afpovertcp._tcp", "_workstation._tcp", "_sftp-ssh._tcp", "_ssh._tcp", "_http._tcp", "_https._tcp"]
+# Service types asked for by name: their PTR answers carry the instance names (+ SRV / TXT / A as extras).
+BROWSE = sorted(set(NAME_SERVICES).union(*(s for _, s in SERVICE_RULES)))
+# UUIDs, bare MACs, dashed IPs (FRITZ!Box: PC-192-168-178-50), 16hex-16hex: not names.
+JUNK = re.compile(r"^(pc-)?(\d+-\d+-\d+-\d+|[0-9a-f]{32}|[0-9a-f-]{36}|([0-9a-f]{2}[:-]?){6}|[0-9a-f]{16}-[0-9a-f]{16})$", re.IGNORECASE)
+
+
+def clean(s, n=120):
+  return re.sub(r"[\x00-\x1f\x7f<>&]", "", str(s or "")).strip()[:n]
+
+
+def read(path):
+  try:
+    return Path(path).read_text().strip()
+  except OSError:
+    return ""
+
+
+def run(cmd, timeout=3):
+  try:
+    return subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=timeout).stdout
+  except (OSError, subprocess.TimeoutExpired):
+    return ""
+
+
+def load_store():
+  try:
+    st = json.loads(STORE.read_text())
+  except (OSError, ValueError):
+    st = {}
+  st.setdefault("view", {"mode": "list", "collapsed": []})
+  st.setdefault("networks", {})
+  return st
+
+
+@contextmanager
+def store_tx():
+  """Read-modify-write of lan.json under flock (two panes on two screens share it); written 0600, atomically."""
+  STATE.mkdir(parents=True, exist_ok=True)
+  with open(LOCK, "a") as lock:
+    fcntl.flock(lock, fcntl.LOCK_EX)
+    st = load_store()
+    before = json.dumps(st, sort_keys=True)
+    yield st
+    if json.dumps(st, sort_keys=True) != before:
+      nets = sorted(st["networks"].items(), key=lambda kv: kv[1].get("seen", 0))[-32:]
+      for _, net in nets:
+        net["devices"] = dict(sorted(net["devices"].items(), key=lambda kv: kv[1].get("last", 0))[-512:])
+      st["networks"] = dict(nets)
+      tmp = STORE.with_name(".lan.json.tmp")
+      with os.fdopen(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
+        json.dump(st, f)
+      tmp.replace(STORE)
+
+
+# ---- link -----------------------------------------------------------------------------------------------------------
+
+def lan_route():
+  """(iface, gateway) of the cheapest default route on a physical interface: a VPN tunnel is not the LAN."""
+  best = None
+  for line in read("/proc/net/route").splitlines()[1:]:
+    f = line.split()
+    if f[1] != "00000000" or not int(f[3], 16) & 2 or not os.path.exists(f"/sys/class/net/{f[0]}/device"):
+      continue
+    if not best or int(f[6]) < best[2]:
+      best = (f[0], socket.inet_ntoa(struct.pack("<I", int(f[2], 16))), int(f[6]))
+  return best[:2] if best else (None, None)
+
+
+def iface_addr(iface):
+  """IPv4 address and prefix length (SIOCGIFADDR / SIOCGIFNETMASK, no fork)."""
+  req = struct.pack("256s", iface.encode()[:15])
+  with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+    try:
+      ip = socket.inet_ntoa(fcntl.ioctl(s.fileno(), 0x8915, req)[20:24])
+      mask = fcntl.ioctl(s.fileno(), 0x891B, req)[20:24]
+    except OSError:
+      return None, 0
+  return ip, int.from_bytes(mask, "big").bit_count()
+
+
+def wifi_ssid(iface):
+  """SSID from `iw link` (it prints non-ASCII SSID bytes as \\xNN)."""
+  m = re.search(r"^\s*SSID: (.*)$", run(["iw", "dev", iface, "link"]), re.MULTILINE)
+  if not m:
+    return ""
+  return clean(re.sub(r"\\x([0-9a-f]{2})", lambda x: chr(int(x[1], 16)), m[1]).encode("latin-1", "replace").decode("utf-8", "replace"), 64)
+
+
+def neighbours(iface):
+  """ip -> (mac, state); FAILED / INCOMPLETE entries are the sweep's misses."""
+  out = {}
+  for e in json.loads(run(["ip", "-4", "-j", "neigh", "show", "dev", iface]) or "[]"):
+    state, mac = (e.get("state") or ["NONE"])[0], (e.get("lladdr") or "").lower()
+    if mac and state not in ("FAILED", "INCOMPLETE"):
+      out[e["dst"]] = (mac, state)
+  return out
+
+
+def vpn_iface():
+  """First tunnel that is up (link type none / PPP: tun, WireGuard, NordLynx, Tailscale, openconnect …)."""
+  for p in sorted(Path("/sys/class/net").iterdir()):
+    if read(p / "type") in ("65534", "512") and int(read(p / "flags") or "0", 16) & 1 and read(p / "operstate") not in ("down", "lowerlayerdown"):
+      return p.name
+  return ""
+
+
+def reachable(gw):
+  """The router answers TCP on 80 / 53 / 443 (refused counts): a VPN that blocks the LAN times out."""
+  for port in (80, 53, 443):
+    try:
+      socket.create_connection((gw, port), 0.4).close()
+      return True
+    except ConnectionRefusedError:
+      return True
+    except OSError:
+      pass
+  return False
+
+
+# ---- names, vendors, kinds ------------------------------------------------------------------------------------------
+
+_oui = None
+
+
+def vendor_of(mac):
+  global _oui
+  if _oui is None:
+    _oui = {m[1].replace("-", "").lower(): m[2] for m in re.finditer(r"^([0-9A-F]{2}-[0-9A-F]{2}-[0-9A-F]{2})\s+\(hex\)\s+(.+?)\s*$",
+      read(OUI_FILE), re.MULTILINE)}
+  return _oui.get(mac.replace(":", "")[:6], "")
+
+
+def short_vendor(v):
+  """'Raspberry Pi Trading Ltd' → 'Raspberry Pi', 'AVM Audiovisuelles … GmbH' → 'AVM', 'Apple, Inc.' → 'Apple'."""
+  words = [w for w in v.split(",")[0].split() if not re.fullmatch(
+    r"(?i)inc\.?|ltd\.?|llc|gmbh|co\.?|corp\.?|corporation|corporate|limited|trading|technolog(y|ies)|electronics|international|"
+    r"ag|se|s\.?a\.?|b\.?v\.?|pty|holdings?|co\.,ltd\.?|manufacturing", w)]
+  if words and len(words[0]) > 1 and words[0].isupper():
+    return words[0]
+  return " ".join(words[:2])
+
+
+def friendly(s):
+  """mDNS instance label → display name ('' when it is only an id)."""
+  s = re.sub(r"^[0-9A-Fa-f]{12}@", "", s)  # _raop: MAC@Name
+  if re.match(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}@", s):  # _apple-mobdev2: mac@fe80::…
+    return ""
+  s = re.sub(r"\s*\[[0-9a-fA-F:]{17}\]$", "", s)  # _workstation: host [mac]
+  s = re.sub(r"[-_ ]?([0-9a-fA-F]{32}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$", "", s)
+  s = clean(s, 60)
+  return "" if not s or JUNK.match(s) else s
+
+
+def tidy(name):
+  """Hostname → display name: 'PHILIPS_EP8757_20_392985' → 'Philips EP8757', 'Franks-iPhone' → 'Franks iPhone'."""
+  name = re.sub(r"\s+-\s+[A-Z0-9]{4,}$", "", name)
+  if "_" in name:
+    name = " ".join(w.title() if w.isalpha() and w.isupper() and len(w) > 3 else w
+      for w in name.split("_") if w and not w.isdigit() and not re.fullmatch(r"[0-9a-fA-F]{6,}", w))
+  name = re.sub(r"-[0-9a-fA-F]{6}$", "", name).replace("-", " ")
+  return clean(re.sub(r"\s+", " ", name), 60)
+
+
+def serial_like(name):
+  """9HC-EU-UDB9314A: a serial-number hostname reads worse than 'Appliance (Dyson)'."""
+  return not re.search(r"[a-z]", name) and len(re.findall(r"\d", name)) >= 4
+
+
+def classify(text, services, vendor):
+  t = re.sub(r"[_-]", " ", text.lower())
+  return (next((k for k, rx in NAME_RULES if rx.search(t)), None) or next((k for k, s in SERVICE_RULES if services & s), None)
+    or next((k for k, rx in VENDOR_RULES if rx.search(vendor.lower())), "unknown"))
+
+
+# ---- DNS / mDNS -----------------------------------------------------------------------------------------------------
+
+def dns_query(qid, names, rd=False):
+  """PTR questions (QTYPE 12, IN)."""
+  out = struct.pack("!6H", qid, 0x0100 if rd else 0, len(names), 0, 0, 0)
+  for name in names:
+    out += b"".join(bytes([len(p)]) + p for p in (x.encode()[:63] for x in name.split(".")) if p) + b"\0\0\x0c\0\x01"
+  return out
+
+
+def dns_name(buf, off, hops=0):
+  """Labels of the (compressed) name at off, and the offset after it."""
+  labels = []
+  while True:
+    n = buf[off]
+    if n >= 0xC0:
+      if hops > 10:
+        raise ValueError("pointer loop")
+      return labels + dns_name(buf, ((n & 0x3F) << 8) | buf[off + 1], hops + 1)[0], off + 2
+    if n == 0:
+      return labels, off + 1
+    labels.append(buf[off + 1:off + 1 + n].decode("utf-8", "replace"))
+    off += 1 + n
+
+
+def dns_records(buf):
+  """(id, flags, [(labels, type, rdata offset, rdata length)]) over answers, authority and additionals."""
+  qid, flags, qd, an, ns, ar = struct.unpack("!6H", buf[:12])
+  off = 12
+  for _ in range(qd):
+    off = dns_name(buf, off)[1] + 4
+  recs = []
+  for _ in range(an + ns + ar):
+    name, off = dns_name(buf, off)
+    rtype, _, _, rdlen = struct.unpack("!HHIH", buf[off:off + 10])
+    if off + 10 + rdlen > len(buf):
+      raise ValueError("truncated record")
+    recs.append((name, rtype, off + 10, rdlen))
+    off += 10 + rdlen
+  return qid, flags, recs
+
+
+def txt_pairs(buf, off, n):
+  out, end = {}, off + n
+  while off < end:
+    s = buf[off + 1:off + 1 + buf[off]].decode("utf-8", "replace")
+    off += 1 + buf[off]
+    k, _, v = s.partition("=")
+    out[k.lower()] = v
+  return out
+
+
+def reverse_name(ip):
+  return ".".join(reversed(ip.split("."))) + ".in-addr.arpa"
+
+
+def mdns_name(info):
+  fn = next((t["fn"] for t in info.get("txt", {}).values() if t.get("fn")), "")
+  inst = info.get("inst", {})
+  return friendly(fn) or next((n for n in (friendly(inst[s]) for s in NAME_SERVICES if s in inst) if n), "")
+
+
+def mdns_model(info):
+  """TXT model keys; a value without letters is not a model (AirPlay's md=0,1,2 lists metadata types)."""
+  for key in ("md", "model", "am", "ty", "usb_mdl", "product"):
+    for t in info.get("txt", {}).values():
+      if re.search(r"[A-Za-z]", t.get(key, "")):
+        return clean(t[key].strip("()"), 40)
+  return ""
+
+
+def mdns_web(ip, info):
+  """Web UI from an _https / _http SRV port (+ TXT path), else a printer's IPP adminurl; the host is always the device's
+  own IP and the path a plain one."""
+  plain = lambda p: p if p and re.fullmatch(r"/[\w./~-]*", p) else "/"
+  for svc, scheme, default in (("_https._tcp", "https", 443), ("_http._tcp", "http", 80)):
+    port = info.get("ports", {}).get(svc)
+    if port:
+      return f"{scheme}://{ip}{'' if port == default else ':' + str(port)}{plain(info.get('txt', {}).get(svc, {}).get('path'))}"
+  admin = next((t["adminurl"] for t in info.get("txt", {}).values() if t.get("adminurl")), "")
+  m = re.match(r"(https?)://[^/:]+(:\d{1,5})?(/[^?#]*)?", admin)
+  return f"{m[1]}://{ip}{m[2] or ''}{plain(m[3])}" if m else ""
+
+
+# ---- monitor --------------------------------------------------------------------------------------------------------
+
+class Monitor:
+  def __init__(self):
+    self.net, self.key, self.link_t, self.trusted, self.live, self.msock = None, "", 0, False, {}, None
+    self.icmp, self.udp = self.open_socket(socket.IPPROTO_ICMP), self.open_socket(0)
+    self.reset()
+
+  @staticmethod
+  def open_socket(proto):
+    try:
+      s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, proto)
+    except OSError:  # ping sockets need net.ipv4.ping_group_range
+      return None
+    s.setblocking(False)
+    return s
+
+  def mdns_socket(self):
+    """Port 5353 beside avahi (SO_REUSEADDR) in the mDNS group: queries get multicast answers, which firewalld's mdns
+    service lets in (the `public` zone drops a legacy unicast answer to an ephemeral port). Announcements arrive too."""
+    if self.msock:
+      return self.msock
+    s, me = socket.socket(socket.AF_INET, socket.SOCK_DGRAM), socket.inet_aton(self.net["ip"])
+    try:
+      s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+      s.bind(MDNS)  # the group address: only multicast arrives here, avahi keeps its unicast answers
+      s.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton(MDNS[0]) + me)
+      s.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, me)
+      s.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 255)
+    except OSError:
+      s.close()
+      return None
+    s.setblocking(False)
+    self.msock = s
+    return s
+
+  def reset(self):
+    if self.msock:
+      self.msock.close()
+    self.msock = None
+    self.neigh, self.seen, self.confirmed, self.ptr, self.pending, self.mdns, self.ip_mac = {}, {}, {}, {}, {}, {}, {}
+    self.asked, self.nudged = set(), set()
+    self.scan_t = self.mdns_t = self.lan_t = self.scan_until = 0
+    self.force, self.vpn, self.blocked = False, "", False
+
+  def sockets(self):
+    return [s for s in (self.icmp, self.udp, self.msock) if s]
+
+  def refresh_link(self, now):
+    iface, gw = lan_route()
+    n = self.net
+    if n and iface == n["iface"] and gw == n["gw"] and now - self.link_t < 12:
+      return
+    self.link_t = now
+    ip, prefix = iface_addr(iface) if iface else (None, 0)
+    if not ip:
+      self.net, self.key = None, ""
+      self.reset()
+      return
+    ssid = wifi_ssid(iface) if os.path.exists(f"/sys/class/net/{iface}/wireless") else ""
+    if not ssid and n and (n["iface"], n["gw"]) == (iface, gw):
+      ssid = n["ssid"]  # iw between two scans / timed out: same link
+    new = {"iface": iface, "gw": gw, "ip": ip, "prefix": prefix, "ssid": ssid, "mac": read(f"/sys/class/net/{iface}/address").lower(),
+      "subnet": ipaddress.ip_network(f"{ip}/{prefix}", strict=False)}
+    if not n or any(n[k] != new[k] for k in ("iface", "gw", "ip", "prefix", "ssid")):
+      self.key = ""
+      self.reset()
+    self.net = new
+
+  def in_subnet(self, ip):
+    return bool(self.net) and ipaddress.ip_address(ip) in self.net["subnet"]
+
+  def recv(self, s):
+    while True:
+      try:
+        buf, (ip, port) = s.recvfrom(9000)
+      except OSError:
+        return
+      if not self.net:
+        continue
+      try:
+        if s is self.icmp:
+          if buf[:1] == b"\0":
+            self.confirmed[ip] = time.time()
+        elif port == 53 and ip == self.net["gw"]:
+          self.on_ptr(buf)
+        elif port == 5353 and self.in_subnet(ip):
+          self.on_mdns(ip, buf)
+      except (ValueError, IndexError, struct.error):
+        pass  # malformed packet from the network
+
+  def on_ptr(self, buf):
+    qid, _, recs = dns_records(buf)
+    ip = self.pending.pop(qid, None)
+    if ip:
+      names = [dns_name(buf, off)[0] for _, t, off, _ in recs if t == 12]
+      self.ptr[ip] = (".".join(names[0]) if names else "", time.time())
+
+  def on_mdns(self, ip, buf):
+    _, flags, recs = dns_records(buf)
+    if not flags & 0x8000:
+      return
+    a = {socket.inet_ntoa(buf[off:off + 4]) for _, t, off, n in recs if t == 1 and n == 4}
+    dst = a.pop() if len(a) == 1 else ip  # a sleep proxy answers for the host its A record names
+    if not self.in_subnet(dst):
+      return
+    info = self.mdns.setdefault(dst, {"hosts": set(), "inst": {}, "services": set(), "txt": {}, "ports": {}})
+    if len(info["hosts"]) + len(info["inst"]) + len(info["services"]) + len(info["txt"]) > 256:
+      return  # a chatty or hostile host does not grow us without bound
+    for name, t, off, n in recs:
+      owner = ".".join(name).lower()
+      svc = ".".join(name[1:3]).lower() if len(name) >= 4 else ""
+      if t == 12:
+        target = dns_name(buf, off)[0]
+        if owner == "_services._dns-sd._udp.local":
+          info["services"].add(".".join(target[:2]).lower())
+        elif owner.endswith(".in-addr.arpa"):
+          info["hosts"].add(target[0])
+        elif len(target) >= 4:
+          info["services"].add(".".join(target[1:3]).lower())
+          info["inst"].setdefault(".".join(target[1:3]).lower(), target[0])
+      elif t == 33 and svc:
+        info["services"].add(svc)
+        info["inst"].setdefault(svc, name[0])
+        info["ports"][svc] = struct.unpack("!H", buf[off + 4:off + 6])[0]
+        info["hosts"].add(dns_name(buf, off + 6)[0][0])
+      elif t == 16 and svc:
+        info["txt"].setdefault(svc, {}).update(txt_pairs(buf, off, n))
+      elif t == 1 and name:
+        info["hosts"].add(name[0])
+
+  def send(self, sock, pkt, addr):
+    try:
+      sock.sendto(pkt, addr)
+    except OSError:
+      pass
+
+  def sweep(self, ips):
+    """Paced ICMP echo (6 per 7 ms); replies arrive through recv(). ARP for every target fills the neighbour table
+    even for hosts that ignore ping."""
+    for i, ip in enumerate(ips):
+      self.send(self.icmp, ECHO, (ip, 0))
+      if i % 6 == 5:
+        time.sleep(0.007)
+
+  def query_ptr(self, now):
+    if not ipaddress.ip_address(self.net["gw"]).is_private:
+      return
+    for ip in self.neigh:
+      name, t = self.ptr.get(ip, ("", 0))
+      if now - t < (PTR_TTL if name else PTR_NEG_TTL):
+        continue
+      qid = int.from_bytes(os.urandom(2), "big") or 1
+      self.pending[qid], self.ptr[ip] = ip, (name, now)
+      self.send(self.udp, dns_query(qid, [reverse_name(ip)], rd=True), (self.net["gw"], 53))
+    if len(self.pending) > 512:
+      self.pending.clear()
+
+  def query_mdns(self, now):
+    """Service enumeration + the browsed types + reverse names of the hosts that never answered; every responder
+    answers from its own address (a sleep proxy names the host in its A record)."""
+    self.mdns_t = now
+    sock = self.mdns_socket()
+    if not sock:
+      return
+    ips = [ip for ip in self.neigh if not self.mdns.get(ip, {}).get("hosts")]
+    self.asked.update(self.neigh)
+    self.send(sock, dns_query(0, ["_services._dns-sd._udp.local"] + [s + ".local" for s in BROWSE]), MDNS)
+    for i in range(0, len(ips), 30):
+      self.send(sock, dns_query(0, [reverse_name(ip) for ip in ips[i:i + 30]]), MDNS)
+
+  def nudge(self):
+    """A host that only spoke mDNS (a printer at a café) is not in the neighbour table: one unicast mDNS question makes
+    the kernel ARP it, so it gets a MAC (vendor, a row to rename / pin). No ping; once per host and network."""
+    for ip in sorted(self.mdns.keys() - self.neigh.keys() - self.nudged - {self.net["ip"]})[:256 - len(self.nudged)]:
+      self.nudged.add(ip)
+      self.send(self.udp, dns_query(0, [reverse_name(ip)]), (ip, 5353))
+
+  def check_vpn(self, now):
+    """A VPN up: does the router still answer? (re-checked every 30 s, 8 s while blocked)"""
+    vpn = vpn_iface()
+    if not vpn:
+      self.vpn, self.blocked = "", False
+      return
+    if vpn != self.vpn or now - self.lan_t > (LAN_CHECK_BLOCKED if self.blocked else LAN_CHECK_EVERY):
+      self.blocked, self.lan_t = not reachable(self.net["gw"]), now
+    self.vpn = vpn
+
+  def handle(self, line):
+    """Pane commands: rescan | trust | untrust, or JSON {"cmd": rename|pin|known, "mac", "name"/"on"},
+    {"cmd": view, "mode", "collapsed"}. Returns True when the pane wants a fresh snapshot."""
+    line = line.strip()[:1024]
+    try:
+      cmd = json.loads(line) if line.startswith("{") else {"cmd": line}
+    except ValueError:
+      return False
+    c, mac, now = cmd.get("cmd"), str(cmd.get("mac", "")).lower(), time.time()
+    if c == "rescan":
+      self.force = True
+      return True
+    if not self.net:
+      return False
+    with store_tx() as st:
+      if c == "view" and cmd.get("mode") in ("list", "type"):
+        st["view"] = {"mode": cmd["mode"], "collapsed": [clean(x, 40) for x in (cmd.get("collapsed") or [])[:32]]}
+      elif self.key and c in ("trust", "untrust", "rename", "pin", "known"):
+        net = st["networks"].setdefault(self.key, {"ssid": self.net["ssid"], "trusted": 0, "devices": {}})
+        net["seen"] = int(now)
+        if c in ("trust", "untrust"):
+          net["trusted"] = int(now) if c == "trust" else 0
+        if c == "untrust":
+          for d in net["devices"].values():
+            d.pop("new", None)
+        elif c in ("rename", "pin", "known") and mac in self.live:
+          d = net["devices"].setdefault(mac, {"first": int(now), "last": int(now)})
+          if c == "rename":
+            d["name"] = clean(cmd.get("name"), 40)
+          elif c == "known":
+            d.pop("new", None)
+          else:
+            d["pinned"] = bool(cmd.get("on"))
+          live = self.live[mac]
+          if live["state"] != "asleep":
+            d.update(ip=live["ip"], auto=live["auto"], kind=live["kind"])
+    return True
+
+  def tick(self, record=True):
+    now = time.time()
+    self.refresh_link(now)
+    n = self.net
+    if not n:
+      return {"time": int(now), "active": False, "devices": []}
+    neigh = {ip: v for ip, v in neighbours(n["iface"]).items() if self.in_subnet(ip)}
+    gw_mac = neigh.get(n["gw"], ("",))[0]
+    key = f"{n['ssid'] or n['iface']}|{gw_mac}" if gw_mac else self.key
+    if self.key and key != self.key:  # same address, another router
+      self.reset()
+    self.key, self.neigh = key, neigh
+    for ip, (mac, _) in self.neigh.items():  # an address that changed hands: the old holder's names go
+      if self.ip_mac.get(ip, mac) != mac:
+        self.mdns.pop(ip, None)
+        self.ptr.pop(ip, None)
+      self.ip_mac[ip] = mac
+    st = load_store()
+    self.trusted = bool(key and st["networks"].get(key, {}).get("trusted"))
+    self.check_vpn(now)
+    if self.force:  # Rescan / Refresh: ask for the names again
+      self.mdns_t, self.ptr = 0, {ip: v for ip, v in self.ptr.items() if v[0]}
+      self.scan_until = now + 2.5
+    # Pings: trusted networks only, once when the tab opens (scan_t 0) and on Rescan. Nothing periodic.
+    if self.trusted and self.icmp and not self.blocked and (self.force or not self.scan_t):
+      prefix = max(n["prefix"], 24)
+      self.sweep([str(h) for h in ipaddress.ip_network(f"{n['ip']}/{prefix}", strict=False).hosts() if str(h) != n["ip"]])
+      self.scan_t, self.scan_until = now, now + 2.5
+    self.force = False
+    if self.udp and not self.blocked:
+      self.query_ptr(now)
+      self.nudge()
+      if now - self.mdns_t > MDNS_EVERY or (any(ip not in self.asked for ip in self.neigh) and now - self.mdns_t > 10):
+        self.query_mdns(now)
+    return self.snapshot(now, st, gw_mac, record)
+
+  def device(self, mac, seen, rec, now, gw_mac):
+    ip = seen["ip"]
+    is_self, is_gw = mac == self.net["mac"], mac == gw_mac
+    private = bool(int(mac[:2], 16) & 2)  # locally administered: a randomised address, no vendor
+    vendor_full = "" if private else vendor_of(mac)
+    other = self.neigh.get(ip, (mac,))[0] != mac  # an asleep row whose address someone else holds now
+    info = {} if other else self.mdns.get(ip, {})
+    ptr = "" if other else self.ptr.get(ip, ("", 0))[0].split(".")[0]
+    ptr = "" if JUNK.match(ptr) else ptr
+    hosts = sorted((h for h in info.get("hosts", ()) if not JUNK.match(h)), key=len)
+    host = hosts[0] if hosts else ptr
+    inst, model = mdns_name(info), mdns_model(info)
+    text = " ".join(x for x in (inst, host, ptr, model) if x)
+    if is_gw:
+      kind = "router"
+    elif is_self:
+      kind = "laptop" if any(read(p / "type") == "Battery" for p in Path("/sys/class/power_supply").glob("*")) else "computer"
+    elif not text and rec.get("kind") and seen["state"] == "asleep":
+      kind = rec["kind"]
+    else:
+      kind = classify(text, info.get("services", set()), vendor_full)
+    vendor = short_vendor(vendor_full)
+    if is_self:
+      auto = socket.gethostname().split(".")[0]
+    elif is_gw:
+      auto = "Router"
+    else:
+      auto = next((x for x in (inst, *(t for t in (tidy(host), tidy(ptr)) if not (vendor and serial_like(t)))) if x), "")
+      auto = auto or (rec.get("auto", "") if seen["state"] == "asleep" else "") or (f"{KIND_LABELS[kind]} ({vendor})" if vendor else "") or ip
+    ports = info.get("ports", {})
+    return {
+      "mac": mac, "ip": ip, "name": rec.get("name") or auto, "auto": auto, "custom": bool(rec.get("name")), "host": host,
+      "vendor": vendor, "model": model, "private": private, "kind": kind, "label": KIND_LABELS[kind], "group": KIND_GROUPS.get(kind, "other"),
+      "state": "online" if is_self or is_gw else seen["state"], "self": is_self, "gw": is_gw, "pinned": bool(rec.get("pinned")),
+      "new": bool(rec.get("new")), "seen": int((now - seen["t"]) // 60),
+      "web": f"http://{ip}/" if is_gw else mdns_web(ip, info), "ssh": ports.get("_ssh._tcp") or ports.get("_sftp-ssh._tcp") or 0}
+
+  def snapshot(self, now, st, gw_mac, record=True):
+    n = self.net
+    for ip, (mac, state) in self.neigh.items():
+      online = state in ACTIVE or now - self.confirmed.get(ip, 0) < ONLINE_GRACE
+      self.seen[mac] = {"ip": ip, "t": now, "state": "online" if online else "idle", "since": self.seen.get(mac, {}).get("since", now)}
+    for mac, d in list(self.seen.items()):
+      if d["t"] < now:
+        d["state"] = "asleep"
+        if now - d["t"] > SLEEPING_KEEP:
+          del self.seen[mac]
+    self.seen[n["mac"]] = {"ip": n["ip"], "t": now, "state": "online", "since": now}
+    recs = st["networks"].get(self.key, {}).get("devices", {})
+    pinned = {m: {"ip": r.get("ip", ""), "t": r.get("last", now), "state": "asleep"}
+      for m, r in recs.items() if r.get("pinned") and m not in self.seen}
+    devs = [self.device(mac, d, recs.get(mac, {}), now, gw_mac) for mac, d in {**self.seen, **pinned}.items()]
+    self.live = {d["mac"]: d for d in devs}
+    if record and self.key:
+      self.record(now, devs, st)
+    order = {"online": 0, "idle": 1, "asleep": 2}
+    devs.sort(key=lambda d: (not d["gw"], not d["self"], not d["pinned"], order[d["state"]], d["name"].lower()))
+    return {
+      "time": int(now), "active": True, "trusted": self.trusted, "can_trust": bool(self.key), "scanning": now < self.scan_until,
+      "view": st["view"], "vpn_blocked": self.vpn if self.blocked else "", "devices": devs, "total": len(devs)}
+
+  def record(self, now, devs, stored):
+    """Trusted network: remember every device, flag the ones that turn up after the baseline (NEW badge). Any network
+    with a record (an edit made one): keep its devices' last address / name / kind for the pinned asleep rows.
+    A device is recorded once it has been around for 5 s (its PTR / mDNS names had time to arrive)."""
+    net = stored["networks"].get(self.key)
+    if not net:
+      return
+    since = {m: d.get("since", 0) for m, d in self.seen.items()}
+    live = [d for d in devs if d["state"] != "asleep" and now - since.get(d["mac"], now) >= 5]
+    todo = [d for d in live if (d["mac"] not in net["devices"] and self.trusted) or now - net["devices"].get(d["mac"], {}).get("last", now) > 300]
+    if not todo and now - net.get("seen", 0) < 3600:
+      return
+    with store_tx() as st:
+      net = st["networks"].get(self.key)
+      if not net:
+        return
+      net["seen"] = int(now)
+      trusted = net.get("trusted") or 0  # under the lock: the pane may have untrusted meanwhile
+      for d in live:
+        r = net["devices"].get(d["mac"])
+        if r is None and trusted:
+          r = net["devices"][d["mac"]] = {"first": int(now)}
+          if now - trusted > BASELINE and not d["self"] and not d["gw"]:
+            r["new"] = d["new"] = True
+        if r is not None and now - r.get("last", 0) > 300:
+          r.update(last=int(now), ip=d["ip"], auto=d["auto"], kind=d["kind"])
+
+
+def pump(m, seconds):
+  """Let replies (ICMP, DNS, mDNS) arrive for a while."""
+  end = time.time() + seconds
+  while (left := end - time.time()) > 0:
+    for s in select.select(m.sockets(), [], [], left)[0]:
+      m.recv(s)
+
+
+def watch():
+  m, buf, last, due = Monitor(), b"", "", 0.0
+  while True:
+    ready = select.select(m.sockets() + [sys.stdin], [], [], max(0.0, due - time.time()))[0]
+    fresh = False
+    for s in ready:
+      if s is sys.stdin:
+        chunk = os.read(0, 4096)
+        if not chunk:
+          return 0  # the pane went away
+        *lines, buf = (buf + chunk)[-8192:].split(b"\n")
+        for line in lines:
+          fresh |= bool(m.handle(line.decode(errors="replace")))
+      else:
+        m.recv(s)
+    if fresh or time.time() >= due:
+      snap = m.tick()
+      key = json.dumps({**snap, "time": 0})
+      if key != last:
+        print(json.dumps(snap, ensure_ascii=False), flush=True)
+        last = key
+      due = time.time() + TICK
+
+
+def main(argv):
+  if argv[:1] == ["watch"]:
+    try:
+      return watch()
+    except BrokenPipeError:
+      return 0
+  if argv[:1] == ["--once"]:
+    m = Monitor()
+    m.tick(record=False)
+    pump(m, 2)
+    m.tick(record=False)
+    pump(m, 1)
+    print(json.dumps(m.tick(record=False), ensure_ascii=False, indent=1))
+    return 0
+  print(__doc__.strip(), file=sys.stderr)
+  return 2
+
+
+if __name__ == "__main__":
+  sys.exit(main(sys.argv[1:]))
