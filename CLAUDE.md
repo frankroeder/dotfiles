@@ -248,7 +248,8 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   every frame). Menu positions are window coords (`mapToItem(null, …)`).
 - **Bar = click to act, event-driven**: chips appearing / vanishing slide their left-cluster
   neighbours (Row `move`/`add`, off for the first second); the right cluster, anchored right, only fades new chips
-  in (`add`): `move` there animated from the old in-row x and the clock side jumped (REC chip). Hover tint (`HoverTint`), tooltip only on tray icons (and the Bluetooth chip's battery list),
+  in (`add`): `move` there animated from the old in-row x and the clock side jumped (REC chip). Hover tint (`HoverTint`),
+  tooltip only on tray icons (and the Bluetooth chip's battery list),
   night-light chip only while on. The REC dot blinks on the elapsed tick (no animation). The mic glyph
   turns orange while an app records from it (`PwNodeLinkTracker`). Vol/mic
   (`AudioChip`, `input`) bind Pipewire (+`PwObjectTracker`), BT binds BlueZ,
@@ -433,31 +434,35 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   `50-system-apple.quirks` `[Apple Laptop Keyboard (MTP)]` tags the keyboard internal — no local quirk.
 - **Bluetooth off**: `asahi-bluetooth-power` `bluetoothctl power off` (blocks until BlueZ confirms), then
   `rfkill block` — blocking a live BCM43xx radio can wedge it until reboot.
-- **Bluetooth monitor** (full port of uBruckhaus/omarchy-bluetooth-monitor): `asahi-bluetooth-monitor` (stdlib
-  Python) is one long-lived child of `services/BtMonitor.qml` (bar chip + Bluetooth pane): Logitech HID++ over
-  hidraw (receiver slots; wired / Bluetooth direct: battery, DPI, SmartShift, wheel, Fn swap), `upower --dump`,
-  BlueZ `GetManagedObjects` (both off with the "Other Bluetooth devices" switch); one JSON line per scan, JSON
-  commands on stdin (`open closed refresh set hide thresholds options`). Rescans on `upower --monitor` / HID++
-  `0x41` / commands, else 60 s (10 s while the pane is up). It alone writes `~/.local/state/asahi/bluetooth-monitor.json`
-  (hidden keys, thresholds 25/10 %, other devices, language, HID++ settings per wpid — reapplied only when a
-  device seen offline answers again, as upstream; a first sighting keeps its own). Bluetooth devices are keyed
-  `bt:<ADDR>` (UPower ones too): the pane merges BlueZ rows with monitor devices by address, the rest are
-  "USB & receivers" (40 rows per section; hidden BlueZ rows stay, tagged, like upstream's Bluetooth page;
-  hidden USB / receiver rows drop out); a UPower battery on a cable reads `usb` via sysfs (upstream: wireless).
-  Receivers show 6 slots (upstream). Bar chip (upstream's batteryAlert): the first visible online device at the
-  worst level, a mouse at that level takes over → its kind glyph, orange / red;
-  right-click = rescan; its tooltip (per-device batteries, upstream) is on by default — the one non-tray bar tooltip; off in the pane.
-  Strings: `services/bt_i18n.js` = upstream's eight tables + the pane's own keys; language = pane setting, else
-  LC_ALL / LC_MESSAGES / LANG; helper errors are codes (`message_code` / `message_args`). hidraw is root-only: "Allow access" → `pkexec asahi-logitech-access`
-  installs `asahi/udev/42-asahi-logitech-hidraw.rules` (uaccess, Solaar's scope; opt-in, not in the installer).
-  Pane scan = a `bluetoothctl --timeout 300 scan on` process (BlueZ ends discovery with its client;
-  `adapter.discovering = false` got dropped). Forget = two clicks within 3 s. A headset / speaker connected from
-  the pane becomes `Pipewire.preferredDefaultAudioSink` (sink found by MAC or name, 8 × 500 ms). Esc / Backspace
-  step back (settings, open device; `handleBackspace` hook in LauncherWindow, no other pane defines it).
-  Verified live (2026-10-16): wired G502 HERO = HID++ 4.2, 0x2201 DPI 100–25600/50, writes take effect; pane,
-  settings, language switch, real Backspace and the hover tooltip in a nested Hyprland with virtual-pointer clicks.
-  Tests: `asahi/bin/asahi_bluetooth_monitor_test.py` (incl. an emulated Bolt receiver on a socket),
-  `services/bt_monitor_test.js`, `services/bt_i18n_test.js`.
+- **Bluetooth monitor** (port of uBruckhaus/omarchy-bluetooth-monitor): `asahi-bluetooth-monitor` (stdlib Python) is one
+  long-lived child of `services/BtMonitor.qml` (bar chip + Bluetooth pane): Logitech HID++ over hidraw (receiver slots;
+  wired / Bluetooth direct, long-only nodes get long reports: type, battery, DPI, SmartShift, wheel, Fn swap),
+  `upower --dump`, BlueZ `GetManagedObjects` (both off with "Other Bluetooth devices"); one JSON line per scan, JSON
+  commands on stdin (`open closed refresh set thresholds options`). Rescans on `upower --monitor` peripheral lines (the
+  laptop battery / AC every 30 s do not count), HID++ `0x41`, a failing (unplugged) node and commands, else 60 s
+  (10 s while the pane is up; the pane resets `paneOpen` on destruction — a Loader drop skips the Binding restore).
+  A receiver's node also carries every DJ input report: after a wake-up without a notice the nodes sit out 1 s.
+  It alone writes `~/.local/state/asahi/bluetooth-monitor.json` (thresholds 25/10 %, other devices, language,
+  bar tooltip, HID++ settings per wpid — reapplied when a device seen gone (asleep, unplugged, out of range)
+  answers again; a first sighting keeps its own, as upstream). Errors (`message_code` / `message_args`) last one
+  snapshot. While hidraw is denied, UPower's `hidpp_battery` rows (the kernel driver) stand in. No hiding of
+  devices (dropped: little use, much UI). The pane merges BlueZ rows with monitor devices by address (one row per
+  address), the rest are "USB & receivers" (40 rows per section); a UPower battery on a cable reads `usb` via
+  sysfs (upstream: wireless). Receivers show 6 slots (upstream). Bar chip (upstream's batteryAlert): the first
+  online device at the worst level, a mouse at that level takes over → its kind glyph, orange / red;
+  right-click = rescan; its tooltip (per-device batteries, upstream) is on by default, off in the pane.
+  Strings: `services/bt_i18n.js` = upstream's eight tables + the pane's own keys (incl. `lvl_*` level words);
+  language = pane setting, else LC_ALL / LC_MESSAGES / LANG. hidraw is root-only: "Allow access" →
+  `pkexec asahi-logitech-access` writes its inline rule to `/etc/udev/rules.d/42-asahi-logitech-hidraw.rules`
+  (`KERNELS=="0003:046D:*"` / `0005:046D:*` → uaccess, the device's own vendor; opt-in, not in the installer;
+  revoking needs a replug or `setfacl -b`). Pane scan = a `bluetoothctl --timeout 300 scan on` process (BlueZ ends
+  discovery with its client), restarted after 5 s without `Discovering` (with `--timeout` it never exits on a failed
+  StartDiscovery). Forget = two clicks within 3 s. A headset / speaker connected from the pane becomes
+  `Pipewire.preferredDefaultAudioSink` (sink by MAC or name, 8 × 500 ms). Esc / Backspace step back (settings, an
+  open device only while shown; `handleBackspace` hook in LauncherWindow, no other pane defines it).
+  Verified live (2026-10-16): wired G502 HERO = HID++ 4.2, getDeviceType 3, 0x2201 DPI 100–25600/50, writes
+  take effect. Tests: `asahi/bin/asahi_bluetooth_monitor_test.py` (incl. an emulated Bolt receiver on a socket,
+  unplug EIO, replug reapply), `services/bt_monitor_test.js`, `services/bt_i18n_test.js`.
 - **zram**: only swap. `asahi-system` installs zstd (`zram-generator.conf.d`) +
   `sysctl.d/99-asahi-zram.conf` (swappiness 150, page-cluster 0, watermark boost 0 / scale 125).
 - **Wi-Fi scans refused (2026-10-16)**: Networks list shows only the connected AP; kernel `brcmf_cfg80211_scan: Scanning

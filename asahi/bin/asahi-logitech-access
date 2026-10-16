@@ -1,12 +1,22 @@
 #!/usr/bin/env bash
-# Grant the seat user Logitech hidraw access (Bluetooth pane "Allow" → pkexec): installs
-# 42-asahi-logitech-hidraw.rules and re-applies it to the Logitech hidraw nodes only.
-# Revoke: sudo rm /etc/udev/rules.d/42-asahi-logitech-hidraw.rules && sudo udevadm control --reload-rules
-#   && sudo udevadm trigger --action=change --subsystem-match=hidraw
+# Grant the seat user Logitech hidraw access (Bluetooth pane "Allow access" → pkexec): writes the udev rule
+# below (uaccess for HID devices of vendor 046d on USB / Bluetooth, receiver children included; Solaar's scope)
+# and re-applies it to the Logitech hidraw nodes only. The rule is inline: root copies no user file.
+# Revoke: sudo rm /etc/udev/rules.d/42-asahi-logitech-hidraw.rules && sudo udevadm control --reload-rules,
+#   then replug the device (or `sudo setfacl -b /dev/hidrawN`): the uaccess ACL stays until the node is re-created.
 set -euo pipefail
 
-rules="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../udev/42-asahi-logitech-hidraw.rules"
-install -m 0644 "$rules" /etc/udev/rules.d/42-asahi-logitech-hidraw.rules
+cat >/etc/udev/rules.d/42-asahi-logitech-hidraw.rules <<'EOF'
+# Logitech HID++ for asahi-bluetooth-monitor (battery, DPI, SmartShift, wheel, Fn swap): hidraw of Logitech
+# HID devices (the device's own vendor, not a hub's) for the user at the seat only. Written by
+# asahi-logitech-access. Before 73-seat-late.rules, which turns the tag into the ACL.
+ACTION=="remove", GOTO="asahi_logitech_end"
+SUBSYSTEM!="hidraw", GOTO="asahi_logitech_end"
+KERNELS=="0003:046D:*", TAG+="uaccess"
+KERNELS=="0005:046D:*", TAG+="uaccess"
+LABEL="asahi_logitech_end"
+EOF
+chmod 0644 /etc/udev/rules.d/42-asahi-logitech-hidraw.rules
 udevadm control --reload-rules
 for node in /sys/class/hidraw/hidraw*; do
   if grep -qi '^HID_ID=000[35]:0000046D:' "$node/device/uevent" 2>/dev/null; then

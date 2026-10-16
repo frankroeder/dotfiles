@@ -13,7 +13,7 @@ import "../../../services/bt_monitor.js" as BtModel
 import "../../../services/bt_i18n.js" as I18n
 
 // Bluetooth pane: adapter, connection map, devices (BlueZ + asahi-bluetooth-monitor: batteries over any
-// connection, Logitech HID++ settings, hidden devices), settings (language, alerts, other devices, access).
+// connection, Logitech HID++ settings), settings (language, alerts, other devices, tooltip, access).
 // Strings are bt_i18n keys (upstream's eight languages; the pane setting, else LC_ALL / LC_MESSAGES / LANG).
 // `root` is the LauncherWindow (fontPx, uiFont/uiSans, launcherGeom, quickMode, quickPaneKey, binDir, ...).
 Item {
@@ -36,11 +36,11 @@ Item {
   // Monitor snapshot: the helper rescans every 10 s while this pane is up (60 s otherwise).
   readonly property var mon: Services.BtMonitor.snap
   Binding { target: Services.BtMonitor; property: "paneOpen"; value: quickBtRoot.launcherShown }
+  // A Loader-destroyed pane does not restore the Binding: the helper would stay on its 10 s rescans.
+  Component.onDestruction: Services.BtMonitor.paneOpen = false
   readonly property var adapterInfo: (mon.adapters || [])[0] || null
-  readonly property var mapLinks: BtModel.mapLinks(mon, showHidden)
-  readonly property var hiddenKeys: mon.hidden || []
+  readonly property var mapLinks: BtModel.mapLinks(mon)
   readonly property bool logitechSeen: (mon.receivers || []).length > 0 || (mon.devices || []).some(d => !!d.wpid || !!d.denied)
-  property bool showHidden: false
   property bool settingsOpen: false
   property string expandedUid: ""
   // Forget needs a second click within 3 s (upstream "really forget").
@@ -54,7 +54,11 @@ Item {
   // Launcher Esc / Backspace hooks (true = handled): settings, then an open device, before the pane closes.
   function handleEscape() {
     if (settingsOpen) { settingsOpen = false; return true }
-    if (expandedUid) { expandedUid = ""; return true }
+    if (expandedUid) {  // only a layer while it is on screen (its device may have gone offline)
+      const shown = btRows.some(r => r.uid === expandedUid && BtModel.hasSettings(r.mon))
+      expandedUid = ""
+      if (shown) return true
+    }
     return false
   }
   function handleBackspace() { return handleEscape() }
@@ -100,7 +104,7 @@ Item {
         pending: QuickModels.pendingAction(pending, d.address || "")
       })
     }
-    return BtModel.paneRows(bluez, quickBtRoot.mon, quickBtRoot.showHidden, quickBtRoot.btScanRequested || quickBtRoot.btDiscovering)
+    return BtModel.paneRows(bluez, quickBtRoot.mon, quickBtRoot.btScanRequested || quickBtRoot.btDiscovering)
   }
   readonly property var rowCounts: {
     let on = 0, known = 0
@@ -188,6 +192,12 @@ Item {
     onExited: if (quickBtRoot.scanWanted) scanRetry.restart()
   }
   Timer { id: scanRetry; interval: 1000; onTriggered: scanProc.running = quickBtRoot.scanWanted }
+  // With --timeout, bluetoothctl stays up when StartDiscovery fails (busy right after power-on): restart it.
+  Timer {
+    interval: 5000; repeat: true
+    running: scanProc.running && !quickBtRoot.btDiscovering
+    onTriggered: scanProc.running = false
+  }
 
   // A headset that just connected becomes the output (upstream): its sink appears a moment after `connect`;
   // look for it by MAC (bluez_output.AA_BB_…) or name, 8 × 500 ms. WirePlumber persists the choice.
@@ -287,7 +297,7 @@ Item {
     if (battery && battery.charging) return Qt.alpha(Style.green, 0.18)
     return state === "critical" ? Qt.alpha(Style.red, 0.22) : (state === "low" ? Qt.alpha(Style.orange, 0.22) : Style.m3secondaryContainer)
   }
-  // "Bolt dongle · slot 2 · charging", "Bluetooth · no battery reading", "not connected · hidden", …
+  // "Bolt dongle · slot 2 · charging", "Bluetooth · no battery reading", "not connected", …
   function rowStatus(row) {
     const p = row.pending || ""
     if (quickBtRoot.forgetArmed && quickBtRoot.forgetArmed === row.address) return t("btReallyForget")
@@ -309,7 +319,6 @@ Item {
     }
     if (row.connected && b && b.charging) parts.push(t("charging"))
     else if (row.connected && b && b.status === "full" && b.external_power) parts.push(t("charged"))
-    if (row.hidden) parts.push(t("hiddenTag"))
     return parts.join(" · ")
   }
   readonly property string headStatus: {
@@ -386,6 +395,11 @@ Item {
     spacing: 4
     Timer { id: dpiCommit; interval: 300; onTriggered: Services.BtMonitor.setValue(hs.dev.id, "dpi", hs.dpiPreview) }
     Timer { id: thrCommit; interval: 300; onTriggered: Services.BtMonitor.setValue(hs.dev.id, "threshold", hs.thrPreview) }
+    // Closing the settings within the debounce still sends the last move.
+    Component.onDestruction: {
+      if (dpiCommit.running) Services.BtMonitor.setValue(hs.dev.id, "dpi", hs.dpiPreview)
+      if (thrCommit.running) Services.BtMonitor.setValue(hs.dev.id, "threshold", hs.thrPreview)
+    }
 
     RowLayout {
       visible: !!hs.dev.dpi && hs.dev.dpi.max > 0
@@ -465,7 +479,7 @@ Item {
     anchors.fill: parent
     spacing: 12
 
-    // Adapter card: glyph tile, alias + state, hidden / settings buttons, Scan pill, power switch.
+    // Adapter card: glyph tile, alias + state, Scan pill, settings button, power switch.
     Rectangle {
       Layout.fillWidth: true
       implicitHeight: btHead.implicitHeight + 28
@@ -500,14 +514,6 @@ Item {
             Layout.fillWidth: true; visible: text !== ""; text: quickBtRoot.headDetail; font.pixelSize: root.fontPx(10)
             color: quickBtRoot.stateColor(Services.BtMonitor.alert.state === "ok" ? "" : Services.BtMonitor.alert.state)
           }
-        }
-        // Hidden devices: count + reveal (dimmed); only while there are any.
-        Pill {
-          visible: quickBtRoot.hiddenKeys.length > 0
-          icon: quickBtRoot.showHidden ? BtModel.GLYPH_EYE : BtModel.GLYPH_EYE_OFF
-          label: quickBtRoot.t("hiddenCount", [quickBtRoot.hiddenKeys.length])
-          selected: quickBtRoot.showHidden
-          onClicked: quickBtRoot.showHidden = !quickBtRoot.showHidden
         }
         Pill {
           visible: quickBtRoot.btOn && !quickBtRoot.settingsOpen
@@ -693,7 +699,7 @@ Item {
                       color: devChip.modelData.state !== "ok" && devChip.modelData.online
                         ? quickBtRoot.batteryBg(devChip.modelData.battery, devChip.modelData.state)
                         : (devChip.modelData.online ? Style.m3secondaryContainer : Style.m3containerHigh)
-                      opacity: devChip.modelData.hidden ? 0.5 : (devChip.modelData.online ? 1 : 0.65)
+                      opacity: devChip.modelData.online ? 1 : 0.65
                       Row {
                         id: chipRow
                         anchors.centerIn: parent
@@ -713,7 +719,7 @@ Item {
                           anchors.verticalCenter: parent.verticalCenter
                           visible: text !== ""
                           text: !devChip.modelData.online ? quickBtRoot.t("deviceOff")
-                            : (devChip.modelData.battery ? BtModel.batteryGlyph(devChip.modelData.battery) + " " + BtModel.batteryText(devChip.modelData.battery) : "")
+                            : (devChip.modelData.battery ? BtModel.batteryGlyph(devChip.modelData.battery) + " " + BtModel.batteryText(devChip.modelData.battery, quickBtRoot.t) : "")
                           color: devChip.modelData.battery && devChip.modelData.battery.charging ? Style.green : quickBtRoot.stateColor(devChip.modelData.state)
                           font.family: root.uiFont; font.pixelSize: root.fontPx(10)
                         }
@@ -752,7 +758,7 @@ Item {
                   height: Math.max(48, btText.implicitHeight + 16)
                   radius: Style.menuRadiusMd
                   color: btd.containsMouse || btDelegate.settingsShown ? Style.m3stateHover : "transparent"
-                  opacity: btDelegate.busy ? 0.65 : (btDelegate.modelData.hidden && btDelegate.modelData.wired ? 0.55 : 1)
+                  opacity: btDelegate.busy ? 0.65 : 1
                   Behavior on color { ColorAnimation { duration: 120 } }
                   Behavior on opacity { NumberAnimation { duration: 120 } }
                   // Hover; a row with HID++ settings opens them on click (its buttons take their own clicks).
@@ -803,7 +809,7 @@ Item {
                     Chip {
                       visible: !!btDelegate.modelData.battery && btDelegate.modelData.connected
                       icon: BtModel.batteryGlyph(btDelegate.modelData.battery)
-                      label: BtModel.batteryText(btDelegate.modelData.battery)
+                      label: BtModel.batteryText(btDelegate.modelData.battery, quickBtRoot.t)
                       bg: quickBtRoot.batteryBg(btDelegate.modelData.battery, btDelegate.modelData.state)
                     }
                     // Logitech hidraw is root-only until the uaccess rule is in (pkexec).
@@ -812,12 +818,6 @@ Item {
                       icon: "󰌋"
                       label: Services.BtMonitor.allowing ? quickBtRoot.t("waitingPassword") : quickBtRoot.t("allowAccess")
                       onClicked: Services.BtMonitor.allowAccess()
-                    }
-                    // Hide: drops out of the map and the bar chip's warnings (helper state).
-                    IconBtn {
-                      opacity: btDelegate.modelData.hidden || btd.containsMouse ? 1 : 0.4
-                      icon: btDelegate.modelData.hidden ? BtModel.GLYPH_EYE : BtModel.GLYPH_EYE_OFF
-                      onClicked: Services.BtMonitor.setHidden(btDelegate.modelData.key, !btDelegate.modelData.hidden)
                     }
                     IconBtn {
                       visible: BtModel.hasSettings(btDelegate.modelData.mon)
@@ -887,7 +887,7 @@ Item {
             }
           }
 
-          // ---- settings: language, alerts, other devices, receiver access, hidden devices ----
+          // ---- settings: language, alerts, other devices, tooltip, receiver access ----
           ColumnLayout {
             visible: quickBtRoot.settingsOpen
             width: parent.width
@@ -1011,25 +1011,6 @@ Item {
               }
             }
 
-            Caption { text: quickBtRoot.t("hiddenTag") }
-            RowLayout {
-              Layout.fillWidth: true
-              Layout.leftMargin: 10; Layout.rightMargin: 10
-              spacing: 6
-              Hint { visible: quickBtRoot.hiddenKeys.length === 0; text: quickBtRoot.t("hiddenNone") }
-              Pill {
-                visible: quickBtRoot.hiddenKeys.length > 0
-                icon: quickBtRoot.showHidden ? BtModel.GLYPH_EYE_OFF : BtModel.GLYPH_EYE
-                label: quickBtRoot.showHidden ? quickBtRoot.t("hideHidden") : quickBtRoot.t("showHidden", [quickBtRoot.hiddenKeys.length])
-                onClicked: quickBtRoot.showHidden = !quickBtRoot.showHidden
-              }
-              Pill {
-                visible: quickBtRoot.hiddenKeys.length > 0
-                label: quickBtRoot.t("unhideAll")
-                onClicked: quickBtRoot.hiddenKeys.forEach(k => Services.BtMonitor.setHidden(k, false))
-              }
-              Item { Layout.fillWidth: true }
-            }
           }
         }
       }

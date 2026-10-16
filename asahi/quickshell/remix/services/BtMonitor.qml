@@ -15,7 +15,7 @@ Singleton {
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
   property var snap: ({})
-  // {state: ok | low | critical, kind, name, percent}: worst visible online device.
+  // {state: ok | low | critical, kind, name, percent}: worst online device.
   readonly property var alert: root.snap.alert || ({ state: "ok" })
   property bool paneOpen: false
   readonly property bool allowing: accessProc.running
@@ -30,7 +30,6 @@ Singleton {
   function send(obj) { if (helper.running) helper.write(JSON.stringify(obj) + "\n") }
   function refresh() { root.send({ cmd: "refresh" }) }
   function setValue(id, key, value) { root.send({ cmd: "set", device: id, key: key, value: value }) }
-  function setHidden(key, on) { root.send({ cmd: "hide", key: key, on: on }) }
   function setThresholds(lowAt, criticalAt) { root.send({ cmd: "thresholds", low_at: lowAt, critical_at: criticalAt }) }
   // {other_devices: bool} (UPower + BlueZ in the map / alerts) and / or {language: "auto" | code} (pane strings).
   function setOptions(opts) { root.send(Object.assign({ cmd: "options" }, opts)) }
@@ -50,7 +49,8 @@ Singleton {
       }
     }
     onStarted: if (root.paneOpen) root.send({ cmd: "open" })
-    onExited: restartTimer.start()
+    // Old data must not keep a stale alert / tooltip up while it is gone.
+    onExited: { root.snap = ({}); restartTimer.start() }
   }
   Timer { id: restartTimer; interval: 5000; onTriggered: helper.running = true }
   Process {

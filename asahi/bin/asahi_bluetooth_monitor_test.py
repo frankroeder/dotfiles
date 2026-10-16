@@ -5,6 +5,7 @@ fixtures, the alert rule, bounded children and the Monitor's commands + state fi
 import io
 import json
 import os
+import shutil
 import socket
 import sys
 import tempfile
@@ -67,7 +68,7 @@ devs = [
   {"name": "Kbd", "kind": "keyboard", "online": True, "state": "low", "battery": {"percent": 22}},
   {"name": "Mouse", "kind": "mouse", "online": True, "state": "low", "battery": {"percent": 18}},
   {"name": "Pad", "kind": "gamepad", "online": False, "state": "critical", "battery": {"percent": 2}},
-  {"name": "Buds", "kind": "headset", "online": True, "state": "critical", "battery": {"percent": 4}, "hidden": True},
+  {"name": "Buds", "kind": "headset", "online": False, "state": "critical", "battery": {"percent": 4}},
 ]
 eq(bm.battery_alert(devs), {"state": "low", "kind": "mouse", "name": "Mouse", "percent": 18}, "alert: worst visible online")
 tie = [{"name": "Kbd", "kind": "keyboard", "online": True, "state": "low", "battery": {"percent": 12}},
@@ -75,8 +76,8 @@ tie = [{"name": "Kbd", "kind": "keyboard", "online": True, "state": "low", "batt
        {"name": "Mouse", "kind": "mouse", "online": True, "state": "low", "battery": {"percent": 24}}]
 eq(bm.battery_alert(tie)["name"], "Mouse", "alert: a mouse at the same level takes over (upstream)")
 eq(bm.battery_alert(tie[:2])["name"], "Kbd", "alert: else the first device at the worst level (upstream)")
-eq(bm.battery_alert(devs[2:]), {"state": "ok"}, "alert: offline and hidden never warn")
-eq(bm.lowest_battery(devs)["name"], "Mouse", "lowest: visible online only")
+eq(bm.battery_alert(devs[2:]), {"state": "ok"}, "alert: offline devices never warn")
+eq(bm.lowest_battery(devs)["name"], "Mouse", "lowest: online only")
 
 # ---- UPower ----
 (tmp / "usbdev/3-1/3-1:1.0/0003:05AC:029C.000C").mkdir(parents=True)  # a USB-cabled keyboard's HID battery
@@ -148,6 +149,12 @@ eq((up[0]["connection"], up[0]["key"], up[0]["battery"]["status"], up[0]["batter
    "upower: USB-cabled keyboard via sysfs, charged")
 eq((up[1]["connection"], up[1]["address"], up[1]["battery"]["percent"]), ("bluetooth", "B0:BE:83:F2:07:42", 18), "upower: BT keyboard, int percent")
 eq((up[2]["battery"]["percent"], up[2]["battery"]["level"], up[2]["kind"]), (None, "low", "headset"), "upower: coarse level, 0% = unknown percent")
+eq([d["name"] for d in bm.parse_upower(dump, sysfs=str(tmp / "psy"), skip_hidpp=False)][2], "MX Master 3",
+   "upower: hidpp_battery kept while hidraw is denied (the kernel driver's reading)")
+monitor_lines = ["[14:52:01.1]\tdevice changed:     /org/freedesktop/UPower/devices/battery_macsmc_battery",
+                 "[14:52:01.2]\tdevice changed:     /org/freedesktop/UPower/devices/line_power_macsmc_ac",
+                 "[14:52:02.0]\tdevice changed:     /org/freedesktop/UPower/devices/mouse_hidpp_battery_0"]
+eq([bool(bm.UPOWER_SELF.search(x)) for x in monitor_lines], [True, True, False], "upower --monitor: laptop battery / AC do not rescan")
 
 # ---- BlueZ ----
 bluez = json.dumps({"type": "a{oa{sa{sv}}}", "data": [{
@@ -172,6 +179,8 @@ eq(bz[0]["battery"]["percent"], 9, "bluez: Battery1 percentage")
 eq(bm.parse_bluez("not json"), [], "bluez: garbage = nothing")
 eq(bm.parse_bluez('{"data": [[1, 2]]}'), [], "bluez: wrong shape = nothing")
 
+pads = [{"name": "Xbox Wireless Controller", "address": "AA:01"}, {"name": "Xbox Wireless Controller", "address": "AA:02"}]
+eq(len(bm.merge([], pads)), 2, "merge: same-named devices of one source both stay")
 merged = bm.merge(list(up), bz)
 eq([d["name"] for d in merged], ["Apple Inc. Magic Keyboard", "Magic Keyboard", "Pömpel", "Pad"], "merge: BlueZ Pömpel dropped (UPower path / address)")
 
@@ -210,9 +219,12 @@ hid("hidraw2", "5-2/5-2:1.0/0003:046D:C08B.0003", "0003:0000046D:0000C08B", "G50
 hid("hidraw3", "5-2/5-2:1.1/0003:046D:C08B.0004", "0003:0000046D:0000C08B", "Logitech G502 HERO Gaming Mouse", HIDPP_DESC)
 hid("hidraw4", "bt/0005:046D:B023.0005", "0005:0000046D:0000B023", "MX Ergo", HIDPP_DESC, "aa:bb:cc:dd:ee:ff")
 hid("hidraw5", "3-1/3-1:1.0/0003:05AC:029C.0006", "0003:000005AC:0000029C", "Magic Keyboard", HIDPP_DESC)
+LONG_DESC = bytes.fromhex("0600ff0902a1018511750895131500 26ff00 0902 8100 c0".replace(" ", ""))
+hid("hidraw6", "bt/0005:046D:B034.0007", "0005:0000046D:0000B034", "MX Master 3S", LONG_DESC, "aa:bb:cc:dd:ee:01")
 found = bm.discover(str(hr))
-eq([(n["node"], n["family"], n["bus"]) for n in found], [("hidraw0", "bolt", 3), ("hidraw3", None, 3), ("hidraw4", None, 5)],
-   "discover: receiver, wired HID++ interface, BT device; DJ child / mouse interface / Apple skipped")
+eq([(n["node"], n["family"], n["bus"], n["short"]) for n in found],
+   [("hidraw0", "bolt", 3, True), ("hidraw3", None, 3, True), ("hidraw4", None, 5, True), ("hidraw6", None, 5, False)],
+   "discover: receiver, wired HID++ interface, BT devices (one long-only); DJ child / mouse interface / Apple skipped")
 
 
 # ---- HID++ over a fake node ----
@@ -278,6 +290,26 @@ eq(bm.Device(FakeNode({}, {}, proto=None), 1).ping(), None, "ping: unreachable =
 eq(bm.Device(FakeNode({}, {}), 1).battery(), None, "battery: no feature = None")
 volt = bm.Device(FakeNode({bm.VOLTAGE: 1}, {(bm.VOLTAGE, 0): bytes([0x0F, 0x52, 0x00])}), 1)
 eq(volt.battery()["percent"], 70, "battery: voltage 3922 mV = 70 %")
+eq(bm.Device(FakeNode({bm.NAME: 1}, {(bm.NAME, 2): bytes([3])}), 1).kind(), "mouse", "kind: 0x0005 getDeviceType 3 = mouse")
+
+
+class SleepyNode(FakeNode):
+  """The first getFeature fails with 0x09 (asleep), later ones answer."""
+  asleep = True
+
+  def request(self, dev, b2, b3, params=b"", timeout=1.5):
+    if b2 == 0 and b3 >> 4 == 0 and self.asleep:
+      self.asleep = False
+      raise bm.HidppError(0x09)
+    return super().request(dev, b2, b3, params, timeout)
+
+
+sleepy = bm.Device(SleepyNode({bm.UNIFIED: 2}, {(bm.UNIFIED, 1): bytes([30, 4, 0, 0])}), 1)
+try:
+  sleepy.battery()
+except bm.HidppError:
+  pass
+eq(sleepy.battery()["percent"], 30, "feature: an unreachable lookup is not cached as unsupported")
 
 class FakeReceiver(bm.Receiver):
   def __init__(self, family, regs):
@@ -301,12 +333,14 @@ bolt = FakeReceiver("bolt", {
   (0xB5, bytes([0x62, 0x01])): bytes([0x62, 0x01, 7]) + b"MX Keys",
 })
 eq(bolt.paired(), [(2, 0x408A, "keyboard", "MX Keys")], "bolt: little-endian wpid + long name")
+nano = FakeReceiver("nano", {(0xB5, bytes([0x20])): bytes([0x20, 0, 0, 0x40, 0x7A, 0, 0, 0x02])})
+eq(nano.paired(), [(1, 0x407A, "mouse", "")], "nano: a slot without a name register keeps its device")
 
 # ---- Node.request over a socketpair (message boundaries like hidraw) ----
 a, b = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
 a.setblocking(False)
 n = bm.Node.__new__(bm.Node)
-n.fd, n.events = a.fileno(), []
+n.fd, n.events, n.short = a.fileno(), [], True
 reply_ok = bytes([0x11, 0x01, 0x03, 0x1E, 0x2A]) + b"\0" * 15
 def device_side():  # a flooding device: unrelated reports must neither stall nor grow the queue
   for _ in range(600):
@@ -338,6 +372,27 @@ eq(0.25 < time.monotonic() - t0 < 1.0, True, "socket: silent device times out")
 a.close()
 b.close()
 
+a, b = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
+a.setblocking(False)
+n = bm.Node.__new__(bm.Node)
+n.fd, n.events, n.short = a.fileno(), [], False
+threading.Timer(0.1, b.send, [bytes([0x11, 0xFF, 0x00, 0x1E, 4, 2]) + b"\0" * 14]).start()
+eq(n.request(0xFF, 0x00, 0x1E, [0, 0, 7])[:2], bytes([4, 2]), "long-only node: request answered")
+sent = b.recv(64)
+eq((len(sent), sent[0]), (bm.LONG_LEN, bm.LONG), "long-only node: a 3-byte request goes out as a long report")
+a.close()
+b.close()
+
+# Unplug: the hidraw fd turns readable and read() fails (EIO); a pty with its other end closed does the same.
+master, slave = os.openpty()
+os.set_blocking(master, False)
+os.close(slave)
+gone = bm.Node.__new__(bm.Node)
+gone.fd, gone.events, gone.short = master, [], True
+m = bm.Monitor(out=io.StringIO(), state=str(tmp / "state.json"))
+m.nodes = {"/dev/hidraw8": gone}
+eq((m.wants_refresh(), list(m.nodes)), (True, []), "unplug: the failing node is dropped and a rescan follows (no crash)")
+
 # ---- bounded children ----
 t0 = time.monotonic()
 eq(bm.run_bounded(["sleep", "10"], timeout=0.5), "", "run_bounded: a child that never ends")
@@ -351,11 +406,12 @@ m = bm.Monitor(out=io.StringIO(), state=str(state))
 eq(m.handle(b"not json"), False, "handle: garbage ignored")
 eq(m.handle(json.dumps({"cmd": "open"})), True, "handle: open rescans")
 eq((m.opened, m.handle(json.dumps({"cmd": "closed"})), m.opened), (True, False, False), "handle: closed, no rescan")
-m.handle(json.dumps({"cmd": "hide", "key": "bt:E8:85:4B:18:75:5D", "on": True}))
 m.handle(json.dumps({"cmd": "thresholds", "low_at": 30, "critical_at": 50}))
-m.handle(json.dumps({"cmd": "thresholds", "low_at": "x"}))
+eq(m.handle(json.dumps({"cmd": "thresholds", "low_at": "x"})), False, "handle: bad threshold ignored")
+eq(m.handle('{"cmd": "thresholds", "low_at": Infinity, "critical_at": 1}'), False, "handle: Infinity ignored, no crash")
+eq(m.handle(json.dumps({"cmd": "set", "device": ["x"], "key": {}, "value": [1]})), True, "handle: odd set types reach set, no crash")
 saved = json.loads(state.read_text())
-eq((saved["hidden"], saved["low_at"], saved["critical_at"]), (["bt:E8:85:4B:18:75:5D"], 30, 30), "state: hidden + thresholds (critical ≤ low)")
+eq((saved["low_at"], saved["critical_at"], "hidden" in saved), (30, 30, False), "state: thresholds (critical ≤ low), no hidden list")
 m.handle(json.dumps({"cmd": "set", "device": "nope", "key": "dpi", "value": 800}))
 eq(m.message, ("errNotConnected", []), "set: unknown device")
 
@@ -374,6 +430,9 @@ eq(any(s[3][:2] == bytes([2, 50]) for s in node.sent), True, "reapply: smartshif
 eq(bm.load_settings(str(state))["low_at"], 30, "state: reloads")
 write(tmp / "bad.json", "[1, 2]")
 eq(bm.load_settings(str(tmp / "bad.json"))["low_at"], 25, "state: wrong shape = defaults")
+write(tmp / "odd.json", json.dumps({"devices": {"4082": [1], "c08b": {"dpi": 800}}, "low_at": "x"}))
+eq((bm.load_settings(str(tmp / "odd.json"))["devices"], bm.load_settings(str(tmp / "odd.json"))["low_at"]), ({"c08b": {"dpi": 800}}, 25),
+   "state: non-dict device entries and wrong types dropped")
 
 bm.discover = lambda sysfs=None: []
 bm.bt_adapters = lambda sysfs=None: [{"id": "hci0", "builtin": True, "bus": "pci", "vendor": "Broadcom"}]
@@ -382,14 +441,19 @@ bm.upower_connection = lambda native, sysfs=None: "bluetooth" if bm.address_of(n
 m.scan()
 snap = m.snap
 eq([d["name"] for d in snap["devices"]], ["Apple Inc. Magic Keyboard", "Magic Keyboard", "Pömpel", "Pad"], "scan: UPower then new BlueZ devices")
-eq([d["key"] for d in snap["devices"]][1:], ["bt:B0:BE:83:F2:07:42", "bt:E8:85:4B:18:75:5D", "bt:11:22:33:44:55:66"], "scan: bt:ADDR keys")
-eq(snap["devices"][2]["hidden"], True, "scan: hidden flag from state")
-eq(snap["alert"], {"state": "critical", "kind": "keyboard", "name": "Magic Keyboard", "percent": 18}, "scan: alert = first critical (hidden Pömpel ignored, 30/30)")
+eq([d.get("address") for d in snap["devices"]][1:], ["B0:BE:83:F2:07:42", "E8:85:4B:18:75:5D", "11:22:33:44:55:66"],
+   "scan: Bluetooth devices carry their address (the pane merges by it)")
+eq(snap["alert"], {"state": "critical", "kind": "keyboard", "name": "Magic Keyboard", "percent": 18}, "scan: alert = first critical (30/30)")
 eq(snap["devices"][1]["state"], "critical", "scan: 18 % ≤ critical 30")
 eq(snap["devices"][3]["adapter"], "hci0", "scan: Bluetooth devices name their adapter")
 eq("native" in snap["devices"][2], False, "scan: native paths stay internal")
 eq(snap["phase"], "ok", "scan: phase ok")
 json.dumps(snap)
+m.handle(json.dumps({"cmd": "set", "device": "nope", "key": "dpi", "value": 800}))
+m.scan()
+first = m.snap["message_code"]
+m.scan()
+eq((first, m.snap["message_code"]), ("errNotConnected", ""), "message: shown in one snapshot, then cleared")
 
 m.handle(json.dumps({"cmd": "options", "other_devices": False, "language": "de"}))
 m.scan()
@@ -452,7 +516,7 @@ class Emulator(threading.Thread):
     fid = next((f for f, i in EMU_FEATURES.items() if i == b2), None)
     r = None
     if fid == 0x0005:
-      r = [11] if fn == 0 else list(b"MX Master 3"[p[0]:p[0] + 16])
+      r = [11] if fn == 0 else [3] if fn == 2 else list(b"MX Master 3"[p[0]:p[0] + 16])
     elif fid == 0x1004 and fn == 1:
       r = [55, 4, 0, 0]
     elif fid == 0x2201:
@@ -479,14 +543,20 @@ class Emulator(threading.Thread):
     self.send(bm.LONG, dev, b2, b3, *r)
 
 
-a, b = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
-a.setblocking(False)
-emu = Emulator(b)
-emu.start()
-node = bm.Node.__new__(bm.Node)
-node.fd, node.events = a.fileno(), []
+def emulated():
+  """A fresh receiver on a socketpair (a replug): (node, emulator)."""
+  a, b = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
+  a.setblocking(False)
+  emu = Emulator(b)
+  emu.start()
+  node = bm.Node.__new__(bm.Node)
+  node.fd, node.events, node.short, node.sock = a.fileno(), [], True, a  # keep the socket object alive
+  return node, emu
+
+
+node, emu = emulated()
 bm.discover = lambda sysfs=None: [{"node": "hidraw9", "path": "/dev/hidraw9", "bus": 3, "product": 0xC548, "family": "bolt",
-                                   "name": "Logitech USB Receiver", "uniq": ""}]
+                                   "name": "Logitech USB Receiver", "uniq": "", "short": True}]
 e2e = bm.Monitor(out=io.StringIO(), state=str(tmp / "e2e.json"))
 e2e.handle(json.dumps({"cmd": "options", "other_devices": False}))
 e2e.nodes["/dev/hidraw9"] = node
@@ -521,8 +591,19 @@ fresh.settings["other_devices"] = False
 fresh.nodes["/dev/hidraw9"] = node
 fresh.scan()
 eq(emu.writes, [], "e2e: a first sighting keeps the device's own settings (upstream)")
-a.close()
-b.close()
+
+# Replug: the receiver's node vanishes (dropped), a new one appears with the device back on its defaults.
+plugged = bm.discover
+bm.discover = lambda sysfs=None: []
+e2e.scan()
+eq((list(e2e.nodes), e2e.online.get("4082")), ([], False), "replug: node dropped, device marked gone")
+bm.discover = plugged
+replug = {}
+e2e.node = lambda path, short=True: e2e.nodes.setdefault(path, replug.setdefault("node", emulated())[0])
+e2e.scan()
+eq(replug["node"][1].writes, [("dpi", 3200), ("smartshift", (1, 0))], "replug: remembered settings reapplied")
+
+shutil.rmtree(tmp)
 
 print("FAILED" if FAILED else "all ok", file=sys.stderr if FAILED else sys.stdout)
 sys.exit(1 if FAILED else 0)

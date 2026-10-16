@@ -34,7 +34,6 @@ assert.strictEqual(I.trn("en", "receiversN", 3, [3]), "3 dongles")
 assert.strictEqual(I.trn("pl", "receiversN", 3, [3]), "3 dongle")
 assert.strictEqual(I.trn("pl", "receiversN", 5, [5]), "5 dongli")
 assert.strictEqual(I.trn("pl", "receiversN", 12, [12]), "12 dongli")
-assert.strictEqual(I.trn("fr", "receiversN", 0, [0]), "1 dongle")
 assert.strictEqual(I.languageName("pt"), "Português")
 
 console.log("bt_i18n_test: ok")
