@@ -241,8 +241,7 @@ require("blink.cmp").setup {
         return { "buffer", "omni", "snippets", "thesaurus" }
       end
 
-      -- local providers = { "lsp", "snippets", "path", "buffer", "parrot" }
-      local providers = { "lsp", "snippets", "path", "buffer" }
+      local providers = { "lsp", "snippets", "path", "buffer", "parrot" }
       if vim.bo.filetype == "lua" then
         table.insert(providers, "lazydev")
       end
@@ -276,18 +275,18 @@ require("blink.cmp").setup {
         module = "lazydev.integrations.blink",
         score_offset = 100,
       },
-      -- parrot = {
-      --   module = "parrot.completion.blink",
-      --   name = "parrot",
-      --   score_offset = 20,
-      --   transform_items = function(_, items)
-      --     for _, item in ipairs(items) do
-      --       item.kind_icon = "🦜"
-      --       item.kind_name = "parrot"
-      --     end
-      --     return items
-      --   end,
-      -- },
+      parrot = {
+        module = "parrot.completion.blink",
+        name = "parrot",
+        score_offset = 20,
+        transform_items = function(_, items)
+          for _, item in ipairs(items) do
+            item.kind_icon = "🦜"
+            item.kind_name = "parrot"
+          end
+          return items
+        end,
+      },
       thesaurus = {
         name = "blink-cmp-words",
         module = "blink-cmp-words.thesaurus",
