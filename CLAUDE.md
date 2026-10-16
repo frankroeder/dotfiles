@@ -79,6 +79,11 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   (`Lid closed.` → `Suspending...` → `PM: suspend entry` with no `suspend exit`). Do not add
   `asahi-hdmi sync` to resume. Test:
   `asahi/bin/asahi_hdmi_test.sh`.
+- **Sleep drain (AsahiLinux/linux#262, 2026-10-16)**: s2idle costs ~1.4–1.85 W here (~3 %/h, `slept …` lines in
+  `idle.log`) — a kernel floor, not ours; do not chase it in userspace. No S3 / hibernate / RTC `wakealarm` (no
+  suspend-then-poweroff). AOP ALS wakes ~3.6/s in sleep (#638), but silencing it (blacklist, PM notifier) changed
+  nothing in the thread; lid-angle stream can't be stopped. j314s hangs there were the out-of-tree SEP Touch ID
+  driver + `fprintd` — no SEP here; our hangs are the DCP path below.
 - **Failed suspend**: kernel can refuse s2idle (`apple-drm … failed to suspend: error -22`). Cause
   (2026-10-09): USB-C unplug while DP-1 is on — poweroff's clear swap times out and silently sets
   `dcp->crashed`, `dcp_crtc_atomic_check` then rejects the suspend's disable-all until reboot
