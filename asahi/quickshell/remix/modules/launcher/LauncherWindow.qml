@@ -50,6 +50,9 @@ Scope {
   property int calcHistIndex: -1
   property string calcDraft: ""
   property bool calcHistLock: false
+  property string calcAns: ""
+  property var calcResults: ({})
+  readonly property string calcStatePath: Quickshell.env("HOME") + "/.local/state/asahi/calc-history.json"
   property var launcherScreen: null
   property int launcherWorkspaceId: 1
   property int resultCount: 0
@@ -232,8 +235,9 @@ Scope {
     compact: root.compactLauncher,
     headerVisible: !root.quickMode && root.sectionName !== "",
     cmdVisible: !root.quickMode && !root.compactLauncher,
+    // "=" budgets 3 extra rows for the legend card (~120 px)
     rowCount: root.categoryFilter === ""
-      ? Math.max(root.resultCount, (root.navRows || []).length)
+      ? Math.max(root.resultCount + (root.calcMode ? 3 : 0), (root.navRows || []).length)
       : root.resultCount,
     tallRows: (filteredApps.values || []).filter(function(it) { return !it.isCategory && !!it.comment }).length
   })
@@ -520,6 +524,20 @@ Scope {
     root.storageAt = at
     root.storageStatus = "ready"
     root.storageUpdated = Qt.formatDateTime(new Date(at), "ddd HH:mm")
+  }
+
+  // Calculator history, results and ans survive qs restarts (it reloads on every config save).
+  FileView {
+    id: calcStateFile
+    path: root.calcStatePath
+    blockLoading: true
+    printErrors: false
+    onLoaded: {
+      const st = CalcHist.loadState(calcStateFile.text())
+      root.calcHistory = st.history
+      root.calcResults = st.results
+      root.calcAns = st.ans
+    }
   }
 
   FileView {
@@ -984,6 +1002,7 @@ Scope {
     return root.navFor(target)?.icon || ""
   }
 
+  readonly property bool calcMode: !root.quickMode && root.query.trim().startsWith("=")
   readonly property string sectionName: {
     const q = root.query.trim()
     if (root.categoryFilter !== "") return root.navFor(root.categoryFilter)?.title || root.categoryFilter
@@ -1003,6 +1022,7 @@ Scope {
       return "↑↓ panel · esc leave"
     if (root.argArmed) return "type argument · ↩ go · tab results"
     if (root.fileMode) return "↑↓ / tab · open file · esc back"
+    if (root.calcMode) return "↑↓ history · ↩ copy · esc close"
     return "↓ / tab · ↩ open · esc close"
   }
 
@@ -1119,10 +1139,15 @@ Scope {
     if (searchInput) searchInput.text = root.query
   }
 
-  function pushCalcHistory(expr) {
+  function pushCalcHistory(expr, res) {
+    const r = Object.assign({}, root.calcResults)
+    r[String(expr || "").trim()] = res
+    root.calcResults = r
     root.calcHistory = CalcHist.push(root.calcHistory, expr)
+    root.calcAns = res
     root.calcHistIndex = -1
     root.calcDraft = ""
+    calcStateFile.setText(CalcHist.saveState(root.calcHistory, root.calcResults, root.calcAns))
   }
 
   function walkCalcHistory(delta) {
@@ -1137,6 +1162,14 @@ Scope {
     root.setSearchQuery("=" + next.text)
     if (searchInput) searchInput.cursorPosition = (searchInput.text || "").length
     root.calcHistLock = false
+    // Select the loaded history row (Enter copies its result) and keep it in view; the list scrolls past ~8.
+    Qt.callLater(function () {
+      const rows = filteredApps.values || []
+      const at = rows.findIndex(function (r) { return r.id === "calc-hist-" + root.calcHistIndex })
+      resultsList.currentIndex = Math.max(0, at)
+      if (at >= 0) resultsList.positionViewAtIndex(at, ListView.Contain)
+      else resultsList.positionViewAtBeginning()
+    })
     return true
   }
 
@@ -1418,9 +1451,15 @@ Scope {
     }
     if (entry.special === "noop") {
       return
-    } else if (entry.special === "calc") {
-      root.pushCalcHistory((root.query || "").substring(1))
+    } else if (entry.special === "calc-hist" && (!entry.result || (root.query || "").substring(1).trim() !== entry.expr)) {
+      // First activation loads the entry for editing; on the loaded one (↑↓, a second click) it copies.
+      root.setSearchQuery("=" + entry.expr)
+      root.focusLauncherInput()
+      if (searchInput) searchInput.cursorPosition = (searchInput.text || "").length
+      return
+    } else if (entry.special === "calc" || entry.special === "calc-hist") {
       const res = entry.result || ""
+      root.pushCalcHistory((root.query || "").substring(1), res)
       if (res) Quickshell.execDetached(["bash", "-c", "echo -n '" + res.replace(/'/g, "'\\''") + "' | wl-copy"])
     } else if (entry.special === "dict") {
       const copy = entry.copy || ""
@@ -2053,11 +2092,7 @@ Scope {
     const dictResults = getDictResults(q)
     if (dictResults) return dictResults
     if (q.startsWith("=")) {
-      const res = CalcHist.calculate(q.substring(1))
-      if (res !== null) {
-        return [{ id: "calc-" + res, name: "= " + res, comment: "Calculator — Enter to copy", icon: "󰃬", special: "calc", result: res }]
-      }
-      return null
+      return CalcHist.rows(q.substring(1), root.calcAns, root.calcHistory, root.calcResults, root.calcHistIndex)
     }
     if (q.startsWith("!")) {
       // Literal pass-through to Kagi (defaultSearchUrl). Whatever you type after ! is sent as the query string.
@@ -2929,9 +2964,11 @@ Scope {
               id: resultsList
               visible: !root.quickMode
               anchors.top: parent.top
-              anchors.bottom: parent.bottom
+              anchors.bottom: root.calcMode ? calcLegend.top : parent.bottom
+              anchors.bottomMargin: root.calcMode ? 6 : 0
               anchors.left: parent.left
               width: parent.width * parent.listFrac
+              clip: root.calcMode  // rows would draw over the legend card
               model: filteredApps
               spacing: 0
               boundsBehavior: Flickable.StopAtBounds
@@ -3086,7 +3123,7 @@ Scope {
                 visible: root.resultCount === 0 && searchInput.text !== ""
                 Text {
                   anchors.horizontalCenter: parent.horizontalCenter
-                  text: "󰍉"
+                  text: root.calcMode ? "󰃬" : "󰍉"
                   color: Style.menuAccent
                   font.family: root.uiFont
                   font.pixelSize: root.fontPx(28)
@@ -3094,7 +3131,8 @@ Scope {
                 }
                 Text {
                   anchors.horizontalCenter: parent.horizontalCenter
-                  text: "Nothing matches"
+                  text: !root.calcMode ? "Nothing matches"
+                    : root.query.trim() === "=" ? "Type an expression" : "Not a complete expression yet"
                   color: Style.menuInkDeep
                   font.family: root.uiSans
                   font.pixelSize: root.fontPx(13)
@@ -3103,11 +3141,61 @@ Scope {
                 }
                 Text {
                   anchors.horizontalCenter: parent.horizontalCenter
-                  text: "Try another query or prefix"
+                  text: root.calcMode ? "e.g.  sin(30°)  ·  nCr(49, 6)  ·  2^10  ·  log(8, 2)" : "Try another query or prefix"
                   color: Style.menuInkMuted
                   font.family: root.uiSans
                   font.pixelSize: root.fontPx(11)
                   opacity: 0.8
+                }
+              }
+            }
+
+            // "=" legend: a card under the result + history rows, one column per group
+            Rectangle {
+              id: calcLegend
+              visible: root.calcMode
+              anchors.left: parent.left
+              anchors.bottom: parent.bottom
+              width: resultsList.width
+              height: visible ? calcLegendRow.implicitHeight + 16 : 0
+              radius: Style.menuRadiusLg
+              color: Style.menuCardBg
+              // Columns sit flush left and right; the leftover width is split evenly into the gaps.
+              Row {
+                id: calcLegendRow
+                x: root.launcherGeom.rowPad
+                y: 8
+                readonly property real colsW: {
+                  let w = 0
+                  for (let i = 0; i < children.length; i++) w += children[i].implicitWidth
+                  return w
+                }
+                spacing: Math.max(12, (calcLegend.width - 2 * x - colsW) / Math.max(1, CalcHist.LEGEND.length - 1))
+                Repeater {
+                  model: CalcHist.LEGEND
+                  Column {
+                    required property var modelData
+                    spacing: 2
+                    Text {
+                      text: modelData[0].toUpperCase()
+                      color: Style.menuAccent
+                      font.family: root.uiSans
+                      font.pixelSize: root.fontPx(9)
+                      font.weight: Font.Bold
+                      font.letterSpacing: 0.8
+                      bottomPadding: 2
+                    }
+                    Repeater {
+                      model: modelData[1]
+                      Text {
+                        required property string modelData
+                        text: modelData
+                        color: Style.m3onSurfaceVariant
+                        font.family: root.uiSans
+                        font.pixelSize: root.fontPx(11)
+                      }
+                    }
+                  }
                 }
               }
             }

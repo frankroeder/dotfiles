@@ -288,7 +288,7 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   below apps on an equal score, no category bonus). A pane may
   define `handleEscape()` (Backup: subfolder → snapshot home) — LauncherWindow asks it first. Tab
   in Quick steps the rail; pane text fields swallow Tab (it leaked a Wi-Fi passphrase into the
-  search). `=` only evals arithmetic (a pasted expression reached launcher ids). Any close keeps the pane alive (the next open
+  search). `=` is a scientific calculator (`calc_history.js`: own parser, no `eval` — a pasted expression reached launcher ids; radians, `30°`; `,` separates arguments, `.` decimals; ASCII constants only (`pi`, not `π`); `ans` = last copied result, a leading `*`/`/`/`^` continues from it; rows = result + the whole history (last 20, scrolls; saved with results + ans in `~/.local/state/asahi/calc-history.json`); ↑↓ walks it and selects the loaded row (Enter copies its result), a click loads, a second click copies; legend = `calcLegend` card at the bottom (`CalcHist.LEGEND` columns: caps label + lines, gaps split evenly; +3 rows budgeted, list clipped above it; empty state "Type an expression"); `log`/`root`/`round` default b=10 / n=2 / n=0; hex/bin/oct hint only for bases the input uses). `=` mode rows: result, 2 legend rows, last 8 history rows (↑↓ loads one, tinted; click loads it); hex/bin/oct hint only for bases the input uses. Any close keeps the pane alive (the next open
   destroys it): poll Timers, `SystemClock` and looping animations gate on `root.shouldShow`;
   countdowns (Monitors revert) and BT stop-retries must not. Must-finish actions run as
   `systemd-run --user --wait --quiet --collect` (exit code passes through — Wi-Fi band, BT
