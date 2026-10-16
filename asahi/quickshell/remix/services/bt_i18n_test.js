@@ -17,12 +17,13 @@ for (const l of I.LANGUAGES) {
 
 assert.strictEqual(I.systemLanguage("", "", "de_DE.UTF-8"), "de")
 assert.strictEqual(I.systemLanguage("en_US.UTF-8", "", "de_DE.UTF-8"), "en")
-assert.strictEqual(I.systemLanguage("C", "pl_PL", ""), "pl")
+assert.strictEqual(I.systemLanguage("C", "de_AT", ""), "de")
+assert.strictEqual(I.systemLanguage("", "", "fr_FR.UTF-8"), "en")  // only en / de here
 assert.strictEqual(I.systemLanguage("", "", "ja_JP.UTF-8"), "en")
 assert.strictEqual(I.systemLanguage("", "", ""), "en")
-assert.strictEqual(I.resolve("auto", "fr"), "fr")
-assert.strictEqual(I.resolve("nl", "fr"), "nl")
-assert.strictEqual(I.resolve("xx", "fr"), "fr")
+assert.strictEqual(I.resolve("auto", "de"), "de")
+assert.strictEqual(I.resolve("en", "de"), "en")
+assert.strictEqual(I.resolve("fr", "de"), "de")  // a saved language that is gone falls back to the system one
 
 assert.strictEqual(I.tr("de", "connectedOf", [2, 5]), "2 von 5 Geräten verbunden")
 assert.strictEqual(I.tr("xx", "thisPc"), "This PC")
@@ -30,9 +31,7 @@ assert.strictEqual(I.tr("de", "noSuchKey"), "noSuchKey")
 assert.strictEqual(I.tr("en", "slotN", []), "slot {0}")
 assert.strictEqual(I.trn("en", "receiversN", 1), "1 dongle")
 assert.strictEqual(I.trn("en", "receiversN", 3, [3]), "3 dongles")
-assert.strictEqual(I.trn("pl", "receiversN", 3, [3]), "3 dongle")
-assert.strictEqual(I.trn("pl", "receiversN", 5, [5]), "5 dongli")
-assert.strictEqual(I.trn("pl", "receiversN", 12, [12]), "12 dongli")
-assert.strictEqual(I.languageName("pt"), "Português")
+assert.strictEqual(I.trn("de", "receiversN", 2, [2]), "2 Dongles")
+assert.strictEqual(I.languageName("de"), "Deutsch")
 
 console.log("bt_i18n_test: ok")

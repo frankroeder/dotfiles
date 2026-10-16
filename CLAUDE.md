@@ -452,7 +452,8 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   sysfs (upstream: wireless). Receivers show 6 slots (upstream). Bar chip (upstream's batteryAlert): the first
   online device at the worst level, a mouse at that level takes over → its kind glyph, orange / red;
   right-click = rescan; its tooltip (per-device batteries, upstream) is on by default, off in the pane.
-  Strings: `services/bt_i18n.js` = upstream's eight tables + the pane's own keys (incl. `lvl_*` level words);
+  Strings: `services/bt_i18n.js` = upstream's English + German tables (its other six dropped: nobody here checks
+  them) + the pane's own keys (incl. `lvl_*` level words);
   language = pane setting, else LC_ALL / LC_MESSAGES / LANG. hidraw is root-only: "Allow access" →
   `pkexec asahi-logitech-access` writes its inline rule to `/etc/udev/rules.d/42-asahi-logitech-hidraw.rules`
   (`KERNELS=="0003:046D:*"` / `0005:046D:*` → uaccess, the device's own vendor; opt-in, not in the installer;
