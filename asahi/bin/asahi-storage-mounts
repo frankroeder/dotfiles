@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Local filesystems for the launcher Storage pane: JSON array, one entry per filesystem, sorted by mount point.
+# Mounts of one filesystem (same maj:min: btrfs subvolumes / and /home, bind mounts) share an entry; /run, /dev, ...
+# and tmpfs are skipped (external disks are asahi-usb-storage's).
+#
+#   {mounts, source, fstype, label, compress, model, total, used, avail, pct, ro, readable}
+#   pct = df's Use%, ro = mounted read-only (e.g. after errors), readable = this user can open mounts[0]
+
+set -euo pipefail
+
+disks=$(lsblk -J -l -o PATH,PKNAME,MODEL)
+# timeout: a dead network mount blocks findmnt, and the pane's scan with it, forever.
+fs=$(timeout 10 findmnt -D -b -J -v -o SOURCE,FSTYPE,SIZE,USED,AVAIL,TARGET,LABEL,OPTIONS,MAJ:MIN)
+# Mount points this user can list (root-only /boot/efi is not).
+readable=$(jq -r '.filesystems[].target' <<<"$fs" | while IFS= read -r t; do
+  if [[ -r $t && -x $t ]]; then echo "$t"; fi
+done | jq -R . | jq -sc .)
+jq -c --argjson disks "$disks" --argjson readable "$readable" '
+  ($disks.blockdevices | map({(.path): .}) | add) as $dev
+  | [ .filesystems[]
+      | select(.fstype | test("^(tmpfs|devtmpfs|squashfs|efivarfs|overlay)$") | not)
+      | select(.target | test("^/(run|dev|proc|sys)(/|$)") | not) ]
+  | group_by(."maj:min")
+  | map(. as $g | ($g | map(.target) | sort_by(length)) as $m | $g[0] | {
+      mounts: $m,
+      source, fstype,
+      label: (.label // ""),
+      compress: ((.options | capture("compress(-force)?=(?<c>[^,]+)").c) // ""),
+      model: (($dev["/dev/" + ($dev[.source].pkname // "")].model // $dev[.source].model // "") | gsub("^\\s+|\\s+$"; "")),
+      total: .size, used: .used, avail: .avail,
+      pct: (if .used + .avail > 0 then (.used * 100 / (.used + .avail) | ceil) else 0 end),
+      ro: (.options | test("(^|,)ro(,|$)")),
+      readable: ($readable | any(. == $m[0]))
+    })
+  | sort_by(.mounts[0])' <<<"$fs"

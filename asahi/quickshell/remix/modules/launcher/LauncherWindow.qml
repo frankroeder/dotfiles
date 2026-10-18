@@ -443,32 +443,10 @@ Scope {
   property real storageAt: 0
   property string storageDfText: ""
 
+  // asahi-storage-mounts JSON: one entry per filesystem, `mounts` lists every mount point of it (/ + /home).
+  // Empty output (failed scan) and a pre-JSON cache throw: no du / cache write, the cache load is dropped and rescans.
   function parseStorageMounts(text) {
-    const mounts = []
-    const lines = (text || "").trim().split("\n")
-    const home = root.homeDir
-    for (let i = 0; i < lines.length; i++) {
-      const parts = lines[i].split("|")
-      if (parts.length < 5) continue
-      const mount = parts[0]
-      const total = Number(parts[1]) || 0
-      const used = Number(parts[2]) || 0
-      const avail = Number(parts[3]) || 0
-      const pct = Number(parts[4]) || root.storagePct(used, total)
-      mounts.push({
-        mount: mount,
-        total: total,
-        used: used,
-        avail: avail,
-        pct: pct,
-        highlight: mount === "/" || mount === home || mount === "/home"
-      })
-    }
-    mounts.sort((a, b) => {
-      if (a.highlight !== b.highlight) return a.highlight ? -1 : 1
-      return a.mount.localeCompare(b.mount)
-    })
-    root.storageMounts = mounts
+    root.storageMounts = JSON.parse(text)
   }
 
   function parseStorageHomeDirs(text) {
@@ -558,13 +536,7 @@ Scope {
   Process {
     id: storageDfProc
     running: false
-    command: [
-      "sh", "-c",
-      "df -B1 -P 2>/dev/null | awk 'NR>1 && $1 !~ /^(tmpfs|devtmpfs|squashfs|efivarfs|overlay|none|vendorfw)$/ { " +
-      "mount=$6; for (i=7; i<=NF; i++) mount=mount\" \"$i; " +
-      "if (mount ~ /^\\/(run|dev|proc|sys)(\\/|$)/) next; " +
-      "gsub(/%/, \"\", $5); print mount \"|\" $2 \"|\" $3 \"|\" $4 \"|\" $5 }'"
-    ]
+    command: [root.binDir + "/asahi-storage-mounts"]
     stdout: StdioCollector {
       onStreamFinished: {
         try {
@@ -572,15 +544,9 @@ Scope {
           root.storageDfText = text
           root.scanStorageHomeDirs()
         } catch (e) {
-          root.storageError = "Failed to parse mounts"
+          root.storageError = "Mount scan failed"
           root.storageStatus = "error"
         }
-      }
-    }
-    onExited: (code) => {
-      if (code !== 0 && root.storageMounts.length === 0) {
-        root.storageError = "df failed"
-        root.storageStatus = "error"
       }
     }
   }

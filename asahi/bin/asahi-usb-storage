@@ -2,8 +2,9 @@
 # External disks (USB / hotplug) for the launcher Storage pane. Everything goes through udisks (no root).
 #
 #   asahi-usb-storage list           JSON array, one entry per external disk
-#   asahi-usb-storage mount <part>   mount a partition
-#   asahi-usb-storage eject <disk>   unmount every partition, then power the disk off
+#   asahi-usb-storage mount <part>     mount a partition
+#   asahi-usb-storage unmount <part>   unmount it (the disk stays powered)
+#   asahi-usb-storage eject <disk>     unmount every partition, then power the disk off
 #
 # Adapted from https://github.com/HakataMike/omarchy-usb-storage
 
@@ -19,7 +20,7 @@ usb_speed() {
 
 list() {
   local disks speeds='{}' name
-  disks=$(lsblk -J -b -o NAME,PATH,TRAN,TYPE,SIZE,HOTPLUG,FSTYPE,LABEL,MOUNTPOINTS,MODEL,VENDOR,FSSIZE,FSUSED)
+  disks=$(lsblk -J -b -o NAME,PATH,TRAN,TYPE,SIZE,HOTPLUG,FSTYPE,LABEL,MOUNTPOINTS,MODEL,VENDOR,FSSIZE,FSUSED,FSAVAIL)
   for name in $(jq -r '.blockdevices[] | select(.type == "disk" and (.tran == "usb" or .hotplug)) | .name' <<<"$disks"); do
     speeds=$(jq --arg n "$name" --argjson s "$(usb_speed "$name")" '. + {($n): $s}' <<<"$speeds")
   done
@@ -39,7 +40,8 @@ list() {
                 label: (.label // ""),
                 mount: ((.mountpoints // []) | map(select(. != null)) | first // ""),
                 size: (.fssize // .size),
-                used: (.fsused // 0)
+                used: (.fsused // 0),
+                avail: (.fsavail // 0)
               } ]
         } ]' <<<"$disks"
 }
@@ -55,9 +57,10 @@ eject() {
 case "${1:-}" in
   list) list ;;
   mount) udisksctl mount --no-user-interaction -b "$2" ;;
+  unmount) udisksctl unmount --no-user-interaction -b "$2" ;;
   eject) eject "$2" ;;
   *)
-    echo "usage: ${0##*/} list | mount <part> | eject <disk>" >&2
+    echo "usage: ${0##*/} list | mount <part> | unmount <part> | eject <disk>" >&2
     exit 2
     ;;
 esac
