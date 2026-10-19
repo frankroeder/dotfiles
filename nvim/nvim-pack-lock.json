@@ -27,7 +27,7 @@
       "src": "https://github.com/stevearc/conform.nvim"
     },
     "fzf-lua": {
-      "rev": "6995a3f8ba256a7a9949747ffbdf5a88eb8a3697",
+      "rev": "c67fadd9a24230417267e4f9068227e093c0be2b",
       "src": "https://github.com/ibhagwan/fzf-lua"
     },
     "gitsigns.nvim": {
@@ -84,7 +84,7 @@
       "src": "https://github.com/folke/snacks.nvim"
     },
     "vim-latex": {
-      "rev": "98615cefc441aaa5721c144ecfeacddcdf78816d",
+      "rev": "79a5fb444147f94a5284b6800030e17eecd18a06",
       "src": "https://github.com/lervag/vim-latex"
     }
   }

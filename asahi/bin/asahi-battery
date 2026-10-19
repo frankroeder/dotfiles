@@ -115,7 +115,7 @@ start_num="$start_threshold"
 case "$end_num" in '' | n/a | *[!0-9]*) end_num="" ;; esac
 case "$start_num" in '' | n/a | *[!0-9]*) start_num="" ;; esac
 power_w="$(awk -v value="$power_now" 'BEGIN { print value / 1000000 }')"
-if [ "$ac_online" = "1" ] && [ -n "$end_num" ] && [ "$end_num" -lt 99 ]; then
+if [ "$ac_online" = "1" ] && [ -n "$end_num" ] && [ "$end_num" -lt 100 ]; then
   charge_idle=false
   awk -v rate="$power_w" 'BEGIN { exit !(rate <= 0.2 && rate >= -0.2) }' && charge_idle=true
   case "$status" in

@@ -12,6 +12,8 @@ Item {
   property string icon: ""
   property string suffix: "%"
   property color accent: Style.m3primary
+  // Optional tick across the ring at this value (0-100), e.g. the battery charge limit; < 0 = none.
+  property real marker: -1
   property string fontFamily: Style.menuMono
   property string labelFamily: Style.menuSans
 
@@ -64,6 +66,24 @@ Item {
           startAngle: dial.start
           sweepAngle: dial.sweep * dial.frac
         }
+      }
+    }
+    // marker tick: a radial line from inside to outside the ring
+    Shape {
+      id: tick
+      readonly property real a: (dial.start + dial.sweep * Math.min(100, dial.marker) / 100) * Math.PI / 180
+      readonly property real r0: dial.arcR - dial.stroke
+      readonly property real r1: dial.arcR + dial.stroke * 0.6
+      visible: dial.marker >= 0
+      anchors.fill: parent
+      preferredRendererType: Shape.CurveRenderer
+      ShapePath {
+        strokeWidth: Math.max(2, Math.round(dial.stroke * 0.4))
+        strokeColor: Style.m3onSurface
+        fillColor: "transparent"
+        capStyle: ShapePath.RoundCap
+        startX: dial.diameter / 2 + tick.r0 * Math.cos(tick.a); startY: dial.diameter / 2 + tick.r0 * Math.sin(tick.a)
+        PathLine { x: dial.diameter / 2 + tick.r1 * Math.cos(tick.a); y: dial.diameter / 2 + tick.r1 * Math.sin(tick.a) }
       }
     }
 

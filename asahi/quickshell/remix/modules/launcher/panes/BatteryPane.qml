@@ -21,7 +21,6 @@ Item {
   property var batLines: []
   property string batTimeRemaining: ""
   property bool batHolding: false
-  property int batThresholdEnd: 100
   property var smcPower: []
   // Placeholder rows until the first read so the facts card below does not jump.
   property bool smcLoaded: false
@@ -100,7 +99,6 @@ Item {
       const time = quickBatteryRoot.batLines.find(function(line) { return line.indexOf("Time") === 0 })
       quickBatteryRoot.batTimeRemaining = time ? time.replace(/^Time[^:]*:\s*/, "") : ""
       quickBatteryRoot.batHolding = !!data.holding
-      quickBatteryRoot.batThresholdEnd = Number(data.threshold_end) || 0
     } catch (_) {}
   }
 
@@ -122,9 +120,68 @@ Item {
       }
     }
   }
+  // Charge limit: firmware end/start thresholds + the saved value boot applies (asahi-charge-limit).
+  // This Mac's SMC is CHLS: any end 10-99 holds, charging resumes at end - 5.
+  // Read once per open (each open builds a new pane) and after a change — not polled: only this
+  // script (or an SMC reset at boot) moves it. Busy through that read, so a quick second click
+  // steps from the new value.
+  property int limitEnd: -1
+  property int limitStart: -1
+  property int limitDesired: -1
+  property string limitMsg: ""
+  property bool limitErr: false
+  readonly property bool limitBusy: limitApply.running || limitProc.running
+  readonly property bool limitDrift: limitEnd >= 0 && limitDesired >= 0 && limitDesired !== limitEnd
+  readonly property string limitHint: {
+    if (limitEnd < 0) return " "
+    if (limitEnd >= 100) return "No limit · charges to 100%"
+    return (batHolding ? "Holding at " : "Stops at ") + limitEnd + "% · recharges below " + limitStart + "%"
+  }
+  function runLimit(args, msg) {
+    if (limitApply.running) return
+    limitMsg = msg
+    limitErr = false
+    limitApply.command = [root.binDir + "/asahi-charge-limit"].concat(args)
+    limitApply.running = true
+  }
+  function setLimit(value) {
+    const next = Math.max(60, Math.min(100, Math.round(value / 5) * 5))
+    if (next !== limitEnd || limitDrift) runLimit([String(next)], "Applying " + next + "%…")
+  }
+  Process {
+    id: limitProc
+    command: [root.binDir + "/asahi-charge-limit", "status", "--json"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const d = JSON.parse(String(text || "").trim())
+          quickBatteryRoot.limitEnd = Number(d.end)
+          quickBatteryRoot.limitStart = Number(d.start)
+          quickBatteryRoot.limitDesired = Number(d.desired)
+        } catch (_) {}
+      }
+    }
+  }
+  Process {
+    id: limitApply
+    stderr: StdioCollector { id: limitErrOut }
+    onExited: function(code) {
+      quickBatteryRoot.limitErr = code !== 0
+      quickBatteryRoot.limitMsg = code === 0 ? "" : (String(limitErrOut.text || "").trim() || ("Failed (exit " + code + ")"))
+      if (code !== 0) limitMsgClear.restart()
+      if (!limitProc.running) limitProc.running = true
+      if (!batProc.running) batProc.running = true
+    }
+  }
+  Timer { id: limitMsgClear; interval: 8000; onTriggered: quickBatteryRoot.limitMsg = "" }
+
+  readonly property bool paneLive: root.shouldShow && root.quickMode && root.quickPaneKey === "battery"
+  onPaneLiveChanged: if (paneLive && !limitProc.running) limitProc.running = true
+  Component.onCompleted: if (paneLive) limitProc.running = true
+
   Timer {
     interval: 3000
-    running: root.shouldShow && root.quickMode && root.quickPaneKey === "battery"
+    running: quickBatteryRoot.paneLive
     repeat: true
     triggeredOnStart: true
     onTriggered: {
@@ -132,7 +189,6 @@ Item {
       if (!smcProc.running) smcProc.running = true
     }
   }
-  Timer { id: batDelay; interval: 400; onTriggered: { if (!batProc.running) batProc.running = true } }
 
   component Chip: Menu.MenuChip { fontScale: root.uiFontScale }
   component Pill: Menu.MenuPill { fontScale: root.uiFontScale }
@@ -156,6 +212,7 @@ Item {
           Layout.preferredWidth: Math.round(100 * root.uiFontScale); Layout.preferredHeight: Layout.preferredWidth
           value: Math.max(0, quickBatteryRoot.batPercentage)
           accent: quickBatteryRoot.ringColor()
+          marker: quickBatteryRoot.limitEnd > 0 && quickBatteryRoot.limitEnd < 100 ? quickBatteryRoot.limitEnd : -1
           label: "Battery"
           icon: quickBatteryRoot.batIcon
           fontFamily: root.uiFont
@@ -185,24 +242,68 @@ Item {
             color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(12)
           }
           Text {
-            text: quickBatteryRoot.batHolding
-              ? ("Holding at " + quickBatteryRoot.batThresholdEnd + "%")
-              : (quickBatteryRoot.batThresholdEnd > 0 && quickBatteryRoot.batThresholdEnd < 99
-                ? ("Charge cap " + quickBatteryRoot.batThresholdEnd + "%")
-                : "No charge cap")
+            text: quickBatteryRoot.limitHint
             color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(10)
           }
-          RowLayout {
+          // Charge limit: 60-100 in 5% steps, plus the 80 / 100 presets.
+          Flow {
+            Layout.fillWidth: true
             Layout.topMargin: 8
             spacing: 8
-            Pill {
-              icon: "󰁾"; label: "Hold 80%"; selected: quickBatteryRoot.batThresholdEnd === 80
-              onClicked: { Quickshell.execDetached([root.binDir + "/asahi-charge-limit", "80"]); batDelay.restart() }
+            Row {
+              spacing: 4
+              Pill {
+                label: "−"
+                enabled: !quickBatteryRoot.limitBusy && quickBatteryRoot.limitEnd > 60
+                opacity: enabled ? 1 : 0.4
+                onClicked: quickBatteryRoot.setLimit(quickBatteryRoot.limitEnd - 5)
+              }
+              Text {
+                width: Math.round(root.fontPx(13) * 3.4)
+                anchors.verticalCenter: parent.verticalCenter
+                horizontalAlignment: Text.AlignHCenter
+                text: quickBatteryRoot.limitEnd < 0 ? "—" : quickBatteryRoot.limitEnd + "%"
+                color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(13); font.weight: Font.DemiBold
+              }
+              Pill {
+                label: "+"
+                enabled: !quickBatteryRoot.limitBusy && quickBatteryRoot.limitEnd >= 0 && quickBatteryRoot.limitEnd < 100
+                opacity: enabled ? 1 : 0.4
+                onClicked: quickBatteryRoot.setLimit(quickBatteryRoot.limitEnd + 5)
+              }
             }
             Pill {
-              icon: "󰁹"; label: "Full 100%"; selected: quickBatteryRoot.batThresholdEnd >= 99
-              onClicked: { Quickshell.execDetached([root.binDir + "/asahi-charge-limit", "100"]); batDelay.restart() }
+              icon: "󰁾"; label: "Hold 80%"; selected: quickBatteryRoot.limitEnd === 80
+              enabled: !quickBatteryRoot.limitBusy && quickBatteryRoot.limitEnd >= 0
+              onClicked: quickBatteryRoot.setLimit(80)
             }
+            Pill {
+              icon: "󰁹"; label: "Full 100%"; selected: quickBatteryRoot.limitEnd >= 100
+              enabled: !quickBatteryRoot.limitBusy && quickBatteryRoot.limitEnd >= 0
+              onClicked: quickBatteryRoot.setLimit(100)
+            }
+          }
+          // Saved value (boot applies it) differs from the firmware, e.g. after an SMC reset.
+          RowLayout {
+            visible: quickBatteryRoot.limitDrift && !quickBatteryRoot.limitBusy
+            spacing: 8
+            Text {
+              text: "Saved " + quickBatteryRoot.limitDesired + "%, battery has " + quickBatteryRoot.limitEnd + "%"
+              color: Style.orange; font.family: root.uiSans; font.pixelSize: root.fontPx(10)
+            }
+            Pill {
+              label: "Reapply"
+              onClicked: quickBatteryRoot.runLimit(["apply"], "Applying " + quickBatteryRoot.limitDesired + "%…")
+            }
+          }
+          Text {
+            Layout.fillWidth: true
+            visible: quickBatteryRoot.limitMsg !== ""
+            text: quickBatteryRoot.limitMsg
+            textFormat: Text.PlainText
+            wrapMode: Text.Wrap
+            color: quickBatteryRoot.limitErr ? Style.red : Style.m3onSurfaceVariant
+            font.family: root.uiSans; font.pixelSize: root.fontPx(10)
           }
         }
       }

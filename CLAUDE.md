@@ -163,6 +163,18 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
 - **Notch / fnmode**: `comp_asahi_system` writes `asahi-notch.conf` (`show_notch=1`) and
   `hid_apple fnmode=1`, then `dracut -f`. Reboot required. Live fnmode:
   `/sys/module/hid_apple/parameters/fnmode`.
+- **Charge limit**: this SMC is CHLS (probed 2026-10-16: a 90 write reads back 90; CHWA would read 80) — any
+  end 10–99 holds, start = end − 5 (start writes are ignored), and every end < 100 sets the CHLS force-discharge
+  bit (100 writes 0) — battctl says a limit below the charge drains on AC (not observed here).
+  `asahi-charge-limit` clamps 60–100; 100 = no limit, anything below is a hold (99 too, also in
+  `asahi-battery`). One saved copy, `/var/lib/asahi/charge-limit` (dir root:wheel 2775; temp + rename, so a
+  root-owned file is no obstacle), written only after the SMC took the value — boot applies it. Battery pane
+  (Super+Ctrl+P): stepper (5 %) + Hold 80 / Full 100 (a preset also adopts the battery's value during drift),
+  marker tick on the dial (`MenuHudDial.marker`), "Saved X%, battery has Y%" + Reapply when they
+  differ; the limit is read on open and after a change, never polled. The SMC
+  keeps it: 75 survived an unplug + 7.5 h s2idle (2026-10-19) — no AC-plug / resume re-apply (idea:
+  omarchy-mac-battctl) unless a replug is seen to drop it. UPower 1.91.5: percentage = sysfs `capacity`, but
+  its thresholds are a fixed hwdb 75/80 (said 80 while the SMC held 75) — never read the limit from UPower.
 - **Keyboard / display brightness**: `XF86Search` / `XF86LaunchA` (Shift = fine). Display stays on
   `XF86MonBrightness*` (Shift = fine). Keys auto = `asahi-brightness-keyboard-auto`: log(lux) 8→180,
   re-derived only after a 25 % lux move seen twice in a row (shadow filter), smoothstep fades

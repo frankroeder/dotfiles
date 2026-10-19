@@ -6,7 +6,6 @@ ConditionPathExists=/sys/class/power_supply/macsmc-battery/charge_control_end_th
 
 [Service]
 Type=oneshot
-# No HOME here — asahi-charge-limit must not expand $HOME under set -u.
 ExecStart=/usr/local/libexec/asahi-charge-limit apply
 RemainAfterExit=yes
 

@@ -3,7 +3,7 @@
 # macOS `battery maintain 80`). Hibernate is not available; this is the
 # health control that actually exists on this hardware.
 #
-# Usage: asahi-charge-limit [status|apply|80|100|<50-100>]
+# Usage: asahi-charge-limit [status|apply|80|100|<60-100>]
 
 set -euo pipefail
 
@@ -11,18 +11,12 @@ supply_root="${ASAHI_POWER_SUPPLY_PATH:-/sys/class/power_supply}"
 bat="${supply_root}/${ASAHI_BATTERY_DEVICE:-macsmc-battery}"
 end_path="$bat/charge_control_end_threshold"
 start_path="$bat/charge_control_start_threshold"
-# systemd/udev have no HOME. Never expand $HOME unless it is actually set.
+# The saved limit: boot applies it, the Battery pane shows it as "Saved". /var/lib/asahi is
+# root:wheel 2775 (installer), so wheel users write it too.
 system_state="${ASAHI_CHARGE_LIMIT_SYSTEM:-/var/lib/asahi/charge-limit}"
-if [ -n "${ASAHI_CHARGE_LIMIT_STATE:-}" ]; then
-  user_state="$ASAHI_CHARGE_LIMIT_STATE"
-elif [ -n "${HOME:-}" ]; then
-  user_state="${XDG_STATE_HOME:-$HOME/.local/state}/asahi/charge-limit"
-else
-  user_state=""
-fi
 
 usage() {
-  echo "usage: asahi-charge-limit [status|apply|80|100|<50-100>]" >&2
+  echo "usage: asahi-charge-limit [status|apply|80|100|<60-100>]" >&2
   exit 2
 }
 
@@ -36,7 +30,7 @@ read_file() {
 
 clamp_end() {
   local n="$1"
-  [ "$n" -lt 50 ] && n=50
+  [ "$n" -lt 60 ] && n=60
   [ "$n" -gt 100 ] && n=100
   printf '%s' "$n"
 }
@@ -51,20 +45,12 @@ chmod_sysfs() {
   done
 }
 
-write_sysfs() {
-  [ -w "$end_path" ] || return 1
-  printf '%s\n' "$1" >"$end_path"
-}
-
 write_state() {
-  local end="$1"
-  if [ -n "$user_state" ]; then
-    mkdir -p "$(dirname "$user_state")"
-    printf '%s\n' "$end" >"$user_state"
-  fi
-  if [ -d "$(dirname "$system_state")" ] && [ -w "$(dirname "$system_state")" ] || [ -w "$system_state" ]; then
-    printf '%s\n' "$end" >"$system_state" 2>/dev/null || true
-  fi
+  # temp + rename: needs only the (setgid wheel) dir writable, also over a root-owned 644 file.
+  local tmp="$system_state.$$"
+  mkdir -p "$(dirname "$system_state")"
+  printf '%s\n' "$1" >"$tmp"
+  mv -f "$tmp" "$system_state"
 }
 
 current_end() {
@@ -77,15 +63,8 @@ current_end() {
 }
 
 desired_end() {
-  local v=""
-  if [ "$(id -u)" -eq 0 ]; then
-    [ -r "$system_state" ] && v="$(read_file "$system_state")"
-  else
-    [ -n "$user_state" ] && [ -r "$user_state" ] && v="$(read_file "$user_state")"
-    if [ -z "$v" ] && [ -r "$system_state" ]; then
-      v="$(read_file "$system_state")"
-    fi
-  fi
+  local v
+  v="$(read_file "$system_state")"
   case "$v" in
     '' | *[!0-9]*) printf "" ;;
     *) printf '%s' "$v" ;;
@@ -107,7 +86,7 @@ print_status() {
       '{end:$end, start:$start, desired:$desired}'
     return
   fi
-  if [ "$end" -lt 99 ]; then
+  if [ "$end" -lt 100 ]; then
     printf 'hold %s%% (resume %s%%)\n' "$end" "$start"
   else
     printf 'full 100%%\n'
@@ -117,25 +96,25 @@ print_status() {
 apply_end() {
   local end
   end="$(clamp_end "$1")"
-  write_state "$end"
-  if [ "$(id -u)" -eq 0 ]; then
-    mkdir -p "$(dirname "$system_state")"
-    printf '%s\n' "$end" >"$system_state"
-  fi
-  if write_sysfs "$end"; then
-    if [ "$(current_end)" != "$end" ]; then
-      echo "asahi-charge-limit: SMC reports $(current_end)%, wanted $end%" >&2
-      return 1
+  if [ ! -w "$end_path" ]; then
+    if [ "$(id -u)" -eq 0 ]; then
+      echo "asahi-charge-limit: cannot write $end_path" >&2
+    else
+      echo "asahi-charge-limit: sysfs not writable; run ./install.sh asahi-system (udev + oneshot)" >&2
     fi
-    print_status
-    return 0
-  fi
-  if [ "$(id -u)" -eq 0 ]; then
-    echo "asahi-charge-limit: cannot write $end_path" >&2
     return 1
   fi
-  echo "asahi-charge-limit: sysfs not writable; run ./install.sh asahi-system (udev + oneshot)" >&2
-  return 1
+  if ! printf '%s\n' "$end" 2>/dev/null >"$end_path"; then
+    echo "asahi-charge-limit: SMC refused $end%" >&2
+    return 1
+  fi
+  if [ "$(current_end)" != "$end" ]; then
+    echo "asahi-charge-limit: SMC reports $(current_end)%, wanted $end%" >&2
+    return 1
+  fi
+  # Save only what the SMC took.
+  write_state "$end"
+  print_status
 }
 
 cmd="${1:-status}"

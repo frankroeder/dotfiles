@@ -71,19 +71,36 @@ pass "asahi-battery not holding while discharging"
 # --- asahi-charge-limit on mock sysfs ---
 chmod u+w "$bat/charge_control_end_threshold" "$bat/charge_control_start_threshold"
 state="$tmp/charge-limit"
-sysstate="$tmp/system-charge-limit"
-ASAHI_POWER_SUPPLY_PATH="$tmp/power" ASAHI_CHARGE_LIMIT_STATE="$state" \
-  ASAHI_CHARGE_LIMIT_SYSTEM="$sysstate" "$ROOT/asahi-charge-limit" 80 >/dev/null
+cl() { ASAHI_POWER_SUPPLY_PATH="$tmp/power" ASAHI_CHARGE_LIMIT_SYSTEM="$state" "$ROOT/asahi-charge-limit" "$@"; }
+cl 80 >/dev/null
 [ "$(cat "$bat/charge_control_end_threshold")" = "80" ] || fail_at "charge-limit writes end 80"
 [ "$(cat "$state")" = "80" ] || fail_at "charge-limit persists 80"
-ASAHI_POWER_SUPPLY_PATH="$tmp/power" ASAHI_CHARGE_LIMIT_STATE="$state" \
-  ASAHI_CHARGE_LIMIT_SYSTEM="$sysstate" "$ROOT/asahi-charge-limit" 100 >/dev/null
+cl 100 >/dev/null
 [ "$(cat "$bat/charge_control_end_threshold")" = "100" ] || fail_at "charge-limit writes end 100"
 pass "asahi-charge-limit apply 80 then 100"
 
+# Battery pane stepper: any 60-100 value (CHLS firmware), lower requests clamp to 60; below 100 is a hold.
+cl 55 >/dev/null
+[ "$(cat "$bat/charge_control_end_threshold")" = "60" ] || fail_at "charge-limit clamps 55 to 60"
+[[ "$(cl 99)" == "hold 99%"* ]] || fail_at "charge-limit 99 is a hold"
+cl 75 >/dev/null
+[ "$(cl status --json | jq -r '"\(.end) \(.desired)"')" = "75 75" ] || fail_at "charge-limit status json"
+pass "asahi-charge-limit clamps to 60, 99 holds, reports end/desired"
+
+# A refused write saves nothing: boot and the pane's "Saved" keep the last value the SMC took.
+chmod a-w "$bat/charge_control_end_threshold"
+if cl 70 >/dev/null 2>&1; then fail_at "charge-limit 70 on read-only sysfs succeeded"; fi
+chmod u+w "$bat/charge_control_end_threshold"
+[ "$(cat "$state")" = "75" ] || fail_at "refused write changed the saved limit"
+# A root-owned 644 state file (after a sudo run) is replaced by rename: only the dir must be writable.
+chmod a-w "$state"
+cl 80 >/dev/null || fail_at "charge-limit cannot replace a read-only state file"
+[ "$(cat "$state")" = "80" ] || fail_at "read-only state file not replaced"
+pass "asahi-charge-limit saves only accepted limits, replaces a read-only state file"
+
 # systemd/udev invoke this with no HOME (set -u must not abort).
 env -u HOME -u XDG_STATE_HOME ASAHI_POWER_SUPPLY_PATH="$tmp/power" \
-  ASAHI_CHARGE_LIMIT_SYSTEM="$sysstate" "$ROOT/asahi-charge-limit" apply >/dev/null \
+  ASAHI_CHARGE_LIMIT_SYSTEM="$state" "$ROOT/asahi-charge-limit" apply >/dev/null \
   || fail_at "apply without HOME"
 env -u HOME -u XDG_STATE_HOME ASAHI_POWER_SUPPLY_PATH="$tmp/power" "$ROOT/asahi-charge-limit" udev \
   || fail_at "udev without HOME"
