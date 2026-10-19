@@ -706,6 +706,10 @@ comp_asahi_desktop() {
   link_if_exists "$DOTFILES/mpv/mpv_asahi.conf" "$HOME/.config/mpv/mpv.conf"
   # Screenshot annotation: swappy's Save lands in ~/screenshots for asahi-screenshot-annotate.
   link_if_exists "$DOTFILES/asahi/swappy/config" "$HOME/.config/swappy/config"
+  # The desktop entry runs it by name; the session PATH has ~/.local/bin, not asahi/bin.
+  link_if_exists "$DOTFILES/asahi/bin/asahi-apple-music" "$HOME/.local/bin/asahi-apple-music"
+  link_if_exists "$DOTFILES/asahi/applications/asahi-apple-music.desktop" \
+    "$HOME/.local/share/applications/asahi-apple-music.desktop"
   link_if_exists "$DOTFILES/asahi/environment.d/90-asahi.conf" "$HOME/.config/environment.d/90-asahi.conf"
   # Hyprland is not KDE: stop kwalletd/ksecretd from claiming Secret Service
   # ("Default Keyring" wallet wizard). gnome-keyring is the store instead.

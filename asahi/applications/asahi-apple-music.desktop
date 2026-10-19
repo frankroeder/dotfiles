@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Apple Music
+Comment=music.apple.com in its own Chromium profile
+Exec=asahi-apple-music
+Icon=apple-music
+Categories=AudioVideo;Audio;Music;Player;
+StartupWMClass=chrome-music.apple.com__-Default

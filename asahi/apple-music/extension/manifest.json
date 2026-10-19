@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "Asahi Apple Music",
+  "version": "1",
+  "description": "Hands Chromium MusicKit's per-track clock, so MPRIS length / position / seek are per track.",
+  "content_scripts": [
+    { "matches": ["https://music.apple.com/*"], "js": ["clock.js"], "world": "MAIN", "run_at": "document_idle" }
+  ]
+}

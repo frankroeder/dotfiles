@@ -10,17 +10,15 @@ import "../../../"
 import "../../../services" as Services
 import "../quick_models.js" as QuickModels
 
-// Media pane: now playing (the bar popup's MediaCard), sink/source pickers with volume, stream mixer, cava.
+// Media pane: now playing (the bar popup's MediaCard, cava bars around its disc), sink/source pickers with volume, stream mixer.
 // `root` is the LauncherWindow (fontPx, uiFont/uiSans, launcherGeom, quickMode, quickPaneKey, binDir, ...).
 Item {
   property var root
   id: quickMediaRoot
   anchors.fill: parent
-  // Shared cava (Services.Cava), held only while the launcher shows this pane.
-  readonly property bool cavaWanted: root.shouldShow
+  // Shared cava (Services.Cava), held only while the launcher shows this pane and something plays.
+  readonly property bool cavaWanted: root.shouldShow && Services.Players.isPlaying
   onCavaWantedChanged: Services.Cava.hold(quickMediaRoot, quickMediaRoot.cavaWanted)
-  readonly property string cavaStatus: Services.Cava.missing ? "cava not installed"
-    : !Services.Cava.values.length ? "starting" : Services.Cava.active ? "active" : "waiting for audio"
   // Native Pipewire mixer (omarchy.audio port): live nodes instead of the
   // old 3s `wpctl status` poll — sliders track and write volumes directly.
   readonly property var pwNodes: Pipewire.nodes ? Pipewire.nodes.values : []
@@ -163,7 +161,6 @@ Item {
   Component.onDestruction: Services.Cava.hold(quickMediaRoot, false)
 
   function pct(v) { return isFinite(v) ? Math.round(v * 100) + "%" : "" }
-  function mix(a, b, t) { return Qt.rgba(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t, 1) }
 
   // M3 widgets shared by the cards below (caelestia look, same as RecordPanel).
   component IconBtn: Menu.MenuIconBtn { fontScale: root.uiFontScale }
@@ -190,13 +187,13 @@ Item {
     anchors.fill: parent
     spacing: 10
 
-    // Now playing: the bar media popup's card (BarComponents.MediaCard), laid out wide.
+    // Now playing: the bar media popup's card (BarComponents.MediaCard).
     BarComponents.MediaCard {
       Layout.fillWidth: true
       Layout.minimumHeight: implicitHeight
-      wide: true
       live: root.shouldShow && root.quickMode && root.quickPaneKey === "media"
       fontScale: root.uiFontScale
+      cavaOn: quickMediaRoot.cavaWanted
       radius: Style.menuPanelRadius
     }
 
@@ -334,7 +331,7 @@ Item {
     }
 
     // Stream mixer: one slider row per playback stream. Sized to its rows (up to 4,
-    // then it scrolls); the spectrum takes the slack.
+    // then it scrolls).
     Rectangle {
       Layout.fillWidth: true
       Layout.preferredHeight: mixInner.implicitHeight + 24
@@ -434,65 +431,6 @@ Item {
                     tone: streamRow.muted ? Style.red : Style.m3onSurfaceVariant
                     onClicked: if (streamRow.audio) streamRow.audio.muted = !streamRow.audio.muted
                   }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // Live cava spectrum: rounded bars mirrored about the midline, primary →
-    // tertiary across the row. Takes the slack Now playing leaves.
-    Rectangle {
-      Layout.fillWidth: true
-      Layout.fillHeight: true
-      Layout.minimumHeight: 84
-      radius: Style.menuRadiusLg
-      color: Style.m3container
-      ColumnLayout {
-        anchors.fill: parent
-        anchors.margins: 12
-        spacing: 6
-        RowLayout {
-          Layout.fillWidth: true
-          CardTitle { icon: "󰎈"; label: "Spectrum" }
-          Item { Layout.fillWidth: true }
-          Rectangle {
-            implicitWidth: cavaState.implicitWidth + 18; implicitHeight: cavaState.implicitHeight + 8
-            radius: Style.menuRadiusFull
-            color: quickMediaRoot.cavaStatus === "active" ? Style.m3primaryContainer : Style.m3containerHigh
-            Text {
-              id: cavaState; anchors.centerIn: parent
-              text: quickMediaRoot.cavaStatus
-              color: quickMediaRoot.cavaStatus === "active" ? Style.m3primary : Style.m3outline
-              font.family: root.uiSans; font.pixelSize: root.fontPx(10); font.weight: Font.Medium
-            }
-          }
-        }
-        Item {
-          Layout.fillWidth: true
-          Layout.fillHeight: true
-          Row {
-            anchors.fill: parent
-            spacing: 6
-            Repeater {
-              model: 24
-              delegate: Item {
-                required property int index
-                width: (parent.width - 23 * parent.spacing) / 24
-                height: parent.height
-                // Idle: a low static wave so the card reads as a resting visualizer.
-                readonly property real idleFrac: 0.04 + 0.05 * (1 + Math.sin(index * 0.55)) / 2
-                Rectangle {
-                  anchors.centerIn: parent
-                  width: Math.min(12, parent.width)
-                  radius: width / 2
-                  height: Math.max(4, parent.height * (quickMediaRoot.cavaStatus === "active"
-                    ? (Services.Cava.values[index] || 0) / 100 : parent.idleFrac))
-                  color: quickMediaRoot.cavaStatus === "active"
-                    ? quickMediaRoot.mix(Style.m3primary, Style.m3tertiary, index / 23) : Style.m3outlineVariant
-                  Behavior on height { NumberAnimation { duration: 60; easing.type: Easing.OutQuad } }
                 }
               }
             }

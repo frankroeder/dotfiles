@@ -12,15 +12,14 @@ import "../../../services" as Services
 
 // Now-playing card (serpantinum's compact music card), shared by the bar's MediaPanel and the
 // launcher's Media pane so both look alike: blurred art backdrop, vinyl disc, source pill, title /
-// artist / album, wavy seek bar (+ times when the length is known), transport. Stacked for the popup (with a cava strip);
-// `wide` puts disc, text + seek bar and transport in one row (the pane has its own Spectrum card).
+// artist / album, wavy seek bar (+ times when the length is known), transport, in one row: disc (cava bars
+// radiating from its rim) | text + seek bar | transport.
 Rectangle {
   id: card
 
-  property bool wide: false
   // The owning window is shown: gates the position tick, the spinning disc and the wave.
   property bool live: true
-  // Stacked strip: cava bars (the owner holds the shared cava) or a flat hairline.
+  // Cava ring around the disc (the owner holds the shared cava).
   property bool cavaOn: false
   property real fontScale: 1
   readonly property var p: Services.Players.active
@@ -88,7 +87,7 @@ Rectangle {
 
   // Transport: shuffle · prev · play · next · loop (shuffle / loop only if the player has them).
   component Transport: RowLayout {
-    spacing: card.px(card.wide ? 14 : 22)
+    spacing: card.px(14)
     CtlBtn {
       icon: "󰒟"; size: card.px(32)
       visible: !!(card.p && card.p.shuffleSupported)
@@ -193,214 +192,195 @@ Rectangle {
     }
   }
 
-  ColumnLayout {
+  RowLayout {
     id: body
     anchors.fill: parent
     anchors.margins: 18
-    spacing: 12
+    spacing: card.px(16)
 
-    RowLayout {
-      Layout.fillWidth: true
-      spacing: card.px(16)
-
-      // Vinyl disc (upstream MusicPopup): round cover in a record with grooves and an accent-ringed
-      // label; one turn per 25 s while shown, paused (and shrunk to 0.9) when not playing; a soft
-      // accent glow sits behind it while playing.
-      Item {
-        Layout.preferredWidth: disc.width + 14
-        Layout.preferredHeight: disc.width + 14
-        Layout.alignment: Qt.AlignVCenter
-        Rectangle {
-          anchors.centerIn: parent
-          width: disc.width + 12; height: width; radius: width / 2
-          color: Style.m3primary
-          opacity: card.playing ? 0.35 : 0
-          scale: disc.scale
-          Behavior on opacity { NumberAnimation { duration: 500 } }
-          layer.enabled: true
-          layer.effect: MultiEffect { blurEnabled: true; blurMax: 32; blur: 1.0 }
-        }
-        Rectangle {
-          id: disc
-          anchors.centerIn: parent
-          width: card.px(110); height: width; radius: width / 2
-          color: Style.surface1
-          scale: card.playing ? 1.0 : 0.9
-          Behavior on scale { SpringAnimation { spring: 5.2; damping: 0.35; mass: 0.75 } }
-          NumberAnimation on rotation {
-            from: 0; to: 360; duration: 25000
-            loops: Animation.Infinite
-            running: card.live && !!card.p
-            paused: running && !card.playing
-          }
-          ClippingRectangle {
-            anchors.fill: parent
-            radius: width / 2
-            color: Style.mantle
-            Text {
-              anchors.centerIn: parent
-              visible: !card.hasArt
-              text: "󰝚"
-              color: Style.overlay1
-              font.family: Style.fontFamily
-              font.pixelSize: parent.width * 0.26
-            }
-            Image {
-              anchors.fill: parent
-              visible: card.hasArt
-              source: Services.Players.artUrl
-              fillMode: Image.PreserveAspectCrop
-              asynchronous: true
-              sourceSize: Qt.size(256, 256)
-            }
-            // Accent tint + grooves (alternating light / dark rings), as upstream.
-            Rectangle { anchors.fill: parent; radius: width / 2; color: Qt.alpha(Style.m3primary, 0.08); visible: card.hasArt }
-            Repeater {
-              model: [0.92, 0.84, 0.76, 0.68, 0.60, 0.52, 0.44]
-              Rectangle {
-                required property real modelData
-                required property int index
-                anchors.centerIn: parent
-                width: parent.width * modelData; height: width; radius: width / 2
-                color: "transparent"
-                border.width: 1
-                border.color: index % 2 === 0 ? "#ffffff" : "#000000"
-                opacity: index % 2 === 0 ? 0.035 : 0.06
-              }
-            }
-          }
-          // Label: crust disc with an accent ring, surface2 centre, black spindle hole.
-          Rectangle {
-            anchors.centerIn: parent
-            width: parent.width * 0.28; height: width; radius: width / 2
-            color: Style.crust
-            opacity: 0.96
-            border.width: 1.5
-            border.color: Qt.alpha(Style.m3primary, 0.45)
-            Rectangle {
-              anchors.centerIn: parent
-              width: parent.width * 0.68; height: width; radius: width / 2
-              color: Style.surface2
-              border.width: 1
-              border.color: Qt.rgba(1, 1, 1, 0.18)
-              Rectangle { anchors.centerIn: parent; width: parent.width * 0.38; height: width; radius: width / 2; color: "#0d0e15" }
-            }
-          }
-        }
-      }
-
-      ColumnLayout {
-        Layout.fillWidth: true
-        Layout.alignment: Qt.AlignVCenter
-        spacing: 2
-
-        // Source pill: player name; with 2+ players a click cycles (Players.pinned).
-        Rectangle {
-          readonly property bool many: Services.Players.list.length > 1
-          visible: !!card.p
-          Layout.bottomMargin: 4
-          implicitWidth: srcRow.implicitWidth + 16
-          implicitHeight: card.px(22)
-          radius: height / 2
-          color: srcMa.containsMouse && many ? Style.m3containerHigh : Qt.alpha(Style.m3container, 0.8)
-          Row {
-            id: srcRow
-            anchors.centerIn: parent
-            spacing: 5
-            Text {
-              text: card.playing ? "󰐊" : "󰏤"
-              color: card.playing ? Style.m3primary : Style.m3onSurfaceVariant
-              font.family: Style.fontFamily; font.pixelSize: card.px(11)
-              anchors.verticalCenter: parent.verticalCenter
-            }
-            Text {
-              textFormat: Text.PlainText
-              text: (card.p ? card.p.identity || "Player" : "")
-                + (parent.parent.many ? "  ·  " + (Services.Players.list.indexOf(card.p) + 1) + "/" + Services.Players.list.length : "")
-              color: Style.m3onSurfaceVariant
-              font.family: Style.menuSans; font.pixelSize: card.px(11); font.weight: Font.Medium
-              anchors.verticalCenter: parent.verticalCenter
-            }
-            Text {
-              visible: parent.parent.many
-              text: "󰑐"
-              color: Style.m3onSurfaceVariant
-              font.family: Style.fontFamily; font.pixelSize: card.px(11)
-              anchors.verticalCenter: parent.verticalCenter
-            }
-          }
-          MouseArea {
-            id: srcMa
-            anchors.fill: parent
-            hoverEnabled: true
-            enabled: parent.many
-            cursorShape: Qt.PointingHandCursor
-            onClicked: Services.Players.cycle()
-          }
-        }
-        Text {
-          Layout.fillWidth: true
-          textFormat: Text.PlainText
-          text: card.p ? (card.p.trackTitle || "Unknown track") : "Nothing playing"
-          color: Style.m3onSurface
-          font.family: Style.menuSans; font.pixelSize: card.px(18); font.weight: Font.Bold
-          wrapMode: Text.Wrap
-          maximumLineCount: card.wide ? 1 : 2
-          elide: Text.ElideRight
-        }
-        Text {
-          Layout.fillWidth: true
-          visible: text !== ""
-          textFormat: Text.PlainText
-          text: card.p ? card.p.trackArtist || "" : "Start a player — its controls show up here"
-          color: Style.m3onSurfaceVariant
-          font.family: Style.menuSans; font.pixelSize: card.px(14); font.weight: Font.Medium
-          elide: Text.ElideRight
-        }
-        Text {
-          Layout.fillWidth: true
-          visible: text !== ""
-          textFormat: Text.PlainText
-          text: card.p ? card.p.trackAlbum || "" : ""
-          color: Style.m3outline
-          font.family: Style.menuSans; font.pixelSize: card.px(12)
-          elide: Text.ElideRight
-        }
-        Seek { visible: card.wide; Layout.fillWidth: true; Layout.topMargin: 4 }
-      }
-
-      Transport { visible: card.wide; Layout.alignment: Qt.AlignVCenter; Layout.leftMargin: card.px(8) }
-    }
-
-    Seek { visible: !card.wide; Layout.fillWidth: true }
-    Transport { visible: !card.wide; Layout.alignment: Qt.AlignHCenter }
-
-    // Cava strip: bars exist only while playing (see cavaOn), otherwise a flat hairline.
+    // Vinyl disc (upstream MusicPopup): round cover in a record with grooves and an accent-ringed
+    // label; one turn per 25 s while shown, paused (and shrunk to 0.9) when not playing; a soft
+    // accent glow sits behind it while playing (the cava ring instead, when it shows).
     Item {
-      visible: !card.wide
-      Layout.fillWidth: true
-      Layout.preferredHeight: 22
-      Row {
-        anchors.fill: parent
-        spacing: 3
-        Repeater {
-          model: card.cavaOn ? 24 : 0
+      Layout.preferredWidth: disc.width + 14
+      Layout.preferredHeight: disc.width + 14
+      Layout.alignment: Qt.AlignVCenter
+      Rectangle {
+        anchors.centerIn: parent
+        width: disc.width + 12; height: width; radius: width / 2
+        color: Style.m3primary
+        opacity: card.playing && !ring.count ? 0.35 : 0
+        scale: disc.scale
+        Behavior on opacity { NumberAnimation { duration: 500 } }
+        layer.enabled: true
+        layer.effect: MultiEffect { blurEnabled: true; blurMax: 32; blur: 1.0 }
+      }
+      // Ring: cava bars radiating from the rim, mirrored so both halves meet at the bottom.
+      Repeater {
+        id: ring
+        model: card.cavaOn ? 48 : 0
+        Item {
+          required property int index
+          readonly property real maxLen: card.px(14)
+          anchors.centerIn: parent
+          width: 3; height: disc.width + 2 * (maxLen + 3)
+          rotation: index * 7.5
           Rectangle {
-            required property int index
-            width: (parent.width - 23 * 3) / 24
-            anchors.bottom: parent.bottom
-            height: CavaBars.barHeight(Services.Cava.values[index] || 0, 22)
-            radius: 1.5
-            color: Qt.alpha(Style.m3primary, 0.55)
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: 3; radius: 1.5
+            height: CavaBars.barHeight(Services.Cava.values[index < 24 ? index : 47 - index] || 0, parent.maxLen)
+            y: parent.maxLen - height
+            color: Qt.alpha(Style.m3primary, 0.8)
           }
         }
       }
       Rectangle {
-        visible: !card.cavaOn
-        anchors.bottom: parent.bottom
-        width: parent.width; height: 2; radius: 1
-        color: Style.menuSep
+        id: disc
+        anchors.centerIn: parent
+        width: card.px(110); height: width; radius: width / 2
+        color: Style.surface1
+        scale: card.playing ? 1.0 : 0.9
+        Behavior on scale { SpringAnimation { spring: 5.2; damping: 0.35; mass: 0.75 } }
+        NumberAnimation on rotation {
+          from: 0; to: 360; duration: 25000
+          loops: Animation.Infinite
+          running: card.live && !!card.p
+          paused: running && !card.playing
+        }
+        ClippingRectangle {
+          anchors.fill: parent
+          radius: width / 2
+          color: Style.mantle
+          Text {
+            anchors.centerIn: parent
+            visible: !card.hasArt
+            text: "󰝚"
+            color: Style.overlay1
+            font.family: Style.fontFamily
+            font.pixelSize: parent.width * 0.26
+          }
+          Image {
+            anchors.fill: parent
+            visible: card.hasArt
+            source: Services.Players.artUrl
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true
+            sourceSize: Qt.size(256, 256)
+          }
+          // Accent tint + grooves (alternating light / dark rings), as upstream.
+          Rectangle { anchors.fill: parent; radius: width / 2; color: Qt.alpha(Style.m3primary, 0.08); visible: card.hasArt }
+          Repeater {
+            model: [0.92, 0.84, 0.76, 0.68, 0.60, 0.52, 0.44]
+            Rectangle {
+              required property real modelData
+              required property int index
+              anchors.centerIn: parent
+              width: parent.width * modelData; height: width; radius: width / 2
+              color: "transparent"
+              border.width: 1
+              border.color: index % 2 === 0 ? "#ffffff" : "#000000"
+              opacity: index % 2 === 0 ? 0.035 : 0.06
+            }
+          }
+        }
+        // Label: crust disc with an accent ring, surface2 centre, black spindle hole.
+        Rectangle {
+          anchors.centerIn: parent
+          width: parent.width * 0.28; height: width; radius: width / 2
+          color: Style.crust
+          opacity: 0.96
+          border.width: 1.5
+          border.color: Qt.alpha(Style.m3primary, 0.45)
+          Rectangle {
+            anchors.centerIn: parent
+            width: parent.width * 0.68; height: width; radius: width / 2
+            color: Style.surface2
+            border.width: 1
+            border.color: Qt.rgba(1, 1, 1, 0.18)
+            Rectangle { anchors.centerIn: parent; width: parent.width * 0.38; height: width; radius: width / 2; color: "#0d0e15" }
+          }
+        }
       }
     }
+
+    ColumnLayout {
+      Layout.fillWidth: true
+      Layout.alignment: Qt.AlignVCenter
+      spacing: 2
+
+      // Source pill: player name; with 2+ players a click cycles (Players.pinned).
+      Rectangle {
+        readonly property bool many: Services.Players.list.length > 1
+        visible: !!card.p
+        Layout.bottomMargin: 4
+        implicitWidth: srcRow.implicitWidth + 16
+        implicitHeight: card.px(22)
+        radius: height / 2
+        color: srcMa.containsMouse && many ? Style.m3containerHigh : Qt.alpha(Style.m3container, 0.8)
+        Row {
+          id: srcRow
+          anchors.centerIn: parent
+          spacing: 5
+          Text {
+            text: card.playing ? "󰐊" : "󰏤"
+            color: card.playing ? Style.m3primary : Style.m3onSurfaceVariant
+            font.family: Style.fontFamily; font.pixelSize: card.px(11)
+            anchors.verticalCenter: parent.verticalCenter
+          }
+          Text {
+            textFormat: Text.PlainText
+            text: Services.Players.name(card.p)
+              + (parent.parent.many ? "  ·  " + (Services.Players.list.indexOf(card.p) + 1) + "/" + Services.Players.list.length : "")
+            color: Style.m3onSurfaceVariant
+            font.family: Style.menuSans; font.pixelSize: card.px(11); font.weight: Font.Medium
+            anchors.verticalCenter: parent.verticalCenter
+          }
+          Text {
+            visible: parent.parent.many
+            text: "󰑐"
+            color: Style.m3onSurfaceVariant
+            font.family: Style.fontFamily; font.pixelSize: card.px(11)
+            anchors.verticalCenter: parent.verticalCenter
+          }
+        }
+        MouseArea {
+          id: srcMa
+          anchors.fill: parent
+          hoverEnabled: true
+          enabled: parent.many
+          cursorShape: Qt.PointingHandCursor
+          onClicked: Services.Players.cycle()
+        }
+      }
+      Text {
+        Layout.fillWidth: true
+        textFormat: Text.PlainText
+        text: card.p ? (card.p.trackTitle || "Unknown track") : "Nothing playing"
+        color: Style.m3onSurface
+        font.family: Style.menuSans; font.pixelSize: card.px(18); font.weight: Font.Bold
+        elide: Text.ElideRight
+      }
+      Text {
+        Layout.fillWidth: true
+        visible: text !== ""
+        textFormat: Text.PlainText
+        text: card.p ? card.p.trackArtist || "" : "Start a player — its controls show up here"
+        color: Style.m3onSurfaceVariant
+        font.family: Style.menuSans; font.pixelSize: card.px(14); font.weight: Font.Medium
+        elide: Text.ElideRight
+      }
+      Text {
+        Layout.fillWidth: true
+        visible: text !== ""
+        textFormat: Text.PlainText
+        text: card.p ? card.p.trackAlbum || "" : ""
+        color: Style.m3outline
+        font.family: Style.menuSans; font.pixelSize: card.px(12)
+        elide: Text.ElideRight
+      }
+      Seek { Layout.fillWidth: true; Layout.topMargin: 4 }
+    }
+
+    Transport { Layout.alignment: Qt.AlignVCenter; Layout.leftMargin: card.px(8) }
   }
 }

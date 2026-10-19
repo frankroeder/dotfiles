@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Apple Music (music.apple.com) as a Chromium app on a profile of its own (idea:
+# DiegoObethBatista/omarchy-apple-music-plugin): its own browser process, so its own MPRIS player,
+# which Players.qml names "Apple Music" by this profile directory. The bundled extension
+# (asahi/apple-music/extension) hands Chromium MusicKit's per-track length, position and seek.
+set -euo pipefail
+
+bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+data="${ASAHI_APPLE_MUSIC_DIR:-$HOME/.local/share/asahi-apple-music}"
+ext="$(readlink -f "$bin/../apple-music/extension")"
+# Oldest process on this profile = its browser. Regex-escaped and anchored: a longer
+# directory name that merely starts with ours must not match.
+re="$(printf '%s' "$data" | sed 's/[][\\.*^$+?(){}|]/\\&/g')"
+pid="$(pgrep -o -f -- "--user-data-dir=$re( |\$)" || true)"
+if [ -n "$pid" ]; then
+  address="$(
+    hyprctl clients -j 2>/dev/null |
+      jq -r --argjson pid "$pid" 'map(select(.pid == $pid))[0].address // empty' 2>/dev/null || true
+  )"
+  if [ -n "$address" ]; then
+    hyprctl dispatch "hl.dsp.focus({ window = \"address:$address\" })" >/dev/null
+    exit 0
+  fi
+fi
+
+# The profile holds the Apple ID sign-in: owner-only, cookies encrypted with the login keyring.
+mkdir -p "$data"
+chmod 700 "$data"
+# Full tracks are Widevine DRM. Fedora's system CDM dir is empty on aarch64: widevine-installer puts it in
+# the main profile and leaves a hint Chromium reads at startup. Copied every launch so updates follow.
+hint="${XDG_CONFIG_HOME:-$HOME/.config}/chromium/WidevineCdm/latest-component-updated-widevine-cdm"
+if [ -f "$hint" ]; then
+  mkdir -p "$data/WidevineCdm"
+  cp -f "$hint" "$data/WidevineCdm/"
+else
+  notify-send "Apple Music" "No Widevine in the main Chromium profile: run widevine-installer, or only previews play."
+fi
+exec "$bin/asahi-launch" chromium-browser \
+  --user-data-dir="$data" \
+  --app=https://music.apple.com/ \
+  --load-extension="$ext" \
+  --password-store=gnome-libsecret \
+  --no-first-run

@@ -1,8 +1,10 @@
 pragma Singleton
 
 import Quickshell
+import Quickshell.Io
 import Quickshell.Services.Mpris
 import QtQuick
+import "players.js" as PlayersJs
 
 Singleton {
     id: root
@@ -12,15 +14,30 @@ Singleton {
 
     // Player picked in the media popup (cycle()); wins while it exists.
     property var pinned: null
+    // Last player seen playing: stays the shown one once everything paused.
+    property var recent: null
+    readonly property var playing: list.find(p => p.isPlaying) ?? null
+    onPlayingChanged: if (playing) recent = playing
 
-    // The best player to show: the pinned one, else one that is playing
-    property var active: {
-        if (pinned && list.indexOf(pinned) >= 0) return pinned
-        for (let i = 0; i < list.length; i++) {
-            if (list[i]?.isPlaying) return list[i]
+    // The best player to show (PlayersJs.pick)
+    readonly property var active: PlayersJs.pick(list, pinned, recent)
+
+    // dbusName → true for asahi-apple-music's browser, read from its command line (players.js).
+    property var appleMusic: ({})
+    Instantiator {
+        model: root.list.filter(p => /\.chromium\.instance\d+$/.test(p.dbusName))
+        delegate: FileView {
+            required property var modelData
+            path: "/proc/" + modelData.dbusName.replace(/.*\.instance/, "") + "/cmdline"
+            printErrors: false
+            onLoaded: {
+                const m = Object.assign({}, root.appleMusic)
+                m[modelData.dbusName] = PlayersJs.isAppleMusicCmdline(text())
+                root.appleMusic = m
+            }
         }
-        return list[0] ?? null
     }
+    function name(p) { return !p ? "" : root.appleMusic[p.dbusName] ? "Apple Music" : p.identity || "Player" }
 
     readonly property bool hasPlayer: active !== null
     readonly property bool isPlaying: active?.isPlaying ?? false

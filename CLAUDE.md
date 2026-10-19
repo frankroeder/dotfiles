@@ -299,9 +299,9 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   only on hover (no free-running marquee). Click = `MediaPanel` (compact serpantinum `MusicPopup`,
   checked against its source: blurred art + 0.55/0.72/0.90 wash, grooved vinyl 25 s/turn (0.9 when
   paused), `WavySeekBar` = upstream constants at 16 ms only while shown + playing, surface0
-  transport 36/52/36 (card 460 wide, disc 110), shuffle/loop if supported, cava strip),
-  middle = play/pause, right = next. The card is `MediaCard.qml`, shared with the launcher Media pane
-  (`wide`: disc | text + seek | transport; `fontScale`); it imports its sibling `WavySeekBar` qualified
+  transport 36/52/36 (popup 680 wide, disc 110), shuffle/loop if supported, cava ring around the disc),
+  middle = play/pause, right = next. The card is `MediaCard.qml`, one row (disc | text + seek | transport),
+  the same in the launcher Media pane (`fontScale`); it imports its sibling `WavySeekBar` qualified
   (`import "." as Components`): loaded via the pane's Loader path a bare one is "not a type".
   `Players.pinned` = source pill cycle (2+ players). Length = `Players.length` (0 = placeholder bar:
   `WavySeekBar.indeterminate`, a fainter ridge resting on the track — no fill, handle, seeking or times):
@@ -317,6 +317,10 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   without it the 16 ms wave repainted while closed, +1.4 % CPU; open popup ≈ 19 % of a core). IPC `media panel` toggles
   it on the focused screen (shell `mediaPanelRequested` → `BarHost.requestPanel`). Rounded content needs `ClippingRectangle`
   (`clip` is rectangular: the blurred art's corners showed past the card radius).
+- **Apple Music app**: `asahi-apple-music` = Chromium `--app` on its own profile (own process → own MPRIS player,
+ named via `/proc/<pid>/cmdline`, which Chromium space-joins). Widevine: copies the main profile's CDM hint (else
+ previews only). `extension/clock.js` hands MusicKit's per-track clock to the Media Session. Linked into `~/.local/bin`
+ (session PATH lacks `asahi/bin`). Shuffle / love / library bridge was tried and dropped (too much code).
 - **Launcher quick panes**: one file each in `quickshell/remix/modules/launcher/panes/`;
   `LauncherWindow.qml` does `Panes.XPane { root: launcherSelf }` (`root` inside a pane is that
   property, not the launcher id). Shared M3 widgets in `modules/menu` — `MenuPill` / `MenuChip` /

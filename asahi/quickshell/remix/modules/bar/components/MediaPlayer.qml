@@ -92,7 +92,7 @@ Item {
       y: titleText.height - 2
       width: textBox.width
       textFormat: Text.PlainText
-      text: Services.Players.artist || Services.Players.active?.identity || ""
+      text: Services.Players.artist || Services.Players.name(Services.Players.active)
       font.family: Style.menuSans
       font.pixelSize: Style.barFontCaption - 1
       color: Style.barStripMuted

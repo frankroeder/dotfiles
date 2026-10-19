@@ -5,8 +5,8 @@ import "../../../"
 import "../BarModel.js" as BarModel
 import "../../../services" as Services
 
-// Media chip popup: the shared MediaCard (stacked, with a cava strip; the launcher's Media pane
-// shows the same card wide). Hangs under the chip, left-aligned to it. Esc / click outside closes.
+// Media chip popup: the shared MediaCard (the launcher's Media pane shows the same card). Hangs under
+// the chip, left-aligned to it. Esc / click outside closes.
 PopupWindow {
   id: root
 
@@ -19,7 +19,7 @@ PopupWindow {
   anchor.edges: Edges.Bottom | Edges.Left
   anchor.gravity: Edges.Bottom | Edges.Right
   anchor.margins.bottom: -BarModel.popupDrop(root.barHost ? root.barHost.height : Style.barHeight, Style.barHeight)  // negative = below
-  implicitWidth: 460
+  implicitWidth: 680
   implicitHeight: card.implicitHeight
 
   function close() { if (root.barHost && root.barHost.openPanel === "media") root.barHost.openPanel = "" }
@@ -28,7 +28,7 @@ PopupWindow {
   // Nothing left to show (player closed): drop the flag so the next track does not pop it open.
   onPChanged: if (!root.p) root.close()
 
-  // Shared cava only while the strip is on screen and something plays.
+  // Shared cava only while the ring is on screen and something plays.
   readonly property bool cavaWanted: root.visible && Services.Players.isPlaying
   onCavaWantedChanged: Services.Cava.hold(root, root.cavaWanted)
   Component.onDestruction: Services.Cava.hold(root, false)
