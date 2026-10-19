@@ -25,6 +25,17 @@ if grep -q 'asahi-theme/hyprlock.conf' "$conf" && grep -q '\$lock_bg' "$conf" &&
 else
   fail_at "hyprlock.conf missing theme or wallpaper"
 fi
+if grep -q 'outline_thickness = 8' "$conf" \
+  && grep -q 'capslock_color = \$lock_caps$' "$conf" \
+  && grep -q 'animation = inputFieldColors, 1, 3, out' "$conf" \
+  && grep -q 'asahi-lock-caps' "$conf" \
+  && grep -q '\$lock_caps = rgb(f9e2af)' "$ROOT/../hypr/hyprlock-theme.conf" \
+  && ! grep -q '\$lock_caps =' "$conf" \
+  && ! grep -q 'capslock_color = \$lock_fail' "$conf"; then
+  pass "caps lock border uses the theme warning color"
+else
+  fail_at "hyprlock caps lock indicator"
+fi
 
 lock="$ROOT/asahi-lock"
 if grep -q 'hyprlock "$@"' "$lock" && grep -q 'run --no-fade-in' "$lock"; then
@@ -64,6 +75,30 @@ uptime_prog=$(sed -n "s/.*awk '\\(.*\\)' \\/proc\\/uptime.*/\\1/p" "$conf")
 uptime_day=$(awk "$uptime_prog" <<<"90061 0")
 uptime_hour=$(awk "$uptime_prog" <<<"3661 0")
 uptime_min=$(awk "$uptime_prog" <<<"61 0")
+caps="$ROOT/asahi-lock-caps"
+tmpcaps="$(mktemp -d)"
+mkdir -p "$tmpcaps/input0::capslock" "$tmpcaps/input1::capslock"
+printf '0\n' >"$tmpcaps/input0::capslock/brightness"
+printf '0\n' >"$tmpcaps/input1::capslock/brightness"
+off=$(ASAHI_CAPS_DIR="$tmpcaps" "$caps"; echo .)
+printf '1\n' >"$tmpcaps/input1::capslock/brightness"
+on=$(ASAHI_CAPS_DIR="$tmpcaps" "$caps")
+empty=$(ASAHI_CAPS_DIR="$tmpcaps/none" "$caps"; echo .)
+printf '%s\n' '{"keyboards":[{"capsLock": true}]}' >"$tmpcaps/on.json"
+printf '%s\n' '{"keyboards":[{"capsLock": false}]}' >"$tmpcaps/off.json"
+printf '%s\n' '{' '  "capsLock": false,' '  "capsLock": true' '}' >"$tmpcaps/lines.json"
+from_json=$(ASAHI_CAPS_DIR="$tmpcaps/none" ASAHI_CAPS_HYPRCTL_JSON="$tmpcaps/on.json" "$caps")
+json_off=$(ASAHI_CAPS_DIR="$tmpcaps/none" ASAHI_CAPS_HYPRCTL_JSON="$tmpcaps/off.json" "$caps"; echo .)
+json_lines=$(ASAHI_CAPS_DIR="$tmpcaps/none" ASAHI_CAPS_HYPRCTL_JSON="$tmpcaps/lines.json" "$caps")
+rm -rf "$tmpcaps"
+if [ "$off" = "." ] && [ "$on" = '<span weight="bold">CAPS</span>' ] && [ "$empty" = "." ] \
+  && [ "$from_json" = '<span weight="bold">CAPS</span>' ] && [ "$json_off" = "." ] \
+  && [ "$json_lines" = '<span weight="bold">CAPS</span>' ]; then
+  pass "asahi-lock-caps follows the LED, and hyprctl only when no LED exists"
+else
+  fail_at "asahi-lock-caps off=[$off] on=[$on] empty=[$empty] json=[$from_json] json_off=[$json_off] lines=[$json_lines]"
+fi
+
 if [ "$uptime_day" = "up  1d  01h  01m" ] && [ "$uptime_hour" = "up  1h  01m" ] && [ "$uptime_min" = "up  1m" ]; then
   pass "uptime label formats days, hours, and minutes"
 else

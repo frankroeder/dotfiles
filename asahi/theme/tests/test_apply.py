@@ -74,6 +74,7 @@ class TestApplyWriters(unittest.TestCase):
         self.assertIn("$lock_bg = rgb(", text)
         self.assertIn("$lock_fg = rgb(", text)
         self.assertIn("$lock_check = rgba(", text)
+        self.assertIn("$lock_caps = rgb(" + self.palette.yellow.removeprefix("#"), text)
         self.assertRegex(text, r"\$lock_ring = rgba\([0-9a-fA-F]{8}\)")
         self.assertRegex(text, r"\$lock_band = rgba\([0-9a-fA-F]{8}\)")
         self.assertEqual((self.root / "lock-fade-top.png").read_bytes()[:8], b"\x89PNG\r\n\x1a\n")

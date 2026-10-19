@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Prints bold "CAPS" while Caps Lock is on, else nothing. hyprlock polls this.
+# The kernel kbd-capslock LED is the seat lock. No LED node: hyprctl.
+
+set -euo pipefail
+
+mark='<span weight="bold">CAPS</span>'
+root=${ASAHI_CAPS_DIR:-/sys/class/leds}
+
+shopt -s nullglob
+leds=("$root"/*capslock*/brightness)
+if ((${#leds[@]})); then
+  for f in "${leds[@]}"; do
+    v=""
+    IFS= read -r v <"$f" || true
+    if [[ $v == 1 ]]; then
+      printf '%s' "$mark"
+      exit 0
+    fi
+  done
+  exit 0
+fi
+
+# A test dir with no LED must not fall through to the live session.
+if [[ -n ${ASAHI_CAPS_DIR:-} && -z ${ASAHI_CAPS_HYPRCTL_JSON:-} ]]; then
+  exit 0
+fi
+
+json=""
+if [[ -n ${ASAHI_CAPS_HYPRCTL_JSON:-} ]]; then
+  json=$(cat "$ASAHI_CAPS_HYPRCTL_JSON" 2>/dev/null || true)
+elif [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]] && command -v hyprctl >/dev/null 2>&1; then
+  json=$(hyprctl devices -j 2>/dev/null || true)
+fi
+# hyprctl pretty-prints one key per line; glob * does not cross newlines.
+flat=${json//$'\n'/}
+if [[ $flat == *'"capsLock": true'* || $flat == *'"capsLock":true'* ]]; then
+  printf '%s' "$mark"
+fi

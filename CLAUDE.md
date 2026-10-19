@@ -113,8 +113,21 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   PNG (`lock-fade-top.png`, written by `write_hyprlock_conf` beside the colors; `halign = left` —
   hyprlock mis-centers images wider than the monitor, and `rotate` shifts them). Label shadows are
   too faint to help. Sizes are framebuffer px (no monitor scale): the row must fit the Dell 2560.
-  Two input-fields share the input: outer 832 = ring only (transparent font), inner 624 = dots/text
+  Three input-fields share the input. Outer 832 = 2px ring (transparent font); inner 624 = dots/text
   (hyprlock pads dots only `(h - dot)/2`; one field ran dots under the `de` label) — 13 dots max.
+  Caps Lock highlights the border only, no fill. Outline thickness is static and drawn outside the
+  box, so a second ring is 8px with `outer_color` clear and `capslock_color = $lock_caps`; the 2px
+  ring's caps color is clear, so the hairline eases out as the thick stroke eases in
+  (`inputFieldColors`, bezier `out`, speed 3). `$lock_caps` is palette yellow (the warning color;
+  mocha fallback `f9e2af`), written by `write_hyprlock_conf`. Do not assign it after the `source`
+  lines or the wallpaper color loses. Light mode darkens yellow for contrast, so the stroke is dark
+  gold on a light band and bright on a dark one. Thick ring
+  check/fail stay clear or a failed password would also draw it with Caps Lock off. A failed attempt
+  replaces the caps color for `fail_timeout` (~2s), and the 2px ring shows `$lock_fail` / `$lock_check`.
+  Dots keep `$lock_fg` (`swap_font_color`, caps color `$lock_fg`) so the box interior never fills;
+  their check/fail stay real or "Checking…" / "Failed" blank. `asahi-lock-caps` draws bold CAPS in
+  `$lock_fg` opposite `de` (x=354, same baseline). Polls the kbd-capslock LED (hyprctl only when no
+  LED node). Never `$lock_fail` for the caps color.
   Preview without locking: nested `Hyprland -c <min.lua>` + `hyprctl output create headless` +
   hyprlock + grim; type via live `hl.dsp.send_shortcut` to `class:^(aquamarine)$` (never Enter: PAM).
 - **Lid + DPMS (2026-09-22)**: Hyprland DPMS off is an aquamarine output disable — the DRM
