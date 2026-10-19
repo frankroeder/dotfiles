@@ -1,6 +1,8 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Effects
 import QtQuick.Layouts
+import QtQuick.VectorImage
 import Quickshell
 import Quickshell.Io
 import Quickshell.Widgets
@@ -39,6 +41,10 @@ Item {
   function monitorLogicalWidth(m) { return ((m.transform || 0) % 2 ? (m.height || 1080) : (m.width || 1920)) / Math.max(0.25, m.scale || 1) }
   function monitorLogicalHeight(m) { return ((m.transform || 0) % 2 ? (m.width || 1920) : (m.height || 1080)) / Math.max(0.25, m.scale || 1) }
   readonly property bool anyMirrored: (quickMonitorsRoot.mons || []).some(QuickModels.isMirroring)
+  // Nothing but eDP-1 plugged in (`monitors all` lists connected outputs only; FALLBACK is
+  // Hyprland's placeholder). Greys out the mode row: Extend's reload would just blink eDP-1.
+  readonly property bool builtinOnly: (quickMonitorsRoot.mons || []).length > 0
+    && quickMonitorsRoot.mons.every(m => m.name === "eDP-1" || m.name === "FALLBACK")
   // The layout mode the header highlights: mirror, external only (eDP-1 off), extend (2+ outputs).
   readonly property string displayMode: {
     const list = quickMonitorsRoot.mons || []
@@ -462,28 +468,43 @@ Item {
     }
   }
 
-  // Header / footer action pill (Mirror / Extend / External / Rescan / Keep / Apply).
+  // Header / footer action pill (Mirror / Extend / External / Rescan / Keep / Apply). With `icon`
+  // (white pictogram, alpha for the dim parts) the pictogram sits left of label + hint, colorized to it.
   component ActionPill: Rectangle {
     id: actPill
     property string label: ""
+    property string hint: ""
+    property string icon: ""
     property bool tonal: false
     signal tapped()
-    implicitWidth: actPillLbl.implicitWidth + 26
-    implicitHeight: 28
-    radius: Style.menuRadiusFull
+    readonly property color fg: actPill.tonal ? Style.m3onPrimary : Style.m3onSurface
+    implicitWidth: actPillRow.implicitWidth + 26
+    implicitHeight: actPill.icon ? actPillRow.implicitHeight + 16 : 28
+    radius: actPill.icon ? Style.menuRadiusLg : Style.menuRadiusFull
     color: actPill.tonal ? (actPillMa.containsMouse ? Qt.lighter(Style.m3primary, 1.1) : Style.m3primary)
       : (actPillMa.containsMouse ? Style.m3stateHover : "transparent")
     border.width: actPill.tonal ? 0 : 1
     border.color: actPillMa.containsMouse ? Style.m3outline : Style.m3outlineVariant
     Behavior on color { ColorAnimation { duration: 90 } }
-    Text {
-      id: actPillLbl
+    Row {
+      id: actPillRow
       anchors.centerIn: parent
-      text: actPill.label
-      font.pixelSize: root.fontPx(10)
-      font.family: root.uiSans
-      font.weight: Font.Medium
-      color: actPill.tonal ? Style.m3onPrimary : Style.m3onSurface
+      spacing: 12
+      VectorImage {
+        visible: actPill.icon !== ""
+        anchors.verticalCenter: parent.verticalCenter
+        width: root.fontPx(54); height: root.fontPx(22.5)
+        source: actPill.icon
+        fillMode: VectorImage.PreserveAspectFit
+        preferredRendererType: VectorImage.CurveRenderer
+        layer.enabled: visible
+        layer.effect: MultiEffect { colorization: 1; colorizationColor: actPill.fg }
+      }
+      Column {
+        anchors.verticalCenter: parent.verticalCenter
+        Text { text: actPill.label; color: actPill.fg; font.pixelSize: root.fontPx(10); font.family: root.uiSans; font.weight: Font.Medium }
+        Text { visible: text !== ""; text: actPill.hint; color: actPill.fg; opacity: 0.7; font.pixelSize: root.fontPx(8); font.family: root.uiSans }
+      }
     }
     MouseArea {
       id: actPillMa
@@ -545,16 +566,34 @@ Item {
         }
       }
       Item { Layout.fillWidth: true }
-      // One mode at a time, the current one filled. Tapping a filled Mirror unmirrors. Span is a
-      // wallpaper setting, not a layout mode: it is the switch above the bezel gap below.
+      ActionPill { label: "Rescan"; onTapped: quickMonitorsRoot.rescanMonitors() }
+    }
+
+    // One mode at a time, the current one filled. Tapping a filled Mirror unmirrors. Span is a
+    // wallpaper setting, not a layout mode: it is the switch above the bezel gap below.
+    // Equal thirds: preferredWidth 1 + fillWidth splits the row evenly whatever the label widths.
+    RowLayout {
+      Layout.fillWidth: true; spacing: 8
+      enabled: !quickMonitorsRoot.builtinOnly
+      opacity: enabled ? 1 : 0.45
       ActionPill {
-        label: "Mirror"
+        Layout.fillWidth: true; Layout.preferredWidth: 1
+        label: "Mirror"; hint: "Same picture on both"; icon: "icons/mirror.svg"
         tonal: quickMonitorsRoot.displayMode === "mirror"
         onTapped: quickMonitorsRoot.anyMirrored ? quickMonitorsRoot.unmirrorMonitors() : quickMonitorsRoot.mirrorMonitors()
       }
-      ActionPill { label: "Extend"; tonal: quickMonitorsRoot.displayMode === "extend"; onTapped: quickMonitorsRoot.extendMonitors() }
-      ActionPill { label: "External"; tonal: quickMonitorsRoot.displayMode === "external"; onTapped: quickMonitorsRoot.externalOnlyMonitors() }
-      ActionPill { label: "Rescan"; onTapped: quickMonitorsRoot.rescanMonitors() }
+      ActionPill {
+        Layout.fillWidth: true; Layout.preferredWidth: 1
+        label: "Extend"; hint: "One desktop across both"; icon: "icons/extend.svg"
+        tonal: quickMonitorsRoot.displayMode === "extend"
+        onTapped: quickMonitorsRoot.extendMonitors()
+      }
+      ActionPill {
+        Layout.fillWidth: true; Layout.preferredWidth: 1
+        label: "External"; hint: "Built-in display off"; icon: "icons/external.svg"
+        tonal: quickMonitorsRoot.displayMode === "external"
+        onTapped: quickMonitorsRoot.externalOnlyMonitors()
+      }
     }
 
     // Arrangement canvas — uniform scale in logical coordinates fitted to 84%
@@ -932,7 +971,9 @@ Item {
           : quickMonitorsRoot.revertLeft > 0
             ? (quickMonitorsRoot.refused ? "Keep or revert first · reverting in " : "Keep this layout? Reverting in ")
               + quickMonitorsRoot.revertLeft + "s"
-          : (quickMonitorsRoot.monStatus && quickMonitorsRoot.monStatus !== "ok" ? quickMonitorsRoot.monStatus : "Layout matches your displays · drag to arrange")
+          : quickMonitorsRoot.monStatus && quickMonitorsRoot.monStatus !== "ok" ? quickMonitorsRoot.monStatus
+          : quickMonitorsRoot.builtinOnly ? "Only the built-in display is connected"
+          : "Layout matches your displays · drag to arrange"
         color: bad ? Style.red : Style.m3onSurfaceVariant
         font.pixelSize: root.fontPx(9); font.family: root.uiSans; elide: Text.ElideRight
       }

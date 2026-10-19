@@ -150,7 +150,9 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   no-op (`asahi-hdmi` with no arg defaults to HDMI-A-1). Mirroring
   `HDMI-A-1` strands workspaces 1–5 — mirror eval is **only** `mirror = <source>` (no `mode` /
   `position`). Source must be an enabled output. Undo: tap the filled Mirror pill, or Extend, `Super+Ctrl+Alt+R`, or the
-  Monitors pane 15 s auto-revert (unless Keep). Pane drag-arrange sends **position-only**
+  Monitors pane 15 s auto-revert (unless Keep). Mode pills: own pictograms (`panes/icons/`, white + alpha:
+  `MultiEffect` tints one color). Laptop-only greys them out (Extend's reload blinks eDP-1); a
+  plugged-in but disabled external keeps them (Extend's reload brings it back). Pane drag-arrange sends **position-only**
   `hl.monitor` (partial rules merge with the live mode/scale) and reverts by re-evaluating the old
   positions (a reload would re-modeset HDMI).
   Keep → `asahi-hdmi save` into `~/.local/state/asahi/monitor-layout.json` (per sink desc, keyed

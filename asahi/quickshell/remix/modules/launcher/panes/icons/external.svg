@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 12 96 40" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- External only: laptop screen off (dimmed, empty), the monitor shows the wave. -->
+  <rect x="8" y="23" width="32" height="21" rx="2.5" stroke-opacity=".4"/>
+  <rect x="3" y="47" width="42" height="3.5" rx="1.75" fill="#fff" fill-opacity=".4" stroke="none"/>
+  <rect x="53" y="14" width="40" height="26" rx="2.5" fill="#fff" fill-opacity=".16"/>
+  <path d="M73 40V47"/>
+  <rect x="64" y="47" width="18" height="3.5" rx="1.75" fill="#fff" stroke="none"/>
+  <path stroke-width="1.8" d="M55.5 27.5C61.3 22.2 67.2 22.2 73 27.5S84.7 32.8 90.5 27.5"/>
+</svg>

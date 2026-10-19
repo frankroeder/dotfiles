@@ -277,6 +277,16 @@ assert(
   /QuickModels\.enabledMonitors/.test(externalFn) && !/\|\| list\.find/.test(externalFn),
   "external-only picks an enabled output, never a disabled probe"
 );
+for (const icon of ["mirror", "extend", "external"]) {
+  assert(
+    qml.includes('icon: "icons/' + icon + '.svg"') && fs.existsSync(path.join(__dirname, "panes/icons", icon + ".svg")),
+    icon + " pill shows its pictogram"
+  );
+}
+assert(
+  /enabled: !quickMonitorsRoot\.builtinOnly/.test(qml) && /every\(m => m\.name === "eDP-1"/.test(qml),
+  "laptop-only greys out the modes (Extend's reload blinked eDP-1); a disabled external still counts"
+);
 assert(
   /revertTimer/.test(qml) && /function disarmRevert\(\)/.test(qml),
   "topology changes revert unless kept"
