@@ -1,0 +1,6 @@
+[Default]
+# Save (Ctrl+S / the save button) writes here and quits; asahi-screenshot-annotate then moves the
+# file over the shot it opened. Esc / closing the window only quits: the shot stays as it was.
+save_dir=$HOME/screenshots
+save_filename_format=annotated-%Y-%m-%d_%H-%M-%S.png
+early_exit=true

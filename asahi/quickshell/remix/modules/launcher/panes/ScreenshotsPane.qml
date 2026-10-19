@@ -109,6 +109,7 @@ Item {
               source: !shotsPane.videoMode && modelData.path ? ("file://" + Gallery.thumbPath(modelData.path, Quickshell.env("HOME"))) : ""
               fillMode: Image.PreserveAspectCrop
               asynchronous: true
+              cache: false  // an annotated shot's thumb is rewritten under the same name
               // Fade in once decoded instead of popping in tile by tile.
               opacity: status === Image.Ready ? 1 : 0
               Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
@@ -176,7 +177,7 @@ Item {
               }
             }
 
-            // Hover actions: preview / copy / open / delete.
+            // Hover actions: preview / copy / annotate / open / delete.
             // Tile HoverHandler (not hma.containsMouse): IconBtn MouseAreas steal
             // the tile MouseArea hover, which hid the row while clicks still hit.
             Row {
@@ -187,6 +188,7 @@ Item {
               Behavior on opacity { NumberAnimation { duration: 120 } }
               IconBtn { visible: !shotsPane.videoMode; icon: "󰋲"; onClicked: root.previewShot(cell.modelData.path) }
               IconBtn { visible: !shotsPane.videoMode; icon: "󰆏"; onClicked: root.copyShot(cell.modelData.path) }
+              IconBtn { visible: !shotsPane.videoMode; icon: "󰏫"; onClicked: root.annotateShot(cell.modelData.path) }
               IconBtn { icon: "󰏌"; onClicked: root.openShot(cell.modelData.path) }
               // Deleting takes two clicks (the first arms it red for 3 s); the file goes to the trash.
               IconBtn {

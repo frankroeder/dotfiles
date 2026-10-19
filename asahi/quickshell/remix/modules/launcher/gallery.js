@@ -19,10 +19,10 @@ function scanCommand(kind, home) {
   const s = h + dir
   const list = "find \"" + s + "\" -maxdepth 1 -type f \\( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \\)" +
     " -printf '%T@ %p\\n' 2>/dev/null | sort -rn | head -200 | cut -d' ' -f2-"
-  // Before listing: thumb every image that has none (magick, 4 at a time; benchmarked
-  // against vips/ffmpeg), drop thumbs whose image is gone.
+  // Before listing: thumb every image that has none or an older one (annotated in place; magick,
+  // 4 at a time; benchmarked against vips/ffmpeg), drop thumbs whose image is gone.
   return "d=\"" + thumbDir(h) + "\"; mkdir -p \"$d\"; l=$(" + list + "); " +
-    "printf '%s\\n' \"$l\" | while IFS= read -r f; do [ -n \"$f\" ] && [ ! -f \"$d/${f##*/}.jpg\" ] && printf '%s\\0' \"$f\"; done | " +
+    "printf '%s\\n' \"$l\" | while IFS= read -r f; do [ -n \"$f\" ] && [ \"$f\" -nt \"$d/${f##*/}.jpg\" ] && printf '%s\\0' \"$f\"; done | " +
     "xargs -0 -r -P4 -I{} sh -c 'magick \"$1\" -thumbnail 480x300^ -gravity center -extent 480x300 -quality 85 \"$2/${1##*/}.jpg\"' _ {} \"$d\"; " +
     "for t in \"$d\"/*.jpg; do [ -e \"$t\" ] || continue; " +
     "b=${t##*/}; [ -e \"" + s + "/${b%.jpg}\" ] || rm -f \"$t\"; done; " +

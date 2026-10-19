@@ -416,6 +416,13 @@ Scope {
   }
   function openShot(p) { if (p) Quickshell.execDetached([binDir + "/asahi-launch", "xdg-open", p]) }
   function previewShot(p) { if (p) root.shotPreviewPath = p }
+  // swappy over the shot itself (asahi-screenshot-annotate). The launcher closes first: it holds the keyboard.
+  function annotateShot(p) {
+    if (!p) return
+    root.shotPreviewPath = ""
+    root.closeLauncher()
+    Quickshell.execDetached([binDir + "/asahi-launch", binDir + "/asahi-screenshot-annotate", p])
+  }
   function deleteShot(p) {
     if (!p) return
     if (root.shotPreviewPath === p) root.shotPreviewPath = ""
@@ -3401,6 +3408,7 @@ Scope {
           fillMode: Image.PreserveAspectFit
           sourceSize.width: 2048
           asynchronous: true
+          cache: false  // an annotated shot keeps its path
         }
 
         RowLayout {
@@ -3412,6 +3420,7 @@ Scope {
           // Same pills as the gallery pane's header (Copy uses its glyph).
           Menu.MenuPill { icon: "󰅌"; label: "Copy"; fontScale: root.uiFontScale; onClicked: root.copyShot(root.shotPreviewPath) }
           Menu.MenuPill { icon: "󰏌"; label: "Open"; fontScale: root.uiFontScale; onClicked: root.openShot(root.shotPreviewPath) }
+          Menu.MenuPill { icon: "󰏫"; label: "Annotate"; fontScale: root.uiFontScale; onClicked: root.annotateShot(root.shotPreviewPath) }
           Menu.MenuPill {
             icon: "󰆴"; label: "Delete"; fg: Style.red; fontScale: root.uiFontScale
             onClicked: root.deleteShot(root.shotPreviewPath)

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Annotate a screenshot in swappy (arrows, boxes, text, blur). Only swappy's Save (Ctrl+S / the
+# save button) counts: it writes annotated-*.png into ~/screenshots and quits (asahi/swappy/config);
+# that file replaces the shot when its pixels differ, and is copied to the clipboard like a fresh
+# capture. Esc / closing the window, or a Save with nothing drawn, leaves the shot as it was.
+#   asahi-screenshot-annotate <file>
+
+set -euo pipefail
+
+file="${1:?usage: asahi-screenshot-annotate <file>}"
+[ -f "$file" ] || exit 1
+if ! command -v swappy >/dev/null 2>&1; then
+  notify-send -a screenshot -u critical "Annotate unavailable" "Install swappy (asahi/dnf.sh)" 2>/dev/null || true
+  exit 1
+fi
+
+save_dir="$HOME/screenshots"  # swappy's save_dir
+marker="$(mktemp)"
+trap 'rm -f "$marker"' EXIT
+swappy -f "$file"
+
+saved="$(find "$save_dir" -maxdepth 1 -name 'annotated-*.png' -newer "$marker" -print -quit)"
+[ -n "$saved" ] || exit 0
+# compare exits 0 when no pixel differs: a Save with nothing drawn.
+if magick compare -metric AE "$file" "$saved" null: 2>/dev/null; then
+  rm -f "$saved"
+  exit 0
+fi
+mv -f "$saved" "$file"
+wl-copy --type image/png <"$file"
+notify-send -a screenshot -t 2500 -i "$file" "Annotation saved" "$file" 2>/dev/null || true

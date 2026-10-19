@@ -216,6 +216,13 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   and top row, gallery "Copy" pill. OCR/QR:
   Super+Shift/Ctrl+F11. Color: Super+Shift+F12. Record: Super+Alt+F11 region, Super+Alt+F12
   display, Super+Alt+Shift+F12 + webcam (`asahi-webcam`; Super+Alt+ü/+ resize = `code:34/35`).
+  Annotate (Screenshots pane: tile pencil, preview "Annotate" pill) = `asahi-screenshot-annotate` =
+  `swappy -f shot` (Fedora; satty is not packaged; class `swappy` floats). Only Save (Ctrl+S / button) counts:
+  `asahi/swappy/config` sends it to `~/screenshots/annotated-*.png` + `early_exit`; the script moves it over
+  the shot when `magick compare -metric AE` sees changed pixels (else drops it) and re-copies it. No `-o`:
+  swappy writes that on Esc / q / close too. Verified in nested Hyprland (Esc, empty Save, draw + Save). Gallery thumbs
+  regenerate when older than the image (`-nt`); tile + preview Images are `cache: false` (same path).
+  `screenshot` toasts (also OCR / QR) show under Do Not Disturb, silently: feedback for your own key.
   Test: `asahi/bin/asahi_webcam_test.sh`.
 - **Browser screenshare**: camera/mic work. Chromium needs
   `CHROMIUM_USER_FLAGS=--enable-features=WebRTCPipeWireCapturer` in `env.lua` and
@@ -293,8 +300,19 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   checked against its source: blurred art + 0.55/0.72/0.90 wash, grooved vinyl 25 s/turn (0.9 when
   paused), `WavySeekBar` = upstream constants at 16 ms only while shown + playing, surface0
   transport 36/52/36 (card 460 wide, disc 110), shuffle/loop if supported, cava strip),
-  middle = play/pause, right = next. `Players.pinned` = source pill cycle (2+ players). Firefox MPRIS
-  has no length → no seek bar. Seek holds the target 1 s (no jump back). An Item stays `visible`
+  middle = play/pause, right = next. The card is `MediaCard.qml`, shared with the launcher Media pane
+  (`wide`: disc | text + seek | transport; `fontScale`); it imports its sibling `WavySeekBar` qualified
+  (`import "." as Components`): loaded via the pane's Loader path a bare one is "not a type".
+  `Players.pinned` = source pill cycle (2+ players). Length = `Players.length` (0 = placeholder bar:
+  `WavySeekBar.indeterminate`, a fainter ridge resting on the track — no fill, handle, seeking or times):
+  Chromium passes the media element's duration — INT64_MAX µs while Infinity (`2562047788:00:55`), and
+  for Apple Music web (gapless MSE) the buffered end, +10 s every 10 s, with the position counted from
+  the album start (and the album's end once all is buffered; paused, nothing tells). So: < 1e6 s for
+  every player, and Chromium's (`.chromium.` bus name) only after it held still through 12 s of playback
+  of the track (`lengthHeld`; YouTube's seek bar shows after that) and while the clock restarted at the
+  last track change (`clockRanOn`: position ≥ 15 s 5 s after it). Other players: shown at once, a track
+  starting mid-way included. Verified on Apple Music (paused fresh shell, growth, 46 s playing: never shown)
+  + a fake Chromium MPRIS. Firefox MPRIS usually has no length → placeholder bar. Seek holds the target 1 s (no jump back). An Item stays `visible`
   inside a hidden PopupWindow: gate per-frame work on the window (`WavySeekBar.live: root.visible` —
   without it the 16 ms wave repainted while closed, +1.4 % CPU; open popup ≈ 19 % of a core). IPC `media panel` toggles
   it on the focused screen (shell `mediaPanelRequested` → `BarHost.requestPanel`). Rounded content needs `ClippingRectangle`
@@ -404,7 +422,9 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   them under the notch; they drop in from y −24), `ExclusionMode.Normal` + zone 0 (clears
   bar/notch). Bar popups and toasts share `Style.popupBorder` (overlay1 @ 0.6, `popupBorderWidth` 2 px) — without it
   they vanished against dark windows; in-sheet history cards keep the hairline. History persists to `~/.local/state/asahi/notifications.json` (0600, non-atomic
-  writes keep the mode). History sheet hangs top-right (toasts are top-centre, no overlap); its trash
+  writes keep the mode). History sheet hangs top-right (toasts are top-centre, no overlap). Hyprland draws
+  layer popups (all bar popups) above the overlay layer, so an open one covered the toasts: each BarHost reports
+  its popup's half (`setPopupSide`, from the chip) and toasts take the far top corner (`popupSide`). Its trash
   needs two clicks within 3 s ("Clear all?") — one stray click used to wipe everything; Esc / click outside closes it (focus grab; the bell click that ends
   the grab is ignored for 300 ms). Load never writes the file back (only real changes save); Do Not
   Disturb is saved there too (a QML save reloads qs and used to turn it off). Critical cards carry a

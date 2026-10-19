@@ -33,7 +33,47 @@ Singleton {
         return String(p.trackArtUrl || (p.metadata && p.metadata["mpris:artUrl"]) || "")
     }
 
-    // MprisPlayer.position never notifies while playing: MediaPanel / MediaPane tick it while shown.
+    // MprisPlayer.position never notifies while playing: MediaCard ticks it while shown.
+
+    // Track length in seconds, 0 = unknown (MediaCard: placeholder bar, no times). Chromium hands on the media
+    // element's duration: INT64_MAX µs while it is Infinity, and for a gapless stream (Apple Music
+    // web) the buffered end — growing every 10 s, the album's end once all of it is buffered — while
+    // the position counts from the album start; a paused track shows no sign of it. So no length past
+    // 1e6 s, and Chromium's only after it held still through 12 s of playback of the track and while
+    // its clock restarted at the last track change (YouTube's seek bar shows after those 12 s).
+    readonly property real length: {
+        const p = active
+        if (!p || !p.lengthSupported || p.length <= 0 || p.length >= 1e6) return 0
+        return !chromium || (lengthHeld >= 12 && !clockRanOn) ? p.length : 0
+    }
+    // Strings: they notify only on a real change (`active` re-evaluates whenever any player's state does).
+    readonly property string trackKey: active ? active.dbusName + "\n" + active.trackTitle + "\n" + active.trackArtist : ""
+    readonly property bool chromium: !!active && active.dbusName.indexOf(".chromium.") >= 0
+    property int lengthHeld: 0          // seconds of playback the length stayed put (Chromium)
+    property bool clockRanOn: false     // the position kept counting across the last track change
+    property string lastKey: ""
+    onTrackKeyChanged: {
+        lengthHeld = 0
+        // A track change on the same player (not a switch, not the first sight): check its clock.
+        const same = lastKey !== "" && lastKey.split("\n")[0] === trackKey.split("\n")[0]
+        if (same) clockCheck.restart()
+        else { clockCheck.stop(); clockRanOn = false }
+        lastKey = trackKey
+    }
+    Timer {
+        id: clockCheck
+        interval: 5000
+        onTriggered: root.clockRanOn = !!root.active && root.active.position >= 15
+    }
+    Timer {
+        interval: 1000; repeat: true
+        running: root.chromium && root.isPlaying && root.lengthHeld < 12
+        onTriggered: root.lengthHeld++
+    }
+    Connections {
+        target: root.active
+        function onLengthChanged() { root.lengthHeld = 0 }
+    }
 
     function playPause() { if (active?.canTogglePlaying) active.togglePlaying() }
     function next()      { if (active?.canGoNext)     active.next() }

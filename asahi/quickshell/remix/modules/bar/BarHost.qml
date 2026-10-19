@@ -22,7 +22,16 @@ Item {
   // (shell.qml) and the notification sheet close it, and opening it closes them.
   property string openPanel: ""
   onLauncherOpenChanged: if (launcherOpen) barWindow.openPanel = ""
-  onCalendarOpenChanged: if (calendarOpen) barWindow.openPanel = ""
+  onCalendarOpenChanged: { if (calendarOpen) barWindow.openPanel = ""; barWindow.reportPopupSide() }
+  onOpenPanelChanged: barWindow.reportPopupSide()
+  // Bar popups cover toasts (NotificationCenter.setPopupSide): tell it which half the open one hangs
+  // in, from its chip. The tray panel is a layer surface under the toasts: not reported.
+  function reportPopupSide() {
+    const chip = barWindow.calendarOpen ? clockBlock
+      : ({ sys: sysBlock, media: mediaBlock, rec: statusBlock, ccu: ccuBlock })[barWindow.openPanel]
+    const side = !chip ? "" : chip.mapToItem(barWindow, chip.width / 2, 0).x < barWindow.width / 2 ? "left" : "right"
+    if (barWindow.notificationCenter && barWindow.barScreen) barWindow.notificationCenter.setPopupSide(barWindow.barScreen.name, side)
+  }
   signal calendarToggle()
   // Chip clicks open their Quick pane (updates chip: PkgManager's Updates tab) through shell.qml in-process,
   // no `qs ipc` client fork per click.

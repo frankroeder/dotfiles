@@ -5,6 +5,7 @@ import "../../../"
 // Seek bar after serpantinum's WavySeekBar: the played part is a filled, drifting wave ridge on
 // the track, the rest a flat dim line. The wave flattens when paused; it only animates (16 ms,
 // as upstream) while visible and playing. Click / drag emits seek(fraction) on release.
+// `indeterminate` (no track length): a fainter wave over the whole track, no progress, no handle.
 Item {
   id: root
 
@@ -15,6 +16,7 @@ Item {
   // The owning window's visibility: an Item stays `visible` inside a hidden popup, so `visible`
   // alone would keep the 16 ms repaint running while the popup is closed.
   property bool live: true
+  property bool indeterminate: false
   signal seek(real fraction)
 
   // Reference (serpantinum WavySeekBar) sizes: track 9, handle 17, amplitude 14.
@@ -27,7 +29,7 @@ Item {
   property real smoothed: root.value
   Behavior on smoothed { enabled: !ma.pressed; NumberAnimation { duration: 250 } }
   readonly property real shown: ma.pressed ? ma.dragValue : root.smoothed
-  readonly property real progressX: pad + Math.max(0, Math.min(1, shown)) * (width - 2 * pad)
+  readonly property real progressX: root.indeterminate ? width - pad : pad + Math.max(0, Math.min(1, shown)) * (width - 2 * pad)
 
   property real phase: 0
   property real ampFactor: root.playing ? 1 : 0
@@ -44,6 +46,7 @@ Item {
   onShownChanged: wave.requestPaint()
   onWidthChanged: wave.requestPaint()
   onColorChanged: wave.requestPaint()
+  onIndeterminateChanged: wave.requestPaint()
 
   // Quintic smoothstep: tapers the ridge in at the start and down into the progress point.
   function ease5(t) { t = Math.max(0, Math.min(1, t)); return t * t * t * (t * (6 * t - 15) + 10) }
@@ -64,19 +67,21 @@ Item {
       const baseLen = Math.max(40, (width - 2 * pad) / 3)
 
       ctx.strokeStyle = rgba(0.28)
-      ctx.beginPath(); ctx.moveTo(endX, cy); ctx.lineTo(width - pad, cy); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(root.indeterminate ? pad : endX, cy); ctx.lineTo(width - pad, cy); ctx.stroke()
 
       // Reference layers: a slow wide wave and a quicker narrow one; `swell` slowly breathes each.
       const layers = [
         { amp: 0.65, alpha: 0.50, taper: 130, len: baseLen * 1.75, mult: 1.0, off: 0, swell: 0 },
         { amp: 0.71, alpha: 0.90, taper: 105, len: baseLen * 1.05, mult: 2.2, off: 1.8, swell: Math.PI }
       ]
+      // Placeholder: a fainter ridge resting on the track, not filling it (that would read as progress).
+      const fade = root.indeterminate ? 0.6 : 1, base = root.indeterminate ? top : cy
       for (const L of layers) {
         const A = root.amplitude * L.amp * root.ampFactor
         if (A < 0.3 || endX <= pad + 1) continue
         const k = 2 * Math.PI / L.len
         ctx.beginPath()
-        ctx.moveTo(pad, cy)
+        ctx.moveTo(pad, base)
         for (let x = pad; ; x += 2.5) {
           const px = Math.min(x, endX)
           const env = root.ease5((px - pad) / 64) * root.ease5((endX - px) / L.taper)
@@ -86,15 +91,16 @@ Item {
           if (px >= endX) break
         }
         ctx.lineTo(endX, top)
-        ctx.lineTo(endX, cy)
+        ctx.lineTo(endX, base)
         ctx.closePath()
         const g = ctx.createLinearGradient(0, top - A, 0, top)
-        g.addColorStop(0, rgba(L.alpha * 0.55))
-        g.addColorStop(1, rgba(L.alpha))
+        g.addColorStop(0, rgba(L.alpha * 0.55 * fade))
+        g.addColorStop(1, rgba(L.alpha * fade))
         ctx.fillStyle = g
         ctx.fill()
       }
 
+      if (root.indeterminate) return
       ctx.strokeStyle = rgba(1)
       ctx.beginPath(); ctx.moveTo(pad, cy); ctx.lineTo(Math.max(pad, endX), cy); ctx.stroke()
     }
@@ -108,7 +114,7 @@ Item {
     Behavior on color { ColorAnimation { duration: 150 } }
     layer.enabled: true
     layer.effect: MultiEffect { shadowEnabled: true; shadowColor: "#000000"; shadowVerticalOffset: 1; shadowBlur: 0.35; shadowOpacity: 0.45 }
-    visible: root.seekable
+    visible: root.seekable && !root.indeterminate
     scale: ma.pressed ? 1.25 : ma.containsMouse ? 1.15 : 1
     Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
   }
@@ -117,10 +123,10 @@ Item {
     id: ma
     property real dragValue: 0
     anchors.fill: parent
-    enabled: root.seekable
+    enabled: root.seekable && !root.indeterminate
     hoverEnabled: true
     preventStealing: true
-    cursorShape: root.seekable ? Qt.PointingHandCursor : Qt.ArrowCursor
+    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
     function frac(mx) { return Math.max(0, Math.min(1, (mx - root.pad) / (root.width - 2 * root.pad))) }
     onPressed: (m) => dragValue = frac(m.x)
     onPositionChanged: (m) => { if (pressed) dragValue = frac(m.x) }

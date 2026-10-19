@@ -185,11 +185,23 @@ Scope {
       && entry.summary === prev.summary && entry.body === prev.body) return
     addHistory(entry)
     toastScreen = focusedScreen()
-    if (!dndEnabled || entry.urgency === 2) {
-      addToast(entry)
-      Quickshell.execDetached([root.binDir + "/asahi-notification-sound"])
-    }
+    // A screenshot's confirmation (also OCR / QR) answers your own key press: it shows under Do Not
+    // Disturb too, silently.
+    const quiet = dndEnabled && entry.urgency !== 2
+    if (!quiet || entry.appName === "screenshot") addToast(entry)
+    if (!quiet) Quickshell.execDetached([root.binDir + "/asahi-notification-sound"])
   }
+
+  // Hyprland draws layer popups (every bar popup) above the overlay layer, so an open one covered
+  // the top-centre toasts. Each bar reports which half its open popup hangs in ("left" / "right" / "");
+  // toasts then take the other top corner.
+  property var popupSides: ({})
+  function setPopupSide(screenName, side) {
+    const s = Object.assign({}, root.popupSides)
+    s[screenName] = side
+    root.popupSides = s
+  }
+  readonly property string popupSide: root.toastScreen ? (root.popupSides[root.toastScreen.name] || "") : ""
 
   // The bell click that ends the focus grab would reopen the sheet right away: ignore it.
   property real grabClosedAt: 0
@@ -275,8 +287,9 @@ Scope {
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "quickshell-notifications"
     // Only `top` anchored: layer-shell centres it horizontally (under the notch on the laptop).
-    anchors { top: true }
-    margins { top: 6 }
+    // With a bar popup open: the corner away from it (popupSide).
+    anchors { top: true; left: root.popupSide === "right"; right: root.popupSide === "left" }
+    margins { top: 6; left: Style.barEdgeMargin; right: Style.barEdgeMargin }
     implicitWidth: 380
     implicitHeight: Math.max(1, root.toastHold, toastList.contentHeight)
 

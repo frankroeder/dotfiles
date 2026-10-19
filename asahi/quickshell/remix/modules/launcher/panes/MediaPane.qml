@@ -3,14 +3,14 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
-import Quickshell.Widgets
 import Quickshell.Services.Pipewire
 import "../../menu" as Menu
+import "../../bar/components" as BarComponents
 import "../../../"
 import "../../../services" as Services
 import "../quick_models.js" as QuickModels
 
-// Media pane: now playing, sink/source pickers with volume, stream mixer, cava.
+// Media pane: now playing (the bar popup's MediaCard), sink/source pickers with volume, stream mixer, cava.
 // `root` is the LauncherWindow (fontPx, uiFont/uiSans, launcherGeom, quickMode, quickPaneKey, binDir, ...).
 Item {
   property var root
@@ -21,7 +21,6 @@ Item {
   onCavaWantedChanged: Services.Cava.hold(quickMediaRoot, quickMediaRoot.cavaWanted)
   readonly property string cavaStatus: Services.Cava.missing ? "cava not installed"
     : !Services.Cava.values.length ? "starting" : Services.Cava.active ? "active" : "waiting for audio"
-  readonly property var activeP: Services.Players.active
   // Native Pipewire mixer (omarchy.audio port): live nodes instead of the
   // old 3s `wpctl status` poll — sliders track and write volumes directly.
   readonly property var pwNodes: Pipewire.nodes ? Pipewire.nodes.values : []
@@ -163,28 +162,10 @@ Item {
   }
   Component.onDestruction: Services.Cava.hold(quickMediaRoot, false)
 
-  // Mpris only re-estimates `position` on demand: nudge it once a second while playing.
-  Timer {
-    interval: 1000; repeat: true
-    running: root.shouldShow && root.quickMode && root.quickPaneKey === "media" && !!quickMediaRoot.activeP && quickMediaRoot.activeP.isPlaying
-    onTriggered: quickMediaRoot.activeP.positionChanged()
-  }
-  function fmtTime(s) {
-    s = Math.max(0, Math.round(s || 0))
-    return Math.floor(s / 60) + ":" + ("0" + (s % 60)).slice(-2)
-  }
   function pct(v) { return isFinite(v) ? Math.round(v * 100) + "%" : "" }
   function mix(a, b, t) { return Qt.rgba(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t, 1) }
 
   // M3 widgets shared by the cards below (caelestia look, same as RecordPanel).
-  // Transport button: `size` px disc, glyph at half that; dimmed while the player cannot do it.
-  component RoundBtn: Menu.MenuIconBtn {
-    property int size: 36
-    property bool enabledLook: true
-    implicitWidth: size; implicitHeight: size; iconPx: Math.round(size / 2)
-    bg: Style.m3containerHigh; tone: Style.m3onSurface
-    opacity: enabledLook ? 1 : 0.4
-  }
   component IconBtn: Menu.MenuIconBtn { fontScale: root.uiFontScale }
   component CardTitle: Row {
     property string icon
@@ -209,96 +190,14 @@ Item {
     anchors.fill: parent
     spacing: 10
 
-    // Now playing: cover art (or glyph tile), title / artist / album, progress, round controls.
-    // Grows with spare height up to 3 rows; the spectrum takes the rest.
-    Rectangle {
+    // Now playing: the bar media popup's card (BarComponents.MediaCard), laid out wide.
+    BarComponents.MediaCard {
       Layout.fillWidth: true
-      Layout.fillHeight: true
-      // From the text, not npRow: the art sizes from this card, so npRow would ratchet it.
-      Layout.minimumHeight: Math.max(80, npText.implicitHeight + 24)
-      Layout.preferredHeight: Layout.maximumHeight
-      Layout.maximumHeight: Math.max(Layout.minimumHeight, Math.round(root.launcherGeom.rowHTall * 3))
+      Layout.minimumHeight: implicitHeight
+      wide: true
+      live: root.shouldShow && root.quickMode && root.quickPaneKey === "media"
+      fontScale: root.uiFontScale
       radius: Style.menuPanelRadius
-      color: Style.m3container
-      readonly property var p: quickMediaRoot.activeP
-      readonly property bool hasArt: Services.Players.artUrl !== ""
-      readonly property bool hasLen: !!(p && p.lengthSupported && p.length > 0)
-      id: npCard
-      RowLayout {
-        id: npRow
-        anchors.fill: parent
-        anchors.margins: 12
-        spacing: 14
-        Rectangle {
-          readonly property int side: Math.max(56, npCard.height - 24)
-          Layout.preferredWidth: side; Layout.preferredHeight: side
-          radius: Style.menuRadiusLg
-          color: Style.m3primaryContainer
-          Text { anchors.centerIn: parent; visible: !npCard.hasArt; text: "󰝚"; color: Style.m3primary; font.family: root.uiFont; font.pixelSize: Math.round(parent.side * 0.45) }
-          ClippingRectangle {
-            anchors.fill: parent; radius: Style.menuRadiusLg; color: "transparent"; visible: npCard.hasArt
-            Image {
-              anchors.fill: parent; source: Services.Players.artUrl
-              fillMode: Image.PreserveAspectCrop; asynchronous: true; sourceSize: Qt.size(256, 256)
-            }
-          }
-        }
-        ColumnLayout {
-          id: npText
-          Layout.fillWidth: true
-          spacing: 3
-          Text {
-            Layout.fillWidth: true
-            textFormat: Text.PlainText
-            text: npCard.p ? (npCard.p.trackTitle || "Unknown track") : "Nothing playing"
-            color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(15); font.weight: Font.DemiBold; elide: Text.ElideRight
-          }
-          Text {
-            Layout.fillWidth: true
-            text: {
-              const p = npCard.p
-              if (!p) return "Start a player — its controls show up here"
-              return [p.trackArtist || "Unknown artist", p.trackAlbum || ""].filter(s => s !== "").join("  ·  ")
-            }
-            color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(11); elide: Text.ElideRight
-          }
-          RowLayout {
-            Layout.fillWidth: true
-            Layout.topMargin: 4
-            spacing: 10
-            visible: npCard.hasLen
-            Text {
-              text: quickMediaRoot.fmtTime(npCard.p ? npCard.p.position : 0)
-              color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(10)
-            }
-            Rectangle {
-              Layout.fillWidth: true; height: 4; radius: 2; color: Style.m3containerHigh
-              Rectangle {
-                width: npCard.hasLen ? parent.width * Math.max(0, Math.min(1, npCard.p.position / npCard.p.length)) : 0
-                height: parent.height; radius: 2; color: Style.m3primary
-                Behavior on width { NumberAnimation { duration: 200 } }
-              }
-            }
-            Text {
-              text: quickMediaRoot.fmtTime(npCard.p ? npCard.p.length : 0)
-              color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(10)
-            }
-          }
-        }
-        RoundBtn {
-          icon: "󰒮"; size: root.fontPx(26); enabledLook: !!(npCard.p && npCard.p.canGoPrevious)
-          onClicked: { const p = quickMediaRoot.activeP; if (p && p.canGoPrevious) p.previous() }
-        }
-        RoundBtn {
-          icon: npCard.p && npCard.p.isPlaying ? "󰏤" : "󰐊"; size: root.fontPx(34)
-          bg: Style.m3primary; tone: Style.m3onPrimary; enabledLook: !!(npCard.p && npCard.p.canTogglePlaying)
-          onClicked: { const p = quickMediaRoot.activeP; if (p && p.canTogglePlaying) p.togglePlaying() }
-        }
-        RoundBtn {
-          icon: "󰒭"; size: root.fontPx(26); enabledLook: !!(npCard.p && npCard.p.canGoNext)
-          onClicked: { const p = quickMediaRoot.activeP; if (p && p.canGoNext) p.next() }
-        }
-      }
     }
 
     // Output / input: header with mute + big percent, master slider, M3 radio device list.

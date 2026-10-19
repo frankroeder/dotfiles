@@ -73,6 +73,7 @@ sudo dnf install -y \
   restic \
   ripgrep \
   slurp \
+  swappy \
   tesseract \
   tesseract-langpack-eng \
   zbar \

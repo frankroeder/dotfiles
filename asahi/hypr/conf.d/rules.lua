@@ -43,6 +43,8 @@ window_rule({ class = "^$", title = "^$", xwayland = true, float = true, fullscr
 window_rule({ class = "^(zoom)$" }, { float = true })
 window_rule({ class = "^(blueman-manager|nm-connection-editor|org\\.pulseaudio\\.pavucontrol)$" }, { float = true, center = true })
 window_rule({ class = "^(gcr-prompter)$" }, { float = true, center = true })
+-- Screenshot annotation (Screenshots pane).
+window_rule({ class = "^(swappy)$" }, { float = true, center = true })
 window_rule({ class = "^(xdg-desktop-portal-gtk)$" }, { float = true, center = true })
 
 -- Recording face-cam. Class is WebcamOverlay-{small,medium,large} so this

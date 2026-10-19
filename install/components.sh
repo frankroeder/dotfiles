@@ -704,6 +704,8 @@ comp_asahi_desktop() {
   xfconf-query -c thunar -p /misc-volume-management -n -t bool -s false || true
   mkdir -p "$HOME/.config/mpv"
   link_if_exists "$DOTFILES/mpv/mpv_asahi.conf" "$HOME/.config/mpv/mpv.conf"
+  # Screenshot annotation: swappy's Save lands in ~/screenshots for asahi-screenshot-annotate.
+  link_if_exists "$DOTFILES/asahi/swappy/config" "$HOME/.config/swappy/config"
   link_if_exists "$DOTFILES/asahi/environment.d/90-asahi.conf" "$HOME/.config/environment.d/90-asahi.conf"
   # Hyprland is not KDE: stop kwalletd/ksecretd from claiming Secret Service
   # ("Default Keyring" wallet wizard). gnome-keyring is the store instead.
