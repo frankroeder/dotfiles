@@ -65,7 +65,6 @@ MONTH_NAMES = (
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 )
 DOW = ("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
-SPARK = ("▁", "▂", "▃", "▄", "▅", "▆", "▇", "█")
 EXTRA_MAX = 3
 
 CATEGORY_COLORS = {
@@ -344,18 +343,6 @@ def countdown(reset: Any, now: Any) -> str:
   return f"{mins}m"
 
 
-def used_line(win: dict[str, Any] | None, now: int) -> str:
-  if not win:
-    return NO_WEEKLY
-  return f"{percent(win['used'])} used · resets in {countdown(win['reset'], now)}"
-
-
-def extra_line(win: dict[str, Any] | None, now: int) -> str:
-  if not win:
-    return "—"
-  return f"{percent(win['used'])} used · {countdown(win['reset'], now)}"
-
-
 def clock_short(unix: Any) -> str:
   t = datetime.fromtimestamp(int(num(unix) or 0))
   h = t.hour % 12
@@ -391,16 +378,6 @@ def window_name(span: Any) -> str:
 def reset_passed(win: dict[str, Any] | None, now: int) -> bool:
   reset = int(num((win or {}).get("reset")) or 0)
   return 0 < reset <= now
-
-
-def chip_window(win: dict[str, Any] | None, extras: list[dict[str, Any]]) -> dict[str, Any] | None:
-  """The binding window: the main one, or a session window that is fuller (Claude's 5-hour)."""
-  best = win
-  for extra in extras:
-    w = extra.get("weekly")
-    if w and window_name(w.get("span")) == "session" and (best is None or w["used"] > best["used"]):
-      best = w
-  return best
 
 
 def usage_line(win: dict[str, Any] | None) -> str:
@@ -476,21 +453,6 @@ def category_percent(frac: Any) -> str:
   if n < 1:
     return "<1%"
   return f"{n}%"
-
-
-CHIP_NAME_W = 6
-CHIP_PCT_W = 4
-CHIP_CD_W = 7
-CHIP_W = CHIP_NAME_W + 1 + CHIP_PCT_W + 3 + CHIP_CD_W
-
-
-def bar_chip(name: str, win: dict[str, Any] | None, now: int) -> str:
-  label = str(name or "").ljust(CHIP_NAME_W)
-  if not win:
-    return f"{label} —".ljust(CHIP_W)
-  pct = percent(win["used"]).rjust(CHIP_PCT_W)
-  cd = countdown(win["reset"], now).rjust(CHIP_CD_W)
-  return f"{label} {pct} · {cd}"
 
 
 def strip_point_zero(s: str) -> str:
@@ -592,15 +554,6 @@ def recent_peak(days: list[dict[str, Any]]) -> float:
   return peak
 
 
-def spark_char(height: Any) -> str:
-  h = num(height) or 0.0
-  if h <= 0:
-    return "·"
-  i = int(h * (len(SPARK) - 1) + 1.5)
-  i = 2 if i < 2 else min(i, len(SPARK))
-  return SPARK[i - 1]
-
-
 def chart_days(days: Any, now: int) -> list[dict[str, Any]]:
   week = last_7_days(days, now)
   peak = recent_peak(week)
@@ -646,36 +599,12 @@ def iso_to_unix(s: Any) -> float | None:
   return dt.timestamp()
 
 
-def usage_class(used: float | None, errored: bool) -> str:
-  if used is None:
-    return "error" if errored else "normal"
-  if used >= 90:
-    return "critical"
-  if used >= 75:
-    return "warning"
-  if used >= 50:
-    return "caution"
-  return "normal"
-
-
 def call_helper(fetch) -> dict[str, Any]:
   try:
     result = fetch()
   except Exception as err:  # noqa: BLE001
     return {"error": str(err)[:48]}
   return result if isinstance(result, dict) else {"error": "invalid_response"}
-
-
-def cost_block(block: Any) -> dict[str, Any] | None:
-  if not isinstance(block, dict):
-    return None
-  tokens = num(block.get("tokens"))
-  cost = num(block.get("usd"))
-  if tokens is None and cost is None:
-    return None
-  return {"tokens": tokens or 0.0, "usd": cost or 0.0, **{
-    k: block[k] for k in ("date", "start", "week_end") if k in block
-  }}
 
 
 def ident_text(email: Any, renews_unix: Any, cancels: Any) -> str:
@@ -688,27 +617,13 @@ def ident_text(email: Any, renews_unix: Any, cancels: Any) -> str:
   return " · ".join(parts)
 
 
-def extra_payload(items: list[dict[str, Any]], now: int) -> list[dict[str, Any]]:
-  out: list[dict[str, Any]] = []
-  for item in items[:EXTRA_MAX]:
-    text = item.get("text")
-    if not text:
-      text = extra_line(item.get("weekly"), now)
-    out.append({"label": item.get("label") or "Limit", "text": text})
-  return out
-
-
-def limit_entry(title: str, win: dict[str, Any] | None, now: int, error: str | None = None) -> dict[str, Any]:
-  used = None if win is None else win["used"] * 100.0
+def limit_entry(title: str, win: dict[str, Any], now: int) -> dict[str, Any]:
   return {
     "title": title,
-    "percent": None if used is None else used / 100.0,
-    "used": used,
-    "reset": "" if win is None else reset_line(win, now),
-    "label": "" if win is None else extra_line(win, now),
-    "reset_unix": 0 if win is None else int(win["reset"]),
+    "used": win["used"] * 100.0,
+    "reset": reset_line(win, now),
+    "reset_unix": int(win["reset"]),
     "reset_passed": reset_passed(win, now),
-    "error": error,
   }
 
 
@@ -866,16 +781,12 @@ def attach_cost(st: dict[str, Any], prov: dict[str, Any] | None) -> None:
   week = prov.get("week") if isinstance(prov.get("week"), dict) else None
   d30 = prov.get("days30") if isinstance(prov.get("days30"), dict) else None
   tot = prov.get("total") if isinstance(prov.get("total"), dict) else None
-  today = prov.get("today") if isinstance(prov.get("today"), dict) else None
   st["week_tokens"] = num(week.get("tokens")) if week else None
   st["week_usd"] = num(week.get("usd")) if week else None
   st["days30_tokens"] = num(d30.get("tokens")) if d30 else None
   st["days30_usd"] = num(d30.get("usd")) if d30 else None
   st["total_tokens"] = num(tot.get("tokens")) if tot else None
   st["total_usd"] = num(tot.get("usd")) if tot else None
-  st["today"] = today
-  st["week"] = week
-  st["total"] = tot
   days = prov.get("weekdays")
   st["days"] = days if isinstance(days, list) else []
 
@@ -898,7 +809,6 @@ def serialize_card(
   else:
     head = st.get("status") or NO_WEEKLY
   cats = st.get("cats") or []
-  extras = extra_payload(st.get("extras") or [], now)
   has_days = bool(st.get("days"))
   has_totals = st.get("total_tokens") is not None or st.get("days30_tokens") is not None
   wtok, wusd = st.get("week_tokens"), st.get("week_usd")
@@ -908,12 +818,6 @@ def serialize_card(
       wusd = None
   chart = chart_days(st.get("days") or [], now) if has_days else []
   used100 = None if win is None else round(win["used"] * 100.0, 1)
-  chip_win = chip_window(win, st.get("extras") or [])
-  # Another window at 90 %+ (Cursor "Other Models", a full Claude week): the red badge on the chip's mark.
-  hot = any(
-    w is not None and w is not chip_win and w["used"] >= 0.9 and not reset_passed(w, now)
-    for w in [win] + [e.get("weekly") for e in st.get("extras") or []]
-  )
   limits = []
   if win is not None:
     limits.append(limit_entry(
@@ -929,36 +833,31 @@ def serialize_card(
     "name": spec["label"],
     "accent": spec["accent"],
     "mark": spec.get("mark") or "",
-    "bar": bool(spec.get("bar")),
     "url": spec.get("url") or "",
     "tier": tier,
-    "email": st.get("email"),
     "ident": ident,
     "head": head,
     "usage_line": usage_line(win) if win is not None else "",
     "reset_line": reset_line(win, now) if win is not None else "",
     "fresh": bool(fresh),
     "fetched_at": int(fetched_at or 0),
-    "chip": bar_chip(spec["label"], chip_win, now),
-    "chip_pct": percent(chip_win["used"]) if chip_win else "",
-    "chip_countdown": countdown(chip_win["reset"], now) if chip_win else "",
-    "chip_used": None if chip_win is None else round(chip_win["used"] * 100.0, 1),
-    "hot": hot,
+    "chip_pct": percent(win["used"]) if win else "",
+    "chip_countdown": countdown(win["reset"], now) if win else "",
+    # The chip's mini bars: used % of every window under the main one (session, model pools); 0 once reset.
+    "chip_subs": [0.0 if lim["reset_passed"] else lim["used"] for lim in limits[1 if win else 0:]],
     "used": used100,
-    "status": st.get("status"),
-    "error": st.get("status") if win is None else None,
     "categories": cats,
     # Extras without a window (Cursor's usage-based spend): text rows under the meters.
-    "notes": [e for e in extras if not any(lim["title"] == e["label"] for lim in limits)],
+    "notes": [
+      {"label": e.get("label") or "Limit", "text": e.get("text") or "—"}
+      for e in (st.get("extras") or [])[:EXTRA_MAX] if not e.get("weekly")
+    ],
     "total_line": total_line(st.get("total_tokens"), st.get("total_usd")) if has_totals or has_days else "",
     "days30_line": days30_line(st.get("days30_tokens"), st.get("days30_usd")) if has_totals or has_days else "",
     "week_line": week_line(wtok, wusd) if has_totals or has_days else "",
     "has_stats": has_totals or has_days,
     "chart": chart,
     "limits": limits,
-    "today": cost_block(st.get("today")),
-    "week": cost_block(st.get("week")),
-    "total": cost_block(st.get("total")),
   }
 
 
@@ -1102,15 +1001,12 @@ def build() -> dict[str, Any]:
       chips.append({
         "id": card["id"],
         "label": card["name"],
-        "text": card["chip"],
-        "used": card["chip_used"],
+        "used": card["used"],
         "pct": card["chip_pct"],
         "countdown": card["chip_countdown"],
-        "hot": card["hot"],
+        "subs": card["chip_subs"],
         "mark": card["mark"],
-        "accent": card["accent"],
-        "fresh": card.get("fresh") is not False,
-        "fetched_at": int(card.get("fetched_at") or 0),
+        "fresh": card["fresh"],
       })
 
   used_vals = [c["used"] for c in chips if c.get("used") is not None]
@@ -1131,7 +1027,6 @@ def build() -> dict[str, Any]:
       break
 
   errored = max_used is None and bool(fresh_err) and not stale_only
-  text = chips[0]["text"] if chips else ("CCu ?" if errored else "CCu")
 
   links = []
   for spec in providers:
@@ -1139,8 +1034,6 @@ def build() -> dict[str, Any]:
       links.append({"id": spec["id"], "title": spec["label"], "url": spec["url"], "mark": spec.get("mark") or ""})
 
   return {
-    "text": text,
-    "class": usage_class(max_used, errored),
     "percentage": None if max_used is None else round(max_used, 1),
     "visible": True,
     "error": fresh_err if errored else None,

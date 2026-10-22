@@ -9,13 +9,14 @@ import "../../../"
 import "../BarModel.js" as BarModel
 import "marks.js" as Marks
 
-// CCu chip: Grok/Cursor/Claude overview from asahi-ccu. Chip = provider mark, used % of the binding
-// window as a ring around the mark, the reset countdown; a red badge when another window is at 90 %+ (idea: dancik/limitbar).
+// CCu chip: Grok/Cursor/Claude overview from asahi-ccu. Chip = used % of the main (weekly / monthly) window as a ring
+// around the provider mark, the reset countdown, one mini bar per other window (5-hour session, model pools); washed red
+// when the main window is at 90 %+ (idea: dancik/limitbar).
 Rectangle {
   id: root
 
   // Provider mark (marks.js), filled in `tint`: a Shape, not a tinted image (no layer pass in the bar).
-  // A provider without one (Codex) shows its name instead.
+  // A provider without one shows its name instead.
   component Mark: Shape {
     id: markShape
     property string mark: ""
@@ -33,10 +34,28 @@ Rectangle {
     }
   }
   function hasMark(m) { return !!Marks.paths[m] }
+
+  // A segmented meter (meterSegs output): filled segments in their accent, the rest at 20 %.
+  component Meter: Item {
+    id: meter
+    property var segs: []
+    Repeater {
+      model: meter.segs
+      Rectangle {
+        required property var modelData
+        x: modelData.x * meter.width
+        width: Math.max(1, modelData.w * meter.width)
+        height: meter.height
+        radius: height / 2
+        color: modelData.rest ? Qt.alpha(root.accentColor(modelData.color), 0.20) : root.accentColor(modelData.color)
+      }
+    }
+  }
   readonly property int ringSize: 24
   readonly property int markSize: 11
   readonly property int chipGap: 6
-  readonly property int hotSize: 5
+  readonly property int subW: 4
+  readonly property int subGap: 3
 
   property var barHost: null
 
@@ -107,6 +126,8 @@ Rectangle {
     if (!root.hasMark(chip.mark)) w += chipMetrics.advanceWidth(chip.label || "") + root.chipGap
     w += chipMetrics.advanceWidth(chip.pct || "—")
     if (countdown && chip.pct) w += root.chipGap + chipMetrics.advanceWidth(chip.countdown)
+    const n = (chip.subs || []).length
+    if (n > 0) w += root.chipGap + n * root.subW + (n - 1) * root.subGap
     return w
   }
   // The widest chip of the rotation in one form.
@@ -143,10 +164,7 @@ Rectangle {
     if (sec < 3600) return Math.floor(sec / 60) + "m ago"
     if (sec < 86400) return Math.floor(sec / 3600) + "h ago"
     const d = Math.floor(sec / 86400)
-    if (d < 7) return d + "d ago"
-    const dt = new Date(t * 1000)
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    return months[dt.getMonth()] + " " + dt.getDate()
+    return d < 7 ? d + "d ago" : new Date(t * 1000).toLocaleDateString(Qt.locale("en_US"), "MMM d")
   }
 
   function staleLine(card) {
@@ -267,6 +285,16 @@ Rectangle {
   Item {
     id: chipSlide
     anchors.fill: parent
+    // The main window is at 90 %+: the chip is washed red (only the main window; the others have their mini bars).
+    // Fades with the chip on rotation.
+    Rectangle {
+      visible: root.hasValue && root.chipUsed >= 90
+      anchors.fill: parent
+      anchors.topMargin: Style.barChipInset
+      anchors.bottomMargin: Style.barChipInset
+      radius: Style.radiusSm
+      color: Qt.alpha(Style.red, 0.16)
+    }
     Row {
       id: chipRow
       readonly property var chip: root.currentChip || ({})
@@ -286,19 +314,17 @@ Rectangle {
         width: root.ringSize
         height: root.ringSize
         anchors.verticalCenter: parent.verticalCenter
+        Rectangle {
+          anchors.fill: parent
+          anchors.margins: 0.4  // outer edge of the arc's 2.2 px stroke
+          radius: width / 2
+          color: "transparent"
+          border.width: 2.2
+          border.color: Qt.alpha(root.valueColor, 0.22)
+        }
         Shape {
           anchors.fill: parent
           preferredRendererType: Shape.CurveRenderer
-          ShapePath {
-            strokeColor: Qt.alpha(root.valueColor, 0.22)
-            strokeWidth: 2.2
-            fillColor: "transparent"
-            PathAngleArc {
-              centerX: root.ringSize / 2; centerY: root.ringSize / 2
-              radiusX: root.ringSize / 2 - 1.5; radiusY: root.ringSize / 2 - 1.5
-              startAngle: 0; sweepAngle: 360
-            }
-          }
           ShapePath {
             strokeColor: root.valueColor
             strokeWidth: 2.2
@@ -316,19 +342,6 @@ Rectangle {
           width: root.markSize
           height: root.markSize
           anchors.centerIn: parent
-        }
-        // Another window of this provider is at 90 %+ (details in the popup): a badge on the ring's corner,
-        // ringed in the bar colour so it reads off the arc.
-        Rectangle {
-          visible: chipRow.hasPct && !!chipRow.chip.hot
-          width: root.hotSize + 2
-          height: width
-          radius: width / 2
-          x: parent.width - width + 1
-          y: -1
-          color: Style.red
-          border.color: Style.barStripBg
-          border.width: 1
         }
       }
       Text {
@@ -350,6 +363,30 @@ Rectangle {
         text: chipRow.chip.countdown || ""
         font { family: Style.fontFamily; pixelSize: Style.barFontBody }
         color: Style.textMuted
+      }
+      // One mini bar per other window (5-hour session, model pools), filled to its used share in the usage colours;
+      // the popup tiles name them.
+      Row {
+        visible: (chipRow.chip.subs || []).length > 0
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: root.subGap
+        Repeater {
+          model: chipRow.chip.subs || []
+          Rectangle {
+            required property var modelData
+            width: root.subW
+            height: 14
+            radius: width / 2
+            color: Qt.alpha(root.usageColor(modelData), 0.25)
+            Rectangle {
+              anchors.bottom: parent.bottom
+              width: parent.width
+              height: Math.max(2, parent.height * Math.min(1, modelData / 100))
+              radius: width / 2
+              color: root.usageColor(modelData)
+            }
+          }
+        }
       }
     }
   }
@@ -404,18 +441,9 @@ Rectangle {
         return
       }
       if (mouse.button === Qt.RightButton) {
-        let url = ""
-        if (root.currentChip) {
-          const list = root.overview || []
-          for (let i = 0; i < list.length; i++) {
-            if (list[i].id === root.currentChip.id) {
-              url = list[i].url || ""
-              break
-            }
-          }
-        }
-        if (!url && root.provider) url = root.provider.url || ""
-        if (url) Quickshell.execDetached(["xdg-open", url])
+        const chipId = root.currentChip ? root.currentChip.id : ""
+        const card = (root.overview || []).find(c => c.id === chipId) || root.provider || {}
+        if (card.url) Quickshell.execDetached(["xdg-open", card.url])
         return
       }
       if (root.barHost) root.barHost.togglePanel("ccu")
@@ -633,24 +661,11 @@ Rectangle {
                 }
               }
 
-              Item {
+              Meter {
                 visible: cardData.used != null || (cardData.categories || []).length > 0
                 width: parent.width
                 height: 5
-
-                Repeater {
-                  model: root.meterSegs(cardData)
-                  Rectangle {
-                    required property var modelData
-                    x: modelData.x * parent.width
-                    width: Math.max(1, modelData.w * parent.width)
-                    height: 5
-                    radius: 2
-                    color: modelData.rest
-                      ? Qt.alpha(root.accentColor(modelData.color), 0.20)
-                      : root.accentColor(modelData.color)
-                  }
-                }
+                segs: root.meterSegs(cardData)
               }
 
               Flow {
@@ -721,23 +736,10 @@ Rectangle {
                         color: tile.full ? Style.red : Style.text
                       }
                     }
-                    Item {
-                      id: tileTrack
+                    Meter {
                       width: parent.width
                       height: 4
-                      Repeater {
-                        model: tile.passed ? [] : root.limitSegs(cardData, tile.modelData)
-                        Rectangle {
-                          required property var modelData
-                          x: modelData.x * tileTrack.width
-                          width: Math.max(1, modelData.w * tileTrack.width)
-                          height: tileTrack.height
-                          radius: height / 2
-                          color: modelData.rest
-                            ? Qt.alpha(root.accentColor(modelData.color), 0.20)
-                            : root.accentColor(modelData.color)
-                        }
-                      }
+                      segs: tile.passed ? [] : root.limitSegs(cardData, tile.modelData)
                     }
                     Text {
                       visible: text !== "" && (tile.passed || root.ownReset(cardData, tile.modelData))
@@ -752,29 +754,19 @@ Rectangle {
               }
 
               Row {
+                id: statsRow
                 visible: !!cardData.has_stats
                 width: parent.width
-                spacing: 0
-                Text {
-                  width: parent.width * 0.40
-                  text: cardData.total_line || ""
-                  font { family: Style.fontFamily; pixelSize: 12 }
-                  color: Style.textMuted
-                  elide: Text.ElideRight
-                }
-                Text {
-                  width: parent.width * 0.30
-                  text: cardData.days30_line || ""
-                  font { family: Style.fontFamily; pixelSize: 12 }
-                  color: Style.textMuted
-                  elide: Text.ElideRight
-                }
-                Text {
-                  width: parent.width * 0.30
-                  text: cardData.week_line || ""
-                  font { family: Style.fontFamily; pixelSize: 12 }
-                  color: Style.textMuted
-                  elide: Text.ElideRight
+                Repeater {
+                  model: [[cardData.total_line, 0.40], [cardData.days30_line, 0.30], [cardData.week_line, 0.30]]
+                  Text {
+                    required property var modelData
+                    width: statsRow.width * modelData[1]
+                    text: modelData[0] || ""
+                    font { family: Style.fontFamily; pixelSize: 12 }
+                    color: Style.textMuted
+                    elide: Text.ElideRight
+                  }
                 }
               }
 

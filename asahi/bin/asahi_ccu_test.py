@@ -52,14 +52,10 @@ claude_reset = now + 15 * 3600 + 59 * 60
 claude = ccu.weekly(0.31, claude_reset)
 eq(ccu.percent(claude["used"]), "31%", "31% used")
 eq(ccu.countdown(claude_reset, now), "15h 59m", "15h 59m countdown")
-eq(ccu.used_line(claude, now), "31% used · resets in 15h 59m", "used · resets in")
 
 codex_reset = now + 4 * 86400 + 22 * 3600
 codex = ccu.weekly(0.18, codex_reset)
 eq(ccu.countdown(codex_reset, now), "4d 22h", "4d 22h countdown")
-eq(ccu.bar_chip("Claude", claude, now), "Claude  31% · 15h 59m", "claude chip")
-eq(ccu.bar_chip("Codex", codex, now), "Codex   18% ·  4d 22h", "codex chip")
-eq(ccu.bar_chip("Codex", None, now), "Codex  —".ljust(ccu.CHIP_W), "unavailable weekly chip")
 
 grok = ccu.weekly(0.22, now + 3 * 86400, week)
 cursor = ccu.from_helper_window({
@@ -67,11 +63,6 @@ cursor = ccu.from_helper_window({
   "reset_unix": now + 16 * 86400,
   "span_sec": 30 * 86400,
 })
-eq(ccu.bar_chip("Grok", grok, now), "Grok    22% ·   3d 0h", "grok chip")
-eq(ccu.bar_chip("Cursor", cursor, now), "Cursor  31% ·  16d 0h", "cursor chip")
-eq(len(ccu.bar_chip("Grok", grok, now)), ccu.CHIP_W, "grok chip width")
-eq(len(ccu.bar_chip("Cursor", cursor, now)), ccu.CHIP_W, "cursor chip width")
-eq(len(ccu.bar_chip("Grok", grok, now)), len(ccu.bar_chip("Cursor", cursor, now)), "rotating chips same size")
 eq(ccu.window_name(week), "weekly", "7d window is weekly")
 eq(ccu.window_name(30 * 86400), "monthly", "30d window is monthly")
 eq(ccu.window_name(ccu.SESSION_SPAN_SEC), "session", "5h window is a session")
@@ -100,15 +91,6 @@ eq(ccu.renews_line(now, True), "Ends Nov 14, 2023", "cancels at period end")
 eq(ccu.renews_line(0, False), "", "missing rebill is empty")
 eq(ccu.ident_text("a@x.com", now, False), "a@x.com · Renews Nov 14, 2023", "ident email+rebill")
 
-# Binding window: the fuller of the main window and a 5-hour session; red badge when another window is at 90 %+.
-session = ccu.weekly(0.62, now + 2 * 3600, ccu.SESSION_SPAN_SEC)
-claude_wk = ccu.weekly(0.10, now + 3 * 86400)
-eq(ccu.chip_window(claude_wk, [{"label": "Session (5-hour)", "weekly": session}]), session, "fuller session binds")
-eq(ccu.chip_window(grok, [{"label": "Session (5-hour)", "weekly": ccu.weekly(0.05, now + 3600, ccu.SESSION_SPAN_SEC)}]), grok,
-  "emptier session does not bind")
-eq(ccu.chip_window(claude_wk, [{"label": "Fable Weekly", "weekly": ccu.weekly(0.9, now + 86400)}]), claude_wk,
-  "a scoped weekly never binds")
-eq(ccu.chip_window(None, []), None, "no window, no chip window")
 ok(ccu.reset_passed(ccu.weekly(0.5, now - 60), now), "past reset is passed")
 ok(not ccu.reset_passed(grok, now), "future reset is not passed")
 ok(not ccu.reset_passed(ccu.weekly(0.5, 0), now), "unknown reset is not passed")
@@ -121,13 +103,18 @@ card = ccu.serialize_card(
   ]},
   now,
 )
-ok(card["hot"], "full sub-pool makes the chip hot")
-eq(card["chip_pct"], "31%", "chip keeps the main window")
+eq(card["chip_pct"], "31%", "chip is the main window")
+eq(card["chip_subs"], [100.0], "sub-limits become the chip's mini bars")
 eq(card["mark"], "cursor", "card carries the mark")
 eq([lim["title"] for lim in card["limits"]], ["Monthly limit", "Other Models"], "one limit per window")
 eq(card["notes"], [{"label": "Usage-based spend", "text": "$233 of $400 used"}], "windowless extras are notes")
 calm = ccu.serialize_card({"id": "grok", "label": "Grok", "accent": "teal", "bar": True}, {"weekly": grok}, now)
-ok(not calm["hot"], "no other window, not hot")
+eq(calm["chip_subs"], [], "no sub-limits, no mini bars")
+session = ccu.weekly(0.62, now + 2 * 3600, ccu.SESSION_SPAN_SEC)
+claude_wk = ccu.weekly(0.10, now + 3 * 86400)
+cl = ccu.serialize_card({"id": "claude", "label": "Claude", "accent": "peach", "bar": True},
+  {"weekly": claude_wk, "extras": [{"label": "Session (5-hour)", "weekly": session}]}, now)
+eq((cl["chip_pct"], cl["chip_subs"]), ("10%", [62.0]), "a fuller session stays a mini bar, the ring keeps the week")
 
 eq(ccu.claude_usage.plan_label("team", "default_claude_max_5x"), "Team · Max 5x", "claude team seat on max 5x")
 eq(ccu.claude_usage.plan_label("max", "default_claude_max_20x"), "Max 20x", "claude max 20x")
@@ -167,7 +154,6 @@ extras = ccu.extra_windows([
 eq(len(extras), 2, "session + fable extras, weekly dropped")
 eq(extras[0]["label"], "Session (5-hour)", "session extra label")
 eq(extras[1]["label"], "Fable Weekly", "fable extra label")
-eq(ccu.extra_line(extras[0]["weekly"], now), "42% used · 3h 12m", "extra line has no resets-in")
 ok(ccu.is_extra("Fable Weekly"), "Fable Weekly is extra")
 ok(not ccu.is_extra("Weekly"), "Weekly is not extra")
 
@@ -178,7 +164,6 @@ cursor_extras = ccu.extra_windows([
 eq(len(cursor_extras), 2, "cursor auto+api extras")
 eq(cursor_extras[0]["label"], "Cursor Models", "cursor models extra")
 eq(cursor_extras[1]["label"], "Other Models", "cursor other extra")
-eq(ccu.extra_line(cursor_extras[1]["weekly"], now), "12% used · 1d 0h", "cursor extra line")
 
 spend = ccu.spend_extra({
   "spend_limit_cents": 40000,
@@ -219,8 +204,6 @@ eq(cols[1]["height"], 0.0, "zero day height")
 wtok, wusd = ccu.window_sum(days, friday)
 eq(wtok, 100.0, "window_sum tokens")
 eq(wusd, 9.0, "window_sum usd")
-eq(ccu.spark_char(0), "·", "zero spark is a dot")
-eq(ccu.spark_char(1), "█", "peak spark")
 
 grok_card = ccu.serialize_card(
   {"id": "grok", "label": "Grok", "accent": "teal", "bar": True, "url": ccu.GROK_USAGE},
@@ -240,16 +223,12 @@ grok_card = ccu.serialize_card(
     "week_tokens": 450e6,
     "week_usd": 8,
     "days": days,
-    "today": {"tokens": 15, "usd": 1.5},
-    "week": {"tokens": 100, "usd": 9},
-    "total": {"tokens": 1.86e8, "usd": 1500},
   },
   now,
 )
 eq(grok_card["head"], "SuperGrok Heavy", "grok head is plan name")
 eq(grok_card["usage_line"], "22% of weekly limit used", "grok sub usage")
 ok(grok_card["ident"].startswith("a@x.com"), "grok ident has email")
-eq(grok_card["chip"], "Grok    22% ·   3d 0h", "grok chip on card")
 ok(grok_card["fresh"], "serialize_card defaults fresh")
 eq(grok_card["fetched_at"], 0, "serialize_card defaults fetched_at 0")
 eq(len(grok_card["categories"]), 4, "grok category split")
@@ -295,7 +274,6 @@ eq(claude_card["head"], "", "claude has no plan in the head")
 eq(claude_card["usage_line"], "31% of weekly limit used", "claude usage subline")
 eq(claude_card["reset_line"], ccu.reset_line(claude, now), "claude reset subline with clock time")
 eq(claude_card["ident"], "", "claude has no ident")
-ok(claude_card["bar"], "claude is a rotating bar chip")
 
 stale_card = ccu.serialize_card(
   {"id": "grok", "label": "Grok", "accent": "teal", "bar": True, "url": ccu.GROK_USAGE},
@@ -324,16 +302,6 @@ session_only = ccu.claude_state({
 eq(session_only["weekly"]["used"], 0.16, "session promoted to the primary window")
 eq(session_only["weekly"]["span"], float(ccu.SESSION_SPAN_SEC), "promoted session spans 5h")
 eq(session_only["extras"], [], "promoted session is not also an extra")
-eq(
-  ccu.bar_chip("Claude", session_only["weekly"], now),
-  "Claude  16% ·   4h 0m",
-  "claude chip shows the session percentage",
-)
-eq(
-  len(ccu.bar_chip("Claude", session_only["weekly"], now)),
-  ccu.CHIP_W,
-  "claude chip keeps the rotation width",
-)
 eq(ccu.usage_line(session_only["weekly"]), "16% of session limit used", "session usage line")
 
 # A real weekly window still wins, and the session stays an extra.
@@ -401,6 +369,7 @@ ok("ownReset" in qml_src, "Ccu.qml shows a tile's reset only when it is not the 
 eq(card["limits"][1]["reset_unix"], now + 16 * 86400, "limits carry reset_unix")
 ok("chipSwap" in qml_src and "shownIndex" in qml_src, "Ccu.qml animates the chip rotation")
 ok("chipRing" in qml_src and "PathAngleArc" in qml_src, "Ccu.qml chip is a usage ring around the mark")
+ok("chip.subs" in qml_src and ".hot" not in qml_src, "Ccu.qml: mini bars for the other windows, wash on the main one")
 ok("Marks.paths" in qml_src and "component Mark" in qml_src, "Ccu.qml draws provider marks")
 ok("cardData.tier" in qml_src, "Ccu.qml shows the plan in the popup")
 ok("chip.plan" not in qml_src, "Ccu.qml keeps the plan out of the bar chip")

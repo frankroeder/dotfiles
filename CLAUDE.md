@@ -701,8 +701,10 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   (`~/.cache/asahi/ccu.cost.json`, dropped at midnight): popup cost figures lag up to that. Front-ends: Lua literal (sketchybar) or
   `--json` (`asahi-ccu`). `ccu_cost.py` is JSON-only (reserved keys). Claude plan = credentials `subscriptionType` +
   `rateLimitTier` ("Team · Max 5x"), email from `~/.claude.json` (local reads, no API). Asahi chip (idea: dancik/limitbar):
-  usage ring (arc + colour = used share of the **binding** window: main, or the 5-hour session when fuller) around
-  the provider mark, then % and countdown (short form drops the countdown); red badge on the ring = another window ≥ 90 % (no `wk`/`5h` superscripts: rejected; the countdown tells the window). Marks are `PathSvg` paths in `components/marks.js` filled by a `Shape` —
+  usage ring (arc + colour = used share of the **main** weekly / monthly window) around the provider mark, then % and
+  countdown (short form drops the countdown), then one 4 px mini bar per other window (`chip_subs`: 5-hour session, model
+  pools; usage colours). Red chip wash = the main window ≥ 90 % only — sub-limit badges / washes read as the main window
+  being full (no `wk`/`5h` superscripts: rejected; the countdown tells the window). Marks are `PathSvg` paths in `components/marks.js` filled by a `Shape` —
   no MultiEffect tint (a layer pass in an always-on bar; layered marks also stayed blank in the offscreen harness after a
   late source change). Popup: main window (weekly / monthly) kept as "N% of … limit used" + reset
   line over a full-width bar (preferred to a row); the other windows (session, Fable, Cursor pools) are
