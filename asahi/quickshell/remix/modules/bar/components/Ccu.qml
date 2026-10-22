@@ -9,7 +9,7 @@ import "../../../"
 import "../BarModel.js" as BarModel
 import "marks.js" as Marks
 
-// CCu chip: Grok/Cursor/Claude overview from asahi-ccu. Chip = provider mark, plan, used % of the binding
+// CCu chip: Grok/Cursor/Claude overview from asahi-ccu. Chip = provider mark, used % of the binding
 // window and the reset countdown; a red badge on the mark when another window is at 90 %+ (idea: dancik/limitbar).
 Rectangle {
   id: root
@@ -79,10 +79,8 @@ Rectangle {
     return list[i]
   }
   readonly property var provider: (root.overview || [])[0] || null
-  // The full chip is "<mark> Max 5x 27% · 17h 30m". When the notch leaves the bar too little room,
-  // BarHost clears `showPlan` ("<mark> 27% · 17h 30m"), then sets `compact` ("<mark> 27%").
-  // Either way the detail is in the popup.
-  property bool showPlan: true
+  // The full chip is "<mark> 27% · 17h 30m". When the notch leaves the bar too little room, BarHost sets
+  // `compact` and the reset time drops, leaving "<mark> 27%". Either way the detail is in the popup.
   property bool compact: false
 
   // Shown only before the first asahi-ccu answer.
@@ -103,32 +101,29 @@ Rectangle {
   }
 
   // Width of one chip as laid out by chipRow below (measured: proportional digits).
-  function chipW(chip, plan, countdown) {
+  function chipW(chip, countdown) {
     let w = (root.hasMark(chip.mark) ? root.markSize : chipMetrics.advanceWidth(chip.label || "")) + root.chipGap
-    if (plan && chip.plan) w += chipMetrics.advanceWidth(chip.plan) + root.chipGap
     w += chipMetrics.advanceWidth(chip.pct || "—")
     if (countdown && chip.pct) w += chipMetrics.advanceWidth(" · " + chip.countdown)
     return w
   }
   // The widest chip of the rotation in one form.
-  function boxW(plan, countdown) {
+  function boxW(countdown) {
     const list = root.chips || []
     let w = 0
-    for (let i = 0; i < list.length; i++) w = Math.max(w, root.chipW(list[i], plan, countdown))
+    for (let i = 0; i < list.length; i++) w = Math.max(w, root.chipW(list[i], countdown))
     return Math.ceil(w)
   }
-  readonly property int fullBoxW: boxW(true, true)
-  readonly property int planlessBoxW: boxW(false, true)
-  readonly property int compactBoxW: boxW(false, false)
+  readonly property int fullBoxW: boxW(true)
+  readonly property int compactBoxW: boxW(false)
   // Never narrower than the text on show: before the first asahi-ccu answer (no chips) the box would be
   // 0 wide and "CCu" / "CCu ?" elided to nothing.
-  readonly property int chipBoxW: Math.max(root.compact ? root.compactBoxW : root.showPlan ? root.fullBoxW : root.planlessBoxW,
+  readonly property int chipBoxW: Math.max(root.compact ? root.compactBoxW : root.fullBoxW,
     Math.ceil(chipMetrics.advanceWidth(root.chipText)))
 
-  // What this chip would cost with the plan / without it — BarHost's cues, independent of
-  // `showPlan` / `compact` so asking the question cannot change the answer.
+  // What this chip would cost uncompacted — BarHost's cue, and independent of
+  // `compact` so asking the question cannot change the answer.
   readonly property real fullWidth: Math.max(56, root.fullBoxW + 2 * root.chipPad)
-  readonly property real planlessWidth: Math.max(56, root.planlessBoxW + 2 * root.chipPad)
 
   function usageColor(used) {
     if (used === null || used === undefined) return Style.textMuted
@@ -266,7 +261,7 @@ Rectangle {
     color: root.valueColor
   }
 
-  // Mark (or name) with the red badge, plan, used % in the usage colour, countdown. chipW() mirrors it.
+  // Mark (or name) with the red badge, used % in the usage colour, countdown. chipW() mirrors it.
   Item {
     id: chipSlide
     anchors.fill: parent
@@ -312,13 +307,6 @@ Rectangle {
         }
       }
       Item { width: root.chipGap; height: 1 }
-      Text {
-        visible: root.showPlan && !root.compact && !!chipRow.chip.plan
-        text: chipRow.chip.plan || ""
-        rightPadding: root.chipGap
-        font { family: Style.fontFamily; pixelSize: Style.barFontBody }
-        color: Style.textMuted
-      }
       Text {
         text: chipRow.chip.pct || "—"
         font { family: Style.fontFamily; pixelSize: Style.barFontBody }

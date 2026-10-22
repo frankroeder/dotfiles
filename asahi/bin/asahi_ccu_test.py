@@ -112,9 +112,6 @@ eq(ccu.chip_window(None, []), None, "no window, no chip window")
 ok(ccu.reset_passed(ccu.weekly(0.5, now - 60), now), "past reset is passed")
 ok(not ccu.reset_passed(grok, now), "future reset is not passed")
 ok(not ccu.reset_passed(ccu.weekly(0.5, 0), now), "unknown reset is not passed")
-eq(ccu.plan_short("Team · Max 5x"), "Max 5x", "chip plan drops the seat")
-eq(ccu.plan_short("Ultra"), "Ultra", "plain plan kept")
-eq(ccu.plan_short(None), "", "no plan")
 
 card = ccu.serialize_card(
   {"id": "cursor", "label": "Cursor", "accent": "mauve", "mark": "cursor", "bar": True},
@@ -404,8 +401,8 @@ ok("ownReset" in qml_src, "Ccu.qml shows a tile's reset only when it is not the 
 eq(card["limits"][1]["reset_unix"], now + 16 * 86400, "limits carry reset_unix")
 ok("chipSwap" in qml_src and "shownIndex" in qml_src, "Ccu.qml animates the chip rotation")
 ok("Marks.paths" in qml_src and "component Mark" in qml_src, "Ccu.qml draws provider marks")
-ok("cardData.tier" in qml_src and "chip.plan" in qml_src, "Ccu.qml shows the plan in popup and chip")
-ok("planlessWidth" in qml_src and "showPlan" in qml_src, "Ccu.qml drops the plan before the countdown")
+ok("cardData.tier" in qml_src, "Ccu.qml shows the plan in the popup")
+ok("chip.plan" not in qml_src, "Ccu.qml keeps the plan out of the bar chip")
 ok("categories" in qml_src, "Ccu.qml renders category meter")
 ok("total_line" in qml_src and "days30_line" in qml_src, "Ccu.qml All time / 30d / 7d")
 ok("chipText" in qml_src, "Ccu.qml shows CCu until the first answer")

@@ -72,10 +72,10 @@ Item {
   // Distance from either bar edge to the cutout — the wall each cluster stops at.
   readonly property int notchInset: BarModel.notchRegionInset(barContent.width, notchSpacerWidth)
 
-  // ccu is the widest member and the only one with short forms, so it is what gives
-  // when the cutout leaves the right cluster too little room: first the plan drops, then the
-  // countdown. The sum deliberately excludes ccu's own width and uses its fixed `fullWidth` /
-  // `planlessWidth`, so the answer cannot change the question.
+  // ccu is the widest member and the only one with a short form, so it is what gives
+  // when the cutout leaves the right cluster too little room. The sum deliberately
+  // excludes ccu's own width and uses its uncompacted `fullWidth`, so the answer
+  // cannot change the question.
   readonly property real rightOthers: trayBlock.implicitWidth + statusBlock.implicitWidth
     + micBlock.implicitWidth + volBlock.implicitWidth + netBlock.implicitWidth
     + btBlock.implicitWidth + battBlock.implicitWidth + clockBlock.implicitWidth + notifBlock.implicitWidth
@@ -86,10 +86,8 @@ Item {
     - (backupBlock.visible ? backupBlock.implicitWidth + leftSection.spacing : 0) - 2 * leftSection.spacing
   readonly property bool showTemp: tempAvg > 0
     && leftSpare - (mediaBlock.hasMedia ? Math.min(mediaBlock.naturalWidth, 200) : 0) >= sysBlock.tempWidth
-  readonly property bool ccuShowPlan: notchInset <= 0
-    || rightOthers + ccuBlock.fullWidth <= rightRegion.width
   readonly property bool ccuCompact: notchInset > 0
-    && rightOthers + ccuBlock.planlessWidth > rightRegion.width
+    && rightOthers + ccuBlock.fullWidth > rightRegion.width
 
   implicitWidth: parent ? parent.width : 0
   implicitHeight: notchFloor
@@ -295,7 +293,6 @@ Item {
     BarComponents.Ccu {
       id: ccuBlock
       barHost: barWindow
-      showPlan: barWindow.ccuShowPlan
       compact: barWindow.ccuCompact
     }
 

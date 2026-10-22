@@ -403,11 +403,6 @@ def chip_window(win: dict[str, Any] | None, extras: list[dict[str, Any]]) -> dic
   return best
 
 
-def plan_short(tier: str | None) -> str:
-  """Chip form of the plan: "Team · Max 5x" -> "Max 5x"."""
-  return str(tier or "").split(" · ")[-1]
-
-
 def usage_line(win: dict[str, Any] | None) -> str:
   if not win:
     return NO_WEEKLY
@@ -949,7 +944,6 @@ def serialize_card(
     "chip_countdown": countdown(chip_win["reset"], now) if chip_win else "",
     "chip_used": None if chip_win is None else round(chip_win["used"] * 100.0, 1),
     "hot": hot,
-    "plan_short": plan_short(tier),
     "used": used100,
     "status": st.get("status"),
     "error": st.get("status") if win is None else None,
@@ -1113,7 +1107,6 @@ def build() -> dict[str, Any]:
         "pct": card["chip_pct"],
         "countdown": card["chip_countdown"],
         "hot": card["hot"],
-        "plan": card["plan_short"],
         "mark": card["mark"],
         "accent": card["accent"],
         "fresh": card.get("fresh") is not False,
