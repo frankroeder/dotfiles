@@ -100,6 +100,46 @@ eq(ccu.renews_line(now, True), "Ends Nov 14, 2023", "cancels at period end")
 eq(ccu.renews_line(0, False), "", "missing rebill is empty")
 eq(ccu.ident_text("a@x.com", now, False), "a@x.com · Renews Nov 14, 2023", "ident email+rebill")
 
+# Binding window: the fuller of the main window and a 5-hour session; red badge when another window is at 90 %+.
+session = ccu.weekly(0.62, now + 2 * 3600, ccu.SESSION_SPAN_SEC)
+claude_wk = ccu.weekly(0.10, now + 3 * 86400)
+eq(ccu.chip_window(claude_wk, [{"label": "Session (5-hour)", "weekly": session}]), session, "fuller session binds")
+eq(ccu.chip_window(grok, [{"label": "Session (5-hour)", "weekly": ccu.weekly(0.05, now + 3600, ccu.SESSION_SPAN_SEC)}]), grok,
+  "emptier session does not bind")
+eq(ccu.chip_window(claude_wk, [{"label": "Fable Weekly", "weekly": ccu.weekly(0.9, now + 86400)}]), claude_wk,
+  "a scoped weekly never binds")
+eq(ccu.chip_window(None, []), None, "no window, no chip window")
+ok(ccu.reset_passed(ccu.weekly(0.5, now - 60), now), "past reset is passed")
+ok(not ccu.reset_passed(grok, now), "future reset is not passed")
+ok(not ccu.reset_passed(ccu.weekly(0.5, 0), now), "unknown reset is not passed")
+eq(ccu.plan_short("Team · Max 5x"), "Max 5x", "chip plan drops the seat")
+eq(ccu.plan_short("Ultra"), "Ultra", "plain plan kept")
+eq(ccu.plan_short(None), "", "no plan")
+
+card = ccu.serialize_card(
+  {"id": "cursor", "label": "Cursor", "accent": "mauve", "mark": "cursor", "bar": True},
+  {"weekly": cursor, "tier": "Ultra", "extras": [
+    {"label": "Other Models", "weekly": ccu.weekly(1.0, now + 16 * 86400, 30 * 86400)},
+    {"label": "Usage-based spend", "text": "$233 of $400 used"},
+  ]},
+  now,
+)
+ok(card["hot"], "full sub-pool makes the chip hot")
+eq(card["chip_pct"], "31%", "chip keeps the main window")
+eq(card["mark"], "cursor", "card carries the mark")
+eq([lim["title"] for lim in card["limits"]], ["Monthly limit", "Other Models"], "one limit per window")
+eq(card["notes"], [{"label": "Usage-based spend", "text": "$233 of $400 used"}], "windowless extras are notes")
+calm = ccu.serialize_card({"id": "grok", "label": "Grok", "accent": "teal", "bar": True}, {"weekly": grok}, now)
+ok(not calm["hot"], "no other window, not hot")
+
+eq(ccu.claude_usage.plan_label("team", "default_claude_max_5x"), "Team · Max 5x", "claude team seat on max 5x")
+eq(ccu.claude_usage.plan_label("max", "default_claude_max_20x"), "Max 20x", "claude max 20x")
+eq(ccu.claude_usage.plan_label("pro", "default_claude_ai"), "Pro", "claude pro")
+eq(ccu.claude_usage.plan_label(None, None), None, "claude plan unknown")
+eq(ccu.claude_state({"plan": "Max 20x", "email": "a@x.com", "weekly": None})["tier"], "Max 20x", "claude card gets the plan")
+lim = ccu.extra_windows([{"kind": "session", "label": "Session", "used": 40, "reset_unix": now + 3600}])[0]["weekly"]
+eq(ccu.window_name(lim["span"]), "session", "session extra keeps its 5-hour span")
+
 eq(ccu.countdown(now + 16 * 3600, now), "16h 0m", "16h 0m")
 eq(ccu.countdown(now, now), "now", "now when reset==now")
 eq(ccu.countdown(0, now), "now", "now when reset missing")
@@ -236,8 +276,8 @@ cursor_card = ccu.serialize_card(
 )
 eq(cursor_card["head"], "Pro", "cursor head is plan")
 eq(cursor_card["usage_line"], "31% of monthly limit used", "cursor monthly subline")
-eq(len(cursor_card["extras"]), 3, "cursor models + other + spend")
-eq(cursor_card["extras"][2]["text"], "$86.00 of $400 used", "cursor spend extra on card")
+eq(len(cursor_card["limits"]), 3, "cursor monthly + models + other as limits")
+eq(cursor_card["notes"], [{"label": "Usage-based spend", "text": "$86.00 of $400 used"}], "cursor spend note on card")
 eq(cursor_card["ident"], "dev@cursor.com", "cursor ident is email only")
 
 claude_card = ccu.serialize_card(
@@ -358,10 +398,17 @@ ok("grok_usage" in src, "asahi-ccu imports grok_usage")
 ok('id": "grok"' in src and '"id": "cursor"' in src, "provider order grok then cursor")
 ok(src.find('"id": "grok"') < src.find('"id": "cursor"') < src.find('"id": "claude"'), "grok < cursor < claude")
 ok("AGENT USAGE" in qml_src, "Ccu.qml headed AGENT USAGE")
-ok("usage_line" in qml_src and "reset_line" in qml_src, "Ccu.qml renders usage subline")
+ok("usage_line" in qml_src and "reset_line" in qml_src, "Ccu.qml keeps the main window as text line + full bar")
+ok("subLimits" in qml_src and "reset_passed" in qml_src, "Ccu.qml renders the other windows as mini tiles")
+ok("ownReset" in qml_src, "Ccu.qml shows a tile's reset only when it is not the main reset")
+eq(card["limits"][1]["reset_unix"], now + 16 * 86400, "limits carry reset_unix")
+ok("chipSwap" in qml_src and "shownIndex" in qml_src, "Ccu.qml animates the chip rotation")
+ok("Marks.paths" in qml_src and "component Mark" in qml_src, "Ccu.qml draws provider marks")
+ok("cardData.tier" in qml_src and "chip.plan" in qml_src, "Ccu.qml shows the plan in popup and chip")
+ok("planlessWidth" in qml_src and "showPlan" in qml_src, "Ccu.qml drops the plan before the countdown")
 ok("categories" in qml_src, "Ccu.qml renders category meter")
 ok("total_line" in qml_src and "days30_line" in qml_src, "Ccu.qml All time / 30d / 7d")
-ok("chipText" in qml_src, "Ccu.qml bar chip uses helper chip text")
+ok("chipText" in qml_src, "Ccu.qml shows CCu until the first answer")
 ok("chipBoxW" in qml_src, "Ccu.qml uses a fixed chip box so rotation does not resize")
 ok("barFontBody" in qml_src, "Ccu.qml chip uses Style.barFontBody")
 ok("pixelSize: 14" not in qml_src, "Ccu.qml chip is not a hardcoded 14px")

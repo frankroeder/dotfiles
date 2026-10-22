@@ -368,6 +368,7 @@ def build_payload(raw: dict[str, Any]) -> dict[str, Any]:
       "used": auto,
       "remaining": max(0.0, 100.0 - auto),
       "reset_unix": end,
+      "span_sec": span,
     })
   if api is not None:
     limits.append({
@@ -376,6 +377,7 @@ def build_payload(raw: dict[str, Any]) -> dict[str, Any]:
       "used": api,
       "remaining": max(0.0, 100.0 - api),
       "reset_unix": end,
+      "span_sec": span,
     })
 
   plan_dict = pu if isinstance(pu, dict) else {}

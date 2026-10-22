@@ -42,7 +42,7 @@ x-scheme-handler/mid=net.thunderbird.Thunderbird.desktop
 message/rfc822=net.thunderbird.Thunderbird.desktop
 
 [Added Associations]
-text/html=org.mozilla.firefox.desktop;
+text/html=chromium-browser.desktop;org.mozilla.firefox.desktop;
 application/xhtml+xml=org.mozilla.firefox.desktop;
 x-scheme-handler/http=org.mozilla.firefox.desktop;
 x-scheme-handler/https=org.mozilla.firefox.desktop;

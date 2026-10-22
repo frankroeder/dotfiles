@@ -82,6 +82,7 @@ PROVIDER_DEFS = (
     "id": "grok",
     "label": "Grok",
     "accent": "teal",
+    "mark": "xai",
     "bin": "grok",
     "bar": True,
     "url": GROK_USAGE,
@@ -90,6 +91,7 @@ PROVIDER_DEFS = (
     "id": "grokbot",
     "label": "Grok Bot",
     "accent": "blue",
+    "mark": "xai",
     "detect": "grokbot",
     "bar": False,
     "url": "",
@@ -98,6 +100,7 @@ PROVIDER_DEFS = (
     "id": "cursor",
     "label": "Cursor",
     "accent": "mauve",
+    "mark": "cursor",
     "detect": "cursor",
     "bar": True,
     "url": CURSOR_USAGE,
@@ -106,6 +109,7 @@ PROVIDER_DEFS = (
     "id": "claude",
     "label": "Claude",
     "accent": "peach",
+    "mark": "claude",
     "bin": "claude",
     "bar": True,
     "url": CLAUDE_USAGE,
@@ -114,6 +118,7 @@ PROVIDER_DEFS = (
     "id": "codex",
     "label": "Codex",
     "accent": "sky",
+    "mark": "openai",
     "bin": "codex",
     "bar": False,
     "url": "",
@@ -283,6 +288,8 @@ def from_helper_window(block: Any) -> dict[str, Any] | None:
       start = iso_to_unix(block.get("period_start"))
     if start is not None and reset is not None and reset > start:
       span = reset - start
+  if span is None and block.get("kind") == "session":
+    span = SESSION_SPAN_SEC  # Claude's 5-hour block has no period start; the default week would call it "weekly"
   return weekly(used / 100.0, reset, span)
 
 
@@ -379,6 +386,26 @@ def window_name(span: Any) -> str:
   if 27 * 86400 <= s <= 32 * 86400:
     return "monthly"
   return "period"
+
+
+def reset_passed(win: dict[str, Any] | None, now: int) -> bool:
+  reset = int(num((win or {}).get("reset")) or 0)
+  return 0 < reset <= now
+
+
+def chip_window(win: dict[str, Any] | None, extras: list[dict[str, Any]]) -> dict[str, Any] | None:
+  """The binding window: the main one, or a session window that is fuller (Claude's 5-hour)."""
+  best = win
+  for extra in extras:
+    w = extra.get("weekly")
+    if w and window_name(w.get("span")) == "session" and (best is None or w["used"] > best["used"]):
+      best = w
+  return best
+
+
+def plan_short(tier: str | None) -> str:
+  """Chip form of the plan: "Team · Max 5x" -> "Max 5x"."""
+  return str(tier or "").split(" · ")[-1]
 
 
 def usage_line(win: dict[str, Any] | None) -> str:
@@ -684,6 +711,8 @@ def limit_entry(title: str, win: dict[str, Any] | None, now: int, error: str | N
     "used": used,
     "reset": "" if win is None else reset_line(win, now),
     "label": "" if win is None else extra_line(win, now),
+    "reset_unix": 0 if win is None else int(win["reset"]),
+    "reset_passed": reset_passed(win, now),
     "error": error,
   }
 
@@ -778,6 +807,10 @@ def claude_state(result: dict[str, Any] | None) -> dict[str, Any]:
     st["status"] = tidy_error(result["error"])
     return st
   st["weekly"] = from_helper_window(result.get("weekly"))
+  plan = result.get("plan")
+  st["tier"] = plan if isinstance(plan, str) and plan else None
+  email = result.get("email")
+  st["email"] = email if isinstance(email, str) and email else None
   extras = extra_windows(result.get("limits"))
   if not extras:
     extras = []
@@ -799,10 +832,6 @@ def claude_state(result: dict[str, Any] | None) -> dict[str, Any]:
   if st["weekly"] is None and result.get("session"):
     promoted = from_helper_window(result["session"])
     if promoted:
-      # The session block carries no period_start/span_sec, so
-      # from_helper_window defaults the span to a week and window_name would
-      # then call it "weekly". Claude's session window is 5 hours.
-      promoted["span"] = float(SESSION_SPAN_SEC)
       st["weekly"] = promoted
       session_label = extra_label(result["session"])
       extras = [e for e in extras if e.get("label") != session_label]
@@ -884,6 +913,12 @@ def serialize_card(
       wusd = None
   chart = chart_days(st.get("days") or [], now) if has_days else []
   used100 = None if win is None else round(win["used"] * 100.0, 1)
+  chip_win = chip_window(win, st.get("extras") or [])
+  # Another window at 90 %+ (Cursor "Other Models", a full Claude week): the red badge on the chip's mark.
+  hot = any(
+    w is not None and w is not chip_win and w["used"] >= 0.9 and not reset_passed(w, now)
+    for w in [win] + [e.get("weekly") for e in st.get("extras") or []]
+  )
   limits = []
   if win is not None:
     limits.append(limit_entry(
@@ -898,6 +933,7 @@ def serialize_card(
     "id": spec["id"],
     "name": spec["label"],
     "accent": spec["accent"],
+    "mark": spec.get("mark") or "",
     "bar": bool(spec.get("bar")),
     "url": spec.get("url") or "",
     "tier": tier,
@@ -908,12 +944,18 @@ def serialize_card(
     "reset_line": reset_line(win, now) if win is not None else "",
     "fresh": bool(fresh),
     "fetched_at": int(fetched_at or 0),
-    "chip": bar_chip(spec["label"], win, now),
+    "chip": bar_chip(spec["label"], chip_win, now),
+    "chip_pct": percent(chip_win["used"]) if chip_win else "",
+    "chip_countdown": countdown(chip_win["reset"], now) if chip_win else "",
+    "chip_used": None if chip_win is None else round(chip_win["used"] * 100.0, 1),
+    "hot": hot,
+    "plan_short": plan_short(tier),
     "used": used100,
     "status": st.get("status"),
     "error": st.get("status") if win is None else None,
     "categories": cats,
-    "extras": extras,
+    # Extras without a window (Cursor's usage-based spend): text rows under the meters.
+    "notes": [e for e in extras if not any(lim["title"] == e["label"] for lim in limits)],
     "total_line": total_line(st.get("total_tokens"), st.get("total_usd")) if has_totals or has_days else "",
     "days30_line": days30_line(st.get("days30_tokens"), st.get("days30_usd")) if has_totals or has_days else "",
     "week_line": week_line(wtok, wusd) if has_totals or has_days else "",
@@ -941,7 +983,6 @@ def empty_payload(error: str | None = None) -> dict[str, Any]:
     "percentage": None,
     "visible": False,
     "error": error,
-    "rows": [],
     "links": [],
     "overview": [],
     "chips": [],
@@ -1068,7 +1109,12 @@ def build() -> dict[str, Any]:
         "id": card["id"],
         "label": card["name"],
         "text": card["chip"],
-        "used": card["used"],
+        "used": card["chip_used"],
+        "pct": card["chip_pct"],
+        "countdown": card["chip_countdown"],
+        "hot": card["hot"],
+        "plan": card["plan_short"],
+        "mark": card["mark"],
         "accent": card["accent"],
         "fresh": card.get("fresh") is not False,
         "fetched_at": int(card.get("fetched_at") or 0),
@@ -1097,24 +1143,7 @@ def build() -> dict[str, Any]:
   links = []
   for spec in providers:
     if spec.get("url"):
-      links.append({"id": spec["id"], "title": spec["label"], "url": spec["url"]})
-
-  rows = []
-  for card in overview:
-    rows.append({
-      "id": card["id"],
-      "kind": "quota",
-      "title": card["name"],
-      "used": card["used"],
-      "remaining": None if card["used"] is None else max(0.0, 100.0 - card["used"]),
-      "percent": None if card["used"] is None else max(0.0, 100.0 - card["used"]),
-      "no_bar": False,
-      "accent": card["id"],
-      "reset": card.get("reset_line") or "",
-      "active": False,
-      "label": card.get("usage_line") or card.get("head") or "",
-      "error": card.get("error"),
-    })
+      links.append({"id": spec["id"], "title": spec["label"], "url": spec["url"], "mark": spec.get("mark") or ""})
 
   return {
     "text": text,
@@ -1122,7 +1151,6 @@ def build() -> dict[str, Any]:
     "percentage": None if max_used is None else round(max_used, 1),
     "visible": True,
     "error": fresh_err if errored else None,
-    "rows": rows,
     "links": links,
     "overview": overview,
     "chips": chips,

@@ -1,15 +1,41 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Shapes
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Wayland
 import "../../../"
 import "../BarModel.js" as BarModel
+import "marks.js" as Marks
 
-// CCu chip: Grok/Cursor overview from asahi-ccu, matching sketchybar ccu.lua.
+// CCu chip: Grok/Cursor/Claude overview from asahi-ccu. Chip = provider mark, plan, used % of the binding
+// window and the reset countdown; a red badge on the mark when another window is at 90 %+ (idea: dancik/limitbar).
 Rectangle {
   id: root
+
+  // Provider mark (marks.js), filled in `tint`: a Shape, not a tinted image (no layer pass in the bar).
+  // A provider without one (Codex) shows its name instead.
+  component Mark: Shape {
+    id: markShape
+    property string mark: ""
+    property color tint: Style.text
+    readonly property var def: Marks.paths[mark] || null
+    visible: def !== null
+    preferredRendererType: Shape.CurveRenderer
+    ShapePath {
+      fillColor: markShape.tint
+      strokeColor: "transparent"
+      strokeWidth: 0
+      fillRule: markShape.def && markShape.def.evenOdd ? ShapePath.OddEvenFill : ShapePath.WindingFill
+      scale: Qt.size(markShape.width / 24, markShape.height / 24)
+      PathSvg { path: markShape.def ? markShape.def.d : "" }
+    }
+  }
+  function hasMark(m) { return !!Marks.paths[m] }
+  readonly property int markSize: 15
+  readonly property int chipGap: 5
+  readonly property int hotSize: 5
 
   property var barHost: null
 
@@ -41,39 +67,26 @@ Rectangle {
   property var overview: []
   property var chips: []
   property int chipIndex: 0
+  // The chip on show: follows chipIndex halfway through chipSwap (old one rolls up and out, new one in).
+  property int shownIndex: 0
   property double updatedAt: 0
   property int clockTick: 0
 
   readonly property var currentChip: {
     const list = root.chips || []
     if (list.length === 0) return null
-    const i = Math.max(0, Math.min(root.chipIndex, list.length - 1))
+    const i = Math.max(0, Math.min(root.shownIndex, list.length - 1))
     return list[i]
   }
   readonly property var provider: (root.overview || [])[0] || null
-  // The full chip is "Grok 27% · 17h 30m" (~150px — a quarter of the right
-  // cluster). When the notch leaves the bar too little room, BarHost sets `compact` and
-  // the reset time drops, leaving "Grok 27%". Either way the detail is in the popup.
+  // The full chip is "<mark> Max 5x 27% · 17h 30m". When the notch leaves the bar too little room,
+  // BarHost clears `showPlan` ("<mark> 27% · 17h 30m"), then sets `compact` ("<mark> 27%").
+  // Either way the detail is in the popup.
+  property bool showPlan: true
   property bool compact: false
 
-  // asahi-ccu pads chips into a monospace column (sketchybar); the bar font is proportional,
-  // where the padding shows as gaps ("Grok    27%").
-  function squeeze(t) {
-    return String(t || "").replace(/\s+/g, " ").trim()
-  }
-
-  function providerOf(chip) {
-    return String((chip && chip.text) || "").trim().split(/\s+/)[0] || ""
-  }
-
-  readonly property string chipText: {
-    if (!root.compact && root.currentChip && root.currentChip.text)
-      return root.squeeze(root.currentChip.text)
-    const name = root.providerOf(root.currentChip)
-    if (name === "") return root.hasError ? "CCu ?" : "CCu"
-    if (!root.hasValue) return name
-    return name + " " + Math.round(root.chipUsed) + "%"
-  }
+  // Shown only before the first asahi-ccu answer.
+  readonly property string chipText: root.hasError ? "CCu ?" : "CCu"
   readonly property var chipUsed: root.currentChip ? root.currentChip.used : root.usedPct
   readonly property bool hasValue: chipUsed !== null && chipUsed !== undefined
   readonly property bool chipFresh: !root.currentChip || root.currentChip.fresh !== false
@@ -81,7 +94,6 @@ Rectangle {
     if (root.hasError && !root.hasValue) return Style.red
     return usageColor(chipUsed)
   }
-  readonly property bool alarming: hasValue && chipUsed >= 90
   readonly property string updatedLabel: { clockTick; return ago(root.updatedAt) }
 
   FontMetrics {
@@ -90,28 +102,33 @@ Rectangle {
     font.pixelSize: Style.barFontBody
   }
 
-  // Measured text widths (the old average-character estimate overshot proportional digits).
-  // fullBoxW is the widest uncompacted chip: BarHost's worst case for the notch budget.
-  readonly property int fullBoxW: {
+  // Width of one chip as laid out by chipRow below (measured: proportional digits).
+  function chipW(chip, plan, countdown) {
+    let w = (root.hasMark(chip.mark) ? root.markSize : chipMetrics.advanceWidth(chip.label || "")) + root.chipGap
+    if (plan && chip.plan) w += chipMetrics.advanceWidth(chip.plan) + root.chipGap
+    w += chipMetrics.advanceWidth(chip.pct || "—")
+    if (countdown && chip.pct) w += chipMetrics.advanceWidth(" · " + chip.countdown)
+    return w
+  }
+  // The widest chip of the rotation in one form.
+  function boxW(plan, countdown) {
     const list = root.chips || []
     let w = 0
-    for (let i = 0; i < list.length; i++) w = Math.max(w, chipMetrics.advanceWidth(root.squeeze(list[i].text)))
+    for (let i = 0; i < list.length; i++) w = Math.max(w, root.chipW(list[i], plan, countdown))
     return Math.ceil(w)
   }
-  readonly property int compactBoxW: {
-    const list = root.chips || []
-    let w = 0
-    for (let i = 0; i < list.length; i++) w = Math.max(w, chipMetrics.advanceWidth(root.providerOf(list[i]) + " 100%"))
-    return Math.ceil(w)
-  }
+  readonly property int fullBoxW: boxW(true, true)
+  readonly property int planlessBoxW: boxW(false, true)
+  readonly property int compactBoxW: boxW(false, false)
   // Never narrower than the text on show: before the first asahi-ccu answer (no chips) the box would be
   // 0 wide and "CCu" / "CCu ?" elided to nothing.
-  readonly property int chipBoxW: Math.max(root.compact ? root.compactBoxW : root.fullBoxW,
+  readonly property int chipBoxW: Math.max(root.compact ? root.compactBoxW : root.showPlan ? root.fullBoxW : root.planlessBoxW,
     Math.ceil(chipMetrics.advanceWidth(root.chipText)))
 
-  // What this chip would cost uncompacted — BarHost's cue, and independent of
-  // `compact` so asking the question cannot change the answer.
+  // What this chip would cost with the plan / without it — BarHost's cues, independent of
+  // `showPlan` / `compact` so asking the question cannot change the answer.
   readonly property real fullWidth: Math.max(56, root.fullBoxW + 2 * root.chipPad)
+  readonly property real planlessWidth: Math.max(56, root.planlessBoxW + 2 * root.chipPad)
 
   function usageColor(used) {
     if (used === null || used === undefined) return Style.textMuted
@@ -152,6 +169,7 @@ Rectangle {
       case "yellow": return Style.yellow
       case "lavender": return Style.lavender
       case "maroon": return Style.maroon
+      case "red": return Style.red
       default: return Style.teal
     }
   }
@@ -184,6 +202,23 @@ Rectangle {
     return segs
   }
 
+  // A sub-limit tile's meter: red at 90 %+.
+  function limitSegs(card, lim) {
+    const used = Number(lim.used) || 0
+    return root.meterSegs({ used: used, accent: used >= 90 ? "red" : card.accent })
+  }
+
+  // Limits under the main window (limits[0] when usage_line is set).
+  function subLimits(card) {
+    return (card.limits || []).slice(card.usage_line ? 1 : 0)
+  }
+  // A sub-limit's own reset line is worth showing only when it is not the main window's reset (5 min slack:
+  // Claude's Fable week ends a minute after the main week).
+  function ownReset(card, lim) {
+    const main = card.usage_line ? (card.limits || [])[0] : null
+    return !main || Math.abs((Number(lim.reset_unix) || 0) - (Number(main.reset_unix) || 0)) > 300
+  }
+
   function refresh() { if (!ccuProc.running) ccuProc.running = true }
   function closePopup() { if (popup.shouldShow) root.barHost.openPanel = "" }
 
@@ -199,6 +234,24 @@ Rectangle {
       root.chipIndex = 0
   }
 
+  onChipIndexChanged: if (root.shownIndex !== root.chipIndex || chipSwap.running) chipSwap.restart()
+  Component.onCompleted: root.shownIndex = root.chipIndex
+
+  // Rotation: the chip rolls up and fades out, the next one rolls in from below, its mark scaling up.
+  SequentialAnimation {
+    id: chipSwap
+    ParallelAnimation {
+      NumberAnimation { target: chipSlide; property: "opacity"; to: 0; duration: 170; easing.type: Easing.InCubic }
+      NumberAnimation { target: chipShift; property: "y"; to: -7; duration: 170; easing.type: Easing.InCubic }
+    }
+    ScriptAction { script: { root.shownIndex = root.chipIndex; chipShift.y = 7 } }
+    ParallelAnimation {
+      NumberAnimation { target: chipSlide; property: "opacity"; to: 1; duration: 240; easing.type: Easing.OutCubic }
+      NumberAnimation { target: chipShift; property: "y"; to: 0; duration: 240; easing.type: Easing.OutCubic }
+      NumberAnimation { target: chipMark; property: "scale"; from: 0.55; to: 1; duration: 320; easing.type: Easing.OutBack }
+    }
+  }
+
   function nextChip() {
     if ((root.chips || []).length < 2) return
     root.chipIndex = (root.chipIndex + 1) % root.chips.length
@@ -206,16 +259,79 @@ Rectangle {
 
   // Centred in the fixed box: equal room to the status icons and to the mic.
   Text {
+    visible: !root.currentChip
     anchors.centerIn: parent
-    width: root.chipBoxW
-    horizontalAlignment: Text.AlignHCenter
     text: root.chipText
     font { family: Style.fontFamily; pixelSize: Style.barFontBody }
     color: root.valueColor
-    opacity: root.chipFresh ? 1 : 0.45
-    elide: Text.ElideRight
-    Behavior on color { ColorAnimation { duration: 200 } }
-    Behavior on opacity { NumberAnimation { duration: 160 } }
+  }
+
+  // Mark (or name) with the red badge, plan, used % in the usage colour, countdown. chipW() mirrors it.
+  Item {
+    id: chipSlide
+    anchors.fill: parent
+    Row {
+      id: chipRow
+      readonly property var chip: root.currentChip || ({})
+      readonly property bool hasPct: !!chip.pct
+      visible: !!root.currentChip
+      anchors.centerIn: parent
+      transform: Translate { id: chipShift }
+      opacity: root.chipFresh ? 1 : 0.45
+      Behavior on opacity { NumberAnimation { duration: 160 } }
+
+      Item {
+        width: chipMark.visible ? root.markSize : chipName.implicitWidth
+        height: chipName.implicitHeight
+        Mark {
+          id: chipMark
+          mark: chipRow.chip.mark || ""
+          width: root.markSize
+          height: root.markSize
+          anchors.verticalCenter: parent.verticalCenter
+        }
+        Text {
+          id: chipName
+          visible: !chipMark.visible
+          text: chipRow.chip.label || ""
+          font { family: Style.fontFamily; pixelSize: Style.barFontBody }
+          color: Style.text
+        }
+        // Another window of this provider is at 90 %+ (details in the popup): a badge on the mark's corner,
+        // ringed in the bar colour so it reads off the logo.
+        Rectangle {
+          visible: chipRow.hasPct && !!chipRow.chip.hot
+          width: root.hotSize + 2
+          height: width
+          radius: width / 2
+          x: parent.width - width / 2 - 1
+          y: (parent.height - root.markSize) / 2 - width / 2 + 1
+          color: Style.red
+          border.color: Style.barStripBg
+          border.width: 1
+        }
+      }
+      Item { width: root.chipGap; height: 1 }
+      Text {
+        visible: root.showPlan && !root.compact && !!chipRow.chip.plan
+        text: chipRow.chip.plan || ""
+        rightPadding: root.chipGap
+        font { family: Style.fontFamily; pixelSize: Style.barFontBody }
+        color: Style.textMuted
+      }
+      Text {
+        text: chipRow.chip.pct || "—"
+        font { family: Style.fontFamily; pixelSize: Style.barFontBody }
+        color: root.valueColor
+        Behavior on color { ColorAnimation { duration: 200 } }
+      }
+      Text {
+        visible: !root.compact && chipRow.hasPct
+        text: " · " + (chipRow.chip.countdown || "")
+        font { family: Style.fontFamily; pixelSize: Style.barFontBody }
+        color: Style.textMuted
+      }
+    }
   }
 
   Process {
@@ -378,7 +494,6 @@ Rectangle {
               required property int index
               readonly property var cardData: modelData
               readonly property color fill: root.accentColor(cardData.accent)
-              readonly property real cardW: width
               width: col.width
               spacing: 6
 
@@ -389,19 +504,50 @@ Rectangle {
                 color: Qt.alpha(Style.text, 0.14)
               }
 
+              // Header: mark, name, plan pill (or the status when there is no plan) … email · renews.
+              // Click opens the provider's usage page.
               Item {
                 width: parent.width
-                height: Math.max(nameText.implicitHeight, identText.implicitHeight)
+                height: 20
 
+                Mark {
+                  id: cardMark
+                  mark: cardData.mark || ""
+                  tint: fill
+                  width: 16
+                  height: 16
+                  anchors.left: parent.left
+                  anchors.verticalCenter: parent.verticalCenter
+                }
                 Text {
                   id: nameText
-                  anchors.left: parent.left
+                  anchors.left: cardMark.visible ? cardMark.right : parent.left
+                  anchors.leftMargin: cardMark.visible ? 8 : 0
                   anchors.verticalCenter: parent.verticalCenter
                   text: cardData.name || ""
                   font { family: Style.fontFamily; pixelSize: 13; bold: true }
-                  color: fill
+                  color: Style.text
+                }
+                Rectangle {
+                  id: planPill
+                  visible: !!cardData.tier
+                  anchors.left: nameText.right
+                  anchors.leftMargin: 8
+                  anchors.verticalCenter: parent.verticalCenter
+                  width: planText.implicitWidth + 14
+                  height: 18
+                  radius: 9
+                  color: Qt.alpha(fill, 0.16)
+                  Text {
+                    id: planText
+                    anchors.centerIn: parent
+                    text: cardData.tier || ""
+                    font { family: Style.fontFamily; pixelSize: 11; weight: Font.DemiBold }
+                    color: fill
+                  }
                 }
                 Text {
+                  visible: !cardData.tier
                   anchors.left: nameText.right
                   anchors.leftMargin: 10
                   anchors.right: identText.left
@@ -409,17 +555,28 @@ Rectangle {
                   anchors.verticalCenter: parent.verticalCenter
                   text: cardData.head || ""
                   font { family: Style.fontFamily; pixelSize: 12 }
-                  color: (cardData.tier || cardData.used != null) ? Style.text : Style.textMuted
+                  color: Style.textMuted
                   elide: Text.ElideRight
                 }
                 Text {
                   id: identText
                   visible: (cardData.ident || "") !== ""
+                  anchors.left: planPill.visible ? planPill.right : nameText.right
+                  anchors.leftMargin: 10
                   anchors.right: parent.right
                   anchors.verticalCenter: parent.verticalCenter
+                  horizontalAlignment: Text.AlignRight
                   text: cardData.ident || ""
+                  textFormat: Text.PlainText
                   font { family: Style.fontFamily; pixelSize: 11 }
                   color: Style.textMuted
+                  elide: Text.ElideLeft
+                }
+                MouseArea {
+                  anchors.fill: parent
+                  enabled: !!cardData.url
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: Quickshell.execDetached(["xdg-open", cardData.url])
                 }
               }
 
@@ -431,6 +588,7 @@ Rectangle {
                 color: Style.textMuted
               }
 
+              // Main window (weekly / monthly) as before: "N% of weekly limit used" … reset, full-width meter.
               Item {
                 visible: (cardData.usage_line || "") !== ""
                 width: parent.width
@@ -464,8 +622,8 @@ Rectangle {
                   model: root.meterSegs(cardData)
                   Rectangle {
                     required property var modelData
-                    x: modelData.x * cardW
-                    width: Math.max(1, modelData.w * cardW)
+                    x: modelData.x * parent.width
+                    width: Math.max(1, modelData.w * parent.width)
                     height: 5
                     radius: 2
                     color: modelData.rest
@@ -492,6 +650,81 @@ Rectangle {
                     Text {
                       text: (modelData.label || "") + " " + (modelData.percent || "")
                       font { family: Style.fontFamily; pixelSize: 11 }
+                      color: Style.textMuted
+                    }
+                  }
+                }
+              }
+
+              // The other windows (session, model pools): mini tiles in two columns, each a small copy of the main
+              // block — name … %, thin bar, "Resets Oct 22, 3:20 PM · 2h 4m" — so every edge lines up with the main
+              // bar above. The reset line only where it differs from the main window's (not Cursor's pools).
+              Grid {
+                id: subGrid
+                readonly property var items: root.subLimits(cardData)
+                readonly property real tileW: (width - columnSpacing) / 2
+                visible: items.length > 0
+                width: parent.width
+                columns: 2
+                columnSpacing: 16
+                rowSpacing: 8
+                topPadding: 2
+
+                Repeater {
+                  model: subGrid.items
+                  Column {
+                    id: tile
+                    required property var modelData
+                    readonly property bool passed: !!modelData.reset_passed
+                    readonly property bool full: !passed && (Number(modelData.used) || 0) >= 90
+                    width: subGrid.tileW
+                    spacing: 3
+
+                    Item {
+                      width: parent.width
+                      height: tilePct.implicitHeight
+                      Text {
+                        anchors.left: parent.left
+                        anchors.right: tilePct.left
+                        anchors.rightMargin: 6
+                        anchors.baseline: tilePct.baseline
+                        text: tile.modelData.title || ""
+                        font { family: Style.fontFamily; pixelSize: 11 }
+                        color: Style.textMuted
+                        elide: Text.ElideRight
+                      }
+                      Text {
+                        id: tilePct
+                        anchors.right: parent.right
+                        text: tile.passed ? "—" : Math.round(Number(tile.modelData.used) || 0) + "%"
+                        font { family: Style.fontFamily; pixelSize: 12; bold: tile.full }
+                        color: tile.full ? Style.red : Style.text
+                      }
+                    }
+                    Item {
+                      id: tileTrack
+                      width: parent.width
+                      height: 4
+                      Repeater {
+                        model: tile.passed ? [] : root.limitSegs(cardData, tile.modelData)
+                        Rectangle {
+                          required property var modelData
+                          x: modelData.x * tileTrack.width
+                          width: Math.max(1, modelData.w * tileTrack.width)
+                          height: tileTrack.height
+                          radius: height / 2
+                          color: modelData.rest
+                            ? Qt.alpha(root.accentColor(modelData.color), 0.20)
+                            : root.accentColor(modelData.color)
+                        }
+                      }
+                    }
+                    Text {
+                      visible: text !== "" && (tile.passed || root.ownReset(cardData, tile.modelData))
+                      width: parent.width
+                      elide: Text.ElideRight
+                      text: tile.passed ? "reset, awaiting update" : (tile.modelData.reset || "")
+                      font { family: Style.fontFamily; pixelSize: 10 }
                       color: Style.textMuted
                     }
                   }
@@ -572,11 +805,11 @@ Rectangle {
               }
 
               Column {
-                visible: (cardData.extras || []).length > 0
+                visible: (cardData.notes || []).length > 0
                 width: parent.width
                 spacing: 4
                 Repeater {
-                  model: cardData.extras
+                  model: cardData.notes || []
                   Row {
                     required property var modelData
                     width: col.width
@@ -606,11 +839,27 @@ Rectangle {
             spacing: 14
             Repeater {
               model: root.links
-              Text {
+              Item {
                 required property var modelData
-                text: "↗  " + (modelData.title || "")
-                font { family: Style.fontFamily; pixelSize: 11 }
-                color: linkMa.containsMouse ? Style.sky : Style.textMuted
+                implicitWidth: linkRow.implicitWidth
+                implicitHeight: linkRow.implicitHeight
+                Row {
+                  id: linkRow
+                  spacing: 5
+                  Mark {
+                    mark: modelData.mark || ""
+                    tint: linkText.color
+                    width: 11
+                    height: 11
+                    anchors.verticalCenter: parent.verticalCenter
+                  }
+                  Text {
+                    id: linkText
+                    text: (modelData.title || "") + " ↗"
+                    font { family: Style.fontFamily; pixelSize: 11 }
+                    color: linkMa.containsMouse ? Style.sky : Style.textMuted
+                  }
+                }
                 MouseArea {
                   id: linkMa
                   anchors.fill: parent

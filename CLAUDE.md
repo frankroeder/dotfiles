@@ -241,8 +241,8 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   last session's `nightlight.json` (the chip showed on with no tint).
 - **Bar notch**: cutout is a hole (`BarModel.notchRegionInset`), not a spacer. Height is geometry
   (3024x1964 → **74**), width is the real cutout (370/3024 of logical width + 12). Overflow is
-  clipped at the wall; `ccuCompact` (reads compact-independent `fullWidth`, the widest provider's
-  measured text) is the only give — the clock always shows weekday + date, both in the same size and
+  clipped at the wall; the CCu chip is the only give: `ccuShowPlan` drops the plan (`fullWidth`), then
+  `ccuCompact` the countdown (`planlessWidth`; both widths are fixed, the widest provider's) — the clock always shows weekday + date, both in the same size and
   colour. The usage chip has a fixed width (the widest provider's measured text + 8 px each side), text
   centred (a width that followed the text shifted the bar at every 10 s rotation; right-aligned text hit the mic).
   Chip pads are 6px, `barIconSlot` 26. Anything added to the
@@ -699,7 +699,17 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
 ## Shared
 - **CCU**: one core, `sketchybar/helpers/ccu_common.py`. `asahi-ccu` reuses the cost scan (every transcript, ~2–4 s CPU) for 10 min
   (`~/.cache/asahi/ccu.cost.json`, dropped at midnight): popup cost figures lag up to that. Front-ends: Lua literal (sketchybar) or
-  `--json` (`asahi-ccu`). `ccu_cost.py` is JSON-only (reserved keys). Test:
+  `--json` (`asahi-ccu`). `ccu_cost.py` is JSON-only (reserved keys). Claude plan = credentials `subscriptionType` +
+  `rateLimitTier` ("Team · Max 5x"), email from `~/.claude.json` (local reads, no API). Asahi chip (idea: dancik/limitbar):
+  provider mark + plan + % of the **binding** window (main, or the 5-hour session when fuller) + countdown, red badge on
+  the mark = another window ≥ 90 % (no `wk`/`5h` superscripts: rejected; the countdown tells the window). Marks are `PathSvg` paths in `components/marks.js` filled by a `Shape` —
+  no MultiEffect tint (a layer pass in an always-on bar; layered marks also stayed blank in the offscreen harness after a
+  late source change). Popup: main window (weekly / monthly) kept as "N% of … limit used" + reset
+  line over a full-width bar (preferred to a row); the other windows (session, Fable, Cursor pools) are
+  2-column mini tiles (`subLimits`: name … %, 4 px bar, "Resets Oct 22, 3:20 PM · 2h 4m" — absolute date + countdown,
+  only where `ownReset` (≠ main reset ± 5 min); red ≥ 90 %, "reset, awaiting update" once passed) — label | bar | % rows looked misaligned. Plan pill, header click opens
+  the usage page. Chip rotation = `chipSwap` (roll up + fade, `shownIndex` swaps halfway, mark scales in). Grok Bot `usagePercent` is 0–100 (the app labels 0 < x < 1 as "1%"; reading ≤ 1
+  as a fraction showed 0.77 % as 77 %). Cursor pools carry `span_sec` (else they read "weekly"). Test:
   `python3 asahi/bin/asahi_ccu_test.py`.
 - **Lua tests**: `sketchybar/top/tests/prelude.lua` — five-line `dofile` bootstrap in its header.
 - **dict.cc**: one core `vicinae/extensions/dict-cc/src/dictcc-core.mjs` (ES2018, no fetch/matchAll).

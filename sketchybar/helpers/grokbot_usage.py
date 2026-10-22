@@ -125,16 +125,14 @@ def fetch_raw(creds: dict[str, Any]) -> dict[str, Any]:
 
 
 def build_payload(raw: dict[str, Any]) -> dict[str, Any]:
+  # usagePercent is 0-100 (the app clamps it there and labels 0 < x < 1 as "1%"): 0.77 is 0.77 %, not 77 %.
   used = raw.get("usagePercent")
   if used is None:
-    used = 0.0 if raw.get("hasAvailableUsage") else 1.0
-  used = float(used)
-  if used > 1:
-    used /= 100.0
+    used = 0.0 if raw.get("hasAvailableUsage") else 100.0
   return {
     "source": "grokbot",
     "error": None,
-    "utilization": min(max(used, 0.0), 1.0) * 100.0,
+    "utilization": min(max(float(used), 0.0), 100.0),
     "reset_unix": parse_unix(raw.get("nextResetTimestampUtc")),
     "plan": raw.get("grokPlanLabel") or None,
   }

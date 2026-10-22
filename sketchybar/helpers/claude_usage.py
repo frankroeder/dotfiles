@@ -2,12 +2,14 @@
 """Fetch Claude OAuth usage for sketchybar ccu.lua.
 
 Auth: Claude Code OAuth from Keychain service "Claude Code-credentials"
-or ~/.claude/.credentials.json (claudeAiOauth.accessToken).
+or ~/.claude/.credentials.json (claudeAiOauth.accessToken). The plan comes from
+the same entry (subscriptionType, rateLimitTier), the email from ~/.claude.json.
 """
 
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import urllib.error
@@ -20,6 +22,7 @@ from ccu_common import emit, load_cache, save_cache, short_error
 
 OAUTH_URL = "https://api.anthropic.com/api/oauth/usage"
 CRED_PATH = Path.home() / ".claude" / ".credentials.json"
+ACCOUNT_PATH = Path.home() / ".claude.json"
 KEYCHAIN_SERVICE = "Claude Code-credentials"
 CACHE_PATH = Path.home() / ".cache" / "sketchybar" / "claude_usage.json"
 CACHE_TTL_SEC = 90
@@ -27,16 +30,16 @@ COOLDOWN_PATH = Path.home() / ".cache" / "sketchybar" / "claude_usage.cooldown"
 COOLDOWN_SEC = 300  # skip refetch after 429; dual-bar polls otherwise hammer OAuth
 
 
-def token_from_json(data: dict[str, Any]) -> str | None:
+def oauth_from_json(data: dict[str, Any]) -> dict[str, Any] | None:
   oauth = data.get("claudeAiOauth")
   if isinstance(oauth, dict) and oauth.get("accessToken"):
-    return str(oauth["accessToken"])
+    return oauth
   if data.get("access_token"):
-    return str(data["access_token"])
+    return {"accessToken": data["access_token"]}
   return None
 
 
-def load_access_token() -> str | None:
+def load_oauth() -> dict[str, Any] | None:
   # Keychain first (macOS Claude Code)
   try:
     out = subprocess.check_output(
@@ -44,18 +47,39 @@ def load_access_token() -> str | None:
       stderr=subprocess.DEVNULL,
       text=True,
     ).strip()
-    token = token_from_json(json.loads(out))
-    if token:
-      return token
+    oauth = oauth_from_json(json.loads(out))
+    if oauth:
+      return oauth
   except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError, OSError):
     pass
 
   if CRED_PATH.is_file():
     try:
-      return token_from_json(json.loads(CRED_PATH.read_text()))
+      return oauth_from_json(json.loads(CRED_PATH.read_text()))
     except (json.JSONDecodeError, OSError):
       return None
   return None
+
+
+def plan_label(subscription: Any, tier: Any) -> str | None:
+  """subscriptionType + rateLimitTier -> "Max 20x", "Pro", "Team · Max 5x"."""
+  sub = str(subscription or "").strip().title()
+  m = re.search(r"max_(\d+x)", str(tier or ""))
+  usage = f"Max {m.group(1)}" if m else ""
+  if sub == "Max" and usage:
+    return usage
+  if sub and usage:
+    return f"{sub} · {usage}"
+  return sub or usage or None
+
+
+def account_email() -> str | None:
+  try:
+    acct = json.loads(ACCOUNT_PATH.read_text()).get("oauthAccount") or {}
+  except (OSError, json.JSONDecodeError, AttributeError):
+    return None
+  email = acct.get("emailAddress") if isinstance(acct, dict) else None
+  return str(email) if email else None
 
 
 def reset_unix(iso: str | None) -> int | None:
@@ -235,10 +259,10 @@ def fetch_usage() -> dict[str, Any]:
     if cached is not None:
       return cached
     return build_error("rate_limited")
-  token = load_access_token()
-  if not token:
+  oauth = load_oauth()
+  if not oauth:
     return build_error("no_oauth: Claude Code credentials missing")
-  data, err = fetch_oauth_usage(token)
+  data, err = fetch_oauth_usage(str(oauth["accessToken"]))
   if data is None:
     # Prefer last-good cache on transient failures (esp. 429).
     cached = load_cache(CACHE_PATH, CACHE_TTL_SEC)
@@ -246,6 +270,8 @@ def fetch_usage() -> dict[str, Any]:
       return cached
     return build_error(err or "fetch_failed")
   payload = build_payload(data)
+  payload["plan"] = plan_label(oauth.get("subscriptionType"), oauth.get("rateLimitTier"))
+  payload["email"] = account_email()
   save_cache(CACHE_PATH, payload)
   return payload
 

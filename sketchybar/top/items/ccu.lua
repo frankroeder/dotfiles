@@ -881,6 +881,8 @@ local function apply_claude(result)
       end
       st.extras = extras
     end
+    st.tier = result.plan
+    st.email = result.email
     st.status = nil
   end
   apply_all()
