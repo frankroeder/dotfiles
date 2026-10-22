@@ -701,14 +701,14 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   (`~/.cache/asahi/ccu.cost.json`, dropped at midnight): popup cost figures lag up to that. Front-ends: Lua literal (sketchybar) or
   `--json` (`asahi-ccu`). `ccu_cost.py` is JSON-only (reserved keys). Claude plan = credentials `subscriptionType` +
   `rateLimitTier` ("Team · Max 5x"), email from `~/.claude.json` (local reads, no API). Asahi chip (idea: dancik/limitbar):
-  provider mark + % of the **binding** window (main, or the 5-hour session when fuller) + countdown, red badge on
-  the mark = another window ≥ 90 % (no `wk`/`5h` superscripts: rejected; the countdown tells the window). Marks are `PathSvg` paths in `components/marks.js` filled by a `Shape` —
+  usage ring (arc + colour = used share of the **binding** window: main, or the 5-hour session when fuller) around
+  the provider mark, then % and countdown (short form drops the countdown); red badge on the ring = another window ≥ 90 % (no `wk`/`5h` superscripts: rejected; the countdown tells the window). Marks are `PathSvg` paths in `components/marks.js` filled by a `Shape` —
   no MultiEffect tint (a layer pass in an always-on bar; layered marks also stayed blank in the offscreen harness after a
   late source change). Popup: main window (weekly / monthly) kept as "N% of … limit used" + reset
   line over a full-width bar (preferred to a row); the other windows (session, Fable, Cursor pools) are
   2-column mini tiles (`subLimits`: name … %, 4 px bar, "Resets Oct 22, 3:20 PM · 2h 4m" — absolute date + countdown,
   only where `ownReset` (≠ main reset ± 5 min); red ≥ 90 %, "reset, awaiting update" once passed) — label | bar | % rows looked misaligned. Plan only as the popup pill
-  (not in the chip: rejected), header click opens the usage page. Chip rotation = `chipSwap` (roll up + fade, `shownIndex` swaps halfway, mark scales in). Grok Bot `usagePercent` is 0–100 (the app labels 0 < x < 1 as "1%"; reading ≤ 1
+  (not in the chip: rejected), header click opens the usage page. Chip rotation = `chipSwap` (roll up + fade, `shownIndex` swaps halfway, ring scales in, arc eases to the new share). Grok Bot `usagePercent` is 0–100 (the app labels 0 < x < 1 as "1%"; reading ≤ 1
   as a fraction showed 0.77 % as 77 %). Cursor pools carry `span_sec` (else they read "weekly"). Test:
   `python3 asahi/bin/asahi_ccu_test.py`.
 - **Lua tests**: `sketchybar/top/tests/prelude.lua` — five-line `dofile` bootstrap in its header.

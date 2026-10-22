@@ -400,6 +400,7 @@ ok("subLimits" in qml_src and "reset_passed" in qml_src, "Ccu.qml renders the ot
 ok("ownReset" in qml_src, "Ccu.qml shows a tile's reset only when it is not the main reset")
 eq(card["limits"][1]["reset_unix"], now + 16 * 86400, "limits carry reset_unix")
 ok("chipSwap" in qml_src and "shownIndex" in qml_src, "Ccu.qml animates the chip rotation")
+ok("chipRing" in qml_src and "PathAngleArc" in qml_src, "Ccu.qml chip is a usage ring around the mark")
 ok("Marks.paths" in qml_src and "component Mark" in qml_src, "Ccu.qml draws provider marks")
 ok("cardData.tier" in qml_src, "Ccu.qml shows the plan in the popup")
 ok("chip.plan" not in qml_src, "Ccu.qml keeps the plan out of the bar chip")

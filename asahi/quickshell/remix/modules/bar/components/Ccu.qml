@@ -10,7 +10,7 @@ import "../BarModel.js" as BarModel
 import "marks.js" as Marks
 
 // CCu chip: Grok/Cursor/Claude overview from asahi-ccu. Chip = provider mark, used % of the binding
-// window and the reset countdown; a red badge on the mark when another window is at 90 %+ (idea: dancik/limitbar).
+// window as a ring around the mark, the reset countdown; a red badge when another window is at 90 %+ (idea: dancik/limitbar).
 Rectangle {
   id: root
 
@@ -33,8 +33,9 @@ Rectangle {
     }
   }
   function hasMark(m) { return !!Marks.paths[m] }
-  readonly property int markSize: 15
-  readonly property int chipGap: 5
+  readonly property int ringSize: 24
+  readonly property int markSize: 11
+  readonly property int chipGap: 6
   readonly property int hotSize: 5
 
   property var barHost: null
@@ -79,8 +80,8 @@ Rectangle {
     return list[i]
   }
   readonly property var provider: (root.overview || [])[0] || null
-  // The full chip is "<mark> 27% · 17h 30m". When the notch leaves the bar too little room, BarHost sets
-  // `compact` and the reset time drops, leaving "<mark> 27%". Either way the detail is in the popup.
+  // The full chip is "(<mark>) 27% 17h 30m". When the notch leaves the bar too little room, BarHost sets
+  // `compact` and the reset time drops, leaving "(<mark>) 27%". Either way the detail is in the popup.
   property bool compact: false
 
   // Shown only before the first asahi-ccu answer.
@@ -102,9 +103,10 @@ Rectangle {
 
   // Width of one chip as laid out by chipRow below (measured: proportional digits).
   function chipW(chip, countdown) {
-    let w = (root.hasMark(chip.mark) ? root.markSize : chipMetrics.advanceWidth(chip.label || "")) + root.chipGap
+    let w = root.ringSize + root.chipGap
+    if (!root.hasMark(chip.mark)) w += chipMetrics.advanceWidth(chip.label || "") + root.chipGap
     w += chipMetrics.advanceWidth(chip.pct || "—")
-    if (countdown && chip.pct) w += chipMetrics.advanceWidth(" · " + chip.countdown)
+    if (countdown && chip.pct) w += root.chipGap + chipMetrics.advanceWidth(chip.countdown)
     return w
   }
   // The widest chip of the rotation in one form.
@@ -243,7 +245,7 @@ Rectangle {
     ParallelAnimation {
       NumberAnimation { target: chipSlide; property: "opacity"; to: 1; duration: 240; easing.type: Easing.OutCubic }
       NumberAnimation { target: chipShift; property: "y"; to: 0; duration: 240; easing.type: Easing.OutCubic }
-      NumberAnimation { target: chipMark; property: "scale"; from: 0.55; to: 1; duration: 320; easing.type: Easing.OutBack }
+      NumberAnimation { target: chipRing; property: "scale"; from: 0.55; to: 1; duration: 320; easing.type: Easing.OutBack }
     }
   }
 
@@ -261,7 +263,7 @@ Rectangle {
     color: root.valueColor
   }
 
-  // Mark (or name) with the red badge, used % in the usage colour, countdown. chipW() mirrors it.
+  // Usage ring around the mark (arc and colour = the used share), then % and the countdown. chipW() mirrors it.
   Item {
     id: chipSlide
     anchors.fill: parent
@@ -271,51 +273,81 @@ Rectangle {
       readonly property bool hasPct: !!chip.pct
       visible: !!root.currentChip
       anchors.centerIn: parent
+      spacing: root.chipGap
       transform: Translate { id: chipShift }
       opacity: root.chipFresh ? 1 : 0.45
       Behavior on opacity { NumberAnimation { duration: 160 } }
 
       Item {
-        width: chipMark.visible ? root.markSize : chipName.implicitWidth
-        height: chipName.implicitHeight
+        id: chipRing
+        // Eases on a new reading and fills up from the last provider's share on rotation.
+        property real used: root.hasValue ? Math.max(0, Math.min(100, Number(root.chipUsed))) : 0
+        Behavior on used { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
+        width: root.ringSize
+        height: root.ringSize
+        anchors.verticalCenter: parent.verticalCenter
+        Shape {
+          anchors.fill: parent
+          preferredRendererType: Shape.CurveRenderer
+          ShapePath {
+            strokeColor: Qt.alpha(root.valueColor, 0.22)
+            strokeWidth: 2.2
+            fillColor: "transparent"
+            PathAngleArc {
+              centerX: root.ringSize / 2; centerY: root.ringSize / 2
+              radiusX: root.ringSize / 2 - 1.5; radiusY: root.ringSize / 2 - 1.5
+              startAngle: 0; sweepAngle: 360
+            }
+          }
+          ShapePath {
+            strokeColor: root.valueColor
+            strokeWidth: 2.2
+            fillColor: "transparent"
+            capStyle: ShapePath.RoundCap
+            PathAngleArc {
+              centerX: root.ringSize / 2; centerY: root.ringSize / 2
+              radiusX: root.ringSize / 2 - 1.5; radiusY: root.ringSize / 2 - 1.5
+              startAngle: -90; sweepAngle: root.hasValue ? 3.6 * Math.max(chipRing.used, 2) : 0
+            }
+          }
+        }
         Mark {
-          id: chipMark
           mark: chipRow.chip.mark || ""
           width: root.markSize
           height: root.markSize
-          anchors.verticalCenter: parent.verticalCenter
+          anchors.centerIn: parent
         }
-        Text {
-          id: chipName
-          visible: !chipMark.visible
-          text: chipRow.chip.label || ""
-          font { family: Style.fontFamily; pixelSize: Style.barFontBody }
-          color: Style.text
-        }
-        // Another window of this provider is at 90 %+ (details in the popup): a badge on the mark's corner,
-        // ringed in the bar colour so it reads off the logo.
+        // Another window of this provider is at 90 %+ (details in the popup): a badge on the ring's corner,
+        // ringed in the bar colour so it reads off the arc.
         Rectangle {
           visible: chipRow.hasPct && !!chipRow.chip.hot
           width: root.hotSize + 2
           height: width
           radius: width / 2
-          x: parent.width - width / 2 - 1
-          y: (parent.height - root.markSize) / 2 - width / 2 + 1
+          x: parent.width - width + 1
+          y: -1
           color: Style.red
           border.color: Style.barStripBg
           border.width: 1
         }
       }
-      Item { width: root.chipGap; height: 1 }
       Text {
+        visible: !root.hasMark(chipRow.chip.mark)
+        anchors.verticalCenter: parent.verticalCenter
+        text: chipRow.chip.label || ""
+        font { family: Style.fontFamily; pixelSize: Style.barFontBody }
+        color: Style.text
+      }
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
         text: chipRow.chip.pct || "—"
         font { family: Style.fontFamily; pixelSize: Style.barFontBody }
-        color: root.valueColor
-        Behavior on color { ColorAnimation { duration: 200 } }
+        color: root.hasError && !root.hasValue ? Style.red : Style.text
       }
       Text {
         visible: !root.compact && chipRow.hasPct
-        text: " · " + (chipRow.chip.countdown || "")
+        anchors.verticalCenter: parent.verticalCenter
+        text: chipRow.chip.countdown || ""
         font { family: Style.fontFamily; pixelSize: Style.barFontBody }
         color: Style.textMuted
       }
