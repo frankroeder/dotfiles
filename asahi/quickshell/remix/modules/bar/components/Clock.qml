@@ -67,7 +67,7 @@ Item {
     if (birthFile.text() !== encoded) birthFile.setText(encoded)
   }
 
-  implicitWidth: flatRow.implicitWidth + 12
+  implicitWidth: flatRow.implicitWidth + 2
   implicitHeight: Style.barHeight
 
   function sameDay(a, b) {
