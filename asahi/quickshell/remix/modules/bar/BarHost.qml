@@ -76,10 +76,8 @@ Item {
   // when the cutout leaves the right cluster too little room. The sum deliberately
   // excludes ccu's own width and uses its uncompacted `fullWidth`, so the answer
   // cannot change the question.
-  readonly property real rightOthers: trayBlock.implicitWidth + statusBlock.implicitWidth
-    + micBlock.implicitWidth + volBlock.implicitWidth + netBlock.implicitWidth
-    + btBlock.implicitWidth + battBlock.implicitWidth + clockBlock.implicitWidth + notifBlock.implicitWidth
-    + 10 * rightSection.spacing
+  readonly property real rightOthers: notifBlock.implicitWidth + statusGroup.implicitWidth + audioGroup.implicitWidth
+    + netGroup.implicitWidth + clockBlock.implicitWidth + 5 * rightSection.spacing
   // Temperature in the CPU / RAM chip only when it fits: with media playing the chip must keep
   // 200 px (its natural width, not the capped one — that would make the answer change the question).
   readonly property real leftSpare: leftRegion.width - wsBlock.implicitWidth - sysBlock.baseWidth
@@ -211,7 +209,7 @@ Item {
     id: leftSection
     anchors.left: parent.left
     anchors.verticalCenter: parent.verticalCenter
-    spacing: 8
+    spacing: 10
     move: chipMove
     add: chipAdd
 
@@ -261,11 +259,13 @@ Item {
     notificationCenter: barWindow.notificationCenter
   }
 
+  // No containers: groups (status · usage · mic + volume · Wi-Fi + Bluetooth + battery · clock) read through spacing,
+  // 10 px between them, 2 px inside.
   Row {
     id: rightSection
     anchors.right: parent.right
     anchors.verticalCenter: parent.verticalCenter
-    spacing: 2
+    spacing: 10
     // No `move` here: the Row is anchored right, so it shifts at once while `move` animated the
     // children from their old in-row x — everything right of a new chip (REC) jumped and slid back.
     add: chipAdd
@@ -276,18 +276,21 @@ Item {
       notificationCenter: barWindow.notificationCenter
     }
 
-    BarComponents.SystemTray {
-      id: trayBlock
-      barHeight: barWindow.notchFloor
-      trayScreen: barWindow.barScreen
-      barHost: barWindow
-    }
-
-    BarComponents.StatusIndicators {
-      id: statusBlock
-      isRecording: barWindow.isRecording
-      updatesAvailable: barWindow.updatesAvailable
-      barHost: barWindow
+    Row {
+      id: statusGroup
+      spacing: 2
+      BarComponents.SystemTray {
+        id: trayBlock
+        barHeight: barWindow.notchFloor
+        trayScreen: barWindow.barScreen
+        barHost: barWindow
+      }
+      BarComponents.StatusIndicators {
+        id: statusBlock
+        isRecording: barWindow.isRecording
+        updatesAvailable: barWindow.updatesAvailable
+        barHost: barWindow
+      }
     }
 
     BarComponents.Ccu {
@@ -296,11 +299,19 @@ Item {
       compact: barWindow.ccuCompact
     }
 
-    BarComponents.AudioChip { id: micBlock; input: true; barHost: barWindow }
-    BarComponents.AudioChip { id: volBlock; barHost: barWindow }
-    BarComponents.Network { id: netBlock; barHost: barWindow }
-    BarComponents.Bluetooth { id: btBlock; barHost: barWindow }
-    BarComponents.Battery { id: battBlock; barHost: barWindow }
+    Row {
+      id: audioGroup
+      spacing: 2
+      BarComponents.AudioChip { id: micBlock; input: true; barHost: barWindow }
+      BarComponents.AudioChip { id: volBlock; barHost: barWindow }
+    }
+    Row {
+      id: netGroup
+      spacing: 2
+      BarComponents.Network { id: netBlock; barHost: barWindow }
+      BarComponents.Bluetooth { id: btBlock; barHost: barWindow }
+      BarComponents.Battery { id: battBlock; barHost: barWindow }
+    }
     BarComponents.Clock {
       id: clockBlock
       barHost: barWindow

@@ -245,12 +245,15 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   measured chip) is the only give: the countdown drops — the clock always shows weekday + date, both in the same size and
   colour. The usage chip has a fixed width (the widest provider's measured text + 8 px each side), text
   centred (a width that followed the text shifted the bar at every 10 s rotation; right-aligned text hit the mic).
-  Chip pads are 6px, `barIconSlot` 26. Anything added to the
+  Chip pads are 6px, `barIconSlot` 22. Anything added to the
   right cluster eats that budget. Bar = `max(Style.barHeight 40, notch)` (notch is 37 logical at
   scale 2) — 40 fits the two-line media chip. Left cluster: workspaces → SysChip → BackupChip →
   media (gets the leftover, `maxChipWidth`). Bell (`Notifications.qml`): on the notched panel pinned
   to the right wall of the cutout (`notifNotch`), elsewhere the first right chip (`notifBlock`);
   counted in `rightOthers`. Clock stays rightmost; at the left the bell starved the media chip.
+  No trays ("strip, spaced"): groups read through spacing — 10 px between, 2 px inside: right side
+  `[tray · status]` `[usage]` `[mic · volume]` `[Wi-Fi · BT · battery]` `[clock]`; `rightOthers` sums the groups.
+  On the notched panel the media title runs up to the cutout's wall (no 380 px cap there).
   SysChip adds the average SMC temperature (`tempAvg`: mean of macsmc_hwmon `temp*_input`, read
   in-process — no SoC die °C on Asahi) only while it fits (`showTemp`: with media playing the chip
   keeps ≥ 200 px; computed from `baseWidth` / `naturalWidth`, never the capped widths).

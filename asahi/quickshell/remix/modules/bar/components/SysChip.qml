@@ -13,7 +13,7 @@ Item {
 
   readonly property bool showTemp: !!barHost && barHost.showTemp
   // CPU + RAM only, and the temperature stat's share: BarHost decides showTemp from these.
-  readonly property real baseWidth: cpuStat.implicitWidth + memStat.implicitWidth + row.spacing + 24
+  readonly property real baseWidth: cpuStat.implicitWidth + memStat.implicitWidth + row.spacing + 8
   readonly property real tempWidth: tempStat.implicitWidth + row.spacing
   implicitWidth: baseWidth + (showTemp ? tempWidth : 0)
   implicitHeight: solidBar ? barHost.barSize : Style.barHeight
@@ -30,11 +30,9 @@ Item {
     anchors.fill: parent
     anchors.topMargin: Style.barChipInset
     anchors.bottomMargin: Style.barChipInset
-    radius: height / 2
-    // Group tray; lit on hover and while its panel is open.
-    color: chipMa.containsMouse || (root.barHost && root.barHost.openPanel === "sys") ? Style.barStripHover : Style.barGroupBg
-    border.width: 1
-    border.color: Style.barGroupBorder
+    radius: Style.radiusSm
+    // No tray: lit on hover and while its panel is open.
+    color: chipMa.containsMouse || (root.barHost && root.barHost.openPanel === "sys") ? Style.barStripHover : "transparent"
     Behavior on color { ColorAnimation { duration: 120 } }
   }
 

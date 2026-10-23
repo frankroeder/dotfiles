@@ -104,14 +104,6 @@ Item {
   }
   implicitHeight: Style.barHeight - 2 * Style.barChipInset
 
-  Rectangle {
-    anchors.fill: parent
-    radius: height / 2
-    color: Style.barGroupBg
-    border.width: 1
-    border.color: Style.barGroupBorder
-  }
-
   MouseArea {
     anchors.fill: parent
     onWheel: wheel => root.wheelStep(wheel)
@@ -129,7 +121,7 @@ Item {
     anchors.verticalCenter: parent.verticalCenter
     width: activeIndex >= 0 ? root.itemWidth(root.activeWorkspaceId) : 0
     height: root.pillH
-    radius: height / 2
+    radius: Style.radiusSm - 1
     visible: activeIndex >= 0
     opacity: root.monitorFocused ? 1 : 0.5
     Behavior on opacity { NumberAnimation { duration: root.dur } }
@@ -172,7 +164,7 @@ Item {
 
         Rectangle {
           anchors.fill: parent
-          radius: height / 2
+          radius: Style.radiusSm - 1
           color: Style.wsHoverBg
           opacity: wsMouse.containsMouse && !wsButton.isFocused ? 1 : 0
           Behavior on opacity { NumberAnimation { duration: 120 } }

@@ -37,9 +37,6 @@ Singleton {
   readonly property color orange:    themed("peach")
   readonly property color lavender:  themed("lavender")
 
-  // Bar widget groups (workspaces, CPU / RAM / temp): one tray each.
-  readonly property color barGroupBg:       themedAlpha("base", 0.55)
-  readonly property color barGroupBorder:   themedAlpha("text", 0.10)
   readonly property color wsActive:         accent
   readonly property color wsActiveAlt:      { const _ = themeGeneration; return Qt.lighter(Wallpaper.DefaultTheme.accent, 1.08) }
   readonly property color wsHoverBg:        themedAlpha("text", 0.10)
@@ -146,12 +143,12 @@ Singleton {
   readonly property int radiusLg: 14
 
   readonly property int barHeight: 40
-  readonly property int barFontBody: 15
-  readonly property int barFontGlyph: 23
-  readonly property int barFontMicVolIcon: 21
+  readonly property int barFontBody: 14
+  readonly property int barFontGlyph: 17
+  readonly property int barFontMicVolIcon: 17
   readonly property int barFontCaption: 12
   readonly property int barEdgeMargin: 10
-  readonly property int barIconSlot: 26
+  readonly property int barIconSlot: 22
   readonly property int barChipInset: 4
   readonly property int barWsIcon: 20
 
