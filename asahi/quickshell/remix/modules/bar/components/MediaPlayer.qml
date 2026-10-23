@@ -16,7 +16,7 @@ Item {
   // Notch budget from BarHost: on the notched panel the title may run up to the cutout's wall; 380 caps the chip on
   // notchless externals.
   readonly property int chipCap: root.barHost && root.barHost.notchInset > 0 ? root.maxChipWidth : Math.min(root.maxChipWidth, 380)
-  readonly property int thumb: Style.barHeight - 2 * Style.barChipInset - 6
+  readonly property int thumb: 24
   readonly property real textMax: root.chipCap - root.thumb - 22
 
   // Uncapped wish (BarHost's temperature-fits check must not depend on the cap it feeds).

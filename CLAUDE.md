@@ -241,11 +241,13 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   last session's `nightlight.json` (the chip showed on with no tint).
 - **Bar notch**: cutout is a hole (`BarModel.notchRegionInset`), not a spacer. Height is geometry
   (3024x1964 → **74**), width is the real cutout (370/3024 of logical width + 12). Overflow is
-  clipped at the wall; `ccuCompact` (reads compact-independent `fullWidth`, the widest provider's
-  measured chip) is the only give: the countdown drops — the clock always shows weekday + date, both in the same size and
+  clipped at the wall; optional words are granted in priority order while they fit (`BarHost.grants`:
+  usage countdown → VPN name → VPN uptime → network name → battery time left; measured without the grants, never
+  one past the first that does not fit; an external screen gets all): the countdown drops first — the clock always shows weekday + date, both in the same size and
   colour. The usage chip has a fixed width (the widest provider's measured text + 8 px each side), text
   centred (a width that followed the text shifted the bar at every 10 s rotation; right-aligned text hit the mic).
-  Chip pads are 6px, `barIconSlot` 22. Anything added to the
+  Glyphs: square ones (bell, cup, CPU, Wi-Fi) `barFontGlyph` 24, tall ones (mic, volume, battery, Bluetooth, VPN
+  shield, thermometer) `barFontGlyphTall` 20 — both ~14 px of ink. Chip pads are 6px, `barIconSlot` 22. Anything added to the
   right cluster eats that budget. Bar = `max(Style.barHeight 40, notch)` (notch is 37 logical at
   scale 2) — 40 fits the two-line media chip. Left cluster: workspaces → SysChip → BackupChip →
   media (gets the leftover, `maxChipWidth`). Bell (`Notifications.qml`): on the notched panel pinned

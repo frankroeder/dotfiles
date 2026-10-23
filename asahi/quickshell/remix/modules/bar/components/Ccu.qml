@@ -51,8 +51,8 @@ Rectangle {
       }
     }
   }
-  readonly property int ringSize: 24
-  readonly property int markSize: 11
+  readonly property int ringSize: 20
+  readonly property int markSize: 10
   readonly property int chipGap: 6
   readonly property int subW: 4
   readonly property int subGap: 3
@@ -147,6 +147,7 @@ Rectangle {
   // What this chip would cost uncompacted — BarHost's cue, and independent of
   // `compact` so asking the question cannot change the answer.
   readonly property real fullWidth: Math.max(56, root.fullBoxW + 2 * root.chipPad)
+  readonly property real compactWidth: Math.max(56, root.compactBoxW + 2 * root.chipPad)
 
   function usageColor(used) {
     if (used === null || used === undefined) return Style.textMuted

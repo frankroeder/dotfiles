@@ -72,20 +72,38 @@ Item {
   // Distance from either bar edge to the cutout — the wall each cluster stops at.
   readonly property int notchInset: BarModel.notchRegionInset(barContent.width, notchSpacerWidth)
 
-  // ccu is the widest member and the only one with a short form, so it is what gives
-  // when the cutout leaves the right cluster too little room. The sum deliberately
-  // excludes ccu's own width and uses its uncompacted `fullWidth`, so the answer
-  // cannot change the question.
-  readonly property real rightOthers: notifBlock.implicitWidth + statusGroup.implicitWidth + audioGroup.implicitWidth
-    + netGroup.implicitWidth + clockBlock.implicitWidth + 5 * rightSection.spacing
+  // Optional words on the right, granted in this order while they fit and never one past the first that does not
+  // (the VPN uptime never shows without its name): the usage countdown, the VPN's name, its uptime, the network's
+  // name, the battery's time left. Beside the notch the room is short; an external screen has room for all.
+  // Everything here is measured without the grants, so the answer cannot change the question.
+  readonly property real rightBase: notifBlock.implicitWidth + statusGroup.implicitWidth + ccuBlock.compactWidth
+    + audioGroup.implicitWidth + netBlock.baseWidth + btBlock.implicitWidth + battBlock.baseWidth
+    + clockBlock.implicitWidth + 5 * rightSection.spacing
+  readonly property real rightRoom: (notchInset > 0 ? rightRegion.width : barContent.width - leftSection.width - 48) - rightBase
+  readonly property var grants: {
+    const asks = [
+      ["ccu", ccuBlock.fullWidth - ccuBlock.compactWidth],
+      ["vpnName", netBlock.vpnNameWidth],
+      ["vpnAge", netBlock.vpnAgeWidth],
+      ["netName", netBlock.nameWidth],
+      ["battTime", battBlock.timeWidth]
+    ]
+    let room = rightRoom
+    const out = {}
+    for (const [key, w] of asks) {
+      if (w > room) break
+      out[key] = w > 0
+      room -= w
+    }
+    return out
+  }
   // Temperature in the CPU / RAM chip only when it fits: with media playing the chip must keep
   // 200 px (its natural width, not the capped one — that would make the answer change the question).
   readonly property real leftSpare: leftRegion.width - wsBlock.implicitWidth - sysBlock.baseWidth
     - (backupBlock.visible ? backupBlock.implicitWidth + leftSection.spacing : 0) - 2 * leftSection.spacing
   readonly property bool showTemp: tempAvg > 0
     && leftSpare - (mediaBlock.hasMedia ? Math.min(mediaBlock.naturalWidth, 200) : 0) >= sysBlock.tempWidth
-  readonly property bool ccuCompact: notchInset > 0
-    && rightOthers + ccuBlock.fullWidth > rightRegion.width
+  readonly property bool ccuCompact: !grants.ccu
 
   implicitWidth: parent ? parent.width : 0
   implicitHeight: notchFloor
@@ -308,9 +326,15 @@ Item {
     Row {
       id: netGroup
       spacing: 0
-      BarComponents.Network { id: netBlock; barHost: barWindow }
+      BarComponents.Network {
+        id: netBlock
+        barHost: barWindow
+        showVpnName: !!barWindow.grants.vpnName
+        showVpnAge: !!barWindow.grants.vpnAge
+        showName: !!barWindow.grants.netName
+      }
       BarComponents.Bluetooth { id: btBlock; barHost: barWindow }
-      BarComponents.Battery { id: battBlock; barHost: barWindow }
+      BarComponents.Battery { id: battBlock; barHost: barWindow; showTime: !!barWindow.grants.battTime }
     }
     BarComponents.Clock {
       id: clockBlock

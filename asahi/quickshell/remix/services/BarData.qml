@@ -194,7 +194,9 @@ Singleton {
 
   // ---- Network: nmcli monitor pushes changes; the slow poll only tracks Wi-Fi signal ----
   property string netText: "󰤨"
+  property string netName: ""
   property bool vpnUp: false
+  property string vpnName: ""
   property int vpnSince: 0
   function refreshNet() { if (!netProc.running) netProc.running = true }
   Process {
@@ -205,7 +207,9 @@ Singleton {
         try {
           const data = JSON.parse(text.trim())
           root.netText = data.text || "󰤮"
+          root.netName = data.name || ""
           root.vpnUp = !!data.vpn
+          root.vpnName = data.vpnName || ""
           root.vpnSince = Number(data.vpnSince) || 0
         } catch (e) {}
       }

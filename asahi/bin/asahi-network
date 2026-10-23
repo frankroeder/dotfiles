@@ -152,12 +152,13 @@ if [ -z "$line" ]; then
     --arg tooltip "$( [ -n "$vpn_tooltip" ] && printf '%s' "$vpn_tooltip" || printf 'Disconnected' )" \
     --arg class "disconnected" \
     --arg device "" \
+    --arg name "" \
     --arg vpn "$vpn_name" \
     --arg vpnKind "$vpn_kind" \
     --argjson percentage 0 \
     --argjson vpnUp "$([ -n "$vpn_name" ] && echo true || echo false)" \
     --argjson vpnSince "${vpn_since:-0}" \
-    '{text:$text, tooltip:$tooltip, class:$class, device:$device, percentage:$percentage, vpn:$vpnUp, vpnName:$vpn, vpnKind:$vpnKind, vpnSince:$vpnSince}'
+    '{text:$text, tooltip:$tooltip, class:$class, device:$device, name:$name, percentage:$percentage, vpn:$vpnUp, vpnName:$vpn, vpnKind:$vpnKind, vpnSince:$vpnSince}'
   exit 0
 fi
 
@@ -204,9 +205,10 @@ jq -cn \
   --arg tooltip "$tooltip" \
   --arg class "$class" \
   --arg device "$dev" \
+  --arg name "$conn" \
   --arg vpn "$vpn_name" \
   --arg vpnKind "$vpn_kind" \
   --argjson percentage "${pct:-0}" \
   --argjson vpnUp "$([ -n "$vpn_name" ] && echo true || echo false)" \
   --argjson vpnSince "${vpn_since:-0}" \
-  '{text:$text, tooltip:$tooltip, class:$class, device:$device, percentage:$percentage, vpn:$vpnUp, vpnName:$vpn, vpnKind:$vpnKind, vpnSince:$vpnSince}'
+  '{text:$text, tooltip:$tooltip, class:$class, device:$device, name:$name, percentage:$percentage, vpn:$vpnUp, vpnName:$vpn, vpnKind:$vpnKind, vpnSince:$vpnSince}'

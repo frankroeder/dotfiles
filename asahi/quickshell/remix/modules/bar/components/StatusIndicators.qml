@@ -129,7 +129,7 @@ RowLayout {
       anchors.centerIn: parent
       text: "󰽥"
       font.family: Style.fontFamily
-      font.pixelSize: Style.barFontGlyph
+      font.pixelSize: Style.barFontGlyphTall
       color: Style.orange
     }
 
@@ -196,7 +196,7 @@ RowLayout {
       id: timerRow
       anchors.centerIn: parent
       spacing: 5
-      Text { text: "󰔛"; font.family: Style.fontFamily; font.pixelSize: Style.barFontGlyph; color: root.timerArmed ? Style.red : Style.yellow }
+      Text { text: "󰔛"; font.family: Style.fontFamily; font.pixelSize: Style.barFontGlyphTall; color: root.timerArmed ? Style.red : Style.yellow }
       Text {
         text: root.timerArmed ? "cancel?"
           : ArgCommands.formatSeconds(root.timerLeft) + (root.timerCount > 1 ? " +" + (root.timerCount - 1) : "")

@@ -144,8 +144,10 @@ Singleton {
 
   readonly property int barHeight: 40
   readonly property int barFontBody: 14
-  readonly property int barFontGlyph: 22
-  readonly property int barFontMicVolIcon: 20
+  // Nerd glyphs differ in shape: square ones (bell, cup, CPU) need a larger size than tall ones (mic, battery,
+  // Bluetooth, VPN shield, thermometer) to read the same height (~14 px of ink each).
+  readonly property int barFontGlyph: 24
+  readonly property int barFontGlyphTall: 20
   readonly property int barFontCaption: 12
   readonly property int barEdgeMargin: 10
   readonly property int barIconSlot: 22

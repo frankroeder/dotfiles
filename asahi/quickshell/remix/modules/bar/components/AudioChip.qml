@@ -48,7 +48,7 @@ Item {
     Text {
       text: root.glyph
       font.family: Style.fontFamily
-      font.pixelSize: Style.barFontMicVolIcon
+      font.pixelSize: Style.barFontGlyphTall
       color: root.muted ? Style.red : root.inUse ? Style.orange : root.input ? Style.blueAlt : Style.green
     }
 

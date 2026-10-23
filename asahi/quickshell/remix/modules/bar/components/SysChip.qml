@@ -37,14 +37,17 @@ Item {
   }
 
   component Stat: Row {
+    // Centred in the chip row: the thermometer is drawn smaller than the CPU / RAM glyphs, its row is shorter.
+    anchors.verticalCenter: parent ? parent.verticalCenter : undefined
     property string icon
+    property int iconPx: Style.barFontGlyph
     property color accent
     property real value: 0
     property string suffix: "%"
     spacing: 4
     Text {
       text: icon; color: accent
-      font.family: Style.fontFamily; font.pixelSize: Style.barFontGlyph; renderType: Text.NativeRendering
+      font.family: Style.fontFamily; font.pixelSize: iconPx; renderType: Text.NativeRendering
       anchors.verticalCenter: parent.verticalCenter
     }
     Text {
@@ -76,6 +79,7 @@ Item {
       id: tempStat
       visible: root.showTemp
       icon: "󰔏"
+      iconPx: Style.barFontGlyphTall
       suffix: "°"
       readonly property real t: root.barHost ? root.barHost.tempAvg : -1
       accent: t >= 75 ? Style.red : t >= 60 ? Style.yellow : Style.teal
