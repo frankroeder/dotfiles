@@ -91,7 +91,8 @@ Item {
     let room = rightRoom
     const out = {}
     for (const [key, w] of asks) {
-      if (w > room) break
+      // The VPN's name / uptime only on screens without a notch: beside the cutout the shield says enough.
+      if (w > room || (key === "vpnName" && notchInset > 0)) break
       out[key] = w > 0
       room -= w
     }
