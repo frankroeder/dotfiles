@@ -35,7 +35,7 @@ Item {
         Text {
             text: root.warn ? Services.BtMonitor.kindGlyph(root.alert.kind) : (!root.powered ? "󰂲" : (root.anyConnected ? "󰂱" : "󰂯"))
             font.family: Style.fontFamily
-            font.pixelSize: Style.barFontMicVolIcon
+            font.pixelSize: Style.barFontGlyph
             color: root.alert.state === "critical" ? Style.red : (root.warn ? Style.orange : (root.powered ? Style.magenta : Style.textMuted))
         }
     }

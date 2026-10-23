@@ -144,7 +144,7 @@ Singleton {
 
   readonly property int barHeight: 40
   readonly property int barFontBody: 14
-  readonly property int barFontGlyph: 19
+  readonly property int barFontGlyph: 22
   readonly property int barFontMicVolIcon: 20
   readonly property int barFontCaption: 12
   readonly property int barEdgeMargin: 10
