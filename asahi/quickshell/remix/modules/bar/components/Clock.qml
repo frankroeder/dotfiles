@@ -67,7 +67,7 @@ Item {
     if (birthFile.text() !== encoded) birthFile.setText(encoded)
   }
 
-  implicitWidth: flatRow.implicitWidth + 2
+  implicitWidth: flatRow.implicitWidth + 8
   implicitHeight: Style.barHeight
 
   function sameDay(a, b) {
@@ -148,11 +148,10 @@ Item {
     onTextChanged: if (root) root.applyBirthText(birthFile.text())
     onLoadFailed: root.applyBirthText("", false)
   }
-  // Flush right: the clock is the last item, so its outer pad would double
-  // the bar edge margin (left edge sits at barEdgeMargin, right drifted to ~2×).
+  // 4 px each side inside the hover tint; a wider outer pad would double the bar edge margin.
   Row {
     id: flatRow
-    anchors.right: parent.right
+    anchors.horizontalCenter: parent.horizontalCenter
     anchors.verticalCenter: parent.verticalCenter
     spacing: 8
 

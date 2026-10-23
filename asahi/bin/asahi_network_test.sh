@@ -33,10 +33,10 @@ else
 fi
 
 qml="$ROOT/../quickshell/remix/modules/bar/components/Network.qml"
-if grep -q 'font.pixelSize: Style.barFontGlyph' "$qml" && grep -q 'root.vpnAge' "$qml"; then
-  pass "Network.qml VPN glyph matches wifi size and shows age"
+if grep -q 'font.pixelSize: Style.barFontGlyph' "$qml" && grep -q 'visible: root.vpnUp' "$qml"; then
+  pass "Network.qml shows a bar-size VPN glyph while the VPN is up"
 else
-  fail_at "Network.qml missing large VPN glyph or age"
+  fail_at "Network.qml missing the VPN glyph"
 fi
 
 if [ "$fail" -ne 0 ]; then
