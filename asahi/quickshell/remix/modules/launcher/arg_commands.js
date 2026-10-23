@@ -156,6 +156,14 @@ function formatSeconds(s) {
   return (h > 0 ? h + ":" + mm : mm) + ":" + String(r).padStart(2, "0")
 }
 
+// Bar timer chip: "1h 5m" / "12m" / "45s" — "12:31" next to the clock read as a time of day.
+function formatShort(s) {
+  s = Math.max(0, Math.floor(s))
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60)
+  if (h > 0) return h + "h " + m + "m"
+  return m > 0 ? m + "m" : s + "s"
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     placeholder: placeholder,
@@ -166,6 +174,7 @@ if (typeof module !== "undefined" && module.exports) {
     entryCommand: entryCommand,
     tabArm: tabArm,
     parseTimer: parseTimer,
-    formatSeconds: formatSeconds
+    formatSeconds: formatSeconds,
+    formatShort: formatShort
   }
 }

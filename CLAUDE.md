@@ -242,7 +242,7 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
 - **Bar notch**: cutout is a hole (`BarModel.notchRegionInset`), not a spacer. Height is geometry
   (3024x1964 → **74**), width is the real cutout (370/3024 of logical width + 12). Overflow is
   clipped at the wall; optional words are granted in priority order while they fit (`BarHost.grants`:
-  usage countdown → VPN name → VPN uptime → network name → battery time left; VPN name and later only without a notch; measured without the grants, never
+  usage countdown → VPN name → VPN uptime → network name; VPN name and later only without a notch; measured without the grants, never
   one past the first that does not fit; an external screen gets all): the countdown drops first — the clock always shows weekday + date, both in the same size and
   colour. The usage chip has a fixed width (the widest provider's measured text + 8 px each side), text
   centred (a width that followed the text shifted the bar at every 10 s rotation; right-aligned text hit the mic).

@@ -199,7 +199,7 @@ RowLayout {
       Text { text: "󰔛"; font.family: Style.fontFamily; font.pixelSize: Style.barFontGlyphTall; color: root.timerArmed ? Style.red : Style.yellow }
       Text {
         text: root.timerArmed ? "cancel?"
-          : ArgCommands.formatSeconds(root.timerLeft) + (root.timerCount > 1 ? " +" + (root.timerCount - 1) : "")
+          : ArgCommands.formatShort(root.timerLeft) + (root.timerCount > 1 ? " +" + (root.timerCount - 1) : "")
         font.family: Style.fontFamily
         font.pixelSize: Style.barFontCaption
         font.bold: true

@@ -74,21 +74,30 @@ Item {
 
   // Optional words on the right, granted in this order while they fit and never one past the first that does not
   // (the VPN uptime never shows without its name): the usage countdown, the VPN's name, its uptime, the network's
-  // name, the battery's time left. Beside the notch the room is short; an external screen has room for all.
+  // name. Beside the notch the room is short; an external screen has room for all.
   // Everything here is measured without the grants, so the answer cannot change the question.
-  readonly property real rightBase: notifBlock.implicitWidth + statusGroup.implicitWidth + ccuBlock.compactWidth
-    + audioGroup.implicitWidth + netBlock.baseWidth + btBlock.implicitWidth + battBlock.baseWidth
+  readonly property real rightBase: notifBlock.implicitWidth + statusBlock.implicitWidth + ccuBlock.compactWidth
+    + audioGroup.implicitWidth + netBlock.baseWidth + btBlock.implicitWidth + battBlock.implicitWidth
     + clockBlock.implicitWidth + 5 * rightSection.spacing
   readonly property real rightRoom: (notchInset > 0 ? rightRegion.width : barContent.width - leftSection.width - 48) - rightBase
+  // Tray icons come before the optional words: all inline while they fit (at most 3), else as many as fit plus
+  // the "+N" chip. Sized from the slot width, not the tray's own width (that would make the answer change the question).
+  readonly property int trayCount: trayBlock.items.length
+  readonly property real traySlot: Style.barIconSlot + 2
+  readonly property int trayInline: {
+    const n = trayCount
+    if (n <= 3 && n * traySlot <= rightRoom) return n
+    return Math.max(0, Math.min(3, Math.floor((rightRoom - 30) / traySlot)))
+  }
+  readonly property real trayWidth: trayInline * traySlot + (trayCount > trayInline ? 30 : 0)
   readonly property var grants: {
     const asks = [
       ["ccu", ccuBlock.fullWidth - ccuBlock.compactWidth],
       ["vpnName", netBlock.vpnNameWidth],
       ["vpnAge", netBlock.vpnAgeWidth],
-      ["netName", netBlock.nameWidth],
-      ["battTime", battBlock.timeWidth]
+      ["netName", netBlock.nameWidth]
     ]
-    let room = rightRoom
+    let room = rightRoom - trayWidth
     const out = {}
     for (const [key, w] of asks) {
       // The VPN's name / uptime only on screens without a notch: beside the cutout the shield says enough.
@@ -280,6 +289,14 @@ Item {
 
   // No containers: groups (status · usage · mic + volume · Wi-Fi + Bluetooth + battery · clock) read through spacing,
   // 6 px between them, none inside (each chip keeps its 3 px pad).
+  // Guard: whatever still does not fit is cut at the bell's edge instead of drawing over it.
+  Item {
+    anchors.right: parent.right
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    width: notifNotch.visible ? parent.width - notifNotch.width - 4 : parent.width
+    clip: true
+
   Row {
     id: rightSection
     anchors.right: parent.right
@@ -300,6 +317,7 @@ Item {
       spacing: 0
       BarComponents.SystemTray {
         id: trayBlock
+        maxInline: barWindow.trayInline
         barHeight: barWindow.notchFloor
         trayScreen: barWindow.barScreen
         barHost: barWindow
@@ -335,7 +353,7 @@ Item {
         showName: !!barWindow.grants.netName
       }
       BarComponents.Bluetooth { id: btBlock; barHost: barWindow }
-      BarComponents.Battery { id: battBlock; barHost: barWindow; showTime: !!barWindow.grants.battTime }
+      BarComponents.Battery { id: battBlock; barHost: barWindow }
     }
     BarComponents.Clock {
       id: clockBlock
@@ -343,6 +361,7 @@ Item {
       calendarOpen: barWindow.calendarOpen
       onCalendarToggle: barWindow.calendarToggle()
     }
+  }
   }
   }
   }

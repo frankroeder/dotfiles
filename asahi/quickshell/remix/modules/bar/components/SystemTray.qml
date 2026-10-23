@@ -37,7 +37,7 @@ Item {
       delegate: Item {
         id: slot
         required property var modelData
-        width: Style.barIconSlot - 4
+        width: Style.barIconSlot
         height: Style.barHeight
 
         readonly property bool needsAttention: slot.modelData.status === SystemTrayItem.NeedsAttention
@@ -54,8 +54,9 @@ Item {
         Image {
           id: iconImage
           anchors.centerIn: parent
-          width: 20
-          height: 20
+          // 18 px: the bar's glyphs are ~14 px of ink; app icons fill their square.
+          width: 18
+          height: 18
           source: BarModel.trayIcon(slot.modelData.icon)
           visible: status === Image.Ready
           fillMode: Image.PreserveAspectFit
@@ -117,9 +118,9 @@ Item {
     // there is something to hide.
     Rectangle {
       width: overflowText.implicitWidth + 10
-      height: Style.barHeight - 2 * Style.barChipInset
+      height: 22
       anchors.verticalCenter: parent.verticalCenter
-      radius: height / 2
+      radius: Style.radiusSm
       // Stay visible while the panel is open: overflow can drop to 0 meanwhile, and this chip closes it.
       visible: root.overflowCount > 0 || trayPanel.shouldShow
       color: (overflowMouse.containsMouse || trayPanel.shouldShow) ? Style.barStripHover : "transparent"

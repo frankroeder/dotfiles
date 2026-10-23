@@ -76,6 +76,9 @@ assert.strictEqual(A.parseTimer("timer 0m"), null, "zero length");
 assert.strictEqual(A.formatSeconds(90), "1:30");
 assert.strictEqual(A.formatSeconds(4530), "1:15:30");
 assert.strictEqual(A.formatSeconds(5), "0:05");
+assert.strictEqual(A.formatShort(751), "12m");
+assert.strictEqual(A.formatShort(45), "45s");
+assert.strictEqual(A.formatShort(3900), "1h 5m");
 
 const fs = require("fs");
 const path = require("path");
