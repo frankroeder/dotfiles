@@ -251,7 +251,7 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   media (gets the leftover, `maxChipWidth`). Bell (`Notifications.qml`): on the notched panel pinned
   to the right wall of the cutout (`notifNotch`), elsewhere the first right chip (`notifBlock`);
   counted in `rightOthers`. Clock stays rightmost; at the left the bell starved the media chip.
-  No trays ("strip, spaced"): groups read through spacing — 10 px between, 2 px inside: right side
+  No trays ("strip, spaced"): groups read through spacing — 6 px between, chips touch inside: right side
   `[tray · status]` `[usage]` `[mic · volume]` `[Wi-Fi · BT · battery]` `[clock]`; `rightOthers` sums the groups.
   On the notched panel the media title runs up to the cutout's wall (no 380 px cap there).
   SysChip adds the average SMC temperature (`tempAvg`: mean of macsmc_hwmon `temp*_input`, read

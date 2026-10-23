@@ -209,7 +209,7 @@ Item {
     id: leftSection
     anchors.left: parent.left
     anchors.verticalCenter: parent.verticalCenter
-    spacing: 10
+    spacing: 6
     move: chipMove
     add: chipAdd
 
@@ -260,12 +260,12 @@ Item {
   }
 
   // No containers: groups (status · usage · mic + volume · Wi-Fi + Bluetooth + battery · clock) read through spacing,
-  // 10 px between them, 2 px inside.
+  // 6 px between them, none inside (each chip keeps its 3 px pad).
   Row {
     id: rightSection
     anchors.right: parent.right
     anchors.verticalCenter: parent.verticalCenter
-    spacing: 10
+    spacing: 6
     // No `move` here: the Row is anchored right, so it shifts at once while `move` animated the
     // children from their old in-row x — everything right of a new chip (REC) jumped and slid back.
     add: chipAdd
@@ -278,7 +278,7 @@ Item {
 
     Row {
       id: statusGroup
-      spacing: 2
+      spacing: 0
       BarComponents.SystemTray {
         id: trayBlock
         barHeight: barWindow.notchFloor
@@ -301,13 +301,13 @@ Item {
 
     Row {
       id: audioGroup
-      spacing: 2
+      spacing: 0
       BarComponents.AudioChip { id: micBlock; input: true; barHost: barWindow }
       BarComponents.AudioChip { id: volBlock; barHost: barWindow }
     }
     Row {
       id: netGroup
-      spacing: 2
+      spacing: 0
       BarComponents.Network { id: netBlock; barHost: barWindow }
       BarComponents.Bluetooth { id: btBlock; barHost: barWindow }
       BarComponents.Battery { id: battBlock; barHost: barWindow }

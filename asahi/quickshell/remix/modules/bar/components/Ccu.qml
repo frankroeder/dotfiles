@@ -64,8 +64,8 @@ Rectangle {
 
   color: "transparent"
   // Fixed width, so nothing shifts as chips rotate (every 10 s): the widest chip, measured, plus the same
-  // 8 px pad on both sides. The text is centred, so a shorter chip splits its slack evenly.
-  readonly property int chipPad: 8
+  // 3 px pad on both sides. The text is centred, so a shorter chip splits its slack evenly.
+  readonly property int chipPad: 3
   implicitWidth: Math.max(56, chipBoxW + 2 * chipPad)
   implicitHeight: Style.barHeight
 
