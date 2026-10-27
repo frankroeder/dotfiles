@@ -628,17 +628,22 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
   left `running` reads `interrupted`). `IOSchedulingClass` alone is weak on mq-deadline — units also
   get `CPUWeight=idle` (`start` passes the same props).
   State `~/.local/state/asahi/timemachine.json` = flock + atomic `mv` (FileView follows renames;
-  `status` only reads it and adds restic percent/ETA). `overview` caches snapshots + old rsync dirs +
-  drive df (one SFTP session). Bar `BackupChip` (left of the notch, after SysChip) only while running /
+  `status` only reads it and adds restic percent/ETA). `overview` caches snapshots (one `snapshots` call,
+  split by tag) + drive df (one SFTP session). Bar `BackupChip` (left of the notch, after SysChip) only while running /
   failed / check_error (red) / overdue (orange). Quick pane `backup` (Super+Ctrl+R): overview tiles,
   30-day strip, snapshots, browse (listings cached per snap|path; `ls` exit 4 = folder not in that
   snapshot), restore → `~/Restored/<date>-<id>[-HHMMSS]/<abs path>` (a re-restore gets a new folder —
   restic's default `--overwrite always`; nothing matched (non-UTF-8 `�` name) = exit 1; real path in
   `.last_restore`, since the transient unit runs **without** `--pipe` — a dead client would SIGPIPE
-  it). Names/errors are `Text.PlainText`. The old rsync snapshots `fedora-home-backup-*` on that
-  drive are `chattr +i` — never delete (2026-09-28 is the last full one). No sleep inhibitor (lid
+  it). Names/errors are `Text.PlainText`. Old rsync home copies live in the repo as one tar each (tag
+  `legacy-rsync`; `restic dump <id> /<name>.tar | tar -x <path>`); `forget` runs `--tag asahi` only. No sleep inhibitor (lid
   close must still suspend). After install: `asahi-timemachine init` (key, password, repo, timer).
   Test: `asahi/bin/asahi_timemachine_test.sh`.
+- **Snapper**: AsahiLocker's stock configs (`root`, `home`) used plain-number limits, so `FREE_LIMIT` never freed
+  anything (it only acts on **ranges**). `./install.sh asahi-snapper`: short ranged retention, no monthly/yearly
+  (restic keeps history), `home` `ALLOW_USERS`. Caches / Flatpak / Nextcloud become nested subvolumes (not in
+  snapshots) — only restic-excluded dirs, since restic's `--one-file-system` skips subvolumes. Never stage big
+  temp files in `~` or `/`: hourly snapshots pin them.
 - **Writing tools**: Super+Shift+E → `modules/writing/WritingTools.qml` (GlobalShortcut `writing-tools`).
   `asahi-writing-tools capture` copies the focused window's live selection (`send_shortcut` Ctrl+C behind a
   `--sensitive` marker, previous clipboard restored **always** `--sensitive` — a browser password has no

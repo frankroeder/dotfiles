@@ -4,6 +4,7 @@
 export DOTFILES=$HOME/.dotfiles
 export OSTYPE=$(uname -s)
 export ARCHITECTURE=$(uname -m)
+export npm_config_cache="$HOME/.cache/npm"  # with the other caches (one subvolume, not in snapshots)
 
 if [[ "$TERM_PROGRAM" == "ghostty" ]]; then
     export TERM=xterm-256color

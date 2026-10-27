@@ -210,7 +210,8 @@ $(hms "$(jq -r '.total_duration // 0' <<<"$summary")") → $(where)$( (( unreada
   # Housekeeping; the snapshot is already saved, so failures here only get logged.
   # Prune (repacks, slow over SFTP) at most weekly.
   due last_prune 7 && prune=(--prune)
-  if r forget --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --keep-yearly 3 "${prune[@]}" >&2 \
+  # --tag asahi: the imported old rsync copies (tag legacy-rsync) never expire.
+  if r forget --tag asahi --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --keep-yearly 3 "${prune[@]}" >&2 \
     && (( ${#prune[@]} )); then
     put '.last_prune = (now | todate)'
   fi
@@ -261,20 +262,20 @@ cmd_status() {
 }
 
 # Snapshots + old rsync snapshots + drive space, cached in the state file (pane shows it at once).
+# Old rsync home copies live in the repo as one tar each (tag legacy-rsync): restic dump <id> /<name>.tar | tar -x <path>.
 overview() {
-  local snaps legacy disk out
-  snaps="$(r snapshots --json --tag asahi | jq '[.[] | {id: .short_id, time, hostname, paths,
+  local all snaps legacy disk out
+  all="$(r snapshots --json)"
+  snaps="$(jq '[.[] | select(.tags // [] | index("asahi")) | {id: .short_id, time, hostname, paths,
     files: (.summary.total_files_processed // null), bytes: (.summary.total_bytes_processed // null),
-    added: (.summary.data_added // null)}] | sort_by(.time) | reverse')"
+    added: (.summary.data_added // null)}] | sort_by(.time) | reverse' <<<"$all")"
+  legacy="$(jq '[.[] | select(.tags // [] | index("legacy-rsync")) | .paths[0] | ltrimstr("/") | rtrimstr(".tar")]' <<<"$all")"
   if [ "$target" = local ]; then
-    legacy="$(cd "${repo%/*}" && ls -d fedora-home-backup-20* 2>/dev/null | jq -R . | jq -s . || true)"
     disk="$(df -B1 --output=size,used,avail "$repo" | awk 'NR == 2 {printf "{\"size\":%s,\"used\":%s,\"avail\":%s}", $1, $2, $3}')"
   else
-    # One SFTP session for both; "-" = keep going if a command fails.
-    out="$(printf -- '-ls -1 %s\n-df %s\n' "${TM_SFTP_PATH%/*}" "$TM_SFTP_PATH" \
+    out="$(printf -- '-df %s\n' "$TM_SFTP_PATH" \
       | timeout 20 sftp -q -b - -F /dev/null -i "$key" -o IdentitiesOnly=yes -o IdentityAgent=none \
         -o BatchMode=yes -o LogLevel=ERROR -P "$TM_PORT" "$TM_SFTP" 2>/dev/null || true)"
-    legacy="$(grep -o 'fedora-home-backup-20[0-9-]*$' <<<"$out" | jq -R . | jq -s . || true)"
     disk="$(awk '$1 ~ /^[0-9]+$/ {printf "{\"size\":%s,\"used\":%s,\"avail\":%s}", $1 * 1024, $2 * 1024, $3 * 1024}' <<<"$out")"
   fi
   put --argjson sn "$snaps" --argjson leg "${legacy:-[]}" --argjson d "${disk:-null}" --arg w "$(where)" --arg t "$target" \

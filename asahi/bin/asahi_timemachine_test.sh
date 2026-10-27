@@ -29,18 +29,20 @@ case "$*" in
     '{"struct_type":"node","name":"h","type":"dir","path":"/h","mtime":"x"}' \
     '{"struct_type":"node","name":"b.txt","type":"file","path":"/h/b.txt","size":3,"mtime":"x"}' \
     '{"struct_type":"node","name":"A","type":"dir","path":"/h/A","mtime":"x"}' ;;
-  *" snapshots "*) echo '[{"short_id":"aa","time":"2026-10-01T00:00:00Z","paths":["/h"]},{"short_id":"bb","time":"2026-10-02T00:00:00Z","paths":["/h"]}]' ;;
+  *" snapshots "*) echo '[{"short_id":"aa","time":"2026-10-01T00:00:00Z","paths":["/h"],"tags":["asahi"]},
+    {"short_id":"bb","time":"2026-10-02T00:00:00Z","paths":["/h"],"tags":["asahi"]},
+    {"short_id":"cc","time":"2026-09-28T08:07:13Z","paths":["/fedora-home-backup-2026-09-28.tar"],"tags":["legacy-rsync"]}]' ;;
 esac
 EOF
 cat >"$tmp/bin/notify-send" <<'EOF'
 #!/bin/sh
 echo "notify $*" >>"$TM_LOG"
 EOF
-# sftp batch output: the old rsync dir listing + df (KiB); FAKE_SFTP=empty = no rsync dirs, no df.
+# sftp batch output: df (KiB); FAKE_SFTP=empty = sftp error, no df.
 cat >"$tmp/bin/sftp" <<'EOF'
 #!/bin/sh
 [ "$FAKE_SFTP" = empty ] && exit 1
-printf '%s\n' 'sftp> -ls -1 /x' '/x/fedora-home-backup-2026-09-28' '/x/restic' 'sftp> -df /x/restic' \
+printf '%s\n' 'sftp> -df /x/restic' \
   '        Size         Used        Avail       (root)    %Capacity' '        1000          400          600          600          40%'
 EOF
 # The SFTP reachability probe (`timeout 5 bash -c "</dev/tcp/…"`) succeeds unless FAKE_OFFLINE is set;
@@ -111,12 +113,12 @@ fi
 
 ov="$(tm overview)"
 if [ "$(jq -c '[.snapshots[0].id, .legacy, .disk.avail]' <<<"$ov")" = '["bb",["fedora-home-backup-2026-09-28"],614400]' ]; then
-  pass "overview: snapshots newest first, rsync dirs, drive space (one sftp session)"
+  pass "overview: asahi snapshots newest first, legacy-rsync tars as old rsync copies, drive space"
 else
   fail_at "overview: $ov"
 fi
-if [ "$(FAKE_SFTP=empty tm overview | jq -c '[.legacy, .disk]')" = '[[],null]' ]; then
-  pass "overview: no rsync dirs / sftp error → [] and null, not a crash"
+if [ "$(FAKE_SFTP=empty tm overview | jq -c '[.legacy, .disk]')" = '[["fedora-home-backup-2026-09-28"],null]' ]; then
+  pass "overview: sftp error → disk null, not a crash"
 else
   fail_at "overview empty sftp: $(FAKE_SFTP=empty tm overview)"
 fi
@@ -147,7 +149,7 @@ fi
 tm run --force >/dev/null
 if [ "$(jq -r '.state + " " + (.overview.legacy | join(","))' "$state")" = "ok fedora-home-backup-2026-09-28" ] \
   && grep -q 'Backup started' "$tmp/restic.log" && grep -q 'Backup done' "$tmp/restic.log" \
-  && grep -q 'forget .*--prune' "$tmp/restic.log" && grep -q 'restic .* unlock' "$tmp/restic.log" \
+  && grep -q 'forget --tag asahi .*--prune' "$tmp/restic.log" && grep -q 'restic .* unlock' "$tmp/restic.log" \
   && grep -q 'check --read-data-subset' "$tmp/restic.log" && [ "$(jq -c '[.repo.size, .last_run.unreadable, .housekeeping]' "$state")" = '[500,0,null]' ]; then
   pass "run: ok state, legacy list, start/done notifications, unlock, first run prunes + checks, repo size"
 else

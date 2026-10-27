@@ -651,6 +651,69 @@ comp_asahi_charge_limit() {
   fi
 }
 
+# Turn an existing dir into a btrfs subvolume: nested subvolumes are left out of the parent's snapshots.
+# Reflink copy (no extra space), then an atomic swap, so the path never disappears; the old tree is removed.
+subvol_dir() {
+  local d="$1" tmp="$1.subvol-new"
+  [ "$(stat -c %i "$d")" = 256 ] && return 0
+  if ! { btrfs subvolume create "$tmp" >/dev/null && cp -a --reflink=always "$d/." "$tmp/" && mv -T --exchange "$tmp" "$d"; }; then
+    rm -rf "$tmp"
+    print_error "could not turn $d into a subvolume"
+    return 1
+  fi
+  rm -rf "$tmp"
+  print_ok "subvolume: ${d/#$HOME/\~}"
+}
+
+# snapper came with AsahiLocker's post-encryption-setup (root + home, stock template): hourly snapshots kept
+# 10 h / 10 d / 10 months / 10 years as plain numbers, so FREE_LIMIT never deleted anything and every cache,
+# Flatpak update or temp file in ~ stayed pinned for months. Ranges let cleanup go down to the minimum while
+# free space is below 20 %; long-term history of ~ is restic's job (asahi-timemachine).
+comp_asahi_snapper() {
+  require_linux
+  print_step "Tuning snapper (short retention, free-space cleanup, no caches in snapshots of ~)"
+  if [ ! -f /etc/snapper/configs/root ]; then
+    print_ok "no snapper configs; nothing to tune"
+    return 0
+  fi
+  if [ -n "$NOSUDO" ]; then
+    print_warning "asahi-snapper changes snapper configs; skipping"
+    return 0
+  fi
+  sudo snapper -c root set-config TIMELINE_LIMIT_HOURLY=2-6 TIMELINE_LIMIT_DAILY=2-7 TIMELINE_LIMIT_WEEKLY=0-4 \
+    TIMELINE_LIMIT_MONTHLY=0 TIMELINE_LIMIT_QUARTERLY=0 TIMELINE_LIMIT_YEARLY=0 NUMBER_LIMIT=2-10 FREE_LIMIT=0.2 \
+    || { print_error "snapper set-config root failed"; exit 1; }
+  sudo snapper -c root cleanup all || { print_error "snapper cleanup root failed"; exit 1; }
+  [ -f /etc/snapper/configs/home ] || return 0
+  # ALLOW_USERS + SYNC_ACL: list / delete snapshots of ~ without sudo.
+  sudo snapper -c home set-config TIMELINE_LIMIT_HOURLY=2-12 TIMELINE_LIMIT_DAILY=2-7 TIMELINE_LIMIT_WEEKLY=0 \
+    TIMELINE_LIMIT_MONTHLY=0 TIMELINE_LIMIT_QUARTERLY=0 TIMELINE_LIMIT_YEARLY=0 NUMBER_LIMIT=2-10 FREE_LIMIT=0.2 \
+    ALLOW_USERS="$USER" SYNC_ACL=yes || { print_error "snapper set-config home failed"; exit 1; }
+  sudo snapper -c home cleanup all || { print_error "snapper cleanup home failed"; exit 1; }
+  # Only dirs restic excludes anyway: its --one-file-system skips subvolumes. Flatpak-owned trees need their
+  # app closed (the runtimes dir: every app).
+  local d id busy=() running
+  running="$(flatpak ps --columns=application 2>/dev/null)"
+  for d in "$HOME/.cache" "$HOME/.local/share/flatpak" "$HOME/Nextcloud" "$HOME"/.var/app/*/cache; do
+    [ -d "$d" ] && [ "$(stat -c %i "$d")" != 256 ] || continue
+    id=""
+    case "$d" in
+      "$HOME/.local/share/flatpak") id="$(printf '%s' "$running" | tr '\n' ' ')" ;;
+      "$HOME/Nextcloud") id="$(grep -x com.nextcloud.desktopclient.nextcloud <<<"$running")" ;;
+      "$HOME/.var/app/"*) id="${d#"$HOME/.var/app/"}"; id="$(grep -x "${id%/cache}" <<<"$running")" ;;
+    esac
+    if [ -n "$id" ]; then
+      busy+=("${d/#$HOME/\~} ($id)")
+      continue
+    fi
+    subvol_dir "$d" || exit 1
+  done
+  if [ ${#busy[@]} -gt 0 ]; then
+    print_error "quit these Flatpak apps and rerun: ${busy[*]}"
+    exit 1
+  fi
+}
+
 comp_asahi_common() {
   comp_directories
   comp_git

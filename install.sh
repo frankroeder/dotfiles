@@ -20,7 +20,8 @@
 #   directories git zsh python misc node nvim agents terminal default-shell
 #   homebrew macos-apps sketchybar vicinae icloud  (macOS)
 #   linux-base                            (Linux)
-#   asahi-system asahi-logind asahi-getty asahi-sshd asahi-desktop asahi-battery-alerts asahi-charge-limit  (Asahi)
+#   asahi-system asahi-logind asahi-getty asahi-sshd asahi-desktop asahi-battery-alerts asahi-charge-limit
+#   asahi-snapper  (Asahi)
 #   after services                        (post-install / desktop services)
 #
 # Meta commands:
@@ -98,6 +99,7 @@ profile_micro() {
 profile_asahi() {
   require_linux; require_tools; ensure_sudo
   comp_asahi_system
+  comp_asahi_snapper
   comp_asahi_desktop
   comp_asahi_battery_alerts
   comp_default_shell
@@ -157,6 +159,7 @@ case "$TARGET" in
   asahi-desktop)        comp_asahi_desktop ;;
   asahi-battery-alerts) comp_asahi_battery_alerts ;;
   asahi-charge-limit)   comp_asahi_charge_limit ;;
+  asahi-snapper)        comp_asahi_snapper ;;
 
   after)                comp_after ;;
   services)             comp_services ;;
