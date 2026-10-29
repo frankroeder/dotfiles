@@ -12,7 +12,7 @@ class OKLab:
     a: float
     b: float
 
-    def to_oklch(self) -> "OKLCH":
+    def to_oklch(self) -> OKLCH:
         chroma = math.hypot(self.a, self.b)
         hue = math.atan2(self.b, self.a) * 180.0 / math.pi
         if hue < 0:
@@ -106,12 +106,8 @@ def max_chroma(l: float, h: float) -> float:
 
 def hex_from_oklch(l: float, c: float, h: float) -> str:
     lch = gamut_map(OKLCH(clamp(l, 0.0, 1.0), max(0.0, c), normalize_hue(h)))
-    r, g, b = oklab_to_linear_srgb(lch.to_oklab())
-    return "#{0:02x}{1:02x}{2:02x}".format(
-        int(round(clamp(linear_to_srgb(r), 0.0, 1.0) * 255)),
-        int(round(clamp(linear_to_srgb(g), 0.0, 1.0) * 255)),
-        int(round(clamp(linear_to_srgb(b), 0.0, 1.0) * 255)),
-    )
+    r, g, b = (round(clamp(linear_to_srgb(v), 0.0, 1.0) * 255) for v in oklab_to_linear_srgb(lch.to_oklab()))
+    return f"#{r:02x}{g:02x}{b:02x}"
 
 
 def normalize_hue(value: float) -> float:
@@ -122,7 +118,7 @@ def normalize_hue(value: float) -> float:
 
 
 def clamp(value: float, lo: float, hi: float) -> float:
-    return lo if value < lo else hi if value > hi else value
+    return lo if value < lo else min(value, hi)
 
 
 def hue_distance(a: float, b: float) -> float:

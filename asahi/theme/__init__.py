@@ -1,8 +1,8 @@
 """asahi wallpaper adaptive theming package."""
 
+from .apply import apply_live, state_dir, write_all
 from .extract import extract_representatives
 from .palette import Palette, build_palette
-from .apply import apply_live, state_dir, write_all
 
 __all__ = [
     "Palette",

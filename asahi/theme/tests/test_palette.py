@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Minimal unit checks for asahi theme extraction (no ImageMagick required for oklab)."""
 
 from __future__ import annotations
@@ -11,9 +10,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT.parent))
 
-from theme.oklab import OKLCH, from_srgb8, hex_from_oklch, hue_distance, max_chroma  # noqa: E402
-from theme.extract import Representative, merge_close  # noqa: E402
-from theme.palette import FLAVORS, HUES, _toward, build_palette  # noqa: E402
+from theme.extract import Representative, merge_close
+from theme.oklab import OKLCH, from_srgb8, hex_from_oklch, hue_distance, max_chroma
+from theme.palette import FLAVORS, HUES, _toward, build_palette
 
 
 def lch(hx: str):
@@ -64,7 +63,7 @@ WALLS = {"navy": REPS, "grey": GREY, "light": LIGHT, "crimson": CRIMSON, "orange
 # Every ANSI / named color and the hue family it has to stay in.
 FAMILY = {
     "red": "red", "orange": "orange", "yellow": "yellow", "green": "green", "cyan": "cyan", "blue": "blue",
-    "magenta": "magenta", "brown": "orange", "bright_red": "red", "bright_yellow": "yellow", "bright_green": "green",
+    "magenta": "magenta", "bright_red": "red", "bright_yellow": "yellow", "bright_green": "green",
     "bright_cyan": "cyan", "bright_blue": "blue", "bright_magenta": "magenta", "rosewater": "red", "flamingo": "red",
     "pink": "magenta", "mauve": "magenta", "maroon": "red", "peach": "orange", "teal": "cyan", "sky": "cyan",
     "sapphire": "blue", "lavender": "blue",

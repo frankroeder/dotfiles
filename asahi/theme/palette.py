@@ -78,14 +78,8 @@ class Palette:
     # Omagen-like semantic roles
     accent: str
     selection: str
-    muted: str
     background: str
-    dark_background: str
-    darker_background: str
-    lighter_background: str
     foreground: str
-    dark_foreground: str
-    light_foreground: str
     bright_foreground: str
 
     red: str
@@ -95,7 +89,6 @@ class Palette:
     cyan: str
     blue: str
     magenta: str
-    brown: str
     bright_red: str
     bright_yellow: str
     bright_green: str
@@ -203,7 +196,6 @@ def build_palette(
         lighter_background = hex_from_oklch(bg_l + 0.070, bg_c * 1.10, s.H)
         foreground_hex = hex_from_oklch(0.88, fg_c, f.H)
         dark_foreground = hex_from_oklch(0.58, fg_c * 0.85, f.H)
-        light_foreground = hex_from_oklch(0.94, fg_c * 0.70, f.H)
         bright_foreground = hex_from_oklch(0.98, fg_c * 0.45, f.H)
         accent_hex = hex_from_oklch(accent_l, accent_c, a.H)
         selection_hex = hex_from_oklch(bg_l + 0.16, sel_c, sel.H)
@@ -235,7 +227,6 @@ def build_palette(
         lighter_background = hex_from_oklch(min(0.99, bg_l + 0.03), bg_c * 0.85, s.H)
         foreground_hex = hex_from_oklch(0.28, fg_c, f.H)
         dark_foreground = hex_from_oklch(0.42, fg_c * 0.85, f.H)
-        light_foreground = hex_from_oklch(0.20, fg_c * 0.70, f.H)
         bright_foreground = hex_from_oklch(0.14, fg_c * 0.45, f.H)
         accent_hex = hex_from_oklch(accent_l, accent_c, a.H)
         selection_hex = hex_from_oklch(bg_l - 0.10, sel_c, sel.H)
@@ -280,14 +271,8 @@ def build_palette(
         variant=variant,
         accent=accent_hex,
         selection=selection_hex,
-        muted=muted_hex,
         background=background,
-        dark_background=dark_background,
-        darker_background=darker_background,
-        lighter_background=lighter_background,
         foreground=foreground_hex,
-        dark_foreground=dark_foreground,
-        light_foreground=light_foreground,
         bright_foreground=bright_foreground,
         red=red,
         orange=orange,
@@ -296,7 +281,6 @@ def build_palette(
         cyan=cyan,
         blue=blue,
         magenta=magenta,
-        brown=tone("orange", 0.52, 0.42, 0.12 * 0.44),
         bright_red=tone("red", 0.78, 0.48, 0.14),
         bright_yellow=tone("yellow", 0.78, 0.48, 0.14),
         bright_green=tone("green", 0.78, 0.48, 0.14),

@@ -327,18 +327,12 @@ def reload_btop() -> None:
 
 
 def install_ghostty_theme(theme_file: Path, themes: Path | None = None) -> Path | None:
-    candidates = [themes] if themes is not None else [
-        Path.home() / ".config" / "ghostty" / "themes",
-        Path.home() / ".dotfiles" / "asahi" / "ghostty" / "themes",
-    ]
-    for dest_dir in candidates:
-        if dest_dir is None:
-            continue
-        if dest_dir.parent.exists() or dest_dir.exists():
-            dest = dest_dir / "asahi-adaptive"
-            _atomic_write(dest, theme_file.read_bytes())
-            return dest
-    return None
+    dest_dir = themes or ghostty_config_dir() / "themes"
+    if not dest_dir.parent.exists():
+        return None
+    dest = dest_dir / "asahi-adaptive"
+    _atomic_write(dest, theme_file.read_bytes())
+    return dest
 
 
 def apply_hyprland_live(p: Palette) -> None:

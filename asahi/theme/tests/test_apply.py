@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Writer checks for asahi-autotheme artifacts (no wallpaper / ImageMagick)."""
 
 from __future__ import annotations
@@ -16,7 +15,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT.parent))
 
-from theme.apply import (  # noqa: E402
+from theme.apply import (
     preview_ghostty,
     write_btop_theme,
     write_colors_env,
@@ -27,9 +26,9 @@ from theme.apply import (  # noqa: E402
     write_hyprland_lua,
     write_hyprlock_conf,
 )
-from theme.oklab import from_srgb8  # noqa: E402
-from theme.extract import Representative  # noqa: E402
-from theme.palette import build_palette  # noqa: E402
+from theme.extract import Representative
+from theme.oklab import from_srgb8
+from theme.palette import build_palette
 
 
 def _dark_palette():
