@@ -60,7 +60,7 @@ const snap = {
       battery: { percent: 8 }, state: "critical" },
     { id: "up-kbd", key: "up:SER", name: "Apple Inc. Magic Keyboard", kind: "keyboard", online: true, connection: "usb", source: "upower",
       battery: { percent: 100 }, state: "ok" },
-    { id: "bt-E8", key: "bt:E8:85", address: "E8:85", name: "Pömpel", kind: "headset", online: true, connection: "bluetooth",
+    { id: "bt-AA01", key: "bt:AA:01", address: "AA:01", name: "Kopfhörer", kind: "headset", online: true, connection: "bluetooth",
       adapter: "hci0", source: "bluez", battery: null, state: "ok" },
     { id: "hidraw7-direct", key: "c08b", name: "G502", kind: "mouse", online: true, connection: "usb", denied: true },
     { id: "hidraw9-direct", key: "b023", address: "AA:BB", name: "MX Ergo", kind: "trackball", online: true, connection: "bluetooth",
@@ -71,7 +71,7 @@ const snap = {
 let links = M.mapLinks(snap)
 assert.deepStrictEqual(links.map(l => t(l.title) + (l.n ? " " + l.n : "")), ["Built-in Bluetooth", "Bolt dongle 1", "Bolt dongle 2", "USB cable"])
 assert.deepStrictEqual([links[0].vendor, t(links[0].sub)], ["Broadcom", "Inside this PC"])
-assert.deepStrictEqual(links[0].devices.map(d => d.name), ["Pömpel", "MX Ergo"])
+assert.deepStrictEqual(links[0].devices.map(d => d.name), ["Kopfhörer", "MX Ergo"])
 assert.strictEqual(t(links[1].sub, links[1].subArgs), "1 of 6 slots")
 assert.strictEqual(links[2].devices.length, 0)  // empty receiver still shows (free slots)
 assert.deepStrictEqual(links[3].devices.map(d => d.id), ["up-kbd", "hidraw7-direct"])
@@ -83,8 +83,8 @@ assert.deepStrictEqual(sticks.map(l => [l.title, l.n]), [["btDongle", undefined]
 
 // --- pane rows ---
 const bluez = [
-  { address: "E8:85", label: "Pömpel", connected: true, paired: true, icon: "audio-headphones" },
-  { address: "B0:BE", label: "Frank’s Magic Keyboard", connected: false, paired: true, icon: "input-keyboard" },
+  { address: "AA:01", label: "Kopfhörer", connected: true, paired: true, icon: "audio-headphones" },
+  { address: "AA:02", label: "Frank’s Magic Keyboard", connected: false, paired: true, icon: "input-keyboard" },
   { address: "11:22", label: "Speaker", connected: false, paired: false, icon: "audio-card" },
   { address: "33:44", label: "Old Mouse", connected: true, paired: true, icon: "input-mouse", batteryAvailable: true, battery: 20 },
   { address: "aa:bb", label: "MX Ergo", connected: true, paired: true, icon: "input-mouse", batteryAvailable: true, battery: 5 },
@@ -92,12 +92,12 @@ const bluez = [
 ]
 let rows = M.paneRows(bluez, snap, false)
 assert.deepStrictEqual(rows.map(r => r.label),
-  ["MX Ergo", "Old Mouse", "Pömpel", "Apple Inc. Magic Keyboard", "G502", "MX Master 3", "Frank’s Magic Keyboard"])
+  ["Kopfhörer", "MX Ergo", "Old Mouse", "Apple Inc. Magic Keyboard", "G502", "MX Master 3", "Frank’s Magic Keyboard"])
 assert.deepStrictEqual(rows.map(r => r.section && t(r.section)), ["Connected", "", "", "USB & receivers", "", "", "Paired"])
 const ergo = rows.find(r => r.label === "MX Ergo")
 // BlueZ battery, own state
 assert.deepStrictEqual([ergo.mon.id, ergo.connected, ergo.battery.percent, ergo.state], ["hidraw9-direct", true, 5, "critical"])
-assert.strictEqual(rows.find(r => r.label === "Pömpel").mon.id, "bt-E8")  // merged with the monitor's BlueZ entry
+assert.strictEqual(rows.find(r => r.label === "Kopfhörer").mon.id, "bt-AA01")  // merged with the monitor's BlueZ entry
 assert.strictEqual(rows.find(r => r.label === "Old Mouse").state, "low")  // BlueZ battery fallback uses the thresholds
 const mx = rows.find(r => r.label === "MX Master 3")
 assert.deepStrictEqual([mx.state, mx.wired], ["critical", true])

@@ -170,6 +170,7 @@ PopupWindow {
             spacing: 2
             Text {
               Layout.fillWidth: true
+              textFormat: Text.PlainText
               text: (Services.Recorder.file || "").split("/").pop() || "…"
               color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: 12; font.weight: Font.Medium; elide: Text.ElideMiddle
             }
@@ -241,7 +242,10 @@ PopupWindow {
                   color: Style.m3primaryContainer
                   Text { anchors.centerIn: parent; text: "󰕧"; color: Style.m3primary; font.family: Style.menuMono; font.pixelSize: 18 }
                 }
-                Text { Layout.fillWidth: true; text: modelData.label; color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: 12; elide: Text.ElideMiddle }
+                Text {
+                  Layout.fillWidth: true; textFormat: Text.PlainText; text: modelData.label
+                  color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: 12; elide: Text.ElideMiddle
+                }
                 Text { text: Services.Recorder.fmtBytes(modelData.bytes); color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: 11 }
                 IconBtn {
                   text: armed ? "󰆴" : "󰩹"

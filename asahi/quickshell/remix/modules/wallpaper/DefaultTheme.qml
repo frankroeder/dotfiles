@@ -39,7 +39,6 @@ Singleton {
   property color lavender:  "#b4befe"
 
   property string mode: "dark"
-  property string wallpaper: ""
   property string variant: "source"
   property color accent: blue
   property int generation: 0
@@ -61,7 +60,6 @@ Singleton {
       if (data.accent) root.accent = data.accent
       else if (data.blue) root.accent = data.blue
       if (data.mode) root.mode = data.mode
-      if (data.wallpaper) root.wallpaper = data.wallpaper
       if (data.variant) root.variant = data.variant
       root.generation += 1
       return true

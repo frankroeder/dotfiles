@@ -64,7 +64,11 @@ Scope {
     root.visible = false
   }
 
+  // A busy Process ignores `running = true` and restarts after the old run, whose output then parsed
+  // as the new kind ("Volume 0%" for keyboard 45). The newest request waits in one slot instead.
+  property var queued: null
   function query(kind, command) {
+    if (osdProc.running) { root.queued = { kind: kind, command: command }; return }
     pending = kind
     osdProc.command = command
     osdProc.running = true
@@ -106,6 +110,12 @@ Scope {
         }
       }
     }
+    onRunningChanged: {
+      if (running || !root.queued) return
+      const next = root.queued
+      root.queued = null
+      root.query(next.kind, next.command)
+    }
   }
 
   IpcHandler {
@@ -136,7 +146,6 @@ Scope {
   }
 
   PanelWindow {
-    id: osdWindow
     visible: root.visible || osdLinger.running
     focusable: false
     color: "transparent"
@@ -188,6 +197,7 @@ Scope {
               Layout.fillWidth: true
             }
             Text {
+              textFormat: Text.PlainText  // Bluetooth device names
               text: root.value
               font.family: Style.menuSans
               font.pixelSize: 12

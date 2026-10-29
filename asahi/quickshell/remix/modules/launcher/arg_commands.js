@@ -19,7 +19,6 @@ function join(command, arg) {
   const cmd = String(command || "")
   const a = String(arg || "")
   if (!cmd) return a
-  if (cmd === ">" || cmd === "!" || cmd === "=" || cmd === ";") return a ? cmd + " " + a : cmd
   return a ? cmd + " " + a : cmd
 }
 

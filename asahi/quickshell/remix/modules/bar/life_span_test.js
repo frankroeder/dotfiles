@@ -30,14 +30,14 @@ eq(ctx.decodeBirthYear(""), null, "missing store is unset");
 eq(ctx.decodeBirthYear(undefined), null, "undefined store is unset");
 eq(ctx.decodeBirthYear("nope"), null, "garbage store is unset");
 eq(ctx.encodeBirthYear(null), "", "unset encodes empty");
-eq(ctx.decodeBirthYear(ctx.encodeBirthYear(1996)), 1996, "birth year round-trips");
+eq(ctx.decodeBirthYear(ctx.encodeBirthYear(1990)), 1990, "birth year round-trips");
 eq(ctx.decodeBirthYear(ctx.encodeBirthYear(null)), null, "cleared store round-trips");
 
 eq(ctx.birthStorePath("", "/home/frank"), "/home/frank/.local/state/asahi/calendar-birth-year", "default store is $HOME/.local/state");
 eq(ctx.birthStorePath("/var/state/", "/home/frank"), "/var/state/asahi/calendar-birth-year", "XDG_STATE_HOME replaces the default dir");
-eq(ctx.resolveBirthYear("1996\n", "1980", true), 1996, "saved file wins over BIRTH_YEAR");
-eq(ctx.resolveBirthYear("", "1996", true), null, "empty file stays unset");
-eq(ctx.resolveBirthYear("", "1996", false), 1996, "missing file uses BIRTH_YEAR");
+eq(ctx.resolveBirthYear("1990\n", "1980", true), 1990, "saved file wins over BIRTH_YEAR");
+eq(ctx.resolveBirthYear("", "1990", true), null, "empty file stays unset");
+eq(ctx.resolveBirthYear("", "1990", false), 1990, "missing file uses BIRTH_YEAR");
 eq(ctx.resolveBirthYear("", "", false), null, "missing file and env stays unset");
 eq(ctx.resolveBirthYear("", "nope", false), null, "bad BIRTH_YEAR does not invent a year");
 
@@ -87,25 +87,25 @@ function check(span, name, exp) {
   }
 }
 
-const mid = ctx.lifeSpan(1996, new Date(2026, 8, 24));
-check(mid, "mid-life 1996 / 2026-09-24", {
-  yearsLeft: 60,
-  percentLeft: 67,
+const mid = ctx.lifeSpan(1990, new Date(2026, 8, 24));
+check(mid, "mid-life 1990 / 2026-09-24", {
+  yearsLeft: 54,
+  percentLeft: 60,
   now: 1,
-  lived: 30,
-  left: 59,
+  lived: 36,
+  left: 53,
   spots: [
-    { i: 29, cls: "lived" },
-    { i: 30, cls: "now" },
-    { i: 31, cls: "left" },
+    { i: 35, cls: "lived" },
+    { i: 36, cls: "now" },
+    { i: 37, cls: "left" },
     { i: 89, cls: "left" }
   ]
 });
 
-const reloaded = ctx.lifeSpan(ctx.decodeBirthYear(ctx.encodeBirthYear(1996)), new Date(2026, 8, 24));
+const reloaded = ctx.lifeSpan(ctx.decodeBirthYear(ctx.encodeBirthYear(1990)), new Date(2026, 8, 24));
 eq(reloaded.yearsLeft, mid.yearsLeft, "reloaded birth year keeps years left");
 eq(reloaded.percentLeft, mid.percentLeft, "reloaded birth year keeps percent");
-eq(reloaded.cells[30], "now", "reloaded birth year keeps the current year");
+eq(reloaded.cells[36], "now", "reloaded birth year keeps the current year");
 
 const thisYear = ctx.lifeSpan(2026, new Date(2026, 8, 24));
 check(thisYear, "this calendar year", {
@@ -121,7 +121,7 @@ check(thisYear, "this calendar year", {
   ]
 });
 
-const jan1 = ctx.lifeSpan(1996, new Date(1996, 0, 1));
+const jan1 = ctx.lifeSpan(1990, new Date(1990, 0, 1));
 check(jan1, "1 January of the birth year", {
   yearsLeft: 90,
   percentLeft: 100,
@@ -135,30 +135,30 @@ check(jan1, "1 January of the birth year", {
   ]
 });
 
-const yearEnd = ctx.lifeSpan(1996, new Date(2024, 11, 31));
+const yearEnd = ctx.lifeSpan(1990, new Date(2024, 11, 31));
 check(yearEnd, "last day of a leap year", {
-  yearsLeft: 62,
-  percentLeft: 69,
+  yearsLeft: 56,
+  percentLeft: 62,
   now: 1,
-  lived: 28,
-  left: 61,
+  lived: 34,
+  left: 55,
   spots: [
-    { i: 27, cls: "lived" },
-    { i: 28, cls: "now" },
-    { i: 29, cls: "left" }
+    { i: 33, cls: "lived" },
+    { i: 34, cls: "now" },
+    { i: 35, cls: "left" }
   ]
 });
 
-const yearEndCommon = ctx.lifeSpan(1996, new Date(2026, 11, 31));
+const yearEndCommon = ctx.lifeSpan(1990, new Date(2026, 11, 31));
 check(yearEndCommon, "last day of a common year", {
-  yearsLeft: 60,
-  percentLeft: 67,
+  yearsLeft: 54,
+  percentLeft: 60,
   now: 1,
-  lived: 30,
-  left: 59,
+  lived: 36,
+  left: 53,
   spots: [
-    { i: 30, cls: "now" },
-    { i: 31, cls: "left" }
+    { i: 36, cls: "now" },
+    { i: 37, cls: "left" }
   ]
 });
 

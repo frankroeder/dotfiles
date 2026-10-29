@@ -266,7 +266,6 @@ Singleton {
 
   // Ensure local wallpaper state exists (silences first-run FileView warn)
   Process {
-    id: ensureConf
     running: false
     Component.onCompleted: {
       command = ["sh", "-c", "mkdir -p \"$(dirname \"$1\")\" && touch \"$1\"", "sh", root.wallpaperConf]

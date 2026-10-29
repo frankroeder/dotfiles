@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import Quickshell
 import Quickshell.Io
 import "../../menu" as Menu
 import "../../../"
@@ -78,7 +77,6 @@ Item {
     if (cls.indexOf("critical") >= 0) return Style.red
     if (cls.indexOf("warning") >= 0) return Style.orange
     if (cls.indexOf("charging") >= 0) return Style.yellow
-    if (cls.indexOf("full") >= 0) return Style.green
     return Style.green
   }
   function parseBattery(jsonText) {

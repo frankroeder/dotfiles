@@ -60,7 +60,6 @@ Scope {
   property int dictVersion: 0
   property string dictStatus: ""
   property string dictPendingTerm: ""
-  property string dictRunningTerm: ""
   property string dictCopyLang: ""
   property string dictError: ""
   property var dictItems: []
@@ -234,7 +233,7 @@ Scope {
     hubMode: root.quickPaneKey === "hub",
     compact: root.compactLauncher,
     headerVisible: !root.quickMode && root.sectionName !== "",
-    cmdVisible: !root.quickMode && !root.compactLauncher,
+    cmdVisible: !root.quickMode,
     // "=" budgets 3 extra rows for the legend card (~120 px)
     rowCount: root.categoryFilter === ""
       ? Math.max(root.resultCount + (root.calcMode ? 3 : 0), (root.navRows || []).length)
@@ -593,8 +592,6 @@ Scope {
     // Wall clock beside the uptime pill; ticks only while shown.
     SystemClock { id: hubClock; precision: SystemClock.Seconds; enabled: root.shouldShow }
     property int ffDiskPct: 0
-    property int ffMemPct: 0
-    property real ffMemUsedBytes: 0
     property real ffMemTotalBytes: 0
     property var ffLeftRows: []
     property var ffRightRows: []
@@ -623,7 +620,7 @@ Scope {
         Layout.alignment: Qt.AlignTop
         spacing: 8
         readonly property string rowValue: {
-          if (modelData && (modelData.key === "Mem" || modelData.key === "Memory")) {
+          if (modelData && modelData.key === "Mem") {
             return root.prettyBytes(quickHubRoot.ffMemTotalBytes * root.sidebarMem / 100)
               + " / " + root.prettyBytes(quickHubRoot.ffMemTotalBytes)
               + " (" + root.sidebarMem + "%)"
@@ -716,7 +713,6 @@ Scope {
         const bat = bats.length > 0 ? bats[0] : {}
         const uptime = one("Uptime") || {}
         const diskBytes = disk.bytes || {}
-        const memUsed = Number(mem.used) || 0
         const memTotal = Number(mem.total) || 0
         const diskUsed = Number(diskBytes.used) || 0
         const diskTotal = Number(diskBytes.total) || 0
@@ -731,8 +727,6 @@ Scope {
         quickHubRoot.ffSubtitle = os.prettyName || os.name || "fastfetch"
         quickHubRoot.ffUptime = quickHubRoot.formatUptime(uptime.uptime)
         quickHubRoot.ffDiskPct = root.storagePct(diskUsed, diskTotal)
-        quickHubRoot.ffMemPct = root.storagePct(memUsed, memTotal)
-        quickHubRoot.ffMemUsedBytes = memUsed
         quickHubRoot.ffMemTotalBytes = memTotal
         // Header already shows user@host, OS, and uptime — keep the well
         // to short one-line facts that fit the leftover pane width.
@@ -747,9 +741,7 @@ Scope {
             (cpu.cpu || "—") + (cpu.cores && cpu.cores.logical ? (" (" + cpu.cores.logical + ")") : "")),
           quickHubRoot.ffRow("GPU", "󰢮", Style.menuIndigo,
             (gpu.name || "—") + (gpu.coreCount ? (" (" + gpu.coreCount + ")") : "")),
-          quickHubRoot.ffRow("Mem", "󰘚", Style.lavender,
-            root.prettyBytes(memUsed) + " / " + root.prettyBytes(memTotal)
-              + " (" + quickHubRoot.ffMemPct + "%)")
+          quickHubRoot.ffRow("Mem", "󰘚", Style.lavender, "")  // value: rowValue (live sidebarMem)
         ]
         quickHubRoot.ffRightRows = [
           quickHubRoot.ffRow("Display", "󰍹", Style.sapphire,
@@ -1480,10 +1472,6 @@ Scope {
       shouldShow = false
       Qt.callLater(() => root.launchDesktopEntry(entry.raw))
       return
-    } else if (entry.execute) {
-      shouldShow = false
-      Qt.callLater(() => root.launchDesktopEntry(entry))
-      return
     } else if (entry.command && entry.command.length > 0) {
       Quickshell.execDetached(root.resolveCmd(entry.command))
     } else if (entry.exec) {
@@ -1746,7 +1734,6 @@ Scope {
     const term = root.dictPendingTerm
     if (!term) return
     root.abortDictXhr()
-    root.dictRunningTerm = term
     root.dictStatus = "loading"
     root.dictVersion++
     const q = DictCC.parseQuery(term, root.dictDefaults)
@@ -2371,7 +2358,7 @@ Scope {
     if (filter !== "" && filter !== "Quick") {
       pool = (root.launcherItems || []).filter(it => it.category === filter)
     } else {
-      pool = (root.navRows || []).concat(root.launcherItems || [])
+      pool = (root.launcherItems || []).slice()
     }
 
     // desktops ONLY for root search (tokens>0 && no drill or App) + App drill (per review)
@@ -2435,9 +2422,6 @@ Scope {
     }
     scored.sort((a, b) => {
       if (b.p !== a.p) return b.p - a.p
-      const aCat = a.item.isCategory ? 0 : 1
-      const bCat = b.item.isCategory ? 0 : 1
-      if (aCat !== bCat) return aCat - bCat
       if (b.s !== a.s) return b.s - a.s
       if (b.u !== a.u) return b.u - a.u
       return (a.item.title || "").localeCompare(b.item.title || "")
@@ -2506,7 +2490,8 @@ Scope {
       root.filePreviewMeta = "PDF preview..."
       root.pdfPreviewVersion = 0
       root.pdfPreviewPath = ""
-      const base = "/tmp/launcher-pdf-" + (p ? Qt.md5(p) : Date.now())
+      // One file in the private runtime dir (one 0644 PNG per PDF in /tmp stayed readable until reboot).
+      const base = (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/launcher-pdf"
       root.startPreview(pdfProc, p, ["pdftoppm", "-png", "-f", "1", "-l", "1", "-r", "100", "-singlefile", p, base])
       // on success, pdfProc onExited sets pdfPreviewPath and bumps version
       return
@@ -2679,7 +2664,6 @@ Scope {
       // height spring overshoots, and a filling layout squeezed and re-stretched
       // the rows on every category switch. The card clips while it grows.
       ColumnLayout {
-        id: launcherCol
         anchors.top: parent.top
         anchors.horizontalCenter: parent.horizontalCenter
         width: root.launcherGeom.cardWidth - 2 * root.launcherGeom.cardMargin
@@ -2754,7 +2738,6 @@ Scope {
           }
 
           Item {
-            id: argFieldWrap
             anchors.left: root.argArmed ? argChip.right : searchPrompt.right
             anchors.leftMargin: 10
             anchors.right: parent.right
@@ -2920,7 +2903,7 @@ Scope {
             readonly property real listFrac: root.quickMode ? 0.22
               : (root.sideActive ? 0.46 : 1.0)
             // Icon disc + longest deck label, measured in the selected
-            // (DemiBold) face MenuHudTile uses in compact mode.
+            // (DemiBold) face MenuHudTile uses.
             TextMetrics {
               id: railLabelMetrics
               font.family: Style.menuSans
@@ -3202,14 +3185,12 @@ Scope {
                 rowSpacing: listArea.tileGeom.tileGap
                 columnSpacing: listArea.tileGeom.tileGap
                 clip: true
-                readonly property bool colMode: root.quickMode
                 readonly property int tileH: listArea.tileGeom.tileH
                 Timer { interval: 0; running: root.quickMode; repeat: false; onTriggered: root.resultCount = (root.quickDeck || []).length }
 
               Repeater {
                 model: root.quickDeck || []
                 delegate: Item {
-                  id: qtile
                   required property var modelData
                   required property int index
                   readonly property bool isSel: root.selectedIndex === index
@@ -3220,17 +3201,12 @@ Scope {
                     anchors.fill: parent
                     selected: isSel
                     hovered: qma.containsMouse
-                    compact: quickGrid.colMode
-                    indexLabel: (index + 1) < 10 ? ("0" + (index + 1)) : String(index + 1)
                     glyph: t.glyph || "󰘔"
                     label: t.label || ""
-                    sub: t.sub || ""
-                    accessory: t.kind === "run" || t.kind === "ipc" ? "run" : "pane"
                     tint: root.tintColor(t.tint)
                     fontFamily: root.uiFont
                     glyphPx: root.fontPx(24)
                     labelPx: root.fontPx(11)
-                    subPx: root.fontPx(9)
                   }
                   MouseArea {
                     id: qma
@@ -3266,7 +3242,6 @@ Scope {
 
               // Quick pane body: left rail is the selection indicator; no title/close row.
               Item {
-                id: qDetailSide
                 visible: root.quickMode
                 anchors.fill: parent
                 clip: true
@@ -3287,7 +3262,6 @@ Scope {
                 spacing: 6
 
                 Text {
-                  id: previewName
                   Layout.fillWidth: true
                   text: {
                     const it = resultsList.currentItem ? resultsList.currentItem.modelData : null
@@ -3370,7 +3344,7 @@ Scope {
 
         Text {
           Layout.fillWidth: true
-          visible: !root.quickMode && !root.compactLauncher && text !== ""
+          visible: !root.quickMode && text !== ""
           elide: Text.ElideRight
           text: {
             const it = resultsList.currentItem ? resultsList.currentItem.modelData : null
@@ -3378,9 +3352,10 @@ Scope {
             if (!it) return ""
             if (it.special === "action" && it.command && it.command.length) return "$ " + it.command.join(" ")
             if (it.special === "file" && it.path) return "$ xdg-open " + it.path
-            if (it.execString) return "$ " + it.execString
+            // App rows keep the DesktopEntry under `raw`.
+            if (it.execString || it.raw?.execString) return "$ " + (it.execString || it.raw.execString)
             if (it.exec) return "$ " + it.exec
-            if (it.command) return "$ " + (it.command.join ? it.command.join(" ") : it.command)
+            if (it.command && it.command.length) return "$ " + (it.command.join ? it.command.join(" ") : it.command)
             return it.comment || ""
           }
           color: Style.m3outline

@@ -63,11 +63,12 @@ Item {
     const s = Math.max(0, Math.round(sec || 0))
     return s >= 3600 ? Math.floor(s / 3600) + "h " + Math.round(s % 3600 / 60) + "m" : Math.max(1, Math.round(s / 60)) + " min"
   }
-  // Last 30 days, oldest first: snapshot count per day for the timeline strip.
+  // Last 30 days, oldest first: snapshot count per day for the timeline strip. Local midnights by
+  // date (`today - i * 86400000` landed a day early across the spring DST switch).
   readonly property var days: {
     const out = []
-    const today = new Date(); today.setHours(0, 0, 0, 0)
-    for (let i = 29; i >= 0; i--) out.push({ t: today.getTime() - i * 86400000, n: 0, l: 0 })
+    const today = new Date()
+    for (let i = 29; i >= 0; i--) out.push({ t: new Date(today.getFullYear(), today.getMonth(), today.getDate() - i).getTime(), n: 0, l: 0 })
     for (const s of rows) {
       const d = new Date(s.time); d.setHours(0, 0, 0, 0)
       const i = Math.round((d.getTime() - out[0].t) / 86400000)

@@ -14,7 +14,6 @@ Singleton {
   property var values: []
   // cava not installed: the media pane says so instead of "starting" forever.
   property bool missing: false
-  readonly property bool active: values.some(v => v > 0)
 
   function hold(owner, on) {
     const rest = root.holders.filter(h => h !== owner)

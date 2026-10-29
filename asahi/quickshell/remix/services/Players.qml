@@ -94,7 +94,6 @@ Singleton {
 
     function playPause() { if (active?.canTogglePlaying) active.togglePlaying() }
     function next()      { if (active?.canGoNext)     active.next() }
-    function previous()  { if (active?.canGoPrevious) active.previous() }
     function cycle() {
         if (list.length < 2) return
         pinned = list[(list.indexOf(active) + 1) % list.length]

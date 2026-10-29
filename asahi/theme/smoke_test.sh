@@ -92,8 +92,6 @@ done
 
 STYLE="$DOTFILES/asahi/quickshell/remix/Style.qml"
 rg -q "menuAccent:\s*accent" "$STYLE" || { echo "Style.qml menuAccent must be wallpaper accent" >&2; exit 1; }
-rg -q 'menuRowSel:\s*themedAlpha\("text", 0\.08\)' "$STYLE" \
-  || { echo "Style.qml menuRowSel must be text@0.08 (omarchy selected-background)" >&2; exit 1; }
 rg -q "<<<<<<|>>>>>>|======" "$STYLE" && { echo "Style.qml still has conflict markers" >&2; exit 1; }
 rg -q "asahi-hdmi sync" "$DOTFILES/asahi/hypr/conf.d/autostart.lua" \
   || { echo "autostart.lua missing asahi-hdmi sync" >&2; exit 1; }

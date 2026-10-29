@@ -52,7 +52,20 @@ Scope {
     // Image data lives as long as the Notification, which Quickshell frees right after
     // onNotification (never tracked): the handle is dead before the card loads it.
     if (s.startsWith("image://qsimage/")) return false
-    return s.startsWith("image:") || s.startsWith("file:") || s.startsWith("/")
+    // An image-path that is no file: URL arrives as image://icon/<value>: a theme lookup, but
+    // `?path=` makes the icon provider read that file.
+    if (s.startsWith("image:")) return s.indexOf("?path=") < 0
+    if (!s.startsWith("file:") && !s.startsWith("/")) return false
+    // /proc, /sys and /dev hold FIFOs and endless streams that block the load (omarchy #15932).
+    // Resolved like the loader does (%-escapes, file://host/ = //host/, `.`, `..`) before the check.
+    let path = s.replace(/^file:(\/\/)?/, "").replace(/[?#].*$/, "")  // the loader drops query + fragment
+    try { path = decodeURIComponent(path) } catch (_) { return false }
+    const parts = []
+    for (const seg of path.split("/")) {
+      if (seg === "..") parts.pop()
+      else if (seg !== "" && seg !== ".") parts.push(seg)
+    }
+    return !["proc", "sys", "dev"].includes(parts[0])
   }
 
   // Firefox and Ghostty send no app name, only a desktop entry id: show the entry's Name.
@@ -186,9 +199,9 @@ Scope {
     addHistory(entry)
     toastScreen = focusedScreen()
     // A screenshot's confirmation (also OCR / QR) answers your own key press: it shows under Do Not
-    // Disturb too, silently.
+    // Disturb too, silently. So does Asahi Battery's "Charging" card: it replaces a critical one.
     const quiet = dndEnabled && entry.urgency !== 2
-    if (!quiet || entry.appName === "screenshot") addToast(entry)
+    if (!quiet || entry.appName === "screenshot" || entry.appName === "Asahi Battery") addToast(entry)
     if (!quiet) Quickshell.execDetached([root.binDir + "/asahi-notification-sound"])
   }
 
@@ -236,7 +249,6 @@ Scope {
   }
 
   NotificationServer {
-    id: notifServer
     bodySupported: true
     bodyMarkupSupported: false
     actionsSupported: false
@@ -682,6 +694,7 @@ Scope {
           anchors.centerIn: parent
           width: 24
           height: 24
+          asynchronous: true  // a sender's path must not stall the shell while it loads
           source: root.iconFor(card.entry)
           visible: source !== ""
         }

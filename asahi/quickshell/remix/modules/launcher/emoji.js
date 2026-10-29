@@ -490,15 +490,10 @@ function search(query, limit) {
   return out
 }
 
-function placeholder() {
-  return "Type to filter emoji"
-}
-
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     EMOJI: EMOJI,
     term: term,
-    search: search,
-    placeholder: placeholder
+    search: search
   }
 }

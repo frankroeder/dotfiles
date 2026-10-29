@@ -183,7 +183,6 @@ Item {
   readonly property int streamRowH: Math.max(36, root.fontPx(11) + 18)
 
   ColumnLayout {
-    id: mediaCol
     anchors.fill: parent
     spacing: 10
 
@@ -270,7 +269,6 @@ Item {
             Menu.MenuDivider { Layout.fillWidth: true }
             // Every device listed (the card grows to fit; no scrolling).
             Column {
-              id: deviceCol
               Layout.fillWidth: true
               spacing: 0
               Repeater {

@@ -79,17 +79,17 @@ assert.strictEqual(
 )
 
 assert.deepStrictEqual(
-  M.scalePresetsFor({ description: "LG Electronics LG ULTRAFINE 112NTMX6B267", width: 3840, height: 2160 }),
+  M.scalePresetsFor({ description: "LG Electronics LG ULTRAFINE SN0002", width: 3840, height: 2160 }),
   M.SCALE_PRESETS
 )
 assert.deepStrictEqual(
-  M.scalePresetsFor({ description: "Dell Inc. DELL P2723DE 895ZNR3", width: 2560, height: 1440 }),
+  M.scalePresetsFor({ description: "Dell Inc. DELL P2723DE SN0001", width: 2560, height: 1440 }),
   M.SCALE_PRESETS
 )
 assert.ok(M.SCALE_PRESETS.indexOf("1.33") !== -1)
 assert.ok(M.SCALE_PRESETS.indexOf("1.875") !== -1)
 assert.strictEqual(M.monitorLayoutKey({ name: "HDMI-A-1", description: "LG Electronics LG ULTRAFINE" }), "lg-ultrafine")
-assert.strictEqual(M.monitorLayoutKey({ name: "HDMI-A-1", description: "Dell Inc. DELL P2723DE 895ZNR3" }), "dell-p2723de")
+assert.strictEqual(M.monitorLayoutKey({ name: "HDMI-A-1", description: "Dell Inc. DELL P2723DE SN0001" }), "dell-p2723de")
 
 const edpScales = M.availableScales(M.scalePresetsFor({ name: "eDP-1", width: 3024, height: 1964, scale: 1.3333334 }), 3024, 1964)
 assert.deepStrictEqual(edpScales, ["1", "1.333", "2", "4"])
@@ -137,7 +137,7 @@ assert.strictEqual(M.matchingScaleIndex(scales, "9.99", 2560, 1600), -1)
 
 const remembered = M.rememberEnabledMonitor({}, {
   name: "HDMI-A-1", disabled: false, width: 2560, height: 1440,
-  description: "Dell Inc. DELL P2723DE 895ZNR3",
+  description: "Dell Inc. DELL P2723DE SN0001",
   refreshRate: 59.951, scale: 1.25, x: 0, y: -1252
 })
 assert.deepStrictEqual(remembered["dell-p2723de"], {
@@ -146,7 +146,7 @@ assert.deepStrictEqual(remembered["dell-p2723de"], {
 assert.strictEqual(remembered["HDMI-A-1"], undefined, "HDMI-A-1 is shared; remember by sink id")
 const rememberedLg = M.rememberEnabledMonitor(remembered, {
   name: "HDMI-A-1", disabled: false, width: 3840, height: 2160,
-  description: "LG Electronics LG ULTRAFINE 112NTMX6B267",
+  description: "LG Electronics LG ULTRAFINE SN0002",
   refreshRate: 60, scale: 1.875, x: -2048, y: -360
 })
 assert.deepStrictEqual(rememberedLg["dell-p2723de"], remembered["dell-p2723de"], "LG must not clobber Dell")
@@ -160,21 +160,21 @@ assert.deepStrictEqual(
 )
 const enable = M.enableMonitorFields({
   name: "HDMI-A-1", disabled: true, width: 0, height: 0, x: 0, y: 0,
-  description: "Dell Inc. DELL P2723DE 895ZNR3"
+  description: "Dell Inc. DELL P2723DE SN0001"
 }, rememberedLg)
 assert.strictEqual(enable.mode, "2560x1440@59.951")
 assert.strictEqual(enable.position, "0x-1252")
 assert.strictEqual(enable.scale, 1.25)
 const enableLg = M.enableMonitorFields({
   name: "HDMI-A-1", disabled: true, width: 0, height: 0,
-  description: "LG Electronics LG ULTRAFINE 112NTMX6B267"
+  description: "LG Electronics LG ULTRAFINE SN0002"
 }, rememberedLg)
 assert.strictEqual(enableLg.position, "-2048x-360")
 assert.strictEqual(enableLg.scale, 1.875)
 assert.strictEqual(M.enableMonitorFields({ name: "eDP-1", width: 3024, height: 1890, refreshRate: 120, scale: 1.5, x: 0, y: 0 }, {}).mode, "3024x1890@120.000")
 const staleEnable = M.enableMonitorFields({
   name: "HDMI-A-1", disabled: true, width: 3840, height: 2160, refreshRate: 60,
-  description: "LG Electronics LG ULTRAFINE 112NTMX6B267",
+  description: "LG Electronics LG ULTRAFINE SN0002",
   availableModes: ["2560x1440@59.95Hz", "1920x1080@60.00Hz"],
   x: -2048, y: -360, scale: 1.875
 }, rememberedLg)

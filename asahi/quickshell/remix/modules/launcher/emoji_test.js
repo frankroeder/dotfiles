@@ -26,8 +26,6 @@ assert.strictEqual(empty.length, 8, "empty query returns a browse window");
 const miss = E.search("xyzzy-no-such-emoji", 10);
 assert.strictEqual(miss.length, 0, "unknown query is empty");
 
-assert.ok(E.placeholder().toLowerCase().indexOf("emoji") >= 0);
-
 const fs = require("fs");
 const path = require("path");
 const qml = fs.readFileSync(path.join(__dirname, "LauncherWindow.qml"), "utf8");

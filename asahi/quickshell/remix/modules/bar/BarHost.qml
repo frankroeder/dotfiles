@@ -1,9 +1,6 @@
 import QtQuick
-import QtQml.Models
-import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
-import Quickshell.Widgets
 import "../../"
 import "BarModel.js" as BarModel
 import "components" as BarComponents
@@ -15,7 +12,6 @@ Item {
 
   property var barScreen: null
   property var notificationCenter: null
-  property bool isRecording: false
   property bool calendarOpen: false
   property bool launcherOpen: false
   // One bar popup at a time: "", "sys", "rec", "media", "ccu" or "tray". The calendar
@@ -166,9 +162,9 @@ Item {
     if (candidates.length === 0) return ""
     for (let i = 0; i < candidates.length; i++) {
       const name = candidates[i]
-      // Papirus-Dark has no grok-bot; RPM ships hicolor pngs.
+      // Papirus-Dark has no grok-bot; grokbot.sh links the AppImage's hicolor pngs into ~/.local/share/icons.
       if (String(name).toLowerCase() === "grok-bot")
-        return "file:///usr/share/icons/hicolor/48x48/apps/grok-bot.png"
+        return "file://" + Quickshell.env("HOME") + "/.local/share/icons/hicolor/48x48/apps/grok-bot.png"
       const entry = DesktopEntries.heuristicLookup(name)
       const source = Quickshell.iconPath(entry?.icon || name, true)
       if (source !== "") return source
@@ -313,7 +309,6 @@ Item {
     }
 
     Row {
-      id: statusGroup
       spacing: 0
       BarComponents.SystemTray {
         id: trayBlock
@@ -324,7 +319,6 @@ Item {
       }
       BarComponents.StatusIndicators {
         id: statusBlock
-        isRecording: barWindow.isRecording
         updatesAvailable: barWindow.updatesAvailable
         barHost: barWindow
       }
@@ -343,7 +337,6 @@ Item {
       BarComponents.AudioChip { id: volBlock; barHost: barWindow }
     }
     Row {
-      id: netGroup
       spacing: 0
       BarComponents.Network {
         id: netBlock

@@ -264,7 +264,6 @@ Scope {
   component Pane: Rectangle {
     id: pane
     property alias edit: paneEdit
-    property string label: ""
     property string body: ""
     property bool rich: false
     property color ink: Style.m3onSurface
@@ -499,7 +498,6 @@ Scope {
               }
               Item { Layout.fillWidth: true }
               Text {
-                id: status
                 Layout.maximumWidth: 260
                 elide: Text.ElideRight
                 font.family: Style.menuSans; font.pixelSize: 12

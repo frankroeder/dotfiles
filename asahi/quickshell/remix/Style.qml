@@ -58,8 +58,7 @@ Singleton {
   readonly property color panelSuccessBg:       themedAlpha("green", 0.16)
   readonly property color panelDangerBg:        themedAlpha("red", 0.15)
 
-  // Launcher / menu — omarchy [menu]: focus + selected-text = accent,
-  // selected-background = foreground @ 0.08.
+  // Launcher / menu — omarchy [menu]: focus + selected-text = accent.
   readonly property color menuBg:      themed("mantle")
   readonly property color menuInk:     themed("text")
   readonly property color menuInkDeep: themed("subtext0")
@@ -70,7 +69,6 @@ Singleton {
   readonly property color menuSep:     themedAlpha("text", 0.08)
   readonly property color menuHairline: themedAlpha("text", 0.08)
   readonly property color menuRowHi:   themedAlpha("text", 0.04)
-  readonly property color menuRowSel:  themedAlpha("text", 0.08)
   readonly property color menuDim:     themedAlpha("crust", 0.50)
   readonly property color menuCardBg:  themedAlpha("text", 0.05)
   readonly property color menuControlBg: themedAlpha("text", 0.05)
@@ -103,7 +101,6 @@ Singleton {
   readonly property int menuRadiusLg: 16
   readonly property int menuRadiusMd: 12
   readonly property int menuRadiusFull: 999
-  readonly property int menuRail: 2
   // Anim: M3 expressive spatial spring + effects curve.
   readonly property int menuAnimMs: 200
   readonly property int menuAnimOutMs: 260
@@ -122,15 +119,9 @@ Singleton {
 
   readonly property color crust:      themed("crust")
   readonly property color mantle:     themed("mantle")
-  readonly property color base:       themed("base")
-  readonly property color surface0:   themed("surface0")
   readonly property color surface1:   themed("surface1")
   readonly property color surface2:   themed("surface2")
-  readonly property color overlay0:   themed("overlay0")
   readonly property color overlay1:   themed("overlay1")
-  readonly property color overlay2:   themed("overlay2")
-  readonly property color rosewater:  themed("rosewater")
-  readonly property color flamingo:   themed("flamingo")
   readonly property color pink:       themed("pink")
   readonly property color mauve:      themed("mauve")
   readonly property color sky:        themed("sky")
@@ -140,7 +131,6 @@ Singleton {
 
   readonly property int radius: 8
   readonly property int radiusSm: 6
-  readonly property int radiusLg: 14
 
   readonly property int barHeight: 40
   readonly property int barFontBody: 14

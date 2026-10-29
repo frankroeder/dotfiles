@@ -75,14 +75,14 @@ const deckTints = {
 }
 
 const categoryNav = [
-  { title: "Quick", icon: "󱎫", category: "Browse", isCategory: true, target: "Quick", tint: categoryTints.Quick, keywords: "quick settings dashboard hub overview battery audio wifi bt display media screenshots wallpaper storage disk space du clipboard cliphist packages dnf" },
-  { title: "Apps", icon: "󰀻", category: "Browse", isCategory: true, target: "App", tint: categoryTints.App, keywords: "apps applications launcher programs software desktop" },
-  { title: "Files", icon: "󰉋", category: "Browse", isCategory: true, target: fileCategory, tint: categoryTints.Files, keywords: "files file search find folder browse path fd", accessory: ">" },
-  { title: "Actions", icon: "󰜎", category: "Browse", isCategory: true, target: "Actions", tint: categoryTints.Actions, keywords: "actions colon commands run reload lock hypr wallpaper dashboard clipboard packages dnf", accessory: ":" },
-  { title: "Keyboard Shortcuts", icon: "󰌌", category: "Browse", isCategory: true, target: "Keys", tint: categoryTints.Keys, keywords: "keys keyboard shortcuts bindings hotkeys binds hyprland super mod cheatsheet", accessory: "?" },
-  { title: "Emoji", icon: "󰱨", category: "Browse", isCategory: true, target: "Emoji", tint: categoryTints.Emoji, keywords: "emoji emote smiley unicode symbols faces", accessory: ";" },
-  { title: "Websearch", icon: "󰖟", category: "Browse", isCategory: true, target: "Websearch", tint: categoryTints.Websearch, keywords: "web search documentation engines kagi docs translate wiki", accessory: "@" },
-  { title: "System", icon: "󰐥", category: "Browse", isCategory: true, target: "System", tint: categoryTints.System, keywords: "system lock suspend logout restart reboot shutdown power session" }
+  { title: "Quick", icon: "󱎫", category: "Browse", isCategory: true, target: "Quick", tint: categoryTints.Quick },
+  { title: "Apps", icon: "󰀻", category: "Browse", isCategory: true, target: "App", tint: categoryTints.App },
+  { title: "Files", icon: "󰉋", category: "Browse", isCategory: true, target: fileCategory, tint: categoryTints.Files, accessory: ">" },
+  { title: "Actions", icon: "󰜎", category: "Browse", isCategory: true, target: "Actions", tint: categoryTints.Actions, accessory: ":" },
+  { title: "Keyboard Shortcuts", icon: "󰌌", category: "Browse", isCategory: true, target: "Keys", tint: categoryTints.Keys, accessory: "?" },
+  { title: "Emoji", icon: "󰱨", category: "Browse", isCategory: true, target: "Emoji", tint: categoryTints.Emoji, accessory: ";" },
+  { title: "Websearch", icon: "󰖟", category: "Browse", isCategory: true, target: "Websearch", tint: categoryTints.Websearch, accessory: "@" },
+  { title: "System", icon: "󰐥", category: "Browse", isCategory: true, target: "System", tint: categoryTints.System }
 ]
 
 function itemTint(item) {
@@ -91,7 +91,6 @@ function itemTint(item) {
   if (item.target && categoryTints[item.target]) return categoryTints[item.target]
   if (item.key && deckTints[item.key]) return deckTints[item.key]
   if (item.mode && deckTints[item.mode]) return deckTints[item.mode]
-  if (item.isCategory) return ""
   if (item.special === "app") return ""
   if (item.category && categoryTints[item.category]) return categoryTints[item.category]
   return ""
@@ -142,9 +141,6 @@ function fileExt(path) {
   const dot = name.lastIndexOf(".")
   if (dot <= 0) return name.toLowerCase()
   return name.substring(dot + 1).toLowerCase()
-}
-function fileIcon(path) {
-  return fileIcons[fileExt(path)] || "󰈔"
 }
 // Acronym of a text: first letters of camelCase/word-split tokens.
 // "Visual Studio Code" / "code-oss" -> "vsc" / "co", so "ff" hits Firefox.

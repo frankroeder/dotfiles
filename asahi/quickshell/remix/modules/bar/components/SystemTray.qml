@@ -19,7 +19,7 @@ Item {
 
   readonly property var items: SystemTray.items.values
   readonly property int overflowCount: Math.max(0, root.items.length - root.maxInline)
-  readonly property bool attention: root.items.some(i => i.status === SystemTrayItem.NeedsAttention)
+  readonly property bool attention: root.items.some(i => i.status === Status.NeedsAttention)
 
   implicitWidth: strip.implicitWidth
   implicitHeight: Style.barHeight
@@ -40,7 +40,7 @@ Item {
         width: Style.barIconSlot
         height: Style.barHeight
 
-        readonly property bool needsAttention: slot.modelData.status === SystemTrayItem.NeedsAttention
+        readonly property bool needsAttention: slot.modelData.status === Status.NeedsAttention
 
         // Pops in place; omarchy's drawer slides the whole strip sideways instead.
         ParallelAnimation {

@@ -208,7 +208,6 @@ Scope {
     }
 
     Item {
-      id: wallStage
       anchors.horizontalCenter: parent.horizontalCenter
       width: Math.min(Math.max(0, parent.width - 48), 2400)
       height: wallCarousel.height + (wallCarousel.height > 0 ? 16 : 0) + wallBoxSlot.height

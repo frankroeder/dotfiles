@@ -21,7 +21,7 @@ function dev(mac, name, extra) {
     pinned: false, new: false, web: "", seen: 0, ssh: 0 }, extra || {})
 }
 const gw = dev("74:42:7f:00:00:01", "Router", { kind: "router", label: "Router", group: "network", gw: true, vendor: "AVM" })
-const me = dev("ee:01:d3:00:00:7c", "jondy", { kind: "laptop", label: "Laptop", group: "computers", self: true, private: true })
+const me = dev("ee:01:d3:00:00:7c", "laptop", { kind: "laptop", label: "Laptop", group: "computers", self: true, private: true })
 const pi = dev("d8:3a:dd:00:00:32", "raspberrypi", { kind: "computer", label: "Computer", group: "computers", vendor: "Raspberry Pi",
   pinned: true, state: "idle" })
 const phone = dev("26:62:ae:00:00:29", "iPhone", { kind: "phone", label: "Phone", group: "mobile", private: true, new: true })
@@ -34,13 +34,13 @@ check(L.glyph("phone") === String.fromCodePoint(0xF011C), "phone glyph")
 check(L.glyph("nope") === L.glyph("unknown"), "unknown kind falls back")
 
 console.log("\n== listRows ==")
-eq(L.listRows(snap, "list", [], "").map((r) => r.name), ["Router", "jondy", "raspberrypi", "iPhone", "Brother HL-L2350DW"], "flat list")
+eq(L.listRows(snap, "list", [], "").map((r) => r.name), ["Router", "laptop", "raspberrypi", "iPhone", "Brother HL-L2350DW"], "flat list")
 check(L.listRows(snap, "list", [], "").every((r) => r.key === r.mac && !r.header), "device rows keyed by mac")
 eq(L.listRows(snap, "type", [], "printer").map((r) => r.name), ["Brother HL-L2350DW"], "\"printer\" finds the printer, flat")
 eq(L.listRows(snap, "type", [], "rasp pi").map((r) => r.name), ["raspberrypi"], "search: every word")
 eq(L.listRows(snap, "type", [], "192.168.178.41").map((r) => r.name), ["iPhone"], "search by IP")
 const typed = L.listRows(snap, "type", [], "")
-eq(typed.map((r) => r.header ? "#" + r.id : r.name), ["#pinned", "raspberrypi", "#office", "Brother HL-L2350DW", "#computers", "jondy",
+eq(typed.map((r) => r.header ? "#" + r.id : r.name), ["#pinned", "raspberrypi", "#office", "Brother HL-L2350DW", "#computers", "laptop",
   "#mobile", "iPhone", "#network", "Router"], "type groups: pinned, then printers first")
 const mobile = typed.find((r) => r.key === "g:mobile")
 eq([mobile.title, mobile.count, mobile.online, mobile.fresh], ["Phones & tablets", 1, 1, true], "header counts + NEW marker")

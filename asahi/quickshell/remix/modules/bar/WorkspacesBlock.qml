@@ -111,7 +111,6 @@ Item {
 
   // Same duration + easing as the item widths and BarHost's chipMove, so everything moves together.
   Rectangle {
-    id: capsule
     readonly property int activeIndex: root.visibleWorkspaces.indexOf(root.activeWorkspaceId)
     x: {
       let x = root.pad
@@ -137,7 +136,6 @@ Item {
   }
 
   Row {
-    id: wsContent
     x: root.pad
     anchors.verticalCenter: parent.verticalCenter
     spacing: root.gap

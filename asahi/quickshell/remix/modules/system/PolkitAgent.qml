@@ -43,7 +43,6 @@ Scope {
   }
 
   PanelWindow {
-    id: win
     visible: agent.isActive && root.flow !== null
     screen: root.authScreen
     color: "transparent"
@@ -57,7 +56,6 @@ Scope {
     Rectangle { anchors.fill: parent; color: Style.menuDim }
 
     Menu.MenuCard {
-      id: card
       anchors.centerIn: parent
       width: 440
       height: col.implicitHeight + 2 * cardMargin

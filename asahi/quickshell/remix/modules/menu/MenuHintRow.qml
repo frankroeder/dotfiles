@@ -7,16 +7,11 @@ RowLayout {
   property string hints: ""
   property real fontScale: 1.0
   property string fontFamily: Style.menuSans
-  property bool gridNav: false
 
   spacing: 10
   implicitHeight: Math.round(22 * root.fontScale)
 
-  property var keys: [
-    { key: root.gridNav ? "hjkl" : "↑↓", label: "navigate" },
-    { key: "⏎", label: "open" },
-    { key: "esc", label: "close" }
-  ]
+  property var keys: []
 
   Repeater {
     model: root.keys

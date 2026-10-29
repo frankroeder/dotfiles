@@ -11,7 +11,6 @@ import "../../launcher/arg_commands.js" as ArgCommands
 RowLayout {
   id: root
 
-  property bool isRecording: false
   property bool updatesAvailable: false
   property bool stayAwake: false
   property bool nightLightOn: false

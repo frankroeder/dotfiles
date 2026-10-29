@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Layouts
-import Quickshell
 import "../../../"
 import "../../../services" as Services
 import "../BarModel.js" as BarModel

@@ -1,10 +1,8 @@
 import QtQuick
-import QtQuick.Layouts
 import QtQuick.Shapes
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
-import Quickshell.Wayland
 import "../../../"
 import "../BarModel.js" as BarModel
 import "marks.js" as Marks

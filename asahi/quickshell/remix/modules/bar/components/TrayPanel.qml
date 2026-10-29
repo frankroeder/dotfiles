@@ -129,11 +129,12 @@ PanelWindow {
               elide: Text.ElideRight
               font.family: Style.fontFamily
               font.pixelSize: Style.barFontBody
-              color: row.modelData.status === SystemTrayItem.NeedsAttention ? Style.orange : Style.barStripText
+              color: row.modelData.status === Status.NeedsAttention ? Style.orange : Style.barStripText
             }
 
             Text {
               width: parent.width
+              textFormat: Text.PlainText
               text: row.detail
               visible: text !== ""
               elide: Text.ElideRight

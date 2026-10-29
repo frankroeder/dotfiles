@@ -467,7 +467,6 @@ Item {
   }
 
   ColumnLayout {
-    id: btLayout
     anchors.fill: parent
     spacing: 12
 
@@ -746,7 +745,6 @@ Item {
                   text: btDelegate.modelData.section ? quickBtRoot.t(btDelegate.modelData.section) : ""
                 }
                 Rectangle {
-                  id: btRow
                   width: btDelegate.width
                   height: Math.max(48, btText.implicitHeight + 16)
                   radius: Style.menuRadiusMd

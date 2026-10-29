@@ -132,7 +132,6 @@ Item {
   }
 
   Process {
-    id: ensureBirthDir
     command: ["mkdir", "-p", root.birthPath.slice(0, root.birthPath.lastIndexOf("/"))]
     running: true
   }

@@ -2,7 +2,6 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
 import Quickshell.Hyprland
-import Quickshell.Widgets
 import QtQuick
 
 import "modules/bar"
@@ -10,12 +9,10 @@ import "modules/system" as System
 import "modules/wallpaper"
 import "modules/writing" as Writing
 import "services" as Services
-import "."
 
 ShellRoot {
   id: shell
 
-  readonly property bool isRecording: Services.Recorder.running
   property bool calendarOpen: false
   // Launcher is the topmost layer: bar popups close so none float over it or hold Esc.
   readonly property bool launcherOpen: launcherLoader.item ? launcherLoader.item.shouldShow : false
@@ -32,7 +29,7 @@ ShellRoot {
   }
 
   System.Osd { id: osd }
-  System.DimOverlay { id: dimOverlay }
+  System.DimOverlay {}
   System.NotificationCenter { id: notifCenter }
   System.PkgManager { id: pkgManager }
   // Answers polkit (GUI admin prompts, pkexec); nothing did before.
@@ -92,7 +89,6 @@ ShellRoot {
         anchors.fill: parent
         barScreen: modelData
         notificationCenter: notifCenter
-        isRecording: shell.isRecording
         calendarOpen: shell.calendarOpen
         launcherOpen: shell.launcherOpen
         onCalendarToggle: shell.calendarOpen = !shell.calendarOpen

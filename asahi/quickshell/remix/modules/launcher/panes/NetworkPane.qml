@@ -368,7 +368,7 @@ Item {
       "bash", "-c",
       // -e no: names with ':' or '\\' print unescaped, so grep -Fx matches (a miss would
       // treat a saved profile as new and delete it after a failed connect).
-      "nmcli -e no -g NAME connection show | grep -Fx " + root.shQuote(ssid) + " >/dev/null && echo saved || echo new"
+      "nmcli -e no -g NAME connection show | grep -Fx -- " + root.shQuote(ssid) + " >/dev/null && echo saved || echo new"
     ]
     savedCheckProc.running = true
   }
@@ -377,8 +377,8 @@ Item {
   // external editor. A typed passphrase runs as a transient unit that deletes the
   // profile `connect` just created when it fails: a pane switch mid-connect used to
   // leave that wrong-passphrase profile, which later taps connected without a prompt.
-  // SSID / PSK reach it through the environment (-E NAME copies ours), not systemd-run's argv
-  // (nmcli's own argv still carries the PSK while it runs).
+  // SSID / PSK reach it through the environment (-E NAME copies ours), not systemd-run's argv,
+  // and nmcli reads the PSK from stdin (`--ask`): no argv carries it.
   function doConnect(ssid, pass) {
     quickNetworkRoot.showPasswordPrompt = false
     quickNetworkRoot.passwordError = ""
@@ -388,7 +388,7 @@ Item {
     connectProc.environment = pass ? { SSID: ssid, PSK: pass } : {}
     connectProc.command = pass
       ? ["systemd-run", "--user", "--wait", "--quiet", "--collect", "-E", "SSID", "-E", "PSK", "bash", "-c",
-        "nmcli dev wifi connect \"$SSID\" password \"$PSK\" || { nmcli connection delete id \"$SSID\"; exit 1; }"]
+        "printf '%s\\n' \"$PSK\" | nmcli --ask dev wifi connect \"$SSID\" || { nmcli connection delete id \"$SSID\"; exit 1; }"]
       : ["nmcli", "dev", "wifi", "connect", ssid]
     connectProc.running = true
   }
@@ -620,7 +620,6 @@ Item {
   }
 
   Process {
-    id: vpnToolProbe
     command: ["sh", "-c", "command -v wg >/dev/null && echo wg; command -v openvpn >/dev/null && echo ovpn; { test -x /usr/libexec/nm-vpnc-service || test -x /usr/lib/nm-vpnc-service; } && echo vpnc; true"]
     running: true
     stdout: StdioCollector {
@@ -636,7 +635,6 @@ Item {
     }
   }
   Process {
-    id: vpnOcProbe
     command: ["sh", "-c", "command -v openconnect >/dev/null"]
     running: true
     onExited: function(code) {
@@ -738,7 +736,7 @@ Item {
   readonly property var wifiFacts: !quickNetworkRoot.wifiChecked ? [" ", " ", " ", " ", " "]
     : (quickNetworkRoot.wifiTooltip || "").split("\n")
       .filter(function(l) { return l.trim() && !/^(Connected to|Signal:|VPN:)/.test(l) })
-  // The live tunnel, NM profile or not (the Proton app's WireGuard connection is an "external" one): "ProtonVPN DE#609 · up 3m".
+  // The live tunnel, NM profile or not (the Proton app's WireGuard connection is an "external" one): "ProtonVPN XX#1 · up 3m".
   readonly property bool vpnUp: !!QuickModels.activeNmProfile(quickNetworkRoot.vpnProfiles) || (quickNetworkRoot.vpnExternal || []).length > 0
   readonly property string vpnLine: ((quickNetworkRoot.wifiTooltip || "").match(/^VPN: (.+)$/m) || ["", ""])[1].replace(" (external tunnel)", "")
 
@@ -1023,7 +1021,7 @@ Item {
                 font.family: root.uiFont; font.pixelSize: root.fontPx(14)
               }
               Text {
-                text: vpnRow.modelData.label
+                text: vpnRow.modelData.label; textFormat: Text.PlainText
                 color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(11)
                 font.weight: vpnRow.modelData.active ? Font.Medium : Font.Normal; elide: Text.ElideRight
               }

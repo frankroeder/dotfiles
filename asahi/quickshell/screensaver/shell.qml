@@ -117,7 +117,6 @@ ShellRoot {
         onLoaded: root.parseColors(paletteFile.text())
     }
     FileView {
-        id: themeMarker
         path: root.themeNamePath
         watchChanges: true
         onFileChanged: paletteFile.reload()
@@ -173,7 +172,6 @@ ShellRoot {
 
     // ~30 fps: 60 fps full-res shaders cost ~2.3 W SoC (measured); same speed, half the frames.
     Timer {
-        id: tick
         interval: 33
         repeat: true
         running: root.active
@@ -244,7 +242,6 @@ ShellRoot {
         // load for the current index and the one fading out. The `life`
         // sentinel is handled by lifeContainer (feedback wiring).
         Item {
-            id: stack
             anchors.fill: parent
 
             Repeater {
@@ -561,7 +558,6 @@ ShellRoot {
         // event (the cursor's resting position when the overlay maps) and
         // the small jitter on map; armedFor adds a 250 ms grace.
         MouseArea {
-            id: dismissArea
             anchors.fill: parent
             hoverEnabled: true
             acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
