@@ -2,6 +2,7 @@ __pycache__
 Brewfile.lock.json
 .netrwhist
 .codex
+Session.vim
 asahi/ghostty/themes/asahi-adaptive
 asahi/ghostty/adaptive.conf
 asahi/ghostty/adaptive.css
