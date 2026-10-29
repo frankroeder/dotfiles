@@ -1,0 +1,7 @@
+# Bluetooth input may wake s2idle only on AC: on a desk, never in a bag (omarchy-mac-pkgs #53; untested on
+# this BCM4388). Wake needs the hci_bcm4377 function (14e4:5f72) and its PCIe root port. pcie-apple is built
+# in, so the function exists before macsmc-ac's add (coldplug) and every plug/unplug change. $$ = a shell $.
+ACTION!="remove", SUBSYSTEM=="power_supply", KERNEL=="macsmc-ac", \
+  RUN+="/bin/sh -c 'w=disabled; grep -qx 1 /sys/class/power_supply/macsmc-ac/online && w=enabled; \
+  for d in /sys/bus/pci/devices/*; do grep -qx 0x14e4 $$d/vendor && grep -qx 0x5f72 $$d/device && \
+  echo $$w > $$d/power/wakeup && echo $$w > $$d/../power/wakeup; done; true'"

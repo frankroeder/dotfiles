@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Grok Bot from Cursor's update API.
 # The feed is an AppImage. Running it needs libfuse.so.2, which this host does
-# not have, so the payload is extracted and launched directly. A binary under
-# /opt/Grok Bot is the old package and stays stale.
+# not have, so the payload is extracted and launched directly.
 set -euo pipefail
 
 if [ "$(uname -m)" != "aarch64" ]; then
@@ -29,27 +28,6 @@ ver="${meta[0]}"
 url="${meta[1]}"
 sha="${meta[2]}"
 
-same_sha() {
-  [ -n "$sha" ] && [ -f "$1" ] || return 1
-  printf '%s  %s\n' "$sha" "$1" | sha256sum -c --status
-}
-
-install_rpm() {
-  if [ "$(rpm -q --qf '%{VERSION}' grok-bot 2>/dev/null || true)" = "$ver" ]; then
-    echo "Grok Bot ${ver} already installed"
-    exit 0
-  fi
-  tmp="$(mktemp -d)"
-  trap 'rm -rf "$tmp"' EXIT
-  echo "Installing Grok Bot ${ver}"
-  curl -fL -A "Mozilla/5.0" -o "${tmp}/Grok_Bot_${ver}.rpm" "$url"
-  if [ -n "$sha" ]; then
-    printf '%s  %s\n' "$sha" "${tmp}/Grok_Bot_${ver}.rpm" | sha256sum -c --status
-  fi
-  sudo dnf install -y "${tmp}/Grok_Bot_${ver}.rpm"
-  rpm -q grok-bot >/dev/null
-}
-
 install_appimage() {
   if [ -z "$sha" ]; then
     echo "Grok Bot AppImage metadata has no sha256" >&2
@@ -57,36 +35,38 @@ install_appimage() {
   fi
   data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
   root="${data_home}/grok-bot"
-  image="${root}/Grok_Bot.AppImage"
   app_dir="${root}/app"
   bin="${app_dir}/grok-bot"
   mkdir -p "$root" "$HOME/.local/bin" "${data_home}/applications"
 
-  work="$(mktemp -d)"
-  trap 'rm -rf "$work"' EXIT
-  if ! same_sha "$image"; then
+  if [ -x "$bin" ] && [ "$(cat "${root}/version" 2>/dev/null || true)" = "$ver" ]; then
+    echo "Grok Bot ${ver} already installed"
+  else
+    # Only the extracted app is kept; the AppImage lives in a temp dir.
+    work="$(mktemp -d)"
+    trap 'rm -rf "$work"' EXIT
     echo "Downloading Grok Bot ${ver}"
     curl -fL -A "Mozilla/5.0" -o "${work}/Grok_Bot.AppImage" "$url"
     printf '%s  %s\n' "$sha" "${work}/Grok_Bot.AppImage" | sha256sum -c --status
     chmod 755 "${work}/Grok_Bot.AppImage"
-    mv -f "${work}/Grok_Bot.AppImage" "$image"
-  fi
-
-  if [ -x "$bin" ] && [ "$(cat "${root}/version" 2>/dev/null || true)" = "$ver" ]; then
-    echo "Grok Bot ${ver} already installed"
-  else
-    echo "Installing Grok Bot ${ver}"
-    ( cd "$work" && "$image" --appimage-extract >/dev/null )
+    ( cd "$work" && ./Grok_Bot.AppImage --appimage-extract >/dev/null )
     rm -rf "$app_dir"
     mv "$work/squashfs-root" "$app_dir"
     printf '%s\n' "$ver" > "${root}/version"
     echo "Grok Bot ${ver} ready at ${bin}"
   fi
+  rm -f "${root}/Grok_Bot.AppImage"
 
   # No X-GrokBot-Integrator: 0.58 deletes that desktop file when it was not
   # started as an AppImage and a system grok-bot.desktop still exists.
-  rm -f "$HOME/.local/bin/grok-bot-appimage" "${root}/appimage"
   ln -sfn "$bin" "$HOME/.local/bin/grok-bot"
+  # Icon=grok-bot: the AppImage's hicolor pngs (the old RPM shipped them in /usr/share).
+  for icon in "${app_dir}"/usr/share/icons/hicolor/*/apps/grok-bot.png; do
+    [ -f "$icon" ] || continue
+    dest="${data_home}/icons/hicolor/${icon#"${app_dir}"/usr/share/icons/hicolor/}"
+    mkdir -p "$(dirname "$dest")"
+    ln -sfn "$icon" "$dest"
+  done
   printf '%s\n' \
     "[Desktop Entry]" \
     "Type=Application" \
@@ -110,7 +90,6 @@ install_appimage() {
 }
 
 case "$url" in
-  *.rpm) install_rpm ;;
   *.AppImage) install_appimage ;;
   *)
     echo "Unknown Grok Bot package: ${url}" >&2

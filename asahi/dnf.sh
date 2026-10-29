@@ -52,9 +52,11 @@ sudo dnf install -y \
   keychain \
   jq \
   libnotify \
+  lua \
   make \
   mpv \
   neovim \
+  nodejs \
   NetworkManager-wifi \
   NetworkManager-tui \
   nm-connection-editor \

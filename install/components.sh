@@ -437,25 +437,26 @@ comp_asahi_getty() {
   print_ok "tty1 getty has no --autologin (password required on next boot)"
 }
 
-# Power-button tap ignore + no hibernate + HDMI lid inhibit. Safe to rerun
+# Power-button tap ignore + no hibernate + HDMI lid inhibit + Bluetooth wake on AC. Safe to rerun
 # on a live Hyprland session: SIGHUP reloads logind.conf.d; do not restart
 # systemd-logind. Do not udevadm trigger drm (that hotplugs HDMI).
 comp_asahi_logind() {
   require_linux
-  print_step "Installing Asahi logind drop-ins (ignore power tap, no hibernate, HDMI lid inhibit)"
+  print_step "Installing Asahi logind drop-ins (ignore power tap, no hibernate, HDMI lid inhibit, Bluetooth wake on AC)"
   if [ -n "$NOSUDO" ]; then
     print_error "asahi-logind writes /etc/systemd; rerun without --no-sudo"
     exit 1
   fi
-  local src_login src_sleep src_udev src_unit src_failed src_onfail
+  local src_login src_sleep src_udev src_btwake src_unit src_failed src_onfail
   src_login="$DOTFILES/asahi/systemd/logind.conf.d/10-asahi-sleep.conf"
   src_sleep="$DOTFILES/asahi/systemd/sleep.conf.d/10-asahi-no-hibernate.conf"
   src_udev="$DOTFILES/asahi/udev/99-asahi-hdmi-lid-inhibit.rules"
+  src_btwake="$DOTFILES/asahi/udev/99-asahi-bt-wake.rules"
   src_unit="$DOTFILES/asahi/systemd/system/asahi-hdmi-lid-inhibit.service"
   # Failed suspend (apple-drm -22): stop logind's lid retry loop until lid opens.
   src_failed="$DOTFILES/asahi/systemd/system/asahi-suspend-failed.service"
   src_onfail="$DOTFILES/asahi/systemd/system/systemd-suspend.service.d/10-asahi-onfailure.conf"
-  [ -f "$src_login" ] && [ -f "$src_sleep" ] && [ -f "$src_udev" ] && [ -f "$src_unit" ] &&
+  [ -f "$src_login" ] && [ -f "$src_sleep" ] && [ -f "$src_udev" ] && [ -f "$src_btwake" ] && [ -f "$src_unit" ] &&
     [ -f "$src_failed" ] && [ -f "$src_onfail" ] || {
     print_error "missing Asahi systemd drop-ins under $DOTFILES/asahi/systemd"
     exit 1
@@ -463,6 +464,7 @@ comp_asahi_logind() {
   sudo_install "$src_login" /etc/systemd/logind.conf.d/10-asahi-sleep.conf
   sudo_install "$src_sleep" /etc/systemd/sleep.conf.d/10-asahi-no-hibernate.conf
   sudo_install "$src_udev" /etc/udev/rules.d/99-asahi-hdmi-lid-inhibit.rules
+  sudo_install "$src_btwake" /etc/udev/rules.d/99-asahi-bt-wake.rules
   sudo_install "$src_unit" /etc/systemd/system/asahi-hdmi-lid-inhibit.service
   sudo_install "$src_failed" /etc/systemd/system/asahi-suspend-failed.service
   sudo_install "$src_onfail" /etc/systemd/system/systemd-suspend.service.d/10-asahi-onfailure.conf
@@ -471,6 +473,11 @@ comp_asahi_logind() {
     exit 1
   fi
   sudo udevadm control --reload-rules
+  # Bluetooth wake follows the charger now, not only after the next plug or boot.
+  if [ -e /sys/class/power_supply/macsmc-ac ] && ! sudo udevadm trigger --action=change /sys/class/power_supply/macsmc-ac; then
+    print_error "udevadm trigger macsmc-ac failed (Bluetooth wake not synced)"
+    exit 1
+  fi
   sudo systemctl daemon-reload
   sudo systemctl enable asahi-hdmi-lid-inhibit.service || {
     print_error "failed to enable asahi-hdmi-lid-inhibit.service"
@@ -780,12 +787,6 @@ comp_asahi_desktop() {
   mkdir -p "$HOME/.config/autostart"
   link_if_exists "$DOTFILES/asahi/xdg-autostart/gnome-keyring-ssh.desktop" \
     "$HOME/.config/autostart/gnome-keyring-ssh.desktop"
-  # Quickshell owns notifications. Fedora's swaync dbus-activates on reload,
-  # loses the name, and fumon toasts the fail — mask it like sshd.
-  if ! systemctl --user mask swaync.service; then
-    print_error "failed to mask swaync.service"
-  fi
-  systemctl --user reset-failed swaync.service 2>/dev/null || true
   mkdir -p "$HOME/.config/gtk-3.0" "$HOME/.config/gtk-4.0"
   mkdir -p "$HOME/.config/xdg-desktop-portal"
   mkdir -p "$HOME/.local/state/asahi-theme"
@@ -1049,6 +1050,7 @@ comp_doctor() {
     report_check "logind HandlePowerKey=ignore" grep -q '^HandlePowerKey=ignore' /etc/systemd/logind.conf.d/10-asahi-sleep.conf
     report_check "hdmi lid-inhibit" test -f /etc/udev/rules.d/99-asahi-hdmi-lid-inhibit.rules -a \
       -f /etc/systemd/system/asahi-hdmi-lid-inhibit.service
+    report_check "bt wake udev" test -f /etc/udev/rules.d/99-asahi-bt-wake.rules
     if busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager HandlePowerKey 2>/dev/null | grep -q '"ignore"'; then
       print_ok "logind live HandlePowerKey=ignore"
     else
@@ -1071,8 +1073,6 @@ comp_doctor() {
     report_check "asahi-charge-limit libexec" test -x /usr/local/libexec/asahi-charge-limit
     report_check "ALS keyboard backlight unit" test -L "$HOME/.config/systemd/user/asahi-brightness-keyboard-auto.service"
     report_check "ALS keyboard backlight helper" test -x "$HOME/.local/bin/asahi-brightness-keyboard-auto"
-    report_check "swaync.service mask" \
-      [ "$(systemctl --user is-enabled swaync.service 2>/dev/null || true)" = masked ]
     if [ -w /sys/class/power_supply/macsmc-battery/charge_control_end_threshold ]; then
       print_ok "macsmc charge_control_end_threshold is writable"
     else
