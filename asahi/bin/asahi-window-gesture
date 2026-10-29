@@ -51,17 +51,6 @@ win=$(hyprctl activewindow -j)
 addr=$(jq -r '.address // empty' <<<"$win")
 [ -n "$addr" ] || exit 0
 
-unset_fullscreen() {
-  local fs mode
-  fs=$(jq -r '.fullscreen // 0' <<<"$win")
-  [ "$fs" != 0 ] && [ "$fs" != "null" ] || return 0
-  case "$fs" in
-    1) mode=maximized ;;
-    *) mode=fullscreen ;;
-  esac
-  hyprctl dispatch "hl.dsp.window.fullscreen({ mode = \"$mode\", action = \"unset\" })" >/dev/null
-}
-
 monitor_of_focus() {
   local name
   name=$(focused_monitor)
@@ -92,7 +81,7 @@ fit_window() {
 }
 
 float_on() {
-  unset_fullscreen
+  unset_fullscreen "$win"
   hyprctl dispatch 'hl.dsp.window.float({ action = "enable" })' >/dev/null
 }
 

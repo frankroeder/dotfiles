@@ -386,26 +386,6 @@ def usage_line(win: dict[str, Any] | None) -> str:
   return f"{percent(win['used'])} of {window_name(win.get('span'))} limit used"
 
 
-def ago(ts: Any, now: int, short: bool = False) -> str:
-  t = int(num(ts) or 0)
-  n = int(num(now) or 0)
-  if t <= 0:
-    return ""
-  sec = max(0, n - t)
-  if sec < 60:
-    return "now" if short else "just now"
-  if sec < 3600:
-    m = sec // 60
-    return f"{m}m" if short else f"{m}m ago"
-  if sec < 86400:
-    h = sec // 3600
-    return f"{h}h" if short else f"{h}h ago"
-  d = sec // 86400
-  if d < 7:
-    return f"{d}d" if short else f"{d}d ago"
-  return date_short(t)
-
-
 def reset_line(win: dict[str, Any] | None, now: int) -> str:
   if not win or int(num(win.get("reset")) or 0) <= 0:
     return ""

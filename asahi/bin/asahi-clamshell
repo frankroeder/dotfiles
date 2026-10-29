@@ -65,7 +65,8 @@ case "${1:-status}" in
       if ! external_on; then
         "$bin/asahi-idle-brightness" off
         "$bin/asahi-dpms" off
-        loginctl lock-session
+        # asahi-lock directly, like every other lock path: loginctl lock-session only locks via hypridle.
+        setsid -f "$bin/asahi-lock" </dev/null >/dev/null 2>&1
         exit 0
       fi
     fi

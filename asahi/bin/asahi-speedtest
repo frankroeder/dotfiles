@@ -7,8 +7,8 @@ set -euo pipefail
 
 host="https://speed.cloudflare.com"
 # 100 MB is refused (403); 50 MB streams for the whole --max-time on slow links.
-down_bytes=${ASAHI_SPEEDTEST_DOWN:-50000000}
-up_bytes=${ASAHI_SPEEDTEST_UP:-25000000}
+down_bytes=50000000
+up_bytes=25000000
 
 latency_ms() {
   local t best=""

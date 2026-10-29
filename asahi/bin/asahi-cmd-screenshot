@@ -7,7 +7,7 @@
 set -euo pipefail
 
 bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
-output_dir="${ASAHI_SCREENSHOT_DIR:-$HOME/screenshots}"
+output_dir="$HOME/screenshots"
 mode="${1:-smart}"
 clip=0
 [ "${2:-}" = "--clip" ] && clip=1

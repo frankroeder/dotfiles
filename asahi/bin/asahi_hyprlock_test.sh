@@ -113,12 +113,21 @@ n=$(( $(cat "$RUNS" 2>/dev/null || echo 0) + 1 )); echo "$n" >"$RUNS"
 [ "$n" -ge 3 ]
 SH
 chmod +x "$tmp/hyprlock"
-printf '#!/usr/bin/env bash\nexit 1\n' >"$tmp/pidof"; chmod +x "$tmp/pidof"
+printf '#!/usr/bin/env bash\nexit 1\n' >"$tmp/pgrep"; chmod +x "$tmp/pgrep"
 RUNS="$tmp/runs" XDG_RUNTIME_DIR="$tmp" XDG_STATE_HOME="$tmp" ASAHI_LOCK_RETRY_S=0 PATH="$tmp:$PATH" "$ROOT/asahi-lock"
 if [ "$(cat "$tmp/runs")" = 3 ] && [ "$(grep -c 'hyprlock exit' "$tmp/asahi/hyprlock.log")" = 3 ]; then
   pass "asahi-lock restarts a crashed hyprlock until exit 0, logs each exit"
 else
   fail_at "asahi-lock ran hyprlock $(cat "$tmp/runs" 2>/dev/null) times, want 3"
+fi
+# This session's hyprlock already up: no second one. Only its WAYLAND_DISPLAY counts (not a nested preview's).
+rm -f "$tmp/runs"
+printf '#!/usr/bin/env bash\necho "$*" >"%s/pgrep-args"\n' "$tmp" >"$tmp/pgrep"
+WAYLAND_DISPLAY=wayland-1 RUNS="$tmp/runs" XDG_RUNTIME_DIR="$tmp" XDG_STATE_HOME="$tmp" PATH="$tmp:$PATH" "$ROOT/asahi-lock"
+if [ ! -e "$tmp/runs" ] && grep -q -- "-x --env WAYLAND_DISPLAY=wayland-1 hyprlock" "$tmp/pgrep-args"; then
+  pass "asahi-lock leaves this session's running hyprlock alone"
+else
+  fail_at "asahi-lock with hyprlock up: runs=$(cat "$tmp/runs" 2>/dev/null) pgrep $(cat "$tmp/pgrep-args" 2>/dev/null)"
 fi
 rm -rf "$tmp"
 

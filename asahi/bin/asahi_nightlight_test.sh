@@ -91,19 +91,6 @@ grep -q 'hyprsunset temperature 6500' "$tmp/log" && fail_at "off set 6500" || pa
 # identity leaves reported K unchanged
 [ "$(cat "$tmp/temp")" = "1500" ] && pass "reported K still 1500 after identity" || fail_at "temp=$(cat "$tmp/temp")"
 
-st=$(run status)
-echo "$st" | jq -e '.on == false and .identity == true' >/dev/null \
-  && pass "status off uses state not live K" || fail_at "status off: $st"
-
-run on
-st=$(run status)
-echo "$st" | jq -e '.on == true and .temperature == 1500' >/dev/null \
-  && pass "status on 1500" || fail_at "status on: $st"
-
-: >"$tmp/log"
-run off
-grep -q 'hyprsunset identity' "$tmp/log" && pass "off cmd identity" || fail_at "off cmd missed identity"
-
 cat >"$tmp/hyprsunset.conf" <<'EOF'
 profile { identity = true }
 profile { temperature = 1800 }
@@ -127,7 +114,7 @@ chmod +x "$tmp/bin/hyprctl"
 rm -f "$tmp/state/nightlight.json"
 printf '6000\n' >"$tmp/temp"
 rc=0
-run on || rc=$?
+run toggle || rc=$?
 [ "$rc" -ne 0 ] && pass "failed apply exits non-zero" || fail_at "failed apply rc=$rc"
 if [ -f "$tmp/state/nightlight.json" ] && [ "$(jq -r '.on' "$tmp/state/nightlight.json")" = "true" ]; then
   fail_at "failed apply wrote on=true"

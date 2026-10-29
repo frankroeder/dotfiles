@@ -28,13 +28,7 @@ conf_on_temp() {
   fi
 }
 
-ON_TEMP="${ASAHI_NIGHTLIGHT_TEMP:-$(conf_on_temp)}"
-
-read_state() {
-  if [[ -f $STATE_FILE ]]; then
-    jq -r '.temperature // empty' "$STATE_FILE" 2>/dev/null || true
-  fi
-}
+ON_TEMP="$(conf_on_temp)"
 
 read_on() {
   if [[ -f $STATE_FILE ]]; then
@@ -98,10 +92,7 @@ set_temperature() {
   write_state true "$temp"
 }
 
-cmd="${1:-toggle}"
-arg="${2:-}"
-
-case "$cmd" in
+case "${1:-toggle}" in
   toggle)
     if [[ $(read_on) == "true" ]]; then
       set_identity
@@ -109,44 +100,8 @@ case "$cmd" in
       set_temperature "$ON_TEMP"
     fi
     ;;
-  on|warm)
-    set_temperature "${arg:-$ON_TEMP}"
-    ;;
-  off|identity)
-    set_identity
-    ;;
-  cooler)
-    cur=$(read_state)
-    if [[ -z $cur || ! $cur =~ ^[0-9]+$ ]]; then
-      cur=$ON_TEMP
-    fi
-    set_temperature "$((cur + 500))"
-    ;;
-  warmer)
-    cur=$(read_state)
-    if [[ -z $cur || ! $cur =~ ^[0-9]+$ ]]; then
-      cur=$ON_TEMP
-    fi
-    new=$((cur - 500))
-    if [ "$new" -lt 1000 ]; then
-      new=1000
-    fi
-    set_temperature "$new"
-    ;;
-  status)
-    # identity does not change the reported K — state file is the on/off source.
-    if [[ $(read_on) == "true" ]]; then
-      live="$(current_temp || true)"
-      if [[ ! $live =~ ^[0-9]+$ ]]; then
-        live=$ON_TEMP
-      fi
-      jq -cn --argjson on true --argjson temp "$live" '{on:$on,temperature:$temp}'
-    else
-      jq -cn --argjson on false --argjson temp "$ON_TEMP" '{on:$on,temperature:$temp,identity:true}'
-    fi
-    ;;
   *)
-    echo "usage: $0 [toggle|on [K]|off|warmer|cooler|status]" >&2
+    echo "usage: $0 [toggle]" >&2
     exit 2
     ;;
 esac

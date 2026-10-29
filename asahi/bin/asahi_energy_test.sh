@@ -47,7 +47,6 @@ printf '30000000\n' >"$ac/input_power_limit"
 
 out=$(ASAHI_POWER_SUPPLY_PATH="$tmp/power" "$ROOT/asahi-battery")
 echo "$out" | jq -e '.holding == true' >/dev/null || fail_at "battery holding true at 80% cap"
-echo "$out" | jq -e '.threshold_end == 80' >/dev/null || fail_at "battery threshold_end 80"
 echo "$out" | jq -e '.percentage == 80' >/dev/null || fail_at "battery percentage 80"
 echo "$out" | jq -e '.class | index("holding")' >/dev/null || fail_at "battery class includes holding"
 echo "$out" | grep -q 'Holding at 75-80%' || fail_at "battery tooltip holding label"
@@ -437,7 +436,7 @@ grep -e "kbd_backlight' set 30%" "$ROOT/../../install/components.sh" >/dev/null 
   && fail_at "asahi-system still forces a one-shot 30% keyboard backlight" \
   || pass "asahi-desktop enables ALS keyboard backlight; no 30% oneshot"
 
-# --- asahi-clamshell: lid paths with fake hyprctl / busctl / loginctl / brightnessctl / sleep ---
+# --- asahi-clamshell: lid paths with fake hyprctl / busctl / setsid / brightnessctl / sleep ---
 # The real ones would read the live lid and inhibitors, and could zero the backlight and lock the session.
 clam_dir="$tmp/clam"
 mkdir -p "$clam_dir/bin" "$clam_dir/idle"
@@ -484,7 +483,8 @@ echo "brightnessctl $*" >> "$CLAM_LOG"
 case "$*" in *" get") echo 50 ;; *" max") echo 100 ;; esac
 exit 0
 EOF
-printf '#!/bin/sh\necho "loginctl $*" >> "$CLAM_LOG"\n' >"$clam_dir/bin/loginctl"
+# setsid only logs: the real one would start asahi-lock on the live session.
+printf '#!/bin/sh\necho "setsid $*" >> "$CLAM_LOG"\n' >"$clam_dir/bin/setsid"
 printf '#!/bin/sh\nexit 0\n' >"$clam_dir/bin/systemd-inhibit"
 printf '#!/bin/sh\nexit 0\n' >"$clam_dir/bin/sleep"
 chmod +x "$clam_dir/bin/"*
@@ -508,7 +508,7 @@ fi
 FAKE_LID=true FAKE_BLOCK=1
 : >"$clam_disp"
 run_clam close
-grep -q 'loginctl lock-session' "$CLAM_LOG" || fail_at "blocked laptop-only close must lock"
+grep -q 'setsid -f .*/asahi-lock$' "$CLAM_LOG" || fail_at "blocked laptop-only close must start asahi-lock"
 grep -q 'action = "disable", monitor = "eDP-1"' "$clam_disp" || fail_at "blocked laptop-only close must DPMS eDP off"
 [ ! -e "$clam_dir/flag" ] && pass "blocked laptop-only close blanks and locks" || fail_at "blocked close set the flag"
 FAKE_LID=false FAKE_BLOCK=""
@@ -538,6 +538,29 @@ run_clam apply
 [ -e "$clam_dir/idle/display-test-bl" ] && pass "lid closed: apply leaves the backlight to open" \
   || fail_at "apply relit the closed panel"
 FAKE_LID=false
+
+# --- asahi-battery-alertd: low, critical, then the charger: one short low-urgency "Charging" card ---
+# Lines are "capacity status ac-online" per poll; the fake sleep applies the next one, then ends the daemon.
+ad="$tmp/alertd"
+mkdir -p "$ad/bin" "$ad/psy/macsmc-battery" "$ad/psy/macsmc-ac"
+echo Battery >"$ad/psy/macsmc-battery/type"
+echo Mains >"$ad/psy/macsmc-ac/type"
+printf '%s\n' "15 Discharging 0" "9 Discharging 0" "9 Charging 1" "10 Charging 1" >"$ad/polls"
+cat >"$ad/bin/sleep" <<EOF
+#!/usr/bin/env bash
+n=\$((\$(cat "$ad/n" 2>/dev/null || echo 1) + 1)); echo "\$n" >"$ad/n"
+read -r c s o < <(sed -n "\${n}p" "$ad/polls") || kill "\$PPID"
+echo "\$c" >"$ad/psy/macsmc-battery/capacity"; echo "\$s" >"$ad/psy/macsmc-battery/status"; echo "\$o" >"$ad/psy/macsmc-ac/online"
+EOF
+printf '#!/bin/sh\nprintf "%%s|" "$@" >>"%s"; echo >>"%s"\n' "$ad/notes" "$ad/notes" >"$ad/bin/notify-send"
+chmod +x "$ad/bin/"*
+echo 15 >"$ad/psy/macsmc-battery/capacity"; echo Discharging >"$ad/psy/macsmc-battery/status"; echo 0 >"$ad/psy/macsmc-ac/online"
+# `|| true` inside: the subshell waits for timeout itself, so its "Terminated" note goes to /dev/null too.
+(ASAHI_PSY_DIR="$ad/psy" PATH="$ad/bin:$PATH" timeout 10 "$ROOT/asahi-battery-alertd" || true) 2>/dev/null
+[ "$(grep -c . "$ad/notes")" = 3 ] && grep -q '|normal|.*Low battery' "$ad/notes" && grep -q '|critical|.*Critical battery' "$ad/notes" \
+  && sed -n 3p "$ad/notes" | grep -q '^-a|Asahi Battery|-u|low|-t|4000|.*Charging · 9%' \
+  && pass "battery alerts: low, critical, then one low-urgency Charging card on the charger" \
+  || fail_at "battery alerts: $(cat "$ad/notes" 2>/dev/null)"
 
 # --- launcher / system menu still has no Hibernate ---
 grep -q 'title: "Hibernate"' "$ROOT/../quickshell/remix/modules/launcher/Data.js" \

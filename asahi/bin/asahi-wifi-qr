@@ -4,11 +4,6 @@
 
 set -euo pipefail
 
-if ! command -v qrencode >/dev/null 2>&1; then
-  echo "asahi-wifi-qr: qrencode is not installed (asahi/dnf.sh)" >&2
-  exit 1
-fi
-
 # UUID, not NAME: -t escapes ':' in names, so splitting on ':' broke on "Cafe: 5G".
 uuid=$(nmcli -t -f TYPE,UUID connection show --active | awk -F: '$1 == "802-11-wireless" { print $2; exit }' || true)
 if [ -z "$uuid" ]; then

@@ -1,18 +1,30 @@
 #!/usr/bin/env bash
+# Restart every quickshell module (Super+Ctrl+Alt+W, launcher Reload). A failure shows as a Hyprland
+# notification: qs is the notification server.
 
 set -u
 
 bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+
+running() { pgrep -x qs >/dev/null 2>&1 || pgrep -x quickshell >/dev/null 2>&1; }
+fail() {
+  hyprctl notify 3 10000 0 "Quickshell: $1" >/dev/null 2>&1 || true
+  echo "asahi-restart-quickshell: $1" >&2
+  exit 1
+}
 
 for name in qs quickshell; do
   pkill -x "$name" 2>/dev/null || true
 done
 
 for _ in {1..30}; do
-  if ! pgrep -x qs >/dev/null 2>&1 && ! pgrep -x quickshell >/dev/null 2>&1; then
-    break
-  fi
+  running || break
   sleep 0.1
 done
+# qs -n would see the old one and exit at once: no shell at all.
+if running; then fail "the old instance is still running, not restarted"; fi
 
 "$bin/asahi-start-quickshell"
+# The new instance is up at once; one that dies on start (crash, duplicate) is gone 2 s later.
+sleep 2
+if ! running; then fail "did not start (qs -c remix log)"; fi

@@ -54,8 +54,9 @@ echo "$out" | grep -q '44.20°C' || fail_at "human scales milli-C"
 echo "$out" | grep -q 'Heatpipe Power' || fail_at "human lists heatpipe"
 echo "$out" | grep -q '4.22 W' || fail_at "human scales micro-W"
 echo "$out" | grep -q 'Fan 1' || fail_at "human lists fans"
-echo "$out" | grep -q 'Hottest:' || fail_at "human has hottest"
-echo "$out" | grep -q 'Heatpipe:' || fail_at "human has heatpipe headline"
+echo "$out" | grep -q '^    2317–6800 RPM$' || fail_at "human fan range line"
+echo "$out" | grep -qx '  nvme               Composite                      34.85°C   '"$hw"'/hwmon0/temp1_input' \
+  || fail_at "human row format (TempPane parses it)"
 echo "$out" | grep -q 'no die °C' || fail_at "human explains missing SoC die sensor"
 # HID/battery power rails must not leak into the SMC power section.
 echo "$out" | grep -F 'macsmc_battery' | grep -q ' W ' && fail_at "battery power rail should be omitted" || true
@@ -64,10 +65,11 @@ pass "human output lists temps, heatpipe, fans"
 "$ROOT/asahi-temperature" --nope >/dev/null 2>&1 && fail_at "bad flag should fail" || pass "usage"
 
 js=$(ASAHI_HWMON_ROOT="$hw" "$ROOT/asahi-temperature" --json)
-echo "$js" | jq -e '.hottest.label == "WiFi/BT Module Temp"' >/dev/null || fail_at "json hottest is wifi"
-echo "$js" | jq -e '.hottest.value == 44.20' >/dev/null || fail_at "json hottest value"
-echo "$js" | jq -e '.heatpipe.label == "Heatpipe Power"' >/dev/null || fail_at "json heatpipe label"
-echo "$js" | jq -e '.heatpipe.value == 4.22' >/dev/null || fail_at "json heatpipe watts"
+echo "$js" | jq -e 'keys == ["fans", "power", "temps"]' >/dev/null || fail_at "json is {temps, power, fans}"
+echo "$js" | jq -e '.temps[] | select(.label == "WiFi/BT Module Temp") | .value == 44.2 and .unit == "C"' >/dev/null \
+  || fail_at "json wifi temp"
+echo "$js" | jq -e '.power[] | select(.label == "Heatpipe Power") | .value == 4.22 and .unit == "W"' >/dev/null \
+  || fail_at "json heatpipe watts"
 echo "$js" | jq -e '.power | map(.label) | index("Total System Power")' >/dev/null || fail_at "json has system power"
 echo "$js" | jq -e '[.fans[].label] | index("Fan 1") and index("Fan 2")' >/dev/null || fail_at "json has both fans"
 echo "$js" | jq -e '.fans[] | select(.label=="Fan 2") | .value == 2400 and .min == 2317 and .max == 6800' >/dev/null \
@@ -79,7 +81,7 @@ pass "json output"
 empty="$tmp/empty"
 mkdir -p "$empty"
 empty_js=$(ASAHI_HWMON_ROOT="$empty" "$ROOT/asahi-temperature" --json)
-echo "$empty_js" | jq -e '.temps == [] and .heatpipe == null and .hottest == null' >/dev/null || fail_at "empty tree is empty json"
+echo "$empty_js" | jq -e '. == {temps: [], power: [], fans: []}' >/dev/null || fail_at "empty tree is empty json"
 pass "empty hwmon tree"
 
 if [ "$fail" -ne 0 ]; then

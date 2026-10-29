@@ -18,13 +18,10 @@ mkdir -p "$XDG_RUNTIME_DIR"
 chmod +x "$ROOT/asahi-webcam" "$ROOT/asahi-cmd-record"
 
 "$ROOT/asahi-webcam" 2>/dev/null && fail_at "webcam no-arg should fail" || pass "webcam usage"
-"$ROOT/asahi-cmd-record" --webcam-size=huge 2>/dev/null && fail_at "bad webcam size should fail" || pass "record rejects bad webcam size"
+"$ROOT/asahi-cmd-record" --webcam-size=large 2>/dev/null && fail_at "unknown flag should fail" || pass "record rejects unknown flags"
 
-# sysfs fallback when v4l2-ctl is absent
-mkdir -p "$tmp/dev" "$tmp/sys/class/video4linux/video0" "$tmp/bin"
-printf 'apple-isp\n' >"$tmp/sys/class/video4linux/video0/name"
-# A real char device is not required for the name walk if we bind-mount; instead
-# drive list via a stub v4l2-ctl so the test does not depend on /dev/video*.
+# list via a stub v4l2-ctl, so the test does not depend on /dev/video*.
+mkdir -p "$tmp/bin"
 cat >"$tmp/bin/v4l2-ctl" <<'EOF'
 #!/bin/sh
 if [[ $1 == --list-devices ]]; then
@@ -46,9 +43,9 @@ pass "webcam list via v4l2-ctl"
 sleep 30 &
 overlay=$!
 echo "$overlay" >"$XDG_RUNTIME_DIR/asahi-webcam.pid"
-dry=$(ASAHI_WEBCAM_DRY_RUN=1 PATH="$tmp/bin:$PATH" "$ROOT/asahi-webcam" overlay start --device /dev/video0 --size small)
+dry=$(ASAHI_WEBCAM_DRY_RUN=1 PATH="$tmp/bin:$PATH" "$ROOT/asahi-webcam" overlay start --device /dev/video0)
 echo "$dry" | grep -q 'av://v4l2:/dev/video0' || fail_at "dry-run mpv v4l2 url"
-echo "$dry" | grep -q 'WebcamOverlay-small' || fail_at "dry-run app-id small"
+echo "$dry" | grep -q 'WebcamOverlay-medium' || fail_at "dry-run app-id medium"
 kill -0 "$overlay" 2>/dev/null && [ -e "$XDG_RUNTIME_DIR/asahi-webcam.pid" ] || fail_at "dry run stopped the running overlay"
 kill "$overlay" 2>/dev/null || true
 pass "overlay start dry-run leaves a running overlay alone"
@@ -88,7 +85,7 @@ pass "hypr binds webcam record + resize"
 grep -q 'WebcamOverlay-medium' "$ROOT/../hypr/conf.d/rules.lua" || fail_at "rules.lua webcam overlay class"
 grep -q 'keep_aspect_ratio = true' "$ROOT/../hypr/conf.d/rules.lua" || fail_at "rules.lua PiP keep_aspect"
 grep -q 'xdg-desktop-portal-gtk' "$ROOT/../hypr/conf.d/rules.lua" || fail_at "rules.lua portal-gtk float"
-grep -q 'obsproject' "$ROOT/../hypr/conf.d/rules.lua" || fail_at "rules.lua opaque media"
+grep -q '{ opaque = true })' "$ROOT/../hypr/conf.d/rules.lua" || fail_at "rules.lua opaque media"
 pass "rules.lua media / PiP / webcam / portal"
 
 grep -qE '^[[:space:]]*v4l-utils \\$' "$ROOT/../dnf.sh" || fail_at "dnf.sh installs v4l-utils"

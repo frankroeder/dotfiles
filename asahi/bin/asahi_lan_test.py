@@ -135,12 +135,12 @@ class Names(unittest.TestCase):
   def test_friendly(self):
     self.assertEqual(lan.friendly("A1B2C3D4E5F6@Living Room"), "Living Room")
     self.assertEqual(lan.friendly("nas [00:11:32:aa:bb:cc]"), "nas")
-    self.assertEqual(lan.friendly("32:73:5f:8b:a2:80@fe80::3073:5fff:fe8b:a280-supportsRP-26"), "")
+    self.assertEqual(lan.friendly("32:00:00:00:00:01@fe80::3000:ff:fe00:1-supportsRP-26"), "")
     self.assertEqual(lan.friendly("0123456789abcdef0123456789abcdef"), "")
     self.assertEqual(lan.friendly("PC-192-168-178-50"), "")
 
   def test_tidy(self):
-    self.assertEqual(lan.tidy("PHILIPS_EP8757_20_392985"), "Philips EP8757")
+    self.assertEqual(lan.tidy("PHILIPS_EP8757_20_000000"), "Philips EP8757")
     self.assertEqual(lan.tidy("Franks-iPhone"), "Franks iPhone")
     self.assertEqual(lan.tidy("ESP-1A2B3C"), "ESP")
     self.assertEqual(lan.tidy("raspberrypi"), "raspberrypi")
@@ -164,15 +164,15 @@ class Names(unittest.TestCase):
 
   def test_device_names(self):
     m = fake_monitor()
-    m.ptr["192.168.178.123"] = ("9HC-EU-UDB9314A.fritz.box", 0)
+    m.ptr["192.168.178.123"] = ("0XX-EU-XXX0000X.fritz.box", 0)
     m.ptr["192.168.178.30"] = ("PC-192-168-178-30.fritz.box", 0)
     lan._oui = {"446ff8": "Dyson Limited", "d83add": "Raspberry Pi Trading Ltd"}
     seen = {"ip": "192.168.178.123", "t": time.time(), "state": "idle"}
-    d = m.device("44:6f:f8:a6:03:f1", seen, {}, time.time(), "")
+    d = m.device("44:6f:f8:00:00:01", seen, {}, time.time(), "")
     self.assertEqual((d["name"], d["kind"]), ("Appliance (Dyson)", "appliance"))  # serial hostname → vendor label
     d = m.device("d8:3a:dd:00:00:02", dict(seen, ip="192.168.178.30"), {"name": "Pi"}, time.time(), "")
     self.assertEqual((d["name"], d["auto"], d["custom"]), ("Pi", "Computer (Raspberry Pi)", True))
-    d = m.device("26:62:ae:35:25:d5", dict(seen, ip="192.168.178.31"), {}, time.time(), "")
+    d = m.device("26:00:00:00:00:31", dict(seen, ip="192.168.178.31"), {}, time.time(), "")
     self.assertTrue(d["private"])
     self.assertEqual(d["vendor"], "")
 

@@ -8,7 +8,7 @@
 #                                           is still active: the card never takes keyboard focus)
 #
 # Anthropic Messages API, streamed.
-# Key: $ANTHROPIC_API_KEY (session env, else interactive zsh); model: ASAHI_WRITING_MODEL (default claude-haiku-5-5).
+# Key: $ANTHROPIC_API_KEY (session env, else interactive zsh); model: claude-haiku-5-5.
 set -euo pipefail
 
 max_chars=20000
@@ -96,12 +96,14 @@ run() {
     return
   fi
   # The key goes in through a header file: on curl's command line any process could read it.
-  jq -cn --arg model "${ASAHI_WRITING_MODEL:-claude-haiku-5-5}" --arg system "$common"$'\n\n'"$instr" \
+  jq -cn --arg system "$common"$'\n\n'"$instr" \
     --arg text "<text>"$'\n'"$text"$'\n'"</text>" \
-    '{model: $model, max_tokens: 16000, stream: true, system: $system,
+    '{model: "claude-haiku-5-5", max_tokens: 16000, stream: true, system: $system,
       thinking: {type: "disabled"}, output_config: {effort: "low"},
       messages: [{role: "user", content: $text}]}' |
-    curl -sN https://api.anthropic.com/v1/messages \
+    # A dropped link must end the card's spinner: no connect within 10 s, or a minute without a byte (no
+    # {stop} line then, so the card shows an error).
+    curl -sN --connect-timeout 10 --speed-limit 1 --speed-time 60 https://api.anthropic.com/v1/messages \
       -H "content-type: application/json" -H "anthropic-version: 2023-06-01" \
       -H @<(printf 'x-api-key: %s\n' "$ANTHROPIC_API_KEY") --data-binary @- |
     # SSE "data:" lines; an HTTP error arrives as one bare JSON line.

@@ -21,23 +21,18 @@ OVERRIDE_LUX_DELTA=20
 OVERRIDE_LUX_RATIO=40
 HYST_LUX_DELTA=5
 HYST_LUX_RATIO=25
-LID_CLOSED_ANGLE="${ASAHI_LID_CLOSED_ANGLE:-30}"
+LID_CLOSED_ANGLE=30
 
-once=0
 available_only=0
 map_lux=""
 
 usage() {
-  echo "usage: $0 [--once|--available|--map-lux N]" >&2
+  echo "usage: $0 [--available|--map-lux N]" >&2
   exit 2
 }
 
 while (($#)); do
   case "$1" in
-    --once)
-      once=1
-      shift
-      ;;
     --available)
       available_only=1
       shift
@@ -50,7 +45,7 @@ while (($#)); do
       shift 2
       ;;
     -h|--help)
-      echo "usage: $0 [--once|--available|--map-lux N]"
+      echo "usage: $0 [--available|--map-lux N]"
       exit 0
       ;;
     *)
@@ -204,10 +199,7 @@ session_locked() {
       return 0
     fi
   fi
-  if pidof hyprlock >/dev/null 2>&1; then
-    return 0
-  fi
-  return 1
+  hyprlock_running
 }
 
 # Lid-angle sensor path, cached across ticks (find_las forks). Not common.sh's lid_closed (logind, forks busctl).
@@ -311,10 +303,6 @@ tick() {
 }
 
 tick
-
-if ((once)); then
-  exit 0
-fi
 
 # Paths are cached; rediscover only when one disappears (driver reload, resume).
 while true; do

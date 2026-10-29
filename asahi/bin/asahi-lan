@@ -240,7 +240,7 @@ def friendly(s):
 
 
 def tidy(name):
-  """Hostname → display name: 'PHILIPS_EP8757_20_392985' → 'Philips EP8757', 'Franks-iPhone' → 'Franks iPhone'."""
+  """Hostname → display name: 'PHILIPS_EP8757_20_000000' → 'Philips EP8757', 'Franks-iPhone' → 'Franks iPhone'."""
   name = re.sub(r"\s+-\s+[A-Z0-9]{4,}$", "", name)
   if "_" in name:
     name = " ".join(w.title() if w.isalpha() and w.isupper() and len(w) > 3 else w
@@ -250,7 +250,7 @@ def tidy(name):
 
 
 def serial_like(name):
-  """9HC-EU-UDB9314A: a serial-number hostname reads worse than 'Appliance (Dyson)'."""
+  """0XX-EU-XXX0000X: a serial-number hostname reads worse than 'Appliance (Dyson)'."""
   return not re.search(r"[a-z]", name) and len(re.findall(r"\d", name)) >= 4
 
 

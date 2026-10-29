@@ -3,14 +3,15 @@
 # Overlay is mpv + Hyprland pin; asahi-cmd-record starts and stops it.
 
 set -euo pipefail
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
 
 pid_file="${XDG_RUNTIME_DIR:-/tmp}/asahi-webcam.pid"
 region_file="${XDG_RUNTIME_DIR:-/tmp}/asahi-record-region"
 margin=40
 
 usage() {
-  echo "usage: $0 list | overlay start|stop | resize smaller|larger|reset|small|medium|large" >&2
-  echo "  overlay start [--device PATH] [--size small|medium|large] [--region WxH+X+Y]" >&2
+  echo "usage: $0 list | overlay start|stop | resize smaller|larger|small|medium|large" >&2
+  echo "  overlay start [--device PATH] [--region WxH+X+Y]" >&2
   exit 2
 }
 
@@ -19,9 +20,7 @@ notify() {
 }
 
 capture_capable() {
-  local device="$1"
-  command -v v4l2-ctl >/dev/null 2>&1 || return 0
-  v4l2-ctl --device "$device" --info 2>/dev/null | awk '
+  v4l2-ctl --device "$1" --info 2>/dev/null | awk '
     /^[[:space:]]*Device Caps[[:space:]]*:/ { inspect = 1; next }
     inspect && /^[[:space:]]*Video Capture/ { found = 1 }
     END { exit !found }
@@ -29,59 +28,29 @@ capture_capable() {
 }
 
 list_devices() {
-  local name device emitted line
-  if command -v v4l2-ctl >/dev/null 2>&1; then
-    name=""
-    emitted=0
-    while IFS= read -r line; do
-      if [[ -n $line && $line != [[:space:]]* ]]; then
-        name="$line"
-        emitted=0
-      elif ((emitted == 0)); then
-        device="${line#"${line%%[![:space:]]*}"}"
-        if [[ $device == /dev/video* ]] && capture_capable "$device"; then
-          emitted=1
-          printf '%s  %s\n' "$device" "$name"
-        fi
+  local name="" device emitted=0 line
+  while IFS= read -r line; do
+    if [[ -n $line && $line != [[:space:]]* ]]; then
+      name="$line"
+      emitted=0
+    elif ((emitted == 0)); then
+      device="${line#"${line%%[![:space:]]*}"}"
+      if [[ $device == /dev/video* ]] && capture_capable "$device"; then
+        emitted=1
+        printf '%s  %s\n' "$device" "$name"
       fi
-    done < <(v4l2-ctl --list-devices 2>/dev/null)
-    return 0
-  fi
-  for device in /dev/video*; do
-    [[ -c $device ]] || continue
-    name=$(cat "/sys/class/video4linux/${device##*/}/name" 2>/dev/null || true)
-    printf '%s  %s\n' "$device" "${name:-video}"
-  done
+    fi
+  done < <(v4l2-ctl --list-devices 2>/dev/null)
 }
 
 first_device() {
   list_devices | sed -n '1s/[[:space:]].*//p'
 }
 
-overlay_pid() {
-  local pid=""
-  if [[ -r $pid_file ]]; then
-    pid="$(tr -d '\n' <"$pid_file")"
-    if [[ $pid =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
-      printf '%s\n' "$pid"
-      return 0
-    fi
-    rm -f "$pid_file"
-  fi
-}
-
 stop_overlay() {
   local pid
-  pid="$(overlay_pid || true)"
-  if [[ -n $pid ]]; then
-    kill "$pid" 2>/dev/null || true
-    local i
-    for ((i = 1; i <= 20; i++)); do
-      kill -0 "$pid" 2>/dev/null || break
-      sleep 0.1
-    done
-    kill -0 "$pid" 2>/dev/null && kill -KILL "$pid" 2>/dev/null || true
-  fi
+  pid="$(live_pid "$pid_file")"
+  if [[ -n $pid ]]; then stop_pid "$pid" TERM 20; fi
   rm -f "$pid_file" "$region_file"
 }
 
@@ -94,7 +63,7 @@ resize_overlay() {
   local target_width target_height target_x target_y window
 
   case $action in
-    smaller | larger | reset | small | medium | large) ;;
+    smaller | larger | small | medium | large) ;;
     *) usage ;;
   esac
 
@@ -160,7 +129,7 @@ resize_overlay() {
       target_width=$small_width
       target_height=$small_height
       ;;
-    medium | reset)
+    medium)
       target_width=$medium_width
       target_height=$medium_height
       ;;
@@ -208,18 +177,14 @@ resize_overlay() {
   hyprctl dispatch "hl.dsp.window.move({ window = \"$window\", x = $target_x, y = $target_y })" >/dev/null
 }
 
+# The overlay opens medium (class WebcamOverlay-medium: rules.lua sizes and places it).
 start_overlay() {
-  local device="" size="medium" region="" capture_options available_formats resolution
+  local device="" region="" capture_options available_formats resolution
   while (($# > 0)); do
     case "$1" in
       --device)
         (($# >= 2)) || usage
         device=$2
-        shift 2
-        ;;
-      --size)
-        (($# >= 2)) || usage
-        size=$2
         shift 2
         ;;
       --region)
@@ -230,13 +195,6 @@ start_overlay() {
       *) usage ;;
     esac
   done
-  case $size in
-    small | medium | large) ;;
-    *)
-      echo "asahi-webcam: size must be small, medium, or large" >&2
-      exit 1
-      ;;
-  esac
 
   if [[ -z $device ]]; then
     device=$(first_device)
@@ -248,25 +206,17 @@ start_overlay() {
   fi
 
   capture_options="framerate=30"
-  if command -v v4l2-ctl >/dev/null 2>&1; then
-    available_formats=$(v4l2-ctl --list-formats-ext -d "$device" 2>/dev/null || true)
-    for resolution in 640x360 1280x720 1920x1080; do
-      if grep -q "$resolution" <<<"$available_formats"; then
-        capture_options="video_size=$resolution,$capture_options"
-        break
-      fi
-    done
-  fi
+  available_formats=$(v4l2-ctl --list-formats-ext -d "$device" 2>/dev/null || true)
+  for resolution in 640x360 1280x720 1920x1080; do
+    if grep -q "$resolution" <<<"$available_formats"; then
+      capture_options="video_size=$resolution,$capture_options"
+      break
+    fi
+  done
 
   if [[ -n ${ASAHI_WEBCAM_DRY_RUN:-} ]]; then
-    printf 'mpv av://v4l2:%s --wayland-app-id=WebcamOverlay-%s\n' "$device" "$size"
+    printf 'mpv av://v4l2:%s --wayland-app-id=WebcamOverlay-medium\n' "$device"
     return 0
-  fi
-
-  if ! command -v mpv >/dev/null 2>&1; then
-    notify "mpv is not installed"
-    echo "asahi-webcam: mpv is not installed" >&2
-    exit 1
   fi
 
   # After the dry run: it must not kill a live overlay.
@@ -275,7 +225,7 @@ start_overlay() {
     --profile=low-latency --untimed --no-cache \
     --demuxer-lavf-o="$capture_options" \
     '--vf=lavfi=[crop=ih*8/9:ih]' \
-    --title="WebcamOverlay" --wayland-app-id="WebcamOverlay-$size" \
+    --title="WebcamOverlay" --wayland-app-id=WebcamOverlay-medium \
     --no-border --no-audio --no-osc --osd-level=0 \
     --really-quiet </dev/null >/dev/null 2>&1 &
   printf '%s\n' $! >"$pid_file"
@@ -284,15 +234,13 @@ start_overlay() {
     printf '%s\n' "$region" >"$region_file"
   fi
 
-  if [[ -z ${ASAHI_WEBCAM_NO_WAIT:-} ]]; then
-    local waited=0
-    while ((waited < 40)) && ! hyprctl clients -j 2>/dev/null | jq -e 'any(.[]; .title == "WebcamOverlay")' >/dev/null 2>&1; do
-      sleep 0.05
-      waited=$((waited + 1))
-    done
-    resize_overlay "$size" || true
-    sleep 0.3
-  fi
+  local waited=0
+  while ((waited < 40)) && ! hyprctl clients -j 2>/dev/null | jq -e 'any(.[]; .title == "WebcamOverlay")' >/dev/null 2>&1; do
+    sleep 0.05
+    waited=$((waited + 1))
+  done
+  resize_overlay medium || true
+  sleep 0.3
 }
 
 cmd=${1:-}

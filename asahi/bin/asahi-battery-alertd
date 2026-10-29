@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
 
-interval="${ASAHI_BATTERY_ALERT_INTERVAL:-30}"
-warning_threshold="${ASAHI_BATTERY_WARNING_THRESHOLD:-20}"
-critical_threshold="${ASAHI_BATTERY_CRITICAL_THRESHOLD:-10}"
-critical_repeat_interval="${ASAHI_BATTERY_CRITICAL_REPEAT_INTERVAL:-60}"
+interval=30
+warning_threshold=20
+critical_threshold=10
+critical_repeat_interval=60
 
-battery_path="${ASAHI_BATTERY_PATH:-}"
-ac_path="${ASAHI_AC_PATH:-}"
+psy="${ASAHI_PSY_DIR:-/sys/class/power_supply}"
+battery_path=""
 warning_sent=0
 critical_sent=0
 critical_last=0
@@ -18,12 +19,12 @@ find_power_supply() {
   local preferred="$2"
   local supply
 
-  if [ -d "/sys/class/power_supply/$preferred" ]; then
-    printf '%s\n' "/sys/class/power_supply/$preferred"
+  if [ -d "$psy/$preferred" ]; then
+    printf '%s\n' "$psy/$preferred"
     return
   fi
 
-  for supply in /sys/class/power_supply/*; do
+  for supply in "$psy"/*; do
     if [ -r "$supply/type" ] && [ "$(cat "$supply/type")" = "$wanted" ]; then
       printf '%s\n' "$supply"
       return
@@ -37,10 +38,6 @@ notify_battery() {
   local timeout="$3"
   local urgency="${4:-normal}"
 
-  if ! command -v notify-send >/dev/null 2>&1; then
-    return 1
-  fi
-
   notify-send -a "Asahi Battery" -u "$urgency" -t "$timeout" -i battery-alert "$title" "$body"
 }
 
@@ -48,20 +45,19 @@ while true; do
   if [ -z "$battery_path" ]; then
     battery_path="$(find_power_supply Battery macsmc-battery || true)"
   fi
-  if [ -z "$ac_path" ]; then
-    ac_path="$(find_power_supply Mains macsmc-ac || true)"
-  fi
 
   if [ -n "$battery_path" ] && [ -r "$battery_path/capacity" ] && [ -r "$battery_path/status" ]; then
     capacity="$(cat "$battery_path/capacity")"
     status="$(cat "$battery_path/status")"
-    ac_online=0
+    plugged=0
+    if [ "$status" != "Discharging" ] || on_ac; then plugged=1; fi
 
-    if [ -n "$ac_path" ] && [ -r "$ac_path/online" ]; then
-      ac_online="$(cat "$ac_path/online")"
-    fi
-
-    if [ "$status" != "Discharging" ] || [ "$ac_online" = "1" ] || [ "$capacity" -gt "$warning_threshold" ]; then
+    if [ "$plugged" -eq 1 ] || [ "$capacity" -gt "$warning_threshold" ]; then
+      # Charger in after an alert: a short low-urgency card replaces the critical one (the shell keeps
+      # one "Asahi Battery" card, and never times a critical one out).
+      if [ "$plugged" -eq 1 ] && [ "$warning_sent" -eq 1 ]; then
+        notify_battery "Charging · ${capacity}%" "" 4000 low || true
+      fi
       warning_sent=0
       critical_sent=0
       critical_last=0

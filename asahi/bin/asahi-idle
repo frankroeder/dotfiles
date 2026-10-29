@@ -13,7 +13,7 @@
 #   asahi-idle wake   hypridle on-resume / after_sleep: undo every step
 #   asahi-idle keys   150 s keys-off listener on-resume: relight the keyboard only
 #   asahi-idle sleep  manual suspend (bind, launcher); refused (exit 1) while an external is on
-#   asahi-idle mark   before_sleep: note time + charge; the first wake after resume logs the drain
+#   asahi-idle mark   before_sleep: note time, charge, charger; the first wake after resume logs the drain
 #   asahi-idle why    what keeps the session awake right now
 #
 # A step still running when wake fires (saver start takes seconds) re-runs
@@ -46,17 +46,33 @@ log() {
   echo "$(date '+%F %T') $*" >> "$log_file"
 }
 
-battery_uwh() { cat /sys/class/power_supply/macsmc-battery/energy_now 2>/dev/null || echo 0; }
+bat="${ASAHI_PSY_DIR:-/sys/class/power_supply}/macsmc-battery"
+battery_uwh() { cat "$bat/energy_now" 2>/dev/null || echo 0; }
 
-# First wake after a suspend: what the sleep cost (s2idle drain; a gain means it charged).
+# First wake after a suspend: what the sleep cost (s2idle drain; a gain means it charged). The gauge reads
+# stale (too high) for 30-90 s after resume, so the charge is read again 90 s later, in the background
+# (the wake must not wait), minus what the awake system drew meanwhile (|power_now| x 90 s). A sleep
+# that saw the charger, at mark or at wake, is logged "on AC" without that correction.
 log_sleep_drain() {
-  local t0 e0 dt
-  read -r t0 e0 <"$sleep_mark" || true
+  local t0 e0 ac t1 e1 dt
+  read -r t0 e0 ac <"$sleep_mark" || true
   rm -f "$sleep_mark"
-  dt=$(( $(date +%s) - ${t0:-0} ))
+  t1=$(date +%s)
+  dt=$((t1 - ${t0:-0}))
   if ((dt < 60 || dt > 7 * 86400)); then return 0; fi
-  log "slept $((dt / 3600))h$((dt % 3600 / 60))m, $(awk -v a="${e0:-0}" -v b="$(battery_uwh)" -v t="$dt" \
-    'BEGIN { d = (a - b) / 1e6; if (d > 0) printf "used %.2f Wh (%.2f W)", d, d * 3600 / t; else printf "gained %.2f Wh", -d }')"
+  if on_ac; then ac=ac; fi
+  e1=$(battery_uwh)
+  (
+    # Not the off loop's flock (a wake from inside off): a later off would read as already running.
+    if [ -n "${off_lock:-}" ]; then exec {off_lock}>&-; fi
+    sleep 90
+    t2=$(date +%s) e2=$(battery_uwh) p=$(cat "$bat/power_now" 2>/dev/null || echo 0)
+    # Asleep again meanwhile (sleep's clock stops in s2idle): the reading from the wake it is.
+    if ((t2 - t1 > 120)); then t2=$t1 e2=$e1; fi
+    log "slept $((dt / 3600))h$((dt % 3600 / 60))m${ac:+ on AC}, $(awk -v a="${e0:-0}" -v b="$e2" -v p="$p" -v w=$((t2 - t1)) \
+      -v ac="$ac" -v t="$dt" 'BEGIN { if (p < 0) p = -p; d = (a - b - (ac ? 0 : p * w / 3600)) / 1e6
+        if (d > 0) printf "used %.2f Wh (%.2f W)", d, d * 3600 / t; else printf "gained %.2f Wh", -d }')"
+  ) </dev/null >/dev/null 2>&1 &
 }
 
 wake() {
@@ -96,7 +112,9 @@ if [ "$cmd" = keys ]; then
 fi
 
 if [ "$cmd" = mark ]; then
-  echo "$(date +%s) $(battery_uwh)" >"$sleep_mark"
+  ac=""
+  if on_ac; then ac=ac; fi
+  echo "$(date +%s) $(battery_uwh) $ac" >"$sleep_mark"
   exit 0
 fi
 
@@ -129,14 +147,6 @@ if [ "$cmd" = sleep ]; then
   exec systemctl suspend
 fi
 
-on_ac() {
-  local p
-  for p in "${ASAHI_PSY_DIR:-/sys/class/power_supply}"/*; do
-    [ "$(cat "$p/type" 2>/dev/null)" = Mains ] && [ "$(cat "$p/online" 2>/dev/null)" = 1 ] && return 0
-  done
-  return 1
-}
-
 if [ "$cmd" != at ] || [[ ! $secs =~ ^[0-9]+$ ]]; then
   echo "usage: $0 at <idle seconds> | $0 wake | $0 keys | $0 sleep | $0 mark | $0 why" >&2
   exit 2
@@ -157,8 +167,7 @@ started="$(mktemp)"
 trap 'rm -f "$started"; [ "$step" = off ] && rm -f "$locking" || true' EXIT
 woke() { [ "$stamp" -nt "$started" ]; }
 
-locked() { pidof hyprlock >/dev/null; }
-if [ "$step" = dim ] && locked; then step=off; log "locked: dim goes dark (off)"; fi
+if [ "$step" = dim ] && hyprlock_running; then step=off; log "locked: dim goes dark (off)"; fi
 display_lit() { hyprctl monitors -j 2>/dev/null | jq -e 'any(.[]; .dpmsStatus)' >/dev/null; }
 
 # Browser tabs keep silent streams RUNNING for hours, so RUNNING is not playback: record ~1 s of
@@ -205,7 +214,7 @@ can_sleep() {
 case "$step" in
   saver)
     # The lock restarts hypridle's listeners; nothing to show under hyprlock.
-    if locked; then log "saver skipped: locked"; exit 0; fi
+    if hyprlock_running; then log "saver skipped: locked"; exit 0; fi
     "$bin/asahi-screensaver" start
     if woke; then log "$step raced a wake"; wake; fi
     ;;
@@ -222,9 +231,9 @@ case "$step" in
     # Stopping the saver unmaps a surface, which also reads as pointer motion: flag first.
     touch "$locking"
     "$bin/asahi-screensaver" stop || true
-    if ! locked; then
+    if ! hyprlock_running; then
       loginctl lock-session
-      for _ in $(seq 1 20); do if locked; then break; fi; sleep 0.25; done
+      for _ in $(seq 1 20); do if hyprlock_running; then break; fi; sleep 0.25; done
     fi
     sleep 3
     rm -f "$locking"

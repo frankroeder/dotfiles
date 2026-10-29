@@ -54,9 +54,9 @@ eq(bm.smartshift_state(2, 30), {"mode": "smartshift", "threshold": 30}, "smartsh
 eq([bm.level_for(p) for p in (None, 5, 20, 50, 90)], ["unknown", "critical", "low", "good", "full"], "level_for")
 eq((bm.voltage_percent(3922), bm.voltage_percent(5000), bm.voltage_percent(3000)), (70, 100, 0), "voltage curve")
 eq(bm.kind_from_name("Logitech G502 HERO Gaming Mouse"), "mouse", "kind from HID name")
-eq(bm.address_of("/org/bluez/hci0/dev_E8_85_4B_18_75_5D"), "E8:85:4B:18:75:5D", "address from BlueZ path")
-eq(bm.address_of("hid-b0:be:83:f2:07:42-battery"), "B0:BE:83:F2:07:42", "address from kernel HID battery")
-eq(bm.address_of("hid-F0T1495S63M13CKAL-battery-144"), "", "serial is no address")
+eq(bm.address_of("/org/bluez/hci0/dev_AA_BB_CC_00_00_01"), "AA:BB:CC:00:00:01", "address from BlueZ path")
+eq(bm.address_of("hid-aa:bb:cc:00:00:02-battery"), "AA:BB:CC:00:00:02", "address from kernel HID battery")
+eq(bm.address_of("hid-SER0000000000-battery-144"), "", "serial is no address")
 
 # ---- alert rule ----
 st = bm.battery_state
@@ -106,8 +106,8 @@ Device: /org/freedesktop/UPower/devices/battery_hid_SER_battery_1
   History (charge):
     1760605478	100.000	fully-charged
 
-Device: /org/freedesktop/UPower/devices/keyboard_hid_b0obeo83of2o07o42_battery
-  native-path:          hid-b0:be:83:f2:07:42-battery
+Device: /org/freedesktop/UPower/devices/keyboard_hid_aaobbocco00o00o02_battery
+  native-path:          hid-aa:bb:cc:00:00:02-battery
   model:                Magic Keyboard
   keyboard
     present:             yes
@@ -120,9 +120,9 @@ Device: /org/freedesktop/UPower/devices/mouse_hidpp_battery_0
   mouse
     percentage:          50%
 
-Device: /org/freedesktop/UPower/devices/headset_dev_E8_85
-  native-path:          /org/bluez/hci0/dev_E8_85_4B_18_75_5D
-  model:                Pömpel
+Device: /org/freedesktop/UPower/devices/headset_dev_AA_BB
+  native-path:          /org/bluez/hci0/dev_AA_BB_CC_00_00_01
+  model:                Kopfhörer
   headset
     present:             yes
     battery-level:       low
@@ -144,10 +144,11 @@ Daemon:
   state:  charging
 """
 up = bm.parse_upower(dump, sysfs=str(tmp / "psy"))
-eq([d["name"] for d in up], ["Apple Inc. Magic Keyboard", "Magic Keyboard", "Pömpel"], "upower: peripherals only (no AC / laptop / hidpp / absent / display)")
+eq([d["name"] for d in up], ["Apple Inc. Magic Keyboard", "Magic Keyboard", "Kopfhörer"],
+   "upower: peripherals only (no AC / laptop / hidpp / absent / display)")
 eq((up[0]["connection"], up[0]["battery"]["status"], up[0]["battery"]["external_power"]), ("usb", "full", True),
    "upower: USB-cabled keyboard via sysfs, charged")
-eq((up[1]["connection"], up[1]["address"], up[1]["battery"]["percent"]), ("bluetooth", "B0:BE:83:F2:07:42", 18), "upower: BT keyboard, int percent")
+eq((up[1]["connection"], up[1]["address"], up[1]["battery"]["percent"]), ("bluetooth", "AA:BB:CC:00:00:02", 18), "upower: BT keyboard, int percent")
 eq((up[2]["battery"]["percent"], up[2]["battery"]["level"], up[2]["kind"]), (None, "low", "headset"), "upower: coarse level, 0% = unknown percent")
 eq([d["name"] for d in bm.parse_upower(dump, sysfs=str(tmp / "psy"), skip_hidpp=False)][2], "MX Master 3",
    "upower: hidpp_battery kept while hidraw is denied (the kernel driver's reading)")
@@ -159,8 +160,8 @@ eq([bool(bm.UPOWER_SELF.search(x)) for x in monitor_lines], [True, True, False],
 # ---- BlueZ ----
 bluez = json.dumps({"type": "a{oa{sa{sv}}}", "data": [{
   "/org/bluez/hci0": {"org.bluez.Adapter1": {"Address": {"type": "s", "data": "5C:E9"}}},
-  "/org/bluez/hci0/dev_E8_85_4B_18_75_5D": {"org.bluez.Device1": {
-    "Address": {"type": "s", "data": "E8:85:4B:18:75:5D"}, "Alias": {"type": "s", "data": "Pömpel <3>"},
+  "/org/bluez/hci0/dev_AA_BB_CC_00_00_01": {"org.bluez.Device1": {
+    "Address": {"type": "s", "data": "AA:BB:CC:00:00:01"}, "Alias": {"type": "s", "data": "Kopfhörer <3>"},
     "Icon": {"type": "s", "data": "audio-headphones"}, "Paired": {"type": "b", "data": True}, "Connected": {"type": "b", "data": True}}},
   "/org/bluez/hci0/dev_11": {"org.bluez.Device1": {
     "Address": {"type": "s", "data": "11:22:33:44:55:66"}, "Alias": {"type": "s", "data": "Pad"}, "Icon": {"type": "s", "data": "input-gaming"},
@@ -174,7 +175,7 @@ bluez = json.dumps({"type": "a{oa{sa{sv}}}", "data": [{
     "Paired": {"type": "b", "data": True}, "Connected": {"type": "b", "data": False}}},
 }]})
 bz = bm.parse_bluez(bluez)
-eq([(d["name"], d["kind"]) for d in bz], [("Pad", "gamepad"), ("Pömpel 3", "headset")], "bluez: paired + connected, known icons, clean names")
+eq([(d["name"], d["kind"]) for d in bz], [("Pad", "gamepad"), ("Kopfhörer 3", "headset")], "bluez: paired + connected, known icons, clean names")
 eq(bz[0]["battery"]["percent"], 9, "bluez: Battery1 percentage")
 eq(bm.parse_bluez("not json"), [], "bluez: garbage = nothing")
 eq(bm.parse_bluez('{"data": [[1, 2]]}'), [], "bluez: wrong shape = nothing")
@@ -182,7 +183,8 @@ eq(bm.parse_bluez('{"data": [[1, 2]]}'), [], "bluez: wrong shape = nothing")
 pads = [{"name": "Xbox Wireless Controller", "address": "AA:01"}, {"name": "Xbox Wireless Controller", "address": "AA:02"}]
 eq(len(bm.merge([], pads)), 2, "merge: same-named devices of one source both stay")
 merged = bm.merge(list(up), bz)
-eq([d["name"] for d in merged], ["Apple Inc. Magic Keyboard", "Magic Keyboard", "Pömpel", "Pad"], "merge: BlueZ Pömpel dropped (UPower path / address)")
+eq([d["name"] for d in merged], ["Apple Inc. Magic Keyboard", "Magic Keyboard", "Kopfhörer", "Pad"],
+   "merge: BlueZ Kopfhörer dropped (UPower path / address)")
 
 # ---- sysfs: adapters, hidraw discovery ----
 bt = tmp / "bt"
@@ -408,6 +410,17 @@ m.handle(json.dumps({"cmd": "thresholds", "low_at": 30, "critical_at": 50}))
 eq(m.handle(json.dumps({"cmd": "thresholds", "low_at": "x"})), False, "handle: bad threshold ignored")
 eq(m.handle('{"cmd": "thresholds", "low_at": Infinity, "critical_at": 1}'), False, "handle: Infinity ignored, no crash")
 eq(m.handle(json.dumps({"cmd": "set", "device": ["x"], "key": {}, "value": [1]})), True, "handle: odd set types reach set, no crash")
+eq(m.handle(b"[" * 10**6), False, "handle: absurdly nested JSON ignored (RecursionError), no crash")
+big = b'{"cmd": "open"' + b" " * (bm.MAX_COMMAND - 15) + b"}"  # a command line of exactly MAX_COMMAND bytes
+lines, rest, skip = bm.split_lines(b"", b"x" * bm.MAX_COMMAND, False)
+lines2, rest, skip = bm.split_lines(rest, big, skip)  # the oversized line goes on: a kept tail would be `big`
+lines3, rest, skip = bm.split_lines(rest, b"\n" + big + b"\n", skip)
+eq((lines, lines2, lines3, rest, skip), ([], [], [big], b"", False), "stdin: an oversized line is dropped whole, its tail never runs")
+eq(bm.split_lines(b"", b"y" * (bm.MAX_COMMAND + 1) + b"\n{}\n", False), ([b"{}"], b"", False), "stdin: a complete oversized line is skipped")
+opt = bm.Monitor(out=io.StringIO(), state=str(tmp / "opt.json"))
+opt.handle(json.dumps({"cmd": "options", "bar_tooltip": False}))
+opt.handle(json.dumps({"cmd": "options", "bar_tooltip": "false", "other_devices": 0}))
+eq((opt.settings["bar_tooltip"], opt.settings["other_devices"]), (False, True), 'options: only real booleans switch (bool("false") is True)')
 saved = json.loads(state.read_text())
 eq((saved["low_at"], saved["critical_at"], "hidden" in saved), (30, 30, False), "state: thresholds (critical ≤ low), no hidden list")
 m.handle(json.dumps({"cmd": "set", "device": "nope", "key": "dpi", "value": 800}))
@@ -422,6 +435,9 @@ eq((m.message[0], m.message[1][0].startswith("dpi: ")), ("errChange", True), "se
 m.set("hidraw0-1", "invert", True)
 eq(json.loads(state.read_text())["devices"], {"4082": {"invert": True, "smartshift": "smartshift", "threshold": 50}}, "set: remembered per wpid")
 wheel_mode[0] = 0x02
+m.set("hidraw0-1", "invert", "false")
+eq((m.message[0], wheel_mode[0], m.settings["devices"]["4082"]["invert"]), ("errChange", 0x02, True), "set: a string is no switch, nothing written")
+wheel_mode[0] = 0x02
 node.sent = []
 m.reapply(dev, "4082")
 eq(wheel_mode[0], 0x06, "reapply: invert written back")
@@ -432,6 +448,11 @@ eq(bm.load_settings(str(tmp / "bad.json"))["low_at"], 25, "state: wrong shape = 
 write(tmp / "odd.json", json.dumps({"devices": {"4082": [1], "c08b": {"dpi": 800}}, "low_at": "x"}))
 eq((bm.load_settings(str(tmp / "odd.json"))["devices"], bm.load_settings(str(tmp / "odd.json"))["low_at"]), ({"c08b": {"dpi": 800}}, 25),
    "state: non-dict device entries and wrong types dropped")
+os.mkfifo(tmp / "fifo.json")
+os.symlink(state, tmp / "link.json")
+write(tmp / "deep.json", "[" * 200000)
+eq([bm.load_settings(str(tmp / f))["low_at"] for f in ("fifo.json", "link.json", "deep.json")], [25, 25, 25],
+   "state: a FIFO (no hang), a symlink and deep nesting read as defaults")
 
 bm.discover = lambda sysfs=None: []
 bm.bt_adapters = lambda sysfs=None: [{"id": "hci0", "builtin": True, "vendor": "Broadcom"}]
@@ -439,8 +460,8 @@ bm.run_bounded = lambda argv, **kw: dump if argv[0] == "upower" else bluez
 bm.upower_connection = lambda native, sysfs=None: "bluetooth" if bm.address_of(native) or native.startswith("/org/bluez/") else "usb"
 m.scan()
 snap = m.snap
-eq([d["name"] for d in snap["devices"]], ["Apple Inc. Magic Keyboard", "Magic Keyboard", "Pömpel", "Pad"], "scan: UPower then new BlueZ devices")
-eq([d.get("address") for d in snap["devices"]][1:], ["B0:BE:83:F2:07:42", "E8:85:4B:18:75:5D", "11:22:33:44:55:66"],
+eq([d["name"] for d in snap["devices"]], ["Apple Inc. Magic Keyboard", "Magic Keyboard", "Kopfhörer", "Pad"], "scan: UPower then new BlueZ devices")
+eq([d.get("address") for d in snap["devices"]][1:], ["AA:BB:CC:00:00:02", "AA:BB:CC:00:00:01", "11:22:33:44:55:66"],
    "scan: Bluetooth devices carry their address (the pane merges by it)")
 eq(snap["alert"], {"state": "critical", "kind": "keyboard"}, "scan: alert = first critical (30/30)")
 eq(snap["devices"][1]["state"], "critical", "scan: 18 % ≤ critical 30")
@@ -585,11 +606,13 @@ eq(e2e.snap["devices"][0]["dpi"]["value"], 3200, "e2e: snapshot shows the reappl
 emu.writes = []
 e2e.scan()
 eq(emu.writes, [], "e2e: no reapply while it stays online")
+emu.dpi, emu.ss = 1000, [2, 20]  # reboot / helper restart: the device is on its own defaults again
 fresh = bm.Monitor(out=io.StringIO(), state=str(tmp / "e2e.json"))
 fresh.settings["other_devices"] = False
 fresh.nodes["/dev/hidraw9"] = node
 fresh.scan()
-eq(emu.writes, [], "e2e: a first sighting keeps the device's own settings (upstream)")
+eq((emu.writes, fresh.snap["devices"][0]["dpi"]["value"]), ([("dpi", 3200), ("smartshift", (1, 0))], 3200),
+   "e2e: a first sighting reapplies remembered settings (upstream 1.4.1)")
 
 # Replug: the receiver's node vanishes (dropped), a new one appears with the device back on its defaults.
 plugged = bm.discover

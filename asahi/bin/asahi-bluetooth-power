@@ -7,8 +7,6 @@
 
 set -euo pipefail
 
-POWER_WAIT_SECONDS="${ASAHI_BLUETOOTH_POWER_WAIT_SECONDS:-2}"
-
 controllers() {
   timeout 2s bluetoothctl list 2>/dev/null | awk '{print $2}'
 }
@@ -25,7 +23,7 @@ powered() {
 }
 
 wait_powered() {
-  local deadline=$((SECONDS + POWER_WAIT_SECONDS))
+  local deadline=$((SECONDS + 2))
   while :; do
     powered && return 0
     ((SECONDS < deadline)) || return 1
@@ -52,16 +50,8 @@ power_on() {
 case "${1:-}" in
   on) power_on ;;
   off) power_off ;;
-  toggle)
-    if powered; then
-      power_off
-    else
-      power_on
-    fi
-    ;;
-  is-on) powered ;;
   *)
-    echo "Usage: asahi-bluetooth-power <on|off|toggle|is-on>" >&2
+    echo "Usage: asahi-bluetooth-power <on|off>" >&2
     exit 2
     ;;
 esac

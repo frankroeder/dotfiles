@@ -32,12 +32,8 @@ mem_total_gib="$(awk -v value="$mem_total" 'BEGIN { printf "%.1f", value / 10485
 swap_used_gib="$(awk -v value="$swap_used" 'BEGIN { printf "%.1f", value / 1048576 }')"
 swap_total_gib="$(awk -v value="$swap_total" 'BEGIN { printf "%.1f", value / 1048576 }')"
 
-class="normal"
-[ "$mem_percentage" -ge 75 ] && class="warning"
-[ "$mem_percentage" -ge 90 ] && class="critical"
-
 tooltip="RAM ${mem_used_gib}/${mem_total_gib} GiB (${mem_percentage}%)\\n"
 tooltip="${tooltip}Swap ${swap_used_gib}/${swap_total_gib} GiB (${swap_percentage}%)"
 
-printf '{"text":"RAM %d%%","tooltip":"%s","class":"%s","percentage":%d}\n' \
-  "$mem_percentage" "$tooltip" "$class" "$mem_percentage"
+# BarData.qml reads the tooltip only.
+printf '{"tooltip":"%s"}\n' "$tooltip"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # General guarded launcher for user graphical apps under uwsm when available.
 # The one place that knows the uwsm-app/setsid dance: the specialized asahi-launch-*
-# scripts exec through here rather than repeating it. Mirrors asahi/hypr/hyprland.lua:launch().
+# scripts exec through here rather than repeating it. asahi/hypr/hyprland.lua:launch() runs apps through it too.
 set -euo pipefail
 
 if [ "$#" -eq 0 ]; then

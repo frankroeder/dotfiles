@@ -3,6 +3,7 @@
 set -euo pipefail
 
 bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+. "$bin/lib/common.sh"
 
 if [ "$#" -eq 0 ]; then
   echo "usage: $0 <command> [args...]" >&2
@@ -16,13 +17,7 @@ if ! command -v "$1" >/dev/null 2>&1 && [ ! -x "$1" ]; then
   exit 1
 fi
 
-address="$(
-  hyprctl clients -j 2>/dev/null |
-    jq -r --arg class "$app_id" 'map(select(.class == $class or .initialClass == $class))[0].address // empty' 2>/dev/null || true
-)"
-
-if [ -n "$address" ]; then
-  hyprctl dispatch "hl.dsp.focus({ window = \"address:$address\" })" >/dev/null
+if focus_client '.class == $class or .initialClass == $class' --arg class "$app_id"; then
   exit 0
 fi
 

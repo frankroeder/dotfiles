@@ -8,15 +8,7 @@ if [ "$#" -eq 0 ]; then
 fi
 
 app_id="org.asahi.$(basename "$1")"
-width="${ASAHI_TUI_WIDTH:-120}"
-height="${ASAHI_TUI_HEIGHT:-34}"
-
 # ASAHI_TUI_WAIT=1: the window stays after the command exits (asahi-pkg: dnf's result stays readable).
-if command -v ghostty >/dev/null 2>&1; then
-  exec "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/asahi-launch" ghostty \
-    --class="$app_id" --window-width="$width" --window-height="$height" \
-    ${ASAHI_TUI_WAIT:+--wait-after-command=true} -e "$@"
-fi
-
-notify-send "Terminal launcher" "Ghostty is not installed."
-exit 1
+exec "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/asahi-launch" ghostty \
+  --class="$app_id" --window-width=120 --window-height=34 \
+  ${ASAHI_TUI_WAIT:+--wait-after-command=true} -e "$@"

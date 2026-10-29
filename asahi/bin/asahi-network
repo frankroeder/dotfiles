@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Output JSON { "text": short display, "tooltip": multi-line details, "class": ..., "percentage": 0-100 }
+# Output JSON { "text": bar glyph, "tooltip": multi-line details, "name": connection, "vpn", "vpnName", "vpnSince" }
 # --bar: no Wi-Fi tooltip (the bar chip shows only the icon).
 
 fmt_age() {
@@ -150,15 +150,10 @@ if [ -z "$line" ]; then
   jq -cn \
     --arg text "󰤮" \
     --arg tooltip "$( [ -n "$vpn_tooltip" ] && printf '%s' "$vpn_tooltip" || printf 'Disconnected' )" \
-    --arg class "disconnected" \
-    --arg device "" \
-    --arg name "" \
     --arg vpn "$vpn_name" \
-    --arg vpnKind "$vpn_kind" \
-    --argjson percentage 0 \
     --argjson vpnUp "$([ -n "$vpn_name" ] && echo true || echo false)" \
     --argjson vpnSince "${vpn_since:-0}" \
-    '{text:$text, tooltip:$tooltip, class:$class, device:$device, name:$name, percentage:$percentage, vpn:$vpnUp, vpnName:$vpn, vpnKind:$vpnKind, vpnSince:$vpnSince}'
+    '{text:$text, tooltip:$tooltip, name:"", vpn:$vpnUp, vpnName:$vpn, vpnSince:$vpnSince}'
   exit 0
 fi
 
@@ -177,23 +172,10 @@ if [ "$type" = "wifi" ]; then
 
   tooltip=""
   if ! $bar; then tooltip=$(build_wifi_tooltip "$dev" "$conn" "$sig"); fi
-  class="connected"
-  pct=$sig
-  # Bar only shows the wifi symbol (no text label)
-  text="$icon"
-elif [ "$type" = "ethernet" ]; then
+else
+  # get_active only returns ethernet and wifi lines.
   icon="󰈀"
   tooltip=$(build_ethernet_tooltip "$dev" "$conn")
-  class="connected"
-  pct=100
-  text="$icon"
-else
-  # Disconnected or no active connection → proper wifi disconnected symbol
-  icon="󰤮"
-  tooltip="Disconnected"
-  class="disconnected"
-  pct=0
-  text="$icon"
 fi
 
 if [ -n "$vpn_tooltip" ]; then
@@ -201,14 +183,10 @@ if [ -n "$vpn_tooltip" ]; then
 fi
 
 jq -cn \
-  --arg text "$text" \
+  --arg text "$icon" \
   --arg tooltip "$tooltip" \
-  --arg class "$class" \
-  --arg device "$dev" \
   --arg name "$conn" \
   --arg vpn "$vpn_name" \
-  --arg vpnKind "$vpn_kind" \
-  --argjson percentage "${pct:-0}" \
   --argjson vpnUp "$([ -n "$vpn_name" ] && echo true || echo false)" \
   --argjson vpnSince "${vpn_since:-0}" \
-  '{text:$text, tooltip:$tooltip, class:$class, device:$device, name:$name, percentage:$percentage, vpn:$vpnUp, vpnName:$vpn, vpnKind:$vpnKind, vpnSince:$vpnSince}'
+  '{text:$text, tooltip:$tooltip, name:$name, vpn:$vpnUp, vpnName:$vpn, vpnSince:$vpnSince}'

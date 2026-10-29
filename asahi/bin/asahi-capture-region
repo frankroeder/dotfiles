@@ -2,7 +2,7 @@
 # Pick a screen region. Prints slurp "X,Y WxH". No grim, no clipboard.
 # Used by asahi-cmd-screenshot / asahi-cmd-ocr / asahi-cmd-qr.
 #
-#   region|area     freeform
+#   region          freeform
 #   windows         snap to monitor/window rectangles
 #   smart           freeform with window/monitor hints; tiny click snaps
 #   fullscreen      focused monitor, no interaction
@@ -46,13 +46,7 @@ get_rectangles() {
   window_rects
 }
 
-MODE=smart
-for arg in "$@"; do
-  case $arg in
-  area) MODE=region ;;
-  *) MODE=$arg ;;
-  esac
-done
+MODE=${1:-smart}
 
 pick() {
   slurp "$@" 2>/dev/null || true

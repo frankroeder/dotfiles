@@ -4,8 +4,8 @@
 set -euo pipefail
 
 supply_root="${ASAHI_POWER_SUPPLY_PATH:-/sys/class/power_supply}"
-bat_path="${supply_root}/${ASAHI_BATTERY_DEVICE:-macsmc-battery}"
-ac_path="${supply_root}/${ASAHI_AC_DEVICE:-macsmc-ac}"
+bat_path="$supply_root/macsmc-battery"
+ac_path="$supply_root/macsmc-ac"
 
 # Builtin reads into a named variable (no fork per sysfs file).
 # read_value <var> <path>: first line, or n/a when unreadable.
@@ -183,11 +183,6 @@ tooltip="$(printf "$tooltip_format" \
   "$([ "$ac_online" = "1" ] && echo Yes || echo No)" "$(format_w "$input_power_limit")" \
   "$model" "$manufacture_year" "$(format_date_part "$manufacture_month")" "$(format_date_part "$manufacture_day")")"
 
-watts="$(awk -v value="$power_now" 'BEGIN { if (value < 0) value = -value; printf "%.1f", value / 1000000 }')"
-threshold_end_json=null
-threshold_start_json=null
-[ -n "$end_num" ] && threshold_end_json="$end_num"
-[ -n "$start_num" ] && threshold_start_json="$start_num"
 holding_json=false
 [ "$holding" = true ] && holding_json=true
 
@@ -197,8 +192,4 @@ jq -cn \
   --argjson class "$classes_json" \
   --argjson percentage "$capacity" \
   --argjson holding "$holding_json" \
-  --argjson threshold_end "$threshold_end_json" \
-  --argjson threshold_start "$threshold_start_json" \
-  --argjson watts "$watts" \
-  --arg cycles "$cycle_count" \
-  '{text: $text, tooltip: $tooltip, class: $class, percentage: $percentage, holding: $holding, threshold_end: $threshold_end, threshold_start: $threshold_start, watts: $watts, cycles: $cycles}'
+  '{text: $text, tooltip: $tooltip, class: $class, percentage: $percentage, holding: $holding}'

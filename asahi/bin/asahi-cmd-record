@@ -7,8 +7,7 @@ set -euo pipefail
 . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
 
 bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
-output_dir="${ASAHI_RECORD_DIR:-${XDG_VIDEOS_DIR:-$HOME/Videos}}"
-audio="${ASAHI_RECORD_AUDIO:-1}"
+output_dir="${XDG_VIDEOS_DIR:-$HOME/Videos}"
 pid_file="${XDG_RUNTIME_DIR:-/tmp}/asahi-record.pid"
 log_file="${XDG_RUNTIME_DIR:-/tmp}/asahi-record.log"
 # Markers the Quickshell recorder panel reads via `status --json`.
@@ -16,12 +15,10 @@ file_marker="${XDG_RUNTIME_DIR:-/tmp}/asahi-record.file"
 start_marker="${XDG_RUNTIME_DIR:-/tmp}/asahi-record.start"
 json=0
 webcam=0
-webcam_device=""
-webcam_size="medium"
 mode=""
 
 usage() {
-  echo "usage: $0 [fullscreen|region|webcam|status|stop] [--json] [--webcam] [--webcam-device=PATH] [--webcam-size=small|medium|large]" >&2
+  echo "usage: $0 [fullscreen|region|webcam|status|stop] [--json] [--webcam]" >&2
   exit 2
 }
 
@@ -29,8 +26,6 @@ while (($# > 0)); do
   case "$1" in
     --webcam) webcam=1; shift ;;
     --json) json=1; shift ;;
-    --webcam-device=*) webcam_device="${1#*=}"; shift ;;
-    --webcam-size=*) webcam_size="${1#*=}"; shift ;;
     --help | -h) usage ;;
     -*) usage ;;
     *)
@@ -44,13 +39,6 @@ while (($# > 0)); do
 done
 mode="${mode:-fullscreen}"
 
-case $webcam_size in
-  small | medium | large) ;;
-  *)
-    echo "asahi-cmd-record: webcam size must be small, medium, or large" >&2
-    exit 1
-    ;;
-esac
 if [[ $mode == webcam ]]; then
   mode=fullscreen
   webcam=1
@@ -65,16 +53,10 @@ refresh_bar() {
 }
 
 recording_pid() {
-  local pid=""
-  if [ -r "$pid_file" ]; then
-    pid="$(tr -d '\n' <"$pid_file")"
-    if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
-      printf '%s\n' "$pid"
-      return 0
-    fi
-    rm -f "$pid_file"
-  fi
-  pgrep -u "$UID" -x wf-recorder | head -1 || true
+  local pid
+  pid="$(live_pid "$pid_file")"
+  if [ -z "$pid" ]; then pid="$(pgrep -u "$UID" -x wf-recorder | head -1 || true)"; fi
+  printf '%s\n' "$pid"
 }
 
 stop_recording() {
@@ -85,13 +67,9 @@ stop_recording() {
     refresh_bar
     return 0
   fi
-  kill -INT "$pid" 2>/dev/null || true
-  local i
-  for ((i = 1; i <= 20; i++)); do
-    kill -0 "$pid" 2>/dev/null || break
-    sleep 0.1
-  done
-  kill -0 "$pid" 2>/dev/null && kill -KILL "$pid" 2>/dev/null || true
+  # After SIGINT wf-recorder still flushes buffered frames and writes the MP4 index (libx264 at 4K
+  # can take seconds): SIGKILL only after 15 s, or the file has no index. A quick exit returns at once.
+  stop_pid "$pid" INT 150
   rm -f "$pid_file" "$start_marker"
   "$bin/asahi-webcam" overlay stop >/dev/null 2>&1 || true
   notify "Recording saved"
@@ -165,13 +143,9 @@ slurp_to_region() {
 }
 
 start_webcam() {
-  local region=${1:-}
-  local args=(overlay start --size "$webcam_size")
-  if [[ -n $webcam_device ]]; then
-    args+=(--device "$webcam_device")
-  fi
-  if [[ -n $region ]]; then
-    args+=(--region "$region")
+  local args=(overlay start)
+  if [[ -n ${1:-} ]]; then
+    args+=(--region "$1")
   fi
   "$bin/asahi-webcam" "${args[@]}"
 }
@@ -179,12 +153,6 @@ start_webcam() {
 if [ -n "$(recording_pid)" ]; then
   stop_recording
   exit 0
-fi
-
-if ! command -v wf-recorder >/dev/null 2>&1; then
-  notify "wf-recorder is not installed" "Install with make asahi (asahi/dnf.sh)"
-  echo "asahi-cmd-record: wf-recorder is not installed" >&2
-  exit 1
 fi
 
 mkdir -p "$output_dir"
@@ -214,15 +182,11 @@ if ((webcam)); then
   start_webcam "$webcam_region"
 fi
 
-audio_args=()
-dev=""
-if [ "$audio" != "0" ]; then
-  dev="$(audio_device || true)"
-  if [ -n "$dev" ]; then
-    audio_args=(--audio="$dev")
-  else
-    audio_args=(-a)
-  fi
+dev="$(audio_device || true)"
+if [ -n "$dev" ]; then
+  audio_args=(--audio="$dev")
+else
+  audio_args=(-a)
 fi
 
 start_recorder "$file" "${geom[@]}" -r 60 "${audio_args[@]}"

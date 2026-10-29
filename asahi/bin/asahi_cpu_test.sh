@@ -24,8 +24,6 @@ mkdir -p "$hw/hwmon1" "$freq/cpu0/cpufreq" "$state"
 printf 'macsmc_hwmon\n' >"$hw/hwmon1/name"
 printf 'WiFi/BT Module Temp\n' >"$hw/hwmon1/temp4_label"
 printf '44200\n' >"$hw/hwmon1/temp4_input"
-printf 'Heatpipe Power\n' >"$hw/hwmon1/power4_label"
-printf '18000000\n' >"$hw/hwmon1/power4_input"
 
 printf 'cpu 3357 0 4323 422382 0 0 0 0 0 0\n' >"$stat"
 printf 'cpu0 1000 0 500 100000 0 0 0 0 0 0\n' >>"$stat"
@@ -55,9 +53,8 @@ tip=$(echo "$out" | jq -r '.tooltip')
 grep -qx 'Load 1/5/15: 0.10 0.20 0.30' <<<"$tip" || fail_at "tooltip load line"
 grep -qx 'Cores: 2' <<<"$tip" || fail_at "tooltip cores line"
 grep -q '^Freq avg 1.20 GHz' <<<"$tip" || fail_at "tooltip freq line"
-grep -q '^Thermal 44.2 C' <<<"$tip" || fail_at "tooltip thermal line"
-grep -q 'Heatpipe 18.0 W' <<<"$tip" || fail_at "tooltip names heatpipe"
-grep -q 'no die sensor' <<<"$tip" || fail_at "tooltip explains missing die sensor"
+grep -qx 'Thermal 44.2 C (macsmc_hwmon / WiFi/BT Module Temp)' <<<"$tip" || fail_at "tooltip thermal line"
+[ "$(wc -l <<<"$tip")" = 4 ] || fail_at "tooltip is the four parsed lines"
 pass "asahi-cpu json"
 
 if [ "$fail" -ne 0 ]; then

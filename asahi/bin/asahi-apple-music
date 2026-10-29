@@ -6,21 +6,15 @@
 set -euo pipefail
 
 bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+. "$bin/lib/common.sh"
 data="${ASAHI_APPLE_MUSIC_DIR:-$HOME/.local/share/asahi-apple-music}"
 ext="$(readlink -f "$bin/../apple-music/extension")"
 # Oldest process on this profile = its browser. Regex-escaped and anchored: a longer
 # directory name that merely starts with ours must not match.
 re="$(printf '%s' "$data" | sed 's/[][\\.*^$+?(){}|]/\\&/g')"
 pid="$(pgrep -o -f -- "--user-data-dir=$re( |\$)" || true)"
-if [ -n "$pid" ]; then
-  address="$(
-    hyprctl clients -j 2>/dev/null |
-      jq -r --argjson pid "$pid" 'map(select(.pid == $pid))[0].address // empty' 2>/dev/null || true
-  )"
-  if [ -n "$address" ]; then
-    hyprctl dispatch "hl.dsp.focus({ window = \"address:$address\" })" >/dev/null
-    exit 0
-  fi
+if [ -n "$pid" ] && focus_client '.pid == $pid' --argjson pid "$pid"; then
+  exit 0
 fi
 
 # The profile holds the Apple ID sign-in: owner-only, cookies encrypted with the login keyring.
@@ -33,7 +27,7 @@ if [ -f "$hint" ]; then
   mkdir -p "$data/WidevineCdm"
   cp -f "$hint" "$data/WidevineCdm/"
 else
-  notify-send "Apple Music" "No Widevine in the main Chromium profile: run widevine-installer, or only previews play."
+  notify-send "Apple Music" "No Widevine in the main Chromium profile: run widevine-installer, or only previews play." || true
 fi
 exec "$bin/asahi-launch" chromium-browser \
   --user-data-dir="$data" \

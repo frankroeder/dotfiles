@@ -9,12 +9,12 @@ missing() {
 }
 
 case "$device" in
-  output | sink)
+  output)
     target="@DEFAULT_AUDIO_SINK@"
     name="Volume"
     kind="output"
     ;;
-  input | source | mic | microphone)
+  input)
     target="@DEFAULT_AUDIO_SOURCE@"
     name="Microphone"
     kind="input"
@@ -25,12 +25,8 @@ case "$device" in
     ;;
 esac
 
-if ! command -v wpctl >/dev/null 2>&1; then
-  missing
-  exit 0
-fi
-
-line="$(wpctl get-volume "$target" 2>/dev/null || true)"
+# Bounded: a stuck PipeWire must not hang the OSD.
+line="$(timeout 2 wpctl get-volume "$target" 2>/dev/null || true)"
 if [ -z "$line" ]; then
   missing "$name unavailable"
   exit 0
@@ -42,27 +38,9 @@ case "$line" in
   *MUTED*) state="muted" ;;
 esac
 
-if [ "$kind" = "input" ]; then
-  if [ "$state" = "muted" ]; then
-    icon="󰍭"
-  else
-    icon="󰍬"
-  fi
-else
-  if [ "$state" = "muted" ]; then
-    icon="󰖁"
-  elif [ "$volume" -le 30 ]; then
-    icon="󰕿"
-  elif [ "$volume" -le 60 ]; then
-    icon="󰖀"
-  else
-    icon="󰕾"
-  fi
-fi
-
+# Osd.qml reads class (muted) and percentage; it picks its own glyphs.
 jq -cn \
-  --arg text "$icon ${volume}%" \
   --arg class1 "$kind" \
   --arg class2 "$state" \
   --argjson percentage "$volume" \
-  '{text: $text, class: [$class1, $class2], percentage: $percentage}'
+  '{class: [$class1, $class2], percentage: $percentage}'

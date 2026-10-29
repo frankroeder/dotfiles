@@ -9,10 +9,6 @@ set -euo pipefail
 
 file="${1:?usage: asahi-screenshot-annotate <file>}"
 [ -f "$file" ] || exit 1
-if ! command -v swappy >/dev/null 2>&1; then
-  notify-send -a screenshot -u critical "Annotate unavailable" "Install swappy (asahi/dnf.sh)" 2>/dev/null || true
-  exit 1
-fi
 
 save_dir="$HOME/screenshots"  # swappy's save_dir
 marker="$(mktemp)"

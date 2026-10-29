@@ -8,7 +8,7 @@
 set -euo pipefail
 
 supply_root="${ASAHI_POWER_SUPPLY_PATH:-/sys/class/power_supply}"
-bat="${supply_root}/${ASAHI_BATTERY_DEVICE:-macsmc-battery}"
+bat="$supply_root/macsmc-battery"
 end_path="$bat/charge_control_end_threshold"
 start_path="$bat/charge_control_start_threshold"
 # The saved limit: boot applies it, the Battery pane shows it as "Saved". /var/lib/asahi is
@@ -119,8 +119,8 @@ apply_end() {
 
 cmd="${1:-status}"
 case "$cmd" in
-  status|--json)
-    if [ "$cmd" = "--json" ] || [ "${2:-}" = "--json" ]; then
+  status)
+    if [ "${2:-}" = "--json" ]; then
       print_status --json
     else
       print_status
@@ -131,13 +131,9 @@ case "$cmd" in
     ;;
   apply)
     [ "$(id -u)" -eq 0 ] && chmod_sysfs
-    if [ -n "${2:-}" ]; then
-      apply_end "$2"
-    else
-      want="$(desired_end)"
-      [ -n "$want" ] || exit 0
-      apply_end "$want"
-    fi
+    want="$(desired_end)"
+    [ -n "$want" ] || exit 0
+    apply_end "$want"
     ;;
   '' | *[!0-9]*)
     usage

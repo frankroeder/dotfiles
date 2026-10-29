@@ -18,10 +18,6 @@ fi
 # Fedora's user unit is pkcs11,secrets (no ssh). Start it for this session only;
 # do not enable WantedBy=default.target. PAM auto_start is what unlocks the
 # login keyring; this only covers a session that was already logged in.
-if command -v gnome-keyring-daemon >/dev/null 2>&1; then
-  if systemctl --user start gnome-keyring-daemon.service 2>/dev/null; then
-    :
-  else
-    gnome-keyring-daemon --start --components=secrets,pkcs11 >/dev/null
-  fi
+if ! systemctl --user start gnome-keyring-daemon.service 2>/dev/null; then
+  gnome-keyring-daemon --start --components=secrets,pkcs11 >/dev/null
 fi

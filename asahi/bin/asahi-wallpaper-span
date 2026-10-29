@@ -70,9 +70,10 @@ def crops(frs, iw, ih):
 
 
 # ---- hyprpaper / magick ----
+# Every child is time-bounded: they run under the lock, and a stalled hyprpaper kept the picker's fade overlay up.
 
 def run(*cmd):
-  return subprocess.run(cmd, capture_output=True, text=True, check=True).stdout
+  return subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=15).stdout
 
 
 def set_wallpapers(mapping, wildcard):
@@ -108,7 +109,7 @@ def cut(path, gap, rects):
   # magick writes .tmp.png, renamed once every job succeeded: a failed run left a truncated slice that the exists-checks
   # reused forever. Leftover tmps match *.png, so the prune drops them.
   tmp = {f["name"]: slices[f["name"]].removesuffix(".png") + ".tmp.png" for f in todo}
-  jobs = [subprocess.Popen(["magick", f"{path}[0]", "-auto-orient", "-crop", "{}x{}+{}+{}".format(*boxes[f["name"]]), "+repage",
+  jobs = [subprocess.Popen(["timeout", "120", "magick", f"{path}[0]", "-auto-orient", "-crop", "{}x{}+{}+{}".format(*boxes[f["name"]]), "+repage",
                             "-resize", f"{f['pw']}x{f['ph']}!", "-strip", "-define", "png:compression-level=1", f"PNG24:{tmp[f['name']]}"])
           for f in todo]
   codes = [j.wait() for j in jobs]  # every job, not just up to the first failure

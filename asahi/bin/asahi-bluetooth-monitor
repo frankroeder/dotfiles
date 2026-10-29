@@ -11,7 +11,8 @@ command per line on stdin. Sources, the first one wins on a name / address clash
 Rescans on `upower --monitor` output, HID++ connection notices and commands, else every 60 s (10 s while
 the pane is open). hidraw is root-only until `asahi-logitech-access` (pkexec, pane "Allow") adds the
 uaccess rule; denied nodes are listed with `denied`. This helper is the only writer of its state file
-(alert thresholds, options, remembered HID++ settings, reapplied when a device seen gone comes back).
+(alert thresholds, options, remembered HID++ settings, reapplied on a device's first sighting and when one seen gone
+comes back).
 
   asahi-bluetooth-monitor           run; stdin {"cmd": open | closed | refresh | set | thresholds | options}
   asahi-bluetooth-monitor --once    print one snapshot
@@ -24,6 +25,7 @@ import re
 import select
 import signal
 import socket
+import stat
 import subprocess
 import sys
 import time
@@ -72,6 +74,7 @@ VOLTAGE_CURVE = [(4186, 100), (4067, 90), (3989, 80), (3922, 70), (3859, 60), (3
                  (3717, 20), (3671, 10), (3646, 5), (3579, 2), (3500, 0)]
 
 DRAIN_BUDGET, MAX_NAME, MAX_DUMP, MAX_BLUEZ = 512, 64, 512 * 1024, 256
+MAX_COMMAND = 65536  # longest stdin command line; longer ones are dropped whole
 CLOSED_INTERVAL, OPEN_INTERVAL = 60, 10
 DIE_WITH_US = ["setpriv", "--pdeathsig", "TERM"]  # children die with this helper
 DEVICE_TYPES = {0: "keyboard", 1: "remote", 2: "numpad", 3: "mouse", 4: "touchpad", 5: "trackball", 6: "presenter"}  # 0x0005 fn 2
@@ -173,6 +176,13 @@ def smartshift_state(wheel_mode, auto):
   return {"mode": "smartshift", "threshold": auto}
 
 
+def switch(value):
+  """A real JSON boolean for an on/off setting: bool("false") would read as on."""
+  if not isinstance(value, bool):
+    raise TypeError("not on/off")
+  return value
+
+
 def battery_state(battery, low_at, critical_at):
   """ok / low / critical for the bar chip and the pane (both thresholds inclusive); charging is ok."""
   if not battery or battery.get("charging"):
@@ -223,6 +233,18 @@ def run_bounded(argv, timeout=3.0, limit=MAX_DUMP):
   p.wait()
   p.stdout.close()
   return out[:limit].decode("utf-8", "replace")
+
+
+def split_lines(buf, data, skipping):
+  """Complete stdin lines of buf + data -> (lines, rest, skipping). A line over MAX_COMMAND is dropped whole, up to
+  its newline: a kept tail of it could parse as a command."""
+  *lines, buf = (buf + data).split(b"\n")
+  if lines and skipping:  # the rest of an oversized line
+    lines.pop(0)
+    skipping = False
+  if len(buf) > MAX_COMMAND:
+    buf, skipping = b"", True
+  return [line for line in lines if len(line) <= MAX_COMMAND], buf, skipping
 
 
 # ---- HID++ transport ----
@@ -586,12 +608,23 @@ def adapter_of(d, adapters):
 
 # ---- state file (thresholds, options, remembered HID++ settings) ----
 
+def read_own(path, limit):
+  """A regular file of ours: a symlink, FIFO (would hang the start-up) or device is refused."""
+  fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+  try:
+    st = os.fstat(fd)
+    if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid():
+      raise OSError("not a settings file")
+    return os.read(fd, limit)
+  finally:
+    os.close(fd)
+
+
 def load_settings(path=STATE):
   s = {"low_at": 25, "critical_at": 10, "other_devices": True, "language": "auto", "bar_tooltip": True, "devices": {}}
   try:
-    with open(path) as f:
-      raw = json.loads(f.read(256 * 1024))
-  except (OSError, ValueError):
+    raw = json.loads(read_own(path, 256 * 1024))
+  except (OSError, ValueError, RecursionError):
     return s
   if isinstance(raw, dict):
     s.update({k: raw[k] for k in s if isinstance(raw.get(k), type(s[k]))})
@@ -614,7 +647,7 @@ class Monitor:
     self.out, self.state = out, state
     self.nodes = {}   # hidraw path -> Node
     self.devs = {}    # (path, index, wpid) -> Device
-    self.online = {}  # settings key (wpid) -> online at the last scan; False once gone (reapply when it answers again)
+    self.online = {}  # settings key (wpid) -> online at the last scan; not True (new, or gone): reapply once it answers
     self.by_id = {}   # device id -> (Device, settings key)
     self.settings = load_settings(state)
     self.opened = False
@@ -643,14 +676,15 @@ class Monitor:
     skey = f"{wpid:04x}"
     proto = dev.ping()
     d = {"id": did, "wpid": skey, "online": proto is not None, "battery": None}
-    came_back = d["online"] and self.online.get(skey) is False
+    # First sighting too (upstream 1.4.1): after a reboot / helper restart the device may be on its own defaults.
+    restore = d["online"] and self.online.get(skey) is not True
     if proto is None:
       return d
     d["protocol"] = proto
     self.by_id[did] = (dev, skey)
     if proto < 2:  # HID++ 1.0: no feature table
       return d
-    if came_back:
+    if restore:
       self.reapply(dev, skey)
     for field in ("name", "battery", "dpi", "smartshift", "wheel", "fnswap", "kind"):
       try:
@@ -766,9 +800,9 @@ class Monitor:
     elif key == "threshold":
       dev.set_smartshift("smartshift", value)
     elif key in ("invert", "hires"):
-      dev.set_wheel_bit(0x04 if key == "invert" else 0x02, bool(value))
+      dev.set_wheel_bit(0x04 if key == "invert" else 0x02, switch(value))
     elif key == "fnswap":
-      dev.set_fnswap(bool(value))
+      dev.set_fnswap(switch(value))
     else:
       raise ValueError(f"unknown setting {key}")
 
@@ -796,10 +830,9 @@ class Monitor:
     save_settings(self.settings, self.state)
 
   def options(self, c):
-    if "other_devices" in c:
-      self.settings["other_devices"] = bool(c["other_devices"])
-    if "bar_tooltip" in c:
-      self.settings["bar_tooltip"] = bool(c["bar_tooltip"])
+    for key in ("other_devices", "bar_tooltip"):
+      if isinstance(c.get(key), bool):  # bool("false") would read as on
+        self.settings[key] = c[key]
     if isinstance(c.get("language"), str):
       self.settings["language"] = c["language"][:8]
     save_settings(self.settings, self.state)
@@ -808,7 +841,7 @@ class Monitor:
     """One stdin command; True when a rescan should follow."""
     try:
       c = json.loads(line)
-    except ValueError:
+    except (ValueError, RecursionError):  # bad or absurdly nested JSON
       return False
     if not isinstance(c, dict):
       return False
@@ -825,7 +858,7 @@ class Monitor:
         self.options(c)
       elif cmd == "thresholds":
         self.thresholds(c.get("low_at"), c.get("critical_at"))
-    except (TypeError, ValueError, OverflowError, OSError):
+    except (TypeError, ValueError, OverflowError, OSError, RecursionError):
       return False
     return True
 
@@ -855,7 +888,7 @@ class Monitor:
         watch.kill()
 
   def loop(self, stdin, watch):
-    next_scan, buf = 0.0, b""
+    next_scan, buf, skipping = 0.0, b"", False
     while True:
       if time.monotonic() >= next_scan:
         self.scan()
@@ -873,8 +906,7 @@ class Monitor:
           data = os.read(stdin.fileno(), 65536)
           if not data:  # Quickshell went away
             return
-          *lines, buf = (buf + data).split(b"\n")
-          buf = buf[-65536:]
+          lines, buf, skipping = split_lines(buf, data, skipping)
           wants = [self.handle(line) for line in lines]  # every command, no short-circuit
           if any(wants):
             next_scan = min(next_scan, time.monotonic() + 0.05)

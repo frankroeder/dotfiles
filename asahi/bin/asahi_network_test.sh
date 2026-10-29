@@ -31,6 +31,9 @@ if echo "$out" | jq -e 'has("vpn") and has("vpnSince") and has("vpnName")' >/dev
 else
   fail_at "live JSON missing vpn keys: $out"
 fi
+# BarData.qml reads text / name / vpn*, NetworkPane.qml the tooltip: nothing else.
+echo "$out" | jq -e 'keys == ["name", "text", "tooltip", "vpn", "vpnName", "vpnSince"]' >/dev/null \
+  && pass "live JSON has only the read keys" || fail_at "live JSON keys: $out"
 
 qml="$ROOT/../quickshell/remix/modules/bar/components/Network.qml"
 if grep -q 'font.pixelSize: Style.barFontGlyphTall' "$qml" && grep -q 'visible: root.vpnUp' "$qml" && grep -q 'root.vpnName' "$qml"; then

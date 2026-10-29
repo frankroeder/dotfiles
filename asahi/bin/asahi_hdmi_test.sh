@@ -46,7 +46,7 @@ run() {
     ASAHI_SCALE_DIR="$tmp/scales" ASAHI_HDMI_GEN="$gen" ASAHI_LAYOUT_FILE="$tmp/layout.json" "$HOT" "$@"
 }
 
-dell='[{"name":"eDP-1","disabled":false},{"name":"HDMI-A-1","disabled":true,"description":"Dell Inc. DELL P2723DE 895ZNR3"}]'
+dell='[{"name":"eDP-1","disabled":false},{"name":"HDMI-A-1","disabled":true,"description":"Dell Inc. DELL P2723DE ABC1234"}]'
 
 : >"$kw_log"
 run off
@@ -97,7 +97,7 @@ run sync
 grep -q 'disabled = false' "$kw_log" || fail_at "sync enables when HDMI is still disabled"
 pass "sync enables connected-but-disabled HDMI"
 
-printf '[{"name":"HDMI-A-1","disabled":false,"description":"Dell Inc. DELL P2723DE 895ZNR3","x":-2048,"y":321,"scale":1.25}]\n' >"$mon_json"
+printf '[{"name":"HDMI-A-1","disabled":false,"description":"Dell Inc. DELL P2723DE ABC1234","x":-2048,"y":321,"scale":1.25}]\n' >"$mon_json"
 : >"$kw_log"
 run sync
 if grep -q . "$kw_log"; then
@@ -106,7 +106,7 @@ else
   pass "sync no-op when already enabled"
 fi
 
-printf '[{"name":"HDMI-A-1","disabled":false,"description":"Dell Inc. DELL P2723DE 895ZNR3","x":-2048,"y":-360,"scale":1.875}]\n' >"$mon_json"
+printf '[{"name":"HDMI-A-1","disabled":false,"description":"Dell Inc. DELL P2723DE ABC1234","x":-2048,"y":-360,"scale":1.875}]\n' >"$mon_json"
 : >"$kw_log"
 run sync
 grep -q 'position = "-2048x321"' "$kw_log" && grep -q 'scale = 1.25' "$kw_log" \
@@ -122,7 +122,7 @@ grep -q 'position = "-2048x-360"' "$kw_log" && grep -q 'scale = 1.875' "$kw_log"
 pass "sync reapplies LG layout after Dell leftover"
 
 # Stale LG name after a Dell plug: 4K is not in the mode list.
-printf '[{"name":"HDMI-A-1","disabled":true,"description":"LG Electronics LG ULTRAFINE 112NTMX6B267","availableModes":["2560x1440@59.95Hz","1920x1080@60.00Hz"]}]\n' >"$mon_json"
+printf '[{"name":"HDMI-A-1","disabled":true,"description":"LG Electronics LG ULTRAFINE 000ABC123456","availableModes":["2560x1440@59.95Hz","1920x1080@60.00Hz"]}]\n' >"$mon_json"
 : >"$kw_log"
 run sync
 grep -q 'disabled = false' "$kw_log" || fail_at "stale LG name still enables"
@@ -131,7 +131,7 @@ grep -q 'mode = "2560x1440@59.95100"' "$kw_log" \
 grep -q '3840x2160' "$kw_log" && fail_at "must not 4K when that mode is missing"
 pass "stale LG description with Dell modes uses 1440p"
 
-printf '[{"name":"HDMI-A-1","disabled":true,"description":"LG Electronics LG ULTRAFINE 112NTMX6B267","availableModes":["3840x2160@60.00Hz","2560x1440@59.95Hz"]}]\n' >"$mon_json"
+printf '[{"name":"HDMI-A-1","disabled":true,"description":"LG Electronics LG ULTRAFINE 000ABC123456","availableModes":["3840x2160@60.00Hz","2560x1440@59.95Hz"]}]\n' >"$mon_json"
 : >"$kw_log"
 run on
 grep -q 'mode = "3840x2160@60.000"' "$kw_log" \
@@ -192,7 +192,7 @@ pass "HDMI lid-inhibit: udev holds handle-lid-switch, logind honors it"
 
 # HDMI unplugged: Hyprland must not keep a leftover enabled output.
 printf 'disconnected\n' >"$drm/card2-HDMI-A-1/status"
-printf '[{"name":"HDMI-A-1","disabled":false,"description":"Dell Inc. DELL P2723DE 895ZNR3","x":0,"y":-1152,"scale":1.25}]\n' >"$mon_json"
+printf '[{"name":"HDMI-A-1","disabled":false,"description":"Dell Inc. DELL P2723DE ABC1234","x":0,"y":-1152,"scale":1.25}]\n' >"$mon_json"
 : >"$kw_log"
 run sync
 grep -q 'disabled = true' "$kw_log" \
@@ -201,7 +201,7 @@ pass "sync disables HDMI when DRM is disconnected"
 
 # Kept position (Displays pane drag + Keep): used while the scales match, dropped by reset.
 printf 'connected\n' >"$drm/card2-HDMI-A-1/status"
-printf '[{"name":"eDP-1","disabled":false,"scale":2},{"name":"HDMI-A-1","disabled":false,"description":"Dell Inc. DELL P2723DE 895ZNR3","x":1512,"y":0,"scale":1.25,"availableModes":["2560x1440@59.95Hz"]}]\n' >"$mon_json"
+printf '[{"name":"eDP-1","disabled":false,"scale":2},{"name":"HDMI-A-1","disabled":false,"description":"Dell Inc. DELL P2723DE ABC1234","x":1512,"y":0,"scale":1.25,"availableModes":["2560x1440@59.95Hz"]}]\n' >"$mon_json"
 rm -f "$tmp/layout.json"
 run save HDMI-A-1 1512x0 && [ -s "$tmp/layout.json" ] || fail_at "save should write the layout file"
 : >"$kw_log"
@@ -217,7 +217,7 @@ pass "kept position: save, on, reset"
 # USB-C DP: position only, derived from the session eDP scale (2 -> Dell bottom-aligned at y = -170).
 mkdir -p "$tmp/scales"
 printf '2\n' >"$tmp/scales/eDP-1"
-printf '[{"name":"eDP-1","disabled":false,"scale":2},{"name":"DP-1","disabled":false,"description":"Dell Inc. DELL P2723DE 895ZNR3","x":-2048,"y":321,"scale":1.25,"availableModes":["2560x1440@59.95Hz"]}]\n' >"$mon_json"
+printf '[{"name":"eDP-1","disabled":false,"scale":2},{"name":"DP-1","disabled":false,"description":"Dell Inc. DELL P2723DE ABC1234","x":-2048,"y":321,"scale":1.25,"availableModes":["2560x1440@59.95Hz"]}]\n' >"$mon_json"
 : >"$kw_log"
 run place DP-1
 grep -qx 'hl.monitor({ output = "DP-1", position = "-2048x-170", scale = 1.25 })' "$kw_log" \
@@ -230,8 +230,8 @@ pass "DP-1: place derives / keeps the position, refuses HDMI actions"
 # Scale 1 kept layout, no scale file: do not apply the 1.25 anchor (x=-2048 overlaps).
 rm -f "$tmp/scales/DP-1"
 printf '2\n' >"$tmp/scales/eDP-1"
-printf '%s\n' '{"Dell Inc. DELL P2723DE 895ZNR3":{"key":"1.000@2.000","pos":"-2560x-458"}}' >"$tmp/layout.json"
-printf '[{"name":"eDP-1","disabled":false,"scale":2},{"name":"DP-1","disabled":false,"description":"Dell Inc. DELL P2723DE 895ZNR3","x":-2048,"y":0,"scale":1,"width":2560,"height":1440,"availableModes":["2560x1440@59.95Hz"]}]\n' >"$mon_json"
+printf '%s\n' '{"Dell Inc. DELL P2723DE ABC1234":{"key":"1.000@2.000","pos":"-2560x-458"}}' >"$tmp/layout.json"
+printf '[{"name":"eDP-1","disabled":false,"scale":2},{"name":"DP-1","disabled":false,"description":"Dell Inc. DELL P2723DE ABC1234","x":-2048,"y":0,"scale":1,"width":2560,"height":1440,"availableModes":["2560x1440@59.95Hz"]}]\n' >"$mon_json"
 : >"$kw_log"
 run place DP-1
 grep -qx 'hl.monitor({ output = "DP-1", position = "-2560x-458", scale = 1.000 })' "$kw_log" \

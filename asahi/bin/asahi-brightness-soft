@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Software brightness for a Hyprland output with no DDC (Asahi HDMI).
-# Usage: asahi-brightness-soft <monitor> [N%|raise|lower|+1|-1]
+# Usage: asahi-brightness-soft <monitor> raise|lower|+1|-1
 
 set -euo pipefail
 
@@ -25,24 +25,7 @@ read_current() {
   esac
 }
 
-current="$(read_current)"
-
-if [ -z "$step" ]; then
-  printf '%s\n' "$current"
-  exit 0
-fi
-
-target=""
-case "$step" in
-  raise | lower) target=$(step_percent "$current" "$step") ;;
-  +1) target=$((current + 1)) ;;
-  -1) target=$((current - 1)) ;;
-  [0-9]*%) target="${step%%%}" ;;
-  *) exit 1 ;;
-esac
-
-[ "$target" -lt 1 ] && target=1
-[ "$target" -gt 100 ] && target=100
+target=$(step_percent "$(read_current)" "$step" 1) || exit 1
 printf '%s\n' "$target" >"$state_file"
 
 qs -c remix ipc call dim set "$monitor" "$target" >/dev/null 2>&1 || true

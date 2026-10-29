@@ -13,48 +13,18 @@ if [ -z "$target" ] || { [ "$target" != "output-switch" ] && [ -z "$action" ]; }
   exit 2
 fi
 
-brightness_step() {
-  local current="$1" action="$2" target
-  case "$action" in
-    raise)
-      target=$(step_percent "$current" raise)
-      [ "$target" -gt 100 ] && target=100
-      printf '%s%%\n' "$target"
-      ;;
-    lower)
-      target=$(step_percent "$current" lower)
-      [ "$target" -lt 0 ] && target=0
-      printf '%s%%\n' "$target"
-      ;;
-    +1)
-      target=$((current + 1))
-      [ "$target" -gt 100 ] && target=100
-      printf '%s%%\n' "$target"
-      ;;
-    -1)
-      target=$((current - 1))
-      [ "$target" -lt 0 ] && target=0
-      printf '%s%%\n' "$target"
-      ;;
-    *)
-      echo "unsupported brightness action: $action" >&2
-      exit 2
-      ;;
-  esac
-}
-
-# 1 % steps below 5 % (step_percent). Clamp at 0; wpctl -l 1 caps at 100 %.
+# wpctl calls are bounded (timeout 2): a stuck PipeWire must not hang the keys.
+# 1 % steps below 5 % (step_percent, clamped 0-100).
 volume_step() {
   local node="$1" action="$2" current target
-  current=$(wpctl get-volume "$node" | awk '{ printf "%d", $2 * 100 + 0.5 }')
+  current=$(timeout 2 wpctl get-volume "$node" | awk '{ printf "%d", $2 * 100 + 0.5 }')
   target=$(step_percent "$current" "$action")
-  [ "$target" -lt 0 ] && target=0
-  wpctl set-volume -l 1 "$node" "$target%"
+  timeout 2 wpctl set-volume -l 1 "$node" "$target%"
 }
 
 unmute_if_muted() {
-  if wpctl get-volume "$1" | grep -q MUTED; then
-    wpctl set-mute "$1" 0
+  if timeout 2 wpctl get-volume "$1" | grep -q MUTED; then
+    timeout 2 wpctl set-mute "$1" 0
   fi
 }
 
@@ -88,9 +58,9 @@ case "$target" in
   output-volume)
     case "$action" in
       raise | lower) volume_step @DEFAULT_AUDIO_SINK@ "$action" ;;
-      mute-toggle) wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle ;;
-      +1) wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 1%+ ;;
-      -1) wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 1%- ;;
+      mute-toggle) timeout 2 wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle ;;
+      +1) timeout 2 wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 1%+ ;;
+      -1) timeout 2 wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 1%- ;;
     esac
     # Changing the output level unmutes it (the mic stays muted: no silent unmute of a source).
     # Only when it really is muted: a set-mute on every step made the speakers click.
@@ -98,10 +68,6 @@ case "$target" in
     show_osd volume
     ;;
   output-switch)
-    if ! command -v pactl >/dev/null 2>&1; then
-      echo "pactl is not installed" >&2
-      exit 1
-    fi
     mapfile -t sinks < <(timeout 2 pactl -f json list sinks 2>/dev/null | jq -r '
       .[]
       | select((.ports | length == 0) or ([.ports[]? | .availability != "not available"] | any))
@@ -127,16 +93,9 @@ case "$target" in
     show_osd message "󰕾" "Audio output" "$desc"
     ;;
   input-volume)
-    if [ "$action" = "mute-toggle" ]; then
-      wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
-      show_osd mic
-      exit 0
-    fi
-
     case "$action" in
+      mute-toggle) timeout 2 wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle ;;
       raise | lower) volume_step @DEFAULT_AUDIO_SOURCE@ "$action" ;;
-      +1) wpctl set-volume -l 1 @DEFAULT_AUDIO_SOURCE@ 1%+ ;;
-      -1) wpctl set-volume -l 1 @DEFAULT_AUDIO_SOURCE@ 1%- ;;
     esac
     show_osd mic
     ;;
@@ -158,14 +117,15 @@ case "$target" in
     device="$(display_device)"
     take_idle_level "$device" "display-$device"
     current="$(current_percent "$device")"
-    brightnessctl --quiet --device="$device" set "$(brightness_step "$current" "$action")"
+    target=$(step_percent "$current" "$action")
+    brightnessctl --quiet --device="$device" set "$target%"
     show_osd brightnessSet "$(current_percent "$device")"
     ;;
   keyboard-brightness)
     device="$(keyboard_device)"
     take_idle_level "$device" keyboard
-    current="$(current_percent "$device" || echo 0)"
-    brightnessctl --quiet --device="$device" set "$(brightness_step "$current" "$action")"
+    target=$(step_percent "$(current_percent "$device" || echo 0)" "$action")
+    brightnessctl --quiet --device="$device" set "$target%"
     show_osd keyboard
     ;;
   caps-lock)

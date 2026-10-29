@@ -3,24 +3,14 @@
 # (otpauth:// and Wi-Fi secrets stay out of notifications and journals).
 
 set -euo pipefail
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
 
-bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
-
-if ! command -v zbarimg >/dev/null 2>&1; then
-  notify-send -a screenshot -u critical "QR unavailable" "Install zbar (asahi/dnf.sh)" 2>/dev/null || true
-  echo "asahi-cmd-qr: zbarimg is not installed" >&2
-  exit 1
-fi
-
-selection="$("$bin/asahi-capture-region" region || true)"
-[ -n "${selection:-}" ] || exit 0
-
-# QR only — other symbologies false-positive on dense UI chrome. timeout: grim blocks on a DPMS-off output.
-result="$(timeout 5 grim -g "$selection" - | zbarimg -q --raw -Sdisable -Sqrcode.enable - 2>/dev/null || true)"
-if [ -z "$result" ]; then
+# QR only — other symbologies false-positive on dense UI chrome.
+decode_region "" zbarimg -q --raw -Sdisable -Sqrcode.enable -
+if [ -z "$decoded" ]; then
   notify-send -a screenshot -u critical "No QR code found" "Select a region containing a QR code" 2>/dev/null || true
   exit 1
 fi
 
-printf '%s' "$result" | wl-copy --sensitive
+printf '%s' "$decoded" | wl-copy --sensitive
 notify-send -a screenshot -t 2500 "QR code copied to clipboard" 2>/dev/null || true

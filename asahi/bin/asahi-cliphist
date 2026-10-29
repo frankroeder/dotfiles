@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-limit="${ASAHI_CLIPHIST_LIMIT:-80}"
+limit=80
 cache_dir="${XDG_RUNTIME_DIR:-/tmp}/asahi-cliphist"
 self="$(readlink -f "${BASH_SOURCE[0]}")"
 
@@ -70,18 +70,14 @@ PY
 
 copy_id() {
   local id="${1:-}"
-  if [ -z "$id" ] || ! command -v cliphist >/dev/null 2>&1; then
-    return 1
-  fi
+  [ -n "$id" ] || return 1
   cliphist decode "$id" | wl-copy
 }
 
 delete_id() {
   local id="${1:-}"
   local line
-  if [ -z "$id" ] || ! command -v cliphist >/dev/null 2>&1; then
-    return 1
-  fi
+  [ -n "$id" ] || return 1
   # cliphist delete reads a `list` line from stdin; argv is ignored.
   line="$(cliphist list 2>/dev/null | grep -m1 -e "^${id}"$'\t' || true)"
   if [ -n "$line" ]; then
@@ -91,9 +87,7 @@ delete_id() {
 }
 
 wipe_all() {
-  if command -v cliphist >/dev/null 2>&1; then
-    cliphist wipe >/dev/null 2>&1 || true
-  fi
+  cliphist wipe >/dev/null 2>&1 || true
   rm -rf "$cache_dir"
 }
 
@@ -186,9 +180,6 @@ start_watcher() {
 
 seed_current() {
   local text
-  if ! command -v wl-paste >/dev/null 2>&1; then
-    return 0
-  fi
   if sensitive_clipboard; then
     return 0
   fi
@@ -200,12 +191,6 @@ seed_current() {
 
 ensure_watch() {
   local text_started=0
-  if ! command -v cliphist >/dev/null 2>&1; then
-    return 0
-  fi
-  if ! command -v wl-paste >/dev/null 2>&1; then
-    return 0
-  fi
   # The launcher may call `watch` twice at once; the flock stops both starting a watcher per type.
   exec {watch_lock}>"${XDG_RUNTIME_DIR:-/tmp}/asahi-cliphist-watch.lock"
   flock -n "$watch_lock" || return 0
