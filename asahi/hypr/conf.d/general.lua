@@ -8,12 +8,10 @@ hl.config {
     extend_border_grab_area = 30,
     ["col.active_border"] = { colors = { "rgb(89b4fa)", "rgb(cba6f7)" }, angle = 45 },
     ["col.inactive_border"] = "rgb(45475a)",
-    layout = "dwindle",
   },
 
   decoration = {
     rounding = 10,
-    active_opacity = 1.0,
     inactive_opacity = 0.9,
 
     shadow = {
@@ -21,11 +19,7 @@ hl.config {
     },
 
     blur = {
-      enabled = true,
-      size = 8,
       passes = 2,
-      noise = 0.0117,
-      vibrancy = 0.1696,
     },
   },
 
@@ -47,14 +41,11 @@ hl.config {
     -- died. Without it a crashed locker leaves the session stuck rather than
     -- recoverable — worth having when hyprlock is the only screen gate.
     allow_session_lock_restore = true,
-    -- Focusing a window underneath a fullscreen one un-fullscreens rather
-    -- than focusing something invisible.
+    -- A window focused under a fullscreen or maximized one takes over that
+    -- state (default 2 un-fullscreens instead).
     on_focus_under_fullscreen = 1,
     -- Do not follow an app to whatever workspace it was launched from.
     initial_workspace_tracking = 0,
-    -- Three missed pings before the "not responding" treatment; one is too
-    -- eager on this GPU, where a stall during a mode-set is normal.
-    anr_missed_pings = 3,
   },
 
   cursor = {
@@ -74,7 +65,7 @@ hl.config {
     },
 
     groupbar = {
-      font_family = "JetBrainsMono Nerd Font",
+      font_family = "Cascadia Mono NF",
       font_size = 11,
       font_weight_active = "bold",
       font_weight_inactive = "normal",

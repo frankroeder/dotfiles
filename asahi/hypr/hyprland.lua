@@ -8,12 +8,9 @@ browser = "org.mozilla.firefox"
 filemanager = "thunar"
 mainMod = "SUPER"
 
+-- Apps start through asahi-launch (uwsm-app when present, setsid either way).
 function launch(cmd)
-  return "sh -c 'command -v uwsm-app >/dev/null 2>&1 && exec uwsm-app -- "
-    .. cmd
-    .. " || exec "
-    .. cmd
-    .. "'"
+  return dotfilesDir .. "/asahi/bin/asahi-launch " .. cmd
 end
 
 local function load_config(name)

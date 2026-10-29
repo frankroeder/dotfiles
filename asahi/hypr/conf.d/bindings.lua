@@ -23,7 +23,6 @@ hl.bind(
   hl.dsp.exec_cmd "qs -c remix ipc call wallpaper toggle",
   { desc = "Wallpaper picker" }
 )
--- hl.bind(mod .. " + B", hl.dsp.exec_cmd(browser), { desc = "Browser" })
 -- Writing tools on the selection (copied with Ctrl+C; primary in terminals): proofread / rewrite / concise.
 hl.bind(mod .. " + SHIFT + E", hl.dsp.global "quickshell:writing-tools", { desc = "Writing tools" })
 -- The card never takes keyboard focus (QtQuick fields drop their selection on focus loss), so

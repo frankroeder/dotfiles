@@ -5,7 +5,6 @@ hl.config {
     kb_model = "apple",
     repeat_delay = 300,
     repeat_rate = 40,
-    accel_profile = "adaptive",
     natural_scroll = true,
 
     -- macOS-like trackpad: tap-click without tap-drag, two-finger clickfinger,
@@ -13,15 +12,10 @@ hl.config {
     touchpad = {
       natural_scroll = true,
       tap_to_click = true,
-      disable_while_typing = true,
       tap_and_drag = false,
-      drag_lock = false,
       clickfinger_behavior = true,
       scroll_factor = 0.2,
     },
-
-    -- libinput default. The MTP custom curve below ignores this; 0 keeps any other pointer at stock speed.
-    sensitivity = 0,
   },
 
   -- Commit a workspace swipe after 25% travel.

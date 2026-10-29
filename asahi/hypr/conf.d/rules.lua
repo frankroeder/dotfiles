@@ -19,11 +19,9 @@ window_rule({ class = ".*" }, { opacity = "0.97 0.9" })
 -- maximizes (omarchy / Ryoku do the same). Maximized windows refuse resize and pin.
 window_rule({ class = ".*" }, { suppress_event = "maximize" })
 
--- Media and pickers stay fully opaque; the global 0.97/0.9 wash tints video.
+-- Video stays fully opaque; the global 0.97/0.9 wash tints it.
 -- `opaque`, not opacity 1: rule opacity multiplies with inactive_opacity.
-window_rule({
-  class = "^(zoom|vlc|mpv|org\\.kde\\.kdenlive|com\\.obsproject\\.Studio|imv|org\\.gnome\\.NautilusPreviewer)$",
-}, { opaque = true })
+window_rule({ class = "^(mpv)$" }, { opaque = true })
 
 -- PiP: pin a 16:9 tile to the top-right. Title match only — a bare
 -- "Meet - …" rule would also float the main meeting window.
@@ -40,28 +38,19 @@ window_rule({ title = "(Picture.?in.?[Pp]icture)" }, {
 -- Empty XWayland floaters (drag-and-drop helpers) must not steal focus mid-drag (omarchy, Ryoku).
 window_rule({ class = "^$", title = "^$", xwayland = true, float = true, fullscreen = false, pin = false }, { no_focus = true })
 
-window_rule({ class = "^(zoom)$" }, { float = true })
 window_rule({ class = "^(blueman-manager|nm-connection-editor|org\\.pulseaudio\\.pavucontrol)$" }, { float = true, center = true })
 window_rule({ class = "^(gcr-prompter)$" }, { float = true, center = true })
 -- Screenshot annotation (Screenshots pane).
 window_rule({ class = "^(swappy)$" }, { float = true, center = true })
 window_rule({ class = "^(xdg-desktop-portal-gtk)$" }, { float = true, center = true })
 
--- Recording face-cam. Class is WebcamOverlay-{small,medium,large} so this
--- does not inherit mpv's generic float/center rules.
-window_rule({ class = "^WebcamOverlay-small$" }, {
-  size = { "(monitor_h*4/25)", "(monitor_h*9/50)" },
-  move = { "(monitor_w-monitor_h*4/25-40)", "(monitor_h-monitor_h*9/50-40)" },
-})
+-- Recording face-cam. Class is WebcamOverlay-medium so this
+-- does not inherit mpv's generic rules.
 window_rule({ class = "^WebcamOverlay-medium$" }, {
   size = { "(monitor_h*2/9)", "(monitor_h/4)" },
   move = { "(monitor_w-monitor_h*2/9-40)", "(monitor_h-monitor_h/4-40)" },
 })
-window_rule({ class = "^WebcamOverlay-large$" }, {
-  size = { "(monitor_h*3/10)", "(monitor_h*27/80)" },
-  move = { "(monitor_w-monitor_h*3/10-40)", "(monitor_h-monitor_h*27/80-40)" },
-})
-window_rule({ class = "^WebcamOverlay-(small|medium|large)$", title = "^WebcamOverlay$" }, {
+window_rule({ class = "^WebcamOverlay-medium$", title = "^WebcamOverlay$" }, {
   float = true,
   pin = true,
   no_initial_focus = true,
@@ -86,10 +75,9 @@ layer_rule("^(quickshell-launcher|quickshell-wallpaper|quickshell-pkgman)$", { b
 layer_rule("^asahi-dim$", { no_anim = true, animation = "none" })
 
 window_rule({ class = "^(org\\.kde\\.okular|org\\.gnome\\.Evince)$" }, { opacity = "0.98 0.92" })
-window_rule(
-  { class = ".*", title = ".*(Open File|Save As|Choose|Preferences|Properties|Dialog).*" },
-  { float = true, center = true }
-)
+-- File choosers outside the portal (Chromium) and bare Preferences / Properties windows. Rules match the whole
+-- title, so a browser page titled "Choose …" or "Preferences" stays tiled.
+window_rule({ class = ".*", title = "^(Open Files?|Save File|Save As|Select Folder|Preferences|Properties)$" }, { float = true, center = true })
 window_rule({ class = "^(hyprland-share-picker)$" }, { float = true, center = true, opaque = true })
 
 layer_rule("^(ghostty-quick-terminal)$", { blur = true, ignore_alpha = 0.05, xray = false })

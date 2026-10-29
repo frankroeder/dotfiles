@@ -9,12 +9,13 @@ hl.monitor {
 
 -- Known panels are desc:-keyed, so HDMI-A-1 and a USB-C DP-* share
 -- geometry. asahi-hdmi reapplies the matching block after HDMI link
--- training (and on sync if identity drifted).
+-- training (and on sync if identity drifted). desc: is a prefix match:
+-- make + model, no serial.
 --
 -- LG UltraFine: left of the laptop, 4K @ 1.875 (logical 2048x1152).
 -- x must be -2048, not -2560 (that was 3840/1.5 and left a 512px cursor gap).
 hl.monitor {
-  output = "desc:LG Electronics LG ULTRAFINE 112NTMX6B267",
+  output = "desc:LG Electronics LG ULTRAFINE",
   mode = "3840x2160@60.000",
   position = "-2048x-360",
   scale = 1.875,
@@ -24,7 +25,7 @@ hl.monitor {
 -- (logical 2048x1152). eDP-1 at 4/3 is 1473 tall, so y = 321.
 -- asahi-hdmi recomputes y from the session eDP scale (scale 2 → y = -170).
 hl.monitor {
-  output = "desc:Dell Inc. DELL P2723DE 895ZNR3",
+  output = "desc:Dell Inc. DELL P2723DE",
   mode = "2560x1440@59.95100",
   position = "-2048x321",
   scale = 1.25,
