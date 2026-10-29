@@ -16,6 +16,7 @@ import "launcher_layout.js" as LauncherGeom
 import "gallery.js" as Gallery
 import "calc_history.js" as CalcHist
 import "panes" as Panes
+import "../writing" as Writing
 
 Scope {
   id: root
@@ -95,6 +96,8 @@ Scope {
   // Launch feedback: injected system OSD (shell.qml) + toplevel snapshot taken
   // at launch so a slow starter can show a "Launching X…" toast.
   property var osd: null
+  // Injected by shell.qml: `:def <word>` runs its Look Up; the result shows here (lookupPanel).
+  property var writingTools: null
   property string launchFeedbackName: ""
   property int launchToplevelCount: 0
   property var launchActiveToplevel: null
@@ -234,10 +237,11 @@ Scope {
     compact: root.compactLauncher,
     headerVisible: !root.quickMode && root.sectionName !== "",
     cmdVisible: !root.quickMode,
-    // "=" budgets 3 extra rows for the legend card (~120 px)
+    // "=" budgets 3 extra rows for the legend card (~120 px); a shown `:def` result 5 (a ":" query is
+    // always categoryFilter "Actions")
     rowCount: root.categoryFilter === ""
       ? Math.max(root.resultCount + (root.calcMode ? 3 : 0), (root.navRows || []).length)
-      : root.resultCount,
+      : root.resultCount + (root.lookupShown ? 5 : 0),
     tallRows: (filteredApps.values || []).filter(function(it) { return !it.isCategory && !!it.comment }).length
   })
   function fontPx(size) {
@@ -968,6 +972,12 @@ Scope {
   }
 
   readonly property bool calcMode: !root.quickMode && root.query.trim().startsWith("=")
+  // `:def <word>` after Enter: WritingTools' result for this very word (an edited word hides it).
+  readonly property bool lookupShown: {
+    const q = root.query.trim()
+    const word = q.startsWith(":") ? ArgCommands.parseLookup(q.substring(1)) : null
+    return !root.quickMode && !!word && !!root.writingTools && root.writingTools.inLauncher && root.writingTools.original === word
+  }
   readonly property string sectionName: {
     const q = root.query.trim()
     if (root.categoryFilter !== "") return root.navFor(root.categoryFilter)?.title || root.categoryFilter
@@ -1071,6 +1081,7 @@ Scope {
     } else {
       root.chromeReveal = 0
       chromeHideKick.restart()
+      if (root.writingTools && root.writingTools.inLauncher) root.writingTools.close()
     }
   }
 
@@ -1268,6 +1279,13 @@ Scope {
     shouldShow = false
   }
 
+  // A `:def` result link. Close first: the panel (and its signal handler) goes with the launcher.
+  function openLookupLink(k) {
+    const wt = root.writingTools
+    root.closeLauncher()
+    wt.openLink(k)
+  }
+
   // Register for direct Hyprland global shortcut (more reliable than spawning `qs ipc` each time).
   // Bound in hypr/conf.d/bindings.lua as hl.dsp.global("quickshell:launcher-toggle")
   GlobalShortcut {
@@ -1365,6 +1383,11 @@ Scope {
     const value = (q || "").trim()
     if (!value.startsWith(":")) return null
     const term = value.substring(1).trim().toLowerCase()
+    const word = ArgCommands.parseLookup(value.substring(1))
+    if (word !== null) {
+      if (!word) return [{ id: "lookup-hint", name: "Look up: :def <word>", comment: "definition + translation · Wikipedia, Wiktionary, dict.cc, Kagi", glyph: "󰗚", special: "noop" }]
+      return [{ id: "lookup", name: "Look up · " + word, comment: "↩ definition + translation", glyph: "󰗚", special: "lookup", word: word }]
+    }
     if (/^timer\s+\S/.test(term)) {
       const t = ArgCommands.parseTimer(value.substring(1))
       if (!t) return [{ id: "timer-bad", name: "Timer: 10m · 1:30 · 1h15m [label]", comment: "duration not understood", glyph: "󰔛", special: "noop" }]
@@ -1429,6 +1452,10 @@ Scope {
     } else if (entry.special === "dict") {
       const copy = entry.copy || ""
       if (copy) Quickshell.execDetached(["sh", "-c", "printf %s \"$1\" | wl-copy", "sh", copy])
+    } else if (entry.special === "lookup") {
+      // Stays open: the result shows under the row (lookupPanel).
+      if (root.writingTools) root.writingTools.lookUpInLauncher(entry.word)
+      return
     } else if (entry.special === "file" && entry.path) {
       Quickshell.execDetached([binDir + "/asahi-launch", "xdg-open", entry.path])
     } else if (entry.special === "url") {
@@ -3158,6 +3185,24 @@ Scope {
                     }
                   }
                 }
+              }
+            }
+
+            // `:def <word>` result under its (only) row: the Look Up card body, run and state from WritingTools
+            // (text selections keep the popup). Loaded only while shown: writingTools arrives after creation.
+            Loader {
+              id: lookupPanel
+              active: root.lookupShown
+              anchors.left: parent.left
+              anchors.top: parent.top
+              anchors.topMargin: resultsList.contentHeight + 6
+              width: resultsList.width
+              height: item ? item.implicitHeight : 0
+              sourceComponent: Writing.LookupView {
+                tools: root.writingTools
+                keyHints: false
+                paneMax: Math.max(60, lookupPanel.parent.height - lookupPanel.anchors.topMargin - chrome)
+                onLinkClicked: k => root.openLookupLink(k)
               }
             }
 

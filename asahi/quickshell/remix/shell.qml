@@ -110,7 +110,10 @@ ShellRoot {
     id: launcherLoader
     source: "modules/launcher/LauncherWindow.qml"
     active: true
-    onLoaded: item.osd = osd
+    onLoaded: {
+      item.osd = osd
+      item.writingTools = writingTools
+    }
   }
 
   IpcHandler {
@@ -144,5 +147,5 @@ ShellRoot {
   }
 
   WallpaperManager {}
-  Writing.WritingTools {}
+  Writing.WritingTools { id: writingTools }
 }

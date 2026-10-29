@@ -148,6 +148,13 @@ function parseTimer(term) {
   return { duration: dur, seconds: secs, label: (m[2] || "").trim() || "Timer" }
 }
 
+// ":def Fernweh" / ":lookup kick the bucket" -> the text for Look Up ("" while none is typed);
+// null for any other action.
+function parseLookup(term) {
+  const m = String(term || "").trim().match(/^(?:def|lookup)(?:\s+([\s\S]*))?$/i)
+  return m ? (m[1] || "").trim() : null
+}
+
 function formatSeconds(s) {
   s = Math.max(0, Math.floor(s))
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60
@@ -173,6 +180,7 @@ if (typeof module !== "undefined" && module.exports) {
     entryCommand: entryCommand,
     tabArm: tabArm,
     parseTimer: parseTimer,
+    parseLookup: parseLookup,
     formatSeconds: formatSeconds,
     formatShort: formatShort
   }

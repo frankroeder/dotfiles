@@ -3,16 +3,20 @@ import Quickshell.Wayland
 import Quickshell.Hyprland
 import Quickshell.Io
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Effects
 import QtQuick.Layouts
 import "../menu" as Menu
 import "writing_diff.js" as Diff
+import "lookup.js" as Lookup
 import "../../"
 
 // Writing Tools (macOS-style): selected text → small picker at the cursor
 // (Proofread / Rewrite / Concise) → the card morphs into original (top) vs
 // suggestion (bottom) with a word diff → Replace / Copy / Retry / Decline.
+// Look Up (Super+Shift+D, macOS-style): the same capture and API run (mode "define") → a small card
+// at the cursor with a short definition + translation and links to Wikipedia / Wiktionary / dict.cc /
+// Kagi Translate. The card body is LookupView; launcher `:def <word>` shows it inside the launcher
+// (lookUpInLauncher: same run and state, no popup, no submap).
 // Backend: asahi/bin/asahi-writing-tools (capture, run, replace).
 // The card never takes keyboard focus (QtQuick fields drop their selection on focus loss): its
 // keys are the Hyprland submap "writing" (bindings.lua), entered while open.
@@ -20,7 +24,9 @@ Scope {
   id: root
 
   property bool open: false
-  property string phase: "pick" // pick | result
+  property string phase: "pick" // pick | result | lookup
+  property bool lookingUp: false // the pending capture is for Look Up
+  property bool inLauncher: false // a `:def` lookup the launcher shows
   property var cap: ({})
   property string mode: ""
   property string output: ""
@@ -37,7 +43,8 @@ Scope {
   property int gen: 0
   property var runProc: null
 
-  readonly property string bin: Quickshell.env("HOME") + "/.dotfiles/asahi/bin/asahi-writing-tools"
+  readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
+  readonly property string bin: binDir + "/asahi-writing-tools"
   readonly property var modes: [
     { key: "proofread", label: "Proofread", icon: "󰓆", hint: "Fix spelling and grammar" },
     { key: "rewrite", label: "Rewrite", icon: "󰏫", hint: "Clearer wording, same meaning" },
@@ -55,20 +62,34 @@ Scope {
   }
   readonly property int changeCount: Diff.changes(root.ops)
   readonly property int wordCount: original.trim() === "" ? 0 : original.trim().split(/\s+/).length
+  readonly property var entry: Lookup.parse(mode === "define" ? output : "") // not per delta of a proofread
+  readonly property var links: Lookup.links(entry, original)
 
   // The screen under the cursor (where the selection was made).
   function screenAt(c) {
     return Quickshell.screens.find(s => c.x >= s.x && c.x < s.x + s.width && c.y >= s.y && c.y < s.y + s.height) ?? Quickshell.screens[0]
   }
 
-  function toggle() {
+  function toggle(lookup) {
     if (root.open) root.close()
-    else if (!captureProc.running) captureProc.running = true
+    else if (!captureProc.running) {
+      root.lookingUp = lookup
+      captureProc.running = true
+    }
+  }
+
+  // Launcher `:def <word>`: the word is the selection; the launcher renders the result.
+  function lookUpInLauncher(text) {
+    root.close()
+    root.cap = { text: text }
+    root.inLauncher = true
+    root.start("define")
   }
 
   function show(data) {
+    root.close() // ends a launcher lookup still running
     root.cap = data
-    root.phase = "pick"
+    root.phase = root.lookingUp ? "lookup" : "pick"
     root.pickIndex = 0
     root.mode = ""
     root.output = root.suggestion = root.error = ""
@@ -78,6 +99,7 @@ Scope {
     root.open = true
     Hyprland.dispatch('hl.dsp.submap("writing")')
     Qt.callLater(() => { root.morph = true })
+    if (root.lookingUp) root.start("define")
   }
 
   function stopRun() {
@@ -89,14 +111,21 @@ Scope {
   function close() {
     root.stopRun()
     root.busy = false
+    root.inLauncher = false
+    if (root.open) Hyprland.dispatch('hl.dsp.submap("reset")')
     root.open = false
-    Hyprland.dispatch('hl.dsp.submap("reset")')
   }
 
   // Submap keys (quickshell:writing-<name>).
   function key(k) {
     if (!root.open) return
     if (k === "escape") return root.close()
+    if (root.phase === "lookup") {
+      if (root.links[k]) root.openLink(k)
+      else if (k === "retry" && !root.busy) root.start("define")
+      else if (k === "copy") root.copy(lookup.edit.selectedText !== "" ? lookup.edit.selectedText.replace(/[\u2028\u2029]/g, "\n") : Lookup.text(root.entry))
+      return
+    }
     const num = ["1", "2", "3"].indexOf(k)
     if (num >= 0) return root.start(root.modes[num].key)
     if (root.phase === "pick") {
@@ -115,7 +144,7 @@ Scope {
   function start(key) {
     if (!root.hasText) return
     root.mode = key
-    root.phase = "result"
+    root.phase = key === "define" ? "lookup" : "result"
     root.output = root.suggestion = root.error = root.stopReason = ""
     root.ops = []
     root.busy = true
@@ -139,7 +168,7 @@ Scope {
     if (root.error === "" && (root.stopReason !== "end_turn" || root.output.trim() === ""))
       root.error = root.stopReason === "refusal" ? "The model declined this text."
         : root.stopReason ? "Stopped early (" + root.stopReason + ")." : "No complete response (network or API error)."
-    if (root.error !== "") return
+    if (root.error !== "" || root.mode === "define") return
     root.suggestion = Diff.fitOutput(root.original, root.output)
     root.ops = Diff.diff(root.original, root.suggestion)
   }
@@ -151,6 +180,13 @@ Scope {
   function copyAll() {
     if (!root.done) return
     root.copy(root.suggestion)
+    root.close()
+  }
+
+  // Look Up links: wiki | dict | dictcc | kagi. The browser takes over, so the card goes.
+  function openLink(k) {
+    if (!root.hasText) return
+    Quickshell.execDetached([root.binDir + "/asahi-launch", "xdg-open", root.links[k]])
     root.close()
   }
 
@@ -190,11 +226,19 @@ Scope {
     appid: "quickshell"
     name: "writing-tools"
     description: "Writing tools for the selected text"
-    onPressed: root.toggle()
+    onPressed: root.toggle(false)
+  }
+
+  // Bound as hl.dsp.global("quickshell:lookup").
+  GlobalShortcut {
+    appid: "quickshell"
+    name: "lookup"
+    description: "Look up the selected word"
+    onPressed: root.toggle(true)
   }
 
   Instantiator {
-    model: ["1", "2", "3", "up", "down", "enter", "retry", "copy", "escape"]
+    model: ["1", "2", "3", "up", "down", "enter", "retry", "copy", "escape", "wiki", "dict", "dictcc", "kagi"]
     GlobalShortcut {
       required property string modelData
       appid: "quickshell"
@@ -206,108 +250,6 @@ Scope {
 
   // A reload while open must not leave the submap (and its keys) active.
   Component.onDestruction: if (root.open) Hyprland.dispatch('hl.dsp.submap("reset")')
-
-  // Footer / mode pill.
-  component Pill: Rectangle {
-    id: pill
-    property string icon: ""
-    property string label: ""
-    property string keyHint: ""
-    property bool primary: false
-    property bool active: false
-    signal clicked()
-    implicitWidth: pillRow.implicitWidth + 26
-    implicitHeight: 34
-    radius: height / 2
-    opacity: enabled ? 1 : 0.4
-    color: primary ? (pillMa.containsMouse ? Qt.lighter(Style.m3primary, 1.08) : Style.m3primary)
-      : active ? Style.m3primaryContainer
-      : pillMa.containsMouse ? Style.m3containerHigh : Style.m3container
-    border.width: active ? 1 : 0
-    border.color: Style.menuSelBorder
-    Behavior on color { ColorAnimation { duration: 120 } }
-    Row {
-      id: pillRow
-      anchors.centerIn: parent
-      spacing: 7
-      Text {
-        visible: pill.icon !== ""
-        text: pill.icon
-        color: pill.primary ? Style.m3onPrimary : pill.active ? Style.m3primary : Style.m3onSurface
-        font.family: Style.menuMono; font.pixelSize: 15
-        anchors.verticalCenter: parent.verticalCenter
-      }
-      Text {
-        text: pill.label
-        color: pill.primary ? Style.m3onPrimary : Style.m3onSurface
-        font.family: Style.menuSans; font.pixelSize: 13; font.weight: Font.DemiBold
-        anchors.verticalCenter: parent.verticalCenter
-      }
-      Text {
-        visible: pill.keyHint !== ""
-        text: pill.keyHint
-        color: pill.primary ? Qt.alpha(Style.m3onPrimary, 0.7) : Style.m3onSurfaceVariant
-        font.family: Style.menuSans; font.pixelSize: 11
-        anchors.verticalCenter: parent.verticalCenter
-      }
-    }
-    MouseArea {
-      id: pillMa
-      anchors.fill: parent
-      hoverEnabled: true
-      cursorShape: Qt.PointingHandCursor
-      onClicked: pill.clicked()
-    }
-  }
-
-  // Scrollable read-only rich text (diff colours), selectable for copying.
-  component Pane: Rectangle {
-    id: pane
-    property alias edit: paneEdit
-    property string body: ""
-    property bool rich: false
-    property color ink: Style.m3onSurface
-    property real maxHeight: 200
-    readonly property real wantHeight: Math.min(paneEdit.implicitHeight + 20, maxHeight)
-    radius: Style.menuRadiusMd
-    color: Style.menuCardBg
-    clip: true
-    Flickable {
-      id: flick
-      anchors.fill: parent
-      anchors.margins: 10
-      contentHeight: paneEdit.implicitHeight
-      boundsBehavior: Flickable.StopAtBounds
-      clip: true
-      TextEdit {
-        id: paneEdit
-        width: flick.width - 10 // fixed gutter: a bar-dependent width loops through contentHeight
-        readOnly: true
-        persistentSelection: true // the card never has keyboard focus
-        wrapMode: TextEdit.Wrap
-        textFormat: pane.rich ? TextEdit.RichText : TextEdit.PlainText
-        text: pane.body
-        color: pane.ink
-        selectionColor: Style.menuSelFill
-        selectedTextColor: Style.m3onSurface
-        font.family: Style.menuSans
-        font.pixelSize: 14
-        // Own drag-select instead of selectByMouse: Qt's mouse selection claims the primary
-        // selection, and GTK apps then drop the very selection Replace pastes over.
-        MouseArea {
-          property int anchor: 0
-          anchors.fill: parent
-          cursorShape: Qt.IBeamCursor
-          preventStealing: true
-          onPressed: mouse => { anchor = paneEdit.positionAt(mouse.x, mouse.y); paneEdit.select(anchor, anchor) }
-          onPositionChanged: mouse => paneEdit.select(anchor, paneEdit.positionAt(mouse.x, mouse.y))
-          onDoubleClicked: mouse => { paneEdit.cursorPosition = paneEdit.positionAt(mouse.x, mouse.y); paneEdit.selectWord() }
-        }
-      }
-      Menu.MenuScrollBar { id: bar; parent: flick; anchors.right: parent.right; anchors.top: parent.top; anchors.bottom: parent.bottom }
-      ScrollBar.vertical: bar
-    }
-  }
 
   PanelWindow {
     id: win
@@ -334,6 +276,10 @@ Scope {
     readonly property real resH: resChrome + origPane.wantHeight + sugPane.wantHeight
     readonly property real resX: Math.max(margin, Math.min(pickX + pickW / 2 - resW / 2, width - resW - margin))
     readonly property real resY: Math.max(margin, Math.min(pickY, height - resH - margin))
+    readonly property real lookW: Math.min(520, width - 2 * margin)
+    readonly property real lookH: lookup.implicitHeight + 36
+    readonly property real lookX: Math.max(margin, Math.min(ax + 8, width - lookW - margin))
+    readonly property real lookY: Math.max(margin, Math.min(ay + 16, height - lookH - margin))
 
     Item {
       anchors.fill: parent
@@ -344,10 +290,11 @@ Scope {
       Item {
         id: card
         readonly property bool big: root.phase === "result"
-        x: big ? win.resX : win.pickX
-        y: big ? win.resY : win.pickY
-        width: big ? win.resW : win.pickW
-        height: big ? win.resH : win.pickH
+        readonly property bool look: root.phase === "lookup"
+        x: big ? win.resX : look ? win.lookX : win.pickX
+        y: big ? win.resY : look ? win.lookY : win.pickY
+        width: big ? win.resW : look ? win.lookW : win.pickW
+        height: big ? win.resH : look ? win.lookH : win.pickH
         Behavior on x { enabled: root.morph; Menu.MenuAnim {} }
         Behavior on y { enabled: root.morph; Menu.MenuAnim {} }
         Behavior on width { enabled: root.morph; Menu.MenuAnim {} }
@@ -387,7 +334,7 @@ Scope {
             x: 16; y: 16
             width: win.pickW - 32
             spacing: 10
-            opacity: card.big ? 0 : 1
+            opacity: root.phase === "pick" ? 1 : 0
             visible: opacity > 0
             Behavior on opacity { Menu.MenuAnim { effects: true } }
 
@@ -517,7 +464,7 @@ Scope {
             }
 
             Text { id: origLabel; text: "ORIGINAL"; color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: 11; font.weight: Font.DemiBold; font.letterSpacing: 1 }
-            Pane {
+            TextPane {
               id: origPane
               Layout.fillWidth: true
               Layout.preferredHeight: wantHeight
@@ -528,7 +475,7 @@ Scope {
             }
 
             Text { id: sugLabel; text: "SUGGESTION"; color: Style.m3primary; font.family: Style.menuSans; font.pixelSize: 11; font.weight: Font.DemiBold; font.letterSpacing: 1 }
-            Pane {
+            TextPane {
               id: sugPane
               Layout.fillWidth: true
               Layout.preferredHeight: wantHeight
@@ -549,6 +496,19 @@ Scope {
               Pill { icon: "󰆏"; label: "Copy"; keyHint: root.canReplace ? "^C" : "⏎"; enabled: root.done; primary: !root.canReplace; onClicked: root.copyAll() }
               Pill { visible: root.canReplace; icon: "󰄬"; label: "Replace"; keyHint: "⏎"; enabled: root.done; primary: true; onClicked: root.replace() }
             }
+          }
+
+          // ── Look Up ──
+          LookupView {
+            id: lookup
+            tools: root
+            x: 18; y: 18
+            width: win.lookW - 36
+            paneMax: Math.max(120, win.height * 0.5)
+            onLinkClicked: k => root.openLink(k)
+            opacity: card.look ? 1 : 0
+            visible: opacity > 0
+            Behavior on opacity { Menu.MenuAnim { effects: true } }
           }
         }
       }

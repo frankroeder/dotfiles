@@ -654,10 +654,22 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   The card **never takes keyboard focus** (`WlrKeyboardFocus.None`) — QtQuick fields drop their
   selection on focus loss — so Replace is just `wl-copy` + `send_shortcut` Ctrl+V to the source address.
   Card keys = Hyprland submap `writing` (`bindings.lua`, no desc → not in the Keys panel; Escape also
-  resets it; `catchall` swallows other keys so typing can't overwrite the selection); qs enters it on
+  resets it; `catchall` swallows other keys so typing can't overwrite the selection — it also ate every click on the
+  card until left click got a `non_consuming` no-op bind there; the wheel was never caught); qs enters it on
   open, resets on every close and on destruction. Pane drag-select is its own MouseArea (`select()`),
   not `selectByMouse`: Qt's mouse selection claims primary and GTK then drops the source selection.
   Replace off for terminals and truncated (>20000 chars) captures.
+  **Look Up** (macOS-style): Super+Shift+D (GlobalShortcut `lookup`) = same capture, phase `lookup` of the same
+  card, `run define` (own system prompt, not `$common`) → `key: value` lines (term/pos/lang/definition/translation/wiki,
+  `lookup.js`, test `lookup_test.js`; parsed per delta). Definition in German for German, else English; translation
+  en↔de. Links (submap W/D/T/K): Wikipedia / Wiktionary (`de` for German, else `en`; `Special:Search?go=Go`) /
+  dict.cc / Kagi Translate (the selection as written, `to=en`, `de` for English), via `asahi-launch xdg-open`, then
+  close. ^C = pane selection, else term + definition + translation. Card body = `LookupView.qml` (`Pill` / `TextPane` are
+  files beside it). Launcher `:def <word>` / `:lookup <word>` (`ArgCommands.parseLookup`): Enter runs
+  `lookUpInLauncher()` (`writingTools` injected by shell.qml like `osd`; no popup, no submap) and the launcher shows
+  `LookupView` under the row (`lookupPanel`, +5 rows like the calc legend) while the query still names that word;
+  links close the launcher, closing it stops the run. Text selections keep the popup. No tool use on purpose: web search
+  would turn ~1 s into seconds + a per-search fee.
 - **Timers**: `asahi-timer add <dur> [label]` = transient `systemd-run --user --on-active`.
   Launcher `:timer 10m tea` (`arg_commands.js`, tested).
 - **Window pop**: Super+O → `asahi-window-pop` (float/resize/center/pin/`pop`); second press

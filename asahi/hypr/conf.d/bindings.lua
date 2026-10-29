@@ -25,21 +25,26 @@ hl.bind(
 )
 -- Writing tools on the selection (copied with Ctrl+C; primary in terminals): proofread / rewrite / concise.
 hl.bind(mod .. " + SHIFT + E", hl.dsp.global "quickshell:writing-tools", { desc = "Writing tools" })
+-- Look Up (macOS-style) on the same selection: short definition + translation, links out.
+hl.bind(mod .. " + SHIFT + D", hl.dsp.global "quickshell:lookup", { desc = "Look up selection" })
 -- The card never takes keyboard focus (QtQuick fields drop their selection on focus loss), so
 -- its keys live in this submap; Quickshell enters it on open and resets it on close. No desc:
 -- card-only keys stay out of the Keybindings panel. Escape also resets here, in case qs died.
 hl.define_submap("writing", function()
   local keys = { ["1"] = "1", ["2"] = "2", ["3"] = "3", Up = "up", Down = "down", Return = "enter", R = "retry",
-    ["CONTROL + C"] = "copy" }
+    ["CONTROL + C"] = "copy", W = "wiki", D = "dict", T = "dictcc", K = "kagi" }
   for k, name in pairs(keys) do
     hl.bind(k, hl.dsp.global("quickshell:writing-" .. name))
   end
   hl.bind(mod .. " + SHIFT + E", hl.dsp.global "quickshell:writing-tools")
+  hl.bind(mod .. " + SHIFT + D", hl.dsp.global "quickshell:lookup")
   hl.bind("Escape", function()
     hl.dispatch(hl.dsp.global "quickshell:writing-escape")
     hl.dispatch(hl.dsp.submap "reset")
   end)
-  -- Any other key is swallowed: it would otherwise type over the source selection.
+  -- Any other key is swallowed: it would otherwise type over the source selection. Left click passes
+  -- (the catchall ate every click on the card: pills, click outside; the wheel was never caught).
+  hl.bind("mouse:272", function() end, { non_consuming = true })
   hl.bind("catchall", function() end)
 end)
 -- Hyprland binds bypass layer keyboard focus: while a Quickshell overlay is up

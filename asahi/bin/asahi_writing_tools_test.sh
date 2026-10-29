@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # asahi-writing-tools capture against fake hyprctl / wl-paste / wl-copy: the real clipboard, history
-# and windows are never touched. No API call (run is not tested here).
+# and windows are never touched. run goes to a fake curl (no API call): the request body and the SSE parsing.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
@@ -56,6 +56,25 @@ tail -n 1 "$tmp/calls" | grep -qx 'wl-copy --sensitive --type text/plain;charset
 out="$(FAKE_NOWIN=1 "$ROOT/asahi-writing-tools" capture || true)"
 jq -e '.text == "" and .address == ""' <<<"$out" >/dev/null 2>&1 \
   && pass "no focused window: capture still prints JSON" || fail_at "no window: '$out'"
+
+# Fake curl: keeps the request body, answers with a short SSE stream.
+cat >"$tmp/bin/curl" <<'EOF'
+#!/bin/sh
+cat >"$FAKE/request"
+printf 'event: content_block_delta\ndata: {"type":"content_block_delta","delta":{"type":"text_delta","text":"term: x"}}\n\n'
+printf 'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"}}\n'
+EOF
+chmod +x "$tmp/bin/curl"
+out="$(ANTHROPIC_API_KEY=fake "$ROOT/asahi-writing-tools" run define "Fernweh")"
+[ "$out" = '{"delta":"term: x"}'$'\n''{"stop":"end_turn"}' ] && pass "run streams {delta} / {stop} lines" || fail_at "run output: $out"
+jq -e '(.system | startswith("You are a pocket dictionary")) and (.system | contains("never translate") | not)
+  and .messages[0].content == "<text>\nFernweh\n</text>"' "$tmp/request" >/dev/null \
+  && pass "define sends the Look Up prompt, not the edit rules" || fail_at "define request: $(cat "$tmp/request")"
+ANTHROPIC_API_KEY=fake "$ROOT/asahi-writing-tools" run proofread "x" >/dev/null
+jq -e '.system | startswith("You edit the text") and contains("Proofread:")' "$tmp/request" >/dev/null \
+  && pass "proofread keeps the edit rules + its instruction" || fail_at "proofread request: $(cat "$tmp/request")"
+ANTHROPIC_API_KEY=fake "$ROOT/asahi-writing-tools" run nope "x" >/dev/null 2>&1 && fail_at "unknown mode accepted" \
+  || pass "unknown mode refused"
 
 if [ "$fail" -ne 0 ]; then
   echo "asahi_writing_tools_test.sh: FAILED"

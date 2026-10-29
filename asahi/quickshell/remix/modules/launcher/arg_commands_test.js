@@ -73,6 +73,11 @@ assert.strictEqual(A.parseTimer("timer 90 kettle on").label, "kettle on", "label
 assert.strictEqual(A.parseTimer("timer"), null, "no duration yet");
 assert.strictEqual(A.parseTimer("timer 5x"), null, "bad unit");
 assert.strictEqual(A.parseTimer("timer 0m"), null, "zero length");
+assert.strictEqual(A.parseLookup("def Fernweh"), "Fernweh");
+assert.strictEqual(A.parseLookup("LOOKUP  kick the bucket "), "kick the bucket", "phrase, case-insensitive");
+assert.strictEqual(A.parseLookup("def"), "", "no word yet");
+assert.strictEqual(A.parseLookup("default"), null, "a longer action name is not def");
+assert.strictEqual(A.parseLookup("timer 10m"), null);
 assert.strictEqual(A.formatSeconds(90), "1:30");
 assert.strictEqual(A.formatSeconds(4530), "1:15:30");
 assert.strictEqual(A.formatSeconds(5), "0:05");
