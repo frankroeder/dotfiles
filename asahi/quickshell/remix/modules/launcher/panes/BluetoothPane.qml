@@ -505,6 +505,13 @@ Item {
             Layout.fillWidth: true; visible: text !== ""; text: quickBtRoot.headDetail; font.pixelSize: root.fontPx(10)
             color: quickBtRoot.stateColor(Services.BtMonitor.alert.state)
           }
+          Secondary {
+            Layout.fillWidth: true
+            // Not before the first scan: the status line above still says "Looking for devices …".
+            visible: quickBtRoot.btOn && !quickBtRoot.settingsOpen && quickBtRoot.btRows.length > 0 && !!quickBtRoot.mon.updated
+            font.pixelSize: root.fontPx(10)
+            text: quickBtRoot.t(quickBtRoot.btScanRequested || quickBtRoot.btDiscovering ? "radioLooking" : "radioQuiet")
+          }
         }
         Pill {
           visible: quickBtRoot.btOn && !quickBtRoot.settingsOpen

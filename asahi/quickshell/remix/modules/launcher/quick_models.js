@@ -890,11 +890,60 @@ function wifiRadioStatus(enabled, ssid) {
   return "Not connected"
 }
 
-// nmcli SECURITY for a scanned network: "" / "--" is open; OWE ("Enhanced Open") is encrypted but has
-// no password (asking for one looped on "wrong password"). Everything else (WEP, WPA*, 802.1X) asks.
-function wifiNeedsPassword(sec) {
+// nmcli SECURITY, in words. 802.1X is the campus sign-in.
+function wifiSecurityLabel(sec) {
   var s = String(sec || "").trim()
-  return s !== "" && s !== "--" && s !== "OWE"
+  if (s === "" || s === "--") return "Open"
+  if (s === "OWE" || s === "OWE-TM") return "Enhanced Open"  // -TM: the open half of a transition pair
+  var eap = s.indexOf("802.1X") !== -1
+  var name = s.indexOf("WPA3") !== -1 ? "WPA3"
+    : s.indexOf("WPA2") !== -1 ? "WPA2"
+    : s.indexOf("WPA") !== -1 ? "WPA"
+    : s.indexOf("WEP") !== -1 ? "WEP"
+    : s.slice(0, 24)
+  return eap ? name + " · 802.1X" : name
+}
+
+// Home password, campus sign-in, or a network anyone can join. Read from nmcli SECURITY only.
+function wifiPlaceKind(sec) {
+  var label = wifiSecurityLabel(sec)
+  if (label.indexOf("802.1X") !== -1) return "signin"
+  if (label === "Open" || label === "WEP" || label === "Enhanced Open") return "public"
+  return "private"
+}
+
+function wifiPlaceWord(sec) {
+  var kind = wifiPlaceKind(sec)
+  return kind === "signin" ? "Sign-in" : kind === "public" ? "Public" : "Private"
+}
+
+// Shown only when the connected network is not a password lock. Empty at home.
+function wifiPlaceNote(sec) {
+  var label = wifiSecurityLabel(sec)
+  if (label === "WEP") return "WEP is an old lock. Treat this network like a public one."
+  if (label === "Open") return "Open network. Anyone nearby can read what is not encrypted on its own."
+  if (label === "Enhanced Open") return "Enhanced Open. Anyone can join. The air is encrypted against people just listening."
+  if (label.indexOf("802.1X") !== -1) return "Sign-in network. Whoever runs it can see traffic that is not encrypted on its own."
+  return ""
+}
+
+// "Connected · Private · WPA3 · 5 GHz", "Saved · Sign-in · WPA2 · 802.1X", "Public · Open · 2.4 GHz".
+function wifiRowDetail(net, connecting) {
+  if (connecting) return "Connecting…"
+  var parts = []
+  if (net && net.active) parts.push("Connected")
+  else if (net && net.known) parts.push("Saved")
+  parts.push(wifiPlaceWord(net && net.sec))
+  parts.push(wifiSecurityLabel(net && net.sec))
+  if (net && net.band) parts.push(net.band)
+  return parts.join(" · ")
+}
+
+// Open and Enhanced Open have no password (asking for one on OWE looped on "wrong password").
+// Everything else (WEP, WPA*, 802.1X) asks.
+function wifiNeedsPassword(sec) {
+  var label = wifiSecurityLabel(sec)
+  return label !== "Open" && label !== "Enhanced Open"
 }
 
 if (typeof module !== "undefined") {
@@ -970,6 +1019,11 @@ if (typeof module !== "undefined") {
     formatRate: formatRate,
     RATE_CHIP_CHARS: RATE_CHIP_CHARS,
     rateChipWidth: rateChipWidth,
-    wifiRadioStatus: wifiRadioStatus
+    wifiRadioStatus: wifiRadioStatus,
+    wifiSecurityLabel: wifiSecurityLabel,
+    wifiPlaceKind: wifiPlaceKind,
+    wifiPlaceWord: wifiPlaceWord,
+    wifiPlaceNote: wifiPlaceNote,
+    wifiRowDetail: wifiRowDetail
   }
 }

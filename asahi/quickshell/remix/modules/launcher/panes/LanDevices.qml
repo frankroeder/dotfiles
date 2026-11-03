@@ -15,6 +15,7 @@ ColumnLayout {
   property var root
   property var lan: ({})
   property string query: ""
+  property bool searchWanted: false  // `/` shows the field even when the list is short
   property string expanded: ""  // mac of the open row
   property string renaming: ""
   property string copied: ""  // key whose copy icon shows the tick
@@ -24,15 +25,44 @@ ColumnLayout {
 
   readonly property var viewState: lanView.lan.view || ({ mode: "list", collapsed: [] })
   readonly property var rows: Lan.listRows(lanView.lan, lanView.viewState.mode, lanView.viewState.collapsed, lanView.query)
+  readonly property bool grouped: lanView.rows.some(function(r) { return r.header })
 
+  // wl-copy commits when stdin closes, then forks to serve the clipboard. The text is not an argument.
+  Process {
+    id: copyProc
+    command: ["wl-copy"]
+    stdinEnabled: true
+    property string pending: ""
+    onStarted: { write(pending); stdinEnabled = false }
+  }
   function copy(text, key) {
-    Quickshell.execDetached(["wl-copy", text])
+    copyProc.pending = text
+    copyProc.stdinEnabled = true
+    if (copyProc.running) copyProc.running = false  // a running one does not restart on `running = true`
+    copyProc.running = true
     lanView.copied = key
     copyTick.restart()
   }
   Timer { id: copyTick; interval: 1500; onTriggered: lanView.copied = "" }
+  // `/` while the window is up and the user is not typing a name or a query.
+  Shortcut {
+    enabled: lanView.visible && lanView.renaming === "" && !searchIn.activeFocus
+    sequences: ["/"]
+    context: Qt.WindowShortcut
+    onActivated: { lanView.searchWanted = true; Qt.callLater(function() { searchIn.forceActiveFocus() }) }
+  }
+  function expandAll() {
+    lanView.command({ cmd: "view", mode: lanView.viewState.mode, collapsed: [] })
+  }
+  function foldAll() {
+    const ids = lanView.rows.filter(r => r.header).map(r => r.id)
+    lanView.command({ cmd: "view", mode: lanView.viewState.mode, collapsed: ids })
+  }
+  function modeLabel(mode) { return Lan.modeLabel(mode) }
   function toggleMode() {
-    lanView.command({ cmd: "view", mode: lanView.viewState.mode === "type" ? "list" : "type", collapsed: lanView.viewState.collapsed || [] })
+    const order = ["list", "type", "platform"]
+    const i = order.indexOf(lanView.viewState.mode)
+    lanView.command({ cmd: "view", mode: order[(i + 1) % order.length], collapsed: lanView.viewState.collapsed || [] })
   }
   function toggleGroup(id) {
     const c = (lanView.viewState.collapsed || []).filter(g => g !== id)
@@ -132,9 +162,9 @@ ColumnLayout {
     }
   }
 
-  // Search: only once the list is long enough to need it (a campus network).
+  // Search: a long list, or `/` (that shows the field on a short list too).
   FieldBox {
-    visible: (lanView.lan.total || 0) > 12 || lanView.query !== ""
+    visible: lanView.searchWanted || (lanView.lan.total || 0) > 12 || lanView.query !== ""
     Layout.fillWidth: true
     color: searchIn.activeFocus ? Style.m3containerHigh : Style.m3container
     Glyph {
@@ -148,8 +178,18 @@ ColumnLayout {
       anchors.leftMargin: 8; anchors.rightMargin: 12
       hint: "Filter by name, type, maker, model or IP (\"printer\")"
       onTextChanged: lanView.query = text.trim()
-      Keys.onEscapePressed: { text = ""; root.focusLauncherInput() }
+      Keys.onEscapePressed: { text = ""; lanView.searchWanted = false; root.focusLauncherInput() }
     }
+  }
+
+  // Once there are groups: open every group, or shut them.
+  RowLayout {
+    visible: lanView.grouped
+    Layout.fillWidth: true
+    spacing: 6
+    Item { Layout.fillWidth: true }
+    Pill { label: "Expand"; onClicked: lanView.expandAll() }
+    Pill { label: "Fold"; onClicked: lanView.foldAll() }
   }
 
   ListView {

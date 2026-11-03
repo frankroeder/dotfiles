@@ -729,13 +729,44 @@ Item {
 
   // ---- M3 building blocks (caelestia look) ----
   readonly property var activeNet: (quickNetworkRoot.wifiNetworks || []).find(function(n) { return n.active }) || null
+  readonly property int activeSignal: quickNetworkRoot.activeNet ? quickNetworkRoot.activeNet.signal : 0
   readonly property var signalGlyphs: ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"]
   function signalGlyph(pct) { return quickNetworkRoot.signalGlyphs[Math.max(0, Math.min(4, Math.ceil(pct / 20) - 1))] }
-  // asahi-network tooltip lines minus the SSID + signal (title row) and the VPN (VPN card).
-  // Blank rows before the first answer hold the grid's usual height.
-  readonly property var wifiFacts: !quickNetworkRoot.wifiChecked ? [" ", " ", " ", " ", " "]
-    : (quickNetworkRoot.wifiTooltip || "").split("\n")
-      .filter(function(l) { return l.trim() && !/^(Connected to|Signal:|VPN:)/.test(l) })
+  // Excellent ≥ 70, Good ≥ 50, Fair ≥ 30, Weak below.
+  function signalWord(pct) { return pct >= 70 ? "Excellent" : pct >= 50 ? "Good" : pct >= 30 ? "Fair" : "Weak" }
+  function signalColor(pct) {
+    return pct >= 70 ? Style.green : pct >= 50 ? Style.yellow : pct >= 30 ? Style.orange : Style.red
+  }
+  // One labelled line from the asahi-network tooltip ("IP: …"). The key is one of ours.
+  function wifiFact(key) {
+    const m = (quickNetworkRoot.wifiTooltip || "").match(new RegExp("^" + key + ": (.+)$", "m"))
+    return m ? m[1].trim() : ""
+  }
+  // Fixed model. A fresh array on each tooltip would rebuild the rows and shift the card.
+  readonly property var wifiFactRows: [
+    { label: "IP", key: "IP" }, { label: "Gateway", key: "Gateway" },
+    { label: "Rate", key: "Bitrate" }, { label: "BSSID", key: "BSSID" }
+  ]
+  readonly property bool wifiHasFacts: quickNetworkRoot.wifiChecked && quickNetworkRoot.wifiFactRows.some(function(row) {
+    return quickNetworkRoot.wifiFact(row.key) !== ""
+  })
+  // Protection, band, channel and dBm on one line under the network name.
+  readonly property string wifiPlace: {
+    const net = quickNetworkRoot.activeNet
+    if (!net) return ""
+    const parts = [QuickModels.wifiSecurityLabel(net.sec)]
+    if (net.band) parts.push(net.band)
+    const ch = quickNetworkRoot.wifiFact("Channel")
+    if (ch) parts.push("ch " + ch)
+    const dbm = quickNetworkRoot.wifiFact("dBm")
+    if (dbm) parts.push(dbm + " dBm")
+    return parts.join(" · ")
+  }
+  readonly property string wifiKind: quickNetworkRoot.activeNet ? QuickModels.wifiPlaceKind(quickNetworkRoot.activeNet.sec) : ""
+  // Public orange, sign-in yellow, private `other` (green on the card word, grey / primary elsewhere).
+  function placeColor(kind, other) { return kind === "public" ? Style.orange : kind === "signin" ? Style.yellow : other }
+  readonly property string wifiKindWord: quickNetworkRoot.activeNet ? QuickModels.wifiPlaceWord(quickNetworkRoot.activeNet.sec) : ""
+  readonly property string wifiNote: quickNetworkRoot.activeNet ? QuickModels.wifiPlaceNote(quickNetworkRoot.activeNet.sec) : ""
   // The live tunnel, NM profile or not (the Proton app's WireGuard connection is an "external" one): "ProtonVPN XX#1 · up 3m".
   readonly property bool vpnUp: !!QuickModels.activeNmProfile(quickNetworkRoot.vpnProfiles) || (quickNetworkRoot.vpnExternal || []).length > 0
   readonly property string vpnLine: ((quickNetworkRoot.wifiTooltip || "").match(/^VPN: (.+)$/m) || ["", ""])[1].replace(" (external tunnel)", "")
@@ -775,6 +806,8 @@ Item {
       Layout.fillWidth: true
       spacing: 10
       Card {
+        // The join code stays inside this card. Without the clip it paints over the LAN card.
+        clip: true
         Layout.fillWidth: true
         Layout.fillHeight: true
         Layout.preferredWidth: 3
@@ -817,59 +850,114 @@ Item {
                 }
                 Text {
                   visible: !!quickNetworkRoot.activeNet
-                  readonly property int sig: quickNetworkRoot.activeNet ? quickNetworkRoot.activeNet.signal : 0
-                  text: quickNetworkRoot.signalGlyph(sig) + "  " + sig + "%"
-                  color: Style.m3primary; font.family: root.uiFont; font.pixelSize: root.fontPx(11)
+                  text: quickNetworkRoot.signalGlyph(quickNetworkRoot.activeSignal)
+                  color: quickNetworkRoot.signalColor(quickNetworkRoot.activeSignal); font.family: root.uiFont; font.pixelSize: root.fontPx(14)
+                  Layout.minimumWidth: implicitWidth; Layout.maximumWidth: implicitWidth
+                }
+                Text {
+                  visible: !!quickNetworkRoot.activeNet
+                  text: quickNetworkRoot.activeSignal + "% · " + quickNetworkRoot.signalWord(quickNetworkRoot.activeSignal)
+                  textFormat: Text.PlainText
+                  color: quickNetworkRoot.signalColor(quickNetworkRoot.activeSignal); font.family: root.uiSans; font.pixelSize: root.fontPx(11)
+                  font.weight: Font.DemiBold
+                  Layout.minimumWidth: implicitWidth; Layout.maximumWidth: implicitWidth
+                }
+                Text {
+                  visible: quickNetworkRoot.wifiKindWord !== ""
+                  text: quickNetworkRoot.wifiKindWord
+                  textFormat: Text.PlainText
+                  color: quickNetworkRoot.placeColor(quickNetworkRoot.wifiKind, Style.green)
+                  font.family: root.uiSans; font.pixelSize: root.fontPx(11); font.weight: Font.DemiBold
+                  Layout.minimumWidth: implicitWidth; Layout.maximumWidth: implicitWidth
                 }
               }
-              // Facts grid (IP, gateway, freq, bitrate…); signal is shown next to the SSID.
-              GridLayout {
+              Rectangle {
+                visible: quickNetworkRoot.activeSignal > 0
                 Layout.fillWidth: true
-                columns: 2; columnSpacing: 18; rowSpacing: 1
-                Repeater {
-                  model: quickNetworkRoot.wifiFacts
-                  delegate: Secondary { required property var modelData; text: modelData }
+                implicitHeight: 4
+                radius: 2
+                color: Qt.alpha(Style.m3onSurface, 0.12)
+                Rectangle {
+                  width: parent.width * Math.min(100, quickNetworkRoot.activeSignal) / 100
+                  height: parent.height
+                  radius: 2
+                  color: quickNetworkRoot.signalColor(quickNetworkRoot.activeSignal)
                 }
-                Secondary { visible: quickNetworkRoot.wifiChecked && quickNetworkRoot.wifiFacts.length === 0; text: "No connection details" }
+              }
+              Secondary {
+                visible: quickNetworkRoot.wifiPlace !== ""
+                Layout.fillWidth: true
+                text: quickNetworkRoot.wifiPlace
+                color: quickNetworkRoot.placeColor(quickNetworkRoot.wifiKind, Style.m3onSurfaceVariant)
+              }
+              // Until the first tooltip the four rows show blank: the card keeps its height.
+              Column {
+                id: factCol
+                visible: !quickNetworkRoot.wifiChecked || quickNetworkRoot.wifiHasFacts
+                Layout.fillWidth: true
+                spacing: 1
+                Repeater {
+                  model: quickNetworkRoot.wifiFactRows
+                  delegate: Row {
+                    required property var modelData
+                    readonly property string fact: quickNetworkRoot.wifiFact(modelData.key)
+                    visible: fact !== "" || !quickNetworkRoot.wifiChecked
+                    width: factCol.width
+                    spacing: 10
+                    Secondary { text: modelData.label; width: root.fontPx(10) * 7 }
+                    Secondary {
+                      text: fact; color: Style.m3onSurface
+                      width: Math.max(0, factCol.width - root.fontPx(10) * 7 - 10)
+                    }
+                  }
+                }
+              }
+              Secondary {
+                visible: quickNetworkRoot.wifiChecked && !!quickNetworkRoot.currentWifiSsid && !quickNetworkRoot.wifiHasFacts
+                text: "No connection details"
               }
               Secondary {
                 visible: !!quickNetworkRoot.wifiQrError && !quickNetworkRoot.wifiQrPath
                 Layout.fillWidth: true; text: quickNetworkRoot.wifiQrError; color: Style.red
               }
-              // Fixed height so the pills arriving with the first status do not push the page down.
-              RowLayout {
-                Layout.topMargin: 2
-                Layout.preferredHeight: 32
-                spacing: 8
-                Pill {
-                  visible: !!quickNetworkRoot.currentWifiSsid && !!quickNetworkRoot.wifiDevice && quickNetworkRoot.wifiEnabled
-                  icon: "󰌸"; label: "Disconnect"; fg: Style.red
-                  onClicked: quickNetworkRoot.disconnectWifi()
-                }
-                Pill {
-                  visible: !!quickNetworkRoot.currentWifiSsid && quickNetworkRoot.wifiEnabled
-                  icon: "󰐲"; label: quickNetworkRoot.wifiQrPath ? "Hide QR" : "Share QR"
-                  bg: Style.m3secondaryContainer; selected: !!quickNetworkRoot.wifiQrPath
-                  onClicked: quickNetworkRoot.toggleWifiQr()
-                }
-                Pill {
-                  visible: (!!quickNetworkRoot.wifiBand || bandSetProc.running) && quickNetworkRoot.wifiEnabled
-                  icon: "󰖩"
-                  label: bandSetProc.running ? "Switching…"
-                    : (quickNetworkRoot.wifiBand === "auto" ? "Band auto" : quickNetworkRoot.wifiBand + " GHz")
-                  bg: Style.m3secondaryContainer; selected: !!quickNetworkRoot.wifiBand && quickNetworkRoot.wifiBand !== "auto"
-                  onClicked: quickNetworkRoot.cycleBand()
-                }
-              }
             }
             Rectangle {
               visible: !!quickNetworkRoot.wifiQrPath
               Layout.alignment: Qt.AlignTop
-              width: 112; height: 112; radius: Style.menuRadiusMd; color: "white"
+              // A raw width reserved no space: it drew over the LAN card.
+              Layout.preferredWidth: 112; Layout.minimumWidth: 112; Layout.maximumWidth: 112
+              Layout.preferredHeight: 112; Layout.minimumHeight: 112; Layout.maximumHeight: 112
+              radius: Style.menuRadiusMd; color: "white"
               Image {
                 anchors.fill: parent; anchors.margins: 6; source: quickNetworkRoot.wifiQrPath
                 cache: false; smooth: false; fillMode: Image.PreserveAspectFit
               }
+            }
+          }
+          // Full card width, under the code, so opening it does not squeeze or shift these.
+          RowLayout {
+            Layout.topMargin: 2
+            Layout.fillWidth: true
+            Layout.preferredHeight: 32
+            spacing: 8
+            Pill {
+              visible: !!quickNetworkRoot.currentWifiSsid && !!quickNetworkRoot.wifiDevice && quickNetworkRoot.wifiEnabled
+              icon: "󰌸"; label: "Disconnect"; fg: Style.red
+              onClicked: quickNetworkRoot.disconnectWifi()
+            }
+            Pill {
+              visible: !!quickNetworkRoot.currentWifiSsid && quickNetworkRoot.wifiEnabled
+              icon: "󰐲"; label: quickNetworkRoot.wifiQrPath ? "Hide QR" : "Share QR"
+              bg: Style.m3secondaryContainer; selected: !!quickNetworkRoot.wifiQrPath
+              onClicked: quickNetworkRoot.toggleWifiQr()
+            }
+            Pill {
+              visible: (!!quickNetworkRoot.wifiBand || bandSetProc.running) && quickNetworkRoot.wifiEnabled
+              icon: "󰖩"
+              label: bandSetProc.running ? "Switching…"
+                : (quickNetworkRoot.wifiBand === "auto" ? "Band auto" : quickNetworkRoot.wifiBand + " GHz")
+              bg: Style.m3secondaryContainer; selected: !!quickNetworkRoot.wifiBand && quickNetworkRoot.wifiBand !== "auto"
+              onClicked: quickNetworkRoot.cycleBand()
             }
           }
           Item { Layout.fillHeight: true }
@@ -1085,7 +1173,7 @@ Item {
           }
           Pill {
             visible: quickNetworkRoot.netTab === "devices" && !!quickNetworkRoot.lan.active
-            icon: "󰕰"; label: (quickNetworkRoot.lan.view || {}).mode === "type" ? "By type" : "No groups"
+            icon: "󰕰"; label: lanDevices.modeLabel((quickNetworkRoot.lan.view || {}).mode)
             bg: Style.m3secondaryContainer
             onClicked: lanDevices.toggleMode()
           }
@@ -1097,6 +1185,23 @@ Item {
             bg: Style.m3primaryContainer
             onClicked: quickNetworkRoot.lanCmd("rescan")
           }
+        }
+        Secondary {
+          visible: quickNetworkRoot.netTab === "devices" && !!quickNetworkRoot.lan.active && !quickNetworkRoot.lan.vpn_blocked
+          Layout.fillWidth: true
+          wrapMode: Text.Wrap
+          elide: Text.ElideNone
+          text: quickNetworkRoot.lan.trusted
+            ? "Trusted. Checked once when you open this list, and when you press Rescan."
+            : "Not scanned. Only devices this computer already sees."
+        }
+        Secondary {
+          visible: quickNetworkRoot.netTab === "networks" && quickNetworkRoot.wifiNote !== ""
+          Layout.fillWidth: true
+          wrapMode: Text.Wrap
+          elide: Text.ElideNone
+          color: quickNetworkRoot.placeColor(quickNetworkRoot.wifiKind, Style.orange)
+          text: quickNetworkRoot.wifiNote
         }
         Panes.LanDevices {
           id: lanDevices
@@ -1144,11 +1249,13 @@ Item {
                 spacing: 10
                 Text {
                   text: quickNetworkRoot.signalGlyph(netDelegate.modelData.signal)
-                  color: netDelegate.modelData.active ? Style.m3primary : Style.m3onSurfaceVariant
+                  color: netDelegate.modelData.signal > 0 ? quickNetworkRoot.signalColor(netDelegate.modelData.signal)
+                    : (netDelegate.modelData.active ? Style.m3primary : Style.m3onSurfaceVariant)
                   font.family: root.uiFont; font.pixelSize: root.fontPx(15)
                 }
                 Text {
-                  visible: !!netDelegate.modelData.sec; text: "󰌾"; color: Style.m3onSurfaceVariant
+                  visible: QuickModels.wifiSecurityLabel(netDelegate.modelData.sec) !== "Open"
+                  text: "󰌾"; color: Style.m3onSurfaceVariant
                   font.family: root.uiFont; font.pixelSize: root.fontPx(11)
                 }
                 Text {
@@ -1160,14 +1267,9 @@ Item {
                 }
                 Secondary {
                   Layout.fillWidth: true
-                  text: {
-                    if (quickNetworkRoot.connectingSsid === netDelegate.modelData.ssid) return "Connecting…"
-                    const band = netDelegate.modelData.band ? "  ·  " + netDelegate.modelData.band : ""
-                    if (netDelegate.modelData.active) return "Connected" + band
-                    const sec = netDelegate.modelData.sec ? "Secure" : "Open"
-                    return (netDelegate.modelData.known ? "Saved  ·  " + sec : sec) + band
-                  }
-                  color: netDelegate.modelData.active ? Style.m3primary : Style.m3onSurfaceVariant
+                  text: QuickModels.wifiRowDetail(netDelegate.modelData, quickNetworkRoot.connectingSsid === netDelegate.modelData.ssid)
+                  color: quickNetworkRoot.placeColor(QuickModels.wifiPlaceKind(netDelegate.modelData.sec),
+                    netDelegate.modelData.active ? Style.m3primary : Style.m3onSurfaceVariant)
                 }
                 Secondary { text: netDelegate.modelData.signal + "%" }
                 IconBtn {

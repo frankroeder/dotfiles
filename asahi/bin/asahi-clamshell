@@ -24,6 +24,7 @@ bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 . "$bin/lib/common.sh"
 
 flag="${ASAHI_CLAMSHELL_FLAG:-${XDG_RUNTIME_DIR:-/tmp}/asahi-clamshell}"
+drm_path="${ASAHI_DRM_PATH:-/sys/class/drm}"
 
 edp_disabled() {
   hyprctl monitors all -j | jq -e '.[] | select(.name == "eDP-1" and .disabled == true)' >/dev/null
@@ -46,6 +47,30 @@ inhibit() {
   systemd-inhibit --what=handle-lid-switch --who=asahi-clamshell --why="lid closed on an external" --mode=block \
     bash -c 'while [ -e "$1" ]; do sleep 5; done' _ "$flag" >/dev/null 2>&1 &
 }
+# An external Hyprland has enabled AND that is lit. Hyprland listed a DP-1 hotplugged under the lock
+# screen without ever modesetting it; close onto it disabled eDP-1 into zero lit outputs (black,
+# locked, no way back; 2026-11-02). Lit = its DRM connector reads enabled, or Hyprland has it
+# DPMS-off (that reads disabled too: an idle-blanked external still counts).
+external_up() {
+  local name dpms
+  while read -r name dpms; do
+    [ "$dpms" = false ] && return 0
+    grep -qsx enabled "$drm_path"/card*-"$name"/enabled && return 0
+  done < <(hyprctl monitors -j 2>/dev/null \
+    | jq -r '.[] | select(.name != "eDP-1" and .name != "FALLBACK" and .disabled != true) | "\(.name) \(.dpmsStatus)"')
+  return 1
+}
+# Each decision goes to the journal beside logind's `Lid closed.` and the kernel's DCP lines:
+# `journalctl -b -1 -t asahi-clamshell`. Outputs read Hyprland's state / the DRM connector's `enabled`.
+log() { logger -t asahi-clamshell -- "$*" || true; }
+outputs() {
+  local name state
+  hyprctl monitors all -j 2>/dev/null \
+    | jq -r '.[] | "\(.name) \(if .disabled then "off" elif .dpmsStatus then "on" else "dpms-off" end)"' \
+    | while read -r name state; do
+      printf '%s=%s/%s ' "$name" "$state" "$(cat "$drm_path"/card*-"$name"/enabled 2>/dev/null || echo -)"
+    done
+}
 # Someone else's block inhibitor (asahi-hdmi: cable in, output not enabled) stops logind's lid suspend.
 lid_blocked() {
   busctl --json=short call org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager ListInhibitors \
@@ -58,11 +83,12 @@ case "${1:-status}" in
     # raced that into a failed modeset and hung the machine — so do nothing.
     # Unless a block inhibitor means no suspend comes: give asahi-hdmi time to
     # enable the external (then clamshell below), else blank and lock here.
-    if ! external_on; then
-      lid_blocked || exit 0
+    if ! external_up; then
+      lid_blocked || { log "close: no lit external, logind suspends: $(outputs)"; exit 0; }
       sleep 5
-      lid_closed && lid_blocked || exit 0
-      if ! external_on; then
+      lid_closed && lid_blocked || { log "close: lid opened or block gone within 5 s"; exit 0; }
+      if ! external_up; then
+        log "close: lid blocked, no lit external after 5 s, blank + lock: $(outputs)"
         "$bin/asahi-idle-brightness" off
         "$bin/asahi-dpms" off
         # asahi-lock directly, like every other lock path: loginctl lock-session only locks via hypridle.
@@ -70,6 +96,7 @@ case "${1:-status}" in
         exit 0
       fi
     fi
+    log "close: clamshell, eDP-1 off: $(outputs)"
     "$bin/asahi-idle-brightness" off
     : >"$flag"
     inhibit
@@ -77,6 +104,7 @@ case "${1:-status}" in
     ;;
   open)
     rm -f "$flag"
+    log "open: $(outputs)"
     edp_disabled && edp_on
     "$bin/asahi-dpms" on
     "$bin/asahi-idle-brightness" restore
@@ -84,19 +112,22 @@ case "${1:-status}" in
   apply)
     if [ -e "$flag" ]; then
       inhibit
-      if external_on; then
-        edp_disabled || edp_off
+      if external_up; then
+        edp_disabled || { log "apply: clamshell, eDP-1 off again: $(outputs)"; edp_off; }
       else
         # Undocked with the lid closed: the flag's inhibitor would block lid suspend forever (battery
         # drain). eDP back first (never zero outputs); after a 10 s grace (hotplug bounce, reload
         # re-enabling HDMI) drop the flag so logind suspends, unless an external came back.
         # The backlight close zeroed comes back only with the lid open (else open restores it).
+        log "apply: clamshell without a lit external, eDP-1 back for a 10 s grace: $(outputs)"
         edp_on
         sleep 10
         [ -e "$flag" ] || exit 0  # lid opened meanwhile: open owns eDP now
-        if external_on; then
+        if external_up; then
+          log "apply: external back, eDP-1 off: $(outputs)"
           edp_off
         else
+          log "apply: no external after the grace, clamshell ends: $(outputs)"
           rm -f "$flag"
           lid_closed || "$bin/asahi-idle-brightness" restore
         fi

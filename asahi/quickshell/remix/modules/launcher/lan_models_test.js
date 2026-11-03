@@ -20,13 +20,16 @@ function dev(mac, name, extra) {
     vendor: "", model: "", private: false, kind: "unknown", label: "Device", group: "other", state: "online", self: false, gw: false,
     pinned: false, new: false, web: "", seen: 0, ssh: 0 }, extra || {})
 }
-const gw = dev("74:42:7f:00:00:01", "Router", { kind: "router", label: "Router", group: "network", gw: true, vendor: "AVM" })
-const me = dev("ee:01:d3:00:00:7c", "laptop", { kind: "laptop", label: "Laptop", group: "computers", self: true, private: true })
-const pi = dev("d8:3a:dd:00:00:32", "raspberrypi", { kind: "computer", label: "Computer", group: "computers", vendor: "Raspberry Pi",
-  pinned: true, state: "idle" })
-const phone = dev("26:62:ae:00:00:29", "iPhone", { kind: "phone", label: "Phone", group: "mobile", private: true, new: true })
-const printer = dev("30:05:5c:00:00:3d", "Brother HL-L2350DW", { kind: "printer", label: "Printer", group: "office", vendor: "Brother",
-  model: "Brother HL-L2350DW series", web: "http://192.168.178.61/" })
+const gw = dev("74:42:7f:00:00:01", "Router", { kind: "router", label: "Router", group: "network", platform: "network", gw: true,
+  vendor: "AVM" })
+const me = dev("ee:01:d3:00:00:7c", "laptop", { kind: "laptop", label: "Laptop", group: "computers", platform: "computers", self: true,
+  private: true })
+const pi = dev("d8:3a:dd:00:00:32", "raspberrypi", { kind: "computer", label: "Computer", group: "computers", platform: "computers",
+  vendor: "Raspberry Pi", pinned: true, state: "idle" })
+const phone = dev("26:62:ae:00:00:29", "iPhone", { kind: "phone", label: "Phone", group: "mobile", platform: "apple", private: true,
+  new: true })
+const printer = dev("30:05:5c:00:00:3d", "Brother HL-L2350DW", { kind: "printer", label: "Printer", group: "office", platform: "office",
+  vendor: "Brother", model: "Brother HL-L2350DW series", web: "http://192.168.178.61/" })
 const snap = { devices: [gw, me, pi, phone, printer] }
 
 console.log("== glyphs ==")
@@ -46,6 +49,16 @@ const mobile = typed.find((r) => r.key === "g:mobile")
 eq([mobile.title, mobile.count, mobile.online, mobile.fresh], ["Phones & tablets", 1, 1, true], "header counts + NEW marker")
 eq(L.listRows(snap, "type", ["mobile"], "").filter((r) => !r.header).map((r) => r.name).indexOf("iPhone"), -1,
   "collapsed group keeps its header, drops its rows")
+eq([L.modeLabel("list"), L.modeLabel("type"), L.modeLabel("platform"), L.modeLabel("nope")],
+  ["No groups", "By type", "By platform", "No groups"], "mode labels")
+const plat = L.listRows(snap, "platform", [], "")
+eq(plat.map((r) => r.header ? "#" + r.id : r.name), ["#pinned", "raspberrypi", "#apple", "iPhone", "#computers", "laptop",
+  "#office", "Brother HL-L2350DW", "#network", "Router"], "platform groups: pinned, Apple, then the type groups")
+eq([plat.find((r) => r.key === "g:apple").title], ["Apple"], "platform header")
+eq(L.listRows(snap, "platform", [], "printer").map((r) => r.name), ["Brother HL-L2350DW"], "platform search stays flat")
+const bare = dev("aa:00:00:00:00:0b", "Pixel", { kind: "phone", group: "mobile" })
+eq(L.listRows({ devices: [bare] }, "platform", [], "").map((r) => r.header ? r.id : r.name), ["mobile", "Pixel"],
+  "a row without platform groups by its type group")
 
 console.log("\n== text ==")
 eq(L.status(pi), "idle · 192.168.178.50", "idle status")
@@ -54,7 +67,9 @@ eq(L.secondary(printer), "Printer · Brother HL-L2350DW series · Brother", "pri
 eq(L.secondary(phone), "Phone · private address", "randomised MAC: no maker")
 eq(L.secondary(dev("aa:00:00:00:00:02", "x", { label: "Printer", model: "Printer" })), "Printer", "no repeated words")
 eq(L.details(Object.assign({}, pi, { custom: true, auto: "raspberrypi", name: "Pi", host: "raspberrypi" })).map((p) => p[0]),
-  ["Name", "Host", "IP", "MAC"], "details")
+  ["Name", "Maker", "Host", "IP", "MAC"], "details")
+eq(L.details(Object.assign({}, printer, { services: ["Print", "Scan"] })).find((p) => p[0] === "Services")[1],
+  "Print · Scan", "details: advertised services")
 check(L.stateText(pi, false).indexOf("never pinged") !== -1, "idle on an untrusted network says why")
 
 console.log("\n== ssh / ping ==")
@@ -81,6 +96,12 @@ check(pane.indexOf('/.local/state/asahi/network-tab"') !== -1 && /onNetTabChange
 check(/\/\/ VPN card\.\n\s+Card \{\n\s+Layout\.fillWidth: true/.test(pane), "VPN card stays on both tabs (no layout jump)")
 check(/pingProc\.command = \["ping", "-n", "-q", "-c", "4"/.test(view) && view.indexOf("running: true") === -1, "ping only on click")
 check((view.match(/Text\.PlainText/g) || []).length >= 3, "device names / hosts render as plain text")
+check(view.indexOf('"list", "type", "platform"') !== -1, "grouping cycles list, type, platform")
+check(/modeLabel/.test(pane), "the pane asks LanDevices for the mode label")
+check(/command:\s*\["wl-copy"\]/.test(view) && /stdinEnabled:\s*true/.test(view), "wl-copy reads stdin")
+check(view.indexOf('execDetached(["wl-copy", text])') === -1, "copy does not put the text on argv")
+check(/sequences:\s*\["\/"\]/.test(view), "/ focuses the search")
+check(view.indexOf('label: "Expand"') !== -1 && view.indexOf('label: "Fold"') !== -1, "expand and fold")
 
 if (failed) {
   console.log("\n" + failed + " failed")

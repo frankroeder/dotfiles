@@ -183,6 +183,17 @@ def switch(value):
   return value
 
 
+def offered_dpi(info, value):
+  """The DPI if this device offers it: a JSON integer on its list or grid (dpi_range). Anything else is
+  refused, never snapped: null, booleans, strings, floats, NaN, infinity, off-grid values."""
+  if isinstance(value, bool) or not isinstance(value, int):
+    raise TypeError("not a whole number")
+  info = info or {}
+  if value not in (info.get("choices") or range(info.get("min", 0), info.get("max", -1) + 1, info.get("step") or 1)):
+    raise ValueError("DPI not offered")
+  return value
+
+
 def battery_state(battery, low_at, critical_at):
   """ok / low / critical for the bar chip and the pane (both thresholds inclusive); charging is ok."""
   if not battery or battery.get("charging"):
@@ -296,7 +307,8 @@ class Node:
 
   def request(self, dev, b2, b3, params=b"", timeout=1.5, echo=None):
     """One request, then wait for its reply (payload[0] == `echo` when given: register reads of another slot
-    do not count); other reports only count as notices. Returns the payload (byte 4 on)."""
+    do not count); other reports only count as notices. A matching reply is padded with zeros out to a long
+    report's payload, so a short or truncated one is an empty slot rather than an error that blanks the scan."""
     self.drain()
     params = bytes(params)
     long = len(params) > 3 or not self.short
@@ -314,7 +326,7 @@ class Node:
         if data[2] in (0x8F, 0xFF) and data[3] == b2 and data[4] == b3:  # HID++ 1.0 / 2.0 error
           raise HidppError(data[5])
         if data[2] == b2 and data[3] == b3 and (echo is None or data[4] == echo):
-          return data[4:]
+          return data[4:].ljust(LONG_LEN - 4, b"\0")
       self.note(data)
     raise Timeout()
 
@@ -395,10 +407,12 @@ class Device:
       return None
     n, out = self.call(NAME, 0)[0], b""
     while len(out) < min(n, MAX_NAME):
-      chunk = self.call(NAME, 1, [len(out)])
-      if not chunk.strip(b"\0"):
+      # request() pads a short report out to 16 bytes. Those zeros are not name bytes: counting them
+      # skips the rest (a 3-byte chunk of "MX Master 3" would stop at "MX").
+      piece = self.call(NAME, 1, [len(out)]).split(b"\0", 1)[0]
+      if not piece:
         break
-      out += chunk
+      out += piece
     return clean(out[:n])
 
   def kind(self):
@@ -419,7 +433,8 @@ class Device:
       mv, charging = r[0] << 8 | r[1], bool(r[2] & 0x80)
       full = charging and r[2] & 0x03 == 0x01
       pct = 100 if full else voltage_percent(mv)
-      return {"percent": pct, "level": level_for(pct), "status": "full" if full else "charging" if charging else "discharging",
+      return {"percent": pct, "level": level_for(pct), "voltage": mv,
+              "status": "full" if full else "charging" if charging else "discharging",
               "charging": charging and not full, "external_power": charging}
     return None
 
@@ -689,7 +704,7 @@ class Monitor:
     for field in ("name", "battery", "dpi", "smartshift", "wheel", "fnswap", "kind"):
       try:
         v = getattr(dev, field)()
-      except (HidppError, IndexError):  # unsupported / short reply: skip the field
+      except HidppError:  # unsupported: skip the field (request pads short replies)
         continue
       except Timeout:  # stopped answering: the rest would time out too
         break
@@ -794,9 +809,9 @@ class Monitor:
 
   def apply(self, dev, key, value, stored):
     if key == "dpi":
-      dev.set_dpi(int(value))
+      dev.set_dpi(offered_dpi(dev.dpi(), value))
     elif key == "smartshift":
-      dev.set_smartshift(str(value), stored.get("threshold", 10))
+      dev.set_smartshift(value, stored.get("threshold", 10))  # refuses a mode outside the three
     elif key == "threshold":
       dev.set_smartshift("smartshift", value)
     elif key in ("invert", "hires"):
@@ -821,7 +836,7 @@ class Monitor:
       else:
         stored[key] = value
       save_settings(self.settings, self.state)
-    except (HidppError, Timeout, ValueError, TypeError, OSError) as e:
+    except (HidppError, Timeout, ValueError, TypeError, OSError) as e:  # int(NaN / None); inf ends in handle()
       self.message = ("errChange", [f"{key}: {e}"[:80]])
 
   def thresholds(self, low_at, critical_at):

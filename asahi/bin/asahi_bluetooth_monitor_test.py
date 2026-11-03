@@ -287,11 +287,20 @@ dev.set_smartshift("smartshift", 99)
 eq(node.sent[-1][3][:3], bytes([2, 50, 0]), "set smartshift: threshold clamped to 50")
 dev.set_dpi(1600)
 eq(node.sent[-1][3][:3], bytes([0, 0x06, 0x40]), "set dpi: sensor 0 + big-endian value")
+listed = bm.dpi_range([400, 800, 1600])
+refused = []
+for info, v in ((listed, 1000), (dev.dpi(), 4050), (None, 800)):
+  try:
+    bm.offered_dpi(info, v)
+  except (TypeError, ValueError):
+    refused.append(v)
+eq((bm.offered_dpi(listed, 800), refused), (800, [1000, 4050, 800]), "offered_dpi: a listed value only; past the grid's top refused")
 eq(bm.Device(FakeNode({}, {}, proto=1), 1).ping(), 1.0, "ping: invalid sub-ID = HID++ 1.0")
 eq(bm.Device(FakeNode({}, {}, proto=None), 1).ping(), None, "ping: unreachable = offline")
 eq(bm.Device(FakeNode({}, {}), 1).battery(), None, "battery: no feature = None")
 volt = bm.Device(FakeNode({bm.VOLTAGE: 1}, {(bm.VOLTAGE, 0): bytes([0x0F, 0x52, 0x00])}), 1)
 eq(volt.battery()["percent"], 70, "battery: voltage 3922 mV = 70 %")
+eq(volt.battery()["voltage"], 3922, "battery: the millivolts stay on the reading")
 eq(bm.Device(FakeNode({bm.NAME: 1}, {(bm.NAME, 2): bytes([3])}), 1).kind(), "mouse", "kind: 0x0005 getDeviceType 3 = mouse")
 
 
@@ -383,6 +392,29 @@ eq((len(sent), sent[0]), (bm.LONG_LEN, bm.LONG), "long-only node: a 3-byte reque
 a.close()
 b.close()
 
+def socket_node():
+  a, b = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
+  a.setblocking(False)
+  node = bm.Node.__new__(bm.Node)
+  node.fd, node.notice, node.short = a.fileno(), False, True
+  return a, b, node
+
+
+# A matching reply shorter than a long report: the unread tail is zeros (the shipped request path, not a copied parser).
+a, b, n = socket_node()
+short = bytes([bm.SHORT, 1, 5, 0x10 | bm.SW_ID, 7, 8, 9])
+threading.Timer(0.05, b.send, [short]).start()
+payload = n.request(1, 5, 0x10 | bm.SW_ID, timeout=2)
+eq((len(payload), payload[:3], payload[3:]), (bm.LONG_LEN - 4, bytes([7, 8, 9]), bytes(bm.LONG_LEN - 7)),
+   "short reply: padded with zeros out to a long report's payload")
+cut = bytes([bm.LONG, 1, 5, 0x1E, 1, 2, 3, 4, 5, 6])  # long report truncated after 6 payload bytes
+threading.Timer(0.05, b.send, [cut]).start()
+payload = n.request(1, 5, 0x1E, timeout=2)
+eq((len(payload), payload[:6], payload[6:]), (bm.LONG_LEN - 4, bytes([1, 2, 3, 4, 5, 6]), bytes(10)),
+   "truncated reply: the bytes that never arrived are zeros")
+a.close()
+b.close()
+
 # Unplug: the hidraw fd turns readable and read() fails (EIO); a pty with its other end closed does the same.
 master, slave = os.openpty()
 os.set_blocking(master, False)
@@ -437,6 +469,23 @@ eq(json.loads(state.read_text())["devices"], {"4082": {"invert": True, "smartshi
 wheel_mode[0] = 0x02
 m.set("hidraw0-1", "invert", "false")
 eq((m.message[0], wheel_mode[0], m.settings["devices"]["4082"]["invert"]), ("errChange", 0x02, True), "set: a string is no switch, nothing written")
+node.sent = []
+for label, value in (("null", None), ("boolean", True), ("string", "1600"), ("NaN", float("nan")),
+                     ("infinity", float("inf")), ("float", 1600.4), ("off-grid", 225)):
+  m.message = ("", [])
+  eq((m.handle(json.dumps({"cmd": "set", "device": "hidraw0-1", "key": "dpi", "value": value})), m.message[0]),
+     (True, "errChange"), f"set: {label} DPI refused")
+returned = m.handle(json.dumps({"cmd": "set", "device": "hidraw0-1", "key": "smartshift", "value": "spin"}))
+eq(returned, True, "set: a wheel mode outside the three names refused, handler returned")
+dpi_writes = [s for s in node.sent if s[1] == node.features[bm.DPI] and s[2] == 3]
+ss_writes = [s for s in node.sent if s[1] == node.features[bm.SMARTSHIFT2] and s[2] == 2]
+eq((dpi_writes, ss_writes, "dpi" in m.settings["devices"]["4082"], m.settings["devices"]["4082"].get("smartshift")),
+   ([], [], False, "smartshift"),
+   "set: null, boolean, string, NaN, infinity, a float and an unoffered DPI or mode write nothing")
+node.sent = []
+eq(m.handle(json.dumps({"cmd": "set", "device": "hidraw0-1", "key": "dpi", "value": 1600})), True, "set: offered DPI accepted")
+dpi_writes = [s for s in node.sent if s[1] == node.features[bm.DPI] and s[2] == 3]
+eq((len(dpi_writes), dpi_writes[0][3][:3]), (1, bytes([0, 0x06, 0x40])), "set: 1600 is written, not snapped")
 wheel_mode[0] = 0x02
 node.sent = []
 m.reapply(dev, "4082")
@@ -645,6 +694,88 @@ den.node = lambda path, short=True: (_ for _ in ()).throw(PermissionError(13, "d
 den.scan()
 mx = [d for d in den.snap["devices"] if d["name"] == "MX Master 3"]
 eq((len(mx), mx[0]["denied"], mx[0]["battery"]["percent"], mx[0]["state"]), (1, True, 50, "ok"), "denied: kernel battery on the denied row, no duplicate")
+
+
+def serve(sock, reply):
+  """Answer every request with reply(request) until the socket closes."""
+  while True:
+    try:
+      req = sock.recv(64)
+    except OSError:
+      return
+    if not req:
+      return
+    sock.send(reply(req))
+
+
+def answer_short(req):
+  """Every request gets a 7-byte report. After padding the pairing register is an empty slot."""
+  return bytes([bm.SHORT, req[1], req[2], req[3], req[4], 0, 0])
+
+
+def answer_direct(req):
+  """Ping answers; every other feature is unsupported. The discover name is what stays listed."""
+  dev, b2, b3 = req[1], req[2], req[3]
+  ping = bytes([4, 5]) if b2 == 0 and b3 >> 4 == 1 else b""
+  return (bytes([bm.LONG, dev, b2, b3]) + ping).ljust(bm.LONG_LEN, b"\0")
+
+
+ra, rb, rn = socket_node()
+da, db, dn = socket_node()
+threading.Thread(target=serve, args=(rb, answer_short), daemon=True).start()
+threading.Thread(target=serve, args=(db, answer_direct), daemon=True).start()
+saved_discover = bm.discover
+bm.discover = lambda sysfs=None: [
+  {"node": "hidrawS", "path": "/dev/hidrawS", "bus": 3, "product": 0xC52B, "family": "unifying",
+   "name": "Logitech USB Receiver", "uniq": "", "short": True},
+  {"node": "hidrawD", "path": "/dev/hidrawD", "bus": 3, "product": 0xC08B, "family": None,
+   "name": "G502", "uniq": "", "short": True},
+]
+shortm = bm.Monitor(out=io.StringIO(), state=str(tmp / "short.json"))
+shortm.settings["other_devices"] = False
+shortm.nodes = {"/dev/hidrawS": rn, "/dev/hidrawD": dn}
+shortm.scan()
+names = [d["name"] for d in shortm.snap["devices"]]
+eq((("G502" in names), shortm.snap["error"], shortm.snap["phase"], any(d.get("receiver") for d in shortm.snap["devices"])),
+   (True, "", "ok", False), "short reply: one truncated pairing register does not blank the other device")
+bm.discover = saved_discover
+ra.close()
+rb.close()
+da.close()
+db.close()
+
+
+def answer_name(req, short, name):
+  """HID++ 0x0005: feature index, length, then the name. A short report carries 3 bytes."""
+  feat = 5
+  dev, b2, b3 = req[1], req[2], req[3]
+  fn = b3 >> 4
+  if b2 == 0 and fn == 0:
+    payload = bytes([feat])
+  elif b2 == feat and fn == 0:
+    payload = bytes([len(name)])
+  elif b2 == feat and fn == 1:
+    payload = name[req[4]:req[4] + (3 if short else 16)]
+  else:
+    payload = b""
+  width = bm.SHORT_LEN if short else bm.LONG_LEN
+  return (bytes([bm.SHORT if short else bm.LONG, dev, b2, b3]) + payload).ljust(width, b"\0")[:width]
+
+
+def socket_name(short, text):
+  """Device.name() through Node.request on a socketpair, not FakeNode."""
+  a, b, node = socket_node()
+  node.short = short
+  threading.Thread(target=serve, args=(b, lambda req: answer_name(req, short, text.encode())), daemon=True).start()
+  try:
+    return bm.Device(node, 1).name()
+  finally:
+    a.close()
+    b.close()
+
+
+eq(socket_name(True, "MX Master 3"), "MX Master 3", "name: short reports keep every chunk, the zero pad is not part of it")
+eq(socket_name(False, "MX Master 3 Extra!!"), "MX Master 3 Extra!!", "name: a full 16-byte long chunk continues at the next offset")
 
 shutil.rmtree(tmp)
 

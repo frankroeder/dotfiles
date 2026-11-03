@@ -24,6 +24,13 @@ eq "$("$NET" --fmt-age 3600)" "1h 0m" "3600s → 1h 0m"
 eq "$("$NET" --fmt-age 5400)" "1h 30m" "5400s → 1h 30m"
 eq "$("$NET" --fmt-age 86400)" "1d 0h" "1d"
 eq "$("$NET" --fmt-age $((2 * 86400 + 5 * 3600)))" "2d 5h" "2d 5h"
+eq "$("$NET" --fmt-channel 2412)" "1" "2412 → channel 1"
+eq "$("$NET" --fmt-channel 2484)" "14" "2484 → channel 14"
+eq "$("$NET" --fmt-channel 5180)" "36" "5180 → channel 36"
+eq "$("$NET" --fmt-channel 5320.0)" "64" "iw's 5320.0 → channel 64"
+eq "$("$NET" --fmt-channel 5745)" "149" "5745 → channel 149"
+eq "$("$NET" --fmt-channel 5955)" "1" "5955 → 6 GHz channel 1"
+eq "$("$NET" --fmt-channel 2400)" "0" "off-band → 0"
 
 out=$("$NET" || true)
 if echo "$out" | jq -e 'has("vpn") and has("vpnSince") and has("vpnName")' >/dev/null; then

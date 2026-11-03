@@ -19,6 +19,23 @@ fmt_age() {
   fi
 }
 
+# Centre frequency (MHz) → channel, the kernel's table. 0 when it is not a 2.4 / 5 / 6 GHz channel.
+wifi_channel() {
+  local f="${1:-0}"
+  f=${f%%.*}  # iw prints "freq: 5320.0"
+  case "$f" in
+    ''|*[!0-9]*) printf '0'; return ;;
+  esac
+  if [ "$f" -eq 2484 ]; then printf '14'
+  elif [ "$f" -ge 2412 ] && [ "$f" -lt 2484 ]; then printf '%d' $(( (f - 2407) / 5 ))
+  elif [ "$f" -ge 4910 ] && [ "$f" -le 4980 ]; then printf '%d' $(( (f - 4000) / 5 ))
+  elif [ "$f" -ge 5000 ] && [ "$f" -lt 5925 ]; then printf '%d' $(( (f - 5000) / 5 ))
+  elif [ "$f" -eq 5935 ]; then printf '2'
+  elif [ "$f" -ge 5955 ] && [ "$f" -le 7115 ]; then printf '%d' $(( (f - 5950) / 5 ))
+  else printf '0'
+  fi
+}
+
 bar=false
 if [ "${1:-}" = "--bar" ]; then bar=true; fi
 
@@ -27,12 +44,17 @@ if [ "${1:-}" = "--fmt-age" ]; then
   printf '\n'
   exit 0
 fi
+if [ "${1:-}" = "--fmt-channel" ]; then
+  wifi_channel "${2:-0}"
+  printf '\n'
+  exit 0
+fi
 
 # One `dev status` for every lookup below.
 dev_status="$(nmcli -t -f DEVICE,TYPE,STATE,CONNECTION dev status 2>/dev/null || true)"
 
-# Prefer ethernet over wifi. Ignore tun/vpn/wireguard — those are overlay,
-# not the underlay the bar icon should represent.
+# The bar prefers ethernet over wifi; the pane (no --bar) wants the Wi-Fi card's details whenever Wi-Fi is
+# up. Ignore tun/vpn/wireguard — those are overlay, not the underlay the bar icon should represent.
 get_active() {
   local best_eth="" best_wifi="" line type rest state
   while IFS= read -r line; do
@@ -50,7 +72,7 @@ get_active() {
       wifi) [ -z "$best_wifi" ] && best_wifi=$line ;;
     esac
   done <<<"$dev_status"
-  if [ -n "$best_eth" ]; then
+  if [ -n "$best_eth" ] && { $bar || [ -z "$best_wifi" ]; }; then
     printf '%s\n' "$best_eth"
   elif [ -n "$best_wifi" ]; then
     printf '%s\n' "$best_wifi"
@@ -59,22 +81,26 @@ get_active() {
 
 build_wifi_tooltip() {
   local dev="$1" conn="$2" sig="$3"
-  local ssid ip gw link bssid="" freq="" bitrate=""
+  local ssid ip gw link bssid="" freq="" bitrate="" dbm="" channel=""
   ssid=$(nmcli -g GENERAL.CONNECTION dev show "$dev" 2>/dev/null || echo "$conn")
   ip=$(nmcli -g IP4.ADDRESS dev show "$dev" 2>/dev/null | head -1 || echo "")
   gw=$(nmcli -g IP4.GATEWAY dev show "$dev" 2>/dev/null | head -1 || echo "")
-  # One `iw link` for BSSID, freq and bitrate (NM has no bssid field on dev show).
+  # One `iw link` for BSSID, freq, bitrate and dBm (NM has no bssid field on dev show).
   if command -v iw >/dev/null 2>&1; then
     link=$(iw dev "$dev" link 2>/dev/null || true)
     bssid=$(awk '/^Connected to/ { print $3; exit }' <<<"$link")
     freq=$(awk '/freq:/ { print $2; exit }' <<<"$link")
     bitrate=$(awk '/tx bitrate:/ { print $3 " " $4; exit }' <<<"$link")
+    dbm=$(awk '/signal:/ { gsub(/[^0-9-].*/, "", $2); print $2; exit }' <<<"$link")
   fi
   printf "Connected to %s\nSignal: %s%%\nInterface: %s\nIP: %s\nGateway: %s" "$ssid" "$sig" "$dev" "$ip" "$gw"
   # if-blocks, not trailing &&: a false test on the last line makes the whole
   # function return 1, and `tooltip=$(build_wifi_tooltip ...)` under `set -e`
   # then kills the script before it ever prints its JSON.
+  if [[ "$dbm" =~ ^-?[0-9]{1,3}$ ]]; then printf "\ndBm: %s" "$dbm"; fi
   if [ -n "$freq" ]; then printf "\nFreq: %s MHz" "$freq"; fi
+  channel=$(wifi_channel "$freq")
+  if [ "$channel" != 0 ]; then printf "\nChannel: %s" "$channel"; fi
   if [ -n "$bitrate" ]; then printf "\nBitrate: %s" "$bitrate"; fi
   if [ -n "$bssid" ]; then printf "\nBSSID: %s" "$bssid"; fi
 }

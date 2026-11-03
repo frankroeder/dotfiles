@@ -56,10 +56,13 @@ function batteryGlyph(b) {
   return glyph(0xF007A + Math.min(8, Math.max(0, Math.round(p / 10) - 1)))
 }
 
-// "42%", else the coarse level word (lvl_full / good / low / critical / empty) through `t`.
+// "42%" (+ " · 3.92 V" when the helper sends millivolts), else the coarse level word (lvl_full / good / low / critical / empty) through `t`.
 function batteryText(b, t) {
   if (!b) return ""
-  if (b.percent !== null && b.percent !== undefined) return b.percent + "%"
+  var parts = []
+  if (b.percent !== null && b.percent !== undefined) parts.push(b.percent + "%")
+  if (b.voltage > 0) parts.push((b.voltage / 1000).toFixed(2) + " V")
+  if (parts.length) return parts.join(" · ")
   var level = String(b.level || "")
   return level && level !== "unknown" ? t("lvl_" + level) : ""
 }

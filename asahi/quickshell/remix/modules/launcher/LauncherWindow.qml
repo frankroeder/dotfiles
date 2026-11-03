@@ -2799,13 +2799,15 @@ Scope {
             }
 
             Text {
+              // Behind the caret: the hint is the empty-field ghost text, including while focused.
+              z: -1
               anchors.fill: parent
               text: root.argArmed
                 ? (root.argPlaceholder || "argument…")
-                : (root.fileMode ? "Search files" : "Search  ·  ctrl+hjkl  ·  tab argument  ·  !  >  ;  @  dict")
+                : (root.fileMode ? "Search files" : "Search  ·  ctrl+hjkl  ·  tab argument  ·  !  >  :  ?  ;  @  =  dict")
               color: Style.m3onSurfaceVariant
               font: parent.font
-              visible: !parent.text && (root.argArmed || !parent.activeFocus)
+              visible: !parent.text
               verticalAlignment: Text.AlignVCenter
             }
 

@@ -4,13 +4,14 @@
 Sources: kernel neighbour table, reverse DNS at the router, mDNS (own queries on 5353, no avahi-tools), OUI vendor.
 Runs only while the Devices tab is shown. Untrusted networks (public, campus) are never pinged; a host heard over mDNS
 (printer, Mac, TV) gets one unicast mDNS question so the kernel learns its MAC and it gets a row. A trusted network
-(SSID + router MAC) gets one paced ICMP sweep of the /24 when the tab opens and on Rescan, nothing periodic, plus NEW
-badges (whatever shows up in the first 10 min after Trust counts as known).
+(SSID + the router's current MAC; a missing MAC is not that network) gets one paced ICMP sweep of the /24 when the tab
+opens and on Rescan, nothing periodic, plus NEW badges (whatever shows up in the first 10 min after Trust counts as
+known). ICMP, PTR and mDNS stay on the LAN interface (SO_BINDTODEVICE); a failed bind sends nothing.
 
   asahi-lan watch              one JSON line per change (3 s tick); commands on stdin (Monitor.handle)
   asahi-lan --once             one snapshot (a trusted network gets its sweep, as when the tab opens)
 
-State ~/.local/state/asahi/lan.json (names, pins, trust, grouping; flock, 0600).
+State ~/.local/state/asahi/lan.json (names, pins, trust, grouping, and the last host / model / services; flock, 0600).
 """
 import fcntl
 import ipaddress
@@ -19,6 +20,7 @@ import os
 import re
 import select
 import socket
+import stat
 import struct
 import subprocess
 import sys
@@ -27,6 +29,11 @@ from contextlib import contextmanager
 from pathlib import Path
 
 TICK = 3.0
+MAX_COMMAND = 65536  # longest stdin command line; longer ones are dropped whole
+KEEP_NETS, KEEP_DEVICES = 32, 512
+# json.dump of that retention (ssid, mac, auto, rename, pin, kind, host, model, services, address) is ~8 MB in ASCII,
+# up to ~42 MB with \u-escaped emoji. A cut read fails json.loads and the next command writes defaults over the file.
+MAX_STORE = 64 * 1024 * 1024
 MDNS_EVERY = 60
 LAN_CHECK_EVERY, LAN_CHECK_BLOCKED = 30, 8
 ONLINE_GRACE = 45  # an ICMP reply keeps a STALE neighbour online this long
@@ -86,8 +93,25 @@ VENDOR_RULES = [(k, re.compile(p)) for k, p in (
 NAME_SERVICES = ["_device-info._tcp", "_companion-link._tcp", "_airplay._tcp", "_raop._tcp", "_googlecast._tcp", "_hap._tcp",
   "_ipp._tcp", "_ipps._tcp", "_printer._tcp", "_pdl-datastream._tcp", "_sonos._tcp", "_spotify-connect._tcp", "_smb._tcp",
   "_afpovertcp._tcp", "_workstation._tcp", "_sftp-ssh._tcp", "_ssh._tcp", "_http._tcp", "_https._tcp"]
+# Platform groups: Apple / Android, else the type group. Matched on the automatic name, host and model — a rename
+# must not move the row.
+APPLE_SERVICES = {"_companion-link._tcp", "_apple-mobdev2._tcp", "_rdlink._tcp", "_sleep-proxy._udp", "_apple-pairable._tcp"}
+ANDROID_SERVICES = {"_adb-tls-connect._tcp", "_adb-tls-pairing._tcp"}
+# Shown on an open device. Unknown types stay off the row; duplicates collapse (IPP and IPPS are both Print).
+SERVICE_LABELS = {
+  "_ipp._tcp": "Print", "_ipps._tcp": "Print", "_printer._tcp": "Print", "_pdl-datastream._tcp": "Print",
+  "_uscan._tcp": "Scan", "_scanner._tcp": "Scan", "_airplay._tcp": "AirPlay", "_raop._tcp": "AirPlay",
+  "_spotify-connect._tcp": "Spotify", "_sonos._tcp": "Sonos", "_googlecast._tcp": "Cast",
+  "_androidtvremote2._tcp": "Cast", "_smb._tcp": "Files", "_afpovertcp._tcp": "Files", "_nfs._tcp": "Files",
+  "_ssh._tcp": "SSH", "_sftp-ssh._tcp": "SSH", "_http._tcp": "Web", "_https._tcp": "Web",
+  "_hap._tcp": "HomeKit", "_matter._tcp": "Matter", "_matterc._udp": "Matter", "_hue._tcp": "Hue",
+  "_esphomelib._tcp": "ESPHome", "_shelly._tcp": "Shelly", "_companion-link._tcp": "Apple",
+  "_apple-mobdev2._tcp": "Apple", "_workstation._tcp": "Workstation"}
+APPLE_NAME_RE = re.compile(r"\b(iphone|ipad|macbook|imac|homepod)|\bmac\b|^(apple|airport|watch)\b|apple ?tv", re.IGNORECASE)
+ANDROID_NAME_RE = re.compile(r"android|galaxy|pixel|oneplus|xiaomi|redmi|huawei|\boppo|motorola|\bsm-[a-z]\d", re.IGNORECASE)
+ANDROID_VENDOR_RE = re.compile(r"samsung|google|xiaomi|huawei|oneplus|oppo|vivo|motorola|realme|nothing tech", re.IGNORECASE)
 # Service types asked for by name: their PTR answers carry the instance names (+ SRV / TXT / A as extras).
-BROWSE = sorted(set(NAME_SERVICES).union(*(s for _, s in SERVICE_RULES)))
+BROWSE = sorted(set(NAME_SERVICES).union(*(s for _, s in SERVICE_RULES), APPLE_SERVICES, ANDROID_SERVICES))
 # UUIDs, bare MACs, dashed IPs (FRITZ!Box: PC-192-168-178-50), 16hex-16hex: not names.
 JUNK = re.compile(r"^(pc-)?(\d+-\d+-\d+-\d+|[0-9a-f]{32}|[0-9a-f-]{36}|([0-9a-f]{2}[:-]?){6}|[0-9a-f]{16}-[0-9a-f]{16})$", re.IGNORECASE)
 
@@ -110,14 +134,47 @@ def run(cmd, timeout=3):
     return ""
 
 
+def split_lines(buf, data, skipping):
+  """Complete stdin lines of buf + data -> (lines, rest, skipping). A line over MAX_COMMAND is dropped whole, up to
+  its newline: a kept tail of it could parse as a command."""
+  *lines, buf = (buf + data).split(b"\n")
+  if lines and skipping:  # the rest of an oversized line
+    lines.pop(0)
+    skipping = False
+  if len(buf) > MAX_COMMAND:
+    buf, skipping = b"", True
+  return [line for line in lines if len(line) <= MAX_COMMAND], buf, skipping
+
+
+def read_regular(path, limit):
+  """A regular file of ours: a symlink, FIFO (would hang the start-up) or other non-regular file is refused."""
+  fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+  try:
+    info = os.fstat(fd)
+    if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+      raise OSError("not a store")
+    chunks, left = [], limit
+    while left > 0:
+      block = os.read(fd, left)
+      if not block:
+        break
+      chunks.append(block)
+      left -= len(block)
+    return b"".join(chunks)
+  finally:
+    os.close(fd)
+
+
 def load_store():
   try:
-    st = json.loads(STORE.read_text())
-  except (OSError, ValueError):
-    st = {}
-  st.setdefault("view", {"mode": "list", "collapsed": []})
-  st.setdefault("networks", {})
-  return st
+    raw = json.loads(read_regular(os.fspath(STORE), MAX_STORE))
+  except (OSError, ValueError, RecursionError):
+    raw = {}
+  if not isinstance(raw, dict):
+    raw = {}
+  raw.setdefault("view", {"mode": "list", "collapsed": []})
+  raw.setdefault("networks", {})
+  return raw
 
 
 @contextmanager
@@ -130,9 +187,9 @@ def store_tx():
     before = json.dumps(st, sort_keys=True)
     yield st
     if json.dumps(st, sort_keys=True) != before:
-      nets = sorted(st["networks"].items(), key=lambda kv: kv[1].get("seen", 0))[-32:]
+      nets = sorted(st["networks"].items(), key=lambda kv: kv[1].get("seen", 0))[-KEEP_NETS:]
       for _, net in nets:
-        net["devices"] = dict(sorted(net["devices"].items(), key=lambda kv: kv[1].get("last", 0))[-512:])
+        net["devices"] = dict(sorted(net["devices"].items(), key=lambda kv: kv[1].get("last", 0))[-KEEP_DEVICES:])
       st["networks"] = dict(nets)
       tmp = STORE.with_name(".lan.json.tmp")
       with os.fdopen(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
@@ -254,10 +311,69 @@ def serial_like(name):
   return not re.search(r"[a-z]", name) and len(re.findall(r"\d", name)) >= 4
 
 
+def service_labels(services):
+  out = []
+  for svc in sorted(services or ()):
+    label = SERVICE_LABELS.get(svc)
+    if label and label not in out:
+      out.append(label)
+    if len(out) == 8:
+      break
+  return out
+
+
+def stored_text(rec, key, n):
+  v = rec.get(key)
+  return clean(v, n) if isinstance(v, str) else ""
+
+
+def stored_services(rec):
+  """Labels saved for this MAC. A string would slice into characters; anything else is no list."""
+  raw = rec.get("services")
+  if not isinstance(raw, list):
+    return []
+  out = []
+  for s in raw[:8]:
+    s = clean(s, 20) if isinstance(s, str) else ""
+    if s and s not in out:
+      out.append(s)
+  return out
+
+
+def cache_of(d):
+  """Facts this look actually learned. Empty fields stay out, so a quiet look does not wipe the store."""
+  out = {}
+  for key, n in (("auto", 60), ("host", 60), ("model", 40)):
+    v = clean(d.get(key), n)
+    if v and not (key == "auto" and v in (d.get("ip"), f"{d.get('label')} ({d.get('vendor')})")):  # made-up names
+      out[key] = v
+  if d.get("kind") in KIND_LABELS and d["kind"] != "unknown":
+    out["kind"] = d["kind"]
+  labels = stored_services(d)
+  if labels:
+    out["services"] = labels
+  return out
+
+
 def classify(text, services, vendor):
   t = re.sub(r"[_-]", " ", text.lower())
   return (next((k for k, rx in NAME_RULES if rx.search(t)), None) or next((k for k, s in SERVICE_RULES if services & s), None)
     or next((k for k, rx in VENDOR_RULES if rx.search(vendor.lower())), "unknown"))
+
+
+def platform_of(kind, vendor, name, host, model, services, labels=()):
+  """apple / android, else the type group. `name` is the automatic one: a rename must not move the row. `labels`
+  include the saved service labels, so an asleep Mac stays in Apple."""
+  if kind == "router":
+    return "network"
+  found = services or set()
+  text = f"{name or ''} {host or ''} {model or ''}"
+  if vendor == "Apple" or found & APPLE_SERVICES or "Apple" in labels or APPLE_NAME_RE.search(text):
+    return "apple"
+  android_vendor = ANDROID_VENDOR_RE.search(vendor or "") and kind in ("phone", "tablet", "watch", "unknown")
+  if found & ANDROID_SERVICES or ANDROID_NAME_RE.search(text) or android_vendor:
+    return "android"
+  return KIND_GROUPS.get(kind, "other")
 
 
 # ---- DNS / mDNS -----------------------------------------------------------------------------------------------------
@@ -349,26 +465,34 @@ def mdns_web(ip, info):
 class Monitor:
   def __init__(self):
     self.net, self.key, self.link_t, self.trusted, self.live, self.msock = None, "", 0, False, {}, None
-    self.icmp, self.udp = self.open_socket(socket.IPPROTO_ICMP), self.open_socket(0)
+    self.icmp = self.udp = None
+    self.bound = ""
     self.reset()
 
   @staticmethod
-  def open_socket(proto):
+  def open_socket(proto, iface):
+    """A socket bound to the LAN iface (SO_BINDTODEVICE), None when that fails: nothing leaves another interface."""
     try:
-      s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, proto)
-    except OSError:  # ping sockets need net.ipv4.ping_group_range
+      s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, proto)  # ping sockets need net.ipv4.ping_group_range
+    except OSError:
+      return None
+    try:
+      s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, iface.encode())
+    except OSError:
+      s.close()
       return None
     s.setblocking(False)
     return s
 
   def mdns_socket(self):
-    """Port 5353 beside avahi (SO_REUSEADDR) in the mDNS group: queries get multicast answers, which firewalld's mdns
-    service lets in (the `public` zone drops a legacy unicast answer to an ephemeral port). Announcements arrive too."""
+    """Port 5353 beside avahi (SO_REUSEADDR) in the mDNS group, on the LAN iface: queries get multicast answers, which
+    firewalld's mdns service lets in (the `public` zone drops a legacy unicast answer to an ephemeral port)."""
     if self.msock:
       return self.msock
     s, me = socket.socket(socket.AF_INET, socket.SOCK_DGRAM), socket.inet_aton(self.net["ip"])
     try:
       s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+      s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, self.net["iface"].encode())
       s.bind(MDNS)  # the group address: only multicast arrives here, avahi keeps its unicast answers
       s.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton(MDNS[0]) + me)
       s.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, me)
@@ -385,9 +509,20 @@ class Monitor:
       self.msock.close()
     self.msock = None
     self.neigh, self.seen, self.confirmed, self.ptr, self.pending, self.mdns, self.ip_mac = {}, {}, {}, {}, {}, {}, {}
-    self.asked, self.nudged = set(), set()
+    self.asked, self.nudged, self.quiet = set(), set(), set()  # quiet: went silent this process (SLEEPING_KEEP)
     self.scan_t = self.mdns_t = self.lan_t = self.scan_until = 0
     self.force, self.vpn, self.blocked = False, "", False
+
+  def arm(self):
+    """Fresh ICMP and PTR sockets when the LAN iface changes: an unprivileged socket binds to a device only once
+    (a second SO_BINDTODEVICE is EPERM, even to the same iface)."""
+    iface = self.net["iface"]
+    if iface == self.bound:
+      return
+    for s in (self.icmp, self.udp):
+      if s:
+        s.close()
+    self.icmp, self.udp, self.bound = self.open_socket(socket.IPPROTO_ICMP, iface), self.open_socket(0, iface), iface
 
   def sockets(self):
     return [s for s in (self.icmp, self.udp, self.msock) if s]
@@ -400,7 +535,7 @@ class Monitor:
     self.link_t = now
     ip, prefix = iface_addr(iface) if iface else (None, 0)
     if not ip:
-      self.net, self.key = None, ""
+      self.net, self.key, self.bound = None, "", ""  # the bind holds the ifindex: a re-created iface needs new sockets
       self.reset()
       return
     ssid = wifi_ssid(iface) if os.path.exists(f"/sys/class/net/{iface}/wireless") else ""
@@ -535,40 +670,50 @@ class Monitor:
   def handle(self, line):
     """Pane commands: rescan | trust | untrust, or JSON {"cmd": rename|pin|known, "mac", "name"/"on"},
     {"cmd": view, "mode", "collapsed"}. Returns True when the pane wants a fresh snapshot."""
-    line = line.strip()[:1024]
+    line = line.strip()
     try:
-      cmd = json.loads(line) if line.startswith("{") else {"cmd": line}
-    except ValueError:
+      cmd = json.loads(line) if line[:1] in "{[" else {"cmd": line}
+    except (ValueError, RecursionError):  # broken or absurdly nested
       return False
-    c, mac, now = cmd.get("cmd"), str(cmd.get("mac", "")).lower(), time.time()
-    if c == "rescan":
-      self.force = True
+    if not isinstance(cmd, dict):
+      return False
+    try:  # collapsed: 1 (and any other hostile value) must not end the watcher
+      c, mac, now = cmd.get("cmd"), str(cmd.get("mac", "")).lower(), time.time()
+      if c == "rescan":
+        self.force = True
+        return True
+      if not self.net:
+        return False
+      with store_tx() as st:
+        if c == "view" and cmd.get("mode") in ("list", "type", "platform"):
+          raw = cmd.get("collapsed")
+          if raw is None:
+            raw = []
+          elif not isinstance(raw, list):
+            return False
+          st["view"] = {"mode": cmd["mode"], "collapsed": [clean(x, 40) for x in raw[:32]]}
+        elif self.key and c in ("trust", "untrust", "rename", "pin", "known"):
+          net = st["networks"].setdefault(self.key, {"ssid": self.net["ssid"], "trusted": 0, "devices": {}})
+          net["seen"] = int(now)
+          if c in ("trust", "untrust"):
+            net["trusted"] = int(now) if c == "trust" else 0
+          if c == "untrust":
+            for d in net["devices"].values():
+              d.pop("new", None)
+          elif c in ("rename", "pin", "known") and mac in self.live:
+            d = net["devices"].setdefault(mac, {"first": int(now), "last": int(now)})
+            if c == "rename":
+              d["name"] = clean(cmd.get("name"), 40)
+            elif c == "known":
+              d.pop("new", None)
+            else:
+              d["pinned"] = bool(cmd.get("on"))
+            live = self.live[mac]
+            if live["state"] != "asleep":
+              d.update(ip=live["ip"], **cache_of(live))
       return True
-    if not self.net:
+    except (TypeError, ValueError, OverflowError, OSError, RecursionError):
       return False
-    with store_tx() as st:
-      if c == "view" and cmd.get("mode") in ("list", "type"):
-        st["view"] = {"mode": cmd["mode"], "collapsed": [clean(x, 40) for x in (cmd.get("collapsed") or [])[:32]]}
-      elif self.key and c in ("trust", "untrust", "rename", "pin", "known"):
-        net = st["networks"].setdefault(self.key, {"ssid": self.net["ssid"], "trusted": 0, "devices": {}})
-        net["seen"] = int(now)
-        if c in ("trust", "untrust"):
-          net["trusted"] = int(now) if c == "trust" else 0
-        if c == "untrust":
-          for d in net["devices"].values():
-            d.pop("new", None)
-        elif c in ("rename", "pin", "known") and mac in self.live:
-          d = net["devices"].setdefault(mac, {"first": int(now), "last": int(now)})
-          if c == "rename":
-            d["name"] = clean(cmd.get("name"), 40)
-          elif c == "known":
-            d.pop("new", None)
-          else:
-            d["pinned"] = bool(cmd.get("on"))
-          live = self.live[mac]
-          if live["state"] != "asleep":
-            d.update(ip=live["ip"], auto=live["auto"], kind=live["kind"])
-    return True
 
   def tick(self, record=True):
     now = time.time()
@@ -578,8 +723,8 @@ class Monitor:
       return {"time": int(now), "active": False, "devices": []}
     neigh = {ip: v for ip, v in neighbours(n["iface"]).items() if self.in_subnet(ip)}
     gw_mac = neigh.get(n["gw"], ("",))[0]
-    key = f"{n['ssid'] or n['iface']}|{gw_mac}" if gw_mac else self.key
-    if self.key and key != self.key:  # same address, another router
+    key = f"{n['ssid'] or n['iface']}|{gw_mac}" if gw_mac else ""  # no current MAC: not the trusted network
+    if self.key and key != self.key:  # another router, or this one's MAC is gone
       self.reset()
     self.key, self.neigh = key, neigh
     for ip, (mac, _) in self.neigh.items():  # an address that changed hands: the old holder's names go
@@ -587,6 +732,7 @@ class Monitor:
         self.mdns.pop(ip, None)
         self.ptr.pop(ip, None)
       self.ip_mac[ip] = mac
+    self.arm()
     st = load_store()
     self.trusted = bool(key and st["networks"].get(key, {}).get("trusted"))
     self.check_vpn(now)
@@ -616,31 +762,49 @@ class Monitor:
     ptr = "" if other else self.ptr.get(ip, ("", 0))[0].split(".")[0]
     ptr = "" if JUNK.match(ptr) else ptr
     hosts = sorted((h for h in info.get("hosts", ()) if not JUNK.match(h)), key=len)
-    host = hosts[0] if hosts else ptr
-    inst, model = mdns_name(info), mdns_model(info)
-    text = " ".join(x for x in (inst, host, ptr, model) if x)
+    live_name = hosts[0] if hosts else ""
+    live_host = live_name or ptr
+    host = live_host or stored_text(rec, "host", 60)
+    inst, live_model = mdns_name(info), mdns_model(info)
+    model = live_model or stored_text(rec, "model", 40)
+    # Kind comes from this look's name or services. A stored host is not a new answer. A vendor OUI alone
+    # is not either: it must not replace a saved kind.
+    live_services = info.get("services", set())
     if is_gw:
       kind = "router"
     elif is_self:
       kind = "laptop" if any(read(p / "type") == "Battery" for p in Path("/sys/class/power_supply").glob("*")) else "computer"
-    elif not text and rec.get("kind") and seen["state"] == "asleep":
-      kind = rec["kind"]
     else:
-      kind = classify(text, info.get("services", set()), vendor_full)
+      text = " ".join(x for x in (inst, live_host, ptr, live_model) if x)
+      heard = classify(text, live_services, "")
+      remembered = stored_text(rec, "kind", 20)
+      if heard != "unknown":
+        kind = heard
+      elif remembered in KIND_LABELS and remembered != "unknown":
+        kind = remembered
+      else:
+        kind = classify("", set(), vendor_full)
     vendor = short_vendor(vendor_full)
     if is_self:
       auto = socket.gethostname().split(".")[0]
     elif is_gw:
       auto = "Router"
     else:
-      auto = next((x for x in (inst, *(t for t in (tidy(host), tidy(ptr)) if not (vendor and serial_like(t)))) if x), "")
-      auto = auto or (rec.get("auto", "") if seen["state"] == "asleep" else "") or (f"{KIND_LABELS[kind]} ({vendor})" if vendor else "") or ip
+      names = (t for t in (tidy(live_name), tidy(ptr)) if not (vendor and serial_like(t)))
+      auto = next((x for x in (inst, *names) if x), "")
+      auto = auto or stored_text(rec, "auto", 60) or (f"{KIND_LABELS[kind]} ({vendor})" if vendor else "") or ip
+    labels = service_labels(live_services)
+    for s in stored_services(rec):
+      if s not in labels and len(labels) < 8:
+        labels.append(s)
     ports = info.get("ports", {})
     return {
       "mac": mac, "ip": ip, "name": rec.get("name") or auto, "auto": auto, "custom": bool(rec.get("name")), "host": host,
-      "vendor": vendor, "model": model, "private": private, "kind": kind, "label": KIND_LABELS[kind], "group": KIND_GROUPS.get(kind, "other"),
+      "vendor": vendor, "model": model, "private": private, "kind": kind, "label": KIND_LABELS[kind],
+      "group": KIND_GROUPS.get(kind, "other"), "platform": platform_of(kind, vendor, auto, host, model, live_services, labels),
       "state": "online" if is_self or is_gw else seen["state"], "self": is_self, "gw": is_gw, "pinned": bool(rec.get("pinned")),
       "new": bool(rec.get("new")), "seen": int((now - seen["t"]) // 60),
+      "services": labels,
       "web": f"http://{ip}/" if is_gw else mdns_web(ip, info), "ssh": ports.get("_ssh._tcp") or ports.get("_sftp-ssh._tcp") or 0}
 
   def snapshot(self, now, st, gw_mac, record=True):
@@ -653,11 +817,17 @@ class Monitor:
         d["state"] = "asleep"
         if now - d["t"] > SLEEPING_KEEP:
           del self.seen[mac]
+          self.quiet.add(mac)  # quiet this run; do not bring it straight back from the store
     self.seen[n["mac"]] = {"ip": n["ip"], "t": now, "state": "online", "since": now}
     recs = st["networks"].get(self.key, {}).get("devices", {})
-    pinned = {m: {"ip": r.get("ip", ""), "t": r.get("last", now), "state": "asleep"}
-      for m, r in recs.items() if r.get("pinned") and m not in self.seen}
-    devs = [self.device(mac, d, recs.get(mac, {}), now, gw_mac) for mac, d in {**self.seen, **pinned}.items()]
+    # Stored rows for this network, before this process has heard them. Not copied into seen: an old
+    # `last` is not the 10-minute quiet timeout. Pinned stays even after that timeout.
+    remembered = {}
+    for mac, r in recs.items():
+      if mac in self.seen or (mac in self.quiet and not r.get("pinned")):
+        continue
+      remembered[mac] = {"ip": r.get("ip", ""), "t": r.get("last", now), "state": "asleep"}
+    devs = [self.device(mac, d, recs.get(mac, {}), now, gw_mac) for mac, d in {**self.seen, **remembered}.items()]
     self.live = {d["mac"]: d for d in devs}
     if record and self.key:
       self.record(now, devs, st)
@@ -669,15 +839,22 @@ class Monitor:
 
   def record(self, now, devs, stored):
     """Trusted network: remember every device, flag the ones that turn up after the baseline (NEW badge). Any network
-    with a record (an edit made one): keep its devices' last address / name / kind for the pinned asleep rows.
-    A device is recorded once it has been around for 5 s (its PTR / mDNS names had time to arrive)."""
+    with a record (an edit made one): keep its devices' last address, name, kind, host, model and services.
+    A device is recorded once it has been around for 5 s (its PTR / mDNS names had time to arrive). Facts are written
+    when they change; a later look with nothing new leaves the saved ones in place."""
     net = stored["networks"].get(self.key)
     if not net:
       return
     since = {m: d.get("since", 0) for m, d in self.seen.items()}
     live = [d for d in devs if d["state"] != "asleep" and now - since.get(d["mac"], now) >= 5]
-    todo = [d for d in live if (d["mac"] not in net["devices"] and self.trusted) or now - net["devices"].get(d["mac"], {}).get("last", now) > 300]
-    if not todo and now - net.get("seen", 0) < 3600:
+
+    def due(d):
+      r = net["devices"].get(d["mac"])
+      if r is None:
+        return bool(self.trusted)
+      return now - r.get("last", now) > 300 or any(r.get(k) != v for k, v in cache_of(d).items())
+
+    if not any(due(d) for d in live) and now - net.get("seen", 0) < 3600:
       return
     with store_tx() as st:
       net = st["networks"].get(self.key)
@@ -691,8 +868,11 @@ class Monitor:
           r = net["devices"][d["mac"]] = {"first": int(now)}
           if now - trusted > BASELINE and not d["self"] and not d["gw"]:
             r["new"] = d["new"] = True
-        if r is not None and now - r.get("last", 0) > 300:
-          r.update(last=int(now), ip=d["ip"], auto=d["auto"], kind=d["kind"])
+        if r is None:
+          continue
+        if now - r.get("last", 0) > 300:
+          r.update(last=int(now), ip=d["ip"])
+        r.update(cache_of(d))  # store_tx writes only when this changed anything
 
 
 def pump(m, seconds):
@@ -703,8 +883,17 @@ def pump(m, seconds):
       m.recv(s)
 
 
+def take_stdin(m, buf, skipping, chunk):
+  """One stdin chunk through the splitter watch() uses. handle() already drops a nested or broken line."""
+  lines, buf, skipping = split_lines(buf, chunk, skipping)
+  fresh = False
+  for line in lines:
+    fresh |= bool(m.handle(line.decode(errors="replace")))
+  return fresh, buf, skipping
+
+
 def watch():
-  m, buf, last, due = Monitor(), b"", "", 0.0
+  m, buf, skipping, last, due = Monitor(), b"", False, "", 0.0
   while True:
     ready = select.select(m.sockets() + [sys.stdin], [], [], max(0.0, due - time.time()))[0]
     fresh = False
@@ -713,9 +902,8 @@ def watch():
         chunk = os.read(0, 4096)
         if not chunk:
           return 0  # the pane went away
-        *lines, buf = (buf + chunk)[-8192:].split(b"\n")
-        for line in lines:
-          fresh |= bool(m.handle(line.decode(errors="replace")))
+        got, buf, skipping = take_stdin(m, buf, skipping, chunk)
+        fresh |= got
       else:
         m.recv(s)
     if fresh or time.time() >= due:

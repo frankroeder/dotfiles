@@ -91,6 +91,40 @@ check(!M.wifiNeedsPassword("OWE"), "OWE (Enhanced Open) connects without a passw
 check(M.wifiNeedsPassword("WPA2") && M.wifiNeedsPassword("WPA2 WPA3") && M.wifiNeedsPassword("WPA3")
   && M.wifiNeedsPassword("WEP") && M.wifiNeedsPassword("WPA2 802.1X"), "WEP / WPA / enterprise ask for credentials");
 
+console.log("\n== wifi security words ==");
+check(M.wifiSecurityLabel("") === "Open" && M.wifiSecurityLabel("--") === "Open", "empty security is Open");
+check(M.wifiSecurityLabel("OWE") === "Enhanced Open", "OWE is Enhanced Open");
+check(M.wifiPlaceKind("OWE-TM") === "public" && !M.wifiNeedsPassword("OWE-TM"), "OWE transition is Enhanced Open, no password");
+check(M.wifiSecurityLabel("WPA2") === "WPA2" && M.wifiSecurityLabel("WPA1 WPA2") === "WPA2", "WPA2");
+check(M.wifiSecurityLabel("WPA2 WPA3") === "WPA3" && M.wifiSecurityLabel("WPA3") === "WPA3", "WPA3 wins when both are offered");
+check(M.wifiSecurityLabel("WPA2 802.1X") === "WPA2 · 802.1X", "campus WPA2 keeps 802.1X");
+check(M.wifiSecurityLabel("WPA3 802.1X") === "WPA3 · 802.1X", "campus WPA3 keeps 802.1X");
+check(M.wifiSecurityLabel("WEP") === "WEP", "WEP stays WEP");
+check(M.wifiPlaceKind("WPA3") === "private" && M.wifiPlaceWord("WPA2") === "Private", "a password lock is private");
+check(M.wifiPlaceKind("WPA2 802.1X") === "signin" && M.wifiPlaceWord("WPA3 802.1X") === "Sign-in", "802.1X is sign-in");
+check(M.wifiPlaceKind("") === "public" && M.wifiPlaceKind("WEP") === "public", "open and WEP are public");
+check(M.wifiPlaceKind("OWE") === "public", "Enhanced Open is public");
+check(M.wifiPlaceNote("WPA3") === "" && M.wifiPlaceNote("WPA2") === "", "a password network gets no lecture");
+check(M.wifiPlaceNote("").indexOf("Open network") === 0 && M.wifiPlaceNote("WEP").indexOf("WEP") === 0, "open and WEP notes");
+check(M.wifiPlaceNote("OWE").indexOf("Enhanced Open") === 0, "Enhanced Open note");
+check(M.wifiPlaceNote("WPA2 802.1X").indexOf("Sign-in") === 0, "campus note");
+check(M.wifiRowDetail({ active: true, sec: "WPA3", band: "5 GHz" }, false) === "Connected · Private · WPA3 · 5 GHz", "connected row");
+check(M.wifiRowDetail({ known: true, sec: "WPA2 802.1X", band: "" }, false) === "Saved · Sign-in · WPA2 · 802.1X", "saved campus row");
+check(M.wifiRowDetail({ sec: "", band: "2.4 GHz" }, false) === "Public · Open · 2.4 GHz", "open row");
+check(M.wifiRowDetail({ sec: "OWE", band: "5 GHz" }, false) === "Public · Enhanced Open · 5 GHz", "enhanced open row");
+check(M.wifiRowDetail({ sec: "WPA2" }, true) === "Connecting…", "connecting replaces the detail");
+check(qml.indexOf("QuickModels.wifiPlaceWord") !== -1, "the card names Private / Sign-in / Public");
+check(qml.indexOf("QuickModels.wifiPlaceNote") !== -1, "the card shows the place note");
+check(qml.indexOf("Layout.preferredWidth: 112") !== -1, "the join code reserves its width in the layout");
+check(qml.indexOf("width: 112") === -1, "the join code does not paint a raw width over the next card");
+check(
+  /pct >= 70 \? "Excellent" : pct >= 50 \? "Good" : pct >= 30 \? "Fair" : "Weak"/.test(qml),
+  "card quality: Excellent ≥ 70, Good ≥ 50, Fair ≥ 30, Weak below"
+);
+const tooltip = fs.readFileSync(path.join(__dirname, "../../../../bin/asahi-network"), "utf8");
+check(tooltip.indexOf("dBm:") !== -1 && tooltip.indexOf("^-?[0-9]{1,3}$") !== -1, "tooltip dBm is a short signed integer");
+check(tooltip.indexOf("Channel:") !== -1 && tooltip.indexOf('"$channel" != 0') !== -1, "tooltip channel, 0 omitted");
+
 if (failed > 0) {
   console.log("\n" + failed + " assertion(s) failed");
   process.exit(1);

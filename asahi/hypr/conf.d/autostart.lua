@@ -4,6 +4,12 @@ hl.on("hyprland.start", function()
     .. " XDG_SESSION_TYPE HYPRLAND_INSTANCE_SIGNATURE")
   -- gnome-keyring owns org.freedesktop.secrets (kwallet is disabled). SSH stays with keychain.
   hl.exec_cmd "~/.dotfiles/asahi/bin/asahi-gnome-keyring"
+  -- Hyprland's log lives in /run and died with the forced shutdown that ended the 2026-11-02 lock-screen
+  -- hang. Mirror it into the persistent journal (`journalctl -b -1 -t hyprland`) without libinput's touch
+  -- debug (~95 % of it); line-buffered so the last lines before a hang land. tail ends with Hyprland.
+  hl.exec_cmd([[d="$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE"; ]]
+    .. [[tail -F -n +1 --pid="$(head -n 1 "$d/hyprland.lock")" "$d/hyprland.log" ]]
+    .. [[| grep --line-buffered -v '\[libinput\]' | systemd-cat -t hyprland]])
   -- Fallback dark until asahi-autotheme reads wallpaper lightness (gsettings + GTK + icons).
   -- Firefox / GTK4 / Qt-via-gtk3 / nvim follow this portal signal, not quickshell hex.
   hl.exec_cmd "gsettings set org.gnome.desktop.interface color-scheme prefer-dark"

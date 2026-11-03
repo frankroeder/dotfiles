@@ -1,4 +1,4 @@
-// Network pane Devices tab over the asahi-lan snapshot: list rows (type groups, search), row texts, ping / ssh helpers.
+// Network pane Devices tab over the asahi-lan snapshot: list rows (type / platform groups, search), row texts, ping / ssh.
 // Glyphs and group order follow uBruckhaus/omarchy-wlan-monitor.
 
 var KIND_GLYPHS = {
@@ -13,6 +13,13 @@ var GROUP_LABELS = {
   smarthome: "Smart home", network: "Network", other: "Other"
 }
 var GROUP_ORDER = ["pinned", "office", "computers", "mobile", "media", "smarthome", "network", "other"]
+// Platform view: Apple / Android first, then the same kinds. Pinned still wins over the platform.
+var PLATFORM_LABELS = Object.assign({}, GROUP_LABELS, { apple: "Apple", android: "Android", mobile: "Other phones & tablets" })
+var PLATFORM_ORDER = ["pinned", "apple", "android", "mobile", "computers", "media", "smarthome", "office", "network", "other"]
+
+function modeLabel(mode) {
+  return mode === "platform" ? "By platform" : mode === "type" ? "By type" : "No groups"
+}
 
 function matches(d, query) {
   const hay = [d.name, d.auto, d.ip, d.vendor, d.model, d.host, d.label, d.mac].join(" ").toLowerCase()
@@ -20,17 +27,23 @@ function matches(d, query) {
 }
 
 // Flat rows for one ListView: group headers ({header: true}) and devices (the device fields + key = mac).
-// mode "type" groups by kind (printers first: finding one is the usual errand); a search is one flat hit list.
+// "type" groups by kind (printers first). "platform" groups by d.platform (no platform: the type group).
+// A search is one flat hit list.
 function listRows(snap, mode, collapsed, query) {
   const devs = ((snap && snap.devices) || []).filter(function(d) { return !query || matches(d, query) })
   const dev = function(d) { return Object.assign({ key: d.mac, header: false }, d) }
-  if (query || mode !== "type") return devs.map(dev)
+  if (query || (mode !== "type" && mode !== "platform")) return devs.map(dev)
+  const platform = mode === "platform"
+  const labels = platform ? PLATFORM_LABELS : GROUP_LABELS
   const rows = []
-  GROUP_ORDER.forEach(function(g) {
-    const items = devs.filter(function(d) { return (d.pinned ? "pinned" : (d.group || "other")) === g })
+  ;(platform ? PLATFORM_ORDER : GROUP_ORDER).forEach(function(g) {
+    const items = devs.filter(function(d) {
+      const id = d.pinned ? "pinned" : (platform && d.platform) || d.group || "other"
+      return id === g
+    })
     if (!items.length) return
     const shut = (collapsed || []).indexOf(g) !== -1
-    rows.push({ key: "g:" + g, header: true, id: g, title: GROUP_LABELS[g], collapsed: shut, count: items.length,
+    rows.push({ key: "g:" + g, header: true, id: g, title: labels[g], collapsed: shut, count: items.length,
       online: items.filter(function(d) { return d.state === "online" }).length, fresh: items.some(function(d) { return d.new }) })
     if (!shut) items.forEach(function(d) { rows.push(dev(d)) })
   })
@@ -67,7 +80,9 @@ function secondary(d) {
 
 // Detail lines of an open row: [label, value], only the ones with a value.
 function details(d) {
-  return [["Name", d.custom ? d.auto : ""], ["Host", d.host], ["IP", d.ip], ["MAC", d.mac]].filter(function(p) { return p[1] })
+  const services = (d.services || []).join(" · ")
+  return [["Name", d.custom ? d.auto : ""], ["Maker", d.vendor], ["Model", d.model],
+    ["Services", services], ["Host", d.host], ["IP", d.ip], ["MAC", d.mac]].filter(function(p) { return p[1] })
 }
 
 // SSH: devices advertising it over mDNS, plus computers / storage (a Raspberry Pi rarely publishes _ssh._tcp).
@@ -94,6 +109,6 @@ function pingText(p) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { glyph: glyph, listRows: listRows, ago: ago, status: status, stateText: stateText, secondary: secondary,
-    details: details, canSsh: canSsh, sshArgs: sshArgs, parsePing: parsePing, pingText: pingText }
+  module.exports = { glyph: glyph, modeLabel: modeLabel, listRows: listRows, ago: ago, status: status, stateText: stateText,
+    secondary: secondary, details: details, canSsh: canSsh, sshArgs: sshArgs, parsePing: parsePing, pingText: pingText }
 }
