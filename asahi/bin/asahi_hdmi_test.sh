@@ -22,7 +22,6 @@ mkdir -p "$drm/card2-HDMI-A-1" "$tmp/bin"
 printf 'disconnected\n' >"$drm/card2-HDMI-A-1/status"
 mon_json="$tmp/mon.json"
 kw_log="$tmp/eval.log"
-gen="$tmp/gen"
 : >"$kw_log"
 printf '[{"name":"eDP-1","disabled":false}]\n' >"$mon_json"
 
@@ -41,9 +40,21 @@ exit 0
 EOF
 chmod +x "$tmp/bin/hyprctl"
 
+# dcp_crashed reads the kernel log; notifications land in a file, logger nowhere.
+klog="$tmp/klog"
+notes="$tmp/notes"
+: >"$klog"
+: >"$notes"
+mkdir -p "$tmp/dt/aliases" "$tmp/run"
+printf '/soc/dcp@315c00000\0' >"$tmp/dt/aliases/dcpext1"
+printf '#!/bin/sh\ncat "%s"\n' "$klog" >"$tmp/bin/journalctl"
+printf '#!/bin/sh\necho "$*" >>"%s"\n' "$notes" >"$tmp/bin/notify-send"
+printf '#!/bin/sh\nexit 0\n' >"$tmp/bin/logger"
+chmod +x "$tmp/bin/journalctl" "$tmp/bin/notify-send" "$tmp/bin/logger"
+
 run() {
-  PATH="$tmp/bin:$PATH" ASAHI_DRM_PATH="$drm" ASAHI_HDMI_SETTLE_S=0 \
-    ASAHI_SCALE_DIR="$tmp/scales" ASAHI_HDMI_GEN="$gen" ASAHI_LAYOUT_FILE="$tmp/layout.json" "$HOT" "$@"
+  PATH="$tmp/bin:$PATH" ASAHI_DRM_PATH="$drm" ASAHI_HDMI_SETTLE_S=0 ASAHI_DT_PATH="$tmp/dt" XDG_RUNTIME_DIR="$tmp/run" \
+    ASAHI_SCALE_DIR="$tmp/scales" ASAHI_LAYOUT_FILE="$tmp/layout.json" "$HOT" "$@"
 }
 
 dell='[{"name":"eDP-1","disabled":false},{"name":"HDMI-A-1","disabled":true,"description":"Dell Inc. DELL P2723DE ABC1234"}]'
@@ -142,7 +153,7 @@ printf 'connected\n' >"$drm/card2-HDMI-A-1/status"
 printf '%s\n' "$dell" >"$mon_json"
 : >"$kw_log"
 PATH="$tmp/bin:$PATH" ASAHI_DRM_PATH="$drm" ASAHI_HDMI_SETTLE_S=1 \
-  ASAHI_SCALE_DIR="$tmp/scales" ASAHI_HDMI_GEN="$gen" "$HOT" added HDMI-A-1 &
+  ASAHI_SCALE_DIR="$tmp/scales" XDG_RUNTIME_DIR="$tmp/run" "$HOT" added HDMI-A-1 &
 first=$!
 sleep 0.15
 run removed
@@ -157,16 +168,22 @@ fi
 cfg="$ROOT/../hypr/conf.d/monitors.lua"
 grep -q 'output = "HDMI-A-1"' "$cfg" && grep -q 'disabled = true' "$cfg" \
   || fail_at "monitors.lua must disable HDMI-A-1"
+grep -A2 'output = "DP-1"' "$cfg" | grep -q 'disabled = true' \
+  || fail_at "monitors.lua must disable DP-1"
 grep -q 'asahi-hdmi' "$cfg" || fail_at "monitors.lua must call asahi-hdmi"
 grep -A4 'ULTRAFINE' "$cfg" | grep -q -- '-2048x-360' \
   || fail_at "monitors.lua LG position must match asahi-hdmi"
 grep -A4 'P2723DE' "$cfg" | grep -q -- '-2048x321' \
   || fail_at "monitors.lua Dell position must match asahi-hdmi"
-pass "monitors.lua disables HDMI until asahi-hdmi"
+pass "monitors.lua disables HDMI and DP-1 until asahi-hdmi"
 
 grep -q 'asahi-hdmi sync' "$ROOT/../hypr/conf.d/autostart.lua" \
   && pass "autostart.lua runs asahi-hdmi sync" \
   || fail_at "autostart.lua missing asahi-hdmi sync"
+
+lua_out=$(lua "$ROOT/../hypr/monitors_test.lua" 2>&1) \
+  && pass "monitors.lua hotplug hooks (monitors_test.lua)" \
+  || fail_at "monitors_test.lua: $(grep -v '^ok' <<<"$lua_out" | tr '\n' ' ')"
 
 login="$ROOT/../systemd/logind.conf.d/10-asahi-sleep.conf"
 udev="$ROOT/../udev/99-asahi-hdmi-lid-inhibit.rules"
@@ -214,18 +231,66 @@ run on
 grep -q 'position = "-2048x' "$kw_log" || fail_at "reset should restore the derived position (got $(tr '\n' ' ' <"$kw_log"))"
 pass "kept position: save, on, reset"
 
-# USB-C DP: position only, derived from the session eDP scale (2 -> Dell bottom-aligned at y = -170).
-mkdir -p "$tmp/scales"
+# USB-C DP: same settle-then-enable as HDMI. drm status is this connector, not HDMI's.
+# eDP scale 2 -> Dell bottom-aligned at y = -170.
+mkdir -p "$drm/card2-DP-1" "$tmp/scales"
+printf 'disconnected\n' >"$drm/card2-HDMI-A-1/status"
+printf 'connected\n' >"$drm/card2-DP-1/status"
 printf '2\n' >"$tmp/scales/eDP-1"
+printf '[{"name":"eDP-1","disabled":false,"scale":2},{"name":"DP-1","disabled":true,"description":"Dell Inc. DELL P2723DE ABC1234","x":-2048,"y":321,"scale":1.25,"availableModes":["2560x1440@59.95Hz"]}]\n' >"$mon_json"
+: >"$kw_log"
+run added DP-1
+grep -q 'output = "DP-1"' "$kw_log" && grep -q 'disabled = false' "$kw_log" \
+  && grep -q 'position = "-2048x-170"' "$kw_log" \
+  || fail_at "added DP-1 enables the Dell at -2048x-170 (got $(tr '\n' ' ' <"$kw_log"))"
+pass "added DP-1 enables from DP status, not HDMI"
+
+# USB-C DCP crashed at a lit unplug (no dcp_poweroff after it): an enabled DP-1 aborted Hyprland (2026-11-03).
+d='apple-dcp 315c00000.dcp:'
+printf '%s\n' "$d set_digital_out_mode finished:8214" "$d cb_hotplug() connected:0, valid_mode:1" \
+  "$d cb_hotplug() connected:1, valid_mode:0" >"$klog"
+: >"$kw_log"
+run added DP-1
+run sync DP-1
+! grep -q 'disabled = false' "$kw_log" && grep -q 'output = "DP-1", disabled = true' "$kw_log" \
+  && [ "$(grep -c 'USB-C display stays off' "$notes")" = 1 ] \
+  && pass "crashed USB-C DCP: DP-1 stays off, one notification" \
+  || fail_at "crashed DCP must keep DP-1 off and notify once (eval: $(tr '\n' ' ' <"$kw_log"); notes: $(wc -l <"$notes"))"
+: >"$kw_log"
+printf 'connected\n' >"$drm/card2-HDMI-A-1/status"
+run added HDMI-A-1
+grep -q 'output = "HDMI-A-1", disabled = false' "$kw_log" \
+  && pass "crashed USB-C DCP does not block HDMI" || fail_at "HDMI must ignore the USB-C DCP state"
+printf 'disconnected\n' >"$drm/card2-HDMI-A-1/status"
+
+# Healthy: power-off right after the lit unplug, or the unplug came while DPMS-off.
+printf '%s\n' "$d set_digital_out_mode finished:8214" "$d cb_hotplug() connected:0, valid_mode:1" \
+  "$d dcp_poweroff() done" >"$klog"
+: >"$kw_log"
+run added DP-1
+grep -q 'output = "DP-1", disabled = false' "$kw_log" || fail_at "power-off after the unplug = healthy, enable"
+printf '%s\n' "$d set_digital_out_mode finished:8214" "$d dcp_poweroff() done" \
+  "$d cb_hotplug() connected:0, valid_mode:1" >"$klog"
+: >"$kw_log"
+run added DP-1
+grep -q 'output = "DP-1", disabled = false' "$kw_log" || fail_at "unplug while DPMS-off = healthy, enable"
+# Kernel with AsahiLinux/linux PR #582: the clear-swap timeout warns instead of latching ->crashed.
+printf '%s\n' "$d set_digital_out_mode finished:8214" "$d cb_hotplug() connected:0, valid_mode:1" \
+  "$d iomfb_poweroff_v13_3: timed out waiting for the poweroff clear swap; continuing" >"$klog"
+: >"$kw_log"
+run added DP-1
+grep -q 'output = "DP-1", disabled = false' "$kw_log" || fail_at "PR #582 timeout warning = healthy, enable"
+pass "healthy USB-C unplugs still enable DP-1 (also PR #582's timeout)"
+: >"$klog"
+
 printf '[{"name":"eDP-1","disabled":false,"scale":2},{"name":"DP-1","disabled":false,"description":"Dell Inc. DELL P2723DE ABC1234","x":-2048,"y":321,"scale":1.25,"availableModes":["2560x1440@59.95Hz"]}]\n' >"$mon_json"
 : >"$kw_log"
 run place DP-1
 grep -qx 'hl.monitor({ output = "DP-1", position = "-2048x-170", scale = 1.25 })' "$kw_log" \
   || fail_at "place DP-1 should move the Dell to -2048x-170 at scale 1.25 (got $(tr '\n' ' ' <"$kw_log"))"
-run added DP-1 2>/dev/null && fail_at "DP must not take the HDMI enable path" || true
 run save DP-1 -2048x-100 && run place DP-1 && grep -q 'position = "-2048x-100"' "$kw_log" \
   || fail_at "place DP-1 should use the kept position"
-pass "DP-1: place derives / keeps the position, refuses HDMI actions"
+pass "DP-1: place derives / keeps the position"
 
 # Scale 1 kept layout, no scale file: do not apply the 1.25 anchor (x=-2048 overlaps).
 rm -f "$tmp/scales/DP-1"

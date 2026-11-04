@@ -34,8 +34,8 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   under lock left zero lit outputs; `asahi/bin/asahi_clamshell_test.sh`) close is a no-op — never DPMS-blank eDP there
   (races s2idle, `8000000a`, hangs) — unless a block inhibitor (`asahi-hdmi`: cable in, output off) stops suspend:
   wait 5 s for the external, else blank + lock.
-  HDMI-A-1 stays `disabled = true` in `monitors.lua` until `asahi-hdmi` enables it; logind doesn't count it docked →
-  `asahi-hdmi-lid-inhibit.service` holds `handle-lid-switch` while HDMI/DP reads `connected` (udev: the **card's**
+  HDMI-A-1 / DP-1 stay `disabled = true` (`monitors.lua`) until `asahi-hdmi` enables one; logind doesn't count it docked
+  → `asahi-hdmi-lid-inhibit.service` holds `handle-lid-switch` while HDMI/DP reads `connected` (udev: the **card's**
   `HOTPLUG=1`, connectors get none; `systemd-run` re-check after 3 s, sysfs `status` stale until Hyprland probes;
   start/stop, never restart: gap lets logind suspend); drop-in sets `LidSwitchIgnoreInhibited=no`. `asahi-dpms` only
   flips Hyprland-enabled outputs in the other state (redundant enable flashes).
@@ -94,12 +94,22 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   `Super+Ctrl+Alt+R`, Monitors pane 15 s auto-revert (unless Keep). Mode pill icons white + alpha (`panes/icons/`;
   `MultiEffect` tints one color); greyed laptop-only (Extend's reload blinks eDP-1), not for a plugged disabled
   external. Drag-arrange: **position-only** `hl.monitor` (partial rules merge with live mode/scale); revert
-  re-evaluates old positions (reload re-modesets HDMI). Keep → `asahi-hdmi save` →
+  re-evaluates old positions (reload re-modesets HDMI / DP). Keep → `asahi-hdmi save` →
   `~/.local/state/asahi/monitor-layout.json` (per sink desc + scales; `layout_fields` prefers it); Extend →
-  `asahi-hdmi reset` + reload. No primary display; eDP-1 = mirror source + 0,0 anchor. USB-C (`DP-*`): no enable gate;
-  `asahi-hdmi place DP-1` re-derives position (desc rules assume eDP at 4/3) on add, reload, eDP scale change
-  (re-places HDMI too, not mirrors); on reload HDMI stays `asahi-hdmi sync`'s (one writer per output). DP refuses HDMI
-  actions (added/sync/on/off).
+  `asahi-hdmi reset` + reload. No primary display; eDP-1 = mirror source + 0,0 anchor. USB-C `DP-1` is gated like
+  HDMI-A-1 (last named rule wins: reverse scan). `asahi-hdmi added`/`sync` enable after the settle (gen file per
+  output); `place` re-derives position (desc rules assume eDP at 4/3) only on an eDP scale change (HDMI too, not
+  mirrors). `config.reloaded` runs `asahi-hdmi sync` and `sync DP-1`. Hyprland 0.57 fires no `monitor.added` for an
+  output its rule disables (`onConnect` returns first): `gated_plugs` starts `asahi-hdmi added` on
+  `monitor.layout_changed` from the connector's sysfs disconnected → connected edge (a Monitors-pane disable keeps the
+  cable in, stays off; test `asahi/hypr/monitors_test.lua`, run by `asahi_hdmi_test.sh`). `asahi-hdmi removed` writes
+  `disabled = true`, re-arming the gate (the enable eval replaced the rule: same name). DP never enables while USB-C's
+  DCP is crashed (`dcp_crashed`: dcpext1's last unplug while lit got no `dcp_poweroff() done`, see Failed suspend;
+  PR #582's "…poweroff clear swap; continuing" warning counts as alive): every modeset then fails EINVAL, Hyprland
+  keeps DP-1 enabled at 0x0 and aborts on `IFramebuffer::alloc`'s zero-size RASSERT (safe mode loops until unplug).
+  One critical notification; reboot. Not timing (`valid_mode:0` modesets work; `DPTXController … device == NULL` logs
+  on every plug). Power off first (DPMS, Monitors pane disable + Keep): that unplug runs no clear swap. The pane's
+  enable toggle skips the check.
 - **Notch / fnmode**: `comp_asahi_system` writes `asahi-notch.conf` (`show_notch=1`) + `hid_apple fnmode=1`, then
   `dracut -f`; reboot. Live: `/sys/module/hid_apple/parameters/fnmode`.
 - **Charge limit**: SMC is CHLS (90 reads back 90; CHWA would read 80): end 10–99 holds, start = end − 5 (start writes
@@ -377,7 +387,7 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   `/usr/share/hypr/stubs/hl.meta.lua`, then `hyprctl reload && hyprctl configerrors`.
   `Hyprland --verify-config -c asahi/hypr/hyprland.lua` still runs the reload hooks (asahi-hdmi sync,
   monitor-scale/clamshell) against `$HYPRLAND_INSTANCE_SIGNATURE`; `HYPRLAND_INSTANCE_SIGNATURE=none` fails their
-  hyprctl calls but `asahi-hdmi sync` still bumps `$XDG_RUNTIME_DIR/asahi-hdmi.gen` — not during an HDMI settle.
+  hyprctl calls but `asahi-hdmi sync` still bumps `$XDG_RUNTIME_DIR/asahi-hdmi.gen.<output>` — not during a settle.
   Dispatch: `hyprctl dispatch 'hl.dsp.…({…})'` (legacy `dispatch <name> <args>` dead). Float is its own call; maximized
   refuses resize+pin. Rule `opacity` multiplies with `inactive_opacity` — `opaque = true` for media/PiP/webcam. Capture
   binds must not be `locked` (lock-screen recording kept running after unlock). `suppress_event = "maximize"` for every

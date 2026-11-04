@@ -8,8 +8,8 @@ hl.monitor {
 }
 
 -- Known panels are desc:-keyed, so HDMI-A-1 and a USB-C DP-* share
--- geometry. asahi-hdmi reapplies the matching block after HDMI link
--- training (and on sync if identity drifted). desc: is a prefix match:
+-- geometry. asahi-hdmi reapplies the matching block after its settle
+-- (and on sync if identity drifted). desc: is a prefix match:
 -- make + model, no serial.
 --
 -- LG UltraFine: left of the laptop, 4K @ 1.875 (logical 2048x1152).
@@ -31,10 +31,16 @@ hl.monitor {
   scale = 1.25,
 }
 
--- Last named rule for HDMI-A-1: skip the udev-tick modeset (DCP not ready).
--- asahi-hdmi enables after link training; that eval must set disabled = false.
+-- Last named rule for HDMI-A-1 and DP-1 (reverse scan returns the first hit).
+-- Hyprland never modesets them itself: asahi-hdmi enables after a settle (HDMI
+-- on the udev tick froze DCP), never DP while USB-C's DCP is crashed
+-- (asahi-hdmi dcp_crashed). That eval must set disabled = false or this rule stays.
 hl.monitor {
   output = "HDMI-A-1",
+  disabled = true,
+}
+hl.monitor {
+  output = "DP-1",
   disabled = true,
 }
 
@@ -78,19 +84,35 @@ end
 -- defaults to HDMI-A-1, so disabling eDP-1 used to switch off the external.
 local function hdmi_cmd(action, m)
   local n = monitor_name(m)
-  if not n:match "^HDMI" then
+  if n ~= "HDMI-A-1" and n ~= "DP-1" then
     return
   end
   hl.exec_cmd(hdmi .. " " .. action .. " " .. n)
 end
 
--- USB-C (DP-*) needs no enable gate, but its desc rule assumes eDP at 4/3: `asahi-hdmi place`
--- re-derives the position from the session eDP scale. On reload `asahi-monitor-scale apply`
--- places DP after re-applying the scales; doing it from config.reloaded too would race.
-local function dp_place(m)
-  local n = monitor_name(m)
-  if n:match "^DP" then
-    hl.exec_cmd(hdmi .. " place " .. n)
+-- 0.57 fires no monitor.added for an output its last rule disables (onConnect returns first), so an
+-- HDMI-A-1 / DP-1 plug shows up only as monitor.layout_changed. Start asahi-hdmi's settle on the
+-- connector's disconnected -> connected edge: one turned off in the Monitors pane keeps its cable in
+-- and stays off. monitor.removed samples too (an unplug while disabled).
+local plugged = {}
+local function drm_connected(n)
+  for card = 0, 3 do
+    local f = io.open("/sys/class/drm/card" .. card .. "-" .. n .. "/status", "r")
+    if f then
+      local s = f:read "l"
+      f:close()
+      return s == "connected"
+    end
+  end
+  return false
+end
+local function gated_plugs()
+  for _, n in ipairs { "HDMI-A-1", "DP-1" } do
+    local up = drm_connected(n)
+    if up and not plugged[n] then
+      hl.exec_cmd(hdmi .. " added " .. n)
+    end
+    plugged[n] = up
   end
 end
 
@@ -165,20 +187,20 @@ local function pin_external_workspaces(prefer)
   end
 end
 
-hl.on("monitor.added", function(m)
-  hdmi_cmd("added", m)
-  dp_place(m)
-  pin_external_workspaces(m)
-end)
+hl.on("monitor.added", pin_external_workspaces)
+hl.on("monitor.layout_changed", gated_plugs)
 hl.on("monitor.removed", function(m)
   hdmi_cmd("removed", m)
+  gated_plugs()
   -- External gone while in clamshell: bring eDP-1 back, never zero outputs.
   hl.exec_cmd(clamshell .. " apply")
   pin_external_workspaces()
 end)
 -- A reload re-applies the static rules above; restore the session overrides.
 hl.on("config.reloaded", function()
+  -- This machine has one USB-C DP.
   hl.exec_cmd(hdmi .. " sync")
+  hl.exec_cmd(hdmi .. " sync DP-1")
   hl.exec_cmd(scale .. " apply")
   hl.exec_cmd(clamshell .. " apply")
   pin_external_workspaces()

@@ -3,7 +3,7 @@
 #
 #   asahi-monitor-scale up|down|cycle [output]
 #   asahi-monitor-scale set <scale> [output]
-#   asahi-monitor-scale apply               re-eval saved scales but HDMI's (config.reloaded)
+#   asahi-monitor-scale apply               re-eval saved scales except HDMI/DP (asahi-hdmi sync owns those)
 #   asahi-monitor-scale status [output]     "<name> <scale> <legal scales...>"
 #
 # Legal = logical size divides the mode evenly, in 1/120 units like
@@ -64,13 +64,12 @@ apply_scale() {
   printf '%s\n' "$scale" >"$dir/$name"
 }
 
-# eDP-1's logical size anchors the externals: re-place the enabled ones matching $1. On reload
-# (apply) only USB-C, HDMI is asahi-hdmi sync's then; after an eDP scale change HDMI too (nothing else
-# moved it: its y and its kept layout, keyed by the eDP scale, went stale).
+# eDP-1's logical size anchors the externals: after an eDP scale change, re-place the enabled ones
+# (their y and kept layout, keyed by the eDP scale, went stale).
 place_externals() {
   local out
   # A mirror has no position of its own: leave it alone.
-  for out in $(hyprctl monitors -j | jq -r --arg re "$1" '.[] | select((.name | test($re)) and (.mirrorOf // "none") == "none") | .name'); do
+  for out in $(hyprctl monitors -j | jq -r '.[] | select((.name | test("^(DP|HDMI)")) and (.mirrorOf // "none") == "none") | .name'); do
     "$bin/asahi-hdmi" place "$out" || true
   done
 }
@@ -81,14 +80,13 @@ case "$action" in
     for f in "$dir"/*; do
       [ -s "$f" ] || continue
       name=$(basename "$f")
-      # HDMI is asahi-hdmi sync's on reload (it reads the saved scale too): one writer per output.
-      case "$name" in HDMI*) continue ;; esac
+      # HDMI and DP are asahi-hdmi sync's on reload (it reads the saved scale too): one writer per output.
+      case "$name" in HDMI* | DP*) continue ;; esac
       json=$(mon_json "$name")
       [ -n "$json" ] || continue
       W=$(jq -r .width <<<"$json"); H=$(jq -r .height <<<"$json")
       apply_scale "$name" "$(tr -d '[:space:]' <"$f")" "$json"
     done
-    place_externals '^DP'
     exit 0
     ;;
   set) target=${2:?scale}; name="${3:-$(focused_monitor)}" ;;
@@ -124,4 +122,4 @@ esac
 
 [ "$new" = "$cur" ] && exit 0
 apply_scale "$name" "$new" "$json"
-if [ "$name" = eDP-1 ]; then place_externals '^(DP|HDMI)'; fi
+if [ "$name" = eDP-1 ]; then place_externals; fi

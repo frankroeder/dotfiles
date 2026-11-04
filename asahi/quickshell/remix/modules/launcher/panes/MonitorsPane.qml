@@ -74,7 +74,7 @@ Item {
   // asahi-hdmi sync / monitor-scale apply / clamshell apply.
   function unmirrorMonitors() { quickMonitorsRoot.revertLayout("Unmirroring...") }
   // Extend = back to the configured layout: drop kept HDMI / DP positions first,
-  // then reload (config.reloaded runs asahi-hdmi sync / place, which read the layout file).
+  // then reload (config.reloaded runs asahi-hdmi sync, which reads the layout file).
   // External only leaves the clamshell flag (also once kept) and the reload's clamshell apply
   // would turn eDP-1 off again: open it first, unless the lid really is closed (then the flag's
   // inhibitor is what keeps the closed lid from suspending).
