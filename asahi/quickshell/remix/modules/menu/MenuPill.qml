@@ -45,6 +45,7 @@ Rectangle {
     Text {
       anchors.verticalCenter: parent.verticalCenter
       text: pill.label
+      textFormat: Text.PlainText  // notification action labels come from the sender
       color: pill.selected ? Style.m3primary : pill.fg
       font.family: pill.fontFamily
       font.pixelSize: Math.round(10 * pill.fontScale)

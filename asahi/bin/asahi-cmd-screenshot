@@ -34,4 +34,11 @@ mkdir -p "$output_dir"
 file="$output_dir/screenshot-$(date +'%Y-%m-%d_%H-%M-%S').png"
 shot "$file"
 wl-copy --type image/png <"$file"
-notify-send -a screenshot -t 2500 -i "$file" "Screenshot saved" "$file" 2>/dev/null || true
+# Open / Annotate on the card: notify-send waits, detached, for a click or the card closing.
+# No -t: notify-send would stop listening after it, while the card (paused on hover) still shows.
+setsid -f bash -c '
+  act="$(notify-send -a screenshot -i "$1" -A open=Open -A annotate=Annotate "Screenshot saved" "$1" 2>/dev/null || true)"
+  case "$act" in
+    open) "$2/asahi-launch" xdg-open "$1" ;;
+    annotate) "$2/asahi-launch" "$2/asahi-screenshot-annotate" "$1" ;;
+  esac' _ "$file" "$bin" >/dev/null 2>&1

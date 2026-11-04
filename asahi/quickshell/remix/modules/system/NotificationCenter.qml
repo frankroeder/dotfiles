@@ -7,13 +7,30 @@ import Quickshell.Services.Notifications
 import QtQuick
 import QtQuick.Layouts
 import "../../"
+import "../menu" as Menu
+import "NotificationModel.js" as Model
 
 Scope {
   id: root
 
   property var toastScreen: null
   property var historyScreen: null
+  // Toasts, newest first, one deck per sender (omarchy 4.5). A closing card keeps its entry until its
+  // leave animation ends (`leaving`); arrivals while a deck is open wait in `held` (nothing moves
+  // under the pointer; 30 s cap).
   property var toasts: []
+  property var leaving: ({})
+  readonly property var shownToasts: toasts.filter(t => !leaving[t.key])
+  property var held: []
+  property string openDeck: ""
+  property var heights: ({})
+  readonly property var deckLayout: Model.layout(root.shownToasts, root.heights, root.openDeck)
+  readonly property int maxDecks: 4
+  // An open deck of more would run off the laptop screen (nothing scrolls).
+  readonly property int maxPerDeck: 5
+  // Live Notification objects of the toasts (tracked: their actions need them), by toast key. A plain
+  // map, never bound to: the server destroys an object once it is closed.
+  property var refs: ({})
   property var history: []
   property bool historyVisible: false
   property bool dndEnabled: false
@@ -24,7 +41,6 @@ Scope {
   readonly property int unreadCount: history.filter(e => (e.ts || 0) > lastSeen).length
   readonly property string historyPath: Quickshell.env("HOME") + "/.local/state/asahi/notifications.json"
   readonly property int maxHistory: 100
-  readonly property int maxToasts: 4
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
 
   function focusedScreen() {
@@ -38,25 +54,31 @@ Scope {
     return Style.blueAlt
   }
 
-  // Known tags only: body markup is off, so "Jane <jane@example.org>" or Vec<String> is plain text.
+  // Summary / app name (plain text by spec): known tags only, so "Jane <jane@example.org>" or Vec<String>
+  // stays text; the name ends at a space, / or > ("<a.smith@…>" is an address). The body goes through
+  // Model.richBody / plainBody.
   function stripMarkup(value) {
-    return String(value || "").replace(/<\/?(b|i|u|a|img|span|br)\b[^>]*>/gi, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    return String(value || "").replace(/<\/?(b|i|u|a|img|span|br)(?=[\s\/>])[^>]*>/gi, "")
+      .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
   }
 
   // Any app on the bus can set image-path, and IconImage will fetch an http
   // URL — so only local sources are rendered; the rest fall back to the app
-  // icon. (appIcon is safe already: it goes through the icon-theme lookup,
-  // which returns "" for a URL.)
+  // icon (a theme lookup returns "" for a URL).
   function localImage(value) {
     const s = String(value || "")
-    // Image data lives as long as the Notification, which Quickshell frees right after
-    // onNotification (never tracked): the handle is dead before the card loads it.
+    // Image data lives as long as the Notification: a history card outlives it (an empty box) and an
+    // untracked one is freed right after onNotification.
     if (s.startsWith("image://qsimage/")) return false
-    // An image-path that is no file: URL arrives as image://icon/<value>: a theme lookup, but
-    // `?path=` makes the icon provider read that file.
-    if (s.startsWith("image:")) return s.indexOf("?path=") < 0
+    // An image-path that is no file: URL arrives as image://icon/<value>: a theme name, or a path the
+    // icon provider opens as a file (same rules as below); `?path=` makes it read that file.
+    if (s.startsWith("image://icon/")) {
+      const name = s.slice("image://icon/".length)
+      return name.indexOf("?path=") < 0 && (name.indexOf("/") < 0 || localImage(name))
+    }
     if (!s.startsWith("file:") && !s.startsWith("/")) return false
-    // /proc, /sys and /dev hold FIFOs and endless streams that block the load (omarchy #15932).
+    // /proc, /sys and /dev hold FIFOs and endless streams that block the load (omarchy #15932). A FIFO
+    // elsewhere still blocks it (no stat from QML): only a local process can make one.
     // Resolved like the loader does (%-escapes, file://host/ = //host/, `.`, `..`) before the check.
     let path = s.replace(/^file:(\/\/)?/, "").replace(/[?#].*$/, "")  // the loader drops query + fragment
     try { path = decodeURIComponent(path) } catch (_) { return false }
@@ -78,23 +100,32 @@ Scope {
     if (!entry) return ""
     if (localImage(entry.image)) return entry.image
     const raw = entry.appIcon || entry.desktopEntry || entry.appName || ""
+    // An app icon given as a path is opened as a file too: the same rules.
+    if (raw.indexOf("/") >= 0 && !localImage(raw)) return ""
     return raw ? Quickshell.iconPath(raw, true) : ""
   }
 
-  function snapshot(n) {
-    return {
-      key: String(Date.now()) + "-" + Math.floor(Math.random() * 10000),
+  function snapshot(n, key) {
+    const e = {
+      key: key || String(Date.now()) + "-" + Math.floor(Math.random() * 10000),
       appName: stripMarkup(n.appName || ""),
       appIcon: String(n.appIcon || ""),
       desktopEntry: String(n.desktopEntry || ""),
       image: String(n.image || ""),
       summary: stripMarkup(n.summary || ""),
-      body: stripMarkup(n.body || ""),
+      // Body markup is on: plain text for dedup / codes, sanitised StyledText (links) for the card.
+      body: Model.plainBody(n.body),
+      rich: Model.richBody(n.body),
       urgency: Number(n.urgency),
       // App-requested lifetime: the raw D-Bus value in ms (notify-send -t); <= 0 = server default.
       expire: Number(n.expireTimeout) || 0,
-      ts: Date.now()
+      ts: Date.now(),
+      count: 1,
+      actions: Model.actionList(n.actions)
     }
+    e.group = appLabel(e).toLowerCase()
+    e.codes = Model.detectCodes(e.summary + "\n" + e.body)
+    return e
   }
 
   // Upstream relative times; clockTick re-evaluates them every 10 s while a card is on screen.
@@ -146,11 +177,13 @@ Scope {
     return Qt.formatDate(d, "d MMM yyyy")
   }
 
-  // Focus the sender's window by class. Never runs anything the notification carried.
+  // Focus the sender's most recently used window by class (never-focused ones are -1: last). Never runs
+  // anything the notification carried.
   function focusApp(entry) {
     Quickshell.execDetached(["sh", "-c",
       "a=$(hyprctl clients -j | jq -r --arg d \"$1\" --arg n \"$2\" " +
-      "'[.[] | select((.class | ascii_downcase) as $c | $c == ($d | ascii_downcase) or $c == ($n | ascii_downcase))][0].address // empty'); " +
+      "'[.[] | select((.class | ascii_downcase) as $c | $c == ($d | ascii_downcase) or $c == ($n | ascii_downcase))]" +
+      " | sort_by(if .focusHistoryID < 0 then 1e9 else .focusHistoryID end) | .[0].address // empty'); " +
       "[ -n \"$a\" ] && hyprctl dispatch \"hl.dsp.focus({ window = \\\"address:$a\\\" })\"",
       "sh", entry.desktopEntry || "", entry.appName || ""])
   }
@@ -171,21 +204,215 @@ Scope {
   }
 
   function addToast(entry) {
-    let next = root.toasts.slice()
+    // The deck stays on the monitor that was focused when its first card came, until it empties.
+    if (root.toasts.length === 0 && root.held.length === 0 || Quickshell.screens.indexOf(root.toastScreen) < 0)
+      root.toastScreen = focusedScreen()
     // The battery daemon repeats its critical alert every minute: replace, never stack (as history).
-    if (entry.appName === "Asahi Battery") next = next.filter(item => item.appName !== "Asahi Battery")
-    next.unshift(entry)
-    root.toasts = next.slice(0, root.maxToasts)
+    if (entry.appName === "Asahi Battery")
+      for (const t of root.toasts.concat(root.held)) if (t.appName === "Asahi Battery") closeToast(t.key, "expire")
+    if (root.openDeck !== "") { root.held = [entry].concat(root.held); heldCap.start(); return }
+    showToast(entry)
+  }
+  function showToast(entry) {
+    root.toasts = [entry].concat(root.toasts)
+    for (const key of Model.overflowKeys(root.shownToasts, root.maxDecks, root.maxPerDeck)) closeToast(key, "expire")
+  }
+  function flushHeld() {
+    heldCap.stop()
+    const list = root.held
+    root.held = []
+    for (let i = list.length - 1; i >= 0; i--) showToast(list[i])
+  }
+  // A pointer parked over a deck must not hold new cards back for good.
+  Timer { id: heldCap; interval: 30000; onTriggered: root.flushHeld() }
+  onOpenDeckChanged: if (openDeck === "") flushHeld()
+
+  function replaceToast(entry) {
+    const swap = list => list.map(t => t.key === entry.key ? entry : t)
+    root.toasts = swap(root.toasts)
+    root.held = swap(root.held)
   }
 
-  function removeToast(key) {
-    root.toasts = root.toasts.filter(item => item.key !== key)
+  // A closing card rises out the way it came (200 ms), then its entry goes. how: "dismiss" (you),
+  // "expire" (timeout, overflow) or "" (the sender closed it).
+  function closeToast(key, how) {
+    if (how) release(key, how)
+    if (root.held.some(t => t.key === key)) { root.held = root.held.filter(t => t.key !== key); return }
+    if (root.leaving[key] || !root.toasts.some(t => t.key === key)) return
+    const l = Object.assign({}, root.leaving)
+    l[key] = Date.now()
+    root.leaving = l
   }
-  // The toast window keeps its old height 260 ms after a change: contentHeight drops at once, which
-  // clipped the leave animation (and the cards sliding up) to nothing.
-  property real toastHold: 0
-  Timer { id: toastLinger; interval: 260; onTriggered: root.toastHold = 0 }
-  onToastsChanged: { root.toastHold = toastList.height; toastLinger.restart() }
+  // Each closing card goes 220 ms after it started (one restarted timer never fired under a flood).
+  Timer {
+    interval: 100
+    repeat: true
+    running: Object.keys(root.leaving).length > 0
+    onTriggered: {
+      const now = Date.now(), keep = {}
+      for (const k in root.leaving) if (now - root.leaving[k] < 220) keep[k] = root.leaving[k]
+      if (Object.keys(keep).length === Object.keys(root.leaving).length) return
+      root.toasts = root.toasts.filter(t => !root.leaving[t.key] || keep[t.key])
+      root.leaving = keep
+      const h = {}
+      for (const t of root.toasts) if (root.heights[t.key]) h[t.key] = root.heights[t.key]
+      root.heights = h
+    }
+  }
+  // The open deck's last card went (dismissed, closed by its sender) under a still pointer: nothing else
+  // would resume the countdowns or release the held cards. Next tick: openDeck feeds deckLayout.
+  function dropStaleDeck() {
+    if (root.openDeck !== "" && !root.deckLayout.decks.some(d => d.key === root.openDeck)) root.openDeck = ""
+  }
+  onDeckLayoutChanged: Qt.callLater(root.dropStaleDeck)
+
+  // One countdown tick for every toast (a Timer per card woke the shell up to 80 times a second).
+  property int toastTick: 0
+  Timer { interval: 250; repeat: true; running: root.toasts.length > 0; onTriggered: root.toastTick++ }
+  function noteHeight(key, h) {
+    if (Math.abs((root.heights[key] || 0) - h) < 0.5) return
+    const next = Object.assign({}, root.heights)
+    next[key] = h
+    root.heights = next
+  }
+
+  // Tracked: the object (and its actions) lives until it is closed. A replace (replaces_id) updates it in
+  // place, one signal per changed property: the card is rebuilt once, next tick.
+  property var updating: ({})
+  function track(n, key) {
+    n.tracked = true
+    root.refs[key] = n
+    n.closed.connect(() => root.senderClosed(key, n))
+    const update = () => {
+      if (root.refs[key] !== n || root.updating[key]) return
+      root.updating[key] = true
+      Qt.callLater(() => {
+        delete root.updating[key]
+        if (root.refs[key] === n) root.updateToast(key, n)
+      })
+    }
+    for (const sig of [n.summaryChanged, n.bodyChanged, n.actionsChanged, n.urgencyChanged, n.imageChanged, n.expireTimeoutChanged])
+      sig.connect(update)
+  }
+  function senderClosed(key, n) {
+    if (root.refs[key] !== n) return
+    delete root.refs[key]
+    // Closed by its sender: an identical resend right after is no burst duplicate.
+    if (root.lastEntry && root.lastEntry.key === key) root.lastEntry = null
+    closeToast(key, "")
+  }
+  // Tell the sender; the `closed` that follows finds no ref and is ignored.
+  function release(key, how) {
+    const n = root.refs[key]
+    delete root.refs[key]
+    if (!n) return
+    if (how === "expire") n.expire()
+    else n.dismiss()
+  }
+  function updateToast(key, n) {
+    const old = root.toasts.concat(root.held).find(t => t.key === key)
+    if (!old) return
+    const entry = Object.assign(snapshot(n, key), { count: old.count })
+    replaceToast(entry)
+    root.history = root.history.map(e => e.key === key ? Model.historyCopy(entry) : e)
+  }
+  // An identical repeat of a card still up: ×N on that card, one history entry, a fresh timer. The card
+  // comes to the front, its deck to the top (a back card's ×N was a hidden sliver); in place while a
+  // deck is open (nothing moves under the pointer).
+  function repeatToast(twin, n, entry) {
+    release(twin.key, "expire")  // the older copy is superseded (not dismissed by you)
+    track(n, twin.key)
+    const next = Object.assign({}, entry, { key: twin.key, count: (twin.count || 1) + 1 })
+    const front = list => list.some(t => t.key === twin.key) ? [next].concat(list.filter(t => t.key !== twin.key)) : list
+    if (root.openDeck !== "") replaceToast(next)
+    else { root.toasts = front(root.toasts); root.held = front(root.held) }
+    const h = root.history.find(e => e.key === twin.key)
+    if (h) root.history = [Object.assign({}, h, { count: next.count, ts: next.ts })].concat(root.history.filter(e => e.key !== twin.key))
+  }
+
+  function runButton(key, b) {
+    if (b.kind === "code") { copySecret(b.value); return }
+    const n = root.refs[key]
+    if (!n) return
+    for (let i = 0; i < n.actions.length; i++) {
+      if (n.actions[i].identifier !== b.id) continue
+      // A non-resident notification closes itself after the action (closed -> the card leaves).
+      n.actions[i].invoke()
+      return
+    }
+  }
+
+  // Card click: the sender's `default` action when it sent one (what clicking a notification means), and
+  // the sender raised; else its window focused. The card goes either way.
+  function activate(entry) {
+    const n = root.refs[entry.key]
+    let def = null
+    for (let i = 0; n && i < n.actions.length; i++) if (n.actions[i].identifier === "default") def = n.actions[i]
+    if (def) {
+      def.invoke()
+      root.raiseEntry = entry
+      raiseFallback.restart()
+    } else root.focusApp(entry)
+    root.closeToast(entry.key, "dismiss")
+  }
+
+  // The default action also raises the sender. Quickshell sends no xdg-activation token, so the app's own
+  // present() goes nowhere: Ghostty's is refused (focus_on_activate = false: the window only turns
+  // urgent), Firefox has no token to ask with. Focus the window that turns urgent within 500 ms (the
+  // right Ghostty window, its tab already switched), else the sender's most recent window by class.
+  property var raiseEntry: null
+  Timer {
+    id: raiseFallback
+    interval: 500
+    onTriggered: {
+      if (root.raiseEntry) root.focusApp(root.raiseEntry)
+      root.raiseEntry = null
+    }
+  }
+  Connections {
+    target: root.raiseEntry ? Hyprland : null  // every Hyprland event passes here: only while a raise waits
+    function onRawEvent(event) {
+      const e = root.raiseEntry
+      if (event.name !== "urgent" || !e || !/^[0-9a-f]+$/.test(event.data)) return
+      // Another app's window turning urgent meanwhile is not the sender.
+      const w = Hyprland.toplevels.values.find(t => t.address === event.data || t.address === "0x" + event.data)
+      const cls = String(w && w.wayland ? w.wayland.appId : "").toLowerCase()
+      if (!cls || (cls !== e.desktopEntry.toLowerCase() && cls !== e.appName.toLowerCase())) return
+      raiseFallback.stop()
+      root.raiseEntry = null
+      Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({ window = \"address:0x" + event.data + "\" })"])
+    }
+  }
+
+  // Codes reach the clipboard as sensitive (asahi-cliphist skips them) on stdin, never argv, and are
+  // cleared after 60 s if the clipboard still holds them.
+  property string copiedSecret: ""
+  function copySecret(code) {
+    copyProc.pending = code
+    copyProc.stdinEnabled = true
+    if (copyProc.running) copyProc.running = false
+    copyProc.running = true
+    root.copiedSecret = code
+    secretClear.restart()
+  }
+  Process {
+    id: copyProc
+    command: ["wl-copy", "--sensitive"]
+    stdinEnabled: true
+    property string pending: ""
+    onStarted: { write(pending); stdinEnabled = false }
+  }
+  Timer { id: secretClear; interval: 60000; onTriggered: pasteCheck.running = true }
+  Process {
+    id: pasteCheck
+    command: ["timeout", "2", "wl-paste", "-n"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        if (root.copiedSecret !== "" && text === root.copiedSecret) Quickshell.execDetached(["wl-copy", "--clear"])
+        root.copiedSecret = ""
+      }
+    }
+  }
 
   property var lastEntry: null
   function handleNotification(n) {
@@ -196,18 +423,24 @@ Scope {
     root.lastEntry = entry
     if (prev && entry.ts - prev.ts < 100 && entry.appName === prev.appName
       && entry.summary === prev.summary && entry.body === prev.body) return
-    addHistory(entry)
-    toastScreen = focusedScreen()
-    // A screenshot's confirmation (also OCR / QR) answers your own key press: it shows under Do Not
-    // Disturb too, silently. So does Asahi Battery's "Charging" card: it replaces a critical one.
     const quiet = dndEnabled && entry.urgency !== 2
-    if (!quiet || entry.appName === "screenshot" || entry.appName === "Asahi Battery") addToast(entry)
     if (!quiet) Quickshell.execDetached([root.binDir + "/asahi-notification-sound"])
+    const twin = entry.appName === "Asahi Battery" ? null
+      : root.toasts.concat(root.held).find(t => !root.leaving[t.key] && Model.sameContent(t, entry))
+    if (twin) { repeatToast(twin, n, entry); return }
+    addHistory(Model.historyCopy(entry))
+    // Shown under Do Not Disturb too, silently: a screenshot's confirmation (also OCR / QR) answers
+    // your own key press, Asahi Battery's "Charging" card replaces a critical one, a login code is awaited.
+    const login = Model.isLoginCode(entry.summary + "\n" + entry.body, entry.codes)
+    if (!quiet || entry.appName === "screenshot" || entry.appName === "Asahi Battery" || login) {
+      track(n, entry.key)
+      addToast(entry)
+    }
   }
 
   // Hyprland draws layer popups (every bar popup) above the overlay layer, so an open one covered
-  // the top-centre toasts. Each bar reports which half its open popup hangs in ("left" / "right" / "");
-  // toasts then take the other top corner.
+  // the toasts. Each bar reports which half its open popup hangs in ("left" / "right" / ""); a right
+  // one sends the toasts to the top-left corner.
   property var popupSides: ({})
   function setPopupSide(screenName, side) {
     const s = Object.assign({}, root.popupSides)
@@ -226,12 +459,15 @@ Scope {
   // Every open/close (bell, Esc, click outside, card click) marks the history seen.
   onHistoryVisibleChanged: {
     lastSeen = Date.now()
-    if (!historyVisible) armGrab.armed = false
+    // The toast window unmaps under a pointer that may rest on an open deck: no hover-leave comes, and
+    // the held cards would wait for it.
+    if (historyVisible) openDeck = ""
+    else armGrab.armed = false
   }
 
   function clearHistory() {
     root.history = []
-    root.toasts = []
+    for (const t of root.toasts.concat(root.held)) closeToast(t.key, "dismiss")
   }
 
   function toggleDnd() {
@@ -241,7 +477,7 @@ Scope {
   // Super+comma dismisses the newest popup; Super+Shift+comma dismisses everything, popups and the
   // saved list (popups only did nothing once they had timed out).
   function dismissOne() {
-    if (root.toasts.length > 0) root.removeToast(root.toasts[0].key)
+    if (root.shownToasts.length > 0) closeToast(root.shownToasts[0].key, "dismiss")
   }
 
   function dismissAll() {
@@ -250,9 +486,13 @@ Scope {
 
   NotificationServer {
     bodySupported: true
-    bodyMarkupSupported: false
-    actionsSupported: false
+    // Markup and links reach the card only through Model.richBody (b/i/u/s, br, safe http(s) anchors).
+    bodyMarkupSupported: true
+    bodyHyperlinksSupported: true
+    actionsSupported: true
     imageSupported: true
+    // A reload would re-emit the tracked ones: a second history entry each.
+    keepOnReload: false
     onNotification: (n) => root.handleNotification(n)
   }
 
@@ -288,9 +528,10 @@ Scope {
   }
 
   PanelWindow {
-    // Top-centre under the bar, dropping out of the notch (the sheet is top-right, so they never
-    // overlap). Stays mapped 260 ms after the last one goes so its leave animation plays.
-    visible: root.toasts.length > 0 || toastLinger.running
+    // Top-right under the bar (omarchy 4.5): the surface's top edge is the bar's floor, so cards drop
+    // out from under the bar and rise back into it. Hidden while the sheet (also top-right) is open, the
+    // countdowns paused: the sheet masks codes, so a code toast is back to copy once it closes.
+    visible: root.toasts.length > 0 && !root.historyVisible
     color: "transparent"
     screen: root.toastScreen
     // Normal + zone 0: sit below the bar's exclusive zone (notch floor).
@@ -298,39 +539,79 @@ Scope {
     exclusiveZone: 0
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "quickshell-notifications"
-    // Only `top` anchored: layer-shell centres it horizontally (under the notch on the laptop).
-    // With a bar popup open: the corner away from it (popupSide).
-    anchors { top: true; left: root.popupSide === "right"; right: root.popupSide === "left" }
-    margins { top: 6; left: Style.barEdgeMargin; right: Style.barEdgeMargin }
+    // Full height, fixed width: the surface never resizes (a shrinking one clipped leave animations);
+    // the mask lets clicks outside the cards through.
+    anchors { top: true; bottom: true; right: root.popupSide !== "right"; left: root.popupSide === "right" }
+    margins { left: Style.barEdgeMargin; right: Style.barEdgeMargin }
     implicitWidth: 380
-    implicitHeight: Math.max(1, root.toastHold, toastList.contentHeight)
+    mask: Region { item: deckArea }
 
-    // ScriptModel diffs root.toasts by object: existing cards (and their timers) survive a new
-    // toast arriving; enter / leave / shift animate (upstream NotificationPopups transitions).
-    ListView {
-      id: toastList
-      anchors.fill: parent
-      interactive: false
-      spacing: 8
-      model: ScriptModel { values: root.toasts }
-      delegate: NotificationCard {
-        required property var modelData
-        width: toastList.width
-        entry: modelData
-        compact: false
-        timeout: true
-        onDismiss: root.removeToast(modelData.key)
-        onActivated: { root.focusApp(modelData); root.removeToast(modelData.key) }
+    Item {
+      id: deckArea
+      y: 6
+      width: parent.width
+      height: root.deckLayout.height
+
+      // The deck under the pointer opens (spreads out); 120 ms grace for crossing the gap to the next.
+      // While one is open every countdown pauses and new cards wait (root.held).
+      // Imperative, not a binding: opening a deck changes the layout the pointer is tested against.
+      HoverHandler {
+        onPointChanged: {
+          const y = point.position.y
+          let k = hovered ? Model.deckAt(root.deckLayout, y) : ""
+          // Opening a lower deck collapses the open one above and moves it up, past the pointer:
+          // collapse all first, the next move opens whatever is under it then.
+          if (k !== "" && k !== root.openDeck && Model.deckAt(Model.layout(root.shownToasts, root.heights, k), y) !== k) k = ""
+          if (k !== "") { collapseGrace.stop(); root.openDeck = k }
+          else collapseGrace.restart()
+        }
+        onHoveredChanged: if (!hovered) collapseGrace.restart()
       }
-      add: Transition {
-        NumberAnimation { property: "fade"; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic }
-        NumberAnimation { property: "y"; from: -24; duration: 250; easing.type: Easing.OutCubic }
+      Timer { id: collapseGrace; interval: 120; onTriggered: root.openDeck = "" }
+
+      // Diffed by key: a card keeps its delegate (timer, animation) when its entry is replaced (×N,
+      // sender update). Placed absolutely from Model.layout; Behaviors animate from wherever it is.
+      Repeater {
+        model: ScriptModel { objectProp: "key"; values: root.toasts }
+        delegate: NotificationCard {
+          id: toast
+          required property var modelData
+          readonly property var place: root.deckLayout.places[modelData.key] || null
+          readonly property bool gone: !!root.leaving[modelData.key]
+          // Initial values, not assignments: a delegate's Behaviors already animate in onCompleted.
+          property real restY: place ? place.y : 0
+          property real restH: place ? place.height : 0
+          property bool restShown: place ? place.front || place.open : true
+          property bool settled: false
+          onPlaceChanged: if (place) { restY = place.y; restH = place.height; restShown = place.front || place.open }
+          Component.onCompleted: {
+            root.noteHeight(modelData.key, implicitHeight)
+            Qt.callLater(() => toast.settled = true)  // next tick: y and fade animate in from −24 / 0
+          }
+          onImplicitHeightChanged: root.noteHeight(modelData.key, implicitHeight)
+          width: deckArea.width
+          height: place ? place.height : (restH || implicitHeight)
+          y: toast.settled && !toast.gone ? toast.restY : toast.restY - 24
+          z: place ? 1000 - place.depth : 0
+          deckScale: place ? place.scale : 1
+          fade: toast.settled && !toast.gone && place ? place.opacity : 0
+          Behavior on y { NumberAnimation { duration: toast.gone ? 200 : 250; easing.type: Easing.OutCubic } }
+          // Snaps while the first real height replaces the 76 px guess.
+          Behavior on height { enabled: toast.settled; NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+          Behavior on fade { NumberAnimation { duration: toast.gone ? 180 : 220; easing.type: Easing.OutCubic } }
+          entry: modelData
+          compact: false
+          live: true
+          contentShown: place ? place.front || place.open : restShown
+          timeout: !toast.gone
+          paused: root.openDeck !== "" || root.historyVisible
+          enabled: !toast.gone
+          onDismiss: root.closeToast(modelData.key, "dismiss")
+          onExpired: root.closeToast(modelData.key, "expire")
+          onActivated: root.activate(modelData)
+          onButton: (b) => root.runButton(modelData.key, b)
+        }
       }
-      remove: Transition {
-        NumberAnimation { property: "fade"; to: 0; duration: 180; easing.type: Easing.OutCubic }
-        NumberAnimation { property: "y"; to: -16; duration: 200; easing.type: Easing.OutCubic }
-      }
-      displaced: Transition { NumberAnimation { property: "y"; duration: 220; easing.type: Easing.OutCubic } }
     }
   }
 
@@ -585,10 +866,24 @@ Scope {
     property var entry: null
     property bool compact: false
     property bool timeout: false
+    property bool paused: false
+    // A toast with its sender still listening: code / action buttons.
+    property bool live: false
+    // Back cards of a collapsed deck show only their frame.
+    property bool contentShown: true
+    property real deckScale: 1
     readonly property color accent: root.urgencyColor(entry ? entry.urgency : 1)
     readonly property bool critical: !!entry && entry.urgency === 2
+    readonly property var buttons: {
+      if (!card.live || !card.entry) return []
+      const codes = card.entry.codes || []
+      return codes.map(c => ({ kind: "code", value: c, label: codes.length > 1 ? c : "Copy code" }))
+        .concat((card.entry.actions || []).map(a => ({ kind: "action", id: a.id, label: a.text })))
+    }
     signal dismiss()
+    signal expired()
     signal activated()
+    signal button(var b)
 
     color: card.compact ? Style.m3container : Style.menuBg
     radius: Style.menuRadiusMd
@@ -598,25 +893,39 @@ Scope {
     implicitHeight: cardBody.implicitHeight + 22
     clip: true
 
-    // Upstream timeout rules: critical stays until dismissed; the app's expire time wins over 6 s;
-    // the timer pauses while the pointer is on the card or it is being dragged.
+    // Upstream timeout rules: critical stays until dismissed; the app's expire time wins over 6 s.
+    // Counted down in steps, so a pause (pointer on the card or an open deck, a drag) keeps what is
+    // left; a new arrival (×N, sender update) starts over.
     readonly property int lifeMs: {
       if (!card.entry || card.critical) return 0
       const e = Number(card.entry.expire) || 0
       return e > 0 ? e : 6000
     }
-    Timer {
-      interval: Math.max(1000, card.lifeMs)
-      running: card.timeout && card.lifeMs > 0 && !cardMa.containsMouse && !cardMa.dragging
-      onTriggered: card.dismiss()
+    property int remaining: 0
+    readonly property real arrival: card.entry ? card.entry.ts : 0
+    onArrivalChanged: card.remaining = card.lifeMs
+    Component.onCompleted: card.remaining = card.lifeMs
+    Connections {
+      target: card.timeout && card.lifeMs > 0 && !card.paused && !cardMa.containsMouse && !cardMa.dragging ? root : null
+      function onToastTickChanged() {
+        card.remaining -= 250
+        if (card.remaining <= 0) card.expired()
+      }
     }
+
+    // Copy feedback (a tick for 1.4 s); a card whose only point is one code closes after it.
+    property string copied: ""
+    Timer { id: copiedTick; interval: 1400; onTriggered: card.copied = "" }
+    Timer { id: codeTaken; interval: 900; onTriggered: card.dismiss() }
 
     // Swipe sideways to dismiss (upstream: lock after 6 px, dismiss past 18 % of the width).
     property real dragX: 0
-    property real fade: 1  // list enter / leave transitions animate this, not opacity (keeps the binding)
+    property real fade: 1  // enter / leave animate this, not opacity (keeps the drag binding)
     transform: Translate { x: card.dragX }
     opacity: card.fade * Math.max(0, 1 - Math.abs(card.dragX) / (card.width * 0.75))
-    scale: cardMa.pressed && !cardMa.dragging ? 0.98 : 1
+    // Deck slivers shrink from the top edge.
+    transformOrigin: Item.Top
+    scale: card.deckScale * (cardMa.pressed && !cardMa.dragging ? 0.98 : 1)
     Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutQuint } }
     NumberAnimation { id: dragBack; target: card; property: "dragX"; to: 0; duration: 200; easing.type: Easing.OutCubic }
     SequentialAnimation {
@@ -678,10 +987,12 @@ Scope {
 
     RowLayout {
       id: cardBody
-      anchors.fill: parent
-      anchors.margins: 11
-      anchors.leftMargin: 16
+      // Top-anchored: a back card cut to the front card's height clips its content, never squeezes it.
+      anchors { top: parent.top; left: parent.left; right: parent.right; margins: 11; leftMargin: 16 }
       spacing: 12
+      opacity: card.contentShown ? 1 : 0
+      enabled: card.contentShown
+      Behavior on opacity { NumberAnimation { duration: card.contentShown ? 150 : 75 } }
 
       Rectangle {
         Layout.preferredWidth: 36
@@ -727,6 +1038,14 @@ Scope {
             Layout.fillWidth: true
           }
           Text {
+            visible: !!card.entry && card.entry.count > 1
+            text: card.entry ? "×" + card.entry.count : ""
+            font.family: Style.menuSans
+            font.pixelSize: 11
+            font.weight: Font.DemiBold
+            color: Style.menuSeal
+          }
+          Text {
             text: card.entry ? root.relTime(card.entry.ts, root.clockTick) : ""
             font.family: Style.menuSans
             font.pixelSize: 11
@@ -746,10 +1065,18 @@ Scope {
           Layout.fillWidth: true
         }
 
+        // The one StyledText in the shell: Model.richBody lets only b/i/u/s, br and safe http(s)
+        // anchors through (no img). Without a rich copy (history with codes, entries saved before it)
+        // the body is plain already: shown as text, never parsed again (Model.textRich).
         Text {
-          text: card.entry ? card.entry.body : ""
+          text: card.entry ? card.entry.rich ?? Model.textRich(card.entry.body) : ""
           visible: text.length > 0
-          textFormat: Text.PlainText
+          textFormat: Text.StyledText
+          linkColor: Style.menuSeal
+          onLinkActivated: (url) => {
+            const u = Model.safeHttpUrl(url)
+            if (u) Quickshell.execDetached([root.binDir + "/asahi-launch", "xdg-open", u])
+          }
           font.family: Style.menuSans
           font.pixelSize: 12
           color: Style.menuInkDeep
@@ -757,6 +1084,31 @@ Scope {
           elide: Text.ElideRight
           maximumLineCount: card.compact ? 3 : 2
           Layout.fillWidth: true
+        }
+
+        // Codes first (copied as sensitive), then the sender's actions (its default runs on a card click).
+        Flow {
+          visible: card.buttons.length > 0
+          Layout.fillWidth: true
+          Layout.topMargin: 6
+          spacing: 6
+          Repeater {
+            model: card.buttons
+            Menu.MenuPill {
+              required property var modelData
+              icon: modelData.kind !== "code" ? "" : card.copied === modelData.value ? "󰄬" : "󰆏"
+              label: modelData.kind === "code" && card.copied === modelData.value ? "Copied" : modelData.label
+              fontScale: 1.1
+              implicitHeight: 28
+              onClicked: {
+                card.button(modelData)
+                if (modelData.kind !== "code") return
+                card.copied = modelData.value
+                copiedTick.restart()
+                if (card.buttons.length === 1) codeTaken.start()
+              }
+            }
+          }
         }
       }
 

@@ -296,23 +296,67 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   `busctl --user status :1.N`), release `busctl --user call … org.freedesktop.impl.portal.Request Close`. Verify:
   `MOZ_LOG=LinuxWakeLock:5,sync`.
 - **sshd**: Fedora enables it; disable + mask `sshd.service` + `sshd.socket`. Re-check after a release upgrade.
-- **Notification images**: `localImage()` only `image:`/`file:`/`/…`; never `image://qsimage/` (freed right after
-  `onNotification`: empty box; app icon instead), never `?path=` (icon provider reads that file), never `/proc`, `/sys`,
-  `/dev` (resolve `..` / %-escapes first; a FIFO froze the shell). `appLabel()`: desktop entry Name fallback (Firefox /
-  Ghostty send none). `stripMarkup` drops known tags only (`Jane <jane@…>` is text); summary/body `Text.PlainText` (no
-  `<img src>`). Toasts anchor only `top` (centred under the notch), `ExclusionMode.Normal` + zone 0; bar popups + toasts
-  need `Style.popupBorder` (vanished on dark windows). Layer popups draw above the overlay layer: BarHost reports its
-  popup side (`setPopupSide`), toasts take the far corner (`popupSide`). History
-  `~/.local/state/asahi/notifications.json` (0600, non-atomic writes keep the mode), never written on load; holds Do Not
-  Disturb (a QML save reloads qs). Trash = two clicks within 3 s (stray click wiped all). No pulse on critical cards
-  (repaints every frame). Toasts = `ListView` over `ScriptModel { values: root.toasts }` (a Repeater restarted timers);
-  animate `fade`, not `opacity` (swipe binds it); `toastHold` keeps the window 260 ms (leave animation clipped).
-  `expire` is ms (raw `notify-send -t`). One "Asahi Battery" toast at a time; it and `screenshot` show silently under Do
-  Not Disturb. Identical repeats within 100 ms dropped. Super+comma `dismissOne`; Super+Shift+comma `dismissAll` also
-  clears the saved list. Sheet and bar popups close each other; sheet focus grab arms 200 ms late (an unmapping popup
-  clears it); the bell click ending the grab is ignored; the launcher closes the sheet (grab kept its keys).
-  `historyGroups` built only while open (day labels fresh past midnight). Click = focus sender by class (never run
-  notification actions). shell.qml id is `notifCenter` — `notificationCenter: notificationCenter` self-binds to null.
+- **Notification images**: `localImage()` only `image://icon/`/`file:`/`/…`; never `image://qsimage/` (history outlives
+  the object: empty box; app icon instead), never `?path=` (icon provider reads that file), never `/proc`, `/sys`,
+  `/dev` — also as `image://icon//…` and as an absolute app icon (QIcon opens a path as a file) (resolve `..` /
+  %-escapes first; a FIFO froze the shell; one elsewhere, e.g. `/tmp`, still blocks: no stat from QML, local processes
+  only). `appLabel()`: desktop entry Name fallback (Firefox / Ghostty send none). `stripMarkup` drops known tags only
+  (`Jane <jane@…>`, `<a.smith@…>` are text: a tag name ends at a space, `/` or `>`); summary `Text.PlainText`. Body
+  markup + hyperlinks are on: the body is `NotificationModel.richBody` StyledText (b/i/u/s, br, `<a href>` passing
+  `safeHttpUrl`, which also refuses loopback names: `*.localhost`, `localhost.localdomain`; no img; unknown tags stay
+  text, same tag-name rule: `<s.mueller@…>` is no `<s>`; tags read from the raw body, entities decoded only in text /
+  href, so an escaped `&lt;b&gt;` stays text; lookups by own key: `<constructor>`; ports of omarchy 4.5
+  Markup/Security.js; test `notification_model_test.js`). A body without a rich copy (history with codes, old entries)
+  is plain already: `textRich` escapes it, never parses it again (that turned an escaped `&lt;b&gt;` into bold).
+- **Toasts** (omarchy 4.5 decks): one deck per sender (`group` = `appLabel` lowercased), collapsed = front card + 2
+  slivers (10 px peek, 3.5 % shrink, back cards at the front card's height, content hidden, also while leaving); hover
+  opens the deck under the pointer (imperative `HoverHandler`: a binding looped through the layout), pauses every
+  countdown (one shared 250 ms `toastTick`, remainders kept) and holds arrivals in `held` (30 s cap); a lower deck opens
+  only if it stays under the pointer (opening it collapses the one above); an open deck that lost its last card closes
+  next tick (`dropStaleDeck`, deferred: openDeck feeds deckLayout). Max 4 decks, 5 cards a deck (a spread deck must fit
+  the laptop; rest expire). Top-right under the bar: anchors top+bottom, fixed width, `mask: Region { item: deckArea }`
+  (the surface never resizes; its top edge is the bar floor, so cards drop out from under the bar), `ExclusionMode.Normal`
+  + zone 0; pinned to the monitor focused at the first card until empty. Layer popups draw above the overlay layer: a
+  right bar popup (`setPopupSide`) sends them top-left; hidden, countdowns paused, while the sheet is open (it masks
+  codes: the code toast is back to copy once it closes); opening it clears `openDeck` (the unmapped window sends no
+  hover-leave: held cards waited). Repeater over `ScriptModel { objectProp: "key" }` (entry swaps keep delegates), y
+  from `Model.layout` + Behaviors; a delegate's Behaviors already animate in `onCompleted`: landing spot as the initial
+  value, `settled` next tick (`Qt.callLater`), height Behavior off until then (76 px guess); each closing card stays
+  220–320 ms (a 100 ms poll) from its own start (`leaving` holds the time: one restarted timer never fired under a
+  flood) and rises 24 px. Animate `fade`, not `opacity` (swipe binds it).
+  Bar popups + toasts need `Style.popupBorder` (vanished on dark windows). No pulse on critical cards.
+- **Notification objects**: shown and held toasts are tracked (`refs[key]`, a plain map): `closed` removes the card; a
+  replaces_id update changes the object in place, one signal per property (summary, body, actions, urgency, image,
+  timeout): rebuilt once next tick (`updating`). Our close calls `expire()` (timeout, overflow, a superseded copy) /
+  `dismiss()` (you); `release` drops the ref first, so the echoed `closed` is ignored. `keepOnReload: false` (a reload
+  re-emitted them: duplicate history). Buttons on live toasts only: codes (`detectCodes`, omarchy Detect.js; a keyword
+  naming a 1–3 digit number, "exit code 2", opens no window; `#4821` is no code) → `wl-copy --sensitive` on stdin,
+  cleared after 60 s if still there; sender actions minus `default` and settings; labels are sender text (`MenuPill` is
+  PlainText: AutoText fetched an `<img>`), cut at 24 chars (Flow cannot wrap one wide pill). No "Open" pill (rejected:
+  an invented label for an unlabelled action, ahead of the real ones): a click on a live card runs the sender's
+  `default` action (spec: the click), then raises the sender: Quickshell sends no xdg-activation token, so the app's own
+  present() fails (Ghostty: refused by its `focus_on_activate = false`, only `urgent`; Firefox: no token to ask with) —
+  focus the window that turns urgent within 500 ms if its appId (`Hyprland.toplevels` `wayland.appId`) is the sender's,
+  else the most recent window of the class (the rawEvent Connections only listens while a raise waits). Without a
+  `default` (and on history cards) a click focuses the sender's most recent window by class (never-focused
+  `focusHistoryID` -1 last). A toast goes either way; no other action runs from a click. History masks codes
+  (`maskCodes`: the code tokens only, a false hit loses a number, not the message; no image). A capitalised "Code"
+  after a possessive / article / login word ("Your Code:", "Ihr Code lautet") is no product name ("VS Code"); German
+  compounds (Bestätigungs-, Sicherheits-, Anmeldecode …) and TAN (capitals: "Mr Tan" is a name) open a window. Under
+  Do Not Disturb a card toasts, silently, only with an unambiguous login phrase (`isLoginCode`: verification, OTP, 2FA,
+  login code, "your code" / "Ihr Code" only right before the code, German compounds …; not "confirm" / "(your) code
+  review"), like `screenshot` and one-at-a-time "Asahi Battery". An identical repeat of a live card = ×N (one history
+  entry, fresh timer; the card comes to the front, in place while a deck is open); repeats within 100 ms dropped,
+  unless the sender closed the first. `expire` is ms (raw `notify-send -t`). A sender with `-A` must not pass `-t`:
+  notify-send stops listening at its own timeout while the card pauses on hover (`asahi-cmd-screenshot` Open/Annotate
+  waits under `setsid -f`).
+- **Notification sheet**: history `~/.local/state/asahi/notifications.json` (0600, non-atomic writes keep the mode),
+  never written on load; holds Do Not Disturb (a QML save reloads qs). Trash = two clicks within 3 s (stray click wiped
+  all). Super+comma `dismissOne`; Super+Shift+comma `dismissAll` also clears the saved list (so does IPC `clear`).
+  Sheet and bar popups close each other; sheet focus grab arms 200 ms late (an unmapping popup clears it); the bell click
+  ending the grab is ignored; the launcher closes the sheet (grab kept its keys). `historyGroups` built only while open
+  (day labels fresh past midnight). shell.qml id is `notifCenter` — `notificationCenter: notificationCenter` self-binds
+  to null.
 - **bash 5.3 / trailing `&&`**: EXIT trap or function ending in `[[ -n $x ]] && …` returns 1 when `$x` is empty;
   `set -e` then kills the script (`asahi-network` lost JSON). End traps on `|| true` / `if`; optional tail lines in `if`
   blocks. Interactive zsh helpers without `set -e` are fine.
@@ -399,6 +443,8 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   `components.sh` chmods `asahi/bin/*`, skips `lib/` (a dir) — keep sourced files there.
 - **Untrusted text**: a `Text` showing outside strings (titles, SSIDs, BT names, clipboard, file names, notifications)
   sets `textFormat: Text.PlainText`: AutoText renders `<img src=http…>` = remote fetch without a click (omarchy #8397).
+  Only exception: the notification body (StyledText from `NotificationModel.richBody`, an allowlist; `href` written raw:
+  StyledText keeps `&amp;` in it).
 - **Quickshell launch**: never `qs -d` (EPIPE/`qFatal` if the parent is gone); `setsid -f qs -n -c <module>`
   (`asahi-restart-quickshell`). Bar vanished → `asahi-debug` coredumps first. qs reloads on save (log
   `/run/user/$UID/quickshell/by-pid/<pid>/log.log`). `grim` blocks on a DPMS-off output — always `timeout`. zprofile
