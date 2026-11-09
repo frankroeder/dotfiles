@@ -222,7 +222,7 @@ lid_angle_closed() {
 
 # asahi-idle-brightness holds saved levels while idle-dimmed/off.
 idle_dimmed() {
-  compgen -G "${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-brightness/*" >/dev/null
+  compgen -G "$(runtime_dir)/asahi-idle-brightness/*" >/dev/null
 }
 
 # Hyprland DPMS off disables the aquamarine output: the eDP connector reads `disabled`.

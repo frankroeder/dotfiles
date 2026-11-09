@@ -35,10 +35,10 @@ bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 cmd="${1:-}"
 secs="${2:-}"
 step=""
-stamp="${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-wake"
-locking="${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-locking"
-failed_note="${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-suspend-failed"
-sleep_mark="${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-sleep-mark"
+stamp="$(runtime_dir)/asahi-idle-wake"
+locking="$(runtime_dir)/asahi-idle-locking"
+failed_note="$(runtime_dir)/asahi-idle-suspend-failed"
+sleep_mark="$(runtime_dir)/asahi-idle-sleep-mark"
 log_file="${XDG_STATE_HOME:-$HOME/.local/state}/asahi/idle.log"
 
 log() {
@@ -83,7 +83,7 @@ wake() {
   touch "$stamp"
   # hypridle fires on-resume for every listener at once: the first wake runs, the rest drop.
   # A step's own "raced a wake" re-run waits for the lock instead, so its undo is not lost.
-  exec {wake_lock}>"${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-wake.lock"
+  exec {wake_lock}>"$(runtime_dir)/asahi-idle-wake.lock"
   if [ "$cmd" = wake ]; then flock -n "$wake_lock" || return 0; else flock -w 5 "$wake_lock" || true; fi
   # The saver goes first, also under a closed lid (it lights nothing): a lid lock left it running
   # under hyprlock, its timers waking the CPU, and it showed again after unlock.
@@ -225,7 +225,7 @@ case "$step" in
   off)
     # One off loop at a time: on battery 300 and 600 s both map to off, and the lock surface's
     # fake motion restarts the listeners while the first loop still waits to sleep.
-    exec {off_lock}>"${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-off.lock"
+    exec {off_lock}>"$(runtime_dir)/asahi-idle-off.lock"
     # A losing off swaps the EXIT trap: it must not delete the winner's locking flag.
     if ! flock -n "$off_lock"; then log "off already running"; trap 'rm -f "$started"' EXIT; exit 0; fi
     # Stopping the saver unmaps a surface, which also reads as pointer motion: flag first.

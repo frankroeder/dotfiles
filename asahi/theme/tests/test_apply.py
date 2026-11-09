@@ -17,6 +17,8 @@ sys.path.insert(0, str(ROOT.parent))
 
 from theme.apply import (
     preview_ghostty,
+    push_tmux_palette,
+    tmux_osc_sequences,
     write_btop_theme,
     write_colors_env,
     write_firefox_scheme,
@@ -146,6 +148,18 @@ class TestApplyWriters(unittest.TestCase):
         write_btop_theme(p, self.root / "btop.theme")
         self.assertIn(f'theme[main_bg]="{p.background}"', (self.root / "btop.theme").read_text(encoding="utf-8"))
 
+    def test_tmux_osc_sequences(self):
+        seqs = tmux_osc_sequences(self.palette)
+        self.assertIn(f"\033]10;{self.palette.foreground}\007", seqs)
+        self.assertIn(f"\033]11;{self.palette.background}\007", seqs)
+        self.assertIn(f"\033]12;{self.palette.accent}\007", seqs)
+        self.assertIn(f"\033]17;{self.palette.selection}\007", seqs)
+        self.assertEqual(seqs.count("\033]4;"), 16)
+
+    def test_push_tmux_palette_no_server_is_noop(self):
+        with mock.patch("theme.apply.shutil.which", return_value=None):
+            push_tmux_palette(self.palette)
+
     def test_hyprland_groupbar(self):
         path = self.root / "hyprland.lua"
         write_hyprland_lua(self.palette, path)
@@ -153,6 +167,8 @@ class TestApplyWriters(unittest.TestCase):
         self.assertIn("col.active_border", text)
         self.assertIn("groupbar", text)
         self.assertIn("text_color", text)
+        self.assertIn("col.border_locked_active", text)
+        self.assertIn("col.border_locked_inactive", text)
 
     def test_preview_ghostty_installs_theme_ghostty_reads(self):
         cfg = self.root / "ghostty"

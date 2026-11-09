@@ -34,18 +34,46 @@ vim.pack.add {
   { src = gh "catppuccin/nvim", name = "catppuccin" },
 }
 
-require("catppuccin").setup {
-  background = { light = "latte", dark = "mocha" },
-  transparent_background = true,
-  integrations = {
-    blink_cmp = true,
-    gitsigns = true,
-    markdown = true,
-    native_lsp = { enabled = true, inlay_hints = { background = true } },
-    render_markdown = true,
-    treesitter = true,
-  },
-}
+-- Wallpaper hues from asahi-autotheme (nil off-Asahi: files absent).
+local function theme_file(name)
+  local state = vim.env.XDG_STATE_HOME or (vim.env.HOME .. "/.local/state")
+  local f = io.open(state .. "/asahi-theme/" .. name, "r")
+  if not f then return nil end
+  local raw = f:read "*a"
+  f:close()
+  return raw
+end
+
+local function setup_catppuccin(background)
+  local overrides = {}
+  local raw = theme_file "colors.json"
+  if raw then
+    local ok, colors = pcall(vim.json.decode, raw)
+    if ok and type(colors) == "table" and colors.mode == background then
+      local flavor = background == "light" and "latte" or "mocha"
+      local over = {}
+      for _, k in ipairs { "rosewater", "flamingo", "pink", "mauve", "red", "maroon", "peach", "yellow", "green",
+        "teal", "sky", "sapphire", "blue", "lavender", "text", "subtext1", "subtext0", "overlay2", "overlay1",
+        "overlay0", "surface2", "surface1", "surface0", "base", "mantle", "crust" } do
+        if type(colors[k]) == "string" then over[k] = colors[k] end
+      end
+      overrides = { [flavor] = over }
+    end
+  end
+  require("catppuccin").setup {
+    background = { light = "latte", dark = "mocha" },
+    transparent_background = true,
+    color_overrides = overrides,
+    integrations = {
+      blink_cmp = true,
+      gitsigns = true,
+      markdown = true,
+      native_lsp = { enabled = true, inlay_hints = { background = true } },
+      render_markdown = true,
+      treesitter = true,
+    },
+  }
+end
 
 local function set_theme(background)
   vim.o.background = background
@@ -64,8 +92,16 @@ vim.api.nvim_create_user_command("ThemeToggle", function()
   set_theme(vim.o.background == "dark" and "light" or "dark")
 end, {})
 
+-- Setup once, then only when the wallpaper changes (theme.name bump); FocusGained just re-checks light/dark.
+local last_marker = false
 local function refresh_theme()
-  set_theme(system_background())
+  local background = system_background()
+  local marker = theme_file "theme.name"
+  if marker ~= last_marker then
+    last_marker = marker
+    setup_catppuccin(background)
+  end
+  set_theme(background)
 end
 
 refresh_theme()

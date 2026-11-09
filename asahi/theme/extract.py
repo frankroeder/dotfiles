@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -41,7 +42,11 @@ def sample_image(path: str, size: int = 96) -> list[tuple[int, int, int]]:
     # jpeg:size (before the input) lets libjpeg decode at 1/2..1/8 scale: ~3x faster on
     # average and a fraction of the memory on big photos (16000x9000: 1.7 GB -> 60 MB). PNGs ignore it.
     cmd = [magick, "-define", f"jpeg:size={2 * size}x{2 * size}", path, "-resize", f"{size}x{size}!", "-depth", "8", "rgb:-"]
-    proc = subprocess.run(cmd, check=True, capture_output=True)
+    env = dict(os.environ, MAGICK_MEMORY_LIMIT="256MiB", MAGICK_MAP_LIMIT="512MiB", MAGICK_DISK_LIMIT="1GiB")
+    try:
+        proc = subprocess.run(cmd, check=True, capture_output=True, timeout=5, env=env)
+    except subprocess.TimeoutExpired as e:
+        raise RuntimeError(f"palette extraction timed out on {path}") from e
     data = proc.stdout
     if len(data) % 3 != 0 or not data:
         raise RuntimeError(f"unexpected rgb dump size from {path}: {len(data)}")

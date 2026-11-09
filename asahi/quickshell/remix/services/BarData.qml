@@ -50,7 +50,7 @@ Singleton {
       heatpipeW = isFinite(uw) && heatpipeFile.text().trim() !== "" ? Math.round(uw / 100000) / 10 : -1
     }
 
-    // Average of the SMC system temperatures (Asahi exposes no SoC die °C), millidegrees.
+    // Average of the SMC system temperatures (Asahi exposes no SoC die °C), millidegrees. Storage/battery outliers excluded at discovery.
     let sum = 0, n = 0
     for (let i = 0; i < tempFiles.count; i++) {
       const fv = tempFiles.objectAt(i)
@@ -72,7 +72,9 @@ Singleton {
   }
   Process {
     running: true
-    command: ["sh", "-c", "for d in /sys/class/hwmon/hwmon*; do [ \"$(cat \"$d/name\")\" = macsmc_hwmon ] && ls \"$d\"/temp*_input; done"]
+    command: ["sh", "-c", "for d in /sys/class/hwmon/hwmon*; do [ \"$(cat \"$d/name\")\" = macsmc_hwmon ] || continue; "
+      + "for t in \"$d\"/temp*_input; do case \"$(cat \"${t%_input}_label\" 2>/dev/null)\" in *NAND*|*Battery*) ;; "
+      + "*) echo \"$t\";; esac; done; done"]
     stdout: StdioCollector { onStreamFinished: root.tempPaths = text.split("\n").filter(p => p !== "") }
   }
   Process {
@@ -195,6 +197,7 @@ Singleton {
   // ---- Network: nmcli monitor pushes changes; the slow poll only tracks Wi-Fi signal ----
   property string netText: "󰤨"
   property string netName: ""
+  property string netConnectivity: "unknown"
   property bool vpnUp: false
   property string vpnName: ""
   property int vpnSince: 0
@@ -208,6 +211,7 @@ Singleton {
           const data = JSON.parse(text.trim())
           root.netText = data.text || "󰤮"
           root.netName = data.name || ""
+          root.netConnectivity = data.connectivity || "unknown"
           root.vpnUp = !!data.vpn
           root.vpnName = data.vpnName || ""
           root.vpnSince = Number(data.vpnSince) || 0

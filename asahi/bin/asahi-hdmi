@@ -29,8 +29,8 @@ usage() {
   echo "refusing monitor name: $name" >&2
   exit 1
 }
-gen_file="${XDG_RUNTIME_DIR:-/tmp}/asahi-hdmi.gen.${name}"
-crash_note="${XDG_RUNTIME_DIR:-/tmp}/asahi-hdmi.crashed.${name}"
+gen_file="$(runtime_dir)/asahi-hdmi.gen.${name}"
+crash_note="$(runtime_dir)/asahi-hdmi.crashed.${name}"
 
 drm_connected() {
   local f

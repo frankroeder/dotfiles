@@ -4,7 +4,7 @@ import "../../../"
 import "../../../services" as Services
 import "../BarModel.js" as BarModel
 
-// Wi-Fi / ethernet glyph (drawn larger: its glyph reads small) and the VPN shield while one is up, from the shared
+// Wi-Fi / ethernet glyph at bar size (red = portal sign-in, orange = limited) and the VPN shield while one is up, from the shared
 // BarData (one nmcli monitor for every bar). BarHost grants the optional words when they fit: the VPN's name, its
 // uptime, the network's name. Full overview lives in the launcher's Quick > Network (click).
 Item {
@@ -17,6 +17,7 @@ Item {
 
     readonly property string text: Services.BarData.netText
     readonly property string netName: Services.BarData.netName
+    readonly property string connectivity: Services.BarData.netConnectivity
     readonly property bool vpnUp: Services.BarData.vpnUp
     readonly property string vpnName: Services.BarData.vpnName
     readonly property int vpnSince: Services.BarData.vpnSince
@@ -50,8 +51,8 @@ Item {
             id: wifiGlyph
             text: root.text
             font.family: Style.fontFamily
-            font.pixelSize: Style.barFontGlyph + 1
-            color: Style.blueAlt
+            font.pixelSize: Style.barFontGlyph
+            color: Style.connectivityColor(root.connectivity) || Style.blueAlt
         }
 
         Text {

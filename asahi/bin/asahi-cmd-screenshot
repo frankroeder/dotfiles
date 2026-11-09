@@ -5,6 +5,7 @@
 # (the notification thumbnail is one overwritten file under $XDG_RUNTIME_DIR).
 
 set -euo pipefail
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
 
 bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 output_dir="$HOME/screenshots"
@@ -23,7 +24,7 @@ shot() {
 }
 
 if [ "$clip" -eq 1 ]; then
-  file="${XDG_RUNTIME_DIR:-/tmp}/asahi-screenshot-clip.png"
+  file="$(runtime_dir)/asahi-screenshot-clip.png"
   shot "$file"
   wl-copy --type image/png <"$file"
   notify-send -a screenshot -t 2500 -i "$file" "Screenshot copied" "Clipboard only, not saved" 2>/dev/null || true

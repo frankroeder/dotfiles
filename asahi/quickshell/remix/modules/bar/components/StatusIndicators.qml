@@ -118,7 +118,7 @@ RowLayout {
     }
   }
 
-  // Only while on (Super+Ctrl+N / Quick): frees room next to the notch.
+  // Only while on (Launcher > Actions): frees room next to the notch.
   Item {
     visible: root.nightLightOn
     implicitWidth: Style.barIconSlot

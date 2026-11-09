@@ -123,10 +123,12 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   nothing. Auto fade, idle off/restore and keys share `$XDG_RUNTIME_DIR/asahi-idle-brightness.lock` (`brightness_lock`
   in `lib/common.sh`); a key while idled off / dimmed steps from the saved level. hypridle listener (`ignore_inhibit`)
   fades keys off; `asahi-idle keys` relights (not on the lock's fake motion / under a closed lid).
-- **Keybinding grammar**: Super = window / navigate; +Shift = inverse (move vs focus); +Alt = variant (focus→resize,
+- **Keybinding grammar**: Super = window / navigate (+A/V/X universal clipboard: select-all, terminal-aware paste,
+  cut — `send_key_state` down/up split, explicit mods, no window target so layer surfaces get it; Super+C stays Center);
+  Super+B = next wallpaper; +Shift = inverse (move vs focus); +Alt = variant (focus→resize,
   capture→record). `Super+Alt+HJKL` moves the **shared split border** — label by direction, never grow/shrink.
   `Super+Ctrl+<letter>` = panel (A audio, B bluetooth, C calendar, D display, W network, P power, R backup, S
-  screenshot gallery, T activity, I stay-awake, N night light, E emoji, V clipboard, K keybindings). `Super+Ctrl+Alt`:
+  screenshot gallery, T activity, I stay-awake, E emoji, V clipboard, K keybindings; night light is menu-only). `Super+Ctrl+Alt`:
   R reload Hyprland, W/P/I restart Quickshell / hyprpaper / hypridle, S suspend, Z magnifier reset.
   `Super+Ctrl+plus/minus` = display scale; `Super+Ctrl+Z` / `+Shift+Z` / `+Alt+Z` = magnifier in / out / reset
   (`hl.config { cursor = { zoom_factor } }`, not `hyprctl keyword`). Panels: `quick()` in `bindings.lua`
@@ -134,7 +136,7 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   (Quick pane → home → close); shortcut-opened → closes (`openedByShortcut`). Workspaces: Super+N go, Super+Ctrl+N
   move, Super+Alt+N send w/o following, Super+Y back-and-forth. Super+Alt+F = fullscreen in tile (`fullscreen_state`
   client 2); Super+Alt+arrows join neighbour group; Alt+Tab cycles. Lock / media / lid binds in `submap_universal`
-  (writing-tools submap's catchall swallowed them). Super+B/N/S free. **Every bind needs a `desc`**
+  (writing-tools submap's catchall swallowed them). Super+N/S free. **Every bind needs a `desc`**
   (`Data.parseHyprBinds` drops descless ones; `data_test.js`) — except lid switches + writing submap. `code:NN` needs
   `bindCombo` `codeNames`; labels are **de(mac_nodeadkeys)** (`code:34/35` = `ü`/`+`, not `[]`).
 - **Monitor direction binds**: `Super+Ctrl+arrows` and `Super+Shift+Ctrl+HJKL` must `hl.get_monitor(dir)` first (nil
@@ -164,7 +166,7 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
 - **asahi-debug**: Fedora Asahi health (`asahi/bin/asahi-debug [--json]`; dnf, `wpa_supplicant`, not pacman/iwd/SDDM;
   Wi-Fi radio off on purpose = PASS). Test: `asahi/bin/asahi_debug_test.sh`. Not in `make doctor`; must not flag
   Hyprland on generic Linux.
-- **Night light**: Super+Ctrl+N → `asahi-nightlight` (hyprsunset); on = `hyprsunset.conf`, off =
+- **Night light**: menu-only (Launcher > Actions → `asahi-nightlight`, hyprsunset); on = `hyprsunset.conf`, off =
   `hyprctl hyprsunset identity`. Identity profile so autostart tints nothing; autostart drops stale `nightlight.json`
   (chip showed on, no tint).
 - **Bar notch**: cutout is a hole (`BarModel.notchRegionInset`), not a spacer; height from geometry (3024x1964 →
@@ -352,7 +354,8 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   waits under `setsid -f`).
 - **Notification sheet**: history `~/.local/state/asahi/notifications.json` (0600, non-atomic writes keep the mode),
   never written on load; holds Do Not Disturb (a QML save reloads qs). Trash = two clicks within 3 s (stray click wiped
-  all). Super+comma `dismissOne`; Super+Shift+comma `dismissAll` also clears the saved list (so does IPC `clear`).
+  all). Super+comma `act` (click / one button / dismiss); Super+Alt+comma `dismissOne`; Super+Shift+comma
+  `dismissAll` also clears the saved list (so does IPC `clear`).
   Sheet and bar popups close each other; sheet focus grab arms 200 ms late (an unmapping popup clears it); the bell click
   ending the grab is ignored; the launcher closes the sheet (grab kept its keys). `historyGroups` built only while open
   (day labels fresh past midnight). shell.qml id is `notifCenter` — `notificationCenter: notificationCenter` self-binds
@@ -391,7 +394,7 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   register = empty slot). Validated: stdin size, JSON booleans, regular own state file; bad DPI (never snapped) /
   SmartShift mode refused. hidraw denied → UPower `hidpp_battery` rows stand in. Cabled UPower battery = `usb` via sysfs
   (upstream: wireless). No device hiding (little use, much UI). Strings `services/bt_i18n.js`: English + German only.
-  hidraw is root-only: "Allow access" → `pkexec asahi-logitech-access` writes
+  hidraw is root-only: "Allow access" → `pkexec /usr/local/libexec/asahi-logitech-access` (root-owned installer copy) writes
   `/etc/udev/rules.d/42-asahi-logitech-hidraw.rules` (`KERNELS=="0003:046D:*"` / `0005:046D:*` → uaccess; opt-in, not in
   installer; revoke: replug or `setfacl -b`). Pane scan = `bluetoothctl --timeout 300 scan on` (BlueZ ends discovery
   with its client), restarted after 5 s without `Discovering` (with `--timeout` it never exits on a failed
@@ -411,6 +414,11 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   `iw link` (dBm only `^-?[0-9]{1,3}$`). Open, Enhanced Open, WEP = public, 802.1X = sign-in; no extra probe. BCM4388
   resume fix (omarchy-mac) not ported: post-resume rejects recover in 6–30 s. Tests:
   `asahi/bin/asahi_wifi_band_test.sh`, `asahi/bin/asahi_network_test.sh`.
+- **Captive portals** (omarchy 4.5): `asahi-connectivity.conf` gives NM a plain-HTTP probe (GNOME's documented pair;
+  never an HSTS host); `asahi-network` reports the cached state (`full/limited/portal/none/unknown`); the bar chip
+  tints (`Style.connectivityColor`: red portal, orange limited); the pane shows Sign-in required/Limited + a
+  Sign-into-network pill → `asahi-captive-portal <url>` (flock, xdg-open, C-locale `nmcli check` wait; no window
+  close — never kill the browser). Pane URL == probe URI, test-enforced; rescan re-polls, no extra timer.
 - **Kernel**: self-built `fairydust` (USB-C DP alt mode, not in Fedora) in `~/linux-fairydust`, 16k pages; `asahi-debug`
   accepts `*fairydust*`. Local fixes only in `~/linux-fairydust` (never this repo): brcmfmac `roam_delta` init
   (`WLC_SET_ROAM_DELTA error (-52)`; upstream since asahi-7.2.13 — drop on next rebase), dcp HPD re-sample on resume

@@ -51,6 +51,9 @@ function convertCommand(original, dest, w, h) {
   const height = h == null ? THUMB_H : h
   return [
     "/usr/bin/convert",
+    // Decode hint (before the input): libjpeg renders at reduced scale instead of full size first.
+    "-define",
+    "jpeg:size=" + (width * 2) + "x" + (height * 2),
     original,
     "-thumbnail",
     width + "x" + height + "^",

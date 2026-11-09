@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Open a captive portal's sign-in page, wait until NM reports full, done.
+# Port of omarchy-network-captive-portal minus tailscale (none here) and minus
+# the window close (xdg-open may reuse a tab; never kill the user's browser).
+# Usage: asahi-captive-portal <url>
+
+set -euo pipefail
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
+
+url=${1:?Usage: asahi-captive-portal <url>}
+lock=$(runtime_dir)/asahi-captive-portal.lock
+launcher=0
+
+open_portal_window() {
+  # Background: the wait must start even if no browser is running to take it.
+  xdg-open "$url" >/dev/null 2>&1 &
+  launcher=$!
+}
+
+portal_window_failed() {
+  # A zombie still answers kill -0 (we only reap here), so check the state too: an unreaped dead
+  # launcher would otherwise wait forever instead of exiting 1.
+  local state=""
+  if ((launcher)); then
+    state=$(sed 's/.*) \([A-Z]\).*/\1/' "/proc/$launcher/stat" 2>/dev/null || echo D)
+  fi
+  if ((launcher)) && { [ "$state" = Z ] || ! kill -0 "$launcher" 2>/dev/null; }; then
+    local status=0
+    wait "$launcher" || status=$?
+    launcher=0
+    ((status != 0))
+  else
+    false
+  fi
+}
+
+# Nothing local changes on sign-in, so ask NM to re-check: fast while a
+# sign-in is likely, then gently. nmcli translates: read it in the C locale.
+wait_until_online() {
+  local fast_until=$((SECONDS + 300))
+  until [[ $(LC_ALL=C timeout 5 nmcli networking connectivity check 2>/dev/null) == "full" ]]; do
+    if portal_window_failed; then
+      exit 1
+    fi
+    if ((SECONDS < fast_until)); then
+      sleep 2
+    else
+      sleep 15
+    fi
+  done
+}
+
+exec 9>"$lock"
+if flock -n 9; then
+  open_portal_window
+  wait_until_online
+else
+  # A first click already watches for the sign-in; just resurface the page.
+  open_portal_window
+fi

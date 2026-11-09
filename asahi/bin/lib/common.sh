@@ -2,6 +2,18 @@
 # Helpers shared by the asahi-* scripts. Source, do not execute:
 #
 #   . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
+
+# Session runtime dir for pid files, locks and markers. Falls back to the state dir, never /tmp:
+# fixed names under world-writable /tmp are symlink-stealable when XDG_RUNTIME_DIR is unset (omarchy #8374).
+runtime_dir() {
+  if [ -n "${XDG_RUNTIME_DIR:-}" ]; then
+    printf '%s' "$XDG_RUNTIME_DIR"
+  else
+    local d="${XDG_STATE_HOME:-$HOME/.local/state}/asahi"
+    mkdir -p -m 700 "$d"
+    printf '%s' "$d"
+  fi
+}
 #
 # readlink -f so a script invoked through a symlink (e.g. the
 # ~/.local/bin/asahi-battery-alertd link) still finds this file.
@@ -86,7 +98,7 @@ focused_monitor() {
 # Empty when none. Consulted by everything that re-enables an output, so a
 # hyprctl reload / lid open / HDMI sync does not fall back to monitors.lua.
 saved_scale() {
-  local f="${ASAHI_SCALE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/asahi-monitor-scale}/$1"
+  local f="${ASAHI_SCALE_DIR:-$(runtime_dir)/asahi-monitor-scale}/$1"
   [ -s "$f" ] && tr -d '[:space:]' <"$f" || true
 }
 
@@ -111,7 +123,7 @@ external_on() {
 }
 
 # asahi-idle-brightness's lock: idle dim/off/restore, the brightness keys and keyboard auto never interleave.
-brightness_lock() { printf '%s\n' "${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-brightness.lock"; }
+brightness_lock() { printf '%s\n' "$(runtime_dir)/asahi-idle-brightness.lock"; }
 
 # First line of file $2 into the variable named $1, trimmed, without a fork; empty when unreadable.
 read_line() {
@@ -153,6 +165,13 @@ live_pid() {
   else
     rm -f "$1"
   fi
+}
+
+# True when pid $1 is alive running binary $2 (basename of /proc/pid/exe). Pid files outlive their
+# process and PIDs recycle: never signal on numeric+alive alone, a recycled PID is killed instead.
+is_exe() {
+  [ -n "${1:-}" ] && [[ $1 =~ ^[0-9]+$ ]] || return 1
+  [ "$(basename "$(readlink -f "/proc/$1/exe" 2>/dev/null || echo /none)")" = "${2:-}" ]
 }
 
 # Signal $2 to pid $1, wait up to $3 tenths of a second for it to exit, then SIGKILL.

@@ -27,6 +27,10 @@ Item {
   // False until the first asahi-network answer: show "Checking…" instead of
   // flashing "No network" / "Not connected" for a frame.
   property bool wifiChecked: false
+  // Cached NM state from asahi-network (full/limited/portal/none/unknown); refreshed with every scan.
+  property string netConnectivity: "unknown"
+  // Same URL the NM probe hits (asahi-connectivity.conf): the portal intercepts it. Test-enforced equal.
+  readonly property string portalUrl: "http://nmcheck.gnome.org/check_network_status.txt"
   property bool wifiScanning: false
   property string wifiDevice: ""
   property string wifiTooltip: ""
@@ -420,6 +424,7 @@ Item {
           const d = JSON.parse((text || "").trim() || "{}")
           quickNetworkRoot.wifiTooltip = d.tooltip || ""
           quickNetworkRoot.wifiChecked = true
+          quickNetworkRoot.netConnectivity = d.connectivity || "unknown"
           // Fast first answer while the first scan runs; after that the scan's in-use row owns the SSID.
           const m = (d.tooltip || "").match(/^Connected to (.+)$/m)
           if (m && !quickNetworkRoot.wifiScanned) quickNetworkRoot.currentWifiSsid = m[1].trim()
@@ -920,6 +925,12 @@ Item {
                 visible: !!quickNetworkRoot.wifiQrError && !quickNetworkRoot.wifiQrPath
                 Layout.fillWidth: true; text: quickNetworkRoot.wifiQrError; color: Style.red
               }
+              Secondary {
+                visible: quickNetworkRoot.netConnectivity === "portal" || quickNetworkRoot.netConnectivity === "limited"
+                Layout.fillWidth: true
+                text: quickNetworkRoot.netConnectivity === "portal" ? "Sign-in required" : "Limited connectivity"
+                color: Style.connectivityColor(quickNetworkRoot.netConnectivity)
+              }
             }
             Rectangle {
               visible: !!quickNetworkRoot.wifiQrPath
@@ -944,6 +955,11 @@ Item {
               visible: !!quickNetworkRoot.currentWifiSsid && !!quickNetworkRoot.wifiDevice && quickNetworkRoot.wifiEnabled
               icon: "󰌸"; label: "Disconnect"; fg: Style.red
               onClicked: quickNetworkRoot.disconnectWifi()
+            }
+            Pill {
+              visible: quickNetworkRoot.netConnectivity === "portal"
+              icon: ""; label: "Sign into network"; fg: Style.red
+              onClicked: Quickshell.execDetached([root.binDir + "/asahi-captive-portal", quickNetworkRoot.portalUrl])
             }
             Pill {
               visible: !!quickNetworkRoot.currentWifiSsid && quickNetworkRoot.wifiEnabled

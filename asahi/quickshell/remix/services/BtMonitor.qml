@@ -55,7 +55,8 @@ Singleton {
   Timer { id: restartTimer; interval: 5000; onTriggered: helper.running = true }
   Process {
     id: accessProc
-    command: ["pkexec", root.binDir + "/asahi-logitech-access"]
+    // Root-owned installer copy (omarchy #13047): never pkexec the user-writable checkout.
+    command: ["pkexec", "/usr/local/libexec/asahi-logitech-access"]
     onExited: root.refresh()
   }
 }

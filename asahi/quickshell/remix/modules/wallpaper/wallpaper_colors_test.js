@@ -136,6 +136,9 @@ assert(pyKeys.slice().sort().join() === jsKeys.slice().sort().join(),
   "every --variant the picker offers exists in palette.py and vice versa");
 assert(jsKeys.every(k => C.flavorHint(k) !== ""), "every flavour has a hint");
 assert(C.flavorHint("nope") === "", "unknown flavour has no hint");
+const pyThreshold = /LIGHT_MODE_THRESHOLD = ([0-9.]+)/.exec(palettePy);
+assert(pyThreshold && Number(pyThreshold[1]) === C.LIGHT_MODE_THRESHOLD,
+  "tone threshold matches palette.py, Dark/Light chips predict the real theme");
 
 console.log("\n== autotheme accepts every flavour ==");
 const autotheme = fs.readFileSync(path.join(__dirname, "../../../../bin/asahi-autotheme"), "utf8");

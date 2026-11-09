@@ -55,6 +55,10 @@ Scope {
       const p = WallpaperService.randomWallpaper()
       if (p) WallpaperService.setWallpaper(p)
     }
+    function next(): void {
+      const p = WallpaperService.nextWallpaper()
+      if (p) WallpaperService.setWallpaper(p)
+    }
   }
 
   property var filteredWallpapers: WallpaperService.arranged(root.searchText)

@@ -8,11 +8,11 @@ set -euo pipefail
 
 bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 output_dir="${XDG_VIDEOS_DIR:-$HOME/Videos}"
-pid_file="${XDG_RUNTIME_DIR:-/tmp}/asahi-record.pid"
-log_file="${XDG_RUNTIME_DIR:-/tmp}/asahi-record.log"
+pid_file="$(runtime_dir)/asahi-record.pid"
+log_file="$(runtime_dir)/asahi-record.log"
 # Markers the Quickshell recorder panel reads via `status --json`.
-file_marker="${XDG_RUNTIME_DIR:-/tmp}/asahi-record.file"
-start_marker="${XDG_RUNTIME_DIR:-/tmp}/asahi-record.start"
+file_marker="$(runtime_dir)/asahi-record.file"
+start_marker="$(runtime_dir)/asahi-record.start"
 json=0
 webcam=0
 mode=""
@@ -55,6 +55,8 @@ refresh_bar() {
 recording_pid() {
   local pid
   pid="$(live_pid "$pid_file")"
+  # A stale pid file may name a recycled PID: only wf-recorder itself is stopped.
+  if [ -n "$pid" ] && ! is_exe "$pid" wf-recorder; then pid=""; rm -f "$pid_file"; fi
   if [ -z "$pid" ]; then pid="$(pgrep -u "$UID" -x wf-recorder | head -1 || true)"; fi
   printf '%s\n' "$pid"
 }

@@ -5,8 +5,8 @@
 set -euo pipefail
 . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
 
-pid_file="${XDG_RUNTIME_DIR:-/tmp}/asahi-webcam.pid"
-region_file="${XDG_RUNTIME_DIR:-/tmp}/asahi-record-region"
+pid_file="$(runtime_dir)/asahi-webcam.pid"
+region_file="$(runtime_dir)/asahi-record-region"
 margin=40
 
 usage() {
@@ -50,6 +50,7 @@ first_device() {
 stop_overlay() {
   local pid
   pid="$(live_pid "$pid_file")"
+  if [[ -n $pid ]] && ! is_exe "$pid" mpv; then pid=""; fi
   if [[ -n $pid ]]; then stop_pid "$pid" TERM 20; fi
   rm -f "$pid_file" "$region_file"
 }

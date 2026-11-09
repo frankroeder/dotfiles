@@ -5,7 +5,7 @@ set -euo pipefail
 . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
 
 action="${1:-}"
-state_dir="${ASAHI_IDLE_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-brightness}"
+state_dir="${ASAHI_IDLE_STATE_DIR:-$(runtime_dir)/asahi-idle-brightness}"
 
 usage() {
   echo "usage: $0 <dim|off|keyboard-off|keyboard-restore|restore>" >&2

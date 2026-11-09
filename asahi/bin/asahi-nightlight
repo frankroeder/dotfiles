@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Night light via hyprsunset. Super+Ctrl+N: temperature from hyprsunset.conf, off = identity.
+# Night light via hyprsunset (menu-only: Launcher > Actions). On: temperature from hyprsunset.conf, off = identity.
 
 set -euo pipefail
 

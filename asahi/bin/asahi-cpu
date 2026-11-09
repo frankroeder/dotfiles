@@ -5,7 +5,7 @@
 set -euo pipefail
 . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
 
-state_dir="${ASAHI_CPU_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/asahi-cpu}"
+state_dir="${ASAHI_CPU_STATE_DIR:-$(runtime_dir)/asahi-cpu}"
 mkdir -p "$state_dir"
 
 state_file="$state_dir/cpu.stat"

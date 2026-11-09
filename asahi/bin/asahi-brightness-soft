@@ -10,7 +10,7 @@ monitor="${1:-}"
 step="${2:-}"
 [ -n "$monitor" ] || exit 1
 
-state_dir="${ASAHI_BRIGHTNESS_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/asahi-brightness}"
+state_dir="${ASAHI_BRIGHTNESS_STATE_DIR:-$(runtime_dir)/asahi-brightness}"
 mkdir -p "$state_dir"
 # Connector names are HDMI-A-1 / DP-1; strip anything outside [A-Za-z0-9._-].
 safe="${monitor//[^A-Za-z0-9._-]/_}"

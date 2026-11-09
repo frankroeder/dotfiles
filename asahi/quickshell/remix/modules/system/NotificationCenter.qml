@@ -119,11 +119,14 @@ Scope {
       urgency: Number(n.urgency),
       // App-requested lifetime: the raw D-Bus value in ms (notify-send -t); <= 0 = server default.
       expire: Number(n.expireTimeout) || 0,
+      transient: !!n.transient,
       ts: Date.now(),
       count: 1,
       actions: Model.actionList(n.actions)
     }
-    e.group = appLabel(e).toLowerCase()
+    // Truly anonymous senders (no name at all) get their own deck: grouping them under "notification"
+    // collapsed the whole first-login burst into one stack (omarchy #16515).
+    e.group = (e.appName || e.desktopEntry) ? appLabel(e).toLowerCase() : "anon:" + e.key
     e.codes = Model.detectCodes(e.summary + "\n" + e.body)
     return e
   }
@@ -178,11 +181,13 @@ Scope {
   }
 
   // Focus the sender's most recently used window by class (never-focused ones are -1: last). Never runs
-  // anything the notification carried.
+  // anything the notification carried. The normalized fallback ("Firefox Developer Edition" vs
+  // firefoxdeveloperedition) catches multi-word names the exact match misses (omarchy #16380).
   function focusApp(entry) {
     Quickshell.execDetached(["sh", "-c",
       "a=$(hyprctl clients -j | jq -r --arg d \"$1\" --arg n \"$2\" " +
-      "'[.[] | select((.class | ascii_downcase) as $c | $c == ($d | ascii_downcase) or $c == ($n | ascii_downcase))]" +
+      "'[.[] | select((.class | ascii_downcase) as $c | $c == ($d | ascii_downcase) or $c == ($n | ascii_downcase) " +
+      "or (($c | gsub(\"[^a-z0-9]\";\"\")) == (($n | ascii_downcase) | gsub(\"[^a-z0-9]\";\"\")) and ($n | length) > 0))]" +
       " | sort_by(if .focusHistoryID < 0 then 1e9 else .focusHistoryID end) | .[0].address // empty'); " +
       "[ -n \"$a\" ] && hyprctl dispatch \"hl.dsp.focus({ window = \\\"address:$a\\\" })\"",
       "sh", entry.desktopEntry || "", entry.appName || ""])
@@ -197,6 +202,8 @@ Scope {
   onDndEnabledChanged: save()
 
   function addHistory(entry) {
+    // Transient cards (volume OSDs and friends) toast but are never looked back at: skip history.
+    if (entry.transient) return
     let next = root.history.slice()
     if (entry.appName === "Asahi Battery") next = next.filter(item => item.appName !== "Asahi Battery")
     next.unshift(entry)
@@ -474,8 +481,27 @@ Scope {
     dndEnabled = !dndEnabled
   }
 
-  // Super+comma dismisses the newest popup; Super+Shift+comma dismisses everything, popups and the
-  // saved list (popups only did nothing once they had timed out).
+  // Super+comma acts on the newest popup (omarchy 4.5): its default action when it has one, its
+  // one button when it has exactly one, else what a click does (focus the sender, dismiss). Upstream
+  // takes the keyboard with more; the history sheet covers that here.
+  function act() {
+    if (root.shownToasts.length === 0) return
+    const entry = root.shownToasts[0]
+    const n = root.refs[entry.key]
+    let clickable = false
+    if (n) for (let i = 0; i < n.actions.length; i++) if (n.actions[i].identifier === "default") clickable = true
+    if (clickable) { root.activate(entry); return }
+    const deeds = (entry.actions || []).length + (entry.codes || []).length
+    if (deeds === 1) {
+      if ((entry.actions || []).length === 1) {
+        root.runButton(entry.key, { id: entry.actions[0].id })
+      } else root.copySecret(entry.codes[0])
+      root.closeToast(entry.key, "dismiss")
+      return
+    }
+    root.activate(entry)
+  }
+
   function dismissOne() {
     if (root.shownToasts.length > 0) closeToast(root.shownToasts[0].key, "dismiss")
   }
@@ -523,6 +549,7 @@ Scope {
     function toggleHistory(): void { root.toggleHistory() }
     function clear(): void { root.clearHistory() }
     function toggleDnd(): void { root.toggleDnd() }
+    function act(): void { root.act() }
     function dismissOne(): void { root.dismissOne() }
     function dismissAll(): void { root.dismissAll() }
   }
@@ -893,13 +920,15 @@ Scope {
     implicitHeight: cardBody.implicitHeight + 22
     clip: true
 
-    // Upstream timeout rules: critical stays until dismissed; the app's expire time wins over 6 s.
-    // Counted down in steps, so a pause (pointer on the card or an open deck, a drag) keeps what is
-    // left; a new arrival (×N, sender update) starts over.
+    // Upstream timeout rules (omarchy 4.5): critical stays until dismissed; the app's expire time
+    // wins over an urgency minimum (low 5 s, else 8 s), capped at 30 s. Counted down in steps, so a
+    // pause (pointer on the card or an open deck, a drag) keeps what is left; a new arrival (×N,
+    // sender update) starts over.
     readonly property int lifeMs: {
       if (!card.entry || card.critical) return 0
       const e = Number(card.entry.expire) || 0
-      return e > 0 ? e : 6000
+      const base = card.entry.urgency === 0 ? 5000 : 8000
+      return Math.min(30000, Math.max(base, e))
     }
     property int remaining: 0
     readonly property real arrival: card.entry ? card.entry.ts : 0
@@ -951,7 +980,7 @@ Scope {
       property bool dragging: false
       anchors.fill: parent
       hoverEnabled: true
-      acceptedButtons: Qt.LeftButton | Qt.RightButton
+      acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
       cursorShape: dragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
       onPressed: (mouse) => { startX = mouse.x; dragging = false; preventStealing = false }
       onPositionChanged: (mouse) => {
@@ -966,7 +995,7 @@ Scope {
       }
       onClicked: (mouse) => {
         if (dragging) { dragging = false; return }
-        mouse.button === Qt.RightButton ? card.dismiss() : card.activated()
+        mouse.button === Qt.LeftButton ? card.activated() : card.dismiss()
       }
     }
 

@@ -161,6 +161,8 @@ def _hyprland_lua(p: Palette) -> str:
     # Borders + groupbar: dofile()d at startup (general.lua) and eval'd live.
     active = _hex_rgb(p.accent)
     secondary = _hex_rgb(p.mauve)
+    locked = _hex_rgb(p.yellow)
+    locked2 = _hex_rgb(p.peach)
     inactive = _hex_rgb(p.surface1)
     text = _hex_rgb(p.text)
     muted = _hex_rgb(p.subtext0)
@@ -173,6 +175,8 @@ def _hyprland_lua(p: Palette) -> str:
   group = {{
     ["col.border_active"] = {{ colors = {{ "rgb({active})", "rgb({secondary})" }}, angle = 45 }},
     ["col.border_inactive"] = "rgb({inactive})",
+    ["col.border_locked_active"] = {{ colors = {{ "rgb({locked})", "rgb({locked2})" }}, angle = 45 }},
+    ["col.border_locked_inactive"] = "rgb({inactive})",
     groupbar = {{
       text_color = "rgb({text})",
       text_color_inactive = "rgba({muted}90)",
@@ -516,8 +520,38 @@ def write_all(p: Palette) -> dict[str, Path]:
     return paths
 
 
+def tmux_osc_sequences(p: Palette) -> str:
+    """OSC palette for live tmux panes (omarchy-theme-osc shape): fg/bg/cursor/selection + 16 ANSI."""
+    seqs = [
+        f"\033]10;{p.foreground}\007",
+        f"\033]11;{p.background}\007",
+        f"\033]12;{p.accent}\007",
+        f"\033]17;{p.selection}\007",
+    ]
+    seqs += [f"\033]4;{i};{c}\007" for i, c in enumerate(_term16(p))]
+    return "".join(seqs)
+
+
+def push_tmux_palette(p: Palette) -> None:
+    """Recolor every live tmux pane's tty (omarchy 4.5): no-op without a server. Best effort per tty."""
+    if not shutil.which("tmux"):
+        return
+    panes = subprocess.run(["tmux", "list-panes", "-a", "-F", "#{pane_tty}"], capture_output=True, text=True)
+    ttys = sorted({t for t in panes.stdout.split() if t.startswith("/dev/pts/")})
+    if not ttys:
+        return
+    blob = tmux_osc_sequences(p).encode()
+    for tty in ttys:
+        try:
+            with open(tty, "wb") as f:
+                f.write(blob)
+        except OSError:
+            pass
+
+
 def apply_live(p: Palette) -> None:
     apply_gtk_settings(p)
     apply_hyprland_live(p)
     reload_ghostty()
     reload_btop()
+    push_tmux_palette(p)

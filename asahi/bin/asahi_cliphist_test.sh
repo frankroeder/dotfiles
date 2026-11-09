@@ -101,6 +101,8 @@ if command -v cliphist >/dev/null 2>&1; then
   else
     fail_at "could not store delete marker"
   fi
+  if "$CLIP" delete '../x' 2>/dev/null; then fail_at "delete accepted traversal id"; else pass "delete rejects non-numeric id"; fi
+  if "$CLIP" copy '1;id' 2>/dev/null; then fail_at "copy accepted inject id"; else pass "copy rejects non-numeric id"; fi
 
   # Proton flow on a fresh db: password copied in Firefox is dropped, its auto-clear ("") must
   # not delete the entry before it.

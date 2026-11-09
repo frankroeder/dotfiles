@@ -74,6 +74,7 @@ Singleton {
   function setFlavor(name) {
     if (!name || name === root.flavor) return
     root.flavor = name
+    root.rememberFlavor(root.currentWallpaper)
     if (root.previewPath !== "") { root.flavorDirty = true; previewThemeDelay.restart(); return }
     root.applyFlavor()
   }
@@ -114,6 +115,29 @@ Singleton {
   function randomWallpaper(list) {
     const l = list || root.wallpapers
     return l.length ? l[Math.floor(Math.random() * l.length)] : ""
+  }
+  // Next in scanner order, wrapping (omarchy bg-next): predictable, filter-independent.
+  function nextWallpaper() {
+    const l = root.wallpapers || []
+    if (!l.length) return ""
+    return l[(l.indexOf(root.currentWallpaper) + 1) % l.length]
+  }
+  // Each wallpaper remembers its last flavour (omarchy per-theme bg memory): re-picking one
+  // restores it instead of the current flavour.
+  property var flavorMemory: ({})
+  FileView {
+    id: flavorMapFile
+    path: stateHome + "/quickshell/wallpaper-flavors.json"
+    blockLoading: true
+    printErrors: false
+    onLoaded: {
+      try { root.flavorMemory = JSON.parse(flavorMapFile.text() || "{}") } catch (_) {}
+    }
+  }
+  function rememberFlavor(path) {
+    if (!path || root.flavorMemory[path] === root.flavor) return
+    root.flavorMemory[path] = root.flavor
+    flavorMapFile.setText(JSON.stringify(root.flavorMemory))
   }
 
   Timer {
@@ -307,7 +331,10 @@ Singleton {
     root.previewPath = ""
     root.previewApplied = false
     root.flavorDirty = false   // the autotheme call below writes the flavour anyway
+    const remembered = root.flavorMemory[path]
+    if (remembered && remembered !== root.flavor) root.flavor = remembered
     currentWallpaper = path
+    root.rememberFlavor(path)
 
     // Always save the choice
     saveProcess.command = ["sh", "-c", "mkdir -p \"$(dirname \"$1\")\" \"$(dirname \"$3\")\" && printf \"%s\" \"$2\" > \"$1\" && ln -sfn \"$2\" \"$3\"", "sh", root.wallpaperConf, path, root.lockWallpaper]

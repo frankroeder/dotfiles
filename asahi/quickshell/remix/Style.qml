@@ -19,6 +19,14 @@ Singleton {
     return Qt.alpha(Wallpaper.DefaultTheme[name], a)
   }
 
+  // Captive-portal / limited-link tint, shared by the bar chip and the Network pane.
+  // "" when fine: callers fall back to their own default (`|| Style.blueAlt`).
+  function connectivityColor(state) {
+    if (state === "portal") return red
+    if (state === "limited") return orange
+    return ""
+  }
+
   readonly property color accent: themed("accent")
 
   readonly property color moduleBg:  themed("surface0")

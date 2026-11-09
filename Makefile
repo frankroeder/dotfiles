@@ -11,6 +11,7 @@ DOTFILES := $(CURDIR)
 OSTYPE := $(shell uname -s)
 ARCHITECTURE := $(shell uname -m)
 INSTALL := $(DOTFILES)/install.sh
+TEST_LOG := /tmp/asahi-test-last.log
 
 # Override: make test CONTAINER_CMD=container  (podman | docker | container)
 CONTAINER_CMD ?= $(shell \
@@ -115,11 +116,11 @@ endif
 
 .PHONY: test-asahi
 test-asahi: ## Run every Asahi test (fakes or read-only): Quickshell JS, asahi/bin shell + Python, theme, Lua syntax
-	@for t in $$(find $(DOTFILES)/asahi -name '*_test.js' | sort); do node "$$t" >/dev/null || { echo "FAIL $$t"; exit 1; }; done
-	@for t in $(DOTFILES)/asahi/bin/*_test.sh; do bash "$$t" >/dev/null || { echo "FAIL $$t"; exit 1; }; done
-	@for t in $(DOTFILES)/asahi/bin/*_test.py; do uv run --no-project python "$$t" >/dev/null 2>&1 || { echo "FAIL $$t"; exit 1; }; done
-	@uv run --no-project --with pytest python -m pytest -q $(DOTFILES)/asahi/theme/tests >/dev/null || { echo "FAIL asahi/theme/tests"; exit 1; }
-	@for f in $(DOTFILES)/asahi/hypr/hyprland.lua $(DOTFILES)/asahi/hypr/conf.d/*.lua; do luac -p "$$f"; done
+	@for t in $$(find $(DOTFILES)/asahi -name '*_test.js' | sort); do node "$$t" >$(TEST_LOG) 2>&1 || { echo "FAIL $$t"; tail -15 $(TEST_LOG); exit 1; }; done
+	@for t in $(DOTFILES)/asahi/bin/*_test.sh; do bash "$$t" >$(TEST_LOG) 2>&1 || { echo "FAIL $$t"; tail -15 $(TEST_LOG); exit 1; }; done
+	@for t in $(DOTFILES)/asahi/bin/*_test.py; do uv run --no-project python "$$t" >$(TEST_LOG) 2>&1 || { echo "FAIL $$t"; tail -15 $(TEST_LOG); exit 1; }; done
+	@uv run --no-project --with pytest python -m pytest -q $(DOTFILES)/asahi/theme/tests >$(TEST_LOG) 2>&1 || { echo "FAIL asahi/theme/tests"; tail -15 $(TEST_LOG); exit 1; }
+	@for f in $(DOTFILES)/asahi/hypr/hyprland.lua $(DOTFILES)/asahi/hypr/conf.d/*.lua; do luac -p "$$f" || { echo "FAIL $$f"; exit 1; }; done
 	@echo "asahi tests: all ok"
 
 .PHONY: test

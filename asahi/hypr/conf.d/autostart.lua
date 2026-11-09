@@ -32,7 +32,7 @@ hl.on("hyprland.start", function()
   -- cgroup (a crash restart kills the lock screen: lockdead), and `qs ipc` from the unit's env (no
   -- QT_QPA_PLATFORM) cannot find the shell, so dim and saver would fail silently.
   hl.exec_cmd "hypridle"
-  -- Identity profile in hyprsunset.conf: no tint until Super+Ctrl+N. The last session's state would
+  -- Identity profile in hyprsunset.conf: no tint until the Actions toggle. The last session's state would
   -- show the bar chip lit without a tint.
   hl.exec_cmd "rm -f ~/.local/state/asahi/nightlight.json; hyprsunset"
   hl.exec_cmd(dotfilesDir .. "/asahi/bin/asahi-hdmi sync")

@@ -73,8 +73,9 @@ ensure_sudo() {
   else
     sudo -v
   fi
-  # Under sudo's default 5 min timestamp_timeout.
-  ( while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null & )
+  # Under sudo's default 5 min timestamp_timeout. The loop exits once a refresh fails
+  # (revoked ticket): a spinning keepalive would otherwise mask the lost auth.
+  ( while sudo -n true 2>/dev/null; do sleep 60; kill -0 "$$" || exit; done & )
 }
 
 # sudo_install SRC DST [MODE] : install as root (default 644); a failure stops the installer.

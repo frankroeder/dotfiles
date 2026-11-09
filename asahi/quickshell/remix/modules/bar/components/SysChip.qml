@@ -80,7 +80,7 @@ Item {
       visible: root.showTemp
       icon: "󰔏"
       iconPx: Style.barFontGlyphTall
-      suffix: "°"
+      suffix: "°C"
       readonly property real t: root.barHost ? root.barHost.tempAvg : -1
       accent: t >= 75 ? Style.red : t >= 60 ? Style.yellow : Style.teal
       value: t

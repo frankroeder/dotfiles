@@ -149,7 +149,7 @@ Scope {
     root.ops = []
     root.busy = true
     root.stopRun()
-    const p = runComp.createObject(root, { gen: root.gen, command: [root.bin, "run", key, root.original] })
+    const p = runComp.createObject(root, { gen: root.gen, command: [root.bin, "run", key], pending: root.original })
     root.runProc = p
     p.running = true
   }
@@ -192,8 +192,20 @@ Scope {
 
   function replace() {
     if (!root.done || !root.canReplace) return
-    Quickshell.execDetached([root.bin, "replace", root.cap.address, root.suggestion])
+    // A Process, not execDetached: the suggestion travels on stdin (argv is ps-visible).
+    replaceProc.command = [root.bin, "replace", root.cap.address]
+    replaceProc.pending = root.suggestion
+    replaceProc.stdinEnabled = true
+    if (replaceProc.running) replaceProc.running = false
+    replaceProc.running = true
     root.close()
+  }
+
+  Process {
+    id: replaceProc
+    property string pending: ""
+    stdinEnabled: true
+    onStarted: { if (replaceProc.pending !== "") write(replaceProc.pending); stdinEnabled = false }
   }
 
   Process {
@@ -213,6 +225,9 @@ Scope {
     Process {
       id: proc
       property int gen: 0
+      property string pending: ""
+      stdinEnabled: true
+      onStarted: { if (proc.pending !== "") write(proc.pending); stdinEnabled = false }
       stdout: SplitParser { onRead: line => { if (proc.gen === root.gen) root.onLine(line) } }
       onExited: {
         if (proc.gen === root.gen) { root.runProc = null; root.finish() }

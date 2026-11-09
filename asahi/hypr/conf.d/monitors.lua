@@ -4,7 +4,7 @@ hl.monitor {
   output = "eDP-1",
   mode = "3024x1964@120.000",
   position = "0x0",
-  scale = 1.333334,
+  scale = 2.0,
 }
 
 -- Known panels are desc:-keyed, so HDMI-A-1 and a USB-C DP-* share

@@ -551,6 +551,9 @@ comp_asahi_system() {
   # Wi-Fi power save off (idle naps add latency, no gain here). NetworkManager reads it at start.
   sudo_install "$DOTFILES/asahi/NetworkManager/conf.d/asahi-wifi-powersave.conf" \
     /etc/NetworkManager/conf.d/asahi-wifi-powersave.conf
+  # Connectivity probe so NM reports portal/limited/full (pane sign-in + chip warn). Same URI the pane opens.
+  sudo_install "$DOTFILES/asahi/NetworkManager/conf.d/asahi-connectivity.conf" \
+    /etc/NetworkManager/conf.d/asahi-connectivity.conf
   # zram is the only swap: zstd + swap-friendly VM knobs.
   print_step "zram: zstd + sysctl tuning"
   sudo_install "$DOTFILES/asahi/sysctl.d/99-asahi-zram.conf" /etc/sysctl.d/99-asahi-zram.conf
@@ -839,7 +842,9 @@ EOF
     mkdir -p "$profile/extensions"
     if [ ! -f "$profile/extensions/caelestiafox@caelestia.org.xpi" ]; then
       curl -fsSL https://addons.mozilla.org/firefox/downloads/latest/caelestiafox/latest.xpi \
-        -o "$profile/extensions/caelestiafox@caelestia.org.xpi"
+        -o "$profile/extensions/caelestiafox@caelestia.org.xpi.tmp" \
+        && mv "$profile/extensions/caelestiafox@caelestia.org.xpi.tmp" "$profile/extensions/caelestiafox@caelestia.org.xpi" \
+        || { rm -f "$profile/extensions/caelestiafox@caelestia.org.xpi.tmp"; print_error "CaelestiaFox XPI download failed"; }
     fi
   done
   if [ "$found" = 0 ]; then
@@ -849,6 +854,13 @@ EOF
     [ -d "$profile" ] || continue
     ln -sfn "$DOTFILES/asahi/thunderbird/user.js" "$profile/user.js"
   done
+  # Logitech hidraw helper: pkexec runs the root-owned copy, never the user-writable checkout
+  # (a swapped script would run as root). Reinstall refreshes it; BtMonitor points at this path.
+  if [ -n "$NOSUDO" ]; then
+    print_warning "asahi-logitech-access needs /usr/local/libexec; skipping"
+  else
+    sudo_install "$DOTFILES/asahi/bin/asahi-logitech-access" /usr/local/libexec/asahi-logitech-access 755
+  fi
 }
 
 comp_asahi_battery_alerts() {
@@ -1071,6 +1083,7 @@ comp_doctor() {
     report_check "charge-limit udev" test -f /etc/udev/rules.d/99-asahi-charge-limit.rules
     report_check "charge-limit oneshot" test -f /etc/systemd/system/asahi-charge-limit.service
     report_check "asahi-charge-limit libexec" test -x /usr/local/libexec/asahi-charge-limit
+    report_check "asahi-logitech-access libexec" test -x /usr/local/libexec/asahi-logitech-access
     report_check "ALS keyboard backlight unit" test -L "$HOME/.config/systemd/user/asahi-brightness-keyboard-auto.service"
     report_check "ALS keyboard backlight helper" test -x "$HOME/.local/bin/asahi-brightness-keyboard-auto"
     if [ -w /sys/class/power_supply/macsmc-battery/charge_control_end_threshold ]; then
@@ -1082,6 +1095,13 @@ comp_doctor() {
     check_link "$HOME/.config/quickshell"
     check_link "$HOME/.config/kwalletrc"
     check_link "$HOME/.config/Thunar/uca.xml"
+    report_check "suspend-failed unit" test -f /etc/systemd/system/asahi-suspend-failed.service
+    report_check "battery-alertd unit" systemctl --user is-enabled asahi-battery-alertd.service
+    report_check "timemachine timer" systemctl --user is-enabled asahi-timemachine.timer
+    report_check "vconsole.conf" test -f /etc/vconsole.conf
+    report_check "zram config" test -f /etc/systemd/zram-generator.conf.d/90-asahi.conf
+    report_check "zram sysctl" test -f /etc/sysctl.d/99-asahi-zram.conf
+    report_check "keyring-pam" grep -q '^auth.*pam_gnome_keyring' /etc/pam.d/login
   fi
   print_step "Checking config symlinks"
   local l

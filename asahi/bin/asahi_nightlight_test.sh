@@ -123,10 +123,16 @@ else
 fi
 
 bind="$ROOT/../hypr/conf.d/bindings.lua"
-if grep -q 'CONTROL + N' "$bind" && grep -q 'asahi-nightlight' "$bind"; then
-  pass "Super+Ctrl+N bind"
+if grep -q 'asahi-nightlight' "$bind"; then
+  fail_at "nightlight still bound (menu-only now)"
 else
-  fail_at "missing Super+Ctrl+N bind"
+  pass "no nightlight bind"
+fi
+actions="$ROOT/../quickshell/remix/modules/launcher/LauncherWindow.qml"
+if grep -q 'key: "nightlight"' "$actions"; then
+  pass "nightlight in Launcher Actions"
+else
+  fail_at "nightlight missing from Launcher Actions"
 fi
 if grep -q 'temperature = 1500' "$ROOT/../hypr/hyprsunset.conf"; then
   pass "conf night temp 1500"

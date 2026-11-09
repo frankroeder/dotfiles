@@ -4,8 +4,9 @@
 #   asahi-stay-awake toggle
 #   asahi-stay-awake status            exit 0 when awake mode is on
 set -u
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
 
-flag="${XDG_RUNTIME_DIR:-/tmp}/asahi-stay-awake"
+flag="$(runtime_dir)/asahi-stay-awake"
 
 case "${1:-status}" in
   toggle) if [ -e "$flag" ]; then rm -f "$flag"; else : >"$flag"; fi ;;

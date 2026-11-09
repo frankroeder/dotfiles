@@ -9,6 +9,7 @@
 #
 
 set -euo pipefail
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
 
 if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
   echo "usage: $0" >&2
@@ -17,7 +18,7 @@ fi
 
 proc_root="${ASAHI_PROC_ROOT:-/proc}"
 sys_root="${ASAHI_SYS_ROOT:-/sys}"
-state_file="${ASAHI_METRICS_STATE:-${XDG_RUNTIME_DIR:-/tmp}/asahi-metrics.stat}"
+state_file="${ASAHI_METRICS_STATE:-$(runtime_dir)/asahi-metrics.stat}"
 
 now_ms="$(date +%s%3N 2>/dev/null || true)"
 case "$now_ms" in

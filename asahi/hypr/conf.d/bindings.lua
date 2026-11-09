@@ -5,12 +5,17 @@ local function quick(key)
   return "qs -c remix ipc call launcher quick " .. key
 end
 
+local function focused_ghostty()
+  local w = hl.get_active_window()
+  if w and w.class == "com.mitchellh.ghostty" then return w end
+end
+
 -- Apps and windows
 -- On a focused Ghostty, Super+T is its own new-window key (ctrl+shift+n): the window inherits the
 -- cwd (window-inherit-working-directory). Anywhere else a fresh terminal.
 hl.bind(mod .. " + T", function()
-  local w = hl.get_active_window()
-  if w and w.class == "com.mitchellh.ghostty" then
+  local w = focused_ghostty()
+  if w then
     hl.dispatch(hl.dsp.send_shortcut { mods = "CTRL + SHIFT", key = "N", window = "address:" .. w.address })
   else
     hl.dispatch(hl.dsp.exec_cmd(launch(terminal)))
@@ -22,6 +27,11 @@ hl.bind(
   mod .. " + SHIFT + W",
   hl.dsp.exec_cmd "qs -c remix ipc call wallpaper toggle",
   { desc = "Wallpaper picker" }
+)
+hl.bind(
+  mod .. " + B",
+  hl.dsp.exec_cmd "qs -c remix ipc call wallpaper next",
+  { desc = "Next wallpaper" }
 )
 -- Writing tools on the selection (copied with Ctrl+C; primary in terminals): proofread / rewrite / concise.
 hl.bind(mod .. " + SHIFT + E", hl.dsp.global "quickshell:writing-tools", { desc = "Writing tools" })
@@ -100,6 +110,24 @@ hl.bind(
   { desc = "Quick terminal" }
 )
 
+-- Universal clipboard (omarchy 4.5): macOS muscle memory everywhere. Explicit mods, no window
+-- target: reaches layer surfaces too (a wtype chord would merge the held Super). Down/up split:
+-- send_shortcut sometimes leaves synthetic state stuck. No Super+C: Center owns it (needs sign-off).
+local function send_shortcut_once(mods, key)
+  return function()
+    hl.dispatch(hl.dsp.send_key_state { mods = mods, key = key, state = "down" })
+    hl.timer(function()
+      hl.dispatch(hl.dsp.send_key_state { mods = mods, key = key, state = "up" })
+    end, { timeout = 50, type = "oneshot" })
+  end
+end
+hl.bind(mod .. " + A", send_shortcut_once("CTRL", "A"), { desc = "Select all" })
+hl.bind(mod .. " + V", function()
+  if focused_ghostty() then send_shortcut_once("CTRL SHIFT", "V")()
+  else send_shortcut_once("CTRL", "V")() end
+end, { desc = "Paste (terminal-aware)" })
+hl.bind(mod .. " + X", send_shortcut_once("CTRL", "X"), { desc = "Cut" })
+
 -- Floating
 hl.bind(mod .. " + SHIFT + T", hl.dsp.exec_cmd(scripts .. "/asahi-window-gesture float"), { desc = "Toggle floating" })
 hl.bind(mod .. " + C", hl.dsp.window.center(), { desc = "Center floating window" })
@@ -123,7 +151,7 @@ hl.bind(mod .. " + CONTROL + V", hl.dsp.exec_cmd(quick "clipboard"), { desc = "C
 hl.bind(mod .. " + CONTROL + R", hl.dsp.exec_cmd(quick "backup"), { desc = "Backup / restore" })
 hl.bind(mod .. " + CONTROL + T", hl.dsp.exec_cmd(scripts .. "/asahi-sysmon"), { desc = "Activity monitor" })
 hl.bind(mod .. " + CONTROL + I", hl.dsp.exec_cmd(scripts .. "/asahi-stay-awake toggle"), { desc = "Stay awake" })
-hl.bind(mod .. " + CONTROL + N", hl.dsp.exec_cmd(scripts .. "/asahi-nightlight"), { desc = "Night light" })
+-- Night light is menu-only (omarchy 4.5): Launcher > Actions > Night light toggle. No bind: N stays free for windows.
 hl.bind(
   mod .. " + CONTROL + E",
   hl.dsp.exec_cmd "qs -c remix ipc call launcher openCategory Emoji",
@@ -194,6 +222,11 @@ hl.bind(mod .. " + ALT + SHIFT + XF86AudioRaiseVolume", hl.dsp.exec_cmd(scripts 
 -- Notifications: the whole family lives on comma.
 hl.bind(
   mod .. " + comma",
+  hl.dsp.exec_cmd "qs -c remix ipc call notifications act",
+  { desc = "Act on newest notification" }
+)
+hl.bind(
+  mod .. " + ALT + comma",
   hl.dsp.exec_cmd "qs -c remix ipc call notifications dismissOne",
   { desc = "Dismiss last notification" }
 )
@@ -208,7 +241,7 @@ hl.bind(
   { desc = "Toggle notification DND" }
 )
 hl.bind(
-  mod .. " + ALT + comma",
+  mod .. " + CONTROL + ALT + comma",
   hl.dsp.exec_cmd "qs -c remix ipc call notifications toggleHistory",
   { desc = "Notification history" }
 )

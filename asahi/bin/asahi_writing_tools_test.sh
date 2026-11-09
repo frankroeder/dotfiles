@@ -60,7 +60,14 @@ jq -e '.text == "" and .address == ""' <<<"$out" >/dev/null 2>&1 \
 # Fake curl: keeps the request body, answers with a short SSE stream.
 cat >"$tmp/bin/curl" <<'EOF'
 #!/bin/sh
-cat >"$FAKE/request"
+data=""; prev=""
+for a in "$@"; do
+  [ "$prev" = "--data-binary" ] && data="$a"
+  prev="$a"
+done
+case "$data" in
+  "@"*) cat "${data#@}" >"$FAKE/request" ;;
+esac
 printf 'event: content_block_delta\ndata: {"type":"content_block_delta","delta":{"type":"text_delta","text":"term: x"}}\n\n'
 printf 'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"}}\n'
 EOF
@@ -75,6 +82,9 @@ jq -e '.system | startswith("You edit the text") and contains("Proofread:")' "$t
   && pass "proofread keeps the edit rules + its instruction" || fail_at "proofread request: $(cat "$tmp/request")"
 ANTHROPIC_API_KEY=fake "$ROOT/asahi-writing-tools" run nope "x" >/dev/null 2>&1 && fail_at "unknown mode accepted" \
   || pass "unknown mode refused"
+printf 'Fernweh\n\n' | ANTHROPIC_API_KEY=fake "$ROOT/asahi-writing-tools" run define >/dev/null
+jq -e '.messages[0].content == "<text>\nFernweh\n\n\n</text>"' "$tmp/request" >/dev/null \
+  && pass "stdin text works, trailing newlines kept" || fail_at "stdin request: $(cat "$tmp/request")"
 
 if [ "$fail" -ne 0 ]; then
   echo "asahi_writing_tools_test.sh: FAILED"

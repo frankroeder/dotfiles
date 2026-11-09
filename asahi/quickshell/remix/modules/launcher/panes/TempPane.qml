@@ -136,7 +136,7 @@ Item {
           accent: quickTempRoot.hottestSensor ? quickTempRoot.tempColor(hot) : Style.m3outline
           label: "Hottest"
           icon: "󰔏"
-          suffix: "°"
+          suffix: "°C"
           fontFamily: root.uiFont
           labelFamily: root.uiSans
         }

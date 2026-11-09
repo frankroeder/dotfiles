@@ -2,9 +2,10 @@
 # cliphist JSON for the remix launcher. Decode cache lives under $XDG_RUNTIME_DIR.
 
 set -euo pipefail
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
 
 limit=80
-cache_dir="${XDG_RUNTIME_DIR:-/tmp}/asahi-cliphist"
+cache_dir="$(runtime_dir)/asahi-cliphist"
 self="$(readlink -f "${BASH_SOURCE[0]}")"
 
 usage() {
@@ -21,7 +22,11 @@ from shutil import which
 
 limit = int(sys.argv[1])
 cache = sys.argv[2]
-os.makedirs(cache, exist_ok=True)
+os.makedirs(cache, mode=0o700, exist_ok=True)
+try:
+    os.chmod(cache, 0o700)
+except OSError:
+    pass
 
 if which("cliphist") is None:
     print(json.dumps({"error": "cliphist-missing", "entries": []}))
@@ -52,6 +57,7 @@ for line in raw.splitlines()[:limit]:
                     tmp = dest + ".tmp"
                     with open(tmp, "wb") as fh:
                         fh.write(data)
+                    os.chmod(tmp, 0o600)
                     os.replace(tmp, dest)
             except (OSError, subprocess.CalledProcessError):
                 dest = ""
@@ -70,14 +76,15 @@ PY
 
 copy_id() {
   local id="${1:-}"
-  [ -n "$id" ] || return 1
+  [[ $id =~ ^[0-9]+$ ]] || return 1
   cliphist decode "$id" | wl-copy
 }
 
 delete_id() {
   local id="${1:-}"
   local line
-  [ -n "$id" ] || return 1
+  # Digits only: the id lands in a grep pattern and a cache path (traversal + regex inject).
+  [[ $id =~ ^[0-9]+$ ]] || return 1
   # cliphist delete reads a `list` line from stdin; argv is ignored.
   line="$(cliphist list 2>/dev/null | grep -m1 -e "^${id}"$'\t' || true)"
   if [ -n "$line" ]; then
@@ -192,7 +199,7 @@ seed_current() {
 ensure_watch() {
   local text_started=0
   # The launcher may call `watch` twice at once; the flock stops both starting a watcher per type.
-  exec {watch_lock}>"${XDG_RUNTIME_DIR:-/tmp}/asahi-cliphist-watch.lock"
+  exec {watch_lock}>"$(runtime_dir)/asahi-cliphist-watch.lock"
   flock -n "$watch_lock" || return 0
   if ! watcher_running text; then
     start_watcher text

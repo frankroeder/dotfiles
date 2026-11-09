@@ -23,7 +23,7 @@ set -euo pipefail
 bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 . "$bin/lib/common.sh"
 
-flag="${ASAHI_CLAMSHELL_FLAG:-${XDG_RUNTIME_DIR:-/tmp}/asahi-clamshell}"
+flag="${ASAHI_CLAMSHELL_FLAG:-$(runtime_dir)/asahi-clamshell}"
 drm_path="${ASAHI_DRM_PATH:-/sys/class/drm}"
 
 edp_disabled() {

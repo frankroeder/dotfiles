@@ -38,9 +38,16 @@ if echo "$out" | jq -e 'has("vpn") and has("vpnSince") and has("vpnName")' >/dev
 else
   fail_at "live JSON missing vpn keys: $out"
 fi
-# BarData.qml reads text / name / vpn*, NetworkPane.qml the tooltip: nothing else.
-echo "$out" | jq -e 'keys == ["name", "text", "tooltip", "vpn", "vpnName", "vpnSince"]' >/dev/null \
+# BarData.qml reads text / name / vpn* / connectivity, NetworkPane.qml the tooltip + connectivity: nothing else.
+echo "$out" | jq -e 'keys == ["connectivity", "name", "text", "tooltip", "vpn", "vpnName", "vpnSince"]' >/dev/null \
   && pass "live JSON has only the read keys" || fail_at "live JSON keys: $out"
+echo "$out" | jq -e '.connectivity | IN("full", "limited", "portal", "none", "unknown")' >/dev/null \
+  && pass "connectivity is a known NM state" || fail_at "connectivity value: $out"
+
+# The pane opens the same URL the NM probe hits, or the portal never intercepts it.
+conf_uri=$(sed -n 's/^uri=//p' "$ROOT/../NetworkManager/conf.d/asahi-connectivity.conf")
+pane_url=$(sed -n 's/.*portalUrl: "\(http[^"]*\)".*/\1/p' "$ROOT/../quickshell/remix/modules/launcher/panes/NetworkPane.qml")
+eq "$pane_url" "$conf_uri" "pane portalUrl == NM probe uri"
 
 qml="$ROOT/../quickshell/remix/modules/bar/components/Network.qml"
 if grep -q 'font.pixelSize: Style.barFontGlyphTall' "$qml" && grep -q 'visible: root.vpnUp' "$qml" && grep -q 'root.vpnName' "$qml"; then

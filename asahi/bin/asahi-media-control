@@ -45,7 +45,7 @@ show_osd() {
 # Idle-dimmed / idled off (asahi-idle-brightness): this press is also the wake. Take its lock and its
 # saved level first, so the step starts from that level and the resume restore cannot undo it.
 take_idle_level() {
-  local saved="${ASAHI_IDLE_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/asahi-idle-brightness}/$2"
+  local saved="${ASAHI_IDLE_STATE_DIR:-$(runtime_dir)/asahi-idle-brightness}/$2"
   exec {idle_fd}>"$(brightness_lock)"
   flock -w 2 "$idle_fd" || true
   if [ -s "$saved" ]; then
@@ -103,7 +103,7 @@ case "$target" in
     exec playerctl "$action"
     ;;
   brightness)
-    exec {lock_fd}>"${XDG_RUNTIME_DIR:-/tmp}/asahi-brightness.lock"
+    exec {lock_fd}>"$(runtime_dir)/asahi-brightness.lock"
     flock -n "$lock_fd" || exit 0
 
     monitor="$(focused_monitor || true)"

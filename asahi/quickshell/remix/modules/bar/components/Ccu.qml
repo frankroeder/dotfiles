@@ -332,7 +332,7 @@ Rectangle {
             PathAngleArc {
               centerX: root.ringSize / 2; centerY: root.ringSize / 2
               radiusX: root.ringSize / 2 - 1.5; radiusY: root.ringSize / 2 - 1.5
-              startAngle: -90; sweepAngle: root.hasValue ? 3.6 * Math.max(chipRing.used, 2) : 0
+              startAngle: -90; sweepAngle: root.hasValue && chipRing.used > 0 ? 3.6 * Math.max(chipRing.used, 2) : 0
             }
           }
         }

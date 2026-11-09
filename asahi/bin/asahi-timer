@@ -6,6 +6,7 @@
 #   asahi-timer list [--json]            pending timers, soonest first
 #   asahi-timer cancel [unit|all]        default: the soonest
 set -euo pipefail
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
 
 prefix="asahi-timer-"
 bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
@@ -54,7 +55,7 @@ list_timers() {
 }
 
 # The bar watches this instead of polling the timer list.
-stamp="${XDG_RUNTIME_DIR:-/tmp}/asahi-timer.stamp"
+stamp="$(runtime_dir)/asahi-timer.stamp"
 
 case "${1:-list}" in
   add)

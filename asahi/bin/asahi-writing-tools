@@ -7,10 +7,12 @@
 #   asahi-writing-tools replace <address> <text>
 #                                           clipboard = text, Ctrl+V into that window (its selection
 #                                           is still active: the card never takes keyboard focus)
+# Text arrives on stdin when the <text> arg is omitted (what the card does): argv is ps-visible.
 #
 # Anthropic Messages API, streamed.
 # Key: $ANTHROPIC_API_KEY (session env, else interactive zsh); model: claude-haiku-5-5.
 set -euo pipefail
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
 
 max_chars=20000
 terminals='ghostty|kitty|foot|alacritty|wezterm|konsole|terminal'
@@ -28,14 +30,14 @@ shortcut() {
 # `; printf .` keeps a selected trailing newline ($(...) strips it, and Replace would join the next line).
 copy_selection() {
   local address="$1" tmp types type text=""
-  tmp="$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/asahi-writing-tools.XXXXXX")"
+  tmp="$(mktemp "$(runtime_dir)/asahi-writing-tools.XXXXXX")"
   types="$(timeout 1 wl-paste --list-types 2>/dev/null || true)"
   type="$(grep -m1 -x 'text/plain;charset=utf-8' <<<"$types" || grep -m1 -vx 'x-kde-passwordManagerHint' <<<"$types" || true)"
   [[ -n $type ]] && timeout 1 wl-paste --no-newline --type "$type" > "$tmp" 2>/dev/null || true
   printf '%s' "$marker" | wl-copy --sensitive
   # The app's copy is ours, not the user's: asahi-cliphist skips it (flag < 2 s old), so history
   # does not end with the selection while the clipboard holds the restored content.
-  mkdir -p -m 700 "${XDG_RUNTIME_DIR:-/tmp}/asahi-cliphist" && touch "${XDG_RUNTIME_DIR:-/tmp}/asahi-cliphist/skip"
+  mkdir -p -m 700 "$(runtime_dir)/asahi-cliphist" && touch "$(runtime_dir)/asahi-cliphist/skip"
   shortcut "$address" C
   for _ in 1 2 3 4 5 6 7 8 9 10; do
     sleep 0.05
@@ -114,16 +116,17 @@ run() {
     return
   fi
   # The key goes in through a header file: on curl's command line any process could read it.
-  jq -cn --arg system "$system" \
-    --arg text "<text>"$'\n'"$text"$'\n'"</text>" \
-    '{model: "claude-haiku-5-5", max_tokens: 16000, stream: true, system: $system,
-      thinking: {type: "disabled"}, output_config: {effort: "low"},
-      messages: [{role: "user", content: $text}]}' |
-    # A dropped link must end the card's spinner: no connect within 10 s, or a minute without a byte (no
-    # {stop} line then, so the card shows an error).
-    curl -sN --connect-timeout 10 --speed-limit 1 --speed-time 60 https://api.anthropic.com/v1/messages \
-      -H "content-type: application/json" -H "anthropic-version: 2023-06-01" \
-      -H @<(printf 'x-api-key: %s\n' "$ANTHROPIC_API_KEY") --data-binary @- |
+  # The body via <(): stdin carries the selection (argv is ps-visible), so @- would post the selection.
+  # A dropped link must end the card's spinner: no connect within 10 s, or a minute without a byte (no
+  # {stop} line then, so the card shows an error).
+  curl -sN --connect-timeout 10 --speed-limit 1 --speed-time 60 https://api.anthropic.com/v1/messages \
+    -H "content-type: application/json" -H "anthropic-version: 2023-06-01" \
+    -H @<(printf 'x-api-key: %s\n' "$ANTHROPIC_API_KEY") \
+    --data-binary @<(jq -cn --arg system "$system" \
+      --arg text "<text>"$'\n'"$text"$'\n'"</text>" \
+      '{model: "claude-haiku-5-5", max_tokens: 16000, stream: true, system: $system,
+        thinking: {type: "disabled"}, output_config: {effort: "low"},
+        messages: [{role: "user", content: $text}]}') |
     # SSE "data:" lines; an HTTP error arrives as one bare JSON line.
     sed -u 's/^data: //' | grep --line-buffered '^{' |
     jq --unbuffered -c 'if .type == "content_block_delta" and .delta.type == "text_delta" then {delta: .delta.text}
@@ -137,9 +140,15 @@ replace() {
   shortcut "$1" V
 }
 
+# stdin text, trailing newlines kept (plain $(cat) strips them and Replace would join lines).
+read_text() {
+  text_in="$(cat; printf .)"
+  text_in="${text_in%.}"
+}
+
 case "${1:-}" in
   capture) capture ;;
-  run) run "${2:?mode}" "${3:?text}" ;;
-  replace) replace "${2:?address}" "${3:?text}" ;;
+  run) : "${2:?mode}"; if [ $# -ge 3 ]; then run "$2" "$3"; else read_text; run "$2" "$text_in"; fi ;;
+  replace) : "${2:?address}"; if [ $# -ge 3 ]; then replace "$2" "$3"; else read_text; replace "$2" "$text_in"; fi ;;
   *) sed -n '2,11p' "$0" >&2; exit 2 ;;
 esac

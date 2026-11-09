@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Output JSON { "text": bar glyph, "tooltip": multi-line details, "name": connection, "vpn", "vpnName", "vpnSince" }
+# Output JSON { "text": bar glyph, "tooltip": multi-line details, "name": connection, "vpn", "vpnName", "vpnSince", "connectivity" }
 # --bar: no Wi-Fi tooltip (the bar chip shows only the icon).
 
 fmt_age() {
@@ -52,6 +52,10 @@ fi
 
 # One `dev status` for every lookup below.
 dev_status="$(nmcli -t -f DEVICE,TYPE,STATE,CONNECTION dev status 2>/dev/null || true)"
+
+# Cached NM state (no re-check: instant, no probe traffic). Strict set: anything else is unknown.
+connectivity=$(nmcli -t -f CONNECTIVITY general 2>/dev/null || echo unknown)
+case "$connectivity" in full|limited|portal|none|unknown) ;; *) connectivity=unknown ;; esac
 
 # The bar prefers ethernet over wifi; the pane (no --bar) wants the Wi-Fi card's details whenever Wi-Fi is
 # up. Ignore tun/vpn/wireguard — those are overlay, not the underlay the bar icon should represent.
@@ -179,7 +183,8 @@ if [ -z "$line" ]; then
     --arg vpn "$vpn_name" \
     --argjson vpnUp "$([ -n "$vpn_name" ] && echo true || echo false)" \
     --argjson vpnSince "${vpn_since:-0}" \
-    '{text:$text, tooltip:$tooltip, name:"", vpn:$vpnUp, vpnName:$vpn, vpnSince:$vpnSince}'
+    --arg connectivity "none" \
+    '{text:$text, tooltip:$tooltip, name:"", vpn:$vpnUp, vpnName:$vpn, vpnSince:$vpnSince, connectivity:$connectivity}'
   exit 0
 fi
 
@@ -215,4 +220,5 @@ jq -cn \
   --arg vpn "$vpn_name" \
   --argjson vpnUp "$([ -n "$vpn_name" ] && echo true || echo false)" \
   --argjson vpnSince "${vpn_since:-0}" \
-  '{text:$text, tooltip:$tooltip, name:$name, vpn:$vpnUp, vpnName:$vpn, vpnSince:$vpnSince}'
+  --arg connectivity "$connectivity" \
+  '{text:$text, tooltip:$tooltip, name:$name, vpn:$vpnUp, vpnName:$vpn, vpnSince:$vpnSince, connectivity:$connectivity}'

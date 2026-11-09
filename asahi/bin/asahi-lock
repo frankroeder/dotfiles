@@ -15,7 +15,7 @@
 
 set -u
 . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
-exec 9>"${XDG_RUNTIME_DIR:-/tmp}/asahi-lock.flock"
+exec 9>"$(runtime_dir)/asahi-lock.flock"
 flock -n 9 || exit 0
 hyprlock_running && exit 0
 log="${XDG_STATE_HOME:-$HOME/.local/state}/asahi/hyprlock.log"

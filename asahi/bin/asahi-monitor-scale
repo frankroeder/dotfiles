@@ -15,7 +15,7 @@ bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 . "$bin/lib/common.sh"
 
 presets=(1 1.25 1.333334 1.5 1.6 1.75 1.875 2 2.25 2.5)
-dir="${ASAHI_SCALE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/asahi-monitor-scale}"
+dir="${ASAHI_SCALE_DIR:-$(runtime_dir)/asahi-monitor-scale}"
 
 mon_json() {
   hyprctl monitors -j | jq -c --arg n "$1" '.[] | select(.name == $n)'
