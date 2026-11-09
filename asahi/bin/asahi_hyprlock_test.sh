@@ -20,7 +20,7 @@ if grep -q 'blur_passes = 0' "$conf" && ! grep -q 'brightness =' "$conf"; then
 else
   fail_at "hyprlock.conf dims with blur brightness, which does not run when blur is off"
 fi
-if grep -q 'asahi-theme/hyprlock.conf' "$conf" && grep -q '\$lock_bg' "$conf" && grep -q 'lock-wallpaper' "$conf"; then
+if grep -q 'asahi-theme/hyprlock.conf' "$conf" && grep -q '\$lock_bg' "$conf" && grep -q 'asahi/lock-screen' "$conf"; then
   pass "hyprlock.conf sources wallpaper-adaptive colors"
 else
   fail_at "hyprlock.conf missing theme or wallpaper"
@@ -128,6 +128,42 @@ if [ ! -e "$tmp/runs" ] && grep -q -- "-x --env WAYLAND_DISPLAY=wayland-1 hyprlo
   pass "asahi-lock leaves this session's running hyprlock alone"
 else
   fail_at "asahi-lock with hyprlock up: runs=$(cat "$tmp/runs" 2>/dev/null) pgrep $(cat "$tmp/pgrep-args" 2>/dev/null)"
+fi
+# Every unlock plays the wallpaper intro: hyprlock starts only once its first frame is on screen (`ready`); play runs on
+# hyprlock's unlock line (it lingers after a Touch ID unlock), again at exit (a no-op in WallpaperIntro).
+printf '#!/bin/sh\necho hyprlock >>"%s/qs-calls"\necho "[DEBUG]: Unlocked, exiting!"\nsleep 1\necho hyprlock-exit >>"%s/qs-calls"\n' "$tmp" "$tmp" >"$tmp/hyprlock"
+printf '#!/bin/sh\nexit 1\n' >"$tmp/pgrep"
+printf '#!/bin/sh\necho "$*" | sed "s/.* call wallpaperIntro //" >>"%s/qs-calls"\n[ "$7" = ready ] || exit 0\n[ -e "%s/ready-once" ] && echo true || { : >"%s/ready-once"; echo false; }\n' "$tmp" "$tmp" "$tmp" >"$tmp/qs"
+chmod +x "$tmp/hyprlock" "$tmp/pgrep" "$tmp/qs"
+XDG_RUNTIME_DIR="$tmp" XDG_STATE_HOME="$tmp" PATH="$tmp:$PATH" "$ROOT/asahi-lock"
+if [ "$(tr "\n" "|" <"$tmp/qs-calls" 2>/dev/null)" = "arm|ready|ready|hyprlock|play|hyprlock-exit|play|" ]; then
+  pass "lock arms the wallpaper intro, waits for it; the unlock line plays it, before hyprlock exits"
+else
+  fail_at "intro on unlock: [$(cat "$tmp/qs-calls" 2>/dev/null)]"
+fi
+# Touch ID: fingerprint auth on, the glyph only with an enrolled finger, fprintd asked once a minute, alpha 30–100 %.
+if grep -q '^  fingerprint:enabled = true' "$conf" && grep -q 'cmd\[update:200\] ~/.dotfiles/asahi/bin/asahi-lock-touchid' "$conf"; then
+  pass "hyprlock.conf: Touch ID auth + breathing glyph"
+  grep -q '^  animation = fadeOut, 0' "$conf" && pass "hyprlock.conf: no fade-out (dimmed the intro's first frame to grey)" \
+    || fail_at "hyprlock.conf fades out again"
+else
+  fail_at "hyprlock.conf lost fingerprint:enabled or the Touch ID glyph"
+fi
+printf '#!/bin/sh\necho x >>"%s/fp-calls"\n[ -e "%s/enrolled" ] && printf "Fingerprints for user u on sensor (press):\\n - #0: right-index-finger\\n"\nexit 0\n' \
+  "$tmp" "$tmp" >"$tmp/fprintd-list"
+chmod +x "$tmp/fprintd-list"
+touchid() { XDG_RUNTIME_DIR="$tmp" PATH="$tmp:$PATH" "$ROOT/asahi-lock-touchid"; }
+a=$(touchid)
+: >"$tmp/enrolled"
+b=$(touchid)
+rm -f "$tmp/asahi-lock-touchid"
+c=$(touchid)
+d=$(touchid)
+alpha=$(sed -n "s/^<span alpha='\([0-9]*\)%'>.*/\1/p" <<<"$c")
+if [ -z "$a$b" ] && [ "$(wc -l <"$tmp/fp-calls")" -eq 2 ] && [ -n "$d" ] && [ -n "$alpha" ] && [ "$alpha" -ge 30 ] && [ "$alpha" -le 100 ]; then
+  pass "Touch ID glyph: hidden without a finger, fprintd cached, alpha $alpha %"
+else
+  fail_at "Touch ID glyph: a=[$a] b=[$b] c=[$c] calls=$(wc -l <"$tmp/fp-calls")"
 fi
 rm -rf "$tmp"
 

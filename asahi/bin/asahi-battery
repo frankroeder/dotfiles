@@ -13,7 +13,8 @@ read_value() {
   local _v="n/a"
   if [ -r "$2" ]; then
     _v=""
-    IFS= read -r _v < "$2" || true
+    # Aurora: time_to_* raise ENODATA outside their charge state; that reads as empty, quietly.
+    { IFS= read -r _v < "$2"; } 2>/dev/null || true
   fi
   printf -v "$1" '%s' "$_v"
 }

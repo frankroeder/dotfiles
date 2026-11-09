@@ -5,6 +5,7 @@ import Quickshell.Hyprland
 import QtQuick
 
 import "modules/bar"
+import "modules/launcher" as Launcher
 import "modules/system" as System
 import "modules/wallpaper"
 import "modules/writing" as Writing
@@ -20,6 +21,7 @@ ShellRoot {
     shell.calendarOpen = false
     // Its focus grab would keep the launcher's keyboard input.
     notifCenter.historyVisible = false
+    appGrid.shown = false
   }
   // Calendar and notification sheet are one-at-a-time.
   onCalendarOpenChanged: if (calendarOpen) notifCenter.historyVisible = false
@@ -144,8 +146,11 @@ ShellRoot {
       if (!l) return
       if (l.openQuick) l.openQuick(key || "hub")
     }
+    function apps() { appGrid.toggle() }   // Launchpad grid (Super+Alt+Space)
   }
 
+  Launcher.AppGrid { id: appGrid; launcher: launcherLoader.item }
   WallpaperManager {}
+  WallpaperIntro {}
   Writing.WritingTools { id: writingTools }
 }

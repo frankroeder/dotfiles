@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Install packages for Asahi Linux (Fedora)
+# Install packages for Apple Silicon Fedora (Aurora Fedora Remix; Fedora Asahi Remix works too)
 
 set -euo pipefail
 
 FLATHUB_REPO_URL="https://dl.flathub.org/repo/flathub.flatpakrepo"
 FLATPAK_EXPORT_DIR="${HOME}/.local/share/flatpak/exports/share"
 
+# copr + config-manager live in dnf5-plugins (a Minimal image may lack it).
+sudo dnf install -y dnf5-plugins
 sudo dnf copr enable -y scottames/ghostty
 sudo dnf copr enable -y lionheartp/Hyprland
 
@@ -15,10 +17,13 @@ sudo dnf config-manager setopt 'copr:copr.fedorainfracloud.org:lionheartp:Hyprla
 sudo dnf upgrade -y --refresh
 
 # No comments inside this argv — bash treats `#` as ending the command.
+# /usr/bin/node, not nodejs: Fedora 45's nodejs conflicts with an installed nodejs22-bin (same alternative).
+# ffmpeg-free: Fedora's ffmpeg package (nothing in Fedora 45 provides plain "ffmpeg").
 sudo dnf install -y \
   adw-gtk3-theme \
   brightnessctl \
   blueman \
+  bolt \
   btop \
   cargo \
   cliphist \
@@ -31,7 +36,7 @@ sudo dnf install -y \
   curl \
   fd-find \
   fastfetch \
-  ffmpeg \
+  ffmpeg-free \
   flatpak \
   ghostty \
   google-noto-color-emoji-fonts \
@@ -56,7 +61,7 @@ sudo dnf install -y \
   make \
   mpv \
   neovim \
-  nodejs \
+  /usr/bin/node \
   NetworkManager-wifi \
   NetworkManager-tui \
   nm-connection-editor \
@@ -89,8 +94,12 @@ sudo dnf install -y \
   tree \
   upower \
   uv \
+  uwsm \
+  inotify-tools \
   v4l-utils \
   wf-recorder \
+  widevine-installer \
+  pipewire-v4l2 \
   wireplumber \
   wl-clipboard \
   xdg-utils \
@@ -101,8 +110,16 @@ sudo dnf install -y \
   desktop-file-utils \
   qt6-qtwayland \
   zsh
+# H.264 decode (wallpaper intros, mpv): ffmpeg-free has it only through Cisco's openh264 (repo fedora-cisco-openh264,
+# on by default); a minimal image may carry the noopenh264 stub instead (then no intro plays).
+sudo dnf install -y --allowerasing openh264
 
 sudo dnf install -y --from-repo=fedora,updates quickshell
+
+# Aurora: Flathub's GL.default has no aurora_dri.so, so Flatpak apps need Aurora's GL extension (nothing requires it).
+if grep -q '^VARIANT_ID=aurora' /etc/os-release; then
+  sudo dnf install -y aurora-flatpak-gl
+fi
 
 # After the install: hyprland Recommends kitty (Ghostty is the terminal here).
 sudo dnf remove -y kitty kitty-terminfo || true
@@ -117,6 +134,8 @@ FLATPAK_APPS=(
   com.nextcloud.desktopclient.nextcloud
   org.signal.Signal
   org.libreoffice.LibreOffice
+  org.telegram.desktop
+  org.localsend.localsend_app
 )
 
 # Locale extensions (hunspell dictionaries, langpacks) in English and German, not just the system locale.
@@ -137,7 +156,7 @@ systemctl --user import-environment XDG_DATA_DIRS || true
 
 sudo systemctl enable --now cups cups-browsed
 
-# Skip: power-profiles-daemon (no Apple Silicon backend), seahorse/gdm,
+# Skip: power-profiles-daemon / tuned-ppd (Aurora runs tuned "balanced" = schedutil; profiles gain nothing), seahorse/gdm,
 # NetworkManager-vpnc, NetworkManager-openconnect-gnome (nmcli --ask is enough).
 
 # The only enabler of speakersafetyd: without it the kernel keeps the speakers locked.

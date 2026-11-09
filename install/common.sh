@@ -11,15 +11,16 @@ ARCHITECTURE="$(uname -m)"
 NOSUDO="${NOSUDO:-}"
 
 # --- host detection ---------------------------------------------------------
-# Asahi Fedora (or an already-linked Hyprland desktop). Used so generic Linux
-# hosts do not pick up Hyprland helper scripts or doctor checks.
+# Aurora / Asahi Fedora on Apple Silicon (or an already-linked Hyprland desktop). Used so generic
+# Linux hosts do not pick up Hyprland helper scripts or doctor checks.
 is_asahi() {
   [ -n "${ASAHI:-}" ] && return 0
-  if [ -r /etc/os-release ] && grep -qi asahi /etc/os-release; then
+  # aarch64 only: Universal Blue's x86 Aurora (KDE) says aurora too.
+  if [ "$(uname -m)" = aarch64 ] && [ -r /etc/os-release ] && grep -qi -E 'asahi|aurora' /etc/os-release; then
     return 0
   fi
   case "$(uname -r)" in
-    *[Aa]sahi*) return 0 ;;
+    *[Aa]sahi* | *aurora*) return 0 ;;
   esac
   if [ -L "$HOME/.config/hypr" ]; then
     case "$(readlink "$HOME/.config/hypr")" in
@@ -75,7 +76,7 @@ ensure_sudo() {
   fi
   # Under sudo's default 5 min timestamp_timeout. The loop exits once a refresh fails
   # (revoked ticket): a spinning keepalive would otherwise mask the lost auth.
-  ( while sudo -n true 2>/dev/null; do sleep 60; kill -0 "$$" || exit; done & )
+  ( while sudo -n true 2>/dev/null; do sleep 60; kill -0 "$$" 2>/dev/null || exit; done & )
 }
 
 # sudo_install SRC DST [MODE] : install as root (default 644); a failure stops the installer.

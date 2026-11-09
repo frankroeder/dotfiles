@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# External outputs on Asahi share card2 with eDP. An HDMI modeset on the udev
+# External outputs share card1 (DCP; card2 = GPU) with eDP. An HDMI modeset on the udev
 # tick (valid_mode:0, eDP still flipping) froze the laptop. monitors.lua keeps
-# HDMI-A-1 and DP-1 disabled; this script enables one after a short settle,
-# never DP while USB-C's DCP is crashed (dcp_crashed). Each output has its own
-# gen file, so one settle cannot cancel the other.
+# HDMI-A-1 and DP-n disabled; this script enables one after a short settle.
+# Each output has its own gen file, so one settle cannot cancel the other.
 #
 # Enable MUST set disabled = false. Omitting the field leaves the lua
 # disable rule in place (hyprctl eval does not override it).
@@ -15,12 +14,11 @@ action="${1:-}"
 name="${2:-HDMI-A-1}"
 settle_s="${ASAHI_HDMI_SETTLE_S:-2}"
 drm_path="${ASAHI_DRM_PATH:-/sys/class/drm}"
-dt_path="${ASAHI_DT_PATH:-/proc/device-tree}"
 # Positions kept from the launcher's Displays pane (drag + Keep), per sink.
 layout_file="${ASAHI_LAYOUT_FILE:-${XDG_STATE_HOME:-$HOME/.local/state}/asahi/monitor-layout.json}"
 
 usage() {
-  echo "usage: $0 <added|removed|sync|on|off> [HDMI-A-1|DP-1]" >&2
+  echo "usage: $0 <added|removed|sync|on|off> [HDMI-A-1|DP-n]" >&2
   echo "       $0 save <name> <X>x<Y> | reset <name> | place <name>" >&2
   exit 2
 }
@@ -30,7 +28,6 @@ usage() {
   exit 1
 }
 gen_file="$(runtime_dir)/asahi-hdmi.gen.${name}"
-crash_note="$(runtime_dir)/asahi-hdmi.crashed.${name}"
 
 drm_connected() {
   local f
@@ -40,24 +37,6 @@ drm_connected() {
     [ "$(tr -d '[:space:]' <"$f")" = "connected" ] && return 0
   done
   return 1
-}
-
-# USB-C video runs on DCP dcpext1. Pulling the cable while it drives DP-1 can leave it crashed
-# until reboot: no `dcp_poweroff() done` follows the unplug ("Failed suspend" in asahi/CLAUDE.md).
-# Every modeset then fails EINVAL; an enabled DP-1 stays at 0x0 and Hyprland 0.57 aborts on its
-# next framebuffer refresh (2026-11-03, safe mode too). An unplug while powered off (DPMS) is no
-# crash; a later power-off or modeset clears one. With AsahiLinux/linux PR #582 the timeout only
-# warns ("…clear swap; continuing", no "done"): the controller lives on.
-dcp_crashed() {
-  local alias="$dt_path/aliases/dcpext1" dcp
-  [[ "$name" =~ ^DP ]] && [ -r "$alias" ] || return 1
-  dcp="$(tr -d '\0' <"$alias")"
-  journalctl -k -b -o cat 2>/dev/null | awk -v d="${dcp##*@}.dcp: " '
-    !index($0, d) { next }
-    /set_digital_out_mode finished/ { on = 1; crashed = 0 }
-    /dcp_poweroff\(\) done|poweroff clear swap; continuing/ { on = 0; crashed = 0 }
-    /cb_hotplug\(\) connected:0/ { if (on) crashed = 1; on = 0 }
-    END { exit !crashed }'
 }
 
 hypr_json() {
@@ -94,7 +73,8 @@ edp_logical_h() {
 }
 
 lg_fields() {
-  printf 'mode = "3840x2160@60.000", position = "%sx-360", scale = %s' "$(anchor_offset 3840 "$1")" "$1"
+  # cm = edid: wide-gamut LG, Asahi never signals sRGB (omarchy wide-gamut.lua; also in monitors.lua).
+  printf 'mode = "3840x2160@60.000", position = "%sx-360", scale = %s, cm = "edid"' "$(anchor_offset 3840 "$1")" "$1"
 }
 
 dell_fields() {
@@ -233,16 +213,9 @@ off_hdmi() {
   eval_monitor "disabled = true"
 }
 
+# Aurora's kernel reports a crashed DCP's connector disconnected (dcp_rtk_crashed): the settle's
+# sysfs check keeps it off, no journal parsing (fairydust's dcp_crashed matched nothing there).
 on_hdmi() {
-  if dcp_crashed; then
-    off_hdmi
-    [ -e "$crash_note" ] && return 0
-    : >"$crash_note"
-    logger -t asahi-hdmi -- "$name not enabled: USB-C DCP crashed at an unplug while lit" || true
-    notify-send -a "Asahi Display" -u critical "USB-C display stays off" \
-      "Its display controller crashed when the cable was pulled with $name on. Reboot to use it." || true
-    return 0
-  fi
   eval_monitor "disabled = false, $(layout_fields)"
 }
 

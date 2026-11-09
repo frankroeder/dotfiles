@@ -78,6 +78,14 @@ else
   fail_at "PkgManager.qml missing pkgman/asahi-pkg"
 fi
 
+# tui-upgrade: blocks sleep (not idle: the screen must still lock) for the whole dnf run, then checks the boot chain.
+up=$(sed -n '/^  tui-upgrade)/,/;;/p' "$ROOT/asahi-pkg")
+if grep -q 'systemd-inhibit --what=sleep ' <<<"$up" && ! grep -q 'what=idle' <<<"$up" && grep -q 'asahi-boot-check' <<<"$up"; then
+  pass "tui-upgrade: sleep inhibited during dnf, boot chain checked after"
+else
+  fail_at "tui-upgrade chain: $up"
+fi
+
 if [ "$fail" -ne 0 ]; then
   echo "$fail failed"
   exit 1

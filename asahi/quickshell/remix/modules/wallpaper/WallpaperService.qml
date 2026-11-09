@@ -10,10 +10,43 @@ Singleton {
   id: root
 
   property list<string> wallpapers: []
+  signal wallpaperSet(string path)   // WallpaperIntro plays its clip
+  // Background intro of a wallpaper (omarchy): <dir>/intros/<stem>.mp4 (may not exist).
+  function introClip(path) {
+    const slash = path.lastIndexOf("/")
+    const name = path.slice(slash + 1)
+    const dot = name.lastIndexOf(".")
+    return path.slice(0, slash) + "/intros/" + (dot > 0 ? name.slice(0, dot) : name) + ".mp4"
+  }
   property string currentWallpaper: ""
   readonly property string stateHome: Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")
   property string wallpaperConf: stateHome + "/quickshell/wallpaper.conf"
   readonly property string lockWallpaper: stateHome + "/asahi/lock-wallpaper"
+  // hyprlock's background: the intro's first frame when the wallpaper has one (unlock plays forward into the
+  // still, like waking up), else the still. Frames cached per clip; hyprpaper keeps lock-wallpaper (the still).
+  readonly property string lockScreen: stateHome + "/asahi/lock-screen"
+  readonly property string frameCache: (Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")) + "/asahi/wallpaper-intro"
+  // First frame of a wallpaper's intro (cached png; exists once extracted).
+  function introFrame(path) {
+    const name = path.slice(path.lastIndexOf("/") + 1)
+    return root.frameCache + "/" + (name.lastIndexOf(".") > 0 ? name.slice(0, name.lastIndexOf(".")) : name) + ".png"
+  }
+  // Extract every missing first frame (after a scan): picks and locks then never wait for ffmpeg.
+  function extractFrames(paths) {
+    const args = []
+    for (const p of paths) args.push(root.introClip(p), root.introFrame(p))
+    Quickshell.execDetached(["sh", "-c",
+      "mkdir -p \"$0\"; while [ $# -gt 1 ]; do [ -f \"$1\" ] && [ ! \"$2\" -nt \"$1\" ] && " +
+      "ffmpeg -nostdin -loglevel error -y -i \"$1\" -frames:v 1 \"$2\"; shift 2; done", root.frameCache].concat(args))
+  }
+  function linkLockScreen(path) {
+    const frame = root.introFrame(path)
+    Quickshell.execDetached(["sh", "-c",
+      "mkdir -p \"$(dirname \"$2\")\" \"$(dirname \"$4\")\"; " +
+      "if [ -f \"$3\" ] && { [ \"$4\" -nt \"$3\" ] || ffmpeg -nostdin -loglevel error -y -i \"$3\" -frames:v 1 \"$4\"; }; " +
+      "then ln -sfn \"$4\" \"$2\"; else ln -sfn \"$1\" \"$2\"; fi",
+      "sh", path, root.lockScreen, root.introClip(path), frame])
+  }
   property int thumbsEpoch: 0
   readonly property string thumbCacheDir: WallThumbs.cacheDir(Quickshell.env("HOME"))
   property int hqEpoch: 0
@@ -259,6 +292,7 @@ Singleton {
           if (path !== "") found.push(path)
         }
         root.wallpapers = found
+        root.extractFrames(found)
         // From here, not onExited: the exit signal can race the collector,
         // and rebuildThumbs must see the fresh list.
         root.rebuildThumbs()
@@ -312,6 +346,7 @@ Singleton {
         "mkdir -p \"$(dirname \"$2\")\" && [ -f \"$1\" ] && ln -sfn \"$1\" \"$2\"",
         "sh", saved, root.lockWallpaper
       ])
+      root.linkLockScreen(saved)
     }
   }
 
@@ -339,10 +374,12 @@ Singleton {
     // Always save the choice
     saveProcess.command = ["sh", "-c", "mkdir -p \"$(dirname \"$1\")\" \"$(dirname \"$3\")\" && printf \"%s\" \"$2\" > \"$1\" && ln -sfn \"$2\" \"$3\"", "sh", root.wallpaperConf, path, root.lockWallpaper]
     saveProcess.running = true
+    root.linkLockScreen(path)
 
     // The fade shows it until hyprpaper has it (the old wallpaper used to stay ~1 s, then pop).
     root.fadePath = path
     root.apply(path)
+    root.wallpaperSet(path)
 
     // Wallpaper-driven adaptive theme (Quickshell / Ghostty / Firefox / Hyprland)
     themeProc.command = [root.autotheme, "--variant", root.flavor, path]

@@ -861,6 +861,13 @@ Item {
                 + (dispCol.fm.x || 0) + "," + (dispCol.fm.y || 0) : ""
               color: Style.m3onSurfaceVariant; font.pixelSize: root.fontPx(9); font.family: root.uiSans; elide: Text.ElideRight
             }
+            // Read-only VRR state (`vrr` in monitors -j). eDP-1 asks for it (monitors.lua); off there = kernel lacks it.
+            Text {
+              width: parent.width
+              text: !dispCol.fm ? "" : dispCol.fm.vrr ? "Variable refresh (ProMotion) on"
+                : dispCol.fm.name === "eDP-1" ? "Fixed refresh · ProMotion not exposed by the kernel yet" : "Fixed refresh"
+              color: Style.m3onSurfaceVariant; font.pixelSize: root.fontPx(9); font.family: root.uiSans; elide: Text.ElideRight
+            }
           }
           Text {
             text: dispCol.fm && dispCol.fm.disabled ? "Off" : "On"

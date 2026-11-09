@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Pop the focused window: float + fixed size + center + pin (omarchy Super+O).
+# Pop the focused window: float + fixed size + center + pin + on top (omarchy Super+O): it follows you to every
+# workspace (pinned).
 # Second press on a popped window unpins and retiles it.
 #
 #   asahi-window-pop [width height]      default 1300x900, clamped to the monitor
@@ -24,4 +25,4 @@ h=$(( ${2:-900} < maxh ? ${2:-900} : maxh ))
 unset_fullscreen "$win"
 # Float in its own call: inside one batch the resize/pin still see a tiled window.
 hyprctl dispatch 'hl.dsp.window.float({ action = "enable" })' >/dev/null
-hyprctl --batch "dispatch hl.dsp.window.resize({ x = $w, y = $h }); dispatch hl.dsp.window.center(); dispatch hl.dsp.window.pin({ action = \"enable\" }); dispatch hl.dsp.window.tag({ tag = \"+pop\" })" >/dev/null
+hyprctl --batch "dispatch hl.dsp.window.resize({ x = $w, y = $h }); dispatch hl.dsp.window.center(); dispatch hl.dsp.window.pin({ action = \"enable\" }); dispatch hl.dsp.window.tag({ tag = \"+pop\" }); dispatch hl.dsp.window.bring_to_top()" >/dev/null

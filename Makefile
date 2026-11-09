@@ -31,7 +31,7 @@ endif
 .DEFAULT_GOAL := help
 
 # --- install profiles (delegated to install.sh) -----------------------------
-.PHONY: macos linux minimal micro asahi
+.PHONY: macos linux minimal micro aurora asahi
 macos: ## Complete macOS setup
 	@$(INSTALL) macos
 linux: ## Complete Linux setup (with sudo)
@@ -40,7 +40,9 @@ minimal: ## Minimal Linux setup without sudo
 	@$(INSTALL) minimal
 micro: ## Minimal bash-only setup
 	@$(INSTALL) micro
-asahi: ## Asahi Linux (Fedora Minimal + Hyprland)
+aurora: ## Apple Silicon: Aurora Fedora Remix (Minimal) + Hyprland desktop
+	@$(INSTALL) aurora
+asahi: ## Alias of aurora (Fedora Asahi Remix works too)
 	@$(INSTALL) asahi
 
 .PHONY: doctor after

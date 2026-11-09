@@ -23,13 +23,30 @@ mkdir -p "$(dirname "$log")"
 [ "$(stat -c %s "$log" 2>/dev/null || echo 0)" -gt 1000000 ] && : >"$log"
 run() {
   date -Is >>"$log"
-  hyprlock "$@" >>"$log" 2>&1
+  # The intro starts on hyprlock's unlock line, not at its exit: after a Touch ID unlock hyprlock lingers seconds
+  # (its pending password PAM attempt fails and waits out the failure delay).
+  hyprlock "$@" > >(while IFS= read -r l; do
+    printf '%s\n' "$l"
+    if [[ $l == *"Unlocked, exiting"* ]]; then intro play >/dev/null; fi
+  done >>"$log") 2>&1
   local rc=$?
   echo "hyprlock exit $rc" >>"$log"
   return $rc
 }
-run && exit 0
+# Wallpaper intro (WallpaperIntro.qml; nothing without a clip). --any-display: Super+Escape runs us from Hyprland,
+# whose env lacks the shell's QT_QPA_PLATFORM (no match).
+intro() { timeout 1 qs -c remix ipc --any-display call wallpaperIntro "$@" 2>/dev/null; }   # a hung qs must not stop the lock
+unlocked() {
+  intro play >/dev/null || true   # no-op once the unlock line started it (WallpaperIntro plays once per arm)
+  exit 0
+}
+# Locking: the intro shows its first frame before hyprlock locks (nothing presents while locked, so unlock shows
+# what was on screen then; ≤ ~0.4 s), and starts on unlock.
+if intro arm >/dev/null; then
+  for _ in $(seq 10); do [ "$(intro ready)" = false ] || break; sleep 0.01; done
+fi
+run && unlocked
 for _ in $(seq 30); do
   sleep "${ASAHI_LOCK_RETRY_S:-2}"
-  run --no-fade-in && exit 0
+  run --no-fade-in && unlocked
 done

@@ -121,6 +121,9 @@ cmd_init() {
       || echo 'restrict,command=\"internal-sftp\" $pub' >>~/.ssh/authorized_keys"
   fi
   if [ ! -f "$RESTIC_PASSWORD_FILE" ]; then
+    # Reinstall: put the saved password here first — a new one cannot open the existing repo.
+    read -rp "No $RESTIC_PASSWORD_FILE: create a NEW repo password? [y/N] " a
+    [ "$a" = y ] || exit 1
     (umask 077 && head -c 32 /dev/urandom | base64 >"$RESTIC_PASSWORD_FILE")
     echo "new password in $RESTIC_PASSWORD_FILE — store a copy in your password manager"
   fi

@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Effects
 import QtQuick.Shapes
+import QtMultimedia
 import "../../"
 import "wallpaper_thumbs.js" as WallThumbs
 
@@ -14,6 +15,7 @@ Item {
   property string fontFamily: Style.menuSans
   property string iconFamily: Style.menuMono
   property bool live: true
+  property bool playing: true   // the centre clip loops only while true (WallpaperManager: picker shown, not "All")
   property string anchorPath: ""
   // Path the user browsed to. Empty means "the applied wallpaper" so a filter
   // that has not indexed it yet still centres it once the row appears.
@@ -190,6 +192,17 @@ Item {
                 asynchronous: true
                 cache: true
                 smooth: true
+              }
+              // Centre window: its background intro on a muted loop over the still (no clip: stays hidden).
+              Video {
+                anchors.fill: parent
+                visible: slice.selected && playbackState === MediaPlayer.PlayingState && position > 0
+                source: root.playing && slice.selected && slice.path ? "file://" + WallpaperService.introClip(slice.path) : ""
+                fillMode: VideoOutput.PreserveAspectCrop
+                muted: true
+                loops: MediaPlayer.Infinite
+                onSourceChanged: if (source != "") play()
+                onErrorOccurred: stop()
               }
               Rectangle {
                 anchors.fill: parent

@@ -404,10 +404,10 @@ comp_micro() {
   mkdir -p "$HOME/.Trash"
 }
 
-# --- Asahi Linux ------------------------------------------------------------
+# --- Apple Silicon (Aurora Fedora Remix; Fedora Asahi Remix) -----------------
 
-# tty1 getty is the login password. Safe on a live session: only removes a
-# leftover drop-in and daemon-reloads. Do not restart getty@tty1 (kills Hyprland).
+# tty1 getty is the login password. Safe on a live session: removes a leftover
+# drop-in, swaps kmscon for getty on disk, daemon-reloads. Do not restart getty@tty1 (kills Hyprland).
 comp_asahi_getty() {
   require_linux
   print_step "Ensuring tty1 getty asks for a password (no autologin)"
@@ -434,21 +434,36 @@ comp_asahi_getty() {
     print_error "getty@tty1 still has --autologin after cleanup"
     exit 1
   fi
-  print_ok "tty1 getty has no --autologin (password required on next boot)"
+  # Fedora 45 presets kmscon as autovt@ instead of getty@: kmscon keeps the display's DRM master (Hyprland's
+  # TakeDevice gets EBUSY) and logs in on a pty, so zprofile's tty1 check never starts Hyprland. Applies on
+  # the next boot (nothing is stopped here). Masked so a kmscon reinstall cannot preset it back.
+  if systemctl list-unit-files kmsconvt@.service >/dev/null 2>&1 &&
+    [ "$(systemctl is-enabled kmsconvt@.service 2>/dev/null)" != masked ]; then
+    sudo systemctl disable kmsconvt@.service kmsconvt@tty1.service && sudo systemctl mask kmsconvt@.service || {
+      print_error "failed to disable kmscon (kmsconvt@.service)"
+      exit 1
+    }
+  fi
+  # The template: autovt@ alias + getty@tty1.
+  sudo systemctl enable getty@.service || {
+    print_error "failed to enable getty@.service"
+    exit 1
+  }
+  print_ok "tty1 getty has no --autologin and no kmscon (password required on next boot)"
 }
 
-# Power-button tap ignore + no hibernate + HDMI lid inhibit + Bluetooth wake on AC. Safe to rerun
+# No hibernate + HDMI lid inhibit + Bluetooth wake on AC + clean poweroff at critical battery. Safe to rerun
 # on a live Hyprland session: SIGHUP reloads logind.conf.d; do not restart
 # systemd-logind. Do not udevadm trigger drm (that hotplugs HDMI).
 comp_asahi_logind() {
   require_linux
-  print_step "Installing Asahi logind drop-ins (ignore power tap, no hibernate, HDMI lid inhibit, Bluetooth wake on AC)"
+  print_step "Installing Asahi logind drop-ins (no hibernate, HDMI lid inhibit, Bluetooth wake on AC, critical battery)"
   if [ -n "$NOSUDO" ]; then
     print_error "asahi-logind writes /etc/systemd; rerun without --no-sudo"
     exit 1
   fi
   local src_login src_sleep src_udev src_btwake src_unit src_failed src_onfail
-  src_login="$DOTFILES/asahi/systemd/logind.conf.d/10-asahi-sleep.conf"
+  src_login="$DOTFILES/asahi/systemd/logind.conf.d/90-asahi-sleep.conf"
   src_sleep="$DOTFILES/asahi/systemd/sleep.conf.d/10-asahi-no-hibernate.conf"
   src_udev="$DOTFILES/asahi/udev/99-asahi-hdmi-lid-inhibit.rules"
   src_btwake="$DOTFILES/asahi/udev/99-asahi-bt-wake.rules"
@@ -461,15 +476,20 @@ comp_asahi_logind() {
     print_error "missing Asahi systemd drop-ins under $DOTFILES/asahi/systemd"
     exit 1
   }
-  sudo_install "$src_login" /etc/systemd/logind.conf.d/10-asahi-sleep.conf
+  sudo_install "$src_login" /etc/systemd/logind.conf.d/90-asahi-sleep.conf
+  # Old name (10-): sorted before Aurora's 50-aurora-sep.conf, which then won.
+  sudo rm -f /etc/systemd/logind.conf.d/10-asahi-sleep.conf
+  # UPower reads it at start (next boot): PowerOff instead of Auto's s2idle at 2 %.
+  sudo_install "$DOTFILES/asahi/upower/90-asahi-critical.conf" /etc/UPower/UPower.conf.d/90-asahi-critical.conf
   sudo_install "$src_sleep" /etc/systemd/sleep.conf.d/10-asahi-no-hibernate.conf
   sudo_install "$src_udev" /etc/udev/rules.d/99-asahi-hdmi-lid-inhibit.rules
   sudo_install "$src_btwake" /etc/udev/rules.d/99-asahi-bt-wake.rules
   sudo_install "$src_unit" /etc/systemd/system/asahi-hdmi-lid-inhibit.service
   sudo_install "$src_failed" /etc/systemd/system/asahi-suspend-failed.service
   sudo_install "$src_onfail" /etc/systemd/system/systemd-suspend.service.d/10-asahi-onfailure.conf
-  if ! cmp -s "$src_login" /etc/systemd/logind.conf.d/10-asahi-sleep.conf; then
-    print_error "installed logind drop-in does not match $src_login"
+  if ! cmp -s "$src_login" /etc/systemd/logind.conf.d/90-asahi-sleep.conf ||
+    ! cmp -s "$DOTFILES/asahi/upower/90-asahi-critical.conf" /etc/UPower/UPower.conf.d/90-asahi-critical.conf; then
+    print_error "installed logind / UPower drop-in does not match the repo"
     exit 1
   fi
   sudo udevadm control --reload-rules
@@ -486,11 +506,13 @@ comp_asahi_logind() {
   sudo systemctl reset-failed asahi-hdmi-lid-inhibit.service 2>/dev/null || true
   sudo systemctl kill -s HUP systemd-logind
   local live
-  live="$(busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager HandlePowerKey 2>/dev/null || true)"
-  if printf '%s\n' "$live" | grep -q '"ignore"'; then
-    print_ok "HandlePowerKey=ignore (tap ignored; ~10s SMC hold still force-resets)"
+  # LidSwitchIgnoreInhibited is not on D-Bus; InhibitDelayMaxSec=15 is ours too.
+  live="$(busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager \
+    InhibitDelayMaxUSec 2>/dev/null || true)"
+  if [ "$live" = "t 15000000" ]; then
+    print_ok "logind drop-in live (InhibitDelayMaxSec=15; power key = Aurora's suspend / 5 s poweroff)"
   else
-    print_error "logind HandlePowerKey is still ${live:-unknown} after SIGHUP"
+    print_error "logind InhibitDelayMaxUSec is ${live:-unknown} after SIGHUP (drop-in not live)"
     exit 1
   fi
   if grep -qsx connected /sys/class/drm/card*-HDMI-A-*/status /sys/class/drm/card*-DP-*/status; then
@@ -505,18 +527,64 @@ comp_asahi_logind() {
 
 comp_asahi_system() {
   require_linux
-  # Before dnf: a kernel update would rebuild m1n1 from Fedora DTBs and make Fedora's kernel
-  # the default, so fairydust would boot without USB-C DP alt mode.
-  if [[ $(uname -r) == *fairydust* ]]; then
-    print_step "Pinning m1n1 DTBs and the GRUB default to $(uname -r)"
-    sudo ln -sfn "$(uname -r)" /boot/dtbs/fairydust
-    sudo sed -i 's|^DTBS=.*|DTBS="/boot/dtbs/fairydust"|' /etc/sysconfig/update-m1n1
-    sudo sed -i 's/^UPDATEDEFAULT=.*/UPDATEDEFAULT=no/' /etc/sysconfig/kernel
-    if [ ! -e /boot/dtbs/fairydust/apple ] || ! grep -q '^DTBS="/boot/dtbs/fairydust"' /etc/sysconfig/update-m1n1 ||
-      ! grep -q '^UPDATEDEFAULT=no' /etc/sysconfig/kernel; then
-      print_error "fairydust pin not applied (/boot/dtbs/fairydust, update-m1n1 DTBS, UPDATEDEFAULT)"
-      exit 1
+  # Aurora (before dnf, so kernel updates see it): m1n1 Stage 2 carries the default kernel's DTBs. Stale ones
+  # (the old fairydust pin) lack the `sep` alias, so aura cannot hand SEP its local-policy-manifest: no Touch ID.
+  # update-m1n1 refuses while a pre-Aurora kernel (DT ABI generation 0) is installed — remove those first.
+  if grep -q '^VARIANT_ID=aurora' /etc/os-release; then
+    print_step "Aurora boot chain: m1n1 DTBs follow the default kernel"
+    sudo rm -rf /boot/dtbs
+    sudo sed -i 's|^DTBS=.*|DTBS="/boot/dtb"|' /etc/sysconfig/update-m1n1
+    sudo sed -i 's/^UPDATEDEFAULT=.*/UPDATEDEFAULT=yes/; s/^DEFAULTKERNEL=.*/DEFAULTKERNEL=kernel-aurora-core/' /etc/sysconfig/kernel
+    # A key the file lacks (fresh image) is appended: sed only rewrites existing lines.
+    grep -q '^DTBS=' /etc/sysconfig/update-m1n1 || echo 'DTBS="/boot/dtb"' | sudo tee -a /etc/sysconfig/update-m1n1 >/dev/null
+    grep -q '^UPDATEDEFAULT=' /etc/sysconfig/kernel || echo UPDATEDEFAULT=yes | sudo tee -a /etc/sysconfig/kernel >/dev/null
+    grep -q '^DEFAULTKERNEL=' /etc/sysconfig/kernel || echo DEFAULTKERNEL=kernel-aurora-core | sudo tee -a /etc/sysconfig/kernel >/dev/null
+    # aurora-userpages' default (per-process 4K pages, FEX); a manual kernel-install add drops what /etc/kernel/cmdline lacks.
+    if [ -f /etc/kernel/cmdline ] && ! grep -qw 'user4k=on' /etc/kernel/cmdline; then
+      sudo sed -i '1s/$/ user4k=on/' /etc/kernel/cmdline && sudo grubby --update-kernel=ALL --args=user4k=on || {
+        print_error "failed to add user4k=on to the kernel command line"
+        exit 1
+      }
     fi
+    # Converted Fedora Asahi installs: pre-Aurora kernels (no dtb-abi = DT generation 0) make update-m1n1 refuse every
+    # kernel install. Only once an Aurora kernel booted (the working fallback) do kernel-16k and fairydust go.
+    if [[ $(uname -r) == *aurora* ]]; then
+      local v
+      if rpm -q kernel-16k-core >/dev/null 2>&1; then
+        sudo dnf remove -y --no-autoremove 'kernel-16k*' || { print_error "failed to remove Fedora Asahi kernel-16k"; exit 1; }
+      fi
+      for v in /usr/lib/modules/*fairydust*; do
+        [ -d "$v" ] || continue
+        sudo kernel-install remove "${v##*/}" && sudo rm -rf "$v" "/boot/dtb-${v##*/}" ||
+          { print_error "failed to remove kernel ${v##*/}"; exit 1; }
+      done
+      # Hand-made for fairydust's DP alt mode; Aurora autoloads typec_displayport / typec_thunderbolt.
+      sudo rm -f /etc/modules-load.d/fairydust-typec.conf
+      # Fedora Asahi leftovers: orphaned COPR metapackages (they pull asahi-battery back) and asahi-battery, a second
+      # charge-limit store rewritten on every battery uevent (ours: asahi-charge-limit).
+      local pkg old=()
+      for pkg in asahi-platform-metapackage-desktop asahi-platform-metapackage-mesa asahi-battery; do
+        rpm -q "$pkg" >/dev/null 2>&1 && old+=("$pkg")
+      done
+      if [ ${#old[@]} -gt 0 ]; then
+        sudo systemctl stop macsmc-battery-charge-control-end-threshold.path 2>/dev/null || true
+        sudo dnf remove -y --no-autoremove "${old[@]}" || { print_error "failed to remove ${old[*]}"; exit 1; }
+      fi
+      # Aurora kernels whose kernel-install add hit that refusal have no /boot image yet.
+      for v in /usr/lib/modules/*aurora*; do
+        [ -f "$v/vmlinuz" ] && [ ! -e "/boot/vmlinuz-${v##*/}" ] || continue
+        sudo kernel-install add "${v##*/}" "$v/vmlinuz" || { print_error "kernel-install add ${v##*/} failed"; exit 1; }
+      done
+    fi
+    sudo update-m1n1 || {
+      print_error "update-m1n1 refused: pre-Aurora kernels installed? Boot an Aurora kernel (GRUB), rerun (asahi/CLAUDE.md 'Aurora boot chain')"
+      exit 1
+    }
+    # Keyboard light from the ambient light sensor: Aurora's daemon (respects keys and idle dimming). Undo an old mask.
+    sudo systemctl unmask aurora-kbd-light.service && sudo systemctl enable --now aurora-kbd-light.service || {
+      print_error "failed to enable aurora-kbd-light.service"
+      exit 1
+    }
   fi
   bash "$DOTFILES/asahi/dnf.sh" || { print_error "asahi/dnf.sh failed (packages, flatpaks or services)"; exit 1; }
   # Grok Bot desktop agent from Cursor's update API: third-party and optional.
@@ -548,6 +616,21 @@ comp_asahi_system() {
   fi
   sudo_install "$DOTFILES/asahi/systemd/system/plocate-updatedb.service.d/10-ac-only.conf" \
     /etc/systemd/system/plocate-updatedb.service.d/10-ac-only.conf
+  # Faster shutdown (omarchy): 10 s stop timeout (system + user managers), fprintd 3 s. Next boot.
+  sudo_install "$DOTFILES/asahi/systemd/system.conf.d/10-asahi-stop-timeout.conf" /etc/systemd/system.conf.d/10-asahi-stop-timeout.conf
+  sudo_install "$DOTFILES/asahi/systemd/user.conf.d/10-asahi-stop-timeout.conf" /etc/systemd/user.conf.d/10-asahi-stop-timeout.conf
+  sudo_install "$DOTFILES/asahi/systemd/system/fprintd.service.d/10-asahi-stop-timeout.conf" \
+    /etc/systemd/system/fprintd.service.d/10-asahi-stop-timeout.conf
+  # AsahiLocker's fastfetch helper: cryptsetup luksDump as root on every LUKS / BitLocker disk (USB too) every 15 min;
+  # our fastfetch config never shows it.
+  if [ "$(systemctl is-enabled luks-fetch-cache.timer 2>/dev/null)" = enabled ]; then
+    sudo systemctl disable --now luks-fetch-cache.timer
+  fi
+  # abrt (crash reports): nothing here reads them; coredumpctl + asahi-debug do.
+  if systemctl list-unit-files abrtd.service >/dev/null 2>&1; then
+    sudo systemctl mask --now abrtd.service abrt-journal-core.service abrt-oops.service abrt-vmcore.service \
+      abrt-xorg.service || { print_error "failed to mask abrt"; exit 1; }
+  fi
   # Wi-Fi power save off (idle naps add latency, no gain here). NetworkManager reads it at start.
   sudo_install "$DOTFILES/asahi/NetworkManager/conf.d/asahi-wifi-powersave.conf" \
     /etc/NetworkManager/conf.d/asahi-wifi-powersave.conf
@@ -558,6 +641,12 @@ comp_asahi_system() {
   print_step "zram: zstd + sysctl tuning"
   sudo_install "$DOTFILES/asahi/sysctl.d/99-asahi-zram.conf" /etc/sysctl.d/99-asahi-zram.conf
   sudo sysctl -q -p /etc/sysctl.d/99-asahi-zram.conf
+  sudo_install "$DOTFILES/asahi/sysctl.d/99-asahi-hardening.conf" /etc/sysctl.d/99-asahi-hardening.conf
+  sudo sysctl -q -p /etc/sysctl.d/99-asahi-hardening.conf
+  if [ "$(sysctl -n dev.tty.legacy_tiocsti)" != 0 ]; then
+    print_error "kernel hardening sysctl not active (want dev.tty.legacy_tiocsti=0)"
+    exit 1
+  fi
   if ! cmp -s "$DOTFILES/asahi/zram-generator.conf.d/90-asahi.conf" /etc/systemd/zram-generator.conf.d/90-asahi.conf; then
     sudo_install "$DOTFILES/asahi/zram-generator.conf.d/90-asahi.conf" /etc/systemd/zram-generator.conf.d/90-asahi.conf
     sudo systemctl daemon-reload
@@ -605,7 +694,12 @@ comp_asahi_system() {
   # churn through hid-generic, which can cost the trackpad or keyboard for a
   # whole session when logind's TakeDevice loses the race.
   if [ "$(uname -m)" = "aarch64" ] && grep -qi apple /proc/device-tree/compatible 2>/dev/null; then
-    local hid_dracut=/etc/dracut.conf.d/10-asahi-hid.conf
+    local hid_dracut=/etc/dracut.conf.d/10-asahi-hid.conf kbd_rule=/etc/udev/rules.d/90-asahi-kbd-backlight.rules
+    # The dracut conf ships this rule (keyboard light at the LUKS prompt), so it must exist first.
+    if ! cmp -s "$DOTFILES/asahi/udev/90-asahi-kbd-backlight.rules" "$kbd_rule" 2>/dev/null; then
+      sudo_install "$DOTFILES/asahi/udev/90-asahi-kbd-backlight.rules" "$kbd_rule"
+      rebuild_initramfs=1
+    fi
     if ! cmp -s "$DOTFILES/asahi/dracut.conf.d/10-asahi-hid.conf" "$hid_dracut" 2>/dev/null; then
       print_step "Early-loading Apple HID modules from the initramfs"
       sudo_install "$DOTFILES/asahi/dracut.conf.d/10-asahi-hid.conf" "$hid_dracut"
@@ -617,7 +711,8 @@ comp_asahi_system() {
       print_error "dracut not found; cannot rebuild initramfs for notch/fnmode/HID"
       exit 1
     fi
-    sudo dracut -f || { print_error "dracut -f failed; initramfs not rebuilt for notch/fnmode/HID"; exit 1; }
+    # Every kernel: the Aurora block above may have built a new one before these files changed.
+    sudo dracut -f --regenerate-all || { print_error "dracut failed; initramfs not rebuilt for notch/fnmode/HID"; exit 1; }
     print_ok "initramfs rebuilt; reboot required for notch/fnmode/HID"
   fi
   comp_asahi_charge_limit
@@ -626,18 +721,65 @@ comp_asahi_system() {
 # Fedora enables sshd; nothing logs in remotely here, so mask both units.
 comp_asahi_sshd() {
   require_linux
-  print_step "Masking sshd.service and sshd.socket"
+  print_step "Masking sshd (service, socket, local socket)"
   if [ -n "$NOSUDO" ]; then
     print_error "asahi-sshd needs systemctl mask; rerun without --no-sudo"
     exit 1
   fi
   sudo systemctl disable --now sshd.service sshd.socket 2>/dev/null || true
   sudo systemctl mask sshd.service sshd.socket
-  if [ "$(systemctl is-enabled sshd.service 2>/dev/null)" != masked ]; then
-    print_error "sshd.service is not masked"
+  # systemd-ssh-generator's AF_UNIX listener (/run/ssh-unix-local/socket, mode 0666: an sshd for any local process).
+  sudo systemctl mask --now sshd-unix-local.socket
+  # Nothing listens on 22: no ssh hole in the firewall either.
+  if sudo firewall-cmd -q --permanent --query-service=ssh 2>/dev/null; then
+    sudo firewall-cmd -q --permanent --remove-service=ssh && sudo firewall-cmd -q --reload
+  fi
+  # LocalSend (dnf.sh Flatpak; file sharing with the iPhone app) receives on 53317, opened in the `home` zone only: a trusted
+  # network goes there with `nmcli connection modify <name> connection.zone home`; public stays closed.
+  if sudo firewall-cmd -q --state 2>/dev/null; then
+    sudo firewall-cmd -q --permanent --zone=home --add-port=53317/tcp --add-port=53317/udp && sudo firewall-cmd -q --reload
+  fi
+  if [ "$(systemctl is-enabled sshd.service 2>/dev/null)" != masked ] ||
+    [ "$(systemctl is-enabled sshd-unix-local.socket 2>/dev/null)" != masked ]; then
+    print_error "sshd.service / sshd-unix-local.socket not masked"
     exit 1
   fi
   print_ok "sshd masked"
+}
+
+# Touch ID (Aurora): per-Mac calibration (aurora-touchid-setup, idempotent), authselect fingerprint, one enrolled
+# finger. Needs Aurora's Stage 2 DTBs (sep alias); a converted install gets them only after a reboot.
+comp_asahi_touchid() {
+  require_linux
+  grep -q '^VARIANT_ID=aurora' /etc/os-release || return 0
+  print_step "Touch ID (Aurora SEP + fprintd)"
+  if [ ! -e /proc/device-tree/aliases/sep ]; then
+    print_warning "Stage 2 DTBs predate Aurora (no sep alias): reboot, then ./install.sh asahi-touchid"
+    return 0
+  fi
+  if ! compgen -G '/proc/device-tree/soc/*/fingerprint@*' >/dev/null; then
+    print_ok "no Touch ID sensor on this Mac"
+    return 0
+  fi
+  sudo aurora-touchid-setup || { print_error "aurora-touchid-setup failed (journalctl -u aurora-sep)"; exit 1; }
+  # aurora-sep-ready turns it on once the sensor attaches; Aurora's vendor profile: sudo, polkit, lock screens.
+  if ! authselect current 2>/dev/null | grep -q with-fingerprint; then
+    sudo authselect enable-feature with-fingerprint || { print_error "authselect with-fingerprint failed"; exit 1; }
+  fi
+  if fprintd-list "$USER" 2>/dev/null | grep -q ' - #'; then
+    print_ok "Touch ID: $(fprintd-list "$USER" 2>/dev/null | grep -c ' - #') finger(s) enrolled"
+  elif [ -t 0 ]; then
+    print_step "Enrol a finger: touch the sensor, lift, repeat until it says enroll-completed"
+    # Interactive, user data (like the non-tty branch): a failed try must not stop the desktop install.
+    fprintd-enroll -f right-index-finger "$USER" || print_warning "fprintd-enroll failed: rerun ./install.sh asahi-touchid"
+  else
+    print_warning "no finger enrolled: fprintd-enroll -f right-index-finger $USER"
+  fi
+  # Touch ID as a FIDO2 security key (passkeys / WebAuthn, ssh-keygen -t ecdsa-sk, pam_u2f); Aurora ships it off.
+  if [ "$(systemctl is-enabled aurora-fido.service 2>/dev/null)" != enabled ]; then
+    sudo dnf install -y aurora-fido && sudo aurora-fido enable || { print_error "aurora-fido enable failed"; exit 1; }
+  fi
+  print_ok "$(aurora-fido status 2>/dev/null | head -n 1)"   # its first line names itself ("Touch ID security key: ON …")
 }
 
 # udev + oneshot so macsmc charge thresholds are writable and reapplied at boot.
@@ -750,24 +892,17 @@ comp_asahi_desktop() {
   done
   mkdir -p "$HOME/.local/bin" "$HOME/.config/systemd/user"
   link_if_exists "$DOTFILES/asahi/systemd/user/hyprland-session.target" "$HOME/.config/systemd/user/hyprland-session.target"
-  ln -sfn "$DOTFILES/asahi/bin/asahi-brightness-keyboard-auto" \
-    "$HOME/.local/bin/asahi-brightness-keyboard-auto"
-  ln -sfn "$DOTFILES/asahi/systemd/user/asahi-brightness-keyboard-auto.service" \
-    "$HOME/.config/systemd/user/asahi-brightness-keyboard-auto.service"
   ln -sfn "$DOTFILES/asahi/bin/asahi-timemachine" "$HOME/.local/bin/asahi-timemachine"
   ln -sfn "$DOTFILES/asahi/systemd/user/asahi-timemachine.service" "$HOME/.config/systemd/user/asahi-timemachine.service"
   ln -sfn "$DOTFILES/asahi/systemd/user/asahi-timemachine.timer" "$HOME/.config/systemd/user/asahi-timemachine.timer"
   mkdir -p "$HOME/.config/systemd/user/xdg-desktop-portal-hyprland.service.d"
   link_if_exists "$DOTFILES/asahi/systemd/user/xdg-desktop-portal-hyprland.service.d/10-asahi-pipewire.conf" \
     "$HOME/.config/systemd/user/xdg-desktop-portal-hyprland.service.d/10-asahi-pipewire.conf"
+  # The keyboard light is aurora-kbd-light's (asahi-system); drop our old user ALS daemon.
+  systemctl --user disable --now asahi-brightness-keyboard-auto.service 2>/dev/null || true
+  rm -f "$HOME/.local/bin/asahi-brightness-keyboard-auto" "$HOME/.config/systemd/user/asahi-brightness-keyboard-auto.service" \
+    "$HOME/.config/systemd/user/hyprland-session.target.wants/asahi-brightness-keyboard-auto.service"
   systemctl --user daemon-reload
-  systemctl --user enable asahi-brightness-keyboard-auto.service || {
-    print_error "failed to enable asahi-brightness-keyboard-auto.service"
-    exit 1
-  }
-  if systemctl --user is-active --quiet hyprland-session.target; then
-    systemctl --user start asahi-brightness-keyboard-auto.service || true
-  fi
   replace_with_symlink "$DOTFILES/asahi/hypr"      "$HOME/.config/hypr"
   replace_with_symlink "$DOTFILES/asahi/quickshell" "$HOME/.config/quickshell"
   replace_with_symlink "$DOTFILES/asahi/ghostty"   "$HOME/.config/ghostty"
@@ -796,8 +931,8 @@ comp_asahi_desktop() {
   mkdir -p "$HOME/.config/wireplumber/wireplumber.conf.d"
   link_if_exists "$DOTFILES/asahi/wireplumber/wireplumber.conf.d/bluetooth-a2dp-autoconnect.conf" \
     "$HOME/.config/wireplumber/wireplumber.conf.d/bluetooth-a2dp-autoconnect.conf"
-  link_if_exists "$DOTFILES/asahi/wireplumber/wireplumber.conf.d/asahi-mic.conf" \
-    "$HOME/.config/wireplumber/wireplumber.conf.d/asahi-mic.conf"
+  # aurora-audio's mic graph is MONO already; drop the old relabel filter's link.
+  rm -f "$HOME/.config/wireplumber/wireplumber.conf.d/asahi-mic.conf"
   # Settings portal is gtk (Hyprland does not implement appearance color-scheme).
   link_if_exists "$DOTFILES/asahi/xdg-desktop-portal/portals.conf" \
     "$HOME/.config/xdg-desktop-portal/portals.conf"
@@ -877,25 +1012,43 @@ comp_asahi_battery_alerts() {
 
 comp_asahi_wallpapers() {
   local dir="${ASAHI_WALLPAPERS_DIR:-$HOME/Pictures/wallpaper}"
-  if [ -d "$dir/.git" ]; then
-    print_step "Updating wallpapers"
-    # --no-rebase: pull.rebase=true refuses a dirty tree (locally deleted wallpapers).
-    git -C "$dir" pull --ff-only --no-rebase || print_warning "Failed to update wallpapers"
-  elif [ -e "$dir" ]; then
-    print_warning "$dir already exists and is not a git checkout; skipping wallpaper clone"
-  else
-    print_step "Downloading wallpapers"
-    mkdir -p "$HOME/Pictures"
-    git clone https://github.com/mylinuxforwork/wallpaper.git "$dir"
+  # Animated wallpapers only (2026-11-09): the old still collection (mylinuxforwork git checkout) moves to a backup once.
+  if [ -d "$dir/.git" ] && [ ! -e "$dir-backup" ]; then
+    print_step "Moving the still wallpapers to $dir-backup"
+    mv "$dir" "$dir-backup" || { print_error "failed to move $dir to $dir-backup"; exit 1; }
+    if [ -d "$dir-backup/omarchy" ]; then mv "$dir-backup/omarchy" "$dir"; fi
   fi
+  # Background intros (omarchy themes): each clip + the still it ends on, as $dir/<theme>-<bg> and
+  # $dir/intros/<theme>-<stem>.mp4 (WallpaperIntro.qml plays <dir>/intros/<stem>.mp4). ~86 MB.
+  print_step "Downloading animated wallpapers (omarchy background intros)"
+  local base=https://raw.githubusercontent.com/omacom/omarchy/quattro/themes pair theme bg stem out
+  mkdir -p "$dir/intros"
+  for pair in catppuccin-latte/1-color-fade.webp catppuccin/1-totoro.webp catppuccin/2-waves.webp \
+    catppuccin/3-blue-eye.webp ethereal/1-cosmic.webp everforest/1-tree-tops.webp flexoki-light/1-orb.webp \
+    hackerman/1-synth-scape.jpg last-horizon/1-eyes-wide.webp \
+    matte-black/0-ship-at-sea.jpg miasma/01-nature-of-fear.webp nord/0-black-moon.jpg \
+    ristretto/0-launch.webp rose-pine/1-funky-shapes.webp vantablack/0-dot-hands.webp \
+    white/1-white.webp; do
+    theme=${pair%%/*} bg=${pair#*/}
+    stem=${bg%.*} out="$dir/intros/$theme-$stem.mp4"
+    [ -s "$out" ] && continue
+    if curl -fsSL -o "$dir/$theme-$bg.part" "$base/$theme/backgrounds/$bg" &&
+      curl -fsSL -o "$out.part" "$base/$theme/backgrounds/intros/$stem.mp4"; then
+      mv "$dir/$theme-$bg.part" "$dir/$theme-$bg" && mv "$out.part" "$out"
+    else
+      rm -f "$dir/$theme-$bg.part" "$out.part"
+      print_warning "background intro $pair failed to download"
+    fi
+  done
   # First run: hyprpaper starts on the lock-wallpaper link, which the picker only writes on a pick.
   local state="${XDG_STATE_HOME:-$HOME/.local/state}" first
   if [ ! -s "$state/quickshell/wallpaper.conf" ]; then
-    first=$(find "$dir" -maxdepth 1 -type f \( -iname '*.jpg' -o -iname '*.png' \) 2>/dev/null | sort | head -n 1)
+    first=$(find "$dir" -maxdepth 1 -type f \( -iname '*.jpg' -o -iname '*.png' -o -iname '*.webp' \) 2>/dev/null | sort | head -n 1)
     if [ -n "$first" ]; then
       mkdir -p "$state/quickshell" "$state/asahi"
       printf '%s' "$first" >"$state/quickshell/wallpaper.conf"
       ln -sfn "$first" "$state/asahi/lock-wallpaper"
+      ln -sfn "$first" "$state/asahi/lock-screen"
     fi
   fi
 }
@@ -1059,14 +1212,26 @@ comp_doctor() {
       print_ok "tty1 getty has no autologin"
     fi
     report_check "keychain" have keychain
-    report_check "logind HandlePowerKey=ignore" grep -q '^HandlePowerKey=ignore' /etc/systemd/logind.conf.d/10-asahi-sleep.conf
+    report_check "logind LidSwitchIgnoreInhibited=no" grep -q '^LidSwitchIgnoreInhibited=no' /etc/systemd/logind.conf.d/90-asahi-sleep.conf
+    report_check "UPower critical = PowerOff" grep -q '^CriticalPowerAction=PowerOff' /etc/UPower/UPower.conf.d/90-asahi-critical.conf
+    if compgen -G '/proc/device-tree/soc/*/fingerprint@*' >/dev/null; then
+      report_check "Touch ID finger enrolled" sh -c 'fprintd-list "$USER" 2>/dev/null | grep -q " - #"'
+      report_check "aurora-fido (Touch ID security key) active" systemctl is-active --quiet aurora-fido.service
+    fi
+    if grep -q '^VARIANT_ID=aurora' /etc/os-release; then
+      for u in aurora-peripherals.service aurora-sep.service aurora-touchid-rearm.socket aurora-stage2-commit.service; do
+        report_check "$u active" systemctl is-active --quiet "$u"
+      done
+      report_check "aurora-camera-denoise (user) active" systemctl --user is-active --quiet aurora-camera-denoise.service
+    fi
     report_check "hdmi lid-inhibit" test -f /etc/udev/rules.d/99-asahi-hdmi-lid-inhibit.rules -a \
       -f /etc/systemd/system/asahi-hdmi-lid-inhibit.service
     report_check "bt wake udev" test -f /etc/udev/rules.d/99-asahi-bt-wake.rules
-    if busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager HandlePowerKey 2>/dev/null | grep -q '"ignore"'; then
-      print_ok "logind live HandlePowerKey=ignore"
+    if [ "$(busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager \
+      InhibitDelayMaxUSec 2>/dev/null)" = "t 15000000" ]; then
+      print_ok "logind drop-in live (InhibitDelayMaxSec=15)"
     else
-      print_warning "logind still handles the power key (install drop-in + SIGHUP systemd-logind)"
+      print_warning "logind drop-in not live (install it + SIGHUP systemd-logind)"
     fi
     if [ -r /sys/module/appledrm/parameters/show_notch ]; then
       if [ "$(tr -d '[:space:]' < /sys/module/appledrm/parameters/show_notch)" = "Y" ]; then
@@ -1084,8 +1249,9 @@ comp_doctor() {
     report_check "charge-limit oneshot" test -f /etc/systemd/system/asahi-charge-limit.service
     report_check "asahi-charge-limit libexec" test -x /usr/local/libexec/asahi-charge-limit
     report_check "asahi-logitech-access libexec" test -x /usr/local/libexec/asahi-logitech-access
-    report_check "ALS keyboard backlight unit" test -L "$HOME/.config/systemd/user/asahi-brightness-keyboard-auto.service"
-    report_check "ALS keyboard backlight helper" test -x "$HOME/.local/bin/asahi-brightness-keyboard-auto"
+    if grep -q '^VARIANT_ID=aurora' /etc/os-release; then
+      report_check "ALS keyboard backlight (aurora-kbd-light)" systemctl is-enabled --quiet aurora-kbd-light.service
+    fi
     if [ -w /sys/class/power_supply/macsmc-battery/charge_control_end_threshold ]; then
       print_ok "macsmc charge_control_end_threshold is writable"
     else
@@ -1101,6 +1267,7 @@ comp_doctor() {
     report_check "vconsole.conf" test -f /etc/vconsole.conf
     report_check "zram config" test -f /etc/systemd/zram-generator.conf.d/90-asahi.conf
     report_check "zram sysctl" test -f /etc/sysctl.d/99-asahi-zram.conf
+    report_check "hardening sysctl" test -f /etc/sysctl.d/99-asahi-hardening.conf
     report_check "keyring-pam" grep -q '^auth.*pam_gnome_keyring' /etc/pam.d/login
   fi
   print_step "Checking config symlinks"

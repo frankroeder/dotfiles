@@ -1,8 +1,9 @@
 # General
 
-These dotfiles target macOS (Apple Silicon), Linux x86, Asahi Fedora (aarch64 ARM).
+These dotfiles target macOS (Apple Silicon), Linux x86, Aurora Fedora Remix on Apple Silicon (aarch64; was
+Fedora Asahi Remix until 2026-11-09 — the `asahi` names stay).
 Share as much as possible across OS while respecting arch diffs.
-`install.sh` defines 5 profiles (micro, minimal, linux, macos, asahi; `make <profile>` wraps it) using
+`install.sh` defines 5 profiles (micro, minimal, linux, macos, aurora = asahi; `make <profile>` wraps it) using
 symlinks, brew/dnf installs, services. Always differentiate Linux by arch.
 
 - macOS WM: yabai+skhd or aerospace/flashspace + sketchybar (`sketchybar/{top,bottom,island}/`)
@@ -11,8 +12,8 @@ symlinks, brew/dnf installs, services. Always differentiate Linux by arch.
 - Shared: nvim (`nvim/`), zsh (zim+dots), mpv, ghostty
 
 Profiles: `micro` (bash/tmux/htop, almost no rights), `minimal` (nvim/zsh/python/node,
-local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `asahi`
-(Linux ARM suite).
+local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `aurora`
+(= `asahi`, Apple Silicon Linux suite).
 
 # Executing
 
@@ -32,7 +33,7 @@ local, no sudo), `linux` (full desktop/server), `macos` (Apple Silicon suite), `
 - FlashSpace: https://github.com/wojciech-kulik/FlashSpace
 - Ghostty: https://ghostty.org/docs
 
-## Asahi Linux Fedora
+## Apple Silicon Linux (Aurora Fedora Remix)
 - Everything Asahi (docs, rules, gotchas) lives in `asahi/CLAUDE.md`.
   Read it before touching Asahi bits outside `asahi/` too: `comp_asahi_*` / doctor in `install/components.sh`,
   `install.sh asahi-*`, the `test-asahi` target, zsh keychain / `BASH_ENV` handling, nvim spell cycle.

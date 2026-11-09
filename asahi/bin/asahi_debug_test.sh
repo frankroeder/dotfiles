@@ -24,7 +24,7 @@ else
   pass "refuses without Apple device-tree"
 fi
 
-# Pin the kernel name; the live one may be a self-built fairydust.
+# Pin the kernel name; the live one may be Aurora's.
 export ASAHI_UNAME_R=7.1.13-402.asahi.fc44.aarch64+16k
 
 # A mocked Apple tree plus command stubs — Fedora checks, not pacman/iwd/SDDM.
@@ -56,8 +56,8 @@ VARIANT="Asahi Remix"
 EOF
 printf 'wifi.powersave = 2\n' >"$diag/etc/NetworkManager/conf.d/asahi-wifi-powersave.conf"
 printf '[Sleep]\nAllowHibernation=no\n' >"$diag/etc/systemd/sleep.conf.d/10-asahi-no-hibernate.conf"
-printf '[Login]\nHandlePowerKey=ignore\nLidSwitchIgnoreInhibited=no\n' \
-  >"$diag/etc/systemd/logind.conf.d/10-asahi-sleep.conf"
+printf '[Login]\nLidSwitchIgnoreInhibited=no\n' \
+  >"$diag/etc/systemd/logind.conf.d/90-asahi-sleep.conf"
 mkdir -p "$diag/etc/pam.d"
 printf '%s\n' 'auth       optional     pam_gnome_keyring.so' 'session    optional     pam_gnome_keyring.so auto_start' \
   >"$diag/etc/pam.d/login"
@@ -67,7 +67,7 @@ printf '%s\n' 'auth       optional     pam_gnome_keyring.so' 'session    optiona
 : >"$diag/etc/systemd/system/asahi-hdmi-lid-inhibit.service"
 : >"$diag/dev/dri/card0"
 : >"$diag/dev/dri/renderD128"
-: >"$diag/dev/video0"
+mkdir -p "$sys/class/video4linux/video1" && echo apple-isp >"$sys/class/video4linux/video1/name"
 : >"$diag/usr/share/vulkan/icd.d/asahi_icd.aarch64.json"
 printf '80\n' >"$diag/sys/class/backlight/apple-panel-bl/brightness"
 printf '255\n' >"$diag/sys/class/backlight/apple-panel-bl/max_brightness"
@@ -144,10 +144,18 @@ echo "$out" | jq -e '[.checks[] | select(.id=="logind-lid" and .status=="PASS")]
   || fail_at "logind-lid PASS"
 pass "mocked Fedora Asahi tree is all PASS"
 
-out=$(ASAHI_UNAME_R=7.1.13-fairydust+ PATH="$bin:$PATH" ASAHI_DIAG_ROOT="$diag" ASAHI_PROC_ROOT="$proc" \
-  ASAHI_SYS_ROOT="$sys" "$ROOT/asahi-debug" --json) || true
-echo "$out" | jq -e '[.checks[] | select(.id=="kernel" and .status=="PASS")] | length == 1' >/dev/null \
-  && pass "self-built fairydust kernel is PASS" || fail_at "fairydust kernel PASS"
+# Aurora: its kernel passes; Stage 2 DTBs without the sep alias (old pin) warn.
+cp "$diag/etc/os-release" "$tmp/os-release.asahi"
+printf 'PRETTY_NAME="Aurora Fedora Remix 45"\nVARIANT_ID=aurora\n' >"$diag/etc/os-release"
+stage2() {
+  ASAHI_UNAME_R=7.3.0-27.fc44.aurora.aarch64 PATH="$bin:$PATH" ASAHI_DIAG_ROOT="$diag" ASAHI_PROC_ROOT="$proc" \
+    ASAHI_SYS_ROOT="$sys" "$ROOT/asahi-debug" --json | jq -r '[.checks[] | select(.id=="kernel" or .id=="stage2-dtb") | .status] | join(" ")' || true
+}
+[ "$(stage2)" = "PASS WARN" ] && pass "Aurora kernel PASS, stale Stage 2 DTB WARN" || fail_at "aurora stale stage2 (got $(stage2))"
+mkdir -p "$proc/device-tree/aliases" && printf '/soc/sep@396400000\0' >"$proc/device-tree/aliases/sep"
+[ "$(stage2)" = "PASS PASS" ] && pass "Aurora Stage 2 with sep alias is PASS" || fail_at "aurora stage2 (got $(stage2))"
+rm -rf "$proc/device-tree/aliases"
+cp "$tmp/os-release.asahi" "$diag/etc/os-release"
 
 # Wi-Fi switched off on purpose (on ethernet) is fine; unavailable with the radio on is not.
 wifi_status() {
@@ -191,6 +199,87 @@ echo "$out" | jq -e '[.checks[] | select(.id=="keyring-pam" and .status=="FAIL")
   pass "missing keyring PAM is FAIL, plaintext keyring is WARN" || fail_at "keyring checks (got $out)"
 mv "$diag/etc/pam.d/login.off" "$diag/etc/pam.d/login"
 rm -f "$keyrings/Default_keyring.keyring"
+
+# xART guard: off on an M2 = WARN (FileVault macOS at risk), refusals = WARN, level 1 with none = PASS.
+xart() {
+  rm -rf "$sys/devices/platform/soc/396400000.sep"
+  mkdir -p "$sys/devices/platform/soc/396400000.sep/diag"
+  echo "$1" >"$sys/devices/platform/soc/396400000.sep/diag/xart_guard"
+  echo "$2" >"$sys/devices/platform/soc/396400000.sep/diag/xart_guard_refusals"
+  PATH="$bin:$PATH" ASAHI_DIAG_ROOT="$diag" ASAHI_PROC_ROOT="$proc" ASAHI_SYS_ROOT="$sys" "$ROOT/asahi-debug" --json |
+    jq -r '.checks[] | select(.id=="xart-guard") | .status' || true
+}
+printf 'apple,j414s\0apple,t6020\0' >"$proc/device-tree/compatible.xart"
+mv "$proc/device-tree/compatible" "$proc/device-tree/compatible.orig" 2>/dev/null
+cp "$proc/device-tree/compatible.xart" "$proc/device-tree/compatible"
+got="$(xart 1 0) $(xart 0 0) $(xart 1 3)"
+[ "$got" = "PASS WARN WARN" ] && pass "xART guard: level 1 PASS, off on M2 WARN, refusals WARN" || fail_at "xART guard (got $got)"
+rm -rf "$sys/devices/platform/soc/396400000.sep" "$proc/device-tree/compatible.xart"
+if [ -e "$proc/device-tree/compatible.orig" ]; then
+  mv "$proc/device-tree/compatible.orig" "$proc/device-tree/compatible"
+else
+  rm -f "$proc/device-tree/compatible"
+fi
+
+# Disk encryption: root on LUKS = PASS, plain root = WARN; a LUKS header copy on /boot = WARN.
+printf '#!/bin/sh\necho "/dev/mapper/fedora_crypt[/root]"\n' >"$bin/findmnt"
+printf '#!/bin/sh\n[ -n "$FAKE_PLAIN" ] && { echo btrfs; echo; exit 0; }\nprintf "btrfs\\ncrypto_LUKS\\n\\n"\n' >"$bin/lsblk"
+chmod +x "$bin/findmnt" "$bin/lsblk"
+enc() {
+  PATH="$bin:$PATH" ASAHI_DIAG_LSBLK=1 ASAHI_DIAG_ROOT="$diag" ASAHI_PROC_ROOT="$proc" ASAHI_SYS_ROOT="$sys" "$ROOT/asahi-debug" --json |
+    jq -r '[.checks[] | select(.id=="root-encrypted" or .id=="boot-secrets") | .status] | join(" ")' || true
+}
+mkdir -p "$diag/boot"
+got1=$(enc); got2=$(FAKE_PLAIN=1 enc); : >"$diag/boot/luks-header-backup.img"; got3=$(enc); rm -f "$diag/boot/luks-header-backup.img"
+[ "$got1|$got2|$got3" = "PASS|WARN|PASS WARN" ] && pass "encryption: LUKS root PASS, plain WARN, header copy on /boot WARN" ||
+  fail_at "encryption checks (got $got1|$got2|$got3)"
+rm -f "$bin/findmnt" "$bin/lsblk"
+
+# Direct asserts: mic MONO, hid_apple bound, kmscon on tty1, apple-isp camera.
+dbg_status() {
+  PATH="$bin:$PATH" ASAHI_DIAG_ROOT="$diag" ASAHI_PROC_ROOT="$proc" ASAHI_SYS_ROOT="$sys" "$ROOT/asahi-debug" --json |
+    jq -r --arg id "$1" '[.checks[] | select(.id == $id) | .status] | join(" ")' || true
+}
+cp "$bin/wpctl" "$tmp/wpctl.orig"; cp "$bin/systemctl" "$tmp/systemctl.orig"
+printf '#!/bin/sh\n[ "$1" = inspect ] && { echo "  audio.position = \\"[ MONO ]\\""; exit 0; }\nexec "%s/wpctl.orig" "$@"\n' "$tmp" >"$bin/wpctl"
+mono=$(dbg_status mic-mono)
+printf '#!/bin/sh\n[ "$1" = inspect ] && { echo "  audio.position = \\"[ FL FR ]\\""; exit 0; }\nexec "%s/wpctl.orig" "$@"\n' "$tmp" >"$bin/wpctl"
+stereo=$(dbg_status mic-mono)
+cp "$tmp/wpctl.orig" "$bin/wpctl"
+printf '#!/bin/sh\n[ "$1" = is-enabled ] && [ "$2" = kmsconvt@tty1.service ] && { echo enabled; exit 0; }\n' >"$bin/systemctl"
+printf 'exec "%s/systemctl.orig" "$@"\n' "$tmp" >>"$bin/systemctl"
+kmscon=$(dbg_status getty-kmscon)
+cp "$tmp/systemctl.orig" "$bin/systemctl"
+nokmscon=$(dbg_status getty-kmscon)
+hid=$(dbg_status hid-apple); mv "$diag/sys/bus/hid/drivers/apple" "$tmp/apple.drv"; nohid=$(dbg_status hid-apple)
+mv "$tmp/apple.drv" "$diag/sys/bus/hid/drivers/apple"
+cam=$(dbg_status camera); echo avd >"$sys/class/video4linux/video1/name"; nocam=$(dbg_status camera)
+echo apple-isp >"$sys/class/video4linux/video1/name"
+got="$mono $stereo | $kmscon|$nokmscon | $hid $nohid | $cam $nocam"
+[ "$got" = "PASS WARN | FAIL| | PASS FAIL | PASS WARN" ] && pass "mic MONO, kmscon on tty1, hid_apple bound, apple-isp camera" ||
+  fail_at "direct asserts (got $got)"
+
+# Thunderbolt: a device bolt has not authorised (TB3 dock USB / Ethernet) = WARN.
+printf '#!/bin/sh\nprintf " ● Dock\\n   ├─ status:          %%s\\n" "${FAKE_BOLT:-authorized}"\n' >"$bin/boltctl"
+chmod +x "$bin/boltctl"
+tb_ok=$(dbg_status thunderbolt); tb_wait=$(FAKE_BOLT=connected dbg_status thunderbolt)
+rm -f "$bin/boltctl"
+[ "$tb_ok $tb_wait" = "PASS WARN" ] && pass "thunderbolt: authorised PASS, awaiting approval WARN" || fail_at "thunderbolt (got $tb_ok $tb_wait)"
+
+# Watch list: SKIP while the upstream piece is missing, WARN / PASS once it arrives.
+aur=$(grep -q '^VARIANT_ID=aurora' "$diag/etc/os-release" 2>/dev/null && echo yes || true)
+[ -n "$aur" ] || echo 'VARIANT_ID=aurora' >>"$diag/etc/os-release"
+printf '#!/bin/sh\necho "  key store: sealed"\n' >"$bin/aurora-fido"
+printf '#!/bin/sh\necho "[{\\"name\\": \\"eDP-1\\", \\"vrr\\": ${FAKE_VRR:-false}}]"\n' >"$bin/hyprctl.watch"
+[ -e "$bin/hyprctl" ] && cp "$bin/hyprctl" "$tmp/hyprctl.orig"
+cp "$bin/hyprctl.watch" "$bin/hyprctl"; chmod +x "$bin/aurora-fido" "$bin/hyprctl"
+watch() { echo "$(dbg_status watch-sep-key) $(dbg_status watch-vrr)"; }
+w1=$(watch); mkdir -p "$diag/dev"; : >"$diag/dev/sep-key"; w2=$(FAKE_VRR=true watch); rm -f "$diag/dev/sep-key"
+rm -f "$bin/aurora-fido" "$bin/hyprctl.watch"
+if [ -e "$tmp/hyprctl.orig" ]; then mv "$tmp/hyprctl.orig" "$bin/hyprctl"; else rm -f "$bin/hyprctl"; fi
+[ -n "$aur" ] || sed -i '/^VARIANT_ID=aurora$/d' "$diag/etc/os-release"
+[ "$w1|$w2" = "SKIP SKIP|WARN PASS" ] && pass "watch list: SKIP while absent, WARN (sep-key) / PASS (VRR) once there" ||
+  fail_at "watch list (got $w1|$w2)"
 
 if grep -Eiq '[[:space:]]pacman([[:space:]]|$)|systemctl[^[:space:]]* sddm' "$ROOT/asahi-debug"; then
   fail_at "asahi-debug still calls pacman or sddm"

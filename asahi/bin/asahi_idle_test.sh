@@ -19,7 +19,7 @@ run="$tmp/run"
 idle_log="$tmp/state/asahi/idle.log"
 edp='[{"name":"eDP-1","disabled":false,"dpmsStatus":false}]'
 export CALLS="$tmp/calls" XDG_RUNTIME_DIR="$run" XDG_STATE_HOME="$tmp/state" PATH="$fake:$PATH"
-export FAKE_LID=false FAKE_MON="$edp" FAKE_SUSPEND_FAILED=0 WAKE_AFTER=0 ASAHI_PSY_DIR="$tmp/psy"
+export FAKE_LID=false FAKE_MON="$edp" FAKE_SUSPEND_FAILED=0 WAKE_AFTER=0 ASAHI_PSY_DIR="$tmp/psy" ASAHI_SUSPEND_STATS="$tmp/stats"
 # On AC: thresholds saver 180, dim 300, off 600 (the real /sys would make the test follow the charger).
 mkdir -p "$tmp/psy/ac" "$tmp/psy/macsmc-battery" && echo Mains >"$tmp/psy/ac/type" && echo 1 >"$tmp/psy/ac/online"
 
@@ -132,6 +132,11 @@ idle at 600
   || fail_at "failed suspend: $(cat "$CALLS")"
 idle at 600
 grep -q notify "$CALLS" && fail_at "failed suspend notified twice in one boot" || pass "failed suspend: no repeat notification"
+# EBUSY (-16): a wake event (key press) aborted the entry, no driver refused: sleep stays on.
+mkdir -p "$tmp/stats" && echo -16 >"$tmp/stats/last_failed_errno"
+idle at 600
+grep -q 'systemctl suspend' "$CALLS" && pass "EBUSY abort: not a failed suspend" || fail_at "EBUSY abort: $(cat "$CALLS")"
+rm -f "$tmp/stats/last_failed_errno"
 
 # mark before sleep; the first wake after resume logs the drain 90 s later (the gauge reads high right
 # after resume), minus the awake draw meanwhile; a sleep on the charger is tagged and not corrected.
@@ -162,6 +167,14 @@ idle wake
 [ "$(grep -c ' slept ' "$idle_log")" = 2 ] && pass "a later wake logs no sleep" || fail_at "$(grep slept "$idle_log")"
 rm -f "$run/now" "$run/on-sleep-90"
 idle why >/dev/null && pass "why is read-only and exits 0" || fail_at "why exited non-zero"
+
+# asahi-suspend-failed runs only for a real failure: -16 (EBUSY, a key or click during entry) is no fault.
+cond=$(sed -n 's/^ExecCondition=//p' "$ROOT/../systemd/system/asahi-suspend-failed.service")
+errno_file=$(mktemp)
+cond_rc() { echo "$1" >"$errno_file"; eval "${cond//\/sys\/power\/suspend_stats\/last_failed_errno/$errno_file}" >/dev/null 2>&1; echo $?; }
+got="$(cond_rc -16) $(cond_rc -22) $(cond_rc 0)"
+rm -f "$errno_file"
+[ "$got" = "1 0 0" ] && pass "suspend-failed: skipped for -16, runs for -22 / other" || fail_at "suspend-failed ExecCondition (got $got)"
 
 if [ "$fail" -ne 0 ]; then
   echo "asahi_idle_test.sh: FAILED"

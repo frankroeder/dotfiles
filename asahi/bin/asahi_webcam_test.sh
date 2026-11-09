@@ -50,6 +50,19 @@ kill -0 "$overlay" 2>/dev/null && [ -e "$XDG_RUNTIME_DIR/asahi-webcam.pid" ] || 
 kill "$overlay" 2>/dev/null || true
 pass "overlay start dry-run leaves a running overlay alone"
 
+# Aurora's denoised camera: pw-v4l2 maps the open to its PipeWire node (object.serial); raw V4L2 without the node.
+printf '#!/bin/sh\necho \x27[{"info":{"props":{"node.name":"aurora_camera_denoise.isp","object.serial":"77"}}}]\x27\n' >"$tmp/bin/pw-dump"
+printf '#!/bin/sh\nexit 0\n' >"$tmp/bin/pw-v4l2"
+chmod +x "$tmp/bin/pw-dump" "$tmp/bin/pw-v4l2"
+dry=$(ASAHI_WEBCAM_DRY_RUN=1 PATH="$tmp/bin:$PATH" "$ROOT/asahi-webcam" overlay start --device /dev/video1)
+printf '#!/bin/sh\necho "[]"\n' >"$tmp/bin/pw-dump"
+raw=$(ASAHI_WEBCAM_DRY_RUN=1 PATH="$tmp/bin:$PATH" "$ROOT/asahi-webcam" overlay start --device /dev/video1)
+if [[ $dry == "env PIPEWIRE_V4L2_TARGET=77 pw-v4l2 mpv av://v4l2:/dev/video1"* && $raw == "mpv av://v4l2:/dev/video1"* ]]; then
+  pass "denoised camera via pw-v4l2 (object.serial), raw V4L2 without the node"
+else
+  fail_at "camera wrap: [$dry] [$raw]"
+fi
+
 # Resize: mocked hyprctl clients + monitors
 kw="$tmp/hypr.log"
 : >"$kw"

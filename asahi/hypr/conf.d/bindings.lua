@@ -23,6 +23,7 @@ hl.bind(mod .. " + T", function()
 end, { desc = "Terminal (new window in the focused terminal's directory)" })
 hl.bind(mod .. " + Z", hl.dsp.exec_cmd(launch(filemanager)), { desc = "Filemanager" })
 hl.bind(mod .. " + SPACE", hl.dsp.global "quickshell:launcher-toggle", { desc = "Launcher" })
+hl.bind(mod .. " + ALT + SPACE", hl.dsp.exec_cmd "qs -c remix ipc call launcher apps", { desc = "All apps (Launchpad grid)" })
 hl.bind(
   mod .. " + SHIFT + W",
   hl.dsp.exec_cmd "qs -c remix ipc call wallpaper toggle",
@@ -149,6 +150,7 @@ hl.bind(mod .. " + CONTROL + P", hl.dsp.exec_cmd(quick "battery"), { desc = "Pow
 hl.bind(mod .. " + CONTROL + S", hl.dsp.exec_cmd(quick "screenshots"), { desc = "Screenshot gallery" })
 hl.bind(mod .. " + CONTROL + V", hl.dsp.exec_cmd(quick "clipboard"), { desc = "Clipboard history" })
 hl.bind(mod .. " + CONTROL + R", hl.dsp.exec_cmd(quick "backup"), { desc = "Backup / restore" })
+hl.bind(mod .. " + CONTROL + H", hl.dsp.exec_cmd(quick "hardware"), { desc = "Hardware" })
 hl.bind(mod .. " + CONTROL + T", hl.dsp.exec_cmd(scripts .. "/asahi-sysmon"), { desc = "Activity monitor" })
 hl.bind(mod .. " + CONTROL + I", hl.dsp.exec_cmd(scripts .. "/asahi-stay-awake toggle"), { desc = "Stay awake" })
 -- Night light is menu-only (omarchy 4.5): Launcher > Actions > Night light toggle. No bind: N stays free for windows.
@@ -157,12 +159,8 @@ hl.bind(
   hl.dsp.exec_cmd "qs -c remix ipc call launcher openCategory Emoji",
   { desc = "Emoji picker" }
 )
-hl.bind(
-  mod .. " + CONTROL + K",
-  hl.dsp.exec_cmd "qs -c remix ipc call launcher openCategory Keys",
-  { desc = "Keybindings" }
-)
 hl.bind(mod .. " + CONTROL + C", hl.dsp.exec_cmd "qs -c remix ipc call calendar toggle", { desc = "Calendar" })
+hl.bind(mod .. " + CONTROL + M", hl.dsp.exec_cmd "qs -c remix ipc call media panel", { desc = "Media panel" })
 hl.bind(mod .. " + CONTROL + plus", hl.dsp.exec_cmd(scripts .. "/asahi-monitor-scale up"), { desc = "Display scale up" })
 hl.bind(mod .. " + CONTROL + minus", hl.dsp.exec_cmd(scripts .. "/asahi-monitor-scale down"), { desc = "Display scale down" })
 
@@ -272,6 +270,9 @@ hl.bind(
 hl.bind(mod .. " + H", hl.dsp.focus { direction = "l" }, { desc = "Focus left" })
 hl.bind(mod .. " + L", hl.dsp.focus { direction = "r" }, { desc = "Focus right" })
 hl.bind(mod .. " + K", hl.dsp.focus { direction = "u" }, { desc = "Focus up" })
+-- Held past the key-repeat delay: the keybinding overview (omarchy's Super+K, "whenever you blank on a binding"; his
+-- pick 2026-11-09, the only overview bind); a tap stays focus up (HJKL).
+hl.bind(mod .. " + K", hl.dsp.exec_cmd "qs -c remix ipc call launcher openCategory Keys", { long_press = true, desc = "Keybindings (hold)" })
 hl.bind(mod .. " + J", hl.dsp.focus { direction = "d" }, { desc = "Focus down" })
 
 -- Move windows

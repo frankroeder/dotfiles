@@ -1,6 +1,7 @@
 singleton DefaultTheme 1.0 DefaultTheme.qml
 singleton WallpaperService 1.0 WallpaperService.qml
 WallpaperManager 1.0 WallpaperManager.qml
+WallpaperIntro 1.0 WallpaperIntro.qml
 WallpaperCarousel 1.0 WallpaperCarousel.qml
 WallpaperChip 1.0 WallpaperChip.qml
 WallpaperFilterBar 1.0 WallpaperFilterBar.qml

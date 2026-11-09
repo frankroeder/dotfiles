@@ -1,9 +1,16 @@
-# Asahi Fedora (aarch64)
+# Apple Silicon Linux: Aurora Fedora Remix (aarch64)
 
 Loaded when a session works under `asahi/`; shared rules live in the root `CLAUDE.md`.
+Default OS = **Aurora Fedora Remix** (this Mac converted in place from Fedora Asahi Remix 44 on 2026-11-09; next fresh
+install = Aurora Fedora Minimal). Install: `make aurora` (= `make asahi`, `./install.sh aurora`). The `asahi` names
+(dirs, scripts, components) stay; Fedora Asahi Remix keeps working.
 
 ## Documentation
-- Fedora Asahi Remix: https://asahilinux.org/fedora/
+- Aurora Fedora Remix: https://aurorasilicon.org, https://github.com/aurora-silicon/fedora-aurora; local docs in
+  `/usr/share/doc/aurora-*` (`aurora-sep`: Touch ID, power button, authselect)
+- Fedora Asahi Remix (legacy): https://asahilinux.org/fedora/
+- Reference ports: omarchy (https://github.com/omacom/omarchy, branch `quattro`), omarchy-mac
+  (https://github.com/omacom/omarchy-mac-pkgs, runs the Aurora kernel)
 - Hyprland: https://wiki.hypr.land/
 - hyprpaper / hyprlock / hypridle: https://wiki.hypr.land/Hypr-Ecosystem/
 - Quickshell: https://quickshell.org/docs/
@@ -16,16 +23,22 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
 - **Lock on boot**: tty1 getty = auth gate; no hyprlock at Hyprland start, no `agetty --autologin` (zprofile can fall
   through unauthenticated). `./install.sh asahi-getty` (also `comp_asahi_system`) removes leftover
   `/etc/systemd/system/getty@tty1.service.d/10-asahi-autologin.conf`. Never restart `getty@tty1` live (kills
-  Hyprland). No display manager; Super+Escape / hypridle lock.
+  Hyprland). No display manager; Super+Escape / hypridle lock. Fedora 45 presets **kmscon** as `autovt@` (getty@
+  disabled): it holds the display's DRM master (Hyprland: `Could not take device /dev/dri/card1: busy`, crash before
+  any log line) and logs in on `pts/0` (zprofile's tty1 check skips Hyprland). `asahi-getty` disables + masks
+  `kmsconvt@`, enables `getty@` (next boot; never stop kmscon live — it may host the shell).
 - **Console**: `asahi/vconsole.conf` (`comp_asahi_system`): `KEYMAP="de-latin1-nodeadkeys"` (≙ `input.lua`
   `de`/`mac_nodeadkeys`), `FONT="ter-v32n"`. xkb-converted maps (`/usr/lib/kbd/keymaps/xkb/`) fail
   (`lk_add_key … keycode -1`); `mac-*` = ADB keycodes, scramble `hid_apple`. Check
   `loadkeys --mktable <name> >/dev/null`. Font here, not a setfont unit (loses to `systemd-vconsole-setup`).
 - **Sleep / lid / HDMI**: s2idle only (zram is no resume image): no Hibernate row, drop-ins ignore hibernate keys;
-  `systemctl suspend`. Power key: `HandlePowerKey`/`…LongPress=ignore` in
-  `asahi/systemd/logind.conf.d/10-asahi-sleep.conf` (~10s hold = SMC force-reset); gsettings `power-button-action` is
-  a no-op. F6 = KEY_SLEEP (tap bypassed idle guards): `autostart.lua` holds a session
-  `systemd-inhibit --what=handle-suspend-key` (polkit, no root); `XF86Sleep` → Do Not Disturb.
+  `systemctl suspend`. Power key (= Touch ID) = Aurora's `/usr/lib/systemd/logind.conf.d/50-aurora-sep.conf`: press =
+  suspend, 5 s = poweroff, ~10 s = SMC force-reset (was `ignore` until 2026-11-09; Aurora suspend tested OK). It
+  bypasses `asahi-idle`'s guards (external display, audio); touching the sensor is no press. Our
+  `asahi/systemd/logind.conf.d/90-asahi-sleep.conf` sorts after it (the old `10-` name lost). Critical battery:
+  `asahi/upower/90-asahi-critical.conf` → `CriticalPowerAction=PowerOff` at 2 % (UPower `Auto` = s2idle, drains ~48 min
+  to the SMC cutoff; only acts while awake). gsettings `power-button-action` is a no-op. F6 = KEY_SLEEP (tap bypassed
+  idle guards): `autostart.lua` holds a session `systemd-inhibit --what=handle-suspend-key` (polkit, no root); `XF86Sleep` → Do Not Disturb.
   `./install.sh asahi-logind` also installs udev rules (HDMI lid inhibit, BT wake) + inhibit unit; HUP logind, never
   restart it; never `udevadm trigger` drm (hotplugs HDMI). `InhibitDelayMaxSec=15` = hyprlock time on lid close.
   Lid = `Apple SMC power/lid events` (`locked = true` in `monitors.lua`). Never set `HandleLidSwitch` (laptop-only =
@@ -34,7 +47,7 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   under lock left zero lit outputs; `asahi/bin/asahi_clamshell_test.sh`) close is a no-op — never DPMS-blank eDP there
   (races s2idle, `8000000a`, hangs) — unless a block inhibitor (`asahi-hdmi`: cable in, output off) stops suspend:
   wait 5 s for the external, else blank + lock.
-  HDMI-A-1 / DP-1 stay `disabled = true` (`monitors.lua`) until `asahi-hdmi` enables one; logind doesn't count it docked
+  HDMI-A-1 / DP-1..6 stay `disabled = true` (`monitors.lua`) until `asahi-hdmi` enables one; logind doesn't count it docked
   → `asahi-hdmi-lid-inhibit.service` holds `handle-lid-switch` while HDMI/DP reads `connected` (udev: the **card's**
   `HOTPLUG=1`, connectors get none; `systemd-run` re-check after 3 s, sysfs `status` stale until Hyprland probes;
   start/stop, never restart: gap lets logind suspend); drop-in sets `LidSwitchIgnoreInhibited=no`. `asahi-dpms` only
@@ -47,10 +60,13 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
 - **Sleep drain (AsahiLinux/linux#262)**: s2idle ~3 %/h (`slept …` in `idle.log`) = kernel floor; don't chase it in
   userspace. Gauge stale-high 30–90 s post-resume → logged ~90 s after wake minus awake draw (AC sleeps uncorrected).
   No S3 / hibernate / RTC `wakealarm`. AOP ALS wakes ~3.6/s (#638): blacklist / PM notifier no help; lid-angle stream
-  unstoppable. j314s #262 hangs = out-of-tree SEP Touch ID + `fprintd` (no SEP here); ours = DCP.
-- **Failed suspend**: `apple-drm … failed to suspend: error -22` ← USB-C unplug with DP-1 on: clear-swap timeout
-  silently sets `dcp->crashed`, `dcp_crtc_atomic_check` rejects the disable-all until reboot (fix in
-  `~/linux-fairydust`). Signature: aquamarine `Cannot commit a disconnected output`, no dcpext `dcp_poweroff() done`.
+  unstoppable. j314s #262 hangs = out-of-tree SEP Touch ID + `fprintd` (SEP is on since Aurora: suspect it if s2idle hangs
+  return); ours were DCP.
+- **Failed suspend**: fairydust: `apple-drm … failed to suspend: error -22` ← USB-C unplug with DP-1 on (clear-swap
+  timeout set `dcp->crashed`). Aurora: the timeout only warns (`iomfb_poweroff_*: clear swap timed out`), the -22 path
+  is untested there; Aurora's `thunderbolt_apple` also refuses sleep with a display on a TB tunnel. A key press /
+  trackpad click while suspending aborts the entry with `-16` (EBUSY, `/sys/power/suspend_stats/last_failed_errno`):
+  no fault — `asahi-idle` (`suspend_failed`) and `asahi-suspend-failed` (`ExecCondition`) ignore it.
   logind re-suspends every `HoldoffTimeoutSec` → `systemd-suspend.service` `OnFailure=asahi-suspend-failed.service`
   blocks `handle-lid-switch` until lid open; `asahi-idle` skips sleep while it's failed (one critical "Sleep disabled"
   notification per boot, else SoC silently awake). `asahi-idle wake` (after_sleep) keeps panel dark under a closed lid
@@ -75,7 +91,9 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   never assign it after the `source` lines (wallpaper color loses). Dots keep `$lock_fg` (`swap_font_color`, caps
   color `$lock_fg`) so the box never fills; their check/fail stay real (else "Checking…" / "Failed" blank).
   `asahi-lock-caps`: CAPS label opposite `de`, polls the kbd-capslock LED (hyprctl only without LED node). Never
-  `$lock_fail` for the caps color.
+  `$lock_fail` for the caps color. Touch ID hint: `asahi-lock-touchid` (`cmd[update:200]`, builtins only, fprintd
+  asked ≤ 1/min, cached in `$XDG_RUNTIME_DIR`) = breathing 󰈷 above the pill (smoothstep alpha 30–100 %, 3.2 s) only
+  while a finger is enrolled; placeholder "Password or Touch ID".
   Preview without locking: nested `Hyprland -c <min.lua>` + `hyprctl output create headless` + hyprlock + grim; type
   via live `hl.dsp.send_shortcut` to `class:^(aquamarine)$` (never Enter: PAM).
 - **Lid + DPMS**: Hyprland DPMS off = aquamarine output disable → sysfs `enabled` reads `disabled`; logind counts a
@@ -96,20 +114,21 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   external. Drag-arrange: **position-only** `hl.monitor` (partial rules merge with live mode/scale); revert
   re-evaluates old positions (reload re-modesets HDMI / DP). Keep → `asahi-hdmi save` →
   `~/.local/state/asahi/monitor-layout.json` (per sink desc + scales; `layout_fields` prefers it); Extend →
-  `asahi-hdmi reset` + reload. No primary display; eDP-1 = mirror source + 0,0 anchor. USB-C `DP-1` is gated like
-  HDMI-A-1 (last named rule wins: reverse scan). `asahi-hdmi added`/`sync` enable after the settle (gen file per
+  `asahi-hdmi reset` + reload. No primary display; eDP-1 = mirror source + 0,0 anchor. USB-C `DP-n` are gated like
+  HDMI-A-1 (`gated` list in `monitors.lua`; last named rule wins: reverse scan). Aurora's DTB gives each USB-C port its
+  own output: DP-1..3 (expected Left Back / Left Front / Right — check per port), DP-4..6 = a dock's second stream;
+  fairydust's DTB had one (DP-1, Left Front). `asahi-hdmi added`/`sync` enable after the settle (gen file per
   output); `place` re-derives position (desc rules assume eDP at 4/3) only on an eDP scale change (HDMI too, not
-  mirrors). `config.reloaded` runs `asahi-hdmi sync` and `sync DP-1`. Hyprland 0.57 fires no `monitor.added` for an
-  output its rule disables (`onConnect` returns first): `gated_plugs` starts `asahi-hdmi added` on
+  mirrors). `config.reloaded` runs `asahi-hdmi sync <n>` for each gated connector the DT has. Hyprland 0.57 fires no
+  `monitor.added` for an output its rule disables (`onConnect` returns first): `gated_plugs` starts `asahi-hdmi added` on
   `monitor.layout_changed` from the connector's sysfs disconnected → connected edge (a Monitors-pane disable keeps the
   cable in, stays off; test `asahi/hypr/monitors_test.lua`, run by `asahi_hdmi_test.sh`). `asahi-hdmi removed` writes
-  `disabled = true`, re-arming the gate (the enable eval replaced the rule: same name). DP never enables while USB-C's
-  DCP is crashed (`dcp_crashed`: dcpext1's last unplug while lit got no `dcp_poweroff() done`, see Failed suspend;
-  PR #582's "…poweroff clear swap; continuing" warning counts as alive): every modeset then fails EINVAL, Hyprland
-  keeps DP-1 enabled at 0x0 and aborts on `IFramebuffer::alloc`'s zero-size RASSERT (safe mode loops until unplug).
-  One critical notification; reboot. Not timing (`valid_mode:0` modesets work; `DPTXController … device == NULL` logs
-  on every plug). Power off first (DPMS, Monitors pane disable + Keep): that unplug runs no clear swap. The pane's
-  enable toggle skips the check.
+  `disabled = true`, re-arming the gate (the enable eval replaced the rule: same name). fairydust's crashed-DCP guard
+  (`dcp_crashed`, journal parsing) is gone: on Aurora a crashed DCP ("DCP has crashed" / "a reboot is required")
+  reads `disconnected` and the settle's sysfs check keeps it off; a clear-swap timeout only warns. Thunderbolt: DT
+  machines get security `user` — DP and USB3 tunnels need no approval, a TB3 dock's USB / Ethernet (PCIe) does: `bolt`
+  (dnf.sh) — new device once: `boltctl list`, `boltctl enroll --policy auto <uuid>` (boltd then authorizes it on every
+  plug); sleep with a display on a TB tunnel is refused by the kernel.
 - **Notch / fnmode**: `comp_asahi_system` writes `asahi-notch.conf` (`show_notch=1`) + `hid_apple fnmode=1`, then
   `dracut -f`; reboot. Live: `/sys/module/hid_apple/parameters/fnmode`.
 - **Charge limit**: SMC is CHLS (90 reads back 90; CHWA would read 80): end 10–99 holds, start = end − 5 (start writes
@@ -117,18 +136,24 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   60–100; 100 = no limit, ≤ 99 = hold (also `asahi-battery`). One saved copy `/var/lib/asahi/charge-limit` (dir
   root:wheel 2775, temp + rename), written only after the SMC took it; boot applies it. Battery pane (Super+Ctrl+P,
   Reapply on mismatch) reads it on open / after change, never polls. SMC keeps it across unplug + s2idle: no AC-plug /
-  resume re-apply unless a replug drops it. Never read the limit from UPower (1.91.5: fixed hwdb 75/80).
+  resume re-apply unless a replug drops it. Never read the limit from UPower (1.91.5 reads sysfs once at start, hwdb
+  75/80 when it reads 100) nor toggle its `EnableChargeThreshold` (off writes 0/100: drops ours until boot).
 - **Keyboard / display brightness**: kbd `XF86Search` / `XF86LaunchA`, display `XF86MonBrightness*` (Shift = fine).
-  `asahi-brightness-keyboard-auto`: re-derives only on a lux move seen twice (shadow filter); steady tick forks
-  nothing. Auto fade, idle off/restore and keys share `$XDG_RUNTIME_DIR/asahi-idle-brightness.lock` (`brightness_lock`
-  in `lib/common.sh`); a key while idled off / dimmed steps from the saved level. hypridle listener (`ignore_inhibit`)
-  fades keys off; `asahi-idle keys` relights (not on the lock's fake motion / under a closed lid).
+  Ambient light = Aurora's `aurora-kbd-light.service` (root; `asahi-system` unmasks + enables it; our old
+  `asahi-brightness-keyboard-auto` is gone): brightest at ≤ 2 lux, on below 60, off above 120, 10–50 %; tunables in
+  `/etc/default/aurora-kbd-light` (README `/usr/share/doc/aurora-kbd-light`). Any other writer wins (keys, idle-off holds
+  until turned on; restoring the last auto level resumes auto); off with the lid closed / all displays off. Run by hand
+  as a user it can't open evdev ("lid switch not found" is harmless). Idle off/restore and keys share
+  `$XDG_RUNTIME_DIR/asahi-idle-brightness.lock` (`brightness_lock` in `lib/common.sh`); a key while idled off / dimmed
+  steps from the saved level. hypridle listener (`ignore_inhibit`) fades keys off; `asahi-idle keys` relights
+  (not on the lock's fake motion / under a closed lid).
 - **Keybinding grammar**: Super = window / navigate (+A/V/X universal clipboard: select-all, terminal-aware paste,
   cut — `send_key_state` down/up split, explicit mods, no window target so layer surfaces get it; Super+C stays Center);
   Super+B = next wallpaper; +Shift = inverse (move vs focus); +Alt = variant (focus→resize,
   capture→record). `Super+Alt+HJKL` moves the **shared split border** — label by direction, never grow/shrink.
   `Super+Ctrl+<letter>` = panel (A audio, B bluetooth, C calendar, D display, W network, P power, R backup, S
-  screenshot gallery, T activity, I stay-awake, E emoji, V clipboard, K keybindings; night light is menu-only). `Super+Ctrl+Alt`:
+  screenshot gallery, T activity, I stay-awake, E emoji, V clipboard, M media, H hardware; night light is menu-only;
+  keybinding overview = Super+K **held**, his pick). `Super+Ctrl+Alt`:
   R reload Hyprland, W/P/I restart Quickshell / hyprpaper / hypridle, S suspend, Z magnifier reset.
   `Super+Ctrl+plus/minus` = display scale; `Super+Ctrl+Z` / `+Shift+Z` / `+Alt+Z` = magnifier in / out / reset
   (`hl.config { cursor = { zoom_factor } }`, not `hyprctl keyword`). Panels: `quick()` in `bindings.lua`
@@ -153,8 +178,10 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   Super+mute/vol-/vol+; own keys only, no macOS Cmd+Shift+3/4/5 copies. Clipboard only
   (`asahi-cmd-screenshot <mode> --clip`, nothing in ~/screenshots): Super+Ctrl+Shift+F10/F11/F12 + top row, gallery
   "Copy". OCR/QR Super+Shift/Ctrl+F11; color Super+Shift+F12. Record: Super+Alt+F11 region, Super+Alt+F12 display,
-  Super+Alt+Shift+F12 + webcam (`asahi-webcam`; Super+Alt+ü/+ resize = `code:34/35`). Annotate (tile pencil / preview
-  pill) = `asahi-screenshot-annotate` = `swappy -f shot` (satty not in Fedora; class `swappy` floats). Only Save
+  Super+Alt+Shift+F12 + webcam (`asahi-webcam`: Aurora's denoised PipeWire camera via `pw-v4l2` +
+  `PIPEWIRE_V4L2_TARGET` = its `object.serial`, shareable with a browser call; raw `/dev/videoN` without
+  `aurora-camera-denoise` (user service); `/dev/video0` = AVD decoder, skipped; Super+Alt+ü/+ resize = `code:34/35`).
+  Annotate (tile pencil / preview pill) = `asahi-screenshot-annotate` = `swappy -f shot` (satty not in Fedora; class `swappy` floats). Only Save
   (Ctrl+S / button) counts: `asahi/swappy/config` → `~/screenshots/annotated-*.png` + `early_exit`; script moves it
   over the shot if `magick compare -metric AE` sees changes (else drops it), re-copies. No `-o` (swappy writes it on
   Esc / q / close too). Thumbs regenerate when older (`-nt`); tile + preview Images `cache: false` (same path).
@@ -163,8 +190,9 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   `env.lua` + `environment.d/90-asahi.conf` (Fedora ignores `chromium-flags.conf`). No Google Chrome; Fedora ships
   `hyprland-share-picker`. xdph never reconnects to PipeWire (after a restart `Start` spins, shares hang) — drop-in
   `xdg-desktop-portal-hyprland.service.d/10-asahi-pipewire.conf` (`PartOf=pipewire.service`).
-- **asahi-debug**: Fedora Asahi health (`asahi/bin/asahi-debug [--json]`; dnf, `wpa_supplicant`, not pacman/iwd/SDDM;
-  Wi-Fi radio off on purpose = PASS). Test: `asahi/bin/asahi_debug_test.sh`. Not in `make doctor`; must not flag
+- **asahi-debug**: Aurora / Fedora Asahi health (`asahi/bin/asahi-debug [--json]`; also root on LUKS, no disk key / header
+  copy on `/boot`, xART guard on, no Thunderbolt device awaiting bolt approval; dnf, `wpa_supplicant`, not
+  pacman/iwd/SDDM; Wi-Fi radio off on purpose = PASS). Test: `asahi/bin/asahi_debug_test.sh`. Not in `make doctor`; must not flag
   Hyprland on generic Linux.
 - **Night light**: menu-only (Launcher > Actions → `asahi-nightlight`, hyprsunset); on = `hyprsunset.conf`, off =
   `hyprctl hyprsunset identity`. Identity profile so autostart tints nothing; autostart drops stale `nightlight.json`
@@ -261,6 +289,35 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   ignore bare Shift in the search field. Live previews never reach hyprpaper (picker + fade overlay cover it); applies
   = one queued `apply`. Wheel accumulates to 120. Colors: cached thumbs → `wallpaper_colors.js`; filter
   `WallpaperService.arranged(query)`. Test: `wallpaper_colors_test.js`.
+- **Background intros** (omarchy): `modules/wallpaper/WallpaperIntro.qml` plays `<wallpaper dir>/intros/<stem>.mp4`
+  once on every output (one `MediaPlayer` per output; Bottom layer `asahi-wall-intro`, above hyprpaper, below windows;
+  muted; span on = each output its slice of one canvas, `wallpaper_intro_geom.js`, node-tested against
+  `asahi-wallpaper-span` crops), then fades out over the last 420 ms onto the still (hyprpaper keeps the still
+  throughout). Until 2 fresh video frames reach an output's sink its window shows a **cover**: the clip's first frame
+  (`~/.cache/asahi/wallpaper-intro/<stem>.png`, extracted on scan; a local `Image`, decoded synchronously in `arm()`, so
+  the window's first buffer has it). Why: nothing presents while hyprlock holds the session, unlock shows what was on
+  screen when the lock engaged; the cover makes that frame 0 whatever the decoder holds. The flash he saw (2026-11-09)
+  was hyprlock's grey fade-out + the late `play` (below); a stale-buffer flash did not reproduce nested.
+  `asahi-lock`: `wallpaperIntro arm` → polls `ready` (each output swapped the cover twice:
+  `cover.Window.window` `frameSwapped`; ≤ ~0.4 s; each call under `timeout 1`: a hung qs
+  must not stop the lock) → hyprlock → `play` on hyprlock's `Unlocked, exiting!` line, again at its exit (no-op: once per
+  arm, `played`); go after `unlockDelayMs` 400. hyprlock lingers ~2–3 s after a Touch ID unlock (its pending password
+  PAM attempt fails, then the failure delay): `play` at exit alone started the video ~3.3 s after unlock. hyprlock
+  `fadeOut` 0: the fade dims the lock image to grey for 0.5 s before the desktop pops in (read as a jump to the darker
+  last frame and back). Nested A/B 2026-11-09 (wf-recorder per frame): lock → frame 0 directly, motion at +0.63 s.
+  `FrameAnimation` is no "window rendered" signal (the animation driver falls back to a timer). 15 s failsafe ends a
+  stalled clip. qs log: `intro: arm` / `play` / `video on <output>`. IPC via `qs -c remix ipc --any-display`
+  (Hyprland-spawned callers lack the shell's `QT_QPA_PLATFORM`). Triggers: login once per boot
+  (`$XDG_RUNTIME_DIR/asahi-wallpaper-intro-boot`), `WallpaperService.wallpaperSet` (picker, Super+B), every unlock.
+  hyprlock's background = `lock-screen` link → the clip's first frame (`WallpaperService.linkLockScreen`; the still
+  without a clip), so unlock plays forward (eyes open). **Animated wallpapers only** (2026-11-09): `~/Pictures/wallpaper`
+  = omarchy's theme intros (minus lumon, retro-82: 16)' end stills (`<theme>-<bg>`) + `intros/<theme>-<stem>.mp4`,
+  fetched by `comp_asahi_wallpapers`; the old still collection (mylinuxforwork checkout) was moved once to
+  `~/Pictures/wallpaper-backup`. Picker centre window loops its clip muted only while the picker is shown
+  (`WallpaperCarousel` `Video`, `playing`: hidden, it kept decoding at ~50 % of a core; `WallpaperService.introClip`).
+  Decode is software (QtMultimedia → ffmpeg-free: H.264 via OpenH264, VP9, AV1);
+  ffmpeg-free cannot *encode* H.264 (`libopenh264` can). No clip = nothing happens. qs hot reload missed a replaced
+  file once (2026-11-09): restart qs (Super+Ctrl+Alt+W) when a change does not show.
 - **Wallpaper span** (idea: omarchy-wallpaper-cutter): `asahi-wallpaper-span` cuts the wallpaper across the live
   layout (logical px; slices in `~/.cache/asahi/wallpaper-span/`, only live set kept). Bezel `gap`: one value, all
   seams. EDID mm unused (LG reports 700x400). hyprpaper keeps per-monitor entries over the `,path` wildcard — every set
@@ -278,6 +335,8 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   `reload-config`, Quickshell `FileView`, Hyprland borders, btop SIGUSR2, Firefox. **GTK3 never repaints live** — do
   not add watchers. Tests: `asahi/theme/tests/` (`test_palette.py`, `test_apply.py`), `asahi/theme/smoke_test.sh`
   (no arg = saved state, rewrites live state unchanged; not in `make test-asahi`).
+- **Flatpak GL**: `aurora-flatpak-gl` (dnf.sh, Aurora only) = system `GL.aurora`; it serves `--user` Flatpaks too
+  (Flathub's GL.default has no `aurora_dri.so`). mpv `hwdec=vaapi-copy` (AVD VA-API; ffmpeg-free decodes VP9 only).
 - **Firefox (Flathub flatpak)**: addon signing enforced (`MOZ_REQUIRE_SIGNING`), so live theme = signed AMO
   **CaelestiaFox** (`caelestiafox@caelestia.org`) + native host `caelestiafox` = `asahi-firefox-theme` (streams
   `firefox.json` from `write_firefox_scheme`; ignore Firefox's args). Sandbox can't run host scripts:
@@ -297,7 +356,11 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   `busctl --user tree org.freedesktop.impl.portal.desktop.gtk` (`request/<sender>/t/*`; owner
   `busctl --user status :1.N`), release `busctl --user call … org.freedesktop.impl.portal.Request Close`. Verify:
   `MOZ_LOG=LinuxWakeLock:5,sync`.
-- **sshd**: Fedora enables it; disable + mask `sshd.service` + `sshd.socket`. Re-check after a release upgrade.
+- **sshd**: Fedora enables it; disable + mask `sshd.service` + `sshd.socket` + systemd-ssh-generator's
+  `sshd-unix-local.socket` (`/run/ssh-unix-local/socket` is 0666), drop firewalld's `ssh` service (`asahi-sshd`).
+  Re-check after a release upgrade. Kernel hardening sysctls (`asahi/sysctl.d/99-asahi-hardening.conf`): Fedora's
+  defaults the Aurora kernel lacks (unprivileged BPF off, `legacy_tiocsti` 0). AsahiLocker's `luks-fetch-cache.timer`
+  (root `luksDump` of every LUKS disk, USB too, for fastfetch) is disabled by `asahi-system`.
 - **Notification images**: `localImage()` only `image://icon/`/`file:`/`/…`; never `image://qsimage/` (history outlives
   the object: empty box; app icon instead), never `?path=` (icon provider reads that file), never `/proc`, `/sys`,
   `/dev` — also as `image://icon//…` and as an absolute app icon (QIcon opens a path as a file) (resolve `..` /
@@ -364,20 +427,20 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   `set -e` then kills the script (`asahi-network` lost JSON). End traps on `|| true` / `if`; optional tail lines in `if`
   blocks. Interactive zsh helpers without `set -e` are fine.
 - **Apple HID race**: dockchannel-hid binds `hid-generic` first; `asahi/dracut.conf.d/10-asahi-hid.conf` force-loads
-  `hid_apple` only (`hid_magicmouse` builtin). Verify `/sys/bus/hid/drivers/` +
+  `hid_apple` + `hid_magicmouse` (a module on Aurora, built in on Fedora Asahi). Verify `/sys/bus/hid/drivers/` +
   `readlink -f /sys/bus/hid/devices/*/driver`. Live trackpad recovery:
   `sudo udevadm trigger --action=add /dev/input/eventN` (input node, not drm).
 - **Volume keys**: `asahi-media-control output-volume raise|lower|+1|-1` (and Media pane slider) unmutes the sink **only
   if muted** (`unmute_if_muted`; unconditional `set-mute 0` clicked the speakers); never unmutes the mic. Launcher
   Logout / Restart / Shutdown: `confirm: true` (Data.js), second Enter within 3 s runs.
-- **Audio**: Fedora Asahi ships the stack — don't port omarchy's Apple audio.sh. RT check is the **thread**:
-  `ps -eLo comm,rtprio,cls | grep data-loop` → `20 RR`. Mic `effect_output.j414-mic` is 1ch `AUX0` (stereo recorders:
-  left only) → `asahi/wireplumber/wireplumber.conf.d/asahi-mic.conf`: software-dsp copy stage = MONO default
-  `asahi_mic`, `hide-parent` hides AUX0. Not a loopback (AUX0 stayed visible: mute bypass); `node.rules` can't remap a
-  filter's channels. New filter node reports 2 `channelVolumes` until first capture (chip 0 % / unmuted) — prime:
-  `timeout 1 pw-record --target asahi_mic /dev/null`. Never override asahi-audio's node scripts (a `software-dsp.lua`
-  overlay hung WirePlumber). 96 kHz playback can lock speakersafetyd (`Speaker volumes locked`):
-  `sudo systemctl reset-failed speakersafetyd && sudo systemctl start speakersafetyd`.
+- **Audio**: Aurora ships the stack (`aurora-audio`, keeps the `/usr/share/asahi-audio` paths) — don't port omarchy's
+  Apple audio.sh. RT check is the **thread**: `ps -eLo comm,rtprio,cls | grep data-loop` → `20 RR`. Mic
+  `effect_output.j414-mic` is MONO since aurora-audio 4.1-5 (old asahi-audio: 1ch `AUX0`, stereo recorders left only;
+  our relabel filter `asahi-mic.conf` / `asahi_mic` is gone, the installer drops its link). Never override the audio
+  package's node scripts (a `software-dsp.lua` overlay hung WirePlumber). The unplugged "Built-in Audio Headphones"
+  sink is always listed (never default: no available route). speakersafetyd restarts "hot" (Aurora
+  `50-aurora-warm-restart.conf`: attenuated until its model cools). 96 kHz playback can lock speakersafetyd
+  (`Speaker volumes locked`): `sudo systemctl reset-failed speakersafetyd && sudo systemctl start speakersafetyd`.
 - **Trackpad**: `tap_to_click = true`. No touchpad toggle. Pointer feel = `hl.device` curve on `apple-mtp-multi-touch`
   in `input.lua` (libinput ignores `sensitivity` under a custom profile). `hyprctl reload` does **not** reset a device —
   keep the explicit rule, else a bad `hyprctl eval 'hl.device({…})'` survives till reboot; `hl.device` checks names, not
@@ -407,8 +470,8 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   `brcmf_cfg80211_scan: Scanning suppressed: status (4)`, `CTRL-EVENT-SCAN-FAILED ret=-11`, `nmcli … --rescan yes` still
   exits 0. Cause: a DHCP restart on an active link (Proton VPN's `device-reapply` of `ipv4.routes`): NM sends
   `CRIT_PROTOCOL_START` but `…_STOP` only on activation; brcmfmac clears scan-suppress only on STOP. Fix:
-  `nmcli connection up id "<ssid>"` (Proton tunnel survives), not `nmcli device reapply wld0`. Proper fix kernel-side
-  (`~/linux-fairydust`).
+  `nmcli connection up id "<ssid>"` (Proton tunnel survives), not `nmcli device reapply wld0`. Still in Aurora's
+  brcmfmac (suppress cleared only by `crit_proto_stop` / link down); the proper fix is kernel-side.
 - **Wi-Fi band**: `asahi-wifi-band [status|auto|2.4|5]` pins the profile's band (AP band-steers), reverts if the
   reconnect fails. Connected card: `asahi-network`'s tooltip (without `--bar` it describes Wi-Fi even with a cable up) +
   `iw link` (dBm only `^-?[0-9]{1,3}$`). Open, Enhanced Open, WEP = public, 802.1X = sign-in; no extra probe. BCM4388
@@ -419,20 +482,35 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   tints (`Style.connectivityColor`: red portal, orange limited); the pane shows Sign-in required/Limited + a
   Sign-into-network pill → `asahi-captive-portal <url>` (flock, xdg-open, C-locale `nmcli check` wait; no window
   close — never kill the browser). Pane URL == probe URI, test-enforced; rescan re-polls, no extra timer.
-- **Kernel**: self-built `fairydust` (USB-C DP alt mode, not in Fedora) in `~/linux-fairydust`, 16k pages; `asahi-debug`
-  accepts `*fairydust*`. Local fixes only in `~/linux-fairydust` (never this repo): brcmfmac `roam_delta` init
-  (`WLC_SET_ROAM_DELTA error (-52)`; upstream since asahi-7.2.13 — drop on next rebase), dcp HPD re-sample on resume
-  (upstream dropped it on purpose in c0a8f705 — re-test without), dcp atomic_check passes a CRTC that stays off (keep;
-  open AsahiLinux/linux PR #582 fixes the cause), j414s DTS disabling AVD + its DART (no avd-fw on Fedora; failed probe
-  keeps `avd_sys` powered; needs `make dtbs && sudo make dtbs_install && sudo update-m1n1`). USB-C display =
-  `card2-DP-1`; no `ddc` link. Roam fix + `appledrm.ko` (both dcp fixes) sit in
-  `/lib/modules/7.1.13-fairydust+/updates/`, which depmod prefers: delete on next full rebuild.
-- **m1n1 DTB pin**: m1n1 `boot.bin` carries ONE device-tree set; on kernel add/remove grubby's `10-devicetree.install`
-  re-points `/boot/dtb` to the newest Fedora `dtb-*` and `15-update-m1n1.install` rebuilds `boot.bin` → fairydust loses
-  DP alt mode (no `/proc/device-tree/aliases/dcpext1`). `./install.sh asahi-system` (before dnf) links
-  `/boot/dtbs/fairydust` → running release, sets `DTBS="/boot/dtbs/fairydust"` (`/etc/sysconfig/update-m1n1`) and
-  `UPDATEDEFAULT=no` (`/etc/sysconfig/kernel`); rerun after a new fairydust (`asahi-debug` WARNs `fairydust-pin`).
-  Recovery: fix pin, `sudo update-m1n1`; worst case swap `m1n1/boot.bin` and `boot.bin.old` on the ESP.
+- **Kernel (Aurora)**: `kernel-aurora-core` (16k pages): USB-C DP alt mode (`typec_displayport`, `phy-apple-atc`,
+  appledrm `typec_follow_crtc`), USB4/Thunderbolt, SEP, AVD with `avd-fw`. `asahi-debug` accepts `*asahi*` / `*aurora*`.
+  The self-built fairydust kernel (`~/linux-fairydust`, gone) is retired; its local fixes on Aurora: brcmfmac
+  `roam_delta` fixed (no `-52`); DCP HPD re-sample on resume and the lit-USB-C-unplug crash reworked (`clear swap timed
+  out`, unplug of a powered-off Type-C output ignored) — whether suspend `-22` is gone is untested; AVD runs. Outputs:
+  `card1` = DCP (`card1-eDP-1`, `card1-HDMI-A-1`, `card1-DP-1..6`), `card2` = GPU render-only (DRM name `aurora`,
+  `62-aurora-gpu-render-only.rules`); no `ddc` link. `userpages 4k` needs `user4k=on` on the cmdline (Aurora's install
+  sets it; a manual `kernel-install add` rebuilds the entry from `/etc/kernel/cmdline`).
+- **Aurora boot chain**: Stage 1 m1n1 (stock v1.5.2, APFS stub) loads ESP `m1n1/boot.bin` = aura Stage 2 + the board
+  DTBs of the **default** kernel (`/boot/dtb` → `dtb-<ver>`) + U-Boot; the kernel gets that DT. Aura hands SEP its
+  `local-policy-manifest` via the DTB's `sep` alias and keeps the j414s `fingerprint@0` node; stale DTBs (2026-11-09:
+  the old fairydust pin `DTBS=/boot/dtbs/fairydust`) → `apple_sep … 'local-policy-manifest' missing`, `aurora-sep`
+  fails after 120 s, `aurora-touchid-setup`: "no Touch ID sensor in its device tree". `update-m1n1` (also kernel-install's
+  `15-update-m1n1.install`) refuses while a kernel without `/usr/lib/modules/<v>/dtb-abi` (generation 0: fairydust,
+  `kernel-16k`) is installed — and that aborts `kernel-install add` of new kernels (no `/boot/vmlinuz-*`).
+  `asahi-system` (before dnf) resets `DTBS="/boot/dtb"`, `UPDATEDEFAULT=yes`, `DEFAULTKERNEL=kernel-aurora-core` (else
+  20-grub.install never makes an `.aurora.` kernel the default), adds `user4k=on` to `/etc/kernel/cmdline` + grubby,
+  and — only when booted into an Aurora kernel (the fallback) — `dnf remove --no-autoremove 'kernel-16k*'`,
+  `kernel-install remove` + `rm` of `*fairydust*` (+ `fairydust-typec.conf`), Fedora Asahi leftovers
+  (`asahi-platform-metapackage-*`, `asahi-battery`: second charge-limit store), re-runs `kernel-install add` for
+  Aurora kernels without a `/boot` image (hostonly initramfs), then `update-m1n1`. `asahi-scripts` stays (update-m1n1
+  mounts the ESP with it). Stock Stage 1 = no `aura-try` trial: boot.bin replaced directly, `boot.bin.old` kept
+  (conversion copy `boot.bin.pre-aurora`); worst case swap them on the ESP from macOS. Check:
+  `/proc/device-tree/aliases/sep` (`asahi-debug` `stage2-dtb`). Converted, still on a pre-Aurora kernel: `update-m1n1` refuses and `make aurora`
+  stops there → boot an Aurora kernel (GRUB) and rerun; if none has a `/boot` image (its `kernel-install add` aborted),
+  `sudo M1N1_UPDATE_DISABLED=1 kernel-install add <v> /usr/lib/modules/<v>/vmlinuz` first (update-m1n1 honours the
+  variable; the old Stage 2 boots it; dnf will not remove the running kernel).
+  Conversion built a `--no-hostonly` initramfs: no `/etc/modprobe.d` (fnmode 3,
+  `show_notch` N) until a hostonly rebuild.
 - **WM defaults**: `general.lua` `on_focus_under_fullscreen = 1` (window focused under fullscreen takes over).
   Hyprland-default values stay out (`hyprctl descriptions -j`; `tap_to_click` kept on purpose). Window rules match the
   whole class / title; monitor `desc:` is a prefix match (make + model, no serials). Validate keys against
@@ -459,6 +537,32 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   unsets Lmod's `BASH_ENV` (13 → 1.2 ms per bash).
 - **Polkit**: `modules/system/PolkitAgent.qml` (Quickshell `PolkitAgent`) is the agent (else pkexec / GUI admin
   prompts fail silently); one card on the focused screen.
+- **Touch ID (Aurora)**: `apple_sep` module (loaded by `aurora-sep.timer` once root is up) + Aurora libfprint / fprintd
+  on `/dev/sep-bio`; needs current Stage 2 DTBs (see Aurora boot chain). `make aurora` runs `comp_asahi_touchid`
+  (`./install.sh asahi-touchid`): `sudo aurora-touchid-setup` (per-Mac calibration from the iBoot System Container,
+  idempotent), authselect `with-fingerprint`, and `fprintd-enroll -f right-index-finger $USER` on a tty when no finger
+  is enrolled; skips (warns) before the reboot onto Aurora DTBs and on Macs without a sensor node. Also installs +
+  enables `aurora-fido` (Touch ID as a FIDO2 key: passkeys / WebAuthn, `ssh-keygen -t ecdsa-sk`; pam_u2f would work, not installed; `sealed` key
+  store until the kernel has `/dev/sep-key`; `aurora-fido status`, `sudo aurora-fido disable [--forget]`).
+  `pam_aurora_touchid` (system-auth) re-arms Touch ID after a password; `/etc/aurora/touchid.conf`
+  `require_password_after_boot` (password before the first Touch ID, `aurora-touchid-boot`) needs the kernel's Touch ID
+  wait ioctl: this kernel has none, so Touch ID works from the first login.
+  `aurora-sep-ready` turns on authselect `with-fingerprint` (Aurora's vendor `local` profile: sudo, polkit and
+  `fingerprint-auth` only; tty1 `login` stays password = keyring unlock).
+  hyprlock `fingerprint:enabled` (fprintd D-Bus beside PAM, no label); the polkit card shows
+  PAM's finger prompt (`supplementaryMessage`). Diagnose `aurora-xart status`, `journalctl -u aurora-sep -u
+  aurora-sep-ready`; start over `sudo aurora-xart reset-touchid` (also after a root rollback or reinstall: they bring back an
+  older / empty xART owner list, `/var/lib/aurora-sep-xart-owned.bin`, and the guard refuses the Linux records;
+  `/usr/share/doc/aurora-sep/XART-SAFETY.md`). Risk (omarchy-mac manual 04-security): the SEP anti-replay state is shared
+  with macOS; written wrongly, FileVault macOS cannot unlock → DFU restore (erases); xART guard 1 (M2 default) refuses
+  macOS's records (`xart_guard_refusals`, Hardware pane); README tells him to keep a macOS backup. **No fprintd restart on
+  resume** (omarchy's
+  `system-sleep/fprintd-resume`, for Quickshell's PamContext lock): hyprlock 0.9.7 keeps one claim across sleep
+  (PrepareForSleep(false) only re-runs VerifyStart on the cached proxy) and never re-claims after fprintd restarts
+  (no NameOwnerChanged) — a restart kills Touch ID for that lock; Aurora's fprintd handles sleep itself. Gap: Aurora's
+  libfprint removes the reader while the lid is closed (`Lid closed; removing …`) → a lock taken before the close
+  gets `verify-disconnected` (password still works). If that shows (`grep fprint: ~/.local/state/asahi/hyprlock.log`),
+  fix it in the locker (fresh hyprlock claim on lid open via the asahi-lock guard; never SIGTERM/USR1 = unlock).
 - **Stay awake**: one flag `$XDG_RUNTIME_DIR/asahi-stay-awake`, owned by `asahi-stay-awake`; hypridle listeners skip
   under it (`asahi-idle` checks `status`).
 - **Idle (macOS-shaped)**: hypridle = plain `hl.exec_cmd` in `autostart.lua`'s `hyprland.start` hook, **not**
@@ -475,8 +579,9 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   `FALLBACK` is not one). `off`: flock single-instance (coalesces wake bursts), retries a refused suspend. Saver: one
   shared tick, no per-scene timers; Life's recursive source not `live`. Saver keys need `focus: true` on its Loader
   and no `focusable:` (overrides `WlrLayershell.keyboardFocus`).
-  **Keyboard/trackpad cannot wake s2idle** (no wakeup source); lid, power button and, on AC, BT input
-  (`asahi/udev/99-asahi-bt-wake.rules`; untested on BCM4388 — drop it on spurious wakes) can. Manual sleep
+  **Aurora: a key or trackpad click wakes s2idle** (dockchannel-hid wakeup source; touches don't; no lid check, logind
+  re-suspends a closed lid after `HoldoffTimeoutSec`); lid, power button and, on AC, BT input
+  (`asahi/udev/99-asahi-bt-wake.rules`; untested on BCM4388 — drop it on spurious wakes) too. Manual sleep
   (Super+Ctrl+Alt+S) = `asahi-idle sleep`, refused while an external is on. Log `~/.local/state/asahi/idle.log`. Test
   `asahi/bin/asahi_idle_test.sh` (`ASAHI_PSY_DIR`, `FAKE_LOCKED`).
 - **Time Machine**: `asahi-timemachine` = restic, one repo (`$TM_DIR` on drive `$TM_LABEL`), local (udisks mount,
@@ -498,6 +603,8 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   tagged `legacy-rsync` (`restic dump <id> /<name>.tar | tar -x <path>`); `forget` only `--tag asahi`. No sleep
   inhibitor (lid close must suspend). Setup `asahi-timemachine init`. Test `asahi/bin/asahi_timemachine_test.sh`.
 - **Snapper**: AsahiLocker's stock configs (`root`, `home`) used plain-number limits → `FREE_LIMIT` never freed
+  (`snapper cleanup` prints "quota not working (qgroup not set)" per config: no btrfs qgroups by design, so
+  `SPACE_LIMIT` is ignored; `FREE_LIMIT` (statvfs) and the ranges still apply. Expected in every `make aurora`.)
   anything (acts on **ranges** only). `./install.sh asahi-snapper`: short ranged retention, no monthly/yearly (restic
   keeps history), `home` `ALLOW_USERS`. Nested subvolumes (not snapshotted) only for restic-excluded dirs (caches,
   Flatpak, Nextcloud): restic's `--one-file-system` skips them. Never stage big temp files in `~` or `/`: hourly
@@ -523,12 +630,68 @@ Loaded when a session works under `asahi/`; shared rules live in the root `CLAUD
   No tool use on purpose (web search: ~1 s → seconds + fee).
 - **Timers**: `asahi-timer add <dur> [label]` = transient `systemd-run --user --on-active`; launcher `:timer 10m tea`
   (`arg_commands.js`, tested).
-- **Window pop**: Super+O → `asahi-window-pop` (float/resize/center/pin/`pop`); second press retiles.
+- **Window pop**: Super+O → `asahi-window-pop` (float/resize/center/pin/`bring_to_top`/tag `pop`: follows every
+  workspace, omarchy's pop); second press retiles.
+- **App grid** (Launchpad, omarchy Super+Alt+Space): `modules/launcher/AppGrid.qml`, IPC `launcher apps`; every app A–Z,
+  type to filter (name start > word start > anywhere), arrows / Enter / click, Esc clears then closes. Reuses the
+  launcher's hides, icons (`resolveIconUrl`) and `launchDesktopEntry` (sets `launcherWorkspaceId` first). Opening the
+  launcher closes it and vice versa. No dock / pins / uninstall (omarchy's). omarchy's Super+K overview = Super+K **held**
+  past the key-repeat delay (300 ms; `long_press` bind; Super+Ctrl+K dropped, his pick): a tap stays focus up, a hold also
+  moves focus once. Nested virtual-keyboard test: 80/150 ms → focus only, 700/900 ms → focus + overview.
+- **Hardware pane** (Super+Ctrl+H, quick key `hardware`): `panes/HardwarePane.qml` over `asahi-hardware` (sysfs / procfs /
+  DT as the user; `--live` = power, GPU, ports, sensors every 2 s while shown; the live merge keeps static fields like
+  the GPU core count). Ports: typec `connector/label`; the unlabelled PD controller (`usb-pd@3a`) = MagSafe. RAM = the
+  smallest Apple config ≥ MemTotal (30.9 GiB → 32). GPU cores from the kernel log (cached per boot). Test
+  `asahi/bin/asahi_hardware_test.sh` (`ASAHI_SYS_ROOT` fake tree).
 - **Display scale**: Super+Ctrl+plus/minus → `asahi-monitor-scale`. Legal scales = 1/120 divisors (eDP-1: 1 / 1.333333
   / 2). Saved per output name under `$XDG_RUNTIME_DIR` (HDMI-A-1 shared by both sinks). Positions **derived**
   (`anchor_offset` in `lib/common.sh`), never pinned.
 - **Refresh rate**: eDP-1 stays 120 Hz (`monitors.lua`); battery 60 Hz saved ~3 W only in video — do not re-add.
+  ProMotion / VRR: eDP-1 has `vrr = 1`, dormant — Aurora's appledrm has VRR code but marks j414s eDP-1 and the LG
+  `vrr_capable` 0 (aquamarine "crtc is incapable of vrr"; Aurora enabled it on J616s only, 2026-11). Monitors pane
+  shows the state read-only (`vrr` in `monitors -j`). LG `cm = "edid"` lives in `asahi-hdmi lg_fields` (its enable eval
+  replaces the desc rule; monitors.lua alone did not stick).
   Wi-Fi power save: no gain, stays off.
+- **Aurora extras (2026-11-09 interview)**: launcher "Restart into macOS" = `pkexec asahi-bless --set-boot-macos
+  --next -y && systemctl reboot` (one boot only).
+  `asahi-pkg tui-upgrade` runs under `systemd-inhibit --what=sleep` (not `idle`: the screen must still lock)
+  then `asahi-boot-check` (newest `kernel-aurora-core` has `/boot/vmlinuz-*`, `/boot/dtb` → its `dtb-*` = Stage 2 built
+  from it; "Restart needed" on a new kernel or a deleted Hyprland / qs binary). Faster shutdown: `DefaultTimeoutStopSec=10s`
+  (system + user, `asahi/systemd/{system,user}.conf.d`), fprintd `TimeoutStopSec=3s`. abrt masked (coredumpctl +
+  asahi-debug instead). Keyboard light at the LUKS prompt: `asahi/udev/90-asahi-kbd-backlight.rules` (128 if 0) +
+  `pwm_apple` in the initramfs (`leds_pwm` is built in). mpv `vo=gpu` + OpenGL (omarchy-mac CPU numbers). LG
+  UltraFine `cm = "edid"` (wide gamut). `asahi-debug` / doctor check Aurora services + an enrolled finger. Kept
+  `user4k=on`. Declined: FEX/Steam, speaker no-suspend, headset-mic priority, audio watchdog, 6 GHz guard, crash toast,
+  dictation.
+  File sharing (2026-11-09): **LocalSend** Flatpak (iPhone app, same LAN); receives on 53317 tcp/udp, opened by `asahi-sshd` in
+  firewalld's `home` zone only (`nmcli connection modify <name> connection.zone home` for a trusted network). Not
+  launched in tests: it announces itself on the LAN.
+  Declined 2026-11-09: AirPlay (his Devices-tab store for the trusted home network lists no AirPlay receiver; he left them declined when asked;
+  `pipewire-config-raop` = only `50-raop.conf` discover, the RAOP sender then needs inbound UDP; `shairport-sync` is a
+  listening daemon), Force Click → Look Up (`hid_magicmouse haptic_deep_keycode` is 0444: load-time only, the module is
+  in the initramfs → dracut + reboot; no "Force Click" input device today; untested on j414s; Look Up = Super+Shift+D).
+- **Aurora watch list (what comes after, 2026-11-09)** — revisit when upstream moves: `asahi-debug` `check_watch`
+  reports `/dev/sep-key`, `aurora-sep-cryptenroll` and eDP-1 VRR on its own (SKIP absent, WARN / PASS when there);
+  public Aurora downloads (site says "Coming soon"; README points at the alpha installer) → README link; `/dev/sep-key`
+  in the kernel → `aurora-fido` leaves the `sealed` store (re-enrol passkeys); `aurora-sep-cryptenroll` for the root
+  volume → Touch ID unlocks LUKS; Touch ID wait ioctl → `require_password_after_boot` works; j414s VRR (eDP-1 `vrr = 1`
+  waits); a boost-aware power profile → selector in the Battery pane;
+  hyprlock re-claiming fprintd (lid-close reader drop; 0 `verify-disconnected` in 8 Touch ID unlocks, 2026-11-09) → Touch
+  ID after lid open; DCP `-22` suspend
+  with a lit USB-C display (untested on Aurora); `agx_stats` `temperature_raw` documented → GPU °C in the Hardware pane.
+- **Power profiles**: Aurora requires `tuned` (active, profile `balanced`: schedutil; `tuned-adm active` says "not running"
+  without D-Bus, e.g. sandboxed). Its per-policy `boost=1` gets EINVAL: global `cpufreq/boost` is 0 (mainline default since
+  6.15), so the P-cores' top states (3360–3504 MHz) never run. No PPD / tuned-ppd / selector (decided 2026-11-09): every
+  profile keeps schedutil, power-saver only turns Wi-Fi power save on + 15 s writeback, performance (`aurora-performance`)
+  only dirty-ratio / readahead; omarchy's PPD boost toggle had "no effect" on an M2 Pro (#17609). Measured 2026-11-09
+  (`tuned-adm profile`, no auth for the active session): SHA-256 single-thread 3.2–3.3 GB/s and system power equal
+  within noise in balanced / powersave / aurora-performance; under load (2 rounds each, power sampled during the run)
+  12-thread 24.7–25.8 GB/s at 42–46 W in every profile. Boost states 3360/3408/3504 MHz exist
+  (`scaling_boost_frequencies`), never used (`time_in_state`). Boost tested 2026-11-09 (he set global `boost` 1):
+  `scaling_max_freq` 3504 MHz, yet schedutil never picks 3360–3504 — pinned 100 % single-thread on cpu4 and cpu8
+  stayed at 3264 MHz, boost `time_in_state` 0, same speed and power. No effect on this kernel: nothing to integrate. The one real lever =
+  global boost (`echo 1 | sudo tee /sys/devices/system/cpu/cpufreq/boost`, until reboot; ~7 % peak clock, power cost
+  unmeasured) — benchmark before wiring it. UPower (Aurora fork: time estimates only) never writes thresholds (`ChargeThresholdEnabled=false`).
 - **LAN devices** (idea: uBruckhaus/omarchy-wlan-monitor): Network pane tabs Networks / Devices
   (`panes/LanDevices.qml`, `lan_models.js`); same layout on both (hiding VPN card / tools made it jump). Scope: who is
   on the LAN + printers; no map, FRITZ!Box mesh / rates / signal, settings, hide or Markdown copy (all cut).

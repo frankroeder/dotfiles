@@ -10,7 +10,7 @@ M.is_asahi_linux = function()
   end
 
   local release = vim.uv.os_uname().release:lower()
-  if release:find("asahi", 1, true) then
+  if release:find("asahi", 1, true) or release:find("aurora", 1, true) then
     return true
   end
 
@@ -18,7 +18,12 @@ M.is_asahi_linux = function()
     return false
   end
 
-  return table.concat(vim.fn.readfile "/etc/os-release", "\n"):lower():find("asahi", 1, true) ~= nil
+  -- aarch64 only: Universal Blue's x86 Aurora (KDE) says aurora too.
+  if vim.uv.os_uname().machine ~= "aarch64" then
+    return false
+  end
+  local osr = table.concat(vim.fn.readfile "/etc/os-release", "\n"):lower()
+  return osr:find("asahi", 1, true) ~= nil or osr:find("aurora", 1, true) ~= nil
 end
 
 -- merge two tables

@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# After a dnf upgrade (asahi-pkg tui-upgrade): is the newest Aurora kernel fully installed, and Stage 2 (m1n1
+# boot.bin) built from its DTBs? kernel-install runs 10-devicetree (points /boot/dtb at the new kernel's DTBs),
+# 15-update-m1n1 (rebuilds Stage 2 from /boot/dtb), then 20-grub (copies /boot/vmlinuz-*): a refused update-m1n1
+# aborts the rest, so a missing image = Stage 2 not rebuilt (2026-11-09: old DTBs, dead Touch ID). Then says if a
+# restart is due. No root needed. Exit 1 on a boot-chain problem. ASAHI_BOOT_DIR: tests.
+
+set -uo pipefail
+boot=${ASAHI_BOOT_DIR:-/boot}
+
+rpm -q --quiet kernel-aurora-core || exit 0   # Fedora Asahi: nothing to check
+newest=$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-aurora-core | sort -V | tail -n 1)
+
+problems=()
+[[ -e $boot/vmlinuz-$newest ]] ||
+  problems+=("kernel $newest has no $boot image: sudo kernel-install add $newest /usr/lib/modules/$newest/vmlinuz")
+[[ $(readlink "$boot/dtb") == "dtb-$newest" ]] ||
+  problems+=("Stage 2 not built from $newest ($boot/dtb -> $(readlink "$boot/dtb")): sudo update-m1n1")
+if ((${#problems[@]})); then
+  printf 'asahi-boot-check: %s\n' "${problems[@]}" >&2
+  notify-send -u critical -a "Asahi Boot" "Boot chain needs attention" "$(printf '%s\n' "${problems[@]}")" || true
+  exit 1
+fi
+
+restart=""
+[[ $(uname -r) == "$newest" ]] || restart="kernel $newest"
+for p in Hyprland qs; do
+  pid=$(pgrep -x -n "$p") || continue
+  [[ $(readlink "/proc/$pid/exe") == *"(deleted)" ]] && restart+="${restart:+, }$p updated"
+done
+if [[ -n $restart ]]; then
+  echo "Restart needed: $restart"
+  notify-send -a "Asahi Boot" "Restart needed" "$restart" || true
+else
+  echo "asahi-boot-check: boot chain current ($newest)"
+fi

@@ -33,7 +33,7 @@ save_device() {
 }
 
 # Keys fade; the panel snaps. Never two of us at once: an off fade racing a restore fade
-# would land between them and read as a manual change to asahi-brightness-keyboard-auto.
+# would land between them and read as a manual change to aurora-kbd-light.
 fade_device() {
   local current
   current=$(brightnessctl --device="$1" get 2>/dev/null) || return 0

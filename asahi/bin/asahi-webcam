@@ -215,14 +215,21 @@ start_overlay() {
     fi
   done
 
+  # Aurora's denoised camera (PipeWire node, shareable with a browser call) when its user service runs: pw-v4l2 maps
+  # the V4L2 open to the node whose object.serial is PIPEWIRE_V4L2_TARGET. Raw V4L2 otherwise.
+  local serial wrap=()
+  serial=$(pw-dump 2>/dev/null | jq -r 'first(.[] | select((.info.props["node.name"]? // "") | startswith("aurora_camera_denoise."))
+    | .info.props["object.serial"]) // empty' || true)
+  [[ -n $serial ]] && command -v pw-v4l2 >/dev/null && wrap=(env PIPEWIRE_V4L2_TARGET="$serial" pw-v4l2)
+
   if [[ -n ${ASAHI_WEBCAM_DRY_RUN:-} ]]; then
-    printf 'mpv av://v4l2:%s --wayland-app-id=WebcamOverlay-medium\n' "$device"
+    printf '%smpv av://v4l2:%s --wayland-app-id=WebcamOverlay-medium\n' "${wrap[*]:+${wrap[*]} }" "$device"
     return 0
   fi
 
   # After the dry run: it must not kill a live overlay.
   stop_overlay
-  setsid mpv "av://v4l2:$device" \
+  setsid "${wrap[@]}" mpv "av://v4l2:$device" \
     --profile=low-latency --untimed --no-cache \
     --demuxer-lavf-o="$capture_options" \
     '--vf=lavfi=[crop=ih*8/9:ih]' \

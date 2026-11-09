@@ -6,10 +6,10 @@ path=(
   $path
 )
 
-# Asahi helper scripts only belong on Asahi hosts.
+# Asahi helper scripts only belong on Apple Silicon hosts (Aurora / Fedora Asahi).
 if [[ -n ${ASAHI:-} ]] \
-  || { [[ -r /etc/os-release ]] && grep -qi asahi /etc/os-release; } \
-  || [[ $(uname -r) == *[Aa]sahi* ]]; then
+  || { [[ $CPUTYPE == aarch64 && -r /etc/os-release ]] && grep -qiE 'asahi|aurora' /etc/os-release; } \
+  || [[ $(uname -r) == *[Aa]sahi* || $(uname -r) == *aurora* ]]; then
   path=("$DOTFILES/asahi/bin" $path)
 fi
 

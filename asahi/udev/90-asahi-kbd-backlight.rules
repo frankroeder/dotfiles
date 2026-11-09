@@ -1,0 +1,3 @@
+# Light the keyboard for the LUKS passphrase prompt (omarchy-mac): set at add, only when it is off.
+# Shipped in the initramfs (asahi/dracut.conf.d/10-asahi-hid.conf); aurora-kbd-light takes over after boot.
+ACTION=="add", SUBSYSTEM=="leds", KERNEL=="*kbd_backlight", ATTR{brightness}=="0", ATTR{brightness}="128"

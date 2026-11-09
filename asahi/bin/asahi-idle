@@ -23,8 +23,8 @@
 # hypridle on-resume and restarts every listener. `off` therefore ignores
 # wakes while it locks, then owns the rest itself — key_press_enables_dpms
 # relights the panel on real input (off watches for that and runs wake),
-# otherwise it suspends. Keyboard/trackpad cannot wake s2idle here (MTP has
-# no wakeup source); lid and power button can.
+# otherwise it suspends. Aurora's kernel: a key or trackpad click wakes s2idle
+# (touches don't), like lid and power button.
 #
 # The stay-awake chip (asahi-stay-awake) skips every step.
 
@@ -48,6 +48,13 @@ log() {
 
 bat="${ASAHI_PSY_DIR:-/sys/class/power_supply}/macsmc-battery"
 battery_uwh() { cat "$bat/energy_now" 2>/dev/null || echo 0; }
+
+# Last suspend refused by a driver (apple-drm -22). -16 (EBUSY) = a wake event aborted the entry
+# (Aurora: a key press while suspending): no fault, sleep stays on.
+suspend_failed() {
+  systemctl is-failed --quiet systemd-suspend.service &&
+    ! grep -qsx -- -16 "${ASAHI_SUSPEND_STATS:-/sys/power/suspend_stats}/last_failed_errno"
+}
 
 # First wake after a suspend: what the sleep cost (s2idle drain; a gain means it charged). The gauge reads
 # stale (too high) for 30-90 s after resume, so the charge is read again 90 s later, in the background
@@ -131,7 +138,7 @@ if [ "$cmd" = why ]; then
       echo "portal inhibit request held by $(busctl --user status ":${sender//_/.}" 2>/dev/null | sed -n 's/^Comm=//p') (:${sender//_/.})"
     done || true
   if external_on; then echo "external display on: no idle sleep (DCP hang path)"; fi
-  if systemctl is-failed --quiet systemd-suspend.service; then echo "last suspend failed: idle sleep off until reboot"; fi
+  if suspend_failed; then echo "last suspend failed: idle sleep off until reboot"; fi
   if pactl list sink-inputs short 2>/dev/null | grep -q .; then echo "audio streams open: sleep waits while they carry sound"; fi
   exit 0
 fi
@@ -199,7 +206,7 @@ can_sleep() {
   elif external_on; then why=external
   # Last suspend refused by the kernel: retrying only churns the DCP. A good lid suspend clears it.
   # Say so once per boot: this kept the SoC awake on battery for ~33 h without a word.
-  elif systemctl is-failed --quiet systemd-suspend.service; then
+  elif suspend_failed; then
     why="last suspend failed"
     if [ ! -e "$failed_note" ]; then
       : >"$failed_note"

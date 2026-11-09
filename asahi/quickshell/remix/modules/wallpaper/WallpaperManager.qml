@@ -223,6 +223,7 @@ Scope {
         anchors.right: parent.right
         anchors.top: parent.top
         paths: root.filteredWallpapers
+        playing: wallpaperPanel.visible && !root.showAll   // a hidden picker kept decoding its looping clip (~50 % of a core)
         viewW: parent.width
         // Centre window as large as the height above the card allows (16:9); 112 = the
         // 36px top/bottom stage margins + 16px gap + 24px air.

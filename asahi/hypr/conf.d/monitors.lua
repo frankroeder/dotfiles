@@ -5,6 +5,8 @@ hl.monitor {
   mode = "3024x1964@120.000",
   position = "0x0",
   scale = 2.0,
+  -- ProMotion: dormant until Aurora's kernel marks the j414s panel vrr_capable (2026-11: only J616s).
+  vrr = 1,
 }
 
 -- Known panels are desc:-keyed, so HDMI-A-1 and a USB-C DP-* share
@@ -19,6 +21,8 @@ hl.monitor {
   mode = "3840x2160@60.000",
   position = "-2048x-360",
   scale = 1.875,
+  -- Wide gamut: Asahi never signals sRGB, so map through the EDID primaries (omarchy wide-gamut.lua).
+  cm = "edid",
 }
 
 -- Dell P2723DE: left of the laptop, bottoms aligned, 1440p @ 1.25
@@ -31,18 +35,14 @@ hl.monitor {
   scale = 1.25,
 }
 
--- Last named rule for HDMI-A-1 and DP-1 (reverse scan returns the first hit).
--- Hyprland never modesets them itself: asahi-hdmi enables after a settle (HDMI
--- on the udev tick froze DCP), never DP while USB-C's DCP is crashed
--- (asahi-hdmi dcp_crashed). That eval must set disabled = false or this rule stays.
-hl.monitor {
-  output = "HDMI-A-1",
-  disabled = true,
-}
-hl.monitor {
-  output = "DP-1",
-  disabled = true,
-}
+-- Last named rule per external (reverse scan returns the first hit). Hyprland never
+-- modesets them itself: asahi-hdmi enables after a settle (HDMI on the udev tick
+-- froze DCP). That eval must set disabled = false or this rule stays. Aurora's DT
+-- gives each USB-C port its own DP-n (DP-1..3; DP-4..6 = a dock's second stream).
+local gated = { "HDMI-A-1", "DP-1", "DP-2", "DP-3", "DP-4", "DP-5", "DP-6" }
+for _, n in ipairs(gated) do
+  hl.monitor { output = n, disabled = true }
+end
 
 hl.monitor {
   output = "",
@@ -52,7 +52,7 @@ hl.monitor {
 }
 
 -- Workspaces 1-5 follow the external that is actually up, 6-10 stay on eDP-1. A static
--- HDMI-A-1 name misses USB-C (DP-1). Retarget on add, remove, and reload.
+-- HDMI-A-1 name misses USB-C (DP-n). Retarget on add, remove, and reload.
 
 -- Lid: asahi-clamshell disables eDP-1 while an external is enabled (clamshell,
 -- persisted for the session). Without an external it is a no-op — logind
@@ -84,10 +84,11 @@ end
 -- defaults to HDMI-A-1, so disabling eDP-1 used to switch off the external.
 local function hdmi_cmd(action, m)
   local n = monitor_name(m)
-  if n ~= "HDMI-A-1" and n ~= "DP-1" then
-    return
+  for _, g in ipairs(gated) do
+    if n == g then
+      hl.exec_cmd(hdmi .. " " .. action .. " " .. n)
+    end
   end
-  hl.exec_cmd(hdmi .. " " .. action .. " " .. n)
 end
 
 -- 0.57 fires no monitor.added for an output its last rule disables (onConnect returns first), so an
@@ -95,20 +96,20 @@ end
 -- connector's disconnected -> connected edge: one turned off in the Monitors pane keeps its cable in
 -- and stays off. monitor.removed samples too (an unplug while disabled).
 local plugged = {}
-local function drm_connected(n)
+-- Connector status; nil when this DT has no such connector.
+local function drm_status(n)
   for card = 0, 3 do
     local f = io.open("/sys/class/drm/card" .. card .. "-" .. n .. "/status", "r")
     if f then
       local s = f:read "l"
       f:close()
-      return s == "connected"
+      return s
     end
   end
-  return false
 end
 local function gated_plugs()
-  for _, n in ipairs { "HDMI-A-1", "DP-1" } do
-    local up = drm_connected(n)
+  for _, n in ipairs(gated) do
+    local up = drm_status(n) == "connected"
     if up and not plugged[n] then
       hl.exec_cmd(hdmi .. " added " .. n)
     end
@@ -198,9 +199,11 @@ hl.on("monitor.removed", function(m)
 end)
 -- A reload re-applies the static rules above; restore the session overrides.
 hl.on("config.reloaded", function()
-  -- This machine has one USB-C DP.
-  hl.exec_cmd(hdmi .. " sync")
-  hl.exec_cmd(hdmi .. " sync DP-1")
+  for _, n in ipairs(gated) do
+    if drm_status(n) then
+      hl.exec_cmd(hdmi .. " sync " .. n)
+    end
+  end
   hl.exec_cmd(scale .. " apply")
   hl.exec_cmd(clamshell .. " apply")
   pin_external_workspaces()

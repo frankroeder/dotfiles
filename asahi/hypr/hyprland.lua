@@ -1,4 +1,4 @@
--- Hyprland 0.55+ Lua config for Asahi Fedora.
+-- Hyprland 0.55+ Lua config for Aurora Fedora Remix (Apple Silicon).
 
 configDir = os.getenv "HOME" .. "/.config/hypr"
 dotfilesDir = os.getenv "HOME" .. "/.dotfiles"

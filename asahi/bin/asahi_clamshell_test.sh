@@ -81,7 +81,8 @@ grep -q 'eval .*eDP-1.*disabled = true' "$CALLS" \
   && pass "idle-blanked (DPMS-off) external still counts: clamshell" || fail_at "DPMS-off external: $(cat "$CALLS")"
 
 FAKE_BLOCKED=0 close disabled "$(dp true)"
-[ ! -s "$CALLS" ] && pass "unlit external, nothing blocks the suspend: close leaves it to logind" \
+# Not `! -s`: the previous case's backgrounded fake systemd-inhibit may still log into $CALLS.
+! grep -q -e eval -e asahi-lock "$CALLS" && pass "unlit external, nothing blocks the suspend: close leaves it to logind" \
   || fail_at "unblocked unlit close: $(cat "$CALLS")"
 
 close disabled "[$edp]"

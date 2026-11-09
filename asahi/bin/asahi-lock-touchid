@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# hyprlock Touch ID hint: a breathing fingerprint glyph above the password pill while a finger is enrolled.
+# Runs per tick (cmd[update:200], like asahi-lock-caps): bash builtins only; fprintd is asked at most once a minute (cache in
+# $XDG_RUNTIME_DIR). Prints nothing without an enrolled finger.
+
+cache="${XDG_RUNTIME_DIR:-/tmp}/asahi-lock-touchid"
+printf -v now '%(%s)T' -1
+ts=0 ok=0
+[[ -r $cache ]] && read -r ts ok <"$cache"
+if ((now - ts > 60)); then
+  ok=0
+  fprintd-list "${USER:-$(id -un)}" 2>/dev/null | grep -q ' - #' && ok=1
+  printf '%s %s\n' "$now" "$ok" >"$cache"
+fi
+((ok)) || exit 0
+
+# Smoothstep breathing over 3.2 s: alpha 30 % .. 100 %.
+us=${EPOCHREALTIME//[!0-9]/}   # de_DE prints a comma
+p=$(((us / 1000) % 3200))
+((p > 1600)) && p=$((3200 - p))
+t=$((p * 1000 / 1600))
+s=$((t * t * (3000 - 2 * t) / 1000000))
+printf "<span alpha='%d%%'>󰈷</span>\n" $((30 + s * 70 / 1000))

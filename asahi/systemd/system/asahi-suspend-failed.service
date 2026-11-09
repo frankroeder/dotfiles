@@ -5,4 +5,6 @@ Description=Stop lid suspend retries after a failed suspend
 # When the kernel refuses s2idle (apple-drm -22), logind re-suspends every
 # HoldoffTimeoutSec while the lid stays closed. Block the lid handler until the
 # lid opens. Needs LidSwitchIgnoreInhibited=no; --why must be one token.
+# -16 (EBUSY) = a wake event (Aurora: key press) aborted the entry, no driver refused it: let logind retry.
+ExecCondition=/bin/sh -c '! grep -qsx -- -16 /sys/power/suspend_stats/last_failed_errno'
 ExecStart=/usr/bin/systemd-inhibit --what=handle-lid-switch --who=asahi-suspend-failed --why=suspend-failed --mode=block /bin/sh -c 'while busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager LidClosed | grep -q true; do sleep 5; done'

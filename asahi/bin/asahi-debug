@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fedora Asahi Remix health report. Apple Silicon only.
+# Fedora Asahi / Aurora Remix health report. Apple Silicon only.
 # Usage: asahi-debug [--json]
 #
 # Path prefixes (tests): ASAHI_DIAG_ROOT, ASAHI_PROC_ROOT, ASAHI_SYS_ROOT;
@@ -27,6 +27,10 @@ done
 diag_root="${ASAHI_DIAG_ROOT:-}"
 proc_root="${ASAHI_PROC_ROOT:-/proc}"
 sys_root="${ASAHI_SYS_ROOT:-/sys}"
+
+# Aurora Fedora Remix renames the kernel, audio and Mesa packages.
+aurora=false
+grep -qs '^VARIANT_ID=aurora' "$diag_root/etc/os-release" && aurora=true
 
 pass_count=0
 fail_count=0
@@ -75,45 +79,141 @@ check_fedora() {
     record FAIL fedora-release "/etc/os-release is missing"
     return
   fi
-  if grep -qi asahi "$osrel"; then
+  if grep -qi -E 'asahi|aurora' "$osrel"; then
     record PASS fedora-asahi "$(grep -E '^(PRETTY_NAME|VARIANT)=' "$osrel" | head -1 | tr -d '"')"
   else
-    record FAIL fedora-asahi "/etc/os-release does not identify Fedora Asahi Remix"
+    record FAIL fedora-asahi "/etc/os-release does not identify Fedora Asahi or Aurora Remix"
   fi
 }
 
 check_kernel() {
-  local release q
+  local release q pkg=kernel-16k
+  $aurora && pkg=kernel-aurora-core
   release=${ASAHI_UNAME_R:-$(/usr/bin/uname -r)}
-  if [[ $release == *asahi* ]]; then
+  if [[ $release == *asahi* || $release == *aurora* ]]; then
     record PASS kernel "$release"
-  elif [[ $release == *fairydust* ]]; then
-    # Self-built AsahiLinux/linux fairydust branch (~/linux-fairydust): USB-C DP alt mode.
-    record PASS kernel "$release (self-built fairydust, local patches in ~/linux-fairydust)"
-    # kernel-16k updates must not rebuild m1n1 or take the GRUB default; the pin follows uname -r.
-    if grep -q '^DTBS="/boot/dtbs/fairydust"' "$(diag_path /etc/sysconfig/update-m1n1)" 2>/dev/null &&
-      grep -q '^UPDATEDEFAULT=no' "$(diag_path /etc/sysconfig/kernel)" 2>/dev/null &&
-      [[ $(readlink "$(diag_path /boot/dtbs/fairydust)") == "$release" ]]; then
-      record PASS fairydust-pin "m1n1 DTBS and GRUB default pinned to $release"
-    else
-      record WARN fairydust-pin "next kernel-16k update drops DP alt mode (m1n1 DTBs / GRUB default) — ./install.sh asahi-system"
-    fi
   else
-    record FAIL kernel "uname -r is '$release' (expected an asahi or fairydust kernel)"
+    record FAIL kernel "uname -r is '$release' (expected an asahi or aurora kernel)"
   fi
-  q=$(rpm_query kernel-16k)
-  if [[ $q == kernel-16k-* ]]; then
-    record PASS pkg-kernel-16k "$q"
+  q=$(rpm_query "$pkg")
+  if [[ $q == "$pkg"-* ]]; then
+    record PASS pkg-kernel "$q"
   elif [[ -n ${ASAHI_DIAG_ROOT:-} ]]; then
-    record SKIP pkg-kernel-16k "rpm not mocked"
+    record SKIP pkg-kernel "rpm not mocked"
   else
-    record WARN pkg-kernel-16k "kernel-16k is not installed (Fedora Asahi ships that name, not linux-asahi)"
+    record WARN pkg-kernel "$pkg is not installed"
+  fi
+  # Aurora: m1n1 Stage 2 DTBs older than the kernel's (old fairydust pin) lack the sep alias: no Touch ID.
+  if $aurora; then
+    if [[ -e $proc_root/device-tree/aliases/sep ]]; then
+      record PASS stage2-dtb "m1n1 Stage 2 carries Aurora DTBs (sep alias present)"
+    else
+      record WARN stage2-dtb "m1n1 Stage 2 DTBs predate Aurora (no sep alias, Touch ID off): remove pre-Aurora kernels, sudo update-m1n1, reboot"
+    fi
+  fi
+}
+
+# Aurora's own services this setup relies on, and an enrolled Touch ID finger.
+check_aurora() {
+  $aurora || return 0
+  if [[ -n $diag_root ]]; then
+    record SKIP aurora-services "systemctl not consulted"
+    return
+  fi
+  local u bad=()
+  for u in aurora-peripherals.service aurora-sep.service aurora-touchid-rearm.socket aurora-stage2-commit.service \
+    aurora-kbd-light.service; do
+    systemctl is-active --quiet "$u" || bad+=("$u")
+  done
+  systemctl --user is-active --quiet aurora-camera-denoise.service || bad+=("aurora-camera-denoise (user)")
+  if ((${#bad[@]})); then
+    record WARN aurora-services "not active: ${bad[*]}"
+  else
+    record PASS aurora-services "peripherals, SEP, Touch ID re-arm, Stage 2 commit, kbd light, camera denoise"
+  fi
+  compgen -G "$proc_root/device-tree/soc/*/fingerprint@*" >/dev/null || return 0
+  if fprintd-list "$USER" 2>/dev/null | grep -q ' - #'; then
+    record PASS touchid "finger enrolled ($(systemctl is-active aurora-fido.service 2>/dev/null) security key)"
+  else
+    record WARN touchid "no finger enrolled (./install.sh asahi-touchid)"
+  fi
+}
+
+# Watch list (asahi/CLAUDE.md "Aurora watch list"): upstream pieces this setup waits for. SKIP while absent, WARN once
+# one arrives and something here should change.
+check_watch() {
+  $aurora || return 0
+  if [ -e "$diag_root/dev/sep-key" ] && aurora-fido status 2>/dev/null | grep -q 'key store: *sealed'; then
+    record WARN watch-sep-key "/dev/sep-key arrived: move passkeys off the sealed store (aurora-fido status / re-enrol)"
+  else
+    record SKIP watch-sep-key "no /dev/sep-key yet (aurora-fido keeps the sealed store)"
+  fi
+  if command -v aurora-sep-cryptenroll >/dev/null; then
+    record WARN watch-touchid-luks "aurora-sep-cryptenroll is installed: Touch ID disk unlock may cover the root now"
+  else
+    record SKIP watch-touchid-luks "no aurora-sep-cryptenroll yet (Touch ID cannot unlock the root)"
+  fi
+  if hyprctl monitors -j 2>/dev/null | jq -e 'any(.[]; .name == "eDP-1" and .vrr)' >/dev/null 2>&1; then
+    record PASS watch-vrr "eDP-1 runs VRR (ProMotion)"
+  else
+    record SKIP watch-vrr "no VRR on eDP-1 yet (the kernel marks it incapable; monitors.lua already asks)"
+  fi
+}
+
+# Thunderbolt: DP and USB3 tunnels need no approval, a TB3 dock's USB / Ethernet (PCIe) does (bolt).
+check_thunderbolt() {
+  command -v boltctl >/dev/null || return 0
+  local waiting
+  waiting=$(boltctl list 2>/dev/null | grep -cE 'status: +(connected|auth-error)')
+  if ((waiting)); then
+    record WARN thunderbolt "$waiting device(s) await approval: boltctl list, then boltctl enroll --policy auto <uuid>"
+  else
+    record PASS thunderbolt "nothing awaits approval"
+  fi
+}
+
+# Root on LUKS (README "Disk encryption", fresh Aurora image or AsahiLocker), and no disk secret left on the
+# unencrypted /boot: Aurora's temporary first-boot key, or a LUKS header copy (old passphrases still open it).
+check_encryption() {
+  local src chain f
+  if [[ -n $diag_root ]] && [[ -z ${ASAHI_DIAG_LSBLK:-} ]]; then
+    record SKIP root-encrypted "lsblk not consulted"
+  else
+    src=$(findmnt -no SOURCE / 2>/dev/null) src=${src%%\[*}
+    chain=$(lsblk -rno FSTYPE -s "$src" 2>/dev/null)
+    if grep -qx crypto_LUKS <<<"$chain"; then
+      record PASS root-encrypted "root on LUKS"
+    else
+      record WARN root-encrypted "root is not encrypted (README: Disk encryption)"
+    fi
+  fi
+  for f in /boot/omarchy/luks-key /boot/luks-header-backup.img; do
+    [ -e "$diag_root$f" ] && record WARN boot-secrets "$f on the unencrypted /boot: keep a copy offline, then delete it"
+  done
+  return 0
+}
+
+# Touch ID shares the Secure Enclave's anti-replay state with macOS: a wrong write can leave FileVault macOS unable to
+# unlock (DFU restore). Aurora's xART guard (default 1 on M2 / M3) refuses to rewrite records Linux did not create.
+check_xart() {
+  local d guard refusals
+  for d in "$sys_root"/devices/platform/soc/*.sep/diag; do [ -r "$d/xart_guard" ] && break; done
+  [ -r "$d/xart_guard" ] || return 0
+  guard=$(cat "$d/xart_guard") refusals=$(cat "$d/xart_guard_refusals" 2>/dev/null || echo 0)
+  if [ "$guard" = 0 ] && ! grep -qs 'apple,t8103\|apple,t600[01]' "$proc_root/device-tree/compatible"; then
+    record WARN xart-guard "off: a bad shared SEP write could cost FileVault macOS a DFU restore (README, Touch ID and macOS)"
+  elif [ "${refusals:-0}" != 0 ]; then
+    record WARN xart-guard "refused $refusals write(s): Touch ID may fail (after a rollback / reinstall: sudo aurora-xart reset-touchid)"
+  else
+    record PASS xart-guard "level $guard, ${refusals:-0} refused"
   fi
 }
 
 check_packages() {
   local pkg q
-  for pkg in speakersafetyd asahi-audio pipewire wireplumber NetworkManager mesa-vulkan-drivers; do
+  local pkgs=(speakersafetyd asahi-audio pipewire wireplumber NetworkManager mesa-vulkan-drivers)
+  $aurora && pkgs=(speakersafetyd aurora-audio pipewire wireplumber NetworkManager mesa-aurora-vulkan-drivers)
+  for pkg in "${pkgs[@]}"; do
     q=$(rpm_query "$pkg")
     if [[ $q == "$pkg"-* ]]; then
       record PASS "pkg-$pkg" "$q"
@@ -187,7 +287,7 @@ check_audio() {
     if [[ -n $effect_sink ]]; then
       record PASS audio-dsp "Asahi DSP chain loaded: $effect_sink"
     else
-      record FAIL audio-dsp "no audio_effect sink — asahi-audio DSP did not load"
+      record FAIL audio-dsp "no audio_effect sink — the speaker DSP (aurora-audio / asahi-audio) did not load"
     fi
   fi
 
@@ -198,11 +298,11 @@ check_audio() {
       "not active — speakers locked; sudo systemctl reset-failed speakersafetyd && sudo systemctl start speakersafetyd"
   fi
 
-  # asahi-mic.conf: MONO relabel of the AUX0 DSP mic (stereo recorders: left only).
-  if wpctl inspect @DEFAULT_AUDIO_SOURCE@ 2>/dev/null | grep -q 'node.name = "asahi_mic"'; then
-    record PASS asahi-mic "default source is asahi_mic (MONO)"
+  # A non-MONO DSP mic (old asahi-audio: 1ch AUX0) reaches stereo recorders on the left only.
+  if wpctl inspect @DEFAULT_AUDIO_SOURCE@ 2>/dev/null | grep -q 'audio.position = .*MONO'; then
+    record PASS mic-mono "default source is MONO"
   else
-    record WARN asahi-mic "default source is not asahi_mic — stereo recorders may get the mic on the left only"
+    record WARN mic-mono "default source is not MONO — stereo recorders may get the mic on the left only"
   fi
 
   # Amps can lock (e.g. 96 kHz playback) while the service looks active; the kernel log says.
@@ -353,6 +453,10 @@ check_getty() {
   else
     record PASS getty-autologin "tty1 has no agetty --autologin drop-in"
   fi
+  # Fedora 45 presets kmscon on the VTs: it holds the display's DRM master, so Hyprland cannot start.
+  if [[ $(systemctl is-enabled kmsconvt@tty1.service 2>/dev/null) == enabled ]]; then
+    record FAIL getty-kmscon "kmscon runs tty1 (Hyprland gets EBUSY on the display): ./install.sh asahi-getty, reboot"
+  fi
 }
 
 check_keyring() {
@@ -394,14 +498,9 @@ check_hibernate() {
 
 check_logind() {
   local conf udev unit
-  conf=$(diag_path /etc/systemd/logind.conf.d/10-asahi-sleep.conf)
+  conf=$(diag_path /etc/systemd/logind.conf.d/90-asahi-sleep.conf)
   udev=$(diag_path /etc/udev/rules.d/99-asahi-hdmi-lid-inhibit.rules)
   unit=$(diag_path /etc/systemd/system/asahi-hdmi-lid-inhibit.service)
-  if [[ -r $conf ]] && grep -q '^HandlePowerKey=ignore' "$conf"; then
-    record PASS logind-power "HandlePowerKey=ignore is installed"
-  else
-    record WARN logind-power "asahi logind drop-in is missing HandlePowerKey=ignore"
-  fi
   if [[ -r $conf ]] && grep -q '^LidSwitchIgnoreInhibited=no' "$conf" && [[ -f $udev && -f $unit ]]; then
     record PASS logind-lid "HDMI lid-inhibit installed"
   else
@@ -421,12 +520,11 @@ check_charge_limit() {
 }
 
 check_camera() {
-  local devices
-  devices=$(find "$(diag_path /dev)" -maxdepth 1 -name 'video*' 2>/dev/null | sort | tr '\n' ' ')
-  if [[ -n $devices ]]; then
-    record PASS camera "video device(s) present: $devices"
+  # Not any /dev/video*: on Aurora the AVD decoder is a video node too.
+  if grep -qsx apple-isp "$sys_root"/class/video4linux/*/name; then
+    record PASS camera "apple-isp camera present"
   else
-    record WARN camera "no /dev/video* — the camera stack is not active"
+    record WARN camera "no apple-isp video device — the camera stack is not active"
   fi
 }
 
@@ -485,6 +583,11 @@ print_report() {
 require_apple_silicon
 check_fedora
 check_kernel
+check_aurora
+check_xart
+check_encryption
+check_thunderbolt
+check_watch
 check_packages
 check_wifi_backend
 check_wifi_powersave

@@ -148,11 +148,9 @@ case "$cmd" in
     launch_tui sudo dnf remove "$@"
     ;;
   tui-upgrade)
-    if [ "$#" -eq 0 ]; then
-      launch_tui sudo dnf upgrade
-    else
-      launch_tui sudo dnf upgrade "$@"
-    fi
+    # No s2idle mid kernel-install (lid close waits too; the idle lock still runs); then check the boot chain.
+    launch_tui systemd-inhibit --what=sleep --who=asahi-pkg --why=dnf-upgrade \
+      sh -c 'sudo dnf upgrade "$@"; rc=$?; "$0" || rc=1; exit $rc' "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/asahi-boot-check" "$@"
     ;;
   *)
     usage
