@@ -34,9 +34,7 @@ edp_off() {
 }
 # Same mode/position as monitors.lua; scale follows asahi-monitor-scale if set.
 edp_on() {
-  local scale
-  scale=$(saved_scale eDP-1)
-  hyprctl eval "hl.monitor({ output = \"eDP-1\", disabled = false, mode = \"3024x1964@120.000\", position = \"0x0\", scale = ${scale:-1.333334} })" >/dev/null
+  hyprctl eval "hl.monitor({ output = \"eDP-1\", disabled = false, mode = \"3024x1964@120.000\", position = \"0x0\", scale = $(edp_scale) })" >/dev/null
 }
 inhibited() {
   systemd-inhibit --list --no-legend 2>/dev/null | grep -q '^asahi-clamshell '

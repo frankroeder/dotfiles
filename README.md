@@ -90,8 +90,8 @@ provision_keybag=0` opts out (no Touch ID on Linux).
 
 ## Backup & restore
 `asahi-timemachine` (restic) keeps `~` encrypted on a USB drive or an SFTP host, every ≥ 72 h and from the Quick pane
-**Backup** (Super+Ctrl+R: back up, browse, restore). snapper keeps hourly-to-weekly snapshots of `/` and `/home` on the
-same disk.
+**Backup** (Super+Ctrl+R: back up, browse, restore). snapper keeps hourly and daily snapshots of `/` and `/home` (weekly
+too for `/`) on the same disk.
 
 - **Keep off the Mac** (password manager): `~/.config/asahi-timemachine/{password,config,id_ed25519}`. The backup holds
   them too, but you need them to open it.
@@ -120,8 +120,8 @@ asahi-timemachine status | jq .timer                # "active"; else asahi-timem
 ```
 snapper configs are not in the backup: `sudo snapper -c root create-config / && sudo snapper -c home create-config
 /home && ./install.sh asahi-snapper`. Touch ID after a reinstall: the SEP's Linux records look like another OS's
-to the xART guard (`/usr/share/doc/aurora-sep/XART-SAFETY.md`): `sudo aurora-xart reset-touchid`, then
-`./install.sh asahi-touchid`.
+to the xART guard (`/usr/share/doc/aurora-sep/XART-SAFETY.md`): `sudo aurora-xart reset-touchid` (it
+refuses while the keybag works), reboot, then `./install.sh asahi-touchid`.
 
 ### Malfunction
 - Lost or broken file in `~`: Quick pane **Backup** → Restore (to `~/Restored/…`), or the hourly copy in
@@ -131,7 +131,7 @@ to the xART guard (`/usr/share/doc/aurora-sep/XART-SAFETY.md`): `sudo aurora-xar
   brought back an older xART owner list: `sudo aurora-xart reset-touchid`):
 ```sh
 sudo snapper -c root list                          # <N> from before the breakage
-sudo mount -o subvolid=5 /dev/mapper/fedora_crypt /mnt
+sudo mount -o subvolid=5 "$(findmnt -no SOURCE / | cut -d'[' -f1)" /mnt   # e.g. /dev/mapper/fedora_crypt
 sudo mv /mnt/root /mnt/root.broken
 sudo btrfs subvolume snapshot /mnt/root.broken/.snapshots/<N>/snapshot /mnt/root
 sudo rmdir /mnt/root/.snapshots && sudo mv /mnt/root.broken/.snapshots /mnt/root/

@@ -62,17 +62,17 @@ run added
 grep -q 'disabled = false' "$kw_log" || fail_at "added must pass disabled = false"
 grep -q 'mode = "2560x1440@59.95100"' "$kw_log" \
   || fail_at "added uses Dell mode (got $(tr '\n' ' ' <"$kw_log"))"
-grep -q 'position = "-2048x321"' "$kw_log" \
-  || fail_at "Dell sits left of eDP-1, bottoms aligned (got $(tr '\n' ' ' <"$kw_log"))"
+grep -q 'position = "-2048x-170"' "$kw_log" \
+  || fail_at "Dell sits left of eDP-1, bottoms aligned at the monitors.lua eDP scale 2 (got $(tr '\n' ' ' <"$kw_log"))"
 pass "added enables Dell with disabled = false"
 
 mkdir -p "$tmp/scales"
-printf '2\n' >"$tmp/scales/eDP-1"
+printf '1.333334\n' >"$tmp/scales/eDP-1"
 : >"$kw_log"
 run added
-grep -q 'position = "-2048x-170"' "$kw_log" \
-  || fail_at "Dell y follows eDP scale 2 (got $(tr '\n' ' ' <"$kw_log"))"
-pass "Dell bottoms follow eDP scale 2"
+grep -q 'position = "-2048x321"' "$kw_log" \
+  || fail_at "Dell y follows a saved eDP scale 4/3 (got $(tr '\n' ' ' <"$kw_log"))"
+pass "Dell bottoms follow a saved eDP scale (4/3)"
 rm -f "$tmp/scales/eDP-1"
 
 printf '[{"name":"HDMI-A-1","disabled":true,"description":"LG Electronics LG ULTRAFINE"}]\n' >"$mon_json"
@@ -98,7 +98,7 @@ run sync
 grep -q 'disabled = false' "$kw_log" || fail_at "sync enables when HDMI is still disabled"
 pass "sync enables connected-but-disabled HDMI"
 
-printf '[{"name":"HDMI-A-1","disabled":false,"description":"Dell Inc. DELL P2723DE ABC1234","x":-2048,"y":321,"scale":1.25}]\n' >"$mon_json"
+printf '[{"name":"HDMI-A-1","disabled":false,"description":"Dell Inc. DELL P2723DE ABC1234","x":-2048,"y":-170,"scale":1.25}]\n' >"$mon_json"
 : >"$kw_log"
 run sync
 if grep -q . "$kw_log"; then
@@ -110,7 +110,7 @@ fi
 printf '[{"name":"HDMI-A-1","disabled":false,"description":"Dell Inc. DELL P2723DE ABC1234","x":-2048,"y":-360,"scale":1.875}]\n' >"$mon_json"
 : >"$kw_log"
 run sync
-grep -q 'position = "-2048x321"' "$kw_log" && grep -q 'scale = 1.25' "$kw_log" \
+grep -q 'position = "-2048x-170"' "$kw_log" && grep -q 'scale = 1.25' "$kw_log" \
   || fail_at "sync must not keep UltraFine geometry on the Dell (got $(tr '\n' ' ' <"$kw_log"))"
 grep -q -- '-360' "$kw_log" && fail_at "Dell sync must not keep LG y (got $(tr '\n' ' ' <"$kw_log"))"
 pass "sync reapplies Dell layout after LG leftover"
@@ -162,8 +162,12 @@ grep -q 'local gated = { "HDMI-A-1", "DP-1", "DP-2", "DP-3", "DP-4", "DP-5", "DP
 grep -q 'asahi-hdmi' "$cfg" || fail_at "monitors.lua must call asahi-hdmi"
 grep -A4 'ULTRAFINE' "$cfg" | grep -q -- '-2048x-360' \
   || fail_at "monitors.lua LG position must match asahi-hdmi"
-grep -A4 'P2723DE' "$cfg" | grep -q -- '-2048x321' \
+grep -A4 'P2723DE' "$cfg" | grep -q -- '-2048x-170' \
   || fail_at "monitors.lua Dell position must match asahi-hdmi"
+# One default eDP scale: the scripts' fallback (edp_scale) is the monitors.lua rule's.
+edp_default=$(ASAHI_SCALE_DIR="$tmp/none" bash -c '. "$1"; edp_scale' _ "$ROOT/lib/common.sh")
+grep -A4 'output = "eDP-1"' "$cfg" | grep -q "scale = $edp_default\.0," \
+  || fail_at "lib/common.sh edp_scale default ($edp_default) must be the monitors.lua eDP-1 scale"
 pass "monitors.lua disables HDMI and DP-n until asahi-hdmi"
 
 grep -q 'asahi-hdmi sync' "$ROOT/../hypr/conf.d/autostart.lua" \

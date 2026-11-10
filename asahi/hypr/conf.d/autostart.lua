@@ -7,7 +7,10 @@ hl.on("hyprland.start", function()
   -- Hyprland's log lives in /run and died with the forced shutdown that ended the 2026-11-02 lock-screen
   -- hang. Mirror it into the persistent journal (`journalctl -b -1 -t hyprland`) without libinput's touch
   -- debug (~95 % of it); line-buffered so the last lines before a hang land. tail ends with Hyprland.
+  -- Wait for the lock file: on a real start this hook can run first, and tail exits on an empty --pid
+  -- (no mirror at all in the 2026-11-09 session).
   hl.exec_cmd([[d="$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE"; ]]
+    .. [[for _ in $(seq 50); do [ -s "$d/hyprland.lock" ] && break; sleep 0.1; done; ]]
     .. [[tail -F -n +1 --pid="$(head -n 1 "$d/hyprland.lock")" "$d/hyprland.log" ]]
     .. [[| grep --line-buffered -v '\[libinput\]' | systemd-cat -t hyprland]])
   -- Fallback dark until asahi-autotheme reads wallpaper lightness (gsettings + GTK + icons).

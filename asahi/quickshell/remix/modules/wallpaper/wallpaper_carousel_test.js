@@ -240,6 +240,18 @@ assert(
 );
 assert(/randomWallpaper\(root\.filteredWallpapers\)/.test(mgr), "Shuffle picks from the filtered list");
 
+console.log("\n== WallpaperIntro plays past frame 0 ==");
+const intro = fs.readFileSync(path.join(__dirname, "WallpaperIntro.qml"), "utf8");
+assert(!/property bool ready:/.test(intro), "no ready binding on mediaStatus (it looped and Qt dropped it)");
+assert(!/onReadyChanged:/.test(intro), "play() is not fired from a ready change handler");
+assert(!/onSourceChanged:.*pause\(\)/.test(intro), "a new source is not paused on frame 0");
+assert(
+  /function kick\(\)/.test(intro) && /onMediaStatusChanged:\s*Qt\.callLater\(kick\)/.test(intro),
+  "playback starts once the clip is loaded, after setSource() settled (a kick inside it left the next clip on frame 0)",
+);
+assert(/\+\+win\.swaps === 2\) root\.shown\+\+; else cover\.Window\.window\.update\(\)/.test(intro), "a held cover re-armed gets its second swap");
+assert(/position > 40/.test(intro), "the cover hides once the playhead leaves the first frame");
+
 if (failed > 0) {
   console.log("\n" + failed + " assertion(s) failed");
   process.exit(1);

@@ -92,7 +92,7 @@ ShellRoot {
         barScreen: modelData
         notificationCenter: notifCenter
         calendarOpen: shell.calendarOpen
-        launcherOpen: shell.launcherOpen
+        launcherOpen: shell.launcherOpen || appGrid.shown   // either closes this bar's popup
         onCalendarToggle: shell.calendarOpen = !shell.calendarOpen
         onQuickRequested: key => {
           if (key === "updates") { pkgManager.toggle(2); return }
@@ -146,7 +146,13 @@ ShellRoot {
       if (!l) return
       if (l.openQuick) l.openQuick(key || "hub")
     }
-    function apps() { appGrid.toggle() }   // Launchpad grid (Super+Alt+Space)
+    function apps() {   // Launchpad grid (Super+Alt+Space)
+      if (!appGrid.shown) {   // like the launcher: a sheet's focus grab would keep the grid's keys
+        shell.calendarOpen = false
+        notifCenter.historyVisible = false
+      }
+      appGrid.toggle()
+    }
   }
 
   Launcher.AppGrid { id: appGrid; launcher: launcherLoader.item }

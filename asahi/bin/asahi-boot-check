@@ -12,10 +12,13 @@ rpm -q --quiet kernel-aurora-core || exit 0   # Fedora Asahi: nothing to check
 newest=$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-aurora-core | sort -V | tail -n 1)
 
 problems=()
-[[ -e $boot/vmlinuz-$newest ]] ||
-  problems+=("kernel $newest has no $boot image: sudo kernel-install add $newest /usr/lib/modules/$newest/vmlinuz")
+# No initramfs: 50-dracut failed after 20-grub copied the image (/boot full); the default stays the old kernel.
+[[ -e $boot/vmlinuz-$newest && -e $boot/initramfs-$newest.img ]] ||
+  problems+=("kernel $newest has no $boot image or initramfs: sudo kernel-install add $newest /usr/lib/modules/$newest/vmlinuz")
+# Stage 2 follows the GRUB default: update-m1n1 alone changes nothing while an older kernel is the default.
 [[ $(readlink "$boot/dtb") == "dtb-$newest" ]] ||
-  problems+=("Stage 2 not built from $newest ($boot/dtb -> $(readlink "$boot/dtb")): sudo update-m1n1")
+  problems+=("Stage 2 not built from $newest ($boot/dtb -> $(readlink "$boot/dtb")):
+sudo grubby --set-default=/boot/vmlinuz-$newest && sudo update-m1n1")
 if ((${#problems[@]})); then
   printf 'asahi-boot-check: %s\n' "${problems[@]}" >&2
   notify-send -u critical -a "Asahi Boot" "Boot chain needs attention" "$(printf '%s\n' "${problems[@]}")" || true

@@ -1,0 +1,8 @@
+// asahi-lock restarts a wedged fprintd without a prompt: a suspend during a sudo / polkit finger prompt leaves the
+// reader open, and every later claim (lock screen, sudo, polkit) fails until fprintd restarts.
+polkit.addRule(function(action, subject) {
+  if (action.id == "org.freedesktop.systemd1.manage-units" && action.lookup("unit") == "fprintd.service" &&
+      action.lookup("verb") == "restart" && subject.isInGroup("wheel")) {
+    return polkit.Result.YES;
+  }
+});

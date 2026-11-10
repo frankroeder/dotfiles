@@ -99,11 +99,11 @@ profile_micro() {
 profile_asahi() {
   require_linux; require_tools; ensure_sudo
   comp_asahi_system
-  comp_asahi_touchid
   comp_asahi_snapper
   comp_asahi_desktop
   comp_asahi_battery_alerts
   comp_default_shell
+  comp_asahi_touchid   # after the desktop: a Touch ID / aurora-fido failure must not leave the Mac without one
   comp_doctor
   comp_agents
   comp_asahi_wallpapers

@@ -141,8 +141,19 @@ if [ "$(tr "\n" "|" <"$tmp/qs-calls" 2>/dev/null)" = "arm|ready|ready|hyprlock|p
 else
   fail_at "intro on unlock: [$(cat "$tmp/qs-calls" 2>/dev/null)]"
 fi
+# Out of retries (hyprlock keeps crashing): play still runs, else the held first frame stays over the wallpaper.
+rm -f "$tmp/qs-calls"
+printf '#!/bin/sh\nexit 1\n' >"$tmp/hyprlock"
+rc=0
+XDG_RUNTIME_DIR="$tmp" XDG_STATE_HOME="$tmp" ASAHI_LOCK_RETRY_S=0 PATH="$tmp:$PATH" "$ROOT/asahi-lock" || rc=$?
+if [ "$rc" = 1 ] && [ "$(tail -n 1 "$tmp/qs-calls")" = play ]; then
+  pass "asahi-lock out of retries releases the held intro (exit 1)"
+else
+  fail_at "asahi-lock out of retries: rc=$rc last call [$(tail -n 1 "$tmp/qs-calls" 2>/dev/null)]"
+fi
 # Touch ID: fingerprint auth on, the glyph only with an enrolled finger, fprintd asked once a minute, alpha 30–100 %.
-if grep -q '^  fingerprint:enabled = true' "$conf" && grep -q 'cmd\[update:200\] ~/.dotfiles/asahi/bin/asahi-lock-touchid' "$conf"; then
+if grep -q '^  fingerprint:enabled = true' "$conf" && grep -q '^  fingerprint:present_message = reading$' "$conf" \
+  && grep -q 'cmd\[update:200\] ~/.dotfiles/asahi/bin/asahi-lock-touchid "\$FPRINTPROMPT"$' "$conf"; then
   pass "hyprlock.conf: Touch ID auth + breathing glyph"
   grep -q '^  animation = fadeOut, 0' "$conf" && pass "hyprlock.conf: no fade-out (dimmed the intro's first frame to grey)" \
     || fail_at "hyprlock.conf fades out again"
@@ -152,7 +163,7 @@ fi
 printf '#!/bin/sh\necho x >>"%s/fp-calls"\n[ -e "%s/enrolled" ] && printf "Fingerprints for user u on sensor (press):\\n - #0: right-index-finger\\n"\nexit 0\n' \
   "$tmp" "$tmp" >"$tmp/fprintd-list"
 chmod +x "$tmp/fprintd-list"
-touchid() { XDG_RUNTIME_DIR="$tmp" PATH="$tmp:$PATH" "$ROOT/asahi-lock-touchid"; }
+touchid() { XDG_RUNTIME_DIR="$tmp" PATH="$tmp:$PATH" "$ROOT/asahi-lock-touchid" "$@"; }
 a=$(touchid)
 : >"$tmp/enrolled"
 b=$(touchid)
@@ -164,6 +175,44 @@ if [ -z "$a$b" ] && [ "$(wc -l <"$tmp/fp-calls")" -eq 2 ] && [ -n "$d" ] && [ -n
   pass "Touch ID glyph: hidden without a finger, fprintd cached, alpha $alpha %"
 else
   fail_at "Touch ID glyph: a=[$a] b=[$b] c=[$c] calls=$(wc -l <"$tmp/fp-calls")"
+fi
+# Touch ID line: hyprlock's fingerprint log lines become the note the glyph script prints in the glyph's place.
+printf '#!/bin/sh\nexit 1\n' >"$tmp/qs"
+printf '#!/bin/sh\necho "$*" >>"%s/systemctl-calls"\n' "$tmp" >"$tmp/systemctl"
+chmod +x "$tmp/systemctl"
+note_after() {   # the note one lock leaves for hyprlock printing these lines
+  { printf '#!/bin/sh\n'; printf 'echo "[DEBUG]: fprint: %s"\n' "$@"; printf 'sleep 0.3\n'; } >"$tmp/hyprlock"
+  XDG_RUNTIME_DIR="$tmp" XDG_STATE_HOME="$tmp" PATH="$tmp:$PATH" "$ROOT/asahi-lock"
+  cut -d' ' -f2- "$tmp/asahi-lock-touchid.note" 2>/dev/null
+}
+nm="handling status verify-no-match"
+n1=$(note_after "claimed device" "started verifying" "$nm" "started verifying")
+shown=$(touchid "Could not match fingerprint. Try again.")
+again=$(touchid reading)
+n_retry=$(note_after "started verifying" "handling status verify-retry-scan")
+n4=$(note_after "$nm" "started verifying" "$nm" "started verifying" "$nm" "started verifying" "$nm")
+n_lock=$(note_after "started verifying" "handling status verify-lockout" "unknown status: verify-lockout")
+n_pw=$(note_after "started verifying" "handling status verify-password-required-after-boot")
+n_gone=$(note_after "handling status verify-disconnected" "started verifying"; echo .)
+calls_before=$(cat "$tmp/systemctl-calls" 2>/dev/null || true)
+n_claim=$(note_after "could not claim device, [net.reactivated.Fprint.Error.Internal] Open failed with error: The device has already been opened!")
+sticky=$(touchid reading)
+big="<span size='84pt'>󰈷</span>"
+if [ "$n1" = "No match" ] && [ "$shown" = "<span size='28pt'>No match</span>" ] && [ "$again" = "$big" ] \
+  && [ "$n_retry" = "Not read · touch again" ] && [ "$n4" = "Too many failed attempts · enter password" ] \
+  && [ "$n_lock" = "$n4" ] && [ "$n_pw" = "Enter password to enable Touch ID" ] && [ "$n_gone" = . ] && [ -z "$calls_before" ] \
+  && [ "$n_claim" = "Touch ID unavailable · enter password" ] && [ "$sticky" = "<span size='28pt'>$n_claim</span>" ] \
+  && [ "$(cat "$tmp/systemctl-calls")" = "--no-ask-password --no-block restart fprintd.service" ]; then
+  pass "Touch ID line: no match, retry, too many attempts, lockout, password clock, unavailable (wedged fprintd restarted)"
+else
+  fail_at "Touch ID line: [$n1] [$shown] [$again] [$n_retry] [$n4] \
+    [$n_lock] [$n_pw] [$n_gone] [$n_claim] [$sticky] calls [$(cat "$tmp/systemctl-calls" 2>/dev/null)]"
+fi
+printf '%s old\n' "$(($(date +%s) - 5))" >"$tmp/asahi-lock-touchid.note"
+if [[ $(touchid "(Scan fingerprint to unlock)") == "<span alpha="*󰈷* ]] && [ "$(touchid reading)" = "$big" ]; then
+  pass "Touch ID line: an expired note gives the breathing glyph back; solid and larger while a finger is read"
+else
+  fail_at "Touch ID line: expired note / reading: [$(touchid)] [$(touchid reading)]"
 fi
 rm -rf "$tmp"
 

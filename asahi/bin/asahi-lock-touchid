@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# hyprlock Touch ID hint: a breathing fingerprint glyph above the password pill while a finger is enrolled.
+# hyprlock Touch ID hint: a breathing fingerprint glyph above the password pill while a finger is enrolled; a line of
+# text in its place when a finger did not match or Touch ID is locked / unavailable (asahi-lock's note).
 # Runs per tick (cmd[update:200], like asahi-lock-caps): bash builtins only; fprintd is asked at most once a minute (cache in
 # $XDG_RUNTIME_DIR). Prints nothing without an enrolled finger.
 
@@ -13,6 +14,20 @@ if ((now - ts > 60)); then
   printf '%s %s\n' "$now" "$ok" >"$cache"
 fi
 ((ok)) || exit 0
+
+# asahi-lock's note (no match, locked, unavailable) in place of the glyph: "<until epoch> <text>", 0 = stays.
+# $1 = hyprlock's $FPRINTPROMPT: "reading" (hyprlock.conf present_message) from a finger on the sensor until its
+# result. It beats a timed note (a new touch after "No match"), not a staying one (hyprlock gave up: it stays "reading").
+note="${XDG_RUNTIME_DIR:-/tmp}/asahi-lock-touchid.note"
+{ [[ -r $note ]] && read -r till text <"$note"; } || till=-1
+if ((till == 0)) || { [[ ${1:-} != reading ]] && ((now <= till)); }; then
+  printf "<span size='28pt'>%s</span>\n" "$text"   # absolute: hyprlock resets relative sizes (scale 1)
+  exit 0
+fi
+if [[ ${1:-} == reading ]]; then
+  printf "<span size='84pt'>󰈷</span>\n"   # solid and larger
+  exit 0
+fi
 
 # Smoothstep breathing over 3.2 s: alpha 30 % .. 100 %.
 us=${EPOCHREALTIME//[!0-9]/}   # de_DE prints a comma

@@ -132,8 +132,12 @@ check_aurora() {
     record PASS aurora-services "peripherals, SEP, Touch ID re-arm, Stage 2 commit, kbd light, camera denoise"
   fi
   compgen -G "$proc_root/device-tree/soc/*/fingerprint@*" >/dev/null || return 0
-  if fprintd-list "$USER" 2>/dev/null | grep -q ' - #'; then
+  local prints
+  prints=$(fprintd-list "$USER" 2>/dev/null)
+  if grep -q ' - #' <<<"$prints"; then
     record PASS touchid "finger enrolled ($(systemctl is-active aurora-fido.service 2>/dev/null) security key)"
+  elif grep -q 'No devices available' <<<"$prints"; then   # libfprint hides the reader under a closed lid
+    record SKIP touchid "reader under the closed lid: fingers not checked"
   else
     record WARN touchid "no finger enrolled (./install.sh asahi-touchid)"
   fi
@@ -143,10 +147,12 @@ check_aurora() {
 # one arrives and something here should change.
 check_watch() {
   $aurora || return 0
-  if [ -e "$diag_root/dev/sep-key" ] && aurora-fido status 2>/dev/null | grep -q 'key store: *sealed'; then
+  if [ ! -e "$diag_root/dev/sep-key" ]; then
+    record SKIP watch-sep-key "no /dev/sep-key yet (aurora-fido keeps the sealed store)"
+  elif aurora-fido status 2>/dev/null | grep -q 'key store: *sealed'; then
     record WARN watch-sep-key "/dev/sep-key arrived: move passkeys off the sealed store (aurora-fido status / re-enrol)"
   else
-    record SKIP watch-sep-key "no /dev/sep-key yet (aurora-fido keeps the sealed store)"
+    record PASS watch-sep-key "/dev/sep-key present, aurora-fido reports no sealed store"
   fi
   if command -v aurora-sep-cryptenroll >/dev/null; then
     record WARN watch-touchid-luks "aurora-sep-cryptenroll is installed: Touch ID disk unlock may cover the root now"
@@ -196,16 +202,19 @@ check_encryption() {
 # Touch ID shares the Secure Enclave's anti-replay state with macOS: a wrong write can leave FileVault macOS unable to
 # unlock (DFU restore). Aurora's xART guard (default 1 on M2 / M3) refuses to rewrite records Linux did not create.
 check_xart() {
-  local d guard refusals
+  local d guard refusals matching
   for d in "$sys_root"/devices/platform/soc/*.sep/diag; do [ -r "$d/xart_guard" ] && break; done
   [ -r "$d/xart_guard" ] || return 0
   guard=$(cat "$d/xart_guard") refusals=$(cat "$d/xart_guard_refusals" 2>/dev/null || echo 0)
+  matching=$(cat "$d/matching" 2>/dev/null)   # usable / unverified (steady state under the guard) / blocked
   if [ "$guard" = 0 ] && ! grep -qs 'apple,t8103\|apple,t600[01]' "$proc_root/device-tree/compatible"; then
     record WARN xart-guard "off: a bad shared SEP write could cost FileVault macOS a DFU restore (README, Touch ID and macOS)"
   elif [ "${refusals:-0}" != 0 ]; then
     record WARN xart-guard "refused $refusals write(s): Touch ID may fail (after a rollback / reinstall: sudo aurora-xart reset-touchid)"
+  elif [ "$matching" = blocked ]; then
+    record WARN xart-guard "matching blocked: a Touch ID match cannot save its state (journalctl -u aurora-sep-ready; XART-SAFETY.md)"
   else
-    record PASS xart-guard "level $guard, ${refusals:-0} refused"
+    record PASS xart-guard "level $guard, ${refusals:-0} refused${matching:+, matching $matching}"
   fi
 }
 

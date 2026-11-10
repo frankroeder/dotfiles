@@ -27,6 +27,7 @@ out=$(check); rc=$?
 : >"$tmp/installed"
 echo "$new" >"$tmp/uname"
 : >"$tmp/boot/vmlinuz-$new"
+: >"$tmp/boot/initramfs-$new.img"
 ln -s "dtb-$new" "$tmp/boot/dtb"
 out=$(check); rc=$?
 [ "$rc" -eq 0 ] && [[ $out == *"boot chain current ($new)"* ]] && pass "current chain" || fail_at "current: rc=$rc [$out]"
@@ -41,8 +42,15 @@ out=$(check); rc=$?
   pass "aborted kernel-install (no image): critical" || fail_at "no image: rc=$rc [$out]"
 
 : >"$tmp/boot/vmlinuz-$new"
+rm "$tmp/boot/initramfs-$new.img"
+out=$(check); rc=$?
+[ "$rc" -eq 1 ] && [[ $out == *"kernel $new has no $tmp/boot image or initramfs"* ]] &&
+  pass "failed dracut (image, no initramfs): critical" || fail_at "no initramfs: rc=$rc [$out]"
+
+: >"$tmp/boot/initramfs-$new.img"
 ln -sfn "dtb-$old" "$tmp/boot/dtb"
 out=$(check); rc=$?
-[ "$rc" -eq 1 ] && [[ $out == *"Stage 2 not built from $new"* ]] && pass "stale /boot/dtb: critical" || fail_at "stale dtb: rc=$rc [$out]"
+[ "$rc" -eq 1 ] && [[ $out == *"Stage 2 not built from $new"* && $out == *"grubby --set-default=/boot/vmlinuz-$new"* ]] &&
+  pass "stale /boot/dtb: critical, remedy sets the default first" || fail_at "stale dtb: rc=$rc [$out]"
 
 [ "$fail" -eq 0 ] && echo "all passed" || exit 1

@@ -117,8 +117,9 @@ sudo dnf install -y --allowerasing openh264
 sudo dnf install -y --from-repo=fedora,updates quickshell
 
 # Aurora: Flathub's GL.default has no aurora_dri.so, so Flatpak apps need Aurora's GL extension (nothing requires it).
+# AVD VA-API driver + firmware: mpv_asahi.conf's hwdec=vaapi-copy (aurora-platform pulls them in; named here too).
 if grep -q '^VARIANT_ID=aurora' /etc/os-release; then
-  sudo dnf install -y aurora-flatpak-gl
+  sudo dnf install -y aurora-flatpak-gl libva-v4l2-request-avd avd-fw
 fi
 
 # After the install: hyprland Recommends kitty (Ghostty is the terminal here).

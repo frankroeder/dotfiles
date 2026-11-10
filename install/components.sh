@@ -570,11 +570,13 @@ comp_asahi_system() {
         sudo systemctl stop macsmc-battery-charge-control-end-threshold.path 2>/dev/null || true
         sudo dnf remove -y --no-autoremove "${old[@]}" || { print_error "failed to remove ${old[*]}"; exit 1; }
       fi
-      # Aurora kernels whose kernel-install add hit that refusal have no /boot image yet.
-      for v in /usr/lib/modules/*aurora*; do
-        [ -f "$v/vmlinuz" ] && [ ! -e "/boot/vmlinuz-${v##*/}" ] || continue
+      # An Aurora kernel whose kernel-install add was refused (or ran out of /boot space) has no image / initramfs.
+      # Only the newest is repaired: every add becomes the GRUB default and Stage 2's DTB source (UPDATEDEFAULT),
+      # so adding an older one would make it the default.
+      v=$(printf '%s\n' /usr/lib/modules/*aurora* | sort -V | tail -n 1)
+      if [ -f "$v/vmlinuz" ] && { [ ! -e "/boot/vmlinuz-${v##*/}" ] || [ ! -e "/boot/initramfs-${v##*/}.img" ]; }; then
         sudo kernel-install add "${v##*/}" "$v/vmlinuz" || { print_error "kernel-install add ${v##*/} failed"; exit 1; }
-      done
+      fi
     fi
     sudo update-m1n1 || {
       print_error "update-m1n1 refused: pre-Aurora kernels installed? Boot an Aurora kernel (GRUB), rerun (asahi/CLAUDE.md 'Aurora boot chain')"
@@ -706,6 +708,13 @@ comp_asahi_system() {
       rebuild_initramfs=1
     fi
   fi
+  # A dracut run that failed or was interrupted left these files installed (cmp is clean on the rerun):
+  # rebuild while one is newer than the running kernel's image.
+  local f
+  for f in /etc/modprobe.d/asahi-notch.conf /etc/modprobe.d/hid_apple.conf /etc/dracut.conf.d/10-asahi-hid.conf \
+    /etc/udev/rules.d/90-asahi-kbd-backlight.rules; do
+    if [ "$f" -nt "/boot/initramfs-$(uname -r).img" ]; then rebuild_initramfs=1; fi
+  done
   if [ "$rebuild_initramfs" -eq 1 ]; then
     if ! have dracut; then
       print_error "dracut not found; cannot rebuild initramfs for notch/fnmode/HID"
@@ -737,7 +746,8 @@ comp_asahi_sshd() {
   # LocalSend (dnf.sh Flatpak; file sharing with the iPhone app) receives on 53317, opened in the `home` zone only: a trusted
   # network goes there with `nmcli connection modify <name> connection.zone home`; public stays closed.
   if sudo firewall-cmd -q --state 2>/dev/null; then
-    sudo firewall-cmd -q --permanent --zone=home --add-port=53317/tcp --add-port=53317/udp && sudo firewall-cmd -q --reload
+    sudo firewall-cmd -q --permanent --zone=home --add-port=53317/tcp --add-port=53317/udp && sudo firewall-cmd -q --reload ||
+      { print_error "LocalSend port 53317 not opened in firewalld's home zone"; exit 1; }
   fi
   if [ "$(systemctl is-enabled sshd.service 2>/dev/null)" != masked ] ||
     [ "$(systemctl is-enabled sshd-unix-local.socket 2>/dev/null)" != masked ]; then
@@ -762,12 +772,18 @@ comp_asahi_touchid() {
     return 0
   fi
   sudo aurora-touchid-setup || { print_error "aurora-touchid-setup failed (journalctl -u aurora-sep)"; exit 1; }
+  # asahi-lock restarts a fprintd that left the reader open (every claim fails until then).
+  sudo_install "$DOTFILES/asahi/polkit/49-asahi-fprintd-restart.rules" /etc/polkit-1/rules.d/49-asahi-fprintd-restart.rules
   # aurora-sep-ready turns it on once the sensor attaches; Aurora's vendor profile: sudo, polkit, lock screens.
   if ! authselect current 2>/dev/null | grep -q with-fingerprint; then
     sudo authselect enable-feature with-fingerprint || { print_error "authselect with-fingerprint failed"; exit 1; }
   fi
-  if fprintd-list "$USER" 2>/dev/null | grep -q ' - #'; then
-    print_ok "Touch ID: $(fprintd-list "$USER" 2>/dev/null | grep -c ' - #') finger(s) enrolled"
+  local prints
+  prints=$(fprintd-list "$USER" 2>/dev/null)
+  if grep -q ' - #' <<<"$prints"; then
+    print_ok "Touch ID: $(grep -c ' - #' <<<"$prints") finger(s) enrolled"
+  elif grep -q 'No devices available' <<<"$prints"; then   # libfprint hides the reader under a closed lid
+    print_ok "Touch ID reader is under the closed lid: fingers not checked (enrol with the lid open)"
   elif [ -t 0 ]; then
     print_step "Enrol a finger: touch the sensor, lift, repeat until it says enroll-completed"
     # Interactive, user data (like the non-tty branch): a failed try must not stop the desktop install.
@@ -1215,7 +1231,8 @@ comp_doctor() {
     report_check "logind LidSwitchIgnoreInhibited=no" grep -q '^LidSwitchIgnoreInhibited=no' /etc/systemd/logind.conf.d/90-asahi-sleep.conf
     report_check "UPower critical = PowerOff" grep -q '^CriticalPowerAction=PowerOff' /etc/UPower/UPower.conf.d/90-asahi-critical.conf
     if compgen -G '/proc/device-tree/soc/*/fingerprint@*' >/dev/null; then
-      report_check "Touch ID finger enrolled" sh -c 'fprintd-list "$USER" 2>/dev/null | grep -q " - #"'
+      report_check "Touch ID finger enrolled (not checked under a closed lid)" \
+        sh -c 'fprintd-list "$USER" 2>/dev/null | grep -q " - #\|No devices available"'
       report_check "aurora-fido (Touch ID security key) active" systemctl is-active --quiet aurora-fido.service
     fi
     if grep -q '^VARIANT_ID=aurora' /etc/os-release; then

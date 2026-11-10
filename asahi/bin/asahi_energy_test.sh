@@ -348,6 +348,8 @@ EOF
 # setsid only logs: the real one would start asahi-lock on the live session.
 printf '#!/bin/sh\necho "setsid $*" >> "$CLAM_LOG"\n' >"$clam_dir/bin/setsid"
 printf '#!/bin/sh\nexit 0\n' >"$clam_dir/bin/systemd-inhibit"
+# The real logger wrote these fake lid decisions into the journal (`journalctl -t asahi-clamshell`).
+printf '#!/bin/sh\nexit 0\n' >"$clam_dir/bin/logger"
 printf '#!/bin/sh\nexit 0\n' >"$clam_dir/bin/sleep"
 chmod +x "$clam_dir/bin/"*
 run_clam() {

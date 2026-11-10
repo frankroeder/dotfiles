@@ -26,12 +26,12 @@ hl.monitor {
 }
 
 -- Dell P2723DE: left of the laptop, bottoms aligned, 1440p @ 1.25
--- (logical 2048x1152). eDP-1 at 4/3 is 1473 tall, so y = 321.
--- asahi-hdmi recomputes y from the session eDP scale (scale 2 → y = -170).
+-- (logical 2048x1152). eDP-1 at scale 2 is 982 tall, so y = -170.
+-- asahi-hdmi recomputes y from the session eDP scale (4/3 → y = 321).
 hl.monitor {
   output = "desc:Dell Inc. DELL P2723DE",
   mode = "2560x1440@59.95100",
-  position = "-2048x321",
+  position = "-2048x-170",
   scale = 1.25,
 }
 

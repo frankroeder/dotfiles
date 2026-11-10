@@ -15,9 +15,19 @@ Scope {
   property bool shown: false
   property var screen: null
   property string query: ""
+  // Hover selects only after a real pointer move (the launcher's rule): Qt also sends enter / position events to a
+  // cell rebuilt under a resting cursor, and Enter then launched that cell instead of the top match.
+  property point lastPointer: Qt.point(NaN, NaN)
+  function pointerMoved(g) {
+    const seen = !isNaN(root.lastPointer.x)
+    const moved = seen && (Math.abs(g.x - root.lastPointer.x) > 1 || Math.abs(g.y - root.lastPointer.y) > 1)
+    if (!seen || moved) root.lastPointer = g
+    return moved
+  }
 
   function toggle() {
     if (root.shown) { root.shown = false; return }
+    root.lastPointer = Qt.point(NaN, NaN)
     const l = root.launcher
     if (l && l.shouldShow) l.closeLauncher()
     if (l) l.launcherWorkspaceId = Hyprland.focusedWorkspace?.id ?? 1
@@ -177,7 +187,7 @@ Scope {
           MouseArea {
             anchors.fill: parent
             hoverEnabled: true
-            onEntered: grid.currentIndex = cell.index
+            onPositionChanged: (mouse) => { if (root.pointerMoved(mapToGlobal(mouse.x, mouse.y))) grid.currentIndex = cell.index }
             onClicked: root.launch(cell.modelData)
           }
         }

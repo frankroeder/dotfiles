@@ -56,15 +56,21 @@ gpu() {
     | {util: .util1, mhz: ((.requested_frequency_hz // 0) / 1e6 | floor), mw: .power_mw}'
 }
 
+iio() {   # IIO device by name: the index is not stable across boots
+  local d
+  for d in "$R"/sys/bus/iio/devices/iio:device*; do
+    [ "$(rd "${d#"$R"}/name")" = "$1" ] && echo "${d#"$R"}" && return
+  done
+}
+
 live() {
-  local fans=() f lid
+  local fans=() f als las
   for f in "$R$hwmon"/fan*_input; do [ -r "$f" ] && fans+=("$(cat "$f")"); done
-  lid=$(rd /sys/bus/iio/devices/iio:device1/in_angl_raw)
+  als=$(iio aop-sensors-als) las=$(iio aop-sensors-las)
   jq -nc --arg sys "$(rail 'Total System Power')" --arg soc "$(rail 'Heatpipe Power')" --arg ac "$(rail 'AC Input Power')" \
     --arg limit "$(watts /sys/class/power_supply/macsmc-ac/input_power_limit)" --arg fans "${fans[*]:-}" \
-    --arg lux "$(rd '/sys/bus/iio/devices/iio:device0/in_illuminance_input')" \
-    --arg kelvin "$(rd '/sys/bus/iio/devices/iio:device0/in_colortemp_input')" \
-    --arg lid "$lid" --arg panel "$(rd /sys/class/backlight/apple-panel-bl/brightness)" \
+    --arg lux "$(rd "$als/in_illuminance_input")" --arg kelvin "$(rd "$als/in_colortemp_input")" \
+    --arg lid "$(rd "$las/in_angl_raw")" --arg panel "$(rd /sys/class/backlight/apple-panel-bl/brightness)" \
     --arg panelmax "$(rd /sys/class/backlight/apple-panel-bl/max_brightness)" --arg kbd "$(rd /sys/class/leds/kbd_backlight/brightness)" \
     --arg kbdmax "$(rd /sys/class/leds/kbd_backlight/max_brightness)" --argjson gpu "$(gpu)" --argjson ports "$(ports)" '
     def num: tonumber? // null;

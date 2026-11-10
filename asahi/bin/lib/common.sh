@@ -102,6 +102,14 @@ saved_scale() {
   [ -s "$f" ] && tr -d '[:space:]' <"$f" || true
 }
 
+# eDP-1's session scale: the saved one, else the monitors.lua rule's (asahi_hdmi_test.sh keeps the two in step;
+# a stale 4/3 here brought the panel back at 4/3 after clamshell and placed the Dell 491 px low).
+edp_scale() {
+  local sc
+  sc=$(saved_scale eDP-1)
+  echo "${sc:-2}"
+}
+
 # Offset that lands an output's far edge on the origin: logical extent (pixels
 # / scale), negated. Outputs left of / above eDP-1 are anchored by that edge,
 # so a pinned x/y overlaps the panel as soon as the scale changes ("Your

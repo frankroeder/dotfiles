@@ -64,12 +64,9 @@ has_res() {
 
 # Offsets are derived, never pinned. Both sit left of eDP-1 (right edge on
 # x = 0). The Dell's bottom meets eDP-1's bottom, so its y follows the
-# session eDP scale (3024x1964; unset = monitors.lua 4/3 → 1473).
+# session eDP scale (3024x1964; unset = monitors.lua's 2 → 982).
 edp_logical_h() {
-  local sc
-  sc=$(saved_scale eDP-1)
-  [ -n "$sc" ] || sc=1.333333333333
-  awk -v s="$sc" 'BEGIN { printf "%d", int(1964 / s + 0.5) }'
+  awk -v s="$(edp_scale)" 'BEGIN { printf "%d", int(1964 / s + 0.5) }'
 }
 
 lg_fields() {
@@ -119,9 +116,7 @@ sink_desc() {
 }
 
 layout_key() {
-  local edp
-  edp=$(saved_scale eDP-1)
-  awk -v h="$1" -v e="${edp:-1.333333333333}" 'BEGIN { printf "%.3f@%.3f", h, e }'
+  awk -v h="$1" -v e="$(edp_scale)" 'BEGIN { printf "%.3f@%.3f", h, e }'
 }
 
 # "outputScale pos" for this sink when the entry was kept at the current eDP
@@ -133,8 +128,7 @@ saved_entry() {
   local desc edp
   desc="$(sink_desc)"
   [ -n "$desc" ] || return 0
-  edp="$(saved_scale eDP-1)"
-  [ -n "$edp" ] || edp=1.333333333333
+  edp="$(edp_scale)"
   jq -r --arg d "$desc" --arg e "$edp" '
     .[$d] | select(type == "object" and .key != null and .pos != null)
     | (.key | split("@")) as $p

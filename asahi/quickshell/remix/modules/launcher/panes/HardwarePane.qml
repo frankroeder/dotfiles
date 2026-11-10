@@ -56,7 +56,7 @@ Item {
   function portLine(pt) {
     if (!pt.partner) return "empty"
     const who = pt.vendor_name ? pt.vendor_name.replace(/,? (Inc|Co|Corp|Ltd)\.?.*$/, "") : (pt.vendor ? "vendor " + pt.vendor : "")
-    return [pt.power === "sink" ? "charging the Mac" : "powered by the Mac", who, pt.dp ? "DisplayPort" : ""].filter(x => x).join(" · ")
+    return [pt.power === "sink" ? "charging the Mac" : "powered by the Mac", who, pt.dp ? "DP alt mode" : ""].filter(x => x).join(" · ")
   }
 
   // Card: glyph + title, then label · value rows ([[label, value], ...]).

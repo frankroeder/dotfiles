@@ -206,14 +206,16 @@ xart() {
   mkdir -p "$sys/devices/platform/soc/396400000.sep/diag"
   echo "$1" >"$sys/devices/platform/soc/396400000.sep/diag/xart_guard"
   echo "$2" >"$sys/devices/platform/soc/396400000.sep/diag/xart_guard_refusals"
+  echo "${3:-unverified}" >"$sys/devices/platform/soc/396400000.sep/diag/matching"
   PATH="$bin:$PATH" ASAHI_DIAG_ROOT="$diag" ASAHI_PROC_ROOT="$proc" ASAHI_SYS_ROOT="$sys" "$ROOT/asahi-debug" --json |
     jq -r '.checks[] | select(.id=="xart-guard") | .status' || true
 }
 printf 'apple,j414s\0apple,t6020\0' >"$proc/device-tree/compatible.xart"
 mv "$proc/device-tree/compatible" "$proc/device-tree/compatible.orig" 2>/dev/null
 cp "$proc/device-tree/compatible.xart" "$proc/device-tree/compatible"
-got="$(xart 1 0) $(xart 0 0) $(xart 1 3)"
-[ "$got" = "PASS WARN WARN" ] && pass "xART guard: level 1 PASS, off on M2 WARN, refusals WARN" || fail_at "xART guard (got $got)"
+got="$(xart 1 0) $(xart 0 0) $(xart 1 3) $(xart 1 0 blocked)"
+[ "$got" = "PASS WARN WARN WARN" ] && pass "xART guard: level 1 PASS, off on M2 WARN, refusals WARN, matching blocked WARN" ||
+  fail_at "xART guard (got $got)"
 rm -rf "$sys/devices/platform/soc/396400000.sep" "$proc/device-tree/compatible.xart"
 if [ -e "$proc/device-tree/compatible.orig" ]; then
   mv "$proc/device-tree/compatible.orig" "$proc/device-tree/compatible"
@@ -274,12 +276,14 @@ printf '#!/bin/sh\necho "[{\\"name\\": \\"eDP-1\\", \\"vrr\\": ${FAKE_VRR:-false
 [ -e "$bin/hyprctl" ] && cp "$bin/hyprctl" "$tmp/hyprctl.orig"
 cp "$bin/hyprctl.watch" "$bin/hyprctl"; chmod +x "$bin/aurora-fido" "$bin/hyprctl"
 watch() { echo "$(dbg_status watch-sep-key) $(dbg_status watch-vrr)"; }
-w1=$(watch); mkdir -p "$diag/dev"; : >"$diag/dev/sep-key"; w2=$(FAKE_VRR=true watch); rm -f "$diag/dev/sep-key"
+w1=$(watch); mkdir -p "$diag/dev"; : >"$diag/dev/sep-key"; w2=$(FAKE_VRR=true watch)
+printf '#!/bin/sh\necho "  key store: sep-key"\n' >"$bin/aurora-fido"; w3=$(dbg_status watch-sep-key); rm -f "$diag/dev/sep-key"
 rm -f "$bin/aurora-fido" "$bin/hyprctl.watch"
 if [ -e "$tmp/hyprctl.orig" ]; then mv "$tmp/hyprctl.orig" "$bin/hyprctl"; else rm -f "$bin/hyprctl"; fi
 [ -n "$aur" ] || sed -i '/^VARIANT_ID=aurora$/d' "$diag/etc/os-release"
-[ "$w1|$w2" = "SKIP SKIP|WARN PASS" ] && pass "watch list: SKIP while absent, WARN (sep-key) / PASS (VRR) once there" ||
-  fail_at "watch list (got $w1|$w2)"
+[ "$w1|$w2|$w3" = "SKIP SKIP|WARN PASS|PASS" ] &&
+  pass "watch list: SKIP while absent, WARN (sep-key, sealed store) / PASS (VRR; sep-key, store moved) once there" ||
+  fail_at "watch list (got $w1|$w2|$w3)"
 
 if grep -Eiq '[[:space:]]pacman([[:space:]]|$)|systemctl[^[:space:]]* sddm' "$ROOT/asahi-debug"; then
   fail_at "asahi-debug still calls pacman or sddm"

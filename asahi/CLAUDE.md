@@ -3,7 +3,9 @@
 Loaded when a session works under `asahi/`; shared rules live in the root `CLAUDE.md`.
 Default OS = **Aurora Fedora Remix** (this Mac converted in place from Fedora Asahi Remix 44 on 2026-11-09; next fresh
 install = Aurora Fedora Minimal). Install: `make aurora` (= `make asahi`, `./install.sh aurora`). The `asahi` names
-(dirs, scripts, components) stay; Fedora Asahi Remix keeps working.
+(dirs, scripts, components) stay; Fedora Asahi Remix keeps working, with gaps (untested since the move): power key tap =
+logind's default poweroff (no `50-aurora-sep.conf`; our drop-in no longer sets `ignore`), no keyboard ALS daemon, no mic
+relabel filter.
 
 ## Documentation
 - Aurora Fedora Remix: https://aurorasilicon.org, https://github.com/aurora-silicon/fedora-aurora; local docs in
@@ -56,7 +58,9 @@ install = Aurora Fedora Minimal). Install: `make aurora` (= `make asahi`, `./ins
   close the lid**): hold power ~10s, wait ~15s, tap power. `after_sleep_cmd` also runs after a refused suspend. Never
   add `asahi-hdmi sync` to resume. Diagnose `journalctl -b -1` (`Lid closed.` → `Suspending...` → `PM: suspend entry`,
   no `suspend exit`), `-t asahi-clamshell` (each lid decision + output states), `-t hyprland` (autostart's
-  `/run/…/hyprland.log` mirror). Test: `asahi/bin/asahi_hdmi_test.sh`.
+  `/run/…/hyprland.log` mirror; it waits for `hyprland.lock`: the start hook ran ~80 ms before the lock existed, tail
+  quit on the empty `--pid` and the 2026-11-09 session had no mirror — check `pgrep -x tail` after the next start).
+  Test: `asahi/bin/asahi_hdmi_test.sh`.
 - **Sleep drain (AsahiLinux/linux#262)**: s2idle ~3 %/h (`slept …` in `idle.log`) = kernel floor; don't chase it in
   userspace. Gauge stale-high 30–90 s post-resume → logged ~90 s after wake minus awake draw (AC sleeps uncorrected).
   No S3 / hibernate / RTC `wakealarm`. AOP ALS wakes ~3.6/s (#638): blacklist / PM notifier no help; lid-angle stream
@@ -93,9 +97,22 @@ install = Aurora Fedora Minimal). Install: `make aurora` (= `make asahi`, `./ins
   `asahi-lock-caps`: CAPS label opposite `de`, polls the kbd-capslock LED (hyprctl only without LED node). Never
   `$lock_fail` for the caps color. Touch ID hint: `asahi-lock-touchid` (`cmd[update:200]`, builtins only, fprintd
   asked ≤ 1/min, cached in `$XDG_RUNTIME_DIR`) = breathing 󰈷 above the pill (smoothstep alpha 30–100 %, 3.2 s) only
-  while a finger is enrolled; placeholder "Password or Touch ID".
+  while a finger is enrolled; placeholder "Password or Touch ID". Touch ID line: hyprlock shows nothing when the claim
+  fails and maps Aurora's `verify-lockout` / `verify-password-required*` to "unknown status" → `asahi-lock` turns its
+  `fprint:` log lines into `$XDG_RUNTIME_DIR/asahi-lock-touchid.note` (`<until epoch> <text>`, 0 = until
+  `started verifying`), printed in the glyph's place: "No match" (2 s; the 4th = hyprlock's 3 retries used up → "Too many
+  failed attempts"), lockout, "Enter password to enable Touch ID" (SEP password clock: 48 h without an unlock),
+  "Touch ID unavailable" (claim / start failed, disconnected), "Not read · touch again" (retry statuses, 2 s). Span
+  size must be absolute (`28pt`): hyprlock adds a scale-1 attribute over the label, so `size='40%'` rendered at 70.
+  Finger on the sensor: the label passes `"$FPRINTPROMPT"`, `present_message = reading` → glyph solid at 84pt until
+  the result (hyprlock sets it on fprintd's `finger-present`, logs nothing; unverified that Aurora's driver reports
+  it — if not, nothing changes). Order: staying note > reading > timed note > breathing. Clamshell: libfprint hides
+  the reader under a closed lid (`fprintd-list`: "No devices available") → no glyph; `asahi-touchid`, doctor and
+  `asahi-debug` skip the finger check then (it read as "no finger enrolled" and tried to enrol).
   Preview without locking: nested `Hyprland -c <min.lua>` + `hyprctl output create headless` + hyprlock + grim; type
-  via live `hl.dsp.send_shortcut` to `class:^(aquamarine)$` (never Enter: PAM).
+  via live `hl.dsp.send_shortcut` to `class:^(aquamarine)$` (never Enter: PAM). Whole `asahi-lock` nested: own
+  `XDG_RUNTIME_DIR` (else it holds the live session's flock: a real lock is skipped) + absolute
+  `WAYLAND_DISPLAY=/run/user/$UID/wayland-N`, a fake `qs` first in `PATH` (no live intro), end with `kill -USR1`.
 - **Lid + DPMS**: Hyprland DPMS off = aquamarine output disable → sysfs `enabled` reads `disabled`; logind counts a
   closed lid docked only while an external reads `enabled` (re-checked every event-loop wakeup) → DPMS-blanked
   external in clamshell = laptop-only lid → suspend (no new `Lid closed.`; lockdead on open, hang on re-close).
@@ -118,7 +135,9 @@ install = Aurora Fedora Minimal). Install: `make aurora` (= `make asahi`, `./ins
   HDMI-A-1 (`gated` list in `monitors.lua`; last named rule wins: reverse scan). Aurora's DTB gives each USB-C port its
   own output: DP-1..3 (expected Left Back / Left Front / Right — check per port), DP-4..6 = a dock's second stream;
   fairydust's DTB had one (DP-1, Left Front). `asahi-hdmi added`/`sync` enable after the settle (gen file per
-  output); `place` re-derives position (desc rules assume eDP at 4/3) only on an eDP scale change (HDMI too, not
+  output); `place` re-derives position (desc rules assume eDP at its `monitors.lua` scale, 2 since 2026-11-09; the scripts'
+  fallback is `edp_scale` in `lib/common.sh` — one value, `asahi_hdmi_test.sh` keeps both in step: a stale 4/3 brought
+  eDP back at 4/3 after clamshell and put the Dell 491 px low) only on an eDP scale change (HDMI too, not
   mirrors). `config.reloaded` runs `asahi-hdmi sync <n>` for each gated connector the DT has. Hyprland 0.57 fires no
   `monitor.added` for an output its rule disables (`onConnect` returns first): `gated_plugs` starts `asahi-hdmi added` on
   `monitor.layout_changed` from the connector's sysfs disconnected → connected edge (a Monitors-pane disable keeps the
@@ -191,7 +210,8 @@ install = Aurora Fedora Minimal). Install: `make aurora` (= `make asahi`, `./ins
   `hyprland-share-picker`. xdph never reconnects to PipeWire (after a restart `Start` spins, shares hang) — drop-in
   `xdg-desktop-portal-hyprland.service.d/10-asahi-pipewire.conf` (`PartOf=pipewire.service`).
 - **asahi-debug**: Aurora / Fedora Asahi health (`asahi/bin/asahi-debug [--json]`; also root on LUKS, no disk key / header
-  copy on `/boot`, xART guard on, no Thunderbolt device awaiting bolt approval; dnf, `wpa_supplicant`, not
+  copy on `/boot`, xART guard on with SEP `matching` not `blocked` (`unverified` = steady state under the guard: PASS),
+  no Thunderbolt device awaiting bolt approval; dnf, `wpa_supplicant`, not
   pacman/iwd/SDDM; Wi-Fi radio off on purpose = PASS). Test: `asahi/bin/asahi_debug_test.sh`. Not in `make doctor`; must not flag
   Hyprland on generic Linux.
 - **Night light**: menu-only (Launcher > Actions → `asahi-nightlight`, hyprsunset); on = `hyprsunset.conf`, off =
@@ -293,10 +313,16 @@ install = Aurora Fedora Minimal). Install: `make aurora` (= `make asahi`, `./ins
   once on every output (one `MediaPlayer` per output; Bottom layer `asahi-wall-intro`, above hyprpaper, below windows;
   muted; span on = each output its slice of one canvas, `wallpaper_intro_geom.js`, node-tested against
   `asahi-wallpaper-span` crops), then fades out over the last 420 ms onto the still (hyprpaper keeps the still
-  throughout). Until 2 fresh video frames reach an output's sink its window shows a **cover**: the clip's first frame
+  throughout). Until playback position leaves 0 its window shows a **cover**: the clip's first frame
   (`~/.cache/asahi/wallpaper-intro/<stem>.png`, extracted on scan; a local `Image`, decoded synchronously in `arm()`, so
   the window's first buffer has it). Why: nothing presents while hyprlock holds the session, unlock shows what was on
-  screen when the lock engaged; the cover makes that frame 0 whatever the decoder holds. The flash he saw (2026-11-09)
+  screen when the lock engaged; the cover makes that frame 0 whatever the decoder holds. `play` runs from
+  `onMediaStatusChanged` (`kick`), never from a `ready` binding: that binding looped, Qt dropped it, and `pause()`
+  on the new source held the cover on frame 0 (2026-11-09, switching wallpapers). The kick is deferred
+  (`Qt.callLater`): `setSource()` first stops the old clip (Loaded + Stopped at 0, `go` still true), a kick inside it
+  `play()`s the clip being replaced, `playbackState` stays Playing and the next clip never starts — frame 0 held until
+  the failsafe on every wallpaper change after a finished intro or during one (2026-11-10; offscreen harness:
+  `qml` + `QT_QPA_PLATFORM=offscreen` around the verbatim player block; unlock was fine, the hold's `pause()` resyncs). The flash he saw (2026-11-09)
   was hyprlock's grey fade-out + the late `play` (below); a stale-buffer flash did not reproduce nested.
   `asahi-lock`: `wallpaperIntro arm` → polls `ready` (each output swapped the cover twice:
   `cover.Window.window` `frameSwapped`; ≤ ~0.4 s; each call under `timeout 1`: a hung qs
@@ -306,7 +332,11 @@ install = Aurora Fedora Minimal). Install: `make aurora` (= `make asahi`, `./ins
   `fadeOut` 0: the fade dims the lock image to grey for 0.5 s before the desktop pops in (read as a jump to the darker
   last frame and back). Nested A/B 2026-11-09 (wf-recorder per frame): lock → frame 0 directly, motion at +0.63 s.
   `FrameAnimation` is no "window rendered" signal (the animation driver falls back to a timer). 15 s failsafe ends a
-  stalled clip. qs log: `intro: arm` / `play` / `video on <output>`. IPC via `qs -c remix ipc --any-display`
+  stalled clip (a held arm has none: `asahi-lock`'s EXIT trap calls `play` on every exit — unlock, out of retries,
+  the TTY escape's pkill). `ready` live 2026-11-10: false, false, true ~220 ms after `arm` (the cover png loads
+  synchronously; no cover = no wait); a static cover swaps once per `update()`, so `onFrameSwapped` asks for the second
+  (a re-arm of a held cover stayed not ready for all 10 polls).
+  qs log: `intro: arm` / `play` / `video on <output>`. IPC via `qs -c remix ipc --any-display`
   (Hyprland-spawned callers lack the shell's `QT_QPA_PLATFORM`). Triggers: login once per boot
   (`$XDG_RUNTIME_DIR/asahi-wallpaper-intro-boot`), `WallpaperService.wallpaperSet` (picker, Super+B), every unlock.
   hyprlock's background = `lock-screen` link → the clip's first frame (`WallpaperService.linkLockScreen`; the still
@@ -336,7 +366,9 @@ install = Aurora Fedora Minimal). Install: `make aurora` (= `make asahi`, `./ins
   not add watchers. Tests: `asahi/theme/tests/` (`test_palette.py`, `test_apply.py`), `asahi/theme/smoke_test.sh`
   (no arg = saved state, rewrites live state unchanged; not in `make test-asahi`).
 - **Flatpak GL**: `aurora-flatpak-gl` (dnf.sh, Aurora only) = system `GL.aurora`; it serves `--user` Flatpaks too
-  (Flathub's GL.default has no `aurora_dri.so`). mpv `hwdec=vaapi-copy` (AVD VA-API; ffmpeg-free decodes VP9 only).
+  (Flathub's GL.default has no `aurora_dri.so`). mpv `hwdec=vaapi-copy` (AVD VA-API; ffmpeg-free decodes VP9 only;
+  `libva-v4l2-request-avd` + `avd-fw`: `aurora-platform(-core)` requires them, dnf.sh names them too; without the driver
+  mpv falls back to software).
 - **Firefox (Flathub flatpak)**: addon signing enforced (`MOZ_REQUIRE_SIGNING`), so live theme = signed AMO
   **CaelestiaFox** (`caelestiafox@caelestia.org`) + native host `caelestiafox` = `asahi-firefox-theme` (streams
   `firefox.json` from `write_firefox_scheme`; ignore Firefox's args). Sandbox can't run host scripts:
@@ -502,7 +534,9 @@ install = Aurora Fedora Minimal). Install: `make aurora` (= `make asahi`, `./ins
   and — only when booted into an Aurora kernel (the fallback) — `dnf remove --no-autoremove 'kernel-16k*'`,
   `kernel-install remove` + `rm` of `*fairydust*` (+ `fairydust-typec.conf`), Fedora Asahi leftovers
   (`asahi-platform-metapackage-*`, `asahi-battery`: second charge-limit store), re-runs `kernel-install add` for
-  Aurora kernels without a `/boot` image (hostonly initramfs), then `update-m1n1`. `asahi-scripts` stays (update-m1n1
+  the **newest** Aurora kernel when it lacks a `/boot` image or initramfs (hostonly initramfs; never an older one: every
+  add becomes the GRUB default and Stage 2's DTB source — `bootchain.py` `becomes_default`, 20-grub `NEWDEFAULT`), then
+  `update-m1n1`. `asahi-scripts` stays (update-m1n1
   mounts the ESP with it). Stock Stage 1 = no `aura-try` trial: boot.bin replaced directly, `boot.bin.old` kept
   (conversion copy `boot.bin.pre-aurora`); worst case swap them on the ESP from macOS. Check:
   `/proc/device-tree/aliases/sep` (`asahi-debug` `stage2-dtb`). Converted, still on a pre-Aurora kernel: `update-m1n1` refuses and `make aurora`
@@ -539,7 +573,8 @@ install = Aurora Fedora Minimal). Install: `make aurora` (= `make asahi`, `./ins
   prompts fail silently); one card on the focused screen.
 - **Touch ID (Aurora)**: `apple_sep` module (loaded by `aurora-sep.timer` once root is up) + Aurora libfprint / fprintd
   on `/dev/sep-bio`; needs current Stage 2 DTBs (see Aurora boot chain). `make aurora` runs `comp_asahi_touchid`
-  (`./install.sh asahi-touchid`): `sudo aurora-touchid-setup` (per-Mac calibration from the iBoot System Container,
+  (`./install.sh asahi-touchid`; after the desktop, before doctor: its failures exit 1 and must not block the
+  desktop): `sudo aurora-touchid-setup` (per-Mac calibration from the iBoot System Container,
   idempotent), authselect `with-fingerprint`, and `fprintd-enroll -f right-index-finger $USER` on a tty when no finger
   is enrolled; skips (warns) before the reboot onto Aurora DTBs and on Macs without a sensor node. Also installs +
   enables `aurora-fido` (Touch ID as a FIDO2 key: passkeys / WebAuthn, `ssh-keygen -t ecdsa-sk`; pam_u2f would work, not installed; `sealed` key
@@ -551,7 +586,8 @@ install = Aurora Fedora Minimal). Install: `make aurora` (= `make asahi`, `./ins
   `fingerprint-auth` only; tty1 `login` stays password = keyring unlock).
   hyprlock `fingerprint:enabled` (fprintd D-Bus beside PAM, no label); the polkit card shows
   PAM's finger prompt (`supplementaryMessage`). Diagnose `aurora-xart status`, `journalctl -u aurora-sep -u
-  aurora-sep-ready`; start over `sudo aurora-xart reset-touchid` (also after a root rollback or reinstall: they bring back an
+  aurora-sep-ready`; start over `sudo aurora-xart reset-touchid`, reboot, enrol again (it refuses while the keybag works; also after a root
+  rollback or reinstall: they bring back an
   older / empty xART owner list, `/var/lib/aurora-sep-xart-owned.bin`, and the guard refuses the Linux records;
   `/usr/share/doc/aurora-sep/XART-SAFETY.md`). Risk (omarchy-mac manual 04-security): the SEP anti-replay state is shared
   with macOS; written wrongly, FileVault macOS cannot unlock → DFU restore (erases); xART guard 1 (M2 default) refuses
@@ -563,6 +599,12 @@ install = Aurora Fedora Minimal). Install: `make aurora` (= `make asahi`, `./ins
   libfprint removes the reader while the lid is closed (`Lid closed; removing …`) → a lock taken before the close
   gets `verify-disconnected` (password still works). If that shows (`grep fprint: ~/.local/state/asahi/hyprlock.log`),
   fix it in the locker (fresh hyprlock claim on lid open via the asahi-lock guard; never SIGTERM/USR1 = unlock).
+  **Wedged fprintd** (2026-11-09 13:38 → dead for a day, silently): power key (= the sensor, pressed instead of
+  touched) during a polkit / sudo finger prompt → suspend mid-verify → pam_fprintd's Release fails "still busy" →
+  fprintd drops the claim but keeps the reader open → every Claim: `Open failed … already been opened` (lock, sudo,
+  polkit; `fprintd-verify` shows it). Only a restart clears it: `asahi-lock` restarts fprintd on that claim error
+  (`asahi/polkit/49-asahi-fprintd-restart.rules`, installed by `asahi-touchid`: wheel may restart `fprintd.service`);
+  that lock stays password-only (hyprlock never claims again), the next one has Touch ID.
 - **Stay awake**: one flag `$XDG_RUNTIME_DIR/asahi-stay-awake`, owned by `asahi-stay-awake`; hypridle listeners skip
   under it (`asahi-idle` checks `status`).
 - **Idle (macOS-shaped)**: hypridle = plain `hl.exec_cmd` in `autostart.lua`'s `hyprland.start` hook, **not**
@@ -635,12 +677,16 @@ install = Aurora Fedora Minimal). Install: `make aurora` (= `make asahi`, `./ins
 - **App grid** (Launchpad, omarchy Super+Alt+Space): `modules/launcher/AppGrid.qml`, IPC `launcher apps`; every app A–Z,
   type to filter (name start > word start > anywhere), arrows / Enter / click, Esc clears then closes. Reuses the
   launcher's hides, icons (`resolveIconUrl`) and `launchDesktopEntry` (sets `launcherWorkspaceId` first). Opening the
-  launcher closes it and vice versa. No dock / pins / uninstall (omarchy's). omarchy's Super+K overview = Super+K **held**
+  launcher closes it and vice versa; opening it also closes the calendar, notification sheet and bar popups (their focus
+  grab kept its keys). Hover selects only after a real pointer move (`pointerMoved`, the launcher's rule: a cell rebuilt
+  under a resting cursor took the selection, Enter launched it). No dock / pins / uninstall (omarchy's). omarchy's Super+K overview = Super+K **held**
   past the key-repeat delay (300 ms; `long_press` bind; Super+Ctrl+K dropped, his pick): a tap stays focus up, a hold also
   moves focus once. Nested virtual-keyboard test: 80/150 ms → focus only, 700/900 ms → focus + overview.
 - **Hardware pane** (Super+Ctrl+H, quick key `hardware`): `panes/HardwarePane.qml` over `asahi-hardware` (sysfs / procfs /
   DT as the user; `--live` = power, GPU, ports, sensors every 2 s while shown; the live merge keeps static fields like
-  the GPU core count). Ports: typec `connector/label`; the unlabelled PD controller (`usb-pd@3a`) = MagSafe. RAM = the
+  the GPU core count). Ports: typec `connector/label`; the unlabelled PD controller (`usb-pd@3a`) = MagSafe; "DP alt
+  mode" = the partner's `ff01` alt mode is active, not a lit output. Light / lid sensors by IIO `name`
+  (`aop-sensors-als` / `-las`): the `iio:deviceN` index swaps between boots. jq: `0` is truthy (0 lux shows). RAM = the
   smallest Apple config ≥ MemTotal (30.9 GiB → 32). GPU cores from the kernel log (cached per boot). Test
   `asahi/bin/asahi_hardware_test.sh` (`ASAHI_SYS_ROOT` fake tree).
 - **Display scale**: Super+Ctrl+plus/minus → `asahi-monitor-scale`. Legal scales = 1/120 divisors (eDP-1: 1 / 1.333333
@@ -655,8 +701,9 @@ install = Aurora Fedora Minimal). Install: `make aurora` (= `make asahi`, `./ins
 - **Aurora extras (2026-11-09 interview)**: launcher "Restart into macOS" = `pkexec asahi-bless --set-boot-macos
   --next -y && systemctl reboot` (one boot only).
   `asahi-pkg tui-upgrade` runs under `systemd-inhibit --what=sleep` (not `idle`: the screen must still lock)
-  then `asahi-boot-check` (newest `kernel-aurora-core` has `/boot/vmlinuz-*`, `/boot/dtb` → its `dtb-*` = Stage 2 built
-  from it; "Restart needed" on a new kernel or a deleted Hyprland / qs binary). Faster shutdown: `DefaultTimeoutStopSec=10s`
+  then `asahi-boot-check` (newest `kernel-aurora-core` has `/boot/vmlinuz-*` + `initramfs-*.img`, `/boot/dtb` → its `dtb-*` =
+  Stage 2 built from it; Stage 2 follows the GRUB default, unreadable without root, so the remedy is `grubby
+  --set-default` + `update-m1n1`; "Restart needed" on a new kernel or a deleted Hyprland / qs binary). Faster shutdown: `DefaultTimeoutStopSec=10s`
   (system + user, `asahi/systemd/{system,user}.conf.d`), fprintd `TimeoutStopSec=3s`. abrt masked (coredumpctl +
   asahi-debug instead). Keyboard light at the LUKS prompt: `asahi/udev/90-asahi-kbd-backlight.rules` (128 if 0) +
   `pwm_apple` in the initramfs (`leds_pwm` is built in). mpv `vo=gpu` + OpenGL (omarchy-mac CPU numbers). LG

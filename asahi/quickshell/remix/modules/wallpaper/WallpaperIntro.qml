@@ -115,7 +115,8 @@ Scope {
       id: win
       required property var modelData
       screen: modelData
-      visible: root.active && (cover.status === Image.Ready || player.ready)
+      visible: root.active && (cover.status === Image.Ready || player.mediaStatus === MediaPlayer.LoadedMedia
+        || player.mediaStatus === MediaPlayer.BufferedMedia || player.mediaStatus === MediaPlayer.EndOfMedia)
       color: "transparent"
       exclusionMode: ExclusionMode.Ignore
       exclusiveZone: 0
@@ -126,16 +127,42 @@ Scope {
       anchors { left: true; right: true; top: true; bottom: true }
 
       // One decoder per output: a MediaPlayer feeds a single VideoOutput.
+      // Do not bind a property to mediaStatus and play() from its change handler: that binding
+      // looped, Qt dropped it, and pause() on the new source left the cover on frame 0.
       MediaPlayer {
         id: player
-        readonly property bool ready: mediaStatus === MediaPlayer.LoadedMedia || mediaStatus === MediaPlayer.BufferedMedia
-          || mediaStatus === MediaPlayer.EndOfMedia
+        property bool kicking: false
         videoOutput: output
         loops: 1
         source: root.active ? root.src : ""
-        onSourceChanged: if (source != "") pause()   // loads it and holds frame 0
-        onReadyChanged: if (ready && root.go) play()
-        onPositionChanged: if (root.active && player.duration > 0 && player.position >= player.duration - root.fadeMs) root.finish()
+        function kick() {
+          if (kicking) return
+          const loaded = mediaStatus === MediaPlayer.LoadedMedia || mediaStatus === MediaPlayer.BufferedMedia
+          if (!loaded) return
+          kicking = true
+          // Near the end, status falls back to Loaded + Stopped. Playing again would loop.
+          const atEnd = duration > 0 && position >= duration - root.fadeMs
+          if (root.go && !atEnd) {
+            if (playbackState !== MediaPlayer.PlayingState) {
+              if (position !== 0) setPosition(0)
+              play()
+            }
+          } else if (!root.go && playbackState === MediaPlayer.PlayingState) pause()
+          kicking = false
+        }
+        // Deferred: setSource() first stops the old clip (Loaded + Stopped at 0, go still true); a kick inside that
+        // call play()s the clip being replaced, playbackState then stays Playing and the new clip never starts
+        // (first frame held until the failsafe: every wallpaper change after a finished intro, or during one).
+        onMediaStatusChanged: Qt.callLater(kick)
+        onPositionChanged: {
+          // Cover hides once the clock moves. videoFrameChanged also fires for a stale sink frame at 0.
+          if (win.frames < 2 && player.position > 40) {
+            win.frames = 2
+            console.info("intro: video on", win.modelData.name)
+          }
+          if (root.active && player.duration > root.fadeMs && playbackState === MediaPlayer.PlayingState
+              && player.position >= player.duration - root.fadeMs) root.finish()
+        }
         onErrorOccurred: root.finish()
       }
       // Cover swaps since arm: at 2 it is on screen (the first may predate it).
@@ -151,16 +178,20 @@ Scope {
           if (cover.status !== Image.Ready) win.settle()                        // no first frame: nothing to wait for
           else if (win.visible && cover.Window.window) cover.Window.window.update()   // shown and unchanged: swap again
         }
-        function onGoChanged() { if (root.go && player.ready) player.play() }
-        function onRestartChanged() { player.setPosition(0); if (root.go) player.play(); else player.pause() }
+        function onGoChanged() { player.kick() }
+        function onRestartChanged() { player.setPosition(0); player.kick() }
       }
       Connections {
         target: win.visible && win.swaps < 2 ? cover.Window.window : null
-        function onFrameSwapped() { if (++win.swaps === 2) root.shown++ }
+        // A static cover swaps once per update(): ask for the second (a re-arm of a held cover never got ready).
+        function onFrameSwapped() { if (++win.swaps === 2) root.shown++; else cover.Window.window.update() }
       }
       Connections {
         target: root.go && win.frames < 2 ? output.videoSink : null
-        function onVideoFrameChanged() { if (++win.frames === 2) console.info("intro: video on", win.modelData.name) }
+        function onVideoFrameChanged() {
+          if (player.position <= 0) return
+          if (++win.frames === 2) console.info("intro: video on", win.modelData.name)
+        }
       }
 
       Item {
