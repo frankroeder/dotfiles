@@ -71,6 +71,52 @@ eq(drop(37, 36), 7, "@2x notch bar: 36px chip clears the 37px bar by 6px");
 eq(drop(56, 36), 16, "@1.333 notch bar: drop covers the taller bar, not just the chip");
 eq(drop(36, 36), 6, "external bar: plain gap");
 
+// Right cluster: what shows beyond the fixed chips, most important first, whole or not at all.
+const grants = ctx.rightGrants;
+const asks = (o) => Object.assign({ rec: 0, timer: 0, awake: 0, night: 0, cup: 23, updates: 0, ccu: 0, vpnName: 0, vpnAge: 0, netName: 0 }, o);
+const shown = (g) => Object.keys(g).filter((k) => g[k] === true).sort().join(" ");
+let g = grants(600, asks({ rec: 63, timer: 51, night: 24, updates: 24, ccu: 40, vpnName: 100, vpnAge: 40, netName: 120 }), 3, 24, false);
+eq(shown(g), "awake ccu cup netName night rec timer tray updates vpnAge vpnName", "external screen: room for all");
+eq(g.trayInline, 3, "three tray icons inline, no pill");
+g = grants(600, asks({ ccu: 40, vpnName: 100, vpnAge: 40, netName: 120 }), 0, 24, true);
+eq(shown(g), "awake ccu cup night rec timer tray updates", "notch: the VPN's name never shows, nor anything after it");
+g = grants(100, asks({ ccu: 40, netName: 120 }), 0, 24, false);
+eq(g.ccu === true && !g.netName, true, "words stop at the first that does not fit");
+g = grants(100, asks({ ccu: 40, vpnName: 100, vpnAge: 20 }), 0, 24, false);
+eq(!g.vpnName && !g.vpnAge, true, "no VPN uptime without its name, even if it would fit");
+// Tight (the notch side with REC, a timer and night light on): chips drop from the least important end.
+g = grants(150, asks({ rec: 63, timer: 51, night: 24, updates: 24, ccu: 40 }), 1, 24, true);
+eq(shown(g), "awake night rec timer", "REC, timer and night light before tray, idle cup, updates and words");
+eq(g.trayInline, 0, "a tray that got no room shows no icon");
+g = grants(170, asks({ rec: 63, timer: 51, night: 24, updates: 24 }), 5, 24, true);
+eq(g.tray && !g.cup && !g.updates, true, "the tray's pill before the idle cup and the updates box");
+eq(g.trayInline, 0, "pill only: no room for an icon beside it");
+g = grants(60, asks({ rec: 63, timer: 51 }), 0, 24, true);
+eq(!g.rec && g.timer === true, true, "a chip that does not fit is skipped, a smaller one after it still shows");
+g = grants(40, asks({ awake: 23, cup: 0, night: 24 }), 0, 24, true);
+eq(g.awake === true && !g.night, true, "stay awake on outranks the night light");
+g = grants(-5, asks({ rec: 63 }), 2, 24, true);
+eq(shown(g), "", "the fixed chips already overflow: nothing more");
+// Tray: all inline while they fit (at most 3), else as many as fit beside the 30 px pill.
+eq(grants(24, asks({ cup: 0 }), 1, 24, true).trayInline, 1, "one item: its icon, no pill");
+eq(grants(23, asks({ cup: 0 }), 1, 24, true).tray, false, "one item without room: nothing");
+eq(grants(48, asks({ cup: 0 }), 2, 24, true).trayInline, 2, "two items, 48 px: both");
+eq(grants(47, asks({ cup: 0 }), 2, 24, true).trayInline, 0, "two items, 47 px: the pill alone");
+eq(grants(60, asks({ cup: 0 }), 3, 24, true).trayInline, 1, "three items, 60 px: one beside the pill");
+eq(grants(500, asks({ cup: 0 }), 7, 24, true).trayInline, 3, "seven items: three inline, the rest behind the pill");
+g = grants(48 + 40, asks({ cup: 0, ccu: 40 }), 2, 24, true);
+eq(g.trayInline === 2 && g.ccu === true, true, "icons shown inline are paid for before the words");
+g = grants(48 + 39, asks({ cup: 0, ccu: 40 }), 2, 24, true);
+eq(g.trayInline === 2 && !g.ccu, true, "…and a word one pixel short stays out");
+
+// BarHost wiring the screenshots depend on.
+const host = fs.readFileSync(path.join(__dirname, "BarHost.qml"), "utf8");
+const move = host.match(/id: chipMove[\s\S]*?\n  \}/);
+eq(!!move && /property: "opacity"; to: 1/.test(move[0]), true, "chipMove finishes an interrupted fade-in (a chip stuck at opacity 0)");
+const base = host.match(/readonly property real rightBase:[\s\S]*?\n  readonly property real rightRoom/);
+eq(!!base && !/notifBlock|statusBlock/.test(base[0]), true, "rightBase measures neither the hidden bell nor the granted status chips");
+eq(/bellWidth: notchInset > 0 \? notifNotch\.implicitWidth \+ 4/.test(host), true, "notch: the budget counts the bell that is shown");
+
 if (failed) {
   console.log(failed + " failed");
   process.exit(1);

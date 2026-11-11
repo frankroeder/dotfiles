@@ -47,7 +47,7 @@ Item {
   function requestPanel(name) {
     const mon = Hyprland.focusedMonitor
     if (mon && barWindow.barScreen && mon.name !== barWindow.barScreen.name) return
-    if (name === "media" && !mediaBlock.hasMedia) return
+    if (name === "media" && !mediaBlock.visible) return
     barWindow.togglePanel(name)
   }
 
@@ -68,41 +68,28 @@ Item {
   // Distance from either bar edge to the cutout — the wall each cluster stops at.
   readonly property int notchInset: BarModel.notchRegionInset(barContent.width, notchSpacerWidth)
 
-  // Optional words on the right, granted in this order while they fit and never one past the first that does not
-  // (the VPN uptime never shows without its name): the usage countdown, the VPN's name, its uptime, the network's
-  // name. Beside the notch the room is short; an external screen has room for all.
-  // Everything here is measured without the grants, so the answer cannot change the question.
-  readonly property real rightBase: notifBlock.implicitWidth + statusBlock.implicitWidth + ccuBlock.compactWidth
-    + audioGroup.implicitWidth + netBlock.baseWidth + btBlock.implicitWidth + battBlock.implicitWidth
-    + clockBlock.implicitWidth + 5 * rightSection.spacing
+  // The right side always shows the bell, the usage ring, mic + volume, network, Bluetooth, battery and the clock.
+  // Everything else is granted while it fits, most important first: the status chips that say something now (REC,
+  // timer, stay awake on, night light), the tray's one icon or its "+N" pill, the idle stay-awake button, the updates
+  // box, more tray icons (at most 3), then the optional words — never one past the first that does not fit (the VPN
+  // uptime never shows without its name): the usage countdown, the VPN's name, its uptime, the network's name.
+  // Beside the notch the room is short and what gets none is hidden whole (it used to be cut at the bell); an external
+  // screen has room for all (BarModel.rightGrants). Every width here is what the part costs shown or not, so the
+  // answer cannot change the question.
+  // The bell is pinned to the cutout's wall on the notched panel (4 px guard), else it leads the row. Never measure
+  // the hidden twin: a hidden layout keeps the width it last had (the bell without its count).
+  readonly property real bellWidth: notchInset > 0 ? notifNotch.implicitWidth + 4 : notifBlock.implicitWidth + rightSection.spacing
+  readonly property real rightBase: bellWidth + ccuBlock.compactWidth + audioGroup.implicitWidth + netBlock.baseWidth
+    + btBlock.implicitWidth + battBlock.implicitWidth + clockBlock.implicitWidth + 4 * rightSection.spacing
   readonly property real rightRoom: (notchInset > 0 ? rightRegion.width : barContent.width - leftSection.width - 48) - rightBase
-  // Tray icons come before the optional words: all inline while they fit (at most 3), else as many as fit plus
-  // the "+N" chip. Sized from the slot width, not the tray's own width (that would make the answer change the question).
-  readonly property int trayCount: trayBlock.items.length
-  readonly property real traySlot: Style.barIconSlot + 2
-  readonly property int trayInline: {
-    const n = trayCount
-    if (n <= 3 && n * traySlot <= rightRoom) return n
-    return Math.max(0, Math.min(3, Math.floor((rightRoom - 30) / traySlot)))
-  }
-  readonly property real trayWidth: trayInline * traySlot + (trayCount > trayInline ? 30 : 0)
-  readonly property var grants: {
-    const asks = [
-      ["ccu", ccuBlock.fullWidth - ccuBlock.compactWidth],
-      ["vpnName", netBlock.vpnNameWidth],
-      ["vpnAge", netBlock.vpnAgeWidth],
-      ["netName", netBlock.nameWidth]
-    ]
-    let room = rightRoom - trayWidth
-    const out = {}
-    for (const [key, w] of asks) {
-      // The VPN's name / uptime only on screens without a notch: beside the cutout the shield says enough.
-      if (w > room || (key === "vpnName" && notchInset > 0)) break
-      out[key] = w > 0
-      room -= w
-    }
-    return out
-  }
+  readonly property var grants: BarModel.rightGrants(rightRoom, {
+    rec: statusBlock.recWidth, timer: statusBlock.timerWidth,
+    awake: statusBlock.stayAwake ? statusBlock.cupWidth : 0, night: statusBlock.nightWidth,
+    cup: statusBlock.stayAwake ? 0 : statusBlock.cupWidth, updates: statusBlock.updatesWidth,
+    ccu: ccuBlock.fullWidth - ccuBlock.compactWidth, vpnName: netBlock.vpnNameWidth,
+    vpnAge: netBlock.vpnAgeWidth, netName: netBlock.nameWidth
+  }, trayBlock.items.length, Style.barIconSlot + 2, notchInset > 0)
+  readonly property int trayInline: grants.trayInline
   // Temperature in the CPU / RAM chip only when it fits: with media playing the chip must keep
   // 200 px (its natural width, not the capped one — that would make the answer change the question).
   readonly property real leftSpare: leftRegion.width - wsBlock.implicitWidth - sysBlock.baseWidth
@@ -205,6 +192,9 @@ Item {
     id: chipMove
     enabled: barWindow.chipAnim
     NumberAnimation { properties: "x"; duration: 300; easing.type: Easing.OutCubic }
+    // A chip displaced while it fades in (two appear at once, the workspaces change width) loses its `add`
+    // transition: without this it stayed at opacity 0, an empty slot in the row.
+    NumberAnimation { property: "opacity"; to: 1; duration: 180; easing.type: Easing.OutCubic }
   }
   Transition {
     id: chipAdd
@@ -237,7 +227,15 @@ Item {
     move: chipMove
     add: chipAdd
 
-    WorkspacesBlock { id: wsBlock; controller: barWindow; anchors.verticalCenter: parent.verticalCenter }
+    WorkspacesBlock {
+      id: wsBlock
+      controller: barWindow
+      anchors.verticalCenter: parent.verticalCenter
+      // Icons on every workspace only while the rest of the cluster, each chip in its smallest form, fits beside them.
+      maxWidth: leftRegion.width - sysBlock.baseWidth - leftSection.spacing
+        - (backupBlock.visible ? backupBlock.implicitWidth + leftSection.spacing : 0)
+        - (mediaBlock.hasMedia ? mediaBlock.thumbWidth + leftSection.spacing : 0)
+    }
 
     // One CPU + RAM chip: click opens SysPanel, right-click btop.
     BarComponents.SysChip {
@@ -257,10 +255,10 @@ Item {
       barHost: barWindow
       panelOpen: barWindow.openPanel === "media"
       onToggled: barWindow.togglePanel("media")
-      maxChipWidth: Math.max(64,
-        leftRegion.width - wsBlock.implicitWidth - sysBlock.implicitWidth
-          - (backupBlock.visible ? backupBlock.implicitWidth + leftSection.spacing : 0)
-          - 2 * leftSection.spacing)
+      // What is left of the cluster: the chip shrinks to its thumb and hides when even that would be cut.
+      maxChipWidth: leftRegion.width - wsBlock.implicitWidth - sysBlock.implicitWidth
+        - (backupBlock.visible ? backupBlock.implicitWidth + leftSection.spacing : 0)
+        - 2 * leftSection.spacing
     }
   }
   }
@@ -313,6 +311,7 @@ Item {
       BarComponents.SystemTray {
         id: trayBlock
         maxInline: barWindow.trayInline
+        shown: !!barWindow.grants.tray
         barHeight: barWindow.notchFloor
         trayScreen: barWindow.barScreen
         barHost: barWindow
@@ -321,6 +320,11 @@ Item {
         id: statusBlock
         updatesAvailable: barWindow.updatesAvailable
         barHost: barWindow
+        showRec: !!barWindow.grants.rec
+        showTimer: !!barWindow.grants.timer
+        showCup: !!(stayAwake ? barWindow.grants.awake : barWindow.grants.cup)
+        showNight: !!barWindow.grants.night
+        showUpdates: !!barWindow.grants.updates
       }
     }
 

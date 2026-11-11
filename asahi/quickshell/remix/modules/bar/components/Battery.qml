@@ -11,12 +11,12 @@ Item {
 
   readonly property var dev: UPower.displayDevice
   readonly property int percentage: dev.ready ? Math.round(dev.percentage * 100) : 0
-  // asahi-battery's glyphs: ten steps, charging bolts, plug while the charge limit holds.
+  // asahi-battery's glyphs: ten steps; charging bolts while charging or the charge limit holds.
   readonly property string iconGlyph: {
     const i = Math.min(9, Math.floor(percentage / 10))
-    if (dev.state === UPowerDeviceState.Charging) return ["󰢜", "󰂆", "󰂇", "󰂈", "󰢝", "󰂉", "󰢞", "󰂊", "󰂋", "󰂅"][i]
+    const charging = ["󰢜", "󰂆", "󰂇", "󰂈", "󰢝", "󰂉", "󰢞", "󰂊", "󰂋", "󰂅"]
+    if (dev.state === UPowerDeviceState.Charging || dev.state === UPowerDeviceState.PendingCharge) return charging[i]
     if (dev.state === UPowerDeviceState.FullyCharged) return "󰂅"
-    if (dev.state === UPowerDeviceState.PendingCharge) return "\uf1e6"
     return ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"][i]
   }
 

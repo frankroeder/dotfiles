@@ -218,9 +218,16 @@ relabel filter.
   `hyprctl hyprsunset identity`. Identity profile so autostart tints nothing; autostart drops stale `nightlight.json`
   (chip showed on, no tint).
 - **Bar notch**: cutout is a hole (`BarModel.notchRegionInset`), not a spacer; height from geometry (3024x1964 →
-  **74**), width = real cutout; overflow clipped at the wall. Optional words granted in order while they fit
-  (`BarHost.grants`: usage countdown → VPN name → VPN uptime → network name; VPN name+ only without notch; measured
-  without grants, never past the first misfit; external gets all). Clock always weekday + date, same size/colour.
+  **74**), width = real cutout; overflow clipped at the wall. Right side: bell, usage ring, mic + volume, network, BT,
+  battery, clock always; the rest is granted while it fits, whole or not at all (`BarModel.rightGrants` →
+  `BarHost.grants`, `bar_model_test.js`): REC → timer → stay awake on → night light → tray's one icon / `+N` pill →
+  idle cup → updates box → more tray icons → words (usage countdown → VPN name → VPN uptime → network name; VPN name+
+  only without notch; never past the first misfit; external gets all). A width fed to the budget is what the part
+  costs shown or not, from `Text` / metrics: a hidden layout keeps its last width (the hidden bell twin counted no
+  badge: 22 px too much room, the tray icon was cut at the bell). Left side the same idea: icons on every workspace
+  only while the block fits `WorkspacesBlock.maxWidth` (10 workspaces pushed the CPU chip under the wall), media chip
+  → thumb only under 104 px → hidden. Row `add` + `move`: `chipMove` also animates opacity to 1 (a chip displaced
+  while fading in stayed at 0: an empty slot). Clock always weekday + date, same size/colour.
   Usage chip: fixed width, text centred (text-following width shifted the bar; right-aligned hit mic). Glyphs:
   `barFontGlyph` / `barFontGlyphTall` (tall ones), same ink. Right-cluster additions eat the notch budget. Bar =
   `max(Style.barHeight 40, notch)` (40 fits two-line media chip). Media chip gets the left leftover (`maxChipWidth`);
@@ -239,7 +246,7 @@ relabel filter.
   `~/.local/state/asahi/bar-workspace-icons`). `ScriptModel`s keep items alive (JS-array Repeater rebuilds, kills
   animations). `refreshWorkspaceIcons` calls `Hyprland.refreshMonitors()` (Quickshell applies `workspace` before
   `focusedmon`: stale `activeWorkspace`).
-- **Bar tray**: ≤ 3 inline while they fit (`BarHost.trayInline`, budgeted before grants), rest `+N` → `TrayPanel.qml`.
+- **Bar tray**: ≤ 3 inline while they fit (`BarHost.trayInline`, from `rightGrants`), rest `+N` → `TrayPanel.qml`.
   Attention = `Status.NeedsAttention` (`SystemTrayItem.NeedsAttention` / `SystemTrayStatus` undefined). Popups need
   `screen:` + `exclusionMode: ExclusionMode.Ignore`. One bar popup at a time (`BarHost.openPanel`; launcher, calendar,
   notification sheet clear it); keybind / IPC opens reach the focused bar's `requestPanel` via shell signals — no
@@ -683,12 +690,33 @@ relabel filter.
   past the key-repeat delay (300 ms; `long_press` bind; Super+Ctrl+K dropped, his pick): a tap stays focus up, a hold also
   moves focus once. Nested virtual-keyboard test: 80/150 ms → focus only, 700/900 ms → focus + overview.
 - **Hardware pane** (Super+Ctrl+H, quick key `hardware`): `panes/HardwarePane.qml` over `asahi-hardware` (sysfs / procfs /
-  DT as the user; `--live` = power, GPU, ports, sensors every 2 s while shown; the live merge keeps static fields like
-  the GPU core count). Ports: typec `connector/label`; the unlabelled PD controller (`usb-pd@3a`) = MagSafe; "DP alt
-  mode" = the partner's `ff01` alt mode is active, not a lit output. Light / lid sensors by IIO `name`
-  (`aop-sensors-als` / `-las`): the `iio:deviceN` index swaps between boots. jq: `0` is truthy (0 lux shows). RAM = the
-  smallest Apple config ≥ MemTotal (30.9 GiB → 32). GPU cores from the kernel log (cached per boot). Test
-  `asahi/bin/asahi_hardware_test.sh` (`ASAHI_SYS_ROOT` fake tree).
+  DT as the user; `--live` = CPU clocks, GPU, ports, sensors every 2 s while shown; the live merge keeps static fields
+  like the GPU core count). **Only what no sibling shows** (the first versions repeated them; `hub_test.js` and the
+  script's test refuse them back): power rails → Battery, fans → Temperatures, SSD → Storage, OS / chip / memory →
+  Dashboard (its Host / Kernel / CPU / GPU rows open this pane, `ffPanes`; Display, Disk, IP, Bat and the Storage /
+  Battery gauges open theirs). The kernel row is the one overlap, his pick (it heads the boot chain in System). Hero: model, SKU · board · part, serial chip (click copies; the icon is the feedback, a
+  "Copied" label resized the chip). Tiles: CPU (`cpu_mhz` per cpufreq policy; E = the clusters with the lowest top
+  clock, P = the fastest of the rest, governor), GPU, last sleep (`/sys/power/suspend_stats` + the last `slept` line of
+  `idle.log`: W, or "+Wh" / "on AC"), Health (`asahi-debug --json`, ~0.7 s per open: count + the ids that did not
+  pass; click = the report in a terminal — a list card did not fit beside a busy dock). Cards 2 × 2 (Ports | Sensors,
+  Touch ID | System): it must fit the laptop pane (767 × 636) without scrolling, docked too (three busy ports just
+  fit — a new row needs room first; a fourth device behind one port scrolls). Ports: typec `connector/label` minus "USB-C ";
+  the unlabelled PD controller (`usb-pd@3a`) = MagSafe; "DP alt mode" = the partner's `ff01` alt mode is active, not
+  a lit output; `pd` = `power_operation_mode`; `data` only for a port with a USB controller; its devices = the USB
+  devices whose sysfs path runs through that controller (the port's `supplier:platform:<addr>.usb` link), hubs left
+  out; a lone device without a PD identity names the row. Light / lid sensors by IIO `name` (`aop-sensors-als` /
+  `-las`): the `iio:deviceN` index swaps between boots. jq: `0` is truthy (0 lux shows). GPU cores from the kernel log
+  (cached per boot). Tuned profile / boost are not shown (no effect, see Power profiles). Test
+  `asahi/bin/asahi_hardware_test.sh` (`ASAHI_SYS_ROOT` fake tree, `XDG_STATE_HOME` for `idle.log`).
+- **Launcher preview** (no live popup): copy `remix`, a shell with only the `LauncherWindow` Loader + an IpcHandler
+  (shell.qml's imports, else `LookupView` is "not a type"; drop `asahi-cliphist watch` from the copy: it restarts the
+  live watcher), `qs -n -p <copy>/x.qml` in a nested Hyprland with a headless output (as for the lock), `qs -p … ipc
+  --any-display call`, `grim -o`. `hl.dsp.cursor.move` sends the layer no motion: hover / clicks need a
+  `zwlr_virtual_pointer_v1` client. Bar the same way: `BarHost` per output + a stub notification centre; never the
+  real `BarData` / `BtMonitor` services in the copy (dnf check, `nmcli monitor`, the helper's state file):
+  stubs bound to one JSON case, set over IPC (battery, audio, tray, status, usage …), headless `eDP-1` at 3024x1964
+  (scale 2 / 1.333 / 1) + an external, `XDG_STATE_HOME` = a scratch dir with another `asahi-theme/colors.json` per
+  palette. `hyprctl dismissnotify` clears the nested "started without start-hyprland" banner.
 - **Display scale**: Super+Ctrl+plus/minus → `asahi-monitor-scale`. Legal scales = 1/120 divisors (eDP-1: 1 / 1.333333
   / 2). Saved per output name under `$XDG_RUNTIME_DIR` (HDMI-A-1 shared by both sinks). Positions **derived**
   (`anchor_offset` in `lib/common.sh`), never pinned.

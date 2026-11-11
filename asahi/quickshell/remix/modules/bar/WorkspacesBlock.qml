@@ -32,6 +32,10 @@ Item {
   readonly property string showAllFlag: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state")
     + "/asahi/bar-workspace-icons"
   property bool showAll: false
+  // BarHost's budget for this block: the flag's icons on every workspace show only while they fit in it
+  // (ten occupied workspaces beside the notch pushed the CPU chip half under the cutout's wall).
+  property real maxWidth: Infinity
+  readonly property bool iconsAll: root.showAll && root.blockWidth(true) <= root.maxWidth
   FileView {
     path: root.showAllFlag
     watchChanges: true
@@ -88,20 +92,22 @@ Item {
     return String.fromCodePoint(0xF056E)
   }
 
-  function itemWidth(wsId) {
+  // `all` = with icons on every workspace; left out, as shown.
+  function itemWidth(wsId, all) {
     const active = wsId === root.activeWorkspaceId
     const n = root.appGroups(wsId).length
     if (n === 0) return active ? root.pillH : root.numW
-    if (!active && !root.showAll) return root.numW
+    if (!active && !(all === undefined ? root.iconsAll : all)) return root.numW
     return root.numW + Math.min(n, root.maxIcons) * root.iconStep + (n > root.maxIcons ? root.iconStep : 0) + 4
+  }
+  function blockWidth(all) {
+    let w = 0
+    for (const id of root.visibleWorkspaces) w += root.itemWidth(id, all) + root.gap
+    return w - root.gap + 2 * root.pad
   }
 
   // Final, not animated, width: BarHost's Row then runs its chipMove once per change.
-  implicitWidth: {
-    let w = 0
-    for (const id of root.visibleWorkspaces) w += root.itemWidth(id) + root.gap
-    return w - root.gap + 2 * root.pad
-  }
+  implicitWidth: root.blockWidth(root.iconsAll)
   implicitHeight: Style.barHeight - 2 * Style.barChipInset
 
   MouseArea {
@@ -150,7 +156,7 @@ Item {
         readonly property int wsId: modelData
         readonly property bool isFocused: root.activeWorkspaceId === wsId
         readonly property var groups: root.appGroups(wsId)
-        readonly property bool showIcons: isFocused || root.showAll
+        readonly property bool showIcons: isFocused || root.iconsAll
         readonly property int overflowCount: Math.max(0, groups.length - root.maxIcons)
         readonly property string glyph: isFocused ? root.stateGlyph(wsId) : ""
 

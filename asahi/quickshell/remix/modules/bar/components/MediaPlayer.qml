@@ -17,16 +17,20 @@ Item {
   // notchless externals.
   readonly property int chipCap: root.barHost && root.barHost.notchInset > 0 ? root.maxChipWidth : Math.min(root.maxChipWidth, 380)
   readonly property int thumb: 24
+  // The chip's smallest form is the thumb alone: under ~8 characters of title the text goes (two lines of "…" said
+  // nothing), and without room for the thumb the chip goes too (never half a chip at the notch wall).
+  readonly property int thumbWidth: root.thumb + 12
+  readonly property bool thumbOnly: root.chipCap < 104
   readonly property real textMax: root.chipCap - root.thumb - 22
 
   // Uncapped wish (BarHost's temperature-fits check must not depend on the cap it feeds).
   readonly property real naturalWidth: root.thumb + 22 + Math.max(titleText.implicitWidth, artistText.implicitWidth)
-  implicitWidth: Math.min(root.chipCap, root.naturalWidth)
+  implicitWidth: root.thumbOnly ? root.thumbWidth : Math.min(root.chipCap, root.naturalWidth)
   implicitHeight: Style.barHeight
 
   readonly property bool hasMedia: Services.Players.hasPlayer
   readonly property bool playing: Services.Players.isPlaying
-  visible: hasMedia
+  visible: hasMedia && root.maxChipWidth >= root.thumbWidth
 
   HoverTint { lit: chipMouse.containsMouse || root.panelOpen }
 
@@ -65,6 +69,7 @@ Item {
 
   Item {
     id: textBox
+    visible: !root.thumbOnly
     anchors.left: thumbBox.right
     anchors.leftMargin: 8
     anchors.verticalCenter: parent.verticalCenter

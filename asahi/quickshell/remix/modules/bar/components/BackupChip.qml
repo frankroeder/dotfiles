@@ -97,7 +97,9 @@ Item {
   }
   Rectangle {
     visible: chip.backupRunning
-    anchors.left: backupRow.left; anchors.right: backupRow.right; anchors.top: backupRow.bottom; anchors.topMargin: 1
+    // Under the text, inside the chip: the row is as tall as its 24 px glyph, below it lies the bar's edge.
+    anchors.left: backupRow.left; anchors.right: backupRow.right
+    anchors.verticalCenter: parent.verticalCenter; anchors.verticalCenterOffset: 12
     height: 2; radius: 1
     color: Qt.rgba(chip.fg.r, chip.fg.g, chip.fg.b, 0.25)
     Rectangle { width: parent.width * chip.backupPct; height: parent.height; radius: 1; color: Style.m3primary }

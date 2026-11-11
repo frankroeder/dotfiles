@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# This Mac's hardware as JSON for the launcher's Hardware pane (Super+Ctrl+H): model, chip, memory, SSD, boot chain and
-# firmware, power rails, GPU load, USB-C ports, sensors, SEP / Touch ID, radios. sysfs / procfs / device tree only, as
-# the user (no root).
+# This Mac's hardware as JSON for the launcher's Hardware pane (Super+Ctrl+H): model, board identifiers, serial, kernel,
+# boot chain and firmware, CPU cluster clocks, GPU load, USB-C ports and the USB devices behind them, sensors, SEP /
+# Touch ID, Wi-Fi chip, sleep statistics. What other panes own stays out (power rails: Battery, fans: Temperatures,
+# SSD: Storage, OS / chip / memory: Dashboard); the kernel is the one wanted overlap (it heads the boot chain here).
+# sysfs / procfs / device tree only, as the user (no root).
 #
 #   asahi-hardware            everything (the pane, once per open)
-#   asahi-hardware --live     power, GPU, ports, sensors (the pane, every 2 s)
+#   asahi-hardware --live     CPU clocks, GPU, ports, sensors (the pane, every 2 s)
 #
 # ASAHI_SYS_ROOT: fake / for tests.
 
@@ -12,28 +14,39 @@ set -uo pipefail
 R=${ASAHI_SYS_ROOT:-}
 
 rd() { local v; [ -r "$R$1" ] && v=$(tr -d '\0' <"$R$1") && printf '%s' "${v%"${v##*[![:space:]]}"}"; }
-# hwmon micro-units (µW) → watts with one decimal
-watts() { local v; v=$(rd "$1") && [ -n "$v" ] && awk -v v="$v" 'BEGIN { printf "%.1f", v / 1e6 }'; }
 
-hwmon=""
-for h in "$R"/sys/class/hwmon/hwmon*; do
-  [ "$(rd "${h#"$R"}/name")" = macsmc_hwmon ] && hwmon=${h#"$R"} && break
-done
-rail() {   # power rail by label ("Total System Power" …)
-  local f
-  for f in "$R$hwmon"/power*_label; do
-    f=${f#"$R"}
-    [ "$(rd "$f")" = "$1" ] && watts "${f%_label}_input" && return
+usb_scan() {   # every USB device that is no hub: [{ctl, name, mbps}], ctl = the controller it hangs on ("702280000.usb")
+  local d cls name speed ctl i=0 devs=() paths=()
+  for d in "$R"/sys/bus/usb/devices/[0-9]*-[0-9]*; do
+    case ${d##*/} in *:*) continue ;; esac
+    cls=""
+    read -r cls 2>/dev/null <"$d/bDeviceClass" || continue
+    if [ "$cls" != 09 ]; then devs+=("$d"); fi
   done
+  if [ ${#devs[@]} -gt 0 ]; then mapfile -t paths < <(readlink -f "${devs[@]}"); fi   # one fork for all
+  for d in "${devs[@]}"; do
+    ctl=${paths[i]%%.usb/*} name="" speed=""
+    if [ "$ctl" != "${paths[i]}" ]; then
+      read -r name 2>/dev/null <"$d/product" || name="$(rd "${d#"$R"}/idVendor"):$(rd "${d#"$R"}/idProduct")"
+      read -r speed 2>/dev/null <"$d/speed" || true
+      printf '%s\t%s\t%s\n' "${ctl##*/}.usb" "$name" "$speed"
+    fi
+    i=$((i + 1))
+  done | jq -Rsc 'split("\n") | map(select(. != "") | split("\t") | {ctl: .[0], name: .[1], mbps: (.[2] | tonumber? // null)})'
 }
 
 ports() {
-  local p n label partner vendor dp=false a id
+  local p n label partner vendor dp=false a id ctl s usb
+  usb=$(usb_scan)
   for p in "$R"/sys/class/typec/port[0-9]; do
     [ -e "$p" ] || continue
     n=${p##*/}
     label=$(rd "/sys/class/typec/$n/device/of_node/connector/label")   # none: MagSafe (DT hpm5 usb-pd@3a)
-    partner="" vendor="" dp=false
+    partner="" vendor="" dp=false ctl=""
+    # The port's USB controller (a device link on the port): its devices are what hangs off this port.
+    for s in "$p"/supplier:platform:*.usb; do
+      if [ -e "$s" ]; then ctl=${s##*:}; fi
+    done
     if [ -d "$R/sys/class/typec/$n-partner" ]; then
       partner=yes
       id=$(rd "/sys/class/typec/$n-partner/identity/id_header")
@@ -45,8 +58,13 @@ ports() {
     jq -nc --arg port "$n" --arg name "${label:-MagSafe}" --arg power "$(rd "/sys/class/typec/$n/power_role")" \
       --arg partner "$partner" --arg vendor "$vendor" \
       --arg vname "$([ -n "$vendor" ] && sed -n "s/^$vendor  //p" /usr/share/hwdata/usb.ids 2>/dev/null | head -n 1)" \
-      --argjson dp "$dp" '{port: $port, name: $name, power: ($power | capture("\\[(?<r>[a-z]+)\\]").r // $power),
-        partner: ($partner == "yes"), vendor: $vendor, vendor_name: $vname, dp: $dp}'
+      --arg mode "$(rd "/sys/class/typec/$n/power_operation_mode")" --arg data "$(rd "/sys/class/typec/$n/data_role")" \
+      --arg ctl "$ctl" --argjson usb "$usb" --argjson dp "$dp" '
+      def picked: capture("\\[(?<r>[a-z]+)\\]").r // .;
+      {port: $port, name: $name, power: ($power | picked),
+        partner: ($partner == "yes"), vendor: $vendor, vendor_name: $vname, dp: $dp,
+        pd: ($mode == "usb_power_delivery"), data: (if $ctl == "" then "" else ($data | picked) end),
+        devices: ($usb | map(select(.ctl == $ctl and $ctl != "") | del(.ctl)))}'
   done | jq -sc .
 }
 
@@ -64,27 +82,28 @@ iio() {   # IIO device by name: the index is not stable across boots
 }
 
 live() {
-  local fans=() f als las
-  for f in "$R$hwmon"/fan*_input; do [ -r "$f" ] && fans+=("$(cat "$f")"); done
+  local cur=() f als las khz
+  # One clock per cpufreq policy, in cpus()' order (kHz -> MHz; null keeps the two lists aligned).
+  for f in "$R"/sys/devices/system/cpu/cpufreq/policy*; do
+    [ -e "$f" ] || continue
+    if read -r khz 2>/dev/null <"$f/scaling_cur_freq"; then cur+=("$((khz / 1000))"); else cur+=(null); fi
+  done
   als=$(iio aop-sensors-als) las=$(iio aop-sensors-las)
-  jq -nc --arg sys "$(rail 'Total System Power')" --arg soc "$(rail 'Heatpipe Power')" --arg ac "$(rail 'AC Input Power')" \
-    --arg limit "$(watts /sys/class/power_supply/macsmc-ac/input_power_limit)" --arg fans "${fans[*]:-}" \
-    --arg lux "$(rd "$als/in_illuminance_input")" --arg kelvin "$(rd "$als/in_colortemp_input")" \
+  jq -nc --arg lux "$(rd "$als/in_illuminance_input")" --arg kelvin "$(rd "$als/in_colortemp_input")" \
     --arg lid "$(rd "$las/in_angl_raw")" --arg panel "$(rd /sys/class/backlight/apple-panel-bl/brightness)" \
     --arg panelmax "$(rd /sys/class/backlight/apple-panel-bl/max_brightness)" --arg kbd "$(rd /sys/class/leds/kbd_backlight/brightness)" \
-    --arg kbdmax "$(rd /sys/class/leds/kbd_backlight/max_brightness)" --argjson gpu "$(gpu)" --argjson ports "$(ports)" '
+    --arg kbdmax "$(rd /sys/class/leds/kbd_backlight/max_brightness)" --arg cur "${cur[*]:-}" \
+    --argjson gpu "$(gpu)" --argjson ports "$(ports)" '
     def num: tonumber? // null;
     def pct(a; b): if (a | num) != null and ((b | num) // 0) > 0 then ((a | num) * 100 / (b | num) | round) else null end;
-    {power: {system_w: ($sys | num), soc_w: ($soc | num), ac_w: ($ac | num), charger_w: ($limit | num),
-             fans: ($fans | split(" ") | map(num) | map(select(. != null)))},
-     gpu: $gpu, ports: $ports,
+    {cpu_mhz: ($cur | split(" ") | map(select(. != "") | num)), gpu: $gpu, ports: $ports,
      sensors: {lux: ($lux | num | if . then round else null end), kelvin: ($kelvin | num | if . then round else null end),
                lid_deg: ($lid | num), panel: pct($panel; $panelmax), kbd: pct($kbd; $kbdmax)}}'
 }
 
 if [ "${1:-}" = --live ]; then live; exit; fi
 
-cpus() {   # cpufreq policies → clusters: [{cores, max_mhz}], boost
+cpus() {   # cpufreq policies → clusters: [{cores, max_mhz}]
   local p
   for p in "$R"/sys/devices/system/cpu/cpufreq/policy*; do
     [ -e "$p" ] || continue
@@ -96,45 +115,46 @@ cpus() {   # cpufreq policies → clusters: [{cores, max_mhz}], boost
 gcache="${XDG_RUNTIME_DIR:-/tmp}/asahi-hardware-gpu-cores"
 [ -s "$gcache" ] || journalctl -k -b -g 'Active cores' --no-pager -o cat 2>/dev/null | sed -n 's/.*Active cores: \([0-9]*\).*/\1/p' |
   head -n 1 >"$gcache"
-compat=$(tr '\0' ' ' <"$R/proc/device-tree/compatible" 2>/dev/null)
-soc=$(grep -o 'apple,t[0-9]*' <<<"$compat" | head -n 1)
-case ${soc#apple,} in
-  t8103) chip="M1" ;; t6000) chip="M1 Pro" ;; t6001) chip="M1 Max" ;; t6002) chip="M1 Ultra" ;;
-  t8112) chip="M2" ;; t6020) chip="M2 Pro" ;; t6021) chip="M2 Max" ;; t6022) chip="M2 Ultra" ;; *) chip=${soc#apple,} ;;
-esac
-. "$R/etc/os-release" 2>/dev/null
+# The kernel's suspend counters (since boot) and the last sleep asahi-idle logged:
+# "<date> <time> slept 2h8m[ on AC], used 3.81 Wh (1.78 W)" | "…, gained 0.42 Wh".
+sleep_stats() {
+  local line
+  line=$(grep ' slept ' "$R${XDG_STATE_HOME:-$HOME/.local/state}/asahi/idle.log" 2>/dev/null | tail -n 1)
+  jq -nc --arg ok "$(rd /sys/power/suspend_stats/success)" --arg failed "$(rd /sys/power/suspend_stats/fail)" \
+    --arg errno "$(rd /sys/power/suspend_stats/last_failed_errno)" --arg line "$line" '
+    def num: tonumber? // null;
+    {ok: ($ok | num), failed: ($failed | num), last_errno: ($errno | num),
+     last: (($line | capture("^(?<at>\\S+ \\S+) slept (?<h>[0-9]+)h(?<m>[0-9]+)m(?<ac> on AC)?, (used (?<wh>[0-9.]+) Wh \\((?<w>[0-9.]+) W\\)|gained (?<gain>-?[0-9.]+) Wh)")) // null
+       | if . == null then null else {at, minutes: ((.h | tonumber) * 60 + (.m | tonumber)), ac: (.ac != null),
+           used_wh: (.wh | num), w: (.w | num), gained_wh: (.gain | num)} end)}'
+}
 sep=/sys/devices/platform/soc/396400000.sep/diag
 for d in "$R"/sys/devices/platform/soc/*.sep/diag; do [ -d "$d" ] && sep=${d#"$R"}; done
 fingers=$(fprintd-list "${USER:-$(id -un)}" 2>/dev/null | grep -c ' - #')
-profile=$(tuned-adm active 2>/dev/null | sed -n 's/^Current active profile: //p')
 pci() { local d; for d in "$R"/sys/bus/pci/devices/*; do [ "$(rd "${d#"$R"}/vendor"):$(rd "${d#"$R"}/device")" = "$1" ] && echo yes && return; done; }
-wifi="" bt=""
-[ "$(pci 0x14e4:0x4434)" = yes ] && wifi="BCM4388" && bt="BCM4388"
-[ "$(pci 0x14e4:0x4433)" = yes ] && wifi="BCM4387" && bt="BCM4387"
+wifi=""   # one chip for Wi-Fi and Bluetooth
+[ "$(pci 0x14e4:0x4434)" = yes ] && wifi="BCM4388"
+[ "$(pci 0x14e4:0x4433)" = yes ] && wifi="BCM4387"
 wfw=$(ethtool -i wld0 2>/dev/null | sed -n 's/^firmware-version: //p')
-mem=$(sed -n 's/^MemTotal: *\([0-9]*\) kB/\1/p' "$R/proc/meminfo" 2>/dev/null)
 
 jq -nc --argjson live "$(live)" --argjson clusters "$(cpus)" --arg model "$(rd /proc/device-tree/model)" \
   --arg sku "$(rd /sys/class/dmi/id/product_sku)" --arg board "$(rd /sys/class/dmi/id/board_name)" \
-  --arg part "$(rd /sys/class/dmi/id/product_version)" --arg chip "$chip" --arg soc "${soc#apple,}" \
-  --arg boost "$(rd /sys/devices/system/cpu/cpufreq/boost)" --arg gcores "$(cat "$gcache" 2>/dev/null)" --arg mem "$mem" \
-  --arg page "$(getconf PAGESIZE)" \
-  --arg ssd "$(rd /sys/class/nvme/nvme0/model)" --arg ssdfw "$(rd /sys/class/nvme/nvme0/firmware_rev)" \
-  --arg os "${PRETTY_NAME:-Linux}" --arg kernel "$(uname -r)" --arg profile "$profile" \
+  --arg serial "$(rd /proc/device-tree/serial-number)" --argjson sleep "$(sleep_stats)" \
+  --arg governor "$(rd /sys/devices/system/cpu/cpufreq/policy0/scaling_governor)" \
+  --arg part "$(rd /sys/class/dmi/id/product_version)" --arg gcores "$(cat "$gcache" 2>/dev/null)" \
+  --arg page "$(getconf PAGESIZE)" --arg kernel "$(uname -r)" \
   --arg s1 "$(rd /proc/device-tree/chosen/asahi,m1n1-stage1-version)" --arg s2 "$(rd /proc/device-tree/chosen/asahi,m1n1-stage2-version)" \
   --arg uboot "$(rd /proc/device-tree/chosen/u-boot,version)" --arg sysfw "$(rd /proc/device-tree/chosen/asahi,system-fw-version)" \
   --arg osfw "$(rd /proc/device-tree/chosen/asahi,os-fw-version)" --arg touchid "$(rd "$sep/touchid")" \
   --arg sensor "$(rd "$sep/sensor")" --arg keystore "$(rd "$sep/keystore")" --arg guard "$(rd "$sep/xart_guard")" \
-  --arg refusals "$(rd "$sep/xart_guard_refusals")" --arg fingers "$fingers" --arg wifi "$wifi" --arg wfw "$wfw" --arg bt "$bt" \
+  --arg refusals "$(rd "$sep/xart_guard_refusals")" --arg fingers "$fingers" --arg wifi "$wifi" --arg wfw "$wfw" \
   --arg cam "$(for v in "$R"/sys/class/video4linux/video*; do rd "${v#"$R"}/name"; echo; done | grep -m1 isp)" '
   def num: tonumber? // null;
   $live + {
-    model: $model, sku: $sku, board: $board, part: $part, chip: $chip, soc: $soc,
-    cpu: {clusters: $clusters, boost: ($boost == "1")}, gpu: ($live.gpu + {cores: ($gcores | num)}),
-    mem_gb: (($mem | num // 0) / 1048576 as $g | [8, 16, 18, 24, 32, 36, 48, 64, 96, 128, 192] | map(select(. >= $g)) | first // ($g | round)),
-    page_kb: (($page | num // 4096) / 1024),
-    ssd: {model: $ssd, fw: $ssdfw}, os: $os, kernel: $kernel, profile: $profile,
+    model: $model, sku: $sku, board: $board, part: $part, serial: $serial,
+    cpu: {clusters: $clusters, governor: $governor}, gpu: ($live.gpu + {cores: ($gcores | num)}),
+    sleep: $sleep, kernel: $kernel, page_kb: (($page | num // 4096) / 1024),
     boot: {stage1: $s1, stage2: $s2, uboot: $uboot, system_fw: $sysfw, os_fw: $osfw},
     sep: {touchid: $touchid, sensor: $sensor, keystore: $keystore, xart_guard: ($guard | num), refusals: ($refusals | num),
           fingers: ($fingers | num)},
-    radios: {wifi: $wifi, wifi_fw: $wfw, bt: $bt}, camera: $cam}'
+    radios: {wifi: $wifi, wifi_fw: $wfw}, camera: $cam}'

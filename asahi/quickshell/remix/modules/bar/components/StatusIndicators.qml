@@ -20,6 +20,19 @@ RowLayout {
   property string timerUnit: ""
   property bool timerArmed: false
   property var barHost: null
+  // BarHost grants each chip while the right side has room for it (REC first); what each costs, shown or not.
+  property bool showCup: true
+  property bool showNight: true
+  property bool showRec: true
+  property bool showTimer: true
+  property bool showUpdates: true
+  readonly property real cupWidth: stayAwakeGlyph.implicitWidth + 6 + root.spacing
+  readonly property real nightWidth: root.nightLightOn ? Style.barIconSlot + root.spacing : 0
+  readonly property real recWidth: recChip.wanted
+    ? recGlyph.implicitWidth + (recChip.rec ? recRow.spacing + recText.implicitWidth : 0) + 8 + root.spacing : 0
+  readonly property real timerWidth: root.timerCount > 0
+    ? timerGlyph.implicitWidth + timerRow.spacing + timerText.implicitWidth + 8 + root.spacing : 0
+  readonly property real updatesWidth: root.updatesAvailable ? Style.barIconSlot + root.spacing : 0
 
   readonly property string runtimeDir: Quickshell.env("XDG_RUNTIME_DIR") || "/tmp"
   readonly property string nightLightStatePath: Quickshell.env("HOME") + "/.local/state/asahi/nightlight.json"
@@ -96,6 +109,7 @@ RowLayout {
   }
 
   Item {
+    visible: root.showCup
     implicitWidth: stayAwakeGlyph.implicitWidth + 6
     implicitHeight: Style.barHeight
 
@@ -120,7 +134,7 @@ RowLayout {
 
   // Only while on (Launcher > Actions): frees room next to the notch.
   Item {
-    visible: root.nightLightOn
+    visible: root.nightLightOn && root.showNight
     implicitWidth: Style.barIconSlot
     implicitHeight: Style.barHeight
 
@@ -150,7 +164,8 @@ RowLayout {
     readonly property bool panelShown: !!root.barHost && root.barHost.openPanel === "rec"
     // Stays visible while the panel is open even after recording stops, so the chip
     // that opened it is still there to close it (it used to vanish and strand the popup).
-    visible: rec || panelShown
+    readonly property bool wanted: rec || panelShown
+    visible: wanted && root.showRec
     Layout.preferredWidth: recRow.implicitWidth + 8
     implicitHeight: Style.barHeight
 
@@ -159,12 +174,14 @@ RowLayout {
       anchors.centerIn: parent
       spacing: 5
       Text {
+        id: recGlyph
         text: "󰑋"
         font.family: Style.fontFamily; font.pixelSize: Style.barFontGlyph; color: Style.red
         // 1 Hz blink on the repaint the elapsed clock causes anyway (a pulse redrew the bar every frame).
         opacity: recChip.rec && Services.Recorder.elapsed % 2 ? 0.35 : 1
       }
       Text {
+        id: recText
         visible: recChip.rec
         text: Services.Recorder.fmtElapsed(Services.Recorder.elapsed)
         font.family: Style.fontFamily; font.pixelSize: Style.barFontCaption; font.bold: true; color: Style.red
@@ -187,7 +204,7 @@ RowLayout {
 
   // Timer chip: first click arms (turns red, "cancel?"), a second click within 3 s cancels.
   Item {
-    visible: root.timerCount > 0
+    visible: root.timerCount > 0 && root.showTimer
     Layout.preferredWidth: timerRow.implicitWidth + 8
     implicitHeight: Style.barHeight
 
@@ -195,8 +212,9 @@ RowLayout {
       id: timerRow
       anchors.centerIn: parent
       spacing: 5
-      Text { text: "󰔛"; font.family: Style.fontFamily; font.pixelSize: Style.barFontGlyphTall; color: root.timerArmed ? Style.red : Style.yellow }
+      Text { id: timerGlyph; text: "󰔛"; font.family: Style.fontFamily; font.pixelSize: Style.barFontGlyphTall; color: root.timerArmed ? Style.red : Style.yellow }
       Text {
+        id: timerText
         text: root.timerArmed ? "cancel?"
           : ArgCommands.formatShort(root.timerLeft) + (root.timerCount > 1 ? " +" + (root.timerCount - 1) : "")
         font.family: Style.fontFamily
@@ -222,7 +240,7 @@ RowLayout {
   }
 
   Item {
-    visible: root.updatesAvailable
+    visible: root.updatesAvailable && root.showUpdates
     implicitWidth: Style.barIconSlot
     implicitHeight: Style.barHeight
 

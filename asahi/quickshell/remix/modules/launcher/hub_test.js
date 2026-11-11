@@ -69,6 +69,38 @@ assert(
   "hub meters height follows adaptive rowHTall (2.7–3.6 rows)"
 );
 
+// Click-through: what a hub fact / gauge opens must be a visible Quick tile with a pane.
+const actionsBlock = qml.slice(qml.indexOf("readonly property var quickActions"), qml.indexOf("readonly property var quickDeckHidden"));
+const hiddenBlock = qml.slice(qml.indexOf("readonly property var quickDeckHidden"), qml.indexOf("readonly property var quickDeck:"));
+const hidden = (hiddenBlock.match(/^\s*"?[\w-]+"?:\s*true/gm) || []).map(l => /([\w-]+)"?:/.exec(l)[1]);
+const deckPanes = (actionsBlock.match(/\{ key: "[\w-]+"[^\n]*mode: "\w+"/g) || [])
+  .map(l => ({ key: /key: "([\w-]+)"/.exec(l)[1], mode: /mode: "(\w+)"/.exec(l)[1] }))
+  .filter(a => hidden.indexOf(a.key) < 0 && qml.indexOf('case "' + a.mode + '": return') >= 0)
+  .map(a => a.mode);
+const quoted = text => (text.match(/"\w+"/g) || []).map(s => s.slice(1, -1));
+const paneProps = text => (text.match(/pane: "\w+"/g) || []).map(s => s.slice(7, -1));
+const ffPanes = qml.match(/ffPanes:\s*\(\{([\s\S]*?)\}\)/);
+const factLinks = ffPanes ? quoted(ffPanes[1]) : [];
+const gaugeLinks = paneProps(qml.slice(qml.indexOf("// Gauges:"), qml.indexOf("// Facts card")));
+assert(deckPanes.indexOf("hardware") >= 0 && deckPanes.indexOf("hub") >= 0, "Dashboard and Hardware are Quick tiles with a pane");
+assert(factLinks.indexOf("hardware") >= 0, "hub hardware facts open the Hardware pane");
+assert(gaugeLinks.length > 0, "hub gauges link to their panes");
+const dead = factLinks.concat(gaugeLinks).filter(k => deckPanes.indexOf(k) < 0);
+assert(dead.length === 0, "every linked pane is a visible Quick tile" + (dead.length ? " (not: " + dead.join(", ") + ")" : ""));
+// The Hardware pane shows what no sibling does: power rails are Battery's, fans Temperatures', the SSD Storage's,
+// OS / chip / memory the Dashboard's. The kernel is the one overlap he wants (it heads the boot chain there), so the
+// hub's Kernel row opens the pane.
+const hwPane = fs.readFileSync(path.join(__dirname, "panes", "HardwarePane.qml"), "utf8");
+const owned = hwPane.match(/system_w|soc_w|charger_w|\.fans\b|\.ssd\b|hw\.os\b|mem_gb|hw\.chip\b/g) || [];
+assert(owned.length === 0, "Hardware pane repeats nothing a sibling pane owns" + (owned.length ? " (" + owned.join(", ") + ")" : ""));
+assert(/hw\.kernel/.test(hwPane) && /Kernel:\s*"hardware"/.test(qml), "kernel: shown in the Hardware pane, the hub's Kernel row opens it");
+assert(/asahi-debug", "--json"/.test(hwPane) && /hwRoot\.sleep/.test(hwPane) && /cpu_mhz/.test(hwPane) && /\.devices/.test(hwPane),
+  "Hardware pane shows health checks, the last sleep, CPU cluster clocks and the devices behind each port");
+assert(
+  /quickHubRoot\.ffPanes\[modelData\.key\]/.test(qml) && /TapHandler \{[^}]*root\.expandQuick\(pane\)/.test(qml),
+  "a hub fact row with a pane opens it on click"
+);
+
 if (failed > 0) {
   console.log("\n" + failed + " assertion(s) failed");
   process.exit(1);

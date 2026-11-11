@@ -13,6 +13,8 @@ Item {
   id: root
 
   property int maxInline: 3
+  // BarHost: false when not even one icon / the "+N" pill fits beside the notch.
+  property bool shown: true
   property int barHeight: Style.barHeight
   property var trayScreen: null
   property var barHost: null
@@ -23,7 +25,7 @@ Item {
 
   implicitWidth: strip.implicitWidth
   implicitHeight: Style.barHeight
-  visible: root.items.length > 0
+  visible: root.items.length > 0 && root.shown
 
   Row {
     id: strip

@@ -159,7 +159,7 @@ Scope {
     { key: "battery", aliases: ["bat", "power", "charge"], icon: "󰁹", name: "Battery", comment: "Battery status, health, and power", mode: "battery" },
     { key: "bluetooth", aliases: ["bt"], icon: "󰂯", name: "Bluetooth", comment: "Open Bluetooth devices", mode: "bluetooth" },
     { key: "storage", aliases: ["disk", "space"], icon: "󰋊", name: "Storage", comment: "Disk usage and home folders", mode: "storage" },
-    { key: "hardware", aliases: ["hw", "about", "mac", "system info"], icon: "󰍛", name: "Hardware", comment: "This Mac: chip, power, ports, sensors, Touch ID", mode: "hardware" },
+    { key: "hardware", aliases: ["hw", "about", "mac", "system info"], icon: "󰍛", name: "Hardware", comment: "This Mac: ports, sensors, Touch ID, kernel and boot chain, health", mode: "hardware" },
     { key: "backup", aliases: ["time machine", "restic", "restore", "snapshot"], icon: "󰁯", name: "Backup", comment: "Time Machine: back up, browse, restore", mode: "backup" },
     { key: "clipboard", aliases: ["clip", "cliphist", "paste"], icon: "󰅌", name: "Clipboard", comment: "cliphist history — copy, delete, wipe", mode: "clipboard" },
     { key: "packages", aliases: ["pkg", "dnf", "pkgman"], icon: "󰏖", name: "Packages", comment: "Search and manage dnf packages", ipc: "pkgman" },
@@ -600,6 +600,9 @@ Scope {
     property real ffMemTotalBytes: 0
     property var ffLeftRows: []
     property var ffRightRows: []
+    // Facts that have a pane of their own: a click on the row opens it (the gauges carry theirs as `pane`).
+    readonly property var ffPanes: ({ Host: "hardware", Kernel: "hardware", CPU: "hardware", GPU: "hardware",
+      Display: "monitors", Disk: "storage", IP: "network", Bat: "battery" })
     readonly property int ffIconWidth: Math.max(32, root.fontPx(18) + 12)
     readonly property int ffLabelWidth: Math.max(68, Math.round(root.fontPx(10) * 4.8))
     readonly property var ffGridRows: {
@@ -624,6 +627,10 @@ Scope {
         Layout.preferredWidth: 1
         Layout.alignment: Qt.AlignTop
         spacing: 8
+        // A fact with a pane of its own opens it (ffPanes).
+        readonly property string pane: (modelData && quickHubRoot.ffPanes[modelData.key]) || ""
+        HoverHandler { id: factHover; enabled: pane !== ""; cursorShape: Qt.PointingHandCursor }
+        TapHandler { enabled: pane !== ""; onTapped: root.expandQuick(pane) }
         readonly property string rowValue: {
           if (modelData && modelData.key === "Mem") {
             return root.prettyBytes(quickHubRoot.ffMemTotalBytes * root.sidebarMem / 100)
@@ -639,7 +646,7 @@ Scope {
           Layout.preferredHeight: quickHubRoot.ffIconWidth
           Layout.alignment: Qt.AlignVCenter
           radius: Style.menuRadiusMd
-          color: Qt.alpha(modelData.accent || Style.m3onSurfaceVariant, 0.14)
+          color: Qt.alpha(modelData.accent || Style.m3onSurfaceVariant, factHover.hovered ? 0.30 : 0.14)
           Text {
             anchors.centerIn: parent
             text: modelData.icon || ""
@@ -853,8 +860,8 @@ Scope {
           model: [
             { label: "CPU", icon: "󰍛", key: "cpu", r: Style.menuRadiusLg },
             { label: "Memory", icon: "󰘚", key: "ram", r: Style.menuRadiusLg },
-            { label: "Storage", icon: "󰋊", key: "disk", r: Style.menuRadiusLg },
-            { label: "Battery", icon: "󰁹", key: "bat", r: Style.menuRadiusLg }
+            { label: "Storage", icon: "󰋊", key: "disk", r: Style.menuRadiusLg, pane: "storage" },
+            { label: "Battery", icon: "󰁹", key: "bat", r: Style.menuRadiusLg, pane: "battery" }
           ]
           delegate: Rectangle {
             required property var modelData
@@ -862,6 +869,16 @@ Scope {
             Layout.fillHeight: true
             radius: modelData.r
             color: Style.m3container
+            // A gauge with a pane of its own opens it.
+            Rectangle { anchors.fill: parent; radius: parent.radius; color: Style.m3stateHover; visible: gaugeMa.containsMouse }
+            MouseArea {
+              id: gaugeMa
+              anchors.fill: parent
+              enabled: !!modelData.pane
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.expandQuick(modelData.pane)
+            }
             Menu.MenuHudDial {
               anchors.fill: parent
               anchors.margins: 12

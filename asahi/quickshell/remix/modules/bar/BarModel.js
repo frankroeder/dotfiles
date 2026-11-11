@@ -41,6 +41,45 @@ function notchRegionInset(contentWidth, spacerWidth) {
   return Math.ceil((width + spacer) / 2)
 }
 
+// What the right cluster shows beyond its fixed chips (BarHost.grants): `room` = what those leave, `w` = what each
+// part costs (0 = not there). Asked most important first; a status chip or the tray shows whole or not at all, the
+// words stop at the first that does not fit (the VPN uptime never shows without its name).
+function rightGrants(room, w, trayCount, traySlot, notched) {
+  var out = {}
+  var left = Number(room) || 0
+  function take(key, width) {
+    out[key] = (Number(width) || 0) <= left
+    if (out[key]) left -= Number(width) || 0
+  }
+  take("rec", w.rec)
+  take("timer", w.timer)
+  take("awake", w.awake)
+  take("night", w.night)
+  // The tray's foot in the door: its one icon, or the "+N" pill.
+  var pill = 30
+  var trayMin = trayCount <= 0 ? 0 : trayCount === 1 ? traySlot : pill
+  take("tray", trayMin)
+  take("cup", w.cup)
+  take("updates", w.updates)
+  // Then all its icons inline while they fit (at most 3), else as many as fit beside the pill.
+  out.trayInline = 0
+  if (out.tray && trayCount > 0) {
+    var trayRoom = left + trayMin
+    out.trayInline = trayCount <= 3 && trayCount * traySlot <= trayRoom
+      ? trayCount : Math.max(0, Math.min(3, Math.floor((trayRoom - pill) / traySlot)))
+    left = trayRoom - out.trayInline * traySlot - (trayCount > out.trayInline ? pill : 0)
+  }
+  var words = [["ccu", w.ccu], ["vpnName", w.vpnName], ["vpnAge", w.vpnAge], ["netName", w.netName]]
+  for (var i = 0; i < words.length; i++) {
+    var width = Number(words[i][1]) || 0
+    // The VPN's name / uptime only on screens without a notch: beside the cutout the shield says enough.
+    if (width > left || (words[i][0] === "vpnName" && notched)) break
+    out[words[i][0]] = width > 0
+    left -= width
+  }
+  return out
+}
+
 // Tray icons arrive either as a path or as "name?path=/dir"; both the bar and the panel
 // need the file URL, and both want the tooltip with the app's own name trimmed off
 // ("Nextcloud: Last sync ..." under a row already titled Nextcloud).
