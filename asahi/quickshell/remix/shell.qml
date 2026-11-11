@@ -32,7 +32,9 @@ ShellRoot {
 
   System.Osd { id: osd }
   System.DimOverlay {}
-  System.NotificationCenter { id: notifCenter }
+  System.NotificationCenter { id: notifCenter; touchIdPrompt: touchIdCard }   // not `touchIdPrompt: touchIdPrompt` (self-binds to null)
+  // sudo / passkey / ssh-key Touch ID requests without a prompt of their own (lock + polkit draw theirs).
+  System.TouchIdPrompt { id: touchIdCard }
   System.PkgManager { id: pkgManager }
   // Answers polkit (GUI admin prompts, pkexec); nothing did before.
   System.PolkitAgent {}

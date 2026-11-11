@@ -795,6 +795,8 @@ comp_asahi_touchid() {
   if [ "$(systemctl is-enabled aurora-fido.service 2>/dev/null)" != enabled ]; then
     sudo dnf install -y aurora-fido && sudo aurora-fido enable || { print_error "aurora-fido enable failed"; exit 1; }
   fi
+  # fido2-token: list / delete passkeys on it (fido2-token -L -r <dev>). SSH key on Touch ID: asahi-touchid-ssh.
+  rpm -q fido2-tools >/dev/null 2>&1 || sudo dnf install -y fido2-tools || { print_error "fido2-tools install failed"; exit 1; }
   print_ok "$(aurora-fido status 2>/dev/null | head -n 1)"   # its first line names itself ("Touch ID security key: ON …")
 }
 

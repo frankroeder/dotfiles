@@ -612,6 +612,29 @@ relabel filter.
   polkit; `fprintd-verify` shows it). Only a restart clears it: `asahi-lock` restarts fprintd on that claim error
   (`asahi/polkit/49-asahi-fprintd-restart.rules`, installed by `asahi-touchid`: wheel may restart `fprintd.service`);
   that lock stays password-only (hyprlock never claims again), the next one has Touch ID.
+- **Touch ID prompt** (idea: omarchnix's touchid plugin): `modules/system/TouchIdPrompt.qml` = a card under the notch
+  while something waits for a finger without a prompt of its own (sudo / su in a terminal, `aurora-fido`: passkeys and
+  ssh `ecdsa-sk`, `fprintd-verify`); lock screen and polkit card draw their own (suppressed: `hyprlock` / a
+  `polkit-agent-he*` process alive). Feed: `asahi-touchid-monitor` (stdlib + gi, `setpriv --pdeathsig`): fprintd's
+  device signals are broadcast (`VerifyFingerSelected` = start, `finger-present`, `finger-needed` false *before*
+  `VerifyStatus`), who asked is guessed from /proc at start (newest own sudo, its terminal's Hyprland window: click
+  focuses it; fido: newest ssh / git < 120 s). aurora-fidod's own notification (app name `Touch ID`, "Touch ID to sign in
+  to <site>", closed when the request ends) is routed by `NotificationCenter` into the card (no toast / history /
+  sound; tracked, else freed at once). State machine `touchid_model.js` (`touchid_model_test.js`; monitor:
+  `asahi_touchid_monitor_test.py`). Preview: `qs -c remix ipc --any-display call touchid feed '<event json>'`. Never test
+  with a killed `fprintd-verify`: fprintd reported that as `verify-no-match` (may count toward the SEP lockout).
+- **SSH on Touch ID** (2026-11-11, his pick): `asahi-touchid-ssh` makes `~/.ssh/id_ecdsa_sk` (aurora-fido, one touch,
+  no passphrase, not resident: no PIN). `setup HOST…` = create + `authorize` (appends the pubkey over the old key,
+  BatchMode) + `default` (Touch ID key before id_ed25519 in `Host *` of the untracked `~/.ssh/config`, backup
+  `.bak-touchid`; id_ed25519 out of the running agent: the agent offers its keys first, in the order added) + `test`
+  (sk only, no agent: a touch per host). `retire HOST…` drops id_ed25519 from a host's authorized_keys inside a login
+  that only the Touch ID key could make. Host names / addresses live only in `~/.ssh/config` and the command line, never
+  in the repo; a password / GSSAPI-only host offers no publickey at all: no key works there. id_ed25519 stays the local
+  fallback (a host without the new key: passphrase via keychain as before). ForwardAgent hosts: a forwarded sign needs a
+  touch here. Sealed store: make a new key once `/dev/sep-key` shows (watch list). A test notification with app name
+  `Touch ID` lands in the card, not as a toast. Firefox (Flatpak, `devices=all`) reaches aurora-fido's hidraw (uaccess,
+  `ID_SECURITY_TOKEN`; a CTAPHID INIT from inside the sandbox answers); **Proton Pass intercepts WebAuthn** (passkeys
+  go to Proton, aurora-fido sees nothing): he keeps it so. `fido2-tools` (asahi-touchid) lists / deletes passkeys.
 - **Stay awake**: one flag `$XDG_RUNTIME_DIR/asahi-stay-awake`, owned by `asahi-stay-awake`; hypridle listeners skip
   under it (`asahi-idle` checks `status`).
 - **Idle (macOS-shaped)**: hypridle = plain `hl.exec_cmd` in `autostart.lua`'s `hyprland.start` hook, **not**

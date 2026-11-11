@@ -1,0 +1,217 @@
+#!/usr/bin/python3 -I
+"""Touch ID prompt feed for the Quickshell overlay (modules/system/TouchIdPrompt.qml).
+
+Listens to fprintd on the system bus (its device signals are broadcast: no eavesdropping, no root) and prints one
+JSON object per line on stdout:
+
+  {"ev": "start", "kind": ..., "suppress": bool, "title": ..., "detail": ..., "app": ..., "address": ...}
+  {"ev": "present", "value": bool}          finger on the sensor (fprintd's finger-present)
+  {"ev": "needed", "value": bool}           fprintd waits for a finger (false: the verify ended or was cancelled)
+  {"ev": "status", "result": "verify-match", "done": true}
+  {"ev": "gone"}                            fprintd left the bus
+
+Who asked is guessed from processes when a verify starts (fprintd does not say): hyprlock and the polkit card draw
+their own prompt (suppress), sudo / su name the command and the terminal it runs in, aurora-fidod (Touch ID as a
+FIDO2 key: passkeys, ssh ecdsa-sk) names the newest ssh / git process. Read-only: /proc and `hyprctl clients -j`.
+
+Tests: asahi_touchid_monitor_test.py (classify() on a fake process table). ASAHI_PROC_ROOT / ASAHI_HYPR_CLIENTS
+(a JSON file) point it at fakes.
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+
+PROC = os.environ.get("ASAHI_PROC_ROOT", "/proc")
+SUDO = {"sudo", "sudo-rs", "su", "doas", "run0"}
+FIDO_CLIENTS = {"ssh", "ssh-keygen", "ssh-add", "scp", "sftp", "git", "rsync"}
+# sudo options that take a value (sudo(8)); the command starts after them.
+SUDO_ARG_OPTS = {"-u", "-g", "-h", "-p", "-r", "-t", "-C", "-D", "-U", "-T", "-R"}
+CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029\u202a-\u202e\u2066-\u2069]")
+FIDO_RECENT_S = 120
+
+
+def clean(s, limit=120):
+    s = CONTROL.sub(" ", s).strip()
+    return s if len(s) <= limit else s[: limit - 1] + "…"
+
+
+def read_procs(root=PROC):
+    """[{pid, ppid, ruid, comm, argv, start}] for every readable process (start: seconds since boot)."""
+    tick = os.sysconf("SC_CLK_TCK") if hasattr(os, "sysconf") else 100
+    out = []
+    for name in os.listdir(root):
+        if not name.isdigit():
+            continue
+        base = os.path.join(root, name)
+        try:
+            with open(os.path.join(base, "stat"), "rb") as f:
+                stat = f.read().decode("utf-8", "replace")
+            with open(os.path.join(base, "status"), "rb") as f:
+                status = f.read().decode("utf-8", "replace")
+            with open(os.path.join(base, "cmdline"), "rb") as f:
+                argv = [a.decode("utf-8", "replace") for a in f.read().split(b"\0") if a]
+        except OSError:
+            continue
+        # comm sits in parentheses and may hold spaces / parentheses itself: split at the last ')'.
+        lp, rp = stat.find("("), stat.rfind(")")
+        if lp < 0 or rp < 0:
+            continue
+        rest = stat[rp + 2:].split()
+        uid = re.search(r"^Uid:\s+(\d+)", status, re.M)
+        try:
+            out.append({"pid": int(name), "ppid": int(rest[1]), "ruid": int(uid.group(1)) if uid else -1,
+                        "comm": stat[lp + 1:rp], "argv": argv, "start": int(rest[19]) / tick})
+        except (IndexError, ValueError):
+            continue
+    return out
+
+
+def uptime(root=PROC):
+    try:
+        with open(os.path.join(root, "uptime")) as f:
+            return float(f.read().split()[0])
+    except (OSError, ValueError, IndexError):
+        return 0.0
+
+
+def hypr_clients():
+    path = os.environ.get("ASAHI_HYPR_CLIENTS")
+    try:
+        if path:
+            with open(path) as f:
+                return json.load(f)
+        run = subprocess.run(["hyprctl", "clients", "-j"], capture_output=True, text=True, timeout=1)
+        return json.loads(run.stdout or "[]")
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return []
+
+
+def app_label(cls):
+    known = {"com.mitchellh.ghostty": "Ghostty", "org.mozilla.firefox": "Firefox", "chromium-browser": "Chromium"}
+    if cls in known:
+        return known[cls]
+    tail = cls.rsplit(".", 1)[-1] if cls else ""
+    return tail[:1].upper() + tail[1:] if tail else ""
+
+
+def window_of(pid, by_pid, clients):
+    """The Hyprland window of the nearest ancestor that owns one (a terminal for sudo)."""
+    owned = {}
+    for c in clients:
+        p = c.get("pid")
+        # Ghostty is one process with many windows: the most recently focused one (focusHistoryID 0 = focused).
+        if p and (p not in owned or c.get("focusHistoryID", 99) < owned[p].get("focusHistoryID", 99)):
+            owned[p] = c
+    seen = set()
+    while pid and pid not in seen:
+        seen.add(pid)
+        if pid in owned:
+            c = owned[pid]
+            return app_label(c.get("class", "")), c.get("address", "")
+        pid = by_pid.get(pid, {}).get("ppid")
+    return "", ""
+
+
+def sudo_command(argv):
+    """`sudo -u root dnf upgrade -y` -> "dnf upgrade -y"; a bare -i / -s is a shell."""
+    args, i, shell = argv[1:], 0, False
+    while i < len(args):
+        a = args[i]
+        if a == "--":
+            i += 1
+            break
+        if not a.startswith("-") or a == "-":
+            break
+        if a in SUDO_ARG_OPTS:
+            i += 2
+            continue
+        if a in ("-i", "-s", "--login", "--shell"):
+            shell = True
+        i += 1
+    cmd = args[i:]
+    if cmd:
+        return " ".join([os.path.basename(cmd[0])] + cmd[1:])
+    return "root shell" if shell else ""
+
+
+def classify(procs, uid, clients, now):
+    by_pid = {p["pid"]: p for p in procs}
+    comms = lambda names, own=True: [p for p in procs if p["comm"] in names and (not own or p["ruid"] == uid)]
+    out = {"ev": "start", "kind": "other", "suppress": False, "title": "Touch ID", "detail": "", "app": "",
+           "address": ""}
+    if comms({"hyprlock"}):
+        return dict(out, kind="lock", suppress=True, title="Lock screen")
+    if [p for p in procs if p["comm"].startswith("polkit-agent-he")]:
+        return dict(out, kind="polkit", suppress=True, title="Authentication")
+    asking = sorted(comms(SUDO), key=lambda p: p["start"])
+    if asking:
+        p = asking[-1]
+        name = os.path.basename(p["argv"][0]) if p["argv"] else p["comm"]
+        detail = sudo_command(p["argv"]) if p["comm"] != "su" else " ".join(p["argv"][1:])
+        app, addr = window_of(p["pid"], by_pid, clients)
+        return dict(out, kind="sudo", title=clean(name, 20), detail=clean(detail), app=app, address=addr)
+    verify = comms({"fprintd-verify"})
+    if verify:
+        app, addr = window_of(verify[-1]["pid"], by_pid, clients)
+        return dict(out, kind="verify", title="fprintd-verify", app=app, address=addr)
+    if [p for p in procs if p["comm"] == "aurora-fidod" or any("aurora-fidod" in a for a in p["argv"][:3])]:
+        # argv: an exited child (zombie, empty cmdline) is no client.
+        recent = sorted((p for p in comms(FIDO_CLIENTS) if p["argv"] and now - p["start"] <= FIDO_RECENT_S),
+                        key=lambda p: p["start"])
+        if recent:
+            p = recent[-1]
+            app, addr = window_of(p["pid"], by_pid, clients)
+            argv = [os.path.basename(p["argv"][0])] + p["argv"][1:] if p["argv"] else [p["comm"]]
+            return dict(out, kind="fido", title="SSH security key", detail=clean(" ".join(argv)), app=app,
+                        address=addr)
+        return dict(out, kind="fido", title="Passkey", detail="Security key request")
+    return out
+
+
+def emit(obj):
+    try:
+        sys.stdout.write(json.dumps(obj) + "\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        os._exit(0)
+
+
+def main():
+    from gi.repository import Gio, GLib
+
+    bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+    uid = os.getuid()
+
+    def on_signal(_conn, _sender, _path, iface, member, params):
+        if member == "VerifyFingerSelected":
+            emit(classify(read_procs(), uid, hypr_clients(), uptime()))
+        elif member == "VerifyStatus":
+            result, done = params.unpack()
+            emit({"ev": "status", "result": result, "done": bool(done)})
+        elif member == "PropertiesChanged" and iface == "org.freedesktop.DBus.Properties":
+            _iface, changed, _inv = params.unpack()
+            for key, ev in (("finger-present", "present"), ("finger-needed", "needed")):
+                if key in changed:
+                    emit({"ev": ev, "value": bool(changed[key])})
+
+    def on_owner(_c, _s, _p, _i, _m, params):
+        name, _old, new = params.unpack()
+        if name == "net.reactivated.Fprint" and not new:
+            emit({"ev": "gone"})
+
+    bus.signal_subscribe("net.reactivated.Fprint", None, None, None, None, Gio.DBusSignalFlags.NONE, on_signal)
+    bus.signal_subscribe("org.freedesktop.DBus", "org.freedesktop.DBus", "NameOwnerChanged", None,
+                         "net.reactivated.Fprint", Gio.DBusSignalFlags.NONE, on_owner)
+    emit({"ev": "ready"})
+    # The shell exits -> stdout closes; nothing to write then until a verify, so poll it cheaply.
+    GLib.timeout_add_seconds(30, lambda: (emit({"ev": "tick"}), True)[1])
+    GLib.MainLoop().run()
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "--classify":   # debugging: what a verify started now would show
+        print(json.dumps(classify(read_procs(), os.getuid(), hypr_clients(), uptime()), indent=2))
+    else:
+        main()

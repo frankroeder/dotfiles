@@ -1,0 +1,162 @@
+#!/usr/bin/env bash
+# SSH key unlocked by Touch ID: an ecdsa-sk key on aurora-fido (Touch ID + the Secure Enclave as a FIDO2 key).
+# Every use asks for a finger (the Touch ID card names the ssh / git command); no passphrase. The private key never
+# exists in ~/.ssh: the file holds a handle only aurora-fido on this Mac can open (sealed by the Secure Enclave; once
+# the kernel has /dev/sep-key, make a new one: it then lives in the enclave itself, see `aurora-fido status`).
+#
+#   asahi-touchid-ssh               create ~/.ssh/id_ecdsa_sk (one touch) unless it exists, print the public key
+#   asahi-touchid-ssh use HOST...   prefer it for HOST (a `Host` block at the top of ~/.ssh/config); add the public
+#                                   key on that server first (GitHub: Settings > SSH keys), else the login falls back
+#   asahi-touchid-ssh pub           print the public key
+#   asahi-touchid-ssh authorize HOST...   append the public key to HOST's authorized_keys (logs in with what works
+#                                   today, no prompt: BatchMode); idempotent
+#   asahi-touchid-ssh default       make it the first key for every host (`Host *` IdentityFile before id_ed25519)
+#                                   and take id_ed25519 out of the running agent (else the agent offers it first)
+#   asahi-touchid-ssh setup HOST... create + authorize HOST... + default, then one test login per host (a touch each)
+#   asahi-touchid-ssh test HOST...  log in with the Touch ID key only (a touch each)
+#   asahi-touchid-ssh retire HOST...  drop id_ed25519's line from HOST's authorized_keys (only after a Touch ID
+#                                   login to HOST worked: it checks that first, one touch per host)
+#
+# id_ed25519 stays: hosts without the new key keep using it (keychain / AddKeysToAgent as before).
+set -euo pipefail
+
+key="$HOME/.ssh/id_ecdsa_sk"
+# BatchMode makes ssh announce "Confirm user presence" through ssh-askpass, tty or not ("notify_start:
+# exec(/usr/libexec/openssh/ssh-askpass)": not installed). An empty SSH_ASKPASS skips that notice quietly (readpass.c);
+# the Touch ID card asks already. Passphrases (ssh-add in authorize) still come from the terminal.
+export SSH_ASKPASS=""
+export SSH_ASKPASS_REQUIRE=never
+cfg="$HOME/.ssh/config"
+
+need_fido() {
+  systemctl is-active --quiet aurora-fido.service ||
+    { echo "aurora-fido is not running: ./install.sh asahi-touchid" >&2; exit 1; }
+}
+
+create() {
+  need_fido
+  if [ ! -f "$key" ]; then
+    echo "Touch the Touch ID sensor when the card asks (aurora-fido makes the key)."
+    # application=ssh: (default), no -O resident: aurora-fido has no PIN, `ssh-keygen -K` would need one.
+    ssh-keygen -q -t ecdsa-sk -C "$USER@$(hostname -s) Touch ID" -f "$key" -N ''
+  fi
+  cat "$key.pub"
+  [ "${1:-}" = quiet ] && return 0
+  echo
+  echo "Next: asahi-touchid-ssh authorize HOST... (or add it by hand, e.g. GitHub: https://github.com/settings/ssh/new),"
+  echo "then: asahi-touchid-ssh default"
+}
+
+use() {
+  [ -f "$key" ] || { echo "no $key yet: run asahi-touchid-ssh" >&2; exit 1; }
+  [ $# -gt 0 ] || { echo "usage: asahi-touchid-ssh use HOST..." >&2; exit 2; }
+  touch "$cfg"
+  local h block=""
+  for h in "$@"; do
+    [[ $h =~ ^[A-Za-z0-9._*?-]+$ ]] || { echo "bad host '$h'" >&2; exit 2; }
+    if grep -qE "^Host $h( |$)" "$cfg" && grep -A3 -E "^Host $h( |$)" "$cfg" | grep -q 'id_ecdsa_sk'; then
+      echo "$h already prefers the Touch ID key"
+      continue
+    fi
+    # First match wins in ssh_config: above every `Host *`. IdentityFile accumulates, so id_ed25519 (from Host *)
+    # stays as the fallback after this one; IdentitiesOnly keeps unrelated agent keys out of the offer.
+    block+="Host $h"$'\n'"  IdentityFile ~/.ssh/id_ecdsa_sk"$'\n'"  IdentitiesOnly yes"$'\n\n'
+  done
+  [ -n "$block" ] || return 0
+  cp -p "$cfg" "$cfg.bak-touchid"
+  { printf '# Touch ID SSH key (asahi-touchid-ssh use)\n%s' "$block"; cat "$cfg.bak-touchid"; } >"$cfg.tmp"
+  chmod --reference="$cfg.bak-touchid" "$cfg.tmp"
+  mv "$cfg.tmp" "$cfg"
+  echo "~/.ssh/config: Touch ID key first for $* (backup: $cfg.bak-touchid). Try: ssh -T git@github.com"
+}
+
+# Remote commands get the key on stdin: ssh joins its arguments into one string for the remote login shell
+# (zsh or bash), so positional parameters do not survive the trip.
+ADD_KEY='umask 077; mkdir -p ~/.ssh && touch ~/.ssh/authorized_keys && read -r k && { grep -qxF "$k" ~/.ssh/authorized_keys || printf "%s\n" "$k" >>~/.ssh/authorized_keys; }'
+DROP_KEY='read -r k && cp -p ~/.ssh/authorized_keys ~/.ssh/authorized_keys.bak-touchid && grep -vF "$k" ~/.ssh/authorized_keys.bak-touchid >~/.ssh/authorized_keys'
+
+authorize() {
+  [ -f "$key.pub" ] || { echo "no $key yet: run asahi-touchid-ssh" >&2; exit 1; }
+  local h k rc=0 added=0 fp
+  k=$(cat "$key.pub")
+  # The old key logs in (only it: offering the new one first would cost a touch once a host knows it). It must be in
+  # the agent for BatchMode; `default` took it out, so load it for this run (one passphrase) and drop it again.
+  fp=$(ssh-keygen -lf "$HOME/.ssh/id_ed25519.pub" | awk '{print $2}')
+  if ! ssh-add -l 2>/dev/null | grep -qF "$fp"; then
+    ssh-add "$HOME/.ssh/id_ed25519" && added=1
+  fi
+  for h in "$@"; do
+    if ssh -o BatchMode=yes -o ConnectTimeout=10 -o IdentitiesOnly=yes -o IdentityFile="$HOME/.ssh/id_ed25519" \
+      "$h" "$ADD_KEY" <<<"$k"; then
+      echo "$h: Touch ID key authorized"
+    else
+      echo "$h: failed" >&2
+      rc=1
+    fi
+  done
+  ((added)) && ssh-add -d "$HOME/.ssh/id_ed25519.pub" >/dev/null 2>&1
+  return $rc
+}
+
+default() {
+  [ -f "$key" ] || { echo "no $key yet: run asahi-touchid-ssh" >&2; exit 1; }
+  if awk '/^Host \*$/{h=1;next} /^Host /{h=0} h && /IdentityFile ~\/.ssh\/id_ecdsa_sk/{f=1} END{exit !f}' "$cfg"; then
+    echo "~/.ssh/config: Host * already starts with the Touch ID key"
+  else
+    cp -p "$cfg" "$cfg.bak-touchid"
+    # Before the first id_ed25519 line of a `Host *` block: ssh tries IdentityFiles in order.
+    awk '/^Host \*$/{h=1} /^Host / && !/^Host \*$/{h=0}
+      h && !done && /^[ \t]*IdentityFile ~\/.ssh\/id_ed25519/ {print "  # Touch ID key first (asahi-touchid-ssh default); id_ed25519 = fallback"; print "  IdentityFile ~/.ssh/id_ecdsa_sk"; done=1}
+      {print}' "$cfg.bak-touchid" >"$cfg.tmp"
+    chmod --reference="$cfg.bak-touchid" "$cfg.tmp"
+    mv "$cfg.tmp" "$cfg"
+    echo "~/.ssh/config: Touch ID key first for every host (backup: $cfg.bak-touchid)"
+  fi
+  # The agent offers its keys before files, in the order they were added: id_ed25519 (from this session's first git
+  # / ssh) would win. Out of the agent, it is used only when a host rejects the Touch ID key (passphrase again).
+  if ssh-add -l 2>/dev/null | grep -q "$(ssh-keygen -lf "$HOME/.ssh/id_ed25519.pub" | awk '{print $2}')"; then
+    ssh-add -d "$HOME/.ssh/id_ed25519.pub" >/dev/null 2>&1 && echo "id_ed25519 removed from the running agent"
+  fi
+}
+
+retire() {
+  local h old
+  old=$(awk '{print $1" "$2}' "$HOME/.ssh/id_ed25519.pub")
+  for h in "$@"; do
+    echo "$h: touch the sensor (the login itself proves the Touch ID key works)"
+    # Touch ID key only (no agent, no other file): if this logs in, the removal runs in the same session.
+    if ssh -o BatchMode=yes -o IdentitiesOnly=yes -o IdentityFile="$key" -o IdentityAgent=none "$h" "$DROP_KEY" <<<"$old"; then
+      echo "$h: id_ed25519 removed (backup there: ~/.ssh/authorized_keys.bak-touchid)"
+    else
+      echo "$h: Touch ID login failed; id_ed25519 left in place" >&2
+    fi
+  done
+}
+
+test_login() {
+  local h ok=0
+  for h in "$@"; do
+    echo "$h: touch the sensor"
+    if ssh -o BatchMode=yes -o IdentitiesOnly=yes -o IdentityFile="$key" -o IdentityAgent=none "$h" \
+      'echo "  logged in as $(id -un)@$(hostname)"' </dev/null; then :; else echo "$h: Touch ID login FAILED" >&2; ok=1; fi
+  done
+  return $ok
+}
+
+case "${1:-create}" in
+  create) create ;;
+  use) shift; use "$@" ;;
+  pub) cat "$key.pub" ;;
+  authorize) shift; authorize "$@" ;;
+  default) default ;;
+  retire) shift; retire "$@" ;;
+  test) shift; test_login "$@" ;;
+  setup)
+    shift
+    create quiet
+    authorize "$@" || { echo "some hosts failed: fix them, then rerun asahi-touchid-ssh setup <host>" >&2; exit 1; }
+    default
+    test_login "$@"
+    ;;
+  *) sed -n '2,23p' "$0" >&2; exit 2 ;;
+esac

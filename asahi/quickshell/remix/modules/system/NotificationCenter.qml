@@ -14,6 +14,8 @@ Scope {
   id: root
 
   property var toastScreen: null
+  // TouchIdPrompt (shell.qml): aurora-fidod's "Touch ID" request notes become its card instead of a toast.
+  property var touchIdPrompt: null
   property var historyScreen: null
   // Toasts, newest first, one deck per sender (omarchy 4.5). A closing card keeps its entry until its
   // leave animation ends (`leaving`); arrivals while a deck is open wait in `held` (nothing moves
@@ -423,6 +425,14 @@ Scope {
 
   property var lastEntry: null
   function handleNotification(n) {
+    // aurora-fidod (passkeys, ssh ecdsa-sk) says "Touch ID to sign in to <site>" and closes it when the request ends:
+    // the Touch ID card shows it (no toast, no history, no sound). Tracked: an untracked object is freed at once.
+    if (root.touchIdPrompt && String(n.appName || "") === "Touch ID") {
+      n.tracked = true
+      root.touchIdPrompt.fidoNote(stripMarkup(n.summary || ""))
+      n.closed.connect(() => { if (root.touchIdPrompt) root.touchIdPrompt.fidoClosed() })
+      return
+    }
     const entry = snapshot(n)
     // Burst guard (upstream): the same notification again within 100 ms is a duplicate; different
     // ones arriving together are all kept.
