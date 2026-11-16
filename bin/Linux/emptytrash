@@ -10,8 +10,9 @@ fi
 
 # Empty XDG trash (primary on Asahi/Fedora desktops + portals)
 if [ -d "$HOME/.local/share/Trash/files" ] && [ "$(ls -A "$HOME/.local/share/Trash/files" 2>/dev/null)" ]; then
-  sudo rm -rfv "$HOME/.local/share/Trash/files"/*
-  sudo rm -rfv "$HOME/.local/share/Trash/info"/*
+  echo "Emptying trash ($(du -sh "$HOME/.local/share/Trash" 2>/dev/null | cut -f1))"
+  sudo rm -rf "$HOME/.local/share/Trash/files"/*
+  sudo rm -rf "$HOME/.local/share/Trash/info"/*
 fi
 
 # Clean package manager caches
@@ -32,8 +33,8 @@ if command -v apt >/dev/null 2>&1; then
   sudo apt autoremove -y
 fi
 if command -v dnf >/dev/null 2>&1; then
-  sudo dnf autoremove -y
-  sudo dnf clean all
+  sudo dnf autoremove -y -q
+  sudo dnf clean all -q
 fi
 
 # Flatpak (used on Asahi/Fedora for apps like zotero/anki)
@@ -50,7 +51,8 @@ fi
 
 # Clear thumbnail cache
 if [ -d "$HOME/.cache/thumbnails" ]; then
-  rm -rfv "$HOME/.cache/thumbnails"/*
+  echo "Clearing thumbnails ($(du -sh "$HOME/.cache/thumbnails" 2>/dev/null | cut -f1))"
+  rm -rf "$HOME/.cache/thumbnails"/*
 fi
 
 # Asahi quickshell previews (wallpaper picker tiers, screenshot gallery): rebuilt on the

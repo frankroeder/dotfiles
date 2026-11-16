@@ -600,8 +600,9 @@ relabel filter.
   desktop): `sudo aurora-touchid-setup` (per-Mac calibration from the iBoot System Container,
   idempotent), authselect `with-fingerprint`, and `fprintd-enroll -f right-index-finger $USER` on a tty when no finger
   is enrolled; skips (warns) before the reboot onto Aurora DTBs and on Macs without a sensor node. Also installs +
-  enables `aurora-fido` (Touch ID as a FIDO2 key: passkeys / WebAuthn, `ssh-keygen -t ecdsa-sk`; pam_u2f would work, not installed; `sealed` key
-  store until the kernel has `/dev/sep-key`; `aurora-fido status`, `sudo aurora-fido disable [--forget]`).
+  enables `aurora-fido` (Touch ID as a FIDO2 key: passkeys / WebAuthn, `ssh-keygen -t ecdsa-sk`; pam_u2f would work, not installed;
+  only with `/dev/sep-key`: 0.2.0 (2026-11-11) dropped the `sealed` store, enable refuses and a running unit restart-loops
+  without it, so the installer disables it there; `aurora-fido status`, `sudo aurora-fido disable [--forget]`).
   `pam_aurora_touchid` (system-auth) re-arms Touch ID after a password; `/etc/aurora/touchid.conf`
   `require_password_after_boot` (password before the first Touch ID, `aurora-touchid-boot`) needs the kernel's Touch ID
   wait ioctl: this kernel has none, so Touch ID works from the first login.
@@ -647,7 +648,7 @@ relabel filter.
   that only the Touch ID key could make. Host names / addresses live only in `~/.ssh/config` and the command line, never
   in the repo; a password / GSSAPI-only host offers no publickey at all: no key works there. id_ed25519 stays the local
   fallback (a host without the new key: passphrase via keychain as before). ForwardAgent hosts: a forwarded sign needs a
-  touch here. Sealed store: make a new key once `/dev/sep-key` shows (watch list). A test notification with app name
+  touch here. **Dead since aurora-fido 0.2.0** (sealed store gone, 0.1 credentials refused): the 0.1 key cannot sign ("agent refused operation"); `retire` had locked id_ed25519 out of the hosts → re-add it (`ssh-copy-id`, password); `Host *` PreferredAuthentications ends in password. Make a new key once `/dev/sep-key` shows (watch list). A test notification with app name
   `Touch ID` lands in the card, not as a toast. Firefox (Flatpak, `devices=all`) reaches aurora-fido's hidraw (uaccess,
   `ID_SECURITY_TOKEN`; a CTAPHID INIT from inside the sandbox answers); **Proton Pass intercepts WebAuthn** (passkeys
   go to Proton, aurora-fido sees nothing): he keeps it so. `fido2-tools` (asahi-touchid) lists / deletes passkeys.

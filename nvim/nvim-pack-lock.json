@@ -6,7 +6,7 @@
       "version": "2.0.0 - 3.0.0"
     },
     "base16-nvim": {
-      "rev": "bd9ad214eaeefec5f937cb49effc3c0ffb2f57ac",
+      "rev": "c00467b7df50cc70004f6518c7da71032dc6e258",
       "src": "https://github.com/RRethy/base16-nvim"
     },
     "blink-cmp-words": {
@@ -27,11 +27,11 @@
       "src": "https://github.com/stevearc/conform.nvim"
     },
     "fzf-lua": {
-      "rev": "22f0bbd3140a8a3b34fec75e5a640513ca6d4ce3",
+      "rev": "82ddfe6efc56480c052fd213e0cbb2f024dfd754",
       "src": "https://github.com/ibhagwan/fzf-lua"
     },
     "gitsigns.nvim": {
-      "rev": "ef707fb93301a9b856f36eae4c8f56f5b988a794",
+      "rev": "dc7698f932792a764d3db95fedee26c38e728355",
       "src": "https://github.com/lewis6991/gitsigns.nvim"
     },
     "lazydev.nvim": {
@@ -76,7 +76,7 @@
       "src": "https://github.com/nvim-lua/plenary.nvim"
     },
     "render-markdown.nvim": {
-      "rev": "9c235bedc4f96145e63fcad5b78cd78bce8822c4",
+      "rev": "8801162e041e34c64d0d1397cd1f353a14b01950",
       "src": "https://github.com/MeanderingProgrammer/render-markdown.nvim"
     },
     "snacks.nvim": {
@@ -84,7 +84,7 @@
       "src": "https://github.com/folke/snacks.nvim"
     },
     "vim-latex": {
-      "rev": "9745f3b467f5c24d0d5133e82537a74434da8ae3",
+      "rev": "cedc0a172e40d0d1d49670dd0d936d6e2df61de7",
       "src": "https://github.com/lervag/vim-latex"
     }
   }

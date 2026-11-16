@@ -792,7 +792,13 @@ comp_asahi_touchid() {
     print_warning "no finger enrolled: fprintd-enroll -f right-index-finger $USER"
   fi
   # Touch ID as a FIDO2 security key (passkeys / WebAuthn, ssh-keygen -t ecdsa-sk, pam_u2f); Aurora ships it off.
-  if [ "$(systemctl is-enabled aurora-fido.service 2>/dev/null)" != enabled ]; then
+  # aurora-fido >= 0.2 keeps keys only in /dev/sep-key (no sealed store): without it enable refuses, a running unit restart-loops.
+  if [ ! -e /dev/sep-key ]; then
+    if systemctl is-enabled --quiet aurora-fido.service 2>/dev/null; then
+      sudo aurora-fido disable || { print_error "aurora-fido disable failed"; exit 1; }
+    fi
+    print_ok "aurora-fido off: kernel has no /dev/sep-key (watch list)"
+  elif [ "$(systemctl is-enabled aurora-fido.service 2>/dev/null)" != enabled ]; then
     sudo dnf install -y aurora-fido && sudo aurora-fido enable || { print_error "aurora-fido enable failed"; exit 1; }
   fi
   # fido2-token: list / delete passkeys on it (fido2-token -L -r <dev>). SSH key on Touch ID: asahi-touchid-ssh.
@@ -1235,7 +1241,9 @@ comp_doctor() {
     if compgen -G '/proc/device-tree/soc/*/fingerprint@*' >/dev/null; then
       report_check "Touch ID finger enrolled (not checked under a closed lid)" \
         sh -c 'fprintd-list "$USER" 2>/dev/null | grep -q " - #\|No devices available"'
-      report_check "aurora-fido (Touch ID security key) active" systemctl is-active --quiet aurora-fido.service
+      if [ -e /dev/sep-key ]; then
+        report_check "aurora-fido (Touch ID security key) active" systemctl is-active --quiet aurora-fido.service
+      fi
     fi
     if grep -q '^VARIANT_ID=aurora' /etc/os-release; then
       for u in aurora-peripherals.service aurora-sep.service aurora-touchid-rearm.socket aurora-stage2-commit.service; do

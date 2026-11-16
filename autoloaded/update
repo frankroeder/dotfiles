@@ -24,15 +24,20 @@ info() {
 
 exec_routine() {
   in_progress "${1}"
+  local start_time=$SECONDS failed=0
 
-  start_time=$(date +%s)
+  # A routine's status is only its last command's (gem_update showed ✓ after two gem errors):
+  # the ZERR trap counts every failed step; `|| true` opts a step out.
+  setopt localoptions localtraps
+  trap 'failed=1' ZERR
+  $1
+  trap - ZERR
 
-  if $1; then
-    end_time=$(date +%s)
-    total_time="$(( end_time - start_time ))"
-    success "${1} in ${total_time} seconds"
+  if (( failed )); then
+    error "${1} failed after $(( SECONDS - start_time )) seconds"
+    failed_routines+=("${1}")
   else
-    error "${1}"
+    success "${1} in $(( SECONDS - start_time )) seconds"
   fi
 }
 
@@ -58,12 +63,11 @@ npm_update() {
     local pfx="$HOME/.local"
     mkdir -p "$pfx/bin" "$pfx/lib/node_modules"
     npm config set prefix "$pfx" --location=user 2>/dev/null || true
-    npm install npm@latest --prefix "$pfx" || true
-    npm update --prefix "$pfx" || true
-  else
-    npm install npm@latest --location=global
-    npm update --location=global
   fi
+  # Global = the prefix above. A bare `--prefix ~/.local` made ~/.local an npm project
+  # (package.json, node_modules/npm) and never updated the global packages.
+  npm install npm@latest --location=global --no-fund --no-audit
+  npm update --location=global --no-fund --no-audit
 }
 
 gem_update() {
@@ -75,25 +79,26 @@ gem_update() {
   # `brew upgrade ruby` then LoadErrors the plugin (missing rdoc under the old
   # keg) and leftover root-owned files block `brew cleanup`.
   if [[ "$prefix" == */Cellar/ruby* ]]; then
-    gem update
+    gem update --no-document
     gem cleanup
     return
   fi
 
-  # Distro ruby: native gems need ruby.h, yaml.h (psych), and on Fedora the gcc -specs= files in CFLAGS.
-  if [[ "$prefix" = /usr && $commands[dnf] ]]; then
-    rpm -q ruby-devel libyaml-devel redhat-rpm-config gcc make >/dev/null || sudo dnf install -y ruby-devel libyaml-devel redhat-rpm-config gcc make
-  elif [[ "$prefix" = /usr && $commands[apt] ]]; then
-    dpkg -s ruby-dev libyaml-dev build-essential >/dev/null 2>&1 || sudo apt install -y ruby-dev libyaml-dev build-essential
+  # Distro ruby (Fedora, Debian): dnf / apt own its gems. `sudo gem update` only put newer copies of the default
+  # gems into /usr/local; Fedora's rdoc 7 and that rdoc 8 then both loaded (14 warnings per gem call, ri crash).
+  if [[ "$prefix" = /usr ]]; then
+    echo "Skipped: distro ruby, updated by the package manager"
+    return
   fi
 
+  # --no-document: no ri / rdoc build per gem (4 "documentation" lines each).
   if [[ -w "$prefix" ]]; then
-    gem update --system
-    gem update
+    gem update --system --no-document
+    gem update --no-document
     gem cleanup
   else
-    sudo gem update --system
-    sudo gem update
+    sudo gem update --system --no-document
+    sudo gem update --no-document
     sudo gem cleanup
   fi
 }
@@ -105,7 +110,7 @@ macos_update() {
 neovim_plug_update() {
   # Check if the directory exists
   if [[ -d "$HOME/.fzf/" ]]; then
-    (cd $HOME/.fzf && git pull && ./install --bin)
+    (cd $HOME/.fzf && git pull --quiet && ./install --bin)
   fi
   nvim --headless "+lua vim.pack.update(nil, { force = true })" "+qa"
   nvim --headless foo "+MasonUpdate" "+qa";
@@ -121,10 +126,16 @@ apt_update() {
   sudo apt upgrade --yes;
 }
 
+# -q: drops repo loading + per-package download / progress lines (~700 per big update); tables and errors stay.
 dnf_update() {
-  sudo dnf upgrade --refresh -y;
-  sudo dnf autoremove -y;
-  sudo dnf clean all;
+  sudo dnf upgrade --refresh -y -q;
+  sudo dnf autoremove -y -q;
+  sudo dnf clean all -q;
+  # Aurora: newest kernel has image + initramfs and Stage 2 is built from its DTBs (exit 1 = boot chain problem);
+  # also says if a restart is due. Same check as asahi-pkg tui-upgrade.
+  if [ $commands[asahi-boot-check] ]; then
+    asahi-boot-check;
+  fi
 }
 
 flatpak_update() {
@@ -141,7 +152,8 @@ misc() {
   if [ $commands[battery] ]; then
     battery update;
   fi
-  if [ $commands[uv] ] && [ "$OSTYPE" = "Linux" ]; then
+  # Standalone installer only (comp_python on non-dnf Linux); dnf / brew uv update with their package manager.
+  if [ $commands[uv] ] && [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/uv/uv-receipt.json" ]; then
     uv self update;
   fi
   # if [ $commands[sketchybar] ]; then
@@ -153,24 +165,36 @@ run(){
   if ping -c 1 google.com &> /dev/null; then
     info "Checking for updates"
 
+    local -a failed_routines
     sudo -v
-    # Keep-alive: update existing `sudo` time stamp until script has finished
-    while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+    # Keep-alive: refresh the sudo timestamp until the run ends. `update` runs in the interactive shell, so the
+    # old `kill -0 $$` never ended the loop (it outlived the run). Killed by the `always` block (also on Ctrl-C,
+    # which skips a function EXIT trap); 2 h cap if the shell dies first (disowned: no SIGHUP, no "[4] 104564" line).
+    for i in {1..120}; do sudo -n true; sleep 60; done 2>/dev/null &!
+    local keepalive=$!
 
-    [ $commands[nvim] ] && exec_routine neovim_plug_update
-    [ $commands[zimfw] ] && exec_routine zsh_update
-    [ $commands[npm] ] && exec_routine npm_update
-    [ $commands[mas] ] && exec_routine mas_update
-    [ $commands[brew] ] && exec_routine brew_update
-    # After brew: native gems compile against the new keg, not a just-replaced one.
-    [ $commands[gem] ] && exec_routine gem_update
-    exec_routine misc
-    [ "$OSTYPE" = "Darwin" ] && exec_routine macos_update
-    [ $commands[apt] ] && exec_routine apt_update
-    [ $commands[dnf] ] && exec_routine dnf_update
-    [ $commands[flatpak] ] && exec_routine flatpak_update
-    [ "$OSTYPE" = "Linux" ] && [ $commands[grok-bot] ] && exec_routine grok_bot_update
-    success "Updates completed"
+    {
+      [ $commands[nvim] ] && exec_routine neovim_plug_update
+      [ $commands[zimfw] ] && exec_routine zsh_update
+      [ $commands[npm] ] && exec_routine npm_update
+      [ $commands[mas] ] && exec_routine mas_update
+      [ $commands[brew] ] && exec_routine brew_update
+      # After brew: native gems compile against the new keg, not a just-replaced one.
+      [ $commands[gem] ] && exec_routine gem_update
+      exec_routine misc
+      [ "$OSTYPE" = "Darwin" ] && exec_routine macos_update
+      [ $commands[apt] ] && exec_routine apt_update
+      [ $commands[dnf] ] && exec_routine dnf_update
+      [ $commands[flatpak] ] && exec_routine flatpak_update
+      [ "$OSTYPE" = "Linux" ] && [ $commands[grok-bot] ] && exec_routine grok_bot_update
+      if (( ${#failed_routines} )); then
+        error "Updates done, failed: ${failed_routines[*]}"
+      else
+        success "Updates completed"
+      fi
+    } always {
+      kill $keepalive 2>/dev/null
+    }
   else
     error "No internet access"
   fi

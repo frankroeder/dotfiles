@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # SSH key unlocked by Touch ID: an ecdsa-sk key on aurora-fido (Touch ID + the Secure Enclave as a FIDO2 key).
 # Every use asks for a finger (the Touch ID card names the ssh / git command); no passphrase. The private key never
-# exists in ~/.ssh: the file holds a handle only aurora-fido on this Mac can open (sealed by the Secure Enclave; once
-# the kernel has /dev/sep-key, make a new one: it then lives in the enclave itself, see `aurora-fido status`).
+# exists in ~/.ssh: the file holds a handle only aurora-fido on this Mac can open. aurora-fido >= 0.2 needs /dev/sep-key
+# in the kernel (no sealed store; 0.1 keys are refused): make a new key once it shows, see `aurora-fido status`.
 #
 #   asahi-touchid-ssh               create ~/.ssh/id_ecdsa_sk (one touch) unless it exists, print the public key
 #   asahi-touchid-ssh use HOST...   prefer it for HOST (a `Host` block at the top of ~/.ssh/config); add the public

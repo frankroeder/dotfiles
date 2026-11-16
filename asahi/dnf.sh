@@ -16,10 +16,17 @@ sudo dnf copr enable -y lionheartp/Hyprland
 sudo dnf config-manager setopt 'copr:copr.fedorainfracloud.org:lionheartp:Hyprland.excludepkgs=quickshell*'
 sudo dnf upgrade -y --refresh
 
+# dnf5 install keeps an installed package's Dependency / Weak reason, so autoremove dropped a listed one once its
+# requirer went (pulseaudio-utils = pactl, 2026-11-16 Aurora update): mark the list user-installed.
+dnf_install_user() {
+  sudo dnf install -y "$@"
+  sudo dnf mark user -y "$@"
+}
+
 # No comments inside this argv — bash treats `#` as ending the command.
 # /usr/bin/node, not nodejs: Fedora 45's nodejs conflicts with an installed nodejs22-bin (same alternative).
 # ffmpeg-free: Fedora's ffmpeg package (nothing in Fedora 45 provides plain "ffmpeg").
-sudo dnf install -y \
+dnf_install_user \
   adw-gtk3-theme \
   brightnessctl \
   blueman \
@@ -113,6 +120,7 @@ sudo dnf install -y \
 # H.264 decode (wallpaper intros, mpv): ffmpeg-free has it only through Cisco's openh264 (repo fedora-cisco-openh264,
 # on by default); a minimal image may carry the noopenh264 stub instead (then no intro plays).
 sudo dnf install -y --allowerasing openh264
+sudo dnf mark user -y openh264   # held only by ffmpeg-free's soname: Dependency, see dnf_install_user
 
 sudo dnf install -y --from-repo=fedora,updates quickshell
 
