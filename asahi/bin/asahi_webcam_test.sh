@@ -63,6 +63,106 @@ else
   fail_at "camera wrap: [$dry] [$raw]"
 fi
 
+# Camera only: ffmpeg straight from the (denoised) camera at its largest 16:9 size, the mic as audio, H.264 (libopenh264).
+printf '#!/bin/sh\necho \x27[{"info":{"props":{"node.name":"aurora_camera_denoise.isp","object.serial":"77"}}}]\x27\n' >"$tmp/bin/pw-dump"
+printf '#!/bin/sh\nexec "$@"\n' >"$tmp/bin/pw-v4l2"
+cat >"$tmp/bin/v4l2-ctl" <<'EOF'
+#!/bin/sh
+case $1 in
+  --list-devices) printf '%s\n' "apple-isp (platform:384000000.isp):" "	/dev/video0" ;;
+  --device) printf '%s\n' "Device Caps      :" "	Video Capture" ;;
+  --list-formats-ext) printf '%s\n' "Size: Discrete 640x480" "Size: Discrete 1280x720" "Size: Discrete 1920x1080" ;;
+esac
+EOF
+args=$(PATH="$tmp/bin:$PATH" "$ROOT/asahi-webcam" record-args /x/rec.mp4 mic | tr '\0' ' ')
+silent=$(PATH="$tmp/bin:$PATH" "$ROOT/asahi-webcam" record-args /x/rec.mp4 | tr '\0' ' ')
+want="env PIPEWIRE_V4L2_TARGET=77 pw-v4l2 ffmpeg -hide_banner -nostdin -loglevel warning -f v4l2 -framerate 30 -video_size 1920x1080 \
+-i /dev/video0 -f pulse -i mic -c:a aac -b:a 160k -c:v libopenh264 -b:v 8M -r 30 -pix_fmt yuv420p -y /x/rec.mp4 "
+if [ "$args" = "$want" ] && [[ $silent != *pulse* && $silent == *"-y /x/rec.mp4 " ]]; then
+  pass "camera-only recorder: denoised camera, 1080p, mic, H.264"
+else
+  fail_at "record-args: [$args] silent [$silent]"
+fi
+grep -q 'asahi-cmd-record camera' "$ROOT/../hypr/conf.d/bindings.lua" || fail_at "hypr bind record camera"
+grep -q 'start("camera", false)' "$ROOT/../quickshell/remix/modules/bar/components/RecordPanel.qml" || fail_at "RecordPanel camera tile"
+pass "camera-only: bind + panel tile"
+
+# Camera-only lifecycle without a camera: a copy of asahi-cmd-record beside a fake asahi-webcam whose recorder is a
+# real ffmpeg on a synthetic source (pid must resolve to ffmpeg naming our file). Fake qs / notify-send / pactl.
+rec="$tmp/rec"
+mkdir -p "$rec/bin" "$rec/videos"
+cp "$ROOT/asahi-cmd-record" "$rec/"
+cp -r "$ROOT/lib" "$rec/"
+# With the mic the recorder fails late (~0.8 s, past the old 0.4 s check, no file): the silent retry must take over.
+cat >"$rec/asahi-webcam" <<EOF
+#!/usr/bin/env bash
+case \$1 in
+  record-args)
+    if [ -n "\$3" ]; then printf '%s\0' ffmpeg -nostdin -loglevel error -re -f lavfi -i testsrc -t 1.2 -f null "\$2"
+    else printf '%s\0' ffmpeg -nostdin -loglevel error -re -f lavfi -i testsrc=size=160x120:rate=30 -c:v libopenh264 -y "\$2"; fi ;;
+  overlay)
+    echo "\$2" >>"$rec/overlay.log"
+    if [ "\$2" = start ]; then echo \$\$ >"$rec/asahi-webcam.pid"; else rm -f "$rec/asahi-webcam.pid"; fi ;;
+esac
+EOF
+printf '#!/bin/sh\nexit 0\n' >"$rec/bin/qs"
+cp "$rec/bin/qs" "$rec/bin/notify-send"
+printf '#!/bin/sh\necho mic\n' >"$rec/bin/pactl"
+chmod +x "$rec/asahi-webcam" "$rec/asahi-cmd-record" "$rec/bin/"*
+recrun() { XDG_VIDEOS_DIR="$rec/videos" XDG_RUNTIME_DIR="$rec" PATH="$rec/bin:$PATH" "$rec/asahi-cmd-record" "$@"; }
+recrun camera
+st1=$(recrun status)
+kill -KILL "$(cat "$rec/asahi-record.pid" 2>/dev/null)" 2>/dev/null || true   # the recorder dies on its own
+sleep 2.5
+st2=$(recrun status)
+ov1=$(tr '\n' ' ' <"$rec/overlay.log")
+# A new take's overlay (up before its recorder) when this take's recorder dies: the old watcher leaves it.
+recrun camera
+echo 999999 >"$rec/asahi-webcam.pid"
+kill -KILL "$(cat "$rec/asahi-record.pid" 2>/dev/null)" 2>/dev/null || true
+sleep 2.5
+ov2=$(tr '\n' ' ' <"$rec/overlay.log")
+recrun camera
+sleep 1
+recrun camera   # toggle: stops
+st3=$(recrun status)
+marker=$(cat "$rec/asahi-record.file" 2>/dev/null || true)   # cleared: a later foreign stop must not finish it again
+last=$(ls -t "$rec/videos"/recording-*-camera.mp4 2>/dev/null | sed -n 1p || true)
+dur=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$last" 2>/dev/null || true)
+# A stale pid file now naming another ffmpeg (not our file): not ours, never stopped.
+ffmpeg -nostdin -loglevel error -re -f lavfi -i testsrc=rate=5 -f null - &
+other=$!
+sleep 0.3
+echo "$other" >"$rec/asahi-record.pid"
+echo "$last" >"$rec/asahi-record.file"
+st4=$(recrun status)
+kill "$other" 2>/dev/null || true
+if [ "$st1" = recording ] && [ "$st2" = stopped ] && [ "$ov1" = "start stop " ] && [ "$ov2" = "start stop start " ] \
+  && [ "$st3" = stopped ] && [ -z "$marker" ] && [[ $last == *-camera.mp4 && -n $dur ]] && [ "$st4" = stopped ] \
+  && [ ! -e "$rec/asahi-record.pid" ]; then
+  pass "camera only: late failure retries silent, a dead recorder drops only its own overlay, toggle stops, foreign ffmpeg not ours"
+else
+  fail_at "camera lifecycle: [$st1] [$st2] overlay [$ov1] [$ov2] [$st3] marker [$marker] [$last $dur] foreign [$st4]"
+fi
+
+# finish (detached after a stop): audio muted at the start + loudness-normalised (AAC 48 kHz, video copied), a
+# thumbnail card; a file without its MP4 index warns.
+printf '#!/bin/sh\necho "$*" >>"%s/notify.log"\n' "$rec" >"$rec/bin/notify-send"
+clip="$rec/videos/recording-clip.mp4"
+ffmpeg -nostdin -loglevel error -f lavfi -i testsrc=size=160x120:rate=30:duration=1 -f lavfi -i sine=duration=1 \
+  -c:v libopenh264 -c:a aac -y "$clip"
+head -c 2000 "$clip" >"$rec/videos/recording-broken.mp4"
+recrun finish "$clip"
+recrun finish "$rec/videos/recording-broken.mp4"
+audio=$(ffprobe -v error -select_streams a -show_entries stream=codec_name,sample_rate -of csv=p=0 "$clip")
+if [ "$audio" = "aac,48000" ] && [ ! -e "$clip.tmp" ] && [ -s "$rec/asahi-record-recording-clip.png" ] \
+  && grep -q -- "-i $rec/asahi-record-recording-clip.png -A default=Open Recording saved $clip" "$rec/notify.log" \
+  && grep -q -- "-u critical Recording may be corrupted" "$rec/notify.log"; then
+  pass "finish: audio finished, thumbnail card; a broken file warns"
+else
+  fail_at "finish: audio [$audio] notify [$(tr '\n' '|' <"$rec/notify.log")]"
+fi
+
 # Resize: mocked hyprctl clients + monitors
 kw="$tmp/hypr.log"
 : >"$kw"

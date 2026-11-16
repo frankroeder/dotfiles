@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Webcam overlay for screen recordings. list / overlay / resize.
+# Webcam overlay for screen recordings, camera-only recorder command. list / overlay / resize / record-args.
 # Overlay is mpv + Hyprland pin; asahi-cmd-record starts and stops it.
 
 set -euo pipefail
@@ -12,6 +12,7 @@ margin=40
 usage() {
   echo "usage: $0 list | overlay start|stop | resize smaller|larger|small|medium|large" >&2
   echo "  overlay start [--device PATH] [--region WxH+X+Y]" >&2
+  echo "  record-args FILE [AUDIO_SOURCE]   camera-only recorder command (NUL-separated)" >&2
   exit 2
 }
 
@@ -178,6 +179,40 @@ resize_overlay() {
   hyprctl dispatch "hl.dsp.window.move({ window = \"$window\", x = $target_x, y = $target_y })" >/dev/null
 }
 
+# Aurora's denoised camera (PipeWire node, shareable with a browser call) when its user service runs: pw-v4l2 maps
+# the V4L2 open to the node whose object.serial is PIPEWIRE_V4L2_TARGET. Raw V4L2 otherwise. Sets `wrap`.
+camera_wrap() {
+  local serial
+  wrap=()
+  serial=$(pw-dump 2>/dev/null | jq -r 'first(.[] | select((.info.props["node.name"]? // "") | startswith("aurora_camera_denoise."))
+    | .info.props["object.serial"]) // empty' || true)
+  [[ -n $serial ]] && command -v pw-v4l2 >/dev/null && wrap=(env PIPEWIRE_V4L2_TARGET="$serial" pw-v4l2)
+  return 0
+}
+
+# Camera-only recording (asahi-cmd-record camera): the recorder command, NUL-separated, for asahi-cmd-record to run
+# itself (its pid file must name ffmpeg: SIGINT stops it and writes the MP4 index). ffmpeg-free encodes H.264 with
+# libopenh264 only; full sensor frame, not mirrored. $2 = audio source (the mic), none = silent.
+record_args() {
+  local file=${1:-} audio=${2:-} device size="" formats resolution
+  [[ -n $file ]] || usage
+  device=$(first_device)
+  if [[ -z $device ]]; then
+    notify "No webcam devices found"
+    echo "asahi-webcam: no capture device" >&2
+    exit 1
+  fi
+  camera_wrap
+  formats=$("${wrap[@]}" v4l2-ctl --list-formats-ext -d "$device" 2>/dev/null || true)
+  for resolution in 1920x1080 1280x720; do
+    if grep -q "$resolution" <<<"$formats"; then size=$resolution; break; fi
+  done
+  local cmd=("${wrap[@]}" ffmpeg -hide_banner -nostdin -loglevel warning -f v4l2 -framerate 30 ${size:+-video_size "$size"} -i "$device")
+  [[ -n $audio ]] && cmd+=(-f pulse -i "$audio" -c:a aac -b:a 160k)
+  cmd+=(-c:v libopenh264 -b:v 8M -r 30 -pix_fmt yuv420p -y "$file")
+  printf '%s\0' "${cmd[@]}"
+}
+
 # The overlay opens medium (class WebcamOverlay-medium: rules.lua sizes and places it).
 start_overlay() {
   local device="" region="" capture_options available_formats resolution
@@ -215,12 +250,7 @@ start_overlay() {
     fi
   done
 
-  # Aurora's denoised camera (PipeWire node, shareable with a browser call) when its user service runs: pw-v4l2 maps
-  # the V4L2 open to the node whose object.serial is PIPEWIRE_V4L2_TARGET. Raw V4L2 otherwise.
-  local serial wrap=()
-  serial=$(pw-dump 2>/dev/null | jq -r 'first(.[] | select((.info.props["node.name"]? // "") | startswith("aurora_camera_denoise."))
-    | .info.props["object.serial"]) // empty' || true)
-  [[ -n $serial ]] && command -v pw-v4l2 >/dev/null && wrap=(env PIPEWIRE_V4L2_TARGET="$serial" pw-v4l2)
+  camera_wrap
 
   if [[ -n ${ASAHI_WEBCAM_DRY_RUN:-} ]]; then
     printf '%smpv av://v4l2:%s --wayland-app-id=WebcamOverlay-medium\n' "${wrap[*]:+${wrap[*]} }" "$device"
@@ -269,5 +299,6 @@ case "$cmd" in
     (($# == 1)) || usage
     resize_overlay "$1"
     ;;
+  record-args) record_args "$@" ;;
   *) usage ;;
 esac

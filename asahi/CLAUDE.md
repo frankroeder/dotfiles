@@ -78,7 +78,12 @@ relabel filter.
 - **Lock guard**: every lock path (hypridle `lock_cmd`, Super+Escape, launcher Lock, `asahi-clamshell` blocked-lid
   close — direct, not `loginctl lock-session`: works without hypridle) runs `asahi-lock` = hyprlock restart loop
   (flock, 30 tries, stderr → `~/.local/state/asahi/hyprlock.log`): exit 0 only on unlock / `finished` after `locked`;
-  crash / `killall -9` → retry (else lockdead, no way in), `allow_session_lock_restore` retakes. Never auto-run
+  crash / `killall -9` → retry (else lockdead, no way in), `allow_session_lock_restore` retakes. A crash **after** its
+  `Unlocked, exiting!` line counts as unlocked (hyprlock 0.9.7 SIGSEGVs in the fprintd sdbus proxy destructor at exit,
+  `coredumpctl list hyprlock`; the retry re-locked the desktop 2 s after unlock). hyprlock logs it right after
+  `sendUnlockAndDestroy`; a false one fails closed (lockdead, still locked). The reader writes `unlocked` / `eof` to
+  `$XDG_RUNTIME_DIR/asahi-lock.reader`; the guard waits ≤ 1 s for either (`$!` is empty for an output process
+  substitution after an external command). Never auto-run
   `hl.clear_crashed_lockscreen()` (unlocks without password). hypridle `inhibit_sleep = 3` explicit (mode 2 needs
   `hyprlock` in `lock_cmd`); logind caps the wait at `InhibitDelayMaxSec`. Super+Escape must be a `locked` bind
   (others are dead on lockdead): fresh hyprlock once the guard is out of retries; asahi-lock exits if one runs (flock
@@ -197,6 +202,13 @@ relabel filter.
   Super+mute/vol-/vol+; own keys only, no macOS Cmd+Shift+3/4/5 copies. Clipboard only
   (`asahi-cmd-screenshot <mode> --clip`, nothing in ~/screenshots): Super+Ctrl+Shift+F10/F11/F12 + top row, gallery
   "Copy". OCR/QR Super+Shift/Ctrl+F11; color Super+Shift+F12. Record: Super+Alt+F11 region, Super+Alt+F12 display,
+  Super+Alt+F10 / Super+Alt+mute = camera only (`asahi-cmd-record camera` runs `asahi-webcam record-args`: ffmpeg from
+  the same camera, libopenh264 1080p30 + mic, `recording-*-camera.mp4`; panel tile "Camera only"; pid = ffmpeg naming
+  our file, SIGINT stop; the pinned overlay = preview only, started once the MP4 header exists — the denoised node is
+  shared, a raw exclusive V4L2 device loses the preview, not the take; a watcher drops the overlay + REC chip when the
+  recorder dies on its own, else the next toggle started a new take — only while `asahi-webcam.pid` still names its
+  overlay: a quick new take restarts it before its recorder is up; its args are read before `&`, a child reads them
+  late; ffmpeg fails late (inputs open after the 0.4 s check): `settle` waits for the header or its exit, then retries),
   Super+Alt+Shift+F12 + webcam (`asahi-webcam`: Aurora's denoised PipeWire camera via `pw-v4l2` +
   `PIPEWIRE_V4L2_TARGET` = its `object.serial`, shareable with a browser call; raw `/dev/videoN` without
   `aurora-camera-denoise` (user service); `/dev/video0` = AVD decoder, skipped; Super+Alt+ü/+ resize = `code:34/35`).
@@ -299,9 +311,13 @@ relabel filter.
   leading `*`/`/`/`^` continues it. History in `~/.local/state/asahi/calc-history.json`. Legend = `CalcHist.LEGEND`.
 - **Recorder**: Super+Alt+R toggles `RecordPanel`; REC chip only while recording (click = panel, right-click = stop).
   `Recorder` singleton runs `asahi-cmd-record status --json` at start, on the script's `ipc call recording refresh`,
-  1 s while recording; idle nothing polls. Webcam takes record default source; screen takes default sink's monitor
-  (wf-recorder: one device). No pause (wf-recorder exits on SIGUSR1). Stop = SIGINT, SIGKILL only after 15 s (MP4
-  index written last). IPC: `qs -c remix ipc call recording panel`.
+  1 s while recording; idle nothing polls. Webcam and camera-only takes record default source; screen takes default
+  sink's monitor (wf-recorder: one device; camera-only = ffmpeg). No pause (wf-recorder exits on SIGUSR1). Stop = SIGINT, SIGKILL only after 15 s (MP4
+  index written last), then detached `asahi-cmd-record finish <file>` (omarchy; stop clears the file marker: a later
+  stop of a foreign wf-recorder (`pgrep` fallback) finished the old take again): unreadable file → critical card; else
+  audio's first 0.4 s muted + loudnorm -14 LUFS (AAC 48k: loudnorm runs at 192k), video copied (no 0.1 s trim: needs a
+  re-encode); card with a thumbnail (`$XDG_RUNTIME_DIR/asahi-record-<name>.png`), click opens. IPC:
+  `qs -c remix ipc call recording panel`.
 - **Packages**: `PkgManager.qml` over `asahi-pkg` (dnf5 JSON). Update checks run `dnf check-update` **without**
   `--cacheonly` (as user it read days-old `~/.cache/libdnf5`); offline (exit 1) → `--cacheonly`. Rows under
   "Obsoleting packages" are not updates. New query first stops a busy one (`running = true` on a busy Process delivers

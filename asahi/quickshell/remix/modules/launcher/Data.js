@@ -66,6 +66,7 @@ const deckTints = {
   screensaver: "mauve",
   record: "maroon",
   "record-webcam": "maroon",
+  "record-camera": "maroon",
   ocr: "peach",
   qr: "teal",
   nightlight: "yellow",

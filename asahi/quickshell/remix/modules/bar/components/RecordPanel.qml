@@ -175,7 +175,7 @@ PopupWindow {
               color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: 12; font.weight: Font.Medium; elide: Text.ElideMiddle
             }
             Text {
-              text: Services.Recorder.fmtBytes(Services.Recorder.bytes) + "  ·  wf-recorder"
+              text: Services.Recorder.fmtBytes(Services.Recorder.bytes) + ((Services.Recorder.file || "").endsWith("-camera.mp4") ? "  ·  camera" : "  ·  wf-recorder")
               color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: 11
             }
           }
@@ -194,6 +194,7 @@ PopupWindow {
         ModeTile { icon: "󰩬"; label: "Region"; onClicked: { root.close(); Services.Recorder.start("region", false) } }
         ModeTile { icon: "󰄀"; label: "Display + cam"; tint: Style.m3tertiary; onClicked: { root.close(); Services.Recorder.start("fullscreen", true) } }
         ModeTile { icon: "󰄀"; label: "Region + cam"; tint: Style.m3tertiary; onClicked: { root.close(); Services.Recorder.start("region", true) } }
+        ModeTile { Layout.columnSpan: 2; icon: "󰄀"; label: "Camera only"; tint: Style.m3secondary; onClicked: { root.close(); Services.Recorder.start("camera", false) } }
       }
 
       // Recent recordings, in one container card like the launcher lists.

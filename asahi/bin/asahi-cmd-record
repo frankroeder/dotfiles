@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Screen recording via wf-recorder. Toggle: a second press stops.
+# Screen recording via wf-recorder; `camera` records the webcam alone (ffmpeg, asahi-webcam record-args).
+# Toggle: a second press stops.
 # Detach with setsid so Hyprland exec_cmd does not SIGHUP the recorder.
 
 set -euo pipefail
@@ -16,12 +17,15 @@ start_marker="$(runtime_dir)/asahi-record.start"
 json=0
 webcam=0
 mode=""
+file_arg=""
 
 usage() {
-  echo "usage: $0 [fullscreen|region|webcam|status|stop] [--json] [--webcam]" >&2
+  echo "usage: $0 [fullscreen|region|webcam|camera|status|stop] [--json] [--webcam]" >&2
   exit 2
 }
 
+# Internal: stop_recording runs `finish <file>` detached.
+if [[ ${1:-} == finish ]]; then file_arg=${2:-}; set -- finish; fi
 while (($# > 0)); do
   case "$1" in
     --webcam) webcam=1; shift ;;
@@ -43,6 +47,7 @@ if [[ $mode == webcam ]]; then
   mode=fullscreen
   webcam=1
 fi
+[[ $mode == camera ]] && webcam=0   # the camera is the whole take: its overlay is only a preview (below)
 
 notify() {
   notify-send -a record -t 2500 "$@" 2>/dev/null || true
@@ -52,11 +57,19 @@ refresh_bar() {
   qs -c remix ipc call recording refresh >/dev/null 2>&1 || true
 }
 
+# The camera's ffmpeg names our file (another ffmpeg may have reused a stale pid: never SIGINT it).
+own_ffmpeg() {
+  [ -r "$file_marker" ] && grep -qxF -- "$(tr -d '\n' <"$file_marker")" < <(tr '\0' '\n' <"/proc/$1/cmdline" 2>/dev/null)
+}
+
 recording_pid() {
   local pid
   pid="$(live_pid "$pid_file")"
-  # A stale pid file may name a recycled PID: only wf-recorder itself is stopped.
-  if [ -n "$pid" ] && ! is_exe "$pid" wf-recorder; then pid=""; rm -f "$pid_file"; fi
+  # A stale pid file may name a recycled PID: only wf-recorder (or the camera's ffmpeg) itself is stopped.
+  if [ -n "$pid" ] && ! is_exe "$pid" wf-recorder && ! { is_exe "$pid" ffmpeg && own_ffmpeg "$pid"; }; then
+    pid=""
+    rm -f "$pid_file"
+  fi
   if [ -z "$pid" ]; then pid="$(pgrep -u "$UID" -x wf-recorder | head -1 || true)"; fi
   printf '%s\n' "$pid"
 }
@@ -74,15 +87,40 @@ stop_recording() {
   stop_pid "$pid" INT 150
   rm -f "$pid_file" "$start_marker"
   "$bin/asahi-webcam" overlay stop >/dev/null 2>&1 || true
-  notify "Recording saved"
   refresh_bar
+  [ -r "$file_marker" ] && setsid -f "$bin/asahi-cmd-record" finish "$(tr -d '\n' <"$file_marker")" </dev/null >/dev/null 2>&1
+  rm -f "$file_marker"   # a later stop of a wf-recorder we did not start must not finish this take again
+  return 0
+}
+
+# Detached after a stop (omarchy's finish): an unreadable file (SIGKILLed before the MP4 index) warns; else the audio
+# gets the first 0.4 s muted (capture pop) and loudness to -14 LUFS (loudnorm runs at 192 kHz: back to 48k), video
+# stream-copied (a trim would re-encode it: minutes for a long take). Card with a thumbnail; a click opens the file.
+finish_recording() {
+  local file=$1 thumb icon=() act
+  if ! ffprobe -v error -show_entries format=duration -of csv=p=0 "$file" >/dev/null 2>&1; then
+    notify-send -a record -u critical "Recording may be corrupted" "$file" 2>/dev/null || true
+    return 0
+  fi
+  if [ -n "$(ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "$file")" ] \
+    && ffmpeg -nostdin -loglevel error -y -i "$file" -c:v copy -c:a aac -b:a 160k -ar 48000 -f mp4 \
+      -af "volume=enable='lt(t,0.4)':volume=0,afade=t=in:st=0.4:d=0.05,loudnorm=I=-14:TP=-1.5:LRA=11" "$file.tmp"; then
+    mv -f "$file.tmp" "$file"
+  fi
+  rm -f "$file.tmp"
+  thumb="$(runtime_dir)/asahi-record-$(basename "$file" .mp4).png"
+  ffmpeg -nostdin -loglevel error -y -ss 0.5 -i "$file" -frames:v 1 -vf scale=480:-2 "$thumb" 2>/dev/null || true
+  [ -s "$thumb" ] && icon=(-i "$thumb")
+  # No -t: notify-send would stop listening while the card (paused on hover) still shows.
+  act="$(notify-send -a record "${icon[@]}" -A default=Open "Recording saved" "$file" 2>/dev/null || true)"
+  if [ "$act" = default ]; then "$bin/asahi-launch" xdg-open "$file"; fi
 }
 
 audio_device() {
   local sink
-  # With the webcam it is a face-cam take: record the voice (default source, the MONO DSP mic) rather than
-  # what plays. wf-recorder takes one audio device; omarchy mixes both through a null sink.
-  if ((webcam)); then
+  # With the webcam (or the camera alone) it is a face-cam take: record the voice (default source, the MONO DSP mic)
+  # rather than what plays. wf-recorder takes one audio device; omarchy mixes both through a null sink.
+  if ((webcam)) || [[ $mode == camera ]]; then
     pactl get-default-source 2>/dev/null || true
     return 0
   fi
@@ -98,9 +136,35 @@ start_recorder() {
   shift
   # New session: Hyprland's exec child exiting must not SIGHUP wf-recorder.
   setsid wf-recorder "$@" -f "$file" </dev/null >>"$log_file" 2>&1 &
+  mark_recording "$file"
+}
+
+# Camera alone: $2 = audio source (empty = silent). No region; its overlay is a preview only (started below).
+start_camera() {
+  local file="$1" cmd=()
+  mapfile -d '' cmd < <("$bin/asahi-webcam" record-args "$file" "${2:-}" 2>>"$log_file")
+  ((${#cmd[@]})) || { refresh_bar; exit 1; }   # no camera: record-args already said so
+  setsid "${cmd[@]}" </dev/null >>"$log_file" 2>&1 &
+  mark_recording "$file"
+}
+
+mark_recording() {
+  local file="$1"
   printf '%s\n' $! >"$pid_file"
   printf '%s\n' "$file" >"$file_marker"
   date +%s >"$start_marker"
+}
+
+# wf-recorder fails at once. The camera's ffmpeg fails only once its inputs open (pw-v4l2 camera, then the mic): wait
+# for its MP4 header (≤ 3 s) or its exit, so a late failure still gets the silent retry / "Recording failed". Sleep
+# first: until setsid → env → pw-v4l2 (sh) exec ffmpeg, the pid is no ffmpeg and reads as dead.
+settle() {
+  sleep 0.4
+  [[ $mode == camera ]] || return 0
+  for _ in $(seq 30); do
+    { [ -s "$file" ] || [ -z "$(recording_pid)" ]; } && break
+    sleep 0.1
+  done
 }
 
 # No pause: this wf-recorder build exits on SIGUSR1.
@@ -133,7 +197,11 @@ case "$mode" in
     stop_recording
     exit 0
     ;;
-  fullscreen | region) ;;
+  finish)
+    finish_recording "$file_arg"
+    exit 0
+    ;;
+  fullscreen | region | camera) ;;
   *) usage ;;
 esac
 
@@ -158,7 +226,9 @@ if [ -n "$(recording_pid)" ]; then
 fi
 
 mkdir -p "$output_dir"
-file="$output_dir/recording-$(date +'%Y-%m-%d_%H-%M-%S').mp4"
+suffix=""
+[[ $mode == camera ]] && suffix=-camera
+file="$output_dir/recording-$(date +'%Y-%m-%d_%H-%M-%S')$suffix.mp4"
 : >"$log_file"
 
 geom=()
@@ -191,12 +261,16 @@ else
   audio_args=(-a)
 fi
 
-start_recorder "$file" "${geom[@]}" -r 60 "${audio_args[@]}"
-sleep 0.4
+if [[ $mode == camera ]]; then
+  start_camera "$file" "$dev"
+else
+  start_recorder "$file" "${geom[@]}" -r 60 "${audio_args[@]}"
+fi
+settle
 if [ -z "$(recording_pid)" ]; then
   # Audio device mismatch is the usual abort; retry silent.
-  start_recorder "$file" "${geom[@]}" -r 60
-  sleep 0.4
+  if [[ $mode == camera ]]; then start_camera "$file"; else start_recorder "$file" "${geom[@]}" -r 60; fi
+  settle
 fi
 
 if [ -z "$(recording_pid)" ]; then
@@ -204,6 +278,25 @@ if [ -z "$(recording_pid)" ]; then
   notify "Recording failed" "See $log_file"
   refresh_bar
   exit 1
+fi
+
+# Camera alone: the same pinned overlay as a preview (not in the file), after the MP4 header (settle: inputs and
+# encoder open, so it holds the camera: a raw V4L2 device without the denoised PipeWire node may be exclusive, then the
+# preview fails, not the take).
+if [[ $mode == camera ]]; then
+  "$bin/asahi-webcam" overlay start >>"$log_file" 2>&1 || true
+fi
+# A recorder that dies on its own (PipeWire / camera restart, full disk) takes its overlay and the REC chip with it:
+# else the preview stays up, the bar goes idle, and the next toggle starts a new take instead of stopping.
+if ((webcam)) || [[ $mode == camera ]]; then
+  # Only this take's overlay (asahi-webcam's pid file still naming it): a new take restarts the overlay before its
+  # recorder is up, `status` would still read stopped then. Both pids read here: inside the `&` child they are read late.
+  overlay_pid_file="$(runtime_dir)/asahi-webcam.pid"
+  overlay_pid="$(cat "$overlay_pid_file" 2>/dev/null || true)"
+  recorder_pid="$(recording_pid)"
+  setsid bash -c 'while kill -0 "$1" 2>/dev/null; do sleep 1; done
+    [ "$(cat "$3" 2>/dev/null)" = "$4" ] && "$2/asahi-webcam" overlay stop
+    qs -c remix ipc call recording refresh' _ "$recorder_pid" "$bin" "$overlay_pid_file" "$overlay_pid" </dev/null >/dev/null 2>&1 &
 fi
 
 notify "Recording" "$file"

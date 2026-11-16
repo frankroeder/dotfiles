@@ -24,6 +24,7 @@ mkdir -p "$(dirname "$log")"
 # hyprlock shows nothing when Touch ID cannot be claimed, and does not know Aurora's lockout statuses: its fingerprint
 # log lines become the line asahi-lock-touchid prints in place of the glyph ("<until epoch> <text>", 0 = stays).
 note="$(runtime_dir)/asahi-lock-touchid.note"
+reader_state="$(runtime_dir)/asahi-lock.reader"   # "unlocked" on the unlock line, "eof" once the reader ends
 fails=0
 touchid_note() {
   local till=0 text="Touch ID unavailable · enter password"
@@ -47,18 +48,26 @@ touchid_note() {
 }
 run() {
   date -Is >>"$log"
-  rm -f "$note"
+  rm -f "$note" "$reader_state"
   # The intro starts on hyprlock's unlock line, not at its exit: after a Touch ID unlock hyprlock lingers seconds
   # (its pending password PAM attempt fails and waits out the failure delay).
   hyprlock "$@" > >(while IFS= read -r l; do
     printf '%s\n' "$l"
     case $l in
-      *"Unlocked, exiting"*) intro play >/dev/null ;;
+      *"Unlocked, exiting"*) echo unlocked >>"$reader_state"; intro play >/dev/null ;;
       *"fprint: "*) touchid_note "$l" ;;
     esac
-  done >>"$log") 2>&1
+  done >>"$log"; echo eof >>"$reader_state") 2>&1
   local rc=$?
   echo "hyprlock exit $rc" >>"$log"
+  # hyprlock 0.9.7 can crash in its exit teardown after the unlock (SIGSEGV in the fprintd sdbus proxy destructor):
+  # the session is already unlocked, a retry would lock it again. The reader may lag the exit: wait for its verdict
+  # (≤ 1 s; `$!` does not name an output process substitution after an external command). A false "unlocked" fails
+  # closed: Hyprland stays locked (lockdead), Super+Escape retakes it.
+  if [ $rc -ne 0 ]; then
+    for _ in $(seq 20); do grep -qs -e unlocked -e eof "$reader_state" && break; sleep 0.05; done
+    if grep -qs unlocked "$reader_state"; then echo "crashed after unlock: done" >>"$log"; return 0; fi
+  fi
   return $rc
 }
 # Wallpaper intro (WallpaperIntro.qml; nothing without a clip). --any-display: Super+Escape runs us from Hyprland,

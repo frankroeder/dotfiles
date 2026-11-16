@@ -120,6 +120,18 @@ if [ "$(cat "$tmp/runs")" = 3 ] && [ "$(grep -c 'hyprlock exit' "$tmp/asahi/hypr
 else
   fail_at "asahi-lock ran hyprlock $(cat "$tmp/runs" 2>/dev/null) times, want 3"
 fi
+# hyprlock 0.9.7 segfaults in its exit teardown after unlocking: no relock.
+rm -f "$tmp/runs"
+printf '#!/usr/bin/env bash\necho x >>"$RUNS"\necho "[DEBUG]: Unlocked, exiting!"\nkill -SEGV $$\n' >"$tmp/hyprlock"
+printf '#!/bin/sh\nexit 1\n' >"$tmp/qs"; chmod +x "$tmp/qs"   # never the live shell's intro
+rc=0
+RUNS="$tmp/runs" XDG_RUNTIME_DIR="$tmp" XDG_STATE_HOME="$tmp" ASAHI_LOCK_RETRY_S=0 PATH="$tmp:$PATH" "$ROOT/asahi-lock" \
+  2>/dev/null || rc=$?
+if [ "$rc" = 0 ] && [ "$(wc -l <"$tmp/runs")" = 1 ] && grep -q 'crashed after unlock' "$tmp/asahi/hyprlock.log"; then
+  pass "asahi-lock does not relock after hyprlock crashes past its unlock"
+else
+  fail_at "crash after unlock: rc=$rc runs=$(wc -l <"$tmp/runs" 2>/dev/null)"
+fi
 # This session's hyprlock already up: no second one. Only its WAYLAND_DISPLAY counts (not a nested preview's).
 rm -f "$tmp/runs"
 printf '#!/usr/bin/env bash\necho "$*" >"%s/pgrep-args"\n' "$tmp" >"$tmp/pgrep"
