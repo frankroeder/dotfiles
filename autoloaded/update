@@ -1,43 +1,179 @@
 #!/usr/bin/env zsh
 
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-BLUE='\033[1;34m'
-RESET='\033[0m'
+# zsh defaults whatever the interactive shell set (KSH_ARRAYS or SH_WORD_SPLIT broke the summary).
+emulate -L zsh
 
-success() {
-  printf "\\r[ ${GREEN}\\u2713${RESET} ] %s\\n" "${@}"
-}
+# Bright ANSI colours: the terminal theme (Ghostty palette, Asahi autotheme) picks the actual hues.
+# None when stdout is no terminal (`update | tee log`).
+typeset RED= GREEN= YELLOW= BLUE= MAGENTA= CYAN= GRAY= BOLD= DIM= REV= RESET=
+if [[ -t 1 ]]; then
+  RED=$'\e[91m' GREEN=$'\e[92m' YELLOW=$'\e[93m' BLUE=$'\e[94m' MAGENTA=$'\e[95m' CYAN=$'\e[96m'
+  GRAY=$'\e[90m' BOLD=$'\e[1m' DIM=$'\e[2m' REV=$'\e[7m' RESET=$'\e[0m'
+fi
+typeset ICON_OK=$'\uf00c' ICON_FAIL=$'\uf00d' ICON_WARN=$'\uf071' ICON_UPDATE=$'\U000f06b0'
+
+# Routine -> "icon name". Nerd Font glyphs (Cascadia Mono NF; Ghostty also bundles them).
+typeset -A ROUTINE_LABEL=(
+  neovim_plug_update $'\uf36f Neovim plugins'
+  zsh_update         $'\uf489 Zim'
+  npm_update         $'\ue71e npm globals'
+  mas_update         $'\uf179 App Store'
+  brew_update        $'\uf0fc Homebrew'
+  gem_update         $'\ue739 RubyGems'
+  misc               $'\uf0ad Misc tools'
+  macos_update       $'\uf179 macOS'
+  apt_update         $'\uf306 apt'
+  dnf_update         $'\uf30a dnf'
+  flatpak_update     $'\uf487 Flatpak'
+  grok_bot_update    $'\U000f06a9 Grok Bot'
+)
 
 error() {
-  printf "\\r[ ${RED}\\u274C${RESET} ] %s\\n" "${@}"
+  print -r -- "${RED}${BOLD}${ICON_FAIL}${RESET} $*"
 }
 
-in_progress() {
-  printf "${YELLOW}Starting${RESET} %s\\n" "${@}"
+upd_secs() {
+  if (( $1 >= 60 )); then print -r -- "$(( $1 / 60 ))m $(( $1 % 60 ))s"; else print -r -- "${1}s"; fi
 }
 
-info() {
-  printf "${BLUE}==> %s${RESET}\\n" "${@}"
+# --- what changed: "name<TAB>version" per package, taken before and after a routine -------------
+
+snap_neovim_plug_update() {
+  awk -F'"' '/^ +"[^"]+": \{/ && $2 != "plugins" { name = $2 } /"rev":/ { print name "\t" substr($4, 1, 7) }' \
+    "${XDG_CONFIG_HOME:-$HOME/.config}/nvim/nvim-pack-lock.json"
+  [ -x "$HOME/.fzf/bin/fzf" ] && print -r -- "fzf"$'\t'"${$("$HOME/.fzf/bin/fzf" --version)[(w)1]}"
+}
+snap_npm_update() {
+  npm ls -g --depth=0 --parseable --long |
+    awk -F: 'NR > 1 && match($2, /@[^@]+$/) { print substr($2, 1, RSTART - 1) "\t" substr($2, RSTART + 1) }'
+}
+snap_gem_update() { gem list --local | awk '{ name = $1; $1 = ""; gsub(/^ \(|\)$/, ""); print name "\t" $0 }' }
+snap_brew_update() { brew list --versions | awk '{ name = $1; $1 = ""; print name "\t" substr($0, 2) }' }
+snap_mas_update() { mas list | awk '{ v = $NF; gsub(/[()]/, "", v); $1 = ""; $NF = ""; gsub(/^ +| +$/, ""); print $0 "\t" v }' }
+snap_misc() {
+  [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/uv/uv-receipt.json" ] && print -r -- "uv"$'\t'"${$(uv --version)[(w)2]}"
+}
+snap_apt_update() { dpkg-query -W -f='${Package}\t${Version}\n' }
+snap_dnf_update() { rpm -qa --qf '%{NAME}\t%{VERSION}-%{RELEASE}\n' }
+snap_flatpak_update() {
+  flatpak list --columns=application,branch,version,active |
+    awk -F'\t' '{ print ($2 == "stable" ? $1 : $1 "/" $2) "\t" ($3 != "" ? $3 : substr($4, 1, 7)) }'
+}
+snap_grok_bot_update() { print -r -- "grok-bot"$'\t'"$(<"${XDG_DATA_HOME:-$HOME/.local/share}/grok-bot/version")" }
+
+# "~ name old new" / "+ name version" / "- name version" (TAB-separated) between two snapshots.
+# Snapshots are `sort -V`ed: for a name installed in several versions (kernels) the newest wins.
+upd_diff() {
+  awk -F'\t' 'NF == 0 { next } FILENAME == ARGV[1] { old[$1] = $2; next } { new[$1] = $2 }
+    END {
+      for (k in new) if (!(k in old)) print "+\t" k "\t" new[k]; else if (old[k] != new[k]) print "~\t" k "\t" old[k] "\t" new[k]
+      for (k in old) if (!(k in new)) print "-\t" k "\t" old[k]
+    }' <(print -r -- "$1") <(print -r -- "$2") | sort -t$'\t' -k2,2
 }
 
+# --- layout -------------------------------------------------------------------------------------
+
+upd_rule() {  # $1 = columns of the line already used
+  local n=$(( width - $1 ))
+  (( n < 0 )) && n=0
+  print -rn -- "${GRAY}${(l:n::─:)}${RESET}"
+}
+
+# One routine: header, its own output, footer. Records time, status and what changed for the summary.
 exec_routine() {
-  in_progress "${1}"
-  local start_time=$SECONDS failed=0
+  local routine=$1 start=$SECONDS failed=0 routine_note="" before after line secs what
+  local -a f up added gone counts
+  local accent=${accents[$(( step % ${#accents} + 1 ))]}
+  (( ++step ))
+  local title="${step}/${#routines}  ${ROUTINE_LABEL[$routine]:-$routine}"
+  print -r -- ""
+  print -r -- "${accent}╭─ ${BOLD}${title}${RESET} $(upd_rule $(( ${#title} + 5 )))"
+
+  if (( $+functions[snap_$routine] )); then before=$(snap_$routine 2>/dev/null | sort -V); fi
 
   # A routine's status is only its last command's (gem_update showed ✓ after two gem errors):
-  # the ZERR trap counts every failed step; `|| true` opts a step out.
-  setopt localoptions localtraps
+  # the ZERR trap counts every failed step; `|| true` opts a step out. (Trap stays local: emulate -L.)
   trap 'failed=1' ZERR
-  $1
+  $routine
   trap - ZERR
 
+  if (( $+functions[snap_$routine] )); then after=$(snap_$routine 2>/dev/null | sort -V); fi
+  # Listing failed afterwards (e.g. a broken npm): no change list, rather than everything "removed".
+  if [[ -n $before && -z $after ]]; then after=$before routine_note="package list unavailable after the run"; fi
+  for line in ${(f)"$(upd_diff "$before" "$after")"}; do
+    f=("${(@ps:\t:)line}")
+    case $f[1] in
+      '~') up+=("${(pj:\t:)f[2,4]}") ;;
+      '+') added+=("${(pj:\t:)f[2,3]}") ;;
+      '-') gone+=("${(pj:\t:)f[2,3]}") ;;
+    esac
+  done
+  (( ${#up} )) && counts+=("${CYAN}${#up} updated${RESET}")
+  (( ${#added} )) && counts+=("${GREEN}${#added} new${RESET}")
+  (( ${#gone} )) && counts+=("${RED}${#gone} removed${RESET}")
+  what=${(j: · :)counts}
+  [[ -z $what ]] && what="${DIM}${routine_note:-no changes}${RESET}"
+
+  secs=$(upd_secs $(( SECONDS - start )))
   if (( failed )); then
-    error "${1} failed after $(( SECONDS - start_time )) seconds"
-    failed_routines+=("${1}")
+    failed_routines+=("$routine")
+    print -r -- "${accent}╰─${RESET} ${RED}${BOLD}${ICON_FAIL} failed${RESET} ${DIM}after ${secs}${RESET} · ${what}"
   else
-    success "${1} in $(( SECONDS - start_time )) seconds"
+    print -r -- "${accent}╰─${RESET} ${GREEN}${BOLD}${ICON_OK}${RESET} ${DIM}${secs}${RESET} · ${what}"
+  fi
+  r_secs[$routine]=$secs r_what[$routine]=$what r_up[$routine]=${(F)up} r_added[$routine]=${(F)added} r_gone[$routine]=${(F)gone}
+}
+
+# Changed items under a summary row: up to 6 one per line with versions, else one line of names.
+upd_items() {  # color, sign, newline-joined "name<TAB>version[<TAB>new version]" items
+  local color=$1 sign=$2 line name text n=1 pad="${GRAY}│${RESET}     "
+  local -a items=(${(f)3}) f names
+  (( ${#items} )) || return 0
+  if (( ${#items} <= 6 )); then
+    for line in $items; do
+      f=("${(@ps:\t:)line}")
+      printf -v name '%-26s' "$f[1]"
+      if (( ${#f} == 3 )); then
+        print -r -- "${pad}${color}${sign}${RESET} ${name} ${DIM}${f[2]} →${RESET} ${f[3]}"
+      else
+        print -r -- "${pad}${color}${sign}${RESET} ${name} ${DIM}${f[2]}${RESET}"
+      fi
+    done
+    return 0
+  fi
+  names=(${items%%$'\t'*})
+  text=$names[1]
+  while (( n < ${#names} && ${#text} + ${#names[n+1]} + 2 <= width - 20 )); do text+=", ${names[++n]}"; done
+  (( n < ${#names} )) && text+=" … +$(( ${#names} - n )) more"
+  print -r -- "${pad}${color}${sign}${RESET} ${DIM}${text}${RESET}"
+}
+
+upd_summary() {
+  local total=$(upd_secs $(( SECONDS - run_start ))) r icon label secs title line
+  local -a failed_labels
+  title="${ICON_UPDATE} Summary · ${total}"
+  print -r -- ""
+  print -r -- "${BOLD}${BLUE}╭─ ${title}${RESET} $(upd_rule $(( ${#title} + 5 )))"
+  for r in $routines; do
+    (( ${+r_secs[$r]} )) || continue
+    if (( ${failed_routines[(Ie)$r]} )); then icon="${RED}${ICON_FAIL}"; else icon="${GREEN}${ICON_OK}"; fi
+    printf -v label '%-18s' "${ROUTINE_LABEL[$r]:-$r}"
+    printf -v secs '%7s' "${r_secs[$r]}"
+    print -r -- "${GRAY}│${RESET} ${BOLD}${icon}${RESET} ${BOLD}${label}${RESET}${DIM}${secs}${RESET}   ${r_what[$r]}"
+    upd_items "$CYAN" "↑" "${r_up[$r]}"
+    upd_items "$GREEN" "+" "${r_added[$r]}"
+    upd_items "$RED" "−" "${r_gone[$r]}"
+  done
+  for line in $notes; do
+    print -r -- "${GRAY}│${RESET} ${YELLOW}${BOLD}${ICON_WARN} ${line}${RESET}"
+  done
+  if (( ${#failed_routines} )); then
+    for r in $failed_routines; do failed_labels+=("${ROUTINE_LABEL[$r]#* }"); done
+    print -r -- "${GRAY}╰─${RESET} ${RED}${BOLD}${ICON_FAIL} ${#failed_routines} failed: ${(j:, :)failed_labels}${RESET}"
+  elif (( ${#r_secs} < ${#routines} )); then
+    print -r -- "${GRAY}╰─${RESET} ${YELLOW}${BOLD}${ICON_WARN} Stopped after ${#r_secs} of ${#routines}${RESET} ${DIM}in ${total}${RESET}"
+  else
+    print -r -- "${GRAY}╰─${RESET} ${GREEN}${BOLD}${ICON_OK} All ${#routines} done${RESET} ${DIM}in ${total}${RESET}"
   fi
 }
 
@@ -87,7 +223,7 @@ gem_update() {
   # Distro ruby (Fedora, Debian): dnf / apt own its gems. `sudo gem update` only put newer copies of the default
   # gems into /usr/local; Fedora's rdoc 7 and that rdoc 8 then both loaded (14 warnings per gem call, ri crash).
   if [[ "$prefix" = /usr ]]; then
-    echo "Skipped: distro ruby, updated by the package manager"
+    routine_note="skipped: distro ruby, the package manager updates it"
     return
   fi
 
@@ -114,6 +250,7 @@ neovim_plug_update() {
   fi
   nvim --headless "+lua vim.pack.update(nil, { force = true })" "+qa"
   nvim --headless foo "+MasonUpdate" "+qa";
+  print  # headless nvim ends without a newline: keeps the routine footer off its last line
 }
 
 mas_update() {
@@ -132,9 +269,12 @@ dnf_update() {
   sudo dnf autoremove -y -q;
   sudo dnf clean all -q;
   # Aurora: newest kernel has image + initramfs and Stage 2 is built from its DTBs (exit 1 = boot chain problem);
-  # also says if a restart is due. Same check as asahi-pkg tui-upgrade.
+  # also says if a restart is due (repeated in the summary). Same check as asahi-pkg tui-upgrade.
   if [ $commands[asahi-boot-check] ]; then
-    asahi-boot-check;
+    local boot
+    boot=$(asahi-boot-check)
+    print -r -- "$boot"
+    if [[ $boot == "Restart needed"* ]]; then notes+=("$boot"); fi
   fi
 }
 
@@ -163,9 +303,33 @@ misc() {
 
 run(){
   if ping -c 1 google.com &> /dev/null; then
-    info "Checking for updates"
+    local -a routines failed_routines notes accents=("$BLUE" "$MAGENTA" "$CYAN")
+    local -A r_secs r_what r_up r_added r_gone
+    local step=0 run_start=$SECONDS r os width=$(( ${COLUMNS:-80} > 101 ? 100 : ${COLUMNS:-80} - 1 ))
+    (( width < 40 )) && width=40
 
-    local -a failed_routines
+    [ $commands[nvim] ] && routines+=(neovim_plug_update)
+    [ $commands[zimfw] ] && routines+=(zsh_update)
+    [ $commands[npm] ] && routines+=(npm_update)
+    [ $commands[mas] ] && routines+=(mas_update)
+    [ $commands[brew] ] && routines+=(brew_update)
+    # After brew: native gems compile against the new keg, not a just-replaced one.
+    [ $commands[gem] ] && routines+=(gem_update)
+    routines+=(misc)
+    [ "$OSTYPE" = "Darwin" ] && routines+=(macos_update)
+    [ $commands[apt] ] && routines+=(apt_update)
+    [ $commands[dnf] ] && routines+=(dnf_update)
+    [ $commands[flatpak] ] && routines+=(flatpak_update)
+    [ "$OSTYPE" = "Linux" ] && [ $commands[grok-bot] ] && routines+=(grok_bot_update)
+
+    if [[ "$OSTYPE" = "Darwin" ]]; then os="macOS $(sw_vers -productVersion)"; else os=$(. /etc/os-release && print -r -- "$NAME $VERSION_ID"); fi
+    print -r -- ""
+    # Pill = reverse video: text in the terminal background colour, readable in light and dark themes.
+    print -r -- "${BOLD}${BLUE}${REV} ${ICON_UPDATE} update ${RESET}  ${BOLD}$(date '+%a %d %b, %H:%M')${RESET} ${DIM}· ${HOST%%.*} · ${os} · $(uname -m)${RESET}"
+    local -a labels
+    for r in $routines; do labels+=("${ROUTINE_LABEL[$r]#* }"); done
+    print -r -- "${DIM}${#routines} routines: ${(j: · :)labels}${RESET}"
+
     sudo -v
     # Keep-alive: refresh the sudo timestamp until the run ends. `update` runs in the interactive shell, so the
     # old `kill -0 $$` never ended the loop (it outlived the run). Killed by the `always` block (also on Ctrl-C,
@@ -174,26 +338,10 @@ run(){
     local keepalive=$!
 
     {
-      [ $commands[nvim] ] && exec_routine neovim_plug_update
-      [ $commands[zimfw] ] && exec_routine zsh_update
-      [ $commands[npm] ] && exec_routine npm_update
-      [ $commands[mas] ] && exec_routine mas_update
-      [ $commands[brew] ] && exec_routine brew_update
-      # After brew: native gems compile against the new keg, not a just-replaced one.
-      [ $commands[gem] ] && exec_routine gem_update
-      exec_routine misc
-      [ "$OSTYPE" = "Darwin" ] && exec_routine macos_update
-      [ $commands[apt] ] && exec_routine apt_update
-      [ $commands[dnf] ] && exec_routine dnf_update
-      [ $commands[flatpak] ] && exec_routine flatpak_update
-      [ "$OSTYPE" = "Linux" ] && [ $commands[grok-bot] ] && exec_routine grok_bot_update
-      if (( ${#failed_routines} )); then
-        error "Updates done, failed: ${failed_routines[*]}"
-      else
-        success "Updates completed"
-      fi
+      for r in $routines; do exec_routine $r; done
     } always {
       kill $keepalive 2>/dev/null
+      upd_summary  # also after Ctrl-C: what finished until then
     }
   else
     error "No internet access"
