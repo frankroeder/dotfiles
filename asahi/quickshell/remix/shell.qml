@@ -37,7 +37,7 @@ ShellRoot {
   System.TouchIdPrompt { id: touchIdCard }
   System.PkgManager { id: pkgManager }
   // Answers polkit (GUI admin prompts, pkexec); nothing did before.
-  System.PolkitAgent {}
+  System.PolkitAgent { touchId: touchIdCard }
 
   // Bound in hypr/conf.d/bindings.lua as hl.dsp.global("quickshell:recorder-panel").
   GlobalShortcut {

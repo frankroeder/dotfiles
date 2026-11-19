@@ -28,6 +28,9 @@ Singleton {
   }
 
   readonly property color accent: themed("accent")
+  // The lock screen's vivid accent pair (hyprlock's $lock_accent / $lock_accent2): the Touch ID orb.
+  readonly property color vivid: themed("lockAccent")
+  readonly property color vivid2: themed("lockAccent2")
 
   readonly property color moduleBg:  themed("surface0")
 

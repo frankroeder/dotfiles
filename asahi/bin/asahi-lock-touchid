@@ -1,38 +1,165 @@
 #!/usr/bin/env bash
-# hyprlock Touch ID hint: a breathing fingerprint glyph above the password pill while a finger is enrolled; a line of
-# text in its place when a finger did not match or Touch ID is locked / unavailable (asahi-lock's note).
-# Runs per tick (cmd[update:200], like asahi-lock-caps): bash builtins only; fprintd is asked at most once a minute (cache in
-# $XDG_RUNTIME_DIR). Prints nothing without an enrolled finger.
+# hyprlock's Touch ID orb: three labels from one state, so they never disagree.
+#   ring     hairline ring in the state's colour; once something happens the same label is the solid disc
+#   glyph    fingerprint / lock / crossed fingerprint: the state's colour, or <on> (text-on-accent) on the disc
+#   caption  the line under the orb: what happens and what to do
+#
+#   asahi-lock-touchid ring|glyph|caption "$FPRINTPROMPT" <fg> <muted> <accent> <accent2> <warn> <fail> <on>
+#
+# Colours are hyprlock's (`rgb(rrggbb)` / `rgba(rrggbbaa)`: the $lock_* values); a missing one falls back to Mocha.
+# hyprlock re-runs the labels at once on its fingerprint events ($FPRINTPROMPT in the text) and restarts their timer:
+# `cmd[update:5000]` is a tick 5 s after the last event, for what time alone changes (a note running out, "still
+# reading", "not responding"). Runs must be cheap: bash builtins only, fprintd asked at most once a minute.
+# Nothing pulses (a label redraws only when re-run: it stepped, "looked laggy"), no bold ring ("looked cheap").
+#
+# State, first match wins:
+#   no finger enrolled   lock glyph, "Type your password"
+#   no reader            crossed fingerprint (libfprint hides the sensor under a closed lid)
+#   staying note         crossed fingerprint on a solid red / amber disc + the note: Touch ID gave up, the password is
+#                        the way in
+#   reading              solid in the second accent, "Reading…"; after 4 s "lift and touch again". Only a new
+#                        touch: a finger left lying after a failed read is not read again (below)
+#   timed note           "No match" (red) / "Not read" (amber) until the next tick (5 s), then back to ready
+#   starting             dim: hyprlock has not started fprintd's verify yet; at the first tick (5 s) "Touch ID not
+#                        responding"
+#   ready                the fingerprint in the accent, "Touch ID ready"
+# $FPRINTPROMPT (hyprlock.conf auth): empty until hyprlock has started fprintd's verify, then `ready`, `reading`
+# while fprintd reports a finger on the sensor (it stays that until the next status), else hyprlock's retry texts.
+# Notes come from asahi-lock (hyprlock's `fprint:` log lines), and the time this lock began.
 
-cache="${XDG_RUNTIME_DIR:-/tmp}/asahi-lock-touchid"
+part=${1:-glyph}
+prompt=${2:-}
+hex() {   # <var> <rgb(rrggbb) | rgba(rrggbbaa) | #rrggbb> <fallback>
+  local c=${2#rgba(}
+  c=${c#rgb(}
+  c=${c#\#}
+  c=${c%)}
+  if [[ $c =~ ^[0-9a-fA-F]{6} ]]; then printf -v "$1" '#%s' "${c:0:6}"; else printf -v "$1" '%s' "$3"; fi
+}
+hex fg "${3:-}" '#cdd6f4'
+hex muted "${4:-}" '#a6adc8'
+hex accent "${5:-}" '#94e2d5'
+hex accent2 "${6:-}" '#89dceb'
+hex warn "${7:-}" '#f9e2af'
+hex fail "${8:-}" '#f38ba8'
+hex on "${9:-}" '#11111b'
+
+rt=${XDG_RUNTIME_DIR:-/tmp}
 printf -v now '%(%s)T' -1
+
+# 1 = a finger enrolled, 0 = none, 2 = no reader (fprintd-list: "No devices available", e.g. lid closed).
+cache="$rt/asahi-lock-touchid"
 ts=0 ok=0
 [[ -r $cache ]] && read -r ts ok <"$cache"
 if ((now - ts > 60)); then
+  # The other labels (and outputs) tick at the same moment: stamp the cache first, so one of us asks.
+  ((ts > 0)) && printf '%s %s\n' "$now" "$ok" >"$cache"
+  out=$(fprintd-list "${USER:-$(id -un)}" 2>&1)
   ok=0
-  fprintd-list "${USER:-$(id -un)}" 2>/dev/null | grep -q ' - #' && ok=1
+  if [[ $out == *' - #'* ]]; then ok=1; elif [[ $out == *"No devices available"* ]]; then ok=2; fi
   printf '%s %s\n' "$now" "$ok" >"$cache"
 fi
-((ok)) || exit 0
 
-# asahi-lock's note (no match, locked, unavailable) in place of the glyph: "<until epoch> <text>", 0 = stays.
-# $1 = hyprlock's $FPRINTPROMPT: "reading" (hyprlock.conf present_message) from a finger on the sensor until its
-# result. It beats a timed note (a new touch after "No match"), not a staying one (hyprlock gave up: it stays "reading").
-note="${XDG_RUNTIME_DIR:-/tmp}/asahi-lock-touchid.note"
-{ [[ -r $note ]] && read -r till text <"$note"; } || till=-1
-if ((till == 0)) || { [[ ${1:-} != reading ]] && ((now <= till)); }; then
-  printf "<span size='28pt'>%s</span>\n" "$text"   # absolute: hyprlock resets relative sizes (scale 1)
+cap=""
+say() {   # <color> <text> [extra pango attributes]: appends to the caption
+  local s
+  printf -v s "<span foreground='%s'%s>%s</span>" "$1" "${3:+ $3}" "$2"
+  cap+=$s
+}
+# <glyph> <color> <alpha %> [lit]: ring and glyph in that colour; with `lit` the solid disc in it and the glyph in $on.
+# The caption is $cap. Ring and disc are Adwaita Sans' large circles, outline and filled: one box (188 px at the size
+# hyprlock.conf gives the label), the outline a 3 px line in the Thin weight. line_height: else pango clips them.
+show() {
+  local circle=◯
+  [[ -n ${4:-} ]] && circle=⬤
+  case $part in
+    caption) printf '%s\n' "$cap" ;;
+    ring) printf "<span font_family='Adwaita Sans' weight='100' line_height='2' foreground='%s' alpha='%d%%'>%s</span>\n" "$2" "$3" "$circle" ;;
+    *) if [[ -n ${4:-} ]]; then printf "<span foreground='%s'>%s</span>\n" "$on" "$1"
+      else printf "<span foreground='%s' alpha='%d%%'>%s</span>\n" "$2" "$3" "$1"; fi ;;
+  esac
   exit 0
-fi
-if [[ ${1:-} == reading ]]; then
-  printf "<span size='84pt'>󰈷</span>\n"   # solid and larger
-  exit 0
+}
+fp=󰈷 fp_off=󰺱 lock=󰌾
+password="  ·  type your password"
+
+if ((ok == 0)); then say "$muted" "Type your password"; show "$lock" "$fg" 90; fi
+if ((ok == 2)); then
+  say "$muted" "Touch ID unavailable$password"
+  show "$fp_off" "$muted" 70
 fi
 
-# Smoothstep breathing over 3.2 s: alpha 30 % .. 100 %.
-us=${EPOCHREALTIME//[!0-9]/}   # de_DE prints a comma
-p=$(((us / 1000) % 3200))
-((p > 1600)) && p=$((3200 - p))
-t=$((p * 1000 / 1600))
-s=$((t * t * (3000 - 2 * t) / 1000000))
-printf "<span alpha='%d%%'>󰈷</span>\n" $((30 + s * 70 / 1000))
+# asahi-lock's note: "<until epoch> <kind> <text>", until 0 = stays (Touch ID gave up for this lock).
+note="$rt/asahi-lock-touchid.note"
+till=-1 kind="" text=""
+[[ -r $note ]] && read -r till kind text <"$note"
+[[ $till =~ ^[0-9]+$ ]] || till=-1
+case $kind in nomatch | lockout | exhausted) tone=$fail ;; *) tone=$warn ;; esac
+if ((till == 0)); then
+  say "$tone" "$text" "weight='bold'"
+  say "$muted" "$password"
+  show "$fp_off" "$tone" 100 lit
+fi
+
+# The touch, kept across runs in $touch as "<state> <since µs> <last run µs>" (the first label of a run decides, the
+# other two follow ms later): r = a finger is being read since <since>; s = that read failed at <since>, its note shows.
+# hyprlock says `reading` when fprintd reports a finger and keeps it until the next status; nothing says the finger
+# lifted. A wrong finger left lying is reported again as the sensor re-arms after the miss (250 ms on): no new touch,
+# else the miss flickered and "Reading" came back (2026-11-19). So after a failure `reading` is a new touch only when
+# it is not that echo (< 1.5 s after the miss), not a sibling label (< 0.2 s after the last run) and not the labels'
+# own tick (5 s after the last run).
+touch="$rt/asahi-lock-touchid.reading"
+tick=5000000   # µs: hyprlock.conf cmd[update:5000]
+state="" since=0 last=0
+[[ -r $touch ]] && read -r state since last _ <"$touch"
+[[ $since =~ ^[0-9]+$ && $last =~ ^[0-9]+$ ]] || state=""
+us=${EPOCHREALTIME/[.,]/}   # the radix follows the locale
+timed=0
+((till > 0 && now <= till)) && timed=1
+case $prompt in
+  reading)
+    if [[ -n $state ]] && ((timed)) && [[ $note -nt $touch ]]; then
+      state=s since=$us   # a result since the last run: this read failed
+    elif [[ $state == s ]]; then
+      d=$((us - last))
+      ((us - since >= 1500000 && d >= 200000 && (d < tick - 300000 || d > tick + 300000))) && state=""
+    fi
+    [[ -z $state ]] && state=r since=$us ;;
+  ready | "") state="" ;;
+  *) [[ $state == s ]] || since=$us; state=s ;;   # hyprlock's texts after a failed read: the sensor listens again
+esac
+if [[ -n $state ]]; then printf '%s %s %s\n' "$state" "$since" "$us" >"$touch"; elif [[ -s $touch ]]; then : >"$touch"; fi
+if [[ $state == r ]]; then
+  if ((us - since >= 4000000)); then
+    say "$warn" "Still reading" "weight='bold'"
+    say "$muted" "  ·  lift and touch again"
+    show "$fp" "$warn" 100 lit
+  fi
+  say "$accent2" "Reading…" "weight='bold'"
+  show "$fp" "$accent2" 100 lit
+fi
+
+if ((timed)); then
+  say "$tone" "$text" "weight='bold'"
+  [[ $kind == nomatch || $kind == retry ]] && say "$muted" "  ·  touch again"
+  show "$fp" "$tone" 100 lit
+fi
+
+# No prompt yet: hyprlock has not started fprintd's verify. asahi-lock stamps when this lock began (no stamp:
+# hyprlock run by hand, it just says starting).
+if [[ -z $prompt ]]; then
+  at=$now
+  [[ -r "$rt/asahi-lock-touchid.start" ]] && read -r at <"$rt/asahi-lock-touchid.start"
+  [[ $at =~ ^[0-9]+$ ]] || at=$now
+  if ((now - at >= 5)); then
+    say "$warn" "Touch ID not responding" "weight='bold'"
+    say "$muted" "$password"
+    show "$fp_off" "$warn" 100 lit
+  fi
+  say "$muted" "Starting Touch ID…"
+  show "$fp" "$muted" 45
+fi
+
+say "$accent" "Touch ID ready" "weight='bold'"
+say "$muted" "  ·  or type your password"
+show "$fp" "$accent" 100

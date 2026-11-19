@@ -8,6 +8,7 @@ import os
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from unittest import mock
@@ -16,11 +17,14 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT.parent))
 
 from theme.apply import (
+    colors_dict,
+    lock_accents,
     preview_ghostty,
     push_tmux_palette,
     tmux_osc_sequences,
     write_btop_theme,
     write_colors_env,
+    write_colors_json,
     write_firefox_scheme,
     write_ghostty_gtk_css,
     write_ghostty_theme,
@@ -29,7 +33,7 @@ from theme.apply import (
     write_hyprlock_conf,
 )
 from theme.extract import Representative
-from theme.oklab import from_srgb8
+from theme.oklab import from_srgb8, max_chroma
 from theme.palette import build_palette
 
 
@@ -76,9 +80,50 @@ class TestApplyWriters(unittest.TestCase):
         self.assertIn("$lock_fg = rgb(", text)
         self.assertIn("$lock_check = rgba(", text)
         self.assertIn("$lock_caps = rgb(" + self.palette.yellow.removeprefix("#"), text)
-        self.assertRegex(text, r"\$lock_ring = rgba\([0-9a-fA-F]{8}\)")
-        self.assertRegex(text, r"\$lock_band = rgba\([0-9a-fA-F]{8}\)")
-        self.assertEqual((self.root / "lock-fade-top.png").read_bytes()[:8], b"\x89PNG\r\n\x1a\n")
+        self.assertIn("$lock_warn = rgb(" + self.palette.yellow.removeprefix("#"), text)
+        accent, accent2 = lock_accents(self.palette)
+        self.assertIn(f"$lock_accent = rgb({accent.removeprefix('#')})", text)
+        self.assertIn(f"$lock_accent2 = rgb({accent2.removeprefix('#')})", text)
+        self.assertRegex(text, r"\$lock_ring = rgba\([0-9a-fA-F]{8}\) rgba\([0-9a-fA-F]{8}\) 45deg")
+        self.assertRegex(text, r"\$lock_glass = rgba\([0-9a-fA-F]{8}\)")
+        self.assertIn("$lock_on = rgb(" + self.palette.crust.removeprefix("#"), text)   # glyph on the solid Touch ID disc
+        # Bare hex for pango markup: the clock's seconds, "Failed" / "Checking…" (no swap_font_color).
+        self.assertIn(f"$lock_hexaccent = {accent.removeprefix('#')}\n", text)
+        self.assertIn("$lock_hexfail = " + self.palette.red.removeprefix("#") + "\n", text)
+        self.assertIn("$lock_hexcheck = " + self.palette.green.removeprefix("#") + "\n", text)
+        self.assertNotIn("glow", text)   # no haze behind orb and pill (rejected)
+        for name in ("lock-fade-top.png", "lock-fade-bottom.png"):
+            self.assertEqual((self.root / name).read_bytes()[:8], b"\x89PNG\r\n\x1a\n", name)
+
+    def test_colors_json_carries_the_lock_accents(self):
+        # The shell's Touch ID orb (Style.vivid / vivid2) reads them beside the palette.
+        path = self.root / "colors.json"
+        write_colors_json(self.palette, path)
+        data = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual((data["lock_accent"], data["lock_accent2"]), lock_accents(self.palette))
+        self.assertEqual(data["accent"], self.palette.accent)
+        self.assertEqual(colors_dict(self.palette), data)
+
+    def test_lock_accents_vivid(self):
+        # Pushed toward the gamut edge at a lightness that reads on the scheme background; a grey accent stays grey.
+        def lch(hx):
+            h = hx.lstrip("#")
+            return from_srgb8(*(int(h[i:i + 2], 16) for i in (0, 2, 4))).to_oklch()
+
+        for p in (_dark_palette(), replace(_dark_palette(), accent="#6f9689"), _light_palette()):
+            src = lch(p.accent)
+            a, b = (lch(c) for c in lock_accents(p))
+            if p.mode == "dark":
+                self.assertGreaterEqual(a.L, 0.73, p.accent)
+            else:
+                self.assertLessEqual(a.L, 0.56, p.accent)
+            # Never paler than the accent, unless the gamut at that lightness says so.
+            self.assertGreaterEqual(a.C, min(src.C, 0.9 * max_chroma(a.L, a.H)) - 0.005, p.accent)
+            self.assertAlmostEqual((b.H - a.H) % 360, 40, delta=3)
+        muted = lch(lock_accents(replace(_dark_palette(), accent="#6f9689"))[0])
+        self.assertGreater(muted.C, lch("#6f9689").C * 1.3)   # a dull accent gets livelier
+        grey = replace(_dark_palette(), accent="#808080")
+        self.assertLess(lch(lock_accents(grey)[0]).C, 0.02)
 
     def test_gtk_css_adwaita(self):
         path = self.root / "gtk.css"

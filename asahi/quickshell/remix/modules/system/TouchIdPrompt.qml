@@ -9,10 +9,12 @@ import "touchid_model.js" as Model
 
 // Touch ID prompt (idea: omarchnix's touchid plugin): a card under the notch whenever something waits for a finger
 // that has no prompt of its own — sudo / su in a terminal, aurora-fido (passkeys, ssh ecdsa-sk), fprintd-verify.
-// The lock screen and the polkit card draw their own prompt: suppressed. Feed: asahi-touchid-monitor (fprintd's
-// broadcast signals + who asked, guessed from processes); aurora-fidod's own "Touch ID" notification (its title names
-// the site) is routed here by NotificationCenter instead of toasting. Click = focus the window that asked.
-// State machine: touchid_model.js (touchid_model_test.js).
+// It shows the lock screen's orb (TouchIdOrb) and its line (TouchIdLine): ready, reading, no match, not read, gave up,
+// approved — animated here (the orb scans while reading, each result lands with a pop, the line rises in).
+// The lock screen draws its own, and so does the polkit card (PolkitAgent reads `st` for its orb): suppressed here.
+// Feed: asahi-touchid-monitor (fprintd's broadcast signals + who asked, guessed from processes); aurora-fidod's own
+// "Touch ID" notification (its title names the site) is routed here by NotificationCenter instead of toasting.
+// Click = focus the window that asked. State machine: touchid_model.js (touchid_model_test.js).
 Scope {
   id: root
 
@@ -31,7 +33,12 @@ Scope {
     const was = root.shown
     root.st = Model.reduce(root.st, ev, Date.now())
     if (!was && root.shown) root.promptScreen = root.focusedScreen()
-    if (root.st.until) tick.restart()
+    // A QML Timer can fire a frame early (it runs on the animation clock): aim a little past `until`, or the state
+    // outlived its time by a whole period (No match 2.8 s instead of 1.4, and the next touch showed no "Reading").
+    if (root.st.until) {
+      tick.interval = Math.max(16, root.st.until - Date.now() + 20)
+      tick.restart()
+    }
   }
   // NotificationCenter: aurora-fidod's note ("Touch ID to sign in to github.com") and its close.
   function fidoNote(title) { root.feed({ ev: "fidoNote", title: title }) }
@@ -39,7 +46,6 @@ Scope {
 
   Timer {
     id: tick
-    interval: Math.max(16, root.st.until - Date.now())
     onTriggered: root.feed({ ev: "tick" })
   }
 
@@ -62,14 +68,9 @@ Scope {
     function feed(json: string): void { try { root.feed(JSON.parse(json)) } catch (e) {} }
   }
 
-  readonly property color tone: root.st.phase === "match" ? Style.green
-    : (root.st.phase === "nomatch" || root.st.phase === "failed") ? Style.red : Style.m3primary
-  readonly property string glyph: root.st.phase === "match" ? "󰄬"
-    : (root.st.phase === "nomatch" || root.st.phase === "failed") ? "󰅖" : "󰈷"
-  readonly property string subline: root.st.note !== "" ? root.st.note
-    : root.st.phase === "reading" ? "Reading…"
-    : root.st.phase === "match" ? "Approved"
-    : "Touch the Touch ID sensor"
+  readonly property var view: Model.view(root.st)
+  readonly property color tone: root.view.tone === "ok" ? Style.green : root.view.tone === "fail" ? Style.red
+    : root.view.tone === "warn" ? Style.yellow : root.view.tone === "accent2" ? Style.vivid2 : Style.vivid
 
   PanelWindow {
     id: win
@@ -104,8 +105,13 @@ Scope {
       Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
       Behavior on border.color { ColorAnimation { duration: 160 } }
 
-      // A miss shakes the card once, like macOS.
-      transform: Translate { id: shake; x: 0 }
+      // It drops down out of the notch (and back up as it goes); a miss shakes it once, like macOS.
+      transform: Translate {
+        id: shake
+        x: 0
+        y: root.shown ? 0 : -12
+        Behavior on y { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+      }
       SequentialAnimation {
         id: shakeAnim
         NumberAnimation { target: shake; property: "x"; to: -8; duration: 45 }
@@ -115,7 +121,14 @@ Scope {
       }
       Connections {
         target: root
-        function onStChanged() { if (root.st.phase === "nomatch" || root.st.phase === "failed") shakeAnim.restart() }
+        // Once per miss: not again for the same phase (pam's next try marks it), nor when the last miss turns into
+        // "type your password".
+        property string was: "hidden"
+        function onStChanged() {
+          const now = root.st.phase
+          if (now !== was && (now === "nomatch" || (now === "failed" && was !== "nomatch"))) shakeAnim.restart()
+          was = now
+        }
       }
 
       MouseArea {
@@ -131,28 +144,10 @@ Scope {
         anchors.rightMargin: 16
         spacing: 14
 
-        Rectangle {
-          Layout.preferredWidth: 46
-          Layout.preferredHeight: 46
-          radius: 23
-          color: Qt.alpha(root.tone, 0.14)
-          Behavior on color { ColorAnimation { duration: 160 } }
-          Text {
-            id: fp
-            anchors.centerIn: parent
-            text: root.glyph
-            color: root.tone
-            font.family: Style.menuMono
-            font.pixelSize: 26
-            // Breathes while waiting (only while shown: no per-frame work otherwise); solid once a finger is on it.
-            SequentialAnimation on opacity {
-              running: win.visible && root.st.phase === "waiting"
-              loops: Animation.Infinite
-              onRunningChanged: if (!running) fp.opacity = 1
-              NumberAnimation { to: 0.35; duration: 1100; easing.type: Easing.InOutSine }
-              NumberAnimation { to: 1; duration: 1100; easing.type: Easing.InOutSine }
-            }
-          }
+        TouchIdOrb {
+          size: 46
+          view: root.view
+          live: win.visible   // no per-frame work while hidden
         }
 
         ColumnLayout {
@@ -190,14 +185,9 @@ Scope {
             font.family: Style.menuMono
             font.pixelSize: 10
           }
-          Text {
-            Layout.fillWidth: true
-            textFormat: Text.PlainText
-            text: root.subline
-            color: root.st.phase === "waiting" || root.st.phase === "reading" ? Style.m3onSurfaceVariant : root.tone
-            font.family: Style.menuSans
-            font.pixelSize: 11
-            font.weight: root.st.note !== "" ? Font.DemiBold : Font.Normal
+          TouchIdLine {
+            view: root.view
+            live: win.visible
           }
         }
       }

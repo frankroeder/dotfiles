@@ -90,34 +90,114 @@ relabel filter.
   / `hyprlock_running`: this session's only, by `WAYLAND_DISPLAY`, never a nested preview's; asahi-idle, keyboard auto
   use it too). Nested Hyprland: `send_shortcut` drops modifiers, test with a plain key. TTY escape (`Fn+Ctrl+Alt+F3`):
   `pkill -f asahi-lock; killall hyprlock`.
-- **Lock look**: row `[uptime/battery] [password] [clock/date]`; hostname on a top fade PNG (`lock-fade-top.png`,
-  `write_hyprlock_conf`) with `halign = left` (hyprlock mis-centers images wider than the monitor; `rotate` shifts
-  them). Sizes = framebuffer px (no scale): row must fit the Dell 2560. Label shadows don't help. Three input-fields
-  share the input: thin ring; dots/text (hyprlock pads dots only `(h - dot)/2` — one field ran them under the `de`
-  label; 13 dots max); thick caps ring (outline is static, drawn outside). Caps Lock = border only, no fill. Thick
-  ring check/fail clear (else a failed password draws it without Caps: a fail replaces the caps color for
-  `fail_timeout`; the thin ring shows `$lock_fail` / `$lock_check`). `$lock_caps` comes from `write_hyprlock_conf`;
-  never assign it after the `source` lines (wallpaper color loses). Dots keep `$lock_fg` (`swap_font_color`, caps
-  color `$lock_fg`) so the box never fills; their check/fail stay real (else "Checking…" / "Failed" blank).
-  `asahi-lock-caps`: CAPS label opposite `de`, polls the kbd-capslock LED (hyprctl only without LED node). Never
-  `$lock_fail` for the caps color. Touch ID hint: `asahi-lock-touchid` (`cmd[update:200]`, builtins only, fprintd
-  asked ≤ 1/min, cached in `$XDG_RUNTIME_DIR`) = breathing 󰈷 above the pill (smoothstep alpha 30–100 %, 3.2 s) only
-  while a finger is enrolled; placeholder "Password or Touch ID". Touch ID line: hyprlock shows nothing when the claim
-  fails and maps Aurora's `verify-lockout` / `verify-password-required*` to "unknown status" → `asahi-lock` turns its
-  `fprint:` log lines into `$XDG_RUNTIME_DIR/asahi-lock-touchid.note` (`<until epoch> <text>`, 0 = until
-  `started verifying`), printed in the glyph's place: "No match" (2 s; the 4th = hyprlock's 3 retries used up → "Too many
-  failed attempts"), lockout, "Enter password to enable Touch ID" (SEP password clock: 48 h without an unlock),
-  "Touch ID unavailable" (claim / start failed, disconnected), "Not read · touch again" (retry statuses, 2 s). Span
-  size must be absolute (`28pt`): hyprlock adds a scale-1 attribute over the label, so `size='40%'` rendered at 70.
-  Finger on the sensor: the label passes `"$FPRINTPROMPT"`, `present_message = reading` → glyph solid at 84pt until
-  the result (hyprlock sets it on fprintd's `finger-present`, logs nothing; unverified that Aurora's driver reports
-  it — if not, nothing changes). Order: staying note > reading > timed note > breathing. Clamshell: libfprint hides
-  the reader under a closed lid (`fprintd-list`: "No devices available") → no glyph; `asahi-touchid`, doctor and
-  `asahi-debug` skip the finger check then (it read as "no finger enrolled" and tried to enrol).
-  Preview without locking: nested `Hyprland -c <min.lua>` + `hyprctl output create headless` + hyprlock + grim; type
-  via live `hl.dsp.send_shortcut` to `class:^(aquamarine)$` (never Enter: PAM). Whole `asahi-lock` nested: own
-  `XDG_RUNTIME_DIR` (else it holds the live session's flock: a real lock is skipped) + absolute
-  `WAYLAND_DISPLAY=/run/user/$UID/wayland-N`, a fake `qs` first in `PATH` (no live intro), end with `kill -USR1`.
+- **Lock look** (2026-11-18 redesign, his ask: vibrant + see Touch ID work):
+  - **Layout**: background = the clip's first frame, sharp (see intros; a blurred / saturated copy was rejected). Row
+    `[uptime/battery] [password] [clock/date]` on `lock-fade-bottom.png`, hostname on `lock-fade-top.png` (both from
+    `write_hyprlock_conf`, `halign = left`: hyprlock mis-centers images wider than the monitor; `rotate` shifts them).
+    Sizes = framebuffer px (no scale): the row must fit the Dell 2560. Label shadows don't help legibility. **No glow**
+    (rejected 2026-11-18, "blurry green fog"): no accent haze image, no `shadow_*` halos. Accents = `lock_accents()`:
+    the wallpaper accent pushed vivid (dark L ≥ 0.74, light ≤ 0.55) + its +40° neighbour. Every `$lock_*` the conf uses
+    has a Mocha fallback in `hyprlock-theme.conf` (test). Pango wants `#rrggbb` and hyprlang reads `#` as a comment →
+    `##` (also inside `cmd[]`); the bare-hex `$lock_hexaccent` / `$lock_hexfail` / `$lock_hexcheck` exist for markup
+    (hyprlang cannot cut `rgb(…)` apart). Clock seconds in the accent.
+  - **Password pill**: four input-fields share the input: the capsule (solid `$lock_bg` fill, gradient ring
+    `$lock_ring`; not glass: see the CAPS tag); dots / texts (hyprlock pads dots only `(h - dot)/2` — one field ran them
+    under the `de` label; 13 dots max); the thick caps ring (outline is static, drawn outside); the CAPS tag. Thick ring
+    check/fail clear (else a failed password draws it without Caps: a fail replaces the caps color for `fail_timeout`;
+    the capsule's ring shows `$lock_fail` / `$lock_check`). `$lock_caps` comes from `write_hyprlock_conf`; never
+    assign it after the `source` lines (wallpaper color loses); never `$lock_fail` for it. **Never `swap_font_color` on
+    a borderless field** (2026-11-19; the dots field had it since the caps ring): hyprlock 0.9.7 then asks for the
+    placeholder again on every frame (`updatePlaceholder`: `ALLOWCOLORSWAP`) and each answer schedules a frame
+    (`CAsyncResourceManager::request` → `renderAllOutputs`): the idle lock screen redrew every output at its refresh
+    rate (nested, one output: 60 Hz 66 + 42 ms/s of CPU in hyprlock + compositor, 120 Hz 100 + 76; without it 0).
+    Without it a borderless field fills its box with the state colour: the dots field has caps / check / fail clear and
+    colours "Failed (n)" / "Checking…" by markup (fail_text stays neutral: a fingerprint no-match fails the field too).
+    `invert_numlock` + a clear `numlock_color` keep a state colour always the target, so the dots stay `$lock_fg` (else
+    a fingerprint miss while typing gives them the clear fail colour until the next key).
+  - **CAPS tag** = hyprlock's own (`asahi-lock-caps` is gone; his ask: "check on first typing, not polling"): labels
+    cannot follow a key (hyprlock re-runs them on fingerprint / PAM events and layout switches only), and a native word
+    needs `swap_font_color`. So a borderless 100×46 field fills with `capslock_color` (eased, typing or not) under a
+    static `CAPS` label in `$lock_bg`: it reads on the amber tag and vanishes without it, because the capsule under it
+    is that colour (test). On glass it left a ghost wherever the wallpaper is far from the scheme (15/255 over white);
+    an opaque plate under the word alone shows as a slot. It steps aside with the ring while "Failed" shows.
+  - **Cost** (2026-11-19, 56 ms/s was "too much"): one `cmd[]` run ≈ 7 ms of CPU (hyprlock forks, `/bin/sh -c` starts,
+    the text is drawn, every output gets a frame; outputs share a run: same resource id; runs go on with the screens
+    off). So only the clock runs every second (hyprlock's native `$TIME` = HH:MM would cost nothing: offered, not
+    taken); the orb `cmd[update:5000]`; battery 15 s (`asahi-battery lock` stops after five sysfs reads: each an SMC
+    round trip of 0.3–1.2 ms); nothing else under 30 s (test). Nested, 60 Hz, one output, hyprlock + label commands +
+    compositor in ms/s: committed conf 88 + 27 + 44, the redesign at 200 ms 126 + 55 + 44, now 8 + 4 + 1. Measure:
+    `/proc/<pid>/stat` utime+stime and cutime+cstime over 30 s with `env -u BASH_ENV` (Lmod's `BASH_ENV` adds 10 ms to
+    every bash). Sourcing the scripts (`. script` saves a shell start) was taken out again: ~0.5 ms/s for a hard tie to
+    `/bin/sh` being bash. A second update while a label's command still runs is dropped ("resource is still pending").
+    hyprlock bug: `CAsyncResourceManager::unload(nullptr)` (a label on an output that never presents) releases
+    whatever resource is in flight → that label stays pending for good; seen nested with `WAYLAND-1` enabled, possible
+    for a monitor plugged in while locked and dark. Not used: SIGUSR2 (forces the same re-run, but hyprlock walks its
+    timers inside the signal handler — malloc there can deadlock or crash the lock — and installs the handler after
+    starting fprintd; his call: nothing that can freeze or kill the lock).
+  - **Touch ID orb** above the pill: a borderless glass disc (`shape`) + three labels from one script,
+    `asahi-lock-touchid ring|glyph|caption "$FPRINTPROMPT" <colors…>` (builtins only, fprintd asked ≤ 1/min — the run
+    that asks stamps the cache first — cached in `$XDG_RUNTIME_DIR`; colors = the `$lock_*` values, the last `$lock_on`
+    = crust, the scheme's text-on-accent). hyprlock **re-runs force-updatable labels itself** on fingerprint events
+    (`enqueueForceUpdateTimers`: finger present, a retry status, verify restarted after a miss, a failure; also PAM
+    fails and layout switches); a text naming `$FPRINTPROMPT` is force-updatable (as is `cmd[update:N:1]`). A forced
+    run restarts the label's timer, so `update:5000` is a tick 5 s after the last event, for what time alone changes:
+    a timed note running out ("No match" shows ~5 s), "still reading", "not responding". The script counts on that 5 s
+    (`tick=`, test). Look: a hairline ring + the glyph in the state's colour; once something happens the disc turns
+    **solid** in that colour and the glyph takes `$lock_on` — his pick (2026-11-18) of nine rendered styles; a bold
+    ring was rejected ("looks cheap"), a rounded-square tile too ("I like it round"). Ring and disc are **one label**:
+    Adwaita Sans' large circle, outline `◯` (Thin, `weight='100'`: a 3 px line) or filled `⬤`, same box
+    (`line_height='2'`, else pango clips it; 1.825 × font size across, centre 1.62 × over the label position → size 103
+    at y 256 = 188 px on the glass). A `shape` border cannot change colour; the font is in `dnf.sh`; `○` is a 5 px line;
+    MDI `󰝦` the bold one. Font sizes and positions must be integers. Span sizes must be absolute (`28pt`: hyprlock adds
+    a scale-1 attribute, `size='40%'` rendered at 70). **Nothing pulses or runs** (2026-11-18, "laggy, not smooth": a
+    label redraws only when re-run): states change colour and shape.
+  - **Orb states** (first match wins): no finger enrolled → 󰌾 "Type your password"; no reader (`fprintd-list` "No
+    devices available": libfprint hides it under a closed lid) → crossed 󰺱, dim; **staying note** → crossed glyph on
+    a solid red / amber disc, "<why> · type your password"; **reading** (`present_message = reading`: hyprlock sets it on
+    fprintd's `finger-present` true, logs nothing, keeps it until the next status) → solid `$lock_accent2` + "Reading…",
+    at the tick (≥ 4 s) amber "Still reading · lift and touch again"; **timed note** → solid red "No match · touch
+    again" / amber "Not read · touch again"; **starting** = `$FPRINTPROMPT` still empty (it becomes
+    `ready_message = ready` once hyprlock started fprintd's verify) → dim "Starting Touch ID…", 5 s after
+    `asahi-lock-touchid.start` (asahi-lock: when this hyprlock began) amber "Touch ID not responding · type your
+    password"; else ready: accent glyph + hairline ring, "Touch ID ready · or type your password". Placeholder just
+    "Password".
+  - **Only a new touch reads** (2026-11-19, his report: a wrong finger left lying went Reading → a red flicker →
+    Reading for good): fprintd reports a lying finger again as the sensor re-arms (hyprlock restarts the verify 250 ms
+    after a miss), and nothing reports a lift. The labels keep the touch in `asahi-lock-touchid.reading` as
+    `<state> <since µs> <last run µs>` (the first of the three decides, the others follow ms later): `r` = being read
+    since; `s` = that read failed at since, its note shows — entered when a timed note is newer than the record (the
+    miss shows at hyprlock's fail event already: the prompt is still `reading` then) or on a failed read's prompt
+    ("Could not match…", the retry texts). In `s` a `reading` is a new touch only if it is not the echo (< 1.5 s after
+    the miss), not a sibling label (< 0.2 s after the last run) and not the tick (5 s ± 0.3 after it). After the note
+    a lying finger reads "Touch ID ready". The desktop model does the same its way (`present` only counts from
+    `waiting`).
+  - **Feed** = `asahi-lock`: hyprlock shows nothing when the claim fails and maps Aurora's `verify-lockout` /
+    `verify-password-required*` to "unknown status", so its reader turns `fprint:` log lines into
+    `asahi-lock-touchid.note` (`<until epoch> <kind> <text>`, 0 = until `started verifying`; kinds nomatch / retry /
+    exhausted / lockout / password / unavailable): "No match" (the 3rd "· last try", the 4th = hyprlock's 3 retries
+    used up → "Too many failed attempts"), "Touch ID locked", "Password needed to re-enable Touch ID" (SEP password
+    clock: 48 h without an unlock), "Touch ID disconnected" (`verify-disconnected`: lid close / sleep drops the reader,
+    hyprlock never re-claims — seen 2026-11-18 on most locks), "Touch ID unavailable" (claim / start failed).
+    `asahi-touchid`, doctor and `asahi-debug` skip the finger check under a closed lid (it read as "no finger
+    enrolled" and tried to enrol).
+  - **Preview without locking**: nested `Hyprland -c <min.lua>` + `hyprctl output create headless` + hyprlock + grim.
+    Disable the nested `WAYLAND-1` output (`hl.monitor { output = "WAYLAND-1", disabled = true }`: its window sits on a
+    hidden live workspace and presents nothing — hyprlock's `locked` / qs's frame swaps never come, the lock takes 5 s
+    to come up and labels freeze after their first tick: the `unload(nullptr)` bug). `kill -USR1` only after hyprlock
+    logged `onLockLocked` (earlier: "not locked yet", it stays; a `-9` leaves the nested session lockdead). A conf copy
+    with `fingerprint:enabled = false` (never claim the live sensor), fake orb state files in its own
+    `XDG_RUNTIME_DIR`, `hyprctl dismissnotify` before shots (the "started without start-hyprland" banner). Orb states:
+    replace `"$FPRINTPROMPT"` by the prompt to show (`ready`, `reading`, empty = starting); for event sequences by
+    `"$(cat file)"` + `cmd[update:5000:1]` (the text no longer names the variable) and `kill -USR2` after each write
+    (= a fingerprint event; fine nested). Measure a glyph with a one-label conf (magenta on black) + `magick -trim`.
+    Typing: live `hl.dsp.send_shortcut` to `class:^(aquamarine)$` (never Enter: PAM) needs `WAYLAND-1` enabled — first
+    a live `hl.window_rule` sending class `aquamarine` to `workspace = "19 silent"` (else its window pops up in front
+    of him), keys ≥ 0.2 s apart; disable it again for anything timed or measured. Whole `asahi-lock` nested: own
+    `XDG_RUNTIME_DIR` (else it holds the live session's flock: a real lock is skipped) + absolute
+    `WAYLAND_DISPLAY=/run/user/$UID/wayland-N`, a fake `qs` first in `PATH` (a shim to a nested `qs -p` copy of
+    `WallpaperIntro` with a stub `WallpaperService` shows the whole unlock; a stand-in desktop = a Background-layer
+    `Image` + two `FloatingWindow`s, real tiled windows, wide `gaps_out` so the wallpaper shows), end with `kill -USR1`.
+    Never `pkill -x wf-recorder` for a nested recording (it stops a live take too): kill its pid.
 - **Lid + DPMS**: Hyprland DPMS off = aquamarine output disable → sysfs `enabled` reads `disabled`; logind counts a
   closed lid docked only while an external reads `enabled` (re-checked every event-loop wakeup) → DPMS-blanked
   external in clamshell = laptop-only lid → suspend (no new `Lid closed.`; lockdead on open, hang on re-close).
@@ -371,6 +451,12 @@ relabel filter.
   Decode is software (QtMultimedia → ffmpeg-free: H.264 via OpenH264, VP9, AV1);
   ffmpeg-free cannot *encode* H.264 (`libopenh264` can). No clip = nothing happens. qs hot reload missed a replaced
   file once (2026-11-09): restart qs (Super+Ctrl+Alt+W) when a change does not show.
+  **Rejected 2026-11-18** (built and taken out the same day, his words: "do not play video over my windows", "no
+  blurred background"): an unlock mode with the clip on the Overlay layer above windows and bar (windows dissolving
+  into it at lock, click to skip, the desktop opening out of its end in a soft circle from the Touch ID orb, or out
+  of a blur into a frosted desktop) and a blurred / saturated first frame as hyprlock's background. The intro is the
+  desktop background on unlock exactly as on a fresh wallpaper pick: Bottom layer, behind the windows; hyprlock shows
+  the sharp first frame.
 - **Wallpaper span** (idea: omarchy-wallpaper-cutter): `asahi-wallpaper-span` cuts the wallpaper across the live
   layout (logical px; slices in `~/.cache/asahi/wallpaper-span/`, only live set kept). Bezel `gap`: one value, all
   seams. EDID mm unused (LG reports 700x400). hyprpaper keeps per-monitor entries over the `,path` wildcard — every set
@@ -496,6 +582,13 @@ relabel filter.
   sink is always listed (never default: no available route). speakersafetyd restarts "hot" (Aurora
   `50-aurora-warm-restart.conf`: attenuated until its model cools). 96 kHz playback can lock speakersafetyd
   (`Speaker volumes locked`): `sudo systemctl reset-failed speakersafetyd && sudo systemctl start speakersafetyd`.
+- **Trackpad clicks** (haptics): Aurora plays the click from the host (`hid_magicmouse haptic_press`, set to `Y` by
+  `64-aurora-trackpad-clicks.rules` on add / bind only). A click during an aborted suspend entry fails its waveform
+  with `-16`; the driver then logs `click waveform failed (-16); returning click feedback to the firmware`, flips
+  `haptic_press` to `N` and nothing turns it back on (2026-11-18 12:18: the click felt dead / different until
+  re-armed). Check `cat /sys/module/hid_magicmouse/parameters/haptic_press`, `journalctl -k | grep magicmouse`; re-arm
+  `echo Y | sudo tee /sys/module/hid_magicmouse/parameters/haptic_press` (or reboot). No guard of ours yet (would be a
+  root system-sleep hook writing `Y` after every resume).
 - **Trackpad**: `tap_to_click = true`. No touchpad toggle. Pointer feel = `hl.device` curve on `apple-mtp-multi-touch`
   in `input.lua` (libinput ignores `sensitivity` under a custom profile). `hyprctl reload` does **not** reset a device —
   keep the explicit rule, else a bad `hyprctl eval 'hl.device({…})'` survives till reboot; `hl.device` checks names, not
@@ -593,7 +686,11 @@ relabel filter.
   `/run/user/$UID/quickshell/by-pid/<pid>/log.log`). `grim` blocks on a DPMS-off output — always `timeout`. zprofile
   unsets Lmod's `BASH_ENV` (13 → 1.2 ms per bash).
 - **Polkit**: `modules/system/PolkitAgent.qml` (Quickshell `PolkitAgent`) is the agent (else pkexec / GUI admin
-  prompts fail silently); one card on the focused screen.
+  prompts fail silently); one card on the focused screen, laid out like the lock screen: the Touch ID orb + its line
+  over the password pill. PAM asks for the finger first (system-auth: `pam_fprintd` sufficient before `pam_unix` for
+  sudo / polkit-1; 3 tries / 30 s), only then the password: until `isResponseRequired` the pill is dim and the orb
+  tells what happens; then the orb is a lock, "Type your password". PAM's own fingerprint lines show only while the
+  orb has nothing to say.
 - **Touch ID (Aurora)**: `apple_sep` module (loaded by `aurora-sep.timer` once root is up) + Aurora libfprint / fprintd
   on `/dev/sep-bio`; needs current Stage 2 DTBs (see Aurora boot chain). `make aurora` runs `comp_asahi_touchid`
   (`./install.sh asahi-touchid`; after the desktop, before doctor: its failures exit 1 and must not block the
@@ -631,15 +728,46 @@ relabel filter.
   that lock stays password-only (hyprlock never claims again), the next one has Touch ID.
 - **Touch ID prompt** (idea: omarchnix's touchid plugin): `modules/system/TouchIdPrompt.qml` = a card under the notch
   while something waits for a finger without a prompt of its own (sudo / su in a terminal, `aurora-fido`: passkeys and
-  ssh `ecdsa-sk`, `fprintd-verify`); lock screen and polkit card draw their own (suppressed: `hyprlock` / a
-  `polkit-agent-he*` process alive). Feed: `asahi-touchid-monitor` (stdlib + gi, `setpriv --pdeathsig`): fprintd's
-  device signals are broadcast (`VerifyFingerSelected` = start, `finger-present`, `finger-needed` false *before*
-  `VerifyStatus`), who asked is guessed from /proc at start (newest own sudo, its terminal's Hyprland window: click
+  ssh `ecdsa-sk`, `fprintd-verify`). It and the polkit card show **the lock screen's orb** (2026-11-18, his ask: the
+  same display when approving things unlocked): `TouchIdOrb.qml` (glass disc with a hairline ring and the glyph in the
+  state's colour; solid disc + `Style.menuOnAccent` glyph once something happens, like the lock's; no glow, no bold
+  ring; phases ready / reading / nomatch / retry / match / failed / off) and `TouchIdLine.qml` (bold part in the
+  state's tone, muted hint). **Animated here** (2026-11-19, his ask: "Reading", "Approved" etc. in the notch card), as
+  the lock screen cannot be: the glyph breathes while it waits; while the finger is read a quarter arc runs round
+  inside the rim (`RotationAnimator`, `Shape.CurveRenderer`) and three dots carry a wave; every result lands with a
+  pop (disc from 0.86, the new glyph — check, crossed fingerprint — grows in from 0.5, `OutBack`); each new line
+  rises in; the card drops out of the notch (and back up), a miss shakes it. Each colour eases once, straight to its
+  target (easing the disc toward an easing ink lagged a miss by 0.2 s). Loops run only while `live` (the card is
+  shown; test). The model's timer is set per state and aimed 20 ms past `until`: a QML Timer fires up to a frame
+  early (seen 24 ms), and with an interval binding the state then outlived its time by a whole period (No match
+  2.8 s, the next touch showed no "Reading"). **Real fprintd semantics** (2026-11-19, his report: "no animations whatsoever" on real touches while the IPC feed
+  showed them): the model ended a read when `finger-needed` went false, and some drivers drop it as the finger
+  lands → Reading for 0 ms, the card gone 450 ms later, the match after it (ignored). Now: a lift or a dropped
+  "needed" never ends a read (6 s cap, like hyprlock keeping `reading`); a no-match is always `done` and fprintd
+  reports a cancelled verify (sudo's Ctrl+C) as one too → a miss only with a finger down (`finger` follows
+  `finger-present` in any phase), else the card just goes; after a miss, pam_fprintd's next `start` marks
+  `retried` → back to ready, none → "No match · type your password". The card shakes once per miss. Replay test:
+  realistic streams in `touchid_model_test.js`. Preview: a copy of `remix/` in `/tmp` + a root with the real
+  `TouchIdPrompt` fed a scripted sequence (`card.feed(...)` from a Timer), in a nested Hyprland, `wf-recorder -g` +
+  `ffmpeg -vf fps=30` frames. Colours = `Style.vivid` / `vivid2` = hyprlock's
+  `$lock_accent` pair, carried in colors.json (`lock_accent`, `lock_accent2`: `colors_dict`, also in the `--preview`
+  JSON; fallback accent / pink). Wording = the lock's (`touchid_model.js` `view()` here, `asahi-lock` +
+  `asahi-lock-touchid` there: two copies, keep them alike): "Touch ID ready", "Reading", "No match · touch again"
+  (red), "Not read · touch again" (amber, phase `retry`: no shake), "<why> · type your password" with a crossed
+  fingerprint once fprintd gave up (No match / Touch ID locked: red; disconnected / unavailable / password needed:
+  amber), "Approved" (green check). Lock screen and polkit draw their own (`suppress`: `hyprlock` / a
+  `polkit-agent-he*` process alive): the notch card stays hidden (`visible()`), but the state still runs —
+  `PolkitAgent` reads it (`touchId: touchIdCard` in shell.qml, kind `polkit`) for its own orb. Feed:
+  `asahi-touchid-monitor` (stdlib + gi, `setpriv --pdeathsig`): fprintd's
+  device signals are broadcast in 1.94.5 (`g_signal_emit` on the skeleton; upstream master sends them to the claiming client only — an fprintd update would leave the card blind) (`VerifyFingerSelected` = start per try, `finger-present`, `finger-needed`; `VerifyStatus` goes out at once, the properties *after* it from an idle), who asked is guessed from /proc at start (newest own sudo, its terminal's Hyprland window: click
   focuses it; fido: newest ssh / git < 120 s). aurora-fidod's own notification (app name `Touch ID`, "Touch ID to sign in
   to <site>", closed when the request ends) is routed by `NotificationCenter` into the card (no toast / history /
-  sound; tracked, else freed at once). State machine `touchid_model.js` (`touchid_model_test.js`; monitor:
-  `asahi_touchid_monitor_test.py`). Preview: `qs -c remix ipc --any-display call touchid feed '<event json>'`. Never test
-  with a killed `fprintd-verify`: fprintd reported that as `verify-no-match` (may count toward the SEP lockout).
+  sound; tracked, else freed at once). State machine `touchid_model.js` (`touchid_model_test.js`, also the wiring;
+  monitor: `asahi_touchid_monitor_test.py`). Preview: `qs -c remix ipc --any-display call touchid feed '<event json>'`
+  (nested: a root with `TouchIdPrompt` + a copy of `PolkitAgent.qml` whose `PolkitAgent {}` is a fake `QtObject` agent /
+  flow — a second polkit agent cannot register; no IPC function named `show`: `qs ipc call` takes it for its own
+  subcommand). Never test with a killed `fprintd-verify`: fprintd reported that as `verify-no-match` (may count toward
+  the SEP lockout).
 - **SSH on Touch ID** (2026-11-11, his pick): `asahi-touchid-ssh` makes `~/.ssh/id_ecdsa_sk` (aurora-fido, one touch,
   no passphrase, not resident: no PIN). `setup HOST…` = create + `authorize` (appends the pubkey over the old key,
   BatchMode) + `default` (Touch ID key before id_ed25519 in `Host *` of the untracked `~/.ssh/config`, backup
@@ -648,7 +776,7 @@ relabel filter.
   that only the Touch ID key could make. Host names / addresses live only in `~/.ssh/config` and the command line, never
   in the repo; a password / GSSAPI-only host offers no publickey at all: no key works there. id_ed25519 stays the local
   fallback (a host without the new key: passphrase via keychain as before). ForwardAgent hosts: a forwarded sign needs a
-  touch here. **Dead since aurora-fido 0.2.0** (sealed store gone, 0.1 credentials refused): the 0.1 key cannot sign ("agent refused operation"); `retire` had locked id_ed25519 out of the hosts → re-add it (`ssh-copy-id`, password); `Host *` PreferredAuthentications ends in password. Make a new key once `/dev/sep-key` shows (watch list). A test notification with app name
+  touch here. **Dead since aurora-fido 0.2.0** (sealed store gone, 0.1 credentials refused): the 0.1 key cannot sign ("agent refused operation"); `retire` had locked id_ed25519 out of the hosts → re-add it (`ssh-copy-id`, password); `Host *` PreferredAuthentications ends in password. Kernel 7.3.0-40 has `/dev/sep-key`: new key made 2026-11-17. 0.2 reads the finger in the enclave, no fprintd verify (no monitor `start`): its note alone opens the card (`fidoNote`). A test notification with app name
   `Touch ID` lands in the card, not as a toast. Firefox (Flatpak, `devices=all`) reaches aurora-fido's hidraw (uaccess,
   `ID_SECURITY_TOKEN`; a CTAPHID INIT from inside the sandbox answers); **Proton Pass intercepts WebAuthn** (passkeys
   go to Proton, aurora-fido sees nothing): he keeps it so. `fido2-tools` (asahi-touchid) lists / deletes passkeys.

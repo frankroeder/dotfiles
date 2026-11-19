@@ -22,21 +22,27 @@ log="${XDG_STATE_HOME:-$HOME/.local/state}/asahi/hyprlock.log"
 mkdir -p "$(dirname "$log")"
 [ "$(stat -c %s "$log" 2>/dev/null || echo 0)" -gt 1000000 ] && : >"$log"
 # hyprlock shows nothing when Touch ID cannot be claimed, and does not know Aurora's lockout statuses: its fingerprint
-# log lines become the line asahi-lock-touchid prints in place of the glyph ("<until epoch> <text>", 0 = stays).
+# log lines become the Touch ID orb's note (asahi-lock-touchid): "<until epoch> <kind> <text>" (until 0 = stays: Touch
+# ID gave up, password only). The orb also gets the time this hyprlock began (how long has verify not started?).
 note="$(runtime_dir)/asahi-lock-touchid.note"
+began="$(runtime_dir)/asahi-lock-touchid.start"
 reader_state="$(runtime_dir)/asahi-lock.reader"   # "unlocked" on the unlock line, "eof" once the reader ends
 fails=0
 touchid_note() {
-  local till=0 text="Touch ID unavailable · enter password"
+  local till=0 kind=unavailable text="Touch ID unavailable"
   case $1 in
-    *"handling status verify-no-match"*)   # hyprlock gives 3 retries per lock
-      if ((++fails > 3)); then text="Too many failed attempts · enter password"; else till=$((EPOCHSECONDS + 2)) text="No match"; fi ;;
+    *"handling status verify-no-match"*)   # hyprlock gives 3 retries per lock: the 4th no-match ends Touch ID
+      ((++fails))
+      if ((fails > 3)); then kind=exhausted text="Too many failed attempts"
+      elif ((fails == 3)); then till=$((EPOCHSECONDS + 2)) kind=nomatch text="No match · last try"
+      else till=$((EPOCHSECONDS + 2)) kind=nomatch text="No match"; fi ;;
     *"handling status verify-retry-scan"* | *"handling status verify-finger-not-centered"* | \
       *"handling status verify-remove-and-retry"* | *"handling status verify-too-fast"*)
-      till=$((EPOCHSECONDS + 2)) text="Not read · touch again" ;;
-    *"handling status verify-lockout"*) text="Too many failed attempts · enter password" ;;
-    *"handling status verify-password-required"*) text="Enter password to enable Touch ID" ;;   # SEP password clock
-    *"handling status verify-disconnected"* | *"handling status verify-unknown-error"* | *"could not start verifying"*) ;;
+      till=$((EPOCHSECONDS + 2)) kind=retry text="Not read" ;;
+    *"handling status verify-lockout"*) kind=lockout text="Touch ID locked" ;;
+    *"handling status verify-password-required"*) kind=password text="Password needed to re-enable Touch ID" ;;   # SEP clock
+    *"handling status verify-disconnected"*) text="Touch ID disconnected" ;;   # lid closed / sleep: no re-claim
+    *"handling status verify-unknown-error"* | *"could not start verifying"*) ;;
     *"could not claim device"*)
       # fprintd left the reader open (a suspend during a sudo / polkit finger prompt): every claim fails until it
       # restarts (polkit rule 49-asahi-fprintd-restart). This hyprlock never claims again; the next lock does.
@@ -44,11 +50,12 @@ touchid_note() {
     *"started verifying"*) grep -qs '^0 ' "$note" && rm -f "$note"; return ;;
     *) return ;;
   esac
-  printf '%s %s\n' "$till" "$text" >"$note"
+  printf '%s %s %s\n' "$till" "$kind" "$text" >"$note"
 }
 run() {
   date -Is >>"$log"
-  rm -f "$note" "$reader_state"
+  rm -f "$note" "$reader_state" "$(runtime_dir)/asahi-lock-touchid.reading"
+  printf '%s\n' "$EPOCHSECONDS" >"$began"
   # The intro starts on hyprlock's unlock line, not at its exit: after a Touch ID unlock hyprlock lingers seconds
   # (its pending password PAM attempt fails and waits out the failure delay).
   hyprlock "$@" > >(while IFS= read -r l; do

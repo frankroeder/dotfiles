@@ -41,6 +41,9 @@ Singleton {
   property string mode: "dark"
   property string variant: "source"
   property color accent: blue
+  // The lock screen's two accents (asahi-autotheme lock_accents: the accent pushed vivid + its +40° neighbour).
+  property color lockAccent: accent
+  property color lockAccent2: pink
   property int generation: 0
 
   function applyJson(text) {
@@ -59,6 +62,8 @@ Singleton {
       }
       if (data.accent) root.accent = data.accent
       else if (data.blue) root.accent = data.blue
+      root.lockAccent = data.lock_accent || root.accent
+      root.lockAccent2 = data.lock_accent2 || root.pink
       if (data.mode) root.mode = data.mode
       if (data.variant) root.variant = data.variant
       root.generation += 1

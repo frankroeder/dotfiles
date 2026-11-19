@@ -6,11 +6,24 @@ import Quickshell.Wayland
 import Quickshell.Services.Polkit
 import "../menu" as Menu
 import "../../"
+import "touchid_model.js" as TouchModel
 
 // Polkit authentication agent. Without one, GUI admin prompts (and pkexec) failed silently.
 // One card on the focused screen: Enter submits, Esc cancels, a wrong password shakes and clears.
+// Laid out like the lock screen: the Touch ID orb and its line over the password pill. PAM asks for the finger
+// first (pam_fprintd, 3 tries / 30 s), then the password: until then the pill is off and the orb tells what happens.
 Scope {
   id: root
+
+  // shell.qml: the TouchIdPrompt. Its state also runs for our own verify (kind polkit, hidden in its card).
+  property var touchId: null
+  readonly property var touch: root.touchId && root.touchId.st.suppressed && root.touchId.st.info
+    && root.touchId.st.info.kind === "polkit" ? root.touchId.st : TouchModel.initial()
+  readonly property var touchView: {
+    const v = TouchModel.view(root.touch)
+    if (v.orb !== "off") return v
+    return { orb: "off", tone: "", strong: "", hint: root.flow && root.flow.isResponseRequired ? "Type your password" : "" }
+  }
 
   readonly property var flow: agent.flow
   property var authScreen: null
@@ -43,6 +56,7 @@ Scope {
   }
 
   PanelWindow {
+    id: card
     visible: agent.isActive && root.flow !== null
     screen: root.authScreen
     color: "transparent"
@@ -68,32 +82,22 @@ Scope {
         anchors.right: parent.right
         spacing: 12
 
-        RowLayout {
-          spacing: 12
-          Rectangle {
-            Layout.preferredWidth: 40
-            Layout.preferredHeight: 40
-            radius: Style.menuRadiusMd
-            color: Style.m3primaryContainer
-            Text { anchors.centerIn: parent; text: "󰌾"; color: Style.m3primary; font.family: Style.menuMono; font.pixelSize: 20 }
+        ColumnLayout {
+          spacing: 2
+          Text {
+            text: "Authentication required"
+            color: Style.m3onSurface
+            font.family: Style.menuSans
+            font.pixelSize: 16
+            font.weight: Font.DemiBold
           }
-          ColumnLayout {
-            spacing: 2
-            Text {
-              text: "Authentication required"
-              color: Style.m3onSurface
-              font.family: Style.menuSans
-              font.pixelSize: 16
-              font.weight: Font.DemiBold
-            }
-            Text {
-              text: root.flow ? root.flow.actionId : ""
-              color: Style.m3onSurfaceVariant
-              font.family: Style.menuMono
-              font.pixelSize: 10
-              elide: Text.ElideMiddle
-              Layout.maximumWidth: 330
-            }
+          Text {
+            text: root.flow ? root.flow.actionId : ""
+            color: Style.m3onSurfaceVariant
+            font.family: Style.menuMono
+            font.pixelSize: 10
+            elide: Text.ElideMiddle
+            Layout.maximumWidth: 396
           }
         }
 
@@ -107,6 +111,21 @@ Scope {
           font.pixelSize: 13
         }
 
+        TouchIdOrb {
+          Layout.alignment: Qt.AlignHCenter
+          Layout.topMargin: 10
+          size: 58
+          view: root.touchView
+          live: card.visible
+        }
+        TouchIdLine {
+          Layout.alignment: Qt.AlignHCenter
+          Layout.preferredHeight: 16
+          view: root.touchView
+          live: card.visible
+          pixelSize: 12
+        }
+
         Rectangle {
           Layout.fillWidth: true
           implicitHeight: 40
@@ -114,6 +133,9 @@ Scope {
           color: Style.m3container
           border.width: 1
           border.color: root.wrong ? Style.red : (field.activeFocus ? Style.menuSelBorder : "transparent")
+          // Off until PAM asks for the password (Touch ID comes first).
+          opacity: field.enabled ? 1 : 0.5
+          Behavior on opacity { NumberAnimation { duration: 160 } }
 
           TextInput {
             id: field
@@ -141,10 +163,10 @@ Scope {
           }
         }
 
-        // PAM's extra lines (fingerprint hints, lockout notices).
+        // PAM's extra lines (lockout notices; its fingerprint hints only while the orb has nothing to say).
         Text {
           Layout.fillWidth: true
-          visible: !!root.flow && root.flow.supplementaryMessage !== ""
+          visible: !!root.flow && root.flow.supplementaryMessage !== "" && root.touch.phase === "hidden"
           text: root.flow ? root.flow.supplementaryMessage : ""
           textFormat: Text.PlainText
           wrapMode: Text.Wrap

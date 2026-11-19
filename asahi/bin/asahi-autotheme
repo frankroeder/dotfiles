@@ -21,7 +21,7 @@ if str(THEME_ROOT) not in sys.path:
 
 from theme.extract import extract_representatives  # noqa: E402
 from theme.palette import FLAVORS, build_palette  # noqa: E402
-from theme.apply import apply_live, preview_ghostty, state_dir, write_all  # noqa: E402
+from theme.apply import apply_live, colors_dict, preview_ghostty, state_dir, write_all  # noqa: E402
 
 
 def resolve_wallpaper(explicit: str | None) -> Path:
@@ -83,7 +83,7 @@ def main() -> int:
     if args.dry_run or args.preview:
         if args.preview:
             preview_ghostty(palette)
-        print(json.dumps(palette.to_dict(), indent=2, sort_keys=True))
+        print(json.dumps(colors_dict(palette), indent=2, sort_keys=True))
         return 0
 
     paths = write_all(palette)

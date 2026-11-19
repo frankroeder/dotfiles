@@ -28,6 +28,7 @@ dnf_install_user() {
 # ffmpeg-free: Fedora's ffmpeg package (nothing in Fedora 45 provides plain "ffmpeg").
 dnf_install_user \
   adw-gtk3-theme \
+  adwaita-sans-fonts \
   brightnessctl \
   blueman \
   bolt \

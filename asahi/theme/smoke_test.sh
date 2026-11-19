@@ -61,8 +61,8 @@ rg -q "window_bg_color" "$HOME/.config/ghostty/adaptive.css" \
 
 rg -q "accent_bg_color" "$STATE/gtk.css" \
   || { echo "gtk.css missing accent_bg_color" >&2; exit 1; }
-rg -q "lock_band" "$STATE/hyprlock.conf" \
-  || { echo "hyprlock.conf missing lock_band" >&2; exit 1; }
+rg -q "lock_accent" "$STATE/hyprlock.conf" \
+  || { echo "hyprlock.conf missing lock_accent" >&2; exit 1; }
 
 jq -e '.colours.primary and (.mode == "dark" or .mode == "light")' "$STATE/firefox.json" >/dev/null \
   || { echo "firefox.json missing colours.primary/mode" >&2; exit 1; }

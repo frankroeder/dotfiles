@@ -6,7 +6,7 @@ JSON object per line on stdout:
 
   {"ev": "start", "kind": ..., "suppress": bool, "title": ..., "detail": ..., "app": ..., "address": ...}
   {"ev": "present", "value": bool}          finger on the sensor (fprintd's finger-present)
-  {"ev": "needed", "value": bool}           fprintd waits for a finger (false: the verify ended or was cancelled)
+  {"ev": "needed", "value": bool}           fprintd waits for a finger (false: ended, cancelled, or a finger is down)
   {"ev": "status", "result": "verify-match", "done": true}
   {"ev": "gone"}                            fprintd left the bus
 

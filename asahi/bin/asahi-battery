@@ -73,17 +73,48 @@ fi
 
 read_number capacity "$bat_path/capacity"
 read_value status "$bat_path/status"
+read_value end_threshold "$bat_path/charge_control_end_threshold"
+read_number power_now "$bat_path/power_now"
+read_value ac_online "$ac_path/online"
+
+# Charge-hold: AC present, a cap below 100, and the pack is no longer
+# taking meaningful current (Not charging / Full-below-100 / trickle at cap: within ±0.2 W, power_now is µW).
+holding=false
+end_num="$end_threshold"
+case "$end_num" in '' | n/a | *[!0-9]*) end_num="" ;; esac
+case "$power_now" in *[!0-9-]*) power_now=0 ;; esac
+if [ "$ac_online" = "1" ] && [ -n "$end_num" ] && [ "$end_num" -lt 100 ]; then
+  charge_idle=false
+  [ "$power_now" -le 200000 ] && [ "$power_now" -ge -200000 ] && charge_idle=true
+  case "$status" in
+    "Not charging") holding=true ;;
+    Full) [ "$capacity" -lt 99 ] && holding=true ;;
+    Charging)
+      if [ "$charge_idle" = true ] && [ "$capacity" -ge "$end_num" ]; then
+        holding=true
+      fi
+      ;;
+  esac
+fi
+display_status="$status"
+[ "$holding" = true ] && display_status="Holding"
+
+# Lock screen line: percent plus the charge state in words. hyprlock runs this every 15 s, so it leaves here: five
+# sysfs reads (each an SMC round trip, 0.3–1.2 ms; all 23 took 10 ms) and no forks.
+if [ "${1:-}" = "lock" ]; then
+  printf '%s%% · %s\n' "$capacity" "$display_status"
+  exit 0
+fi
+
 read_value capacity_level "$bat_path/capacity_level"
 read_value cycle_count "$bat_path/cycle_count"
 read_value health "$bat_path/health"
 read_value model "$bat_path/model_name"
 read_value charge_behaviour "$bat_path/charge_behaviour"
 read_value start_threshold "$bat_path/charge_control_start_threshold"
-read_value end_threshold "$bat_path/charge_control_end_threshold"
 read_number energy_now "$bat_path/energy_now"
 read_number energy_full "$bat_path/energy_full"
 read_number energy_design "$bat_path/energy_full_design"
-read_number power_now "$bat_path/power_now"
 read_number voltage_now "$bat_path/voltage_now"
 read_number current_now "$bat_path/current_now"
 read_number temp "$bat_path/temp"
@@ -92,7 +123,6 @@ read_number time_full "$bat_path/time_to_full_now"
 read_value manufacture_year "$bat_path/manufacture_year"
 read_value manufacture_month "$bat_path/manufacture_month"
 read_value manufacture_day "$bat_path/manufacture_day"
-read_value ac_online "$ac_path/online"
 read_number input_power_limit "$ac_path/input_power_limit"
 
 default_icons=("󰁺" "󰁻" "󰁼" "󰁽" "󰁾" "󰁿" "󰂀" "󰂁" "󰂂" "󰁹")
@@ -108,35 +138,8 @@ case "$status" in
 esac
 battery_text="$text ${capacity}%"
 
-# Charge-hold: AC present, a cap below 100, and the pack is no longer
-# taking meaningful current (Not charging / Full-below-100 / trickle at cap).
-holding=false
-end_num="$end_threshold"
 start_num="$start_threshold"
-case "$end_num" in '' | n/a | *[!0-9]*) end_num="" ;; esac
 case "$start_num" in '' | n/a | *[!0-9]*) start_num="" ;; esac
-power_w="$(awk -v value="$power_now" 'BEGIN { print value / 1000000 }')"
-if [ "$ac_online" = "1" ] && [ -n "$end_num" ] && [ "$end_num" -lt 100 ]; then
-  charge_idle=false
-  awk -v rate="$power_w" 'BEGIN { exit !(rate <= 0.2 && rate >= -0.2) }' && charge_idle=true
-  case "$status" in
-    "Not charging") holding=true ;;
-    Full) [ "$capacity" -lt 99 ] && holding=true ;;
-    Charging)
-      if [ "$charge_idle" = true ] && [ "$capacity" -ge "$end_num" ]; then
-        holding=true
-      fi
-      ;;
-  esac
-fi
-display_status="$status"
-[ "$holding" = true ] && display_status="Holding"
-
-# Lock screen line: percent plus the charge state in words.
-if [ "${1:-}" = "lock" ]; then
-  printf '%s%% · %s\n' "$capacity" "$display_status"
-  exit 0
-fi
 
 status_class="$(printf "%s" "$display_status" | tr '[:upper:] ' '[:lower:]-')"
 classes_json="[\"$status_class\"]"
