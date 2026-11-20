@@ -51,7 +51,7 @@ Item {
           NumberAnimation { target: slot; property: "scale"; from: 0.5; to: 1; duration: 180; easing.type: Easing.OutBack }
         }
 
-        HoverTint { lit: iconMouse.containsMouse }
+        HoverTint { down: iconMouse.pressed; lit: iconMouse.containsMouse }
 
         Image {
           id: iconImage

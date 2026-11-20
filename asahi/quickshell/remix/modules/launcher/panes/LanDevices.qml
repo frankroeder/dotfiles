@@ -224,8 +224,8 @@ ColumnLayout {
           Glyph { text: row.d.collapsed ? "󰅂" : "󰅀"; font.pixelSize: root.fontPx(11) }
           Text {
             text: row.d.title || ""; textFormat: Text.PlainText
-            color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(9); font.weight: Font.DemiBold
-            font.capitalization: Font.AllUppercase; font.letterSpacing: 1
+            color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(8); font.weight: Font.DemiBold
+            font.capitalization: Font.AllUppercase; font.letterSpacing: 1.2
           }
           Badge { visible: !!row.d.fresh }
           Item { Layout.fillWidth: true }

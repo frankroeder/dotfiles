@@ -12,7 +12,7 @@ sys.path.insert(0, str(ROOT.parent))
 
 from theme.extract import Representative, merge_close
 from theme.oklab import OKLCH, from_srgb8, hex_from_oklch, hue_distance, max_chroma
-from theme.palette import FLAVORS, HUES, _toward, build_palette
+from theme.palette import COOL_HUES, FLAVORS, HUES, WARM_HUES, _toward, build_palette
 
 
 def lch(hx: str):
@@ -148,7 +148,8 @@ class TestFlavors(unittest.TestCase):
         # Not just distinct hex — separated enough to read on a bar. Kept loose
         # because `content` separates from `source` mostly via the surfaces
         # (see test_surface_tint_pulls_content_and_vibrant_apart), not the accent.
-        chroma = sorted(lch(hx).C for hx in accents.values())
+        # The strength flavours only: the hue-picked ones differ by hue (TestHueFlavors).
+        chroma = sorted(lch(accents[n]).C for n in ("source", "content", "vibrant", "calm", "mono"))
         for lo, hi in itertools.pairwise(chroma):
             self.assertGreater(hi - lo, 0.008, f"{chroma} has two flavours sitting on top of each other")
 
@@ -255,3 +256,30 @@ class TestContrast(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestHueFlavors(unittest.TestCase):
+    """expressive / warm / cool pick a color the image has by hue; pastel lifts and softens."""
+
+    def acc(self, reps, name, mode="dark"):
+        return lch(build_palette(reps, "/tmp/x.jpg", variant=name, mode=mode).accent)
+
+    def test_expressive_is_a_second_color_of_the_image(self):
+        src, exp = self.acc(REPS, "source"), self.acc(REPS, "expressive")
+        self.assertGreaterEqual(hue_distance(src.H, exp.H), 50)
+        self.assertLess(hue_distance(exp.H, lch("#5aa0c8").H), 15)   # the wallpaper's blue, not an invented hue
+
+    def test_warm_and_cool_stay_in_their_windows(self):
+        for mode in ("dark", "light"):
+            warm, cool = self.acc(REPS, "warm", mode), self.acc(REPS, "cool", mode)
+            self.assertTrue(WARM_HUES[0] - 10 <= warm.H <= WARM_HUES[1] + 10, warm)
+            self.assertTrue(COOL_HUES[0] - 10 <= cool.H <= COOL_HUES[1] + 10, cool)
+
+    def test_cool_without_cool_colors_turns_toward_blue(self):
+        src, cool = self.acc(ORANGE, "source"), self.acc(ORANGE, "cool")
+        self.assertGreater(hue_distance(src.H, cool.H), 60)
+
+    def test_pastel_is_lighter_and_softer(self):
+        src, pastel = self.acc(REPS, "source"), self.acc(REPS, "pastel")
+        self.assertGreater(pastel.L, src.L)
+        self.assertLess(pastel.C, src.C)

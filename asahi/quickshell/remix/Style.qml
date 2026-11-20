@@ -65,6 +65,7 @@ Singleton {
   readonly property color barStripText:   themed("text")
   readonly property color barStripMuted:  themed("subtext0")
   readonly property color barStripHover:  themedAlpha("text", 0.10)
+  readonly property color barStripPress:  themedAlpha("text", 0.18)   // a chip under the pointer's press
 
   readonly property color panelSuccessBg:       themedAlpha("green", 0.16)
   readonly property color panelDangerBg:        themedAlpha("red", 0.15)
@@ -86,11 +87,14 @@ Singleton {
   readonly property color menuOnAccent: themed("crust")
   readonly property color menuOverlayLight: Qt.rgba(1, 1, 1, 0.92)
   // Material 3 roles (caelestia-style panels) mapped onto the wallpaper palette.
-  readonly property color m3surface:            themedAlpha("base", 0.96)
+  // Light palettes run crust > mantle > base > surface* (crust = ink on accent), so base is a mid grey there:
+  // panels take mantle (paper) and cards step down from it, mirroring dark's base → surface0 → surface1.
+  readonly property color m3surface:            isDark ? themedAlpha("base", 0.96) : themedAlpha("mantle", 0.96)
   // Bar popups are xdg popups (no layer blur): opaque, or windows bleed through.
-  readonly property color m3surfaceSolid:       themed("base")
-  readonly property color m3container:          themed("surface0")
-  readonly property color m3containerHigh:      themed("surface1")
+  readonly property color m3surfaceSolid:       isDark ? themed("base") : themed("mantle")
+  // Light card tint base@0.8: card / panel contrast 1.21 (was 1.20 on the grey panel), subtext0 on cards 7.6:1 (was 6.1).
+  readonly property color m3container:          isDark ? themed("surface0") : Qt.tint(themed("mantle"), themedAlpha("base", 0.8))
+  readonly property color m3containerHigh:      isDark ? themed("surface1") : themed("base")
   readonly property color m3onSurface:          themed("text")
   readonly property color m3onSurfaceVariant:   themed("subtext0")
   readonly property color m3outline:            themed("overlay1")
@@ -107,21 +111,33 @@ Singleton {
   readonly property color menuSelFill:   themedAlpha("accent", isDark ? 0.18 : 0.12)
   readonly property color menuSelBorder: themedAlpha("accent", isDark ? 0.45 : 0.35)
   readonly property color m3shadow:             themedAlpha("crust", 0.55)
-  readonly property int menuRadius: 12
   readonly property int menuPanelRadius: 28
   readonly property int menuRadiusLg: 16
   readonly property int menuRadiusMd: 12
   readonly property int menuRadiusFull: 999
-  // Anim: M3 expressive spatial spring + effects curve.
+  // Anim: M3 expressive spatial spring + effects curve; exits are shorter and accelerate (M3 emphasized
+  // accelerate), so a closing surface gets out of the way instead of springing.
   readonly property int menuAnimMs: 200
-  readonly property int menuAnimOutMs: 260
   readonly property int menuSpringMs: 500
+  readonly property int menuExitMs: 180
+  readonly property int menuAnimOutMs: menuExitMs + 20   // unmap after the exit has run
+  readonly property int menuStateMs: 120                 // hover / press / toggle colour
   readonly property var menuSpring: [0.38, 1.21, 0.22, 1, 1, 1]
   readonly property var menuEffects: [0.34, 0.8, 0.34, 1, 1, 1]
+  readonly property var menuExit: [0.3, 0, 0.8, 0.15, 1, 1]
+
+  // ── Fonts: the one place to change type on every surface. ──
+  // UI text: launcher, panes, bar popups, toasts, OSD, cards. Digits that tick add `font.features: Style.fontTabular`.
+  readonly property string fontUi: "Adwaita Sans"
+  // Bar strip only (converged look): Noto Sans digits are tabular by default, so % keep their width.
+  readonly property string fontBar: "Noto Sans"
   // Glyphs and monospace text (file previews): the Nerd Font dnf.sh installs (Ghostty / hyprlock use it too).
-  readonly property string menuMono: "Cascadia Mono NF"
-  readonly property string menuSans: "Adwaita Sans"
-  readonly property string menuDisplay: "Adwaita Sans"
+  readonly property string fontMono: "Cascadia Mono NF"
+  // Add "zero": 1 for slashed zeros (terminal look); Adwaita Sans also has cv01–cv14 / ss01–ss08.
+  readonly property var fontTabular: ({ "tnum": 1 })
+  readonly property string menuMono: fontMono
+  readonly property string menuSans: fontUi
+  readonly property string menuDisplay: fontUi
 
   readonly property int scrollbarWidth: 5
   readonly property color scrollbarThumb: themedAlpha("text", 0.28)
@@ -155,8 +171,7 @@ Singleton {
   readonly property int barChipInset: 4
   readonly property int barWsIcon: 20
 
-  // Bar / popups / OSD text. Noto Sans has tabular digits, so the zero-padded percentages keep their
-  // width as they change (Adwaita Sans does not); glyphs fall back to the Nerd Font.
-  readonly property string fontFamily: "Noto Sans"
+  // Bar strip text (see fontBar); glyphs fall back to the Nerd Font.
+  readonly property string fontFamily: fontBar
   readonly property int fontSizeTiny: 12
 }

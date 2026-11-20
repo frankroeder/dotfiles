@@ -29,7 +29,7 @@ RowLayout {
           anchors.centerIn: parent
           text: modelData.key
           color: Style.m3onSurface
-          font.pixelSize: 10 * root.fontScale
+          font.pixelSize: Math.round(10 * root.fontScale)
           font.family: root.fontFamily
           font.weight: Font.Medium
         }
@@ -37,7 +37,7 @@ RowLayout {
       Text {
         text: modelData.label
         color: Style.m3onSurfaceVariant
-        font.pixelSize: 11 * root.fontScale
+        font.pixelSize: Math.round(11 * root.fontScale)
         font.family: root.fontFamily
         anchors.verticalCenter: parent.verticalCenter
       }
@@ -48,7 +48,7 @@ RowLayout {
     visible: root.hints !== ""
     text: root.hints
     color: Style.m3outline
-    font.pixelSize: 11 * root.fontScale
+    font.pixelSize: Math.round(11 * root.fontScale)
     font.family: root.fontFamily
     Layout.alignment: Qt.AlignVCenter
   }

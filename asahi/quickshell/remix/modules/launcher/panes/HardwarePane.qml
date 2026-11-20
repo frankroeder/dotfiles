@@ -92,6 +92,15 @@ Item {
     const h = Math.floor(minutes / 60), m = minutes % 60
     return h > 0 ? h + "h " + m + "m" : m + "m"
   }
+  // "16:29" today, else "Thu 16:29" (asahi-hardware sleep.last.at, local "YYYY-MM-DD HH:MM:SS"); short: a tile label.
+  function when(at) {
+    const d = new Date(String(at || "").replace(" ", "T"))
+    if (isNaN(d.getTime())) return ""
+    const hm = Qt.formatTime(d, "HH:mm"), day = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const days = Math.round((today - day) / 86400000)
+    return days === 0 ? hm : days < 7 ? Qt.formatDate(d, "ddd") + " " + hm : Qt.formatDate(d, "d MMM")
+  }
   function speed(mbps) { return !mbps ? "" : mbps >= 1000 ? (mbps / 1000) + " Gb/s" : mbps + " Mb/s" }
   // Port row: who is plugged in; underneath what it does (power direction as the port sees it, USB PD, DP alt mode,
   // data role) and the USB devices behind the port, hubs left out. A lone device without a PD identity names the
@@ -166,7 +175,7 @@ Item {
       Text {
         Layout.fillWidth: true
         text: tile.value; color: tile.valueColor; elide: Text.ElideRight; textFormat: Text.PlainText
-        font.family: root.uiSans; font.pixelSize: root.fontPx(18); font.weight: Font.DemiBold
+        font.family: root.uiSans; font.features: Style.fontTabular; font.pixelSize: root.fontPx(18); font.weight: Font.DemiBold
       }
       Text {
         Layout.fillWidth: true
@@ -349,10 +358,12 @@ Item {
         // The last sleep asahi-idle logged (its drain is the number to watch on this kernel) + the kernel's counters.
         Tile {
           readonly property var last: hwRoot.sleep.last || null
-          glyph: "󰒲"; accent: Style.mauve; label: "Last sleep"
+          glyph: "󰒲"; accent: Style.mauve
+          label: last && hwRoot.when(last.at) ? "Slept " + hwRoot.when(last.at) : "Last sleep"
           value: !last ? "—" : last.w !== null ? last.w.toFixed(2) + " W"
             : last.gained_wh !== null ? "+" + last.gained_wh.toFixed(2) + " Wh" : "on AC"
           detail: !hwRoot.loaded ? "" : [last ? hwRoot.span(last.minutes) + (last.ac ? " on AC" : "") : "none logged",
+            last && last.used_wh !== null && last.used_wh !== undefined ? "−" + Number(last.used_wh).toFixed(2) + " Wh" : "",
             hwRoot.sleep.ok ? hwRoot.sleep.ok + " ok" : "", hwRoot.sleep.failed ? hwRoot.sleep.failed + " failed" : ""].filter(x => x).join(" · ")
         }
         // asahi-debug: the count here, the names of what did not pass underneath; a click opens the full report.

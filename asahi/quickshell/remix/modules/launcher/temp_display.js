@@ -27,12 +27,20 @@ function parseTemperatures(out) {
   let groupKind = "temp"
   let last = null
   let summary = false
+  // "Throttle: cpufreq-cpu0 0/5 cpufreq-cpu4 3/16": kernel cooling state per CPU cluster (0 = full clock).
+  const throttle = []
   const lines = String(out || "").split("\n")
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     // Trailing "Hottest:" / "Heatpipe:" blocks repeat a sensor on the next line.
     if (line.indexOf("Hottest:") === 0 || line.indexOf("Heatpipe:") === 0) { summary = true; continue }
     if (summary) continue
+    if (line.indexOf("Throttle:") === 0) {
+      const re = /(\S+) (\d+)\/(\d+)/g
+      let m
+      while ((m = re.exec(line.slice(9))) !== null) throttle.push({ type: m[1], cur: Number(m[2]), max: Number(m[3]) })
+      continue
+    }
     const gm = line.match(/^>>> (.+?) \((.+)\)$/)
     if (gm) {
       const rawName = gm[1]
@@ -155,7 +163,7 @@ function parseTemperatures(out) {
   for (let s = 0; s < sensors.length; s++) {
     if (!hottest || sensors[s].value > hottest.value) hottest = sensors[s]
   }
-  return { sensors: sensors, groups: groups, hottest: hottest, power: power, fans: fans, heatpipe: heatpipe }
+  return { sensors: sensors, groups: groups, hottest: hottest, power: power, fans: fans, heatpipe: heatpipe, throttle: throttle }
 }
 
 function tempDisplayRows(groups) {

@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Hyprland
 import "../../../"
+import "../../menu" as Menu
 import "../BarModel.js" as BarModel
 import "../../../services" as Services
 
@@ -14,7 +15,8 @@ PopupWindow {
   property bool panelOpen: false
   readonly property var p: Services.Players.active
 
-  visible: root.panelOpen && root.p !== null
+  readonly property bool isOpen: root.panelOpen && root.p !== null
+  visible: root.isOpen || popOut.running
   color: "transparent"
   anchor.edges: Edges.Bottom | Edges.Left
   anchor.gravity: Edges.Bottom | Edges.Right
@@ -24,7 +26,9 @@ PopupWindow {
 
   function close() { if (root.barHost && root.barHost.openPanel === "media") root.barHost.openPanel = "" }
 
-  onVisibleChanged: if (visible) openAnim.restart()
+  onIsOpenChanged: if (root.isOpen) { popOut.stop(); popIn.restart() } else popOut.restart()
+  Menu.MenuPopIn { id: popIn; target: card }
+  Menu.MenuPopOut { id: popOut; target: card }
   // Nothing left to show (player closed): drop the flag so the next track does not pop it open.
   onPChanged: if (!root.p) root.close()
 
@@ -35,14 +39,14 @@ PopupWindow {
 
   // Armed once the popup is mapped: armed at show time its surface was not whitelisted yet, and every
   // click inside closed it (no button in a bar popup worked).
-  Timer { id: grabArm; interval: 150; running: root.visible }
+  Timer { id: grabArm; interval: 150; running: root.isOpen }
   HyprlandFocusGrab {
     windows: [root, root.anchor.window]
-    active: root.visible && !grabArm.running
+    active: root.isOpen && !grabArm.running
     onCleared: root.close()
   }
   Shortcut {
-    enabled: root.visible
+    enabled: root.isOpen
     sequences: ["Escape"]
     context: Qt.ApplicationShortcut
     onActivated: root.close()
@@ -56,11 +60,5 @@ PopupWindow {
     border.color: Style.popupBorder
     border.width: Style.popupBorderWidth
     transformOrigin: Item.TopLeft
-
-    ParallelAnimation {
-      id: openAnim
-      NumberAnimation { target: card; property: "opacity"; from: 0; to: 1; duration: 180; easing.type: Easing.OutCubic }
-      NumberAnimation { target: card; property: "scale"; from: 0.96; to: 1; duration: 260; easing.type: Easing.OutCubic }
-    }
   }
 }

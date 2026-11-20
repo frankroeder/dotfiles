@@ -22,6 +22,9 @@ Item {
   property string tempStructureKey: ""
   property var hottestSensor: null
   property var tempFans: []
+  // Kernel CPU throttling per cluster ({type, cur, max}; cur 0 = full clock).
+  property var tempThrottle: []
+  readonly property var throttled: (quickTempRoot.tempThrottle || []).filter(t => t.cur > 0)
 
   function parseTemperatures(out) {
     const parsed = TempDisplay.parseTemperatures(out)
@@ -30,6 +33,7 @@ Item {
     quickTempRoot.tempGroups = parsed.groups
     quickTempRoot.hottestSensor = parsed.hottest
     quickTempRoot.tempFans = parsed.fans || []
+    quickTempRoot.tempThrottle = parsed.throttle || []
     const nextKey = TempDisplay.structureKey(rows)
     if (nextKey !== quickTempRoot.tempStructureKey) {
       quickTempRoot.tempRows = rows
@@ -110,7 +114,7 @@ Item {
     Text {
       Layout.preferredWidth: Math.round(root.fontPx(12) * 3.6); horizontalAlignment: Text.AlignRight
       text: liveValue.toFixed(1) + "°C"; color: quickTempRoot.tempColor(liveValue)
-      font.family: root.uiSans; font.pixelSize: root.fontPx(12); font.weight: Font.DemiBold
+      font.family: root.uiSans; font.features: Style.fontTabular; font.pixelSize: root.fontPx(12); font.weight: Font.DemiBold
     }
   }
 
@@ -148,7 +152,7 @@ Item {
             text: quickTempRoot.hottestSensor ? quickTempRoot.hottestSensor.value.toFixed(1) + "°C"
               : (quickTempRoot.tempOutput ? "No sensors" : "Loading sensors…")
             color: quickTempRoot.hottestSensor ? quickTempRoot.tempColor(quickTempRoot.hottestSensor.value) : Style.m3onSurfaceVariant
-            font.family: root.uiSans; font.pixelSize: root.fontPx(26); font.weight: Font.DemiBold
+            font.family: root.uiSans; font.features: Style.fontTabular; font.pixelSize: root.fontPx(26); font.weight: Font.DemiBold
           }
           Text {
             Layout.fillWidth: true
@@ -170,7 +174,7 @@ Item {
             Chip { icon: "󰕰"; label: (quickTempRoot.tempGroups || []).length + " groups"; bg: Style.m3tertiaryContainer }
             Item { Layout.fillWidth: true }
             ColumnLayout {
-              visible: (quickTempRoot.tempFans || []).length > 0
+              visible: (quickTempRoot.tempFans || []).length > 0 || (quickTempRoot.tempThrottle || []).length > 0
               spacing: 4
               Repeater {
                 model: quickTempRoot.tempFans
@@ -195,6 +199,27 @@ Item {
                     color: Style.m3onSurfaceVariant
                     font.family: root.uiSans; font.pixelSize: root.fontPx(11)
                   }
+                }
+              }
+              // The kernel's cpufreq cooling: "full clock", or which cluster is held back and how far.
+              RowLayout {
+                visible: (quickTempRoot.tempThrottle || []).length > 0
+                spacing: 8
+                Text {
+                  text: "󰍛"
+                  color: quickTempRoot.throttled.length > 0 ? Style.orange : Style.m3primary
+                  font.family: root.uiFont; font.pixelSize: root.fontPx(13)
+                }
+                Text {
+                  text: "CPU"
+                  color: Style.m3onSurface
+                  font.family: root.uiSans; font.pixelSize: root.fontPx(11)
+                }
+                Text {
+                  text: quickTempRoot.throttled.length === 0 ? "full clock  ·  no throttling"
+                    : "throttled  ·  " + quickTempRoot.throttled.map(t => t.type.replace("cpufreq-", "") + " " + t.cur + "/" + t.max).join(", ")
+                  color: quickTempRoot.throttled.length > 0 ? Style.orange : Style.m3onSurfaceVariant
+                  font.family: root.uiSans; font.features: Style.fontTabular; font.pixelSize: root.fontPx(11)
                 }
               }
             }

@@ -5,7 +5,11 @@ function parseCpuTooltip(tooltip) {
   const text = String(tooltip || "")
   const load = text.match(/Load 1\/5\/15:\s+(\S+)\s+(\S+)\s+(\S+)/) || []
   const temp = Number((text.match(/Thermal\s+([0-9.]+)/) || [])[1])
+  // PSI avg10 (asahi-cpu "Pressure cpu X% mem Y%"): NaN when the kernel has none.
+  const psi = text.match(/Pressure cpu\s+([0-9.]+)%\s+mem\s+([0-9.]+)%/) || []
   return {
+    psiCpu: psi[1] !== undefined ? Number(psi[1]) : NaN,
+    psiMem: psi[2] !== undefined ? Number(psi[2]) : NaN,
     load: load[1] ? (load[1] + " " + load[2] + " " + load[3]) : "",
     cores: (text.match(/Cores:\s+(\S+)/) || [])[1] || "",
     freq: (text.match(/Freq avg\s+([0-9.]+\s*GHz)/) || [])[1] || "",
@@ -17,7 +21,9 @@ function parseMemTooltip(tooltip) {
   const text = String(tooltip || "").replace(/\\n/g, "\n")
   const ram = text.match(/RAM\s+([0-9.]+)\/([0-9.]+)\s+GiB/)
   const swap = text.match(/Swap\s+([0-9.]+)\/([0-9.]+)\s+GiB/)
+  const zram = text.match(/Zram\s+[0-9.]+\s+GiB in\s+[0-9.]+\s+GiB\s+\(([0-9.]+)x\)/)
   return {
+    zramRatio: zram ? zram[1] : "",
     ramUsed: ram ? ram[1] : "",
     ramTotal: ram ? ram[2] : "",
     swapUsed: swap ? swap[1] : "",

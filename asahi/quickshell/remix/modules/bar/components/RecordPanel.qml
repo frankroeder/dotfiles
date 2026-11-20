@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
 import "../../../"
+import "../../menu" as Menu
 import "../BarModel.js" as BarModel
 import "../../../services" as Services
 
@@ -17,7 +18,8 @@ PopupWindow {
   property string confirmDelete: ""
   readonly property bool rec: Services.Recorder.running
 
-  visible: root.panelOpen
+  visible: root.panelOpen || popOut.running
+  onPanelOpenChanged: if (root.panelOpen) { popOut.stop(); popIn.restart() } else popOut.restart()
   color: "transparent"
   anchor.edges: Edges.Bottom
   anchor.margins.bottom: -BarModel.popupDrop(root.barHost ? root.barHost.height : Style.barHeight, Style.barHeight)  // negative = below
@@ -37,15 +39,15 @@ PopupWindow {
   // Esc is an app-wide shortcut: the grab may leave keyboard focus on the bar.
   // Armed once the popup is mapped: armed at show time its surface was not whitelisted yet, and every
   // click inside closed it (no button in a bar popup worked).
-  Timer { id: grabArm; interval: 150; running: root.visible }
+  Timer { id: grabArm; interval: 150; running: root.panelOpen }
   HyprlandFocusGrab {
     windows: [root, root.anchor.window]
-    active: root.visible && !grabArm.running
+    active: root.panelOpen && !grabArm.running
     onCleared: root.close()
   }
 
   Shortcut {
-    enabled: root.visible
+    enabled: root.panelOpen
     sequences: ["Escape"]
     context: Qt.ApplicationShortcut
     onActivated: root.close()
@@ -93,9 +95,9 @@ PopupWindow {
     property color fg: Style.m3onSurface
     signal clicked()
     width: 44; height: 44; radius: 22
-    color: rma.containsMouse ? Qt.lighter(bg, 1.15) : bg
+    color: rma.containsMouse ? Qt.tint(bg, Style.m3stateHover) : bg
     Behavior on color { ColorAnimation { duration: 120 } }
-    Text { anchors.centerIn: parent; text: icon; color: fg; font.family: Style.fontFamily; font.pixelSize: 20 }
+    Text { anchors.centerIn: parent; text: icon; color: fg; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 20 }
     MouseArea { id: rma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
   }
 
@@ -109,8 +111,13 @@ PopupWindow {
     MouseArea { id: ima; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
   }
 
+  Menu.MenuPopIn { id: popIn; target: card }
+  Menu.MenuPopOut { id: popOut; target: card }
+
   Rectangle {
+    id: card
     anchors.fill: parent
+    transformOrigin: Item.Top
     color: Style.m3surfaceSolid
     radius: Style.menuRadiusLg
     border.color: Style.popupBorder
@@ -145,7 +152,7 @@ PopupWindow {
           visible: root.rec
           text: Services.Recorder.fmtElapsed(Services.Recorder.elapsed)
           color: Style.red
-          font.family: Style.menuSans; font.pixelSize: 22; font.weight: Font.DemiBold
+          font.family: Style.menuSans; font.features: Style.fontTabular; font.pixelSize: 22; font.weight: Font.DemiBold
         }
         // Always-present close affordance: the bar chip that opens this panel can
         // disappear out from under it (e.g. recording stops), so closing must not

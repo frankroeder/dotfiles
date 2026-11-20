@@ -13,6 +13,7 @@ hwmon_root="${ASAHI_HWMON_ROOT:-/sys/class/hwmon}"
 proc_stat="${ASAHI_PROC_STAT:-/proc/stat}"
 proc_loadavg="${ASAHI_PROC_LOADAVG:-/proc/loadavg}"
 cpufreq_root="${ASAHI_CPUFREQ_ROOT:-/sys/devices/system/cpu}"
+proc_pressure="${ASAHI_PROC_PRESSURE:-/proc/pressure}"
 
 # Hottest temp*_input (of chip $1 when given) as "raw<TAB>chip / label".
 best_temp_sensor() {
@@ -146,6 +147,15 @@ else
   temp_line="Thermal n/a"
 fi
 
-tooltip="$(printf "Load 1/5/15: %s %s %s\nCores: %s\n%s\n%s" "$load1" "$load5" "$load15" "$cores" "$freq_line" "$temp_line")"
+# PSI avg10: % of the last 10 s some task waited for a CPU / for memory ("starved", unlike load).
+psi_avg10() {
+  local line
+  read_line line "$1"
+  [[ $line =~ avg10=([0-9.]+) ]] && printf '%s' "${BASH_REMATCH[1]}" || printf 'n/a'
+}
+pressure_line="Pressure cpu $(psi_avg10 "$proc_pressure/cpu")% mem $(psi_avg10 "$proc_pressure/memory")%"
+
+tooltip="$(printf "Load 1/5/15: %s %s %s\nCores: %s\n%s\n%s\n%s" "$load1" "$load5" "$load15" "$cores" "$freq_line" "$temp_line" \
+  "$pressure_line")"
 
 jq -cn --arg tooltip "$tooltip" --argjson cores "$cores_json" '{tooltip: $tooltip, cores: $cores}'

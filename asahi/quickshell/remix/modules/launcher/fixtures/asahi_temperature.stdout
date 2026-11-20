@@ -58,6 +58,13 @@ Values are read from /sys/class/hwmon by device name and temp label.
   macsmc_hwmon       Fan 2                           2400 RPM  /sys/class/hwmon/hwmon1/fan2_input
     2317–6800 RPM
 
+>>> macsmc_hwmon voltage (/sys/class/hwmon/hwmon1)
+  macsmc_hwmon       Charger Input Voltage          19.68 V   /sys/class/hwmon/hwmon1/in0_input
+
+>>> macsmc_hwmon current (/sys/class/hwmon/hwmon1)
+  macsmc_hwmon       AC Input Current                0.77 A   /sys/class/hwmon/hwmon1/curr1_input
+
+Throttle: cpufreq-cpu0 0/5 cpufreq-cpu4 3/16 cpufreq-cpu8 0/16
 Hottest:
   macsmc_hwmon / WiFi/BT Module Temp: 44.20°C   /sys/class/hwmon/hwmon1/temp4_input
 Heatpipe:

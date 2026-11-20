@@ -173,7 +173,7 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
     }
     Text {
-      text: parent.label; color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(12)
+      text: parent.label; color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(13)
       font.weight: Font.DemiBold; anchors.verticalCenter: parent.verticalCenter
     }
   }

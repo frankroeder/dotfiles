@@ -16,6 +16,8 @@ Singleton {
   property real memPerc: 0
   property real heatpipeW: -1
   property real tempAvg: -1
+  // tempAvg is the SoC die sensor when the kernel has one (Aurora: macsmc "SoC Die Temperature"), else the SMC average.
+  property bool tempIsDie: false
   property var cpuHistory: []
   property var memHistory: []
   readonly property int maxGraphHist: 22
@@ -50,7 +52,8 @@ Singleton {
       heatpipeW = isFinite(uw) && heatpipeFile.text().trim() !== "" ? Math.round(uw / 100000) / 10 : -1
     }
 
-    // Average of the SMC system temperatures (Asahi exposes no SoC die °C), millidegrees. Storage/battery outliers excluded at discovery.
+    // The die sensor alone, else the average of the SMC system temperatures (storage / battery outliers excluded at
+    // discovery), millidegrees. One SMC read every 3 s instead of 23 with the die sensor.
     let sum = 0, n = 0
     for (let i = 0; i < tempFiles.count; i++) {
       const fv = tempFiles.objectAt(i)
@@ -73,9 +76,16 @@ Singleton {
   Process {
     running: true
     command: ["sh", "-c", "for d in /sys/class/hwmon/hwmon*; do [ \"$(cat \"$d/name\")\" = macsmc_hwmon ] || continue; "
+      + "for t in \"$d\"/temp*_input; do [ \"$(cat \"${t%_input}_label\" 2>/dev/null)\" = 'SoC Die Temperature' ] && { echo \"DIE $t\"; exit; }; done; "
       + "for t in \"$d\"/temp*_input; do case \"$(cat \"${t%_input}_label\" 2>/dev/null)\" in *NAND*|*Battery*) ;; "
       + "*) echo \"$t\";; esac; done; done"]
-    stdout: StdioCollector { onStreamFinished: root.tempPaths = text.split("\n").filter(p => p !== "") }
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const lines = text.split("\n").filter(p => p !== "")
+        root.tempIsDie = lines.length === 1 && lines[0].indexOf("DIE ") === 0
+        root.tempPaths = root.tempIsDie ? [lines[0].slice(4)] : lines
+      }
+    }
   }
   Process {
     running: true

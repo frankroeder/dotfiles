@@ -43,7 +43,7 @@ Rectangle {
       anchors.verticalCenter: parent.verticalCenter
       text: chip.label
       color: chip.fg
-      font.family: chip.fontFamily
+      font.family: chip.fontFamily; font.features: Style.fontTabular
       font.pixelSize: Math.round(10 * chip.fontScale)
       font.weight: Font.Medium
     }

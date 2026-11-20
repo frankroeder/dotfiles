@@ -40,7 +40,7 @@ Item {
     TextMetrics { id: vpnNameMetrics; font: vpnNameText.font; text: root.vpnName }
     TextMetrics { id: ageMetrics; font: ageText.font; text: root.vpnAge }
 
-    HoverTint { lit: chipMouse.containsMouse }
+    HoverTint { down: chipMouse.pressed; lit: chipMouse.containsMouse }
 
     RowLayout {
         id: content
@@ -53,6 +53,7 @@ Item {
             font.family: Style.fontFamily
             font.pixelSize: Style.barFontGlyph
             color: Style.connectivityColor(root.connectivity) || Style.blueAlt
+            Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
         }
 
         Text {

@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import "../../../"
+import "../../menu" as Menu
 import "../BarModel.js" as BarModel
 import "../sys_panel.js" as Sys
 
@@ -26,7 +27,8 @@ PopupWindow {
   readonly property real heatpipeW: (root.barHost && root.barHost.heatpipeW >= 0) ? root.barHost.heatpipeW : NaN
   readonly property var cores: (root.barHost && root.barHost.cpuCores) ? root.barHost.cpuCores : []
 
-  visible: root.panelOpen
+  visible: root.panelOpen || popOut.running
+  onPanelOpenChanged: if (root.panelOpen) { popOut.stop(); popIn.restart() } else popOut.restart()
   color: "transparent"
   anchor.edges: Edges.Bottom
   anchor.margins.bottom: -BarModel.popupDrop(root.barHost ? root.barHost.height : Style.barHeight, Style.barHeight)  // negative = below
@@ -51,14 +53,14 @@ PopupWindow {
   // Esc is an app-wide shortcut: the grab may leave keyboard focus on the bar.
   // Armed once the popup is mapped: armed at show time its surface was not whitelisted yet, and every
   // click inside closed it (no button in a bar popup worked).
-  Timer { id: grabArm; interval: 150; running: root.visible }
+  Timer { id: grabArm; interval: 150; running: root.panelOpen }
   HyprlandFocusGrab {
     windows: [root, root.anchor.window]
-    active: root.visible && !grabArm.running
+    active: root.panelOpen && !grabArm.running
     onCleared: root.close()
   }
   Shortcut {
-    enabled: root.visible
+    enabled: root.panelOpen
     sequences: ["Escape"]
     context: Qt.ApplicationShortcut
     onActivated: root.close()
@@ -96,7 +98,7 @@ PopupWindow {
     Layout.fillWidth: true
     Layout.fillHeight: true
     implicitHeight: tileCol.implicitHeight + 24
-    radius: Style.menuRadius
+    radius: Style.menuRadiusMd
     color: Qt.alpha(accent, 0.09)
     border.color: Qt.alpha(accent, 0.25)
     border.width: 1
@@ -114,10 +116,10 @@ PopupWindow {
       }
       Text {
         text: unit === "%" ? (Math.round(value) + "%") : (isFinite(value) ? value.toFixed(1) + " " + unit : "–")
-        color: accent; font.family: Style.fontFamily; font.pixelSize: 22; font.weight: Font.DemiBold
+        color: accent; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 22; font.weight: Font.DemiBold
       }
       Text {
-        text: detail; color: Style.menuInk; font.family: Style.fontFamily; font.pixelSize: 10
+        text: detail; color: Style.menuInk; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 10
         maximumLineCount: 2; elide: Text.ElideRight; Layout.fillWidth: true
       }
       Rectangle {
@@ -150,7 +152,7 @@ PopupWindow {
     property color accent: Style.orange
     Layout.fillWidth: true
     implicitHeight: 48
-    radius: Style.menuRadius
+    radius: Style.menuRadiusMd
     color: Style.menuCardBg
     border.color: Style.menuSep
     border.width: 1
@@ -183,8 +185,13 @@ PopupWindow {
     }
   }
 
+  Menu.MenuPopIn { id: popIn; target: card }
+  Menu.MenuPopOut { id: popOut; target: card }
+
   Rectangle {
+    id: card
     anchors.fill: parent
+    transformOrigin: Item.Top
     color: Style.m3surfaceSolid
     radius: Style.menuRadiusLg
     border.color: Style.popupBorder
@@ -212,13 +219,15 @@ PopupWindow {
           StatTile {
             accent: Style.sky; caption: "RAM"; value: root.barHost ? root.barHost.memPerc : 0
             detail: [root.mem.ramUsed ? root.mem.ramUsed + " / " + root.mem.ramTotal + " GiB" : "",
-              root.mem.swapTotal ? "swap " + root.mem.swapUsed + " / " + root.mem.swapTotal : ""].filter(s => s).join("\n")
+              root.mem.swapTotal ? "swap " + root.mem.swapUsed + " / " + root.mem.swapTotal
+                + (root.mem.zramRatio ? " · " + root.mem.zramRatio + "×" : "") : ""].filter(s => s).join("\n")
           }
           StatTile {
             visible: root.heatpipeW >= 0
             accent: root.heatColors[Sys.heatW(root.heatpipeW)]
             caption: "HEAT"; unit: "W"; value: root.heatpipeW; barMax: 25
-            detail: "SoC heatpipe\nno die sensor"
+            // The die sensor (BarData.tempAvg, when the kernel has one) under the heatpipe watts.
+            detail: "SoC heatpipe\n" + (root.barHost && root.barHost.tempIsDie && root.barHost.tempAvg > 0 ? "die " + root.barHost.tempAvg + "°C" : "SMC estimate")
           }
         }
 
@@ -233,9 +242,11 @@ PopupWindow {
           Layout.fillWidth: true
           text: [
             root.cpu.load ? ("load " + root.cpu.load) : "",
+            // PSI: share of the last 10 s something waited for a CPU / for memory (load counts queues, this stalls).
+            isFinite(root.cpu.psiCpu) ? ("stall cpu " + Math.round(root.cpu.psiCpu) + "% · mem " + Math.round(root.cpu.psiMem) + "%") : "",
             isFinite(root.cpu.temp) ? ("peak " + root.cpu.temp.toFixed(1) + "°C") : ""
           ].filter(function(s) { return s !== "" }).join("  ·  ")
-          color: Style.menuInkDeep; font.family: Style.fontFamily; font.pixelSize: 10
+          color: Style.menuInkDeep; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 10
           visible: text !== ""
         }
 
@@ -281,10 +292,10 @@ PopupWindow {
               anchors.fill: parent
               anchors.leftMargin: 8; anchors.rightMargin: 8
               Text {
-                Layout.fillWidth: true; text: modelData.comm; color: Style.menuInk; font.family: Style.fontFamily; font.pixelSize: 11
+                Layout.fillWidth: true; text: modelData.comm; color: Style.menuInk; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 11
                 elide: Text.ElideRight
               }
-              Text { text: modelData.cpu.toFixed(1) + "%"; color: Style.menuInkDeep; font.family: Style.fontFamily; font.pixelSize: 10 }
+              Text { text: modelData.cpu.toFixed(1) + "%"; color: Style.menuInkDeep; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 10 }
             }
           }
         }
@@ -296,11 +307,11 @@ PopupWindow {
             required property var modelData
             Layout.fillWidth: true
             spacing: 8
-            Text { text: "󰈐"; color: Style.sky; font.family: Style.fontFamily; font.pixelSize: 13 }
+            Text { text: "󰈐"; color: Style.sky; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 13 }
             Text {
               Layout.fillWidth: true
               text: modelData.displayLabel || modelData.label || "Fan"
-              color: Style.menuInk; font.family: Style.fontFamily; font.pixelSize: 11
+              color: Style.menuInk; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 11
             }
             Rectangle {
               Layout.preferredWidth: 72
@@ -313,7 +324,7 @@ PopupWindow {
             }
             Text {
               text: Math.round(modelData.value || 0) + " RPM"
-              color: Style.menuInkDeep; font.family: Style.fontFamily; font.pixelSize: 10
+              color: Style.menuInkDeep; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 10
             }
           }
         }
@@ -329,11 +340,11 @@ PopupWindow {
             Text {
               Layout.fillWidth: true
               text: Sys.sensorLabel(modelData)
-              color: Style.menuInk; font.family: Style.fontFamily; font.pixelSize: 11; elide: Text.ElideRight
+              color: Style.menuInk; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 11; elide: Text.ElideRight
             }
             Text {
               text: (isFinite(modelData.value) ? modelData.value.toFixed(1) : "–") + "°C"
-              color: root.heatColors[Sys.heat(modelData.value)]; font.family: Style.fontFamily; font.pixelSize: 11; font.weight: Font.DemiBold
+              color: root.heatColors[Sys.heat(modelData.value)]; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 11; font.weight: Font.DemiBold
             }
           }
         }
@@ -343,7 +354,7 @@ PopupWindow {
           Layout.topMargin: 2
           text: "right-click chip: btop"
           color: Style.menuInkDeep
-          font.family: Style.fontFamily
+          font.family: Style.fontUi; font.features: Style.fontTabular
           font.pixelSize: 9
           horizontalAlignment: Text.AlignHCenter
           opacity: 0.6

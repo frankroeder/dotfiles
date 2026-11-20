@@ -94,7 +94,9 @@ build_wifi_tooltip() {
     link=$(iw dev "$dev" link 2>/dev/null || true)
     bssid=$(awk '/^Connected to/ { print $3; exit }' <<<"$link")
     freq=$(awk '/freq:/ { print $2; exit }' <<<"$link")
-    bitrate=$(awk '/tx bitrate:/ { print $3 " " $4; exit }' <<<"$link")
+    # Both directions: "↓ 195.0 ↑ 58.5 MBit/s" (rx first: what a download sees); tx alone when rx is missing.
+    bitrate=$(awk '/rx bitrate:/ { rx = $3 } /tx bitrate:/ { tx = $3; unit = $4 }
+      END { if (tx == "") exit; if (rx != "") printf "↓ %s ↑ %s %s", rx, tx, unit; else printf "%s %s", tx, unit }' <<<"$link")
     dbm=$(awk '/signal:/ { gsub(/[^0-9-].*/, "", $2); print $2; exit }' <<<"$link")
   fi
   printf "Connected to %s\nSignal: %s%%\nInterface: %s\nIP: %s\nGateway: %s" "$ssid" "$sig" "$dev" "$ip" "$gw"

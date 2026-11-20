@@ -121,11 +121,13 @@ eq(/now !== was && \(now === "nomatch" \|\| \(now === "failed" && was !== "nomat
 eq(["ready", "reading", "match", "nomatch", "retry", "failed", "off"].every((ph) => orb.includes('"' + ph + '"')), true, "the orb knows every phase view() names");
 eq([/Style\.vivid\b/.test(orb), /Style\.vivid2/.test(orb)], [true, true], "orb: the lock's accent pair");
 // Animated (unlike hyprlock): scanning arc while reading, a pop as each result lands, the line rises in, the card
-// drops out of the notch. Nothing runs while the card is hidden: every looping animation is tied to `live`.
+// drops out from under the bar (his pick 2026-11-20: not over it); the polkit card grows out of the notch (IslandCard).
+// Nothing runs while hidden: loops are tied to `live`.
 const lineQml = read("TouchIdLine.qml");
 eq([/RotationAnimator on rotation/.test(orb), /onPhaseChanged: if \(orb\.live && orb\.lit\) land\.restart\(\)/.test(orb),
-  /onMessageChanged: if \(line\.live\) rise\.restart\(\)/.test(lineQml), /y: root\.shown \? 0 : -12/.test(card)],
-  [true, true, true, true], "animations: scan, land, rise, drop");
+  /onMessageChanged: if \(line\.live\) rise\.restart\(\)/.test(lineQml), /y: root\.shown \? 0 : -12/.test(card),
+  /IslandCard \{[\s\S]*?shown: root\.shown/.test(polkitQml)],
+  [true, true, true, true, true], "animations: scan, land, rise, drop (Touch ID), island (polkit)");
 eq((orb + lineQml).match(/running: [^\n]*/g).every((r) => /\.live && /.test(r)), true, "looping animations run only while shown");
 // A QML Timer can fire a frame early: the tick is aimed past `until` and set per state (a binding kept the old
 // interval, so a state outlived its time by a whole period).

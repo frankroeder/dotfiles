@@ -29,7 +29,11 @@ Item {
   function monitorModeLabel(m) {
     if (!m) return ""
     const hz = m.refreshRate ? " · " + Math.round(Number(m.refreshRate) * 100) / 100 + " Hz" : ""
-    return (m.width || 0) + "×" + (m.height || 0) + hz
+    // Panel size + density for the built-in only: external EDIDs lie about mm (the LG says 700×400 for a 24").
+    const pw = Number(m.physicalWidth) || 0, ph = Number(m.physicalHeight) || 0
+    const panel = String(m.name || "").indexOf("eDP") === 0 && pw > 0 && ph > 0
+      ? " · " + (Math.hypot(pw, ph) / 25.4).toFixed(1) + "″ · " + Math.round((m.width || 0) * 25.4 / pw) + " ppi" : ""
+    return (m.width || 0) + "×" + (m.height || 0) + hz + panel
   }
   // Enabled only: `monitors all -j` lists disabled outputs, and picking one as
   // the mirror source (clamshell'd eDP-1) points the live display at nothing.
@@ -66,13 +70,13 @@ Item {
     const calls = targets.map(m => "hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name)
       + ", mirror = " + quickMonitorsRoot.luaString(src.name) + " })")
     quickMonitorsRoot.keepLauncherOn(src)
-    quickMonitorsRoot.applyRevertable(calls.join("\n"), "Mirroring to " + src.name + "...")
+    quickMonitorsRoot.applyRevertable(calls.join("\n"), "Mirroring to " + src.name + "…")
   }
   // A mirrored output leaves the layout, so the workspace rules pinned to it
   // (ws 1-5 → the external in monitors.lua) have no display. Reload is the way
   // back: it wipes eval'd rules and its config.reloaded hook re-runs
   // asahi-hdmi sync / monitor-scale apply / clamshell apply.
-  function unmirrorMonitors() { quickMonitorsRoot.revertLayout("Unmirroring...") }
+  function unmirrorMonitors() { quickMonitorsRoot.revertLayout("Unmirroring…") }
   // Extend = back to the configured layout: drop kept HDMI / DP positions first,
   // then reload (config.reloaded runs asahi-hdmi sync, which reads the layout file).
   // External only leaves the clamshell flag (also once kept) and the reload's clamshell apply
@@ -83,7 +87,7 @@ Item {
     quickMonitorsRoot.revertClamshell = false
     quickMonitorsRoot.revertLua = ""
     quickMonitorsRoot.disarmRevert()
-    quickMonitorsRoot.monStatus = "Reloading monitors..."
+    quickMonitorsRoot.monStatus = "Reloading monitors…"
     const resets = (quickMonitorsRoot.mons || []).filter(m => /^(HDMI|DP)/.test(m.name))
       .map(m => root.binDir + "/asahi-hdmi reset " + m.name)
     const cs = root.binDir + "/asahi-clamshell"
@@ -100,7 +104,7 @@ Item {
     if (!external) { quickMonitorsRoot.monStatus = "No enabled external"; return }
     if (!edp || edp.disabled) { quickMonitorsRoot.monStatus = "Already external only"; return }
     quickMonitorsRoot.keepLauncherOn(external)
-    quickMonitorsRoot.monStatus = "External only..."
+    quickMonitorsRoot.monStatus = "External only…"
     quickMonitorsRoot.revertClamshell = true
     Quickshell.execDetached([root.binDir + "/asahi-clamshell", "close"])
     quickMonitorsRoot.revertLeft = 15
@@ -108,7 +112,7 @@ Item {
     monDelay.restart()
   }
   function rescanMonitors() {
-    quickMonitorsRoot.monStatus = "Rescanning..."
+    quickMonitorsRoot.monStatus = "Rescanning…"
     if (!monScan.running) monScan.running = true
   }
 
@@ -235,7 +239,7 @@ Item {
     if (!m) { quickMonitorsRoot.monStatus = "No focused monitor"; return }
     const clean = QuickModels.cleanScale(scale, m.width, m.height)
     if (!clean) { quickMonitorsRoot.monStatus = "Invalid scale"; return }
-    quickMonitorsRoot.applyMonitorConfig(m, QuickModels.monitorModeString(m), clean, m.name + " scale " + clean + "...")
+    quickMonitorsRoot.applyMonitorConfig(m, QuickModels.monitorModeString(m), clean, m.name + " scale " + clean + "…")
   }
 
   // ---- Resolution / refresh for the focused monitor ----
@@ -253,7 +257,7 @@ Item {
     const mode = w + "x" + h + "@" + Number(hz).toFixed(2)
     // The scale must stay legal for the NEW mode dimensions.
     const scale = QuickModels.cleanScale(m.scale || 1, w, h) || "1"
-    quickMonitorsRoot.applyMonitorConfig(m, mode, scale, m.name + " → " + mode + "...")
+    quickMonitorsRoot.applyMonitorConfig(m, mode, scale, m.name + " → " + mode + "…")
   }
   // Lua config (Hyprland 0.56): `hyprctl keyword` is legacy-parser only —
   // apply through hl.monitor via eval, like mirror/external-only do. The
@@ -282,7 +286,7 @@ Item {
     const m = quickMonitorsRoot.focusedMon
     if (!m || (m.transform || 0) === t || quickMonitorsRoot.blockedByRevert()) return
     quickMonitorsRoot.applyRevertable("hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name) + ", transform = " + t + " })",
-      m.name + " rotate " + (t * 90) + "°...")
+      m.name + " rotate " + (t * 90) + "°…")
   }
 
   // ---- Arrangement: drag a tile, snap on release, Apply sends positions ----
@@ -343,7 +347,7 @@ Item {
       return "hl.monitor({ output = " + quickMonitorsRoot.luaString(n) + ", position = " + quickMonitorsRoot.luaString((m.x || 0) + "x" + (m.y || 0)) + " })" })
     quickMonitorsRoot.draft = ({})
     if (!calls.length) return
-    quickMonitorsRoot.applyRevertable(calls.join("\n"), "Arranging...")
+    quickMonitorsRoot.applyRevertable(calls.join("\n"), "Arranging…")
     quickMonitorsRoot.revertLua = undo.join("\n")
     quickMonitorsRoot.keepPositions = d
   }
@@ -358,7 +362,7 @@ Item {
     }
     if (m.disabled) {
       const f = QuickModels.enableMonitorFields(m, quickMonitorsRoot.monSaved)
-      quickMonitorsRoot.monStatus = "Enabling " + m.name + "..."
+      quickMonitorsRoot.monStatus = "Enabling " + m.name + "…"
       monAction.command = ["hyprctl", "eval",
         "hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name)
         + ", disabled = false"
@@ -372,7 +376,7 @@ Item {
     quickMonitorsRoot.keepLauncherOn(QuickModels.enabledMonitors(quickMonitorsRoot.mons).find(x => x.name !== m.name))
     quickMonitorsRoot.applyRevertable(
       "hl.monitor({ output = " + quickMonitorsRoot.luaString(m.name) + ", disabled = true })",
-      "Disabling " + m.name + "...")
+      "Disabling " + m.name + "…")
   }
 
   Process {
@@ -380,8 +384,8 @@ Item {
     command: ["hyprctl", "monitors", "all", "-j"]
     stdout: StdioCollector {
       onStreamFinished: {
-        // A "..." status (rescan, mirror, external only) is done once a scan answers.
-        if (quickMonitorsRoot.monStatus.endsWith("...")) quickMonitorsRoot.monStatus = ""
+        // A "…" status (rescan, mirror, external only) is done once a scan answers.
+        if (quickMonitorsRoot.monStatus.endsWith("…")) quickMonitorsRoot.monStatus = ""
         // Same JSON → keep the array (every binding on mons would re-evaluate).
         const raw = (text || "").trim() || "[]"
         if (raw === quickMonitorsRoot.monRaw) return
@@ -480,7 +484,7 @@ Item {
     implicitWidth: actPillRow.implicitWidth + 26
     implicitHeight: actPill.icon ? actPillRow.implicitHeight + 16 : 28
     radius: actPill.icon ? Style.menuRadiusLg : Style.menuRadiusFull
-    color: actPill.tonal ? (actPillMa.containsMouse ? Qt.lighter(Style.m3primary, 1.1) : Style.m3primary)
+    color: actPill.tonal ? (actPillMa.containsMouse ? Qt.tint(Style.m3primary, Style.m3stateHover) : Style.m3primary)
       : (actPillMa.containsMouse ? Style.m3stateHover : "transparent")
     border.width: actPill.tonal ? 0 : 1
     border.color: actPillMa.containsMouse ? Style.m3outline : Style.m3outlineVariant

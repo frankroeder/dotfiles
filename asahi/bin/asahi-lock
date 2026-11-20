@@ -12,6 +12,11 @@
 # Only this session's hyprlock counts (hyprlock_running): a nested preview's must not skip the lock.
 # hyprlock's stderr goes to ~/.local/state/asahi/hyprlock.log (Hyprland's own
 # log is tmpfs and gone after the reboot that follows a wedge).
+# Locker: the Quickshell island lock (remix/lock.qml, his pick 2026-11-20; Touch ID + password verified live), or
+# hyprlock when ~/.local/state/asahi/locker says `hyprlock`; ASAHI_LOCKER overrides (tests, trials). Both print
+# "Unlocked, exiting!" on unlock, so the guard and the intro work the same. Three quickshell runs that end
+# without it fall back to hyprlock for this lock: a broken qs must not leave the session on lockdead.
+# TTY escape with it: pkill -f asahi-lock; pkill -f remix/lock.qml.
 
 set -u
 . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
@@ -24,6 +29,15 @@ mkdir -p "$(dirname "$log")"
 # hyprlock shows nothing when Touch ID cannot be claimed, and does not know Aurora's lockout statuses: its fingerprint
 # log lines become the Touch ID orb's note (asahi-lock-touchid): "<until epoch> <kind> <text>" (until 0 = stays: Touch
 # ID gave up, password only). The orb also gets the time this hyprlock began (how long has verify not started?).
+locker=${ASAHI_LOCKER:-$(cat "${XDG_STATE_HOME:-$HOME/.local/state}/asahi/locker" 2>/dev/null || echo quickshell)}
+qs_fails=0
+lock_screen() {
+  if [ "$locker" = quickshell ]; then
+    qs -n -p "$HOME/.dotfiles/asahi/quickshell/remix/lock.qml"
+  else
+    hyprlock "$@"
+  fi
+}
 note="$(runtime_dir)/asahi-lock-touchid.note"
 began="$(runtime_dir)/asahi-lock-touchid.start"
 reader_state="$(runtime_dir)/asahi-lock.reader"   # "unlocked" on the unlock line, "eof" once the reader ends
@@ -58,7 +72,7 @@ run() {
   printf '%s\n' "$EPOCHSECONDS" >"$began"
   # The intro starts on hyprlock's unlock line, not at its exit: after a Touch ID unlock hyprlock lingers seconds
   # (its pending password PAM attempt fails and waits out the failure delay).
-  hyprlock "$@" > >(while IFS= read -r l; do
+  lock_screen "$@" > >(while IFS= read -r l; do
     printf '%s\n' "$l"
     case $l in
       *"Unlocked, exiting"*) echo unlocked >>"$reader_state"; intro play >/dev/null ;;
@@ -66,7 +80,7 @@ run() {
     esac
   done >>"$log"; echo eof >>"$reader_state") 2>&1
   local rc=$?
-  echo "hyprlock exit $rc" >>"$log"
+  echo "$locker exit $rc" >>"$log"
   # hyprlock 0.9.7 can crash in its exit teardown after the unlock (SIGSEGV in the fprintd sdbus proxy destructor):
   # the session is already unlocked, a retry would lock it again. The reader may lag the exit: wait for its verdict
   # (≤ 1 s; `$!` does not name an output process substitution after an external command). A false "unlocked" fails
@@ -74,6 +88,7 @@ run() {
   if [ $rc -ne 0 ]; then
     for _ in $(seq 20); do grep -qs -e unlocked -e eof "$reader_state" && break; sleep 0.05; done
     if grep -qs unlocked "$reader_state"; then echo "crashed after unlock: done" >>"$log"; return 0; fi
+    if [ "$locker" = quickshell ] && ((++qs_fails >= 3)); then locker=hyprlock; echo "quickshell lock failed 3x: hyprlock" >>"$log"; fi
   fi
   return $rc
 }

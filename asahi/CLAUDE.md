@@ -75,8 +75,21 @@ relabel filter.
   blocks `handle-lid-switch` until lid open; `asahi-idle` skips sleep while it's failed (one critical "Sleep disabled"
   notification per boot, else SoC silently awake). `asahi-idle wake` (after_sleep) keeps panel dark under a closed lid
   (outside clamshell; `asahi-clamshell open` relights). Stay-awake doesn't gate lid suspend.
+- **Locker = the Quickshell lock** (2026-11-20, his pick after a nested prototype; Touch ID and password unlocks
+  verified live 15:22 / 15:2x). Layout = hyprlock's (hostname under the cutout; bottom row uptime / battery · Touch ID
+  orb over the password pill · clock with accent seconds / date; the theme's lock fades): **nothing attaches to the
+  notch** (his call: the notch-island card, here and on hyprlock, was rejected). Rises in, drops out on unlock, hyprconf's
+  shake on a wrong password. `quickshell/remix/lock.qml` run by `asahi-lock` (`qs -n -p`, a separate instance: a
+  crash of the shell never unlocks), PAM from `quickshell/lockpam` — `fingerprint` (pam_fprintd max-tries 3,
+  timeout 600, re-armed every 5 s after a timeout / suspend / lid close) beside `password` (pam_unix alone: the system
+  stack's pam_fprintd would hold a typed password 30 s). It prints hyprlock's "Unlocked, exiting!" so the guard below,
+  the crash-after-unlock rule and the intro are unchanged. `~/.local/state/asahi/locker` = `hyprlock` switches back;
+  three quickshell runs without an unlock fall back to hyprlock for that lock. State IPC only with `LOCK_DEMO=1`
+  (screenshots); `LOCK_IPC_SUBMIT=1` = a test submit that still needs PAM. Never test wrong passwords against the
+  real finger context (a touch in between unlocks: it did once, 15:19). TTY escape adds `pkill -f remix/lock.qml`.
+  The hyprlock notes below describe the fallback.
 - **Lock guard**: every lock path (hypridle `lock_cmd`, Super+Escape, launcher Lock, `asahi-clamshell` blocked-lid
-  close — direct, not `loginctl lock-session`: works without hypridle) runs `asahi-lock` = hyprlock restart loop
+  close — direct, not `loginctl lock-session`: works without hypridle) runs `asahi-lock` = locker restart loop
   (flock, 30 tries, stderr → `~/.local/state/asahi/hyprlock.log`): exit 0 only on unlock / `finished` after `locked`;
   crash / `killall -9` → retry (else lockdead, no way in), `allow_session_lock_restore` retakes. A crash **after** its
   `Unlocked, exiting!` line counts as unlocked (hyprlock 0.9.7 SIGSEGVs in the fprintd sdbus proxy destructor at exit,
@@ -326,8 +339,9 @@ relabel filter.
   notched panel: title runs to the cutout wall. Bell (`Notifications.qml`): notched panel = cutout's right wall
   (`notifNotch`), else first right chip (`notifBlock`); in `rightBase`; clock rightmost (bell at left starved media).
   No trays ("strip, spaced"): groups by spacing, chips touch inside — right: `[tray · status]` `[usage]`
-  `[mic · volume]` `[Wi-Fi · BT · battery]` `[clock]`; `rightBase` excludes tray + grants. SysChip avg
-  SMC temp (`tempAvg`, macsmc_hwmon `temp*_input`; no SoC die °C on Asahi) only while it fits (`showTemp`: media
+  `[mic · volume]` `[Wi-Fi · BT · battery]` `[clock]`; `rightBase` excludes tray + grants. SysChip temp =
+  the SoC die (`BarData.tempIsDie`: macsmc "SoC Die Temperature", Aurora kernels; one read per 3 s) else the SMC
+  average (`tempAvg`) only while it fits (`showTemp`: media
   keeps ≥ 200 px; from `baseWidth` / `naturalWidth`, never capped widths). Vol / mic: click mute, wheel step,
   right-click Media pane.
 - **Workspaces**: `monitors.lua` pins 1–5 to external, 6–10 to eDP-1 (clamshell: 1–5); 1 / 6 `default` + `persistent`
@@ -348,7 +362,10 @@ relabel filter.
   `Qt.ApplicationShortcut` (grab may focus the bar). App menus: TrayPanel opens via `QsMenuAnchor`, drops its grab
   until `closed`. `HyprlandFocusGrab` dies on `focusable: false`. Attention dot static (pulse = per-frame redraw).
   Menu positions are window coords (`mapToItem(null, …)`).
-- **Bar = click to act, event-driven**: left-cluster chips slide neighbours (Row `move`/`add`, off first second);
+- **Bar = click to act, event-driven**: chips answer a press at once (`HoverTint { down: …pressed }`,
+  `Style.barStripPress`); CPU / RAM / temp / mic / volume / battery values carry a 2 px level bar (his pick from the
+  2026-11-20 variants Terminal / Dots / Levels: Levels only, layout kept; renders in
+  `~/screenshots/quickshell-bar-variants-*-2026-11-20.png`); left-cluster chips slide neighbours (Row `move`/`add`, off first second);
   right cluster only fades in (`add`; `move` made the clock side jump). Hover = `HoverTint`; tooltips only on tray
   icons (+ BT battery list); night-light chip only while on. REC dot blinks on the elapsed tick (no animation). Mic
   orange while recorded (`PwNodeLinkTracker`). Sources bind, not poll: Pipewire (`AudioChip` + `PwObjectTracker`),
@@ -372,6 +389,19 @@ relabel filter.
   `/proc/<pid>/cmdline`, space-joined). Widevine: copies main profile's CDM hint (else previews only).
   `extension/clock.js` feeds MusicKit's per-track clock to Media Session. Linked into `~/.local/bin` (session PATH
   lacks `asahi/bin`). Shuffle / love / library bridge dropped (too much code).
+- **Look tokens** (`Style.qml`, 2026-11-20 polish pass): fonts in one block — `fontUi` Adwaita Sans (launcher, panes,
+  bar popups, sheet, toasts, OSD), `fontBar` Noto Sans (bar strip only, converged), `fontMono` Cascadia NF (glyphs);
+  digits that tick add `font.features: Style.fontTabular` (Adwaita has `tnum`; Noto is tabular by default). Light
+  palettes run crust > mantle > base, so there `m3surface(Solid)` = mantle and cards step down (`m3container` = mantle
+  tinted by base@0.8, `m3containerHigh` = base); dark unchanged; `popupBorder` stays 0.6 (≈ 3:1 on a light window;
+  0.3 measured 1.6:1). Motion: bar popups, sheet, tray, app grid enter with `Menu.MenuPopIn` (fade + 0.96 → 1
+  spring from the edge they hang from); bar popups, sheet, tray leave with `Menu.MenuPopOut` (180 ms accelerate):
+  `visible: open || popOut.running`, and the focus grab, its arm timer and Esc follow `open`, never `visible` (a
+  closing popup must not grab; real-click tested: inside keeps, outside closes, reopen mid-exit ends open). App grid
+  unmaps at once. Launcher / `MenuCard` / backdrop leave on `MenuAnim { exit }`; a pane switch
+  fades + rises 10 px. Hover on a filled button = `Qt.tint(fill, Style.m3stateHover)`, never `Qt.lighter`. Section
+  captions = tracked caps (`fontPx(8)` DemiBold, 1.2). Floating cards radius Lg, nested cards Md; `MenuCard` has a
+  `menuHairline` rim. No `Text.NativeRendering` in the bar (SysChip's drew thinner than its neighbours at 1.875×).
 - **Launcher quick panes**: one file each in `quickshell/remix/modules/launcher/panes/`; `LauncherWindow.qml` does
   `Panes.XPane { root: launcherSelf }` (`root` in a pane = that property). Shared M3 widgets in `modules/menu` take
   `fontScale` (`MenuSwitch` fixed; `component Pill: Menu.MenuPill { fontScale: root.uiFontScale }`). Hover =
@@ -466,7 +496,7 @@ relabel filter.
   Slices written to `.tmp`, renamed. Span switch in Monitors pane. Picker previews stay uncut. Test:
   `asahi/bin/asahi_wallpaper_span_test.py`.
 - **Autotheme**: Hyprland has no portal Settings — `portals.conf` pins Settings to gtk. Flavours
-  `source content vibrant calm mono` (`FLAVORS` = source of truth; saturation = fraction of gamut room, never a
+  `source content vibrant calm mono` + by hue `expressive warm cool pastel` (`FLAVORS` = source of truth; saturation = fraction of gamut room, never a
   multiplier). ANSI / named colors stay in their hue family (`HUES`, `_family_hue`; red/orange lean less: critical vs
   warning); text ladders WCAG (subtext0 ≥ 4.5:1 on base, text on accent = crust). Bare run keeps saved flavour
   (colors.json `variant`), prefers `quickshell/wallpaper.conf`; runs hold `asahi-theme/.lock`. Writes
@@ -876,6 +906,27 @@ relabel filter.
   `-las`): the `iio:deviceN` index swaps between boots. jq: `0` is truthy (0 lux shows). GPU cores from the kernel log
   (cached per boot). Tuned profile / boost are not shown (no effect, see Power profiles). Test
   `asahi/bin/asahi_hardware_test.sh` (`ASAHI_SYS_ROOT` fake tree, `XDG_STATE_HOME` for `idle.log`).
+- **More hardware readouts** (2026-11-20, his pick; no new polling, each rides an existing open-only read):
+  `asahi-temperature` also lists macsmc `in*` / `curr*` (`volts`, `amps`) + the cpufreq cooling devices
+  (`cooling`, human `Throttle:` line, `temp_display.js` parses it) → Battery SMC card "Charger Input" (PD level), Temps
+  hero "CPU full clock / throttled". `asahi-cpu` "Pressure cpu X% mem Y%" (PSI avg10) and `asahi-memory` "Zram …
+  (N.Nx)" → SysPanel "stall" line + swap ratio; heat tile shows the die °C. `asahi-metrics` `busy_pct` (io_ticks of
+  the busiest disk) → Storage hero. `asahi-network` Bitrate "↓ rx ↑ tx". Displays: built-in only "14.2″ · 254 ppi"
+  (external EDID mm lie). Hardware "Slept Thu 16:29 · −2.32 Wh". Battery hero: 24 h charge curve from UPower
+  `GetHistory` (busctl JSON, one call per open). Running apps: `LauncherWindow.windowCount` / `isActive` over
+  `ToplevelManager.toplevels` app ids → `Menu.MenuRunDots` (a dot per window, max 3; the focused app's first a 16×4
+  accent pill + halo, OutBack; idea: shell-ninja/hyprconf dock) in the app grid and launcher app rows.
+- **shell-ninja/hyprconf pass** (2026-11-20, his ask): auth flows grow out of the notch — `modules/system/IslandCard.qml`
+  (notch-black pill the cutout's size, flush with the top edge, `grow` 0→1 on the spring lerps width / height / bottom
+  radius, the surface fades over the black, content below the cutout after 55 %; closes on the exit curve; without a
+  notch it starts bar-coloured) for the polkit card (dim + blur fade with it). The Touch ID card stays under the bar
+  (his pick: it covered the notch bell). Their island is a floating rounded rect, ours the notch.
+  Launcher prompt glyph names the mode (calculator / files / the category's icon, accent). Lock: see "Locker" (a
+  hyprlock notch island and a Quickshell island lock were built and rejected: nothing at the notch on the lock). Theme flavours +4 by hue (`palette.py`
+  `accent_from`): expressive (≥ 50° from the dominant accent), warm (OKLCH 15–95°), cool (175–275°), pastel (+0.25
+  L, −0.35 sat, tinted panels: light mode caps the accent); picked from the 12 representatives by chroma × weight^0.4,
+  fallback = hue turned toward the window; neutrals turned half-way to the picked hue only within 90° (orange → blue
+  half-way is magenta). Their generator is HLS bins, dark-only; ours keeps OKLCH + WCAG.
 - **Launcher preview** (no live popup): copy `remix`, a shell with only the `LauncherWindow` Loader + an IpcHandler
   (shell.qml's imports, else `LookupView` is "not a type"; drop `asahi-cliphist watch` from the copy: it restarts the
   live watcher), `qs -n -p <copy>/x.qml` in a nested Hyprland with a headless output (as for the lock), `qs -p … ipc

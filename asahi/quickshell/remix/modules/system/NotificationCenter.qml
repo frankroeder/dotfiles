@@ -654,7 +654,7 @@ Scope {
 
   PanelWindow {
     id: historySheet
-    visible: root.historyVisible
+    visible: root.historyVisible || sheetPopOut.running
     color: "transparent"
     screen: root.historyScreen
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
@@ -678,15 +678,24 @@ Scope {
     WlrLayershell.namespace: "quickshell-notification-center"
     // Under the bell, the bar's last chip (right edge = barEdgeMargin).
     anchors { top: true; right: true }
-    margins { top: 8; right: Style.barEdgeMargin }
+    margins { top: 6; right: Style.barEdgeMargin }   // bar popups' drop (BarModel.popupDrop)
     implicitWidth: 420
     // Grow with the list up to a cap instead of a fixed tall sheet.
     implicitHeight: Math.max(180, Math.min(560, historyColumn.implicitHeight + historyHeader.implicitHeight + 14 * 2 + 21))
 
+    Connections {
+      target: root
+      function onHistoryVisibleChanged() { if (root.historyVisible) { sheetPopOut.stop(); sheetPopIn.restart() } else sheetPopOut.restart() }
+    }
+    Menu.MenuPopIn { id: sheetPopIn; target: sheetCard }
+    Menu.MenuPopOut { id: sheetPopOut; target: sheetCard }
+
     Rectangle {
+      id: sheetCard
       anchors.fill: parent
+      transformOrigin: Item.TopRight
       radius: Style.menuRadiusLg
-      color: Style.menuBg
+      color: Style.m3surfaceSolid
       border.color: Style.popupBorder
       border.width: Style.popupBorderWidth
 
@@ -771,7 +780,7 @@ Scope {
               Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: root.dndEnabled ? "󰂛" : "󰂚"
-                font.family: Style.fontFamily
+                font.family: Style.fontUi; font.features: Style.fontTabular
                 font.pixelSize: 26
                 color: Style.menuInkMuted
               }
@@ -846,7 +855,7 @@ Scope {
                   }
                   Text {
                     text: "󰅖"
-                    font.family: Style.fontFamily
+                    font.family: Style.fontUi; font.features: Style.fontTabular
                     font.pixelSize: 12
                     color: clearMa.containsMouse ? Style.red : Style.menuInkMuted
                     MouseArea { id: clearMa; anchors.fill: parent; anchors.margins: -4; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.dismissGroup(group.modelData) }
@@ -889,7 +898,7 @@ Scope {
     Text {
       anchors.centerIn: parent
       text: hb.glyph
-      font.family: Style.fontFamily
+      font.family: Style.fontUi; font.features: Style.fontTabular
       font.pixelSize: 15
       color: hb.tone
     }
@@ -922,8 +931,9 @@ Scope {
     signal activated()
     signal button(var b)
 
-    color: card.compact ? Style.m3container : Style.menuBg
-    radius: Style.menuRadiusMd
+    color: card.compact ? Style.m3container : Style.m3surfaceSolid
+    // Floating toasts take the popup radius; history cards nest inside the sheet (concentric: one step down).
+    radius: card.compact ? Style.menuRadiusMd : Style.menuRadiusLg
     // Toasts float over windows: the popup outline; history cards sit inside the sheet: hairline.
     border.color: card.critical ? Qt.alpha(Style.red, 0.55) : card.compact ? Style.menuSep : Style.popupBorder
     border.width: card.compact ? 1 : Style.popupBorderWidth
@@ -1053,7 +1063,7 @@ Scope {
           anchors.centerIn: parent
           visible: root.iconFor(card.entry) === ""
           text: "󰂚"
-          font.family: Style.fontFamily
+          font.family: Style.fontUi; font.features: Style.fontTabular
           font.pixelSize: 16
           color: card.accent
         }
@@ -1168,7 +1178,7 @@ Scope {
         Text {
           anchors.centerIn: parent
           text: "󰅖"
-          font.family: Style.fontFamily
+          font.family: Style.fontUi; font.features: Style.fontTabular
           font.pixelSize: 13
           color: closeMa.containsMouse ? Style.red : Style.menuInkMuted
         }

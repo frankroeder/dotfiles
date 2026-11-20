@@ -131,7 +131,7 @@ const pyKeys = (block.slice(0, block.indexOf("\n}")).match(/^\s{4}"([a-z]+)":/gm
 const jsKeys = C.FLAVORS.map(f => f.key);
 console.log("  python: " + pyKeys.join(", "));
 console.log("  qml:    " + jsKeys.join(", "));
-assert(pyKeys.length === 5, "palette.py exposes five flavours — fewer, further apart");
+assert(pyKeys.length === 9, "palette.py: five flavours by strength + four by hue (expressive, warm, cool, pastel)");
 assert(pyKeys.slice().sort().join() === jsKeys.slice().sort().join(),
   "every --variant the picker offers exists in palette.py and vice versa");
 assert(jsKeys.every(k => C.flavorHint(k) !== ""), "every flavour has a hint");

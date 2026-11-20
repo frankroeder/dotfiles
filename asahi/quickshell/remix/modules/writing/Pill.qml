@@ -14,7 +14,7 @@ Rectangle {
   implicitHeight: 34
   radius: height / 2
   opacity: enabled ? 1 : 0.4
-  color: primary ? (pillMa.containsMouse ? Qt.lighter(Style.m3primary, 1.08) : Style.m3primary)
+  color: primary ? (pillMa.containsMouse ? Qt.tint(Style.m3primary, Style.m3stateHover) : Style.m3primary)
     : active ? Style.m3primaryContainer
     : pillMa.containsMouse ? Style.m3containerHigh : Style.m3container
   border.width: active ? 1 : 0

@@ -25,7 +25,7 @@ Item {
     implicitWidth: row.implicitWidth + 6
     implicitHeight: Style.barHeight
 
-    HoverTint { lit: chipMouse.containsMouse }
+    HoverTint { down: chipMouse.pressed; lit: chipMouse.containsMouse }
 
     RowLayout {
         id: row
@@ -37,6 +37,7 @@ Item {
             font.family: Style.fontFamily
             font.pixelSize: Style.barFontGlyphTall
             color: root.alert.state === "critical" ? Style.red : (root.warn ? Style.orange : (root.powered ? Style.magenta : Style.textMuted))
+            Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
         }
     }
 

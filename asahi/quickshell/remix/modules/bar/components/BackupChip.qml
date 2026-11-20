@@ -105,7 +105,7 @@ Item {
     Rectangle { width: parent.width * chip.backupPct; height: parent.height; radius: 1; color: Style.m3primary }
   }
 
-  HoverTint { lit: backupMouse.containsMouse }
+  HoverTint { down: backupMouse.pressed; lit: backupMouse.containsMouse }
   MouseArea {
     id: backupMouse
     anchors.fill: parent

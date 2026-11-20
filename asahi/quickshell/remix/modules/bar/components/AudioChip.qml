@@ -38,7 +38,7 @@ Item {
   implicitWidth: content.implicitWidth + 6
   implicitHeight: Style.barHeight
 
-  HoverTint { lit: chipMouse.containsMouse }
+  HoverTint { down: chipMouse.pressed; lit: chipMouse.containsMouse }
 
   RowLayout {
     id: content
@@ -50,12 +50,16 @@ Item {
       font.family: Style.fontFamily
       font.pixelSize: Style.barFontGlyphTall
       color: root.muted ? Style.red : root.inUse ? Style.orange : root.input ? Style.blueAlt : Style.green
+      Behavior on color { ColorAnimation { duration: Style.menuStateMs } }   // mute / mic-in-use cross-fade instead of snapping
     }
 
     Text {
       text: root.percentage >= 0 ? root.percentage + "%" : "--%"
       font.family: Style.fontFamily
       font.pixelSize: Style.barFontBody
+        // Level bar (his pick 2026-11-20, variant "Levels"): 2 px under the value, its fill = the value.
+        Rectangle { anchors { left: parent.left; right: parent.right; top: parent.bottom; topMargin: 1 } height: 2; radius: 1; color: Qt.alpha(Style.textMuted, 0.22)
+          Rectangle { height: parent.height; radius: 1; color: (root.muted ? Style.red : root.inUse ? Style.orange : root.input ? Style.blueAlt : Style.green); width: parent.width * Math.max(0, Math.min(1, root.percentage / 100)) } }
       color: barHost ? barHost.barForeground : Style.text
     }
   }

@@ -71,7 +71,7 @@ Rectangle {
       color: parent.active ? Style.m3primary
         : parent.primary ? (btnMa.containsMouse ? Style.m3primary : Style.m3onSurface)
         : btnMa.containsMouse ? Style.m3onSurface : Style.m3onSurfaceVariant
-      font.family: Style.fontFamily
+      font.family: Style.fontUi; font.features: Style.fontTabular
       font.pixelSize: Math.round(parent.size * (parent.primary ? 0.42 : 0.38))
       Behavior on color { ColorAnimation { duration: 120 } }
     }
@@ -212,7 +212,7 @@ Rectangle {
         opacity: card.playing && !ring.count ? 0.35 : 0
         scale: disc.scale
         Behavior on opacity { NumberAnimation { duration: 500 } }
-        layer.enabled: true
+        layer.enabled: opacity > 0   // the blur pass re-renders with the disc's pulse even when invisible
         layer.effect: MultiEffect { blurEnabled: true; blurMax: 32; blur: 1.0 }
       }
       // Ring: cava bars radiating from the rim, mirrored so both halves meet at the bottom.
@@ -256,7 +256,7 @@ Rectangle {
             visible: !card.hasArt
             text: "󰝚"
             color: Style.overlay1
-            font.family: Style.fontFamily
+            font.family: Style.fontUi; font.features: Style.fontTabular
             font.pixelSize: parent.width * 0.26
           }
           Image {
@@ -324,7 +324,7 @@ Rectangle {
           Text {
             text: card.playing ? "󰐊" : "󰏤"
             color: card.playing ? Style.m3primary : Style.m3onSurfaceVariant
-            font.family: Style.fontFamily; font.pixelSize: card.px(11)
+            font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: card.px(11)
             anchors.verticalCenter: parent.verticalCenter
           }
           Text {
@@ -339,7 +339,7 @@ Rectangle {
             visible: parent.parent.many
             text: "󰑐"
             color: Style.m3onSurfaceVariant
-            font.family: Style.fontFamily; font.pixelSize: card.px(11)
+            font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: card.px(11)
             anchors.verticalCenter: parent.verticalCenter
           }
         }

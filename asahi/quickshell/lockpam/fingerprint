@@ -1,0 +1,3 @@
+# Quickshell island lock (remix/lock.qml), Touch ID: a long verify the lock re-arms after a timeout, suspend or lid
+# close; 3 no-matches end it for this lock (password only, like hyprlock).
+auth  required  pam_fprintd.so max-tries=3 timeout=600

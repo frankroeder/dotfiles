@@ -27,6 +27,15 @@ else
   swap_percentage=0
 fi
 
+# zram: what the compressed swap holds vs the RAM it takes (mm_stat: orig_data_size, compr, mem_used_total).
+zram_line=""
+if [ -r "${ASAHI_ZRAM_STAT:-/sys/block/zram0/mm_stat}" ]; then
+  read -r zram_orig _ zram_used _ < "${ASAHI_ZRAM_STAT:-/sys/block/zram0/mm_stat}"
+  if [ "${zram_used:-0}" -gt 0 ]; then
+    zram_line="$(awk -v o="$zram_orig" -v u="$zram_used" 'BEGIN { printf "Zram %.1f GiB in %.1f GiB (%.1fx)", o / 1073741824, u / 1073741824, o / u }')"
+  fi
+fi
+
 mem_used_gib="$(awk -v value="$mem_used" 'BEGIN { printf "%.1f", value / 1048576 }')"
 mem_total_gib="$(awk -v value="$mem_total" 'BEGIN { printf "%.1f", value / 1048576 }')"
 swap_used_gib="$(awk -v value="$swap_used" 'BEGIN { printf "%.1f", value / 1048576 }')"
@@ -34,6 +43,7 @@ swap_total_gib="$(awk -v value="$swap_total" 'BEGIN { printf "%.1f", value / 104
 
 tooltip="RAM ${mem_used_gib}/${mem_total_gib} GiB (${mem_percentage}%)\\n"
 tooltip="${tooltip}Swap ${swap_used_gib}/${swap_total_gib} GiB (${swap_percentage}%)"
+if [ -n "$zram_line" ]; then tooltip="${tooltip}\\n${zram_line}"; fi
 
 # BarData.qml reads the tooltip only.
 printf '{"tooltip":"%s"}\n' "$tooltip"

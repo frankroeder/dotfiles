@@ -3,7 +3,8 @@
 # asahi-metrics
 #
 # Disk throughput for the Storage pane: physical disks only (no partitions,
-# loop, ram, zram). Rates are deltas against the previous run (state file).
+# loop, ram, zram). Rates are deltas against the previous run (state file);
+# busy_pct = share of that time the disks had I/O in flight (io_ticks, field 13).
 #
 # Tests: ASAHI_PROC_ROOT, ASAHI_SYS_ROOT, ASAHI_METRICS_STATE
 #
@@ -41,27 +42,29 @@ devices="${devices# }"
 
 disk_read=0
 disk_write=0
+disk_io=0
 if [ -r "$proc_root/diskstats" ] && [ -n "$devices" ]; then
-  disk_read="$(
+  # io_ticks: the busiest disk's ms with I/O in flight (one disk here; max keeps it a percentage with more).
+  read -r disk_read disk_write disk_io < <(
     awk -v want="$devices" '
       BEGIN { n = split(want, a, / /); for (i = 1; i <= n; i++) ok[a[i]] = 1 }
-      (NF >= 10 && ($3 in ok)) { r += $6 + 0; w += $10 + 0 }
-      END { printf "%d %d", r * 512, w * 512 }
+      (NF >= 13 && ($3 in ok)) { r += $6 + 0; w += $10 + 0; if ($13 + 0 > io) io = $13 + 0 }
+      END { printf "%d %d %d\n", r * 512, w * 512, io }
     ' "$proc_root/diskstats"
-  )"
-  disk_write="${disk_read##* }"
-  disk_read="${disk_read%% *}"
+  )
 fi
 disk_read="${disk_read:-0}"
 disk_write="${disk_write:-0}"
+disk_io="${disk_io:-0}"
 
 prev_ms=0
 prev_read=0
 prev_write=0
+prev_io=""
 if [ -r "$state_file" ]; then
-  read -r prev_ms prev_read prev_write _ < "$state_file" || true
+  read -r prev_ms prev_read prev_write prev_io _ < "$state_file" || true
 fi
-printf '%s %s %s\n' "$now_ms" "$disk_read" "$disk_write" > "$state_file"
+printf '%s %s %s %s\n' "$now_ms" "$disk_read" "$disk_write" "$disk_io" > "$state_file"
 
 elapsed=0
 if [ "$prev_ms" -gt 0 ] && [ "$now_ms" -gt "$prev_ms" ]; then
@@ -81,8 +84,16 @@ rate() {
   }'
 }
 
+# An old state file (no io column) or no elapsed time: 0 %.
+busy=0
+if [ "$elapsed" -gt 0 ] && [ -n "$prev_io" ] && [ "$disk_io" -ge "$prev_io" ]; then
+  busy=$(( (disk_io - prev_io) * 100 / elapsed ))
+  [ "$busy" -gt 100 ] && busy=100
+fi
+
 jq -nc \
   --arg devices "$devices" \
+  --argjson busy "$busy" \
   --argjson read_bps "$(rate "$disk_read" "$prev_read")" \
   --argjson write_bps "$(rate "$disk_write" "$prev_write")" \
-  '{disk: {devices: ($devices | split(" ") | map(select(. != ""))), read_bps: $read_bps, write_bps: $write_bps}}'
+  '{disk: {devices: ($devices | split(" ") | map(select(. != ""))), read_bps: $read_bps, write_bps: $write_bps, busy_pct: $busy}}'

@@ -8,7 +8,7 @@ Item {
   anchors.fill: parent
   opacity: reveal
 
-  Behavior on opacity { MenuAnim { effects: true } }
+  Behavior on opacity { MenuAnim { effects: true; exit: root.reveal < 1 } }
 
   Rectangle {
     anchors.fill: parent

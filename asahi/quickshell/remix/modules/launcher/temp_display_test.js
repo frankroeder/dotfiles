@@ -66,6 +66,9 @@ assert((parsed.power || []).length >= 2, "power rails parsed");
 assert((parsed.fans || []).length === 2, "both fans parsed");
 assert(parsed.fans[0].value === 0 && parsed.fans[0].min === 2317, "idle fan keeps 0 RPM and min");
 assert(parsed.fans[1].value === 2400 && parsed.fans[1].max === 6800, "spinning fan keeps RPM window");
+assert(JSON.stringify(parsed.throttle) === JSON.stringify([{ type: "cpufreq-cpu0", cur: 0, max: 5 },
+  { type: "cpufreq-cpu4", cur: 3, max: 16 }, { type: "cpufreq-cpu8", cur: 0, max: 16 }]), "throttle line parsed");
+assert(parsed.sensors.every(function (s) { return !/Voltage|Current/.test(s.label) }), "V / A rows are no temperatures");
 assert(parsed.hottest && parsed.hottest.value === 44.20, "hottest is still the exposed °C peak");
 assert(parsed.sensors.every(function (s) { return s.name !== "macsmc_hwmon" || s.label.indexOf("/") !== 0 }),
   "trailing Hottest: summary line is not parsed as a sensor");

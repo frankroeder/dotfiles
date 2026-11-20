@@ -5,6 +5,7 @@ import Quickshell.Wayland
 import Quickshell.Services.SystemTray
 import "../BarModel.js" as BarModel
 import "../../../"
+import "../../menu" as Menu
 
 // The tray's overflow surface: every item as a readable row instead of a 20px glyph,
 // with the app's own menu on a real target rather than a precise right-click.
@@ -41,7 +42,8 @@ PanelWindow {
     menuAnchor.open()
   }
 
-  visible: shouldShow
+  visible: shouldShow || popOut.running
+  onShouldShowChanged: if (shouldShow) { popOut.stop(); popIn.restart() } else popOut.restart()
   color: "transparent"
   // Focusable for the grab below (HyprlandFocusGrab dies on focusable: false).
   focusable: true
@@ -49,7 +51,9 @@ PanelWindow {
   exclusionMode: ExclusionMode.Ignore
 
   anchors { top: true; right: true }
-  margins { top: root.barHeight + 6; right: 12 }
+  margins { top: root.barHeight + 6; right: Style.barEdgeMargin }
+  Menu.MenuPopIn { id: popIn; target: card }
+  Menu.MenuPopOut { id: popOut; target: card }
 
   implicitWidth: 320
   implicitHeight: card.implicitHeight
@@ -58,11 +62,11 @@ PanelWindow {
   // Esc is an app-wide shortcut: the grab may leave keyboard focus on the bar.
   HyprlandFocusGrab {
     windows: [root, root.barWindow]
-    active: root.visible && !root.menuShown
+    active: root.shouldShow && !root.menuShown
     onCleared: root.close()
   }
   Shortcut {
-    enabled: root.visible
+    enabled: root.shouldShow
     sequences: ["Escape"]
     context: Qt.ApplicationShortcut
     onActivated: root.close()
@@ -79,8 +83,7 @@ PanelWindow {
     color: Style.m3surfaceSolid
     border.color: Style.popupBorder
     border.width: Style.popupBorderWidth
-    opacity: root.shouldShow ? 1 : 0
-    Behavior on opacity { NumberAnimation { duration: 140 } }
+    transformOrigin: Item.TopRight
 
     Column {
       id: column
@@ -97,7 +100,7 @@ PanelWindow {
           width: column.width - 12
           height: 42
           radius: Style.radiusSm
-          color: rowMouse.containsMouse ? Style.menuRowHi : "transparent"
+          color: rowMouse.containsMouse ? Style.m3stateHover : "transparent"
           Behavior on color { ColorAnimation { duration: 120 } }
 
           readonly property string detail: BarModel.trayDetail(row.modelData.title, row.modelData.tooltipTitle)
@@ -127,7 +130,7 @@ PanelWindow {
               textFormat: Text.PlainText
               text: String(row.modelData.title || row.modelData.id || "")
               elide: Text.ElideRight
-              font.family: Style.fontFamily
+              font.family: Style.fontUi; font.features: Style.fontTabular
               font.pixelSize: Style.barFontBody
               color: row.modelData.status === Status.NeedsAttention ? Style.orange : Style.barStripText
             }
@@ -138,7 +141,7 @@ PanelWindow {
               text: row.detail
               visible: text !== ""
               elide: Text.ElideRight
-              font.family: Style.fontFamily
+              font.family: Style.fontUi; font.features: Style.fontTabular
               font.pixelSize: Style.barFontCaption
               color: Style.textMuted
             }
@@ -153,12 +156,12 @@ PanelWindow {
             height: 24
             radius: Style.radiusSm
             visible: row.modelData.hasMenu
-            color: menuMouse.containsMouse ? Style.menuRowHi : "transparent"
+            color: menuMouse.containsMouse ? Style.m3stateHover : "transparent"
 
             Text {
               anchors.centerIn: parent
               text: "󰇙"
-              font.family: Style.fontFamily
+              font.family: Style.fontUi; font.features: Style.fontTabular
               font.pixelSize: Style.barFontBody
               color: Style.textMuted
             }

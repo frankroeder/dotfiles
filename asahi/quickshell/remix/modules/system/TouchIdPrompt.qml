@@ -96,7 +96,7 @@ Scope {
       id: card
       anchors.fill: parent
       radius: Style.menuRadiusLg
-      color: Style.menuBg
+      color: Style.m3surfaceSolid
       border.color: Qt.alpha(root.tone, 0.55)
       border.width: Style.popupBorderWidth
       opacity: root.shown ? 1 : 0

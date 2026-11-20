@@ -40,7 +40,12 @@ var FLAVORS = [
   { key: "content", label: "Content", hint: "panels washed in the wallpaper's own hues" },
   { key: "vibrant", label: "Vibrant", hint: "accents at full strength, panels kept neutral" },
   { key: "calm",    label: "Calm",    hint: "soft, desaturated, recessive" },
-  { key: "mono",    label: "Mono",    hint: "greyscale" }
+  { key: "mono",    label: "Mono",    hint: "greyscale" },
+  // By hue (shell-ninja/hyprconf's variants): a color the image has, picked by where it sits on the wheel.
+  { key: "expressive", label: "Expressive", hint: "a contrasting second color from the image" },
+  { key: "warm",    label: "Warm",    hint: "the warmest amber, copper or coral in the image" },
+  { key: "cool",    label: "Cool",    hint: "the deepest blue, cyan or teal in the image" },
+  { key: "pastel",  label: "Pastel",  hint: "soft, luminous, light accents" }
 ]
 
 function flavorHint(key) {

@@ -11,9 +11,15 @@ const cpu = S.parseCpuTooltip(
 if (cpu.load !== "0.10 0.20 0.30" || cpu.cores !== "10") throw new Error("load/cores " + JSON.stringify(cpu));
 if (cpu.temp !== 42.1 || cpu.freq !== "1.20 GHz") throw new Error("temp/freq " + JSON.stringify(cpu));
 if (!isNaN(S.parseCpuTooltip("").temp)) throw new Error("missing thermal must be NaN");
+const psi = S.parseCpuTooltip("Load 1/5/15: 1 2 3\nPressure cpu 7.77% mem 0.00%");
+if (psi.psiCpu !== 7.77 || psi.psiMem !== 0) throw new Error("psi " + JSON.stringify(psi));
+if (!isNaN(cpu.psiCpu)) throw new Error("no Pressure line must be NaN");
 
 const mem = S.parseMemTooltip("RAM 12.2/32.0 GiB (38%)\\nSwap 0.0/8.0 GiB (0%)");
 if (mem.ramUsed !== "12.2" || mem.ramTotal !== "32.0" || mem.swapTotal !== "8.0") throw new Error("ram " + JSON.stringify(mem));
+if (mem.zramRatio !== "") throw new Error("no zram line → empty ratio");
+const z = S.parseMemTooltip("RAM 16.2/30.9 GiB (52%)\\nSwap 3.3/8.0 GiB (41%)\\nZram 3.1 GiB in 0.7 GiB (4.2x)");
+if (z.zramRatio !== "4.2") throw new Error("zram " + JSON.stringify(z));
 
 const ps = S.parsePs("%CPU COMMAND\n 12.0 firefox\n  8.1 RDD Process\n  0.1 ps\n");
 if (ps.length !== 2 || ps[0].comm !== "firefox" || ps[1].comm !== "RDD Process") throw new Error("ps " + JSON.stringify(ps));

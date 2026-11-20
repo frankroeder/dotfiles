@@ -59,6 +59,9 @@ Item {
   property var vpnPending: null
   property string vpnStage: ""
   property string vpnIpKey: ""
+  // A reply landing after the pane is gone ran against a dead context (QuickModels null): abort it on the way out.
+  property var vpnIpXhr: null
+  Component.onDestruction: if (vpnIpXhr) vpnIpXhr.abort()
   property var vpnLastConns: []
   property var vpnLastDetails: ({})
 
@@ -356,6 +359,7 @@ Item {
       const ip = QuickModels.parsePublicIp(xhr.responseText)
       if (ip) quickNetworkRoot.vpnPublicIp = ip
     }
+    quickNetworkRoot.vpnIpXhr = xhr
     xhr.open("GET", "https://checkip.amazonaws.com")
     xhr.send()
   }
@@ -790,7 +794,7 @@ Item {
   component CardTitle: Text {
     color: Style.m3onSurface
     font.family: quickNetworkRoot.root.uiSans
-    font.pixelSize: quickNetworkRoot.root.fontPx(12)
+    font.pixelSize: quickNetworkRoot.root.fontPx(13)
     font.weight: Font.DemiBold
   }
   component Secondary: Text {
@@ -1247,8 +1251,12 @@ Item {
             Secondary {
               visible: !!netDelegate.modelData.section
               text: netDelegate.modelData.section || ""
-              font.weight: Font.Medium
-              leftPadding: 10; topPadding: 6; bottomPadding: 2
+              // Section caption: the tracked caps of Bluetooth / Devices / SysPanel.
+              font.pixelSize: quickNetworkRoot.root.fontPx(8)
+              font.weight: Font.DemiBold
+              font.letterSpacing: 1.2
+              font.capitalization: Font.AllUppercase
+              leftPadding: 10; topPadding: 8; bottomPadding: 4
             }
             Rectangle {
               width: parent.width

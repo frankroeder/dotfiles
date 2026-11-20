@@ -55,9 +55,11 @@ Scope {
     field.text = ""
   }
 
+  readonly property bool shown: agent.isActive && root.flow !== null
+
   PanelWindow {
     id: card
-    visible: agent.isActive && root.flow !== null
+    visible: root.shown || island.busy
     screen: root.authScreen
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
@@ -67,13 +69,17 @@ Scope {
     WlrLayershell.namespace: "quickshell-polkit"
     onVisibleChanged: if (visible) { root.wrong = false; field.text = ""; field.forceActiveFocus() }
 
-    Rectangle { anchors.fill: parent; color: Style.menuDim }
+    Rectangle { anchors.fill: parent; color: Style.menuDim; opacity: island.grow }
 
-    Menu.MenuCard {
-      anchors.centerIn: parent
-      width: 440
-      height: col.implicitHeight + 2 * cardMargin
-      cardMargin: 22
+    // Grows out of the notch (IslandCard) and folds back into it.
+    IslandCard {
+      id: island
+      anchors.horizontalCenter: parent.horizontalCenter
+      y: 0
+      shown: root.shown
+      screen: root.authScreen
+      fullWidth: 440
+      contentHeight: col.implicitHeight
       transform: Translate { id: shakeX }
 
       ColumnLayout {

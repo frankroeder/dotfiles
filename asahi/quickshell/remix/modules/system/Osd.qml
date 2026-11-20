@@ -161,7 +161,7 @@ Scope {
     Rectangle {
       anchors.fill: parent
       radius: Style.menuRadiusLg
-      color: Style.menuBg
+      color: Style.m3surfaceSolid
       border.color: Qt.alpha(root.accent, 0.45)
       border.width: 1
       opacity: root.visible ? 1 : 0
@@ -199,7 +199,7 @@ Scope {
             Text {
               textFormat: Text.PlainText  // Bluetooth device names
               text: root.value
-              font.family: Style.menuSans
+              font.family: Style.menuSans; font.features: Style.fontTabular
               font.pixelSize: 12
               font.weight: Font.Medium
               color: Style.menuInkDeep

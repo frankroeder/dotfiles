@@ -122,7 +122,7 @@ RowLayout {
       color: root.stayAwake ? Style.yellow : root.fg
     }
 
-    HoverTint { lit: chipMouse1.containsMouse }
+    HoverTint { down: chipMouse1.pressed; lit: chipMouse1.containsMouse }
     MouseArea {
       id: chipMouse1
       anchors.fill: parent
@@ -146,7 +146,7 @@ RowLayout {
       color: Style.orange
     }
 
-    HoverTint { lit: chipMouse2.containsMouse }
+    HoverTint { down: chipMouse2.pressed; lit: chipMouse2.containsMouse }
     MouseArea {
       id: chipMouse2
       anchors.fill: parent
@@ -188,7 +188,7 @@ RowLayout {
       }
     }
 
-    HoverTint { lit: chipMouse3.containsMouse }
+    HoverTint { down: chipMouse3.pressed; lit: chipMouse3.containsMouse }
     MouseArea {
       id: chipMouse3
       anchors.fill: parent
@@ -224,7 +224,7 @@ RowLayout {
       }
     }
 
-    HoverTint { lit: chipMouse4.containsMouse }
+    HoverTint { down: chipMouse4.pressed; lit: chipMouse4.containsMouse }
     MouseArea {
       id: chipMouse4
       anchors.fill: parent
@@ -252,7 +252,7 @@ RowLayout {
       color: Style.orange
     }
 
-    HoverTint { lit: chipMouse5.containsMouse }
+    HoverTint { down: chipMouse5.pressed; lit: chipMouse5.containsMouse }
     MouseArea {
       id: chipMouse5
       anchors.fill: parent

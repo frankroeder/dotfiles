@@ -15,3 +15,6 @@ MenuChip 1.0 MenuChip.qml
 MenuIconBtn 1.0 MenuIconBtn.qml
 MenuLinkBtn 1.0 MenuLinkBtn.qml
 MenuSwitch 1.0 MenuSwitch.qml
+MenuPopIn 1.0 MenuPopIn.qml
+MenuPopOut 1.0 MenuPopOut.qml
+MenuRunDots 1.0 MenuRunDots.qml

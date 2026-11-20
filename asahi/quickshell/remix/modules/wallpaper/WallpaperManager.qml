@@ -336,7 +336,7 @@ Scope {
               }
               Rectangle {
                 implicitWidth: applyRow.implicitWidth + 22; implicitHeight: 30; radius: Style.menuRadiusFull
-                color: applyMa.containsMouse ? Qt.lighter(Style.m3primary, 1.1) : Style.m3primary
+                color: applyMa.containsMouse ? Qt.tint(Style.m3primary, Style.m3stateHover) : Style.m3primary
                 Row {
                   id: applyRow; anchors.centerIn: parent; spacing: 6
                   Text { text: "󰄬"; color: Style.m3onPrimary; font.family: root.uiFont; font.pixelSize: 13; anchors.verticalCenter: parent.verticalCenter }
@@ -551,7 +551,7 @@ Scope {
         width: applyLbl.width + 32
         height: 38
         radius: Style.menuRadiusFull
-        color: applyPreviewMa.containsMouse ? Qt.lighter(Style.m3primary, 1.1) : Style.m3primary
+        color: applyPreviewMa.containsMouse ? Qt.tint(Style.m3primary, Style.m3stateHover) : Style.m3primary
         Row {
           id: applyLbl
           anchors.centerIn: parent

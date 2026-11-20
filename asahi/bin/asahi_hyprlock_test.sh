@@ -117,7 +117,7 @@ n=$(( $(cat "$RUNS" 2>/dev/null || echo 0) + 1 )); echo "$n" >"$RUNS"
 SH
 chmod +x "$tmp/hyprlock"
 printf '#!/usr/bin/env bash\nexit 1\n' >"$tmp/pgrep"; chmod +x "$tmp/pgrep"
-RUNS="$tmp/runs" XDG_RUNTIME_DIR="$tmp" XDG_STATE_HOME="$tmp" ASAHI_LOCK_RETRY_S=0 PATH="$tmp:$PATH" "$ROOT/asahi-lock"
+RUNS="$tmp/runs" ASAHI_LOCKER=hyprlock XDG_RUNTIME_DIR="$tmp" XDG_STATE_HOME="$tmp" ASAHI_LOCK_RETRY_S=0 PATH="$tmp:$PATH" "$ROOT/asahi-lock"
 if [ "$(cat "$tmp/runs")" = 3 ] && [ "$(grep -c 'hyprlock exit' "$tmp/asahi/hyprlock.log")" = 3 ]; then
   pass "asahi-lock restarts a crashed hyprlock until exit 0, logs each exit"
 else
@@ -128,7 +128,7 @@ rm -f "$tmp/runs"
 printf '#!/usr/bin/env bash\necho x >>"$RUNS"\necho "[DEBUG]: Unlocked, exiting!"\nkill -SEGV $$\n' >"$tmp/hyprlock"
 printf '#!/bin/sh\nexit 1\n' >"$tmp/qs"; chmod +x "$tmp/qs"   # never the live shell's intro
 rc=0
-RUNS="$tmp/runs" XDG_RUNTIME_DIR="$tmp" XDG_STATE_HOME="$tmp" ASAHI_LOCK_RETRY_S=0 PATH="$tmp:$PATH" "$ROOT/asahi-lock" \
+RUNS="$tmp/runs" ASAHI_LOCKER=hyprlock XDG_RUNTIME_DIR="$tmp" XDG_STATE_HOME="$tmp" ASAHI_LOCK_RETRY_S=0 PATH="$tmp:$PATH" "$ROOT/asahi-lock" \
   2>/dev/null || rc=$?
 if [ "$rc" = 0 ] && [ "$(wc -l <"$tmp/runs")" = 1 ] && grep -q 'crashed after unlock' "$tmp/asahi/hyprlock.log"; then
   pass "asahi-lock does not relock after hyprlock crashes past its unlock"
@@ -138,7 +138,7 @@ fi
 # This session's hyprlock already up: no second one. Only its WAYLAND_DISPLAY counts (not a nested preview's).
 rm -f "$tmp/runs"
 printf '#!/usr/bin/env bash\necho "$*" >"%s/pgrep-args"\n' "$tmp" >"$tmp/pgrep"
-WAYLAND_DISPLAY=wayland-1 RUNS="$tmp/runs" XDG_RUNTIME_DIR="$tmp" XDG_STATE_HOME="$tmp" PATH="$tmp:$PATH" "$ROOT/asahi-lock"
+WAYLAND_DISPLAY=wayland-1 RUNS="$tmp/runs" ASAHI_LOCKER=hyprlock XDG_RUNTIME_DIR="$tmp" XDG_STATE_HOME="$tmp" PATH="$tmp:$PATH" "$ROOT/asahi-lock"
 if [ ! -e "$tmp/runs" ] && grep -q -- "-x --env WAYLAND_DISPLAY=wayland-1 hyprlock" "$tmp/pgrep-args"; then
   pass "asahi-lock leaves this session's running hyprlock alone"
 else
@@ -150,7 +150,7 @@ printf '#!/bin/sh\necho hyprlock >>"%s/qs-calls"\necho "[DEBUG]: Unlocked, exiti
 printf '#!/bin/sh\nexit 1\n' >"$tmp/pgrep"
 printf '#!/bin/sh\necho "$*" | sed "s/.* call wallpaperIntro //" >>"%s/qs-calls"\n[ "$7" = ready ] || exit 0\n[ -e "%s/ready-once" ] && echo true || { : >"%s/ready-once"; echo false; }\n' "$tmp" "$tmp" "$tmp" >"$tmp/qs"
 chmod +x "$tmp/hyprlock" "$tmp/pgrep" "$tmp/qs"
-XDG_RUNTIME_DIR="$tmp" XDG_STATE_HOME="$tmp" PATH="$tmp:$PATH" "$ROOT/asahi-lock"
+ASAHI_LOCKER=hyprlock XDG_RUNTIME_DIR="$tmp" XDG_STATE_HOME="$tmp" PATH="$tmp:$PATH" "$ROOT/asahi-lock"
 if [ "$(tr "\n" "|" <"$tmp/qs-calls" 2>/dev/null)" = "arm|ready|ready|hyprlock|play|hyprlock-exit|play|" ]; then
   pass "lock arms the wallpaper intro, waits for it; the unlock line plays it, before hyprlock exits"
 else
@@ -160,11 +160,55 @@ fi
 rm -f "$tmp/qs-calls"
 printf '#!/bin/sh\nexit 1\n' >"$tmp/hyprlock"
 rc=0
-XDG_RUNTIME_DIR="$tmp" XDG_STATE_HOME="$tmp" ASAHI_LOCK_RETRY_S=0 PATH="$tmp:$PATH" "$ROOT/asahi-lock" || rc=$?
+ASAHI_LOCKER=hyprlock XDG_RUNTIME_DIR="$tmp" XDG_STATE_HOME="$tmp" ASAHI_LOCK_RETRY_S=0 PATH="$tmp:$PATH" "$ROOT/asahi-lock" || rc=$?
 if [ "$rc" = 1 ] && [ "$(tail -n 1 "$tmp/qs-calls")" = play ]; then
   pass "asahi-lock out of retries releases the held intro (exit 1)"
 else
   fail_at "asahi-lock out of retries: rc=$rc last call [$(tail -n 1 "$tmp/qs-calls" 2>/dev/null)]"
+fi
+# Quickshell island lock (`locker` quickshell / ASAHI_LOCKER): qs -n -p remix/lock.qml, same unlock line and guard.
+rm -f "$tmp/qs-calls" "$tmp/runs"
+cat >"$tmp/qs" <<SH
+#!/bin/sh
+case "\$*" in
+  *"-p "*lock.qml*) echo lock >>"$tmp/qs-calls"; [ -e "$tmp/qs-lock-fails" ] && exit 1; echo "  WARN qml: Unlocked, exiting!" >&2 ;;
+  *wallpaperIntro*) echo intro >>"$tmp/qs-calls"; [ "\$7" = ready ] && echo true ;;
+esac
+exit 0
+SH
+printf '#!/bin/sh\necho hyprlock >>"%s/qs-calls"\n' "$tmp" >"$tmp/hyprlock"
+chmod +x "$tmp/qs" "$tmp/hyprlock"
+rc=0
+ASAHI_LOCKER=quickshell XDG_RUNTIME_DIR="$tmp" XDG_STATE_HOME="$tmp" ASAHI_LOCK_RETRY_S=0 PATH="$tmp:$PATH" "$ROOT/asahi-lock" || rc=$?
+if [ "$rc" = 0 ] && [ "$(grep -c '^lock$' "$tmp/qs-calls")" = 1 ] && ! grep -q hyprlock "$tmp/qs-calls" \
+  && grep -q 'quickshell exit 0' "$tmp/asahi/hyprlock.log" && grep -q '^unlocked$' "$tmp/asahi-lock.reader"; then
+  pass "asahi-lock runs the Quickshell island lock when locker = quickshell (its unlock line counts)"
+else
+  fail_at "quickshell locker: rc=$rc calls=[$(tr '\n' ' ' <"$tmp/qs-calls" 2>/dev/null)]"
+fi
+if grep -q '/asahi/locker" 2>/dev/null || echo quickshell)}' "$ROOT/asahi-lock"; then
+  pass "the island lock is the default locker (locker file = hyprlock switches back)"
+else
+  fail_at "asahi-lock default locker is not quickshell"
+fi
+# Three quickshell runs without the unlock line: hyprlock takes over this lock.
+rm -f "$tmp/qs-calls"; : >"$tmp/qs-lock-fails"
+rc=0
+ASAHI_LOCKER=quickshell XDG_RUNTIME_DIR="$tmp" XDG_STATE_HOME="$tmp" ASAHI_LOCK_RETRY_S=0 PATH="$tmp:$PATH" "$ROOT/asahi-lock" || rc=$?
+if [ "$rc" = 0 ] && [ "$(grep -c '^lock$' "$tmp/qs-calls")" = 3 ] && [ "$(grep -c '^hyprlock$' "$tmp/qs-calls")" = 1 ]; then
+  pass "a failing Quickshell lock falls back to hyprlock after three runs"
+else
+  fail_at "quickshell fallback: rc=$rc calls=[$(tr '\n' ' ' <"$tmp/qs-calls" 2>/dev/null)]"
+fi
+rm -f "$tmp/qs-lock-fails"
+# The lock's PAM: a password file (pam_unix only, no pam_fprintd: it would hold a typed password) beside the finger.
+pamd="$ROOT/../quickshell/lockpam"
+if grep -qx 'auth     required  pam_unix.so' "$pamd/password" && ! grep -q '^[^#]*pam_fprintd' "$pamd/password" \
+  && grep -q '^auth  required  pam_fprintd.so max-tries=3' "$pamd/fingerprint" \
+  && grep -q 'enabled: lock.demo' "$ROOT/../quickshell/remix/lock.qml"; then
+  pass "lock PAM: password = pam_unix alone, finger = pam_fprintd; the state IPC exists only in demo mode"
+else
+  fail_at "lock PAM files / demo-only IPC"
 fi
 # Touch ID orb: fingerprint auth on; glyph, ring and caption are one script's three parts with the theme's colors.
 orb_args='"$FPRINTPROMPT" "$lock_fg" "$lock_muted" "$lock_accent" "$lock_accent2" "$lock_warn" "$lock_fail" "$lock_on"'
@@ -254,7 +298,7 @@ printf '#!/bin/sh\necho "$*" >>"%s/systemctl-calls"\n' "$tmp" >"$tmp/systemctl"
 chmod +x "$tmp/systemctl"
 note_after() {   # the note one lock leaves for hyprlock printing these lines
   { printf '#!/bin/sh\n'; printf 'echo "[DEBUG]: fprint: %s"\n' "$@"; printf 'sleep 0.3\n'; } >"$tmp/hyprlock"
-  XDG_RUNTIME_DIR="$tmp" XDG_STATE_HOME="$tmp" PATH="$tmp:$PATH" "$ROOT/asahi-lock"
+  ASAHI_LOCKER=hyprlock XDG_RUNTIME_DIR="$tmp" XDG_STATE_HOME="$tmp" PATH="$tmp:$PATH" "$ROOT/asahi-lock"
   cut -d' ' -f2- "$tmp/asahi-lock-touchid.note" 2>/dev/null
 }
 nm="handling status verify-no-match"

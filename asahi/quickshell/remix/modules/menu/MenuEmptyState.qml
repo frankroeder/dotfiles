@@ -56,7 +56,7 @@ Column {
     implicitWidth: actRow.implicitWidth + Math.round(28 * root.fontScale)
     implicitHeight: Math.round(32 * root.fontScale)
     radius: height / 2
-    color: actMa.containsMouse ? Qt.lighter(Style.m3primary, 1.1) : Style.m3primary
+    color: actMa.containsMouse ? Qt.tint(Style.m3primary, Style.m3stateHover) : Style.m3primary
     Behavior on color { ColorAnimation { duration: 120 } }
     Row {
       id: actRow

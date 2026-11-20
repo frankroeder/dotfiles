@@ -32,7 +32,8 @@ Item {
     anchors.bottomMargin: Style.barChipInset
     radius: Style.radiusSm
     // No tray: lit on hover and while its panel is open.
-    color: chipMa.containsMouse || (root.barHost && root.barHost.openPanel === "sys") ? Style.barStripHover : "transparent"
+    color: chipMa.pressed ? Style.barStripPress
+      : chipMa.containsMouse || (root.barHost && root.barHost.openPanel === "sys") ? Style.barStripHover : "transparent"
     Behavior on color { ColorAnimation { duration: 120 } }
   }
 
@@ -47,13 +48,16 @@ Item {
     spacing: 4
     Text {
       text: icon; color: accent
-      font.family: Style.fontFamily; font.pixelSize: iconPx; renderType: Text.NativeRendering
+      font.family: Style.fontFamily; font.pixelSize: iconPx
       anchors.verticalCenter: parent.verticalCenter
     }
     Text {
       text: (root.barHost ? root.barHost.fmt2(value) : "--") + suffix; color: accent
-      font.family: Style.fontFamily; font.pixelSize: Style.barFontBody; renderType: Text.NativeRendering
+      font.family: Style.fontFamily; font.pixelSize: Style.barFontBody
       anchors.verticalCenter: parent.verticalCenter
+        // Level bar (his pick 2026-11-20, variant "Levels"): 2 px under the value, its fill = the value.
+        Rectangle { anchors { left: parent.left; right: parent.right; top: parent.bottom; topMargin: 1 } height: 2; radius: 1; color: Qt.alpha(accent, 0.22)
+          Rectangle { height: parent.height; radius: 1; color: accent; width: parent.width * Math.max(0, Math.min(1, value / 100)) } }
       Behavior on color { ColorAnimation { duration: 160 } }
     }
   }

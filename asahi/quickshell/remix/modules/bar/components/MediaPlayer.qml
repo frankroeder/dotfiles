@@ -32,7 +32,7 @@ Item {
   readonly property bool playing: Services.Players.isPlaying
   visible: hasMedia && root.maxChipWidth >= root.thumbWidth
 
-  HoverTint { lit: chipMouse.containsMouse || root.panelOpen }
+  HoverTint { down: chipMouse.pressed; lit: chipMouse.containsMouse || root.panelOpen }
 
   Rectangle {
     id: thumbBox
@@ -88,7 +88,7 @@ Item {
       Behavior on x { NumberAnimation { duration: Math.max(400, titleText.overflow * 18); easing.type: Easing.InOutSine } }
       textFormat: Text.PlainText
       text: Services.Players.title || "Media"
-      font.family: Style.menuSans
+      font.family: Style.fontBar
       font.pixelSize: Style.barFontCaption + 1
       font.weight: Font.DemiBold
       color: root.barHost ? root.barHost.barForeground : Style.text
@@ -99,7 +99,7 @@ Item {
       width: textBox.width
       textFormat: Text.PlainText
       text: Services.Players.artist || Services.Players.name(Services.Players.active)
-      font.family: Style.menuSans
+      font.family: Style.fontBar
       font.pixelSize: Style.barFontCaption - 1
       color: Style.barStripMuted
       elide: Text.ElideRight

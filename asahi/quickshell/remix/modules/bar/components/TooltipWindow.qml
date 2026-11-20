@@ -26,7 +26,7 @@ PopupWindow {
   Rectangle {
     anchors.fill: parent
     color: Style.m3surfaceSolid
-    radius: Style.menuRadiusLg
+    radius: Style.menuRadiusMd   // ~36 px tall: Lg read as a pill
     border.color: Style.popupBorder
     border.width: Style.popupBorderWidth
   }
@@ -37,7 +37,7 @@ PopupWindow {
     y: root.pad
     textFormat: Text.PlainText
     text: root.text
-    font.family: Style.fontFamily
+    font.family: Style.fontUi; font.features: Style.fontTabular
     font.pixelSize: Style.fontSizeTiny
     color: Style.text
     wrapMode: Text.Wrap

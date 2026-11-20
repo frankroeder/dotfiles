@@ -19,7 +19,10 @@ stat="$tmp/stat"
 load="$tmp/loadavg"
 freq="$tmp/cpu"
 state="$tmp/state"
-mkdir -p "$hw/hwmon1" "$freq/cpu0/cpufreq" "$state"
+psi="$tmp/pressure"
+mkdir -p "$hw/hwmon1" "$freq/cpu0/cpufreq" "$state" "$psi"
+printf 'some avg10=7.77 avg60=2.19 avg300=2.07 total=1845426376\n' >"$psi/cpu"
+printf 'some avg10=0.00 avg60=0.00 avg300=0.00 total=2904955\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=1\n' >"$psi/memory"
 
 printf 'macsmc_hwmon\n' >"$hw/hwmon1/name"
 printf 'WiFi/BT Module Temp\n' >"$hw/hwmon1/temp4_label"
@@ -42,6 +45,7 @@ out=$(
   ASAHI_PROC_LOADAVG="$load" \
   ASAHI_CPUFREQ_ROOT="$freq" \
   ASAHI_CPU_STATE_DIR="$state" \
+  ASAHI_PROC_PRESSURE="$psi" \
   "$ROOT/asahi-cpu"
 )
 
@@ -54,7 +58,8 @@ grep -qx 'Load 1/5/15: 0.10 0.20 0.30' <<<"$tip" || fail_at "tooltip load line"
 grep -qx 'Cores: 2' <<<"$tip" || fail_at "tooltip cores line"
 grep -q '^Freq avg 1.20 GHz' <<<"$tip" || fail_at "tooltip freq line"
 grep -qx 'Thermal 44.2 C (macsmc_hwmon / WiFi/BT Module Temp)' <<<"$tip" || fail_at "tooltip thermal line"
-[ "$(wc -l <<<"$tip")" = 4 ] || fail_at "tooltip is the four parsed lines"
+grep -qx 'Pressure cpu 7.77% mem 0.00%' <<<"$tip" || fail_at "tooltip pressure line (PSI avg10)"
+[ "$(wc -l <<<"$tip")" = 5 ] || fail_at "tooltip is the five parsed lines"
 pass "asahi-cpu json"
 
 if [ "$fail" -ne 0 ]; then

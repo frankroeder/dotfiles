@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 
 from .extract import Representative
-from .oklab import clamp, hex_from_oklch, hue_distance, max_chroma
+from .oklab import OKLCH, clamp, hex_from_oklch, hue_distance, max_chroma
 
 LIGHT_MODE_THRESHOLD = 0.62
 
@@ -33,12 +33,14 @@ class Flavor:
     surface_c: float = 1.0    # background / surface / selection tint multiplier
     ansi_sat: float = 0.0     # same axis as accent_sat, for the ANSI + named colors
     fidelity: bool = False    # follow wallpaper hues more closely inside each ANSI hue family
+    accent_from: str = ""     # "" = the image's strongest color; expressive / warm / cool = a hue-picked one
 
 
-# Five, deliberately far apart. The axes that actually read on a desktop are how
-# saturated the accents are and how much the *surfaces* carry the wallpaper's
-# cast, so the flavours pull those in opposite directions rather than all just
-# turning the chroma up by different amounts.
+# Five by strength, deliberately far apart: the axes that actually read on a desktop are
+# how saturated the accents are and how much the *surfaces* carry the wallpaper's cast,
+# so they pull those in opposite directions rather than all turning the chroma up.
+# Four more by hue (2026-11-20, after shell-ninja/hyprconf): which of the image's colors
+# leads (a second contrasting one, the warmest, the coolest) or a lifted pastel.
 FLAVORS: dict[str, Flavor] = {
     # closest to the wallpaper: its own chroma, its own surface tint
     "source": Flavor(),
@@ -50,7 +52,23 @@ FLAVORS: dict[str, Flavor] = {
     "calm": Flavor(accent_sat=-0.60, accent_dl=-0.04, surface_c=0.75, ansi_sat=-0.50),
     # greyscale
     "mono": Flavor(accent_sat=-1.0, surface_c=0.0, ansi_sat=-1.0),
+    # Hue-picked accents (shell-ninja/hyprconf's variants): a color the image really has, chosen by hue.
+    # a contrasting second color, >= 50° from the dominant accent
+    "expressive": Flavor(accent_sat=0.35, accent_from="expressive", ansi_sat=0.10),
+    # the warmest amber / copper / coral in the image
+    "warm": Flavor(accent_sat=0.25, accent_from="warm", surface_c=1.15),
+    # the deepest blue / cyan / glacial teal in the image
+    "cool": Flavor(accent_sat=0.25, accent_from="cool", surface_c=1.15),
+    # soft, luminous, high-lightness accent
+    # lift: to the top of the readable window (dark); light mode caps the accent for contrast, so tinted panels carry it
+    "pastel": Flavor(accent_sat=-0.35, accent_dl=0.25, surface_c=1.6, ansi_sat=-0.30),
 }
+
+# OKLCH hue windows for the hue-picked flavours (red ~25°, orange ~55°, amber ~80°; teal ~185°, blue ~260°).
+WARM_HUES = (15.0, 95.0)
+COOL_HUES = (175.0, 275.0)
+# No such color in the image: turn the dominant accent this far toward the window's centre instead.
+HUE_FALLBACK = {"warm": 55.0, "cool": 230.0}
 
 
 # Below this the hue is numerical noise: a greyscale wallpaper still reports
@@ -158,6 +176,22 @@ def _family_hue(th: float, h: float | None, k: float) -> float:
     return _toward(th, h, k)
 
 
+def _hue_accent(reps: list[Representative], base: OKLCH, how: str) -> OKLCH:
+    """The accent for a hue-picked flavour: the most saturated, most present representative in the hue window
+    (expressive: >= 50° from `base`); without one, `base` turned toward the window (expressive: +60°)."""
+    chromatic = [r for r in reps if r.chroma >= 0.04]
+    if how == "expressive":
+        pool = [r for r in chromatic if hue_distance(r.hue, base.H) >= 50]
+    else:
+        lo, hi = WARM_HUES if how == "warm" else COOL_HUES
+        pool = [r for r in chromatic if lo <= r.hue <= hi]
+    if pool:
+        return max(pool, key=lambda r: r.chroma * r.weight ** 0.4).lab.to_oklch()   # hyprconf's bin rank
+    if how == "expressive":
+        return OKLCH(base.L, base.C, (base.H + 60.0) % 360)
+    return OKLCH(base.L, base.C, _toward(base.H, HUE_FALLBACK[how], 0.75))
+
+
 def build_palette(
     reps: list[Representative], wallpaper: str, variant: str = "source", mode: str = "auto"
 ) -> Palette:
@@ -176,6 +210,13 @@ def build_palette(
     s = surface.lab.to_oklch()
     f = foreground.lab.to_oklch()
     a = accent.lab.to_oklch()
+    if fl.accent_from:
+        a = _hue_accent(reps, a, fl.accent_from)
+        # The neutrals lean toward the picked hue, so the whole desktop takes the flavour's mood (hyprconf
+        # tints them with it outright; half-way keeps the wallpaper's own cast). Not across the wheel: half-way
+        # from orange to blue is magenta, a color neither the image nor the flavour has.
+        if hue_distance(s.H, a.H) <= 90:
+            s = OKLCH(s.L, s.C, _toward(s.H, a.H, 0.5))
     sel = selection.lab.to_oklch()
     m = muted.lab.to_oklch()
 

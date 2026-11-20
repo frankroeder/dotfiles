@@ -213,7 +213,7 @@ Item {
   component CardTitle: Text {
     color: Style.m3onSurface
     font.family: tmRoot.root.uiSans
-    font.pixelSize: tmRoot.root.fontPx(12)
+    font.pixelSize: tmRoot.root.fontPx(13)
     font.weight: Font.DemiBold
   }
   component Secondary: Text {

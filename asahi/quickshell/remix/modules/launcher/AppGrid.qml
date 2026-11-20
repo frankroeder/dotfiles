@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
 import "../../"
+import "../menu" as Menu
 
 // Launchpad-style app grid (Super+Alt+Space; omarchy's shell/plugins/dock/AppGrid.qml): every app on one grid, A–Z.
 // Typing filters (name start, then word start, then anywhere), arrows + Enter or a click launch, Esc clears the filter,
@@ -73,9 +74,16 @@ Scope {
     WlrLayershell.namespace: "quickshell-appgrid"
     WlrLayershell.keyboardFocus: root.shown ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     anchors { left: true; right: true; top: true; bottom: true }
-    onVisibleChanged: if (visible) { search.text = ""; grid.currentIndex = 0; search.forceActiveFocus() }
+    onVisibleChanged: if (visible) { search.text = ""; grid.currentIndex = 0; search.forceActiveFocus(); popIn.restart() }
+    // The launcher's entry: scrim fades, card grows from the centre (no exit: the layer unmaps at once).
+    ParallelAnimation {
+      id: popIn
+      Menu.MenuAnim { target: scrim; property: "opacity"; from: 0; to: 1; effects: true }
+      Menu.MenuPopIn { target: card }
+    }
 
     Rectangle {
+      id: scrim
       anchors.fill: parent
       color: Style.menuDim
       MouseArea { anchors.fill: parent; onClicked: root.shown = false }
@@ -87,7 +95,7 @@ Scope {
       width: cols * grid.cellWidth + 40
       height: Math.min(win.height - 160, 92 + 4 * grid.cellHeight)
       anchors.centerIn: parent
-      radius: 18
+      radius: Style.menuPanelRadius
       color: Style.m3surface
       border.color: Style.popupBorder
       border.width: Style.popupBorderWidth
@@ -139,8 +147,20 @@ Scope {
         clip: true
         model: root.apps
         boundsBehavior: Flickable.StopAtBounds
-        highlightMoveDuration: 0
-        highlight: Rectangle { radius: 14; color: Style.m3primaryContainer }
+        // The launcher's selection: accent tint + hairline, moved on the shared spring.
+        highlightFollowsCurrentItem: false
+        highlight: Rectangle {
+          x: grid.currentItem ? grid.currentItem.x : 0
+          y: grid.currentItem ? grid.currentItem.y : 0
+          width: grid.cellWidth
+          height: grid.cellHeight
+          radius: Style.menuRadiusLg
+          color: Style.menuSelFill
+          border.color: Style.menuSelBorder
+          border.width: 1
+          Behavior on x { Menu.MenuAnim {} }
+          Behavior on y { Menu.MenuAnim {} }
+        }
 
         delegate: Item {
           id: cell
@@ -161,7 +181,7 @@ Scope {
           Rectangle {   // no icon: the name's first letter
             visible: icon.status !== Image.Ready
             anchors.fill: icon
-            radius: 14
+            radius: Style.menuRadiusMd
             color: Style.m3container
             Text {
               anchors.centerIn: parent
@@ -170,6 +190,11 @@ Scope {
               font.pixelSize: 26
               color: Style.m3onSurface
             }
+          }
+          Menu.MenuRunDots {   // a dot per open window; the focused app's first one an accent pill
+            anchors { horizontalCenter: icon.horizontalCenter; top: icon.bottom; topMargin: 3 }
+            count: root.launcher ? root.launcher.windowCount(cell.modelData) : 0
+            active: !!root.launcher && root.launcher.isActive(cell.modelData)
           }
           Text {
             anchors { top: icon.bottom; topMargin: 8; horizontalCenter: parent.horizontalCenter }

@@ -12,7 +12,7 @@ Item {
   default property alias content: inner.data
 
   opacity: chromeReveal
-  Behavior on opacity { MenuAnim { effects: true } }
+  Behavior on opacity { MenuAnim { effects: true; exit: root.chromeReveal < 1 } }
 
   Rectangle {
     id: shadowSrc
@@ -35,6 +35,9 @@ Item {
     anchors.fill: parent
     color: Style.m3surface
     radius: root.cardRadius
+    // Hairline rim: keeps the edge on a wallpaper as bright (or dark) as the panel.
+    border.width: 1
+    border.color: Style.menuHairline
     clip: true
 
     MouseArea {

@@ -4,12 +4,14 @@
 #
 # Lists hwmon sensors by stable device name and label, not volatile hwmonN
 # indices. Temperatures come from every chip; Apple Silicon also publishes
-# SMC power rails and fan RPMs on macsmc_hwmon. There is no SoC die °C in
-# sysfs — heatpipe watts are the dissipation estimate the fans follow.
+# SMC power rails, fan RPMs and charger voltage / current on macsmc_hwmon
+# ("SoC Die Temperature" since the Aurora kernel; heatpipe watts are the
+# dissipation estimate the fans follow), and the cpufreq cooling devices say
+# whether the kernel throttles a CPU cluster.
 # One pass on shell builtins (TempPane runs it every 2.5 s): --json forks one jq, the listing none.
 #
 # Usage: asahi-temperature [--json]
-# Tests: ASAHI_HWMON_ROOT=/path/to/hwmon
+# Tests: ASAHI_HWMON_ROOT=/path/to/hwmon ASAHI_THERMAL_ROOT=/path/to/thermal
 #
 
 set -euo pipefail
@@ -27,6 +29,7 @@ for arg in "$@"; do
 done
 
 hwmon_root="${ASAHI_HWMON_ROOT:-/sys/class/hwmon}"
+thermal_root="${ASAHI_THERMAL_ROOT:-/sys/class/thermal}"
 json_rows=()
 
 # raw / $2 with two decimals, rounded, into $fixed (awk's "%.2f" without the fork).
@@ -43,7 +46,8 @@ sensor_desc() {
     macsmc_hwmon:Battery\ Hotspot) desc="SMC battery-near hotspot; useful chassis heat proxy." ;;
     macsmc_hwmon:Charge\ Regulator\ Temp) desc="SMC charge/power regulation; often the hottest system sensor." ;;
     macsmc_hwmon:WiFi/BT\ Module\ Temp) desc="SMC Wi-Fi/Bluetooth module temperature." ;;
-    macsmc_hwmon:Heatpipe\ Power) desc="SMC estimate of SoC heatpipe dissipation; no die °C in sysfs." ;;
+    macsmc_hwmon:Heatpipe\ Power) desc="SMC estimate of SoC heatpipe dissipation." ;;
+    macsmc_hwmon:SoC\ Die\ Temperature) desc="The SoC's own die temperature." ;;
     macsmc_hwmon:Total\ System\ Power) desc="SMC whole-machine power draw." ;;
     macsmc_hwmon:AC\ Input\ Power) desc="Wall/adapter input power." ;;
     macsmc_hwmon:3.8\ V\ Rail\ Power) desc="Always-on 3.8 V rail; often idle at 0 W." ;;
@@ -66,6 +70,8 @@ sensor_row() {
   case "$bucket" in
     temps) fixed2 "$raw" 1000; value=$fixed unit=C suffix='°C   ' ;;
     power) fixed2 "$raw" 1000000; value=$fixed unit=W suffix=' W   ' ;;
+    volts) fixed2 "$raw" 1000; value=$fixed unit=V suffix=' V   ' desc="" ;;
+    amps) fixed2 "$raw" 1000; value=$fixed unit=A suffix=' A   ' desc="" ;;
     fans)
       value=$raw unit=RPM suffix=' RPM  '
       read_line min "${input%_input}_min"
@@ -108,7 +114,7 @@ if [ "$json" != true ]; then
   echo "============================================"
   echo ""
   echo "Values are read from /sys/class/hwmon by device name and temp label."
-  echo "Apple Silicon has no SoC die °C in sysfs; heatpipe watts track dissipation."
+  echo "SoC Die Temperature is the chip's own °C (Aurora kernels); heatpipe watts track dissipation."
   echo ""
 fi
 
@@ -127,12 +133,37 @@ if [ -n "$smc" ]; then
   name=macsmc_hwmon
   sensor_group "$smc" power power " power"
   sensor_group "$smc" fan fans " fans"
+  sensor_group "$smc" in volts " voltage"
+  sensor_group "$smc" curr amps " current"
+fi
+
+# Kernel CPU throttling: each cpufreq cooling device's state (0 = full clock).
+cooling=()
+for dev in "$thermal_root"/cooling_device{0..31}; do
+  [ -d "$dev" ] || continue
+  read_line ctype "$dev/type"
+  case "$ctype" in cpufreq-*) ;; *) continue ;; esac
+  read_line ccur "$dev/cur_state"
+  read_line cmax "$dev/max_state"
+  case "$ccur$cmax" in '' | *[!0-9]*) continue ;; esac
+  cooling+=("$ctype" "$ccur" "$cmax")
+done
+if [ "$json" != true ] && [ ${#cooling[@]} -gt 0 ]; then
+  line="Throttle:"
+  for ((i = 0; i < ${#cooling[@]}; i += 3)); do line+=" ${cooling[i]} ${cooling[i + 1]}/${cooling[i + 2]}"; done
+  echo "$line"
 fi
 
 if [ "$json" = true ]; then
-  jq -nc '
+  cooling_json='[]'
+  if [ ${#cooling[@]} -gt 0 ]; then
+    cooling_json=$(printf '%s\n' "${cooling[@]}" | jq -Rsc 'split("\n")[:-1] | [range(0; length; 3) as $i
+      | {type: .[$i], cur: (.[$i + 1] | tonumber), max: (.[$i + 2] | tonumber)}]')
+  fi
+  jq -nc --argjson cooling "$cooling_json" '
     [$ARGS.positional as $a | range(0; $a | length; 8) | $a[.:. + 8]
       | {b: .[0], o: ({name: .[1], label: .[2], value: (.[3] | tonumber), unit: .[4], path: .[5], desc: .[6]} + (.[7] | fromjson))}] as $rows
     | {temps: [$rows[] | select(.b == "temps") | .o], power: [$rows[] | select(.b == "power") | .o],
-       fans: [$rows[] | select(.b == "fans") | .o]}' --args "${json_rows[@]}"
+       fans: [$rows[] | select(.b == "fans") | .o], volts: [$rows[] | select(.b == "volts") | .o],
+       amps: [$rows[] | select(.b == "amps") | .o], cooling: $cooling}' --args "${json_rows[@]}"
 fi

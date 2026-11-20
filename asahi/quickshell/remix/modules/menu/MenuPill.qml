@@ -47,7 +47,7 @@ Rectangle {
       text: pill.label
       textFormat: Text.PlainText  // notification action labels come from the sender
       color: pill.selected ? Style.m3primary : pill.fg
-      font.family: pill.fontFamily
+      font.family: pill.fontFamily; font.features: Style.fontTabular
       font.pixelSize: Math.round(10 * pill.fontScale)
       font.weight: pill.selected ? Font.DemiBold : Font.Medium
     }

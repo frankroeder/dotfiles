@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import "../../../"
+import "../../menu" as Menu
 import "../BarModel.js" as BarModel
 import "../life_span.js" as Life
 
@@ -171,7 +172,7 @@ Item {
     }
   }
 
-  HoverTint { lit: clockMouse.containsMouse || root.showCalendar }
+  HoverTint { down: clockMouse.pressed; lit: clockMouse.containsMouse || root.showCalendar }
   MouseArea {
     id: clockMouse
     anchors.fill: parent
@@ -182,7 +183,7 @@ Item {
 
   PopupWindow {
     id: calPopup
-    visible: root.showCalendar
+    visible: root.showCalendar || popOut.running
     color: "transparent"
     // Right edge on the clock's (= bar edge margin), growing leftwards.
     anchor.item: root
@@ -208,8 +209,17 @@ Item {
       onActivated: root.calendarToggle()
     }
 
+    Connections {
+      target: root
+      function onShowCalendarChanged() { if (root.showCalendar) { popOut.stop(); popIn.restart() } else popOut.restart() }
+    }
+    Menu.MenuPopIn { id: popIn; target: calCard }
+    Menu.MenuPopOut { id: popOut; target: calCard }
+
     Rectangle {
+      id: calCard
       anchors.fill: parent
+      transformOrigin: Item.TopRight
       color: Style.m3surfaceSolid
       radius: Style.menuRadiusLg
       border.color: Style.popupBorder
@@ -227,7 +237,7 @@ Item {
           Text {
             text: "󰸗"
             color: Style.menuSeal
-            font.family: Style.fontFamily
+            font.family: Style.fontUi; font.features: Style.fontTabular
             font.pixelSize: 16
           }
           Text {
@@ -239,24 +249,24 @@ Item {
             font.weight: Font.Medium
           }
           Rectangle {
-            width: 26; height: 26; radius: 8
-            color: prevMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
+            width: 26; height: 26; radius: Style.radius
+            color: prevMa.containsMouse ? Style.m3stateHover : Style.menuControlBg
             border.color: Style.menuSep; border.width: 1
-            Text { anchors.centerIn: parent; text: "‹"; color: Style.menuInk; font.pixelSize: 15 }
+            Text { anchors.centerIn: parent; text: "‹"; color: Style.menuInk; font.family: Style.fontUi; font.pixelSize: 15 }
             MouseArea { id: prevMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.shiftMonth(-1) }
           }
           Rectangle {
-            width: 50; height: 26; radius: 8
-            color: todayMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
+            width: 50; height: 26; radius: Style.radius
+            color: todayMa.containsMouse ? Style.m3stateHover : Style.menuControlBg
             border.color: Style.menuSep; border.width: 1
-            Text { anchors.centerIn: parent; text: "today"; color: Style.menuInk; font.family: Style.fontFamily; font.pixelSize: 10 }
+            Text { anchors.centerIn: parent; text: "today"; color: Style.menuInk; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 10 }
             MouseArea { id: todayMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.goToday() }
           }
           Rectangle {
-            width: 26; height: 26; radius: 8
-            color: nextMa.containsMouse ? Style.menuRowHi : Style.menuControlBg
+            width: 26; height: 26; radius: Style.radius
+            color: nextMa.containsMouse ? Style.m3stateHover : Style.menuControlBg
             border.color: Style.menuSep; border.width: 1
-            Text { anchors.centerIn: parent; text: "›"; color: Style.menuInk; font.pixelSize: 15 }
+            Text { anchors.centerIn: parent; text: "›"; color: Style.menuInk; font.family: Style.fontUi; font.pixelSize: 15 }
             MouseArea { id: nextMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.shiftMonth(1) }
           }
         }
@@ -269,7 +279,7 @@ Item {
             horizontalAlignment: Text.AlignHCenter
             text: "W"
             color: Style.menuInkDeep
-            font.family: Style.fontFamily
+            font.family: Style.fontUi; font.features: Style.fontTabular
             font.pixelSize: 8
             opacity: 0.7
           }
@@ -281,7 +291,7 @@ Item {
               horizontalAlignment: Text.AlignHCenter
               text: modelData
               color: Style.menuInkDeep
-              font.family: Style.fontFamily
+              font.family: Style.fontUi; font.features: Style.fontTabular
               font.pixelSize: 10
               font.letterSpacing: 0.6
             }
@@ -313,7 +323,7 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
                 text: modelData.w ? String(modelData.w) : ""
                 color: parent.weekIsCurrent ? Style.menuSeal : Style.menuInkDeep
-                font.family: Style.fontFamily
+                font.family: Style.fontUi; font.features: Style.fontTabular
                 font.pixelSize: 8
                 opacity: 0.85
               }
@@ -336,7 +346,7 @@ Item {
                     text: modelData ? String(modelData.d) : ""
                     // Filled "today" (M3 date picker): a 22% wash read as disabled on grey accents.
                     color: parent.isToday ? Style.menuOnAccent : Style.menuInk
-                    font.family: Style.fontFamily
+                    font.family: Style.fontUi; font.features: Style.fontTabular
                     font.pixelSize: 12
                     font.weight: parent.isToday ? Font.DemiBold : Font.Normal
                   }
@@ -350,7 +360,7 @@ Item {
           Layout.fillWidth: true
           text: Qt.formatDate(root.today, "dddd, d MMMM yyyy")
           color: Style.menuInkDeep
-          font.family: Style.fontFamily
+          font.family: Style.fontUi; font.features: Style.fontTabular
           font.pixelSize: 11
           horizontalAlignment: Text.AlignHCenter
         }
@@ -367,7 +377,7 @@ Item {
           Text {
             text: "Life"
             color: Style.menuInkDeep
-            font.family: Style.fontFamily
+            font.family: Style.fontUi; font.features: Style.fontTabular
             font.pixelSize: 10
             font.letterSpacing: 0.6
           }
@@ -387,7 +397,7 @@ Item {
               verticalAlignment: TextInput.AlignVCenter
               horizontalAlignment: Text.AlignHCenter
               color: Style.menuInk
-              font.family: Style.fontFamily
+              font.family: Style.fontUi; font.features: Style.fontTabular
               font.pixelSize: 12
               clip: true
               selectByMouse: true
@@ -424,7 +434,7 @@ Item {
           Text {
             text: root.life.yearsLeft + " years left"
             color: Style.menuInk
-            font.family: Style.fontFamily
+            font.family: Style.fontUi; font.features: Style.fontTabular
             font.pixelSize: 13
             font.weight: Font.Medium
           }
@@ -432,7 +442,7 @@ Item {
           Text {
             text: root.life.percentLeft + "% left"
             color: Style.menuSeal
-            font.family: Style.fontFamily
+            font.family: Style.fontUi; font.features: Style.fontTabular
             font.pixelSize: 13
             font.weight: Font.Medium
           }
@@ -443,7 +453,7 @@ Item {
           Layout.fillWidth: true
           text: "Enter a birth year"
           color: Style.menuInkDeep
-          font.family: Style.fontFamily
+          font.family: Style.fontUi; font.features: Style.fontTabular
           font.pixelSize: 11
           horizontalAlignment: Text.AlignHCenter
         }

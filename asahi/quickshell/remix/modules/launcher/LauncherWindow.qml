@@ -1029,7 +1029,7 @@ Scope {
     const matches = c === 1 ? "match" : "matches"
     const qq = root.query.trim()
     if (root.fileTerm(qq) !== null) {
-      if (root.fileStatus === "loading") return "Searching files..."
+      if (root.fileStatus === "loading") return "Searching files…"
       if (root.fileStatus === "error") return "fd search failed"
       if (root.fileStatus === "prompt") return "Type after > to search ~"
       if (root.fileStatus === "no-results") return "No files found"
@@ -2007,6 +2007,36 @@ Scope {
   }
 
   // --- Launch feedback: "Launching X…" toast when no window shows within 2s.
+  // Running apps (open windows, by Wayland app id): app grid + app rows show a dot, the focused app a wider accent pill.
+  // Bound to the toplevel list: it changes with windows, not on a timer.
+  // app id (and its last dot segment) → open window count
+  readonly property var runningIds: {
+    const out = {}
+    for (const t of ToplevelManager.toplevels.values) {
+      const id = String(t.appId || "").toLowerCase()
+      if (!id) continue
+      const tail = id.split(".").pop()
+      out[id] = (out[id] || 0) + 1
+      if (tail !== id) out[tail] = (out[tail] || 0) + 1
+    }
+    return out
+  }
+  readonly property string activeId: String(ToplevelManager.activeToplevel?.appId || "").toLowerCase()
+  function appKeys(d) {
+    const out = []
+    for (const s of [d.id, d.startupClass]) {
+      const k = String(s || "").toLowerCase()
+      if (k) out.push(k, k.split(".").pop())
+    }
+    return out
+  }
+  function windowCount(d) { return Math.max(0, ...root.appKeys(d).map(k => root.runningIds[k] || 0)) }
+  function isRunning(d) { return root.windowCount(d) > 0 }
+  function isActive(d) {
+    const a = root.activeId
+    return a !== "" && root.appKeys(d).some(k => k === a || k === a.split(".").pop())
+  }
+
   function toplevelCount() {
     try { return ToplevelManager.toplevels.values.length } catch (e) { return 0 }
   }
@@ -2536,7 +2566,7 @@ Scope {
     }
     if (root.isPdfFile(p)) {
       root.filePreviewText = ""
-      root.filePreviewMeta = "PDF preview..."
+      root.filePreviewMeta = "PDF preview…"
       root.pdfPreviewVersion = 0
       root.pdfPreviewPath = ""
       // One file in the private runtime dir (one 0644 PNG per PDF in /tmp stayed readable until reboot).
@@ -2651,10 +2681,10 @@ Scope {
       y: restY - Math.round(24 * (1 - root.chromeReveal))
       scale: 0.92 + 0.08 * root.chromeReveal
       transformOrigin: Item.Top
-      Behavior on scale { Menu.MenuAnim {} }
+      Behavior on scale { Menu.MenuAnim { exit: !root.shouldShow } }
       width: root.launcherGeom.cardWidth
       Behavior on width { Menu.MenuAnim {} }
-      Behavior on y { Menu.MenuAnim {} }
+      Behavior on y { Menu.MenuAnim { exit: !root.shouldShow } }
       Behavior on height { Menu.MenuAnim {} }
       height: root.launcherGeom.cardHeight
       cardMargin: root.launcherGeom.cardMargin
@@ -2758,8 +2788,17 @@ Scope {
             anchors.left: parent.left
             anchors.leftMargin: 16
             anchors.verticalCenter: parent.verticalCenter
-            text: root.fileMode ? "󰉖" : "󰍉"
-            color: Style.m3onSurfaceVariant
+            // The prompt names the mode (idea: hyprconf's Spotlight): calculator, files, else the open category's
+            // glyph; plain search keeps the magnifier. Accent while a mode is on.
+            readonly property string modeGlyph: {
+              if (root.calcMode) return "󰃬"
+              if (root.fileMode) return "󰉖"
+              const nav = Data.categoryNav.find(n => n.target === root.categoryFilter && n.target !== "Quick")
+              return nav ? nav.icon : ""
+            }
+            text: modeGlyph || "󰍉"
+            color: modeGlyph ? Style.m3primary : Style.m3onSurfaceVariant
+            Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
             font.family: root.uiFont
             font.pixelSize: root.fontPx(15)
           }
@@ -3030,8 +3069,9 @@ Scope {
                   anchors.fill: parent
                   anchors.topMargin: 1
                   anchors.bottomMargin: 1
-                  radius: Style.menuRadiusLg
+                  radius: Style.menuRadiusFull   // the selection's shape: hover → select does not morph
                   color: rowMa.containsMouse && !delegateRoot.isSelected ? Style.m3stateHover : "transparent"
+                  Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
                 }
 
                 RowLayout {
@@ -3102,6 +3142,12 @@ Scope {
                     }
                   }
 
+                  Menu.MenuRunDots {   // running app: a dot per window, the focused app's first one an accent pill
+                    Layout.alignment: Qt.AlignVCenter
+                    Layout.rightMargin: 4
+                    count: modelData.special === "app" && !!modelData.raw ? root.windowCount(modelData.raw) : 0
+                    active: modelData.special === "app" && !!modelData.raw && root.isActive(modelData.raw)
+                  }
                   Text {
                     textFormat: Text.PlainText
                     text: root.fileMode && modelData.path
@@ -3321,6 +3367,14 @@ Scope {
                   anchors.fill: parent
                   active: root.quickMode
                   sourceComponent: root.quickPaneComp
+                  // A new pane settles in (fade + 10 px rise) instead of popping; once per switch, no idle cost.
+                  transform: Translate { id: qdlShift }
+                  onLoaded: paneIn.restart()
+                }
+                ParallelAnimation {
+                  id: paneIn
+                  Menu.MenuAnim { target: qdl; property: "opacity"; from: 0; to: 1; effects: true }
+                  Menu.MenuAnim { target: qdlShift; property: "y"; from: 10; to: 0 }
                 }
               }
 

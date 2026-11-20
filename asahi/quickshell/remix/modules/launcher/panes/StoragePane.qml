@@ -15,6 +15,7 @@ Item {
   anchors.fill: parent
   property real diskRead: 0
   property real diskWrite: 0
+  property int diskBusy: 0   // % of the last sample with I/O in flight (asahi-metrics io_ticks)
 
   Process {
     id: ioProc
@@ -25,6 +26,7 @@ Item {
           const data = JSON.parse(String(text || "").trim() || "{}")
           quickStorageRoot.diskRead = (data.disk && data.disk.read_bps) || 0
           quickStorageRoot.diskWrite = (data.disk && data.disk.write_bps) || 0
+          quickStorageRoot.diskBusy = (data.disk && data.disk.busy_pct) || 0
         } catch (e) {}
       }
     }
@@ -120,7 +122,7 @@ Item {
   component CardTitle: Text {
     color: Style.m3onSurface
     font.family: quickStorageRoot.root.uiSans
-    font.pixelSize: quickStorageRoot.root.fontPx(12)
+    font.pixelSize: quickStorageRoot.root.fontPx(13)
     font.weight: Font.DemiBold
   }
   component Secondary: Text {
@@ -231,8 +233,9 @@ Item {
             }
             Text {
               text: "R " + QuickModels.formatRate(quickStorageRoot.diskRead) + "   W " + QuickModels.formatRate(quickStorageRoot.diskWrite)
+                + "   " + quickStorageRoot.diskBusy + "% busy"
               color: Style.m3onSurfaceVariant
-              font.family: root.uiSans; font.pixelSize: root.fontPx(11); font.weight: Font.Medium
+              font.family: root.uiSans; font.features: Style.fontTabular; font.pixelSize: root.fontPx(11); font.weight: Font.Medium
             }
           }
           // "/ + /home · fedora · btrfs zstd:1 · APPLE SSD AP1024Z", or the scan error.

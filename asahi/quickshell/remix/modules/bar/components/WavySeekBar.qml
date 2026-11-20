@@ -110,7 +110,7 @@ Item {
     width: root.handle; height: root.handle; radius: root.handle / 2
     x: Math.max(0, Math.min(root.width - width, root.progressX - width / 2))
     y: root.cy - height / 2
-    color: ma.pressed || ma.containsMouse ? Qt.lighter(root.color, 1.15) : root.color
+    color: ma.pressed || ma.containsMouse ? Qt.tint(root.color, Style.m3stateHover) : root.color
     Behavior on color { ColorAnimation { duration: 150 } }
     layer.enabled: true
     layer.effect: MultiEffect { shadowEnabled: true; shadowColor: "#000000"; shadowVerticalOffset: 1; shadowBlur: 0.35; shadowOpacity: 0.45 }

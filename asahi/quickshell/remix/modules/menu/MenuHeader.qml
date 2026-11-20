@@ -30,7 +30,7 @@ Item {
     text: root.title
     color: Style.m3onSurfaceVariant
     font.family: root.fontFamily
-    font.pixelSize: 13 * root.fontScale
+    font.pixelSize: Math.round(13 * root.fontScale)
     font.weight: Font.Medium
   }
 
@@ -42,7 +42,7 @@ Item {
     text: root.subtitle
     color: Style.m3outline
     font.family: root.fontFamily
-    font.pixelSize: 12 * root.fontScale
+    font.pixelSize: Math.round(12 * root.fontScale)
   }
 
   Item {
@@ -63,7 +63,7 @@ Item {
         text: root.title
         color: Style.m3onSurfaceVariant
         font.family: root.fontFamily
-        font.pixelSize: 13 * root.fontScale
+        font.pixelSize: Math.round(13 * root.fontScale)
         font.weight: Font.Medium
         anchors.verticalCenter: parent.verticalCenter
       }
@@ -73,7 +73,7 @@ Item {
         text: "/"
         color: Style.m3outline
         font.family: root.fontFamily
-        font.pixelSize: 13 * root.fontScale
+        font.pixelSize: Math.round(13 * root.fontScale)
         anchors.verticalCenter: parent.verticalCenter
       }
 
@@ -82,7 +82,7 @@ Item {
         text: root.sectionIcon
         color: Style.m3primary
         font.family: root.iconFamily
-        font.pixelSize: 15 * root.fontScale
+        font.pixelSize: Math.round(15 * root.fontScale)
         anchors.verticalCenter: parent.verticalCenter
       }
 
@@ -90,7 +90,7 @@ Item {
         text: root.sectionName
         color: Style.m3onSurface
         font.family: root.fontFamily
-        font.pixelSize: 15 * root.fontScale
+        font.pixelSize: Math.round(15 * root.fontScale)
         font.weight: Font.DemiBold
         anchors.verticalCenter: parent.verticalCenter
       }
@@ -103,7 +103,7 @@ Item {
       text: root.hintText
       color: Style.m3outline
       font.family: root.fontFamily
-      font.pixelSize: 11 * root.fontScale
+      font.pixelSize: Math.round(11 * root.fontScale)
       horizontalAlignment: Text.AlignRight
     }
   }
@@ -117,6 +117,6 @@ Item {
     text: root.countLine
     color: Style.m3outline
     font.family: root.fontFamily
-    font.pixelSize: 11 * root.fontScale
+    font.pixelSize: Math.round(11 * root.fontScale)
   }
 }

@@ -44,7 +44,7 @@ Item {
         text: root.glyph
         color: root.selected ? Style.m3onPrimary : root.tint
         font.pixelSize: Math.max(1, Math.round(disc.width * 0.62))
-        font.family: root.fontFamily
+        font.family: root.fontFamily; font.features: Style.fontTabular
         Behavior on color { ColorAnimation { duration: Style.menuAnimMs } }
       }
     }

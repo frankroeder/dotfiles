@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Shapes
 import Quickshell.Io
 import "../../menu" as Menu
 import "../../../"
@@ -21,6 +22,11 @@ Item {
   property string batTimeRemaining: ""
   property bool batHolding: false
   property var smcPower: []
+  // Charger input from the SMC (asahi-temperature volts / amps); NaN until read.
+  property real chargerV: NaN
+  property real chargerA: NaN
+  // Last 24 h of charge, oldest first ({t: unix s, v: %}): UPower's own history, one D-Bus call per open.
+  property var history: []
   // Placeholder rows until the first read so the facts card below does not jump.
   property bool smcLoaded: false
 
@@ -113,6 +119,10 @@ Item {
         try {
           const data = JSON.parse(String(text || "").trim() || "{}")
           quickBatteryRoot.smcPower = data.power || []
+          const v = (data.volts || []).find(x => /charger/i.test(x.label))
+          const a = (data.amps || []).find(x => /ac input/i.test(x.label))
+          quickBatteryRoot.chargerV = v ? Number(v.value) : NaN
+          quickBatteryRoot.chargerA = a ? Number(a.value) : NaN
         } catch (e) { quickBatteryRoot.smcPower = [] }
         quickBatteryRoot.smcLoaded = true
       }
@@ -173,9 +183,26 @@ Item {
   }
   Timer { id: limitMsgClear; interval: 8000; onTriggered: quickBatteryRoot.limitMsg = "" }
 
+  Process {
+    id: histProc
+    command: ["sh", "-c", "d=$(upower -e | grep -m1 /battery_) && exec busctl --system --json=short call org.freedesktop.UPower "
+      + "\"$d\" org.freedesktop.UPower.Device GetHistory suu charge 86400 240"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const rows = (JSON.parse(String(text || "").trim() || "{}").data || [])[0] || []
+          quickBatteryRoot.history = rows.map(r => ({ t: r[0], v: r[1] })).reverse()
+        } catch (e) { quickBatteryRoot.history = [] }
+      }
+    }
+  }
+
   readonly property bool paneLive: root.shouldShow && root.quickMode && root.quickPaneKey === "battery"
-  onPaneLiveChanged: if (paneLive && !limitProc.running) limitProc.running = true
-  Component.onCompleted: if (paneLive) limitProc.running = true
+  onPaneLiveChanged: if (paneLive) {
+    if (!limitProc.running) limitProc.running = true
+    if (!histProc.running) histProc.running = true
+  }
+  Component.onCompleted: if (paneLive) { limitProc.running = true; histProc.running = true }
 
   Timer {
     interval: 3000
@@ -304,6 +331,64 @@ Item {
             font.family: root.uiSans; font.pixelSize: root.fontPx(10)
           }
         }
+        // Last 24 h of charge (UPower history): where the day's energy went, with the hold limit as a hairline.
+        Item {
+          visible: quickBatteryRoot.history.length > 1
+          Layout.preferredWidth: Math.round(150 * root.uiFontScale)
+          Layout.fillHeight: true
+          Text {
+            id: histCap
+            text: "Last 24 h"
+            color: Style.m3onSurfaceVariant
+            font.family: root.uiSans; font.pixelSize: root.fontPx(10); font.weight: Font.Medium
+          }
+          Item {
+            id: plot
+            anchors { left: parent.left; right: parent.right; top: histCap.bottom; topMargin: 6; bottom: axis.top; bottomMargin: 4 }
+            // Points in plot px: x = age over 24 h (left = 24 h ago), y = charge %.
+            readonly property var pts: {
+              const now = Date.now() / 1000
+              return quickBatteryRoot.history.map(p => Qt.point(Math.round(plot.width * Math.max(0, 1 - (now - p.t) / 86400)),
+                Math.round(plot.height * (1 - p.v / 100))))
+            }
+            Rectangle { anchors { left: parent.left; right: parent.right; bottom: parent.bottom } height: 1; color: Style.menuSep }
+            Rectangle {   // hold limit
+              visible: quickBatteryRoot.limitEnd > 0 && quickBatteryRoot.limitEnd < 100
+              anchors { left: parent.left; right: parent.right }
+              y: Math.round(plot.height * (1 - quickBatteryRoot.limitEnd / 100))
+              height: 1
+              color: Qt.alpha(Style.m3onSurfaceVariant, 0.35)
+            }
+            Shape {
+              anchors.fill: parent
+              preferredRendererType: Shape.CurveRenderer
+              ShapePath {
+                strokeWidth: 0
+                strokeColor: "transparent"
+                fillColor: Qt.alpha(quickBatteryRoot.ringColor(), 0.16)
+                PathPolyline {
+                  path: plot.pts.length < 2 ? [] : [Qt.point(plot.pts[0].x, plot.height)].concat(plot.pts)
+                    .concat([Qt.point(plot.pts[plot.pts.length - 1].x, plot.height)])
+                }
+              }
+              ShapePath {
+                strokeWidth: 2
+                strokeColor: quickBatteryRoot.ringColor()
+                fillColor: "transparent"
+                capStyle: ShapePath.RoundCap
+                joinStyle: ShapePath.RoundJoin
+                PathPolyline { path: plot.pts }
+              }
+            }
+          }
+          RowLayout {
+            id: axis
+            anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+            Text { text: "−24 h"; color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(9) }
+            Item { Layout.fillWidth: true }
+            Text { text: "now"; color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(9) }
+          }
+        }
       }
     }
 
@@ -367,8 +452,26 @@ Item {
             Text {
               text: isFinite(modelData.value) ? Number(modelData.value).toFixed(2) + " W" : "–"
               color: /heatpipe/i.test(modelData.label || "") ? Style.orange : Style.m3onSurface
-              font.family: root.uiSans; font.pixelSize: root.fontPx(12); font.weight: Font.DemiBold
+              font.family: root.uiSans; font.features: Style.fontTabular; font.pixelSize: root.fontPx(12); font.weight: Font.DemiBold
             }
+          }
+        }
+        // Charger input (SMC): the USB-C PD level the adapter negotiated (20 / 15 / 9 V) and what it draws.
+        RowLayout {
+          visible: quickBatteryRoot.smcLoaded && isFinite(quickBatteryRoot.chargerV)
+          Layout.fillWidth: true
+          spacing: 12
+          Text {
+            Layout.fillWidth: true
+            text: "Charger Input"
+            color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(11); elide: Text.ElideRight
+          }
+          Text {
+            text: quickBatteryRoot.chargerV >= 1
+              ? quickBatteryRoot.chargerV.toFixed(2) + " V · " + (isFinite(quickBatteryRoot.chargerA) ? quickBatteryRoot.chargerA.toFixed(2) : "–") + " A"
+              : "unplugged"
+            color: quickBatteryRoot.chargerV >= 1 ? Style.m3onSurface : Style.m3onSurfaceVariant
+            font.family: root.uiSans; font.features: Style.fontTabular; font.pixelSize: root.fontPx(12); font.weight: Font.DemiBold
           }
         }
       }

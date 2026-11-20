@@ -109,6 +109,7 @@ Item {
   readonly property real memPerc: Services.BarData.memPerc
   readonly property real heatpipeW: Services.BarData.heatpipeW
   readonly property real tempAvg: Services.BarData.tempAvg
+  readonly property bool tempIsDie: Services.BarData.tempIsDie
   readonly property var cpuCores: Services.BarData.cpuCores
   readonly property var cpuHistory: Services.BarData.cpuHistory
   readonly property var memHistory: Services.BarData.memHistory
