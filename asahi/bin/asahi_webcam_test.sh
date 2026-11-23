@@ -84,7 +84,7 @@ else
   fail_at "record-args: [$args] silent [$silent]"
 fi
 grep -q 'asahi-cmd-record camera' "$ROOT/../hypr/conf.d/bindings.lua" || fail_at "hypr bind record camera"
-grep -q 'start("camera", false)' "$ROOT/../quickshell/remix/modules/bar/components/RecordPanel.qml" || fail_at "RecordPanel camera tile"
+grep -q 'startAfterClose("camera", false)' "$ROOT/../quickshell/remix/modules/bar/components/RecordPanel.qml" || fail_at "RecordPanel camera tile"
 pass "camera-only: bind + panel tile"
 
 # Camera-only lifecycle without a camera: a copy of asahi-cmd-record beside a fake asahi-webcam whose recorder is a

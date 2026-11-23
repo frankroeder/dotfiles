@@ -34,6 +34,24 @@ PopupWindow {
   function close() {
     if (root.barHost && root.barHost.openPanel === "rec") root.barHost.openPanel = ""
   }
+  // A take starts once the card has left (MenuPopOut): started at once, the screen take's first frames caught the
+  // fading card, and a second click on the leaving tile stopped the take it had just started (the card takes no
+  // input while it leaves: `enabled` below).
+  property var pendingTake: null
+  function startAfterClose(mode, cam) {
+    root.pendingTake = { mode: mode, cam: cam }
+    root.close()
+    takeDelay.restart()
+  }
+  Timer {
+    id: takeDelay
+    interval: Style.menuExitMs + 150
+    onTriggered: {
+      const t = root.pendingTake
+      root.pendingTake = null
+      if (t) Services.Recorder.start(t.mode, t.cam)
+    }
+  }
 
   // Whitelist the bar window too, else the click that opened this counts as outside and closes it.
   // Esc is an app-wide shortcut: the grab may leave keyboard focus on the bar.
@@ -126,6 +144,7 @@ PopupWindow {
   Rectangle {
     id: card
     anchors.fill: parent
+    enabled: root.panelOpen   // no clicks while it leaves
     transformOrigin: Item.Top
     color: Style.m3surfaceSolid
     radius: Style.menuRadiusLg
@@ -206,11 +225,11 @@ PopupWindow {
         columns: 2
         columnSpacing: 8
         rowSpacing: 8
-        ModeTile { icon: "󰍹"; label: "Display"; onClicked: { root.close(); Services.Recorder.start("fullscreen", false) } }
-        ModeTile { icon: "󰩬"; label: "Region"; onClicked: { root.close(); Services.Recorder.start("region", false) } }
-        ModeTile { icon: "󰄀"; label: "Display + cam"; tint: Style.m3tertiary; onClicked: { root.close(); Services.Recorder.start("fullscreen", true) } }
-        ModeTile { icon: "󰄀"; label: "Region + cam"; tint: Style.m3tertiary; onClicked: { root.close(); Services.Recorder.start("region", true) } }
-        ModeTile { Layout.columnSpan: 2; icon: "󰄀"; label: "Camera only"; tint: Style.m3secondary; onClicked: { root.close(); Services.Recorder.start("camera", false) } }
+        ModeTile { icon: "󰍹"; label: "Display"; onClicked: root.startAfterClose("fullscreen", false) }
+        ModeTile { icon: "󰩬"; label: "Region"; onClicked: root.startAfterClose("region", false) }
+        ModeTile { icon: "󰄀"; label: "Display + cam"; tint: Style.m3tertiary; onClicked: root.startAfterClose("fullscreen", true) }
+        ModeTile { icon: "󰄀"; label: "Region + cam"; tint: Style.m3tertiary; onClicked: root.startAfterClose("region", true) }
+        ModeTile { Layout.columnSpan: 2; icon: "󰄀"; label: "Camera only"; tint: Style.m3secondary; onClicked: root.startAfterClose("camera", false) }
       }
 
       // Idle: screen takes' audio (one device: wf-recorder). Webcam and camera-only takes always record the mic.

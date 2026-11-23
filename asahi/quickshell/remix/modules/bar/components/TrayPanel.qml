@@ -63,7 +63,9 @@ PanelWindow {
     onCleared: root.close()
   }
   Shortcut {
-    enabled: root.shouldShow
+    // Not while an app menu is open: two enabled Escape shortcuts are ambiguous (Qt fires neither), and the menu's
+    // own Escape backs out / closes it.
+    enabled: root.shouldShow && !root.menuShown
     sequences: ["Escape"]
     context: Qt.ApplicationShortcut
     onActivated: root.close()

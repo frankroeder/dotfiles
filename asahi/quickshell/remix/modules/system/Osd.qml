@@ -31,17 +31,27 @@ Scope {
   property var seenSink: null
   property int seenVolume: -1
   property bool seenMuted: false
+  // Only from a bound node (`ready`): a sink that just resolved (shell start, an output switch) reports volume 0
+  // until PipeWire binds it, and the real value arriving read as a change (a "Volume N%" card each time). A device
+  // route's volume (headphones, HDMI / DP, Bluetooth) can come after `ready`: the first 1.5 s of a sink only move
+  // the baseline.
+  property double settleUntil: 0
   function sinkMoved() {
-    const a = root.sink ? root.sink.audio : null
+    const a = root.sink && root.sink.ready ? root.sink.audio : null
     if (!a) return
     const vol = Math.round(a.volume * 100)
     const moved = root.seenSink === root.sink && (vol !== root.seenVolume || a.muted !== root.seenMuted)
+      && Date.now() >= root.settleUntil
     root.seenSink = root.sink
     root.seenVolume = vol
     root.seenMuted = a.muted
     if (moved && !root.quietVolume) root.show("volume", a.muted ? "󰖁" : "󰕾", "Volume", vol, a.muted ? "Muted" : vol + "%")
   }
-  onSinkChanged: root.sinkMoved()
+  onSinkChanged: { root.settleUntil = Date.now() + 1500; root.sinkMoved() }
+  Connections {
+    target: root.sink
+    function onReadyChanged() { root.sinkMoved() }   // the baseline, once bound
+  }
   Connections {
     target: root.sink ? root.sink.audio : null
     function onVolumesChanged() { root.sinkMoved() }
