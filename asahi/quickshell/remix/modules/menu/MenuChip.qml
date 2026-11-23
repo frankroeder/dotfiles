@@ -21,11 +21,13 @@ Rectangle {
   radius: Style.menuRadiusFull
   color: chip.bg
 
+  scale: chipMa.pressed && !Style.reduceMotion ? 0.97 : 1
+  Behavior on scale { NumberAnimation { duration: Style.menuStateMs; easing.type: Easing.OutCubic } }
   Rectangle {
     anchors.fill: parent
     radius: parent.radius
-    color: Style.m3stateHover
-    visible: chipMa.containsMouse
+    color: chipMa.pressed ? Style.m3statePress : Style.m3stateHover
+    visible: chipMa.containsMouse || chipMa.pressed
   }
   Row {
     id: chipRow

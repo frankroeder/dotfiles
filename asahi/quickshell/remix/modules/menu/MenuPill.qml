@@ -22,12 +22,15 @@ Rectangle {
   border.width: pill.selected ? 1 : 0
   border.color: Style.menuSelBorder
   Behavior on color { ColorAnimation { duration: 120 } }
+  // Press: the pressed state layer + a small give (none under reduced motion).
+  scale: pillMa.pressed && !Style.reduceMotion ? 0.97 : 1
+  Behavior on scale { NumberAnimation { duration: Style.menuStateMs; easing.type: Easing.OutCubic } }
 
   Rectangle {
     anchors.fill: parent
     radius: parent.radius
-    color: Style.m3stateHover
-    opacity: pillMa.containsMouse ? 1 : 0
+    color: pillMa.pressed ? Style.m3statePress : Style.m3stateHover
+    opacity: pillMa.containsMouse || pillMa.pressed ? 1 : 0
     Behavior on opacity { NumberAnimation { duration: 120 } }
   }
   Row {

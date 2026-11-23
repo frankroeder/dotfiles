@@ -558,6 +558,8 @@ Item {
         contentHeight: btCol.implicitHeight
         boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: Menu.MenuScrollBar { id: btScroll }
+        Menu.MenuEdgeFade { parent: btFlick; surface: Style.m3container; atTop: true; gutter: btScroll.width }
+        Menu.MenuEdgeFade { parent: btFlick; surface: Style.m3container; gutter: btScroll.width }
         Column {
           id: btCol
           width: btFlick.width - (btScroll.overflow ? btScroll.implicitWidth + 4 : 0)
@@ -780,7 +782,7 @@ Item {
                         anchors.centerIn: parent
                         text: BtModel.kindGlyph(btDelegate.modelData.kind, btDelegate.modelData.connected)
                         color: btDelegate.modelData.connected ? Style.m3primary : Style.m3onSurfaceVariant
-                        font.family: root.uiFont; font.pixelSize: root.fontPx(14)
+                        font.family: root.uiFont; font.pixelSize: root.fontPx(18)
                       }
                     }
                     ColumnLayout {
@@ -977,6 +979,7 @@ Item {
                 Layout.fillWidth: true
                 spacing: 2
                 Label {
+                  Layout.fillWidth: true   // else the column centres in the row once the hint hides
                   text: (quickBtRoot.mon.denied || []).length ? quickBtRoot.t("accessMissing") : quickBtRoot.t("accessGranted")
                   color: (quickBtRoot.mon.denied || []).length ? Style.orange : Style.green
                 }

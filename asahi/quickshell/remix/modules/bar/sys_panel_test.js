@@ -57,4 +57,12 @@ if (panel.indexOf("temp_display.js") !== -1) throw new Error("SysPanel reads asa
 if (panel.indexOf('"--json"') < 0) throw new Error("SysPanel must request asahi-temperature --json");
 if (panel.indexOf("\uFFFD") !== -1) throw new Error("SysPanel QML must not contain a replacement character");
 
+// E / P core groups (asahi-cpu `kind`), each with its mean; one unnamed group without kinds.
+const g = S.coreGroups([{ percent: 10, kind: "E" }, { percent: 30, kind: "E" }, { percent: 5, kind: "P" }])
+if (g.length !== 2 || g[0].name !== "Efficiency" || g[0].avg !== 20 || g[1].cores.length !== 1 || g[1].avg !== 5)
+  throw new Error("core groups " + JSON.stringify(g));
+const one = S.coreGroups([{ percent: 40 }, { percent: 20 }])
+if (one.length !== 1 || one[0].name !== "" || one[0].avg !== 30) throw new Error("no kinds → one group " + JSON.stringify(one));
+if (S.coreGroups([]).length !== 1) throw new Error("no cores → one empty group");
+
 console.log("ok  sys_panel.js");

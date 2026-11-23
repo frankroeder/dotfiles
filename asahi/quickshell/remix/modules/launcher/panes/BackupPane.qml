@@ -329,6 +329,7 @@ Item {
     // Overview: stat tiles, then drive space + retention, then a 30-day strip (old rsync snapshots too).
     RowLayout {
       Layout.fillWidth: true
+      Layout.fillHeight: false   // explicit: a layout inherits fillHeight from its tiles
       spacing: 12
       Repeater {
         model: [
@@ -353,17 +354,23 @@ Item {
           required property var modelData
           Layout.fillWidth: true
           Layout.preferredWidth: 1
+          // One height for the row, text from the top: a tile without a sub line was shorter and sat centred.
+          Layout.fillHeight: true
           implicitHeight: tileCol.implicitHeight + 20
           radius: Style.menuRadiusLg
           color: Style.m3container
           RowLayout {
             anchors.fill: parent
-            anchors.leftMargin: 12; anchors.rightMargin: 12
+            anchors.margins: 10; anchors.leftMargin: 12; anchors.rightMargin: 12
             spacing: 10
-            Text { text: modelData.icon; color: Style.m3secondary; font.family: root.uiFont; font.pixelSize: root.fontPx(16) }
+            Text {
+              Layout.alignment: Qt.AlignTop; Layout.topMargin: root.fontPx(7)
+              text: modelData.icon; color: Style.m3secondary; font.family: root.uiFont; font.pixelSize: root.fontPx(16)
+            }
             ColumnLayout {
               id: tileCol
               Layout.fillWidth: true
+              Layout.alignment: Qt.AlignTop
               spacing: 1
               Secondary { text: modelData.label; font.pixelSize: root.fontPx(9) }
               Text {
@@ -477,6 +484,8 @@ Item {
             boundsBehavior: Flickable.StopAtBounds
             model: tmRoot.rows
             ScrollBar.vertical: Menu.MenuScrollBar { id: snapScroll }
+            Menu.MenuEdgeFade { parent: snapList; surface: Style.m3container; atTop: true; gutter: snapScroll.width }
+            Menu.MenuEdgeFade { parent: snapList; surface: Style.m3container; gutter: snapScroll.width }
             delegate: Rectangle {
               id: snapRow
               required property var modelData
@@ -594,6 +603,8 @@ Item {
             boundsBehavior: Flickable.StopAtBounds
             model: tmRoot.entries
             ScrollBar.vertical: Menu.MenuScrollBar { id: entryScroll }
+            Menu.MenuEdgeFade { parent: entryList; surface: Style.m3container; atTop: true; gutter: entryScroll.width }
+            Menu.MenuEdgeFade { parent: entryList; surface: Style.m3container; gutter: entryScroll.width }
             delegate: Rectangle {
               id: entryRow
               required property var modelData

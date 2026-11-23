@@ -201,6 +201,8 @@ ColumnLayout {
     spacing: 2
     boundsBehavior: Flickable.StopAtBounds
     ScrollBar.vertical: Menu.MenuScrollBar { id: devScroll }
+    Menu.MenuEdgeFade { parent: devList; surface: Style.m3container; atTop: true; gutter: devScroll.width }
+    Menu.MenuEdgeFade { parent: devList; surface: Style.m3container; gutter: devScroll.width }
     model: ScriptModel { objectProp: "key"; values: lanView.rows }
     delegate: Column {
       id: row

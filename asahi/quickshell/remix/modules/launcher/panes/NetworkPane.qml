@@ -946,6 +946,7 @@ Item {
                     Secondary { text: modelData.label; width: root.fontPx(10) * 7 }
                     Secondary {
                       text: fact; color: Style.m3onSurface
+                      font.family: Style.fontData   // addresses read as data
                       width: Math.max(0, factCol.width - root.fontPx(10) * 7 - 10)
                     }
                   }
@@ -1077,6 +1078,7 @@ Item {
       Chip {
         visible: !!quickNetworkRoot.vpnPublicIp
         icon: "󰩟"; label: quickNetworkRoot.vpnPublicIp
+        fontFamily: Style.fontData
         bg: Style.m3tertiaryContainer; clickable: true
         onClicked: quickNetworkRoot.copyPublicIp()
       }
@@ -1271,6 +1273,8 @@ Item {
           spacing: 2
           boundsBehavior: Flickable.StopAtBounds
           ScrollBar.vertical: Menu.MenuScrollBar { id: netScroll }
+          Menu.MenuEdgeFade { parent: netList; surface: Style.m3container; atTop: true; gutter: netScroll.width }
+          Menu.MenuEdgeFade { parent: netList; surface: Style.m3container; gutter: netScroll.width }
           model: wifiNetworksModel
           delegate: Column {
             id: netDelegate

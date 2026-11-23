@@ -129,7 +129,7 @@ PanelWindow {
               textFormat: Text.PlainText
               text: String(row.modelData.title || row.modelData.id || "")
               elide: Text.ElideRight
-              font.family: Style.fontUi; font.features: Style.fontTabular
+              font.family: Style.fontUi
               font.pixelSize: Style.barFontBody
               color: row.modelData.status === Status.NeedsAttention ? Style.orange : Style.barStripText
             }
@@ -140,7 +140,7 @@ PanelWindow {
               text: row.detail
               visible: text !== ""
               elide: Text.ElideRight
-              font.family: Style.fontUi; font.features: Style.fontTabular
+              font.family: Style.fontUi
               font.pixelSize: Style.barFontCaption
               color: Style.textMuted
             }

@@ -277,6 +277,8 @@ Item {
     contentHeight: hwCol.height
     boundsBehavior: Flickable.StopAtBounds
     ScrollBar.vertical: Menu.MenuScrollBar { id: hwScroll }
+    Menu.MenuEdgeFade { parent: hwFlick; surface: Style.m3surface; atTop: true; gutter: hwScroll.width }
+    Menu.MenuEdgeFade { parent: hwFlick; surface: Style.m3surface; gutter: hwScroll.width }
     ColumnLayout {
       id: hwCol
       width: hwFlick.width - (hwScroll.overflow ? hwScroll.implicitWidth + 4 : 0)
@@ -323,6 +325,7 @@ Item {
             // The check mark is the feedback: a "Copied" label would resize the chip under the pointer.
             icon: hwRoot.serialCopied ? "󰄬" : "󰆏"
             label: String(hwRoot.hw.serial || "")
+            fontFamily: Style.fontData
             bg: Style.m3secondaryContainer
             onClicked: hwRoot.copySerial()
           }

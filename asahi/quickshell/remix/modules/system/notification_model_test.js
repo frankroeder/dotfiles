@@ -157,6 +157,10 @@ eq(entry.summary, "Login 938 271", "historyCopy leaves the toast entry alone");
 eq(ctx.textRich(ctx.historyCopy({ key: "y", summary: "", body: "Code 482910. Reply <b>STOP</b>", codes: ["482910"] }).body),
   "Code ••••. Reply &lt;b&gt;STOP&lt;/b&gt;", "history card: codes masked, escaped markup stays text");
 
+eq([ctx.progressHint({ value: 42 }), ctx.progressHint({ value: "7.6" }), ctx.progressHint({ value: 140 }),
+  ctx.progressHint({}), ctx.progressHint(null), ctx.progressHint({ value: "x" })], [42, 8, 100, -1, -1, -1], "progress hint");
+eq("progress" in ctx.historyCopy({ key: "p", summary: "s", body: "b", codes: [], progress: 42 }), false, "history keeps no progress");
+
 if (failed > 0) {
   console.log(failed + " failed");
   process.exit(1);

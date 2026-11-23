@@ -299,7 +299,7 @@ function actionList(actions) {
 // shows the masked plain body as text, textRich), and no image (it may show the code).
 function historyCopy(entry) {
   var e = {}
-  for (var k in entry) if (k !== "actions" && k !== "group") e[k] = entry[k]
+  for (var k in entry) if (k !== "actions" && k !== "group" && k !== "progress") e[k] = entry[k]
   if (e.codes && e.codes.length > 0) {
     e.summary = maskCodes(e.summary, e.codes)
     e.body = maskCodes(e.body, e.codes)
@@ -308,4 +308,12 @@ function historyCopy(entry) {
     e.codes = []
   }
   return e
+}
+
+// The spec's `value` hint (0-100: downloads, copies, renders) as a whole percent; -1 = none. Live toasts only: history
+// keeps no progress (a stale bar).
+function progressHint(hints) {
+  if (!hints || hints.value === undefined || hints.value === null || hints.value === "") return -1
+  var v = Number(hints.value)
+  return isFinite(v) ? Math.max(0, Math.min(100, Math.round(v))) : -1
 }

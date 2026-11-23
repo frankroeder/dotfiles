@@ -108,6 +108,7 @@ Singleton {
   readonly property color m3tertiary:           themed("mauve")
   readonly property color m3tertiaryContainer:  themedAlpha("mauve", 0.22)
   readonly property color m3stateHover:         themedAlpha("text", 0.08)
+  readonly property color m3statePress:         themedAlpha("text", 0.14)   // M3 pressed layer (hover 0.08 + press)
   // Selected row / tile: accent tint + hairline; dark themes need more fill to read.
   readonly property color menuSelFill:   themedAlpha("accent", isDark ? 0.18 : 0.12)
   readonly property color menuSelBorder: themedAlpha("accent", isDark ? 0.45 : 0.35)
@@ -137,7 +138,11 @@ Singleton {
   readonly property string fontBar: "Noto Sans"
   // Glyphs and monospace text (file previews): the Nerd Font dnf.sh installs (Ghostty uses it too).
   readonly property string fontMono: "Cascadia Mono NF"
+  // Machine strings (IPs, MACs, versions, serials, paths, commands): Adwaita Sans's mono sibling, so data reads as
+  // data next to UI text. No Nerd glyphs in it: glyphs stay on fontMono.
+  readonly property string fontData: "Adwaita Mono"
   // Add "zero": 1 for slashed zeros (terminal look); Adwaita Sans also has cv01–cv14 / ss01–ss08.
+  // Numbers only: Adwaita Sans's tnum also widens - : . (names read "firefox - bin"), so names / labels never take it.
   readonly property var fontTabular: ({ "tnum": 1 })
   // Popup type scale (bar popups, calendar, sheet, toasts, OSD): text takes one of these; glyphs keep their own size.
   readonly property int typeCaption: 10   // tracked caps, units, counts, chart labels

@@ -322,15 +322,15 @@ Scope {
         Behavior on scale { Menu.MenuAnim {} }
         Behavior on opacity { Menu.MenuAnim { effects: true } }
 
-        Rectangle {
-          id: shadowSrc
+        // Analytic shadow: a MultiEffect blur re-rendered on every frame of the card's morph.
+        RectangularShadow {
           anchors.fill: parent
           anchors.topMargin: 6
           radius: body.radius
+          blur: 32
           color: Style.m3shadow
-          visible: false
+          cached: true
         }
-        MultiEffect { source: shadowSrc; anchors.fill: shadowSrc; blurEnabled: true; blur: 1.0; blurMax: 32 }
 
         Rectangle {
           id: body
@@ -410,14 +410,37 @@ Scope {
                   anchors.fill: parent
                   anchors.leftMargin: 12; anchors.rightMargin: 12
                   spacing: 12
-                  Text { text: row.modelData.icon; color: row.sel ? Style.m3primary : Style.m3onSurface; font.family: Style.menuMono; font.pixelSize: 18 }
+                  Text {
+                    Layout.preferredWidth: 22
+                    horizontalAlignment: Text.AlignHCenter
+                    text: row.modelData.icon; color: row.sel ? Style.m3primary : Style.m3onSurface; font.family: Style.menuMono; font.pixelSize: 18
+                  }
+                  // The texts fill too: a nested layout grows only through a filling child, else the row centred
+                  // each column by its own width (titles staggered by the hint's length).
                   ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 0
-                    Text { text: row.modelData.label; color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: 14; font.weight: Font.DemiBold }
-                    Text { text: row.modelData.hint; color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: 12 }
+                    Text {
+                      Layout.fillWidth: true
+                      text: row.modelData.label; color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: 14; font.weight: Font.DemiBold
+                    }
+                    Text {
+                      Layout.fillWidth: true; elide: Text.ElideRight
+                      text: row.modelData.hint; color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: 12
+                    }
                   }
-                  Text { text: String(row.index + 1); color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: 12 }
+                  // The key to press, as a keycap (the launcher's prefix keys look the same).
+                  Rectangle {
+                    implicitWidth: 22; implicitHeight: 20
+                    radius: Style.radiusSm
+                    color: Style.m3containerHigh
+                    border.width: 1; border.color: Style.menuHairline
+                    Text {
+                      anchors.centerIn: parent
+                      text: String(row.index + 1); color: Style.m3onSurfaceVariant
+                      font.family: Style.fontData; font.pixelSize: 12; font.weight: Font.DemiBold
+                    }
+                  }
                 }
                 MouseArea {
                   id: rowMa

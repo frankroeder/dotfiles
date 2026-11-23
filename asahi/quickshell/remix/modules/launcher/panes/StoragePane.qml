@@ -163,7 +163,8 @@ Item {
       anchors.fill: parent
       anchors.leftMargin: 6; anchors.rightMargin: 8
       spacing: 8
-      Glyph { text: sectionHead.icon; color: sectionHead.tint; font.pixelSize: quickStorageRoot.root.fontPx(14) }
+      // The card-header tile every other pane uses (a bare glyph here was the odd one out).
+      Menu.MenuGlyphTile { glyph: sectionHead.icon; tint: sectionHead.tint; fontScale: quickStorageRoot.root.uiFontScale }
       CardTitle { text: sectionHead.title; Layout.fillWidth: true }
       Secondary { text: sectionHead.count }
       Glyph { text: sectionHead.open ? "󰅀" : "󰅂"; font.pixelSize: quickStorageRoot.root.fontPx(11) }
@@ -268,6 +269,8 @@ Item {
         boundsBehavior: Flickable.StopAtBounds
         contentHeight: listCol.implicitHeight
         ScrollBar.vertical: Menu.MenuScrollBar { id: listScroll }
+        Menu.MenuEdgeFade { parent: listFlick; surface: Style.m3container; atTop: true; gutter: listScroll.width }
+        Menu.MenuEdgeFade { parent: listFlick; surface: Style.m3container; gutter: listScroll.width }
         ColumnLayout {
           id: listCol
           // Gutter so the scrollbar never sits on the size column.

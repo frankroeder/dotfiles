@@ -104,9 +104,8 @@ PopupWindow {
     border.width: 1
     ColumnLayout {
       id: tileCol
-      anchors.left: parent.left
-      anchors.right: parent.right
-      anchors.top: parent.top
+      // Fills the tile, the bar pinned to its foot: the heat tile's two detail lines put its bar a line below the others.
+      anchors.fill: parent
       anchors.margins: 12
       spacing: 4
       Text {
@@ -122,6 +121,7 @@ PopupWindow {
         text: detail; color: Style.menuInk; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeCaption
         maximumLineCount: 2; elide: Text.ElideRight; Layout.fillWidth: true
       }
+      Item { Layout.fillHeight: true }
       Rectangle {
         Layout.fillWidth: true
         height: 3; radius: 1.5
@@ -251,23 +251,55 @@ PopupWindow {
         }
 
         SectionTitle { text: "per-core"; visible: root.cores.length > 0 }
-        Row {
+        // Hybrid CPUs: efficiency and performance cores as two groups with their means (Sys.coreGroups); each group as
+        // wide as its share of the cores.
+        RowLayout {
           Layout.fillWidth: true
-          spacing: 3
+          spacing: 12
           visible: root.cores.length > 0
           Repeater {
-            model: root.cores
-            Rectangle {
+            model: Sys.coreGroups(root.cores)
+            ColumnLayout {
+              id: coreGroup
               required property var modelData
-              width: Math.max(6, (col.width - Math.max(0, root.cores.length - 1) * 3) / Math.max(1, root.cores.length))
-              height: 28
-              radius: 2
-              color: Style.menuControlBg
-              Rectangle {
-                anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
-                height: parent.height * Math.max(0, Math.min(1, (modelData.percent || 0) / 100))
-                radius: 2
-                color: Style.orange
+              Layout.fillWidth: true
+              Layout.horizontalStretchFactor: Math.max(1, modelData.cores.length)
+              spacing: 4
+              RowLayout {
+                visible: coreGroup.modelData.name !== ""
+                Layout.fillWidth: true
+                Text {
+                  Layout.fillWidth: true
+                  text: coreGroup.modelData.name + " · " + coreGroup.modelData.cores.length
+                  color: Style.menuInkDeep; font.family: Style.fontUi; font.pixelSize: Style.typeCaption
+                }
+                Text {
+                  text: coreGroup.modelData.avg + "%"
+                  color: Style.orange; font.family: Style.fontUi; font.features: Style.fontTabular
+                  font.pixelSize: Style.typeCaption; font.weight: Font.DemiBold
+                }
+              }
+              Row {
+                id: cellRow
+                Layout.fillWidth: true
+                spacing: 3
+                Repeater {
+                  model: coreGroup.modelData.cores
+                  Rectangle {
+                    required property var modelData
+                    width: Math.max(6, (cellRow.width - Math.max(0, coreGroup.modelData.cores.length - 1) * 3)
+                      / Math.max(1, coreGroup.modelData.cores.length))
+                    height: 28
+                    radius: 2
+                    color: Style.menuControlBg
+                    Rectangle {
+                      anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
+                      height: parent.height * Math.max(0, Math.min(1, (modelData.percent || 0) / 100))
+                      radius: 2
+                      color: Style.orange
+                    }
+                  }
+                }
               }
             }
           }
@@ -292,7 +324,7 @@ PopupWindow {
               anchors.fill: parent
               anchors.leftMargin: 8; anchors.rightMargin: 8
               Text {
-                Layout.fillWidth: true; text: modelData.comm; color: Style.menuInk; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeBody
+                Layout.fillWidth: true; text: modelData.comm; color: Style.menuInk; font.family: Style.fontUi; font.pixelSize: Style.typeBody
                 elide: Text.ElideRight
               }
               Text { text: modelData.cpu.toFixed(1) + "%"; color: Style.menuInkDeep; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeCaption }
@@ -311,7 +343,7 @@ PopupWindow {
             Text {
               Layout.fillWidth: true
               text: modelData.displayLabel || modelData.label || "Fan"
-              color: Style.menuInk; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeBody
+              color: Style.menuInk; font.family: Style.fontUi; font.pixelSize: Style.typeBody
             }
             Rectangle {
               Layout.preferredWidth: 72
@@ -340,7 +372,7 @@ PopupWindow {
             Text {
               Layout.fillWidth: true
               text: Sys.sensorLabel(modelData)
-              color: Style.menuInk; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeBody; elide: Text.ElideRight
+              color: Style.menuInk; font.family: Style.fontUi; font.pixelSize: Style.typeBody; elide: Text.ElideRight
             }
             Text {
               text: (isFinite(modelData.value) ? modelData.value.toFixed(1) : "–") + "°C"

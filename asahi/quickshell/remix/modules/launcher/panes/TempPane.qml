@@ -236,6 +236,8 @@ Item {
       contentHeight: tempCol.implicitHeight
       boundsBehavior: Flickable.StopAtBounds
       ScrollBar.vertical: Menu.MenuScrollBar { id: tempScroll }
+      Menu.MenuEdgeFade { parent: tempFlick; surface: Style.m3surface; atTop: true; gutter: tempScroll.width }
+      Menu.MenuEdgeFade { parent: tempFlick; surface: Style.m3surface; gutter: tempScroll.width }
       Column {
         id: tempCol
         // Gutter so the scrollbar never paints over the cards.

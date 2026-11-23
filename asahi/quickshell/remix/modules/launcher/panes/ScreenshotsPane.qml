@@ -79,7 +79,9 @@ Item {
         clip: true
         reuseItems: true
         boundsBehavior: Flickable.StopAtBounds
-        ScrollBar.vertical: Menu.MenuScrollBar {}
+        ScrollBar.vertical: Menu.MenuScrollBar { id: shotScroll }
+        Menu.MenuEdgeFade { parent: shotGrid; surface: Style.m3container; atTop: true; gutter: shotScroll.width }
+        Menu.MenuEdgeFade { parent: shotGrid; surface: Style.m3container; gutter: shotScroll.width }
         model: shotsPane.items
 
         delegate: Item {

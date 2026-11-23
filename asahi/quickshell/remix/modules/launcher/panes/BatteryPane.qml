@@ -567,6 +567,8 @@ Item {
         contentHeight: factGrid.implicitHeight
         boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: Menu.MenuScrollBar { id: factScroll }
+        Menu.MenuEdgeFade { parent: factFlick; surface: Style.m3container; atTop: true; gutter: factScroll.width }
+        Menu.MenuEdgeFade { parent: factFlick; surface: Style.m3container; gutter: factScroll.width }
         GridLayout {
           id: factGrid
           width: factFlick.width - (factScroll.overflow ? factScroll.implicitWidth + 4 : 0)
@@ -588,7 +590,7 @@ Item {
                 color: Style.m3primaryContainer
                 Text {
                   anchors.centerIn: parent; text: quickBatteryRoot.factGlyph(modelData.k); color: Style.m3primary
-                  font.family: root.uiFont; font.pixelSize: root.fontPx(13)
+                  font.family: root.uiFont; font.pixelSize: root.fontPx(15)
                 }
               }
               Text {

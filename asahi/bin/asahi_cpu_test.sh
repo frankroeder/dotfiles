@@ -60,7 +60,25 @@ grep -q '^Freq avg 1.20 GHz' <<<"$tip" || fail_at "tooltip freq line"
 grep -qx 'Thermal 44.2 C (macsmc_hwmon / WiFi/BT Module Temp)' <<<"$tip" || fail_at "tooltip thermal line"
 grep -qx 'Pressure cpu 7.77% mem 0.00%' <<<"$tip" || fail_at "tooltip pressure line (PSI avg10)"
 [ "$(wc -l <<<"$tip")" = 5 ] || fail_at "tooltip is the five parsed lines"
+echo "$out" | jq -e '[.cores[] | has("kind")] | any | not' >/dev/null || fail_at "no top clocks: no kind"
 pass "asahi-cpu json"
+
+# Hybrid CPU: the cores with the lowest top clock are E, the rest P (SysPanel groups them).
+mkdir -p "$freq/cpu1/cpufreq"
+printf '2424000\n' >"$freq/cpu0/cpufreq/cpuinfo_max_freq"
+printf '3264000\n' >"$freq/cpu1/cpufreq/cpuinfo_max_freq"
+out=$(
+  ASAHI_HWMON_ROOT="$hw" ASAHI_PROC_STAT="$stat" ASAHI_PROC_LOADAVG="$load" ASAHI_CPUFREQ_ROOT="$freq" \
+  ASAHI_CPU_STATE_DIR="$state" ASAHI_PROC_PRESSURE="$psi" "$ROOT/asahi-cpu"
+)
+echo "$out" | jq -e '[.cores[].kind] == ["E", "P"]' >/dev/null || fail_at "E / P kinds from the top clocks"
+printf '3264000\n' >"$freq/cpu0/cpufreq/cpuinfo_max_freq"
+out=$(
+  ASAHI_HWMON_ROOT="$hw" ASAHI_PROC_STAT="$stat" ASAHI_PROC_LOADAVG="$load" ASAHI_CPUFREQ_ROOT="$freq" \
+  ASAHI_CPU_STATE_DIR="$state" ASAHI_PROC_PRESSURE="$psi" "$ROOT/asahi-cpu"
+)
+echo "$out" | jq -e '[.cores[] | has("kind")] | any | not' >/dev/null || fail_at "one top clock: no kind"
+pass "asahi-cpu core kinds"
 
 if [ "$fail" -ne 0 ]; then
   echo "asahi_cpu_test.sh: FAILED"

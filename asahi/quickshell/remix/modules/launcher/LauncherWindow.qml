@@ -5,7 +5,10 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Wayland
+import Quickshell.Bluetooth
+import Quickshell.Services.UPower
 import "../menu" as Menu
+import "../../services" as Services
 import "../../"
 import "Data.js" as Data
 import "websearch.js" as WebSearch
@@ -185,6 +188,32 @@ Scope {
     { key: "lock", aliases: ["lockscreen"], icon: "󰌾", name: "Lock", comment: "Lock session", command: ["asahi-lock"] },
     { key: "timer", aliases: ["reminder", "alarm", "countdown"], icon: "󰔛", name: "Timer", comment: ":timer 10m tea · 1:30 · 1h15m", query: ":timer " }
   ]
+
+  // Rail status dots: a Quick entry with something to say now gets a dot on its disc, the colour is the state. Bound to
+  // what the bar already watches (BarData, UPower, BlueZ, BtMonitor, Players, Recorder); the backup state file is read
+  // on open (asahi-timemachine replaces it by rename; the rail only shows while the launcher is open).
+  FileView { id: tmState; path: Quickshell.env("HOME") + "/.local/state/asahi/timemachine.json"; printErrors: false }
+  readonly property var tmStatus: { try { return JSON.parse(tmState.text() || "{}") } catch (e) { return {} } }
+  // A day past due: the hourly timer runs a due backup once the destination is reachable, so this one could not.
+  readonly property bool backupOverdue: {
+    const _ = root.shouldShow   // re-checked on open: time passes without a file change
+    const last = Date.parse(root.tmStatus.last_success || "")
+    return !isNaN(last) && Date.now() - last > ((root.tmStatus.min_age_h || 72) + 24) * 3600 * 1000
+  }
+  readonly property bool btConnected: (Bluetooth.devices && Bluetooth.devices.values || []).some(d => d && d.connected)
+  readonly property var railBadges: ({
+    network: Services.BarData.netConnectivity === "portal" || Services.BarData.netConnectivity === "limited" ? Style.orange
+      : Services.BarData.vpnUp ? Style.green : "",
+    temp: Services.BarData.tempAvg >= 75 ? Style.red : "",   // the bar's red
+    battery: !UPower.displayDevice.ready ? ""
+      : UPower.displayDevice.state === UPowerDeviceState.Charging ? Style.green
+      : UPower.onBattery && UPower.displayDevice.percentage < 0.2 ? Style.red : "",
+    bluetooth: Services.BtMonitor.alert.state === "critical" ? Style.red : Services.BtMonitor.alert.state === "low" ? Style.orange
+      : root.btConnected ? Style.blue : "",
+    media: Services.Players.playing ? Style.m3primary : "",
+    screenshots: Services.Recorder.running ? Style.red : "",
+    backup: root.tmStatus.running ? Style.m3primary : root.backupOverdue ? Style.orange : ""
+  })
 
   readonly property var quickDeckHidden: ({
     // Standalone picker (Super+Shift+W), like packages/recorder: still searchable
@@ -667,7 +696,7 @@ Scope {
             anchors.centerIn: parent
             text: modelData.icon || ""
             color: modelData.accent || Style.m3onSurfaceVariant
-            font.pixelSize: root.fontPx(15)
+            font.pixelSize: root.fontPx(18)   // ~0.6 of the tile, like the rail discs
             font.family: root.uiFont
           }
         }
@@ -690,7 +719,8 @@ Scope {
           text: rowValue
           color: Style.m3onSurface
           font.pixelSize: root.fontPx(10)
-          font.family: root.uiSans
+          // Machine strings (kernel release, address) in the data mono.
+          font.family: modelData.key === "Kernel" || modelData.key === "IP" ? Style.fontData : root.uiSans
           // Guard on width so the first 0-wide pass does not wrap
           // one grapheme per line. Shared GridLayout rows keep wrap aligned.
           wrapMode: width > 80 ? Text.WordWrap : Text.NoWrap
@@ -742,8 +772,9 @@ Scope {
         const uptime = one("Uptime") || {}
         const diskBytes = disk.bytes || {}
         const memTotal = Number(mem.total) || 0
-        const diskUsed = Number(diskBytes.used) || 0
         const diskTotal = Number(diskBytes.total) || 0
+        // fastfetch sends no `used` for the LUKS btrfs root (only total + free): the gauge read 0 %.
+        const diskUsed = Number(diskBytes.used) || Math.max(0, diskTotal - (Number(diskBytes.free) || diskTotal))
         const out = display.output || {}
         const scaled = display.scaled || out
         const refresh = out.refreshRate ? (" · " + Math.round(out.refreshRate) + " Hz") : ""
@@ -1112,6 +1143,7 @@ Scope {
   onDeVersionChanged: if (!root.quickMode) { if (resultsList) resultsList.currentIndex = 0; root.selectedIndex = 0 }
   onShouldShowChanged: {
     if (root.shouldShow) {
+      tmState.reload()   // rail dot: the backup state as of this open
       chromeHideKick.stop()
       root.panelVisible = true
       root.chromeReveal = 0
@@ -3167,6 +3199,8 @@ Scope {
               highlightFollowsCurrentItem: false
               pixelAligned: true
               ScrollBar.vertical: Menu.MenuScrollBar { id: resultsScroll }
+              Menu.MenuEdgeFade { parent: resultsList; surface: Style.m3surface; atTop: true; gutter: resultsScroll.width }
+              Menu.MenuEdgeFade { parent: resultsList; surface: Style.m3surface; gutter: resultsScroll.width }
               // Rows stop short of the scrollbar (0 wide when nothing overflows).
               readonly property real rowW: width - resultsScroll.width
               highlight: Rectangle {
@@ -3222,8 +3256,10 @@ Scope {
 
                   Item {
                     id: iconSlot
-                    width: root.launcherGeom.iconSlot
-                    height: root.launcherGeom.iconSlot
+                    // Layout sizes, not width / height: RowLayout never re-reads an explicit width, so rows built
+                    // before a screen change (other fontScale) kept the old slot and sat 8 px off their neighbours.
+                    Layout.preferredWidth: root.launcherGeom.iconSlot
+                    Layout.preferredHeight: root.launcherGeom.iconSlot
                     Layout.alignment: Qt.AlignVCenter
                     Image {
                       id: rowIcon
@@ -3288,15 +3324,36 @@ Scope {
                     count: modelData.special === "app" && !!modelData.raw ? root.windowCount(modelData.raw) : 0
                     active: modelData.special === "app" && !!modelData.raw && root.isActive(modelData.raw)
                   }
+                  // Nav rows: the prefix key as a keycap and the drill-in chevron centred in the same slot, so the
+                  // column lines up (bare , ; : > @ sat on their own widths and baselines).
+                  Rectangle {
+                    readonly property bool chevron: delegateRoot.dAcc === "›"
+                    visible: delegateRoot.dCat && delegateRoot.dAcc !== ""
+                    Layout.alignment: Qt.AlignVCenter
+                    Layout.preferredWidth: root.fontPx(22)
+                    Layout.preferredHeight: root.fontPx(20)
+                    radius: Style.radiusSm
+                    color: chevron ? "transparent" : Style.m3containerHigh
+                    border.width: chevron ? 0 : 1
+                    border.color: Style.menuHairline
+                    Text {
+                      anchors.centerIn: parent
+                      text: delegateRoot.dAcc
+                      color: Style.m3onSurfaceVariant
+                      font.family: parent.chevron ? root.uiSans : Style.fontData
+                      font.pixelSize: root.fontPx(parent.chevron ? 16 : 12)
+                      font.weight: Font.DemiBold
+                    }
+                  }
                   Text {
                     textFormat: Text.PlainText
                     text: root.fileMode && modelData.path
                       ? Data.tildify(Data.dirname(modelData.path), root.homeDir)
                       : delegateRoot.dAcc
-                    visible: text !== ""
+                    visible: text !== "" && !delegateRoot.dCat
                     color: Style.m3outline
                     font.pixelSize: root.fontPx(11)
-                    font.family: root.uiSans
+                    font.family: root.fileMode ? Style.fontData : root.uiSans
                     elide: Text.ElideLeft
                     maximumLineCount: 1
                     // Key combos ("SUPER+SHIFT+ESCAPE") need more room than
@@ -3432,6 +3489,22 @@ Scope {
               interactive: contentHeight > height + 1
               ScrollBar.vertical: Menu.MenuScrollBar {}
 
+              // One selection pill that slides between rail entries on the shared spring, like the results list's
+              // highlight (the tiles only tint their disc). Snaps while the card opens: no slide from the last pane.
+              Rectangle {
+                readonly property Item cur: quickRepeater.count > root.selectedIndex ? quickRepeater.itemAt(root.selectedIndex) : null
+                visible: !!cur
+                x: cur ? cur.x + 2 : 0
+                y: cur ? cur.y + 2 : 0
+                width: cur ? cur.width - 4 : 0
+                height: cur ? cur.height - 4 : 0
+                radius: Style.menuRadiusFull
+                color: Style.menuSelFill
+                border.width: 1
+                border.color: Style.menuSelBorder
+                Behavior on y { enabled: root.chromeReveal === 1; Menu.MenuAnim {} }
+              }
+
               Grid {
                 id: quickGrid
                 width: quickSide.width
@@ -3444,6 +3517,7 @@ Scope {
                 Timer { interval: 0; running: root.quickMode; repeat: false; onTriggered: root.resultCount = (root.quickDeck || []).length }
 
               Repeater {
+                id: quickRepeater
                 model: root.quickDeck || []
                 delegate: Item {
                   required property var modelData
@@ -3458,6 +3532,7 @@ Scope {
                     hovered: qma.containsMouse
                     glyph: t.glyph || "󰘔"
                     label: t.label || ""
+                    badge: root.railBadges[t.mode || t.key] || "transparent"
                     tint: root.tintColor(t.tint)
                     fontFamily: root.uiFont
                     glyphPx: root.fontPx(24)
@@ -3542,7 +3617,7 @@ Scope {
                     return it && it.path ? Data.tildify(Data.dirname(it.path), root.homeDir) : ""
                   }
                   color: Style.menuInkDeep
-                  font.family: root.uiFont
+                  font.family: Style.fontData   // the rows' path column, same face
                   font.pixelSize: root.fontPx(12)
                   opacity: 0.7
                   elide: Text.ElideLeft
@@ -3595,7 +3670,7 @@ Scope {
                     visible: root.fileMode && resultsList.currentItem && resultsList.currentItem.modelData && !root.isImageFile(resultsList.currentItem.modelData.path || "") && !root.isTextFile(resultsList.currentItem.modelData.path || "") && !(root.isPdfFile(resultsList.currentItem.modelData.path || "") && !root.filePreviewMeta)
                     text: root.filePreviewMeta
                     color: Style.menuInkDeep
-                    font.family: root.uiFont
+                    font.family: Style.fontData
                     font.pixelSize: root.fontPx(10)
                     wrapMode: Text.Wrap
                   }
@@ -3621,8 +3696,10 @@ Scope {
             if (it.command && it.command.length) return "$ " + (it.command.join ? it.command.join(" ") : it.command)
             return it.comment || ""
           }
+          textFormat: Text.PlainText
           color: Style.m3outline
-          font.family: root.uiSans
+          // A command line reads as one: mono (fontData); a plain comment stays sans.
+          font.family: text.startsWith("$ ") ? Style.fontData : root.uiSans
           font.pixelSize: root.fontPx(11)
         }
 

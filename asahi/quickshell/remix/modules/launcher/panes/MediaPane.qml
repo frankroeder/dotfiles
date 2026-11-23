@@ -320,6 +320,9 @@ Item {
                 }
               }
             }
+            // Pack from the top: the card with fewer devices spread its rows, its header and slider sat lower than
+            // the neighbour's.
+            Item { Layout.fillHeight: true }
           }
         }
       }

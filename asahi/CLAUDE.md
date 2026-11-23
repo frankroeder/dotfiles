@@ -379,7 +379,27 @@ relabel filter.
   `barBackground` ease 300 ms (one Behavior each; every chip binds them). Big readouts that tick (SysPanel tiles,
   Battery / Temps heroes) = `Menu.MenuFadeText` (fade on text change, only while its window is shown — SysPanel
   lives in every bar and faded its closed tiles every 3 s; never in the bar; the owner must not bind
-  `opacity`).
+  `opacity`). Polish 2 (2026-11-23): `fontData` = Adwaita Mono for machine strings (IPs, BSSID, kernel, serial, paths,
+  the launcher's `$ command` line, versions; not where it elides real data: the Hardware System card stays sans);
+  `fontTabular` on numbers only (Adwaita's `tnum` widens `-` `:` `.`: "firefox - bin", "Session (5 - hour)").
+  Overflowing lists get `Menu.MenuEdgeFade` (gradient in the surface under the list, top / bottom, only while more lies
+  past that edge; `parent:` the flickable so it does not scroll; no layer). Shared pills / icon buttons / chips: pressed
+  layer `m3statePress` + scale 0.97 (0.92 icon buttons; none under reduced motion). Card shadows = `RectangularShadow`
+  (`cached`), not a MultiEffect blur (re-rendered every frame of a size animation). Quick rail: one selection pill
+  slides between entries (snaps while the card opens); tiles tint only their disc. Glyph ≈ 0.6 of its tile (fact /
+  device tiles were 0.45). Launcher nav rows: prefix keys as keycaps (`fontData`), chevron in the same slot. Layout
+  gotchas: a RowLayout never re-reads an explicit `width` (launcher icon slot: rows built before a screen change kept
+  the old size) — use `Layout.preferred*`; a nested ColumnLayout with `Layout.fillWidth` grows only through a filling
+  child, else the row centres it (writing tools titles staggered); a row whose tile fills height needs
+  `Layout.fillHeight: false` on itself (Backup tiles). His picks from the ideas (2026-11-23; declined: slider value in
+  the handle — the % is shown already —, all-mono UI, port watts): **rail status dots** (`LauncherWindow.railBadges`
+  → `MenuHudTile.badge`; VPN green / portal orange, die ≥ 75 °C red = the bar's red, charging green / < 20 % red,
+  BT connected blue / BtMonitor low-critical, playing, recording red, backup running / a day past due orange — the
+  state file is replaced by rename, so it is read on every open, not watched); **E / P per-core groups** in SysPanel
+  (`asahi-cpu` cores carry `kind` from the lowest `cpuinfo_max_freq`; `Sys.coreGroups`; no kind = one row);
+  **notification progress** (`value` hint → `Model.progressHint`, slim bar + % on live toasts; `hintsChanged` joins the
+  replace update so `notify-send -r` moves it; history drops it). App grid: the desktop is dimmed, not blurred
+  (`rules.lua` `quickshell-appgrid` ignore_alpha 0.6 over its crust@0.5 scrim = 128/255).
 - **Launcher quick panes**: one file each in `quickshell/remix/modules/launcher/panes/`; `LauncherWindow.qml` does
   `Panes.XPane { root: launcherSelf }` (`root` in a pane = that property). Shared M3 widgets in `modules/menu` take
   `fontScale` (`MenuSwitch` fixed; `component Pill: Menu.MenuPill { fontScale: root.uiFontScale }`). Hover =

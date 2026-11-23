@@ -554,7 +554,7 @@ Item {
     // Header: title + count, action pills.
     RowLayout {
       Layout.fillWidth: true; spacing: 8
-      Text { text: "󰍹"; color: Style.m3primary; font.pixelSize: root.fontPx(14); font.family: root.uiFont }
+      Menu.MenuGlyphTile { glyph: "󰍹"; fontScale: root.uiFontScale }
       Text {
         text: "Displays"
         color: Style.m3onSurface; font.pixelSize: root.fontPx(14); font.family: root.uiSans; font.weight: Font.DemiBold

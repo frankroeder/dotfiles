@@ -19,12 +19,14 @@ Rectangle {
   radius: width / 2
   color: btn.bg
   Behavior on color { ColorAnimation { duration: 120 } }
+  scale: btnMa.pressed && !Style.reduceMotion ? 0.92 : 1
+  Behavior on scale { NumberAnimation { duration: Style.menuStateMs; easing.type: Easing.OutCubic } }
 
   Rectangle {
     anchors.fill: parent
     radius: parent.radius
-    color: Style.m3stateHover
-    opacity: btnMa.containsMouse ? 1 : 0
+    color: btnMa.pressed ? Style.m3statePress : Style.m3stateHover
+    opacity: btnMa.containsMouse || btnMa.pressed ? 1 : 0
     Behavior on opacity { NumberAnimation { duration: 120 } }
   }
   Text {

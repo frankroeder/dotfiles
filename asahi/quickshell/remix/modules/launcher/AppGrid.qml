@@ -148,6 +148,8 @@ Scope {
         clip: true
         model: root.apps
         boundsBehavior: Flickable.StopAtBounds
+        Menu.MenuEdgeFade { parent: grid; surface: Style.m3surface; atTop: true }
+        Menu.MenuEdgeFade { parent: grid; surface: Style.m3surface }
         // The launcher's selection: accent tint + hairline, moved on the shared spring.
         highlightFollowsCurrentItem: false
         highlight: Rectangle {

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CPU snapshot for the bar's SysPanel (only while it is open): {tooltip, cores}. sys_panel.js
+# CPU snapshot for the bar's SysPanel (only while it is open): {tooltip, cores}; cores carry kind E / P on hybrid CPUs. sys_panel.js
 # parseCpuTooltip reads the Load / Cores / Freq avg / Thermal lines; keep their format.
 
 set -euo pipefail
@@ -99,6 +99,26 @@ cores_json="$(
 cores_json="[${cores_json}]"
 [ -n "$core_count" ] || core_count=0
 
+# Hybrid CPUs (Apple Silicon): cores of the clusters with the lowest top clock are efficiency cores ("E"), the rest
+# performance ("P"). One top clock for every core = no kind (SysPanel then keeps one row).
+declare -A top_freq=()
+lo=0
+hi=0
+for path in "$cpufreq_root"/cpu[0-9]*/cpufreq/cpuinfo_max_freq; do
+  read_line f "$path"
+  if ! [[ $f =~ ^[0-9]+$ ]]; then continue; fi
+  cpu="${path#"$cpufreq_root"/cpu}"
+  top_freq["CPU${cpu%%/*}"]=$f
+  if [ "$lo" -eq 0 ] || [ "$f" -lt "$lo" ]; then lo=$f; fi
+  if [ "$f" -gt "$hi" ]; then hi=$f; fi
+done
+kinds_json="{}"
+if [ "$lo" -gt 0 ] && [ "$lo" -lt "$hi" ]; then
+  kinds_json="$(for cpu in "${!top_freq[@]}"; do
+      if [ "${top_freq[$cpu]}" -eq "$lo" ]; then printf '%s E\n' "$cpu"; else printf '%s P\n' "$cpu"; fi
+    done | jq -Rn '[inputs | split(" ") | {(.[0]): .[1]}] | add // {}')"
+fi
+
 read -r load1 load5 load15 _ < "$proc_loadavg"
 cores="${core_count}"
 if [ "$cores" -eq 0 ]; then
@@ -158,4 +178,5 @@ pressure_line="Pressure cpu $(psi_avg10 "$proc_pressure/cpu")% mem $(psi_avg10 "
 tooltip="$(printf "Load 1/5/15: %s %s %s\nCores: %s\n%s\n%s\n%s" "$load1" "$load5" "$load15" "$cores" "$freq_line" "$temp_line" \
   "$pressure_line")"
 
-jq -cn --arg tooltip "$tooltip" --argjson cores "$cores_json" '{tooltip: $tooltip, cores: $cores}'
+jq -cn --arg tooltip "$tooltip" --argjson cores "$cores_json" --argjson kinds "$kinds_json" \
+  '{tooltip: $tooltip, cores: ($cores | map(if $kinds[.name] then . + {kind: $kinds[.name]} else . end))}'

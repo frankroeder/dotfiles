@@ -14,20 +14,15 @@ Item {
   opacity: chromeReveal
   Behavior on opacity { MenuAnim { effects: true; exit: root.chromeReveal < 1 } }
 
-  Rectangle {
-    id: shadowSrc
+  // Analytic shadow (one shader quad): a MultiEffect blur re-rendered its offscreen passes on every frame of a
+  // pane switch's size animation.
+  RectangularShadow {
     anchors.fill: parent
     anchors.topMargin: 6
     radius: root.cardRadius
+    blur: 32
     color: Style.m3shadow
-    visible: false
-  }
-  MultiEffect {
-    source: shadowSrc
-    anchors.fill: shadowSrc
-    blurEnabled: true
-    blur: 1.0
-    blurMax: 32
+    cached: true
   }
 
   Rectangle {

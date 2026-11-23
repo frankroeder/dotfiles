@@ -310,6 +310,8 @@ Scope {
             boundsBehavior: Flickable.StopAtBounds
             model: root.packages
             ScrollBar.vertical: Menu.MenuScrollBar { id: pkgScroll }
+            Menu.MenuEdgeFade { parent: pkgList; surface: Style.m3container; atTop: true; gutter: pkgScroll.width }
+            Menu.MenuEdgeFade { parent: pkgList; surface: Style.m3container; gutter: pkgScroll.width }
             delegate: Rectangle {
               id: pkgRow
               required property var modelData
@@ -368,7 +370,7 @@ Scope {
                     anchors.centerIn: parent
                     text: pkgRow.modelData.version || ""
                     textFormat: Text.PlainText
-                    color: Style.m3onSurface; font.family: Style.menuMono; font.pixelSize: root.px(9)
+                    color: Style.m3onSurface; font.family: Style.fontData; font.pixelSize: root.px(9)
                   }
                 }
               }

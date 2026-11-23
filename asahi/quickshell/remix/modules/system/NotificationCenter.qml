@@ -122,6 +122,7 @@ Scope {
       // App-requested lifetime: the raw D-Bus value in ms (notify-send -t); <= 0 = server default.
       expire: Number(n.expireTimeout) || 0,
       transient: !!n.transient,
+      progress: Model.progressHint(n.hints),
       ts: Date.now(),
       count: 1,
       actions: Model.actionList(n.actions)
@@ -300,7 +301,8 @@ Scope {
         if (root.refs[key] === n) root.updateToast(key, n)
       })
     }
-    for (const sig of [n.summaryChanged, n.bodyChanged, n.actionsChanged, n.urgencyChanged, n.imageChanged, n.expireTimeoutChanged])
+    for (const sig of [n.summaryChanged, n.bodyChanged, n.actionsChanged, n.urgencyChanged, n.imageChanged, n.expireTimeoutChanged,
+      n.hintsChanged])
       sig.connect(update)
   }
   function senderClosed(key, n) {
@@ -764,11 +766,14 @@ Scope {
         Rectangle { Layout.fillWidth: true; height: 1; color: Style.menuSep }
 
         Flickable {
+          id: historyFlick
           Layout.fillWidth: true
           Layout.fillHeight: true
           clip: true
           contentHeight: historyColumn.implicitHeight
           boundsBehavior: Flickable.StopAtBounds
+          Menu.MenuEdgeFade { parent: historyFlick; surface: Style.m3surfaceSolid; atTop: true }
+          Menu.MenuEdgeFade { parent: historyFlick; surface: Style.m3surfaceSolid }
 
           ColumnLayout {
             id: historyColumn
@@ -1139,6 +1144,31 @@ Scope {
           elide: Text.ElideRight
           maximumLineCount: card.expanded ? 1000 : card.compact ? 3 : 2
           Layout.fillWidth: true
+        }
+        // Progress hint (`value`: downloads, copies, renders): a slim bar + percent under the body, live toasts only.
+        RowLayout {
+          visible: card.live && !!card.entry && card.entry.progress >= 0
+          Layout.fillWidth: true
+          Layout.topMargin: 2
+          spacing: 8
+          Rectangle {
+            Layout.fillWidth: true
+            implicitHeight: 4
+            radius: 2
+            color: Style.menuControlBg
+            Rectangle {
+              width: parent.width * (card.entry ? Math.max(0, card.entry.progress) : 0) / 100
+              height: parent.height
+              radius: 2
+              color: Style.menuSeal
+              Behavior on width { NumberAnimation { duration: Style.menuAnimMs; easing.type: Easing.OutCubic } }
+            }
+          }
+          Text {
+            text: (card.entry ? card.entry.progress : 0) + "%"
+            color: Style.menuInkDeep
+            font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeBody; font.weight: Font.Medium
+          }
         }
         Text {
           visible: card.compact && (bodyText.truncated || card.expanded)

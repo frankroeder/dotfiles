@@ -72,6 +72,8 @@ layer_rule("^(quickshell.*)$", { blur = true, ignore_alpha = 0.3 })
 -- Launcher / wallpaper overlays: blur only under the card (the scrim is ~0.12 alpha
 -- and stays below ignore_alpha), so the desktop behind stays readable.
 layer_rule("^(quickshell-launcher|quickshell-wallpaper|quickshell-pkgman)$", { blur = true, ignore_alpha = 0.5, xray = false })
+-- App grid: its scrim (crust@0.5, 128/255 > 0.5) dims the desktop without blurring it; only the card blurs.
+layer_rule("^quickshell-appgrid$", { blur = true, ignore_alpha = 0.6, xray = false })
 layer_rule("^asahi-dim$", { no_anim = true, animation = "none" })
 -- slurp (region screenshots, OCR, QR, recordings): its selection must vanish at once; faded out over 0.5 s, grim caught
 -- its border as a 1–2 px grey frame on every region shot (omarchy screenshot-selection.lua).

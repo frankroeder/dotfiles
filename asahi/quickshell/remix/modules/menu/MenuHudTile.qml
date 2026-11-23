@@ -1,8 +1,8 @@
 import QtQuick
 import "../../"
 
-// Navigation-drawer item: the active entry sits in a full-round
-// secondary-container pill, hover is the onSurface state layer.
+// Navigation-drawer item: hover is the onSurface state layer; the selection pill is the rail's own (one pill that
+// slides between entries), the selected tile only fills its disc.
 Item {
   id: root
   property bool selected: false
@@ -14,14 +14,14 @@ Item {
   property color tint: Style.m3onSurfaceVariant
   property int glyphPx: 24
   property int labelPx: 11
+  // Status dot on the disc ("transparent" = none), set off from the panel by a ring in the surface colour.
+  property color badge: "transparent"
 
   Rectangle {
     anchors.fill: parent
     anchors.margins: 2
     radius: Style.menuRadiusFull
-    color: root.selected ? Style.menuSelFill : (root.hovered ? Style.m3stateHover : "transparent")
-    border.width: root.selected ? 1 : 0
-    border.color: Style.menuSelBorder
+    color: root.hovered && !root.selected ? Style.m3stateHover : "transparent"
     Behavior on color { ColorAnimation { duration: Style.menuAnimMs } }
   }
 
@@ -46,6 +46,13 @@ Item {
         font.pixelSize: Math.max(1, Math.round(disc.width * 0.62))
         font.family: root.fontFamily; font.features: Style.fontTabular
         Behavior on color { ColorAnimation { duration: Style.menuAnimMs } }
+      }
+      Rectangle {
+        visible: root.badge.a > 0
+        width: Math.max(10, Math.round(disc.width * 0.4)); height: width; radius: width / 2
+        x: disc.width - width * 0.8; y: -width * 0.2
+        color: root.badge
+        border.width: 2; border.color: Style.m3surfaceSolid
       }
     }
     Text {

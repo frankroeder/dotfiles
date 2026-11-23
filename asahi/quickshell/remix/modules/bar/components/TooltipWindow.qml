@@ -37,7 +37,7 @@ PopupWindow {
     y: root.pad
     textFormat: Text.PlainText
     text: root.text
-    font.family: Style.fontUi; font.features: Style.fontTabular
+    font.family: Style.fontUi
     font.pixelSize: Style.fontSizeTiny
     color: Style.text
     wrapMode: Text.Wrap

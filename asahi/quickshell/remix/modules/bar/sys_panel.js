@@ -88,6 +88,17 @@ function fanFraction(fan) {
   return Math.max(0, Math.min(1, (rpm - min) / (max - min)))
 }
 
+// Per-core cells grouped by cluster (asahi-cpu `kind`: E = the lowest top clock, P = the rest), each with its mean
+// percent; one unnamed group when the CPU is not hybrid.
+function coreGroups(cores) {
+  const all = cores || []
+  const mean = cs => Math.round(cs.reduce((s, c) => s + (Number(c.percent) || 0), 0) / Math.max(1, cs.length))
+  const e = all.filter(c => c.kind === "E")
+  const p = all.filter(c => c.kind === "P")
+  if (!e.length || !p.length) return [{ name: "", cores: all, avg: mean(all) }]
+  return [{ name: "Efficiency", cores: e, avg: mean(e) }, { name: "Performance", cores: p, avg: mean(p) }]
+}
+
 function pressureClass(percent, warning, critical) {
   const v = Number(percent)
   if (!isFinite(v)) return "normal"
@@ -107,6 +118,7 @@ if (typeof module !== "undefined" && module.exports) {
     heat: heat,
     heatW: heatW,
     fanFraction: fanFraction,
+    coreGroups: coreGroups,
     pressureClass: pressureClass
   }
 }

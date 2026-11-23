@@ -112,7 +112,9 @@ Item {
         spacing: 2
         boundsBehavior: Flickable.StopAtBounds
         model: clipPane.filtered
-        ScrollBar.vertical: Menu.MenuScrollBar {}
+        ScrollBar.vertical: Menu.MenuScrollBar { id: clipScroll }
+        Menu.MenuEdgeFade { parent: clipList; surface: Style.m3container; atTop: true; gutter: clipScroll.width }
+        Menu.MenuEdgeFade { parent: clipList; surface: Style.m3container; gutter: clipScroll.width }
         delegate: Rectangle {
           id: row
           required property var modelData

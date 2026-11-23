@@ -582,7 +582,7 @@ Rectangle {
                   anchors.leftMargin: cardMark.visible ? 8 : 0
                   anchors.verticalCenter: parent.verticalCenter
                   text: cardData.name || ""
-                  font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeTitle; bold: true }
+                  font { family: Style.fontUi; pixelSize: Style.typeTitle; bold: true }
                   color: Style.text
                 }
                 Rectangle {
@@ -599,7 +599,7 @@ Rectangle {
                     id: planText
                     anchors.centerIn: parent
                     text: cardData.tier || ""
-                    font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeBody; weight: Font.DemiBold }
+                    font { family: Style.fontUi; pixelSize: Style.typeBody; weight: Font.DemiBold }
                     color: fill
                   }
                 }
@@ -611,7 +611,7 @@ Rectangle {
                   anchors.rightMargin: 8
                   anchors.verticalCenter: parent.verticalCenter
                   text: cardData.head || ""
-                  font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeLead }
+                  font { family: Style.fontUi; pixelSize: Style.typeLead }
                   color: Style.textMuted
                   elide: Text.ElideRight
                 }
@@ -625,7 +625,7 @@ Rectangle {
                   horizontalAlignment: Text.AlignRight
                   text: cardData.ident || ""
                   textFormat: Text.PlainText
-                  font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeBody }
+                  font { family: Style.fontUi; pixelSize: Style.typeBody }
                   color: Style.textMuted
                   elide: Text.ElideLeft
                 }
@@ -733,7 +733,7 @@ Rectangle {
                         anchors.rightMargin: 6
                         anchors.baseline: tilePct.baseline
                         text: tile.modelData.title || ""
-                        font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeBody }
+                        font { family: Style.fontUi; pixelSize: Style.typeBody }
                         color: Style.textMuted
                         elide: Text.ElideRight
                       }
@@ -818,7 +818,7 @@ Rectangle {
                       anchors.bottom: parent.bottom
                       anchors.horizontalCenter: parent.horizontalCenter
                       text: modelData.dow || ""
-                      font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeCaption }
+                      font { family: Style.fontUi; pixelSize: Style.typeCaption }
                       color: Style.textMuted
                     }
                   }
@@ -877,7 +877,7 @@ Rectangle {
                   Text {
                     id: linkText
                     text: (modelData.title || "") + " ↗"
-                    font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeBody }
+                    font { family: Style.fontUi; pixelSize: Style.typeBody }
                     color: linkMa.containsMouse ? Style.sky : Style.textMuted
                   }
                 }
