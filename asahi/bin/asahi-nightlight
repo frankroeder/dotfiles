@@ -15,7 +15,7 @@ SETTLE="${ASAHI_NIGHTLIGHT_SETTLE:-0.2}"
 
 mkdir -p "$STATE_DIR"
 exec 9>"$STATE_DIR/nightlight.lock"
-flock 9
+flock -w 10 9 || exit 1   # never hang a wheel gesture forever
 
 conf_on_temp() {
   local conf="$CONF" t=""
@@ -68,7 +68,7 @@ ensure_daemon() {
   if pgrep -x hyprsunset >/dev/null 2>&1; then
     return 0
   fi
-  "$HERE/asahi-launch" hyprsunset >/dev/null 2>&1 &
+  "$HERE/asahi-launch" hyprsunset >/dev/null 2>&1 9>&- &   # 9>&-: the daemon must not inherit (and hold) the lock
 }
 
 apply_temperature() {

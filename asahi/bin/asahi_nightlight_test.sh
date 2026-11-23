@@ -108,6 +108,18 @@ run warmer & run warmer & run warmer & wait
 [ "$(jq -r '.temperature' "$tmp/state/nightlight.json")" = 2000 ] && [ "$(cat "$tmp/temp")" = 2000 ] && [ ! -s "$tmp/notified" ] \
   && pass "three runs at once: all three steps land, no failure card" || fail_at "parallel: $(cat "$tmp/state/nightlight.json") temp=$(cat "$tmp/temp") notified=[$(cat "$tmp/notified")]"
 printf '#!/bin/sh\nexit 0\n' >"$tmp/bin/notify-send"
+# hyprsunset not running: the launched daemon must not inherit the run's lock (fd 9) — it would hold it for its whole
+# life and every later run would wait. A copy beside a fake asahi-launch reports whether fd 9 reached it.
+mkdir -p "$tmp/copy"
+cp "$NL" "$tmp/copy/asahi-nightlight"
+printf '#!/bin/sh\nif [ -e /proc/$$/fd/9 ]; then echo leaked; else echo closed; fi >"%s/fd9"\n' "$tmp" >"$tmp/copy/asahi-launch"
+printf '#!/bin/sh\nexit 1\n' >"$tmp/copy/pgrep"
+chmod +x "$tmp/copy/"*
+PATH="$tmp/copy:$tmp/bin:$PATH" ASAHI_STATE_DIR="$tmp/state2" ASAHI_NIGHTLIGHT_STATE="$tmp/state2/nightlight.json" \
+  ASAHI_NIGHTLIGHT_CONF="$tmp/hyprsunset.conf" ASAHI_NIGHTLIGHT_TRIES=1 ASAHI_NIGHTLIGHT_SETTLE=0 \
+  "$tmp/copy/asahi-nightlight" toggle >/dev/null 2>&1 || true
+for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$tmp/fd9" ] && break; sleep 0.1; done
+[ "$(cat "$tmp/fd9" 2>/dev/null)" = closed ] && pass "a started hyprsunset does not hold the lock" || fail_at "fd 9: $(cat "$tmp/fd9" 2>/dev/null)"
 for _ in 1 2 3 4 5; do run warmer; done
 [ "$(jq -r '.temperature' "$tmp/state/nightlight.json")" = 1000 ] && pass "warmer clamps at 1000 K" || fail_at "warmer clamp: $(cat "$tmp/state/nightlight.json")"
 run toggle
