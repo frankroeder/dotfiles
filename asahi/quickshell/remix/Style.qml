@@ -1,6 +1,7 @@
 pragma Singleton
 import QtQuick
 import Quickshell
+import Quickshell.Services.UPower
 import "modules/wallpaper" as Wallpaper
 
 // Wallpaper palette → shell chrome. DefaultTheme owns colors.json; generation
@@ -28,7 +29,7 @@ Singleton {
   }
 
   readonly property color accent: themed("accent")
-  // The lock screen's vivid accent pair (hyprlock's $lock_accent / $lock_accent2): the Touch ID orb.
+  // The lock screen's vivid accent pair (colors.json lock_accent / lock_accent2): the Touch ID orb.
   readonly property color vivid: themed("lockAccent")
   readonly property color vivid2: themed("lockAccent2")
 
@@ -117,9 +118,12 @@ Singleton {
   readonly property int menuRadiusFull: 999
   // Anim: M3 expressive spatial spring + effects curve; exits are shorter and accelerate (M3 emphasized
   // accelerate), so a closing surface gets out of the way instead of springing.
-  readonly property int menuAnimMs: 200
-  readonly property int menuSpringMs: 500
-  readonly property int menuExitMs: 180
+  // Reduced motion on a low battery (on battery below 20 %): the spring and the decorative one-shots (bell swing,
+  // usage chip roll) drop out, fades shorten. Bound to UPower: no polling.
+  readonly property bool reduceMotion: UPower.onBattery && UPower.displayDevice.ready && UPower.displayDevice.percentage < 0.2
+  readonly property int menuAnimMs: reduceMotion ? 100 : 200
+  readonly property int menuSpringMs: reduceMotion ? 0 : 500
+  readonly property int menuExitMs: reduceMotion ? 100 : 180
   readonly property int menuAnimOutMs: menuExitMs + 20   // unmap after the exit has run
   readonly property int menuStateMs: 120                 // hover / press / toggle colour
   readonly property var menuSpring: [0.38, 1.21, 0.22, 1, 1, 1]
@@ -131,10 +135,16 @@ Singleton {
   readonly property string fontUi: "Adwaita Sans"
   // Bar strip only (converged look): Noto Sans digits are tabular by default, so % keep their width.
   readonly property string fontBar: "Noto Sans"
-  // Glyphs and monospace text (file previews): the Nerd Font dnf.sh installs (Ghostty / hyprlock use it too).
+  // Glyphs and monospace text (file previews): the Nerd Font dnf.sh installs (Ghostty uses it too).
   readonly property string fontMono: "Cascadia Mono NF"
   // Add "zero": 1 for slashed zeros (terminal look); Adwaita Sans also has cv01–cv14 / ss01–ss08.
   readonly property var fontTabular: ({ "tnum": 1 })
+  // Popup type scale (bar popups, calendar, sheet, toasts, OSD): text takes one of these; glyphs keep their own size.
+  readonly property int typeCaption: 10   // tracked caps, units, counts, chart labels
+  readonly property int typeBody: 11      // rows, meta
+  readonly property int typeLead: 12      // body copy, primary row values
+  readonly property int typeTitle: 13     // popup / card titles, notification summary
+  readonly property int typeDisplay: 22   // the one big readout
   readonly property string menuMono: fontMono
   readonly property string menuSans: fontUi
   readonly property string menuDisplay: fontUi

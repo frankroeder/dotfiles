@@ -21,7 +21,7 @@ echo "== extract/apply =="
 asahi-autotheme --no-apply ${WALL:+"$WALL"} | tee "$OUT/apply.txt"
 
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}/asahi-theme"
-for f in colors.json ghostty.theme hyprland.lua hyprlock.conf firefox.json btop.theme gtk.css wallpaper screensaver-colors.toml theme.name; do
+for f in colors.json ghostty.theme hyprland.lua lock-fade-bottom.png firefox.json btop.theme gtk.css wallpaper screensaver-colors.toml theme.name; do
   test -s "$STATE/$f" || { echo "missing $STATE/$f" >&2; exit 1; }
 done
 
@@ -61,8 +61,8 @@ rg -q "window_bg_color" "$HOME/.config/ghostty/adaptive.css" \
 
 rg -q "accent_bg_color" "$STATE/gtk.css" \
   || { echo "gtk.css missing accent_bg_color" >&2; exit 1; }
-rg -q "lock_accent" "$STATE/hyprlock.conf" \
-  || { echo "hyprlock.conf missing lock_accent" >&2; exit 1; }
+jq -e '.lock_accent and .lock_accent2' "$STATE/colors.json" >/dev/null \
+  || { echo "colors.json missing lock_accent" >&2; exit 1; }
 
 jq -e '.colours.primary and (.mode == "dark" or .mode == "light")' "$STATE/firefox.json" >/dev/null \
   || { echo "firefox.json missing colours.primary/mode" >&2; exit 1; }

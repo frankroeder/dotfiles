@@ -50,8 +50,6 @@ echo "$out" | jq -e '.holding == true' >/dev/null || fail_at "battery holding tr
 echo "$out" | jq -e '.percentage == 80' >/dev/null || fail_at "battery percentage 80"
 echo "$out" | jq -e '.class | index("holding")' >/dev/null || fail_at "battery class includes holding"
 echo "$out" | grep -q 'Holding at 75-80%' || fail_at "battery tooltip holding label"
-lockline=$(ASAHI_POWER_SUPPLY_PATH="$tmp/power" "$ROOT/asahi-battery" lock)
-echo "$lockline" | grep -qx '80% · Holding' || fail_at "battery lock line while holding (got $lockline)"
 pass "asahi-battery reports charge-hold on macsmc-battery"
 
 printf 'Discharging\n' >"$bat/status"
@@ -59,12 +57,11 @@ printf '0\n' >"$ac/online"
 printf '100\n' >"$bat/charge_control_end_threshold"
 out=$(ASAHI_POWER_SUPPLY_PATH="$tmp/power" "$ROOT/asahi-battery")
 echo "$out" | jq -e '.holding == false' >/dev/null || fail_at "battery not holding while discharging"
-lockline=$(ASAHI_POWER_SUPPLY_PATH="$tmp/power" "$ROOT/asahi-battery" lock)
-echo "$lockline" | grep -qx '80% · Discharging' || fail_at "battery lock line while discharging (got $lockline)"
+echo "$out" | grep -q 'Battery 80% (Discharging)' || fail_at "battery tooltip while discharging"
 printf 'Charging\n' >"$bat/status"
 printf '1\n' >"$ac/online"
-lockline=$(ASAHI_POWER_SUPPLY_PATH="$tmp/power" "$ROOT/asahi-battery" lock)
-echo "$lockline" | grep -qx '80% · Charging' || fail_at "battery lock line while charging (got $lockline)"
+out=$(ASAHI_POWER_SUPPLY_PATH="$tmp/power" "$ROOT/asahi-battery")
+echo "$out" | grep -q 'Battery 80% (Charging)' || fail_at "battery tooltip while charging"
 pass "asahi-battery not holding while discharging"
 
 # --- asahi-charge-limit on mock sysfs ---
@@ -362,10 +359,11 @@ run_clam() {
 printf '[{"name":"eDP-1","disabled":false,"dpmsStatus":true}]\n' >"$clam_mon"
 run_clam close
 [ ! -e "$clam_dir/flag" ] || fail_at "laptop-only close must not set the clamshell flag"
-if grep -q . "$clam_eval" || grep -q . "$CLAM_LOG"; then
-  fail_at "laptop-only close must not eval eDP, dim or lock (got $(cat "$clam_eval" "$CLAM_LOG" | tr '\n' ' '))"
+# It locks at once (omarchy-system-lid-close: a head start on logind's suspend delay), never blanks or dims.
+if grep -q . "$clam_eval" || [ "$(cat "$CLAM_LOG")" != "setsid -f $ROOT/asahi-lock" ]; then
+  fail_at "laptop-only close must only start asahi-lock (got $(cat "$clam_eval" "$CLAM_LOG" | tr '\n' ' '))"
 else
-  pass "laptop-only close is a no-op"
+  pass "laptop-only close locks, no eval / dim"
 fi
 
 # Someone else's block inhibitor (cable in, external not up) stops logind's suspend: blank + lock.
@@ -402,29 +400,6 @@ run_clam apply
 [ -e "$clam_dir/idle/display-test-bl" ] && pass "lid closed: apply leaves the backlight to open" \
   || fail_at "apply relit the closed panel"
 FAKE_LID=false
-
-# --- asahi-battery-alertd: low, critical, then the charger: one short low-urgency "Charging" card ---
-# Lines are "capacity status ac-online" per poll; the fake sleep applies the next one, then ends the daemon.
-ad="$tmp/alertd"
-mkdir -p "$ad/bin" "$ad/psy/macsmc-battery" "$ad/psy/macsmc-ac"
-echo Battery >"$ad/psy/macsmc-battery/type"
-echo Mains >"$ad/psy/macsmc-ac/type"
-printf '%s\n' "15 Discharging 0" "9 Discharging 0" "9 Charging 1" "10 Charging 1" >"$ad/polls"
-cat >"$ad/bin/sleep" <<EOF
-#!/usr/bin/env bash
-n=\$((\$(cat "$ad/n" 2>/dev/null || echo 1) + 1)); echo "\$n" >"$ad/n"
-read -r c s o < <(sed -n "\${n}p" "$ad/polls") || kill "\$PPID"
-echo "\$c" >"$ad/psy/macsmc-battery/capacity"; echo "\$s" >"$ad/psy/macsmc-battery/status"; echo "\$o" >"$ad/psy/macsmc-ac/online"
-EOF
-printf '#!/bin/sh\nprintf "%%s|" "$@" >>"%s"; echo >>"%s"\n' "$ad/notes" "$ad/notes" >"$ad/bin/notify-send"
-chmod +x "$ad/bin/"*
-echo 15 >"$ad/psy/macsmc-battery/capacity"; echo Discharging >"$ad/psy/macsmc-battery/status"; echo 0 >"$ad/psy/macsmc-ac/online"
-# `|| true` inside: the subshell waits for timeout itself, so its "Terminated" note goes to /dev/null too.
-(ASAHI_PSY_DIR="$ad/psy" PATH="$ad/bin:$PATH" timeout 10 "$ROOT/asahi-battery-alertd" || true) 2>/dev/null
-[ "$(grep -c . "$ad/notes")" = 3 ] && grep -q '|normal|.*Low battery' "$ad/notes" && grep -q '|critical|.*Critical battery' "$ad/notes" \
-  && sed -n 3p "$ad/notes" | grep -q '^-a|Asahi Battery|-u|low|-t|4000|.*Charging · 9%' \
-  && pass "battery alerts: low, critical, then one low-urgency Charging card on the charger" \
-  || fail_at "battery alerts: $(cat "$ad/notes" 2>/dev/null)"
 
 # --- launcher / system menu still has no Hibernate ---
 grep -q 'title: "Hibernate"' "$ROOT/../quickshell/remix/modules/launcher/Data.js" \

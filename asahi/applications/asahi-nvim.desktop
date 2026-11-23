@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Neovim (Ghostty)
+Comment=Text files open in Neovim inside a Ghostty window (mimeapps.list default; nvim.desktop needs a terminal)
+Exec=asahi-launch-tui nvim %F
+Icon=nvim
+Terminal=false
+NoDisplay=true
+MimeType=text/plain;text/markdown;text/x-markdown;application/json;application/x-yaml;application/toml;text/x-python;application/x-shellscript;text/x-log;

@@ -168,10 +168,7 @@ Item {
     property string icon
     property string label
     spacing: 8
-    Text {
-      text: parent.icon; color: Style.m3primary; font.family: root.uiFont; font.pixelSize: root.fontPx(14)
-      anchors.verticalCenter: parent.verticalCenter
-    }
+    Menu.MenuGlyphTile { glyph: parent.icon; fontScale: root.uiFontScale; anchors.verticalCenter: parent.verticalCenter }
     Text {
       text: parent.label; color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(13)
       font.weight: Font.DemiBold; anchors.verticalCenter: parent.verticalCenter
@@ -184,7 +181,7 @@ Item {
 
   ColumnLayout {
     anchors.fill: parent
-    spacing: 10
+    spacing: 12
 
     // Now playing: the bar media popup's card (BarComponents.MediaCard).
     BarComponents.MediaCard {
@@ -372,10 +369,10 @@ Item {
           clip: true
           contentHeight: streamCol.implicitHeight
           boundsBehavior: Flickable.StopAtBounds
-          ScrollBar.vertical: Menu.MenuScrollBar {}
+          ScrollBar.vertical: Menu.MenuScrollBar { id: streamScroll }
           Column {
             id: streamCol
-            width: parent.width
+            width: parent.width - (streamScroll.overflow ? streamScroll.implicitWidth + 4 : 0)
             spacing: 2
             Repeater {
               model: quickMediaRoot.displayStreams || []

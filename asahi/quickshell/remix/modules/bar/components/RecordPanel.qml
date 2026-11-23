@@ -74,7 +74,7 @@ PopupWindow {
         color: Qt.alpha(tint, 0.16)
         Text { anchors.centerIn: parent; text: icon; color: tint; font.family: Style.menuMono; font.pixelSize: 22 }
       }
-      Text { text: label; color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: 13; font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter }
+      Text { text: label; color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: Style.typeTitle; font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter }
     }
     MouseArea { id: ma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
   }
@@ -83,7 +83,7 @@ PopupWindow {
   component Caption: Text {
     color: Style.menuInkDeep
     font.family: Style.menuSans
-    font.pixelSize: 10
+    font.pixelSize: Style.typeCaption
     font.weight: Font.DemiBold
     font.letterSpacing: 1.2
     font.capitalization: Font.AllUppercase
@@ -99,6 +99,15 @@ PopupWindow {
     Behavior on color { ColorAnimation { duration: 120 } }
     Text { anchors.centerIn: parent; text: icon; color: fg; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 20 }
     MouseArea { id: rma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
+  }
+
+  // One segment of the screen-audio choice (the launcher's segmented pills).
+  component AudioPill: Menu.MenuPill {
+    property string key
+    implicitHeight: 28
+    bg: Style.m3container
+    selected: Services.Recorder.audio === key
+    onClicked: Services.Recorder.setAudio(key)
   }
 
   component IconBtn: Text {
@@ -142,17 +151,17 @@ PopupWindow {
         ColumnLayout {
           Layout.fillWidth: true
           spacing: 1
-          Text { Layout.fillWidth: true; text: "Screen recorder"; color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: 14; font.weight: Font.DemiBold }
+          Text { Layout.fillWidth: true; text: "Screen recorder"; color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: Style.typeTitle; font.weight: Font.DemiBold }
           Text {
             text: root.rec ? "Recording…" : "Ready · saves to ~/Videos"
-            color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: 11
+            color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: Style.typeBody
           }
         }
         Text {
           visible: root.rec
           text: Services.Recorder.fmtElapsed(Services.Recorder.elapsed)
           color: Style.red
-          font.family: Style.menuSans; font.features: Style.fontTabular; font.pixelSize: 22; font.weight: Font.DemiBold
+          font.family: Style.menuSans; font.features: Style.fontTabular; font.pixelSize: Style.typeDisplay; font.weight: Font.DemiBold
         }
         // Always-present close affordance: the bar chip that opens this panel can
         // disappear out from under it (e.g. recording stops), so closing must not
@@ -179,11 +188,11 @@ PopupWindow {
               Layout.fillWidth: true
               textFormat: Text.PlainText
               text: (Services.Recorder.file || "").split("/").pop() || "…"
-              color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: 12; font.weight: Font.Medium; elide: Text.ElideMiddle
+              color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: Style.typeLead; font.weight: Font.Medium; elide: Text.ElideMiddle
             }
             Text {
               text: Services.Recorder.fmtBytes(Services.Recorder.bytes) + ((Services.Recorder.file || "").endsWith("-camera.mp4") ? "  ·  camera" : "  ·  wf-recorder")
-              color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: 11
+              color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: Style.typeBody
             }
           }
           RoundBtn { icon: "󰓛"; bg: Style.red; fg: Style.m3onPrimary; onClicked: Services.Recorder.stop() }
@@ -202,6 +211,24 @@ PopupWindow {
         ModeTile { icon: "󰄀"; label: "Display + cam"; tint: Style.m3tertiary; onClicked: { root.close(); Services.Recorder.start("fullscreen", true) } }
         ModeTile { icon: "󰄀"; label: "Region + cam"; tint: Style.m3tertiary; onClicked: { root.close(); Services.Recorder.start("region", true) } }
         ModeTile { Layout.columnSpan: 2; icon: "󰄀"; label: "Camera only"; tint: Style.m3secondary; onClicked: { root.close(); Services.Recorder.start("camera", false) } }
+      }
+
+      // Idle: screen takes' audio (one device: wf-recorder). Webcam and camera-only takes always record the mic.
+      RowLayout {
+        visible: !root.rec
+        Layout.fillWidth: true
+        Caption { text: "Screen audio" }
+        Item { Layout.fillWidth: true }
+        Rectangle {
+          implicitWidth: audioRow.implicitWidth + 8; implicitHeight: audioRow.implicitHeight + 8
+          radius: Style.menuRadiusFull; color: Style.m3container
+          Row {
+            id: audioRow; anchors.centerIn: parent; spacing: 4
+            AudioPill { key: "system"; icon: "󰕾"; label: "System" }
+            AudioPill { key: "mic"; icon: "󰍬"; label: "Mic" }
+            AudioPill { key: "none"; icon: "󰖁"; label: "Silent" }
+          }
+        }
       }
 
       // Recent recordings, in one container card like the launcher lists.
@@ -229,7 +256,7 @@ PopupWindow {
             Layout.fillWidth: true
             Layout.margins: 8
             text: "No recordings yet"
-            color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: 11
+            color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: Style.typeBody
           }
           Repeater {
             model: Services.Recorder.recent
@@ -252,9 +279,9 @@ PopupWindow {
                 }
                 Text {
                   Layout.fillWidth: true; textFormat: Text.PlainText; text: modelData.label
-                  color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: 12; elide: Text.ElideMiddle
+                  color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: Style.typeLead; elide: Text.ElideMiddle
                 }
-                Text { text: Services.Recorder.fmtBytes(modelData.bytes); color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: 11 }
+                Text { text: Services.Recorder.fmtBytes(modelData.bytes); color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: Style.typeBody }
                 IconBtn {
                   text: armed ? "󰆴" : "󰩹"
                   tone: armed ? Style.red : Style.m3onSurfaceVariant

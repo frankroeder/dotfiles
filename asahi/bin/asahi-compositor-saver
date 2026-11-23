@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+#
+# asahi-compositor-saver on|off|reload
+#
+# Hyprland's side of the low-battery saver (idea: caelestia GameMode, Ryoku perf_saver): blur, animations and the
+# inactive-window translucency off while the shell's Style.reduceMotion holds (on battery below 20 %; shell.qml runs
+# on / off). `on` keeps the live values in $XDG_RUNTIME_DIR to put back on `off`; `reload` (monitors.lua, after a
+# config reload brought the config's values back) saves them afresh and applies the saver again. No-op without state.
+#
+# Tests: asahi_compositor_saver_test.sh (fake hyprctl)
+#
+
+set -euo pipefail
+
+state="${XDG_RUNTIME_DIR:-/tmp}/asahi-compositor-saver.json"
+
+get() { hyprctl getoption "$1" -j | jq -c 'if has("bool") then .bool elif has("float") then .float else .int end'; }
+apply() {
+  hyprctl eval "hl.config({ decoration = { blur = { enabled = $1 }, inactive_opacity = $2 }, animations = { enabled = $3 } })" >/dev/null
+}
+save() {
+  jq -nc --argjson b "$(get decoration:blur:enabled)" --argjson o "$(get decoration:inactive_opacity)" \
+    --argjson a "$(get animations:enabled)" '{blur: $b, opacity: $o, anim: $a}' >"$state.tmp"
+  mv "$state.tmp" "$state"
+}
+
+case "${1:-}" in
+  on)
+    [ -e "$state" ] || save
+    apply false 1 false
+    ;;
+  reload)
+    [ -e "$state" ] || exit 0
+    save
+    apply false 1 false
+    ;;
+  off)
+    [ -e "$state" ] || exit 0
+    read -r b o a < <(jq -r '"\(.blur) \(.opacity) \(.anim)"' "$state")
+    apply "$b" "$o" "$a"
+    rm -f "$state"
+    ;;
+  *)
+    echo "usage: $0 on|off|reload" >&2
+    exit 2
+    ;;
+esac

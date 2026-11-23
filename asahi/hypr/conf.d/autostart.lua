@@ -31,7 +31,7 @@ hl.on("hyprland.start", function()
   hl.exec_cmd "~/.dotfiles/asahi/bin/asahi-cliphist watch"
   hl.exec_cmd "hyprpaper"
   hl.exec_cmd "~/.dotfiles/asahi/bin/asahi-start-quickshell"
-  -- Not Fedora's hypridle.service: hyprlock, the saver and asahi-idle's loops would live in the unit's
+  -- Not Fedora's hypridle.service: the lock, the saver and asahi-idle's loops would live in the unit's
   -- cgroup (a crash restart kills the lock screen: lockdead), and `qs ipc` from the unit's env (no
   -- QT_QPA_PLATFORM) cannot find the shell, so dim and saver would fail silently.
   hl.exec_cmd "hypridle"

@@ -82,7 +82,9 @@ grep -q 'eval .*eDP-1.*disabled = true' "$CALLS" \
 
 FAKE_BLOCKED=0 close disabled "$(dp true)"
 # Not `! -s`: the previous case's backgrounded fake systemd-inhibit may still log into $CALLS.
-! grep -q -e eval -e asahi-lock "$CALLS" && pass "unlit external, nothing blocks the suspend: close leaves it to logind" \
+# It locks at once (a head start on logind's suspend delay, omarchy-system-lid-close), never evals / blanks.
+! grep -q eval "$CALLS" && grep -q asahi-lock "$CALLS" \
+  && pass "unlit external, nothing blocks the suspend: close locks, leaves the suspend to logind" \
   || fail_at "unblocked unlit close: $(cat "$CALLS")"
 
 close disabled "[$edp]"

@@ -49,7 +49,10 @@ check("sudo --", tim.sudo_command(["sudo", "--", "-weird"]), "-weird")
 r = tim.classify(base + [p(600, 1, "sudo", ["sudo", "ls"], ruid=1001)], UID, clients, 210)
 check("foreign sudo ignored", r["kind"], "fido")
 # Lock screen and polkit card draw their own prompt.
-check("hyprlock suppressed", tim.classify(base + [p(700, 1, "hyprlock", ["hyprlock"])], UID, clients, 1)["suppress"], True)
+lockp = p(700, 1, "qs", ["qs", "-p", "/home/u/.dotfiles/asahi/quickshell/remix/lock.qml"])
+check("lock screen suppressed", (tim.classify(base + [lockp], UID, clients, 1)["kind"], tim.classify(base + [lockp], UID, clients, 1)["suppress"]),
+      ("lock", True))
+check("the shell is no lock", tim.classify(base + [p(701, 1, "qs", ["qs", "-n", "-c", "remix"])], UID, clients, 1)["kind"], "fido")
 check("polkit suppressed", tim.classify(base + [p(701, 1, "polkit-agent-he", ["/usr/lib/polkit-1/polkit-agent-helper-1"], ruid=0)],
                                         UID, clients, 1)["kind"], "polkit")
 # FIDO: newest recent ssh / git names the request; an old one does not.

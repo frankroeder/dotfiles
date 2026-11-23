@@ -4,7 +4,7 @@
 set -euo pipefail
 
 usage() {
-  printf 'usage: asahi-pkg search <q>|installed [q]|updates|tui-install <pkgs...>|tui-remove <pkgs...>|tui-upgrade [pkgs...]\n' >&2
+  printf 'usage: asahi-pkg search <q>|installed [q]|updates|tui-install <pkgs...>|tui-remove <pkgs...>|tui-upgrade [pkgs...]|tui-flatpak-update [ids...]\n' >&2
 }
 
 sanitize() {
@@ -105,6 +105,28 @@ for line in (proc.stdout or "").splitlines():
         "summary": "",
         "source": "dnf",
     })
+# Flatpaks (apps and runtimes; idea: shell-ninja/hyprconf pkg-check): remote-ls fetches the remotes' metadata,
+# offline the cache. Not a tty: tab-separated, no header.
+cols = ["flatpak", "remote-ls", "--updates", "--columns=application,version,branch,origin"]
+try:
+    fp = subprocess.run(cols, capture_output=True, text=True, timeout=60)
+    if fp.returncode != 0:
+        fp = subprocess.run(cols + ["--cached"], capture_output=True, text=True, timeout=20)
+    fp_out = fp.stdout or ""
+except (OSError, subprocess.TimeoutExpired):
+    fp_out = ""
+for line in fp_out.splitlines():
+    f = (line.split("\t") + ["", "", "", ""])[:4]
+    if not f[0].strip() or f[0] == "Application ID":
+        continue
+    rows.append({
+        "name": f[0].strip(),
+        "arch": "",
+        "version": f[1].strip() or f[2].strip(),
+        "repo": ("flatpak · " + f[3].strip()).rstrip(" ·"),
+        "summary": "",
+        "source": "flatpak",
+    })
 print(json.dumps({
     "error": "",
     "packages": rows,
@@ -149,8 +171,14 @@ case "$cmd" in
     ;;
   tui-upgrade)
     # No s2idle mid kernel-install (lid close waits too; the idle lock still runs); then check the boot chain.
+    # Without names (Upgrade all) the Flatpaks follow.
     launch_tui systemd-inhibit --what=sleep --who=asahi-pkg --why=dnf-upgrade \
-      sh -c 'sudo dnf upgrade "$@"; rc=$?; "$0" || rc=1; exit $rc' "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/asahi-boot-check" "$@"
+      sh -c 'sudo dnf upgrade "$@"; rc=$?; "$0" || rc=1; if [ $# -eq 0 ]; then flatpak update || rc=1; fi
+        qs -c remix ipc --any-display call updates refresh >/dev/null 2>&1; exit $rc' \
+      "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/asahi-boot-check" "$@"
+    ;;
+  tui-flatpak-update)
+    launch_tui sh -c 'flatpak update "$@"; rc=$?; qs -c remix ipc --any-display call updates refresh >/dev/null 2>&1; exit $rc' _ "$@"
     ;;
   *)
     usage

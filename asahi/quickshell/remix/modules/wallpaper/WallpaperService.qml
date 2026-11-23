@@ -22,7 +22,7 @@ Singleton {
   readonly property string stateHome: Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")
   property string wallpaperConf: stateHome + "/quickshell/wallpaper.conf"
   readonly property string lockWallpaper: stateHome + "/asahi/lock-wallpaper"
-  // hyprlock's background: the intro's first frame when the wallpaper has one (unlock plays forward into the
+  // The lock screen's background (remix/lock.qml): the intro's first frame when the wallpaper has one (unlock plays forward into the
   // still, like waking up), else the still. Frames cached per clip; hyprpaper keeps lock-wallpaper (the still).
   readonly property string lockScreen: stateHome + "/asahi/lock-screen"
   readonly property string frameCache: (Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")) + "/asahi/wallpaper-intro"

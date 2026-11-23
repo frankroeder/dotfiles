@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+#
+# asahi-recent-files [max]
+#
+# Recently used files, newest first, one path per line (idea: Ryoku's recent provider): the freedesktop
+# recently-used.xbel that Thunar, the file portal, Firefox and Okular write. file:// only, %-decoded, each once,
+# files that are gone skipped. The launcher's ">" lists these until a search term is typed.
+#
+# Tests: asahi_recent_files_test.sh (fixture xbel)
+#
+
+set -euo pipefail
+
+max="${1:-40}"
+xbel="${ASAHI_RECENT_XBEL:-${XDG_DATA_HOME:-$HOME/.local/share}/recently-used.xbel}"
+[ -r "$xbel" ] || exit 0
+
+# "<modified> <path>" per bookmark (href comes before modified in every writer seen), newest first, then decoded.
+grep -o '<bookmark href="file://[^"]*"[^>]*modified="[^"]*"' "$xbel" \
+  | sed -E 's|.*href="file://([^"]*)".*modified="([^"]*)".*|\2 \1|' \
+  | sort -r | awk '!seen[$2]++' \
+  | while read -r _ path; do
+      path=$(printf '%b' "${path//%/\\x}")
+      if [ -e "$path" ]; then printf '%s\n' "$path"; fi
+    done | head -n "$max" || true

@@ -465,7 +465,7 @@ Item {
           RowLayout {
             Layout.fillWidth: true
             spacing: 8
-            Text { text: "󰃭"; color: Style.m3secondary; font.family: root.uiFont; font.pixelSize: root.fontPx(14) }
+            Menu.MenuGlyphTile { glyph: "󰃭"; fontScale: root.uiFontScale; tint: Style.m3secondary }
             CardTitle { text: "Snapshots"; Layout.fillWidth: true }
           }
           ListView {
@@ -552,7 +552,7 @@ Item {
               icon: "󰁍"; tone: Style.m3onSurface
               onClicked: tmRoot.browse(tmRoot.browsePath.replace(/\/[^\/]+$/, "") || "/")
             }
-            Text { text: "󰉋"; color: Style.m3tertiary; font.family: root.uiFont; font.pixelSize: root.fontPx(14) }
+            Menu.MenuGlyphTile { glyph: "󰉋"; fontScale: root.uiFontScale; tint: Style.m3tertiary }
             CardTitle {
               Layout.fillWidth: true
               text: tmRoot.browsePath ? tmRoot.tilde(tmRoot.browsePath) : "Browse"

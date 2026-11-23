@@ -67,6 +67,7 @@ load()  -- reload: fresh Lua state, both still plugged
 fire "config.reloaded"
 check(ran "asahi-hdmi sync HDMI-A-1" == 1 and ran "asahi-hdmi sync DP-1" == 1 and ran "asahi-hdmi sync DP-2" == 0,
   "reload syncs the connectors this DT has")
+check(ran "asahi-compositor-saver reload" == 1, "reload re-applies the low-battery compositor saver (no-op while off)")
 fire "monitor.layout_changed"
 check(ran "asahi-hdmi added DP-1" == 1 and ran "asahi-hdmi added HDMI-A-1" == 1, "reload: one settle each")
 

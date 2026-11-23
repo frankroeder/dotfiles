@@ -18,3 +18,5 @@ MenuSwitch 1.0 MenuSwitch.qml
 MenuPopIn 1.0 MenuPopIn.qml
 MenuPopOut 1.0 MenuPopOut.qml
 MenuRunDots 1.0 MenuRunDots.qml
+MenuGlyphTile 1.0 MenuGlyphTile.qml
+MenuFadeText 1.0 MenuFadeText.qml

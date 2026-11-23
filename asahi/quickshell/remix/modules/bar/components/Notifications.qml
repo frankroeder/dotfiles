@@ -18,7 +18,7 @@ Item {
   // quiet under Do Not Disturb). The count drops when the sheet toggles: no cue then.
   property int seenUnread: 0
   onUnreadChanged: {
-    if (root.unread > root.seenUnread && !root.dnd && root.visible) nudge.restart()
+    if (root.unread > root.seenUnread && !root.dnd && root.visible && !Style.reduceMotion) nudge.restart()
     root.seenUnread = root.unread
   }
   ParallelAnimation {

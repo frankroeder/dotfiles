@@ -342,6 +342,8 @@ run(){
     } always {
       kill $keepalive 2>/dev/null
       upd_summary  # also after Ctrl-C: what finished until then
+      # Asahi bar: re-check now, not at the next 30 min tick (no-op without the shell).
+      (( $+commands[qs] )) && qs -c remix ipc --any-display call updates refresh >/dev/null 2>&1
     }
   else
     error "No internet access"

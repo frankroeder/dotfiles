@@ -64,6 +64,8 @@ Item {
   Component.onDestruction: if (vpnIpXhr) vpnIpXhr.abort()
   property var vpnLastConns: []
   property var vpnLastDetails: ({})
+  // Live tunnel facts from asahi-vpn-info (local reads: kill switch, default route, DNS, MTU); see vpnInfoKey.
+  property var vpnInfo: ({})
 
   // Saved wifi profile names (known-network grouping, omarchy-style).
   property var savedWifi: ({})
@@ -779,6 +781,34 @@ Item {
   // The live tunnel, NM profile or not (the Proton app's WireGuard connection is an "external" one): "ProtonVPN XX#1 · up 3m".
   readonly property bool vpnUp: !!QuickModels.activeNmProfile(quickNetworkRoot.vpnProfiles) || (quickNetworkRoot.vpnExternal || []).length > 0
   readonly property string vpnLine: ((quickNetworkRoot.wifiTooltip || "").match(/^VPN: (.+)$/m) || ["", ""])[1].replace(" (external tunnel)", "")
+  // Tunnel facts are read when the pane opens and when the tunnel changes, never polled; hidden pane = nothing runs.
+  readonly property string vpnInfoKey: quickNetworkRoot.live && quickNetworkRoot.vpnUp
+    ? quickNetworkRoot.vpnSummary + "|" + JSON.stringify(quickNetworkRoot.vpnExternal) : ""
+  onVpnInfoKeyChanged: {
+    if (vpnInfoKey) vpnInfoProc.running = true
+    else vpnInfo = ({})
+  }
+  // "Kill switch on · All traffic · DNS 10.2.0.1 · MTU 1420"; the kill switch only where such a profile exists (Proton).
+  readonly property string vpnFacts: {
+    const v = quickNetworkRoot.vpnInfo
+    if (!v.up) return ""
+    const parts = []
+    if (v.killswitch) parts.push("Kill switch " + v.killswitch)
+    parts.push(v.routed ? "All traffic" : "Split tunnel")
+    if ((v.dns || []).length) parts.push("DNS " + v.dns.slice(0, 2).join(", "))
+    if (v.mtu > 0) parts.push("MTU " + v.mtu)
+    return parts.join(" · ")
+  }
+  Process {
+    id: vpnInfoProc
+    command: [root.binDir + "/asahi-vpn-info"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        if (!quickNetworkRoot.vpnInfoKey) return  // pane closed meanwhile
+        try { quickNetworkRoot.vpnInfo = JSON.parse((text || "").trim() || "{}") } catch (_) {}
+      }
+    }
+  }
 
   component Card: Rectangle {
     radius: Style.menuRadiusLg
@@ -807,7 +837,7 @@ Item {
 
   ColumnLayout {
     anchors.fill: parent
-    spacing: 10
+    spacing: 12
 
     // Wi-Fi + LAN cards.
     RowLayout {
@@ -830,7 +860,7 @@ Item {
             Layout.fillHeight: false
             Layout.fillWidth: true
             spacing: 8
-            Text { text: "󰤨"; color: Style.m3primary; font.family: root.uiFont; font.pixelSize: root.fontPx(15) }
+            Menu.MenuGlyphTile { glyph: "󰤨"; fontScale: root.uiFontScale; tint: quickNetworkRoot.wifiEnabled ? Style.m3primary : Style.m3onSurfaceVariant }
             CardTitle { text: "Wi-Fi" }
             Secondary {
               text: quickNetworkRoot.wifiChecked
@@ -998,10 +1028,7 @@ Item {
             Layout.fillHeight: false
             Layout.fillWidth: true
             spacing: 8
-            Text {
-              text: "󰈀"; color: quickNetworkRoot.ethConnected ? Style.m3primary : Style.m3onSurfaceVariant
-              font.family: root.uiFont; font.pixelSize: root.fontPx(15)
-            }
+            Menu.MenuGlyphTile { glyph: "󰈀"; fontScale: root.uiFontScale; tint: quickNetworkRoot.ethConnected ? Style.m3primary : Style.m3onSurfaceVariant }
             CardTitle { text: "LAN" }
             Secondary {
               text: quickNetworkRoot.ethDevice ? quickNetworkRoot.ethState : "No device"
@@ -1069,10 +1096,7 @@ Item {
           Layout.fillWidth: true
           Layout.leftMargin: 2
           spacing: 8
-          Text {
-            text: "󰦝"; color: quickNetworkRoot.vpnUp ? Style.m3primary : Style.m3onSurfaceVariant
-            font.family: root.uiFont; font.pixelSize: root.fontPx(15)
-          }
+          Menu.MenuGlyphTile { glyph: "󰦝"; fontScale: root.uiFontScale; tint: quickNetworkRoot.vpnUp ? Style.m3primary : Style.m3onSurfaceVariant }
           CardTitle { text: "VPN" }
           Secondary {
             text: quickNetworkRoot.vpnUp ? (quickNetworkRoot.vpnLine || "Connected") : quickNetworkRoot.vpnSummary
@@ -1085,6 +1109,12 @@ Item {
             text: quickNetworkRoot.vpnError || quickNetworkRoot.vpnStatus
             color: quickNetworkRoot.vpnError ? Style.red : Style.m3onSurfaceVariant
           }
+        }
+        // One line of tunnel facts (Secondary = plain text: the resolver list comes from the VPN server).
+        Secondary {
+          visible: quickNetworkRoot.vpnUp && quickNetworkRoot.vpnFacts !== ""
+          Layout.fillWidth: true; Layout.leftMargin: 8
+          text: quickNetworkRoot.vpnFacts
         }
         Repeater {
           model: quickNetworkRoot.vpnExternal || []
@@ -1278,7 +1308,7 @@ Item {
                   font.family: root.uiFont; font.pixelSize: root.fontPx(15)
                 }
                 Text {
-                  visible: QuickModels.wifiSecurityLabel(netDelegate.modelData.sec) !== "Open"
+                  opacity: QuickModels.wifiSecurityLabel(netDelegate.modelData.sec) !== "Open" ? 1 : 0   // fixed slot: SSIDs line up
                   text: "󰌾"; color: Style.m3onSurfaceVariant
                   font.family: root.uiFont; font.pixelSize: root.fontPx(11)
                 }

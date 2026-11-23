@@ -91,6 +91,27 @@ grep -q 'hyprsunset temperature 6500' "$tmp/log" && fail_at "off set 6500" || pa
 # identity leaves reported K unchanged
 [ "$(cat "$tmp/temp")" = "1500" ] && pass "reported K still 1500 after identity" || fail_at "temp=$(cat "$tmp/temp")"
 
+# warmer / cooler (the bar chip's wheel): only while on, 250 K steps, clamped, and the next toggle-on keeps it.
+: >"$tmp/log"
+run cooler
+[ ! -s "$tmp/log" ] && pass "cooler while off: nothing" || fail_at "cooler while off: $(cat "$tmp/log")"
+run toggle; run cooler; run cooler
+[ "$(jq -r '.temperature' "$tmp/state/nightlight.json")" = 2000 ] && pass "cooler twice: 1500 → 2000 K" || fail_at "cooler: $(cat "$tmp/state/nightlight.json")"
+run toggle; run toggle
+[ "$(cat "$tmp/temp")" = 2000 ] && pass "off and on again keeps the chosen 2000 K" || fail_at "re-on temp=$(cat "$tmp/temp")"
+# One run per wheel gesture (n notches); runs at once queue (flock) instead of fighting over the temperature.
+run cooler 3
+[ "$(jq -r '.temperature' "$tmp/state/nightlight.json")" = 2750 ] && pass "cooler 3: 2000 → 2750 K in one run" || fail_at "cooler 3: $(cat "$tmp/state/nightlight.json")"
+: >"$tmp/notified"
+printf '#!/bin/sh\necho "$*" >>"%s/notified"\n' "$tmp" >"$tmp/bin/notify-send"
+run warmer & run warmer & run warmer & wait
+[ "$(jq -r '.temperature' "$tmp/state/nightlight.json")" = 2000 ] && [ "$(cat "$tmp/temp")" = 2000 ] && [ ! -s "$tmp/notified" ] \
+  && pass "three runs at once: all three steps land, no failure card" || fail_at "parallel: $(cat "$tmp/state/nightlight.json") temp=$(cat "$tmp/temp") notified=[$(cat "$tmp/notified")]"
+printf '#!/bin/sh\nexit 0\n' >"$tmp/bin/notify-send"
+for _ in 1 2 3 4 5; do run warmer; done
+[ "$(jq -r '.temperature' "$tmp/state/nightlight.json")" = 1000 ] && pass "warmer clamps at 1000 K" || fail_at "warmer clamp: $(cat "$tmp/state/nightlight.json")"
+run toggle
+
 cat >"$tmp/hyprsunset.conf" <<'EOF'
 profile { identity = true }
 profile { temperature = 1800 }

@@ -147,7 +147,7 @@ Item {
         ColumnLayout {
           Layout.fillWidth: true
           spacing: 4
-          Text {
+          Menu.MenuFadeText {
             Layout.fillWidth: true
             text: quickTempRoot.hottestSensor ? quickTempRoot.hottestSensor.value.toFixed(1) + "°C"
               : (quickTempRoot.tempOutput ? "No sensors" : "Loading sensors…")
@@ -255,14 +255,7 @@ Item {
               RowLayout {
                 Layout.fillWidth: true
                 spacing: 10
-                Rectangle {
-                  width: 30; height: 30; radius: Style.menuRadiusMd
-                  color: Style.m3primaryContainer
-                  Text {
-                    anchors.centerIn: parent; text: quickTempRoot.groupGlyph(modelData.title); color: Style.m3primary
-                    font.family: root.uiFont; font.pixelSize: root.fontPx(14)
-                  }
-                }
+                Menu.MenuGlyphTile { glyph: quickTempRoot.groupGlyph(modelData.title); fontScale: root.uiFontScale }
                 Text {
                   Layout.fillWidth: !single
                   text: modelData.title || ""; color: Style.m3onSurface

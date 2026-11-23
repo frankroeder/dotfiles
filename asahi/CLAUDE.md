@@ -14,7 +14,7 @@ relabel filter.
 - Reference ports: omarchy (https://github.com/omacom/omarchy, branch `quattro`), omarchy-mac
   (https://github.com/omacom/omarchy-mac-pkgs, runs the Aurora kernel)
 - Hyprland: https://wiki.hypr.land/
-- hyprpaper / hyprlock / hypridle: https://wiki.hypr.land/Hypr-Ecosystem/
+- hyprpaper / hypridle: https://wiki.hypr.land/Hypr-Ecosystem/ (hyprlock: removed 2026-11-22)
 - Quickshell: https://quickshell.org/docs/
 
 ## Notes
@@ -22,7 +22,7 @@ relabel filter.
   ignored and `import "File.qml" as X` silently falls back to white/black. Prefer Quickshell `Singleton` (reloadable);
   never `Foo {}` construct. One added while qs runs stays `undefined` across hot reloads: restart qs
   (Super+Ctrl+Alt+W).
-- **Lock on boot**: tty1 getty = auth gate; no hyprlock at Hyprland start, no `agetty --autologin` (zprofile can fall
+- **Lock on boot**: tty1 getty = auth gate; no lock at Hyprland start, no `agetty --autologin` (zprofile can fall
   through unauthenticated). `./install.sh asahi-getty` (also `comp_asahi_system`) removes leftover
   `/etc/systemd/system/getty@tty1.service.d/10-asahi-autologin.conf`. Never restart `getty@tty1` live (kills
   Hyprland). No display manager; Super+Escape / hypridle lock. Fedora 45 presets **kmscon** as `autovt@` (getty@
@@ -42,12 +42,15 @@ relabel filter.
   to the SMC cutoff; only acts while awake). gsettings `power-button-action` is a no-op. F6 = KEY_SLEEP (tap bypassed
   idle guards): `autostart.lua` holds a session `systemd-inhibit --what=handle-suspend-key` (polkit, no root); `XF86Sleep` → Do Not Disturb.
   `./install.sh asahi-logind` also installs udev rules (HDMI lid inhibit, BT wake) + inhibit unit; HUP logind, never
-  restart it; never `udevadm trigger` drm (hotplugs HDMI). `InhibitDelayMaxSec=15` = hyprlock time on lid close.
+  restart it; never `udevadm trigger` drm (hotplugs HDMI). `InhibitDelayMaxSec=15` = the lock's time on lid close.
   Lid = `Apple SMC power/lid events` (`locked = true` in `monitors.lua`). Never set `HandleLidSwitch` (laptop-only =
   logind `suspend`); docked = `HandleLidSwitchDocked=ignore` + `asahi-clamshell` turns eDP-1 off. Without a lit
   external (`external_up`: Hyprland-enabled **and** DRM `enabled` or DPMS-off — 2026-11-02 an unmodeset DP-1 hotplug
-  under lock left zero lit outputs; `asahi/bin/asahi_clamshell_test.sh`) close is a no-op — never DPMS-blank eDP there
-  (races s2idle, `8000000a`, hangs) — unless a block inhibitor (`asahi-hdmi`: cable in, output off) stops suspend:
+  under lock left zero lit outputs; `asahi/bin/asahi_clamshell_test.sh`) close only starts `asahi-lock` (2026-11-22, omarchy-system-lid-close: a lid sleep locks even without hypridle's
+  before_sleep_cmd; with it, `inhibit_sleep = 3` releases at once for an already locked session — lid close → suspend
+  entry stays ~1.3 s; the 15–17 s waits seen 2026-11-17 / 11-22 were logind's 30 s `HoldoffTimeoutSec` after a
+  resume, not the lock) —
+  never DPMS-blank eDP there (races s2idle, `8000000a`, hangs) — unless a block inhibitor (`asahi-hdmi`: cable in, output off) stops suspend:
   wait 5 s for the external, else blank + lock.
   HDMI-A-1 / DP-1..6 stay `disabled = true` (`monitors.lua`) until `asahi-hdmi` enables one; logind doesn't count it docked
   → `asahi-hdmi-lid-inhibit.service` holds `handle-lid-switch` while HDMI/DP reads `connected` (udev: the **card's**
@@ -75,142 +78,70 @@ relabel filter.
   blocks `handle-lid-switch` until lid open; `asahi-idle` skips sleep while it's failed (one critical "Sleep disabled"
   notification per boot, else SoC silently awake). `asahi-idle wake` (after_sleep) keeps panel dark under a closed lid
   (outside clamshell; `asahi-clamshell open` relights). Stay-awake doesn't gate lid suspend.
-- **Locker = the Quickshell lock** (2026-11-20, his pick after a nested prototype; Touch ID and password unlocks
-  verified live 15:22 / 15:2x). Layout = hyprlock's (hostname under the cutout; bottom row uptime / battery · Touch ID
-  orb over the password pill · clock with accent seconds / date; the theme's lock fades): **nothing attaches to the
-  notch** (his call: the notch-island card, here and on hyprlock, was rejected). Rises in, drops out on unlock, hyprconf's
-  shake on a wrong password. `quickshell/remix/lock.qml` run by `asahi-lock` (`qs -n -p`, a separate instance: a
-  crash of the shell never unlocks), PAM from `quickshell/lockpam` — `fingerprint` (pam_fprintd max-tries 3,
-  timeout 600, re-armed every 5 s after a timeout / suspend / lid close) beside `password` (pam_unix alone: the system
-  stack's pam_fprintd would hold a typed password 30 s). It prints hyprlock's "Unlocked, exiting!" so the guard below,
-  the crash-after-unlock rule and the intro are unchanged. `~/.local/state/asahi/locker` = `hyprlock` switches back;
-  three quickshell runs without an unlock fall back to hyprlock for that lock. State IPC only with `LOCK_DEMO=1`
-  (screenshots); `LOCK_IPC_SUBMIT=1` = a test submit that still needs PAM. Never test wrong passwords against the
-  real finger context (a touch in between unlocks: it did once, 15:19). TTY escape adds `pkill -f remix/lock.qml`.
-  The hyprlock notes below describe the fallback.
-- **Lock guard**: every lock path (hypridle `lock_cmd`, Super+Escape, launcher Lock, `asahi-clamshell` blocked-lid
-  close — direct, not `loginctl lock-session`: works without hypridle) runs `asahi-lock` = locker restart loop
-  (flock, 30 tries, stderr → `~/.local/state/asahi/hyprlock.log`): exit 0 only on unlock / `finished` after `locked`;
-  crash / `killall -9` → retry (else lockdead, no way in), `allow_session_lock_restore` retakes. A crash **after** its
-  `Unlocked, exiting!` line counts as unlocked (hyprlock 0.9.7 SIGSEGVs in the fprintd sdbus proxy destructor at exit,
-  `coredumpctl list hyprlock`; the retry re-locked the desktop 2 s after unlock). hyprlock logs it right after
-  `sendUnlockAndDestroy`; a false one fails closed (lockdead, still locked). The reader writes `unlocked` / `eof` to
+- **Locker = the Quickshell lock**, the only one (2026-11-20 his pick after a nested prototype; Touch ID and password
+  unlocks verified live; **hyprlock removed 2026-11-22**, his call — omarchy quattro dropped it too: no fallback, no
+  conf, no `asahi-lock-touchid`, not installed by `dnf.sh` (he uninstalls it by hand), the installer drops its state files). `quickshell/remix/lock.qml`
+  run by `asahi-lock` (`qs -p`, a separate instance; no `-n`: it exits 0 while any instance of the path runs, a nested
+  preview's too, which the guard read as done; a crash of the shell never unlocks). Layout = the old hyprlock screen
+  (hostname under the cutout; bottom row uptime / battery · Touch ID orb over the password pill · clock with accent
+  seconds / date; the theme's `lock-fade-{top,bottom}.png`, from `write_lock_fades`): **nothing attaches to the
+  notch** (his call: the notch-island card was rejected). Rises in, hyprconf's shake on a wrong password. Unlock =
+  **lift-off** (2026-11-22, his pick): the orb's check lands (250 ms), the UI drops out, then the wallpaper fades and
+  grows 3 % over 380 ms onto the live desktop, then the lock lets go. `misc:session_lock_xray` draws the desktop under
+  the lock surface: switched on by `hyprctl eval` only after PAM said yes, off again at release and at every lock's
+  start (nested: a live toggle takes effect; Hyprland's crashed-lock screen stays opaque with it on). Rejected unlock
+  styles: video over windows, blur, the notch island. PAM from `quickshell/lockpam` — `fingerprint` (pam_fprintd
+  max-tries 3, timeout 600, re-armed every 5 s after a timeout / suspend / lid close) beside `password` (pam_unix
+  alone: the system stack's pam_fprintd would hold a typed password 30 s). It prints "Unlocked, exiting!" when PAM
+  says yes (the guard and the intro key on it). State IPC only with `LOCK_DEMO=1` (screenshots); `LOCK_IPC_SUBMIT=1` =
+  a test submit that still needs PAM. Never test wrong passwords against the real finger context (a touch in between
+  unlocks: it did once). The orb does not breathe on the lock (`breathe: false`; measured nested 50 + 37 → 3 + 1 ms/s
+  qs + compositor): states change colour and shape, results pop; keys add printable text only (Delete, Tab, Ctrl
+  combos sent control chars); `PamResult.MaxTries` ends Touch ID; a failed fingerprint run restarts fprintd once per
+  lock (the wedged-reader fix; seen working 2026-11-20 after a suspend). Touch ID pacing (2026-11-22, after omarchy
+  quattro's lock): an attempt that never reached the reader (lid shut: libfprint drops it; a refused claim) backs
+  off 5 → 10 → 20 → 40 s (was every 5 s all lock long, e.g. docked with the lid shut); one that ran out waiting for a
+  finger re-arms after 1 s; while the lock has the displays off no new attempt starts (the running one finishes under
+  pam_fprintd's 600 s, so a touch in the dark still unlocks for a while); a key (once per long backoff), the end of the
+  blank (motion / key) or a display arriving (`Quickshell.screens`: lid open while docked) tries again at once. Nested with a fake PAM
+  stack (`pam_exec` logging + `pam_deny`): attempts at 0 / 5 / 15 / 35 s, a display added at 38 s → 38 / 43 s,
+  nothing after the 45 s blank. Displays off 30 s after the last input on the
+  lock (`IdleMonitor`, `respectInhibitors: false`, `asahi-dpms off`; idea: omarchy quattro; a key / motion relights, a
+  Touch ID unlock in the dark runs `asahi-dpms on`; `LOCK_BLANK_S` for tests; off in demo mode).
+  Look rules kept from the 2026-11-18 redesign (his ask: vibrant + see Touch ID work): background = the clip's first
+  frame, sharp (a blurred / saturated copy was rejected); **no glow** ("blurry green fog"); accents =
+  `lock_accents()` (the wallpaper accent pushed vivid: dark L ≥ 0.74, light ≤ 0.55, + its +40° neighbour) →
+  colors.json `lock_accent` / `lock_accent2` = `Style.vivid` / `vivid2`; the orb = a hairline ring + glyph in the
+  state's colour, a **solid** disc once something happens (his pick of nine styles; a bold ring "looks cheap", a
+  rounded square was rejected: "I like it round").
+- **Lock guard**: every lock path (hypridle `lock_cmd`, Super+Escape, launcher Lock, `asahi-clamshell` lid close
+  without a lit external — direct, not `loginctl lock-session`: works without hypridle) runs `asahi-lock` = lock restart loop
+  (flock, 30 tries, output → `~/.local/state/asahi/lock.log`): exit 0 only on release / `finished` after `locked`;
+  crash / `kill -9` → retry (else lockdead, no way in), `allow_session_lock_restore` retakes. A crash **after** the
+  `Unlocked, exiting!` line counts as unlocked (a retry would lock right after the password); if it came before the
+  release Hyprland stays locked (fails closed). The reader writes `unlocked` / `eof` to
   `$XDG_RUNTIME_DIR/asahi-lock.reader`; the guard waits ≤ 1 s for either (`$!` is empty for an output process
-  substitution after an external command). Never auto-run
-  `hl.clear_crashed_lockscreen()` (unlocks without password). hypridle `inhibit_sleep = 3` explicit (mode 2 needs
-  `hyprlock` in `lock_cmd`); logind caps the wait at `InhibitDelayMaxSec`. Super+Escape must be a `locked` bind
-  (others are dead on lockdead): fresh hyprlock once the guard is out of retries; asahi-lock exits if one runs (flock
-  / `hyprlock_running`: this session's only, by `WAYLAND_DISPLAY`, never a nested preview's; asahi-idle, keyboard auto
-  use it too). Nested Hyprland: `send_shortcut` drops modifiers, test with a plain key. TTY escape (`Fn+Ctrl+Alt+F3`):
-  `pkill -f asahi-lock; killall hyprlock`.
-- **Lock look** (2026-11-18 redesign, his ask: vibrant + see Touch ID work):
-  - **Layout**: background = the clip's first frame, sharp (see intros; a blurred / saturated copy was rejected). Row
-    `[uptime/battery] [password] [clock/date]` on `lock-fade-bottom.png`, hostname on `lock-fade-top.png` (both from
-    `write_hyprlock_conf`, `halign = left`: hyprlock mis-centers images wider than the monitor; `rotate` shifts them).
-    Sizes = framebuffer px (no scale): the row must fit the Dell 2560. Label shadows don't help legibility. **No glow**
-    (rejected 2026-11-18, "blurry green fog"): no accent haze image, no `shadow_*` halos. Accents = `lock_accents()`:
-    the wallpaper accent pushed vivid (dark L ≥ 0.74, light ≤ 0.55) + its +40° neighbour. Every `$lock_*` the conf uses
-    has a Mocha fallback in `hyprlock-theme.conf` (test). Pango wants `#rrggbb` and hyprlang reads `#` as a comment →
-    `##` (also inside `cmd[]`); the bare-hex `$lock_hexaccent` / `$lock_hexfail` / `$lock_hexcheck` exist for markup
-    (hyprlang cannot cut `rgb(…)` apart). Clock seconds in the accent.
-  - **Password pill**: four input-fields share the input: the capsule (solid `$lock_bg` fill, gradient ring
-    `$lock_ring`; not glass: see the CAPS tag); dots / texts (hyprlock pads dots only `(h - dot)/2` — one field ran them
-    under the `de` label; 13 dots max); the thick caps ring (outline is static, drawn outside); the CAPS tag. Thick ring
-    check/fail clear (else a failed password draws it without Caps: a fail replaces the caps color for `fail_timeout`;
-    the capsule's ring shows `$lock_fail` / `$lock_check`). `$lock_caps` comes from `write_hyprlock_conf`; never
-    assign it after the `source` lines (wallpaper color loses); never `$lock_fail` for it. **Never `swap_font_color` on
-    a borderless field** (2026-11-19; the dots field had it since the caps ring): hyprlock 0.9.7 then asks for the
-    placeholder again on every frame (`updatePlaceholder`: `ALLOWCOLORSWAP`) and each answer schedules a frame
-    (`CAsyncResourceManager::request` → `renderAllOutputs`): the idle lock screen redrew every output at its refresh
-    rate (nested, one output: 60 Hz 66 + 42 ms/s of CPU in hyprlock + compositor, 120 Hz 100 + 76; without it 0).
-    Without it a borderless field fills its box with the state colour: the dots field has caps / check / fail clear and
-    colours "Failed (n)" / "Checking…" by markup (fail_text stays neutral: a fingerprint no-match fails the field too).
-    `invert_numlock` + a clear `numlock_color` keep a state colour always the target, so the dots stay `$lock_fg` (else
-    a fingerprint miss while typing gives them the clear fail colour until the next key).
-  - **CAPS tag** = hyprlock's own (`asahi-lock-caps` is gone; his ask: "check on first typing, not polling"): labels
-    cannot follow a key (hyprlock re-runs them on fingerprint / PAM events and layout switches only), and a native word
-    needs `swap_font_color`. So a borderless 100×46 field fills with `capslock_color` (eased, typing or not) under a
-    static `CAPS` label in `$lock_bg`: it reads on the amber tag and vanishes without it, because the capsule under it
-    is that colour (test). On glass it left a ghost wherever the wallpaper is far from the scheme (15/255 over white);
-    an opaque plate under the word alone shows as a slot. It steps aside with the ring while "Failed" shows.
-  - **Cost** (2026-11-19, 56 ms/s was "too much"): one `cmd[]` run ≈ 7 ms of CPU (hyprlock forks, `/bin/sh -c` starts,
-    the text is drawn, every output gets a frame; outputs share a run: same resource id; runs go on with the screens
-    off). So only the clock runs every second (hyprlock's native `$TIME` = HH:MM would cost nothing: offered, not
-    taken); the orb `cmd[update:5000]`; battery 15 s (`asahi-battery lock` stops after five sysfs reads: each an SMC
-    round trip of 0.3–1.2 ms); nothing else under 30 s (test). Nested, 60 Hz, one output, hyprlock + label commands +
-    compositor in ms/s: committed conf 88 + 27 + 44, the redesign at 200 ms 126 + 55 + 44, now 8 + 4 + 1. Measure:
-    `/proc/<pid>/stat` utime+stime and cutime+cstime over 30 s with `env -u BASH_ENV` (Lmod's `BASH_ENV` adds 10 ms to
-    every bash). Sourcing the scripts (`. script` saves a shell start) was taken out again: ~0.5 ms/s for a hard tie to
-    `/bin/sh` being bash. A second update while a label's command still runs is dropped ("resource is still pending").
-    hyprlock bug: `CAsyncResourceManager::unload(nullptr)` (a label on an output that never presents) releases
-    whatever resource is in flight → that label stays pending for good; seen nested with `WAYLAND-1` enabled, possible
-    for a monitor plugged in while locked and dark. Not used: SIGUSR2 (forces the same re-run, but hyprlock walks its
-    timers inside the signal handler — malloc there can deadlock or crash the lock — and installs the handler after
-    starting fprintd; his call: nothing that can freeze or kill the lock).
-  - **Touch ID orb** above the pill: a borderless glass disc (`shape`) + three labels from one script,
-    `asahi-lock-touchid ring|glyph|caption "$FPRINTPROMPT" <colors…>` (builtins only, fprintd asked ≤ 1/min — the run
-    that asks stamps the cache first — cached in `$XDG_RUNTIME_DIR`; colors = the `$lock_*` values, the last `$lock_on`
-    = crust, the scheme's text-on-accent). hyprlock **re-runs force-updatable labels itself** on fingerprint events
-    (`enqueueForceUpdateTimers`: finger present, a retry status, verify restarted after a miss, a failure; also PAM
-    fails and layout switches); a text naming `$FPRINTPROMPT` is force-updatable (as is `cmd[update:N:1]`). A forced
-    run restarts the label's timer, so `update:5000` is a tick 5 s after the last event, for what time alone changes:
-    a timed note running out ("No match" shows ~5 s), "still reading", "not responding". The script counts on that 5 s
-    (`tick=`, test). Look: a hairline ring + the glyph in the state's colour; once something happens the disc turns
-    **solid** in that colour and the glyph takes `$lock_on` — his pick (2026-11-18) of nine rendered styles; a bold
-    ring was rejected ("looks cheap"), a rounded-square tile too ("I like it round"). Ring and disc are **one label**:
-    Adwaita Sans' large circle, outline `◯` (Thin, `weight='100'`: a 3 px line) or filled `⬤`, same box
-    (`line_height='2'`, else pango clips it; 1.825 × font size across, centre 1.62 × over the label position → size 103
-    at y 256 = 188 px on the glass). A `shape` border cannot change colour; the font is in `dnf.sh`; `○` is a 5 px line;
-    MDI `󰝦` the bold one. Font sizes and positions must be integers. Span sizes must be absolute (`28pt`: hyprlock adds
-    a scale-1 attribute, `size='40%'` rendered at 70). **Nothing pulses or runs** (2026-11-18, "laggy, not smooth": a
-    label redraws only when re-run): states change colour and shape.
-  - **Orb states** (first match wins): no finger enrolled → 󰌾 "Type your password"; no reader (`fprintd-list` "No
-    devices available": libfprint hides it under a closed lid) → crossed 󰺱, dim; **staying note** → crossed glyph on
-    a solid red / amber disc, "<why> · type your password"; **reading** (`present_message = reading`: hyprlock sets it on
-    fprintd's `finger-present` true, logs nothing, keeps it until the next status) → solid `$lock_accent2` + "Reading…",
-    at the tick (≥ 4 s) amber "Still reading · lift and touch again"; **timed note** → solid red "No match · touch
-    again" / amber "Not read · touch again"; **starting** = `$FPRINTPROMPT` still empty (it becomes
-    `ready_message = ready` once hyprlock started fprintd's verify) → dim "Starting Touch ID…", 5 s after
-    `asahi-lock-touchid.start` (asahi-lock: when this hyprlock began) amber "Touch ID not responding · type your
-    password"; else ready: accent glyph + hairline ring, "Touch ID ready · or type your password". Placeholder just
-    "Password".
-  - **Only a new touch reads** (2026-11-19, his report: a wrong finger left lying went Reading → a red flicker →
-    Reading for good): fprintd reports a lying finger again as the sensor re-arms (hyprlock restarts the verify 250 ms
-    after a miss), and nothing reports a lift. The labels keep the touch in `asahi-lock-touchid.reading` as
-    `<state> <since µs> <last run µs>` (the first of the three decides, the others follow ms later): `r` = being read
-    since; `s` = that read failed at since, its note shows — entered when a timed note is newer than the record (the
-    miss shows at hyprlock's fail event already: the prompt is still `reading` then) or on a failed read's prompt
-    ("Could not match…", the retry texts). In `s` a `reading` is a new touch only if it is not the echo (< 1.5 s after
-    the miss), not a sibling label (< 0.2 s after the last run) and not the tick (5 s ± 0.3 after it). After the note
-    a lying finger reads "Touch ID ready". The desktop model does the same its way (`present` only counts from
-    `waiting`).
-  - **Feed** = `asahi-lock`: hyprlock shows nothing when the claim fails and maps Aurora's `verify-lockout` /
-    `verify-password-required*` to "unknown status", so its reader turns `fprint:` log lines into
-    `asahi-lock-touchid.note` (`<until epoch> <kind> <text>`, 0 = until `started verifying`; kinds nomatch / retry /
-    exhausted / lockout / password / unavailable): "No match" (the 3rd "· last try", the 4th = hyprlock's 3 retries
-    used up → "Too many failed attempts"), "Touch ID locked", "Password needed to re-enable Touch ID" (SEP password
-    clock: 48 h without an unlock), "Touch ID disconnected" (`verify-disconnected`: lid close / sleep drops the reader,
-    hyprlock never re-claims — seen 2026-11-18 on most locks), "Touch ID unavailable" (claim / start failed).
-    `asahi-touchid`, doctor and `asahi-debug` skip the finger check under a closed lid (it read as "no finger
-    enrolled" and tried to enrol).
-  - **Preview without locking**: nested `Hyprland -c <min.lua>` + `hyprctl output create headless` + hyprlock + grim.
-    Disable the nested `WAYLAND-1` output (`hl.monitor { output = "WAYLAND-1", disabled = true }`: its window sits on a
-    hidden live workspace and presents nothing — hyprlock's `locked` / qs's frame swaps never come, the lock takes 5 s
-    to come up and labels freeze after their first tick: the `unload(nullptr)` bug). `kill -USR1` only after hyprlock
-    logged `onLockLocked` (earlier: "not locked yet", it stays; a `-9` leaves the nested session lockdead). A conf copy
-    with `fingerprint:enabled = false` (never claim the live sensor), fake orb state files in its own
-    `XDG_RUNTIME_DIR`, `hyprctl dismissnotify` before shots (the "started without start-hyprland" banner). Orb states:
-    replace `"$FPRINTPROMPT"` by the prompt to show (`ready`, `reading`, empty = starting); for event sequences by
-    `"$(cat file)"` + `cmd[update:5000:1]` (the text no longer names the variable) and `kill -USR2` after each write
-    (= a fingerprint event; fine nested). Measure a glyph with a one-label conf (magenta on black) + `magick -trim`.
-    Typing: live `hl.dsp.send_shortcut` to `class:^(aquamarine)$` (never Enter: PAM) needs `WAYLAND-1` enabled — first
-    a live `hl.window_rule` sending class `aquamarine` to `workspace = "19 silent"` (else its window pops up in front
-    of him), keys ≥ 0.2 s apart; disable it again for anything timed or measured. Whole `asahi-lock` nested: own
-    `XDG_RUNTIME_DIR` (else it holds the live session's flock: a real lock is skipped) + absolute
-    `WAYLAND_DISPLAY=/run/user/$UID/wayland-N`, a fake `qs` first in `PATH` (a shim to a nested `qs -p` copy of
-    `WallpaperIntro` with a stub `WallpaperService` shows the whole unlock; a stand-in desktop = a Background-layer
-    `Image` + two `FloatingWindow`s, real tiled windows, wide `gaps_out` so the wallpaper shows), end with `kill -USR1`.
-    Never `pkill -x wf-recorder` for a nested recording (it stops a live take too): kill its pid.
+  substitution after an external command). Never auto-run `hl.clear_crashed_lockscreen()` (unlocks without
+  password). hypridle `inhibit_sleep = 3` explicit; logind caps the wait at `InhibitDelayMaxSec`. Super+Escape must be
+  a `locked` bind (others are dead on lockdead; `dont_inhibit`: it also fires while an app inhibits shortcuts,
+  Chromium keyboard lock / a VM viewer): a fresh lock once the guard is out of retries; asahi-lock exits if one runs
+  (flock / `lock_running`: the `qs -p …/remix/lock.qml` process of this session only, by `WAYLAND_DISPLAY`, never a
+  nested preview's, and never a loose pattern: it matched an editor with lock.qml open; asahi-idle and keyboard auto
+  use it too). `asahi-lock` holds `$XDG_RUNTIME_DIR/asahi-locked` while it runs (EXIT trap drops it): the bar pauses
+  its polling (`BarData.locked`). Touch ID under the lock: `asahi-touchid-monitor` classifies the lock's `qs -p`
+  process as kind `lock` (suppress: the notch card stays hidden; it only knew hyprlock until 2026-11-22). TTY escape
+  (`Fn+Ctrl+Alt+F3`): `pkill -f asahi-lock; pkill -f remix/lock.qml`, then (a killed lock leaves Hyprland's
+  crashed-lock screen) `hyprctl --instance 0 eval 'hl.clear_crashed_lockscreen()'` typed on the TTY.
+- **Lock preview without locking**: nested `Hyprland -c <min.lua>` + `hyprctl output create headless` + disable the
+  nested `WAYLAND-1` output (`hl.monitor { output = "WAYLAND-1", disabled = true }`: its window sits on a hidden live
+  workspace and presents nothing — frame swaps never come). `LOCK_DEMO=1 qs -n -p remix/lock.qml` (no PAM), states
+  via `qs -p <lock.qml> ipc call lock state typing|reading|wrong|unlock|caps`, `hyprctl dismissnotify` before shots.
+  Motion (the lift-off): `wf-recorder -o <output>` + `ffmpeg -vf fps=30` frames (grim takes ~200 ms a shot); a
+  stand-in desktop = a Background-layer `Image` + two `FloatingWindow`s + a top `PanelWindow` as bar. Whole
+  `asahi-lock` nested: own `XDG_RUNTIME_DIR` (else it holds the live session's flock: a real lock is skipped) +
+  absolute `WAYLAND_DISPLAY=/run/user/$UID/wayland-N`. A `kill -9`ed nested lock leaves its crashed-lock screen:
+  `hyprctl eval 'hl.clear_crashed_lockscreen()'` there. Never `pkill -x wf-recorder` for a nested recording (it stops
+  a live take too): kill its pid. Nested Hyprland: `send_shortcut` drops modifiers, test with a plain key.
 - **Lid + DPMS**: Hyprland DPMS off = aquamarine output disable → sysfs `enabled` reads `disabled`; logind counts a
   closed lid docked only while an external reads `enabled` (re-checked every event-loop wakeup) → DPMS-blanked
   external in clamshell = laptop-only lid → suspend (no new `Lid closed.`; lockdead on open, hang on re-close).
@@ -270,14 +201,18 @@ relabel filter.
   capture→record). `Super+Alt+HJKL` moves the **shared split border** — label by direction, never grow/shrink.
   `Super+Ctrl+<letter>` = panel (A audio, B bluetooth, C calendar, D display, W network, P power, R backup, S
   screenshot gallery, T activity, I stay-awake, E emoji, V clipboard, M media, H hardware; night light is menu-only;
-  keybinding overview = Super+K **held**, his pick). `Super+Ctrl+Alt`:
+  keybinding overview = Super+K **held**, his pick). M = the bar's media popup, or the launcher's Media pane while
+  no player shows its chip (it did nothing). T = btop in Ghostty (`asahi-sysmon` → `asahi-launch-or-focus-tui`: an open
+  one is focused; two same-class launches in quick succession were seen to close each other after 2–8 s). `Super+Ctrl+Alt`:
   R reload Hyprland, W/P/I restart Quickshell / hyprpaper / hypridle, S suspend, Z magnifier reset.
   `Super+Ctrl+plus/minus` = display scale; `Super+Ctrl+Z` / `+Shift+Z` / `+Alt+Z` = magnifier in / out / reset
   (`hl.config { cursor = { zoom_factor } }`, not `hyprctl keyword`). Panels: `quick()` in `bindings.lua`
   (`quickActions` in `LauncherWindow.qml`); same combo again closes (`openQuick`/`openCategory`). Esc peels one layer
   (Quick pane → home → close); shortcut-opened → closes (`openedByShortcut`). Workspaces: Super+N go, Super+Ctrl+N
   move, Super+Alt+N send w/o following, Super+Y back-and-forth. Super+Alt+F = fullscreen in tile (`fullscreen_state`
-  client 2); Super+Alt+arrows join neighbour group; Alt+Tab cycles. Lock / media / lid binds in `submap_universal`
+  client 2); Super+BackSpace = this window opaque (toggle; inactive_opacity 0.9 washed out photos / video); Super +
+  pinch = live magnifier zoom; Super+Z = Thunar in the focused Ghostty's folder (`asahi-files-here`: Ghostty's
+  shell-integration title at the prompt, else home); Thunar's "File Operation Progress" floats; Super+Alt+arrows join neighbour group; Alt+Tab cycles. Lock / media / lid binds in `submap_universal`
   (writing-tools submap's catchall swallowed them). Super+N/S free. **Every bind needs a `desc`**
   (`Data.parseHyprBinds` drops descless ones; `data_test.js`) — except lid switches + writing submap. `code:NN` needs
   `bindCombo` `codeNames`; labels are **de(mac_nodeadkeys)** (`code:34/35` = `ü`/`+`, not `[]`).
@@ -305,6 +240,10 @@ relabel filter.
   Super+Alt+Shift+F12 + webcam (`asahi-webcam`: Aurora's denoised PipeWire camera via `pw-v4l2` +
   `PIPEWIRE_V4L2_TARGET` = its `object.serial`, shareable with a browser call; raw `/dev/videoN` without
   `aurora-camera-denoise` (user service); `/dev/video0` = AVD decoder, skipped; Super+Alt+ü/+ resize = `code:34/35`).
+  slurp's `selection` layer has `no_anim`: faded out over 0.5 s, grim caught its border as a 1–2 px grey frame on every
+  region shot (measured, omarchy's rule). Colour pick (Super+Shift+F12) = `asahi-cmd-colorpick`: copies the hex, a
+  `screenshot` card with a swatch (`$XDG_RUNTIME_DIR/asahi-colorpick-<HEX>.png`: named by colour, Qt caches by path)
+  + rgb() / hsl() re-copy; Esc = nothing (idea: serpantinum; test `asahi_colorpick_test.sh`).
   Annotate (tile pencil / preview pill) = `asahi-screenshot-annotate` = `swappy -f shot` (satty not in Fedora; class `swappy` floats). Only Save
   (Ctrl+S / button) counts: `asahi/swappy/config` → `~/screenshots/annotated-*.png` + `early_exit`; script moves it
   over the shot if `magick compare -metric AE` sees changes (else drops it), re-copies. No `-o` (swappy writes it on
@@ -319,13 +258,16 @@ relabel filter.
   no Thunderbolt device awaiting bolt approval; dnf, `wpa_supplicant`, not
   pacman/iwd/SDDM; Wi-Fi radio off on purpose = PASS). Test: `asahi/bin/asahi_debug_test.sh`. Not in `make doctor`; must not flag
   Hyprland on generic Linux.
-- **Night light**: menu-only (Launcher > Actions → `asahi-nightlight`, hyprsunset); on = `hyprsunset.conf`, off =
-  `hyprctl hyprsunset identity`. Identity profile so autostart tints nothing; autostart drops stale `nightlight.json`
+- **Night light**: menu-only (Launcher > Actions → `asahi-nightlight`, hyprsunset); on = the last temperature (else
+  `hyprsunset.conf`'s), off = `hyprctl hyprsunset identity`; the bar chip's wheel = `warmer` / `cooler [n]` (250 K a
+  notch, 1000–6000 K, kept while off): the chip sums a gesture and sends one run 250 ms after the wheel stops, and the
+  script holds a flock (2026-11-23: a run per notch raced — the runs set their own temperature in turns, the screen
+  flickered and each run's check saw the other's value: a "Night light failed" card each; test runs three at once). Identity profile so autostart tints nothing; autostart drops stale `nightlight.json`
   (chip showed on, no tint).
 - **Bar notch**: cutout is a hole (`BarModel.notchRegionInset`), not a spacer; height from geometry (3024x1964 →
   **74**), width = real cutout; overflow clipped at the wall. Right side: bell, usage ring, mic + volume, network, BT,
   battery, clock always; the rest is granted while it fits, whole or not at all (`BarModel.rightGrants` →
-  `BarHost.grants`, `bar_model_test.js`): REC → timer → stay awake on → night light → tray's one icon / `+N` pill →
+  `BarHost.grants`, `bar_model_test.js`): REC → screen share → timer → stay awake on → night light → tray's one icon / `+N` pill →
   idle cup → updates box → more tray icons → words (usage countdown → VPN name → VPN uptime → network name; VPN name+
   only without notch; never past the first misfit; external gets all). A width fed to the budget is what the part
   costs shown or not, from `Text` / metrics: a hidden layout keeps its last width (the hidden bell twin counted no
@@ -359,8 +301,12 @@ relabel filter.
   second flag, no counters (later bars replayed them). Every bar popup (calendar, RecordPanel too) closes on Esc /
   click-outside: `HyprlandFocusGrab` whitelists popup **and bar window** (else the opening click is outside);
   `QsWindow.window` needs `import Quickshell` (else tray menus silently break); Items are dropped. Esc =
-  `Qt.ApplicationShortcut` (grab may focus the bar). App menus: TrayPanel opens via `QsMenuAnchor`, drops its grab
-  until `closed`. `HyprlandFocusGrab` dies on `focusable: false`. Attention dot static (pulse = per-frame redraw).
+  `Qt.ApplicationShortcut` (grab may focus the bar). App menus = `TrayMenu.qml` (idea: caelestia), one per bar in
+  `SystemTray`: the app's DBusMenu drawn in our look (rows, hairline separators, check column, app icons, submenus in
+  place with Back; Esc backs out, then closes), opened by the inline icons (right-click / menu-only items) and
+  TrayPanel's menu button (TrayPanel pauses its grab until `menuClosed`). One `QsMenuOpener` per level (three):
+  re-pointing a single opener at a submenu released the parent menu and with it the submenu entry (empty list).
+  `entry.triggered()` clicks. Tested on a private bus with a fake SNI + dbusmenu (check, separator, submenu, disabled). `HyprlandFocusGrab` dies on `focusable: false`. Attention dot static (pulse = per-frame redraw).
   Menu positions are window coords (`mapToItem(null, …)`).
 - **Bar = click to act, event-driven**: chips answer a press at once (`HoverTint { down: …pressed }`,
   `Style.barStripPress`); CPU / RAM / temp / mic / volume / battery values carry a 2 px level bar (his pick from the
@@ -368,7 +314,18 @@ relabel filter.
   `~/screenshots/quickshell-bar-variants-*-2026-11-20.png`); left-cluster chips slide neighbours (Row `move`/`add`, off first second);
   right cluster only fades in (`add`; `move` made the clock side jump). Hover = `HoverTint`; tooltips only on tray
   icons (+ BT battery list); night-light chip only while on. REC dot blinks on the elapsed tick (no animation). Mic
-  orange while recorded (`PwNodeLinkTracker`). Sources bind, not poll: Pipewire (`AudioChip` + `PwObjectTracker`),
+  orange while recorded (`PwNodeLinkTracker`). Screen-share chip (red 󰹑, nothing to click) while a PipeWire node
+  `xdph-streaming-*` exists (xdph's stream: an app shares a screen / window; the camera has its LED, our recorder and
+  screenshots use screencopy, not xdph; bound to `Pipewire.nodes`). While locked (`BarData.locked`) the 3 s stats,
+  30 s network script, Ccu's 5 min refresh and 10 s chip roll pause (under the lock Hyprland still sends frame callbacks:
+  a looping test layer cost 17 ms/s; `QT_WAYLAND_FRAME_CALLBACK_TIMEOUT=0` measured no change, not used). The bar clock
+  is no poller, but Qt timers stand still through s2idle: `SystemClock` showed the time from before a sleep for up to
+  a minute after wake. `BarData.clockEpoch` (the unlock, and `asahi-idle wake` touching `$XDG_RUNTIME_DIR/asahi-idle-wake`
+  at every resume / return from idle) re-enables it: re-reads the time at once (offscreen-tested). Low / critical
+  battery cards = `modules/system/BatteryAlerts.qml` on UPower signals (`battery_alerts.js` + test; replaced the
+  `asahi-battery-alertd` bash loop waking every 30 s; same `notify-send` cards; the installer stops and removes the
+  old unit); the charger chimes on plug / unplug (freedesktop power-plug / -unplug, `paplay`; the first reading only
+  sets the baseline). Sources bind, not poll: Pipewire (`AudioChip` + `PwObjectTracker`),
   BlueZ, `UPower.displayDevice`, `nmcli monitor` (+30 s signal poll), in-process `FileView`; `asahi-cpu` / `-memory`
   only while SysPanel open; stay-awake / night-light / timer files watched (dir watch sees create/delete). Long-lived
   children get `setpriv --pdeathsig TERM` (SIGTERMed qs orphans them). Chip clicks → `barHost.quickRequested(key)` →
@@ -402,6 +359,17 @@ relabel filter.
   fades + rises 10 px. Hover on a filled button = `Qt.tint(fill, Style.m3stateHover)`, never `Qt.lighter`. Section
   captions = tracked caps (`fontPx(8)` DemiBold, 1.2). Floating cards radius Lg, nested cards Md; `MenuCard` has a
   `menuHairline` rim. No `Text.NativeRendering` in the bar (SysChip's drew thinner than its neighbours at 1.875×).
+  Popup text sizes = `Style.type{Caption 10, Body 11, Lead 12, Title 13, Display 22}` (bar popups, calendar, sheet,
+  toasts, OSD; glyphs keep their own). Card headers = `Menu.MenuGlyphTile` (22 px tinted square); pane hero tiles 36 ×
+  `uiFontScale`; pane roots `spacing: 12`; scrolling lists stop short of the scrollbar (`width: … - (bar.overflow ?
+  bar.implicitWidth + 4 : 0)`); charging = green everywhere. `Style.reduceMotion` (UPower: on battery < 20 %): spring
+  0, fades 100 ms, no bell swing / usage-chip roll / readout fades; Hyprland's blur, animations and inactive
+  translucency go off too (`asahi-compositor-saver on|off|reload`, from `shell.qml`; restores the values it saved;
+  monitors.lua's `config.reloaded` re-applies it; measured nested with an inactive window redrawing −1.3 to −1.7 W,
+  idle no difference). Theme change: `BarHost.barForeground` /
+  `barBackground` ease 300 ms (one Behavior each; every chip binds them). Big readouts that tick (SysPanel tiles,
+  Battery / Temps heroes) = `Menu.MenuFadeText` (fade on text change; never in the bar; the owner must not bind
+  `opacity`).
 - **Launcher quick panes**: one file each in `quickshell/remix/modules/launcher/panes/`; `LauncherWindow.qml` does
   `Panes.XPane { root: launcherSelf }` (`root` in a pane = that property). Shared M3 widgets in `modules/menu` take
   `fontScale` (`MenuSwitch` fixed; `component Pill: Menu.MenuPill { fontScale: root.uiFontScale }`). Hover =
@@ -418,8 +386,27 @@ relabel filter.
   never argv. OWE (`OWE` / `OWE-TM`) needs no password.
 - **Calculator** (`=` in launcher): `calc_history.js`, own parser, no `eval` (a pasted expression reached launcher
   ids); radians, `30°`; `,` args, `.` decimals; ASCII constants only (`pi`, not `π`); `ans` = last copied result,
-  leading `*`/`/`/`^` continues it. History in `~/.local/state/asahi/calc-history.json`. Legend = `CalcHist.LEGEND`.
-- **Recorder**: Super+Alt+R toggles `RecordPanel`; REC chip only while recording (click = panel, right-click = stop).
+  leading `*`/`/`/`^` continues it. Units (`=10 km to mi`, `in` / `to` / `->`; length, mass, time, data, speed,
+  volume, energy, °C/°F/K): `convert()`, 6 significant digits, copies the number; no qalc (not installed), no
+  currency (needs a fetch). History in `~/.local/state/asahi/calc-history.json`. Legend = `CalcHist.LEGEND`.
+- **Launcher search**: name tiers exact > prefix > word start > anywhere (`primaryScore`, omarchy AppSearch), then
+  score, usage, shorter name. Windows mode = `,` prefix / "Windows" nav row: `Hyprland.toplevels`, most recent first
+  (`focusHistoryID`, `refreshToplevels()` on entry), Enter = `hl.dsp.focus({ window = "address:0x…" })`.
+  `Terminal=true` entries (btop, htop, nvim, cliamp) launch through `asahi-launch-tui` (they started windowless before),
+  which runs the command through `$SHELL -ic 'exec "$@"'` inside Ghostty (`-e` passes argv as is): the interactive
+  zshrc's environment, like a terminal window — `~/.local.zsh` holds API keys / PATH additions (nvim's parrot.nvim
+  died on a missing `ANTHROPIC_API_KEY`); ~0.3 s. Linked into `~/.local/bin` for `asahi-nvim.desktop`.
+  Desktop-entry actions are rows for typed queries ("New Private Window · Firefox", `special: "app-action"`, usage -1
+  like actions; idea: Ryoku / end-4); Actions › "App actions in search" switches them off / on, kept in
+  `~/.local/state/asahi/launcher-app-actions` (`on` / `off`, missing = on). Typo rescue: a 4+ letter term one edit from a title word (`Data.oneEdit`, lowest
+  score). `>` alone lists recent files (`asahi-recent-files`: recently-used.xbel, newest first, gone files skipped;
+  ~70 ms per open); Shift+Enter on a file row = show in folder (`asahi-reveal`: FileManager1.ShowItems → Thunar selects
+  it, else the folder; also the Screenshots tiles' folder button and the screenshot / recording cards).
+- **Recorder**: Screen audio = RecordPanel's System / Mic / Silent pill (idle only), saved as one word in
+  `~/.local/state/asahi/record-audio` (`system|mic|none`, default system; `Recorder` FileView, no polling).
+  `asahi-cmd-record` reads it, so keybinds follow: system = default sink's monitor, mic = default source (narrated
+  demos), none = no audio (one device only: wf-recorder). Webcam and camera-only takes always record the mic.
+  Super+Alt+R toggles `RecordPanel`; REC chip only while recording (click = panel, right-click = stop).
   `Recorder` singleton runs `asahi-cmd-record status --json` at start, on the script's `ipc call recording refresh`,
   1 s while recording; idle nothing polls. Webcam and camera-only takes record default source; screen takes default
   sink's monitor (wf-recorder: one device; camera-only = ffmpeg). No pause (wf-recorder exits on SIGUSR1). Stop = SIGINT, SIGKILL only after 15 s (MP4
@@ -434,7 +421,11 @@ relabel filter.
   old rows). quickshell excluded on lionheartp copr (`dnf.sh` setopt; Upgrade all installed its build). Install /
   remove / upgrade: Ghostty via `asahi-launch-tui`, `ASAHI_TUI_WAIT=1` (`--wait-after-command`: result stays
   readable). Crashing query still prints `{error, packages: []}` (EXIT trap). Test: `asahi/bin/asahi_pkg_test.sh`.
-  `dnf.sh` brings node + luac (for `make test-asahi`). Grok Bot = Cursor's AppImage feed (`grokbot.sh`; icons linked
+  `dnf.sh` brings node + luac (for `make test-asahi`). After an upgrade (tui-upgrade,
+  tui-flatpak-update, the `update` autoload) `qs ipc call updates refresh` re-checks at once (the icon stayed lit up to
+  30 min). Flatpaks (idea: hyprconf): `updates` appends `flatpak
+  remote-ls --updates` rows (`source: flatpak`, offline `--cached`), the bar's 30-min check counts them, the pane
+  sends Flatpak rows to `tui-flatpak-update` and Upgrade all runs `flatpak update` after dnf. Grok Bot = Cursor's AppImage feed (`grokbot.sh`; icons linked
   into `~/.local/share/icons` for `BarHost`).
 - **Wallpaper**: one picker, `WallpaperManager` (Super+Shift+W); `ipc: "wallpaper"` + `wallpaper: true` in
   `quickDeckHidden` (not a Quick tile; search finds it). `WallpaperCarousel`: ←/→, Ctrl+h/l, wheel select; ⏎ applies,
@@ -448,7 +439,7 @@ relabel filter.
   `asahi-wallpaper-span` crops), then fades out over the last 420 ms onto the still (hyprpaper keeps the still
   throughout). Until playback position leaves 0 its window shows a **cover**: the clip's first frame
   (`~/.cache/asahi/wallpaper-intro/<stem>.png`, extracted on scan; a local `Image`, decoded synchronously in `arm()`, so
-  the window's first buffer has it). Why: nothing presents while hyprlock holds the session, unlock shows what was on
+  the window's first buffer has it). Why: nothing presents while the lock holds the session, unlock shows what was on
   screen when the lock engaged; the cover makes that frame 0 whatever the decoder holds. `play` runs from
   `onMediaStatusChanged` (`kick`), never from a `ready` binding: that binding looped, Qt dropped it, and `pause()`
   on the new source held the cover on frame 0 (2026-11-09, switching wallpapers). The kick is deferred
@@ -456,14 +447,12 @@ relabel filter.
   `play()`s the clip being replaced, `playbackState` stays Playing and the next clip never starts — frame 0 held until
   the failsafe on every wallpaper change after a finished intro or during one (2026-11-10; offscreen harness:
   `qml` + `QT_QPA_PLATFORM=offscreen` around the verbatim player block; unlock was fine, the hold's `pause()` resyncs). The flash he saw (2026-11-09)
-  was hyprlock's grey fade-out + the late `play` (below); a stale-buffer flash did not reproduce nested.
+  was the old hyprlock's grey fade-out + a late `play`; a stale-buffer flash did not reproduce nested.
   `asahi-lock`: `wallpaperIntro arm` → polls `ready` (each output swapped the cover twice:
   `cover.Window.window` `frameSwapped`; ≤ ~0.4 s; each call under `timeout 1`: a hung qs
-  must not stop the lock) → hyprlock → `play` on hyprlock's `Unlocked, exiting!` line, again at its exit (no-op: once per
-  arm, `played`); go after `unlockDelayMs` 400. hyprlock lingers ~2–3 s after a Touch ID unlock (its pending password
-  PAM attempt fails, then the failure delay): `play` at exit alone started the video ~3.3 s after unlock. hyprlock
-  `fadeOut` 0: the fade dims the lock image to grey for 0.5 s before the desktop pops in (read as a jump to the darker
-  last frame and back). Nested A/B 2026-11-09 (wf-recorder per frame): lock → frame 0 directly, motion at +0.63 s.
+  must not stop the lock) → the lock → `play` on its `Unlocked, exiting!` line (printed when PAM says yes, before the
+  lift-off), again at its exit (no-op: once per arm, `played`); go after `unlockDelayMs` 400, so the clip starts
+  moving while the lock lifts off its first frame.
   `FrameAnimation` is no "window rendered" signal (the animation driver falls back to a timer). 15 s failsafe ends a
   stalled clip (a held arm has none: `asahi-lock`'s EXIT trap calls `play` on every exit — unlock, out of retries,
   the TTY escape's pkill). `ready` live 2026-11-10: false, false, true ~220 ms after `arm` (the cover png loads
@@ -472,7 +461,7 @@ relabel filter.
   qs log: `intro: arm` / `play` / `video on <output>`. IPC via `qs -c remix ipc --any-display`
   (Hyprland-spawned callers lack the shell's `QT_QPA_PLATFORM`). Triggers: login once per boot
   (`$XDG_RUNTIME_DIR/asahi-wallpaper-intro-boot`), `WallpaperService.wallpaperSet` (picker, Super+B), every unlock.
-  hyprlock's background = `lock-screen` link → the clip's first frame (`WallpaperService.linkLockScreen`; the still
+  The lock's background = `lock-screen` link → the clip's first frame (`WallpaperService.linkLockScreen`; the still
   without a clip), so unlock plays forward (eyes open). **Animated wallpapers only** (2026-11-09): `~/Pictures/wallpaper`
   = omarchy's theme intros (minus lumon, retro-82: 16)' end stills (`<theme>-<bg>`) + `intros/<theme>-<stem>.mp4`,
   fetched by `comp_asahi_wallpapers`; the old still collection (mylinuxforwork checkout) was moved once to
@@ -484,8 +473,8 @@ relabel filter.
   **Rejected 2026-11-18** (built and taken out the same day, his words: "do not play video over my windows", "no
   blurred background"): an unlock mode with the clip on the Overlay layer above windows and bar (windows dissolving
   into it at lock, click to skip, the desktop opening out of its end in a soft circle from the Touch ID orb, or out
-  of a blur into a frosted desktop) and a blurred / saturated first frame as hyprlock's background. The intro is the
-  desktop background on unlock exactly as on a fresh wallpaper pick: Bottom layer, behind the windows; hyprlock shows
+  of a blur into a frosted desktop) and a blurred / saturated first frame as the lock's background. The intro is the
+  desktop background on unlock exactly as on a fresh wallpaper pick: Bottom layer, behind the windows; the lock shows
   the sharp first frame.
 - **Wallpaper span** (idea: omarchy-wallpaper-cutter): `asahi-wallpaper-span` cuts the wallpaper across the live
   layout (logical px; slices in `~/.cache/asahi/wallpaper-span/`, only live set kept). Bezel `gap`: one value, all
@@ -501,7 +490,9 @@ relabel filter.
   warning); text ladders WCAG (subtext0 ≥ 4.5:1 on base, text on accent = crust). Bare run keeps saved flavour
   (colors.json `variant`), prefers `quickshell/wallpaper.conf`; runs hold `asahi-theme/.lock`. Writes
   `~/.local/state/asahi-theme/`. GTK ini is a real file, not a symlink. Unset portal `0` = light. Live: Ghostty
-  `reload-config`, Quickshell `FileView`, Hyprland borders, btop SIGUSR2, Firefox. **GTK3 never repaints live** — do
+  `reload-config`, Quickshell `FileView`, Hyprland borders, btop SIGUSR2, Firefox, Claude Code
+  (`~/.claude/themes/asahi.json`, omarchy's 38-role template, hot-reloaded; picked once per machine with `/theme` →
+  custom:asahi: settings.json is never written, his is shared with macOS via Nextcloud). **GTK3 never repaints live** — do
   not add watchers. Tests: `asahi/theme/tests/` (`test_palette.py`, `test_apply.py`), `asahi/theme/smoke_test.sh`
   (no arg = saved state, rewrites live state unchanged; not in `make test-asahi`).
 - **Flatpak GL**: `aurora-flatpak-gl` (dnf.sh, Aurora only) = system `GL.aurora`; it serves `--user` Flatpaks too
@@ -530,7 +521,8 @@ relabel filter.
 - **sshd**: Fedora enables it; disable + mask `sshd.service` + `sshd.socket` + systemd-ssh-generator's
   `sshd-unix-local.socket` (`/run/ssh-unix-local/socket` is 0666), drop firewalld's `ssh` service (`asahi-sshd`).
   Re-check after a release upgrade. Kernel hardening sysctls (`asahi/sysctl.d/99-asahi-hardening.conf`): Fedora's
-  defaults the Aurora kernel lacks (unprivileged BPF off, `legacy_tiocsti` 0). AsahiLocker's `luks-fetch-cache.timer`
+  defaults the Aurora kernel lacks (unprivileged BPF off, `legacy_tiocsti` 0). `90-asahi-inotify.conf`:
+  `max_user_instances` 128 → 1024 (49 in use; running out takes the session D-Bus down; idea: Gren-95). AsahiLocker's `luks-fetch-cache.timer`
   (root `luksDump` of every LUKS disk, USB too, for fastfetch) is disabled by `asahi-system`.
 - **Notification images**: `localImage()` only `image://icon/`/`file:`/`/…`; never `image://qsimage/` (history outlives
   the object: empty box; app icon instead), never `?path=` (icon provider reads that file), never `/proc`, `/sys`,
@@ -587,7 +579,9 @@ relabel filter.
   notify-send stops listening at its own timeout while the card pauses on hover (`asahi-cmd-screenshot` Open/Annotate
   waits under `setsid -f`).
 - **Notification sheet**: history `~/.local/state/asahi/notifications.json` (0600, non-atomic writes keep the mode),
-  never written on load; holds Do Not Disturb (a QML save reloads qs). Trash = two clicks within 3 s (stray click wiped
+  never written on load; holds Do Not Disturb (a QML save reloads qs). History cards cut at 3 lines get "more" / "less"
+  (idea: Ryoku). The sound honours the spec's `suppress-sound` hint (Signal / Telegram play their own; the card still
+  shows). Trash = two clicks within 3 s (stray click wiped
   all). Super+comma `act` (click / one button / dismiss); Super+Alt+comma `dismissOne`; Super+Shift+comma
   `dismissAll` also clears the saved list (so does IPC `clear`).
   Sheet and bar popups close each other; sheet focus grab arms 200 ms late (an unmapping popup clears it); the bell click
@@ -603,7 +597,12 @@ relabel filter.
   `sudo udevadm trigger --action=add /dev/input/eventN` (input node, not drm).
 - **Volume keys**: `asahi-media-control output-volume raise|lower|+1|-1` (and Media pane slider) unmutes the sink **only
   if muted** (`unmute_if_muted`; unconditional `set-mute 0` clicked the speakers); never unmutes the mic. Launcher
-  Logout / Restart / Shutdown: `confirm: true` (Data.js), second Enter within 3 s runs.
+  Logout / Restart / Shutdown: `confirm: true` (Data.js), second Enter within 3 s runs; they (and Restart into macOS)
+  go through `asahi-session logout|reboot|poweroff`: every window closed first, ≤ 8 s wait, so apps save their state
+  (Logout was `hl.dsp.exit()` straight away); one left open (an unsaved-changes dialog) cancels with a card naming it
+  (idea: omarchy-system; test `asahi_session_test.sh`). The OSD also shows any default-sink volume / mute change from
+  elsewhere (headset buttons, apps, the bar wheel; `Osd.qml` bound to `Pipewire.defaultAudioSink`, a new sink only
+  sets the baseline, quiet while the launcher is open; keys still ask over IPC for feedback at 0 / 100 %).
 - **Audio**: Aurora ships the stack (`aurora-audio`, keeps the `/usr/share/asahi-audio` paths) — don't port omarchy's
   Apple audio.sh. RT check is the **thread**: `ps -eLo comm,rtprio,cls | grep data-loop` → `20 RR`. Mic
   `effect_output.j414-mic` is MONO since aurora-audio 4.1-5 (old asahi-audio: 1ch `AUX0`, stereo recorders left only;
@@ -735,27 +734,23 @@ relabel filter.
   wait ioctl: this kernel has none, so Touch ID works from the first login.
   `aurora-sep-ready` turns on authselect `with-fingerprint` (Aurora's vendor `local` profile: sudo, polkit and
   `fingerprint-auth` only; tty1 `login` stays password = keyring unlock).
-  hyprlock `fingerprint:enabled` (fprintd D-Bus beside PAM, no label); the polkit card shows
+  The lock runs its own `fingerprint` PAM (`quickshell/lockpam`); the polkit card shows
   PAM's finger prompt (`supplementaryMessage`). Diagnose `aurora-xart status`, `journalctl -u aurora-sep -u
   aurora-sep-ready`; start over `sudo aurora-xart reset-touchid`, reboot, enrol again (it refuses while the keybag works; also after a root
   rollback or reinstall: they bring back an
   older / empty xART owner list, `/var/lib/aurora-sep-xart-owned.bin`, and the guard refuses the Linux records;
   `/usr/share/doc/aurora-sep/XART-SAFETY.md`). Risk (omarchy-mac manual 04-security): the SEP anti-replay state is shared
   with macOS; written wrongly, FileVault macOS cannot unlock → DFU restore (erases); xART guard 1 (M2 default) refuses
-  macOS's records (`xart_guard_refusals`, Hardware pane); README tells him to keep a macOS backup. **No fprintd restart on
-  resume** (omarchy's
-  `system-sleep/fprintd-resume`, for Quickshell's PamContext lock): hyprlock 0.9.7 keeps one claim across sleep
-  (PrepareForSleep(false) only re-runs VerifyStart on the cached proxy) and never re-claims after fprintd restarts
-  (no NameOwnerChanged) — a restart kills Touch ID for that lock; Aurora's fprintd handles sleep itself. Gap: Aurora's
-  libfprint removes the reader while the lid is closed (`Lid closed; removing …`) → a lock taken before the close
-  gets `verify-disconnected` (password still works). If that shows (`grep fprint: ~/.local/state/asahi/hyprlock.log`),
-  fix it in the locker (fresh hyprlock claim on lid open via the asahi-lock guard; never SIGTERM/USR1 = unlock).
+  macOS's records (`xart_guard_refusals`, Hardware pane); README tells him to keep a macOS backup. No fprintd restart on
+  resume (omarchy's `system-sleep/fprintd-resume`): Aurora's fprintd handles sleep itself, and Aurora's libfprint
+  removes the reader while the lid is closed (`Lid closed; removing …`): the lock's fingerprint PAM fails then and is
+  re-armed every 5 s until the reader is back.
   **Wedged fprintd** (2026-11-09 13:38 → dead for a day, silently): power key (= the sensor, pressed instead of
   touched) during a polkit / sudo finger prompt → suspend mid-verify → pam_fprintd's Release fails "still busy" →
   fprintd drops the claim but keeps the reader open → every Claim: `Open failed … already been opened` (lock, sudo,
-  polkit; `fprintd-verify` shows it). Only a restart clears it: `asahi-lock` restarts fprintd on that claim error
-  (`asahi/polkit/49-asahi-fprintd-restart.rules`, installed by `asahi-touchid`: wheel may restart `fprintd.service`);
-  that lock stays password-only (hyprlock never claims again), the next one has Touch ID.
+  polkit; `fprintd-verify` shows it). Only a restart clears it: the lock restarts fprintd once after a failed fingerprint run
+  (`asahi/polkit/49-asahi-fprintd-restart.rules`, installed by `asahi-touchid`: wheel may restart `fprintd.service`)
+  and claims afresh on its next try.
 - **Touch ID prompt** (idea: omarchnix's touchid plugin): `modules/system/TouchIdPrompt.qml` = a card under the notch
   while something waits for a finger without a prompt of its own (sudo / su in a terminal, `aurora-fido`: passkeys and
   ssh `ecdsa-sk`, `fprintd-verify`). It and the polkit card show **the lock screen's orb** (2026-11-18, his ask: the
@@ -773,20 +768,20 @@ relabel filter.
   2.8 s, the next touch showed no "Reading"). **Real fprintd semantics** (2026-11-19, his report: "no animations whatsoever" on real touches while the IPC feed
   showed them): the model ended a read when `finger-needed` went false, and some drivers drop it as the finger
   lands → Reading for 0 ms, the card gone 450 ms later, the match after it (ignored). Now: a lift or a dropped
-  "needed" never ends a read (6 s cap, like hyprlock keeping `reading`); a no-match is always `done` and fprintd
+  "needed" never ends a read (6 s cap: fprintd sends no lift); a no-match is always `done` and fprintd
   reports a cancelled verify (sudo's Ctrl+C) as one too → a miss only with a finger down (`finger` follows
   `finger-present` in any phase), else the card just goes; after a miss, pam_fprintd's next `start` marks
   `retried` → back to ready, none → "No match · type your password". The card shakes once per miss. Replay test:
   realistic streams in `touchid_model_test.js`. Preview: a copy of `remix/` in `/tmp` + a root with the real
   `TouchIdPrompt` fed a scripted sequence (`card.feed(...)` from a Timer), in a nested Hyprland, `wf-recorder -g` +
-  `ffmpeg -vf fps=30` frames. Colours = `Style.vivid` / `vivid2` = hyprlock's
-  `$lock_accent` pair, carried in colors.json (`lock_accent`, `lock_accent2`: `colors_dict`, also in the `--preview`
-  JSON; fallback accent / pink). Wording = the lock's (`touchid_model.js` `view()` here, `asahi-lock` +
-  `asahi-lock-touchid` there: two copies, keep them alike): "Touch ID ready", "Reading", "No match · touch again"
+  `ffmpeg -vf fps=30` frames. Colours = `Style.vivid` / `vivid2` = the lock's
+  accent pair, carried in colors.json (`lock_accent`, `lock_accent2`: `colors_dict`, also in the `--preview`
+  JSON; fallback accent / pink). Wording = the lock's (`touchid_model.js` `view()` here, `lock.qml`'s `lock.touch` there: two copies, keep
+  them alike): "Touch ID ready", "Reading", "No match · touch again"
   (red), "Not read · touch again" (amber, phase `retry`: no shake), "<why> · type your password" with a crossed
   fingerprint once fprintd gave up (No match / Touch ID locked: red; disconnected / unavailable / password needed:
-  amber), "Approved" (green check). Lock screen and polkit draw their own (`suppress`: `hyprlock` / a
-  `polkit-agent-he*` process alive): the notch card stays hidden (`visible()`), but the state still runs —
+  amber), "Approved" (green check). Lock screen and polkit draw their own (`suppress`: the `qs -p …/remix/lock.qml`
+  process / a `polkit-agent-he*` process alive): the notch card stays hidden (`visible()`), but the state still runs —
   `PolkitAgent` reads it (`touchId: touchIdCard` in shell.qml, kind `polkit`) for its own orb. Feed:
   `asahi-touchid-monitor` (stdlib + gi, `setpriv --pdeathsig`): fprintd's
   device signals are broadcast in 1.94.5 (`g_signal_emit` on the skeleton; upstream master sends them to the claiming client only — an fprintd update would leave the card blind) (`VerifyFingerSelected` = start per try, `finger-present`, `finger-needed`; `VerifyStatus` goes out at once, the properties *after* it from an idle), who asked is guessed from /proc at start (newest own sudo, its terminal's Hyprland window: click
@@ -812,13 +807,20 @@ relabel filter.
   go to Proton, aurora-fido sees nothing): he keeps it so. `fido2-tools` (asahi-touchid) lists / deletes passkeys.
 - **Stay awake**: one flag `$XDG_RUNTIME_DIR/asahi-stay-awake`, owned by `asahi-stay-awake`; hypridle listeners skip
   under it (`asahi-idle` checks `status`).
-- **Idle (macOS-shaped)**: hypridle = plain `hl.exec_cmd` in `autostart.lua`'s `hyprland.start` hook, **not**
-  `hypridle.service` (its cgroup: a crash restart kills hyprlock / saver → lockdead; `qs ipc` matches by display
+- **Idle (macOS-shaped)**: why hypridle (2026-11-23, his question): Hyprland has no idle actions of its own and logind
+  sees no Wayland idle, so something must turn "no input for N minutes" into dim / lock / dark / sleep, lock before
+  every sleep (and hold it until the lock is up: `inhibit_sleep = 3`), run the after-wake steps, and honour apps'
+  "keep awake" (Wayland idle inhibitors and the D-Bus ScreenSaver inhibit: Chromium / calls). Nothing Apple-specific:
+  omarchy-mac takes upstream omarchy's shell-side idle (screensaver 150 s, lock 300 s, the lock blanks after 30 s)
+  and **never sleeps on idle** (lid / power key only); ours does (battery ~6 min idle → s2idle, measured 1.9 W over
+  10 h). Kept over moving it into the shell: survives shell restarts, keeps the D-Bus inhibit and sleep hooks.
+  hypridle = plain `hl.exec_cmd` in `autostart.lua`'s `hyprland.start` hook, **not**
+  `hypridle.service` (its cgroup: a crash restart kills the lock / saver → lockdead; `qs ipc` matches by display
   string, session `QT_QPA_PLATFORM=wayland;xcb` → callers without it need `--any-display`). Super+Ctrl+Alt+I =
   `asahi-restart-app hypridle` (uwsm-app scope, no Restart=). `hypridle.conf` → `asahi-idle at <secs>`; step from the
   power source **at fire time** (unplug mid-idle still locks). Battery: dim + kbd 10 % 2.5 min → lock, off 5 min,
   no saver (2.5, not macOS's 2: by choice); AC: saver 3 → dim 5 → off 10 min. Backlight **not** zeroed; `off`
-  suspends 60 s later. hyprlock's surface map fakes pointer motion (restarts every listener) → `off` ignores wakes while
+  suspends 60 s later. The lock surface's map fakes pointer motion (restarts every listener) → `off` ignores wakes while
   locking (`$XDG_RUNTIME_DIR/asahi-idle-locking`), set *before* stopping the saver (its unmap fakes motion too), then
   watches DPMS (`key_press_enables_dpms` → `asahi-idle wake`: stops the saver before the lid check). Dim while locked
   runs `off`. Sleep skips while a sink carries signal (`pw-record -P '{ stream.capture.sink = true }'` on its monitor,
@@ -829,8 +831,16 @@ relabel filter.
   **Aurora: a key or trackpad click wakes s2idle** (dockchannel-hid wakeup source; touches don't; no lid check, logind
   re-suspends a closed lid after `HoldoffTimeoutSec`); lid, power button and, on AC, BT input
   (`asahi/udev/99-asahi-bt-wake.rules`; untested on BCM4388 — drop it on spurious wakes) too. Manual sleep
-  (Super+Ctrl+Alt+S) = `asahi-idle sleep`, refused while an external is on. Log `~/.local/state/asahi/idle.log`. Test
-  `asahi/bin/asahi_idle_test.sh` (`ASAHI_PSY_DIR`, `FAKE_LOCKED`).
+  (Super+Ctrl+Alt+S) = `asahi-idle sleep`, refused while an external is on. Log `~/.local/state/asahi/idle.log`. The first wake after a
+  sleep (`sleep_mark`) checks `lock_running`: none = the session slept open → critical "Slept without the lock
+  screen" card + `woke without a lock` (idea: omarchy-system-sleep-lock; needs hypridle's after_sleep_cmd). Test
+  `asahi/bin/asahi_idle_test.sh` (`ASAHI_PSY_DIR`, `FAKE_LOCKED`). `asahi-idle why --json` feeds the Battery pane's
+  keep-awake chips (his ask: an indicator, not a card — one small amber chip per hold at the right of the key facts;
+  read on open and after a click, never polled): "<who> · show" focuses an inhibiting window, "· release" closes a
+  sender's gtk-portal requests (`asahi-idle release <sender>`), "· turn off" ends stay-awake; logind blocks, external
+  display, failed suspend and audio that plays show without an action (idea: serpantinum). A focused real fullscreen
+  window (`fullscreen == 2`; not maximize / fullscreen-in-tile) skips saver, dim and off (idea: Gren-95) — not while
+  locked, and on battery the off step still runs (lock, dark, sleep: his call).
 - **Time Machine**: `asahi-timemachine` = restic, one repo (`$TM_DIR` on drive `$TM_LABEL`), local (udisks mount,
   never unmounted) or SFTP (drive on the backup host). Host/path/port live **only** in
   `~/.config/asahi-timemachine/config` — never commit them. Own key `id_ed25519` there
@@ -884,7 +894,8 @@ relabel filter.
   launcher's hides, icons (`resolveIconUrl`) and `launchDesktopEntry` (sets `launcherWorkspaceId` first). Opening the
   launcher closes it and vice versa; opening it also closes the calendar, notification sheet and bar popups (their focus
   grab kept its keys). Hover selects only after a real pointer move (`pointerMoved`, the launcher's rule: a cell rebuilt
-  under a resting cursor took the selection, Enter launched it). No dock / pins / uninstall (omarchy's). omarchy's Super+K overview = Super+K **held**
+  under a resting cursor took the selection, Enter launched it). No dock / pins / uninstall (omarchy's). Hover lifts the icon (−3 px, 1.06×) and lists the app's
+  windows (≤ 3, title · workspace, `launcher.windowsOf`) under the cell, outside the grid's clip. omarchy's Super+K overview = Super+K **held**
   past the key-repeat delay (300 ms; `long_press` bind; Super+Ctrl+K dropped, his pick): a tap stays focus up, a hold also
   moves focus once. Nested virtual-keyboard test: 80/150 ms → focus only, 700/900 ms → focus + overview.
 - **Hardware pane** (Super+Ctrl+H, quick key `hardware`): `panes/HardwarePane.qml` over `asahi-hardware` (sysfs / procfs /
@@ -913,7 +924,8 @@ relabel filter.
   (N.Nx)" → SysPanel "stall" line + swap ratio; heat tile shows the die °C. `asahi-metrics` `busy_pct` (io_ticks of
   the busiest disk) → Storage hero. `asahi-network` Bitrate "↓ rx ↑ tx". Displays: built-in only "14.2″ · 254 ppi"
   (external EDID mm lie). Hardware "Slept Thu 16:29 · −2.32 Wh". Battery hero: 24 h charge curve from UPower
-  `GetHistory` (busctl JSON, one call per open). Running apps: `LauncherWindow.windowCount` / `isActive` over
+  `GetHistory` (busctl JSON, one call per open) + the battery draw ("rate", state 2 only; 15-min means held as steps:
+  UPower logs a rate only on change, raw points drew ramps) on its own scale, "draw ≤ N W". Running apps: `LauncherWindow.windowCount` / `isActive` over
   `ToplevelManager.toplevels` app ids → `Menu.MenuRunDots` (a dot per window, max 3; the focused app's first a 16×4
   accent pill + halo, OutBack; idea: shell-ninja/hyprconf dock) in the app grid and launcher app rows.
 - **shell-ninja/hyprconf pass** (2026-11-20, his ask): auth flows grow out of the notch — `modules/system/IslandCard.qml`
@@ -922,7 +934,7 @@ relabel filter.
   notch it starts bar-coloured) for the polkit card (dim + blur fade with it). The Touch ID card stays under the bar
   (his pick: it covered the notch bell). Their island is a floating rounded rect, ours the notch.
   Launcher prompt glyph names the mode (calculator / files / the category's icon, accent). Lock: see "Locker" (a
-  hyprlock notch island and a Quickshell island lock were built and rejected: nothing at the notch on the lock). Theme flavours +4 by hue (`palette.py`
+  notch island on the lock was built twice and rejected: nothing at the notch on the lock). Theme flavours +4 by hue (`palette.py`
   `accent_from`): expressive (≥ 50° from the dominant accent), warm (OKLCH 15–95°), cool (175–275°), pastel (+0.25
   L, −0.35 sat, tinted panels: light mode caps the accent); picked from the 12 representatives by chroma × weight^0.4,
   fallback = hue turned toward the window; neutrals turned half-way to the picked hue only within 90° (orange → blue
@@ -943,7 +955,11 @@ relabel filter.
   ProMotion / VRR: eDP-1 has `vrr = 1`, dormant — Aurora's appledrm has VRR code but marks j414s eDP-1 and the LG
   `vrr_capable` 0 (aquamarine "crtc is incapable of vrr"; Aurora enabled it on J616s only, 2026-11). Monitors pane
   shows the state read-only (`vrr` in `monitors -j`). LG `cm = "edid"` lives in `asahi-hdmi lg_fields` (its enable eval
-  replaces the desc rule; monitors.lua alone did not stick).
+  replaces the desc rule; monitors.lua alone did not stick). eDP-1 too (`monitors.lua`, 2026-11-21): its EDID primaries
+  are Display P3 and DCP passes values straight to the panel, so sRGB showed oversaturated; partial `hl.monitor` evals
+  keep `cm`, screenshots are taken before it (unchanged), power no consistent difference. The LG here is a 27UP850
+  (043e:9a39): its "LG Monitor Controls" HID is a vendor page (0xFF00), not the VESA brightness class the UltraFine
+  5K/4K speak, and DCP has no DDC: no hardware brightness (omarchy PR #13887 does not apply).
   Wi-Fi power save: no gain, stays off.
 - **Aurora extras (2026-11-09 interview)**: launcher "Restart into macOS" = `pkexec asahi-bless --set-boot-macos
   --next -y && systemctl reboot` (one boot only).
@@ -970,8 +986,7 @@ relabel filter.
   in the kernel → `aurora-fido` leaves the `sealed` store (re-enrol passkeys); `aurora-sep-cryptenroll` for the root
   volume → Touch ID unlocks LUKS; Touch ID wait ioctl → `require_password_after_boot` works; j414s VRR (eDP-1 `vrr = 1`
   waits); a boost-aware power profile → selector in the Battery pane;
-  hyprlock re-claiming fprintd (lid-close reader drop; 0 `verify-disconnected` in 8 Touch ID unlocks, 2026-11-09) → Touch
-  ID after lid open; DCP `-22` suspend
+  DCP `-22` suspend
   with a lit USB-C display (untested on Aurora); `agx_stats` `temperature_raw` documented → GPU °C in the Hardware pane.
 - **Power profiles**: Aurora requires `tuned` (active, profile `balanced`: schedutil; `tuned-adm active` says "not running"
   without D-Bus, e.g. sandboxed). Its per-policy `boost=1` gets EINVAL: global `cpufreq/boost` is 0 (mainline default since
@@ -1002,6 +1017,13 @@ relabel filter.
   `~/.local/state/asahi/lan.json` (flock, 0600) read only as our own regular file; 64 MiB cap fits a full store (else
   defaults overwrite it). Last tab `~/.local/state/asahi/network-tab`. Panes load via `Loader` source → import
   siblings qualified (`import "." as Panes`). Test: `asahi/bin/asahi_lan_test.py`, `lan_models_test.js`.
+- **VPN facts** (idea: serpantinum vpn-info.sh): `asahi-vpn-info` reads locally (nmcli, `ip route get`, resolvectl,
+  `ip link`) the kill switch (Proton's `pvpn-(routed-)killswitch`; `-ipv6` = leak guard, not the switch; no profile =
+  not shown), full or split tunnel, DNS, MTU → one plain-text line in the VPN card. Read on open and on tunnel change,
+  never polled. Test `asahi/bin/asahi_vpn_info_test.sh`.
+- **Default apps**: `asahi/mimeapps.list` sends text, Markdown, JSON, YAML, TOML, Python, shell and logs to
+  `asahi-nvim.desktop` (`asahi-launch-tui nvim %F`: Neovim in a Ghostty window with the shell's environment;
+  `nvim.desktop` is Terminal=true and nothing runs it in a terminal); text/plain went to LibreOffice Writer before (by accident).
 - **Speed test**: `asahi-speedtest [--json]` — Cloudflare 50 MB down / 25 MB up (100 MB is 403). Network pane button.
 - **Wi-Fi QR**: `asahi-wifi-qr` → `$XDG_RUNTIME_DIR` mode 600; `nmcli -s` for the PSK. Code sits inside the Wi-Fi card
   (layout reserves its width; a raw width painted over the LAN card).

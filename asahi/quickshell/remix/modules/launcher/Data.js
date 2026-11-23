@@ -3,7 +3,7 @@
 // Sentinels for category drills that pivot to special handling.
 const fileCategory = "Files"
 // Query prefix of each prefixed category: typing it enters the category, entering it types it.
-const categoryPrefix = { Files: ">", Actions: ":", Keys: "?", Websearch: "@", Emoji: ";" }
+const categoryPrefix = { Files: ">", Windows: ",", Actions: ":", Keys: "?", Websearch: "@", Emoji: ";" }
 
 // fd excludes (same as launcher ref for build dirs).
 const fdExcludes = [
@@ -41,6 +41,7 @@ const fileIcons = {
 const categoryTints = {
   Quick: "sky",
   App: "blue",
+  Windows: "lavender",
   Files: "yellow",
   Actions: "peach",
   Keys: "mauve",
@@ -78,6 +79,7 @@ const deckTints = {
 const categoryNav = [
   { title: "Quick", icon: "󱎫", category: "Browse", isCategory: true, target: "Quick", tint: categoryTints.Quick },
   { title: "Apps", icon: "󰀻", category: "Browse", isCategory: true, target: "App", tint: categoryTints.App },
+  { title: "Windows", icon: "󰖯", category: "Browse", isCategory: true, target: "Windows", tint: categoryTints.Windows, accessory: "," },
   { title: "Files", icon: "󰉋", category: "Browse", isCategory: true, target: fileCategory, tint: categoryTints.Files, accessory: ">" },
   { title: "Actions", icon: "󰜎", category: "Browse", isCategory: true, target: "Actions", tint: categoryTints.Actions, accessory: ":" },
   { title: "Keyboard Shortcuts", icon: "󰌌", category: "Browse", isCategory: true, target: "Keys", tint: categoryTints.Keys, accessory: "?" },
@@ -85,6 +87,22 @@ const categoryNav = [
   { title: "Websearch", icon: "󰖟", category: "Browse", isCategory: true, target: "Websearch", tint: categoryTints.Websearch, accessory: "@" },
   { title: "System", icon: "󰐥", category: "Browse", isCategory: true, target: "System", tint: categoryTints.System }
 ]
+
+// At most one edit apart (a letter wrong, missing or extra): the launcher's typo rescue ("firfox" → Firefox; idea:
+// end-4's levendist), tried only when nothing else matched a term of 4+ letters.
+function oneEdit(a, b) {
+  if (a === b) return true
+  if (Math.abs(a.length - b.length) > 1) return false
+  let i = 0, j = 0, edits = 0
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) { i++; j++; continue }
+    if (++edits > 1) return false
+    if (a.length > b.length) i++
+    else if (a.length < b.length) j++
+    else { i++; j++ }
+  }
+  return edits + (a.length - i) + (b.length - j) <= 1
+}
 
 function itemTint(item) {
   if (!item) return ""
@@ -106,10 +124,10 @@ const localItems = [
   { title: "Lock Screen", icon: "󰌾", category: "System", keywords: "lock screen security", comment: "Lock the current session", command: ["asahi-lock"] },
   // asahi-idle sleep refuses while an external display is on (the DCP hang path) and says so.
   { title: "Suspend", icon: "󰒲", category: "System", keywords: "suspend sleep", comment: "Sleep until next wake (s2idle; no hibernate on Asahi)", command: ["asahi-idle", "sleep"] },
-  { title: "Logout", icon: "󰍃", category: "System", keywords: "logout exit session", comment: "End the Hyprland session", exec: "hyprctl dispatch 'hl.dsp.exit()'", confirm: true },
-  { title: "Restart", icon: "󰜉", category: "System", keywords: "restart reboot", comment: "Reboot the machine", exec: "systemctl reboot", confirm: true },
-  { title: "Restart into macOS", icon: "󰀵", category: "System", keywords: "restart reboot macos bless boot", comment: "Boot macOS once (asahi-bless --next), then Linux again", exec: "pkexec /usr/bin/asahi-bless --set-boot-macos --next -y && systemctl reboot", confirm: true },
-  { title: "Shutdown", icon: "󰐥", category: "System", keywords: "shutdown poweroff", comment: "Power off the machine", exec: "systemctl poweroff", confirm: true },
+  { title: "Logout", icon: "󰍃", category: "System", keywords: "logout exit session", comment: "Close every app, then end the session", exec: "$HOME/.dotfiles/asahi/bin/asahi-session logout", confirm: true },
+  { title: "Restart", icon: "󰜉", category: "System", keywords: "restart reboot", comment: "Close every app, then reboot", exec: "$HOME/.dotfiles/asahi/bin/asahi-session reboot", confirm: true },
+  { title: "Restart into macOS", icon: "󰀵", category: "System", keywords: "restart reboot macos bless boot", comment: "Boot macOS once (asahi-bless --next), then Linux again", exec: "pkexec /usr/bin/asahi-bless --set-boot-macos --next -y && $HOME/.dotfiles/asahi/bin/asahi-session reboot", confirm: true },
+  { title: "Shutdown", icon: "󰐥", category: "System", keywords: "shutdown poweroff", comment: "Close every app, then power off", exec: "$HOME/.dotfiles/asahi/bin/asahi-session poweroff", confirm: true },
 
 ]
 

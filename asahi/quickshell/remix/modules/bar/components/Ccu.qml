@@ -5,6 +5,7 @@ import Quickshell.Hyprland
 import Quickshell.Io
 import "../../../"
 import "../../menu" as Menu
+import "../../../services" as Services
 import "../BarModel.js" as BarModel
 import "marks.js" as Marks
 
@@ -249,7 +250,10 @@ Rectangle {
       root.chipIndex = 0
   }
 
-  onChipIndexChanged: if (root.shownIndex !== root.chipIndex || chipSwap.running) chipSwap.restart()
+  onChipIndexChanged: {
+    if (Style.reduceMotion) { chipSwap.stop(); root.shownIndex = root.chipIndex; chipSlide.opacity = 1; chipShift.y = 0; chipRing.scale = 1 }
+    else if (root.shownIndex !== root.chipIndex || chipSwap.running) chipSwap.restart()
+  }
   Component.onCompleted: root.shownIndex = root.chipIndex
 
   // Rotation: the chip rolls up and fades out, the next one rolls in from below, its mark scaling up.
@@ -407,7 +411,7 @@ Rectangle {
 
   Timer {
     interval: 5 * 60 * 1000
-    running: true
+    running: !Services.BarData.locked   // paused under the lock
     repeat: true
     triggeredOnStart: true
     onTriggered: root.refresh()
@@ -424,7 +428,7 @@ Rectangle {
 
   Timer {
     interval: 10000
-    running: (root.chips || []).length > 1
+    running: (root.chips || []).length > 1 && !Services.BarData.locked
     repeat: true
     onTriggered: root.nextChip()
   }
@@ -517,7 +521,7 @@ Rectangle {
               anchors.left: parent.left
               anchors.verticalCenter: parent.verticalCenter
               text: "AGENT USAGE"
-              font { family: Style.menuSans; pixelSize: 13; bold: true }
+              font { family: Style.menuSans; pixelSize: Style.typeTitle; bold: true }
               color: Style.text
             }
             Text {
@@ -525,7 +529,7 @@ Rectangle {
               anchors.verticalCenter: parent.verticalCenter
               visible: root.updatedLabel !== ""
               text: root.updatedLabel
-              font { family: Style.fontUi; features: Style.fontTabular; pixelSize: 11 }
+              font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeBody }
               color: Style.textMuted
             }
           }
@@ -535,7 +539,7 @@ Rectangle {
             width: parent.width
             text: "No AI coding subscriptions found.\nAgents show up here once you've used them."
             color: Style.textMuted
-            font { family: Style.fontUi; features: Style.fontTabular; pixelSize: 12 }
+            font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeLead }
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WordWrap
           }
@@ -578,7 +582,7 @@ Rectangle {
                   anchors.leftMargin: cardMark.visible ? 8 : 0
                   anchors.verticalCenter: parent.verticalCenter
                   text: cardData.name || ""
-                  font { family: Style.fontUi; features: Style.fontTabular; pixelSize: 13; bold: true }
+                  font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeTitle; bold: true }
                   color: Style.text
                 }
                 Rectangle {
@@ -595,7 +599,7 @@ Rectangle {
                     id: planText
                     anchors.centerIn: parent
                     text: cardData.tier || ""
-                    font { family: Style.fontUi; features: Style.fontTabular; pixelSize: 11; weight: Font.DemiBold }
+                    font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeBody; weight: Font.DemiBold }
                     color: fill
                   }
                 }
@@ -607,7 +611,7 @@ Rectangle {
                   anchors.rightMargin: 8
                   anchors.verticalCenter: parent.verticalCenter
                   text: cardData.head || ""
-                  font { family: Style.fontUi; features: Style.fontTabular; pixelSize: 12 }
+                  font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeLead }
                   color: Style.textMuted
                   elide: Text.ElideRight
                 }
@@ -621,7 +625,7 @@ Rectangle {
                   horizontalAlignment: Text.AlignRight
                   text: cardData.ident || ""
                   textFormat: Text.PlainText
-                  font { family: Style.fontUi; features: Style.fontTabular; pixelSize: 11 }
+                  font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeBody }
                   color: Style.textMuted
                   elide: Text.ElideLeft
                 }
@@ -637,7 +641,7 @@ Rectangle {
                 visible: cardData.fresh === false
                 width: parent.width
                 text: { root.clockTick; return root.staleLine(cardData) }
-                font { family: Style.fontUi; features: Style.fontTabular; pixelSize: 11 }
+                font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeBody }
                 color: Style.textMuted
               }
 
@@ -653,7 +657,7 @@ Rectangle {
                   anchors.right: resetText.left
                   anchors.rightMargin: 8
                   text: cardData.usage_line || ""
-                  font { family: Style.fontUi; features: Style.fontTabular; pixelSize: 12 }
+                  font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeLead }
                   color: Style.text
                   elide: Text.ElideRight
                 }
@@ -661,7 +665,7 @@ Rectangle {
                   id: resetText
                   anchors.right: parent.right
                   text: cardData.reset_line || ""
-                  font { family: Style.fontUi; features: Style.fontTabular; pixelSize: 12 }
+                  font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeLead }
                   color: Style.textMuted
                 }
               }
@@ -689,7 +693,7 @@ Rectangle {
                     }
                     Text {
                       text: (modelData.label || "") + " " + (modelData.percent || "")
-                      font { family: Style.fontUi; features: Style.fontTabular; pixelSize: 11 }
+                      font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeBody }
                       color: Style.textMuted
                     }
                   }
@@ -729,7 +733,7 @@ Rectangle {
                         anchors.rightMargin: 6
                         anchors.baseline: tilePct.baseline
                         text: tile.modelData.title || ""
-                        font { family: Style.fontUi; features: Style.fontTabular; pixelSize: 11 }
+                        font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeBody }
                         color: Style.textMuted
                         elide: Text.ElideRight
                       }
@@ -737,7 +741,7 @@ Rectangle {
                         id: tilePct
                         anchors.right: parent.right
                         text: tile.passed ? "—" : Math.round(Number(tile.modelData.used) || 0) + "%"
-                        font { family: Style.fontUi; features: Style.fontTabular; pixelSize: 12; bold: tile.full }
+                        font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeLead; bold: tile.full }
                         color: tile.full ? Style.red : Style.text
                       }
                     }
@@ -751,7 +755,7 @@ Rectangle {
                       width: parent.width
                       elide: Text.ElideRight
                       text: tile.passed ? "reset, awaiting update" : (tile.modelData.reset || "")
-                      font { family: Style.fontUi; features: Style.fontTabular; pixelSize: 10 }
+                      font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeCaption }
                       color: Style.textMuted
                     }
                   }
@@ -768,7 +772,7 @@ Rectangle {
                     required property var modelData
                     width: statsRow.width * modelData[1]
                     text: modelData[0] || ""
-                    font { family: Style.fontUi; features: Style.fontTabular; pixelSize: 12 }
+                    font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeLead }
                     color: Style.textMuted
                     elide: Text.ElideRight
                   }
@@ -789,7 +793,7 @@ Rectangle {
                       anchors.top: parent.top
                       anchors.horizontalCenter: parent.horizontalCenter
                       text: modelData.compact || "0"
-                      font { family: Style.fontUi; features: Style.fontTabular; pixelSize: 9 }
+                      font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeCaption }
                       color: Style.text
                     }
                     Rectangle {
@@ -814,7 +818,7 @@ Rectangle {
                       anchors.bottom: parent.bottom
                       anchors.horizontalCenter: parent.horizontalCenter
                       text: modelData.dow || ""
-                      font { family: Style.fontUi; features: Style.fontTabular; pixelSize: 9 }
+                      font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeCaption }
                       color: Style.textMuted
                     }
                   }
@@ -833,14 +837,14 @@ Rectangle {
                     Text {
                       width: parent.width * 0.48
                       text: modelData.label || ""
-                      font { family: Style.fontUi; features: Style.fontTabular; pixelSize: 12 }
+                      font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeLead }
                       color: Style.textMuted
                       elide: Text.ElideRight
                     }
                     Text {
                       width: parent.width * 0.52
                       text: modelData.text || ""
-                      font { family: Style.fontUi; features: Style.fontTabular; pixelSize: 12 }
+                      font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeLead }
                       color: Style.text
                       horizontalAlignment: Text.AlignRight
                       elide: Text.ElideRight
@@ -873,7 +877,7 @@ Rectangle {
                   Text {
                     id: linkText
                     text: (modelData.title || "") + " ↗"
-                    font { family: Style.fontUi; features: Style.fontTabular; pixelSize: 11 }
+                    font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeBody }
                     color: linkMa.containsMouse ? Style.sky : Style.textMuted
                   }
                 }

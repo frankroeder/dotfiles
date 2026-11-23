@@ -7,6 +7,11 @@ hl.monitor {
   scale = 2.0,
   -- ProMotion: dormant until Aurora's kernel marks the j414s panel vrr_capable (2026-11: only J616s).
   vrr = 1,
+  -- The panel is Display P3 (EDID primaries R .680/.320, G .265/.690) and DCP sends values as the panel's native
+  -- gamut with no Colorspace to say sRGB: sRGB content showed oversaturated. Map through the EDID like the LG
+  -- (omarchy wide-gamut.lua). Partial hl.monitor evals keep it; screenshots are taken before it (unchanged); power
+  -- showed no consistent difference (2026-11-21, noise ±2 W).
+  cm = "edid",
 }
 
 -- Known panels are desc:-keyed, so HDMI-A-1 and a USB-C DP-* share
@@ -207,4 +212,6 @@ hl.on("config.reloaded", function()
   hl.exec_cmd(scale .. " apply")
   hl.exec_cmd(clamshell .. " apply")
   pin_external_workspaces()
+  -- The low-battery saver's blur / animation overrides (no-op while it is off).
+  hl.exec_cmd(dotfilesDir .. "/asahi/bin/asahi-compositor-saver reload")
 end)

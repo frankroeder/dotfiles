@@ -64,7 +64,32 @@ Singleton {
     tempAvg = n > 0 ? Math.round(sum / n / 1000) : -1
   }
 
-  Timer { interval: 3000; running: true; repeat: true; triggeredOnStart: true; onTriggered: root.sampleStats() }
+  // Locked (asahi-lock holds $XDG_RUNTIME_DIR/asahi-locked for the whole lock): the bar is covered, so its polling
+  // pauses (stats every 3 s repainted every bar, the 30 s network script, Ccu's refresh and chip roll); each runs
+  // once on unlock (triggeredOnStart). nmcli monitor's pushes keep working.
+  property bool locked: false
+  FileView {
+    path: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/asahi-locked"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.locked = true
+    onLoadFailed: root.locked = false
+  }
+  // A resume: Qt timers stand still through s2idle, so a SystemClock waited out its old minute timer and showed the
+  // time from before the sleep for up to a minute after wake. asahi-idle wake (hypridle's after_sleep_cmd, and every
+  // return from idle) touches $XDG_RUNTIME_DIR/asahi-idle-wake; that and the unlock bump clockEpoch, the bar clocks
+  // re-read the time (Clock.qml).
+  property int clockEpoch: 0
+  onLockedChanged: root.clockEpoch++
+  FileView {
+    path: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/asahi-idle-wake"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: root.clockEpoch++
+  }
+
+  Timer { interval: 3000; running: !root.locked; repeat: true; triggeredOnStart: true; onTriggered: root.sampleStats() }
   FileView { id: procStat; path: "/proc/stat"; blockLoading: true }
   FileView { id: procMeminfo; path: "/proc/meminfo"; blockLoading: true }
   FileView { id: heatpipeFile; path: root.heatpipePath; blockLoading: true }
@@ -138,14 +163,23 @@ Singleton {
   Process {
     id: updatesProc
     // No --cacheonly: as a user it reads ~/.cache/libdnf5 even when days old (asahi-pkg updates).
-    // Offline (exit 1) falls back to the cache, so known updates do not vanish from the bar.
+    // Offline (exit 1) falls back to the cache, so known updates do not vanish from the bar. Then the Flatpaks
+    // (remote-ls, offline its cache): Firefox and the other apps update there.
     command: ["sh", "-c", "dnf check-update -q >/dev/null 2>&1; c=$?; "
-      + "[ $c = 1 ] && { dnf check-update --cacheonly -q >/dev/null 2>&1; c=$?; }; [ $c = 100 ] && echo 1 || echo 0"]
+      + "[ $c = 1 ] && { dnf check-update --cacheonly -q >/dev/null 2>&1; c=$?; }; [ $c = 100 ] && { echo 1; exit; }; "
+      + "f=$(flatpak remote-ls --updates --columns=application 2>/dev/null) "
+      + "|| f=$(flatpak remote-ls --updates --cached --columns=application 2>/dev/null); [ -n \"$f\" ] && echo 1 || echo 0"]
     stdout: StdioCollector { onStreamFinished: root.updatesAvailable = text.trim() === "1" }
   }
   Timer {
     interval: 1800000; running: true; repeat: true; triggeredOnStart: true
     onTriggered: if (!updatesProc.running) updatesProc.running = true
+  }
+  // After an upgrade (asahi-pkg tui-upgrade / tui-flatpak-update, the `update` autoload): check at once, else the
+  // updates icon stayed lit up to 30 min (idea: dhrruvsharma).
+  IpcHandler {
+    target: "updates"
+    function refresh(): void { if (!updatesProc.running) updatesProc.running = true }
   }
 
   // ---- Hyprland clients for the workspace icons ----
@@ -236,5 +270,5 @@ Singleton {
     stdout: SplitParser { onRead: netDebounce.restart() }
   }
   Timer { id: netDebounce; interval: 500; onTriggered: root.refreshNet() }
-  Timer { interval: 30000; running: true; repeat: true; triggeredOnStart: true; onTriggered: root.refreshNet() }
+  Timer { interval: 30000; running: !root.locked; repeat: true; triggeredOnStart: true; onTriggered: root.refreshNet() }
 }

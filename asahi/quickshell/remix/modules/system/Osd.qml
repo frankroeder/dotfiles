@@ -2,6 +2,7 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
 import Quickshell.Hyprland
+import Quickshell.Services.Pipewire
 import QtQuick
 import QtQuick.Layouts
 import "../../"
@@ -20,6 +21,32 @@ Scope {
   property bool showBar: true
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
+
+  // Any change of the default output's volume or mute shows the card (headset buttons, an app, the bar wheel; ideas:
+  // end-4, caelestia), not only our keys (they still ask over IPC: feedback at 0 / 100 %). A new default sink only
+  // sets the baseline (no output-switch card: declined). Quiet while the launcher is open (Media pane sliders).
+  property bool quietVolume: false
+  readonly property var sink: Pipewire.defaultAudioSink
+  PwObjectTracker { objects: root.sink ? [root.sink] : [] }
+  property var seenSink: null
+  property int seenVolume: -1
+  property bool seenMuted: false
+  function sinkMoved() {
+    const a = root.sink ? root.sink.audio : null
+    if (!a) return
+    const vol = Math.round(a.volume * 100)
+    const moved = root.seenSink === root.sink && (vol !== root.seenVolume || a.muted !== root.seenMuted)
+    root.seenSink = root.sink
+    root.seenVolume = vol
+    root.seenMuted = a.muted
+    if (moved && !root.quietVolume) root.show("volume", a.muted ? "󰖁" : "󰕾", "Volume", vol, a.muted ? "Muted" : vol + "%")
+  }
+  onSinkChanged: root.sinkMoved()
+  Connections {
+    target: root.sink ? root.sink.audio : null
+    function onVolumesChanged() { root.sinkMoved() }
+    function onMutedChanged() { root.sinkMoved() }
+  }
 
   function focusedScreen() {
     const mon = Hyprland.focusedMonitor
@@ -191,7 +218,7 @@ Scope {
             Text {
               text: root.label
               font.family: Style.menuSans
-              font.pixelSize: 13
+              font.pixelSize: Style.typeTitle
               font.weight: Font.DemiBold
               color: Style.menuInk
               Layout.fillWidth: true
@@ -200,7 +227,7 @@ Scope {
               textFormat: Text.PlainText  // Bluetooth device names
               text: root.value
               font.family: Style.menuSans; font.features: Style.fontTabular
-              font.pixelSize: 12
+              font.pixelSize: Style.typeLead
               font.weight: Font.Medium
               color: Style.menuInkDeep
             }

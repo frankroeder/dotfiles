@@ -9,6 +9,9 @@ fi
 
 app_id="org.asahi.$(basename "$1")"
 # ASAHI_TUI_WAIT=1: the window stays after the command exits (asahi-pkg: dnf's result stays readable).
+# Through the user's interactive shell, like a terminal window: its zshrc sets what the command may need
+# (~/.local.zsh: API keys, PATH additions — Neovim from the launcher / a file's "Open" died in parrot.nvim on a
+# missing ANTHROPIC_API_KEY). ~0.3 s. Ghostty's -e passes argv as is (no /bin/sh string), so "$@" stays intact.
 exec "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/asahi-launch" ghostty \
   --class="$app_id" --window-width=120 --window-height=34 \
-  ${ASAHI_TUI_WAIT:+--wait-after-command=true} -e "$@"
+  ${ASAHI_TUI_WAIT:+--wait-after-command=true} -e "${SHELL:-/bin/zsh}" -ic 'exec "$@"' "$1" "$@"

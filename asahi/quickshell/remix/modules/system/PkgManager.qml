@@ -71,12 +71,17 @@ Scope {
       root.status = "Select packages first"
       return
     }
-    let cmd = ["bash", root.binDir + "/asahi-pkg"]
-    if (kind === "install") cmd = cmd.concat(["tui-install"]).concat(names)
-    else if (kind === "remove") cmd = cmd.concat(["tui-remove"]).concat(names)
-    else if (kind === "upgrade-all") cmd = cmd.concat(["tui-upgrade"])
-    else cmd = cmd.concat(["tui-upgrade"]).concat(names)
-    Quickshell.execDetached(cmd)
+    // Flatpak rows (Updates tab) go to `flatpak update`, the rest to dnf.
+    const flatpaks = names.filter(n => root.selected[n].source === "flatpak")
+    const dnfNames = names.filter(n => root.selected[n].source !== "flatpak")
+    const pkg = ["bash", root.binDir + "/asahi-pkg"]
+    if (kind === "install" && dnfNames.length) Quickshell.execDetached(pkg.concat(["tui-install"]).concat(dnfNames))
+    else if (kind === "remove" && dnfNames.length) Quickshell.execDetached(pkg.concat(["tui-remove"]).concat(dnfNames))
+    else if (kind === "upgrade-all") Quickshell.execDetached(pkg.concat(["tui-upgrade"]))   // dnf, then every Flatpak
+    else if (kind === "upgrade") {
+      if (dnfNames.length) Quickshell.execDetached(pkg.concat(["tui-upgrade"]).concat(dnfNames))
+      if (flatpaks.length) Quickshell.execDetached(pkg.concat(["tui-flatpak-update"]).concat(flatpaks))
+    }
     root.open = false
   }
 

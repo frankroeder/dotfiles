@@ -2,11 +2,12 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
+import Quickshell.Services.Pipewire
 import "../../../"
 import "../../../services" as Services
 import "../../launcher/arg_commands.js" as ArgCommands
 
-// Click-only chips: stay awake, night light, recorder, timer, updates (bell: Notifications.qml).
+// Click-only chips: stay awake, night light, recorder, screen share, timer, updates (bell: Notifications.qml).
 // Stay-awake / night-light / timer state follows files their scripts write (FileView watches).
 RowLayout {
   id: root
@@ -24,12 +25,18 @@ RowLayout {
   property bool showCup: true
   property bool showNight: true
   property bool showRec: true
+  property bool showShare: true
   property bool showTimer: true
   property bool showUpdates: true
   readonly property real cupWidth: stayAwakeGlyph.implicitWidth + 6 + root.spacing
   readonly property real nightWidth: root.nightLightOn ? Style.barIconSlot + root.spacing : 0
   readonly property real recWidth: recChip.wanted
     ? recGlyph.implicitWidth + (recChip.rec ? recRow.spacing + recText.implicitWidth : 0) + 8 + root.spacing : 0
+  // Screen share (ideas: end-4 Privacy, mel-edo's island): xdph's stream node lives while an app shares a screen or
+  // window, after its picker is gone; screen capture has no hardware light (the camera has its LED). Our recorder and
+  // screenshots use screencopy, not xdph. Bound to PipeWire's node list: no polling.
+  readonly property bool sharing: (Pipewire.nodes.values || []).some(n => String(n.name || "").startsWith("xdph-streaming"))
+  readonly property real shareWidth: root.sharing ? Style.barIconSlot + root.spacing : 0
   readonly property real timerWidth: root.timerCount > 0
     ? timerGlyph.implicitWidth + timerRow.spacing + timerText.implicitWidth + 8 + root.spacing : 0
   readonly property real updatesWidth: root.updatesAvailable ? Style.barIconSlot + root.spacing : 0
@@ -153,6 +160,28 @@ RowLayout {
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
       onClicked: Quickshell.execDetached([root.binDir + "/asahi-nightlight", "toggle"])
+      // Wheel: warmer (up) / cooler (down), 250 K a notch; accumulates to 120 like the audio chips. A gesture's notches
+      // go out as one step count 250 ms after the wheel stops: a run per notch raced (two runs set their own
+      // temperature in turns: flicker, and each saw the other's value: a "Night light failed" card each).
+      property real wheelAcc: 0
+      property int wheelSteps: 0
+      onWheel: wheel => {
+        if (Math.abs(wheel.angleDelta.x) > Math.abs(wheel.angleDelta.y)) return
+        wheelAcc += wheel.angleDelta.y
+        if (Math.abs(wheelAcc) < 120) return
+        wheelSteps += wheelAcc > 0 ? 1 : -1
+        wheelAcc = 0
+        nightWheelSend.restart()
+      }
+      Timer {
+        id: nightWheelSend
+        interval: 250
+        onTriggered: {
+          const n = chipMouse2.wheelSteps
+          chipMouse2.wheelSteps = 0
+          if (n !== 0) Quickshell.execDetached([root.binDir + "/asahi-nightlight", n > 0 ? "warmer" : "cooler", String(Math.abs(n))])
+        }
+      }
     }
   }
 
@@ -199,6 +228,18 @@ RowLayout {
         if (mouse.button === Qt.RightButton && recChip.rec) Services.Recorder.stop()
         else if (root.barHost) root.barHost.togglePanel("rec")
       }
+    }
+  }
+
+  // Screen-share chip: shown while sharing, nothing to click (stop the share in the app that runs it).
+  Item {
+    visible: root.sharing && root.showShare
+    implicitWidth: Style.barIconSlot
+    implicitHeight: Style.barHeight
+    Text {
+      anchors.centerIn: parent
+      text: "󰹑"
+      font.family: Style.fontFamily; font.pixelSize: Style.barFontGlyph; color: Style.red
     }
   }
 

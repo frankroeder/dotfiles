@@ -192,6 +192,45 @@ function calculate(expr, ans) {
   } catch (_) { return null }
 }
 
+// Units ("=10 km to mi", "=5 GiB in MB", "=72 f to c"; to / in / ->): factor to the dimension's base unit, exact
+// spelling first, then case-insensitive ("gb"). Temperature is affine (via °C). The value part is any expression.
+var UNITS = {
+  length: { mm: 1e-3, cm: 1e-2, m: 1, km: 1e3, in: 0.0254, ft: 0.3048, yd: 0.9144, mi: 1609.344, nmi: 1852 },
+  mass: { mg: 1e-6, g: 1e-3, kg: 1, t: 1e3, oz: 0.028349523125, lb: 0.45359237 },
+  time: { ms: 1e-3, s: 1, min: 60, h: 3600, d: 86400, wk: 604800 },
+  data: { bit: 0.125, B: 1, kB: 1e3, MB: 1e6, GB: 1e9, TB: 1e12, KiB: 1024, MiB: 1048576, GiB: 1073741824, TiB: 1099511627776 },
+  speed: { "m/s": 1, "km/h": 1 / 3.6, mph: 0.44704, kn: 1852 / 3600 },
+  volume: { ml: 1e-3, l: 1, gal: 3.785411784, floz: 0.0295735295625 },
+  energy: { J: 1, kJ: 1e3, cal: 4.184, kcal: 4184, Wh: 3600, kWh: 3.6e6 }
+}
+var TEMPS = {
+  c: { to: function (x) { return x }, from: function (x) { return x } },
+  f: { to: function (x) { return (x - 32) * 5 / 9 }, from: function (x) { return x * 9 / 5 + 32 } },
+  k: { to: function (x) { return x - 273.15 }, from: function (x) { return x + 273.15 } }
+}
+function unit(name) {
+  for (const dim in UNITS) if (Object.prototype.hasOwnProperty.call(UNITS[dim], name)) return { dim: dim, name: name, f: UNITS[dim][name] }
+  const low = name.toLowerCase()
+  for (const dim in UNITS) for (const u in UNITS[dim]) if (u.toLowerCase() === low) return { dim: dim, name: u, f: UNITS[dim][u] }
+  return null
+}
+// → { value, unit, per } or null; 6 significant digits (a conversion, not a computation).
+function fmt6(v) { return parseFloat(v.toPrecision(6)).toString() }
+function convert(expr, ans) {
+  const m = String(expr || "").trim().match(/^(.*?)\s*(°?[a-zA-Z][a-zA-Z\/]*)\s+(?:to|in|->|→)\s+(°?[a-zA-Z][a-zA-Z\/]*)$/)
+  if (!m || m[1] === "") return null
+  const num = calculate(m[1], ans)
+  if (num === null) return null
+  const x = parseFloat(num)
+  const a = m[2].replace("°", ""), b = m[3].replace("°", "")
+  const own = k => Object.prototype.hasOwnProperty.call(TEMPS, k) ? TEMPS[k] : null   // "constructor" is no unit
+  const ta = own(a.toLowerCase()), tb = own(b.toLowerCase())
+  if (ta && tb) return { value: fmt6(tb.from(ta.to(x))), unit: b.toLowerCase() === "k" ? "K" : "°" + b.toUpperCase(), per: "" }
+  const ua = unit(a), ub = unit(b)
+  if (!ua || !ub || ua.dim !== ub.dim) return null
+  return { value: fmt6(x * ua.f / ub.f), unit: ub.name, per: "1 " + ua.name + " = " + fmt6(ua.f / ub.f) + " " + ub.name }
+}
+
 // Integer result in the bases the expression itself uses (0x / 0b / 0o), e.g. "0xff · 0b11111111", else "".
 function altFormats(expr, res) {
   const n = Number(res)
@@ -211,7 +250,7 @@ var LEGEND = [
   ["angle", ["30° degrees", "deg(x) rad(x)", "atan2(y, x)"]],
   ["log · root", ["exp ln log2", "log(x, b=10)", "sqrt cbrt", "root(x, n=2)"]],
   ["round", ["round(x, n=0)", "floor ceil", "trunc", "abs sign"]],
-  ["comb", ["n!", "nCr(n, k)", "nPr(n, k)"]],
+  ["comb · units", ["n!", "nCr(n, k)", "nPr(n, k)", "10 km to mi"]],
   ["more", ["pi e tau phi", "ans", "^ mod", "0x 0b 0o"]]
 ]
 
@@ -222,6 +261,10 @@ function rows(expr, ans, history, results, histIndex) {
   if (res !== null) {
     const alt = altFormats(expr, res)
     out.push({ id: "calc-" + res, name: "= " + res, comment: (alt ? alt + " · " : "") + "Enter to copy", icon: "󰃬", special: "calc", result: res })
+  } else {
+    const cv = convert(expr, ans)   // copies the number alone (it becomes `ans`)
+    if (cv) out.push({ id: "calc-" + cv.value, name: "= " + cv.value + " " + cv.unit, comment: (cv.per ? cv.per + " · " : "") + "Enter to copy",
+      icon: "󰃬", special: "calc", result: cv.value })
   }
   ;(history || []).forEach(function (h, i) {
     const r = results && results[h]
@@ -248,6 +291,6 @@ function loadState(text) {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { MAX: MAX, push: push, step: step, calculate: calculate, altFormats: altFormats, rows: rows, LEGEND: LEGEND,
+  module.exports = { MAX: MAX, push: push, step: step, calculate: calculate, convert: convert, altFormats: altFormats, rows: rows, LEGEND: LEGEND,
     saveState: saveState, loadState: loadState }
 }

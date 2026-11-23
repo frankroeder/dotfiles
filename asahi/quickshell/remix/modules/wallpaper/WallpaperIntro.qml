@@ -9,13 +9,13 @@ import "wallpaper_intro_geom.js" as Geom
 // Background intros (omarchy): <wallpaper dir>/intros/<stem>.mp4 plays once on every output, above hyprpaper (which
 // keeps the still) and below windows, and fades out onto the still it ends on. Until an output's video shows fresh
 // frames it shows a cover: the clip's first frame (cached png, decoded synchronously in arm(), so it is in the
-// window's first buffer, on screen before hyprlock locks: nothing presents while it holds the session; a VideoOutput
+// window's first buffer, on screen before the lock comes up: nothing presents while it holds the session; a VideoOutput
 // may still hold the last run's end frame).
 // With wallpaper span on, each output shows its slice of one canvas, cut like asahi-wallpaper-span (logical layout,
 // `gap` per seam, cover + centred).
 // Triggers: login (once per boot), WallpaperService.setWallpaper (picker, Super+B), and every unlock: asahi-lock
-// calls `arm` before hyprlock and waits for `ready` (every output swapped the cover onto the screen), and `play`
-// on hyprlock's unlock line (starts unlockDelayMs later). No clip: nothing shows.
+// calls `arm` before the lock and waits for `ready` (every output swapped the cover onto the screen), and `play`
+// on the lock's unlock line (starts unlockDelayMs later). No clip: nothing shows.
 Scope {
   id: root
 
@@ -28,7 +28,7 @@ Scope {
   property int restart: 0
   property real fade: 1
   property int shown: 0             // outputs showing the cover (or with no cover to wait for)
-  property bool played: false       // this arm's play() ran: asahi-lock calls it on hyprlock's unlock line and at its exit
+  property bool played: false       // this arm's play() ran: asahi-lock calls it on the lock's unlock line and at its exit
   property var span: ({ enabled: false, gap: 0 })
   signal armed()
 

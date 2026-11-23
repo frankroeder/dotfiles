@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Open btop in the Asahi TUI helper.
+# Activity monitor (Super+Ctrl+T): btop in Ghostty; an open one is focused instead of a second window.
 
 set -euo pipefail
 
-exec "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/asahi-launch-tui" btop
+exec "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/asahi-launch-or-focus-tui" btop

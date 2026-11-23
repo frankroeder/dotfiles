@@ -8,7 +8,7 @@ symlinks, brew/dnf installs, services. Always differentiate Linux by arch.
 
 - macOS WM: yabai+skhd or aerospace/flashspace + sketchybar (`sketchybar/{top,bottom,island}/`)
 - Asahi: Hyprland (`asahi/hypr/hyprland.lua` + `conf.d/*.lua`), quickshell remix
-  (`asahi/quickshell/remix/`), hyprpaper/hyprlock/hypridle, ghostty, `asahi/bin`
+  (`asahi/quickshell/remix/`, also the lock screen), hyprpaper/hypridle, ghostty, `asahi/bin`
 - Shared: nvim (`nvim/`), zsh (zim+dots), mpv, ghostty
 
 Profiles: `micro` (bash/tmux/htop, almost no rights), `minimal` (nvim/zsh/python/node,

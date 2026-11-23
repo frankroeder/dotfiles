@@ -215,13 +215,7 @@ Item {
       RowLayout {
         Layout.bottomMargin: 2
         spacing: 10
-        Rectangle {
-          width: 30; height: 30; radius: Style.menuRadiusMd; color: Style.m3primaryContainer
-          Text {
-            anchors.centerIn: parent; text: card.glyph; color: Style.m3primary
-            font.family: root.uiFont; font.pixelSize: root.fontPx(14)
-          }
-        }
+        Menu.MenuGlyphTile { glyph: card.glyph; fontScale: root.uiFontScale }
         Text {
           text: card.title; color: Style.m3onSurface
           font.family: root.uiSans; font.pixelSize: root.fontPx(13); font.weight: Font.DemiBold
@@ -301,9 +295,9 @@ Item {
           anchors.fill: parent; anchors.margins: 10; anchors.leftMargin: 12; anchors.rightMargin: 16
           spacing: 14
           Rectangle {
-            width: 50; height: 50; radius: Style.menuRadiusLg
+            width: Math.round(36 * root.uiFontScale); height: width; radius: Style.menuRadiusLg   // hero tile: one size in every pane
             color: Style.m3primaryContainer
-            Text { anchors.centerIn: parent; text: "󰀵"; color: Style.m3primary; font.family: root.uiFont; font.pixelSize: 32 }
+            Text { anchors.centerIn: parent; text: "󰀵"; color: Style.m3primary; font.family: root.uiFont; font.pixelSize: Math.round(22 * root.uiFontScale) }
           }
           ColumnLayout {
             Layout.fillWidth: true

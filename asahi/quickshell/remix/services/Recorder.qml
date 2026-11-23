@@ -20,8 +20,11 @@ Singleton {
   property real bytes: 0
   property int elapsed: 0
   property var recent: []
+  // Screen takes' audio: system | mic | none. One word in a state file asahi-cmd-record reads (keybinds follow it too).
+  property string audio: "system"
 
   function refresh() { if (!statusProc.running) statusProc.running = true }
+  function setAudio(choice) { root.audio = choice; audioFile.setText(choice + "\n") }
   function scanRecent() { if (!recentProc.running) recentProc.running = true }
 
   function start(mode, webcam) {
@@ -77,6 +80,19 @@ Singleton {
         }).filter(x => x)
       }
     }
+  }
+
+  FileView {
+    id: audioFile
+    path: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/asahi/record-audio"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      const a = audioFile.text().trim()
+      root.audio = (a === "mic" || a === "none") ? a : "system"
+    }
+    onLoadFailed: root.audio = "system"
   }
 
   Timer { interval: 1000; running: root.running; repeat: true; onTriggered: root.refresh() }

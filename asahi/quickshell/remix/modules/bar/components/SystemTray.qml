@@ -96,9 +96,9 @@ Item {
           hoverEnabled: true
 
           onClicked: (mouse) => {
-            // display() wants window coordinates; slot.x is relative to the strip.
+            // The bar spans its screen: window x = screen x.
             if (mouse.button === Qt.RightButton || slot.modelData.onlyMenu)
-              slot.modelData.display(root.QsWindow.window, slot.mapToItem(null, slot.width / 2, 0).x, root.barHeight)
+              trayMenu.openFor(slot.modelData, slot.mapToItem(null, slot.width / 2, 0).x, root.barHeight + 6)
             else if (mouse.button === Qt.MiddleButton)
               slot.modelData.secondaryActivate()
             else
@@ -156,5 +156,11 @@ Item {
     panelScreen: root.trayScreen
     barWindow: root.QsWindow.window
     barHeight: root.barHeight
+    trayMenu: trayMenu
+  }
+  TrayMenu {
+    id: trayMenu
+    screenRef: root.trayScreen
+    barWindow: root.QsWindow.window
   }
 }

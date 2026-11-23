@@ -59,8 +59,10 @@ systemctl reboot     # tty1 login starts Hyprland
 ```
 
 `make aurora` (= `make asahi`) is idempotent: rerun it after a failure, after `git pull`, or after a reboot that a
-step asked for. It applies a minimal Hyprland desktop with Ghostty, Quickshell (bar, launcher, notifications), Hypridle
-and Hyprlock. A converted Fedora Asahi Remix install needs one more run after its first boot on the Aurora kernel
+step asked for. It applies a minimal Hyprland desktop with Ghostty, Quickshell (bar, launcher, notifications, the lock
+screen: Touch ID or password) and Hypridle. Stuck on the lock: Fn+Ctrl+Alt+F3, log in, `pkill -f asahi-lock; pkill -f
+remix/lock.qml; hyprctl --instance 0 eval 'hl.clear_crashed_lockscreen()'` (a killed lock leaves Hyprland's "lockscreen
+app died" screen), back with Fn+Ctrl+Alt+F2. A converted Fedora Asahi Remix install needs one more run after its first boot on the Aurora kernel
 (asahi/CLAUDE.md, "Aurora boot chain"). Coming back from a backup: [Backup & restore](#backup--restore).
 Files with an iPhone: LocalSend (installed), receiving only on a network in
 firewalld's home zone: `nmcli connection modify "<Wi-Fi name>" connection.zone home`.

@@ -27,6 +27,21 @@ Item {
   property real chargerA: NaN
   // Last 24 h of charge, oldest first ({t: unix s, v: %}): UPower's own history, one D-Bus call per open.
   property var history: []
+  // Battery draw over the same 24 h ({t, w}; 0 while charging / holding): UPower's "rate" history, same call.
+  property var rateHistory: []
+  // 15-min means, held through empty bins (UPower logs a rate only when it changes); -1 = before the first sample.
+  readonly property var rateBins: {
+    const n = 96, from = Date.now() / 1000 - 86400, sum = new Array(n).fill(0), cnt = new Array(n).fill(0)
+    for (const p of quickBatteryRoot.rateHistory) {
+      const i = Math.floor((p.t - from) / 900)
+      if (i >= 0 && i < n) { sum[i] += p.w; cnt[i]++ }
+    }
+    const out = []
+    let last = -1
+    for (let i = 0; i < n; i++) { if (cnt[i]) last = sum[i] / cnt[i]; out.push(last) }
+    return out
+  }
+  readonly property real ratePeak: Math.max(0, ...quickBatteryRoot.rateBins)
   // Placeholder rows until the first read so the facts card below does not jump.
   property bool smcLoaded: false
 
@@ -72,7 +87,7 @@ Item {
   }
   readonly property bool batCharging: (quickBatteryRoot.batClass || []).indexOf("charging") >= 0
   function ringColor() {
-    if (quickBatteryRoot.batCharging) return Style.yellow
+    if (quickBatteryRoot.batCharging) return Style.green   // charging = green everywhere (bar chip, Bluetooth pane)
     if (quickBatteryRoot.batPercentage < 0) return Style.m3onSurfaceVariant
     if (quickBatteryRoot.batPercentage < 20) return Style.red
     return Style.green
@@ -82,7 +97,7 @@ Item {
     const cls = quickBatteryRoot.batClass || []
     if (cls.indexOf("critical") >= 0) return Style.red
     if (cls.indexOf("warning") >= 0) return Style.orange
-    if (cls.indexOf("charging") >= 0) return Style.yellow
+    if (cls.indexOf("charging") >= 0) return Style.green
     return Style.green
   }
   function parseBattery(jsonText) {
@@ -185,24 +200,46 @@ Item {
 
   Process {
     id: histProc
-    command: ["sh", "-c", "d=$(upower -e | grep -m1 /battery_) && exec busctl --system --json=short call org.freedesktop.UPower "
-      + "\"$d\" org.freedesktop.UPower.Device GetHistory suu charge 86400 240"]
+    command: ["sh", "-c", "d=$(upower -e | grep -m1 /battery_) || exit 1; for k in charge rate; do busctl --system --json=short call "
+      + "org.freedesktop.UPower \"$d\" org.freedesktop.UPower.Device GetHistory suu $k 86400 240 || echo '{}'; done"]   // a line per call
     stdout: StdioCollector {
       onStreamFinished: {
         try {
-          const rows = (JSON.parse(String(text || "").trim() || "{}").data || [])[0] || []
-          quickBatteryRoot.history = rows.map(r => ({ t: r[0], v: r[1] })).reverse()
-        } catch (e) { quickBatteryRoot.history = [] }
+          const lines = String(text || "").trim().split("\n")
+          const rows = i => ((JSON.parse(lines[i] || "{}").data || [])[0] || []).slice().reverse()
+          quickBatteryRoot.history = rows(0).map(r => ({ t: r[0], v: r[1] }))
+          quickBatteryRoot.rateHistory = rows(1).map(r => ({ t: r[0], w: r[2] === 2 ? r[1] : 0 }))   // state 2 = discharging
+        } catch (e) { quickBatteryRoot.history = []; quickBatteryRoot.rateHistory = [] }
       }
     }
+  }
+
+  // What keeps the Mac awake (idea: serpantinum's inhibitor list): `asahi-idle why --json` on open and after each
+  // chip click, never polled. Holds: stay-awake, windows inhibiting idle, logind blocks, portal holds (Firefox kept
+  // three for hours), external display, failed suspend, audio that plays (chips beside the key facts).
+  property var holds: []
+  Process {
+    id: holdsProc
+    command: [root.binDir + "/asahi-idle", "why", "--json"]
+    stdout: StdioCollector {
+      onStreamFinished: { try { quickBatteryRoot.holds = JSON.parse(text.trim() || "[]") } catch (e) { quickBatteryRoot.holds = [] } }
+    }
+  }
+  Timer { id: holdsAgain; interval: 700; onTriggered: if (!holdsProc.running) holdsProc.running = true }
+  function releaseHold(h) {
+    if (h.kind === "window") { root.focusWindowAfterClose(h.address); return }
+    if (h.kind === "portal") Quickshell.execDetached([root.binDir + "/asahi-idle", "release", h.sender])
+    else if (h.kind === "stay-awake") Quickshell.execDetached([root.binDir + "/asahi-stay-awake", "toggle"])
+    holdsAgain.restart()
   }
 
   readonly property bool paneLive: root.shouldShow && root.quickMode && root.quickPaneKey === "battery"
   onPaneLiveChanged: if (paneLive) {
     if (!limitProc.running) limitProc.running = true
     if (!histProc.running) histProc.running = true
+    if (!holdsProc.running) holdsProc.running = true
   }
-  Component.onCompleted: if (paneLive) { limitProc.running = true; histProc.running = true }
+  Component.onCompleted: if (paneLive) { limitProc.running = true; histProc.running = true; holdsProc.running = true }
 
   Timer {
     interval: 3000
@@ -248,7 +285,7 @@ Item {
           spacing: 4
           RowLayout {
             spacing: 12
-            Text {
+            Menu.MenuFadeText {
               text: quickBatteryRoot.batPercentage < 0 ? "—" : quickBatteryRoot.batPercentage + "%"
               color: quickBatteryRoot.ringColor()
               font.family: root.uiSans; font.pixelSize: root.fontPx(30); font.weight: Font.DemiBold
@@ -342,6 +379,13 @@ Item {
             color: Style.m3onSurfaceVariant
             font.family: root.uiSans; font.pixelSize: root.fontPx(10); font.weight: Font.Medium
           }
+          Text {   // the draw line's scale: its top is the day's peak
+            visible: quickBatteryRoot.ratePeak > 0
+            anchors { right: parent.right; baseline: histCap.baseline }
+            text: "draw ≤ " + quickBatteryRoot.ratePeak.toFixed(quickBatteryRoot.ratePeak < 10 ? 1 : 0) + " W"
+            color: Style.orange
+            font.family: root.uiSans; font.features: Style.fontTabular; font.pixelSize: root.fontPx(9)
+          }
           Item {
             id: plot
             anchors { left: parent.left; right: parent.right; top: histCap.bottom; topMargin: 6; bottom: axis.top; bottomMargin: 4 }
@@ -350,6 +394,15 @@ Item {
               const now = Date.now() / 1000
               return quickBatteryRoot.history.map(p => Qt.point(Math.round(plot.width * Math.max(0, 1 - (now - p.t) / 86400)),
                 Math.round(plot.height * (1 - p.v / 100))))
+            }
+            readonly property var ratePts: {   // steps: each bin flat across its 15 min
+              const bins = quickBatteryRoot.rateBins, top = Math.max(1, quickBatteryRoot.ratePeak), out = []
+              for (let i = 0; i < bins.length; i++) {
+                if (bins[i] < 0) continue
+                const y = Math.round(plot.height * (1 - bins[i] / top))
+                out.push(Qt.point(Math.round(plot.width * i / bins.length), y), Qt.point(Math.round(plot.width * (i + 1) / bins.length), y))
+              }
+              return out
             }
             Rectangle { anchors { left: parent.left; right: parent.right; bottom: parent.bottom } height: 1; color: Style.menuSep }
             Rectangle {   // hold limit
@@ -378,6 +431,13 @@ Item {
                 capStyle: ShapePath.RoundCap
                 joinStyle: ShapePath.RoundJoin
                 PathPolyline { path: plot.pts }
+              }
+              ShapePath {   // battery draw (W), own scale
+                strokeWidth: quickBatteryRoot.ratePeak > 0 ? 1.25 : 0
+                strokeColor: quickBatteryRoot.ratePeak > 0 ? Qt.alpha(Style.orange, 0.8) : "transparent"
+                fillColor: "transparent"
+                joinStyle: ShapePath.RoundJoin
+                PathPolyline { path: plot.ratePts.length < 2 ? [] : plot.ratePts }
               }
             }
           }
@@ -408,6 +468,20 @@ Item {
         }
       }
       Item { Layout.fillWidth: true }
+      // Kept awake by: one small amber chip per hold, right-aligned (his ask: an indicator, not a card). A click runs
+      // what helps where something can: show the window, release a portal hold, turn stay-awake off.
+      Repeater {
+        model: quickBatteryRoot.holds
+        delegate: Chip {
+          required property var modelData
+          readonly property string act: ({ window: "show", portal: "release", "stay-awake": "turn off" })[modelData.kind] || ""
+          icon: ({ window: "󰖯", portal: "󰖟", audio: "󰝚", external: "󰍹", inhibitor: "󰒲" })[modelData.kind] || "󰅶"
+          label: (modelData.who || "") + (act ? " · " + act : "")
+          bg: Qt.alpha(Style.orange, 0.2)
+          clickable: act !== ""
+          onClicked: quickBatteryRoot.releaseHold(modelData)
+        }
+      }
     }
 
     Rectangle {
@@ -424,14 +498,7 @@ Item {
         RowLayout {
           Layout.fillWidth: true
           spacing: 10
-          Rectangle {
-            width: 30; height: 30; radius: Style.menuRadiusMd
-            color: Style.m3primaryContainer
-            Text {
-              anchors.centerIn: parent; text: "󰓅"; color: Style.m3primary
-              font.family: root.uiFont; font.pixelSize: root.fontPx(14)
-            }
-          }
+          Menu.MenuGlyphTile { glyph: "󰓅"; fontScale: root.uiFontScale }
           Text {
             Layout.fillWidth: true
             text: "SMC Power"
@@ -498,10 +565,10 @@ Item {
         clip: true
         contentHeight: factGrid.implicitHeight
         boundsBehavior: Flickable.StopAtBounds
-        ScrollBar.vertical: Menu.MenuScrollBar {}
+        ScrollBar.vertical: Menu.MenuScrollBar { id: factScroll }
         GridLayout {
           id: factGrid
-          width: factFlick.width
+          width: factFlick.width - (factScroll.overflow ? factScroll.implicitWidth + 4 : 0)
           y: Math.max(0, Math.round((factFlick.height - implicitHeight) / 2))
           columns: 2
           columnSpacing: 24

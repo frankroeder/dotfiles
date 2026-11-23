@@ -42,20 +42,24 @@ Item {
     barWindow.closeHistory()
     barWindow.openPanel = barWindow.openPanel === name ? "" : name
   }
-  // IPC `media panel` / Super+Alt+R (shell.qml signals): only the bar on the focused monitor answers; media
-  // only with a player.
+  // IPC `media panel` / Super+Alt+R (shell.qml signals): only the bar on the focused monitor answers. Media without
+  // its chip (no player, or no room) opens the launcher's Media pane instead (Super+Ctrl+M did nothing).
   function requestPanel(name) {
     const mon = Hyprland.focusedMonitor
     if (mon && barWindow.barScreen && mon.name !== barWindow.barScreen.name) return
-    if (name === "media" && !mediaBlock.visible) return
+    if (name === "media" && !mediaBlock.visible) { barWindow.quickRequested("media"); return }
     barWindow.togglePanel(name)
   }
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
   readonly property int barSize: Style.barHeight
   readonly property bool appleSiliconHost: Services.BarData.appleSiliconHost
-  readonly property color barForeground: Style.barStripText
-  readonly property color barBackground: Style.barStripBg
+  // A theme change (wallpaper pick) fades the strip and its text over 300 ms instead of snapping (caelestia's CAnim);
+  // runs only when the theme changes.
+  property color barForeground: Style.barStripText
+  property color barBackground: Style.barStripBg
+  Behavior on barForeground { ColorAnimation { duration: 300; easing.type: Easing.OutCubic } }
+  Behavior on barBackground { ColorAnimation { duration: 300; easing.type: Easing.OutCubic } }
 
   readonly property int notchFloor: appleSiliconHost && barScreen?.name?.indexOf("eDP") === 0
     ? Math.max(barSize, BarModel.notchHeight(barScreen.name, barScreen.width, barScreen.height))
@@ -83,7 +87,7 @@ Item {
     + btBlock.implicitWidth + battBlock.implicitWidth + clockBlock.implicitWidth + 4 * rightSection.spacing
   readonly property real rightRoom: (notchInset > 0 ? rightRegion.width : barContent.width - leftSection.width - 48) - rightBase
   readonly property var grants: BarModel.rightGrants(rightRoom, {
-    rec: statusBlock.recWidth, timer: statusBlock.timerWidth,
+    rec: statusBlock.recWidth, share: statusBlock.shareWidth, timer: statusBlock.timerWidth,
     awake: statusBlock.stayAwake ? statusBlock.cupWidth : 0, night: statusBlock.nightWidth,
     cup: statusBlock.stayAwake ? 0 : statusBlock.cupWidth, updates: statusBlock.updatesWidth,
     ccu: ccuBlock.fullWidth - ccuBlock.compactWidth, vpnName: netBlock.vpnNameWidth,
@@ -322,6 +326,7 @@ Item {
         updatesAvailable: barWindow.updatesAvailable
         barHost: barWindow
         showRec: !!barWindow.grants.rec
+        showShare: !!barWindow.grants.share
         showTimer: !!barWindow.grants.timer
         showCup: !!(stayAwake ? barWindow.grants.awake : barWindow.grants.cup)
         showNight: !!barWindow.grants.night

@@ -544,7 +544,7 @@ check_coredumps() {
     return
   fi
   dumps=$(coredumpctl list --no-pager --no-legend --since=-7days 2>/dev/null \
-    | awk '{ print $(NF-1) }' | grep -E '/(quickshell|qs|Hyprland|hyprlock|hypridle|hyprpaper|xdg-desktop-portal[^ ]*)$' \
+    | awk '{ print $(NF-1) }' | grep -E '/(quickshell|qs|Hyprland|hypridle|hyprpaper|xdg-desktop-portal[^ ]*)$' \
     | sort | uniq -c | sort -rn)
   if [[ -z $dumps ]]; then
     record PASS coredumps "no desktop-stack coredumps in the last 7 days"

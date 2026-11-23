@@ -111,15 +111,15 @@ PopupWindow {
       spacing: 4
       Text {
         text: caption
-        color: Style.menuInkDeep; font.family: Style.menuSans; font.pixelSize: 10; font.weight: Font.DemiBold
+        color: Style.menuInkDeep; font.family: Style.menuSans; font.pixelSize: Style.typeCaption; font.weight: Font.DemiBold
         font.letterSpacing: 1.2; font.capitalization: Font.AllUppercase
       }
-      Text {
+      Menu.MenuFadeText {
         text: unit === "%" ? (Math.round(value) + "%") : (isFinite(value) ? value.toFixed(1) + " " + unit : "–")
-        color: accent; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 22; font.weight: Font.DemiBold
+        color: accent; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeDisplay; font.weight: Font.DemiBold
       }
       Text {
-        text: detail; color: Style.menuInk; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 10
+        text: detail; color: Style.menuInk; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeCaption
         maximumLineCount: 2; elide: Text.ElideRight; Layout.fillWidth: true
       }
       Rectangle {
@@ -141,7 +141,7 @@ PopupWindow {
     // Same small tracked caps as the tile captions above.
     color: Style.menuInkDeep
     font.family: Style.menuSans
-    font.pixelSize: 10
+    font.pixelSize: Style.typeCaption
     font.weight: Font.DemiBold
     font.letterSpacing: 1.2
     font.capitalization: Font.AllUppercase
@@ -246,7 +246,7 @@ PopupWindow {
             isFinite(root.cpu.psiCpu) ? ("stall cpu " + Math.round(root.cpu.psiCpu) + "% · mem " + Math.round(root.cpu.psiMem) + "%") : "",
             isFinite(root.cpu.temp) ? ("peak " + root.cpu.temp.toFixed(1) + "°C") : ""
           ].filter(function(s) { return s !== "" }).join("  ·  ")
-          color: Style.menuInkDeep; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 10
+          color: Style.menuInkDeep; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeCaption
           visible: text !== ""
         }
 
@@ -292,10 +292,10 @@ PopupWindow {
               anchors.fill: parent
               anchors.leftMargin: 8; anchors.rightMargin: 8
               Text {
-                Layout.fillWidth: true; text: modelData.comm; color: Style.menuInk; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 11
+                Layout.fillWidth: true; text: modelData.comm; color: Style.menuInk; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeBody
                 elide: Text.ElideRight
               }
-              Text { text: modelData.cpu.toFixed(1) + "%"; color: Style.menuInkDeep; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 10 }
+              Text { text: modelData.cpu.toFixed(1) + "%"; color: Style.menuInkDeep; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeCaption }
             }
           }
         }
@@ -311,7 +311,7 @@ PopupWindow {
             Text {
               Layout.fillWidth: true
               text: modelData.displayLabel || modelData.label || "Fan"
-              color: Style.menuInk; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 11
+              color: Style.menuInk; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeBody
             }
             Rectangle {
               Layout.preferredWidth: 72
@@ -324,7 +324,7 @@ PopupWindow {
             }
             Text {
               text: Math.round(modelData.value || 0) + " RPM"
-              color: Style.menuInkDeep; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 10
+              color: Style.menuInkDeep; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeCaption
             }
           }
         }
@@ -340,11 +340,11 @@ PopupWindow {
             Text {
               Layout.fillWidth: true
               text: Sys.sensorLabel(modelData)
-              color: Style.menuInk; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 11; elide: Text.ElideRight
+              color: Style.menuInk; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeBody; elide: Text.ElideRight
             }
             Text {
               text: (isFinite(modelData.value) ? modelData.value.toFixed(1) : "–") + "°C"
-              color: root.heatColors[Sys.heat(modelData.value)]; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 11; font.weight: Font.DemiBold
+              color: root.heatColors[Sys.heat(modelData.value)]; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeBody; font.weight: Font.DemiBold
             }
           }
         }
@@ -355,7 +355,7 @@ PopupWindow {
           text: "right-click chip: btop"
           color: Style.menuInkDeep
           font.family: Style.fontUi; font.features: Style.fontTabular
-          font.pixelSize: 9
+          font.pixelSize: Style.typeCaption
           horizontalAlignment: Text.AlignHCenter
           opacity: 0.6
         }

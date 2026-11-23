@@ -548,7 +548,7 @@ Item {
 
   ColumnLayout {
     id: monLayout
-    anchors.fill: parent; spacing: 10
+    anchors.fill: parent; spacing: 12
     clip: true
 
     // Header: title + count, action pills.
@@ -846,17 +846,20 @@ Item {
         spacing: 0
         readonly property var fm: quickMonitorsRoot.focusedMon
         RowLayout {
-          Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16; Layout.preferredHeight: 44
+          Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16
+          Layout.preferredHeight: Math.max(44, dispHead.implicitHeight + 14)   // three lines: name, mode, refresh
           spacing: 10
           Text {
             text: dispCol.fm && dispCol.fm.name === "eDP-1" ? "󰌢" : "󰍹"
             color: Style.m3primary; font.pixelSize: root.fontPx(14); font.family: root.uiFont
           }
           Column {
+            id: dispHead
             Layout.fillWidth: true
             Text {
               width: parent.width
               text: dispCol.fm ? dispCol.fm.name + (dispCol.fm.name === "eDP-1" ? "  Built-in display" : (dispCol.fm.make ? "  " + dispCol.fm.make + " " + (dispCol.fm.model || "") : "")) : ""
+              textFormat: Text.PlainText   // EDID make / model
               color: Style.m3onSurface; font.pixelSize: root.fontPx(11); font.family: root.uiSans; font.weight: Font.DemiBold; elide: Text.ElideRight
             }
             Text {

@@ -23,23 +23,20 @@ PanelWindow {
 
   // The bar this panel opens from (focus-grab whitelist).
   property var barWindow: null
-  // App menus take their own grab: drop ours while one is open (QsMenuAnchor reports the close;
-  // item.display() does not).
+  // App menus open in the bar's TrayMenu below the row's menu button; its grab whitelists this panel, ours pauses
+  // until it closes.
+  property var trayMenu: null
   property bool menuShown: false
-  QsMenuAnchor {
-    id: menuAnchor
-    anchor.window: root
-    onClosed: root.menuShown = false
+  Connections {
+    target: root.trayMenu
+    function onMenuClosed() { root.menuShown = false }
   }
-  // Below the row's menu button, in window coordinates (the rows sit inside card and list).
   function openMenu(item, button) {
-    if (!item.menu) return
-    const p = button.mapToItem(null, 0, button.height)
+    if (!item.menu || !root.trayMenu) return
+    const p = button.mapToItem(null, button.width / 2, button.height)   // window coords; the window hangs at the right
     root.menuShown = true
-    menuAnchor.menu = item.menu
-    menuAnchor.anchor.rect.x = p.x
-    menuAnchor.anchor.rect.y = p.y
-    menuAnchor.open()
+    root.trayMenu.openFor(item, (root.screen ? root.screen.width : 1920) - Style.barEdgeMargin - root.width + p.x,
+      root.barHeight + 6 + p.y + 4, root)
   }
 
   visible: shouldShow || popOut.running

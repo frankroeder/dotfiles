@@ -87,6 +87,9 @@ Scope {
   // the checkmark on the Actions row.
   property bool nightLightOn: false
   property int nightVersion: 0
+  // Desktop-entry action rows ("New Private Window · Firefox") in typed searches: Actions › "App actions in search"
+  // switches them on / off, kept in ~/.local/state/asahi/launcher-app-actions ("on" / "off"; missing = on).
+  property bool appActionsOn: true
 
   // Keyboard shortcuts drill: rows parsed from `hyprctl binds` (descriptions
   // come from the Lua binds' desc options). Rescanned on every drill entry.
@@ -125,7 +128,9 @@ Scope {
   readonly property int quickGridCols: 1
 
   // Scoring (ported from launcher ref, tuned for small set)
+  readonly property int scExact: 1000   // whole query = the name
   readonly property int scPrefix: 100
+  readonly property int scWord: 80     // a later word starts with the token ("code" → "Visual Studio Code")
   readonly property int scTitle: 60
   readonly property int scKw: 20
   readonly property int scCat: 10
@@ -143,6 +148,7 @@ Scope {
   readonly property string websearchJsonPath: Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/modules/launcher/websearch.json"
   readonly property string hidesPath: Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/modules/launcher/launcher.hides"
   readonly property string nightStatePath: Quickshell.env("HOME") + "/.local/state/asahi/nightlight.json"
+  readonly property string appActionsPath: Quickshell.env("HOME") + "/.local/state/asahi/launcher-app-actions"
   property int webVersion: 0
 
   // Launcher-style data (nav + local items for categories + prefix specials for files/web/docs/calc/actions)
@@ -171,6 +177,7 @@ Scope {
     { key: "ocr", aliases: ["text", "tesseract"], icon: "󰴑", name: "OCR region", comment: "Copy text from a screen region", command: [root.binDir + "/asahi-cmd-ocr"] },
     { key: "qr", aliases: ["qrcode", "zbar"], icon: "󰐲", name: "Scan QR", comment: "Copy a QR code from a screen region", command: [root.binDir + "/asahi-cmd-qr"] },
     { key: "nightlight", aliases: ["night", "warm", "hyprsunset"], icon: "󰖔", name: "Night light toggle", comment: "hyprsunset.conf (identity / temperature)", command: [root.binDir + "/asahi-nightlight", "toggle"] },
+    { key: "app-actions", aliases: ["desktop actions", "private window", "new window"], icon: "󰀻", name: "App actions in search", comment: "Rows like New Private Window · Firefox when you type (on / off, kept)", toggle: "appActions" },
     { key: "pop", aliases: ["float", "pin"], icon: "󰖲", name: "Pop window", comment: "Super+O · float, center and pin the focused window (again to retile)", command: [root.binDir + "/asahi-window-pop"] },
     { key: "scale", aliases: ["zoom", "hidpi"], icon: "󰍹", name: "Display scale", comment: "Super+Ctrl+plus/minus · cycle the focused display through legal scales", command: [root.binDir + "/asahi-monitor-scale", "cycle"] },
     { key: "reload", aliases: ["qs"], icon: "󰑐", name: "Reload Quickshell", comment: "Restart QS", command: [root.binDir + "/asahi-restart-quickshell"] },
@@ -192,6 +199,7 @@ Scope {
     ocr: true,
     qr: true,
     nightlight: true,
+    "app-actions": true,
     reload: true,
     hypr: true,
     lock: true,
@@ -421,6 +429,12 @@ Scope {
     ])
   }
   function openShot(p) { if (p) Quickshell.execDetached([binDir + "/asahi-launch", "xdg-open", p]) }
+  // "Show in folder": Thunar with the file selected (asahi-reveal); the launcher closes so Thunar comes up in front.
+  function revealPath(p) {
+    if (!p) return
+    root.shouldShow = false
+    Quickshell.execDetached([binDir + "/asahi-reveal", p])
+  }
   function previewShot(p) { if (p) root.shotPreviewPath = p }
   // swappy over the shot itself (asahi-screenshot-annotate). The launcher closes first: it holds the keyboard.
   function annotateShot(p) {
@@ -818,9 +832,9 @@ Scope {
           anchors.margins: 14
           spacing: 14
           Rectangle {
-            width: 58; height: 58; radius: Style.menuRadiusLg
+            width: Math.round(36 * root.uiFontScale); height: width; radius: Style.menuRadiusLg   // hero tile: one size in every pane
             color: Style.m3primaryContainer
-            Text { anchors.centerIn: parent; text: "󰣛"; color: Style.m3primary; font.family: root.uiFont; font.pixelSize: 36 }
+            Text { anchors.centerIn: parent; text: "󰣛"; color: Style.m3primary; font.family: root.uiFont; font.pixelSize: Math.round(22 * root.uiFontScale) }
           }
           ColumnLayout {
             Layout.fillWidth: true
@@ -985,6 +999,7 @@ Scope {
     const q = root.query.trim()
     const target = root.categoryFilter !== "" ? root.categoryFilter
       : q.startsWith(":") ? "Actions"
+      : q.startsWith(",") ? "Windows"
       : q.startsWith("?") ? "Keys"
       : q.startsWith(";") ? "Emoji"
       : (q.startsWith("@") || q.startsWith("!")) ? "Websearch"
@@ -1007,6 +1022,7 @@ Scope {
     if (q.startsWith("!")) return "Web Search"
     if (q.startsWith("@")) return "Documentation"
     if (q.startsWith(":")) return "Actions"
+    if (q.startsWith(",")) return "Windows"
     if (q.startsWith("?")) return "Keys"
     if (q.startsWith(";")) return "Emoji"
     if (root.fileTerm(q) !== null) return "Files"
@@ -1018,7 +1034,7 @@ Scope {
     if (root.quickMode)
       return "↑↓ panel · esc leave"
     if (root.argArmed) return "type argument · ↩ go · tab results"
-    if (root.fileMode) return "↑↓ / tab · open file · esc back"
+    if (root.fileMode) return "↑↓ / tab · ↩ open · ⇧↩ show in folder · esc back"
     if (root.calcMode) return "↑↓ history · ↩ copy · esc close"
     return "↓ / tab · ↩ open · esc close"
   }
@@ -1031,7 +1047,7 @@ Scope {
     if (root.fileTerm(qq) !== null) {
       if (root.fileStatus === "loading") return "Searching files…"
       if (root.fileStatus === "error") return "fd search failed"
-      if (root.fileStatus === "prompt") return "Type after > to search ~"
+      if (root.fileStatus === "prompt") return root.recentFiles.length > 0 ? "Recent files · type to search ~" : "Type after > to search ~"
       if (root.fileStatus === "no-results") return "No files found"
       const count = root.fileItems.length
       return count + (count === 200 ? "+" : "") + " match" + (count !== 1 ? "es" : "") + " · Enter opens"
@@ -1046,6 +1062,7 @@ Scope {
     }
     if (qq.startsWith(":")) return c + " action" + s
     if (qq.startsWith("?")) return c + " shortcut" + s
+    if (qq.startsWith(",")) return c + " window" + s + " · Enter focuses"
     if (qq.startsWith(";")) return c + " emoji" + s
     if (qq.startsWith("=") || qq.startsWith("!") || qq.startsWith("@")) return c + " result" + s
     if (root.categoryFilter !== "") {
@@ -1114,6 +1131,7 @@ Scope {
     if (resultsList) resultsList.currentIndex = start
     root.selectedIndex = start
     if (root.categoryFilter === "Keys") root.scanKeyBinds()
+    if (root.categoryFilter === "Windows") { Hyprland.refreshToplevels(); winRefresh.restart() }
     if (root.fileMode) root.scheduleFileLookup()
     else { root.fileItems=[]; root.fileStatus=""; root.filePreviewText=""; root.filePreviewMeta=""; root.pdfPreviewPath=""; root.pdfPreviewVersion=0 }
     if (root.categoryFilter === "Quick") root.setSearchQuery("")
@@ -1388,10 +1406,11 @@ Scope {
     return values.some(v => String(v || "").toLowerCase().includes(term))
   }
 
-  // Live state decoration for toggle actions (currently nightlight only).
+  // Live state decoration for toggle actions (night light, app actions).
   function actionLabel(a) {
     root.nightVersion
     if (a.key === "nightlight" && root.nightLightOn) return a.name + " ✓"
+    if (a.key === "app-actions" && root.appActionsOn) return a.name + " ✓"
     return a.name
   }
 
@@ -1426,9 +1445,10 @@ Scope {
     return actions.map(a => root.mapActionEntry(a))
   }
 
-  function launchDesktopEntry(entry) {
-    root.bumpAppUsage(entry)
-    root.beginLaunchFeedback(entry.name)
+  // `app`: the parent entry when `entry` is one of its actions (usage and the launch feedback count the app).
+  function launchDesktopEntry(entry, app) {
+    root.bumpAppUsage(app || entry)
+    root.beginLaunchFeedback((app || entry).name)
     const command = Array.from(entry.command || [])
     const exec = command.length > 0 ? command.map(root.shQuote).join(" ") : String(entry.execString || "")
     if (exec === "") {
@@ -1438,7 +1458,9 @@ Scope {
 
     const ws = root.launcherWorkspaceId || Hyprland.focusedWorkspace?.id || 1
     Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({ workspace = " + ws + " })"])
-    const launchPrefix = (command.length > 0 ? (binDir + "/asahi-launch ") : "uwsm-app -- ")
+    // Terminal=true entries (btop, htop, nvim, cliamp) run inside Ghostty: on their own they start without a window.
+    const launchPrefix = entry.runInTerminal ? (binDir + "/asahi-launch-tui ")
+      : (command.length > 0 ? (binDir + "/asahi-launch ") : "uwsm-app -- ")
     Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.exec_cmd(" + root.luaQuote("[workspace " + ws + "] " + launchPrefix + exec) + ")"])
   }
 
@@ -1460,6 +1482,9 @@ Scope {
       return
     }
     if (entry.special === "noop") {
+      return
+    } else if (entry.special === "window") {
+      root.focusWindowAfterClose(entry.address)
       return
     } else if (entry.special === "calc-hist" && (!entry.result || (root.query || "").substring(1).trim() !== entry.expr)) {
       // First activation loads the entry for editing; on the loaded one (↑↓, a second click) it copies.
@@ -1486,6 +1511,11 @@ Scope {
       const copy = entry.copy || entry.glyph || ""
       if (copy) Quickshell.execDetached(["sh", "-c", "printf %s \"$1\" | wl-copy", "sh", copy])
     } else if (entry.special === "action") {
+      if (entry.toggle === "appActions") {   // stays open: the ✓ shows the new state
+        root.appActionsOn = !root.appActionsOn
+        appActionsFile.setText(root.appActionsOn ? "on\n" : "off\n")
+        return
+      }
       if (entry.query) {
         root.setSearchQuery(entry.query)
         root.focusLauncherInput()
@@ -1520,6 +1550,10 @@ Scope {
     } else if (entry.special === "app" && entry.raw) {
       shouldShow = false
       Qt.callLater(() => root.launchDesktopEntry(entry.raw))
+      return
+    } else if (entry.special === "app-action" && entry.action) {
+      shouldShow = false
+      Qt.callLater(() => root.launchDesktopEntry(entry.action, entry.raw))
       return
     } else if (entry.command && entry.command.length > 0) {
       Quickshell.execDetached(root.resolveCmd(entry.command))
@@ -1559,7 +1593,7 @@ Scope {
     const t = (q || "").trim()
     if (!t) return false
     if (t.startsWith(">") || t.startsWith("@") || t.startsWith(":") || t.startsWith("?")
-        || t.startsWith("=") || t.startsWith("!") || t.startsWith(";")) return true
+        || t.startsWith("=") || t.startsWith("!") || t.startsWith(";") || t.startsWith(",")) return true
     return root.dictTerm(t) !== null
   }
 
@@ -1585,6 +1619,7 @@ Scope {
     if (!term) {
       root.fileStatus = "prompt"
       root.fileItems = []
+      if (!recentProc.running) recentProc.running = true   // ">" alone: recent files until a term is typed
       root.fileVersion++
       return
     }
@@ -1651,10 +1686,24 @@ Scope {
     if (root.filePendingTerm && root.filePendingTerm !== term) fileDebounce.restart()
   }
 
+  // Recently used files (asahi-recent-files: recently-used.xbel, newest first; idea: Ryoku), read each time ">" opens.
+  property var recentFiles: []
+  Process {
+    id: recentProc
+    command: [root.binDir + "/asahi-recent-files", "40"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        root.recentFiles = text.split("\n").filter(l => l.length > 0).map(root.formatFileResult)
+        root.fileVersion++
+      }
+    }
+  }
+
   function getFileResults(q) {
     const term = fileTerm(q)
     if (term === null) return null
     if (!term) {
+      if (root.recentFiles.length > 0) return root.recentFiles
       return [{ id: "file-prompt", name: "Search files in ~", comment: "Globs: docs/*.txt  Regex: word1 word2", icon: "", glyph: "󰍉", special: "noop" }]
     }
     if (root.fileStatus === "loading") {
@@ -1993,6 +2042,14 @@ Scope {
     onLoadFailed: root.parseNightState("")
   }
 
+  FileView {
+    id: appActionsFile
+    path: root.appActionsPath
+    blockLoading: true
+    printErrors: false
+    onLoaded: root.appActionsOn = appActionsFile.text().trim() !== "off"
+  }
+
   // --- Keyboard shortcuts: parse `hyprctl binds` into { combo, desc } rows.
   function scanKeyBinds() {
     if (!keyBindsProc.running) keyBindsProc.running = true
@@ -2032,6 +2089,14 @@ Scope {
   }
   function windowCount(d) { return Math.max(0, ...root.appKeys(d).map(k => root.runningIds[k] || 0)) }
   function isRunning(d) { return root.windowCount(d) > 0 }
+  // An app's open windows (app grid tooltip): title + workspace, at most `max`.
+  function windowsOf(d, max) {
+    const keys = root.appKeys(d)
+    return (Hyprland.toplevels.values || []).filter(w => {
+      const id = String((w.wayland && w.wayland.appId) || "").toLowerCase()
+      return id !== "" && (keys.indexOf(id) >= 0 || keys.indexOf(id.split(".").pop()) >= 0)
+    }).slice(0, max).map(w => ({ title: w.title || "", ws: w.workspace ? w.workspace.name : "" }))
+  }
   function isActive(d) {
     const a = root.activeId
     return a !== "" && root.appKeys(d).some(k => k === a || k === a.split(".").pop())
@@ -2257,6 +2322,44 @@ Scope {
     return t.toLowerCase()
   }
 
+  // Windows mode (`,`): every open window, most recently focused first (the current one last) (focusHistoryID from the refresh on entry);
+  // Enter focuses it (end-4 / dhrruvsharma switchers). Title + app name match like apps.
+  property int winVersion: 0
+  property string windowToFocus: ""
+  // Close, then focus (address with or without 0x): once the launcher has unmapped, as its exclusive-focus layer hands
+  // focus back to the old window on close. Windows mode and the Battery pane's "Kept awake by" card.
+  function focusWindowAfterClose(address) {
+    root.windowToFocus = String(address).replace(/^0x/, "")
+    root.shouldShow = false
+    focusAfterClose.restart()
+  }
+  Timer {
+    id: focusAfterClose
+    interval: Style.menuAnimOutMs + 80
+    onTriggered: Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({ window = \"address:0x" + root.windowToFocus + "\" })"])
+  }
+  Timer { id: winRefresh; interval: 150; onTriggered: root.winVersion++ }
+  function windowResults(tokens) {
+    root.winVersion
+    const terms = tokens.length && tokens[0].startsWith(",") ? [tokens[0].substring(1)].concat(tokens.slice(1)).filter(t => t !== "") : tokens
+    // focusHistoryID 0 = the window you are in: last, so a bare `,` + Enter goes back to the previous one (alt-tab).
+    const rank = w => { const f = (w.lastIpcObject || {}).focusHistoryID ?? 99; return f === 0 ? 1000 : f < 0 ? 999 : f }
+    const wins = (Hyprland.toplevels.values || []).slice().sort((a, b) => rank(a) - rank(b))
+    const out = []
+    for (const w of wins) {
+      const cls = (w.wayland && w.wayland.appId) || (w.lastIpcObject || {}).class || ""
+      const de = cls ? DesktopEntries.heuristicLookup(cls) : null
+      const app = de ? de.name : cls
+      const it = {
+        id: "win-" + w.address, title: w.title || app, comment: app, accessory: w.workspace ? "ws " + w.workspace.name : "",
+        rawIcon: de ? (de.icon || "") : "", glyph: de ? "" : "󰖯", category: "Windows", special: "window", address: w.address,
+        _t: (w.title || "").toLowerCase(), _k: (app + " " + cls).toLowerCase()
+      }
+      if (terms.length === 0 || root.scoreItem(it, terms) > 0) out.push(it)
+    }
+    return out.length <= root.maxResults ? out : out.slice(0, root.maxResults)
+  }
+
   function keysSearchTerm() {
     let t = (root.query || "").trim()
     if (t.startsWith("?")) t = t.substring(1).trim()
@@ -2314,6 +2417,7 @@ Scope {
       ipc: a.ipc || "",
       command: a.command || [],
       query: a.query || "",
+      toggle: a.toggle || "",
       _t: (a.name || "").toLowerCase(),
       _k: ((a.key || "") + " " + (a.aliases || []).join(" ")).toLowerCase()
     }
@@ -2336,12 +2440,16 @@ Scope {
     }
   }
 
+  // Name tiers (omarchy AppSearch): exact > prefix > word start > anywhere; then score, usage, shorter name.
   function primaryScore(item, tokens) {
     const title = item._t || ""
+    if (title !== "" && title === tokens.join(" ")) return root.scExact
+    const words = " " + title.replace(/[-_.]/g, " ")
     let total = 0
     for (let i = 0; i < tokens.length; i++) {
       const t = tokens[i]
       if (title.indexOf(t) === 0) total += root.scPrefix
+      else if (words.indexOf(" " + t) >= 0) total += root.scWord
       else if (title.indexOf(t) >= 0) total += root.scTitle
     }
     return total
@@ -2362,6 +2470,9 @@ Scope {
       if (cat.indexOf(t) >= 0) sub += root.scCat
       // Acronym rescue for short terms only: "ff" -> Firefox, "vsc" -> VS Code.
       if (sub === 0 && t.length <= 5 && acro.indexOf(t) >= 0) sub += root.scAcro
+      // Typo rescue: a title word (or its start) one edit away; lowest score, so real matches stay first.
+      if (sub === 0 && t.length >= 4 && title.split(/[\s\-_.]+/).some(w => Data.oneEdit(t, w) || Data.oneEdit(t, w.slice(0, t.length))))
+        sub += 1
       if (sub === 0) return 0
       total += sub
     }
@@ -2377,7 +2488,7 @@ Scope {
 
   function computeFiltered() {
     root.deVersion; root.dictVersion; root.fileVersion; root.webVersion; root.appUsageVersion
-    root.hiddenVersion; root.nightVersion; root.keysVersion
+    root.hiddenVersion; root.nightVersion; root.keysVersion; root.appActionsOn
 
     const tokens = root.queryTokens
     const filter = root.categoryFilter
@@ -2432,6 +2543,8 @@ Scope {
       return out.length <= root.maxResults ? out : out.slice(0, root.maxResults)
     }
 
+    if (filter === "Windows") return root.windowResults(tokens)
+
     if (root.quickMode) return []
     let pool = []
     if (filter !== "" && filter !== "Quick") {
@@ -2456,6 +2569,20 @@ Scope {
           _a: Data.acronym((a.name || "") + " " + (a.genericName || "") + " " + kws + " " + (a.id || "")),
           category: "App", icon: "󰀻", rawIcon: a.icon || "", special: "app", raw: a
         })
+        // The entry's own actions (idea: Ryoku / end-4): "New Private Window · Firefox", Ghostty "New Window",
+        // Thunar "Trash". Typed queries only; they rank below apps on an equal score (usage -1, like actions).
+        // Off with Actions › "App actions in search" (appActionsOn).
+        if (tokens.length === 0 || !root.appActionsOn) continue
+        const acts = a.actions || []
+        for (let j = 0; j < acts.length; j++) {
+          const act = acts[j]
+          if (!act || !act.name) continue
+          pool.push({
+            id: aid + "-action-" + j, title: act.name + " · " + a.name, accessory: "ACTION",
+            _t: String(act.name).toLowerCase(), _k: t + " " + k, _c: "app",
+            category: "App", icon: "󰀻", rawIcon: act.icon || a.icon || "", special: "app-action", raw: a, action: act
+          })
+        }
       }
     }
 
@@ -2497,12 +2624,15 @@ Scope {
       const it = pool[i]
       const s = root.scoreItem(it, tokens)
       // Usage breaks ties; actions sit just below apps on an equal score ("s" must not start the screensaver).
-      if (s > 0) scored.push({ s: s, p: root.primaryScore(it, tokens), u: it.special === "app" ? root.appScore(it.raw) : it.special === "action" ? -1 : 0, item: it })
+      if (s > 0) scored.push({ s: s, p: root.primaryScore(it, tokens), u: it.special === "app" ? root.appScore(it.raw)
+        : it.special === "action" || it.special === "app-action" ? -1 : 0, item: it })
     }
     scored.sort((a, b) => {
       if (b.p !== a.p) return b.p - a.p
       if (b.s !== a.s) return b.s - a.s
       if (b.u !== a.u) return b.u - a.u
+      const la = (a.item.title || "").length, lb = (b.item.title || "").length
+      if (la !== lb) return la - lb
       return (a.item.title || "").localeCompare(b.item.title || "")
     })
     const lim = Math.min(scored.length, root.maxResults)
@@ -2865,7 +2995,7 @@ Scope {
               anchors.fill: parent
               text: root.argArmed
                 ? (root.argPlaceholder || "argument…")
-                : (root.fileMode ? "Search files" : "Search  ·  ctrl+hjkl  ·  tab argument  ·  !  >  :  ?  ;  @  =  dict")
+                : (root.fileMode ? "Search files" : "Search  ·  ctrl+hjkl  ·  tab argument  ·  !  >  ,  :  ?  ;  @  =  dict")
               color: Style.m3onSurfaceVariant
               font: parent.font
               visible: !parent.text
@@ -2891,6 +3021,9 @@ Scope {
               if (shown.trim().startsWith("?") && root.categoryFilter !== "Keys") {
                 root.categoryFilter = "Keys"
               }
+              if (shown.trim().startsWith(",") && root.categoryFilter !== "Windows") {
+                root.categoryFilter = "Windows"
+              }
               if (shown.trim().startsWith("@") && root.categoryFilter !== "Websearch") {
                 root.categoryFilter = "Websearch"
               }
@@ -2907,7 +3040,12 @@ Scope {
             }
 
             Keys.onEscapePressed: root.handleEscape()
-            Keys.onReturnPressed: root.launchCurrent()
+            // Shift+Enter on a file row: show it in its folder instead of opening it.
+            Keys.onReturnPressed: event => {
+              const e = root.currentResultEntry()
+              if ((event.modifiers & Qt.ShiftModifier) && e && e.special === "file" && e.path) root.revealPath(e.path)
+              else root.launchCurrent()
+            }
             Keys.onEnterPressed: root.launchCurrent()
 
             // Esc is onEscapePressed above. Quick mode hides this field and focuses launcherBox.

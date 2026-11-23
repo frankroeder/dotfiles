@@ -16,7 +16,7 @@ runtime_dir() {
 }
 #
 # readlink -f so a script invoked through a symlink (e.g. the
-# ~/.local/bin/asahi-battery-alertd link) still finds this file.
+# ~/.local/bin/asahi-apple-music link) still finds this file.
 
 # Volume/brightness key step: 1 % at or below 5 %, else 5 %. Lowering from 6-9 lands on 5 first
 # so the fine range is always reached (7 -> 5 -> 4). +1 / -1 (Shift) are 1 %. Clamped to $3 (default 0)..100.
@@ -158,10 +158,16 @@ on_ac() {
   return 1
 }
 
-# This session's hyprlock. A nested-preview hyprlock runs on another WAYLAND_DISPLAY and must not
-# count: asahi-lock skipped the real lock and asahi-idle suspended unlocked while one ran.
-hyprlock_running() {
-  pgrep -u "$UID" -x --env "WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-wayland-1}" hyprlock >/dev/null
+# This session's lock: the Quickshell lock (remix/lock.qml; hyprlock is gone since 2026-11-22). Never a nested
+# preview's (another WAYLAND_DISPLAY: asahi-lock skipped the real lock and asahi-idle suspended unlocked while one ran)
+# and only the qs process itself (a loose pattern matched an editor with lock.qml open).
+lock_running() {
+  pgrep -u "$UID" -f --env "WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-wayland-1}" '^([^ ]*/)?qs -p .*/remix/lock\.qml$' >/dev/null
+}
+
+# The focused window is real fullscreen (internal state 2; Super+Alt+F's fullscreen-in-tile and maximize are not).
+fullscreen_focused() {
+  hyprctl activewindow -j 2>/dev/null | jq -e '.fullscreen == 2' >/dev/null
 }
 
 # Pid in pid file $1 while that process lives, else nothing (and a stale file is removed).

@@ -99,13 +99,6 @@ fi
 display_status="$status"
 [ "$holding" = true ] && display_status="Holding"
 
-# Lock screen line: percent plus the charge state in words. hyprlock runs this every 15 s, so it leaves here: five
-# sysfs reads (each an SMC round trip, 0.3–1.2 ms; all 23 took 10 ms) and no forks.
-if [ "${1:-}" = "lock" ]; then
-  printf '%s%% · %s\n' "$capacity" "$display_status"
-  exit 0
-fi
-
 read_value capacity_level "$bat_path/capacity_level"
 read_value cycle_count "$bat_path/cycle_count"
 read_value health "$bat_path/health"

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+#
+# asahi-files-here
+#
+# Super+Z: Thunar in the focused terminal's folder, else at home (idea: omarchy-cmd-terminal-cwd). Ghostty runs every
+# window in one process, so its child shells cannot say which window is which; its shell integration (`title`) puts
+# the folder in the window title at the prompt ("~/.dotfiles"): a title that is an existing folder is used.
+#
+# Tests: asahi_files_here_test.sh (fake hyprctl / asahi-launch)
+#
+
+set -euo pipefail
+
+dir="$HOME"
+class="" title=""
+read -r class title < <(hyprctl activewindow -j 2>/dev/null | jq -r '"\(.class // "") \(.title // "")"') || true
+if [[ $class == *ghostty* ]]; then
+  t="${title/#\~/$HOME}"
+  if [[ $t == /* && -d $t ]]; then dir="$t"; fi
+fi
+exec "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/asahi-launch" thunar "$dir"

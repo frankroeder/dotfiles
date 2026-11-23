@@ -482,12 +482,12 @@ Item {
         anchors.margins: 14
         spacing: 14
         Rectangle {
-          width: 46; height: 46; radius: Style.menuRadiusLg
+          width: Math.round(36 * root.uiFontScale); height: width; radius: Style.menuRadiusLg   // hero tile: one size in every pane
           color: quickBtRoot.btOn ? Style.m3primaryContainer : Style.m3containerHigh
           Behavior on color { ColorAnimation { duration: 160 } }
           Text {
             anchors.centerIn: parent; text: quickBtRoot.btOn ? "󰂯" : "󰂲"
-            color: quickBtRoot.btOn ? Style.m3primary : Style.m3onSurfaceVariant; font.family: root.uiFont; font.pixelSize: 26
+            color: quickBtRoot.btOn ? Style.m3primary : Style.m3onSurfaceVariant; font.family: root.uiFont; font.pixelSize: Math.round(22 * root.uiFontScale)
           }
         }
         ColumnLayout {
@@ -557,10 +557,10 @@ Item {
         flickableDirection: Flickable.VerticalFlick
         contentHeight: btCol.implicitHeight
         boundsBehavior: Flickable.StopAtBounds
-        ScrollBar.vertical: Menu.MenuScrollBar {}
+        ScrollBar.vertical: Menu.MenuScrollBar { id: btScroll }
         Column {
           id: btCol
-          width: parent.width
+          width: btFlick.width - (btScroll.overflow ? btScroll.implicitWidth + 4 : 0)
           spacing: 2
 
           // ---- connection map: this PC → adapters / dongles / USB → devices ----

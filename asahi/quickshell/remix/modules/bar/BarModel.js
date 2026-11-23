@@ -52,6 +52,7 @@ function rightGrants(room, w, trayCount, traySlot, notched) {
     if (out[key]) left -= Number(width) || 0
   }
   take("rec", w.rec)
+  take("share", w.share)
   take("timer", w.timer)
   take("awake", w.awake)
   take("night", w.night)

@@ -30,7 +30,7 @@ done
 printf '#!/bin/sh\n[ -e "$XDG_RUNTIME_DIR/clamshell" ]\n' >"$bin/asahi-clamshell"
 printf '#!/bin/sh\n[ -e "$XDG_RUNTIME_DIR/stay-awake" ]\n' >"$bin/asahi-stay-awake"
 
-printf '#!/bin/sh\nprintf "%%s\\n" "$FAKE_MON"\n' >"$fake/hyprctl"
+printf '#!/bin/sh\nif [ "$1" = activewindow ]; then printf "%%s\\n" "${FAKE_ACTIVE:-null}"; else printf "%%s\\n" "$FAKE_MON"; fi\n' >"$fake/hyprctl"
 printf '#!/bin/sh\necho "b $FAKE_LID"\n' >"$fake/busctl"
 printf '#!/bin/sh\n[ "${FAKE_LOCKED:-1}" = 1 ]\n' >"$fake/pgrep"
 printf '#!/bin/sh\nexit 0\n' >"$fake/pactl"
@@ -116,6 +116,26 @@ idle at 300
 grep -q 'asahi-dpms off' "$CALLS" && ! grep -q 'asahi-idle-brightness dim' "$CALLS" \
   && pass "locked: the dim threshold turns the display off" || fail_at "locked dim: $(cat "$CALLS")"
 
+# A fullscreen window keeps the screen on: AC dim skipped; under the lock it still goes dark; on battery the off step
+# (lock, display off, sleep) still runs.
+export FAKE_ACTIVE='{"fullscreen":2}'
+FAKE_LOCKED=0 idle at 300
+[ ! -s "$CALLS" ] && grep -q 'ac dim skipped: fullscreen' "$idle_log" && pass "fullscreen: the AC dim step is skipped" \
+  || fail_at "fullscreen dim: $(cat "$CALLS")"
+idle at 300
+grep -q 'asahi-dpms off' "$CALLS" && pass "fullscreen under the lock: the display still goes dark" || fail_at "locked fullscreen: $(cat "$CALLS")"
+echo 0 >"$tmp/psy/ac/online"
+FAKE_LOCKED=0 idle at 150
+grep -q 'battery dim skipped: fullscreen' "$idle_log" && pass "fullscreen on battery: no dim" || fail_at "battery fullscreen dim"
+FAKE_LOCKED=0 idle at 300
+grep -q 'asahi-dpms off' "$CALLS" && grep -q 'systemctl suspend' "$CALLS" \
+  && pass "fullscreen on battery: the off step still locks, darkens and sleeps" || fail_at "battery fullscreen off: $(cat "$CALLS")"
+echo 1 >"$tmp/psy/ac/online"
+export FAKE_ACTIVE='{"fullscreen":1}'
+FAKE_LOCKED=0 idle at 300
+grep -q 'asahi-idle-brightness dim' "$CALLS" && pass "maximized is not fullscreen: dims" || fail_at "maximized: $(cat "$CALLS")"
+unset FAKE_ACTIVE
+
 # off: refused suspend keeps the loop alive; it polls every 5 s and retries a minute later.
 touch "$run/refuse"
 idle at 600 || fail_at "off loop exited non-zero after a refused suspend"
@@ -162,11 +182,32 @@ printf '#!/bin/sh\necho 2003690 >%s/now; echo 41000000 >%s/energy_now\n' "$run" 
 idle wake
 drained 'slept 1h0m on AC, gained 1.00 Wh' && pass "sleep on the charger: tagged, no awake correction" \
   || fail_at "AC sleep: $(tail -n 2 "$idle_log")"
+grep -q 'Slept without' "$CALLS" && fail_at "woke locked, yet a no-lock card" || pass "wake after a locked sleep: no card"
+# The lock did not come up before sleep (omarchy-system-sleep-lock's report): a critical card at wake.
+idle mark
+FAKE_LOCKED=0 idle wake
+grep -q 'notify -a idle -u critical Slept without the lock screen' "$CALLS" && grep -q 'woke without a lock' "$idle_log" \
+  && pass "wake after a sleep without the lock: critical card" || fail_at "no-lock wake: $(cat "$CALLS")"
 idle wake
 /usr/bin/sleep 0.3
 [ "$(grep -c ' slept ' "$idle_log")" = 2 ] && pass "a later wake logs no sleep" || fail_at "$(grep slept "$idle_log")"
 rm -f "$run/now" "$run/on-sleep-90"
 idle why >/dev/null && pass "why is read-only and exits 0" || fail_at "why exited non-zero"
+# why --json (Battery pane card): stay-awake, a logind idle block (a delay is no hold), nothing else here.
+cat >"$fake/systemd-inhibit" <<'SI'
+#!/bin/sh
+echo '[{"who":"mpv","comm":"mpv","what":"idle","why":"Playing video","mode":"block"},{"who":"UPower","comm":"upowerd","what":"sleep","why":"Pause","mode":"delay"}]'
+SI
+chmod +x "$fake/systemd-inhibit"
+: >"$run/stay-awake"
+json=$(idle why --json)
+if jq -e 'length == 2 and .[0].kind == "stay-awake" and .[1] == {kind: "inhibitor", who: "mpv", why: "Playing video"}' <<<"$json" >/dev/null; then
+  pass "why --json: stay-awake and logind blocks as rows (delays left out)"
+else
+  fail_at "why --json: $json"
+fi
+rm -f "$run/stay-awake" "$fake/systemd-inhibit"
+idle release 'x; rm -rf /' 2>/dev/null && fail_at "release took a bad sender" || pass "release refuses anything but a portal sender id"
 
 # asahi-suspend-failed runs only for a real failure: -16 (EBUSY, a key or click during entry) is no fault.
 cond=$(sed -n 's/^ExecCondition=//p' "$ROOT/../systemd/system/asahi-suspend-failed.service")

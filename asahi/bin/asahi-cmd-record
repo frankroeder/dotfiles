@@ -112,15 +112,18 @@ finish_recording() {
   ffmpeg -nostdin -loglevel error -y -ss 0.5 -i "$file" -frames:v 1 -vf scale=480:-2 "$thumb" 2>/dev/null || true
   [ -s "$thumb" ] && icon=(-i "$thumb")
   # No -t: notify-send would stop listening while the card (paused on hover) still shows.
-  act="$(notify-send -a record "${icon[@]}" -A default=Open "Recording saved" "$file" 2>/dev/null || true)"
-  if [ "$act" = default ]; then "$bin/asahi-launch" xdg-open "$file"; fi
+  act="$(notify-send -a record "${icon[@]}" -A default=Open -A reveal="Show in folder" "Recording saved" "$file" 2>/dev/null || true)"
+  case "$act" in
+    default) "$bin/asahi-launch" xdg-open "$file" ;;
+    reveal) "$bin/asahi-reveal" "$file" ;;
+  esac
 }
 
 audio_device() {
   local sink
-  # With the webcam (or the camera alone) it is a face-cam take: record the voice (default source, the MONO DSP mic)
-  # rather than what plays. wf-recorder takes one audio device; omarchy mixes both through a null sink.
-  if ((webcam)) || [[ $mode == camera ]]; then
+  # mic = the voice (default source, the MONO DSP mic), else what plays (the default sink's monitor).
+  # wf-recorder takes one audio device; omarchy mixes both through a null sink.
+  if [[ $audio == mic ]]; then
     pactl get-default-source 2>/dev/null || true
     return 0
   fi
@@ -254,11 +257,15 @@ if ((webcam)); then
   start_webcam "$webcam_region"
 fi
 
-dev="$(audio_device || true)"
-if [ -n "$dev" ]; then
-  audio_args=(--audio="$dev")
-else
-  audio_args=(-a)
+# Screen takes: RecordPanel's choice in ~/.local/state/asahi/record-audio (system | mic | none; default system). With
+# the webcam (or the camera alone) it is a face-cam take: always the mic.
+audio="$(cat "${XDG_STATE_HOME:-$HOME/.local/state}/asahi/record-audio" 2>/dev/null || true)"
+if ((webcam)) || [[ $mode == camera ]]; then audio=mic; fi
+dev=""
+audio_args=()   # none: silent
+if [[ $audio != none ]]; then
+  dev="$(audio_device || true)"
+  if [ -n "$dev" ]; then audio_args=(--audio="$dev"); else audio_args=(-a); fi
 fi
 
 if [[ $mode == camera ]]; then

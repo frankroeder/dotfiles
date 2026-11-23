@@ -16,6 +16,7 @@ Scope {
   property bool shown: false
   property var screen: null
   property string query: ""
+  property Item hoverCell: null   // the cell under the pointer: lifts, and its windows show below it
   // Hover selects only after a real pointer move (the launcher's rule): Qt also sends enter / position events to a
   // cell rebuilt under a resting cursor, and Enter then launched that cell instead of the top match.
   property point lastPointer: Qt.point(NaN, NaN)
@@ -74,7 +75,7 @@ Scope {
     WlrLayershell.namespace: "quickshell-appgrid"
     WlrLayershell.keyboardFocus: root.shown ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     anchors { left: true; right: true; top: true; bottom: true }
-    onVisibleChanged: if (visible) { search.text = ""; grid.currentIndex = 0; search.forceActiveFocus(); popIn.restart() }
+    onVisibleChanged: if (visible) { search.text = ""; grid.currentIndex = 0; root.hoverCell = null; search.forceActiveFocus(); popIn.restart() }
     // The launcher's entry: scrim fades, card grows from the centre (no exit: the layer unmaps at once).
     ParallelAnimation {
       id: popIn
@@ -168,10 +169,15 @@ Scope {
           required property int index
           width: grid.cellWidth
           height: grid.cellHeight
+          readonly property bool hovered: root.hoverCell === cell
 
           Image {
             id: icon
             anchors { horizontalCenter: parent.horizontalCenter; top: parent.top; topMargin: 12 }
+            // Hover lift: up 3 px, 1.06× (effects curve; runs once per enter / leave).
+            transform: Translate { y: cell.hovered ? -3 : 0; Behavior on y { Menu.MenuAnim { effects: true } } }
+            scale: cell.hovered ? 1.06 : 1
+            Behavior on scale { Menu.MenuAnim { effects: true } }
             width: 56; height: 56
             sourceSize: Qt.size(112, 112)
             source: root.launcher ? root.launcher.resolveIconUrl(cell.modelData.icon) : ""
@@ -212,8 +218,54 @@ Scope {
           MouseArea {
             anchors.fill: parent
             hoverEnabled: true
+            onContainsMouseChanged: if (containsMouse) root.hoverCell = cell; else if (root.hoverCell === cell) root.hoverCell = null
             onPositionChanged: (mouse) => { if (root.pointerMoved(mapToGlobal(mouse.x, mouse.y))) grid.currentIndex = cell.index }
             onClicked: root.launch(cell.modelData)
+          }
+        }
+      }
+
+      // The hovered app's open windows (≤ 3): title · workspace, under its cell (outside the grid's clip).
+      Rectangle {
+        id: winTip
+        readonly property var wins: root.hoverCell && root.launcher ? root.launcher.windowsOf(root.hoverCell.modelData, 3) : []
+        readonly property point at: {
+          grid.contentY   // re-map when the grid scrolls under a resting pointer
+          return root.hoverCell ? root.hoverCell.mapToItem(card, root.hoverCell.width / 2, root.hoverCell.height - 10) : Qt.point(0, 0)
+        }
+        visible: wins.length > 0
+        width: Math.min(280, tipCol.implicitWidth + 20)
+        height: tipCol.implicitHeight + 12
+        x: Math.max(8, Math.min(card.width - width - 8, at.x - width / 2))
+        y: Math.min(card.height - height - 8, at.y)
+        radius: Style.menuRadiusMd
+        color: Style.m3containerHigh
+        border.color: Style.menuHairline
+        border.width: 1
+        Column {
+          id: tipCol
+          x: 10; y: 6
+          spacing: 2
+          Repeater {
+            model: winTip.wins
+            Row {
+              required property var modelData
+              spacing: 8
+              Text {
+                width: Math.min(implicitWidth, 200)
+                text: modelData.title
+                textFormat: Text.PlainText
+                elide: Text.ElideRight
+                font.family: Style.fontUi; font.pixelSize: Style.typeBody
+                color: Style.m3onSurface
+              }
+              Text {
+                text: modelData.ws ? "ws " + modelData.ws : ""
+                font.family: Style.fontUi; font.pixelSize: Style.typeCaption; font.features: Style.fontTabular
+                color: Style.m3onSurfaceVariant
+                anchors.verticalCenter: parent.verticalCenter
+              }
+            }
           }
         }
       }

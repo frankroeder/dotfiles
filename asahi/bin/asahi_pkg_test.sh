@@ -48,6 +48,12 @@ printf 'newtool.aarch64  2.0-1.fc44  updates\n    oldtool.aarch64  1.0-1.fc44  u
 exit 100
 EOF
 chmod +x "$fake/dnf"
+# Flatpak updates (no network in tests): an app with a version, a runtime with only a branch.
+cat >"$fake/flatpak" <<'FP'
+#!/usr/bin/env bash
+printf 'org.mozilla.firefox\t146.0\tstable\tflathub\norg.freedesktop.Platform\t\t25.08\tflathub\n'
+FP
+chmod +x "$fake/flatpak"
 upd="$(PATH="$fake:$PATH" "$PKG" updates)"
 if echo "$upd" | jq -e 'has("packages") and has("available")' >/dev/null; then
   pass "updates JSON shape"
@@ -55,10 +61,26 @@ else
   fail_at "updates JSON: $upd"
 fi
 names="$(jq -c '[.packages[].name]' <<<"$upd")"
-if [ "$names" = '["kernel-16k","newtool"]' ]; then
-  pass "updates skips obsoletes headings and obsoleted rows"
+if [ "$names" = '["kernel-16k","newtool","org.mozilla.firefox","org.freedesktop.Platform"]' ]; then
+  pass "updates skips obsoletes headings and obsoleted rows; Flatpaks follow the dnf rows"
 else
   fail_at "updates with obsoletes: $names"
+fi
+if jq -e '.packages[2] == {name: "org.mozilla.firefox", arch: "", version: "146.0", repo: "flatpak · flathub", summary: "", source: "flatpak"}
+  and .packages[3].version == "25.08"' <<<"$upd" >/dev/null; then
+  pass "Flatpak rows: version (else branch), origin, source flatpak"
+else
+  fail_at "flatpak rows: $(jq -c '.packages[2:]' <<<"$upd")"
+fi
+# Offline: remote-ls fails, the cached listing answers.
+cat >"$fake/flatpak" <<'FP'
+#!/usr/bin/env bash
+case " $* " in *" --cached "*) printf 'org.gimp.GIMP\t3.0.6\tstable\tflathub\n' ;; *) exit 1 ;; esac
+FP
+if [ "$(PATH="$fake:$PATH" "$PKG" updates | jq -r '.packages[-1].name')" = org.gimp.GIMP ]; then
+  pass "offline Flatpak check falls back to the cache"
+else
+  fail_at "flatpak --cached fallback"
 fi
 
 # A query that crashes (here python3) still prints JSON, so the panel's spinner stops.

@@ -78,11 +78,19 @@ case "${1:-status}" in
   close)
     # Without an external, logind owns the lid (HandleLidSwitch=suspend) and
     # hypridle quiesces the DCP in before_sleep_cmd. Blanking eDP-1 here too
-    # raced that into a failed modeset and hung the machine — so do nothing.
+    # raced that into a failed modeset and hung the machine — so no blanking.
+    # Lock at once though (omarchy-system-lid-close): the lock no longer hangs
+    # on hypridle's before_sleep_cmd alone (no hypridle = a lid sleep unlocked);
+    # before_sleep_cmd then finds it up (asahi-lock's flock), and hypridle's
+    # inhibit_sleep = 3 releases at once for a session already locked.
     # Unless a block inhibitor means no suspend comes: give asahi-hdmi time to
     # enable the external (then clamshell below), else blank and lock here.
     if ! external_up; then
-      lid_blocked || { log "close: no lit external, logind suspends: $(outputs)"; exit 0; }
+      lid_blocked || {
+        log "close: no lit external, lock, logind suspends: $(outputs)"
+        setsid -f "$bin/asahi-lock" </dev/null >/dev/null 2>&1
+        exit 0
+      }
       sleep 5
       lid_closed && lid_blocked || { log "close: lid opened or block gone within 5 s"; exit 0; }
       if ! external_up; then

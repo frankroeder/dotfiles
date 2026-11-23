@@ -120,7 +120,7 @@ eq(/opacity: field\.enabled \? 1 : 0\.5/.test(polkitQml), true, "polkit: the pas
 eq(/now !== was && \(now === "nomatch" \|\| \(now === "failed" && was !== "nomatch"\)\)/.test(card), true, "the card shakes once per miss");
 eq(["ready", "reading", "match", "nomatch", "retry", "failed", "off"].every((ph) => orb.includes('"' + ph + '"')), true, "the orb knows every phase view() names");
 eq([/Style\.vivid\b/.test(orb), /Style\.vivid2/.test(orb)], [true, true], "orb: the lock's accent pair");
-// Animated (unlike hyprlock): scanning arc while reading, a pop as each result lands, the line rises in, the card
+// Animated: scanning arc while reading, a pop as each result lands, the line rises in, the card
 // drops out from under the bar (his pick 2026-11-20: not over it); the polkit card grows out of the notch (IslandCard).
 // Nothing runs while hidden: loops are tied to `live`.
 const lineQml = read("TouchIdLine.qml");

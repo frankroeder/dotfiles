@@ -441,7 +441,10 @@ Scope {
     if (prev && entry.ts - prev.ts < 100 && entry.appName === prev.appName
       && entry.summary === prev.summary && entry.body === prev.body) return
     const quiet = dndEnabled && entry.urgency !== 2
-    if (!quiet) Quickshell.execDetached([root.binDir + "/asahi-notification-sound"])
+    // The spec's suppress-sound hint: Signal / Telegram play their own sound (ours doubled it). Sound only: the card
+    // shows as usual.
+    const silent = !!(n.hints && n.hints["suppress-sound"])
+    if (!quiet && !silent) Quickshell.execDetached([root.binDir + "/asahi-notification-sound"])
     const twin = entry.appName === "Asahi Battery" ? null
       : root.toasts.concat(root.held).find(t => !root.leaving[t.key] && Model.sameContent(t, entry))
     if (twin) { repeatToast(twin, n, entry); return }
@@ -711,7 +714,7 @@ Scope {
           Text {
             text: "Notifications"
             font.family: Style.menuSans
-            font.pixelSize: 15
+            font.pixelSize: Style.typeTitle
             font.weight: Font.DemiBold
             color: Style.menuInk
           }
@@ -726,7 +729,7 @@ Scope {
               anchors.centerIn: parent
               text: root.historyCount
               font.family: Style.menuSans
-              font.pixelSize: 11
+              font.pixelSize: Style.typeBody
               font.weight: Font.DemiBold
               color: Style.menuInk
             }
@@ -743,7 +746,7 @@ Scope {
             visible: clearArm.running
             text: "Clear all?"
             font.family: Style.menuSans
-            font.pixelSize: 11
+            font.pixelSize: Style.typeBody
             color: Style.red
           }
           HeaderButton {
@@ -788,7 +791,7 @@ Scope {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: root.dndEnabled ? "Do not disturb is on" : "No notifications"
                 font.family: Style.menuSans
-                font.pixelSize: 12
+                font.pixelSize: Style.typeLead
                 color: Style.menuInkDeep
               }
             }
@@ -809,7 +812,7 @@ Scope {
                   Layout.topMargin: group.index === 0 ? 0 : 6
                   text: group.modelData.day
                   font.family: Style.menuSans
-                  font.pixelSize: 11
+                  font.pixelSize: Style.typeBody
                   font.weight: Font.DemiBold
                   color: Style.menuInkMuted
                 }
@@ -826,7 +829,7 @@ Scope {
                     elide: Text.ElideRight
                     Layout.maximumWidth: 220
                     font.family: Style.menuSans
-                    font.pixelSize: 11
+                    font.pixelSize: Style.typeBody
                     font.weight: Font.DemiBold
                     color: Style.menuInkDeep
                   }
@@ -840,7 +843,7 @@ Scope {
                       anchors.centerIn: parent
                       text: group.modelData.items.length
                       font.family: Style.menuSans
-                      font.pixelSize: 10
+                      font.pixelSize: Style.typeCaption
                       font.weight: Font.DemiBold
                       color: Style.menuInk
                     }
@@ -849,7 +852,7 @@ Scope {
                   Text {
                     text: group.open ? "Show less" : "Show all"
                     font.family: Style.menuSans
-                    font.pixelSize: 11
+                    font.pixelSize: Style.typeBody
                     color: toggleMa.containsMouse ? Style.menuSeal : Style.menuInkMuted
                     MouseArea { id: toggleMa; anchors.fill: parent; anchors.margins: -4; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.toggleGroup(group.modelData.key) }
                   }
@@ -917,6 +920,8 @@ Scope {
     property bool live: false
     // Back cards of a collapsed deck show only their frame.
     property bool contentShown: true
+    // History cards: "more" opens the whole body (cut at 3 lines; idea: Ryoku), "less" folds it again.
+    property bool expanded: false
     property real deckScale: 1
     readonly property color accent: root.urgencyColor(entry ? entry.urgency : 1)
     readonly property bool critical: !!entry && entry.urgency === 2
@@ -1080,7 +1085,7 @@ Scope {
             text: card.entry ? root.appLabel(card.entry) : ""
             textFormat: Text.PlainText
             font.family: Style.menuSans
-            font.pixelSize: 11
+            font.pixelSize: Style.typeBody
             font.weight: Font.Medium
             color: Style.menuInkDeep
             elide: Text.ElideRight
@@ -1090,14 +1095,14 @@ Scope {
             visible: !!card.entry && card.entry.count > 1
             text: card.entry ? "×" + card.entry.count : ""
             font.family: Style.menuSans
-            font.pixelSize: 11
+            font.pixelSize: Style.typeBody
             font.weight: Font.DemiBold
             color: Style.menuSeal
           }
           Text {
             text: card.entry ? root.relTime(card.entry.ts, root.clockTick) : ""
             font.family: Style.menuSans
-            font.pixelSize: 11
+            font.pixelSize: Style.typeBody
             color: Style.menuInkMuted
           }
         }
@@ -1107,7 +1112,7 @@ Scope {
           visible: text.length > 0
           textFormat: Text.PlainText
           font.family: Style.menuSans
-          font.pixelSize: 13
+          font.pixelSize: Style.typeTitle
           font.weight: Font.DemiBold
           color: Style.menuInk
           elide: Text.ElideRight
@@ -1118,6 +1123,7 @@ Scope {
         // anchors through (no img). Without a rich copy (history with codes, entries saved before it)
         // the body is plain already: shown as text, never parsed again (Model.textRich).
         Text {
+          id: bodyText
           text: card.entry ? card.entry.rich ?? Model.textRich(card.entry.body) : ""
           visible: text.length > 0
           textFormat: Text.StyledText
@@ -1127,12 +1133,23 @@ Scope {
             if (u) Quickshell.execDetached([root.binDir + "/asahi-launch", "xdg-open", u])
           }
           font.family: Style.menuSans
-          font.pixelSize: 12
+          font.pixelSize: Style.typeLead
           color: Style.menuInkDeep
           wrapMode: Text.Wrap
           elide: Text.ElideRight
-          maximumLineCount: card.compact ? 3 : 2
+          maximumLineCount: card.expanded ? 1000 : card.compact ? 3 : 2
           Layout.fillWidth: true
+        }
+        Text {
+          visible: card.compact && (bodyText.truncated || card.expanded)
+          text: card.expanded ? "less" : "more"
+          color: Style.menuSeal
+          font.family: Style.menuSans; font.pixelSize: Style.typeBody; font.weight: Font.Medium
+          MouseArea {
+            anchors.fill: parent; anchors.margins: -4
+            cursorShape: Qt.PointingHandCursor
+            onClicked: card.expanded = !card.expanded
+          }
         }
 
         // Codes first (copied as sensitive), then the sender's actions (its default runs on a card click).

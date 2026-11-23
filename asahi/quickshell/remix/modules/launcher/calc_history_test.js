@@ -87,7 +87,7 @@ assert(H.altFormats("0xa + 0b1 + 0o1", "12") === "0xc · 0b1100 · 0o14" && H.al
 assert(H.rows("", null, [], {}, -1).length === 0, "bare = with no history has no rows");
 const legendText = H.LEGEND.map(l => l[0] + " " + l[1].join(" ")).join(" ");
 assert(["sin", "atan2", "sinh", "ln", "log(x, b=10)", "exp", "sqrt", "root(x, n=2)", "round(x, n=0)", "nCr(n, k)", "nPr(n, k)",
-  "n!", "30°", "pi", "phi", "ans", "0x"].every(w => legendText.indexOf(w) !== -1), "legend names the functions and defaults");
+  "n!", "30°", "pi", "phi", "ans", "0x", "km to mi"].every(w => legendText.indexOf(w) !== -1), "legend names the functions and defaults");
 const r1 = H.rows("0xff+1", null, ["2+2", "3*3"], { "2+2": "4", "3*3": "9" }, 1);
 assert(r1.length === 3 && r1[0].special === "calc" && r1[0].result === "256" && r1[0].comment === "0x100 · Enter to copy", "result row first, hex hint");
 assert(r1[1].special === "calc-hist" && r1[1].name === "2+2" && r1[1].accessory === "= 4" && r1[1].result === "4" && r1[1].tint === "", "history row: expr, = result");
@@ -119,6 +119,19 @@ assert(/CalcHist\.rows\(q\.substring\(1\), root\.calcAns, root\.calcHistory, roo
 assert(/special === "calc-hist" && \(!entry\.result \|\| \(root\.query[\s\S]{0,240}setSearchQuery\("=" \+ entry\.expr\)/.test(qml), "a history row not yet loaded loads into the input");
 assert(/special === "calc" \|\| entry\.special === "calc-hist"\)[\s\S]{0,200}pushCalcHistory/.test(qml), "the loaded history row copies like a result");
 assert(/resultsList\.currentIndex = Math\.max\(0, at\)/.test(qml), "walking selects the loaded history row");
+
+// Units
+const cv = (e) => { const r = H.convert(e, ""); return r ? r.value + " " + r.unit : null };
+assert(cv("10 km to mi") === "6.21371 mi", "km to mi");
+assert(cv("5 GiB in MB") === "5368.71 MB", "GiB in MB (exact spelling)");
+assert(cv("1 gb in mb") === "1000 MB", "case-insensitive data units");
+assert(cv("72 f to c") === "22.2222 °C" && cv("0 c in k") === "273.15 K", "temperature is affine");
+assert(cv("10 in in cm") === "25.4 cm", "'in' is inches before the separator");
+assert(cv("2^10 B -> KiB") === "1 KiB", "value part is an expression");
+assert(cv("10 km to kg") === null && cv("km to mi") === null && cv("10 parsec to m") === null && cv("5 constructor to valueof") === null,
+  "mixed / missing / unknown / prototype names refused");
+const ur = H.rows("100 km/h to mph", "", [], {}, -1)[0];
+assert(ur && ur.special === "calc" && ur.result === "62.1371" && /^1 km\/h = /.test(ur.comment), "rows: conversion row copies the number");
 
 if (failed > 0) {
   console.log("\n" + failed + " assertion(s) failed");

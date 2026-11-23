@@ -23,6 +23,15 @@ ShellRoot {
     notifCenter.historyVisible = false
     appGrid.shown = false
   }
+  // Low battery (Style.reduceMotion): Hyprland's blur, animations and inactive translucency go off too
+  // (asahi-compositor-saver; measured nested with a redrawing window: −1.3–1.7 W, idle no change). The start runs
+  // the current state once: a saver left on by a restart is turned off.
+  readonly property bool compositorSaver: Style.reduceMotion
+  function runCompositorSaver() {
+    Quickshell.execDetached([Quickshell.env("HOME") + "/.dotfiles/asahi/bin/asahi-compositor-saver", shell.compositorSaver ? "on" : "off"])
+  }
+  onCompositorSaverChanged: shell.runCompositorSaver()
+  Component.onCompleted: shell.runCompositorSaver()
   // Calendar and notification sheet are one-at-a-time.
   onCalendarOpenChanged: if (calendarOpen) notifCenter.historyVisible = false
   Connections {
@@ -30,12 +39,14 @@ ShellRoot {
     function onHistoryVisibleChanged() { if (notifCenter.historyVisible) shell.calendarOpen = false }
   }
 
-  System.Osd { id: osd }
+  System.Osd { id: osd; quietVolume: shell.launcherOpen }
   System.DimOverlay {}
   System.NotificationCenter { id: notifCenter; touchIdPrompt: touchIdCard }   // not `touchIdPrompt: touchIdPrompt` (self-binds to null)
   // sudo / passkey / ssh-key Touch ID requests without a prompt of their own (lock + polkit draw theirs).
   System.TouchIdPrompt { id: touchIdCard }
   System.PkgManager { id: pkgManager }
+  // Low / critical battery cards from UPower signals (replaced the asahi-battery-alertd 30 s loop).
+  System.BatteryAlerts {}
   // Answers polkit (GUI admin prompts, pkexec); nothing did before.
   System.PolkitAgent { touchId: touchIdCard }
 

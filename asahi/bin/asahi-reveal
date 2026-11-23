@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+#
+# asahi-reveal <path>
+#
+# Show a file in its folder with the file selected ("Show in folder"; ideas: dhrruvsharma, serpantinum): the
+# FileManager1 D-Bus service (Thunar provides it, activatable), else the folder in the file manager. Screenshot and
+# recording cards, the Screenshots pane and the launcher's file rows (Shift+Enter) use it.
+#
+# Tests: asahi_reveal_test.sh (fake gdbus / xdg-open)
+#
+
+set -euo pipefail
+
+path="${1:-}"
+if [ -z "$path" ] || [ ! -e "$path" ]; then
+  echo "usage: $0 <existing path>" >&2
+  exit 2
+fi
+path="$(readlink -f "$path")"
+# file:// URI: percent-encode everything but unreserved characters and '/'.
+uri="file://$(jq -rn --arg p "$path" '$p | @uri | gsub("%2F"; "/")')"
+
+if ! gdbus call --session --dest org.freedesktop.FileManager1 --object-path /org/freedesktop/FileManager1 \
+  --method org.freedesktop.FileManager1.ShowItems "['$uri']" "" >/dev/null 2>&1; then
+  exec "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/asahi-launch" xdg-open "$(dirname "$path")"
+fi

@@ -645,6 +645,8 @@ comp_asahi_system() {
   sudo sysctl -q -p /etc/sysctl.d/99-asahi-zram.conf
   sudo_install "$DOTFILES/asahi/sysctl.d/99-asahi-hardening.conf" /etc/sysctl.d/99-asahi-hardening.conf
   sudo sysctl -q -p /etc/sysctl.d/99-asahi-hardening.conf
+  sudo_install "$DOTFILES/asahi/sysctl.d/90-asahi-inotify.conf" /etc/sysctl.d/90-asahi-inotify.conf
+  sudo sysctl -q -p /etc/sysctl.d/90-asahi-inotify.conf
   if [ "$(sysctl -n dev.tty.legacy_tiocsti)" != 0 ]; then
     print_error "kernel hardening sysctl not active (want dev.tty.legacy_tiocsti=0)"
     exit 1
@@ -942,6 +944,10 @@ comp_asahi_desktop() {
   link_if_exists "$DOTFILES/asahi/bin/asahi-apple-music" "$HOME/.local/bin/asahi-apple-music"
   link_if_exists "$DOTFILES/asahi/applications/asahi-apple-music.desktop" \
     "$HOME/.local/share/applications/asahi-apple-music.desktop"
+  # Text, Markdown, JSON … open in Neovim inside Ghostty (mimeapps.list; nvim.desktop is Terminal=true).
+  link_if_exists "$DOTFILES/asahi/applications/asahi-nvim.desktop" "$HOME/.local/share/applications/asahi-nvim.desktop"
+  # asahi-nvim.desktop runs it by name (Ghostty + the interactive shell's environment): the session PATH has ~/.local/bin.
+  link_if_exists "$DOTFILES/asahi/bin/asahi-launch-tui" "$HOME/.local/bin/asahi-launch-tui"
   link_if_exists "$DOTFILES/asahi/environment.d/90-asahi.conf" "$HOME/.config/environment.d/90-asahi.conf"
   # Hyprland is not KDE: stop kwalletd/ksecretd from claiming Secret Service
   # ("Default Keyring" wallet wizard). gnome-keyring is the store instead.
@@ -960,9 +966,8 @@ comp_asahi_desktop() {
   # Settings portal is gtk (Hyprland does not implement appearance color-scheme).
   link_if_exists "$DOTFILES/asahi/xdg-desktop-portal/portals.conf" \
     "$HOME/.config/xdg-desktop-portal/portals.conf"
-  if [ ! -f "$HOME/.local/state/asahi-theme/hyprlock.conf" ]; then
-    cp -f "$DOTFILES/asahi/hypr/hyprlock-theme.conf" "$HOME/.local/state/asahi-theme/hyprlock.conf"
-  fi
+  # hyprlock is gone (2026-11-22; the Quickshell lock is the only locker): its generated colours, log, locker switch.
+  rm -f "$HOME/.local/state/asahi-theme/hyprlock.conf" "$HOME/.local/state/asahi/hyprlock.log" "$HOME/.local/state/asahi/locker"
   # Real files (not symlinks): asahi-autotheme flips light/dark here.
   for gtkver in gtk-3.0 gtk-4.0; do
     dest="$HOME/.config/$gtkver/settings.ini"
@@ -1023,15 +1028,13 @@ EOF
 }
 
 comp_asahi_battery_alerts() {
-  print_step "Installing Asahi battery alerts"
+  # The low / critical cards come from the shell now (remix/modules/system/BatteryAlerts.qml, UPower signals): drop the
+  # old daemon (a bash loop waking every 30 s) on machines that still run it.
+  print_step "Asahi battery alerts: removing the old alert daemon"
   have notify-send || { print_error "notify-send is required (libnotify, asahi/dnf.sh)"; exit 1; }
-  link_if_exists "$DOTFILES/asahi/bin/asahi-battery-alertd" "$HOME/.local/bin/asahi-battery-alertd"
-  link_if_exists "$DOTFILES/asahi/systemd/user/asahi-battery-alertd.service" "$HOME/.config/systemd/user/asahi-battery-alertd.service"
+  systemctl --user disable --now asahi-battery-alertd.service 2>/dev/null || true
+  rm -f "$HOME/.config/systemd/user/asahi-battery-alertd.service" "$HOME/.local/bin/asahi-battery-alertd"
   systemctl --user daemon-reload
-  systemctl --user enable --now asahi-battery-alertd.service || {
-    print_error "asahi-battery-alertd.service failed to enable/start"
-    exit 1
-  }
 }
 
 comp_asahi_wallpapers() {
@@ -1213,7 +1216,7 @@ comp_doctor() {
     report_check "borders process" pgrep -qx borders
   elif is_asahi; then
     print_step "Checking Asahi/Hyprland binaries"
-    for b in Hyprland quickshell qs hypridle hyprlock hyprpaper brightnessctl nmcli bluetoothctl nm-connection-editor nmtui blueman-manager openconnect gnome-keyring-daemon wf-recorder grok-bot; do
+    for b in Hyprland quickshell qs hypridle hyprpaper brightnessctl nmcli bluetoothctl nm-connection-editor nmtui blueman-manager openconnect gnome-keyring-daemon wf-recorder grok-bot; do
       check_bin "$b" || true
     done
     report_check "nm-openconnect-service" test -x /usr/libexec/nm-openconnect-service
@@ -1289,7 +1292,6 @@ comp_doctor() {
     check_link "$HOME/.config/kwalletrc"
     check_link "$HOME/.config/Thunar/uca.xml"
     report_check "suspend-failed unit" test -f /etc/systemd/system/asahi-suspend-failed.service
-    report_check "battery-alertd unit" systemctl --user is-enabled asahi-battery-alertd.service
     report_check "timemachine timer" systemctl --user is-enabled asahi-timemachine.timer
     report_check "vconsole.conf" test -f /etc/vconsole.conf
     report_check "zram config" test -f /etc/systemd/zram-generator.conf.d/90-asahi.conf

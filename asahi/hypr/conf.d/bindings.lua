@@ -21,7 +21,8 @@ hl.bind(mod .. " + T", function()
     hl.dispatch(hl.dsp.exec_cmd(launch(terminal)))
   end
 end, { desc = "Terminal (new window in the focused terminal's directory)" })
-hl.bind(mod .. " + Z", hl.dsp.exec_cmd(launch(filemanager)), { desc = "Filemanager" })
+-- Thunar in the focused terminal's folder (Ghostty's prompt title), else at home.
+hl.bind(mod .. " + Z", hl.dsp.exec_cmd(scripts .. "/asahi-files-here"), { desc = "Filemanager" })
 hl.bind(mod .. " + SPACE", hl.dsp.global "quickshell:launcher-toggle", { desc = "Launcher" })
 hl.bind(mod .. " + ALT + SPACE", hl.dsp.exec_cmd "qs -c remix ipc call launcher apps", { desc = "All apps (Launchpad grid)" })
 hl.bind(
@@ -76,6 +77,8 @@ hl.bind(mod .. " + SHIFT + F", hl.dsp.window.fullscreen(), { desc = "Toggle full
 hl.bind(mod .. " + P", hl.dsp.window.pseudo(), { desc = "Toggle pseudo" })
 hl.bind(mod .. " + R", hl.dsp.layout "togglesplit", { desc = "Toggle split" })
 hl.bind(mod .. " + SHIFT + P", hl.dsp.exec_cmd(scripts .. "/asahi-window-gesture pin"), { desc = "Toggle pin window (always on top)" })
+-- One window fully opaque, e.g. a video or photo in Firefox under inactive_opacity 0.9 (idea: omarchy).
+hl.bind(mod .. " + BackSpace", hl.dsp.window.set_prop({ prop = "opaque", value = "toggle" }), { desc = "Toggle window opaque" })
 hl.bind(mod .. " + W", hl.dsp.group.toggle(), { desc = "Toggle group" })
 hl.bind(mod .. " + ALT + W", hl.dsp.window.move { out_of_group = true }, { desc = "Move window out of group" })
 hl.bind(mod .. " + ALT + SHIFT + W", hl.dsp.group.lock_active(), { desc = "Lock active group" })
@@ -177,9 +180,11 @@ end, { desc = "Zoom reset" })
 
 -- Session and screenshots
 -- submap_universal: the writing-tools submap's catchall must not swallow lock / media / lid.
--- `locked`: on Hyprland's lockdead screen (hyprlock gone, asahi-lock out of retries) the same key starts a
--- new hyprlock that retakes the lock, instead of a TTY. While locked asahi-lock exits at once (flock/pidof).
-hl.bind(mod .. " + Escape", hl.dsp.exec_cmd(scripts .. "/asahi-lock"), { locked = true, submap_universal = true, desc = "Lock" })
+-- `locked`: on Hyprland's lockdead screen (the lock gone, asahi-lock out of retries) the same key starts a
+-- new lock that retakes the session, instead of a TTY. While locked asahi-lock exits at once (flock/pidof).
+-- dont_inhibit: also while an app inhibits shortcuts (Chromium keyboard lock, a VM / remote viewer; idea: Ryoku).
+hl.bind(mod .. " + Escape", hl.dsp.exec_cmd(scripts .. "/asahi-lock"),
+  { locked = true, submap_universal = true, dont_inhibit = true, desc = "Lock" })
 hl.bind(
   mod .. " + SHIFT + Escape",
   hl.dsp.exec_cmd "qs -c remix ipc call launcher openCategory System",
@@ -199,7 +204,7 @@ hl.bind(mod .. " + CONTROL + SHIFT + F11", hl.dsp.exec_cmd(scripts .. "/asahi-cm
 hl.bind(mod .. " + CONTROL + SHIFT + F12", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot fullscreen --clip"), { desc = "Screenshot display to clipboard" })
 hl.bind(mod .. " + SHIFT + F11", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-ocr"), { desc = "OCR region" })
 hl.bind(mod .. " + CONTROL + F11", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-qr"), { desc = "QR region" })
-hl.bind(mod .. " + SHIFT + F12", hl.dsp.exec_cmd "hyprpicker -a", { desc = "Color picker" })
+hl.bind(mod .. " + SHIFT + F12", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-colorpick"), { desc = "Color picker" })
 hl.bind(mod .. " + ALT + F11", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record region"), { desc = "Record region (toggle)" })
 hl.bind(mod .. " + ALT + F12", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record fullscreen"), { desc = "Record focused display (toggle)" })
 hl.bind(mod .. " + ALT + R", hl.dsp.global "quickshell:recorder-panel", { desc = "Recorder panel" })
@@ -213,7 +218,7 @@ hl.bind(mod .. " + XF86AudioRaiseVolume", hl.dsp.exec_cmd(scripts .. "/asahi-cmd
 hl.bind(mod .. " + CONTROL + SHIFT + XF86AudioMute", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot windows --clip"), { desc = "Screenshot window to clipboard (top row)" })
 hl.bind(mod .. " + CONTROL + SHIFT + XF86AudioLowerVolume", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot smart --clip"), { desc = "Screenshot smart to clipboard (top row)" })
 hl.bind(mod .. " + CONTROL + SHIFT + XF86AudioRaiseVolume", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-screenshot fullscreen --clip"), { desc = "Screenshot display to clipboard (top row)" })
-hl.bind(mod .. " + SHIFT + XF86AudioRaiseVolume", hl.dsp.exec_cmd "hyprpicker -a", { desc = "Color picker (top row)" })
+hl.bind(mod .. " + SHIFT + XF86AudioRaiseVolume", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-colorpick"), { desc = "Color picker (top row)" })
 hl.bind(mod .. " + ALT + XF86AudioLowerVolume", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record region"), { desc = "Record region (top row)" })
 hl.bind(mod .. " + ALT + XF86AudioRaiseVolume", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record fullscreen"), { desc = "Record display (top row)" })
 hl.bind(mod .. " + ALT + SHIFT + XF86AudioRaiseVolume", hl.dsp.exec_cmd(scripts .. "/asahi-cmd-record webcam"), { desc = "Record display with webcam (top row)" })

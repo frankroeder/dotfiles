@@ -7,6 +7,7 @@ import "../../../"
 import "../../menu" as Menu
 import "../BarModel.js" as BarModel
 import "../life_span.js" as Life
+import "../../../services" as Services
 
 Item {
   id: root
@@ -23,6 +24,12 @@ Item {
   SystemClock {
     id: clock
     precision: SystemClock.Minutes
+  }
+  // After a sleep / an unlock (BarData.clockEpoch): re-enabling makes SystemClock read the time now (else up to a
+  // minute of the time from before the sleep).
+  Connections {
+    target: Services.BarData
+    function onClockEpochChanged() { clock.enabled = false; clock.enabled = true }
   }
 
   readonly property string timeLine: Qt.formatDateTime(clock.date, "HH:mm")
@@ -245,7 +252,7 @@ Item {
             text: root.monthLabel()
             color: Style.menuInk
             font.family: Style.menuSans
-            font.pixelSize: 13
+            font.pixelSize: Style.typeTitle
             font.weight: Font.Medium
           }
           Rectangle {
@@ -259,7 +266,7 @@ Item {
             width: 50; height: 26; radius: Style.radius
             color: todayMa.containsMouse ? Style.m3stateHover : Style.menuControlBg
             border.color: Style.menuSep; border.width: 1
-            Text { anchors.centerIn: parent; text: "today"; color: Style.menuInk; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 10 }
+            Text { anchors.centerIn: parent; text: "today"; color: Style.menuInk; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeCaption }
             MouseArea { id: todayMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.goToday() }
           }
           Rectangle {
@@ -280,7 +287,7 @@ Item {
             text: "W"
             color: Style.menuInkDeep
             font.family: Style.fontUi; font.features: Style.fontTabular
-            font.pixelSize: 8
+            font.pixelSize: Style.typeCaption
             opacity: 0.7
           }
           Repeater {
@@ -292,7 +299,7 @@ Item {
               text: modelData
               color: Style.menuInkDeep
               font.family: Style.fontUi; font.features: Style.fontTabular
-              font.pixelSize: 10
+              font.pixelSize: Style.typeCaption
               font.letterSpacing: 0.6
             }
           }
@@ -324,7 +331,7 @@ Item {
                 text: modelData.w ? String(modelData.w) : ""
                 color: parent.weekIsCurrent ? Style.menuSeal : Style.menuInkDeep
                 font.family: Style.fontUi; font.features: Style.fontTabular
-                font.pixelSize: 8
+                font.pixelSize: Style.typeCaption
                 opacity: 0.85
               }
               Repeater {
@@ -347,7 +354,7 @@ Item {
                     // Filled "today" (M3 date picker): a 22% wash read as disabled on grey accents.
                     color: parent.isToday ? Style.menuOnAccent : Style.menuInk
                     font.family: Style.fontUi; font.features: Style.fontTabular
-                    font.pixelSize: 12
+                    font.pixelSize: Style.typeLead
                     font.weight: parent.isToday ? Font.DemiBold : Font.Normal
                   }
                 }
@@ -361,7 +368,7 @@ Item {
           text: Qt.formatDate(root.today, "dddd, d MMMM yyyy")
           color: Style.menuInkDeep
           font.family: Style.fontUi; font.features: Style.fontTabular
-          font.pixelSize: 11
+          font.pixelSize: Style.typeBody
           horizontalAlignment: Text.AlignHCenter
         }
 
@@ -378,7 +385,7 @@ Item {
             text: "Life"
             color: Style.menuInkDeep
             font.family: Style.fontUi; font.features: Style.fontTabular
-            font.pixelSize: 10
+            font.pixelSize: Style.typeCaption
             font.letterSpacing: 0.6
           }
           Item { Layout.fillWidth: true }
@@ -398,7 +405,7 @@ Item {
               horizontalAlignment: Text.AlignHCenter
               color: Style.menuInk
               font.family: Style.fontUi; font.features: Style.fontTabular
-              font.pixelSize: 12
+              font.pixelSize: Style.typeLead
               clip: true
               selectByMouse: true
               maximumLength: 4
@@ -435,7 +442,7 @@ Item {
             text: root.life.yearsLeft + " years left"
             color: Style.menuInk
             font.family: Style.fontUi; font.features: Style.fontTabular
-            font.pixelSize: 13
+            font.pixelSize: Style.typeTitle
             font.weight: Font.Medium
           }
           Item { Layout.fillWidth: true }
@@ -443,7 +450,7 @@ Item {
             text: root.life.percentLeft + "% left"
             color: Style.menuSeal
             font.family: Style.fontUi; font.features: Style.fontTabular
-            font.pixelSize: 13
+            font.pixelSize: Style.typeTitle
             font.weight: Font.Medium
           }
         }
@@ -454,7 +461,7 @@ Item {
           text: "Enter a birth year"
           color: Style.menuInkDeep
           font.family: Style.fontUi; font.features: Style.fontTabular
-          font.pixelSize: 11
+          font.pixelSize: Style.typeBody
           horizontalAlignment: Text.AlignHCenter
         }
 

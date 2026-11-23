@@ -7,7 +7,7 @@ const vm = require("vm");
 
 const src = fs.readFileSync(path.join(__dirname, "Data.js"), "utf8").replace(/^\.pragma library\n/, "");
 const out = {};
-vm.runInNewContext(src + "\n__out.categoryNav = categoryNav;\n__out.itemTint = itemTint;\n__out.deckTint = deckTint;\n__out.categoryTints = categoryTints;\n__out.tildify = tildify;\n__out.categoryPrefix = categoryPrefix;\n__out.parseHyprBinds = parseHyprBinds;", { __out: out });
+vm.runInNewContext(src + "\n__out.categoryNav = categoryNav;\n__out.itemTint = itemTint;\n__out.deckTint = deckTint;\n__out.categoryTints = categoryTints;\n__out.tildify = tildify;\n__out.categoryPrefix = categoryPrefix;\n__out.parseHyprBinds = parseHyprBinds;\n__out.oneEdit = oneEdit;", { __out: out });
 
 let failed = 0;
 function assert(cond, msg) {
@@ -19,7 +19,7 @@ function assert(cond, msg) {
 }
 
 const nav = out.categoryNav;
-assert(nav.length === 8, "overview has 8 menu items (got " + nav.length + ")");
+assert(nav.length === 9, "overview has 9 menu items (got " + nav.length + ")");
 const tints = nav.map(row => row.tint);
 assert(tints.every(Boolean), "every overview item has a tint");
 assert(new Set(tints).size === tints.length, "overview tints are unique (got " + tints.join(", ") + ")");
@@ -46,6 +46,10 @@ assert(binds[1].combo === "Super+Shift+3", "code:12 reads as the de digit (got "
 assert(binds[2].combo === "Super+Ctrl+Shift+LowerVolume", "XF86 prefix dropped (got " + binds[2].combo + ")");
 const prefixed = nav.filter(row => row.accessory && out.categoryPrefix[row.target] !== undefined);
 assert(prefixed.every(row => out.categoryPrefix[row.target] === row.accessory), "overview prefix hints match categoryPrefix");
+
+assert(out.oneEdit("firfox", "firefox") && out.oneEdit("thnuar", "thunar") === false && out.oneEdit("thnar", "thunar"),
+  "oneEdit: a missing letter matches, a swap (two edits) does not");
+assert(out.oneEdit("gimq", "gimp") && !out.oneEdit("gi", "gimp"), "oneEdit: one wrong letter yes, two missing no");
 
 const qml = fs.readFileSync(path.join(__dirname, "LauncherWindow.qml"), "utf8");
 assert(qml.indexOf("function tintColor") !== -1, "LauncherWindow maps tint tokens to Style colors");

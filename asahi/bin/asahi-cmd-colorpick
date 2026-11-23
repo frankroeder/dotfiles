@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Pick a screen colour and copy its hex; a card shows a swatch and re-copies it as rgb() / hsl().
+# Esc (no pick) = no card.
+
+set -euo pipefail
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
+
+hex="$(hyprpicker -b -f hex 2>/dev/null | grep -m1 -oiE '#[0-9a-f]{6}' || true)"
+[ -n "$hex" ] || exit 0
+# Not hyprpicker -a: its wl-copy could inherit the pipe above and hold it open.
+wl-copy "$hex"
+
+r=$((16#${hex:1:2})) g=$((16#${hex:3:2})) b=$((16#${hex:5:2}))
+rgb="rgb($r, $g, $b)"
+hsl="$(awk -v r="$r" -v g="$g" -v b="$b" 'BEGIN {
+  r /= 255; g /= 255; b /= 255
+  max = r > g ? (r > b ? r : b) : (g > b ? g : b)
+  min = r < g ? (r < b ? r : b) : (g < b ? g : b)
+  l = (max + min) / 2; d = max - min; h = 0; s = 0
+  if (d > 0) {
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+    if (max == r) h = (g - b) / d + (g < b ? 6 : 0)
+    else if (max == g) h = (b - r) / d + 2
+    else h = (r - g) / d + 4
+  }
+  printf "hsl(%d, %d%%, %d%%)", int(h * 60 + 0.5) % 360, int(s * 100 + 0.5), int(l * 100 + 0.5)
+}')"
+
+# One swatch file, named by colour: the card loads it by path, and Qt's pixmap cache would show a reused
+# path's old colour.
+dir="$(runtime_dir)"
+rm -f "$dir"/asahi-colorpick-*.png
+png="$dir/asahi-colorpick-${hex:1}.png"
+magick -size 48x48 "xc:$hex" "$png"
+
+# App name `screenshot`: shown silently under Do Not Disturb, like the other capture-row toasts.
+# No -t with -A: notify-send waits, detached, for a click or the card closing (see asahi-cmd-screenshot).
+setsid -f bash -c '
+  act="$(notify-send -a screenshot -i "$1" -A "rgb=rgb()" -A "hsl=hsl()" "Copied $2" "$3 · $4" 2>/dev/null || true)"
+  case "$act" in
+    rgb) wl-copy "$3" ;;
+    hsl) wl-copy "$4" ;;
+  esac' _ "$png" "$hex" "$rgb" "$hsl" >/dev/null 2>&1

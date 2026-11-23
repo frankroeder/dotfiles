@@ -73,20 +73,20 @@ eq(drop(36, 36), 6, "external bar: plain gap");
 
 // Right cluster: what shows beyond the fixed chips, most important first, whole or not at all.
 const grants = ctx.rightGrants;
-const asks = (o) => Object.assign({ rec: 0, timer: 0, awake: 0, night: 0, cup: 23, updates: 0, ccu: 0, vpnName: 0, vpnAge: 0, netName: 0 }, o);
+const asks = (o) => Object.assign({ rec: 0, share: 0, timer: 0, awake: 0, night: 0, cup: 23, updates: 0, ccu: 0, vpnName: 0, vpnAge: 0, netName: 0 }, o);
 const shown = (g) => Object.keys(g).filter((k) => g[k] === true).sort().join(" ");
 let g = grants(600, asks({ rec: 63, timer: 51, night: 24, updates: 24, ccu: 40, vpnName: 100, vpnAge: 40, netName: 120 }), 3, 24, false);
-eq(shown(g), "awake ccu cup netName night rec timer tray updates vpnAge vpnName", "external screen: room for all");
+eq(shown(g), "awake ccu cup netName night rec share timer tray updates vpnAge vpnName", "external screen: room for all");
 eq(g.trayInline, 3, "three tray icons inline, no pill");
 g = grants(600, asks({ ccu: 40, vpnName: 100, vpnAge: 40, netName: 120 }), 0, 24, true);
-eq(shown(g), "awake ccu cup night rec timer tray updates", "notch: the VPN's name never shows, nor anything after it");
+eq(shown(g), "awake ccu cup night rec share timer tray updates", "notch: the VPN's name never shows, nor anything after it");
 g = grants(100, asks({ ccu: 40, netName: 120 }), 0, 24, false);
 eq(g.ccu === true && !g.netName, true, "words stop at the first that does not fit");
 g = grants(100, asks({ ccu: 40, vpnName: 100, vpnAge: 20 }), 0, 24, false);
 eq(!g.vpnName && !g.vpnAge, true, "no VPN uptime without its name, even if it would fit");
 // Tight (the notch side with REC, a timer and night light on): chips drop from the least important end.
 g = grants(150, asks({ rec: 63, timer: 51, night: 24, updates: 24, ccu: 40 }), 1, 24, true);
-eq(shown(g), "awake night rec timer", "REC, timer and night light before tray, idle cup, updates and words");
+eq(shown(g), "awake night rec share timer", "REC, timer and night light before tray, idle cup, updates and words");
 eq(g.trayInline, 0, "a tray that got no room shows no icon");
 g = grants(170, asks({ rec: 63, timer: 51, night: 24, updates: 24 }), 5, 24, true);
 eq(g.tray && !g.cup && !g.updates, true, "the tray's pill before the idle cup and the updates box");
@@ -95,6 +95,8 @@ g = grants(60, asks({ rec: 63, timer: 51 }), 0, 24, true);
 eq(!g.rec && g.timer === true, true, "a chip that does not fit is skipped, a smaller one after it still shows");
 g = grants(40, asks({ awake: 23, cup: 0, night: 24 }), 0, 24, true);
 eq(g.awake === true && !g.night, true, "stay awake on outranks the night light");
+g = grants(50, asks({ share: 24, timer: 51, night: 24 }), 0, 24, true);
+eq(g.share === true && !g.timer && g.night === true, true, "screen share right after REC, before the timer");
 g = grants(-5, asks({ rec: 63 }), 2, 24, true);
 eq(shown(g), "", "the fixed chips already overflow: nothing more");
 // Tray: all inline while they fit (at most 3), else as many as fit beside the 30 px pill.

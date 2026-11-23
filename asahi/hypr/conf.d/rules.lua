@@ -73,11 +73,16 @@ layer_rule("^(quickshell.*)$", { blur = true, ignore_alpha = 0.3 })
 -- and stays below ignore_alpha), so the desktop behind stays readable.
 layer_rule("^(quickshell-launcher|quickshell-wallpaper|quickshell-pkgman)$", { blur = true, ignore_alpha = 0.5, xray = false })
 layer_rule("^asahi-dim$", { no_anim = true, animation = "none" })
+-- slurp (region screenshots, OCR, QR, recordings): its selection must vanish at once; faded out over 0.5 s, grim caught
+-- its border as a 1–2 px grey frame on every region shot (omarchy screenshot-selection.lua).
+layer_rule("^selection$", { no_anim = true, animation = "none" })
 
 window_rule({ class = "^(org\\.kde\\.okular|org\\.gnome\\.Evince)$" }, { opacity = "0.98 0.92" })
 -- File choosers outside the portal (Chromium) and bare Preferences / Properties windows. Rules match the whole
 -- title, so a browser page titled "Choose …" or "Preferences" stays tiled.
 window_rule({ class = ".*", title = "^(Open Files?|Save File|Save As|Select Folder|Preferences|Properties)$" }, { float = true, center = true })
+-- Thunar's copy / move progress (no parent window: it tiled on long copies; idea: shell-ninja, surface-dots).
+window_rule({ class = "^(thunar|Thunar)$", title = "^(File Operation Progress)$" }, { float = true, center = true })
 window_rule({ class = "^(hyprland-share-picker)$" }, { float = true, center = true, opaque = true })
 
 layer_rule("^(ghostty-quick-terminal)$", { blur = true, ignore_alpha = 0.05, xray = false })

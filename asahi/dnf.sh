@@ -55,7 +55,6 @@ dnf_install_user \
   gwenview \
   hypridle \
   hyprland \
-  hyprlock \
   hyprpaper \
   hyprsunset \
   git \

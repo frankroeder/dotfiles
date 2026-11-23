@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Tunnel facts for the Network pane's VPN card, local reads only (NM, kernel route lookup, systemd-resolved): nothing
+# leaves the box. Idea: mj0x0/serpantinum-kde helpers/vpn-info.sh.
+# JSON: {"up":false} or {"up":true, "iface", "killswitch": "on"|"off"|"" (no kill switch connection),
+#   "routed": default route through the tunnel, "dns": [servers], "mtu"}
+
+# Proton: proton0 (wireguard); openconnect (TUHH-VPN): vpn0 (tun, "connected (externally)"); wg-quick: wireguard.
+tunnels=$(nmcli -t -f DEVICE,TYPE,STATE dev status 2>/dev/null | awk -F: '$2 ~ /^(tun|wireguard)$/ && $3 ~ /^connected/ { print $1 }' || true)
+if [ -z "$tunnels" ]; then
+  echo '{"up":false}'
+  exit 0
+fi
+
+# Kernel lookup (policy rules included, sends nothing) of a public address.
+route_dev=$(ip route get 1.1.1.1 2>/dev/null | awk '{ for (i = 1; i < NF; i++) if ($i == "dev") { print $(i + 1); exit } }' || true)
+iface=${tunnels%%$'\n'*}
+if [ -n "$route_dev" ] && grep -qxF -- "$route_dev" <<<"$tunnels"; then iface=$route_dev; fi
+routed=false
+if [ "$route_dev" = "$iface" ]; then routed=true; fi
+
+# Proton's kill switch connections; pvpn-killswitch-ipv6 is its IPv6 leak guard, up with every tunnel (not the switch).
+killswitch=$(nmcli -t -f NAME,ACTIVE connection show 2>/dev/null |
+  awk -F: '$1 ~ /^pvpn-(routed-)?killswitch$/ { ks = (ks == "on" || $2 == "yes") ? "on" : "off" } END { print ks }' || true)
+
+# "Link 7 (proton0): 10.2.0.1 …" (long lists wrap onto indented lines). Address-like tokens only (pushed by the server).
+dns=$(resolvectl dns "$iface" 2>/dev/null | sed 's/^Link [0-9]* ([^)]*)://' | tr -s ' \n' '\n' |
+  grep -E '^[0-9A-Fa-f:.]+([%#][A-Za-z0-9_.-]+)*$' || true)
+
+mtu=$(ip -o link show dev "$iface" 2>/dev/null | awk '{ for (i = 1; i < NF; i++) if ($i == "mtu") { print $(i + 1); exit } }' || true)
+case "$mtu" in ''|*[!0-9]*) mtu=0 ;; esac
+
+jq -cn --arg iface "$iface" --arg ks "$killswitch" --argjson routed "$routed" --arg dns "$dns" --argjson mtu "$mtu" \
+  '{up: true, iface: $iface, killswitch: $ks, routed: $routed, dns: ($dns | split("\n") | map(select(. != ""))[0:3]), mtu: $mtu}'

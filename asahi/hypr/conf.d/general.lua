@@ -37,9 +37,9 @@ hl.config {
     focus_on_activate = true,
     key_press_enables_dpms = true,
     mouse_move_enables_dpms = true,
-    -- Lets a fresh hyprlock re-acquire the session lock if the previous one
-    -- died. Without it a crashed locker leaves the session stuck rather than
-    -- recoverable — worth having when hyprlock is the only screen gate.
+    -- Lets a fresh lock (asahi-lock's retry) re-acquire the session lock if
+    -- the previous one died. Without it a crashed locker leaves the session
+    -- stuck rather than recoverable — the lock is the only screen gate.
     allow_session_lock_restore = true,
     -- A window focused under a fullscreen or maximized one takes over that
     -- state (default 2 un-fullscreens instead).
@@ -103,4 +103,14 @@ hl.gesture {
   direction = "horizontal",
   action = "workspace",
   scale = 0.75,
+}
+
+-- Super + pinch zooms the magnifier live (Super+Ctrl+Z / +Shift+Z / +Alt+Z stay the keys; idea: Gren-95).
+hl.gesture {
+  fingers = 2,
+  direction = "pinch",
+  mods = "SUPER",
+  action = "cursorZoom",
+  zoom_level = 1,
+  mode = "live",
 }

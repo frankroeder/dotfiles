@@ -83,7 +83,15 @@ log_sleep_drain() {
 }
 
 wake() {
-  if [ -f "$sleep_mark" ]; then log_sleep_drain; fi
+  if [ -f "$sleep_mark" ]; then
+    log_sleep_drain
+    # Every sleep locks first (before_sleep_cmd; omarchy's sleep-lock reports the same miss). No lock now = the
+    # session slept open: say so, the card is the only way he finds out (idea: omarchy-system-sleep-lock).
+    if ! lock_running; then
+      log "woke without a lock"
+      notify-send -a idle -u critical "Slept without the lock screen" "The lock did not come up before sleep. Super+Escape locks." || true
+    fi
+  fi
   # Ignore wakes while off locks (the lock surface fakes motion). Only a flag <15 s old counts:
   # an off killed mid-lock leaves the flag behind and must not swallow every later wake.
   if [ -n "$(find "$locking" -newermt '-15 seconds' 2>/dev/null)" ]; then log "wake ignored: lock surface"; return 0; fi
@@ -93,7 +101,7 @@ wake() {
   exec {wake_lock}>"$(runtime_dir)/asahi-idle-wake.lock"
   if [ "$cmd" = wake ]; then flock -n "$wake_lock" || return 0; else flock -w 5 "$wake_lock" || true; fi
   # The saver goes first, also under a closed lid (it lights nothing): a lid lock left it running
-  # under hyprlock, its timers waking the CPU, and it showed again after unlock.
+  # under the lock, its timers waking the CPU, and it showed again after unlock.
   "$bin/asahi-screensaver" stop || true
   # Lid closed, no clamshell: keep the panel dark (a refused suspend ran after_sleep and lit the
   # closed panel for an hour). asahi-clamshell open relights it on lid open.
@@ -122,6 +130,59 @@ if [ "$cmd" = mark ]; then
   ac=""
   if on_ac; then ac=ac; fi
   echo "$(date +%s) $(battery_uwh) $ac" >"$sleep_mark"
+  exit 0
+fi
+
+# Browser tabs keep silent streams RUNNING for hours, so RUNNING is not playback: record ~1 s of
+# each running sink's monitor and look for signal (stream.capture.sink, else pw-record takes the
+# mic). The monitor is pre-volume: muted playback still blocks sleep, like macOS.
+playing() {
+  local sink samples
+  for sink in $(pactl list sinks short 2>/dev/null | awk '$NF == "RUNNING" { print $2 }'); do
+    samples=$(timeout 1.2 pw-record -P '{ stream.capture.sink = true }' --target "$sink" \
+      --rate 8000 --channels 1 --format s16 --raw - 2>/dev/null | od -An -v -td2 -w2) || true
+    if awk '{ v = $1 < 0 ? -$1 : $1; if (v > 16) { found = 1; exit } } END { exit !found }' <<<"$samples"; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+stream_apps() {
+  pactl -f json list sink-inputs 2>/dev/null \
+    | jq -r '[.[] | select(.corked | not) | .properties["application.name"] // empty] | unique | join(", ")' 2>/dev/null || true
+}
+
+# The same as JSON rows {kind, who, why, …} for the Battery pane's "Kept awake by" card (idea: serpantinum's
+# inhibitor list). Audio only while it carries sound (`playing`, ≤ 1.2 s per running sink): an open, silent stream
+# holds nothing. Read-only; the pane runs it on open and after each of its actions.
+if [ "$cmd" = why ] && [ "${2:-}" = --json ]; then
+  {
+    if "$bin/asahi-stay-awake" status; then jq -nc '{kind: "stay-awake", who: "Stay awake", why: "every idle step skips"}'; fi
+    hyprctl clients -j 2>/dev/null \
+      | jq -c '.[] | select(.inhibitingIdle) | {kind: "window", who: .class, why: .title, address}' || true
+    systemd-inhibit --list --json=short 2>/dev/null \
+      | jq -c '.[] | select(.mode == "block" and (.what | test("idle|sleep"))) | {kind: "inhibitor", who, why}' || true
+    busctl --user tree --list org.freedesktop.impl.portal.desktop.gtk 2>/dev/null \
+      | awk -F/ '$6 == "request" && NF == 9 { print $7 }' | sort -u | while read -r sender; do
+        comm=$(busctl --user status ":${sender//_/.}" 2>/dev/null | sed -n 's/^Comm=//p')
+        jq -nc --arg who "${comm:-:${sender//_/.}}" --arg sender "$sender" \
+          '{kind: "portal", who: $who, why: "idle inhibit through the portal", sender: $sender}'
+      done || true
+    if external_on; then jq -nc '{kind: "external", who: "External display", why: "no idle sleep (display controller hang path)"}'; fi
+    if suspend_failed; then jq -nc '{kind: "suspend-failed", who: "Last suspend failed", why: "idle sleep off until reboot"}'; fi
+    if playing; then jq -nc --arg who "$(stream_apps)" '{kind: "audio", who: (if $who == "" then "Audio" else $who end), why: "sleep waits while sound plays"}'; fi
+  } | jq -sc .
+  exit 0
+fi
+
+# Release one sender's portal inhibit requests (the card's Release; Firefox kept three for ~5 h).
+if [ "$cmd" = release ]; then
+  sender="${2:-}"
+  [[ $sender =~ ^[0-9]+_[0-9]+$ ]] || { echo "usage: $0 release <sender, e.g. 1_234>" >&2; exit 2; }
+  busctl --user tree --list org.freedesktop.impl.portal.desktop.gtk 2>/dev/null | grep "/request/$sender/" | while read -r path; do
+    busctl --user call org.freedesktop.impl.portal.desktop.gtk "$path" org.freedesktop.impl.portal.Request Close || true
+  done
   exit 0
 fi
 
@@ -168,34 +229,20 @@ else exit 0
 fi
 
 if "$bin/asahi-stay-awake" status; then log "$source $step skipped: stay-awake"; exit 0; fi
+# A fullscreen window keeps the screen on (slides, a PDF; video players inhibit idle themselves; idea: Gren-95): no
+# saver, dim or off. On battery the off step still runs (lock, display off, sleep: his call). Not while locked.
+if fullscreen_focused && ! lock_running && ! { [ "$source" = battery ] && [ "$step" = off ]; }; then
+  log "$source $step skipped: fullscreen"
+  exit 0
+fi
 log "$source $step (${secs}s)"
 
 started="$(mktemp)"
 trap 'rm -f "$started"; [ "$step" = off ] && rm -f "$locking" || true' EXIT
 woke() { [ "$stamp" -nt "$started" ]; }
 
-if [ "$step" = dim ] && hyprlock_running; then step=off; log "locked: dim goes dark (off)"; fi
+if [ "$step" = dim ] && lock_running; then step=off; log "locked: dim goes dark (off)"; fi
 display_lit() { hyprctl monitors -j 2>/dev/null | jq -e 'any(.[]; .dpmsStatus)' >/dev/null; }
-
-# Browser tabs keep silent streams RUNNING for hours, so RUNNING is not playback: record ~1 s of
-# each running sink's monitor and look for signal (stream.capture.sink, else pw-record takes the
-# mic). The monitor is pre-volume: muted playback still blocks sleep, like macOS.
-playing() {
-  local sink samples
-  for sink in $(pactl list sinks short 2>/dev/null | awk '$NF == "RUNNING" { print $2 }'); do
-    samples=$(timeout 1.2 pw-record -P '{ stream.capture.sink = true }' --target "$sink" \
-      --rate 8000 --channels 1 --format s16 --raw - 2>/dev/null | od -An -v -td2 -w2) || true
-    if awk '{ v = $1 < 0 ? -$1 : $1; if (v > 16) { found = 1; exit } } END { exit !found }' <<<"$samples"; then
-      return 0
-    fi
-  done
-  return 1
-}
-
-stream_apps() {
-  pactl -f json list sink-inputs 2>/dev/null \
-    | jq -r '[.[] | select(.corked | not) | .properties["application.name"] // empty] | unique | join(", ")' 2>/dev/null || true
-}
 
 # `can_sleep quiet` (the off loop's retries) skips the log line.
 can_sleep() {
@@ -220,8 +267,8 @@ can_sleep() {
 
 case "$step" in
   saver)
-    # The lock restarts hypridle's listeners; nothing to show under hyprlock.
-    if hyprlock_running; then log "saver skipped: locked"; exit 0; fi
+    # The lock restarts hypridle's listeners; nothing to show under it.
+    if lock_running; then log "saver skipped: locked"; exit 0; fi
     "$bin/asahi-screensaver" start
     if woke; then log "$step raced a wake"; wake; fi
     ;;
@@ -238,9 +285,9 @@ case "$step" in
     # Stopping the saver unmaps a surface, which also reads as pointer motion: flag first.
     touch "$locking"
     "$bin/asahi-screensaver" stop || true
-    if ! hyprlock_running; then
+    if ! lock_running; then
       loginctl lock-session
-      for _ in $(seq 1 20); do if hyprlock_running; then break; fi; sleep 0.25; done
+      for _ in $(seq 1 20); do if lock_running; then break; fi; sleep 0.25; done
     fi
     sleep 3
     rm -f "$locking"

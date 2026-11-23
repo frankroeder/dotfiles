@@ -1,94 +1,43 @@
 #!/usr/bin/env bash
-# hyprlock, restarted until the session is really unlocked.
+# The session lock (the Quickshell lock, remix/lock.qml), restarted until the session is really unlocked.
 #
-# hyprlock exits 0 only when the compositor unlocked or refused the lock
-# (`finished`). Anything else -- a crash on monitor churn (FALLBACK output while
-# the external drops in clamshell), a `killall -9` -- leaves Hyprland on the
-# lockdead screen ("Oopsie daisy") with the session still locked and no way in.
-# misc.allow_session_lock_restore lets a fresh hyprlock take that lock back, so
-# restart it instead of hl.clear_crashed_lockscreen() (that unlocks without a
-# password). One guard per session (flock); hypridle lock_cmd and Super+Escape
-# both land here. Escape hatch from a TTY: pkill -f asahi-lock; killall hyprlock.
-# Only this session's hyprlock counts (hyprlock_running): a nested preview's must not skip the lock.
-# hyprlock's stderr goes to ~/.local/state/asahi/hyprlock.log (Hyprland's own
+# The lock exits 0 only once it released the session (or the compositor refused it). Anything else -- a crash, a
+# `kill -9` -- leaves Hyprland on its crashed-lock screen ("Oopsie daisy") with the session still locked and no way in.
+# misc.allow_session_lock_restore lets a fresh lock take that lock back, so restart it instead of
+# hl.clear_crashed_lockscreen() (that unlocks without a password). One guard per session (flock); hypridle lock_cmd,
+# Super+Escape, the launcher and asahi-clamshell all land here. Only this session's lock counts (lock_running): a
+# nested preview's must not skip the lock. The lock's output goes to ~/.local/state/asahi/lock.log (Hyprland's own
 # log is tmpfs and gone after the reboot that follows a wedge).
-# Locker: the Quickshell island lock (remix/lock.qml, his pick 2026-11-20; Touch ID + password verified live), or
-# hyprlock when ~/.local/state/asahi/locker says `hyprlock`; ASAHI_LOCKER overrides (tests, trials). Both print
-# "Unlocked, exiting!" on unlock, so the guard and the intro work the same. Three quickshell runs that end
-# without it fall back to hyprlock for this lock: a broken qs must not leave the session on lockdead.
-# TTY escape with it: pkill -f asahi-lock; pkill -f remix/lock.qml.
+# TTY escape: pkill -f asahi-lock; pkill -f remix/lock.qml; then Hyprland's crashed-lock screen needs
+# hyprctl --instance 0 eval 'hl.clear_crashed_lockscreen()' (by hand, logged in on the TTY: never from here).
+# hyprlock was the fallback until 2026-11-22 (removed, his call; omarchy quattro dropped it too).
 
 set -u
 . "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
 exec 9>"$(runtime_dir)/asahi-lock.flock"
 flock -n 9 || exit 0
-hyprlock_running && exit 0
-log="${XDG_STATE_HOME:-$HOME/.local/state}/asahi/hyprlock.log"
+lock_running && exit 0
+log="${XDG_STATE_HOME:-$HOME/.local/state}/asahi/lock.log"
 mkdir -p "$(dirname "$log")"
 [ "$(stat -c %s "$log" 2>/dev/null || echo 0)" -gt 1000000 ] && : >"$log"
-# hyprlock shows nothing when Touch ID cannot be claimed, and does not know Aurora's lockout statuses: its fingerprint
-# log lines become the Touch ID orb's note (asahi-lock-touchid): "<until epoch> <kind> <text>" (until 0 = stays: Touch
-# ID gave up, password only). The orb also gets the time this hyprlock began (how long has verify not started?).
-locker=${ASAHI_LOCKER:-$(cat "${XDG_STATE_HOME:-$HOME/.local/state}/asahi/locker" 2>/dev/null || echo quickshell)}
-qs_fails=0
-lock_screen() {
-  if [ "$locker" = quickshell ]; then
-    qs -n -p "$HOME/.dotfiles/asahi/quickshell/remix/lock.qml"
-  else
-    hyprlock "$@"
-  fi
-}
-note="$(runtime_dir)/asahi-lock-touchid.note"
-began="$(runtime_dir)/asahi-lock-touchid.start"
 reader_state="$(runtime_dir)/asahi-lock.reader"   # "unlocked" on the unlock line, "eof" once the reader ends
-fails=0
-touchid_note() {
-  local till=0 kind=unavailable text="Touch ID unavailable"
-  case $1 in
-    *"handling status verify-no-match"*)   # hyprlock gives 3 retries per lock: the 4th no-match ends Touch ID
-      ((++fails))
-      if ((fails > 3)); then kind=exhausted text="Too many failed attempts"
-      elif ((fails == 3)); then till=$((EPOCHSECONDS + 2)) kind=nomatch text="No match · last try"
-      else till=$((EPOCHSECONDS + 2)) kind=nomatch text="No match"; fi ;;
-    *"handling status verify-retry-scan"* | *"handling status verify-finger-not-centered"* | \
-      *"handling status verify-remove-and-retry"* | *"handling status verify-too-fast"*)
-      till=$((EPOCHSECONDS + 2)) kind=retry text="Not read" ;;
-    *"handling status verify-lockout"*) kind=lockout text="Touch ID locked" ;;
-    *"handling status verify-password-required"*) kind=password text="Password needed to re-enable Touch ID" ;;   # SEP clock
-    *"handling status verify-disconnected"*) text="Touch ID disconnected" ;;   # lid closed / sleep: no re-claim
-    *"handling status verify-unknown-error"* | *"could not start verifying"*) ;;
-    *"could not claim device"*)
-      # fprintd left the reader open (a suspend during a sudo / polkit finger prompt): every claim fails until it
-      # restarts (polkit rule 49-asahi-fprintd-restart). This hyprlock never claims again; the next lock does.
-      if [[ $1 == *"already been opened"* ]]; then systemctl --no-ask-password --no-block restart fprintd.service; fi ;;
-    *"started verifying"*) grep -qs '^0 ' "$note" && rm -f "$note"; return ;;
-    *) return ;;
-  esac
-  printf '%s %s %s\n' "$till" "$kind" "$text" >"$note"
-}
 run() {
   date -Is >>"$log"
-  rm -f "$note" "$reader_state" "$(runtime_dir)/asahi-lock-touchid.reading"
-  printf '%s\n' "$EPOCHSECONDS" >"$began"
-  # The intro starts on hyprlock's unlock line, not at its exit: after a Touch ID unlock hyprlock lingers seconds
-  # (its pending password PAM attempt fails and waits out the failure delay).
-  lock_screen "$@" > >(while IFS= read -r l; do
+  rm -f "$reader_state"
+  # The lock prints "Unlocked, exiting!" when PAM says yes (then the lift-off plays, then it releases): the intro
+  # starts on that line. No -n: qs exits 0 when any instance of this path runs, a nested preview too ("done" here).
+  qs -p "$HOME/.dotfiles/asahi/quickshell/remix/lock.qml" > >(while IFS= read -r l; do
     printf '%s\n' "$l"
-    case $l in
-      *"Unlocked, exiting"*) echo unlocked >>"$reader_state"; intro play >/dev/null ;;
-      *"fprint: "*) touchid_note "$l" ;;
-    esac
+    case $l in *"Unlocked, exiting"*) echo unlocked >>"$reader_state"; intro play >/dev/null ;; esac
   done >>"$log"; echo eof >>"$reader_state") 2>&1
   local rc=$?
-  echo "$locker exit $rc" >>"$log"
-  # hyprlock 0.9.7 can crash in its exit teardown after the unlock (SIGSEGV in the fprintd sdbus proxy destructor):
-  # the session is already unlocked, a retry would lock it again. The reader may lag the exit: wait for its verdict
-  # (≤ 1 s; `$!` does not name an output process substitution after an external command). A false "unlocked" fails
-  # closed: Hyprland stays locked (lockdead), Super+Escape retakes it.
+  echo "lock exit $rc" >>"$log"
+  # A crash past the unlock line counts as unlocked: a retry would lock again right after the password. The reader may
+  # lag the exit: wait for its verdict (≤ 1 s; `$!` does not name an output process substitution after an external
+  # command). If the crash came before the release, Hyprland stays locked (fails closed): Super+Escape retakes it.
   if [ $rc -ne 0 ]; then
     for _ in $(seq 20); do grep -qs -e unlocked -e eof "$reader_state" && break; sleep 0.05; done
     if grep -qs unlocked "$reader_state"; then echo "crashed after unlock: done" >>"$log"; return 0; fi
-    if [ "$locker" = quickshell ] && ((++qs_fails >= 3)); then locker=hyprlock; echo "quickshell lock failed 3x: hyprlock" >>"$log"; fi
   fi
   return $rc
 }
@@ -97,8 +46,12 @@ run() {
 intro() { timeout 1 qs -c remix ipc --any-display call wallpaperIntro "$@" 2>/dev/null; }   # a hung qs must not stop the lock
 # Every exit plays (unlock, out of retries, the TTY escape's pkill): the held first frame has no failsafe and would
 # stay over the wallpaper. A no-op once the unlock line started it (WallpaperIntro plays once per arm).
-trap 'intro play >/dev/null' EXIT
-# Locking: the intro shows its first frame before hyprlock locks (nothing presents while locked, so unlock shows
+# While this guard runs the session is locked: the shell pauses its bar polling on this flag (BarData.locked); the EXIT
+# trap drops it on every way out (unlock, out of retries, the TTY escape's pkill).
+locked_flag="$(runtime_dir)/asahi-locked"
+: >"$locked_flag"
+trap 'rm -f "$locked_flag"; intro play >/dev/null' EXIT
+# Locking: the intro shows its first frame before the lock comes up (nothing presents while locked, so unlock shows
 # what was on screen then; ≤ ~0.4 s), and starts on unlock.
 if intro arm >/dev/null; then
   for _ in $(seq 10); do [ "$(intro ready)" = false ] || break; sleep 0.01; done
@@ -106,6 +59,6 @@ fi
 run && exit 0
 for _ in $(seq 30); do
   sleep "${ASAHI_LOCK_RETRY_S:-2}"
-  run --no-fade-in && exit 0
+  run && exit 0
 done
 exit 1

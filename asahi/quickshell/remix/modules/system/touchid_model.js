@@ -10,9 +10,9 @@
 // fprintd (1.94.5 device.c): VerifyStatus goes out at once, the finger-present / finger-needed properties after it
 // (PropertiesChanged from an idle); a no-match is always `done` and so is a cancelled verify (sudo's Ctrl+C);
 // pam_fprintd starts a new verify (`start`) for each try. Some drivers drop "needed" once the finger is down.
-// suppressed: something else draws this request (lock screen: hyprlock; polkit: the PolkitAgent card, which shows
+// suppressed: something else draws this request (the lock screen, remix/lock.qml; polkit: the PolkitAgent card, which shows
 // this state in its own orb). The notch card stays hidden (visible()); the state still runs.
-// view(): the orb and its line, worded like the lock screen (asahi-lock, asahi-lock-touchid).
+// view(): the orb and its line, worded like the lock screen (remix/lock.qml).
 
 var MATCH_MS = 900
 var NOMATCH_MS = 1400
@@ -78,7 +78,7 @@ function reduce(s, ev, now) {
       return Object.assign(withPhase(s, "waiting"), { suppressed: !!ev.suppress, info: info, finger: false })
     }
     case "present": {
-      // A lift does not end the read: the result follows it (the lock screen's hyprlock keeps "reading" too).
+      // A lift does not end the read: the result follows it (fprintd sends no lift).
       var next = Object.assign({}, s, { finger: !!ev.value })
       if (ev.value && (s.phase === "waiting" || s.phase === "ending")) return withPhase(next, "reading", now + READING_MS)
       return next

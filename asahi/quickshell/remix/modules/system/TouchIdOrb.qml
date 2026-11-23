@@ -2,9 +2,9 @@ import QtQuick
 import QtQuick.Shapes
 import "../../"
 
-// The lock screen's Touch ID orb (hyprlock.conf + asahi-lock-touchid) for the shell's own prompts: a glass disc with a
+// The Touch ID orb, shared by the lock screen (remix/lock.qml, no breathing there) and the shell's own prompts: a glass disc with a
 // hairline ring and the glyph in the state's colour; once something happens the disc turns solid in that colour and
-// the glyph takes the text-on-accent colour. No glow, no bold ring. Unlike hyprlock's labels this animates smoothly:
+// the glyph takes the text-on-accent colour. No glow, no bold ring. It animates:
 // the glyph breathes while it waits, an arc scans round the rim while the finger is read, and every other state lands
 // with a small pop (the new glyph — check, crossed fingerprint — grows in).
 // view = touchid_model.js view(); its orb phase:
@@ -16,6 +16,7 @@ Item {
 
   property var view: ({ orb: "off", tone: "" })
   property bool live: true                // animate: false while hidden (no per-frame work)
+  property bool breathe: true             // the waiting glyph's loop; the lock turns it off (it would redraw all lock long)
   readonly property string phase: view.orb
   property real size: 46
   implicitWidth: size
@@ -33,7 +34,7 @@ Item {
   // 1 → 0 → 1 while it waits for a finger.
   property real beat: 1
   SequentialAnimation on beat {
-    running: orb.live && orb.phase === "ready"
+    running: orb.live && orb.breathe && orb.phase === "ready"
     loops: Animation.Infinite
     onRunningChanged: if (!running) orb.beat = 1
     NumberAnimation { to: 0; duration: 1400; easing.type: Easing.InOutSine }

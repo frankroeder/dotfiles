@@ -108,8 +108,12 @@ EOF
 printf '#!/bin/sh\nexit 0\n' >"$rec/bin/qs"
 cp "$rec/bin/qs" "$rec/bin/notify-send"
 printf '#!/bin/sh\necho mic\n' >"$rec/bin/pactl"
+# pgrep finds nothing: the script's `pgrep -x wf-recorder` fallback must never see (and stop) a live take of his.
+printf '#!/bin/sh\nexit 1\n' >"$rec/bin/pgrep"
 chmod +x "$rec/asahi-webcam" "$rec/asahi-cmd-record" "$rec/bin/"*
-recrun() { XDG_VIDEOS_DIR="$rec/videos" XDG_RUNTIME_DIR="$rec" PATH="$rec/bin:$PATH" "$rec/asahi-cmd-record" "$@"; }
+recrun() {
+  XDG_VIDEOS_DIR="$rec/videos" XDG_RUNTIME_DIR="$rec" XDG_STATE_HOME="$rec/state" PATH="$rec/bin:$PATH" "$rec/asahi-cmd-record" "$@"
+}
 recrun camera
 st1=$(recrun status)
 kill -KILL "$(cat "$rec/asahi-record.pid" 2>/dev/null)" 2>/dev/null || true   # the recorder dies on its own
@@ -156,11 +160,36 @@ recrun finish "$clip"
 recrun finish "$rec/videos/recording-broken.mp4"
 audio=$(ffprobe -v error -select_streams a -show_entries stream=codec_name,sample_rate -of csv=p=0 "$clip")
 if [ "$audio" = "aac,48000" ] && [ ! -e "$clip.tmp" ] && [ -s "$rec/asahi-record-recording-clip.png" ] \
-  && grep -q -- "-i $rec/asahi-record-recording-clip.png -A default=Open Recording saved $clip" "$rec/notify.log" \
+  && grep -q -- "-i $rec/asahi-record-recording-clip.png -A default=Open -A reveal=Show in folder Recording saved $clip" "$rec/notify.log" \
   && grep -q -- "-u critical Recording may be corrupted" "$rec/notify.log"; then
   pass "finish: audio finished, thumbnail card; a broken file warns"
 else
   fail_at "finish: audio [$audio] notify [$(tr '\n' '|' <"$rec/notify.log")]"
+fi
+
+# Screen audio (record-audio state file: system | mic | none, default system): a fake wf-recorder logs its args and
+# exits (the take then fails after a silent retry: only the first start counts). Webcam takes keep the mic.
+mkdir -p "$rec/state/asahi"
+printf '#!/bin/sh\necho "$*" >>"%s/wf.log"\n' "$rec" >"$rec/bin/wf-recorder"
+printf '#!/bin/sh\necho \x27[{"name":"eDP-1","focused":true}]\x27\n' >"$rec/bin/hyprctl"
+printf '#!/bin/sh\ncase $1 in get-default-sink) echo spk ;; get-default-source) echo mic ;; list) printf "1\\tspk.monitor\\n" ;; esac\n' \
+  >"$rec/bin/pactl"
+chmod +x "$rec/bin/"*
+first_start() { : >"$rec/wf.log"; recrun "$@" >/dev/null 2>&1 || true; sed -n 1p "$rec/wf.log"; }
+a_default=$(first_start fullscreen)
+echo mic >"$rec/state/asahi/record-audio"
+a_mic=$(first_start fullscreen)
+echo none >"$rec/state/asahi/record-audio"
+a_none=$(first_start fullscreen)
+a_cam=$(first_start fullscreen --webcam)
+echo system >"$rec/state/asahi/record-audio"
+a_sys=$(first_start fullscreen)
+if [[ $a_default == "-o eDP-1 -r 60 --audio=spk.monitor -f $rec/videos/recording-"*.mp4 ]] \
+  && [[ $a_sys == *" --audio=spk.monitor -f "* && $a_mic == *" --audio=mic -f "* && $a_none == "-o eDP-1 -r 60 -f "* ]] \
+  && [[ $a_cam == *" --audio=mic -f "* ]]; then
+  pass "screen audio: system (default) = sink monitor, mic = default source, none = silent; webcam keeps the mic"
+else
+  fail_at "screen audio: default [$a_default] system [$a_sys] mic [$a_mic] none [$a_none] webcam [$a_cam]"
 fi
 
 # Resize: mocked hyprctl clients + monitors

@@ -10,8 +10,8 @@ JSON object per line on stdout:
   {"ev": "status", "result": "verify-match", "done": true}
   {"ev": "gone"}                            fprintd left the bus
 
-Who asked is guessed from processes when a verify starts (fprintd does not say): hyprlock and the polkit card draw
-their own prompt (suppress), sudo / su name the command and the terminal it runs in, aurora-fidod (Touch ID as a
+Who asked is guessed from processes when a verify starts (fprintd does not say): the lock screen (`qs -p …/remix/
+lock.qml`) and the polkit card draw their own prompt (suppress), sudo / su name the command and the terminal it runs in, aurora-fidod (Touch ID as a
 FIDO2 key: passkeys, ssh ecdsa-sk) names the newest ssh / git process. Read-only: /proc and `hyprctl clients -j`.
 
 Tests: asahi_touchid_monitor_test.py (classify() on a fake process table). ASAHI_PROC_ROOT / ASAHI_HYPR_CLIENTS
@@ -141,7 +141,9 @@ def classify(procs, uid, clients, now):
     comms = lambda names, own=True: [p for p in procs if p["comm"] in names and (not own or p["ruid"] == uid)]
     out = {"ev": "start", "kind": "other", "suppress": False, "title": "Touch ID", "detail": "", "app": "",
            "address": ""}
-    if comms({"hyprlock"}):
+    # The Quickshell lock (asahi-lock runs `qs -p …/remix/lock.qml`); it was hyprlock alone, so a lock's Touch ID
+    # read reached the notch card under it.
+    if [p for p in comms({"qs", "quickshell"}) if p["argv"] and p["argv"][-1].endswith("/remix/lock.qml")]:
         return dict(out, kind="lock", suppress=True, title="Lock screen")
     if [p for p in procs if p["comm"].startswith("polkit-agent-he")]:
         return dict(out, kind="polkit", suppress=True, title="Authentication")

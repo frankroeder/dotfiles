@@ -18,11 +18,13 @@ sys.path.insert(0, str(ROOT.parent))
 
 from theme.apply import (
     colors_dict,
+    install_claude_theme,
     lock_accents,
     preview_ghostty,
     push_tmux_palette,
     tmux_osc_sequences,
     write_btop_theme,
+    write_claude_theme,
     write_colors_env,
     write_colors_json,
     write_firefox_scheme,
@@ -30,7 +32,7 @@ from theme.apply import (
     write_ghostty_theme,
     write_gtk_css,
     write_hyprland_lua,
-    write_hyprlock_conf,
+    write_lock_fades,
 )
 from theme.extract import Representative
 from theme.oklab import from_srgb8, max_chroma
@@ -72,28 +74,12 @@ class TestApplyWriters(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_hyprlock_vars(self):
-        path = self.root / "hyprlock.conf"
-        write_hyprlock_conf(self.palette, path)
-        text = path.read_text(encoding="utf-8")
-        self.assertIn("$lock_bg = rgb(", text)
-        self.assertIn("$lock_fg = rgb(", text)
-        self.assertIn("$lock_check = rgba(", text)
-        self.assertIn("$lock_caps = rgb(" + self.palette.yellow.removeprefix("#"), text)
-        self.assertIn("$lock_warn = rgb(" + self.palette.yellow.removeprefix("#"), text)
-        accent, accent2 = lock_accents(self.palette)
-        self.assertIn(f"$lock_accent = rgb({accent.removeprefix('#')})", text)
-        self.assertIn(f"$lock_accent2 = rgb({accent2.removeprefix('#')})", text)
-        self.assertRegex(text, r"\$lock_ring = rgba\([0-9a-fA-F]{8}\) rgba\([0-9a-fA-F]{8}\) 45deg")
-        self.assertRegex(text, r"\$lock_glass = rgba\([0-9a-fA-F]{8}\)")
-        self.assertIn("$lock_on = rgb(" + self.palette.crust.removeprefix("#"), text)   # glyph on the solid Touch ID disc
-        # Bare hex for pango markup: the clock's seconds, "Failed" / "Checking…" (no swap_font_color).
-        self.assertIn(f"$lock_hexaccent = {accent.removeprefix('#')}\n", text)
-        self.assertIn("$lock_hexfail = " + self.palette.red.removeprefix("#") + "\n", text)
-        self.assertIn("$lock_hexcheck = " + self.palette.green.removeprefix("#") + "\n", text)
-        self.assertNotIn("glow", text)   # no haze behind orb and pill (rejected)
+    def test_lock_fades(self):
+        # remix/lock.qml's top and bottom fades (hyprlock's colour conf is gone).
+        write_lock_fades(self.palette, self.root)
         for name in ("lock-fade-top.png", "lock-fade-bottom.png"):
             self.assertEqual((self.root / name).read_bytes()[:8], b"\x89PNG\r\n\x1a\n", name)
+        self.assertFalse((self.root / "hyprlock.conf").exists())
 
     def test_colors_json_carries_the_lock_accents(self):
         # The shell's Touch ID orb (Style.vivid / vivid2) reads them beside the palette.
@@ -178,6 +164,31 @@ class TestApplyWriters(unittest.TestCase):
         self.assertEqual(colours["surfaceDim"], self.palette.mantle.lstrip("#"))
         # CaelestiaFox prepends '#' itself.
         self.assertTrue(all(len(c) == 6 and not c.startswith("#") for c in colours.values()))
+
+    def test_claude_theme(self):
+        # omarchy's Claude Code shape: base = the mode, the roles from the palette, diffs tinted on the background.
+        path = self.root / "claude.json"
+        write_claude_theme(self.palette, path)
+        theme = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual((theme["name"], theme["base"]), ("Asahi", self.palette.mode))
+        o = theme["overrides"]
+        self.assertEqual((o["claude"], o["text"], o["error"]), (self.palette.accent, self.palette.text, self.palette.red))
+        self.assertEqual(len(o), 38)   # every role of omarchy's template
+        self.assertTrue(all(len(v) == 7 and v.startswith("#") for v in o.values()))
+        # 15 % green into the background: close to the background, greener than it.
+        bg, add = (int(self.palette.background[1:3], 16), int(o["diffAdded"][1:3], 16))
+        self.assertLess(abs(bg - add), 60)
+
+    def test_claude_theme_install_only_with_claude_code(self):
+        path = self.root / "claude.json"
+        write_claude_theme(self.palette, path)
+        with mock.patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(self.root / "nope")}):
+            self.assertIsNone(install_claude_theme(path))
+        (self.root / "cc").mkdir()
+        with mock.patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(self.root / "cc")}):
+            dest = install_claude_theme(path)
+        self.assertEqual(dest, self.root / "cc" / "themes" / "asahi.json")
+        self.assertFalse((self.root / "cc" / "settings.json").exists())   # never picks the theme itself
 
     def test_btop_theme_keys(self):
         path = self.root / "btop.theme"

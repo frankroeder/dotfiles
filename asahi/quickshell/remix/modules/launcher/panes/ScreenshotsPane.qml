@@ -177,7 +177,7 @@ Item {
               }
             }
 
-            // Hover actions: preview / copy / annotate / open / delete.
+            // Hover actions: preview / copy / annotate / open / show in folder / delete.
             // Tile HoverHandler (not hma.containsMouse): IconBtn MouseAreas steal
             // the tile MouseArea hover, which hid the row while clicks still hit.
             Row {
@@ -190,6 +190,7 @@ Item {
               IconBtn { visible: !shotsPane.videoMode; icon: "󰆏"; onClicked: root.copyShot(cell.modelData.path) }
               IconBtn { visible: !shotsPane.videoMode; icon: "󰏫"; onClicked: root.annotateShot(cell.modelData.path) }
               IconBtn { icon: "󰏌"; onClicked: root.openShot(cell.modelData.path) }
+              IconBtn { icon: "󰉋"; onClicked: root.revealPath(cell.modelData.path) }   // show in folder
               // Deleting takes two clicks (the first arms it red for 3 s); the file goes to the trash.
               IconBtn {
                 icon: "󰆴"; tone: delArm.running ? Style.m3onPrimary : Style.red; bg: delArm.running ? Style.red : Style.m3surface
