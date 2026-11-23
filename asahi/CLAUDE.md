@@ -51,7 +51,7 @@ relabel filter.
   entry stays ~1.3 s; the 15–17 s waits seen 2026-11-17 / 11-22 were logind's 30 s `HoldoffTimeoutSec` after a
   resume, not the lock) —
   never DPMS-blank eDP there (races s2idle, `8000000a`, hangs) — unless a block inhibitor (`asahi-hdmi`: cable in, output off) stops suspend:
-  wait 5 s for the external, else blank + lock.
+  wait 5 s for the external, else blank + lock (block gone within the wait, lid still shut: lock, as above).
   HDMI-A-1 / DP-1..6 stay `disabled = true` (`monitors.lua`) until `asahi-hdmi` enables one; logind doesn't count it docked
   → `asahi-hdmi-lid-inhibit.service` holds `handle-lid-switch` while HDMI/DP reads `connected` (udev: the **card's**
   `HOTPLUG=1`, connectors get none; `systemd-run` re-check after 3 s, sysfs `status` stale until Hyprland probes;
@@ -92,8 +92,12 @@ relabel filter.
   start (nested: a live toggle takes effect; Hyprland's crashed-lock screen stays opaque with it on). Rejected unlock
   styles: video over windows, blur, the notch island. PAM from `quickshell/lockpam` — `fingerprint` (pam_fprintd
   max-tries 3, timeout 600, re-armed every 5 s after a timeout / suspend / lid close) beside `password` (pam_unix
-  alone: the system stack's pam_fprintd would hold a typed password 30 s). It prints "Unlocked, exiting!" when PAM
-  says yes (the guard and the intro key on it). State IPC only with `LOCK_DEMO=1` (screenshots); `LOCK_IPC_SUBMIT=1` =
+  `requisite`, then `-auth optional pam_aurora_touchid.so` as system-auth runs it: a password ends a Touch ID
+  lockout — review 2026-11-23, without it a lockout outlived the unlock; not the whole system stack: its pam_fprintd
+  would hold a typed password 30 s). Aurora's lockout lines ("Too many failed fingerprint attempts…", "Your password
+  is required…") end Touch ID for that lock (red orb). It prints "Session locked" once Hyprland confirmed the lock
+  (`secureStateChanged`; 0.4 s nested, displays on or off) and "Unlocked, exiting!" when PAM says yes (the guard and
+  the intro key on them). State IPC only with `LOCK_DEMO=1` (screenshots); `LOCK_IPC_SUBMIT=1` =
   a test submit that still needs PAM. Never test wrong passwords against the real finger context (a touch in between
   unlocks: it did once). The orb does not breathe on the lock (`breathe: false`; measured nested 50 + 37 → 3 + 1 ms/s
   qs + compositor): states change colour and shape, results pop; keys add printable text only (Delete, Tab, Ctrl
@@ -101,11 +105,11 @@ relabel filter.
   lock (the wedged-reader fix; seen working 2026-11-20 after a suspend). Touch ID pacing (2026-11-22, after omarchy
   quattro's lock): an attempt that never reached the reader (lid shut: libfprint drops it; a refused claim) backs
   off 5 → 10 → 20 → 40 s (was every 5 s all lock long, e.g. docked with the lid shut); one that ran out waiting for a
-  finger re-arms after 1 s; while the lock has the displays off no new attempt starts (the running one finishes under
-  pam_fprintd's 600 s, so a touch in the dark still unlocks for a while); a key (once per long backoff), the end of the
-  blank (motion / key) or a display arriving (`Quickshell.screens`: lid open while docked) tries again at once. Nested with a fake PAM
-  stack (`pam_exec` logging + `pam_deny`): attempts at 0 / 5 / 15 / 35 s, a display added at 38 s → 38 / 43 s,
-  nothing after the 45 s blank. Displays off 30 s after the last input on the
+  finger re-arms after 1 s; a key (once per long backoff), the end of the blank (motion / key) or a display arriving
+  (`Quickshell.screens`: lid open while docked) tries again at once. Nested with a fake PAM stack (`pam_exec` logging +
+  `pam_deny`): attempts at 0 / 5 / 15 / 35 s, a display added at 38 s → 38 / 43 s. No pause while the displays are
+  off (tried, then dropped in the 2026-11-23 review: a lid-open wake lights the panel without input, so Touch ID stayed
+  off until a key). Displays off 30 s after the last input on the
   lock (`IdleMonitor`, `respectInhibitors: false`, `asahi-dpms off`; idea: omarchy quattro; a key / motion relights, a
   Touch ID unlock in the dark runs `asahi-dpms on`; `LOCK_BLANK_S` for tests; off in demo mode).
   Look rules kept from the 2026-11-18 redesign (his ask: vibrant + see Touch ID work): background = the clip's first
@@ -121,7 +125,10 @@ relabel filter.
   `Unlocked, exiting!` line counts as unlocked (a retry would lock right after the password); if it came before the
   release Hyprland stays locked (fails closed). The reader writes `unlocked` / `eof` to
   `$XDG_RUNTIME_DIR/asahi-lock.reader`; the guard waits ≤ 1 s for either (`$!` is empty for an output process
-  substitution after an external command). Never auto-run `hl.clear_crashed_lockscreen()` (unlocks without
+  substitution after an external command). A lock that runs but sends no "Session locked" within 10 s
+  (`ASAHI_LOCK_SECURE_TICKS`) is killed, and any attempt that ends without ever engaging (that, or a crash at start: a
+  QML error makes `qs -p` exit at once, rc 255) warns once ("Lock screen failed", critical) while the loop retries —
+  before, 30 silent retries and an open session. Never auto-run `hl.clear_crashed_lockscreen()` (unlocks without
   password). hypridle `inhibit_sleep = 3` explicit; logind caps the wait at `InhibitDelayMaxSec`. Super+Escape must be
   a `locked` bind (others are dead on lockdead; `dont_inhibit`: it also fires while an app inhibits shortcuts,
   Chromium keyboard lock / a VM viewer): a fresh lock once the guard is out of retries; asahi-lock exits if one runs
@@ -261,7 +268,8 @@ relabel filter.
 - **Night light**: menu-only (Launcher > Actions → `asahi-nightlight`, hyprsunset); on = the last temperature (else
   `hyprsunset.conf`'s), off = `hyprctl hyprsunset identity`; the bar chip's wheel = `warmer` / `cooler [n]` (250 K a
   notch, 1000–6000 K, kept while off): the chip sums a gesture and sends one run 250 ms after the wheel stops, and the
-  script holds a flock (2026-11-23: a run per notch raced — the runs set their own temperature in turns, the screen
+  script holds a flock (`flock -w 10`; a hyprsunset it starts gets `9>&-`, else the daemon held the lock for good —
+  review 2026-11-23, test checks fd 9) (2026-11-23: a run per notch raced — the runs set their own temperature in turns, the screen
   flickered and each run's check saw the other's value: a "Night light failed" card each; test runs three at once). Identity profile so autostart tints nothing; autostart drops stale `nightlight.json`
   (chip showed on, no tint).
 - **Bar notch**: cutout is a hole (`BarModel.notchRegionInset`), not a spacer; height from geometry (3024x1964 →
@@ -303,7 +311,8 @@ relabel filter.
   `QsWindow.window` needs `import Quickshell` (else tray menus silently break); Items are dropped. Esc =
   `Qt.ApplicationShortcut` (grab may focus the bar). App menus = `TrayMenu.qml` (idea: caelestia), one per bar in
   `SystemTray`: the app's DBusMenu drawn in our look (rows, hairline separators, check column, app icons, submenus in
-  place with Back; Esc backs out, then closes), opened by the inline icons (right-click / menu-only items) and
+  place with Back; Esc backs out, then closes — TrayPanel's own Escape is off meanwhile: two enabled Escape
+  shortcuts are ambiguous and Qt fires neither), opened by the inline icons (right-click / menu-only items) and
   TrayPanel's menu button (TrayPanel pauses its grab until `menuClosed`). One `QsMenuOpener` per level (three):
   re-pointing a single opener at a submenu released the parent menu and with it the submenu entry (empty list).
   `entry.triggered()` clicks. Tested on a private bus with a fake SNI + dbusmenu (check, separator, submenu, disabled). `HyprlandFocusGrab` dies on `focusable: false`. Attention dot static (pulse = per-frame redraw).
@@ -368,7 +377,8 @@ relabel filter.
   monitors.lua's `config.reloaded` re-applies it; measured nested with an inactive window redrawing −1.3 to −1.7 W,
   idle no difference). Theme change: `BarHost.barForeground` /
   `barBackground` ease 300 ms (one Behavior each; every chip binds them). Big readouts that tick (SysPanel tiles,
-  Battery / Temps heroes) = `Menu.MenuFadeText` (fade on text change; never in the bar; the owner must not bind
+  Battery / Temps heroes) = `Menu.MenuFadeText` (fade on text change, only while its window is shown — SysPanel
+  lives in every bar and faded its closed tiles every 3 s; never in the bar; the owner must not bind
   `opacity`).
 - **Launcher quick panes**: one file each in `quickshell/remix/modules/launcher/panes/`; `LauncherWindow.qml` does
   `Panes.XPane { root: launcherSelf }` (`root` in a pane = that property). Shared M3 widgets in `modules/menu` take
@@ -396,16 +406,20 @@ relabel filter.
   which runs the command through `$SHELL -ic 'exec "$@"'` inside Ghostty (`-e` passes argv as is): the interactive
   zshrc's environment, like a terminal window — `~/.local.zsh` holds API keys / PATH additions (nvim's parrot.nvim
   died on a missing `ANTHROPIC_API_KEY`); ~0.3 s. Linked into `~/.local/bin` for `asahi-nvim.desktop`.
-  Desktop-entry actions are rows for typed queries ("New Private Window · Firefox", `special: "app-action"`, usage -1
+  Desktop-entry actions are rows for typed queries (a `Terminal=true` app's actions run in Ghostty too: a
+  DesktopAction has no `runInTerminal`, the app's counts) ("New Private Window · Firefox", `special: "app-action"`, usage -1
   like actions; idea: Ryoku / end-4); Actions › "App actions in search" switches them off / on, kept in
   `~/.local/state/asahi/launcher-app-actions` (`on` / `off`, missing = on). Typo rescue: a 4+ letter term one edit from a title word (`Data.oneEdit`, lowest
-  score). `>` alone lists recent files (`asahi-recent-files`: recently-used.xbel, newest first, gone files skipped;
+  score). `>` alone lists recent files (`asahi-recent-files`: recently-used.xbel, newest first, gone files skipped,
+  XML entities decoded before the %-escapes — "Peace &amp; Love.mp3" read as gone;
   ~70 ms per open); Shift+Enter on a file row = show in folder (`asahi-reveal`: FileManager1.ShowItems → Thunar selects
   it, else the folder; also the Screenshots tiles' folder button and the screenshot / recording cards).
 - **Recorder**: Screen audio = RecordPanel's System / Mic / Silent pill (idle only), saved as one word in
   `~/.local/state/asahi/record-audio` (`system|mic|none`, default system; `Recorder` FileView, no polling).
   `asahi-cmd-record` reads it, so keybinds follow: system = default sink's monitor, mic = default source (narrated
   demos), none = no audio (one device only: wf-recorder). Webcam and camera-only takes always record the mic.
+  Panel tiles start the take once the card has left (`startAfterClose`, exit + 150 ms; the card takes no clicks while
+  it leaves): started at once, the first frames caught the fading card and a second click stopped the new take.
   Super+Alt+R toggles `RecordPanel`; REC chip only while recording (click = panel, right-click = stop).
   `Recorder` singleton runs `asahi-cmd-record status --json` at start, on the script's `ipc call recording refresh`,
   1 s while recording; idle nothing polls. Webcam and camera-only takes record default source; screen takes default
@@ -598,11 +612,16 @@ relabel filter.
 - **Volume keys**: `asahi-media-control output-volume raise|lower|+1|-1` (and Media pane slider) unmutes the sink **only
   if muted** (`unmute_if_muted`; unconditional `set-mute 0` clicked the speakers); never unmutes the mic. Launcher
   Logout / Restart / Shutdown: `confirm: true` (Data.js), second Enter within 3 s runs; they (and Restart into macOS)
-  go through `asahi-session logout|reboot|poweroff`: every window closed first, ≤ 8 s wait, so apps save their state
+  go through `asahi-session logout|reboot|reboot-macos|poweroff` (reboot-macos arms the one-shot macOS boot,
+  `pkexec asahi-bless --set-boot-macos --next`, only once the windows are gone: armed first, a cancelled reboot left it
+  set and the next reboot landed in macOS; a dismissed polkit prompt or a refused reboot / poweroff ends in a
+  critical card — the windows are closed by then): every window closed first, ≤ 8 s wait, so apps save their state
   (Logout was `hl.dsp.exit()` straight away); one left open (an unsaved-changes dialog) cancels with a card naming it
   (idea: omarchy-system; test `asahi_session_test.sh`). The OSD also shows any default-sink volume / mute change from
   elsewhere (headset buttons, apps, the bar wheel; `Osd.qml` bound to `Pipewire.defaultAudioSink`, a new sink only
-  sets the baseline, quiet while the launcher is open; keys still ask over IPC for feedback at 0 / 100 %).
+  sets the baseline, taken once the node is `ready` — before binding it reads volume 0 and the real value arriving
+  showed a card at every shell start / output switch; a device route's volume (headphones, HDMI, BT) can come after
+  `ready`, so a sink's first 1.5 s only move the baseline; quiet while the launcher is open; keys still ask over IPC for feedback at 0 / 100 %).
 - **Audio**: Aurora ships the stack (`aurora-audio`, keeps the `/usr/share/asahi-audio` paths) — don't port omarchy's
   Apple audio.sh. RT check is the **thread**: `ps -eLo comm,rtprio,cls | grep data-loop` → `20 RR`. Mic
   `effect_output.j414-mic` is MONO since aurora-audio 4.1-5 (old asahi-audio: 1ch `AUX0`, stereo recorders left only;
@@ -708,7 +727,7 @@ relabel filter.
   `components.sh` chmods `asahi/bin/*`, skips `lib/` (a dir) — keep sourced files there.
 - **Untrusted text**: a `Text` showing outside strings (titles, SSIDs, BT names, clipboard, file names, notifications)
   sets `textFormat: Text.PlainText`: AutoText renders `<img src=http…>` = remote fetch without a click (omarchy #8397).
-  Only exception: the notification body (StyledText from `NotificationModel.richBody`, an allowlist; `href` written raw:
+  `Menu.MenuChip` labels too (the keep-awake chips name inhibiting apps). Only exception: the notification body (StyledText from `NotificationModel.richBody`, an allowlist; `href` written raw:
   StyledText keeps `&amp;` in it).
 - **Quickshell launch**: never `qs -d` (EPIPE/`qFatal` if the parent is gone); `setsid -f qs -n -c <module>`
   (`asahi-restart-quickshell`). Bar vanished → `asahi-debug` coredumps first. qs reloads on save (log
