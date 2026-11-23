@@ -20,18 +20,43 @@ lock_running && exit 0
 log="${XDG_STATE_HOME:-$HOME/.local/state}/asahi/lock.log"
 mkdir -p "$(dirname "$log")"
 [ "$(stat -c %s "$log" 2>/dev/null || echo 0)" -gt 1000000 ] && : >"$log"
-reader_state="$(runtime_dir)/asahi-lock.reader"   # "unlocked" on the unlock line, "eof" once the reader ends
+reader_state="$(runtime_dir)/asahi-lock.reader"   # "locked" / "unlocked" lines, "eof" once the reader ends
+secure_ticks="${ASAHI_LOCK_SECURE_TICKS:-100}"     # 0.1 s ticks: 10 s for the compositor's confirmation
+warned=0
 run() {
   date -Is >>"$log"
   rm -f "$reader_state"
-  # The lock prints "Unlocked, exiting!" when PAM says yes (then the lift-off plays, then it releases): the intro
-  # starts on that line. No -n: qs exits 0 when any instance of this path runs, a nested preview too ("done" here).
+  # The lock prints "Session locked" once the compositor confirmed it (0.4 s nested, displays on or off) and
+  # "Unlocked, exiting!" when PAM says yes (then the lift-off plays, then it releases): the intro starts on that line.
+  # No -n: qs exits 0 when any instance of this path runs, a nested preview too ("done" here).
   qs -p "$HOME/.dotfiles/asahi/quickshell/remix/lock.qml" > >(while IFS= read -r l; do
     printf '%s\n' "$l"
-    case $l in *"Unlocked, exiting"*) echo unlocked >>"$reader_state"; intro play >/dev/null ;; esac
-  done >>"$log"; echo eof >>"$reader_state") 2>&1
-  local rc=$?
+    case $l in
+      *"Session locked"*) echo locked >>"$reader_state" ;;
+      *"Unlocked, exiting"*) echo unlocked >>"$reader_state"; intro play >/dev/null ;;
+    esac
+  done >>"$log"; echo eof >>"$reader_state") 2>&1 &
+  local pid=$! ticks=0 rc
+  # A lock that runs but never engages (no compositor confirmation in time) must not pass for one: the flock and
+  # lock_running would read as locked (no retry, idle would sleep unlocked). Kill it; the loop retries.
+  while kill -0 "$pid" 2>/dev/null && ! grep -qs locked "$reader_state"; do
+    if ((ticks >= secure_ticks)); then
+      echo "no lock after $((secure_ticks / 10)) s: killed" >>"$log"
+      kill "$pid" 2>/dev/null
+      break
+    fi
+    sleep 0.1
+    ticks=$((ticks + 1))
+  done
+  wait "$pid"
+  rc=$?
   echo "lock exit $rc" >>"$log"
+  # Ended without ever engaging (killed above, or crashed at start: a QML error makes qs exit at once): the session
+  # is open while the loop retries — say so once (it used to give up after 30 tries without a word).
+  if [ $rc -ne 0 ] && ! grep -qs locked "$reader_state" && ((warned == 0)); then
+    warned=1
+    notify-send -a lock -u critical "Lock screen failed" "It did not come up; retrying. ~/.local/state/asahi/lock.log" || true
+  fi
   # A crash past the unlock line counts as unlocked: a retry would lock again right after the password. The reader may
   # lag the exit: wait for its verdict (≤ 1 s; `$!` does not name an output process substitution after an external
   # command). If the crash came before the release, Hyprland stays locked (fails closed): Super+Escape retakes it.

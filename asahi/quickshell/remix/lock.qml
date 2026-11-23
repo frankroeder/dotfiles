@@ -100,13 +100,14 @@ ShellRoot {
     }
   }
 
-  // Touch ID: one long verify (pam_fprintd timeout 600 s), re-armed when it runs out; 3 no-matches end it for this
-  // lock. After omarchy quattro's lock: an attempt that never reached the reader (fprintd drops it while the lid is
-  // shut, a refused claim) backs off 5, 10, 20, 40 s instead of retrying every 5 s all lock long; while the lock has
-  // the displays off no new attempt starts (the one running finishes under its own timeout, so a touch in the dark
-  // still unlocks for a while), and a key / motion or a display arriving (lid open while docked) tries again at once.
+  // Touch ID: one long verify (pam_fprintd timeout 600 s), re-armed when it runs out; 3 no-matches or Aurora's
+  // lockout end it for this lock. After omarchy quattro's lock: an attempt that never reached the reader (fprintd
+  // drops it while the lid is shut, a refused claim) backs off 5, 10, 20, 40 s instead of retrying every 5 s all lock
+  // long; the end of the blank (key / motion), a key, or a display arriving (lid open while docked) tries again at
+  // once. No pause while the displays are off (tried 2026-11-23: a lid-open wake lights the panel without input, so
+  // Touch ID stayed off until a key).
   function startFingerprint() {
-    if (lock.demo || lock.phase === "ok" || lock.fpGaveUp || lock.blanked || fpPam.active) return
+    if (lock.demo || lock.phase === "ok" || lock.fpGaveUp || fpPam.active) return
     lock.fpReached = false
     fpPam.start()
   }
@@ -123,7 +124,13 @@ ShellRoot {
     config: "fingerprint"
     onMessageChanged: {
       const m = String(message || "").toLowerCase()
-      if (m.indexOf("failed to match") >= 0) {
+      // Aurora's SEP lockout (pam_fprintd: "Too many failed fingerprint attempts. Use your password." / "Your password
+      // is required to enable / use Touch ID."): only the password ends it (pam_aurora_touchid in lockpam/password).
+      if (m.indexOf("too many failed") >= 0 || m.indexOf("password is required") >= 0) {
+        lock.fpGaveUp = true
+        lock.touch = { orb: "failed", tone: "fail", strong: m.indexOf("too many") >= 0 ? "Touch ID locked" : "Password needed for Touch ID",
+          hint: "type your password" }
+      } else if (m.indexOf("failed to match") >= 0) {
         lock.fpReached = true
         lock.fpMisses++
         lock.touch = { orb: "nomatch", tone: "fail", strong: "No match", hint: lock.fpMisses >= 2 ? "last try" : "touch again" }
@@ -134,7 +141,7 @@ ShellRoot {
     }
     onCompleted: result => {
       if (result === PamResult.Success) { lock.unlock(); return }
-      if (lock.phase === "ok") return
+      if (lock.phase === "ok" || lock.fpGaveUp) return
       if (lock.fpMisses >= 3 || result === PamResult.MaxTries) {   // pam_fprintd's own count is final too
         lock.fpGaveUp = true
         lock.touch = { orb: "failed", tone: "warn", strong: "Too many tries", hint: "type your password" }
@@ -239,6 +246,9 @@ ShellRoot {
     id: sessionLock
     locked: true
     onLockedChanged: if (!locked) { lock.xray(false); Qt.quit() }
+    // The compositor confirmed the lock (every output covered): asahi-lock waits for this line, else the lock never
+    // engaged (qs stays up after a QML load error, with no lock: fail-open) and it retries.
+    onSecureStateChanged: if (secure) console.warn("Session locked")
 
     WlSessionLockSurface {
       id: surf

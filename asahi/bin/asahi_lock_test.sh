@@ -46,9 +46,12 @@ case "\$*" in
     n=\$(( \$(cat "$tmp/runs" 2>/dev/null || echo 0) + 1 )); echo "\$n" >"$tmp/runs"
     echo lock >>"$tmp/calls"; [ -e "$tmp/asahi-locked" ] && echo flag >>"$tmp/calls"
     case "\${LOCK_MODE:-ok}" in
-      ok) echo "  WARN qml: Unlocked, exiting!" >&2; sleep 0.2; echo lock-exit >>"$tmp/calls" ;;
+      ok) echo "  WARN qml: Session locked" >&2; sleep 1   # a confirmed lock outlives the 0.5 s watchdog window
+        echo "  WARN qml: Unlocked, exiting!" >&2; sleep 0.2; echo lock-exit >>"$tmp/calls" ;;
       third) [ "\$n" -ge 3 ] || exit 1 ;;
-      crash) echo "  WARN qml: Unlocked, exiting!" >&2; kill -SEGV \$\$ ;;
+      crash) echo "  WARN qml: Session locked" >&2; echo "  WARN qml: Unlocked, exiting!" >&2; kill -SEGV \$\$ ;;
+      hang1) [ "\$n" -ge 2 ] || exec sleep 30   # runs, never engages: no confirmation line
+        echo "  WARN qml: Session locked" >&2; echo "  WARN qml: Unlocked, exiting!" >&2 ;;
       dead) exit 1 ;;
     esac ;;
   *wallpaperIntro*) echo "\$7" >>"$tmp/calls"; [ "\$7" = ready ] || exit 0
@@ -57,13 +60,16 @@ esac
 exit 0
 SH
 printf '#!/bin/sh\necho "$*" >"%s/pgrep-args"\nexit 1\n' "$tmp" >"$tmp/pgrep"
-chmod +x "$tmp/qs" "$tmp/pgrep"
+printf '#!/bin/sh\necho "notify $*" >>"%s/calls"\n' "$tmp" >"$tmp/notify-send"
+chmod +x "$tmp/qs" "$tmp/pgrep" "$tmp/notify-send"
 guard() { rm -f "$tmp/runs" "$tmp/calls" "$tmp/ready-once"; rc=0
-  XDG_RUNTIME_DIR="$tmp" XDG_STATE_HOME="$tmp" ASAHI_LOCK_RETRY_S=0 PATH="$tmp:$PATH" LOCK_MODE="$1" "$lock" 2>/dev/null || rc=$?; }
+  XDG_RUNTIME_DIR="$tmp" XDG_STATE_HOME="$tmp" ASAHI_LOCK_RETRY_S=0 ASAHI_LOCK_SECURE_TICKS=5 PATH="$tmp:$PATH" LOCK_MODE="$1" \
+    "$lock" 2>/dev/null || rc=$?; }
 
 guard ok
 if [ "$rc" = 0 ] && [ "$(tr '\n' '|' <"$tmp/calls")" = "arm|ready|ready|lock|flag|play|lock-exit|play|" ] \
-  && grep -q 'lock exit 0' "$tmp/asahi/lock.log" && grep -q '^unlocked$' "$tmp/asahi-lock.reader" && [ ! -e "$tmp/asahi-locked" ]; then
+  && grep -q 'lock exit 0' "$tmp/asahi/lock.log" && grep -q '^unlocked$' "$tmp/asahi-lock.reader" && [ ! -e "$tmp/asahi-locked" ] \
+  && ! grep -q 'no lock after' "$tmp/asahi/lock.log"; then
   pass "lock arms the intro, waits for it, runs qs -p lock.qml under the asahi-locked flag; the unlock line plays the intro"
 else
   fail_at "unlock: rc=$rc calls=[$(tr '\n' '|' <"$tmp/calls" 2>/dev/null)]"
@@ -74,11 +80,21 @@ if [ "$rc" = 0 ] && [ "$(cat "$tmp/runs")" = 3 ] && [ "$(grep -c 'lock exit' "$t
 else
   fail_at "restart: rc=$rc runs=$(cat "$tmp/runs" 2>/dev/null)"
 fi
+[ "$(grep -c '^notify .*Lock screen failed' "$tmp/calls")" = 1 ] \
+  && pass "a lock crashing at start (a QML error: qs exits at once) is warned about once while the loop retries" \
+  || fail_at "crash at start warning: [$(tr '\n' '|' <"$tmp/calls")]"
 guard crash
 if [ "$rc" = 0 ] && [ "$(cat "$tmp/runs")" = 1 ] && grep -q 'crashed after unlock' "$tmp/asahi/lock.log"; then
   pass "a crash past the unlock line does not lock again"
 else
   fail_at "crash after unlock: rc=$rc runs=$(cat "$tmp/runs" 2>/dev/null)"
+fi
+guard hang1
+if [ "$rc" = 0 ] && [ "$(cat "$tmp/runs")" = 2 ] && grep -q 'no lock after' "$tmp/asahi/lock.log" \
+  && [ "$(grep -c '^notify .*Lock screen failed' "$tmp/calls")" = 1 ]; then
+  pass "a lock that runs but never engages is killed, warned about once, retried"
+else
+  fail_at "never-engaging lock: rc=$rc runs=$(cat "$tmp/runs" 2>/dev/null) calls=[$(tr '\n' '|' <"$tmp/calls")]"
 fi
 guard dead
 if [ "$rc" = 1 ] && [ "$(cat "$tmp/runs")" = 31 ] && [ "$(tail -n 1 "$tmp/calls")" = play ] && [ ! -e "$tmp/asahi-locked" ]; then
@@ -96,11 +112,13 @@ else
   fail_at "lock already up: runs=$(cat "$tmp/runs" 2>/dev/null) pgrep [$(cat "$tmp/pgrep-args" 2>/dev/null)]"
 fi
 
-# The lock's PAM: a password file (pam_unix only, no pam_fprintd: it would hold a typed password) beside the finger.
+# The lock's PAM: a password file (pam_unix, then Aurora's Touch ID re-arm as system-auth runs it; no pam_fprintd: it
+# would hold a typed password) beside the finger.
 pamd="$ROOT/../quickshell/lockpam"
-if grep -qx 'auth     required  pam_unix.so' "$pamd/password" && ! grep -q '^[^#]*pam_fprintd' "$pamd/password" \
+if grep -qx 'auth     requisite  pam_unix.so' "$pamd/password" && grep -qx -- '-auth    optional   pam_aurora_touchid.so' "$pamd/password" \
+  && ! grep -q '^[^#]*pam_fprintd' "$pamd/password" \
   && grep -q '^auth  required  pam_fprintd.so max-tries=3' "$pamd/fingerprint" && grep -q 'enabled: lock.demo' "$lockqml"; then
-  pass "lock PAM: password = pam_unix alone, finger = pam_fprintd; the state IPC exists only in demo mode"
+  pass "lock PAM: password = pam_unix + the Touch ID re-arm, finger = pam_fprintd; the state IPC exists only in demo mode"
 else
   fail_at "lock PAM files / demo-only IPC"
 fi
