@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 #
-# asahi-session logout|reboot|poweroff
+# asahi-session logout|reboot|reboot-macos|poweroff
 #
 # Close every window first, so apps save their state (Firefox's session, Thunderbird, editors) instead of losing the
 # display under them (Logout was hl.dsp.exit() straight away; reboot SIGTERMed apps while Hyprland went down; idea:
 # omarchy-system). Waits ≤ 8 s for the windows to go; one still open then (an unsaved-changes dialog, a running
 # command in a terminal) cancels, macOS-style, with a notification naming it. Launcher System rows run this.
+# reboot-macos sets the one-shot macOS boot (asahi-bless, a polkit prompt) only once the windows are gone: set first,
+# a cancelled reboot left it armed and the next ordinary reboot landed in macOS.
 #
 # Tests: asahi_session_test.sh (fake hyprctl / systemctl / notify-send)
 #
@@ -14,9 +16,9 @@ set -euo pipefail
 
 action="${1:-}"
 case "$action" in
-  logout | reboot | poweroff) ;;
+  logout | reboot | reboot-macos | poweroff) ;;
   *)
-    echo "usage: $0 logout|reboot|poweroff" >&2
+    echo "usage: $0 logout|reboot|reboot-macos|poweroff" >&2
     exit 2
     ;;
 esac
@@ -33,12 +35,20 @@ done
 
 left=$(hyprctl clients -j 2>/dev/null | jq -r '[.[] | select(.mapped) | .class] | unique | join(", ")')
 if [ -n "$left" ]; then
-  notify-send -a Session -u normal "${action^} cancelled" "Still open: $left" || true
+  name="${action^}"
+  if [ "$action" = reboot-macos ]; then name="Restart into macOS"; fi
+  notify-send -a Session -u normal "$name cancelled" "Still open: $left" || true
   exit 1
 fi
 
+# The windows are gone by now: a step that fails must say so (else: apps closed, nothing happens, no word).
+failed() { notify-send -a Session -u critical "$1 failed" "${2:-}" || true; exit 1; }
 case "$action" in
   logout) hyprctl dispatch 'hl.dsp.exit()' >/dev/null ;;
-  reboot) systemctl reboot ;;
-  poweroff) systemctl poweroff ;;
+  reboot) systemctl reboot || failed Reboot ;;
+  reboot-macos)
+    pkexec /usr/bin/asahi-bless --set-boot-macos --next -y || failed "Restart into macOS" "macOS was not set for the next boot"
+    systemctl reboot || failed "Restart into macOS" "macOS stays set for the next boot (asahi-bless --clear-next)"
+    ;;
+  poweroff) systemctl poweroff || failed Shutdown ;;
 esac

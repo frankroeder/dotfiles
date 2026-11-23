@@ -52,6 +52,24 @@ rm -f "$STUCK"
 grep -q "dispatch hl.dsp.exit()" "$CALLS" && pass "logout without windows: exits Hyprland" || fail_at "logout: $(cat "$CALLS")"
 
 if "$ROOT/asahi-session" halt 2>/dev/null; then fail_at "unknown action accepted"; else pass "unknown action refused"; fi
+# Restart into macOS: the one-shot macOS boot is set only after the windows are gone (a cancel must leave it unset).
+printf '#!/bin/sh\necho "pkexec $*" >>"$CALLS"\n' >"$tmp/pkexec"; chmod +x "$tmp/pkexec"
+printf '0xc3 org.libreoffice.LibreOffice.writer\n' >"$OPEN"; echo 0xc3 >"$STUCK"; : >"$CALLS"
+if "$ROOT/asahi-session" reboot-macos; then fail_at "reboot-macos with a window left must cancel"; fi
+! grep -q 'pkexec\|systemctl' "$CALLS" && pass "reboot-macos cancelled: no macOS boot armed, no reboot" || fail_at "reboot-macos cancel: $(cat "$CALLS")"
+rm -f "$STUCK"; : >"$OPEN"; : >"$CALLS"
+"$ROOT/asahi-session" reboot-macos
+[ "$(tr '\n' '|' <"$CALLS")" = "pkexec /usr/bin/asahi-bless --set-boot-macos --next -y|systemctl reboot|" ] \
+  && pass "reboot-macos: windows gone, then the one-shot macOS boot, then reboot" || fail_at "reboot-macos: $(cat "$CALLS")"
+# The polkit prompt dismissed: the windows are closed already, so a card says nothing was armed (no reboot).
+printf '#!/bin/sh\necho "pkexec $*" >>"$CALLS"\nexit 126\n' >"$tmp/pkexec"; : >"$CALLS"
+if "$ROOT/asahi-session" reboot-macos; then fail_at "a dismissed polkit prompt must fail"; fi
+grep -q 'notify .*Restart into macOS failed macOS was not set' "$CALLS" && ! grep -q 'systemctl' "$CALLS" \
+  && pass "reboot-macos, prompt dismissed: a card, no reboot" || fail_at "dismissed prompt: $(cat "$CALLS")"
+# A refused reboot (a block inhibitor) says so too.
+printf '#!/bin/sh\necho "systemctl $*" >>"$CALLS"\nexit 1\n' >"$tmp/systemctl"; : >"$CALLS"
+if "$ROOT/asahi-session" reboot; then fail_at "a refused reboot must fail"; fi
+grep -q 'notify .*Reboot failed' "$CALLS" && pass "refused reboot: a card" || fail_at "refused reboot: $(cat "$CALLS")"
 
 [ "$fail" = 0 ] && echo "all passed"
 exit "$fail"

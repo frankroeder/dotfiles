@@ -126,7 +126,7 @@ const localItems = [
   { title: "Suspend", icon: "󰒲", category: "System", keywords: "suspend sleep", comment: "Sleep until next wake (s2idle; no hibernate on Asahi)", command: ["asahi-idle", "sleep"] },
   { title: "Logout", icon: "󰍃", category: "System", keywords: "logout exit session", comment: "Close every app, then end the session", exec: "$HOME/.dotfiles/asahi/bin/asahi-session logout", confirm: true },
   { title: "Restart", icon: "󰜉", category: "System", keywords: "restart reboot", comment: "Close every app, then reboot", exec: "$HOME/.dotfiles/asahi/bin/asahi-session reboot", confirm: true },
-  { title: "Restart into macOS", icon: "󰀵", category: "System", keywords: "restart reboot macos bless boot", comment: "Boot macOS once (asahi-bless --next), then Linux again", exec: "pkexec /usr/bin/asahi-bless --set-boot-macos --next -y && $HOME/.dotfiles/asahi/bin/asahi-session reboot", confirm: true },
+  { title: "Restart into macOS", icon: "󰀵", category: "System", keywords: "restart reboot macos bless boot", comment: "Boot macOS once (asahi-bless --next), then Linux again", exec: "$HOME/.dotfiles/asahi/bin/asahi-session reboot-macos", confirm: true },
   { title: "Shutdown", icon: "󰐥", category: "System", keywords: "shutdown poweroff", comment: "Close every app, then power off", exec: "$HOME/.dotfiles/asahi/bin/asahi-session poweroff", confirm: true },
 
 ]
