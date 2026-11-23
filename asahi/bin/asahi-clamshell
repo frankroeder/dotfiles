@@ -92,7 +92,12 @@ case "${1:-status}" in
         exit 0
       }
       sleep 5
-      lid_closed && lid_blocked || { log "close: lid opened or block gone within 5 s"; exit 0; }
+      lid_closed || { log "close: lid opened within 5 s"; exit 0; }
+      lid_blocked || {   # the block went (cable pulled), the lid is still shut: logind suspends now — lock, as above
+        log "close: block gone within 5 s, lock, logind suspends: $(outputs)"
+        setsid -f "$bin/asahi-lock" </dev/null >/dev/null 2>&1
+        exit 0
+      }
       if ! external_up; then
         log "close: lid blocked, no lit external after 5 s, blank + lock: $(outputs)"
         "$bin/asahi-idle-brightness" off

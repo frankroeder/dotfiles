@@ -35,7 +35,11 @@ cat >"$fake/busctl" <<'EOF'
 case "$*" in
   *LidClosed*) echo "b true" ;;
   *ListInhibitors*)
-    if [ "${FAKE_BLOCKED:-1}" = 1 ]; then
+    # $BLOCK_ONCE (a file): blocked at this ask only (the cable pulled during close's 5 s wait).
+    if [ -n "${BLOCK_ONCE:-}" ] && [ -e "$BLOCK_ONCE" ]; then
+      rm -f "$BLOCK_ONCE"
+      echo '{"data":[[["handle-lid-switch","asahi-hdmi","HDMI","block",0,0]]]}'
+    elif [ "${FAKE_BLOCKED:-1}" = 1 ]; then
       echo '{"data":[[["handle-lid-switch","asahi-hdmi","HDMI","block",0,0]]]}'
     else
       echo '{"data":[[]]}'
@@ -90,6 +94,12 @@ FAKE_BLOCKED=0 close disabled "$(dp true)"
 close disabled "[$edp]"
 grep -q 'asahi-lock' "$CALLS" && ! grep -q 'eval' "$CALLS" \
   && pass "laptop-only, blocked lid: blanks + locks" || fail_at "laptop-only blocked close: $(cat "$CALLS")"
+
+# The block goes during the 5 s wait, the lid stays shut: logind suspends now, so close locks (no blank).
+: >"$tmp/block-once"
+BLOCK_ONCE="$tmp/block-once" FAKE_BLOCKED=0 close disabled "[$edp]"
+grep -q 'asahi-lock' "$CALLS" && ! grep -q 'eval' "$CALLS" && grep -q 'block gone within 5 s, lock' "$LOG" \
+  && pass "block gone during the wait, lid shut: locks before logind's suspend" || fail_at "block gone: $(cat "$CALLS" "$LOG")"
 
 # apply in clamshell: the external turned unlit -> eDP-1 comes back (never zero lit outputs).
 : >"$CALLS"
