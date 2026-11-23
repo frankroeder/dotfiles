@@ -1459,7 +1459,8 @@ Scope {
     const ws = root.launcherWorkspaceId || Hyprland.focusedWorkspace?.id || 1
     Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({ workspace = " + ws + " })"])
     // Terminal=true entries (btop, htop, nvim, cliamp) run inside Ghostty: on their own they start without a window.
-    const launchPrefix = entry.runInTerminal ? (binDir + "/asahi-launch-tui ")
+    // A desktop action has no runInTerminal of its own: the app's (Terminal=true) holds for its actions too.
+    const launchPrefix = (app || entry).runInTerminal ? (binDir + "/asahi-launch-tui ")
       : (command.length > 0 ? (binDir + "/asahi-launch ") : "uwsm-app -- ")
     Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.exec_cmd(" + root.luaQuote("[workspace " + ws + "] " + launchPrefix + exec) + ")"])
   }
@@ -2919,11 +2920,12 @@ Scope {
             anchors.leftMargin: 16
             anchors.verticalCenter: parent.verticalCenter
             // The prompt names the mode (idea: hyprconf's Spotlight): calculator, files, else the open category's
-            // glyph; plain search keeps the magnifier. Accent while a mode is on.
+            // glyph; plain search keeps the magnifier (typing at the root drills into "App": that is plain search
+            // too). Accent while a mode is on.
             readonly property string modeGlyph: {
               if (root.calcMode) return "󰃬"
               if (root.fileMode) return "󰉖"
-              const nav = Data.categoryNav.find(n => n.target === root.categoryFilter && n.target !== "Quick")
+              const nav = Data.categoryNav.find(n => n.target === root.categoryFilter && n.target !== "Quick" && n.target !== "App")
               return nav ? nav.icon : ""
             }
             text: modeGlyph || "󰍉"

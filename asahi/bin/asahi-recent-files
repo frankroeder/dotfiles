@@ -15,9 +15,12 @@ max="${1:-40}"
 xbel="${ASAHI_RECENT_XBEL:-${XDG_DATA_HOME:-$HOME/.local/share}/recently-used.xbel}"
 [ -r "$xbel" ] || exit 0
 
-# "<modified> <path>" per bookmark (href comes before modified in every writer seen), newest first, then decoded.
+# "<modified> <path>" per bookmark (href comes before modified in every writer seen), newest first, then decoded:
+# XML entities first (GLib leaves & and ' unescaped in file URIs, the xbel writer stores them as &amp; / &#39;:
+# "Peace &amp; Love.mp3" was skipped as gone), &amp; last, then the %-escapes.
 grep -o '<bookmark href="file://[^"]*"[^>]*modified="[^"]*"' "$xbel" \
   | sed -E 's|.*href="file://([^"]*)".*modified="([^"]*)".*|\2 \1|' \
+  | sed -e 's/&lt;/</g' -e 's/&gt;/>/g' -e 's/&quot;/"/g' -e "s/&#39;/'/g" -e "s/&apos;/'/g" -e 's/&amp;/\&/g' \
   | sort -r | awk '!seen[$2]++' \
   | while read -r _ path; do
       path=$(printf '%b' "${path//%/\\x}")

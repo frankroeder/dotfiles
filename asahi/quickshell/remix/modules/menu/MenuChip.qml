@@ -42,6 +42,7 @@ Rectangle {
     Text {
       anchors.verticalCenter: parent.verticalCenter
       text: chip.label
+      textFormat: Text.PlainText   // labels carry outside strings (an inhibitor's app name, a window class)
       color: chip.fg
       font.family: chip.fontFamily; font.features: Style.fontTabular
       font.pixelSize: Math.round(10 * chip.fontScale)
