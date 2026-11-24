@@ -68,6 +68,49 @@ function sparkPoints(history) {
   return pts
 }
 
+// I/O tile (idea: Gren-95 SystemMonitor): system totals only, sampled while SysPanel is open.
+// /proc/net/dev → bytes received / sent over physical links (wl*, en*, eth*): a VPN tunnel would count the same bytes twice.
+function netTotals(text) {
+  let rx = 0, tx = 0
+  for (const line of String(text || "").split("\n")) {
+    const m = line.match(/^\s*([^:\s]+):\s*(.*)$/)
+    if (!m || !/^(wl|en|eth)/.test(m[1])) continue
+    const f = m[2].trim().split(/\s+/).map(Number)
+    rx += f[0] || 0
+    tx += f[8] || 0
+  }
+  return { rx: rx, tx: tx }
+}
+
+// /proc/diskstats → bytes read / written by whole disks (nvme0n1, sda, mmcblk0; not their partitions), 512-byte sectors.
+function diskTotals(text) {
+  let rd = 0, wr = 0
+  for (const line of String(text || "").split("\n")) {
+    const f = line.trim().split(/\s+/)
+    if (f.length < 10 || !/^(nvme\d+n\d+|sd[a-z]+|vd[a-z]+|mmcblk\d+)$/.test(f[2])) continue
+    rd += (Number(f[5]) || 0) * 512
+    wr += (Number(f[9]) || 0) * 512
+  }
+  return { rd: rd, wr: wr }
+}
+
+// Mirrored graph: `up` (download / read) above the midline, `down` (upload / write) below, one shared scale; sqrt so a
+// trickle still shows next to a burst. Points normalised 0..1 (y 0.5 = midline).
+function mirrorPoints(up, down) {
+  const n = Math.min((up || []).length, (down || []).length)
+  if (n < 2) return { up: [], down: [] }
+  const max = Math.max(1, ...up.slice(-n), ...down.slice(-n))
+  const pts = (h, sign) => h.slice(-n).map((v, i) => ({ x: i / (n - 1), y: 0.5 + sign * 0.5 * Math.sqrt(Math.max(0, v) / max) }))
+  return { up: pts(up, -1), down: pts(down, 1) }
+}
+
+function fmtRate(bps) {
+  const n = Math.max(0, Number(bps) || 0)
+  if (n < 1024) return Math.round(n) + " B/s"
+  if (n < 1048576) return (n / 1024).toFixed(n < 10240 ? 1 : 0) + " KB/s"
+  return (n / 1048576).toFixed(1) + " MB/s"
+}
+
 // Heat bucket for a °C reading: 0 cool, 1 warm, 2 hot.
 function heat(c) {
   const v = Number(c)
@@ -115,6 +158,10 @@ if (typeof module !== "undefined" && module.exports) {
     hottest: hottest,
     sensorLabel: sensorLabel,
     sparkPoints: sparkPoints,
+    netTotals: netTotals,
+    diskTotals: diskTotals,
+    mirrorPoints: mirrorPoints,
+    fmtRate: fmtRate,
     heat: heat,
     heatW: heatW,
     fanFraction: fanFraction,

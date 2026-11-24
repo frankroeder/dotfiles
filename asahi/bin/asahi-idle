@@ -26,7 +26,9 @@
 # otherwise it suspends. Aurora's kernel: a key or trackpad click wakes s2idle
 # (touches don't), like lid and power button.
 #
-# The stay-awake chip (asahi-stay-awake) skips every step.
+# The stay-awake chip (asahi-stay-awake) skips every step. A Claude Code session at work (asahi-claude-activity)
+# holds only the sleep: saver, lock and display off run; the off loop's retry sleeps within a minute of the last
+# one ending (or its marker going stale), no input needed. The lid never asks: logind suspends it.
 
 set -euo pipefail
 
@@ -133,6 +135,19 @@ if [ "$cmd" = mark ]; then
   exit 0
 fi
 
+# "1 session" / "N sessions" while Claude Code works (asahi-claude-activity markers, stale ones pruned); else exit 1.
+# Claude's hold gives way on a low battery (discharging, < 20 %): the 2 % power-off would end the run anyway.
+battery_low() {
+  local b="${ASAHI_BATTERY_DIR:-/sys/class/power_supply/macsmc-battery}"
+  [ "$(cat "$b/status" 2>/dev/null)" = Discharging ] && [ "$(cat "$b/capacity" 2>/dev/null || echo 100)" -lt 20 ]
+}
+
+claude_sessions() {
+  local n
+  n=$("$bin/asahi-claude-activity" status) || return 1
+  if ((n == 1)); then echo "1 session"; else echo "$n sessions"; fi
+}
+
 # Browser tabs keep silent streams RUNNING for hours, so RUNNING is not playback: record ~1 s of
 # each running sink's monitor and look for signal (stream.capture.sink, else pw-record takes the
 # mic). The monitor is pre-volume: muted playback still blocks sleep, like macOS.
@@ -159,6 +174,7 @@ stream_apps() {
 if [ "$cmd" = why ] && [ "${2:-}" = --json ]; then
   {
     if "$bin/asahi-stay-awake" status; then jq -nc '{kind: "stay-awake", who: "Stay awake", why: "every idle step skips"}'; fi
+    if n=$(claude_sessions); then jq -nc --arg n "$n" '{kind: "claude", who: "Claude Code", why: "working (\($n)): sleep waits"}'; fi
     hyprctl clients -j 2>/dev/null \
       | jq -c '.[] | select(.inhibitingIdle) | {kind: "window", who: .class, why: .title, address}' || true
     systemd-inhibit --list --json=short 2>/dev/null \
@@ -186,10 +202,11 @@ if [ "$cmd" = release ]; then
   exit 0
 fi
 
-# What keeps the session awake: idle steps (stay-awake, inhibitors) and sleep (external, failed
-# suspend, audio). Read-only.
+# What keeps the session awake: idle steps (stay-awake, inhibitors) and sleep (Claude Code, external, failed
+# suspend, audio). Read-only (but for pruning stale Claude Code markers).
 if [ "$cmd" = why ]; then
   if "$bin/asahi-stay-awake" status; then echo "stay-awake is on (Super+Ctrl+I): every idle step skips"; fi
+  if n=$(claude_sessions); then echo "Claude Code working ($n): idle sleep waits (saver, lock, display off still run)"; fi
   hyprctl clients -j 2>/dev/null | jq -r '.[] | select(.inhibitingIdle) | "window inhibits idle: \(.class) — \(.title)"' || true
   systemd-inhibit --list --no-legend 2>/dev/null | awk '$NF == "block" && /idle|sleep/ { print "inhibitor: " $0 }' || true
   # Portal Inhibit calls end up on hypridle's ScreenSaver.Inhibit, in neither list above (Firefox kept
@@ -246,9 +263,11 @@ display_lit() { hyprctl monitors -j 2>/dev/null | jq -e 'any(.[]; .dpmsStatus)' 
 
 # `can_sleep quiet` (the off loop's retries) skips the log line.
 can_sleep() {
-  local why=""
+  local why="" n
+  # Claude Code at work: the agent keeps running behind the lock (dark display); the lid still sleeps (logind's own).
+  if ! battery_low && n=$(claude_sessions); then why="Claude Code working ($n)"
   # macOS holds system sleep while audio plays (power assertion).
-  if playing; then why="audio ($(stream_apps))"
+  elif playing; then why="audio ($(stream_apps))"
   # Docked / HDMI: s2idle with an external output is the DCP hang path.
   elif external_on; then why=external
   # Last suspend refused by the kernel: retrying only churns the DCP. A good lid suspend clears it.

@@ -51,7 +51,7 @@ Scope {
   readonly property var apps: {
     const l = root.launcher
     if (!root.shown || !l) return []
-    const _ = l.hiddenVersion
+    const _ = l.hiddenVersion + l.pinnedApps.length
     const q = root.query.trim().toLowerCase()
     const rank = d => {
       const n = String(d.name || "").toLowerCase()
@@ -65,7 +65,8 @@ Scope {
       .filter(d => !d.noDisplay && !l.isHiddenApp(d))
       .map(d => ({ d: d, r: rank(d) }))
       .filter(x => x.r > 0)
-      .sort((a, b) => a.r - b.r || String(a.d.name).localeCompare(String(b.d.name)))
+      // Pinned apps lead, in pin order (without a query; with one they lead their match tier).
+      .sort((a, b) => a.r - b.r || l.pinRank(a.d) - l.pinRank(b.d) || String(a.d.name).localeCompare(String(b.d.name)))
       .map(x => x.d)
   }
 
@@ -222,6 +223,14 @@ Scope {
               color: Style.m3onSurface
             }
           }
+          Rectangle {   // pinned: a small pin badge on the icon's corner (right-click toggles)
+            visible: !!root.launcher && root.launcher.pinnedApps.length >= 0 && root.launcher.isPinned(cell.modelData)
+            anchors { right: icon.right; top: icon.top; rightMargin: -6; topMargin: -6 }
+            width: 22; height: 22; radius: 11
+            color: Style.m3primary
+            border.width: 2; border.color: Style.m3surfaceSolid
+            Text { anchors.centerIn: parent; text: "󰐃"; color: Style.m3onPrimary; font.family: Style.menuMono; font.pixelSize: 12 }
+          }
           Menu.MenuRunDots {   // a dot per open window; the focused app's first one an accent pill
             anchors { horizontalCenter: icon.horizontalCenter; top: icon.bottom; topMargin: 3 }
             count: root.launcher ? root.launcher.windowCount(cell.modelData) : 0
@@ -244,8 +253,12 @@ Scope {
             anchors.fill: parent
             hoverEnabled: true
             onContainsMouseChanged: if (containsMouse) root.hoverCell = cell; else if (root.hoverCell === cell) root.hoverCell = null
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
             onPositionChanged: (mouse) => { if (root.pointerMoved(mapToGlobal(mouse.x, mouse.y))) grid.currentIndex = cell.index }
-            onClicked: root.launch(cell.modelData)
+            onClicked: mouse => {
+              if (mouse.button === Qt.RightButton) { if (root.launcher) root.launcher.togglePin(cell.modelData) }
+              else root.launch(cell.modelData)
+            }
           }
         }
       }

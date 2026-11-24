@@ -23,6 +23,10 @@ PopupWindow {
   property var spark: []
   property var memSpark: []
   property var fans: []
+  // I/O tile: rates in bytes/s from the last two samples, histories of the last minute (only while open).
+  property var io: ({ rx: 0, tx: 0, rd: 0, wr: 0 })
+  property var ioPrev: null
+  property var ioHist: ({ rx: [], tx: [], rd: [], wr: [] })
 
   readonly property var heatColors: [Style.green, Style.yellow, Style.red]
   readonly property real topCpu: root.procs.length ? Math.max(1, root.procs[0].cpu) : 1
@@ -30,7 +34,10 @@ PopupWindow {
   readonly property var cores: (root.barHost && root.barHost.cpuCores) ? root.barHost.cpuCores : []
 
   visible: root.panelOpen || growOut.running
-  onPanelOpenChanged: if (root.panelOpen) { growOut.stop(); growIn.restart() } else { growIn.stop(); growOut.restart() }
+  onPanelOpenChanged: {
+    if (root.panelOpen) { growOut.stop(); growIn.restart() } else { growIn.stop(); growOut.restart() }
+    if (!root.panelOpen) { root.ioPrev = null; root.ioHist = { rx: [], tx: [], rd: [], wr: [] } }   // a fresh minute per open
+  }
   color: "transparent"
   anchor.edges: Edges.Bottom
   anchor.margins.bottom: -BarModel.popupDrop(root.barHost ? root.barHost.height : Style.barHeight, Style.barHeight)  // negative = below
@@ -47,6 +54,21 @@ PopupWindow {
     root.memSpark = Sys.sparkPoints(root.barHost.memHistory)
     if (!psProc.running) psProc.running = true
     if (!tempProc.running) tempProc.running = true
+    root.sampleIo()
+  }
+  FileView { id: netDev; path: "/proc/net/dev"; blockLoading: true }
+  FileView { id: diskStats; path: "/proc/diskstats"; blockLoading: true }
+  function sampleIo() {
+    netDev.reload(); diskStats.reload()
+    const now = Object.assign({ t: Date.now() }, Sys.netTotals(netDev.text()), Sys.diskTotals(diskStats.text()))
+    const p = root.ioPrev
+    root.ioPrev = now
+    if (!p || now.t <= p.t) return
+    const dt = (now.t - p.t) / 1000, rate = k => Math.max(0, (now[k] - p[k]) / dt)
+    root.io = { rx: rate("rx"), tx: rate("tx"), rd: rate("rd"), wr: rate("wr") }
+    const h = {}
+    for (const k of ["rx", "tx", "rd", "wr"]) h[k] = root.ioHist[k].concat([root.io[k]]).slice(-30)
+    root.ioHist = h
   }
 
   Timer { interval: 2000; repeat: true; triggeredOnStart: true; running: root.panelOpen; onTriggered: root.refresh() }
@@ -188,6 +210,57 @@ PopupWindow {
     }
   }
 
+  // Mirrored I/O graph (Gren-95 SysGraph `mirror`): download / read above the midline, upload / write below.
+  component IoBox: Rectangle {
+    id: ioBox
+    property string title: ""
+    property var up: []
+    property var down: []
+    property real upRate: 0
+    property real downRate: 0
+    property string upGlyph: "󰇚"
+    property string downGlyph: "󰕒"
+    property color upColor: Style.sky
+    property color downColor: Style.orange
+    readonly property var pts: Sys.mirrorPoints(ioBox.up, ioBox.down)
+    Layout.fillWidth: true
+    implicitHeight: 74
+    radius: Style.menuRadiusMd
+    color: Style.menuCardBg
+    border.color: Style.menuSep
+    border.width: 1
+    RowLayout {
+      id: ioHead
+      anchors { left: parent.left; right: parent.right; top: parent.top; margins: 8 }
+      spacing: 6
+      Text { text: ioBox.title; color: Style.menuInkDeep; font.family: Style.fontUi; font.pixelSize: Style.typeCaption; font.weight: Font.DemiBold }
+      Item { Layout.fillWidth: true }
+      Text { text: ioBox.upGlyph + " " + Sys.fmtRate(ioBox.upRate); color: ioBox.upColor; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeCaption }
+      Text { text: ioBox.downGlyph + " " + Sys.fmtRate(ioBox.downRate); color: ioBox.downColor; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeCaption }
+    }
+    Shape {
+      id: ioShape
+      anchors { left: parent.left; right: parent.right; top: ioHead.bottom; bottom: parent.bottom; margins: 8; topMargin: 4 }
+      preferredRendererType: Shape.CurveRenderer
+      readonly property var upLine: ioBox.pts.up.map(p => Qt.point(p.x * width, p.y * height))
+      readonly property var downLine: ioBox.pts.down.map(p => Qt.point(p.x * width, p.y * height))
+      ShapePath {
+        strokeWidth: -1
+        fillColor: Qt.alpha(ioBox.upColor, 0.5)
+        PathPolyline { path: ioShape.upLine.length > 1 ? [Qt.point(0, ioShape.height / 2)].concat(ioShape.upLine, [Qt.point(ioShape.width, ioShape.height / 2)]) : [] }
+      }
+      ShapePath {
+        strokeWidth: -1
+        fillColor: Qt.alpha(ioBox.downColor, 0.5)
+        PathPolyline { path: ioShape.downLine.length > 1 ? [Qt.point(0, ioShape.height / 2)].concat(ioShape.downLine, [Qt.point(ioShape.width, ioShape.height / 2)]) : [] }
+      }
+      ShapePath {
+        strokeColor: Style.menuSep; strokeWidth: 1; fillColor: "transparent"
+        PathPolyline { path: [Qt.point(0, ioShape.height / 2), Qt.point(ioShape.width, ioShape.height / 2)] }
+      }
+    }
+  }
+
   // Unfolds out of its chip (container transform): a chip-wide pill under the chip grows into the card, the content
   // stays where the full card puts it (the clip reveals it) and fades in past a third. Once per open / close.
   property real grow: 0
@@ -265,6 +338,17 @@ PopupWindow {
           ].filter(function(s) { return s !== "" }).join("  ·  ")
           color: Style.menuInkDeep; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeCaption
           visible: text !== ""
+        }
+
+        SectionTitle { text: "i/o" }
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 10
+          IoBox { title: "Network"; up: root.ioHist.rx; down: root.ioHist.tx; upRate: root.io.rx; downRate: root.io.tx }
+          IoBox {
+            title: "Disk"; up: root.ioHist.rd; down: root.ioHist.wr; upRate: root.io.rd; downRate: root.io.wr
+            upGlyph: "R"; downGlyph: "W"; upColor: Style.green; downColor: Style.mauve
+          }
         }
 
         SectionTitle { text: "per-core"; visible: root.cores.length > 0 }

@@ -122,6 +122,14 @@ for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$tmp/fd9" ] && break; sleep 0.1; done
 [ "$(cat "$tmp/fd9" 2>/dev/null)" = closed ] && pass "a started hyprsunset does not hold the lock" || fail_at "fd 9: $(cat "$tmp/fd9" 2>/dev/null)"
 for _ in 1 2 3 4 5; do run warmer; done
 [ "$(jq -r '.temperature' "$tmp/state/nightlight.json")" = 1000 ] && pass "warmer clamps at 1000 K" || fail_at "warmer clamp: $(cat "$tmp/state/nightlight.json")"
+# set <K> (the bar popup's slider): exact temperature, clamped; turns it on when off; junk refused.
+run set 3250
+[ "$(jq -r '.temperature' "$tmp/state/nightlight.json")" = 3250 ] && [ "$(cat "$tmp/temp")" = 3250 ] && pass "set 3250 K" || fail_at "set: $(cat "$tmp/state/nightlight.json")"
+run set 9000
+[ "$(jq -r '.temperature' "$tmp/state/nightlight.json")" = 6000 ] && pass "set clamps at 6000 K" || fail_at "set clamp: $(cat "$tmp/state/nightlight.json")"
+run toggle; run set 2500
+[ "$(jq -r '.on' "$tmp/state/nightlight.json")" = true ] && [ "$(cat "$tmp/temp")" = 2500 ] && pass "set while off turns it on at 2500 K" || fail_at "set off: $(cat "$tmp/state/nightlight.json")"
+run set 'x;id' && fail_at "set junk accepted" || pass "set refuses junk"
 run toggle
 
 cat >"$tmp/hyprsunset.conf" <<'EOF'

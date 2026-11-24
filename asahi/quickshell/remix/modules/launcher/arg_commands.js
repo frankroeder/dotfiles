@@ -148,6 +148,27 @@ function parseTimer(term) {
   return { duration: dur, seconds: secs, label: (m[2] || "").trim() || "Timer" }
 }
 
+// ":dnd 45m" / ":dnd 2h" / ":dnd 8:00" (until that clock time, next occurrence) / ":dnd off" ->
+// { until: epoch ms, label } / { off: true }; null when not understood. `now` is a Date (tests).
+function parseDnd(term, now) {
+  const m = String(term || "").trim().match(/^dnd(?:\s+(\S+))?\s*$/i)
+  if (!m || !m[1]) return null
+  const arg = m[1].toLowerCase()
+  if (arg === "off") return { off: true }
+  const clock = arg.match(/^(\d{1,2}):(\d{2})$/)
+  if (clock) {
+    const h = Number(clock[1]), min = Number(clock[2])
+    if (h > 23 || min > 59) return null
+    const t = new Date(now.getTime())
+    t.setHours(h, min, 0, 0)
+    if (t.getTime() <= now.getTime()) t.setDate(t.getDate() + 1)
+    return { until: t.getTime(), label: "until " + clock[1].padStart(2, "0") + ":" + clock[2] }
+  }
+  const t = parseTimer("timer " + arg)
+  if (!t || /^\d+:\d+$/.test(arg)) return null
+  return { until: now.getTime() + t.seconds * 1000, label: "for " + formatShort(t.seconds) }
+}
+
 // ":def Fernweh" / ":lookup kick the bucket" -> the text for Look Up ("" while none is typed);
 // null for any other action.
 function parseLookup(term) {
@@ -181,6 +202,7 @@ if (typeof module !== "undefined" && module.exports) {
     tabArm: tabArm,
     parseTimer: parseTimer,
     parseLookup: parseLookup,
+    parseDnd: parseDnd,
     formatSeconds: formatSeconds,
     formatShort: formatShort
   }

@@ -14,7 +14,7 @@ Item {
   property var notificationCenter: null
   property bool calendarOpen: false
   property bool launcherOpen: false
-  // One bar popup at a time: "", "sys", "rec", "media", "ccu" or "tray". The calendar
+  // One bar popup at a time: "", "sys", "rec", "media", "ccu", "tray" or "night". The calendar
   // (shell.qml) and the notification sheet close it, and opening it closes them.
   property string openPanel: ""
   onLauncherOpenChanged: if (launcherOpen) barWindow.openPanel = ""
@@ -385,5 +385,11 @@ Item {
     barHost: barWindow
     panelOpen: barWindow.openPanel === "rec"
     anchor.item: statusBlock
+  }
+  BarComponents.NightLightPanel {
+    barHost: barWindow
+    panelOpen: barWindow.openPanel === "night" && statusBlock.nightLightOn
+    temperature: statusBlock.nightTemp
+    anchor.item: statusBlock.nightChip
   }
 }

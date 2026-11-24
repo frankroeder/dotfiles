@@ -66,6 +66,15 @@ assert.strictEqual(A.tabArm("firefox", null, engines), null, "plain app query do
 assert.strictEqual(A.placeholder("dict"), "Type a word to translate");
 assert.ok(A.placeholder("@dcc", { name: "dict.cc" }).indexOf("dict.cc") >= 0);
 
+const now = new Date(2026, 10, 24, 21, 30, 0);
+assert.deepStrictEqual(A.parseDnd("dnd 45m", now), { until: now.getTime() + 45 * 60000, label: "for 45m" });
+assert.deepStrictEqual(A.parseDnd("dnd 2h", now), { until: now.getTime() + 7200000, label: "for 2h 0m" });
+assert.deepStrictEqual(A.parseDnd("dnd 8:00", now), { until: new Date(2026, 10, 25, 8, 0).getTime(), label: "until 08:00" }, "8:00 = tomorrow");
+assert.deepStrictEqual(A.parseDnd("dnd 23:15", now), { until: new Date(2026, 10, 24, 23, 15).getTime(), label: "until 23:15" }, "later today");
+assert.deepStrictEqual(A.parseDnd("dnd off", now), { off: true });
+assert.strictEqual(A.parseDnd("dnd", now), null);
+assert.strictEqual(A.parseDnd("dnd 25:00", now), null);
+assert.strictEqual(A.parseDnd("dnd soon", now), null);
 assert.deepStrictEqual(A.parseTimer("timer 10m tea"), { duration: "10m", seconds: 600, label: "tea" });
 assert.deepStrictEqual(A.parseTimer("timer 1:30"), { duration: "1:30", seconds: 90, label: "Timer" });
 assert.strictEqual(A.parseTimer("timer 1h15m30s").seconds, 4530, "h/m/s compound");

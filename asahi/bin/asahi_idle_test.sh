@@ -13,7 +13,7 @@ trap 'rm -rf "$tmp"' EXIT
 bin="$tmp/bin"
 fake="$tmp/fake"
 mkdir -p "$bin" "$fake" "$tmp/run" "$tmp/state"
-cp "$ROOT/asahi-idle" "$bin/"
+cp "$ROOT/asahi-idle" "$ROOT/asahi-claude-activity" "$bin/"
 cp -r "$ROOT/lib" "$bin/"
 run="$tmp/run"
 idle_log="$tmp/state/asahi/idle.log"
@@ -208,6 +208,61 @@ else
 fi
 rm -f "$run/stay-awake" "$fake/systemd-inhibit"
 idle release 'x; rm -rf /' 2>/dev/null && fail_at "release took a bad sender" || pass "release refuses anything but a portal sender id"
+
+# Claude Code hooks: one marker per session_id (sanitized), silent, exit 0; a count file for the bar, gone at 0.
+claude() { printf '{"session_id":"%s","hook_event_name":"x"}' "$2" | "$bin/asahi-claude-activity" "$1"; }
+out=$(claude start s1; claude beat '../s2'; claude beat s1)
+[ -z "$out" ] && [ -e "$run/claude-activity/s1" ] && [ -e "$run/claude-activity/s2" ] && [ "$(cat "$run/claude-activity.count")" = 2 ] \
+  && pass "claude-activity: silent, a marker per session (path stripped), count 2" || fail_at "claude markers: $out $(ls "$run/claude-activity")"
+claude stop s2
+[ "$(cat "$run/claude-activity.count")" = 1 ] && [ ! -e "$run/claude-activity/s2" ] && pass "claude-activity stop: count 1" \
+  || fail_at "claude stop: $(ls "$run/claude-activity")"
+echo nonsense | "$bin/asahi-claude-activity" beat && [ -e "$run/claude-activity/ppid-$$" ] && rm "$run/claude-activity/ppid-$$" \
+  && pass "claude-activity: no session_id falls back to the caller's pid, exit 0" || fail_at "claude fallback: $(ls "$run/claude-activity")"
+# macOS (shared settings.json and dotfiles): hooks do nothing, status says none.
+mkdir -p "$tmp/mac" && printf '#!/bin/sh\necho Darwin\n' >"$tmp/mac/uname" && chmod +x "$tmp/mac/uname"
+PATH="$tmp/mac:$PATH" claude start m1
+if [ ! -e "$run/claude-activity/m1" ] && ! PATH="$tmp/mac:$PATH" "$bin/asahi-claude-activity" status >/dev/null; then
+  pass "claude-activity off Linux: no marker, status none"
+else
+  fail_at "claude-activity on macOS"
+fi
+# Battery fixture: charging (the real battery must not decide these cases).
+export ASAHI_BATTERY_DIR="$tmp/bat"; mkdir -p "$ASAHI_BATTERY_DIR"; echo Charging >"$ASAHI_BATTERY_DIR/status"; echo 60 >"$ASAHI_BATTERY_DIR/capacity"
+# At work: saver and dim still run; off locks and darkens but does not sleep, then sleeps once the session stops.
+FAKE_LOCKED=0 idle at 180
+grep -q 'asahi-screensaver start' "$CALLS" && pass "claude working: the saver still starts" || fail_at "claude saver: $(cat "$CALLS")"
+FAKE_LOCKED=0 idle at 300
+grep -q 'asahi-idle-brightness dim' "$CALLS" && pass "claude working: dim still runs" || fail_at "claude dim: $(cat "$CALLS")"
+# (20 lock waits + 62 s, then three retries.)
+WAKE_AFTER=120 FAKE_LOCKED=0 idle at 600
+grep -q 'loginctl lock-session' "$CALLS" && grep -q 'asahi-dpms off' "$CALLS" && ! grep -q 'systemctl suspend' "$CALLS" \
+  && grep -q 'sleep skipped: Claude Code working (1 session)' "$idle_log" \
+  && pass "claude working: off locks and darkens, no sleep (nor on retry)" || fail_at "claude off: $(cat "$CALLS")"
+printf '#!/bin/sh\nprintf "{\\"session_id\\":\\"s1\\"}" | %s/asahi-claude-activity stop\n' "$bin" >"$run/on-sleep-5"
+chmod +x "$run/on-sleep-5"
+claude start s1
+idle at 600
+[ "$(grep -c 'systemctl suspend' "$CALLS")" = 1 ] && [ ! -e "$run/claude-activity.count" ] && tail -n 1 "$idle_log" | grep -q 'sleep (retry)' \
+  && pass "claude stops behind the lock: the off loop sleeps without input" || fail_at "claude stop re-arm: $(cat "$CALLS")"
+rm -f "$run/on-sleep-5"
+# A crashed session (no hook for 15 min) holds nothing and is pruned.
+claude start s3
+touch -d '-16 minutes' "$run/claude-activity/s3"
+idle at 600
+grep -q 'systemctl suspend' "$CALLS" && [ ! -e "$run/claude-activity/s3" ] && pass "stale claude marker: sleeps, pruned" \
+  || fail_at "stale claude: $(cat "$CALLS")"
+# Discharging below 20 %: Claude holds nothing (the 2 % power-off would end the run anyway).
+claude start s5
+echo Discharging >"$ASAHI_BATTERY_DIR/status"; echo 15 >"$ASAHI_BATTERY_DIR/capacity"
+idle at 600
+grep -q 'systemctl suspend' "$CALLS" && pass "claude on a low battery: sleeps anyway" || fail_at "claude low battery: $(cat "$CALLS")"
+echo Charging >"$ASAHI_BATTERY_DIR/status"; echo 60 >"$ASAHI_BATTERY_DIR/capacity"
+claude stop s5
+claude start s4
+idle why | grep -q 'Claude Code working (1 session)' && idle why --json | jq -e 'any(.[]; .kind == "claude")' >/dev/null \
+  && pass "why / why --json name Claude Code" || fail_at "why claude: $(idle why)"
+claude stop s4
 
 # asahi-suspend-failed runs only for a real failure: -16 (EBUSY, a key or click during entry) is no fault.
 cond=$(sed -n 's/^ExecCondition=//p' "$ROOT/../systemd/system/asahi-suspend-failed.service")

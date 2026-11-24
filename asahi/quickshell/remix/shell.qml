@@ -31,15 +31,23 @@ ShellRoot {
     Quickshell.execDetached([Quickshell.env("HOME") + "/.dotfiles/asahi/bin/asahi-compositor-saver", shell.compositorSaver ? "on" : "off"])
   }
   onCompositorSaverChanged: shell.runCompositorSaver()
-  Component.onCompleted: shell.runCompositorSaver()
+  Component.onCompleted: {
+    shell.runCompositorSaver()
+    osd.mode("dnd", notifCenter.dndEnabled, "", "", "")   // the DND card's baseline (a saved "off" never changes)
+  }
   // Calendar and notification sheet are one-at-a-time.
   onCalendarOpenChanged: if (calendarOpen) notifCenter.historyVisible = false
   Connections {
     target: notifCenter
     function onHistoryVisibleChanged() { if (notifCenter.historyVisible) shell.calendarOpen = false }
+    function onDndEnabledChanged() {
+      const on = notifCenter.dndEnabled
+      osd.mode("dnd", on, on ? "󰂛" : "󰂚", "Do not disturb", !on ? "Off" : notifCenter.dndUntilText ? "until " + notifCenter.dndUntilText : "On")
+    }
   }
 
   System.Osd { id: osd; quietVolume: shell.launcherOpen }
+  System.NowPlayingCard { suppressed: shell.launcherOpen }
   System.DimOverlay {}
   System.NotificationCenter { id: notifCenter; touchIdPrompt: touchIdCard }   // not `touchIdPrompt: touchIdPrompt` (self-binds to null)
   // sudo / passkey / ssh-key Touch ID requests without a prompt of their own (lock + polkit draw theirs).
@@ -49,6 +57,8 @@ ShellRoot {
   System.BatteryAlerts {}
   // Answers polkit (GUI admin prompts, pkexec); nothing did before.
   System.PolkitAgent { touchId: touchIdCard }
+  // A plugged-in display: Extend / Mirror / Laptop only / External only, remembered per screen (asahi-hdmi pings it).
+  System.DisplayPrompt {}
 
   // Bound in hypr/conf.d/bindings.lua as hl.dsp.global("quickshell:recorder-panel").
   GlobalShortcut {
@@ -128,6 +138,7 @@ ShellRoot {
     onLoaded: {
       item.osd = osd
       item.writingTools = writingTools
+      item.notificationCenter = notifCenter
     }
   }
 

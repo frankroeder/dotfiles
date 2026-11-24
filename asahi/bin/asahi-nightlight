@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Night light via hyprsunset (menu-only: Launcher > Actions). On: the last temperature (else hyprsunset.conf's),
 # off = identity. warmer / cooler [n] step it by n × 250 K while on (the bar chip's wheel, one run per gesture; ideas:
-# dhrruvsharma, serpantinum). One run at a time (flock): two at once read the same state and set their own
+# dhrruvsharma, serpantinum). set <K> (the bar popup's slider): that temperature, on, 1000–6000 K. One run at a time (flock): two at once read the same state and set their own
 # temperature in turns — the screen flickered and each run's check saw the other's value ("Night light failed").
 
 set -euo pipefail
@@ -122,8 +122,16 @@ case "${1:-toggle}" in
     if [ "$t" = "$was" ]; then exit 0; fi   # at the limit already
     set_temperature "$t"
     ;;
+  set)
+    t=${2:-}
+    [[ $t =~ ^[0-9]{4}$ ]] || { echo "usage: $0 set <1000-6000>" >&2; exit 2; }
+    if ((t < 1000)); then t=1000; fi
+    if ((t > 6000)); then t=6000; fi
+    if [[ $(read_on) == "true" ]] && [ "$t" = "$(read_temp)" ]; then exit 0; fi
+    set_temperature "$t"
+    ;;
   *)
-    echo "usage: $0 [toggle|warmer [n]|cooler [n]]" >&2
+    echo "usage: $0 [toggle|warmer [n]|cooler [n]|set <K>]" >&2
     exit 2
     ;;
 esac

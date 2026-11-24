@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 #
 # asahi-session logout|reboot|reboot-macos|poweroff
+# asahi-session check   what a power-off would cut short, one line each (nothing = all clear); the launcher shows these
+#                       above its power rows (idea: end-4 SessionWarnings). Warns only, never blocks.
 #
 # Close every window first, so apps save their state (Firefox's session, Thunderbird, editors) instead of losing the
 # display under them (Logout was hl.dsp.exit() straight away; reboot SIGTERMed apps while Hyprland went down; idea:
@@ -15,6 +17,21 @@
 set -euo pipefail
 
 action="${1:-}"
+if [ "$action" = check ]; then
+  for p in dnf5 dnf rpm rpm-ostree flatpak; do
+    if pgrep -x "$p" >/dev/null 2>&1; then echo "$p is running"; break; fi
+  done
+  downloads="${ASAHI_DOWNLOADS_DIR:-$HOME/Downloads}"
+  # Partial files written in the last 2 min: a stale one from a crashed download is not "in progress".
+  n=$(find "$downloads" -maxdepth 1 \( -name '*.part' -o -name '*.crdownload' -o -name '*.download' \) -mmin -2 2>/dev/null | wc -l)
+  if [ "$n" -gt 0 ]; then echo "$n download$([ "$n" -gt 1 ] && echo s) in progress"; fi
+  if pgrep -x wf-recorder >/dev/null 2>&1; then echo "a screen recording is running"; fi
+  if pgrep -x restic >/dev/null 2>&1; then echo "a backup is running"; fi
+  # Claude Code sessions mark themselves (asahi-claude-activity): markers younger than 15 min are live.
+  n=$(find "${XDG_RUNTIME_DIR:-/tmp}/claude-activity" -maxdepth 1 -type f -mmin -15 2>/dev/null | wc -l)
+  if [ "$n" -gt 0 ]; then echo "Claude Code is working ($n session$([ "$n" -gt 1 ] && echo s))"; fi
+  exit 0
+fi
 case "$action" in
   logout | reboot | reboot-macos | poweroff) ;;
   *)

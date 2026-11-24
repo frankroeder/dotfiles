@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Claude Code hooks mark a session at work: idle sleep waits for it (asahi-idle), saver, lock and display off still
+# run, and the lid still sleeps (no logind inhibitor: LidSwitchIgnoreInhibited=no would let a sleep block hold the lid).
+# One file per session in $XDG_RUNTIME_DIR/claude-activity, touched by every hook; one untouched for 15 min (a crash,
+# an unanswered prompt) counts as gone and is pruned.
+#
+#   asahi-claude-activity start|beat   UserPromptSubmit / Pre- and PostToolUse: touch this session's marker
+#   asahi-claude-activity stop         Stop / SessionEnd: drop it
+#   asahi-claude-activity status       prune, print the live count; exit 0 while one lives
+#
+# The session is the hook's stdin JSON `session_id` (by hand: the calling shell, $PPID). Every call rewrites
+# claude-activity.count (live sessions, only when it changes; gone at 0) for the bar's cup.
+# Hooks stay silent (UserPromptSubmit's stdout joins the prompt; exit 2 would block a tool): no output, exit 0.
+set -u
+cmd="${1:-}"
+# macOS shares ~/.claude/settings.json and these dotfiles: nothing there reads markers (hooks: exit 0, status: none).
+# uname, not $OSTYPE: his shell exports OSTYPE=Linux, which bash keeps.
+if [ "$(uname)" != Linux ]; then [ "$cmd" != status ]; exit; fi
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
+
+dir="$(runtime_dir)/claude-activity"
+count="$dir.count"
+
+session() {
+  local id=""
+  if [ ! -t 0 ]; then id=$(jq -r '.session_id // empty' 2>/dev/null); fi
+  id=${id//[^A-Za-z0-9_-]/}
+  echo "${id:-ppid-$PPID}"
+}
+
+[ -d "$dir" ] || mkdir -p "$dir"
+case "$cmd" in
+  start | beat) touch "$dir/$(session)" ;;
+  stop) rm -f "$dir/$(session)" ;;
+  status) ;;
+  *) echo "usage: asahi-claude-activity start|beat|stop|status" >&2; exit 1 ;;
+esac
+
+find "$dir" -type f ! -newermt '-15 minutes' -delete 2>/dev/null
+n=$(find "$dir" -type f | wc -l)
+# Two hooks at once may write in the wrong order: the next hook rewrites it.
+read_line old "$count"
+if ((n == 0)); then rm -f "$count"; elif [ "$old" != "$n" ]; then echo "$n" >"$count"; fi
+
+if [ "$cmd" = status ]; then echo "$n"; ((n > 0)); exit; fi
+exit 0

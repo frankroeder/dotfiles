@@ -111,6 +111,39 @@ Scope {
     osdProc.running = true
   }
 
+  // Mode toggles (surface-dots ThemeOSD): night light, stay awake and DND confirm with a short card — handy for the
+  // keybinds and on the external display. The same state files the bar chips watch (no polling); nothing in the first
+  // 3 s (loads set the baseline), and only on / off: the night-light slider and wheel change the temperature quietly.
+  property var modes: ({})
+  property bool modesSettled: false
+  Timer { interval: 3000; running: true; onTriggered: root.modesSettled = true }
+  function mode(key, on, icon, label, value) {
+    const was = root.modes[key]
+    const m = Object.assign({}, root.modes)
+    m[key] = on
+    root.modes = m
+    if (root.modesSettled && was !== undefined && was !== on) root.toast(icon, label, value, 1400)
+  }
+  FileView {
+    path: Quickshell.env("ASAHI_NIGHTLIGHT_STATE") || Quickshell.env("HOME") + "/.local/state/asahi/nightlight.json"   // env: asahi-nightlight's, tests
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      let s = {}
+      try { s = JSON.parse(text().trim()) } catch (e) { return }   // empty / cut short = mid-rewrite: no "Off" card
+      root.mode("night", !!s.on, "󰽥", "Night light", s.on ? s.temperature + " K" : "Off")
+    }
+  }
+  FileView {
+    path: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/asahi-stay-awake"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.mode("awake", true, "󰅶", "Stay awake", "On")
+    onLoadFailed: root.mode("awake", false, "󰅶", "Stay awake", "Off")
+  }
+
   Timer {
     id: hideTimer
     interval: 1100

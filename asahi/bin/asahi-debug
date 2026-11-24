@@ -372,6 +372,24 @@ check_bluetooth() {
   fi
 }
 
+# Quickshell's NotificationCenter must own org.freedesktop.Notifications: mako / dunst / swaync started first (an app's
+# autostart, a test) take the name and our toasts and history stay empty (idea: surface-dots Notifs.qml).
+check_notifications() {
+  if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] || ! command -v busctl >/dev/null 2>&1; then
+    record SKIP notifications "no session bus"
+    return
+  fi
+  local st comm pid
+  st=$(busctl --user status org.freedesktop.Notifications 2>/dev/null || true)
+  comm=$(sed -n 's/^Comm=//p' <<<"$st")
+  pid=$(sed -n 's/^PID=//p' <<<"$st")
+  case "$comm" in
+    qs | quickshell) record PASS notifications "Quickshell owns org.freedesktop.Notifications" ;;
+    "") record WARN notifications "no notification daemon on the session bus" ;;
+    *) record WARN notifications "$comm (pid $pid) owns org.freedesktop.Notifications, not Quickshell: kill it, then asahi-restart-quickshell" ;;
+  esac
+}
+
 check_gpu() {
   local dri cards renders icd_dir icds
   dri=$(diag_path /dev/dri)
@@ -606,6 +624,7 @@ check_pipewire_rt
 check_zram
 check_rtc
 check_bluetooth
+check_notifications
 check_gpu
 check_backlight
 check_battery

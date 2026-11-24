@@ -1,9 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Asahi Apple Music",
-  "version": "1",
-  "description": "Hands Chromium MusicKit's per-track clock, so MPRIS length / position / seek are per track.",
+  "version": "2",
+  "description": "Hands Chromium MusicKit's per-track clock (MPRIS length / position / seek per track) and the shell synced lyrics.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlDGHHZwHLYW2GfBXlZiVLPV3s5IlShG0tT8Seb2lFV99Eys8IHoBRuvR4jRAHMfrjFDY669Th2D1DvqrC4m/ryoCJ/1ZQ5DBvs37Ufj80JjqDBCA3mV4aOoMoYqFYhHYKrXC1/ojpvJN92f+ubn+XPxnm2Nt4TBNEb2iAtNhI4CEnKuxnBWgYoahn0s2+JrQ3nHBidqb8HomOr2TF9rPevaJBZ7kPqCaOtBnky5aYbGhn4sa5hTwRD06vbEWFkG1I5zCw9aURbyuggOI4ZCGdoObbRllZcmsmRXi9gbSTzjnKjnxIiIdNNi4qAhNWGgMtl9lUfQjWfUdqci5G2cUSQIDAQAB",
+  "permissions": ["nativeMessaging"],
+  "background": { "service_worker": "background.js" },
   "content_scripts": [
-    { "matches": ["https://music.apple.com/*"], "js": ["clock.js"], "world": "MAIN", "run_at": "document_idle" }
+    { "matches": ["https://music.apple.com/*"], "js": ["clock.js", "lyrics.js"], "world": "MAIN", "run_at": "document_idle" },
+    { "matches": ["https://music.apple.com/*"], "js": ["relay.js"], "run_at": "document_idle" }
   ]
 }

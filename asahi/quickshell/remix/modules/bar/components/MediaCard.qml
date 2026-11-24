@@ -32,6 +32,13 @@ Rectangle {
   // so the bar does not jump back before the player reports the new position.
   property real heldPos: -1
   readonly property real pos: card.heldPos >= 0 ? card.heldPos : (card.p ? card.p.position : 0)
+  function seekTo(t) {
+    card.heldPos = t
+    seekHold.restart()
+    card.p.position = t
+  }
+  // Apple Music lyrics strip under the row (Services.Lyrics).
+  readonly property bool lyricsOn: Services.Lyrics.shown
 
   // Accent from the cover (end-4 PlayerControl, surface-dots MediaCard): the most colourful of four quantized colours,
   // its lightness set for the theme (light on dark panels, dark on paper); the theme accent without art. Once per track.
@@ -55,12 +62,13 @@ Rectangle {
 
   color: Style.m3surfaceSolid
   radius: Style.menuRadiusLg
-  implicitHeight: body.implicitHeight + 36
+  implicitHeight: body.implicitHeight + 36 + (card.lyricsOn ? lyr.height + lyr.anchors.topMargin : 0)
   clip: true
 
   onLiveChanged: if (card.live && card.p) card.p.positionChanged()
   Timer {
-    interval: 1000; repeat: true
+    // Synced lyrics follow the line within a quarter second.
+    interval: card.lyricsOn && Services.Lyrics.synced ? 250 : 1000; repeat: true
     running: card.live && card.playing
     onTriggered: card.p.positionChanged()
   }
@@ -147,11 +155,7 @@ Rectangle {
       live: card.live
       seekable: !!(card.p && card.p.canSeek && card.p.positionSupported)
       color: card.accent
-      onSeek: (f) => {
-        card.heldPos = f * card.len
-        seekHold.restart()
-        card.p.position = card.heldPos
-      }
+      onSeek: (f) => card.seekTo(f * card.len)
     }
     RowLayout {
       Layout.fillWidth: true
@@ -209,8 +213,7 @@ Rectangle {
 
   RowLayout {
     id: body
-    anchors.fill: parent
-    anchors.margins: 18
+    anchors { left: parent.left; right: parent.right; top: parent.top; margins: 18 }
     spacing: card.px(16)
 
     // Vinyl disc (upstream MusicPopup): round cover in a record with grooves and an accent-ringed
@@ -399,5 +402,68 @@ Rectangle {
     }
 
     Transport { Layout.alignment: Qt.AlignVCenter; Layout.leftMargin: card.px(8) }
+  }
+
+  // Lyrics: three fixed rows (the card never jumps with the text), the sung line in the middle in the accent; a line
+  // change scrolls one row, a click seeks to the line. Unsynced lyrics: plain rows, the wheel reads on.
+  ListView {
+    id: lyr
+    readonly property real rowH: card.px(22)
+    readonly property int cur: Services.Lyrics.synced ? Services.Lyrics.indexAt(card.pos) : -1
+    visible: card.lyricsOn
+    anchors { left: parent.left; right: parent.right; top: body.bottom; margins: 18; topMargin: 10 }
+    height: lyr.rowH * 3
+    clip: true
+    interactive: !Services.Lyrics.synced
+    boundsBehavior: Flickable.StopAtBounds
+    currentIndex: -1
+    model: Services.Lyrics.lines
+    // Before the first line it waits in the bottom row.
+    contentY: Services.Lyrics.synced ? (lyr.cur - 1) * lyr.rowH : 0
+    Behavior on contentY { NumberAnimation { duration: Style.reduceMotion ? 0 : 320; easing.type: Easing.OutCubic } }
+    delegate: Text {
+      required property var modelData
+      required property int index
+      readonly property bool now: index === lyr.cur
+      width: lyr.width; height: lyr.rowH
+      horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+      textFormat: Text.PlainText
+      text: modelData.text
+      color: now ? card.accent : Style.m3onSurfaceVariant
+      opacity: now || !Services.Lyrics.synced ? 1 : 0.6
+      scale: now || !Services.Lyrics.synced ? 1 : 0.92
+      font.family: Style.menuSans; font.pixelSize: card.px(14); font.weight: now ? Font.Bold : Font.Medium
+      fontSizeMode: Text.HorizontalFit; minimumPixelSize: card.px(10)
+      elide: Text.ElideRight
+      Behavior on color { ColorAnimation { duration: Style.menuAnimMs } }
+      Behavior on scale { NumberAnimation { duration: Style.reduceMotion ? 0 : 250; easing.type: Easing.OutCubic } }
+      MouseArea {
+        anchors.fill: parent
+        enabled: Services.Lyrics.synced && !!(card.p && card.p.canSeek)
+        cursorShape: Qt.PointingHandCursor
+        onClicked: card.seekTo(parent.modelData.t)
+      }
+    }
+  }
+
+  // Lyrics on / off, in the corner (Apple Music once its extension sent lyrics).
+  Rectangle {
+    visible: Services.Lyrics.available
+    anchors { top: parent.top; right: parent.right; margins: 10 }
+    width: card.px(26); height: width; radius: width / 2
+    color: lyrMa.containsMouse ? Style.m3containerHigh : Qt.alpha(Style.m3container, 0.8)
+    Text {
+      anchors.centerIn: parent
+      text: Services.Lyrics.enabled ? "󱀡" : "󱀢"   // comment-quote (outline when off)
+      color: Services.Lyrics.enabled ? card.accent : Style.m3onSurfaceVariant
+      font.family: Style.fontUi; font.pixelSize: card.px(14)
+    }
+    MouseArea {
+      id: lyrMa
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: Services.Lyrics.setEnabled(!Services.Lyrics.enabled)
+    }
   }
 }

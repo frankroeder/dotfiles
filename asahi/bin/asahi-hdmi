@@ -8,7 +8,8 @@
 # disable rule in place (hyprctl eval does not override it).
 
 set -euo pipefail
-. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/common.sh"
+bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+. "$bin/lib/common.sh"
 
 action="${1:-}"
 name="${2:-HDMI-A-1}"
@@ -16,10 +17,13 @@ settle_s="${ASAHI_HDMI_SETTLE_S:-2}"
 drm_path="${ASAHI_DRM_PATH:-/sys/class/drm}"
 # Positions kept from the launcher's Displays pane (drag + Keep), per sink.
 layout_file="${ASAHI_LAYOUT_FILE:-${XDG_STATE_HOME:-$HOME/.local/state}/asahi/monitor-layout.json}"
+clamshell="${ASAHI_CLAMSHELL:-$bin/asahi-clamshell}"
+wait_s="${ASAHI_HDMI_WAIT_S:-6}"
 
 usage() {
   echo "usage: $0 <added|removed|sync|on|off> [HDMI-A-1|DP-n]" >&2
   echo "       $0 save <name> <X>x<Y> | reset <name> | place <name>" >&2
+  echo "       $0 mode <name> <extend|mirror|laptop|external> | remember <name> <mode> | recall <name>" >&2
   exit 2
 }
 
@@ -28,6 +32,9 @@ usage() {
   exit 1
 }
 gen_file="$(runtime_dir)/asahi-hdmi.gen.${name}"
+# Set on the first enable after a plug, gone once the connector reads disconnected: a reload's fresh Lua state
+# runs `added` again for every connected output, and that must not count as a new display.
+seen_file="$(runtime_dir)/asahi-hdmi.seen.${name}"
 
 drm_connected() {
   local f
@@ -155,29 +162,58 @@ layout_fields() {
   printf '%s' "$fields"
 }
 
-save_layout() {
-  local pos="$1" desc scale tmp lock
-  [[ "$pos" =~ ^-?[0-9]+x-?[0-9]+$ ]] || { echo "bad position: $pos" >&2; exit 1; }
-  desc="$(sink_desc)"
-  [ -n "$desc" ] || { echo "no description for $name" >&2; exit 1; }
-  scale="$(hypr_json | jq -r --arg n "$name" '.[] | select(.name == $n) | .scale')"
+# One jq edit of the layout file. The Monitors pane's Keep saves every external at once: one writer at a
+# time, or an entry is lost.
+edit_layout() {
+  local tmp lock
   mkdir -p "$(dirname "$layout_file")"
-  # The Monitors pane's Keep saves every external at once: one writer at a time, or an entry is lost.
   exec {lock}>"$layout_file.lock"
   flock "$lock"
   [ -s "$layout_file" ] || printf '{}\n' >"$layout_file"
   tmp="$(mktemp "$layout_file.XXXXXX")"
-  jq --arg d "$desc" --arg k "$(layout_key "$scale")" --arg p "$pos" '.[$d] = { key: $k, pos: $p }' "$layout_file" >"$tmp"
+  jq "$@" "$layout_file" >"$tmp"
   mv "$tmp" "$layout_file"
 }
 
-reset_layout() {
-  local desc tmp
-  [ -s "$layout_file" ] || return 0
+sink_desc_or_die() {
+  local desc
   desc="$(sink_desc)"
-  tmp="$(mktemp "$layout_file.XXXXXX")"
-  jq --arg d "$desc" 'del(.[$d])' "$layout_file" >"$tmp"
-  mv "$tmp" "$layout_file"
+  [ -n "$desc" ] || { echo "no description for $name" >&2; exit 1; }
+  printf '%s' "$desc"
+}
+
+save_layout() {
+  local pos="$1" desc scale
+  [[ "$pos" =~ ^-?[0-9]+x-?[0-9]+$ ]] || { echo "bad position: $pos" >&2; exit 1; }
+  desc="$(sink_desc_or_die)"
+  scale="$(hypr_json | jq -r --arg n "$name" '.[] | select(.name == $n) | .scale')"
+  edit_layout --arg d "$desc" --arg k "$(layout_key "$scale")" --arg p "$pos" '.[$d] = ((.[$d] // {}) + { key: $k, pos: $p })'
+}
+
+# Drops the kept position; the remembered mode (DisplayPrompt) stays.
+reset_layout() {
+  [ -s "$layout_file" ] || return 0
+  edit_layout --arg d "$(sink_desc)" 'if .[$d].mode? then .[$d] = { mode: .[$d].mode } else del(.[$d]) end'
+}
+
+# The new-display prompt's choice for this screen, beside its kept position. The key is the EDID
+# description Hyprland reports (make + model + serial): one entry per physical screen, any port.
+remember_mode() {
+  local desc
+  [[ "${1:-}" =~ ^(extend|mirror|laptop|external)$ ]] || usage
+  desc="$(sink_desc_or_die)"
+  edit_layout --arg d "$desc" --arg m "$1" '.[$d] = ((.[$d] // {}) + { mode: $m })'
+}
+
+# {"name", "label" (EDID model), "mode" ("" = never chosen)} for DisplayPrompt; nothing when Hyprland lacks the output.
+recall_mode() {
+  local desc mode=""
+  desc="$(sink_desc)"
+  if [ -n "$desc" ] && [ -s "$layout_file" ]; then
+    mode="$(jq -r --arg d "$desc" '.[$d].mode? // ""' "$layout_file" 2>/dev/null || true)"
+  fi
+  hypr_json | jq -c --arg n "$name" --arg m "$mode" \
+    '.[] | select(.name == $n) | { name, label: ([.model, .description, $n] | map(select(. != null and . != "")) | first), mode: $m }'
 }
 
 # True when the live output already matches this sink's committed layout.
@@ -205,6 +241,11 @@ eval_monitor() {
 
 off_hdmi() {
   eval_monitor "disabled = true"
+  # Unplugged (not just switched off with the cable in): the next enable is a new display again.
+  if ! drm_connected && [ -e "$seen_file" ]; then
+    rm -f "$seen_file"
+    timeout 2 qs -c remix ipc --any-display call display unplugged "$name" >/dev/null 2>&1 || true
+  fi
 }
 
 # Aurora's kernel reports a crashed DCP's connector disconnected (dcp_rtk_crashed): the settle's
@@ -223,6 +264,78 @@ bump_gen() {
 
 stale() {
   [ "$(tr -d '[:space:]' <"$gen_file" 2>/dev/null || true)" != "$1" ]
+}
+
+# Tell Quickshell's DisplayPrompt (asks, or applies the remembered mode) once per plug. At login the shell
+# may still be starting: a few tries.
+announce_plug() {
+  [ -e "$seen_file" ] && return 0
+  : >"$seen_file"
+  local i
+  for i in 1 2 3 4 5; do
+    timeout 2 qs -c remix ipc --any-display call display plugged "$name" >/dev/null 2>&1 && return 0
+    sleep 1
+  done
+  return 0
+}
+
+# ---- Display modes (DisplayPrompt) ----
+# A mirror target is no output of its own (`mirrorOf` = its source).
+mirrored() {
+  hypr_json | jq -e --arg n "$name" '.[] | select(.name == $n and .disabled != true) | (.mirrorOf // "none") != "none"' >/dev/null
+}
+extended() { is_enabled && ! mirrored; }
+edp_enabled() {
+  hypr_json | jq -e '.[] | select(.name == "eDP-1" and .disabled != true)' >/dev/null
+}
+# DRM scans out (what asahi-clamshell's external_up reads): eDP-1 may go dark only onto this.
+lit() { grep -qsx enabled "$drm_path"/card*-"$name"/enabled; }
+# Hyprland applies an eval on its next frame, a modeset / reload takes longer: poll up to $wait_s.
+wait_for() {
+  local i
+  for ((i = 0; i < wait_s * 4; i++)); do
+    "$@" && return 0
+    sleep 0.25
+  done
+  "$@"
+}
+refuse() {
+  echo "$*" >&2
+  exit 1
+}
+
+# extend = the plugged-in state asahi-hdmi sets up. The other modes start from it (DisplayPrompt runs
+# extend first when switching between two of them), so each is one step and never leaves zero outputs.
+set_mode() {
+  if [ "$1" = extend ]; then
+    # eDP-1 back, unless the lid really is shut (then the clamshell flag is what keeps it from suspending).
+    if "$clamshell" status && ! lid_closed; then "$clamshell" open; fi
+    if mirrored; then
+      hyprctl reload >/dev/null  # the Monitors pane's unmirror: wipes the mirror eval, config.reloaded syncs
+    elif ! is_enabled; then
+      bump_gen >/dev/null
+      on_hdmi
+    fi
+    wait_for extended || refuse "$name did not come back"
+    return 0
+  fi
+  extended && ! "$clamshell" status || refuse "extend first"
+  case "$1" in
+  mirror)
+    edp_enabled || refuse "built-in display is off"   # the mirror source
+    eval_monitor 'mirror = "eDP-1"'                     # mirror only: no mode / position (see MonitorsPane)
+    ;;
+  laptop)
+    edp_enabled || refuse "built-in display is off"   # never zero outputs
+    bump_gen >/dev/null                                # a pending settle must not turn it back on
+    off_hdmi
+    ;;
+  external)
+    # asahi-clamshell close onto an unlit external takes the lid-closed path (lock); wait for the modeset.
+    wait_for lit || refuse "$name is not lit"
+    "$clamshell" close
+    ;;
+  esac
 }
 
 after_settle() {
@@ -245,7 +358,9 @@ on)
   on_hdmi
   ;;
 added)
-  after_settle "$(bump_gen)"
+  gen="$(bump_gen)"
+  after_settle "$gen"
+  if ! stale "$gen" && drm_connected; then announce_plug; fi
   ;;
 sync)
   if drm_connected; then
@@ -276,6 +391,17 @@ save)
   ;;
 reset)
   reset_layout
+  ;;
+mode)
+  [[ "${3:-}" =~ ^(extend|mirror|laptop|external)$ ]] || usage
+  drm_connected || refuse "$name is not connected"
+  set_mode "$3"
+  ;;
+remember)
+  remember_mode "${3:-}"
+  ;;
+recall)
+  recall_mode
   ;;
 *)
   usage

@@ -99,6 +99,9 @@ Scope {
   // Desktop-entry action rows ("New Private Window · Firefox") in typed searches: Actions › "App actions in search"
   // switches them on / off, kept in ~/.local/state/asahi/launcher-app-actions ("on" / "off"; missing = on).
   property bool appActionsOn: true
+  // Now-playing card (System.NowPlayingCard reads the same file; missing = on).
+  property bool nowPlayingOn: true
+  readonly property string nowPlayingPath: Quickshell.env("HOME") + "/.local/state/asahi/now-playing-card"
 
   // Keyboard shortcuts drill: rows parsed from `hyprctl binds` (descriptions
   // come from the Lua binds' desc options). Rescanned on every drill entry.
@@ -110,6 +113,7 @@ Scope {
   property var osd: null
   // Injected by shell.qml: `:def <word>` runs its Look Up; the result shows here (lookupPanel).
   property var writingTools: null
+  property var notificationCenter: null   // timed DND rows (shell.qml sets it)
   property string launchFeedbackName: ""
   property int launchToplevelCount: 0
   property var launchActiveToplevel: null
@@ -133,7 +137,9 @@ Scope {
     if (root.quickPaneKey === "storage") root.scanStorage()
     if (root.quickPaneKey === "clipboard") root.scanClips()
   }
-  readonly property bool sideActive: root.fileMode || root.quickMode
+  // Windows mode (`,`) opens the side card too: Panes.WindowInspector for the highlighted row.
+  readonly property bool windowMode: !root.quickMode && root.categoryFilter === "Windows"
+  readonly property bool sideActive: root.fileMode || root.quickMode || root.windowMode
   readonly property int quickGridCols: 1
 
   // Scoring (ported from launcher ref, tuned for small set)
@@ -156,8 +162,22 @@ Scope {
   readonly property string webIconBase: "file://" + Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/assets/"
   readonly property string websearchJsonPath: Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/modules/launcher/websearch.json"
   readonly property string hidesPath: Quickshell.env("HOME") + "/.dotfiles/asahi/quickshell/remix/modules/launcher/launcher.hides"
-  readonly property string nightStatePath: Quickshell.env("HOME") + "/.local/state/asahi/nightlight.json"
+  readonly property string nightStatePath: Quickshell.env("ASAHI_NIGHTLIGHT_STATE") || Quickshell.env("HOME") + "/.local/state/asahi/nightlight.json"   // env: asahi-nightlight's, tests
   readonly property string appActionsPath: Quickshell.env("HOME") + "/.local/state/asahi/launcher-app-actions"
+  // Pinned apps (idea: surface-dots drawer, caelestia AppInfo): right-click an app row here or a cell in the app grid.
+  // Pinned ones lead the Apps list and the grid (in pin order) and win ties in search. One desktop id per line.
+  readonly property string pinsPath: Quickshell.env("HOME") + "/.local/state/asahi/launcher-pins"
+  property var pinnedApps: []
+  function isPinned(a) { return root.pinnedApps.indexOf(root.appKey(a)) >= 0 }
+  function pinRank(a) { const i = root.pinnedApps.indexOf(root.appKey(a)); return i < 0 ? 1e6 : i }
+  function togglePin(a) {
+    const key = root.appKey(a)
+    if (!key) return
+    const on = root.pinnedApps.indexOf(key) < 0
+    root.pinnedApps = on ? root.pinnedApps.concat([key]) : root.pinnedApps.filter(k => k !== key)
+    pinsFile.setText(root.pinnedApps.join("\n") + "\n")
+    if (root.osd && root.osd.toast) root.osd.toast("󰐃", on ? "Pinned" : "Unpinned", a.name || key, 1200)
+  }
   property int webVersion: 0
 
   // Launcher-style data (nav + local items for categories + prefix specials for files/web/docs/calc/actions)
@@ -177,6 +197,7 @@ Scope {
     { key: "hardware", aliases: ["hw", "about", "mac", "system info"], icon: "󰍛", name: "Hardware", comment: "This Mac: ports, sensors, Touch ID, kernel and boot chain, health", mode: "hardware" },
     { key: "backup", aliases: ["time machine", "restic", "restore", "snapshot"], icon: "󰁯", name: "Backup", comment: "Time Machine: back up, browse, restore", mode: "backup" },
     { key: "clipboard", aliases: ["clip", "cliphist", "paste"], icon: "󰅌", name: "Clipboard", comment: "cliphist history — copy, delete, wipe", mode: "clipboard" },
+    { key: "servers", aliases: ["ports", "listening", "services", "systemd"], icon: "󰒍", name: "Servers", comment: "Listening ports and services: start, stop, restart", mode: "servers" },
     { key: "packages", aliases: ["pkg", "dnf", "pkgman"], icon: "󰏖", name: "Packages", comment: "Search and manage dnf packages", ipc: "pkgman" },
     { key: "screensaver", aliases: ["saver"], icon: "󱄄", name: "Screensaver", comment: "Shader idle display", command: [root.binDir + "/asahi-screensaver", "toggle"] },
     { key: "recorder", aliases: ["rec-panel", "screen recorder", "recordings"], icon: "󰑋", name: "Recorder", comment: "Screen recorder panel: start, stop, recent recordings", ipc: "recording" },
@@ -187,12 +208,15 @@ Scope {
     { key: "qr", aliases: ["qrcode", "zbar"], icon: "󰐲", name: "Scan QR", comment: "Copy a QR code from a screen region", command: [root.binDir + "/asahi-cmd-qr"] },
     { key: "nightlight", aliases: ["night", "warm", "hyprsunset"], icon: "󰖔", name: "Night light toggle", comment: "hyprsunset.conf (identity / temperature)", command: [root.binDir + "/asahi-nightlight", "toggle"] },
     { key: "app-actions", aliases: ["desktop actions", "private window", "new window"], icon: "󰀻", name: "App actions in search", comment: "Rows like New Private Window · Firefox when you type (on / off, kept)", toggle: "appActions" },
+    { key: "now-playing", aliases: ["track card", "song card", "media card"], icon: "󰝚", name: "Now-playing card", comment: "A short card on each track change (on / off, kept)", toggle: "nowPlaying" },
     { key: "pop", aliases: ["float", "pin"], icon: "󰖲", name: "Pop window", comment: "Super+O · float, center and pin the focused window (again to retile)", command: [root.binDir + "/asahi-window-pop"] },
     { key: "scale", aliases: ["zoom", "hidpi"], icon: "󰍹", name: "Display scale", comment: "Super+Ctrl+plus/minus · cycle the focused display through legal scales", command: [root.binDir + "/asahi-monitor-scale", "cycle"] },
     { key: "reload", aliases: ["qs"], icon: "󰑐", name: "Reload Quickshell", comment: "Restart QS", command: [root.binDir + "/asahi-restart-quickshell"] },
     { key: "hypr", aliases: ["hyprland"], icon: "󰑓", name: "Reload Hyprland", comment: "Reload Hyprland config", command: [root.binDir + "/asahi-reload-hyprland"] },
     { key: "lock", aliases: ["lockscreen"], icon: "󰌾", name: "Lock", comment: "Lock session", command: ["asahi-lock"] },
-    { key: "timer", aliases: ["reminder", "alarm", "countdown"], icon: "󰔛", name: "Timer", comment: ":timer 10m tea · 1:30 · 1h15m", query: ":timer " }
+    { key: "timer", aliases: ["reminder", "alarm", "countdown"], icon: "󰔛", name: "Timer", comment: ":timer 10m tea · 1:30 · 1h15m", query: ":timer " },
+    { key: "dnd", aliases: ["do not disturb", "quiet", "focus", "mute notifications"], icon: "󰂛", name: "Do not disturb",
+      comment: ":dnd 30m · 2h · 8:00 (until) · off", query: ":dnd " }
   ]
 
   // Rail status dots: a Quick entry with something to say now gets a dot on its disc, the colour is the state. Bound to
@@ -235,6 +259,8 @@ Scope {
     qr: true,
     nightlight: true,
     "app-actions": true,
+    "now-playing": true,
+    dnd: true,
     reload: true,
     hypr: true,
     lock: true,
@@ -998,6 +1024,7 @@ Scope {
   Component { id: quickHardwareComp; Panes.HardwarePane { root: launcherSelf } }
   Component { id: quickBackupComp; Panes.BackupPane { root: launcherSelf } }
   Component { id: quickClipboardComp; Panes.ClipboardPane { root: launcherSelf } }
+  Component { id: quickServersComp; Panes.ServersPane { root: launcherSelf } }
 
   Component { id: quickDefaultComp; Item {
     anchors.fill: parent
@@ -1018,6 +1045,7 @@ Scope {
       case "hardware": return quickHardwareComp
       case "backup": return quickBackupComp
       case "clipboard": return quickClipboardComp
+      case "servers": return quickServersComp
       default: return quickDefaultComp
     }
   }
@@ -1173,6 +1201,7 @@ Scope {
     if (resultsList) resultsList.currentIndex = start
     root.selectedIndex = start
     if (root.categoryFilter === "Keys") root.scanKeyBinds()
+    if (root.categoryFilter === "System") root.checkPower()
     if (root.categoryFilter === "Windows") { Hyprland.refreshToplevels(); winRefresh.restart() }
     if (root.fileMode) root.scheduleFileLookup()
     else { root.fileItems=[]; root.fileStatus=""; root.filePreviewText=""; root.filePreviewMeta=""; root.pdfPreviewPath=""; root.pdfPreviewVersion=0 }
@@ -1324,6 +1353,7 @@ Scope {
     root.categoryFilter = ""
     root.shotPreviewPath = ""
     root.setSearchQuery("")
+    root.checkPower()   // typed "restart" shows the power rows too
     if (resultsList) resultsList.currentIndex = 0
     root.focusLauncherInput()
   }
@@ -1456,6 +1486,7 @@ Scope {
     root.nightVersion
     if (a.key === "nightlight" && root.nightLightOn) return a.name + " ✓"
     if (a.key === "app-actions" && root.appActionsOn) return a.name + " ✓"
+    if (a.key === "now-playing" && root.nowPlayingOn) return a.name + " ✓"
     return a.name
   }
 
@@ -1483,11 +1514,30 @@ Scope {
         command: [root.binDir + "/asahi-timer", "add", t.duration, t.label]
       }]
     }
+    if (/^dnd(\s|$)/.test(term)) return root.dndRows(value.substring(1))
     const actions = root.quickActions.filter(a => root.actionMatches(a, term))
     if (actions.length === 0) {
       return [{ id: "action-empty", name: "No action found", comment: term, glyph: "󰅙", special: "noop" }]
     }
     return actions.map(a => root.mapActionEntry(a))
+  }
+
+  // ":dnd" alone lists presets; ":dnd 45m" / ":dnd 8:00" / ":dnd off" one row (ArgCommands.parseDnd).
+  function dndRows(text) {
+    const nc = root.notificationCenter
+    const on = !!nc && nc.dndEnabled
+    const now = new Date()
+    const row = (id, name, until, off) => ({ id: id, name: name, glyph: off ? "󰂚" : "󰂛", special: "dnd", until: until || 0, off: !!off,
+      comment: off ? "notifications show again" : "toasts and sounds pause · critical ones still show" })
+    const p = ArgCommands.parseDnd(text, now)
+    if (p) return [p.off ? row("dnd-off", "Do not disturb · off", 0, true) : row("dnd-set", "Do not disturb · " + p.label, p.until)]
+    if (/^dnd\s+\S/i.test(text.trim()))
+      return [{ id: "dnd-bad", name: "Do not disturb: 30m · 2h · 8:00 · off", comment: "not understood", glyph: "󰂛", special: "noop" }]
+    const morning = ArgCommands.parseDnd("dnd 8:00", now)
+    const rows = [row("dnd-30", "Do not disturb · for 30 minutes", now.getTime() + 1800000), row("dnd-60", "Do not disturb · for 1 hour", now.getTime() + 3600000),
+      row("dnd-120", "Do not disturb · for 2 hours", now.getTime() + 7200000), row("dnd-8", "Do not disturb · " + morning.label + " (tomorrow)", morning.until),
+      row("dnd-on", "Do not disturb · until turned off", 0)]
+    return on ? [row("dnd-off", "Do not disturb · off" + (nc.dndUntilText ? " (on until " + nc.dndUntilText + ")" : ""), 0, true)].concat(rows) : rows
   }
 
   // `app`: the parent entry when `entry` is one of its actions (usage and the launch feedback count the app).
@@ -1529,6 +1579,8 @@ Scope {
     }
     if (entry.special === "noop") {
       return
+    } else if (entry.special === "dnd") {
+      if (root.notificationCenter) root.notificationCenter.setDnd(!entry.off, entry.until)
     } else if (entry.special === "window") {
       root.focusWindowAfterClose(entry.address)
       return
@@ -1560,6 +1612,11 @@ Scope {
       if (entry.toggle === "appActions") {   // stays open: the ✓ shows the new state
         root.appActionsOn = !root.appActionsOn
         appActionsFile.setText(root.appActionsOn ? "on\n" : "off\n")
+        return
+      }
+      if (entry.toggle === "nowPlaying") {
+        root.nowPlayingOn = !root.nowPlayingOn
+        nowPlayingFile.setText(root.nowPlayingOn ? "on\n" : "off\n")
         return
       }
       if (entry.query) {
@@ -1631,7 +1688,7 @@ Scope {
   property string holdHint: ""
   function startHold(entry) {
     if (!entry || !entry.confirm) return false
-    if (!holdAnim.running) { root.holdEntry = entry; root.holdHint = ""; holdBack.stop(); holdAnim.restart() }
+    if (!holdAnim.running) { root.holdEntry = entry; root.holdHint = ""; holdBack.stop(); holdAnim.restart(); root.checkPower() }
     return true
   }
   function endHold() {
@@ -2096,12 +2153,8 @@ Scope {
 
   // --- Nightlight state for the Actions checkmark (written by asahi-nightlight).
   function parseNightState(text) {
-    try {
-      const data = JSON.parse(String(text || "").trim())
-      root.nightLightOn = !!data.on
-    } catch (e) {
-      root.nightLightOn = false
-    }
+    // An empty / cut-short read is asahi-nightlight mid-rewrite: keep the last state (StatusIndicators).
+    try { root.nightLightOn = !!JSON.parse(String(text || "").trim()).on } catch (e) { return }
     root.nightVersion++
   }
 
@@ -2115,6 +2168,22 @@ Scope {
     onLoaded: root.parseNightState(nightStateFile.text())
     onTextChanged: if (root) root.parseNightState(nightStateFile.text())
     onLoadFailed: root.parseNightState("")
+  }
+
+  FileView {
+    id: pinsFile
+    path: root.pinsPath
+    blockLoading: true
+    printErrors: false
+    onLoaded: root.pinnedApps = pinsFile.text().split("\n").map(s => s.trim()).filter(s => s !== "")
+  }
+
+  FileView {
+    id: nowPlayingFile
+    path: root.nowPlayingPath
+    blockLoading: true
+    printErrors: false
+    onLoaded: root.nowPlayingOn = nowPlayingFile.text().trim() !== "off"
   }
 
   FileView {
@@ -2414,6 +2483,7 @@ Scope {
     onTriggered: Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({ window = \"address:0x" + root.windowToFocus + "\" })"])
   }
   Timer { id: winRefresh; interval: 150; onTriggered: root.winVersion++ }
+  function refreshWindowsSoon() { Hyprland.refreshToplevels(); winRefresh.restart() }
   function windowResults(tokens) {
     root.winVersion
     const terms = tokens.length && tokens[0].startsWith(",") ? [tokens[0].substring(1)].concat(tokens.slice(1)).filter(t => t !== "") : tokens
@@ -2561,9 +2631,25 @@ Scope {
 
   readonly property var navRows: Data.categoryNav
 
+  // Pre-shutdown warnings (idea: end-4 SessionWarnings): with a power row in the list, `asahi-session check` says what a
+  // restart would cut short (dnf, a download, a recording, a backup, Claude Code working); one red row above them.
+  // Warns only. Checked when the System list opens and when a hold starts.
+  property var powerWarnings: []
+  function checkPower() { if (!powerCheck.running) powerCheck.running = true }
+  Process {
+    id: powerCheck
+    command: [root.binDir + "/asahi-session", "check"]
+    stdout: StdioCollector { onStreamFinished: root.powerWarnings = text.split("\n").map(s => s.trim()).filter(s => s !== "") }
+  }
+  function withPowerWarnings(list) {
+    if (!root.powerWarnings.length || !list.some(e => e && e.confirm)) return list
+    return [{ id: "power-warn", name: root.powerWarnings.join("  ·  "), comment: "finish or stop it before shutting down",
+      glyph: "󰀦", tint: "red", special: "noop" }].concat(list)
+  }
+
   function computeFiltered() {
     root.deVersion; root.dictVersion; root.fileVersion; root.webVersion; root.appUsageVersion
-    root.hiddenVersion; root.nightVersion; root.keysVersion; root.appActionsOn
+    root.hiddenVersion; root.nightVersion; root.keysVersion; root.appActionsOn; root.pinnedApps; root.nowPlayingOn
 
     const tokens = root.queryTokens
     const filter = root.categoryFilter
@@ -2639,7 +2725,7 @@ Scope {
         const k = String((a.genericName || "") + " " + (a.comment || "") + " " + kws + " " + (a.id || "")).toLowerCase()
         const aid = "app-" + (a.id || a.name || i)
         pool.push({
-          id: aid, title: a.name, accessory: "APP",
+          id: aid, title: a.name, accessory: root.isPinned(a) ? "󰐃 APP" : "APP",
           _t: t, _k: k, _c: "app",
           _a: Data.acronym((a.name || "") + " " + (a.genericName || "") + " " + kws + " " + (a.id || "")),
           category: "App", icon: "󰀻", rawIcon: a.icon || "", special: "app", raw: a
@@ -2673,6 +2759,7 @@ Scope {
           const tail = []
           let allApps = (DesktopEntries.applications.values || []).filter(d => !d.noDisplay && !root.isHiddenApp(d))
           allApps = allApps.sort((a, b) => {
+            if (root.pinRank(a) !== root.pinRank(b)) return root.pinRank(a) - root.pinRank(b)
             const au = root.appScore(a); const bu = root.appScore(b)
             if (au !== bu) return bu - au
             return (a.name || "").localeCompare(b.name || "")
@@ -2680,7 +2767,7 @@ Scope {
           for (let i = 0; i < allApps.length && tail.length < 20; i++) {
             const a = allApps[i]
             tail.push({
-              id: "app-" + (a.id || a.name), title: a.name, accessory: "APP",
+              id: "app-" + (a.id || a.name), title: a.name, accessory: root.isPinned(a) ? "󰐃 APP" : "APP",
               icon: "󰀻", rawIcon: a.icon || "",
               category: "App", special: "app", raw: a
             })
@@ -2699,7 +2786,7 @@ Scope {
       const it = pool[i]
       const s = root.scoreItem(it, tokens)
       // Usage breaks ties; actions sit just below apps on an equal score ("s" must not start the screensaver).
-      if (s > 0) scored.push({ s: s, p: root.primaryScore(it, tokens), u: it.special === "app" ? root.appScore(it.raw)
+      if (s > 0) scored.push({ s: s, p: root.primaryScore(it, tokens), u: it.special === "app" ? root.appScore(it.raw) + (root.isPinned(it.raw) ? 1e6 : 0)
         : it.special === "action" || it.special === "app-action" ? -1 : 0, item: it })
     }
     scored.sort((a, b) => {
@@ -2842,7 +2929,8 @@ Scope {
       root.appUsageVersion
       root.categoryFilter
       root.query
-      return root.computeFiltered()
+      root.powerWarnings
+      return root.withPowerWarnings(root.computeFiltered())
     }
   }
 
@@ -3452,11 +3540,16 @@ Scope {
                   anchors.fill: parent
                   hoverEnabled: true
                   cursorShape: Qt.PointingHandCursor
+                  acceptedButtons: Qt.LeftButton | Qt.RightButton
                   onPositionChanged: resultsList.currentIndex = delegateRoot.index
-                  onPressed: root.startHold(delegateRoot.modelData)
+                  onPressed: mouse => { if (mouse.button === Qt.LeftButton) root.startHold(delegateRoot.modelData) }
                   onReleased: root.endHold()
                   onCanceled: root.endHold()
-                  onClicked: if (!delegateRoot.modelData.confirm) root.launchApp(delegateRoot.modelData)
+                  onClicked: mouse => {
+                    const e = delegateRoot.modelData
+                    if (mouse.button === Qt.RightButton) { if (e.special === "app" && e.raw) root.togglePin(e.raw) }
+                    else if (!e.confirm) root.launchApp(e)
+                  }
                 }
               }
 
@@ -3689,6 +3782,14 @@ Scope {
                   Menu.MenuAnim { target: qdl; property: "opacity"; from: 0; to: 1; effects: true }
                   Menu.MenuAnim { target: qdlShift; property: "y"; from: 36 * root.paneDir; to: 0 }
                 }
+              }
+
+              Panes.WindowInspector {
+                visible: root.windowMode
+                anchors.fill: parent
+                root: launcherSelf
+                address: root.windowMode && resultsList.currentItem && resultsList.currentItem.modelData
+                  ? (resultsList.currentItem.modelData.address || "") : ""
               }
 
               // file preview (only when not quick detail)

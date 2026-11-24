@@ -2,7 +2,8 @@
 # Apple Music (music.apple.com) as a Chromium app on a profile of its own (idea:
 # DiegoObethBatista/omarchy-apple-music-plugin): its own browser process, so its own MPRIS player,
 # which Players.qml names "Apple Music" by this profile directory. The bundled extension
-# (asahi/apple-music/extension) hands Chromium MusicKit's per-track length, position and seek.
+# (asahi/apple-music/extension) hands Chromium MusicKit's per-track length, position and seek, and the shell's
+# media card synced lyrics (through the native host asahi-apple-music-lyrics).
 set -euo pipefail
 
 bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
@@ -29,6 +30,20 @@ if [ -f "$hint" ]; then
 else
   notify-send "Apple Music" "No Widevine in the main Chromium profile: run widevine-installer, or only previews play." || true
 fi
+# Lyrics host: Chromium reads native messaging hosts from <user-data-dir>/NativeMessagingHosts; rewritten every
+# launch so its path follows the checkout. The manifest's "key" pins the extension id: sha256 of that public key,
+# the first 32 hex digits spelled a-p.
+id="$(jq -r .key "$ext/manifest.json" | base64 -d | sha256sum | cut -c1-32 | tr '0-9a-f' 'a-p')"
+mkdir -p "$data/NativeMessagingHosts"
+cat > "$data/NativeMessagingHosts/asahi.apple_music_lyrics.json" <<EOF
+{
+  "name": "asahi.apple_music_lyrics",
+  "description": "Apple Music lyrics for the Quickshell media card",
+  "path": "$bin/asahi-apple-music-lyrics",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://$id/"]
+}
+EOF
 exec "$bin/asahi-launch" chromium-browser \
   --user-data-dir="$data" \
   --app=https://music.apple.com/ \

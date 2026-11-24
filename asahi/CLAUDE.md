@@ -184,6 +184,20 @@ relabel filter.
   machines get security `user` — DP and USB3 tunnels need no approval, a TB3 dock's USB / Ethernet (PCIe) does: `bolt`
   (dnf.sh) — new device once: `boltctl list`, `boltctl enroll --policy auto <uuid>` (boltd then authorizes it on every
   plug); sleep with a display on a TB tunnel is refused by the kernel.
+- **New-display prompt** (2026-11-25, idea: surface-dots MonitorPrompt): `modules/system/DisplayPrompt.qml`. `asahi-hdmi
+  added` (after its enable) calls `qs ipc call display plugged <n>` once per plug: `$XDG_RUNTIME_DIR/asahi-hdmi.seen.<n>`,
+  dropped by `off_hdmi` only while sysfs reads disconnected (then `display unplugged`) — a reload's fresh Lua state
+  runs `added` again for every connected output, a Monitors-pane disable keeps the cable in: neither counts.
+  `asahi-hdmi recall <n>` → `{name, label (EDID model), mode}`; no mode = four tiles on eDP-1 (else the external),
+  Overlay, exclusive keys: Extend · Mirror · Laptop only · External only (1–4, ←/→ + Enter, click; Esc / 30 s idle
+  close, nothing saved). A pick runs `asahi-hdmi mode <n> <m>` on 10 s Keep / Revert (silence / Revert = `mode extend`);
+  Keep → `asahi-hdmi remember` = `"mode"` in the screen's `monitor-layout.json` entry (key = Hyprland `description`:
+  make + model + serial, beside `key` / `pos`; `save` / `reset` keep it). Extend needs no probation. Known mode: applied
+  at once + 5 s card "<model> · Mirror  change ▸" (click = tiles). Not remembered: Monitors-pane changes, reloads
+  (`added` re-runs but never re-announces). `mode`: extend = clamshell `open` (lid open) + unmirror by reload (the
+  pane's) or `on_hdmi`, waits for it; the others only from extend (the card runs extend first): mirror / laptop need
+  eDP-1 enabled (never zero outputs), external waits ≤ 6 s for DRM `enabled` then `asahi-clamshell close` (an unlit
+  external takes close's lid-shut lock path). Test: `asahi_hdmi_test.sh` (fake `qs` / clamshell: never the live shell).
 - **Notch / fnmode**: `comp_asahi_system` writes `asahi-notch.conf` (`show_notch=1`) + `hid_apple fnmode=1`, then
   `dracut -f`; reboot. Live: `/sys/module/hid_apple/parameters/fnmode`.
 - **Charge limit**: SMC is CHLS (90 reads back 90; CHWA would read 80): end 10–99 holds, start = end − 5 (start writes
@@ -351,10 +365,18 @@ relabel filter.
   holds target 1 s (no jump back). Items stay `visible` in a hidden PopupWindow: gate per-frame work on the window
   (`WavySeekBar.live: root.visible`; else repainted while closed, +1.4 % CPU). IPC `media panel` → focused screen
   (`mediaPanelRequested` → `BarHost.requestPanel`). Rounded content needs `ClippingRectangle` (`clip` is rectangular).
+  Lyrics strip (`services/Lyrics.qml`; Apple Music player, record title + artist = MPRIS ones): 3 fixed rows under the
+  row, kept through a track change (no jump), gone for a track without lyrics; tick 250 ms while synced; click = seek;
+  corner toggle → `~/.local/state/asahi/media-lyrics` (`on|off`).
 - **Apple Music app**: `asahi-apple-music` = Chromium `--app`, own profile (→ own MPRIS player, named via
   `/proc/<pid>/cmdline`, space-joined). Widevine: copies main profile's CDM hint (else previews only).
   `extension/clock.js` feeds MusicKit's per-track clock to Media Session. Linked into `~/.local/bin` (session PATH
-  lacks `asahi/bin`). Shuffle / love / library bridge dropped (too much code).
+  lacks `asahi/bin`). Shuffle / love / library bridge dropped (too much code). Lyrics: `extension/lyrics.js` (MAIN)
+  fetches once per track through MusicKit's own client (`mk.api.music` `/v1/catalog/<sf>/songs/<catalog id>/lyrics`,
+  else `syllable-lyrics`), TTML → `{t, text}` lines → `relay.js` → `background.js` (`sendNativeMessage`, one-shot) →
+  `asahi-apple-music-lyrics` → `$XDG_RUNTIME_DIR/asahi-apple-music-lyrics.json` (a record per track, no lines = none).
+  The launcher rewrites `<profile>/NativeMessagingHosts/asahi.apple_music_lyrics.json` each run; manifest `key` pins
+  the extension id. E2E-checked headless (fake music.apple.com via `--host-resolver-rules`); the real fetch is not.
 - **Look tokens** (`Style.qml`, 2026-11-20 polish pass): fonts in one block — `fontUi` Adwaita Sans (launcher, panes,
   bar popups, sheet, toasts, OSD), `fontBar` Noto Sans (bar strip only, converged), `fontMono` Cascadia NF (glyphs);
   digits that tick add `font.features: Style.fontTabular` (Adwaita has `tnum`; Noto is tabular by default). Light
@@ -432,6 +454,37 @@ relabel filter.
   Colours / Images, counts; "All" holds the total) + per-kind glyph + colour swatch (Qt parses no `rgb()` / `hsl()`
   strings, and CSS `#rrggbbaa` is Qt `#aarrggbb`); OSD speaker glyph by level, display sun turns 0–180° and grows.
   Harness copies patch the System rows to `exec: "true <verb>"` so a hold can never restart the Mac.
+- **Round 4 features** (2026-11-25, his picks from the reference survey; sheet `~/screenshots/quickshell-round4-2026-11-25.png`):
+  night light chip click = `NightLightPanel` (warmth slider 1000–6000 K in 250 K steps, `asahi-nightlight set <K>` 300 ms
+  after the last move, presets, Off; right-click = off; QML reads `ASAHI_NIGHTLIGHT_STATE` like the script).
+  `Osd.mode()` cards for night light / stay awake / DND on-off (3 s settle; temperature changes stay quiet). Timed DND:
+  `NotificationCenter.dndUntil` (epoch ms, in the history file, one Timer to the deadline; ran out while away = off on
+  load), `:dnd 30m|2h|8:00|off` rows (`ArgCommands.parseDnd`), IPC `dndFor`, "until HH:mm" in the sheet. Pinned apps:
+  `~/.local/state/asahi/launcher-pins` (desktop ids), right-click a launcher app row or a grid cell; pinned lead Apps and
+  the grid and win search ties. Foreign notification daemon: `busctl --user status org.freedesktop.Notifications` 5 s
+  after start and on each sheet open → red banner + "Take over" (kill it, `asahi-restart-quickshell`); `asahi-debug`
+  `check_notifications`. Battery chip `surge()` once per plug-in (UPower `onBattery` → false, 3 s settle). Windows mode
+  (`,`) side card `Panes.WindowInspector`: one `ScreencopyView.captureFrame()` per selection (never live; inside a
+  `ClippingRectangle` reference the rect by id — children sit in its content item, `parent.aspect` was undefined → 0
+  size), facts, move / float / pin / close via `hl.dsp.window.*({ …, window = "address:0x…" })` (Quickshell's
+  `address` has no 0x). SysPanel I/O tile: `/proc/net/dev` (wl / en / eth only: a tunnel counts twice) + `/proc/diskstats`
+  (whole disks) every 2 s while open, mirrored `Shape` graphs (sqrt scale), history per open. Pre-shutdown warnings:
+  `asahi-session check` (package manager, partial downloads < 2 min old, wf-recorder, restic, live Claude markers) → one
+  red row above the power rows (launcher open, System, hold start). `System.NowPlayingCard`: once per track while playing
+  (5 s settle; not while the launcher is open or over fullscreen), Actions › "Now-playing card" (`now-playing-card` flag).
+  Servers pane: speaker protection (`speakersafetyd` / `speakerguardd*`) is never stopped or restarted (`asahi-servers`
+  refuses; buttons off). Claude hold gives way below 20 % discharging (`battery_low`; `ASAHI_BATTERY_DIR` in tests); the
+  bar cup shows it dim amber without a tooltip (bar rule). Display prompt pings use `qs ipc --any-display` (the
+  autostarted instance's display reads `unk`: plain `qs -c remix ipc` finds no instance from scripts).
+  Follow-ups (2026-11-25): `asahi-nightlight` rewrites `nightlight.json` in place (truncate, write) — every reader
+  (StatusIndicators, Launcher, Osd) keeps its last state on an empty / cut-short read (as "off" it hid the chip, closed
+  the popup and flashed Off / K cards on each slider step: the flicker). Window inspector = bindings.lua's window
+  actions aimed at that window (`hl.dsp.window.*({ …, window = "address:0x…" })`, all verified nested): Float (60 % of
+  its display, centred — floated at tile size it came out huge), Pin / Center (floating), Pseudo, Opaque, Group / Leave
+  group, Maximize / Fullscreen / In tile, PiP and Pop (focus first: the scripts act on the focused window), move to a
+  workspace / display; title-row icons Focus, Screenshot (`ASAHI_SHOT_GEOMETRY` skips the pick; on-screen windows
+  only), New window, Close / Kill (second click within 3 s; the subtitle asks); facts with `ps` memory / age /
+  command (click copies). Fits the pane without scrolling. Network rows / card: filled 󰋼 (the outline one read as a speck).
 - **Launcher quick panes**: one file each in `quickshell/remix/modules/launcher/panes/`; `LauncherWindow.qml` does
   `Panes.XPane { root: launcherSelf }` (`root` in a pane = that property). Shared M3 widgets in `modules/menu` take
   `fontScale` (`MenuSwitch` fixed; `component Pill: Menu.MenuPill { fontScale: root.uiFontScale }`). Hover =
@@ -877,7 +930,17 @@ relabel filter.
   `ID_SECURITY_TOKEN`; a CTAPHID INIT from inside the sandbox answers); **Proton Pass intercepts WebAuthn** (passkeys
   go to Proton, aurora-fido sees nothing): he keeps it so. `fido2-tools` (asahi-touchid) lists / deletes passkeys.
 - **Stay awake**: one flag `$XDG_RUNTIME_DIR/asahi-stay-awake`, owned by `asahi-stay-awake`; hypridle listeners skip
-  under it (`asahi-idle` checks `status`).
+  under it (`asahi-idle` checks `status`). **Claude Code at work** holds only idle sleep (his ask 2026-11-24: saver,
+  lock, display off as usual, the agent runs on behind the lock, the lid still sleeps): Claude Code hooks in
+  `~/.claude/settings.json` (shared with macOS: each guarded `[ -x …/asahi-claude-activity ] && … || true`) run
+  `asahi-claude-activity` — UserPromptSubmit / Pre- / PostToolUse touch `$XDG_RUNTIME_DIR/claude-activity/<session_id>`,
+  Stop / SessionEnd remove it; one untouched 15 min (crash, unanswered prompt; a Bash call caps at 10 min) is pruned.
+  Only `can_sleep` asks (`status`): `off` locks + darkens, its 60 s retry sleeps once the last marker goes, no input
+  needed. No logind `sleep` block inhibitor: under `LidSwitchIgnoreInhibited=no` it holds lid suspend too (and
+  `asahi-clamshell`'s `lid_blocked` would blank + lock a shut lid instead). Hooks print nothing (UserPromptSubmit
+  stdout joins the prompt), never exit 2 (blocks the tool). Bar: the cup in dim amber + "Claude Code working (N)"
+  tooltip from `claude-activity.count` (FileView; rewritten on change, gone at 0; `status` every 5 min while it lives
+  prunes a crashed session). `asahi_idle_test.sh` covers it.
 - **Idle (macOS-shaped)**: why hypridle (2026-11-23, his question): Hyprland has no idle actions of its own and logind
   sees no Wayland idle, so something must turn "no input for N minutes" into dim / lock / dark / sleep, lock before
   every sleep (and hold it until the lock is up: `inhibit_sleep = 3`), run the after-wake steps, and honour apps'
@@ -894,9 +957,10 @@ relabel filter.
   suspends 60 s later. The lock surface's map fakes pointer motion (restarts every listener) → `off` ignores wakes while
   locking (`$XDG_RUNTIME_DIR/asahi-idle-locking`), set *before* stopping the saver (its unmap fakes motion too), then
   watches DPMS (`key_press_enables_dpms` → `asahi-idle wake`: stops the saver before the lid check). Dim while locked
-  runs `off`. Sleep skips while a sink carries signal (`pw-record -P '{ stream.capture.sink = true }'` on its monitor,
-  else it records the mic; pre-volume: muted counts) or an external is on (`external_on` in `lib/common.sh`;
-  `FALLBACK` is not one). `off`: flock single-instance (coalesces wake bursts), retries a refused suspend. Saver: one
+  runs `off`. Sleep skips while Claude Code works (Stay awake), a sink carries signal
+  (`pw-record -P '{ stream.capture.sink = true }'` on its monitor, else it records the mic; pre-volume: muted counts)
+  or an external is on (`external_on` in `lib/common.sh`; `FALLBACK` is not one). `off`: flock single-instance
+  (coalesces wake bursts), retries a refused suspend. Saver: one
   shared tick, no per-scene timers; Life's recursive source not `live`. Saver keys need `focus: true` on its Loader
   and no `focusable:` (overrides `WlrLayershell.keyboardFocus`).
   **Aurora: a key or trackpad click wakes s2idle** (dockchannel-hid wakeup source; touches don't; no lid check, logind
@@ -908,10 +972,10 @@ relabel filter.
   `asahi/bin/asahi_idle_test.sh` (`ASAHI_PSY_DIR`, `FAKE_LOCKED`). `asahi-idle why --json` feeds the Battery pane's
   keep-awake chips (his ask: an indicator, not a card — one small amber chip per hold at the right of the key facts;
   read on open and after a click, never polled): "<who> · show" focuses an inhibiting window, "· release" closes a
-  sender's gtk-portal requests (`asahi-idle release <sender>`), "· turn off" ends stay-awake; logind blocks, external
-  display, failed suspend and audio that plays show without an action (idea: serpantinum). A focused real fullscreen
-  window (`fullscreen == 2`; not maximize / fullscreen-in-tile) skips saver, dim and off (idea: Gren-95) — not while
-  locked, and on battery the off step still runs (lock, dark, sleep: his call).
+  sender's gtk-portal requests (`asahi-idle release <sender>`), "· turn off" ends stay-awake; logind blocks, Claude Code,
+  external display, failed suspend and audio that plays show without an action (idea: serpantinum). A focused real
+  fullscreen window (`fullscreen == 2`; not maximize / fullscreen-in-tile) skips saver, dim and off (idea: Gren-95) —
+  not while locked, and on battery the off step still runs (lock, dark, sleep: his call).
 - **Time Machine**: `asahi-timemachine` = restic, one repo (`$TM_DIR` on drive `$TM_LABEL`), local (udisks mount,
   never unmounted) or SFTP (drive on the backup host). Host/path/port live **only** in
   `~/.config/asahi-timemachine/config` — never commit them. Own key `id_ed25519` there
@@ -1088,6 +1152,18 @@ relabel filter.
   `~/.local/state/asahi/lan.json` (flock, 0600) read only as our own regular file; 64 MiB cap fits a full store (else
   defaults overwrite it). Last tab `~/.local/state/asahi/network-tab`. Panes load via `Loader` source → import
   siblings qualified (`import "." as Panes`). Test: `asahi/bin/asahi_lan_test.py`, `lan_models_test.js`.
+- **Servers** (idea: serpantinum-kde servers panel): Quick pane `panes/ServersPane.qml` over `asahi-servers --json`
+  (stdlib Python). Listening = `ss -tulnpHe`, one row per port + owner (v4 / v6, tcp / udp merged), `local` or `LAN`
+  (orange: reachable from the network), LAN first. A user sees pid + name of his own sockets only; `-e` prints every
+  socket's cgroup, so root daemons still map to their unit (`/proc/<pid>/cgroup` fallback). Own UDP sockets on an
+  ephemeral port (`ip_local_port_range`) are client sockets (Firefox QUIC / WebRTC, wsdd): skipped. Open (`asahi-launch
+  xdg-open http://localhost:<port>`, closes the launcher) for own TCP listeners reachable on loopback, root ones only on
+  web ports (631 CUPS, 80 / 443 / 8080 / 8443 / 9090). Services = enabled user services (minus dbus-broker, tmpfiles) +
+  every unit owning a port; one `systemctl [--user] show --timestamp=unix` per scope (since = entered its current
+  state). `asahi-servers start|stop|restart user|system <unit>`: argv only, `fullmatch` on `[A-Za-z0-9@._:-]+\.service`
+  (`re.match` + `$` let a trailing newline through); system units ask polkit (the shell's agent), a system Stop takes a
+  second click within 3 s. Containers (read-only) only when `podman` exists. Polls every 5 s only while shown; rows are
+  rebuilt only when their shape changes (state / memory looked up by key). Test `asahi/bin/asahi_servers_test.py`.
 - **VPN facts** (idea: serpantinum vpn-info.sh): `asahi-vpn-info` reads locally (nmcli, `ip route get`, resolvectl,
   `ip link`) the kill switch (Proton's `pvpn-(routed-)killswitch`; `-ipv6` = leak guard, not the switch; no profile =
   not shown), full or split tunnel, DNS, MTU → one plain-text line in the VPN card. Read on open and on tunnel change,
@@ -1098,6 +1174,17 @@ relabel filter.
 - **Speed test**: `asahi-speedtest [--json]` — Cloudflare 50 MB down / 25 MB up (100 MB is 403). Network pane button.
 - **Wi-Fi QR**: `asahi-wifi-qr` → `$XDG_RUNTIME_DIR` mode 600; `nmcli -s` for the PSK. Code sits inside the Wi-Fi card
   (layout reserves its width; a raw width painted over the LAN card).
+- **Network detail sheet** (idea: caelestia NetworkDetailPage / SavedNetworksPage): `panes/NetDetailSheet.qml`, pure
+  helpers `net_detail.js` (`net_detail_test.js`). The info button on a list row / the Wi-Fi card opens it over the
+  **whole pane** (the networks card is ~2 rows at rest); back / Esc closes (pane `handleEscape` first). Reads on open and
+  after an edit: `nmcli -e no -t -f … connection show uuid <u>`, the cached scan (`dev wifi list --rescan no`, again when
+  the pane's list changes), `ip -j link` (address ≠ `permaddr` = private MAC). Edits = `systemd-run --user --wait
+  --quiet --collect nmcli connection modify uuid <u> …`, argv only: autoconnect / metered at once; IPv4 Apply only after
+  a change (DHCP / DHCP + DNS = `ignore-auto-dns yes` / Manual; unused fields cleared: NM refuses a gateway without an
+  address), then `nmcli connection up uuid <u>` only when active ("Applying reconnects …"). IPv6 read-only. Forget = the
+  pane's (by uuid, asks twice); Share QR = the card's (active network only). Saved profiles the scan misses follow the
+  list as "Other saved networks" (click = sheet). "Connected since" = `connection.timestamp` (stayed the activation time
+  while up). Check modify args without touching NM: `nmcli --offline connection modify …` (keyfile on stdin / stdout).
 - **Autostart**: `asahi/xdg-autostart/` (only a Hidden stub masking gnome-keyring-ssh) vs Hyprland's `hyprland.start`
   hook in `autostart.lua`. Verify no `app-gnome\x2dkeyring\x2dssh@autostart.service` under the user generator.late.
 - **Secrets**: `asahi/kwalletrc` disables kwallet. `gnome-keyring-daemon` = Fedora's user unit (`pkcs11,secrets`;

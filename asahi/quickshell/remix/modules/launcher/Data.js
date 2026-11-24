@@ -63,6 +63,7 @@ const deckTints = {
   storage: "yellow",
   backup: "teal",
   clipboard: "lavender",
+  servers: "mauve",
   packages: "green",
   screensaver: "mauve",
   record: "maroon",

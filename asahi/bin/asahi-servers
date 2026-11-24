@@ -1,0 +1,150 @@
+#!/usr/bin/env python3
+"""What runs and listens on this Mac, for the launcher's Servers pane (idea: serpantinum-kde's servers panel).
+
+  asahi-servers --json                                   {listening, services, containers}
+  asahi-servers start|stop|restart user|system <unit>    systemctl [--user] <verb> -- <unit>; its exit code
+
+Listening = `ss -tulnpHe`: TCP listen + bound UDP sockets. A user sees process + pid of his own sockets only, but
+`-e` prints every socket's cgroup, so root daemons still map to their systemd unit (/proc/<pid>/cgroup if it is
+missing). UDP sockets of our own processes on an ephemeral port are client sockets (browser QUIC / WebRTC, discovery
+replies): skipped. Services = enabled user services (minus session plumbing) + every unit owning a listening socket;
+state, since, memory from one `systemctl [--user] show` per scope. Containers only when podman exists.
+Actions: argv only, unit names validated; system units ask polkit (the shell's agent: Touch ID / password).
+"""
+import ipaddress
+import json
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+UNIT_RE = re.compile(r"[A-Za-z0-9@._:-]+\.service")  # fullmatch: `$` lets a trailing newline through
+VERBS, SCOPES = ("start", "stop", "restart"), ("user", "system")
+# Speaker protection (Asahi's speakersafetyd / Aurora's speakerguardd): never stopped from here — without it the
+# amps run unguarded. Start stays allowed.
+PROTECTED = re.compile(r"speaker(safetyd|guardd).*\.service")
+# Enabled user services that are session plumbing: stopping dbus-broker ends the session, tmpfiles is a oneshot.
+SKIP = {"dbus-broker.service", "dbus.service", "systemd-tmpfiles-setup.service"}
+# Root-owned listeners with a web page (CUPS, cockpit, a web server); a user's own TCP listener always gets Open.
+WEB_PORTS = {80, 443, 631, 8080, 8443, 9090}
+TLS_PORTS = {443, 8443, 9090}
+WILDCARD = {"*", "0.0.0.0", "::"}
+PROPS = "Id,Description,LoadState,ActiveState,SubState,ActiveEnterTimestamp,InactiveEnterTimestamp,MemoryCurrent"
+
+
+def run(cmd):
+  return subprocess.run(cmd, check=False, capture_output=True, text=True).stdout
+
+
+def unit_of(cgroup):
+  """cgroup path -> (scope, unit): the innermost *.service; below user@<uid>.service it is a user unit."""
+  for part in reversed(cgroup.split("/")):
+    if part.endswith(".service") and not part.startswith("user@"):
+      return ("user" if "/user@" in cgroup else "system"), part
+  return "", ""
+
+
+def proc_cgroup(pid):
+  try:
+    return Path(f"/proc/{pid}/cgroup").read_text().rpartition("::")[2].strip()
+  except OSError:  # exited since ss looked
+    return ""
+
+
+def parse_ss(text, lo, hi):
+  """`ss -tulnpHe` lines -> one row per port and owner (v4 + v6, tcp + udp merged); reachable ones (LAN) first."""
+  rows = {}
+  for line in text.splitlines():
+    f = line.split()
+    if len(f) < 5:
+      continue
+    host, port = f[4].rsplit(":", 1)
+    host, _, iface = host.partition("%")
+    host, port = host.strip("[]"), int(port)
+    m = re.search(r'users:\(\("(.*?)",pid=(\d+)', line)
+    proc, pid = (m.group(1), int(m.group(2))) if m else ("", 0)
+    if f[0] == "udp" and pid and lo <= port <= hi:
+      continue
+    cg = re.search(r" cgroup:(\S+)", line)
+    scope, unit = unit_of(cg.group(1) if cg else proc_cgroup(pid) if pid else "")
+    local = iface == "lo" or (host not in WILDCARD and ipaddress.ip_address(host).is_loopback)
+    r = rows.setdefault((port, pid or unit), {"port": port, "protos": [], "addrs": [], "local": True,
+                                              "process": proc, "pid": pid, "unit": unit, "scope": scope})
+    addr = "*" if host in WILDCARD else host
+    if f[0] not in r["protos"]:
+      r["protos"].append(f[0])
+    if addr not in r["addrs"]:
+      r["addrs"].append(addr)
+    r["local"] = r["local"] and local
+  for r in rows.values():
+    web = "tcp" in r["protos"] and (r["local"] or "*" in r["addrs"]) and (r["pid"] or r["port"] in WEB_PORTS)
+    r["url"] = f"{'https' if r['port'] in TLS_PORTS else 'http'}://localhost:{r['port']}" if web else ""
+  return sorted(rows.values(), key=lambda r: (r["local"], r["port"]))
+
+
+def parse_show(text, scope, ports):
+  """`systemctl show` blocks -> service rows; since = entered its current state (epoch s), memory in bytes."""
+  out = []
+  for block in text.split("\n\n"):
+    p = dict(line.split("=", 1) for line in block.splitlines() if "=" in line)
+    if p.get("LoadState") != "loaded":
+      continue
+    active = p.get("ActiveState", "")
+    ts = p.get("ActiveEnterTimestamp" if active == "active" else "InactiveEnterTimestamp", "")
+    mem = p.get("MemoryCurrent", "")
+    out.append({"unit": p["Id"], "scope": scope, "description": p.get("Description", ""), "active": active,
+                "sub": p.get("SubState", ""), "since": int(ts[1:]) if ts.startswith("@") else 0,
+                "memory": int(mem) if mem.isdigit() and int(mem) < 2**63 else 0,  # [not set] / infinity -> 0
+                "ports": sorted(set(ports.get(p["Id"], []))), "protected": bool(PROTECTED.fullmatch(p["Id"]))})
+  return out
+
+
+def services(rows):
+  want = {"user": {}, "system": {}}  # unit -> its listening ports
+  enabled = run(["systemctl", "--user", "list-unit-files", "--state=enabled", "--type=service", "--no-legend"])
+  for line in enabled.splitlines():
+    unit = (line.split() or [""])[0]
+    if UNIT_RE.fullmatch(unit) and not unit.endswith("@.service") and unit not in SKIP:
+      want["user"].setdefault(unit, [])
+  for r in rows:
+    if r["unit"]:
+      want[r["scope"]].setdefault(r["unit"], []).append(r["port"])
+  out = []
+  for scope in SCOPES:
+    if want[scope]:
+      cmd = ["systemctl"] + (["--user"] if scope == "user" else []) + ["show", "--timestamp=unix", "-p", PROPS, "--"]
+      out += parse_show(run(cmd + sorted(want[scope])), scope, want[scope])
+  return sorted(out, key=lambda s: (s["scope"] != "user", s["unit"]))
+
+
+def containers():
+  if not shutil.which("podman"):
+    return []
+  return [{"name": (c.get("Names") or [""])[0], "image": c.get("Image", ""), "state": c.get("State", ""),
+           "status": c.get("Status", ""), "ports": [p.get("host_port") for p in c.get("Ports") or []]}
+          for c in json.loads(run(["podman", "ps", "-a", "--format", "json"]) or "[]")]
+
+
+def action(verb, scope, unit):
+  if verb not in VERBS or scope not in SCOPES or not UNIT_RE.fullmatch(unit):
+    sys.exit("usage: asahi-servers start|stop|restart user|system <name>.service")
+  if verb != "start" and PROTECTED.fullmatch(unit):
+    sys.exit(f"{unit} protects the speakers: not stopped from here")
+  sys.exit(subprocess.run(["systemctl"] + (["--user"] if scope == "user" else []) + [verb, "--", unit], check=False).returncode)
+
+
+def main():
+  args = sys.argv[1:]
+  if args in ([], ["--json"]):
+    lo, hi = map(int, Path("/proc/sys/net/ipv4/ip_local_port_range").read_text().split())
+    rows = parse_ss(run(["ss", "-tulnpHe"]), lo, hi)
+    print(json.dumps({"listening": rows, "services": services(rows), "containers": containers()}))
+  elif len(args) == 3:
+    action(*args)
+  else:
+    sys.exit(__doc__.split("\n\n")[1])
+
+
+if __name__ == "__main__":
+  main()

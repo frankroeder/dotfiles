@@ -36,6 +36,10 @@ Scope {
   property var history: []
   property bool historyVisible: false
   property bool dndEnabled: false
+  // Timed DND (serpantinum DndState): epoch ms it ends at, 0 = until turned off. Kept in the history file; one timer to
+  // the deadline (Qt timers stand still through s2idle: a deadline passed asleep ends at the next tick or load).
+  property real dndUntil: 0
+  readonly property string dndUntilText: root.dndUntil > 0 ? Qt.formatTime(new Date(root.dndUntil), "HH:mm") : ""
   readonly property int historyCount: history.length
   // Persisted across shell restarts; unread = arrived after the sheet was last opened/closed.
   property real lastSeen: 0
@@ -204,12 +208,13 @@ Scope {
   }
 
   function save() {
-    if (root.historyLoaded) histFile.setText(JSON.stringify({ lastSeen: root.lastSeen, dnd: root.dndEnabled, history: root.history }))
+    if (root.historyLoaded) histFile.setText(JSON.stringify({ lastSeen: root.lastSeen, dnd: root.dndEnabled, dndUntil: root.dndUntil, history: root.history }))
   }
   onHistoryChanged: save()
   onLastSeenChanged: save()
   // Saved too: any QML save reloads the shell, which silently turned Do Not Disturb off.
   onDndEnabledChanged: save()
+  onDndUntilChanged: save()
 
   function addHistory(entry) {
     // Transient cards (volume OSDs and friends) toast but are never looked back at: skip history.
@@ -485,8 +490,33 @@ Scope {
     historyScreen = focusedScreen()
     historyVisible = !historyVisible
   }
+  // Another daemon (mako, dunst, swaync started first) owns org.freedesktop.Notifications: our server never got the
+  // name, so no toasts and no history (idea: surface-dots Notifs.qml). Checked 5 s after start and on each sheet open;
+  // the sheet says who, and "Take over" stops it and restarts Quickshell (the server only asks for the name at start).
+  property string foreignComm: ""
+  property string foreignPid: ""
+  Process {
+    id: ownerProc
+    command: ["busctl", "--user", "status", "org.freedesktop.Notifications"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const comm = (/^Comm=(.*)$/m.exec(text) || [])[1] || ""
+        const pid = (/^PID=(\d+)$/m.exec(text) || [])[1] || ""
+        const ours = comm === "qs" || comm === "quickshell"
+        root.foreignComm = ours ? "" : (comm || "nobody")
+        root.foreignPid = ours ? "" : pid
+      }
+    }
+  }
+  Timer { interval: 5000; running: true; onTriggered: ownerProc.running = true }
+  function takeOver() {
+    if (/^\d+$/.test(root.foreignPid)) Quickshell.execDetached(["kill", root.foreignPid])
+    Quickshell.execDetached(["sh", "-c", "sleep 0.5; exec \"$1\"", "sh", root.binDir + "/asahi-restart-quickshell"])
+  }
+
   // Every open/close (bell, Esc, click outside, card click) marks the history seen.
   onHistoryVisibleChanged: {
+    if (historyVisible && !ownerProc.running) ownerProc.running = true
     lastSeen = Date.now()
     // The toast window unmaps under a pointer that may rest on an open deck: no hover-leave comes, and
     // the held cards would wait for it.
@@ -500,7 +530,17 @@ Scope {
   }
 
   function toggleDnd() {
-    dndEnabled = !dndEnabled
+    root.setDnd(!root.dndEnabled, 0)
+  }
+  // until: epoch ms (0 = until turned off); off clears any deadline.
+  function setDnd(on, until) {
+    root.dndUntil = on && until > Date.now() ? until : 0
+    root.dndEnabled = on
+  }
+  Timer {
+    interval: Math.max(1000, Math.min(root.dndUntil - Date.now(), 2147483647))
+    running: root.dndEnabled && root.dndUntil > 0
+    onTriggered: if (Date.now() >= root.dndUntil - 1000) root.setDnd(false, 0); else restart()
   }
 
   // Super+comma acts on the newest popup (omarchy 4.5): its default action when it has one, its
@@ -558,7 +598,9 @@ Scope {
       const raw = histFile.text().trim()
       const saved = raw ? JSON.parse(raw) : {}
       root.lastSeen = saved.lastSeen || 0
-      root.dndEnabled = !!saved.dnd
+      root.dndUntil = saved.dndUntil || 0
+      root.dndEnabled = !!saved.dnd && !(root.dndUntil > 0 && root.dndUntil <= Date.now())   // ran out while away
+      if (!root.dndEnabled) root.dndUntil = 0
       root.history = root.history.concat(saved.history || []).slice(0, root.maxHistory)
       // Only after the merge: loading must not write the file back (a second instance or a
       // config reload re-saving on load could race a write and persist a short history).
@@ -571,6 +613,7 @@ Scope {
     function toggleHistory(): void { root.toggleHistory() }
     function clear(): void { root.clearHistory() }
     function toggleDnd(): void { root.toggleDnd() }
+    function dndFor(minutes: int): void { root.setDnd(true, Date.now() + minutes * 60000) }
     function act(): void { root.act() }
     function dismissOne(): void { root.dismissOne() }
     function dismissAll(): void { root.dismissAll() }
@@ -744,6 +787,12 @@ Scope {
             }
           }
           Item { Layout.fillWidth: true }
+          Text {
+            visible: root.dndEnabled && root.dndUntilText !== ""
+            text: "until " + root.dndUntilText
+            font.family: Style.menuSans; font.pixelSize: Style.typeBody; font.features: Style.fontTabular
+            color: Style.yellow
+          }
           HeaderButton {
             glyph: root.dndEnabled ? "󰂛" : "󰂚"
             tone: root.dndEnabled ? Style.yellow : Style.menuInkDeep
@@ -771,6 +820,31 @@ Scope {
         }
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Style.menuSep }
+
+        // Another daemon owns the notification name (see foreignComm).
+        Rectangle {
+          visible: root.foreignComm !== ""
+          Layout.fillWidth: true
+          implicitHeight: foreignRow.implicitHeight + 16
+          radius: Style.menuRadiusMd
+          color: Style.panelDangerBg
+          RowLayout {
+            id: foreignRow
+            anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 10 }
+            spacing: 10
+            Text { text: "󰀦"; color: Style.red; font.family: Style.fontMono; font.pixelSize: 18 }
+            Text {
+              Layout.fillWidth: true
+              textFormat: Text.PlainText
+              wrapMode: Text.WordWrap
+              text: root.foreignComm === "nobody" ? "No notification daemon is running: apps' notifications go nowhere."
+                : root.foreignComm + (root.foreignPid ? " (pid " + root.foreignPid + ")" : "") + " is handling notifications, not this shell: no toasts or history here."
+              color: Style.m3onSurface
+              font.family: Style.menuSans; font.pixelSize: Style.typeBody
+            }
+            Menu.MenuPill { label: root.foreignComm === "nobody" ? "Restart" : "Take over"; fg: Style.red; onClicked: root.takeOver() }
+          }
+        }
 
         Flickable {
           id: historyFlick
@@ -801,7 +875,8 @@ Scope {
               }
               Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: root.dndEnabled ? "Do not disturb is on" : "No notifications"
+                text: !root.dndEnabled ? "No notifications"
+                  : root.dndUntilText !== "" ? "Do not disturb until " + root.dndUntilText : "Do not disturb is on"
                 font.family: Style.menuSans
                 font.pixelSize: Style.typeLead
                 color: Style.menuInkDeep

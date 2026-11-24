@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Save a PNG of a picked region. Geometry comes from asahi-capture-region.
+# Save a PNG of a picked region. Geometry comes from asahi-capture-region, or ASAHI_SHOT_GEOMETRY ("X,Y WxH", grim's -g:
+# the launcher's window inspector shoots its window without a pick).
 #   asahi-cmd-screenshot [mode] [--clip]
 # --clip copies to the clipboard only: nothing lands in the screenshot folder
 # (the notification thumbnail is one overwritten file under $XDG_RUNTIME_DIR).
@@ -13,7 +14,7 @@ mode="${1:-smart}"
 clip=0
 [ "${2:-}" = "--clip" ] && clip=1
 
-selection="$("$bin/asahi-capture-region" "$mode" || true)"
+selection="${ASAHI_SHOT_GEOMETRY:-$("$bin/asahi-capture-region" "$mode" || true)}"
 [ -n "$selection" ] || exit 0
 
 # grim blocks on a DPMS-off output.

@@ -6,6 +6,7 @@ import Quickshell.Io
 import "../../menu" as Menu
 import "../../../"
 import "../quick_models.js" as QuickModels
+import "../net_detail.js" as NetDetail
 // Qualified on purpose: shell.qml loads the launcher by Loader source, so qs never scans this directory and a bare
 // sibling type (LanDevices) is "not a type" in the live shell (an offscreen file: harness hides that).
 import "." as Panes
@@ -19,8 +20,11 @@ Item {
   // full port of network from old (wifi enable/scan/list/conn + tooltip/ssid, eth toggle, refresh, state/procs; compressed)
   property var wifiNetworks: []
   // Diffed by ssid: a reassigned JS-array model resets the ListView and
-  // jumped the scrolled list back to the top whenever a network appeared.
-  ScriptModel { id: wifiNetworksModel; objectProp: "ssid"; values: quickNetworkRoot.wifiNetworks || [] }
+  // jumped the scrolled list back to the top whenever a network appeared. Saved profiles the scan misses follow.
+  ScriptModel {
+    id: wifiNetworksModel; objectProp: "ssid"
+    values: (quickNetworkRoot.wifiNetworks || []).concat(quickNetworkRoot.wifiEnabled ? quickNetworkRoot.savedRows : [])
+  }
   property bool wifiEnabled: true
   property string currentWifiSsid: ""
   property bool wifiScanned: false
@@ -69,6 +73,28 @@ Item {
 
   // Saved wifi profile names (known-network grouping, omarchy-style).
   property var savedWifi: ({})
+  // The same profiles with uuid / last use (NetDetail.savedProfiles), and the ones no scan row shows.
+  property var savedProfiles: []
+  readonly property var savedRows: NetDetail.savedRows(quickNetworkRoot.savedProfiles,
+    (quickNetworkRoot.wifiNetworks || []).map(n => n.ssid))
+
+  // Detail sheet of one network over the pane (NetDetailSheet); uuid "" = a network without a profile.
+  property bool detailOpen: false
+  function openDetail(uuid, ssid) {
+    detailSheet.uuid = uuid
+    detailSheet.ssid = ssid
+    detailSheet.load()
+    quickNetworkRoot.detailOpen = true
+  }
+  function closeDetail() {
+    quickNetworkRoot.detailOpen = false
+    root.focusLauncherInput()
+  }
+  // The profile behind a scan row: the active one for the connected row (its name may differ), else by name.
+  function profileFor(net) {
+    const p = (quickNetworkRoot.savedProfiles || []).find(x => net.active ? x.active : x.name === net.ssid)
+    return p ? p.uuid : ""
+  }
 
   // Live throughput of the active device + connection quality (rolling
   // router/internet ping, packet loss) while the panel is open.
@@ -101,8 +127,11 @@ Item {
   function lanCmd(cmd) {
     if (lanProc.running) lanProc.write((typeof cmd === "string" ? cmd : JSON.stringify(cmd)) + "\n")
   }
-  // Launcher Esc: the Devices layers (rename, open row, search) first.
-  function handleEscape() { return quickNetworkRoot.netTab === "devices" && lanDevices.handleEscape() }
+  // Launcher Esc: the detail sheet, then the Devices layers (rename, open row, search).
+  function handleEscape() {
+    if (quickNetworkRoot.detailOpen) { quickNetworkRoot.closeDetail(); return true }
+    return quickNetworkRoot.netTab === "devices" && lanDevices.handleEscape()
+  }
   Process {
     id: lanProc
     // pdeathsig: the collector (it shares port 5353 with avahi) dies with qs.
@@ -252,11 +281,11 @@ Item {
     Qt.callLater(quickNetworkRoot.scanWifi)
   }
   // Forget a saved profile in place (omarchy's 'x'); the row drops from
-  // "Known networks" on the next scan.
-  function forgetSsid(ssid) {
-    if (!ssid) return
+  // "Known networks" on the next scan. By uuid where known (names need not be unique).
+  function forgetSsid(ssid, uuid) {
+    if (!ssid && !uuid) return
     forgetProc.targetSsid = ssid
-    forgetProc.command = ["nmcli", "connection", "delete", "id", ssid]
+    forgetProc.command = ["nmcli", "connection", "delete"].concat(uuid ? ["uuid", uuid] : ["id", ssid])
     forgetProc.running = true
   }
   function applyVpnProfiles(connections, details) {
@@ -579,19 +608,16 @@ Item {
 
   Process {
     id: savedWifiProc
-    command: ["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show"]
+    command: ["nmcli", "-t", "-f", "NAME,UUID,TYPE,TIMESTAMP,ACTIVE", "connection", "show"]
     stdout: StdioCollector {
       onStreamFinished: {
+        // nmcli -t escapes ':' in values as '\:' (nmcliFields undoes it)
+        const rows = (text || "").trim().split("\n").filter(l => l).map(l => QuickModels.nmcliFields(l))
+        const profiles = NetDetail.savedProfiles(rows)
         const map = {}
-        const lines = (text || "").trim().split("\n")
-        for (let i = 0; i < lines.length; i++) {
-          const idx = lines[i].lastIndexOf(":")
-          if (idx < 0) continue
-          if (lines[i].slice(idx + 1) !== "802-11-wireless") continue
-          // nmcli -t escapes ':' in values as '\:'
-          map[lines[i].slice(0, idx).replace(/\\:/g, ":")] = true
-        }
+        for (const p of profiles) map[p.name] = true
         quickNetworkRoot.savedWifi = map
+        if (JSON.stringify(profiles) !== JSON.stringify(quickNetworkRoot.savedProfiles)) quickNetworkRoot.savedProfiles = profiles
       }
     }
   }
@@ -1010,6 +1036,11 @@ Item {
               bg: Style.m3secondaryContainer; selected: !!quickNetworkRoot.wifiBand && quickNetworkRoot.wifiBand !== "auto"
               onClicked: quickNetworkRoot.cycleBand()
             }
+            Pill {
+              visible: !!quickNetworkRoot.currentWifiSsid && quickNetworkRoot.wifiEnabled
+              icon: "󰋼"; label: "Details"; bg: Style.m3secondaryContainer
+              onClicked: quickNetworkRoot.openDetail(quickNetworkRoot.profileFor({ active: true }), quickNetworkRoot.currentWifiSsid)
+            }
           }
           Item { Layout.fillHeight: true }
         }
@@ -1299,7 +1330,9 @@ Item {
               color: netMa.containsMouse ? Style.m3stateHover : "transparent"
               MouseArea {
                 id: netMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                onClicked: quickNetworkRoot.tapNetwork(netDelegate.modelData)
+                // A saved row the scan misses cannot `dev wifi connect`: it opens its sheet.
+                onClicked: netDelegate.modelData.saved ? quickNetworkRoot.openDetail(netDelegate.modelData.uuid, netDelegate.modelData.ssid)
+                  : quickNetworkRoot.tapNetwork(netDelegate.modelData)
               }
               RowLayout {
                 anchors.fill: parent
@@ -1325,17 +1358,25 @@ Item {
                 }
                 Secondary {
                   Layout.fillWidth: true
-                  text: QuickModels.wifiRowDetail(netDelegate.modelData, quickNetworkRoot.connectingSsid === netDelegate.modelData.ssid)
-                  color: quickNetworkRoot.placeColor(QuickModels.wifiPlaceKind(netDelegate.modelData.sec),
-                    netDelegate.modelData.active ? Style.m3primary : Style.m3onSurfaceVariant)
+                  text: netDelegate.modelData.saved ? NetDetail.savedRowDetail(netDelegate.modelData.ts, Date.now() / 1000)
+                    : QuickModels.wifiRowDetail(netDelegate.modelData, quickNetworkRoot.connectingSsid === netDelegate.modelData.ssid)
+                  color: netDelegate.modelData.saved ? Style.m3onSurfaceVariant
+                    : quickNetworkRoot.placeColor(QuickModels.wifiPlaceKind(netDelegate.modelData.sec),
+                      netDelegate.modelData.active ? Style.m3primary : Style.m3onSurfaceVariant)
                 }
-                Secondary { text: netDelegate.modelData.signal + "%" }
+                Secondary { visible: !netDelegate.modelData.saved; text: netDelegate.modelData.signal + "%" }
+                IconBtn {
+                  icon: "󰋼"; iconPx: 17   // filled: the outline one read as a blurry speck at row size
+                  onClicked: quickNetworkRoot.openDetail(netDelegate.modelData.uuid || quickNetworkRoot.profileFor(netDelegate.modelData),
+                    netDelegate.modelData.ssid)
+                }
                 IconBtn {
                   visible: netDelegate.modelData.known && !netDelegate.modelData.active
                   icon: "󰩺"; hot: Style.red
-                  onClicked: quickNetworkRoot.forgetSsid(netDelegate.modelData.ssid)
+                  onClicked: quickNetworkRoot.forgetSsid(netDelegate.modelData.ssid, netDelegate.modelData.uuid || "")
                 }
                 LinkBtn {
+                  visible: !netDelegate.modelData.saved
                   active: !!netDelegate.modelData.active
                   busy: quickNetworkRoot.connectingSsid === netDelegate.modelData.ssid
                   onClicked: quickNetworkRoot.tapNetwork(netDelegate.modelData)
@@ -1344,7 +1385,7 @@ Item {
             }
           }
           Menu.MenuEmptyState {
-            visible: (quickNetworkRoot.wifiNetworks || []).length === 0
+            visible: wifiNetworksModel.values.length === 0
             anchors.centerIn: parent
             fontScale: root.uiFontScale
             iconFamily: root.uiFont
@@ -1385,6 +1426,16 @@ Item {
       text: quickNetworkRoot.speedResult
       horizontalAlignment: Text.AlignHCenter
     }
+  }
+
+  // Detail sheet over the whole pane: the networks card alone is about two rows tall at rest.
+  Panes.NetDetailSheet {
+    id: detailSheet
+    anchors.fill: parent
+    z: 10
+    root: quickNetworkRoot.root
+    pane: quickNetworkRoot
+    open: quickNetworkRoot.detailOpen
   }
 
   // Passphrase dialog (scrim + M3 card).

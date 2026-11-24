@@ -36,15 +36,29 @@ if [ "\$1" = eval ]; then
   printf '%s\n' "\$*" >> "$kw_log"
   exit 0
 fi
+[ "\$1" = reload ] && echo reload >> "$kw_log"
 exit 0
 EOF
 chmod +x "$tmp/bin/hyprctl"
+# DisplayPrompt's IPC (never the live shell) and asahi-clamshell (never the real backlight / logind).
+qs_log="$tmp/qs.log"
+: >"$qs_log"
+cat >"$tmp/bin/qs" <<EOF
+#!/bin/sh
+printf '%s\n' "\$*" >> "$qs_log"
+EOF
+cat >"$tmp/bin/clamshell" <<EOF
+#!/bin/sh
+[ "\$1" = status ] && exec test -e "$tmp/clamshell.flag"
+printf 'clamshell %s\n' "\$1" >> "$kw_log"
+EOF
+chmod +x "$tmp/bin/qs" "$tmp/bin/clamshell"
 
 mkdir -p "$tmp/run"
 
 run() {
-  PATH="$tmp/bin:$PATH" ASAHI_DRM_PATH="$drm" ASAHI_HDMI_SETTLE_S=0 XDG_RUNTIME_DIR="$tmp/run" \
-    ASAHI_SCALE_DIR="$tmp/scales" ASAHI_LAYOUT_FILE="$tmp/layout.json" "$HOT" "$@"
+  PATH="$tmp/bin:$PATH" ASAHI_DRM_PATH="$drm" ASAHI_HDMI_SETTLE_S=0 XDG_RUNTIME_DIR="$tmp/run" ASAHI_HDMI_WAIT_S=0 \
+    ASAHI_SCALE_DIR="$tmp/scales" ASAHI_LAYOUT_FILE="$tmp/layout.json" ASAHI_CLAMSHELL="$tmp/bin/clamshell" "$HOT" "$@"
 }
 
 dell='[{"name":"eDP-1","disabled":false},{"name":"HDMI-A-1","disabled":true,"description":"Dell Inc. DELL P2723DE ABC1234"}]'
@@ -257,6 +271,81 @@ run place DP-1
 grep -qx 'hl.monitor({ output = "DP-1", position = "-2560x-458", scale = 1.000 })' "$kw_log" \
   || fail_at "place must restore scale 1 with its kept position (got $(tr '\n' ' ' <"$kw_log"))"
 pass "DP-1 scale 1 kept layout is not placed at the 1.25 anchor"
+
+# New-display prompt: one `display plugged` per plug (a reload's fresh Lua state runs `added` again), forgotten
+# once the connector reads disconnected.
+rm -f "$tmp/run"/asahi-hdmi.seen.*
+printf 'disconnected\n' >"$drm/card1-DP-1/status"
+printf 'connected\n' >"$drm/card1-HDMI-A-1/status"
+printf '%s\n' "$dell" >"$mon_json"
+: >"$qs_log"
+run added
+grep -qx -- '-c remix ipc --any-display call display plugged HDMI-A-1' "$qs_log" || fail_at "plug pings DisplayPrompt (got $(tr '\n' ' ' <"$qs_log"))"
+: >"$qs_log"
+run added
+grep -q . "$qs_log" && fail_at "a second added (reload) must not ping (got $(tr '\n' ' ' <"$qs_log"))"
+run off  # Monitors pane / laptop only: cable still in
+run added
+grep -q . "$qs_log" && fail_at "off with the cable in is no unplug (got $(tr '\n' ' ' <"$qs_log"))"
+printf 'disconnected\n' >"$drm/card1-HDMI-A-1/status"
+run removed
+grep -qx -- '-c remix ipc --any-display call display unplugged HDMI-A-1' "$qs_log" || fail_at "unplug pings unplugged (got $(tr '\n' ' ' <"$qs_log"))"
+printf 'connected\n' >"$drm/card1-HDMI-A-1/status"
+: >"$qs_log"
+run added
+grep -q 'display plugged HDMI-A-1' "$qs_log" || fail_at "replug pings again"
+pass "plug ping: once per plug, not on reload"
+
+# Remembered mode: per description, beside the kept position; save and reset keep it.
+rm -f "$tmp/layout.json"
+[ "$(run recall HDMI-A-1 | jq -r '"\(.label)|\(.mode)"')" = "Dell Inc. DELL P2723DE ABC1234|" ] || fail_at "unknown screen recalls no mode"
+run remember HDMI-A-1 bogus 2>/dev/null && fail_at "remember must reject an unknown mode"
+run remember HDMI-A-1 mirror
+printf '[{"name":"eDP-1","disabled":false,"scale":2},{"name":"HDMI-A-1","disabled":false,"model":"DELL P2723DE","description":"Dell Inc. DELL P2723DE ABC1234","x":-2048,"y":-170,"scale":1.25}]\n' >"$mon_json"
+[ "$(run recall HDMI-A-1)" = '{"name":"HDMI-A-1","label":"DELL P2723DE","mode":"mirror"}' ] \
+  || fail_at "recall gives model + mode (got $(run recall HDMI-A-1))"
+run save HDMI-A-1 -2048x-100
+jq -e '.["Dell Inc. DELL P2723DE ABC1234"] | .mode == "mirror" and .pos == "-2048x-100"' "$tmp/layout.json" >/dev/null \
+  || fail_at "save keeps the mode (got $(cat "$tmp/layout.json"))"
+run reset HDMI-A-1
+jq -e '.["Dell Inc. DELL P2723DE ABC1234"] == { mode: "mirror" }' "$tmp/layout.json" >/dev/null \
+  || fail_at "reset drops the position, keeps the mode (got $(cat "$tmp/layout.json"))"
+pass "remember / recall: mode per screen, save and reset keep it"
+
+# Modes: one step from extend; never zero outputs.
+: >"$kw_log"
+run mode HDMI-A-1 mirror
+grep -qx 'hl.monitor({ output = "HDMI-A-1", mirror = "eDP-1" })' "$kw_log" || fail_at "mirror evals mirror only (got $(tr '\n' ' ' <"$kw_log"))"
+: >"$kw_log"
+run mode HDMI-A-1 laptop
+grep -qx 'hl.monitor({ output = "HDMI-A-1", disabled = true })' "$kw_log" || fail_at "laptop disables the external (got $(tr '\n' ' ' <"$kw_log"))"
+: >"$kw_log"
+run mode HDMI-A-1 external 2>/dev/null && fail_at "external refuses an unlit output"
+grep -q 'clamshell close' "$kw_log" && fail_at "no clamshell close onto an unlit external"
+printf 'enabled\n' >"$drm/card1-HDMI-A-1/enabled"
+run mode HDMI-A-1 external
+grep -qx 'clamshell close' "$kw_log" || fail_at "external = asahi-clamshell close (got $(tr '\n' ' ' <"$kw_log"))"
+printf '[{"name":"eDP-1","disabled":true},{"name":"HDMI-A-1","disabled":false,"description":"Dell Inc. DELL P2723DE ABC1234"}]\n' >"$mon_json"
+: >"$kw_log"
+run mode HDMI-A-1 laptop 2>/dev/null && fail_at "laptop refused while eDP-1 is off"
+run mode HDMI-A-1 mirror 2>/dev/null && fail_at "mirror refused while eDP-1 is off"
+grep -q . "$kw_log" && fail_at "eDP-1 off: no eval (got $(tr '\n' ' ' <"$kw_log"))"
+: >"$tmp/clamshell.flag"
+printf '[{"name":"eDP-1","disabled":false},{"name":"HDMI-A-1","disabled":false,"description":"Dell Inc. DELL P2723DE ABC1234"}]\n' >"$mon_json"
+run mode HDMI-A-1 laptop 2>/dev/null && fail_at "clamshell flag: extend first"
+rm -f "$tmp/clamshell.flag"
+printf '[{"name":"eDP-1","disabled":false},{"name":"HDMI-A-1","disabled":false,"mirrorOf":"eDP-1","description":"Dell Inc. DELL P2723DE ABC1234"}]\n' >"$mon_json"
+: >"$kw_log"
+run mode HDMI-A-1 extend 2>/dev/null || true
+grep -qx reload "$kw_log" || fail_at "extend from mirror reloads (got $(tr '\n' ' ' <"$kw_log"))"
+run mode HDMI-A-1 laptop 2>/dev/null && fail_at "mirror -> laptop: extend first"
+printf '%s\n' "$dell" >"$mon_json"
+: >"$kw_log"
+run mode HDMI-A-1 extend 2>/dev/null || true
+grep -q 'output = "HDMI-A-1", disabled = false' "$kw_log" || fail_at "extend from laptop enables (got $(tr '\n' ' ' <"$kw_log"))"
+printf 'disconnected\n' >"$drm/card1-HDMI-A-1/status"
+run mode HDMI-A-1 extend 2>/dev/null && fail_at "mode refuses an unplugged output"
+pass "mode: extend / mirror / laptop / external guards"
 
 if [ "$fail" -ne 0 ]; then
   echo "asahi_hdmi_test.sh: FAILED"

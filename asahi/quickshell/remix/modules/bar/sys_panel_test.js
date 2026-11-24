@@ -65,4 +65,14 @@ const one = S.coreGroups([{ percent: 40 }, { percent: 20 }])
 if (one.length !== 1 || one[0].name !== "" || one[0].avg !== 30) throw new Error("no kinds → one group " + JSON.stringify(one));
 if (S.coreGroups([]).length !== 1) throw new Error("no cores → one empty group");
 
+const net = S.netTotals("Inter-|   Receive\n face |bytes\n    lo: 500 5 0 0 0 0 0 0 500 5 0 0 0 0 0 0\n  wlan0: 1000 10 0 0 0 0 0 0 200 3 0 0 0 0 0 0\n tun0: 900 9 0 0 0 0 0 0 150 2 0 0 0 0 0 0\n");
+if (net.rx !== 1000 || net.tx !== 200) throw new Error("netTotals: physical links only " + JSON.stringify(net));
+const disk = S.diskTotals(" 259       0 nvme0n1 100 0 8 0 50 0 16 0 0 0 0\n 259       1 nvme0n1p1 100 0 8 0 50 0 16 0 0 0 0\n");
+if (disk.rd !== 8 * 512 || disk.wr !== 16 * 512) throw new Error("diskTotals: whole disks only " + JSON.stringify(disk));
+const mp = S.mirrorPoints([0, 100], [25, 0]);
+if (mp.up[1].y !== 0 || mp.down[0].y !== 0.75 || mp.up[0].y !== 0.5) throw new Error("mirrorPoints " + JSON.stringify(mp));
+if (S.mirrorPoints([1], [1]).up.length !== 0) throw new Error("mirrorPoints needs two samples");
+if (S.fmtRate(512) !== "512 B/s" || S.fmtRate(2048) !== "2.0 KB/s" || S.fmtRate(51200) !== "50 KB/s" || S.fmtRate(3 * 1048576) !== "3.0 MB/s")
+  throw new Error("fmtRate");
+
 console.log("ok  sys_panel.js");

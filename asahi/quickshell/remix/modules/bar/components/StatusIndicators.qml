@@ -9,12 +9,16 @@ import "../../launcher/arg_commands.js" as ArgCommands
 
 // Click-only chips: stay awake, night light, recorder, screen share, timer, updates (bell: Notifications.qml).
 // Stay-awake / night-light / timer state follows files their scripts write (FileView watches).
+// Claude Code at work (asahi-claude-activity): the cup in dim amber; it holds only idle sleep (asahi-idle why says so).
 RowLayout {
   id: root
 
   property bool updatesAvailable: false
   property bool stayAwake: false
+  property int claudeSessions: 0
   property bool nightLightOn: false
+  property int nightTemp: 3000
+  readonly property Item nightChip: nightChipItem   // NightLightPanel hangs from it
   // Soonest asahi-timer (systemd user timers); left ticks locally between syncs.
   property int timerCount: 0
   property int timerLeft: 0
@@ -42,15 +46,20 @@ RowLayout {
   readonly property real updatesWidth: root.updatesAvailable ? Style.barIconSlot + root.spacing : 0
 
   readonly property string runtimeDir: Quickshell.env("XDG_RUNTIME_DIR") || "/tmp"
-  readonly property string nightLightStatePath: Quickshell.env("HOME") + "/.local/state/asahi/nightlight.json"
+  readonly property string nightLightStatePath: Quickshell.env("ASAHI_NIGHTLIGHT_STATE") || Quickshell.env("HOME") + "/.local/state/asahi/nightlight.json"   // env: asahi-nightlight's, tests
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
   readonly property color fg: barHost ? barHost.barForeground : Style.text
 
   spacing: 2
 
   // --- night light: asahi-nightlight rewrites nightlight.json in place.
+  // asahi-nightlight rewrites the file in place (truncate, then write): a read in between is empty or cut short. Keep
+  // the last state then — read as "off" it hid the chip and closed its popup on every slider step (flicker).
   function parseNightLight(raw) {
-    try { root.nightLightOn = !!JSON.parse(raw || "{}").on } catch (e) { root.nightLightOn = false }
+    let s = null
+    try { s = JSON.parse(String(raw || "").trim()) } catch (e) { return }
+    root.nightLightOn = !!s.on
+    if (s.temperature > 0) root.nightTemp = s.temperature
   }
   FileView {
     id: nightLightFile
@@ -72,6 +81,25 @@ RowLayout {
     onFileChanged: reload()
     onLoaded: root.stayAwake = true
     onLoadFailed: root.stayAwake = false
+  }
+
+  // --- Claude Code at work: the hooks keep the live session count in a file (rewritten on change, gone at 0). A
+  // crashed session sends no hook: while the count lives, its status prunes stale markers every 5 min.
+  FileView {
+    id: claudeFile
+    path: root.runtimeDir + "/claude-activity.count"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    // A read between the shell's truncate and write is empty: keep the last count, the write's own event follows.
+    onLoaded: { const n = parseInt(claudeFile.text()); if (!isNaN(n)) root.claudeSessions = n }
+    onLoadFailed: root.claudeSessions = 0
+  }
+  Timer {
+    interval: 300000
+    running: root.claudeSessions > 0
+    repeat: true
+    onTriggered: Quickshell.execDetached([root.binDir + "/asahi-claude-activity", "status"])
   }
 
   // --- timers: asahi-timer touches a stamp on add/cancel; tick locally while one runs.
@@ -126,7 +154,7 @@ RowLayout {
       text: "󰅶"
       font.family: Style.fontFamily
       font.pixelSize: Style.barFontGlyph
-      color: root.stayAwake ? Style.yellow : root.fg
+      color: root.stayAwake ? Style.yellow : root.claudeSessions > 0 ? Qt.alpha(Style.yellow, 0.5) : root.fg
     }
 
     HoverTint { down: chipMouse1.pressed; lit: chipMouse1.containsMouse }
@@ -139,8 +167,9 @@ RowLayout {
     }
   }
 
-  // Only while on (Launcher > Actions): frees room next to the notch.
+  // Only while on (Launcher > Actions): frees room next to the notch. Click = warmth popup, right-click = off.
   Item {
+    id: nightChipItem
     visible: root.nightLightOn && root.showNight
     implicitWidth: Style.barIconSlot
     implicitHeight: Style.barHeight
@@ -159,7 +188,11 @@ RowLayout {
       anchors.fill: parent
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
-      onClicked: Quickshell.execDetached([root.binDir + "/asahi-nightlight", "toggle"])
+      acceptedButtons: Qt.LeftButton | Qt.RightButton
+      onClicked: mouse => {
+        if (mouse.button === Qt.RightButton || !root.barHost) Quickshell.execDetached([root.binDir + "/asahi-nightlight", "toggle"])
+        else root.barHost.togglePanel("night")
+      }
       // Wheel: warmer (up) / cooler (down), 250 K a notch; accumulates to 120 like the audio chips. A gesture's notches
       // go out as one step count 250 ms after the wheel stops: a run per notch raced (two runs set their own
       // temperature in turns: flicker, and each saw the other's value: a "Night light failed" card each).

@@ -71,5 +71,15 @@ printf '#!/bin/sh\necho "systemctl $*" >>"$CALLS"\nexit 1\n' >"$tmp/systemctl"; 
 if "$ROOT/asahi-session" reboot; then fail_at "a refused reboot must fail"; fi
 grep -q 'notify .*Reboot failed' "$CALLS" && pass "refused reboot: a card" || fail_at "refused reboot: $(cat "$CALLS")"
 
+# check: what a power-off would cut short (fake pgrep; downloads and Claude markers in temp dirs).
+printf '#!/bin/sh\n[ "$2" = dnf5 ] || [ "$2" = wf-recorder ]\n' >"$tmp/pgrep"; chmod +x "$tmp/pgrep"
+mkdir -p "$tmp/dl" "$tmp/run/claude-activity"; touch "$tmp/dl/data.tar.part" "$tmp/run/claude-activity/s1"
+touch -d '1 hour ago' "$tmp/dl/old.crdownload"
+out=$(ASAHI_DOWNLOADS_DIR="$tmp/dl" XDG_RUNTIME_DIR="$tmp/run" "$ROOT/asahi-session" check)
+[ "$out" = $'dnf5 is running\n1 download in progress\na screen recording is running\nClaude Code is working (1 session)' ] \
+  && pass "check: package manager, fresh download, recording, Claude (stale partial skipped)" || fail_at "check: [$out]"
+printf '#!/bin/sh\nexit 1\n' >"$tmp/pgrep"; rm -f "$tmp/dl/data.tar.part" "$tmp/run/claude-activity/s1"
+[ -z "$(ASAHI_DOWNLOADS_DIR="$tmp/dl" XDG_RUNTIME_DIR="$tmp/run" "$ROOT/asahi-session" check)" ] && pass "check: all clear prints nothing" || fail_at "check not empty"
+
 [ "$fail" = 0 ] && echo "all passed"
 exit "$fail"
