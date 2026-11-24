@@ -7,6 +7,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Bluetooth
 import Quickshell.Services.UPower
+import Quickshell.Widgets
 import "../menu" as Menu
 import "../../services" as Services
 import "../../"
@@ -28,6 +29,11 @@ Scope {
   // property, so hand it over under a different name.
   readonly property var launcherSelf: root
   property bool shouldShow: false
+  // Open cascade: result rows and rail entries rise in one after another when the launcher opens (never while typing:
+  // only rows made within 250 ms of the open). Off under reduced motion.
+  property int openGen: 0
+  property double openedAt: 0
+  function cascadeNow() { return !Style.reduceMotion && Date.now() - root.openedAt < 250 }
   // Keep the layer mapped during close so blur/dim/card can animate out.
   property bool panelVisible: false
   property real chromeReveal: 0
@@ -870,7 +876,7 @@ Scope {
           ColumnLayout {
             Layout.fillWidth: true
             spacing: 2
-            Text { Layout.fillWidth: true; text: quickHubRoot.ffTitle; color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(17); font.weight: Font.DemiBold; elide: Text.ElideRight }
+            Text { Layout.fillWidth: true; text: quickHubRoot.ffTitle; color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(17); font.variableAxes: Style.opsz(root.fontPx(17)); font.weight: Font.DemiBold; elide: Text.ElideRight }
             Text { Layout.fillWidth: true; text: quickHubRoot.ffSubtitle; color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(11); elide: Text.ElideRight }
           }
           Rectangle {
@@ -912,6 +918,7 @@ Scope {
           ]
           delegate: Rectangle {
             required property var modelData
+            required property int index
             Layout.fillWidth: true
             Layout.fillHeight: true
             radius: modelData.r
@@ -936,6 +943,7 @@ Scope {
               icon: modelData.icon
               fontFamily: root.uiFont
               labelFamily: root.uiSans
+              sweepDelay: 160 + index * 110
             }
           }
         }
@@ -1035,7 +1043,7 @@ Scope {
       : q.startsWith(";") ? "Emoji"
       : (q.startsWith("@") || q.startsWith("!")) ? "Websearch"
       : root.fileTerm(q) !== null ? Data.fileCategory : ""
-    if (target === "" && q.startsWith("=")) return "󰃬"
+    if (root.calcMode) return "󰃬"   // `=` after leaving a prefix mode by Backspace keeps its category
     return root.navFor(target)?.icon || ""
   }
 
@@ -1048,8 +1056,8 @@ Scope {
   }
   readonly property string sectionName: {
     const q = root.query.trim()
+    if (root.calcMode) return "Calculator"
     if (root.categoryFilter !== "") return root.navFor(root.categoryFilter)?.title || root.categoryFilter
-    if (q.startsWith("=")) return "Calculator"
     if (q.startsWith("!")) return "Web Search"
     if (q.startsWith("@")) return "Documentation"
     if (q.startsWith(":")) return "Actions"
@@ -1144,6 +1152,8 @@ Scope {
   onShouldShowChanged: {
     if (root.shouldShow) {
       tmState.reload()   // rail dot: the backup state as of this open
+      root.openedAt = Date.now()
+      root.openGen++
       chromeHideKick.stop()
       root.panelVisible = true
       root.chromeReveal = 0
@@ -1394,6 +1404,8 @@ Scope {
   }
 
   // Rail highlight and the right-hand pane stay in lockstep (↑↓ already switches).
+  // Pane switch direction: down the rail the new pane comes up from below, up the rail from above (shared axis).
+  property int paneDir: 1
   function selectDeckIndex(i) {
     const list = root.quickDeck || []
     const n = list.length
@@ -1401,6 +1413,7 @@ Scope {
     const raw = Number(i)
     const idx = Math.max(0, Math.min(n - 1, raw !== raw ? 0 : Math.round(raw)))
     if (idx === root.selectedIndex) return
+    root.paneDir = idx > root.selectedIndex ? 1 : -1
     root.selectedIndex = idx
     if (resultsList) resultsList.currentIndex = idx
   }
@@ -1610,6 +1623,35 @@ Scope {
 
   property string armedExec: ""
   Timer { id: disarmExec; interval: 3000; onTriggered: root.armedExec = "" }
+
+  // Logout / Restart / Restart into macOS / Shutdown: hold Enter or the pointer 1.2 s (mel-edo PowerMenu); the row
+  // fills while held and runs when full, an early release drains it and the row says "Hold to confirm".
+  property var holdEntry: null
+  property real holdProgress: 0
+  property string holdHint: ""
+  function startHold(entry) {
+    if (!entry || !entry.confirm) return false
+    if (!holdAnim.running) { root.holdEntry = entry; root.holdHint = ""; holdBack.stop(); holdAnim.restart() }
+    return true
+  }
+  function endHold() {
+    if (!holdAnim.running) return
+    holdAnim.stop()
+    root.holdHint = root.holdEntry ? root.holdEntry.exec : ""
+    holdHintTimer.restart()
+    holdBack.restart()
+  }
+  NumberAnimation {
+    id: holdAnim; target: root; property: "holdProgress"; from: 0; to: 1; duration: 1200; easing.type: Easing.InOutSine
+    onFinished: if (root.holdProgress >= 1 && root.holdEntry) {
+      const e = root.holdEntry
+      root.holdEntry = null; root.holdProgress = 0
+      root.armedExec = e.exec   // the hold is the confirmation
+      root.launchApp(e)
+    }
+  }
+  NumberAnimation { id: holdBack; target: root; property: "holdProgress"; to: 0; duration: 220; easing.type: Easing.OutCubic; onFinished: root.holdEntry = null }
+  Timer { id: holdHintTimer; interval: 1600; onTriggered: root.holdHint = "" }
 
   function dictTerm(q) {
     const value = (q || "").trim()
@@ -3010,16 +3052,22 @@ Scope {
             Accessible.role: Accessible.EditableText
             Accessible.name: root.argArmed ? (root.argPlaceholder || "Argument") : "Search applications"
             cursorDelegate: Rectangle {
+              id: caret
               width: 2
               height: Math.round(searchInput.font.pixelSize * 1.05)
               radius: 1
               color: Style.menuAccent
               anchors.verticalCenter: parent ? parent.verticalCenter : undefined
-              SequentialAnimation on opacity {
+              // Blink = a timer flipping a short fade: a looping sine fade kept the animation driver (and the
+              // launcher's frames) running for as long as it sat open.
+              property bool lit: true
+              opacity: lit ? 1 : 0.15
+              Behavior on opacity { NumberAnimation { duration: 100; easing.type: Easing.InOutSine } }
+              Timer {
+                interval: 560; repeat: true
                 running: root.shouldShow && searchInput.activeFocus && searchInput.cursorVisible
-                loops: Animation.Infinite
-                NumberAnimation { from: 1; to: 0.15; duration: 560; easing.type: Easing.InOutSine }
-                NumberAnimation { from: 0.15; to: 1; duration: 560; easing.type: Easing.InOutSine }
+                onRunningChanged: caret.lit = true
+                onTriggered: caret.lit = !caret.lit
               }
             }
 
@@ -3077,10 +3125,18 @@ Scope {
             // Shift+Enter on a file row: show it in its folder instead of opening it.
             Keys.onReturnPressed: event => {
               const e = root.currentResultEntry()
+              if (!root.quickMode && e && e.confirm) { if (!event.isAutoRepeat) root.startHold(e); return }
               if ((event.modifiers & Qt.ShiftModifier) && e && e.special === "file" && e.path) root.revealPath(e.path)
               else root.launchCurrent()
             }
-            Keys.onEnterPressed: root.launchCurrent()
+            Keys.onReleased: event => {
+              if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !event.isAutoRepeat) root.endHold()
+            }
+            Keys.onEnterPressed: event => {
+              const e = root.currentResultEntry()
+              if (!root.quickMode && e && e.confirm) { if (!event.isAutoRepeat) root.startHold(e); return }
+              root.launchCurrent()
+            }
 
             // Esc is onEscapePressed above. Quick mode hides this field and focuses launcherBox.
             Keys.onPressed: event => {
@@ -3203,15 +3259,11 @@ Scope {
               Menu.MenuEdgeFade { parent: resultsList; surface: Style.m3surface; gutter: resultsScroll.width }
               // Rows stop short of the scrollbar (0 wide when nothing overflows).
               readonly property real rowW: width - resultsScroll.width
-              highlight: Rectangle {
-                radius: Style.menuRadiusFull
-                color: Style.menuSelFill
-                border.width: 1; border.color: Style.menuSelBorder
+              highlight: Menu.MenuStretchPill {
+                opacity: resultsList.currentItem ? resultsList.currentItem.enterT : 1   // arrives with its row
                 width: resultsList.rowW
-                height: resultsList.currentItem ? resultsList.currentItem.height - 2 : 0
-                y: resultsList.currentItem ? resultsList.currentItem.y + 1 : 0
-                Behavior on y { Menu.MenuAnim {} }
-                Behavior on height { Menu.MenuAnim {} }
+                targetTop: resultsList.currentItem ? resultsList.currentItem.y + 1 : 0
+                targetBottom: resultsList.currentItem ? resultsList.currentItem.y + resultsList.currentItem.height - 1 : 0
               }
 
               onCountChanged: if (!root.quickMode) root.resultCount = count
@@ -3239,6 +3291,18 @@ Scope {
                 Accessible.role: Accessible.Button
                 Accessible.name: dName
 
+                property real enterT: 1
+                opacity: enterT
+                transform: Translate { y: Math.round((1 - delegateRoot.enterT) * 16) }
+                function enter() { if (delegateRoot.index < 12) { delegateRoot.enterT = 0; rowEnter.restart() } }
+                Component.onCompleted: if (root.cascadeNow()) delegateRoot.enter()
+                Connections { target: root; function onOpenGenChanged() { if (root.cascadeNow()) delegateRoot.enter() } }
+                SequentialAnimation {
+                  id: rowEnter
+                  PauseAnimation { duration: 90 + delegateRoot.index * 30 }
+                  NumberAnimation { target: delegateRoot; property: "enterT"; to: 1; duration: 320; easing.type: Easing.OutCubic }
+                }
+
                 Rectangle {
                   anchors.fill: parent
                   anchors.topMargin: 1
@@ -3246,6 +3310,26 @@ Scope {
                   radius: Style.menuRadiusFull   // the selection's shape: hover → select does not morph
                   color: rowMa.containsMouse && !delegateRoot.isSelected ? Style.m3stateHover : "transparent"
                   Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
+                }
+                // Hold-to-confirm fill, left to right with a soft leading edge.
+                readonly property bool holding: !!root.holdEntry && root.holdEntry.exec === modelData.exec && !!modelData.confirm
+                ClippingRectangle {
+                  anchors.fill: parent
+                  anchors.topMargin: 1
+                  anchors.bottomMargin: 1
+                  radius: height / 2
+                  color: "transparent"
+                  visible: delegateRoot.holding && root.holdProgress > 0
+                  Rectangle {
+                    width: parent.width * root.holdProgress
+                    height: parent.height
+                    gradient: Gradient {
+                      orientation: Gradient.Horizontal
+                      GradientStop { position: 0; color: Qt.alpha(Style.red, 0.16) }
+                      GradientStop { position: 0.85; color: Qt.alpha(Style.red, 0.26) }
+                      GradientStop { position: 1; color: Qt.alpha(Style.red, 0.5) }
+                    }
+                  }
                 }
 
                 RowLayout {
@@ -3309,8 +3393,9 @@ Scope {
                       Layout.fillWidth: true
                       visible: delegateRoot.dSub !== "" && !delegateRoot.dCat && !root.fileMode
                       textFormat: Text.PlainText
-                      text: delegateRoot.dSub
-                      color: Style.m3outline
+                      readonly property bool hinted: !!modelData.confirm && root.holdHint === modelData.exec
+                      text: delegateRoot.holding ? "Keep holding…" : hinted ? "Hold to confirm" : delegateRoot.dSub
+                      color: delegateRoot.holding || hinted ? Style.red : Style.m3outline
                       font.pixelSize: root.fontPx(11)
                       font.family: root.uiSans
                       elide: Text.ElideRight
@@ -3368,7 +3453,10 @@ Scope {
                   hoverEnabled: true
                   cursorShape: Qt.PointingHandCursor
                   onPositionChanged: resultsList.currentIndex = delegateRoot.index
-                  onClicked: root.launchApp(delegateRoot.modelData)
+                  onPressed: root.startHold(delegateRoot.modelData)
+                  onReleased: root.endHold()
+                  onCanceled: root.endHold()
+                  onClicked: if (!delegateRoot.modelData.confirm) root.launchApp(delegateRoot.modelData)
                 }
               }
 
@@ -3491,18 +3579,15 @@ Scope {
 
               // One selection pill that slides between rail entries on the shared spring, like the results list's
               // highlight (the tiles only tint their disc). Snaps while the card opens: no slide from the last pane.
-              Rectangle {
+              Menu.MenuStretchPill {
                 readonly property Item cur: quickRepeater.count > root.selectedIndex ? quickRepeater.itemAt(root.selectedIndex) : null
                 visible: !!cur
+                opacity: cur ? cur.enterT : 1   // arrives with its entry
                 x: cur ? cur.x + 2 : 0
-                y: cur ? cur.y + 2 : 0
                 width: cur ? cur.width - 4 : 0
-                height: cur ? cur.height - 4 : 0
-                radius: Style.menuRadiusFull
-                color: Style.menuSelFill
-                border.width: 1
-                border.color: Style.menuSelBorder
-                Behavior on y { enabled: root.chromeReveal === 1; Menu.MenuAnim {} }
+                targetTop: cur ? cur.y + 2 : 0
+                targetBottom: cur ? cur.y + cur.height - 2 : 0
+                animate: root.chromeReveal === 1
               }
 
               Grid {
@@ -3520,9 +3605,21 @@ Scope {
                 id: quickRepeater
                 model: root.quickDeck || []
                 delegate: Item {
+                  id: railItem
                   required property var modelData
                   required property int index
                   readonly property bool isSel: root.selectedIndex === index
+                  property real enterT: 1
+                  opacity: enterT
+                  transform: Translate { x: Math.round((1 - railItem.enterT) * -14) }
+                  function enter() { railItem.enterT = 0; railEnter.restart() }
+                  Component.onCompleted: if (root.cascadeNow()) railItem.enter()
+                  Connections { target: root; function onOpenGenChanged() { if (root.cascadeNow()) railItem.enter() } }
+                  SequentialAnimation {
+                    id: railEnter
+                    PauseAnimation { duration: 90 + railItem.index * 24 }
+                    NumberAnimation { target: railItem; property: "enterT"; to: 1; duration: 300; easing.type: Easing.OutCubic }
+                  }
                   readonly property var t: modelData || {}
                   width: (quickGrid.width - (quickGrid.columns-1)*quickGrid.columnSpacing) / quickGrid.columns
                   height: quickGrid.tileH
@@ -3582,14 +3679,15 @@ Scope {
                   anchors.fill: parent
                   active: root.quickMode
                   sourceComponent: root.quickPaneComp
-                  // A new pane settles in (fade + 10 px rise) instead of popping; once per switch, no idle cost.
+                  // A new pane settles in (fade + 36 px from the direction of travel) instead of popping; once per
+                  // switch, no idle cost.
                   transform: Translate { id: qdlShift }
                   onLoaded: paneIn.restart()
                 }
                 ParallelAnimation {
                   id: paneIn
                   Menu.MenuAnim { target: qdl; property: "opacity"; from: 0; to: 1; effects: true }
-                  Menu.MenuAnim { target: qdlShift; property: "y"; from: 10; to: 0 }
+                  Menu.MenuAnim { target: qdlShift; property: "y"; from: 36 * root.paneDir; to: 0 }
                 }
               }
 

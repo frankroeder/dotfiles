@@ -36,8 +36,12 @@ Scope {
     const mon = Hyprland.focusedMonitor
     root.screen = (mon && Quickshell.screens.find(s => s.name === mon.name)) || Quickshell.screens[0]
     root.query = ""
+    root.openedAt = Date.now()
     root.shown = true
   }
+  // Open ripple (Launchpad): the cells pop in from the centre outwards, delayed by their distance; cells rebuilt by
+  // typing (later than 300 ms after the open) just appear. Off under reduced motion.
+  property double openedAt: 0
   function launch(entry) {
     if (!entry || !root.launcher) return
     root.shown = false
@@ -172,6 +176,25 @@ Scope {
           width: grid.cellWidth
           height: grid.cellHeight
           readonly property bool hovered: root.hoverCell === cell
+          property real enterT: 1
+          opacity: Math.min(1, enterT)
+          scale: 0.6 + 0.4 * enterT
+          Component.onCompleted: {
+            if (Style.reduceMotion || Date.now() - root.openedAt > 300) return
+            const cols = Math.max(1, Math.floor(grid.width / grid.cellWidth))
+            const rows = Math.max(1, Math.min(4, Math.ceil(root.apps.length / cols)))
+            const dx = cell.index % cols - (cols - 1) / 2
+            const dy = Math.floor(cell.index / cols) - (rows - 1) / 2
+            ripple.delay = Math.round(60 + Math.sqrt(dx * dx + dy * dy) * 55)
+            cell.enterT = 0
+            ripple.start()
+          }
+          SequentialAnimation {
+            id: ripple
+            property int delay: 0
+            PauseAnimation { duration: ripple.delay }
+            NumberAnimation { target: cell; property: "enterT"; to: 1; duration: 420; easing.type: Easing.OutBack; easing.overshoot: 1.8 }
+          }
 
           Image {
             id: icon

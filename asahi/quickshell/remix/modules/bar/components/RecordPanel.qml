@@ -181,6 +181,7 @@ PopupWindow {
           text: Services.Recorder.fmtElapsed(Services.Recorder.elapsed)
           color: Style.red
           font.family: Style.menuSans; font.features: Style.fontTabular; font.pixelSize: Style.typeDisplay; font.weight: Font.DemiBold
+          font.variableAxes: Style.opsz(Style.typeDisplay)
         }
         // Always-present close affordance: the bar chip that opens this panel can
         // disappear out from under it (e.g. recording stops), so closing must not

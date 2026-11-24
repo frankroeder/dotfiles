@@ -21,3 +21,5 @@ MenuRunDots 1.0 MenuRunDots.qml
 MenuGlyphTile 1.0 MenuGlyphTile.qml
 MenuFadeText 1.0 MenuFadeText.qml
 MenuEdgeFade 1.0 MenuEdgeFade.qml
+MenuStretchPill 1.0 MenuStretchPill.qml
+MenuRipple 1.0 MenuRipple.qml

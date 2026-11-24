@@ -253,6 +253,7 @@ Item {
           Text {
             text: "Time Machine"
             color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(17); font.weight: Font.DemiBold
+            font.variableAxes: Style.opsz(root.fontPx(17))
           }
           Text {
             Layout.fillWidth: true

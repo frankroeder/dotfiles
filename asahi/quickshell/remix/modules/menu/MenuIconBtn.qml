@@ -16,7 +16,8 @@ Rectangle {
 
   implicitWidth: 30
   implicitHeight: 30
-  radius: width / 2
+  radius: btnMa.pressed && !Style.reduceMotion ? Style.menuRadiusMd : width / 2   // held: squares off (shape morph)
+  Behavior on radius { NumberAnimation { duration: Style.menuStateMs; easing.type: Easing.OutCubic } }
   color: btn.bg
   Behavior on color { ColorAnimation { duration: 120 } }
   scale: btnMa.pressed && !Style.reduceMotion ? 0.92 : 1
@@ -29,6 +30,8 @@ Rectangle {
     opacity: btnMa.containsMouse || btnMa.pressed ? 1 : 0
     Behavior on opacity { NumberAnimation { duration: 120 } }
   }
+  // Under the label: the disc must not veil the text.
+  MenuRipple { id: ripple; radius: btn.radius }
   Text {
     anchors.centerIn: parent
     text: btn.icon
@@ -36,5 +39,11 @@ Rectangle {
     font.family: btn.iconFamily
     font.pixelSize: Math.round(btn.iconPx * btn.fontScale)
   }
-  MouseArea { id: btnMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: btn.clicked() }
+  MouseArea {
+    id: btnMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+    onPressed: mouse => ripple.start(mouse.x, mouse.y)
+    onReleased: ripple.release()
+    onCanceled: ripple.release()
+    onClicked: btn.clicked()
+  }
 }

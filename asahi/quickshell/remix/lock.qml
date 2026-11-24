@@ -370,6 +370,7 @@ ShellRoot {
             }
             Text {
               anchors.centerIn: parent
+              visible: lock.pw === "" || lock.phase === "checking"
               text: lock.phase === "checking" ? "Checking…"
                 : lock.pw === "" ? (lock.phase === "wrong" ? "Wrong password · " + lock.wrong : "Password")
                 : "●".repeat(Math.min(lock.pw.length, 24))
@@ -377,6 +378,30 @@ ShellRoot {
               font.family: lock.pw === "" || lock.phase === "checking" ? Style.fontUi : Style.fontMono
               font.pixelSize: lock.pw === "" || lock.phase === "checking" ? 15 : 16
               font.letterSpacing: lock.pw === "" || lock.phase === "checking" ? 0 : 3
+            }
+            // Typed characters pop in one by one (caelestia InputField, end-4 PasswordChars): each dot springs 0 → 1
+            // and cools from the accent to ink; deleting drops the last at once. Runs per key press only.
+            Row {
+              anchors.centerIn: parent
+              visible: lock.pw !== "" && lock.phase !== "checking"
+              spacing: 8
+              Repeater {
+                model: 24   // fixed slots: a count model rebuilt every dot on each key (all popped again)
+                Rectangle {
+                  id: dot
+                  required property int index
+                  visible: index < lock.pw.length
+                  anchors.verticalCenter: parent.verticalCenter
+                  width: 10; height: 10; radius: 5
+                  color: Style.m3onSurface
+                  onVisibleChanged: if (visible && !Style.reduceMotion) pop.restart()
+                  ParallelAnimation {
+                    id: pop
+                    NumberAnimation { target: dot; property: "scale"; from: 0; to: 1; duration: 380; easing.type: Easing.OutBack; easing.overshoot: 2.4 }
+                    ColorAnimation { target: dot; property: "color"; from: Style.vivid; to: Style.m3onSurface; duration: 900 }
+                  }
+                }
+              }
             }
           }
         }

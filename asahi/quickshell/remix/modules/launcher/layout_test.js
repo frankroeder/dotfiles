@@ -320,7 +320,7 @@ assert(
   "MenuCard height animates when the overview grows into a drill"
 );
 assert(
-  /readonly property int restY:/.test(qml) && /Behavior on y \{ Menu\.MenuAnim \{\} \}/.test(qml),
+  /readonly property int restY:/.test(qml) && /Behavior on y \{ Menu\.MenuAnim \{ exit: !root\.shouldShow \} \}/.test(qml),
   "MenuCard slides in from a screen edge with the spring (caelestia drawer)"
 );
 assert(

@@ -18,7 +18,9 @@ Rectangle {
 
   implicitWidth: chip.fixedWidth > 0 ? chip.fixedWidth : chipRow.implicitWidth + 20
   implicitHeight: 28
-  radius: Style.menuRadiusFull
+  // Held: the full round squares off a little (M3 expressive shape morph), back on release.
+  radius: chipMa.pressed && !Style.reduceMotion ? Style.menuRadiusSm : height / 2
+  Behavior on radius { NumberAnimation { duration: Style.menuStateMs; easing.type: Easing.OutCubic } }
   color: chip.bg
 
   scale: chipMa.pressed && !Style.reduceMotion ? 0.97 : 1
@@ -29,6 +31,8 @@ Rectangle {
     color: chipMa.pressed ? Style.m3statePress : Style.m3stateHover
     visible: chipMa.containsMouse || chipMa.pressed
   }
+  // Under the label: the disc must not veil the text.
+  MenuRipple { id: ripple; radius: chip.radius }
   Row {
     id: chipRow
     anchors.centerIn: parent
@@ -57,6 +61,9 @@ Rectangle {
     enabled: chip.clickable
     hoverEnabled: true
     cursorShape: Qt.PointingHandCursor
+    onPressed: mouse => ripple.start(mouse.x, mouse.y)
+    onReleased: ripple.release()
+    onCanceled: ripple.release()
     onClicked: chip.clicked()
   }
 }

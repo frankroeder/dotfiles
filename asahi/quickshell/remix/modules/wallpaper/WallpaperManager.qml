@@ -426,7 +426,7 @@ Scope {
                   reuseItems: true
                   cacheBuffer: Math.max(800, cellHeight * 5)
                   rightMargin: 12
-                  ScrollBar.vertical: Menu.MenuScrollBar {}
+                  ScrollBar.vertical: Menu.MenuScrollBar { autoHide: false }
                   WheelHandler {
                     target: null
                     acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad

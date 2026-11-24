@@ -27,8 +27,13 @@ Item {
   readonly property real frac: Math.max(0.003, Math.min(1, shown / 100))
 
   Behavior on shown { MenuAnim {} }
-  onValueChanged: shown = value
-  Component.onCompleted: shown = value
+  // `sweepDelay` >= 0: start empty and sweep to the value after that many ms, the number counting up with it (the
+  // Dashboard's gauges, staggered). Off under reduced motion.
+  property int sweepDelay: -1
+  property bool swept: sweepDelay < 0
+  onValueChanged: if (swept) shown = value
+  Component.onCompleted: { if (sweepDelay < 0 || Style.reduceMotion) { swept = true; shown = value } else sweepTimer.start() }
+  Timer { id: sweepTimer; interval: Math.max(1, dial.sweepDelay); onTriggered: { dial.swept = true; dial.shown = dial.value } }
 
   Item {
     id: ring
@@ -105,6 +110,7 @@ Item {
         color: dial.accent
         font.family: dial.labelFamily
         font.pixelSize: Math.max(10, Math.round(dial.diameter * 0.2))
+        font.variableAxes: Style.opsz(Math.max(10, Math.round(dial.diameter * 0.2)))
         font.weight: Font.DemiBold
       }
     }

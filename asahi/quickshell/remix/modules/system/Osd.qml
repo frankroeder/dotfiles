@@ -210,13 +210,21 @@ Scope {
         anchors.margins: 12
         spacing: 12
 
+        // The icon follows the value (end-4 OsdValueIndicator, caelestia brightness steps): the speaker gains waves
+        // (low / medium / high), the display sun turns (0 → 180°) and grows with the level. Eases, never loops.
         Text {
-          text: root.icon
+          readonly property bool sun: root.icon === "󰃠" && root.showBar
+          readonly property bool speaker: root.icon === "󰕾" && root.showBar
+          text: speaker ? (root.percent < 34 ? "󰕿" : root.percent < 67 ? "󰖀" : "󰕾") : root.icon
           font.family: Style.fontFamily
           font.pixelSize: 28
           color: root.accent
           Layout.preferredWidth: 34
           horizontalAlignment: Text.AlignHCenter
+          rotation: sun ? root.percent * 1.8 : 0
+          scale: sun ? 0.74 + 0.26 * root.percent / 100 : 1
+          Behavior on rotation { enabled: !Style.reduceMotion; NumberAnimation { duration: 400; easing.type: Easing.BezierSpline; easing.bezierCurve: Style.menuEnter } }
+          Behavior on scale { enabled: !Style.reduceMotion; NumberAnimation { duration: 400; easing.type: Easing.BezierSpline; easing.bezierCurve: Style.menuEnter } }
         }
 
         ColumnLayout {

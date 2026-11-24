@@ -37,8 +37,9 @@ Item {
 
   implicitHeight: 36
 
+  // 30 fps: the wave turns once per 3 s, so 60 Canvas repaints a second bought nothing visible.
   Timer {
-    interval: 16
+    interval: 33
     repeat: true
     running: root.live && root.visible && (root.playing || root.ampFactor > 0.001)
     onTriggered: { root.phase = (root.phase + interval / 3000 * 2 * Math.PI) % (20 * Math.PI); wave.requestPaint() }  // 20π: whole turns for both mults (1, 2.2)

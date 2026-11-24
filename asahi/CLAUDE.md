@@ -400,6 +400,38 @@ relabel filter.
   **notification progress** (`value` hint → `Model.progressHint`, slim bar + % on live toasts; `hintsChanged` joins the
   replace update so `notify-send -r` moves it; history drops it). App grid: the desktop is dimmed, not blurred
   (`rules.lua` `quickshell-appgrid` ignore_alpha 0.6 over its crust@0.5 scrim = 128/255).
+  Reference / motion rounds (2026-11-23, picked from before / after sheets and videos in `~/screenshots/`): notification
+  **pictures fill the icon tile** (image-path hints arrive as `image://icon//<path>`; `localImage` still guards them) with
+  the sender's icon as a badge (`appIconFor`: senders without an icon get their desktop entry's via `heuristicLookup`
+  of the app name; our own `screenshot` / `record` senders match none: no badge). Declined: meters with a gap + stop
+  dot, OSD pill, see-through launcher panels, date-picker calendar, slider value in the handle, all-mono, port watts.
+  Motion (each once per open, off under `reduceMotion`, nothing loops): SysPanel **unfolds from its chip** (container
+  transform: `ClippingRectangle` chip-wide → card on `Style.menuEnter`, content laid out for the full card and faded in
+  past a third; the other bar popups keep `MenuPopIn`); launcher **open cascade** (result rows and rail entries rise in
+  30 / 24 ms apart; `openGen` / `cascadeNow()`: only within 250 ms of the open, never while typing; selection pill and
+  highlight follow their item's `enterT`); **shared-axis** pane switch (`paneDir` from `selectDeckIndex`: 36 px from the
+  direction of travel); app grid **ripple** from the centre (delay by distance, OutBack; cells rebuilt by typing just
+  appear); Dashboard gauges **sweep** (`MenuHudDial.sweepDelay`, staggered 110 ms).
+  Polish 3 (2026-11-24, refs caelestia / end-4 / Gren-95 / surface-dots; sheets `~/screenshots/quickshell-all-windows-
+  2026-11-24.png`, `…-polish3-…`): **optical size** — Adwaita Sans is variable (`opsz` 14–32, Inter Display at 32) and
+  Qt draws every size with the 14 cut; big readouts / titles take `font.variableAxes: Style.opsz(<size expr>)` (never
+  `font.pixelSize`: binding loop). Selection pills (launcher results, Quick rail) = `Menu.MenuStretchPill`: leading
+  edge on the spring, trailing 1.5× (stretches toward the target). `MenuSwitch` handle 10 off / 14 on / 16 held;
+  `MenuPill` / `MenuChip` / `MenuIconBtn` square off while held (radius `menuRadiusSm` / Md). Scrollbars hide at rest
+  (show while scrolling / hovered, fade 0.6 s after); lists without `MenuEdgeFade` set `autoHide: false`.
+  `MenuFadeText` rises 3 px with its fade. Battery: the launcher caret blinks by Timer (a looping sine fade kept the
+  animation driver running while the launcher sat open), `WavySeekBar` repaints at 30 fps, SysPanel history = `Shape`
+  `PathPolyline` + gradient fill (no Canvas raster per sample). Tried and dropped: hiding the empty LAN card (the
+  Wi-Fi card then stretched with an empty half). His picks from the ideas sheet (`~/screenshots/quickshell-ideas-
+  2026-11-24.png`; declined: per-process net, reading-mode shader, Material Symbols): `MediaCard.accent` from the cover
+  (`ColorQuantizer` depth 2, most vivid of 4, HSL lightness 0.72 dark / 0.34 light; theme accent without art); lock
+  password dots spring in, accent → ink (fixed 24-slot Repeater: a count model rebuilt every dot on each key);
+  `Menu.MenuRipple` on pill / chip / icon button (declared under the label; built only while it runs); **hold to
+  confirm** on `confirm` rows (Enter, keypad Enter or the pointer, 1.2 s; early release drains and says "Hold to
+  confirm"; Ctrl+L still takes the old two-press arm); Clipboard kind chips (All / Text / Links / Code / Paths /
+  Colours / Images, counts; "All" holds the total) + per-kind glyph + colour swatch (Qt parses no `rgb()` / `hsl()`
+  strings, and CSS `#rrggbbaa` is Qt `#aarrggbb`); OSD speaker glyph by level, display sun turns 0–180° and grows.
+  Harness copies patch the System rows to `exec: "true <verb>"` so a hold can never restart the Mac.
 - **Launcher quick panes**: one file each in `quickshell/remix/modules/launcher/panes/`; `LauncherWindow.qml` does
   `Panes.XPane { root: launcherSelf }` (`root` in a pane = that property). Shared M3 widgets in `modules/menu` take
   `fontScale` (`MenuSwitch` fixed; `component Pill: Menu.MenuPill { fontScale: root.uiFontScale }`). Hover =

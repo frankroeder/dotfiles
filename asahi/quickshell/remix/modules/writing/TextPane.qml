@@ -47,7 +47,7 @@ Rectangle {
         onDoubleClicked: mouse => { paneEdit.cursorPosition = paneEdit.positionAt(mouse.x, mouse.y); paneEdit.selectWord() }
       }
     }
-    Menu.MenuScrollBar { id: bar; parent: flick; anchors.right: parent.right; anchors.top: parent.top; anchors.bottom: parent.bottom }
+    Menu.MenuScrollBar { id: bar; autoHide: false; parent: flick; anchors.right: parent.right; anchors.top: parent.top; anchors.bottom: parent.bottom }
     ScrollBar.vertical: bar
   }
 }

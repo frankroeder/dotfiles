@@ -290,6 +290,7 @@ Item {
               text: quickBatteryRoot.batPercentage < 0 ? "—" : quickBatteryRoot.batPercentage + "%"
               color: quickBatteryRoot.ringColor()
               font.family: root.uiSans; font.pixelSize: root.fontPx(30); font.weight: Font.DemiBold
+              font.variableAxes: Style.opsz(root.fontPx(30))
             }
             Text {
               visible: quickBatteryRoot.batStatus !== ""

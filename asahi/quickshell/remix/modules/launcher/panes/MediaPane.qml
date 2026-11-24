@@ -250,6 +250,7 @@ Item {
                 text: devCard.muted ? "Muted" : quickMediaRoot.pct(devCard.vol)
                 color: devCard.muted ? Style.red : Style.m3primary
                 font.family: root.uiSans; font.pixelSize: root.fontPx(18); font.weight: Font.DemiBold
+                font.variableAxes: Style.opsz(root.fontPx(18))
               }
               IconBtn {
                 icon: devCard.isOut ? (devCard.muted ? "󰖁" : "󰕾") : (devCard.muted ? "󰍭" : "󰍬")
@@ -372,7 +373,7 @@ Item {
           clip: true
           contentHeight: streamCol.implicitHeight
           boundsBehavior: Flickable.StopAtBounds
-          ScrollBar.vertical: Menu.MenuScrollBar { id: streamScroll }
+          ScrollBar.vertical: Menu.MenuScrollBar { id: streamScroll; autoHide: false }
           Column {
             id: streamCol
             width: parent.width - (streamScroll.overflow ? streamScroll.implicitWidth + 4 : 0)

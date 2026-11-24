@@ -17,7 +17,9 @@ Rectangle {
 
   implicitWidth: pillRow.implicitWidth + 24
   implicitHeight: 32
-  radius: Style.menuRadiusFull
+  // Held: the full round squares off a little (M3 expressive shape morph), back on release.
+  radius: pillMa.pressed && !Style.reduceMotion ? Style.menuRadiusSm : height / 2
+  Behavior on radius { NumberAnimation { duration: Style.menuStateMs; easing.type: Easing.OutCubic } }
   color: pill.selected ? Style.m3primaryContainer : pill.bg
   border.width: pill.selected ? 1 : 0
   border.color: Style.menuSelBorder
@@ -33,6 +35,8 @@ Rectangle {
     opacity: pillMa.containsMouse || pillMa.pressed ? 1 : 0
     Behavior on opacity { NumberAnimation { duration: 120 } }
   }
+  // Under the label: the disc must not veil the text.
+  MenuRipple { id: ripple; radius: pill.radius }
   Row {
     id: pillRow
     anchors.centerIn: parent
@@ -55,5 +59,11 @@ Rectangle {
       font.weight: pill.selected ? Font.DemiBold : Font.Medium
     }
   }
-  MouseArea { id: pillMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: pill.clicked() }
+  MouseArea {
+    id: pillMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+    onPressed: mouse => ripple.start(mouse.x, mouse.y)
+    onReleased: ripple.release()
+    onCanceled: ripple.release()
+    onClicked: pill.clicked()
+  }
 }

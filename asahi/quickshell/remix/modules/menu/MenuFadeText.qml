@@ -7,12 +7,21 @@ import "../../"
 // `opacity`.
 Text {
   id: root
+  // The old value lifts out, the new one rises in (end-4 StyledText `animateChange`: slide + fade).
+  transform: Translate { id: lift }
   Behavior on text {
     enabled: !Style.reduceMotion && root.Window.window !== null && root.Window.window.visible
     SequentialAnimation {
-      NumberAnimation { target: root; property: "opacity"; to: 0.15; duration: 80; easing.type: Easing.InSine }
+      ParallelAnimation {
+        NumberAnimation { target: root; property: "opacity"; to: 0.15; duration: 80; easing.type: Easing.InSine }
+        NumberAnimation { target: lift; property: "y"; to: -3; duration: 80; easing.type: Easing.InSine }
+      }
       PropertyAction {}
-      NumberAnimation { target: root; property: "opacity"; to: 1; duration: 160; easing.type: Easing.OutSine }
+      PropertyAction { target: lift; property: "y"; value: 3 }
+      ParallelAnimation {
+        NumberAnimation { target: root; property: "opacity"; to: 1; duration: 160; easing.type: Easing.OutSine }
+        NumberAnimation { target: lift; property: "y"; to: 0; duration: 160; easing.type: Easing.OutSine }
+      }
     }
   }
 }

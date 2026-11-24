@@ -153,6 +153,7 @@ Item {
               : (quickTempRoot.tempOutput ? "No sensors" : "Loading sensors…")
             color: quickTempRoot.hottestSensor ? quickTempRoot.tempColor(quickTempRoot.hottestSensor.value) : Style.m3onSurfaceVariant
             font.family: root.uiSans; font.features: Style.fontTabular; font.pixelSize: root.fontPx(26); font.weight: Font.DemiBold
+            font.variableAxes: Style.opsz(root.fontPx(26))
           }
           Text {
             Layout.fillWidth: true

@@ -176,6 +176,7 @@ Item {
         Layout.fillWidth: true
         text: tile.value; color: tile.valueColor; elide: Text.ElideRight; textFormat: Text.PlainText
         font.family: root.uiSans; font.features: Style.fontTabular; font.pixelSize: root.fontPx(18); font.weight: Font.DemiBold
+        font.variableAxes: Style.opsz(root.fontPx(18))
       }
       Text {
         Layout.fillWidth: true
@@ -309,6 +310,7 @@ Item {
               text: (hwRoot.hw.model || "Loading…").replace(/^Apple /, "")
               color: Style.m3onSurface; textFormat: Text.PlainText; elide: Text.ElideRight
               font.family: root.uiSans; font.pixelSize: root.fontPx(17); font.weight: Font.DemiBold
+              font.variableAxes: Style.opsz(root.fontPx(17))
             }
             Text {
               Layout.fillWidth: true

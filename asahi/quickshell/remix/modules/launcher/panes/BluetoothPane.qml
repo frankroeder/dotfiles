@@ -499,6 +499,7 @@ Item {
               : (Bluetooth.defaultAdapter ? quickBtRoot.t("bluetooth") : quickBtRoot.t("btNoAdapter"))
             textFormat: Text.PlainText
             font.family: root.uiSans; font.pixelSize: root.fontPx(17); font.weight: Font.DemiBold; elide: Text.ElideRight
+            font.variableAxes: Style.opsz(root.fontPx(17))
           }
           Secondary { Layout.fillWidth: true; text: quickBtRoot.headStatus; font.pixelSize: root.fontPx(11) }
           Secondary {

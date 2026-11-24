@@ -116,6 +116,7 @@ Singleton {
   readonly property int menuPanelRadius: 28
   readonly property int menuRadiusLg: 16
   readonly property int menuRadiusMd: 12
+  readonly property int menuRadiusSm: 8
   readonly property int menuRadiusFull: 999
   // Anim: M3 expressive spatial spring + effects curve; exits are shorter and accelerate (M3 emphasized
   // accelerate), so a closing surface gets out of the way instead of springing.
@@ -130,6 +131,7 @@ Singleton {
   readonly property var menuSpring: [0.38, 1.21, 0.22, 1, 1, 1]
   readonly property var menuEffects: [0.34, 0.8, 0.34, 1, 1, 1]
   readonly property var menuExit: [0.3, 0, 0.8, 0.15, 1, 1]
+  readonly property var menuEnter: [0.05, 0.7, 0.1, 1, 1, 1]   // M3 emphasized decelerate: a surface growing into place
 
   // ── Fonts: the one place to change type on every surface. ──
   // UI text: launcher, panes, bar popups, toasts, OSD, cards. Digits that tick add `font.features: Style.fontTabular`.
@@ -144,6 +146,10 @@ Singleton {
   // Add "zero": 1 for slashed zeros (terminal look); Adwaita Sans also has cv01–cv14 / ss01–ss08.
   // Numbers only: Adwaita Sans's tnum also widens - : . (names read "firefox - bin"), so names / labels never take it.
   readonly property var fontTabular: ({ "tnum": 1 })
+  // Optical size: Adwaita Sans (Inter) is variable on `opsz` 14–32 and Qt draws every size with the 14 text cut.
+  // Big readouts and titles take `font.variableAxes: Style.opsz(<their size expression>)` (never `font.pixelSize`:
+  // a binding loop): from ~17 px the display cut (tighter, finer), same family, no new font. Others ignore the axis.
+  function opsz(px) { return { "opsz": Math.max(14, Math.min(32, px)) } }
   // Popup type scale (bar popups, calendar, sheet, toasts, OSD): text takes one of these; glyphs keep their own size.
   readonly property int typeCaption: 10   // tracked caps, units, counts, chart labels
   readonly property int typeBody: 11      // rows, meta

@@ -101,7 +101,14 @@ Scope {
   function iconFor(entry) {
     if (!entry) return ""
     if (localImage(entry.image)) return entry.image
-    const raw = entry.appIcon || entry.desktopEntry || entry.appName || ""
+    return appIconFor(entry)
+  }
+  // The sender's own icon (also the badge on a picture card). Senders that name none (notify-send -a without -i):
+  // their desktop entry's, found by the app name.
+  function appIconFor(entry) {
+    if (!entry) return ""
+    const de = !entry.appIcon && !entry.desktopEntry && entry.appName ? DesktopEntries.heuristicLookup(entry.appName) : null
+    const raw = entry.appIcon || entry.desktopEntry || (de && de.icon) || entry.appName || ""
     // An app icon given as a path is opened as a file too: the same rules.
     if (raw.indexOf("/") >= 0 && !localImage(raw)) return ""
     return raw ? Quickshell.iconPath(raw, true) : ""
@@ -1053,29 +1060,61 @@ Scope {
       enabled: card.contentShown
       Behavior on opacity { NumberAnimation { duration: card.contentShown ? 150 : 75 } }
 
-      Rectangle {
+      Item {
+        id: iconTile
         Layout.preferredWidth: 36
         Layout.preferredHeight: 36
         Layout.alignment: Qt.AlignTop
-        radius: Style.menuRadiusMd - 2
-        color: Style.menuControlBg
+        // A picture (screenshot, avatar, cover; image-path hints arrive as image://icon//<path>) fills the tile and the
+        // sender's icon rides on it as a badge (idea: caelestia); an icon name stays the small icon below.
+        readonly property bool picture: !!card.entry && root.localImage(card.entry.image)
+          && /^(file:|\/|image:\/\/icon\/\/)/.test(String(card.entry.image))
+        readonly property string badge: iconTile.picture ? root.appIconFor(card.entry) : ""
 
-        IconImage {
-          anchors.centerIn: parent
-          width: 24
-          height: 24
-          asynchronous: true  // a sender's path must not stall the shell while it loads
-          source: root.iconFor(card.entry)
-          visible: source !== ""
+        ClippingRectangle {
+          anchors.fill: parent
+          visible: iconTile.picture
+          radius: Style.menuRadiusMd - 2
+          color: Style.menuControlBg
+          Image {
+            anchors.fill: parent
+            source: iconTile.picture ? card.entry.image : ""
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true   // a sender's path must not stall the shell while it loads
+            sourceSize: Qt.size(72, 72)
+          }
         }
+        Rectangle {
+          visible: iconTile.badge !== ""
+          z: 1
+          width: 20; height: 20; radius: 10
+          anchors { right: parent.right; bottom: parent.bottom; rightMargin: -5; bottomMargin: -5 }
+          color: Style.m3surfaceSolid
+          IconImage { anchors.centerIn: parent; width: 14; height: 14; asynchronous: true; source: iconTile.badge }
+        }
+        Rectangle {
+          anchors.fill: parent
+          visible: !iconTile.picture
+          radius: Style.menuRadiusMd - 2
+          color: Style.menuControlBg
 
-        Text {
-          anchors.centerIn: parent
-          visible: root.iconFor(card.entry) === ""
-          text: "󰂚"
-          font.family: Style.fontUi; font.features: Style.fontTabular
-          font.pixelSize: 16
-          color: card.accent
+          IconImage {
+            anchors.centerIn: parent
+            width: 24
+            height: 24
+            asynchronous: true  // a sender's path must not stall the shell while it loads
+            source: root.iconFor(card.entry)
+            visible: source !== ""
+          }
+
+          Text {
+            anchors.centerIn: parent
+            visible: root.iconFor(card.entry) === ""
+            text: "󰂚"
+            font.family: Style.fontUi; font.features: Style.fontTabular
+            font.pixelSize: 16
+            color: card.accent
+          }
         }
       }
 

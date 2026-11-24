@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Effects
 import QtQuick.Layouts
+import Quickshell
 import Quickshell.Services.Mpris
 import Quickshell.Widgets
 import "../../../"
@@ -32,6 +33,19 @@ Rectangle {
   property real heldPos: -1
   readonly property real pos: card.heldPos >= 0 ? card.heldPos : (card.p ? card.p.position : 0)
 
+  // Accent from the cover (end-4 PlayerControl, surface-dots MediaCard): the most colourful of four quantized colours,
+  // its lightness set for the theme (light on dark panels, dark on paper); the theme accent without art. Once per track.
+  ColorQuantizer { id: artQ; source: card.hasArt ? Services.Players.artUrl : ""; depth: 2; rescaleSize: 32 }
+  function vivid(c) { return c.hslSaturation * (1 - Math.abs(c.hslLightness - 0.5)) }
+  property color accent: {
+    const cs = card.hasArt ? (artQ.colors || []) : []
+    if (!cs.length) return Style.m3primary
+    let best = cs[0]
+    for (const c of cs) if (card.vivid(c) > card.vivid(best)) best = c
+    return Qt.hsla(best.hslHue, Math.max(0.45, Math.min(0.85, best.hslSaturation)), Style.isDark ? 0.72 : 0.34, 1)
+  }
+  Behavior on accent { ColorAnimation { duration: 400 } }
+
   function px(n) { return Math.round(n * card.fontScale) }
   function fmtTime(s) {
     s = Math.max(0, Math.round(s || 0))
@@ -62,14 +76,15 @@ Rectangle {
     property bool available: true
     signal clicked()
     implicitWidth: size; implicitHeight: size; radius: Style.radius
-    color: btnMa.containsMouse ? Style.m3containerHigh : Style.m3container
+    color: primary ? Qt.alpha(card.accent, btnMa.containsMouse ? 0.28 : 0.18)
+      : btnMa.containsMouse ? Style.m3containerHigh : Style.m3container
     opacity: available ? 1 : 0.35
     Behavior on color { ColorAnimation { duration: 120 } }
     Text {
       anchors.centerIn: parent
       text: parent.icon
-      color: parent.active ? Style.m3primary
-        : parent.primary ? (btnMa.containsMouse ? Style.m3primary : Style.m3onSurface)
+      color: parent.active ? card.accent
+        : parent.primary ? card.accent
         : btnMa.containsMouse ? Style.m3onSurface : Style.m3onSurfaceVariant
       font.family: Style.fontUi; font.features: Style.fontTabular
       font.pixelSize: Math.round(parent.size * (parent.primary ? 0.42 : 0.38))
@@ -131,7 +146,7 @@ Rectangle {
       playing: card.playing
       live: card.live
       seekable: !!(card.p && card.p.canSeek && card.p.positionSupported)
-      color: Style.m3primary
+      color: card.accent
       onSeek: (f) => {
         card.heldPos = f * card.len
         seekHold.restart()
@@ -208,7 +223,7 @@ Rectangle {
       Rectangle {
         anchors.centerIn: parent
         width: disc.width + 12; height: width; radius: width / 2
-        color: Style.m3primary
+        color: card.accent
         opacity: card.playing && !ring.count ? 0.35 : 0
         scale: disc.scale
         Behavior on opacity { NumberAnimation { duration: 500 } }
@@ -230,7 +245,7 @@ Rectangle {
             width: 3; radius: 1.5
             height: CavaBars.barHeight(Services.Cava.values[index < 24 ? index : 47 - index] || 0, parent.maxLen)
             y: parent.maxLen - height
-            color: Qt.alpha(Style.m3primary, 0.8)
+            color: Qt.alpha(card.accent, 0.8)
           }
         }
       }
@@ -268,7 +283,7 @@ Rectangle {
             sourceSize: Qt.size(256, 256)
           }
           // Accent tint + grooves (alternating light / dark rings), as upstream.
-          Rectangle { anchors.fill: parent; radius: width / 2; color: Qt.alpha(Style.m3primary, 0.08); visible: card.hasArt }
+          Rectangle { anchors.fill: parent; radius: width / 2; color: Qt.alpha(card.accent, 0.08); visible: card.hasArt }
           Repeater {
             model: [0.92, 0.84, 0.76, 0.68, 0.60, 0.52, 0.44]
             Rectangle {
@@ -290,7 +305,7 @@ Rectangle {
           color: Style.crust
           opacity: 0.96
           border.width: 1.5
-          border.color: Qt.alpha(Style.m3primary, 0.45)
+          border.color: Qt.alpha(card.accent, 0.45)
           Rectangle {
             anchors.centerIn: parent
             width: parent.width * 0.68; height: width; radius: width / 2
@@ -323,7 +338,7 @@ Rectangle {
           spacing: 5
           Text {
             text: card.playing ? "󰐊" : "󰏤"
-            color: card.playing ? Style.m3primary : Style.m3onSurfaceVariant
+            color: card.playing ? card.accent : Style.m3onSurfaceVariant
             font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: card.px(11)
             anchors.verticalCenter: parent.verticalCenter
           }
@@ -357,7 +372,7 @@ Rectangle {
         textFormat: Text.PlainText
         text: card.p ? (card.p.trackTitle || "Unknown track") : "Nothing playing"
         color: Style.m3onSurface
-        font.family: Style.menuSans; font.pixelSize: card.px(18); font.weight: Font.Bold
+        font.family: Style.menuSans; font.pixelSize: card.px(18); font.weight: Font.Bold; font.variableAxes: Style.opsz(card.px(18))
         elide: Text.ElideRight
       }
       Text {
@@ -367,6 +382,8 @@ Rectangle {
         text: card.p ? card.p.trackArtist || "" : "Start a player — its controls show up here"
         color: Style.m3onSurfaceVariant
         font.family: Style.menuSans; font.pixelSize: card.px(14); font.weight: Font.Medium
+        // The empty hint wraps (it elided to "its controls show …" beside the transport).
+        wrapMode: card.p ? Text.NoWrap : Text.WordWrap
         elide: Text.ElideRight
       }
       Text {

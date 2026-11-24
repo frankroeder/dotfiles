@@ -1,8 +1,10 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Shapes
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
+import Quickshell.Widgets
 import "../../../"
 import "../../menu" as Menu
 import "../BarModel.js" as BarModel
@@ -27,8 +29,8 @@ PopupWindow {
   readonly property real heatpipeW: (root.barHost && root.barHost.heatpipeW >= 0) ? root.barHost.heatpipeW : NaN
   readonly property var cores: (root.barHost && root.barHost.cpuCores) ? root.barHost.cpuCores : []
 
-  visible: root.panelOpen || popOut.running
-  onPanelOpenChanged: if (root.panelOpen) { popOut.stop(); popIn.restart() } else popOut.restart()
+  visible: root.panelOpen || growOut.running
+  onPanelOpenChanged: if (root.panelOpen) { growOut.stop(); growIn.restart() } else { growIn.stop(); growOut.restart() }
   color: "transparent"
   anchor.edges: Edges.Bottom
   anchor.margins.bottom: -BarModel.popupDrop(root.barHost ? root.barHost.height : Style.barHeight, Style.barHeight)  // negative = below
@@ -116,6 +118,7 @@ PopupWindow {
       Menu.MenuFadeText {
         text: unit === "%" ? (Math.round(value) + "%") : (isFinite(value) ? value.toFixed(1) + " " + unit : "–")
         color: accent; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeDisplay; font.weight: Font.DemiBold
+        font.variableAxes: Style.opsz(Style.typeDisplay)
       }
       Text {
         text: detail; color: Style.menuInk; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeCaption
@@ -156,42 +159,53 @@ PopupWindow {
     color: Style.menuCardBg
     border.color: Style.menuSep
     border.width: 1
-    onPointsChanged: boxCanvas.requestPaint()
-    Canvas {
-      id: boxCanvas
+    // GPU path (Gren-95 SysGraph): area fades out toward the floor; rebuilt per sample, no CPU raster like the Canvas.
+    Shape {
+      id: spark
+      readonly property var line: (parent.points || []).length < 2 ? [] : parent.points.map(p => Qt.point(p.x * width, p.y * height))
+      readonly property color accent: parent.accent
       anchors.fill: parent
       anchors.margins: 8
-      onWidthChanged: requestPaint()
-      onHeightChanged: requestPaint()
-      onPaint: {
-        const ctx = getContext("2d")
-        ctx.reset()
-        const pts = parent.points || []
-        if (pts.length < 2) return
-        ctx.beginPath()
-        ctx.moveTo(0, height)
-        for (let i = 0; i < pts.length; i++) ctx.lineTo(pts[i].x * width, pts[i].y * height)
-        ctx.lineTo(width, height)
-        ctx.closePath()
-        ctx.fillStyle = Qt.alpha(parent.accent, 0.16)
-        ctx.fill()
-        ctx.beginPath()
-        ctx.moveTo(pts[0].x * width, pts[0].y * height)
-        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x * width, pts[i].y * height)
-        ctx.strokeStyle = parent.accent
-        ctx.lineWidth = 1.5
-        ctx.stroke()
+      visible: line.length > 1
+      preferredRendererType: Shape.CurveRenderer
+      ShapePath {
+        strokeWidth: -1
+        fillGradient: LinearGradient {
+          x1: 0; y1: 0; x2: 0; y2: spark.height
+          GradientStop { position: 0; color: Qt.alpha(spark.accent, 0.34) }
+          GradientStop { position: 1; color: Qt.alpha(spark.accent, 0.02) }
+        }
+        PathPolyline { path: spark.line.length > 1 ? [Qt.point(0, spark.height)].concat(spark.line, [Qt.point(spark.width, spark.height)]) : [] }
+      }
+      ShapePath {
+        fillColor: "transparent"
+        strokeColor: spark.accent
+        strokeWidth: 1.5
+        joinStyle: ShapePath.RoundJoin
+        capStyle: ShapePath.RoundCap
+        PathPolyline { path: spark.line }
       }
     }
   }
 
-  Menu.MenuPopIn { id: popIn; target: card }
-  Menu.MenuPopOut { id: popOut; target: card }
+  // Unfolds out of its chip (container transform): a chip-wide pill under the chip grows into the card, the content
+  // stays where the full card puts it (the clip reveals it) and fades in past a third. Once per open / close.
+  property real grow: 0
+  readonly property real chipW: root.anchor.item ? Math.min(root.width, root.anchor.item.width + 8) : 140
+  NumberAnimation {
+    id: growIn; target: root; property: "grow"; to: 1
+    duration: Style.reduceMotion ? 100 : 460; easing.type: Easing.BezierSpline; easing.bezierCurve: Style.menuEnter
+  }
+  NumberAnimation {
+    id: growOut; target: root; property: "grow"; to: 0
+    duration: Style.menuExitMs + 40; easing.type: Easing.BezierSpline; easing.bezierCurve: Style.menuExit
+  }
 
-  Rectangle {
+  ClippingRectangle {
     id: card
-    anchors.fill: parent
-    transformOrigin: Item.Top
+    x: Math.round((root.width - width) / 2)
+    width: root.chipW + (root.width - root.chipW) * root.grow
+    height: 34 + (root.height - 34) * root.grow   // 34: about a bar chip
     color: Style.m3surfaceSolid
     radius: Style.menuRadiusLg
     border.color: Style.popupBorder
@@ -199,8 +213,11 @@ PopupWindow {
 
     Flickable {
       id: flick
-      anchors.fill: parent
-      anchors.margins: 16
+      x: 16 - card.x
+      y: 16
+      width: root.width - 32
+      height: root.height - 32
+      opacity: Math.max(0, Math.min(1, (root.grow - 0.35) / 0.5))
       clip: true
       boundsBehavior: Flickable.StopAtBounds
       contentHeight: col.implicitHeight

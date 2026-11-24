@@ -13,11 +13,42 @@ Item {
   anchors.fill: parent
   property string filter: ""
   readonly property bool missing: root.clipsError === "cliphist-missing"
+  // Kind chip ("" = all) on top of the text filter.
+  property string kindFilter: ""
   readonly property var filtered: {
     const q = clipPane.filter.toLowerCase().trim()
-    const list = root.clips || []
+    let list = root.clips || []
+    if (clipPane.kindFilter) list = list.filter(c => clipPane.kind(c) === clipPane.kindFilter)
     if (!q) return list
     return list.filter(function(c) { return String(c.preview || "").toLowerCase().indexOf(q) >= 0 })
+  }
+  // Entry kinds (surface-dots Clipboard.qml), first match wins: image, colour, link, path, code, text.
+  readonly property var kindDefs: [["text", "Text", "󰅌"], ["link", "Links", "󰖟"], ["code", "Code", "󰅩"],
+    ["path", "Paths", "󰉋"], ["colour", "Colours", "󰏘"], ["image", "Images", "󰋩"]]
+  function kind(c) {
+    if (c.isImage) return "image"
+    const s = String(c.preview || "").trim()
+    if (/^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(s) || /^(rgba?|hsla?)\([^)]*\)$/i.test(s)) return "colour"
+    if (/^(https?|ftp):\/\/\S+$/i.test(s)) return "link"
+    if (/^(~|\.\.?)?\/[\w.\-~@+%\/ ,\[\]]+$/.test(s)) return "path"
+    if (clipPane.looksCode(s)) return "code"
+    return "text"
+  }
+  function glyph(k) { return (clipPane.kindDefs.find(d => d[0] === k) || ["", "", "󰅌"])[2] }
+  // CSS colour → Qt: #rrggbbaa is #aarrggbb there; rgb()/hsl() strings are not parsed by Qt at all.
+  function swatch(s) {
+    s = String(s || "").trim()
+    if (/^#[0-9a-f]{8}$/i.test(s)) return "#" + s.substring(7) + s.substring(1, 7)
+    const m = /^(rgb|hsl)a?\(([^)]*)\)$/i.exec(s)
+    if (!m) return s
+    const v = m[2].split(/[\s,\/]+/).filter(x => x !== "").map(x => parseFloat(x) / (x.endsWith("%") ? 100 : 1))
+    const a = v.length > 3 ? v[3] : 1
+    return m[1].toLowerCase() === "rgb" ? Qt.rgba(v[0] / 255, v[1] / 255, v[2] / 255, a) : Qt.hsla(v[0] / 360, v[1], v[2], a)
+  }
+  readonly property var kindCounts: {
+    const n = {}
+    for (const c of (root.clips || [])) { const k = clipPane.kind(c); n[k] = (n[k] || 0) + 1 }
+    return n
   }
   // Code-ish snippets (braces, shell, paths, markup) read better in mono.
   function looksCode(s) { return /[{}<>;`$\\|]|^\s*[\/#~]|^\s*\w+\(/.test(s || "") }
@@ -72,16 +103,6 @@ Item {
           }
         }
       }
-      Rectangle {
-        implicitWidth: countLbl.implicitWidth + 20; implicitHeight: 32; radius: Style.menuRadiusFull
-        color: Style.m3secondaryContainer
-        Text {
-          id: countLbl; anchors.centerIn: parent
-          text: clipPane.missing ? "cliphist missing"
-            : ((root.clips || []).length + (clipPane.filter ? " · " + clipPane.filtered.length : "") + " entries")
-          color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(10); font.weight: Font.Medium
-        }
-      }
       // Wiping the whole history takes two clicks (the first arms it for 3 s), like the notification sheet's trash.
       Menu.MenuPill {
         icon: "󰩹"; label: wipeArm.running ? "Wipe all?" : "Wipe"
@@ -93,6 +114,28 @@ Item {
           root.wipeClips()
         }
         Timer { id: wipeArm; interval: 3000 }
+      }
+    }
+
+    // Kind chips: All + every kind present, with counts (the total lives in "All").
+    Flow {
+      Layout.fillWidth: true
+      spacing: 6
+      visible: !clipPane.missing && (root.clips || []).length > 0
+      Repeater {
+        model: [["", "All", ""]].concat(clipPane.kindDefs.filter(d => (clipPane.kindCounts[d[0]] || 0) > 0))
+        Menu.MenuChip {
+          required property var modelData
+          readonly property bool on: clipPane.kindFilter === modelData[0]
+          icon: modelData[2]
+          label: modelData[1] + "  " + (modelData[0] ? clipPane.kindCounts[modelData[0]]
+            : (root.clips || []).length + (clipPane.filter ? " · " + clipPane.filtered.length : ""))
+          bg: on ? Style.m3primaryContainer : Style.m3container
+          fg: on ? Style.m3primary : Style.m3onSurfaceVariant
+          clickable: true
+          fontScale: root.uiFontScale
+          onClicked: clipPane.kindFilter = on ? "" : modelData[0]
+        }
       }
     }
 
@@ -121,6 +164,7 @@ Item {
           required property int index
           readonly property bool copied: root.copiedClip === String(modelData.id)
           readonly property bool isImage: !!modelData.isImage
+          readonly property string kind: clipPane.kind(modelData)
           width: clipList.width - 10
           height: isImage ? 64 : 42
           radius: Style.menuRadiusMd
@@ -163,9 +207,18 @@ Item {
               }
             }
             Text {
-              visible: !row.isImage
-              text: clipPane.looksCode(modelData.preview) ? "󰅩" : "󰅌"
+              visible: !row.isImage && row.kind !== "colour"
+              Layout.preferredWidth: root.fontPx(16)
+              horizontalAlignment: Text.AlignHCenter
+              text: clipPane.glyph(row.kind)
               color: Style.m3primary; font.family: root.uiFont; font.pixelSize: root.fontPx(14)
+            }
+            Rectangle {   // a colour value shows itself
+              visible: row.kind === "colour"
+              Layout.preferredWidth: root.fontPx(16); Layout.preferredHeight: root.fontPx(16)
+              radius: width / 2
+              color: row.kind === "colour" ? clipPane.swatch(modelData.preview) : "transparent"
+              border.width: 1; border.color: Style.m3outlineVariant
             }
             Text {
               Layout.fillWidth: true
