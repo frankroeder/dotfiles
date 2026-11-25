@@ -97,11 +97,7 @@ Item {
     }
   }
 
-  component Caption: Text {
-    color: Style.m3onSurfaceVariant
-    font.family: wi.root.uiSans; font.pixelSize: wi.root.fontPx(8); font.weight: Font.DemiBold
-    font.letterSpacing: 1.2; font.capitalization: Font.AllUppercase
-  }
+  component Caption: Menu.MenuCaption { font.pixelSize: wi.root.fontPx(8) }
   // A fact row; a click copies the value.
   component Fact: Item {
     id: fact

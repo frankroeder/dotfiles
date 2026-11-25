@@ -115,16 +115,28 @@ Item {
     onWheel: wheel => root.wheelStep(wheel)
   }
 
-  // Same duration + easing as the item widths and BarHost's chipMove, so everything moves together.
+  // The capsule is the hull of two copies of the target span: one on the duration + easing of the item widths and
+  // BarHost's chipMove, one 1.5× slower. So the leading edge moves with everything else and the trailing edge lags:
+  // it stretches toward the new workspace and settles there (Menu.MenuStretchPill's look; no direction logic).
   Rectangle {
+    id: capsule
     readonly property int activeIndex: root.visibleWorkspaces.indexOf(root.activeWorkspaceId)
-    x: {
+    readonly property real targetLeft: {
       let x = root.pad
       for (let i = 0; i < activeIndex; i++) x += root.itemWidth(root.visibleWorkspaces[i]) + root.gap
       return x
     }
+    readonly property real targetRight: targetLeft + (activeIndex >= 0 ? root.itemWidth(root.activeWorkspaceId) : 0)
+    readonly property int slowDur: Style.reduceMotion ? root.dur : root.dur * 1.5
+    property real fastLeft: targetLeft
+    property real fastRight: targetRight
+    property real slowLeft: targetLeft
+    property real slowRight: targetRight
+    readonly property real edgeLeft: Math.min(fastLeft, slowLeft)
+    readonly property real edgeRight: Math.max(fastRight, slowRight)
+    x: edgeLeft
     anchors.verticalCenter: parent.verticalCenter
-    width: activeIndex >= 0 ? root.itemWidth(root.activeWorkspaceId) : 0
+    width: edgeRight - edgeLeft
     height: root.pillH
     radius: Style.radiusSm - 1
     visible: activeIndex >= 0
@@ -137,8 +149,10 @@ Item {
       GradientStop { position: 1.0; color: Style.wsActiveAlt }
     }
 
-    Behavior on x { NumberAnimation { duration: root.dur; easing.type: Easing.OutCubic } }
-    Behavior on width { NumberAnimation { duration: root.dur; easing.type: Easing.OutCubic } }
+    Behavior on fastLeft { NumberAnimation { duration: root.dur; easing.type: Easing.OutCubic } }
+    Behavior on fastRight { NumberAnimation { duration: root.dur; easing.type: Easing.OutCubic } }
+    Behavior on slowLeft { NumberAnimation { duration: capsule.slowDur; easing.type: Easing.OutCubic } }
+    Behavior on slowRight { NumberAnimation { duration: capsule.slowDur; easing.type: Easing.OutCubic } }
   }
 
   Row {
@@ -158,7 +172,7 @@ Item {
         readonly property var groups: root.appGroups(wsId)
         readonly property bool showIcons: isFocused || root.iconsAll
         readonly property int overflowCount: Math.max(0, groups.length - root.maxIcons)
-        readonly property string glyph: isFocused ? root.stateGlyph(wsId) : ""
+        readonly property string glyph: root.stateGlyph(wsId)
 
         width: root.itemWidth(wsId)
         height: root.pillH
@@ -171,20 +185,53 @@ Item {
           radius: Style.radiusSm - 1
           color: Style.wsHoverBg
           opacity: wsMouse.containsMouse && !wsButton.isFocused ? 1 : 0
-          Behavior on opacity { NumberAnimation { duration: 120 } }
+          Behavior on opacity { NumberAnimation { duration: Style.menuStateMs } }
         }
 
-        Text {
-          width: wsButton.isFocused && wsButton.groups.length === 0 ? root.pillH : root.numW
-          height: parent.height
-          text: wsButton.glyph !== "" ? wsButton.glyph : wsButton.wsId
-          horizontalAlignment: Text.AlignHCenter
-          verticalAlignment: Text.AlignVCenter
-          color: wsButton.isFocused ? Style.wsBadgeActiveText : Style.wsOccupiedText
-          opacity: wsButton.isFocused || wsMouse.containsMouse ? 1 : 0.7
-          font { family: Style.fontFamily; pixelSize: wsButton.glyph !== "" ? 18 : (wsButton.wsId >= 10 ? 12 : 13); bold: true }
-          Behavior on color { ColorAnimation { duration: root.dur } }
-          Behavior on opacity { NumberAnimation { duration: 120 } }
+        // The label changes exactly where the capsule covers it: two copies, each clipped to its side of the capsule's
+        // edge (no colour fade, no layer) — bare = the number, under the capsule = the state glyph in the capsule's ink.
+        // capL..capR = the covered span of the label; the capsule is never narrower than a label.
+        readonly property int labelW: isFocused && groups.length === 0 ? root.pillH : root.numW
+        readonly property real capL: Math.max(0, Math.min(labelW, capsule.edgeLeft - root.pad - x))
+        readonly property real capR: Math.max(0, Math.min(labelW, capsule.edgeRight - root.pad - x))
+        Repeater {
+          model: 2
+          Item {
+            id: labelClip
+            required property int index
+            readonly property bool covered: index === 1
+            readonly property bool asGlyph: covered && wsButton.glyph !== ""
+            x: covered ? wsButton.capL : wsButton.capL > 0 ? 0 : wsButton.capR
+            width: covered ? wsButton.capR - wsButton.capL : wsButton.capL > 0 ? wsButton.capL : wsButton.labelW - wsButton.capR
+            height: wsButton.height
+            clip: true
+            Text {
+              x: -labelClip.x
+              width: wsButton.labelW
+              height: parent.height
+              text: labelClip.asGlyph ? wsButton.glyph : wsButton.wsId
+              horizontalAlignment: Text.AlignHCenter
+              verticalAlignment: Text.AlignVCenter
+              color: labelClip.covered ? Style.wsBadgeActiveText : Style.wsOccupiedText
+              opacity: labelClip.covered || wsMouse.containsMouse ? 1 : 0.7
+              font { family: Style.fontFamily; pixelSize: labelClip.asGlyph ? 18 : (wsButton.wsId >= 10 ? 12 : 13); bold: true }
+              Behavior on opacity { NumberAnimation { duration: Style.menuStateMs } }
+            }
+          }
+        }
+
+        // A window here wants attention (bell, finished build): static dot, one pop; focusing the window clears it.
+        Rectangle {
+          readonly property bool on: !wsButton.isFocused && (Hyprland.workspaces.values.find(w => w.id === wsButton.wsId)?.urgent ?? false)
+          x: root.numW - 8
+          y: 5
+          width: 5
+          height: 5
+          radius: 2.5
+          color: Style.red
+          scale: on ? 1 : 0
+          visible: scale > 0
+          Behavior on scale { NumberAnimation { duration: Style.reduceMotion ? 0 : Style.menuAnimMs; easing.type: Easing.OutBack } }
         }
 
         Row {

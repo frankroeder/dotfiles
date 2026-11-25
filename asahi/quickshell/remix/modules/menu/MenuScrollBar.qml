@@ -24,7 +24,7 @@ ScrollBar {
     // Shown while scrolling or under the pointer, gone 0.6 s after (caelestia StyledScrollBar): at rest the
     // list's edge fades say there is more.
     opacity: root.active || root.hovered ? 1 : root.autoHide ? 0 : 0.55
-    Behavior on color { ColorAnimation { duration: 120 } }
+    Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
     Behavior on opacity {
       SequentialAnimation {
         PauseAnimation { duration: root.active || root.hovered ? 0 : 600 }
@@ -39,6 +39,6 @@ ScrollBar {
     visible: root.overflow
     color: Style.scrollbarTrack
     opacity: root.active || root.hovered ? 1 : 0
-    Behavior on opacity { NumberAnimation { duration: 120 } }
+    Behavior on opacity { NumberAnimation { duration: Style.menuStateMs } }
   }
 }

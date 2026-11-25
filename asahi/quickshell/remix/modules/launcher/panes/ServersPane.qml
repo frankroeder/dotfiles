@@ -117,7 +117,7 @@ Item {
   }
   component Secondary: Text {
     color: Style.m3onSurfaceVariant
-    font.family: srvRoot.root.uiSans; font.pixelSize: srvRoot.root.fontPx(9)
+    font.family: srvRoot.root.uiSans; font.pixelSize: srvRoot.root.fontPx(10)
     textFormat: Text.PlainText   // unit descriptions, addresses
     elide: Text.ElideRight
   }
@@ -148,14 +148,18 @@ Item {
     Rectangle {
       Layout.fillWidth: true
       implicitHeight: heroRow.implicitHeight + 20
-      radius: Style.menuPanelRadius
+      radius: Style.menuPaneRadius
       color: Style.m3container
+      Menu.MenuRunner {
+        anchors { left: parent.left; right: parent.right; bottom: parent.bottom; leftMargin: parent.radius; rightMargin: parent.radius }
+        busy: !srvRoot.loaded
+      }
       RowLayout {
         id: heroRow
         anchors.fill: parent; anchors.margins: 10; anchors.leftMargin: 12; anchors.rightMargin: 16
         spacing: 14
         Rectangle {
-          width: Math.round(36 * root.uiFontScale); height: width; radius: Style.menuRadiusLg   // hero tile: one size in every pane
+          width: Math.round(36 * root.uiFontScale); height: width; radius: Style.menuRadiusMd   // hero tile: one size in every pane
           color: Style.m3primaryContainer
           Text {
             anchors.centerIn: parent; text: "󰒍"; color: Style.m3primary
@@ -221,9 +225,9 @@ Item {
               readonly property var r: modelData
               Layout.fillWidth: true
               implicitHeight: root.fontPx(26)
-              radius: Style.menuRadiusMd
+              radius: Style.menuRowRadius
               color: portHover.hovered ? Style.m3stateHover : "transparent"
-              Behavior on color { ColorAnimation { duration: 120 } }
+              Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
               HoverHandler { id: portHover }
               RowLayout {
                 anchors.fill: parent
@@ -261,10 +265,12 @@ Item {
               }
             }
           }
-          Secondary {
+          Menu.MenuEmptyState {
             visible: srvRoot.loaded && srvRoot.listening.length === 0
-            Layout.leftMargin: 8
-            text: "No listening sockets"
+            Layout.leftMargin: 4
+            quiet: true; fontScale: root.uiFontScale
+            glyph: "󰒍"
+            title: "No listening sockets"
           }
 
           // ---- Services: state dot, name, user / system, description + ports, since, memory, actions ----
@@ -288,16 +294,17 @@ Item {
               readonly property bool armed: srvRoot.stopArmed === key
               Layout.fillWidth: true
               implicitHeight: root.fontPx(26)
-              radius: Style.menuRadiusMd
+              radius: Style.menuRowRadius
               color: svcHover.hovered ? Style.m3stateHover : "transparent"
-              Behavior on color { ColorAnimation { duration: 120 } }
+              Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
               HoverHandler { id: svcHover }
               RowLayout {
                 anchors.fill: parent
                 anchors.leftMargin: 10; anchors.rightMargin: 6
-                spacing: 8
+                spacing: 10
                 Rectangle {
                   implicitWidth: root.fontPx(7); implicitHeight: implicitWidth; radius: width / 2
+                  Layout.leftMargin: (root.listSlot - width) / 2; Layout.rightMargin: (root.listSlot - width) / 2
                   color: srvRoot.stateColor(svcRow.st)
                   Behavior on color { ColorAnimation { duration: 200 } }
                 }
@@ -363,9 +370,10 @@ Item {
               Layout.fillWidth: true
               Layout.leftMargin: 10; Layout.rightMargin: 6
               Layout.preferredHeight: root.fontPx(26)
-              spacing: 8
+              spacing: 10
               Rectangle {
                 implicitWidth: root.fontPx(7); implicitHeight: implicitWidth; radius: width / 2
+                Layout.leftMargin: (root.listSlot - width) / 2; Layout.rightMargin: (root.listSlot - width) / 2
                 color: modelData.state === "running" ? Style.green : Style.m3outline
               }
               Name { Layout.preferredWidth: root.fontPx(118); text: modelData.name }

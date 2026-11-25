@@ -231,12 +231,12 @@ Item {
     Rectangle {
       Layout.fillWidth: true
       Layout.preferredHeight: Math.round(root.launcherGeom.rowHTall * 3.2)
-      radius: Style.menuPanelRadius
+      radius: Style.menuPaneRadius
       color: Style.m3container
       RowLayout {
         anchors.fill: parent
-        anchors.margins: 14
-        spacing: 18
+        anchors.margins: Style.menuHeroPad
+        spacing: Style.menuHeroGap
         Menu.MenuHudDial {
           Layout.fillHeight: true
           Layout.preferredWidth: height
@@ -406,15 +406,10 @@ Item {
               + (tmRoot.status.repo ? " · backups " + root.prettyBytes(tmRoot.status.repo.size) : "")
             color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(11); font.weight: Font.Medium
           }
-          Rectangle {
+          Menu.MenuMeter {
             Layout.fillWidth: true
-            implicitHeight: 6; radius: 3
-            color: Style.m3containerHigh
-            Rectangle {
-              width: tmRoot.ov.disk && tmRoot.ov.disk.size > 0 ? parent.width * tmRoot.ov.disk.used / tmRoot.ov.disk.size : 0
-              height: parent.height; radius: 3
-              color: Style.m3tertiary
-            }
+            value: tmRoot.ov.disk && tmRoot.ov.disk.size > 0 ? tmRoot.ov.disk.used / tmRoot.ov.disk.size : 0
+            fill: Style.m3tertiary
           }
           Secondary {
             text: "keep 7 daily · 4 weekly · 12 monthly · 3 yearly · "
@@ -494,9 +489,9 @@ Item {
               width: snapList.width - (snapScroll.overflow ? snapScroll.implicitWidth + 4 : 0)
               // Two lines at the pane's type scale (44 clipped on the 1440p panel).
               height: Math.max(44, snapCol.implicitHeight + 14)
-              radius: Style.menuRadiusMd
+              radius: Style.menuRowRadius
               color: sel ? Style.m3secondaryContainer : (sma.containsMouse && !modelData.legacy ? Style.m3stateHover : "transparent")
-              Behavior on color { ColorAnimation { duration: 120 } }
+              Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
               ColumnLayout {
                 id: snapCol
                 anchors.left: parent.left; anchors.right: parent.right
@@ -612,9 +607,9 @@ Item {
               readonly property bool isDir: modelData.type === "dir"
               width: entryList.width - (entryScroll.overflow ? entryScroll.implicitWidth + 4 : 0)
               height: Math.max(36, root.fontPx(11) + 18)
-              radius: Style.menuRadiusMd
+              radius: Style.menuRowRadius
               color: entryHover.hovered ? Style.m3stateHover : "transparent"
-              Behavior on color { ColorAnimation { duration: 120 } }
+              Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
               // Row HoverHandler: the restore button's MouseArea would steal a row MouseArea's hover.
               HoverHandler { id: entryHover }
               MouseArea {

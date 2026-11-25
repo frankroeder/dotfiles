@@ -182,7 +182,7 @@ Scope {
             text: root.info.detail || ""
             elide: Text.ElideMiddle
             color: Style.menuInkDeep
-            font.family: Style.menuMono
+            font.family: Style.fontData
             font.pixelSize: 10
           }
           TouchIdLine {

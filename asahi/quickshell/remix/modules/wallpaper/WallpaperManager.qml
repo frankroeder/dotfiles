@@ -24,7 +24,8 @@ Scope {
   readonly property string uiFont: Style.menuMono
   // Card scale: 0.8× the launcher's type scale for this screen (laid out at 1×, then
   // scaled), so it grows with the panel but stays secondary to the previews.
-  readonly property real k: 0.8 * LauncherGeom.fontScaleFor(LauncherGeom.uiScale(wallpaperPanel.width || 1920, wallpaperPanel.height || 1080))
+  readonly property real k: 0.8 * Style.uiScale
+    * LauncherGeom.fontScaleFor(LauncherGeom.uiScale(wallpaperPanel.width || 1920, wallpaperPanel.height || 1080))
 
   IpcHandler {
     target: "wallpaper"
@@ -307,7 +308,7 @@ Scope {
               }
             }
 
-            Menu.MenuDivider { Layout.fillWidth: true; Layout.preferredHeight: 1 }
+            Menu.MenuDivider { Layout.fillWidth: true }
 
             RowLayout {
               Layout.fillWidth: true
@@ -360,7 +361,7 @@ Scope {
               iconFamily: root.uiFont
             }
 
-            Menu.MenuDivider { Layout.fillWidth: true; Layout.preferredHeight: 1 }
+            Menu.MenuDivider { Layout.fillWidth: true }
 
             WallpaperFlavors {
               Layout.fillWidth: true
@@ -374,7 +375,7 @@ Scope {
               Layout.fillWidth: true
               spacing: 12
 
-              Menu.MenuDivider { Layout.fillWidth: true; Layout.preferredHeight: 1 }
+              Menu.MenuDivider { Layout.fillWidth: true }
 
               Rectangle {
                 Layout.fillWidth: true

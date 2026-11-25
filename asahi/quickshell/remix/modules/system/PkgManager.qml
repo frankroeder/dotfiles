@@ -23,7 +23,7 @@ Scope {
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
   // Launcher geometry and type scale for the screen, so this card matches the launcher.
   readonly property var geom: LauncherGeom.launcherLayout({ screenW: pkgPanel.width || 1920, screenH: pkgPanel.height || 1080,
-    tileCount: 11, sideActive: true, quickMode: true, headerVisible: false, hubMode: false })
+    tileCount: 11, sideActive: true, quickMode: true, headerVisible: false, hubMode: false, look: Style.uiScale })
   function px(n) { return Math.round(n * root.geom.fontScale) }
   readonly property var selectedNames: {
     const out = []
@@ -176,6 +176,10 @@ Scope {
       height: root.geom.cardHeight
       cardMargin: root.geom.cardMargin
 
+      Menu.MenuRunner {
+        anchors { left: parent.left; right: parent.right; top: parent.top; topMargin: root.px(44) }
+        busy: root.loading
+      }
       ColumnLayout {
         anchors.fill: parent
         spacing: root.px(10)
@@ -187,7 +191,7 @@ Scope {
           Rectangle {
             width: root.px(40); height: width; radius: Style.menuRadiusMd
             color: Style.m3primaryContainer
-            Text { anchors.centerIn: parent; text: "󰏖"; color: Style.m3primary; font.family: Style.menuMono; font.pixelSize: root.px(20) }
+            Menu.MenuGlyph { anchors.centerIn: parent; text: "󰏖"; color: Style.m3primary; size: parent.width * Style.glyphRatio }
           }
           ColumnLayout {
             Layout.fillWidth: true
@@ -200,52 +204,17 @@ Scope {
             }
           }
           // Segmented tabs.
-          Rectangle {
-            implicitWidth: tabRow.implicitWidth + root.px(8)
-            implicitHeight: root.px(36)
-            radius: height / 2
-            color: Style.m3container
-            Row {
-              id: tabRow
-              anchors.centerIn: parent
-              spacing: root.px(2)
-              Repeater {
-                model: [
-                  { id: 0, label: "Search", icon: "󰍉" },
-                  { id: 1, label: "Installed", icon: "󰏗" },
-                  { id: 2, label: "Updates", icon: "󰚰" }
-                ]
-                Rectangle {
-                  required property var modelData
-                  readonly property bool on: root.tab === modelData.id
-                  implicitWidth: tabInner.implicitWidth + root.px(22)
-                  implicitHeight: root.px(28)
-                  radius: height / 2
-                  color: on ? Style.m3primary : (tabMa.containsMouse ? Style.m3stateHover : "transparent")
-                  Behavior on color { ColorAnimation { duration: 120 } }
-                  Row {
-                    id: tabInner
-                    anchors.centerIn: parent
-                    spacing: root.px(5)
-                    Text { text: modelData.icon; color: on ? Style.m3onPrimary : Style.m3onSurfaceVariant; font.family: Style.menuMono; font.pixelSize: root.px(12); anchors.verticalCenter: parent.verticalCenter }
-                    Text { text: modelData.label; color: on ? Style.m3onPrimary : Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: root.px(11); font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter }
-                  }
-                  MouseArea {
-                    id: tabMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                      // The old tab's rows never stay (Installed filters by the query, Updates ignores it).
-                      pkgProc.running = false
-                      root.tab = modelData.id
-                      root.packages = []
-                      root.status = "Type a name and search"
-                      if (modelData.id !== 0 || root.query.trim().length >= 2) root.runQuery()
-                    }
-                  }
-                }
-              }
+          Menu.MenuSegmented {
+            fontScale: root.geom.fontScale
+            model: [{ label: "Search", icon: "󰍉" }, { label: "Installed", icon: "󰏗" }, { label: "Updates", icon: "󰚰" }]
+            current: root.tab
+            onActivated: index => {
+              // The old tab's rows never stay (Installed filters by the query, Updates ignores it).
+              pkgProc.running = false
+              root.tab = index
+              root.packages = []
+              root.status = "Type a name and search"
+              if (index !== 0 || root.query.trim().length >= 2) root.runQuery()
             }
           }
         }
@@ -253,11 +222,11 @@ Scope {
         // Search field (launcher search pill).
         Rectangle {
           Layout.fillWidth: true
-          implicitHeight: root.px(40)
+          implicitHeight: root.px(Style.fieldHeight)
           radius: height / 2
           color: Style.m3container
-          border.width: searchField.activeFocus ? 1 : 0
-          border.color: Style.menuSelBorder
+          border.width: searchField.activeFocus ? Style.focusRingWidth : 0
+          border.color: Style.focusRing
           visible: root.tab !== 2
           Text {
             id: searchGlyph
@@ -318,11 +287,11 @@ Scope {
               readonly property bool sel: root.isSelected(modelData.name)
               width: pkgList.width - pkgScroll.width
               height: pkgText.implicitHeight + root.px(16)
-              radius: Style.menuRadiusMd
+              radius: Style.menuRowRadius
               color: sel ? Style.menuSelFill : (rowMa.containsMouse ? Style.m3stateHover : "transparent")
               border.width: sel ? 1 : 0
               border.color: Style.menuSelBorder
-              Behavior on color { ColorAnimation { duration: 120 } }
+              Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
               RowLayout {
                 anchors.fill: parent
                 anchors.leftMargin: root.px(8); anchors.rightMargin: root.px(12)

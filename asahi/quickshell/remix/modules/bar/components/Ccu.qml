@@ -35,19 +35,19 @@ Rectangle {
   }
   function hasMark(m) { return !!Marks.paths[m] }
 
-  // A segmented meter (meterSegs output): filled segments in their accent, the rest at 20 %.
-  component Meter: Item {
+  // A segmented meter (meterSegs output): filled segments in their accent on the shared meter track.
+  component Meter: Menu.MenuMeter {
     id: meter
     property var segs: []
     Repeater {
-      model: meter.segs
+      model: meter.segs.filter(s => !s.rest)
       Rectangle {
         required property var modelData
         x: modelData.x * meter.width
         width: Math.max(1, modelData.w * meter.width)
         height: meter.height
         radius: height / 2
-        color: modelData.rest ? Qt.alpha(root.accentColor(modelData.color), 0.20) : root.accentColor(modelData.color)
+        color: root.accentColor(modelData.color)
       }
     }
   }
@@ -58,6 +58,29 @@ Rectangle {
   readonly property int subGap: 3
 
   property var barHost: null
+
+  // A Claude Code session waits for you (asahi-claude-activity `wait`: permission / input prompt): a static red ring
+  // round the Claude mark (the chip outline was dropped: "looks bad"); the rotation holds on that chip. A click stays the usage popup (his
+  // call: he finds the terminal himself). Not the red wash (= main window at 90 %+), no blink.
+  // The file: "<n>\t<project>\t<window address>", gone at 0.
+  property int claudeWaiting: 0
+  property string claudeWhere: ""
+  readonly property int claudeChip: (root.chips || []).findIndex(c => c.mark === "claude")
+  onClaudeWaitingChanged: if (claudeWaiting > 0 && claudeChip >= 0) root.chipIndex = claudeChip
+  FileView {
+    id: claudeWaitFile
+    path: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/claude-activity.waiting"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      const f = String(claudeWaitFile.text()).split("\n")[0].split("\t")
+      const n = parseInt(f[0])
+      if (isNaN(n)) return   // read between truncate and write: the write's own event follows
+      root.claudeWhere = f[1] || ""; root.claudeWaiting = n
+    }
+    onLoadFailed: root.claudeWaiting = 0
+  }
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
   readonly property int contentW: 440
@@ -76,7 +99,7 @@ Rectangle {
     radius: Style.radiusSm
     // Lit on hover and while the usage popup is open.
     color: ccuMouse.pressed ? Style.barStripPress : ccuMouse.containsMouse || popup.shouldShow ? Style.barStripHover : "transparent"
-    Behavior on color { ColorAnimation { duration: 120 } }
+    Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
   }
   visible: available
 
@@ -341,6 +364,16 @@ Rectangle {
             }
           }
         }
+        Rectangle {
+          visible: root.claudeWaiting > 0 && chipRow.chip.mark === "claude"
+          anchors.centerIn: parent
+          width: root.ringSize + 6
+          height: width
+          radius: width / 2
+          color: "transparent"
+          border.width: 1.5
+          border.color: Style.red
+        }
         Mark {
           mark: chipRow.chip.mark || ""
           width: root.markSize
@@ -428,7 +461,7 @@ Rectangle {
 
   Timer {
     interval: 10000
-    running: (root.chips || []).length > 1 && !Services.BarData.locked
+    running: (root.chips || []).length > 1 && !Services.BarData.locked && root.claudeWaiting === 0
     repeat: true
     onTriggered: root.nextChip()
   }
@@ -453,6 +486,14 @@ Rectangle {
       if (root.barHost) root.barHost.togglePanel("ccu")
       if (popup.shouldShow) root.refresh()
     }
+  }
+
+  TooltipWindow {
+    target: root
+    barHeight: root.barHost ? root.barHost.notchFloor : Style.barHeight
+    text: root.claudeWaiting === 0 ? "" : "Claude Code is waiting" + (root.claudeWhere ? " · " + root.claudeWhere : "")
+      + (root.claudeWaiting > 1 ? " (+" + (root.claudeWaiting - 1) + ")" : "")
+    show: root.claudeWaiting > 0 && ccuMouse.containsMouse && !popup.shouldShow
   }
 
   PopupWindow {
@@ -494,13 +535,13 @@ Rectangle {
       radius: Style.menuRadiusLg
       border.color: Style.popupBorder
       border.width: Style.popupBorderWidth
-      implicitWidth: root.contentW + 28
-      implicitHeight: Math.min(flick.contentHeight + 28, 720)
+      implicitWidth: root.contentW + 2 * Style.popupPad
+      implicitHeight: Math.min(flick.contentHeight + 2 * Style.popupPad, 720)
 
       Flickable {
         id: flick
         anchors.fill: parent
-        anchors.margins: 14
+        anchors.margins: Style.popupPad
         contentWidth: width
         contentHeight: col.implicitHeight
         clip: true
@@ -510,19 +551,24 @@ Rectangle {
         Column {
           id: col
           width: flick.width
-          spacing: 8
+          spacing: Style.popupGap
 
           Item {
             width: parent.width
-            height: titleText.implicitHeight
+            height: titleRow.implicitHeight
 
-            Text {
-              id: titleText
+            Row {
+              id: titleRow
               anchors.left: parent.left
               anchors.verticalCenter: parent.verticalCenter
-              text: "AGENT USAGE"
-              font { family: Style.menuSans; pixelSize: Style.typeTitle; bold: true }
-              color: Style.text
+              spacing: 10
+              Menu.MenuGlyphTile { glyph: "󰊚" }
+              Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: "AGENT USAGE"
+                font { family: Style.menuSans; pixelSize: Style.typeTitle; weight: Font.DemiBold }
+                color: Style.text
+              }
             }
             Text {
               anchors.right: parent.right
@@ -534,14 +580,12 @@ Rectangle {
             }
           }
 
-          Text {
+          Menu.MenuEmptyState {
             visible: root.overview.length === 0
-            width: parent.width
-            text: "No AI coding subscriptions found.\nAgents show up here once you've used them."
-            color: Style.textMuted
-            font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeLead }
-            horizontalAlignment: Text.AlignHCenter
-            wrapMode: Text.WordWrap
+            anchors.horizontalCenter: parent.horizontalCenter
+            glyph: "󰚩"
+            title: "No AI coding subscriptions found"
+            detail: "Agents show up here once you've used them."
           }
 
           Repeater {
@@ -554,12 +598,7 @@ Rectangle {
               width: col.width
               spacing: 6
 
-              Rectangle {
-                visible: index > 0
-                width: parent.width
-                height: 1
-                color: Qt.alpha(Style.text, 0.14)
-              }
+              Menu.MenuDivider { visible: index > 0 }
 
               // Header: mark, name, plan pill (or the status when there is no plan) … email · renews.
               // Click opens the provider's usage page.
@@ -582,7 +621,7 @@ Rectangle {
                   anchors.leftMargin: cardMark.visible ? 8 : 0
                   anchors.verticalCenter: parent.verticalCenter
                   text: cardData.name || ""
-                  font { family: Style.fontUi; pixelSize: Style.typeTitle; bold: true }
+                  font { family: Style.fontUi; pixelSize: Style.typeTitle; weight: Font.DemiBold }
                   color: Style.text
                 }
                 Rectangle {
@@ -673,7 +712,6 @@ Rectangle {
               Meter {
                 visible: cardData.used != null || (cardData.categories || []).length > 0
                 width: parent.width
-                height: 5
                 segs: root.meterSegs(cardData)
               }
 
@@ -741,13 +779,15 @@ Rectangle {
                         id: tilePct
                         anchors.right: parent.right
                         text: tile.passed ? "—" : Math.round(Number(tile.modelData.used) || 0) + "%"
-                        font { family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeLead; bold: tile.full }
+                        font {
+                          family: Style.fontUi; features: Style.fontTabular; pixelSize: Style.typeLead
+                          weight: tile.full ? Font.DemiBold : Font.Normal
+                        }
                         color: tile.full ? Style.red : Style.text
                       }
                     }
                     Meter {
                       width: parent.width
-                      height: 4
                       segs: tile.passed ? [] : root.limitSegs(cardData, tile.modelData)
                     }
                     Text {

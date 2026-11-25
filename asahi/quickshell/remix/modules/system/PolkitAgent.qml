@@ -100,7 +100,7 @@ Scope {
           Text {
             text: root.flow ? root.flow.actionId : ""
             color: Style.m3onSurfaceVariant
-            font.family: Style.menuMono
+            font.family: Style.fontData
             font.pixelSize: 10
             elide: Text.ElideMiddle
             Layout.maximumWidth: 396
@@ -134,14 +134,14 @@ Scope {
 
         Rectangle {
           Layout.fillWidth: true
-          implicitHeight: 40
+          implicitHeight: Style.fieldHeight
           radius: height / 2
           color: Style.m3container
-          border.width: 1
-          border.color: root.wrong ? Style.red : (field.activeFocus ? Style.menuSelBorder : "transparent")
+          border.width: root.wrong || field.activeFocus ? Style.focusRingWidth : 0
+          border.color: root.wrong ? Style.red : Style.focusRing
           // Off until PAM asks for the password (Touch ID comes first).
           opacity: field.enabled ? 1 : 0.5
-          Behavior on opacity { NumberAnimation { duration: 160 } }
+          Behavior on opacity { NumberAnimation { duration: Style.menuStateMs } }
 
           TextInput {
             id: field

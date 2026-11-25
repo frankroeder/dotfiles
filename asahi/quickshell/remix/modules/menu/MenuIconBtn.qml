@@ -10,7 +10,7 @@ Rectangle {
   property color hot: btn.tone
   property color bg: "transparent"
   property int iconPx: 13
-  property real fontScale: 1
+  property real fontScale: Style.uiScale
   property string iconFamily: Style.menuMono
   signal clicked()
 
@@ -19,7 +19,7 @@ Rectangle {
   radius: btnMa.pressed && !Style.reduceMotion ? Style.menuRadiusMd : width / 2   // held: squares off (shape morph)
   Behavior on radius { NumberAnimation { duration: Style.menuStateMs; easing.type: Easing.OutCubic } }
   color: btn.bg
-  Behavior on color { ColorAnimation { duration: 120 } }
+  Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
   scale: btnMa.pressed && !Style.reduceMotion ? 0.92 : 1
   Behavior on scale { NumberAnimation { duration: Style.menuStateMs; easing.type: Easing.OutCubic } }
 
@@ -28,7 +28,7 @@ Rectangle {
     radius: parent.radius
     color: btnMa.pressed ? Style.m3statePress : Style.m3stateHover
     opacity: btnMa.containsMouse || btnMa.pressed ? 1 : 0
-    Behavior on opacity { NumberAnimation { duration: 120 } }
+    Behavior on opacity { NumberAnimation { duration: Style.menuStateMs } }
   }
   // Under the label: the disc must not veil the text.
   MenuRipple { id: ripple; radius: btn.radius }

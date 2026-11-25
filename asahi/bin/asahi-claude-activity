@@ -6,10 +6,15 @@
 #
 #   asahi-claude-activity start|beat   UserPromptSubmit / Pre- and PostToolUse: touch this session's marker
 #   asahi-claude-activity stop         Stop / SessionEnd: drop it
+#   asahi-claude-activity wait         Notification (permission / idle prompt): the session waits for you
 #   asahi-claude-activity status       prune, print the live count; exit 0 while one lives
 #
 # The session is the hook's stdin JSON `session_id` (by hand: the calling shell, $PPID). Every call rewrites
 # claude-activity.count (live sessions, only when it changes; gone at 0) for the bar's cup.
+# Waiting: `start` notes the focused window (the prompt was typed there: all Ghostty windows share one pid, so the
+# process tree cannot tell), `wait` writes claude-activity.wait/<session> = "<project>\t<window address>" unless that
+# window has the focus; every other hook of the session clears it. claude-activity.waiting = "<n>\t<project>\t<address>"
+# of the newest (gone at 0): the usage chip's red ring, a click focuses that window.
 # Hooks stay silent (UserPromptSubmit's stdout joins the prompt; exit 2 would block a tool): no output, exit 0.
 set -u
 cmd="${1:-}"
@@ -20,20 +25,37 @@ if [ "$(uname)" != Linux ]; then [ "$cmd" != status ]; exit; fi
 
 dir="$(runtime_dir)/claude-activity"
 count="$dir.count"
+wins="$dir.win"       # session -> the window its last prompt was typed in
+waits="$dir.wait"     # sessions that wait for the user
+waiting="$dir.waiting"
 
-session() {
-  local id=""
-  if [ ! -t 0 ]; then id=$(jq -r '.session_id // empty' 2>/dev/null); fi
-  id=${id//[^A-Za-z0-9_-]/}
-  echo "${id:-ppid-$PPID}"
-}
+json=""
+case "$cmd" in start | beat | stop | wait) [ -t 0 ] || json=$(cat) ;; esac
+field() { jq -r --arg k "$1" '.[$k] // empty' <<<"$json" 2>/dev/null; }
+focused() { hyprctl activewindow -j 2>/dev/null | jq -r '.address // empty' 2>/dev/null; }
 
-[ -d "$dir" ] || mkdir -p "$dir"
+id=$(field session_id)
+id=${id//[^A-Za-z0-9_-]/}
+id=${id:-ppid-$PPID}
+
+mkdir -p "$dir" "$wins" "$waits"
 case "$cmd" in
-  start | beat) touch "$dir/$(session)" ;;
-  stop) rm -f "$dir/$(session)" ;;
+  start)
+    touch "$dir/$id"
+    focused >"$wins/$id"
+    rm -f "$waits/$id"
+    ;;
+  beat) touch "$dir/$id"; rm -f "$waits/$id" ;;
+  stop) rm -f "$dir/$id" "$waits/$id" ;;
+  wait)
+    read_line win "$wins/$id"
+    where=$(basename "$(field cwd)")
+    where=${where//[^[:print:]]/}
+    # Looking at it already: no ring.
+    if [ -z "$win" ] || [ "$(focused)" != "$win" ]; then printf '%s\t%s\n' "$where" "$win" >"$waits/$id"; fi
+    ;;
   status) ;;
-  *) echo "usage: asahi-claude-activity start|beat|stop|status" >&2; exit 1 ;;
+  *) echo "usage: asahi-claude-activity start|beat|stop|wait|status" >&2; exit 1 ;;
 esac
 
 find "$dir" -type f ! -newermt '-15 minutes' -delete 2>/dev/null
@@ -41,6 +63,17 @@ n=$(find "$dir" -type f | wc -l)
 # Two hooks at once may write in the wrong order: the next hook rewrites it.
 read_line old "$count"
 if ((n == 0)); then rm -f "$count"; elif [ "$old" != "$n" ]; then echo "$n" >"$count"; fi
+
+# A closed terminal sends no hook: a wait (and a window note) older than 12 h is gone.
+find "$waits" "$wins" -type f -mmin +720 -delete 2>/dev/null
+w=$(find "$waits" -type f | wc -l)
+line=""
+if ((w > 0)); then
+  read_line newest "$waits/$(ls -t "$waits" | head -n 1)"
+  line="$w"$'\t'"$newest"
+fi
+read_line old "$waiting"
+if ((w == 0)); then rm -f "$waiting"; elif [ "$old" != "$line" ]; then printf '%s\n' "$line" >"$waiting"; fi
 
 if [ "$cmd" = status ]; then echo "$n"; ((n > 0)); exit; fi
 exit 0

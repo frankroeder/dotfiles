@@ -128,7 +128,7 @@ Item {
       color: (overflowMouse.containsMouse || trayPanel.shouldShow) ? Style.barStripHover : "transparent"
       border.width: 1
       border.color: root.attention ? Style.orange : Style.barBorder
-      Behavior on color { ColorAnimation { duration: 120 } }
+      Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
 
       Text {
         id: overflowText

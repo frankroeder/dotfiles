@@ -22,7 +22,7 @@ Rectangle {
   property bool live: true
   // Cava ring around the disc (the owner holds the shared cava).
   property bool cavaOn: false
-  property real fontScale: 1
+  property real fontScale: Style.uiScale
   readonly property var p: Services.Players.active
   readonly property real len: Services.Players.length
   readonly property bool hasLen: len > 0
@@ -87,16 +87,16 @@ Rectangle {
     color: primary ? Qt.alpha(card.accent, btnMa.containsMouse ? 0.28 : 0.18)
       : btnMa.containsMouse ? Style.m3containerHigh : Style.m3container
     opacity: available ? 1 : 0.35
-    Behavior on color { ColorAnimation { duration: 120 } }
+    Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
     Text {
       anchors.centerIn: parent
       text: parent.icon
       color: parent.active ? card.accent
         : parent.primary ? card.accent
         : btnMa.containsMouse ? Style.m3onSurface : Style.m3onSurfaceVariant
-      font.family: Style.fontUi; font.features: Style.fontTabular
+      font.family: Style.fontMono
       font.pixelSize: Math.round(parent.size * (parent.primary ? 0.42 : 0.38))
-      Behavior on color { ColorAnimation { duration: 120 } }
+      Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
     }
     MouseArea {
       id: btnMa
@@ -163,13 +163,13 @@ Rectangle {
       Text {
         text: card.fmtTime(card.pos)
         color: Style.m3onSurfaceVariant
-        font.family: Style.menuSans; font.pixelSize: card.px(12); font.bold: true; font.features: { "tnum": 1 }
+        font.family: Style.menuSans; font.pixelSize: card.px(12); font.weight: Font.DemiBold; font.features: Style.fontTabular
       }
       Item { Layout.fillWidth: true }
       Text {
         text: card.fmtTime(card.len)
         color: Style.m3onSurfaceVariant
-        font.family: Style.menuSans; font.pixelSize: card.px(12); font.bold: true; font.features: { "tnum": 1 }
+        font.family: Style.menuSans; font.pixelSize: card.px(12); font.weight: Font.DemiBold; font.features: Style.fontTabular
       }
     }
   }
@@ -274,7 +274,7 @@ Rectangle {
             visible: !card.hasArt
             text: "󰝚"
             color: Style.overlay1
-            font.family: Style.fontUi; font.features: Style.fontTabular
+            font.family: Style.fontMono
             font.pixelSize: parent.width * 0.26
           }
           Image {
@@ -342,7 +342,7 @@ Rectangle {
           Text {
             text: card.playing ? "󰐊" : "󰏤"
             color: card.playing ? card.accent : Style.m3onSurfaceVariant
-            font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: card.px(11)
+            font.family: Style.fontMono; font.pixelSize: card.px(11)
             anchors.verticalCenter: parent.verticalCenter
           }
           Text {
@@ -357,7 +357,7 @@ Rectangle {
             visible: parent.parent.many
             text: "󰑐"
             color: Style.m3onSurfaceVariant
-            font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: card.px(11)
+            font.family: Style.fontMono; font.pixelSize: card.px(11)
             anchors.verticalCenter: parent.verticalCenter
           }
         }
@@ -375,7 +375,7 @@ Rectangle {
         textFormat: Text.PlainText
         text: card.p ? (card.p.trackTitle || "Unknown track") : "Nothing playing"
         color: Style.m3onSurface
-        font.family: Style.menuSans; font.pixelSize: card.px(18); font.weight: Font.Bold; font.variableAxes: Style.opsz(card.px(18))
+        font.family: Style.menuSans; font.pixelSize: card.px(18); font.weight: Font.DemiBold; font.variableAxes: Style.opsz(card.px(18))
         elide: Text.ElideRight
       }
       Text {
@@ -432,7 +432,7 @@ Rectangle {
       color: now ? card.accent : Style.m3onSurfaceVariant
       opacity: now || !Services.Lyrics.synced ? 1 : 0.6
       scale: now || !Services.Lyrics.synced ? 1 : 0.92
-      font.family: Style.menuSans; font.pixelSize: card.px(14); font.weight: now ? Font.Bold : Font.Medium
+      font.family: Style.menuSans; font.pixelSize: card.px(14); font.weight: now ? Font.DemiBold : Font.Medium
       fontSizeMode: Text.HorizontalFit; minimumPixelSize: card.px(10)
       elide: Text.ElideRight
       Behavior on color { ColorAnimation { duration: Style.menuAnimMs } }
@@ -456,7 +456,7 @@ Rectangle {
       anchors.centerIn: parent
       text: Services.Lyrics.enabled ? "󱀡" : "󱀢"   // comment-quote (outline when off)
       color: Services.Lyrics.enabled ? card.accent : Style.m3onSurfaceVariant
-      font.family: Style.fontUi; font.pixelSize: card.px(14)
+      font.family: Style.fontMono; font.pixelSize: card.px(14)
     }
     MouseArea {
       id: lyrMa

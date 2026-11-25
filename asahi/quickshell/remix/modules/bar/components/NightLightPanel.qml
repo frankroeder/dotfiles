@@ -54,7 +54,7 @@ PopupWindow {
   Rectangle {
     id: card
     width: parent.width
-    implicitHeight: col.implicitHeight + 28
+    implicitHeight: col.implicitHeight + 2 * Style.popupPad
     radius: Style.menuRadiusLg
     color: Style.m3surfaceSolid
     border.color: Style.popupBorder
@@ -65,8 +65,8 @@ PopupWindow {
     ColumnLayout {
       id: col
       anchors.fill: parent
-      anchors.margins: 14
-      spacing: 12
+      anchors.margins: Style.popupPad
+      spacing: Style.popupGap
 
       RowLayout {
         Layout.fillWidth: true

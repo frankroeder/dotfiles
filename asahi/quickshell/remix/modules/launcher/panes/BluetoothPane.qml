@@ -367,12 +367,8 @@ Item {
     }
     Menu.MenuSwitch { checked: sr.checked; onToggled: sr.toggled() }
   }
-  // Section caption: the tracked caps used by SysPanel / recorder.
-  component Caption: Secondary {
+  component Caption: Menu.MenuCaption {
     font.pixelSize: quickBtRoot.root.fontPx(8)
-    font.weight: Font.DemiBold
-    font.letterSpacing: 1.2
-    font.capitalization: Font.AllUppercase
     leftPadding: 10; topPadding: 8; bottomPadding: 4
   }
 
@@ -412,6 +408,7 @@ Item {
       }
     }
     Menu.MenuSlider {
+      fontScale: quickBtRoot.root.uiFontScale
       visible: !!hs.dev.dpi && hs.dev.dpi.max > hs.dev.dpi.min
       Layout.fillWidth: true
       Layout.bottomMargin: 6
@@ -440,6 +437,7 @@ Item {
       Secondary { text: String(hs.thrShown) }
     }
     Menu.MenuSlider {
+      fontScale: quickBtRoot.root.uiFontScale
       visible: hs.ssMode === "smartshift"
       Layout.fillWidth: true
       value: (hs.thrShown - 1) / 49
@@ -473,18 +471,18 @@ Item {
     // Adapter card: glyph tile, alias + state, Scan pill, settings button, power switch.
     Rectangle {
       Layout.fillWidth: true
-      implicitHeight: btHead.implicitHeight + 28
-      radius: Style.menuPanelRadius
+      implicitHeight: btHead.implicitHeight + 2 * Style.menuHeroPad
+      radius: Style.menuPaneRadius
       color: Style.m3container
       RowLayout {
         id: btHead
         anchors.fill: parent
-        anchors.margins: 14
-        spacing: 14
+        anchors.margins: Style.menuHeroPad
+        spacing: Style.menuHeroGap
         Rectangle {
-          width: Math.round(36 * root.uiFontScale); height: width; radius: Style.menuRadiusLg   // hero tile: one size in every pane
+          width: Math.round(36 * root.uiFontScale); height: width; radius: Style.menuRadiusMd   // hero tile: one size in every pane
           color: quickBtRoot.btOn ? Style.m3primaryContainer : Style.m3containerHigh
-          Behavior on color { ColorAnimation { duration: 160 } }
+          Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
           Text {
             anchors.centerIn: parent; text: quickBtRoot.btOn ? "󰂯" : "󰂲"
             color: quickBtRoot.btOn ? Style.m3primary : Style.m3onSurfaceVariant; font.family: root.uiFont; font.pixelSize: Math.round(22 * root.uiFontScale)
@@ -756,12 +754,12 @@ Item {
                 }
                 Rectangle {
                   width: btDelegate.width
-                  height: Math.max(48, btText.implicitHeight + 16)
-                  radius: Style.menuRadiusMd
+                  height: Math.max(root.fontPx(36), btText.implicitHeight + 16)
+                  radius: Style.menuRowRadius
                   color: btd.containsMouse || btDelegate.settingsShown ? Style.m3stateHover : "transparent"
                   opacity: btDelegate.busy ? 0.65 : 1
-                  Behavior on color { ColorAnimation { duration: 120 } }
-                  Behavior on opacity { NumberAnimation { duration: 120 } }
+                  Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
+                  Behavior on opacity { NumberAnimation { duration: Style.menuStateMs } }
                   // Hover; a row with HID++ settings opens them on click (its buttons take their own clicks).
                   MouseArea {
                     id: btd; anchors.fill: parent; hoverEnabled: true
@@ -874,7 +872,7 @@ Item {
             Menu.MenuEmptyState {
               id: btEmpty
               anchors.centerIn: parent
-              fontScale: root.uiFontScale
+              fontScale: quickBtRoot.root.uiFontScale
               iconFamily: root.uiFont
               fontFamily: root.uiSans
               glyph: !quickBtRoot.btOn ? "󰂲" : (quickBtRoot.btScanRequested ? "󰐷" : "󰂯")

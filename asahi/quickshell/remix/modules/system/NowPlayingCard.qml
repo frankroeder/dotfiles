@@ -101,10 +101,10 @@ Scope {
             sourceSize: Qt.size(128, 128)
             asynchronous: true
           }
-          Text {
+          Menu.MenuGlyph {
             anchors.centerIn: parent
             visible: Services.Players.artUrl === ""
-            text: "󰝚"; color: Style.m3primary; font.family: Style.fontMono; font.pixelSize: 26
+            text: "󰝚"; color: Style.m3primary; size: parent.width * Style.glyphRatio
           }
         }
         ColumnLayout {

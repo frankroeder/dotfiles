@@ -756,13 +756,14 @@ Scope {
 
       ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 14
-        spacing: 10
+        anchors.margins: Style.popupPad
+        spacing: Style.popupGap
 
         RowLayout {
           id: historyHeader
           Layout.fillWidth: true
-          spacing: 8
+          spacing: 10
+          Menu.MenuGlyphTile { glyph: "󰍡" }
           Text {
             text: "Notifications"
             font.family: Style.menuSans
@@ -770,22 +771,7 @@ Scope {
             font.weight: Font.DemiBold
             color: Style.menuInk
           }
-          Rectangle {
-            visible: root.historyCount > 0
-            implicitWidth: countText.implicitWidth + 12
-            implicitHeight: 18
-            radius: 9
-            color: Style.m3primaryContainer
-            Text {
-              id: countText
-              anchors.centerIn: parent
-              text: root.historyCount
-              font.family: Style.menuSans
-              font.pixelSize: Style.typeBody
-              font.weight: Font.DemiBold
-              color: Style.menuInk
-            }
-          }
+          Menu.MenuBadge { visible: root.historyCount > 0; text: root.historyCount }
           Item { Layout.fillWidth: true }
           Text {
             visible: root.dndEnabled && root.dndUntilText !== ""
@@ -794,7 +780,7 @@ Scope {
             color: Style.yellow
           }
           HeaderButton {
-            glyph: root.dndEnabled ? "󰂛" : "󰂚"
+            icon: root.dndEnabled ? "󰂛" : "󰂚"
             tone: root.dndEnabled ? Style.yellow : Style.menuInkDeep
             onClicked: root.toggleDnd()
           }
@@ -808,7 +794,7 @@ Scope {
             color: Style.red
           }
           HeaderButton {
-            glyph: "󰆴"
+            icon: "󰆴"
             tone: clearArm.running ? Style.red : Style.menuInkDeep
             onClicked: {
               if (!clearArm.running) { clearArm.restart(); return }
@@ -819,7 +805,7 @@ Scope {
           }
         }
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: Style.menuSep }
+        Menu.MenuDivider { Layout.fillWidth: true }
 
         // Another daemon owns the notification name (see foreignComm).
         Rectangle {
@@ -861,26 +847,13 @@ Scope {
             width: parent.width
             spacing: 8
 
-            Column {
+            Menu.MenuEmptyState {
               visible: root.history.length === 0
               Layout.alignment: Qt.AlignHCenter
               Layout.topMargin: 28
-              spacing: 6
-              Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: root.dndEnabled ? "󰂛" : "󰂚"
-                font.family: Style.fontUi; font.features: Style.fontTabular
-                font.pixelSize: 26
-                color: Style.menuInkMuted
-              }
-              Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: !root.dndEnabled ? "No notifications"
-                  : root.dndUntilText !== "" ? "Do not disturb until " + root.dndUntilText : "Do not disturb is on"
-                font.family: Style.menuSans
-                font.pixelSize: Style.typeLead
-                color: Style.menuInkDeep
-              }
+              glyph: root.dndEnabled ? "󰂛" : "󰂚"
+              title: root.dndEnabled ? "Do not disturb is on" : "No notifications"
+              detail: root.dndEnabled && root.dndUntilText !== "" ? "Until " + root.dndUntilText : ""
             }
 
             Repeater {
@@ -894,14 +867,10 @@ Scope {
                 Layout.fillWidth: true
                 spacing: 6
 
-                Text {
+                Menu.MenuCaption {
                   visible: group.index === 0 || root.historyGroups[group.index - 1].day !== group.modelData.day
                   Layout.topMargin: group.index === 0 ? 0 : 6
                   text: group.modelData.day
-                  font.family: Style.menuSans
-                  font.pixelSize: Style.typeBody
-                  font.weight: Font.DemiBold
-                  color: Style.menuInkMuted
                 }
 
                 // Group header (2+ from one app): name, count, expand / collapse, clear the group.
@@ -920,21 +889,7 @@ Scope {
                     font.weight: Font.DemiBold
                     color: Style.menuInkDeep
                   }
-                  Rectangle {
-                    implicitWidth: groupCount.implicitWidth + 10
-                    implicitHeight: 16
-                    radius: 8
-                    color: Style.m3primaryContainer
-                    Text {
-                      id: groupCount
-                      anchors.centerIn: parent
-                      text: group.modelData.items.length
-                      font.family: Style.menuSans
-                      font.pixelSize: Style.typeCaption
-                      font.weight: Font.DemiBold
-                      color: Style.menuInk
-                    }
-                  }
+                  Menu.MenuBadge { text: group.modelData.items.length }
                   Item { Layout.fillWidth: true }
                   Text {
                     text: group.open ? "Show less" : "Show all"
@@ -943,12 +898,10 @@ Scope {
                     color: toggleMa.containsMouse ? Style.menuSeal : Style.menuInkMuted
                     MouseArea { id: toggleMa; anchors.fill: parent; anchors.margins: -4; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.toggleGroup(group.modelData.key) }
                   }
-                  Text {
-                    text: "󰅖"
-                    font.family: Style.fontUi; font.features: Style.fontTabular
-                    font.pixelSize: 12
-                    color: clearMa.containsMouse ? Style.red : Style.menuInkMuted
-                    MouseArea { id: clearMa; anchors.fill: parent; anchors.margins: -4; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.dismissGroup(group.modelData) }
+                  Menu.MenuIconBtn {
+                    implicitWidth: 22; implicitHeight: 22; icon: "󰅖"; iconPx: 12
+                    tone: Style.menuInkMuted; hot: Style.red
+                    onClicked: root.dismissGroup(group.modelData)
                   }
                 }
 
@@ -972,27 +925,7 @@ Scope {
     }
   }
 
-  component HeaderButton: MouseArea {
-    id: hb
-    property string glyph: ""
-    property color tone: Style.menuInkDeep
-    implicitWidth: 28
-    implicitHeight: 28
-    hoverEnabled: true
-    cursorShape: Qt.PointingHandCursor
-    Rectangle {
-      anchors.fill: parent
-      radius: width / 2
-      color: hb.containsMouse ? Style.m3stateHover : "transparent"
-    }
-    Text {
-      anchors.centerIn: parent
-      text: hb.glyph
-      font.family: Style.fontUi; font.features: Style.fontTabular
-      font.pixelSize: 15
-      color: hb.tone
-    }
-  }
+  component HeaderButton: Menu.MenuIconBtn { implicitWidth: 28; implicitHeight: 28; iconPx: 15; tone: Style.menuInkDeep }
 
   // Quiet card: hairline border, urgency as a slim left strip (critical also
   // tints the border), app name demoted to the meta line next to the time.
@@ -1027,8 +960,8 @@ Scope {
     // Floating toasts take the popup radius; history cards nest inside the sheet (concentric: one step down).
     radius: card.compact ? Style.menuRadiusMd : Style.menuRadiusLg
     // Toasts float over windows: the popup outline; history cards sit inside the sheet: hairline.
-    border.color: card.critical ? Qt.alpha(Style.red, 0.55) : card.compact ? Style.menuSep : Style.popupBorder
-    border.width: card.compact ? 1 : Style.popupBorderWidth
+    border.color: card.critical ? Qt.alpha(Style.red, 0.55) : card.compact ? Style.menuHairline : Style.popupBorder
+    border.width: card.compact ? Style.rim(Screen.devicePixelRatio) : Style.popupBorderWidth
     implicitHeight: cardBody.implicitHeight + 22
     clip: true
 
@@ -1182,12 +1115,11 @@ Scope {
             visible: source !== ""
           }
 
-          Text {
+          Menu.MenuGlyph {
             anchors.centerIn: parent
             visible: root.iconFor(card.entry) === ""
             text: "󰂚"
-            font.family: Style.fontUi; font.features: Style.fontTabular
-            font.pixelSize: 16
+            size: parent.width * Style.glyphRatio
             color: card.accent
           }
         }
@@ -1206,6 +1138,7 @@ Scope {
             font.family: Style.menuSans
             font.pixelSize: Style.typeBody
             font.weight: Font.Medium
+            font.variableAxes: Style.wghtTitle
             color: Style.menuInkDeep
             elide: Text.ElideRight
             Layout.fillWidth: true
@@ -1222,6 +1155,7 @@ Scope {
             text: card.entry ? root.relTime(card.entry.ts, root.clockTick) : ""
             font.family: Style.menuSans
             font.pixelSize: Style.typeBody
+            font.variableAxes: Style.wghtBody
             color: Style.menuInkMuted
           }
         }
@@ -1265,18 +1199,10 @@ Scope {
           Layout.fillWidth: true
           Layout.topMargin: 2
           spacing: 8
-          Rectangle {
+          Menu.MenuMeter {
             Layout.fillWidth: true
-            implicitHeight: 4
-            radius: 2
-            color: Style.menuControlBg
-            Rectangle {
-              width: parent.width * (card.entry ? Math.max(0, card.entry.progress) : 0) / 100
-              height: parent.height
-              radius: 2
-              color: Style.menuSeal
-              Behavior on width { NumberAnimation { duration: Style.menuAnimMs; easing.type: Easing.OutCubic } }
-            }
+            value: card.entry ? card.entry.progress / 100 : 0
+            fill: Style.menuSeal
           }
           Text {
             text: (card.entry ? card.entry.progress : 0) + "%"
@@ -1308,7 +1234,7 @@ Scope {
               required property var modelData
               icon: modelData.kind !== "code" ? "" : card.copied === modelData.value ? "󰄬" : "󰆏"
               label: modelData.kind === "code" && card.copied === modelData.value ? "Copied" : modelData.label
-              fontScale: 1.1
+              fontScale: 1.1 * Style.uiScale
               implicitHeight: 28
               onClicked: {
                 card.button(modelData)
@@ -1322,27 +1248,13 @@ Scope {
         }
       }
 
-      MouseArea {
-        id: closeMa
+      Menu.MenuIconBtn {
         Layout.preferredWidth: 22
         Layout.preferredHeight: 22
         Layout.alignment: Qt.AlignTop
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
+        icon: "󰅖"; iconPx: 13
+        tone: Style.menuInkMuted; hot: Style.red
         onClicked: card.dismiss()
-
-        Rectangle {
-          anchors.fill: parent
-          radius: width / 2
-          color: closeMa.containsMouse ? Style.m3stateHover : "transparent"
-        }
-        Text {
-          anchors.centerIn: parent
-          text: "󰅖"
-          font.family: Style.fontUi; font.features: Style.fontTabular
-          font.pixelSize: 13
-          color: closeMa.containsMouse ? Style.red : Style.menuInkMuted
-        }
       }
     }
   }

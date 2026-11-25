@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import "lookup.js" as Lookup
+import "../menu" as Menu
 import "../../"
 
 // Look Up result: term, definition + translation, links. The Super+Shift+D card body (WritingTools) and
@@ -24,7 +25,7 @@ ColumnLayout {
     Rectangle {
       width: 36; height: 36; radius: Style.menuRadiusMd
       color: Style.m3primaryContainer
-      Text { anchors.centerIn: parent; text: "󰗚"; color: Style.m3primary; font.family: Style.menuMono; font.pixelSize: 19 }
+      Menu.MenuGlyph { anchors.centerIn: parent; text: "󰗚"; color: Style.m3primary; size: parent.width * Style.glyphRatio }
     }
     ColumnLayout {
       Layout.fillWidth: true

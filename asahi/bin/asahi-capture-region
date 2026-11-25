@@ -48,8 +48,16 @@ get_rectangles() {
 
 MODE=${1:-smart}
 
+# slurp in the wallpaper palette (colors.json): crust dim, accent border + faint fill, W×H readout in Adwaita Mono.
+# Without the state file (or jq): slurp's own look.
+LOOK=()
+if c=$(jq -r '"\(.crust)85 \(.accent)ff \(.accent)1f"' "${XDG_STATE_HOME:-$HOME/.local/state}/asahi-theme/colors.json" 2>/dev/null); then
+  read -r dim line fill <<<"$c"
+  LOOK=(-b "$dim" -c "$line" -s "$fill" -B "$dim" -w 2 -d -F "Adwaita Mono")
+fi
+
 pick() {
-  slurp "$@" 2>/dev/null || true
+  slurp "${LOOK[@]}" "$@" 2>/dev/null || true
 }
 
 SELECTION=""

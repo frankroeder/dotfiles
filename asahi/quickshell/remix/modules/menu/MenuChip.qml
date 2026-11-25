@@ -11,7 +11,8 @@ Rectangle {
   property color fg: Style.m3onSurface
   property int fixedWidth: 0
   property bool clickable: false
-  property real fontScale: 1
+  property bool numeric: false   // a number that ticks: tabular digits (tnum also widens - : . in names)
+  property real fontScale: Style.uiScale
   property string iconFamily: Style.menuMono
   property string fontFamily: Style.menuSans
   signal clicked()
@@ -50,7 +51,7 @@ Rectangle {
       text: chip.label
       textFormat: Text.PlainText   // labels carry outside strings (an inhibitor's app name, a window class)
       color: chip.fg
-      font.family: chip.fontFamily; font.features: Style.fontTabular
+      font.family: chip.fontFamily; font.features: chip.numeric ? Style.fontTabular : ({})
       font.pixelSize: Math.round(10 * chip.fontScale)
       font.weight: Font.Medium
     }

@@ -18,8 +18,15 @@ MenuSwitch 1.0 MenuSwitch.qml
 MenuPopIn 1.0 MenuPopIn.qml
 MenuPopOut 1.0 MenuPopOut.qml
 MenuRunDots 1.0 MenuRunDots.qml
+MenuGlyph 1.0 MenuGlyph.qml
 MenuGlyphTile 1.0 MenuGlyphTile.qml
 MenuFadeText 1.0 MenuFadeText.qml
 MenuEdgeFade 1.0 MenuEdgeFade.qml
 MenuStretchPill 1.0 MenuStretchPill.qml
 MenuRipple 1.0 MenuRipple.qml
+MenuCaption 1.0 MenuCaption.qml
+MenuMeter 1.0 MenuMeter.qml
+MenuBadge 1.0 MenuBadge.qml
+MenuSegmented 1.0 MenuSegmented.qml
+MenuRunner 1.0 MenuRunner.qml
+MenuKeycap 1.0 MenuKeycap.qml

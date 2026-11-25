@@ -94,22 +94,15 @@ Item {
       }
       Text {
         Layout.fillWidth: true; visible: desc !== ""; text: desc; color: Style.m3onSurfaceVariant
-        font.family: root.uiSans; font.pixelSize: root.fontPx(9); elide: Text.ElideRight
+        font.family: root.uiSans; font.pixelSize: root.fontPx(10); elide: Text.ElideRight
       }
     }
     // Fixed width (not a share of the row) so bars line up between the
     // expanded SMC card and the one-line header rows.
-    Rectangle {
-      Layout.preferredWidth: Math.round(quickTempRoot.width * 0.26); height: 6; radius: 3; color: Style.m3containerHigh
-      Rectangle {
-        id: barFill
-        property bool ready: false
-        width: parent.width * quickTempRoot.tempPercent(liveValue)
-        height: parent.height; radius: parent.radius
-        color: quickTempRoot.tempColor(liveValue)
-        Behavior on width { enabled: barFill.ready; Menu.MenuAnim {} }
-        Component.onCompleted: Qt.callLater(function() { barFill.ready = true })
-      }
+    Menu.MenuMeter {
+      Layout.preferredWidth: Math.round(quickTempRoot.width * 0.26)
+      value: quickTempRoot.tempPercent(liveValue)
+      fill: quickTempRoot.tempColor(liveValue)
     }
     Text {
       Layout.preferredWidth: Math.round(root.fontPx(12) * 3.6); horizontalAlignment: Text.AlignRight
@@ -125,14 +118,14 @@ Item {
     // Hero: hottest sensor ring gauge + summary chips.
     Rectangle {
       Layout.fillWidth: true
-      implicitHeight: heroRow.implicitHeight + 28
-      radius: Style.menuPanelRadius
+      implicitHeight: heroRow.implicitHeight + 2 * Style.menuHeroPad
+      radius: Style.menuPaneRadius
       color: Style.m3container
       RowLayout {
         id: heroRow
         anchors.fill: parent
-        anchors.margins: 14
-        spacing: 18
+        anchors.margins: Style.menuHeroPad
+        spacing: Style.menuHeroGap
         Menu.MenuHudDial {
           readonly property real hot: quickTempRoot.hottestSensor ? quickTempRoot.hottestSensor.value : 0
           Layout.preferredWidth: Math.round(90 * root.uiFontScale); Layout.preferredHeight: Layout.preferredWidth
@@ -239,6 +232,15 @@ Item {
       ScrollBar.vertical: Menu.MenuScrollBar { id: tempScroll }
       Menu.MenuEdgeFade { parent: tempFlick; surface: Style.m3surface; atTop: true; gutter: tempScroll.width }
       Menu.MenuEdgeFade { parent: tempFlick; surface: Style.m3surface; gutter: tempScroll.width }
+      Menu.MenuEmptyState {
+        parent: tempFlick
+        anchors.centerIn: parent
+        visible: (quickTempRoot.tempRows || []).length === 0
+        fontScale: root.uiFontScale
+        glyph: "󰔏"
+        title: quickTempRoot.tempOutput ? "No sensors" : "Reading sensors…"
+        detail: quickTempRoot.tempOutput ? "asahi-temperature listed no °C readings." : ""
+      }
       Column {
         id: tempCol
         // Gutter so the scrollbar never paints over the cards.

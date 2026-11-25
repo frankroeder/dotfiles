@@ -291,14 +291,18 @@ Item {
         id: hero
         Layout.fillWidth: true
         implicitHeight: heroRow.implicitHeight + 20
-        radius: Style.menuPanelRadius
+        radius: Style.menuPaneRadius
         color: Style.m3container
+        Menu.MenuRunner {
+          anchors { left: parent.left; right: parent.right; bottom: parent.bottom; leftMargin: parent.radius; rightMargin: parent.radius }
+          busy: fullProc.running || healthProc.running
+        }
         RowLayout {
           id: heroRow
           anchors.fill: parent; anchors.margins: 10; anchors.leftMargin: 12; anchors.rightMargin: 16
           spacing: 14
           Rectangle {
-            width: Math.round(36 * root.uiFontScale); height: width; radius: Style.menuRadiusLg   // hero tile: one size in every pane
+            width: Math.round(36 * root.uiFontScale); height: width; radius: Style.menuRadiusMd   // hero tile: one size in every pane
             color: Style.m3primaryContainer
             Text { anchors.centerIn: parent; text: "󰀵"; color: Style.m3primary; font.family: root.uiFont; font.pixelSize: Math.round(22 * root.uiFontScale) }
           }

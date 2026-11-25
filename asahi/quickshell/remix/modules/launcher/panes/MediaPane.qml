@@ -190,7 +190,7 @@ Item {
       live: root.shouldShow && root.quickMode && root.quickPaneKey === "media"
       fontScale: root.uiFontScale
       cavaOn: quickMediaRoot.cavaWanted
-      radius: Style.menuPanelRadius
+      radius: Style.menuPaneRadius
     }
 
     // Output / input: header with mute + big percent, master slider, M3 radio device list.
@@ -260,6 +260,7 @@ Item {
             }
             Menu.MenuSlider {
               Layout.fillWidth: true
+              fontScale: root.uiFontScale; detents: true
               value: devCard.vol
               dimmed: devCard.muted
               onMoved: function(v) { devCard.isOut ? quickMediaRoot.setOutVol(v) : quickMediaRoot.setInVol(v) }
@@ -278,25 +279,28 @@ Item {
                     && QuickModels.audioNodeKey(modelData) !== ""
                   width: parent.width
                   height: quickMediaRoot.devRowH
-                  radius: Style.menuRadiusMd
+                  radius: Style.menuRowRadius
                   color: devMa.containsMouse ? Style.m3stateHover : "transparent"
-                  Behavior on color { ColorAnimation { duration: 120 } }
+                  Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
                   RowLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: 8
+                    anchors.leftMargin: 10
                     anchors.rightMargin: 10
                     spacing: 10
                     Rectangle {
-                      width: 16; height: 16; radius: 8
+                      width: root.fontPx(12); height: width; radius: width / 2
                       color: "transparent"
                       border.width: 2
                       border.color: devRow.active ? Style.m3primary : Style.m3outline
-                      Behavior on border.color { ColorAnimation { duration: 120 } }
-                      Rectangle { anchors.centerIn: parent; width: 8; height: 8; radius: 4; color: Style.m3primary; visible: devRow.active }
+                      Behavior on border.color { ColorAnimation { duration: Style.menuStateMs } }
+                      Rectangle {
+                        anchors.centerIn: parent; width: parent.width / 2; height: width; radius: width / 2; color: Style.m3primary; visible: devRow.active
+                      }
                     }
                     Text {
                       text: devCard.isOut ? QuickModels.sinkGlyph(devRow.modelData) : QuickModels.sourceGlyph(devRow.modelData)
                       color: devRow.active ? Style.m3primary : Style.m3onSurfaceVariant; font.family: root.uiFont; font.pixelSize: root.fontPx(11)
+                      Layout.preferredWidth: root.listSlot; horizontalAlignment: Text.AlignHCenter
                     }
                     Text {
                       Layout.fillWidth: true
@@ -309,6 +313,7 @@ Item {
                     Text {
                       text: devRow.modelData && devRow.modelData.audio ? quickMediaRoot.pct(devRow.modelData.audio.volume) : ""
                       color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(10)
+                      Layout.minimumWidth: root.fontPx(28); horizontalAlignment: Text.AlignRight; font.features: Style.fontTabular
                     }
                   }
                   MouseArea {
@@ -358,13 +363,11 @@ Item {
             onClicked: root.execAndClose(["pavucontrol"])
           }
         }
-        Text {
+        Item {
           Layout.fillWidth: true
           Layout.preferredHeight: quickMediaRoot.streamRowH
           visible: (quickMediaRoot.displayStreams || []).length === 0
-          text: "No active streams"
-          color: Style.m3outline; font.family: root.uiSans; font.pixelSize: root.fontPx(11)
-          horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+          Menu.MenuEmptyState { anchors.centerIn: parent; quiet: true; fontScale: root.uiFontScale; glyph: "󰝚"; title: "No active streams" }
         }
         Flickable {
           Layout.fillWidth: true
@@ -388,9 +391,9 @@ Item {
                 readonly property real vol: streamRow.audio ? streamRow.audio.volume : 0
                 width: parent.width
                 height: quickMediaRoot.streamRowH
-                radius: Style.menuRadiusMd
+                radius: Style.menuRowRadius
                 color: streamMa.containsMouse ? Style.m3stateHover : "transparent"
-                Behavior on color { ColorAnimation { duration: 120 } }
+                Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
                 MouseArea { id: streamMa; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.NoButton }
                 RowLayout {
                   anchors.fill: parent
@@ -398,7 +401,7 @@ Item {
                   anchors.rightMargin: 6
                   spacing: 12
                   Rectangle {
-                    width: 28; height: 28; radius: 14
+                    width: root.fontPx(21); height: width; radius: width / 2
                     color: streamRow.muted ? Style.m3containerHigh : Style.m3secondaryContainer
                     Text {
                       anchors.centerIn: parent; text: "󰝚"; color: streamRow.muted ? Style.m3outline : Style.m3secondary
@@ -414,6 +417,7 @@ Item {
                   }
                   Menu.MenuSlider {
                     Layout.fillWidth: true
+                    fontScale: root.uiFontScale; detents: true
                     value: streamRow.vol
                     dimmed: streamRow.muted
                     onMoved: function(v) { if (streamRow.audio) streamRow.audio.volume = v }
@@ -423,7 +427,7 @@ Item {
                     horizontalAlignment: Text.AlignRight
                     text: streamRow.muted ? "Muted" : quickMediaRoot.pct(streamRow.vol)
                     color: streamRow.muted ? Style.red : Style.m3onSurface
-                    font.family: root.uiSans; font.pixelSize: root.fontPx(11); font.weight: Font.DemiBold
+                    font.family: root.uiSans; font.pixelSize: root.fontPx(11); font.weight: Font.DemiBold; font.features: Style.fontTabular
                   }
                   IconBtn {
                     icon: streamRow.muted ? "󰖁" : "󰕾"

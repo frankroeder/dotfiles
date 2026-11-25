@@ -246,7 +246,7 @@ case "$mode" in
     geom=(-o "$mon")
     ;;
   region)
-    selection="$(slurp 2>/dev/null || true)"
+    selection="$("$bin/asahi-capture-region" region || true)"
     [ -n "$selection" ] || exit 0
     geom=(-g "$selection")
     webcam_region="$(slurp_to_region "$selection")"

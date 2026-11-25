@@ -34,7 +34,7 @@ Item {
     // No tray: lit on hover and while its panel is open.
     color: chipMa.pressed ? Style.barStripPress
       : chipMa.containsMouse || (root.barHost && root.barHost.openPanel === "sys") ? Style.barStripHover : "transparent"
-    Behavior on color { ColorAnimation { duration: 120 } }
+    Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
   }
 
   component Stat: Row {

@@ -359,7 +359,7 @@ Scope {
               Rectangle {
                 width: 32; height: 32; radius: Style.menuRadiusMd
                 color: Style.m3primaryContainer
-                Text { anchors.centerIn: parent; text: "󰙴"; color: Style.m3primary; font.family: Style.menuMono; font.pixelSize: 17 }
+                Menu.MenuGlyph { anchors.centerIn: parent; text: "󰙴"; color: Style.m3primary; size: parent.width * Style.glyphRatio }
               }
               ColumnLayout {
                 Layout.fillWidth: true
@@ -405,7 +405,7 @@ Scope {
                 color: sel ? Style.menuSelFill : rowMa.containsMouse ? Style.m3stateHover : "transparent"
                 border.width: sel ? 1 : 0
                 border.color: Style.menuSelBorder
-                Behavior on color { ColorAnimation { duration: 120 } }
+                Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
                 RowLayout {
                   anchors.fill: parent
                   anchors.leftMargin: 12; anchors.rightMargin: 12
@@ -501,7 +501,7 @@ Scope {
               }
             }
 
-            Text { id: origLabel; text: "ORIGINAL"; color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: 11; font.weight: Font.DemiBold; font.letterSpacing: 1 }
+            Menu.MenuCaption { id: origLabel; text: "ORIGINAL" }
             TextPane {
               id: origPane
               Layout.fillWidth: true
@@ -512,7 +512,7 @@ Scope {
               body: root.ops.length > 0 ? Diff.html(root.ops, "old", root.diffColors) : root.original
             }
 
-            Text { id: sugLabel; text: "SUGGESTION"; color: Style.m3primary; font.family: Style.menuSans; font.pixelSize: 11; font.weight: Font.DemiBold; font.letterSpacing: 1 }
+            Menu.MenuCaption { id: sugLabel; text: "SUGGESTION"; color: Style.m3primary }
             TextPane {
               id: sugPane
               Layout.fillWidth: true

@@ -138,8 +138,9 @@ ColumnLayout {
     }
   }
   component FieldBox: Rectangle {
-    implicitHeight: 30; radius: Style.menuRadiusFull
+    implicitHeight: lanView.root.fieldHSm; radius: Style.menuRadiusFull
     color: Style.m3container
+    border.color: Style.focusRing
   }
 
   // A VPN that cuts the home LAN off: devices only look idle / asleep.
@@ -167,6 +168,7 @@ ColumnLayout {
     visible: lanView.searchWanted || (lanView.lan.total || 0) > 12 || lanView.query !== ""
     Layout.fillWidth: true
     color: searchIn.activeFocus ? Style.m3containerHigh : Style.m3container
+    border.width: searchIn.activeFocus ? Style.focusRingWidth : 0
     Glyph {
       id: searchGlyph
       anchors.left: parent.left; anchors.leftMargin: 12; anchors.verticalCenter: parent.verticalCenter
@@ -217,18 +219,14 @@ ColumnLayout {
       Rectangle {
         visible: row.d.header
         width: parent.width; height: root.fontPx(24)
-        radius: Style.menuRadiusMd
+        radius: Style.menuRowRadius
         color: headMa.containsMouse ? Style.m3stateHover : "transparent"
         MouseArea { id: headMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: lanView.toggleGroup(row.d.id) }
         RowLayout {
           anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 10
           spacing: 6
           Glyph { text: row.d.collapsed ? "󰅂" : "󰅀"; font.pixelSize: root.fontPx(11) }
-          Text {
-            text: row.d.title || ""; textFormat: Text.PlainText
-            color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(8); font.weight: Font.DemiBold
-            font.capitalization: Font.AllUppercase; font.letterSpacing: 1.2
-          }
+          Menu.MenuCaption { text: row.d.title || ""; color: Style.m3onSurface; font.pixelSize: root.fontPx(8) }
           Badge { visible: !!row.d.fresh }
           Item { Layout.fillWidth: true }
           Secondary {
@@ -242,7 +240,7 @@ ColumnLayout {
       Rectangle {
         visible: !row.d.header
         width: parent.width; height: root.fontPx(34)
-        radius: Style.menuRadiusMd
+        radius: Style.menuRowRadius
         color: devMa.containsMouse || row.open ? Style.m3stateHover : "transparent"
         MouseArea {
           id: devMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -327,6 +325,7 @@ ColumnLayout {
             spacing: 8
             FieldBox {
               Layout.fillWidth: true
+              border.width: nameIn.activeFocus ? Style.focusRingWidth : 0
               Field {
                 id: nameIn
                 anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12

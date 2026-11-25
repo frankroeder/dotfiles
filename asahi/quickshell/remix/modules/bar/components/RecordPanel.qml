@@ -24,7 +24,7 @@ PopupWindow {
   anchor.edges: Edges.Bottom
   anchor.margins.bottom: -BarModel.popupDrop(root.barHost ? root.barHost.height : Style.barHeight, Style.barHeight)  // negative = below
   implicitWidth: 380
-  implicitHeight: col.implicitHeight + 32
+  implicitHeight: col.implicitHeight + 2 * Style.popupPad
 
   onVisibleChanged: {
     if (visible) { Services.Recorder.refresh(); Services.Recorder.scanRecent() }
@@ -71,8 +71,10 @@ PopupWindow {
     onActivated: root.close()
   }
 
-  // Mode tile: glyph tile + label on the container tone, like the launcher pane cards.
+  // Mode tile: glyph tile + label on the container tone, like the launcher pane cards; the shared press layer,
+  // give and ripple (MenuPill).
   component ModeTile: Rectangle {
+    id: tile
     property string icon
     property string label
     property color tint: Style.m3primary
@@ -81,7 +83,11 @@ PopupWindow {
     implicitHeight: 54
     radius: Style.menuRadiusLg
     color: ma.containsMouse ? Style.m3containerHigh : Style.m3container
-    Behavior on color { ColorAnimation { duration: 120 } }
+    Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
+    scale: ma.pressed && !Style.reduceMotion ? 0.97 : 1
+    Behavior on scale { NumberAnimation { duration: Style.menuStateMs; easing.type: Easing.OutCubic } }
+    Rectangle { anchors.fill: parent; radius: parent.radius; color: Style.m3statePress; visible: ma.pressed }
+    Menu.MenuRipple { id: tileRipple; radius: tile.radius }
     Row {
       anchors.left: parent.left
       anchors.leftMargin: 8
@@ -94,49 +100,19 @@ PopupWindow {
       }
       Text { text: label; color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: Style.typeTitle; font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter }
     }
-    MouseArea { id: ma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
+    MouseArea {
+      id: ma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+      onPressed: mouse => tileRipple.start(mouse.x, mouse.y)
+      onReleased: tileRipple.release()
+      onCanceled: tileRipple.release()
+      onClicked: tile.clicked()
+    }
   }
 
-  // Same small tracked caps as SysPanel's section titles.
-  component Caption: Text {
-    color: Style.menuInkDeep
-    font.family: Style.menuSans
-    font.pixelSize: Style.typeCaption
-    font.weight: Font.DemiBold
-    font.letterSpacing: 1.2
-    font.capitalization: Font.AllUppercase
-  }
+  component Caption: Menu.MenuCaption {}
 
-  component RoundBtn: Rectangle {
-    property string icon
-    property color bg: Style.m3secondaryContainer
-    property color fg: Style.m3onSurface
-    signal clicked()
-    width: 44; height: 44; radius: 22
-    color: rma.containsMouse ? Qt.tint(bg, Style.m3stateHover) : bg
-    Behavior on color { ColorAnimation { duration: 120 } }
-    Text { anchors.centerIn: parent; text: icon; color: fg; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 20 }
-    MouseArea { id: rma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
-  }
-
-  // One segment of the screen-audio choice (the launcher's segmented pills).
-  component AudioPill: Menu.MenuPill {
-    property string key
-    implicitHeight: 28
-    bg: Style.m3container
-    selected: Services.Recorder.audio === key
-    onClicked: Services.Recorder.setAudio(key)
-  }
-
-  component IconBtn: Text {
-    property color tone: Style.m3onSurfaceVariant
-    signal clicked()
-    color: ima.containsMouse ? Style.m3onSurface : tone
-    font.family: Style.menuMono
-    font.pixelSize: 18
-    leftPadding: 4; rightPadding: 4
-    MouseArea { id: ima; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
-  }
+  component RoundBtn: Menu.MenuIconBtn { implicitWidth: 44; implicitHeight: 44; iconPx: 20; bg: Style.m3secondaryContainer }
+  component IconBtn: Menu.MenuIconBtn { iconPx: 18; hot: Style.m3onSurface }
 
   Menu.MenuPopIn { id: popIn; target: card }
   Menu.MenuPopOut { id: popOut; target: card }
@@ -154,22 +130,18 @@ PopupWindow {
     ColumnLayout {
       id: col
       anchors.fill: parent
-      anchors.margins: 16
-      spacing: 12
+      anchors.margins: Style.popupPad
+      spacing: Style.popupGap
 
-      // Header: icon pill, title, state.
+      // Header: glyph tile, title, state.
       RowLayout {
         Layout.fillWidth: true
-        spacing: 12
-        Rectangle {
-          width: 44; height: 44; radius: Style.menuRadiusMd
-          color: root.rec ? Style.red : Qt.alpha(Style.red, 0.16)
-          Behavior on color { ColorAnimation { duration: 160 } }
-          Text { anchors.centerIn: parent; text: "󰑊"; color: root.rec ? Style.m3onPrimary : Style.red; font.family: Style.menuMono; font.pixelSize: 26 }
-        }
+        spacing: 10
+        // Recording: the tile turns solid red (the signal the old 44 px tile gave).
+        Menu.MenuGlyphTile { glyph: "󰑊"; tint: root.rec ? Style.m3onPrimary : Style.red; color: root.rec ? Style.red : Qt.alpha(Style.red, 0.18) }
         ColumnLayout {
           Layout.fillWidth: true
-          spacing: 1
+          spacing: 0
           Text { Layout.fillWidth: true; text: "Screen recorder"; color: Style.m3onSurface; font.family: Style.menuSans; font.pixelSize: Style.typeTitle; font.weight: Font.DemiBold }
           Text {
             text: root.rec ? "Recording…" : "Ready · saves to ~/Videos"
@@ -186,7 +158,7 @@ PopupWindow {
         // Always-present close affordance: the bar chip that opens this panel can
         // disappear out from under it (e.g. recording stops), so closing must not
         // depend on clicking back on the chip.
-        IconBtn { text: "󰅖"; font.pixelSize: 22; onClicked: root.close() }
+        IconBtn { icon: "󰅖"; iconPx: 22; implicitWidth: 34; implicitHeight: 34; onClicked: root.close() }
       }
 
       // Running: file + size, pause / stop.
@@ -215,7 +187,7 @@ PopupWindow {
               color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: Style.typeBody
             }
           }
-          RoundBtn { icon: "󰓛"; bg: Style.red; fg: Style.m3onPrimary; onClicked: Services.Recorder.stop() }
+          RoundBtn { icon: "󰓛"; bg: Style.red; tone: Style.m3onPrimary; onClicked: Services.Recorder.stop() }
         }
       }
 
@@ -239,15 +211,11 @@ PopupWindow {
         Layout.fillWidth: true
         Caption { text: "Screen audio" }
         Item { Layout.fillWidth: true }
-        Rectangle {
-          implicitWidth: audioRow.implicitWidth + 8; implicitHeight: audioRow.implicitHeight + 8
-          radius: Style.menuRadiusFull; color: Style.m3container
-          Row {
-            id: audioRow; anchors.centerIn: parent; spacing: 4
-            AudioPill { key: "system"; icon: "󰕾"; label: "System" }
-            AudioPill { key: "mic"; icon: "󰍬"; label: "Mic" }
-            AudioPill { key: "none"; icon: "󰖁"; label: "Silent" }
-          }
+        Menu.MenuSegmented {
+          readonly property var keys: ["system", "mic", "none"]
+          model: [{ icon: "󰕾", label: "System" }, { icon: "󰍬", label: "Mic" }, { icon: "󰖁", label: "Silent" }]
+          current: keys.indexOf(Services.Recorder.audio)
+          onActivated: index => Services.Recorder.setAudio(keys[index])
         }
       }
 
@@ -257,7 +225,7 @@ PopupWindow {
         Layout.topMargin: 2
         Caption { text: "Recent" }
         Item { Layout.fillWidth: true }
-        IconBtn { text: "󰉋"; onClicked: { root.close(); Services.Recorder.revealFolder() } }
+        IconBtn { icon: "󰉋"; onClicked: { root.close(); Services.Recorder.revealFolder() } }
       }
       Rectangle {
         Layout.fillWidth: true
@@ -271,12 +239,12 @@ PopupWindow {
           anchors.top: parent.top
           anchors.margins: 6
           spacing: 2
-          Text {
+          Menu.MenuEmptyState {
             visible: (Services.Recorder.recent || []).length === 0
-            Layout.fillWidth: true
-            Layout.margins: 8
-            text: "No recordings yet"
-            color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: Style.typeBody
+            Layout.margins: 6
+            quiet: true
+            glyph: "󰕧"
+            title: "No recordings yet"
           }
           Repeater {
             model: Services.Recorder.recent
@@ -303,7 +271,7 @@ PopupWindow {
                 }
                 Text { text: Services.Recorder.fmtBytes(modelData.bytes); color: Style.m3onSurfaceVariant; font.family: Style.menuSans; font.pixelSize: Style.typeBody }
                 IconBtn {
-                  text: armed ? "󰆴" : "󰩹"
+                  icon: armed ? "󰆴" : "󰩹"
                   tone: armed ? Style.red : Style.m3onSurfaceVariant
                   onClicked: {
                     if (armed) { Services.Recorder.remove(modelData.path); root.confirmDelete = "" }

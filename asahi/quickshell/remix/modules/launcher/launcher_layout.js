@@ -226,7 +226,8 @@ function launcherLayout(opts) {
   const headerVisible = opts.headerVisible != null ? !!opts.headerVisible : (!quickMode && !compact)
   const colMode = !!(quickMode && sideActive)
 
-  const scale = uiScale(screenW, screenH)
+  // opts.look = Style.uiScale (the global look knob): type, rows and margins follow it; the card stays screen-sized.
+  const scale = uiScale(screenW, screenH) * (opts.look || 1)
   const fontScale = opts.fontScale == null ? fontScaleFor(scale) : opts.fontScale
   const cardMargin = scaledPx(CARD_MARGIN, scale, 10, 28)
   const colSpacing = scaledPx(COL_SPACING, scale, 6, 18)

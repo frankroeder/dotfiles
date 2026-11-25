@@ -66,7 +66,7 @@ RowLayout {
         border.color: Style.m3onSurface
         opacity: dot.n === 0 ? 0.18 : (dot.on ? 1 : (dotMa.containsMouse ? 0.95 : 0.72))
         scale: dot.on ? 1.12 : 1
-        Behavior on opacity { NumberAnimation { duration: 120 } }
+        Behavior on opacity { NumberAnimation { duration: Style.menuStateMs } }
         Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
         MouseArea {
           id: dotMa

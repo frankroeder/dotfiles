@@ -205,7 +205,8 @@ relabel filter.
   60–100; 100 = no limit, ≤ 99 = hold (also `asahi-battery`). One saved copy `/var/lib/asahi/charge-limit` (dir
   root:wheel 2775, temp + rename), written only after the SMC took it; boot applies it. Battery pane (Super+Ctrl+P,
   Reapply on mismatch) reads it on open / after change, never polls. SMC keeps it across unplug + s2idle: no AC-plug /
-  resume re-apply unless a replug drops it. Never read the limit from UPower (1.91.5 reads sysfs once at start, hwdb
+  resume re-apply unless a replug drops it. An apply takes ~60 ms: its "Applying N%…" line and the dimmed steppers show only after 400 ms
+  (`limitSlow`; as a row that came and went for two frames it moved the whole hero). Never read the limit from UPower (1.91.5 reads sysfs once at start, hwdb
   75/80 when it reads 100) nor toggle its `EnableChargeThreshold` (off writes 0/100: drops ours until boot).
 - **Keyboard / display brightness**: kbd `XF86Search` / `XF86LaunchA`, display `XF86MonBrightness*` (Shift = fine).
   Ambient light = Aurora's `aurora-kbd-light.service` (root; `asahi-system` unmasks + enables it; our old
@@ -454,6 +455,29 @@ relabel filter.
   Colours / Images, counts; "All" holds the total) + per-kind glyph + colour swatch (Qt parses no `rgb()` / `hsl()`
   strings, and CSS `#rrggbbaa` is Qt `#aarrggbb`); OSD speaker glyph by level, display sun turns 0–180° and grows.
   Harness copies patch the System rows to `exec: "true <verb>"` so a hold can never restart the Mac.
+  Pass 5 (2026-11-25, his picks, sheets `~/screenshots/quickshell-pass5-*`): **look knobs** `Style.uiScale` (type tokens,
+  launcher geometry `launcherLayout({ look })`, menu widgets' `fontScale` default) / `radiusScale` (menu radii, Full stays) /
+  `motionScale` / `fontFeatures` + the three families, live from an optional `~/.config/asahi/look.json` (`ASAHI_LOOK` path;
+  no file = defaults); tokens `typeHeadline 16`, `typeHero 28`, `menuRadiusXs 4`. **Concentric radii** `Style.inset(outer,
+  pad)` = max(Sm, outer − pad): launcher 28 → pane cards / heroes / gauges `menuPaneRadius` 16 → nested 12 → rows
+  `menuRowRadius` 8 (a thumb / tile in a row ≤ 8); results, rail pill, calc legend `menuSelRadius` 12. Pane metrics
+  `menuHeroPad 14` / `menuHeroGap 16` / `menuCardPad 12` (Hardware + Servers keep their tight hero: 767 × 636, no scroll).
+  Lists: `LauncherWindow.listSlot` (one leading slot) / `listRowH`, values right-aligned tabular with `Layout.minimumWidth`
+  (preferredWidth elided "100%"); clipboard image rows keep the thumbnail first (his pick). Pane fields `fieldH` / `fieldHSm`
+  (= `Style.fieldHeight 40` / `fieldHeightSm 30` on the laptop, scaled on the 4K); one focus ring (`focusRing`, width 2).
+  Popups `popupPad 14` / `popupGap 12`, header `MenuGlyphTile` + DemiBold title (usage stays "AGENT USAGE": his call;
+  RecordPanel's tile turns solid red while recording). `MenuDivider` = one device px (Item + 1/dpr line), `hairline(dpr)`, `rim(dpr)` (dark card rim),
+  no `menuSep`; OSD border `popupBorder`. Widgets: `MenuCaption` (panes pass `fontPx(8)`), `MenuMeter` (4 px,
+  value eases, width snaps, never grows from 0), `MenuSegmented` (one stretching handle), `MenuBadge`, `MenuKeycap` (Keys
+  overview, two-tone modifiers), `MenuRunner` (2 px, only busy && visible), `MenuEmptyState { quiet }`, `MenuGlyph` (ink
+  height, tile × `glyphRatio` 0.6) only on off-ratio tiles (Packages, toast fallback, now playing, empty disc, Writing /
+  Lookup; launcher rows, rail, Dashboard, hero tiles keep their glyphs). `menuSpringFast` (350 ms, `MenuAnim { fast }`):
+  switch edges stretch + height eases + hover layer, no check mark. `MenuSlider`: one eased `pos` (drag 1:1), wheel 1/20,
+  ←/→ while hovered, ±10 px hit, `detents`; `fontScale` 4/3 = popup size. Tooltips 470 ms, warm 600 ms (`tooltip_warm.js`).
+  Dark weights `wghtBody / wghtTitle` (variableAxes 450 / 550, dark only, never on StyledText). Bold → DemiBold; pill / chip
+  `numeric` = tnum. Workspaces: capsule edges stretch (B1), static urgent dot (B2,
+  `HyprlandWorkspace.urgent`, a qs restart forgets it). Declined: all of L13 (shadows),
+  rim, mono-accent, instrument OSD, scope graphs, decode text, corner marks, lifetime line, selection tick, slider looks.
 - **Round 4 features** (2026-11-25, his picks from the reference survey; sheet `~/screenshots/quickshell-round4-2026-11-25.png`):
   night light chip click = `NightLightPanel` (warmth slider 1000–6000 K in 250 K steps, `asahi-nightlight set <K>` 300 ms
   after the last move, presets, Off; right-click = off; QML reads `ASAHI_NIGHTLIGHT_STATE` like the script).
@@ -941,6 +965,13 @@ relabel filter.
   stdout joins the prompt), never exit 2 (blocks the tool). Bar: the cup in dim amber + "Claude Code working (N)"
   tooltip from `claude-activity.count` (FileView; rewritten on change, gone at 0; `status` every 5 min while it lives
   prunes a crashed session). `asahi_idle_test.sh` covers it.
+  **Waiting for you** (2026-11-25, his pick; idea: Ricelin; a cup state was rejected: the cup is stay awake): `wait`
+  (Notification hook, matcher `permission_prompt|idle_prompt`) writes `claude-activity.wait/<session>` and the bar's
+  line `claude-activity.waiting` ("<n>\t<project>\t<window address>", gone at 0); `Ccu.qml` shows a static red ring
+  round the Claude mark only (a red chip outline was tried and dropped: "looks bad"; not the ≥ 90 % wash), holds the chip rotation on Claude, hover names the
+  project; a click stays the usage popup (click-to-focus the terminal was built and rejected the same day). The window
+  = `hyprctl activewindow` at the last `start` (all Ghostty windows share one pid: the process tree cannot tell), used
+  only so that nothing is shown while that window has the focus; every later hook of the session clears it. Hooks are not in his settings.json yet (the classifier refuses edits there: he runs the script).
 - **Idle (macOS-shaped)**: why hypridle (2026-11-23, his question): Hyprland has no idle actions of its own and logind
   sees no Wayland idle, so something must turn "no input for N minutes" into dim / lock / dark / sleep, lock before
   every sleep (and hold it until the lock is up: `inhibit_sleep = 3`), run the after-wake steps, and honour apps'

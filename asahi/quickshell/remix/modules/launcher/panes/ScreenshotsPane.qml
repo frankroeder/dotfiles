@@ -37,14 +37,11 @@ Item {
     RowLayout {
       Layout.fillWidth: true
       spacing: 8
-      Rectangle {
-        implicitWidth: segRow.implicitWidth + 8; implicitHeight: 40
-        radius: Style.menuRadiusFull; color: Style.m3container
-        Row {
-          id: segRow; anchors.centerIn: parent; spacing: 4
-          Pill { icon: "󰹑"; label: "Shots " + (root.shots || []).length; selected: !shotsPane.videoMode; onClicked: root.galleryKind = "shots" }
-          Pill { icon: "󰕧"; label: "Videos " + (root.videos || []).length; selected: shotsPane.videoMode; onClicked: root.galleryKind = "videos" }
-        }
+      Menu.MenuSegmented {
+        fontScale: root.uiFontScale
+        model: [{ icon: "󰹑", label: "Shots " + (root.shots || []).length }, { icon: "󰕧", label: "Videos " + (root.videos || []).length }]
+        current: shotsPane.videoMode ? 1 : 0
+        onActivated: index => root.galleryKind = index ? "videos" : "shots"
       }
       Item { Layout.fillWidth: true }
       Pill {
@@ -65,7 +62,7 @@ Item {
     Rectangle {
       Layout.fillWidth: true
       Layout.fillHeight: true
-      radius: Style.menuPanelRadius
+      radius: Style.menuPaneRadius
       color: Style.m3container
 
       GridView {
@@ -105,10 +102,10 @@ Item {
             Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
             Image {
+              id: thumb
               anchors.fill: parent
-              visible: !shotsPane.videoMode
-              // Cached thumb (made by the scan); a full PNG decode per tile made the grid crawl.
-              source: !shotsPane.videoMode && modelData.path ? ("file://" + Gallery.thumbPath(modelData.path, Quickshell.env("HOME"))) : ""
+              // Cached thumb (made by the scan; a full PNG decode per tile made the grid crawl): a recording's = its frame at 0.5 s.
+              source: modelData.path ? ("file://" + Gallery.thumbPath(modelData.path, Quickshell.env("HOME"))) : ""
               fillMode: Image.PreserveAspectCrop
               asynchronous: true
               cache: false  // an annotated shot's thumb is rewritten under the same name
@@ -120,8 +117,14 @@ Item {
               visible: shotsPane.videoMode
               anchors.centerIn: parent
               width: 44; height: 44; radius: 22
-              color: Style.m3primaryContainer
-              Text { anchors.centerIn: parent; text: "󰐊"; color: Style.m3primary; font.family: root.uiFont; font.pixelSize: root.fontPx(18) }
+              // Over a preview frame: a dark disc; without one (a take still being written) the tinted tile mark.
+              readonly property bool overFrame: thumb.status === Image.Ready
+              color: overFrame ? Qt.alpha(Style.crust, 0.55) : Style.m3primaryContainer
+              Text {
+                anchors.centerIn: parent; text: "󰐊"
+                color: parent.overFrame ? Style.menuOverlayLight : Style.m3primary
+                font.family: root.uiFont; font.pixelSize: root.fontPx(18)
+              }
             }
 
             // Bottom label strip.
@@ -187,7 +190,7 @@ Item {
               anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 6
               spacing: 4
               opacity: tileHover.hovered ? 1 : 0
-              Behavior on opacity { NumberAnimation { duration: 120 } }
+              Behavior on opacity { NumberAnimation { duration: Style.menuStateMs } }
               IconBtn { visible: !shotsPane.videoMode; icon: "󰋲"; onClicked: root.previewShot(cell.modelData.path) }
               IconBtn { visible: !shotsPane.videoMode; icon: "󰆏"; onClicked: root.copyShot(cell.modelData.path) }
               IconBtn { visible: !shotsPane.videoMode; icon: "󰏫"; onClicked: root.annotateShot(cell.modelData.path) }
@@ -213,7 +216,7 @@ Item {
             color: "transparent"
             border.width: cell.copied ? 2 : 1
             border.color: cell.copied ? Style.green : (tileHover.hovered ? Style.m3outline : Style.m3outlineVariant)
-            Behavior on border.color { ColorAnimation { duration: 120 } }
+            Behavior on border.color { ColorAnimation { duration: Style.menuStateMs } }
           }
         }
       }

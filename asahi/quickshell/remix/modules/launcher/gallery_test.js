@@ -15,6 +15,8 @@ if (G.thumbPath("/home/x/screenshots/a.png", "/home/x") !== "/home/x/.cache/asah
 if (G.label("/x/screenshot_2026-05-21_21-42-14.png") !== "2026-05-21_21-42-14") throw new Error("underscore shot label");
 const vidCmd = G.scanCommand("videos", "/home/x");
 if (vidCmd.indexOf("\"/home/x/Videos\"") === -1 || vidCmd.indexOf("recording-*.mp4") === -1) throw new Error("vid cmd " + vidCmd);
+if (vidCmd.indexOf("ffmpeg") === -1 || vidCmd.indexOf("/.cache/asahi/video-thumbs") === -1 || vidCmd.indexOf("shot-thumbs") !== -1) throw new Error("recordings get a preview frame in their own folder: " + vidCmd);
+if (G.thumbPath("/home/x/Videos/recording-a.mp4", "/home/x") !== "/home/x/.cache/asahi/video-thumbs/recording-a.mp4.jpg") throw new Error("video thumb path");
 
 const mapped = G.mapPaths("/home/x/Videos/recording-a.mp4\n/home/x/Videos/recording-b.mp4\n");
 if (mapped.length !== 2 || mapped[0].label !== "a" || mapped[1].path !== "/home/x/Videos/recording-b.mp4") throw new Error("map");

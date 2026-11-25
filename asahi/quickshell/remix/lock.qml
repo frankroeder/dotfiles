@@ -366,7 +366,7 @@ ShellRoot {
               visible: lock.capsOn
               text: "CAPS"
               color: Style.yellow
-              font.family: Style.fontMono; font.pixelSize: 12; font.weight: Font.Bold
+              font.family: Style.fontMono; font.pixelSize: 12; font.weight: Font.DemiBold
             }
             Text {
               anchors.centerIn: parent

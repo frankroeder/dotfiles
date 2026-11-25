@@ -155,6 +155,10 @@ Item {
   property string limitMsg: ""
   property bool limitErr: false
   readonly property bool limitBusy: limitApply.running || limitProc.running
+  // An apply takes ~60 ms: its "Applying…" line and the dimmed steppers flashed for two frames and moved the column.
+  // Both show only once it has run for 400 ms.
+  property bool limitSlow: false
+  onLimitBusyChanged: if (limitBusy) limitSlowT.restart(); else { limitSlowT.stop(); limitSlow = false }
   readonly property bool limitDrift: limitEnd >= 0 && limitDesired >= 0 && limitDesired !== limitEnd
   readonly property string limitHint: {
     if (limitEnd < 0) return " "
@@ -198,6 +202,7 @@ Item {
     }
   }
   Timer { id: limitMsgClear; interval: 8000; onTriggered: quickBatteryRoot.limitMsg = "" }
+  Timer { id: limitSlowT; interval: 400; onTriggered: quickBatteryRoot.limitSlow = quickBatteryRoot.limitBusy }
 
   Process {
     id: histProc
@@ -263,14 +268,14 @@ Item {
     // Hero: charge ring, state, time estimate, charge-cap pills.
     Rectangle {
       Layout.fillWidth: true
-      implicitHeight: heroRow.implicitHeight + 28
-      radius: Style.menuPanelRadius
+      implicitHeight: heroRow.implicitHeight + 2 * Style.menuHeroPad
+      radius: Style.menuPaneRadius
       color: Style.m3container
       RowLayout {
         id: heroRow
         anchors.fill: parent
-        anchors.margins: 14
-        spacing: 18
+        anchors.margins: Style.menuHeroPad
+        spacing: Style.menuHeroGap
         Menu.MenuHudDial {
           Layout.preferredWidth: Math.round(100 * root.uiFontScale); Layout.preferredHeight: Layout.preferredWidth
           value: Math.max(0, quickBatteryRoot.batPercentage)
@@ -306,7 +311,7 @@ Item {
             color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(12)
           }
           Text {
-            text: quickBatteryRoot.limitHint
+            text: quickBatteryRoot.limitSlow && !quickBatteryRoot.limitErr && quickBatteryRoot.limitMsg !== "" ? quickBatteryRoot.limitMsg : quickBatteryRoot.limitHint
             color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(10)
           }
           // Charge limit: 60-100 in 5% steps, plus the 80 / 100 presets.
@@ -319,7 +324,7 @@ Item {
               Pill {
                 label: "−"
                 enabled: !quickBatteryRoot.limitBusy && quickBatteryRoot.limitEnd > 60
-                opacity: enabled ? 1 : 0.4
+                opacity: quickBatteryRoot.limitEnd > 60 && !quickBatteryRoot.limitSlow ? 1 : 0.4
                 onClicked: quickBatteryRoot.setLimit(quickBatteryRoot.limitEnd - 5)
               }
               Text {
@@ -332,7 +337,7 @@ Item {
               Pill {
                 label: "+"
                 enabled: !quickBatteryRoot.limitBusy && quickBatteryRoot.limitEnd >= 0 && quickBatteryRoot.limitEnd < 100
-                opacity: enabled ? 1 : 0.4
+                opacity: quickBatteryRoot.limitEnd >= 0 && quickBatteryRoot.limitEnd < 100 && !quickBatteryRoot.limitSlow ? 1 : 0.4
                 onClicked: quickBatteryRoot.setLimit(quickBatteryRoot.limitEnd + 5)
               }
             }
@@ -362,7 +367,7 @@ Item {
           }
           Text {
             Layout.fillWidth: true
-            visible: quickBatteryRoot.limitMsg !== ""
+            visible: quickBatteryRoot.limitErr && quickBatteryRoot.limitMsg !== ""   // errors only: a row that comes and goes moves the hero
             text: quickBatteryRoot.limitMsg
             textFormat: Text.PlainText
             wrapMode: Text.Wrap
@@ -406,7 +411,7 @@ Item {
               }
               return out
             }
-            Rectangle { anchors { left: parent.left; right: parent.right; bottom: parent.bottom } height: 1; color: Style.menuSep }
+            Rectangle { anchors { left: parent.left; right: parent.right; bottom: parent.bottom } height: 1; color: Style.menuHairline }
             Rectangle {   // hold limit
               visible: quickBatteryRoot.limitEnd > 0 && quickBatteryRoot.limitEnd < 100
               anchors { left: parent.left; right: parent.right }
@@ -489,13 +494,13 @@ Item {
     Rectangle {
       Layout.fillWidth: true
       visible: !quickBatteryRoot.smcLoaded || (quickBatteryRoot.smcPower || []).length > 0
-      implicitHeight: smcCol.implicitHeight + 24
+      implicitHeight: smcCol.implicitHeight + 2 * Style.menuCardPad
       radius: Style.menuRadiusLg
       color: Style.m3container
       ColumnLayout {
         id: smcCol
         anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
-        anchors.margins: 12
+        anchors.margins: Style.menuCardPad
         spacing: 8
         RowLayout {
           Layout.fillWidth: true
@@ -554,16 +559,17 @@ Item {
       Layout.minimumHeight: 96
       radius: Style.menuRadiusLg
       color: Style.m3container
-      Text {
+      Menu.MenuEmptyState {
         anchors.centerIn: parent
         visible: quickBatteryRoot.batFacts.length === 0
-        text: "Loading…"
-        color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(11)
+        quiet: true; fontScale: root.uiFontScale
+        glyph: "󰁹"
+        title: "Reading battery…"
       }
       Flickable {
         id: factFlick
         anchors.fill: parent
-        anchors.margins: 14
+        anchors.margins: Style.menuCardPad
         clip: true
         contentHeight: factGrid.implicitHeight
         boundsBehavior: Flickable.StopAtBounds

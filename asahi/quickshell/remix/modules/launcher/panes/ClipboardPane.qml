@@ -70,9 +70,10 @@ Item {
       spacing: 8
       Rectangle {
         Layout.fillWidth: true
-        implicitHeight: 32; radius: Style.menuRadiusFull
+        implicitHeight: root.fieldHSm; radius: Style.menuRadiusFull
         color: clipIn.activeFocus ? Style.m3containerHigh : Style.m3container
-        Behavior on color { ColorAnimation { duration: 120 } }
+        border.width: clipIn.activeFocus ? Style.focusRingWidth : 0; border.color: Style.focusRing
+        Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
         Text {
           id: filterGlyph
           anchors.left: parent.left; anchors.leftMargin: 12; anchors.verticalCenter: parent.verticalCenter
@@ -143,7 +144,7 @@ Item {
     Rectangle {
       Layout.fillWidth: true
       Layout.fillHeight: true
-      radius: Style.menuPanelRadius
+      radius: Style.menuPaneRadius
       color: Style.m3container
 
       ListView {
@@ -165,11 +166,12 @@ Item {
           readonly property bool copied: root.copiedClip === String(modelData.id)
           readonly property bool isImage: !!modelData.isImage
           readonly property string kind: clipPane.kind(modelData)
+          readonly property bool hasThumb: isImage && !!modelData.thumb
           width: clipList.width - 10
-          height: isImage ? 64 : 42
-          radius: Style.menuRadiusMd
+          height: hasThumb ? root.fontPx(48) : root.listRowH
+          radius: Style.menuRowRadius
           color: rowHover.hovered ? Style.m3stateHover : "transparent"
-          Behavior on color { ColorAnimation { duration: 120 } }
+          Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
 
           // Row HoverHandler (not a MouseArea's containsMouse): the IconBtn MouseAreas steal that hover,
           // which hid the buttons while clicks fell through to the row (copy instead of delete).
@@ -188,11 +190,12 @@ Item {
             anchors.fill: parent
             anchors.leftMargin: 10; anchors.rightMargin: 6
             spacing: 10
-            // Leading: thumbnail for images, clipboard glyph otherwise.
+            // Leading: an image's thumbnail (his pick: images first), else one slot for the kind glyph (a colour shows
+            // itself; an image without a thumbnail gets the image glyph), so text labels share one x.
             ClippingRectangle {
-              visible: row.isImage
-              Layout.preferredWidth: 72; Layout.preferredHeight: 48
-              radius: Style.menuRadiusMd; color: Style.m3containerHigh
+              visible: row.hasThumb
+              Layout.preferredWidth: root.fontPx(54); Layout.preferredHeight: root.fontPx(36)
+              radius: Style.menuRadiusSm; color: Style.m3containerHigh   // inside an 8 px row
               Image {
                 anchors.fill: parent
                 source: modelData.thumb ? ("file://" + modelData.thumb) : ""
@@ -201,21 +204,18 @@ Item {
                 sourceSize.width: 160
                 asynchronous: true
               }
-              Text {
-                anchors.centerIn: parent; visible: !modelData.thumb
-                text: "󰋩"; color: Style.m3onSurfaceVariant; font.family: root.uiFont; font.pixelSize: root.fontPx(16)
-              }
             }
             Text {
-              visible: !row.isImage && row.kind !== "colour"
-              Layout.preferredWidth: root.fontPx(16)
+              visible: row.kind !== "colour" && !row.hasThumb
+              Layout.preferredWidth: root.listSlot
               horizontalAlignment: Text.AlignHCenter
               text: clipPane.glyph(row.kind)
               color: Style.m3primary; font.family: root.uiFont; font.pixelSize: root.fontPx(14)
             }
             Rectangle {   // a colour value shows itself
               visible: row.kind === "colour"
-              Layout.preferredWidth: root.fontPx(16); Layout.preferredHeight: root.fontPx(16)
+              Layout.preferredWidth: root.fontPx(14); Layout.preferredHeight: root.fontPx(14)
+              Layout.leftMargin: (root.listSlot - width) / 2; Layout.rightMargin: (root.listSlot - width) / 2
               radius: width / 2
               color: row.kind === "colour" ? clipPane.swatch(modelData.preview) : "transparent"
               border.width: 1; border.color: Style.m3outlineVariant
@@ -233,7 +233,7 @@ Item {
             // Copied chip.
             Rectangle {
               visible: row.copied
-              implicitWidth: copiedRow.implicitWidth + 18; implicitHeight: 24
+              implicitWidth: copiedRow.implicitWidth + 18; implicitHeight: root.fontPx(18)
               radius: Style.menuRadiusFull; color: Style.panelSuccessBg
               Row {
                 id: copiedRow; anchors.centerIn: parent; spacing: 5
@@ -251,6 +251,7 @@ Item {
               visible: !row.copied && !rowHover.hovered
               text: "#" + (row.index + 1)
               color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(9)
+              Layout.minimumWidth: root.fontPx(20); horizontalAlignment: Text.AlignRight; font.features: Style.fontTabular
             }
             IconBtn { visible: rowHover.hovered; icon: "󰆏"; onClicked: root.copyClip(row.modelData.id) }
             IconBtn { visible: rowHover.hovered; icon: "󰆴"; tone: Style.red; onClicked: root.deleteClip(row.modelData.id) }

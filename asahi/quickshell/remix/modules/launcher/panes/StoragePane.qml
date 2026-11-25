@@ -103,22 +103,6 @@ Item {
   component Pill: Menu.MenuPill { fontScale: quickStorageRoot.root.uiFontScale }
   component Chip: Menu.MenuChip { fontScale: quickStorageRoot.root.uiFontScale }
 
-  // Thin usage bar: containerHigh track, accent fill.
-  component UsageBar: Rectangle {
-    property real frac: 0
-    property color accent: Style.m3secondary
-    implicitHeight: 6
-    radius: 3
-    color: Style.m3containerHigh
-    Rectangle {
-      width: parent.width * Math.max(0, Math.min(1, parent.frac))
-      height: parent.height
-      radius: parent.radius
-      color: parent.accent
-      Behavior on width { Menu.MenuAnim {} }
-    }
-  }
-
   component CardTitle: Text {
     color: Style.m3onSurface
     font.family: quickStorageRoot.root.uiSans
@@ -128,7 +112,7 @@ Item {
   component Secondary: Text {
     color: Style.m3onSurfaceVariant
     font.family: quickStorageRoot.root.uiSans
-    font.pixelSize: quickStorageRoot.root.fontPx(9)
+    font.pixelSize: quickStorageRoot.root.fontPx(10)
     elide: Text.ElideRight
   }
   component Glyph: Text {
@@ -136,7 +120,7 @@ Item {
     font.family: quickStorageRoot.root.uiFont
     font.pixelSize: quickStorageRoot.root.fontPx(12)
     horizontalAlignment: Text.AlignHCenter
-    Layout.preferredWidth: quickStorageRoot.root.fontPx(16)
+    Layout.preferredWidth: quickStorageRoot.root.listSlot
   }
   // Fixed-width, right-aligned table cell (bars and numbers line up row to row).
   component Cell: Secondary {
@@ -155,9 +139,9 @@ Item {
     signal toggled()
     Layout.fillWidth: true
     implicitHeight: quickStorageRoot.root.fontPx(26)
-    radius: Style.menuRadiusMd
+    radius: Style.menuRowRadius
     color: headMa.containsMouse ? Style.m3stateHover : "transparent"
-    Behavior on color { ColorAnimation { duration: 120 } }
+    Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
     MouseArea { id: headMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: sectionHead.toggled() }
     RowLayout {
       anchors.fill: parent
@@ -179,13 +163,16 @@ Item {
     Rectangle {
       Layout.fillWidth: true
       Layout.preferredHeight: Math.round(root.launcherGeom.rowHTall * 2)
-      radius: Style.menuPanelRadius
+      radius: Style.menuPaneRadius
       color: Style.m3container
+      Menu.MenuRunner {
+        anchors { left: parent.left; right: parent.right; bottom: parent.bottom; leftMargin: parent.radius; rightMargin: parent.radius }
+        busy: root.storageStatus === "scanning"
+      }
       RowLayout {
         anchors.fill: parent
-        anchors.margins: 12
-        anchors.leftMargin: 16
-        spacing: 16
+        anchors.margins: Style.menuHeroPad
+        spacing: Style.menuHeroGap
         Menu.MenuHudDial {
           Layout.fillHeight: true
           Layout.preferredWidth: height
@@ -206,7 +193,8 @@ Item {
             Text {
               Layout.fillWidth: true
               text: "Storage"
-              color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(15); font.weight: Font.DemiBold
+              color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(17); font.weight: Font.DemiBold
+              font.variableAxes: Style.opsz(root.fontPx(17))
             }
             // Mounted read-only (btrfs / vfat remount ro after errors).
             Text {
@@ -340,9 +328,9 @@ Item {
                     readonly property bool busy: quickStorageRoot.usbBusy === (mounted ? "unmount " : "mount ") + modelData.path
                     Layout.fillWidth: true
                     implicitHeight: partCol.implicitHeight + 12
-                    radius: Style.menuRadiusMd
+                    radius: Style.menuRowRadius
                     color: partMa.containsMouse ? Style.m3stateHover : Style.m3container
-                    Behavior on color { ColorAnimation { duration: 120 } }
+                    Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
                     MouseArea {
                       id: partMa
                       anchors.fill: parent
@@ -397,12 +385,11 @@ Item {
                           onClicked: quickStorageRoot.usbAction([partRoot.mounted ? "unmount" : "mount", partRoot.modelData.path])
                         }
                       }
-                      UsageBar {
+                      Menu.MenuMeter {
                         visible: partRoot.mounted
                         Layout.fillWidth: true
-                        implicitHeight: 3
-                        frac: partRoot.modelData.size > 0 ? partRoot.modelData.used / partRoot.modelData.size : 0
-                        accent: quickStorageRoot.mountColor(partRoot.modelData.size > 0 ? 100 * partRoot.modelData.used / partRoot.modelData.size : 0)
+                        value: partRoot.modelData.size > 0 ? partRoot.modelData.used / partRoot.modelData.size : 0
+                        fill: quickStorageRoot.mountColor(partRoot.modelData.size > 0 ? 100 * partRoot.modelData.used / partRoot.modelData.size : 0)
                       }
                     }
                   }
@@ -429,11 +416,12 @@ Item {
             open: quickStorageRoot.fsOpen
             onToggled: quickStorageRoot.fsOpen = !quickStorageRoot.fsOpen
           }
-          Secondary {
+          Menu.MenuEmptyState {
             visible: quickStorageRoot.fsOpen && quickStorageRoot.otherMounts.length === 0
-            Layout.fillWidth: true
-            Layout.leftMargin: 8
-            text: root.storageStatus === "scanning" ? "Reading mount points…" : "No other mounts"
+            Layout.leftMargin: 4
+            quiet: true; fontScale: root.uiFontScale
+            glyph: "󰋊"
+            title: root.storageStatus === "scanning" ? "Reading mount points…" : "No other mounts"
           }
           Repeater {
             model: quickStorageRoot.otherMounts
@@ -443,9 +431,9 @@ Item {
               visible: quickStorageRoot.fsOpen
               Layout.fillWidth: true
               implicitHeight: root.fontPx(28)
-              radius: Style.menuRadiusMd
+              radius: Style.menuRowRadius
               color: mma.containsMouse ? Style.m3stateHover : "transparent"
-              Behavior on color { ColorAnimation { duration: 120 } }
+              Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
               MouseArea {
                 id: mma
                 anchors.fill: parent
@@ -457,7 +445,7 @@ Item {
               }
               RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: 6; anchors.rightMargin: 8
+                anchors.leftMargin: 10; anchors.rightMargin: 8
                 spacing: 10
                 Glyph { text: "󰋊" }
                 Text {
@@ -472,10 +460,10 @@ Item {
                   text: quickStorageRoot.fsDetails(mountRowRoot.modelData)
                   textFormat: Text.PlainText
                 }
-                UsageBar {
-                  Layout.preferredWidth: root.fontPx(120)
-                  frac: mountRowRoot.modelData.pct / 100
-                  accent: quickStorageRoot.mountColor(mountRowRoot.modelData.pct)
+                Menu.MenuMeter {
+                  Layout.preferredWidth: root.fontPx(96)
+                  value: mountRowRoot.modelData.pct / 100
+                  fill: quickStorageRoot.mountColor(mountRowRoot.modelData.pct)
                 }
                 Cell { w: 100; text: root.prettyBytes(mountRowRoot.modelData.used) + " / " + root.prettyBytes(mountRowRoot.modelData.total) }
                 // Read-only (remounted after errors): free space is moot, flag it there.
@@ -505,11 +493,12 @@ Item {
             open: quickStorageRoot.homeOpen
             onToggled: quickStorageRoot.homeOpen = !quickStorageRoot.homeOpen
           }
-          Secondary {
+          Menu.MenuEmptyState {
             visible: quickStorageRoot.homeOpen && (root.storageHomeDirs || []).length === 0
-            Layout.fillWidth: true
-            Layout.leftMargin: 8
-            text: root.storageStatus === "scanning" ? "Sizing folders…" : "No folders"
+            Layout.leftMargin: 4
+            quiet: true; fontScale: root.uiFontScale
+            glyph: "󰉋"
+            title: root.storageStatus === "scanning" ? "Sizing folders…" : "No folders"
           }
           Repeater {
             model: root.storageHomeDirs || []
@@ -519,9 +508,9 @@ Item {
               visible: quickStorageRoot.homeOpen
               Layout.fillWidth: true
               implicitHeight: root.fontPx(26)
-              radius: Style.menuRadiusMd
+              radius: Style.menuRowRadius
               color: dma.containsMouse ? Style.m3stateHover : "transparent"
-              Behavior on color { ColorAnimation { duration: 120 } }
+              Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
               MouseArea {
                 id: dma
                 anchors.fill: parent
@@ -531,7 +520,7 @@ Item {
               }
               RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: 6; anchors.rightMargin: 8
+                anchors.leftMargin: 10; anchors.rightMargin: 8
                 spacing: 10
                 Glyph {
                   text: dirRowRoot.modelData.name.indexOf("~/.") === 0 ? "󰉖" : "󰉋"
@@ -544,7 +533,7 @@ Item {
                   color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(11)
                   font.weight: Font.Medium; elide: Text.ElideMiddle
                 }
-                UsageBar { Layout.fillWidth: true; frac: dirRowRoot.modelData.bar || 0; accent: Style.m3tertiary }
+                Menu.MenuMeter { Layout.fillWidth: true; value: dirRowRoot.modelData.bar || 0; fill: Style.m3tertiary }
                 Cell { w: 32; text: dirRowRoot.modelData.pct + "%" }
                 Cell {
                   w: 62

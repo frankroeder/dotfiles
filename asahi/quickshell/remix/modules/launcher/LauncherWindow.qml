@@ -302,6 +302,7 @@ Scope {
   readonly property var launcherGeom: LauncherGeom.launcherLayout({
     screenH: root.launcherScreenH,
     screenW: root.launcherScreenW,
+    look: Style.uiScale,
     tileCount: (root.quickDeck || []).length,
     sideActive: root.sideActive,
     quickMode: root.quickMode,
@@ -319,6 +320,13 @@ Scope {
   function fontPx(size) {
     return Math.round(size * root.uiFontScale)
   }
+  // List rows: one leading slot (glyph centred, labels share one x) and one row height, both in launcher type units
+  // (fixed px rows stayed laptop-sized on the 4K screen).
+  readonly property int listSlot: fontPx(18)
+  readonly property int listRowH: fontPx(30)
+  // Pane fields: Style.fieldHeight / Sm on the laptop (type scale ≈ 4/3), growing with the type on the 4K screen.
+  readonly property int fieldH: fontPx(Style.fieldHeight * 3 / 4)
+  readonly property int fieldHSm: fontPx(Style.fieldHeightSm * 3 / 4)
   function tintColor(token) {
     switch (token) {
       case "pink": return Style.pink
@@ -742,6 +750,7 @@ Scope {
           font.pixelSize: root.fontPx(10)
           font.family: root.uiSans
           font.weight: Font.Medium
+          font.variableAxes: Style.wghtTitle
           horizontalAlignment: Text.AlignLeft
           elide: Text.ElideNone
         }
@@ -751,6 +760,7 @@ Scope {
           text: rowValue
           color: Style.m3onSurface
           font.pixelSize: root.fontPx(10)
+          font.variableAxes: Style.wghtBody
           // Machine strings (kernel release, address) in the data mono.
           font.family: modelData.key === "Kernel" || modelData.key === "IP" ? Style.fontData : root.uiSans
           // Guard on width so the first 0-wide pass does not wrap
@@ -886,16 +896,16 @@ Scope {
       // User card: logo tile, user@host, uptime + clock chips.
       Rectangle {
         Layout.fillWidth: true
-        implicitHeight: userRow.implicitHeight + 28
-        radius: Style.menuPanelRadius
+        implicitHeight: userRow.implicitHeight + 2 * Style.menuHeroPad
+        radius: Style.menuPaneRadius
         color: Style.m3container
         RowLayout {
           id: userRow
           anchors.fill: parent
-          anchors.margins: 14
-          spacing: 14
+          anchors.margins: Style.menuHeroPad
+          spacing: Style.menuHeroGap
           Rectangle {
-            width: Math.round(36 * root.uiFontScale); height: width; radius: Style.menuRadiusLg   // hero tile: one size in every pane
+            width: Math.round(36 * root.uiFontScale); height: width; radius: Style.menuRadiusMd   // hero tile: one size in every pane
             color: Style.m3primaryContainer
             Text { anchors.centerIn: parent; text: "󰣛"; color: Style.m3primary; font.family: root.uiFont; font.pixelSize: Math.round(22 * root.uiFontScale) }
           }
@@ -981,15 +991,17 @@ Scope {
         id: ffInfoCard
         Layout.fillWidth: true
         Layout.fillHeight: true
-        Layout.minimumHeight: Math.max(72, ffInfoBody.rowsH + ffInfoBody.baseGap * Math.max(0, ffInfoBody.rowCount - 1) + 32)
-        radius: Style.menuPanelRadius
+        Layout.minimumHeight: Math.max(72, ffInfoBody.rowsH + ffInfoBody.baseGap * Math.max(0, ffInfoBody.rowCount - 1)
+          + 2 * Style.menuCardPad + ffKicker.h)
+        radius: Style.menuPaneRadius
         color: Style.m3container
         GridLayout {
           id: ffInfoBody
           anchors.left: parent.left
           anchors.right: parent.right
           anchors.verticalCenter: parent.verticalCenter
-          anchors.margins: 16
+          anchors.verticalCenterOffset: ffKicker.h / 2
+          anchors.margins: Style.menuCardPad
           columns: 2
           columnSpacing: 24
           readonly property var cells: children.filter(c => c.modelData !== undefined)
@@ -1002,12 +1014,24 @@ Scope {
           }
           readonly property int baseGap: Math.max(10, Math.round(root.fontPx(7)))
           rowSpacing: rowCount > 1
-            ? Math.round(Math.min(2 * baseGap, Math.max(baseGap, (ffInfoCard.height - 32 - rowsH) / (rowCount - 1))))
+            ? Math.round(Math.min(2 * baseGap, Math.max(baseGap, (ffInfoCard.height - 2 * Style.menuCardPad - ffKicker.h - rowsH) / (rowCount - 1))))
             : baseGap
           Repeater {
             model: quickHubRoot.ffGridRows
             delegate: ffInfoRowDelegate
           }
+        }
+        // Kicker: the shell prompt the facts below are the output of (static).
+        Text {
+          id: ffKicker
+          readonly property real h: visible ? height + 4 : 0
+          visible: /.@/.test(quickHubRoot.ffTitle)   // user@host
+          anchors { left: parent.left; right: parent.right; top: parent.top; margins: Style.menuCardPad }
+          text: quickHubRoot.ffTitle + ":~$ fastfetch"
+          textFormat: Text.PlainText
+          color: Style.menuAccent
+          font.family: Style.fontData; font.pixelSize: root.fontPx(10)
+          elide: Text.ElideRight
         }
       }
     }
@@ -3348,6 +3372,7 @@ Scope {
               // Rows stop short of the scrollbar (0 wide when nothing overflows).
               readonly property real rowW: width - resultsScroll.width
               highlight: Menu.MenuStretchPill {
+                radius: Style.menuSelRadius
                 opacity: resultsList.currentItem ? resultsList.currentItem.enterT : 1   // arrives with its row
                 width: resultsList.rowW
                 targetTop: resultsList.currentItem ? resultsList.currentItem.y + 1 : 0
@@ -3395,7 +3420,7 @@ Scope {
                   anchors.fill: parent
                   anchors.topMargin: 1
                   anchors.bottomMargin: 1
-                  radius: Style.menuRadiusFull   // the selection's shape: hover → select does not morph
+                  radius: Style.menuSelRadius   // the selection's shape: hover → select does not morph
                   color: rowMa.containsMouse && !delegateRoot.isSelected ? Style.m3stateHover : "transparent"
                   Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
                 }
@@ -3405,7 +3430,7 @@ Scope {
                   anchors.fill: parent
                   anchors.topMargin: 1
                   anchors.bottomMargin: 1
-                  radius: height / 2
+                  radius: Style.menuSelRadius
                   color: "transparent"
                   visible: delegateRoot.holding && root.holdProgress > 0
                   Rectangle {
@@ -3448,7 +3473,7 @@ Scope {
                       anchors.centerIn: parent
                       width: parent.width
                       height: parent.height
-                      radius: 6
+                      radius: Style.menuRadiusSm
                       color: Qt.alpha(delegateRoot.dTint, 0.14)
                       visible: delegateRoot.dImage === "" || rowIcon.status !== Image.Ready
                     }
@@ -3474,6 +3499,7 @@ Scope {
                       font.pixelSize: root.fontPx(14)
                       font.family: root.uiSans
                       font.weight: Font.Medium
+                      font.variableAxes: Style.wghtTitle
                       elide: Text.ElideRight
                     }
 
@@ -3486,6 +3512,7 @@ Scope {
                       color: delegateRoot.holding || hinted ? Style.red : Style.m3outline
                       font.pixelSize: root.fontPx(11)
                       font.family: root.uiSans
+                      font.variableAxes: Style.wghtBody
                       elide: Text.ElideRight
                       maximumLineCount: 1
                     }
@@ -3523,7 +3550,7 @@ Scope {
                     text: root.fileMode && modelData.path
                       ? Data.tildify(Data.dirname(modelData.path), root.homeDir)
                       : delegateRoot.dAcc
-                    visible: text !== "" && !delegateRoot.dCat
+                    visible: text !== "" && !delegateRoot.dCat && modelData.category !== "Keys"
                     color: Style.m3outline
                     font.pixelSize: root.fontPx(11)
                     font.family: root.fileMode ? Style.fontData : root.uiSans
@@ -3532,6 +3559,16 @@ Scope {
                     // Key combos ("SUPER+SHIFT+ESCAPE") need more room than
                     // the short APP/category accessories.
                     Layout.maximumWidth: modelData.category === "Keys" ? root.launcherGeom.accMaxKeys : root.launcherGeom.accMax
+                  }
+                  // Keys overview: the combo as keycaps ("Super+Shift+E"; "Super++" keeps its "+").
+                  Row {
+                    visible: modelData.category === "Keys"
+                    Layout.alignment: Qt.AlignVCenter
+                    spacing: 3
+                    Repeater {
+                      model: modelData.category === "Keys" ? String(modelData.accessory || "").split(/\+(?=.)/) : []
+                      Menu.MenuKeycap { required property string modelData; key: modelData; fontScale: root.uiFontScale }
+                    }
                   }
                 }
 
@@ -3553,36 +3590,15 @@ Scope {
                 }
               }
 
-              Column {
+              Menu.MenuEmptyState {
                 anchors.centerIn: parent
-                spacing: 8
                 visible: root.resultCount === 0 && searchInput.text !== ""
-                Text {
-                  anchors.horizontalCenter: parent.horizontalCenter
-                  text: root.calcMode ? "󰃬" : "󰍉"
-                  color: Style.menuAccent
-                  font.family: root.uiFont
-                  font.pixelSize: root.fontPx(28)
-                  opacity: 0.8
-                }
-                Text {
-                  anchors.horizontalCenter: parent.horizontalCenter
-                  text: !root.calcMode ? "Nothing matches"
-                    : root.query.trim() === "=" ? "Type an expression" : "Not a complete expression yet"
-                  color: Style.menuInkDeep
-                  font.family: root.uiSans
-                  font.pixelSize: root.fontPx(13)
-                  font.letterSpacing: 0.15
-                  font.weight: Font.Medium
-                }
-                Text {
-                  anchors.horizontalCenter: parent.horizontalCenter
-                  text: root.calcMode ? "e.g.  sin(30°)  ·  nCr(49, 6)  ·  2^10  ·  log(8, 2)" : "Try another query or prefix"
-                  color: Style.menuInkMuted
-                  font.family: root.uiSans
-                  font.pixelSize: root.fontPx(11)
-                  opacity: 0.8
-                }
+                fontScale: root.uiFontScale
+                glyph: root.calcMode ? "󰃬" : "󰍉"
+                tint: Style.m3primary
+                title: !root.calcMode ? "Nothing matches"
+                  : root.query.trim() === "=" ? "Type an expression" : "Not a complete expression yet"
+                detail: root.calcMode ? "e.g.  sin(30°)  ·  nCr(49, 6)  ·  2^10  ·  log(8, 2)" : "Try another query or prefix"
               }
             }
 
@@ -3594,7 +3610,7 @@ Scope {
               anchors.bottom: parent.bottom
               width: resultsList.width
               height: visible ? calcLegendRow.implicitHeight + 16 : 0
-              radius: Style.menuRadiusLg
+              radius: Style.menuSelRadius   // at the results' inset, like their selection
               color: Style.menuCardBg
               // Columns sit flush left and right; the leftover width is split evenly into the gaps.
               Row {
@@ -3612,15 +3628,7 @@ Scope {
                   Column {
                     required property var modelData
                     spacing: 2
-                    Text {
-                      text: modelData[0].toUpperCase()
-                      color: Style.menuAccent
-                      font.family: root.uiSans
-                      font.pixelSize: root.fontPx(9)
-                      font.weight: Font.Bold
-                      font.letterSpacing: 0.8
-                      bottomPadding: 2
-                    }
+                    Menu.MenuCaption { text: modelData[0]; color: Style.menuAccent; font.pixelSize: root.fontPx(8); bottomPadding: 2 }
                     Repeater {
                       model: modelData[1]
                       Text {
@@ -3673,6 +3681,7 @@ Scope {
               // One selection pill that slides between rail entries on the shared spring, like the results list's
               // highlight (the tiles only tint their disc). Snaps while the card opens: no slide from the last pane.
               Menu.MenuStretchPill {
+                radius: Style.menuSelRadius
                 readonly property Item cur: quickRepeater.count > root.selectedIndex ? quickRepeater.itemAt(root.selectedIndex) : null
                 visible: !!cur
                 opacity: cur ? cur.enterT : 1   // arrives with its entry
@@ -3746,7 +3755,7 @@ Scope {
               visible: root.quickMode
               anchors.top: parent.top; anchors.bottom: parent.bottom
               anchors.left: quickSide.right; anchors.leftMargin: 12
-              width: 1; color: Style.menuSep
+              width: 1 / Screen.devicePixelRatio; color: Style.m3outlineVariant
               opacity: root.quickMode ? 1 : 0
               Behavior on opacity { NumberAnimation { duration: Style.menuAnimMs } }
             }
@@ -3821,7 +3830,7 @@ Scope {
                   opacity: 0.7
                   elide: Text.ElideLeft
                 }
-                Rectangle { Layout.fillWidth: true; height: 1; color: Style.menuSep }
+                Menu.MenuDivider { Layout.fillWidth: true }
 
                 Item {
                   Layout.fillWidth: true

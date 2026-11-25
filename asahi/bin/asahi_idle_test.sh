@@ -219,6 +219,18 @@ claude stop s2
   || fail_at "claude stop: $(ls "$run/claude-activity")"
 echo nonsense | "$bin/asahi-claude-activity" beat && [ -e "$run/claude-activity/ppid-$$" ] && rm "$run/claude-activity/ppid-$$" \
   && pass "claude-activity: no session_id falls back to the caller's pid, exit 0" || fail_at "claude fallback: $(ls "$run/claude-activity")"
+# Waiting (Notification hook): `start` notes the focused window, `wait` marks the session unless that window has the
+# focus; the bar's line names the newest ("<n>\t<project>\t<address>"); the session's next hook clears it.
+wclaude() { printf '{"session_id":"%s","cwd":"/home/u/proj"}' "$2" | "$bin/asahi-claude-activity" "$1"; }
+FAKE_ACTIVE='{"address":"0xaa"}' wclaude start w1
+FAKE_ACTIVE='{"address":"0xaa"}' wclaude wait w1
+[ ! -e "$run/claude-activity.waiting" ] && pass "claude wait: its window has the focus, nothing shown" || fail_at "claude wait focused: $(cat "$run/claude-activity.waiting")"
+out=$(FAKE_ACTIVE='{"address":"0xbb"}' wclaude wait w1)
+[ -z "$out" ] && [ "$(cat "$run/claude-activity.waiting")" = $'1\tproj\t0xaa' ] && pass "claude wait: silent, the bar's line has project + window" \
+  || fail_at "claude wait: $out $(cat "$run/claude-activity.waiting" 2>&1)"
+wclaude beat w1
+[ ! -e "$run/claude-activity.waiting" ] && pass "claude wait: cleared by the session's next hook" || fail_at "claude wait not cleared"
+wclaude stop w1
 # macOS (shared settings.json and dotfiles): hooks do nothing, status says none.
 mkdir -p "$tmp/mac" && printf '#!/bin/sh\necho Darwin\n' >"$tmp/mac/uname" && chmod +x "$tmp/mac/uname"
 PATH="$tmp/mac:$PATH" claude start m1

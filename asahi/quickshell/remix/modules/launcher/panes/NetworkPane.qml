@@ -936,18 +936,11 @@ Item {
                   Layout.minimumWidth: implicitWidth; Layout.maximumWidth: implicitWidth
                 }
               }
-              Rectangle {
+              Menu.MenuMeter {
                 visible: quickNetworkRoot.activeSignal > 0
                 Layout.fillWidth: true
-                implicitHeight: 4
-                radius: 2
-                color: Qt.alpha(Style.m3onSurface, 0.12)
-                Rectangle {
-                  width: parent.width * Math.min(100, quickNetworkRoot.activeSignal) / 100
-                  height: parent.height
-                  radius: 2
-                  color: quickNetworkRoot.signalColor(quickNetworkRoot.activeSignal)
-                }
+                value: quickNetworkRoot.activeSignal / 100
+                fill: quickNetworkRoot.signalColor(quickNetworkRoot.activeSignal)
               }
               Secondary {
                 visible: quickNetworkRoot.wifiPlace !== ""
@@ -978,9 +971,11 @@ Item {
                   }
                 }
               }
-              Secondary {
+              Menu.MenuEmptyState {
                 visible: quickNetworkRoot.wifiChecked && !!quickNetworkRoot.currentWifiSsid && !quickNetworkRoot.wifiHasFacts
-                text: "No connection details"
+                quiet: true; fontScale: root.uiFontScale
+                glyph: "󰋼"
+                title: "No connection details"
               }
               Secondary {
                 visible: !!quickNetworkRoot.wifiQrError && !quickNetworkRoot.wifiQrPath
@@ -1090,20 +1085,20 @@ Item {
       Layout.fillWidth: true
       spacing: 6
       Chip {
-        icon: "󰕒"
+        icon: "󰕒"; numeric: true
         label: QuickModels.formatRate(quickNetworkRoot.netTxRate)
         fixedWidth: QuickModels.rateChipWidth(root.fontPx(10))
       }
       Chip {
-        icon: "󰇚"
+        icon: "󰇚"; numeric: true
         label: QuickModels.formatRate(quickNetworkRoot.netRxRate)
         fixedWidth: QuickModels.rateChipWidth(root.fontPx(10))
       }
-      Chip { icon: "󰑩"; label: "Router " + quickNetworkRoot.fmtPing(quickNetworkRoot.pingAvg(quickNetworkRoot.routerPings)) }
-      Chip { icon: "󰖟"; label: "Internet " + quickNetworkRoot.fmtPing(quickNetworkRoot.pingAvg(quickNetworkRoot.netPings)) }
+      Chip { icon: "󰑩"; numeric: true; label: "Router " + quickNetworkRoot.fmtPing(quickNetworkRoot.pingAvg(quickNetworkRoot.routerPings)) }
+      Chip { icon: "󰖟"; numeric: true; label: "Internet " + quickNetworkRoot.fmtPing(quickNetworkRoot.pingAvg(quickNetworkRoot.netPings)) }
       Chip {
         readonly property string loss: quickNetworkRoot.pingLoss(quickNetworkRoot.netPings)
-        icon: "󰀦"; label: "Loss " + loss
+        icon: "󰀦"; numeric: true; label: "Loss " + loss
         bg: loss !== "--" && loss !== "0%" ? Qt.alpha(Style.red, 0.22) : Style.m3secondaryContainer
       }
       Chip {
@@ -1176,8 +1171,8 @@ Item {
             readonly property bool busyRow: quickNetworkRoot.vpnBusy && !!quickNetworkRoot.vpnPending
               && quickNetworkRoot.vpnPending.key === modelData.key
             Layout.fillWidth: true
-            implicitHeight: 40
-            radius: Style.menuRadiusMd
+            implicitHeight: root.listRowH
+            radius: Style.menuRowRadius
             color: vpnMa.containsMouse ? Style.m3stateHover : "transparent"
             MouseArea {
               id: vpnMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -1185,10 +1180,11 @@ Item {
             }
             RowLayout {
               anchors.fill: parent
-              anchors.leftMargin: 8; anchors.rightMargin: 4
+              anchors.leftMargin: 10; anchors.rightMargin: 4
               spacing: 10
               Text {
                 text: vpnRow.modelData.glyph || "󰯄"; color: vpnRow.modelData.active ? Style.m3primary : Style.m3onSurfaceVariant
+                Layout.preferredWidth: root.listSlot; horizontalAlignment: Text.AlignHCenter
                 font.family: root.uiFont; font.pixelSize: root.fontPx(14)
               }
               Text {
@@ -1204,10 +1200,12 @@ Item {
             }
           }
         }
-        Secondary {
+        Menu.MenuEmptyState {
           visible: (quickNetworkRoot.vpnTargets || []).length === 0 && (quickNetworkRoot.vpnExternal || []).length === 0
-          Layout.fillWidth: true; Layout.leftMargin: 8
-          text: "No VPN profiles. TUHH: tap TUHH-VPN or run tuhhvpn."
+          Layout.leftMargin: 4
+          quiet: true; fontScale: root.uiFontScale
+          glyph: "󰦝"
+          title: "No VPN profiles. TUHH: tap TUHH-VPN or run tuhhvpn."
         }
       }
     }
@@ -1313,20 +1311,16 @@ Item {
             // Gutter so the scrollbar never sits on the connect buttons.
             width: netList.width - (netScroll.overflow ? netScroll.implicitWidth + 4 : 0)
             spacing: 2
-            Secondary {
+            Menu.MenuCaption {
               visible: !!netDelegate.modelData.section
               text: netDelegate.modelData.section || ""
-              // Section caption: the tracked caps of Bluetooth / Devices / SysPanel.
               font.pixelSize: quickNetworkRoot.root.fontPx(8)
-              font.weight: Font.DemiBold
-              font.letterSpacing: 1.2
-              font.capitalization: Font.AllUppercase
               leftPadding: 10; topPadding: 8; bottomPadding: 4
             }
             Rectangle {
               width: parent.width
-              height: 40
-              radius: Style.menuRadiusMd
+              height: root.listRowH
+              radius: Style.menuRowRadius
               color: netMa.containsMouse ? Style.m3stateHover : "transparent"
               MouseArea {
                 id: netMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -1342,6 +1336,7 @@ Item {
                   text: quickNetworkRoot.signalGlyph(netDelegate.modelData.signal)
                   color: netDelegate.modelData.signal > 0 ? quickNetworkRoot.signalColor(netDelegate.modelData.signal)
                     : (netDelegate.modelData.active ? Style.m3primary : Style.m3onSurfaceVariant)
+                  Layout.preferredWidth: root.listSlot; horizontalAlignment: Text.AlignHCenter
                   font.family: root.uiFont; font.pixelSize: root.fontPx(15)
                 }
                 Text {
@@ -1364,14 +1359,18 @@ Item {
                     : quickNetworkRoot.placeColor(QuickModels.wifiPlaceKind(netDelegate.modelData.sec),
                       netDelegate.modelData.active ? Style.m3primary : Style.m3onSurfaceVariant)
                 }
-                Secondary { visible: !netDelegate.modelData.saved; text: netDelegate.modelData.signal + "%" }
+                Secondary {   // one right-aligned number column
+                  visible: !netDelegate.modelData.saved; text: netDelegate.modelData.signal + "%"
+                  Layout.minimumWidth: root.fontPx(28); horizontalAlignment: Text.AlignRight; font.features: Style.fontTabular
+                }
                 IconBtn {
                   icon: "󰋼"; iconPx: 17   // filled: the outline one read as a blurry speck at row size
                   onClicked: quickNetworkRoot.openDetail(netDelegate.modelData.uuid || quickNetworkRoot.profileFor(netDelegate.modelData),
                     netDelegate.modelData.ssid)
                 }
-                IconBtn {
-                  visible: netDelegate.modelData.known && !netDelegate.modelData.active
+                IconBtn {   // a fixed slot, so the signal column and the buttons line up row to row
+                  readonly property bool shown: netDelegate.modelData.known && !netDelegate.modelData.active
+                  opacity: shown ? 1 : 0; enabled: shown
                   icon: "󰩺"; hot: Style.red
                   onClicked: quickNetworkRoot.forgetSsid(netDelegate.modelData.ssid, netDelegate.modelData.uuid || "")
                 }
@@ -1456,7 +1455,7 @@ Item {
       anchors.centerIn: parent
       width: Math.min(380, parent.width - 40)
       implicitHeight: passCol.implicitHeight + 40
-      radius: Style.menuPanelRadius
+      radius: Style.menuPaneRadius
       color: Style.m3container
       MouseArea { anchors.fill: parent }
       ColumnLayout {
@@ -1482,11 +1481,11 @@ Item {
         }
         Rectangle {
           Layout.fillWidth: true
-          height: 40
+          height: root.fieldH
           radius: Style.menuRadiusFull
           color: Style.m3containerHigh
-          border.width: netPassInput.activeFocus ? 2 : 0
-          border.color: Style.m3primary
+          border.width: netPassInput.activeFocus ? Style.focusRingWidth : 0
+          border.color: Style.focusRing
           TextInput {
             id: netPassInput
             anchors.fill: parent

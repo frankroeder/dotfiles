@@ -95,7 +95,7 @@ check(pane.indexOf('import "." as Panes') !== -1 && /Panes\.LanDevices \{/.test(
 check(pane.indexOf('/.local/state/asahi/network-tab"') !== -1 && /onNetTabChanged:.*setText/.test(pane), "last tab saved to a state file")
 check(/\/\/ VPN card\.\n\s+Card \{\n\s+Layout\.fillWidth: true/.test(pane), "VPN card stays on both tabs (no layout jump)")
 check(/pingProc\.command = \["ping", "-n", "-q", "-c", "4"/.test(view) && view.indexOf("running: true") === -1, "ping only on click")
-check((view.match(/Text\.PlainText/g) || []).length >= 3, "device names / hosts render as plain text")
+check((view.match(/Text\.PlainText|Menu\.MenuCaption/g) || []).length >= 3, "device names / hosts render as plain text (MenuCaption is PlainText)")
 check(view.indexOf('"list", "type", "platform"') !== -1, "grouping cycles list, type, platform")
 check(/modeLabel/.test(pane), "the pane asks LanDevices for the mode label")
 check(/command:\s*\["wl-copy"\]/.test(view) && /stdinEnabled:\s*true/.test(view), "wl-copy reads stdin")

@@ -191,10 +191,7 @@ Rectangle {
     elide: Text.ElideRight
     textFormat: Text.PlainText  // SSIDs, profile names, resolver lists
   }
-  component Caption: Secondary {
-    font.pixelSize: sheet.root.fontPx(8); font.weight: Font.DemiBold; font.letterSpacing: 1.2
-    font.capitalization: Font.AllUppercase
-  }
+  component Caption: Menu.MenuCaption { font.pixelSize: sheet.root.fontPx(8) }
   // Label column + a machine string (the Wi-Fi card's fact rows) + an optional word after it.
   component Fact: RowLayout {
     property string label: ""
@@ -215,11 +212,11 @@ Rectangle {
     property alias input: fieldIn
     signal edited(string text)
     Layout.fillWidth: true
-    implicitHeight: 30
+    implicitHeight: sheet.root.fieldHSm
     radius: Style.menuRadiusFull
     color: fieldIn.activeFocus ? Style.m3containerHigh : Qt.alpha(Style.m3onSurface, 0.06)
-    border.width: fieldIn.activeFocus ? 1 : 0
-    border.color: Style.m3primary
+    border.width: fieldIn.activeFocus ? Style.focusRingWidth : 0
+    border.color: Style.focusRing
     Text {
       id: fieldLabel
       anchors.left: parent.left; anchors.leftMargin: 12; anchors.verticalCenter: parent.verticalCenter

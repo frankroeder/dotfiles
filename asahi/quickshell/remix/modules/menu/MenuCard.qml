@@ -31,7 +31,7 @@ Item {
     color: Style.m3surface
     radius: root.cardRadius
     // Hairline rim: keeps the edge on a wallpaper as bright (or dark) as the panel.
-    border.width: 1
+    border.width: Style.rim(Screen.devicePixelRatio)
     border.color: Style.menuHairline
     clip: true
 

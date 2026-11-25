@@ -23,8 +23,8 @@ Rectangle {
   border.width: chip.on ? 2 : 0
   border.color: Style.m3primary
   opacity: chip.badge === 0 ? 0.35 : 1
-  Behavior on color { ColorAnimation { duration: 120 } }
-  Behavior on opacity { NumberAnimation { duration: 120 } }
+  Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
+  Behavior on opacity { NumberAnimation { duration: Style.menuStateMs } }
 
   Row {
     id: row

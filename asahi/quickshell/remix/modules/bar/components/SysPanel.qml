@@ -42,7 +42,7 @@ PopupWindow {
   anchor.edges: Edges.Bottom
   anchor.margins.bottom: -BarModel.popupDrop(root.barHost ? root.barHost.height : Style.barHeight, Style.barHeight)  // negative = below
   implicitWidth: 400
-  implicitHeight: Math.min(640, col.implicitHeight + 32)
+  implicitHeight: Math.min(640, col.implicitHeight + 2 * Style.popupPad)
 
   function close() { if (root.barHost && root.barHost.openPanel === "sys") root.barHost.openPanel = "" }
 
@@ -132,11 +132,7 @@ PopupWindow {
       anchors.fill: parent
       anchors.margins: 12
       spacing: 4
-      Text {
-        text: caption
-        color: Style.menuInkDeep; font.family: Style.menuSans; font.pixelSize: Style.typeCaption; font.weight: Font.DemiBold
-        font.letterSpacing: 1.2; font.capitalization: Font.AllUppercase
-      }
+      Menu.MenuCaption { text: caption }
       Menu.MenuFadeText {
         text: unit === "%" ? (Math.round(value) + "%") : (isFinite(value) ? value.toFixed(1) + " " + unit : "–")
         color: accent; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeDisplay; font.weight: Font.DemiBold
@@ -147,29 +143,17 @@ PopupWindow {
         maximumLineCount: 2; elide: Text.ElideRight; Layout.fillWidth: true
       }
       Item { Layout.fillHeight: true }
-      Rectangle {
+      Menu.MenuMeter {
         Layout.fillWidth: true
-        height: 3; radius: 1.5
-        color: Qt.alpha(accent, 0.18)
-        Rectangle {
-          width: parent.width * Math.max(0, Math.min(1, (isFinite(value) ? value : 0) / Math.max(1, barMax)))
-          height: parent.height; radius: parent.radius; color: accent
-          Behavior on width { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
-        }
+        value: (isFinite(value) ? value : 0) / Math.max(1, barMax)
+        fill: accent
       }
     }
   }
 
-  component SectionTitle: Text {
+  component SectionTitle: Menu.MenuCaption {
     Layout.fillWidth: true
     Layout.topMargin: 4
-    // Same small tracked caps as the tile captions above.
-    color: Style.menuInkDeep
-    font.family: Style.menuSans
-    font.pixelSize: Style.typeCaption
-    font.weight: Font.DemiBold
-    font.letterSpacing: 1.2
-    font.capitalization: Font.AllUppercase
   }
 
   component SparkBox: Rectangle {
@@ -179,8 +163,8 @@ PopupWindow {
     implicitHeight: 48
     radius: Style.menuRadiusMd
     color: Style.menuCardBg
-    border.color: Style.menuSep
-    border.width: 1
+    border.color: Style.menuHairline
+    border.width: Style.rim(Screen.devicePixelRatio)
     // GPU path (Gren-95 SysGraph): area fades out toward the floor; rebuilt per sample, no CPU raster like the Canvas.
     Shape {
       id: spark
@@ -227,8 +211,8 @@ PopupWindow {
     implicitHeight: 74
     radius: Style.menuRadiusMd
     color: Style.menuCardBg
-    border.color: Style.menuSep
-    border.width: 1
+    border.color: Style.menuHairline
+    border.width: Style.rim(Screen.devicePixelRatio)
     RowLayout {
       id: ioHead
       anchors { left: parent.left; right: parent.right; top: parent.top; margins: 8 }
@@ -255,7 +239,7 @@ PopupWindow {
         PathPolyline { path: ioShape.downLine.length > 1 ? [Qt.point(0, ioShape.height / 2)].concat(ioShape.downLine, [Qt.point(ioShape.width, ioShape.height / 2)]) : [] }
       }
       ShapePath {
-        strokeColor: Style.menuSep; strokeWidth: 1; fillColor: "transparent"
+        strokeColor: Style.menuHairline; strokeWidth: 1; fillColor: "transparent"
         PathPolyline { path: [Qt.point(0, ioShape.height / 2), Qt.point(ioShape.width, ioShape.height / 2)] }
       }
     }
@@ -286,10 +270,10 @@ PopupWindow {
 
     Flickable {
       id: flick
-      x: 16 - card.x
-      y: 16
-      width: root.width - 32
-      height: root.height - 32
+      x: Style.popupPad - card.x
+      y: Style.popupPad
+      width: root.width - 2 * Style.popupPad
+      height: root.height - 2 * Style.popupPad
       opacity: Math.max(0, Math.min(1, (root.grow - 0.35) / 0.5))
       clip: true
       boundsBehavior: Flickable.StopAtBounds
@@ -297,7 +281,7 @@ PopupWindow {
       ColumnLayout {
         id: col
         width: flick.width
-        spacing: 8
+        spacing: Style.popupGap
 
         RowLayout {
           Layout.fillWidth: true
@@ -440,21 +424,13 @@ PopupWindow {
             required property var modelData
             Layout.fillWidth: true
             spacing: 8
-            Text { text: "󰈐"; color: Style.sky; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: 13 }
+            Text { text: "󰈐"; color: Style.sky; font.family: Style.fontMono; font.pixelSize: 13 }
             Text {
               Layout.fillWidth: true
               text: modelData.displayLabel || modelData.label || "Fan"
               color: Style.menuInk; font.family: Style.fontUi; font.pixelSize: Style.typeBody
             }
-            Rectangle {
-              Layout.preferredWidth: 72
-              height: 4; radius: 2
-              color: Style.menuControlBg
-              Rectangle {
-                width: parent.width * Sys.fanFraction(modelData)
-                height: parent.height; radius: parent.radius; color: Style.sky
-              }
-            }
+            Menu.MenuMeter { Layout.preferredWidth: 72; value: Sys.fanFraction(modelData); fill: Style.sky }
             Text {
               text: Math.round(modelData.value || 0) + " RPM"
               color: Style.menuInkDeep; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeCaption

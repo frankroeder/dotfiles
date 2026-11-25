@@ -10,7 +10,8 @@ Rectangle {
   property color bg: Style.m3containerHigh
   property color fg: Style.m3onSurface
   property bool selected: false
-  property real fontScale: 1
+  property bool numeric: false   // a number that ticks: tabular digits (tnum also widens - : . in names)
+  property real fontScale: Style.uiScale
   property string iconFamily: Style.menuMono
   property string fontFamily: Style.menuSans
   signal clicked()
@@ -23,7 +24,7 @@ Rectangle {
   color: pill.selected ? Style.m3primaryContainer : pill.bg
   border.width: pill.selected ? 1 : 0
   border.color: Style.menuSelBorder
-  Behavior on color { ColorAnimation { duration: 120 } }
+  Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
   // Press: the pressed state layer + a small give (none under reduced motion).
   scale: pillMa.pressed && !Style.reduceMotion ? 0.97 : 1
   Behavior on scale { NumberAnimation { duration: Style.menuStateMs; easing.type: Easing.OutCubic } }
@@ -33,7 +34,7 @@ Rectangle {
     radius: parent.radius
     color: pillMa.pressed ? Style.m3statePress : Style.m3stateHover
     opacity: pillMa.containsMouse || pillMa.pressed ? 1 : 0
-    Behavior on opacity { NumberAnimation { duration: 120 } }
+    Behavior on opacity { NumberAnimation { duration: Style.menuStateMs } }
   }
   // Under the label: the disc must not veil the text.
   MenuRipple { id: ripple; radius: pill.radius }
@@ -54,7 +55,7 @@ Rectangle {
       text: pill.label
       textFormat: Text.PlainText  // notification action labels come from the sender
       color: pill.selected ? Style.m3primary : pill.fg
-      font.family: pill.fontFamily; font.features: Style.fontTabular
+      font.family: pill.fontFamily; font.features: pill.numeric ? Style.fontTabular : ({})
       font.pixelSize: Math.round(10 * pill.fontScale)
       font.weight: pill.selected ? Font.DemiBold : Font.Medium
     }

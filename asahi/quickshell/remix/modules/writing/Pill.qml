@@ -19,7 +19,7 @@ Rectangle {
     : pillMa.containsMouse ? Style.m3containerHigh : Style.m3container
   border.width: active ? 1 : 0
   border.color: Style.menuSelBorder
-  Behavior on color { ColorAnimation { duration: 120 } }
+  Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
   Row {
     id: pillRow
     anchors.centerIn: parent

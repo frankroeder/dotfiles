@@ -94,7 +94,8 @@ assert(qml.indexOf("hottestSensor = parsed.hottest") < qml.indexOf("TempDisplay.
   "hero data is applied before structureKey so a QML helper miss still shows temps");
 assert(qml.indexOf("TempDisplay.tempDisplayRows") !== -1, "TempPane.qml uses shipped tempDisplayRows");
 assert(qml.indexOf("SMC Power") === -1, "TempPane does not host SMC power rails");
-assert(qml.indexOf("tempValues") !== -1 && qml.indexOf("barFill.ready") !== -1, "heat bars keep delegates and animate from the last width");
+assert(qml.indexOf("tempValues") !== -1 && qml.indexOf("Menu.MenuMeter") !== -1,
+  "heat bars keep delegates; MenuMeter eases value changes from the last width (never from 0 on build)");
 assert(!/text:\s*"Fans"/.test(qml), "Fans card is not a separate group");
 assert(qml.indexOf("tempFans") !== -1 && qml.indexOf("tempUpdated") === -1, "fan rows sit on the hero pill row");
 assert(!/avg\s*"\s*\+\s*modelData\.avg/.test(qml), "temp pane template has no avg + °C pair");

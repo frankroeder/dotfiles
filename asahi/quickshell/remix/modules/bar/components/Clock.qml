@@ -12,6 +12,11 @@ import "../../../services" as Services
 Item {
   id: root
 
+  // Calendar month nav: the shared icon button on the control tone.
+  component NavBtn: Menu.MenuIconBtn {
+    implicitWidth: 26; implicitHeight: 26; iconPx: 15; iconFamily: Style.fontUi; tone: Style.menuInk; bg: Style.menuControlBg
+  }
+
   property var barHost: null
   property bool calendarOpen: false
   signal calendarToggle()
@@ -198,7 +203,7 @@ Item {
     anchor.gravity: Edges.Bottom | Edges.Left
     anchor.margins.bottom: -BarModel.popupDrop(root.barHost ? root.barHost.height : Style.barHeight, Style.barHeight)  // negative = below
     implicitWidth: 340
-    implicitHeight: calCol.implicitHeight + 24
+    implicitHeight: calCol.implicitHeight + 2 * Style.popupPad
 
     // Whitelist the bar window too, else the click that opened this counts as outside and closes it.
     // Esc is an app-wide shortcut: the grab may leave keyboard focus on the bar.
@@ -235,47 +240,24 @@ Item {
       ColumnLayout {
         id: calCol
         anchors.fill: parent
-        anchors.margins: 12
-        spacing: 8
+        anchors.margins: Style.popupPad
+        spacing: Style.popupGap
 
         RowLayout {
           Layout.fillWidth: true
-          spacing: 8
-          Text {
-            text: "󰸗"
-            color: Style.menuSeal
-            font.family: Style.fontUi; font.features: Style.fontTabular
-            font.pixelSize: 16
-          }
+          spacing: 10
+          Menu.MenuGlyphTile { glyph: "󰸗" }
           Text {
             Layout.fillWidth: true
             text: root.monthLabel()
             color: Style.menuInk
             font.family: Style.menuSans
             font.pixelSize: Style.typeTitle
-            font.weight: Font.Medium
+            font.weight: Font.DemiBold
           }
-          Rectangle {
-            width: 26; height: 26; radius: Style.radius
-            color: prevMa.containsMouse ? Style.m3stateHover : Style.menuControlBg
-            border.color: Style.menuSep; border.width: 1
-            Text { anchors.centerIn: parent; text: "‹"; color: Style.menuInk; font.family: Style.fontUi; font.pixelSize: 15 }
-            MouseArea { id: prevMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.shiftMonth(-1) }
-          }
-          Rectangle {
-            width: 50; height: 26; radius: Style.radius
-            color: todayMa.containsMouse ? Style.m3stateHover : Style.menuControlBg
-            border.color: Style.menuSep; border.width: 1
-            Text { anchors.centerIn: parent; text: "today"; color: Style.menuInk; font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeCaption }
-            MouseArea { id: todayMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.goToday() }
-          }
-          Rectangle {
-            width: 26; height: 26; radius: Style.radius
-            color: nextMa.containsMouse ? Style.m3stateHover : Style.menuControlBg
-            border.color: Style.menuSep; border.width: 1
-            Text { anchors.centerIn: parent; text: "›"; color: Style.menuInk; font.family: Style.fontUi; font.pixelSize: 15 }
-            MouseArea { id: nextMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.shiftMonth(1) }
-          }
+          NavBtn { icon: "‹"; onClicked: root.shiftMonth(-1) }
+          Menu.MenuPill { implicitHeight: 26; label: "today"; bg: Style.menuControlBg; fg: Style.menuInk; onClicked: root.goToday() }
+          NavBtn { icon: "›"; onClicked: root.shiftMonth(1) }
         }
 
         RowLayout {
@@ -372,11 +354,7 @@ Item {
           horizontalAlignment: Text.AlignHCenter
         }
 
-        Rectangle {
-          Layout.fillWidth: true
-          Layout.preferredHeight: 1
-          color: Style.menuSep
-        }
+        Menu.MenuDivider { Layout.fillWidth: true }
 
         RowLayout {
           Layout.fillWidth: true
@@ -391,11 +369,11 @@ Item {
           Item { Layout.fillWidth: true }
           Rectangle {
             Layout.preferredWidth: 72
-            Layout.preferredHeight: 26
+            Layout.preferredHeight: Style.fieldHeightSm
             radius: 8
             color: birthField.activeFocus ? Style.menuRowHi : Style.menuControlBg
-            border.color: birthField.activeFocus ? Style.menuSeal : Style.menuSep
-            border.width: 1
+            border.color: birthField.activeFocus ? Style.focusRing : Style.menuHairline
+            border.width: birthField.activeFocus ? Style.focusRingWidth : 1
             TextInput {
               id: birthField
               anchors.fill: parent
@@ -455,14 +433,12 @@ Item {
           }
         }
 
-        Text {
+        Menu.MenuEmptyState {
           visible: !root.life.set
-          Layout.fillWidth: true
-          text: "Enter a birth year"
-          color: Style.menuInkDeep
-          font.family: Style.fontUi; font.features: Style.fontTabular
-          font.pixelSize: Style.typeBody
-          horizontalAlignment: Text.AlignHCenter
+          Layout.alignment: Qt.AlignHCenter
+          quiet: true
+          glyph: "󰃭"
+          title: "Enter a birth year"
         }
 
         Grid {

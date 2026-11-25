@@ -145,6 +145,15 @@ Scope {
         }
       }
 
+      Menu.MenuEmptyState {
+        anchors.centerIn: grid
+        visible: root.apps.length === 0 && search.text !== ""
+        glyph: "󰍉"
+        tint: Style.m3primary
+        title: "No app matches"
+        detail: "Try another name."
+      }
+
       GridView {
         id: grid
         anchors { fill: parent; topMargin: 64; leftMargin: 20; rightMargin: 20; bottomMargin: 16 }

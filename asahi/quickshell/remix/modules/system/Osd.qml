@@ -6,6 +6,7 @@ import Quickshell.Services.Pipewire
 import QtQuick
 import QtQuick.Layouts
 import "../../"
+import "../menu" as Menu
 
 Scope {
   id: root
@@ -232,11 +233,11 @@ Scope {
       anchors.fill: parent
       radius: Style.menuRadiusLg
       color: Style.m3surfaceSolid
-      border.color: Qt.alpha(root.accent, 0.45)
-      border.width: 1
+      border.color: Style.popupBorder
+      border.width: Style.popupBorderWidth
       opacity: root.visible ? 1 : 0
 
-      Behavior on opacity { NumberAnimation { duration: 120 } }
+      Behavior on opacity { NumberAnimation { duration: Style.menuStateMs } }
 
       RowLayout {
         anchors.fill: parent
@@ -249,7 +250,7 @@ Scope {
           readonly property bool sun: root.icon === "󰃠" && root.showBar
           readonly property bool speaker: root.icon === "󰕾" && root.showBar
           text: speaker ? (root.percent < 34 ? "󰕿" : root.percent < 67 ? "󰖀" : "󰕾") : root.icon
-          font.family: Style.fontFamily
+          font.family: Style.fontMono
           font.pixelSize: 28
           color: root.accent
           Layout.preferredWidth: 34
@@ -284,21 +285,11 @@ Scope {
             }
           }
 
-          Rectangle {
+          Menu.MenuMeter {
             visible: root.showBar
             Layout.fillWidth: true
-            height: 8
-            radius: 4
-            color: Style.moduleBg
-            clip: true
-
-            Rectangle {
-              width: parent.width * root.percent / 100
-              height: parent.height
-              radius: 4
-              color: root.accent
-              Behavior on width { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
-            }
+            value: root.percent / 100
+            fill: root.accent
           }
         }
       }

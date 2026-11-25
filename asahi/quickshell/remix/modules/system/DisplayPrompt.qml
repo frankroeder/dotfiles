@@ -305,9 +305,9 @@ Scope {
 
     Rectangle {
       id: card
-      width: root.look === "toast" ? toastRow.implicitWidth + 28 : 520
+      width: root.look === "toast" ? toastRow.implicitWidth + 2 * Style.popupPad : 520
       height: (root.look === "toast" ? toastRow.implicitHeight : root.look === "ask" ? askCol.implicitHeight
-        : confirmCol.implicitHeight) + 28
+        : confirmCol.implicitHeight) + 2 * Style.popupPad
       radius: Style.menuRadiusLg
       color: Style.m3surfaceSolid
       border.width: Style.popupBorderWidth
@@ -319,7 +319,7 @@ Scope {
       RowLayout {
         id: toastRow
         visible: root.look === "toast"
-        x: 14; y: 14
+        x: Style.popupPad; y: Style.popupPad
         spacing: 10
         Menu.MenuGlyphTile { glyph: "󰍹" }
         ColumnLayout {
@@ -361,9 +361,9 @@ Scope {
       ColumnLayout {
         id: askCol
         visible: root.look === "ask"
-        x: 16; y: 14
-        width: card.width - 32
-        spacing: 12
+        x: Style.popupPad; y: Style.popupPad
+        width: card.width - 2 * Style.popupPad
+        spacing: Style.popupGap
         RowLayout {
           Layout.fillWidth: true
           spacing: 10
@@ -414,9 +414,9 @@ Scope {
       ColumnLayout {
         id: confirmCol
         visible: root.look === "confirm"
-        x: 16; y: 14
-        width: card.width - 32
-        spacing: 12
+        x: Style.popupPad; y: Style.popupPad
+        width: card.width - 2 * Style.popupPad
+        spacing: Style.popupGap
         RowLayout {
           Layout.fillWidth: true
           spacing: 10
@@ -441,25 +441,18 @@ Scope {
           }
           Menu.MenuPill { label: "Revert"; onClicked: root.revert(false) }
           Menu.MenuPill {
-            label: root.busy ? "Keep" : "Keep " + root.left + "s"
+            label: root.busy ? "Keep" : "Keep " + root.left + "s"; numeric: true
             bg: Style.m3primary; fg: Style.m3onPrimary
             opacity: root.busy ? 0.5 : 1
             onClicked: root.keep()
           }
         }
         // Drains with the countdown.
-        Rectangle {
+        Menu.MenuMeter {
           Layout.fillWidth: true
-          implicitHeight: 3
-          radius: 1.5
-          color: Style.m3container
-          Rectangle {
-            width: parent.width * Math.max(0, root.left) / 10
-            height: parent.height
-            radius: parent.radius
-            color: Style.m3primary
-            Behavior on width { enabled: countdown.running; NumberAnimation { duration: 1000 } }
-          }
+          value: root.left / 10
+          animate: false
+          Behavior on value { enabled: countdown.running; NumberAnimation { duration: 1000 } }
         }
       }
     }

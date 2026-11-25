@@ -439,38 +439,6 @@ Item {
   readonly property int spanGapStep: 8
   Timer { id: gapSet; interval: 400; onTriggered: quickMonitorsRoot.spanRun(["gap", String(quickMonitorsRoot.spanGap)]) }
 
-  // Segmented option pill: selected = solid primary, idle = hairline outline.
-  component OptionPill: Rectangle {
-    id: optPill
-    property string label: ""
-    property bool active: false
-    signal tapped()
-    implicitWidth: Math.max(44, optPillLbl.implicitWidth + 20)
-    implicitHeight: 24
-    radius: Style.menuRadiusFull
-    color: optPill.active ? Style.m3primary
-      : (optPillMa.pressed ? Style.m3containerHigh : optPillMa.containsMouse ? Style.m3stateHover : "transparent")
-    border.width: optPill.active ? 0 : 1
-    border.color: optPillMa.containsMouse ? Style.m3outline : Style.m3outlineVariant
-    Behavior on color { ColorAnimation { duration: 90 } }
-    Text {
-      id: optPillLbl
-      anchors.centerIn: parent
-      text: optPill.label
-      font.pixelSize: root.fontPx(9)
-      font.family: root.uiSans
-      font.weight: optPill.active ? Font.DemiBold : Font.Medium
-      color: optPill.active ? Style.m3onPrimary : Style.m3onSurfaceVariant
-    }
-    MouseArea {
-      id: optPillMa
-      anchors.fill: parent
-      hoverEnabled: true
-      cursorShape: Qt.PointingHandCursor
-      onClicked: optPill.tapped()
-    }
-  }
-
   // Header / footer action pill (Mirror / Extend / External / Rescan / Keep / Apply). With `icon`
   // (white pictogram, alpha for the dim parts) the pictogram sits left of label + hint, colorized to it.
   component ActionPill: Rectangle {
@@ -488,7 +456,7 @@ Item {
       : (actPillMa.containsMouse ? Style.m3stateHover : "transparent")
     border.width: actPill.tonal ? 0 : 1
     border.color: actPillMa.containsMouse ? Style.m3outline : Style.m3outlineVariant
-    Behavior on color { ColorAnimation { duration: 90 } }
+    Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
     Row {
       id: actPillRow
       anchors.centerIn: parent
@@ -557,19 +525,14 @@ Item {
       Menu.MenuGlyphTile { glyph: "󰍹"; fontScale: root.uiFontScale }
       Text {
         text: "Displays"
-        color: Style.m3onSurface; font.pixelSize: root.fontPx(14); font.family: root.uiSans; font.weight: Font.DemiBold
+        color: Style.m3onSurface; font.pixelSize: root.fontPx(13); font.family: root.uiSans; font.weight: Font.DemiBold
       }
-      Rectangle {
-        implicitWidth: countLbl.implicitWidth + 12; implicitHeight: 18; radius: 9
-        color: Style.m3primaryContainer
-        Text {
-          id: countLbl; anchors.centerIn: parent
-          text: QuickModels.enabledMonitors(quickMonitorsRoot.mons).length + "/" + (quickMonitorsRoot.mons || []).length
-          color: Style.m3primary; font.pixelSize: root.fontPx(8); font.family: root.uiSans; font.weight: Font.DemiBold
-        }
+      Menu.MenuBadge {
+        fontScale: root.uiFontScale
+        text: QuickModels.enabledMonitors(quickMonitorsRoot.mons).length + "/" + (quickMonitorsRoot.mons || []).length
       }
       Item { Layout.fillWidth: true }
-      ActionPill { label: "Rescan"; onTapped: quickMonitorsRoot.rescanMonitors() }
+      Menu.MenuPill { fontScale: root.uiFontScale; label: "Rescan"; onClicked: quickMonitorsRoot.rescanMonitors() }
     }
 
     // One mode at a time, the current one filled. Tapping a filled Mirror unmirrors. Span is a
@@ -610,6 +573,11 @@ Item {
       radius: Style.menuRadiusLg
       color: Style.m3container
       border.width: 1; border.color: Style.m3outlineVariant
+      Menu.MenuRunner {
+        anchors { left: parent.left; right: parent.right; top: parent.top; leftMargin: parent.radius; rightMargin: parent.radius; topMargin: 1 }
+        z: 1
+        busy: monScan.running && !(quickMonitorsRoot.mons || []).length
+      }
       clip: true
       // Dot grid, like a design canvas.
       Canvas {
@@ -706,13 +674,16 @@ Item {
                 asynchronous: true
                 cache: true
               }
-              Rectangle { anchors.fill: parent; color: Style.m3surface; opacity: vizMon.sel ? 0.35 : vizHover.hovered ? 0.45 : 0.6; Behavior on opacity { NumberAnimation { duration: 90 } } }
+              Rectangle {
+                anchors.fill: parent; color: Style.m3surface; opacity: vizMon.sel ? 0.35 : vizHover.hovered ? 0.45 : 0.6
+                Behavior on opacity { NumberAnimation { duration: Style.menuStateMs } }
+              }
             }
             Rectangle {
               anchors.fill: parent; radius: parent.radius; color: "transparent"
               border.width: vizMon.sel ? 2 : 1
               border.color: vizMon.sel ? Style.m3primary : vizHover.hovered ? Style.m3outline : Style.m3outlineVariant
-              Behavior on border.color { ColorAnimation { duration: 90 } }
+              Behavior on border.color { ColorAnimation { duration: Style.menuStateMs } }
             }
             // Centered label chip: name, logical size · scale.
             Rectangle {
@@ -758,14 +729,17 @@ Item {
               anchors.left: parent.left; anchors.top: parent.top; anchors.margins: 8
               width: builtinLbl.implicitWidth + 12; height: 16; radius: 8
               color: Style.m3primary
-              Text { id: builtinLbl; anchors.centerIn: parent; text: "BUILT-IN"; color: Style.m3onPrimary; font.pixelSize: root.fontPx(7); font.family: root.uiSans; font.weight: Font.Bold; font.letterSpacing: 1.2 }
+              Menu.MenuCaption { id: builtinLbl; anchors.centerIn: parent; text: "BUILT-IN"; color: Style.m3onPrimary; font.pixelSize: root.fontPx(7) }
             }
             Rectangle {
               visible: !vizMon.off && vizMon.h >= 72 && !!modelData.activeWorkspace
               anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8
               width: wsLbl.implicitWidth + 12; height: 16; radius: 8
               color: Style.m3surface
-              Text { id: wsLbl; anchors.centerIn: parent; text: "WS " + (modelData.activeWorkspace ? modelData.activeWorkspace.name : ""); color: Style.m3onSurfaceVariant; font.pixelSize: root.fontPx(7); font.family: root.uiSans; font.weight: Font.Bold; font.letterSpacing: 1.2 }
+              Menu.MenuCaption {
+                id: wsLbl; anchors.centerIn: parent; font.pixelSize: root.fontPx(7)
+                text: "WS " + (modelData.activeWorkspace ? modelData.activeWorkspace.name : "")
+              }
             }
             HoverHandler { id: vizHover; cursorShape: vizDrag.active ? Qt.ClosedHandCursor : Qt.PointingHandCursor }
             TapHandler { onTapped: quickMonitorsRoot.selectedName = modelData.name }
@@ -814,6 +788,7 @@ Item {
             width: parent.width; spacing: 12
             Menu.MenuSlider {
               Layout.fillWidth: true
+              fontScale: root.uiFontScale
               value: Math.min(1, quickMonitorsRoot.spanGap / quickMonitorsRoot.spanGapMax)
               onMoved: function(v) {
                 const step = quickMonitorsRoot.spanGapStep
@@ -895,6 +870,7 @@ Item {
             width: parent.width; spacing: 12
             Menu.MenuSlider {
               Layout.fillWidth: true
+              fontScale: root.uiFontScale; detents: true
               value: Math.max(0, quickMonitorsRoot.brightness) / 100
               onMoved: function(v) { quickMonitorsRoot.setBrightness(Math.round(v * 100)) }
             }
@@ -926,28 +902,26 @@ Item {
             // Rotation on externals only: a rotated eDP-1 breaks the bar's notch cutout.
             visible: modelData.key === "scale" || opts.length > 1
               && (modelData.key !== "rot" || (!!quickMonitorsRoot.focusedMon && quickMonitorsRoot.focusedMon.name !== "eDP-1"))
-            Flow {
-              width: parent.width; spacing: 6
-              Repeater {
-                model: optRow.opts
-                delegate: OptionPill {
-                  required property var modelData
-                  required property int index
-                  readonly property var fm: quickMonitorsRoot.focusedMon
-                  readonly property string key: optRow.modelData.key
-                  label: key === "scale" ? QuickModels.formatScale(fm ? QuickModels.cleanScale(modelData, fm.width, fm.height) : modelData) + "×"
-                    : key === "res" ? modelData.label : key === "rot" ? (modelData * 90) + "°" : QuickModels.formatRefresh(modelData)
-                  active: key === "scale" ? index === quickMonitorsRoot.activeScaleIdx
-                    : key === "res" ? (!!fm && modelData.width === fm.width && modelData.height === fm.height)
-                    : key === "rot" ? (!!fm && (fm.transform || 0) === modelData)
-                    : (!!fm && QuickModels.sameRefresh(modelData, fm.refreshRate))
-                  onTapped: {
-                    if (key === "scale") quickMonitorsRoot.setScale(modelData)
-                    else if (key === "res") quickMonitorsRoot.applyMode(modelData.width, modelData.height, modelData.best)
-                    else if (key === "rot") quickMonitorsRoot.setRotation(modelData)
-                    else quickMonitorsRoot.applyMode(fm.width, fm.height, modelData)
-                  }
-                }
+            // One segmented control per setting (≤ 6 options each): the handle slides to the live value.
+            Menu.MenuSegmented {
+              readonly property var fm: quickMonitorsRoot.focusedMon
+              readonly property string key: optRow.modelData.key
+              fontScale: root.uiFontScale
+              segHeight: 24
+              labelPx: root.fontPx(9)
+              model: optRow.opts.map(o => ({
+                label: key === "scale" ? QuickModels.formatScale(fm ? QuickModels.cleanScale(o, fm.width, fm.height) : o) + "×"
+                  : key === "res" ? o.label : key === "rot" ? (o * 90) + "°" : QuickModels.formatRefresh(o)
+              }))
+              current: key === "scale" ? quickMonitorsRoot.activeScaleIdx
+                : optRow.opts.findIndex(o => key === "res" ? (!!fm && o.width === fm.width && o.height === fm.height)
+                  : key === "rot" ? (!!fm && (fm.transform || 0) === o) : (!!fm && QuickModels.sameRefresh(o, fm.refreshRate)))
+              onActivated: index => {
+                const o = optRow.opts[index]
+                if (key === "scale") quickMonitorsRoot.setScale(o)
+                else if (key === "res") quickMonitorsRoot.applyMode(o.width, o.height, o.best)
+                else if (key === "rot") quickMonitorsRoot.setRotation(o)
+                else quickMonitorsRoot.applyMode(fm.width, fm.height, o)
               }
             }
           }
@@ -990,16 +964,18 @@ Item {
         color: bad ? Style.red : Style.m3onSurfaceVariant
         font.pixelSize: root.fontPx(9); font.family: root.uiSans; elide: Text.ElideRight
       }
-      ActionPill {
+      Menu.MenuPill {
         visible: quickMonitorsRoot.draftDirty || quickMonitorsRoot.revertLeft > 0
+        fontScale: root.uiFontScale
         label: "Revert"
-        onTapped: quickMonitorsRoot.draftDirty ? (quickMonitorsRoot.draft = ({})) : quickMonitorsRoot.revertLayout("Reverted")
+        onClicked: quickMonitorsRoot.draftDirty ? (quickMonitorsRoot.draft = ({})) : quickMonitorsRoot.revertLayout("Reverted")
       }
-      ActionPill {
+      Menu.MenuPill {
         visible: quickMonitorsRoot.draftDirty || quickMonitorsRoot.revertLeft > 0
-        tonal: true
+        fontScale: root.uiFontScale
+        bg: Style.m3primary; fg: Style.m3onPrimary
         label: quickMonitorsRoot.draftDirty ? "Apply" : "Keep " + quickMonitorsRoot.revertLeft + "s"
-        onTapped: quickMonitorsRoot.draftDirty ? quickMonitorsRoot.applyDraft() : quickMonitorsRoot.keepChange()
+        onClicked: quickMonitorsRoot.draftDirty ? quickMonitorsRoot.applyDraft() : quickMonitorsRoot.keepChange()
       }
     }
   }

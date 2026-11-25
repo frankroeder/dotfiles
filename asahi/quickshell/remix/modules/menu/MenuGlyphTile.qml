@@ -6,7 +6,7 @@ import "../../"
 Rectangle {
   id: tile
   property string glyph: ""
-  property real fontScale: 1
+  property real fontScale: Style.uiScale
   property color tint: Style.m3primary
   readonly property int side: Math.round(22 * tile.fontScale)
   implicitWidth: tile.side

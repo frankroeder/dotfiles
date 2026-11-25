@@ -100,7 +100,7 @@ PanelWindow {
           height: 42
           radius: Style.radiusSm
           color: rowMouse.containsMouse ? Style.m3stateHover : "transparent"
-          Behavior on color { ColorAnimation { duration: 120 } }
+          Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
 
           readonly property string detail: BarModel.trayDetail(row.modelData.title, row.modelData.tooltipTitle)
 
@@ -160,7 +160,7 @@ PanelWindow {
             Text {
               anchors.centerIn: parent
               text: "󰇙"
-              font.family: Style.fontUi; font.features: Style.fontTabular
+              font.family: Style.fontMono
               font.pixelSize: Style.barFontBody
               color: Style.textMuted
             }
