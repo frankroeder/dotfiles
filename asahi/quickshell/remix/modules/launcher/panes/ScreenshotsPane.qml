@@ -137,6 +137,7 @@ Item {
                 id: shotLbl
                 anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10
                 text: modelData.label
+                textFormat: Text.PlainText
                 color: Style.m3onSurface
                 font.family: root.uiSans; font.pixelSize: root.fontPx(8)
                 elide: Text.ElideMiddle

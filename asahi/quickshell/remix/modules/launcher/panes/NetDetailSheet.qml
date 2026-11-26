@@ -42,11 +42,14 @@ Rectangle {
 
   radius: Style.menuRadiusLg
   color: Style.m3container
-  // Shared-axis forward (the pane switch's motion): fades in from 36 px right, leaves the same way.
+  // Shared-axis forward (the pane switch's motion): fades in from 16 px right, leaves the same way.
   opacity: sheet.open ? 1 : 0
   visible: opacity > 0
-  Behavior on opacity { Menu.MenuAnim { effects: true; exit: !sheet.open } }
-  transform: Translate { x: sheet.open ? 0 : 36; Behavior on x { Menu.MenuAnim { exit: !sheet.open } } }
+  Behavior on opacity { id: sheetFade; Menu.MenuAnim { effects: true; exit: sheetFade.targetValue < 1 } }   // target: `open` reads stale
+  transform: Translate {
+    x: sheet.open || Style.reduceMotion ? 0 : 16
+    Behavior on x { id: sheetX; Menu.MenuAnim { effects: true; exit: sheetX.targetValue > 0 } }
+  }
   // The pane under it takes no clicks or hover.
   MouseArea { anchors.fill: parent; hoverEnabled: true }
 
@@ -54,6 +57,14 @@ Rectangle {
     sheet.status = ""
     sheet.statusError = false
     sheet.forgetArmed = false
+    // Another network: drop the last one's read first (a failed read must not leave its form under this uuid).
+    if (sheet.p["connection.uuid"] !== sheet.uuid) {
+      sheet.p = ({})
+      sheet.link = ({})
+      sheet.ap = null
+      sheet.saved = NetDetail.ipv4Form({})
+      sheet.resetForm()
+    }
     if (sheet.uuid) {
       showProc.running = false  // another network's read: a running one does not restart on `running = true`
       showProc.command = ["nmcli", "-e", "no", "-t", "-f",
@@ -95,6 +106,7 @@ Rectangle {
     sheet.status = ipv4 ? "Saving…" : ""
     sheet.statusError = false
     modifyProc.args = args
+    modifyProc.uuid = sheet.uuid
     modifyProc.reconnect = ipv4 && sheet.active
     modifyProc.command = ["systemd-run", "--user", "--wait", "--quiet", "--collect",
       "nmcli", "connection", "modify", "uuid", sheet.uuid].concat(args)
@@ -150,22 +162,25 @@ Rectangle {
     id: modifyProc
     property var args: []
     property bool reconnect: false
+    property string uuid: ""   // the sheet may show another network by the time this ends: its status / read stay out
     onExited: function(code) {
+      const same = modifyProc.uuid === sheet.uuid
       if (code !== 0) {
-        sheet.status = "Not saved: NetworkManager refused it"
-        sheet.statusError = true
+        if (same) { sheet.status = "Not saved: NetworkManager refused it"; sheet.statusError = true }
         return
       }
+      if (modifyProc.reconnect) {
+        if (same) sheet.status = "Reconnecting…"
+        upProc.uuid = modifyProc.uuid
+        upProc.command = ["systemd-run", "--user", "--wait", "--quiet", "--collect", "nmcli", "connection", "up", "uuid", upProc.uuid]
+        upProc.running = true
+        return
+      }
+      if (!same) return
       if (modifyProc.args[0] !== "ipv4.method") {
         const next = Object.assign({}, sheet.p)
         next[modifyProc.args[0]] = modifyProc.args[1]
         sheet.p = next
-        return
-      }
-      if (modifyProc.reconnect) {
-        sheet.status = "Reconnecting…"
-        upProc.command = ["systemd-run", "--user", "--wait", "--quiet", "--collect", "nmcli", "connection", "up", "uuid", sheet.uuid]
-        upProc.running = true
         return
       }
       sheet.load()
@@ -174,11 +189,13 @@ Rectangle {
   }
   Process {
     id: upProc
+    property string uuid: ""
     onExited: function(code) {
+      sheet.pane.scanWifi()
+      if (upProc.uuid !== sheet.uuid) return
       sheet.load()
       sheet.status = code === 0 ? "Saved and reconnected" : "Saved; reconnect failed"
       sheet.statusError = code !== 0
-      sheet.pane.scanWifi()
     }
   }
 
@@ -341,7 +358,8 @@ Rectangle {
         visible: !!sheet.p["connection.id"]
         Layout.fillWidth: true
         spacing: 6
-        Caption { text: "IPv4"; Layout.rightMargin: 4 }
+        // The IPv6 Fact's label column below: one label style, the pills start where its value does.
+        Secondary { text: "IPv4"; Layout.preferredWidth: sheet.root.fontPx(10) * 7; Layout.rightMargin: 4 }
         Repeater {
           model: [{ key: "dhcp", label: "DHCP" }, { key: "dns", label: "DHCP + DNS" }, { key: "manual", label: "Manual" }]
           delegate: Pill {

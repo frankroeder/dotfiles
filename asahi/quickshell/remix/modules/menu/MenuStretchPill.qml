@@ -2,7 +2,8 @@ import QtQuick
 import "../../"
 
 // Selection pill whose edges travel apart (caelestia ActiveIndicator, end-4 AnimatedTabIndexPair): the leading edge
-// on the shared spring, the trailing one 1.5× slower, so it stretches toward the new entry and settles there.
+// on a velocity-keeping spring (held arrow keys glide on), the trailing one 1.5× slower, so it stretches toward the
+// new entry and settles there.
 // Owners set x / width and the target edges; `animate: false` snaps (a card opening).
 Rectangle {
   id: pill
@@ -17,7 +18,10 @@ Rectangle {
   color: Style.menuSelFill
   border.width: 1
   border.color: Style.menuSelBorder
-  // At the start the edge still holds its old value: moving down, the top trails; moving up, the bottom does.
-  Behavior on edgeTop { enabled: pill.animate; MenuAnim { duration: Style.menuSpringMs * (pill.targetTop > pill.edgeTop ? 1.5 : 1) } }
-  Behavior on edgeBottom { enabled: pill.animate; MenuAnim { duration: Style.menuSpringMs * (pill.targetBottom < pill.edgeBottom ? 1.5 : 1) } }
+  // Moving down, the top trails; moving up, the bottom does. The direction is latched when the target moves: read from
+  // the edges in a binding it was stale at the start of a move (stretched on the first move only).
+  property bool down: true
+  onTargetTopChanged: pill.down = pill.targetTop > pill.edgeTop
+  Behavior on edgeTop { enabled: pill.animate && !Style.reduceMotion; MenuSpring { slow: pill.down ? 1.5 : 1 } }
+  Behavior on edgeBottom { enabled: pill.animate && !Style.reduceMotion; MenuSpring { slow: pill.down ? 1 : 1.5 } }
 }

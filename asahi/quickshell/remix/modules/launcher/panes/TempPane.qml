@@ -25,6 +25,11 @@ Item {
   // Kernel CPU throttling per cluster ({type, cur, max}; cur 0 = full clock).
   property var tempThrottle: []
   readonly property var throttled: (quickTempRoot.tempThrottle || []).filter(t => t.cur > 0)
+  Component.onCompleted: {
+    root.paneSeed("temp", quickTempRoot)
+    if (quickTempRoot.tempOutput) quickTempRoot.parseTemperatures(quickTempRoot.tempOutput)
+  }
+  Component.onDestruction: root.paneKeep("temp", quickTempRoot, ["tempOutput"])
 
   function parseTemperatures(out) {
     const parsed = TempDisplay.parseTemperatures(out)
@@ -150,15 +155,15 @@ Item {
           }
           Text {
             Layout.fillWidth: true
-            visible: !!quickTempRoot.hottestSensor
+            visible: !quickTempRoot.tempOutput || !!quickTempRoot.hottestSensor   // laid out while loading
             readonly property var hs: quickTempRoot.hottestSensor
-            text: hs ? (hs.groupDisplayName || hs.group) + "  ·  " + hs.displayLabel : ""
+            text: hs ? (hs.groupDisplayName || hs.group) + "  ·  " + hs.displayLabel : " "
             color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(12); font.weight: Font.Medium; elide: Text.ElideRight
           }
           Text {
             Layout.fillWidth: true
-            visible: !!quickTempRoot.hottestSensor && !!quickTempRoot.hottestSensor.desc
-            text: quickTempRoot.hottestSensor ? quickTempRoot.hottestSensor.desc : ""
+            visible: !quickTempRoot.tempOutput || (!!quickTempRoot.hottestSensor && !!quickTempRoot.hottestSensor.desc)
+            text: quickTempRoot.hottestSensor ? quickTempRoot.hottestSensor.desc : " "
             color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(10); elide: Text.ElideRight
           }
           RowLayout {
@@ -186,6 +191,7 @@ Item {
                     font.family: root.uiSans; font.pixelSize: root.fontPx(11)
                   }
                   Text {
+                    font.features: Style.fontTabular
                     text: Math.round(modelData.value || 0) + " RPM"
                       + (isFinite(modelData.min) && isFinite(modelData.max)
                         ? ("  ·  " + modelData.min + "–" + modelData.max)

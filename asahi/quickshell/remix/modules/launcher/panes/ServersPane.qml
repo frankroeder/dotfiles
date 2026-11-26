@@ -23,6 +23,7 @@ Item {
   property var containers: []
   property var unitState: ({})
   property bool loaded: false
+  property bool failed: false   // asahi-servers --json gave no JSON (the empty state says so, the runner stops)
   property string busyKey: ""   // "<scope>/<unit>" while its action runs
   property string busyVerb: ""
   property string stopArmed: "" // system unit whose Stop waits for the second click
@@ -33,7 +34,10 @@ Item {
 
   function refresh() { if (!listProc.running) listProc.running = true }
   function apply(d) {
-    const shape = (d.services || []).map(s => ({ unit: s.unit, scope: s.scope, description: s.description, ports: s.ports }))
+    srvRoot.failed = !d.listening
+    if (srvRoot.failed) { srvRoot.loaded = true; return }   // a failed --json (traceback, empty stdout): keep the last lists
+    const shape = (d.services || []).map(s => ({ unit: s.unit, scope: s.scope, description: s.description, ports: s.ports,
+      protected: s.protected }))
     if (JSON.stringify(shape) !== JSON.stringify(srvRoot.services)) srvRoot.services = shape
     if (JSON.stringify(d.listening) !== JSON.stringify(srvRoot.listening)) srvRoot.listening = d.listening || []
     if (JSON.stringify(d.containers) !== JSON.stringify(srvRoot.containers)) srvRoot.containers = d.containers || []
@@ -75,7 +79,8 @@ Item {
     if (st.active === "failed") return Style.red
     return st.active === "inactive" ? Style.m3outline : Style.orange
   }
-  function stem(unit) { return String(unit || "").replace(/\.service$/, "") }
+  // Label only (actions keep the real name): systemd's `\x2d` escape reads as the dash it stands for.
+  function stem(unit) { return String(unit || "").replace(/\.service$/, "").replace(/\\x2d/g, "-") }
   function ports(list) { return (list || []).map(p => ":" + p).join(" ") }
   readonly property var descOf: {
     const m = {}
@@ -88,7 +93,7 @@ Item {
     command: [root.binDir + "/asahi-servers", "--json"]
     stdout: StdioCollector {
       onStreamFinished: {
-        try { srvRoot.apply(JSON.parse(String(text || "").trim() || "{}")) } catch (e) {}
+        try { srvRoot.apply(JSON.parse(String(text || "").trim() || "{}")) } catch (e) { srvRoot.apply({}) }
       }
     }
   }
@@ -159,7 +164,8 @@ Item {
         anchors.fill: parent; anchors.margins: 10; anchors.leftMargin: 12; anchors.rightMargin: 16
         spacing: 14
         Rectangle {
-          width: Math.round(36 * root.uiFontScale); height: width; radius: Style.menuRadiusMd   // hero tile: one size in every pane
+          // Hero tile: one size in every pane (Layout.preferred*: a RowLayout never re-reads `width` after a screen change).
+          Layout.preferredWidth: Math.round(36 * root.uiFontScale); Layout.preferredHeight: Layout.preferredWidth; radius: Style.menuRadiusMd
           color: Style.m3primaryContainer
           Text {
             anchors.centerIn: parent; text: "󰒍"; color: Style.m3primary
@@ -320,7 +326,7 @@ Item {
                   text: [srvRoot.ports(svcRow.s.ports), svcRow.s.description].filter(x => x).join(" · ")
                 }
                 Secondary {
-                  Layout.preferredWidth: root.fontPx(92)
+                  Layout.preferredWidth: root.fontPx(100)   // "stopped 12 min ago" / "click again to stop" whole
                   horizontalAlignment: Text.AlignRight
                   font.features: Style.fontTabular
                   text: svcRow.busy ? ({ start: "starting…", stop: "stopping…", restart: "restarting…" })[srvRoot.busyVerb]
@@ -402,8 +408,8 @@ Item {
         fontFamily: root.uiSans
         glyph: "󰒍"
         tint: Style.m3primary
-        title: srvRoot.loaded ? "Nothing is listening" : "Reading sockets…"
-        detail: srvRoot.loaded ? "No open ports and no enabled services" : ""
+        title: srvRoot.failed ? "Could not read sockets" : srvRoot.loaded ? "Nothing is listening" : "Reading sockets…"
+        detail: srvRoot.failed ? "asahi-servers --json failed" : srvRoot.loaded ? "No open ports and no enabled services" : ""
       }
     }
   }

@@ -92,9 +92,11 @@ Scope {
     popIn.stop(); slideIn.stop(); popOut.restart(); slideOut.restart()
     Qt.callLater(root.next)
   }
+  // The mode the output ends in: a remembered mode may still be applying when the toast's "change ▸" asks.
+  function target() { return root.busy ? (root.after || modeProc.want) : root.current }
   function ask() {
     toastTimer.stop()
-    root.sel = Math.max(0, root.modes.findIndex(m => m.key === root.current))
+    root.sel = Math.max(0, root.modes.findIndex(m => m.key === root.target()))
     root.show("ask")
   }
 
@@ -115,7 +117,13 @@ Scope {
       return
     }
     root.current = modeProc.want
-    if (root.after) { const k = root.after; root.after = ""; return root.run(k) }
+    // One queued mode: asahi-hdmi takes the others only from extend, so a queued one steps through it first (picked
+    // while a remembered mode was still applying, or after a Revert).
+    if (root.after) {
+      const k = root.current !== "extend" && root.after !== "extend" ? "extend" : root.after
+      if (k === root.after) root.after = ""
+      return root.run(k)
+    }
     if (root.phase === "confirm" && root.current === root.picked) countdown.restart()
     Qt.callLater(root.next)
   }
@@ -123,16 +131,17 @@ Scope {
 
   function pick(i) {
     const k = root.modes[i].key
+    const cur = root.target()
     root.sel = i
     root.status = ""
     // Live already, or extend (the safe state): no probation.
-    if (k === root.current || k === "extend") {
-      if (k !== root.current) root.run(k)
+    if (k === cur || k === "extend") {
+      if (k !== cur) root.run(k)
       root.remember(k)
       return root.close()
     }
     root.picked = k
-    if (root.current !== "extend") root.run("extend")   // asahi-hdmi takes the other modes one step from extend
+    if (cur !== "extend") root.run("extend")   // asahi-hdmi takes the other modes one step from extend
     root.run(k)
     root.left = 10
     root.show("confirm")
@@ -386,7 +395,7 @@ Scope {
             }
           }
           Text {
-            text: "Esc keeps " + root.modeLabel(root.current)
+            text: "Esc keeps " + root.modeLabel(root.target())
             color: Style.menuInkMuted
             font.family: Style.menuSans; font.pixelSize: Style.typeCaption
           }

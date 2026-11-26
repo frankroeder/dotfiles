@@ -49,6 +49,10 @@ Singleton {
         if (!p) return ""
         return String(p.trackArtUrl || (p.metadata && p.metadata["mpris:artUrl"]) || "")
     }
+    // The cover's quantized colours, once per track for every MediaCard (each card quantizing its own landed after the
+    // card was built: the Media pane eased from the theme accent to the cover's on every visit).
+    ColorQuantizer { id: artQ; source: root.artUrl; depth: 2; rescaleSize: 32 }
+    readonly property var artColors: root.artUrl ? (artQ.colors || []) : []
 
     // MprisPlayer.position never notifies while playing: MediaCard ticks it while shown.
 

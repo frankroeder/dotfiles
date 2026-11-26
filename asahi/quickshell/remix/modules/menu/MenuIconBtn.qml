@@ -17,11 +17,11 @@ Rectangle {
   implicitWidth: 30
   implicitHeight: 30
   radius: btnMa.pressed && !Style.reduceMotion ? Style.menuRadiusMd : width / 2   // held: squares off (shape morph)
-  Behavior on radius { NumberAnimation { duration: Style.menuStateMs; easing.type: Easing.OutCubic } }
+  Behavior on radius { MenuAnim { fast: true } }
   color: btn.bg
   Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
   scale: btnMa.pressed && !Style.reduceMotion ? 0.92 : 1
-  Behavior on scale { NumberAnimation { duration: Style.menuStateMs; easing.type: Easing.OutCubic } }
+  Behavior on scale { MenuAnim { fast: true } }
 
   Rectangle {
     anchors.fill: parent

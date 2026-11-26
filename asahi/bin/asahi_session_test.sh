@@ -15,6 +15,7 @@ cat >"$tmp/hyprctl" <<'EOF'
 #!/usr/bin/env bash
 case "$1" in
   clients)
+    if [ -n "${HYPR_FAIL:-}" ]; then exit 1; fi
     printf '['; sep=""
     while read -r a c; do [ -n "$a" ] && printf '%s{"address":"%s","class":"%s","mapped":true}' "$sep" "$a" "$c" && sep=","; done <"$OPEN"
     printf ']\n' ;;
@@ -50,6 +51,11 @@ rm -f "$STUCK"
 : >"$OPEN"; : >"$CALLS"
 "$ROOT/asahi-session" logout
 grep -q "dispatch hl.dsp.exit()" "$CALLS" && pass "logout without windows: exits Hyprland" || fail_at "logout: $(cat "$CALLS")"
+# Hyprland lists no windows (hyprctl fails): nothing tells what is still open, so it cancels with a card.
+printf '0xa1 org.mozilla.firefox\n' >"$OPEN"; : >"$CALLS"
+if HYPR_FAIL=1 "$ROOT/asahi-session" reboot; then fail_at "hyprctl failing must cancel"; fi
+grep -q 'notify .*Reboot cancelled Hyprland did not list the windows' "$CALLS" && ! grep -q 'systemctl' "$CALLS" \
+  && pass "hyprctl fails: cancelled with a card, no reboot" || fail_at "hyprctl fails: $(cat "$CALLS")"
 
 if "$ROOT/asahi-session" halt 2>/dev/null; then fail_at "unknown action accepted"; else pass "unknown action refused"; fi
 # Restart into macOS: the one-shot macOS boot is set only after the windows are gone (a cancel must leave it unset).

@@ -29,8 +29,8 @@ Scope {
   // property, so hand it over under a different name.
   readonly property var launcherSelf: root
   property bool shouldShow: false
-  // Open cascade: result rows and rail entries rise in one after another when the launcher opens (never while typing:
-  // only rows made within 250 ms of the open). Off under reduced motion.
+  // Open cascade: result rows and rail entries rise in one after another when the launcher opens, 12 / 10 ms apart (never
+  // while typing: only rows made within 250 ms of the open). Off under reduced motion.
   property int openGen: 0
   property double openedAt: 0
   function cascadeNow() { return !Style.reduceMotion && Date.now() - root.openedAt < 250 }
@@ -66,6 +66,8 @@ Scope {
   property var launcherScreen: null
   property int launcherWorkspaceId: 1
   property int resultCount: 0
+  function syncResultCount() { if (!root.quickMode && resultsList) root.resultCount = resultsList.count }
+  function listToTop() { if (!root.quickMode && resultsList) { resultsList.currentIndex = 0; root.selectedIndex = 0 } }
   property int deVersion: 0
   property int dictVersion: 0
   property string dictStatus: ""
@@ -365,6 +367,12 @@ Scope {
     return total > 0 ? Math.round(used * 100 / total) : 0
   }
   property string hubFastfetch: ""
+  // Each Quick pane's last data (key → {property: value}), kept when the pane goes and put back when it is built again:
+  // panes start their reads once built, so they swapped in empty and jumped when the data landed. The fresh read then
+  // only updates the values.
+  property var paneCache: ({})
+  function paneKeep(key, pane, props) { const o = {}; for (const p of props) o[p] = pane[p]; root.paneCache[key] = o }
+  function paneSeed(key, pane) { const o = root.paneCache[key] || {}; for (const p in o) pane[p] = o[p] }
   property int sidebarCpu: 0
   property int sidebarMem: 0
   property int sidebarBat: 100
@@ -373,10 +381,13 @@ Scope {
   property real sidebarCpuPrevTotal: -1
   property var shots: []
   property var videos: []
+  property string shotsText: ""
+  property string videosText: ""
   property string galleryKind: "shots"
   property string copiedShot: ""
   property string shotPreviewPath: ""
   property var clips: []
+  property string clipsText: ""
   property string clipsError: ""
   property string copiedClip: ""
   Timer { id: copyClear; interval: 1200; onTriggered: copiedShot = "" }
@@ -436,6 +447,8 @@ Scope {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
+        if (text === root.clipsText) return   // unchanged: no new array (it reset the list: scroll, hover, rows)
+        root.clipsText = text
         try {
           const data = JSON.parse(text || "{}")
           root.clips = data.entries || []
@@ -476,14 +489,15 @@ Scope {
     id: shotScan
     running: false
     stdout: StdioCollector {
-      onStreamFinished: root.shots = Gallery.mapPaths(text)
+      // Unchanged scan = no new array (a new one reset the grid: tiles reloaded on every visit).
+      onStreamFinished: if (text !== root.shotsText) { root.shotsText = text; root.shots = Gallery.mapPaths(text) }
     }
   }
   Process {
     id: videoScan
     running: false
     stdout: StdioCollector {
-      onStreamFinished: root.videos = Gallery.mapPaths(text)
+      onStreamFinished: if (text !== root.videosText) { root.videosText = text; root.videos = Gallery.mapPaths(text) }
     }
   }
 
@@ -905,7 +919,8 @@ Scope {
           anchors.margins: Style.menuHeroPad
           spacing: Style.menuHeroGap
           Rectangle {
-            width: Math.round(36 * root.uiFontScale); height: width; radius: Style.menuRadiusMd   // hero tile: one size in every pane
+            // Hero tile: one size in every pane (Layout.preferred*: a RowLayout never re-reads `width` after a screen change).
+            Layout.preferredWidth: Math.round(36 * root.uiFontScale); Layout.preferredHeight: Layout.preferredWidth; radius: Style.menuRadiusMd
             color: Style.m3primaryContainer
             Text { anchors.centerIn: parent; text: "󰣛"; color: Style.m3primary; font.family: root.uiFont; font.pixelSize: Math.round(22 * root.uiFontScale) }
           }
@@ -930,7 +945,11 @@ Scope {
             Row {
               id: clockRow; anchors.centerIn: parent; spacing: 6
               Text { text: "󰥔"; color: Style.m3onSurface; font.family: root.uiFont; font.pixelSize: root.fontPx(15); anchors.verticalCenter: parent.verticalCenter }
-              Text { text: Qt.formatTime(hubClock.date, "HH:mm:ss"); color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(11); font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter }
+              Text {
+                text: Qt.formatTime(hubClock.date, "HH:mm:ss"); color: Style.m3onSurface; font.family: root.uiSans
+                font.pixelSize: root.fontPx(11); font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter
+                font.features: Style.fontTabular   // a ticking clock: proportional digits resized the pill every second
+              }
             }
           }
         }
@@ -979,7 +998,7 @@ Scope {
               icon: modelData.icon
               fontFamily: root.uiFont
               labelFamily: root.uiSans
-              sweepDelay: 160 + index * 110
+              sweepDelay: root.cascadeNow() ? 0 : -1   // sweep on open only, not on a pane switch
             }
           }
         }
@@ -1075,9 +1094,11 @@ Scope {
   }
 
   // Binding must read quickPaneKey in-body so the Loader actually swaps.
+  // No key yet = no pane: entering Quick, `quickMode` updates before `quickPaneKey`, and the placeholder built first
+  // (then the real pane swapped in: two fades).
   readonly property var quickPaneComp: {
     const k = root.quickPaneKey
-    return root.quickDetailFor(k)
+    return k ? root.quickDetailFor(k) : null
   }
 
   function navFor(target) {
@@ -1224,6 +1245,9 @@ Scope {
     root.quickStartIndex = 0
     if (resultsList) resultsList.currentIndex = start
     root.selectedIndex = start
+    // Again once the list holds its new rows: the ScriptModel diff carries the current row along (leaving Windows mode
+    // landed on the last row, "System", and Enter ran it).
+    if (root.categoryFilter !== "Quick") Qt.callLater(root.listToTop)
     if (root.categoryFilter === "Keys") root.scanKeyBinds()
     if (root.categoryFilter === "System") root.checkPower()
     if (root.categoryFilter === "Windows") { Hyprland.refreshToplevels(); winRefresh.restart() }
@@ -1559,7 +1583,8 @@ Scope {
       return [{ id: "dnd-bad", name: "Do not disturb: 30m · 2h · 8:00 · off", comment: "not understood", glyph: "󰂛", special: "noop" }]
     const morning = ArgCommands.parseDnd("dnd 8:00", now)
     const rows = [row("dnd-30", "Do not disturb · for 30 minutes", now.getTime() + 1800000), row("dnd-60", "Do not disturb · for 1 hour", now.getTime() + 3600000),
-      row("dnd-120", "Do not disturb · for 2 hours", now.getTime() + 7200000), row("dnd-8", "Do not disturb · " + morning.label + " (tomorrow)", morning.until),
+      row("dnd-120", "Do not disturb · for 2 hours", now.getTime() + 7200000), row("dnd-8", "Do not disturb · " + morning.label
+        + (new Date(morning.until).getDate() !== now.getDate() ? " (tomorrow)" : ""), morning.until),
       row("dnd-on", "Do not disturb · until turned off", 0)]
     return on ? [row("dnd-off", "Do not disturb · off" + (nc.dndUntilText ? " (on until " + nc.dndUntilText + ")" : ""), 0, true)].concat(rows) : rows
   }
@@ -2665,6 +2690,20 @@ Scope {
     command: [root.binDir + "/asahi-session", "check"]
     stdout: StdioCollector { onStreamFinished: root.powerWarnings = text.split("\n").map(s => s.trim()).filter(s => s !== "") }
   }
+  // The warning row leads the list but runs nothing: a fresh list starts its selection on the row under it (else a
+  // typed "restart" + held Enter held the warning).
+  Connections {
+    target: filteredApps
+    function onValuesChanged() {
+      Qt.callLater(() => {
+        const v = filteredApps.values || []
+        if (root.selectedIndex === 0 && v.length > 1 && v[0] && v[0].id === "power-warn") {
+          root.selectedIndex = 1
+          if (resultsList) resultsList.currentIndex = 1
+        }
+      })
+    }
+  }
   function withPowerWarnings(list) {
     if (!root.powerWarnings.length || !list.some(e => e && e.confirm)) return list
     return [{ id: "power-warn", name: root.powerWarnings.join("  ·  "), comment: "finish or stop it before shutting down",
@@ -2998,11 +3037,14 @@ Scope {
       y: restY - Math.round(24 * (1 - root.chromeReveal))
       scale: 0.92 + 0.08 * root.chromeReveal
       transformOrigin: Item.Top
-      Behavior on scale { Menu.MenuAnim { exit: !root.shouldShow } }
+      // Exit / spring from each Behavior's target: `!root.shouldShow` was read stale on close (it left on the spring).
+      Behavior on scale { id: boxScale; Menu.MenuAnim { exit: boxScale.targetValue < 1 } }
       width: root.launcherGeom.cardWidth
-      Behavior on width { Menu.MenuAnim {} }
-      Behavior on y { Menu.MenuAnim { exit: !root.shouldShow } }
-      Behavior on height { Menu.MenuAnim {} }
+      // Size on the effects curve: the spring overshot ~4 px entering Quick (705 → 1015) and settled back for ~0.45 s.
+      // Not while opening (chromeReveal 0): an open in another mode than the last close morphed from the old size.
+      Behavior on width { enabled: root.chromeReveal > 0; Menu.MenuAnim { effects: true } }
+      Behavior on y { id: boxY; Menu.MenuAnim { exit: boxY.targetValue < launcherBox.restY } }
+      Behavior on height { enabled: root.chromeReveal > 0; Menu.MenuAnim { effects: true } }
       height: root.launcherGeom.cardHeight
       cardMargin: root.launcherGeom.cardMargin
       chromeReveal: root.chromeReveal
@@ -3373,13 +3415,16 @@ Scope {
               readonly property real rowW: width - resultsScroll.width
               highlight: Menu.MenuStretchPill {
                 radius: Style.menuSelRadius
+                animate: root.chromeReveal === 1   // snaps while the card opens (slid from the last row to row 0)
                 opacity: resultsList.currentItem ? resultsList.currentItem.enterT : 1   // arrives with its row
                 width: resultsList.rowW
                 targetTop: resultsList.currentItem ? resultsList.currentItem.y + 1 : 0
                 targetBottom: resultsList.currentItem ? resultsList.currentItem.y + resultsList.currentItem.height - 1 : 0
               }
 
-              onCountChanged: if (!root.quickMode) root.resultCount = count
+              // Deferred: launcherGeom's tallRows reads filteredApps.values, whose diff changes this count, so a write here landed
+              // inside launcherGeom's own evaluation ("Binding loop detected for property launcherGeom", leaving Windows mode).
+              onCountChanged: if (!root.quickMode) Qt.callLater(root.syncResultCount)
               // Hidden in Quick, where selectedIndex is the rail's: its model reset wrapped deck index 8+
               // (Storage, Backup, Clipboard; Super+Ctrl+R / V opened Dashboard, Screenshots, Media instead).
               onCurrentIndexChanged: if (currentIndex >= 0 && !root.quickMode) root.selectedIndex = currentIndex
@@ -3412,8 +3457,8 @@ Scope {
                 Connections { target: root; function onOpenGenChanged() { if (root.cascadeNow()) delegateRoot.enter() } }
                 SequentialAnimation {
                   id: rowEnter
-                  PauseAnimation { duration: 90 + delegateRoot.index * 30 }
-                  NumberAnimation { target: delegateRoot; property: "enterT"; to: 1; duration: 320; easing.type: Easing.OutCubic }
+                  PauseAnimation { duration: Math.max(0, delegateRoot.index) * 12 }
+                  NumberAnimation { target: delegateRoot; property: "enterT"; to: 1; duration: Style.menuAnimMs; easing.type: Easing.OutCubic }
                 }
 
                 Rectangle {
@@ -3719,8 +3764,8 @@ Scope {
                   Connections { target: root; function onOpenGenChanged() { if (root.cascadeNow()) railItem.enter() } }
                   SequentialAnimation {
                     id: railEnter
-                    PauseAnimation { duration: 90 + railItem.index * 24 }
-                    NumberAnimation { target: railItem; property: "enterT"; to: 1; duration: 300; easing.type: Easing.OutCubic }
+                    PauseAnimation { duration: Math.max(0, railItem.index) * 10 }
+                    NumberAnimation { target: railItem; property: "enterT"; to: 1; duration: Style.menuAnimMs; easing.type: Easing.OutCubic }
                   }
                   readonly property var t: modelData || {}
                   width: (quickGrid.width - (quickGrid.columns-1)*quickGrid.columnSpacing) / quickGrid.columns
@@ -3769,28 +3814,51 @@ Scope {
               anchors.leftMargin: root.quickMode ? root.launcherGeom.sidePad : root.launcherGeom.panePad
               anchors.right: parent.right
 
-              // Quick pane body: left rail is the selection indicator; no title/close row.
+              // Quick pane body: left rail is the selection indicator; no title/close row. No fade on entering Quick:
+              // the growing card already reveals it (with the fade the first frames showed an empty card).
               Item {
                 visible: root.quickMode
                 anchors.fill: parent
                 clip: true
-                opacity: root.quickMode ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: Style.menuAnimMs; easing.type: Easing.OutCubic } }
-                Loader {
+                // Two slots: the next pane builds in the background (asynchronous) while the shown one stays, then they
+                // swap in one frame and the new one settles in (16 px from the direction of travel; no fade: from 0 it
+                // blanked the pane for a frame on every swap, three times in a held ↓). One synchronous
+                // Loader froze ~0.4 s per rail step under load (pill and fade ran out inside it); one asynchronous Loader
+                // blanked the pane while it built (a flicker on every step). The first pane after entering Quick builds at
+                // once; a held arrow key skips the panes it passes (a newer pick replaces the one building).
+                Item {
                   id: qdl
                   anchors.fill: parent
-                  active: root.quickMode
-                  sourceComponent: root.quickPaneComp
-                  // A new pane settles in (fade + 36 px from the direction of travel) instead of popping; once per
-                  // switch, no idle cost.
                   transform: Translate { id: qdlShift }
-                  onLoaded: paneIn.restart()
+                  property int front: 0
+                  readonly property Loader frontSlot: front === 0 ? slotA : slotB
+                  readonly property Loader backSlot: front === 0 ? slotB : slotA
+                  readonly property var item: frontSlot.item
+                  readonly property var comp: root.quickMode ? root.quickPaneComp : null
+                  onCompChanged: qdl.load()
+                  Component.onCompleted: qdl.load()   // opened straight into Quick: comp is set from the start
+                  function load() {
+                    if (!qdl.comp) { slotA.sourceComponent = null; slotB.sourceComponent = null; return }
+                    if (qdl.frontSlot.sourceComponent === qdl.comp) { qdl.backSlot.sourceComponent = null; return }
+                    if (!qdl.frontSlot.item) {   // entering Quick: built at once, in place (the card's growth is the motion)
+                      qdl.frontSlot.asynchronous = false
+                      qdl.frontSlot.sourceComponent = qdl.comp
+                      return
+                    }
+                    qdl.backSlot.asynchronous = true
+                    qdl.backSlot.sourceComponent = qdl.comp
+                  }
+                  function swap(slot) {
+                    if (slot !== qdl.backSlot || slot.sourceComponent !== qdl.comp) return
+                    const old = qdl.frontSlot
+                    qdl.front = 1 - qdl.front
+                    old.sourceComponent = null
+                    paneIn.restart()
+                  }
+                  Loader { id: slotA; anchors.fill: parent; visible: qdl.front === 0; onLoaded: qdl.swap(slotA) }
+                  Loader { id: slotB; anchors.fill: parent; visible: qdl.front === 1; onLoaded: qdl.swap(slotB) }
                 }
-                ParallelAnimation {
-                  id: paneIn
-                  Menu.MenuAnim { target: qdl; property: "opacity"; from: 0; to: 1; effects: true }
-                  Menu.MenuAnim { target: qdlShift; property: "y"; from: 36 * root.paneDir; to: 0 }
-                }
+                Menu.MenuAnim { id: paneIn; target: qdlShift; property: "y"; from: Style.reduceMotion ? 0 : 16 * root.paneDir; to: 0; effects: true }
               }
 
               Panes.WindowInspector {
@@ -3813,6 +3881,7 @@ Scope {
                     const it = resultsList.currentItem ? resultsList.currentItem.modelData : null
                     return it && it.path ? Data.basename(it.path) : "File preview"
                   }
+                  textFormat: Text.PlainText
                   color: Style.menuInk
                   font.family: root.uiSans
                   font.pixelSize: root.fontPx(14)
@@ -3824,6 +3893,7 @@ Scope {
                     const it = resultsList.currentItem ? resultsList.currentItem.modelData : null
                     return it && it.path ? Data.tildify(Data.dirname(it.path), root.homeDir) : ""
                   }
+                  textFormat: Text.PlainText
                   color: Style.menuInkDeep
                   font.family: Style.fontData   // the rows' path column, same face
                   font.pixelSize: root.fontPx(12)
@@ -3846,6 +3916,7 @@ Scope {
                     // Decode at preview size, not full resolution.
                     sourceSize.width: 1024
                     asynchronous: true
+                    retainWhileLoading: true   // the last preview until the next decodes (blanked per arrow step)
                   }
 
                   Image {

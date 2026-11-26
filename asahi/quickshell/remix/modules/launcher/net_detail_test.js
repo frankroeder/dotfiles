@@ -93,6 +93,7 @@ check(N.ipv4Form({ "ipv4.method": "auto", "ipv4.dns": "1.1.1.1,9.9.9.9" }).dns =
 check(N.ipv4Form({ "ipv4.method": "manual", "ipv4.addresses": "10.0.0.2/8" }).address === "10.0.0.2/8", "manual");
 check(N.ipv4Form({ "ipv4.method": "shared" }).mode === "shared" && N.ipv4Error({ mode: "shared" }) !== "", "other methods: no chip");
 check(N.sameForm(dhcp, Object.assign({}, dhcp)) && !N.sameForm(dhcp, Object.assign({}, dhcp, { mode: "dns" })), "dirty check");
+check(N.sameForm(dhcp, Object.assign({}, dhcp, { dns: "1.1.1.1" })), "dirty check: DHCP ignores a typed DNS");
 check(N.sameForm({ mode: "dns", address: "", gateway: "", dns: "1.1.1.1, 9.9.9.9" },
   { mode: "dns", address: "", gateway: "", dns: "1.1.1.1,9.9.9.9 " }), "DNS spacing is not a change");
 const f = (mode, address, gateway, dns) => ({ mode: mode, address: address || "", gateway: gateway || "", dns: dns || "" });

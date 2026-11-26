@@ -479,11 +479,12 @@ class Pings(unittest.TestCase):
   Trust needs the router's MAC in the neighbour table."""
   def setUp(self):
     lan.STORE.unlink(missing_ok=True)
-    self.real = lan.neighbours
+    self.real, self.real_vpn = lan.neighbours, lan.vpn_iface
     lan.neighbours = lambda iface: {"192.168.178.1": ("74:42:7f:00:00:01", "REACHABLE")}
+    lan.vpn_iface = lambda: ""  # a live VPN on the test machine blocked the sweep (the fake router never answers)
 
   def tearDown(self):
-    lan.neighbours = self.real
+    lan.neighbours, lan.vpn_iface = self.real, self.real_vpn
 
   def sweeps(self, trusted, ticks):
     m = fake_monitor()

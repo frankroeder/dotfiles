@@ -1,7 +1,7 @@
 import QtQuick
 import "../../"
 
-// Exit of a popup card: MenuPopIn backwards on the short accelerating exit curve (180 ms). The owner keeps its
+// Exit of a popup card: MenuPopIn backwards on the short exit curve (150 ms). The owner keeps its
 // window mapped while this runs (`visible: open || popOut.running`); grabs and Esc follow `open`, not `visible`.
 ParallelAnimation {
   id: root

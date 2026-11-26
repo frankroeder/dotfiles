@@ -12,7 +12,8 @@ Item {
   default property alias content: inner.data
 
   opacity: chromeReveal
-  Behavior on opacity { MenuAnim { effects: true; exit: root.chromeReveal < 1 } }
+  // `exit` from the Behavior's target: bound to chromeReveal it was read stale (the open faded on the exit curve).
+  Behavior on opacity { id: fade; MenuAnim { effects: true; exit: fade.targetValue < 1 } }
 
   // Analytic shadow (one shader quad): a MultiEffect blur re-rendered its offscreen passes on every frame of a
   // pane switch's size animation.

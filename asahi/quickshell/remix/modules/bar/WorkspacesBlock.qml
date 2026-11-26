@@ -16,7 +16,7 @@ Item {
   readonly property int iconStep: Style.barWsIcon + 3
   readonly property int maxIcons: 4
   readonly property int gap: 2
-  readonly property int dur: 300
+  readonly property int dur: Style.reduceMotion ? 0 : 300   // reduced motion: the capsule and widths snap
 
   // One step per wheel notch (120): trackpad swipes accumulate, horizontal ones are ignored.
   property real wheelAcc: 0
@@ -127,7 +127,7 @@ Item {
       return x
     }
     readonly property real targetRight: targetLeft + (activeIndex >= 0 ? root.itemWidth(root.activeWorkspaceId) : 0)
-    readonly property int slowDur: Style.reduceMotion ? root.dur : root.dur * 1.5
+    readonly property int slowDur: root.dur * 1.5
     property real fastLeft: targetLeft
     property real fastRight: targetRight
     property real slowLeft: targetLeft
@@ -256,21 +256,23 @@ Item {
               scale: shown ? 1 : 0.4
               transformOrigin: Item.Left
 
-              // Staggered open, quick close.
+              // Staggered open, quick close; the direction from each Behavior's target (`shown` read stale: inverted).
               Behavior on opacity {
+                id: slotFade
                 SequentialAnimation {
-                  PauseAnimation { duration: appSlot.shown ? 40 + Math.max(0, appSlot.index) * 45 : 0 }
-                  NumberAnimation { duration: appSlot.shown ? 180 : 90; easing.type: Easing.OutCubic }
+                  PauseAnimation { duration: slotFade.targetValue > 0 ? Math.max(0, appSlot.index) * 15 : 0 }
+                  NumberAnimation { duration: slotFade.targetValue > 0 ? 180 : 90; easing.type: Easing.OutCubic }
                 }
               }
               Behavior on scale {
+                id: slotScale
                 SequentialAnimation {
-                  PauseAnimation { duration: appSlot.shown ? 40 + Math.max(0, appSlot.index) * 45 : 0 }
-                  NumberAnimation { duration: appSlot.shown ? 260 : 120; easing.type: appSlot.shown ? Easing.OutBack : Easing.OutCubic }
+                  PauseAnimation { duration: slotScale.targetValue >= 1 ? Math.max(0, appSlot.index) * 15 : 0 }
+                  NumberAnimation { duration: slotScale.targetValue >= 1 ? Style.menuAnimMs : 120; easing.type: Easing.OutCubic }
                 }
               }
 
-              NumberAnimation { id: popIn; target: appSlot; property: "scale"; from: 0.3; to: 1; duration: 320; easing.type: Easing.OutBack }
+              NumberAnimation { id: popIn; target: appSlot; property: "scale"; from: 0.4; to: 1; duration: Style.menuAnimMs; easing.type: Easing.OutCubic }
               Component.onCompleted: if (shown) popIn.start()
 
               IconImage {

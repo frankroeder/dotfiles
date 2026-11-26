@@ -52,6 +52,13 @@ PanelWindow {
   QsMenuOpener { id: o1; menu: root.levels[1] || null }
   QsMenuOpener { id: o2; menu: root.levels[2] || null }
   readonly property var current: root.levels.length > 0 ? [o0, o1, o2][root.levels.length - 1] : null
+  // Any entry of this level with an icon: every label starts past the icon slot (they stood 24 px apart).
+  readonly property bool iconSlot: !!root.current && (root.current.children.values || []).some(e => !!e && !!e.icon)
+  // The app quit (its menu went with it): no empty card holding the grab.
+  Connections {
+    target: o0
+    function onMenuChanged() { if (root.shown && !o0.menu) root.close() }
+  }
 
   visible: root.shown
   screen: root.screenRef
@@ -130,8 +137,8 @@ PanelWindow {
           fillMode: Image.PreserveAspectFit
         }
         Text {
-          anchors.left: iconImg.visible ? iconImg.right : markText.right
-          anchors.leftMargin: iconImg.visible ? 8 : 4
+          anchors.left: root.iconSlot ? iconImg.right : markText.right
+          anchors.leftMargin: root.iconSlot ? 8 : 4
           anchors.right: chevron.left
           anchors.verticalCenter: parent.verticalCenter
           text: row.text

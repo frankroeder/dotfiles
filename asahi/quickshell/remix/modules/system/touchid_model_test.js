@@ -124,7 +124,7 @@ eq([/Style\.vivid\b/.test(orb), /Style\.vivid2/.test(orb)], [true, true], "orb: 
 // drops out from under the bar (his pick 2026-11-20: not over it); the polkit card grows out of the notch (IslandCard).
 // Nothing runs while hidden: loops are tied to `live`.
 const lineQml = read("TouchIdLine.qml");
-eq([/RotationAnimator on rotation/.test(orb), /onPhaseChanged: if \(orb\.live && orb\.lit\) land\.restart\(\)/.test(orb),
+eq([/RotationAnimator on rotation/.test(orb), /onPhaseChanged: if \(orb\.live && orb\.phase !== "ready" && orb\.phase !== "off"\) land\.restart\(\)/.test(orb),
   /onMessageChanged: if \(line\.live\) rise\.restart\(\)/.test(lineQml), /y: root\.shown \? 0 : -12/.test(card),
   /IslandCard \{[\s\S]*?shown: root\.shown/.test(polkitQml)],
   [true, true, true, true, true], "animations: scan, land, rise, drop (Touch ID), island (polkit)");

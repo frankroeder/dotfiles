@@ -30,7 +30,7 @@ done
 printf '#!/bin/sh\n[ -e "$XDG_RUNTIME_DIR/clamshell" ]\n' >"$bin/asahi-clamshell"
 printf '#!/bin/sh\n[ -e "$XDG_RUNTIME_DIR/stay-awake" ]\n' >"$bin/asahi-stay-awake"
 
-printf '#!/bin/sh\nif [ "$1" = activewindow ]; then printf "%%s\\n" "${FAKE_ACTIVE:-null}"; else printf "%%s\\n" "$FAKE_MON"; fi\n' >"$fake/hyprctl"
+printf '#!/bin/sh\nif [ "$1" = activewindow ]; then printf "%%s\\n" "${FAKE_ACTIVE:-null}"; elif [ "$1" = clients ]; then printf "%%s\\n" "${FAKE_CLIENTS:-[]}"; else printf "%%s\\n" "$FAKE_MON"; fi\n' >"$fake/hyprctl"
 printf '#!/bin/sh\necho "b $FAKE_LID"\n' >"$fake/busctl"
 printf '#!/bin/sh\n[ "${FAKE_LOCKED:-1}" = 1 ]\n' >"$fake/pgrep"
 printf '#!/bin/sh\nexit 0\n' >"$fake/pactl"
@@ -224,13 +224,33 @@ echo nonsense | "$bin/asahi-claude-activity" beat && [ -e "$run/claude-activity/
 wclaude() { printf '{"session_id":"%s","cwd":"/home/u/proj"}' "$2" | "$bin/asahi-claude-activity" "$1"; }
 FAKE_ACTIVE='{"address":"0xaa"}' wclaude start w1
 FAKE_ACTIVE='{"address":"0xaa"}' wclaude wait w1
-[ ! -e "$run/claude-activity.waiting" ] && pass "claude wait: its window has the focus, nothing shown" || fail_at "claude wait focused: $(cat "$run/claude-activity.waiting")"
+[ ! -e "$run/claude-activity.waiting" ] && pass "claude wait: its window has the focus, nothing shown" \
+  || fail_at "claude wait focused: $(cat "$run/claude-activity.waiting")"
 out=$(FAKE_ACTIVE='{"address":"0xbb"}' wclaude wait w1)
 [ -z "$out" ] && [ "$(cat "$run/claude-activity.waiting")" = $'1\tproj\t0xaa' ] && pass "claude wait: silent, the bar's line has project + window" \
   || fail_at "claude wait: $out $(cat "$run/claude-activity.waiting" 2>&1)"
 wclaude beat w1
 [ ! -e "$run/claude-activity.waiting" ] && pass "claude wait: cleared by the session's next hook" || fail_at "claude wait not cleared"
 wclaude stop w1
+# A terminal closed while its session waited (no hook): `status` drops the wait once its window is gone.
+FAKE_ACTIVE='{"address":"0xaa"}' wclaude start w2
+FAKE_ACTIVE='{"address":"0xbb"}' wclaude wait w2
+FAKE_CLIENTS='[{"address":"0xaa"}]' "$bin/asahi-claude-activity" status >/dev/null || true
+[ -e "$run/claude-activity.waiting" ] && pass "claude wait: kept while its window lives" || fail_at "claude wait dropped with its window alive"
+FAKE_CLIENTS='[{"address":"0xcc"}]' "$bin/asahi-claude-activity" status >/dev/null || true
+[ ! -e "$run/claude-activity.waiting" ] && pass "claude wait: dropped once its window is gone" || fail_at "claude wait outlived its window"
+wclaude stop w2
+# The last window closed (clients = []): dropped too. No window at `start`: no address, kept.
+FAKE_ACTIVE='{"address":"0xaa"}' wclaude start w3
+FAKE_ACTIVE='{"address":"0xbb"}' wclaude wait w3
+FAKE_CLIENTS='[]' "$bin/asahi-claude-activity" status >/dev/null || true
+[ ! -e "$run/claude-activity.waiting" ] && pass "claude wait: dropped when the last window closed" || fail_at "claude wait kept with no windows"
+wclaude stop w3
+FAKE_ACTIVE='null' wclaude start w4
+FAKE_ACTIVE='{"address":"0xbb"}' wclaude wait w4
+FAKE_CLIENTS='[{"address":"0xcc"}]' "$bin/asahi-claude-activity" status >/dev/null || true
+[ -e "$run/claude-activity.waiting" ] && pass "claude wait: no window noted, kept" || fail_at "claude wait without a window dropped"
+wclaude stop w4
 # macOS (shared settings.json and dotfiles): hooks do nothing, status says none.
 mkdir -p "$tmp/mac" && printf '#!/bin/sh\necho Darwin\n' >"$tmp/mac/uname" && chmod +x "$tmp/mac/uname"
 PATH="$tmp/mac:$PATH" claude start m1

@@ -108,8 +108,12 @@ finish_recording() {
     mv -f "$file.tmp" "$file"
   fi
   rm -f "$file.tmp"
-  thumb="$(runtime_dir)/asahi-record-$(basename "$file" .mp4).png"
-  ffmpeg -nostdin -loglevel error -y -ss 0.5 -i "$file" -frames:v 1 -vf scale=480:-2 "$thumb" 2>/dev/null || true
+  # The Screenshots gallery's own thumb (gallery.js `make`): the history card keeps it past a reboot (a runtime-dir
+  # png was gone, an empty icon), and the gallery reuses it.
+  thumb="$HOME/.cache/asahi/video-thumbs/$(basename "$file").jpg"   # gallery.js thumbDir: $HOME/.cache, not XDG
+  mkdir -p "${thumb%/*}"
+  ffmpeg -nostdin -loglevel error -y -ss 0.5 -i "$file" -frames:v 1 \
+    -vf scale=480:300:force_original_aspect_ratio=increase,crop=480:300 -q:v 4 "$thumb" 2>/dev/null || true
   [ -s "$thumb" ] && icon=(-i "$thumb")
   # No -t: notify-send would stop listening while the card (paused on hover) still shows.
   act="$(notify-send -a record "${icon[@]}" -A default=Open -A reveal="Show in folder" "Recording saved" "$file" 2>/dev/null || true)"

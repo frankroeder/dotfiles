@@ -20,14 +20,14 @@ Rectangle {
   implicitHeight: 32
   // Held: the full round squares off a little (M3 expressive shape morph), back on release.
   radius: pillMa.pressed && !Style.reduceMotion ? Style.menuRadiusSm : height / 2
-  Behavior on radius { NumberAnimation { duration: Style.menuStateMs; easing.type: Easing.OutCubic } }
+  Behavior on radius { MenuAnim { fast: true } }
   color: pill.selected ? Style.m3primaryContainer : pill.bg
   border.width: pill.selected ? 1 : 0
   border.color: Style.menuSelBorder
   Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
   // Press: the pressed state layer + a small give (none under reduced motion).
   scale: pillMa.pressed && !Style.reduceMotion ? 0.97 : 1
-  Behavior on scale { NumberAnimation { duration: Style.menuStateMs; easing.type: Easing.OutCubic } }
+  Behavior on scale { MenuAnim { fast: true } }
 
   Rectangle {
     anchors.fill: parent

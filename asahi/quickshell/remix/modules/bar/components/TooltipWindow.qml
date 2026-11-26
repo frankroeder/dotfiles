@@ -46,7 +46,10 @@ PopupWindow {
     transformOrigin: Item.Top
     opacity: root.shown ? 1 : 0
     scale: root.shown || Style.reduceMotion ? 1 : 0.96
-    Behavior on opacity { NumberAnimation { id: fade; duration: root.shown && !Style.reduceMotion ? 140 : 100; easing.type: Easing.OutCubic } }
+    Behavior on opacity {   // in 140 / out 100 from the target (`shown` read stale: swapped)
+      id: tipFade
+      NumberAnimation { id: fade; duration: tipFade.targetValue > 0 && !Style.reduceMotion ? 140 : 100; easing.type: Easing.OutCubic }
+    }
     Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
 
     Rectangle {

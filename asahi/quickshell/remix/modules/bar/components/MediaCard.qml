@@ -41,17 +41,18 @@ Rectangle {
   readonly property bool lyricsOn: Services.Lyrics.shown
 
   // Accent from the cover (end-4 PlayerControl, surface-dots MediaCard): the most colourful of four quantized colours,
-  // its lightness set for the theme (light on dark panels, dark on paper); the theme accent without art. Once per track.
-  ColorQuantizer { id: artQ; source: card.hasArt ? Services.Players.artUrl : ""; depth: 2; rescaleSize: 32 }
+  // its lightness set for the theme (light on dark panels, dark on paper); the theme accent without art. Once per track
+// (Services.Players quantizes for every card).
   function vivid(c) { return c.hslSaturation * (1 - Math.abs(c.hslLightness - 0.5)) }
   property color accent: {
-    const cs = card.hasArt ? (artQ.colors || []) : []
+    const cs = card.hasArt ? Services.Players.artColors : []
     if (!cs.length) return Style.m3primary
     let best = cs[0]
     for (const c of cs) if (card.vivid(c) > card.vivid(best)) best = c
     return Qt.hsla(best.hslHue, Math.max(0.45, Math.min(0.85, best.hslSaturation)), Style.isDark ? 0.72 : 0.34, 1)
   }
-  Behavior on accent { ColorAnimation { duration: 400 } }
+  // Only while shown (`live`): a closed popup in every bar eased on each track; on open it now starts settled.
+  Behavior on accent { enabled: card.live; ColorAnimation { duration: 400 } }
 
   function px(n) { return Math.round(n * card.fontScale) }
   function fmtTime(s) {
@@ -188,13 +189,14 @@ Rectangle {
       source: Services.Players.artUrl
       fillMode: Image.PreserveAspectCrop
       asynchronous: true
+      retainWhileLoading: true   // a track change kept the old cover until the new one decoded (no one-frame dark flash)
       sourceSize: Qt.size(128, 128)
       visible: false
     }
     MultiEffect {
       anchors.fill: parent
       source: backdrop
-      visible: card.hasArt && backdrop.status === Image.Ready
+      visible: card.hasArt && (backdrop.status === Image.Ready || backdrop.status === Image.Loading)
       blurEnabled: true
       blur: 1.0
       blurMax: 64
@@ -229,7 +231,7 @@ Rectangle {
         color: card.accent
         opacity: card.playing && !ring.count ? 0.35 : 0
         scale: disc.scale
-        Behavior on opacity { NumberAnimation { duration: 500 } }
+        Behavior on opacity { enabled: card.live; NumberAnimation { duration: 500 } }
         layer.enabled: opacity > 0   // the blur pass re-renders with the disc's pulse even when invisible
         layer.effect: MultiEffect { blurEnabled: true; blurMax: 32; blur: 1.0 }
       }
@@ -258,7 +260,7 @@ Rectangle {
         width: card.px(110); height: width; radius: width / 2
         color: Style.surface1
         scale: card.playing ? 1.0 : 0.9
-        Behavior on scale { SpringAnimation { spring: 5.2; damping: 0.35; mass: 0.75 } }
+        Behavior on scale { enabled: card.live; SpringAnimation { spring: 5.2; damping: 0.35; mass: 0.75 } }
         NumberAnimation on rotation {
           from: 0; to: 360; duration: 25000
           loops: Animation.Infinite
@@ -283,6 +285,7 @@ Rectangle {
             source: Services.Players.artUrl
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
+            retainWhileLoading: true
             sourceSize: Qt.size(256, 256)
           }
           // Accent tint + grooves (alternating light / dark rings), as upstream.
@@ -420,7 +423,7 @@ Rectangle {
     model: Services.Lyrics.lines
     // Before the first line it waits in the bottom row.
     contentY: Services.Lyrics.synced ? (lyr.cur - 1) * lyr.rowH : 0
-    Behavior on contentY { NumberAnimation { duration: Style.reduceMotion ? 0 : 320; easing.type: Easing.OutCubic } }
+    Behavior on contentY { enabled: card.live; NumberAnimation { duration: Style.reduceMotion ? 0 : 320; easing.type: Easing.OutCubic } }
     delegate: Text {
       required property var modelData
       required property int index

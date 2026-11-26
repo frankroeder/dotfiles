@@ -62,7 +62,9 @@ Item {
         source: Services.Players.artUrl
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
-        sourceSize: Qt.size(64, 64)
+        retainWhileLoading: true   // the last cover until the new one decodes (it flashed the empty box per track)
+        // The media popup card's backdrop size (MediaCard, always built): same url + size = a pixmap-cache hit, no decode.
+        sourceSize: Qt.size(128, 128)
       }
     }
   }

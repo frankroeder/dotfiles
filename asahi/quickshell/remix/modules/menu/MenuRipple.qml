@@ -21,11 +21,11 @@ Item {
   }
   function release() { r.held = false; if (!grow.running) out.restart() }
   NumberAnimation {
-    id: grow; target: r; property: "t"; from: 0; to: 1; duration: 450
+    id: grow; target: r; property: "t"; from: 0; to: 1; duration: 300
     easing.type: Easing.BezierSpline; easing.bezierCurve: [0.2, 0, 0, 1, 1, 1]   // M3 standard
     onFinished: if (!r.held) out.restart()
   }
-  NumberAnimation { id: out; target: r; property: "fade"; to: 0; duration: 300; easing.type: Easing.OutCubic }
+  NumberAnimation { id: out; target: r; property: "fade"; to: 0; duration: Style.menuAnimMs; easing.type: Easing.OutCubic }
   Loader {
     anchors.fill: parent
     active: r.held || grow.running || out.running

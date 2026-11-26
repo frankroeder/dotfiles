@@ -155,9 +155,11 @@ function ipv4Form(p) {
   }
 }
 
+// Only the fields the mode uses (ipv4Args): DHCP + DNS → type a DNS → back to DHCP is clean again.
 function sameForm(a, b) {
-  return a.mode === b.mode && a.address.trim() === b.address.trim() && a.gateway.trim() === b.gateway.trim()
-    && splitList(a.dns).join(",") === splitList(b.dns).join(",")
+  if (a.mode !== b.mode) return false
+  if (a.mode === "manual" && (a.address.trim() !== b.address.trim() || a.gateway.trim() !== b.gateway.trim())) return false
+  return a.mode === "dhcp" || splitList(a.dns).join(",") === splitList(b.dns).join(",")
 }
 
 // "" when the form can be applied, else what to fix.

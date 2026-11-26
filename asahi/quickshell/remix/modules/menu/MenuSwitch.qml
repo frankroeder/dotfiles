@@ -24,9 +24,13 @@ Rectangle {
   readonly property real targetRight: targetLeft + side
   property real edgeLeft: targetLeft
   property real edgeRight: targetRight
-  // At the start the edge still holds its old value: moving right, the left edge trails; moving left, the right one.
-  Behavior on edgeLeft { MenuAnim { fast: true; duration: Style.menuSpringFastMs * (sw.targetLeft > sw.edgeLeft ? 1.5 : 1) } }
-  Behavior on edgeRight { MenuAnim { fast: true; duration: Style.menuSpringFastMs * (sw.targetRight < sw.edgeRight ? 1.5 : 1) } }
+  // Turning on (moving right) the left edge trails; turning off, the right one. Latched in a handler: a binding (on the
+  // edges, or on `checked` itself) updated after the Behavior had started (stretched on the first toggle only, then
+  // compressed).
+  property bool movingRight: checked
+  onCheckedChanged: sw.movingRight = sw.checked
+  Behavior on edgeLeft { MenuAnim { fast: true; duration: Style.menuSpringFastMs * (sw.movingRight ? 1.5 : 1) } }
+  Behavior on edgeRight { MenuAnim { fast: true; duration: Style.menuSpringFastMs * (sw.movingRight ? 1 : 1.5) } }
 
   Rectangle {   // hover / press state layer
     anchors.fill: parent

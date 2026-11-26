@@ -6,7 +6,12 @@ import "../../"
 // ghost track for short lists like Monitors with 1–2 displays.
 ScrollBar {
   id: root
-  readonly property bool overflow: size > 0 && size < 0.999
+  // Synced once `size` settles, not bound: the reserve it sets (implicitWidth → a list's row width) relaid the launcher
+  // results out inside the binding (leaving Windows / Files mode: "Binding loop detected for property overflow"), and the
+  // aborted pass kept a 9 px reserve with nothing to scroll.
+  property bool overflow: false
+  function syncOverflow() { root.overflow = root.size > 0 && root.size < 0.999 }
+  onSizeChanged: Qt.callLater(root.syncOverflow)
   // Lists without MenuEdgeFade keep a resting thumb (nothing else says they scroll).
   property bool autoHide: true
 
@@ -25,9 +30,11 @@ ScrollBar {
     // list's edge fades say there is more.
     opacity: root.active || root.hovered ? 1 : root.autoHide ? 0 : 0.55
     Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
+    // Pause from the Behavior's target (bound to active / hovered it read stale: shown 0.6 s late, hidden at once).
     Behavior on opacity {
+      id: thumbFade
       SequentialAnimation {
-        PauseAnimation { duration: root.active || root.hovered ? 0 : 600 }
+        PauseAnimation { duration: thumbFade.targetValue >= 1 ? 0 : 600 }
         NumberAnimation { duration: 200 }
       }
     }

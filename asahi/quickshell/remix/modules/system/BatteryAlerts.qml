@@ -23,15 +23,15 @@ Scope {
       "-i", "battery-alert", r.card[0], r.card[1]])
   }
   onPctChanged: root.check()
-  // The charger's chime (macOS MagSafe feel; ideas: Ryoku, end-4): the first reading only sets the baseline.
+  // The charger's chime (macOS MagSafe feel; ideas: Ryoku, end-4). UPower's first readings after a start only set the
+  // baseline: chimes from 3 s on (on AC at start nothing changes, so a flag set by a change left the first unplug silent).
   property bool seenPlug: false
   onPluggedChanged: {
     root.check()
     if (root.dev.ready && root.seenPlug)
       Quickshell.execDetached(["paplay", "/usr/share/sounds/freedesktop/stereo/" + (root.plugged ? "power-plug" : "power-unplug") + ".oga"])
-    root.seenPlug = root.dev.ready
   }
-  Component.onCompleted: root.seenPlug = root.dev.ready
+  Timer { interval: 3000; running: root.dev.ready; onTriggered: root.seenPlug = true }
 
   Timer {
     interval: 60000

@@ -23,7 +23,7 @@ Rectangle {
       from: -runner.width; to: track.width
       duration: 1100; easing.type: Easing.InOutQuad
       loops: Animation.Infinite
-      running: track.busy && track.visible && !Style.reduceMotion
+      running: track.busy && track.visible && !!track.Window.window && track.Window.window.visible && !Style.reduceMotion
     }
   }
 }

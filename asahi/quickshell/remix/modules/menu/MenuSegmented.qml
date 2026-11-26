@@ -31,15 +31,17 @@ Rectangle {
     radius: height / 2
     color: Style.menuSelFill
     border.width: 1; border.color: Style.menuSelBorder
-    // At the start the edge still holds its old value: moving right, the left edge trails; moving left, the right one.
-    // No motion while the row is first laid out (width 0).
+    // Moving right, the left edge trails; moving left, the right one. Latched when the target moves (a binding on the
+    // edges read stale after the first move). No motion while the row is first laid out (width 0).
+    property bool movingRight: true
+    onTargetLeftChanged: handle.movingRight = handle.targetLeft > handle.edgeLeft
     Behavior on edgeLeft {
       enabled: handle.width > 0
-      MenuAnim { duration: Style.menuSpringMs * (handle.targetLeft > handle.edgeLeft ? 1.5 : 1) }
+      MenuAnim { duration: Style.menuSpringMs * (handle.movingRight ? 1.5 : 1) }
     }
     Behavior on edgeRight {
       enabled: handle.width > 0
-      MenuAnim { duration: Style.menuSpringMs * (handle.targetRight < handle.edgeRight ? 1.5 : 1) }
+      MenuAnim { duration: Style.menuSpringMs * (handle.movingRight ? 1 : 1.5) }
     }
   }
   Row {

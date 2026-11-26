@@ -181,7 +181,11 @@ Item {
     const scr = m ? Quickshell.screens.find(s => s.name === m.name) : null
     if (scr) root.launcherScreen = scr
   }
-  Component.onDestruction: if (quickMonitorsRoot.revertLeft > 0) quickMonitorsRoot.revertLayout("Reverted")
+  Component.onCompleted: root.paneSeed("monitors", quickMonitorsRoot)
+  Component.onDestruction: {
+    root.paneKeep("monitors", quickMonitorsRoot, ["mons", "monRaw", "monSaved", "brightness"])
+    if (quickMonitorsRoot.revertLeft > 0) quickMonitorsRoot.revertLayout("Reverted")
+  }
   Timer {
     id: revertTimer
     interval: 1000; repeat: true
@@ -494,7 +498,7 @@ Item {
     property bool divider: true
     default property alias control: setRowSlot.data
     Layout.fillWidth: true
-    implicitHeight: Math.max(40, setRowSlot.childrenRect.height + 14, setRowText.implicitHeight + 14)
+    implicitHeight: Math.max(40, setRowSlot.childrenRect.height + 8, setRowText.implicitHeight + 8)
     color: setRowHover.hovered ? Style.menuRowHi : "transparent"
     HoverHandler { id: setRowHover }
     Rectangle { visible: setRow.divider; anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right; anchors.leftMargin: 16; anchors.rightMargin: 16; height: 1; color: Style.menuHairline }
@@ -729,7 +733,9 @@ Item {
               anchors.left: parent.left; anchors.top: parent.top; anchors.margins: 8
               width: builtinLbl.implicitWidth + 12; height: 16; radius: 8
               color: Style.m3primary
-              Menu.MenuCaption { id: builtinLbl; anchors.centerIn: parent; text: "BUILT-IN"; color: Style.m3onPrimary; font.pixelSize: root.fontPx(7) }
+              Menu.MenuCaption {
+                id: builtinLbl; anchors.centerIn: parent; text: "BUILT-IN"; color: Style.m3onPrimary; font.pixelSize: root.fontPx(7)
+              }
             }
             Rectangle {
               visible: !vizMon.off && vizMon.h >= 72 && !!modelData.activeWorkspace
@@ -877,6 +883,7 @@ Item {
             Text {
               text: quickMonitorsRoot.brightness + "%"
               color: Style.m3onSurface; font.pixelSize: root.fontPx(10); font.family: root.uiSans; font.weight: Font.DemiBold
+              font.features: Style.fontTabular
               Layout.preferredWidth: root.fontPx(30); horizontalAlignment: Text.AlignRight
             }
           }
@@ -974,6 +981,7 @@ Item {
         visible: quickMonitorsRoot.draftDirty || quickMonitorsRoot.revertLeft > 0
         fontScale: root.uiFontScale
         bg: Style.m3primary; fg: Style.m3onPrimary
+        numeric: true
         label: quickMonitorsRoot.draftDirty ? "Apply" : "Keep " + quickMonitorsRoot.revertLeft + "s"
         onClicked: quickMonitorsRoot.draftDirty ? quickMonitorsRoot.applyDraft() : quickMonitorsRoot.keepChange()
       }

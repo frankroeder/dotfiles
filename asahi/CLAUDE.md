@@ -384,11 +384,11 @@ relabel filter.
   palettes run crust > mantle > base, so there `m3surface(Solid)` = mantle and cards step down (`m3container` = mantle
   tinted by base@0.8, `m3containerHigh` = base); dark unchanged; `popupBorder` stays 0.6 (≈ 3:1 on a light window;
   0.3 measured 1.6:1). Motion: bar popups, sheet, tray, app grid enter with `Menu.MenuPopIn` (fade + 0.96 → 1
-  spring from the edge they hang from); bar popups, sheet, tray leave with `Menu.MenuPopOut` (180 ms accelerate):
+  spring from the edge they hang from); bar popups, sheet, tray leave with `Menu.MenuPopOut` (150 ms, `menuExit` = M3 standard: moving at once):
   `visible: open || popOut.running`, and the focus grab, its arm timer and Esc follow `open`, never `visible` (a
   closing popup must not grab; real-click tested: inside keeps, outside closes, reopen mid-exit ends open). App grid
   unmaps at once. Launcher / `MenuCard` / backdrop leave on `MenuAnim { exit }`; a pane switch
-  fades + rises 10 px. Hover on a filled button = `Qt.tint(fill, Style.m3stateHover)`, never `Qt.lighter`. Section
+  slides 16 px, no fade (none under reduceMotion; from opacity 0 each swap blanked the pane for a frame). Hover on a filled button = `Qt.tint(fill, Style.m3stateHover)`, never `Qt.lighter`. Section
   captions = tracked caps (`fontPx(8)` DemiBold, 1.2). Floating cards radius Lg, nested cards Md; `MenuCard` has a
   `menuHairline` rim. No `Text.NativeRendering` in the bar (SysChip's drew thinner than its neighbours at 1.875×).
   Popup text sizes = `Style.type{Caption 10, Body 11, Lead 12, Title 13, Display 22}` (bar popups, calendar, sheet,
@@ -431,10 +431,37 @@ relabel filter.
   Motion (each once per open, off under `reduceMotion`, nothing loops): SysPanel **unfolds from its chip** (container
   transform: `ClippingRectangle` chip-wide → card on `Style.menuEnter`, content laid out for the full card and faded in
   past a third; the other bar popups keep `MenuPopIn`); launcher **open cascade** (result rows and rail entries rise in
-  30 / 24 ms apart; `openGen` / `cascadeNow()`: only within 250 ms of the open, never while typing; selection pill and
-  highlight follow their item's `enterT`); **shared-axis** pane switch (`paneDir` from `selectDeckIndex`: 36 px from the
-  direction of travel); app grid **ripple** from the centre (delay by distance, OutBack; cells rebuilt by typing just
-  appear); Dashboard gauges **sweep** (`MenuHudDial.sweepDelay`, staggered 110 ms).
+  12 / 10 ms apart, 200 ms each, no lead pause; `openGen` / `cascadeNow()`: only within 250 ms of the open, never while typing; selection pill and
+  highlight follow their item's `enterT`); **shared-axis** pane switch (`paneDir` from `selectDeckIndex`: 16 px from the
+  direction of travel on the 200 ms effects curve, no fade; panes build in a background slot); app grid **ripple** from the centre
+  (25 ms per cell step, 200 ms OutCubic, no bounce; cells rebuilt by typing just appear); Dashboard gauges **sweep**
+  together, on the launcher's open only (a pane switch shows values at once).
+  Motion review (2026-11-26, his ask "snappy, no fluff"; sheets + clips `~/Downloads/quickshell-pass5/motion/`): a
+  Behavior picks `exit` from its own `targetValue` (bound to the owner's state, e.g. `chromeReveal < 1`, it was read
+  stale: the launcher opened on the exit curve, <10 % visible after 110 ms); `MenuSpring` spring 12 / damping 0.7
+  (90 % ~110 ms, trailing ~180 ms, settled ~320 ms; was 225 / 352 / 650); SysPanel unfold = `menuSpringFastMs`;
+  ripple 300 + 200 ms; bar workspace icons 15 ms apart, no OutBack. Quick pane keyboard steps froze ~0.4 s under load
+  (the pane was built in one frame, pill + fade ran out inside it): two Loader slots, the next pane builds
+  asynchronously in the hidden one and they swap in one frame (one async Loader blanked the pane while it built: a
+  flicker per step, his report); the first pane after entering Quick loads at once, in place (no body fade: the growing
+  card reveals it; card width / height on the effects curve — the spring overshot ~4 px and settled for ~0.45 s);
+  `MenuHudDial` values landing in its first 0.4 s snap (gauges swept 0 → value on every Dashboard build).
+  A pane builds hidden: never `forceActiveFocus()` at construction (it takes focus while invisible); `quickPaneComp` is
+  null until `quickPaneKey` is set (entering Quick built the placeholder first, then swapped).
+  It also sees `visibleChanged` false at build and true at the swap: no `onVisibleChanged: refresh()` in a pane (it
+  would refresh on every switch). A value assigned in `Component.onCompleted` of an inline delegate animates (the
+  Behavior is live): seed through a binding or gate it; `released` fires before `pressedChanged`.
+  Flicker rules (2026-11-26 hunts): an animation's curve / duration / direction never binds to the state that moves the
+  property (its anim is built on the first write, bindings then read stale): use `<behaviorId>.targetValue` or latch
+  in `on<Target>Changed` (handlers run before bindings); a Behavior on data runs only while its window / `live` shows
+  and its first value snaps (`primed`: MenuMeter, MenuSlider, Ccu ring, MenuHudDial's first 0.4 s); an Image whose
+  source changes keeps the old frame (`retainWhileLoading`); ticking digits are tabular with a fixed box; bar
+  animations skip the first second (`BarHost.chipAnim`, tray too); shared derived data (cover colours) lives in the
+  service, not per card. Quick panes keep their last data (`LauncherWindow.paneCache`, `paneKeep` in a pane's
+  `onDestruction`, `paneSeed` first in its `onCompleted`): a revisit arrives complete, the fresh read only updates
+  (Temps, Battery — first % from the macsmc sysfs capacity, UPower read ~4 % off —, Backup from `tmStatus`, Displays,
+  Hardware, Network LAN); lines that wait for data stay laid out with " "; `MenuFadeText` snaps while hidden. Left: rows built when data
+  lands (Temps / Servers 50–85 ms, Hardware 30–50 ms).
   Polish 3 (2026-11-24, refs caelestia / end-4 / Gren-95 / surface-dots; sheets `~/screenshots/quickshell-all-windows-
   2026-11-24.png`, `…-polish3-…`): **optical size** — Adwaita Sans is variable (`opsz` 14–32, Inter Display at 32) and
   Qt draws every size with the 14 cut; big readouts / titles take `font.variableAxes: Style.opsz(<size expr>)` (never
@@ -447,7 +474,7 @@ relabel filter.
   `PathPolyline` + gradient fill (no Canvas raster per sample). Tried and dropped: hiding the empty LAN card (the
   Wi-Fi card then stretched with an empty half). His picks from the ideas sheet (`~/screenshots/quickshell-ideas-
   2026-11-24.png`; declined: per-process net, reading-mode shader, Material Symbols): `MediaCard.accent` from the cover
-  (`ColorQuantizer` depth 2, most vivid of 4, HSL lightness 0.72 dark / 0.34 light; theme accent without art); lock
+  (`ColorQuantizer` depth 2, once per track in `Services.Players.artColors` for every card, most vivid of 4, HSL lightness 0.72 dark / 0.34 light; theme accent without art); lock
   password dots spring in, accent → ink (fixed 24-slot Repeater: a count model rebuilt every dot on each key);
   `Menu.MenuRipple` on pill / chip / icon button (declared under the label; built only while it runs); **hold to
   confirm** on `confirm` rows (Enter, keypad Enter or the pointer, 1.2 s; early release drains and says "Hold to
@@ -458,7 +485,8 @@ relabel filter.
   Pass 5 (2026-11-25, his picks, sheets `~/screenshots/quickshell-pass5-*`): **look knobs** `Style.uiScale` (type tokens,
   launcher geometry `launcherLayout({ look })`, menu widgets' `fontScale` default) / `radiusScale` (menu radii, Full stays) /
   `motionScale` / `fontFeatures` + the three families, live from an optional `~/.config/asahi/look.json` (`ASAHI_LOOK` path;
-  no file = defaults); tokens `typeHeadline 16`, `typeHero 28`, `menuRadiusXs 4`. **Concentric radii** `Style.inset(outer,
+  no file / not an object = defaults; `Style.knob` clamps uiScale 0.5–2, radiusScale 0.25–3, motionScale 0.25–4, and
+  `MenuSpring` stops at 0.75: a stiffer spring overshoots at its damping, a tiny one never settled); tokens `typeHeadline 16`, `typeHero 28`, `menuRadiusXs 4`. **Concentric radii** `Style.inset(outer,
   pad)` = max(Sm, outer − pad): launcher 28 → pane cards / heroes / gauges `menuPaneRadius` 16 → nested 12 → rows
   `menuRowRadius` 8 (a thumb / tile in a row ≤ 8); results, rail pill, calc legend `menuSelRadius` 12. Pane metrics
   `menuHeroPad 14` / `menuHeroGap 16` / `menuCardPad 12` (Hardware + Servers keep their tight hero: 767 × 636, no scroll).
@@ -473,17 +501,30 @@ relabel filter.
   height, tile × `glyphRatio` 0.6) only on off-ratio tiles (Packages, toast fallback, now playing, empty disc, Writing /
   Lookup; launcher rows, rail, Dashboard, hero tiles keep their glyphs). `menuSpringFast` (350 ms, `MenuAnim { fast }`):
   switch edges stretch + height eases + hover layer, no check mark. `MenuSlider`: one eased `pos` (drag 1:1), wheel 1/20,
-  ←/→ while hovered, ±10 px hit, `detents`; `fontScale` 4/3 = popup size. Tooltips 470 ms, warm 600 ms (`tooltip_warm.js`).
-  Dark weights `wghtBody / wghtTitle` (variableAxes 450 / 550, dark only, never on StyledText). Bold → DemiBold; pill / chip
+  ←/→ once the pointer moved over it (a pane built under a resting pointer took the rail's ←), ±10 px hit, `detents`; `fontScale` 4/3 = popup size. Tooltips 470 ms, warm 600 ms (`tooltip_warm.js`).
+  Review fixes (2026-11-26): `MenuSlider.wheelSteps: false` inside scrolling lists (Media streams, HID++: the wheel
+  scrolled their values); `MenuMeter`'s first value snaps (`primed`: data landing after the build grew bars from 0);
+  `MenuRunner` sweeps only while its window shows; a component's own `value` shadows the owner's (SysPanel tiles:
+  qualify by id). Round 3: `MenuMeter` eases only while its window shows (SysPanel tiles ticked every 3 s on every
+  bar); `MenuStretchPill` latches its direction on `targetTop` change and `MenuSwitch` on `checked` change (a
+  binding on the edges read stale at a move's start: they stretched once only); `MenuSlider.stepSize` (BT DPI choices:
+  1 / (n − 1)), a `detents` step lands on the 5 % grid; `MenuSpring` epsilon 0.25 (no sub-pixel tail).
+  `MenuScrollBar.overflow` is synced after `size` settles (`Qt.callLater`) and the launcher's `resultCount` is written
+  deferred: bound, both looped while leaving Windows / Files mode (rows kept a 9 px scrollbar reserve). Window
+  inspector: a failed capture drops the ScreencopyView context (0.2.1); no frame yet → the source is re-set once. Motion (his picks, M3 / M4): pill / chip / icon-button press on `MenuAnim { fast }`; lock dots: each 18 px slot grows /
+  closes on the fast spring (the row glides, a deleted dot shrinks + fades; demo IPC `lock state add|del`);
+  `Menu.MenuSpring` (velocity-keeping `SpringAnimation`, overdamped) on the selection pill edges and the OSD fill
+  (stiffened in the 2026-11-26 motion review). Dark weights `wghtBody / wghtTitle` (variableAxes 450 / 550, dark only, never on StyledText). Bold → DemiBold; pill / chip
   `numeric` = tnum. Workspaces: capsule edges stretch (B1), static urgent dot (B2,
   `HyprlandWorkspace.urgent`, a qs restart forgets it). Declined: all of L13 (shadows),
   rim, mono-accent, instrument OSD, scope graphs, decode text, corner marks, lifetime line, selection tick, slider looks.
 - **Round 4 features** (2026-11-25, his picks from the reference survey; sheet `~/screenshots/quickshell-round4-2026-11-25.png`):
   night light chip click = `NightLightPanel` (warmth slider 1000–6000 K in 250 K steps, `asahi-nightlight set <K>` 300 ms
-  after the last move, presets, Off; right-click = off; QML reads `ASAHI_NIGHTLIGHT_STATE` like the script).
+  after the last move, presets, Off; right-click = off; the light going off while it is open (right-click, CLI) clears
+  `openPanel` (else the next light-on popped it open, grab and all); QML reads `ASAHI_NIGHTLIGHT_STATE` like the script).
   `Osd.mode()` cards for night light / stay awake / DND on-off (3 s settle; temperature changes stay quiet). Timed DND:
   `NotificationCenter.dndUntil` (epoch ms, in the history file, one Timer to the deadline; ran out while away = off on
-  load), `:dnd 30m|2h|8:00|off` rows (`ArgCommands.parseDnd`), IPC `dndFor`, "until HH:mm" in the sheet. Pinned apps:
+  load), `:dnd 30m|2h|8:00|off` rows (the deadline is re-checked every 30 s: Qt timers stand still through s2idle) (`ArgCommands.parseDnd`), IPC `dndFor`, "until HH:mm" in the sheet. Pinned apps:
   `~/.local/state/asahi/launcher-pins` (desktop ids), right-click a launcher app row or a grid cell; pinned lead Apps and
   the grid and win search ties. Foreign notification daemon: `busctl --user status org.freedesktop.Notifications` 5 s
   after start and on each sheet open → red banner + "Take over" (kill it, `asahi-restart-quickshell`); `asahi-debug`
@@ -495,7 +536,7 @@ relabel filter.
   (whole disks) every 2 s while open, mirrored `Shape` graphs (sqrt scale), history per open. Pre-shutdown warnings:
   `asahi-session check` (package manager, partial downloads < 2 min old, wf-recorder, restic, live Claude markers) → one
   red row above the power rows (launcher open, System, hold start). `System.NowPlayingCard`: once per track while playing
-  (5 s settle; not while the launcher is open or over fullscreen), Actions › "Now-playing card" (`now-playing-card` flag).
+  (Apple Music only, his call 2026-11-26: browsers / video do not announce; 5 s settle; not while the launcher is open or over fullscreen), Actions › "Now-playing card" (`now-playing-card` flag).
   Servers pane: speaker protection (`speakersafetyd` / `speakerguardd*`) is never stopped or restarted (`asahi-servers`
   refuses; buttons off). Claude hold gives way below 20 % discharging (`battery_low`; `ASAHI_BATTERY_DIR` in tests); the
   bar cup shows it dim amber without a tooltip (bar rule). Display prompt pings use `qs ipc --any-display` (the
@@ -556,7 +597,8 @@ relabel filter.
   index written last), then detached `asahi-cmd-record finish <file>` (omarchy; stop clears the file marker: a later
   stop of a foreign wf-recorder (`pgrep` fallback) finished the old take again): unreadable file → critical card; else
   audio's first 0.4 s muted + loudnorm -14 LUFS (AAC 48k: loudnorm runs at 192k), video copied (no 0.1 s trim: needs a
-  re-encode); card with a thumbnail (`$XDG_RUNTIME_DIR/asahi-record-<name>.png`), click opens. IPC:
+  re-encode); card with a thumbnail (the gallery's `~/.cache/asahi/video-thumbs/<file>.jpg`: survives a reboot for the history
+  card, the gallery reuses it), click opens. IPC:
   `qs -c remix ipc call recording panel`.
 - **Packages**: `PkgManager.qml` over `asahi-pkg` (dnf5 JSON). Update checks run `dnf check-update` **without**
   `--cacheonly` (as user it read days-old `~/.cache/libdnf5`); offline (exit 1) → `--cacheonly`. Rows under
@@ -859,7 +901,8 @@ relabel filter.
   `Menu.MenuChip` labels too (the keep-awake chips name inhibiting apps). Only exception: the notification body (StyledText from `NotificationModel.richBody`, an allowlist; `href` written raw:
   StyledText keeps `&amp;` in it).
 - **Quickshell launch**: never `qs -d` (EPIPE/`qFatal` if the parent is gone); `setsid -f qs -n -c <module>`
-  (`asahi-restart-quickshell`). Bar vanished → `asahi-debug` coredumps first. qs reloads on save (log
+  (`asahi-restart-quickshell`: kills every qs **but the lock** — `pkill -x qs` killed a running lock screen; its guard
+  relocked). Bar vanished → `asahi-debug` coredumps first. qs reloads on save (log
   `/run/user/$UID/quickshell/by-pid/<pid>/log.log`). `grim` blocks on a DPMS-off output — always `timeout`. zprofile
   unsets Lmod's `BASH_ENV` (13 → 1.2 ms per bash).
 - **Polkit**: `modules/system/PolkitAgent.qml` (Quickshell `PolkitAgent`) is the agent (else pkexec / GUI admin
@@ -971,7 +1014,9 @@ relabel filter.
   round the Claude mark only (a red chip outline was tried and dropped: "looks bad"; not the ≥ 90 % wash), holds the chip rotation on Claude, hover names the
   project; a click stays the usage popup (click-to-focus the terminal was built and rejected the same day). The window
   = `hyprctl activewindow` at the last `start` (all Ghostty windows share one pid: the process tree cannot tell), used
-  only so that nothing is shown while that window has the focus; every later hook of the session clears it. Hooks are not in his settings.json yet (the classifier refuses edits there: he runs the script).
+  only so that nothing is shown while that window has the focus; every later hook of the session clears it. `status`
+  checks windows only when `hyprctl clients` answers (the last window closed = `[]` drops the wait; a wait with no
+  window noted stays); while one waits, the usage chip runs `status` on each Hyprland `closewindow` (no timer). Hooks are not in his settings.json yet (the classifier refuses edits there: he runs the script).
 - **Idle (macOS-shaped)**: why hypridle (2026-11-23, his question): Hyprland has no idle actions of its own and logind
   sees no Wayland idle, so something must turn "no input for N minutes" into dim / lock / dark / sleep, lock before
   every sleep (and hold it until the lock is up: `inhibit_sleep = 3`), run the after-wake steps, and honour apps'
@@ -1191,9 +1236,11 @@ relabel filter.
   xdg-open http://localhost:<port>`, closes the launcher) for own TCP listeners reachable on loopback, root ones only on
   web ports (631 CUPS, 80 / 443 / 8080 / 8443 / 9090). Services = enabled user services (minus dbus-broker, tmpfiles) +
   every unit owning a port; one `systemctl [--user] show --timestamp=unix` per scope (since = entered its current
-  state). `asahi-servers start|stop|restart user|system <unit>`: argv only, `fullmatch` on `[A-Za-z0-9@._:-]+\.service`
-  (`re.match` + `$` let a trailing newline through); system units ask polkit (the shell's agent), a system Stop takes a
-  second click within 3 s. Containers (read-only) only when `podman` exists. Polls every 5 s only while shown; rows are
+  state; a stamp before the boot = the clock was set by NTP after it (the RTC reads ~40 days behind at boot):
+  boot + its monotonic stamp). `asahi-servers start|stop|restart user|system <unit>`: argv only, `fullmatch` on
+  `[A-Za-z0-9@._:\\-]+\.service` (`\x2d` escapes pass; `re.match` + `$` let a trailing newline through);
+  system units ask polkit (the shell's agent), a system Stop takes a second click within 3 s. Containers (read-only)
+  only when `podman` exists. Polls every 5 s only while shown; rows are
   rebuilt only when their shape changes (state / memory looked up by key). Test `asahi/bin/asahi_servers_test.py`.
 - **VPN facts** (idea: serpantinum vpn-info.sh): `asahi-vpn-info` reads locally (nmcli, `ip route get`, resolvectl,
   `ip link`) the kill switch (Proton's `pvpn-(routed-)killswitch`; `-ipv6` = leak guard, not the switch; no profile =

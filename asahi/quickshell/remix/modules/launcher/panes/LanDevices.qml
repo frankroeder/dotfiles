@@ -133,7 +133,7 @@ ColumnLayout {
     }
     Text {
       anchors.fill: parent; verticalAlignment: Text.AlignVCenter
-      text: parent.hint; color: Style.m3onSurfaceVariant; font: parent.font
+      text: parent.hint; textFormat: Text.PlainText; color: Style.m3onSurfaceVariant; font: parent.font
       visible: parent.text === "" && !parent.activeFocus
     }
   }
@@ -277,8 +277,9 @@ ColumnLayout {
             text: Lan.status(row.d)
             color: row.d.self || row.d.gw ? Style.m3primary : Style.m3onSurfaceVariant
           }
-          IconBtn { visible: Lan.canSsh(row.d); icon: "󰆍"; onClicked: lanView.openSsh(row.d) }
-          IconBtn { visible: !!row.d.web; icon: "󰖟"; onClicked: lanView.openWeb(row.d.web) }
+          // Slots kept when empty: the IPs line up in one column whatever buttons a row has.
+          IconBtn { enabled: Lan.canSsh(row.d); opacity: enabled ? 1 : 0; icon: "󰆍"; onClicked: lanView.openSsh(row.d) }
+          IconBtn { enabled: !!row.d.web; opacity: enabled ? 1 : 0; icon: "󰖟"; onClicked: lanView.openWeb(row.d.web) }
           IconBtn {
             visible: !!row.d.ip
             icon: lanView.copied === row.d.mac ? "󰄬" : "󰆏"

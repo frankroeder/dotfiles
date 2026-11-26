@@ -27,13 +27,14 @@ Item {
   readonly property real cy: height - handle * 0.7
   // Upstream eases position updates over 250 ms (never while dragging).
   property real smoothed: root.value
-  Behavior on smoothed { enabled: !ma.pressed; NumberAnimation { duration: 250 } }
+  // Only while shown: the position is not ticked while closed, so on open it jumped 250 ms from the last close.
+  Behavior on smoothed { enabled: !ma.pressed && root.live; NumberAnimation { duration: 250 } }
   readonly property real shown: ma.pressed ? ma.dragValue : root.smoothed
   readonly property real progressX: root.indeterminate ? width - pad : pad + Math.max(0, Math.min(1, shown)) * (width - 2 * pad)
 
   property real phase: 0
   property real ampFactor: root.playing ? 1 : 0
-  Behavior on ampFactor { NumberAnimation { duration: 600; easing.type: Easing.OutQuad } }
+  Behavior on ampFactor { enabled: root.live; NumberAnimation { duration: 600; easing.type: Easing.OutQuad } }
 
   implicitHeight: 36
 
@@ -56,7 +57,7 @@ Item {
     id: wave
     anchors.fill: parent
     opacity: root.playing || ma.containsMouse ? 1 : 0.55
-    Behavior on opacity { NumberAnimation { duration: 350 } }
+    Behavior on opacity { enabled: root.live; NumberAnimation { duration: 350 } }
     onPaint: {
       const ctx = getContext("2d")
       ctx.reset()

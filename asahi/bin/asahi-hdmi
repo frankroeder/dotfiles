@@ -319,7 +319,8 @@ set_mode() {
     wait_for extended || refuse "$name did not come back"
     return 0
   fi
-  extended && ! "$clamshell" status || refuse "extend first"
+  # A remembered mode runs right after `added`'s enable eval: give Hyprland its frame.
+  wait_for extended && ! "$clamshell" status || refuse "extend first"
   case "$1" in
   mirror)
     edp_enabled || refuse "built-in display is off"   # the mirror source
@@ -369,7 +370,10 @@ sync)
     elif is_enabled; then
       on_hdmi
     else
-      after_settle "$(bump_gen)"
+      # Enabled here (an `added` racing this sync went stale): announce it like `added` would (once per plug).
+      gen="$(bump_gen)"
+      after_settle "$gen"
+      if ! stale "$gen" && drm_connected; then announce_plug; fi
     fi
   else
     bump_gen >/dev/null

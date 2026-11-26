@@ -26,14 +26,18 @@ Item {
   property real shown: 0
   readonly property real frac: Math.max(0.003, Math.min(1, shown / 100))
 
-  Behavior on shown { MenuAnim {} }
+  // Values landing in the first 0.4 s (read just after the pane is built: disk from the fastfetch cache, the first
+  // battery / memory sample) snap: they swept from 0 / 100 on every Dashboard build. Later changes and the open sweep glide.
+  property bool settled: false
+  Timer { running: true; interval: 400; onTriggered: dial.settled = true }
+  Behavior on shown { enabled: dial.settled && !!dial.Window.window && dial.Window.window.visible; MenuAnim {} }
   // `sweepDelay` >= 0: start empty and sweep to the value after that many ms, the number counting up with it (the
-  // Dashboard's gauges, staggered). Off under reduced motion.
+  // Dashboard's gauges, on the launcher's open). Off under reduced motion.
   property int sweepDelay: -1
   property bool swept: sweepDelay < 0
   onValueChanged: if (swept) shown = value
   Component.onCompleted: { if (sweepDelay < 0 || Style.reduceMotion) { swept = true; shown = value } else sweepTimer.start() }
-  Timer { id: sweepTimer; interval: Math.max(1, dial.sweepDelay); onTriggered: { dial.swept = true; dial.shown = dial.value } }
+  Timer { id: sweepTimer; interval: Math.max(1, dial.sweepDelay); onTriggered: { dial.settled = true; dial.swept = true; dial.shown = dial.value } }
 
   Item {
     id: ring
@@ -107,6 +111,7 @@ Item {
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: Math.round(dial.shown) + dial.suffix
+        font.features: Style.fontTabular
         color: dial.accent
         font.family: dial.labelFamily
         font.pixelSize: Math.max(10, Math.round(dial.diameter * 0.2))

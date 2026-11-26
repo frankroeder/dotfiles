@@ -15,7 +15,7 @@ Item {
   anchors.fill: parent
 
   readonly property string helper: root.binDir + "/asahi-timemachine"
-  property var status: ({})
+  property var status: root.tmStatus   // the state file the launcher read on open, until `status` answers
   property var snapshots: []
   property var liveOv: null
   // Live `overview` once it answers, else the copy cached in the state file (shown at once).
@@ -202,7 +202,12 @@ Item {
       if (!statusProc.running) statusProc.running = true
     }
   }
-  Component.onCompleted: listSnapshots()
+  Component.onCompleted: {
+    root.paneSeed("backup", tmRoot)
+    if (tmRoot.ov.snapshots) tmRoot.useSnapshots(tmRoot.ov.snapshots)   // the last list at once; `overview` refreshes it
+    listSnapshots()
+  }
+  Component.onDestruction: root.paneKeep("backup", tmRoot, ["status", "liveOv"])
 
   readonly property string tmState: status.running ? "running" : (status.state || (status.ready ? "idle" : "setup"))
   readonly property color stateColor: tmState === "failed" ? Style.red
@@ -411,11 +416,13 @@ Item {
             value: tmRoot.ov.disk && tmRoot.ov.disk.size > 0 ? tmRoot.ov.disk.used / tmRoot.ov.disk.size : 0
             fill: Style.m3tertiary
           }
-          Secondary {
-            text: "keep 7 daily · 4 weekly · 12 monthly · 3 yearly · "
-              + (tmRoot.status.last_check ? "verified " + tmRoot.ago(tmRoot.status.last_check) : "not verified yet")
-            font.pixelSize: root.fontPx(9)
-          }
+        }
+        // Own line: beside the drive text it squeezed the meter to a few px on the laptop.
+        Secondary {
+          Layout.fillWidth: true
+          text: "keep 7 daily · 4 weekly · 12 monthly · 3 yearly · "
+            + (tmRoot.status.last_check ? "verified " + tmRoot.ago(tmRoot.status.last_check) : "not verified yet")
+          font.pixelSize: root.fontPx(9)
         }
         Row {
           Layout.fillWidth: true

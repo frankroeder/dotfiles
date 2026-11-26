@@ -8,7 +8,7 @@ Item {
   anchors.fill: parent
   opacity: reveal
 
-  Behavior on opacity { MenuAnim { effects: true; exit: root.reveal < 1 } }
+  Behavior on opacity { id: fade; MenuAnim { effects: true; exit: fade.targetValue < 1 } }   // target, not `reveal`: read stale
 
   Rectangle {
     anchors.fill: parent

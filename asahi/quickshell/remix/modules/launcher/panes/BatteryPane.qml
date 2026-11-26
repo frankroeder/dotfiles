@@ -17,7 +17,9 @@ Item {
 
   property string batIcon: "󰁹"
   property string batStatus: ""
-  property int batPercentage: -1  // -1 until the first read (no red "0%" flash)
+  // Until asahi-battery answers: the sysfs capacity it reports (UPower's display device read 4 % off); -1 = none (no "0%").
+  FileView { id: capFile; path: "/sys/class/power_supply/macsmc-battery/capacity"; blockLoading: true; printErrors: false }
+  property int batPercentage: parseInt(capFile.text()) || -1
   property var batClass: []
   property var batLines: []
   property string batTimeRemaining: ""
@@ -245,7 +247,13 @@ Item {
     if (!histProc.running) histProc.running = true
     if (!holdsProc.running) holdsProc.running = true
   }
-  Component.onCompleted: if (paneLive) { limitProc.running = true; histProc.running = true; holdsProc.running = true }
+  Component.onCompleted: {
+    root.paneSeed("battery", quickBatteryRoot)
+    if (paneLive) { limitProc.running = true; histProc.running = true; holdsProc.running = true }
+  }
+  Component.onDestruction: root.paneKeep("battery", quickBatteryRoot, ["batIcon", "batStatus", "batPercentage", "batClass", "batLines",
+    "batTimeRemaining", "batHolding", "smcPower", "chargerV", "chargerA", "smcLoaded", "history", "rateHistory", "limitEnd", "limitStart",
+    "limitDesired", "holds"])
 
   Timer {
     interval: 3000
@@ -305,13 +313,15 @@ Item {
               Layout.alignment: Qt.AlignBaseline
             }
           }
-          Text {
-            visible: quickBatteryRoot.batTimeRemaining !== "" && quickBatteryRoot.batTimeRemaining !== "n/a"
-            text: (quickBatteryRoot.batCharging ? "Time to full  " : "Time remaining  ") + quickBatteryRoot.batTimeRemaining
+          Text {   // laid out until the first read (batStatus "")
+            visible: quickBatteryRoot.batStatus === "" || quickBatteryRoot.batTimeRemaining !== "" && quickBatteryRoot.batTimeRemaining !== "n/a"
+            text: quickBatteryRoot.batStatus === "" ? " "
+              : (quickBatteryRoot.batCharging ? "Time to full  " : "Time remaining  ") + quickBatteryRoot.batTimeRemaining
             color: Style.m3onSurface; font.family: root.uiSans; font.pixelSize: root.fontPx(12)
           }
           Text {
-            text: quickBatteryRoot.limitSlow && !quickBatteryRoot.limitErr && quickBatteryRoot.limitMsg !== "" ? quickBatteryRoot.limitMsg : quickBatteryRoot.limitHint
+            text: quickBatteryRoot.limitSlow && !quickBatteryRoot.limitErr && quickBatteryRoot.limitMsg !== ""
+              ? quickBatteryRoot.limitMsg : quickBatteryRoot.limitHint
             color: Style.m3onSurfaceVariant; font.family: root.uiSans; font.pixelSize: root.fontPx(10)
           }
           // Charge limit: 60-100 in 5% steps, plus the 80 / 100 presets.
@@ -470,6 +480,7 @@ Item {
           required property var modelData
           required property int index
           icon: quickBatteryRoot.factGlyph(modelData.k)
+          numeric: true   // Power / Temp tick every 3 s
           label: modelData.k + " " + modelData.v
           bg: index % 2 === 0 ? Style.m3secondaryContainer : Style.m3tertiaryContainer
         }
@@ -501,9 +512,11 @@ Item {
         id: smcCol
         anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
         anchors.margins: Style.menuCardPad
-        spacing: 8
+        // 6 between the rows (8 under the title): with the Charger Input row the facts card below scrolled 10 px.
+        spacing: 6
         RowLayout {
           Layout.fillWidth: true
+          Layout.bottomMargin: 2
           spacing: 10
           Menu.MenuGlyphTile { glyph: "󰓅"; fontScale: root.uiFontScale }
           Text {
@@ -585,7 +598,7 @@ Item {
           readonly property int rowCount: Math.ceil(quickBatteryRoot.batFacts.length / 2)
           readonly property real rowH: children.reduce((m, c) => Math.max(m, c.implicitHeight), 0)
           rowSpacing: rowCount > 1 ? Math.floor(Math.min(2 * baseGap, Math.max(baseGap, (factFlick.height - rowH * rowCount) / (rowCount - 1)))) : baseGap
-          readonly property int baseGap: Math.max(10, Math.round(root.fontPx(7)))
+          readonly property int baseGap: Math.max(8, Math.round(root.fontPx(6)))
           Repeater {
             model: quickBatteryRoot.batFacts
             delegate: RowLayout {

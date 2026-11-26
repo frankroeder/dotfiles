@@ -65,7 +65,8 @@ Item {
   property string vpnIpKey: ""
   // A reply landing after the pane is gone ran against a dead context (QuickModels null): abort it on the way out.
   property var vpnIpXhr: null
-  Component.onDestruction: if (vpnIpXhr) vpnIpXhr.abort()
+  Component.onCompleted: root.paneSeed("network", quickNetworkRoot)   // the last LAN list: Devices skips "Looking around…"
+  Component.onDestruction: { root.paneKeep("network", quickNetworkRoot, ["lan"]); if (vpnIpXhr) vpnIpXhr.abort() }
   property var vpnLastConns: []
   property var vpnLastDetails: ({})
   // Live tunnel facts from asahi-vpn-info (local reads: kill switch, default route, DNS, MTU); see vpnInfoKey.
@@ -386,7 +387,7 @@ Item {
     const xhr = new XMLHttpRequest()
     xhr.onreadystatechange = function() {
       if (xhr.readyState !== XMLHttpRequest.DONE) return
-      if (xhr.status !== 200) return
+      if (xhr.status !== 200 || !quickNetworkRoot) return   // the pane may be gone (switched away while it ran)
       const ip = QuickModels.parsePublicIp(xhr.responseText)
       if (ip) quickNetworkRoot.vpnPublicIp = ip
     }
@@ -937,15 +938,15 @@ Item {
                 }
               }
               Menu.MenuMeter {
-                visible: quickNetworkRoot.activeSignal > 0
+                visible: !quickNetworkRoot.wifiScanned || quickNetworkRoot.activeSignal > 0   // laid out until the scan lands
                 Layout.fillWidth: true
                 value: quickNetworkRoot.activeSignal / 100
                 fill: quickNetworkRoot.signalColor(quickNetworkRoot.activeSignal)
               }
               Secondary {
-                visible: quickNetworkRoot.wifiPlace !== ""
+                visible: !quickNetworkRoot.wifiScanned || quickNetworkRoot.wifiPlace !== ""
                 Layout.fillWidth: true
-                text: quickNetworkRoot.wifiPlace
+                text: quickNetworkRoot.wifiPlace || " "
                 color: quickNetworkRoot.placeColor(quickNetworkRoot.wifiKind, Style.m3onSurfaceVariant)
               }
               // Until the first tooltip the four rows show blank: the card keeps its height.
@@ -1407,13 +1408,17 @@ Item {
       Layout.fillHeight: false
       Layout.fillWidth: true
       spacing: 8
+      // Equal thirds (preferredWidth 1 each): by text width Speed test was wider and "Testing…" resized all three.
       Pill {
-        Layout.fillWidth: true; icon: "󰈀"; label: "Editor"
+        Layout.fillWidth: true; Layout.preferredWidth: 1; icon: "󰈀"; label: "Editor"
         onClicked: root.execAndClose([root.binDir + "/asahi-launch", "nm-connection-editor"])
       }
-      Pill { Layout.fillWidth: true; icon: "󱘖"; label: "nmtui"; onClicked: root.execAndClose([root.binDir + "/asahi-launch-or-focus-tui", "nmtui"]) }
       Pill {
-        Layout.fillWidth: true
+        Layout.fillWidth: true; Layout.preferredWidth: 1; icon: "󱘖"; label: "nmtui"
+        onClicked: root.execAndClose([root.binDir + "/asahi-launch-or-focus-tui", "nmtui"])
+      }
+      Pill {
+        Layout.fillWidth: true; Layout.preferredWidth: 1
         icon: "󰓅"; label: speedProc.running ? "Testing…" : "Speed test"
         bg: Style.m3secondaryContainer
         onClicked: quickNetworkRoot.runSpeedtest()
@@ -1481,7 +1486,7 @@ Item {
         }
         Rectangle {
           Layout.fillWidth: true
-          height: root.fieldH
+          Layout.preferredHeight: root.fieldH
           radius: Style.menuRadiusFull
           color: Style.m3containerHigh
           border.width: netPassInput.activeFocus ? Style.focusRingWidth : 0

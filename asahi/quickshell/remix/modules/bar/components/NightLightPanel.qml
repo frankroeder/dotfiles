@@ -29,7 +29,15 @@ PopupWindow {
   }
 
   visible: root.panelOpen || popOut.running
-  onPanelOpenChanged: if (root.panelOpen) { popOut.stop(); popIn.restart() } else popOut.restart()
+  // Closed by the light going off (right-click on the chip, the CLI) too: clear openPanel, else it stays "night" and
+  // the next light-on pops the panel by itself.
+  // Closed by the light going off (openPanel still "night"): a pending slider `set` would turn it back on.
+  onPanelOpenChanged: {
+    if (root.panelOpen) { popOut.stop(); popIn.restart(); return }
+    popOut.restart()
+    if (root.barHost && root.barHost.openPanel === "night") send.stop()
+    root.close()
+  }
   color: "transparent"
   anchor.edges: Edges.Bottom
   anchor.margins.bottom: -BarModel.popupDrop(root.barHost ? root.barHost.height : Style.barHeight, Style.barHeight)
@@ -114,7 +122,7 @@ PopupWindow {
         Item { Layout.fillWidth: true }
         Menu.MenuPill {
           icon: "󰐥"; label: "Off"; fg: Style.orange
-          onClicked: { Quickshell.execDetached([root.binDir + "/asahi-nightlight", "toggle"]); root.close() }
+          onClicked: { send.stop(); Quickshell.execDetached([root.binDir + "/asahi-nightlight", "toggle"]); root.close() }
         }
       }
     }

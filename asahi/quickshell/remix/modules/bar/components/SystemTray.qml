@@ -21,7 +21,8 @@ Item {
 
   readonly property var items: SystemTray.items.values
   readonly property int overflowCount: Math.max(0, root.items.length - root.maxInline)
-  readonly property bool attention: root.items.some(i => i.status === Status.NeedsAttention)
+  // Only the icons behind "+N": an inline icon carries its own dot.
+  readonly property bool attention: root.items.slice(root.maxInline).some(i => i.status === Status.NeedsAttention)
 
   implicitWidth: strip.implicitWidth
   implicitHeight: Style.barHeight
@@ -44,9 +45,11 @@ Item {
 
         readonly property bool needsAttention: slot.modelData.status === Status.NeedsAttention
 
-        // Pops in place; omarchy's drawer slides the whole strip sideways instead.
+        // Pops in place; omarchy's drawer slides the whole strip sideways instead. Not at shell start / reload (the bar's
+        // first second, `chipAnim`): every icon popped in as the items registered.
+        Component.onCompleted: if (!root.barHost || root.barHost.chipAnim) slotPop.start()
         ParallelAnimation {
-          running: true
+          id: slotPop
           NumberAnimation { target: slot; property: "opacity"; from: 0; to: 1; duration: 180 }
           NumberAnimation { target: slot; property: "scale"; from: 0.5; to: 1; duration: 180; easing.type: Easing.OutBack }
         }

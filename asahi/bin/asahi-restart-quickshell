@@ -6,16 +6,23 @@ set -u
 
 bin="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
-running() { pgrep -x qs >/dev/null 2>&1 || pgrep -x quickshell >/dev/null 2>&1; }
+# Every qs but the lock screen (`qs -p …/remix/lock.qml`): `pkill -x qs` killed a running lock too (2026-11-26: its guard
+# relocked, but a restart must never touch it).
+shells() {
+  local p
+  for p in $(pgrep -x qs; pgrep -x quickshell); do
+    grep -qa -- 'remix/lock\.qml' "/proc/$p/cmdline" 2>/dev/null || echo "$p"
+  done
+}
+running() { [ -n "$(shells)" ]; }
 fail() {
   hyprctl notify 3 10000 0 "Quickshell: $1" >/dev/null 2>&1 || true
   echo "asahi-restart-quickshell: $1" >&2
   exit 1
 }
 
-for name in qs quickshell; do
-  pkill -x "$name" 2>/dev/null || true
-done
+pids=$(shells)
+if [ -n "$pids" ]; then kill $pids 2>/dev/null || true; fi
 
 for _ in {1..30}; do
   running || break

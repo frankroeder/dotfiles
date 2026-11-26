@@ -175,6 +175,8 @@ ShellRoot {
       else if (p === "wrong") { lock.pw = "x"; lock.failed() }
       else if (p === "unlock") lock.unlock()
       else if (p === "caps") lock.capsOn = !lock.capsOn
+      else if (p === "add") { lock.pw += "x"; lock.phase = "typing" }   // one key / Backspace (motion shots)
+      else if (p === "del") lock.pw = lock.pw.slice(0, -1)
       else { lock.phase = "idle"; lock.pw = "" }
     }
   }
@@ -255,7 +257,7 @@ ShellRoot {
       color: Qt.rgba(0, 0, 0, 1 - lock.lift)
       readonly property real enter: lock.shown ? 1 : 0
       property real reveal: 0
-      Behavior on reveal { Menu.MenuAnim { exit: !lock.shown } }
+      Behavior on reveal { id: revealB; Menu.MenuAnim { exit: revealB.targetValue < 1 } }   // target: `shown` can read stale
       onEnterChanged: reveal = enter
       Component.onCompleted: reveal = enter
 
@@ -380,25 +382,32 @@ ShellRoot {
               font.letterSpacing: lock.pw === "" || lock.phase === "checking" ? 0 : 3
             }
             // Typed characters pop in one by one (caelestia InputField, end-4 PasswordChars): each dot springs 0 → 1
-            // and cools from the accent to ink; deleting drops the last at once. Runs per key press only.
+            // and cools from the accent to ink; its 18 px slot (dot + gap) grows on the same fast spring, so the
+            // centred row glides instead of jumping 9 px; a deleted dot shrinks and fades while its slot closes.
+            // Runs per key press only.
             Row {
               anchors.centerIn: parent
+              anchors.horizontalCenterOffset: 4   // the last slot's trailing 8 px gap
               visible: lock.pw !== "" && lock.phase !== "checking"
-              spacing: 8
               Repeater {
                 model: 24   // fixed slots: a count model rebuilt every dot on each key (all popped again)
-                Rectangle {
-                  id: dot
+                Item {
+                  id: slot
                   required property int index
-                  visible: index < lock.pw.length
-                  anchors.verticalCenter: parent.verticalCenter
-                  width: 10; height: 10; radius: 5
-                  color: Style.m3onSurface
-                  onVisibleChanged: if (visible && !Style.reduceMotion) pop.restart()
-                  ParallelAnimation {
-                    id: pop
-                    NumberAnimation { target: dot; property: "scale"; from: 0; to: 1; duration: 380; easing.type: Easing.OutBack; easing.overshoot: 2.4 }
-                    ColorAnimation { target: dot; property: "color"; from: Style.vivid; to: Style.m3onSurface; duration: 900 }
+                  readonly property bool on: index < lock.pw.length
+                  width: on ? 18 : 0
+                  height: 10
+                  Behavior on width { Menu.MenuAnim { fast: true } }
+                  onOnChanged: if (on && !Style.reduceMotion) cool.restart()
+                  Rectangle {
+                    id: dot
+                    width: 10; height: 10; radius: 5
+                    color: Style.m3onSurface
+                    scale: slot.on ? 1 : 0
+                    opacity: slot.on ? 1 : 0
+                    Behavior on scale { id: dotScale; Menu.MenuAnim { fast: dotScale.targetValue > 0; exit: dotScale.targetValue === 0 } }
+                    Behavior on opacity { Menu.MenuAnim { exit: true } }
+                    ColorAnimation on color { id: cool; running: false; from: Style.vivid; to: Style.m3onSurface; duration: 900 }
                   }
                 }
               }

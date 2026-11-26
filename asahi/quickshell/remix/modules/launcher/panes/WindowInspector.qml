@@ -32,7 +32,7 @@ Item {
   readonly property var tags: (wi.ipc.tags || []).map(t => String(t).replace(/\*$/, ""))
   property var proc: ({})                                       // ps: rss (KiB), etimes (s), args
   property string armed: ""                                     // "close" / "kill": waits for the second click
-  onAddressChanged: { wi.armed = ""; wi.proc = ({}); grab.restart(); procRead.restart() }
+  onAddressChanged: { wi.armed = ""; wi.proc = ({}); wi.regrabbed = false; grab.restart(); procRead.restart() }
 
   function lua(fn, extra) { return "hl.dsp." + fn + "({ " + (extra ? extra + ", " : "") + "window = \"address:0x" + wi.address + "\" })" }
   // Dispatches in order (one shell, one hyprctl each): float first, then size / center (a resize in the same call still
@@ -50,11 +50,14 @@ Item {
     wi.act(wi.lua("window.float", "action = \"enable\""), wi.lua("window.resize", "x = " + w + ", y = " + h + ", relative = false"),
       wi.lua("window.center"))
   }
-  // Scripts that work on the focused window (Pop, PiP): focus it, then run them; the launcher goes first.
+  // Scripts that work on the focused window (Pop, PiP): focus it, then run them; the launcher goes first. The focus
+  // waits for its unmap (as focusWindowAfterClose): the leaving exclusive layer hands focus back to the old window.
   function viaFocus(script) {
     const focus = "hl.dsp.focus({ window = \"address:0x" + wi.address + "\" })"
     wi.root.closeLauncher()
-    Quickshell.execDetached(["sh", "-c", "hyprctl dispatch \"$1\" >/dev/null; sleep 0.15; exec \"$2\" \"${@:3}\"", "sh", focus].concat(script))
+    const wait = (Style.menuAnimOutMs + 80) / 1000
+    Quickshell.execDetached(["sh", "-c", "sleep " + wait + "; hyprctl dispatch \"$1\" >/dev/null; sleep 0.15; exec \"$2\" \"${@:3}\"",
+      "sh", focus].concat(script))
   }
   // The usual screenshot (asahi-cmd-screenshot: saved, copied, the Open / Annotate card) of this window's rectangle,
   // once the launcher is gone; only while the window is on screen (grim reads the screen).
@@ -62,7 +65,8 @@ Item {
     if (!wi.ipc.visible || !wi.ipc.at || !wi.ipc.size) return
     const g = wi.ipc.at[0] + "," + wi.ipc.at[1] + " " + wi.ipc.size[0] + "x" + wi.ipc.size[1]
     wi.root.closeLauncher()
-    Quickshell.execDetached(["sh", "-c", "sleep 0.35; ASAHI_SHOT_GEOMETRY=\"$1\" exec \"$2\" windows", "sh", g, wi.root.binDir + "/asahi-cmd-screenshot"])
+    Quickshell.execDetached(["sh", "-c", "sleep " + (Style.menuAnimOutMs / 1000 + 0.15) + "; ASAHI_SHOT_GEOMETRY=\"$1\" exec \"$2\" windows", "sh",
+      g, wi.root.binDir + "/asahi-cmd-screenshot"])
   }
   function copy(text) {
     if (!text) return
@@ -82,8 +86,23 @@ Item {
       : s >= 3600 ? Math.floor(s / 3600) + " h " + Math.floor(s % 3600 / 60) + " min" : Math.max(1, Math.floor(s / 60)) + " min"
   }
 
-  // One still per selection (and after an action): a live capture would redraw at the window's frame rate.
-  Timer { id: grab; interval: 120; onTriggered: if (shot.captureSource) shot.captureFrame() }
+  // One still per selection (and after an action): a live capture would redraw at the window's frame rate. A failed frame
+  // drops the view's context (Quickshell 0.2.1), and only a new source makes another: captureFrame then just warned
+  // ("no recording context is ready") and the preview stayed the icon. No frame yet: re-set the source, once a selection.
+  readonly property var src: wi.tl && wi.tl.wayland ? wi.tl.wayland : null
+  property bool regrabbed: false
+  Timer {
+    id: grab; interval: 120
+    onTriggered: {
+      if (!shot.captureSource) return
+      if (shot.hasContent) shot.captureFrame()
+      else if (!wi.regrabbed) {
+        wi.regrabbed = true
+        shot.captureSource = null
+        shot.captureSource = Qt.binding(() => wi.src)
+      }
+    }
+  }
   // Its process, once per selection: resident memory, age, command line.
   Timer { id: procRead; interval: 150; onTriggered: if (wi.ipc.pid > 0 && !procProc.running) procProc.running = true }
   Process {
@@ -168,7 +187,7 @@ Item {
           anchors.centerIn: parent
           width: Math.min(frame.width, frame.height * frame.aspect)
           height: width / frame.aspect
-          captureSource: wi.tl && wi.tl.wayland ? wi.tl.wayland : null
+          captureSource: wi.src
           live: false
           onCaptureSourceChanged: grab.restart()
         }
@@ -249,7 +268,7 @@ Item {
           value: !wi.ipc.pid ? "" : "pid " + wi.ipc.pid + (wi.proc.rss ? "  ·  " + wi.root.prettyBytes(wi.proc.rss * 1024) : "")
             + (wi.proc.etimes ? "  ·  up " + wi.fmtAge(wi.proc.etimes) : "")
         }
-        Fact { label: "Command"; value: wi.proc.args || "" }
+        Fact { label: "Command"; value: wi.proc.args || (wi.ipc.pid ? " " : "") }   // laid out while ps runs (rows bounced)
       }
 
       Caption { text: "Layout" }

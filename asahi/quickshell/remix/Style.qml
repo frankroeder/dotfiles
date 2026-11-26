@@ -12,18 +12,22 @@ Singleton {
 
   // ── Look knobs: every type / radius / duration token below multiplies by its scale. Defaults here; the optional
   // look.json overrides them and the three font families ({"uiScale": 1.1, "fontUi": "Noto Sans"}), live on save.
+  // A missing / non-positive value = 1, the rest clamped (a tiny motionScale left springs animating every frame).
   property var look: ({})
-  readonly property real uiScale: look.uiScale || 1          // text + launcher geometry
-  readonly property real radiusScale: look.radiusScale || 1  // corner radii (full-round pills stay round)
-  readonly property real motionScale: look.motionScale || 1  // durations: < 1 = snappier
+  function knob(v, lo, hi) { return typeof v === "number" && v > 0 ? Math.min(hi, Math.max(lo, v)) : 1 }
+  readonly property real uiScale: knob(look.uiScale, 0.5, 2)          // text + launcher geometry
+  readonly property real radiusScale: knob(look.radiusScale, 0.25, 3)  // corner radii (full-round pills stay round)
+  readonly property real motionScale: knob(look.motionScale, 0.25, 4)  // durations: < 1 = snappier
   // OpenType features on every number (merged into fontTabular), e.g. { "zero": 1 } = slashed zeros.
-  readonly property var fontFeatures: look.fontFeatures || ({})
+  readonly property var fontFeatures: look.fontFeatures && typeof look.fontFeatures === "object" && !Array.isArray(look.fontFeatures)
+    ? look.fontFeatures : ({})
   FileView {
     path: Quickshell.env("ASAHI_LOOK") || (Quickshell.env("HOME") + "/.config/asahi/look.json")
     watchChanges: true
     printErrors: false   // no file = defaults
     onFileChanged: reload()
-    onLoaded: root.look = JSON.parse(text())
+    // A half-saved file (an editor mid-write) keeps the last look without an error in the log.
+    onLoaded: { let v = null; try { v = JSON.parse(text()) } catch (e) { return } root.look = v && typeof v === "object" ? v : ({}) }
     onLoadFailed: root.look = ({})
   }
 
@@ -162,21 +166,21 @@ Singleton {
   readonly property int menuHeroPad: 14
   readonly property int menuHeroGap: 16
   readonly property int menuCardPad: 12
-  // Anim: M3 expressive spatial spring + effects curve; exits are shorter and accelerate (M3 emphasized
-  // accelerate), so a closing surface gets out of the way instead of springing.
+  // Anim: M3 expressive spatial spring + effects curve; exits are short (150 ms) on M3 standard: half gone in ~30 ms
+  // (the emphasized accelerate held a closing surface still for ~75 ms), so it gets out of the way at once.
   // Reduced motion on a low battery (on battery below 20 %): the spring and the decorative one-shots (bell swing,
   // usage chip roll) drop out, fades shorten. Bound to UPower: no polling.
   readonly property bool reduceMotion: UPower.onBattery && UPower.displayDevice.ready && UPower.displayDevice.percentage < 0.2
   readonly property int menuAnimMs: Math.round((reduceMotion ? 100 : 200) * motionScale)
   readonly property int menuSpringMs: Math.round((reduceMotion ? 0 : 500) * motionScale)
   readonly property int menuSpringFastMs: Math.round((reduceMotion ? 0 : 350) * motionScale)   // switch, chips, badges
-  readonly property int menuExitMs: Math.round((reduceMotion ? 100 : 180) * motionScale)
+  readonly property int menuExitMs: Math.round((reduceMotion ? 100 : 150) * motionScale)
   readonly property int menuAnimOutMs: menuExitMs + 20   // unmap after the exit has run
   readonly property int menuStateMs: Math.round(120 * motionScale)   // hover / press / toggle colour
   readonly property var menuSpring: [0.38, 1.21, 0.22, 1, 1, 1]
   readonly property var menuSpringFast: [0.42, 1.67, 0.21, 0.9, 1, 1]   // M3 expressive fast spatial
   readonly property var menuEffects: [0.34, 0.8, 0.34, 1, 1, 1]
-  readonly property var menuExit: [0.3, 0, 0.8, 0.15, 1, 1]
+  readonly property var menuExit: [0.2, 0, 0, 1, 1, 1]
   readonly property var menuEnter: [0.05, 0.7, 0.1, 1, 1, 1]   // M3 emphasized decelerate: a surface growing into place
 
   // ── Fonts: the one place to change type on every surface. ──

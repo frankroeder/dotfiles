@@ -20,6 +20,6 @@ Rectangle {
     textFormat: Text.PlainText
     color: badge.fg
     font.family: Style.fontUi; font.features: Style.fontTabular; font.weight: Font.DemiBold
-    font.pixelSize: Math.round(Style.typeCaption * badge.fontScale)
+    font.pixelSize: Math.round(10 * badge.fontScale)   // typeCaption already carries uiScale
   }
 }

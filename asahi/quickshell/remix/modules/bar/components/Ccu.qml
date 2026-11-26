@@ -67,6 +67,7 @@ Rectangle {
   property string claudeWhere: ""
   readonly property int claudeChip: (root.chips || []).findIndex(c => c.mark === "claude")
   onClaudeWaitingChanged: if (claudeWaiting > 0 && claudeChip >= 0) root.chipIndex = claudeChip
+  onClaudeChipChanged: if (claudeWaiting > 0 && claudeChip >= 0) root.chipIndex = claudeChip   // chips arrive after the file
   FileView {
     id: claudeWaitFile
     path: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/claude-activity.waiting"
@@ -80,6 +81,12 @@ Rectangle {
       root.claudeWhere = f[1] || ""; root.claudeWaiting = n
     }
     onLoadFailed: root.claudeWaiting = 0
+  }
+  // A terminal closed while its session waited sends no hook: `status` drops a wait whose window is gone (on the close).
+  Connections {
+    target: Hyprland
+    enabled: root.claudeWaiting > 0
+    function onRawEvent(e) { if (e.name === "closewindow") Quickshell.execDetached([root.binDir + "/asahi-claude-activity", "status"]) }
   }
 
   readonly property string binDir: Quickshell.env("HOME") + "/.dotfiles/asahi/bin"
@@ -337,7 +344,10 @@ Rectangle {
         id: chipRing
         // Eases on a new reading and fills up from the last provider's share on rotation.
         property real used: root.hasValue ? Math.max(0, Math.min(100, Number(root.chipUsed))) : 0
-        Behavior on used { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
+        // The first reading snaps (the arc swept from 0 on every shell start / reload).
+        property bool primed: false
+        onUsedChanged: if (!chipRing.primed) Qt.callLater(() => chipRing.primed = true)
+        Behavior on used { enabled: chipRing.primed; NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
         width: root.ringSize
         height: root.ringSize
         anchors.verticalCenter: parent.verticalCenter

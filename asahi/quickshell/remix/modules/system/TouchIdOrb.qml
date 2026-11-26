@@ -41,7 +41,8 @@ Item {
     NumberAnimation { to: 1; duration: 1400; easing.type: Easing.InOutSine }
   }
   // A lit state lands: the disc settles from a little smaller, the glyph grows in.
-  onPhaseChanged: if (orb.live && orb.lit) land.restart()
+  // From `phase` itself: `lit` (a binding on it) still held the old phase here.
+  onPhaseChanged: if (orb.live && orb.phase !== "ready" && orb.phase !== "off") land.restart()
   ParallelAnimation {
     id: land
     NumberAnimation { target: disc; property: "scale"; from: 0.86; to: 1; duration: 300; easing.type: Easing.OutBack }

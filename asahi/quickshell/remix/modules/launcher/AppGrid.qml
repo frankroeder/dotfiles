@@ -175,8 +175,9 @@ Scope {
           color: Style.menuSelFill
           border.color: Style.menuSelBorder
           border.width: 1
-          Behavior on x { Menu.MenuAnim {} }
-          Behavior on y { Menu.MenuAnim {} }
+          // Not while the grid opens (currentIndex resets to 0 after the map: it sprang from the last cell).
+          Behavior on x { enabled: !popIn.running; Menu.MenuAnim {} }
+          Behavior on y { enabled: !popIn.running; Menu.MenuAnim {} }
         }
 
         delegate: Item {
@@ -188,14 +189,14 @@ Scope {
           readonly property bool hovered: root.hoverCell === cell
           property real enterT: 1
           opacity: Math.min(1, enterT)
-          scale: 0.6 + 0.4 * enterT
+          scale: 0.85 + 0.15 * enterT
           Component.onCompleted: {
             if (Style.reduceMotion || Date.now() - root.openedAt > 300) return
             const cols = Math.max(1, Math.floor(grid.width / grid.cellWidth))
             const rows = Math.max(1, Math.min(4, Math.ceil(root.apps.length / cols)))
             const dx = cell.index % cols - (cols - 1) / 2
             const dy = Math.floor(cell.index / cols) - (rows - 1) / 2
-            ripple.delay = Math.round(60 + Math.sqrt(dx * dx + dy * dy) * 55)
+            ripple.delay = Math.round(Math.sqrt(dx * dx + dy * dy) * 25)
             cell.enterT = 0
             ripple.start()
           }
@@ -203,7 +204,7 @@ Scope {
             id: ripple
             property int delay: 0
             PauseAnimation { duration: ripple.delay }
-            NumberAnimation { target: cell; property: "enterT"; to: 1; duration: 420; easing.type: Easing.OutBack; easing.overshoot: 1.8 }
+            NumberAnimation { target: cell; property: "enterT"; to: 1; duration: Style.menuAnimMs; easing.type: Easing.OutCubic }
           }
 
           Image {

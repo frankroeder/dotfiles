@@ -277,6 +277,7 @@ Item {
             Text {
               required property string modelData
               Layout.fillWidth: true
+              Layout.preferredWidth: 1   // equal columns like the 0-wide day cells (text widths drifted "We" / "Th")
               horizontalAlignment: Text.AlignHCenter
               text: modelData
               color: Style.menuInkDeep

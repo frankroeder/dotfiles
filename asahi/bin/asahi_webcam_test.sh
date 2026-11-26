@@ -112,7 +112,7 @@ printf '#!/bin/sh\necho mic\n' >"$rec/bin/pactl"
 printf '#!/bin/sh\nexit 1\n' >"$rec/bin/pgrep"
 chmod +x "$rec/asahi-webcam" "$rec/asahi-cmd-record" "$rec/bin/"*
 recrun() {
-  XDG_VIDEOS_DIR="$rec/videos" XDG_RUNTIME_DIR="$rec" XDG_STATE_HOME="$rec/state" PATH="$rec/bin:$PATH" "$rec/asahi-cmd-record" "$@"
+  XDG_VIDEOS_DIR="$rec/videos" XDG_RUNTIME_DIR="$rec" XDG_STATE_HOME="$rec/state" HOME="$rec/home" PATH="$rec/bin:$PATH" "$rec/asahi-cmd-record" "$@"
 }
 recrun camera
 st1=$(recrun status)
@@ -159,8 +159,8 @@ head -c 2000 "$clip" >"$rec/videos/recording-broken.mp4"
 recrun finish "$clip"
 recrun finish "$rec/videos/recording-broken.mp4"
 audio=$(ffprobe -v error -select_streams a -show_entries stream=codec_name,sample_rate -of csv=p=0 "$clip")
-if [ "$audio" = "aac,48000" ] && [ ! -e "$clip.tmp" ] && [ -s "$rec/asahi-record-recording-clip.png" ] \
-  && grep -q -- "-i $rec/asahi-record-recording-clip.png -A default=Open -A reveal=Show in folder Recording saved $clip" "$rec/notify.log" \
+if [ "$audio" = "aac,48000" ] && [ ! -e "$clip.tmp" ] && [ -s "$rec/home/.cache/asahi/video-thumbs/recording-clip.mp4.jpg" ] \
+  && grep -q -- "-i $rec/home/.cache/asahi/video-thumbs/recording-clip.mp4.jpg -A default=Open -A reveal=Show in folder Recording saved $clip" "$rec/notify.log" \
   && grep -q -- "-u critical Recording may be corrupted" "$rec/notify.log"; then
   pass "finish: audio finished, thumbnail card; a broken file warns"
 else

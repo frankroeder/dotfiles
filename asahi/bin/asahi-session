@@ -23,12 +23,12 @@ if [ "$action" = check ]; then
   done
   downloads="${ASAHI_DOWNLOADS_DIR:-$HOME/Downloads}"
   # Partial files written in the last 2 min: a stale one from a crashed download is not "in progress".
-  n=$(find "$downloads" -maxdepth 1 \( -name '*.part' -o -name '*.crdownload' -o -name '*.download' \) -mmin -2 2>/dev/null | wc -l)
+  n=$(find "$downloads" -maxdepth 1 \( -name '*.part' -o -name '*.crdownload' -o -name '*.download' \) -mmin -2 2>/dev/null | wc -l || true)
   if [ "$n" -gt 0 ]; then echo "$n download$([ "$n" -gt 1 ] && echo s) in progress"; fi
   if pgrep -x wf-recorder >/dev/null 2>&1; then echo "a screen recording is running"; fi
   if pgrep -x restic >/dev/null 2>&1; then echo "a backup is running"; fi
   # Claude Code sessions mark themselves (asahi-claude-activity): markers younger than 15 min are live.
-  n=$(find "${XDG_RUNTIME_DIR:-/tmp}/claude-activity" -maxdepth 1 -type f -mmin -15 2>/dev/null | wc -l)
+  n=$(find "${XDG_RUNTIME_DIR:-/tmp}/claude-activity" -maxdepth 1 -type f -mmin -15 2>/dev/null | wc -l || true)
   if [ "$n" -gt 0 ]; then echo "Claude Code is working ($n session$([ "$n" -gt 1 ] && echo s))"; fi
   exit 0
 fi
@@ -50,10 +50,14 @@ for _ in $(seq 40); do
   sleep 0.2
 done
 
-left=$(hyprctl clients -j 2>/dev/null | jq -r '[.[] | select(.mapped) | .class] | unique | join(", ")')
+name="${action^}"
+if [ "$action" = reboot-macos ]; then name="Restart into macOS"; fi
+# No answer = no way to tell what is still open (an unsaved-changes dialog): cancel, and say so (set -e was silent).
+if ! left=$(hyprctl clients -j 2>/dev/null | jq -r '[.[] | select(.mapped) | .class] | unique | join(", ")'); then
+  notify-send -a Session -u critical "$name cancelled" "Hyprland did not list the windows" || true
+  exit 1
+fi
 if [ -n "$left" ]; then
-  name="${action^}"
-  if [ "$action" = reboot-macos ]; then name="Restart into macOS"; fi
   notify-send -a Session -u normal "$name cancelled" "Still open: $left" || true
   exit 1
 fi
@@ -61,7 +65,7 @@ fi
 # The windows are gone by now: a step that fails must say so (else: apps closed, nothing happens, no word).
 failed() { notify-send -a Session -u critical "$1 failed" "${2:-}" || true; exit 1; }
 case "$action" in
-  logout) hyprctl dispatch 'hl.dsp.exit()' >/dev/null ;;
+  logout) hyprctl dispatch 'hl.dsp.exit()' >/dev/null || failed Logout ;;
   reboot) systemctl reboot || failed Reboot ;;
   reboot-macos)
     pkexec /usr/bin/asahi-bless --set-boot-macos --next -y || failed "Restart into macOS" "macOS was not set for the next boot"

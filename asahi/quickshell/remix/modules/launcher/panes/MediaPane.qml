@@ -247,9 +247,14 @@ Item {
                 }
               }
               Text {
+                id: devPct
                 text: devCard.muted ? "Muted" : quickMediaRoot.pct(devCard.vol)
                 color: devCard.muted ? Style.red : Style.m3primary
                 font.family: root.uiSans; font.pixelSize: root.fontPx(18); font.weight: Font.DemiBold
+                // Steady while the volume ticks: the device name and the mute button no longer shift.
+                font.features: Style.fontTabular; horizontalAlignment: Text.AlignRight
+                Layout.minimumWidth: hundred.advanceWidth
+                TextMetrics { id: hundred; font: devPct.font; text: "100%" }
                 font.variableAxes: Style.opsz(root.fontPx(18))
               }
               IconBtn {
@@ -288,13 +293,14 @@ Item {
                     anchors.rightMargin: 10
                     spacing: 10
                     Rectangle {
-                      width: root.fontPx(12); height: width; radius: width / 2
+                      Layout.preferredWidth: root.fontPx(12); Layout.preferredHeight: root.fontPx(12); radius: width / 2
                       color: "transparent"
                       border.width: 2
                       border.color: devRow.active ? Style.m3primary : Style.m3outline
                       Behavior on border.color { ColorAnimation { duration: Style.menuStateMs } }
                       Rectangle {
-                        anchors.centerIn: parent; width: parent.width / 2; height: width; radius: width / 2; color: Style.m3primary; visible: devRow.active
+                        anchors.centerIn: parent; width: parent.width / 2; height: width; radius: width / 2
+                        color: Style.m3primary; visible: devRow.active
                       }
                     }
                     Text {
@@ -401,7 +407,7 @@ Item {
                   anchors.rightMargin: 6
                   spacing: 12
                   Rectangle {
-                    width: root.fontPx(21); height: width; radius: width / 2
+                    Layout.preferredWidth: root.fontPx(21); Layout.preferredHeight: root.fontPx(21); radius: width / 2
                     color: streamRow.muted ? Style.m3containerHigh : Style.m3secondaryContainer
                     Text {
                       anchors.centerIn: parent; text: "󰝚"; color: streamRow.muted ? Style.m3outline : Style.m3secondary
@@ -417,7 +423,7 @@ Item {
                   }
                   Menu.MenuSlider {
                     Layout.fillWidth: true
-                    fontScale: root.uiFontScale; detents: true
+                    fontScale: root.uiFontScale; detents: true; wheelSteps: false
                     value: streamRow.vol
                     dimmed: streamRow.muted
                     onMoved: function(v) { if (streamRow.audio) streamRow.audio.volume = v }

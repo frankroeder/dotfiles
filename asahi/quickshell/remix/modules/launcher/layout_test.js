@@ -320,7 +320,7 @@ assert(
   "MenuCard height animates when the overview grows into a drill"
 );
 assert(
-  /readonly property int restY:/.test(qml) && /Behavior on y \{ Menu\.MenuAnim \{ exit: !root\.shouldShow \} \}/.test(qml),
+  /readonly property int restY:/.test(qml) && /Behavior on y \{ id: boxY; Menu\.MenuAnim \{ exit: boxY\.targetValue < launcherBox\.restY \} \}/.test(qml),
   "MenuCard slides in from a screen edge with the spring (caelestia drawer)"
 );
 assert(
@@ -405,8 +405,9 @@ assert(
   "quickPaneKey follows the selected rail row"
 );
 assert(
-  /sourceComponent:\s*root\.quickPaneComp/.test(launcherQmlOnly),
-  "pane Loader source is quickPaneComp (rebinds on rail move)"
+  /readonly property var comp: root\.quickMode \? root\.quickPaneComp : null/.test(launcherQmlOnly) &&
+    /onCompChanged: qdl\.load\(\)/.test(launcherQmlOnly),
+  "pane slots load quickPaneComp (reload on rail move)"
 );
 assert(
   /Key_Down[\s\S]{0,180}selectDeckIndex\(root\.selectedIndex \+ cols\)/.test(launcherQmlOnly),

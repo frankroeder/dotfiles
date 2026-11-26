@@ -30,3 +30,4 @@ MenuBadge 1.0 MenuBadge.qml
 MenuSegmented 1.0 MenuSegmented.qml
 MenuRunner 1.0 MenuRunner.qml
 MenuKeycap 1.0 MenuKeycap.qml
+MenuSpring 1.0 MenuSpring.qml

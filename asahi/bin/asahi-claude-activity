@@ -14,7 +14,9 @@
 # Waiting: `start` notes the focused window (the prompt was typed there: all Ghostty windows share one pid, so the
 # process tree cannot tell), `wait` writes claude-activity.wait/<session> = "<project>\t<window address>" unless that
 # window has the focus; every other hook of the session clears it. claude-activity.waiting = "<n>\t<project>\t<address>"
-# of the newest (gone at 0): the usage chip's red ring, a click focuses that window.
+# of the newest (gone at 0): the usage chip's red ring (a click stays the usage popup). `status` also drops a wait
+# whose window is gone (terminal closed while it waited: no hook came), else after 12 h.
+# Ghostty tabs share one window address: closing only the waiting tab keeps the ring until the window closes / 12 h.
 # Hooks stay silent (UserPromptSubmit's stdout joins the prompt; exit 2 would block a tool): no output, exit 0.
 set -u
 cmd="${1:-}"
@@ -51,6 +53,7 @@ case "$cmd" in
     read_line win "$wins/$id"
     where=$(basename "$(field cwd)")
     where=${where//[^[:print:]]/}
+    where=${where:-session}   # read_line strips a leading tab: an empty name would shift the address into its place
     # Looking at it already: no ring.
     if [ -z "$win" ] || [ "$(focused)" != "$win" ]; then printf '%s\t%s\n' "$where" "$win" >"$waits/$id"; fi
     ;;
@@ -64,8 +67,17 @@ n=$(find "$dir" -type f | wc -l)
 read_line old "$count"
 if ((n == 0)); then rm -f "$count"; elif [ "$old" != "$n" ]; then echo "$n" >"$count"; fi
 
-# A closed terminal sends no hook: a wait (and a window note) older than 12 h is gone.
+# A closed terminal sends no hook: on `status`, a wait whose window is gone goes; any wait / window note after 12 h.
 find "$waits" "$wins" -type f -mmin +720 -delete 2>/dev/null
+# Gated on hyprctl answering, not on a window being left: closing the last window is the case this is for.
+# No address (`start` saw no focused window) = nothing to check.
+if [ "$cmd" = status ] && [ -n "$(ls -A "$waits" 2>/dev/null)" ] && c=$(hyprctl clients -j 2>/dev/null) && [ -n "$c" ] &&
+  live=$(jq -r '.[].address' <<<"$c" 2>/dev/null); then
+  for f in "$waits"/*; do
+    a=""; IFS=$'\t' read -r _ a <"$f" || true
+    if [ -n "$a" ] && ! grep -qxF "$a" <<<"$live"; then rm -f "$f"; fi
+  done
+fi
 w=$(find "$waits" -type f | wc -l)
 line=""
 if ((w > 0)); then

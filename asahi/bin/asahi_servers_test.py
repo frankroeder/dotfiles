@@ -97,6 +97,11 @@ eq((svc[0]["since"], svc[0]["memory"], svc[0]["ports"]), (1795550676, 35307520, 
 eq(svc[0]["description"], "Multimedia <b>Service</b>", "description passed through raw (the pane shows it as PlainText)")
 eq((svc[1]["active"], svc[1]["since"], svc[1]["memory"]), ("failed", 1795551000, 0), "failed: since it stopped, no memory")
 eq((svc[2]["since"], svc[2]["memory"]), (0, 0), "no timestamp, infinity memory -> 0")
+srv.BOOT = 1795600000
+jump = "Id=a.service\nLoadState=loaded\nActiveState=active\nActiveEnterTimestamp=@1792000000\nActiveEnterTimestampMonotonic=5000000"
+eq(srv.parse_show(jump, "system", {})[0]["since"], 1795600005, "stamped before NTP set the clock: boot + monotonic")
+late = "Id=b.service\nLoadState=loaded\nActiveState=active\nActiveEnterTimestamp=@1795650000\nActiveEnterTimestampMonotonic=9"
+eq(srv.parse_show(late, "system", {})[0]["since"], 1795650000, "a sane wall-clock stamp wins (monotonic skips suspends)")
 
 # ---- actions: argv to systemctl, never a shell; bad input never reaches it ----
 tmp = Path(tempfile.mkdtemp(prefix="servers-test-"))
@@ -115,6 +120,8 @@ def act(*args):
 eq(act("stop", "user", "wireplumber.service"), (3, ["--user", "stop", "--", "wireplumber.service"]), "user stop, exit code passes")
 eq(act("restart", "system", "cups.service"), (3, ["restart", "--", "cups.service"]), "system restart: no --user")
 eq(act("start", "user", "dbus-:1.2-org.x@0.service"), (3, ["--user", "start", "--", "dbus-:1.2-org.x@0.service"]), "instance names pass")
+u = r"app-gnome\x2dkeyring\x2dssh@autostart.service"
+eq(act("stop", "user", u), (3, ["--user", "stop", "--", u]), "escaped names pass (xdg-autostart units)")
 for bad in [("stop", "user", "x;rm -rf ~.service"), ("stop", "user", "sshd"), ("enable", "user", "a.service"),
             ("stop", "root", "a.service"), ("stop", "user", "a.service\n")]:
   eq(act(*bad), (1, None), f"rejected before systemctl: {bad!r}")

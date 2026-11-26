@@ -36,7 +36,9 @@ PopupWindow {
   visible: root.panelOpen || growOut.running
   onPanelOpenChanged: {
     if (root.panelOpen) { growOut.stop(); growIn.restart() } else { growIn.stop(); growOut.restart() }
-    if (!root.panelOpen) { root.ioPrev = null; root.ioHist = { rx: [], tx: [], rd: [], wr: [] } }   // a fresh minute per open
+    if (!root.panelOpen) {   // a fresh minute per open (and no last open's rates for the first 2 s)
+      root.ioPrev = null; root.ioHist = { rx: [], tx: [], rd: [], wr: [] }; root.io = { rx: 0, tx: 0, rd: 0, wr: 0 }
+    }
   }
   color: "transparent"
   anchor.edges: Edges.Bottom
@@ -113,6 +115,7 @@ PopupWindow {
   }
 
   component StatTile: Rectangle {
+    id: statTile
     property color accent
     property string caption
     property real value: 0
@@ -145,7 +148,7 @@ PopupWindow {
       Item { Layout.fillHeight: true }
       Menu.MenuMeter {
         Layout.fillWidth: true
-        value: (isFinite(value) ? value : 0) / Math.max(1, barMax)
+        value: (isFinite(statTile.value) ? statTile.value : 0) / Math.max(1, statTile.barMax)   // the tile's, not the meter's
         fill: accent
       }
     }
@@ -251,7 +254,7 @@ PopupWindow {
   readonly property real chipW: root.anchor.item ? Math.min(root.width, root.anchor.item.width + 8) : 140
   NumberAnimation {
     id: growIn; target: root; property: "grow"; to: 1
-    duration: Style.reduceMotion ? 100 : 460; easing.type: Easing.BezierSpline; easing.bezierCurve: Style.menuEnter
+    duration: Style.reduceMotion ? 100 : Style.menuSpringFastMs; easing.type: Easing.BezierSpline; easing.bezierCurve: Style.menuEnter
   }
   NumberAnimation {
     id: growOut; target: root; property: "grow"; to: 0
@@ -278,6 +281,9 @@ PopupWindow {
       clip: true
       boundsBehavior: Flickable.StopAtBounds
       contentHeight: col.implicitHeight
+      // Past the 640 cap (fans, hottest sensors) the list scrolls: the cut row reads as "more", not clipped.
+      Menu.MenuEdgeFade { parent: flick; surface: Style.m3surfaceSolid; atTop: true }
+      Menu.MenuEdgeFade { parent: flick; surface: Style.m3surfaceSolid }
       ColumnLayout {
         id: col
         width: flick.width

@@ -10,8 +10,9 @@ import "../menu" as Menu
 import "../../services" as Services
 
 // Short now-playing card on a track change (idea: mel-edo Island showMediaPopup): cover, title and artist for 4 s, where
-// the OSD sits, on the focused screen. Once per track, only while playing; not in the first 5 s after start, not while
-// the launcher is open (its Media pane shows it), not over a fullscreen window. Click hides it.
+// the OSD sits, on the focused screen. Apple Music only (his call: browsers / video players do not announce tracks).
+// Once per track, only while playing; not in the first 5 s after start, not while the launcher is open (its Media pane
+// shows it), not over a fullscreen window. Click hides it.
 // Off / on: Launcher › Actions › "Now-playing card" (~/.local/state/asahi/now-playing-card, "off" = off).
 Scope {
   id: root
@@ -48,6 +49,8 @@ Scope {
     const k = Services.Players.trackKey
     if (!root.settled || !k || k === root.lastKey) return
     root.lastKey = k
+    const p = Services.Players.active
+    if (!p || !Services.Players.appleMusic[p.dbusName]) return
     if (!root.enabled || root.suppressed || !Services.Players.isPlaying || !Services.Players.title || root.fullscreenFocused()) return
     const mon = Hyprland.focusedMonitor
     root.cardScreen = (mon && Quickshell.screens.find(s => s.name === mon.name)) || Quickshell.screens[0]

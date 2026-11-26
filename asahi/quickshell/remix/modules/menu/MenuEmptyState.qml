@@ -54,6 +54,7 @@ Column {
     visible: !root.quiet && root.title !== ""
     text: root.title
     textFormat: Text.PlainText
+    width: Math.min(implicitWidth, root.maxWidth); elide: Text.ElideRight   // a long title stays inside a narrow card
     color: Style.m3onSurface
     font.family: root.fontFamily; font.pixelSize: Math.round(13 * root.fontScale); font.weight: Font.DemiBold
   }

@@ -408,10 +408,12 @@ Item {
       }
     }
     Menu.MenuSlider {
-      fontScale: quickBtRoot.root.uiFontScale
+      fontScale: quickBtRoot.root.uiFontScale; wheelSteps: false
       visible: !!hs.dev.dpi && hs.dev.dpi.max > hs.dev.dpi.min
       Layout.fillWidth: true
+      Layout.topMargin: 6   // the slider's ±10 px hit area took the Default pill's lower edge
       Layout.bottomMargin: 6
+      stepSize: hs.dev.dpi && hs.dev.dpi.choices && hs.dev.dpi.choices.length > 1 ? 1 / (hs.dev.dpi.choices.length - 1) : 0.05
       value: hs.dev.dpi ? BtModel.dpiFrac(hs.dev.dpi, hs.dpiShown) : 0
       onMoved: v => { hs.dpiPreview = BtModel.dpiAt(hs.dev.dpi, v); dpiCommit.restart() }
     }
@@ -437,7 +439,7 @@ Item {
       Secondary { text: String(hs.thrShown) }
     }
     Menu.MenuSlider {
-      fontScale: quickBtRoot.root.uiFontScale
+      fontScale: quickBtRoot.root.uiFontScale; wheelSteps: false
       visible: hs.ssMode === "smartshift"
       Layout.fillWidth: true
       value: (hs.thrShown - 1) / 49
@@ -480,7 +482,8 @@ Item {
         anchors.margins: Style.menuHeroPad
         spacing: Style.menuHeroGap
         Rectangle {
-          width: Math.round(36 * root.uiFontScale); height: width; radius: Style.menuRadiusMd   // hero tile: one size in every pane
+          // Hero tile: one size in every pane (Layout.preferred*: a RowLayout never re-reads `width` after a screen change).
+          Layout.preferredWidth: Math.round(36 * root.uiFontScale); Layout.preferredHeight: Layout.preferredWidth; radius: Style.menuRadiusMd
           color: quickBtRoot.btOn ? Style.m3primaryContainer : Style.m3containerHigh
           Behavior on color { ColorAnimation { duration: Style.menuStateMs } }
           Text {

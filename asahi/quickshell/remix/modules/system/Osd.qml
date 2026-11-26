@@ -17,6 +17,9 @@ Scope {
   property string label: ""
   property string value: ""
   property real percent: 0
+  // The fill follows on a velocity-keeping spring: held volume keys retarget it every repeat without a restart.
+  property real fillPct: percent
+  Behavior on fillPct { enabled: !Style.reduceMotion && root.visible; Menu.MenuSpring {} }   // a fresh card starts at its value
   property color accent: Style.blueAlt
   property string pending: ""
   property bool showBar: true
@@ -257,8 +260,9 @@ Scope {
           horizontalAlignment: Text.AlignHCenter
           rotation: sun ? root.percent * 1.8 : 0
           scale: sun ? 0.74 + 0.26 * root.percent / 100 : 1
-          Behavior on rotation { enabled: !Style.reduceMotion; NumberAnimation { duration: 400; easing.type: Easing.BezierSpline; easing.bezierCurve: Style.menuEnter } }
-          Behavior on scale { enabled: !Style.reduceMotion; NumberAnimation { duration: 400; easing.type: Easing.BezierSpline; easing.bezierCurve: Style.menuEnter } }
+          // Only while shown (show() sets the kind + percent before `visible`): a fresh card turned from the last one's angle.
+          Behavior on rotation { enabled: !Style.reduceMotion && root.visible; NumberAnimation { duration: 400; easing.type: Easing.BezierSpline; easing.bezierCurve: Style.menuEnter } }
+          Behavior on scale { enabled: !Style.reduceMotion && root.visible; NumberAnimation { duration: 400; easing.type: Easing.BezierSpline; easing.bezierCurve: Style.menuEnter } }
         }
 
         ColumnLayout {
@@ -288,7 +292,8 @@ Scope {
           Menu.MenuMeter {
             visible: root.showBar
             Layout.fillWidth: true
-            value: root.percent / 100
+            value: root.fillPct / 100
+            animate: false
             fill: root.accent
           }
         }

@@ -3,7 +3,7 @@ import "../../"
 
 // M3 expressive "default spatial" spring: the one easing every panel,
 // highlight and size change shares (caelestia Anim {}). `exit`: the short
-// accelerating curve a closing surface leaves on. `fast`: the shorter, bouncier spring of small parts.
+// curve a closing surface leaves on. `fast`: the shorter, bouncier spring of small parts.
 NumberAnimation {
   property bool effects: false
   property bool exit: false

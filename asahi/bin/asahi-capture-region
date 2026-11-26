@@ -51,7 +51,8 @@ MODE=${1:-smart}
 # slurp in the wallpaper palette (colors.json): crust dim, accent border + faint fill, W×H readout in Adwaita Mono.
 # Without the state file (or jq): slurp's own look.
 LOOK=()
-if c=$(jq -r '"\(.crust)85 \(.accent)ff \(.accent)1f"' "${XDG_STATE_HOME:-$HOME/.local/state}/asahi-theme/colors.json" 2>/dev/null); then
+if c=$(jq -er 'select((.crust // "" | test("^#[0-9a-fA-F]{6}$")) and (.accent // "" | test("^#[0-9a-fA-F]{6}$")))
+    | "\(.crust)85 \(.accent)ff \(.accent)1f"' "${XDG_STATE_HOME:-$HOME/.local/state}/asahi-theme/colors.json" 2>/dev/null); then
   read -r dim line fill <<<"$c"
   LOOK=(-b "$dim" -c "$line" -s "$fill" -B "$dim" -w 2 -d -F "Adwaita Mono")
 fi

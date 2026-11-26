@@ -24,9 +24,13 @@ Singleton {
   readonly property bool current: root.available && root.rec.title === Players.title && root.rec.artist === Players.artist
   readonly property var lines: root.current ? root.rec.lines || [] : []
   readonly property bool synced: root.current && root.rec.synced === true && root.lines.length > 0
-  // MediaCard's strip: kept while a new track's record is on its way (no jump between tracks), gone for a track
-  // without lyrics (its record has no lines).
-  readonly property bool shown: root.available && root.enabled && !(root.current && !root.lines.length)
+  // MediaCard's strip: kept up to 4 s while a new track's record is on its way (no jump between tracks), gone for a
+  // track without lyrics (its record has no lines) or whose record never matches (titles differ: no empty strip).
+  property bool waiting: false
+  // On `current` (not the track key): a new track's record may land before MPRIS has its title.
+  onCurrentChanged: if (!root.current) { root.waiting = true; waitT.restart() }
+  Timer { id: waitT; interval: 4000; onTriggered: root.waiting = false }
+  readonly property bool shown: root.available && root.enabled && (root.current ? root.lines.length > 0 : root.waiting)
   function indexAt(s) { return LyricsJs.indexAt(root.lines, s) }
 
   FileView {

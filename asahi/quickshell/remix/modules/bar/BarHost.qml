@@ -24,7 +24,7 @@ Item {
   // in, from its chip. The tray panel is a layer surface under the toasts: not reported.
   function reportPopupSide() {
     const chip = barWindow.calendarOpen ? clockBlock
-      : ({ sys: sysBlock, media: mediaBlock, rec: statusBlock, ccu: ccuBlock })[barWindow.openPanel]
+      : ({ sys: sysBlock, media: mediaBlock, rec: statusBlock, ccu: ccuBlock, night: statusBlock })[barWindow.openPanel]
     const side = !chip ? "" : chip.mapToItem(barWindow, chip.width / 2, 0).x < barWindow.width / 2 ? "left" : "right"
     if (barWindow.notificationCenter && barWindow.barScreen) barWindow.notificationCenter.setPopupSide(barWindow.barScreen.name, side)
   }

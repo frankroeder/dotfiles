@@ -40,7 +40,8 @@ PanelWindow {
   }
 
   visible: shouldShow || popOut.running
-  onShouldShowChanged: if (shouldShow) { popOut.stop(); popIn.restart() } else popOut.restart()
+  // A menu opened from here is a sibling window (SystemTray's): it goes with the panel, grab and all.
+  onShouldShowChanged: if (shouldShow) { popOut.stop(); popIn.restart() } else { popOut.restart(); if (root.menuShown) root.trayMenu.close() }
   color: "transparent"
   // Focusable for the grab below (HyprlandFocusGrab dies on focusable: false).
   focusable: true
@@ -77,7 +78,7 @@ PanelWindow {
   Rectangle {
     id: card
     width: parent.width
-    implicitHeight: column.implicitHeight + 12
+    implicitHeight: column.implicitHeight   // the Column's padding is the 6 px on both ends
     radius: Style.menuRadiusLg
     color: Style.m3surfaceSolid
     border.color: Style.popupBorder
@@ -181,7 +182,7 @@ PanelWindow {
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: {
-              // A menu is a child of this panel: hiding it here would close the menu with it.
+              // Menu-only items open the menu; the panel stays beneath it until the menu closes.
               if (row.modelData.onlyMenu) root.openMenu(row.modelData, menuButton)
               else { row.modelData.activate(); root.close() }
             }

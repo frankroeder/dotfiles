@@ -17,9 +17,10 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
-UNIT_RE = re.compile(r"[A-Za-z0-9@._:-]+\.service")  # fullmatch: `$` lets a trailing newline through
+UNIT_RE = re.compile(r"[A-Za-z0-9@._:\\-]+\.service")  # fullmatch: `$` lets a trailing newline through; `\x2d` escapes
 VERBS, SCOPES = ("start", "stop", "restart"), ("user", "system")
 # Speaker protection (Asahi's speakersafetyd / Aurora's speakerguardd): never stopped from here — without it the
 # amps run unguarded. Start stays allowed.
@@ -30,7 +31,9 @@ SKIP = {"dbus-broker.service", "dbus.service", "systemd-tmpfiles-setup.service"}
 WEB_PORTS = {80, 443, 631, 8080, 8443, 9090}
 TLS_PORTS = {443, 8443, 9090}
 WILDCARD = {"*", "0.0.0.0", "::"}
-PROPS = "Id,Description,LoadState,ActiveState,SubState,ActiveEnterTimestamp,InactiveEnterTimestamp,MemoryCurrent"
+PROPS = ("Id,Description,LoadState,ActiveState,SubState,ActiveEnterTimestamp,InactiveEnterTimestamp,"
+         "ActiveEnterTimestampMonotonic,InactiveEnterTimestampMonotonic,MemoryCurrent")
+BOOT = time.time() - time.clock_gettime(time.CLOCK_BOOTTIME)  # wall-clock time of the boot
 
 
 def run(cmd):
@@ -91,10 +94,16 @@ def parse_show(text, scope, ports):
     if p.get("LoadState") != "loaded":
       continue
     active = p.get("ActiveState", "")
-    ts = p.get("ActiveEnterTimestamp" if active == "active" else "InactiveEnterTimestamp", "")
+    key = "ActiveEnterTimestamp" if active == "active" else "InactiveEnterTimestamp"
+    ts, mono = p.get(key, ""), p.get(key + "Monotonic", "")
+    since = int(ts[1:]) if ts.startswith("@") else 0
+    # Stamped before NTP set the clock (this Mac's RTC reads weeks behind at boot): "up 40 d" on a fresh boot. Such a
+    # unit started early in the boot, before any suspend, so boot + its monotonic stamp is exact.
+    if 0 < since < BOOT - 60 and mono.isdigit():
+      since = int(BOOT + int(mono) / 1e6)
     mem = p.get("MemoryCurrent", "")
     out.append({"unit": p["Id"], "scope": scope, "description": p.get("Description", ""), "active": active,
-                "sub": p.get("SubState", ""), "since": int(ts[1:]) if ts.startswith("@") else 0,
+                "sub": p.get("SubState", ""), "since": since,
                 "memory": int(mem) if mem.isdigit() and int(mem) < 2**63 else 0,  # [not set] / infinity -> 0
                 "ports": sorted(set(ports.get(p["Id"], []))), "protected": bool(PROTECTED.fullmatch(p["Id"]))})
   return out

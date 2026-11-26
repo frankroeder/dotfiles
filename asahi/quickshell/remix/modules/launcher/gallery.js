@@ -20,9 +20,11 @@ function scanCommand(kind, home) {
     ? "find \"" + s + "\" -maxdepth 1 -type f -name 'recording-*.mp4' 2>/dev/null | sort -r | head -200"
     : "find \"" + s + "\" -maxdepth 1 -type f \\( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \\)" +
       " -printf '%T@ %p\\n' 2>/dev/null | sort -rn | head -200 | cut -d' ' -f2-"
-  // $1 = file, $2 = thumb folder. A take still being written has no index yet: no thumb, the next scan tries again.
+  // $1 = file, $2 = thumb folder. A take still being written has no index yet: an empty thumb (no frame);
+  // the growing file stays newer than it, so the next scan tries again.
   const make = video
-    ? "ffmpeg -v error -y -ss 0.5 -i \"$1\" -frames:v 1 -vf scale=480:300:force_original_aspect_ratio=increase,crop=480:300 -q:v 4 \"$2/${1##*/}.jpg\" </dev/null"
+    ? "ffmpeg -v error -y -ss 0.5 -i \"$1\" -frames:v 1 -vf scale=480:300:force_original_aspect_ratio=increase,crop=480:300" +
+      " -q:v 4 \"$2/${1##*/}.jpg\" </dev/null 2>/dev/null || : >\"$2/${1##*/}.jpg\""
     : "magick \"$1\" -thumbnail 480x300^ -gravity center -extent 480x300 -quality 85 \"$2/${1##*/}.jpg\""
   // Before listing: thumb every file that has none or an older one (annotated in place; magick,
   // 4 at a time; benchmarked against vips/ffmpeg), drop thumbs whose file is gone.

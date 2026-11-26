@@ -27,7 +27,8 @@ Item {
     if (!healthProc.running) healthProc.running = true
   }
   onShownChanged: if (shown) load()
-  Component.onCompleted: if (shown) load()
+  Component.onCompleted: { root.paneSeed("hardware", hwRoot); if (shown) load() }
+  Component.onDestruction: root.paneKeep("hardware", hwRoot, ["hw", "health"])
 
   Process {
     id: fullProc
@@ -302,7 +303,8 @@ Item {
           anchors.fill: parent; anchors.margins: 10; anchors.leftMargin: 12; anchors.rightMargin: 16
           spacing: 14
           Rectangle {
-            width: Math.round(36 * root.uiFontScale); height: width; radius: Style.menuRadiusMd   // hero tile: one size in every pane
+            // Hero tile: one size in every pane (Layout.preferred*: a RowLayout never re-reads `width` after a screen change).
+            Layout.preferredWidth: Math.round(36 * root.uiFontScale); Layout.preferredHeight: Layout.preferredWidth; radius: Style.menuRadiusMd
             color: Style.m3primaryContainer
             Text { anchors.centerIn: parent; text: "󰀵"; color: Style.m3primary; font.family: root.uiFont; font.pixelSize: Math.round(22 * root.uiFontScale) }
           }
@@ -318,14 +320,16 @@ Item {
             }
             Text {
               Layout.fillWidth: true
-              visible: !!hwRoot.hw.sku
-              text: [hwRoot.hw.sku, hwRoot.hw.board, hwRoot.hw.part, hwRoot.hw.page_kb ? hwRoot.hw.page_kb + "K pages" : ""].filter(x => x).join(" · ")
+              visible: !hwRoot.loaded || !!hwRoot.hw.sku   // laid out while loading
+              text: [hwRoot.hw.sku, hwRoot.hw.board, hwRoot.hw.part, hwRoot.hw.page_kb ? hwRoot.hw.page_kb + "K pages" : ""]
+                .filter(x => x).join(" · ") || " "
               color: Style.m3onSurfaceVariant; textFormat: Text.PlainText; elide: Text.ElideRight
               font.family: root.uiSans; font.pixelSize: root.fontPx(11)
             }
           }
           Menu.MenuChip {
-            visible: !!hwRoot.hw.serial
+            visible: !hwRoot.loaded || !!hwRoot.hw.serial
+            opacity: hwRoot.loaded ? 1 : 0   // holds its place while loading
             fontScale: root.uiFontScale
             clickable: true
             // The check mark is the feedback: a "Copied" label would resize the chip under the pointer.

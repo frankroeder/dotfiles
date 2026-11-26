@@ -538,9 +538,13 @@ Scope {
     root.dndEnabled = on
   }
   Timer {
-    interval: Math.max(1000, Math.min(root.dndUntil - Date.now(), 2147483647))
+    // Short steps, not one long timer: Qt timers stand still through s2idle (a 9 h timer ended 8 h late after a night).
+    // Re-aimed each tick (`aim`): Date.now() alone never re-evaluates, the last step ran up to 30 s past the deadline.
+    property int aim: 0
+    interval: { aim; return Math.max(1000, Math.min(root.dndUntil - Date.now(), 30000)) }
+    repeat: true
     running: root.dndEnabled && root.dndUntil > 0
-    onTriggered: if (Date.now() >= root.dndUntil - 1000) root.setDnd(false, 0); else restart()
+    onTriggered: if (Date.now() >= root.dndUntil - 1000) root.setDnd(false, 0); else aim++
   }
 
   // Super+comma acts on the newest popup (omarchy 4.5): its default action when it has one, its
@@ -687,10 +691,13 @@ Scope {
           z: place ? 1000 - place.depth : 0
           deckScale: place ? place.scale : 1
           fade: toast.settled && !toast.gone && place ? place.opacity : 0
-          Behavior on y { NumberAnimation { duration: toast.gone ? 200 : 250; easing.type: Easing.OutCubic } }
+          // Leaving: 200 / 180 ms, latched in a handler (a binding on `gone` was read stale: the exit ran 250 / 220).
+          property bool leavingNow: false
+          onGoneChanged: toast.leavingNow = toast.gone
+          Behavior on y { NumberAnimation { duration: toast.leavingNow ? 200 : 250; easing.type: Easing.OutCubic } }
           // Snaps while the first real height replaces the 76 px guess.
           Behavior on height { enabled: toast.settled; NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
-          Behavior on fade { NumberAnimation { duration: toast.gone ? 180 : 220; easing.type: Easing.OutCubic } }
+          Behavior on fade { NumberAnimation { duration: toast.leavingNow ? 180 : 220; easing.type: Easing.OutCubic } }
           entry: modelData
           compact: false
           live: true
@@ -736,7 +743,9 @@ Scope {
     margins { top: 6; right: Style.barEdgeMargin }   // bar popups' drop (BarModel.popupDrop)
     implicitWidth: 420
     // Grow with the list up to a cap instead of a fixed tall sheet.
-    implicitHeight: Math.max(180, Math.min(560, historyColumn.implicitHeight + historyHeader.implicitHeight + 14 * 2 + 21))
+    // Pads + two gaps (header, divider, list) + the 1 px divider; a stale 21 left the list 4 px short (last card faded).
+    implicitHeight: Math.max(180, Math.min(560, historyColumn.implicitHeight + historyHeader.implicitHeight
+      + 2 * Style.popupPad + 2 * Style.popupGap + 1))
 
     Connections {
       target: root
@@ -1066,7 +1075,7 @@ Scope {
       spacing: 12
       opacity: card.contentShown ? 1 : 0
       enabled: card.contentShown
-      Behavior on opacity { NumberAnimation { duration: card.contentShown ? 150 : 75 } }
+      Behavior on opacity { id: bodyFade; NumberAnimation { duration: bodyFade.targetValue > 0 ? 150 : 75 } }   // target: `contentShown` reads stale
 
       Item {
         id: iconTile
@@ -1089,6 +1098,7 @@ Scope {
             source: iconTile.picture ? card.entry.image : ""
             fillMode: Image.PreserveAspectCrop
             asynchronous: true   // a sender's path must not stall the shell while it loads
+            retainWhileLoading: true   // a replaced card (-r) keeps its picture until the new one decodes
             sourceSize: Qt.size(72, 72)
           }
         }
@@ -1206,6 +1216,7 @@ Scope {
           }
           Text {
             text: (card.entry ? card.entry.progress : 0) + "%"
+            Layout.minimumWidth: Math.ceil(Style.typeBody * 2.7); horizontalAlignment: Text.AlignRight   // the meter keeps its width
             color: Style.menuInkDeep
             font.family: Style.fontUi; font.features: Style.fontTabular; font.pixelSize: Style.typeBody; font.weight: Font.Medium
           }
